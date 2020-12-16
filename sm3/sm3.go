@@ -7,10 +7,10 @@ import (
 )
 
 // Size the size of a SM3 checksum in bytes.
-const Size = 32
+const Size int = 32
 
 // BlockSize the blocksize of SM3 in bytes.
-const BlockSize = 64
+const BlockSize int = 64
 
 const (
 	chunk = 64
