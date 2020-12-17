@@ -12,11 +12,11 @@ import (
 )
 
 const (
-	Uncompressed  byte = 0x04
-	Compressed_02 byte = 0x02
-	Compressed_03 byte = 0x03
-	Mixed_06      byte = 0x06
-	Mixed_07      byte = 0x07
+	uncompressed byte = 0x04
+	compressed02 byte = 0x02
+	compressed03 byte = 0x03
+	mixed06      byte = 0x06
+	mixed07      byte = 0x07
 )
 
 ///////////////// below code ship from golan crypto/ecdsa ////////////////////
@@ -41,7 +41,7 @@ func randFieldElement(c elliptic.Curve, rand io.Reader) (k *big.Int, err error) 
 
 ///////////////////////////////////////////////////////////////////////////////////
 func kdf(z []byte, len int) ([]byte, bool) {
-	limit := (len + sm3.Size - 1) / sm3.Size
+	limit := (len + sm3.Size - 1) >> sm3.SizeBitSize
 	sm3Hasher := sm3.New()
 	var countBytes [4]byte
 	var ct uint32 = 1
@@ -120,9 +120,6 @@ func Decrypt(priv *ecdsa.PrivateKey, ciphertext []byte) ([]byte, error) {
 	x1, y1, c2Start, err := bytes2Point(curve, ciphertext)
 	if err != nil {
 		return nil, err
-	}
-	if !curve.IsOnCurve(x1, y1) {
-		return nil, fmt.Errorf("point c1 is not on curve %s", curve.Params().Name)
 	}
 
 	//B2 is ignored

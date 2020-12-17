@@ -29,9 +29,9 @@ func point2CompressedBytes(curve elliptic.Curve, x, y *big.Int) []byte {
 	buffer := make([]byte, (curve.Params().BitSize+7)>>3+1)
 	copy(buffer[1:], toBytes(curve, x))
 	if getLastBitOfY(x, y) > 0 {
-		buffer[0] = Compressed_03
+		buffer[0] = compressed03
 	} else {
-		buffer[0] = Compressed_02
+		buffer[0] = compressed02
 	}
 	return buffer
 }
@@ -39,9 +39,9 @@ func point2CompressedBytes(curve elliptic.Curve, x, y *big.Int) []byte {
 func point2MixedBytes(curve elliptic.Curve, x, y *big.Int) []byte {
 	buffer := elliptic.Marshal(curve, x, y)
 	if getLastBitOfY(x, y) > 0 {
-		buffer[0] = Mixed_07
+		buffer[0] = mixed07
 	} else {
-		buffer[0] = Mixed_06
+		buffer[0] = mixed06
 	}
 	return buffer
 }
@@ -82,14 +82,17 @@ func bytes2Point(curve elliptic.Curve, bytes []byte) (*big.Int, *big.Int, int, e
 	format := bytes[0]
 	byteLen := (curve.Params().BitSize + 7) >> 3
 	switch format {
-	case Uncompressed:
+	case uncompressed, mixed06, mixed07: // what's the mixed format purpose?
 		if len(bytes) < 1+byteLen*2 {
 			return nil, nil, 0, fmt.Errorf("invalid uncompressed bytes length %d", len(bytes))
 		}
 		x := toPointXY(bytes[1 : 1+byteLen])
 		y := toPointXY(bytes[1+byteLen : 1+byteLen*2])
+		if !curve.IsOnCurve(x, y) {
+			return nil, nil, 0, fmt.Errorf("point c1 is not on curve %s", curve.Params().Name)
+		}
 		return x, y, 1 + byteLen*2, nil
-	case Compressed_02, Compressed_03:
+	case compressed02, compressed03:
 		if len(bytes) < 1+byteLen {
 			return nil, nil, 0, fmt.Errorf("invalid compressed bytes length %d", len(bytes))
 		}
@@ -101,20 +104,12 @@ func bytes2Point(curve elliptic.Curve, bytes []byte) (*big.Int, *big.Int, int, e
 				return nil, nil, 0, err
 			}
 
-			if (getLastBitOfY(x, y) > 0 && format == Compressed_02) || (getLastBitOfY(x, y) == 0 && format == Compressed_03) {
+			if (getLastBitOfY(x, y) > 0 && format == compressed02) || (getLastBitOfY(x, y) == 0 && format == compressed03) {
 				y.Sub(curve.Params().P, y)
 			}
 			return x, y, 1 + byteLen, nil
 		}
 		return nil, nil, 0, fmt.Errorf("unsupport bytes format %d, curve %s", format, curve.Params().Name)
-	case Mixed_06, Mixed_07:
-		// what's the mixed format purpose?
-		if len(bytes) < 1+byteLen*2 {
-			return nil, nil, 0, fmt.Errorf("invalid mixed bytes length %d", len(bytes))
-		}
-		x := toPointXY(bytes[1 : 1+byteLen])
-		y := toPointXY(bytes[1+byteLen : 1+byteLen*2])
-		return x, y, 1 + byteLen*2, nil
 	}
 	return nil, nil, 0, fmt.Errorf("unknown bytes format %d", format)
 }

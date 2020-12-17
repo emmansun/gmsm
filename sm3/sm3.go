@@ -9,6 +9,9 @@ import (
 // Size the size of a SM3 checksum in bytes.
 const Size int = 32
 
+// SizeBitSize the bit size of Size.
+const SizeBitSize = 5
+
 // BlockSize the blocksize of SM3 in bytes.
 const BlockSize int = 64
 
