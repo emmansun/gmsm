@@ -1,6 +1,6 @@
 **SM2 encryption Benchmark**
 
-    P-256/SM2
+    P-256/SM2(No tuning)
     goos: windows
     goarch: amd64
     pkg: gmsm/sm2
