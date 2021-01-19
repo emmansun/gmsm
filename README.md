@@ -8,6 +8,14 @@
     PASS
     ok  	gmsm/sm2	5.629s
     
+    P-256/SM2(with P256/SM2 curve implementation, first version)
+    goos: windows
+    goarch: amd64
+    pkg: gmsm/sm2
+    BenchmarkLessThan32_P256SM2-6   	    1027	   1169516 ns/op	    3874 B/op	      74 allocs/op
+    PASS
+    ok  	gmsm/sm2	1.564s
+
     P-256
     goos: windows
     goarch: amd64
