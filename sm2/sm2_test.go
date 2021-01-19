@@ -2,6 +2,7 @@ package sm2
 
 import (
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/hex"
 	"math/big"
@@ -55,17 +56,25 @@ func Test_encryptDecrypt(t *testing.T) {
 	}
 }
 
-func benchmarkEncrypt(b *testing.B, plaintext string) {
+func benchmarkEncrypt(b *testing.B, curve elliptic.Curve, plaintext string) {
 	for i := 0; i < b.N; i++ {
-		priv, _ := ecdsa.GenerateKey(P256(), rand.Reader)
+		priv, _ := ecdsa.GenerateKey(curve, rand.Reader)
 		Encrypt(rand.Reader, &priv.PublicKey, []byte(plaintext))
 	}
 }
 
-func BenchmarkLessThan32(b *testing.B) {
-	benchmarkEncrypt(b, "encryption standard")
+func BenchmarkLessThan32_P256(b *testing.B) {
+	benchmarkEncrypt(b, elliptic.P256(), "encryption standard")
 }
 
-func BenchmarkMoreThan32(b *testing.B) {
-	benchmarkEncrypt(b, "encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard")
+func BenchmarkLessThan32_P256SM2(b *testing.B) {
+	benchmarkEncrypt(b, P256(), "encryption standard")
+}
+
+func BenchmarkMoreThan32_P256(b *testing.B) {
+	benchmarkEncrypt(b, elliptic.P256(), "encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard")
+}
+
+func BenchmarkMoreThan32_P256SM2(b *testing.B) {
+	benchmarkEncrypt(b, P256(), "encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard")
 }

@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-var zero = new(big.Int).SetInt64(0)
+var zero = big.NewInt(0)
 
 func toBytes(curve elliptic.Curve, value *big.Int) []byte {
 	bytes := value.Bytes()
@@ -97,7 +97,7 @@ func bytes2Point(curve elliptic.Curve, bytes []byte) (*big.Int, *big.Int, int, e
 			return nil, nil, 0, fmt.Errorf("invalid compressed bytes length %d", len(bytes))
 		}
 		if strings.HasPrefix(curve.Params().Name, "P-") {
-			// y² = x³ - 3x + b
+			// y² = x³ - 3x + b, prime curves
 			x := toPointXY(bytes[1 : 1+byteLen])
 			y, err := calculatePrimeCurveY(curve, x)
 			if err != nil {
