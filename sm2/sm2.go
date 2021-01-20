@@ -6,9 +6,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"gmsm/sm3"
 	"io"
 	"math/big"
+
+	"github.com/emmansun/gmsm/sm3"
 )
 
 const (
