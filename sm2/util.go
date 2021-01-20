@@ -96,7 +96,7 @@ func bytes2Point(curve elliptic.Curve, bytes []byte) (*big.Int, *big.Int, int, e
 		if len(bytes) < 1+byteLen {
 			return nil, nil, 0, fmt.Errorf("invalid compressed bytes length %d", len(bytes))
 		}
-		if strings.HasPrefix(curve.Params().Name, "P-") {
+		if strings.HasPrefix(curve.Params().Name, "P-") || strings.EqualFold(curve.Params().Name, p256.CurveParams.Name) {
 			// y² = x³ - 3x + b, prime curves
 			x := toPointXY(bytes[1 : 1+byteLen])
 			y, err := calculatePrimeCurveY(curve, x)

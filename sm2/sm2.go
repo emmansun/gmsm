@@ -83,7 +83,7 @@ func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte) ([]byte, error)
 
 		//A2, calculate C1 = k * G
 		x1, y1 := curve.ScalarBaseMult(k.Bytes())
-		c1 := point2CompressedBytes(curve, x1, y1)
+		c1 := point2UncompressedBytes(curve, x1, y1)
 
 		//A3, skipped
 		//A4, calculate k * P (point of Public Key)
@@ -105,7 +105,8 @@ func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte) ([]byte, error)
 		//A7, C3 = hash(x2||M||y2)
 		c3 := calculateC3(curve, x2, y2, msg)
 
-		return append(append(c1, c2...), c3...), nil
+		// c1 || c3 || c2
+		return append(append(c1, c3...), c2...), nil
 	}
 }
 
@@ -117,7 +118,7 @@ func Decrypt(priv *ecdsa.PrivateKey, ciphertext []byte) ([]byte, error) {
 	}
 	curve := priv.Curve
 	// B1, get C1, and check C1
-	x1, y1, c2Start, err := bytes2Point(curve, ciphertext)
+	x1, y1, c3Start, err := bytes2Point(curve, ciphertext)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +128,7 @@ func Decrypt(priv *ecdsa.PrivateKey, ciphertext []byte) ([]byte, error) {
 	x2, y2 := curve.ScalarMult(x1, y1, priv.D.Bytes())
 
 	//B4, calculate t=KDF(x2||y2, klen)
-	c2 := ciphertext[c2Start : ciphertextLen-sm3.Size]
+	c2 := ciphertext[c3Start+sm3.Size:]
 	msgLen := len(c2)
 	t, success := kdf(append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
 	if !success {
@@ -141,7 +142,7 @@ func Decrypt(priv *ecdsa.PrivateKey, ciphertext []byte) ([]byte, error) {
 	}
 
 	//B6, calculate hash and compare it
-	c3 := ciphertext[ciphertextLen-sm3.Size:]
+	c3 := ciphertext[c3Start : c3Start+sm3.Size]
 	u := calculateC3(curve, x2, y2, msg)
 	for i := 0; i < sm3.Size; i++ {
 		if c3[i] != u[i] {

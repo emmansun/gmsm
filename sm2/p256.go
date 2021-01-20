@@ -24,7 +24,7 @@ var (
 )
 
 func initP256() {
-	p256.CurveParams = &elliptic.CurveParams{Name: "P-256/SM2"}
+	p256.CurveParams = &elliptic.CurveParams{Name: "sm2p256v1"}
 	// 2**256 - 2**224 - 2**96 + 2**64 - 1
 	p256.P, _ = new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF", 16)
 	p256.N, _ = new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123", 16)
