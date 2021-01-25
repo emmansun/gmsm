@@ -3,6 +3,7 @@ package sm3
 import (
 	"bytes"
 	"encoding"
+	"encoding/base64"
 	"fmt"
 	"hash"
 	"io"
@@ -23,7 +24,9 @@ var golden = []sm3Test{
 func TestGolden(t *testing.T) {
 	for i := 0; i < len(golden); i++ {
 		g := golden[i]
-		s := fmt.Sprintf("%x", Sum([]byte(g.in)))
+		h := Sum([]byte(g.in))
+		s := fmt.Sprintf("%x", h)
+		fmt.Printf("%s\n", base64.StdEncoding.EncodeToString(h[:]))
 		if s != g.out {
 			t.Fatalf("SM3 function: sm3(%s) = %s want %s", g.in, s, g.out)
 		}

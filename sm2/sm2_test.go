@@ -8,6 +8,8 @@ import (
 	"math/big"
 	"reflect"
 	"testing"
+
+	"github.com/emmansun/gmsm/sm3"
 )
 
 func Test_kdf(t *testing.T) {
@@ -29,7 +31,7 @@ func Test_kdf(t *testing.T) {
 }
 
 func Test_encryptDecrypt(t *testing.T) {
-	priv, _ := ecdsa.GenerateKey(P256(), rand.Reader)
+	priv, _ := GenerateKey(rand.Reader)
 	tests := []struct {
 		name      string
 		plainText string
@@ -51,6 +53,32 @@ func Test_encryptDecrypt(t *testing.T) {
 			}
 			if !reflect.DeepEqual(string(plaintext), tt.plainText) {
 				t.Errorf("Decrypt() = %v, want %v", string(plaintext), tt.plainText)
+			}
+		})
+	}
+}
+
+func Test_signVerify(t *testing.T) {
+	priv, _ := GenerateKey(rand.Reader)
+	tests := []struct {
+		name      string
+		plainText string
+	}{
+		// TODO: Add test cases.
+		{"less than 32", "encryption standard"},
+		{"equals 32", "encryption standard encryption "},
+		{"long than 32", "encryption standard encryption standard"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hash := sm3.Sum([]byte(tt.plainText))
+			r, s, err := Sign(rand.Reader, &priv.PrivateKey, hash[:])
+			if err != nil {
+				t.Fatalf("sign failed %v", err)
+			}
+			result := Verify(&priv.PublicKey, hash[:], r, s)
+			if !result {
+				t.Fatal("verify failed")
 			}
 		})
 	}

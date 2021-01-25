@@ -29,6 +29,12 @@ type pkcs1PublicKey struct {
 	E int
 }
 
+type dsaSignature struct {
+	R, S *big.Int
+}
+
+type ecdsaSignature dsaSignature
+
 // http://gmssl.org/docs/oid.html
 var (
 	oidPublicKeyECDSA    = asn1.ObjectIdentifier{1, 2, 840, 10045, 2, 1}
