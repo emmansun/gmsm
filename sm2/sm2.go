@@ -332,6 +332,9 @@ func CalculateZA(pub *ecdsa.PublicKey, uid []byte) ([]byte, error) {
 
 // SignWithSM2 follow sm2 dsa standards for hash part
 func SignWithSM2(rand io.Reader, priv *ecdsa.PrivateKey, uid, msg []byte) (r, s *big.Int, err error) {
+	if len(uid) == 0 {
+		uid = defaultUID
+	}
 	za, err := CalculateZA(&priv.PublicKey, uid)
 	if err != nil {
 		return nil, nil, err
@@ -378,6 +381,9 @@ func Verify(pub *ecdsa.PublicKey, hash []byte, r, s *big.Int) bool {
 // VerifyWithSM2 verifies the signature in r, s of hash using the public key, pub. Its
 // return value records whether the signature is valid.
 func VerifyWithSM2(pub *ecdsa.PublicKey, uid, msg []byte, r, s *big.Int) bool {
+	if len(uid) == 0 {
+		uid = defaultUID
+	}
 	za, err := CalculateZA(pub, uid)
 	if err != nil {
 		return false

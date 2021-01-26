@@ -3,6 +3,8 @@ package sm2
 import (
 	"crypto/ecdsa"
 	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/hex"
@@ -24,8 +26,19 @@ MFkwEwYHKoZIzj0CAQYIKoEcz1UBgi0DQgAERrsLH25zLm2LIo6tivZM9afLprSX
 6TCKAmQJArAO7VOtZyW4PQwfaTsUIF7IXEFG4iI8bNuTQwMykUzLu2ypEA==
 -----END PUBLIC KEY-----
 `
+
 const hashBase64 = `Zsfw9GLu7dnR8tRr3BDk4kFnxIdc8veiKX2gK49LqOA=`
 const signature = `MEUCIHV5hOCgYzlO4HkrUhct1Cc8BeKmbXNP+ASje5rGOcCYAiEA2XOajXo3/IihtCEJmNpImtWw3uHIy5CX5TIxit7V0gQ=`
+const csrFromAli = `-----BEGIN CERTIFICATE REQUEST-----
+MIIBaTCCAQ8CAQAwRzELMAkGA1UEBhMCQ04xEzARBgNVBAMMCkNhcmdvU21hcnQx
+DzANBgNVBAcMBlpodWhhaTESMBAGA1UECAwJR3Vhbmdkb25nMFkwEwYHKoZIzj0C
+AQYIKoEcz1UBgi0DQgAERrsLH25zLm2LIo6tivZM9afLprSX6TCKAmQJArAO7VOt
+ZyW4PQwfaTsUIF7IXEFG4iI8bNuTQwMykUzLu2ypEKBmMC4GCSqGSIb3DQEJDjEh
+MB8wHQYDVR0OBBYEFA3FO8vT+8qZBfGZa2TRhLRbme+9MDQGCSqGSIb3DQEJDjEn
+MCUwIwYDVR0RBBwwGoEYZW1tYW4uc3VuQGNhcmdvc21hcnQuY29tMAoGCCqBHM9V
+AYN1A0gAMEUCIDFGOqXaAIBBc1vQNlCXx8QJcKb5C1+NT+Ij6lSbWCgwAiEAlDIk
+PUbitEIHvhvdoOmNGzPDV1LgCwGD5OHVO9Kpy08=
+-----END CERTIFICATE REQUEST-----`
 
 func getPublicKey(pemContent []byte) (interface{}, error) {
 	block, _ := pem.Decode(pemContent)
@@ -33,6 +46,40 @@ func getPublicKey(pemContent []byte) (interface{}, error) {
 		return nil, errors.New("Failed to parse PEM block")
 	}
 	return ParsePKIXPublicKey(block.Bytes)
+}
+
+func parseAndCheckCsr(csrblock []byte) error {
+	csr, err := ParseCertificateRequest(csrblock)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%v\n", csr)
+	return CheckSignature(csr)
+}
+
+func TestParseCertificateRequest(t *testing.T) {
+	block, _ := pem.Decode([]byte(csrFromAli))
+	if block == nil {
+		t.Fatal("Failed to parse PEM block")
+	}
+	err := parseAndCheckCsr(block.Bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCreateCertificateRequest(t *testing.T) {
+	priv, _ := GenerateKey(rand.Reader)
+	names := pkix.Name{CommonName: "TestName"}
+	var template = x509.CertificateRequest{Subject: names}
+	csrblock, err := CreateCertificateRequest(rand.Reader, &template, priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = parseAndCheckCsr(csrblock)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestSignByAliVerifyAtLocal(t *testing.T) {
