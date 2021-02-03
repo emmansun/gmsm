@@ -30,15 +30,16 @@ MFkwEwYHKoZIzj0CAQYIKoEcz1UBgi0DQgAERrsLH25zLm2LIo6tivZM9afLprSX
 const hashBase64 = `Zsfw9GLu7dnR8tRr3BDk4kFnxIdc8veiKX2gK49LqOA=`
 const signature = `MEUCIHV5hOCgYzlO4HkrUhct1Cc8BeKmbXNP+ASje5rGOcCYAiEA2XOajXo3/IihtCEJmNpImtWw3uHIy5CX5TIxit7V0gQ=`
 const csrFromAli = `-----BEGIN CERTIFICATE REQUEST-----
-MIIBaTCCAQ8CAQAwRzELMAkGA1UEBhMCQ04xEzARBgNVBAMMCkNhcmdvU21hcnQx
+MIIBYjCCAQkCAQAwRzELMAkGA1UEBhMCQ04xEzARBgNVBAMMCkNhcmdvU21hcnQx
 DzANBgNVBAcMBlpodWhhaTESMBAGA1UECAwJR3Vhbmdkb25nMFkwEwYHKoZIzj0C
 AQYIKoEcz1UBgi0DQgAERrsLH25zLm2LIo6tivZM9afLprSX6TCKAmQJArAO7VOt
-ZyW4PQwfaTsUIF7IXEFG4iI8bNuTQwMykUzLu2ypEKBmMC4GCSqGSIb3DQEJDjEh
-MB8wHQYDVR0OBBYEFA3FO8vT+8qZBfGZa2TRhLRbme+9MDQGCSqGSIb3DQEJDjEn
-MCUwIwYDVR0RBBwwGoEYZW1tYW4uc3VuQGNhcmdvc21hcnQuY29tMAoGCCqBHM9V
-AYN1A0gAMEUCIDFGOqXaAIBBc1vQNlCXx8QJcKb5C1+NT+Ij6lSbWCgwAiEAlDIk
-PUbitEIHvhvdoOmNGzPDV1LgCwGD5OHVO9Kpy08=
------END CERTIFICATE REQUEST-----`
+ZyW4PQwfaTsUIF7IXEFG4iI8bNuTQwMykUzLu2ypEKBgMC4GCSqGSIb3DQEJDjEh
+MB8wHQYDVR0OBBYEFA3FO8vT+8qZBfGZa2TRhLRbme+9MC4GCSqGSIb3DQEJDjEh
+MB8wHQYDVR0RBBYwFIESZW1tYW4uc3VuQGlxYXguY29tMAoGCCqBHM9VAYN1A0cA
+MEQCIBQx6yv3rzfWCkKqDZQOfNKESQc6NtpQbeVvcxfBrciwAiAj78kkrF5R3g4l
+bxIHjKZHc2sztHCXe7cseWGiLq0syg==
+-----END CERTIFICATE REQUEST-----
+`
 
 func getPublicKey(pemContent []byte) (interface{}, error) {
 	block, _ := pem.Decode(pemContent)
@@ -76,6 +77,9 @@ func TestCreateCertificateRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	block := &pem.Block{Bytes: csrblock, Type: "CERTIFICATE REQUEST"}
+	pemContent := string(pem.EncodeToMemory(block))
+	fmt.Printf("%s\n", pemContent)
 	err = parseAndCheckCsr(csrblock)
 	if err != nil {
 		t.Fatal(err)

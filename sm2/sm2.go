@@ -26,6 +26,17 @@ const (
 	mixed07      byte = 0x07
 )
 
+// A invertible implements fast inverse mod Curve.Params().N
+type invertible interface {
+	// Inverse returns the inverse of k in GF(P)
+	Inverse(k *big.Int) *big.Int
+}
+
+// combinedMult implements fast multiplication S1*g + S2*p (g - generator, p - arbitrary point)
+type combinedMult interface {
+	CombinedMult(bigX, bigY *big.Int, baseScalar, scalar []byte) (x, y *big.Int)
+}
+
 // PrivateKey represents an ECDSA private key.
 type PrivateKey struct {
 	ecdsa.PrivateKey
@@ -223,6 +234,16 @@ const (
 
 var errZeroParam = errors.New("zero parameter")
 
+// fermatInverse calculates the inverse of k in GF(P) using Fermat's method.
+// This has better constant-time properties than Euclid's method (implemented
+// in math/big.Int.ModInverse) although math/big itself isn't strictly
+// constant-time so it's not perfect.
+func fermatInverse(k, N *big.Int) *big.Int {
+	two := big.NewInt(2)
+	nMinus2 := new(big.Int).Sub(N, two)
+	return new(big.Int).Exp(k, nMinus2, N)
+}
+
 // Sign signs a hash (which should be the result of hashing a larger message)
 // using the private key, priv. If the hash is longer than the bit-length of the
 // private key's curve order, the hash will be truncated to that length.  It
@@ -295,7 +316,15 @@ func Sign(rand io.Reader, priv *ecdsa.PrivateKey, hash []byte) (r, s *big.Int, e
 		s = new(big.Int).Mul(priv.D, r)
 		s = new(big.Int).Sub(k, s)
 		dp1 := new(big.Int).Add(priv.D, one)
-		dp1Inv := new(big.Int).ModInverse(dp1, N)
+
+		var dp1Inv *big.Int
+
+		if in, ok := priv.Curve.(invertible); ok {
+			dp1Inv = in.Inverse(dp1)
+		} else {
+			dp1Inv = fermatInverse(dp1, N) // N != 0
+		}
+
 		s.Mul(s, dp1Inv)
 		s.Mod(s, N) // N != 0
 		if s.Sign() != 0 {
@@ -367,9 +396,13 @@ func Verify(pub *ecdsa.PublicKey, hash []byte, r, s *big.Int) bool {
 		}
 
 		var x *big.Int
-		x1, y1 := c.ScalarBaseMult(s.Bytes())
-		x2, y2 := c.ScalarMult(pub.X, pub.Y, t.Bytes())
-		x, _ = c.Add(x1, y1, x2, y2)
+		if opt, ok := c.(combinedMult); ok {
+			x, _ = opt.CombinedMult(pub.X, pub.Y, s.Bytes(), t.Bytes())
+		} else {
+			x1, y1 := c.ScalarBaseMult(s.Bytes())
+			x2, y2 := c.ScalarMult(pub.X, pub.Y, t.Bytes())
+			x, _ = c.Add(x1, y1, x2, y2)
+		}
 
 		x.Add(x, e)
 		x.Mod(x, N)
