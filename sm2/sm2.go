@@ -14,6 +14,7 @@ import (
 	"io"
 	"math/big"
 	"strings"
+	"sync"
 
 	"github.com/emmansun/gmsm/sm3"
 )
@@ -58,8 +59,18 @@ func (priv *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOp
 	return asn1.Marshal(ecdsaSignature{r, s})
 }
 
+var (
+	one      = new(big.Int).SetInt64(1)
+	initonce sync.Once
+)
+
+// P256 init and return the singleton
+func P256() elliptic.Curve {
+	initonce.Do(initP256)
+	return p256
+}
+
 ///////////////// below code ship from golan crypto/ecdsa ////////////////////
-var one = new(big.Int).SetInt64(1)
 
 // randFieldElement returns a random element of the field underlying the given
 // curve using the procedure given in [NSA] A.2.1.

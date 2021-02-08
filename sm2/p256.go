@@ -1,10 +1,11 @@
+// +build !amd64
+
 package sm2
 
 import (
 	"crypto/elliptic"
 	"fmt"
 	"math/big"
-	"sync"
 )
 
 // See https://www.imperialviolet.org/2010/12/04/ecc.html ([1]) for background.
@@ -14,24 +15,22 @@ type p256Curve struct {
 }
 
 var (
-	p256 p256Curve
+	p256Params *elliptic.CurveParams
 
 	// RInverse contains 1/R mod p - the inverse of the Montgomery constant
 	// (2**257).
 	p256RInverse *big.Int
-
-	initonce sync.Once
 )
 
 func initP256() {
-	p256.CurveParams = &elliptic.CurveParams{Name: "sm2p256v1"}
+	p256Params = &elliptic.CurveParams{Name: "sm2p256v1"}
 	// 2**256 - 2**224 - 2**96 + 2**64 - 1
-	p256.P, _ = new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF", 16)
-	p256.N, _ = new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123", 16)
-	p256.B, _ = new(big.Int).SetString("28E9FA9E9D9F5E344D5A9E4BCF6509A7F39789F515AB8F92DDBCBD414D940E93", 16)
-	p256.Gx, _ = new(big.Int).SetString("32C4AE2C1F1981195F9904466A39C9948FE30BBFF2660BE1715A4589334C74C7", 16)
-	p256.Gy, _ = new(big.Int).SetString("BC3736A2F4F6779C59BDCEE36B692153D0A9877CC62A474002DF32E52139F0A0", 16)
-	p256.BitSize = 256
+	p256Params.P, _ = new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF", 16)
+	p256Params.N, _ = new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123", 16)
+	p256Params.B, _ = new(big.Int).SetString("28E9FA9E9D9F5E344D5A9E4BCF6509A7F39789F515AB8F92DDBCBD414D940E93", 16)
+	p256Params.Gx, _ = new(big.Int).SetString("32C4AE2C1F1981195F9904466A39C9948FE30BBFF2660BE1715A4589334C74C7", 16)
+	p256Params.Gy, _ = new(big.Int).SetString("BC3736A2F4F6779C59BDCEE36B692153D0A9877CC62A474002DF32E52139F0A0", 16)
+	p256Params.BitSize = 256
 
 	// ModeInverse(2**257, P)
 	// p256RInverse = big.NewInt(0)
@@ -39,12 +38,9 @@ func initP256() {
 	// p256RInverse.ModInverse(r, p256.P)
 	// fmt.Printf("%s\n", hex.EncodeToString(p256RInverse.Bytes()))
 	p256RInverse, _ = new(big.Int).SetString("7ffffffd80000002fffffffe000000017ffffffe800000037ffffffc80000002", 16)
-}
 
-// P256 init and return the singleton
-func P256() elliptic.Curve {
-	initonce.Do(initP256)
-	return p256
+	// Arch-specific initialization, i.e. let a platform dynamically pick a P256 implementation
+	initP256Arch()
 }
 
 func (curve p256Curve) Params() *elliptic.CurveParams {
