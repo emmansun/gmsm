@@ -1,3 +1,5 @@
+// It is by standing on the shoulders of giants.
+
 // This file contains the Go wrapper for the constant-time, 64-bit assembly
 // implementation of P256. The optimizations performed here are described in
 // detail in:
@@ -107,6 +109,7 @@ func p256PointAddAsm(res, in1, in2 []uint64) int
 //go:noescape
 func p256PointDoubleAsm(res, in []uint64)
 
+// Inverse, implements invertible interface, need to test this function's correctness
 func (curve p256Curve) Inverse(k *big.Int) *big.Int {
 	if k.Sign() < 0 {
 		// This should never happen.
@@ -342,7 +345,7 @@ func (p *p256Point) CopyConditional(src *p256Point, v int) {
 
 // p256Inverse sets out to in^-1 mod p.
 func p256Inverse(out, in []uint64) {
-	var stack [9 * 4]uint64
+	var stack [8 * 4]uint64
 	p2 := stack[4*0 : 4*0+4]
 	p4 := stack[4*1 : 4*1+4]
 	p8 := stack[4*2 : 4*2+4]
@@ -352,12 +355,12 @@ func p256Inverse(out, in []uint64) {
 	p32m2 := stack[4*6 : 4*6+4]
 	ptmp := stack[4*7 : 4*7+4]
 
-	p256Sqr(out, in, 1)  // 2^1
-	p256Mul(p2, out, in) // 2^2 - 2^0
+	p256Sqr(ptmp, in, 1)  // 2^1
+	p256Mul(p2, ptmp, in) // 2^2 - 2^0
 
-	p256Sqr(out, p2, 2)    // 2^4 - 2^2
-	p256Mul(ptmp, out, in) // 2^4 - 2^1
-	p256Mul(p4, out, p2)   // 2^4 - 2^0
+	p256Sqr(out, p2, 2)      // 2^4 - 2^2
+	p256Mul(ptmp, out, ptmp) // 2^4 - 2^1
+	p256Mul(p4, out, p2)     // 2^4 - 2^0
 
 	p256Sqr(out, p4, 4)      // 2^8 - 2^4
 	p256Mul(ptmp, out, ptmp) // 2^8 - 2^1
@@ -380,8 +383,8 @@ func p256Inverse(out, in []uint64) {
 	p256Mul(out, out, p32m2) //2^160 - 2^1
 	p256Sqr(ptmp, out, 95)   //2^255 - 2^96
 
-	p256Sqr(out, p32m2, 223) //2^225 - 2^224
-	p256Mul(ptmp, ptmp, out) //2^226 - 2^224 - 2^96
+	p256Sqr(out, p32m2, 223) //2^255 - 2^224
+	p256Mul(ptmp, ptmp, out) //2^256 - 2^224 - 2^96
 
 	p256Sqr(out, p32, 16)  // 2^48 - 2^16
 	p256Mul(out, out, p16) // 2^48 - 2^0
@@ -396,7 +399,7 @@ func p256Inverse(out, in []uint64) {
 	p256Mul(out, out, p2) // 2^62 - 2^0
 
 	p256Sqr(out, out, 2)  // 2^64 - 2^2
-	p256Mul(out, out, in) //2^64 - 2^2 + 2^1
+	p256Mul(out, out, in) //2^64 - 2^2 + 2^0
 
 	p256Mul(out, out, ptmp) //2^256 - 2^224 - 2^96 + 2^64 - 3
 }
