@@ -10,7 +10,7 @@ This is a **SM2 sm2p256v1** implementation which the performance is similar like
     PASS
     ok  	gmsm/sm2	5.629s
     
-    P-256/SM2(with P256/SM2 curve implementation, first version)
+    P-256/SM2(with P256/SM2 curve pure golang implementation)
     goos: windows
     goarch: amd64
     pkg: gmsm/sm2
@@ -18,14 +18,14 @@ This is a **SM2 sm2p256v1** implementation which the performance is similar like
     PASS
     ok  	gmsm/sm2	1.564s
 
-    goos: windows(with P256/SM2 amd64 curve implementation, first version)
+    goos: windows(with P256/SM2 amd64 curve implementation, i think there are still improvement space for p256Sqr function)
     goarch: amd64
     pkg: github.com/emmansun/gmsm/sm2
     BenchmarkLessThan32_P256SM2-6   	   10447	    115618 ns/op	    2357 B/op	      46 allocs/op
     PASS
     ok  	github.com/emmansun/gmsm/sm2	2.199s
 
-    P-256
+    P-256 (SM2 based on NIST P-256 curve)
     goos: windows
     goarch: amd64
     pkg: gmsm/sm2
