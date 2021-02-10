@@ -16,6 +16,13 @@
     PASS
     ok  	gmsm/sm2	1.564s
 
+    goos: windows(with amd64 curve implementation, first version)
+    goarch: amd64
+    pkg: github.com/emmansun/gmsm/sm2
+    BenchmarkLessThan32_P256SM2-6   	   10447	    115618 ns/op	    2357 B/op	      46 allocs/op
+    PASS
+    ok  	github.com/emmansun/gmsm/sm2	2.199s
+
     P-256
     goos: windows
     goarch: amd64

@@ -109,6 +109,10 @@ func p256PointAddAsm(res, in1, in2 []uint64) int
 //go:noescape
 func p256PointDoubleAsm(res, in []uint64)
 
+var (
+	p256one = []uint64{0x0000000000000001, 0x00000000ffffffff, 0x0000000000000000, 0x0000000100000000}
+)
+
 // Inverse, implements invertible interface, need to test this function's correctness
 func (curve p256Curve) Inverse(k *big.Int) *big.Int {
 	if k.Sign() < 0 {
@@ -224,7 +228,7 @@ func p256GetScalar(out []uint64, in []byte) {
 // p256Mul operates in a Montgomery domain with R = 2^256 mod p, where p is the
 // underlying field of the curve. (See initP256 for the value.) Thus rr here is
 // R×R mod p. See comment in Inverse about how this is used.
-var rr = []uint64{0x0000000000000003, 0x00000002ffffffff, 0x0000000100000001, 0x0000000400000002}
+var rr = []uint64{0x200000003, 0x2ffffffff, 0x100000001, 0x400000002}
 
 func maybeReduceModP(in *big.Int) *big.Int {
 	if in.Cmp(p256.P) < 0 {
@@ -248,10 +252,10 @@ func (curve p256Curve) CombinedMult(bigX, bigY *big.Int, baseScalar, scalar []by
 	p256Mul(r2.xyz[4:8], r2.xyz[4:8], rr[:])
 
 	// This sets r2's Z value to 1, in the Montgomery domain.
-	r2.xyz[8] = 0x0000000000000001
-	r2.xyz[9] = 0x00000000ffffffff
-	r2.xyz[10] = 0x0000000000000000
-	r2.xyz[11] = 0x0000000100000000
+	r2.xyz[8] = p256one[0]
+	r2.xyz[9] = p256one[1]
+	r2.xyz[10] = p256one[2]
+	r2.xyz[11] = p256one[3]
 
 	r2.p256ScalarMult(scalarReversed)
 
@@ -284,10 +288,10 @@ func (curve p256Curve) ScalarMult(bigX, bigY *big.Int, scalar []byte) (x, y *big
 	p256Mul(r.xyz[0:4], r.xyz[0:4], rr[:])
 	p256Mul(r.xyz[4:8], r.xyz[4:8], rr[:])
 	// This sets r2's Z value to 1, in the Montgomery domain.
-	r.xyz[8] = 0x0000000000000001
-	r.xyz[9] = 0x00000000ffffffff
-	r.xyz[10] = 0x0000000000000000
-	r.xyz[11] = 0x0000000100000000
+	r.xyz[8] = p256one[0]
+	r.xyz[9] = p256one[1]
+	r.xyz[10] = p256one[2]
+	r.xyz[11] = p256one[3]
 
 	r.p256ScalarMult(scalarReversed)
 	return r.p256PointToAffine()
@@ -477,17 +481,17 @@ func (p *p256Point) p256BaseMult(scalar []uint64) {
 	p256NegCond(p.xyz[4:8], sign)
 
 	// (This is one, in the Montgomery domain.)
-	p.xyz[8] = 0x0000000000000001
-	p.xyz[9] = 0x00000000ffffffff
-	p.xyz[10] = 0x0000000000000000
-	p.xyz[11] = 0x0000000100000000
+	p.xyz[8] = p256one[0]
+	p.xyz[9] = p256one[1]
+	p.xyz[10] = p256one[2]
+	p.xyz[11] = p256one[3]
 
 	var t0 p256Point
 	// (This is one, in the Montgomery domain.)
-	t0.xyz[8] = 0x0000000000000001
-	t0.xyz[9] = 0x00000000ffffffff
-	t0.xyz[10] = 0x0000000000000000
-	t0.xyz[11] = 0x0000000100000000
+	t0.xyz[8] = p256one[0]
+	t0.xyz[9] = p256one[1]
+	t0.xyz[10] = p256one[2]
+	t0.xyz[11] = p256one[3]
 
 	index := uint(5)
 	zero := sel

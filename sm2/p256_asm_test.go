@@ -257,7 +257,7 @@ func Test_p256PointAddAsm(t *testing.T) {
 	x2, y2 := params.ScalarBaseMult(k2.Bytes())
 	x3, y3 := params.Add(x1, y1, x2, y2)
 	fmt.Printf("x1=%s, y1=%s\n", hex.EncodeToString(x3.Bytes()), hex.EncodeToString(y3.Bytes()))
-	var in1, in2, r p256Point
+	var in1, in2, rp p256Point
 	fromBig(in1.xyz[0:4], maybeReduceModP(x1))
 	fromBig(in1.xyz[4:8], maybeReduceModP(y1))
 	fromBig(in2.xyz[0:4], maybeReduceModP(x2))
@@ -270,13 +270,17 @@ func Test_p256PointAddAsm(t *testing.T) {
 	in2.xyz[9] = 0x00000000ffffffff
 	in2.xyz[10] = 0x0000000000000000
 	in2.xyz[11] = 0x0000000100000000
+	p256Mul(in1.xyz[0:4], in1.xyz[0:4], rr[:])
+	p256Mul(in1.xyz[4:8], in1.xyz[4:8], rr[:])
+	p256Mul(in2.xyz[0:4], in2.xyz[0:4], rr[:])
+	p256Mul(in2.xyz[4:8], in2.xyz[4:8], rr[:])
 	res := make([]uint64, 12)
 	n := p256PointAddAsm(res, in1.xyz[:], in2.xyz[:])
 	fmt.Printf("n=%d\n", n)
-	copy(r.xyz[:], res)
-	x4, y4 := r.p256PointToAffine()
+	copy(rp.xyz[:], res)
+	x4, y4 := rp.p256PointToAffine()
 	fmt.Printf("x1=%s, y1=%s\n", hex.EncodeToString(x4.Bytes()), hex.EncodeToString(y4.Bytes()))
-	if x3.Cmp(x4) != 0 || y3.Cmp(y4) != 0 {
+	if n == 0 && (x3.Cmp(x4) != 0 || y3.Cmp(y4) != 0) {
 		t.FailNow()
 	}
 }
