@@ -304,7 +304,7 @@ func Test_Inverse(t *testing.T) {
 	nm2 := new(big.Int).Sub(n, big.NewInt(2))
 	nm2a := make([]uint64, 4)
 	fromBig(nm2a, nm2)
-	fmt.Printf("%b, %b, %b, %b\n", nm2a[0], nm2a[1], nm2a[2], nm2a[3])
+	fmt.Printf("%0b, %0b, %b, %b\n", nm2a[0], nm2a[1], nm2a[2], nm2a[3])
 	xInv1 := fermatInverse(x, n)
 	fmt.Printf("expect=%s\n", hex.EncodeToString(xInv1.Bytes()))
 	_ = P256()
