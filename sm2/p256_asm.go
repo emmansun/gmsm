@@ -110,10 +110,21 @@ func p256PointAddAsm(res, in1, in2 []uint64) int
 func p256PointDoubleAsm(res, in []uint64)
 
 var (
-	p256one = []uint64{0x0000000000000001, 0x00000000ffffffff, 0x0000000000000000, 0x0000000100000000}
+	p256one   = []uint64{0x0000000000000001, 0x00000000ffffffff, 0x0000000000000000, 0x0000000100000000}
+	basePoint = []uint64{
+		0x61328990f418029e, 0x3e7981eddca6c050, 0xd6a1ed99ac24c3c3, 0x91167a5ee1c13b05,
+		0xc1354e593c2d0ddd, 0xc1f5e5788d3295fa, 0x8d4cfb066e2a48f8, 0x63cd65d481d735bd,
+		0x0000000000000001, 0x00000000ffffffff, 0x0000000000000000, 0x0000000100000000,
+	}
 )
 
 // Inverse, implements invertible interface, need to test this function's correctness
+// n-2 =
+// 1111111111111111111111111111111011111111111111111111111111111111
+// 1111111111111111111111111111111111111111111111111111111111111111
+// 0111001000000011110111110110101100100001110001100000010100101011
+// 0101001110111011111101000000100100111001110101010100000100100001
+//
 func (curve p256Curve) Inverse(k *big.Int) *big.Int {
 	if k.Sign() < 0 {
 		// This should never happen.
@@ -126,7 +137,7 @@ func (curve p256Curve) Inverse(k *big.Int) *big.Int {
 	}
 
 	// table will store precomputed powers of x.
-	var table [4 * 9]uint64
+	var table [4 * 10]uint64
 	var (
 		_1      = table[4*0 : 4*1]
 		_11     = table[4*1 : 4*2]
@@ -137,6 +148,7 @@ func (curve p256Curve) Inverse(k *big.Int) *big.Int {
 		_101111 = table[4*6 : 4*7]
 		x       = table[4*7 : 4*8]
 		t       = table[4*8 : 4*9]
+		m       = table[4*9 : 4*10]
 	)
 
 	fromBig(x[:], k)
@@ -149,43 +161,49 @@ func (curve p256Curve) Inverse(k *big.Int) *big.Int {
 	// Window values borrowed from https://briansmith.org/ecc-inversion-addition-chains-01#p256_scalar_inversion
 	RR := []uint64{0x901192af7c114f20, 0x3464504ade6fa2fa, 0x620fc84c3affe0d4, 0x1eb5e412a22b3d3b}
 
-	p256OrdMul(_1, x, RR)      // _1
-	p256OrdSqr(x, _1, 1)       // _10
-	p256OrdMul(_11, x, _1)     // _11
-	p256OrdMul(_101, x, _11)   // _101
-	p256OrdMul(_111, x, _101)  // _111
-	p256OrdSqr(x, _101, 1)     // _1010
-	p256OrdMul(_1111, _101, x) // _1111
+	p256OrdMul(_1, x, RR)      // _1 , 2^0
+	p256OrdSqr(m, _1, 1)       // _10, 2^1
+	p256OrdMul(_11, m, _1)     // _11, 2^1 + 2^0
+	p256OrdMul(_101, m, _11)   // _101, 2^2 + 2^0
+	p256OrdMul(_111, m, _101)  // _111, 2^2 + 2^1 + 2^0
+	p256OrdSqr(x, _101, 1)     // _1010, 2^3 + 2^1
+	p256OrdMul(_1111, _101, x) // _1111, 2^3 + 2^2 + 2^1 + 2^0
 
-	p256OrdSqr(t, x, 1)          // _10100
-	p256OrdMul(_10101, t, _1)    // _10101
-	p256OrdSqr(x, _10101, 1)     // _101010
-	p256OrdMul(_101111, _101, x) // _101111
-	p256OrdMul(x, _10101, x)     // _111111 = x6
-	p256OrdSqr(t, x, 2)          // _11111100
-	p256OrdMul(t, t, _11)        // _11111111 = x8
-	p256OrdSqr(x, t, 8)          // _ff00
-	p256OrdMul(x, x, t)          // _ffff = x16
-	p256OrdSqr(t, x, 16)         // _ffff0000
-	p256OrdMul(t, t, x)          // _ffffffff = x32
+	p256OrdSqr(t, x, 1)          // _10100, 2^4 + 2^2
+	p256OrdMul(_10101, t, _1)    // _10101, 2^4 + 2^2 + 2^0
+	p256OrdSqr(x, _10101, 1)     // _101010, 2^5 + 2^3 + 2^1
+	p256OrdMul(_101111, _101, x) // _101111, 2^5 + 2^3 + 2^2 + 2^1 + 2^0
+	p256OrdMul(x, _10101, x)     // _111111 = x6, 2^5 + 2^4 + 2^3 + 2^2 + 2^1 + 2^0
+	p256OrdSqr(t, x, 2)          // _11111100, 2^7 + 2^6 + 2^5 + 2^4 + 2^3 + 2^2
 
-	p256OrdSqr(x, t, 64)
-	p256OrdMul(x, x, t)
-	p256OrdSqr(x, x, 32)
-	p256OrdMul(x, x, t)
+	p256OrdMul(m, t, m)   // _11111110 = x8, , 2^7 + 2^6 + 2^5 + 2^4 + 2^3 + 2^2 + 2^1
+	p256OrdMul(t, t, _11) // _11111111 = x8, , 2^7 + 2^6 + 2^5 + 2^4 + 2^3 + 2^2 + 2^1 + 2^0
+	p256OrdSqr(x, t, 8)   // _ff00, 2^15 + 2^14 + 2^13 + 2^12 + 2^11 + 2^10 + 2^9 + 2^8
+	p256OrdMul(m, x, m)   //  _fffe
+	p256OrdMul(x, x, t)   // _ffff = x16, 2^15 + 2^14 + 2^13 + 2^12 + 2^11 + 2^10 + 2^9 + 2^8 + 2^7 + 2^6 + 2^5 + 2^4 + 2^3 + 2^2 + 2^1 + 2^0
+
+	p256OrdSqr(t, x, 16) // _ffff0000, 2^31 + 2^30 + 2^29 + 2^28 + 2^27 + 2^26 + 2^25 + 2^24 + 2^23 + 2^22 + 2^21 + 2^20 + 2^19 + 2^18 + 2^17 + 2^16
+	p256OrdMul(m, t, m)  // _fffffffe
+	p256OrdMul(t, t, x)  // _ffffffff = x32
+
+	p256OrdSqr(x, m, 32) // _fffffffe00000000
+	p256OrdMul(x, x, t)  // _fffffffeffffffff
+	p256OrdSqr(x, x, 32) // _fffffffeffffffff00000000
+	p256OrdMul(x, x, t)  // _fffffffeffffffffffffffff
+	p256OrdSqr(x, x, 32) // _fffffffeffffffffffffffff00000000
+	p256OrdMul(x, x, t)  // _fffffffeffffffffffffffffffffffff
 
 	sqrs := []uint8{
-		6, 5, 4, 5, 5,
-		4, 3, 3, 5, 9,
-		6, 2, 5, 6, 5,
-		4, 5, 5, 3, 10,
-		2, 5, 5, 3, 7, 6}
+		3, 3, 11, 5, 3, 5, 1,
+		3, 7, 5, 9, 7, 2, 2,
+		5, 4, 5, 2, 2, 7, 3,
+		5, 5, 6, 2, 6, 3, 5,
+	}
 	muls := [][]uint64{
-		_101111, _111, _11, _1111, _10101,
-		_101, _101, _101, _111, _101111,
-		_1111, _1, _1, _1111, _111,
-		_111, _111, _101, _11, _101111,
-		_11, _11, _11, _1, _10101, _1111}
+		_111, _1, _1111, _1111, _101, _10101, _1,
+		_1, _111, _11, _101, _10101, _11, _1,
+		_111, _111, _1111, _11, _1, _1, _1,
+		_111, _111, _10101, _1, _1, _1, _1}
 
 	for i, s := range sqrs {
 		p256OrdSqr(x, x, int(s))
@@ -431,11 +449,6 @@ func boothW6(in uint) (int, int) {
 func initTable() {
 	p256Precomputed = new([43][32 * 8]uint64)
 
-	basePoint := []uint64{
-		0x61328990f418029e, 0x3e7981eddca6c050, 0xd6a1ed99ac24c3c3, 0x91167a5ee1c13b05,
-		0xc1354e593c2d0ddd, 0xc1f5e5788d3295fa, 0x8d4cfb066e2a48f8, 0x63cd65d481d735bd,
-		0x0000000000000001, 0x00000000ffffffff, 0x0000000000000000, 0x0000000100000000,
-	}
 	t1 := make([]uint64, 12)
 	t2 := make([]uint64, 12)
 	copy(t2, basePoint)

@@ -297,3 +297,21 @@ func Test_ScalarMult_basepoint(t *testing.T) {
 		t.FailNow()
 	}
 }
+
+func Test_Inverse(t *testing.T) {
+	n, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123", 16)
+	x, _ := new(big.Int).SetString("32C4AE2C1F1981195F9904466A39C9948FE30BBFF2660BE1715A4589334C74C7", 16)
+	nm2 := new(big.Int).Sub(n, big.NewInt(2))
+	nm2a := make([]uint64, 4)
+	fromBig(nm2a, nm2)
+	fmt.Printf("%b, %b, %b, %b\n", nm2a[0], nm2a[1], nm2a[2], nm2a[3])
+	xInv1 := fermatInverse(x, n)
+	fmt.Printf("expect=%s\n", hex.EncodeToString(xInv1.Bytes()))
+	_ = P256()
+	xInv2 := p256.Inverse(x)
+	fmt.Printf("result=%s\n", hex.EncodeToString(xInv2.Bytes()))
+
+	if xInv1.Cmp(xInv2) != 0 {
+		t.FailNow()
+	}
+}
