@@ -1,4 +1,4 @@
-This is a **SM2 sm2p256v1** implementation which performance is similar like golang native P256 under **amd64** . 
+This is a **SM2 sm2p256v1** implementation whose performance is similar like golang native P256 under **amd64** . 
 
 **SM2 encryption Benchmark**
 
@@ -18,7 +18,8 @@ This is a **SM2 sm2p256v1** implementation which performance is similar like gol
     PASS
     ok  	gmsm/sm2	1.564s
 
-    goos: windows(with P256/SM2 amd64 curve implementation, i think there are still improvement space for p256Sqr function)
+    P-256/SM2(with P256/SM2 amd64 curve implementation, i think there are still improvement space for p256Sqr function)
+    goos: windows
     goarch: amd64
     pkg: github.com/emmansun/gmsm/sm2
     BenchmarkLessThan32_P256SM2-6   	   10447	    115618 ns/op	    2357 B/op	      46 allocs/op
