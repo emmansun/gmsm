@@ -1,4 +1,4 @@
-This is a **SM2 sm2p256v1** implementation whose performance is similar like golang native P256 under **amd64** . 
+This is a **SM2 sm2p256v1** implementation whose performance is similar like golang native NIST P256 under **amd64** . 
 
 **SM2 encryption Benchmark**
 
