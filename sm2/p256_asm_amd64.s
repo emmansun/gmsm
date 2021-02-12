@@ -1,7 +1,3 @@
-// Copyright 2015 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
 // This file contains constant-time, 64-bit assembly implementation of
 // P256. The optimizations performed here are described in detail in:
 // S.Gueron and V.Krasnov, "Fast prime field elliptic-curve cryptography with
@@ -24,8 +20,6 @@
 #define t0 R14
 #define t1 R15
 
-DATA p256const0<>+0x00(SB)/8, $0xffffffff00000000
-DATA p256const1<>+0x00(SB)/8, $0xfffffffeffffffff
 DATA p256p<>+0x00(SB)/8, $0xffffffffffffffff
 DATA p256p<>+0x08(SB)/8, $0xffffffff00000000
 DATA p256p<>+0x10(SB)/8, $0xffffffffffffffff
@@ -39,8 +33,6 @@ DATA p256one<>+0x00(SB)/8, $0x0000000000000001
 DATA p256one<>+0x08(SB)/8, $0x00000000ffffffff
 DATA p256one<>+0x10(SB)/8, $0x0000000000000000
 DATA p256one<>+0x18(SB)/8, $0x0000000100000000
-GLOBL p256const0<>(SB), 8, $8
-GLOBL p256const1<>(SB), 8, $8
 GLOBL p256p<>(SB), RODATA, $32
 GLOBL p256ordK0<>(SB), RODATA, $8
 GLOBL p256ord<>(SB), RODATA, $32
@@ -254,94 +246,82 @@ sqrLoop:
 	ADCQ DX, t1
 	MOVQ t1, x_ptr
 	// First reduction step
-  MOVQ p256p<>+0x08(SB), AX
-  MULQ acc0
-  ADDQ acc0, acc1
-  ADCQ $0, DX
-  ADDQ AX, acc1
-	ADCQ $0, DX
-  MOVQ DX, t1
-  MOVQ p256p<>+0x010(SB), AX
-  MULQ acc0
-	ADDQ t1, acc2
-	ADCQ $0, DX
-	ADDQ AX, acc2
-	ADCQ $0, DX
-	MOVQ DX, t1
-  MOVQ p256p<>+0x018(SB), AX
-  MULQ acc0
-	ADDQ t1, acc3
-	ADCQ $0, DX
-	ADDQ AX, acc3
-	ADCQ $0, DX
-	MOVQ DX, acc0
-	// Second reduction step
-  MOVQ p256p<>+0x08(SB), AX
-  MULQ acc1
-  ADDQ acc1, acc2
-  ADCQ $0, DX
-  ADDQ AX, acc2
-	ADCQ $0, DX
-  MOVQ DX, t1
-  MOVQ p256p<>+0x010(SB), AX
-  MULQ acc1
-	ADDQ t1, acc3
-	ADCQ $0, DX
-	ADDQ AX, acc3
-	ADCQ $0, DX
-	MOVQ DX, t1
-  MOVQ p256p<>+0x018(SB), AX
-  MULQ acc1
-	ADDQ t1, acc0
-	ADCQ $0, DX
-	ADDQ AX, acc0
-	ADCQ $0, DX
-	MOVQ DX, acc1
-	// Third reduction step
-  MOVQ p256p<>+0x08(SB), AX
-  MULQ acc2
-  ADDQ acc2, acc3
-  ADCQ $0, DX
-  ADDQ AX, acc3
-	ADCQ $0, DX
-  MOVQ DX, t1
-  MOVQ p256p<>+0x010(SB), AX
-  MULQ acc2
-	ADDQ t1, acc0
-	ADCQ $0, DX
-	ADDQ AX, acc0
-	ADCQ $0, DX
-	MOVQ DX, t1
-  MOVQ p256p<>+0x018(SB), AX
-  MULQ acc2
+	MOVQ acc0, t1
+	
+	MOVQ t1, AX
+	MOVQ t1, DX
+	SHLQ $32, AX
+	SHRQ $32, DX
+
 	ADDQ t1, acc1
-	ADCQ $0, DX
-	ADDQ AX, acc1
-	ADCQ $0, DX
-	MOVQ DX, acc2
+	ADCQ $0, acc2
+	SUBQ AX, acc1
+	SBBQ DX, acc2
+	
+	ADDQ t1, acc3
+	ADCQ $0, acc0
+	SUBQ AX, acc3
+	SBBQ DX, acc0
+	SUBQ t1, acc3
+	SBBQ $0, acc0
+	// Second reduction step
+	MOVQ acc1, t1
+	
+	MOVQ t1, AX
+	MOVQ t1, DX
+	SHLQ $32, AX
+	SHRQ $32, DX
+
+	ADDQ t1, acc2
+	ADCQ $0, acc3
+	SUBQ AX, acc2
+	SBBQ DX, acc3
+	
+	ADDQ t1, acc0
+	ADCQ $0, acc1
+	SUBQ AX, acc0
+	SBBQ DX, acc1
+	SUBQ t1, acc0
+	SBBQ $0, acc1
+	// Third reduction step
+	MOVQ acc2, t1
+	
+	MOVQ t1, AX
+	MOVQ t1, DX
+	SHLQ $32, AX
+	SHRQ $32, DX
+
+	ADDQ t1, acc3
+	ADCQ $0, acc0
+	SUBQ AX, acc3
+	SBBQ DX, acc0
+	
+	ADDQ t1, acc1
+	ADCQ $0, acc2
+	SUBQ AX, acc1
+	SBBQ DX, acc2
+	SUBQ t1, acc1
+	SBBQ $0, acc2
 	// Last reduction step
 	XORQ t0, t0
-  MOVQ p256p<>+0x08(SB), AX
-  MULQ acc3
-  ADDQ acc3, acc0
-  ADCQ $0, DX
-  ADDQ AX, acc0
-	ADCQ $0, DX
-  MOVQ DX, t1
-  MOVQ p256p<>+0x010(SB), AX
-  MULQ acc3
-	ADDQ t1, acc1
-	ADCQ $0, DX
-	ADDQ AX, acc1
-	ADCQ $0, DX
-	MOVQ DX, t1
-  MOVQ p256p<>+0x018(SB), AX
-  MULQ acc3
+	MOVQ acc3, t1
+	
+	MOVQ t1, AX
+	MOVQ t1, DX
+	SHLQ $32, AX
+	SHRQ $32, DX
+
+	ADDQ t1, acc0
+	ADCQ $0, acc1
+	SUBQ AX, acc0
+	SBBQ DX, acc1
+	
 	ADDQ t1, acc2
-	ADCQ $0, DX
-	ADDQ AX, acc2
-	ADCQ $0, DX
-	MOVQ DX, acc3
+	ADCQ $0, acc3
+	SUBQ AX, acc2
+	SBBQ DX, acc3
+	SUBQ t1, acc2
+	SBBQ $0, acc3
 
 	// Add bits [511:256] of the sqr result
 	ADCQ acc4, acc0
@@ -356,9 +336,9 @@ sqrLoop:
 	MOVQ acc3, t1
 	// Subtract p256
 	SUBQ $-1, acc0
-	SBBQ p256const0<>(SB) ,acc1
+	SBBQ p256p<>+0x08(SB), acc1
 	SBBQ $-1, acc2
-	SBBQ p256const1<>(SB), acc3
+	SBBQ p256p<>+0x018(SB), acc3
 	SBBQ $0, t0
 
 	CMOVQCS acc4, acc0
@@ -408,22 +388,22 @@ TEXT ·p256Mul(SB),NOSPLIT,$0
 	MOVQ DX, acc4
 	XORQ acc5, acc5
 	// First reduction step
-  MOVQ p256p<>+0x08(SB), AX
-  MULQ acc0
-  ADDQ acc0, acc1
-  ADCQ $0, DX
-  ADDQ AX, acc1
+	MOVQ p256p<>+0x08(SB), AX
+	MULQ acc0
+	ADDQ acc0, acc1
 	ADCQ $0, DX
-  MOVQ DX, t1
-  MOVQ p256p<>+0x010(SB), AX
-  MULQ acc0
+	ADDQ AX, acc1
+	ADCQ $0, DX
+	MOVQ DX, t1
+	MOVQ p256p<>+0x010(SB), AX
+	MULQ acc0
 	ADDQ t1, acc2
 	ADCQ $0, DX
 	ADDQ AX, acc2
 	ADCQ $0, DX
 	MOVQ DX, t1
-  MOVQ p256p<>+0x018(SB), AX
-  MULQ acc0
+	MOVQ p256p<>+0x018(SB), AX
+	MULQ acc0
 	ADDQ t1, acc3
 	ADCQ $0, DX
 	ADDQ AX, acc3
@@ -464,22 +444,22 @@ TEXT ·p256Mul(SB),NOSPLIT,$0
 	ADCQ DX, acc5
 	ADCQ $0, acc0
 	// Second reduction step
-  MOVQ p256p<>+0x08(SB), AX
-  MULQ acc1
-  ADDQ acc1, acc2
-  ADCQ $0, DX
-  ADDQ AX, acc2
+	MOVQ p256p<>+0x08(SB), AX
+	MULQ acc1
+	ADDQ acc1, acc2
 	ADCQ $0, DX
-  MOVQ DX, t1
-  MOVQ p256p<>+0x010(SB), AX
-  MULQ acc1
+	ADDQ AX, acc2
+	ADCQ $0, DX
+	MOVQ DX, t1
+	MOVQ p256p<>+0x010(SB), AX
+	MULQ acc1
 	ADDQ t1, acc3
 	ADCQ $0, DX
 	ADDQ AX, acc3
 	ADCQ $0, DX
 	MOVQ DX, t1
-  MOVQ p256p<>+0x018(SB), AX
-  MULQ acc1
+	MOVQ p256p<>+0x018(SB), AX
+	MULQ acc1
 	ADDQ t1, acc4
 	ADCQ $0, DX
 	ADDQ AX, acc4
@@ -520,22 +500,22 @@ TEXT ·p256Mul(SB),NOSPLIT,$0
 	ADCQ DX, acc0
 	ADCQ $0, acc1
 	// Third reduction step
-  MOVQ p256p<>+0x08(SB), AX
-  MULQ acc2
-  ADDQ acc2, acc3
-  ADCQ $0, DX
-  ADDQ AX, acc3
+	MOVQ p256p<>+0x08(SB), AX
+	MULQ acc2
+	ADDQ acc2, acc3
 	ADCQ $0, DX
-  MOVQ DX, t1
-  MOVQ p256p<>+0x010(SB), AX
-  MULQ acc2
+	ADDQ AX, acc3
+	ADCQ $0, DX
+	MOVQ DX, t1
+	MOVQ p256p<>+0x010(SB), AX
+	MULQ acc2
 	ADDQ t1, acc4
 	ADCQ $0, DX
 	ADDQ AX, acc4
 	ADCQ $0, DX
 	MOVQ DX, t1
-  MOVQ p256p<>+0x018(SB), AX
-  MULQ acc2
+	MOVQ p256p<>+0x018(SB), AX
+	MULQ acc2
 	ADDQ t1, acc5
 	ADCQ $0, DX
 	ADDQ AX, acc5
@@ -575,22 +555,22 @@ TEXT ·p256Mul(SB),NOSPLIT,$0
 	ADCQ DX, acc1
 	ADCQ $0, acc2
 	// Last reduction step
-  MOVQ p256p<>+0x08(SB), AX
-  MULQ acc3
-  ADDQ acc3, acc4
-  ADCQ $0, DX
-  ADDQ AX, acc4
+	MOVQ p256p<>+0x08(SB), AX
+	MULQ acc3
+	ADDQ acc3, acc4
 	ADCQ $0, DX
-  MOVQ DX, t1
-  MOVQ p256p<>+0x010(SB), AX
-  MULQ acc3
+	ADDQ AX, acc4
+	ADCQ $0, DX
+	MOVQ DX, t1
+	MOVQ p256p<>+0x010(SB), AX
+	MULQ acc3
 	ADDQ t1, acc5
 	ADCQ $0, DX
 	ADDQ AX, acc5
 	ADCQ $0, DX
 	MOVQ DX, t1
-  MOVQ p256p<>+0x018(SB), AX
-  MULQ acc3
+	MOVQ p256p<>+0x018(SB), AX
+	MULQ acc3
 	ADDQ t1, acc0
 	ADCQ $0, DX
 	ADDQ AX, acc0
@@ -603,9 +583,9 @@ TEXT ·p256Mul(SB),NOSPLIT,$0
 	MOVQ acc1, t1
 	// Subtract p256
 	SUBQ $-1, acc4
-	SBBQ p256const0<>(SB) ,acc5
+	SBBQ p256p<>+0x08(SB), acc5
 	SBBQ $-1, acc0
-	SBBQ p256const1<>(SB), acc1
+	SBBQ p256p<>+0x018(SB), acc1
 	SBBQ $0, acc2
 
 	CMOVQCS x_ptr, acc4
@@ -633,22 +613,22 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 
 	// Only reduce, no multiplications are needed
 	// First stage
-  MOVQ p256p<>+0x08(SB), AX
-  MULQ acc0
-  ADDQ acc0, acc1
-  ADCQ $0, DX
-  ADDQ AX, acc1
+	MOVQ p256p<>+0x08(SB), AX
+	MULQ acc0
+	ADDQ acc0, acc1
 	ADCQ $0, DX
-  MOVQ DX, t1
-  MOVQ p256p<>+0x010(SB), AX
-  MULQ acc0
+	ADDQ AX, acc1
+	ADCQ $0, DX
+	MOVQ DX, t1
+	MOVQ p256p<>+0x010(SB), AX
+	MULQ acc0
 	ADDQ t1, acc2
 	ADCQ $0, DX
 	ADDQ AX, acc2
 	ADCQ $0, DX
 	MOVQ DX, t1
-  MOVQ p256p<>+0x018(SB), AX
-  MULQ acc0
+	MOVQ p256p<>+0x018(SB), AX
+	MULQ acc0
 	ADDQ t1, acc3
 	ADCQ $0, DX
 	ADDQ AX, acc3
@@ -656,66 +636,66 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	XORQ acc5, acc5
 
 	// Second stage
-  MOVQ p256p<>+0x08(SB), AX
-  MULQ acc1
-  ADDQ acc1, acc2
-  ADCQ $0, DX
-  ADDQ AX, acc2
+	MOVQ p256p<>+0x08(SB), AX
+	MULQ acc1
+	ADDQ acc1, acc2
 	ADCQ $0, DX
-  MOVQ DX, t1
-  MOVQ p256p<>+0x010(SB), AX
-  MULQ acc1
+	ADDQ AX, acc2
+	ADCQ $0, DX
+	MOVQ DX, t1
+	MOVQ p256p<>+0x010(SB), AX
+	MULQ acc1
 	ADDQ t1, acc3
 	ADCQ $0, DX
 	ADDQ AX, acc3
 	ADCQ $0, DX
 	MOVQ DX, t1
-  MOVQ p256p<>+0x018(SB), AX
-  MULQ acc1
+	MOVQ p256p<>+0x018(SB), AX
+	MULQ acc1
 	ADDQ t1, acc4
 	ADCQ $0, DX
 	ADDQ AX, acc4
 	ADCQ DX, acc5
 	XORQ acc0, acc0
 	// Third stage
-  MOVQ p256p<>+0x08(SB), AX
-  MULQ acc2
-  ADDQ acc2, acc3
-  ADCQ $0, DX
-  ADDQ AX, acc3
+	MOVQ p256p<>+0x08(SB), AX
+	MULQ acc2
+	ADDQ acc2, acc3
 	ADCQ $0, DX
-  MOVQ DX, t1
-  MOVQ p256p<>+0x010(SB), AX
-  MULQ acc2
+	ADDQ AX, acc3
+	ADCQ $0, DX
+	MOVQ DX, t1
+	MOVQ p256p<>+0x010(SB), AX
+	MULQ acc2
 	ADDQ t1, acc4
 	ADCQ $0, DX
 	ADDQ AX, acc4
 	ADCQ $0, DX
 	MOVQ DX, t1
-  MOVQ p256p<>+0x018(SB), AX
-  MULQ acc2
+	MOVQ p256p<>+0x018(SB), AX
+	MULQ acc2
 	ADDQ t1, acc5
 	ADCQ $0, DX
 	ADDQ AX, acc5
 	ADCQ DX, acc0
 	XORQ acc1, acc1
 	// Last stage
-  MOVQ p256p<>+0x08(SB), AX
-  MULQ acc3
-  ADDQ acc3, acc4
-  ADCQ $0, DX
-  ADDQ AX, acc4
+	MOVQ p256p<>+0x08(SB), AX
+	MULQ acc3
+	ADDQ acc3, acc4
 	ADCQ $0, DX
-  MOVQ DX, t1
-  MOVQ p256p<>+0x010(SB), AX
-  MULQ acc3
+	ADDQ AX, acc4
+	ADCQ $0, DX
+	MOVQ DX, t1
+	MOVQ p256p<>+0x010(SB), AX
+	MULQ acc3
 	ADDQ t1, acc5
 	ADCQ $0, DX
 	ADDQ AX, acc5
 	ADCQ $0, DX
 	MOVQ DX, t1
-  MOVQ p256p<>+0x018(SB), AX
-  MULQ acc3
+	MOVQ p256p<>+0x018(SB), AX
+	MULQ acc3
 	ADDQ t1, acc0
 	ADCQ $0, DX
 	ADDQ AX, acc0
@@ -727,9 +707,9 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	MOVQ acc1, t1
 
 	SUBQ $-1, acc4
-	SBBQ p256const0<>(SB), acc5
+	SBBQ p256p<>+0x08(SB), acc5
 	SBBQ $-1, acc0
-	SBBQ p256const1<>(SB), acc1
+	SBBQ p256p<>+0x018(SB), acc1
 
 	CMOVQCS x_ptr, acc4
 	CMOVQCS acc3, acc5
@@ -1473,9 +1453,9 @@ TEXT sm2P256SubInternal(SB),NOSPLIT,$0
 	MOVQ acc7, acc3
 
 	ADDQ $-1, acc4
-	ADCQ p256const0<>(SB), acc5
+	ADCQ p256p<>+0x08(SB), acc5
 	ADCQ $-1, acc6
-	ADCQ p256const1<>(SB), acc7
+	ADCQ p256p<>+0x018(SB), acc7
 	ANDQ $1, mul0
 
 	CMOVQEQ acc0, acc4
@@ -1599,93 +1579,81 @@ TEXT sm2P256MulInternal(SB),NOSPLIT,$0
 	ADCQ $0, mul1
 	MOVQ mul1, acc7
 	// First reduction step
-	MOVQ p256p<>+0x08(SB), mul0
-	MULQ acc0
-	ADDQ acc0, acc1
-	ADCQ $0, mul1
-	ADDQ mul0, acc1
-	ADCQ $0, mul1
-	MOVQ mul1, hlp
-	MOVQ p256p<>+0x010(SB), mul0
-	MULQ acc0
-	ADDQ hlp, acc2
-	ADCQ $0, mul1
-	ADDQ mul0, acc2
-	ADCQ $0, mul1
-	MOVQ mul1, hlp
-	MOVQ p256p<>+0x018(SB), mul0
-	MULQ acc0
+	MOVQ acc0, hlp
+	
+	MOVQ hlp, mul0
+	MOVQ hlp, mul1
+	SHLQ $32, mul0
+	SHRQ $32, mul1
+
+	ADDQ hlp, acc1
+	ADCQ $0, acc2
+	SUBQ mul0, acc1
+	SBBQ mul1, acc2
+	
 	ADDQ hlp, acc3
-	ADCQ $0, mul1
-	ADDQ mul0, acc3
-	ADCQ $0, mul1
-	MOVQ mul1, acc0
+	ADCQ $0, acc0
+	SUBQ mul0, acc3
+	SBBQ mul1, acc0
+	SUBQ hlp, acc3
+	SBBQ $0, acc0
 	// Second reduction step
-	MOVQ p256p<>+0x08(SB), mul0
-	MULQ acc1
-	ADDQ acc1, acc2
-	ADCQ $0, mul1
-	ADDQ mul0, acc2
-	ADCQ $0, mul1
-	MOVQ mul1, hlp
-	MOVQ p256p<>+0x010(SB), mul0
-	MULQ acc1
-	ADDQ hlp, acc3
-	ADCQ $0, mul1
-	ADDQ mul0, acc3
-	ADCQ $0, mul1
-	MOVQ mul1, hlp
-	MOVQ p256p<>+0x018(SB), mul0
-	MULQ acc1
-	ADDQ hlp, acc0
-	ADCQ $0, mul1
-	ADDQ mul0, acc0
-	ADCQ $0, mul1
-	MOVQ mul1, acc1
-	// Third reduction step
-	MOVQ p256p<>+0x08(SB), mul0
-	MULQ acc2
-	ADDQ acc2, acc3
-	ADCQ $0, mul1
-	ADDQ mul0, acc3
-	ADCQ $0, mul1
-	MOVQ mul1, hlp
-	MOVQ p256p<>+0x010(SB), mul0
-	MULQ acc2
-	ADDQ hlp, acc0
-	ADCQ $0, mul1
-	ADDQ mul0, acc0
-	ADCQ $0, mul1
-	MOVQ mul1, hlp
-	MOVQ p256p<>+0x018(SB), mul0
-	MULQ acc2
-	ADDQ hlp, acc1
-	ADCQ $0, mul1
-	ADDQ mul0, acc1
-	ADCQ $0, mul1
-	MOVQ mul1, acc2
-	// Last reduction step
-	MOVQ p256p<>+0x08(SB), mul0
-	MULQ acc3
-	ADDQ acc3, acc0
-	ADCQ $0, mul1
-	ADDQ mul0, acc0
-	ADCQ $0, mul1
-	MOVQ mul1, hlp
-	MOVQ p256p<>+0x010(SB), mul0
-	MULQ acc3
-	ADDQ hlp, acc1
-	ADCQ $0, mul1
-	ADDQ mul0, acc1
-	ADCQ $0, mul1
-	MOVQ mul1, hlp
-	MOVQ p256p<>+0x018(SB), mul0
-	MULQ acc3
+	MOVQ acc1, hlp
+	
+	MOVQ hlp, mul0
+	MOVQ hlp, mul1
+	SHLQ $32, mul0
+	SHRQ $32, mul1
+
 	ADDQ hlp, acc2
-	ADCQ $0, mul1
-	ADDQ mul0, acc2
-	ADCQ $0, mul1
-	MOVQ mul1, acc3
+	ADCQ $0, acc3
+	SUBQ mul0, acc2
+	SBBQ mul1, acc3
+	
+	ADDQ hlp, acc0
+	ADCQ $0, acc1
+	SUBQ mul0, acc0
+	SBBQ mul1, acc1
+	SUBQ hlp, acc0
+	SBBQ $0, acc1
+	// Third reduction step
+	MOVQ acc2, hlp
+	
+	MOVQ hlp, mul0
+	MOVQ hlp, mul1
+	SHLQ $32, mul0
+	SHRQ $32, mul1
+
+	ADDQ hlp, acc3
+	ADCQ $0, acc0
+	SUBQ mul0, acc3
+	SBBQ mul1, acc0
+	
+	ADDQ hlp, acc1
+	ADCQ $0, acc2
+	SUBQ mul0, acc1
+	SBBQ mul1, acc2
+	SUBQ hlp, acc1
+	SBBQ $0, acc2
+	// Last reduction step
+	MOVQ acc3, hlp
+	
+	MOVQ hlp, mul0
+	MOVQ hlp, mul1
+	SHLQ $32, mul0
+	SHRQ $32, mul1
+
+	ADDQ hlp, acc0
+	ADCQ $0, acc1
+	SUBQ mul0, acc0
+	SBBQ mul1, acc1
+	
+	ADDQ hlp, acc2
+	ADCQ $0, acc3
+	SUBQ mul0, acc2
+	SBBQ mul1, acc3
+	SUBQ hlp, acc2
+	SBBQ $0, acc3
 	MOVQ $0, BP
 	// Add bits [511:256] of the result
 	ADCQ acc0, acc4
@@ -1700,9 +1668,9 @@ TEXT sm2P256MulInternal(SB),NOSPLIT,$0
 	MOVQ acc7, acc3
 	// Subtract p256
 	SUBQ $-1, acc4
-	SBBQ p256const0<>(SB) ,acc5
+	SBBQ p256p<>+0x08(SB), acc5
 	SBBQ $-1, acc6
-	SBBQ p256const1<>(SB), acc7
+	SBBQ p256p<>+0x018(SB), acc7
 	SBBQ $0, hlp
 	// If the result of the subtraction is negative, restore the previous result
 	CMOVQCS acc0, acc4
@@ -1886,9 +1854,9 @@ TEXT sm2P256SqrInternal(SB),NOSPLIT,$0
 	MOVQ t3, acc7
 	// Subtract p256
 	SUBQ $-1, acc4
-	SBBQ p256const0<>(SB) ,acc5
+	SBBQ p256p<>+0x08(SB), acc5
 	SBBQ $-1, acc6
-	SBBQ p256const1<>(SB), acc7
+	SBBQ p256p<>+0x018(SB), acc7
 	SBBQ $0, hlp
 	// If the result of the subtraction is negative, restore the previous result
 	CMOVQCS t0, acc4
@@ -1910,9 +1878,9 @@ TEXT sm2P256SqrInternal(SB),NOSPLIT,$0
 	MOVQ acc6, t2;\
 	MOVQ acc7, t3;\
 	SUBQ $-1, t0;\
-	SBBQ p256const0<>(SB), t1;\
+	SBBQ p256p<>+0x08(SB), t1;\
 	SBBQ $-1, t2;\
-	SBBQ p256const1<>(SB), t3;\
+	SBBQ p256p<>+0x018(SB), t3;\
 	SBBQ $0, mul0;\
 	CMOVQCS acc4, t0;\
 	CMOVQCS acc5, t1;\
@@ -1931,9 +1899,9 @@ TEXT sm2P256SqrInternal(SB),NOSPLIT,$0
 	MOVQ acc6, t2;\
 	MOVQ acc7, t3;\
 	SUBQ $-1, t0;\
-	SBBQ p256const0<>(SB), t1;\
+	SBBQ p256p<>+0x08(SB), t1;\
 	SBBQ $-1, t2;\
-	SBBQ p256const1<>(SB), t3;\
+	SBBQ p256p<>+0x018(SB), t3;\
 	SBBQ $0, mul0;\
 	CMOVQCS acc4, t0;\
 	CMOVQCS acc5, t1;\
@@ -2005,9 +1973,9 @@ TEXT ·p256PointAddAffineAsm(SB),0,$512-96
 	MOVQ (16*2 + 8*2)(CX), acc6
 	MOVQ (16*2 + 8*3)(CX), acc7
 	MOVQ $-1, acc0
-	MOVQ p256const0<>(SB), acc1
+	MOVQ p256p<>+0x08(SB), acc1
 	MOVQ $-1, acc2
-	MOVQ p256const1<>(SB), acc3
+	MOVQ p256p<>+0x018(SB), acc3
 	XORQ mul0, mul0
 	// Speculatively subtract
 	SUBQ acc4, acc0
@@ -2021,9 +1989,9 @@ TEXT ·p256PointAddAffineAsm(SB),0,$512-96
 	MOVQ acc3, t3
 	// Add in case the operand was > p256
 	ADDQ $-1, acc0
-	ADCQ p256const0<>(SB), acc1
+	ADCQ p256p<>+0x08(SB), acc1
 	ADCQ $-1, acc2
-	ADCQ p256const1<>(SB), acc3
+	ADCQ p256p<>+0x018(SB), acc3
 	ADCQ $0, mul0
 	CMOVQNE t0, acc0
 	CMOVQNE t1, acc1
@@ -2242,9 +2210,9 @@ TEXT sm2P256IsZero(SB),NOSPLIT,$0
 
 	// XOR [acc4..acc7] with P and compare with zero again.
 	XORQ $-1, acc4
-	XORQ p256const0<>(SB), acc5
+	XORQ p256p<>+0x08(SB), acc5
 	XORQ $-1, acc6
-	XORQ p256const1<>(SB), acc7
+	XORQ p256p<>+0x018(SB), acc7
 	ORQ acc5, acc4
 	ORQ acc6, acc4
 	ORQ acc7, acc4
@@ -2526,9 +2494,9 @@ TEXT ·p256PointDoubleAsm(SB),NOSPLIT,$256-48
 	MOVQ acc7, t3
 
 	ADDQ $-1, acc4
-	ADCQ p256const0<>(SB), acc5
+	ADCQ p256p<>+0x08(SB), acc5
 	ADCQ $-1, acc6
-	ADCQ p256const1<>(SB), acc7
+	ADCQ p256p<>+0x018(SB), acc7
 	ADCQ $0, mul0
 	TESTQ $1, t0
 
