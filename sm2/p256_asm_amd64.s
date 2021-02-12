@@ -1753,93 +1753,81 @@ TEXT sm2P256SqrInternal(SB),NOSPLIT,$0
 	ADCQ mul0, t2
 	ADCQ DX, t3
 	// First reduction step
-	MOVQ p256p<>+0x08(SB), mul0
-	MULQ acc0
-	ADDQ acc0, acc1
-	ADCQ $0, mul1
-	ADDQ mul0, acc1
-	ADCQ $0, mul1
-	MOVQ mul1, hlp
-	MOVQ p256p<>+0x010(SB), mul0
-	MULQ acc0
-	ADDQ hlp, acc2
-	ADCQ $0, mul1
-	ADDQ mul0, acc2
-	ADCQ $0, mul1
-	MOVQ mul1, hlp
-	MOVQ p256p<>+0x018(SB), mul0
-	MULQ acc0
+	MOVQ acc0, hlp
+	
+	MOVQ hlp, mul0
+	MOVQ hlp, mul1
+	SHLQ $32, mul0
+	SHRQ $32, mul1
+
+	ADDQ hlp, acc1
+	ADCQ $0, acc2
+	SUBQ mul0, acc1
+	SBBQ mul1, acc2
+	
 	ADDQ hlp, acc3
-	ADCQ $0, mul1
-	ADDQ mul0, acc3
-	ADCQ $0, mul1
-	MOVQ mul1, acc0
+	ADCQ $0, acc0
+	SUBQ mul0, acc3
+	SBBQ mul1, acc0
+	SUBQ hlp, acc3
+	SBBQ $0, acc0
 	// Second reduction step
-	MOVQ p256p<>+0x08(SB), mul0
-	MULQ acc1
-	ADDQ acc1, acc2
-	ADCQ $0, mul1
-	ADDQ mul0, acc2
-	ADCQ $0, mul1
-	MOVQ mul1, hlp
-	MOVQ p256p<>+0x010(SB), mul0
-	MULQ acc1
-	ADDQ hlp, acc3
-	ADCQ $0, mul1
-	ADDQ mul0, acc3
-	ADCQ $0, mul1
-	MOVQ mul1, hlp
-	MOVQ p256p<>+0x018(SB), mul0
-	MULQ acc1
-	ADDQ hlp, acc0
-	ADCQ $0, mul1
-	ADDQ mul0, acc0
-	ADCQ $0, mul1
-	MOVQ mul1, acc1
-	// Third reduction step
-	MOVQ p256p<>+0x08(SB), mul0
-	MULQ acc2
-	ADDQ acc2, acc3
-	ADCQ $0, mul1
-	ADDQ mul0, acc3
-	ADCQ $0, mul1
-	MOVQ mul1, hlp
-	MOVQ p256p<>+0x010(SB), mul0
-	MULQ acc2
-	ADDQ hlp, acc0
-	ADCQ $0, mul1
-	ADDQ mul0, acc0
-	ADCQ $0, mul1
-	MOVQ mul1, hlp
-	MOVQ p256p<>+0x018(SB), mul0
-	MULQ acc2
-	ADDQ hlp, acc1
-	ADCQ $0, mul1
-	ADDQ mul0, acc1
-	ADCQ $0, mul1
-	MOVQ mul1, acc2
-	// Last reduction step
-	MOVQ p256p<>+0x08(SB), mul0
-	MULQ acc3
-	ADDQ acc3, acc0
-	ADCQ $0, mul1
-	ADDQ mul0, acc0
-	ADCQ $0, mul1
-	MOVQ mul1, hlp
-	MOVQ p256p<>+0x010(SB), mul0
-	MULQ acc3
-	ADDQ hlp, acc1
-	ADCQ $0, mul1
-	ADDQ mul0, acc1
-	ADCQ $0, mul1
-	MOVQ mul1, hlp
-	MOVQ p256p<>+0x018(SB), mul0
-	MULQ acc3
+	MOVQ acc1, hlp
+	
+	MOVQ hlp, mul0
+	MOVQ hlp, mul1
+	SHLQ $32, mul0
+	SHRQ $32, mul1
+
 	ADDQ hlp, acc2
-	ADCQ $0, mul1
-	ADDQ mul0, acc2
-	ADCQ $0, mul1
-	MOVQ mul1, acc3
+	ADCQ $0, acc3
+	SUBQ mul0, acc2
+	SBBQ mul1, acc3
+	
+	ADDQ hlp, acc0
+	ADCQ $0, acc1
+	SUBQ mul0, acc0
+	SBBQ mul1, acc1
+	SUBQ hlp, acc0
+	SBBQ $0, acc1
+	// Third reduction step
+	MOVQ acc2, hlp
+	
+	MOVQ hlp, mul0
+	MOVQ hlp, mul1
+	SHLQ $32, mul0
+	SHRQ $32, mul1
+
+	ADDQ hlp, acc3
+	ADCQ $0, acc0
+	SUBQ mul0, acc3
+	SBBQ mul1, acc0
+	
+	ADDQ hlp, acc1
+	ADCQ $0, acc2
+	SUBQ mul0, acc1
+	SBBQ mul1, acc2
+	SUBQ hlp, acc1
+	SBBQ $0, acc2
+	// Last reduction step
+	MOVQ acc3, hlp
+	
+	MOVQ hlp, mul0
+	MOVQ hlp, mul1
+	SHLQ $32, mul0
+	SHRQ $32, mul1
+
+	ADDQ hlp, acc0
+	ADCQ $0, acc1
+	SUBQ mul0, acc0
+	SBBQ mul1, acc1
+	
+	ADDQ hlp, acc2
+	ADCQ $0, acc3
+	SUBQ mul0, acc2
+	SBBQ mul1, acc3
+	SUBQ hlp, acc2
+	SBBQ $0, acc3
 	MOVQ $0, BP
 	// Add bits [511:256] of the result
 	ADCQ acc0, t0
