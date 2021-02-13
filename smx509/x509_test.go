@@ -1,4 +1,4 @@
-package sm2
+package smx509
 
 import (
 	"crypto/ecdsa"
@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/emmansun/gmsm/sm2"
 )
 
 const publicKeyPemFromAliKms = `-----BEGIN PUBLIC KEY-----
@@ -70,7 +72,7 @@ func TestParseCertificateRequest(t *testing.T) {
 }
 
 func TestCreateCertificateRequest(t *testing.T) {
-	priv, _ := GenerateKey(rand.Reader)
+	priv, _ := sm2.GenerateKey(rand.Reader)
 	names := pkix.Name{CommonName: "TestName"}
 	var template = x509.CertificateRequest{Subject: names}
 	csrblock, err := CreateCertificateRequest(rand.Reader, &template, priv)
@@ -104,7 +106,7 @@ func TestSignByAliVerifyAtLocal(t *testing.T) {
 	pub, err := getPublicKey([]byte(publicKeyPemFromAliKmsForSign))
 	pub1 := pub.(*ecdsa.PublicKey)
 	hashValue, _ := base64.StdEncoding.DecodeString(hashBase64)
-	result := Verify(pub1, hashValue, rs.R, rs.S)
+	result := sm2.Verify(pub1, hashValue, rs.R, rs.S)
 	if !result {
 		t.Error("Verify fail")
 	}
@@ -116,7 +118,7 @@ func TestParsePKIXPublicKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	pub1 := pub.(*ecdsa.PublicKey)
-	encrypted, err := Encrypt(rand.Reader, pub1, []byte("testfile"))
+	encrypted, err := sm2.Encrypt(rand.Reader, pub1, []byte("testfile"))
 	if err != nil {
 		t.Fatal(err)
 	}

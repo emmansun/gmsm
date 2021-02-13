@@ -1,4 +1,4 @@
-package sm2
+package smx509
 
 import (
 	"crypto"
@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/emmansun/gmsm/sm3"
+	"github.com/emmansun/gmsm/sm2"
 )
 
 // pkixPublicKey reflects a PKIX public key structure. See SubjectPublicKeyInfo
@@ -38,11 +38,9 @@ type pkcs1PublicKey struct {
 	E int
 }
 
-type dsaSignature struct {
+type ecdsaSignature struct {
 	R, S *big.Int
 }
-
-type ecdsaSignature dsaSignature
 
 // http://gmssl.org/docs/oid.html
 var (
@@ -67,7 +65,7 @@ func oidFromNamedCurve(curve elliptic.Curve) (asn1.ObjectIdentifier, bool) {
 		return oidNamedCurveP384, true
 	case elliptic.P521():
 		return oidNamedCurveP521, true
-	case P256():
+	case sm2.P256():
 		return oidNamedCurveP256SM2, true
 	}
 
@@ -85,7 +83,7 @@ func namedCurveFromOID(oid asn1.ObjectIdentifier) elliptic.Curve {
 	case oid.Equal(oidNamedCurveP521):
 		return elliptic.P521()
 	case oid.Equal(oidNamedCurveP256SM2):
-		return P256()
+		return sm2.P256()
 	}
 	return nil
 }
@@ -124,7 +122,7 @@ func ParsePKIXPublicKey(derBytes []byte) (interface{}, error) {
 	if !namedCurveOID.Equal(oidNamedCurveP256SM2) {
 		return x509.ParsePKIXPublicKey(derBytes)
 	}
-	namedCurve := P256()
+	namedCurve := sm2.P256()
 	x, y := elliptic.Unmarshal(namedCurve, asn1Data)
 	if x == nil {
 		return nil, errors.New("x509: failed to unmarshal elliptic curve point")
@@ -145,7 +143,7 @@ func ParsePKIXPublicKey(derBytes []byte) (interface{}, error) {
 // This kind of key is commonly encoded in PEM blocks of type "PUBLIC KEY".
 func MarshalPKIXPublicKey(pub interface{}) ([]byte, error) {
 	ecdPub, ok := pub.(*ecdsa.PublicKey)
-	if !ok || ecdPub.Curve != P256() {
+	if !ok || ecdPub.Curve != sm2.P256() {
 		return x509.MarshalPKIXPublicKey(pub)
 	}
 
@@ -197,7 +195,7 @@ func CreateCertificateRequest(rand io.Reader, template *x509.CertificateRequest,
 	if !ok {
 		return nil, errors.New("x509: certificate private key does not implement crypto.Signer")
 	}
-	privKey, ok := key.(*PrivateKey)
+	privKey, ok := key.(*sm2.PrivateKey)
 	if !ok {
 		return x509.CreateCertificateRequest(rand, template, priv)
 	}
@@ -338,17 +336,8 @@ func CreateCertificateRequest(rand io.Reader, template *x509.CertificateRequest,
 	tbsCSR.Raw = tbsCSRContents
 
 	signed := tbsCSRContents
-	za, err := CalculateZA(&privKey.PublicKey, defaultUID) //Emman, use template.Subject as UID?
-	if err != nil {
-		return
-	}
-	h := sm3.New()
-	h.Write(za)
-	h.Write(signed)
-	signed = h.Sum(nil)
 
-	var signature []byte
-	signature, err = privKey.Sign(rand, signed, nil)
+	signature, err := privKey.SignWithSM2(rand, nil, signed)
 	if err != nil {
 		return
 	}
@@ -739,7 +728,7 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) x509.PublicKeyAlgor
 func CheckSignature(c *x509.CertificateRequest) error {
 	if c.PublicKeyAlgorithm == x509.ECDSA {
 		pub, ok := c.PublicKey.(*ecdsa.PublicKey)
-		if ok && strings.EqualFold(P256().Params().Name, pub.Curve.Params().Name) {
+		if ok && strings.EqualFold(sm2.P256().Params().Name, pub.Curve.Params().Name) {
 			return checkSignature(c, pub)
 		}
 	}
@@ -759,7 +748,7 @@ func checkSignature(c *x509.CertificateRequest, publicKey *ecdsa.PublicKey) (err
 	if ecdsaSig.R.Sign() <= 0 || ecdsaSig.S.Sign() <= 0 {
 		return errors.New("x509: ECDSA signature contained zero or negative values")
 	}
-	if !VerifyWithSM2(publicKey, nil, signed, ecdsaSig.R, ecdsaSig.S) {
+	if !sm2.VerifyWithSM2(publicKey, nil, signed, ecdsaSig.R, ecdsaSig.S) {
 		return errors.New("x509: ECDSA verification failure")
 	}
 	return

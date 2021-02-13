@@ -118,7 +118,7 @@ var (
 	}
 )
 
-// Inverse, implements invertible interface, need to test this function's correctness
+// Inverse, implements invertible interface, used by Sign()
 // n-2 =
 // 1111111111111111111111111111111011111111111111111111111111111111
 // 1111111111111111111111111111111111111111111111111111111111111111

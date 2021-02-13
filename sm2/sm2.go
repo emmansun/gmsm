@@ -43,6 +43,10 @@ type PrivateKey struct {
 	ecdsa.PrivateKey
 }
 
+type ecdsaSignature struct {
+	R, S *big.Int
+}
+
 // Sign signs digest with priv, reading randomness from rand. The opts argument
 // is not currently used but, in keeping with the crypto.Signer interface,
 // should be the hash function used to digest the message.
@@ -52,6 +56,16 @@ type PrivateKey struct {
 // uses should use the Sign function in this package directly.
 func (priv *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
 	r, s, err := Sign(rand, &priv.PrivateKey, digest)
+	if err != nil {
+		return nil, err
+	}
+
+	return asn1.Marshal(ecdsaSignature{r, s})
+}
+
+// SignWithSM2 signs uid, msg with SignWithSM2 method.
+func (priv *PrivateKey) SignWithSM2(rand io.Reader, uid, msg []byte) ([]byte, error) {
+	r, s, err := SignWithSM2(rand, &priv.PrivateKey, uid, msg)
 	if err != nil {
 		return nil, err
 	}
