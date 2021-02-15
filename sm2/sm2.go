@@ -38,7 +38,7 @@ type combinedMult interface {
 	CombinedMult(bigX, bigY *big.Int, baseScalar, scalar []byte) (x, y *big.Int)
 }
 
-// PrivateKey represents an ECDSA private key.
+// PrivateKey represents an ECDSA SM2 private key.
 type PrivateKey struct {
 	ecdsa.PrivateKey
 }
@@ -75,6 +75,15 @@ func (mode pointMarshalMode) mashal(curve elliptic.Curve, x, y *big.Int) []byte 
 }
 
 var defaultEncrypterOpts = EncrypterOpts{MarshalUncompressed}
+
+// FromECPrivateKey convert an ecdsa private key to SM2 private key
+func (priv *PrivateKey) FromECPrivateKey(key *ecdsa.PrivateKey) (*PrivateKey, error) {
+	if key.Curve != P256() {
+		return nil, errors.New("It's NOT a sm2 curve private key")
+	}
+	priv.PrivateKey = *key
+	return priv, nil
+}
 
 // Sign signs digest with priv, reading randomness from rand. The opts argument
 // is not currently used but, in keeping with the crypto.Signer interface,

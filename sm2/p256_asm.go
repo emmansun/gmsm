@@ -446,7 +446,7 @@ func boothW6(in uint) (int, int) {
 	return int(d), int(s & 1)
 }
 
-// table[i][j] = (2^(6*i))*j*G mod P
+// table[i][j] = (2^(6*i))*(j+1)*G mod P
 func initTable() {
 	p256Precomputed = new([43][32 * 8]uint64)
 
