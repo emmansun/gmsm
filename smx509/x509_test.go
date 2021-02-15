@@ -118,7 +118,7 @@ func TestParsePKIXPublicKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	pub1 := pub.(*ecdsa.PublicKey)
-	encrypted, err := sm2.Encrypt(rand.Reader, pub1, []byte("testfile"))
+	encrypted, err := sm2.Encrypt(rand.Reader, pub1, []byte("testfile"), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
