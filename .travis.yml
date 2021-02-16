@@ -5,6 +5,8 @@ go:
 
 sudo: false
 
-script:
+install:
   - go mod download
+
+script:
   - go test -v ./...
