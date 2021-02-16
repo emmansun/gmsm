@@ -338,6 +338,41 @@ func (c *Certificate) checkNameConstraints(count *int,
 	return nil
 }
 
+// domainToReverseLabels converts a textual domain name like foo.example.com to
+// the list of labels in reverse order, e.g. ["com", "example", "foo"].
+func domainToReverseLabels(domain string) (reverseLabels []string, ok bool) {
+	for len(domain) > 0 {
+		if i := strings.LastIndexByte(domain, '.'); i == -1 {
+			reverseLabels = append(reverseLabels, domain)
+			domain = ""
+		} else {
+			reverseLabels = append(reverseLabels, domain[i+1:])
+			domain = domain[:i]
+		}
+	}
+
+	if len(reverseLabels) > 0 && len(reverseLabels[0]) == 0 {
+		// An empty label at the end indicates an absolute value.
+		return nil, false
+	}
+
+	for _, label := range reverseLabels {
+		if len(label) == 0 {
+			// Empty labels are otherwise invalid.
+			return nil, false
+		}
+
+		for _, c := range label {
+			if c < 33 || c > 126 {
+				// Invalid character.
+				return nil, false
+			}
+		}
+	}
+
+	return reverseLabels, true
+}
+
 // isValid performs validity checks on c given that it is a candidate to append
 // to the chain in currentChain.
 func (c *Certificate) isValid(certType int, currentChain []*Certificate, opts *VerifyOptions) error {
