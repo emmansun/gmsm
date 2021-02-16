@@ -2325,14 +2325,11 @@ func (c *Certificate) CreateCRL(rand io.Reader, priv interface{}, revokedCerts [
 	signed := tbsCertListContents
 	var signature []byte
 	if signatureAlgorithm.Algorithm.Equal(oidSignatureSM2WithSM3) {
-		privKey, ok := key.(*sm2.PrivateKey)
-		if !ok {
-			ecKey, ok := key.(*ecdsa.PrivateKey)
-			if ok && ecKey.Curve == sm2.P256() {
-				privKey, _ = new(sm2.PrivateKey).FromECPrivateKey(ecKey)
-			}
+		if smKey, ok := priv.(sm2.Signer); ok {
+			signature, err = smKey.SignWithSM2(rand, nil, signed)
+		} else {
+			return nil, errors.New("x509: require sm2 private key")
 		}
-		signature, err = privKey.SignWithSM2(rand, nil, signed)
 	} else {
 		if hashFunc != 0 {
 			h := hashFunc.New()
