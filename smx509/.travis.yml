@@ -1,5 +1,10 @@
 language: go
+
 go:
-- 1.14.x
+  - "1.14.x"
+
+sudo: false
+
 script:
-- go test -v ./...
+  - go mod download
+  - go test -v ./...
