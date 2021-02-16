@@ -12,6 +12,7 @@ import (
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -141,6 +142,24 @@ FOq7cMJvODRwvMin9HwNHijXKp8iikXoAnaEHi1kLR4JtSlxH5WKTnmHUWCa54ZA
 9mDH0e5odhcdkMySkwc=
 -----END CERTIFICATE-----`
 
+const sm2Certificate = `
+-----BEGIN CERTIFICATE-----
+MIICiDCCAiygAwIBAgIQLaGmvQznbGJOY0t9ainQKjAMBggqgRzPVQGDdQUAMC4x
+CzAJBgNVBAYTAkNOMQ4wDAYDVQQKDAVOUkNBQzEPMA0GA1UEAwwGUk9PVENBMB4X
+DTEzMDkxMzA4MTAyNVoXDTMzMDkwODA4MTAyNVowNDELMAkGA1UEBhMCQ04xETAP
+BgNVBAoMCFVuaVRydXN0MRIwEAYDVQQDDAlTSEVDQSBTTTIwWTATBgcqhkjOPQIB
+BggqgRzPVQGCLQNCAAR90R+RLQZKVBDwhIRVJR28ovu1x3duw2yxaWaY6E3lUKDW
+IsmAwMOqE71MW3gQOxm68QJfPy6JT4Evil10FwyAo4IBIjCCAR4wHwYDVR0jBBgw
+FoAUTDKxl9kzG8SmBcHG5YtiW/CXdlgwDwYDVR0TAQH/BAUwAwEB/zCBugYDVR0f
+BIGyMIGvMEGgP6A9pDswOTELMAkGA1UEBhMCQ04xDjAMBgNVBAoMBU5SQ0FDMQww
+CgYDVQQLDANBUkwxDDAKBgNVBAMMA2FybDAqoCigJoYkaHR0cDovL3d3dy5yb290
+Y2EuZ292LmNuL2FybC9hcmwuY3JsMD6gPKA6hjhsZGFwOi8vbGRhcC5yb290Y2Eu
+Z292LmNuOjM4OS9DTj1hcmwsT1U9QVJMLE89TlJDQUMsQz1DTjAOBgNVHQ8BAf8E
+BAMCAQYwHQYDVR0OBBYEFIkxBJF7Q6qqmr+EHZuG7vC4cJmgMAwGCCqBHM9VAYN1
+BQADSAAwRQIhAIp7/3vva+ZxFePKdqkzdGoVyGsfGHhiLLQeKrCZQ2Q5AiAmMOdf
+0f0b8CilrVWdi8pfZyO6RqYfnpcJ638l7KHfNA==
+-----END CERTIFICATE-----`
+
 var testPrivateKey *rsa.PrivateKey
 
 func init() {
@@ -162,6 +181,14 @@ func getPublicKey(pemContent []byte) (interface{}, error) {
 	return ParsePKIXPublicKey(block.Bytes)
 }
 
+func getCertificate(pemContent []byte) (*Certificate, error) {
+	block, _ := pem.Decode(pemContent)
+	if block == nil {
+		return nil, errors.New("Failed to parse PEM block")
+	}
+	return ParseCertificate(block.Bytes)
+}
+
 func parseAndCheckCsr(csrblock []byte) error {
 	csr, err := ParseCertificateRequest(csrblock)
 	if err != nil {
@@ -169,6 +196,15 @@ func parseAndCheckCsr(csrblock []byte) error {
 	}
 	fmt.Printf("%v\n", csr)
 	return csr.CheckSignature()
+}
+
+func Test_ParseCertificate(t *testing.T) {
+	cert, err := getCertificate([]byte(sm2Certificate))
+	if err != nil {
+		t.Fatalf("%v\n", err)
+	}
+	jsonContent, err := json.Marshal(cert)
+	fmt.Printf("%s\n", jsonContent)
 }
 
 func TestParseCertificateRequest(t *testing.T) {
@@ -287,7 +323,7 @@ func Test_CreateCertificateRequest(t *testing.T) {
 		sigAlgo x509.SignatureAlgorithm
 	}{
 		{"RSA", testPrivateKey, x509.SHA1WithRSA},
-		{"SM2-256", sm2Priv, -1},
+		{"SM2-256", sm2Priv, x509.UnknownSignatureAlgorithm},
 		{"ECDSA-256", ecdsa256Priv, x509.ECDSAWithSHA1},
 		{"ECDSA-384", ecdsa384Priv, x509.ECDSAWithSHA1},
 		{"ECDSA-521", ecdsa521Priv, x509.ECDSAWithSHA1},

@@ -375,20 +375,16 @@ func CreateCertificateRequest(rand io.Reader, template *x509.CertificateRequest,
 	if !ok {
 		return nil, errors.New("x509: certificate private key does not implement crypto.Signer")
 	}
-	privKey, ok := key.(*sm2.PrivateKey)
-	if !ok {
-		ecKey, ok := key.(*ecdsa.PrivateKey)
-		if !ok || ecKey.Curve != sm2.P256() {
-			return x509.CreateCertificateRequest(rand, template, priv)
-		}
-		privKey, _ = new(sm2.PrivateKey).FromECPrivateKey(ecKey)
+	var hashFunc crypto.Hash
+	var sigAlgo pkix.AlgorithmIdentifier
+	hashFunc, sigAlgo, err = signingParamsForPublicKey(key.Public(), template.SignatureAlgorithm)
+	if err != nil {
+		return nil, err
 	}
-	var sigAlgo = pkix.AlgorithmIdentifier{}
-	sigAlgo.Algorithm = oidSignatureSM2WithSM3
 
 	var publicKeyBytes []byte
 	var publicKeyAlgorithm pkix.AlgorithmIdentifier
-	publicKeyBytes, publicKeyAlgorithm, err = marshalPublicKey(key.Public().(*ecdsa.PublicKey))
+	publicKeyBytes, publicKeyAlgorithm, err = marshalPublicKey(key.Public())
 	if err != nil {
 		return nil, err
 	}
@@ -520,8 +516,23 @@ func CreateCertificateRequest(rand io.Reader, template *x509.CertificateRequest,
 	tbsCSR.Raw = tbsCSRContents
 
 	signed := tbsCSRContents
+	var signature []byte
+	if sigAlgo.Algorithm.Equal(oidSignatureSM2WithSM3) {
+		if smKey, ok := priv.(sm2.Signer); ok {
+			signature, err = smKey.SignWithSM2(rand, nil, signed)
+		} else {
+			return nil, errors.New("x509: require sm2 private key")
+		}
+	} else {
+		if hashFunc != 0 {
+			h := hashFunc.New()
+			h.Write(signed)
+			signed = h.Sum(nil)
+		}
 
-	signature, err := privKey.SignWithSM2(rand, nil, signed)
+		signature, err = key.Sign(rand, signed, hashFunc)
+	}
+
 	if err != nil {
 		return
 	}
@@ -1532,7 +1543,7 @@ func signingParamsForPublicKey(pub interface{}, requestedSigAlgo x509.SignatureA
 		return
 	}
 
-	if requestedSigAlgo == 0 {
+	if requestedSigAlgo == 0 || sigAlgo.Algorithm.Equal(oidSignatureSM2WithSM3) {
 		return
 	}
 
@@ -1671,14 +1682,11 @@ func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, 
 
 	var signature []byte
 	if signatureAlgorithm.Algorithm.Equal(oidSignatureSM2WithSM3) {
-		privKey, ok := key.(*sm2.PrivateKey)
-		if !ok {
-			ecKey, ok := key.(*ecdsa.PrivateKey)
-			if ok && ecKey.Curve == sm2.P256() {
-				privKey, _ = new(sm2.PrivateKey).FromECPrivateKey(ecKey)
-			}
+		if smKey, ok := priv.(sm2.Signer); ok {
+			signature, err = smKey.SignWithSM2(rand, nil, signed)
+		} else {
+			return nil, errors.New("x509: require sm2 private key")
 		}
-		signature, err = privKey.SignWithSM2(rand, nil, signed)
 	} else {
 		if hashFunc != 0 {
 			h := hashFunc.New()

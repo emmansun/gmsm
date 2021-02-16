@@ -63,6 +63,11 @@ type EncrypterOpts struct {
 	PointMarshalMode pointMarshalMode
 }
 
+// Signer SM2 special signer
+type Signer interface {
+	SignWithSM2(rand io.Reader, uid, msg []byte) ([]byte, error)
+}
+
 func (mode pointMarshalMode) mashal(curve elliptic.Curve, x, y *big.Int) []byte {
 	switch mode {
 	case MarshalCompressed:
