@@ -1,7 +1,7 @@
 
 # GM-Standards SM2/SM3/SM4 for Go
 
-[![Build Status](https://travis-ci.org/emmansun/gmsm.svg?branch=master)](https://travis-ci.org/emmansun/gmsm) [![Documentation](https://godoc.org/github.com/emmansun/gmsm?status.svg)](https://godoc.org/github.com/emmansun/gmsm) [![Release](https://img.shields.io/github/release/emmansun/gmsm/all.svg)](https://github.com/emmansun/gmsm/releases)
+[![Build Status](https://travis-ci.org/emmansun/gmsm.svg?branch=main)](https://travis-ci.org/emmansun/gmsm) [![Documentation](https://godoc.org/github.com/emmansun/gmsm?status.svg)](https://godoc.org/github.com/emmansun/gmsm) [![Release](https://img.shields.io/github/release/emmansun/gmsm/all.svg)](https://github.com/emmansun/gmsm/releases)
 
 This is a **SM2 sm2p256v1** implementation whose performance is similar like golang native NIST P256 under **amd64** . 
 
