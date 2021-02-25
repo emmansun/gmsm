@@ -193,7 +193,7 @@ func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Encrypter
 		opts = &defaultEncrypterOpts
 	}
 	//A3, requirement is to check if h*P is infinite point, h is 1
-	if (pub.X.Sign() == 0 && pub.Y.Sign() == 0) || !curve.IsOnCurve(pub.X, pub.Y) {
+	if pub.X.Sign() == 0 && pub.Y.Sign() == 0 {
 		return nil, errors.New("SM2: invalid public key")
 	}
 	for {
