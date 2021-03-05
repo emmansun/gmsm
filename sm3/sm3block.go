@@ -23,7 +23,7 @@ func gg(x, y, z uint32) uint32 {
 	return (x & y) | (^x & z)
 }
 
-func block(dig *digest, p []byte) {
+func blockGeneric(dig *digest, p []byte) {
 	var w [68]uint32
 	h0, h1, h2, h3, h4, h5, h6, h7 := dig.h[0], dig.h[1], dig.h[2], dig.h[3], dig.h[4], dig.h[5], dig.h[6], dig.h[7]
 	for len(p) >= chunk {
@@ -48,7 +48,7 @@ func block(dig *digest, p []byte) {
 			f = e
 			e = p0(tt2)
 		}
-
+	
 		for i := 12; i < 16; i++ {
 			w[i+4] = p1(w[i-12]^w[i-5]^bits.RotateLeft32(w[i+1], 15)) ^ bits.RotateLeft32(w[i-9], 7) ^ w[i-2]
 			ss1 := bits.RotateLeft32(bits.RotateLeft32(a, 12)+e+bits.RotateLeft32(_T[0], i), 7)
