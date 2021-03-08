@@ -40,3 +40,21 @@ For implementation detail, please refer https://github.com/emmansun/gmsm/wiki
     BenchmarkMoreThan32-6   	   13656	     86252 ns/op	    3141 B/op	      50 allocs/op
     PASS
     ok  	gmsm/sm2	4.139s
+
+**SM3 hash Benchmark**
+
+    Pure golang version
+    goos: windows
+    goarch: amd64
+    pkg: github.com/emmansun/gmsm/sm3
+    BenchmarkHash8K-6   	   27097	     41112 ns/op	 199.26 MB/s	       0 B/op	       0 allocs/op
+    PASS
+    ok  	github.com/emmansun/gmsm/sm3	3.463s
+
+    ASM (non-AVX2) version
+    goos: windows
+    goarch: amd64
+    pkg: github.com/emmansun/gmsm/sm3
+    BenchmarkHash8K-6   	   34915	     34256 ns/op	 239.14 MB/s	       0 B/op	       0 allocs/op
+    PASS
+    ok  	github.com/emmansun/gmsm/sm3	2.797s    
