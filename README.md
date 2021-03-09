@@ -55,6 +55,6 @@ For implementation detail, please refer https://github.com/emmansun/gmsm/wiki
     goos: windows
     goarch: amd64
     pkg: github.com/emmansun/gmsm/sm3
-    BenchmarkHash8K-6   	   34915	     34256 ns/op	 239.14 MB/s	       0 B/op	       0 allocs/op
+    BenchmarkHash8K-6   	   35080	     33235 ns/op	 246.49 MB/s	       0 B/op	       0 allocs/op
     PASS
-    ok  	github.com/emmansun/gmsm/sm3	2.797s    
+    ok  	github.com/emmansun/gmsm/sm3	3.102s
