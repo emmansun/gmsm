@@ -58,3 +58,11 @@ For implementation detail, please refer https://github.com/emmansun/gmsm/wiki
     BenchmarkHash8K-6   	   35080	     33235 ns/op	 246.49 MB/s	       0 B/op	       0 allocs/op
     PASS
     ok  	github.com/emmansun/gmsm/sm3	3.102s
+
+    SHA256 ASM AVX2 version
+    goos: windows
+    goarch: amd64
+    pkg: github.com/emmansun/gmsm/sm3
+    BenchmarkHash8K_SH256-6   	   68352	     17116 ns/op	 478.63 MB/s	       0 B/op	       0 allocs/op
+    PASS
+    ok  	github.com/emmansun/gmsm/sm3	3.043s    
