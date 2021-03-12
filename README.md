@@ -59,6 +59,14 @@ For implementation detail, please refer https://github.com/emmansun/gmsm/wiki
     PASS
     ok  	github.com/emmansun/gmsm/sm3	3.102s
 
+    ASM AVX2 version
+    goos: windows
+    goarch: amd64
+    pkg: github.com/emmansun/gmsm/sm3
+    BenchmarkHash8K-6   	   53208	     22223 ns/op	 368.63 MB/s	       0 B/op	       0 allocs/op
+    PASS
+    ok  	github.com/emmansun/gmsm/sm3	1.720s 
+
     SHA256 ASM AVX2 version
     goos: windows
     goarch: amd64
@@ -66,3 +74,5 @@ For implementation detail, please refer https://github.com/emmansun/gmsm/wiki
     BenchmarkHash8K_SH256-6   	   68352	     17116 ns/op	 478.63 MB/s	       0 B/op	       0 allocs/op
     PASS
     ok  	github.com/emmansun/gmsm/sm3	3.043s    
+
+   
