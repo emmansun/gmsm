@@ -75,4 +75,12 @@ This is also a **SM3** implementation whose performance is similar like golang n
     PASS
     ok  	github.com/emmansun/gmsm/sm3	3.043s    
 
-   
+**SM4 Benchmark**
+
+    Pure golang version
+    goos: windows
+    goarch: amd64
+    pkg: github.com/emmansun/gmsm/sm4
+    BenchmarkEncrypt-6   	 2671431	       441 ns/op	  36.28 MB/s	       0 B/op	       0 allocs/op
+    BenchmarkDecrypt-6   	 2709132	       440 ns/op	  36.40 MB/s	       0 B/op	       0 allocs/op
+    BenchmarkExpand-6    	 2543746	       471 ns/op	      16 B/op	       1 allocs/op

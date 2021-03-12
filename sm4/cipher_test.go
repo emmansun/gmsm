@@ -10,6 +10,21 @@ import (
 	"testing"
 )
 
+type CryptTest struct {
+	key []byte
+	in  []byte
+	out []byte
+}
+
+var encryptTests = []CryptTest{
+	{
+		// Appendix 1.
+		[]byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10},
+		[]byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10},
+		[]byte{0x68, 0x1e, 0xdf, 0x34, 0xd2, 0x06, 0x96, 0x5e, 0x86, 0xb3, 0xe9, 0x4f, 0x53, 0x6e, 0x42, 0x46},
+	},
+}
+
 func Test_sample1(t *testing.T) {
 	src := []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
 	expected := []byte{0x68, 0x1e, 0xdf, 0x34, 0xd2, 0x06, 0x96, 0x5e, 0x86, 0xb3, 0xe9, 0x4f, 0x53, 0x6e, 0x42, 0x46}
@@ -43,6 +58,43 @@ func Test_sample2(t *testing.T) {
 	}
 	if !reflect.DeepEqual(dst, expected) {
 		t.Fatalf("expected=%v, result=%v\n", expected, dst)
+	}
+}
+
+func BenchmarkEncrypt(b *testing.B) {
+	tt := encryptTests[0]
+	c, err := NewCipher(tt.key)
+	if err != nil {
+		b.Fatal("NewCipher:", err)
+	}
+	out := make([]byte, len(tt.in))
+	b.SetBytes(int64(len(out)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		c.Encrypt(out, tt.in)
+	}
+}
+
+func BenchmarkDecrypt(b *testing.B) {
+	tt := encryptTests[0]
+	c, err := NewCipher(tt.key)
+	if err != nil {
+		b.Fatal("NewCipher:", err)
+	}
+	out := make([]byte, len(tt.out))
+	b.SetBytes(int64(len(out)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		c.Decrypt(out, tt.out)
+	}
+}
+
+func BenchmarkExpand(b *testing.B) {
+	tt := encryptTests[0]
+	c := &sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		expandKeyGo(tt.key, c.enc, c.dec)
 	}
 }
 
