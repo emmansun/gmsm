@@ -1,11 +1,6 @@
 package sm4
 
 import (
-	"crypto/cipher"
-	"crypto/rand"
-	"errors"
-	"fmt"
-	"io"
 	"reflect"
 	"testing"
 )
@@ -95,60 +90,5 @@ func BenchmarkExpand(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		expandKeyGo(tt.key, c.enc, c.dec)
-	}
-}
-
-func paddingPKCS7(buf []byte, blockSize int) []byte {
-	bufLen := len(buf)
-	padLen := blockSize - bufLen%blockSize
-	padded := make([]byte, bufLen+padLen)
-	copy(padded, buf)
-	for i := 0; i < padLen; i++ {
-		padded[bufLen+i] = byte(padLen)
-	}
-	return padded
-}
-
-func unpaddingPKCS7(padded []byte, size int) ([]byte, error) {
-	if len(padded)%size != 0 {
-		return nil, errors.New("pkcs7: Padded value wasn't in correct size")
-	}
-	paddedByte := int(padded[len(padded)-1])
-	if (paddedByte > size) || (paddedByte < 1) {
-		return nil, fmt.Errorf("Invalid decrypted text, no padding")
-	}
-	bufLen := len(padded) - paddedByte
-	buf := make([]byte, bufLen)
-	copy(buf, padded[:bufLen])
-	return buf, nil
-}
-
-func Test_sm4withcbc_less(t *testing.T) {
-	src := []byte("emmansun")
-	key := []byte("passwordpassword")
-	block, err := NewCipher(key)
-	if err != nil {
-		t.Fatal(err)
-	}
-	plainText := paddingPKCS7(src, BlockSize)
-	cipherText := make([]byte, BlockSize+len(plainText))
-	iv := cipherText[:BlockSize]
-	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		t.Fatal(err)
-	}
-
-	mode := cipher.NewCBCEncrypter(block, iv)
-	mode.CryptBlocks(cipherText[BlockSize:], plainText)
-
-	iv = cipherText[:BlockSize]
-	cipherText = cipherText[BlockSize:]
-	mode = cipher.NewCBCDecrypter(block, iv)
-	mode.CryptBlocks(cipherText, cipherText)
-	result, err := unpaddingPKCS7(cipherText, BlockSize)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(result) != string(src) {
-		t.Fatalf("result=%s, expected=%s\n", string(result), string(src))
 	}
 }
