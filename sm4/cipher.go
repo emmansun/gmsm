@@ -32,7 +32,7 @@ func NewCipher(key []byte) (cipher.Block, error) {
 
 // newCipher creates and returns a new cipher.Block
 // implemented in pure Go.
-func newCipher(key []byte) (cipher.Block, error) {
+func newCipherGeneric(key []byte) (cipher.Block, error) {
 	c := sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}
 	expandKeyGo(key, c.enc, c.dec)
 	return &c, nil
