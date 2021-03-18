@@ -7,6 +7,8 @@ This is a **SM2 sm2p256v1** implementation whose performance is similar like gol
 
 This is also a **SM3** implementation whose performance is similar like golang native SHA 256 under **amd64**, for implementation detail, please refer https://github.com/emmansun/gmsm/wiki/SM3%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96.
 
+For **SM4** implementation, AES-NI is used for under **amd64**.
+
 **SM2 encryption Benchmark**
 
     P-256/SM2(No tuning)
@@ -84,3 +86,13 @@ This is also a **SM3** implementation whose performance is similar like golang n
     BenchmarkEncrypt-6   	 2671431	       441 ns/op	  36.28 MB/s	       0 B/op	       0 allocs/op
     BenchmarkDecrypt-6   	 2709132	       440 ns/op	  36.40 MB/s	       0 B/op	       0 allocs/op
     BenchmarkExpand-6    	 2543746	       471 ns/op	      16 B/op	       1 allocs/op
+    
+    ASM AES-NI version
+    goos: windows
+    goarch: amd64
+    pkg: github.com/emmansun/gmsm/sm4
+    BenchmarkEncrypt-6   	 5076427	       235 ns/op	  68.09 MB/s	       0 B/op	       0 allocs/op
+    BenchmarkDecrypt-6   	 5122974	       236 ns/op	  67.71 MB/s	       0 B/op	       0 allocs/op
+    BenchmarkExpand-6    	 2583012	       469 ns/op	      16 B/op	       1 allocs/op
+    PASS
+    ok  	github.com/emmansun/gmsm/sm4	6.193s
