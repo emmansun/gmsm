@@ -210,7 +210,6 @@ loop:
   MOVL  R8, 56(BX)
 
 done_sm4:
-	VZEROUPPER
 	RET
 
 // func xorBytesSSE2(dst, a, b *byte, n int)

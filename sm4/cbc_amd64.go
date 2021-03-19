@@ -2,15 +2,21 @@ package sm4
 
 import "crypto/cipher"
 
+// Assert that sm4CipherAsm implements the cbcDecAble interfaces.
+var _ cbcDecAble = (*sm4CipherAsm)(nil)
+
 type cbc struct {
-	b  *sm4CipherAsm
-	iv [BlockSize]byte
+	b   *sm4CipherAsm
+	iv  []byte
+	tmp []byte
 }
 
 func (b *sm4CipherAsm) NewCBCDecrypter(iv []byte) cipher.BlockMode {
 	var c cbc
 	c.b = b
-	copy(c.iv[:], iv)
+	c.iv = make([]byte, BlockSize)
+	c.tmp = make([]byte, BlockSize)
+	copy(c.iv, iv)
 	return &c
 }
 
@@ -30,6 +36,7 @@ func (x *cbc) CryptBlocks(dst, src []byte) {
 		return
 	}
 	end := len(src)
+	copy(x.tmp, src[end-BlockSize:end])
 	start := end - FourBlocksSize
 	var temp []byte = make([]byte, FourBlocksSize)
 	var src64 []byte = make([]byte, FourBlocksSize)
@@ -52,6 +59,8 @@ func (x *cbc) CryptBlocks(dst, src []byte) {
 		end -= BlockSize
 	}
 	xorBytes(dst[0:end], temp[0:end], x.iv[:])
+	// Set the new iv to the first block we copied earlier.
+	x.iv, x.tmp = x.tmp, x.iv
 }
 
 func (x *cbc) SetIV(iv []byte) {
