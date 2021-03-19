@@ -14,7 +14,7 @@ type ctr struct {
 
 const streamBufferSize = 512
 
-// NewCTR returns a Stream which encrypts/decrypts using the AES block
+// NewCTR returns a Stream which encrypts/decrypts using the SM4 block
 // cipher in counter mode. The length of iv must be the same as BlockSize.
 func (c *sm4CipherAsm) NewCTR(iv []byte) cipher.Stream {
 	if len(iv) != BlockSize {

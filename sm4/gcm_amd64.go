@@ -10,7 +10,7 @@ import (
 // Assert that sm4CipherAsm implements the gcmAble interface.
 var _ gcmAble = (*sm4CipherAsm)(nil)
 
-// NewGCM returns the AES cipher wrapped in Galois Counter Mode. This is only
+// NewGCM returns the SM4 cipher wrapped in Galois Counter Mode. This is only
 // called by crypto/cipher.NewGCM via the gcmAble interface.
 func (c *sm4CipherAsm) NewGCM(nonceSize, tagSize int) (cipher.AEAD, error) {
 	var key [gcmBlockSize]byte
