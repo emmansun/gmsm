@@ -16,6 +16,7 @@ type sm4CipherAsm struct {
 }
 
 var supportsAES = cpu.X86.HasAES
+var supportsGFMUL = cpu.X86.HasPCLMULQDQ
 
 func newCipher(key []byte) (cipher.Block, error) {
 	if !supportsAES {
@@ -23,6 +24,9 @@ func newCipher(key []byte) (cipher.Block, error) {
 	}
 	c := sm4CipherAsm{sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}}
 	expandKeyGo(key, c.enc, c.dec)
+	if supportsAES && supportsGFMUL {
+		return &sm4CipherGCM{c}, nil
+	}
 	return &c, nil
 }
 
