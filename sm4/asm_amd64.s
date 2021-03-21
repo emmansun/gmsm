@@ -56,7 +56,23 @@ DATA r24_mask<>+0x00(SB)/8, $0x0407060500030201
 DATA r24_mask<>+0x08(SB)/8, $0x0C0F0E0D080B0A09  
 GLOBL r24_mask<>(SB), RODATA, $16
 
-#define SM4_TAO_L1(x, y)         \
+DATA fk00_mask<>+0x00(SB)/8, $0xa3b1bac6a3b1bac6
+DATA fk00_mask<>+0x08(SB)/8, $0xa3b1bac6a3b1bac6  
+GLOBL fk00_mask<>(SB), RODATA, $16
+
+DATA fk01_mask<>+0x00(SB)/8, $0x56aa335056aa3350
+DATA fk01_mask<>+0x08(SB)/8, $0x56aa335056aa3350  
+GLOBL fk01_mask<>(SB), RODATA, $16
+
+DATA fk02_mask<>+0x00(SB)/8, $0x677d9197677d9197
+DATA fk02_mask<>+0x08(SB)/8, $0x677d9197677d9197  
+GLOBL fk02_mask<>(SB), RODATA, $16
+
+DATA fk03_mask<>+0x00(SB)/8, $0xb27022dcb27022dc
+DATA fk03_mask<>+0x08(SB)/8, $0xb27022dcb27022dc  
+GLOBL fk03_mask<>(SB), RODATA, $16
+
+#define SM4_SBOX(x, y) \
   ;                                   \ //#############################  inner affine ############################//
   MOVOU x, XTMP6;                     \
   PAND nibble_mask<>(SB), XTMP6;      \ //y = _mm_and_si128(x, c0f); 
@@ -82,6 +98,9 @@ GLOBL r24_mask<>(SB), RODATA, $16
   PSHUFB x, XTMP6;                    \
   MOVOU  XTMP6, x;                    \ //x = _mm_shuffle_epi8(m2h, x)
   PXOR y, x;                          \ //x = _mm_shuffle_epi8(m2h, x) ^ y; 
+
+#define SM4_TAO_L1(x, y)         \
+  SM4_SBOX(x, y);                     \
   ;                                   \ //####################  4 parallel L1 linear transforms ##################//
   MOVOU x, y;                         \
   PSHUFB r08_mask<>(SB), y;           \ //y = _mm_shuffle_epi8(x, r08)
@@ -97,6 +116,96 @@ GLOBL r24_mask<>(SB), RODATA, $16
   PSHUFB r24_mask<>(SB), XTMP7;       \
   PXOR y, x;                          \ //x = x xor y
   PXOR XTMP7, x                         //x = x xor y xor _mm_shuffle_epi8(x, r24);
+
+#define SM4_TAO_L2(x, y)         \
+  SM4_SBOX(x, y);                     \
+  ;                                   \ //####################  4 parallel L2 linear transforms ##################//
+  MOVOU x, y;                         \
+  MOVOU x, XTMP6;                     \
+  PSLLL $13, XTMP6;                   \
+  PSRLL $19, y;                       \
+  PXOR XTMP6, y;                      \ //y = X roll 13  
+  PSLLL $10, XTMP6;                   \
+  MOVOU x, XTMP7;                     \
+  PSRLL $9, XTMP7;                    \
+  PXOR XTMP6, XTMP7;                  \ //XTMP7 = x roll 23
+  PXOR XTMP7, y;                      \
+  PXOR y, x                        
+
+// func expandKeyAsm(key *byte, ck, enc, dec *uint32)
+TEXT ·expandKeyAsm(SB),NOSPLIT,$0
+  MOVQ key+0(FP), AX
+  MOVQ  ck+8(FP), BX
+  MOVQ  enc+16(FP), DX
+  MOVQ  dec+24(FP), DI
+
+  PINSRD $0, 0(AX), t0
+  PSHUFB flip_mask<>(SB), t0
+  PXOR fk00_mask<>(SB), t0
+
+  PINSRD $0, 4(AX), t1
+  PSHUFB flip_mask<>(SB), t1
+  PXOR fk01_mask<>(SB), t1
+
+  PINSRD $0, 8(AX), t2
+  PSHUFB flip_mask<>(SB), t2
+  PXOR fk02_mask<>(SB), t2
+
+  PINSRD $0, 12(AX), t3
+  PSHUFB flip_mask<>(SB), t3
+  PXOR fk03_mask<>(SB), t3
+
+  XORL CX, CX
+  MOVL $112, SI
+
+loop:
+  PINSRD $0, 0(BX)(CX*1), x
+  PXOR t1, x
+  PXOR t2, x
+  PXOR t3, x
+  SM4_TAO_L2(x, y)
+  PXOR x, t0
+  PEXTRD $0, t0, R8
+  MOVL R8, 0(DX)(CX*1)
+  MOVL R8, 12(DI)(SI*1)
+
+  PINSRD $0, 4(BX)(CX*1), x
+  PXOR t0, x
+  PXOR t2, x
+  PXOR t3, x
+  SM4_TAO_L2(x, y)
+  PXOR x, t1  
+  PEXTRD $0, t1, R8
+  MOVL R8, 4(DX)(CX*1)
+  MOVL R8, 8(DI)(SI*1)
+  
+  PINSRD $0, 8(BX)(CX*1), x
+  PXOR t0, x
+  PXOR t1, x
+  PXOR t3, x
+  SM4_TAO_L2(x, y)
+  PXOR x, t2
+  PEXTRD $0, t2, R8
+  MOVL R8, 8(DX)(CX*1)
+  MOVL R8, 4(DI)(SI*1)
+
+  PINSRD $0, 12(BX)(CX*1), x
+  PXOR t0, x
+  PXOR t1, x
+  PXOR t2, x
+  SM4_TAO_L2(x, y)
+  PXOR x, t3  
+  PEXTRD $0, t3, R8
+  MOVL R8, 12(DX)(CX*1)
+  MOVL R8, 0(DI)(SI*1)
+
+  ADDL $16, CX
+  SUBL $16, SI
+  CMPL CX, $4*32
+  JB loop
+
+expand_end:  
+  RET 
 
 // func encryptBlocksAsm(xk *uint32, dst, src *byte)
 TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0

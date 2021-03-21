@@ -11,6 +11,9 @@ import (
 //go:noescape
 func encryptBlocksAsm(xk *uint32, dst, src *byte)
 
+//go:noescape
+func expandKeyAsm(key *byte, ck, enc, dec *uint32)
+
 type sm4CipherAsm struct {
 	sm4Cipher
 }
@@ -23,7 +26,7 @@ func newCipher(key []byte) (cipher.Block, error) {
 		return newCipherGeneric(key)
 	}
 	c := sm4CipherAsm{sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}}
-	expandKeyGo(key, c.enc, c.dec)
+	expandKeyAsm(&key[0], &ck[0], &c.enc[0], &c.dec[0])
 	if supportsAES && supportsGFMUL {
 		return &sm4CipherGCM{c}, nil
 	}
