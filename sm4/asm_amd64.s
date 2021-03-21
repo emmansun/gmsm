@@ -321,6 +321,74 @@ loop:
 done_sm4:
 	RET
 
+// func encryptBlockAsm(xk *uint32, dst, src *byte)
+TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
+  MOVQ xk+0(FP), AX
+  MOVQ dst+8(FP), BX
+  MOVQ src+16(FP), DX
+  
+  PINSRD $0, 0(DX), t0
+  PSHUFB flip_mask<>(SB), t0
+
+  PINSRD $0, 4(DX), t1
+  PSHUFB flip_mask<>(SB), t1
+
+  PINSRD $0, 8(DX), t2
+  PSHUFB flip_mask<>(SB), t2
+
+  PINSRD $0, 12(DX), t3
+  PSHUFB flip_mask<>(SB), t3
+
+  XORL CX, CX
+
+loop:
+  PINSRD $0, 0(AX)(CX*1), x
+  PXOR t1, x
+  PXOR t2, x
+  PXOR t3, x
+  
+  SM4_TAO_L1(x, y)
+  PXOR x, t0
+
+  PINSRD $0, 4(AX)(CX*1), x
+  PXOR t0, x
+  PXOR t2, x
+  PXOR t3, x
+  SM4_TAO_L1(x, y)
+  PXOR x, t1  
+
+  PINSRD $0, 8(AX)(CX*1), x
+  PXOR t0, x
+  PXOR t1, x
+  PXOR t3, x
+  SM4_TAO_L1(x, y)
+  PXOR x, t2
+
+  PINSRD $0, 12(AX)(CX*1), x
+  PXOR t0, x
+  PXOR t1, x
+  PXOR t2, x
+  SM4_TAO_L1(x, y)
+  PXOR x, t3  
+
+  ADDL $16, CX
+  CMPL CX, $4*32
+  JB loop
+
+  PSHUFB flip_mask<>(SB), t3
+  PSHUFB flip_mask<>(SB), t2
+  PSHUFB flip_mask<>(SB), t1
+  PSHUFB flip_mask<>(SB), t0
+  MOVUPS t3, 0(BX)
+  PEXTRD $0, t2, R8
+  MOVL R8, 4(BX)
+  PEXTRD $0, t1, R8
+  MOVL R8, 8(BX)
+  PEXTRD $0, t0, R8
+  MOVL R8, 12(BX)
+done_sm4:
+	RET
+
 // func xorBytesSSE2(dst, a, b *byte, n int)
 TEXT ·xorBytesSSE2(SB), NOSPLIT, $0
 	MOVQ  dst+0(FP), BX

@@ -12,6 +12,9 @@ import (
 func encryptBlocksAsm(xk *uint32, dst, src *byte)
 
 //go:noescape
+func encryptBlockAsm(xk *uint32, dst, src *byte)
+
+//go:noescape
 func expandKeyAsm(key *byte, ck, enc, dec *uint32)
 
 type sm4CipherAsm struct {
@@ -47,11 +50,7 @@ func (c *sm4CipherAsm) Encrypt(dst, src []byte) {
 	if InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
-	var src64 []byte = make([]byte, FourBlocksSize)
-	var dst64 []byte = make([]byte, FourBlocksSize)
-	copy(src64, src)
-	encryptBlocksAsm(&c.enc[0], &dst64[0], &src64[0])
-	copy(dst, dst64[:BlockSize])
+	encryptBlockAsm(&c.enc[0], &dst[0], &src[0])
 }
 
 func (c *sm4CipherAsm) Decrypt(dst, src []byte) {
@@ -64,9 +63,5 @@ func (c *sm4CipherAsm) Decrypt(dst, src []byte) {
 	if InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
-	var src64 []byte = make([]byte, FourBlocksSize)
-	var dst64 []byte = make([]byte, FourBlocksSize)
-	copy(src64, src)
-	encryptBlocksAsm(&c.dec[0], &dst64[0], &src64[0])
-	copy(dst, dst64[:BlockSize])
+	encryptBlockAsm(&c.dec[0], &dst[0], &src[0])
 }
