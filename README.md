@@ -11,6 +11,7 @@ For **SM4** implementation, AES-NI is used under **amd64**, for detail please re
 
 **SM2 encryption Benchmark**
 
+    CPU: i5-9500
     P-256/SM2(No tuning)
     goos: windows
     goarch: amd64
@@ -45,6 +46,7 @@ For **SM4** implementation, AES-NI is used under **amd64**, for detail please re
 
 **SM3 hash Benchmark**
 
+    CPU: i5-9500
     Pure golang version
     goos: windows
     goarch: amd64
@@ -79,6 +81,7 @@ For **SM4** implementation, AES-NI is used under **amd64**, for detail please re
 
 **SM4 Benchmark**
 
+    CPU: i5-9500
     Pure golang version
     goos: windows
     goarch: amd64
@@ -91,8 +94,8 @@ For **SM4** implementation, AES-NI is used under **amd64**, for detail please re
     goos: windows
     goarch: amd64
     pkg: github.com/emmansun/gmsm/sm4
-    BenchmarkEncrypt-6   	 5076427	       235 ns/op	  68.09 MB/s	       0 B/op	       0 allocs/op
-    BenchmarkDecrypt-6   	 5122974	       236 ns/op	  67.71 MB/s	       0 B/op	       0 allocs/op
+    BenchmarkEncrypt-6   	 5881989	       206 ns/op	  77.75 MB/s	       0 B/op	       0 allocs/op
+    BenchmarkDecrypt-6   	 5853994	       204 ns/op	  78.45 MB/s	       0 B/op	       0 allocs/op
     BenchmarkExpand-6    	 2583012	       469 ns/op	      16 B/op	       1 allocs/op
     PASS
     ok  	github.com/emmansun/gmsm/sm4	6.193s
