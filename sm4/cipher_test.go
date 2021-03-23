@@ -89,6 +89,6 @@ func BenchmarkExpand(b *testing.B) {
 	c := &sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		expandKeyGo(tt.key, c.enc, c.dec)
+		expandKey(tt.key, c.enc, c.dec)
 	}
 }

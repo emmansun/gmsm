@@ -8,6 +8,9 @@ import (
 	"golang.org/x/sys/cpu"
 )
 
+var supportsAES = cpu.X86.HasAES
+var supportsGFMUL = cpu.X86.HasPCLMULQDQ
+
 //go:noescape
 func encryptBlocksAsm(xk *uint32, dst, src *byte)
 
@@ -20,9 +23,6 @@ func expandKeyAsm(key *byte, ck, enc, dec *uint32)
 type sm4CipherAsm struct {
 	sm4Cipher
 }
-
-var supportsAES = cpu.X86.HasAES
-var supportsGFMUL = cpu.X86.HasPCLMULQDQ
 
 func newCipher(key []byte) (cipher.Block, error) {
 	if !supportsAES {
@@ -64,4 +64,14 @@ func (c *sm4CipherAsm) Decrypt(dst, src []byte) {
 		panic("sm4: invalid buffer overlap")
 	}
 	encryptBlockAsm(&c.dec[0], &dst[0], &src[0])
+}
+
+// expandKey is used by BenchmarkExpand to ensure that the asm implementation
+// of key expansion is used for the benchmark when it is available.
+func expandKey(key []byte, enc, dec []uint32) {
+	if supportsAES {
+		expandKeyAsm(&key[0], &ck[0], &enc[0], &dec[0])
+	} else {
+		expandKeyGo(key, enc, dec)
+	}
 }
