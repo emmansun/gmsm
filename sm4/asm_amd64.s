@@ -241,20 +241,15 @@ TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
 
 loop:
   PINSRD $0, 0(AX)(CX*1), x
-  PINSRD $1, 0(AX)(CX*1), x
-  PINSRD $2, 0(AX)(CX*1), x
-  PINSRD $3, 0(AX)(CX*1), x
+  PSHUFD $0, x, x
   PXOR t1, x
   PXOR t2, x
   PXOR t3, x
-  
   SM4_TAO_L1(x, y)
   PXOR x, t0
 
   PINSRD $0, 4(AX)(CX*1), x
-  PINSRD $1, 4(AX)(CX*1), x
-  PINSRD $2, 4(AX)(CX*1), x
-  PINSRD $3, 4(AX)(CX*1), x
+  PSHUFD $0, x, x
   PXOR t0, x
   PXOR t2, x
   PXOR t3, x
@@ -262,9 +257,7 @@ loop:
   PXOR x, t1  
 
   PINSRD $0, 8(AX)(CX*1), x
-  PINSRD $1, 8(AX)(CX*1), x
-  PINSRD $2, 8(AX)(CX*1), x
-  PINSRD $3, 8(AX)(CX*1), x
+  PSHUFD $0, x, x
   PXOR t0, x
   PXOR t1, x
   PXOR t3, x
@@ -272,9 +265,7 @@ loop:
   PXOR x, t2
 
   PINSRD $0, 12(AX)(CX*1), x
-  PINSRD $1, 12(AX)(CX*1), x
-  PINSRD $2, 12(AX)(CX*1), x
-  PINSRD $3, 12(AX)(CX*1), x
+  PSHUFD $0, x, x
   PXOR t0, x
   PXOR t1, x
   PXOR t2, x
@@ -346,7 +337,6 @@ loop:
   PXOR t1, x
   PXOR t2, x
   PXOR t3, x
-  
   SM4_TAO_L1(x, y)
   PXOR x, t0
 
