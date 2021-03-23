@@ -96,6 +96,6 @@ For **SM4** implementation, AES-NI is used under **amd64**, for detail please re
     pkg: github.com/emmansun/gmsm/sm4
     BenchmarkEncrypt-6   	 5881989	       206 ns/op	  77.75 MB/s	       0 B/op	       0 allocs/op
     BenchmarkDecrypt-6   	 5853994	       204 ns/op	  78.45 MB/s	       0 B/op	       0 allocs/op
-    BenchmarkExpand-6    	 2583012	       469 ns/op	      16 B/op	       1 allocs/op
+    BenchmarkExpand-6    	 5985129	       200 ns/op	       0 B/op	       0 allocs/op
     PASS
     ok  	github.com/emmansun/gmsm/sm4	6.193s
