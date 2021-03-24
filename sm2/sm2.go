@@ -189,6 +189,9 @@ func calculateC3(curve elliptic.Curve, x2, y2 *big.Int, msg []byte) []byte {
 func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *EncrypterOpts) ([]byte, error) {
 	curve := pub.Curve
 	msgLen := len(msg)
+	if msgLen == 0 {
+		return nil, nil
+	}
 	if opts == nil {
 		opts = &defaultEncrypterOpts
 	}

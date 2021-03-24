@@ -56,21 +56,9 @@ DATA r24_mask<>+0x00(SB)/8, $0x0407060500030201
 DATA r24_mask<>+0x08(SB)/8, $0x0C0F0E0D080B0A09  
 GLOBL r24_mask<>(SB), RODATA, $16
 
-DATA fk00_mask<>+0x00(SB)/8, $0xa3b1bac6a3b1bac6
-DATA fk00_mask<>+0x08(SB)/8, $0xa3b1bac6a3b1bac6  
-GLOBL fk00_mask<>(SB), RODATA, $16
-
-DATA fk01_mask<>+0x00(SB)/8, $0x56aa335056aa3350
-DATA fk01_mask<>+0x08(SB)/8, $0x56aa335056aa3350  
-GLOBL fk01_mask<>(SB), RODATA, $16
-
-DATA fk02_mask<>+0x00(SB)/8, $0x677d9197677d9197
-DATA fk02_mask<>+0x08(SB)/8, $0x677d9197677d9197  
-GLOBL fk02_mask<>(SB), RODATA, $16
-
-DATA fk03_mask<>+0x00(SB)/8, $0xb27022dcb27022dc
-DATA fk03_mask<>+0x08(SB)/8, $0xb27022dcb27022dc  
-GLOBL fk03_mask<>(SB), RODATA, $16
+DATA fk_mask<>+0x00(SB)/8, $0x56aa3350a3b1bac6
+DATA fk_mask<>+0x08(SB)/8, $0xb27022dc677d9197
+GLOBL fk_mask<>(SB), RODATA, $16
 
 #define SM4_SBOX(x, y) \
   ;                                   \ //#############################  inner affine ############################//
@@ -139,21 +127,12 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
   MOVQ  enc+16(FP), DX
   MOVQ  dec+24(FP), DI
 
-  PINSRD $0, 0(AX), t0
+  MOVUPS 0(AX), t0
   PSHUFB flip_mask<>(SB), t0
-  PXOR fk00_mask<>(SB), t0
-
-  PINSRD $0, 4(AX), t1
-  PSHUFB flip_mask<>(SB), t1
-  PXOR fk01_mask<>(SB), t1
-
-  PINSRD $0, 8(AX), t2
-  PSHUFB flip_mask<>(SB), t2
-  PXOR fk02_mask<>(SB), t2
-
-  PINSRD $0, 12(AX), t3
-  PSHUFB flip_mask<>(SB), t3
-  PXOR fk03_mask<>(SB), t3
+  PXOR fk_mask<>(SB), t0
+  PSHUFD $1, t0, t1
+  PSHUFD $2, t0, t2
+  PSHUFD $3, t0, t3
 
   XORL CX, CX
   MOVL $112, SI
