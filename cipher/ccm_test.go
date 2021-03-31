@@ -6,6 +6,7 @@ import (
 	"testing"
 )
 
+// https://tools.ietf.org/html/rfc3610, 8. Test Vectors
 var aesCCMTests = []struct {
 	key, nonce, plaintext, ad, result string
 	tagSize                           int

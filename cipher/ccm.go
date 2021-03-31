@@ -127,8 +127,8 @@ func (c *ccm) auth(nonce, plaintext, additionalData []byte, tagMask *[ccmBlockSi
 	if len(additionalData) > 0 {
 		out[0] = 1 << 6 // 64*Adata
 	}
-	out[0] |= byte(c.tagSize-2) << 2
-	out[0] |= byte(14 - c.nonceSize)
+	out[0] |= byte(c.tagSize-2) << 2 // M' = ((tagSize - 2) / 2)*8
+	out[0] |= byte(14 - c.nonceSize) // L'
 	binary.BigEndian.PutUint64(out[ccmBlockSize-8:], uint64(len(plaintext)))
 	copy(out[1:], nonce)
 	c.cipher.Encrypt(out[:], out[:])
