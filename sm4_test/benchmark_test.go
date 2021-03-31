@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"testing"
 
+	smcipher "github.com/emmansun/gmsm/cipher"
 	"github.com/emmansun/gmsm/sm4"
 )
 
@@ -269,4 +270,94 @@ func BenchmarkAESGCMOpen8K(b *testing.B) {
 
 func BenchmarkSM4GCMOpen8K(b *testing.B) {
 	benchmarkSM4GCMOpen(b, make([]byte, 8*1024))
+}
+
+func benchmarkAESCCMSign(b *testing.B, buf []byte) {
+	var key [16]byte
+	c, _ := aes.NewCipher(key[:])
+	aesccm, _ := smcipher.NewCCM(c)
+	benchmarkGCMSign(b, aesccm, buf)
+}
+
+func benchmarkSM4CCMSign(b *testing.B, buf []byte) {
+	var key [16]byte
+	c, _ := sm4.NewCipher(key[:])
+	sm4ccm, _ := smcipher.NewCCM(c)
+	benchmarkGCMSign(b, sm4ccm, buf)
+}
+
+func BenchmarkAESCCMSign1K(b *testing.B) {
+	benchmarkAESCCMSign(b, make([]byte, 1024))
+}
+
+func BenchmarkSM4CCMSign1K(b *testing.B) {
+	benchmarkSM4CCMSign(b, make([]byte, 1024))
+}
+
+func BenchmarkAESCCMSeal1K(b *testing.B) {
+	benchmarkAESCCMSeal(b, make([]byte, 1024))
+}
+
+func BenchmarkSM4CCMSeal1K(b *testing.B) {
+	benchmarkSM4CCMSeal(b, make([]byte, 1024))
+}
+
+func BenchmarkAESCCMOpen1K(b *testing.B) {
+	benchmarkAESCCMOpen(b, make([]byte, 1024))
+}
+
+func BenchmarkSM4CCMOpen1K(b *testing.B) {
+	benchmarkSM4CCMOpen(b, make([]byte, 1024))
+}
+
+func BenchmarkAESCCMSign8K(b *testing.B) {
+	benchmarkAESCCMSign(b, make([]byte, 8*1024))
+}
+
+func BenchmarkSM4CCMSign8K(b *testing.B) {
+	benchmarkSM4CCMSign(b, make([]byte, 8*1024))
+}
+
+func BenchmarkAESCCMSeal8K(b *testing.B) {
+	benchmarkAESCCMSeal(b, make([]byte, 8*1024))
+}
+
+func BenchmarkSM4CCMSeal8K(b *testing.B) {
+	benchmarkSM4CCMSeal(b, make([]byte, 8*1024))
+}
+
+func BenchmarkAESCCMOpen8K(b *testing.B) {
+	benchmarkAESCCMOpen(b, make([]byte, 8*1024))
+}
+
+func BenchmarkSM4CCMOpen8K(b *testing.B) {
+	benchmarkSM4CCMOpen(b, make([]byte, 8*1024))
+}
+
+func benchmarkAESCCMSeal(b *testing.B, buf []byte) {
+	var key [16]byte
+	c, _ := aes.NewCipher(key[:])
+	sm4gcm, _ := smcipher.NewCCM(c)
+	benchmarkGCMSeal(b, sm4gcm, buf)
+}
+
+func benchmarkSM4CCMSeal(b *testing.B, buf []byte) {
+	var key [16]byte
+	c, _ := sm4.NewCipher(key[:])
+	sm4gcm, _ := smcipher.NewCCM(c)
+	benchmarkGCMSeal(b, sm4gcm, buf)
+}
+
+func benchmarkAESCCMOpen(b *testing.B, buf []byte) {
+	var key [16]byte
+	c, _ := aes.NewCipher(key[:])
+	sm4gcm, _ := smcipher.NewCCM(c)
+	benchmarkGCMOpen(b, sm4gcm, buf)
+}
+
+func benchmarkSM4CCMOpen(b *testing.B, buf []byte) {
+	var key [16]byte
+	c, _ := sm4.NewCipher(key[:])
+	sm4gcm, _ := smcipher.NewCCM(c)
+	benchmarkGCMOpen(b, sm4gcm, buf)
 }

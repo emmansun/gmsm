@@ -4,6 +4,8 @@ package sm4
 import (
 	"crypto/cipher"
 	"crypto/subtle"
+
+	smcipher "github.com/emmansun/gmsm/cipher"
 )
 
 // sm4CipherGCM implements crypto/cipher.gcmAble so that crypto/cipher.NewGCM
@@ -80,8 +82,8 @@ func (g *gcmAsm) Seal(dst, nonce, plaintext, data []byte) []byte {
 
 	gcmSm4Data(&g.bytesProductTable, data, &tagOut)
 
-	ret, out := sliceForAppend(dst, len(plaintext)+g.tagSize)
-	if InexactOverlap(out[:len(plaintext)], plaintext) {
+	ret, out := smcipher.SliceForAppend(dst, len(plaintext)+g.tagSize)
+	if smcipher.InexactOverlap(out[:len(plaintext)], plaintext) {
 		panic("crypto/cipher: invalid buffer overlap")
 	}
 
@@ -136,8 +138,8 @@ func (g *gcmAsm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 	var expectedTag [gcmTagSize]byte
 	gcmSm4Data(&g.bytesProductTable, data, &expectedTag)
 
-	ret, out := sliceForAppend(dst, len(ciphertext))
-	if InexactOverlap(out, ciphertext) {
+	ret, out := smcipher.SliceForAppend(dst, len(ciphertext))
+	if smcipher.InexactOverlap(out, ciphertext) {
 		panic("crypto/cipher: invalid buffer overlap")
 	}
 	if len(ciphertext) > 0 {

@@ -5,6 +5,7 @@ package sm4
 import (
 	"crypto/cipher"
 
+	smcipher "github.com/emmansun/gmsm/cipher"
 	"golang.org/x/sys/cpu"
 )
 
@@ -47,7 +48,7 @@ func (c *sm4CipherAsm) Encrypt(dst, src []byte) {
 	if len(dst) < BlockSize {
 		panic("sm4: output not full block")
 	}
-	if InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
+	if smcipher.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
 	encryptBlockAsm(&c.enc[0], &dst[0], &src[0])
@@ -60,7 +61,7 @@ func (c *sm4CipherAsm) Decrypt(dst, src []byte) {
 	if len(dst) < BlockSize {
 		panic("sm4: output not full block")
 	}
-	if InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
+	if smcipher.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
 	encryptBlockAsm(&c.dec[0], &dst[0], &src[0])

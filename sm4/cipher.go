@@ -3,7 +3,8 @@ package sm4
 import (
 	"crypto/cipher"
 	"fmt"
-	"unsafe"
+
+	smcipher "github.com/emmansun/gmsm/cipher"
 )
 
 // BlockSize the sm4 block size in bytes.
@@ -47,7 +48,7 @@ func (c *sm4Cipher) Encrypt(dst, src []byte) {
 	if len(dst) < BlockSize {
 		panic("sm4: output not full block")
 	}
-	if InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
+	if smcipher.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
 	encryptBlockGo(c.enc, dst, src)
@@ -60,29 +61,8 @@ func (c *sm4Cipher) Decrypt(dst, src []byte) {
 	if len(dst) < BlockSize {
 		panic("sm4: output not full block")
 	}
-	if InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
+	if smcipher.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
 	decryptBlockGo(c.dec, dst, src)
-}
-
-// AnyOverlap reports whether x and y share memory at any (not necessarily
-// corresponding) index. The memory beyond the slice length is ignored.
-func AnyOverlap(x, y []byte) bool {
-	return len(x) > 0 && len(y) > 0 &&
-		uintptr(unsafe.Pointer(&x[0])) <= uintptr(unsafe.Pointer(&y[len(y)-1])) &&
-		uintptr(unsafe.Pointer(&y[0])) <= uintptr(unsafe.Pointer(&x[len(x)-1]))
-}
-
-// InexactOverlap reports whether x and y share memory at any non-corresponding
-// index. The memory beyond the slice length is ignored. Note that x and y can
-// have different lengths and still not have any inexact overlap.
-//
-// InexactOverlap can be used to implement the requirements of the crypto/cipher
-// AEAD, Block, BlockMode and Stream interfaces.
-func InexactOverlap(x, y []byte) bool {
-	if len(x) == 0 || len(y) == 0 || &x[0] == &y[0] {
-		return false
-	}
-	return AnyOverlap(x, y)
 }

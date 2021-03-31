@@ -5,6 +5,8 @@ import (
 	"crypto/subtle"
 	"encoding/binary"
 	"errors"
+
+	smcipher "github.com/emmansun/gmsm/cipher"
 )
 
 // Assert that sm4CipherAsm implements the gcmAble interface.
@@ -80,8 +82,8 @@ func (g *gcm) Seal(dst, nonce, plaintext, data []byte) []byte {
 		panic("crypto/cipher: message too large for GCM")
 	}
 
-	ret, out := sliceForAppend(dst, len(plaintext)+g.tagSize)
-	if InexactOverlap(out, plaintext) {
+	ret, out := smcipher.SliceForAppend(dst, len(plaintext)+g.tagSize)
+	if smcipher.InexactOverlap(out, plaintext) {
 		panic("crypto/cipher: invalid buffer overlap")
 	}
 
@@ -131,8 +133,8 @@ func (g *gcm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 	var expectedTag [gcmTagSize]byte
 	g.auth(expectedTag[:], ciphertext, data, &tagMask)
 
-	ret, out := sliceForAppend(dst, len(ciphertext))
-	if InexactOverlap(out, ciphertext) {
+	ret, out := smcipher.SliceForAppend(dst, len(ciphertext))
+	if smcipher.InexactOverlap(out, ciphertext) {
 		panic("crypto/cipher: invalid buffer overlap")
 	}
 
@@ -257,21 +259,6 @@ func gcmInc32(counterBlock *[16]byte) {
 	binary.BigEndian.PutUint32(ctr, binary.BigEndian.Uint32(ctr)+1)
 }
 
-// sliceForAppend takes a slice and a requested number of bytes. It returns a
-// slice with the contents of the given slice followed by that many bytes and a
-// second slice that aliases into it and contains only the extra bytes. If the
-// original slice has sufficient capacity then no allocation is performed.
-func sliceForAppend(in []byte, n int) (head, tail []byte) {
-	if total := len(in) + n; cap(in) >= total {
-		head = in[:total]
-	} else {
-		head = make([]byte, total)
-		copy(head, in)
-	}
-	tail = head[len(in):]
-	return
-}
-
 // counterCrypt crypts in to out using g.cipher in counter mode.
 func (g *gcm) counterCrypt(out, in []byte, counter *[gcmBlockSize]byte) {
 	var mask [FourBlocksSize]byte
@@ -288,7 +275,7 @@ func (g *gcm) counterCrypt(out, in []byte, counter *[gcmBlockSize]byte) {
 
 		encryptBlocksAsm(&g.cipher.enc[0], &mask[0], &couters[0])
 		gcmInc32(counter)
-		xorWords(out, in, mask[:])
+		smcipher.XorWords(out, in, mask[:])
 		out = out[FourBlocksSize:]
 		in = in[FourBlocksSize:]
 	}
@@ -300,7 +287,7 @@ func (g *gcm) counterCrypt(out, in []byte, counter *[gcmBlockSize]byte) {
 			gcmInc32(counter)
 		}
 		encryptBlocksAsm(&g.cipher.enc[0], &mask[0], &couters[0])
-		xorBytes(out, in, mask[:blocks*gcmBlockSize])
+		smcipher.XorBytes(out, in, mask[:blocks*gcmBlockSize])
 	}
 }
 
@@ -342,5 +329,5 @@ func (g *gcm) auth(out, ciphertext, additionalData []byte, tagMask *[gcmTagSize]
 	binary.BigEndian.PutUint64(out, y.low)
 	binary.BigEndian.PutUint64(out[8:], y.high)
 
-	xorWords(out, out, tagMask[:])
+	smcipher.XorWords(out, out, tagMask[:])
 }

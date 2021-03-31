@@ -1,8 +1,8 @@
-package sm4
+package cipher
 
-// xorBytes xors the bytes in a and b. The destination should have enough
+// XorBytes xors the bytes in a and b. The destination should have enough
 // space, otherwise xorBytes will panic. Returns the number of bytes xor'd.
-func xorBytes(dst, a, b []byte) int {
+func XorBytes(dst, a, b []byte) int {
 	n := len(a)
 	if len(b) < n {
 		n = len(b)
@@ -15,8 +15,8 @@ func xorBytes(dst, a, b []byte) int {
 	return n
 }
 
-func xorWords(dst, a, b []byte) {
-	xorBytes(dst, a, b)
+func XorWords(dst, a, b []byte) {
+	XorBytes(dst, a, b)
 }
 
 //go:noescape
