@@ -131,26 +131,34 @@ func (c *ccm) auth(nonce, plaintext, additionalData []byte, tagMask *[ccmBlockSi
 	out[0] |= byte(14 - c.nonceSize) // L'
 	binary.BigEndian.PutUint64(out[ccmBlockSize-8:], uint64(len(plaintext)))
 	copy(out[1:], nonce)
+	// B0
 	c.cipher.Encrypt(out[:], out[:])
 
 	var block [ccmBlockSize]byte
 	if n := uint64(len(additionalData)); n > 0 {
 		// First adata block includes adata length
 		i := 2
-		if n <= 0xfeff {
+		if n <= 0xfeff { // l(a) < (2^16 - 2^8)
 			binary.BigEndian.PutUint16(block[:i], uint16(n))
 		} else {
-			block[0] = 0xfe
-			block[1] = 0xff
+			block[0] = 0xff
+			// If (2^16 - 2^8) <= l(a) < 2^32, then the length field is encoded as
+			// six octets consisting of the octets 0xff, 0xfe, and four octets
+			// encoding l(a) in most-significant-byte-first order.
 			if n < uint64(1<<32) {
+				block[1] = 0xfe
 				i = 2 + 4
 				binary.BigEndian.PutUint32(block[2:i], uint32(n))
 			} else {
+				block[1] = 0xff
+				// If 2^32 <= l(a) < 2^64, then the length field is encoded as ten
+				// octets consisting of the octets 0xff, 0xff, and eight octets encoding
+				// l(a) in most-significant-byte-first order.
 				i = 2 + 8
 				binary.BigEndian.PutUint64(block[2:i], uint64(n))
 			}
 		}
-		i = copy(block[i:], additionalData)
+		i = copy(block[i:], additionalData) // first block start with additional data length
 		c.cmac(out[:], block[:])
 		c.cmac(out[:], additionalData[i:])
 	}
