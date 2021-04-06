@@ -78,10 +78,10 @@ func (x *ctr) refill() {
 
 func (x *ctr) XORKeyStream(dst, src []byte) {
 	if len(dst) < len(src) {
-		panic("crypto/cipher: output smaller than input")
+		panic("cipher: output smaller than input")
 	}
 	if smcipher.InexactOverlap(dst[:len(src)], src) {
-		panic("crypto/cipher: invalid buffer overlap")
+		panic("cipher: invalid buffer overlap")
 	}
 	for len(src) > 0 {
 		if x.outUsed >= len(x.out)-BlockSize {

@@ -28,13 +28,13 @@ func (x *cbc) BlockSize() int { return BlockSize }
 
 func (x *cbc) CryptBlocks(dst, src []byte) {
 	if len(src)%BlockSize != 0 {
-		panic("crypto/cipher: input not full blocks")
+		panic("cipher: input not full blocks")
 	}
 	if len(dst) < len(src) {
-		panic("crypto/cipher: output smaller than input")
+		panic("cipher: output smaller than input")
 	}
 	if smcipher.InexactOverlap(dst[:len(src)], src) {
-		panic("crypto/cipher: invalid buffer overlap")
+		panic("cipher: invalid buffer overlap")
 	}
 	if len(src) == 0 {
 		return
