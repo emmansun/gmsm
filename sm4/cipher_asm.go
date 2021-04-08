@@ -39,7 +39,11 @@ func newCipher(key []byte) (cipher.Block, error) {
 
 const FourBlocksSize = 64
 
+const BatchBlocks = 4
+
 func (c *sm4CipherAsm) BlockSize() int { return BlockSize }
+
+func (c *sm4CipherAsm) Concurrency() int { return BatchBlocks }
 
 func (c *sm4CipherAsm) Encrypt(dst, src []byte) {
 	if len(src) < BlockSize {
@@ -54,6 +58,19 @@ func (c *sm4CipherAsm) Encrypt(dst, src []byte) {
 	encryptBlockAsm(&c.enc[0], &dst[0], &src[0])
 }
 
+func (c *sm4CipherAsm) EncryptBlocks(dst, src []byte) {
+	if len(src) < FourBlocksSize {
+		panic("sm4: input not full blocks")
+	}
+	if len(dst) < FourBlocksSize {
+		panic("sm4: output not full blocks")
+	}
+	if smcipher.InexactOverlap(dst[:FourBlocksSize], src[:FourBlocksSize]) {
+		panic("sm4: invalid buffer overlap")
+	}
+	encryptBlocksAsm(&c.enc[0], &dst[0], &src[0])
+}
+
 func (c *sm4CipherAsm) Decrypt(dst, src []byte) {
 	if len(src) < BlockSize {
 		panic("sm4: input not full block")
@@ -65,6 +82,19 @@ func (c *sm4CipherAsm) Decrypt(dst, src []byte) {
 		panic("sm4: invalid buffer overlap")
 	}
 	encryptBlockAsm(&c.dec[0], &dst[0], &src[0])
+}
+
+func (c *sm4CipherAsm) DecryptBlocks(dst, src []byte) {
+	if len(src) < FourBlocksSize {
+		panic("sm4: input not full blocks")
+	}
+	if len(dst) < FourBlocksSize {
+		panic("sm4: output not full blocks")
+	}
+	if smcipher.InexactOverlap(dst[:FourBlocksSize], src[:FourBlocksSize]) {
+		panic("sm4: invalid buffer overlap")
+	}
+	encryptBlocksAsm(&c.dec[0], &dst[0], &src[0])
 }
 
 // expandKey is used by BenchmarkExpand to ensure that the asm implementation
