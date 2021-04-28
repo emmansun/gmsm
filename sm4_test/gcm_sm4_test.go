@@ -203,6 +203,13 @@ var sm4GCMTests = []struct {
 		"",
 		"250327c674aaf477aef2675748cf6971",
 	},
+	{ // https://tools.ietf.org/html/rfc8998 A.1. SM4-GCM Test Vectors
+		"0123456789abcdeffedcba9876543210",
+		"00001234567800000000abcd",
+		"aaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbccccccccccccccccddddddddddddddddeeeeeeeeeeeeeeeeffffffffffffffffeeeeeeeeeeeeeeeeaaaaaaaaaaaaaaaa",
+		"feedfacedeadbeeffeedfacedeadbeefabaddad2",
+		"17f399f08c67d5ee19d0dc9969c4bb7d5fd46fd3756489069157b282bb200735d82710ca5c22f0ccfa7cbf93d496ac15a56834cbcf98c397b4024a2691233b8d83de3541e4c2b58177e065a9bf7b62ec",
+	},
 }
 
 func TestSM4GCM(t *testing.T) {
