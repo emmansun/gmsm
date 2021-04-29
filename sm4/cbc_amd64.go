@@ -3,7 +3,8 @@ package sm4
 import (
 	"crypto/cipher"
 
-	smcipher "github.com/emmansun/gmsm/cipher"
+	"github.com/emmansun/gmsm/internal/subtle"
+	"github.com/emmansun/gmsm/internal/xor"
 )
 
 // Assert that sm4CipherAsm implements the cbcDecAble interfaces.
@@ -33,7 +34,7 @@ func (x *cbc) CryptBlocks(dst, src []byte) {
 	if len(dst) < len(src) {
 		panic("cipher: output smaller than input")
 	}
-	if smcipher.InexactOverlap(dst[:len(src)], src) {
+	if subtle.InexactOverlap(dst[:len(src)], src) {
 		panic("cipher: invalid buffer overlap")
 	}
 	if len(src) == 0 {
@@ -46,10 +47,10 @@ func (x *cbc) CryptBlocks(dst, src []byte) {
 	var src64 []byte = make([]byte, FourBlocksSize)
 	for start > 0 {
 		encryptBlocksAsm(&x.b.dec[0], &temp[0], &src[start:end][0])
-		smcipher.XorBytes(dst[end-BlockSize:end], temp[FourBlocksSize-BlockSize:FourBlocksSize], src[end-2*BlockSize:end-BlockSize])
-		smcipher.XorBytes(dst[end-2*BlockSize:end-BlockSize], temp[FourBlocksSize-2*BlockSize:FourBlocksSize-BlockSize], src[end-3*BlockSize:end-2*BlockSize])
-		smcipher.XorBytes(dst[end-3*BlockSize:end-2*BlockSize], temp[FourBlocksSize-3*BlockSize:FourBlocksSize-2*BlockSize], src[end-4*BlockSize:end-3*BlockSize])
-		smcipher.XorBytes(dst[end-4*BlockSize:end-3*BlockSize], temp[:BlockSize], src[end-5*BlockSize:end-4*BlockSize])
+		xor.XorBytes(dst[end-BlockSize:end], temp[FourBlocksSize-BlockSize:FourBlocksSize], src[end-2*BlockSize:end-BlockSize])
+		xor.XorBytes(dst[end-2*BlockSize:end-BlockSize], temp[FourBlocksSize-2*BlockSize:FourBlocksSize-BlockSize], src[end-3*BlockSize:end-2*BlockSize])
+		xor.XorBytes(dst[end-3*BlockSize:end-2*BlockSize], temp[FourBlocksSize-3*BlockSize:FourBlocksSize-2*BlockSize], src[end-4*BlockSize:end-3*BlockSize])
+		xor.XorBytes(dst[end-4*BlockSize:end-3*BlockSize], temp[:BlockSize], src[end-5*BlockSize:end-4*BlockSize])
 
 		end = start
 		start -= FourBlocksSize
@@ -59,10 +60,10 @@ func (x *cbc) CryptBlocks(dst, src []byte) {
 	encryptBlocksAsm(&x.b.dec[0], &temp[0], &src[:end][0])
 	count := end / BlockSize
 	for i := count; i > 1; i-- {
-		smcipher.XorBytes(dst[end-BlockSize:end], temp[end-BlockSize:end], src[end-2*BlockSize:end-BlockSize])
+		xor.XorBytes(dst[end-BlockSize:end], temp[end-BlockSize:end], src[end-2*BlockSize:end-BlockSize])
 		end -= BlockSize
 	}
-	smcipher.XorBytes(dst[0:end], temp[0:end], x.iv[:])
+	xor.XorBytes(dst[0:end], temp[0:end], x.iv[:])
 	// Set the new iv to the first block we copied earlier.
 	x.iv, x.tmp = x.tmp, x.iv
 }

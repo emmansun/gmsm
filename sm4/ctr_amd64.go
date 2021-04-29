@@ -3,7 +3,8 @@ package sm4
 import (
 	"crypto/cipher"
 
-	smcipher "github.com/emmansun/gmsm/cipher"
+	"github.com/emmansun/gmsm/internal/subtle"
+	"github.com/emmansun/gmsm/internal/xor"
 )
 
 // Assert that sm4CipherAsm implements the ctrAble interface.
@@ -80,14 +81,14 @@ func (x *ctr) XORKeyStream(dst, src []byte) {
 	if len(dst) < len(src) {
 		panic("cipher: output smaller than input")
 	}
-	if smcipher.InexactOverlap(dst[:len(src)], src) {
+	if subtle.InexactOverlap(dst[:len(src)], src) {
 		panic("cipher: invalid buffer overlap")
 	}
 	for len(src) > 0 {
 		if x.outUsed >= len(x.out)-BlockSize {
 			x.refill()
 		}
-		n := smcipher.XorBytes(dst, src, x.out[x.outUsed:])
+		n := xor.XorBytes(dst, src, x.out[x.outUsed:])
 		dst = dst[n:]
 		src = src[n:]
 		x.outUsed += n

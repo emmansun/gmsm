@@ -5,7 +5,7 @@ package sm4
 import (
 	"crypto/cipher"
 
-	smcipher "github.com/emmansun/gmsm/cipher"
+	"github.com/emmansun/gmsm/internal/subtle"
 	"golang.org/x/sys/cpu"
 )
 
@@ -52,7 +52,7 @@ func (c *sm4CipherAsm) Encrypt(dst, src []byte) {
 	if len(dst) < BlockSize {
 		panic("sm4: output not full block")
 	}
-	if smcipher.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
+	if subtle.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
 	encryptBlockAsm(&c.enc[0], &dst[0], &src[0])
@@ -65,7 +65,7 @@ func (c *sm4CipherAsm) EncryptBlocks(dst, src []byte) {
 	if len(dst) < FourBlocksSize {
 		panic("sm4: output not full blocks")
 	}
-	if smcipher.InexactOverlap(dst[:FourBlocksSize], src[:FourBlocksSize]) {
+	if subtle.InexactOverlap(dst[:FourBlocksSize], src[:FourBlocksSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
 	encryptBlocksAsm(&c.enc[0], &dst[0], &src[0])
@@ -78,7 +78,7 @@ func (c *sm4CipherAsm) Decrypt(dst, src []byte) {
 	if len(dst) < BlockSize {
 		panic("sm4: output not full block")
 	}
-	if smcipher.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
+	if subtle.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
 	encryptBlockAsm(&c.dec[0], &dst[0], &src[0])
@@ -91,7 +91,7 @@ func (c *sm4CipherAsm) DecryptBlocks(dst, src []byte) {
 	if len(dst) < FourBlocksSize {
 		panic("sm4: output not full blocks")
 	}
-	if smcipher.InexactOverlap(dst[:FourBlocksSize], src[:FourBlocksSize]) {
+	if subtle.InexactOverlap(dst[:FourBlocksSize], src[:FourBlocksSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
 	encryptBlocksAsm(&c.dec[0], &dst[0], &src[0])

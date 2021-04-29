@@ -2,11 +2,12 @@ package sm4
 
 import (
 	"crypto/cipher"
-	"crypto/subtle"
+	goSubtle "crypto/subtle"
 	"encoding/binary"
 	"errors"
 
-	smcipher "github.com/emmansun/gmsm/cipher"
+	"github.com/emmansun/gmsm/internal/subtle"
+	"github.com/emmansun/gmsm/internal/xor"
 )
 
 // Assert that sm4CipherAsm implements the gcmAble interface.
@@ -82,8 +83,8 @@ func (g *gcm) Seal(dst, nonce, plaintext, data []byte) []byte {
 		panic("cipher: message too large for GCM")
 	}
 
-	ret, out := smcipher.SliceForAppend(dst, len(plaintext)+g.tagSize)
-	if smcipher.InexactOverlap(out, plaintext) {
+	ret, out := subtle.SliceForAppend(dst, len(plaintext)+g.tagSize)
+	if subtle.InexactOverlap(out, plaintext) {
 		panic("cipher: invalid buffer overlap")
 	}
 
@@ -133,12 +134,12 @@ func (g *gcm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 	var expectedTag [gcmTagSize]byte
 	g.auth(expectedTag[:], ciphertext, data, &tagMask)
 
-	ret, out := smcipher.SliceForAppend(dst, len(ciphertext))
-	if smcipher.InexactOverlap(out, ciphertext) {
+	ret, out := subtle.SliceForAppend(dst, len(ciphertext))
+	if subtle.InexactOverlap(out, ciphertext) {
 		panic("cipher: invalid buffer overlap")
 	}
 
-	if subtle.ConstantTimeCompare(expectedTag[:g.tagSize], tag) != 1 {
+	if goSubtle.ConstantTimeCompare(expectedTag[:g.tagSize], tag) != 1 {
 		// The AESNI code decrypts and authenticates concurrently, and
 		// so overwrites dst in the event of a tag mismatch. That
 		// behavior is mimicked here in order to be consistent across
@@ -275,7 +276,7 @@ func (g *gcm) counterCrypt(out, in []byte, counter *[gcmBlockSize]byte) {
 
 		encryptBlocksAsm(&g.cipher.enc[0], &mask[0], &couters[0])
 		gcmInc32(counter)
-		smcipher.XorWords(out, in, mask[:])
+		xor.XorWords(out, in, mask[:])
 		out = out[FourBlocksSize:]
 		in = in[FourBlocksSize:]
 	}
@@ -287,7 +288,7 @@ func (g *gcm) counterCrypt(out, in []byte, counter *[gcmBlockSize]byte) {
 			gcmInc32(counter)
 		}
 		encryptBlocksAsm(&g.cipher.enc[0], &mask[0], &couters[0])
-		smcipher.XorBytes(out, in, mask[:blocks*gcmBlockSize])
+		xor.XorBytes(out, in, mask[:blocks*gcmBlockSize])
 	}
 }
 
@@ -329,5 +330,5 @@ func (g *gcm) auth(out, ciphertext, additionalData []byte, tagMask *[gcmTagSize]
 	binary.BigEndian.PutUint64(out, y.low)
 	binary.BigEndian.PutUint64(out[8:], y.high)
 
-	smcipher.XorWords(out, out, tagMask[:])
+	xor.XorWords(out, out, tagMask[:])
 }

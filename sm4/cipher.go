@@ -4,7 +4,7 @@ import (
 	"crypto/cipher"
 	"fmt"
 
-	smcipher "github.com/emmansun/gmsm/cipher"
+	"github.com/emmansun/gmsm/internal/subtle"
 )
 
 // BlockSize the sm4 block size in bytes.
@@ -48,7 +48,7 @@ func (c *sm4Cipher) Encrypt(dst, src []byte) {
 	if len(dst) < BlockSize {
 		panic("sm4: output not full block")
 	}
-	if smcipher.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
+	if subtle.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
 	encryptBlockGo(c.enc, dst, src)
@@ -61,7 +61,7 @@ func (c *sm4Cipher) Decrypt(dst, src []byte) {
 	if len(dst) < BlockSize {
 		panic("sm4: output not full block")
 	}
-	if smcipher.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
+	if subtle.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
 	decryptBlockGo(c.dec, dst, src)

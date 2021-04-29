@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package cipher
+package xor
 
 // XorBytes xors the bytes in a and b. The destination should have enough
 // space, otherwise xorBytes will panic. Returns the number of bytes xor'd.

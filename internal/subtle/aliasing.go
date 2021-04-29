@@ -1,4 +1,4 @@
-package cipher
+package subtle
 
 import "unsafe"
 

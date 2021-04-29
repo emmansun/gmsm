@@ -4,7 +4,7 @@
 
 // +build !amd64
 
-package cipher
+package xor
 
 import (
 	"runtime"

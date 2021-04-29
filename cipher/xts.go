@@ -5,6 +5,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"sync"
+
+	"github.com/emmansun/gmsm/internal/subtle"
+	"github.com/emmansun/gmsm/internal/xor"
 )
 
 const GF128_FDBK byte = 0x87
@@ -86,7 +89,7 @@ func (c *xts) Encrypt(ciphertext, plaintext []byte, sectorNum uint64) {
 	if len(plaintext) < blockSize {
 		panic("xts: plaintext length is smaller than the block size")
 	}
-	if InexactOverlap(ciphertext[:len(plaintext)], plaintext) {
+	if subtle.InexactOverlap(ciphertext[:len(plaintext)], plaintext) {
 		panic("xts: invalid buffer overlap")
 	}
 
@@ -109,18 +112,18 @@ func (c *xts) Encrypt(ciphertext, plaintext []byte, sectorNum uint64) {
 				copy(tweaks[blockSize*i:], tweak[:])
 				mul2(tweak)
 			}
-			XorBytes(ciphertext, plaintext, tweaks)
+			xor.XorBytes(ciphertext, plaintext, tweaks)
 			concCipher.EncryptBlocks(ciphertext, ciphertext)
-			XorBytes(ciphertext, ciphertext, tweaks)
+			xor.XorBytes(ciphertext, ciphertext, tweaks)
 			plaintext = plaintext[batchSize:]
 			lastCiphertext = ciphertext[batchSize-blockSize:]
 			ciphertext = ciphertext[batchSize:]
 		}
 	}
 	for len(plaintext) >= blockSize {
-		XorBytes(ciphertext, plaintext, tweak[:])
+		xor.XorBytes(ciphertext, plaintext, tweak[:])
 		c.k1.Encrypt(ciphertext, ciphertext)
-		XorBytes(ciphertext, ciphertext, tweak[:])
+		xor.XorBytes(ciphertext, ciphertext, tweak[:])
 		plaintext = plaintext[blockSize:]
 		lastCiphertext = ciphertext
 		ciphertext = ciphertext[blockSize:]
@@ -136,11 +139,11 @@ func (c *xts) Encrypt(ciphertext, plaintext []byte, sectorNum uint64) {
 		//Steal ciphertext to complete the block
 		copy(x[remain:], lastCiphertext[remain:blockSize])
 		//Merge the tweak into the input block
-		XorBytes(x[:], x[:], tweak[:])
+		xor.XorBytes(x[:], x[:], tweak[:])
 		//Encrypt the final block using K1
 		c.k1.Encrypt(x[:], x[:])
 		//Merge the tweak into the output block
-		XorBytes(lastCiphertext, x[:], tweak[:])
+		xor.XorBytes(lastCiphertext, x[:], tweak[:])
 	}
 	tweakPool.Put(tweak)
 }
@@ -155,7 +158,7 @@ func (c *xts) Decrypt(plaintext, ciphertext []byte, sectorNum uint64) {
 	if len(ciphertext) < blockSize {
 		panic("xts: ciphertext length is smaller than the block size")
 	}
-	if InexactOverlap(plaintext[:len(ciphertext)], ciphertext) {
+	if subtle.InexactOverlap(plaintext[:len(ciphertext)], ciphertext) {
 		panic("xts: invalid buffer overlap")
 	}
 
@@ -176,18 +179,18 @@ func (c *xts) Decrypt(plaintext, ciphertext []byte, sectorNum uint64) {
 				copy(tweaks[blockSize*i:], tweak[:])
 				mul2(tweak)
 			}
-			XorBytes(plaintext, ciphertext, tweaks)
+			xor.XorBytes(plaintext, ciphertext, tweaks)
 			concCipher.DecryptBlocks(plaintext, plaintext)
-			XorBytes(plaintext, plaintext, tweaks)
+			xor.XorBytes(plaintext, plaintext, tweaks)
 			plaintext = plaintext[batchSize:]
 			ciphertext = ciphertext[batchSize:]
 		}
 	}
 
 	for len(ciphertext) >= 2*blockSize {
-		XorBytes(plaintext, ciphertext, tweak[:])
+		xor.XorBytes(plaintext, ciphertext, tweak[:])
 		c.k1.Decrypt(plaintext, plaintext)
-		XorBytes(plaintext, plaintext, tweak[:])
+		xor.XorBytes(plaintext, plaintext, tweak[:])
 		plaintext = plaintext[blockSize:]
 		ciphertext = ciphertext[blockSize:]
 
@@ -200,9 +203,9 @@ func (c *xts) Decrypt(plaintext, ciphertext []byte, sectorNum uint64) {
 			var tt [blockSize]byte
 			copy(tt[:], tweak[:])
 			mul2(&tt)
-			XorBytes(x[:], ciphertext, tt[:])
+			xor.XorBytes(x[:], ciphertext, tt[:])
 			c.k1.Decrypt(x[:], x[:])
-			XorBytes(plaintext, x[:], tt[:])
+			xor.XorBytes(plaintext, x[:], tt[:])
 
 			//Retrieve the length of the final block
 			remain -= blockSize
@@ -217,9 +220,9 @@ func (c *xts) Decrypt(plaintext, ciphertext []byte, sectorNum uint64) {
 			//The last block contains exactly 128 bits
 			copy(x[:], ciphertext)
 		}
-		XorBytes(x[:], x[:], tweak[:])
+		xor.XorBytes(x[:], x[:], tweak[:])
 		c.k1.Decrypt(x[:], x[:])
-		XorBytes(plaintext, x[:], tweak[:])
+		xor.XorBytes(plaintext, x[:], tweak[:])
 	}
 
 	tweakPool.Put(tweak)

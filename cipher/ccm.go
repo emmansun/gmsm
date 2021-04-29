@@ -2,11 +2,14 @@ package cipher
 
 import (
 	goCipher "crypto/cipher"
-	"crypto/subtle"
+	goSubtle "crypto/subtle"
 	"encoding/binary"
 	"math"
 
 	"errors"
+
+	"github.com/emmansun/gmsm/internal/subtle"
+	"github.com/emmansun/gmsm/internal/xor"
 )
 
 const (
@@ -109,14 +112,14 @@ func (c *ccm) deriveCounter(counter *[ccmBlockSize]byte, nonce []byte) {
 
 func (c *ccm) cmac(out, data []byte) {
 	for len(data) >= ccmBlockSize {
-		XorBytes(out, out, data)
+		xor.XorBytes(out, out, data)
 		c.cipher.Encrypt(out, out)
 		data = data[ccmBlockSize:]
 	}
 	if len(data) > 0 {
 		var block [ccmBlockSize]byte
 		copy(block[:], data)
-		XorBytes(out, out, data)
+		xor.XorBytes(out, out, data)
 		c.cipher.Encrypt(out, out)
 	}
 }
@@ -165,7 +168,7 @@ func (c *ccm) auth(nonce, plaintext, additionalData []byte, tagMask *[ccmBlockSi
 	if len(plaintext) > 0 {
 		c.cmac(out[:], plaintext)
 	}
-	XorWords(out[:], out[:], tagMask[:])
+	xor.XorWords(out[:], out[:], tagMask[:])
 	return out[:c.tagSize]
 }
 
@@ -176,8 +179,8 @@ func (c *ccm) Seal(dst, nonce, plaintext, data []byte) []byte {
 	if uint64(len(plaintext)) > uint64(c.MaxLength()) {
 		panic("cipher: message too large for CCM")
 	}
-	ret, out := SliceForAppend(dst, len(plaintext)+c.tagSize)
-	if InexactOverlap(out, plaintext) {
+	ret, out := subtle.SliceForAppend(dst, len(plaintext)+c.tagSize)
+	if subtle.InexactOverlap(out, plaintext) {
 		panic("cipher: invalid buffer overlap")
 	}
 
@@ -222,8 +225,8 @@ func (c *ccm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 	c.deriveCounter(&counter, nonce)
 	c.cipher.Encrypt(tagMask[:], counter[:])
 
-	ret, out := SliceForAppend(dst, len(ciphertext))
-	if InexactOverlap(out, ciphertext) {
+	ret, out := subtle.SliceForAppend(dst, len(ciphertext))
+	if subtle.InexactOverlap(out, ciphertext) {
 		panic("cipher: invalid buffer overlap")
 	}
 
@@ -231,7 +234,7 @@ func (c *ccm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 	ctr := goCipher.NewCTR(c.cipher, counter[:])
 	ctr.XORKeyStream(out, ciphertext)
 	expectedTag := c.auth(nonce, out, data, &tagMask)
-	if subtle.ConstantTimeCompare(expectedTag, tag) != 1 {
+	if goSubtle.ConstantTimeCompare(expectedTag, tag) != 1 {
 		// The AESNI code decrypts and authenticates concurrently, and
 		// so overwrites dst in the event of a tag mismatch. That
 		// behavior is mimicked here in order to be consistent across
