@@ -44,10 +44,6 @@ type PrivateKey struct {
 	ecdsa.PrivateKey
 }
 
-type ecdsaSignature struct {
-	R, S *big.Int
-}
-
 type pointMarshalMode byte
 
 const (

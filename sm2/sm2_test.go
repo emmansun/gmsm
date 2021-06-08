@@ -99,11 +99,11 @@ func Test_signVerify(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			hash := sm3.Sum([]byte(tt.plainText))
-			r, s, err := Sign(rand.Reader, &priv.PrivateKey, hash[:])
+			signature, err := priv.Sign(rand.Reader, hash[:], nil)
 			if err != nil {
 				t.Fatalf("sign failed %v", err)
 			}
-			result := Verify(&priv.PublicKey, hash[:], r, s)
+			result := VerifyASN1(&priv.PublicKey, hash[:], signature)
 			if !result {
 				t.Fatal("verify failed")
 			}
