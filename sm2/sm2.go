@@ -7,7 +7,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/sha512"
-	"encoding/asn1"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -17,6 +16,8 @@ import (
 	"sync"
 
 	"github.com/emmansun/gmsm/sm3"
+	"golang.org/x/crypto/cryptobyte"
+	"golang.org/x/crypto/cryptobyte/asn1"
 )
 
 const (
@@ -63,11 +64,6 @@ type EncrypterOpts struct {
 	PointMarshalMode pointMarshalMode
 }
 
-// Signer SM2 special signer
-type Signer interface {
-	SignWithSM2(rand io.Reader, uid, msg []byte) ([]byte, error)
-}
-
 func (mode pointMarshalMode) mashal(curve elliptic.Curve, x, y *big.Int) []byte {
 	switch mode {
 	case MarshalCompressed:
@@ -80,6 +76,38 @@ func (mode pointMarshalMode) mashal(curve elliptic.Curve, x, y *big.Int) []byte 
 }
 
 var defaultEncrypterOpts = EncrypterOpts{MarshalUncompressed}
+
+// directSigning is a standard Hash value that signals that no pre-hashing
+// should be performed.
+var directSigning crypto.Hash = 0
+
+// Signer SM2 special signer
+type Signer interface {
+	SignWithSM2(rand io.Reader, uid, msg []byte) ([]byte, error)
+}
+
+type SM2SignerOption struct {
+	UID         []byte
+	ForceGMSign bool
+}
+
+// NewSM2SignerOption create a SM2 specific signer option
+// forceGMSign - if use GM specific sign logic, if yes, should pass raw message to sign
+// uid - if forceGMSign is true, then you can pass uid, if no uid is provided, system will use default one
+func NewSM2SignerOption(forceGMSign bool, uid []byte) *SM2SignerOption {
+	opt := &SM2SignerOption{
+		UID:         uid,
+		ForceGMSign: forceGMSign,
+	}
+	if forceGMSign && len(uid) == 0 {
+		opt.UID = defaultUID
+	}
+	return opt
+}
+
+func (*SM2SignerOption) HashFunc() crypto.Hash {
+	return directSigning
+}
 
 // FromECPrivateKey convert an ecdsa private key to SM2 private key
 func (priv *PrivateKey) FromECPrivateKey(key *ecdsa.PrivateKey) (*PrivateKey, error) {
@@ -98,22 +126,27 @@ func (priv *PrivateKey) FromECPrivateKey(key *ecdsa.PrivateKey) (*PrivateKey, er
 // where the private part is kept in, for example, a hardware module. Common
 // uses should use the Sign function in this package directly.
 func (priv *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
-	r, s, err := Sign(rand, &priv.PrivateKey, digest)
+	var r, s *big.Int
+	var err error
+	if sm2Opts, ok := opts.(*SM2SignerOption); ok && sm2Opts.ForceGMSign {
+		r, s, err = SignWithSM2(rand, &priv.PrivateKey, sm2Opts.UID, digest)
+	} else {
+		r, s, err = Sign(rand, &priv.PrivateKey, digest)
+	}
 	if err != nil {
 		return nil, err
 	}
-
-	return asn1.Marshal(ecdsaSignature{r, s})
+	var b cryptobyte.Builder
+	b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+		b.AddASN1BigInt(r)
+		b.AddASN1BigInt(s)
+	})
+	return b.Bytes()
 }
 
 // SignWithSM2 signs uid, msg with SignWithSM2 method.
 func (priv *PrivateKey) SignWithSM2(rand io.Reader, uid, msg []byte) ([]byte, error) {
-	r, s, err := SignWithSM2(rand, &priv.PrivateKey, uid, msg)
-	if err != nil {
-		return nil, err
-	}
-
-	return asn1.Marshal(ecdsaSignature{r, s})
+	return priv.Sign(rand, msg, NewSM2SignerOption(true, uid))
 }
 
 // Decrypt decrypts msg. The opts argument should be appropriate for
@@ -464,6 +497,15 @@ func SignWithSM2(rand io.Reader, priv *ecdsa.PrivateKey, uid, msg []byte) (r, s 
 	return Sign(rand, priv, md.Sum(nil))
 }
 
+// SignASN1 signs a hash (which should be the result of hashing a larger message)
+// using the private key, priv. If the hash is longer than the bit-length of the
+// private key's curve order, the hash will be truncated to that length. It
+// returns the ASN.1 encoded signature. The security of the private key
+// depends on the entropy of rand.
+func SignASN1(rand io.Reader, priv *PrivateKey, hash []byte, opts crypto.SignerOpts) ([]byte, error) {
+	return priv.Sign(rand, hash, opts)
+}
+
 // Verify verifies the signature in r, s of hash using the public key, pub. Its
 // return value records whether the signature is valid.
 func Verify(pub *ecdsa.PublicKey, hash []byte, r, s *big.Int) bool {
@@ -500,6 +542,24 @@ func Verify(pub *ecdsa.PublicKey, hash []byte, r, s *big.Int) bool {
 	return ecdsa.Verify(pub, hash, r, s)
 }
 
+// VerifyASN1 verifies the ASN.1 encoded signature, sig, of hash using the
+// public key, pub. Its return value records whether the signature is valid.
+func VerifyASN1(pub *ecdsa.PublicKey, hash, sig []byte) bool {
+	var (
+		r, s  = &big.Int{}, &big.Int{}
+		inner cryptobyte.String
+	)
+	input := cryptobyte.String(sig)
+	if !input.ReadASN1(&inner, asn1.SEQUENCE) ||
+		!input.Empty() ||
+		!inner.ReadASN1Integer(r) ||
+		!inner.ReadASN1Integer(s) ||
+		!inner.Empty() {
+		return false
+	}
+	return Verify(pub, hash, r, s)
+}
+
 // VerifyWithSM2 verifies the signature in r, s of hash using the public key, pub. Its
 // return value records whether the signature is valid.
 func VerifyWithSM2(pub *ecdsa.PublicKey, uid, msg []byte, r, s *big.Int) bool {
@@ -514,6 +574,24 @@ func VerifyWithSM2(pub *ecdsa.PublicKey, uid, msg []byte, r, s *big.Int) bool {
 	md.Write(za)
 	md.Write(msg)
 	return Verify(pub, md.Sum(nil), r, s)
+}
+
+// VerifyASN1WithSM2 verifies the signature in r, s of hash using the public key, pub. Its
+// return value records whether the signature is valid.
+func VerifyASN1WithSM2(pub *ecdsa.PublicKey, uid, msg, sig []byte) bool {
+	var (
+		r, s  = &big.Int{}, &big.Int{}
+		inner cryptobyte.String
+	)
+	input := cryptobyte.String(sig)
+	if !input.ReadASN1(&inner, asn1.SEQUENCE) ||
+		!input.Empty() ||
+		!inner.ReadASN1Integer(r) ||
+		!inner.ReadASN1Integer(s) ||
+		!inner.Empty() {
+		return false
+	}
+	return VerifyWithSM2(pub, uid, msg, r, s)
 }
 
 type zr struct {

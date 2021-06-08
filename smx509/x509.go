@@ -177,10 +177,6 @@ type dsaAlgorithmParameters struct {
 	P, Q, G *big.Int
 }
 
-type ecdsaSignature struct {
-	R, S *big.Int
-}
-
 type validity struct {
 	NotBefore, NotAfter time.Time
 }
@@ -576,17 +572,8 @@ func (c *Certificate) CheckSignature(algo x509.SignatureAlgorithm, signed, signa
 	if key.Curve != sm2.P256() {
 		return c.Certificate.CheckSignature(algo, signed, signature)
 	}
-	ecdsaSig := new(ecdsaSignature)
-	if rest, err := asn1.Unmarshal(signature, ecdsaSig); err != nil {
-		return err
-	} else if len(rest) != 0 {
-		return errors.New("x509: trailing data after ECDSA signature")
-	}
-	if ecdsaSig.R.Sign() <= 0 || ecdsaSig.S.Sign() <= 0 {
-		return errors.New("x509: ECDSA signature contained zero or negative values")
-	}
-	if !sm2.VerifyWithSM2(key, nil, signed, ecdsaSig.R, ecdsaSig.S) {
-		return errors.New("x509: ECDSA verification failure")
+	if !sm2.VerifyASN1WithSM2(key, nil, signed, signature) {
+		return errors.New("x509: SM2 verification failure")
 	}
 	return nil
 }
@@ -2306,17 +2293,8 @@ func (c *CertificateRequest) CheckSignature() error {
 // a crypto.PublicKey.
 func checkSignature(c *x509.CertificateRequest, publicKey *ecdsa.PublicKey) (err error) {
 	signed := c.RawTBSCertificateRequest
-	ecdsaSig := new(ecdsaSignature)
-	if rest, err := asn1.Unmarshal(c.Signature, ecdsaSig); err != nil {
-		return err
-	} else if len(rest) != 0 {
-		return errors.New("x509: trailing data after ECDSA signature")
-	}
-	if ecdsaSig.R.Sign() <= 0 || ecdsaSig.S.Sign() <= 0 {
-		return errors.New("x509: ECDSA signature contained zero or negative values")
-	}
-	if !sm2.VerifyWithSM2(publicKey, nil, signed, ecdsaSig.R, ecdsaSig.S) {
-		return errors.New("x509: ECDSA verification failure")
+	if !sm2.VerifyASN1WithSM2(publicKey, nil, signed, c.Signature) {
+		return errors.New("x509: SM2 verification failure")
 	}
 	return
 }

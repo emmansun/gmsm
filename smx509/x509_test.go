@@ -11,7 +11,6 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -237,24 +236,14 @@ func TestCreateCertificateRequest(t *testing.T) {
 }
 
 func TestSignByAliVerifyAtLocal(t *testing.T) {
-	var rs = &ecdsaSignature{}
 	dig, err := base64.StdEncoding.DecodeString(signature)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rest, err := asn1.Unmarshal(dig, rs)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(rest) != 0 {
-		t.Errorf("rest len=%d", len(rest))
-	}
-
-	fmt.Printf("r=%s, s=%s\n", hex.EncodeToString(rs.R.Bytes()), hex.EncodeToString(rs.S.Bytes()))
 	pub, err := getPublicKey([]byte(publicKeyPemFromAliKmsForSign))
 	pub1 := pub.(*ecdsa.PublicKey)
 	hashValue, _ := base64.StdEncoding.DecodeString(hashBase64)
-	result := sm2.Verify(pub1, hashValue, rs.R, rs.S)
+	result := sm2.VerifyASN1(pub1, hashValue, dig)
 	if !result {
 		t.Error("Verify fail")
 	}
