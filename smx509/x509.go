@@ -1304,6 +1304,7 @@ var (
 	oidExtensionNameConstraints       = []int{2, 5, 29, 30}
 	oidExtensionCRLDistributionPoints = []int{2, 5, 29, 31}
 	oidExtensionAuthorityInfoAccess   = []int{1, 3, 6, 1, 5, 5, 7, 1, 1}
+	oidExtensionCRLNumber             = []int{2, 5, 29, 20}
 )
 
 var (
@@ -1813,29 +1814,21 @@ func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, 
 	signed := tbsCertContents
 
 	var signature []byte
-	if signatureAlgorithm.Algorithm.Equal(oidSignatureSM2WithSM3) {
-		if smKey, ok := priv.(sm2.Signer); ok {
-			signature, err = smKey.SignWithSM2(rand, nil, signed)
-		} else {
-			return nil, errors.New("x509: require sm2 private key")
-		}
-	} else {
-		if hashFunc != 0 {
-			h := hashFunc.New()
-			h.Write(signed)
-			signed = h.Sum(nil)
-		}
-
-		var signerOpts crypto.SignerOpts = hashFunc
-		if template.SignatureAlgorithm != 0 && isRSAPSS(template.SignatureAlgorithm) {
-			signerOpts = &rsa.PSSOptions{
-				SaltLength: rsa.PSSSaltLengthEqualsHash,
-				Hash:       hashFunc,
-			}
-		}
-
-		signature, err = key.Sign(rand, signed, signerOpts)
+	if hashFunc != 0 {
+		h := hashFunc.New()
+		h.Write(signed)
+		signed = h.Sum(nil)
 	}
+	var signerOpts crypto.SignerOpts = hashFunc
+	if template.SignatureAlgorithm != 0 && isRSAPSS(template.SignatureAlgorithm) {
+		signerOpts = &rsa.PSSOptions{
+			SaltLength: rsa.PSSSaltLengthEqualsHash,
+			Hash:       hashFunc,
+		}
+	} else if signatureAlgorithm.Algorithm.Equal(oidSignatureSM2WithSM3) {
+		signerOpts = sm2.NewSM2SignerOption(true, nil)
+	}
+	signature, err = key.Sign(rand, signed, signerOpts)
 	if err != nil {
 		return
 	}
@@ -1894,21 +1887,16 @@ func (c *Certificate) CreateCRL(rand io.Reader, priv interface{}, revokedCerts [
 	}
 
 	signed := tbsCertListContents
-	var signature []byte
+	var opts crypto.SignerOpts = hashFunc
 	if signatureAlgorithm.Algorithm.Equal(oidSignatureSM2WithSM3) {
-		if smKey, ok := priv.(sm2.Signer); ok {
-			signature, err = smKey.SignWithSM2(rand, nil, signed)
-		} else {
-			return nil, errors.New("x509: require sm2 private key")
-		}
-	} else {
-		if hashFunc != 0 {
-			h := hashFunc.New()
-			h.Write(signed)
-			signed = h.Sum(nil)
-		}
-		signature, err = key.Sign(rand, signed, hashFunc)
+		opts = sm2.NewSM2SignerOption(true, nil)
 	}
+	if hashFunc != 0 {
+		h := hashFunc.New()
+		h.Write(signed)
+		signed = h.Sum(nil)
+	}
+	signature, err := key.Sign(rand, signed, opts)
 	if err != nil {
 		return
 	}
@@ -2172,22 +2160,16 @@ func CreateCertificateRequest(rand io.Reader, template *x509.CertificateRequest,
 
 	signed := tbsCSRContents
 	var signature []byte
-	if sigAlgo.Algorithm.Equal(oidSignatureSM2WithSM3) {
-		if smKey, ok := priv.(sm2.Signer); ok {
-			signature, err = smKey.SignWithSM2(rand, nil, signed)
-		} else {
-			return nil, errors.New("x509: require sm2 private key")
-		}
-	} else {
-		if hashFunc != 0 {
-			h := hashFunc.New()
-			h.Write(signed)
-			signed = h.Sum(nil)
-		}
-
-		signature, err = key.Sign(rand, signed, hashFunc)
+	var opts crypto.SignerOpts = hashFunc
+	if hashFunc != 0 {
+		h := hashFunc.New()
+		h.Write(signed)
+		signed = h.Sum(nil)
 	}
-
+	if sigAlgo.Algorithm.Equal(oidSignatureSM2WithSM3) {
+		opts = sm2.NewSM2SignerOption(true, nil)
+	}
+	signature, err = key.Sign(rand, signed, opts)
 	if err != nil {
 		return
 	}
@@ -2297,4 +2279,115 @@ func checkSignature(c *x509.CertificateRequest, publicKey *ecdsa.PublicKey) (err
 		return errors.New("x509: SM2 verification failure")
 	}
 	return
+}
+
+// CreateRevocationList creates a new X.509 v2 Certificate Revocation List,
+// according to RFC 5280, based on template.
+//
+// The CRL is signed by priv which should be the private key associated with
+// the public key in the issuer certificate.
+//
+// The issuer may not be nil, and the crlSign bit must be set in KeyUsage in
+// order to use it as a CRL issuer.
+//
+// The issuer distinguished name CRL field and authority key identifier
+// extension are populated using the issuer certificate. issuer must have
+// SubjectKeyId set.
+func CreateRevocationList(rand io.Reader, template *x509.RevocationList, issuer *Certificate, priv crypto.Signer) ([]byte, error) {
+	if template == nil {
+		return nil, errors.New("x509: template can not be nil")
+	}
+	if issuer == nil {
+		return nil, errors.New("x509: issuer can not be nil")
+	}
+	if (issuer.KeyUsage & x509.KeyUsageCRLSign) == 0 {
+		return nil, errors.New("x509: issuer must have the crlSign key usage bit set")
+	}
+	if len(issuer.SubjectKeyId) == 0 {
+		return nil, errors.New("x509: issuer certificate doesn't contain a subject key identifier")
+	}
+	if template.NextUpdate.Before(template.ThisUpdate) {
+		return nil, errors.New("x509: template.ThisUpdate is after template.NextUpdate")
+	}
+	if template.Number == nil {
+		return nil, errors.New("x509: template contains nil Number field")
+	}
+
+	hashFunc, signatureAlgorithm, err := signingParamsForPublicKey(priv.Public(), template.SignatureAlgorithm)
+	if err != nil {
+		return nil, err
+	}
+
+	// Force revocation times to UTC per RFC 5280.
+	revokedCertsUTC := make([]pkix.RevokedCertificate, len(template.RevokedCertificates))
+	for i, rc := range template.RevokedCertificates {
+		rc.RevocationTime = rc.RevocationTime.UTC()
+		revokedCertsUTC[i] = rc
+	}
+
+	aki, err := asn1.Marshal(authKeyId{Id: issuer.SubjectKeyId})
+	if err != nil {
+		return nil, err
+	}
+	crlNum, err := asn1.Marshal(template.Number)
+	if err != nil {
+		return nil, err
+	}
+
+	tbsCertList := pkix.TBSCertificateList{
+		Version:    1, // v2
+		Signature:  signatureAlgorithm,
+		Issuer:     issuer.Subject.ToRDNSequence(),
+		ThisUpdate: template.ThisUpdate.UTC(),
+		NextUpdate: template.NextUpdate.UTC(),
+		Extensions: []pkix.Extension{
+			{
+				Id:    oidExtensionAuthorityKeyId,
+				Value: aki,
+			},
+			{
+				Id:    oidExtensionCRLNumber,
+				Value: crlNum,
+			},
+		},
+	}
+	if len(revokedCertsUTC) > 0 {
+		tbsCertList.RevokedCertificates = revokedCertsUTC
+	}
+
+	if len(template.ExtraExtensions) > 0 {
+		tbsCertList.Extensions = append(tbsCertList.Extensions, template.ExtraExtensions...)
+	}
+
+	tbsCertListContents, err := asn1.Marshal(tbsCertList)
+	if err != nil {
+		return nil, err
+	}
+
+	input := tbsCertListContents
+	if hashFunc != 0 {
+		h := hashFunc.New()
+		h.Write(tbsCertListContents)
+		input = h.Sum(nil)
+	}
+	var signerOpts crypto.SignerOpts = hashFunc
+	if isRSAPSS(template.SignatureAlgorithm) {
+		signerOpts = &rsa.PSSOptions{
+			SaltLength: rsa.PSSSaltLengthEqualsHash,
+			Hash:       hashFunc,
+		}
+	} else if signatureAlgorithm.Algorithm.Equal(oidSignatureSM2WithSM3) {
+		signerOpts = sm2.NewSM2SignerOption(true, nil)
+	}
+
+	signature, err := priv.Sign(rand, input, signerOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	return asn1.Marshal(pkix.CertificateList{
+		TBSCertList:        tbsCertList,
+		SignatureAlgorithm: signatureAlgorithm,
+		SignatureValue:     asn1.BitString{Bytes: signature, BitLength: len(signature) * 8},
+	})
 }
