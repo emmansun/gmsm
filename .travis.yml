@@ -3,11 +3,15 @@ language: go
 go:
   - "1.14.x"
   - "1.15.x"
-  - master
+  - "1.16.x"
 
 sudo: false
 
+os:
+  - linux
+ 
 install:
+  - go mod tidy
   - go mod download
 
 script:
