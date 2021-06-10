@@ -6,6 +6,9 @@ go:
 
 sudo: false
 
+os:
+  - linux
+ 
 install:
   - go mod download
 
