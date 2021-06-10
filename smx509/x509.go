@@ -1841,6 +1841,19 @@ func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, 
 	})
 }
 
+// ParseCRL parses a CRL from the given bytes. It's often the case that PEM
+// encoded CRLs will appear where they should be DER encoded, so this function
+// will transparently handle PEM encoding as long as there isn't any leading
+// garbage.
+func ParseCRL(crlBytes []byte) (*pkix.CertificateList, error) {
+	return x509.ParseCRL(crlBytes)
+}
+
+// ParseDERCRL parses a DER encoded CRL from the given bytes.
+func ParseDERCRL(derBytes []byte) (*pkix.CertificateList, error) {
+	return x509.ParseDERCRL(derBytes)
+}
+
 // CreateCRL returns a DER encoded CRL, signed by this Certificate, that
 // contains the given list of revoked certificates.
 func (c *Certificate) CreateCRL(rand io.Reader, priv interface{}, revokedCerts []pkix.RevokedCertificate, now, expiry time.Time) (crlBytes []byte, err error) {
