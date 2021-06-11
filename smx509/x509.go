@@ -2306,6 +2306,7 @@ func checkSignature(c *x509.CertificateRequest, publicKey *ecdsa.PublicKey) (err
 // The issuer distinguished name CRL field and authority key identifier
 // extension are populated using the issuer certificate. issuer must have
 // SubjectKeyId set.
+/*
 func CreateRevocationList(rand io.Reader, template *x509.RevocationList, issuer *Certificate, priv crypto.Signer) ([]byte, error) {
 	if template == nil {
 		return nil, errors.New("x509: template can not be nil")
@@ -2404,3 +2405,4 @@ func CreateRevocationList(rand io.Reader, template *x509.RevocationList, issuer 
 		SignatureValue:     asn1.BitString{Bytes: signature, BitLength: len(signature) * 8},
 	})
 }
+*/
