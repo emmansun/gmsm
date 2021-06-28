@@ -180,16 +180,8 @@ func getPublicKey(pemContent []byte) (interface{}, error) {
 	return ParsePKIXPublicKey(block.Bytes)
 }
 
-func getCertificate(pemContent []byte) (*Certificate, error) {
-	block, _ := pem.Decode(pemContent)
-	if block == nil {
-		return nil, errors.New("Failed to parse PEM block")
-	}
-	return ParseCertificate(block.Bytes)
-}
-
-func parseAndCheckCsr(csrblock []byte) error {
-	csr, err := ParseCertificateRequest(csrblock)
+func parseAndCheckCsr(csrPem []byte) error {
+	csr, err := ParseCertificateRequestPEM(csrPem)
 	if err != nil {
 		return err
 	}
@@ -198,7 +190,7 @@ func parseAndCheckCsr(csrblock []byte) error {
 }
 
 func Test_ParseCertificate(t *testing.T) {
-	cert, err := getCertificate([]byte(sm2Certificate))
+	cert, err := ParseCertificatePEM([]byte(sm2Certificate))
 	if err != nil {
 		t.Fatalf("%v\n", err)
 	}
@@ -207,11 +199,7 @@ func Test_ParseCertificate(t *testing.T) {
 }
 
 func TestParseCertificateRequest(t *testing.T) {
-	block, _ := pem.Decode([]byte(csrFromAli))
-	if block == nil {
-		t.Fatal("Failed to parse PEM block")
-	}
-	err := parseAndCheckCsr(block.Bytes)
+	err := parseAndCheckCsr([]byte(csrFromAli))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,7 +209,7 @@ func TestCreateCertificateRequest(t *testing.T) {
 	priv, _ := sm2.GenerateKey(rand.Reader)
 
 	names := pkix.Name{CommonName: "TestName"}
-	var template = x509.CertificateRequest{Subject: names}
+	var template = x509.CertificateRequest{Subject: names, SignatureAlgorithm: SM2WithSM3}
 	csrblock, err := CreateCertificateRequest(rand.Reader, &template, priv)
 	if err != nil {
 		t.Fatal(err)
@@ -312,7 +300,7 @@ func Test_CreateCertificateRequest(t *testing.T) {
 		sigAlgo x509.SignatureAlgorithm
 	}{
 		{"RSA", testPrivateKey, x509.SHA1WithRSA},
-		{"SM2-256", sm2Priv, x509.UnknownSignatureAlgorithm},
+		{"SM2-256", sm2Priv, SM2WithSM3},
 		{"ECDSA-256", ecdsa256Priv, x509.ECDSAWithSHA1},
 		{"ECDSA-384", ecdsa384Priv, x509.ECDSAWithSHA1},
 		{"ECDSA-521", ecdsa521Priv, x509.ECDSAWithSHA1},
@@ -405,17 +393,17 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
 	}{
 		{"RSA/RSA", &testPrivateKey.PublicKey, testPrivateKey, true, x509.SHA1WithRSA},
 		{"RSA/ECDSA", &testPrivateKey.PublicKey, ecdsaPriv, false, x509.ECDSAWithSHA384},
-		{"RSA/SM2", &testPrivateKey.PublicKey, sm2Priv, false, x509.UnknownSignatureAlgorithm},
+		{"RSA/SM2", &testPrivateKey.PublicKey, sm2Priv, false, SM2WithSM3},
 		{"ECDSA/RSA", &ecdsaPriv.PublicKey, testPrivateKey, false, x509.SHA256WithRSA},
 		{"ECDSA/ECDSA", &ecdsaPriv.PublicKey, ecdsaPriv, true, x509.ECDSAWithSHA1},
-		{"ECDSA/SM2", &ecdsaPriv.PublicKey, sm2Priv, false, x509.UnknownSignatureAlgorithm},
+		{"ECDSA/SM2", &ecdsaPriv.PublicKey, sm2Priv, false, SM2WithSM3},
 		{"SM2/ECDSA", &sm2Priv.PublicKey, ecdsaPriv, false, x509.ECDSAWithSHA1},
 		{"RSAPSS/RSAPSS", &testPrivateKey.PublicKey, testPrivateKey, true, x509.SHA256WithRSAPSS},
 		{"ECDSA/RSAPSS", &ecdsaPriv.PublicKey, testPrivateKey, false, x509.SHA256WithRSAPSS},
 		{"SM2/RSAPSS", &sm2Priv.PublicKey, testPrivateKey, false, x509.SHA256WithRSAPSS},
 		{"RSAPSS/ECDSA", &testPrivateKey.PublicKey, ecdsaPriv, false, x509.ECDSAWithSHA384},
 		{"Ed25519", ed25519Pub, ed25519Priv, true, x509.PureEd25519},
-		{"SM2", &sm2Priv.PublicKey, sm2Priv, true, x509.UnknownSignatureAlgorithm},
+		{"SM2", &sm2Priv.PublicKey, sm2Priv, true, SM2WithSM3},
 	}
 
 	testExtKeyUsage := []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}

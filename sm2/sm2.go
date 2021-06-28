@@ -603,3 +603,9 @@ func (z *zr) Read(dst []byte) (n int, err error) {
 }
 
 var zeroReader = &zr{}
+
+// IsSM2PublicKey check if given public key is SM2 public key or not
+func IsSM2PublicKey(publicKey interface{}) bool {
+	pub, ok := publicKey.(*ecdsa.PublicKey)
+	return ok && strings.EqualFold(P256().Params().Name, pub.Curve.Params().Name)
+}

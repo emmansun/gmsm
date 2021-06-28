@@ -8,9 +8,11 @@ import (
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rsa"
+	"crypto/sha1"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -207,6 +209,8 @@ type pkcs1PublicKey struct {
 	E int
 }
 
+const SM2WithSM3 x509.SignatureAlgorithm = 99
+
 var signatureAlgorithmDetails = []struct {
 	algo       x509.SignatureAlgorithm
 	name       string
@@ -231,6 +235,7 @@ var signatureAlgorithmDetails = []struct {
 	{x509.ECDSAWithSHA384, "ECDSA-SHA384", oidSignatureECDSAWithSHA384, x509.ECDSA, crypto.SHA384},
 	{x509.ECDSAWithSHA512, "ECDSA-SHA512", oidSignatureECDSAWithSHA512, x509.ECDSA, crypto.SHA512},
 	{x509.PureEd25519, "Ed25519", oidSignatureEd25519, x509.Ed25519, crypto.Hash(0) /* no pre-hashing */},
+	{SM2WithSM3, "SM2-SM3", oidSignatureSM2WithSM3, x509.ECDSA, crypto.Hash(0) /* no pre-hashing */},
 }
 
 // pssParameters reflects the parameters in an AlgorithmIdentifier that
@@ -565,17 +570,7 @@ func (c *Certificate) CheckSignatureFrom(parent *Certificate) error {
 // CheckSignature verifies that signature is a valid signature over signed from
 // c's public key.
 func (c *Certificate) CheckSignature(algo x509.SignatureAlgorithm, signed, signature []byte) error {
-	key, ok := c.PublicKey.(*ecdsa.PublicKey)
-	if !ok {
-		return c.Certificate.CheckSignature(algo, signed, signature)
-	}
-	if key.Curve != sm2.P256() {
-		return c.Certificate.CheckSignature(algo, signed, signature)
-	}
-	if !sm2.VerifyASN1WithSM2(key, nil, signed, signature) {
-		return errors.New("x509: SM2 verification failure")
-	}
-	return nil
+	return checkSignature(algo, signed, signature, c.PublicKey)
 }
 
 func (c *Certificate) hasNameConstraints() bool {
@@ -589,6 +584,69 @@ func (c *Certificate) getSANExtension() []byte {
 		}
 	}
 	return nil
+}
+
+func signaturePublicKeyAlgoMismatchError(expectedPubKeyAlgo x509.PublicKeyAlgorithm, pubKey interface{}) error {
+	return fmt.Errorf("x509: signature algorithm specifies an %s public key, but have public key of type %T", expectedPubKeyAlgo.String(), pubKey)
+}
+
+// checkSignature verifies that signature is a valid signature over signed from
+// a crypto.PublicKey.
+func checkSignature(algo x509.SignatureAlgorithm, signed, signature []byte, publicKey crypto.PublicKey) (err error) {
+	var hashType crypto.Hash
+	var pubKeyAlgo x509.PublicKeyAlgorithm
+
+	isSM2 := (algo == SM2WithSM3)
+	for _, details := range signatureAlgorithmDetails {
+		if details.algo == algo {
+			hashType = details.hash
+			pubKeyAlgo = details.pubKeyAlgo
+		}
+	}
+
+	switch hashType {
+	case crypto.Hash(0):
+		if !isSM2 && pubKeyAlgo != x509.Ed25519 {
+			return x509.ErrUnsupportedAlgorithm
+		}
+	case crypto.MD5:
+		return x509.InsecureAlgorithmError(algo)
+	default:
+		if !hashType.Available() {
+			return x509.ErrUnsupportedAlgorithm
+		}
+		h := hashType.New()
+		h.Write(signed)
+		signed = h.Sum(nil)
+	}
+
+	switch pub := publicKey.(type) {
+	case *rsa.PublicKey:
+		if pubKeyAlgo != x509.RSA {
+			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
+		}
+		if isRSAPSS(algo) {
+			return rsa.VerifyPSS(pub, hashType, signed, signature, &rsa.PSSOptions{SaltLength: rsa.PSSSaltLengthEqualsHash})
+		} else {
+			return rsa.VerifyPKCS1v15(pub, hashType, signed, signature)
+		}
+	case *ecdsa.PublicKey:
+		if pubKeyAlgo != x509.ECDSA {
+			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
+		}
+		if (!isSM2 && !ecdsa.VerifyASN1(pub, signed, signature)) || !sm2.VerifyASN1WithSM2(pub, nil, signed, signature) {
+			return errors.New("x509: ECDSA verification failure")
+		}
+	case ed25519.PublicKey:
+		if pubKeyAlgo != x509.Ed25519 {
+			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
+		}
+		if !ed25519.Verify(pub, signed, signature) {
+			return errors.New("x509: Ed25519 verification failure")
+		}
+		return
+	}
+	return x509.ErrUnsupportedAlgorithm
 }
 
 // CheckCRLSignature checks that the signature in crl is from c.
@@ -1239,6 +1297,14 @@ func ParseCertificate(asn1Data []byte) (*Certificate, error) {
 	return &Certificate{*result}, nil
 }
 
+func ParseCertificatePEM(data []byte) (*Certificate, error) {
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return nil, errors.New("failed to decode PEM block containing CSR")
+	}
+	return ParseCertificate(block.Bytes)
+}
+
 // ParseCertificates parses one or more certificates from the given ASN.1 DER
 // data. The certificates must be concatenated with no intermediate padding.
 func ParseCertificates(asn1Data []byte) ([]*Certificate, error) {
@@ -1707,7 +1773,7 @@ func signingParamsForPublicKey(pub interface{}, requestedSigAlgo x509.SignatureA
 // just an empty SEQUENCE.
 var emptyASN1Subject = []byte{0x30, 0}
 
-// CreateCertificate creates a new X.509v3 certificate based on a template.
+// CreateCertificate creates a new X.509 v3 certificate based on a template.
 // The following members of template are used:
 //
 //  - AuthorityKeyId
@@ -1756,7 +1822,7 @@ var emptyASN1Subject = []byte{0x30, 0}
 // The AuthorityKeyId will be taken from the SubjectKeyId of parent, if any,
 // unless the resulting certificate is self-signed. Otherwise the value from
 // template will be used.
-func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, priv interface{}) (cert []byte, err error) {
+func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, priv interface{}) ([]byte, error) {
 	key, ok := priv.(crypto.Signer)
 	if !ok {
 		return nil, errors.New("x509: certificate private key does not implement crypto.Signer")
@@ -1775,12 +1841,12 @@ func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, 
 
 	asn1Issuer, err := subjectBytes(parent)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	asn1Subject, err := subjectBytes(template)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	authorityKeyId := template.AuthorityKeyId
@@ -1788,9 +1854,29 @@ func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, 
 		authorityKeyId = parent.SubjectKeyId
 	}
 
+	subjectKeyId := template.SubjectKeyId
+	if len(subjectKeyId) == 0 && template.IsCA {
+		// SubjectKeyId generated using method 1 in RFC 5280, Section 4.2.1.2:
+		//   (1) The keyIdentifier is composed of the 160-bit SHA-1 hash of the
+		//   value of the BIT STRING subjectPublicKey (excluding the tag,
+		//   length, and number of unused bits).
+		h := sha1.Sum(publicKeyBytes)
+		subjectKeyId = h[:]
+	}
+
+	// Check that the signer's public key matches the private key, if available.
+	type privateKey interface {
+		Equal(crypto.PublicKey) bool
+	}
+	if privPub, ok := key.Public().(privateKey); !ok {
+		return nil, errors.New("x509: internal error: supported public key does not implement Equal")
+	} else if parent.PublicKey != nil && !privPub.Equal(parent.PublicKey) {
+		return nil, errors.New("x509: provided PrivateKey doesn't match parent's PublicKey")
+	}
+
 	extensions, err := buildExtensions(template, bytes.Equal(asn1Subject, emptyASN1Subject), authorityKeyId)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	encodedPublicKey := asn1.BitString{BitLength: len(publicKeyBytes) * 8, Bytes: publicKeyBytes}
@@ -1807,7 +1893,7 @@ func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, 
 
 	tbsCertContents, err := asn1.Marshal(c)
 	if err != nil {
-		return
+		return nil, err
 	}
 	c.Raw = tbsCertContents
 
@@ -1830,15 +1916,27 @@ func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, 
 	}
 	signature, err = key.Sign(rand, signed, signerOpts)
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	return asn1.Marshal(certificate{
+	signedCert, err := asn1.Marshal(certificate{
 		nil,
 		c,
 		signatureAlgorithm,
 		asn1.BitString{Bytes: signature, BitLength: len(signature) * 8},
 	})
+	if err != nil {
+		return nil, err
+	}
+	// Check the signature to ensure the crypto.Signer behaved correctly.
+	// We skip this check if the signature algorithm is MD5WithRSA as we
+	// only support this algorithm for signing, and not verification.
+	if sigAlg := getSignatureAlgorithmFromAI(signatureAlgorithm); sigAlg != x509.MD5WithRSA {
+		if err := checkSignature(sigAlg, c.Raw, signature, key.Public()); err != nil {
+			return nil, fmt.Errorf("x509: signature over certificate returned by signer is invalid: %w", err)
+		}
+	}
+	return signedCert, nil
 }
 
 // ParseCRL parses a CRL from the given bytes. It's often the case that PEM
@@ -2218,6 +2316,16 @@ func ParseCertificateRequest(asn1Data []byte) (*CertificateRequest, error) {
 	return parseCertificateRequest(&csr)
 }
 
+// ParseCertificateRequestPEM parses a single certificate request from the
+// given PEM data.
+func ParseCertificateRequestPEM(data []byte) (*CertificateRequest, error) {
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return nil, errors.New("failed to decode PEM block containing CSR")
+	}
+	return ParseCertificateRequest(block.Bytes)
+}
+
 func parseCertificateRequest(in *certificateRequest) (*CertificateRequest, error) {
 	if !oidSignatureSM2WithSM3.Equal(in.SignatureAlgorithm.Algorithm) {
 		return nil, errors.New("unsupport signature algorithm")
@@ -2269,29 +2377,8 @@ func parseCertificateRequest(in *certificateRequest) (*CertificateRequest, error
 }
 
 // CheckSignature reports whether the signature on c is valid.
-func CheckSignature(c *x509.CertificateRequest) error {
-	if c.PublicKeyAlgorithm == x509.ECDSA {
-		pub, ok := c.PublicKey.(*ecdsa.PublicKey)
-		if ok && strings.EqualFold(sm2.P256().Params().Name, pub.Curve.Params().Name) {
-			return checkSignature(c, pub)
-		}
-	}
-	return c.CheckSignature()
-}
-
-// CheckSignature reports whether the signature on c is valid.
 func (c *CertificateRequest) CheckSignature() error {
-	return CheckSignature(&c.CertificateRequest)
-}
-
-// checkSignature verifies that signature is a valid signature over signed from
-// a crypto.PublicKey.
-func checkSignature(c *x509.CertificateRequest, publicKey *ecdsa.PublicKey) (err error) {
-	signed := c.RawTBSCertificateRequest
-	if !sm2.VerifyASN1WithSM2(publicKey, nil, signed, c.Signature) {
-		return errors.New("x509: SM2 verification failure")
-	}
-	return
+	return checkSignature(c.SignatureAlgorithm, c.RawTBSCertificateRequest, c.Signature, c.PublicKey)
 }
 
 // CreateRevocationList creates a new X.509 v2 Certificate Revocation List,
