@@ -185,7 +185,6 @@ func parseAndCheckCsr(csrPem []byte) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%v\n", csr)
 	return csr.CheckSignature()
 }
 
@@ -217,7 +216,7 @@ func TestCreateCertificateRequest(t *testing.T) {
 	block := &pem.Block{Bytes: csrblock, Type: "CERTIFICATE REQUEST"}
 	pemContent := string(pem.EncodeToMemory(block))
 	fmt.Printf("%s\n", pemContent)
-	err = parseAndCheckCsr(csrblock)
+	err = parseAndCheckCsr([]byte(pemContent))
 	if err != nil {
 		t.Fatal(err)
 	}

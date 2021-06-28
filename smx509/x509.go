@@ -590,6 +590,22 @@ func signaturePublicKeyAlgoMismatchError(expectedPubKeyAlgo x509.PublicKeyAlgori
 	return fmt.Errorf("x509: signature algorithm specifies an %s public key, but have public key of type %T", expectedPubKeyAlgo.String(), pubKey)
 }
 
+func verifyECDSAASN1(pub *ecdsa.PublicKey, hash, sig []byte) bool {
+	var (
+		r, s  = &big.Int{}, &big.Int{}
+		inner cryptobyte.String
+	)
+	input := cryptobyte.String(sig)
+	if !input.ReadASN1(&inner, cryptobyte_asn1.SEQUENCE) ||
+		!input.Empty() ||
+		!inner.ReadASN1Integer(r) ||
+		!inner.ReadASN1Integer(s) ||
+		!inner.Empty() {
+		return false
+	}
+	return ecdsa.Verify(pub, hash, r, s)
+}
+
 // checkSignature verifies that signature is a valid signature over signed from
 // a crypto.PublicKey.
 func checkSignature(algo x509.SignatureAlgorithm, signed, signature []byte, publicKey crypto.PublicKey) (err error) {
@@ -634,9 +650,14 @@ func checkSignature(algo x509.SignatureAlgorithm, signed, signature []byte, publ
 		if pubKeyAlgo != x509.ECDSA {
 			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
 		}
-		if (!isSM2 && !ecdsa.VerifyASN1(pub, signed, signature)) || !sm2.VerifyASN1WithSM2(pub, nil, signed, signature) {
+		if isSM2 {
+			if !sm2.VerifyASN1WithSM2(pub, nil, signed, signature) {
+				return errors.New("x509: ECDSA verification failure")
+			}
+		} else if !verifyECDSAASN1(pub, signed, signature) {
 			return errors.New("x509: ECDSA verification failure")
 		}
+		return
 	case ed25519.PublicKey:
 		if pubKeyAlgo != x509.Ed25519 {
 			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
@@ -2336,7 +2357,8 @@ func parseCertificateRequest(in *certificateRequest) (*CertificateRequest, error
 		RawSubjectPublicKeyInfo:  in.TBSCSR.PublicKey.Raw,
 		RawSubject:               in.TBSCSR.Subject.FullBytes,
 
-		Signature: in.SignatureValue.RightAlign(),
+		Signature:          in.SignatureValue.RightAlign(),
+		SignatureAlgorithm: getSignatureAlgorithmFromAI(in.SignatureAlgorithm),
 
 		PublicKeyAlgorithm: getPublicKeyAlgorithmFromOID(in.TBSCSR.PublicKey.Algorithm.Algorithm),
 
