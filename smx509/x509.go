@@ -1852,6 +1852,7 @@ func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, 
 	if err != nil {
 		return nil, err
 	}
+
 	if template.SerialNumber == nil {
 		return nil, errors.New("x509: no SerialNumber given")
 	}
@@ -1889,9 +1890,15 @@ func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, 
 	type privateKey interface {
 		Equal(crypto.PublicKey) bool
 	}
-	if privPub, ok := key.Public().(privateKey); !ok {
-		return nil, errors.New("x509: internal error: supported public key does not implement Equal")
-	} else if parent.PublicKey != nil && !privPub.Equal(parent.PublicKey) {
+
+	/*
+		if privPub, ok := key.Public().(privateKey); !ok {
+			return nil, errors.New("x509: internal error: supported public key does not implement Equal")
+		} else if parent.PublicKey != nil && !privPub.Equal(parent.PublicKey) {
+			return nil, errors.New("x509: provided PrivateKey doesn't match parent's PublicKey")
+		}
+	*/
+	if privPub, ok := key.Public().(privateKey); ok && parent.PublicKey != nil && !privPub.Equal(parent.PublicKey) {
 		return nil, errors.New("x509: provided PrivateKey doesn't match parent's PublicKey")
 	}
 
