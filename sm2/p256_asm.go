@@ -106,14 +106,7 @@ func p256PointAddAsm(res, in1, in2 []uint64) int
 //go:noescape
 func p256PointDoubleAsm(res, in []uint64)
 
-var (
-	p256one   = []uint64{0x0000000000000001, 0x00000000ffffffff, 0x0000000000000000, 0x0000000100000000}
-	basePoint = []uint64{
-		0x61328990f418029e, 0x3e7981eddca6c050, 0xd6a1ed99ac24c3c3, 0x91167a5ee1c13b05,
-		0xc1354e593c2d0ddd, 0xc1f5e5788d3295fa, 0x8d4cfb066e2a48f8, 0x63cd65d481d735bd,
-		0x0000000000000001, 0x00000000ffffffff, 0x0000000000000000, 0x0000000100000000,
-	}
-)
+var p256one = []uint64{0x0000000000000001, 0x00000000ffffffff, 0x0000000000000000, 0x0000000100000000}
 
 // Inverse, implements invertible interface, used by Sign()
 // n-2 =
