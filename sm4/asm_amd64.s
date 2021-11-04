@@ -73,7 +73,7 @@ GLOBL fk_mask<>(SB), RODATA, $16
   PSHUFB x, XTMP6;                    \ //x = _mm_shuffle_epi8(m1h, x);
   MOVOU  XTMP6, x;                    \ //x = _mm_shuffle_epi8(m1h, x);
   PXOR y, x;                          \ //x = _mm_shuffle_epi8(m1h, x) ^ y;
-  ;                                   \ // inverse MixColumns
+  ;                                   \ // inverse ShiftRows
   PSHUFB inverse_shift_rows<>(SB), x; \ //x = _mm_shuffle_epi8(x, shr); 
   AESENCLAST nibble_mask<>(SB), x;    \ // AESNI instruction
   ;                                   \ //#############################  outer affine ############################//
