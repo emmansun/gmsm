@@ -15,7 +15,6 @@ package sm2
 import (
 	"crypto/elliptic"
 	"math/big"
-	"sync"
 )
 
 type (
@@ -29,9 +28,7 @@ type (
 )
 
 var (
-	p256            p256Curve
-	p256Precomputed *[43][32 * 8]uint64
-	precomputeOnce  sync.Once
+	p256 p256Curve
 )
 
 func initP256() {
@@ -82,7 +79,7 @@ func p256LittleToBig(res []byte, in []uint64)
 func p256Select(point, table []uint64, idx int)
 
 //go:noescape
-func p256SelectBase(point, table []uint64, idx int)
+func p256SelectBase(point *[12]uint64, table string, idx int)
 
 // Montgomery multiplication modulo Ord(G)
 //go:noescape
@@ -446,52 +443,10 @@ func boothW6(in uint) (int, int) {
 	return int(d), int(s & 1)
 }
 
-// table[i][j] = (2^(6*i))*(j+1)*G mod P
-func initTable() {
-	p256Precomputed = new([43][32 * 8]uint64)
-
-	t1 := make([]uint64, 12)
-	t2 := make([]uint64, 12)
-	copy(t2, basePoint)
-
-	zInv := make([]uint64, 4)
-	zInvSq := make([]uint64, 4)
-	for j := 0; j < 32; j++ {
-		copy(t1, t2)
-		for i := 0; i < 43; i++ {
-			// The window size is 6 so we need to double 6 times.
-			if i != 0 {
-				for k := 0; k < 6; k++ {
-					p256PointDoubleAsm(t1, t1)
-				}
-			}
-			// Convert the point to affine form. (Its values are
-			// still in Montgomery form however.)
-			p256Inverse(zInv, t1[8:12])
-			p256Sqr(zInvSq, zInv, 1)
-			p256Mul(zInv, zInv, zInvSq)
-
-			p256Mul(t1[:4], t1[:4], zInvSq)
-			p256Mul(t1[4:8], t1[4:8], zInv)
-
-			copy(t1[8:12], basePoint[8:12])
-			// Update the table entry
-			copy(p256Precomputed[i][j*8:], t1[:8])
-		}
-		if j == 0 {
-			p256PointDoubleAsm(t2, basePoint)
-		} else {
-			p256PointAddAsm(t2, t2, basePoint)
-		}
-	}
-}
-
 func (p *p256Point) p256BaseMult(scalar []uint64) {
-	precomputeOnce.Do(initTable)
-
 	wvalue := (scalar[0] << 1) & 0x7f
 	sel, sign := boothW6(uint(wvalue))
-	p256SelectBase(p.xyz[0:8], p256Precomputed[0][0:], sel)
+	p256SelectBase(&p.xyz, p256Precomputed, sel)
 	p256NegCond(p.xyz[4:8], sign)
 
 	// (This is one, in the Montgomery domain.)
@@ -518,7 +473,7 @@ func (p *p256Point) p256BaseMult(scalar []uint64) {
 		}
 		index += 6
 		sel, sign = boothW6(uint(wvalue))
-		p256SelectBase(t0.xyz[0:8], p256Precomputed[i][0:], sel)
+		p256SelectBase(&t0.xyz, p256Precomputed[i*32*8*8:], sel)
 		p256PointAddAffineAsm(p.xyz[0:12], p.xyz[0:12], t0.xyz[0:8], sign, sel, zero)
 		zero |= sel
 	}
