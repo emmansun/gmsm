@@ -369,15 +369,15 @@ func decrypt(priv *PrivateKey, ciphertext []byte, opts *DecrypterOpts) ([]byte, 
 	return msg, nil
 }
 
-func AdjustCipherTextSplicingOrder(pub *ecdsa.PublicKey, ciphertext []byte, from, to cipherTextSplicingOrder) ([]byte, error) {
+func AdjustCipherTextSplicingOrder(ciphertext []byte, from, to cipherTextSplicingOrder) ([]byte, error) {
+	curve := P256()
 	if from == to {
 		return ciphertext, nil
 	}
 	ciphertextLen := len(ciphertext)
-	if ciphertextLen <= 1+(pub.Params().BitSize/8)+sm3.Size {
+	if ciphertextLen <= 1+(curve.Params().BitSize/8)+sm3.Size {
 		return nil, errors.New("SM2: invalid ciphertext length")
 	}
-	curve := pub.Curve
 
 	// get C1, and check C1
 	_, _, c3Start, err := bytes2Point(curve, ciphertext)
