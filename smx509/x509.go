@@ -238,6 +238,19 @@ var signatureAlgorithmDetails = []struct {
 	{SM2WithSM3, "SM2-SM3", oidSignatureSM2WithSM3, x509.ECDSA, crypto.Hash(0) /* no pre-hashing */},
 }
 
+// hashToPSSParameters contains the DER encoded RSA PSS parameters for the
+// SHA256, SHA384, and SHA512 hashes as defined in RFC 3447, Appendix A.2.3.
+// The parameters contain the following values:
+//   * hashAlgorithm contains the associated hash identifier with NULL parameters
+//   * maskGenAlgorithm always contains the default mgf1SHA1 identifier
+//   * saltLength contains the length of the associated hash
+//   * trailerField always contains the default trailerFieldBC value
+var hashToPSSParameters = map[crypto.Hash]asn1.RawValue{
+	crypto.SHA256: asn1.RawValue{FullBytes: []byte{48, 52, 160, 15, 48, 13, 6, 9, 96, 134, 72, 1, 101, 3, 4, 2, 1, 5, 0, 161, 28, 48, 26, 6, 9, 42, 134, 72, 134, 247, 13, 1, 1, 8, 48, 13, 6, 9, 96, 134, 72, 1, 101, 3, 4, 2, 1, 5, 0, 162, 3, 2, 1, 32}},
+	crypto.SHA384: asn1.RawValue{FullBytes: []byte{48, 52, 160, 15, 48, 13, 6, 9, 96, 134, 72, 1, 101, 3, 4, 2, 2, 5, 0, 161, 28, 48, 26, 6, 9, 42, 134, 72, 134, 247, 13, 1, 1, 8, 48, 13, 6, 9, 96, 134, 72, 1, 101, 3, 4, 2, 2, 5, 0, 162, 3, 2, 1, 48}},
+	crypto.SHA512: asn1.RawValue{FullBytes: []byte{48, 52, 160, 15, 48, 13, 6, 9, 96, 134, 72, 1, 101, 3, 4, 2, 3, 5, 0, 161, 28, 48, 26, 6, 9, 42, 134, 72, 134, 247, 13, 1, 1, 8, 48, 13, 6, 9, 96, 134, 72, 1, 101, 3, 4, 2, 3, 5, 0, 162, 3, 2, 1, 64}},
+}
+
 // pssParameters reflects the parameters in an AlgorithmIdentifier that
 // specifies RSA PSS. See RFC 3447, Appendix A.2.3.
 type pssParameters struct {
@@ -248,51 +261,6 @@ type pssParameters struct {
 	MGF          pkix.AlgorithmIdentifier `asn1:"explicit,tag:1"`
 	SaltLength   int                      `asn1:"explicit,tag:2"`
 	TrailerField int                      `asn1:"optional,explicit,tag:3,default:1"`
-}
-
-// rsaPSSParameters returns an asn1.RawValue suitable for use as the Parameters
-// in an AlgorithmIdentifier that specifies RSA PSS.
-func rsaPSSParameters(hashFunc crypto.Hash) asn1.RawValue {
-	var hashOID asn1.ObjectIdentifier
-
-	switch hashFunc {
-	case crypto.SHA256:
-		hashOID = oidSHA256
-	case crypto.SHA384:
-		hashOID = oidSHA384
-	case crypto.SHA512:
-		hashOID = oidSHA512
-	}
-
-	params := pssParameters{
-		Hash: pkix.AlgorithmIdentifier{
-			Algorithm:  hashOID,
-			Parameters: asn1.NullRawValue,
-		},
-		MGF: pkix.AlgorithmIdentifier{
-			Algorithm: oidMGF1,
-		},
-		SaltLength:   hashFunc.Size(),
-		TrailerField: 1,
-	}
-
-	mgf1Params := pkix.AlgorithmIdentifier{
-		Algorithm:  hashOID,
-		Parameters: asn1.NullRawValue,
-	}
-
-	var err error
-	params.MGF.Parameters.FullBytes, err = asn1.Marshal(mgf1Params)
-	if err != nil {
-		panic(err)
-	}
-
-	serialized, err := asn1.Marshal(params)
-	if err != nil {
-		panic(err)
-	}
-
-	return asn1.RawValue{FullBytes: serialized}
 }
 
 func getSignatureAlgorithmFromAI(ai pkix.AlgorithmIdentifier) x509.SignatureAlgorithm {
@@ -654,7 +622,7 @@ func checkSignature(algo x509.SignatureAlgorithm, signed, signature []byte, publ
 			if !sm2.VerifyASN1WithSM2(pub, nil, signed, signature) {
 				return errors.New("x509: ECDSA verification failure")
 			}
-		} else if !verifyECDSAASN1(pub, signed, signature) {
+		} else if !ecdsa.VerifyASN1(pub, signed, signature) {
 			return errors.New("x509: ECDSA verification failure")
 		}
 		return
@@ -1415,9 +1383,15 @@ func oidInExtensions(oid asn1.ObjectIdentifier, extensions []pkix.Extension) boo
 func marshalSANs(dnsNames, emailAddresses []string, ipAddresses []net.IP, uris []*url.URL) (derBytes []byte, err error) {
 	var rawValues []asn1.RawValue
 	for _, name := range dnsNames {
+		if err := isIA5String(name); err != nil {
+			return nil, err
+		}
 		rawValues = append(rawValues, asn1.RawValue{Tag: nameTypeDNS, Class: 2, Bytes: []byte(name)})
 	}
 	for _, email := range emailAddresses {
+		if err := isIA5String(email); err != nil {
+			return nil, err
+		}
 		rawValues = append(rawValues, asn1.RawValue{Tag: nameTypeEmail, Class: 2, Bytes: []byte(email)})
 	}
 	for _, rawIP := range ipAddresses {
@@ -1429,6 +1403,10 @@ func marshalSANs(dnsNames, emailAddresses []string, ipAddresses []net.IP, uris [
 		rawValues = append(rawValues, asn1.RawValue{Tag: nameTypeIP, Class: 2, Bytes: ip})
 	}
 	for _, uri := range uris {
+		uriStr := uri.String()
+		if err := isIA5String(uriStr); err != nil {
+			return nil, err
+		}
 		rawValues = append(rawValues, asn1.RawValue{Tag: nameTypeURI, Class: 2, Bytes: []byte(uri.String())})
 	}
 	return asn1.Marshal(rawValues)
@@ -1444,67 +1422,32 @@ func isIA5String(s string) error {
 	return nil
 }
 
-func buildExtensions(template *x509.Certificate, subjectIsEmpty bool, authorityKeyId []byte) (ret []pkix.Extension, err error) {
+func buildCertExtensions(template *x509.Certificate, subjectIsEmpty bool, authorityKeyId []byte) (ret []pkix.Extension, err error) {
 	ret = make([]pkix.Extension, 10 /* maximum number of elements. */)
 	n := 0
 
 	if template.KeyUsage != 0 &&
 		!oidInExtensions(oidExtensionKeyUsage, template.ExtraExtensions) {
-		ret[n].Id = oidExtensionKeyUsage
-		ret[n].Critical = true
-
-		var a [2]byte
-		a[0] = reverseBitsInAByte(byte(template.KeyUsage))
-		a[1] = reverseBitsInAByte(byte(template.KeyUsage >> 8))
-
-		l := 1
-		if a[1] != 0 {
-			l = 2
-		}
-
-		bitString := a[:l]
-		ret[n].Value, err = asn1.Marshal(asn1.BitString{Bytes: bitString, BitLength: asn1BitLength(bitString)})
+		ret[n], err = marshalKeyUsage(template.KeyUsage)
 		if err != nil {
-			return
+			return nil, err
 		}
 		n++
 	}
 
 	if (len(template.ExtKeyUsage) > 0 || len(template.UnknownExtKeyUsage) > 0) &&
 		!oidInExtensions(oidExtensionExtendedKeyUsage, template.ExtraExtensions) {
-		ret[n].Id = oidExtensionExtendedKeyUsage
-
-		var oids []asn1.ObjectIdentifier
-		for _, u := range template.ExtKeyUsage {
-			if oid, ok := oidFromExtKeyUsage(u); ok {
-				oids = append(oids, oid)
-			} else {
-				panic("internal error")
-			}
-		}
-
-		oids = append(oids, template.UnknownExtKeyUsage...)
-
-		ret[n].Value, err = asn1.Marshal(oids)
+		ret[n], err = marshalExtKeyUsage(template.ExtKeyUsage, template.UnknownExtKeyUsage)
 		if err != nil {
-			return
+			return nil, err
 		}
 		n++
 	}
 
 	if template.BasicConstraintsValid && !oidInExtensions(oidExtensionBasicConstraints, template.ExtraExtensions) {
-		// Leaving MaxPathLen as zero indicates that no maximum path
-		// length is desired, unless MaxPathLenZero is set. A value of
-		// -1 causes encoding/asn1 to omit the value as desired.
-		maxPathLen := template.MaxPathLen
-		if maxPathLen == 0 && !template.MaxPathLenZero {
-			maxPathLen = -1
-		}
-		ret[n].Id = oidExtensionBasicConstraints
-		ret[n].Value, err = asn1.Marshal(basicConstraints{template.IsCA, maxPathLen})
-		ret[n].Critical = true
+		ret[n], err = marshalBasicConstraints(template.IsCA, template.MaxPathLen, template.MaxPathLenZero)
 		if err != nil {
-			return
+			return nil, err
 		}
 		n++
 	}
@@ -1566,14 +1509,9 @@ func buildExtensions(template *x509.Certificate, subjectIsEmpty bool, authorityK
 
 	if len(template.PolicyIdentifiers) > 0 &&
 		!oidInExtensions(oidExtensionCertificatePolicies, template.ExtraExtensions) {
-		ret[n].Id = oidExtensionCertificatePolicies
-		policies := make([]policyInformation, len(template.PolicyIdentifiers))
-		for i, policy := range template.PolicyIdentifiers {
-			policies[i].Policy = policy
-		}
-		ret[n].Value, err = asn1.Marshal(policies)
+		ret[n], err = marshalCertificatePolicies(template.PolicyIdentifiers)
 		if err != nil {
-			return
+			return nil, err
 		}
 		n++
 	}
@@ -1706,6 +1644,98 @@ func buildExtensions(template *x509.Certificate, subjectIsEmpty bool, authorityK
 	return append(ret[:n], template.ExtraExtensions...), nil
 }
 
+func marshalKeyUsage(ku x509.KeyUsage) (pkix.Extension, error) {
+	ext := pkix.Extension{Id: oidExtensionKeyUsage, Critical: true}
+
+	var a [2]byte
+	a[0] = reverseBitsInAByte(byte(ku))
+	a[1] = reverseBitsInAByte(byte(ku >> 8))
+
+	l := 1
+	if a[1] != 0 {
+		l = 2
+	}
+
+	bitString := a[:l]
+	var err error
+	ext.Value, err = asn1.Marshal(asn1.BitString{Bytes: bitString, BitLength: asn1BitLength(bitString)})
+	if err != nil {
+		return ext, err
+	}
+	return ext, nil
+}
+
+func marshalExtKeyUsage(extUsages []x509.ExtKeyUsage, unknownUsages []asn1.ObjectIdentifier) (pkix.Extension, error) {
+	ext := pkix.Extension{Id: oidExtensionExtendedKeyUsage}
+
+	oids := make([]asn1.ObjectIdentifier, len(extUsages)+len(unknownUsages))
+	for i, u := range extUsages {
+		if oid, ok := oidFromExtKeyUsage(u); ok {
+			oids[i] = oid
+		} else {
+			return ext, errors.New("x509: unknown extended key usage")
+		}
+	}
+
+	copy(oids[len(extUsages):], unknownUsages)
+
+	var err error
+	ext.Value, err = asn1.Marshal(oids)
+	if err != nil {
+		return ext, err
+	}
+	return ext, nil
+}
+
+func marshalBasicConstraints(isCA bool, maxPathLen int, maxPathLenZero bool) (pkix.Extension, error) {
+	ext := pkix.Extension{Id: oidExtensionBasicConstraints, Critical: true}
+	// Leaving MaxPathLen as zero indicates that no maximum path
+	// length is desired, unless MaxPathLenZero is set. A value of
+	// -1 causes encoding/asn1 to omit the value as desired.
+	if maxPathLen == 0 && !maxPathLenZero {
+		maxPathLen = -1
+	}
+	var err error
+	ext.Value, err = asn1.Marshal(basicConstraints{isCA, maxPathLen})
+	if err != nil {
+		return ext, nil
+	}
+	return ext, nil
+}
+
+func marshalCertificatePolicies(policyIdentifiers []asn1.ObjectIdentifier) (pkix.Extension, error) {
+	ext := pkix.Extension{Id: oidExtensionCertificatePolicies}
+	policies := make([]policyInformation, len(policyIdentifiers))
+	for i, policy := range policyIdentifiers {
+		policies[i].Policy = policy
+	}
+	var err error
+	ext.Value, err = asn1.Marshal(policies)
+	if err != nil {
+		return ext, err
+	}
+	return ext, nil
+}
+
+func buildCSRExtensions(template *x509.CertificateRequest) ([]pkix.Extension, error) {
+	var ret []pkix.Extension
+
+	if (len(template.DNSNames) > 0 || len(template.EmailAddresses) > 0 || len(template.IPAddresses) > 0 || len(template.URIs) > 0) &&
+		!oidInExtensions(oidExtensionSubjectAltName, template.ExtraExtensions) {
+		sanBytes, err := marshalSANs(template.DNSNames, template.EmailAddresses, template.IPAddresses, template.URIs)
+		if err != nil {
+			return nil, err
+		}
+
+		ret = append(ret, pkix.Extension{
+			Id:    oidExtensionSubjectAltName,
+			Value: sanBytes,
+		})
+	}
+
+	return append(ret, template.ExtraExtensions...), nil
+}
+
 func subjectBytes(cert *x509.Certificate) ([]byte, error) {
 	if len(cert.RawSubject) > 0 {
 		return cert.RawSubject, nil
@@ -1759,7 +1789,7 @@ func signingParamsForPublicKey(pub interface{}, requestedSigAlgo x509.SignatureA
 		return
 	}
 
-	if requestedSigAlgo == 0 || sigAlgo.Algorithm.Equal(oidSignatureSM2WithSM3) {
+	if requestedSigAlgo == 0 {
 		return
 	}
 
@@ -1771,12 +1801,12 @@ func signingParamsForPublicKey(pub interface{}, requestedSigAlgo x509.SignatureA
 				return
 			}
 			sigAlgo.Algorithm, hashFunc = details.oid, details.hash
-			if hashFunc == 0 && pubType != x509.Ed25519 {
+			if hashFunc == 0 && pubType != x509.Ed25519 && !sigAlgo.Algorithm.Equal(oidSignatureSM2WithSM3) {
 				err = errors.New("x509: cannot sign with hash function requested")
 				return
 			}
 			if isRSAPSS(requestedSigAlgo) {
-				sigAlgo.Parameters = rsaPSSParameters(hashFunc)
+				sigAlgo.Parameters = hashToPSSParameters[hashFunc]
 			}
 			found = true
 			break
@@ -1902,7 +1932,7 @@ func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, 
 		return nil, errors.New("x509: provided PrivateKey doesn't match parent's PublicKey")
 	}
 
-	extensions, err := buildExtensions(template, bytes.Equal(asn1Subject, emptyASN1Subject), authorityKeyId)
+	extensions, err := buildCertExtensions(template, bytes.Equal(asn1Subject, emptyASN1Subject), authorityKeyId)
 	if err != nil {
 		return nil, err
 	}
@@ -2171,22 +2201,10 @@ func CreateCertificateRequest(rand io.Reader, template *x509.CertificateRequest,
 		return nil, err
 	}
 
-	var extensions []pkix.Extension
-
-	if (len(template.DNSNames) > 0 || len(template.EmailAddresses) > 0 || len(template.IPAddresses) > 0 || len(template.URIs) > 0) &&
-		!oidInExtensions(oidExtensionSubjectAltName, template.ExtraExtensions) {
-		sanBytes, err := marshalSANs(template.DNSNames, template.EmailAddresses, template.IPAddresses, template.URIs)
-		if err != nil {
-			return nil, err
-		}
-
-		extensions = append(extensions, pkix.Extension{
-			Id:    oidExtensionSubjectAltName,
-			Value: sanBytes,
-		})
+	extensions, err := buildCSRExtensions(template)
+	if err != nil {
+		return nil, err
 	}
-
-	extensions = append(extensions, template.ExtraExtensions...)
 
 	// Make a copy of template.Attributes because we may alter it below.
 	attributes := make([]pkix.AttributeTypeAndValueSET, 0, len(template.Attributes))
@@ -2422,7 +2440,6 @@ func (c *CertificateRequest) CheckSignature() error {
 // The issuer distinguished name CRL field and authority key identifier
 // extension are populated using the issuer certificate. issuer must have
 // SubjectKeyId set.
-/*
 func CreateRevocationList(rand io.Reader, template *x509.RevocationList, issuer *Certificate, priv crypto.Signer) ([]byte, error) {
 	if template == nil {
 		return nil, errors.New("x509: template can not be nil")
@@ -2521,4 +2538,3 @@ func CreateRevocationList(rand io.Reader, template *x509.RevocationList, issuer 
 		SignatureValue:     asn1.BitString{Bytes: signature, BitLength: len(signature) * 8},
 	})
 }
-*/
