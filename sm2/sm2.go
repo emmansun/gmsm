@@ -62,23 +62,32 @@ const (
 	C1C2C3
 )
 
+type ciphertextEncoding byte
+
+const (
+	ENCODING_PLAIN ciphertextEncoding = iota
+	ENCODING_ASN1
+)
+
 // EncrypterOpts encryption options
 type EncrypterOpts struct {
+	CiphertextEncoding      ciphertextEncoding
 	PointMarshalMode        pointMarshalMode
 	CiphertextSplicingOrder ciphertextSplicingOrder
 }
 
 // DecrypterOpts decryption options
 type DecrypterOpts struct {
+	CiphertextEncoding      ciphertextEncoding
 	CipherTextSplicingOrder ciphertextSplicingOrder
 }
 
-func NewEncrypterOpts(marhsalMode pointMarshalMode, splicingOrder ciphertextSplicingOrder) *EncrypterOpts {
-	return &EncrypterOpts{marhsalMode, splicingOrder}
+func NewPlainEncrypterOpts(marhsalMode pointMarshalMode, splicingOrder ciphertextSplicingOrder) *EncrypterOpts {
+	return &EncrypterOpts{ENCODING_PLAIN, marhsalMode, splicingOrder}
 }
 
-func NewDecrypterOpts(splicingOrder ciphertextSplicingOrder) *DecrypterOpts {
-	return &DecrypterOpts{splicingOrder}
+func NewPlainDecrypterOpts(splicingOrder ciphertextSplicingOrder) *DecrypterOpts {
+	return &DecrypterOpts{ENCODING_PLAIN, splicingOrder}
 }
 
 func (mode pointMarshalMode) mashal(curve elliptic.Curve, x, y *big.Int) []byte {
@@ -92,7 +101,11 @@ func (mode pointMarshalMode) mashal(curve elliptic.Curve, x, y *big.Int) []byte 
 	}
 }
 
-var defaultEncrypterOpts = &EncrypterOpts{MarshalUncompressed, C1C3C2}
+var defaultEncrypterOpts = &EncrypterOpts{ENCODING_PLAIN, MarshalUncompressed, C1C3C2}
+
+var ASN1EncrypterOpts = &EncrypterOpts{ENCODING_ASN1, MarshalUncompressed, C1C3C2}
+
+var ASN1DecrypterOpts = &DecrypterOpts{ENCODING_ASN1, C1C3C2}
 
 // directSigning is a standard Hash value that signals that no pre-hashing
 // should be performed.
@@ -237,6 +250,11 @@ func calculateC3(curve elliptic.Curve, x2, y2 *big.Int, msg []byte) []byte {
 	return md.Sum(nil)
 }
 
+// sm2 encrypt and output ASN.1 result
+func EncryptASN1(random io.Reader, pub *ecdsa.PublicKey, msg []byte) ([]byte, error) {
+	return Encrypt(random, pub, msg, ASN1EncrypterOpts)
+}
+
 // Encrypt sm2 encrypt implementation
 func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *EncrypterOpts) ([]byte, error) {
 	curve := pub.Curve
@@ -285,12 +303,23 @@ func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Encrypter
 		//A7, C3 = hash(x2||M||y2)
 		c3 := calculateC3(curve, x2, y2, msg)
 
-		if opts.CiphertextSplicingOrder == C1C3C2 {
-			// c1 || c3 || c2
-			return append(append(c1, c3...), c2...), nil
+		if opts.CiphertextEncoding == ENCODING_PLAIN {
+			if opts.CiphertextSplicingOrder == C1C3C2 {
+				// c1 || c3 || c2
+				return append(append(c1, c3...), c2...), nil
+			}
+			// c1 || c2 || c3
+			return append(append(c1, c2...), c3...), nil
+		} else { // ASN.1 format will force C3 C2 order
+			var b cryptobyte.Builder
+			b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+				b.AddASN1BigInt(x1)
+				b.AddASN1BigInt(y1)
+				b.AddASN1OctetString(c3)
+				b.AddASN1OctetString(c2)
+			})
+			return b.Bytes()
 		}
-		// c1 || c2 || c3
-		return append(append(c1, c2...), c3...), nil
 	}
 }
 
@@ -314,10 +343,58 @@ func Decrypt(priv *PrivateKey, ciphertext []byte) ([]byte, error) {
 	return decrypt(priv, ciphertext, nil)
 }
 
+func decryptASN1(priv *PrivateKey, ciphertext []byte) ([]byte, error) {
+	var (
+		x1, y1 = &big.Int{}, &big.Int{}
+		c2, c3 []byte
+		inner  cryptobyte.String
+	)
+	input := cryptobyte.String(ciphertext)
+	if !input.ReadASN1(&inner, asn1.SEQUENCE) ||
+		!input.Empty() ||
+		!inner.ReadASN1Integer(x1) ||
+		!inner.ReadASN1Integer(y1) ||
+		!inner.ReadASN1Bytes(&c3, asn1.OCTET_STRING) ||
+		!inner.ReadASN1Bytes(&c2, asn1.OCTET_STRING) ||
+		!inner.Empty() {
+		return nil, errors.New("SM2: invalid asn1 format ciphertext")
+	}
+	return rawDecrypt(priv, x1, y1, c2, c3)
+}
+
+func rawDecrypt(priv *PrivateKey, x1, y1 *big.Int, c2, c3 []byte) ([]byte, error) {
+	curve := priv.Curve
+	x2, y2 := curve.ScalarMult(x1, y1, priv.D.Bytes())
+	msgLen := len(c2)
+	t, success := kdf(append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
+	if !success {
+		return nil, errors.New("SM2: invalid cipher text")
+	}
+
+	//B5, calculate msg = c2 ^ t
+	msg := make([]byte, msgLen)
+	for i := 0; i < msgLen; i++ {
+		msg[i] = c2[i] ^ t[i]
+	}
+	u := calculateC3(curve, x2, y2, msg)
+	for i := 0; i < sm3.Size; i++ {
+		if c3[i] != u[i] {
+			return nil, errors.New("SM2: invalid hash value")
+		}
+	}
+	return msg, nil
+}
+
 func decrypt(priv *PrivateKey, ciphertext []byte, opts *DecrypterOpts) ([]byte, error) {
 	splicingOrder := C1C3C2
 	if opts != nil {
+		if opts.CiphertextEncoding == ENCODING_ASN1 {
+			return decryptASN1(priv, ciphertext)
+		}
 		splicingOrder = opts.CipherTextSplicingOrder
+	}
+	if ciphertext[0] == 0x30 {
+		return decryptASN1(priv, ciphertext)
 	}
 	ciphertextLen := len(ciphertext)
 	if ciphertextLen <= 1+(priv.Params().BitSize/8)+sm3.Size {
@@ -330,45 +407,85 @@ func decrypt(priv *PrivateKey, ciphertext []byte, opts *DecrypterOpts) ([]byte, 
 		return nil, err
 	}
 
-	//B2 is ignored
-	//B3, calculate x2, y2
-	x2, y2 := curve.ScalarMult(x1, y1, priv.D.Bytes())
-
 	//B4, calculate t=KDF(x2||y2, klen)
 	var c2, c3 []byte
 	if splicingOrder == C1C3C2 {
 		c2 = ciphertext[c3Start+sm3.Size:]
-	} else {
-		c2 = ciphertext[c3Start : ciphertextLen-sm3.Size]
-	}
-	msgLen := len(c2)
-	t, success := kdf(append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
-	if !success {
-		return nil, errors.New("SM2: invalid cipher text")
-	}
-
-	//B5, calculate msg = c2 ^ t
-	msg := make([]byte, msgLen)
-	for i := 0; i < msgLen; i++ {
-		msg[i] = c2[i] ^ t[i]
-	}
-
-	//B6, calculate hash and compare it
-	if splicingOrder == C1C3C2 {
 		c3 = ciphertext[c3Start : c3Start+sm3.Size]
 	} else {
+		c2 = ciphertext[c3Start : ciphertextLen-sm3.Size]
 		c3 = ciphertext[ciphertextLen-sm3.Size:]
 	}
-	u := calculateC3(curve, x2, y2, msg)
-	for i := 0; i < sm3.Size; i++ {
-		if c3[i] != u[i] {
-			return nil, errors.New("SM2: invalid hash value")
-		}
-	}
 
-	return msg, nil
+	return rawDecrypt(priv, x1, y1, c2, c3)
 }
 
+// utility method to convert ASN.1 encoding ciphertext to plain encoding format
+func ASN1Ciphertext2Plain(ciphertext []byte, opts *EncrypterOpts) ([]byte, error) {
+	if opts == nil {
+		opts = defaultEncrypterOpts
+	}
+	var (
+		x1, y1 = &big.Int{}, &big.Int{}
+		c2, c3 []byte
+		inner  cryptobyte.String
+	)
+	input := cryptobyte.String(ciphertext)
+	if !input.ReadASN1(&inner, asn1.SEQUENCE) ||
+		!input.Empty() ||
+		!inner.ReadASN1Integer(x1) ||
+		!inner.ReadASN1Integer(y1) ||
+		!inner.ReadASN1Bytes(&c3, asn1.OCTET_STRING) ||
+		!inner.ReadASN1Bytes(&c2, asn1.OCTET_STRING) ||
+		!inner.Empty() {
+		return nil, errors.New("SM2: invalid asn1 format ciphertext")
+	}
+	curve := P256()
+	c1 := opts.PointMarshalMode.mashal(curve, x1, y1)
+	if opts.CiphertextSplicingOrder == C1C3C2 {
+		// c1 || c3 || c2
+		return append(append(c1, c3...), c2...), nil
+	}
+	// c1 || c2 || c3
+	return append(append(c1, c2...), c3...), nil
+}
+
+// utility method to convert plain encoding ciphertext to ASN.1 encoding format
+func PlainCiphertext2ASN1(ciphertext []byte, from ciphertextSplicingOrder) ([]byte, error) {
+	if ciphertext[0] == 0x30 {
+		return nil, errors.New("SM2: invalid plain encoding ciphertext")
+	}
+	curve := P256()
+	ciphertextLen := len(ciphertext)
+	if ciphertextLen <= 1+(curve.Params().BitSize/8)+sm3.Size {
+		return nil, errors.New("SM2: invalid ciphertext length")
+	}
+	// get C1, and check C1
+	x1, y1, c3Start, err := bytes2Point(curve, ciphertext)
+	if err != nil {
+		return nil, err
+	}
+
+	var c2, c3 []byte
+
+	if from == C1C3C2 {
+		c2 = ciphertext[c3Start+sm3.Size:]
+		c3 = ciphertext[c3Start : c3Start+sm3.Size]
+	} else {
+		c2 = ciphertext[c3Start : ciphertextLen-sm3.Size]
+		c3 = ciphertext[ciphertextLen-sm3.Size:]
+	}
+	var b cryptobyte.Builder
+	b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+		b.AddASN1BigInt(x1)
+		b.AddASN1BigInt(y1)
+		b.AddASN1OctetString(c3)
+		b.AddASN1OctetString(c2)
+	})
+	return b.Bytes()
+}
+
+// utility method
 func AdjustCiphertextSplicingOrder(ciphertext []byte, from, to ciphertextSplicingOrder) ([]byte, error) {
 	curve := P256()
 	if from == to {

@@ -48,11 +48,11 @@ func Test_SplicingOrder(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ciphertext, err := Encrypt(rand.Reader, &priv.PublicKey, []byte(tt.plainText), NewEncrypterOpts(MarshalUncompressed, tt.from))
+			ciphertext, err := Encrypt(rand.Reader, &priv.PublicKey, []byte(tt.plainText), NewPlainEncrypterOpts(MarshalUncompressed, tt.from))
 			if err != nil {
 				t.Fatalf("encrypt failed %v", err)
 			}
-			plaintext, err := priv.Decrypt(rand.Reader, ciphertext, NewDecrypterOpts(tt.from))
+			plaintext, err := priv.Decrypt(rand.Reader, ciphertext, NewPlainDecrypterOpts(tt.from))
 			if err != nil {
 				t.Fatalf("decrypt failed %v", err)
 			}
@@ -65,9 +65,102 @@ func Test_SplicingOrder(t *testing.T) {
 			if err != nil {
 				t.Fatalf("adjust splicing order failed %v", err)
 			}
-			plaintext, err = priv.Decrypt(rand.Reader, ciphertext, NewDecrypterOpts(tt.to))
+			plaintext, err = priv.Decrypt(rand.Reader, ciphertext, NewPlainDecrypterOpts(tt.to))
 			if err != nil {
 				t.Fatalf("decrypt failed after adjust splicing order %v", err)
+			}
+			if !reflect.DeepEqual(string(plaintext), tt.plainText) {
+				t.Errorf("Decrypt() = %v, want %v", string(plaintext), tt.plainText)
+			}
+		})
+	}
+}
+
+func Test_encryptDecrypt_ASN1(t *testing.T) {
+	priv, _ := GenerateKey(rand.Reader)
+	tests := []struct {
+		name      string
+		plainText string
+	}{
+		// TODO: Add test cases.
+		{"less than 32", "emmansun"},
+		{"equals 32", "encryption standard encryption "},
+		{"long than 32", "encryption standard encryption standard"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			encrypterOpts := ASN1EncrypterOpts
+			ciphertext, err := Encrypt(rand.Reader, &priv.PublicKey, []byte(tt.plainText), encrypterOpts)
+			if err != nil {
+				t.Fatalf("encrypt failed %v", err)
+			}
+			plaintext, err := priv.Decrypt(rand.Reader, ciphertext, ASN1DecrypterOpts)
+			if err != nil {
+				t.Fatalf("decrypt failed %v", err)
+			}
+			if !reflect.DeepEqual(string(plaintext), tt.plainText) {
+				t.Errorf("Decrypt() = %v, want %v", string(plaintext), tt.plainText)
+			}
+		})
+	}
+}
+
+func Test_Ciphertext2ASN1(t *testing.T) {
+	priv, _ := GenerateKey(rand.Reader)
+	tests := []struct {
+		name      string
+		plainText string
+	}{
+		// TODO: Add test cases.
+		{"less than 32", "emmansun"},
+		{"equals 32", "encryption standard encryption "},
+		{"long than 32", "encryption standard encryption standard"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ciphertext, err := Encrypt(rand.Reader, &priv.PublicKey, []byte(tt.plainText), nil)
+			if err != nil {
+				t.Fatalf("encrypt failed %v", err)
+			}
+			ciphertext, err = PlainCiphertext2ASN1(ciphertext, C1C3C2)
+			if err != nil {
+				t.Fatalf("convert to ASN.1 failed %v", err)
+			}
+			plaintext, err := priv.Decrypt(rand.Reader, ciphertext, ASN1DecrypterOpts)
+			if err != nil {
+				t.Fatalf("decrypt failed %v", err)
+			}
+			if !reflect.DeepEqual(string(plaintext), tt.plainText) {
+				t.Errorf("Decrypt() = %v, want %v", string(plaintext), tt.plainText)
+			}
+		})
+	}
+}
+
+func Test_ASN1Ciphertext2Plain(t *testing.T) {
+	priv, _ := GenerateKey(rand.Reader)
+	tests := []struct {
+		name      string
+		plainText string
+	}{
+		// TODO: Add test cases.
+		{"less than 32", "emmansun"},
+		{"equals 32", "encryption standard encryption "},
+		{"long than 32", "encryption standard encryption standard"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ciphertext, err := EncryptASN1(rand.Reader, &priv.PublicKey, []byte(tt.plainText))
+			if err != nil {
+				t.Fatalf("encrypt failed %v", err)
+			}
+			ciphertext, err = ASN1Ciphertext2Plain(ciphertext, nil)
+			if err != nil {
+				t.Fatalf("convert to plain failed %v", err)
+			}
+			plaintext, err := priv.Decrypt(rand.Reader, ciphertext, nil)
+			if err != nil {
+				t.Fatalf("decrypt failed %v", err)
 			}
 			if !reflect.DeepEqual(string(plaintext), tt.plainText) {
 				t.Errorf("Decrypt() = %v, want %v", string(plaintext), tt.plainText)
@@ -101,7 +194,7 @@ func Test_encryptDecrypt(t *testing.T) {
 				t.Errorf("Decrypt() = %v, want %v", string(plaintext), tt.plainText)
 			}
 			// compress mode
-			encrypterOpts := NewEncrypterOpts(MarshalCompressed, C1C3C2)
+			encrypterOpts := NewPlainEncrypterOpts(MarshalCompressed, C1C3C2)
 			ciphertext, err = Encrypt(rand.Reader, &priv.PublicKey, []byte(tt.plainText), encrypterOpts)
 			if err != nil {
 				t.Fatalf("encrypt failed %v", err)
@@ -115,7 +208,7 @@ func Test_encryptDecrypt(t *testing.T) {
 			}
 
 			// mixed mode
-			encrypterOpts = NewEncrypterOpts(MarshalMixed, C1C3C2)
+			encrypterOpts = NewPlainEncrypterOpts(MarshalMixed, C1C3C2)
 			ciphertext, err = Encrypt(rand.Reader, &priv.PublicKey, []byte(tt.plainText), encrypterOpts)
 			if err != nil {
 				t.Fatalf("encrypt failed %v", err)
