@@ -369,7 +369,7 @@ func decrypt(priv *PrivateKey, ciphertext []byte, opts *DecrypterOpts) ([]byte, 
 	return msg, nil
 }
 
-func AdjustCipherTextSplicingOrder(ciphertext []byte, from, to ciphertextSplicingOrder) ([]byte, error) {
+func AdjustCiphertextSplicingOrder(ciphertext []byte, from, to ciphertextSplicingOrder) ([]byte, error) {
 	curve := P256()
 	if from == to {
 		return ciphertext, nil

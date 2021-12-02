@@ -61,7 +61,7 @@ func Test_SplicingOrder(t *testing.T) {
 			}
 
 			//Adjust splicing order
-			ciphertext, err = AdjustCipherTextSplicingOrder(ciphertext, tt.from, tt.to)
+			ciphertext, err = AdjustCiphertextSplicingOrder(ciphertext, tt.from, tt.to)
 			if err != nil {
 				t.Fatalf("adjust splicing order failed %v", err)
 			}
