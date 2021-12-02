@@ -35,8 +35,8 @@ func Test_SplicingOrder(t *testing.T) {
 	tests := []struct {
 		name      string
 		plainText string
-		from      cipherTextSplicingOrder
-		to        cipherTextSplicingOrder
+		from      ciphertextSplicingOrder
+		to        ciphertextSplicingOrder
 	}{
 		// TODO: Add test cases.
 		{"less than 32 1", "encryption standard", C1C2C3, C1C3C2},

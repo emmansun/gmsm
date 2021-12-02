@@ -55,29 +55,29 @@ const (
 	MarshalMixed
 )
 
-type cipherTextSplicingOrder byte
+type ciphertextSplicingOrder byte
 
 const (
-	C1C3C2 cipherTextSplicingOrder = iota
+	C1C3C2 ciphertextSplicingOrder = iota
 	C1C2C3
 )
 
 // EncrypterOpts encryption options
 type EncrypterOpts struct {
 	PointMarshalMode        pointMarshalMode
-	CipherTextSplicingOrder cipherTextSplicingOrder
+	CiphertextSplicingOrder ciphertextSplicingOrder
 }
 
 // DecrypterOpts decryption options
 type DecrypterOpts struct {
-	CipherTextSplicingOrder cipherTextSplicingOrder
+	CipherTextSplicingOrder ciphertextSplicingOrder
 }
 
-func NewEncrypterOpts(marhsalMode pointMarshalMode, splicingOrder cipherTextSplicingOrder) *EncrypterOpts {
+func NewEncrypterOpts(marhsalMode pointMarshalMode, splicingOrder ciphertextSplicingOrder) *EncrypterOpts {
 	return &EncrypterOpts{marhsalMode, splicingOrder}
 }
 
-func NewDecrypterOpts(splicingOrder cipherTextSplicingOrder) *DecrypterOpts {
+func NewDecrypterOpts(splicingOrder ciphertextSplicingOrder) *DecrypterOpts {
 	return &DecrypterOpts{splicingOrder}
 }
 
@@ -285,7 +285,7 @@ func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Encrypter
 		//A7, C3 = hash(x2||M||y2)
 		c3 := calculateC3(curve, x2, y2, msg)
 
-		if opts.CipherTextSplicingOrder == C1C3C2 {
+		if opts.CiphertextSplicingOrder == C1C3C2 {
 			// c1 || c3 || c2
 			return append(append(c1, c3...), c2...), nil
 		}
@@ -369,7 +369,7 @@ func decrypt(priv *PrivateKey, ciphertext []byte, opts *DecrypterOpts) ([]byte, 
 	return msg, nil
 }
 
-func AdjustCipherTextSplicingOrder(ciphertext []byte, from, to cipherTextSplicingOrder) ([]byte, error) {
+func AdjustCipherTextSplicingOrder(ciphertext []byte, from, to ciphertextSplicingOrder) ([]byte, error) {
 	curve := P256()
 	if from == to {
 		return ciphertext, nil
