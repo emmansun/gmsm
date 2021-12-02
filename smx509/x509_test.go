@@ -283,7 +283,7 @@ func TestParsePKIXPublicKeyFromHuawei(t *testing.T) {
 		t.Fatal(err)
 	}
 	pub1 := pub.(*ecdsa.PublicKey)
-	encrypted, err := sm2.Encrypt(rand.Reader, pub1, []byte("encryption standard"), sm2.NewASN1EncrypterOpts())
+	encrypted, err := sm2.Encrypt(rand.Reader, pub1, []byte("encryption standard"), sm2.ASN1EncrypterOpts)
 	if err != nil {
 		t.Fatal(err)
 	}
