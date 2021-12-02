@@ -55,9 +55,30 @@ const (
 	MarshalMixed
 )
 
+type cipherTextSplicingOrder byte
+
+const (
+	C1C3C2 cipherTextSplicingOrder = iota
+	C1C2C3
+)
+
 // EncrypterOpts encryption options
 type EncrypterOpts struct {
-	PointMarshalMode pointMarshalMode
+	PointMarshalMode        pointMarshalMode
+	CipherTextSplicingOrder cipherTextSplicingOrder
+}
+
+// DecrypterOpts decryption options
+type DecrypterOpts struct {
+	CipherTextSplicingOrder cipherTextSplicingOrder
+}
+
+func NewEncrypterOpts(marhsalMode pointMarshalMode, splicingOrder cipherTextSplicingOrder) *EncrypterOpts {
+	return &EncrypterOpts{marhsalMode, splicingOrder}
+}
+
+func NewDecrypterOpts(splicingOrder cipherTextSplicingOrder) *DecrypterOpts {
+	return &DecrypterOpts{splicingOrder}
 }
 
 func (mode pointMarshalMode) mashal(curve elliptic.Curve, x, y *big.Int) []byte {
@@ -71,7 +92,7 @@ func (mode pointMarshalMode) mashal(curve elliptic.Curve, x, y *big.Int) []byte 
 	}
 }
 
-var defaultEncrypterOpts = EncrypterOpts{MarshalUncompressed}
+var defaultEncrypterOpts = &EncrypterOpts{MarshalUncompressed, C1C3C2}
 
 // directSigning is a standard Hash value that signals that no pre-hashing
 // should be performed.
@@ -148,7 +169,9 @@ func (priv *PrivateKey) SignWithSM2(rand io.Reader, uid, msg []byte) ([]byte, er
 // Decrypt decrypts msg. The opts argument should be appropriate for
 // the primitive used.
 func (priv *PrivateKey) Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpts) (plaintext []byte, err error) {
-	return Decrypt(priv, msg)
+	var sm2Opts *DecrypterOpts
+	sm2Opts, _ = opts.(*DecrypterOpts)
+	return decrypt(priv, msg, sm2Opts)
 }
 
 var (
@@ -222,7 +245,7 @@ func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Encrypter
 		return nil, nil
 	}
 	if opts == nil {
-		opts = &defaultEncrypterOpts
+		opts = defaultEncrypterOpts
 	}
 	//A3, requirement is to check if h*P is infinite point, h is 1
 	if pub.X.Sign() == 0 && pub.Y.Sign() == 0 {
@@ -262,8 +285,12 @@ func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Encrypter
 		//A7, C3 = hash(x2||M||y2)
 		c3 := calculateC3(curve, x2, y2, msg)
 
-		// c1 || c3 || c2
-		return append(append(c1, c3...), c2...), nil
+		if opts.CipherTextSplicingOrder == C1C3C2 {
+			// c1 || c3 || c2
+			return append(append(c1, c3...), c2...), nil
+		}
+		// c1 || c2 || c3
+		return append(append(c1, c2...), c3...), nil
 	}
 }
 
@@ -282,8 +309,16 @@ func GenerateKey(rand io.Reader) (*PrivateKey, error) {
 	return priv, nil
 }
 
-// Decrypt sm2 decrypt implementation
+// Decrypt sm2 decrypt implementation by default DecrypterOpts{C1C3C2}
 func Decrypt(priv *PrivateKey, ciphertext []byte) ([]byte, error) {
+	return decrypt(priv, ciphertext, nil)
+}
+
+func decrypt(priv *PrivateKey, ciphertext []byte, opts *DecrypterOpts) ([]byte, error) {
+	splicingOrder := C1C3C2
+	if opts != nil {
+		splicingOrder = opts.CipherTextSplicingOrder
+	}
 	ciphertextLen := len(ciphertext)
 	if ciphertextLen <= 1+(priv.Params().BitSize/8)+sm3.Size {
 		return nil, errors.New("SM2: invalid ciphertext length")
@@ -300,7 +335,12 @@ func Decrypt(priv *PrivateKey, ciphertext []byte) ([]byte, error) {
 	x2, y2 := curve.ScalarMult(x1, y1, priv.D.Bytes())
 
 	//B4, calculate t=KDF(x2||y2, klen)
-	c2 := ciphertext[c3Start+sm3.Size:]
+	var c2, c3 []byte
+	if splicingOrder == C1C3C2 {
+		c2 = ciphertext[c3Start+sm3.Size:]
+	} else {
+		c2 = ciphertext[c3Start : ciphertextLen-sm3.Size]
+	}
 	msgLen := len(c2)
 	t, success := kdf(append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
 	if !success {
@@ -314,7 +354,11 @@ func Decrypt(priv *PrivateKey, ciphertext []byte) ([]byte, error) {
 	}
 
 	//B6, calculate hash and compare it
-	c3 := ciphertext[c3Start : c3Start+sm3.Size]
+	if splicingOrder == C1C3C2 {
+		c3 = ciphertext[c3Start : c3Start+sm3.Size]
+	} else {
+		c3 = ciphertext[ciphertextLen-sm3.Size:]
+	}
 	u := calculateC3(curve, x2, y2, msg)
 	for i := 0; i < sm3.Size; i++ {
 		if c3[i] != u[i] {
@@ -323,6 +367,47 @@ func Decrypt(priv *PrivateKey, ciphertext []byte) ([]byte, error) {
 	}
 
 	return msg, nil
+}
+
+func AdjustCipherTextSplicingOrder(pub *ecdsa.PublicKey, ciphertext []byte, from, to cipherTextSplicingOrder) ([]byte, error) {
+	if from == to {
+		return ciphertext, nil
+	}
+	ciphertextLen := len(ciphertext)
+	if ciphertextLen <= 1+(pub.Params().BitSize/8)+sm3.Size {
+		return nil, errors.New("SM2: invalid ciphertext length")
+	}
+	curve := pub.Curve
+
+	// get C1, and check C1
+	_, _, c3Start, err := bytes2Point(curve, ciphertext)
+	if err != nil {
+		return nil, err
+	}
+
+	var c1, c2, c3 []byte
+
+	c1 = ciphertext[:c3Start]
+	if from == C1C3C2 {
+		c2 = ciphertext[c3Start+sm3.Size:]
+		c3 = ciphertext[c3Start : c3Start+sm3.Size]
+	} else {
+		c2 = ciphertext[c3Start : ciphertextLen-sm3.Size]
+		c3 = ciphertext[ciphertextLen-sm3.Size:]
+	}
+
+	result := make([]byte, ciphertextLen)
+	copy(result, c1)
+	if to == C1C3C2 {
+		// c1 || c3 || c2
+		copy(result[c3Start:], c3)
+		copy(result[c3Start+sm3.Size:], c2)
+	} else {
+		// c1 || c2 || c3
+		copy(result[c3Start:], c2)
+		copy(result[ciphertextLen-sm3.Size:], c3)
+	}
+	return result, nil
 }
 
 // hashToInt converts a hash value to an integer. There is some disagreement
