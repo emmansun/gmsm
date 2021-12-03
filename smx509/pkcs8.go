@@ -65,8 +65,6 @@ func ParsePKCS8PrivateKey(der []byte) (key interface{}, err error) {
 // This kind of key is commonly encoded in PEM blocks of type "PRIVATE KEY".
 func MarshalPKCS8PrivateKey(key interface{}) ([]byte, error) {
 	switch k := key.(type) {
-	case *ecdsa.PrivateKey:
-		return marshalPKCS8ECPrivateKey(k)
 	case *sm2.PrivateKey:
 		return marshalPKCS8ECPrivateKey(&k.PrivateKey)
 	}
