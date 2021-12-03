@@ -4,7 +4,7 @@
 package smx509
 
 import (
-	"io/fs"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,7 +34,7 @@ func loadSystemRoots() (*CertPool, error) {
 
 	var firstErr error
 	for _, file := range files {
-		data, err := os.ReadFile(file)
+		data, err := ioutil.ReadFile(file)
 		if err == nil {
 			roots.AppendCertsFromPEM(data)
 			break
@@ -62,7 +62,7 @@ func loadSystemRoots() (*CertPool, error) {
 			continue
 		}
 		for _, fi := range fis {
-			data, err := os.ReadFile(directory + "/" + fi.Name())
+			data, err := ioutil.ReadFile(directory + "/" + fi.Name())
 			if err == nil {
 				roots.AppendCertsFromPEM(data)
 			}
@@ -76,17 +76,17 @@ func loadSystemRoots() (*CertPool, error) {
 	return nil, firstErr
 }
 
-// readUniqueDirectoryEntries is like os.ReadDir but omits
+// readUniqueDirectoryEntries is like ioutil.ReadDir but omits
 // symlinks that point within the directory.
-func readUniqueDirectoryEntries(dir string) ([]fs.DirEntry, error) {
-	files, err := os.ReadDir(dir)
+func readUniqueDirectoryEntries(dir string) ([]os.FileInfo, error) {
+	fis, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
-	uniq := files[:0]
-	for _, f := range files {
-		if !isSameDirSymlink(f, dir) {
-			uniq = append(uniq, f)
+	uniq := fis[:0]
+	for _, fi := range fis {
+		if !isSameDirSymlink(fi, dir) {
+			uniq = append(uniq, fi)
 		}
 	}
 	return uniq, nil
@@ -94,10 +94,10 @@ func readUniqueDirectoryEntries(dir string) ([]fs.DirEntry, error) {
 
 // isSameDirSymlink reports whether fi in dir is a symlink with a
 // target not containing a slash.
-func isSameDirSymlink(f fs.DirEntry, dir string) bool {
-	if f.Type()&fs.ModeSymlink == 0 {
+func isSameDirSymlink(fi os.FileInfo, dir string) bool {
+	if fi.Mode()&os.ModeSymlink == 0 {
 		return false
 	}
-	target, err := os.Readlink(filepath.Join(dir, f.Name()))
+	target, err := os.Readlink(filepath.Join(dir, fi.Name()))
 	return err == nil && !strings.Contains(target, "/")
 }
