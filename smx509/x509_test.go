@@ -264,30 +264,26 @@ func TestSignByHuaweiVerifyAtLocal(t *testing.T) {
 	}
 }
 
-func TestParsePKIXPublicKey(t *testing.T) {
-	pub, err := getPublicKey([]byte(publicKeyPemFromAliKms))
-	if err != nil {
-		t.Fatal(err)
+func TestParsePKIXPublicKeyFromExternal(t *testing.T) {
+	tests := []struct {
+		name string
+		pem  string
+	}{
+		{"ALI", publicKeyPemFromAliKms},
+		{"HUAWEI", publicKeyPemFromHuaweiKms},
 	}
-	pub1 := pub.(*ecdsa.PublicKey)
-	encrypted, err := sm2.Encrypt(rand.Reader, pub1, []byte("testfile"), nil)
-	if err != nil {
-		t.Fatal(err)
+	for _, test := range tests {
+		pub, err := getPublicKey([]byte(test.pem))
+		if err != nil {
+			t.Fatalf("%s failed to get public key %v", test.name, err)
+		}
+		pub1 := pub.(*ecdsa.PublicKey)
+		encrypted, err := sm2.Encrypt(rand.Reader, pub1, []byte("encryption standard"), sm2.ASN1EncrypterOpts)
+		if err != nil {
+			t.Fatalf("%s failed to encrypt %v", test.name, err)
+		}
+		fmt.Printf("encrypted=%s\n", base64.RawURLEncoding.EncodeToString(encrypted))
 	}
-	fmt.Printf("encrypted=%s\n", base64.StdEncoding.EncodeToString(encrypted))
-}
-
-func TestParsePKIXPublicKeyFromHuawei(t *testing.T) {
-	pub, err := getPublicKey([]byte(publicKeyPemFromHuaweiKms))
-	if err != nil {
-		t.Fatal(err)
-	}
-	pub1 := pub.(*ecdsa.PublicKey)
-	encrypted, err := sm2.Encrypt(rand.Reader, pub1, []byte("encryption standard"), sm2.ASN1EncrypterOpts)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Printf("encrypted=%s\n", base64.RawURLEncoding.EncodeToString(encrypted))
 }
 
 func TestMarshalPKIXPublicKey(t *testing.T) {

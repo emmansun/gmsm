@@ -83,7 +83,7 @@ func Test_encryptDecrypt_ASN1(t *testing.T) {
 		plainText string
 	}{
 		// TODO: Add test cases.
-		{"less than 32", "emmansun"},
+		{"less than 32", "encryption standard"},
 		{"equals 32", "encryption standard encryption "},
 		{"long than 32", "encryption standard encryption standard"},
 	}
@@ -112,7 +112,7 @@ func Test_Ciphertext2ASN1(t *testing.T) {
 		plainText string
 	}{
 		// TODO: Add test cases.
-		{"less than 32", "emmansun"},
+		{"less than 32", "encryption standard"},
 		{"equals 32", "encryption standard encryption "},
 		{"long than 32", "encryption standard encryption standard"},
 	}
@@ -144,7 +144,7 @@ func Test_ASN1Ciphertext2Plain(t *testing.T) {
 		plainText string
 	}{
 		// TODO: Add test cases.
-		{"less than 32", "emmansun"},
+		{"less than 32", "encryption standard"},
 		{"equals 32", "encryption standard encryption "},
 		{"long than 32", "encryption standard encryption standard"},
 	}
