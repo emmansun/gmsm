@@ -250,6 +250,7 @@ func Test_signVerify(t *testing.T) {
 	}
 }
 
+// Check that signatures are safe even with a broken entropy source.
 func TestNonceSafety(t *testing.T) {
 	priv, _ := GenerateKey(rand.Reader)
 
@@ -277,6 +278,7 @@ func TestNonceSafety(t *testing.T) {
 	}
 }
 
+// Check that signatures remain non-deterministic with a functional entropy source.
 func TestINDCCA(t *testing.T) {
 	priv, _ := GenerateKey(rand.Reader)
 
