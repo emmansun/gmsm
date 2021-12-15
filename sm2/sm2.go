@@ -1,5 +1,12 @@
 package sm2
 
+// Further references:
+//   [NSA]: Suite B implementer's guide to FIPS 186-3
+//     http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.182.4503&rep=rep1&type=pdf
+//   [SECG]: SECG, SEC1
+//     http://www.secg.org/sec1-v2.pdf
+//
+
 import (
 	"crypto"
 	"crypto/aes"
@@ -204,16 +211,16 @@ func P256() elliptic.Curve {
 // curve using the procedure given in [NSA] A.2.1.
 func randFieldElement(c elliptic.Curve, rand io.Reader) (k *big.Int, err error) {
 	params := c.Params()
-	b := make([]byte, params.BitSize/8+8)
+	b := make([]byte, params.BitSize/8+8) // (N + 64) / 8 = （256 + 64） / 8
 	_, err = io.ReadFull(rand, b)
 	if err != nil {
 		return
 	}
 
-	k = new(big.Int).SetBytes(b)
+	k = new(big.Int).SetBytes(b) // 5.Convert returned_bits to the (non-negtive) integrer c
 	n := new(big.Int).Sub(params.N, one)
 	k.Mod(k, n)
-	k.Add(k, one)
+	k.Add(k, one) // 6. k = (c mod (n-1)) + 1, here n = params.N
 	return
 }
 
@@ -563,6 +570,7 @@ func fermatInverse(k, N *big.Int) *big.Int {
 // private key's curve order, the hash will be truncated to that length.  It
 // returns the signature as a pair of integers. The security of the private key
 // depends on the entropy of rand.
+// https://crypto.stackexchange.com/questions/60644/what-does-chopmd-refer-to-in-the-default-go-ecdsa-package
 func Sign(rand io.Reader, priv *ecdsa.PrivateKey, hash []byte) (r, s *big.Int, err error) {
 	if !strings.EqualFold(priv.Params().Name, P256().Params().Name) {
 		return ecdsa.Sign(rand, priv, hash)
@@ -600,6 +608,10 @@ func Sign(rand io.Reader, priv *ecdsa.PrivateKey, hash []byte) (r, s *big.Int, e
 
 	// See [NSA] 3.4.1
 	c := priv.PublicKey.Curve
+	return signGeneric(priv, &csprng, c, hash)
+}
+
+func signGeneric(priv *ecdsa.PrivateKey, csprng *cipher.StreamReader, c elliptic.Curve, hash []byte) (r, s *big.Int, err error) {
 	N := c.Params().N
 	if N.Sign() == 0 {
 		return nil, nil, errZeroParam
