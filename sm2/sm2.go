@@ -606,12 +606,12 @@ func Sign(rand io.Reader, priv *ecdsa.PrivateKey, hash []byte) (r, s *big.Int, e
 		S: cipher.NewCTR(block, []byte(aesIV)),
 	}
 
-	// See [NSA] 3.4.1
-	c := priv.PublicKey.Curve
-	return signGeneric(priv, &csprng, c, hash)
+	return signGeneric(priv, &csprng, hash)
 }
 
-func signGeneric(priv *ecdsa.PrivateKey, csprng *cipher.StreamReader, c elliptic.Curve, hash []byte) (r, s *big.Int, err error) {
+func signGeneric(priv *ecdsa.PrivateKey, csprng *cipher.StreamReader, hash []byte) (r, s *big.Int, err error) {
+	// See [NSA] 3.4.1
+	c := priv.PublicKey.Curve
 	N := c.Params().N
 	if N.Sign() == 0 {
 		return nil, nil, errZeroParam
