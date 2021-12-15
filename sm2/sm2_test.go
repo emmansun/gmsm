@@ -250,6 +250,58 @@ func Test_signVerify(t *testing.T) {
 	}
 }
 
+func TestNonceSafety(t *testing.T) {
+	priv, _ := GenerateKey(rand.Reader)
+
+	hashed := []byte("testing")
+	r0, s0, err := Sign(zeroReader, &priv.PrivateKey, hashed)
+	if err != nil {
+		t.Errorf("SM2: error signing: %s", err)
+		return
+	}
+
+	hashed = []byte("testing...")
+	r1, s1, err := Sign(zeroReader, &priv.PrivateKey, hashed)
+	if err != nil {
+		t.Errorf("SM2: error signing: %s", err)
+		return
+	}
+
+	if s0.Cmp(s1) == 0 {
+		// This should never happen.
+		t.Error("SM2: the signatures on two different messages were the same")
+	}
+
+	if r0.Cmp(r1) == 0 {
+		t.Error("SM2: the nonce used for two diferent messages was the same")
+	}
+}
+
+func TestINDCCA(t *testing.T) {
+	priv, _ := GenerateKey(rand.Reader)
+
+	hashed := []byte("testing")
+	r0, s0, err := Sign(rand.Reader, &priv.PrivateKey, hashed)
+	if err != nil {
+		t.Errorf("SM2: error signing: %s", err)
+		return
+	}
+
+	r1, s1, err := Sign(rand.Reader, &priv.PrivateKey, hashed)
+	if err != nil {
+		t.Errorf("SM2: error signing: %s", err)
+		return
+	}
+
+	if s0.Cmp(s1) == 0 {
+		t.Error("SM2: two signatures of the same message produced the same result")
+	}
+
+	if r0.Cmp(r1) == 0 {
+		t.Error("SM2: two signatures of the same message produced the same nonce")
+	}
+}
+
 func benchmarkEncrypt(b *testing.B, curve elliptic.Curve, plaintext string) {
 	for i := 0; i < b.N; i++ {
 		priv, _ := ecdsa.GenerateKey(curve, rand.Reader)

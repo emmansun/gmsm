@@ -570,7 +570,8 @@ func fermatInverse(k, N *big.Int) *big.Int {
 // private key's curve order, the hash will be truncated to that length.  It
 // returns the signature as a pair of integers. The security of the private key
 // depends on the entropy of rand.
-// https://crypto.stackexchange.com/questions/60644/what-does-chopmd-refer-to-in-the-default-go-ecdsa-package
+// Backgroud: https://github.com/golang/go/commit/a8049f58f9e3336554da1b0a4f8ea3b9c5cd669c
+// 
 func Sign(rand io.Reader, priv *ecdsa.PrivateKey, hash []byte) (r, s *big.Int, err error) {
 	if !strings.EqualFold(priv.Params().Name, P256().Params().Name) {
 		return ecdsa.Sign(rand, priv, hash)
