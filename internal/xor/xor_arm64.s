@@ -65,4 +65,3 @@ less_than2:
 	MOVBU	R19, (R0)
 end:
 	RET
-	
