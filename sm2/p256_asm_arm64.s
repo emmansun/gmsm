@@ -1663,3 +1663,4 @@ TEXT ·p256PointAddAsm(SB),0,$392-80
 	MOVD	R0, ret+72(FP)
 
 	RET
+	
