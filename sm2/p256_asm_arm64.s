@@ -164,8 +164,8 @@ TEXT ·p256Sqr(SB),NOSPLIT,$0
 	MOVD	in+24(FP), a_ptr
 	MOVD	n+48(FP), b_ptr
 
-	MOVD	p256p<>+0x10(SB), const0
-	MOVD	p256p<>+0x18(SB), const1
+	LDP	p256p<>+0x00(SB), (const0, const1)
+	LDP	p256p<>+0x10(SB), (const2, const3)
 
 	LDP	0*16(a_ptr), (x0, x1)
 	LDP	1*16(a_ptr), (x2, x3)
@@ -189,8 +189,8 @@ TEXT ·p256Mul(SB),NOSPLIT,$0
 	MOVD	in1+24(FP), a_ptr
 	MOVD	in2+48(FP), b_ptr
 
-	MOVD	p256p<>+0x10(SB), const0
-	MOVD	p256p<>+0x18(SB), const1
+	LDP	p256p<>+0x00(SB), (const0, const1)
+	LDP	p256p<>+0x10(SB), (const2, const3)
 
 	LDP	0*16(a_ptr), (x0, x1)
 	LDP	1*16(a_ptr), (x2, x3)
