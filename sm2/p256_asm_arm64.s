@@ -228,12 +228,13 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	ADCS	t0, acc3, acc3       // (carry3,acc3) = acc3 + L(acc0*p3)
 
 	UMULH	const3, acc0, hlp1   // hlp1 = H(acc0*p3)
-	ADC	$0, acc4               // acc4 = carry3 + acc4
+	ADC $0, hlp1
 
 	ADDS	acc0, acc1, acc1     // (carry4, acc1) = acc0 + acc1 + L(acc0*p1)
 	ADCS	y0, acc2, acc2       // (carry5, acc2) = carry4 + acc2 +  L(acc0*p2) + H(acc0*p1)
 	ADCS	hlp0, acc3, acc3     // (carry6, acc3) = carry5 + acc3 + L(acc0*p3) + H(acc0*p2)
 	ADC	$0, hlp1, acc0         // acc0 = carry6 + H(acc0*p3)	
+
 	// Second reduction step
 	MUL	const1, acc1, t0
 	ADDS t0, acc2, acc2        // (carry1, acc2) = acc2 + L(acc1*p1)
@@ -247,7 +248,7 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	ADCS	t0, acc0, acc0       // (carry3,acc0) = acc0 + L(acc1*p3)
 
 	UMULH	const3, acc1, hlp1   // hlp1 = H(acc1*p3)
-	ADC	$0, acc5               // acc5 = carry3 + acc5
+	ADC $0, hlp1
 
 	ADDS	acc1, acc2, acc2     // (carry4, acc2) = acc1 + acc2 + L(acc1*p1)
 	ADCS	y0, acc3, acc3       // (carry5, acc3) = carry4 + acc3 +  L(acc1*p2) + H(acc1*p1)
@@ -266,7 +267,7 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	ADCS	t0, acc1, acc1       // (carry3,acc1) = acc1 + L(acc2*p3)
 
 	UMULH	const3, acc2, hlp1   // hlp1 = H(acc2*p3)
-	ADC	$0, acc6               // acc6 = carry3 + acc6
+	ADC $0, hlp1
 
 	ADDS	acc2, acc3, acc3     // (carry4, acc3) = acc2 + acc3 + L(acc2*p1)
 	ADCS	y0, acc0, acc0       // (carry5, acc0) = carry4 + acc0 +  L(acc2*p2) + H(acc2*p1)
@@ -285,7 +286,7 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	ADCS	t0, acc2, acc2       // (carry3,acc2) = acc2 + L(acc3*p3)
 
 	UMULH	const3, acc3, hlp1   // hlp1 = H(acc3*p3)
-	ADC	$0, acc7               // acc7 = carry3 + acc7
+	ADC $0, hlp1
 
 	ADDS	acc3, acc0, acc0     // (carry4, acc0) = acc3 + acc0 + L(acc3*p1)
 	ADCS	y0, acc1, acc1       // (carry5, acc1) = carry4 + acc1 +  L(acc3*p2) + H(acc3*p1)
@@ -917,7 +918,7 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	ADCS	t0, acc3, acc3       // (carry3,acc3) = acc3 + L(acc0*p3)
 
 	UMULH	const1, acc0, hlp1   // hlp1 = H(acc0*p3)
-	ADC	$0, acc4               // acc4 = carry3 + acc4
+	ADC	$0, hlp1               // hlp1 = carry3 + hlp1
 
 	ADDS	acc0, acc1, acc1     // (carry4, acc1) = acc0 + acc1 + L(acc0*p1)
 	ADCS	y0, acc2, acc2       // (carry5, acc2) = carry4 + acc2 +  L(acc0*p2) + H(acc0*p1)
@@ -936,7 +937,7 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	ADCS	t0, acc0, acc0       // (carry3,acc0) = acc0 + L(acc1*p3)
 
 	UMULH	const1, acc1, hlp1   // hlp1 = H(acc1*p3)
-	ADC	$0, acc5               // acc5 = carry3 + acc5
+	ADC	$0, hlp1               // hlp1 = carry3 + hlp1
 
 	ADDS	acc1, acc2, acc2     // (carry4, acc2) = acc1 + acc2 + L(acc1*p1)
 	ADCS	y0, acc3, acc3       // (carry5, acc3) = carry4 + acc3 +  L(acc1*p2) + H(acc1*p1)
@@ -955,7 +956,7 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	ADCS	t0, acc1, acc1       // (carry3,acc1) = acc1 + L(acc2*p3)
 
 	UMULH	const1, acc2, hlp1   // hlp1 = H(acc2*p3)
-	ADC	$0, acc6               // acc6 = carry3 + acc6
+	ADC	$0, hlp1               // hlp1 = carry3 + hlp1
 
 	ADDS	acc2, acc3, acc3     // (carry4, acc3) = acc2 + acc3 + L(acc2*p1)
 	ADCS	y0, acc0, acc0       // (carry5, acc0) = carry4 + acc0 +  L(acc2*p2) + H(acc2*p1)
