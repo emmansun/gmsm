@@ -3,7 +3,7 @@
 
 [![Build Status](https://travis-ci.com/emmansun/gmsm.svg?branch=main)](https://travis-ci.com/emmansun/gmsm) [![Documentation](https://godoc.org/github.com/emmansun/gmsm?status.svg)](https://godoc.org/github.com/emmansun/gmsm) [![Release](https://img.shields.io/github/release/emmansun/gmsm/all.svg)](https://github.com/emmansun/gmsm/releases)
 
-This is a **SM2 sm2p256v1** implementation whose performance is similar like golang native NIST P256 under **amd64**, for implementation detail, please refer [SM2实现细节](https://github.com/emmansun/gmsm/wiki/SM2%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96).
+This is a **SM2 sm2p256v1** implementation whose performance is similar like golang native NIST P256 under **amd64** and **arm64**, for implementation detail, please refer [SM2实现细节](https://github.com/emmansun/gmsm/wiki/SM2%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96).
 
 This is also a **SM3** implementation whose performance is similar like golang native SHA 256 with SIMD under **amd64**, for implementation detail, please refer [SM3性能优化](https://github.com/emmansun/gmsm/wiki/SM3%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96).
 
