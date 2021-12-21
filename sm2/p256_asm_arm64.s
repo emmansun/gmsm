@@ -134,10 +134,9 @@ TEXT ·p256NegCond(SB),NOSPLIT,$0
 	MOVD	cond+24(FP), hlp0
 	MOVD	a_ptr, res_ptr
 	// acc = poly
-	MOVD	p256p<>+0x00(SB), acc0
-	MOVD	p256p<>+0x08(SB), acc1
-	MOVD	p256p<>+0x10(SB), acc2
-	MOVD	p256p<>+0x18(SB), acc3
+	LDP	p256p<>+0x00(SB), (acc0, acc1)
+	LDP	p256p<>+0x10(SB), (acc2, acc3)
+	
 	// Load the original value
 	LDP	0*16(a_ptr), (t0, t1)
 	LDP	1*16(a_ptr), (t2, t3)
