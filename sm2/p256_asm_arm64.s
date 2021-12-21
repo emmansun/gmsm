@@ -1044,11 +1044,11 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 
 	MUL	y1, x1, t0
 	ADCS	t0, acc2
-	UMULH	y1, x1, t2
+	UMULH	y1, x1, y0
 
 	MUL	y1, x2, t0
 	ADCS	t0, acc3
-	UMULH	y1, x2, t3
+	UMULH	y1, x2, acc6
 
 	MUL	y1, x3, t0
 	ADCS	t0, acc4
@@ -1056,8 +1056,8 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	ADC	$0, ZR, acc5
 
 	ADDS	t1, acc2
-	ADCS	t2, acc3
-	ADCS	t3, acc4
+	ADCS	y0, acc3
+	ADCS	acc6, acc4
 	ADC	hlp0, acc5
 	// Second reduction step
 	MUL	const1, acc1, t0
@@ -1086,11 +1086,11 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 
 	MUL	y2, x1, t0
 	ADCS	t0, acc3
-	UMULH	y2, x1, t2
+	UMULH	y2, x1, y0
 
 	MUL	y2, x2, t0
 	ADCS	t0, acc4
-	UMULH	y2, x2, t3
+	UMULH	y2, x2, y1
 
 	MUL	y2, x3, t0
 	ADCS	t0, acc5
@@ -1098,8 +1098,8 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	ADC	$0, ZR, acc6
 
 	ADDS	t1, acc3
-	ADCS	t2, acc4
-	ADCS	t3, acc5
+	ADCS	y0, acc4
+	ADCS	y1, acc5
 	ADC	hlp0, acc6
 	// Third reduction step
 	MUL	const1, acc2, t0
@@ -1128,11 +1128,11 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 
 	MUL	y3, x1, t0
 	ADCS	t0, acc4
-	UMULH	y3, x1, t2
+	UMULH	y3, x1, y0
 
 	MUL	y3, x2, t0
 	ADCS	t0, acc5
-	UMULH	y3, x2, t3
+	UMULH	y3, x2, y1
 
 	MUL	y3, x3, t0
 	ADCS	t0, acc6
@@ -1140,8 +1140,8 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	ADC	$0, ZR, acc7
 
 	ADDS	t1, acc4
-	ADCS	t2, acc5
-	ADCS	t3, acc6
+	ADCS	y0, acc5
+	ADCS	y1, acc6
 	ADC	hlp0, acc7
 	// Last reduction step
 	MUL	const1, acc3, t0
