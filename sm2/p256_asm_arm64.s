@@ -1190,13 +1190,13 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	ADC	$0, ZR, hlp0;  \
 	SUBS	const0, x0, t0;   \
 	SBCS	const1, x1, t1;\
-	SBCS	const2, x2, t2;    \
-	SBCS	const3, x3, t3;\
+	SBCS	const2, x2, acc5;    \
+	SBCS	const3, x3, acc6;\
 	SBCS	$0, hlp0, hlp0;\
 	CSEL	CC, x0, t0, x0;\
 	CSEL	CC, x1, t1, x1;\
-	CSEL	CC, x2, t2, x2;\
-	CSEL	CC, x3, t3, x3;
+	CSEL	CC, x2, acc5, x2;\
+	CSEL	CC, x3, acc6, x3;
 /* ---------------------------------------*/
 #define x1in(off) (off)(a_ptr)
 #define y1in(off) (off + 32)(a_ptr)
