@@ -9,7 +9,8 @@ sudo: false
 
 arch:
   - amd64
-  - arm64
+  - arm64-graviton2
+    virt: vm
 
 os:
   - linux
