@@ -5,16 +5,15 @@ go:
   - "1.16.x"
   - "1.17.x"
 
-sudo: false
+jobs:
+  include:
+    - arch: arm64-graviton2
+      virt: vm
+      os: linux
+      dist: focal
+      go: 1.16.x
+      group: edge
 
-arch:
-  - amd64
-  - arm64-graviton2
-    virt: vm
-
-os:
-  - linux
- 
 install:
   - go mod tidy
   - go mod download
