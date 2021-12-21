@@ -256,7 +256,7 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	// Third reduction step
 	MUL	const1, acc2, t0
 	ADDS t0, acc3, acc3        // (carry1, acc3) = acc3 + L(acc2*p1)
-	UMULH	const1, acc1, y0     // y0 = H(acc2*p1)
+	UMULH	const1, acc2, y0     // y0 = H(acc2*p1)
 	
 	MUL	const2, acc2, t0    
 	ADCS	t0, acc0, acc0       // (carry2, acc0) = acc0 +  L(acc2*p2)
@@ -275,7 +275,7 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	// Last reduction step
 	MUL	const1, acc3, t0
 	ADDS t0, acc0, acc0        // (carry1, acc0) = acc0 + L(acc3*p1)
-	UMULH	const1, acc1, y0     // y0 = H(acc2*p1)
+	UMULH	const1, acc3, y0     // y0 = H(acc3*p1)
 	
 	MUL	const2, acc3, t0    
 	ADCS	t0, acc1, acc1       // (carry2, acc1) = acc1 +  L(acc3*p2)
@@ -945,7 +945,7 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	// Third reduction step
 	MUL	const1, acc2, t0
 	ADDS t0, acc3, acc3        // (carry1, acc3) = acc3 + L(acc2*p1)
-	UMULH	const1, acc1, y0     // y0 = H(acc2*p1)
+	UMULH	const1, acc2, y0     // y0 = H(acc2*p1)
 	
 	MUL	const2, acc2, t0    
 	ADCS	t0, acc0, acc0       // (carry2, acc0) = acc0 +  L(acc2*p2)
@@ -964,7 +964,7 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	// Last reduction step
 	MUL	const1, acc3, t0
 	ADDS t0, acc0, acc0        // (carry1, acc0) = acc0 + L(acc3*p1)
-	UMULH	const1, acc1, y0     // y0 = H(acc2*p1)
+	UMULH	const1, acc3, y0     // y0 = H(acc3*p1)
 	
 	MUL	const2, acc3, t0    
 	ADCS	t0, acc1, acc1       // (carry2, acc1) = acc1 +  L(acc3*p2)
@@ -1104,7 +1104,7 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	// Third reduction step
 	MUL	const1, acc2, t0
 	ADDS t0, acc3, acc3        // (carry1, acc3) = acc3 + L(acc2*p1)
-	UMULH	const1, acc1, y0     // y0 = H(acc2*p1)
+	UMULH	const1, acc2, y0     // y0 = H(acc2*p1)
 	
 	MUL	const2, acc2, t0    
 	ADCS	t0, acc0, acc0       // (carry2, acc0) = acc0 +  L(acc2*p2)
@@ -1146,7 +1146,7 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	// Last reduction step
 	MUL	const1, acc3, t0
 	ADDS t0, acc0, acc0        // (carry1, acc0) = acc0 + L(acc3*p1)
-	UMULH	const1, acc1, y0     // y0 = H(acc2*p1)
+	UMULH	const1, acc3, y0     // y0 = H(acc3*p1)
 	
 	MUL	const2, acc3, t0    
 	ADCS	t0, acc1, acc1       // (carry2, acc1) = acc1 +  L(acc3*p2)
