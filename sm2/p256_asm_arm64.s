@@ -1408,13 +1408,13 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-96
 	ADC	$0, ZR, hlp0;  \
 	SUBS	const0, x0, t0;   \
 	SBCS	const1, x1, t1;\
-	SBCS	const2, x2, t2;    \
-	SBCS	const3, x3, t3;\
+	SBCS	const2, x2, acc5;    \
+	SBCS	const3, x3, acc6;\
 	SBCS	$0, hlp0, hlp0;\
 	CSEL	CC, x0, t0, x0;\
 	CSEL	CC, x1, t1, x1;\
-	CSEL	CC, x2, t2, x2;\
-	CSEL	CC, x3, t3, x3;
+	CSEL	CC, x2, acc5, x2;\
+	CSEL	CC, x3, acc6, x3;
 
 #define s(off)	(32*0 + 8 + off)(RSP)
 #define m(off)	(32*1 + 8 + off)(RSP)
@@ -1471,21 +1471,21 @@ TEXT ·p256PointDoubleAsm(SB),NOSPLIT,$136-48
 	// Divide by 2
 	ADDS	const0, y0, t0
 	ADCS	const1, y1, t1
-	ADCS	const2, y2, t2
-	ADCS	const3, y3, t3
+	ADCS	const2, y2, acc5
+	ADCS	const3, y3, acc6
 	ADC	$0, ZR, hlp0
 
 	ANDS	$1, y0, ZR
 	CSEL	EQ, y0, t0, t0
 	CSEL	EQ, y1, t1, t1
-	CSEL	EQ, y2, t2, t2
-	CSEL	EQ, y3, t3, t3
+	CSEL	EQ, y2, acc5, acc5
+	CSEL	EQ, y3, acc6, acc6
 	AND	y0, hlp0, hlp0
 
 	EXTR	$1, t0, t1, y0
-	EXTR	$1, t1, t2, y1
-	EXTR	$1, t2, t3, y2
-	EXTR	$1, t3, hlp0, y3
+	EXTR	$1, t1, acc5, y1
+	EXTR	$1, acc5, acc6, y2
+	EXTR	$1, acc6, hlp0, y3
 	STy(y3out)
 
 	LDx(x1in)
