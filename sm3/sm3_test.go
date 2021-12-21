@@ -9,6 +9,8 @@ import (
 	"hash"
 	"io"
 	"testing"
+
+	"golang.org/x/sys/cpu"
 )
 
 type sm3Test struct {
@@ -108,6 +110,7 @@ func TestBlockSize(t *testing.T) {
 	if got := c.BlockSize(); got != BlockSize {
 		t.Errorf("BlockSize = %d want %d", got, BlockSize)
 	}
+	fmt.Printf("ARM64 has sm3 %v ? has sm4 %v ?\n", cpu.ARM64.HasSM3, cpu.ARM64.HasSM4)
 }
 
 var bench = New()
