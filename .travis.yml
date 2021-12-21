@@ -7,12 +7,11 @@ go:
 
 jobs:
   include:
-    - arch: amd64
-      os: linux
     - arch: arm64-graviton2
       virt: vm
       os: linux
       dist: focal
+      go: 1.16.x
       group: edge
 
 install:
