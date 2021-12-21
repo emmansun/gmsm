@@ -990,14 +990,14 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 
 	SUBS	const0, acc0, t0
 	SBCS	const1, acc1, t1
-	SBCS	const2, acc2, t2
-	SBCS	const3, acc3, t3
+	SBCS	const2, acc2, acc5
+	SBCS	const3, acc3, acc6
 	SBCS	$0, acc4, acc4
 
 	CSEL	CS, t0, acc0, y0
 	CSEL	CS, t1, acc1, y1
-	CSEL	CS, t2, acc2, y2
-	CSEL	CS, t3, acc3, y3
+	CSEL	CS, acc5, acc2, y2
+	CSEL	CS, acc6, acc3, y3
 	RET
 /* ---------------------------------------*/
 TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
@@ -1172,14 +1172,14 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 
 	SUBS	const0, acc0, t0
 	SBCS	const1, acc1, t1
-	SBCS	const2, acc2, t2
-	SBCS	const3, acc3, t3
+	SBCS	const2, acc2, acc5
+	SBCS	const3, acc3, acc6
 	SBCS	$0, acc4, acc4
 
 	CSEL	CS, t0, acc0, y0
 	CSEL	CS, t1, acc1, y1
-	CSEL	CS, t2, acc2, y2
-	CSEL	CS, t3, acc3, y3
+	CSEL	CS, acc5, acc2, y2
+	CSEL	CS, acc6, acc3, y3
 	RET
 /* ---------------------------------------*/
 #define p256MulBy2Inline       \
