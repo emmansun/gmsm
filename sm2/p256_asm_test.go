@@ -17,6 +17,18 @@ func toBigInt(in []uint64) *big.Int {
 	return new(big.Int).SetBytes(valBytes)
 }
 
+// ordk0 = -n^(-1) mod 2^64
+func Test_p256ordk0(t *testing.T) {
+	n, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123", 16)
+	p, _ := new(big.Int).SetString("10000000000000000", 16) // 2^64
+	n = n.ModInverse(n, p)
+	n = n.Neg(n)
+	n = n.Mod(n, p)
+	if "327f9e8872350975" != hex.EncodeToString(n.Bytes()) {
+		t.Failed()
+	}
+}
+
 func Test_p256NegCond(t *testing.T) {
 	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF", 16)
 	var val = []uint64{0x61328990f418029e, 0x3e7981eddca6c050, 0xd6a1ed99ac24c3c3, 0x91167a5ee1c13b05}
