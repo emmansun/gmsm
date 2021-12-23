@@ -1231,17 +1231,17 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-96
 	MOVD	in2+48(FP), b_ptr
 	MOVD	sign+72(FP), hlp0
 	MOVD	sel+80(FP), hlp1
-	MOVD	zero+88(FP), t2
+	MOVD	zero+88(FP), x2
 
 	MOVD	$1, t0
-	CMP	$0, t2
-	CSEL	EQ, ZR, t0, t2
+	CMP	$0, x2
+	CSEL	EQ, ZR, t0, x2
 	CMP	$0, hlp1
 	CSEL	EQ, ZR, t0, hlp1
 
 	LDP	p256p<>+0x00(SB), (const0, const1)
 	LDP	p256p<>+0x10(SB), (const2, const3)
-	EOR	t2<<1, hlp1
+	EOR	x2<<1, hlp1
 
 	// Negate y2in based on sign
 	LDP	2*16(b_ptr), (y0, y1)
