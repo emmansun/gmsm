@@ -4,10 +4,14 @@
 package sm2
 
 import (
+	"crypto/elliptic"
 	"crypto/rand"
+	"io"
 	"testing"
 	"time"
 )
+
+var _ = elliptic.P256()
 
 func TestFuzz(t *testing.T) {
 	p256 := P256()
@@ -30,8 +34,8 @@ func TestFuzz(t *testing.T) {
 		default:
 		}
 
-		rand.Read(scalar1[:])
-		rand.Read(scalar2[:])
+		io.ReadFull(rand.Reader, scalar1[:])
+		io.ReadFull(rand.Reader, scalar2[:])
 
 		x, y := p256.ScalarBaseMult(scalar1[:])
 		x2, y2 := p256Generic.ScalarBaseMult(scalar1[:])
