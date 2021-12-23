@@ -400,24 +400,27 @@ TEXT ·p256Mul(SB),NOSPLIT,$0
 	MOVQ DX, acc4
 	XORQ acc5, acc5
 	// First reduction step
-	MOVQ acc0, AX
-	MOVQ acc0, DX
-	SHLQ $32, AX
-	SHRQ $32, DX
-	MOVQ acc0, t0
-	SUBQ AX, t0
-	SUBQ DX, acc0
-
-	ADDQ t0, acc1
-	ADCQ $0, acc2
-	ADCQ $0, acc3
-	ADCQ acc0, acc4
+	MOVQ p256p<>+0x08(SB), AX
+	MULQ acc0
+	ADDQ acc0, acc1
+	ADCQ $0, DX
+	ADDQ AX, acc1
+	ADCQ $0, DX
+	MOVQ DX, t1
+	MOVQ p256p<>+0x010(SB), AX
+	MULQ acc0
+	ADDQ t1, acc2
+	ADCQ $0, DX
+	ADDQ AX, acc2
+	ADCQ $0, DX
+	MOVQ DX, t1
+	MOVQ p256p<>+0x018(SB), AX
+	MULQ acc0
+	ADDQ t1, acc3
+	ADCQ $0, DX
+	ADDQ AX, acc3
+	ADCQ DX, acc4
 	ADCQ $0, acc5
-
-	SUBQ DX, acc2
-	SBBQ AX, acc3
-	SBBQ $0, acc4
-	SBBQ $0, acc5
 	XORQ acc0, acc0
 
 	// x * y[1]
