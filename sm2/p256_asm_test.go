@@ -7,8 +7,10 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"math/big"
 	"testing"
+	"time"
 )
 
 func toBigInt(in []uint64) *big.Int {
@@ -112,6 +114,95 @@ func Test_p256Mul(t *testing.T) {
 	fmt.Printf("2=%s\n", hex.EncodeToString(xmy.Bytes()))
 	if resInt.Cmp(xmy) != 0 {
 		t.FailNow()
+	}
+}
+
+func p256SqrTest(t *testing.T, x, p, r *big.Int) {
+	x1 := new(big.Int).Mul(x, r)
+	x1 = x1.Mod(x1, p)
+	ax := make([]uint64, 4)
+	res := make([]uint64, 4)
+	res2 := make([]uint64, 4)
+	fromBig(ax, x1)
+	p256Sqr(res2, ax, 1)
+	p256FromMont(res, res2)
+	resInt := toBigInt(res)
+
+	expected := new(big.Int).Mul(x, x)
+	expected = expected.Mod(expected, p)
+	if resInt.Cmp(expected) != 0 {
+		t.FailNow()
+	}
+}
+
+func TestFuzzyP256Sqr(t *testing.T) {
+	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF", 16)
+	r, _ := new(big.Int).SetString("10000000000000000000000000000000000000000000000000000000000000000", 16)
+	var scalar1 [32]byte
+	var timeout *time.Timer
+
+	if testing.Short() {
+		timeout = time.NewTimer(10 * time.Millisecond)
+	} else {
+		timeout = time.NewTimer(2 * time.Second)
+	}
+	for {
+		select {
+		case <-timeout.C:
+			return
+		default:
+		}
+		io.ReadFull(rand.Reader, scalar1[:])
+		x := new(big.Int).SetBytes(scalar1[:])
+		p256SqrTest(t, x, p, r)
+	}
+}
+
+func p256MulTest(t *testing.T, x, y, p, r *big.Int) {
+	x1 := new(big.Int).Mul(x, r)
+	x1 = x1.Mod(x1, p)
+	y1 := new(big.Int).Mul(y, r)
+	y1 = y1.Mod(y1, p)
+	ax := make([]uint64, 4)
+	ay := make([]uint64, 4)
+	res := make([]uint64, 4)
+	res2 := make([]uint64, 4)
+	fromBig(ax, x1)
+	fromBig(ay, y1)
+	p256Mul(res2, ax, ay)
+	p256FromMont(res, res2)
+	resInt := toBigInt(res)
+
+	expected := new(big.Int).Mul(x, y)
+	expected = expected.Mod(expected, p)
+	if resInt.Cmp(expected) != 0 {
+		t.FailNow()
+	}
+}
+
+func TestFuzzyP256Mul(t *testing.T) {
+	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF", 16)
+	r, _ := new(big.Int).SetString("10000000000000000000000000000000000000000000000000000000000000000", 16)
+	var scalar1 [32]byte
+	var scalar2 [32]byte
+	var timeout *time.Timer
+
+	if testing.Short() {
+		timeout = time.NewTimer(10 * time.Millisecond)
+	} else {
+		timeout = time.NewTimer(2 * time.Second)
+	}
+	for {
+		select {
+		case <-timeout.C:
+			return
+		default:
+		}
+		io.ReadFull(rand.Reader, scalar1[:])
+		io.ReadFull(rand.Reader, scalar2[:])
+		x := new(big.Int).SetBytes(scalar1[:])
+		y := new(big.Int).SetBytes(scalar2[:])
+		p256MulTest(t, x, y, p, r)
 	}
 }
 
