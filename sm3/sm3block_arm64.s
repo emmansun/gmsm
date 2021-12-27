@@ -13,13 +13,13 @@
 // Wt = Mt; for 0 <= t <= 3
 #define MSGSCHEDULE0(index) \
 	MOVW	(index*4)(SI), AX; \
-	REVW	AX; \
+	REVW	AX, AX; \
 	MOVW	AX, (index*4)(BP)
 
 // Wt+4 = Mt+4; for 0 <= t <= 11
 #define MSGSCHEDULE01(index) \
 	MOVW	((index+4)*4)(SI), AX; \
-	REVW	AX; \
+	REVW	AX, AX; \
 	MOVW	AX, ((index+4)*4)(BP)
 
 // x = Wt-12 XOR Wt-5 XOR ROTL(15, Wt+1)
@@ -241,20 +241,24 @@ loop:
   SM3ROUND2(62, 0x9ea1e762, R21, R22, R23, R24, R25, R26, R19, R20)
   SM3ROUND2(63, 0x3d43cec5, R20, R21, R22, R23, R24, R25, R26, R19)
 
-  EORW (0*4)(hlp1), R19  // H0 = a XOR H0
-  EORW (1*4)(hlp1), R20  // H1 = b XOR H1
+  LDPW	(0*8)(hlp1), (AX, BX)
+  EORW AX, R19  // H0 = a XOR H0
+  EORW BX, R20  // H1 = b XOR H1
   STPW	(R19, R20), (0*8)(hlp1)
 
-  EORW (2*4)(hlp1), R21 // H2 = c XOR H2
-  EORW (3*4)(hlp1), R22 // H3 = d XOR H3
+  LDPW	(1*8)(hlp1), (AX, BX)
+  EORW AX, R21 // H2 = c XOR H2
+  EORW BX, R22 // H3 = d XOR H3
   STPW	(R21, R22), (1*8)(hlp1)
 
-  EORW (4*4)(hlp1), R23 // H4 = e XOR H4
-  EORW (5*4)(hlp1), R24 // H5 = f XOR H5
+  LDPW	(2*8)(hlp1), (AX, BX)
+  EORW AX, R23 // H4 = e XOR H4
+  EORW BX, R24 // H5 = f XOR H5
   STPW	(R23, R24), (2*8)(hlp1)
 
-  EORW (6*4)(hlp1), R25 // H6 = g XOR H6
-  EORW (7*4)(hlp1), R26 // H7 = h XOR H7
+  LDPW	(3*8)(hlp1), (AX, BX)
+  EORW AX, R25 // H6 = g XOR H6
+  EORW BX, R26 // H7 = h XOR H7
   STPW	(R25, R26), (3*8)(hlp1)
 
   ADD $64, SI
