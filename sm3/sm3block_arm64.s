@@ -7,8 +7,8 @@
 #define BX R4
 #define CX R5
 #define DX R6
-#define hlp0 R9
-#define hlp1 R10
+#define hlp0 R7
+#define hlp1 R9
 
 // Wt = Mt; for 0 <= t <= 3
 #define MSGSCHEDULE0(index) \
