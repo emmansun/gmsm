@@ -264,9 +264,9 @@ loop:
   BNE	loop
 
   STPW	(R19, R20), (0*8)(hlp1)
-  STPW	(R21, R22), (0*8)(hlp1)
-  STPW	(R23, R24), (0*8)(hlp1)
-  STPW	(R25, R26), (0*8)(hlp1)
+  STPW	(R21, R22), (1*8)(hlp1)
+  STPW	(R23, R24), (2*8)(hlp1)
+  STPW	(R25, R26), (3*8)(hlp1)
 
 end:	
   RET
