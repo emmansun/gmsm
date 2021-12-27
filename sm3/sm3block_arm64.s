@@ -152,14 +152,14 @@
   COPYRESULT(b, d, f, h)
 
 // func block(dig *digest, p []byte)
-TEXT ·block(SB), 0, $1048-32
+TEXT ·block(SB), 0, $272-32
   MOVD dig+0(FP), hlp1
   MOVD p_base+8(FP), SI
   MOVD p_len+16(FP), DX
   MOVD RSP, BP
 
-	AND	$~63, DX
-	CBZ	DX, end  
+  AND	$~63, DX
+  CBZ	DX, end  
 
   ADD SI, DX, DI
 
@@ -169,6 +169,15 @@ TEXT ·block(SB), 0, $1048-32
   LDPW	(3*8)(hlp1), (R25, R26)
 
 loop:
+  MOVW  R19, R10
+  MOVW  R20, R11
+  MOVW  R21, R12
+  MOVW  R22, R13
+  MOVW  R23, R14
+  MOVW  R24, R15
+  MOVW  R25, R16
+  MOVW  R26, R17
+
   MSGSCHEDULE0(0)
   MSGSCHEDULE0(1)
   MSGSCHEDULE0(2)
@@ -241,29 +250,23 @@ loop:
   SM3ROUND2(62, 0x9ea1e762, R21, R22, R23, R24, R25, R26, R19, R20)
   SM3ROUND2(63, 0x3d43cec5, R20, R21, R22, R23, R24, R25, R26, R19)
 
-  LDPW	(0*8)(hlp1), (AX, BX)
-  EORW AX, R19  // H0 = a XOR H0
-  EORW BX, R20  // H1 = b XOR H1
-  STPW	(R19, R20), (0*8)(hlp1)
-
-  LDPW	(1*8)(hlp1), (AX, BX)
-  EORW AX, R21 // H2 = c XOR H2
-  EORW BX, R22 // H3 = d XOR H3
-  STPW	(R21, R22), (1*8)(hlp1)
-
-  LDPW	(2*8)(hlp1), (AX, BX)
-  EORW AX, R23 // H4 = e XOR H4
-  EORW BX, R24 // H5 = f XOR H5
-  STPW	(R23, R24), (2*8)(hlp1)
-
-  LDPW	(3*8)(hlp1), (AX, BX)
-  EORW AX, R25 // H6 = g XOR H6
-  EORW BX, R26 // H7 = h XOR H7
-  STPW	(R25, R26), (3*8)(hlp1)
-
+  EORW R10, R19  // H0 = a XOR H0
+  EORW R11, R20  // H1 = b XOR H1
+  EORW R12, R21  // H0 = a XOR H0
+  EORW R13, R22  // H1 = b XOR H1
+  EORW R14, R23  // H0 = a XOR H0
+  EORW R15, R24  // H1 = b XOR H1
+  EORW R16, R25  // H0 = a XOR H0
+  EORW R17, R26  // H1 = b XOR H1
+ 
   ADD $64, SI
   CMP SI, DI
   BNE	loop
+
+  STPW	(R19, R20), (0*8)(hlp1)
+  STPW	(R21, R22), (0*8)(hlp1)
+  STPW	(R23, R24), (0*8)(hlp1)
+  STPW	(R25, R26), (0*8)(hlp1)
 
 end:	
   RET
