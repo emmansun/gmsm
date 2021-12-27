@@ -11,10 +11,15 @@
 #define hlp1 R9
 
 // Wt = Mt; for 0 <= t <= 3
-#define MSGSCHEDULE0(index) \
-	MOVW	(index*4)(SI), AX; \
+#define MSGSCHEDULE0() \
+  LDPW	(0*8)(SI), (AX, BX); \
+  LDPW	(1*8)(SI), (CX, DX); \
 	REVW	AX, AX; \
-	MOVW	AX, (index*4)(BP)
+  REVW	BX, BX; \
+  REVW	CX, CX; \
+  REVW	DX, DX; \
+  STPW	(AX, BX), (0*8)(BP); \
+  STPW	(CX, DX), (1*8)(BP)
 
 // Wt+4 = Mt+4; for 0 <= t <= 11
 #define MSGSCHEDULE01(index) \
@@ -178,10 +183,7 @@ loop:
   MOVW  R25, R16
   MOVW  R26, R17
 
-  MSGSCHEDULE0(0)
-  MSGSCHEDULE0(1)
-  MSGSCHEDULE0(2)
-  MSGSCHEDULE0(3)
+  MSGSCHEDULE0()
 
   SM3ROUND0(0, 0x79cc4519, R19, R20, R21, R22, R23, R24, R25, R26)
   SM3ROUND0(1, 0xf3988a32, R26, R19, R20, R21, R22, R23, R24, R25)
