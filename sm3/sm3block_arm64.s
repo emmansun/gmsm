@@ -7,48 +7,50 @@
 #define BX R4
 #define CX R5
 #define DX R6
+#define hlp0 R9
+#define hlp1 R10
 
 // Wt = Mt; for 0 <= t <= 3
 #define MSGSCHEDULE0(index) \
-	MOVWU	(index*4)(SI), AX; \
+	MOVW	(index*4)(SI), AX; \
 	REVW	AX; \
-	MOVWU	AX, (index*4)(BP)
+	MOVW	AX, (index*4)(BP)
 
 // Wt+4 = Mt+4; for 0 <= t <= 11
 #define MSGSCHEDULE01(index) \
-	MOVWU	((index+4)*4)(SI), AX; \
+	MOVW	((index+4)*4)(SI), AX; \
 	REVW	AX; \
-	MOVWU	AX, ((index+4)*4)(BP)
+	MOVW	AX, ((index+4)*4)(BP)
 
 // x = Wt-12 XOR Wt-5 XOR ROTL(15, Wt+1)
 // p1(x) = x XOR ROTL(15, x) XOR ROTL(23, x)
 // Wt+4 = p1(x) XOR ROTL(7, Wt-9) XOR Wt-2
 // for 12 <= t <= 63
 #define MSGSCHEDULE1(index) \
-  MOVWU	((index+1)*4)(BP), AX; \
+  MOVW	((index+1)*4)(BP), AX; \
   RORW  $17, AX; \
-  MOVWU	((index-12)*4)(BP), BX; \
+  MOVW	((index-12)*4)(BP), BX; \
   EORW  BX, AX; \
-  MOVWU	((index-5)*4)(BP), BX; \
+  MOVW	((index-5)*4)(BP), BX; \
   EORW  BX, AX; \
-  MOVWU  AX, BX; \
+  MOVW  AX, BX; \
   RORW  $17, BX; \
-  MOVWU  AX, CX; \
+  MOVW  AX, CX; \
   RORW  $9, CX; \
   EORW  BX, AX; \
   EORW  CX, AX; \
-  MOVWU	((index-9)*4)(BP), BX; \
+  MOVW	((index-9)*4)(BP), BX; \
   RORW  $25, BX; \
-  MOVWU	((index-2)*4)(BP), CX; \
+  MOVW	((index-2)*4)(BP), CX; \
   EORW  BX, AX; \
   EORW  CX, AX; \
-  MOVWU  AX, ((index+4)*4)(BP)
+  MOVW  AX, ((index+4)*4)(BP)
 
 // Calculate ss1 in BX
 // x = ROTL(12, a) + e + ROTL(index, const)
 // ret = ROTL(7, x)
 #define SM3SS1(const, a, e) \
-  MOVWU  a, BX; \
+  MOVW  a, BX; \
   RORW  $20, BX; \
   ADDW  e, BX; \
   ADDW  $const, BX; \
@@ -57,14 +59,14 @@
 // Calculate tt1 in CX
 // ret = (a XOR b XOR c) + d + (ROTL(12, a) XOR ss1) + (Wt XOR Wt+4)
 #define SM3TT10(index, a, b, c, d) \  
-  MOVWU a, CX; \
-  MOVWU b, DX; \
+  MOVW a, CX; \
+  MOVW b, DX; \
   EORW CX, DX; \
-  MOVWU c, DI; \
-  EORW DI, DX; \  // (a XOR b XOR c)
+  MOVW c, hlp0; \
+  EORW hlp0, DX; \  // (a XOR b XOR c)
   ADDW d, DX; \   // (a XOR b XOR c) + d 
-  MOVWU ((index)*4)(BP), DI; \ //Wt
-  EORW DI, AX; \ //Wt XOR Wt+4
+  MOVW ((index)*4)(BP), hlp0; \ //Wt
+  EORW hlp0, AX; \ //Wt XOR Wt+4
   ADDW AX, DX;  \
   RORW $20, CX; \
   EORW BX, CX; \ // ROTL(12, a) XOR ss1
@@ -73,60 +75,60 @@
 // Calculate tt2 in BX
 // ret = (e XOR f XOR g) + h + ss1 + Wt
 #define SM3TT20(e, f, g, h) \  
-  ADDW h, DI; \   //Wt + h
-  ADDW BX, DI; \  //Wt + h + ss1
-  MOVWU e, BX; \
-  MOVWU f, DX; \
+  ADDW h, hlp0; \   //Wt + h
+  ADDW BX, hlp0; \  //Wt + h + ss1
+  MOVW e, BX; \
+  MOVW f, DX; \
   EORW DX, BX; \  // e XOR f
-  MOVWU g, DX; \
+  MOVW g, DX; \
   EORW DX, BX; \  // e XOR f XOR g
-  ADDW DI, BX     // (e XOR f XOR g) + Wt + h + ss1
+  ADDW hlp0, BX     // (e XOR f XOR g) + Wt + h + ss1
 
-// Calculate tt1 in CX, used DX, DI
+// Calculate tt1 in CX, used DX, hlp0
 // ret = ((a AND b) OR (a AND c) OR (b AND c)) + d + (ROTL(12, a) XOR ss1) + (Wt XOR Wt+4)
 #define SM3TT11(index, a, b, c, d) \  
-  MOVWU a, CX; \
-  MOVWU b, DX; \
+  MOVW a, CX; \
+  MOVW b, DX; \
   ANDW CX, DX; \  // a AND b
-  MOVWU c, DI; \
-  ANDW DI, CX; \  // a AND c
+  MOVW c, hlp0; \
+  ANDW hlp0, CX; \  // a AND c
   ORRW  DX, CX; \  // (a AND b) OR (a AND c)
-  MOVWU b, DX; \
-  ANDW DI, DX; \  // b AND c
+  MOVW b, DX; \
+  ANDW hlp0, DX; \  // b AND c
   ORRW  CX, DX; \  // (a AND b) OR (a AND c) OR (b AND c)
   ADDW d, DX; \
-  MOVWU a, CX; \
+  MOVW a, CX; \
   RORW $20, CX; \
   EORW BX, CX; \
   ADDW DX, CX; \  // ((a AND b) OR (a AND c) OR (b AND c)) + d + (ROTL(12, a) XOR ss1)
-  MOVWU ((index)*4)(BP), DI; \
-  EORW DI, AX; \  // Wt XOR Wt+4
+  MOVW ((index)*4)(BP), hlp0; \
+  EORW hlp0, AX; \  // Wt XOR Wt+4
   ADDW AX, CX
 
 // Calculate tt2 in BX
 // ret = ((e AND f) OR (NOT(e) AND g)) + h + ss1 + Wt
 #define SM3TT21(e, f, g, h) \  
-  ADDW h, DI; \   // Wt + h
-  ADDW BX, DI; \  // h + ss1 + Wt
-  MOVWU e, BX; \
-  MOVWU f, DX; \   
+  ADDW h, hlp0; \   // Wt + h
+  ADDW BX, hlp0; \  // h + ss1 + Wt
+  MOVW e, BX; \
+  MOVW f, DX; \   
   ANDW BX, DX; \  // e AND f
-  NOTL BX; \      // NOT(e)
-  MOVWU g, AX; \
+  MVNW BX, BX; \      // NOT(e)
+  MOVW g, AX; \
   ANDW AX, BX; \ // NOT(e) AND g
   ORRW  DX, BX; \
-  ADDW DI, BX
+  ADDW hlp0, BX
 
 #define COPYRESULT(b, d, f, h) \
   RORW $23, b; \
-  MOVWU CX, h; \   // a = ttl
+  MOVW CX, h; \   // a = ttl
   RORW $13, f; \
-  MOVWU BX, CX; \
+  MOVW BX, CX; \
   RORW $23, CX; \
   EORW BX, CX; \  // tt2 XOR ROTL(9, tt2)
   RORW $15, BX; \
   EORW BX, CX; \  // tt2 XOR ROTL(9, tt2) XOR ROTL(17, tt2)
-  MOVWU CX, d    // e = tt2 XOR ROTL(9, tt2) XOR ROTL(17, tt2)
+  MOVW CX, d    // e = tt2 XOR ROTL(9, tt2) XOR ROTL(17, tt2)
 
 #define SM3ROUND0(index, const, a, b, c, d, e, f, g, h) \
   MSGSCHEDULE01(index); \
@@ -151,29 +153,22 @@
 
 // func block(dig *digest, p []byte)
 TEXT ·block(SB), 0, $1048-32
+  MOVD dig+0(FP), hlp1
   MOVD p_base+8(FP), SI
   MOVD p_len+16(FP), DX
-  LSR	$6, DX
-  LSL $6, DX
-  
-  ADD DX, SI, DI
-  MOVD DI, 272(RSP)
-  CMP SI, DI
-  BEQ end
-
-  MOVD dig+0(FP), BP
-  MOVWU (0*4)(BP), R19 // a = H0
-  MOVWU (1*4)(BP), R20 // b = H1
-  MOVWU (2*4)(BP), R21 // c = H2
-  MOVWU (3*4)(BP), R22 // d = H3
-  MOVWU (4*4)(BP), R23 // e = H4
-  MOVWU (5*4)(BP), R24 // f = H5
-  MOVWU (6*4)(BP), R25 // g = H6
-  MOVWU (7*4)(BP), R26 // h = H7
-
-loop:
   MOVD RSP, BP
 
+	AND	$~63, DX
+	CBZ	DX, end  
+
+  ADD SI, DX, DI
+
+  LDPW	(0*8)(hlp1), (R19, R20)
+  LDPW	(1*8)(hlp1), (R21, R22)
+  LDPW	(2*8)(hlp1), (R23, R24)
+  LDPW	(3*8)(hlp1), (R25, R26)
+
+loop:
   MSGSCHEDULE0(0)
   MSGSCHEDULE0(1)
   MSGSCHEDULE0(2)
@@ -246,28 +241,25 @@ loop:
   SM3ROUND2(62, 0x9ea1e762, R21, R22, R23, R24, R25, R26, R19, R20)
   SM3ROUND2(63, 0x3d43cec5, R20, R21, R22, R23, R24, R25, R26, R19)
 
-  MOVD dig+0(FP), BP
+  EORW (0*4)(hlp1), R19  // H0 = a XOR H0
+  EORW (1*4)(hlp1), R20  // H1 = b XOR H1
+  STPW	(R19, R20), (0*8)(hlp1)
 
-  EORW (0*4)(BP), R19  // H0 = a XOR H0
-  MOVWU R19, (0*4)(BP)
-  EORW (1*4)(BP), R20  // H1 = b XOR H1
-  MOVWU R20, (1*4)(BP)
-  EORW (2*4)(BP), R21 // H2 = c XOR H2
-  MOVWU R21, (2*4)(BP)
-  EORW (3*4)(BP), R22 // H3 = d XOR H3
-  MOVWU R22, (3*4)(BP)
-  EORW (4*4)(BP), R23 // H4 = e XOR H4
-  MOVWU R23, (4*4)(BP)
-  EORW (5*4)(BP), R24 // H5 = f XOR H5
-  MOVWU R24, (5*4)(BP)
-  EORW (6*4)(BP), R25 // H6 = g XOR H6
-  MOVWU R25, (6*4)(BP)
-  EORW (7*4)(BP), R26 // H7 = h XOR H7
-  MOVWU R26, (7*4)(BP)
+  EORW (2*4)(hlp1), R21 // H2 = c XOR H2
+  EORW (3*4)(hlp1), R22 // H3 = d XOR H3
+  STPW	(R21, R22), (1*8)(hlp1)
+
+  EORW (4*4)(hlp1), R23 // H4 = e XOR H4
+  EORW (5*4)(hlp1), R24 // H5 = f XOR H5
+  STPW	(R23, R24), (2*8)(hlp1)
+
+  EORW (6*4)(hlp1), R25 // H6 = g XOR H6
+  EORW (7*4)(hlp1), R26 // H7 = h XOR H7
+  STPW	(R25, R26), (3*8)(hlp1)
 
   ADD $64, SI
-  CMP SI, 272(SP)
-  BCC  loop
+  CMP SI, DI
+  BNE	loop
 
 end:	
   RET
