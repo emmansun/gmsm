@@ -22,3 +22,6 @@ install:
 
 script:
   - go test -v ./...
+
+after_success:
+  - go test -bench ./...
