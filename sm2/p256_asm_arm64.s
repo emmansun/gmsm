@@ -215,82 +215,57 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	LDP	1*16(a_ptr), (acc2, acc3)
 	// Only reduce, no multiplications are needed
 	// First reduction step
-	MUL	const1, acc0, t0
-	ADDS t0, acc1, acc1        // (carry1, acc1) = acc1 + L(acc0*p1)
-	UMULH	const1, acc0, y0     // y0 = H(acc0*p1)
+	LSL $32, acc0, y0
+	LSR	$32, acc0, y1
+
+	ADDS acc0, acc1, acc1
+	ADCS $0, acc2, acc2
+	ADCS $0, acc3, acc3
+	ADC $0, acc0, acc0
 	
-	MUL	const2, acc0, t0    
-	ADCS	t0, acc2, acc2       // (carry2, acc2) = acc2 +  L(acc0*p2)
-	UMULH	const2, acc0, hlp0      // hlp0 = H(acc0*p2)
-
-	MUL	const3, acc0, t0       // t0 = L(acc0*p3)
-	ADCS	t0, acc3, acc3       // (carry3,acc3) = acc3 + L(acc0*p3)
-
-	UMULH	const3, acc0, y1   // y1 = H(acc0*p3)
-	ADC $0, y1
-
-	ADDS	acc0, acc1, acc1     // (carry4, acc1) = acc0 + acc1 + L(acc0*p1)
-	ADCS	y0, acc2, acc2       // (carry5, acc2) = carry4 + acc2 +  L(acc0*p2) + H(acc0*p1)
-	ADCS	hlp0, acc3, acc3     // (carry6, acc3) = carry5 + acc3 + L(acc0*p3) + H(acc0*p2)
-	ADC	$0, y1, acc0         // acc0 = carry6 + H(acc0*p3)	
-
+	SUBS y0, acc1
+	SBCS y1, acc2
+	SBCS y0, acc3
+	SBC y1, acc0	
 	// Second reduction step
-	MUL	const1, acc1, t0
-	ADDS t0, acc2, acc2        // (carry1, acc2) = acc2 + L(acc1*p1)
-	UMULH	const1, acc1, y0     // y0 = H(acc1*p1)
+	LSL $32, acc1, y0
+	LSR	$32, acc1, y1
+
+	ADDS acc1, acc2, acc2
+	ADCS $0, acc3, acc3
+	ADCS $0, acc0, acc0
+	ADC $0, acc1, acc1
 	
-	MUL	const2, acc1, t0    
-	ADCS	t0, acc3, acc3       // (carry2, acc3) = acc3 +  L(acc1*p2)
-	UMULH	const2, acc1, hlp0   // hlp0 = H(acc1*p2)
-
-	MUL	const3, acc1, t0       // t0 = L(acc1*p3)
-	ADCS	t0, acc0, acc0       // (carry3,acc0) = acc0 + L(acc1*p3)
-
-	UMULH	const3, acc1, y1   // y1 = H(acc1*p3)
-	ADC $0, y1
-
-	ADDS	acc1, acc2, acc2     // (carry4, acc2) = acc1 + acc2 + L(acc1*p1)
-	ADCS	y0, acc3, acc3       // (carry5, acc3) = carry4 + acc3 +  L(acc1*p2) + H(acc1*p1)
-	ADCS	hlp0, acc0, acc0     // (carry6, acc0) = carry5 + acc0 + L(acc1*p3) + H(acc1*p2)
-	ADC	$0, y1, acc1         // acc1 = carry6 + H(acc1*p3)
+	SUBS y0, acc2
+	SBCS y1, acc3
+	SBCS y0, acc0
+	SBC y1, acc1	
 	// Third reduction step
-	MUL	const1, acc2, t0
-	ADDS t0, acc3, acc3        // (carry1, acc3) = acc3 + L(acc2*p1)
-	UMULH	const1, acc2, y0     // y0 = H(acc2*p1)
+	LSL $32, acc2, y0
+	LSR	$32, acc2, y1
+
+	ADDS acc2, acc3, acc3
+	ADCS $0, acc0, acc0
+	ADCS $0, acc1, acc1
+	ADC $0, acc2, acc2
 	
-	MUL	const2, acc2, t0    
-	ADCS	t0, acc0, acc0       // (carry2, acc0) = acc0 +  L(acc2*p2)
-	UMULH	const2, acc2, hlp0   // hlp0 = H(acc2*p2)
-
-	MUL	const3, acc2, t0       // t0 = L(acc2*p3)
-	ADCS	t0, acc1, acc1       // (carry3,acc1) = acc1 + L(acc2*p3)
-
-	UMULH	const3, acc2, y1   // y1 = H(acc2*p3)
-	ADC $0, y1
-
-	ADDS	acc2, acc3, acc3     // (carry4, acc3) = acc2 + acc3 + L(acc2*p1)
-	ADCS	y0, acc0, acc0       // (carry5, acc0) = carry4 + acc0 +  L(acc2*p2) + H(acc2*p1)
-	ADCS	hlp0, acc1, acc1     // (carry6, acc1) = carry5 + acc1 + L(acc2*p3) + H(acc2*p2)
-	ADC	$0, y1, acc2         // acc2 = carry6 + H(acc2*p3)
+	SUBS y0, acc3
+	SBCS y1, acc0
+	SBCS y0, acc1
+	SBC y1, acc2
 	// Last reduction step
-	MUL	const1, acc3, t0
-	ADDS t0, acc0, acc0        // (carry1, acc0) = acc0 + L(acc3*p1)
-	UMULH	const1, acc3, y0     // y0 = H(acc3*p1)
+	LSL $32, acc3, y0
+	LSR	$32, acc3, y1
+
+	ADDS acc3, acc0, acc0
+	ADCS $0, acc1, acc1
+	ADCS $0, acc2, acc2
+	ADC $0, acc3, acc3
 	
-	MUL	const2, acc3, t0    
-	ADCS	t0, acc1, acc1       // (carry2, acc1) = acc1 +  L(acc3*p2)
-	UMULH	const2, acc3, hlp0   // hlp0 = H(acc3*p2)
-
-	MUL	const3, acc3, t0       // t0 = L(acc3*p3)
-	ADCS	t0, acc2, acc2       // (carry3,acc2) = acc2 + L(acc3*p3)
-
-	UMULH	const3, acc3, y1   // y1 = H(acc3*p3)
-	ADC $0, y1
-
-	ADDS	acc3, acc0, acc0     // (carry4, acc0) = acc3 + acc0 + L(acc3*p1)
-	ADCS	y0, acc1, acc1       // (carry5, acc1) = carry4 + acc1 +  L(acc3*p2) + H(acc3*p1)
-	ADCS	hlp0, acc2, acc2     // (carry6, acc2) = carry5 + acc2 + L(acc3*p3) + H(acc3*p2)
-	ADC	$0, y1, acc3         // acc3 = carry6 + H(acc3*p3)
+	SUBS y0, acc0
+	SBCS y1, acc1
+	SBCS y0, acc2
+	SBC y1, acc3
 
 	SUBS	const0, acc0, t0
 	SBCS	const1, acc1, t1
@@ -905,81 +880,57 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	UMULH	x3, x3, t1
 	ADCS	t1, acc7, acc7
 	// First reduction step
-	MUL	const1, acc0, t0
-	ADDS t0, acc1, acc1        // (carry1, acc1) = acc1 + L(acc0*p1)
-	UMULH	const1, acc0, y0     // y0 = H(acc0*p1)
+	LSL $32, acc0, y0
+	LSR	$32, acc0, y1
+
+	ADDS acc0, acc1, acc1
+	ADCS $0, acc2, acc2
+	ADCS $0, acc3, acc3
+	ADC $0, acc0, acc0
 	
-	MUL	const2, acc0, t0    
-	ADCS	t0, acc2, acc2       // (carry2, acc2) = acc2 +  L(acc0*p2)
-	UMULH	const2, acc0, hlp0      // hlp0 = H(acc0*p2)
-
-	MUL	const3, acc0, t0       // t0 = L(acc0*p3)
-	ADCS	t0, acc3, acc3       // (carry3,acc3) = acc3 + L(acc0*p3)
-
-	UMULH	const3, acc0, y1   // y1 = H(acc0*p3)
-	ADC	$0, y1               
-
-	ADDS	acc0, acc1, acc1     // (carry4, acc1) = acc0 + acc1 + L(acc0*p1)
-	ADCS	y0, acc2, acc2       // (carry5, acc2) = carry4 + acc2 +  L(acc0*p2) + H(acc0*p1)
-	ADCS	hlp0, acc3, acc3     // (carry6, acc3) = carry5 + acc3 + L(acc0*p3) + H(acc0*p2)
-	ADC	$0, y1, acc0         // acc0 = carry6 + H(acc0*p3)	
+	SUBS y0, acc1
+	SBCS y1, acc2
+	SBCS y0, acc3
+	SBC y1, acc0	
 	// Second reduction step
-	MUL	const1, acc1, t0
-	ADDS t0, acc2, acc2        // (carry1, acc2) = acc2 + L(acc1*p1)
-	UMULH	const1, acc1, y0     // y0 = H(acc1*p1)
+	LSL $32, acc1, y0
+	LSR	$32, acc1, y1
+
+	ADDS acc1, acc2, acc2
+	ADCS $0, acc3, acc3
+	ADCS $0, acc0, acc0
+	ADC $0, acc1, acc1
 	
-	MUL	const2, acc1, t0    
-	ADCS	t0, acc3, acc3       // (carry2, acc3) = acc3 +  L(acc1*p2)
-	UMULH	const2, acc1, hlp0   // hlp0 = H(acc1*p2)
-
-	MUL	const3, acc1, t0       // t0 = L(acc1*p3)
-	ADCS	t0, acc0, acc0       // (carry3,acc0) = acc0 + L(acc1*p3)
-
-	UMULH	const3, acc1, y1   // y1 = H(acc1*p3)
-	ADC	$0, y1               
-
-	ADDS	acc1, acc2, acc2     // (carry4, acc2) = acc1 + acc2 + L(acc1*p1)
-	ADCS	y0, acc3, acc3       // (carry5, acc3) = carry4 + acc3 +  L(acc1*p2) + H(acc1*p1)
-	ADCS	hlp0, acc0, acc0     // (carry6, acc0) = carry5 + acc0 + L(acc1*p3) + H(acc1*p2)
-	ADC	$0, y1, acc1         // acc1 = carry6 + H(acc1*p3)
+	SUBS y0, acc2
+	SBCS y1, acc3
+	SBCS y0, acc0
+	SBC y1, acc1	
 	// Third reduction step
-	MUL	const1, acc2, t0
-	ADDS t0, acc3, acc3        // (carry1, acc3) = acc3 + L(acc2*p1)
-	UMULH	const1, acc2, y0     // y0 = H(acc2*p1)
+	LSL $32, acc2, y0
+	LSR	$32, acc2, y1
+
+	ADDS acc2, acc3, acc3
+	ADCS $0, acc0, acc0
+	ADCS $0, acc1, acc1
+	ADC $0, acc2, acc2
 	
-	MUL	const2, acc2, t0    
-	ADCS	t0, acc0, acc0       // (carry2, acc0) = acc0 +  L(acc2*p2)
-	UMULH	const2, acc2, hlp0   // hlp0 = H(acc2*p2)
-
-	MUL	const3, acc2, t0       // t0 = L(acc2*p3)
-	ADCS	t0, acc1, acc1       // (carry3,acc1) = acc1 + L(acc2*p3)
-
-	UMULH	const3, acc2, y1   // y1 = H(acc2*p3)
-	ADC	$0, y1               
-
-	ADDS	acc2, acc3, acc3     // (carry4, acc3) = acc2 + acc3 + L(acc2*p1)
-	ADCS	y0, acc0, acc0       // (carry5, acc0) = carry4 + acc0 +  L(acc2*p2) + H(acc2*p1)
-	ADCS	hlp0, acc1, acc1     // (carry6, acc1) = carry5 + acc1 + L(acc2*p3) + H(acc2*p2)
-	ADC	$0, y1, acc2         // acc2 = carry6 + H(acc2*p3)
+	SUBS y0, acc3
+	SBCS y1, acc0
+	SBCS y0, acc1
+	SBC y1, acc2
 	// Last reduction step
-	MUL	const1, acc3, t0
-	ADDS t0, acc0, acc0        // (carry1, acc0) = acc0 + L(acc3*p1)
-	UMULH	const1, acc3, y0     // y0 = H(acc3*p1)
+	LSL $32, acc3, y0
+	LSR	$32, acc3, y1
+
+	ADDS acc3, acc0, acc0
+	ADCS $0, acc1, acc1
+	ADCS $0, acc2, acc2
+	ADC $0, acc3, acc3
 	
-	MUL	const2, acc3, t0    
-	ADCS	t0, acc1, acc1       // (carry2, acc1) = acc1 +  L(acc3*p2)
-	UMULH	const2, acc3, hlp0   // hlp0 = H(acc3*p2)
-
-	MUL	const3, acc3, t0       // t0 = L(acc3*p3)
-	ADCS	t0, acc2, acc2       // (carry3,acc2) = acc2 + L(acc3*p3)
-
-	UMULH	const3, acc3, y1   // y1 = H(acc3*p3)
-	ADC	$0, acc7               // acc7 = carry3 + acc7
-
-	ADDS	acc3, acc0, acc0     // (carry4, acc0) = acc3 + acc0 + L(acc3*p1)
-	ADCS	y0, acc1, acc1       // (carry5, acc1) = carry4 + acc1 +  L(acc3*p2) + H(acc3*p1)
-	ADCS	hlp0, acc2, acc2     // (carry6, acc2) = carry5 + acc2 + L(acc3*p3) + H(acc3*p2)
-	ADC	$0, y1, acc3         // acc3 = carry6 + H(acc3*p3)
+	SUBS y0, acc0
+	SBCS y1, acc1
+	SBCS y0, acc2
+	SBC y1, acc3
 
 	// Add bits [511:256] of the sqr result
 	ADDS	acc4, acc0, acc0
@@ -1018,24 +969,18 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	UMULH	y0, x3, acc4
 	ADC	$0, acc4
 	// First reduction step
-	MUL	const1, acc0, t0
-	ADDS t0, acc1, acc1        // (carry1, acc1) = acc1 + L(acc0*p1)
-	UMULH	const1, acc0, y0     // y0 = H(acc0*p1)
+	LSL $32, acc0, t0
+	LSR	$32, acc0, t1
+
+	ADDS acc0, acc1, acc1
+	ADCS $0, acc2, acc2
+	ADCS $0, acc3, acc3
+	ADC $0, acc0, acc0
 	
-	MUL	const2, acc0, t0    
-	ADCS	t0, acc2, acc2       // (carry2, acc2) = acc2 +  L(acc0*p2)
-	UMULH	const2, acc0, hlp0      // hlp0 = H(acc0*p2)
-
-	MUL	const3, acc0, t0       // t0 = L(acc0*p3)
-	ADCS	t0, acc3, acc3       // (carry3,acc3) = acc3 + L(acc0*p3)
-
-	UMULH	const3, acc0, acc5   // acc5 = H(acc0*p3)
-	ADC	$0, acc4               // acc4 = carry3 + acc4
-
-	ADDS	acc0, acc1, acc1     // (carry4, acc1) = acc0 + acc1 + L(acc0*p1)
-	ADCS	y0, acc2, acc2       // (carry5, acc2) = carry4 + acc2 +  L(acc0*p2) + H(acc0*p1)
-	ADCS	hlp0, acc3, acc3     // (carry6, acc3) = carry5 + acc3 + L(acc0*p3) + H(acc0*p2)
-	ADC	$0, acc5, acc0         // acc0 = carry6 + H(acc0*p3)
+	SUBS t0, acc1
+	SBCS t1, acc2
+	SBCS t0, acc3
+	SBC t1, acc0	
 
 	// y[1] * x
 	MUL	y1, x0, t0
@@ -1060,24 +1005,18 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	ADCS	acc6, acc4
 	ADC	hlp0, acc5
 	// Second reduction step
-	MUL	const1, acc1, t0
-	ADDS t0, acc2, acc2        // (carry1, acc2) = acc2 + L(acc1*p1)
-	UMULH	const1, acc1, y0     // y0 = H(acc1*p1)
+	LSL $32, acc1, t0
+	LSR	$32, acc1, t1
+
+	ADDS acc1, acc2, acc2
+	ADCS $0, acc3, acc3
+	ADCS $0, acc0, acc0
+	ADC $0, acc1, acc1
 	
-	MUL	const2, acc1, t0    
-	ADCS	t0, acc3, acc3       // (carry2, acc3) = acc3 +  L(acc1*p2)
-	UMULH	const2, acc1, hlp0   // hlp0 = H(acc1*p2)
-
-	MUL	const3, acc1, t0       // t0 = L(acc1*p3)
-	ADCS	t0, acc0, acc0       // (carry3,acc0) = acc0 + L(acc1*p3)
-
-	UMULH	const3, acc1, y1   // y1 = H(acc1*p3)
-	ADC	$0, acc5               // acc5 = carry3 + acc5
-
-	ADDS	acc1, acc2, acc2     // (carry4, acc2) = acc1 + acc2 + L(acc1*p1)
-	ADCS	y0, acc3, acc3       // (carry5, acc3) = carry4 + acc3 +  L(acc1*p2) + H(acc1*p1)
-	ADCS	hlp0, acc0, acc0     // (carry6, acc0) = carry5 + acc0 + L(acc1*p3) + H(acc1*p2)
-	ADC	$0, y1, acc1         // acc1 = carry6 + H(acc1*p3)
+	SUBS t0, acc2
+	SBCS t1, acc3
+	SBCS t0, acc0
+	SBC t1, acc1	
 
 	// y[2] * x
 	MUL	y2, x0, t0
@@ -1102,24 +1041,18 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	ADCS	y1, acc5
 	ADC	hlp0, acc6
 	// Third reduction step
-	MUL	const1, acc2, t0
-	ADDS t0, acc3, acc3        // (carry1, acc3) = acc3 + L(acc2*p1)
-	UMULH	const1, acc2, y0     // y0 = H(acc2*p1)
+	LSL $32, acc2, t0
+	LSR	$32, acc2, t1
+
+	ADDS acc2, acc3, acc3
+	ADCS $0, acc0, acc0
+	ADCS $0, acc1, acc1
+	ADC $0, acc2, acc2
 	
-	MUL	const2, acc2, t0    
-	ADCS	t0, acc0, acc0       // (carry2, acc0) = acc0 +  L(acc2*p2)
-	UMULH	const2, acc2, hlp0   // hlp0 = H(acc2*p2)
-
-	MUL	const3, acc2, t0       // t0 = L(acc2*p3)
-	ADCS	t0, acc1, acc1       // (carry3,acc1) = acc1 + L(acc2*p3)
-
-	UMULH	const3, acc2, y1   // y1 = H(acc2*p3)
-	ADC	$0, acc6               // acc6 = carry3 + acc6
-
-	ADDS	acc2, acc3, acc3     // (carry4, acc3) = acc2 + acc3 + L(acc2*p1)
-	ADCS	y0, acc0, acc0       // (carry5, acc0) = carry4 + acc0 +  L(acc2*p2) + H(acc2*p1)
-	ADCS	hlp0, acc1, acc1     // (carry6, acc1) = carry5 + acc1 + L(acc2*p3) + H(acc2*p2)
-	ADC	$0, y1, acc2         // acc2 = carry6 + H(acc2*p3)
+	SUBS t0, acc3
+	SBCS t1, acc0
+	SBCS t0, acc1
+	SBC t1, acc2	
 
 	// y[3] * x
 	MUL	y3, x0, t0
@@ -1144,24 +1077,18 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	ADCS	y1, acc6
 	ADC	hlp0, acc7
 	// Last reduction step
-	MUL	const1, acc3, t0
-	ADDS t0, acc0, acc0        // (carry1, acc0) = acc0 + L(acc3*p1)
-	UMULH	const1, acc3, y0     // y0 = H(acc3*p1)
+	LSL $32, acc3, t0
+	LSR	$32, acc3, t1
+
+	ADDS acc3, acc0, acc0
+	ADCS $0, acc1, acc1
+	ADCS $0, acc2, acc2
+	ADC $0, acc3, acc3
 	
-	MUL	const2, acc3, t0    
-	ADCS	t0, acc1, acc1       // (carry2, acc1) = acc1 +  L(acc3*p2)
-	UMULH	const2, acc3, hlp0   // hlp0 = H(acc3*p2)
-
-	MUL	const3, acc3, t0       // t0 = L(acc3*p3)
-	ADCS	t0, acc2, acc2       // (carry3,acc2) = acc2 + L(acc3*p3)
-
-	UMULH	const3, acc3, y1   // y1 = H(acc3*p3)
-	ADC	$0, acc7               // acc7 = carry3 + acc7
-
-	ADDS	acc3, acc0, acc0     // (carry4, acc0) = acc3 + acc0 + L(acc3*p1)
-	ADCS	y0, acc1, acc1       // (carry5, acc1) = carry4 + acc1 +  L(acc3*p2) + H(acc3*p1)
-	ADCS	hlp0, acc2, acc2     // (carry6, acc2) = carry5 + acc2 + L(acc3*p3) + H(acc3*p2)
-	ADC	$0, y1, acc3         // acc3 = carry6 + H(acc3*p3)
+	SUBS t0, acc0
+	SBCS t1, acc1
+	SBCS t0, acc2
+	SBC t1, acc3	
 
 	// Add bits [511:256] of the mul result
 	ADDS	acc4, acc0, acc0
