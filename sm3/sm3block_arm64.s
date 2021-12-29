@@ -27,9 +27,7 @@
   EORW  BX, AX; \
   MOVW	((index-5)*4)(BP), BX; \
   EORW  BX, AX; \                  // AX = x
-  //MOVW  AX, BX; \                  // BX = x
   RORW  $17, AX, BX; \                 // BX =  ROTL(15, x)
-  //MOVW  AX, CX; \                  // CX = x
   RORW  $9, AX, CX; \                  // CX = ROTL(23, x)   
   EORW  BX, AX; \                  // AX = x xor ROTL(15, x)  
   EORW  CX, AX; \                  // AX = x xor ROTL(15, x) xor ROTL(23, x)  
@@ -44,7 +42,6 @@
 // x = ROTL(12, a) + e + ROTL(index, const)
 // ret = ROTL(7, x)
 #define SM3SS1(const, a, e) \
-  //MOVW  a, BX; \
   RORW  $20, a, BX; \
   ADDW  e, BX; \
   ADDW  $const, BX; \
@@ -53,10 +50,7 @@
 // Calculate tt1 in CX
 // ret = (a XOR b XOR c) + d + (ROTL(12, a) XOR ss1) + (Wt XOR Wt+4)
 #define SM3TT10(index, a, b, c, d) \  
-  //MOVW a, CX; \
-  //MOVW b, DX; \
   EORW a, b, DX; \
-  //MOVW c, hlp0; \
   EORW c, DX; \  // (a XOR b XOR c)
   ADDW d, DX; \   // (a XOR b XOR c) + d 
   MOVW ((index)*4)(BP), hlp0; \ //Wt
@@ -71,27 +65,19 @@
 #define SM3TT20(e, f, g, h) \  
   ADDW h, hlp0; \   //Wt + h
   ADDW BX, hlp0; \  //Wt + h + ss1
-  //MOVW e, BX; \
-  //MOVW f, DX; \
   EORW e, f, BX; \  // e XOR f
-  //MOVW g, DX; \
   EORW g, BX; \  // e XOR f XOR g
   ADDW hlp0, BX     // (e XOR f XOR g) + Wt + h + ss1
 
 // Calculate tt1 in CX, used DX, hlp0
 // ret = ((a AND b) OR (a AND c) OR (b AND c)) + d + (ROTL(12, a) XOR ss1) + (Wt XOR Wt+4)
 #define SM3TT11(index, a, b, c, d) \  
-  //MOVW a, CX; \
-  //MOVW b, DX; \
   ANDW a, b, DX; \  // a AND b
-  //MOVW c, hlp0; \
   ANDW a, c, CX; \  // a AND c
   ORRW  DX, CX; \  // (a AND b) OR (a AND c)
-  //MOVW b, DX; \
   ANDW b, c, DX; \  // b AND c
   ORRW  CX, DX; \  // (a AND b) OR (a AND c) OR (b AND c)
   ADDW d, DX; \
-  //MOVW a, CX; \
   RORW $20, a, CX; \
   EORW BX, CX; \
   ADDW DX, CX; \  // ((a AND b) OR (a AND c) OR (b AND c)) + d + (ROTL(12, a) XOR ss1)
@@ -104,11 +90,8 @@
 #define SM3TT21(e, f, g, h) \  
   ADDW h, hlp0; \   // Wt + h
   ADDW BX, hlp0; \  // h + ss1 + Wt
-  //MOVW e, BX; \
-  //MOVW f, DX; \   
   ANDW e, f, DX; \  // e AND f
   MVNW e, BX; \      // NOT(e)
-  //MOVW g, AX; \
   ANDW g, BX; \ // NOT(e) AND g
   ORRW  DX, BX; \
   ADDW hlp0, BX
@@ -117,7 +100,6 @@
   RORW $23, b; \
   MOVW CX, h; \   // a = ttl
   RORW $13, f; \
-  //MOVW BX, CX; \
   RORW $23, BX, CX; \
   EORW BX, CX; \  // tt2 XOR ROTL(9, tt2)
   RORW $15, BX; \
