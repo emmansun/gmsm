@@ -26,13 +26,13 @@
   MOVW	((index-12)*4)(BP), BX; \
   EORW  BX, AX; \
   MOVW	((index-5)*4)(BP), BX; \
-  EORW  BX, AX; \
-  MOVW  AX, BX; \
-  RORW  $17, BX; \
-  MOVW  AX, CX; \
-  RORW  $9, CX; \
-  EORW  BX, AX; \
-  EORW  CX, AX; \
+  EORW  BX, AX; \                  // AX = x
+  //MOVW  AX, BX; \                  // BX = x
+  RORW  $17, AX, BX; \                 // BX =  ROTL(15, x)
+  //MOVW  AX, CX; \                  // CX = x
+  RORW  $9, AX, CX; \                  // CX = ROTL(23, x)   
+  EORW  BX, AX; \                  // AX = x xor ROTL(15, x)  
+  EORW  CX, AX; \                  // AX = x xor ROTL(15, x) xor ROTL(23, x)  
   MOVW	((index-9)*4)(BP), BX; \
   RORW  $25, BX; \
   MOVW	((index-2)*4)(BP), CX; \
@@ -44,8 +44,8 @@
 // x = ROTL(12, a) + e + ROTL(index, const)
 // ret = ROTL(7, x)
 #define SM3SS1(const, a, e) \
-  MOVW  a, BX; \
-  RORW  $20, BX; \
+  //MOVW  a, BX; \
+  RORW  $20, a, BX; \
   ADDW  e, BX; \
   ADDW  $const, BX; \
   RORW  $25, BX
@@ -53,16 +53,16 @@
 // Calculate tt1 in CX
 // ret = (a XOR b XOR c) + d + (ROTL(12, a) XOR ss1) + (Wt XOR Wt+4)
 #define SM3TT10(index, a, b, c, d) \  
-  MOVW a, CX; \
-  MOVW b, DX; \
-  EORW CX, DX; \
-  MOVW c, hlp0; \
-  EORW hlp0, DX; \  // (a XOR b XOR c)
+  //MOVW a, CX; \
+  //MOVW b, DX; \
+  EORW a, b, DX; \
+  //MOVW c, hlp0; \
+  EORW c, DX; \  // (a XOR b XOR c)
   ADDW d, DX; \   // (a XOR b XOR c) + d 
   MOVW ((index)*4)(BP), hlp0; \ //Wt
   EORW hlp0, AX; \ //Wt XOR Wt+4
   ADDW AX, DX;  \
-  RORW $20, CX; \
+  RORW $20, a, CX; \
   EORW BX, CX; \ // ROTL(12, a) XOR ss1
   ADDW DX, CX  // (a XOR b XOR c) + d + (ROTL(12, a) XOR ss1)
 
@@ -71,28 +71,28 @@
 #define SM3TT20(e, f, g, h) \  
   ADDW h, hlp0; \   //Wt + h
   ADDW BX, hlp0; \  //Wt + h + ss1
-  MOVW e, BX; \
-  MOVW f, DX; \
-  EORW DX, BX; \  // e XOR f
-  MOVW g, DX; \
-  EORW DX, BX; \  // e XOR f XOR g
+  //MOVW e, BX; \
+  //MOVW f, DX; \
+  EORW e, f, BX; \  // e XOR f
+  //MOVW g, DX; \
+  EORW g, BX; \  // e XOR f XOR g
   ADDW hlp0, BX     // (e XOR f XOR g) + Wt + h + ss1
 
 // Calculate tt1 in CX, used DX, hlp0
 // ret = ((a AND b) OR (a AND c) OR (b AND c)) + d + (ROTL(12, a) XOR ss1) + (Wt XOR Wt+4)
 #define SM3TT11(index, a, b, c, d) \  
-  MOVW a, CX; \
-  MOVW b, DX; \
-  ANDW CX, DX; \  // a AND b
-  MOVW c, hlp0; \
-  ANDW hlp0, CX; \  // a AND c
+  //MOVW a, CX; \
+  //MOVW b, DX; \
+  ANDW a, b, DX; \  // a AND b
+  //MOVW c, hlp0; \
+  ANDW a, c, CX; \  // a AND c
   ORRW  DX, CX; \  // (a AND b) OR (a AND c)
-  MOVW b, DX; \
-  ANDW hlp0, DX; \  // b AND c
+  //MOVW b, DX; \
+  ANDW b, c, DX; \  // b AND c
   ORRW  CX, DX; \  // (a AND b) OR (a AND c) OR (b AND c)
   ADDW d, DX; \
-  MOVW a, CX; \
-  RORW $20, CX; \
+  //MOVW a, CX; \
+  RORW $20, a, CX; \
   EORW BX, CX; \
   ADDW DX, CX; \  // ((a AND b) OR (a AND c) OR (b AND c)) + d + (ROTL(12, a) XOR ss1)
   MOVW ((index)*4)(BP), hlp0; \
@@ -104,12 +104,12 @@
 #define SM3TT21(e, f, g, h) \  
   ADDW h, hlp0; \   // Wt + h
   ADDW BX, hlp0; \  // h + ss1 + Wt
-  MOVW e, BX; \
-  MOVW f, DX; \   
-  ANDW BX, DX; \  // e AND f
-  MVNW BX, BX; \      // NOT(e)
-  MOVW g, AX; \
-  ANDW AX, BX; \ // NOT(e) AND g
+  //MOVW e, BX; \
+  //MOVW f, DX; \   
+  ANDW e, f, DX; \  // e AND f
+  MVNW e, BX; \      // NOT(e)
+  //MOVW g, AX; \
+  ANDW g, BX; \ // NOT(e) AND g
   ORRW  DX, BX; \
   ADDW hlp0, BX
 
@@ -117,8 +117,8 @@
   RORW $23, b; \
   MOVW CX, h; \   // a = ttl
   RORW $13, f; \
-  MOVW BX, CX; \
-  RORW $23, CX; \
+  //MOVW BX, CX; \
+  RORW $23, BX, CX; \
   EORW BX, CX; \  // tt2 XOR ROTL(9, tt2)
   RORW $15, BX; \
   EORW BX, CX; \  // tt2 XOR ROTL(9, tt2) XOR ROTL(17, tt2)
