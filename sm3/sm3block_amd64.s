@@ -1052,10 +1052,10 @@ avx2_loop0: // at each iteration works with one block (512 bit)
 	VPSHUFB BYTE_FLIP_MASK, XTMP3, XTMP3
 
 	// Transpose data into high/low parts
-	VPERM2I128 $0x20, XTMP2, XTMP0, XDWORD0 // w3, w2, w1, w0
-	VPERM2I128 $0x31, XTMP2, XTMP0, XDWORD1 // w7, w6, w5, w4
-	VPERM2I128 $0x20, XTMP3, XTMP1, XDWORD2 // w11, w10, w9, w8
-	VPERM2I128 $0x31, XTMP3, XTMP1, XDWORD3 // w15, w14, w13, w12
+	VPERM2I128 $0x20, XTMP2, XTMP0, XDWORD0 // w19, w18, w17, w16;  w3,  w2,  w1,  w0
+	VPERM2I128 $0x31, XTMP2, XTMP0, XDWORD1 // w23, w22, w21, w20;  w7,  w6,  w5,  w4
+	VPERM2I128 $0x20, XTMP3, XTMP1, XDWORD2 // w27, w26, w25, w24; w11, w10,  w9,  w8
+	VPERM2I128 $0x31, XTMP3, XTMP1, XDWORD3 // w31, w30, w29, w28; w15, w14, w13, w12
 
 avx2_last_block_enter:
 	ADDQ $64, INP

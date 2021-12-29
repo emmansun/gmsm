@@ -113,11 +113,11 @@ GLOBL fk_mask<>(SB), RODATA, $16
   MOVOU x, XTMP6;                     \
   PSLLL $13, XTMP6;                   \
   PSRLL $19, y;                       \
-  PXOR XTMP6, y;                      \ //y = X roll 13  
+  POR XTMP6, y;                      \ //y = X roll 13  
   PSLLL $10, XTMP6;                   \
   MOVOU x, XTMP7;                     \
   PSRLL $9, XTMP7;                    \
-  PXOR XTMP6, XTMP7;                  \ //XTMP7 = x roll 23
+  POR XTMP6, XTMP7;                  \ //XTMP7 = x roll 23
   PXOR XTMP7, y;                      \
   PXOR y, x                        
 
