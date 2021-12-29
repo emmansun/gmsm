@@ -26,11 +26,11 @@
   MOVW	((index-12)*4)(BP), BX; \
   EORW  BX, AX; \
   MOVW	((index-5)*4)(BP), BX; \
-  EORW  BX, AX; \                  // AX = x
+  EORW  BX, AX; \                      // AX = x
   RORW  $17, AX, BX; \                 // BX =  ROTL(15, x)
   RORW  $9, AX, CX; \                  // CX = ROTL(23, x)   
-  EORW  BX, AX; \                  // AX = x xor ROTL(15, x)  
-  EORW  CX, AX; \                  // AX = x xor ROTL(15, x) xor ROTL(23, x)  
+  EORW  BX, AX; \                      // AX = x xor ROTL(15, x)  
+  EORW  CX, AX; \                      // AX = x xor ROTL(15, x) xor ROTL(23, x)  
   MOVW	((index-9)*4)(BP), BX; \
   RORW  $25, BX; \
   MOVW	((index-2)*4)(BP), CX; \
@@ -51,60 +51,60 @@
 // ret = (a XOR b XOR c) + d + (ROTL(12, a) XOR ss1) + (Wt XOR Wt+4)
 #define SM3TT10(index, a, b, c, d) \  
   EORW a, b, DX; \
-  EORW c, DX; \  // (a XOR b XOR c)
-  ADDW d, DX; \   // (a XOR b XOR c) + d 
-  MOVW ((index)*4)(BP), hlp0; \ //Wt
-  EORW hlp0, AX; \ //Wt XOR Wt+4
+  EORW c, DX; \                      // (a XOR b XOR c)
+  ADDW d, DX; \                      // (a XOR b XOR c) + d 
+  MOVW ((index)*4)(BP), hlp0; \      // Wt
+  EORW hlp0, AX; \                   // Wt XOR Wt+4
   ADDW AX, DX;  \
   RORW $20, a, CX; \
-  EORW BX, CX; \ // ROTL(12, a) XOR ss1
-  ADDW DX, CX  // (a XOR b XOR c) + d + (ROTL(12, a) XOR ss1)
+  EORW BX, CX; \                     // ROTL(12, a) XOR ss1
+  ADDW DX, CX                        // (a XOR b XOR c) + d + (ROTL(12, a) XOR ss1)
 
 // Calculate tt2 in BX
 // ret = (e XOR f XOR g) + h + ss1 + Wt
 #define SM3TT20(e, f, g, h) \  
-  ADDW h, hlp0; \   //Wt + h
-  ADDW BX, hlp0; \  //Wt + h + ss1
-  EORW e, f, BX; \  // e XOR f
-  EORW g, BX; \  // e XOR f XOR g
-  ADDW hlp0, BX     // (e XOR f XOR g) + Wt + h + ss1
+  ADDW h, hlp0; \                    // Wt + h
+  ADDW BX, hlp0; \                   // Wt + h + ss1
+  EORW e, f, BX; \                   // e XOR f
+  EORW g, BX; \                      // e XOR f XOR g
+  ADDW hlp0, BX                      // (e XOR f XOR g) + Wt + h + ss1
 
 // Calculate tt1 in CX, used DX, hlp0
 // ret = ((a AND b) OR (a AND c) OR (b AND c)) + d + (ROTL(12, a) XOR ss1) + (Wt XOR Wt+4)
 #define SM3TT11(index, a, b, c, d) \  
-  ANDW a, b, DX; \  // a AND b
-  ANDW a, c, CX; \  // a AND c
-  ORRW  DX, CX; \  // (a AND b) OR (a AND c)
-  ANDW b, c, DX; \  // b AND c
-  ORRW  CX, DX; \  // (a AND b) OR (a AND c) OR (b AND c)
+  ANDW a, b, DX; \                   // a AND b
+  ANDW a, c, CX; \                   // a AND c
+  ORRW  DX, CX; \                    // (a AND b) OR (a AND c)
+  ANDW b, c, DX; \                   // b AND c
+  ORRW  CX, DX; \                    // (a AND b) OR (a AND c) OR (b AND c)
   ADDW d, DX; \
   RORW $20, a, CX; \
   EORW BX, CX; \
-  ADDW DX, CX; \  // ((a AND b) OR (a AND c) OR (b AND c)) + d + (ROTL(12, a) XOR ss1)
+  ADDW DX, CX; \                     // ((a AND b) OR (a AND c) OR (b AND c)) + d + (ROTL(12, a) XOR ss1)
   MOVW ((index)*4)(BP), hlp0; \
-  EORW hlp0, AX; \  // Wt XOR Wt+4
+  EORW hlp0, AX; \                   // Wt XOR Wt+4
   ADDW AX, CX
 
 // Calculate tt2 in BX
 // ret = ((e AND f) OR (NOT(e) AND g)) + h + ss1 + Wt
 #define SM3TT21(e, f, g, h) \  
-  ADDW h, hlp0; \   // Wt + h
-  ADDW BX, hlp0; \  // h + ss1 + Wt
-  ANDW e, f, DX; \  // e AND f
-  MVNW e, BX; \      // NOT(e)
-  ANDW g, BX; \ // NOT(e) AND g
+  ADDW h, hlp0; \                    // Wt + h
+  ADDW BX, hlp0; \                   // h + ss1 + Wt
+  ANDW e, f, DX; \                   // e AND f
+  MVNW e, BX; \                      // NOT(e)
+  ANDW g, BX; \                      // NOT(e) AND g
   ORRW  DX, BX; \
   ADDW hlp0, BX
 
 #define COPYRESULT(b, d, f, h) \
   RORW $23, b; \
-  MOVW CX, h; \   // a = ttl
+  MOVW CX, h; \                      // a = ttl
   RORW $13, f; \
   RORW $23, BX, CX; \
-  EORW BX, CX; \  // tt2 XOR ROTL(9, tt2)
+  EORW BX, CX; \                     // tt2 XOR ROTL(9, tt2)
   RORW $15, BX; \
-  EORW BX, CX; \  // tt2 XOR ROTL(9, tt2) XOR ROTL(17, tt2)
-  MOVW CX, d    // e = tt2 XOR ROTL(9, tt2) XOR ROTL(17, tt2)
+  EORW BX, CX; \                     // tt2 XOR ROTL(9, tt2) XOR ROTL(17, tt2)
+  MOVW CX, d                         // e = tt2 XOR ROTL(9, tt2) XOR ROTL(17, tt2)
 
 #define SM3ROUND0(index, const, a, b, c, d, e, f, g, h) \
   MSGSCHEDULE01(index); \
