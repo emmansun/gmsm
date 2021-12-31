@@ -66,10 +66,7 @@ GLOBL fk_mask<>(SB), RODATA, $16
   ;                                              \ //#############################  inner affine ############################//
   LDP	nibble_mask<>(SB), (R0, R1);               \
 	VMOV	R0, XTMP6.D[0];                          \
-	VMOV	R1, XTMP6.D[1];                          \
-  VAND x.B16, XTMP6.B16, XTMP7.B16
-
-  
+	VMOV	R1, XTMP6.D[1]
 
 #define SM4_TAO_L1(x, y)         \
   SM4_SBOX(x, y);                              \
@@ -95,6 +92,7 @@ GLOBL fk_mask<>(SB), RODATA, $16
   VEOR y.B16, x.B16, x.B16
 
 #define SM4_TAO_L2(x, y)         \
+  SM4_SBOX(x, y);                              \
   ;                                           \ //####################  4 parallel L2 linear transforms ##################//
   VSHL $13, x.S4, XTMP6.S4;                   \
   VUSHR $19, x.S4, y.S4;                      \
