@@ -21,6 +21,7 @@ install:
   - go mod download
 
 script:
+  - go build ./...
   - go test -v ./...
 
 after_success:
