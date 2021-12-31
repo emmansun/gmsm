@@ -64,9 +64,7 @@ GLOBL fk_mask<>(SB), RODATA, $16
 
 #define SM4_SBOX(x, y) \
   ;                                              \ //#############################  inner affine ############################//
-  LDP	nibble_mask<>(SB), (R0, R1);               \
-	VMOV	R0, XTMP6.D[0];                          \
-	VMOV	R1, XTMP6.D[1]
+  LDP	nibble_mask<>(SB), (R0, R1)
 
 #define SM4_TAO_L1(x, y)         \
   SM4_SBOX(x, y);                              \
