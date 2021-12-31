@@ -110,7 +110,7 @@ func TestBlockSize(t *testing.T) {
 	if got := c.BlockSize(); got != BlockSize {
 		t.Errorf("BlockSize = %d want %d", got, BlockSize)
 	}
-	fmt.Printf("ARM64 has sm3 %v ? has sm4 %v ?\n", cpu.ARM64.HasSM3, cpu.ARM64.HasSM4)
+	fmt.Printf("ARM64 has sm3 %v, has sm4 %v, has aes %v\n", cpu.ARM64.HasSM3, cpu.ARM64.HasSM4, cpu.ARM64.HasAES)
 }
 
 var bench = New()
