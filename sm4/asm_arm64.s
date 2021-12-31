@@ -68,9 +68,6 @@ GLOBL fk_mask<>(SB), RODATA, $16
 	VMOV	R0, XTMP6.D[0];                          \
 	VMOV	R1, XTMP6.D[1];                          \
   VAND x.B16, XTMP6.B16, XTMP7.B16;              \
-  LDP	m1_low<>(SB), (R0, R1);                    \
-	VMOV	R0, y.D[0];                              \
-	VMOV	R1, y.D[1];                              \  
 
   
 
