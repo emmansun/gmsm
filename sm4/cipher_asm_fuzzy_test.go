@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"testing"
+
+	"golang.org/x/sys/cpu"
 )
 
 /*
@@ -46,6 +48,7 @@ func TestExpandKey(t *testing.T) {
 */
 
 func TestExpandKeySimple(t *testing.T) {
+	fmt.Printf("cpu.ARM64.HasAES=%v\n", cpu.ARM64.HasAES)
 	key := make([]byte, 16)
 
 	encRes1 := make([]uint32, 32)
