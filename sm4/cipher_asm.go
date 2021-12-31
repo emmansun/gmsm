@@ -1,5 +1,5 @@
-//go:build amd64
-// +build amd64
+//go:build amd64 || arm64
+// +build amd64 arm64
 
 package sm4
 
@@ -10,7 +10,8 @@ import (
 	"golang.org/x/sys/cpu"
 )
 
-var supportsAES = cpu.X86.HasAES
+var supportSM4 = cpu.ARM64.HasSM4
+var supportsAES = cpu.X86.HasAES || cpu.ARM64.HasAES
 var supportsGFMUL = cpu.X86.HasPCLMULQDQ
 
 //go:noescape
