@@ -186,46 +186,6 @@ TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
   MOVD dst+8(FP), R9
   MOVD src+16(FP), R10
 
-  LDPW	(0*8)(R10), (R19, R20)
-  LDPW	(1*8)(R10), (R21, R22)
-  VMOV R19, t0.S[0]
-  VMOV R20, t1.S[0]
-  VMOV R21, t2.S[0]
-  VMOV R22, t3.S[0]
-  
-  LDPW	(2*8)(R10), (R19, R20)
-  LDPW	(3*8)(R10), (R21, R22)
-  VMOV R19, t0.S[1]
-  VMOV R20, t1.S[1]
-  VMOV R21, t2.S[1]
-  VMOV R22, t3.S[1]
-
-  LDPW	(4*8)(R10), (R19, R20)
-  LDPW	(5*8)(R10), (R21, R22)
-  VMOV R19, t0.S[2]
-  VMOV R20, t1.S[2]
-  VMOV R21, t2.S[2]
-  VMOV R22, t3.S[2]  
-
-  LDPW	(6*8)(R10), (R19, R20)
-  LDPW	(7*8)(R10), (R21, R22)
-  VMOV R19, t0.S[3]
-  VMOV R20, t1.S[3]
-  VMOV R21, t2.S[3]
-  VMOV R22, t3.S[3]    
-
-  LDP	flip_mask<>(SB), (R0, R1)
-	VMOV	R0, FLIP_MASK.D[0]
-	VMOV	R1, FLIP_MASK.D[1]
-
-  VTBL FLIP_MASK.B16, [t0.B16], t0.B16
-  VTBL FLIP_MASK.B16, [t1.B16], t1.B16
-  VTBL FLIP_MASK.B16, [t2.B16], t2.B16
-  VTBL FLIP_MASK.B16, [t3.B16], t3.B16
-
-  VEOR ZERO.B16, ZERO.B16, ZERO.B16
-  
-  EOR R0, R0
 	RET
 
 
@@ -235,20 +195,4 @@ TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
   MOVD dst+8(FP), R9
   MOVD src+16(FP), R10
 
-  LDPW	(0*8)(R10), (R19, R20)
-  LDPW	(1*8)(R10), (R21, R22)
-  REVW R19, R19
-  REVW R20, R20
-  REVW R21, R21
-  REVW R22, R22
-  VMOV R19, t0.S[0]
-  VMOV R20, t1.S[0]
-  VMOV R21, t2.S[0]
-  VMOV R22, t3.S[0]
-
-  VEOR ZERO.B16, ZERO.B16, ZERO.B16
-  LDP	flip_mask<>(SB), (R0, R1)
-	VMOV	R0, FLIP_MASK.D[0]
-	VMOV	R1, FLIP_MASK.D[1]
-  EOR R0, R0
 	RET  
