@@ -202,10 +202,6 @@ loop:
   MOVW.P R2, 4(R10)
   MOVW.P R2, -4(R11)
 
-  ADD $16, R0 
-  CMP $4*32, R0
-  BNE loop
-
 expand_end:  
   RET 
 
