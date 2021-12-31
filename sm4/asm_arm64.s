@@ -64,24 +64,36 @@ GLOBL fk_mask<>(SB), RODATA, $16
 
 #define SM4_SBOX(x, y) \
   ;                                              \ //#############################  inner affine ############################//
-  VLD1 nibble_mask<>(SB), [XTMP6.B16];           \
+  LDP	nibble_mask<>(SB), (R0, R1);               \
+	VMOV	R0, XTMP6.D[0];                          \
+	VMOV	R1, XTMP6.D[1];                          \
   VAND x.B16, XTMP6.B16, XTMP7.B16;              \
-  VLD1 m1_low<>(SB), [y.B16];                    \
+  LDP	m1_low<>(SB), (R0, R1);                    \
+	VMOV	R0, y.D[0];                              \
+	VMOV	R1, y.D[1];                              \  
   VTBL XTMP7.B16, [y.B16], y.B16;                \
   VUSHR $4, x.D2, x.D2;                          \
   VAND x.B16, XTMP6.B16, XTMP7.B16;              \
-  VLD1 m1_high<>(SB), [V8.B16];                  \
+  LDP	m1_low<>(SB), (R0, R1);                    \
+	VMOV	R0, V8.D[0];                             \
+	VMOV	R1, V8.D[1];                             \  
   VTBL XTMP7.B16, [V8.B16], XTMP7.B16;           \
   VEOR y.B16, XTMP7.B16, x.B16;                  \
-  VLD1 inverse_shift_rows<>(SB), [V8.B16];       \
+  LDP	inverse_shift_rows<>(SB), (R0, R1);        \
+	VMOV	R0, V8.D[0];                             \
+	VMOV	R1, V8.D[1];                             \    
   VTBL V8.B16, [x.B16], x.B16;                   \
   AESE ZERO.B16, x.B16;                          \	
   VAND x.B16, XTMP6.B16, XTMP7.B16;              \
-  VLD1 m2_low<>(SB), [y.B16];                    \
+  LDP	m2_low<>(SB), (R0, R1);                    \
+	VMOV	R0, y.D[0];                              \
+	VMOV	R1, y.D[1];                              \  
   VTBL XTMP7.B16, [y.B16], y.B16;                \
   VUSHR $4, x.D2, x.D2;                          \
   VAND x.B16, XTMP6.B16, XTMP7.B16;              \
-  VLD1 m2_high<>(SB), [V8.B16];                  \
+  LDP	m2_high<>(SB), (R0, R1);                   \
+	VMOV	R0, V8.D[0];                             \
+	VMOV	R1, V8.D[1];                             \  
   VTBL XTMP7.B16, [V8.B16], XTMP7.B16;           \
   VEOR y.B16, XTMP7.B16, x.B16;                  \
   
@@ -89,16 +101,22 @@ GLOBL fk_mask<>(SB), RODATA, $16
 #define SM4_TAO_L1(x, y)         \
   SM4_SBOX(x, y);                              \
   ;                                            \ //####################  4 parallel L1 linear transforms ##################//
-  VLD1 r08_mask<>(SB), [XTMP7.B16];            \
+  LDP	r08_mask<>(SB), (R0, R1);                \
+	VMOV	R0, XTMP7.D[0];                        \
+	VMOV	R1, XTMP7.D[1];                        \  
   VTBL XTMP7.B16, [x.B16], y.B16;              \
   VEOR y.B16, x.B16, y.B16;                    \
-  VLD1 r16_mask<>(SB), [V8.B16];               \
+  LDP	r16_mask<>(SB), (R0, R1);                \
+	VMOV	R0, V8.D[0];                           \
+	VMOV	R1, V8.D[1];                           \   
   VTBL V8.B16, [x.B16], XTMP7.B16;             \
   VEOR XTMP7.B16, y.B16, y.B16;                \
   VSHL $2, y.S4, XTMP7.S4;                     \
   VUSHR $32, y.S4, y.S4;                       \
   VEOR y.B16, XTMP7.B16, y.B16;                \
-  VLD1 r24_mask<>(SB), [V8.B16];               \
+  LDP	r24_mask<>(SB), (R0, R1);                \
+	VMOV	R0, V8.D[0];                           \
+	VMOV	R1, V8.D[1];                           \    
   VTBL V8.B16, [x.B16], XTMP7.B16;             \
   VEOR XTMP7.B16, x.B16, x.B16;                \
   VEOR y.B16, x.B16, x.B16
@@ -123,9 +141,13 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
   MOVD  dec+24(FP), R11
 
   VLD1 (R8), [t0.B16]; 
-  VLD1 flip_mask<>(SB), [FLIP_MASK.B16]
+  LDP	flip_mask<>(SB), (R0, R1)
+	VMOV	R0, FLIP_MASK.D[0]
+	VMOV	R1, FLIP_MASK.D[1]
   VTBL FLIP_MASK.B16, [t0.B16], t0.B16
-  VLD1 fk_mask<>(SB), [XTMP7.B16]
+  LDP	fk_mask<>(SB), (R0, R1)
+	VMOV	R0, XTMP7.D[0]
+	VMOV	R1, XTMP7.D[1]
   VEOR t0.B16, XTMP7.B16, t0.B16
   VMOV t0.S[1], t1.S[0]
   VMOV t0.S[2], t2.S[0]
@@ -136,7 +158,8 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
   VEOR ZERO.B16, ZERO.B16, ZERO.B16
 
 loop:
-  VMOV (R0)(R9), x.S[0]
+  MOVW (R0)(R9), R19
+  VMOV R19, x.S[0]
   VEOR t1.B16, x.B16, x.B16
   VEOR t2.B16, x.B16, x.B16
   VEOR t3.B16, x.B16, x.B16
@@ -148,7 +171,8 @@ loop:
   ADD $4, R0 
   SUB $4, R1
 
-  VMOV (R0)(R9), x.S[0]
+  MOVW (R0)(R9), R19
+  VMOV R19, x.S[0]
   VEOR t0.B16, x.B16, x.B16
   VEOR t2.B16, x.B16, x.B16
   VEOR t3.B16, x.B16, x.B16
@@ -160,7 +184,8 @@ loop:
   ADD $4, R0 
   SUB $4, R1  
 
-  VMOV (R0)(R9), x.S[0]
+  MOVW (R0)(R9), R19
+  VMOV R19, x.S[0]
   VEOR t0.B16, x.B16, x.B16
   VEOR t1.B16, x.B16, x.B16
   VEOR t3.B16, x.B16, x.B16
@@ -172,7 +197,8 @@ loop:
   ADD $4, R0 
   SUB $4, R1  
 
-  VMOV (R0)(R9), x.S[0]
+  MOVW (R0)(R9), R19
+  VMOV R19, x.S[0]
   VEOR t0.B16, x.B16, x.B16
   VEOR t1.B16, x.B16, x.B16
   VEOR t2.B16, x.B16, x.B16
@@ -224,7 +250,10 @@ TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
   VMOV R21, t2.S[3]
   VMOV R22, t3.S[3]    
 
-  VLD1 flip_mask<>(SB), [FLIP_MASK.B16]
+  LDP	flip_mask<>(SB), (R0, R1)
+	VMOV	R0, FLIP_MASK.D[0]
+	VMOV	R1, FLIP_MASK.D[1]
+
   VTBL FLIP_MASK.B16, [t0.B16], t0.B16
   VTBL FLIP_MASK.B16, [t1.B16], t1.B16
   VTBL FLIP_MASK.B16, [t2.B16], t2.B16
@@ -337,7 +366,9 @@ TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
   VMOV R22, t3.S[0]
 
   VEOR ZERO.B16, ZERO.B16, ZERO.B16
-  VLD1 flip_mask<>(SB), [FLIP_MASK.B16]
+  LDP	flip_mask<>(SB), (R0, R1)
+	VMOV	R0, FLIP_MASK.D[0]
+	VMOV	R1, FLIP_MASK.D[1]
   EOR R0, R0
 
 loop:
