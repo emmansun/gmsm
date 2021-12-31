@@ -157,7 +157,7 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
   ADD $124, R11
   VEOR ZERO.B16, ZERO.B16, ZERO.B16
 
-loop:
+ksLoop:
   MOVW.P 4(R9), R19
   VMOV R19, x.S[0]
   VEOR t1.B16, x.B16, x.B16
@@ -204,9 +204,7 @@ loop:
 
   ADD $16, R0 
   CMP $128, R0
-  BNE loop
- 
-expand_end:  
+  BNE ksLoop
   RET 
 
 // func encryptBlocksAsm(xk *uint32, dst, src *byte)
@@ -256,7 +254,7 @@ TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
   
   EOR R0, R0
 
-loop:
+encryptBlocksLoop:
   MOVW.P 4(R8), R19
   VMOV R19, x.S[0]
   VMOV R19, x.S[1]
@@ -304,7 +302,7 @@ loop:
 
   ADD $16, R0
   CMP $128, R0
-  BNE loop
+  BNE encryptBlocksLoop
 
   VTBL FLIP_MASK.B16, [t0.B16], t0.B16
   VTBL FLIP_MASK.B16, [t1.B16], t1.B16
@@ -334,8 +332,6 @@ loop:
   VMOV t1.S[3], V8.S[2]
   VMOV t0.S[3], V8.S[3]
   VST1	[V8.B16], (R9)
-
-done_sm4:
 	RET
 
 
@@ -362,7 +358,7 @@ TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
 	VMOV	R1, FLIP_MASK.D[1]
   EOR R0, R0
 
-loop:
+encryptBlockLoop:
   MOVW.P 4(R8), R19
   VMOV R19, x.S[0]
   VMOV R19, x.S[1]
@@ -409,7 +405,7 @@ loop:
 
   ADD $16, R0
   CMP $128, R0
-  BNE loop
+  BNE encryptBlockLoop
 
   VTBL FLIP_MASK.B16, [t0.B16], t0.B16
   VTBL FLIP_MASK.B16, [t1.B16], t1.B16
@@ -421,6 +417,4 @@ loop:
   VMOV t1.S[0], V8.S[2]
   VMOV t0.S[0], V8.S[3]
   VST1	[V8.B16], (R9)
-
-done_sm4:
 	RET  
