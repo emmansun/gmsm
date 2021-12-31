@@ -324,25 +324,25 @@ loop:
   VMOV t2.S[0], V8.S[1]
   VMOV t1.S[0], V8.S[2]
   VMOV t0.S[0], V8.S[3]
-  VST1	[V8.B16], (R9)
+  VST1.P	[V8.B16], 16(R9)
 
   VMOV t3.S[1], V8.S[0]
   VMOV t2.S[1], V8.S[1]
   VMOV t1.S[1], V8.S[2]
   VMOV t0.S[1], V8.S[3]
-  VST1	[V8.B16], 16(R9)
+  VST1.P	[V8.B16], 16(R9)
 
   VMOV t3.S[2], V8.S[0]
   VMOV t2.S[2], V8.S[1]
   VMOV t1.S[2], V8.S[2]
   VMOV t0.S[2], V8.S[3]
-  VST1	[V8.B16], 32(R9)
+  VST1.P	[V8.B16], 16(R9)
 
   VMOV t3.S[3], V8.S[0]
   VMOV t2.S[3], V8.S[1]
   VMOV t1.S[3], V8.S[2]
   VMOV t0.S[3], V8.S[3]
-  VST1	[V8.B16], 48(R9)  
+  VST1	[V8.B16], (R9)
 
 done_sm4:
 	RET
