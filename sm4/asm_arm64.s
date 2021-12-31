@@ -122,7 +122,6 @@ GLOBL fk_mask<>(SB), RODATA, $16
   VEOR y.B16, x.B16, x.B16
 
 #define SM4_TAO_L2(x, y)         \
-  SM4_SBOX(x, y);                             \
   ;                                           \ //####################  4 parallel L2 linear transforms ##################//
   VSHL $13, x.S4, XTMP6.S4;                   \
   VUSHR $19, x.S4, y.S4;                      \
@@ -163,7 +162,7 @@ ksLoop:
   VEOR t1.B16, x.B16, x.B16
   VEOR t2.B16, x.B16, x.B16
   VEOR t3.B16, x.B16, x.B16
-  //SM4_TAO_L2(x, y)
+  SM4_TAO_L2(x, y)
   VEOR x.B16, t0.B16, t0.B16
   VMOV t0.S[0], R2
   MOVW.P R2, 4(R10)
@@ -174,7 +173,7 @@ ksLoop:
   VEOR t0.B16, x.B16, x.B16
   VEOR t2.B16, x.B16, x.B16
   VEOR t3.B16, x.B16, x.B16
-  //SM4_TAO_L2(x, y)
+  SM4_TAO_L2(x, y)
   VEOR x.B16, t1.B16, t1.B16
   VMOV t1.S[0], R2
   MOVW.P R2, 4(R10)
@@ -185,7 +184,7 @@ ksLoop:
   VEOR t0.B16, x.B16, x.B16
   VEOR t1.B16, x.B16, x.B16
   VEOR t3.B16, x.B16, x.B16
-  //SM4_TAO_L2(x, y)
+  SM4_TAO_L2(x, y)
   VEOR x.B16, t2.B16, t2.B16
   VMOV t2.S[0], R2
   MOVW.P R2, 4(R10)
@@ -196,7 +195,7 @@ ksLoop:
   VEOR t0.B16, x.B16, x.B16
   VEOR t1.B16, x.B16, x.B16
   VEOR t2.B16, x.B16, x.B16
-  //SM4_TAO_L2(x, y)
+  SM4_TAO_L2(x, y)
   VEOR x.B16, t3.B16, t3.B16
   VMOV t3.S[0], R2
   MOVW.P R2, 4(R10)
