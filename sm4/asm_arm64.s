@@ -121,11 +121,9 @@ GLOBL fk_mask<>(SB), (NOPTR+RODATA), $16
   VEOR y.B16, x.B16, x.B16
 
 #define SM4_TAO_L2(x, y)         \
-  LDP	nibble_mask<>(SB), (R0, R1);               \
 	VMOV	R0, XTMP6.D[0];                          \
 	VMOV	R1, XTMP6.D[1];                          \
   VAND x.B16, XTMP6.B16, XTMP7.B16;              \
-  LDP	m1_low<>(SB), (R0, R1);                    \
 	VMOV	R0, y.D[0];                              \
 	VMOV	R1, y.D[1];                              \
   ;                                           \ //####################  4 parallel L2 linear transforms ##################//
