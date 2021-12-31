@@ -163,7 +163,7 @@ ksLoop:
   VEOR t1.B16, x.B16, x.B16
   VEOR t2.B16, x.B16, x.B16
   VEOR t3.B16, x.B16, x.B16
-  SM4_TAO_L2(x, y)
+  //SM4_TAO_L2(x, y)
   VEOR x.B16, t0.B16, t0.B16
   VMOV t0.S[0], R2
   MOVW.P R2, 4(R10)
@@ -174,7 +174,7 @@ ksLoop:
   VEOR t0.B16, x.B16, x.B16
   VEOR t2.B16, x.B16, x.B16
   VEOR t3.B16, x.B16, x.B16
-  SM4_TAO_L2(x, y)
+  //SM4_TAO_L2(x, y)
   VEOR x.B16, t1.B16, t1.B16
   VMOV t1.S[0], R2
   MOVW.P R2, 4(R10)
@@ -185,7 +185,7 @@ ksLoop:
   VEOR t0.B16, x.B16, x.B16
   VEOR t1.B16, x.B16, x.B16
   VEOR t3.B16, x.B16, x.B16
-  SM4_TAO_L2(x, y)
+  //SM4_TAO_L2(x, y)
   VEOR x.B16, t2.B16, t2.B16
   VMOV t2.S[0], R2
   MOVW.P R2, 4(R10)
@@ -196,14 +196,14 @@ ksLoop:
   VEOR t0.B16, x.B16, x.B16
   VEOR t1.B16, x.B16, x.B16
   VEOR t2.B16, x.B16, x.B16
-  SM4_TAO_L2(x, y)
+  //SM4_TAO_L2(x, y)
   VEOR x.B16, t3.B16, t3.B16
   VMOV t3.S[0], R2
   MOVW.P R2, 4(R10)
   MOVW.P R2, -4(R11)
 
   ADD $16, R0 
-  CMP $32, R0
+  CMP $128, R0
   BNE ksLoop
   RET 
 
