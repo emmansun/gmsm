@@ -154,11 +154,11 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
   VMOV t0.S[3], t3.S[0]
 
   EOR R0, R0
-  MOVD $124, R1
+  ADD $124, R11
   VEOR ZERO.B16, ZERO.B16, ZERO.B16
 
 loop:
-  MOVW (R0)(R9), R19
+  MOVW.P 4(R9), R19
   VMOV R19, x.S[0]
   VEOR t1.B16, x.B16, x.B16
   VEOR t2.B16, x.B16, x.B16
@@ -166,12 +166,10 @@ loop:
   SM4_TAO_L2(x, y)
   VEOR x.B16, t0.B16, t0.B16
   VMOV t0.S[0], R2
-  MOVW R2, (R0)(R10)
-  MOVW R2, (R1)(R11)
-  ADD $4, R0 
-  SUB $4, R1
+  MOVW.P R2, 4(R10)
+  MOVW.P R2, -4(R11)
 
-  MOVW (R0)(R9), R19
+  MOVW.P 4(R9), R19
   VMOV R19, x.S[0]
   VEOR t0.B16, x.B16, x.B16
   VEOR t2.B16, x.B16, x.B16
@@ -179,12 +177,10 @@ loop:
   SM4_TAO_L2(x, y)
   VEOR x.B16, t1.B16, t1.B16
   VMOV t1.S[0], R2
-  MOVW R2, (R0)(R10)
-  MOVW R2, (R1)(R11)
-  ADD $4, R0 
-  SUB $4, R1  
+  MOVW.P R2, 4(R10)
+  MOVW.P R2, -4(R11)
 
-  MOVW (R0)(R9), R19
+  MOVW.P 4(R9), R19
   VMOV R19, x.S[0]
   VEOR t0.B16, x.B16, x.B16
   VEOR t1.B16, x.B16, x.B16
@@ -192,12 +188,10 @@ loop:
   SM4_TAO_L2(x, y)
   VEOR x.B16, t2.B16, t2.B16
   VMOV t2.S[0], R2
-  MOVW R2, (R0)(R10)
-  MOVW R2, (R1)(R11)
-  ADD $4, R0 
-  SUB $4, R1  
+  MOVW.P R2, 4(R10)
+  MOVW.P R2, -4(R11)
 
-  MOVW (R0)(R9), R19
+  MOVW.P 4(R9), R19
   VMOV R19, x.S[0]
   VEOR t0.B16, x.B16, x.B16
   VEOR t1.B16, x.B16, x.B16
@@ -205,11 +199,10 @@ loop:
   SM4_TAO_L2(x, y)
   VEOR x.B16, t3.B16, t3.B16
   VMOV t3.S[0], R2
-  MOVW R2, (R0)(R10)
-  MOVW R2, (R1)(R11)
-  ADD $4, R0 
-  SUB $4, R1 
+  MOVW.P R2, 4(R10)
+  MOVW.P R2, -4(R11)
 
+  ADD $16, R0 
   CMP $4*32, R0
   BNE loop
 
@@ -264,7 +257,7 @@ TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
   EOR R0, R0
 
 loop:
-  MOVW (R0)(R8), R19
+  MOVW.P 4(R8), R19
   VMOV R19, x.S[0]
   VMOV R19, x.S[1]
   VMOV R19, x.S[2]
@@ -274,9 +267,8 @@ loop:
   VEOR t3.B16, x.B16, x.B16
   SM4_TAO_L1(x, y)
   VEOR x.B16, t0.B16, t0.B16
-  ADD $4, R0
 
-  MOVW (R0)(R8), R19
+  MOVW.P 4(R8), R19
   VMOV R19, x.S[0]
   VMOV R19, x.S[1]
   VMOV R19, x.S[2]
@@ -286,9 +278,8 @@ loop:
   VEOR t3.B16, x.B16, x.B16
   SM4_TAO_L1(x, y)
   VEOR x.B16, t1.B16, t1.B16
-  ADD $4, R0
 
-  MOVW (R0)(R8), R19
+  MOVW.P 4(R8), R19
   VMOV R19, x.S[0]
   VMOV R19, x.S[1]
   VMOV R19, x.S[2]
@@ -300,7 +291,7 @@ loop:
   VEOR x.B16, t2.B16, t2.B16
   ADD $4, R0
 
-  MOVW (R0)(R8), R19
+  MOVW.P 4(R8), R19
   VMOV R19, x.S[0]
   VMOV R19, x.S[1]
   VMOV R19, x.S[2]
@@ -310,8 +301,8 @@ loop:
   VEOR t2.B16, x.B16, x.B16
   SM4_TAO_L1(x, y)
   VEOR x.B16, t3.B16, t3.B16
-  ADD $4, R0
 
+  ADD $16, R0
   CMP $4*32, R0
   BNE loop
 
@@ -372,7 +363,7 @@ TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
   EOR R0, R0
 
 loop:
-  MOVW (R0)(R8), R19
+  MOVW.P 4(R8), R19
   VMOV R19, x.S[0]
   VMOV R19, x.S[1]
   VMOV R19, x.S[2]
@@ -382,9 +373,8 @@ loop:
   VEOR t3.B16, x.B16, x.B16
   SM4_TAO_L1(x, y)
   VEOR x.B16, t0.B16, t0.B16
-  ADD $4, R0
 
-  MOVW (R0)(R8), R19
+  MOVW.P 4(R8), R19
   VMOV R19, x.S[0]
   VMOV R19, x.S[1]
   VMOV R19, x.S[2]
@@ -394,9 +384,8 @@ loop:
   VEOR t3.B16, x.B16, x.B16
   SM4_TAO_L1(x, y)
   VEOR x.B16, t1.B16, t1.B16
-  ADD $4, R0
 
-  MOVW (R0)(R8), R19
+  MOVW.P 4(R8), R19
   VMOV R19, x.S[0]
   VMOV R19, x.S[1]
   VMOV R19, x.S[2]
@@ -406,9 +395,8 @@ loop:
   VEOR t3.B16, x.B16, x.B16
   SM4_TAO_L1(x, y)
   VEOR x.B16, t2.B16, t2.B16
-  ADD $4, R0
 
-  MOVW (R0)(R8), R19
+  MOVW.P 4(R8), R19
   VMOV R19, x.S[0]
   VMOV R19, x.S[1]
   VMOV R19, x.S[2]
@@ -418,8 +406,8 @@ loop:
   VEOR t2.B16, x.B16, x.B16
   SM4_TAO_L1(x, y)
   VEOR x.B16, t3.B16, t3.B16
-  ADD $4, R0
 
+  ADD $16, R0
   CMP $4*32, R0
   BNE loop
 
