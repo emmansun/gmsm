@@ -33,9 +33,9 @@ func newCipher(key []byte) (cipher.Block, error) {
 	}
 	c := sm4CipherAsm{sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}}
 	expandKeyAsm(&key[0], &ck[0], &c.enc[0], &c.dec[0])
-	if supportsAES && supportsGFMUL {
-		return &sm4CipherGCM{c}, nil
-	}
+	//if supportsAES && supportsGFMUL {
+	//	return &sm4CipherGCM{c}, nil
+	//}
 	return &c, nil
 }
 
