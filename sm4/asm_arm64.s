@@ -202,9 +202,9 @@ ksLoop:
   MOVW.P R2, 4(R10)
   MOVW.P R2, -4(R11)
 
-  ADD $16, R0 
-  CMP $128, R0
-  BNE ksLoop
+//  ADD $16, R0 
+//  CMP $128, R0
+//  BNE ksLoop
   RET 
 
 // func encryptBlocksAsm(xk *uint32, dst, src *byte)
