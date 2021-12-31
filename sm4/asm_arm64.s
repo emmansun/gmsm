@@ -15,56 +15,87 @@
 // shuffle byte order from LE to BE
 DATA flip_mask<>+0x00(SB)/8, $0x0405060700010203
 DATA flip_mask<>+0x08(SB)/8, $0x0c0d0e0f08090a0b
-GLOBL flip_mask<>(SB), RODATA, $16
+GLOBL flip_mask<>(SB), (NOPTR+RODATA), $16
 
 //nibble mask
 DATA nibble_mask<>+0x00(SB)/8, $0x0F0F0F0F0F0F0F0F
 DATA nibble_mask<>+0x08(SB)/8, $0x0F0F0F0F0F0F0F0F
-GLOBL nibble_mask<>(SB), RODATA, $16
+GLOBL nibble_mask<>(SB), (NOPTR+RODATA), $16
 
 // inverse shift rows
 DATA inverse_shift_rows<>+0x00(SB)/8, $0x0B0E0104070A0D00
 DATA inverse_shift_rows<>+0x08(SB)/8, $0x0306090C0F020508 
-GLOBL inverse_shift_rows<>(SB), RODATA, $16
+GLOBL inverse_shift_rows<>(SB), (NOPTR+RODATA), $16
 
 // Affine transform 1 (low and high hibbles)
 DATA m1_low<>+0x00(SB)/8, $0x9197E2E474720701
 DATA m1_low<>+0x08(SB)/8, $0xC7C1B4B222245157
-GLOBL m1_low<>(SB), RODATA, $16
+GLOBL m1_low<>(SB), (NOPTR+RODATA), $16
 
 DATA m1_high<>+0x00(SB)/8, $0xE240AB09EB49A200
 DATA m1_high<>+0x08(SB)/8, $0xF052B91BF95BB012  
-GLOBL m1_high<>(SB), RODATA, $16
+GLOBL m1_high<>(SB), (NOPTR+RODATA), $16
 
 // Affine transform 2 (low and high hibbles)
 DATA m2_low<>+0x00(SB)/8, $0x5B67F2CEA19D0834
 DATA m2_low<>+0x08(SB)/8, $0xEDD14478172BBE82
-GLOBL m2_low<>(SB), RODATA, $16
+GLOBL m2_low<>(SB), (NOPTR+RODATA), $16
 
 DATA m2_high<>+0x00(SB)/8, $0xAE7201DD73AFDC00
 DATA m2_high<>+0x08(SB)/8, $0x11CDBE62CC1063BF
-GLOBL m2_high<>(SB), RODATA, $16
+GLOBL m2_high<>(SB), (NOPTR+RODATA), $16
 
 // left rotations of 32-bit words by 8-bit increments
 DATA r08_mask<>+0x00(SB)/8, $0x0605040702010003
 DATA r08_mask<>+0x08(SB)/8, $0x0E0D0C0F0A09080B  
-GLOBL r08_mask<>(SB), RODATA, $16
+GLOBL r08_mask<>(SB), (NOPTR+RODATA), $16
 
 DATA r16_mask<>+0x00(SB)/8, $0x0504070601000302
 DATA r16_mask<>+0x08(SB)/8, $0x0D0C0F0E09080B0A   
-GLOBL r16_mask<>(SB), RODATA, $16
+GLOBL r16_mask<>(SB), (NOPTR+RODATA), $16
 
 DATA r24_mask<>+0x00(SB)/8, $0x0407060500030201
 DATA r24_mask<>+0x08(SB)/8, $0x0C0F0E0D080B0A09  
-GLOBL r24_mask<>(SB), RODATA, $16
+GLOBL r24_mask<>(SB), (NOPTR+RODATA), $16
 
 DATA fk_mask<>+0x00(SB)/8, $0x56aa3350a3b1bac6
 DATA fk_mask<>+0x08(SB)/8, $0xb27022dc677d9197
-GLOBL fk_mask<>(SB), RODATA, $16
+GLOBL fk_mask<>(SB), (NOPTR+RODATA), $16
 
 #define SM4_SBOX(x, y) \
   ;                                              \ //#############################  inner affine ############################//
-  LDP	nibble_mask<>(SB), (R0, R1)
+  LDP	nibble_mask<>(SB), (R0, R1);               \
+	VMOV	R0, XTMP6.D[0];                          \
+	VMOV	R1, XTMP6.D[1];                          \
+  VAND x.B16, XTMP6.B16, XTMP7.B16;              \
+  LDP	m1_low<>(SB), (R0, R1);                    \
+	VMOV	R0, y.D[0];                              \
+	VMOV	R1, y.D[1];                              \  
+  VTBL XTMP7.B16, [y.B16], y.B16;                \
+  VUSHR $4, x.D2, x.D2;                          \
+  VAND x.B16, XTMP6.B16, XTMP7.B16;              \
+  LDP	m1_low<>(SB), (R0, R1);                    \
+	VMOV	R0, V8.D[0];                             \
+	VMOV	R1, V8.D[1];                             \  
+  VTBL XTMP7.B16, [V8.B16], XTMP7.B16;           \
+  VEOR y.B16, XTMP7.B16, x.B16;                  \
+  LDP	inverse_shift_rows<>(SB), (R0, R1);        \
+	VMOV	R0, V8.D[0];                             \
+	VMOV	R1, V8.D[1];                             \    
+  VTBL V8.B16, [x.B16], x.B16;                   \
+  AESE ZERO.B16, x.B16;                          \	
+  VAND x.B16, XTMP6.B16, XTMP7.B16;              \
+  LDP	m2_low<>(SB), (R0, R1);                    \
+	VMOV	R0, y.D[0];                              \
+	VMOV	R1, y.D[1];                              \  
+  VTBL XTMP7.B16, [y.B16], y.B16;                \
+  VUSHR $4, x.D2, x.D2;                          \
+  VAND x.B16, XTMP6.B16, XTMP7.B16;              \
+  LDP	m2_high<>(SB), (R0, R1);                   \
+	VMOV	R0, V8.D[0];                             \
+	VMOV	R1, V8.D[1];                             \  
+  VTBL XTMP7.B16, [V8.B16], XTMP7.B16;           \
+  VEOR y.B16, XTMP7.B16, x.B16
 
 #define SM4_TAO_L1(x, y)         \
   SM4_SBOX(x, y);                              \
@@ -90,6 +121,7 @@ GLOBL fk_mask<>(SB), RODATA, $16
   VEOR y.B16, x.B16, x.B16
 
 #define SM4_TAO_L2(x, y)         \
+  SM4_SBOX(x, y);                              \
   ;                                           \ //####################  4 parallel L2 linear transforms ##################//
   VSHL $13, x.S4, XTMP6.S4;                   \
   VUSHR $19, x.S4, y.S4;                      \
