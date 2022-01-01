@@ -35,7 +35,7 @@ GLOBL nibble_mask<>(SB), (NOPTR+RODATA), $16
 //DATA inverse_shift_rows<>+0x00(SB)/8, $0x0B0E0104070A0D00
 //DATA inverse_shift_rows<>+0x08(SB)/8, $0x0306090C0F020508 
 DATA inverse_shift_rows<>+0x00(SB)/8, $0x0706050403020D00
-DATA inverse_shift_rows<>+0x08(SB)/8, $0x0F0E010C0B0A0908 
+DATA inverse_shift_rows<>+0x08(SB)/8, $0x0F0E0D0C0B0A0908 
 GLOBL inverse_shift_rows<>(SB), (NOPTR+RODATA), $16
 
 // Affine transform 1 (low and high hibbles)
