@@ -32,8 +32,6 @@ DATA nibble_mask<>+0x08(SB)/8, $0x0F0F0F0F0F0F0F0F
 GLOBL nibble_mask<>(SB), (NOPTR+RODATA), $16
 
 // inverse shift rows
-//DATA inverse_shift_rows<>+0x00(SB)/8, $0x0B0E0104070A0D00
-//DATA inverse_shift_rows<>+0x08(SB)/8, $0x0306090C0F020508 
 DATA inverse_shift_rows<>+0x00(SB)/8, $0x0106050403020700
 DATA inverse_shift_rows<>+0x08(SB)/8, $0x0F0E0D0C0B0A0908 
 GLOBL inverse_shift_rows<>(SB), (NOPTR+RODATA), $16
@@ -167,9 +165,6 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
   VLD1 (R8), [t0.B16]; 
   VTBL FLIP_MASK.B16, [t0.B16], t0.B16
   VEOR t0.B16, FK_MASK.B16, t0.B16
-  VEOR t1.B16, t1.B16, t1.B16
-  VEOR t2.B16, t2.B16, t2.B16
-  VEOR t3.B16, t3.B16, t3.B16
   VMOV t0.S[1], t1.S[0]
   VMOV t0.S[2], t2.S[0]
   VMOV t0.S[3], t3.S[0]
@@ -178,31 +173,6 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
   ADD $124, R11
   VEOR ZERO.B16, ZERO.B16, ZERO.B16
 
-  MOVW.P 4(R9), R19
-  VEOR x.B16, x.B16, x.B16
-  VMOV R19, x.S[0]
-  VEOR t1.B16, x.B16, x.B16
-  VEOR t2.B16, x.B16, x.B16
-  VEOR t3.B16, x.B16, x.B16
-  VAND x.B16, NIBBLE_MASK.B16, XTMP7.B16
-  VTBL XTMP7.B16, [M1L.B16], y.B16
-  VUSHR $4, x.D2, x.D2
-  VAND x.B16, NIBBLE_MASK.B16, XTMP7.B16
-  VTBL XTMP7.B16, [M1H.B16], XTMP7.B16
-  VEOR y.B16, XTMP7.B16, x.B16
-  VTBL INVERSE_SHIFT_ROWS.B16, [x.B16], x.B16
-  
-  //VEOR x.B16, t0.B16, t0.B16
-  
-  VMOV t0.S[0], R2
-  MOVW.P R2, 4(R10)
-  VMOV x.S[0], R2
-  MOVW.P R2, 4(R10)
-  VMOV y.S[0], R2
-  MOVW.P R2, 4(R10)
-  VMOV t3.S[0], R2
-  MOVW.P R2, 4(R10)      
-/*
 ksLoop:
   MOVW.P 4(R9), R19
   VMOV R19, x.S[0]
@@ -251,7 +221,7 @@ ksLoop:
   ADD $16, R0 
   CMP $128, R0
   BNE ksLoop
-*/  
+
   RET 
 
 // func encryptBlocksAsm(xk *uint32, dst, src *byte)
