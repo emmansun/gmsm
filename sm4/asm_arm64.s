@@ -73,37 +73,19 @@ GLOBL fk_mask<>(SB), (NOPTR+RODATA), $16
 
 #define SM4_SBOX(x, y) \
   ;                                              \ //#############################  inner affine ############################//
-  LDP	nibble_mask<>(SB), (R0, R1);               \
-	VMOV	R0, XTMP6.D[0];                          \
-	VMOV	R1, XTMP6.D[1];                          \
-  VAND x.B16, XTMP6.B16, XTMP7.B16;              \
-  LDP	m1_low<>(SB), (R0, R1);                    \
-	VMOV	R0, y.D[0];                              \
-	VMOV	R1, y.D[1];                              \  
-  VTBL XTMP7.B16, [y.B16], y.B16;                \
+  VAND x.B16, NIBBLE_MASK.B16, XTMP7.B16;        \
+  VTBL XTMP7.B16, [M1L.B16], y.B16;              \
   VUSHR $4, x.D2, x.D2;                          \
-  VAND x.B16, XTMP6.B16, XTMP7.B16;              \
-  LDP	m1_low<>(SB), (R0, R1);                    \
-	VMOV	R0, V8.D[0];                             \
-	VMOV	R1, V8.D[1];                             \  
-  VTBL XTMP7.B16, [V8.B16], XTMP7.B16;           \
+  VAND x.B16, NIBBLE_MASK.B16, XTMP7.B16;        \
+  VTBL XTMP7.B16, [M1H.B16], XTMP7.B16;          \
   VEOR y.B16, XTMP7.B16, x.B16;                  \
-  LDP	inverse_shift_rows<>(SB), (R0, R1);        \
-	VMOV	R0, V8.D[0];                             \
-	VMOV	R1, V8.D[1];                             \    
-  VTBL V8.B16, [x.B16], x.B16;                   \
+  VTBL INVERSE_SHIFT_ROWS.B16, [x.B16], x.B16;   \
   AESE ZERO.B16, x.B16;                          \	
-  VAND x.B16, XTMP6.B16, XTMP7.B16;              \
-  LDP	m2_low<>(SB), (R0, R1);                    \
-	VMOV	R0, y.D[0];                              \
-	VMOV	R1, y.D[1];                              \  
-  VTBL XTMP7.B16, [y.B16], y.B16;                \
+  VAND x.B16, NIBBLE_MASK.B16, XTMP7.B16;        \
+  VTBL XTMP7.B16, [M2L.B16], y.B16;              \
   VUSHR $4, x.D2, x.D2;                          \
-  VAND x.B16, XTMP6.B16, XTMP7.B16;              \
-  LDP	m2_high<>(SB), (R0, R1);                   \
-	VMOV	R0, V8.D[0];                             \
-	VMOV	R1, V8.D[1];                             \  
-  VTBL XTMP7.B16, [V8.B16], XTMP7.B16;           \
+  VAND x.B16, NIBBLE_MASK.B16, XTMP7.B16;        \
+  VTBL XTMP7.B16, [M2H.B16], XTMP7.B16;          \
   VEOR y.B16, XTMP7.B16, x.B16
 
 #define SM4_TAO_L1(x, y)         \
@@ -130,6 +112,7 @@ GLOBL fk_mask<>(SB), (NOPTR+RODATA), $16
   VEOR y.B16, x.B16, x.B16
 
 #define SM4_TAO_L2(x, y)         \
+  SM4_SBOX(x, y);                             \
   ;                                           \ //####################  4 parallel L2 linear transforms ##################//
   VSHL $13, x.S4, XTMP6.S4;                   \
   VUSHR $19, x.S4, y.S4;                      \
