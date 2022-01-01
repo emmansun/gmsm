@@ -169,6 +169,15 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
   ADD $124, R11
   VEOR ZERO.B16, ZERO.B16, ZERO.B16
 
+  VMOV t0.S[0], R2
+  MOVW.P R2, 4(R10)
+  VMOV t1.S[0], R2
+  MOVW.P R2, 4(R10)
+  VMOV t2.S[0], R2
+  MOVW.P R2, 4(R10)
+  VMOV t3.S[0], R2
+  MOVW.P R2, 4(R10)      
+/*
 ksLoop:
   MOVW.P 4(R9), R19
   VMOV R19, x.S[0]
@@ -217,6 +226,7 @@ ksLoop:
   ADD $16, R0 
   CMP $128, R0
   BNE ksLoop
+*/  
   RET 
 
 // func encryptBlocksAsm(xk *uint32, dst, src *byte)
