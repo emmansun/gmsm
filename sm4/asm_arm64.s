@@ -175,9 +175,9 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
 
   MOVW.P 4(R9), R19
   VMOV R19, x.S[0]
-  VEOR t1.B16, x.B16, x.B16
-  VEOR t2.B16, x.B16, x.B16
-  VEOR t3.B16, x.B16, x.B16
+ // VEOR t1.B16, x.B16, x.B16
+ // VEOR t2.B16, x.B16, x.B16
+ // VEOR t3.B16, x.B16, x.B16
  // VAND x.B16, NIBBLE_MASK.B16, XTMP7.B16
  // VTBL XTMP7.B16, [M1L.B16], y.B16
   //VSLI $-4, x.D2, x.D2
