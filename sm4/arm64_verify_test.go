@@ -1,6 +1,13 @@
 //go:build arm64
 // +build arm64
 
+package sm4
+
+import (
+	"reflect"
+	"testing"
+)
+
 //go:noescape
 func tblAsm(in, imm, out *byte)
 
