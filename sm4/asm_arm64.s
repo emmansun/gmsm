@@ -167,6 +167,9 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
   VLD1 (R8), [t0.B16]; 
   VTBL FLIP_MASK.B16, [t0.B16], t0.B16
   VEOR t0.B16, FK_MASK.B16, t0.B16
+  VEOR t1.B16, t1.B16, t1.B16
+  VEOR t2.B16, t2.B16, t2.B16
+  VEOR t3.B16, t3.B16, t3.B16
   VMOV t0.S[1], t1.S[0]
   VMOV t0.S[2], t2.S[0]
   VMOV t0.S[3], t3.S[0]
