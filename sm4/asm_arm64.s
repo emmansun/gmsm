@@ -9,7 +9,7 @@
 #define ZERO V16
 #define FLIP_MASK V17
 #define NIBBLE_MASK V20
-#define INVERSE_SHIFT_ROWS V21
+#define INVERSE_SHIFT_ROWS V30
 #define M1L V22
 #define M1H V23 
 #define M2L V24 
