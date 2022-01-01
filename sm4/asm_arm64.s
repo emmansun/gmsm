@@ -176,6 +176,7 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
   VEOR ZERO.B16, ZERO.B16, ZERO.B16
 
   MOVW.P 4(R9), R19
+  VEOR x.B16, x.B16, x.B16
   VMOV R19, x.S[0]
   VEOR t1.B16, x.B16, x.B16
   VEOR t2.B16, x.B16, x.B16
