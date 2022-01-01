@@ -161,8 +161,8 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
 	VMOV	R1, FK_MASK.D[1]
 
   LDP	inverse_shift_rows<>(SB), (R0, R1)
-	VMOV	R0, V21.D[0]
-	VMOV	R1, V21.D[1]
+	VMOV	R0, INVERSE_SHIFT_ROWS.D[0]
+	VMOV	R1, INVERSE_SHIFT_ROWS.D[1]
 	
   VLD1 (R8), [t0.B16]; 
   VTBL FLIP_MASK.B16, [t0.B16], t0.B16
