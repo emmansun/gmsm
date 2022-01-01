@@ -186,13 +186,13 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
   //VEOR y.B16, XTMP7.B16, x.B16
   //VTBL INVERSE_SHIFT_ROWS.B16, [x.B16], x.B16
   
-  VEOR x.B16, t0.B16, t0.B16
+  //VEOR x.B16, t0.B16, t0.B16
   
   VMOV t0.S[0], R2
   MOVW.P R2, 4(R10)
-  VMOV t1.S[0], R2
+  VMOV x.S[0], R2
   MOVW.P R2, 4(R10)
-  VMOV t2.S[0], R2
+  VMOV y.S[0], R2
   MOVW.P R2, 4(R10)
   VMOV t3.S[0], R2
   MOVW.P R2, 4(R10)      
