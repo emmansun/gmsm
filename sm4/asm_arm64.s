@@ -9,7 +9,7 @@
 #define ZERO V16
 #define FLIP_MASK V17
 #define NIBBLE_MASK V20
-#define INVERSE_SHIFT_ROWS V30
+#define INVERSE_SHIFT_ROWS V21
 #define M1L V22
 #define M1H V23 
 #define M2L V24 
@@ -91,23 +91,14 @@ GLOBL fk_mask<>(SB), (NOPTR+RODATA), $16
 #define SM4_TAO_L1(x, y)         \
   SM4_SBOX(x, y);                              \
   ;                                            \ //####################  4 parallel L1 linear transforms ##################//
-  LDP	r08_mask<>(SB), (R0, R1);                \
-	VMOV	R0, XTMP7.D[0];                        \
-	VMOV	R1, XTMP7.D[1];                        \  
-  VTBL XTMP7.B16, [x.B16], y.B16;              \
+  VTBL R08_MASK.B16, [x.B16], y.B16;           \
   VEOR y.B16, x.B16, y.B16;                    \
-  LDP	r16_mask<>(SB), (R0, R1);                \
-	VMOV	R0, V8.D[0];                           \
-	VMOV	R1, V8.D[1];                           \   
-  VTBL V8.B16, [x.B16], XTMP7.B16;             \
+  VTBL R16_MASK.B16, [x.B16], XTMP7.B16;       \
   VEOR XTMP7.B16, y.B16, y.B16;                \
   VSHL $2, y.S4, XTMP7.S4;                     \
-  VUSHR $32, y.S4, y.S4;                       \
-  VEOR y.B16, XTMP7.B16, y.B16;                \
-  LDP	r24_mask<>(SB), (R0, R1);                \
-	VMOV	R0, V8.D[0];                           \
-	VMOV	R1, V8.D[1];                           \    
-  VTBL V8.B16, [x.B16], XTMP7.B16;             \
+  VUSHR $30, y.S4, y.S4;                       \
+  VORR y.B16, XTMP7.B16, y.B16;                \
+  VTBL R24_MASK.B16, [x.B16], XTMP7.B16;       \
   VEOR XTMP7.B16, x.B16, x.B16;                \
   VEOR y.B16, x.B16, x.B16
 
@@ -162,7 +153,7 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
 	VMOV	R0, INVERSE_SHIFT_ROWS.D[0]
 	VMOV	R1, INVERSE_SHIFT_ROWS.D[1]
 	
-  VLD1 (R8), [t0.B16]; 
+  VLD1 (R8), [t0.B16]
   VTBL FLIP_MASK.B16, [t0.B16], t0.B16
   VEOR t0.B16, FK_MASK.B16, t0.B16
   VMOV t0.S[1], t1.S[0]
@@ -230,6 +221,164 @@ TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
   MOVD dst+8(FP), R9
   MOVD src+16(FP), R10
 
+  LDPW	(0*8)(R10), (R19, R20)
+  LDPW	(1*8)(R10), (R21, R22)
+  VMOV R19, t0.S[0]
+  VMOV R20, t1.S[0]
+  VMOV R21, t2.S[0]
+  VMOV R22, t3.S[0]
+  
+  LDPW	(2*8)(R10), (R19, R20)
+  LDPW	(3*8)(R10), (R21, R22)
+  VMOV R19, t0.S[1]
+  VMOV R20, t1.S[1]
+  VMOV R21, t2.S[1]
+  VMOV R22, t3.S[1]
+
+  LDPW	(4*8)(R10), (R19, R20)
+  LDPW	(5*8)(R10), (R21, R22)
+  VMOV R19, t0.S[2]
+  VMOV R20, t1.S[2]
+  VMOV R21, t2.S[2]
+  VMOV R22, t3.S[2]  
+
+  LDPW	(6*8)(R10), (R19, R20)
+  LDPW	(7*8)(R10), (R21, R22)
+  VMOV R19, t0.S[3]
+  VMOV R20, t1.S[3]
+  VMOV R21, t2.S[3]
+  VMOV R22, t3.S[3]    
+
+  LDP	flip_mask<>(SB), (R0, R1)
+	VMOV	R0, FLIP_MASK.D[0]
+	VMOV	R1, FLIP_MASK.D[1]
+  
+  LDP	nibble_mask<>(SB), (R0, R1)
+	VMOV	R0, NIBBLE_MASK.D[0]
+	VMOV	R1, NIBBLE_MASK.D[1]  
+
+  LDP	m1_low<>(SB), (R0, R1)
+	VMOV	R0, M1L.D[0]
+	VMOV	R1, M1L.D[1]  
+
+  LDP	m1_high<>(SB), (R0, R1)
+	VMOV	R0, M1H.D[0]
+	VMOV	R1, M1H.D[1]  
+
+  LDP	m2_low<>(SB), (R0, R1)
+	VMOV	R0, M2L.D[0]
+	VMOV	R1, M2L.D[1]  
+
+  LDP	m2_high<>(SB), (R0, R1)
+	VMOV	R0, M2H.D[0]
+	VMOV	R1, M2H.D[1] 
+
+  LDP	fk_mask<>(SB), (R0, R1)
+	VMOV	R0, FK_MASK.D[0]
+	VMOV	R1, FK_MASK.D[1]
+
+  LDP	inverse_shift_rows<>(SB), (R0, R1)
+	VMOV	R0, INVERSE_SHIFT_ROWS.D[0]
+	VMOV	R1, INVERSE_SHIFT_ROWS.D[1]
+
+  LDP	r08_mask<>(SB), (R0, R1)
+	VMOV	R0, R08_MASK.D[0]
+	VMOV	R1, R08_MASK.D[1]
+
+  LDP	r16_mask<>(SB), (R0, R1)
+	VMOV	R0, R16_MASK.D[0]
+	VMOV	R1, R16_MASK.D[1]  
+
+  LDP	r24_mask<>(SB), (R0, R1)
+	VMOV	R0, R24_MASK.D[0]
+	VMOV	R1, R24_MASK.D[1]  
+
+  VTBL FLIP_MASK.B16, [t0.B16], t0.B16
+  VTBL FLIP_MASK.B16, [t1.B16], t1.B16
+  VTBL FLIP_MASK.B16, [t2.B16], t2.B16
+  VTBL FLIP_MASK.B16, [t3.B16], t3.B16
+
+  VEOR ZERO.B16, ZERO.B16, ZERO.B16
+  EOR R0, R0
+
+encryptBlocksLoop:
+  MOVW.P 4(R8), R19
+  VMOV R19, x.S[0]
+  VMOV R19, x.S[1]
+  VMOV R19, x.S[2]
+  VMOV R19, x.S[3]
+  VEOR t1.B16, x.B16, x.B16
+  VEOR t2.B16, x.B16, x.B16
+  VEOR t3.B16, x.B16, x.B16
+  SM4_TAO_L1(x, y)
+  VEOR x.B16, t0.B16, t0.B16
+
+  MOVW.P 4(R8), R19
+  VMOV R19, x.S[0]
+  VMOV R19, x.S[1]
+  VMOV R19, x.S[2]
+  VMOV R19, x.S[3]
+  VEOR t0.B16, x.B16, x.B16
+  VEOR t2.B16, x.B16, x.B16
+  VEOR t3.B16, x.B16, x.B16
+  SM4_TAO_L1(x, y)
+  VEOR x.B16, t1.B16, t1.B16
+
+  MOVW.P 4(R8), R19
+  VMOV R19, x.S[0]
+  VMOV R19, x.S[1]
+  VMOV R19, x.S[2]
+  VMOV R19, x.S[3]
+  VEOR t0.B16, x.B16, x.B16
+  VEOR t1.B16, x.B16, x.B16
+  VEOR t3.B16, x.B16, x.B16
+  SM4_TAO_L1(x, y)
+  VEOR x.B16, t2.B16, t2.B16
+
+  MOVW.P 4(R8), R19
+  VMOV R19, x.S[0]
+  VMOV R19, x.S[1]
+  VMOV R19, x.S[2]
+  VMOV R19, x.S[3]
+  VEOR t0.B16, x.B16, x.B16
+  VEOR t1.B16, x.B16, x.B16
+  VEOR t2.B16, x.B16, x.B16
+  SM4_TAO_L1(x, y)
+  VEOR x.B16, t3.B16, t3.B16
+
+  ADD $16, R0
+  CMP $128, R0
+  BNE encryptBlocksLoop
+
+  VTBL FLIP_MASK.B16, [t0.B16], t0.B16
+  VTBL FLIP_MASK.B16, [t1.B16], t1.B16
+  VTBL FLIP_MASK.B16, [t2.B16], t2.B16
+  VTBL FLIP_MASK.B16, [t3.B16], t3.B16
+
+  VMOV t3.S[0], V8.S[0]
+  VMOV t2.S[0], V8.S[1]
+  VMOV t1.S[0], V8.S[2]
+  VMOV t0.S[0], V8.S[3]
+  VST1.P	[V8.B16], 16(R9)
+
+  VMOV t3.S[1], V8.S[0]
+  VMOV t2.S[1], V8.S[1]
+  VMOV t1.S[1], V8.S[2]
+  VMOV t0.S[1], V8.S[3]
+  VST1.P	[V8.B16], 16(R9)
+
+  VMOV t3.S[2], V8.S[0]
+  VMOV t2.S[2], V8.S[1]
+  VMOV t1.S[2], V8.S[2]
+  VMOV t0.S[2], V8.S[3]
+  VST1.P	[V8.B16], 16(R9)
+
+  VMOV t3.S[3], V8.S[0]
+  VMOV t2.S[3], V8.S[1]
+  VMOV t1.S[3], V8.S[2]
+  VMOV t0.S[3], V8.S[3]
+  VST1	[V8.B16], (R9)
+
 	RET
 
 
@@ -238,5 +387,123 @@ TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
   MOVD xk+0(FP), R8
   MOVD dst+8(FP), R9
   MOVD src+16(FP), R10
+
+  LDPW	(0*8)(R10), (R19, R20)
+  LDPW	(1*8)(R10), (R21, R22)
+  REVW R19, R19
+  REVW R20, R20
+  REVW R21, R21
+  REVW R22, R22
+  VMOV R19, t0.S[0]
+  VMOV R20, t1.S[0]
+  VMOV R21, t2.S[0]
+  VMOV R22, t3.S[0]
+
+  LDP	flip_mask<>(SB), (R0, R1)
+	VMOV	R0, FLIP_MASK.D[0]
+	VMOV	R1, FLIP_MASK.D[1]
+  
+  LDP	nibble_mask<>(SB), (R0, R1)
+	VMOV	R0, NIBBLE_MASK.D[0]
+	VMOV	R1, NIBBLE_MASK.D[1]  
+
+  LDP	m1_low<>(SB), (R0, R1)
+	VMOV	R0, M1L.D[0]
+	VMOV	R1, M1L.D[1]  
+
+  LDP	m1_high<>(SB), (R0, R1)
+	VMOV	R0, M1H.D[0]
+	VMOV	R1, M1H.D[1]  
+
+  LDP	m2_low<>(SB), (R0, R1)
+	VMOV	R0, M2L.D[0]
+	VMOV	R1, M2L.D[1]  
+
+  LDP	m2_high<>(SB), (R0, R1)
+	VMOV	R0, M2H.D[0]
+	VMOV	R1, M2H.D[1] 
+
+  LDP	fk_mask<>(SB), (R0, R1)
+	VMOV	R0, FK_MASK.D[0]
+	VMOV	R1, FK_MASK.D[1]
+
+  LDP	inverse_shift_rows<>(SB), (R0, R1)
+	VMOV	R0, INVERSE_SHIFT_ROWS.D[0]
+	VMOV	R1, INVERSE_SHIFT_ROWS.D[1]
+
+  LDP	r08_mask<>(SB), (R0, R1)
+	VMOV	R0, R08_MASK.D[0]
+	VMOV	R1, R08_MASK.D[1]
+
+  LDP	r16_mask<>(SB), (R0, R1)
+	VMOV	R0, R16_MASK.D[0]
+	VMOV	R1, R16_MASK.D[1]  
+
+  LDP	r24_mask<>(SB), (R0, R1)
+	VMOV	R0, R24_MASK.D[0]
+	VMOV	R1, R24_MASK.D[1]  
+
+  VEOR ZERO.B16, ZERO.B16, ZERO.B16
+  EOR R0, R0
+
+encryptBlockLoop:
+  MOVW.P 4(R8), R19
+  VMOV R19, x.S[0]
+  VMOV R19, x.S[1]
+  VMOV R19, x.S[2]
+  VMOV R19, x.S[3]
+  VEOR t1.B16, x.B16, x.B16
+  VEOR t2.B16, x.B16, x.B16
+  VEOR t3.B16, x.B16, x.B16
+  SM4_TAO_L1(x, y)
+  VEOR x.B16, t0.B16, t0.B16
+
+  MOVW.P 4(R8), R19
+  VMOV R19, x.S[0]
+  VMOV R19, x.S[1]
+  VMOV R19, x.S[2]
+  VMOV R19, x.S[3]
+  VEOR t0.B16, x.B16, x.B16
+  VEOR t2.B16, x.B16, x.B16
+  VEOR t3.B16, x.B16, x.B16
+  SM4_TAO_L1(x, y)
+  VEOR x.B16, t1.B16, t1.B16
+
+  MOVW.P 4(R8), R19
+  VMOV R19, x.S[0]
+  VMOV R19, x.S[1]
+  VMOV R19, x.S[2]
+  VMOV R19, x.S[3]
+  VEOR t0.B16, x.B16, x.B16
+  VEOR t1.B16, x.B16, x.B16
+  VEOR t3.B16, x.B16, x.B16
+  SM4_TAO_L1(x, y)
+  VEOR x.B16, t2.B16, t2.B16
+
+  MOVW.P 4(R8), R19
+  VMOV R19, x.S[0]
+  VMOV R19, x.S[1]
+  VMOV R19, x.S[2]
+  VMOV R19, x.S[3]
+  VEOR t0.B16, x.B16, x.B16
+  VEOR t1.B16, x.B16, x.B16
+  VEOR t2.B16, x.B16, x.B16
+  SM4_TAO_L1(x, y)
+  VEOR x.B16, t3.B16, t3.B16
+
+  ADD $16, R0
+  CMP $128, R0
+  BNE encryptBlockLoop
+
+  VTBL FLIP_MASK.B16, [t0.B16], t0.B16
+  VTBL FLIP_MASK.B16, [t1.B16], t1.B16
+  VTBL FLIP_MASK.B16, [t2.B16], t2.B16
+  VTBL FLIP_MASK.B16, [t3.B16], t3.B16
+
+  VMOV t3.S[0], V8.S[0]
+  VMOV t2.S[0], V8.S[1]
+  VMOV t1.S[0], V8.S[2]
+  VMOV t0.S[0], V8.S[3]
+  VST1	[V8.B16], (R9)
 
 	RET  

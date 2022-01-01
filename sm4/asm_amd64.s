@@ -100,7 +100,7 @@ GLOBL fk_mask<>(SB), RODATA, $16
   MOVOU y, XTMP6;                     \
   PSLLL $2, XTMP6;                    \
   PSRLL $30, y;                       \
-  PXOR XTMP6, y;                      \ //y = _mm_slli_epi32(y, 2) ^ _mm_srli_epi32(y, 30);  
+  POR XTMP6, y;                       \ //y = _mm_slli_epi32(y, 2) ^ _mm_srli_epi32(y, 30);  
   MOVOU x, XTMP7;                     \
   PSHUFB r24_mask<>(SB), XTMP7;       \
   PXOR y, x;                          \ //x = x xor y
