@@ -10,5 +10,6 @@ TEXT ·tblAsm(SB),NOSPLIT,$0
   VLD1 (R9), [V1.B16]
 
   VTBL V1.B16, [V0.B16], V2.B16
-  VST1 V2.B16, (R10)
+  VST1 [V2.B16], (R10)
   RET
+  
