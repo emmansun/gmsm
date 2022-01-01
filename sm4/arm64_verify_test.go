@@ -20,4 +20,6 @@ func TestTblAsm(t *testing.T) {
 	if !reflect.DeepEqual(out, imm) {
 		t.Errorf("expected=%v, result=%v\n", imm, out)
 	}
+
+	imm = []byte{0, 7, 2, 3}
 }
