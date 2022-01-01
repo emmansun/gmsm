@@ -8,7 +8,16 @@
 #define t3 V5
 #define ZERO V16
 #define FLIP_MASK V17
-
+#define NIBBLE_MASK V20
+#define INVERSE_SHIFT_ROWS V21
+#define M1L V22
+#define M1H V23 
+#define M2L V24 
+#define M2H V25
+#define R08_MASK V26 
+#define R16_MASK V27
+#define R24_MASK V28
+#define FK_MASK V29
 #define XTMP6 V6
 #define XTMP7 V7
 
@@ -121,11 +130,6 @@ GLOBL fk_mask<>(SB), (NOPTR+RODATA), $16
   VEOR y.B16, x.B16, x.B16
 
 #define SM4_TAO_L2(x, y)         \
-	VMOV	R0, XTMP6.D[0];                          \
-	VMOV	R1, XTMP6.D[1];                          \
-  VAND x.B16, XTMP6.B16, XTMP7.B16;              \
-	VMOV	R0, y.D[0];                              \
-	VMOV	R1, y.D[1];                              \
   ;                                           \ //####################  4 parallel L2 linear transforms ##################//
   VSHL $13, x.S4, XTMP6.S4;                   \
   VUSHR $19, x.S4, y.S4;                      \
@@ -142,16 +146,38 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
   MOVD  ck+8(FP), R9
   MOVD  enc+16(FP), R10
   MOVD  dec+24(FP), R11
-
-  VLD1 (R8), [t0.B16]; 
+  
   LDP	flip_mask<>(SB), (R0, R1)
 	VMOV	R0, FLIP_MASK.D[0]
 	VMOV	R1, FLIP_MASK.D[1]
-  VTBL FLIP_MASK.B16, [t0.B16], t0.B16
+  
+  LDP	nibble_mask<>(SB), (R0, R1)
+	VMOV	R0, NIBBLE_MASK.D[0]
+	VMOV	R1, NIBBLE_MASK.D[1]  
+
+  LDP	m1_low<>(SB), (R0, R1)
+	VMOV	R0, M1L.D[0]
+	VMOV	R1, M1L.D[1]  
+
+  LDP	m1_high<>(SB), (R0, R1)
+	VMOV	R0, M1H.D[0]
+	VMOV	R1, M1H.D[1]  
+
+  LDP	m2_low<>(SB), (R0, R1)
+	VMOV	R0, M2L.D[0]
+	VMOV	R1, M2L.D[1]  
+
+  LDP	m2_high<>(SB), (R0, R1)
+	VMOV	R0, M2H.D[0]
+	VMOV	R1, M2H.D[1] 
+
   LDP	fk_mask<>(SB), (R0, R1)
-	VMOV	R0, XTMP7.D[0]
-	VMOV	R1, XTMP7.D[1]
-  VEOR t0.B16, XTMP7.B16, t0.B16
+	VMOV	R0, FK_MASK.D[0]
+	VMOV	R1, FK_MASK.D[1]
+
+  VLD1 (R8), [t0.B16]; 
+  VTBL FLIP_MASK.B16, [t0.B16], t0.B16
+  VEOR t0.B16, FK_MASK.B16, t0.B16
   VMOV t0.S[1], t1.S[0]
   VMOV t0.S[2], t2.S[0]
   VMOV t0.S[3], t3.S[0]
