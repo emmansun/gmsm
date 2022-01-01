@@ -32,8 +32,10 @@ DATA nibble_mask<>+0x08(SB)/8, $0x0F0F0F0F0F0F0F0F
 GLOBL nibble_mask<>(SB), (NOPTR+RODATA), $16
 
 // inverse shift rows
-DATA inverse_shift_rows<>+0x00(SB)/8, $0x0B0E0104070A0D00
-DATA inverse_shift_rows<>+0x08(SB)/8, $0x0306090C0F020508 
+//DATA inverse_shift_rows<>+0x00(SB)/8, $0x0B0E0104070A0D00
+//DATA inverse_shift_rows<>+0x08(SB)/8, $0x0306090C0F020508 
+DATA inverse_shift_rows<>+0x00(SB)/8, $0x0706050403020100
+DATA inverse_shift_rows<>+0x08(SB)/8, $0x0F0E0D0C0B0A0908 
 GLOBL inverse_shift_rows<>(SB), (NOPTR+RODATA), $16
 
 // Affine transform 1 (low and high hibbles)
@@ -184,7 +186,7 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
   VAND x.B16, NIBBLE_MASK.B16, XTMP7.B16
   VTBL XTMP7.B16, [M1H.B16], XTMP7.B16
   VEOR y.B16, XTMP7.B16, x.B16
-  VTBL INVERSE_SHIFT_ROWS.B16, [x.B16], y.B16
+  VTBL INVERSE_SHIFT_ROWS.B16, [x.B16], x.B16
   
   //VEOR x.B16, t0.B16, t0.B16
   
