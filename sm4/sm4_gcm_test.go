@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestPrecomputeTableAsm(t *testing.T) {
+func genPrecomputeTable() *gcmAsm {
 	key := []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
 	c := sm4CipherAsm{sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}}
 	expandKeyAsm(&key[0], &ck[0], &c.enc[0], &c.dec[0])
@@ -19,10 +19,26 @@ func TestPrecomputeTableAsm(t *testing.T) {
 	c1.Encrypt(key1[:], key1[:])
 	fmt.Printf("%v\n", key1)
 	precomputeTableAsm(&g.bytesProductTable, &key1)
+	return g
+}
+
+func TestPrecomputeTableAsm(t *testing.T) {
+	g := genPrecomputeTable()
 	for i := 0; i < 16; i++ {
 		for j := 0; j < 16; j++ {
 			fmt.Printf("%02X ", g.bytesProductTable[i*16+j])
 		}
 		fmt.Println()
 	}
+}
+
+func TestGcmSm4Data(t *testing.T) {
+	g := genPrecomputeTable()
+	var counter [gcmBlockSize]byte
+	nonce := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13}
+	gcmSm4Data(&g.bytesProductTable, nonce, &counter)
+	for j := 0; j < 16; j++ {
+		fmt.Printf("%02X ", counter[j])
+	}
+	fmt.Println()
 }
