@@ -9,7 +9,7 @@ import (
 )
 
 func TestPrecomputeTableAsm(t *testing.T) {
-	key := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
+	key := []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
 	c := sm4CipherAsm{sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}}
 	expandKeyAsm(&key[0], &ck[0], &c.enc[0], &c.dec[0])
 	c1 := &sm4CipherGCM{c}
