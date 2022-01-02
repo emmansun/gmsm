@@ -17,6 +17,7 @@ func TestPrecomputeTableAsm(t *testing.T) {
 	g.cipher = &c1.sm4CipherAsm
 	var key1 [gcmBlockSize]byte
 	c1.Encrypt(key1[:], key1[:])
+	fmt.Printf("%v\n", key1)
 	precomputeTableAsm(&g.bytesProductTable, &key1)
 	fmt.Printf("%v\n", g.bytesProductTable)
 }
