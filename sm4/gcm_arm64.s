@@ -142,7 +142,8 @@ TEXT ·precomputeTableAsm(SB),NOSPLIT,$0
 	VEOR	B0.B16, B1.B16, B1.B16
 
 	ADD	$14*16, pTbl
-	VST1	[B0.B16, B1.B16], (pTbl)
+	VREV64 B0.B16, B7.B16
+	VST1	[B7.B16, B1.B16], (pTbl)
 	SUB	$2*16, pTbl
 
 	VMOV	B0.B16, B2.B16
@@ -174,7 +175,8 @@ initLoop:
 	VEXT	$8, B2.B16, B2.B16, B2.B16
 	VEOR	B2.B16, B3.B16, B3.B16
 
-	VST1	[B2.B16, B3.B16], (pTbl)
+	VREV64 B2.B16, B7.B16
+	VST1	[B7.B16, B3.B16], (pTbl)
 	SUB	$2*16, pTbl
 
 	BNE	initLoop
