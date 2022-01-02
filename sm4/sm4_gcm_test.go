@@ -109,6 +109,18 @@ func TestGcmSm4Finish(t *testing.T) {
 	fmt.Println()
 }
 
+/*
+amd64 result= {
+71 F0 B5 6E B6 6A 89 11 98 01 23 72 4B F6 0D 0C
+5B 36 17 D5 95 7E B6 42 8C 6A C7 E1 80 76 70 B6
+16 3E 35 A0 B7 51 62 AA 1D AF C1 15 2D C4 3B 9D
+}
+arm64 result = {
+98 01 23 72 4B F6 0D 0C 71 F0 B5 6E B6 6A 89 11
+8C 6A C7 E1 80 76 70 B6 5B 36 17 D5 95 7E B6 42
+16 3E 35 A0 B7 51 62 AA 1D AF C1 15 2D C4 3B 9D
+}
+*/
 func TestBothDataPlaintext(t *testing.T) {
 	g := genPrecomputeTable()
 	var tagOut, tagMask [gcmBlockSize]byte
