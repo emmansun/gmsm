@@ -210,7 +210,8 @@ TEXT ·gcmSm4Data(SB),NOSPLIT,$0
 	MOVD	data_len+16(FP), autLen
 	MOVD	T+32(FP), tPtr
 
-	VEOR	ACC0.B16, ACC0.B16, ACC0.B16
+	//VEOR	ACC0.B16, ACC0.B16, ACC0.B16
+	VLD1 (tPtr), [ACC0.B16]
 	CBZ	autLen, dataBail
 
 	MOVD	$0xC2, H0
