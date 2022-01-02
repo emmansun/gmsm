@@ -94,7 +94,7 @@ amd64 result = {
 	8F F3 05 10 EA 99 A8 D7 41 D9 E3 BA 67 D6 18 EE
 }
 arm64 result = {
-
+	8F F3 05 10 EA 99 A8 D7 41 D9 E3 BA 67 D6 18 EE
 }
 */
 func TestGcmSm4Finish(t *testing.T) {
@@ -105,6 +105,30 @@ func TestGcmSm4Finish(t *testing.T) {
 	gcmSm4Finish(&g.bytesProductTable, &tagMask, &counter, uint64(len(nonce)), uint64(0))
 	for j := 0; j < 16; j++ {
 		fmt.Printf("%02X ", counter[j])
+	}
+	fmt.Println()
+}
+
+func TestBothDataPlaintext(t *testing.T) {
+	g := genPrecomputeTable()
+	var tagOut, tagMask [gcmBlockSize]byte
+	data := []byte("emmansun")
+	gcmSm4Data(&g.bytesProductTable, data, &tagOut)
+	for j := 0; j < 16; j++ {
+		tagMask[j] = byte(j)
+	}
+	for j := 0; j < 16; j++ {
+		fmt.Printf("%02X ", tagOut[j])
+	}
+	fmt.Println()
+	gcmSm4Data(&g.bytesProductTable, []byte("emmansunemmansunemmansunemmansun"), &tagOut)
+	for j := 0; j < 16; j++ {
+		fmt.Printf("%02X ", tagOut[j])
+	}
+	fmt.Println()
+	gcmSm4Finish(&g.bytesProductTable, &tagMask, &tagOut, uint64(32), uint64(8))
+	for j := 0; j < 16; j++ {
+		fmt.Printf("%02X ", tagOut[j])
 	}
 	fmt.Println()
 }
