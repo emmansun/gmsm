@@ -19,5 +19,10 @@ func TestPrecomputeTableAsm(t *testing.T) {
 	c1.Encrypt(key1[:], key1[:])
 	fmt.Printf("%v\n", key1)
 	precomputeTableAsm(&g.bytesProductTable, &key1)
-	fmt.Printf("%v\n", g.bytesProductTable)
+	for i := 0; i < 16; i++ {
+		for j := 0; j < 16; j++ {
+			fmt.Printf("%02X ", g.bytesProductTable[i*16+j])
+		}
+		fmt.Println()
+	}
 }
