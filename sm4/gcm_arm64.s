@@ -180,8 +180,7 @@ initLoop:
 	BNE	initLoop
 	RET
 #undef I
-#undef NR
-#undef KS
+#undef SRC
 #undef pTbl	
 
 // func gcmSm4Data(productTable *[256]byte, data []byte, T *[16]byte)
