@@ -12,7 +12,7 @@ import (
 
 var supportSM4 = cpu.ARM64.HasSM4
 var supportsAES = cpu.X86.HasAES || cpu.ARM64.HasAES
-var supportsGFMUL = cpu.X86.HasPCLMULQDQ
+var supportsGFMUL = cpu.X86.HasPCLMULQDQ || cpu.ARM64.HasPMULL
 
 //go:noescape
 func encryptBlocksAsm(xk *uint32, dst, src *byte)
@@ -33,9 +33,9 @@ func newCipher(key []byte) (cipher.Block, error) {
 	}
 	c := sm4CipherAsm{sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}}
 	expandKeyAsm(&key[0], &ck[0], &c.enc[0], &c.dec[0])
-	//if supportsAES && supportsGFMUL {
-	//	return &sm4CipherGCM{c}, nil
-	//}
+	if supportsAES && supportsGFMUL {
+		return &sm4CipherGCM{c}, nil
+	}
 	return &c, nil
 }
 

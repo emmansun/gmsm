@@ -7,7 +7,7 @@ This is a **SM2 sm2p256v1** implementation whose performance is similar like gol
 
 This is also a **SM3** implementation whose performance is similar like golang native SHA 256 with SIMD under **amd64**, for implementation detail, please refer [SM3性能优化](https://github.com/emmansun/gmsm/wiki/SM3%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96).
 
-For **SM4** implementation, SIMD & AES-NI are used under **amd64**, for detail please refer [SM4性能优化](https://github.com/emmansun/gmsm/wiki/SM4%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96), support CBC/CFB/OFB/CTR/GCM/CCM/XTS modes.
+For **SM4** implementation, SIMD & AES-NI are used under **amd64** and **arm64**, for detail please refer [SM4性能优化](https://github.com/emmansun/gmsm/wiki/SM4%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96), support CBC/CFB/OFB/CTR/GCM/CCM/XTS modes.
 
 **SM2 encryption Benchmark**
 

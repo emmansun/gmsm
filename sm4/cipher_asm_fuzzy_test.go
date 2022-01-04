@@ -5,14 +5,12 @@ package sm4
 
 import (
 	"crypto/rand"
-	"fmt"
 	"io"
+	"reflect"
 	"testing"
-
-	"golang.org/x/sys/cpu"
+	"time"
 )
 
-/*
 func TestExpandKey(t *testing.T) {
 	key := make([]byte, 16)
 
@@ -44,20 +42,4 @@ func TestExpandKey(t *testing.T) {
 			t.Errorf("expected=%v, result=%v\n", encRes1, encRes2)
 		}
 	}
-}
-*/
-
-func TestExpandKeySimple(t *testing.T) {
-	fmt.Printf("cpu.ARM64.HasAES=%v\n", cpu.ARM64.HasAES)
-	key := make([]byte, 16)
-
-	encRes1 := make([]uint32, 32)
-	decRes1 := make([]uint32, 32)
-	encRes2 := make([]uint32, 32)
-	decRes2 := make([]uint32, 32)
-	io.ReadFull(rand.Reader, key)
-	expandKeyGo(key, encRes1, decRes1)
-	expandKeyAsm(&key[0], &ck[0], &encRes2[0], &decRes2[0])
-	fmt.Printf("expected=%v, result=%v\n", encRes1, encRes2)
-	fmt.Printf("expected=%v, result=%v\n", decRes1, decRes2)
 }
