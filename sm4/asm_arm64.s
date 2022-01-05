@@ -220,33 +220,26 @@ TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
   MOVD dst+8(FP), R9
   MOVD src+16(FP), R10
 
-  LDPW	(0*8)(R10), (R19, R20)
-  LDPW	(1*8)(R10), (R21, R22)
-  VMOV R19, t0.S[0]
-  VMOV R20, t1.S[0]
-  VMOV R21, t2.S[0]
-  VMOV R22, t3.S[0]
+  VLD1 (R10), [V5.S4, V6.S4, V7.S4, V8.S4]
+  VMOV V5.S[0], t0.S[0]
+  VMOV V5.S[1], t1.S[0]
+  VMOV V5.S[2], t2.S[0]
+  VMOV V5.S[3], t3.S[0]
   
-  LDPW (2*8)(R10), (R19, R20)
-  LDPW (3*8)(R10), (R21, R22)
-  VMOV R19, t0.S[1]
-  VMOV R20, t1.S[1]
-  VMOV R21, t2.S[1]
-  VMOV R22, t3.S[1]
+  VMOV V6.S[0], t0.S[1]
+  VMOV V6.S[1], t1.S[1]
+  VMOV V6.S[2], t2.S[1]
+  VMOV V6.S[3], t3.S[1]
 
-  LDPW (4*8)(R10), (R19, R20)
-  LDPW (5*8)(R10), (R21, R22)
-  VMOV R19, t0.S[2]
-  VMOV R20, t1.S[2]
-  VMOV R21, t2.S[2]
-  VMOV R22, t3.S[2]  
+  VMOV V7.S[0], t0.S[2]
+  VMOV V7.S[1], t1.S[2]
+  VMOV V7.S[2], t2.S[2]
+  VMOV V7.S[3], t3.S[2]  
 
-  LDPW (6*8)(R10), (R19, R20)
-  LDPW (7*8)(R10), (R21, R22)
-  VMOV R19, t0.S[3]
-  VMOV R20, t1.S[3]
-  VMOV R21, t2.S[3]
-  VMOV R22, t3.S[3]    
+  VMOV V8.S[0], t0.S[3]
+  VMOV V8.S[1], t1.S[3]
+  VMOV V8.S[2], t2.S[3]
+  VMOV V8.S[3], t3.S[3]    
 
   load_global_data_2()
 
@@ -345,16 +338,11 @@ TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
   MOVD dst+8(FP), R9
   MOVD src+16(FP), R10
 
-  LDPW (0*8)(R10), (R19, R20)
-  LDPW (1*8)(R10), (R21, R22)
-  REVW R19, R19
-  REVW R20, R20
-  REVW R21, R21
-  REVW R22, R22
-  VMOV R19, t0.S[0]
-  VMOV R20, t1.S[0]
-  VMOV R21, t2.S[0]
-  VMOV R22, t3.S[0]
+  VLD1 (R10), [t0.S4]
+  VREV32 t0.B16, t0.B16
+  VMOV t0.S[1], t1.S[0]
+  VMOV t0.S[2], t2.S[0]
+  VMOV t0.S[3], t3.S[0]
 
   load_global_data_2()
 
