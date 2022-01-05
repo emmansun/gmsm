@@ -7,7 +7,6 @@
 #define t2 V4
 #define t3 V5
 #define ZERO V16
-#define FLIP_MASK V17
 #define NIBBLE_MASK V20
 #define INVERSE_SHIFT_ROWS V21
 #define M1L V22
@@ -20,11 +19,6 @@
 #define FK_MASK V29
 #define XTMP6 V6
 #define XTMP7 V7
-
-// shuffle byte order from LE to BE
-DATA flip_mask<>+0x00(SB)/8, $0x0405060700010203
-DATA flip_mask<>+0x08(SB)/8, $0x0c0d0e0f08090a0b
-GLOBL flip_mask<>(SB), (NOPTR+RODATA), $16
 
 //nibble mask
 DATA nibble_mask<>+0x00(SB)/8, $0x0F0F0F0F0F0F0F0F
@@ -115,54 +109,51 @@ GLOBL fk_mask<>(SB), (NOPTR+RODATA), $16
   VEOR x.B16, y.B16, x.B16
 
 #define load_global_data_1() \
-  LDP	flip_mask<>(SB), (R0, R1)    \
-	VMOV	R0, FLIP_MASK.D[0]         \
-	VMOV	R1, FLIP_MASK.D[1]         \
-  LDP	nibble_mask<>(SB), (R0, R1)  \
-	VMOV	R0, NIBBLE_MASK.D[0]       \
-	VMOV	R1, NIBBLE_MASK.D[1]       \
-  LDP	m1_low<>(SB), (R0, R1)       \
-	VMOV	R0, M1L.D[0]               \
-	VMOV	R1, M1L.D[1]               \
-  LDP	m1_high<>(SB), (R0, R1)      \
-	VMOV	R0, M1H.D[0]               \
-	VMOV	R1, M1H.D[1]               \
-  LDP	m2_low<>(SB), (R0, R1)       \
-	VMOV	R0, M2L.D[0]               \
-	VMOV	R1, M2L.D[1]               \
-  LDP	m2_high<>(SB), (R0, R1)      \
-	VMOV	R0, M2H.D[0]               \
-	VMOV	R1, M2H.D[1]               \
-  LDP	fk_mask<>(SB), (R0, R1)      \
-	VMOV	R0, FK_MASK.D[0]           \
-	VMOV	R1, FK_MASK.D[1]           \
-  LDP	inverse_shift_rows<>(SB), (R0, R1)  \
-	VMOV	R0, INVERSE_SHIFT_ROWS.D[0]       \
-	VMOV	R1, INVERSE_SHIFT_ROWS.D[1]       
+  LDP nibble_mask<>(SB), (R0, R1)         \
+  VMOV R0, NIBBLE_MASK.D[0]               \
+  VMOV R1, NIBBLE_MASK.D[1]               \
+  LDP m1_low<>(SB), (R0, R1)              \
+  VMOV R0, M1L.D[0]                       \
+  VMOV R1, M1L.D[1]                       \
+  LDP m1_high<>(SB), (R0, R1)             \
+  VMOV R0, M1H.D[0]                       \
+  VMOV R1, M1H.D[1]                       \
+  LDP m2_low<>(SB), (R0, R1)              \
+  VMOV R0, M2L.D[0]                       \
+  VMOV R1, M2L.D[1]                       \
+  LDP m2_high<>(SB), (R0, R1)             \
+  VMOV R0, M2H.D[0]                       \
+  VMOV R1, M2H.D[1]                       \
+  LDP fk_mask<>(SB), (R0, R1)             \
+  VMOV R0, FK_MASK.D[0]                   \
+  VMOV R1, FK_MASK.D[1]                   \
+  LDP inverse_shift_rows<>(SB), (R0, R1)  \
+  VMOV R0, INVERSE_SHIFT_ROWS.D[0]        \
+  VMOV R1, INVERSE_SHIFT_ROWS.D[1]       
 
 #define load_global_data_2() \
   load_global_data_1()         \
-  LDP	r08_mask<>(SB), (R0, R1) \
-	VMOV	R0, R08_MASK.D[0]      \
-	VMOV	R1, R08_MASK.D[1]      \
-  LDP	r16_mask<>(SB), (R0, R1) \
-	VMOV	R0, R16_MASK.D[0]      \
-	VMOV	R1, R16_MASK.D[1]      \
-  LDP	r24_mask<>(SB), (R0, R1) \
-	VMOV	R0, R24_MASK.D[0]      \
-	VMOV	R1, R24_MASK.D[1]      
+  LDP r08_mask<>(SB), (R0, R1) \
+  VMOV R0, R08_MASK.D[0]       \
+  VMOV R1, R08_MASK.D[1]       \
+  LDP r16_mask<>(SB), (R0, R1) \
+  VMOV R0, R16_MASK.D[0]       \
+  VMOV R1, R16_MASK.D[1]       \
+  LDP r24_mask<>(SB), (R0, R1) \
+  VMOV R0, R24_MASK.D[0]       \
+  VMOV R1, R24_MASK.D[1]
 
 // func expandKeyAsm(key *byte, ck, enc, dec *uint32)
 TEXT ·expandKeyAsm(SB),NOSPLIT,$0
-  MOVD	key+0(FP), R8
-  MOVD  ck+8(FP), R9
-  MOVD  enc+16(FP), R10
-  MOVD  dec+24(FP), R11
+  MOVD key+0(FP), R8
+  MOVD ck+8(FP), R9
+  MOVD enc+16(FP), R10
+  MOVD dec+24(FP), R11
   
   load_global_data_1()
 	
   VLD1 (R8), [t0.B16]
-  VTBL FLIP_MASK.B16, [t0.B16], t0.B16
+  VREV32 t0.B16, t0.B16
   VEOR t0.B16, FK_MASK.B16, t0.B16
   VMOV t0.S[1], t1.S[0]
   VMOV t0.S[2], t2.S[0]
@@ -236,22 +227,22 @@ TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
   VMOV R21, t2.S[0]
   VMOV R22, t3.S[0]
   
-  LDPW	(2*8)(R10), (R19, R20)
-  LDPW	(3*8)(R10), (R21, R22)
+  LDPW (2*8)(R10), (R19, R20)
+  LDPW (3*8)(R10), (R21, R22)
   VMOV R19, t0.S[1]
   VMOV R20, t1.S[1]
   VMOV R21, t2.S[1]
   VMOV R22, t3.S[1]
 
-  LDPW	(4*8)(R10), (R19, R20)
-  LDPW	(5*8)(R10), (R21, R22)
+  LDPW (4*8)(R10), (R19, R20)
+  LDPW (5*8)(R10), (R21, R22)
   VMOV R19, t0.S[2]
   VMOV R20, t1.S[2]
   VMOV R21, t2.S[2]
   VMOV R22, t3.S[2]  
 
-  LDPW	(6*8)(R10), (R19, R20)
-  LDPW	(7*8)(R10), (R21, R22)
+  LDPW (6*8)(R10), (R19, R20)
+  LDPW (7*8)(R10), (R21, R22)
   VMOV R19, t0.S[3]
   VMOV R20, t1.S[3]
   VMOV R21, t2.S[3]
@@ -259,10 +250,10 @@ TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
 
   load_global_data_2()
 
-  VTBL FLIP_MASK.B16, [t0.B16], t0.B16
-  VTBL FLIP_MASK.B16, [t1.B16], t1.B16
-  VTBL FLIP_MASK.B16, [t2.B16], t2.B16
-  VTBL FLIP_MASK.B16, [t3.B16], t3.B16
+  VREV32 t0.B16, t0.B16
+  VREV32 t1.B16, t1.B16
+  VREV32 t2.B16, t2.B16
+  VREV32 t3.B16, t3.B16
 
   VEOR ZERO.B16, ZERO.B16, ZERO.B16
   EOR R0, R0
@@ -316,36 +307,36 @@ encryptBlocksLoop:
   CMP $128, R0
   BNE encryptBlocksLoop
 
-  VTBL FLIP_MASK.B16, [t0.B16], t0.B16
-  VTBL FLIP_MASK.B16, [t1.B16], t1.B16
-  VTBL FLIP_MASK.B16, [t2.B16], t2.B16
-  VTBL FLIP_MASK.B16, [t3.B16], t3.B16
+  VREV32 t0.B16, t0.B16
+  VREV32 t1.B16, t1.B16
+  VREV32 t2.B16, t2.B16
+  VREV32 t3.B16, t3.B16
 
   VMOV t3.S[0], V8.S[0]
   VMOV t2.S[0], V8.S[1]
   VMOV t1.S[0], V8.S[2]
   VMOV t0.S[0], V8.S[3]
-  VST1.P	[V8.B16], 16(R9)
+  VST1.P [V8.B16], 16(R9)
 
   VMOV t3.S[1], V8.S[0]
   VMOV t2.S[1], V8.S[1]
   VMOV t1.S[1], V8.S[2]
   VMOV t0.S[1], V8.S[3]
-  VST1.P	[V8.B16], 16(R9)
+  VST1.P [V8.B16], 16(R9)
 
   VMOV t3.S[2], V8.S[0]
   VMOV t2.S[2], V8.S[1]
   VMOV t1.S[2], V8.S[2]
   VMOV t0.S[2], V8.S[3]
-  VST1.P	[V8.B16], 16(R9)
+  VST1.P [V8.B16], 16(R9)
 
   VMOV t3.S[3], V8.S[0]
   VMOV t2.S[3], V8.S[1]
   VMOV t1.S[3], V8.S[2]
   VMOV t0.S[3], V8.S[3]
-  VST1	[V8.B16], (R9)
+  VST1 [V8.B16], (R9)
 
-	RET
+  RET
 
 
 // func encryptBlockAsm(xk *uint32, dst, src *byte)
@@ -354,8 +345,8 @@ TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
   MOVD dst+8(FP), R9
   MOVD src+16(FP), R10
 
-  LDPW	(0*8)(R10), (R19, R20)
-  LDPW	(1*8)(R10), (R21, R22)
+  LDPW (0*8)(R10), (R19, R20)
+  LDPW (1*8)(R10), (R21, R22)
   REVW R19, R19
   REVW R20, R20
   REVW R21, R21
@@ -419,15 +410,15 @@ encryptBlockLoop:
   CMP $128, R0
   BNE encryptBlockLoop
 
-  VTBL FLIP_MASK.B16, [t0.B16], t0.B16
-  VTBL FLIP_MASK.B16, [t1.B16], t1.B16
-  VTBL FLIP_MASK.B16, [t2.B16], t2.B16
-  VTBL FLIP_MASK.B16, [t3.B16], t3.B16
+  VREV32 t0.B16, t0.B16
+  VREV32 t1.B16, t1.B16
+  VREV32 t2.B16, t2.B16
+  VREV32 t3.B16, t3.B16
 
   VMOV t3.S[0], V8.S[0]
   VMOV t2.S[0], V8.S[1]
   VMOV t1.S[0], V8.S[2]
   VMOV t0.S[0], V8.S[3]
-  VST1	[V8.B16], (R9)
+  VST1 [V8.B16], (R9)
 
-	RET  
+  RET  
