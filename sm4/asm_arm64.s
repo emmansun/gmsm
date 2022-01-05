@@ -253,10 +253,7 @@ TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
 
 encryptBlocksLoop:
   MOVW.P 4(R8), R19
-  VMOV R19, x.S[0]
-  VMOV R19, x.S[1]
-  VMOV R19, x.S[2]
-  VMOV R19, x.S[3]
+  VDUP R19, x.S4
   VEOR t1.B16, x.B16, x.B16
   VEOR t2.B16, x.B16, x.B16
   VEOR t3.B16, x.B16, x.B16
@@ -264,10 +261,7 @@ encryptBlocksLoop:
   VEOR x.B16, t0.B16, t0.B16
 
   MOVW.P 4(R8), R19
-  VMOV R19, x.S[0]
-  VMOV R19, x.S[1]
-  VMOV R19, x.S[2]
-  VMOV R19, x.S[3]
+  VDUP R19, x.S4
   VEOR t0.B16, x.B16, x.B16
   VEOR t2.B16, x.B16, x.B16
   VEOR t3.B16, x.B16, x.B16
@@ -275,10 +269,7 @@ encryptBlocksLoop:
   VEOR x.B16, t1.B16, t1.B16
 
   MOVW.P 4(R8), R19
-  VMOV R19, x.S[0]
-  VMOV R19, x.S[1]
-  VMOV R19, x.S[2]
-  VMOV R19, x.S[3]
+  VDUP R19, x.S4
   VEOR t0.B16, x.B16, x.B16
   VEOR t1.B16, x.B16, x.B16
   VEOR t3.B16, x.B16, x.B16
@@ -286,10 +277,7 @@ encryptBlocksLoop:
   VEOR x.B16, t2.B16, t2.B16
 
   MOVW.P 4(R8), R19
-  VMOV R19, x.S[0]
-  VMOV R19, x.S[1]
-  VMOV R19, x.S[2]
-  VMOV R19, x.S[3]
+  VDUP R19, x.S4
   VEOR t0.B16, x.B16, x.B16
   VEOR t1.B16, x.B16, x.B16
   VEOR t2.B16, x.B16, x.B16
@@ -351,10 +339,7 @@ TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
 
 encryptBlockLoop:
   MOVW.P 4(R8), R19
-  VMOV R19, x.S[0]
-  VMOV R19, x.S[1]
-  VMOV R19, x.S[2]
-  VMOV R19, x.S[3]
+  VDUP R19, x.S4
   VEOR t1.B16, x.B16, x.B16
   VEOR t2.B16, x.B16, x.B16
   VEOR t3.B16, x.B16, x.B16
@@ -362,10 +347,7 @@ encryptBlockLoop:
   VEOR x.B16, t0.B16, t0.B16
 
   MOVW.P 4(R8), R19
-  VMOV R19, x.S[0]
-  VMOV R19, x.S[1]
-  VMOV R19, x.S[2]
-  VMOV R19, x.S[3]
+  VDUP R19, x.S4
   VEOR t0.B16, x.B16, x.B16
   VEOR t2.B16, x.B16, x.B16
   VEOR t3.B16, x.B16, x.B16
@@ -373,10 +355,7 @@ encryptBlockLoop:
   VEOR x.B16, t1.B16, t1.B16
 
   MOVW.P 4(R8), R19
-  VMOV R19, x.S[0]
-  VMOV R19, x.S[1]
-  VMOV R19, x.S[2]
-  VMOV R19, x.S[3]
+  VDUP R19, x.S4
   VEOR t0.B16, x.B16, x.B16
   VEOR t1.B16, x.B16, x.B16
   VEOR t3.B16, x.B16, x.B16
@@ -384,10 +363,7 @@ encryptBlockLoop:
   VEOR x.B16, t2.B16, t2.B16
 
   MOVW.P 4(R8), R19
-  VMOV R19, x.S[0]
-  VMOV R19, x.S[1]
-  VMOV R19, x.S[2]
-  VMOV R19, x.S[3]
+  VDUP R19, x.S4
   VEOR t0.B16, x.B16, x.B16
   VEOR t1.B16, x.B16, x.B16
   VEOR t2.B16, x.B16, x.B16
