@@ -45,22 +45,20 @@ func (x *cbc) CryptBlocks(dst, src []byte) {
 	}
 	end := len(src)
 	copy(x.tmp, src[end-BlockSize:end])
-	start := end - FourBlocksSize
-	var temp []byte = make([]byte, FourBlocksSize)
-	var src64 []byte = make([]byte, FourBlocksSize)
+	start := end - x.b.blocksSize
+	var temp []byte = make([]byte, x.b.blocksSize)
+	var batchSrc []byte = make([]byte, x.b.blocksSize)
 	for start > 0 {
 		encryptBlocksAsm(&x.b.dec[0], &temp[0], &src[start:end][0])
-		xor.XorBytes(dst[end-BlockSize:end], temp[FourBlocksSize-BlockSize:FourBlocksSize], src[end-2*BlockSize:end-BlockSize])
-		xor.XorBytes(dst[end-2*BlockSize:end-BlockSize], temp[FourBlocksSize-2*BlockSize:FourBlocksSize-BlockSize], src[end-3*BlockSize:end-2*BlockSize])
-		xor.XorBytes(dst[end-3*BlockSize:end-2*BlockSize], temp[FourBlocksSize-3*BlockSize:FourBlocksSize-2*BlockSize], src[end-4*BlockSize:end-3*BlockSize])
-		xor.XorBytes(dst[end-4*BlockSize:end-3*BlockSize], temp[:BlockSize], src[end-5*BlockSize:end-4*BlockSize])
-
+		for i := 0; i < x.b.batchBlocks; i++ {
+			xor.XorBytes(dst[end-(i+1)*BlockSize:end-i*BlockSize], temp[x.b.blocksSize-(i+1)*BlockSize:x.b.blocksSize-i*BlockSize], src[end-(i+2)*BlockSize:end-(i+1)*BlockSize])
+		}
 		end = start
-		start -= FourBlocksSize
+		start -= x.b.blocksSize
 	}
 
-	copy(src64, src[:end])
-	encryptBlocksAsm(&x.b.dec[0], &temp[0], &src[:end][0])
+	copy(batchSrc, src[:end])
+	encryptBlocksAsm(&x.b.dec[0], &temp[0], &batchSrc[0])
 	count := end / BlockSize
 	for i := count; i > 1; i-- {
 		xor.XorBytes(dst[end-BlockSize:end], temp[end-BlockSize:end], src[end-2*BlockSize:end-BlockSize])

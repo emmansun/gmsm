@@ -34,14 +34,14 @@ func (c *sm4CipherAsm) NewCTR(iv []byte) cipher.Stream {
 	}
 	s := &ctr{
 		b:       c,
-		ctr:     make([]byte, 4*len(iv)),
+		ctr:     make([]byte, c.batchBlocks*len(iv)),
 		out:     make([]byte, 0, bufSize),
 		outUsed: 0,
 	}
 	copy(s.ctr, iv)
-	s.genCtr(BlockSize)
-	s.genCtr(2 * BlockSize)
-	s.genCtr(3 * BlockSize)
+	for i := 1; i < c.batchBlocks; i++ {
+		s.genCtr(i * BlockSize)
+	}
 	return s
 
 }
@@ -66,15 +66,14 @@ func (x *ctr) refill() {
 	remain := len(x.out) - x.outUsed
 	copy(x.out, x.out[x.outUsed:])
 	x.out = x.out[:cap(x.out)]
-	for remain <= len(x.out)-FourBlocksSize {
+	for remain <= len(x.out)-x.b.blocksSize {
 		encryptBlocksAsm(&x.b.enc[0], &x.out[remain:][0], &x.ctr[0])
-		remain += FourBlocksSize
+		remain += x.b.blocksSize
 
 		// Increment counter
-		x.genCtr(0)
-		x.genCtr(BlockSize)
-		x.genCtr(2 * BlockSize)
-		x.genCtr(3 * BlockSize)
+		for i := 0; i < x.b.batchBlocks; i++ {
+			x.genCtr(i * BlockSize)
+		}
 	}
 	x.out = x.out[:remain]
 	x.outUsed = 0

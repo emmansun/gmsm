@@ -265,32 +265,27 @@ func gcmInc32(counterBlock *[16]byte) {
 
 // counterCrypt crypts in to out using g.cipher in counter mode.
 func (g *gcm) counterCrypt(out, in []byte, counter *[gcmBlockSize]byte) {
-	var mask [FourBlocksSize]byte
-	var couters [FourBlocksSize]byte
+	mask := make([]byte, g.cipher.blocksSize)
+	counters := make([]byte, g.cipher.blocksSize)
 
-	for len(in) >= FourBlocksSize {
-		copy(couters[:], counter[:])
-		gcmInc32(counter)
-		copy(couters[gcmBlockSize:], counter[:])
-		gcmInc32(counter)
-		copy(couters[2*gcmBlockSize:], counter[:])
-		gcmInc32(counter)
-		copy(couters[3*gcmBlockSize:], counter[:])
-
-		encryptBlocksAsm(&g.cipher.enc[0], &mask[0], &couters[0])
-		gcmInc32(counter)
+	for len(in) >= g.cipher.blocksSize {
+		for i := 0; i < g.cipher.batchBlocks; i++ {
+			copy(counters[i*gcmBlockSize:(i+1)*gcmBlockSize], counter[:])
+			gcmInc32(counter)
+		}
+		encryptBlocksAsm(&g.cipher.enc[0], &mask[0], &counters[0])
 		xor.XorWords(out, in, mask[:])
-		out = out[FourBlocksSize:]
-		in = in[FourBlocksSize:]
+		out = out[g.cipher.blocksSize:]
+		in = in[g.cipher.blocksSize:]
 	}
 
 	if len(in) > 0 {
 		blocks := (len(in) + gcmBlockSize - 1) / gcmBlockSize
 		for i := 0; i < blocks; i++ {
-			copy(couters[i*gcmBlockSize:], counter[:])
+			copy(counters[i*gcmBlockSize:], counter[:])
 			gcmInc32(counter)
 		}
-		encryptBlocksAsm(&g.cipher.enc[0], &mask[0], &couters[0])
+		encryptBlocksAsm(&g.cipher.enc[0], &mask[0], &counters[0])
 		xor.XorBytes(out, in, mask[:blocks*gcmBlockSize])
 	}
 }

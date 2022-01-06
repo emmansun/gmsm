@@ -25,13 +25,15 @@ func expandKeyAsm(key *byte, ck, enc, dec *uint32)
 
 type sm4CipherAsm struct {
 	sm4Cipher
+	batchBlocks int
+	blocksSize  int
 }
 
 func newCipher(key []byte) (cipher.Block, error) {
 	if !supportsAES {
 		return newCipherGeneric(key)
 	}
-	c := sm4CipherAsm{sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}}
+	c := sm4CipherAsm{sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}, 4, 4 * BlockSize}
 	expandKeyAsm(&key[0], &ck[0], &c.enc[0], &c.dec[0])
 	if supportsAES && supportsGFMUL {
 		return &sm4CipherGCM{c}, nil
@@ -39,13 +41,9 @@ func newCipher(key []byte) (cipher.Block, error) {
 	return &c, nil
 }
 
-const FourBlocksSize = 64
-
-const BatchBlocks = 4
-
 func (c *sm4CipherAsm) BlockSize() int { return BlockSize }
 
-func (c *sm4CipherAsm) Concurrency() int { return BatchBlocks }
+func (c *sm4CipherAsm) Concurrency() int { return c.batchBlocks }
 
 func (c *sm4CipherAsm) Encrypt(dst, src []byte) {
 	if len(src) < BlockSize {
@@ -61,13 +59,13 @@ func (c *sm4CipherAsm) Encrypt(dst, src []byte) {
 }
 
 func (c *sm4CipherAsm) EncryptBlocks(dst, src []byte) {
-	if len(src) < FourBlocksSize {
+	if len(src) < c.blocksSize {
 		panic("sm4: input not full blocks")
 	}
-	if len(dst) < FourBlocksSize {
+	if len(dst) < c.blocksSize {
 		panic("sm4: output not full blocks")
 	}
-	if subtle.InexactOverlap(dst[:FourBlocksSize], src[:FourBlocksSize]) {
+	if subtle.InexactOverlap(dst[:c.blocksSize], src[:c.blocksSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
 	encryptBlocksAsm(&c.enc[0], &dst[0], &src[0])
@@ -87,13 +85,13 @@ func (c *sm4CipherAsm) Decrypt(dst, src []byte) {
 }
 
 func (c *sm4CipherAsm) DecryptBlocks(dst, src []byte) {
-	if len(src) < FourBlocksSize {
+	if len(src) < c.blocksSize {
 		panic("sm4: input not full blocks")
 	}
-	if len(dst) < FourBlocksSize {
+	if len(dst) < c.blocksSize {
 		panic("sm4: output not full blocks")
 	}
-	if subtle.InexactOverlap(dst[:FourBlocksSize], src[:FourBlocksSize]) {
+	if subtle.InexactOverlap(dst[:c.blocksSize], src[:c.blocksSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
 	encryptBlocksAsm(&c.dec[0], &dst[0], &src[0])
