@@ -273,7 +273,7 @@ func (g *gcm) counterCrypt(out, in []byte, counter *[gcmBlockSize]byte) {
 			copy(counters[i*gcmBlockSize:(i+1)*gcmBlockSize], counter[:])
 			gcmInc32(counter)
 		}
-		encryptBlocksAsm(&g.cipher.enc[0], &mask[0], &counters[0])
+		g.cipher.EncryptBlocks(mask, counters)
 		xor.XorWords(out, in, mask[:])
 		out = out[g.cipher.blocksSize:]
 		in = in[g.cipher.blocksSize:]
@@ -285,7 +285,7 @@ func (g *gcm) counterCrypt(out, in []byte, counter *[gcmBlockSize]byte) {
 			copy(counters[i*gcmBlockSize:], counter[:])
 			gcmInc32(counter)
 		}
-		encryptBlocksAsm(&g.cipher.enc[0], &mask[0], &counters[0])
+		g.cipher.EncryptBlocks(mask, counters)
 		xor.XorBytes(out, in, mask[:blocks*gcmBlockSize])
 	}
 }

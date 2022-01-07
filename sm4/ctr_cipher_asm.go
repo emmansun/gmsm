@@ -67,7 +67,7 @@ func (x *ctr) refill() {
 	copy(x.out, x.out[x.outUsed:])
 	x.out = x.out[:cap(x.out)]
 	for remain <= len(x.out)-x.b.blocksSize {
-		encryptBlocksAsm(&x.b.enc[0], &x.out[remain:][0], &x.ctr[0])
+		x.b.EncryptBlocks(x.out[remain:], x.ctr)
 		remain += x.b.blocksSize
 
 		// Increment counter

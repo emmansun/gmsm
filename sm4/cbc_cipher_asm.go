@@ -49,7 +49,7 @@ func (x *cbc) CryptBlocks(dst, src []byte) {
 	var temp []byte = make([]byte, x.b.blocksSize)
 	var batchSrc []byte = make([]byte, x.b.blocksSize)
 	for start > 0 {
-		encryptBlocksAsm(&x.b.dec[0], &temp[0], &src[start:end][0])
+		x.b.DecryptBlocks(temp, src[start:end])
 		for i := 0; i < x.b.batchBlocks; i++ {
 			xor.XorBytes(dst[end-(i+1)*BlockSize:end-i*BlockSize], temp[x.b.blocksSize-(i+1)*BlockSize:x.b.blocksSize-i*BlockSize], src[end-(i+2)*BlockSize:end-(i+1)*BlockSize])
 		}
@@ -58,7 +58,7 @@ func (x *cbc) CryptBlocks(dst, src []byte) {
 	}
 
 	copy(batchSrc, src[:end])
-	encryptBlocksAsm(&x.b.dec[0], &temp[0], &batchSrc[0])
+	x.b.DecryptBlocks(temp, batchSrc)
 	count := end / BlockSize
 	for i := count; i > 1; i-- {
 		xor.XorBytes(dst[end-BlockSize:end], temp[end-BlockSize:end], src[end-2*BlockSize:end-BlockSize])
