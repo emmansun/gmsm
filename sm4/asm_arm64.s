@@ -214,11 +214,11 @@ ksLoop:
 
   RET 
 
-// func encryptBlocksAsm(xk *uint32, dst, src *byte)
+// func encryptBlocksAsm(xk *uint32, dst, src []byte)
 TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
   MOVD xk+0(FP), R8
   MOVD dst+8(FP), R9
-  MOVD src+16(FP), R10
+  MOVD src+32(FP), R10
 
   VLD1 (R10), [V5.S4, V6.S4, V7.S4, V8.S4]
   VMOV V5.S[0], t0.S[0]

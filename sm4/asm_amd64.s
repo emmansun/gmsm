@@ -16,6 +16,11 @@ DATA flip_mask<>+0x00(SB)/8, $0x0405060700010203
 DATA flip_mask<>+0x08(SB)/8, $0x0c0d0e0f08090a0b
 GLOBL flip_mask<>(SB), RODATA, $16
 
+// shuffle byte and word order
+DATA flip_mask2<>+0x00(SB)/8, $0x08090a0b0c0d0e0f
+DATA flip_mask2<>+0x08(SB)/8, $0x0001020304050607
+GLOBL flip_mask2<>(SB), RODATA, $16
+
 //nibble mask
 DATA nibble_mask<>+0x00(SB)/8, $0x0F0F0F0F0F0F0F0F
 DATA nibble_mask<>+0x08(SB)/8, $0x0F0F0F0F0F0F0F0F
@@ -121,6 +126,116 @@ GLOBL fk_mask<>(SB), RODATA, $16
   PXOR XTMP7, y;                      \
   PXOR y, x                        
 
+#define SM4_ROUND(index, x, y, t0, t1, t2, t3)  \ 
+  PINSRD $0, (index * 4)(AX)(CX*1), x;           \
+  PSHUFD $0, x, x;                               \
+  PXOR t1, x;                                    \
+  PXOR t2, x;                                    \
+  PXOR t3, x;                                    \
+  SM4_TAO_L1(x, y);                              \
+  PXOR x, t0
+
+#define SM4_SINGLE_ROUND(index, x, y, t0, t1, t2, t3)  \ 
+  PINSRD $0, (index * 4)(AX)(CX*1), x;           \
+  PXOR t1, x;                                    \
+  PXOR t2, x;                                    \
+  PXOR t3, x;                                    \
+  SM4_TAO_L1(x, y);                              \
+  PXOR x, t0
+
+#define SM4_EXPANDKEY_ROUND(index, x, y, t0, t1, t2, t3) \
+  PINSRD $0, (index * 4)(BX)(CX*1), x;                   \
+  PXOR t1, x;                                            \
+  PXOR t2, x;                                            \
+  PXOR t3, x;                                            \
+  SM4_TAO_L2(x, y);                                      \
+  PXOR x, t0;                                            \
+  PEXTRD $0, t0, R8;                                     \
+  MOVL R8, (index * 4)(DX)(CX*1);                        \
+  MOVL R8, (12 - index * 4)(DI)(SI*1)
+
+#define XDWORD0 Y4
+#define XDWORD1 Y5
+#define XDWORD2 Y6
+#define XDWORD3 Y7
+
+#define XWORD0 X4
+#define XWORD1 X5
+#define XWORD2 X6
+#define XWORD3 X7
+
+#define XTMP0 Y0
+#define XTMP1 Y1
+#define XTMP2 Y2
+#define NIBBLE_MASK Y3
+#define X_NIBBLE_MASK X3
+
+#define BYTE_FLIP_MASK 	Y13 // mask to convert LE -> BE
+#define XDWORD Y8
+#define XWORD X8
+#define YDWORD Y9
+#define YWORD X9
+
+#define TRANSPOSE_MATRIX(r0, r1, r2, r3) \
+  VPUNPCKHDQ r1, r0, XTMP2;                \ // XTMP2 = [w15, w7, w14, w6, w11, w3, w10, w2]
+  VPUNPCKLDQ r1, r0, r0;                   \ // r0 =    [w13, w5, w12, w4, w9, w1, w8, w0]
+  VPUNPCKLDQ r3, r2, XTMP1;                \ // XTMP1 = [w29, w21, w28, w20, w25, w17, w24, w16]
+  VPUNPCKHDQ r3, r2, r2;                   \ // r2 =    [w31, w27, w30, w22, w27, w19, w26, w18]
+  VPUNPCKHQDQ XTMP1, r0, r1;               \ // r1 =    [w29, w21, w13, w5, w25, w17, w9, w1]
+  VPUNPCKLQDQ XTMP1, r0, r0;               \ // r0 =    [w28, w20, w12, w4, w24, w16, w8, w0]
+  VPUNPCKHQDQ r2, XTMP2, r3;               \ // r3 =    [w31, w27, w15, w7, w27, w19, w11, w3]
+  VPUNPCKLQDQ r2, XTMP2, r2                  // r2 =    [w30, w22, w14, w6, w26, w18, w10, w2]
+
+// https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html
+#define AVX2_SM4_SBOX(x, y) \
+  VBROADCASTI128 nibble_mask<>(SB), NIBBLE_MASK; \
+  VPAND NIBBLE_MASK, x, XTMP1;                   \
+  VBROADCASTI128 m1_low<>(SB), y;                \
+  VPSHUFB XTMP1, y, y;                           \
+  VPSRLQ $4, x, x;                               \
+  VPAND NIBBLE_MASK, x, x;                       \
+  VBROADCASTI128 m1_high<>(SB), XTMP1;           \
+  VPSHUFB x, XTMP1, x;                           \
+  VPXOR y, x, x;                                 \
+  VBROADCASTI128 inverse_shift_rows<>(SB), XTMP1;\
+  VPSHUFB XTMP1, x, x;                           \
+  VEXTRACTI128 $1, x, YWORD                      \
+  VAESENCLAST X_NIBBLE_MASK, XWORD, XWORD;       \
+  VAESENCLAST X_NIBBLE_MASK, YWORD, YWORD;       \
+  VINSERTI128 $1, YWORD, x, x;                   \
+  VPANDN NIBBLE_MASK, x, XTMP1;                  \
+  VBROADCASTI128 m2_low<>(SB), y;                \
+  VPSHUFB XTMP1, y, y;                           \
+  VPSRLQ $4, x, x;                               \
+  VPAND NIBBLE_MASK, x, x;                       \
+  VBROADCASTI128 m2_high<>(SB), XTMP1;           \
+  VPSHUFB x, XTMP1, x;                           \
+  VPXOR y, x, x
+
+#define AVX2_SM4_TAO_L1(x, y) \
+  AVX2_SM4_SBOX(x, y);                     \
+  VBROADCASTI128 r08_mask<>(SB), XTMP0;    \
+  VPSHUFB XTMP0, x, y;                     \
+  VPXOR x, y, y;                           \        
+  VBROADCASTI128 r16_mask<>(SB), XTMP0;    \
+  VPSHUFB XTMP0, x, XTMP0;                 \
+  VPXOR XTMP0, y, y;                       \
+  VPSLLD $2, y, XTMP1;                     \
+  VPSRLD $30, y, y;                        \
+  VPXOR XTMP1, y, y;                       \
+  VBROADCASTI128 r24_mask<>(SB), XTMP0;    \
+  VPSHUFB XTMP0, x, XTMP0;                 \
+  VPXOR y, x, x;                           \
+  VPXOR x, XTMP0, x
+
+#define AVX2_SM4_ROUND(index, x, y, t0, t1, t2, t3)  \ 
+  VPBROADCASTD (index * 4)(AX)(CX*1), x;             \
+  VPXOR t1, x, x;                                    \
+  VPXOR t2, x, x;                                    \
+  VPXOR t3, x, x;                                    \
+  AVX2_SM4_TAO_L1(x, y);                             \  
+  VPXOR x, t0, t0
+
 // func expandKeyAsm(key *byte, ck, enc, dec *uint32)
 TEXT ·expandKeyAsm(SB),NOSPLIT,$0
   MOVQ key+0(FP), AX
@@ -139,45 +254,10 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
   MOVL $112, SI
 
 loop:
-  PINSRD $0, 0(BX)(CX*1), x
-  PXOR t1, x
-  PXOR t2, x
-  PXOR t3, x
-  SM4_TAO_L2(x, y)
-  PXOR x, t0
-  PEXTRD $0, t0, R8
-  MOVL R8, 0(DX)(CX*1)
-  MOVL R8, 12(DI)(SI*1)
-
-  PINSRD $0, 4(BX)(CX*1), x
-  PXOR t0, x
-  PXOR t2, x
-  PXOR t3, x
-  SM4_TAO_L2(x, y)
-  PXOR x, t1  
-  PEXTRD $0, t1, R8
-  MOVL R8, 4(DX)(CX*1)
-  MOVL R8, 8(DI)(SI*1)
-  
-  PINSRD $0, 8(BX)(CX*1), x
-  PXOR t0, x
-  PXOR t1, x
-  PXOR t3, x
-  SM4_TAO_L2(x, y)
-  PXOR x, t2
-  PEXTRD $0, t2, R8
-  MOVL R8, 8(DX)(CX*1)
-  MOVL R8, 4(DI)(SI*1)
-
-  PINSRD $0, 12(BX)(CX*1), x
-  PXOR t0, x
-  PXOR t1, x
-  PXOR t2, x
-  SM4_TAO_L2(x, y)
-  PXOR x, t3  
-  PEXTRD $0, t3, R8
-  MOVL R8, 12(DX)(CX*1)
-  MOVL R8, 0(DI)(SI*1)
+  SM4_EXPANDKEY_ROUND(0, x, y, t0, t1, t2, t3)
+  SM4_EXPANDKEY_ROUND(1, x, y, t1, t2, t3, t0)
+  SM4_EXPANDKEY_ROUND(2, x, y, t2, t3, t0, t1)
+  SM4_EXPANDKEY_ROUND(3, x, y, t3, t0, t1, t2)
 
   ADDL $16, CX
   SUBL $16, SI
@@ -187,12 +267,20 @@ loop:
 expand_end:  
   RET 
 
-// func encryptBlocksAsm(xk *uint32, dst, src *byte)
+// func encryptBlocksAsm(xk *uint32, dst, src []byte)
 TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
   MOVQ xk+0(FP), AX
   MOVQ dst+8(FP), BX
-  MOVQ src+16(FP), DX
+  MOVQ src+32(FP), DX
+  MOVQ src_len+40(FP), DI
   
+  CMPL DI, $64
+  JBE non_avx2_start
+
+  CMPB ·useAVX2(SB), $1
+  JE   avx2
+
+non_avx2_start:
   PINSRD $0, 0(DX), t0
   PINSRD $1, 16(DX), t0
   PINSRD $2, 32(DX), t0
@@ -220,37 +308,10 @@ TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
   XORL CX, CX
 
 loop:
-  PINSRD $0, 0(AX)(CX*1), x
-  PSHUFD $0, x, x
-  PXOR t1, x
-  PXOR t2, x
-  PXOR t3, x
-  SM4_TAO_L1(x, y)
-  PXOR x, t0
-
-  PINSRD $0, 4(AX)(CX*1), x
-  PSHUFD $0, x, x
-  PXOR t0, x
-  PXOR t2, x
-  PXOR t3, x
-  SM4_TAO_L1(x, y)
-  PXOR x, t1  
-
-  PINSRD $0, 8(AX)(CX*1), x
-  PSHUFD $0, x, x
-  PXOR t0, x
-  PXOR t1, x
-  PXOR t3, x
-  SM4_TAO_L1(x, y)
-  PXOR x, t2
-
-  PINSRD $0, 12(AX)(CX*1), x
-  PSHUFD $0, x, x
-  PXOR t0, x
-  PXOR t1, x
-  PXOR t2, x
-  SM4_TAO_L1(x, y)
-  PXOR x, t3  
+  SM4_ROUND(0, x, y, t0, t1, t2, t3)
+  SM4_ROUND(1, x, y, t1, t2, t3, t0)
+  SM4_ROUND(2, x, y, t2, t3, t0, t1)
+  SM4_ROUND(3, x, y, t3, t0, t1, t2)
 
   ADDL $16, CX
   CMPL CX, $4*32
@@ -290,7 +351,52 @@ loop:
   MOVL  R8, 56(BX)
 
 done_sm4:
-	RET
+  RET
+
+avx2:
+  VMOVDQU 0(DX), XDWORD0
+  VMOVDQU 32(DX), XDWORD1
+  VMOVDQU 64(DX), XDWORD2
+  VMOVDQU 96(DX), XDWORD3
+  VBROADCASTI128 flip_mask<>(SB), BYTE_FLIP_MASK
+
+	// Apply Byte Flip Mask: LE -> BE
+	VPSHUFB BYTE_FLIP_MASK, XDWORD0, XDWORD0
+	VPSHUFB BYTE_FLIP_MASK, XDWORD1, XDWORD1
+	VPSHUFB BYTE_FLIP_MASK, XDWORD2, XDWORD2
+	VPSHUFB BYTE_FLIP_MASK, XDWORD3, XDWORD3
+
+  // Transpose matrix 4 x 4 32bits word
+  TRANSPOSE_MATRIX(XDWORD0, XDWORD1, XDWORD2, XDWORD3)
+
+  XORL CX, CX
+
+avx2_loop:
+  AVX2_SM4_ROUND(0, XDWORD, YDWORD, XDWORD0, XDWORD1, XDWORD2, XDWORD3)
+  AVX2_SM4_ROUND(1, XDWORD, YDWORD, XDWORD1, XDWORD2, XDWORD3, XDWORD0)
+  AVX2_SM4_ROUND(2, XDWORD, YDWORD, XDWORD2, XDWORD3, XDWORD0, XDWORD1)
+  AVX2_SM4_ROUND(3, XDWORD, YDWORD, XDWORD3, XDWORD0, XDWORD1, XDWORD2)
+
+  ADDL $16, CX
+  CMPL CX, $4*32
+  JB avx2_loop
+
+  // Transpose matrix 4 x 4 32bits word
+  TRANSPOSE_MATRIX(XDWORD0, XDWORD1, XDWORD2, XDWORD3)
+
+  VBROADCASTI128 flip_mask2<>(SB), BYTE_FLIP_MASK
+	VPSHUFB BYTE_FLIP_MASK, XDWORD0, XDWORD0
+	VPSHUFB BYTE_FLIP_MASK, XDWORD1, XDWORD1
+	VPSHUFB BYTE_FLIP_MASK, XDWORD2, XDWORD2
+	VPSHUFB BYTE_FLIP_MASK, XDWORD3, XDWORD3
+  
+  VMOVDQU XDWORD0, 0(BX)
+  VMOVDQU XDWORD1, 32(BX)
+  VMOVDQU XDWORD2, 64(BX)
+  VMOVDQU XDWORD3, 96(BX)
+
+  VZEROUPPER
+  RET
 
 // func encryptBlockAsm(xk *uint32, dst, src *byte)
 TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
@@ -313,33 +419,10 @@ TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
   XORL CX, CX
 
 loop:
-  PINSRD $0, 0(AX)(CX*1), x
-  PXOR t1, x
-  PXOR t2, x
-  PXOR t3, x
-  SM4_TAO_L1(x, y)
-  PXOR x, t0
-
-  PINSRD $0, 4(AX)(CX*1), x
-  PXOR t0, x
-  PXOR t2, x
-  PXOR t3, x
-  SM4_TAO_L1(x, y)
-  PXOR x, t1  
-
-  PINSRD $0, 8(AX)(CX*1), x
-  PXOR t0, x
-  PXOR t1, x
-  PXOR t3, x
-  SM4_TAO_L1(x, y)
-  PXOR x, t2
-
-  PINSRD $0, 12(AX)(CX*1), x
-  PXOR t0, x
-  PXOR t1, x
-  PXOR t2, x
-  SM4_TAO_L1(x, y)
-  PXOR x, t3  
+  SM4_SINGLE_ROUND(0, x, y, t0, t1, t2, t3)
+  SM4_SINGLE_ROUND(1, x, y, t1, t2, t3, t0)
+  SM4_SINGLE_ROUND(2, x, y, t2, t3, t0, t1)
+  SM4_SINGLE_ROUND(3, x, y, t3, t0, t1, t2)
 
   ADDL $16, CX
   CMPL CX, $4*32
