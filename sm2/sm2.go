@@ -571,7 +571,7 @@ func fermatInverse(k, N *big.Int) *big.Int {
 // returns the signature as a pair of integers. The security of the private key
 // depends on the entropy of rand.
 // Backgroud: https://github.com/golang/go/commit/a8049f58f9e3336554da1b0a4f8ea3b9c5cd669c
-// 
+//
 func Sign(rand io.Reader, priv *ecdsa.PrivateKey, hash []byte) (r, s *big.Int, err error) {
 	if !strings.EqualFold(priv.Params().Name, P256().Params().Name) {
 		return ecdsa.Sign(rand, priv, hash)
@@ -660,6 +660,11 @@ func signGeneric(priv *ecdsa.PrivateKey, csprng *cipher.StreamReader, hash []byt
 }
 
 var defaultUID = []byte{0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38}
+
+// CalculateZA ZA = H256(ENTLA || IDA || a || b || xG || yG || xA || yA)
+func CalculateZA(pub *ecdsa.PublicKey, uid []byte) ([]byte, error) {
+	return calculateZA(pub, uid)
+}
 
 // calculateZA ZA = H256(ENTLA || IDA || a || b || xG || yG || xA || yA)
 func calculateZA(pub *ecdsa.PublicKey, uid []byte) ([]byte, error) {
