@@ -107,39 +107,39 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 #undef dlen
 
 #define SM4_SBOX(x, y, z, z1, z2) \
-	VMOV $0x0F0F0F0F0F0F0F0F, z1.D2;               \
+	VMOV $0x0F0F0F0F0F0F0F0F, z1.D2;               \ // nibble mask
   VAND x.B16, z1.B16, z2.B16;                    \
 	MOVD $0x9197E2E474720701, R19;                 \
-	VMOV R19, z.D[0];                              \
+	VMOV R19, z.D[0];                              \ 
 	MOVD $0xC7C1B4B222245157, R19;                 \
-	VMOV R19, z.D[1];                              \	
+	VMOV R19, z.D[1];                              \ // m1 low	
   VTBL z2.B16, [z.B16], y.B16;                   \
   VUSHR $4, x.D2, x.D2;                          \
   VAND x.B16, z1.B16, z2.B16;                    \
 	MOVD $0xE240AB09EB49A200, R19;                 \
 	VMOV R19, z.D[0];                              \
 	MOVD $0xF052B91BF95BB012, R19;                 \
-	VMOV R19, z.D[1];                              \		
+	VMOV R19, z.D[1];                              \ // m1 high		
   VTBL z2.B16, [z.B16], z2.B16;                  \
   VEOR y.B16, z2.B16, x.B16;                     \
-	MOVD $0x0B0E0104070A0D00, R19;                 \
+	MOVD $0x0B0E0104070A0D00, R19;                 \ 
 	VMOV R19, z.D[0];                              \
 	MOVD $0x0306090C0F020508, R19;                 \
-	VMOV R19, z.D[1];                              \			
+	VMOV R19, z.D[1];                              \ // inverse shift row			
   VTBL z.B16, [x.B16], x.B16;                    \
   AESE ZERO.B16, x.B16;                          \	
   VAND x.B16, z1.B16, z2.B16;                    \
 	MOVD $0x5B67F2CEA19D0834, R19;                 \
 	VMOV R19, z.D[0];                              \
 	MOVD $0xEDD14478172BBE82, R19;                 \
-	VMOV R19, z.D[1];                              \		
+	VMOV R19, z.D[1];                              \ // m2 low		
   VTBL z2.B16, [z.B16], y.B16;                   \
   VUSHR $4, x.D2, x.D2;                          \
   VAND x.B16, z1.B16, z2.B16;                    \
 	MOVD $0xAE7201DD73AFDC00, R19;                 \
 	VMOV R19, z.D[0];                              \
 	MOVD $0x11CDBE62CC1063BF, R19;                 \
-	VMOV R19, z.D[1];                              \		
+	VMOV R19, z.D[1];                              \ // m2 high		
   VTBL z2.B16, [z.B16], z2.B16;                  \
   VEOR y.B16, z2.B16, x.B16
 
@@ -149,13 +149,13 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 	MOVD $0x0605040702010003, R19;               \
 	VMOV R19, z.D[0];                            \
 	MOVD $0x0E0D0C0F0A09080B, R19;               \
-	VMOV R19, z.D[1];                            \
+	VMOV R19, z.D[1];                            \ // r08 mask
   VTBL z.B16, [x.B16], y.B16;                  \
   VEOR y.B16, x.B16, y.B16;                    \
 	MOVD $0x0504070601000302, R19;               \
 	VMOV R19, z.D[0];                            \
-	MOVD $0x0D0C0F0E09080B0A , R19;              \
-	VMOV R19, z.D[1];                            \
+	MOVD $0x0D0C0F0E09080B0A, R19;               \
+	VMOV R19, z.D[1];                            \ // r16 mask
   VTBL z.B16, [x.B16], z.B16;                  \
   VEOR z.B16, y.B16, y.B16;                    \
   VSHL $2, y.S4, z.S4;                         \
@@ -164,7 +164,7 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 	MOVD $0x0407060500030201, R19;               \
 	VMOV R19, z.D[0];                            \
 	MOVD $0x0C0F0E0D080B0A09, R19;               \
-	VMOV R19, z.D[1];                            \
+	VMOV R19, z.D[1];                            \ // r24 mask
   VTBL z.B16, [x.B16], z.B16;                  \
   VEOR z.B16, x.B16, x.B16;                    \
   VEOR y.B16, x.B16, x.B16
