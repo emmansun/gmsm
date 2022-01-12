@@ -164,69 +164,77 @@ GLOBL fk_mask<>(SB), RODATA, $16
 #define XWORD2 X6
 #define XWORD3 X7
 
-#define XTMP0 Y0
-#define XTMP1 Y1
-#define XTMP2 Y2
+#define XDWTMP0 Y0
+#define XDWTMP1 Y1
+#define XDWTMP2 Y2
+
+#define XWTMP0 X0
+#define XWTMP1 X1
+#define XWTMP2 X2
+
 #define NIBBLE_MASK Y3
 #define X_NIBBLE_MASK X3
 
 #define BYTE_FLIP_MASK 	Y13 // mask to convert LE -> BE
+#define X_BYTE_FLIP_MASK 	X13 // mask to convert LE -> BE
+
 #define XDWORD Y8
-#define XWORD X8
 #define YDWORD Y9
+
+#define XWORD X8
 #define YWORD X9
 
-#define TRANSPOSE_MATRIX(r0, r1, r2, r3) \
-  VPUNPCKHDQ r1, r0, XTMP2;                \ // XTMP2 = [w15, w7, w14, w6, w11, w3, w10, w2]
-  VPUNPCKLDQ r1, r0, r0;                   \ // r0 =    [w13, w5, w12, w4, w9, w1, w8, w0]
-  VPUNPCKLDQ r3, r2, XTMP1;                \ // XTMP1 = [w29, w21, w28, w20, w25, w17, w24, w16]
-  VPUNPCKHDQ r3, r2, r2;                   \ // r2 =    [w31, w27, w30, w22, w27, w19, w26, w18]
-  VPUNPCKHQDQ XTMP1, r0, r1;               \ // r1 =    [w29, w21, w13, w5, w25, w17, w9, w1]
-  VPUNPCKLQDQ XTMP1, r0, r0;               \ // r0 =    [w28, w20, w12, w4, w24, w16, w8, w0]
-  VPUNPCKHQDQ r2, XTMP2, r3;               \ // r3 =    [w31, w27, w15, w7, w27, w19, w11, w3]
-  VPUNPCKLQDQ r2, XTMP2, r2                  // r2 =    [w30, w22, w14, w6, w26, w18, w10, w2]
+#define TRANSPOSE_MATRIX(r0, r1, r2, r3, tmp1, tmp2) \
+  VPUNPCKHDQ r1, r0, tmp2;                 \ // tmp2 =  [w15, w7, w14, w6, w11, w3, w10, w2]          tmp2 = [w7, w3, w6, w2]
+  VPUNPCKLDQ r1, r0, r0;                   \ // r0 =    [w13, w5, w12, w4, w9, w1, w8, w0]              r0 = [w5, w1, w4, w0]
+  VPUNPCKLDQ r3, r2, tmp1;                 \ // tmp1 =  [w29, w21, w28, w20, w25, w17, w24, w16]      tmp1 = [w13, w9, w12, w8]
+  VPUNPCKHDQ r3, r2, r2;                   \ // r2 =    [w31, w27, w30, w22, w27, w19, w26, w18]        r2 = [w15, w11, w14, w10] 
+  VPUNPCKHQDQ tmp1, r0, r1;                \ // r1 =    [w29, w21, w13, w5, w25, w17, w9, w1]           r1 = [w13, w9, w5, w1]
+  VPUNPCKLQDQ tmp1, r0, r0;                \ // r0 =    [w28, w20, w12, w4, w24, w16, w8, w0]           r0 = [w12, w8, w4, w0]
+  VPUNPCKHQDQ r2, tmp2, r3;                \ // r3 =    [w31, w27, w15, w7, w27, w19, w11, w3]          r3 = [w15, w11, w7, w3]
+  VPUNPCKLQDQ r2, tmp2, r2                   // r2 =    [w30, w22, w14, w6, w26, w18, w10, w2]          r2 = [w14, w10, w6, w2]
 
 // https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html
 #define AVX2_SM4_SBOX(x, y) \
   VBROADCASTI128 nibble_mask<>(SB), NIBBLE_MASK; \
-  VPAND NIBBLE_MASK, x, XTMP1;                   \
-  VBROADCASTI128 m1_low<>(SB), y;                \
-  VPSHUFB XTMP1, y, y;                           \
-  VPSRLQ $4, x, x;                               \
-  VPAND NIBBLE_MASK, x, x;                       \
-  VBROADCASTI128 m1_high<>(SB), XTMP1;           \
-  VPSHUFB x, XTMP1, x;                           \
-  VPXOR y, x, x;                                 \
-  VBROADCASTI128 inverse_shift_rows<>(SB), XTMP1;\
-  VPSHUFB XTMP1, x, x;                           \
-  VEXTRACTI128 $1, x, YWORD                      \
-  VAESENCLAST X_NIBBLE_MASK, XWORD, XWORD;       \
-  VAESENCLAST X_NIBBLE_MASK, YWORD, YWORD;       \
-  VINSERTI128 $1, YWORD, x, x;                   \
-  VPANDN NIBBLE_MASK, x, XTMP1;                  \
-  VBROADCASTI128 m2_low<>(SB), y;                \
-  VPSHUFB XTMP1, y, y;                           \
-  VPSRLQ $4, x, x;                               \
-  VPAND NIBBLE_MASK, x, x;                       \
-  VBROADCASTI128 m2_high<>(SB), XTMP1;           \
-  VPSHUFB x, XTMP1, x;                           \
+  VPAND NIBBLE_MASK, x, XDWTMP1;                   \
+  VBROADCASTI128 m1_low<>(SB), y;                  \
+  VPSHUFB XDWTMP1, y, y;                           \
+  VPSRLQ $4, x, x;                                 \
+  VPAND NIBBLE_MASK, x, x;                         \
+  VBROADCASTI128 m1_high<>(SB), XDWTMP1;           \
+  VPSHUFB x, XDWTMP1, x;                           \
+  VPXOR y, x, x;                                   \
+  VBROADCASTI128 inverse_shift_rows<>(SB), XDWTMP1;\
+  VPSHUFB XDWTMP1, x, x;                           \
+  VEXTRACTI128 $1, x, YWORD                        \
+  VAESENCLAST X_NIBBLE_MASK, XWORD, XWORD;         \
+  VAESENCLAST X_NIBBLE_MASK, YWORD, YWORD;         \
+  VINSERTI128 $1, YWORD, x, x;                     \
+  VPANDN NIBBLE_MASK, x, XDWTMP1;                  \
+  VBROADCASTI128 m2_low<>(SB), y;                  \
+  VPSHUFB XDWTMP1, y, y;                           \
+  VPSRLQ $4, x, x;                                 \
+  VPAND NIBBLE_MASK, x, x;                         \
+  VBROADCASTI128 m2_high<>(SB), XDWTMP1;           \
+  VPSHUFB x, XDWTMP1, x;                           \
   VPXOR y, x, x
 
 #define AVX2_SM4_TAO_L1(x, y) \
-  AVX2_SM4_SBOX(x, y);                     \
-  VBROADCASTI128 r08_mask<>(SB), XTMP0;    \
-  VPSHUFB XTMP0, x, y;                     \
-  VPXOR x, y, y;                           \        
-  VBROADCASTI128 r16_mask<>(SB), XTMP0;    \
-  VPSHUFB XTMP0, x, XTMP0;                 \
-  VPXOR XTMP0, y, y;                       \
-  VPSLLD $2, y, XTMP1;                     \
-  VPSRLD $30, y, y;                        \
-  VPXOR XTMP1, y, y;                       \
-  VBROADCASTI128 r24_mask<>(SB), XTMP0;    \
-  VPSHUFB XTMP0, x, XTMP0;                 \
-  VPXOR y, x, x;                           \
-  VPXOR x, XTMP0, x
+  AVX2_SM4_SBOX(x, y);                       \
+  VBROADCASTI128 r08_mask<>(SB), XDWTMP0;    \
+  VPSHUFB XDWTMP0, x, y;                     \
+  VPXOR x, y, y;                             \        
+  VBROADCASTI128 r16_mask<>(SB), XDWTMP0;    \
+  VPSHUFB XDWTMP0, x, XDWTMP0;               \
+  VPXOR XDWTMP0, y, y;                       \
+  VPSLLD $2, y, XDWTMP1;                     \
+  VPSRLD $30, y, y;                          \
+  VPXOR XDWTMP1, y, y;                       \
+  VBROADCASTI128 r24_mask<>(SB), XDWTMP0;    \
+  VPSHUFB XDWTMP0, x, XDWTMP0;               \
+  VPXOR y, x, x;                             \
+  VPXOR x, XDWTMP0, x
 
 #define AVX2_SM4_ROUND(index, x, y, t0, t1, t2, t3)  \ 
   VPBROADCASTD (index * 4)(AX)(CX*1), x;             \
@@ -234,6 +242,52 @@ GLOBL fk_mask<>(SB), RODATA, $16
   VPXOR t2, x, x;                                    \
   VPXOR t3, x, x;                                    \
   AVX2_SM4_TAO_L1(x, y);                             \  
+  VPXOR x, t0, t0
+
+#define AVX_SM4_SBOX(x, y) \
+  VMOVDQU nibble_mask<>(SB), X_NIBBLE_MASK;          \
+  VPAND X_NIBBLE_MASK, x, XWTMP1;                    \
+  VMOVDQU m1_low<>(SB), y;                           \
+  VPSHUFB XWTMP1, y, y;                              \
+  VPSRLQ $4, x, x;                                   \
+  VPAND X_NIBBLE_MASK, x, x;                         \
+  VMOVDQU m1_high<>(SB), XWTMP1;                     \
+  VPSHUFB x, XWTMP1, x;                              \
+  VPXOR y, x, x;                                     \
+  VMOVDQU inverse_shift_rows<>(SB), XWTMP1;          \
+  VPSHUFB XWTMP1, x, x;                              \
+  VAESENCLAST X_NIBBLE_MASK, x, x;                   \
+  VPANDN X_NIBBLE_MASK, x, XWTMP1;                   \
+  VMOVDQU m2_low<>(SB), y;                           \
+  VPSHUFB XWTMP1, y, y;                              \
+  VPSRLQ $4, x, x;                                   \
+  VPAND X_NIBBLE_MASK, x, x;                         \
+  VMOVDQU m2_high<>(SB), XWTMP1;                     \
+  VPSHUFB x, XWTMP1, x;                              \
+  VPXOR y, x, x
+
+#define AVX_SM4_TAO_L1(x, y) \
+  AVX_SM4_SBOX(x, y);                     \
+  VMOVDQU r08_mask<>(SB), XWTMP0;         \
+  VPSHUFB XWTMP0, x, y;                   \
+  VPXOR x, y, y;                          \        
+  VMOVDQU r16_mask<>(SB), XWTMP0;         \
+  VPSHUFB XWTMP0, x, XWTMP0;              \
+  VPXOR XWTMP0, y, y;                     \
+  VPSLLD $2, y, XWTMP1;                   \
+  VPSRLD $30, y, y;                       \
+  VPXOR XWTMP1, y, y;                     \
+  VMOVDQU r24_mask<>(SB), XWTMP0;         \
+  VPSHUFB XWTMP0, x, XWTMP0;              \
+  VPXOR y, x, x;                          \
+  VPXOR x, XWTMP0, x
+
+#define AVX_SM4_ROUND(index, x, y, t0, t1, t2, t3)  \ 
+  VPBROADCASTD (index * 4)(AX)(CX*1), x;             \
+  VPXOR t1, x, x;                                    \
+  VPXOR t2, x, x;                                    \
+  VPXOR t3, x, x;                                    \
+  AVX_SM4_TAO_L1(x, y);                              \  
   VPXOR x, t0, t0
 
 // func expandKeyAsm(key *byte, ck, enc, dec *uint32)
@@ -274,9 +328,6 @@ TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
   MOVQ src+32(FP), DX
   MOVQ src_len+40(FP), DI
   
-  CMPL DI, $64
-  JBE non_avx2_start
-
   CMPB ·useAVX2(SB), $1
   JE   avx2
 
@@ -354,20 +405,23 @@ done_sm4:
   RET
 
 avx2:
+  CMPQ DI, $64
+  JBE   avx2_4blocks
+
   VMOVDQU 0(DX), XDWORD0
   VMOVDQU 32(DX), XDWORD1
   VMOVDQU 64(DX), XDWORD2
   VMOVDQU 96(DX), XDWORD3
   VBROADCASTI128 flip_mask<>(SB), BYTE_FLIP_MASK
 
-	// Apply Byte Flip Mask: LE -> BE
-	VPSHUFB BYTE_FLIP_MASK, XDWORD0, XDWORD0
-	VPSHUFB BYTE_FLIP_MASK, XDWORD1, XDWORD1
-	VPSHUFB BYTE_FLIP_MASK, XDWORD2, XDWORD2
-	VPSHUFB BYTE_FLIP_MASK, XDWORD3, XDWORD3
+  // Apply Byte Flip Mask: LE -> BE
+  VPSHUFB BYTE_FLIP_MASK, XDWORD0, XDWORD0
+  VPSHUFB BYTE_FLIP_MASK, XDWORD1, XDWORD1
+  VPSHUFB BYTE_FLIP_MASK, XDWORD2, XDWORD2
+  VPSHUFB BYTE_FLIP_MASK, XDWORD3, XDWORD3
 
   // Transpose matrix 4 x 4 32bits word
-  TRANSPOSE_MATRIX(XDWORD0, XDWORD1, XDWORD2, XDWORD3)
+  TRANSPOSE_MATRIX(XDWORD0, XDWORD1, XDWORD2, XDWORD3, XDWTMP1, XDWTMP2)
 
   XORL CX, CX
 
@@ -382,19 +436,63 @@ avx2_loop:
   JB avx2_loop
 
   // Transpose matrix 4 x 4 32bits word
-  TRANSPOSE_MATRIX(XDWORD0, XDWORD1, XDWORD2, XDWORD3)
+  TRANSPOSE_MATRIX(XDWORD0, XDWORD1, XDWORD2, XDWORD3, XDWTMP1, XDWTMP2)
 
   VBROADCASTI128 flip_mask2<>(SB), BYTE_FLIP_MASK
-	VPSHUFB BYTE_FLIP_MASK, XDWORD0, XDWORD0
-	VPSHUFB BYTE_FLIP_MASK, XDWORD1, XDWORD1
-	VPSHUFB BYTE_FLIP_MASK, XDWORD2, XDWORD2
-	VPSHUFB BYTE_FLIP_MASK, XDWORD3, XDWORD3
+  VPSHUFB BYTE_FLIP_MASK, XDWORD0, XDWORD0
+  VPSHUFB BYTE_FLIP_MASK, XDWORD1, XDWORD1
+  VPSHUFB BYTE_FLIP_MASK, XDWORD2, XDWORD2
+  VPSHUFB BYTE_FLIP_MASK, XDWORD3, XDWORD3
   
   VMOVDQU XDWORD0, 0(BX)
   VMOVDQU XDWORD1, 32(BX)
   VMOVDQU XDWORD2, 64(BX)
   VMOVDQU XDWORD3, 96(BX)
+  JMP avx2_sm4_done
 
+avx2_4blocks:
+  VMOVDQU 0(DX), XWORD0
+  VMOVDQU 16(DX), XWORD1
+  VMOVDQU 32(DX), XWORD2
+  VMOVDQU 48(DX), XWORD3
+
+  VMOVDQU flip_mask<>(SB), X_BYTE_FLIP_MASK
+
+  VPSHUFB X_BYTE_FLIP_MASK, XWORD0, XWORD0
+  VPSHUFB X_BYTE_FLIP_MASK, XWORD1, XWORD1
+  VPSHUFB X_BYTE_FLIP_MASK, XWORD2, XWORD2
+  VPSHUFB X_BYTE_FLIP_MASK, XWORD3, XWORD3
+
+  // Transpose matrix 4 x 4 32bits word
+  TRANSPOSE_MATRIX(XWORD0, XWORD1, XWORD2, XWORD3, XWTMP1, XWTMP2)
+
+  XORL CX, CX
+
+avx_loop:
+  AVX_SM4_ROUND(0, XWORD, YWORD, XWORD0, XWORD1, XWORD2, XWORD3)
+  AVX_SM4_ROUND(1, XWORD, YWORD, XWORD1, XWORD2, XWORD3, XWORD0)
+  AVX_SM4_ROUND(2, XWORD, YWORD, XWORD2, XWORD3, XWORD0, XWORD1)
+  AVX_SM4_ROUND(3, XWORD, YWORD, XWORD3, XWORD0, XWORD1, XWORD2)
+
+  ADDL $16, CX
+  CMPL CX, $4*32
+  JB avx_loop
+
+  // Transpose matrix 4 x 4 32bits word
+  TRANSPOSE_MATRIX(XWORD0, XWORD1, XWORD2, XWORD3, XWTMP1, XWTMP2)
+
+  VMOVDQU flip_mask2<>(SB), X_BYTE_FLIP_MASK
+  VPSHUFB X_BYTE_FLIP_MASK, XWORD0, XWORD0
+  VPSHUFB X_BYTE_FLIP_MASK, XWORD1, XWORD1
+  VPSHUFB X_BYTE_FLIP_MASK, XWORD2, XWORD2
+  VPSHUFB X_BYTE_FLIP_MASK, XWORD3, XWORD3
+  
+  VMOVDQU XWORD0, 0(BX)
+  VMOVDQU XWORD1, 16(BX)
+  VMOVDQU XWORD2, 32(BX)
+  VMOVDQU XWORD3, 48(BX)
+
+avx2_sm4_done:
   VZEROUPPER
   RET
 
