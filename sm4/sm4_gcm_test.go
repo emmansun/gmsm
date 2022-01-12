@@ -15,10 +15,7 @@ func genPrecomputeTable() *gcmAsm {
 	c1 := &sm4CipherGCM{c}
 	g := &gcmAsm{}
 	g.cipher = &c1.sm4CipherAsm
-	var key1 [gcmBlockSize]byte
-	c1.Encrypt(key1[:], key1[:])
-	fmt.Printf("%v\n", key1)
-	precomputeTableAsm(&g.bytesProductTable, &key1)
+	gcmSm4Init(&g.bytesProductTable, g.cipher.enc)
 	return g
 }
 
@@ -59,7 +56,7 @@ arm64 result = {
 		0xCD, 0x01, 0x2B, 0xA4, 0xF6, 0x8E, 0x45, 0x62, 0xCD, 0x01, 0x2B, 0xA4, 0xF6, 0x8E, 0x45, 0x62,
 }
 */
-func TestPrecomputeTableAsm(t *testing.T) {
+func TestGcmSm4Init(t *testing.T) {
 	g := genPrecomputeTable()
 	for i := 0; i < 16; i++ {
 		for j := 0; j < 16; j++ {
