@@ -13,7 +13,7 @@ jobs:
       virt: vm
       os: linux
       dist: focal
-      go: 1.16.x
+      go: 1.15.x
       group: edge
 
 install:

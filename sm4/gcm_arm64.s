@@ -226,7 +226,7 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 	VEOR x.B16, t0.B16, t0.B16
 
 // func gcmSm4Init(productTable *[256]byte, rk []uint32)
-TEXT gcmSm4Init(SB),NOSPLIT,$0
+TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 #define pTbl R0
 #define RK R1
 #define I R2
