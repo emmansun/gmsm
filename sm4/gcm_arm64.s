@@ -160,7 +160,7 @@ TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 #define I R2
 
 	MOVD productTable+0(FP), pTbl
-	MOVD src+8(FP), SRC
+	MOVD rk+8(FP), RK
 
 	MOVD	$0xC2, I
 	LSL	$56, I
