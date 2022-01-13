@@ -131,7 +131,7 @@ GLOBL fk_mask<>(SB), (NOPTR+RODATA), $16
 
 #define load_global_data_1() \
   VMOVQ $0x0F0F0F0F0F0F0F0F, $0x0F0F0F0F0F0F0F0F, NIBBLE_MASK;   \ // nibble mask
-  VMOVQ $0xC7C1B4B222245157, $0x9197E2E474720701, M1L;           \
+  VMOVQ $0x9197E2E474720701, $0xC7C1B4B222245157, M1L;           \
   LDP m1_high<>(SB), (R0, R1)             \
   VMOV R0, M1H.D[0]                       \
   VMOV R1, M1H.D[1]                       \
