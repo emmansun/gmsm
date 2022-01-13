@@ -144,8 +144,8 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 	VEOR z.B16, x.B16, x.B16;                            \
 	VEOR y.B16, x.B16, x.B16
 
-#define SM4_ROUND(index, RK, x, y, z, z1, z2, t0, t1, t2, t3)  \ 
-	MOVW (index*4)(RK), R19;                          \
+#define SM4_ROUND(RK, x, y, z, z1, z2, t0, t1, t2, t3)  \ 
+	MOVW.P 4(RK), R19;                          \
 	VMOV R19, x.S4;                                   \
 	VEOR t1.B16, x.B16, x.B16;                        \
 	VEOR t2.B16, x.B16, x.B16;                        \
@@ -153,14 +153,14 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 	SM4_TAO_L1(x, y, z, z1, z2);                      \
 	VEOR x.B16, t0.B16, t0.B16
 
-// func precomputeTableAsm(productTable *[256]byte, src *[16]byte)
-TEXT ·precomputeTableAsm(SB),NOSPLIT,$0
+// func gcmSm4Init(productTable *[256]byte, rk []uint32)
+TEXT gcmSm4Init(SB),NOSPLIT,$0
 #define pTbl R0
-#define SRC R1
+#define RK R1
 #define I R2
 
 	MOVD productTable+0(FP), pTbl
-	MOVD src+8(FP), SRC
+	MOVD rk+8(FP), RK
 
 	MOVD	$0xC2, I
 	LSL	$56, I
@@ -169,8 +169,27 @@ TEXT ·precomputeTableAsm(SB),NOSPLIT,$0
 	VMOV	I, POLY.D[1]
 	VEOR	ZERO.B16, ZERO.B16, ZERO.B16
 
-	VLD1 (SRC), [B0.B16]
-	VREV64	B0.B16, B0.B16
+	// Encrypt block 0 with the SM4 keys to generate the hash key H
+	VEOR	B0.B16, B0.B16, B0.B16
+	VEOR	B1.B16, B1.B16, B1.B16
+	VEOR	B2.B16, B2.B16, B2.B16
+	VEOR	B3.B16, B3.B16, B3.B16
+	EOR R3, R3
+
+sm4InitEncLoop:	
+	SM4_ROUND(RK, K0, K1, K2, K3, K4, B0, B1, B2, B3)
+	SM4_ROUND(RK, K0, K1, K2, K3, K4, B1, B2, B3, B0)
+	SM4_ROUND(RK, K0, K1, K2, K3, K4, B2, B3, B0, B1)
+	SM4_ROUND(RK, K0, K1, K2, K3, K4, B3, B0, B1, B2)
+
+	ADD $1, R3
+	CMP $8, R3
+	BNE sm4InitEncLoop
+
+	VMOV B0.S[0], B0.S[2]
+	VMOV B1.S[0], B0.S[3]
+	VMOV B2.S[0], B0.S[0]
+	VMOV B3.S[0], B0.S[1]
 
 	// Multiply by 2 modulo P
 	VMOV	B0.D[0], I
@@ -228,7 +247,7 @@ initLoop:
 	BNE	initLoop
 	RET
 #undef I
-#undef SRC
+#undef RK
 #undef pTbl	
 
 // func gcmSm4Data(productTable *[256]byte, data []byte, T *[16]byte)
