@@ -109,37 +109,37 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 #define SM4_SBOX(x, y, z, z1, z2) \
 	VMOVQ $0x0F0F0F0F0F0F0F0F, $0x0F0F0F0F0F0F0F0F, z1;   \ // nibble mask
 	VAND x.B16, z1.B16, z2.B16;                           \
-	VMOVQ $0xC7C1B4B222245157, $0x9197E2E474720701, z;    \
+	VMOVQ $0x9197E2E474720701, $0xC7C1B4B222245157, z;    \
 	VTBL z2.B16, [z.B16], y.B16;                          \
 	VUSHR $4, x.D2, x.D2;                                 \
 	VAND x.B16, z1.B16, z2.B16;                           \
-	VMOVQ $0xF052B91BF95BB012, $0xE240AB09EB49A200, z;    \
+	VMOVQ $0xE240AB09EB49A200, $0xF052B91BF95BB012, z;    \
 	VTBL z2.B16, [z.B16], z2.B16;                         \
 	VEOR y.B16, z2.B16, x.B16;                            \
-	VMOVQ $0x0306090C0F020508, $0x0B0E0104070A0D00, z;    \
+	VMOVQ $0x0B0E0104070A0D00, $0x0306090C0F020508, z;    \
 	VTBL z.B16, [x.B16], x.B16;                           \
 	AESE ZERO.B16, x.B16;                                 \	
 	VAND x.B16, z1.B16, z2.B16;                           \
-	VMOVQ $0xEDD14478172BBE82, $0x5B67F2CEA19D0834, z;    \
+	VMOVQ $0x5B67F2CEA19D0834, $0xEDD14478172BBE82, z;    \
 	VTBL z2.B16, [z.B16], y.B16;                          \
 	VUSHR $4, x.D2, x.D2;                                 \
 	VAND x.B16, z1.B16, z2.B16;                           \
-	VMOVQ $0x11CDBE62CC1063BF, $0xAE7201DD73AFDC00, z;    \
+	VMOVQ $0xAE7201DD73AFDC00, $0x11CDBE62CC1063BF, z;    \
 	VTBL z2.B16, [z.B16], z2.B16;                         \
 	VEOR y.B16, z2.B16, x.B16
 
 #define SM4_TAO_L1(x, y, z, z1, z2)         \
 	SM4_SBOX(x, y, z, z1, z2);                           \
-	VMOVQ $0x0E0D0C0F0A09080B, $0x0605040702010003, z;   \
+	VMOVQ $0x0605040702010003, $0x0E0D0C0F0A09080B, z;   \
 	VTBL z.B16, [x.B16], y.B16;                          \
 	VEOR y.B16, x.B16, y.B16;                            \
-	VMOVQ $0x0D0C0F0E09080B0A, $0x0504070601000302, z;   \
+	VMOVQ $0x0504070601000302, $0x0D0C0F0E09080B0A, z;   \
 	VTBL z.B16, [x.B16], z.B16;                          \
 	VEOR z.B16, y.B16, y.B16;                            \
 	VSHL $2, y.S4, z.S4;                                 \
 	VUSHR $30, y.S4, y.S4;                               \
 	VORR y.B16, z.B16, y.B16;                            \
-	VMOVQ $0x0C0F0E0D080B0A09, $0x0407060500030201, z;   \
+	VMOVQ $0x0407060500030201, $0x0C0F0E0D080B0A09, z;   \
 	VTBL z.B16, [x.B16], z.B16;                          \
 	VEOR z.B16, x.B16, x.B16;                            \
 	VEOR y.B16, x.B16, x.B16
