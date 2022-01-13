@@ -108,6 +108,27 @@ GLOBL fk_mask<>(SB), (NOPTR+RODATA), $16
   VEOR XTMP7.B16, y.B16, y.B16;               \
   VEOR x.B16, y.B16, x.B16
 
+#define SM4_ROUND(RK, x, y, t0, t1, t2, t3) \
+  MOVW.P 4(RK), R19;                        \
+  VMOV R19, x.S4;                           \
+  VEOR t1.B16, x.B16, x.B16;                \
+  VEOR t2.B16, x.B16, x.B16;                \
+  VEOR t3.B16, x.B16, x.B16;                \
+  SM4_TAO_L1(x, y);                         \
+  VEOR x.B16, t0.B16, t0.B16
+
+#define SM4_EXPANDKEY_ROUND(x, y, t0, t1, t2, t3) \
+  MOVW.P 4(R9), R19;                               \
+  VMOV R19, x.S[0];                                \
+  VEOR t1.B16, x.B16, x.B16;                       \
+  VEOR t2.B16, x.B16, x.B16;                       \
+  VEOR t3.B16, x.B16, x.B16;                       \
+  SM4_TAO_L2(x, y);                                \
+  VEOR x.B16, t0.B16, t0.B16;                      \
+  VMOV t0.S[0], R2;                                \
+  MOVW.P R2, 4(R10);                               \
+  MOVW.P R2, -4(R11)
+
 #define load_global_data_1() \
   LDP nibble_mask<>(SB), (R0, R1)         \
   VMOV R0, NIBBLE_MASK.D[0]               \
@@ -164,49 +185,10 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
   VEOR ZERO.B16, ZERO.B16, ZERO.B16
 
 ksLoop:
-  MOVW.P 4(R9), R19
-  VMOV R19, x.S[0]
-  VEOR t1.B16, x.B16, x.B16
-  VEOR t2.B16, x.B16, x.B16
-  VEOR t3.B16, x.B16, x.B16
-  SM4_TAO_L2(x, y)
-  VEOR x.B16, t0.B16, t0.B16
-  VMOV t0.S[0], R2
-  MOVW.P R2, 4(R10)
-  MOVW.P R2, -4(R11)
-
-  MOVW.P 4(R9), R19
-  VMOV R19, x.S[0]
-  VEOR t0.B16, x.B16, x.B16
-  VEOR t2.B16, x.B16, x.B16
-  VEOR t3.B16, x.B16, x.B16
-  SM4_TAO_L2(x, y)
-  VEOR x.B16, t1.B16, t1.B16
-  VMOV t1.S[0], R2
-  MOVW.P R2, 4(R10)
-  MOVW.P R2, -4(R11)
-
-  MOVW.P 4(R9), R19
-  VMOV R19, x.S[0]
-  VEOR t0.B16, x.B16, x.B16
-  VEOR t1.B16, x.B16, x.B16
-  VEOR t3.B16, x.B16, x.B16
-  SM4_TAO_L2(x, y)
-  VEOR x.B16, t2.B16, t2.B16
-  VMOV t2.S[0], R2
-  MOVW.P R2, 4(R10)
-  MOVW.P R2, -4(R11)
-
-  MOVW.P 4(R9), R19
-  VMOV R19, x.S[0]
-  VEOR t0.B16, x.B16, x.B16
-  VEOR t1.B16, x.B16, x.B16
-  VEOR t2.B16, x.B16, x.B16
-  SM4_TAO_L2(x, y)
-  VEOR x.B16, t3.B16, t3.B16
-  VMOV t3.S[0], R2
-  MOVW.P R2, 4(R10)
-  MOVW.P R2, -4(R11)
+  SM4_EXPANDKEY_ROUND(x, y, t0, t1, t2, t3)
+  SM4_EXPANDKEY_ROUND(x, y, t1, t2, t3, t0)
+  SM4_EXPANDKEY_ROUND(x, y, t2, t3, t0, t1)
+  SM4_EXPANDKEY_ROUND(x, y, t3, t0, t1, t2)
 
   ADD $16, R0 
   CMP $128, R0
@@ -252,37 +234,10 @@ TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
   EOR R0, R0
 
 encryptBlocksLoop:
-  MOVW.P 4(R8), R19
-  VMOV R19, x.S4
-  VEOR t1.B16, x.B16, x.B16
-  VEOR t2.B16, x.B16, x.B16
-  VEOR t3.B16, x.B16, x.B16
-  SM4_TAO_L1(x, y)
-  VEOR x.B16, t0.B16, t0.B16
-
-  MOVW.P 4(R8), R19
-  VMOV R19, x.S4
-  VEOR t0.B16, x.B16, x.B16
-  VEOR t2.B16, x.B16, x.B16
-  VEOR t3.B16, x.B16, x.B16
-  SM4_TAO_L1(x, y)
-  VEOR x.B16, t1.B16, t1.B16
-
-  MOVW.P 4(R8), R19
-  VMOV R19, x.S4
-  VEOR t0.B16, x.B16, x.B16
-  VEOR t1.B16, x.B16, x.B16
-  VEOR t3.B16, x.B16, x.B16
-  SM4_TAO_L1(x, y)
-  VEOR x.B16, t2.B16, t2.B16
-
-  MOVW.P 4(R8), R19
-  VMOV R19, x.S4
-  VEOR t0.B16, x.B16, x.B16
-  VEOR t1.B16, x.B16, x.B16
-  VEOR t2.B16, x.B16, x.B16
-  SM4_TAO_L1(x, y)
-  VEOR x.B16, t3.B16, t3.B16
+  SM4_ROUND(R8, x, y, t0, t1, t2, t3)
+  SM4_ROUND(R8, x, y, t1, t2, t3, t0)
+  SM4_ROUND(R8, x, y, t2, t3, t0, t1)
+  SM4_ROUND(R8, x, y, t3, t0, t1, t2)
 
   ADD $16, R0
   CMP $128, R0
@@ -338,37 +293,10 @@ TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
   EOR R0, R0
 
 encryptBlockLoop:
-  MOVW.P 4(R8), R19
-  VMOV R19, x.S4
-  VEOR t1.B16, x.B16, x.B16
-  VEOR t2.B16, x.B16, x.B16
-  VEOR t3.B16, x.B16, x.B16
-  SM4_TAO_L1(x, y)
-  VEOR x.B16, t0.B16, t0.B16
-
-  MOVW.P 4(R8), R19
-  VMOV R19, x.S4
-  VEOR t0.B16, x.B16, x.B16
-  VEOR t2.B16, x.B16, x.B16
-  VEOR t3.B16, x.B16, x.B16
-  SM4_TAO_L1(x, y)
-  VEOR x.B16, t1.B16, t1.B16
-
-  MOVW.P 4(R8), R19
-  VMOV R19, x.S4
-  VEOR t0.B16, x.B16, x.B16
-  VEOR t1.B16, x.B16, x.B16
-  VEOR t3.B16, x.B16, x.B16
-  SM4_TAO_L1(x, y)
-  VEOR x.B16, t2.B16, t2.B16
-
-  MOVW.P 4(R8), R19
-  VMOV R19, x.S4
-  VEOR t0.B16, x.B16, x.B16
-  VEOR t1.B16, x.B16, x.B16
-  VEOR t2.B16, x.B16, x.B16
-  SM4_TAO_L1(x, y)
-  VEOR x.B16, t3.B16, t3.B16
+  SM4_ROUND(R8, x, y, t0, t1, t2, t3)
+  SM4_ROUND(R8, x, y, t1, t2, t3, t0)
+  SM4_ROUND(R8, x, y, t2, t3, t0, t1)
+  SM4_ROUND(R8, x, y, t3, t0, t1, t2)
 
   ADD $16, R0
   CMP $128, R0
