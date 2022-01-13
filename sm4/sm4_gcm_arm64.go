@@ -21,7 +21,7 @@ type sm4CipherGCM struct {
 var _ gcmAble = (*sm4CipherGCM)(nil)
 
 //go:noescape
-func gcmSm4Init(productTable *[256]byte, rk []uint32)
+func precomputeTableAsm(productTable *[256]byte, src *[16]byte)
 
 //go:noescape
 func gcmSm4Data(productTable *[256]byte, data []byte, T *[16]byte)
@@ -41,7 +41,9 @@ func (c *sm4CipherGCM) NewGCM(nonceSize, tagSize int) (cipher.AEAD, error) {
 	g.cipher = &c.sm4CipherAsm
 	g.nonceSize = nonceSize
 	g.tagSize = tagSize
-	gcmSm4Init(&g.bytesProductTable, g.cipher.enc)
+	var key [gcmBlockSize]byte
+	c.Encrypt(key[:], key[:])
+	precomputeTableAsm(&g.bytesProductTable, &key)
 	return g, nil
 }
 
