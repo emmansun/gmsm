@@ -24,6 +24,12 @@ var _ gcmAble = (*sm4CipherGCM)(nil)
 func gcmSm4Init(productTable *[256]byte, rk []uint32)
 
 //go:noescape
+func gcmSm4Enc(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk []uint32)
+
+//go:noescape
+func gcmSm4Dec(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk []uint32)
+
+//go:noescape
 func gcmSm4Data(productTable *[256]byte, data []byte, T *[16]byte)
 
 //go:noescape
@@ -76,10 +82,8 @@ func (g *gcmAsm) Seal(dst, nonce, plaintext, data []byte) []byte {
 	}
 
 	g.cipher.Encrypt(tagMask[:], counter[:])
-	gcmInc32(&counter)
 
 	var tagOut [gcmTagSize]byte
-
 	gcmSm4Data(&g.bytesProductTable, data, &tagOut)
 
 	ret, out := subtle.SliceForAppend(dst, len(plaintext)+g.tagSize)
@@ -88,8 +92,7 @@ func (g *gcmAsm) Seal(dst, nonce, plaintext, data []byte) []byte {
 	}
 
 	if len(plaintext) > 0 {
-		g.counterCrypt(out, plaintext, &counter)
-		gcmSm4Data(&g.bytesProductTable, out[:len(plaintext)], &tagOut)
+		gcmSm4Enc(&g.bytesProductTable, out, plaintext, &counter, &tagOut, g.cipher.enc)
 	}
 	gcmSm4Finish(&g.bytesProductTable, &tagMask, &tagOut, uint64(len(plaintext)), uint64(len(data)))
 	copy(out[len(plaintext):], tagOut[:])
@@ -133,7 +136,6 @@ func (g *gcmAsm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 	}
 
 	g.cipher.Encrypt(tagMask[:], counter[:])
-	gcmInc32(&counter)
 
 	var expectedTag [gcmTagSize]byte
 	gcmSm4Data(&g.bytesProductTable, data, &expectedTag)
@@ -143,7 +145,7 @@ func (g *gcmAsm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 		panic("cipher: invalid buffer overlap")
 	}
 	if len(ciphertext) > 0 {
-		gcmSm4Data(&g.bytesProductTable, ciphertext, &expectedTag)
+		gcmSm4Dec(&g.bytesProductTable, out, ciphertext, &counter, &expectedTag, g.cipher.enc)
 	}
 	gcmSm4Finish(&g.bytesProductTable, &tagMask, &expectedTag, uint64(len(ciphertext)), uint64(len(data)))
 
@@ -153,8 +155,5 @@ func (g *gcmAsm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 		}
 		return nil, errOpen
 	}
-
-	g.counterCrypt(out, ciphertext, &counter)
-
 	return ret, nil
 }
