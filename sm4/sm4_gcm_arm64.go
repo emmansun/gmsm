@@ -24,6 +24,12 @@ var _ gcmAble = (*sm4CipherGCM)(nil)
 func gcmSm4Init(productTable *[256]byte, rk []uint32)
 
 //go:noescape
+func gcmSm4Enc(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk []uint32)
+
+//go:noescape
+func gcmSm4Dec(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk []uint32)
+
+//go:noescape
 func gcmSm4Data(productTable *[256]byte, data []byte, T *[16]byte)
 
 //go:noescape
