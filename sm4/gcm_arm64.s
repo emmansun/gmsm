@@ -157,6 +157,28 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 #undef plen
 #undef dlen
 
+#define PRE_TRANSPOSE_MATRIX(t0, t1, t2, t3) \
+	VMOV t0.S[0], K0.S[0]                      \ 
+	VMOV t0.S[1], K1.S[0]                      \ 
+	VMOV t0.S[2], K2.S[0]                      \ 
+	VMOV t0.S[3], K3.S[0]                      \ 
+	VMOV t1.S[0], K0.S[1]                      \ 
+	VMOV t1.S[1], K1.S[1]                      \ 
+	VMOV t1.S[2], K2.S[1]                      \ 
+	VMOV t1.S[3], K3.S[1]                      \ 	
+	VMOV t2.S[0], K0.S[2]                      \ 
+	VMOV t2.S[1], K1.S[2]                      \ 
+	VMOV t2.S[2], K2.S[2]                      \ 
+	VMOV t2.S[3], K3.S[2]                      \ 		
+	VMOV t3.S[0], K0.S[3]                      \ 
+	VMOV t3.S[1], K1.S[3]                      \ 
+	VMOV t3.S[2], K2.S[3]                      \ 
+	VMOV t3.S[3], K3.S[3]                      \ 		
+	VMOV K0.B16, t0.B16                        \
+	VMOV K1.B16, t1.B16                        \
+	VMOV K2.B16, t2.B16                        \
+	VMOV K3.B16, t3.B16                        \
+
 #define TRANSPOSE_MATRIX(t0, t1, t2, t3) \
 	VMOV t3.S[0], K0.S[0]                      \
 	VMOV t2.S[0], K0.S[1]                      \
@@ -572,6 +594,7 @@ encOctetsLoop:
 		VREV32	B7.B16, B7.B16
 
 		// encryption first 4 blocks
+		PRE_TRANSPOSE_MATRIX(B0, B1, B2, B3)
 		EOR R13, R13
 		MOVD	rkSave, rk
 
@@ -590,6 +613,7 @@ encOctetsEnc4Blocks1:
 		VREV32 B3.B16, B3.B16
 		TRANSPOSE_MATRIX(B0, B1, B2, B3)
 		// encryption first 4 blocks
+		PRE_TRANSPOSE_MATRIX(B4, B5, B6, B7)
 		MOVD	rkSave, rk
 
 encOctetsEnc4Blocks2:	
@@ -669,6 +693,7 @@ encNibblesLoop:
 	VREV32	B3.B16, B3.B16
 
 	// encryption first 4 blocks
+	PRE_TRANSPOSE_MATRIX(B0, B1, B2, B3)
 	EOR R13, R13
 	MOVD	rkSave, rk
 
@@ -717,6 +742,7 @@ encStartSingles:
 	VREV32	B3.B16, B3.B16
 
 	// encryption first 4 blocks
+	PRE_TRANSPOSE_MATRIX(B0, B1, B2, B3)
 	EOR R13, R13
 	MOVD	rkSave, rk
 
@@ -876,6 +902,7 @@ decOctetsLoop:
 		VREV32	B7.B16, B7.B16
 
 		// encryption first 4 blocks
+		PRE_TRANSPOSE_MATRIX(B0, B1, B2, B3)
 		EOR R13, R13
 		MOVD	rkSave, rk
 
@@ -895,6 +922,7 @@ decOctetsEnc4Blocks1:
 		TRANSPOSE_MATRIX(B0, B1, B2, B3)
 
 		// encryption first 4 blocks
+		PRE_TRANSPOSE_MATRIX(B4, B5, B6, B7)
 		MOVD	rkSave, rk
 
 decOctetsEnc4Blocks2:	
@@ -975,6 +1003,7 @@ decNibblesLoop:
 	VREV32	B3.B16, B3.B16
 
 	// encryption first 4 blocks
+	PRE_TRANSPOSE_MATRIX(B0, B1, B2, B3)
 	EOR R13, R13
 	MOVD	rkSave, rk
 
@@ -1026,6 +1055,7 @@ decStartSingles:
 	VREV32	B3.B16, B3.B16
 
 	// encryption first 4 blocks
+	PRE_TRANSPOSE_MATRIX(B0, B1, B2, B3)
 	EOR R13, R13
 	MOVD	rkSave, rk
 
