@@ -157,7 +157,7 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 #undef plen
 #undef dlen
 
-#define TRANSPOSE_MATRIX(r0, r1, r2, r3) \
+#define TRANSPOSE_MATRIX(t0, t1, t2, t3) \
 	VMOV t3.S[0], K0.S[0]                      \
 	VMOV t2.S[0], K0.S[1]                      \
 	VMOV t1.S[0], K0.S[2]                      \
@@ -174,10 +174,10 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 	VMOV t2.S[3], K3.S[1]                      \
 	VMOV t1.S[3], K3.S[2]                      \
 	VMOV t0.S[3], K3.S[3]                      \
-	VMOV K0, t0                                \
-	VMOV K1, t1                                \
-	VMOV K2, t2                                \
-	VMOV K3, t3                                \
+	VMOV K0.B16, t0.B16                        \
+	VMOV K1.B16, t1.B16                        \
+	VMOV K2.B16, t2.B16                        \
+	VMOV K3.B16, t3.B16                        \
 
 #define LOAD_SM4_AESNI_CONSTS() \
   LDP nibble_mask<>(SB), (R20, R21)          \
