@@ -148,26 +148,21 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 #undef dlen
 
 #define PRE_TRANSPOSE_MATRIX(t0, t1, t2, t3) \
-	VMOV t0.S[0], K0.S[0]                      \ 
-	VMOV t0.S[1], K1.S[0]                      \ 
-	VMOV t0.S[2], K2.S[0]                      \ 
-	VMOV t0.S[3], K3.S[0]                      \ 
-	VMOV t1.S[0], K0.S[1]                      \ 
-	VMOV t1.S[1], K1.S[1]                      \ 
-	VMOV t1.S[2], K2.S[1]                      \ 
-	VMOV t1.S[3], K3.S[1]                      \ 	
-	VMOV t2.S[0], K0.S[2]                      \ 
-	VMOV t2.S[1], K1.S[2]                      \ 
-	VMOV t2.S[2], K2.S[2]                      \ 
-	VMOV t2.S[3], K3.S[2]                      \ 		
-	VMOV t3.S[0], K0.S[3]                      \ 
-	VMOV t3.S[1], K1.S[3]                      \ 
-	VMOV t3.S[2], K2.S[3]                      \ 
-	VMOV t3.S[3], K3.S[3]                      \ 		
-	VMOV K0.B16, t0.B16                        \
-	VMOV K1.B16, t1.B16                        \
-	VMOV K2.B16, t2.B16                        \
-	VMOV K3.B16, t3.B16                        \
+	VMOV t0.B16, K0.B16                        \
+	VMOV t1.S[0], t0.S[1]                      \
+	VMOV t2.S[0], t0.S[2]                      \
+	VMOV t3.S[0], t0.S[3]                      \
+	VMOV K0.S[1], t1.S[0]                      \
+	VMOV K0.S[2], t2.S[0]                      \
+	VMOV K0.S[3], t3.S[0]                      \
+	VMOV t1.D[1], K0.D[1]                      \
+	VMOV t2.S[1], t1.S[2]                      \
+	VMOV t3.S[1], t1.S[3]                      \
+	VMOV K0.S[2], t2.S[1]                      \
+	VMOV K0.S[3], t3.S[1]                      \
+	VMOV t2.S[3], K0.S[3]                      \
+	VMOV t3.S[2], t2.S[3]                      \
+	VMOV K0.S[3], t3.S[2]                      \
 
 #define TRANSPOSE_MATRIX(t0, t1, t2, t3) \
 	VMOV t3.S[0], K0.S[0]                      \
