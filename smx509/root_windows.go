@@ -148,7 +148,7 @@ func checkChainSSLServerPolicy(c *Certificate, chainCtx *syscall.CertChainContex
 
 // windowsExtKeyUsageOIDs are the C NUL-terminated string representations of the
 // OIDs for use with the Windows API.
-var windowsExtKeyUsageOIDs = make(map[x509.ExtKeyUsage][]byte, len(extKeyUsageOIDs))
+var windowsExtKeyUsageOIDs = make(map[ExtKeyUsage][]byte, len(extKeyUsageOIDs))
 
 func init() {
 	for _, eku := range extKeyUsageOIDs {

@@ -501,28 +501,49 @@ var (
 	oidExtKeyUsageMicrosoftKernelCodeSigning     = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 311, 61, 1, 1}
 )
 
+// ExtKeyUsage represents an extended set of actions that are valid for a given key.
+// Each of the ExtKeyUsage* constants define a unique action.
+type ExtKeyUsage = x509.ExtKeyUsage
+
+const (
+	ExtKeyUsageAny                            = x509.ExtKeyUsageAny
+	ExtKeyUsageServerAuth                     = x509.ExtKeyUsageServerAuth
+	ExtKeyUsageClientAuth                     = x509.ExtKeyUsageClientAuth
+	ExtKeyUsageCodeSigning                    = x509.ExtKeyUsageCodeSigning
+	ExtKeyUsageEmailProtection                = x509.ExtKeyUsageEmailProtection
+	ExtKeyUsageIPSECEndSystem                 = x509.ExtKeyUsageIPSECEndSystem
+	ExtKeyUsageIPSECTunnel                    = x509.ExtKeyUsageIPSECTunnel
+	ExtKeyUsageIPSECUser                      = x509.ExtKeyUsageIPSECUser
+	ExtKeyUsageTimeStamping                   = x509.ExtKeyUsageTimeStamping
+	ExtKeyUsageOCSPSigning                    = x509.ExtKeyUsageOCSPSigning
+	ExtKeyUsageMicrosoftServerGatedCrypto     = x509.ExtKeyUsageMicrosoftServerGatedCrypto
+	ExtKeyUsageNetscapeServerGatedCrypto      = x509.ExtKeyUsageNetscapeServerGatedCrypto
+	ExtKeyUsageMicrosoftCommercialCodeSigning = x509.ExtKeyUsageMicrosoftCommercialCodeSigning
+	ExtKeyUsageMicrosoftKernelCodeSigning     = x509.ExtKeyUsageMicrosoftKernelCodeSigning
+)
+
 // extKeyUsageOIDs contains the mapping between an ExtKeyUsage and its OID.
 var extKeyUsageOIDs = []struct {
-	extKeyUsage x509.ExtKeyUsage
+	extKeyUsage ExtKeyUsage
 	oid         asn1.ObjectIdentifier
 }{
-	{x509.ExtKeyUsageAny, oidExtKeyUsageAny},
-	{x509.ExtKeyUsageServerAuth, oidExtKeyUsageServerAuth},
-	{x509.ExtKeyUsageClientAuth, oidExtKeyUsageClientAuth},
-	{x509.ExtKeyUsageCodeSigning, oidExtKeyUsageCodeSigning},
-	{x509.ExtKeyUsageEmailProtection, oidExtKeyUsageEmailProtection},
-	{x509.ExtKeyUsageIPSECEndSystem, oidExtKeyUsageIPSECEndSystem},
-	{x509.ExtKeyUsageIPSECTunnel, oidExtKeyUsageIPSECTunnel},
-	{x509.ExtKeyUsageIPSECUser, oidExtKeyUsageIPSECUser},
-	{x509.ExtKeyUsageTimeStamping, oidExtKeyUsageTimeStamping},
-	{x509.ExtKeyUsageOCSPSigning, oidExtKeyUsageOCSPSigning},
-	{x509.ExtKeyUsageMicrosoftServerGatedCrypto, oidExtKeyUsageMicrosoftServerGatedCrypto},
-	{x509.ExtKeyUsageNetscapeServerGatedCrypto, oidExtKeyUsageNetscapeServerGatedCrypto},
-	{x509.ExtKeyUsageMicrosoftCommercialCodeSigning, oidExtKeyUsageMicrosoftCommercialCodeSigning},
-	{x509.ExtKeyUsageMicrosoftKernelCodeSigning, oidExtKeyUsageMicrosoftKernelCodeSigning},
+	{ExtKeyUsageAny, oidExtKeyUsageAny},
+	{ExtKeyUsageServerAuth, oidExtKeyUsageServerAuth},
+	{ExtKeyUsageClientAuth, oidExtKeyUsageClientAuth},
+	{ExtKeyUsageCodeSigning, oidExtKeyUsageCodeSigning},
+	{ExtKeyUsageEmailProtection, oidExtKeyUsageEmailProtection},
+	{ExtKeyUsageIPSECEndSystem, oidExtKeyUsageIPSECEndSystem},
+	{ExtKeyUsageIPSECTunnel, oidExtKeyUsageIPSECTunnel},
+	{ExtKeyUsageIPSECUser, oidExtKeyUsageIPSECUser},
+	{ExtKeyUsageTimeStamping, oidExtKeyUsageTimeStamping},
+	{ExtKeyUsageOCSPSigning, oidExtKeyUsageOCSPSigning},
+	{ExtKeyUsageMicrosoftServerGatedCrypto, oidExtKeyUsageMicrosoftServerGatedCrypto},
+	{ExtKeyUsageNetscapeServerGatedCrypto, oidExtKeyUsageNetscapeServerGatedCrypto},
+	{ExtKeyUsageMicrosoftCommercialCodeSigning, oidExtKeyUsageMicrosoftCommercialCodeSigning},
+	{ExtKeyUsageMicrosoftKernelCodeSigning, oidExtKeyUsageMicrosoftKernelCodeSigning},
 }
 
-func extKeyUsageFromOID(oid asn1.ObjectIdentifier) (eku x509.ExtKeyUsage, ok bool) {
+func extKeyUsageFromOID(oid asn1.ObjectIdentifier) (eku ExtKeyUsage, ok bool) {
 	for _, pair := range extKeyUsageOIDs {
 		if oid.Equal(pair.oid) {
 			return pair.extKeyUsage, true
@@ -531,7 +552,7 @@ func extKeyUsageFromOID(oid asn1.ObjectIdentifier) (eku x509.ExtKeyUsage, ok boo
 	return
 }
 
-func oidFromExtKeyUsage(eku x509.ExtKeyUsage) (oid asn1.ObjectIdentifier, ok bool) {
+func oidFromExtKeyUsage(eku ExtKeyUsage) (oid asn1.ObjectIdentifier, ok bool) {
 	for _, pair := range extKeyUsageOIDs {
 		if eku == pair.extKeyUsage {
 			return pair.oid, true
@@ -1071,7 +1092,7 @@ func marshalKeyUsage(ku KeyUsage) (pkix.Extension, error) {
 	return ext, nil
 }
 
-func marshalExtKeyUsage(extUsages []x509.ExtKeyUsage, unknownUsages []asn1.ObjectIdentifier) (pkix.Extension, error) {
+func marshalExtKeyUsage(extUsages []ExtKeyUsage, unknownUsages []asn1.ObjectIdentifier) (pkix.Extension, error) {
 	ext := pkix.Extension{Id: oidExtensionExtendedKeyUsage}
 
 	oids := make([]asn1.ObjectIdentifier, len(extUsages)+len(unknownUsages))

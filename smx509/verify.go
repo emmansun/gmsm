@@ -66,7 +66,7 @@ type VerifyOptions struct {
 	// KeyUsages specifies which Extended Key Usage values are acceptable. A
 	// chain is accepted if it allows any of the listed values. An empty list
 	// means ExtKeyUsageServerAuth. To accept any key usage, include ExtKeyUsageAny.
-	KeyUsages []x509.ExtKeyUsage
+	KeyUsages []ExtKeyUsage
 
 	// MaxConstraintComparisions is the maximum number of comparisons to
 	// perform when checking a given certificate's name constraints. If
@@ -554,7 +554,7 @@ func (c *Certificate) Verify(opts VerifyOptions) (chains [][]*Certificate, err e
 
 	keyUsages := opts.KeyUsages
 	if len(keyUsages) == 0 {
-		keyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+		keyUsages = []ExtKeyUsage{x509.ExtKeyUsageServerAuth}
 	}
 
 	// If any key usage is acceptable then we're done.
@@ -823,8 +823,8 @@ func (c *Certificate) VerifyHostname(h string) error {
 	return x509.HostnameError{&c.Certificate, h}
 }
 
-func checkChainForKeyUsage(chain []*Certificate, keyUsages []x509.ExtKeyUsage) bool {
-	usages := make([]x509.ExtKeyUsage, len(keyUsages))
+func checkChainForKeyUsage(chain []*Certificate, keyUsages []ExtKeyUsage) bool {
+	usages := make([]ExtKeyUsage, len(keyUsages))
 	copy(usages, keyUsages)
 
 	if len(chain) == 0 {
@@ -852,7 +852,7 @@ NextCert:
 			}
 		}
 
-		const invalidUsage x509.ExtKeyUsage = -1
+		const invalidUsage ExtKeyUsage = -1
 
 	NextRequestedUsage:
 		for i, requestedUsage := range usages {

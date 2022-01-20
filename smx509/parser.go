@@ -7,7 +7,6 @@ import (
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rsa"
-	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/pem"
@@ -420,8 +419,8 @@ func parseSANExtension(der cryptobyte.String) (dnsNames, emailAddresses []string
 	return
 }
 
-func parseExtKeyUsageExtension(der cryptobyte.String) ([]x509.ExtKeyUsage, []asn1.ObjectIdentifier, error) {
-	var extKeyUsages []x509.ExtKeyUsage
+func parseExtKeyUsageExtension(der cryptobyte.String) ([]ExtKeyUsage, []asn1.ObjectIdentifier, error) {
+	var extKeyUsages []ExtKeyUsage
 	var unknownUsages []asn1.ObjectIdentifier
 	if !der.ReadASN1(&der, cryptobyte_asn1.SEQUENCE) {
 		return nil, nil, errors.New("x509: invalid extended key usages")
