@@ -191,9 +191,34 @@ type authKeyId struct {
 	Id []byte `asn1:"optional,tag:0"`
 }
 
-func isRSAPSS(algo x509.SignatureAlgorithm) bool {
+type SignatureAlgorithm = x509.SignatureAlgorithm
+
+const (
+	UnknownSignatureAlgorithm = x509.UnknownSignatureAlgorithm
+
+	MD2WithRSA       = x509.MD2WithRSA
+	MD5WithRSA       = x509.MD5WithRSA // Only supported for signing, not verification.
+	SHA1WithRSA      = x509.SHA1WithRSA
+	SHA256WithRSA    = x509.SHA256WithRSA
+	SHA384WithRSA    = x509.SHA384WithRSA
+	SHA512WithRSA    = x509.SHA512WithRSA
+	DSAWithSHA1      = x509.DSAWithSHA1   // Unsupported.
+	DSAWithSHA256    = x509.DSAWithSHA256 // Unsupported.
+	ECDSAWithSHA1    = x509.ECDSAWithSHA1
+	ECDSAWithSHA256  = x509.ECDSAWithSHA256
+	ECDSAWithSHA384  = x509.ECDSAWithSHA384
+	ECDSAWithSHA512  = x509.ECDSAWithSHA512
+	SHA256WithRSAPSS = x509.SHA256WithRSAPSS
+	SHA384WithRSAPSS = x509.SHA384WithRSAPSS
+	SHA512WithRSAPSS = x509.SHA512WithRSAPSS
+	PureEd25519      = x509.PureEd25519
+
+	SM2WithSM3 SignatureAlgorithm = 99
+)
+
+func isRSAPSS(algo SignatureAlgorithm) bool {
 	switch algo {
-	case x509.SHA256WithRSAPSS, x509.SHA384WithRSAPSS, x509.SHA512WithRSAPSS:
+	case SHA256WithRSAPSS, SHA384WithRSAPSS, SHA512WithRSAPSS:
 		return true
 	default:
 		return false
@@ -206,32 +231,30 @@ type pkcs1PublicKey struct {
 	E int
 }
 
-const SM2WithSM3 x509.SignatureAlgorithm = 99
-
 var signatureAlgorithmDetails = []struct {
-	algo       x509.SignatureAlgorithm
+	algo       SignatureAlgorithm
 	name       string
 	oid        asn1.ObjectIdentifier
 	pubKeyAlgo x509.PublicKeyAlgorithm
 	hash       crypto.Hash
 }{
-	{x509.MD2WithRSA, "MD2-RSA", oidSignatureMD2WithRSA, x509.RSA, crypto.Hash(0) /* no value for MD2 */},
-	{x509.MD5WithRSA, "MD5-RSA", oidSignatureMD5WithRSA, x509.RSA, crypto.MD5},
-	{x509.SHA1WithRSA, "SHA1-RSA", oidSignatureSHA1WithRSA, x509.RSA, crypto.SHA1},
-	{x509.SHA1WithRSA, "SHA1-RSA", oidISOSignatureSHA1WithRSA, x509.RSA, crypto.SHA1},
-	{x509.SHA256WithRSA, "SHA256-RSA", oidSignatureSHA256WithRSA, x509.RSA, crypto.SHA256},
-	{x509.SHA384WithRSA, "SHA384-RSA", oidSignatureSHA384WithRSA, x509.RSA, crypto.SHA384},
-	{x509.SHA512WithRSA, "SHA512-RSA", oidSignatureSHA512WithRSA, x509.RSA, crypto.SHA512},
-	{x509.SHA256WithRSAPSS, "SHA256-RSAPSS", oidSignatureRSAPSS, x509.RSA, crypto.SHA256},
-	{x509.SHA384WithRSAPSS, "SHA384-RSAPSS", oidSignatureRSAPSS, x509.RSA, crypto.SHA384},
-	{x509.SHA512WithRSAPSS, "SHA512-RSAPSS", oidSignatureRSAPSS, x509.RSA, crypto.SHA512},
-	{x509.DSAWithSHA1, "DSA-SHA1", oidSignatureDSAWithSHA1, x509.DSA, crypto.SHA1},
-	{x509.DSAWithSHA256, "DSA-SHA256", oidSignatureDSAWithSHA256, x509.DSA, crypto.SHA256},
-	{x509.ECDSAWithSHA1, "ECDSA-SHA1", oidSignatureECDSAWithSHA1, x509.ECDSA, crypto.SHA1},
-	{x509.ECDSAWithSHA256, "ECDSA-SHA256", oidSignatureECDSAWithSHA256, x509.ECDSA, crypto.SHA256},
-	{x509.ECDSAWithSHA384, "ECDSA-SHA384", oidSignatureECDSAWithSHA384, x509.ECDSA, crypto.SHA384},
-	{x509.ECDSAWithSHA512, "ECDSA-SHA512", oidSignatureECDSAWithSHA512, x509.ECDSA, crypto.SHA512},
-	{x509.PureEd25519, "Ed25519", oidSignatureEd25519, x509.Ed25519, crypto.Hash(0) /* no pre-hashing */},
+	{MD2WithRSA, "MD2-RSA", oidSignatureMD2WithRSA, x509.RSA, crypto.Hash(0) /* no value for MD2 */},
+	{MD5WithRSA, "MD5-RSA", oidSignatureMD5WithRSA, x509.RSA, crypto.MD5},
+	{SHA1WithRSA, "SHA1-RSA", oidSignatureSHA1WithRSA, x509.RSA, crypto.SHA1},
+	{SHA1WithRSA, "SHA1-RSA", oidISOSignatureSHA1WithRSA, x509.RSA, crypto.SHA1},
+	{SHA256WithRSA, "SHA256-RSA", oidSignatureSHA256WithRSA, x509.RSA, crypto.SHA256},
+	{SHA384WithRSA, "SHA384-RSA", oidSignatureSHA384WithRSA, x509.RSA, crypto.SHA384},
+	{SHA512WithRSA, "SHA512-RSA", oidSignatureSHA512WithRSA, x509.RSA, crypto.SHA512},
+	{SHA256WithRSAPSS, "SHA256-RSAPSS", oidSignatureRSAPSS, x509.RSA, crypto.SHA256},
+	{SHA384WithRSAPSS, "SHA384-RSAPSS", oidSignatureRSAPSS, x509.RSA, crypto.SHA384},
+	{SHA512WithRSAPSS, "SHA512-RSAPSS", oidSignatureRSAPSS, x509.RSA, crypto.SHA512},
+	{DSAWithSHA1, "DSA-SHA1", oidSignatureDSAWithSHA1, x509.DSA, crypto.SHA1},
+	{DSAWithSHA256, "DSA-SHA256", oidSignatureDSAWithSHA256, x509.DSA, crypto.SHA256},
+	{ECDSAWithSHA1, "ECDSA-SHA1", oidSignatureECDSAWithSHA1, x509.ECDSA, crypto.SHA1},
+	{ECDSAWithSHA256, "ECDSA-SHA256", oidSignatureECDSAWithSHA256, x509.ECDSA, crypto.SHA256},
+	{ECDSAWithSHA384, "ECDSA-SHA384", oidSignatureECDSAWithSHA384, x509.ECDSA, crypto.SHA384},
+	{ECDSAWithSHA512, "ECDSA-SHA512", oidSignatureECDSAWithSHA512, x509.ECDSA, crypto.SHA512},
+	{PureEd25519, "Ed25519", oidSignatureEd25519, x509.Ed25519, crypto.Hash(0) /* no pre-hashing */},
 	{SM2WithSM3, "SM2-SM3", oidSignatureSM2WithSM3, x509.ECDSA, crypto.Hash(0) /* no pre-hashing */},
 }
 
@@ -260,12 +283,12 @@ type pssParameters struct {
 	TrailerField int                      `asn1:"optional,explicit,tag:3,default:1"`
 }
 
-func getSignatureAlgorithmFromAI(ai pkix.AlgorithmIdentifier) x509.SignatureAlgorithm {
+func getSignatureAlgorithmFromAI(ai pkix.AlgorithmIdentifier) SignatureAlgorithm {
 	if ai.Algorithm.Equal(oidSignatureEd25519) {
 		// RFC 8410, Section 3
 		// > For all of the OIDs, the parameters MUST be absent.
 		if len(ai.Parameters.FullBytes) != 0 {
-			return x509.UnknownSignatureAlgorithm
+			return UnknownSignatureAlgorithm
 		}
 	}
 
@@ -275,7 +298,7 @@ func getSignatureAlgorithmFromAI(ai pkix.AlgorithmIdentifier) x509.SignatureAlgo
 				return details.algo
 			}
 		}
-		return x509.UnknownSignatureAlgorithm
+		return UnknownSignatureAlgorithm
 	}
 
 	// RSA PSS is special because it encodes important parameters
@@ -283,12 +306,12 @@ func getSignatureAlgorithmFromAI(ai pkix.AlgorithmIdentifier) x509.SignatureAlgo
 
 	var params pssParameters
 	if _, err := asn1.Unmarshal(ai.Parameters.FullBytes, &params); err != nil {
-		return x509.UnknownSignatureAlgorithm
+		return UnknownSignatureAlgorithm
 	}
 
 	var mgf1HashFunc pkix.AlgorithmIdentifier
 	if _, err := asn1.Unmarshal(params.MGF.Parameters.FullBytes, &mgf1HashFunc); err != nil {
-		return x509.UnknownSignatureAlgorithm
+		return UnknownSignatureAlgorithm
 	}
 
 	// PSS is greatly overburdened with options. This code forces them into
@@ -301,19 +324,19 @@ func getSignatureAlgorithmFromAI(ai pkix.AlgorithmIdentifier) x509.SignatureAlgo
 		!mgf1HashFunc.Algorithm.Equal(params.Hash.Algorithm) ||
 		(len(mgf1HashFunc.Parameters.FullBytes) != 0 && !bytes.Equal(mgf1HashFunc.Parameters.FullBytes, asn1.NullBytes)) ||
 		params.TrailerField != 1 {
-		return x509.UnknownSignatureAlgorithm
+		return UnknownSignatureAlgorithm
 	}
 
 	switch {
 	case params.Hash.Algorithm.Equal(oidSHA256) && params.SaltLength == 32:
-		return x509.SHA256WithRSAPSS
+		return SHA256WithRSAPSS
 	case params.Hash.Algorithm.Equal(oidSHA384) && params.SaltLength == 48:
-		return x509.SHA384WithRSAPSS
+		return SHA384WithRSAPSS
 	case params.Hash.Algorithm.Equal(oidSHA512) && params.SaltLength == 64:
-		return x509.SHA512WithRSAPSS
+		return SHA512WithRSAPSS
 	}
 
-	return x509.UnknownSignatureAlgorithm
+	return UnknownSignatureAlgorithm
 }
 
 // RFC 3279, 2.3 Public Key Algorithms
@@ -534,7 +557,7 @@ func (c *Certificate) CheckSignatureFrom(parent *Certificate) error {
 
 // CheckSignature verifies that signature is a valid signature over signed from
 // c's public key.
-func (c *Certificate) CheckSignature(algo x509.SignatureAlgorithm, signed, signature []byte) error {
+func (c *Certificate) CheckSignature(algo SignatureAlgorithm, signed, signature []byte) error {
 	return checkSignature(algo, signed, signature, c.PublicKey)
 }
 
@@ -573,7 +596,7 @@ func verifyECDSAASN1(pub *ecdsa.PublicKey, hash, sig []byte) bool {
 
 // checkSignature verifies that signature is a valid signature over signed from
 // a crypto.PublicKey.
-func checkSignature(algo x509.SignatureAlgorithm, signed, signature []byte, publicKey crypto.PublicKey) (err error) {
+func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey crypto.PublicKey) (err error) {
 	var hashType crypto.Hash
 	var pubKeyAlgo x509.PublicKeyAlgorithm
 
@@ -1103,7 +1126,7 @@ func subjectBytes(cert *x509.Certificate) ([]byte, error) {
 // signingParamsForPublicKey returns the parameters to use for signing with
 // priv. If requestedSigAlgo is not zero then it overrides the default
 // signature algorithm.
-func signingParamsForPublicKey(pub interface{}, requestedSigAlgo x509.SignatureAlgorithm) (hashFunc crypto.Hash, sigAlgo pkix.AlgorithmIdentifier, err error) {
+func signingParamsForPublicKey(pub interface{}, requestedSigAlgo SignatureAlgorithm) (hashFunc crypto.Hash, sigAlgo pkix.AlgorithmIdentifier, err error) {
 	var pubType x509.PublicKeyAlgorithm
 
 	switch pub := pub.(type) {
@@ -1347,7 +1370,7 @@ func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, 
 	// Check the signature to ensure the crypto.Signer behaved correctly.
 	sigAlg := getSignatureAlgorithmFromAI(signatureAlgorithm)
 	switch sigAlg {
-	case x509.MD5WithRSA, x509.SHA1WithRSA, x509.ECDSAWithSHA1:
+	case MD5WithRSA, SHA1WithRSA, ECDSAWithSHA1:
 		// We skip the check if the signature algorithm is only supported for
 		// signing, not verification.
 	default:

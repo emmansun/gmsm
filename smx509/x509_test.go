@@ -354,14 +354,14 @@ func Test_CreateCertificateRequest(t *testing.T) {
 	tests := []struct {
 		name    string
 		priv    interface{}
-		sigAlgo x509.SignatureAlgorithm
+		sigAlgo SignatureAlgorithm
 	}{
-		{"RSA", testPrivateKey, x509.SHA1WithRSA},
+		{"RSA", testPrivateKey, SHA1WithRSA},
 		{"SM2-256", sm2Priv, SM2WithSM3},
-		{"ECDSA-256", ecdsa256Priv, x509.ECDSAWithSHA1},
-		{"ECDSA-384", ecdsa384Priv, x509.ECDSAWithSHA1},
-		{"ECDSA-521", ecdsa521Priv, x509.ECDSAWithSHA1},
-		{"Ed25519", ed25519Priv, x509.PureEd25519},
+		{"ECDSA-256", ecdsa256Priv, ECDSAWithSHA1},
+		{"ECDSA-384", ecdsa384Priv, ECDSAWithSHA1},
+		{"ECDSA-521", ecdsa521Priv, ECDSAWithSHA1},
+		{"Ed25519", ed25519Priv, PureEd25519},
 	}
 
 	for _, test := range tests {
@@ -446,20 +446,20 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
 		name      string
 		pub, priv interface{}
 		checkSig  bool
-		sigAlgo   x509.SignatureAlgorithm
+		sigAlgo   SignatureAlgorithm
 	}{
-		{"RSA/RSA", &testPrivateKey.PublicKey, testPrivateKey, true, x509.SHA1WithRSA},
-		{"RSA/ECDSA", &testPrivateKey.PublicKey, ecdsaPriv, false, x509.ECDSAWithSHA384},
+		{"RSA/RSA", &testPrivateKey.PublicKey, testPrivateKey, true, SHA1WithRSA},
+		{"RSA/ECDSA", &testPrivateKey.PublicKey, ecdsaPriv, false, ECDSAWithSHA384},
 		{"RSA/SM2", &testPrivateKey.PublicKey, sm2Priv, false, SM2WithSM3},
-		{"ECDSA/RSA", &ecdsaPriv.PublicKey, testPrivateKey, false, x509.SHA256WithRSA},
-		{"ECDSA/ECDSA", &ecdsaPriv.PublicKey, ecdsaPriv, true, x509.ECDSAWithSHA1},
+		{"ECDSA/RSA", &ecdsaPriv.PublicKey, testPrivateKey, false, SHA256WithRSA},
+		{"ECDSA/ECDSA", &ecdsaPriv.PublicKey, ecdsaPriv, true, ECDSAWithSHA1},
 		{"ECDSA/SM2", &ecdsaPriv.PublicKey, sm2Priv, false, SM2WithSM3},
-		{"SM2/ECDSA", &sm2Priv.PublicKey, ecdsaPriv, false, x509.ECDSAWithSHA1},
-		{"RSAPSS/RSAPSS", &testPrivateKey.PublicKey, testPrivateKey, true, x509.SHA256WithRSAPSS},
-		{"ECDSA/RSAPSS", &ecdsaPriv.PublicKey, testPrivateKey, false, x509.SHA256WithRSAPSS},
-		{"SM2/RSAPSS", &sm2Priv.PublicKey, testPrivateKey, false, x509.SHA256WithRSAPSS},
-		{"RSAPSS/ECDSA", &testPrivateKey.PublicKey, ecdsaPriv, false, x509.ECDSAWithSHA384},
-		{"Ed25519", ed25519Pub, ed25519Priv, true, x509.PureEd25519},
+		{"SM2/ECDSA", &sm2Priv.PublicKey, ecdsaPriv, false, ECDSAWithSHA1},
+		{"RSAPSS/RSAPSS", &testPrivateKey.PublicKey, testPrivateKey, true, SHA256WithRSAPSS},
+		{"ECDSA/RSAPSS", &ecdsaPriv.PublicKey, testPrivateKey, false, SHA256WithRSAPSS},
+		{"SM2/RSAPSS", &sm2Priv.PublicKey, testPrivateKey, false, SHA256WithRSAPSS},
+		{"RSAPSS/ECDSA", &testPrivateKey.PublicKey, ecdsaPriv, false, ECDSAWithSHA384},
+		{"Ed25519", ed25519Pub, ed25519Priv, true, PureEd25519},
 		{"SM2", &sm2Priv.PublicKey, sm2Priv, true, SM2WithSM3},
 	}
 
@@ -1238,7 +1238,7 @@ func TestCreateRevocationList(t *testing.T) {
 				SubjectKeyId: []byte{1, 2, 3},
 			},
 			template: &x509.RevocationList{
-				SignatureAlgorithm: x509.SHA256WithRSA,
+				SignatureAlgorithm: SHA256WithRSA,
 				RevokedCertificates: []pkix.RevokedCertificate{
 					{
 						SerialNumber:   big.NewInt(2),
@@ -1306,7 +1306,7 @@ func TestCreateRevocationList(t *testing.T) {
 				SubjectKeyId: []byte{1, 2, 3},
 			},
 			template: &x509.RevocationList{
-				SignatureAlgorithm: x509.ECDSAWithSHA512,
+				SignatureAlgorithm: ECDSAWithSHA512,
 				RevokedCertificates: []pkix.RevokedCertificate{
 					{
 						SerialNumber:   big.NewInt(2),
@@ -1387,7 +1387,7 @@ func TestCreateRevocationList(t *testing.T) {
 				t.Fatalf("Failed to parse generated CRL: %s", err)
 			}
 
-			if tc.template.SignatureAlgorithm != x509.UnknownSignatureAlgorithm &&
+			if tc.template.SignatureAlgorithm != UnknownSignatureAlgorithm &&
 				parsedCRL.SignatureAlgorithm.Algorithm.Equal(signatureAlgorithmDetails[tc.template.SignatureAlgorithm].oid) {
 				t.Fatalf("SignatureAlgorithm mismatch: got %v; want %v.", parsedCRL.SignatureAlgorithm,
 					tc.template.SignatureAlgorithm)
@@ -2095,7 +2095,7 @@ func TestISOOIDInCertificate(t *testing.T) {
 	block, _ := pem.Decode([]byte(certISOOID))
 	if cert, err := ParseCertificate(block.Bytes); err != nil {
 		t.Errorf("certificate with ISO OID failed to parse: %s", err)
-	} else if cert.SignatureAlgorithm == x509.UnknownSignatureAlgorithm {
+	} else if cert.SignatureAlgorithm == UnknownSignatureAlgorithm {
 		t.Errorf("ISO OID not recognised in certificate")
 	}
 }
