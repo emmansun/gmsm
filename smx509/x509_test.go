@@ -463,7 +463,7 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
 		{"SM2", &sm2Priv.PublicKey, sm2Priv, true, SM2WithSM3},
 	}
 
-	testExtKeyUsage := []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
+	testExtKeyUsage := []ExtKeyUsage{ExtKeyUsageClientAuth, ExtKeyUsageServerAuth}
 	testUnknownExtKeyUsage := []asn1.ObjectIdentifier{[]int{1, 2, 3}, []int{2, 59, 1}}
 	extraExtensionData := []byte("extra extension")
 
@@ -1654,7 +1654,7 @@ func TestUnknownExtKey(t *testing.T) {
 	template := &x509.Certificate{
 		SerialNumber: big.NewInt(10),
 		DNSNames:     []string{"foo"},
-		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsage(-1)},
+		ExtKeyUsage:  []ExtKeyUsage{ExtKeyUsage(-1)},
 	}
 	signer, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {

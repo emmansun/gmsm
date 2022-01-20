@@ -554,12 +554,12 @@ func (c *Certificate) Verify(opts VerifyOptions) (chains [][]*Certificate, err e
 
 	keyUsages := opts.KeyUsages
 	if len(keyUsages) == 0 {
-		keyUsages = []ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+		keyUsages = []ExtKeyUsage{ExtKeyUsageServerAuth}
 	}
 
 	// If any key usage is acceptable then we're done.
 	for _, usage := range keyUsages {
-		if usage == x509.ExtKeyUsageAny {
+		if usage == ExtKeyUsageAny {
 			return candidateChains, nil
 		}
 	}
@@ -846,7 +846,7 @@ NextCert:
 		}
 
 		for _, usage := range cert.ExtKeyUsage {
-			if usage == x509.ExtKeyUsageAny {
+			if usage == ExtKeyUsageAny {
 				// The certificate is explicitly good for any usage.
 				continue NextCert
 			}
@@ -863,9 +863,9 @@ NextCert:
 			for _, usage := range cert.ExtKeyUsage {
 				if requestedUsage == usage {
 					continue NextRequestedUsage
-				} else if requestedUsage == x509.ExtKeyUsageServerAuth &&
-					(usage == x509.ExtKeyUsageNetscapeServerGatedCrypto ||
-						usage == x509.ExtKeyUsageMicrosoftServerGatedCrypto) {
+				} else if requestedUsage == ExtKeyUsageServerAuth &&
+					(usage == ExtKeyUsageNetscapeServerGatedCrypto ||
+						usage == ExtKeyUsageMicrosoftServerGatedCrypto) {
 					// In order to support COMODO
 					// certificate chains, we have to
 					// accept Netscape or Microsoft SGC

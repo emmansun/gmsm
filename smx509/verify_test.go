@@ -26,7 +26,7 @@ type verifyTest struct {
 	dnsName       string
 	systemSkip    bool
 	systemLax     bool
-	keyUsages     []x509.ExtKeyUsage
+	keyUsages     []ExtKeyUsage
 
 	errorCallback  func(*testing.T, error)
 	expectedChains [][]string
@@ -135,7 +135,7 @@ var verifyTests = []verifyTest{
 		intermediates: []string{startComIntermediate},
 		roots:         []string{startComRoot},
 		currentTime:   1302726541,
-		keyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+		keyUsages:     []ExtKeyUsage{ExtKeyUsageAny},
 
 		expectedChains: [][]string{
 			{"dnssec-exp", "StartCom Class 1", "StartCom Certification Authority"},
@@ -184,7 +184,7 @@ var verifyTests = []verifyTest{
 		intermediates: []string{smimeIntermediate},
 		roots:         []string{smimeRoot},
 		currentTime:   1594673418,
-		keyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		keyUsages:     []ExtKeyUsage{ExtKeyUsageServerAuth},
 
 		errorCallback: expectUsageError,
 	},
@@ -194,7 +194,7 @@ var verifyTests = []verifyTest{
 		intermediates: []string{smimeIntermediate},
 		roots:         []string{smimeRoot},
 		currentTime:   1594673418,
-		keyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageEmailProtection},
+		keyUsages:     []ExtKeyUsage{ExtKeyUsageEmailProtection},
 
 		expectedChains: [][]string{
 			{"CORPORATIVO FICTICIO ACTIVO", "EAEko Herri Administrazioen CA - CA AAPP Vascas (2)", "IZENPE S.A."},
@@ -1722,7 +1722,7 @@ func generateCert(cn string, isCA bool, issuer *x509.Certificate, issuerKey cryp
 		NotAfter:     time.Now().Add(24 * time.Hour),
 
 		KeyUsage:              KeyUsageKeyEncipherment | KeyUsageDigitalSignature | KeyUsageCertSign,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		ExtKeyUsage:           []ExtKeyUsage{ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  isCA,
 	}

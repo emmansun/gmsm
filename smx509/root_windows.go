@@ -208,11 +208,11 @@ func (c *Certificate) systemVerify(opts *VerifyOptions) (chains [][]*Certificate
 
 	keyUsages := opts.KeyUsages
 	if len(keyUsages) == 0 {
-		keyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+		keyUsages = []ExtKeyUsage{ExtKeyUsageServerAuth}
 	}
 	oids := make([]*byte, 0, len(keyUsages))
 	for _, eku := range keyUsages {
-		if eku == x509.ExtKeyUsageAny {
+		if eku == ExtKeyUsageAny {
 			oids = nil
 			break
 		}
