@@ -228,7 +228,7 @@ func parseExtension(der cryptobyte.String) (pkix.Extension, error) {
 	return ext, nil
 }
 
-func parsePublicKey(algo x509.PublicKeyAlgorithm, keyData *publicKeyInfo) (interface{}, error) {
+func parsePublicKey(algo PublicKeyAlgorithm, keyData *publicKeyInfo) (interface{}, error) {
 	der := cryptobyte.String(keyData.PublicKey.RightAlign())
 	switch algo {
 	case RSA:
@@ -321,7 +321,7 @@ func parsePublicKey(algo x509.PublicKeyAlgorithm, keyData *publicKeyInfo) (inter
 	}
 }
 
-func parseKeyUsageExtension(der cryptobyte.String) (x509.KeyUsage, error) {
+func parseKeyUsageExtension(der cryptobyte.String) (KeyUsage, error) {
 	var usageBits asn1.BitString
 	if !der.ReadASN1BitString(&usageBits) {
 		return 0, errors.New("x509: invalid key usage")
@@ -333,7 +333,7 @@ func parseKeyUsageExtension(der cryptobyte.String) (x509.KeyUsage, error) {
 			usage |= 1 << uint(i)
 		}
 	}
-	return x509.KeyUsage(usage), nil
+	return KeyUsage(usage), nil
 }
 
 func parseBasicConstraintsExtension(der cryptobyte.String) (bool, int, error) {

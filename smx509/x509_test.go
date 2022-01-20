@@ -497,7 +497,7 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
 			SignatureAlgorithm: test.sigAlgo,
 
 			SubjectKeyId: []byte{1, 2, 3, 4},
-			KeyUsage:     x509.KeyUsageCertSign,
+			KeyUsage:     KeyUsageCertSign,
 
 			ExtKeyUsage:        testExtKeyUsage,
 			UnknownExtKeyUsage: testUnknownExtKeyUsage,
@@ -1181,7 +1181,7 @@ func TestCreateRevocationList(t *testing.T) {
 			name: "issuer doesn't have crlSign key usage bit set",
 			key:  sm2Priv,
 			issuer: &x509.Certificate{
-				KeyUsage: x509.KeyUsageCertSign,
+				KeyUsage: KeyUsageCertSign,
 			},
 			template:      &x509.RevocationList{},
 			expectedError: "x509: issuer must have the crlSign key usage bit set",
@@ -1190,7 +1190,7 @@ func TestCreateRevocationList(t *testing.T) {
 			name: "issuer missing SubjectKeyId",
 			key:  sm2Priv,
 			issuer: &x509.Certificate{
-				KeyUsage: x509.KeyUsageCRLSign,
+				KeyUsage: KeyUsageCRLSign,
 			},
 			template:      &x509.RevocationList{},
 			expectedError: "x509: issuer certificate doesn't contain a subject key identifier",
@@ -1199,7 +1199,7 @@ func TestCreateRevocationList(t *testing.T) {
 			name: "nextUpdate before thisUpdate",
 			key:  sm2Priv,
 			issuer: &x509.Certificate{
-				KeyUsage: x509.KeyUsageCRLSign,
+				KeyUsage: KeyUsageCRLSign,
 				Subject: pkix.Name{
 					CommonName: "testing",
 				},
@@ -1215,7 +1215,7 @@ func TestCreateRevocationList(t *testing.T) {
 			name: "nil Number",
 			key:  sm2Priv,
 			issuer: &x509.Certificate{
-				KeyUsage: x509.KeyUsageCRLSign,
+				KeyUsage: KeyUsageCRLSign,
 				Subject: pkix.Name{
 					CommonName: "testing",
 				},
@@ -1231,7 +1231,7 @@ func TestCreateRevocationList(t *testing.T) {
 			name: "invalid signature algorithm",
 			key:  sm2Priv,
 			issuer: &x509.Certificate{
-				KeyUsage: x509.KeyUsageCRLSign,
+				KeyUsage: KeyUsageCRLSign,
 				Subject: pkix.Name{
 					CommonName: "testing",
 				},
@@ -1255,7 +1255,7 @@ func TestCreateRevocationList(t *testing.T) {
 			name: "valid",
 			key:  sm2Priv,
 			issuer: &x509.Certificate{
-				KeyUsage: x509.KeyUsageCRLSign,
+				KeyUsage: KeyUsageCRLSign,
 				Subject: pkix.Name{
 					CommonName: "testing",
 				},
@@ -1277,7 +1277,7 @@ func TestCreateRevocationList(t *testing.T) {
 			name: "valid, Ed25519 key",
 			key:  ed25519Priv,
 			issuer: &x509.Certificate{
-				KeyUsage: x509.KeyUsageCRLSign,
+				KeyUsage: KeyUsageCRLSign,
 				Subject: pkix.Name{
 					CommonName: "testing",
 				},
@@ -1299,7 +1299,7 @@ func TestCreateRevocationList(t *testing.T) {
 			name: "valid, non-default signature algorithm",
 			key:  sm2Priv,
 			issuer: &x509.Certificate{
-				KeyUsage: x509.KeyUsageCRLSign,
+				KeyUsage: KeyUsageCRLSign,
 				Subject: pkix.Name{
 					CommonName: "testing",
 				},
@@ -1322,7 +1322,7 @@ func TestCreateRevocationList(t *testing.T) {
 			name: "valid, extra extension",
 			key:  sm2Priv,
 			issuer: &x509.Certificate{
-				KeyUsage: x509.KeyUsageCRLSign,
+				KeyUsage: KeyUsageCRLSign,
 				Subject: pkix.Name{
 					CommonName: "testing",
 				},
@@ -1350,7 +1350,7 @@ func TestCreateRevocationList(t *testing.T) {
 			name: "valid, empty list",
 			key:  sm2Priv,
 			issuer: &x509.Certificate{
-				KeyUsage: x509.KeyUsageCRLSign,
+				KeyUsage: KeyUsageCRLSign,
 				Subject: pkix.Name{
 					CommonName: "testing",
 				},

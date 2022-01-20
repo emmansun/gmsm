@@ -246,7 +246,7 @@ var signatureAlgorithmDetails = []struct {
 	algo       SignatureAlgorithm
 	name       string
 	oid        asn1.ObjectIdentifier
-	pubKeyAlgo x509.PublicKeyAlgorithm
+	pubKeyAlgo PublicKeyAlgorithm
 	hash       crypto.Hash
 }{
 	{MD2WithRSA, "MD2-RSA", oidSignatureMD2WithRSA, RSA, crypto.Hash(0) /* no value for MD2 */},
@@ -371,7 +371,7 @@ var (
 	oidPublicKeyEd25519 = asn1.ObjectIdentifier{1, 3, 101, 112}
 )
 
-func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) x509.PublicKeyAlgorithm {
+func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm {
 	switch {
 	case oid.Equal(oidPublicKeyRSA):
 		return RSA
@@ -455,6 +455,22 @@ func namedCurveFromOID(oid asn1.ObjectIdentifier) elliptic.Curve {
 	}
 	return nil
 }
+
+// KeyUsage represents the set of actions that are valid for a given key. It's
+// a bitmap of the KeyUsage* constants.
+type KeyUsage = x509.KeyUsage
+
+const (
+	KeyUsageDigitalSignature  = x509.KeyUsageDigitalSignature
+	KeyUsageContentCommitment = x509.KeyUsageContentCommitment
+	KeyUsageKeyEncipherment   = x509.KeyUsageKeyEncipherment
+	KeyUsageDataEncipherment  = x509.KeyUsageDataEncipherment
+	KeyUsageKeyAgreement      = x509.KeyUsageKeyAgreement
+	KeyUsageCertSign          = x509.KeyUsageCertSign
+	KeyUsageCRLSign           = x509.KeyUsageCRLSign
+	KeyUsageEncipherOnly      = x509.KeyUsageEncipherOnly
+	KeyUsageDecipherOnly      = x509.KeyUsageDecipherOnly
+)
 
 // RFC 5280, 4.2.1.12  Extended Key Usage
 //
@@ -553,7 +569,7 @@ func (c *Certificate) CheckSignatureFrom(parent *Certificate) error {
 		return x509.ConstraintViolationError{}
 	}
 
-	if parent.KeyUsage != 0 && parent.KeyUsage&x509.KeyUsageCertSign == 0 {
+	if parent.KeyUsage != 0 && parent.KeyUsage&KeyUsageCertSign == 0 {
 		return x509.ConstraintViolationError{}
 	}
 
@@ -585,7 +601,7 @@ func (c *Certificate) getSANExtension() []byte {
 	return nil
 }
 
-func signaturePublicKeyAlgoMismatchError(expectedPubKeyAlgo x509.PublicKeyAlgorithm, pubKey interface{}) error {
+func signaturePublicKeyAlgoMismatchError(expectedPubKeyAlgo PublicKeyAlgorithm, pubKey interface{}) error {
 	return fmt.Errorf("x509: signature algorithm specifies an %s public key, but have public key of type %T", expectedPubKeyAlgo.String(), pubKey)
 }
 
@@ -609,7 +625,7 @@ func verifyECDSAASN1(pub *ecdsa.PublicKey, hash, sig []byte) bool {
 // a crypto.PublicKey.
 func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey crypto.PublicKey) (err error) {
 	var hashType crypto.Hash
-	var pubKeyAlgo x509.PublicKeyAlgorithm
+	var pubKeyAlgo PublicKeyAlgorithm
 
 	isSM2 := (algo == SM2WithSM3)
 	for _, details := range signatureAlgorithmDetails {
@@ -1034,7 +1050,7 @@ func buildCertExtensions(template *x509.Certificate, subjectIsEmpty bool, author
 	return append(ret[:n], template.ExtraExtensions...), nil
 }
 
-func marshalKeyUsage(ku x509.KeyUsage) (pkix.Extension, error) {
+func marshalKeyUsage(ku KeyUsage) (pkix.Extension, error) {
 	ext := pkix.Extension{Id: oidExtensionKeyUsage, Critical: true}
 
 	var a [2]byte
@@ -1138,7 +1154,7 @@ func subjectBytes(cert *x509.Certificate) ([]byte, error) {
 // priv. If requestedSigAlgo is not zero then it overrides the default
 // signature algorithm.
 func signingParamsForPublicKey(pub interface{}, requestedSigAlgo SignatureAlgorithm) (hashFunc crypto.Hash, sigAlgo pkix.AlgorithmIdentifier, err error) {
-	var pubType x509.PublicKeyAlgorithm
+	var pubType PublicKeyAlgorithm
 
 	switch pub := pub.(type) {
 	case *rsa.PublicKey:
@@ -1843,7 +1859,7 @@ func CreateRevocationList(rand io.Reader, template *x509.RevocationList, issuer 
 	if issuer == nil {
 		return nil, errors.New("x509: issuer can not be nil")
 	}
-	if (issuer.KeyUsage & x509.KeyUsageCRLSign) == 0 {
+	if (issuer.KeyUsage & KeyUsageCRLSign) == 0 {
 		return nil, errors.New("x509: issuer must have the crlSign key usage bit set")
 	}
 	if len(issuer.SubjectKeyId) == 0 {
