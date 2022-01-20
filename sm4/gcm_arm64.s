@@ -147,44 +147,42 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 #undef plen
 #undef dlen
 
-#define PRE_TRANSPOSE_MATRIX(t0, t1, t2, t3) \
-	VMOV t0.B16, K0.B16                        \
+#define PRE_TRANSPOSE_MATRIX(t0, t1, t2, t3, K) \
+	VMOV t0.B16, K.B16                         \
 	VMOV t1.S[0], t0.S[1]                      \
 	VMOV t2.S[0], t0.S[2]                      \
 	VMOV t3.S[0], t0.S[3]                      \
-	VMOV K0.S[1], t1.S[0]                      \
-	VMOV K0.S[2], t2.S[0]                      \
-	VMOV K0.S[3], t3.S[0]                      \
-	VMOV t1.D[1], K0.D[1]                      \
+	VMOV K.S[1], t1.S[0]                       \
+	VMOV K.S[2], t2.S[0]                       \
+	VMOV K.S[3], t3.S[0]                       \
+	VMOV t1.D[1], K.D[1]                       \
 	VMOV t2.S[1], t1.S[2]                      \
 	VMOV t3.S[1], t1.S[3]                      \
-	VMOV K0.S[2], t2.S[1]                      \
-	VMOV K0.S[3], t3.S[1]                      \
-	VMOV t2.S[3], K0.S[3]                      \
+	VMOV K.S[2], t2.S[1]                       \
+	VMOV K.S[3], t3.S[1]                       \
+	VMOV t2.S[3], K.S[3]                       \
 	VMOV t3.S[2], t2.S[3]                      \
-	VMOV K0.S[3], t3.S[2]                      \
+	VMOV K.S[3], t3.S[2]
 
-#define TRANSPOSE_MATRIX(t0, t1, t2, t3) \
-	VMOV t3.S[0], K0.S[0]                      \
-	VMOV t2.S[0], K0.S[1]                      \
-	VMOV t1.S[0], K0.S[2]                      \
-	VMOV t0.S[0], K0.S[3]                      \
-	VMOV t3.S[1], K1.S[0]                      \
-	VMOV t2.S[1], K1.S[1]                      \
-	VMOV t1.S[1], K1.S[2]                      \
-	VMOV t0.S[1], K1.S[3]                      \
-	VMOV t3.S[2], K2.S[0]                      \
-	VMOV t2.S[2], K2.S[1]                      \
-	VMOV t1.S[2], K2.S[2]                      \
-	VMOV t0.S[2], K2.S[3]                      \
-	VMOV t3.S[3], K3.S[0]                      \
-	VMOV t2.S[3], K3.S[1]                      \
-	VMOV t1.S[3], K3.S[2]                      \
-	VMOV t0.S[3], K3.S[3]                      \
-	VMOV K0.B16, t0.B16                        \
-	VMOV K1.B16, t1.B16                        \
-	VMOV K2.B16, t2.B16                        \
-	VMOV K3.B16, t3.B16                        \
+#define TRANSPOSE_MATRIX(t0, t1, t2, t3, K) \
+	VMOV t0.B16, K.B16                        \
+	VMOV t3.S[0], t0.S[0]                     \   
+	VMOV t2.S[0], t0.S[1]                     \
+	VMOV t1.S[0], t0.S[2]                     \
+	VMOV K0.S[0], t0.S[3]                     \   
+	VMOV t3.S[1], t1.S[0]                     \
+	VMOV t3.S[2], t2.S[0]                     \
+	VMOV t3.S[3], t3.S[0]                     \
+	VMOV t2.S[3], t3.S[1]                     \
+	VMOV t1.S[3], t3.S[2]                     \
+	VMOV K.S[3], t3.S[3]                      \
+	VMOV K.S[2], t2.S[3]                      \
+	VMOV K.S[1], t1.S[3]                      \
+	VMOV t1.B16, K.B16                        \
+	VMOV t2.S[1], t1.S[1]                     \
+	VMOV K.S[1], t1.S[2]                      \
+	VMOV t2.S[2], t2.S[1]                     \
+	VMOV K.S[2], t2.S[2]
 
 #define LOAD_SM4_AESNI_CONSTS() \
   LDP nibble_mask<>(SB), (R20, R21)          \
@@ -571,7 +569,7 @@ encOctetsLoop:
 		VADD	B7.S4, INC.S4, CTR.S4
 
 		// encryption first 4 blocks
-		PRE_TRANSPOSE_MATRIX(B0, B1, B2, B3)
+		PRE_TRANSPOSE_MATRIX(B0, B1, B2, B3, K0)
 		EOR R13, R13
 		MOVD	rkSave, rk
 
@@ -588,9 +586,9 @@ encOctetsEnc4Blocks1:
 		VREV32 B1.B16, B1.B16
 		VREV32 B2.B16, B2.B16
 		VREV32 B3.B16, B3.B16
-		TRANSPOSE_MATRIX(B0, B1, B2, B3)
+		TRANSPOSE_MATRIX(B0, B1, B2, B3, K0)
 		// encryption first 4 blocks
-		PRE_TRANSPOSE_MATRIX(B4, B5, B6, B7)
+		PRE_TRANSPOSE_MATRIX(B4, B5, B6, B7, K0)
 		MOVD	rkSave, rk
 
 encOctetsEnc4Blocks2:	
@@ -606,7 +604,7 @@ encOctetsEnc4Blocks2:
 		VREV32 B5.B16, B5.B16
 		VREV32 B6.B16, B6.B16
 		VREV32 B7.B16, B7.B16
-		TRANSPOSE_MATRIX(B4, B5, B6, B7)
+		TRANSPOSE_MATRIX(B4, B5, B6, B7, K0)
 
 		// XOR plaintext and store ciphertext
 		VLD1.P	32(srcPtr), [T1.B16, T2.B16]
@@ -666,7 +664,7 @@ encNibblesLoop:
 	VADD	B3.S4, INC.S4, CTR.S4
 
 	// encryption first 4 blocks
-	PRE_TRANSPOSE_MATRIX(B0, B1, B2, B3)
+	PRE_TRANSPOSE_MATRIX(B0, B1, B2, B3, K0)
 	EOR R13, R13
 	MOVD	rkSave, rk
 
@@ -683,7 +681,7 @@ encNibblesEnc4Blocks:
 	VREV32 B1.B16, B1.B16
 	VREV32 B2.B16, B2.B16
 	VREV32 B3.B16, B3.B16
-	TRANSPOSE_MATRIX(B0, B1, B2, B3)
+	TRANSPOSE_MATRIX(B0, B1, B2, B3, K0)
 
 	// XOR plaintext and store ciphertext
 	VLD1.P	32(srcPtr), [K1.B16, K2.B16]
@@ -711,7 +709,7 @@ encStartSingles:
 	VADD	B3.S4, INC.S4, CTR.S4
 
 	// encryption first 4 blocks
-	PRE_TRANSPOSE_MATRIX(B0, B1, B2, B3)
+	PRE_TRANSPOSE_MATRIX(B0, B1, B2, B3, K0)
 	EOR R13, R13
 	MOVD	rkSave, rk
 
@@ -728,7 +726,7 @@ encSinglesEnc4Blocks:
 	VREV32 B1.B16, B1.B16
 	VREV32 B2.B16, B2.B16
 	VREV32 B3.B16, B3.B16
-	TRANSPOSE_MATRIX(B0, B1, B2, B3)
+	TRANSPOSE_MATRIX(B0, B1, B2, B3, K0)
 
 	VMOV B0.B16, K0.B16
 	CMP	$16, srcPtrLen
@@ -863,7 +861,7 @@ decOctetsLoop:
 		VADD	B7.S4, INC.S4, CTR.S4
 
 		// encryption first 4 blocks
-		PRE_TRANSPOSE_MATRIX(B0, B1, B2, B3)
+		PRE_TRANSPOSE_MATRIX(B0, B1, B2, B3, K0)
 		EOR R13, R13
 		MOVD	rkSave, rk
 
@@ -880,10 +878,10 @@ decOctetsEnc4Blocks1:
 		VREV32 B1.B16, T2.B16
 		VREV32 B2.B16, B2.B16
 		VREV32 B3.B16, B3.B16
-		TRANSPOSE_MATRIX(T1, T2, B2, B3)
+		TRANSPOSE_MATRIX(T1, T2, B2, B3, K0)
 
 		// encryption first 4 blocks
-		PRE_TRANSPOSE_MATRIX(B4, B5, B6, B7)
+		PRE_TRANSPOSE_MATRIX(B4, B5, B6, B7, K0)
 		MOVD	rkSave, rk
 
 decOctetsEnc4Blocks2:	
@@ -899,7 +897,7 @@ decOctetsEnc4Blocks2:
 		VREV32 B5.B16, B5.B16
 		VREV32 B6.B16, B6.B16
 		VREV32 B7.B16, B7.B16
-		TRANSPOSE_MATRIX(B4, B5, B6, B7)
+		TRANSPOSE_MATRIX(B4, B5, B6, B7, K0)
 
 		VLD1.P	32(srcPtr), [B0.B16, B1.B16]
 		VEOR	B0.B16, T1.B16, T1.B16
@@ -960,7 +958,7 @@ decNibblesLoop:
 	VADD	B3.S4, INC.S4, CTR.S4
 
 	// encryption first 4 blocks
-	PRE_TRANSPOSE_MATRIX(B0, B1, B2, B3)
+	PRE_TRANSPOSE_MATRIX(B0, B1, B2, B3, K0)
 	EOR R13, R13
 	MOVD	rkSave, rk
 
@@ -977,7 +975,7 @@ decNibblesEnc4Blocks:
 	VREV32 B1.B16, B1.B16
 	VREV32 B2.B16, B2.B16
 	VREV32 B3.B16, B3.B16
-	TRANSPOSE_MATRIX(B0, B1, B2, B3)
+	TRANSPOSE_MATRIX(B0, B1, B2, B3, K0)
 
 	// XOR plaintext and store ciphertext
 	VLD1.P	32(srcPtr), [K1.B16, K2.B16]
@@ -1008,7 +1006,7 @@ decStartSingles:
 	VADD	B3.S4, INC.S4, CTR.S4
 
 	// encryption first 4 blocks
-	PRE_TRANSPOSE_MATRIX(B0, B1, B2, B3)
+	PRE_TRANSPOSE_MATRIX(B0, B1, B2, B3, K0)
 	EOR R13, R13
 	MOVD	rkSave, rk
 
@@ -1025,7 +1023,7 @@ decSinglesEnc4Blocks:
 	VREV32 B1.B16, B1.B16
 	VREV32 B2.B16, B2.B16
 	VREV32 B3.B16, B3.B16
-	TRANSPOSE_MATRIX(B0, B1, B2, B3)
+	TRANSPOSE_MATRIX(B0, B1, B2, B3, K0)
 
 	VMOV B0.B16, K0.B16
 	CMP	$16, srcPtrLen
