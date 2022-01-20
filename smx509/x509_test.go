@@ -354,14 +354,14 @@ func Test_CreateCertificateRequest(t *testing.T) {
 	tests := []struct {
 		name    string
 		priv    interface{}
-		sigAlgo x509.SignatureAlgorithm
+		sigAlgo SignatureAlgorithm
 	}{
-		{"RSA", testPrivateKey, x509.SHA1WithRSA},
+		{"RSA", testPrivateKey, SHA1WithRSA},
 		{"SM2-256", sm2Priv, SM2WithSM3},
-		{"ECDSA-256", ecdsa256Priv, x509.ECDSAWithSHA1},
-		{"ECDSA-384", ecdsa384Priv, x509.ECDSAWithSHA1},
-		{"ECDSA-521", ecdsa521Priv, x509.ECDSAWithSHA1},
-		{"Ed25519", ed25519Priv, x509.PureEd25519},
+		{"ECDSA-256", ecdsa256Priv, ECDSAWithSHA1},
+		{"ECDSA-384", ecdsa384Priv, ECDSAWithSHA1},
+		{"ECDSA-521", ecdsa521Priv, ECDSAWithSHA1},
+		{"Ed25519", ed25519Priv, PureEd25519},
 	}
 
 	for _, test := range tests {
@@ -446,24 +446,24 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
 		name      string
 		pub, priv interface{}
 		checkSig  bool
-		sigAlgo   x509.SignatureAlgorithm
+		sigAlgo   SignatureAlgorithm
 	}{
-		{"RSA/RSA", &testPrivateKey.PublicKey, testPrivateKey, true, x509.SHA1WithRSA},
-		{"RSA/ECDSA", &testPrivateKey.PublicKey, ecdsaPriv, false, x509.ECDSAWithSHA384},
+		{"RSA/RSA", &testPrivateKey.PublicKey, testPrivateKey, true, SHA1WithRSA},
+		{"RSA/ECDSA", &testPrivateKey.PublicKey, ecdsaPriv, false, ECDSAWithSHA384},
 		{"RSA/SM2", &testPrivateKey.PublicKey, sm2Priv, false, SM2WithSM3},
-		{"ECDSA/RSA", &ecdsaPriv.PublicKey, testPrivateKey, false, x509.SHA256WithRSA},
-		{"ECDSA/ECDSA", &ecdsaPriv.PublicKey, ecdsaPriv, true, x509.ECDSAWithSHA1},
+		{"ECDSA/RSA", &ecdsaPriv.PublicKey, testPrivateKey, false, SHA256WithRSA},
+		{"ECDSA/ECDSA", &ecdsaPriv.PublicKey, ecdsaPriv, true, ECDSAWithSHA1},
 		{"ECDSA/SM2", &ecdsaPriv.PublicKey, sm2Priv, false, SM2WithSM3},
-		{"SM2/ECDSA", &sm2Priv.PublicKey, ecdsaPriv, false, x509.ECDSAWithSHA1},
-		{"RSAPSS/RSAPSS", &testPrivateKey.PublicKey, testPrivateKey, true, x509.SHA256WithRSAPSS},
-		{"ECDSA/RSAPSS", &ecdsaPriv.PublicKey, testPrivateKey, false, x509.SHA256WithRSAPSS},
-		{"SM2/RSAPSS", &sm2Priv.PublicKey, testPrivateKey, false, x509.SHA256WithRSAPSS},
-		{"RSAPSS/ECDSA", &testPrivateKey.PublicKey, ecdsaPriv, false, x509.ECDSAWithSHA384},
-		{"Ed25519", ed25519Pub, ed25519Priv, true, x509.PureEd25519},
+		{"SM2/ECDSA", &sm2Priv.PublicKey, ecdsaPriv, false, ECDSAWithSHA1},
+		{"RSAPSS/RSAPSS", &testPrivateKey.PublicKey, testPrivateKey, true, SHA256WithRSAPSS},
+		{"ECDSA/RSAPSS", &ecdsaPriv.PublicKey, testPrivateKey, false, SHA256WithRSAPSS},
+		{"SM2/RSAPSS", &sm2Priv.PublicKey, testPrivateKey, false, SHA256WithRSAPSS},
+		{"RSAPSS/ECDSA", &testPrivateKey.PublicKey, ecdsaPriv, false, ECDSAWithSHA384},
+		{"Ed25519", ed25519Pub, ed25519Priv, true, PureEd25519},
 		{"SM2", &sm2Priv.PublicKey, sm2Priv, true, SM2WithSM3},
 	}
 
-	testExtKeyUsage := []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
+	testExtKeyUsage := []ExtKeyUsage{ExtKeyUsageClientAuth, ExtKeyUsageServerAuth}
 	testUnknownExtKeyUsage := []asn1.ObjectIdentifier{[]int{1, 2, 3}, []int{2, 59, 1}}
 	extraExtensionData := []byte("extra extension")
 
@@ -497,7 +497,7 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
 			SignatureAlgorithm: test.sigAlgo,
 
 			SubjectKeyId: []byte{1, 2, 3, 4},
-			KeyUsage:     x509.KeyUsageCertSign,
+			KeyUsage:     KeyUsageCertSign,
 
 			ExtKeyUsage:        testExtKeyUsage,
 			UnknownExtKeyUsage: testUnknownExtKeyUsage,
@@ -1181,7 +1181,7 @@ func TestCreateRevocationList(t *testing.T) {
 			name: "issuer doesn't have crlSign key usage bit set",
 			key:  sm2Priv,
 			issuer: &x509.Certificate{
-				KeyUsage: x509.KeyUsageCertSign,
+				KeyUsage: KeyUsageCertSign,
 			},
 			template:      &x509.RevocationList{},
 			expectedError: "x509: issuer must have the crlSign key usage bit set",
@@ -1190,7 +1190,7 @@ func TestCreateRevocationList(t *testing.T) {
 			name: "issuer missing SubjectKeyId",
 			key:  sm2Priv,
 			issuer: &x509.Certificate{
-				KeyUsage: x509.KeyUsageCRLSign,
+				KeyUsage: KeyUsageCRLSign,
 			},
 			template:      &x509.RevocationList{},
 			expectedError: "x509: issuer certificate doesn't contain a subject key identifier",
@@ -1199,7 +1199,7 @@ func TestCreateRevocationList(t *testing.T) {
 			name: "nextUpdate before thisUpdate",
 			key:  sm2Priv,
 			issuer: &x509.Certificate{
-				KeyUsage: x509.KeyUsageCRLSign,
+				KeyUsage: KeyUsageCRLSign,
 				Subject: pkix.Name{
 					CommonName: "testing",
 				},
@@ -1215,7 +1215,7 @@ func TestCreateRevocationList(t *testing.T) {
 			name: "nil Number",
 			key:  sm2Priv,
 			issuer: &x509.Certificate{
-				KeyUsage: x509.KeyUsageCRLSign,
+				KeyUsage: KeyUsageCRLSign,
 				Subject: pkix.Name{
 					CommonName: "testing",
 				},
@@ -1231,14 +1231,14 @@ func TestCreateRevocationList(t *testing.T) {
 			name: "invalid signature algorithm",
 			key:  sm2Priv,
 			issuer: &x509.Certificate{
-				KeyUsage: x509.KeyUsageCRLSign,
+				KeyUsage: KeyUsageCRLSign,
 				Subject: pkix.Name{
 					CommonName: "testing",
 				},
 				SubjectKeyId: []byte{1, 2, 3},
 			},
 			template: &x509.RevocationList{
-				SignatureAlgorithm: x509.SHA256WithRSA,
+				SignatureAlgorithm: SHA256WithRSA,
 				RevokedCertificates: []pkix.RevokedCertificate{
 					{
 						SerialNumber:   big.NewInt(2),
@@ -1255,7 +1255,7 @@ func TestCreateRevocationList(t *testing.T) {
 			name: "valid",
 			key:  sm2Priv,
 			issuer: &x509.Certificate{
-				KeyUsage: x509.KeyUsageCRLSign,
+				KeyUsage: KeyUsageCRLSign,
 				Subject: pkix.Name{
 					CommonName: "testing",
 				},
@@ -1277,7 +1277,7 @@ func TestCreateRevocationList(t *testing.T) {
 			name: "valid, Ed25519 key",
 			key:  ed25519Priv,
 			issuer: &x509.Certificate{
-				KeyUsage: x509.KeyUsageCRLSign,
+				KeyUsage: KeyUsageCRLSign,
 				Subject: pkix.Name{
 					CommonName: "testing",
 				},
@@ -1299,14 +1299,14 @@ func TestCreateRevocationList(t *testing.T) {
 			name: "valid, non-default signature algorithm",
 			key:  sm2Priv,
 			issuer: &x509.Certificate{
-				KeyUsage: x509.KeyUsageCRLSign,
+				KeyUsage: KeyUsageCRLSign,
 				Subject: pkix.Name{
 					CommonName: "testing",
 				},
 				SubjectKeyId: []byte{1, 2, 3},
 			},
 			template: &x509.RevocationList{
-				SignatureAlgorithm: x509.ECDSAWithSHA512,
+				SignatureAlgorithm: ECDSAWithSHA512,
 				RevokedCertificates: []pkix.RevokedCertificate{
 					{
 						SerialNumber:   big.NewInt(2),
@@ -1322,7 +1322,7 @@ func TestCreateRevocationList(t *testing.T) {
 			name: "valid, extra extension",
 			key:  sm2Priv,
 			issuer: &x509.Certificate{
-				KeyUsage: x509.KeyUsageCRLSign,
+				KeyUsage: KeyUsageCRLSign,
 				Subject: pkix.Name{
 					CommonName: "testing",
 				},
@@ -1350,7 +1350,7 @@ func TestCreateRevocationList(t *testing.T) {
 			name: "valid, empty list",
 			key:  sm2Priv,
 			issuer: &x509.Certificate{
-				KeyUsage: x509.KeyUsageCRLSign,
+				KeyUsage: KeyUsageCRLSign,
 				Subject: pkix.Name{
 					CommonName: "testing",
 				},
@@ -1368,7 +1368,7 @@ func TestCreateRevocationList(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var issuer *Certificate
 			if tc.issuer != nil {
-				issuer = &Certificate{*tc.issuer}
+				issuer = (*Certificate)(tc.issuer)
 			}
 			crl, err := CreateRevocationList(rand.Reader, tc.template, issuer, tc.key)
 			if err != nil && tc.expectedError == "" {
@@ -1387,7 +1387,7 @@ func TestCreateRevocationList(t *testing.T) {
 				t.Fatalf("Failed to parse generated CRL: %s", err)
 			}
 
-			if tc.template.SignatureAlgorithm != x509.UnknownSignatureAlgorithm &&
+			if tc.template.SignatureAlgorithm != UnknownSignatureAlgorithm &&
 				parsedCRL.SignatureAlgorithm.Algorithm.Equal(signatureAlgorithmDetails[tc.template.SignatureAlgorithm].oid) {
 				t.Fatalf("SignatureAlgorithm mismatch: got %v; want %v.", parsedCRL.SignatureAlgorithm,
 					tc.template.SignatureAlgorithm)
@@ -1654,7 +1654,7 @@ func TestUnknownExtKey(t *testing.T) {
 	template := &x509.Certificate{
 		SerialNumber: big.NewInt(10),
 		DNSNames:     []string{"foo"},
-		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsage(-1)},
+		ExtKeyUsage:  []ExtKeyUsage{ExtKeyUsage(-1)},
 	}
 	signer, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
@@ -2095,7 +2095,7 @@ func TestISOOIDInCertificate(t *testing.T) {
 	block, _ := pem.Decode([]byte(certISOOID))
 	if cert, err := ParseCertificate(block.Bytes); err != nil {
 		t.Errorf("certificate with ISO OID failed to parse: %s", err)
-	} else if cert.SignatureAlgorithm == x509.UnknownSignatureAlgorithm {
+	} else if cert.SignatureAlgorithm == UnknownSignatureAlgorithm {
 		t.Errorf("ISO OID not recognised in certificate")
 	}
 }

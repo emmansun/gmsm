@@ -26,7 +26,7 @@ type verifyTest struct {
 	dnsName       string
 	systemSkip    bool
 	systemLax     bool
-	keyUsages     []x509.ExtKeyUsage
+	keyUsages     []ExtKeyUsage
 
 	errorCallback  func(*testing.T, error)
 	expectedChains [][]string
@@ -135,7 +135,7 @@ var verifyTests = []verifyTest{
 		intermediates: []string{startComIntermediate},
 		roots:         []string{startComRoot},
 		currentTime:   1302726541,
-		keyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+		keyUsages:     []ExtKeyUsage{ExtKeyUsageAny},
 
 		expectedChains: [][]string{
 			{"dnssec-exp", "StartCom Class 1", "StartCom Certification Authority"},
@@ -184,7 +184,7 @@ var verifyTests = []verifyTest{
 		intermediates: []string{smimeIntermediate},
 		roots:         []string{smimeRoot},
 		currentTime:   1594673418,
-		keyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		keyUsages:     []ExtKeyUsage{ExtKeyUsageServerAuth},
 
 		errorCallback: expectUsageError,
 	},
@@ -194,7 +194,7 @@ var verifyTests = []verifyTest{
 		intermediates: []string{smimeIntermediate},
 		roots:         []string{smimeRoot},
 		currentTime:   1594673418,
-		keyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageEmailProtection},
+		keyUsages:     []ExtKeyUsage{ExtKeyUsageEmailProtection},
 
 		expectedChains: [][]string{
 			{"CORPORATIVO FICTICIO ACTIVO", "EAEko Herri Administrazioen CA - CA AAPP Vascas (2)", "IZENPE S.A."},
@@ -377,13 +377,13 @@ func expectHostnameError(msg string) func(*testing.T, error) {
 }
 
 func expectExpired(t *testing.T, err error) {
-	if inval, ok := err.(x509.CertificateInvalidError); !ok || inval.Reason != x509.Expired {
+	if inval, ok := err.(CertificateInvalidError); !ok || inval.Reason != Expired {
 		t.Fatalf("error was not Expired: %v", err)
 	}
 }
 
 func expectUsageError(t *testing.T, err error) {
-	if inval, ok := err.(x509.CertificateInvalidError); !ok || inval.Reason != x509.IncompatibleUsage {
+	if inval, ok := err.(CertificateInvalidError); !ok || inval.Reason != IncompatibleUsage {
 		t.Fatalf("error was not IncompatibleUsage: %v", err)
 	}
 }
@@ -408,13 +408,13 @@ func expectHashError(t *testing.T, err error) {
 }
 
 func expectNameConstraintsError(t *testing.T, err error) {
-	if inval, ok := err.(x509.CertificateInvalidError); !ok || inval.Reason != x509.CANotAuthorizedForThisName {
+	if inval, ok := err.(CertificateInvalidError); !ok || inval.Reason != CANotAuthorizedForThisName {
 		t.Fatalf("error was not a CANotAuthorizedForThisName: %v", err)
 	}
 }
 
 func expectNotAuthorizedError(t *testing.T, err error) {
-	if inval, ok := err.(x509.CertificateInvalidError); !ok || inval.Reason != x509.NotAuthorizedToSign {
+	if inval, ok := err.(CertificateInvalidError); !ok || inval.Reason != NotAuthorizedToSign {
 		t.Fatalf("error was not a NotAuthorizedToSign: %v", err)
 	}
 }
@@ -1721,8 +1721,8 @@ func generateCert(cn string, isCA bool, issuer *x509.Certificate, issuerKey cryp
 		NotBefore:    time.Now().Add(-1 * time.Hour),
 		NotAfter:     time.Now().Add(24 * time.Hour),
 
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		KeyUsage:              KeyUsageKeyEncipherment | KeyUsageDigitalSignature | KeyUsageCertSign,
+		ExtKeyUsage:           []ExtKeyUsage{ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  isCA,
 	}
@@ -1759,14 +1759,14 @@ func TestPathologicalChain(t *testing.T) {
 	roots.AddCert(parent)
 
 	for i := 1; i < 100; i++ {
-		parent, parentKey, err = generateCert("Intermediate CA", true, &parent.Certificate, parentKey)
+		parent, parentKey, err = generateCert("Intermediate CA", true, parent.asX509(), parentKey)
 		if err != nil {
 			t.Fatal(err)
 		}
 		intermediates.AddCert(parent)
 	}
 
-	leaf, _, err := generateCert("Leaf", false, &parent.Certificate, parentKey)
+	leaf, _, err := generateCert("Leaf", false, parent.asX509(), parentKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1798,14 +1798,14 @@ func TestLongChain(t *testing.T) {
 
 	for i := 1; i < 15; i++ {
 		name := fmt.Sprintf("Intermediate CA #%d", i)
-		parent, parentKey, err = generateCert(name, true, &parent.Certificate, parentKey)
+		parent, parentKey, err = generateCert(name, true, parent.asX509(), parentKey)
 		if err != nil {
 			t.Fatal(err)
 		}
 		intermediates.AddCert(parent)
 	}
 
-	leaf, _, err := generateCert("Leaf", false, &parent.Certificate, parentKey)
+	leaf, _, err := generateCert("Leaf", false, parent.asX509(), parentKey)
 	if err != nil {
 		t.Fatal(err)
 	}

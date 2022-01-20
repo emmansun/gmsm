@@ -92,9 +92,9 @@ func checkChainTrustStatus(c *Certificate, chainCtx *syscall.CertChainContext) e
 		status := chainCtx.TrustStatus.ErrorStatus
 		switch status {
 		case syscall.CERT_TRUST_IS_NOT_TIME_VALID:
-			return x509.CertificateInvalidError{&c.Certificate, x509.Expired, ""}
+			return CertificateInvalidError{c.asX509(), Expired, ""}
 		case syscall.CERT_TRUST_IS_NOT_VALID_FOR_USAGE:
-			return x509.CertificateInvalidError{&c.Certificate, x509.IncompatibleUsage, ""}
+			return CertificateInvalidError{c.asX509(), IncompatibleUsage, ""}
 		// TODO(filippo): surface more error statuses.
 		default:
 			return UnknownAuthorityError{c, nil, nil}
@@ -133,9 +133,9 @@ func checkChainSSLServerPolicy(c *Certificate, chainCtx *syscall.CertChainContex
 	if status.Error != 0 {
 		switch status.Error {
 		case syscall.CERT_E_EXPIRED:
-			return x509.CertificateInvalidError{Cert: &c.Certificate, Reason: x509.Expired, Detail: ""}
+			return CertificateInvalidError{Cert: c.asX509(), Reason: Expired, Detail: ""}
 		case syscall.CERT_E_CN_NO_MATCH:
-			return x509.HostnameError{Certificate: &c.Certificate, Host: opts.DNSName}
+			return x509.HostnameError{Certificate: c.asX509(), Host: opts.DNSName}
 		case syscall.CERT_E_UNTRUSTEDROOT:
 			return UnknownAuthorityError{c, nil, nil}
 		default:
@@ -148,7 +148,7 @@ func checkChainSSLServerPolicy(c *Certificate, chainCtx *syscall.CertChainContex
 
 // windowsExtKeyUsageOIDs are the C NUL-terminated string representations of the
 // OIDs for use with the Windows API.
-var windowsExtKeyUsageOIDs = make(map[x509.ExtKeyUsage][]byte, len(extKeyUsageOIDs))
+var windowsExtKeyUsageOIDs = make(map[ExtKeyUsage][]byte, len(extKeyUsageOIDs))
 
 func init() {
 	for _, eku := range extKeyUsageOIDs {
@@ -183,7 +183,7 @@ func verifyChain(c *Certificate, chainCtx *syscall.CertChainContext, opts *Verif
 	// using spoofed parameters, the signature will be invalid for the correct
 	// ones we parsed. (We don't support custom curves ourselves.)
 	for i, parent := range chain[1:] {
-		if parent.PublicKeyAlgorithm != x509.ECDSA {
+		if parent.PublicKeyAlgorithm != ECDSA {
 			continue
 		}
 		if err := parent.CheckSignature(chain[i].SignatureAlgorithm,
@@ -208,11 +208,11 @@ func (c *Certificate) systemVerify(opts *VerifyOptions) (chains [][]*Certificate
 
 	keyUsages := opts.KeyUsages
 	if len(keyUsages) == 0 {
-		keyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+		keyUsages = []ExtKeyUsage{ExtKeyUsageServerAuth}
 	}
 	oids := make([]*byte, 0, len(keyUsages))
 	for _, eku := range keyUsages {
-		if eku == x509.ExtKeyUsageAny {
+		if eku == ExtKeyUsageAny {
 			oids = nil
 			break
 		}
