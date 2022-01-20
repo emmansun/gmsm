@@ -231,7 +231,7 @@ func parseExtension(der cryptobyte.String) (pkix.Extension, error) {
 func parsePublicKey(algo x509.PublicKeyAlgorithm, keyData *publicKeyInfo) (interface{}, error) {
 	der := cryptobyte.String(keyData.PublicKey.RightAlign())
 	switch algo {
-	case x509.RSA:
+	case RSA:
 		// RSA public keys must have a NULL in the parameters.
 		// See RFC 3279, Section 2.3.1.
 		if !bytes.Equal(keyData.Algorithm.Parameters.FullBytes, asn1.NullBytes) {
@@ -261,7 +261,7 @@ func parsePublicKey(algo x509.PublicKeyAlgorithm, keyData *publicKeyInfo) (inter
 			N: p.N,
 		}
 		return pub, nil
-	case x509.ECDSA:
+	case ECDSA:
 		paramsDer := cryptobyte.String(keyData.Algorithm.Parameters.FullBytes)
 		namedCurveOID := new(asn1.ObjectIdentifier)
 		if !paramsDer.ReadASN1ObjectIdentifier(namedCurveOID) {
@@ -281,7 +281,7 @@ func parsePublicKey(algo x509.PublicKeyAlgorithm, keyData *publicKeyInfo) (inter
 			Y:     y,
 		}
 		return pub, nil
-	case x509.Ed25519:
+	case Ed25519:
 		// RFC 8410, Section 3
 		// > For all of the OIDs, the parameters MUST be absent.
 		if len(keyData.Algorithm.Parameters.FullBytes) != 0 {
@@ -291,7 +291,7 @@ func parsePublicKey(algo x509.PublicKeyAlgorithm, keyData *publicKeyInfo) (inter
 			return nil, errors.New("x509: wrong Ed25519 public key size")
 		}
 		return ed25519.PublicKey(der), nil
-	case x509.DSA:
+	case DSA:
 		y := new(big.Int)
 		if !der.ReadASN1Integer(y) {
 			return nil, errors.New("x509: invalid DSA public key")

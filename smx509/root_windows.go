@@ -183,7 +183,7 @@ func verifyChain(c *Certificate, chainCtx *syscall.CertChainContext, opts *Verif
 	// using spoofed parameters, the signature will be invalid for the correct
 	// ones we parsed. (We don't support custom curves ourselves.)
 	for i, parent := range chain[1:] {
-		if parent.PublicKeyAlgorithm != x509.ECDSA {
+		if parent.PublicKeyAlgorithm != ECDSA {
 			continue
 		}
 		if err := parent.CheckSignature(chain[i].SignatureAlgorithm,

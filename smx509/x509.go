@@ -225,6 +225,17 @@ func isRSAPSS(algo SignatureAlgorithm) bool {
 	}
 }
 
+type PublicKeyAlgorithm = x509.PublicKeyAlgorithm
+
+const (
+	UnknownPublicKeyAlgorithm = x509.UnknownPublicKeyAlgorithm
+
+	RSA     = x509.RSA
+	DSA     = x509.DSA // Unsupported.
+	ECDSA   = x509.ECDSA
+	Ed25519 = x509.Ed25519
+)
+
 // pkcs1PublicKey reflects the ASN.1 structure of a PKCS#1 public key.
 type pkcs1PublicKey struct {
 	N *big.Int
@@ -238,24 +249,24 @@ var signatureAlgorithmDetails = []struct {
 	pubKeyAlgo x509.PublicKeyAlgorithm
 	hash       crypto.Hash
 }{
-	{MD2WithRSA, "MD2-RSA", oidSignatureMD2WithRSA, x509.RSA, crypto.Hash(0) /* no value for MD2 */},
-	{MD5WithRSA, "MD5-RSA", oidSignatureMD5WithRSA, x509.RSA, crypto.MD5},
-	{SHA1WithRSA, "SHA1-RSA", oidSignatureSHA1WithRSA, x509.RSA, crypto.SHA1},
-	{SHA1WithRSA, "SHA1-RSA", oidISOSignatureSHA1WithRSA, x509.RSA, crypto.SHA1},
-	{SHA256WithRSA, "SHA256-RSA", oidSignatureSHA256WithRSA, x509.RSA, crypto.SHA256},
-	{SHA384WithRSA, "SHA384-RSA", oidSignatureSHA384WithRSA, x509.RSA, crypto.SHA384},
-	{SHA512WithRSA, "SHA512-RSA", oidSignatureSHA512WithRSA, x509.RSA, crypto.SHA512},
-	{SHA256WithRSAPSS, "SHA256-RSAPSS", oidSignatureRSAPSS, x509.RSA, crypto.SHA256},
-	{SHA384WithRSAPSS, "SHA384-RSAPSS", oidSignatureRSAPSS, x509.RSA, crypto.SHA384},
-	{SHA512WithRSAPSS, "SHA512-RSAPSS", oidSignatureRSAPSS, x509.RSA, crypto.SHA512},
-	{DSAWithSHA1, "DSA-SHA1", oidSignatureDSAWithSHA1, x509.DSA, crypto.SHA1},
-	{DSAWithSHA256, "DSA-SHA256", oidSignatureDSAWithSHA256, x509.DSA, crypto.SHA256},
-	{ECDSAWithSHA1, "ECDSA-SHA1", oidSignatureECDSAWithSHA1, x509.ECDSA, crypto.SHA1},
-	{ECDSAWithSHA256, "ECDSA-SHA256", oidSignatureECDSAWithSHA256, x509.ECDSA, crypto.SHA256},
-	{ECDSAWithSHA384, "ECDSA-SHA384", oidSignatureECDSAWithSHA384, x509.ECDSA, crypto.SHA384},
-	{ECDSAWithSHA512, "ECDSA-SHA512", oidSignatureECDSAWithSHA512, x509.ECDSA, crypto.SHA512},
-	{PureEd25519, "Ed25519", oidSignatureEd25519, x509.Ed25519, crypto.Hash(0) /* no pre-hashing */},
-	{SM2WithSM3, "SM2-SM3", oidSignatureSM2WithSM3, x509.ECDSA, crypto.Hash(0) /* no pre-hashing */},
+	{MD2WithRSA, "MD2-RSA", oidSignatureMD2WithRSA, RSA, crypto.Hash(0) /* no value for MD2 */},
+	{MD5WithRSA, "MD5-RSA", oidSignatureMD5WithRSA, RSA, crypto.MD5},
+	{SHA1WithRSA, "SHA1-RSA", oidSignatureSHA1WithRSA, RSA, crypto.SHA1},
+	{SHA1WithRSA, "SHA1-RSA", oidISOSignatureSHA1WithRSA, RSA, crypto.SHA1},
+	{SHA256WithRSA, "SHA256-RSA", oidSignatureSHA256WithRSA, RSA, crypto.SHA256},
+	{SHA384WithRSA, "SHA384-RSA", oidSignatureSHA384WithRSA, RSA, crypto.SHA384},
+	{SHA512WithRSA, "SHA512-RSA", oidSignatureSHA512WithRSA, RSA, crypto.SHA512},
+	{SHA256WithRSAPSS, "SHA256-RSAPSS", oidSignatureRSAPSS, RSA, crypto.SHA256},
+	{SHA384WithRSAPSS, "SHA384-RSAPSS", oidSignatureRSAPSS, RSA, crypto.SHA384},
+	{SHA512WithRSAPSS, "SHA512-RSAPSS", oidSignatureRSAPSS, RSA, crypto.SHA512},
+	{DSAWithSHA1, "DSA-SHA1", oidSignatureDSAWithSHA1, DSA, crypto.SHA1},
+	{DSAWithSHA256, "DSA-SHA256", oidSignatureDSAWithSHA256, DSA, crypto.SHA256},
+	{ECDSAWithSHA1, "ECDSA-SHA1", oidSignatureECDSAWithSHA1, ECDSA, crypto.SHA1},
+	{ECDSAWithSHA256, "ECDSA-SHA256", oidSignatureECDSAWithSHA256, ECDSA, crypto.SHA256},
+	{ECDSAWithSHA384, "ECDSA-SHA384", oidSignatureECDSAWithSHA384, ECDSA, crypto.SHA384},
+	{ECDSAWithSHA512, "ECDSA-SHA512", oidSignatureECDSAWithSHA512, ECDSA, crypto.SHA512},
+	{PureEd25519, "Ed25519", oidSignatureEd25519, Ed25519, crypto.Hash(0) /* no pre-hashing */},
+	{SM2WithSM3, "SM2-SM3", oidSignatureSM2WithSM3, ECDSA, crypto.Hash(0) /* no pre-hashing */},
 }
 
 // hashToPSSParameters contains the DER encoded RSA PSS parameters for the
@@ -363,15 +374,15 @@ var (
 func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) x509.PublicKeyAlgorithm {
 	switch {
 	case oid.Equal(oidPublicKeyRSA):
-		return x509.RSA
+		return RSA
 	case oid.Equal(oidPublicKeyDSA):
-		return x509.DSA
+		return DSA
 	case oid.Equal(oidPublicKeyECDSA):
-		return x509.ECDSA
+		return ECDSA
 	case oid.Equal(oidPublicKeyEd25519):
-		return x509.Ed25519
+		return Ed25519
 	}
-	return x509.UnknownPublicKeyAlgorithm
+	return UnknownPublicKeyAlgorithm
 }
 
 // http://gmssl.org/docs/oid.html
@@ -546,7 +557,7 @@ func (c *Certificate) CheckSignatureFrom(parent *Certificate) error {
 		return x509.ConstraintViolationError{}
 	}
 
-	if parent.PublicKeyAlgorithm == x509.UnknownPublicKeyAlgorithm {
+	if parent.PublicKeyAlgorithm == UnknownPublicKeyAlgorithm {
 		return x509.ErrUnsupportedAlgorithm
 	}
 
@@ -610,7 +621,7 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 
 	switch hashType {
 	case crypto.Hash(0):
-		if !isSM2 && pubKeyAlgo != x509.Ed25519 {
+		if !isSM2 && pubKeyAlgo != Ed25519 {
 			return x509.ErrUnsupportedAlgorithm
 		}
 	case crypto.MD5:
@@ -626,7 +637,7 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 
 	switch pub := publicKey.(type) {
 	case *rsa.PublicKey:
-		if pubKeyAlgo != x509.RSA {
+		if pubKeyAlgo != RSA {
 			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
 		}
 		if isRSAPSS(algo) {
@@ -635,7 +646,7 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 			return rsa.VerifyPKCS1v15(pub, hashType, signed, signature)
 		}
 	case *ecdsa.PublicKey:
-		if pubKeyAlgo != x509.ECDSA {
+		if pubKeyAlgo != ECDSA {
 			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
 		}
 		if isSM2 {
@@ -647,7 +658,7 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 		}
 		return
 	case ed25519.PublicKey:
-		if pubKeyAlgo != x509.Ed25519 {
+		if pubKeyAlgo != Ed25519 {
 			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
 		}
 		if !ed25519.Verify(pub, signed, signature) {
@@ -1131,13 +1142,13 @@ func signingParamsForPublicKey(pub interface{}, requestedSigAlgo SignatureAlgori
 
 	switch pub := pub.(type) {
 	case *rsa.PublicKey:
-		pubType = x509.RSA
+		pubType = RSA
 		hashFunc = crypto.SHA256
 		sigAlgo.Algorithm = oidSignatureSHA256WithRSA
 		sigAlgo.Parameters = asn1.NullRawValue
 
 	case *ecdsa.PublicKey:
-		pubType = x509.ECDSA
+		pubType = ECDSA
 
 		switch pub.Curve {
 		case elliptic.P224(), elliptic.P256():
@@ -1157,7 +1168,7 @@ func signingParamsForPublicKey(pub interface{}, requestedSigAlgo SignatureAlgori
 		}
 
 	case ed25519.PublicKey:
-		pubType = x509.Ed25519
+		pubType = Ed25519
 		sigAlgo.Algorithm = oidSignatureEd25519
 
 	default:
@@ -1180,7 +1191,7 @@ func signingParamsForPublicKey(pub interface{}, requestedSigAlgo SignatureAlgori
 				return
 			}
 			sigAlgo.Algorithm, hashFunc = details.oid, details.hash
-			if hashFunc == 0 && pubType != x509.Ed25519 && !sigAlgo.Algorithm.Equal(oidSignatureSM2WithSM3) {
+			if hashFunc == 0 && pubType != Ed25519 && !sigAlgo.Algorithm.Equal(oidSignatureSM2WithSM3) {
 				err = errors.New("x509: cannot sign with hash function requested")
 				return
 			}
