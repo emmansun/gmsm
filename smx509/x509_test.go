@@ -1368,7 +1368,7 @@ func TestCreateRevocationList(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var issuer *Certificate
 			if tc.issuer != nil {
-				issuer = &Certificate{*tc.issuer}
+				issuer = (*Certificate)(tc.issuer)
 			}
 			crl, err := CreateRevocationList(rand.Reader, tc.template, issuer, tc.key)
 			if err != nil && tc.expectedError == "" {

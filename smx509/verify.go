@@ -246,18 +246,18 @@ func (c *Certificate) checkNameConstraints(count *int,
 
 	*count += excludedValue.Len()
 	if *count > maxConstraintComparisons {
-		return x509.CertificateInvalidError{&c.Certificate, x509.TooManyConstraints, ""}
+		return x509.CertificateInvalidError{c.asX509(), x509.TooManyConstraints, ""}
 	}
 
 	for i := 0; i < excludedValue.Len(); i++ {
 		constraint := excludedValue.Index(i).Interface()
 		match, err := match(parsedName, constraint)
 		if err != nil {
-			return x509.CertificateInvalidError{&c.Certificate, x509.CANotAuthorizedForThisName, err.Error()}
+			return x509.CertificateInvalidError{c.asX509(), x509.CANotAuthorizedForThisName, err.Error()}
 		}
 
 		if match {
-			return x509.CertificateInvalidError{&c.Certificate, x509.CANotAuthorizedForThisName, fmt.Sprintf("%s %q is excluded by constraint %q", nameType, name, constraint)}
+			return x509.CertificateInvalidError{c.asX509(), x509.CANotAuthorizedForThisName, fmt.Sprintf("%s %q is excluded by constraint %q", nameType, name, constraint)}
 		}
 	}
 
@@ -265,7 +265,7 @@ func (c *Certificate) checkNameConstraints(count *int,
 
 	*count += permittedValue.Len()
 	if *count > maxConstraintComparisons {
-		return x509.CertificateInvalidError{&c.Certificate, x509.TooManyConstraints, ""}
+		return x509.CertificateInvalidError{c.asX509(), x509.TooManyConstraints, ""}
 	}
 
 	ok := true
@@ -274,7 +274,7 @@ func (c *Certificate) checkNameConstraints(count *int,
 
 		var err error
 		if ok, err = match(parsedName, constraint); err != nil {
-			return x509.CertificateInvalidError{&c.Certificate, x509.CANotAuthorizedForThisName, err.Error()}
+			return x509.CertificateInvalidError{c.asX509(), x509.CANotAuthorizedForThisName, err.Error()}
 		}
 
 		if ok {
@@ -283,7 +283,7 @@ func (c *Certificate) checkNameConstraints(count *int,
 	}
 
 	if !ok {
-		return x509.CertificateInvalidError{&c.Certificate, x509.CANotAuthorizedForThisName, fmt.Sprintf("%s %q is not permitted by any constraint", nameType, name)}
+		return x509.CertificateInvalidError{c.asX509(), x509.CANotAuthorizedForThisName, fmt.Sprintf("%s %q is not permitted by any constraint", nameType, name)}
 	}
 
 	return nil
@@ -334,7 +334,7 @@ func (c *Certificate) isValid(certType int, currentChain []*Certificate, opts *V
 	if len(currentChain) > 0 {
 		child := currentChain[len(currentChain)-1]
 		if !bytes.Equal(child.RawIssuer, c.RawSubject) {
-			return x509.CertificateInvalidError{&c.Certificate, x509.NameMismatch, ""}
+			return x509.CertificateInvalidError{c.asX509(), x509.NameMismatch, ""}
 		}
 	}
 
@@ -344,13 +344,13 @@ func (c *Certificate) isValid(certType int, currentChain []*Certificate, opts *V
 	}
 	if now.Before(c.NotBefore) {
 		return x509.CertificateInvalidError{
-			Cert:   &c.Certificate,
+			Cert:   c.asX509(),
 			Reason: x509.Expired,
 			Detail: fmt.Sprintf("current time %s is before %s", now.Format(time.RFC3339), c.NotBefore.Format(time.RFC3339)),
 		}
 	} else if now.After(c.NotAfter) {
 		return x509.CertificateInvalidError{
-			Cert:   &c.Certificate,
+			Cert:   c.asX509(),
 			Reason: x509.Expired,
 			Detail: fmt.Sprintf("current time %s is after %s", now.Format(time.RFC3339), c.NotAfter.Format(time.RFC3339)),
 		}
@@ -458,13 +458,13 @@ func (c *Certificate) isValid(certType int, currentChain []*Certificate, opts *V
 	// encryption key could only be used for Diffie-Hellman key agreement.
 
 	if certType == intermediateCertificate && (!c.BasicConstraintsValid || !c.IsCA) {
-		return x509.CertificateInvalidError{&c.Certificate, x509.NotAuthorizedToSign, ""}
+		return x509.CertificateInvalidError{c.asX509(), x509.NotAuthorizedToSign, ""}
 	}
 
 	if c.BasicConstraintsValid && c.MaxPathLen >= 0 {
 		numIntermediates := len(currentChain) - 1
 		if numIntermediates > c.MaxPathLen {
-			return x509.CertificateInvalidError{&c.Certificate, x509.TooManyIntermediates, ""}
+			return x509.CertificateInvalidError{c.asX509(), x509.TooManyIntermediates, ""}
 		}
 	}
 
@@ -571,7 +571,7 @@ func (c *Certificate) Verify(opts VerifyOptions) (chains [][]*Certificate, err e
 	}
 
 	if len(chains) == 0 {
-		return nil, x509.CertificateInvalidError{&c.Certificate, x509.IncompatibleUsage, ""}
+		return nil, x509.CertificateInvalidError{c.asX509(), x509.IncompatibleUsage, ""}
 	}
 
 	return chains, nil
@@ -798,7 +798,7 @@ func (c *Certificate) VerifyHostname(h string) error {
 				return nil
 			}
 		}
-		return x509.HostnameError{&c.Certificate, candidateIP}
+		return x509.HostnameError{c.asX509(), candidateIP}
 	}
 
 	candidateName := toLowerCaseASCII(h) // Save allocations inside the loop.
@@ -820,7 +820,7 @@ func (c *Certificate) VerifyHostname(h string) error {
 			}
 		}
 	}
-	return x509.HostnameError{&c.Certificate, h}
+	return x509.HostnameError{c.asX509(), h}
 }
 
 func checkChainForKeyUsage(chain []*Certificate, keyUsages []ExtKeyUsage) bool {

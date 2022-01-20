@@ -146,8 +146,10 @@ func MarshalPKIXPublicKey(pub interface{}) ([]byte, error) {
 }
 
 // CertificateRequest represents a PKCS #10, certificate signature request.
-type CertificateRequest struct {
-	x509.CertificateRequest
+type CertificateRequest x509.CertificateRequest
+
+func (c *CertificateRequest) asX509() *x509.CertificateRequest {
+	return (*x509.CertificateRequest)(c)
 }
 
 // These structures reflect the ASN.1 structure of X.509 certificates.:
@@ -562,8 +564,10 @@ func oidFromExtKeyUsage(eku ExtKeyUsage) (oid asn1.ObjectIdentifier, ok bool) {
 }
 
 // A Certificate represents an X.509 certificate.
-type Certificate struct {
-	x509.Certificate
+type Certificate x509.Certificate
+
+func (c *Certificate) asX509() *x509.Certificate {
+	return (*x509.Certificate)(c)
 }
 
 func (c *Certificate) Equal(other *Certificate) bool {
@@ -1790,7 +1794,7 @@ func ParseCertificateRequest(asn1Data []byte) (*CertificateRequest, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &CertificateRequest{*csrR}, nil
+		return (*CertificateRequest)(csrR), nil
 	}
 	return parseCertificateRequest(&csr)
 }
@@ -1809,7 +1813,7 @@ func parseCertificateRequest(in *certificateRequest) (*CertificateRequest, error
 	if !oidSignatureSM2WithSM3.Equal(in.SignatureAlgorithm.Algorithm) {
 		return nil, errors.New("unsupport signature algorithm")
 	}
-	out := &CertificateRequest{x509.CertificateRequest{
+	out := &CertificateRequest{
 		Raw:                      in.Raw,
 		RawTBSCertificateRequest: in.TBSCSR.Raw,
 		RawSubjectPublicKeyInfo:  in.TBSCSR.PublicKey.Raw,
@@ -1822,7 +1826,6 @@ func parseCertificateRequest(in *certificateRequest) (*CertificateRequest, error
 
 		Version:    in.TBSCSR.Version,
 		Attributes: parseRawAttributes(in.TBSCSR.RawAttributes),
-	},
 	}
 
 	var err error

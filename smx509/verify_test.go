@@ -1759,14 +1759,14 @@ func TestPathologicalChain(t *testing.T) {
 	roots.AddCert(parent)
 
 	for i := 1; i < 100; i++ {
-		parent, parentKey, err = generateCert("Intermediate CA", true, &parent.Certificate, parentKey)
+		parent, parentKey, err = generateCert("Intermediate CA", true, parent.asX509(), parentKey)
 		if err != nil {
 			t.Fatal(err)
 		}
 		intermediates.AddCert(parent)
 	}
 
-	leaf, _, err := generateCert("Leaf", false, &parent.Certificate, parentKey)
+	leaf, _, err := generateCert("Leaf", false, parent.asX509(), parentKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1798,14 +1798,14 @@ func TestLongChain(t *testing.T) {
 
 	for i := 1; i < 15; i++ {
 		name := fmt.Sprintf("Intermediate CA #%d", i)
-		parent, parentKey, err = generateCert(name, true, &parent.Certificate, parentKey)
+		parent, parentKey, err = generateCert(name, true, parent.asX509(), parentKey)
 		if err != nil {
 			t.Fatal(err)
 		}
 		intermediates.AddCert(parent)
 	}
 
-	leaf, _, err := generateCert("Leaf", false, &parent.Certificate, parentKey)
+	leaf, _, err := generateCert("Leaf", false, parent.asX509(), parentKey)
 	if err != nil {
 		t.Fatal(err)
 	}
