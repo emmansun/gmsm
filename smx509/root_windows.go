@@ -92,9 +92,9 @@ func checkChainTrustStatus(c *Certificate, chainCtx *syscall.CertChainContext) e
 		status := chainCtx.TrustStatus.ErrorStatus
 		switch status {
 		case syscall.CERT_TRUST_IS_NOT_TIME_VALID:
-			return x509.CertificateInvalidError{c.asX509(), x509.Expired, ""}
+			return CertificateInvalidError{c.asX509(), Expired, ""}
 		case syscall.CERT_TRUST_IS_NOT_VALID_FOR_USAGE:
-			return x509.CertificateInvalidError{c.asX509(), x509.IncompatibleUsage, ""}
+			return CertificateInvalidError{c.asX509(), IncompatibleUsage, ""}
 		// TODO(filippo): surface more error statuses.
 		default:
 			return UnknownAuthorityError{c, nil, nil}
@@ -133,7 +133,7 @@ func checkChainSSLServerPolicy(c *Certificate, chainCtx *syscall.CertChainContex
 	if status.Error != 0 {
 		switch status.Error {
 		case syscall.CERT_E_EXPIRED:
-			return x509.CertificateInvalidError{Cert: c.asX509(), Reason: x509.Expired, Detail: ""}
+			return CertificateInvalidError{Cert: c.asX509(), Reason: Expired, Detail: ""}
 		case syscall.CERT_E_CN_NO_MATCH:
 			return x509.HostnameError{Certificate: c.asX509(), Host: opts.DNSName}
 		case syscall.CERT_E_UNTRUSTEDROOT:

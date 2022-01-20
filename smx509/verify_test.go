@@ -377,13 +377,13 @@ func expectHostnameError(msg string) func(*testing.T, error) {
 }
 
 func expectExpired(t *testing.T, err error) {
-	if inval, ok := err.(x509.CertificateInvalidError); !ok || inval.Reason != x509.Expired {
+	if inval, ok := err.(CertificateInvalidError); !ok || inval.Reason != Expired {
 		t.Fatalf("error was not Expired: %v", err)
 	}
 }
 
 func expectUsageError(t *testing.T, err error) {
-	if inval, ok := err.(x509.CertificateInvalidError); !ok || inval.Reason != x509.IncompatibleUsage {
+	if inval, ok := err.(CertificateInvalidError); !ok || inval.Reason != IncompatibleUsage {
 		t.Fatalf("error was not IncompatibleUsage: %v", err)
 	}
 }
@@ -408,13 +408,13 @@ func expectHashError(t *testing.T, err error) {
 }
 
 func expectNameConstraintsError(t *testing.T, err error) {
-	if inval, ok := err.(x509.CertificateInvalidError); !ok || inval.Reason != x509.CANotAuthorizedForThisName {
+	if inval, ok := err.(CertificateInvalidError); !ok || inval.Reason != CANotAuthorizedForThisName {
 		t.Fatalf("error was not a CANotAuthorizedForThisName: %v", err)
 	}
 }
 
 func expectNotAuthorizedError(t *testing.T, err error) {
-	if inval, ok := err.(x509.CertificateInvalidError); !ok || inval.Reason != x509.NotAuthorizedToSign {
+	if inval, ok := err.(CertificateInvalidError); !ok || inval.Reason != NotAuthorizedToSign {
 		t.Fatalf("error was not a NotAuthorizedToSign: %v", err)
 	}
 }
