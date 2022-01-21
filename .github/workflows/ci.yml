@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goVer: [ '1.15']    
+        goVer: [ '1.15', '1.16', '1.17']    
     steps:
     - uses: actions/checkout@v2
 
