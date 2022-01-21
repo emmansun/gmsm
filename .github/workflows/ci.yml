@@ -14,8 +14,9 @@ jobs:
       matrix:
         goVer: [ '1.15']    
     steps:
-    - uses: actions/checkout@v2
-
+    - name: Checkout Repo
+      uses: actions/checkout@v2
+  
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
@@ -34,8 +35,5 @@ jobs:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
           
-    - name: Build
-      run: go build -v ./...
-
     - name: Test
       run: go test -v ./...
