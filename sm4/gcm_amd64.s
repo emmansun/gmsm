@@ -1067,7 +1067,7 @@ gcmSm4EncOctetsEnd:
 
 gcmSm4EncNibbles:
 	CMPQ ptxLen, $64
-	JB gcmSm4EncSingles
+	JBE gcmSm4EncSingles
 	SUBQ $64, ptxLen
 
 	MOVOU (8*16 + 0*16)(SP), B0
@@ -1428,20 +1428,20 @@ avx2GcmSm4EncOctetsEnd:
 	SUBQ $4, aluCTR
 
 avx2GcmSm4EncNibbles:
+	VMOVDQU flipMask<>(SB), B7
 	CMPQ ptxLen, $64
-	JB avx2GcmSm4EncSingles
+	JBE avx2GcmSm4EncSingles
 	SUBQ $64, ptxLen
 
 	VMOVDQU (8*16 + 0*16)(SP), B0
 	VMOVDQU (8*16 + 1*16)(SP), B1
 	VMOVDQU (8*16 + 2*16)(SP), B2
 	VMOVDQU (8*16 + 3*16)(SP), B3
-
-	VMOVDQU flipMask<>(SB), B4
-	VPSHUFB B4, B0, B0
-	VPSHUFB B4, B1, B1
-	VPSHUFB B4, B2, B2
-	VPSHUFB B4, B3, B3
+	
+	VPSHUFB B7, B0, B0
+	VPSHUFB B7, B1, B1
+	VPSHUFB B7, B2, B2
+	VPSHUFB B7, B3, B3
 
 	TRANSPOSE_MATRIX(B0, B1, B2, B3, T0, T1)
 	XORL BX, BX	
@@ -1500,11 +1500,10 @@ avx2GcmSm4EncSingles:
 	VMOVDQU (8*16 + 2*16)(SP), B2
 	VMOVDQU (8*16 + 3*16)(SP), B3
 
-	VMOVDQU flipMask<>(SB), B4
-	VPSHUFB B4, B0, B0
-	VPSHUFB B4, B1, B1
-	VPSHUFB B4, B2, B2
-	VPSHUFB B4, B3, B3
+	VPSHUFB B7, B0, B0
+	VPSHUFB B7, B1, B1
+	VPSHUFB B7, B2, B2
+	VPSHUFB B7, B3, B3
 
 	TRANSPOSE_MATRIX(B0, B1, B2, B3, T0, T1)
 	XORL BX, BX
@@ -1588,10 +1587,13 @@ TEXT ·gcmSm4Dec(SB),0,$128-96
 #define increment(i) ADDL $1, aluCTR; MOVL aluCTR, aluTMP; BSWAPL aluTMP; MOVL aluTMP, (3*4 + i*16)(SP)
 
 #define decMulRound(i) \
-	MOVOU (16*(i*2))(pTbl), T1;\
-	MOVOU T1, T2;\
 	MOVOU (16*i)(ctx), T0;\
 	PSHUFB BSWAP, T0;\
+	internalDecMulRound(i)
+
+#define internalDecMulRound(i) \
+	MOVOU (16*(i*2))(pTbl), T1;\
+	MOVOU T1, T2;\
 	PCLMULQDQ $0x00, T0, T1;\
 	PXOR T1, ACC0;\
 	PSHUFD $78, T0, T1;\
@@ -1604,6 +1606,9 @@ TEXT ·gcmSm4Dec(SB),0,$128-96
 
 #define decGhashRound(i) \
 		MOVOU (16*i)(ctx), B0; \
+		internalDecGhashRound()
+
+#define internalDecGhashRound() \
 		PSHUFB BSWAP, B0; \
 		PXOR ACC0, B0; \
 		MOVOU T2, ACC0; \
@@ -1762,7 +1767,7 @@ gcmSm4DecEndOctets:
 
 gcmSm4DecNibbles:
 	CMPQ ptxLen, $64
-	JB gcmSm4DecSingles
+	JBE gcmSm4DecSingles
 	SUBQ $64, ptxLen
 
 	MOVOU (0*16)(SP), B0
@@ -1975,21 +1980,49 @@ avx2GcmSm4Dec8Loop2:
 		VPSHUFB DWBSWAP, DWB1, DWB1
 		VPSHUFB DWBSWAP, DWB2, DWB2
 		VPSHUFB DWBSWAP, DWB3, DWB3
-		decMulRound(1)
+
+		VMOVDQU (32*0)(ctx), XDWTMP0
+		VPXOR XDWTMP0, DWB0, DWB0
+		VPSHUFB DWBSWAP, XDWTMP0, XDWTMP0
+		VEXTRACTI128 $1, XDWTMP0, T0
+		internalDecMulRound(1)
 		increment(0)
-		decMulRound(2)
+
+		VMOVDQU (32*1)(ctx), XDWTMP0
+		VPXOR XDWTMP0, DWB1, DWB1
+		VPSHUFB DWBSWAP, XDWTMP0, XDWTMP0
+		VEXTRACTI128 $0, XDWTMP0, T0
+		internalDecMulRound(2)
 		increment(1)
-		decMulRound(3)
+		VEXTRACTI128 $1, XDWTMP0, T0
+		internalDecMulRound(3)
 		increment(2)
-	 	decMulRound(4)
+
+		VMOVDQU (32*2)(ctx), XDWTMP0
+		VPXOR XDWTMP0, DWB2, DWB2
+		VPSHUFB DWBSWAP, XDWTMP0, XDWTMP0
+		VEXTRACTI128 $0, XDWTMP0, T0
+		internalDecMulRound(4)
 		increment(3)
-		decMulRound(5)
+		VEXTRACTI128 $1, XDWTMP0, T0
+		internalDecMulRound(5)
 		increment(4)
-		decMulRound(6)
+
+		VMOVDQU (32*3)(ctx), XDWTMP0
+		VPXOR XDWTMP0, DWB3, DWB3
+		VPSHUFB DWBSWAP, XDWTMP0, XDWTMP0
+		VEXTRACTI128 $0, XDWTMP0, T0
+		internalDecMulRound(6)
 		increment(5)
-	 	decMulRound(7)
+		VEXTRACTI128 $1, XDWTMP0, T0
+		internalDecMulRound(7)
 		increment(6)
 		increment(7)
+
+		VMOVDQU DWB0, (32*0)(ptx)
+		VMOVDQU DWB1, (32*1)(ptx)
+		VMOVDQU DWB2, (32*2)(ptx)
+		VMOVDQU DWB3, (32*3)(ptx)
 
 		VPXOR ACC0, ACCM, ACCM
 		VPXOR ACC1, ACCM, ACCM
@@ -2003,20 +2036,6 @@ avx2GcmSm4Dec8Loop2:
 		reduceRound(ACC0)
 		VPXOR ACC1, ACC0, ACC0
 
-		VMOVDQU (32*0)(ctx), XDWTMP0
-		VPXOR XDWTMP0, DWB0, DWB0
-		VMOVDQU (32*1)(ctx), XDWTMP0
-		VPXOR XDWTMP0, DWB1, DWB1
-		VMOVDQU (32*2)(ctx), XDWTMP0
-		VPXOR XDWTMP0, DWB2, DWB2
-		VMOVDQU (32*3)(ctx), XDWTMP0
-		VPXOR XDWTMP0, DWB3, DWB3
-
-		VMOVDQU DWB0, (32*0)(ptx)
-		VMOVDQU DWB1, (32*1)(ptx)
-		VMOVDQU DWB2, (32*2)(ptx)
-		VMOVDQU DWB3, (32*3)(ptx)
-
 		LEAQ 128(ptx), ptx
 		LEAQ 128(ctx), ctx
 
@@ -2026,19 +2045,20 @@ avx2GcmSm4DecEndOctets:
 	SUBQ $4, aluCTR
 
 avx2GcmSm4DecNibbles:
+	VMOVDQU flipMask<>(SB), B7 // DO NOT CHANGE B7
 	CMPQ ptxLen, $64
-	JB avx2GcmSm4DecSingles
+	JBE avx2GcmSm4DecSingles
 	SUBQ $64, ptxLen
 
 	VMOVDQU (0*16)(SP), B0
 	VMOVDQU (1*16)(SP), B1
 	VMOVDQU (2*16)(SP), B2
 	VMOVDQU (3*16)(SP), B3
-	VMOVDQU flipMask<>(SB), B4
-	VPSHUFB B4, B0, B0
-	VPSHUFB B4, B1, B1
-	VPSHUFB B4, B2, B2
-	VPSHUFB B4, B3, B3
+	
+	VPSHUFB B7, B0, B0
+	VPSHUFB B7, B1, B1
+	VPSHUFB B7, B2, B2
+	VPSHUFB B7, B3, B3
 
 	TRANSPOSE_MATRIX(B0, B1, B2, B3, T0, T1)
 	XORL BX, BX	
@@ -2056,33 +2076,36 @@ avx2GcmSm4Dec4Loop2:
 
 	// Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(B0, B1, B2, B3, B4, B5)
-	VPSHUFB BSWAP, B0, B0
+	VPSHUFB BSWAP, B0, B4
 	VPSHUFB BSWAP, B1, B1
 	VPSHUFB BSWAP, B2, B2
 	VPSHUFB BSWAP, B3, B3
 
 	VMOVDQU (16*14)(pTbl), T2
-	VMOVDQU (16*0)(ctx), T0
-	VPXOR T0, B0, B0
-	VMOVDQU (16*1)(ctx), T0
-	VPXOR T0, B1, B1
-	VMOVDQU (16*2)(ctx), T0
-	VPXOR T0, B2, B2
-	VMOVDQU (16*3)(ctx), T0
-	VPXOR T0, B3, B3
+	VMOVDQU (16*0)(ctx), B0
+	VPXOR B0, B4, B4
+	internalDecGhashRound()
 
-	VMOVDQU B0, (16*0)(ptx)
+	VMOVDQU (16*1)(ctx), B0
+	VPXOR B0, B1, B1
+	internalDecGhashRound()
+
+	VMOVDQU (16*2)(ctx), B0
+	VPXOR B0, B2, B2
+	internalDecGhashRound()
+
+	VMOVDQU (16*3)(ctx), B0
+	VPXOR B0, B3, B3
+	internalDecGhashRound()
+
+	VMOVDQU B4, (16*0)(ptx)
 	VMOVDQU B1, (16*1)(ptx)
 	VMOVDQU B2, (16*2)(ptx)
 	VMOVDQU B3, (16*3)(ptx)
 
-	decGhashRound(0)
 	increment(0)
-	decGhashRound(1)
 	increment(1)
-	decGhashRound(2)
 	increment(2)
-	decGhashRound(3)
 	increment(3)
 
 	LEAQ 64(ptx), ptx
@@ -2091,18 +2114,19 @@ avx2GcmSm4Dec4Loop2:
 avx2GcmSm4DecSingles:
 	TESTQ ptxLen, ptxLen
 	JE avx2GcmSm4DecDone
+
 	VMOVDQU (0*16)(SP), B0
 	VMOVDQU (1*16)(SP), B1
 	VMOVDQU (2*16)(SP), B2
 	VMOVDQU (3*16)(SP), B3
 
-	VMOVDQU flipMask<>(SB), B4
-	VPSHUFB B4, B0, B0
-	VPSHUFB B4, B1, B1
-	VPSHUFB B4, B2, B2
-	VPSHUFB B4, B3, B3
+	VPSHUFB B7, B0, B0
+	VPSHUFB B7, B1, B1
+	VPSHUFB B7, B2, B2
+	VPSHUFB B7, B3, B3
 
 	TRANSPOSE_MATRIX(B0, B1, B2, B3, T0, T1)
+	
 	XORL BX, BX	
 	VMOVDQU nibbleMask<>(SB), X_NIBBLE_MASK
 
@@ -2137,12 +2161,12 @@ avx2GcmSm4DecSinglesLoop:
 		JB avx2GcmSm4DecTail
 		SUBQ $16, ptxLen
 
-		VMOVDQU (16*0)(BP), B0
-		VMOVDQU (ctx), T0
-		VPXOR T0, B0, B0
-		VMOVDQU B0, (ptx)
+		VMOVDQU (16*0)(BP), T0
+		VMOVDQU (ctx), B0
+		VPXOR T0, B0, T0
+		VMOVDQU T0, (ptx)
 
-		decGhashRound(0)
+		internalDecGhashRound()
 		LEAQ (16*1)(ptx), ptx
 		LEAQ (16*1)(ctx), ctx
 		ADDQ $16, BP
@@ -2155,37 +2179,13 @@ avx2GcmSm4DecTail:
 	MOVQ ptxLen, aluTMP
 	SHLQ $4, aluTMP
 	LEAQ andMask<>(SB), aluCTR
-	VMOVDQU -16(aluCTR)(aluTMP*1), T1
+	VMOVDQU -16(aluCTR)(aluTMP*1), T1 // Fetch and-mask according ptxLen
 
 	VMOVDQU (ctx), B0	// I assume there is TAG attached to the ctx, and there is no read overflow
-	VPAND T1, B0, B0
+	VPAND T1, B0, B0  // Just keep ptxLen bytes, others will be zero
 
 	VMOVDQU B0, T1
-	VPSHUFB BSWAP, B0, B0
-	VPXOR ACC0, B0, B0
-
-	VMOVDQU (16*14)(pTbl), ACC0
-	VMOVDQU (16*15)(pTbl), ACCM
-	VMOVDQU ACC0, ACC1
-
-	PCLMULQDQ $0x00, B0, ACC0
-	PCLMULQDQ $0x11, B0, ACC1
-	VPSHUFD $78, B0, T0
-	VPXOR B0, T0, T0
-	PCLMULQDQ $0x00, T0, ACCM
-
-	VPXOR ACC0, ACCM, ACCM
-	VPXOR ACC1, ACCM, ACCM
-	VPSLLDQ $8, ACCM, T0
-	VPSRLDQ $8, ACCM, ACCM
-	
-	VPXOR ACCM, ACC1, ACC1
-	VPXOR T0, ACC0, ACC0
-
-	reduceRound(ACC0)
-	reduceRound(ACC0)
-	VPXOR ACC1, ACC0, ACC0
-
+	internalDecGhashRound()
 	VMOVDQU (16*0)(BP), B0
 	VPXOR T1, B0, B0
 
