@@ -1,14 +1,9 @@
 language: go
 
-go:
-  - "1.15.x"
-  - "1.16.x"
-  - "1.17.x"
-
 jobs:
   include:
-    - arch: ppc64le
-      go: 1.17.x
+#    - arch: ppc64le
+#      go: 1.17.x
     - arch: arm64-graviton2
       virt: vm
       os: linux
@@ -21,7 +16,7 @@ install:
   - go mod download
 
 script:
-  - go test -v ./...
+  - go test -v -short ./...
 
 #after_success:
 #  - go test -v -short -bench . -run=^$ ./...
