@@ -47,8 +47,12 @@ func Test_sample2(t *testing.T) {
 	}
 	dst := make([]byte, 16)
 	copy(dst, src)
-
-	for i := 0; i < 1000000; i++ {
+	n := 1000000
+	if testing.Short() {
+		n = 1000
+		expected = []byte{215, 53, 233, 28, 197, 104, 156, 243, 18, 188, 193, 239, 183, 64, 232, 19}
+	}
+	for i := 0; i < n; i++ {
 		c.Encrypt(dst, dst)
 	}
 	if !reflect.DeepEqual(dst, expected) {
