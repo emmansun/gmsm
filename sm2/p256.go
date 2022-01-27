@@ -896,20 +896,14 @@ func p256Invert(out, in *[p256Limbs]uint32) {
 	} // 2^128 - 2^64
 	p256Mul(&ftmp, &ftmp, &e64) // 2^128 - 1
 
-	for i := 0; i < 32; i++ {
+	for i := 0; i < 96; i++ {
 		p256Square(&ftmp, &ftmp)
-	} // 2^160 - 2^32
-
-	p256Mul(&ftmp, &ftmp, &e32m2) // 2^160 - 2
-
-	for i := 0; i < 95; i++ {
-		p256Square(&ftmp, &ftmp)
-	} // 2^255 - 2^96
+	} // 2^224 - 2^96
 
 	p256Assign(&ftmp2, &e32m2)
-	for i := 0; i < 223; i++ {
+	for i := 0; i < 224; i++ {
 		p256Square(&ftmp2, &ftmp2)
-	} // 2^255 - 2^224
+	} // 2^256 - 2^225
 
 	p256Mul(&ftmp, &ftmp, &ftmp2) // 2^256 - 2^224 - 2^96
 

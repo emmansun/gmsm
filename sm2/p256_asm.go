@@ -389,13 +389,11 @@ func p256Inverse(out, in []uint64) {
 	p256Sqr(out, p32, 32)  //2^64 - 2^32
 	p256Mul(p64, out, p32) // 2^64 - 2^0
 
-	p256Sqr(out, p64, 64)    //2^128 - 2^64
-	p256Mul(out, out, p64)   // 2^128 - 2^0
-	p256Sqr(out, out, 32)    //2^160 - 2^32
-	p256Mul(out, out, p32m2) //2^160 - 2^1
-	p256Sqr(ptmp, out, 95)   //2^255 - 2^96
+	p256Sqr(out, p64, 64)  //2^128 - 2^64
+	p256Mul(out, out, p64) // 2^128 - 2^0
+	p256Sqr(ptmp, out, 96) // 2^224 - 2^96
 
-	p256Sqr(out, p32m2, 223) //2^255 - 2^224
+	p256Sqr(out, p32m2, 224) //2^256 - 2^225
 	p256Mul(ptmp, ptmp, out) //2^256 - 2^224 - 2^96
 
 	p256Sqr(out, p32, 16)  // 2^48 - 2^16

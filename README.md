@@ -1,7 +1,10 @@
 
 # GM-Standards SM2/SM3/SM4 for Go
 
-[![Build Status](https://app.travis-ci.com/emmansun/gmsm.svg?branch=main)](https://app.travis-ci.com/emmansun/gmsm) <a href="https://github.com/emmansun/gmsm/actions?query=workflow%3Aci+branch%3Amain"><img src="https://github.com/emmansun/gmsm/workflows/ci/badge.svg" alt="CI" style="max-width: 100%;"></a> [![Documentation](https://godoc.org/github.com/emmansun/gmsm?status.svg)](https://godoc.org/github.com/emmansun/gmsm) [![Release](https://img.shields.io/github/release/emmansun/gmsm/all.svg)](https://github.com/emmansun/gmsm/releases)
+[![Travis CI](https://app.travis-ci.com/emmansun/gmsm.svg?branch=main)](https://app.travis-ci.com/emmansun/gmsm) 
+[![Github CI](https://github.com/emmansun/gmsm/actions/workflows/ci.yml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/ci.yml) 
+[![Documentation](https://godoc.org/github.com/emmansun/gmsm?status.svg)](https://godoc.org/github.com/emmansun/gmsm) 
+[![Release](https://img.shields.io/github/release/emmansun/gmsm/all.svg)](https://github.com/emmansun/gmsm/releases)
 
 This is a **SM2 sm2p256v1** implementation whose performance is similar like golang native NIST P256 under **amd64** and **arm64**, for implementation detail, please refer [SM2实现细节](https://github.com/emmansun/gmsm/wiki/SM2%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96).
 
