@@ -1,6 +1,7 @@
 package sm2
 
 import (
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -304,6 +305,30 @@ func TestINDCCA(t *testing.T) {
 	}
 }
 
+func TestEqual(t *testing.T) {
+	private, _ := GenerateKey(rand.Reader)
+	public := &private.PublicKey
+
+	if !public.Equal(public) {
+		t.Errorf("public key is not equal to itself: %q", public)
+	}
+	if !public.Equal(crypto.Signer(private).Public()) {
+		t.Errorf("private.Public() is not Equal to public: %q", public)
+	}
+	if !private.Equal(private) {
+		t.Errorf("private key is not equal to itself: %q", private)
+	}
+
+	otherPriv, _ := GenerateKey(rand.Reader)
+	otherPub := &otherPriv.PublicKey
+	if public.Equal(otherPub) {
+		t.Errorf("different public keys are Equal")
+	}
+	if private.Equal(otherPriv) {
+		t.Errorf("different private keys are Equal")
+	}
+}
+
 func BenchmarkGenerateKey_SM2(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -403,8 +428,13 @@ func BenchmarkVerify_SM2(b *testing.B) {
 }
 
 func benchmarkEncrypt(b *testing.B, curve elliptic.Curve, plaintext string) {
+	priv, err := ecdsa.GenerateKey(curve, rand.Reader)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		priv, _ := ecdsa.GenerateKey(curve, rand.Reader)
 		Encrypt(rand.Reader, &priv.PublicKey, []byte(plaintext), nil)
 	}
 }

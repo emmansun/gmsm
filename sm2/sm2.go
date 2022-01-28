@@ -149,10 +149,18 @@ func (*SM2SignerOption) HashFunc() crypto.Hash {
 // FromECPrivateKey convert an ecdsa private key to SM2 private key
 func (priv *PrivateKey) FromECPrivateKey(key *ecdsa.PrivateKey) (*PrivateKey, error) {
 	if key.Curve != P256() {
-		return nil, errors.New("It's NOT a sm2 curve private key")
+		return nil, errors.New("SM2: it's NOT a sm2 curve private key")
 	}
 	priv.PrivateKey = *key
 	return priv, nil
+}
+
+func (priv *PrivateKey) Equal(x crypto.PrivateKey) bool {
+	xx, ok := x.(*PrivateKey)
+	if !ok {
+		return false
+	}
+	return priv.PublicKey.Equal(&xx.PublicKey) && priv.D.Cmp(xx.D) == 0
 }
 
 // Sign signs digest with priv, reading randomness from rand. The opts argument
