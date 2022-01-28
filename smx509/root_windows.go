@@ -92,9 +92,9 @@ func checkChainTrustStatus(c *Certificate, chainCtx *syscall.CertChainContext) e
 		status := chainCtx.TrustStatus.ErrorStatus
 		switch status {
 		case syscall.CERT_TRUST_IS_NOT_TIME_VALID:
-			return CertificateInvalidError{c.asX509(), Expired, ""}
+			return CertificateInvalidError{Cert: c.asX509(), Reason: Expired, Detail: ""}
 		case syscall.CERT_TRUST_IS_NOT_VALID_FOR_USAGE:
-			return CertificateInvalidError{c.asX509(), IncompatibleUsage, ""}
+			return CertificateInvalidError{Cert: c.asX509(), Reason: IncompatibleUsage, Detail: ""}
 		// TODO(filippo): surface more error statuses.
 		default:
 			return UnknownAuthorityError{c, nil, nil}

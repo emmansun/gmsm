@@ -261,18 +261,18 @@ func (c *Certificate) checkNameConstraints(count *int,
 
 	*count += excludedValue.Len()
 	if *count > maxConstraintComparisons {
-		return CertificateInvalidError{c.asX509(), TooManyConstraints, ""}
+		return CertificateInvalidError{Cert: c.asX509(), Reason: TooManyConstraints, Detail: ""}
 	}
 
 	for i := 0; i < excludedValue.Len(); i++ {
 		constraint := excludedValue.Index(i).Interface()
 		match, err := match(parsedName, constraint)
 		if err != nil {
-			return CertificateInvalidError{c.asX509(), CANotAuthorizedForThisName, err.Error()}
+			return CertificateInvalidError{Cert: c.asX509(), Reason: CANotAuthorizedForThisName, Detail: err.Error()}
 		}
 
 		if match {
-			return CertificateInvalidError{c.asX509(), CANotAuthorizedForThisName, fmt.Sprintf("%s %q is excluded by constraint %q", nameType, name, constraint)}
+			return CertificateInvalidError{Cert: c.asX509(), Reason: CANotAuthorizedForThisName, Detail: fmt.Sprintf("%s %q is excluded by constraint %q", nameType, name, constraint)}
 		}
 	}
 
@@ -280,7 +280,7 @@ func (c *Certificate) checkNameConstraints(count *int,
 
 	*count += permittedValue.Len()
 	if *count > maxConstraintComparisons {
-		return CertificateInvalidError{c.asX509(), TooManyConstraints, ""}
+		return CertificateInvalidError{Cert: c.asX509(), Reason: TooManyConstraints, Detail: ""}
 	}
 
 	ok := true
@@ -289,7 +289,7 @@ func (c *Certificate) checkNameConstraints(count *int,
 
 		var err error
 		if ok, err = match(parsedName, constraint); err != nil {
-			return CertificateInvalidError{c.asX509(), CANotAuthorizedForThisName, err.Error()}
+			return CertificateInvalidError{Cert: c.asX509(), Reason: CANotAuthorizedForThisName, Detail: err.Error()}
 		}
 
 		if ok {
@@ -298,7 +298,7 @@ func (c *Certificate) checkNameConstraints(count *int,
 	}
 
 	if !ok {
-		return CertificateInvalidError{c.asX509(), CANotAuthorizedForThisName, fmt.Sprintf("%s %q is not permitted by any constraint", nameType, name)}
+		return CertificateInvalidError{Cert: c.asX509(), Reason: CANotAuthorizedForThisName, Detail: fmt.Sprintf("%s %q is not permitted by any constraint", nameType, name)}
 	}
 
 	return nil
@@ -349,7 +349,7 @@ func (c *Certificate) isValid(certType int, currentChain []*Certificate, opts *V
 	if len(currentChain) > 0 {
 		child := currentChain[len(currentChain)-1]
 		if !bytes.Equal(child.RawIssuer, c.RawSubject) {
-			return CertificateInvalidError{c.asX509(), NameMismatch, ""}
+			return CertificateInvalidError{Cert: c.asX509(), Reason: NameMismatch, Detail: ""}
 		}
 	}
 
@@ -473,13 +473,13 @@ func (c *Certificate) isValid(certType int, currentChain []*Certificate, opts *V
 	// encryption key could only be used for Diffie-Hellman key agreement.
 
 	if certType == intermediateCertificate && (!c.BasicConstraintsValid || !c.IsCA) {
-		return CertificateInvalidError{c.asX509(), NotAuthorizedToSign, ""}
+		return CertificateInvalidError{Cert: c.asX509(), Reason: NotAuthorizedToSign, Detail: ""}
 	}
 
 	if c.BasicConstraintsValid && c.MaxPathLen >= 0 {
 		numIntermediates := len(currentChain) - 1
 		if numIntermediates > c.MaxPathLen {
-			return CertificateInvalidError{c.asX509(), TooManyIntermediates, ""}
+			return CertificateInvalidError{Cert: c.asX509(), Reason: TooManyIntermediates, Detail: ""}
 		}
 	}
 
@@ -586,7 +586,7 @@ func (c *Certificate) Verify(opts VerifyOptions) (chains [][]*Certificate, err e
 	}
 
 	if len(chains) == 0 {
-		return nil, CertificateInvalidError{c.asX509(), IncompatibleUsage, ""}
+		return nil, CertificateInvalidError{Cert: c.asX509(), Reason: IncompatibleUsage, Detail: ""}
 	}
 
 	return chains, nil
@@ -813,7 +813,7 @@ func (c *Certificate) VerifyHostname(h string) error {
 				return nil
 			}
 		}
-		return x509.HostnameError{c.asX509(), candidateIP}
+		return x509.HostnameError{Certificate: c.asX509(), Host: candidateIP}
 	}
 
 	candidateName := toLowerCaseASCII(h) // Save allocations inside the loop.
@@ -835,7 +835,7 @@ func (c *Certificate) VerifyHostname(h string) error {
 			}
 		}
 	}
-	return x509.HostnameError{c.asX509(), h}
+	return x509.HostnameError{Certificate: c.asX509(), Host: h}
 }
 
 func checkChainForKeyUsage(chain []*Certificate, keyUsages []ExtKeyUsage) bool {
