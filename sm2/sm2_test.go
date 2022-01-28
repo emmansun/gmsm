@@ -304,6 +304,104 @@ func TestINDCCA(t *testing.T) {
 	}
 }
 
+func BenchmarkGenerateKey_SM2(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := GenerateKey(rand.Reader); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkGenerateKey_P256(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkSign_SM2(b *testing.B) {
+	priv, err := GenerateKey(rand.Reader)
+	if err != nil {
+		b.Fatal(err)
+	}
+	hashed := []byte("testing")
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		sig, err := SignASN1(rand.Reader, priv, hashed, nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+		// Prevent the compiler from optimizing out the operation.
+		hashed[0] = sig[0]
+	}
+}
+
+func BenchmarkSign_P256(b *testing.B) {
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		b.Fatal(err)
+	}
+	hashed := []byte("testing")
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		sig, err := ecdsa.SignASN1(rand.Reader, priv, hashed)
+		if err != nil {
+			b.Fatal(err)
+		}
+		// Prevent the compiler from optimizing out the operation.
+		hashed[0] = sig[0]
+	}
+}
+
+func BenchmarkVerify_P256(b *testing.B) {
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		b.Fatal(err)
+	}
+	hashed := []byte("testing")
+	r, s, err := ecdsa.Sign(rand.Reader, priv, hashed)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if !Verify(&priv.PublicKey, hashed, r, s) {
+			b.Fatal("verify failed")
+		}
+	}
+}
+
+func BenchmarkVerify_SM2(b *testing.B) {
+	priv, err := GenerateKey(rand.Reader)
+	if err != nil {
+		b.Fatal(err)
+	}
+	hashed := []byte("testing")
+	r, s, err := Sign(rand.Reader, &priv.PrivateKey, hashed)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if !Verify(&priv.PublicKey, hashed, r, s) {
+			b.Fatal("verify failed")
+		}
+	}
+}
+
 func benchmarkEncrypt(b *testing.B, curve elliptic.Curve, plaintext string) {
 	for i := 0; i < b.N; i++ {
 		priv, _ := ecdsa.GenerateKey(curve, rand.Reader)
@@ -315,7 +413,7 @@ func BenchmarkLessThan32_P256(b *testing.B) {
 	benchmarkEncrypt(b, elliptic.P256(), "encryption standard")
 }
 
-func BenchmarkLessThan32_P256SM2(b *testing.B) {
+func BenchmarkLessThan32_SM2(b *testing.B) {
 	benchmarkEncrypt(b, P256(), "encryption standard")
 }
 
@@ -323,6 +421,6 @@ func BenchmarkMoreThan32_P256(b *testing.B) {
 	benchmarkEncrypt(b, elliptic.P256(), "encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard")
 }
 
-func BenchmarkMoreThan32_P256SM2(b *testing.B) {
+func BenchmarkMoreThan32_SM2(b *testing.B) {
 	benchmarkEncrypt(b, P256(), "encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard")
 }
