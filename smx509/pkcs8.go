@@ -54,7 +54,7 @@ func ParsePKCS8PrivateKey(der []byte) (key interface{}, err error) {
 	} else {
 		key = ecKey
 	}
-	return key, nil
+	return key, err
 }
 
 // MarshalPKCS8PrivateKey converts a private key to PKCS#8, ASN.1 DER form.
