@@ -149,14 +149,8 @@ func MarshalPKIXPublicKey(pub interface{}) ([]byte, error) {
 	return ret, nil
 }
 
-// CertificateRequest represents a PKCS #10, certificate signature request.
-type CertificateRequest x509.CertificateRequest
-
-func (c *CertificateRequest) asX509() *x509.CertificateRequest {
-	return (*x509.CertificateRequest)(c)
-}
-
 // These structures reflect the ASN.1 structure of X.509 certificates.:
+
 type certificate struct {
 	Raw                asn1.RawContent
 	TBSCertificate     tbsCertificate
@@ -1530,6 +1524,13 @@ func (c *Certificate) CreateCRL(rand io.Reader, priv interface{}, revokedCerts [
 		SignatureAlgorithm: signatureAlgorithm,
 		SignatureValue:     asn1.BitString{Bytes: signature, BitLength: len(signature) * 8},
 	})
+}
+
+// CertificateRequest represents a PKCS #10, certificate signature request.
+type CertificateRequest x509.CertificateRequest
+
+func (c *CertificateRequest) asX509() *x509.CertificateRequest {
+	return (*x509.CertificateRequest)(c)
 }
 
 // These structures reflect the ASN.1 structure of X.509 certificate
