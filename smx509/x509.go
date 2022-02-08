@@ -35,6 +35,8 @@ type pkixPublicKey struct {
 }
 
 // ParsePKIXPublicKey parses a public key in PKIX, ASN.1 DER form.
+// The encoded public key is a SubjectPublicKeyInfo structure
+// (see RFC 5280, Section 4.1).
 //
 // It returns a *rsa.PublicKey, *dsa.PublicKey, *ecdsa.PublicKey, or
 // ed25519.PublicKey. More types might be supported in the future.
@@ -119,6 +121,8 @@ func marshalPublicKey(pub interface{}) (publicKeyBytes []byte, publicKeyAlgorith
 }
 
 // MarshalPKIXPublicKey converts a public key to PKIX, ASN.1 DER form.
+// The encoded public key is a SubjectPublicKeyInfo structure
+// (see RFC 5280, Section 4.1).
 //
 // The following key types are currently supported: *rsa.PublicKey, *ecdsa.PublicKey
 // and ed25519.PublicKey. Unsupported key types result in an error.
@@ -237,12 +241,6 @@ const (
 	ECDSA   = x509.ECDSA
 	Ed25519 = x509.Ed25519
 )
-
-// pkcs1PublicKey reflects the ASN.1 structure of a PKCS#1 public key.
-type pkcs1PublicKey struct {
-	N *big.Int
-	E int
-}
 
 var signatureAlgorithmDetails = []struct {
 	algo       SignatureAlgorithm
@@ -1256,7 +1254,7 @@ func signingParamsForPublicKey(pub interface{}, requestedSigAlgo SignatureAlgori
 var emptyASN1Subject = []byte{0x30, 0}
 
 // CreateCertificate creates a new X.509 v3 certificate based on a template.
-// The following members of template are used:
+// The following members of template are currently used:
 //
 //  - AuthorityKeyId
 //  - BasicConstraintsValid
@@ -1293,7 +1291,7 @@ var emptyASN1Subject = []byte{0x30, 0}
 //
 // The certificate is signed by parent. If parent is equal to template then the
 // certificate is self-signed. The parameter pub is the public key of the
-// signee and priv is the private key of the signer.
+// certificate to be generated and priv is the private key of the signer.
 //
 // The returned slice is the certificate in DER encoding.
 //
@@ -1304,6 +1302,9 @@ var emptyASN1Subject = []byte{0x30, 0}
 // The AuthorityKeyId will be taken from the SubjectKeyId of parent, if any,
 // unless the resulting certificate is self-signed. Otherwise the value from
 // template will be used.
+//
+// If SubjectKeyId from template is empty and the template is a CA, SubjectKeyId
+// will be generated from the hash of the public key.
 func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, priv interface{}) ([]byte, error) {
 	key, ok := priv.(crypto.Signer)
 	if !ok {
@@ -1395,6 +1396,7 @@ func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, 
 		h.Write(signed)
 		signed = h.Sum(nil)
 	}
+
 	var signerOpts crypto.SignerOpts = hashFunc
 	if template.SignatureAlgorithm != 0 && isRSAPSS(template.SignatureAlgorithm) {
 		signerOpts = &rsa.PSSOptions{
@@ -1449,6 +1451,9 @@ func ParseDERCRL(derBytes []byte) (*pkix.CertificateList, error) {
 
 // CreateCRL returns a DER encoded CRL, signed by this Certificate, that
 // contains the given list of revoked certificates.
+//
+// Note: this method does not generate an RFC 5280 conformant X.509 v2 CRL.
+// To generate a standards compliant CRL, use CreateRevocationList instead.
 func (c *Certificate) CreateCRL(rand io.Reader, priv interface{}, revokedCerts []pkix.RevokedCertificate, now, expiry time.Time) (crlBytes []byte, err error) {
 	key, ok := priv.(crypto.Signer)
 	if !ok {
@@ -1532,7 +1537,7 @@ type certificateRequest struct {
 	SignatureValue     asn1.BitString
 }
 
-// oidExtensionRequest is a PKCS#9 OBJECT IDENTIFIER that indicates requested
+// oidExtensionRequest is a PKCS #9 OBJECT IDENTIFIER that indicates requested
 // extensions in a CSR.
 var oidExtensionRequest = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 14}
 
@@ -1624,6 +1629,7 @@ func CreateCertificateRequest(rand io.Reader, template *x509.CertificateRequest,
 	if !ok {
 		return nil, errors.New("x509: certificate private key does not implement crypto.Signer")
 	}
+
 	var hashFunc crypto.Hash
 	var sigAlgo pkix.AlgorithmIdentifier
 	hashFunc, sigAlgo, err = signingParamsForPublicKey(key.Public(), template.SignatureAlgorithm)
