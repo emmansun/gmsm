@@ -149,14 +149,8 @@ func MarshalPKIXPublicKey(pub interface{}) ([]byte, error) {
 	return ret, nil
 }
 
-// CertificateRequest represents a PKCS #10, certificate signature request.
-type CertificateRequest x509.CertificateRequest
-
-func (c *CertificateRequest) asX509() *x509.CertificateRequest {
-	return (*x509.CertificateRequest)(c)
-}
-
 // These structures reflect the ASN.1 structure of X.509 certificates.:
+
 type certificate struct {
 	Raw                asn1.RawContent
 	TBSCertificate     tbsCertificate
@@ -240,6 +234,43 @@ const (
 	DSA     = x509.DSA // Unsupported.
 	ECDSA   = x509.ECDSA
 	Ed25519 = x509.Ed25519
+)
+
+// OIDs for signature algorithms
+var (
+	oidSignatureMD2WithRSA      = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 2}
+	oidSignatureMD5WithRSA      = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 4}
+	oidSignatureSHA1WithRSA     = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 5}
+	oidSignatureSHA256WithRSA   = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 11}
+	oidSignatureSHA384WithRSA   = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 12}
+	oidSignatureSHA512WithRSA   = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 13}
+	oidSignatureRSAPSS          = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 10}
+	oidSignatureDSAWithSHA1     = asn1.ObjectIdentifier{1, 2, 840, 10040, 4, 3}
+	oidSignatureDSAWithSHA256   = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 2}
+	oidSignatureECDSAWithSHA1   = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 1}
+	oidSignatureECDSAWithSHA256 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 2}
+	oidSignatureECDSAWithSHA384 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 3}
+	oidSignatureECDSAWithSHA512 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 4}
+	oidSignatureEd25519         = asn1.ObjectIdentifier{1, 3, 101, 112}
+
+	oidSHA256 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 1}
+	oidSHA384 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 2}
+	oidSHA512 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 3}
+
+	oidMGF1 = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 8}
+
+	// oidISOSignatureSHA1WithRSA means the same as oidSignatureSHA1WithRSA
+	// but it's specified by ISO. Microsoft's makecert.exe has been known
+	// to produce certificates with this OID.
+	oidISOSignatureSHA1WithRSA = asn1.ObjectIdentifier{1, 3, 14, 3, 2, 29}
+
+	// GB/T 33560-2017 信息安全技术 密码应用标识规范
+	// 附录A（规范性附录）商用密码领域中的相关OID定义
+	//
+	// http://gmssl.org/docs/oid.html
+	oidSignatureSM2WithSM3    = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 501}
+	oidSignatureSM2WithSHA1   = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 502}
+	oidSignatureSM2WithSHA256 = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 503}
 )
 
 var signatureAlgorithmDetails = []struct {
@@ -368,7 +399,7 @@ var (
 	oidPublicKeyRSA     = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 1}
 	oidPublicKeyDSA     = asn1.ObjectIdentifier{1, 2, 840, 10040, 4, 1}
 	oidPublicKeyECDSA   = asn1.ObjectIdentifier{1, 2, 840, 10045, 2, 1}
-	oidPublicKeyEd25519 = asn1.ObjectIdentifier{1, 3, 101, 112}
+	oidPublicKeyEd25519 = oidSignatureEd25519
 )
 
 func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm {
@@ -385,43 +416,35 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm 
 	return UnknownPublicKeyAlgorithm
 }
 
-// http://gmssl.org/docs/oid.html
+// RFC 5480, 2.1.1.1. Named Curve
 var (
-	oidNamedCurveP224    = asn1.ObjectIdentifier{1, 3, 132, 0, 33}
-	oidNamedCurveP256    = asn1.ObjectIdentifier{1, 2, 840, 10045, 3, 1, 7}
-	oidNamedCurveP384    = asn1.ObjectIdentifier{1, 3, 132, 0, 34}
-	oidNamedCurveP521    = asn1.ObjectIdentifier{1, 3, 132, 0, 35}
+	oidNamedCurveP224 = asn1.ObjectIdentifier{1, 3, 132, 0, 33}
+	oidNamedCurveP256 = asn1.ObjectIdentifier{1, 2, 840, 10045, 3, 1, 7}
+	oidNamedCurveP384 = asn1.ObjectIdentifier{1, 3, 132, 0, 34}
+	oidNamedCurveP521 = asn1.ObjectIdentifier{1, 3, 132, 0, 35}
+
+	// GB/T 33560-2017 信息安全技术 密码应用标识规范
+	// 附录A（规范性附录）商用密码领域中的相关OID定义
+	//
+	// http://gmssl.org/docs/oid.html
 	oidNamedCurveP256SM2 = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 301}
-
-	oidSignatureMD2WithRSA      = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 2}
-	oidSignatureMD5WithRSA      = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 4}
-	oidSignatureSHA1WithRSA     = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 5}
-	oidSignatureSHA256WithRSA   = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 11}
-	oidSignatureSHA384WithRSA   = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 12}
-	oidSignatureSHA512WithRSA   = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 13}
-	oidSignatureRSAPSS          = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 10}
-	oidSignatureDSAWithSHA1     = asn1.ObjectIdentifier{1, 2, 840, 10040, 4, 3}
-	oidSignatureDSAWithSHA256   = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 2}
-	oidSignatureECDSAWithSHA1   = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 1}
-	oidSignatureECDSAWithSHA256 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 2}
-	oidSignatureECDSAWithSHA384 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 3}
-	oidSignatureECDSAWithSHA512 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 4}
-	oidSignatureEd25519         = asn1.ObjectIdentifier{1, 3, 101, 112}
-	oidSignatureSM2WithSM3      = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 501}
-	oidSignatureSM2WithSHA1     = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 502}
-	oidSignatureSM2WithSHA256   = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 503}
-
-	oidSHA256 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 1}
-	oidSHA384 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 2}
-	oidSHA512 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 3}
-
-	oidMGF1 = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 8}
-
-	// oidISOSignatureSHA1WithRSA means the same as oidSignatureSHA1WithRSA
-	// but it's specified by ISO. Microsoft's makecert.exe has been known
-	// to produce certificates with this OID.
-	oidISOSignatureSHA1WithRSA = asn1.ObjectIdentifier{1, 3, 14, 3, 2, 29}
 )
+
+func namedCurveFromOID(oid asn1.ObjectIdentifier) elliptic.Curve {
+	switch {
+	case oid.Equal(oidNamedCurveP224):
+		return elliptic.P224()
+	case oid.Equal(oidNamedCurveP256):
+		return elliptic.P256()
+	case oid.Equal(oidNamedCurveP384):
+		return elliptic.P384()
+	case oid.Equal(oidNamedCurveP521):
+		return elliptic.P521()
+	case oid.Equal(oidNamedCurveP256SM2):
+		return sm2.P256()
+	}
+	return nil
+}
 
 func oidFromNamedCurve(curve elliptic.Curve) (asn1.ObjectIdentifier, bool) {
 	switch curve {
@@ -438,22 +461,6 @@ func oidFromNamedCurve(curve elliptic.Curve) (asn1.ObjectIdentifier, bool) {
 	}
 
 	return nil, false
-}
-
-func namedCurveFromOID(oid asn1.ObjectIdentifier) elliptic.Curve {
-	switch {
-	case oid.Equal(oidNamedCurveP224):
-		return elliptic.P224()
-	case oid.Equal(oidNamedCurveP256):
-		return elliptic.P256()
-	case oid.Equal(oidNamedCurveP384):
-		return elliptic.P384()
-	case oid.Equal(oidNamedCurveP521):
-		return elliptic.P521()
-	case oid.Equal(oidNamedCurveP256SM2):
-		return sm2.P256()
-	}
-	return nil
 }
 
 // KeyUsage represents the set of actions that are valid for a given key. It's
@@ -836,7 +843,7 @@ func marshalSANs(dnsNames, emailAddresses []string, ipAddresses []net.IP, uris [
 		if err := isIA5String(uriStr); err != nil {
 			return nil, err
 		}
-		rawValues = append(rawValues, asn1.RawValue{Tag: nameTypeURI, Class: 2, Bytes: []byte(uri.String())})
+		rawValues = append(rawValues, asn1.RawValue{Tag: nameTypeURI, Class: 2, Bytes: []byte(uriStr)})
 	}
 	return asn1.Marshal(rawValues)
 }
@@ -1517,6 +1524,13 @@ func (c *Certificate) CreateCRL(rand io.Reader, priv interface{}, revokedCerts [
 		SignatureAlgorithm: signatureAlgorithm,
 		SignatureValue:     asn1.BitString{Bytes: signature, BitLength: len(signature) * 8},
 	})
+}
+
+// CertificateRequest represents a PKCS #10, certificate signature request.
+type CertificateRequest x509.CertificateRequest
+
+func (c *CertificateRequest) asX509() *x509.CertificateRequest {
+	return (*x509.CertificateRequest)(c)
 }
 
 // These structures reflect the ASN.1 structure of X.509 certificate
