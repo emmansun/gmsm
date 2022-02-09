@@ -35,14 +35,15 @@ const (
 	mixed07      byte = 0x07
 )
 
-// A invertible implements fast inverse mod Curve.Params().N
+// A invertible implements fast inverse in GF(N).
 type invertible interface {
-	// Inverse returns the inverse of k in GF(P)
+	// Inverse returns the inverse of k mod Params().N.
 	Inverse(k *big.Int) *big.Int
 }
 
-// combinedMult implements fast multiplication S1*g + S2*p (g - generator, p - arbitrary point)
+// A combinedMult implements fast combined multiplication for verification.
 type combinedMult interface {
+	// CombinedMult returns [s1]G + [s2]P where G is the generator.
 	CombinedMult(bigX, bigY *big.Int, baseScalar, scalar []byte) (x, y *big.Int)
 }
 
@@ -123,14 +124,16 @@ type Signer interface {
 	SignWithSM2(rand io.Reader, uid, msg []byte) ([]byte, error)
 }
 
+// SM2SignerOption implements crypto.SignerOpts interface.
+// It is specific for SM2, used in private key's Sign method.
 type SM2SignerOption struct {
 	UID         []byte
 	ForceGMSign bool
 }
 
-// NewSM2SignerOption create a SM2 specific signer option
-// forceGMSign - if use GM specific sign logic, if yes, should pass raw message to sign
-// uid - if forceGMSign is true, then you can pass uid, if no uid is provided, system will use default one
+// NewSM2SignerOption create a SM2 specific signer option.
+// forceGMSign - if use GM specific sign logic, if yes, should pass raw message to sign.
+// uid - if forceGMSign is true, then you can pass uid, if no uid is provided, system will use default one.
 func NewSM2SignerOption(forceGMSign bool, uid []byte) *SM2SignerOption {
 	opt := &SM2SignerOption{
 		UID:         uid,
@@ -146,7 +149,7 @@ func (*SM2SignerOption) HashFunc() crypto.Hash {
 	return directSigning
 }
 
-// FromECPrivateKey convert an ecdsa private key to SM2 private key
+// FromECPrivateKey convert an ecdsa private key to SM2 private key.
 func (priv *PrivateKey) FromECPrivateKey(key *ecdsa.PrivateKey) (*PrivateKey, error) {
 	if key.Curve != P256() {
 		return nil, errors.New("SM2: it's NOT a sm2 curve private key")
@@ -163,13 +166,14 @@ func (priv *PrivateKey) Equal(x crypto.PrivateKey) bool {
 	return priv.PublicKey.Equal(&xx.PublicKey) && priv.D.Cmp(xx.D) == 0
 }
 
-// Sign signs digest with priv, reading randomness from rand. The opts argument
-// is not currently used but, in keeping with the crypto.Signer interface,
-// should be the hash function used to digest the message.
+// Sign signs digest with priv, reading randomness from rand. It follows GB/T 32918.2-2016.
+// The opts argument is currently used for SM2SignerOption checking only.
+// If the opts argument is SM2SignerOption and its ForceGMSign is true, then it
+// treats digest as raw data and take UID from opts.
 //
 // This method implements crypto.Signer, which is an interface to support keys
 // where the private part is kept in, for example, a hardware module. Common
-// uses should use the Sign function in this package directly.
+// uses can use the SignASN1 function in this package directly.
 func (priv *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
 	var r, s *big.Int
 	var err error
@@ -189,13 +193,15 @@ func (priv *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOp
 	return b.Bytes()
 }
 
-// SignWithSM2 signs uid, msg with SignWithSM2 method.
+// SignWithSM2 signs uid, msg with priv, reading randomness from rand. It follows GB/T 32918.2-2016.
+// Deprecated: please use Sign method directly.
 func (priv *PrivateKey) SignWithSM2(rand io.Reader, uid, msg []byte) ([]byte, error) {
 	return priv.Sign(rand, msg, NewSM2SignerOption(true, uid))
 }
 
-// Decrypt decrypts msg. The opts argument should be appropriate for
-// the primitive used.
+// Decrypt decrypts ciphertext msg to plaintext.
+// The opts argument should be appropriate for the primitive used.
+// It follows GB/T 32918.4-2016 chapter 7.
 func (priv *PrivateKey) Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpts) (plaintext []byte, err error) {
 	var sm2Opts *DecrypterOpts
 	sm2Opts, _ = opts.(*DecrypterOpts)
@@ -207,16 +213,14 @@ var (
 	initonce sync.Once
 )
 
-// P256 init and return the singleton
+// P256 init and return the singleton.
 func P256() elliptic.Curve {
 	initonce.Do(initP256)
 	return p256
 }
 
-///////////////// below code ship from golan crypto/ecdsa ////////////////////
-
-// randFieldElement returns a random element of the field underlying the given
-// curve using the procedure given in [NSA] A.2.1.
+// randFieldElement returns a random element of the order of the given
+// curve using the procedure given in FIPS 186-4, Appendix B.5.1.
 func randFieldElement(c elliptic.Curve, rand io.Reader) (k *big.Int, err error) {
 	params := c.Params()
 	b := make([]byte, params.BitSize/8+8) // (N + 64) / 8 = （256 + 64） / 8
@@ -232,9 +236,9 @@ func randFieldElement(c elliptic.Curve, rand io.Reader) (k *big.Int, err error) 
 	return
 }
 
-///////////////////////////////////////////////////////////////////////////////////
 const maxRetryLimit = 100
 
+// kdf implementation follows GB/T 32918.4-2016 5.4.3.
 func kdf(z []byte, len int) ([]byte, bool) {
 	limit := (len + sm3.Size - 1) >> sm3.SizeBitSize
 	md := sm3.New()
@@ -276,12 +280,12 @@ func mashalASN1Ciphertext(x1, y1 *big.Int, c2, c3 []byte) ([]byte, error) {
 	return b.Bytes()
 }
 
-// sm2 encrypt and output ASN.1 result
+// EncryptASN1 sm2 encrypt and output ASN.1 result, it follows GB/T 32918.4-2016.
 func EncryptASN1(random io.Reader, pub *ecdsa.PublicKey, msg []byte) ([]byte, error) {
 	return Encrypt(random, pub, msg, ASN1EncrypterOpts)
 }
 
-// Encrypt sm2 encrypt implementation
+// Encrypt sm2 encrypt implementation, it follows GB/T 32918.4-2016.
 func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *EncrypterOpts) ([]byte, error) {
 	curve := pub.Curve
 	msgLen := len(msg)
@@ -357,7 +361,8 @@ func GenerateKey(rand io.Reader) (*PrivateKey, error) {
 	return priv, nil
 }
 
-// Decrypt sm2 decrypt implementation by default DecrypterOpts{C1C3C2}
+// Decrypt sm2 decrypt implementation by default DecrypterOpts{C1C3C2}.
+// It follows GB/T 32918.4-2016.
 func Decrypt(priv *PrivateKey, ciphertext []byte) ([]byte, error) {
 	return decrypt(priv, ciphertext, nil)
 }
@@ -536,12 +541,9 @@ func AdjustCiphertextSplicingOrder(ciphertext []byte, from, to ciphertextSplicin
 	return result, nil
 }
 
-// hashToInt converts a hash value to an integer. There is some disagreement
-// about how this is done. [NSA] suggests that this is done in the obvious
-// manner, but [SECG] truncates the hash to the bit-length of the curve order
-// first. We follow [SECG] because that's what OpenSSL does. Additionally,
-// OpenSSL right shifts excess bits from the number if the hash is too large
-// and we mirror that too.
+// hashToInt converts a hash value to an integer. Per FIPS 186-4, Section 6.4,
+// we use the left-most bits of the hash to match the bit-length of the order of
+// the curve. This also performs Step 5 of SEC 1, Version 2.0, Section 4.1.3.
 func hashToInt(hash []byte, c elliptic.Curve) *big.Int {
 	orderBits := c.Params().N.BitLen()
 	orderBytes := (orderBits + 7) / 8
@@ -563,10 +565,11 @@ const (
 
 var errZeroParam = errors.New("zero parameter")
 
-// fermatInverse calculates the inverse of k in GF(P) using Fermat's method.
-// This has better constant-time properties than Euclid's method (implemented
-// in math/big.Int.ModInverse) although math/big itself isn't strictly
-// constant-time so it's not perfect.
+// fermatInverse calculates the inverse of k in GF(P) using Fermat's method
+// (exponentiation modulo P - 2, per Euler's theorem). This has better
+// constant-time properties than Euclid's method (implemented in
+// math/big.Int.ModInverse and FIPS 186-4, Appendix C.1) although math/big
+// itself isn't strictly constant-time so it's not perfect.
 func fermatInverse(k, N *big.Int) *big.Int {
 	two := big.NewInt(2)
 	nMinus2 := new(big.Int).Sub(N, two)
@@ -575,16 +578,26 @@ func fermatInverse(k, N *big.Int) *big.Int {
 
 // Sign signs a hash (which should be the result of hashing a larger message)
 // using the private key, priv. If the hash is longer than the bit-length of the
-// private key's curve order, the hash will be truncated to that length.  It
-// returns the signature as a pair of integers. The security of the private key
-// depends on the entropy of rand.
-// Backgroud: https://github.com/golang/go/commit/a8049f58f9e3336554da1b0a4f8ea3b9c5cd669c
+// private key's curve order, the hash will be truncated to that length. It
+// returns the signature as a pair of integers. Most applications should use
+// SignASN1 instead of dealing directly with r, s.
 //
+// It follows GB/T 32918.2-2016 regardless it's SM2 curve or not.
 func Sign(rand io.Reader, priv *ecdsa.PrivateKey, hash []byte) (r, s *big.Int, err error) {
-	if !strings.EqualFold(priv.Params().Name, P256().Params().Name) {
-		return ecdsa.Sign(rand, priv, hash)
-	}
 	maybeReadByte(rand)
+
+	// We use SDK's nouce generation implementation here.
+	//
+	// This implementation derives the nonce from an AES-CTR CSPRNG keyed by:
+	//
+	//    SHA2-512(priv.D || entropy || hash)[:32]
+	//
+	// The CSPRNG key is indifferentiable from a random oracle as shown in
+	// [Coron], the AES-CTR stream is indifferentiable from a random oracle
+	// under standard cryptographic assumptions (see [Larsson] for examples).
+	//
+	// [Coron]: https://cs.nyu.edu/~dodis/ps/merkle.pdf
+	// [Larsson]: https://web.archive.org/web/20040719170906/https://www.nada.kth.se/kurser/kth/2D1441/semteo03/lecturenotes/assump.pdf
 
 	// Get 256 bits of entropy from rand.
 	entropy := make([]byte, 32)
@@ -669,7 +682,8 @@ func signGeneric(priv *ecdsa.PrivateKey, csprng *cipher.StreamReader, hash []byt
 
 var defaultUID = []byte{0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38}
 
-// CalculateZA ZA = H256(ENTLA || IDA || a || b || xG || yG || xA || yA)
+// CalculateZA ZA = H256(ENTLA || IDA || a || b || xG || yG || xA || yA).
+// It follows GB/T_32918.2-2016 5.5
 func CalculateZA(pub *ecdsa.PublicKey, uid []byte) ([]byte, error) {
 	return calculateZA(pub, uid)
 }
@@ -696,7 +710,7 @@ func calculateZA(pub *ecdsa.PublicKey, uid []byte) ([]byte, error) {
 	return md.Sum(nil), nil
 }
 
-// SignWithSM2 follow sm2 dsa standards for hash part
+// SignWithSM2 follow sm2 dsa standards for hash part, it follows GB/T 32918.2-2016.
 func SignWithSM2(rand io.Reader, priv *ecdsa.PrivateKey, uid, msg []byte) (r, s *big.Int, err error) {
 	if len(uid) == 0 {
 		uid = defaultUID
@@ -715,50 +729,54 @@ func SignWithSM2(rand io.Reader, priv *ecdsa.PrivateKey, uid, msg []byte) (r, s 
 // SignASN1 signs a hash (which should be the result of hashing a larger message)
 // using the private key, priv. If the hash is longer than the bit-length of the
 // private key's curve order, the hash will be truncated to that length. It
-// returns the ASN.1 encoded signature. The security of the private key
-// depends on the entropy of rand.
+// returns the ASN.1 encoded signature.
+// It invokes priv.Sign directly.
 func SignASN1(rand io.Reader, priv *PrivateKey, hash []byte, opts crypto.SignerOpts) ([]byte, error) {
 	return priv.Sign(rand, hash, opts)
 }
 
 // Verify verifies the signature in r, s of hash using the public key, pub. Its
-// return value records whether the signature is valid.
+// return value records whether the signature is valid. Most applications should
+// use VerifyASN1 instead of dealing directly with r, s.
+//
+// It follows GB/T 32918.2-2016 regardless it's SM2 curve or not.
+// Caller should make sure the hash's correctness.
 func Verify(pub *ecdsa.PublicKey, hash []byte, r, s *big.Int) bool {
-	if strings.EqualFold(pub.Params().Name, P256().Params().Name) {
-		c := pub.Curve
-		N := c.Params().N
+	c := pub.Curve
+	N := c.Params().N
 
-		if r.Sign() <= 0 || s.Sign() <= 0 {
-			return false
-		}
-		if r.Cmp(N) >= 0 || s.Cmp(N) >= 0 {
-			return false
-		}
-		e := hashToInt(hash, c)
-		t := new(big.Int).Add(r, s)
-		t.Mod(t, N)
-		if t.Sign() == 0 {
-			return false
-		}
-
-		var x *big.Int
-		if opt, ok := c.(combinedMult); ok {
-			x, _ = opt.CombinedMult(pub.X, pub.Y, s.Bytes(), t.Bytes())
-		} else {
-			x1, y1 := c.ScalarBaseMult(s.Bytes())
-			x2, y2 := c.ScalarMult(pub.X, pub.Y, t.Bytes())
-			x, _ = c.Add(x1, y1, x2, y2)
-		}
-
-		x.Add(x, e)
-		x.Mod(x, N)
-		return x.Cmp(r) == 0
+	if r.Sign() <= 0 || s.Sign() <= 0 {
+		return false
 	}
-	return ecdsa.Verify(pub, hash, r, s)
+	if r.Cmp(N) >= 0 || s.Cmp(N) >= 0 {
+		return false
+	}
+	e := hashToInt(hash, c)
+	t := new(big.Int).Add(r, s)
+	t.Mod(t, N)
+	if t.Sign() == 0 {
+		return false
+	}
+
+	var x *big.Int
+	if opt, ok := c.(combinedMult); ok {
+		x, _ = opt.CombinedMult(pub.X, pub.Y, s.Bytes(), t.Bytes())
+	} else {
+		x1, y1 := c.ScalarBaseMult(s.Bytes())
+		x2, y2 := c.ScalarMult(pub.X, pub.Y, t.Bytes())
+		x, _ = c.Add(x1, y1, x2, y2)
+	}
+
+	x.Add(x, e)
+	x.Mod(x, N)
+	return x.Cmp(r) == 0
 }
 
 // VerifyASN1 verifies the ASN.1 encoded signature, sig, of hash using the
 // public key, pub. Its return value records whether the signature is valid.
+//
+// It follows GB/T 32918.2-2016 regardless it's SM2 curve or not.
+// Caller should make sure the hash's correctness.
 func VerifyASN1(pub *ecdsa.PublicKey, hash, sig []byte) bool {
 	var (
 		r, s  = &big.Int{}, &big.Int{}
@@ -775,8 +793,8 @@ func VerifyASN1(pub *ecdsa.PublicKey, hash, sig []byte) bool {
 	return Verify(pub, hash, r, s)
 }
 
-// VerifyWithSM2 verifies the signature in r, s of hash using the public key, pub. Its
-// return value records whether the signature is valid.
+// VerifyWithSM2 verifies the signature in r, s of raw msg and uid using the public key, pub.
+// It returns value records whether the signature is valid. It follows GB/T 32918.2-2016.
 func VerifyWithSM2(pub *ecdsa.PublicKey, uid, msg []byte, r, s *big.Int) bool {
 	if len(uid) == 0 {
 		uid = defaultUID
@@ -791,8 +809,10 @@ func VerifyWithSM2(pub *ecdsa.PublicKey, uid, msg []byte, r, s *big.Int) bool {
 	return Verify(pub, md.Sum(nil), r, s)
 }
 
-// VerifyASN1WithSM2 verifies the signature in r, s of hash using the public key, pub. Its
-// return value records whether the signature is valid.
+// VerifyASN1WithSM2 verifies the signature in ASN.1 encoding format sig of raw msg
+// and uid using the public key, pub.
+//
+// It returns value records whether the signature is valid. It follows GB/T 32918.2-2016.
 func VerifyASN1WithSM2(pub *ecdsa.PublicKey, uid, msg, sig []byte) bool {
 	var (
 		r, s  = &big.Int{}, &big.Int{}
