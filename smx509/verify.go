@@ -244,6 +244,143 @@ func parseRFC2821Mailbox(in string) (mailbox rfc2821Mailbox, ok bool) {
 	return mailbox, true
 }
 
+// domainToReverseLabels converts a textual domain name like foo.example.com to
+// the list of labels in reverse order, e.g. ["com", "example", "foo"].
+func domainToReverseLabels(domain string) (reverseLabels []string, ok bool) {
+	for len(domain) > 0 {
+		if i := strings.LastIndexByte(domain, '.'); i == -1 {
+			reverseLabels = append(reverseLabels, domain)
+			domain = ""
+		} else {
+			reverseLabels = append(reverseLabels, domain[i+1:])
+			domain = domain[:i]
+		}
+	}
+
+	if len(reverseLabels) > 0 && len(reverseLabels[0]) == 0 {
+		// An empty label at the end indicates an absolute value.
+		return nil, false
+	}
+
+	for _, label := range reverseLabels {
+		if len(label) == 0 {
+			// Empty labels are otherwise invalid.
+			return nil, false
+		}
+
+		for _, c := range label {
+			if c < 33 || c > 126 {
+				// Invalid character.
+				return nil, false
+			}
+		}
+	}
+
+	return reverseLabels, true
+}
+
+func matchEmailConstraint(mailbox rfc2821Mailbox, constraint string) (bool, error) {
+	// If the constraint contains an @, then it specifies an exact mailbox
+	// name.
+	if strings.Contains(constraint, "@") {
+		constraintMailbox, ok := parseRFC2821Mailbox(constraint)
+		if !ok {
+			return false, fmt.Errorf("x509: internal error: cannot parse constraint %q", constraint)
+		}
+		return mailbox.local == constraintMailbox.local && strings.EqualFold(mailbox.domain, constraintMailbox.domain), nil
+	}
+
+	// Otherwise the constraint is like a DNS constraint of the domain part
+	// of the mailbox.
+	return matchDomainConstraint(mailbox.domain, constraint)
+}
+
+func matchURIConstraint(uri *url.URL, constraint string) (bool, error) {
+	// From RFC 5280, Section 4.2.1.10:
+	// “a uniformResourceIdentifier that does not include an authority
+	// component with a host name specified as a fully qualified domain
+	// name (e.g., if the URI either does not include an authority
+	// component or includes an authority component in which the host name
+	// is specified as an IP address), then the application MUST reject the
+	// certificate.”
+
+	host := uri.Host
+	if len(host) == 0 {
+		return false, fmt.Errorf("URI with empty host (%q) cannot be matched against constraints", uri.String())
+	}
+
+	if strings.Contains(host, ":") && !strings.HasSuffix(host, "]") {
+		var err error
+		host, _, err = net.SplitHostPort(uri.Host)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") ||
+		net.ParseIP(host) != nil {
+		return false, fmt.Errorf("URI with IP (%q) cannot be matched against constraints", uri.String())
+	}
+
+	return matchDomainConstraint(host, constraint)
+}
+
+func matchIPConstraint(ip net.IP, constraint *net.IPNet) (bool, error) {
+	if len(ip) != len(constraint.IP) {
+		return false, nil
+	}
+
+	for i := range ip {
+		if mask := constraint.Mask[i]; ip[i]&mask != constraint.IP[i]&mask {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+func matchDomainConstraint(domain, constraint string) (bool, error) {
+	// The meaning of zero length constraints is not specified, but this
+	// code follows NSS and accepts them as matching everything.
+	if len(constraint) == 0 {
+		return true, nil
+	}
+
+	domainLabels, ok := domainToReverseLabels(domain)
+	if !ok {
+		return false, fmt.Errorf("x509: internal error: cannot parse domain %q", domain)
+	}
+
+	// RFC 5280 says that a leading period in a domain name means that at
+	// least one label must be prepended, but only for URI and email
+	// constraints, not DNS constraints. The code also supports that
+	// behaviour for DNS constraints.
+
+	mustHaveSubdomains := false
+	if constraint[0] == '.' {
+		mustHaveSubdomains = true
+		constraint = constraint[1:]
+	}
+
+	constraintLabels, ok := domainToReverseLabels(constraint)
+	if !ok {
+		return false, fmt.Errorf("x509: internal error: cannot parse domain %q", constraint)
+	}
+
+	if len(domainLabels) < len(constraintLabels) ||
+		(mustHaveSubdomains && len(domainLabels) == len(constraintLabels)) {
+		return false, nil
+	}
+
+	for i, constraintLabel := range constraintLabels {
+		if !strings.EqualFold(constraintLabel, domainLabels[i]) {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
 // checkNameConstraints checks that c permits a child certificate to claim the
 // given name, of type nameType. The argument parsedName contains the parsed
 // form of name, suitable for passing to the match function. The total number
@@ -302,41 +439,6 @@ func (c *Certificate) checkNameConstraints(count *int,
 	}
 
 	return nil
-}
-
-// domainToReverseLabels converts a textual domain name like foo.example.com to
-// the list of labels in reverse order, e.g. ["com", "example", "foo"].
-func domainToReverseLabels(domain string) (reverseLabels []string, ok bool) {
-	for len(domain) > 0 {
-		if i := strings.LastIndexByte(domain, '.'); i == -1 {
-			reverseLabels = append(reverseLabels, domain)
-			domain = ""
-		} else {
-			reverseLabels = append(reverseLabels, domain[i+1:])
-			domain = domain[:i]
-		}
-	}
-
-	if len(reverseLabels) > 0 && len(reverseLabels[0]) == 0 {
-		// An empty label at the end indicates an absolute value.
-		return nil, false
-	}
-
-	for _, label := range reverseLabels {
-		if len(label) == 0 {
-			// Empty labels are otherwise invalid.
-			return nil, false
-		}
-
-		for _, c := range label {
-			if c < 33 || c > 126 {
-				// Invalid character.
-				return nil, false
-			}
-		}
-	}
-
-	return reverseLabels, true
 }
 
 // isValid performs validity checks on c given that it is a candidate to append
@@ -501,6 +603,12 @@ func (c *Certificate) isValid(certType int, currentChain []*Certificate, opts *V
 // the name being validated. Note that DirectoryName constraints are not
 // supported.
 //
+// Name constraint validation follows the rules from RFC 5280, with the
+// addition that DNS name constraints may use the leading period format
+// defined for emails and URIs. When a constraint has a leading period
+// it indicates that at least one additional label must be prepended to
+// the constrained name to be considered valid.
+//
 // Extended Key Usage values are enforced nested down a chain, so an intermediate
 // or root that enumerates EKUs prevents a leaf from asserting an EKU not in that
 // list. (While this is not specified, it is common practice in order to limit
@@ -523,8 +631,8 @@ func (c *Certificate) Verify(opts VerifyOptions) (chains [][]*Certificate, err e
 		}
 	}
 
-	// Use Windows's own verification and chain building.
-	if opts.Roots == nil && runtime.GOOS == "windows" {
+	// Use platform verifiers, where available, if Roots is from SystemCertPool.
+	if runtime.GOOS == "windows" {
 		if opts.Roots == nil {
 			return c.systemVerify(&opts)
 		}
@@ -600,7 +708,7 @@ func appendToFreshChain(chain []*Certificate, cert *Certificate) []*Certificate 
 }
 
 // maxChainSignatureChecks is the maximum number of CheckSignatureFrom calls
-// that an invocation of buildChains will (tranistively) make. Most chains are
+// that an invocation of buildChains will (transitively) make. Most chains are
 // less than 15 certificates long, so this leaves space for multiple chains and
 // for failed checks due to different intermediates having the same Subject.
 const maxChainSignatureChecks = 100
@@ -713,7 +821,7 @@ func validHostname(host string, isPattern bool) bool {
 				continue
 			}
 			if c == '_' {
-				// Not valid characters in hostnames, but commonly
+				// Not a valid character in hostnames, but commonly
 				// found in deployments outside the WebPKI.
 				continue
 			}
@@ -835,6 +943,7 @@ func (c *Certificate) VerifyHostname(h string) error {
 			}
 		}
 	}
+
 	return x509.HostnameError{Certificate: c.asX509(), Host: h}
 }
 
@@ -898,106 +1007,4 @@ NextCert:
 	}
 
 	return true
-}
-
-func matchEmailConstraint(mailbox rfc2821Mailbox, constraint string) (bool, error) {
-	// If the constraint contains an @, then it specifies an exact mailbox
-	// name.
-	if strings.Contains(constraint, "@") {
-		constraintMailbox, ok := parseRFC2821Mailbox(constraint)
-		if !ok {
-			return false, fmt.Errorf("x509: internal error: cannot parse constraint %q", constraint)
-		}
-		return mailbox.local == constraintMailbox.local && strings.EqualFold(mailbox.domain, constraintMailbox.domain), nil
-	}
-
-	// Otherwise the constraint is like a DNS constraint of the domain part
-	// of the mailbox.
-	return matchDomainConstraint(mailbox.domain, constraint)
-}
-
-func matchURIConstraint(uri *url.URL, constraint string) (bool, error) {
-	// From RFC 5280, Section 4.2.1.10:
-	// “a uniformResourceIdentifier that does not include an authority
-	// component with a host name specified as a fully qualified domain
-	// name (e.g., if the URI either does not include an authority
-	// component or includes an authority component in which the host name
-	// is specified as an IP address), then the application MUST reject the
-	// certificate.”
-
-	host := uri.Host
-	if len(host) == 0 {
-		return false, fmt.Errorf("URI with empty host (%q) cannot be matched against constraints", uri.String())
-	}
-
-	if strings.Contains(host, ":") && !strings.HasSuffix(host, "]") {
-		var err error
-		host, _, err = net.SplitHostPort(uri.Host)
-		if err != nil {
-			return false, err
-		}
-	}
-
-	if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") ||
-		net.ParseIP(host) != nil {
-		return false, fmt.Errorf("URI with IP (%q) cannot be matched against constraints", uri.String())
-	}
-
-	return matchDomainConstraint(host, constraint)
-}
-
-func matchIPConstraint(ip net.IP, constraint *net.IPNet) (bool, error) {
-	if len(ip) != len(constraint.IP) {
-		return false, nil
-	}
-
-	for i := range ip {
-		if mask := constraint.Mask[i]; ip[i]&mask != constraint.IP[i]&mask {
-			return false, nil
-		}
-	}
-
-	return true, nil
-}
-
-func matchDomainConstraint(domain, constraint string) (bool, error) {
-	// The meaning of zero length constraints is not specified, but this
-	// code follows NSS and accepts them as matching everything.
-	if len(constraint) == 0 {
-		return true, nil
-	}
-
-	domainLabels, ok := domainToReverseLabels(domain)
-	if !ok {
-		return false, fmt.Errorf("x509: internal error: cannot parse domain %q", domain)
-	}
-
-	// RFC 5280 says that a leading period in a domain name means that at
-	// least one label must be prepended, but only for URI and email
-	// constraints, not DNS constraints. The code also supports that
-	// behaviour for DNS constraints.
-
-	mustHaveSubdomains := false
-	if constraint[0] == '.' {
-		mustHaveSubdomains = true
-		constraint = constraint[1:]
-	}
-
-	constraintLabels, ok := domainToReverseLabels(constraint)
-	if !ok {
-		return false, fmt.Errorf("x509: internal error: cannot parse domain %q", constraint)
-	}
-
-	if len(domainLabels) < len(constraintLabels) ||
-		(mustHaveSubdomains && len(domainLabels) == len(constraintLabels)) {
-		return false, nil
-	}
-
-	for i, constraintLabel := range constraintLabels {
-		if !strings.EqualFold(constraintLabel, domainLabels[i]) {
-			return false, nil
-		}
-	}
-
-	return true, nil
 }
