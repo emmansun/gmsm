@@ -169,8 +169,8 @@ func (priv *PrivateKey) Equal(x crypto.PrivateKey) bool {
 
 // Sign signs digest with priv, reading randomness from rand. Compliance with GB/T 32918.2-2016.
 // The opts argument is currently used for SM2SignerOption checking only.
-// If the opts argument is SM2SignerOption and its ForceGMSign is true, then it
-// treats digest as raw data and take UID from opts.
+// If the opts argument is SM2SignerOption and its ForceGMSign is true,
+// digest argument will be treated as raw data and UID will be taken from opts.
 //
 // This method implements crypto.Signer, which is an interface to support keys
 // where the private part is kept in, for example, a hardware module. Common

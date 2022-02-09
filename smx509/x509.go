@@ -19,7 +19,7 @@ import (
 	"net"
 	"net/url"
 	"time"
-	"unicode/utf8"
+	"unicode"
 
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
@@ -611,22 +611,6 @@ func signaturePublicKeyAlgoMismatchError(expectedPubKeyAlgo PublicKeyAlgorithm, 
 	return fmt.Errorf("x509: signature algorithm specifies an %s public key, but have public key of type %T", expectedPubKeyAlgo.String(), pubKey)
 }
 
-func verifyECDSAASN1(pub *ecdsa.PublicKey, hash, sig []byte) bool {
-	var (
-		r, s  = &big.Int{}, &big.Int{}
-		inner cryptobyte.String
-	)
-	input := cryptobyte.String(sig)
-	if !input.ReadASN1(&inner, cryptobyte_asn1.SEQUENCE) ||
-		!input.Empty() ||
-		!inner.ReadASN1Integer(r) ||
-		!inner.ReadASN1Integer(s) ||
-		!inner.Empty() {
-		return false
-	}
-	return ecdsa.Verify(pub, hash, r, s)
-}
-
 // checkSignature verifies that signature is a valid signature over signed from
 // a crypto.PublicKey.
 func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey crypto.PublicKey) (err error) {
@@ -826,7 +810,8 @@ func marshalSANs(dnsNames, emailAddresses []string, ipAddresses []net.IP, uris [
 
 func isIA5String(s string) error {
 	for _, r := range s {
-		if r >= utf8.RuneSelf {
+		// Per RFC5280 "IA5String is limited to the set of ASCII characters"
+		if r >= unicode.MaxASCII {
 			return fmt.Errorf("x509: %q cannot be encoded as an IA5String", s)
 		}
 	}
