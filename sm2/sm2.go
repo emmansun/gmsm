@@ -167,7 +167,7 @@ func (priv *PrivateKey) Equal(x crypto.PrivateKey) bool {
 	return priv.PublicKey.Equal(&xx.PublicKey) && priv.D.Cmp(xx.D) == 0
 }
 
-// Sign signs digest with priv, reading randomness from rand. It follows GB/T 32918.2-2016.
+// Sign signs digest with priv, reading randomness from rand. Compliance with GB/T 32918.2-2016.
 // The opts argument is currently used for SM2SignerOption checking only.
 // If the opts argument is SM2SignerOption and its ForceGMSign is true, then it
 // treats digest as raw data and take UID from opts.
@@ -194,7 +194,7 @@ func (priv *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOp
 	return b.Bytes()
 }
 
-// SignWithSM2 signs uid, msg with priv, reading randomness from rand. It follows GB/T 32918.2-2016.
+// SignWithSM2 signs uid, msg with priv, reading randomness from rand. Compliance with GB/T 32918.2-2016.
 // Deprecated: please use Sign method directly.
 func (priv *PrivateKey) SignWithSM2(rand io.Reader, uid, msg []byte) ([]byte, error) {
 	return priv.Sign(rand, msg, NewSM2SignerOption(true, uid))
@@ -202,7 +202,7 @@ func (priv *PrivateKey) SignWithSM2(rand io.Reader, uid, msg []byte) ([]byte, er
 
 // Decrypt decrypts ciphertext msg to plaintext.
 // The opts argument should be appropriate for the primitive used.
-// It follows GB/T 32918.4-2016 chapter 7.
+// Compliance with GB/T 32918.4-2016 chapter 7.
 func (priv *PrivateKey) Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpts) (plaintext []byte, err error) {
 	var sm2Opts *DecrypterOpts
 	sm2Opts, _ = opts.(*DecrypterOpts)
@@ -239,7 +239,7 @@ func randFieldElement(c elliptic.Curve, rand io.Reader) (k *big.Int, err error) 
 
 const maxRetryLimit = 100
 
-// kdf implementation follows GB/T 32918.4-2016 5.4.3.
+// kdf key derivation function, compliance with GB/T 32918.4-2016 5.4.3.
 func kdf(z []byte, len int) ([]byte, bool) {
 	limit := (len + sm3.Size - 1) >> sm3.SizeBitSize
 	md := sm3.New()
@@ -281,12 +281,12 @@ func mashalASN1Ciphertext(x1, y1 *big.Int, c2, c3 []byte) ([]byte, error) {
 	return b.Bytes()
 }
 
-// EncryptASN1 sm2 encrypt and output ASN.1 result, it follows GB/T 32918.4-2016.
+// EncryptASN1 sm2 encrypt and output ASN.1 result, compliance with GB/T 32918.4-2016.
 func EncryptASN1(random io.Reader, pub *ecdsa.PublicKey, msg []byte) ([]byte, error) {
 	return Encrypt(random, pub, msg, ASN1EncrypterOpts)
 }
 
-// Encrypt sm2 encrypt implementation, it follows GB/T 32918.4-2016.
+// Encrypt sm2 encrypt implementation, compliance with GB/T 32918.4-2016.
 func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *EncrypterOpts) ([]byte, error) {
 	curve := pub.Curve
 	msgLen := len(msg)
@@ -363,7 +363,7 @@ func GenerateKey(rand io.Reader) (*PrivateKey, error) {
 }
 
 // Decrypt sm2 decrypt implementation by default DecrypterOpts{C1C3C2}.
-// It follows GB/T 32918.4-2016.
+// Compliance with GB/T 32918.4-2016.
 func Decrypt(priv *PrivateKey, ciphertext []byte) ([]byte, error) {
 	return decrypt(priv, ciphertext, nil)
 }
@@ -583,7 +583,7 @@ func fermatInverse(k, N *big.Int) *big.Int {
 // returns the signature as a pair of integers. Most applications should use
 // SignASN1 instead of dealing directly with r, s.
 //
-// It follows GB/T 32918.2-2016 regardless it's SM2 curve or not.
+// Compliance with GB/T 32918.2-2016 regardless it's SM2 curve or not.
 func Sign(rand io.Reader, priv *ecdsa.PrivateKey, hash []byte) (r, s *big.Int, err error) {
 	maybeReadByte(rand)
 
@@ -684,7 +684,7 @@ func signGeneric(priv *ecdsa.PrivateKey, csprng *cipher.StreamReader, hash []byt
 var defaultUID = []byte{0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38}
 
 // CalculateZA ZA = H256(ENTLA || IDA || a || b || xG || yG || xA || yA).
-// It follows GB/T_32918.2-2016 5.5
+// Compliance with GB/T 32918.2-2016 5.5
 func CalculateZA(pub *ecdsa.PublicKey, uid []byte) ([]byte, error) {
 	return calculateZA(pub, uid)
 }
@@ -711,7 +711,7 @@ func calculateZA(pub *ecdsa.PublicKey, uid []byte) ([]byte, error) {
 	return md.Sum(nil), nil
 }
 
-// SignWithSM2 follow sm2 dsa standards for hash part, it follows GB/T 32918.2-2016.
+// SignWithSM2 follow sm2 dsa standards for hash part, compliance with GB/T 32918.2-2016.
 func SignWithSM2(rand io.Reader, priv *ecdsa.PrivateKey, uid, msg []byte) (r, s *big.Int, err error) {
 	if len(uid) == 0 {
 		uid = defaultUID
@@ -740,7 +740,7 @@ func SignASN1(rand io.Reader, priv *PrivateKey, hash []byte, opts crypto.SignerO
 // return value records whether the signature is valid. Most applications should
 // use VerifyASN1 instead of dealing directly with r, s.
 //
-// It follows GB/T 32918.2-2016 regardless it's SM2 curve or not.
+// Compliance with GB/T 32918.2-2016 regardless it's SM2 curve or not.
 // Caller should make sure the hash's correctness.
 func Verify(pub *ecdsa.PublicKey, hash []byte, r, s *big.Int) bool {
 	c := pub.Curve
@@ -776,7 +776,7 @@ func Verify(pub *ecdsa.PublicKey, hash []byte, r, s *big.Int) bool {
 // VerifyASN1 verifies the ASN.1 encoded signature, sig, of hash using the
 // public key, pub. Its return value records whether the signature is valid.
 //
-// It follows GB/T 32918.2-2016 regardless it's SM2 curve or not.
+// Compliance with GB/T 32918.2-2016 regardless it's SM2 curve or not.
 // Caller should make sure the hash's correctness.
 func VerifyASN1(pub *ecdsa.PublicKey, hash, sig []byte) bool {
 	var (
@@ -795,7 +795,7 @@ func VerifyASN1(pub *ecdsa.PublicKey, hash, sig []byte) bool {
 }
 
 // VerifyWithSM2 verifies the signature in r, s of raw msg and uid using the public key, pub.
-// It returns value records whether the signature is valid. It follows GB/T 32918.2-2016.
+// It returns value records whether the signature is valid. Compliance with GB/T 32918.2-2016.
 func VerifyWithSM2(pub *ecdsa.PublicKey, uid, msg []byte, r, s *big.Int) bool {
 	if len(uid) == 0 {
 		uid = defaultUID
@@ -813,7 +813,7 @@ func VerifyWithSM2(pub *ecdsa.PublicKey, uid, msg []byte, r, s *big.Int) bool {
 // VerifyASN1WithSM2 verifies the signature in ASN.1 encoding format sig of raw msg
 // and uid using the public key, pub.
 //
-// It returns value records whether the signature is valid. It follows GB/T 32918.2-2016.
+// It returns value records whether the signature is valid. Compliance with GB/T 32918.2-2016.
 func VerifyASN1WithSM2(pub *ecdsa.PublicKey, uid, msg, sig []byte) bool {
 	var (
 		r, s  = &big.Int{}, &big.Int{}
