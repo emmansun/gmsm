@@ -1,5 +1,7 @@
 package sm4
 
+// [GM/T] SM4 GB/T 32907-2016
+
 import (
 	"encoding/binary"
 	"math/bits"

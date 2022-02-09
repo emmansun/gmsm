@@ -1,5 +1,7 @@
 package sm3
 
+// [GM/T] SM3 GB/T 32905-2016
+
 import (
 	"encoding/binary"
 	"errors"

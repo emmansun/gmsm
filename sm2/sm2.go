@@ -5,6 +5,7 @@ package sm2
 //     http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.182.4503&rep=rep1&type=pdf
 //   [SECG]: SECG, SEC1
 //     http://www.secg.org/sec1-v2.pdf
+//   [GM/T]: SM2 GB/T 32918.2-2016, GB/T 32918.4-2016
 //
 
 import (

@@ -10,6 +10,7 @@ import (
 )
 
 // See https://www.imperialviolet.org/2010/12/04/ecc.html ([1]) for background.
+// SM2 P256 parameters reference GB/T 32918.5-2017 part 5.
 
 type p256Curve struct {
 	*elliptic.CurveParams
