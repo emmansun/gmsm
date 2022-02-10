@@ -10,6 +10,7 @@ import (
 )
 
 // See https://www.imperialviolet.org/2010/12/04/ecc.html ([1]) for background.
+// Group Level Optimizations, "Efficient and Secure Elliptic Curve Cryptography Implementation of Curve P-256"
 // SM2 P256 parameters reference GB/T 32918.5-2017 part 5.
 
 type p256Curve struct {
@@ -1156,6 +1157,7 @@ func p256CopyConditional(out, in *[p256Limbs]uint32, mask uint32) {
 
 // p256SelectAffinePoint sets {out_x,out_y} to the index'th entry of table.
 // On entry: index < 16, table[0] must be zero.
+// Constant time table access, safe select.
 func p256SelectAffinePoint(xOut, yOut *[p256Limbs]uint32, table []uint32, index uint32) {
 	for i := range xOut {
 		xOut[i] = 0
@@ -1165,11 +1167,11 @@ func p256SelectAffinePoint(xOut, yOut *[p256Limbs]uint32, table []uint32, index 
 	}
 
 	for i := uint32(1); i < 16; i++ {
-		mask := i ^ index
-		mask |= mask >> 2
-		mask |= mask >> 1
-		mask &= 1
-		mask--
+		mask := i ^ index // mask is zero when i equals index, otherwise non-zero. mask = {b3, b2, b1, b0}, ignore unused bits.
+		mask |= mask >> 2 // mask = {b3, b2, b1 | b3, b0 | b2}
+		mask |= mask >> 1 // mask = {b3, b2 | b3, b1 | b2 | b3, b0 | b1 | b2 | b3}
+		mask &= 1         // mask = {0, 0, 0, b0 | b1 | b2 | b3}
+		mask--            // mask = 0xffffffff when i equals index, otherwise 0x00000000
 		for j := range xOut {
 			xOut[j] |= table[0] & mask
 			table = table[1:]
