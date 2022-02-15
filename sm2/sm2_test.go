@@ -401,7 +401,7 @@ func BenchmarkVerify_P256(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if !Verify(&priv.PublicKey, hashed, r, s) {
+		if !ecdsa.Verify(&priv.PublicKey, hashed, r, s) {
 			b.Fatal("verify failed")
 		}
 	}
