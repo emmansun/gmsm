@@ -418,11 +418,21 @@ func (p *p256Point) p256StorePoint(r *[16 * 4 * 3]uint64, index int) {
 	copy(r[index*12:], p.xyz[:])
 }
 
+// This function takes those six bits as an integer (0 .. 63), writing the
+// recoded digit to *sign (0 for positive, 1 for negative) and *digit (absolute
+// value, in the range 0 .. 16).  Note that this integer essentially provides
+// the input bits "shifted to the left" by one position: for example, the input
+// to compute the least significant recoded digit, given that there's no bit
+// b_-1, has to be b_4 b_3 b_2 b_1 b_0 0.
+//
+// Reference: 
+// https://github.com/openssl/openssl/blob/master/crypto/ec/ecp_nistputil.c
+// 
 func boothW5(in uint) (int, int) {
-	var s uint = ^((in >> 5) - 1)
-	var d uint = (1 << 6) - in - 1
-	d = (d & s) | (in & (^s))
-	d = (d >> 1) + (d & 1)
+	var s uint = ^((in >> 5) - 1)  // sets all bits to MSB(in), 'in' seen as 6-bit value
+	var d uint = (1 << 6) - in - 1 // d = 63 - in, or d = ^in & 0x3f
+	d = (d & s) | (in & (^s))      // d = in if in < 2^5; otherwise, d = 63 - in
+	d = (d >> 1) + (d & 1)         // d = (d + 1) / 2
 	return int(d), int(s & 1)
 }
 
