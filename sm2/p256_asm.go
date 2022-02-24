@@ -427,7 +427,7 @@ func (p *p256Point) p256StorePoint(r *[16 * 4 * 3]uint64, index int) {
 //
 // Reference: 
 // https://github.com/openssl/openssl/blob/master/crypto/ec/ecp_nistputil.c
-// 
+// https://github.com/google/boringssl/blob/master/crypto/fipsmodule/ec/util.c
 func boothW5(in uint) (int, int) {
 	var s uint = ^((in >> 5) - 1)  // sets all bits to MSB(in), 'in' seen as 6-bit value
 	var d uint = (1 << 6) - in - 1 // d = 63 - in, or d = ^in & 0x3f
