@@ -4,37 +4,12 @@ import (
 	"bytes"
 	"crypto/cipher"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"testing"
 
+	"github.com/emmansun/gmsm/padding"
 	"github.com/emmansun/gmsm/sm4"
 )
-
-func paddingPKCS7(buf []byte, blockSize int) []byte {
-	bufLen := len(buf)
-	padLen := blockSize - bufLen%blockSize
-	padded := make([]byte, bufLen+padLen)
-	copy(padded, buf)
-	for i := 0; i < padLen; i++ {
-		padded[bufLen+i] = byte(padLen)
-	}
-	return padded
-}
-
-func unpaddingPKCS7(padded []byte, size int) ([]byte, error) {
-	if len(padded)%size != 0 {
-		return nil, errors.New("pkcs7: Padded value wasn't in correct size")
-	}
-	paddedByte := int(padded[len(padded)-1])
-	if (paddedByte > size) || (paddedByte < 1) {
-		return nil, fmt.Errorf("Invalid decrypted text, no padding")
-	}
-	bufLen := len(padded) - paddedByte
-	buf := make([]byte, bufLen)
-	copy(buf, padded[:bufLen])
-	return buf, nil
-}
 
 var cbcSM4Tests = []struct {
 	name string
@@ -143,6 +118,7 @@ var cbcSM4Tests = []struct {
 }
 
 func TestCBCEncrypterSM4(t *testing.T) {
+	pad := padding.NewPKCS7Padding(sm4.BlockSize)
 	for _, test := range cbcSM4Tests {
 		c, err := sm4.NewCipher(test.key)
 		if err != nil {
@@ -152,7 +128,7 @@ func TestCBCEncrypterSM4(t *testing.T) {
 
 		encrypter := cipher.NewCBCEncrypter(c, test.iv)
 
-		plainText := paddingPKCS7(test.in, sm4.BlockSize)
+		plainText := pad.Pad(test.in)
 		data := make([]byte, len(plainText))
 		copy(data, plainText)
 
@@ -170,6 +146,7 @@ func TestCBCEncrypterSM4(t *testing.T) {
 }
 
 func TestCBCDecrypterSM4(t *testing.T) {
+	pad := padding.NewPKCS7Padding(sm4.BlockSize)
 	for _, test := range cbcSM4Tests {
 		c, err := sm4.NewCipher(test.key)
 		if err != nil {
@@ -183,7 +160,7 @@ func TestCBCDecrypterSM4(t *testing.T) {
 		copy(data, test.out)
 
 		decrypter.CryptBlocks(data, data)
-		data, err = unpaddingPKCS7(data, sm4.BlockSize)
+		data, err = pad.Unpad(data)
 		if err != nil {
 			t.Fatal(err)
 		}
