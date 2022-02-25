@@ -2,7 +2,6 @@
 package padding
 
 import (
-	goSubtle "crypto/subtle"
 	"errors"
 
 	"github.com/emmansun/gmsm/internal/subtle"
@@ -24,21 +23,18 @@ func (pad pkcs7Padding) Pad(src []byte) []byte {
 }
 
 func (pad pkcs7Padding) Unpad(src []byte) ([]byte, error) {
-	if len(src)%pad.BlockSize() != 0 {
-		return nil, errors.New("pkcs7: invalid src size")
+	srcLen := len(src)
+	if srcLen == 0 || srcLen%pad.BlockSize() != 0 {
+		return nil, errors.New("pkcs7: invalid src length")
 	}
-	overhead := src[len(src)-1]
-	if overhead == 0 || int(overhead) > pad.BlockSize() {
+	paddedLen := src[srcLen-1]
+	if paddedLen == 0 || int(paddedLen) > pad.BlockSize() {
 		return nil, errors.New("pkcs7: invalid padding byte/length")
 	}
-	tag := make([]byte, pad.BlockSize())
-	copy(tag, src[len(src)-pad.BlockSize():])
-	for i := pad.BlockSize() - int(overhead); i < pad.BlockSize(); i++ {
-		tag[i] = byte(overhead)
+	for _, b := range src[srcLen-int(paddedLen) : srcLen-1] {
+		if b != paddedLen {
+			return nil, errors.New("pkcs7: inconsistent padding bytes")
+		}
 	}
-	if goSubtle.ConstantTimeCompare(tag, src[len(src)-pad.BlockSize():]) != 1 {
-		return nil, errors.New("pkcs7: inconsistent padding bytes")
-	}
-
-	return src[:len(src)-int(overhead)], nil
+	return src[:srcLen-int(paddedLen)], nil
 }

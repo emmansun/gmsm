@@ -8,14 +8,13 @@ import (
 )
 
 func Test_pkcs7Padding_Pad(t *testing.T) {
-	pad := NewPKCS7Padding(16)
+	pkcs7 := NewPKCS7Padding(16)
 
 	tests := []struct {
 		name string
 		src  []byte
 		want []byte
 	}{
-		// TODO: Add test cases.
 		{"16 bytes", []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16}},
 		{"15 bytes", []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1}},
 		{"14 bytes", []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13}, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 2, 2}},
@@ -35,7 +34,7 @@ func Test_pkcs7Padding_Pad(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := pad.Pad(tt.src); !reflect.DeepEqual(got, tt.want) {
+			if got := pkcs7.Pad(tt.src); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("pkcs7Padding.Pad() = %v, want %v", got, tt.want)
 			}
 		})
@@ -43,17 +42,13 @@ func Test_pkcs7Padding_Pad(t *testing.T) {
 }
 
 func Test_pkcs7Padding_Unpad(t *testing.T) {
-	pad := NewPKCS7Padding(16)
-	type args struct {
-		src []byte
-	}
+	pkcs7 := NewPKCS7Padding(16)
 	tests := []struct {
 		name    string
 		want    []byte
 		src     []byte
 		wantErr bool
 	}{
-		// TODO: Add test cases.
 		{"16 bytes", []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16}, false},
 		{"15 bytes", []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1}, false},
 		{"14 bytes", []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13}, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 2, 2}, false},
@@ -76,7 +71,7 @@ func Test_pkcs7Padding_Unpad(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := pad.Unpad(tt.src)
+			got, err := pkcs7.Unpad(tt.src)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("pkcs7Padding.Unpad() error = %v, wantErr %v", err, tt.wantErr)
 				return

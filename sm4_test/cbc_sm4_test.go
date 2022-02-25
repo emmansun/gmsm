@@ -118,7 +118,7 @@ var cbcSM4Tests = []struct {
 }
 
 func TestCBCEncrypterSM4(t *testing.T) {
-	pad := padding.NewPKCS7Padding(sm4.BlockSize)
+	pkcs7 := padding.NewPKCS7Padding(sm4.BlockSize)
 	for _, test := range cbcSM4Tests {
 		c, err := sm4.NewCipher(test.key)
 		if err != nil {
@@ -128,7 +128,7 @@ func TestCBCEncrypterSM4(t *testing.T) {
 
 		encrypter := cipher.NewCBCEncrypter(c, test.iv)
 
-		plainText := pad.Pad(test.in)
+		plainText := pkcs7.Pad(test.in)
 		data := make([]byte, len(plainText))
 		copy(data, plainText)
 
@@ -146,7 +146,7 @@ func TestCBCEncrypterSM4(t *testing.T) {
 }
 
 func TestCBCDecrypterSM4(t *testing.T) {
-	pad := padding.NewPKCS7Padding(sm4.BlockSize)
+	pkcs7 := padding.NewPKCS7Padding(sm4.BlockSize)
 	for _, test := range cbcSM4Tests {
 		c, err := sm4.NewCipher(test.key)
 		if err != nil {
@@ -160,7 +160,7 @@ func TestCBCDecrypterSM4(t *testing.T) {
 		copy(data, test.out)
 
 		decrypter.CryptBlocks(data, data)
-		data, err = pad.Unpad(data)
+		data, err = pkcs7.Unpad(data)
 		if err != nil {
 			t.Fatal(err)
 		}

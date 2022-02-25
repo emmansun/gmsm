@@ -13,3 +13,10 @@ func NewPKCS7Padding(blockSize uint) Padding {
 	}
 	return pkcs7Padding(blockSize)
 }
+
+func NewANSIX923Padding(blockSize uint) Padding {
+	if blockSize == 0 || blockSize > 255 {
+		panic("padding: invalid block size")
+	}
+	return ansiX923Padding(blockSize)
+}
