@@ -25,7 +25,7 @@ func (pad pkcs7Padding) Pad(src []byte) []byte {
 func (pad pkcs7Padding) Unpad(src []byte) ([]byte, error) {
 	srcLen := len(src)
 	if srcLen == 0 || srcLen%pad.BlockSize() != 0 {
-		return nil, errors.New("pkcs7: invalid src length")
+		return nil, errors.New("pkcs7: src length is not multiple of block size")
 	}
 	paddedLen := src[srcLen-1]
 	if paddedLen == 0 || int(paddedLen) > pad.BlockSize() {

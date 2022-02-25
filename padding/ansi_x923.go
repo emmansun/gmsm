@@ -26,7 +26,7 @@ func (pad ansiX923Padding) Pad(src []byte) []byte {
 func (pad ansiX923Padding) Unpad(src []byte) ([]byte, error) {
 	srcLen := len(src)
 	if srcLen == 0 || srcLen%pad.BlockSize() != 0 {
-		return nil, errors.New("ansi x9.23: invalid src length")
+		return nil, errors.New("ansi x9.23: src length is not multiple of block size")
 	}
 	paddedLen := src[srcLen-1]
 	if paddedLen == 0 || int(paddedLen) > pad.BlockSize() {
