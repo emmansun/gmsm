@@ -22,6 +22,7 @@ func (pad pkcs7Padding) Pad(src []byte) []byte {
 	return ret
 }
 
+// Unpad decrypted plaintext, non-constant-time
 func (pad pkcs7Padding) Unpad(src []byte) ([]byte, error) {
 	srcLen := len(src)
 	if srcLen == 0 || srcLen%pad.BlockSize() != 0 {

@@ -23,6 +23,7 @@ func (pad ansiX923Padding) Pad(src []byte) []byte {
 	return ret
 }
 
+// Unpad decrypted plaintext, non-constant-time
 func (pad ansiX923Padding) Unpad(src []byte) ([]byte, error) {
 	srcLen := len(src)
 	if srcLen == 0 || srcLen%pad.BlockSize() != 0 {
