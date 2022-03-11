@@ -32,21 +32,21 @@ DATA inverse_shift_rows<>+0x08(SB)/8, $0x0306090C0F020508
 GLOBL inverse_shift_rows<>(SB), RODATA, $16
 
 // Affine transform 1 (low and high hibbles)
-DATA m1_low<>+0x00(SB)/8, $0x9197E2E474720701
-DATA m1_low<>+0x08(SB)/8, $0xC7C1B4B222245157
+DATA m1_low<>+0x00(SB)/8, $0x0A7FC3B6D5A01C69
+DATA m1_low<>+0x08(SB)/8, $0x3045F98CEF9A2653
 GLOBL m1_low<>(SB), RODATA, $16
 
-DATA m1_high<>+0x00(SB)/8, $0xE240AB09EB49A200
-DATA m1_high<>+0x08(SB)/8, $0xF052B91BF95BB012  
+DATA m1_high<>+0x00(SB)/8, $0xC35BF46CAF379800
+DATA m1_high<>+0x08(SB)/8, $0x68F05FC7049C33AB  
 GLOBL m1_high<>(SB), RODATA, $16
 
 // Affine transform 2 (low and high hibbles)
-DATA m2_low<>+0x00(SB)/8, $0x5B67F2CEA19D0834
-DATA m2_low<>+0x08(SB)/8, $0xEDD14478172BBE82
+DATA m2_low<>+0x00(SB)/8, $0x9A950A05FEF16E61
+DATA m2_low<>+0x08(SB)/8, $0x0E019E916A65FAF5
 GLOBL m2_low<>(SB), RODATA, $16
 
-DATA m2_high<>+0x00(SB)/8, $0xAE7201DD73AFDC00
-DATA m2_high<>+0x08(SB)/8, $0x11CDBE62CC1063BF
+DATA m2_high<>+0x00(SB)/8, $0x892D69CD44E0A400
+DATA m2_high<>+0x08(SB)/8, $0x2C88CC68E14501A5
 GLOBL m2_high<>(SB), RODATA, $16
 
 // left rotations of 32-bit words by 8-bit increments
