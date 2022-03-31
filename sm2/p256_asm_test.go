@@ -26,7 +26,7 @@ func Test_p256ordk0(t *testing.T) {
 	n = n.ModInverse(n, p)
 	n = n.Neg(n)
 	n = n.Mod(n, p)
-	if "327f9e8872350975" != hex.EncodeToString(n.Bytes()) {
+	if hex.EncodeToString(n.Bytes()) != "327f9e8872350975" {
 		t.Failed()
 	}
 }
