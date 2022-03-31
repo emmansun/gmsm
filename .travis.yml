@@ -3,7 +3,7 @@ language: go
 jobs:
   include:
     - arch: ppc64le
-      go: 1.17.x
+      go: 1.18.x
     - arch: arm64-graviton2
       virt: vm
       os: linux
