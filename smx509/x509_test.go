@@ -187,8 +187,6 @@ func init() {
 	}
 }
 
-func testingKey(s string) string { return strings.ReplaceAll(s, "TESTING KEY", "PRIVATE KEY") }
-
 func getPublicKey(pemContent []byte) (interface{}, error) {
 	block, _ := pem.Decode(pemContent)
 	if block == nil {
