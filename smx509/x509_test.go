@@ -476,13 +476,13 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
 		checkSig  bool
 		sigAlgo   SignatureAlgorithm
 	}{
-		{"RSA/RSA", &testPrivateKey.PublicKey, testPrivateKey, true, SHA1WithRSA},
+		{"RSA/RSA", &testPrivateKey.PublicKey, testPrivateKey, true, SHA384WithRSA},
 		{"RSA/ECDSA", &testPrivateKey.PublicKey, ecdsaPriv, false, ECDSAWithSHA384},
 		{"RSA/SM2", &testPrivateKey.PublicKey, sm2Priv, false, SM2WithSM3},
 		{"ECDSA/RSA", &ecdsaPriv.PublicKey, testPrivateKey, false, SHA256WithRSA},
-		{"ECDSA/ECDSA", &ecdsaPriv.PublicKey, ecdsaPriv, true, ECDSAWithSHA1},
+		{"ECDSA/ECDSA", &ecdsaPriv.PublicKey, ecdsaPriv, true, ECDSAWithSHA256},
 		{"ECDSA/SM2", &ecdsaPriv.PublicKey, sm2Priv, false, SM2WithSM3},
-		{"SM2/ECDSA", &sm2Priv.PublicKey, ecdsaPriv, false, ECDSAWithSHA1},
+		{"SM2/ECDSA", &sm2Priv.PublicKey, ecdsaPriv, false, ECDSAWithSHA256},
 		{"RSAPSS/RSAPSS", &testPrivateKey.PublicKey, testPrivateKey, true, SHA256WithRSAPSS},
 		{"ECDSA/RSAPSS", &ecdsaPriv.PublicKey, testPrivateKey, false, SHA256WithRSAPSS},
 		{"SM2/RSAPSS", &sm2Priv.PublicKey, testPrivateKey, false, SHA256WithRSAPSS},
