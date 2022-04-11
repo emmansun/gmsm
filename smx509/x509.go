@@ -24,6 +24,7 @@ import (
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 
+	"github.com/emmansun/gmsm/internal/godebug"
 	"github.com/emmansun/gmsm/sm2"
 )
 
@@ -544,6 +545,9 @@ func oidFromExtKeyUsage(eku ExtKeyUsage) (oid asn1.ObjectIdentifier, ok bool) {
 	return
 }
 
+// debugAllowSHA1 allows SHA-1 signatures. See issue 41682.
+var debugAllowSHA1 = godebug.Get("x509sha1") == "1"
+
 // A Certificate represents an X.509 certificate.
 type Certificate x509.Certificate
 
@@ -585,13 +589,13 @@ func (c *Certificate) CheckSignatureFrom(parent *Certificate) error {
 
 	// TODO(agl): don't ignore the path length constraint.
 
-	return parent.CheckSignature(c.SignatureAlgorithm, c.RawTBSCertificate, c.Signature)
+	return checkSignature(c.SignatureAlgorithm, c.RawTBSCertificate, c.Signature, parent.PublicKey, debugAllowSHA1)
 }
 
 // CheckSignature verifies that signature is a valid signature over signed from
 // c's public key.
 func (c *Certificate) CheckSignature(algo SignatureAlgorithm, signed, signature []byte) error {
-	return checkSignature(algo, signed, signature, c.PublicKey)
+	return checkSignature(algo, signed, signature, c.PublicKey, true)
 }
 
 func (c *Certificate) hasNameConstraints() bool {
@@ -613,7 +617,7 @@ func signaturePublicKeyAlgoMismatchError(expectedPubKeyAlgo PublicKeyAlgorithm, 
 
 // checkSignature verifies that signature is a valid signature over signed from
 // a crypto.PublicKey.
-func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey crypto.PublicKey) (err error) {
+func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey crypto.PublicKey, allowSHA1 bool) (err error) {
 	var hashType crypto.Hash
 	var pubKeyAlgo PublicKeyAlgorithm
 
@@ -632,6 +636,11 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 		}
 	case crypto.MD5:
 		return x509.InsecureAlgorithmError(algo)
+	case crypto.SHA1:
+		if !allowSHA1 {
+			return x509.InsecureAlgorithmError(algo)
+		}
+		fallthrough
 	default:
 		if !hashType.Available() {
 			return x509.ErrUnsupportedAlgorithm
@@ -1380,11 +1389,11 @@ func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, 
 	// Check the signature to ensure the crypto.Signer behaved correctly.
 	sigAlg := getSignatureAlgorithmFromAI(signatureAlgorithm)
 	switch sigAlg {
-	case MD5WithRSA, SHA1WithRSA, ECDSAWithSHA1:
+	case MD5WithRSA:
 		// We skip the check if the signature algorithm is only supported for
 		// signing, not verification.
 	default:
-		if err := checkSignature(sigAlg, c.Raw, signature, key.Public()); err != nil {
+		if err := checkSignature(sigAlg, c.Raw, signature, key.Public(), true); err != nil {
 			return nil, fmt.Errorf("x509: signature over certificate returned by signer is invalid: %w", err)
 		}
 	}
@@ -1830,7 +1839,7 @@ func parseCertificateRequest(in *certificateRequest) (*CertificateRequest, error
 
 // CheckSignature reports whether the signature on c is valid.
 func (c *CertificateRequest) CheckSignature() error {
-	return checkSignature(c.SignatureAlgorithm, c.RawTBSCertificateRequest, c.Signature, c.PublicKey)
+	return checkSignature(c.SignatureAlgorithm, c.RawTBSCertificateRequest, c.Signature, c.PublicKey, true)
 }
 
 // CreateRevocationList creates a new X.509 v2 Certificate Revocation List,
