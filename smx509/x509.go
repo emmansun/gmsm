@@ -555,6 +555,10 @@ func (c *Certificate) asX509() *x509.Certificate {
 	return (*x509.Certificate)(c)
 }
 
+func (c *Certificate) ToX509() *x509.Certificate {
+	return c.asX509()
+}
+
 func (c *Certificate) Equal(other *Certificate) bool {
 	if c == nil || other == nil {
 		return c == other
@@ -1489,6 +1493,10 @@ type CertificateRequest x509.CertificateRequest
 
 func (c *CertificateRequest) asX509() *x509.CertificateRequest {
 	return (*x509.CertificateRequest)(c)
+}
+
+func (c *CertificateRequest) ToX509() *x509.CertificateRequest {
+	return c.asX509()
 }
 
 // These structures reflect the ASN.1 structure of X.509 certificate
