@@ -1580,13 +1580,18 @@ func parseCSRExtensions(rawAttributes []asn1.RawValue) ([]pkix.Extension, error)
 	}
 
 	var ret []pkix.Extension
+	seenExts := make(map[string]bool)
 	for _, rawAttr := range rawAttributes {
 		var attr pkcs10Attribute
 		if rest, err := asn1.Unmarshal(rawAttr.FullBytes, &attr); err != nil || len(rest) != 0 || len(attr.Values) == 0 {
 			// Ignore attributes that don't parse.
 			continue
 		}
-
+		oidStr := attr.Id.String()
+		if seenExts[oidStr] {
+			return nil, errors.New("x509: certificate request contains duplicate extensions")
+		}
+		seenExts[oidStr] = true
 		if !attr.Id.Equal(oidExtensionRequest) {
 			continue
 		}
@@ -1594,6 +1599,14 @@ func parseCSRExtensions(rawAttributes []asn1.RawValue) ([]pkix.Extension, error)
 		var extensions []pkix.Extension
 		if _, err := asn1.Unmarshal(attr.Values[0].FullBytes, &extensions); err != nil {
 			return nil, err
+		}
+		requestedExts := make(map[string]bool)
+		for _, ext := range extensions {
+			oidStr := ext.Id.String()
+			if requestedExts[oidStr] {
+				return nil, errors.New("x509: certificate request contains duplicate requested extensions")
+			}
+			requestedExts[oidStr] = true
 		}
 		ret = append(ret, extensions...)
 	}
@@ -1791,13 +1804,7 @@ func ParseCertificateRequest(asn1Data []byte) (*CertificateRequest, error) {
 	} else if len(rest) != 0 {
 		return nil, asn1.SyntaxError{Msg: "trailing data"}
 	}
-	if !csr.SignatureAlgorithm.Algorithm.Equal(oidSignatureSM2WithSM3) {
-		csrR, err := x509.ParseCertificateRequest(asn1Data)
-		if err != nil {
-			return nil, err
-		}
-		return (*CertificateRequest)(csrR), nil
-	}
+
 	return parseCertificateRequest(&csr)
 }
 
@@ -1812,9 +1819,6 @@ func ParseCertificateRequestPEM(data []byte) (*CertificateRequest, error) {
 }
 
 func parseCertificateRequest(in *certificateRequest) (*CertificateRequest, error) {
-	if !oidSignatureSM2WithSM3.Equal(in.SignatureAlgorithm.Algorithm) {
-		return nil, errors.New("unsupport signature algorithm")
-	}
 	out := &CertificateRequest{
 		Raw:                      in.Raw,
 		RawTBSCertificateRequest: in.TBSCSR.Raw,
@@ -1850,7 +1854,8 @@ func parseCertificateRequest(in *certificateRequest) (*CertificateRequest, error
 	}
 
 	for _, extension := range out.Extensions {
-		if extension.Id.Equal(oidExtensionSubjectAltName) {
+		switch {
+		case extension.Id.Equal(oidExtensionSubjectAltName):
 			out.DNSNames, out.EmailAddresses, out.IPAddresses, out.URIs, err = parseSANExtension(extension.Value)
 			if err != nil {
 				return nil, err
