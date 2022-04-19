@@ -50,6 +50,12 @@ var sbox1 = [256]byte{
 	0x64, 0xbe, 0x85, 0x9b, 0x2f, 0x59, 0x8a, 0xd7, 0xb0, 0x25, 0xac, 0xaf, 0x12, 0x03, 0xe2, 0xf2,
 }
 
+// constant D-0 for ZUC-256
+var zuc256_d0 = [16]byte{
+	0x22, 0x2F, 0x24, 0x2A, 0x6D, 0x40, 0x40, 0x40,
+	0x40, 0x40, 0x40, 0x40, 0x40, 0x52, 0x10, 0x30,
+}
+
 type zucState32 struct {
 	lfsr [16]uint32 // linear feedback shift register
 	r1   uint32
@@ -114,17 +120,64 @@ func (s *zucState32) enterWorkMode() {
 	s.enterInitMode(0)
 }
 
-func newZUCState(key, iv []byte) (*zucState32, error) {
-	if len(key) != 16 {
-		return nil, fmt.Errorf("zuc: invalid key size %d, expect 16 in bytes", len(key))
-	}
-	if len(iv) != 16 {
-		return nil, fmt.Errorf("zuc: invalid iv size %d, expect 16 in bytes", len(iv))
-	}
-	state := &zucState32{}
-	// loading key and iv
+func makeFieldValue3(a, b, c uint32) uint32 {
+	return (a << 23) | (b << 8) | c
+}
+
+func makeFieldValue4(a, b, c, d uint32) uint32 {
+	return (a << 23) | (b << 16) | (c << 8) | d
+}
+
+func (s *zucState32) loadKeyIV16(key, iv []byte) {
 	for i := 0; i < 16; i++ {
-		state.lfsr[i] = (uint32(key[i]) << 23) | (kd[i] << 8) | uint32(iv[i])
+		s.lfsr[i] = makeFieldValue3(uint32(key[i]), kd[i], uint32(iv[i]))
+	}
+}
+
+func (s *zucState32) loadKeyIV32(key, iv, d []byte) {
+	iv17 := iv[17] >> 2
+	iv18 := ((iv[17] & 0x3) << 4) | (iv[18] >> 4)
+	iv19 := ((iv[18] & 0xf) << 2) | (iv[19] >> 6)
+	iv20 := iv[19] & 0x3f
+	iv21 := iv[20] >> 2
+	iv22 := ((iv[20] & 0x3) << 4) | (iv[21] >> 4)
+	iv23 := ((iv[21] & 0xf) << 2) | (iv[22] >> 6)
+	iv24 := iv[22] & 0x3f
+	s.lfsr[0] = makeFieldValue4(uint32(key[0]), uint32(d[0]), uint32(key[21]), uint32(key[16]))
+	s.lfsr[1] = makeFieldValue4(uint32(key[1]), uint32(d[1]), uint32(key[22]), uint32(key[17]))
+	s.lfsr[2] = makeFieldValue4(uint32(key[2]), uint32(d[2]), uint32(key[23]), uint32(key[18]))
+	s.lfsr[3] = makeFieldValue4(uint32(key[3]), uint32(d[3]), uint32(key[24]), uint32(key[19]))
+	s.lfsr[4] = makeFieldValue4(uint32(key[4]), uint32(d[4]), uint32(key[25]), uint32(key[20]))
+	s.lfsr[5] = makeFieldValue4(uint32(iv[0]), uint32(d[5]|iv17), uint32(key[5]), uint32(key[26]))
+	s.lfsr[6] = makeFieldValue4(uint32(iv[1]), uint32(d[6]|iv18), uint32(key[6]), uint32(key[27]))
+	s.lfsr[7] = makeFieldValue4(uint32(iv[10]), uint32(d[7]|iv19), uint32(key[7]), uint32(iv[2]))
+	s.lfsr[8] = makeFieldValue4(uint32(key[8]), uint32(d[8]|iv20), uint32(iv[3]), uint32(iv[11]))
+	s.lfsr[9] = makeFieldValue4(uint32(key[9]), uint32(d[9]|iv21), uint32(iv[12]), uint32(iv[4]))
+	s.lfsr[10] = makeFieldValue4(uint32(iv[5]), uint32(d[10]|iv22), uint32(key[10]), uint32(key[28]))
+	s.lfsr[11] = makeFieldValue4(uint32(key[11]), uint32(d[11]|iv23), uint32(iv[6]), uint32(iv[13]))
+	s.lfsr[12] = makeFieldValue4(uint32(key[12]), uint32(d[12]|iv24), uint32(iv[7]), uint32(iv[14]))
+	s.lfsr[13] = makeFieldValue4(uint32(key[13]), uint32(d[13]), uint32(iv[15]), uint32(iv[8]))
+	s.lfsr[14] = makeFieldValue4(uint32(key[14]), uint32(d[14]|(key[31]>>4)), uint32(iv[16]), uint32(iv[9]))
+	s.lfsr[15] = makeFieldValue4(uint32(key[15]), uint32(d[15]|(key[31]&0x0f)), uint32(key[30]), uint32(key[29]))
+}
+
+func newZUCState(key, iv []byte) (*zucState32, error) {
+	k := len(key)
+	ivLen := len(iv)
+	state := &zucState32{}
+	switch k {
+	default:
+		return nil, fmt.Errorf("zuc: invalid key size %d, we support 16/32 now", k)
+	case 16: // ZUC-128
+		if ivLen != 16 {
+			return nil, fmt.Errorf("zuc: invalid iv size %d, expect 16 in bytes", ivLen)
+		}
+		state.loadKeyIV16(key, iv)
+	case 32: // ZUC-256
+		if ivLen != 23 {
+			return nil, fmt.Errorf("zuc: invalid iv size %d, expect 23 in bytes", ivLen)
+		}
+		state.loadKeyIV32(key, iv, zuc256_d0[:])
 	}
 
 	// initialization
@@ -147,4 +200,13 @@ func (s *zucState32) genKeyword() uint32 {
 	z := x[3] ^ s.f32(x[0], x[1], x[2])
 	s.enterWorkMode()
 	return z
+}
+
+func (s *zucState32) genKeywords(words []uint32) {
+	if len(words) == 0 {
+		return
+	}
+	for i := 0; i < len(words); i++ {
+		words[i] = s.genKeyword()
+	}
 }
