@@ -1,3 +1,4 @@
+// Package rc5 handle rc5 symmetric encryption algorithm
 package rc5
 
 import (

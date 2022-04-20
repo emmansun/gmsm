@@ -1,3 +1,4 @@
+// Package zuc handle shangmi zuc stream cipher
 package zuc
 
 import (

@@ -1,3 +1,4 @@
+// Package sm2 handle shangmi sm2 algorithm and its curve implementation
 package sm2
 
 // Further references:

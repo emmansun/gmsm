@@ -1,4 +1,4 @@
-// https://datatracker.ietf.org/doc/html/rfc5652#section-6.3
+// Package padding handle padding octets at the trailing end
 package padding
 
 import (
@@ -7,6 +7,7 @@ import (
 	"github.com/emmansun/gmsm/internal/subtle"
 )
 
+// https://datatracker.ietf.org/doc/html/rfc5652#section-6.3
 type pkcs7Padding uint
 
 func (pad pkcs7Padding) BlockSize() int {

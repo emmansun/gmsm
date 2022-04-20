@@ -1,3 +1,4 @@
+// Package sm4 handle shangmi sm4 symmetric encryption algorithm
 package sm4
 
 import (

@@ -1,4 +1,3 @@
-// https://www.ibm.com/docs/en/linux-on-systems?topic=processes-ansi-x923-cipher-block-chaining
 package padding
 
 import (
@@ -7,6 +6,7 @@ import (
 	"github.com/emmansun/gmsm/internal/subtle"
 )
 
+// https://www.ibm.com/docs/en/linux-on-systems?topic=processes-ansi-x923-cipher-block-chaining
 type ansiX923Padding uint
 
 func (pad ansiX923Padding) BlockSize() int {
