@@ -2450,9 +2450,6 @@ func TestOmitEmptyExtensions(t *testing.T) {
 	}
 }
 
-	}
-}
-
 var negativeSerialCert = `-----BEGIN CERTIFICATE-----
 MIIBBTCBraADAgECAgH/MAoGCCqGSM49BAMCMA0xCzAJBgNVBAMTAjopMB4XDTIy
 MDQxNDIzNTYwNFoXDTIyMDQxNTAxNTYwNFowDTELMAkGA1UEAxMCOikwWTATBgcq
@@ -2533,3 +2530,5 @@ func TestDuplicateExtensionsCSR(t *testing.T) {
 	_, err := ParseCertificateRequest(b.Bytes)
 	if err == nil {
 		t.Fatal("ParseCertificate should fail when parsing certificate with duplicate extensions")
+	}
+}

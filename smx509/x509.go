@@ -1286,9 +1286,13 @@ func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, 
 
 	// RFC 5280 Section 4.1.2.2: serial number must positive
 
+	// We _should_ also restrict serials to <= 20 octets, but it turns out a lot of people
+	// get this wrong, in part because the encoding can itself alter the length of the
+	// serial. For now we accept these non-conformant serials.
 	if template.SerialNumber.Sign() == -1 {
 		return nil, errors.New("x509: serial number must be positive")
 	}
+	
 	if template.BasicConstraintsValid && !template.IsCA && template.MaxPathLen != -1 && (template.MaxPathLen != 0 || template.MaxPathLenZero) {
 		return nil, errors.New("x509: only CAs are allowed to specify MaxPathLen")
 	}
