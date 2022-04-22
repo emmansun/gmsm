@@ -60,3 +60,28 @@ func Test_EEA(t *testing.T) {
 		}
 	}
 }
+
+func benchmarkStream(b *testing.B, buf []byte) {
+	b.SetBytes(int64(len(buf)))
+
+	var key [16]byte
+	var iv [16]byte
+
+	stream, _ := NewCipher(key[:], iv[:])
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		stream.XORKeyStream(buf, buf)
+	}
+}
+
+const almost1K = 1024 - 5
+const almost8K = 8*1024 - 5
+
+func BenchmarkEncrypt1K(b *testing.B) {
+	benchmarkStream(b, make([]byte, almost1K))
+}
+
+func BenchmarkEncrypt8K(b *testing.B) {
+	benchmarkStream(b, make([]byte, almost8K))
+}
