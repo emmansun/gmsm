@@ -13,19 +13,56 @@ type convert func(uint32) uint32
 func encryptBlockGo(xk []uint32, dst, src []byte) {
 	_ = src[15] // early bounds check
 	_ = dst[15] // early bounds check
-	var x [rounds + 4]uint32
-	var i int
-	for i = 0; i < 4; i++ {
-		x[i] = binary.BigEndian.Uint32(src[4*i:])
-	}
+	var b0, b1, b2, b3 uint32
+	b0 = binary.BigEndian.Uint32(src[0:4])
+	b1 = binary.BigEndian.Uint32(src[4:8])
+	b2 = binary.BigEndian.Uint32(src[8:12])
+	b3 = binary.BigEndian.Uint32(src[12:16])
 
-	for i = 0; i < rounds; i++ {
-		x[i+4] = x[i] ^ t(x[i+1]^x[i+2]^x[i+3]^xk[i])
-	}
+	b0 ^= t(b1 ^ b2 ^ b3 ^ xk[0])
+	b1 ^= t(b2 ^ b3 ^ b0 ^ xk[1])
+	b2 ^= t(b3 ^ b0 ^ b1 ^ xk[2])
+	b3 ^= t(b0 ^ b1 ^ b2 ^ xk[3])
 
-	for i = rounds + 3; i >= rounds; i-- {
-		binary.BigEndian.PutUint32(dst[4*(rounds+3-i):], x[i])
-	}
+	b0 ^= precompute_t(b1 ^ b2 ^ b3 ^ xk[4])
+	b1 ^= precompute_t(b2 ^ b3 ^ b0 ^ xk[5])
+	b2 ^= precompute_t(b3 ^ b0 ^ b1 ^ xk[6])
+	b3 ^= precompute_t(b0 ^ b1 ^ b2 ^ xk[7])
+
+	b0 ^= precompute_t(b1 ^ b2 ^ b3 ^ xk[8])
+	b1 ^= precompute_t(b2 ^ b3 ^ b0 ^ xk[9])
+	b2 ^= precompute_t(b3 ^ b0 ^ b1 ^ xk[10])
+	b3 ^= precompute_t(b0 ^ b1 ^ b2 ^ xk[11])
+
+	b0 ^= precompute_t(b1 ^ b2 ^ b3 ^ xk[12])
+	b1 ^= precompute_t(b2 ^ b3 ^ b0 ^ xk[13])
+	b2 ^= precompute_t(b3 ^ b0 ^ b1 ^ xk[14])
+	b3 ^= precompute_t(b0 ^ b1 ^ b2 ^ xk[15])
+
+	b0 ^= precompute_t(b1 ^ b2 ^ b3 ^ xk[16])
+	b1 ^= precompute_t(b2 ^ b3 ^ b0 ^ xk[17])
+	b2 ^= precompute_t(b3 ^ b0 ^ b1 ^ xk[18])
+	b3 ^= precompute_t(b0 ^ b1 ^ b2 ^ xk[19])
+
+	b0 ^= precompute_t(b1 ^ b2 ^ b3 ^ xk[20])
+	b1 ^= precompute_t(b2 ^ b3 ^ b0 ^ xk[21])
+	b2 ^= precompute_t(b3 ^ b0 ^ b1 ^ xk[22])
+	b3 ^= precompute_t(b0 ^ b1 ^ b2 ^ xk[23])
+
+	b0 ^= precompute_t(b1 ^ b2 ^ b3 ^ xk[24])
+	b1 ^= precompute_t(b2 ^ b3 ^ b0 ^ xk[25])
+	b2 ^= precompute_t(b3 ^ b0 ^ b1 ^ xk[26])
+	b3 ^= precompute_t(b0 ^ b1 ^ b2 ^ xk[27])
+
+	b0 ^= t(b1 ^ b2 ^ b3 ^ xk[28])
+	b1 ^= t(b2 ^ b3 ^ b0 ^ xk[29])
+	b2 ^= t(b3 ^ b0 ^ b1 ^ xk[30])
+	b3 ^= t(b0 ^ b1 ^ b2 ^ xk[31])
+
+	binary.BigEndian.PutUint32(dst[:], b3)
+	binary.BigEndian.PutUint32(dst[4:], b2)
+	binary.BigEndian.PutUint32(dst[8:], b1)
+	binary.BigEndian.PutUint32(dst[12:], b0)
 }
 
 // Key expansion algorithm.
@@ -87,4 +124,11 @@ func t(in uint32) uint32 {
 //T'
 func t2(in uint32) uint32 {
 	return _t(in, l2)
+}
+
+func precompute_t(in uint32) uint32 {
+	return sbox_t0[byte(in>>24)] ^
+		sbox_t1[byte(in>>16)] ^
+		sbox_t2[byte(in>>8)] ^
+		sbox_t3[byte(in)]
 }
