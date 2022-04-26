@@ -23,6 +23,7 @@ type ZUC128Mac struct {
 }
 
 // NewHash create hash for zuc-128 eia, with arguments key and iv.
+// Both key/iv size are 16 in bytes.
 func NewHash(key, iv []byte) (*ZUC128Mac, error) {
 	k := len(key)
 	ivLen := len(iv)

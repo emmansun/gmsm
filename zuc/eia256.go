@@ -16,7 +16,8 @@ type ZUC256Mac struct {
 	len       uint64
 }
 
-// NewHash create hash for zuc-128 eia, with arguments key, iv and tagSize.
+// NewHash256 create hash for zuc-256 eia, with arguments key, iv and tagSize.
+// Key size is 32 in bytes, iv size is 23 in bytes, tagSize supports 4/8/16 in bytes.
 // The larger the tag size, the worse the performance.
 func NewHash256(key, iv []byte, tagSize int) (*ZUC256Mac, error) {
 	k := len(key)
