@@ -127,8 +127,8 @@
   SM3TT21(e, f, g, h); \
   COPYRESULT(b, d, f, h)
 
-// func block(dig *digest, p []byte)
-TEXT ·block(SB), 0, $272-32
+// func blockARM64(dig *digest, p []byte)
+TEXT ·blockARM64(SB), 0, $272-32
   MOVD dig+0(FP), hlp1
   MOVD p_base+8(FP), SI
   MOVD p_len+16(FP), DX
