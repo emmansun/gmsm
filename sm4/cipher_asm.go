@@ -16,13 +16,13 @@ var supportsGFMUL = cpu.X86.HasPCLMULQDQ || cpu.ARM64.HasPMULL
 var useAVX2 = cpu.X86.HasAVX2 && cpu.X86.HasBMI2
 
 //go:noescape
-func encryptBlocksAsm(xk *uint32, dst, src []byte)
+func encryptBlocksAsm(xk *uint32, dst, src []byte, inst int)
 
 //go:noescape
-func encryptBlockAsm(xk *uint32, dst, src *byte)
+func encryptBlockAsm(xk *uint32, dst, src *byte, inst int)
 
 //go:noescape
-func expandKeyAsm(key *byte, ck, enc, dec *uint32)
+func expandKeyAsm(key *byte, ck, enc, dec *uint32, inst int)
 
 type sm4CipherAsm struct {
 	sm4Cipher
@@ -31,7 +31,7 @@ type sm4CipherAsm struct {
 }
 
 func newCipher(key []byte) (cipher.Block, error) {
-	if !supportsAES {
+	if !(supportsAES || supportSM4) {
 		return newCipherGeneric(key)
 	}
 	blocks := 4
@@ -39,7 +39,11 @@ func newCipher(key []byte) (cipher.Block, error) {
 		blocks = 8
 	}
 	c := sm4CipherAsm{sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}, blocks, blocks * BlockSize}
-	expandKeyAsm(&key[0], &ck[0], &c.enc[0], &c.dec[0])
+	if supportSM4 {
+		expandKeyAsm(&key[0], &ck[0], &c.enc[0], &c.dec[0], 1)
+	} else {
+		expandKeyAsm(&key[0], &ck[0], &c.enc[0], &c.dec[0], 0)
+	}
 	if supportsAES && supportsGFMUL {
 		return &sm4CipherGCM{c}, nil
 	}
@@ -49,6 +53,22 @@ func newCipher(key []byte) (cipher.Block, error) {
 func (c *sm4CipherAsm) BlockSize() int { return BlockSize }
 
 func (c *sm4CipherAsm) Concurrency() int { return c.batchBlocks }
+
+func encryptBlockAsmInst(xk *uint32, dst, src *byte) {
+	if supportSM4 {
+		encryptBlockAsm(xk, dst, src, 1)
+	} else {
+		encryptBlockAsm(xk, dst, src, 0)
+	}
+}
+
+func encryptBlocksAsmInst(xk *uint32, dst, src []byte) {
+	if supportSM4 {
+		encryptBlocksAsm(xk, dst, src, 1)
+	} else {
+		encryptBlocksAsm(xk, dst, src, 0)
+	}
+}
 
 func (c *sm4CipherAsm) Encrypt(dst, src []byte) {
 	if len(src) < BlockSize {
@@ -60,7 +80,7 @@ func (c *sm4CipherAsm) Encrypt(dst, src []byte) {
 	if subtle.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
-	encryptBlockAsm(&c.enc[0], &dst[0], &src[0])
+	encryptBlockAsmInst(&c.enc[0], &dst[0], &src[0])
 }
 
 func (c *sm4CipherAsm) EncryptBlocks(dst, src []byte) {
@@ -73,7 +93,7 @@ func (c *sm4CipherAsm) EncryptBlocks(dst, src []byte) {
 	if subtle.InexactOverlap(dst[:c.blocksSize], src[:c.blocksSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
-	encryptBlocksAsm(&c.enc[0], dst, src)
+	encryptBlocksAsmInst(&c.enc[0], dst, src)
 }
 
 func (c *sm4CipherAsm) Decrypt(dst, src []byte) {
@@ -86,7 +106,7 @@ func (c *sm4CipherAsm) Decrypt(dst, src []byte) {
 	if subtle.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
-	encryptBlockAsm(&c.dec[0], &dst[0], &src[0])
+	encryptBlockAsmInst(&c.dec[0], &dst[0], &src[0])
 }
 
 func (c *sm4CipherAsm) DecryptBlocks(dst, src []byte) {
@@ -99,14 +119,16 @@ func (c *sm4CipherAsm) DecryptBlocks(dst, src []byte) {
 	if subtle.InexactOverlap(dst[:c.blocksSize], src[:c.blocksSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
-	encryptBlocksAsm(&c.dec[0], dst, src)
+	encryptBlocksAsmInst(&c.dec[0], dst, src)
 }
 
 // expandKey is used by BenchmarkExpand to ensure that the asm implementation
 // of key expansion is used for the benchmark when it is available.
 func expandKey(key []byte, enc, dec []uint32) {
-	if supportsAES {
-		expandKeyAsm(&key[0], &ck[0], &enc[0], &dec[0])
+	if supportSM4 {
+		expandKeyAsm(&key[0], &ck[0], &enc[0], &dec[0], 1)
+	} else if supportsAES {
+		expandKeyAsm(&key[0], &ck[0], &enc[0], &dec[0], 0)
 	} else {
 		expandKeyGo(key, enc, dec)
 	}

@@ -290,7 +290,7 @@ GLOBL fk_mask<>(SB), RODATA, $16
   AVX_SM4_TAO_L1(x, y);                              \  
   VPXOR x, t0, t0
 
-// func expandKeyAsm(key *byte, ck, enc, dec *uint32)
+// func expandKeyAsm(key *byte, ck, enc, dec *uint32, inst int)
 TEXT ·expandKeyAsm(SB),NOSPLIT,$0
   MOVQ key+0(FP), AX
   MOVQ  ck+8(FP), BX
@@ -321,7 +321,7 @@ loop:
 expand_end:  
   RET 
 
-// func encryptBlocksAsm(xk *uint32, dst, src []byte)
+// func encryptBlocksAsm(xk *uint32, dst, src []byte, inst int)
 TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
   MOVQ xk+0(FP), AX
   MOVQ dst+8(FP), BX
@@ -497,7 +497,7 @@ avx2_sm4_done:
   VZEROUPPER
   RET
 
-// func encryptBlockAsm(xk *uint32, dst, src *byte)
+// func encryptBlockAsm(xk *uint32, dst, src *byte, inst int)
 TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
   MOVQ xk+0(FP), AX
   MOVQ dst+8(FP), BX
