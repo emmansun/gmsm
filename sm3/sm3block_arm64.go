@@ -19,10 +19,10 @@ func blockARM64(dig *digest, p []byte)
 func blockSM3NI(h []uint32, p []byte, t []uint32)
 
 func block(dig *digest, p []byte) {
-	//if !useSM3NI {
+	if !useSM3NI {
 		blockARM64(dig, p)
-	//} else {
-	//	h := dig.h[:]
-	//	blockSM3NI(h, p, t)
-	//}
+	} else {
+		h := dig.h[:]
+		blockSM3NI(h, p, t)
+	}
 }
