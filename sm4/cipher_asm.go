@@ -44,7 +44,7 @@ func newCipher(key []byte) (cipher.Block, error) {
 	} else {
 		expandKeyAsm(&key[0], &ck[0], &c.enc[0], &c.dec[0], 0)
 	}
-	if supportsAES && supportsGFMUL {
+	if (supportsAES || supportSM4) && supportsGFMUL {
 		return &sm4CipherGCM{c}, nil
 	}
 	return &c, nil
