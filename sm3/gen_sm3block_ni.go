@@ -176,7 +176,7 @@ sm3ret:
 	src := buf.Bytes()
 	// fmt.Println(string(src))
 
-	err := os.WriteFile("sm3block_arm64_ni.s", src, 0644)
+	err := os.WriteFile("sm3blockni_arm64.s", src, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
