@@ -12,11 +12,11 @@ import (
 func genPrecomputeTable() *gcmAsm {
 	key := []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
 	c := sm4CipherAsm{sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}, 4, 64}
-	expandKeyAsm(&key[0], &ck[0], &c.enc[0], &c.dec[0])
+	expandKey(key, c.enc, c.dec)
 	c1 := &sm4CipherGCM{c}
 	g := &gcmAsm{}
 	g.cipher = &c1.sm4CipherAsm
-	gcmSm4Init(&g.bytesProductTable, g.cipher.enc)
+	gcmSm4InitInst(&g.bytesProductTable, g.cipher.enc)
 	return g
 }
 
@@ -146,12 +146,12 @@ func TestBothDataPlaintext(t *testing.T) {
 func createGcm() *gcmAsm {
 	key := []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
 	c := sm4CipherAsm{sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}, 4, 64}
-	expandKeyAsm(&key[0], &ck[0], &c.enc[0], &c.dec[0])
+	expandKey(key, c.enc, c.dec)
 	c1 := &sm4CipherGCM{c}
 	g := &gcmAsm{}
 	g.cipher = &c1.sm4CipherAsm
 	g.tagSize = 16
-	gcmSm4Init(&g.bytesProductTable, g.cipher.enc)
+	gcmSm4InitInst(&g.bytesProductTable, g.cipher.enc)
 	return g
 }
 
@@ -214,7 +214,7 @@ func TestGcmSm4Enc(t *testing.T) {
 
 		out2 := make([]byte, len(test.plaintext)+gcm.tagSize)
 		gcmSm4Data(&gcm.bytesProductTable, []byte("emmansun"), &tagOut2)
-		gcmSm4Enc(&gcm.bytesProductTable, out2, []byte(test.plaintext), &counter2, &tagOut2, gcm.cipher.enc)
+		gcmSm4EncInst(&gcm.bytesProductTable, out2, []byte(test.plaintext), &counter2, &tagOut2, gcm.cipher.enc)
 		if hex.EncodeToString(out1) != hex.EncodeToString(out2) {
 			t.Errorf("#%d: out expected %s, got %s", i, hex.EncodeToString(out1), hex.EncodeToString(out2))
 		}
@@ -244,7 +244,7 @@ func TestGcmSm4Dec(t *testing.T) {
 
 		out2 := make([]byte, len(test.plaintext)+gcm.tagSize)
 		gcmSm4Data(&gcm.bytesProductTable, []byte("emmansun"), &tagOut2)
-		gcmSm4Dec(&gcm.bytesProductTable, out2, out1, &counter2, &tagOut2, gcm.cipher.enc)
+		gcmSm4DecInst(&gcm.bytesProductTable, out2, out1, &counter2, &tagOut2, gcm.cipher.enc)
 
 		if hex.EncodeToString([]byte(test.plaintext)) != hex.EncodeToString(out2[:len(test.plaintext)]) {
 			t.Errorf("#%d: out expected %s, got %s", i, hex.EncodeToString([]byte(test.plaintext)), hex.EncodeToString(out2[:len(test.plaintext)]))
