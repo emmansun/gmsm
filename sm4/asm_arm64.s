@@ -258,7 +258,8 @@ TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
   MOVD xk+0(FP), R8
   MOVD dst+8(FP), R9
   MOVD src+32(FP), R10
-  MOVD inst+24(FP), R11
+  MOVD src_len+40(FP), R12
+  MOVD inst+56(FP), R11
 
   CMP $1, R11
   BEQ sm4niblocks
@@ -337,10 +338,10 @@ encryptBlocksLoop:
 sm4niblocks:
   VLD1.P  64(R8), [V0.S4, V1.S4, V2.S4, V3.S4]
   VLD1.P  64(R8), [V4.S4, V5.S4, V6.S4, V7.S4]
+sm4niblockloop:  
   SM4E_ROUND()
-  SM4E_ROUND()
-  SM4E_ROUND()
-  SM4E_ROUND()
+	SUB	$16, R12, R12                                  // message length - 16bytes, then compare with 16bytes
+	CBNZ	R12, sm4niblockloop  
   RET
 
 // func encryptBlockAsm(xk *uint32, dst, src *byte, inst int)
