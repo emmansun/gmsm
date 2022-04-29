@@ -27,11 +27,11 @@ func sm4ekey(Vd, Vn, Vm byte) uint32 {
 }
 
 func sm4ekeyRound(buf *bytes.Buffer, d, n, m byte) {
-	fmt.Fprintf(buf, "\tWORD 0x%08x          //SM4EKEY V%d.4S, V%d.4S, V%d.4S\n", sm4ekey(d, n, m), d, n, m)
+	fmt.Fprintf(buf, "\tWORD $0x%08x          //SM4EKEY V%d.4S, V%d.4S, V%d.4S\n", sm4ekey(d, n, m), d, n, m)
 }
 
 func sm4eRound(buf *bytes.Buffer, d, n byte) {
-	fmt.Fprintf(buf, "\tWORD 0x%08x          //SM4E V%d.4S, V%d.4S\n", sm4e(d, n), d, n)
+	fmt.Fprintf(buf, "\tWORD $0x%08x          //SM4E V%d.4S, V%d.4S\n", sm4e(d, n), d, n)
 }
 
 func main() {
@@ -48,27 +48,27 @@ TEXT ·expandKeySM4E(SB),NOSPLIT,$0
 	MOVD ck+16(FP), R10
 	MOVD enc+24(FP), R11
 
-	VLD1 (R8), [V8.B16]
-	VREV32 V8.B16, V8.B16
-	VLD1 (R9), [V9.S4]
-	VEOR V9, V8, V8
+	VLD1 (R8), [V9.B16]
+	VREV32 V9.B16, V9.B16
+	VLD1 (R9), [V8.S4]
+	VEOR V9, V8, V9
 	VLD1.P	64(R10), [V0.S4, V1.S4, V2.S4, V3.S4]
 `[1:])
 
-	sm4ekeyRound(buf, 9, 8, 0)
-	sm4ekeyRound(buf, 8, 9, 1)
-	fmt.Fprintf(buf, "\tVST1.P	[V9.S4, V8.S4], 32(R11)\n")
-	sm4ekeyRound(buf, 9, 8, 2)
-	sm4ekeyRound(buf, 8, 9, 3)
-	fmt.Fprintf(buf, "\tVST1.P	[V9.S4, V8.S4], 32(R11)\n")
+	sm4ekeyRound(buf, 8, 9, 0)
+	sm4ekeyRound(buf, 9, 8, 1)
+	fmt.Fprintf(buf, "\tVST1.P	[V8.S4, V9.S4], 32(R11)\n")
+	sm4ekeyRound(buf, 8, 9, 2)
+	sm4ekeyRound(buf, 9, 8, 3)
+	fmt.Fprintf(buf, "\tVST1.P	[V8.S4, V9.S4], 32(R11)\n")
 	fmt.Fprintf(buf, "\tVLD1.P	64(R10), [V0.S4, V1.S4, V2.S4, V3.S4]\n")
-	sm4ekeyRound(buf, 9, 8, 0)
-	sm4ekeyRound(buf, 8, 9, 1)
-	fmt.Fprintf(buf, "\tVST1.P	[V9.S4, V8.S4], 32(R11)\n")
-	sm4ekeyRound(buf, 9, 8, 2)
-	sm4ekeyRound(buf, 8, 9, 3)
+	sm4ekeyRound(buf, 8, 9, 0)
+	sm4ekeyRound(buf, 9, 8, 1)
+	fmt.Fprintf(buf, "\tVST1.P	[V8.S4, V9.S4], 32(R11)\n")
+	sm4ekeyRound(buf, 8, 9, 2)
+	sm4ekeyRound(buf, 9, 8, 3)
 	fmt.Fprintf(buf, `
-	VST1.P	[V9.S4, V8.S4], 32(R11)
+	VST1.P	[V8.S4, V9.S4], 32(R11)
 	RET
 `[1:])
 	fmt.Fprint(buf, `

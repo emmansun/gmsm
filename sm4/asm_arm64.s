@@ -165,28 +165,29 @@ GLOBL fk_mask<>(SB), (NOPTR+RODATA), $16
   VMOV R1, R24_MASK.D[1]
 
 #define SM4EKEY_EXPORT_KEYS() \
-  VMOV V8.S[3], V10.S[0]            \
-  VMOV V8.S[2], V10.S[1]            \
-  VMOV V8.S[1], V10.S[2]            \
-  VMOV V8.S[0], V10.S[3]            \
-  VMOV V9.S[3], V11.S[0]            \
-  VMOV V9.S[2], V11.S[1]            \
-  VMOV V9.S[1], V11.S[2]            \
-  VMOV V9.S[0], V11.S[3]            \
-  VST1.P	[V9.S4, V8.S4], 32(R10)   \
-  VST1.P	[V10.S4, V11.S4], -32(R11)
+  VMOV V9.S[3], V10.S[0]            \
+  VMOV V9.S[2], V10.S[1]            \
+  VMOV V9.S[1], V10.S[2]            \
+  VMOV V9.S[0], V10.S[3]            \
+  VMOV V8.S[3], V11.S[0]            \
+  VMOV V8.S[2], V11.S[1]            \
+  VMOV V8.S[1], V11.S[2]            \
+  VMOV V8.S[0], V11.S[3]            \
+  VST1.P	[V8.S4, V9.S4], 32(R10)   \
+  VST1	[V10.S4, V11.S4], (R11)     \
+  SUB  $32, R11, R11
 
 #define SM4E_ROUND() \
   VLD1.P 16(R10), [V8.B16]    \
   VREV32 V8.B16, V8.B16      \
-  WORD 0x0884c0ce            \ 
-  WORD 0x2884c0ce            \ 
-  WORD 0x4884c0ce            \ 
-  WORD 0x6884c0ce            \ 
-  WORD 0x8884c0ce            \ 
-  WORD 0xa884c0ce            \ 
-  WORD 0xc884c0ce            \ 
-  WORD 0xe884c0ce            \ 
+  WORD $0x0884c0ce            \ 
+  WORD $0x2884c0ce            \ 
+  WORD $0x4884c0ce            \ 
+  WORD $0x6884c0ce            \ 
+  WORD $0x8884c0ce            \ 
+  WORD $0xa884c0ce            \ 
+  WORD $0xc884c0ce            \ 
+  WORD $0xe884c0ce            \ 
   VREV32 V8.B16, V8.B16      \
   VST1.P  [V8.B16], 16(R9)
 
@@ -229,27 +230,27 @@ sm4ekey:
   LDP fk_mask<>(SB), (R0, R1)
   VMOV R0, FK_MASK.D[0]             
   VMOV R1, FK_MASK.D[1]
-	VLD1 (R8), [V8.B16]
-	VREV32 V8.B16, V8.B16
-	VEOR FK_MASK, V8, V8
+	VLD1 (R8), [V9.B16]
+	VREV32 V9.B16, V9.B16
+	VEOR FK_MASK.B16, V9.B16, V9.B16
   ADD $96, R11
 
 	VLD1.P	64(R9), [V0.S4, V1.S4, V2.S4, V3.S4]
-	WORD 0x09c960ce          //SM4EKEY V9.4S, V8.4S, V0.4S
-	WORD 0x28c961ce          //SM4EKEY V8.4S, V9.4S, V1.4S
+	WORD $0x28c960ce          //SM4EKEY V8.4S, V9.4S, V0.4S
+	WORD $0x09c961ce          //SM4EKEY V9.4S, V8.4S, V1.4S
   SM4EKEY_EXPORT_KEYS()
 
-	WORD 0x09c962ce          //SM4EKEY V9.4S, V8.4S, V2.4S
-	WORD 0x28c963ce          //SM4EKEY V8.4S, V9.4S, V3.4S
+	WORD $0x28c962ce          //SM4EKEY V8.4S, V9.4S, V2.4S
+	WORD $0x09c963ce          //SM4EKEY V9.4S, V8.4S, V3.4S
 	SM4EKEY_EXPORT_KEYS()
 
 	VLD1.P	64(R9), [V0.S4, V1.S4, V2.S4, V3.S4]
-	WORD 0x09c960ce          //SM4EKEY V9.4S, V8.4S, V0.4S
-	WORD 0x28c961ce          //SM4EKEY V8.4S, V9.4S, V1.4S
+	WORD $0x28c960ce          //SM4EKEY V8.4S, V9.4S, V0.4S
+	WORD $0x09c961ce          //SM4EKEY V9.4S, V8.4S, V1.4S
 	SM4EKEY_EXPORT_KEYS()
 
-	WORD 0x09c962ce          //SM4EKEY V9.4S, V8.4S, V2.4S
-	WORD 0x28c963ce          //SM4EKEY V8.4S, V9.4S, V3.4S
+	WORD $0x28c962ce          //SM4EKEY V8.4S, V9.4S, V2.4S
+	WORD $0x09c963ce          //SM4EKEY V9.4S, V8.4S, V3.4S
 	SM4EKEY_EXPORT_KEYS()
   RET
 
@@ -391,15 +392,15 @@ sm4niblock:
 	VLD1 (R10), [V8.B16]
 	VREV32 V8.B16, V8.B16
 	VLD1.P	64(R8), [V0.S4, V1.S4, V2.S4, V3.S4]
-	WORD 0x0884c0ce          //SM4E V8.4S, V0.4S
-	WORD 0x2884c0ce          //SM4E V8.4S, V1.4S
-	WORD 0x4884c0ce          //SM4E V8.4S, V2.4S
-	WORD 0x6884c0ce          //SM4E V8.4S, V3.4S
+	WORD $0x0884c0ce          //SM4E V8.4S, V0.4S
+	WORD $0x2884c0ce          //SM4E V8.4S, V1.4S
+	WORD $0x4884c0ce          //SM4E V8.4S, V2.4S
+	WORD $0x6884c0ce          //SM4E V8.4S, V3.4S
 	VLD1.P	64(R8), [V0.S4, V1.S4, V2.S4, V3.S4]
-	WORD 0x0884c0ce          //SM4E V8.4S, V0.4S
-	WORD 0x2884c0ce          //SM4E V8.4S, V1.4S
-	WORD 0x4884c0ce          //SM4E V8.4S, V2.4S
-	WORD 0x6884c0ce          //SM4E V8.4S, V3.4S
+	WORD $0x0884c0ce          //SM4E V8.4S, V0.4S
+	WORD $0x2884c0ce          //SM4E V8.4S, V1.4S
+	WORD $0x4884c0ce          //SM4E V8.4S, V2.4S
+	WORD $0x6884c0ce          //SM4E V8.4S, V3.4S
 	VREV32 V8.B16, V8.B16
 	VST1	[V8.B16], (R9)
   RET  

@@ -23,392 +23,392 @@ blockloop:
 	// first 16 rounds
 	VMOV R5, V11.S[3]
 	// Extension
-	VEXT 3, V2, V1, V4
-	VEXT 3, V1, V0, V6
-	VEXT 2, V3, V2, V7
-	WORD 0x04c063ce          //SM3PARTW1 V4.4S, V0.4S, V3.4S
-	WORD 0xe4c466ce          //SM3PARTW2 V4.4S, V7.4S, V6.4S
-	VEOR V1, V0, V10
+	VEXT $3, V2.B16, V1.B16, V4.B16
+	VEXT $3, V1.B16, V0.B16, V6.B16
+	VEXT $2, V3.B16, V2.B16, V7.B16
+	WORD $0x04c063ce          //SM3PARTW1 V4.4S, V0.4S, V3.4S
+	WORD $0xe4c466ce          //SM3PARTW2 V4.4S, V7.4S, V6.4S
+	VEOR V1.B16, V0.B16, V10.B16
 	// Compression
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8804ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 0
-	WORD 0xa98840ce           //SM3TT2A V9d.4S, V5.4S, V0.S, 0
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8804ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 0
+	WORD $0xa98840ce           //SM3TT2A V9d.4S, V5.4S, V0.S, 0
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8904ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 1
-	WORD 0xa99840ce           //SM3TT2A V9d.4S, V5.4S, V0.S, 1
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8904ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 1
+	WORD $0xa99840ce           //SM3TT2A V9d.4S, V5.4S, V0.S, 1
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8a04ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 2
-	WORD 0xa9a840ce           //SM3TT2A V9d.4S, V5.4S, V0.S, 2
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8a04ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 2
+	WORD $0xa9a840ce           //SM3TT2A V9d.4S, V5.4S, V0.S, 2
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8b04ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 3
-	WORD 0xa9b840ce           //SM3TT2A V9d.4S, V5.4S, V0.S, 3
+	WORD $0xa8b04ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 3
+	WORD $0xa9b840ce           //SM3TT2A V9d.4S, V5.4S, V0.S, 3
 
 	// Extension
-	VEXT 3, V3, V2, V0
-	VEXT 3, V2, V1, V6
-	VEXT 2, V4, V3, V7
-	WORD 0x20c064ce          //SM3PARTW1 V0.4S, V1.4S, V4.4S
-	WORD 0xe0c466ce          //SM3PARTW2 V0.4S, V7.4S, V6.4S
-	VEOR V2, V1, V10
+	VEXT $3, V3.B16, V2.B16, V0.B16
+	VEXT $3, V2.B16, V1.B16, V6.B16
+	VEXT $2, V4.B16, V3.B16, V7.B16
+	WORD $0x20c064ce          //SM3PARTW1 V0.4S, V1.4S, V4.4S
+	WORD $0xe0c466ce          //SM3PARTW2 V0.4S, V7.4S, V6.4S
+	VEOR V2.B16, V1.B16, V10.B16
 	// Compression
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8804ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 0
-	WORD 0xa98841ce           //SM3TT2A V9d.4S, V5.4S, V1.S, 0
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8804ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 0
+	WORD $0xa98841ce           //SM3TT2A V9d.4S, V5.4S, V1.S, 0
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8904ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 1
-	WORD 0xa99841ce           //SM3TT2A V9d.4S, V5.4S, V1.S, 1
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8904ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 1
+	WORD $0xa99841ce           //SM3TT2A V9d.4S, V5.4S, V1.S, 1
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8a04ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 2
-	WORD 0xa9a841ce           //SM3TT2A V9d.4S, V5.4S, V1.S, 2
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8a04ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 2
+	WORD $0xa9a841ce           //SM3TT2A V9d.4S, V5.4S, V1.S, 2
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8b04ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 3
-	WORD 0xa9b841ce           //SM3TT2A V9d.4S, V5.4S, V1.S, 3
+	WORD $0xa8b04ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 3
+	WORD $0xa9b841ce           //SM3TT2A V9d.4S, V5.4S, V1.S, 3
 
 	// Extension
-	VEXT 3, V4, V3, V1
-	VEXT 3, V3, V2, V6
-	VEXT 2, V0, V4, V7
-	WORD 0x41c060ce          //SM3PARTW1 V1.4S, V2.4S, V0.4S
-	WORD 0xe1c466ce          //SM3PARTW2 V1.4S, V7.4S, V6.4S
-	VEOR V3, V2, V10
+	VEXT $3, V4.B16, V3.B16, V1.B16
+	VEXT $3, V3.B16, V2.B16, V6.B16
+	VEXT $2, V0.B16, V4.B16, V7.B16
+	WORD $0x41c060ce          //SM3PARTW1 V1.4S, V2.4S, V0.4S
+	WORD $0xe1c466ce          //SM3PARTW2 V1.4S, V7.4S, V6.4S
+	VEOR V3.B16, V2.B16, V10.B16
 	// Compression
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8804ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 0
-	WORD 0xa98842ce           //SM3TT2A V9d.4S, V5.4S, V2.S, 0
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8804ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 0
+	WORD $0xa98842ce           //SM3TT2A V9d.4S, V5.4S, V2.S, 0
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8904ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 1
-	WORD 0xa99842ce           //SM3TT2A V9d.4S, V5.4S, V2.S, 1
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8904ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 1
+	WORD $0xa99842ce           //SM3TT2A V9d.4S, V5.4S, V2.S, 1
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8a04ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 2
-	WORD 0xa9a842ce           //SM3TT2A V9d.4S, V5.4S, V2.S, 2
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8a04ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 2
+	WORD $0xa9a842ce           //SM3TT2A V9d.4S, V5.4S, V2.S, 2
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8b04ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 3
-	WORD 0xa9b842ce           //SM3TT2A V9d.4S, V5.4S, V2.S, 3
+	WORD $0xa8b04ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 3
+	WORD $0xa9b842ce           //SM3TT2A V9d.4S, V5.4S, V2.S, 3
 
 	// Extension
-	VEXT 3, V0, V4, V2
-	VEXT 3, V4, V3, V6
-	VEXT 2, V1, V0, V7
-	WORD 0x62c061ce          //SM3PARTW1 V2.4S, V3.4S, V1.4S
-	WORD 0xe2c466ce          //SM3PARTW2 V2.4S, V7.4S, V6.4S
-	VEOR V4, V3, V10
+	VEXT $3, V0.B16, V4.B16, V2.B16
+	VEXT $3, V4.B16, V3.B16, V6.B16
+	VEXT $2, V1.B16, V0.B16, V7.B16
+	WORD $0x62c061ce          //SM3PARTW1 V2.4S, V3.4S, V1.4S
+	WORD $0xe2c466ce          //SM3PARTW2 V2.4S, V7.4S, V6.4S
+	VEOR V4.B16, V3.B16, V10.B16
 	// Compression
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8804ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 0
-	WORD 0xa98843ce           //SM3TT2A V9d.4S, V5.4S, V3.S, 0
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8804ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 0
+	WORD $0xa98843ce           //SM3TT2A V9d.4S, V5.4S, V3.S, 0
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8904ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 1
-	WORD 0xa99843ce           //SM3TT2A V9d.4S, V5.4S, V3.S, 1
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8904ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 1
+	WORD $0xa99843ce           //SM3TT2A V9d.4S, V5.4S, V3.S, 1
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8a04ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 2
-	WORD 0xa9a843ce           //SM3TT2A V9d.4S, V5.4S, V3.S, 2
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8a04ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 2
+	WORD $0xa9a843ce           //SM3TT2A V9d.4S, V5.4S, V3.S, 2
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8b04ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 3
-	WORD 0xa9b843ce           //SM3TT2A V9d.4S, V5.4S, V3.S, 3
+	WORD $0xa8b04ace           //SM3TT1A V8d.4S, V5.4S, V10.S, 3
+	WORD $0xa9b843ce           //SM3TT2A V9d.4S, V5.4S, V3.S, 3
 
 	// second 48 rounds
 	VMOV R6, V11.S[3]
 	// Extension
-	VEXT 3, V1, V0, V3
-	VEXT 3, V0, V4, V6
-	VEXT 2, V2, V1, V7
-	WORD 0x83c062ce          //SM3PARTW1 V3.4S, V4.4S, V2.4S
-	WORD 0xe3c466ce          //SM3PARTW2 V3.4S, V7.4S, V6.4S
-	VEOR V0, V4, V10
+	VEXT $3, V1.B16, V0.B16, V3.B16
+	VEXT $3, V0.B16, V4.B16, V6.B16
+	VEXT $2, V2.B16, V1.B16, V7.B16
+	WORD $0x83c062ce          //SM3PARTW1 V3.4S, V4.4S, V2.4S
+	WORD $0xe3c466ce          //SM3PARTW2 V3.4S, V7.4S, V6.4S
+	VEOR V0.B16, V4.B16, V10.B16
 	// Compression
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
-	WORD 0xa98c44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 0
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
+	WORD $0xa98c44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 0
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
-	WORD 0xa99c44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 1
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
+	WORD $0xa99c44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 1
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
-	WORD 0xa9ac44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 2
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
+	WORD $0xa9ac44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 2
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
-	WORD 0xa9bc44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 3
+	WORD $0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
+	WORD $0xa9bc44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 3
 
 	// Extension
-	VEXT 3, V2, V1, V4
-	VEXT 3, V1, V0, V6
-	VEXT 2, V3, V2, V7
-	WORD 0x04c063ce          //SM3PARTW1 V4.4S, V0.4S, V3.4S
-	WORD 0xe4c466ce          //SM3PARTW2 V4.4S, V7.4S, V6.4S
-	VEOR V1, V0, V10
+	VEXT $3, V2.B16, V1.B16, V4.B16
+	VEXT $3, V1.B16, V0.B16, V6.B16
+	VEXT $2, V3.B16, V2.B16, V7.B16
+	WORD $0x04c063ce          //SM3PARTW1 V4.4S, V0.4S, V3.4S
+	WORD $0xe4c466ce          //SM3PARTW2 V4.4S, V7.4S, V6.4S
+	VEOR V1.B16, V0.B16, V10.B16
 	// Compression
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
-	WORD 0xa98c40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 0
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
+	WORD $0xa98c40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 0
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
-	WORD 0xa99c40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 1
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
+	WORD $0xa99c40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 1
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
-	WORD 0xa9ac40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 2
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
+	WORD $0xa9ac40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 2
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
-	WORD 0xa9bc40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 3
+	WORD $0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
+	WORD $0xa9bc40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 3
 
 	// Extension
-	VEXT 3, V3, V2, V0
-	VEXT 3, V2, V1, V6
-	VEXT 2, V4, V3, V7
-	WORD 0x20c064ce          //SM3PARTW1 V0.4S, V1.4S, V4.4S
-	WORD 0xe0c466ce          //SM3PARTW2 V0.4S, V7.4S, V6.4S
-	VEOR V2, V1, V10
+	VEXT $3, V3.B16, V2.B16, V0.B16
+	VEXT $3, V2.B16, V1.B16, V6.B16
+	VEXT $2, V4.B16, V3.B16, V7.B16
+	WORD $0x20c064ce          //SM3PARTW1 V0.4S, V1.4S, V4.4S
+	WORD $0xe0c466ce          //SM3PARTW2 V0.4S, V7.4S, V6.4S
+	VEOR V2.B16, V1.B16, V10.B16
 	// Compression
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
-	WORD 0xa98c41ce           //SM3TT2B V9d.4S, V5.4S, V1.S, 0
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
+	WORD $0xa98c41ce           //SM3TT2B V9d.4S, V5.4S, V1.S, 0
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
-	WORD 0xa99c41ce           //SM3TT2B V9d.4S, V5.4S, V1.S, 1
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
+	WORD $0xa99c41ce           //SM3TT2B V9d.4S, V5.4S, V1.S, 1
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
-	WORD 0xa9ac41ce           //SM3TT2B V9d.4S, V5.4S, V1.S, 2
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
+	WORD $0xa9ac41ce           //SM3TT2B V9d.4S, V5.4S, V1.S, 2
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
-	WORD 0xa9bc41ce           //SM3TT2B V9d.4S, V5.4S, V1.S, 3
+	WORD $0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
+	WORD $0xa9bc41ce           //SM3TT2B V9d.4S, V5.4S, V1.S, 3
 
 	// Extension
-	VEXT 3, V4, V3, V1
-	VEXT 3, V3, V2, V6
-	VEXT 2, V0, V4, V7
-	WORD 0x41c060ce          //SM3PARTW1 V1.4S, V2.4S, V0.4S
-	WORD 0xe1c466ce          //SM3PARTW2 V1.4S, V7.4S, V6.4S
-	VEOR V3, V2, V10
+	VEXT $3, V4.B16, V3.B16, V1.B16
+	VEXT $3, V3.B16, V2.B16, V6.B16
+	VEXT $2, V0.B16, V4.B16, V7.B16
+	WORD $0x41c060ce          //SM3PARTW1 V1.4S, V2.4S, V0.4S
+	WORD $0xe1c466ce          //SM3PARTW2 V1.4S, V7.4S, V6.4S
+	VEOR V3.B16, V2.B16, V10.B16
 	// Compression
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
-	WORD 0xa98c42ce           //SM3TT2B V9d.4S, V5.4S, V2.S, 0
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
+	WORD $0xa98c42ce           //SM3TT2B V9d.4S, V5.4S, V2.S, 0
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
-	WORD 0xa99c42ce           //SM3TT2B V9d.4S, V5.4S, V2.S, 1
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
+	WORD $0xa99c42ce           //SM3TT2B V9d.4S, V5.4S, V2.S, 1
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
-	WORD 0xa9ac42ce           //SM3TT2B V9d.4S, V5.4S, V2.S, 2
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
+	WORD $0xa9ac42ce           //SM3TT2B V9d.4S, V5.4S, V2.S, 2
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
-	WORD 0xa9bc42ce           //SM3TT2B V9d.4S, V5.4S, V2.S, 3
+	WORD $0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
+	WORD $0xa9bc42ce           //SM3TT2B V9d.4S, V5.4S, V2.S, 3
 
 	// Extension
-	VEXT 3, V0, V4, V2
-	VEXT 3, V4, V3, V6
-	VEXT 2, V1, V0, V7
-	WORD 0x62c061ce          //SM3PARTW1 V2.4S, V3.4S, V1.4S
-	WORD 0xe2c466ce          //SM3PARTW2 V2.4S, V7.4S, V6.4S
-	VEOR V4, V3, V10
+	VEXT $3, V0.B16, V4.B16, V2.B16
+	VEXT $3, V4.B16, V3.B16, V6.B16
+	VEXT $2, V1.B16, V0.B16, V7.B16
+	WORD $0x62c061ce          //SM3PARTW1 V2.4S, V3.4S, V1.4S
+	WORD $0xe2c466ce          //SM3PARTW2 V2.4S, V7.4S, V6.4S
+	VEOR V4.B16, V3.B16, V10.B16
 	// Compression
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
-	WORD 0xa98c43ce           //SM3TT2B V9d.4S, V5.4S, V3.S, 0
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
+	WORD $0xa98c43ce           //SM3TT2B V9d.4S, V5.4S, V3.S, 0
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
-	WORD 0xa99c43ce           //SM3TT2B V9d.4S, V5.4S, V3.S, 1
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
+	WORD $0xa99c43ce           //SM3TT2B V9d.4S, V5.4S, V3.S, 1
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
-	WORD 0xa9ac43ce           //SM3TT2B V9d.4S, V5.4S, V3.S, 2
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
+	WORD $0xa9ac43ce           //SM3TT2B V9d.4S, V5.4S, V3.S, 2
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
-	WORD 0xa9bc43ce           //SM3TT2B V9d.4S, V5.4S, V3.S, 3
+	WORD $0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
+	WORD $0xa9bc43ce           //SM3TT2B V9d.4S, V5.4S, V3.S, 3
 
 	// Extension
-	VEXT 3, V1, V0, V3
-	VEXT 3, V0, V4, V6
-	VEXT 2, V2, V1, V7
-	WORD 0x83c062ce          //SM3PARTW1 V3.4S, V4.4S, V2.4S
-	WORD 0xe3c466ce          //SM3PARTW2 V3.4S, V7.4S, V6.4S
-	VEOR V0, V4, V10
+	VEXT $3, V1.B16, V0.B16, V3.B16
+	VEXT $3, V0.B16, V4.B16, V6.B16
+	VEXT $2, V2.B16, V1.B16, V7.B16
+	WORD $0x83c062ce          //SM3PARTW1 V3.4S, V4.4S, V2.4S
+	WORD $0xe3c466ce          //SM3PARTW2 V3.4S, V7.4S, V6.4S
+	VEOR V0.B16, V4.B16, V10.B16
 	// Compression
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
-	WORD 0xa98c44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 0
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
+	WORD $0xa98c44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 0
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
-	WORD 0xa99c44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 1
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
+	WORD $0xa99c44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 1
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
-	WORD 0xa9ac44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 2
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
+	WORD $0xa9ac44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 2
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
-	WORD 0xa9bc44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 3
+	WORD $0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
+	WORD $0xa9bc44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 3
 
 	// Extension
-	VEXT 3, V2, V1, V4
-	VEXT 3, V1, V0, V6
-	VEXT 2, V3, V2, V7
-	WORD 0x04c063ce          //SM3PARTW1 V4.4S, V0.4S, V3.4S
-	WORD 0xe4c466ce          //SM3PARTW2 V4.4S, V7.4S, V6.4S
-	VEOR V1, V0, V10
+	VEXT $3, V2.B16, V1.B16, V4.B16
+	VEXT $3, V1.B16, V0.B16, V6.B16
+	VEXT $2, V3.B16, V2.B16, V7.B16
+	WORD $0x04c063ce          //SM3PARTW1 V4.4S, V0.4S, V3.4S
+	WORD $0xe4c466ce          //SM3PARTW2 V4.4S, V7.4S, V6.4S
+	VEOR V1.B16, V0.B16, V10.B16
 	// Compression
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
-	WORD 0xa98c40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 0
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
+	WORD $0xa98c40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 0
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
-	WORD 0xa99c40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 1
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
+	WORD $0xa99c40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 1
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
-	WORD 0xa9ac40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 2
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
+	WORD $0xa9ac40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 2
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
-	WORD 0xa9bc40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 3
+	WORD $0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
+	WORD $0xa9bc40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 3
 
 	// Extension
-	VEXT 3, V3, V2, V0
-	VEXT 3, V2, V1, V6
-	VEXT 2, V4, V3, V7
-	WORD 0x20c064ce          //SM3PARTW1 V0.4S, V1.4S, V4.4S
-	WORD 0xe0c466ce          //SM3PARTW2 V0.4S, V7.4S, V6.4S
-	VEOR V2, V1, V10
+	VEXT $3, V3.B16, V2.B16, V0.B16
+	VEXT $3, V2.B16, V1.B16, V6.B16
+	VEXT $2, V4.B16, V3.B16, V7.B16
+	WORD $0x20c064ce          //SM3PARTW1 V0.4S, V1.4S, V4.4S
+	WORD $0xe0c466ce          //SM3PARTW2 V0.4S, V7.4S, V6.4S
+	VEOR V2.B16, V1.B16, V10.B16
 	// Compression
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
-	WORD 0xa98c41ce           //SM3TT2B V9d.4S, V5.4S, V1.S, 0
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
+	WORD $0xa98c41ce           //SM3TT2B V9d.4S, V5.4S, V1.S, 0
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
-	WORD 0xa99c41ce           //SM3TT2B V9d.4S, V5.4S, V1.S, 1
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
+	WORD $0xa99c41ce           //SM3TT2B V9d.4S, V5.4S, V1.S, 1
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
-	WORD 0xa9ac41ce           //SM3TT2B V9d.4S, V5.4S, V1.S, 2
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
+	WORD $0xa9ac41ce           //SM3TT2B V9d.4S, V5.4S, V1.S, 2
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
-	WORD 0xa9bc41ce           //SM3TT2B V9d.4S, V5.4S, V1.S, 3
+	WORD $0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
+	WORD $0xa9bc41ce           //SM3TT2B V9d.4S, V5.4S, V1.S, 3
 
 	// Extension
-	VEXT 3, V4, V3, V1
-	VEXT 3, V3, V2, V6
-	VEXT 2, V0, V4, V7
-	WORD 0x41c060ce          //SM3PARTW1 V1.4S, V2.4S, V0.4S
-	WORD 0xe1c466ce          //SM3PARTW2 V1.4S, V7.4S, V6.4S
-	VEOR V3, V2, V10
+	VEXT $3, V4.B16, V3.B16, V1.B16
+	VEXT $3, V3.B16, V2.B16, V6.B16
+	VEXT $2, V0.B16, V4.B16, V7.B16
+	WORD $0x41c060ce          //SM3PARTW1 V1.4S, V2.4S, V0.4S
+	WORD $0xe1c466ce          //SM3PARTW2 V1.4S, V7.4S, V6.4S
+	VEOR V3.B16, V2.B16, V10.B16
 	// Compression
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
-	WORD 0xa98c42ce           //SM3TT2B V9d.4S, V5.4S, V2.S, 0
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
+	WORD $0xa98c42ce           //SM3TT2B V9d.4S, V5.4S, V2.S, 0
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
-	WORD 0xa99c42ce           //SM3TT2B V9d.4S, V5.4S, V2.S, 1
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
+	WORD $0xa99c42ce           //SM3TT2B V9d.4S, V5.4S, V2.S, 1
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
-	WORD 0xa9ac42ce           //SM3TT2B V9d.4S, V5.4S, V2.S, 2
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
+	WORD $0xa9ac42ce           //SM3TT2B V9d.4S, V5.4S, V2.S, 2
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
-	WORD 0xa9bc42ce           //SM3TT2B V9d.4S, V5.4S, V2.S, 3
+	WORD $0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
+	WORD $0xa9bc42ce           //SM3TT2B V9d.4S, V5.4S, V2.S, 3
 
-	VEOR V4, V3, V10
+	VEOR V4.B16, V3.B16, V10.B16
 	// Compression
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
-	WORD 0xa98c43ce           //SM3TT2B V9d.4S, V5.4S, V3.S, 0
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
+	WORD $0xa98c43ce           //SM3TT2B V9d.4S, V5.4S, V3.S, 0
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
-	WORD 0xa99c43ce           //SM3TT2B V9d.4S, V5.4S, V3.S, 1
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
+	WORD $0xa99c43ce           //SM3TT2B V9d.4S, V5.4S, V3.S, 1
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
-	WORD 0xa9ac43ce           //SM3TT2B V9d.4S, V5.4S, V3.S, 2
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
+	WORD $0xa9ac43ce           //SM3TT2B V9d.4S, V5.4S, V3.S, 2
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
-	WORD 0xa9bc43ce           //SM3TT2B V9d.4S, V5.4S, V3.S, 3
+	WORD $0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
+	WORD $0xa9bc43ce           //SM3TT2B V9d.4S, V5.4S, V3.S, 3
 
-	VEOR V0, V4, V10
+	VEOR V0.B16, V4.B16, V10.B16
 	// Compression
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
-	WORD 0xa98c44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 0
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
+	WORD $0xa98c44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 0
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
-	WORD 0xa99c44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 1
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
+	WORD $0xa99c44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 1
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
-	WORD 0xa9ac44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 2
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
+	WORD $0xa9ac44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 2
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
-	WORD 0xa9bc44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 3
+	WORD $0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
+	WORD $0xa9bc44ce           //SM3TT2B V9d.4S, V5.4S, V4.S, 3
 
-	VEOR V1, V0, V10
+	VEOR V1.B16, V0.B16, V10.B16
 	// Compression
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
-	WORD 0xa98c40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 0
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8844ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 0
+	WORD $0xa98c40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 0
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
-	WORD 0xa99c40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 1
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8944ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 1
+	WORD $0xa99c40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 1
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
-	WORD 0xa9ac40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 2
-	WORD 0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
+	WORD $0xa8a44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 2
+	WORD $0xa9ac40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 2
+	WORD $0x05254bce           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V11.S4
-	WORD 0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
-	WORD 0xa9bc40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 3
+	WORD $0xa8b44ace           //SM3TT1B V8d.4S, V5.4S, V10.S, 3
+	WORD $0xa9bc40ce           //SM3TT2B V9d.4S, V5.4S, V0.S, 3
 
 	SUB	$64, R3, R3                                  // message length - 64bytes, then compare with 64bytes
-	VEOR	V8.S4, V15.S4, V8.S4
-	VEOR	V9.S4, V16.S4, V9.S4
+	VEOR	V8.B16, V15.B16, V8.B16
+	VEOR	V9.B16, V16.B16, V9.B16
 	CBNZ	R3, blockloop
 
 sm3ret:

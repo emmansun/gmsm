@@ -58,18 +58,18 @@ func sm3tt2b(Vd, Vn, Vm, imm2 byte) uint32 {
 
 // Used v5 as temp register
 func roundA(buf *bytes.Buffer, i, t, st1, st2, w, wt byte) {
-	fmt.Fprintf(buf, "\tWORD 0x%08x           //SM3SS1 V%d.4S, V%d.4S, V%d.4S, V%d.4S\n", sm3ss1(5, st1, t, st2), 5, st1, t, st2)
+	fmt.Fprintf(buf, "\tWORD $0x%08x           //SM3SS1 V%d.4S, V%d.4S, V%d.4S, V%d.4S\n", sm3ss1(5, st1, t, st2), 5, st1, t, st2)
 	fmt.Fprintf(buf, "\tVSHL $1, V%d.S4, V%d.S4\n", t, t)
-	fmt.Fprintf(buf, "\tWORD 0x%08x           //SM3TT1A V%dd.4S, V%d.4S, V%d.S, %d\n", sm3tt1a(st1, 5, wt, i), st1, 5, wt, i)
-	fmt.Fprintf(buf, "\tWORD 0x%08x           //SM3TT2A V%dd.4S, V%d.4S, V%d.S, %d\n", sm3tt2a(st2, 5, w, i), st2, 5, w, i)
+	fmt.Fprintf(buf, "\tWORD $0x%08x           //SM3TT1A V%dd.4S, V%d.4S, V%d.S, %d\n", sm3tt1a(st1, 5, wt, i), st1, 5, wt, i)
+	fmt.Fprintf(buf, "\tWORD $0x%08x           //SM3TT2A V%dd.4S, V%d.4S, V%d.S, %d\n", sm3tt2a(st2, 5, w, i), st2, 5, w, i)
 }
 
 // Used v5 as temp register
 func roundB(buf *bytes.Buffer, i, t, st1, st2, w, wt byte) {
-	fmt.Fprintf(buf, "\tWORD 0x%08x           //SM3SS1 V%d.4S, V%d.4S, V%d.4S, V%d.4S\n", sm3ss1(5, st1, t, st2), 5, st1, t, st2)
+	fmt.Fprintf(buf, "\tWORD $0x%08x           //SM3SS1 V%d.4S, V%d.4S, V%d.4S, V%d.4S\n", sm3ss1(5, st1, t, st2), 5, st1, t, st2)
 	fmt.Fprintf(buf, "\tVSHL $1, V%d.S4, V%d.S4\n", t, t)
-	fmt.Fprintf(buf, "\tWORD 0x%08x           //SM3TT1B V%dd.4S, V%d.4S, V%d.S, %d\n", sm3tt1b(st1, 5, wt, i), st1, 5, wt, i)
-	fmt.Fprintf(buf, "\tWORD 0x%08x           //SM3TT2B V%dd.4S, V%d.4S, V%d.S, %d\n", sm3tt2b(st2, 5, w, i), st2, 5, w, i)
+	fmt.Fprintf(buf, "\tWORD $0x%08x           //SM3TT1B V%dd.4S, V%d.4S, V%d.S, %d\n", sm3tt1b(st1, 5, wt, i), st1, 5, wt, i)
+	fmt.Fprintf(buf, "\tWORD $0x%08x           //SM3TT2B V%dd.4S, V%d.4S, V%d.S, %d\n", sm3tt2b(st2, 5, w, i), st2, 5, w, i)
 }
 
 // Compress 4 words and generate 4 words, use v6, v7, v10 as temp registers
@@ -82,12 +82,12 @@ func roundB(buf *bytes.Buffer, i, t, st1, st2, w, wt byte) {
 // st1, st2, sm3 state
 func qroundA(buf *bytes.Buffer, t, st1, st2, s0, s1, s2, s3, s4 byte) {
 	fmt.Fprintf(buf, "\t// Extension\n")
-	fmt.Fprintf(buf, "\tVEXT 3, V%d, V%d, V%d\n", s2, s1, s4)
-	fmt.Fprintf(buf, "\tVEXT 3, V%d, V%d, V%d\n", s1, s0, 6)
-	fmt.Fprintf(buf, "\tVEXT 2, V%d, V%d, V%d\n", s3, s2, 7)
-	fmt.Fprintf(buf, "\tWORD 0x%08x          //SM3PARTW1 V%d.4S, V%d.4S, V%d.4S\n", sm3partw1(s4, s0, s3), s4, s0, s3)
-	fmt.Fprintf(buf, "\tWORD 0x%08x          //SM3PARTW2 V%d.4S, V%d.4S, V%d.4S\n", sm3partw2(s4, 7, 6), s4, 7, 6)
-	fmt.Fprintf(buf, "\tVEOR V%d, V%d, V10\n", s1, s0)
+	fmt.Fprintf(buf, "\tVEXT $3, V%d.B16, V%d.B16, V%d.B16\n", s2, s1, s4)
+	fmt.Fprintf(buf, "\tVEXT $3, V%d.B16, V%d.B16, V%d.B16\n", s1, s0, 6)
+	fmt.Fprintf(buf, "\tVEXT $2, V%d.B16, V%d.B16, V%d.B16\n", s3, s2, 7)
+	fmt.Fprintf(buf, "\tWORD $0x%08x          //SM3PARTW1 V%d.4S, V%d.4S, V%d.4S\n", sm3partw1(s4, s0, s3), s4, s0, s3)
+	fmt.Fprintf(buf, "\tWORD $0x%08x          //SM3PARTW2 V%d.4S, V%d.4S, V%d.4S\n", sm3partw2(s4, 7, 6), s4, 7, 6)
+	fmt.Fprintf(buf, "\tVEOR V%d.B16, V%d.B16, V10.B16\n", s1, s0)
 	fmt.Fprintf(buf, "\t// Compression\n")
 	roundA(buf, 0, t, st1, st2, s0, 10)
 	roundA(buf, 1, t, st1, st2, s0, 10)
@@ -100,13 +100,13 @@ func qroundA(buf *bytes.Buffer, t, st1, st2, s0, s1, s2, s3, s4 byte) {
 func qroundB(buf *bytes.Buffer, t, st1, st2, s0, s1, s2, s3, s4 byte) {
 	if s4 != 0xff {
 		fmt.Fprintf(buf, "\t// Extension\n")
-		fmt.Fprintf(buf, "\tVEXT 3, V%d, V%d, V%d\n", s2, s1, s4)
-		fmt.Fprintf(buf, "\tVEXT 3, V%d, V%d, V%d\n", s1, s0, 6)
-		fmt.Fprintf(buf, "\tVEXT 2, V%d, V%d, V%d\n", s3, s2, 7)
-		fmt.Fprintf(buf, "\tWORD 0x%08x          //SM3PARTW1 V%d.4S, V%d.4S, V%d.4S\n", sm3partw1(s4, s0, s3), s4, s0, s3)
-		fmt.Fprintf(buf, "\tWORD 0x%08x          //SM3PARTW2 V%d.4S, V%d.4S, V%d.4S\n", sm3partw2(s4, 7, 6), s4, 7, 6)
+		fmt.Fprintf(buf, "\tVEXT $3, V%d.B16, V%d.B16, V%d.B16\n", s2, s1, s4)
+		fmt.Fprintf(buf, "\tVEXT $3, V%d.B16, V%d.B16, V%d.B16\n", s1, s0, 6)
+		fmt.Fprintf(buf, "\tVEXT $2, V%d.B16, V%d.B16, V%d.B16\n", s3, s2, 7)
+		fmt.Fprintf(buf, "\tWORD $0x%08x          //SM3PARTW1 V%d.4S, V%d.4S, V%d.4S\n", sm3partw1(s4, s0, s3), s4, s0, s3)
+		fmt.Fprintf(buf, "\tWORD $0x%08x          //SM3PARTW2 V%d.4S, V%d.4S, V%d.4S\n", sm3partw2(s4, 7, 6), s4, 7, 6)
 	}
-	fmt.Fprintf(buf, "\tVEOR V%d, V%d, V10\n", s1, s0)
+	fmt.Fprintf(buf, "\tVEOR V%d.B16, V%d.B16, V10.B16\n", s1, s0)
 	fmt.Fprintf(buf, "\t// Compression\n")
 	roundB(buf, 0, t, st1, st2, s0, 10)
 	roundB(buf, 1, t, st1, st2, s0, 10)
@@ -165,8 +165,8 @@ blockloop:
 
 	fmt.Fprint(buf, `
 	SUB	$64, R3, R3                                  // message length - 64bytes, then compare with 64bytes
-	VEOR	V8.S4, V15.S4, V8.S4
-	VEOR	V9.S4, V16.S4, V9.S4
+	VEOR	V8.B16, V15.B16, V8.B16
+	VEOR	V9.B16, V16.B16, V9.B16
 	CBNZ	R3, blockloop
 
 sm3ret:
