@@ -2201,3 +2201,12 @@ avx2GcmSm4DecDone:
 	VMOVDQU ACC0, (tPtr)
 	VZEROUPPER	
 	RET
+
+// func gcmSm4niEnc(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk []uint32)
+TEXT ·gcmSm4niEnc(SB),NOSPLIT,$0
+	RET
+
+// func gcmSm4niDec(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk []uint32)
+TEXT ·gcmSm4niDec(SB),NOSPLIT,$0
+	RET
+	
