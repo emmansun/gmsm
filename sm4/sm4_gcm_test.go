@@ -11,11 +11,11 @@ import (
 
 func genPrecomputeTable() *gcmAsm {
 	key := []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
-	c := sm4CipherAsm{sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}, 4, 64}
+	c := &sm4CipherAsm{sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}, 4, 64}
 	expandKey(key, c.enc, c.dec)
 	c1 := &sm4CipherGCM{c}
 	g := &gcmAsm{}
-	g.cipher = &c1.sm4CipherAsm
+	g.cipher = c1.sm4CipherAsm
 	gcmSm4InitInst(&g.bytesProductTable, g.cipher.enc)
 	return g
 }
@@ -145,11 +145,11 @@ func TestBothDataPlaintext(t *testing.T) {
 
 func createGcm() *gcmAsm {
 	key := []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
-	c := sm4CipherAsm{sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}, 4, 64}
+	c := &sm4CipherAsm{sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}, 4, 64}
 	expandKey(key, c.enc, c.dec)
 	c1 := &sm4CipherGCM{c}
 	g := &gcmAsm{}
-	g.cipher = &c1.sm4CipherAsm
+	g.cipher = c1.sm4CipherAsm
 	g.tagSize = 16
 	gcmSm4InitInst(&g.bytesProductTable, g.cipher.enc)
 	return g
