@@ -60,73 +60,73 @@
 	VEOR	T3.B16, ACCM.B16, ACCM.B16
 
 #define sm4eEnc1block() \
-        WORD $0x6086c0ce         \ //SM4E V0.4S, V19.4S
-        WORD $0x8086c0ce         \ //SM4E V0.4S, V20.4S
-        WORD $0xa086c0ce         \ //SM4E V0.4S, V21.4S
-        WORD $0xc086c0ce         \ //SM4E V0.4S, V22.4S
-        WORD $0xe086c0ce         \ //SM4E V0.4S, V23.4S
-        WORD $0x0087c0ce         \ //SM4E V0.4S, V24.4S
-        WORD $0x2087c0ce         \ //SM4E V0.4S, V25.4S
-        WORD $0x4087c0ce           //SM4E V0.4S, V26.4S
+	WORD $0x6086c0ce         \ //SM4E V0.4S, V19.4S
+	WORD $0x8086c0ce         \ //SM4E V0.4S, V20.4S
+	WORD $0xa086c0ce         \ //SM4E V0.4S, V21.4S
+	WORD $0xc086c0ce         \ //SM4E V0.4S, V22.4S
+	WORD $0xe086c0ce         \ //SM4E V0.4S, V23.4S
+	WORD $0x0087c0ce         \ //SM4E V0.4S, V24.4S
+	WORD $0x2087c0ce         \ //SM4E V0.4S, V25.4S
+	WORD $0x4087c0ce           //SM4E V0.4S, V26.4S
 
 #define sm4eEnc8blocks() \
-        sm4eEnc1block()         \
-        WORD $0x6186c0ce         \ //SM4E V1.4S, V19.4S
-        WORD $0x8186c0ce         \ //SM4E V1.4S, V20.4S
-        WORD $0xa186c0ce         \ //SM4E V1.4S, V21.4S
-        WORD $0xc186c0ce         \ //SM4E V1.4S, V22.4S
-        WORD $0xe186c0ce         \ //SM4E V1.4S, V23.4S
-        WORD $0x0187c0ce         \ //SM4E V1.4S, V24.4S
-        WORD $0x2187c0ce         \ //SM4E V1.4S, V25.4S
-        WORD $0x4187c0ce         \ //SM4E V1.4S, V26.4S
-        WORD $0x6286c0ce         \ //SM4E V2.4S, V19.4S
-        WORD $0x8286c0ce         \ //SM4E V2.4S, V20.4S
-        WORD $0xa286c0ce         \ //SM4E V2.4S, V21.4S
-        WORD $0xc286c0ce         \ //SM4E V2.4S, V22.4S
-        WORD $0xe286c0ce         \ //SM4E V2.4S, V23.4S
-        WORD $0x0287c0ce         \ //SM4E V2.4S, V24.4S
-        WORD $0x2287c0ce         \ //SM4E V2.4S, V25.4S
-        WORD $0x4287c0ce         \ //SM4E V2.4S, V26.4S
-        WORD $0x6386c0ce         \ //SM4E V3.4S, V19.4S
-        WORD $0x8386c0ce         \ //SM4E V3.4S, V20.4S
-        WORD $0xa386c0ce         \ //SM4E V3.4S, V21.4S
-        WORD $0xc386c0ce         \ //SM4E V3.4S, V22.4S
-        WORD $0xe386c0ce         \ //SM4E V3.4S, V23.4S
-        WORD $0x0387c0ce         \ //SM4E V3.4S, V24.4S
-        WORD $0x2387c0ce         \ //SM4E V3.4S, V25.4S
-        WORD $0x4387c0ce         \ //SM4E V3.4S, V26.4S
-        WORD $0x6486c0ce         \ //SM4E V4.4S, V19.4S
-        WORD $0x8486c0ce         \ //SM4E V4.4S, V20.4S
-        WORD $0xa486c0ce         \ //SM4E V4.4S, V21.4S
-        WORD $0xc486c0ce         \ //SM4E V4.4S, V22.4S
-        WORD $0xe486c0ce         \ //SM4E V4.4S, V23.4S
-        WORD $0x0487c0ce         \ //SM4E V4.4S, V24.4S
-        WORD $0x2487c0ce         \ //SM4E V4.4S, V25.4S
-        WORD $0x4487c0ce         \ //SM4E V4.4S, V26.4S
-        WORD $0x6586c0ce         \ //SM4E V5.4S, V19.4S
-        WORD $0x8586c0ce         \ //SM4E V5.4S, V20.4S
-        WORD $0xa586c0ce         \ //SM4E V5.4S, V21.4S
-        WORD $0xc586c0ce         \ //SM4E V5.4S, V22.4S
-        WORD $0xe586c0ce         \ //SM4E V5.4S, V23.4S
-        WORD $0x0587c0ce         \ //SM4E V5.4S, V24.4S
-        WORD $0x2587c0ce         \ //SM4E V5.4S, V25.4S
-        WORD $0x4587c0ce         \ //SM4E V5.4S, V26.4S
-        WORD $0x6686c0ce         \ //SM4E V6.4S, V19.4S
-        WORD $0x8686c0ce         \ //SM4E V6.4S, V20.4S
-        WORD $0xa686c0ce         \ //SM4E V6.4S, V21.4S
-        WORD $0xc686c0ce         \ //SM4E V6.4S, V22.4S
-        WORD $0xe686c0ce         \ //SM4E V6.4S, V23.4S
-        WORD $0x0687c0ce         \ //SM4E V6.4S, V24.4S
-        WORD $0x2687c0ce         \ //SM4E V6.4S, V25.4S
-        WORD $0x4687c0ce         \ //SM4E V6.4S, V26.4S
-        WORD $0x6786c0ce         \ //SM4E V7.4S, V19.4S
-        WORD $0x8786c0ce         \ //SM4E V7.4S, V20.4S
-        WORD $0xa786c0ce         \ //SM4E V7.4S, V21.4S
-        WORD $0xc786c0ce         \ //SM4E V7.4S, V22.4S
-        WORD $0xe786c0ce         \ //SM4E V7.4S, V23.4S
-        WORD $0x0787c0ce         \ //SM4E V7.4S, V24.4S
-        WORD $0x2787c0ce         \ //SM4E V7.4S, V25.4S
-        WORD $0x4787c0ce           //SM4E V7.4S, V26.4S    
+	sm4eEnc1block()         \
+	WORD $0x6186c0ce         \ //SM4E V1.4S, V19.4S
+	WORD $0x8186c0ce         \ //SM4E V1.4S, V20.4S
+	WORD $0xa186c0ce         \ //SM4E V1.4S, V21.4S
+	WORD $0xc186c0ce         \ //SM4E V1.4S, V22.4S
+	WORD $0xe186c0ce         \ //SM4E V1.4S, V23.4S
+	WORD $0x0187c0ce         \ //SM4E V1.4S, V24.4S
+	WORD $0x2187c0ce         \ //SM4E V1.4S, V25.4S
+	WORD $0x4187c0ce         \ //SM4E V1.4S, V26.4S
+	WORD $0x6286c0ce         \ //SM4E V2.4S, V19.4S
+	WORD $0x8286c0ce         \ //SM4E V2.4S, V20.4S
+	WORD $0xa286c0ce         \ //SM4E V2.4S, V21.4S
+	WORD $0xc286c0ce         \ //SM4E V2.4S, V22.4S
+	WORD $0xe286c0ce         \ //SM4E V2.4S, V23.4S
+	WORD $0x0287c0ce         \ //SM4E V2.4S, V24.4S
+	WORD $0x2287c0ce         \ //SM4E V2.4S, V25.4S
+	WORD $0x4287c0ce         \ //SM4E V2.4S, V26.4S
+	WORD $0x6386c0ce         \ //SM4E V3.4S, V19.4S
+	WORD $0x8386c0ce         \ //SM4E V3.4S, V20.4S
+	WORD $0xa386c0ce         \ //SM4E V3.4S, V21.4S
+	WORD $0xc386c0ce         \ //SM4E V3.4S, V22.4S
+	WORD $0xe386c0ce         \ //SM4E V3.4S, V23.4S
+	WORD $0x0387c0ce         \ //SM4E V3.4S, V24.4S
+	WORD $0x2387c0ce         \ //SM4E V3.4S, V25.4S
+	WORD $0x4387c0ce         \ //SM4E V3.4S, V26.4S
+	WORD $0x6486c0ce         \ //SM4E V4.4S, V19.4S
+	WORD $0x8486c0ce         \ //SM4E V4.4S, V20.4S
+	WORD $0xa486c0ce         \ //SM4E V4.4S, V21.4S
+	WORD $0xc486c0ce         \ //SM4E V4.4S, V22.4S
+	WORD $0xe486c0ce         \ //SM4E V4.4S, V23.4S
+	WORD $0x0487c0ce         \ //SM4E V4.4S, V24.4S
+	WORD $0x2487c0ce         \ //SM4E V4.4S, V25.4S
+	WORD $0x4487c0ce         \ //SM4E V4.4S, V26.4S
+	WORD $0x6586c0ce         \ //SM4E V5.4S, V19.4S
+	WORD $0x8586c0ce         \ //SM4E V5.4S, V20.4S
+	WORD $0xa586c0ce         \ //SM4E V5.4S, V21.4S
+	WORD $0xc586c0ce         \ //SM4E V5.4S, V22.4S
+	WORD $0xe586c0ce         \ //SM4E V5.4S, V23.4S
+	WORD $0x0587c0ce         \ //SM4E V5.4S, V24.4S
+	WORD $0x2587c0ce         \ //SM4E V5.4S, V25.4S
+	WORD $0x4587c0ce         \ //SM4E V5.4S, V26.4S
+	WORD $0x6686c0ce         \ //SM4E V6.4S, V19.4S
+	WORD $0x8686c0ce         \ //SM4E V6.4S, V20.4S
+	WORD $0xa686c0ce         \ //SM4E V6.4S, V21.4S
+	WORD $0xc686c0ce         \ //SM4E V6.4S, V22.4S
+	WORD $0xe686c0ce         \ //SM4E V6.4S, V23.4S
+	WORD $0x0687c0ce         \ //SM4E V6.4S, V24.4S
+	WORD $0x2687c0ce         \ //SM4E V6.4S, V25.4S
+	WORD $0x4687c0ce         \ //SM4E V6.4S, V26.4S
+	WORD $0x6786c0ce         \ //SM4E V7.4S, V19.4S
+	WORD $0x8786c0ce         \ //SM4E V7.4S, V20.4S
+	WORD $0xa786c0ce         \ //SM4E V7.4S, V21.4S
+	WORD $0xc786c0ce         \ //SM4E V7.4S, V22.4S
+	WORD $0xe786c0ce         \ //SM4E V7.4S, V23.4S
+	WORD $0x0787c0ce         \ //SM4E V7.4S, V24.4S
+	WORD $0x2787c0ce         \ //SM4E V7.4S, V25.4S
+	WORD $0x4787c0ce           //SM4E V7.4S, V26.4S    
 
 // func gcmSm4niEnc(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk []uint32)
 TEXT ·gcmSm4niEnc(SB),NOSPLIT,$0
@@ -193,15 +193,15 @@ octetsLoop:
 		VADD	B6.S4, INC.S4, B7.S4
 		VADD	B7.S4, INC.S4, CTR.S4
 
-        sm4eEnc8blocks()
-        VREV32 B0.B16, B0.B16
-        VREV32 B1.B16, B1.B16
-        VREV32 B2.B16, B2.B16
-        VREV32 B3.B16, B3.B16
-        VREV32 B4.B16, B4.B16
-        VREV32 B5.B16, B5.B16
-        VREV32 B6.B16, B6.B16
-        VREV32 B7.B16, B7.B16
+		sm4eEnc8blocks()
+		VREV32 B0.B16, B0.B16
+		VREV32 B1.B16, B1.B16
+		VREV32 B2.B16, B2.B16
+		VREV32 B3.B16, B3.B16
+		VREV32 B4.B16, B4.B16
+		VREV32 B5.B16, B5.B16
+		VREV32 B6.B16, B6.B16
+		VREV32 B7.B16, B7.B16
 
 		// XOR plaintext and store ciphertext
 		VLD1.P	32(srcPtr), [T1.B16, T2.B16]
@@ -254,14 +254,14 @@ singlesLoop:
 		BLT	tail
 		SUB	$16, srcPtrLen
 
-        VMOV	CTR.B16, B0.B16
+		VMOV	CTR.B16, B0.B16
 		VADD	CTR.S4, INC.S4, CTR.S4
-        sm4eEnc1block()
-        VREV32 B0.B16, B0.B16
+		sm4eEnc1block()
+		VREV32 B0.B16, B0.B16
 
 singlesLast:
-        VLD1.P	16(srcPtr), [T0.B16]
-        VEOR	T0.B16, B0.B16, B0.B16
+		VLD1.P	16(srcPtr), [T0.B16]
+		VEOR	T0.B16, B0.B16, B0.B16
 
 encReduce:
 		VST1.P	[B0.B16], 16(dstPtr)
@@ -315,9 +315,9 @@ ld1:
 	VMOV	H1, T3.B[0]
 ld0:
 	MOVD	ZR, srcPtrLen
-    VMOV	CTR.B16, B0.B16
-    sm4eEnc1block()
-    VREV32 B0.B16, B0.B16
+	VMOV	CTR.B16, B0.B16
+	sm4eEnc1block()
+	VREV32 B0.B16, B0.B16
 
 tailLast:
 	VEOR	T0.B16, B0.B16, B0.B16
@@ -326,7 +326,7 @@ tailLast:
 
 done:
 	VST1	[ACC0.B16], (tPtr)
-    RET
+	RET
 
 // func gcmSm4niDec(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk []uint32)
 TEXT ·gcmSm4niDec(SB),NOSPLIT,$0
@@ -381,15 +381,15 @@ octetsLoop:
 		VADD	B6.S4, INC.S4, B7.S4
 		VADD	B7.S4, INC.S4, CTR.S4
 
-        sm4eEnc8blocks()      
+		sm4eEnc8blocks()      
 		VREV32 B0.B16, T1.B16
 		VREV32 B1.B16, T2.B16
-        VREV32 B2.B16, B2.B16
-        VREV32 B3.B16, B3.B16
-        VREV32 B4.B16, B4.B16
-        VREV32 B5.B16, B5.B16
-        VREV32 B6.B16, B6.B16
-        VREV32 B7.B16, B7.B16
+		VREV32 B2.B16, B2.B16
+		VREV32 B3.B16, B3.B16
+		VREV32 B4.B16, B4.B16
+		VREV32 B5.B16, B5.B16
+		VREV32 B6.B16, B6.B16
+		VREV32 B7.B16, B7.B16
 
 		VLD1.P	32(srcPtr), [B0.B16, B1.B16]
 		VEOR	B0.B16, T1.B16, T1.B16
@@ -443,17 +443,17 @@ singlesLoop:
 		CMP	$16, srcPtrLen
 		BLT	tail
 		SUB	$16, srcPtrLen
-        
-        VLD1.P	16(srcPtr), [T0.B16]
-        VREV64	T0.B16, B5.B16
-        
-        VMOV	CTR.B16, B0.B16
+
+		VLD1.P	16(srcPtr), [T0.B16]
+		VREV64	T0.B16, B5.B16
+
+		VMOV	CTR.B16, B0.B16
 		VADD	CTR.S4, INC.S4, CTR.S4
-        sm4eEnc1block()
-        VREV32 B0.B16, B0.B16
+		sm4eEnc1block()
+		VREV32 B0.B16, B0.B16
 
 singlesLast:
-        VEOR	T0.B16, B0.B16, B0.B16
+		VEOR	T0.B16, B0.B16, B0.B16
 		VST1.P	[B0.B16], 16(dstPtr)
 
 		VEOR	ACC0.B16, B5.B16, B5.B16
@@ -467,13 +467,13 @@ singlesLast:
 	B	singlesLoop        
 tail:
 	CBZ	srcPtrLen, done
-    VMOV	CTR.B16, B0.B16
-    VADD	CTR.S4, INC.S4, CTR.S4
-    sm4eEnc1block()
-    VREV32 B0.B16, B0.B16    
+	VMOV	CTR.B16, B0.B16
+	VADD	CTR.S4, INC.S4, CTR.S4
+	sm4eEnc1block()
+	VREV32 B0.B16, B0.B16    
 tailLast:
 	// Assuming it is safe to load past dstPtr due to the presence of the tag
-    // B5 stored last ciphertext
+	// B5 stored last ciphertext
 	VLD1	(srcPtr), [B5.B16]
 
 	VEOR	B5.B16, B0.B16, B0.B16
@@ -522,4 +522,4 @@ ld0:
 done:
 	VST1	[ACC0.B16], (tPtr)
 
-	RET    
+	RET
