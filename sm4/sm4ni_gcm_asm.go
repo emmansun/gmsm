@@ -10,85 +10,51 @@ import (
 	"github.com/emmansun/gmsm/internal/subtle"
 )
 
-// sm4CipherGCM implements crypto/cipher.gcmAble so that crypto/cipher.NewGCM
+//go:noescape
+func gcmSm4niEnc(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk []uint32)
+
+//go:noescape
+func gcmSm4niDec(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk []uint32)
+
+// sm4CipherNIGCM implements crypto/cipher.gcmAble so that crypto/cipher.NewGCM
 // will use the optimised implementation in this file when possible. Instances
-// of this type only exist when hasGCMAsm and hasAES returns true.
-type sm4CipherGCM struct {
-	*sm4CipherAsm
+// of this type only exist when hasGCMAsm and hasSM4 returns true.
+type sm4CipherNIGCM struct {
+	*sm4CipherNI
 }
 
-// Assert that sm4CipherGCM implements the gcmAble interface.
-var _ gcmAble = (*sm4CipherGCM)(nil)
+// Assert that sm4CipherNIGCM implements the gcmAble interface.
+var _ gcmAble = (*sm4CipherNIGCM)(nil)
 
-//go:noescape
-func gcmSm4Init(productTable *[256]byte, rk []uint32, inst int)
-
-//go:noescape
-func gcmSm4Enc(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk []uint32)
-
-//go:noescape
-func gcmSm4Dec(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk []uint32)
-
-//go:noescape
-func gcmSm4Data(productTable *[256]byte, data []byte, T *[16]byte)
-
-//go:noescape
-func gcmSm4Finish(productTable *[256]byte, tagMask, T *[16]byte, pLen, dLen uint64)
-
-// gcmSm4InitInst is used for test
-func gcmSm4InitInst(productTable *[256]byte, rk []uint32) {
-	if supportSM4 {
-		gcmSm4Init(productTable, rk, INST_SM4)
-	} else {
-		gcmSm4Init(productTable, rk, INST_AES)
-	}
-}
-
-// gcmSm4EncInst is used for test
-func gcmSm4EncInst(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk []uint32) {
-	if supportSM4 {
-		gcmSm4niEnc(productTable, dst, src, ctr, T, rk)
-	} else {
-		gcmSm4Enc(productTable, dst, src, ctr, T, rk)
-	}
-}
-
-// gcmSm4DecInst is used for test
-func gcmSm4DecInst(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk []uint32) {
-	if supportSM4 {
-		gcmSm4niDec(productTable, dst, src, ctr, T, rk)
-	} else {
-		gcmSm4Dec(productTable, dst, src, ctr, T, rk)
-	}
-}
-
-type gcmAsm struct {
-	gcm
+type gcmNI struct {
+	cipher            *sm4CipherNI
+	nonceSize         int
+	tagSize           int
 	bytesProductTable [256]byte
+}
+
+func (g *gcmNI) NonceSize() int {
+	return g.nonceSize
+}
+
+func (g *gcmNI) Overhead() int {
+	return g.tagSize
 }
 
 // NewGCM returns the SM4 cipher wrapped in Galois Counter Mode. This is only
 // called by crypto/cipher.NewGCM via the gcmAble interface.
-func (c *sm4CipherGCM) NewGCM(nonceSize, tagSize int) (cipher.AEAD, error) {
-	g := &gcmAsm{}
-	g.cipher = c.sm4CipherAsm
+func (c *sm4CipherNIGCM) NewGCM(nonceSize, tagSize int) (cipher.AEAD, error) {
+	g := &gcmNI{}
+	g.cipher = c.sm4CipherNI
 	g.nonceSize = nonceSize
 	g.tagSize = tagSize
-	gcmSm4Init(&g.bytesProductTable, g.cipher.enc, INST_AES)
+	gcmSm4Init(&g.bytesProductTable, g.cipher.enc, INST_SM4)
 	return g, nil
-}
-
-func (g *gcmAsm) NonceSize() int {
-	return g.nonceSize
-}
-
-func (g *gcmAsm) Overhead() int {
-	return g.tagSize
 }
 
 // Seal encrypts and authenticates plaintext. See the cipher.AEAD interface for
 // details.
-func (g *gcmAsm) Seal(dst, nonce, plaintext, data []byte) []byte {
+func (g *gcmNI) Seal(dst, nonce, plaintext, data []byte) []byte {
 	if len(nonce) != g.nonceSize {
 		panic("cipher: incorrect nonce length given to GCM")
 	}
@@ -119,7 +85,7 @@ func (g *gcmAsm) Seal(dst, nonce, plaintext, data []byte) []byte {
 	}
 
 	if len(plaintext) > 0 {
-		gcmSm4Enc(&g.bytesProductTable, out, plaintext, &counter, &tagOut, g.cipher.enc)
+		gcmSm4niEnc(&g.bytesProductTable, out, plaintext, &counter, &tagOut, g.cipher.enc)
 	}
 	gcmSm4Finish(&g.bytesProductTable, &tagMask, &tagOut, uint64(len(plaintext)), uint64(len(data)))
 	copy(out[len(plaintext):], tagOut[:])
@@ -129,7 +95,7 @@ func (g *gcmAsm) Seal(dst, nonce, plaintext, data []byte) []byte {
 
 // Open authenticates and decrypts ciphertext. See the cipher.AEAD interface
 // for details.
-func (g *gcmAsm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
+func (g *gcmNI) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 	if len(nonce) != g.nonceSize {
 		panic("cipher: incorrect nonce length given to GCM")
 	}
@@ -172,7 +138,7 @@ func (g *gcmAsm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 		panic("cipher: invalid buffer overlap")
 	}
 	if len(ciphertext) > 0 {
-		gcmSm4Dec(&g.bytesProductTable, out, ciphertext, &counter, &expectedTag, g.cipher.enc)
+		gcmSm4niDec(&g.bytesProductTable, out, ciphertext, &counter, &expectedTag, g.cipher.enc)
 	}
 	gcmSm4Finish(&g.bytesProductTable, &tagMask, &expectedTag, uint64(len(ciphertext)), uint64(len(data)))
 

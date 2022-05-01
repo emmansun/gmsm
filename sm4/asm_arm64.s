@@ -164,13 +164,44 @@ GLOBL fk_mask<>(SB), (NOPTR+RODATA), $16
   VMOV R0, R24_MASK.D[0]       \
   VMOV R1, R24_MASK.D[1]
 
-// func expandKeyAsm(key *byte, ck, enc, dec *uint32)
+#define SM4EKEY_EXPORT_KEYS() \
+  VMOV V9.S[3], V10.S[0]            \
+  VMOV V9.S[2], V10.S[1]            \
+  VMOV V9.S[1], V10.S[2]            \
+  VMOV V9.S[0], V10.S[3]            \
+  VMOV V8.S[3], V11.S[0]            \
+  VMOV V8.S[2], V11.S[1]            \
+  VMOV V8.S[1], V11.S[2]            \
+  VMOV V8.S[0], V11.S[3]            \
+  VST1.P	[V8.S4, V9.S4], 32(R10)   \
+  VST1	[V10.S4, V11.S4], (R11)     \
+  SUB  $32, R11, R11
+
+#define SM4E_ROUND() \
+  VLD1.P 16(R10), [V8.B16]    \
+  VREV32 V8.B16, V8.B16      \
+  WORD $0x0884c0ce            \ 
+  WORD $0x2884c0ce            \ 
+  WORD $0x4884c0ce            \ 
+  WORD $0x6884c0ce            \ 
+  WORD $0x8884c0ce            \ 
+  WORD $0xa884c0ce            \ 
+  WORD $0xc884c0ce            \ 
+  WORD $0xe884c0ce            \ 
+  VREV32 V8.B16, V8.B16      \
+  VST1.P  [V8.B16], 16(R9)
+
+// func expandKeyAsm(key *byte, ck, enc, dec *uint32, inst int)
 TEXT ·expandKeyAsm(SB),NOSPLIT,$0
   MOVD key+0(FP), R8
   MOVD ck+8(FP), R9
   MOVD enc+16(FP), R10
   MOVD dec+24(FP), R11
-  
+  MOVD inst+32(FP), R12
+
+  CMP $1, R12
+  BEQ sm4ekey
+
   load_global_data_1()
 	
   VLD1 (R8), [t0.B16]
@@ -193,14 +224,46 @@ ksLoop:
   ADD $16, R0 
   CMP $128, R0
   BNE ksLoop
-
   RET 
 
-// func encryptBlocksAsm(xk *uint32, dst, src []byte)
+sm4ekey:
+  LDP fk_mask<>(SB), (R0, R1)
+  VMOV R0, FK_MASK.D[0]             
+  VMOV R1, FK_MASK.D[1]
+	VLD1 (R8), [V9.B16]
+	VREV32 V9.B16, V9.B16
+	VEOR FK_MASK.B16, V9.B16, V9.B16
+  ADD $96, R11
+
+	VLD1.P	64(R9), [V0.S4, V1.S4, V2.S4, V3.S4]
+	WORD $0x28c960ce          //SM4EKEY V8.4S, V9.4S, V0.4S
+	WORD $0x09c961ce          //SM4EKEY V9.4S, V8.4S, V1.4S
+  SM4EKEY_EXPORT_KEYS()
+
+	WORD $0x28c962ce          //SM4EKEY V8.4S, V9.4S, V2.4S
+	WORD $0x09c963ce          //SM4EKEY V9.4S, V8.4S, V3.4S
+	SM4EKEY_EXPORT_KEYS()
+
+	VLD1.P	64(R9), [V0.S4, V1.S4, V2.S4, V3.S4]
+	WORD $0x28c960ce          //SM4EKEY V8.4S, V9.4S, V0.4S
+	WORD $0x09c961ce          //SM4EKEY V9.4S, V8.4S, V1.4S
+	SM4EKEY_EXPORT_KEYS()
+
+	WORD $0x28c962ce          //SM4EKEY V8.4S, V9.4S, V2.4S
+	WORD $0x09c963ce          //SM4EKEY V9.4S, V8.4S, V3.4S
+	SM4EKEY_EXPORT_KEYS()
+  RET
+
+// func encryptBlocksAsm(xk *uint32, dst, src []byte, inst int)
 TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
   MOVD xk+0(FP), R8
   MOVD dst+8(FP), R9
   MOVD src+32(FP), R10
+  MOVD src_len+40(FP), R12
+  MOVD inst+56(FP), R11
+
+  CMP $1, R11
+  BEQ sm4niblocks
 
   VLD1 (R10), [V5.S4, V6.S4, V7.S4, V8.S4]
   VMOV V5.S[0], t0.S[0]
@@ -271,15 +334,26 @@ encryptBlocksLoop:
   VMOV t1.S[3], V8.S[2]
   VMOV t0.S[3], V8.S[3]
   VST1 [V8.B16], (R9)
-
   RET
 
+sm4niblocks:
+  VLD1.P  64(R8), [V0.S4, V1.S4, V2.S4, V3.S4]
+  VLD1.P  64(R8), [V4.S4, V5.S4, V6.S4, V7.S4]
+sm4niblockloop:  
+  SM4E_ROUND()
+	SUB	$16, R12, R12                                  // message length - 16bytes, then compare with 16bytes
+	CBNZ	R12, sm4niblockloop  
+  RET
 
-// func encryptBlockAsm(xk *uint32, dst, src *byte)
+// func encryptBlockAsm(xk *uint32, dst, src *byte, inst int)
 TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
   MOVD xk+0(FP), R8
   MOVD dst+8(FP), R9
   MOVD src+16(FP), R10
+  MOVD inst+24(FP), R11
+
+  CMP $1, R11
+  BEQ sm4niblock
 
   VLD1 (R10), [t0.S4]
   VREV32 t0.B16, t0.B16
@@ -312,5 +386,21 @@ encryptBlockLoop:
   VMOV t1.S[0], V8.S[2]
   VMOV t0.S[0], V8.S[3]
   VST1 [V8.B16], (R9)
+  RET
 
+sm4niblock:
+	VLD1 (R10), [V8.B16]
+	VREV32 V8.B16, V8.B16
+	VLD1.P	64(R8), [V0.S4, V1.S4, V2.S4, V3.S4]
+	WORD $0x0884c0ce          //SM4E V8.4S, V0.4S
+	WORD $0x2884c0ce          //SM4E V8.4S, V1.4S
+	WORD $0x4884c0ce          //SM4E V8.4S, V2.4S
+	WORD $0x6884c0ce          //SM4E V8.4S, V3.4S
+	VLD1.P	64(R8), [V0.S4, V1.S4, V2.S4, V3.S4]
+	WORD $0x0884c0ce          //SM4E V8.4S, V0.4S
+	WORD $0x2884c0ce          //SM4E V8.4S, V1.4S
+	WORD $0x4884c0ce          //SM4E V8.4S, V2.4S
+	WORD $0x6884c0ce          //SM4E V8.4S, V3.4S
+	VREV32 V8.B16, V8.B16
+	VST1	[V8.B16], (R9)
   RET  

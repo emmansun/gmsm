@@ -252,7 +252,7 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 	SM4_TAO_L1(x, y, z);                              \
 	VEOR x.B16, t0.B16, t0.B16
 
-// func gcmSm4Init(productTable *[256]byte, rk []uint32)
+// func gcmSm4Init(productTable *[256]byte, rk []uint32, inst int)
 TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 #define pTbl R0
 #define RK R1
@@ -260,6 +260,7 @@ TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 
 	MOVD productTable+0(FP), pTbl
 	MOVD rk+8(FP), RK
+	MOVD inst+16(FP), R5
 
 	MOVD	$0xC2, I
 	LSL	$56, I
@@ -269,6 +270,9 @@ TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 	VEOR	ZERO.B16, ZERO.B16, ZERO.B16
 
 	// Encrypt block 0 with the SM4 keys to generate the hash key H
+	CMP $1, R5
+	BEQ sm4InitSM4E
+
 	LOAD_SM4_AESNI_CONSTS()
 	VEOR	B0.B16, B0.B16, B0.B16
 	VEOR	B1.B16, B1.B16, B1.B16
@@ -290,7 +294,22 @@ sm4InitEncLoop:
 	VMOV B1.S[0], B0.S[3]
 	VMOV B2.S[0], B0.S[0]
 	VMOV B3.S[0], B0.S[1]
-
+	B sm4InitEncDone
+sm4InitSM4E:
+	VEOR	B0.B16, B0.B16, B0.B16
+	VLD1.P	64(RK), [T0.S4, T1.S4, T2.S4, T3.S4]
+	WORD $0x6085c0ce          //SM4E V0.4S, V11.4S
+	WORD $0x8085c0ce          //SM4E V0.4S, V12.4S
+	WORD $0xa085c0ce          //SM4E V0.4S, V13.4S
+	WORD $0xc085c0ce          //SM4E V0.4S, V14.4S
+	VLD1.P	64(RK), [T0.S4, T1.S4, T2.S4, T3.S4]
+	WORD $0x6085c0ce          //SM4E V0.4S, V11.4S
+	WORD $0x8085c0ce          //SM4E V0.4S, V12.4S
+	WORD $0xa085c0ce          //SM4E V0.4S, V13.4S
+	WORD $0xc085c0ce          //SM4E V0.4S, V14.4S
+	VREV32	B0.B16, B0.B16
+	VREV64	B0.B16, B0.B16		
+sm4InitEncDone:
 	// Multiply by 2 modulo P
 	VMOV	B0.D[0], I
 	ASR	$63, I
@@ -547,6 +566,7 @@ TEXT ·gcmSm4Enc(SB),NOSPLIT,$0
 	VMOV	H0, INC.S[3]
 	VREV32	CTR.B16, CTR.B16
 	VADD	CTR.S4, INC.S4, CTR.S4
+
 	// Skip to <8 blocks loop
 	CMP	$128, srcPtrLen
 
@@ -587,7 +607,7 @@ encOctetsEnc4Blocks1:
 		VREV32 B2.B16, B2.B16
 		VREV32 B3.B16, B3.B16
 		TRANSPOSE_MATRIX(B0, B1, B2, B3, K0)
-		// encryption first 4 blocks
+		// encryption second 4 blocks
 		PRE_TRANSPOSE_MATRIX(B4, B5, B6, B7, K0)
 		MOVD	rkSave, rk
 
@@ -880,7 +900,7 @@ decOctetsEnc4Blocks1:
 		VREV32 B3.B16, B3.B16
 		TRANSPOSE_MATRIX(T1, T2, B2, B3, K0)
 
-		// encryption first 4 blocks
+		// encryption second 4 blocks
 		PRE_TRANSPOSE_MATRIX(B4, B5, B6, B7, K0)
 		MOVD	rkSave, rk
 
