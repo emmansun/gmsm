@@ -31,29 +31,6 @@ func Test_toBytes(t *testing.T) {
 	}
 }
 
-func Test_getLastBitOfY(t *testing.T) {
-	type args struct {
-		y string
-	}
-	tests := []struct {
-		name string
-		args args
-		want uint
-	}{
-		// TODO: Add test cases.
-		{"0", args{"d20d27d0632957f8028c1e024f6b02edf23102a566c932ae8bd613a8e865fe"}, 0},
-		{"1", args{"d20d27d0632957f8028c1e024f6b02edf23102a566c932ae8bd613a8e865ff"}, 1},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			y, _ := new(big.Int).SetString(tt.args.y, 16)
-			if got := getLastBitOfY(y, y); got != tt.want {
-				t.Errorf("getLastBitOfY() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func Test_toPointXY(t *testing.T) {
 	type args struct {
 		bytes string
