@@ -2358,8 +2358,8 @@ func TestCreateCertificateLegacy(t *testing.T) {
 		SignatureAlgorithm: sigAlg,
 	}
 	_, err := CreateCertificate(rand.Reader, template.asX509(), template.asX509(), testPrivateKey.Public(), &brokenSigner{testPrivateKey.Public()})
-	if err != nil {
-		t.Fatalf("CreateCertificate failed when SignatureAlgorithm = %v: %s", sigAlg, err)
+	if err == nil {
+		t.Fatal("CreateCertificate didn't fail when SignatureAlgorithm = MD5WithRSA")
 	}
 }
 

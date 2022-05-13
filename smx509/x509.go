@@ -1203,6 +1203,10 @@ func signingParamsForPublicKey(pub interface{}, requestedSigAlgo SignatureAlgori
 				err = errors.New("x509: cannot sign with hash function requested")
 				return
 			}
+			if hashFunc == crypto.MD5 {
+				err = errors.New("x509: signing with MD5 is not supported")
+				return
+			}
 			if isRSAPSS(requestedSigAlgo) {
 				sigAlgo.Parameters = hashToPSSParameters[hashFunc]
 			}
@@ -1292,7 +1296,7 @@ func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, 
 	if template.SerialNumber.Sign() == -1 {
 		return nil, errors.New("x509: serial number must be positive")
 	}
-	
+
 	if template.BasicConstraintsValid && !template.IsCA && template.MaxPathLen != -1 && (template.MaxPathLen != 0 || template.MaxPathLenZero) {
 		return nil, errors.New("x509: only CAs are allowed to specify MaxPathLen")
 	}
@@ -1400,15 +1404,8 @@ func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, 
 	}
 
 	// Check the signature to ensure the crypto.Signer behaved correctly.
-	sigAlg := getSignatureAlgorithmFromAI(signatureAlgorithm)
-	switch sigAlg {
-	case MD5WithRSA:
-		// We skip the check if the signature algorithm is only supported for
-		// signing, not verification.
-	default:
-		if err := checkSignature(sigAlg, c.Raw, signature, key.Public(), true); err != nil {
-			return nil, fmt.Errorf("x509: signature over certificate returned by signer is invalid: %w", err)
-		}
+	if err := checkSignature(getSignatureAlgorithmFromAI(signatureAlgorithm), c.Raw, signature, key.Public(), true); err != nil {
+		return nil, fmt.Errorf("x509: signature over certificate returned by signer is invalid: %w", err)
 	}
 
 	return signedCert, nil
