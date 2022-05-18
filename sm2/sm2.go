@@ -117,7 +117,7 @@ func (mode pointMarshalMode) mashal(curve elliptic.Curve, x, y *big.Int) []byte 
 func toBytes(curve elliptic.Curve, value *big.Int) []byte {
 	byteLen := (curve.Params().BitSize + 7) >> 3
 	result := make([]byte, byteLen)
-	value.FillBytes(result[:])
+	value.FillBytes(result)
 	return result
 }
 
