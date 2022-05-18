@@ -103,11 +103,13 @@ func NewPlainDecrypterOpts(splicingOrder ciphertextSplicingOrder) *DecrypterOpts
 func (mode pointMarshalMode) mashal(curve elliptic.Curve, x, y *big.Int) []byte {
 	switch mode {
 	case MarshalCompressed:
-		return point2CompressedBytes(curve, x, y)
+		return elliptic.MarshalCompressed(curve, x, y)
 	case MarshalMixed:
-		return point2MixedBytes(curve, x, y)
+		buffer := elliptic.Marshal(curve, x, y)
+		buffer[0] = byte(y.Bit(0)) | mixed06
+		return buffer
 	default:
-		return point2UncompressedBytes(curve, x, y)
+		return elliptic.Marshal(curve, x, y)
 	}
 }
 

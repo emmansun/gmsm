@@ -2,7 +2,6 @@ package sm2
 
 import (
 	"crypto/elliptic"
-	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -11,53 +10,10 @@ import (
 )
 
 func toBytes(curve elliptic.Curve, value *big.Int) []byte {
-	bytes := value.Bytes()
 	byteLen := (curve.Params().BitSize + 7) >> 3
-	if byteLen == len(bytes) {
-		return bytes
-	}
 	result := make([]byte, byteLen)
-	copy(result[byteLen-len(bytes):], bytes)
+	value.FillBytes(result[:])
 	return result
-}
-
-func point2UncompressedBytes(curve elliptic.Curve, x, y *big.Int) []byte {
-	return elliptic.Marshal(curve, x, y)
-}
-
-func point2CompressedBytes(curve elliptic.Curve, x, y *big.Int) []byte {
-	buffer := make([]byte, (curve.Params().BitSize+7)>>3+1)
-	copy(buffer[1:], toBytes(curve, x))
-	buffer[0] = byte(y.Bit(0)) | compressed02
-	return buffer
-}
-
-func point2MixedBytes(curve elliptic.Curve, x, y *big.Int) []byte {
-	buffer := elliptic.Marshal(curve, x, y)
-	buffer[0] = byte(y.Bit(0)) | mixed06
-	return buffer
-}
-
-func toPointXY(bytes []byte) *big.Int {
-	return new(big.Int).SetBytes(bytes)
-}
-
-func calculatePrimeCurveY(curve elliptic.Curve, x *big.Int) (*big.Int, error) {
-	x3 := new(big.Int).Mul(x, x)
-	x3.Mul(x3, x)
-
-	threeX := new(big.Int).Lsh(x, 1)
-	threeX.Add(threeX, x)
-
-	x3.Sub(x3, threeX)
-	x3.Add(x3, curve.Params().B)
-	x3.Mod(x3, curve.Params().P)
-	y := x3.ModSqrt(x3, curve.Params().P)
-
-	if y == nil {
-		return nil, errors.New("can't calculate y based on x")
-	}
-	return y, nil
 }
 
 func bytes2Point(curve elliptic.Curve, bytes []byte) (*big.Int, *big.Int, int, error) {
@@ -71,9 +27,11 @@ func bytes2Point(curve elliptic.Curve, bytes []byte) (*big.Int, *big.Int, int, e
 		if len(bytes) < 1+byteLen*2 {
 			return nil, nil, 0, fmt.Errorf("invalid uncompressed bytes length %d", len(bytes))
 		}
-		x := toPointXY(bytes[1 : 1+byteLen])
-		y := toPointXY(bytes[1+byteLen : 1+byteLen*2])
-		if !curve.IsOnCurve(x, y) {
+		data := make([]byte, 1+byteLen*2)
+		data[0] = uncompressed
+		copy(data[1:], bytes[1:1+byteLen*2])
+		x, y := elliptic.Unmarshal(curve, data)
+		if x == nil || y == nil {
 			return nil, nil, 0, fmt.Errorf("point is not on curve %s", curve.Params().Name)
 		}
 		return x, y, 1 + byteLen*2, nil
@@ -84,15 +42,8 @@ func bytes2Point(curve elliptic.Curve, bytes []byte) (*big.Int, *big.Int, int, e
 		// Make sure it's NIST curve or SM2 P-256 curve
 		if strings.HasPrefix(curve.Params().Name, "P-") || strings.EqualFold(curve.Params().Name, p256.CurveParams.Name) {
 			// y² = x³ - 3x + b, prime curves
-			x := toPointXY(bytes[1 : 1+byteLen])
-			y, err := calculatePrimeCurveY(curve, x)
-			if err != nil {
-				return nil, nil, 0, err
-			}
-			if byte(y.Bit(0)) != bytes[0]&1 {
-				y.Neg(y).Mod(y, curve.Params().P)
-			}
-			if !curve.IsOnCurve(x, y) {
+			x, y := elliptic.UnmarshalCompressed(curve, bytes[:1+byteLen])
+			if x == nil || y == nil {
 				return nil, nil, 0, fmt.Errorf("point is not on curve %s", curve.Params().Name)
 			}
 			return x, y, 1 + byteLen, nil

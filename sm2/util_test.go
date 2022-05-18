@@ -30,27 +30,3 @@ func Test_toBytes(t *testing.T) {
 		})
 	}
 }
-
-func Test_toPointXY(t *testing.T) {
-	type args struct {
-		bytes string
-	}
-	tests := []struct {
-		name string
-		args args
-		want string
-	}{
-		// TODO: Add test cases.
-		{"has zero padding", args{"00d20d27d0632957f8028c1e024f6b02edf23102a566c932ae8bd613a8e865fe"}, "d20d27d0632957f8028c1e024f6b02edf23102a566c932ae8bd613a8e865fe"},
-		{"no zero padding", args{"58d20d27d0632957f8028c1e024f6b02edf23102a566c932ae8bd613a8e865fe"}, "58d20d27d0632957f8028c1e024f6b02edf23102a566c932ae8bd613a8e865fe"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			bytes, _ := hex.DecodeString(tt.args.bytes)
-			expectedInt, _ := new(big.Int).SetString(tt.want, 16)
-			if got := toPointXY(bytes); !reflect.DeepEqual(got, expectedInt) {
-				t.Errorf("toPointXY() = %v, want %v", got, expectedInt)
-			}
-		})
-	}
-}
