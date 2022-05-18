@@ -24,6 +24,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/emmansun/gmsm/internal/randutil"
 	"github.com/emmansun/gmsm/sm3"
 	"golang.org/x/crypto/cryptobyte"
 	"golang.org/x/crypto/cryptobyte/asn1"
@@ -111,6 +112,50 @@ func (mode pointMarshalMode) mashal(curve elliptic.Curve, x, y *big.Int) []byte 
 	default:
 		return elliptic.Marshal(curve, x, y)
 	}
+}
+
+func toBytes(curve elliptic.Curve, value *big.Int) []byte {
+	byteLen := (curve.Params().BitSize + 7) >> 3
+	result := make([]byte, byteLen)
+	value.FillBytes(result[:])
+	return result
+}
+
+func bytes2Point(curve elliptic.Curve, bytes []byte) (*big.Int, *big.Int, int, error) {
+	if len(bytes) < 1+(curve.Params().BitSize/8) {
+		return nil, nil, 0, fmt.Errorf("invalid bytes length %d", len(bytes))
+	}
+	format := bytes[0]
+	byteLen := (curve.Params().BitSize + 7) >> 3
+	switch format {
+	case uncompressed, mixed06, mixed07: // what's the mixed format purpose?
+		if len(bytes) < 1+byteLen*2 {
+			return nil, nil, 0, fmt.Errorf("invalid uncompressed bytes length %d", len(bytes))
+		}
+		data := make([]byte, 1+byteLen*2)
+		data[0] = uncompressed
+		copy(data[1:], bytes[1:1+byteLen*2])
+		x, y := elliptic.Unmarshal(curve, data)
+		if x == nil || y == nil {
+			return nil, nil, 0, fmt.Errorf("point is not on curve %s", curve.Params().Name)
+		}
+		return x, y, 1 + byteLen*2, nil
+	case compressed02, compressed03:
+		if len(bytes) < 1+byteLen {
+			return nil, nil, 0, fmt.Errorf("invalid compressed bytes length %d", len(bytes))
+		}
+		// Make sure it's NIST curve or SM2 P-256 curve
+		if strings.HasPrefix(curve.Params().Name, "P-") || strings.EqualFold(curve.Params().Name, p256.CurveParams.Name) {
+			// y² = x³ - 3x + b, prime curves
+			x, y := elliptic.UnmarshalCompressed(curve, bytes[:1+byteLen])
+			if x == nil || y == nil {
+				return nil, nil, 0, fmt.Errorf("point is not on curve %s", curve.Params().Name)
+			}
+			return x, y, 1 + byteLen, nil
+		}
+		return nil, nil, 0, fmt.Errorf("unsupport bytes format %d, curve %s", format, curve.Params().Name)
+	}
+	return nil, nil, 0, fmt.Errorf("unknown bytes format %d", format)
 }
 
 var defaultEncrypterOpts = &EncrypterOpts{ENCODING_PLAIN, MarshalUncompressed, C1C3C2}
@@ -588,7 +633,7 @@ func fermatInverse(k, N *big.Int) *big.Int {
 //
 // Compliance with GB/T 32918.2-2016 regardless it's SM2 curve or not.
 func Sign(rand io.Reader, priv *ecdsa.PrivateKey, hash []byte) (r, s *big.Int, err error) {
-	maybeReadByte(rand)
+	randutil.MaybeReadByte(rand)
 
 	// We use SDK's nouce generation implementation here.
 	//
