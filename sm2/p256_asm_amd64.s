@@ -1368,7 +1368,7 @@ TEXT sm2P256SubInternal(SB),NOSPLIT,$0
 
 	RET
 /* ---------------------------------------*/
-TEXT sm2P256MulInternal(SB),NOSPLIT,$0
+TEXT sm2P256MulInternal(SB),NOSPLIT,$8
 	MOVQ acc4, mul0
 	MULQ t0
 	MOVQ mul0, acc0
@@ -1567,7 +1567,7 @@ TEXT sm2P256MulInternal(SB),NOSPLIT,$0
 
 	RET
 /* ---------------------------------------*/
-TEXT sm2P256SqrInternal(SB),NOSPLIT,$0
+TEXT sm2P256SqrInternal(SB),NOSPLIT,$8
 
 	MOVQ acc4, mul0
 	MULQ acc5
