@@ -208,8 +208,8 @@ func Test_encryptDecrypt(t *testing.T) {
 				t.Errorf("Decrypt() = %v, want %v", string(plaintext), tt.plainText)
 			}
 
-			// mixed mode
-			encrypterOpts = NewPlainEncrypterOpts(MarshalMixed, C1C3C2)
+			// hybrid mode
+			encrypterOpts = NewPlainEncrypterOpts(MarshalHybrid, C1C3C2)
 			ciphertext, err = Encrypt(rand.Reader, &priv.PublicKey, []byte(tt.plainText), encrypterOpts)
 			if err != nil {
 				t.Fatalf("encrypt failed %v", err)
