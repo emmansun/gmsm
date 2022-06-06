@@ -1770,28 +1770,22 @@ gcmSm4DecNibbles:
 	JBE gcmSm4DecSingles
 	SUBQ $64, ptxLen
 
-	MOVOU (0*16)(SP), B0
-	MOVOU (1*16)(SP), B1
-	MOVOU (2*16)(SP), B2
-	MOVOU (3*16)(SP), B3
+	MOVOU (0*16)(SP), B4
+	MOVOU (1*16)(SP), B5
+	MOVOU (2*16)(SP), B6
+	MOVOU (3*16)(SP), B7
 
-	SM4_4BLOCKS(rk, BX, T0, T1, T2, B0, B1, B2, B3)
+	SM4_4BLOCKS(rk, BX, T0, T1, T2, B4, B5, B6, B7)
 	MOVOU (16*14)(pTbl), T2
 	MOVOU (16*0)(ctx), T0
-	PXOR T0, B0
+	PXOR T0, B4
 	MOVOU (16*1)(ctx), T0
-	PXOR T0, B1
+	PXOR T0, B5
 	MOVOU (16*2)(ctx), T0
-	PXOR T0, B2
+	PXOR T0, B6
 	MOVOU (16*3)(ctx), T0
-	PXOR T0, B3
+	PXOR T0, B7
 
-	MOVOU B0, (16*0)(ptx)
-	MOVOU B1, (16*1)(ptx)
-	MOVOU B2, (16*2)(ptx)
-	MOVOU B3, (16*3)(ptx)
-
-	
 	decGhashRound(0)
 	increment(0)
 	decGhashRound(1)
@@ -1800,6 +1794,11 @@ gcmSm4DecNibbles:
 	increment(2)
 	decGhashRound(3)
 	increment(3)
+
+	MOVOU B4, (16*0)(ptx)
+	MOVOU B5, (16*1)(ptx)
+	MOVOU B6, (16*2)(ptx)
+	MOVOU B7, (16*3)(ptx)
 
 	LEAQ 64(ptx), ptx
 	LEAQ 64(ctx), ctx
@@ -1827,12 +1826,13 @@ gcmSm4DecSinglesLoop:
 		JB gcmSm4DecTail
 		SUBQ $16, ptxLen
 
-		MOVOU (16*0)(BP), B0
+		MOVOU (16*0)(BP), B1
 		MOVOU (ctx), T0
-		PXOR T0, B0
-		MOVOU B0, (ptx)
-
+		PXOR T0, B1
+		
 		decGhashRound(0)
+		MOVOU B1, (ptx)
+
 		LEAQ (16*1)(ptx), ptx
 		LEAQ (16*1)(ctx), ctx
 		ADDQ $16, BP
