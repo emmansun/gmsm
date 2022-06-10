@@ -1,5 +1,5 @@
 
-# GM-Standards SM2/SM3/SM4 for Go
+# GM-Standards SM2/SM3/SM4/SM9/ZUC for Go
 
 [![Travis CI](https://app.travis-ci.com/emmansun/gmsm.svg?branch=main)](https://app.travis-ci.com/emmansun/gmsm) 
 [![Github CI](https://github.com/emmansun/gmsm/actions/workflows/ci.yml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/ci.yml) 
