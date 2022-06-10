@@ -80,9 +80,10 @@ func (master *SignMasterPrivateKey) GenerateUserKey(uid []byte, hid byte) (*Sign
 	if t1.Sign() == 0 {
 		return nil, errors.New("sm9: need to re-generate sign master private key")
 	}
-	t1.ModInverse(t1, Order)
+	t1 = fermatInverse(t1, Order)
 	t2 := new(big.Int).Mul(t1, master.D)
 	t2.Mod(t2, Order)
+
 	priv := new(SignPrivateKey)
 	priv.SignMasterPublicKey = master.SignMasterPublicKey
 	priv.PrivateKey = new(G1).ScalarBaseMult(t2)
@@ -186,7 +187,7 @@ func (master *EncryptMasterPrivateKey) GenerateUserKey(uid []byte, hid byte) (*E
 	if t1.Sign() == 0 {
 		return nil, errors.New("sm9: need to re-generate encrypt master private key")
 	}
-	t1.ModInverse(t1, Order)
+	t1 = fermatInverse(t1, Order)
 	t2 := new(big.Int).Mul(t1, master.D)
 	t2.Mod(t2, Order)
 
@@ -287,4 +288,15 @@ func (priv *EncryptPrivateKey) UnmarshalASN1(der []byte) error {
 	}
 	priv.PrivateKey = g
 	return nil
+}
+
+// fermatInverse calculates the inverse of k in GF(P) using Fermat's method
+// (exponentiation modulo P - 2, per Euler's theorem). This has better
+// constant-time properties than Euclid's method (implemented in
+// math/big.Int.ModInverse and FIPS 186-4, Appendix C.1) although math/big
+// itself isn't strictly constant-time so it's not perfect.
+func fermatInverse(k, N *big.Int) *big.Int {
+	two := big.NewInt(2)
+	nMinus2 := new(big.Int).Sub(N, two)
+	return new(big.Int).Exp(k, nMinus2, N)
 }

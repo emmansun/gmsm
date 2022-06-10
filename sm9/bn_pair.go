@@ -132,6 +132,9 @@ func miller(q *twistPoint, p *curvePoint) *gfP12 {
 	aAffine.Set(q)
 	aAffine.MakeAffine()
 
+	minusA := &twistPoint{}
+	minusA.Neg(aAffine)
+
 	bAffine := &curvePoint{}
 	bAffine.Set(p)
 	bAffine.MakeAffine()
@@ -141,17 +144,25 @@ func miller(q *twistPoint, p *curvePoint) *gfP12 {
 
 	r2 := (&gfP2{}).Square(&aAffine.y)
 
-	for i := sixUPlus2.BitLen() - 2; i >= 0; i-- {
-		ret.Square(ret)
-		retDen.Square(retDen)
+	for i := len(sixUPlus2NAF) - 1; i > 0; i-- {
 		a, b, c, d, newR := lineFunctionDouble(r, bAffine)
+		if i != len(sixUPlus2NAF)-1 {
+			ret.Square(ret)
+			retDen.Square(retDen)
+		}
 		mulLine(ret, retDen, a, b, c, d)
 		r = newR
-		if sixUPlus2.Bit(i) == 1 {
+		switch sixUPlus2NAF[i-1] {
+		case 1:
 			a, b, c, d, newR = lineFunctionAdd(r, aAffine, bAffine, r2)
-			mulLine(ret, retDen, a, b, c, d)
-			r = newR
+		case -1:
+			a, b, c, d, newR = lineFunctionAdd(r, minusA, bAffine, r2)
+		default:
+			continue
 		}
+
+		mulLine(ret, retDen, a, b, c, d)
+		r = newR
 	}
 	q1 := &twistPoint{}
 	q1.x.Conjugate(&aAffine.x)
