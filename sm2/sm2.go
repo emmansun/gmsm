@@ -16,7 +16,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/sha512"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -25,6 +24,7 @@ import (
 	"sync"
 
 	"github.com/emmansun/gmsm/internal/randutil"
+	"github.com/emmansun/gmsm/internal/xor"
 	"github.com/emmansun/gmsm/sm3"
 	"golang.org/x/crypto/cryptobyte"
 	"golang.org/x/crypto/cryptobyte/asn1"
@@ -287,29 +287,6 @@ func randFieldElement(c elliptic.Curve, rand io.Reader) (k *big.Int, err error) 
 
 const maxRetryLimit = 100
 
-// kdf key derivation function, compliance with GB/T 32918.4-2016 5.4.3.
-func kdf(z []byte, len int) ([]byte, bool) {
-	limit := (len + sm3.Size - 1) >> sm3.SizeBitSize
-	md := sm3.New()
-	var countBytes [4]byte
-	var ct uint32 = 1
-	k := make([]byte, len+sm3.Size-1)
-	for i := 0; i < limit; i++ {
-		binary.BigEndian.PutUint32(countBytes[:], ct)
-		md.Write(z)
-		md.Write(countBytes[:])
-		copy(k[i*sm3.Size:], md.Sum(nil))
-		ct++
-		md.Reset()
-	}
-	for i := 0; i < len; i++ {
-		if k[i] != 0 {
-			return k[:len], true
-		}
-	}
-	return k, false
-}
-
 func calculateC3(curve elliptic.Curve, x2, y2 *big.Int, msg []byte) []byte {
 	md := sm3.New()
 	md.Write(toBytes(curve, x2))
@@ -364,7 +341,7 @@ func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Encrypter
 
 		//A5, calculate t=KDF(x2||y2, klen)
 		var kdfCount int = 0
-		t, success := kdf(append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
+		c2, success := sm3.Kdf(append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
 		if !success {
 			kdfCount++
 			if kdfCount > maxRetryLimit {
@@ -374,10 +351,7 @@ func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Encrypter
 		}
 
 		//A6, C2 = M + t;
-		c2 := make([]byte, msgLen)
-		for i := 0; i < msgLen; i++ {
-			c2[i] = msg[i] ^ t[i]
-		}
+		xor.XorBytes(c2, msg, c2)
 
 		//A7, C3 = hash(x2||M||y2)
 		c3 := calculateC3(curve, x2, y2, msg)
@@ -428,16 +402,14 @@ func rawDecrypt(priv *PrivateKey, x1, y1 *big.Int, c2, c3 []byte) ([]byte, error
 	curve := priv.Curve
 	x2, y2 := curve.ScalarMult(x1, y1, priv.D.Bytes())
 	msgLen := len(c2)
-	t, success := kdf(append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
+	msg, success := sm3.Kdf(append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
 	if !success {
 		return nil, errors.New("sm2: invalid cipher text")
 	}
 
 	//B5, calculate msg = c2 ^ t
-	msg := make([]byte, msgLen)
-	for i := 0; i < msgLen; i++ {
-		msg[i] = c2[i] ^ t[i]
-	}
+	xor.XorBytes(msg, c2, msg)
+
 	u := calculateC3(curve, x2, y2, msg)
 	for i := 0; i < sm3.Size; i++ {
 		if c3[i] != u[i] {

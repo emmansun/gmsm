@@ -209,3 +209,26 @@ func Sum(data []byte) [Size]byte {
 	d.Write(data)
 	return d.checkSum()
 }
+
+// Kdf key derivation function, compliance with GB/T 32918.4-2016 5.4.3.
+func Kdf(z []byte, len int) ([]byte, bool) {
+	limit := (len + Size - 1) >> SizeBitSize
+	md := New()
+	var countBytes [4]byte
+	var ct uint32 = 1
+	k := make([]byte, len+Size-1)
+	for i := 0; i < limit; i++ {
+		binary.BigEndian.PutUint32(countBytes[:], ct)
+		md.Write(z)
+		md.Write(countBytes[:])
+		copy(k[i*Size:], md.Sum(nil))
+		ct++
+		md.Reset()
+	}
+	for i := 0; i < len; i++ {
+		if k[i] != 0 {
+			return k[:len], true
+		}
+	}
+	return k, false
+}
