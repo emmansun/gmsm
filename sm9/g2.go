@@ -12,6 +12,9 @@ type G2 struct {
 	p *twistPoint
 }
 
+//Gen2 is the generator of G2.
+var Gen2 = &G2{twistGen}
+
 // RandomG2 returns x and g₂ˣ where x is a random, non-zero number read from r.
 func RandomG2(r io.Reader) (*big.Int, *G2, error) {
 	k, err := randomK(r)
@@ -76,28 +79,43 @@ func (e *G2) Set(a *G2) *G2 {
 func (e *G2) Marshal() []byte {
 	// Each value is a 256-bit number.
 	const numBytes = 256 / 8
+	ret := make([]byte, numBytes*4)
+	e.fillBytes(ret)
+	return ret
+}
+
+// Marshal converts e into a byte slice with prefix
+func (e *G2) MarshalUncompressed() []byte {
+	// Each value is a 256-bit number.
+	const numBytes = 256 / 8
+	ret := make([]byte, numBytes*4+1)
+	ret[0] = 4
+	e.fillBytes(ret[1:])
+	return ret
+}
+
+func (e *G2) fillBytes(buffer []byte) {
+	// Each value is a 256-bit number.
+	const numBytes = 256 / 8
 
 	if e.p == nil {
 		e.p = &twistPoint{}
 	}
 
 	e.p.MakeAffine()
-	ret := make([]byte, numBytes*4)
 	if e.p.IsInfinity() {
-		return ret
+		return
 	}
 	temp := &gfP{}
 
 	montDecode(temp, &e.p.x.x)
-	temp.Marshal(ret)
+	temp.Marshal(buffer)
 	montDecode(temp, &e.p.x.y)
-	temp.Marshal(ret[numBytes:])
+	temp.Marshal(buffer[numBytes:])
 	montDecode(temp, &e.p.y.x)
-	temp.Marshal(ret[2*numBytes:])
+	temp.Marshal(buffer[2*numBytes:])
 	montDecode(temp, &e.p.y.y)
-	temp.Marshal(ret[3*numBytes:])
-
-	return ret
+	temp.Marshal(buffer[3*numBytes:])
 }
 
 // Unmarshal sets e to the result of converting the output of Marshal back into

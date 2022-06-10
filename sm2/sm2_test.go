@@ -82,6 +82,13 @@ func Test_encryptDecrypt_ASN1(t *testing.T) {
 			if !reflect.DeepEqual(string(plaintext), tt.plainText) {
 				t.Errorf("Decrypt() = %v, want %v", string(plaintext), tt.plainText)
 			}
+			plaintext, err = priv.Decrypt(rand.Reader, ciphertext, ASN1DecrypterOpts)
+			if err != nil {
+				t.Fatalf("decrypt failed %v", err)
+			}
+			if !reflect.DeepEqual(string(plaintext), tt.plainText) {
+				t.Errorf("Decrypt() = %v, want %v", string(plaintext), tt.plainText)
+			}
 		})
 	}
 }
@@ -193,6 +200,13 @@ func Test_encryptDecrypt(t *testing.T) {
 			ciphertext, err = Encrypt(rand.Reader, &priv.PublicKey, []byte(tt.plainText), encrypterOpts)
 			if err != nil {
 				t.Fatalf("encrypt failed %v", err)
+			}
+			plaintext, err = Decrypt(priv, ciphertext)
+			if err != nil {
+				t.Fatalf("decrypt failed %v", err)
+			}
+			if !reflect.DeepEqual(string(plaintext), tt.plainText) {
+				t.Errorf("Decrypt() = %v, want %v", string(plaintext), tt.plainText)
 			}
 			plaintext, err = Decrypt(priv, ciphertext)
 			if err != nil {

@@ -100,23 +100,41 @@ func (e *G1) Marshal() []byte {
 	// Each value is a 256-bit number.
 	const numBytes = 256 / 8
 
+	ret := make([]byte, numBytes*2)
+
+	e.fillBytes(ret)
+	return ret
+}
+
+// Marshal converts e to a byte slice with prefix
+func (e *G1) MarshalUncompressed() []byte {
+	// Each value is a 256-bit number.
+	const numBytes = 256 / 8
+
+	ret := make([]byte, numBytes*2+1)
+	ret[0] = 4
+
+	e.fillBytes(ret[1:])
+	return ret
+}
+
+func (e *G1) fillBytes(buffer []byte) {
+	const numBytes = 256 / 8
+
 	if e.p == nil {
 		e.p = &curvePoint{}
 	}
 
 	e.p.MakeAffine()
-	ret := make([]byte, numBytes*2)
 	if e.p.IsInfinity() {
-		return ret
+		return
 	}
 	temp := &gfP{}
 
 	montDecode(temp, &e.p.x)
-	temp.Marshal(ret)
+	temp.Marshal(buffer)
 	montDecode(temp, &e.p.y)
-	temp.Marshal(ret[numBytes:])
-
-	return ret
+	temp.Marshal(buffer[numBytes:])
 }
 
 // Unmarshal sets e to the result of converting the output of Marshal back into
