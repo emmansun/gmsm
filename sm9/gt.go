@@ -1,6 +1,7 @@
 package sm9
 
 import (
+	"crypto/subtle"
 	"errors"
 	"io"
 	"math/big"
@@ -83,6 +84,15 @@ func (e *GT) Set(a *GT) *GT {
 	}
 	e.p.Set(a.p)
 	return e
+}
+
+// Set sets e to one and then returns e.
+func (e *GT) SetOne() *GT {
+	if e.p == nil {
+		e.p = &gfP12{}
+	}
+	e.p.SetOne()
+	return e	
 }
 
 // Finalize is a linear function from F_p^12 to GT.
@@ -196,4 +206,22 @@ func (e *GT) Unmarshal(m []byte) ([]byte, error) {
 	montEncode(&e.p.z.y.y, &e.p.z.y.y)
 
 	return m[12*numBytes:], nil
+}
+
+// A gtPointTable holds the first 15 Exp of a value at offset -1, so P
+// is at table[0], P^15 is at table[14], and P^0 is implicitly the identity
+// point.
+type gtTable [15]*GT
+
+// Select selects the n-th multiple of the table base point into p. It works in
+// constant time by iterating over every entry of the table. n must be in [0, 15].
+func (table *gtTable) Select(p *GT, n uint8) {
+	if n >= 16 {
+		panic("sm9: internal error: gtTable called with out-of-bounds value")
+	}
+	p.p.SetOne()
+	for i := uint8(1); i < 16; i++ {
+		cond := subtle.ConstantTimeByteEq(i, n)
+		p.p.Select(table[i-1].p, p.p, cond)
+	}
 }

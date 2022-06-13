@@ -367,3 +367,11 @@ func (e *gfP12) Conjugate(a *gfP12) *gfP12 {
 	e.x.Conjugate(&a.x)
 	return e
 }
+
+// Select sets q to p1 if cond == 1, and to p2 if cond == 0.
+func (q *gfP12) Select(p1, p2 *gfP12, cond int) *gfP12 {
+	q.x.Select(&p1.x, &p2.x, cond)
+	q.y.Select(&p1.y, &p2.y, cond)
+	q.z.Select(&p1.z, &p2.z, cond)
+	return q
+}

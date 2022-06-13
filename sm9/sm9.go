@@ -91,17 +91,68 @@ func (pub *SignMasterPublicKey) Pair() *GT {
 	return pub.basePoint
 }
 
+func (pub *SignMasterPublicKey) generatorTable() *[32 * 2]gtTable {
+	pub.tableGenOnce.Do(func() {
+		pub.table = new([32 * 2]gtTable)
+		base := &GT{}
+		base.Set(pub.Pair())
+		for i := 0; i < 32*2; i++ {
+			pub.table[i][0] = &GT{}
+			pub.table[i][0].Set(base)
+			for j := 1; j < 15; j += 2 {
+				pub.table[i][j] = &GT{}
+				pub.table[i][j].p = &gfP12{}
+				pub.table[i][j].p.Square(pub.table[i][j/2].p)
+				pub.table[i][j+1] = &GT{}
+				pub.table[i][j+1].p = &gfP12{}
+				pub.table[i][j+1].Add(pub.table[i][j], base)
+			}
+			base.p.Square(base.p)
+			base.p.Square(base.p)
+			base.p.Square(base.p)
+			base.p.Square(base.p)
+		}
+	})
+	return pub.table
+}
+
+func (pub *SignMasterPublicKey) ScalarBaseMult(r *big.Int) *GT {
+	scalar := normalizeScalar(r.Bytes())
+	tables := pub.generatorTable()
+	// This is also a scalar multiplication with a four-bit window like in
+	// ScalarMult, but in this case the doublings are precomputed. The value
+	// [windowValue]G added at iteration k would normally get doubled
+	// (totIterations-k)×4 times, but with a larger precomputation we can
+	// instead add [2^((totIterations-k)×4)][windowValue]G and avoid the
+	// doublings between iterations.
+	e, t := &GT{}, &GT{}
+	tableIndex := len(tables) - 1
+	e.SetOne()
+	t.SetOne()
+	for _, byte := range scalar {
+		windowValue := byte >> 4
+		tables[tableIndex].Select(t, windowValue)
+		e.Add(e, t)
+		tableIndex--
+		windowValue = byte & 0b1111
+		tables[tableIndex].Select(t, windowValue)
+		e.Add(e, t)
+		tableIndex--
+	}
+	return e
+}
+
 // Sign signs a hash (which should be the result of hashing a larger message)
 // using the user dsa key. It returns the signature as a pair of h and s.
 func Sign(rand io.Reader, priv *SignPrivateKey, hash []byte) (h *big.Int, s *G1, err error) {
-	g := priv.Pair()
 	var r *big.Int
 	for {
 		r, err = randFieldElement(rand)
 		if err != nil {
 			return
 		}
-		w := new(GT).ScalarMult(g, r)
+
+		w := priv.SignMasterPublicKey.ScalarBaseMult(r)
 
 		var buffer []byte
 		buffer = append(buffer, hash...)
@@ -157,9 +208,8 @@ func Verify(pub *SignMasterPublicKey, uid []byte, hid byte, hash []byte, h *big.
 	if !s.p.IsOnCurve() {
 		return false
 	}
-	g := pub.Pair()
 
-	t := new(GT).ScalarMult(g, h)
+	t := pub.ScalarBaseMult(h)
 
 	// user sign public key p generation
 	p := pub.GenerateUserPublicKey(uid, hid)
@@ -227,6 +277,57 @@ func (pub *EncryptMasterPublicKey) Pair() *GT {
 	return pub.basePoint
 }
 
+func (pub *EncryptMasterPublicKey) generatorTable() *[32 * 2]gtTable {
+	pub.tableGenOnce.Do(func() {
+		pub.table = new([32 * 2]gtTable)
+		base := &GT{}
+		base.Set(pub.Pair())
+		for i := 0; i < 32*2; i++ {
+			pub.table[i][0] = &GT{}
+			pub.table[i][0].Set(base)
+			for j := 1; j < 15; j += 2 {
+				pub.table[i][j] = &GT{}
+				pub.table[i][j].p = &gfP12{}
+				pub.table[i][j].p.Square(pub.table[i][j/2].p)
+				pub.table[i][j+1] = &GT{}
+				pub.table[i][j+1].p = &gfP12{}
+				pub.table[i][j+1].Add(pub.table[i][j], base)
+			}
+			base.p.Square(base.p)
+			base.p.Square(base.p)
+			base.p.Square(base.p)
+			base.p.Square(base.p)
+		}
+	})
+	return pub.table
+}
+
+func (pub *EncryptMasterPublicKey) ScalarBaseMult(r *big.Int) *GT {
+	scalar := normalizeScalar(r.Bytes())
+	tables := pub.generatorTable()
+	// This is also a scalar multiplication with a four-bit window like in
+	// ScalarMult, but in this case the doublings are precomputed. The value
+	// [windowValue]G added at iteration k would normally get doubled
+	// (totIterations-k)×4 times, but with a larger precomputation we can
+	// instead add [2^((totIterations-k)×4)][windowValue]G and avoid the
+	// doublings between iterations.
+	e, t := &GT{}, &GT{}
+	tableIndex := len(tables) - 1
+	e.SetOne()
+	t.SetOne()
+	for _, byte := range scalar {
+		windowValue := byte >> 4
+		tables[tableIndex].Select(t, windowValue)
+		e.Add(e, t)
+		tableIndex--
+		windowValue = byte & 0b1111
+		tables[tableIndex].Select(t, windowValue)
+		e.Add(e, t)
+		tableIndex--
+	}
+	return e
+}
+
 // WrappKey generate and wrapp key wtih reciever's uid and system hid
 func WrappKey(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, kLen int) (key []byte, cipher *G1, err error) {
 	q := pub.GenerateUserPublicKey(uid, hid)
@@ -240,8 +341,7 @@ func WrappKey(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte,
 
 		cipher = new(G1).ScalarMult(q, r)
 
-		g := pub.Pair()
-		w := new(GT).ScalarMult(g, r)
+		w := pub.ScalarBaseMult(r)
 
 		var buffer []byte
 		buffer = append(buffer, cipher.Marshal()...)

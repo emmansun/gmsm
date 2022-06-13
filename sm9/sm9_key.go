@@ -18,6 +18,8 @@ type SignMasterPublicKey struct {
 	MasterPublicKey *G2
 	pairOnce        sync.Once
 	basePoint       *GT
+	tableGenOnce    sync.Once
+	table           *[32 * 2]gtTable
 }
 
 type SignPrivateKey struct {
@@ -34,6 +36,8 @@ type EncryptMasterPublicKey struct {
 	MasterPublicKey *G1
 	pairOnce        sync.Once
 	basePoint       *GT
+	tableGenOnce    sync.Once
+	table           *[32 * 2]gtTable
 }
 
 type EncryptPrivateKey struct {

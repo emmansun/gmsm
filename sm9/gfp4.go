@@ -241,3 +241,10 @@ func (e *gfP4) FrobeniusP3(a *gfP4) *gfP4 {
 
 	return e
 }
+
+// Select sets q to p1 if cond == 1, and to p2 if cond == 0.
+func (q *gfP4) Select(p1, p2 *gfP4, cond int) *gfP4 {
+	q.x.Select(&p1.x, &p2.x, cond)
+	q.y.Select(&p1.y, &p2.y, cond)
+	return q
+}
