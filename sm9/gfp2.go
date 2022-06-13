@@ -258,3 +258,10 @@ func (e *gfP2) Div2(f *gfP2) *gfP2 {
 	e.Set(t)
 	return e
 }
+
+// Select sets e to p1 if cond == 1, and to p2 if cond == 0.
+func (e *gfP2) Select(p1, p2 *gfP2, cond int) *gfP2 {
+	e.x.Select(&p1.x, &p2.x, cond)
+	e.y.Select(&p1.y, &p2.y, cond)
+	return e
+}

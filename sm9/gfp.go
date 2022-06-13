@@ -195,3 +195,37 @@ func init() {
 	t1 := newGFp(2)
 	twoInvert.Invert(t1)
 }
+
+// cmovznzU64 is a single-word conditional move.
+//
+// Postconditions:
+//   out1 = (if arg1 = 0 then arg2 else arg3)
+//
+// Input Bounds:
+//   arg1: [0x0 ~> 0x1]
+//   arg2: [0x0 ~> 0xffffffffffffffff]
+//   arg3: [0x0 ~> 0xffffffffffffffff]
+// Output Bounds:
+//   out1: [0x0 ~> 0xffffffffffffffff]
+func cmovznzU64(out1 *uint64, arg1 uint64, arg2 uint64, arg3 uint64) {
+	x1 := (uint64(arg1) * 0xffffffffffffffff)
+	x2 := ((x1 & arg3) | ((^x1) & arg2))
+	*out1 = x2
+}
+
+// Select sets e to p1 if cond == 1, and to p2 if cond == 0.
+func (e *gfP) Select(p1, p2 *gfP, cond int) *gfP {
+	var x1 uint64
+	cmovznzU64(&x1, uint64(cond), p2[0], p1[0])
+	var x2 uint64
+	cmovznzU64(&x2, uint64(cond), p2[1], p1[1])
+	var x3 uint64
+	cmovznzU64(&x3, uint64(cond), p2[2], p1[2])
+	var x4 uint64
+	cmovznzU64(&x4, uint64(cond), p2[3], p1[3])
+	e[0] = x1
+	e[1] = x2
+	e[2] = x3
+	e[3] = x4
+	return e
+}

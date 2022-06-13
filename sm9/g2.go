@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"math/big"
+	"sync"
 )
 
 // G2 is an abstract cyclic group. The zero value is suitable for use as the
@@ -14,6 +15,31 @@ type G2 struct {
 
 //Gen2 is the generator of G2.
 var Gen2 = &G2{twistGen}
+
+var g2GeneratorTable *[32 * 2]twistPointTable
+var g2GeneratorTableOnce sync.Once
+
+func (g *G2) generatorTable() *[32 * 2]twistPointTable {
+	g2GeneratorTableOnce.Do(func() {
+		g2GeneratorTable = new([32 * 2]twistPointTable)
+		base := NewTwistGenerator()
+		for i := 0; i < 32*2; i++ {
+			g2GeneratorTable[i][0] = &twistPoint{}
+			g2GeneratorTable[i][0].Set(base)
+			for j := 1; j < 15; j += 2 {
+				g2GeneratorTable[i][j] = &twistPoint{}
+				g2GeneratorTable[i][j].Double(g2GeneratorTable[i][j/2])
+				g2GeneratorTable[i][j+1] = &twistPoint{}
+				g2GeneratorTable[i][j+1].Add(g2GeneratorTable[i][j], base)
+			}
+			base.Double(base)
+			base.Double(base)
+			base.Double(base)
+			base.Double(base)
+		}
+	})
+	return g2GeneratorTable
+}
 
 // RandomG2 returns x and g₂ˣ where x is a random, non-zero number read from r.
 func RandomG2(r io.Reader) (*big.Int, *G2, error) {
@@ -35,7 +61,30 @@ func (e *G2) ScalarBaseMult(k *big.Int) *G2 {
 	if e.p == nil {
 		e.p = &twistPoint{}
 	}
-	e.p.Mul(twistGen, k)
+	//e.p.Mul(twistGen, k)
+
+	scalar := normalizeScalar(k.Bytes())
+	tables := e.generatorTable()
+	// This is also a scalar multiplication with a four-bit window like in
+	// ScalarMult, but in this case the doublings are precomputed. The value
+	// [windowValue]G added at iteration k would normally get doubled
+	// (totIterations-k)×4 times, but with a larger precomputation we can
+	// instead add [2^((totIterations-k)×4)][windowValue]G and avoid the
+	// doublings between iterations.
+	t := NewTwistPoint()
+	e.p.SetInfinity()
+	tableIndex := len(tables) - 1
+	for _, byte := range scalar {
+		windowValue := byte >> 4
+		tables[tableIndex].Select(t, windowValue)
+		e.p.Add(e.p, t)
+		tableIndex--
+		windowValue = byte & 0b1111
+		tables[tableIndex].Select(t, windowValue)
+		e.p.Add(e.p, t)
+		tableIndex--
+	}
+
 	return e
 }
 
@@ -44,7 +93,42 @@ func (e *G2) ScalarMult(a *G2, k *big.Int) *G2 {
 	if e.p == nil {
 		e.p = &twistPoint{}
 	}
-	e.p.Mul(a.p, k)
+	//e.p.Mul(a.p, k)
+	// Compute a twistPointTable for the base point a.
+	var table = twistPointTable{NewTwistPoint(), NewTwistPoint(), NewTwistPoint(),
+		NewTwistPoint(), NewTwistPoint(), NewTwistPoint(), NewTwistPoint(),
+		NewTwistPoint(), NewTwistPoint(), NewTwistPoint(), NewTwistPoint(),
+		NewTwistPoint(), NewTwistPoint(), NewTwistPoint(), NewTwistPoint()}
+	table[0].Set(a.p)
+	for i := 1; i < 15; i += 2 {
+		table[i].Double(table[i/2])
+		table[i+1].Add(table[i], a.p)
+	}
+	// Instead of doing the classic double-and-add chain, we do it with a
+	// four-bit window: we double four times, and then add [0-15]P.
+	t := &G2{NewTwistPoint()}
+	e.p.SetInfinity()
+	scalarBytes := normalizeScalar(k.Bytes())
+	for i, byte := range scalarBytes {
+		// No need to double on the first iteration, as p is the identity at
+		// this point, and [N]∞ = ∞.
+		if i != 0 {
+			e.p.Double(e.p)
+			e.p.Double(e.p)
+			e.p.Double(e.p)
+			e.p.Double(e.p)
+		}
+		windowValue := byte >> 4
+		table.Select(t.p, windowValue)
+		e.Add(e, t)
+		e.p.Double(e.p)
+		e.p.Double(e.p)
+		e.p.Double(e.p)
+		e.p.Double(e.p)
+		windowValue = byte & 0b1111
+		table.Select(t.p, windowValue)
+		e.Add(e, t)
+	}
 	return e
 }
 

@@ -6,6 +6,7 @@ import (
 	"io"
 	"math/big"
 	"math/bits"
+	"sync"
 )
 
 func randomK(r io.Reader) (k *big.Int, err error) {
@@ -26,6 +27,31 @@ type G1 struct {
 //Gen1 is the generator of G1.
 var Gen1 = &G1{curveGen}
 
+var g1GeneratorTable *[32 * 2]curvePointTable
+var g1GeneratorTableOnce sync.Once
+
+func (g *G1) generatorTable() *[32 * 2]curvePointTable {
+	g1GeneratorTableOnce.Do(func() {
+		g1GeneratorTable = new([32 * 2]curvePointTable)
+		base := NewCurveGenerator()
+		for i := 0; i < 32*2; i++ {
+			g1GeneratorTable[i][0] = &curvePoint{}
+			g1GeneratorTable[i][0].Set(base)
+			for j := 1; j < 15; j += 2 {
+				g1GeneratorTable[i][j] = &curvePoint{}
+				g1GeneratorTable[i][j].Double(g1GeneratorTable[i][j/2])
+				g1GeneratorTable[i][j+1] = &curvePoint{}
+				g1GeneratorTable[i][j+1].Add(g1GeneratorTable[i][j], base)
+			}
+			base.Double(base)
+			base.Double(base)
+			base.Double(base)
+			base.Double(base)
+		}
+	})
+	return g1GeneratorTable
+}
+
 // RandomG1 returns x and g₁ˣ where x is a random, non-zero number read from r.
 func RandomG1(r io.Reader) (*big.Int, *G1, error) {
 	k, err := randomK(r)
@@ -40,13 +66,48 @@ func (g *G1) String() string {
 	return "sm9.G1" + g.p.String()
 }
 
+func normalizeScalar(scalar []byte) []byte {
+	if len(scalar) == 32 {
+		return scalar
+	}
+	s := new(big.Int).SetBytes(scalar)
+	if len(scalar) > 32 {
+		s.Mod(s, Order)
+	}
+	out := make([]byte, 32)
+	return s.FillBytes(out)
+}
+
 // ScalarBaseMult sets e to g*k where g is the generator of the group and then
 // returns e.
 func (e *G1) ScalarBaseMult(k *big.Int) *G1 {
 	if e.p == nil {
 		e.p = &curvePoint{}
 	}
-	e.p.Mul(curveGen, k)
+
+	//e.p.Mul(curveGen, k)
+
+	scalar := normalizeScalar(k.Bytes())
+	tables := e.generatorTable()
+	// This is also a scalar multiplication with a four-bit window like in
+	// ScalarMult, but in this case the doublings are precomputed. The value
+	// [windowValue]G added at iteration k would normally get doubled
+	// (totIterations-k)×4 times, but with a larger precomputation we can
+	// instead add [2^((totIterations-k)×4)][windowValue]G and avoid the
+	// doublings between iterations.
+	t := NewCurvePoint()
+	e.p.SetInfinity()
+	tableIndex := len(tables) - 1
+	for _, byte := range scalar {
+		windowValue := byte >> 4
+		tables[tableIndex].Select(t, windowValue)
+		e.p.Add(e.p, t)
+		tableIndex--
+		windowValue = byte & 0b1111
+		tables[tableIndex].Select(t, windowValue)
+		e.p.Add(e.p, t)
+		tableIndex--
+	}
 	return e
 }
 
@@ -55,7 +116,42 @@ func (e *G1) ScalarMult(a *G1, k *big.Int) *G1 {
 	if e.p == nil {
 		e.p = &curvePoint{}
 	}
-	e.p.Mul(a.p, k)
+	//e.p.Mul(a.p, k)
+	// Compute a curvePointTable for the base point a.
+	var table = curvePointTable{NewCurvePoint(), NewCurvePoint(), NewCurvePoint(),
+		NewCurvePoint(), NewCurvePoint(), NewCurvePoint(), NewCurvePoint(),
+		NewCurvePoint(), NewCurvePoint(), NewCurvePoint(), NewCurvePoint(),
+		NewCurvePoint(), NewCurvePoint(), NewCurvePoint(), NewCurvePoint()}
+	table[0].Set(a.p)
+	for i := 1; i < 15; i += 2 {
+		table[i].Double(table[i/2])
+		table[i+1].Add(table[i], a.p)
+	}
+	// Instead of doing the classic double-and-add chain, we do it with a
+	// four-bit window: we double four times, and then add [0-15]P.
+	t := &G1{NewCurvePoint()}
+	e.p.SetInfinity()
+	scalarBytes := normalizeScalar(k.Bytes())
+	for i, byte := range scalarBytes {
+		// No need to double on the first iteration, as p is the identity at
+		// this point, and [N]∞ = ∞.
+		if i != 0 {
+			e.Double(e)
+			e.Double(e)
+			e.Double(e)
+			e.Double(e)
+		}
+		windowValue := byte >> 4
+		table.Select(t.p, windowValue)
+		e.Add(e, t)
+		e.Double(e)
+		e.Double(e)
+		e.Double(e)
+		e.Double(e)
+		windowValue = byte & 0b1111
+		table.Select(t.p, windowValue)
+		e.Add(e, t)
+	}
 	return e
 }
 

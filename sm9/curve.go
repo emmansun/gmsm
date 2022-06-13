@@ -1,6 +1,9 @@
 package sm9
 
-import "math/big"
+import (
+	"crypto/subtle"
+	"math/big"
+)
 
 // curvePoint implements the elliptic curve y²=x³+5. Points are kept in Jacobian
 // form and t=z² when valid. G₁ is the set of points of this curve on GF(p).
@@ -47,6 +50,18 @@ func (c *curvePoint) IsOnCurve() bool {
 	gfpAdd(x3, x3, curveB)
 
 	return *y2 == *x3
+}
+
+func NewCurvePoint() *curvePoint {
+	c := &curvePoint{}
+	c.SetInfinity()
+	return c
+}
+
+func NewCurveGenerator() *curvePoint {
+	c := &curvePoint{}
+	c.Set(curveGen)
+	return c
 }
 
 func (c *curvePoint) SetInfinity() {
@@ -225,4 +240,31 @@ func (c *curvePoint) Neg(a *curvePoint) {
 	gfpNeg(&c.y, &a.y)
 	c.z.Set(&a.z)
 	c.t = *zero
+}
+
+// Select sets q to p1 if cond == 1, and to p2 if cond == 0.
+func (q *curvePoint) Select(p1, p2 *curvePoint, cond int) *curvePoint {
+	q.x.Select(&p1.x, &p2.x, cond)
+	q.y.Select(&p1.y, &p2.y, cond)
+	q.z.Select(&p1.z, &p2.z, cond)
+	q.t.Select(&p1.t, &p2.t, cond)
+	return q
+}
+
+// A curvePointTable holds the first 15 multiples of a point at offset -1, so [1]P
+// is at table[0], [15]P is at table[14], and [0]P is implicitly the identity
+// point.
+type curvePointTable [15]*curvePoint
+
+// Select selects the n-th multiple of the table base point into p. It works in
+// constant time by iterating over every entry of the table. n must be in [0, 15].
+func (table *curvePointTable) Select(p *curvePoint, n uint8) {
+	if n >= 16 {
+		panic("sm9: internal error: curvePointTable called with out-of-bounds value")
+	}
+	p.SetInfinity()
+	for i := uint8(1); i < 16; i++ {
+		cond := subtle.ConstantTimeByteEq(i, n)
+		p.Select(table[i-1], p, cond)
+	}
 }

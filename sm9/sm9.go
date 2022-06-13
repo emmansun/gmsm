@@ -84,10 +84,17 @@ func randFieldElement(rand io.Reader) (k *big.Int, err error) {
 	return
 }
 
+func (pub *SignMasterPublicKey) Pair() *GT {
+	pub.pairOnce.Do(func() {
+		pub.basePoint = Pair(Gen1, pub.MasterPublicKey)
+	})
+	return pub.basePoint
+}
+
 // Sign signs a hash (which should be the result of hashing a larger message)
 // using the user dsa key. It returns the signature as a pair of h and s.
 func Sign(rand io.Reader, priv *SignPrivateKey, hash []byte) (h *big.Int, s *G1, err error) {
-	g := Pair(Gen1, priv.SignMasterPublicKey.MasterPublicKey)
+	g := priv.Pair()
 	var r *big.Int
 	for {
 		r, err = randFieldElement(rand)
@@ -103,7 +110,10 @@ func Sign(rand io.Reader, priv *SignPrivateKey, hash []byte) (h *big.Int, s *G1,
 		h = hashH2(buffer)
 
 		l := new(big.Int).Sub(r, h)
-		l.Mod(l, Order)
+
+		if l.Sign() < 0 {
+			l.Add(l, Order)
+		}
 
 		if l.Sign() != 0 {
 			s = new(G1).ScalarMult(priv.PrivateKey, l)
@@ -138,17 +148,6 @@ func SignASN1(rand io.Reader, priv *SignPrivateKey, hash []byte) ([]byte, error)
 	return priv.Sign(rand, hash, nil)
 }
 
-// GenerateUserPublicKey generate user sign public key
-func (pub *SignMasterPublicKey) GenerateUserPublicKey(uid []byte, hid byte) *G2 {
-	var buffer []byte
-	buffer = append(buffer, uid...)
-	buffer = append(buffer, hid)
-	h1 := hashH1(buffer)
-	p := new(G2).ScalarBaseMult(h1)
-	p.Add(p, pub.MasterPublicKey)
-	return p
-}
-
 // Verify verifies the signature in h, s of hash using the master dsa public key and user id, uid and hid.
 // Its return value records whether the signature is valid.
 func Verify(pub *SignMasterPublicKey, uid []byte, hid byte, hash []byte, h *big.Int, s *G1) bool {
@@ -158,7 +157,8 @@ func Verify(pub *SignMasterPublicKey, uid []byte, hid byte, hash []byte, h *big.
 	if !s.p.IsOnCurve() {
 		return false
 	}
-	g := Pair(Gen1, pub.MasterPublicKey)
+	g := pub.Pair()
+
 	t := new(GT).ScalarMult(g, h)
 
 	// user sign public key p generation
@@ -220,6 +220,13 @@ func (pub *EncryptMasterPublicKey) GenerateUserPublicKey(uid []byte, hid byte) *
 	return p
 }
 
+func (pub *EncryptMasterPublicKey) Pair() *GT {
+	pub.pairOnce.Do(func() {
+		pub.basePoint = Pair(pub.MasterPublicKey, Gen2)
+	})
+	return pub.basePoint
+}
+
 // WrappKey generate and wrapp key wtih reciever's uid and system hid
 func WrappKey(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, kLen int) (key []byte, cipher *G1, err error) {
 	q := pub.GenerateUserPublicKey(uid, hid)
@@ -233,7 +240,7 @@ func WrappKey(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte,
 
 		cipher = new(G1).ScalarMult(q, r)
 
-		g := Pair(pub.MasterPublicKey, Gen2)
+		g := pub.Pair()
 		w := new(GT).ScalarMult(g, r)
 
 		var buffer []byte

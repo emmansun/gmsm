@@ -1,6 +1,9 @@
 package sm9
 
-import "math/big"
+import (
+	"crypto/subtle"
+	"math/big"
+)
 
 // twistPoint implements the elliptic curve y²=x³+5/ξ (y²=x³+5i) over GF(p²). Points are
 // kept in Jacobian form and t=z² when valid. The group G₂ is the set of
@@ -39,6 +42,18 @@ func (c *twistPoint) Set(a *twistPoint) {
 	c.y.Set(&a.y)
 	c.z.Set(&a.z)
 	c.t.Set(&a.t)
+}
+
+func NewTwistPoint() *twistPoint {
+	c := &twistPoint{}
+	c.SetInfinity()
+	return c
+}
+
+func NewTwistGenerator() *twistPoint {
+	c := &twistPoint{}
+	c.Set(twistGen)
+	return c
 }
 
 // IsOnCurve returns true iff c is on the curve.
@@ -154,6 +169,7 @@ func (c *twistPoint) Double(a *twistPoint) {
 	c.y.Sub(t2, t)
 }
 
+// TODO: improve it
 func (c *twistPoint) Mul(a *twistPoint, scalar *big.Int) {
 	sum, t := &twistPoint{}, &twistPoint{}
 
@@ -218,6 +234,33 @@ func (c *twistPoint) NegFrobeniusP2(a *twistPoint) {
 	c.y.Neg(&a.y)
 	c.z.MulScalar(&a.z, wToP2Minus1)
 	c.t.Square(&a.z)
+}
+
+// Select sets q to p1 if cond == 1, and to p2 if cond == 0.
+func (q *twistPoint) Select(p1, p2 *twistPoint, cond int) *twistPoint {
+	q.x.Select(&p1.x, &p2.x, cond)
+	q.y.Select(&p1.y, &p2.y, cond)
+	q.z.Select(&p1.z, &p2.z, cond)
+	q.t.Select(&p1.t, &p2.t, cond)
+	return q
+}
+
+// A twistPointTable holds the first 15 multiples of a point at offset -1, so [1]P
+// is at table[0], [15]P is at table[14], and [0]P is implicitly the identity
+// point.
+type twistPointTable [15]*twistPoint
+
+// Select selects the n-th multiple of the table base point into p. It works in
+// constant time by iterating over every entry of the table. n must be in [0, 15].
+func (table *twistPointTable) Select(p *twistPoint, n uint8) {
+	if n >= 16 {
+		panic("sm9: internal error: twistPointTable called with out-of-bounds value")
+	}
+	p.SetInfinity()
+	for i := uint8(1); i < 16; i++ {
+		cond := subtle.ConstantTimeByteEq(i, n)
+		p.Select(table[i-1], p, cond)
+	}
 }
 
 /*

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"math/big"
+	"sync"
 
 	"golang.org/x/crypto/cryptobyte"
 )
@@ -15,6 +16,8 @@ type SignMasterPrivateKey struct {
 
 type SignMasterPublicKey struct {
 	MasterPublicKey *G2
+	pairOnce        sync.Once
+	basePoint       *GT
 }
 
 type SignPrivateKey struct {
@@ -29,6 +32,8 @@ type EncryptMasterPrivateKey struct {
 
 type EncryptMasterPublicKey struct {
 	MasterPublicKey *G1
+	pairOnce        sync.Once
+	basePoint       *GT
 }
 
 type EncryptPrivateKey struct {
@@ -121,6 +126,17 @@ func (pub *SignMasterPublicKey) UnmarshalASN1(der []byte) error {
 	}
 	pub.MasterPublicKey = g2
 	return nil
+}
+
+// GenerateUserPublicKey generate user sign public key
+func (pub *SignMasterPublicKey) GenerateUserPublicKey(uid []byte, hid byte) *G2 {
+	var buffer []byte
+	buffer = append(buffer, uid...)
+	buffer = append(buffer, hid)
+	h1 := hashH1(buffer)
+	p := new(G2).ScalarBaseMult(h1)
+	p.Add(p, pub.MasterPublicKey)
+	return p
 }
 
 // MasterPublic returns the master public key corresponding to priv.

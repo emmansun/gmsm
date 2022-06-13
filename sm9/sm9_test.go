@@ -344,6 +344,7 @@ func BenchmarkSign(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
+	SignASN1(rand.Reader, userKey, hashed) // fire precompute
 
 	b.ReportAllocs()
 	b.ResetTimer()
