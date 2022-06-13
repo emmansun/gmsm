@@ -260,16 +260,6 @@ func (pub *SignMasterPublicKey) Verify(uid []byte, hid byte, hash, sig []byte) b
 	return VerifyASN1(pub, uid, hid, hash, sig)
 }
 
-func (pub *EncryptMasterPublicKey) GenerateUserPublicKey(uid []byte, hid byte) *G1 {
-	var buffer []byte
-	buffer = append(buffer, uid...)
-	buffer = append(buffer, hid)
-	h1 := hashH1(buffer)
-	p := new(G1).ScalarBaseMult(h1)
-	p.Add(p, pub.MasterPublicKey)
-	return p
-}
-
 func (pub *EncryptMasterPublicKey) Pair() *GT {
 	pub.pairOnce.Do(func() {
 		pub.basePoint = Pair(pub.MasterPublicKey, Gen2)

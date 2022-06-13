@@ -105,6 +105,17 @@ func (master *SignMasterPrivateKey) Public() *SignMasterPublicKey {
 	return &master.SignMasterPublicKey
 }
 
+// GenerateUserPublicKey generate user sign public key
+func (pub *SignMasterPublicKey) GenerateUserPublicKey(uid []byte, hid byte) *G2 {
+	var buffer []byte
+	buffer = append(buffer, uid...)
+	buffer = append(buffer, hid)
+	h1 := hashH1(buffer)
+	p := new(G2).ScalarBaseMult(h1)
+	p.Add(p, pub.MasterPublicKey)
+	return p
+}
+
 // MarshalASN1 marshal sign master public key to asn.1 format data according
 // SM9 cryptographic algorithm application specification
 func (pub *SignMasterPublicKey) MarshalASN1() ([]byte, error) {
@@ -130,17 +141,6 @@ func (pub *SignMasterPublicKey) UnmarshalASN1(der []byte) error {
 	}
 	pub.MasterPublicKey = g2
 	return nil
-}
-
-// GenerateUserPublicKey generate user sign public key
-func (pub *SignMasterPublicKey) GenerateUserPublicKey(uid []byte, hid byte) *G2 {
-	var buffer []byte
-	buffer = append(buffer, uid...)
-	buffer = append(buffer, hid)
-	h1 := hashH1(buffer)
-	p := new(G2).ScalarBaseMult(h1)
-	p.Add(p, pub.MasterPublicKey)
-	return p
 }
 
 // MasterPublic returns the master public key corresponding to priv.
@@ -241,6 +241,17 @@ func (master *EncryptMasterPrivateKey) UnmarshalASN1(der []byte) error {
 	master.D = d
 	master.MasterPublicKey = new(G1).ScalarBaseMult(d)
 	return nil
+}
+
+// GenerateUserPublicKey generate user encrypt public key
+func (pub *EncryptMasterPublicKey) GenerateUserPublicKey(uid []byte, hid byte) *G1 {
+	var buffer []byte
+	buffer = append(buffer, uid...)
+	buffer = append(buffer, hid)
+	h1 := hashH1(buffer)
+	p := new(G1).ScalarBaseMult(h1)
+	p.Add(p, pub.MasterPublicKey)
+	return p
 }
 
 // MarshalASN1 marshal encrypt master public key to asn.1 format data according

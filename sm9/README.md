@@ -37,4 +37,20 @@ This part codes mainly refer two projects:
     cpu: Intel(R) Core(TM) i5-9500 CPU @ 3.00GHz
     BenchmarkDecrypt-6   	     507	   2345492 ns/op	  202360 B/op	    5228 allocs/op
 
+**SM9 Generate User Sign Private Key Benchmark**
+
+    goos: windows
+    goarch: amd64
+    pkg: github.com/emmansun/gmsm/sm9
+    cpu: Intel(R) Core(TM) i5-9500 CPU @ 3.00GHz
+    BenchmarkGenerateSignPrivKey-6   	    8078	    147638 ns/op	    3176 B/op	      47 allocs/op
+
+**SM9 Generate User Encrypt Private Key Benchmark**
+
+    goos: windows
+    goarch: amd64
+    pkg: github.com/emmansun/gmsm/sm9
+    cpu: Intel(R) Core(TM) i5-9500 CPU @ 3.00GHz
+    BenchmarkGenerateEncryptPrivKey-6   	    3445	    326796 ns/op	    3433 B/op	      47 allocs/op
+
 To further improve `Verify()/Decrypt()` performance, need to improve `Pair()` method performance.
