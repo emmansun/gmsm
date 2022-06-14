@@ -1,3 +1,6 @@
+//go:build arm64 && !generic
+// +build arm64,!generic
+
 #include "textflag.h"
 
 #define x V0

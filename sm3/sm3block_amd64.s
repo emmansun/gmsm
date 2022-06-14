@@ -1,3 +1,6 @@
+//go:build amd64 && !generic
+// +build amd64,!generic
+
 #include "textflag.h"
 
 // Wt = Mt; for 0 <= t <= 3
