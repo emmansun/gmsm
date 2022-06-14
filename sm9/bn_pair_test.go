@@ -58,6 +58,7 @@ func Test_gfpBasicOperations(t *testing.T) {
 	expectedSub := fromBigInt(bigFromHex("67b381821c52a5624f3304a8149be8461e3bc07adcb872c38aa65051ba53ba97"))
 	expectedNeg := fromBigInt(bigFromHex("7f1d8aad70909be90358f1d02240062433cc3a0248ded72febb879ec33ce6f22"))
 	expectedMul := fromBigInt(bigFromHex("3d08bbad376584e4f74bd31f78f716372b96ba8c3f939c12b8d54e79b6489e76"))
+	expectedMul2 := fromBigInt(bigFromHex("1df94a9e05a559ff38e0ab50cece734dc058d33738ceacaa15986a67cbff1ef6"))
 
 	ret := &gfP{}
 	gfpAdd(ret, x, y)
@@ -79,6 +80,11 @@ func Test_gfpBasicOperations(t *testing.T) {
 	if *expectedMul != *ret {
 		t.Errorf("mul not same")
 	}
+
+	gfpMul(ret, ret, ret)
+	if *expectedMul2 != *ret {
+		t.Errorf("mul not same")
+	}
 }
 
 func TestGfpExp(t *testing.T) {
@@ -96,6 +102,13 @@ func TestGfpExp(t *testing.T) {
 	ret2 := new(big.Int).Exp(xI, bigFromHex("b640000002a3a6f1d603ab4ff58ec74521f2934b1a7aeedbe56f9b27e351457b"), p)
 	if hex.EncodeToString(ret2.Bytes()) != ret.String() {
 		t.Errorf("exp not same, got %v, expected %v\n", ret, hex.EncodeToString(ret2.Bytes()))
+	}
+
+	ret1 := &gfP{}
+	ret1.exp2(x, bigFromHex("b640000002a3a6f1d603ab4ff58ec74521f2934b1a7aeedbe56f9b27e351457b"))
+	montDecode(ret1, ret1)
+	if hex.EncodeToString(ret2.Bytes()) != ret1.String() {
+		t.Errorf("exp not same, got %v, expected %v\n", ret1, hex.EncodeToString(ret2.Bytes()))
 	}
 
 	xInv := new(big.Int).ModInverse(xI, p)
