@@ -1,5 +1,5 @@
-//go:build arm64
-// +build arm64
+//go:build arm64 && !generic
+// +build arm64,!generic
 
 package sm3
 

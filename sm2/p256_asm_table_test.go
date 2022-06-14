@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build amd64 || arm64
-// +build amd64 arm64
+//go:build (amd64 && !generic) || (arm64 && !generic)
+// +build amd64,!generic arm64,!generic
 
 package sm2
 

@@ -1,5 +1,5 @@
-//go:build amd64
-// +build amd64
+//go:build amd64 && !generic
+// +build amd64,!generic
 
 package sm3
 
