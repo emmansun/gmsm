@@ -1,6 +1,5 @@
 package sm9
 
-/*
 import (
 	"math/big"
 	"testing"
@@ -119,4 +118,3 @@ func Test_gfP2Div2(t *testing.T) {
 		t.Errorf("got %v, expected %v", ret, x)
 	}
 }
-*/

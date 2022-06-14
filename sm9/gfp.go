@@ -103,6 +103,24 @@ func (e *gfP) exp(f *gfP, bits [4]uint64) {
 	e.Set(sum)
 }
 
+func (e *gfP) exp2(f *gfP, power *big.Int) *gfP {
+	sum := &gfP{}
+	sum.Set(one)
+	t := &gfP{}
+
+	for i := power.BitLen() - 1; i >= 0; i-- {
+		gfpMul(t, sum, sum)
+		if power.Bit(i) != 0 {
+			gfpMul(sum, f, f)
+		} else {
+			sum.Set(t)
+		}
+	}
+
+	e.Set(sum)
+	return e
+}
+
 func (e *gfP) Invert(f *gfP) {
 	e.exp(f, pMinus2)
 }
