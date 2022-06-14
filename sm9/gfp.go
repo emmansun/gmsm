@@ -111,7 +111,7 @@ func (e *gfP) exp2(f *gfP, power *big.Int) *gfP {
 	for i := power.BitLen() - 1; i >= 0; i-- {
 		gfpMul(t, sum, sum)
 		if power.Bit(i) != 0 {
-			gfpMul(sum, f, f)
+			gfpMul(sum, t, f)
 		} else {
 			sum.Set(t)
 		}
