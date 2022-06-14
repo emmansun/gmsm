@@ -50,6 +50,36 @@ func init() {
 	expected_b2_2.z.y.y = *fromBigInt(bigFromHex("934FDDA6D3AB48C8571CE2354B79742AA498CB8CDDE6BD1FA5946345A1A652F6"))
 }
 
+func Test_gfpBasicOperations(t *testing.T) {
+	x := fromBigInt(bigFromHex("85AEF3D078640C98597B6027B441A01FF1DD2C190F5E93C454806C11D8806141"))
+	y := fromBigInt(bigFromHex("3722755292130B08D2AAB97FD34EC120EE265948D19C17ABF9B7213BAF82D65B"))
+	expectedAdd := fromBigInt(bigFromHex("0691692307d370af56226e57920199fbbe10f216c67fbc9468c7f225a4b1f21f"))
+	expectedSub := fromBigInt(bigFromHex("67b381821c52a5624f3304a8149be8461e3bc07adcb872c38aa65051ba53ba97"))
+	expectedNeg := fromBigInt(bigFromHex("7f1d8aad70909be90358f1d02240062433cc3a0248ded72febb879ec33ce6f22"))
+	expectedMul := fromBigInt(bigFromHex("3d08bbad376584e4f74bd31f78f716372b96ba8c3f939c12b8d54e79b6489e76"))
+
+	ret := &gfP{}
+	gfpAdd(ret, x, y)
+	if *expectedAdd != *ret {
+		t.Errorf("add not same")
+	}
+
+	gfpSub(ret, y, x)
+	if *expectedSub != *ret {
+		t.Errorf("sub not same")
+	}
+
+	gfpNeg(ret, y)
+	if *expectedNeg != *ret {
+		t.Errorf("neg not same")
+	}
+
+	gfpMul(ret, x, y)
+	if *expectedMul != *ret {
+		t.Errorf("mul not same")
+	}
+}
+
 func Test_gfp12Gen(t *testing.T) {
 	ret := pairing(twistGen, curveGen)
 	if ret.x != gfP12Gen.x || ret.y != gfP12Gen.y || ret.z != gfP12Gen.z {
