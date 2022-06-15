@@ -318,8 +318,8 @@ func (pub *EncryptMasterPublicKey) ScalarBaseMult(r *big.Int) *GT {
 	return e
 }
 
-// WrappKey generate and wrapp key wtih reciever's uid and system hid
-func WrappKey(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, kLen int) (key []byte, cipher *G1, err error) {
+// WrapKey generate and wrap key wtih reciever's uid and system hid
+func WrapKey(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, kLen int) (key []byte, cipher *G1, err error) {
 	q := pub.GenerateUserPublicKey(uid, hid)
 	var r *big.Int
 	var ok bool
@@ -346,9 +346,9 @@ func WrappKey(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte,
 	return
 }
 
-// WrappKey wrapp key and marshal the cipher as ASN1 format.
-func (pub *EncryptMasterPublicKey) WrappKey(rand io.Reader, uid []byte, hid byte, kLen int) ([]byte, []byte, error) {
-	key, cipher, err := WrappKey(rand, pub, uid, hid, kLen)
+// WrapKey wrap key and marshal the cipher as ASN1 format.
+func (pub *EncryptMasterPublicKey) WrapKey(rand io.Reader, uid []byte, hid byte, kLen int) ([]byte, []byte, error) {
+	key, cipher, err := WrapKey(rand, pub, uid, hid, kLen)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -359,10 +359,10 @@ func (pub *EncryptMasterPublicKey) WrappKey(rand io.Reader, uid []byte, hid byte
 	return key, cipherASN1, err
 }
 
-// WrappKey wrapp key and marshal the result of SM9KeyPackage as ASN1 format. according
+// WrapKeyASN1 wrap key and marshal the result of SM9KeyPackage as ASN1 format. according
 // SM9 cryptographic algorithm application specification
-func (pub *EncryptMasterPublicKey) WrappKeyASN1(rand io.Reader, uid []byte, hid byte, kLen int) ([]byte, error) {
-	key, cipher, err := WrappKey(rand, pub, uid, hid, kLen)
+func (pub *EncryptMasterPublicKey) WrapKeyASN1(rand io.Reader, uid []byte, hid byte, kLen int) ([]byte, error) {
+	key, cipher, err := WrapKey(rand, pub, uid, hid, kLen)
 	if err != nil {
 		return nil, err
 	}
@@ -397,8 +397,8 @@ func UnmarshalSM9KeyPackage(der []byte) ([]byte, *G1, error) {
 	return key, g, nil
 }
 
-// UnwrappKey unwrapper key from cipher, user id and aligned key length
-func UnwrappKey(priv *EncryptPrivateKey, uid []byte, cipher *G1, kLen int) ([]byte, error) {
+// UnwrapKey unwrap key from cipher, user id and aligned key length
+func UnwrapKey(priv *EncryptPrivateKey, uid []byte, cipher *G1, kLen int) ([]byte, error) {
 	if !cipher.p.IsOnCurve() {
 		return nil, errors.New("sm9: invalid cipher, it's NOT on curve")
 	}
@@ -417,7 +417,7 @@ func UnwrappKey(priv *EncryptPrivateKey, uid []byte, cipher *G1, kLen int) ([]by
 	return key, nil
 }
 
-func (priv *EncryptPrivateKey) UnwrappKey(uid, cipherDer []byte, kLen int) ([]byte, error) {
+func (priv *EncryptPrivateKey) UnwrapKey(uid, cipherDer []byte, kLen int) ([]byte, error) {
 	bytes := make([]byte, 64+1)
 	input := cryptobyte.String(cipherDer)
 	if !input.ReadASN1BitStringAsBytes(&bytes) || !input.Empty() {
@@ -431,12 +431,12 @@ func (priv *EncryptPrivateKey) UnwrappKey(uid, cipherDer []byte, kLen int) ([]by
 	if err != nil {
 		return nil, err
 	}
-	return UnwrappKey(priv, uid, g, kLen)
+	return UnwrapKey(priv, uid, g, kLen)
 }
 
 // Encrypt encrypt plaintext, output ciphertext with format C1||C3||C2
 func Encrypt(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, plaintext []byte) ([]byte, error) {
-	key, cipher, err := WrappKey(rand, pub, uid, hid, len(plaintext)+sm3.Size)
+	key, cipher, err := WrapKey(rand, pub, uid, hid, len(plaintext)+sm3.Size)
 	if err != nil {
 		return nil, err
 	}
@@ -460,7 +460,7 @@ func EncryptASN1(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid by
 // Encrypt encrypt plaintext and output ciphertext with ASN.1 format according
 // SM9 cryptographic algorithm application specification
 func (pub *EncryptMasterPublicKey) Encrypt(rand io.Reader, uid []byte, hid byte, plaintext []byte) ([]byte, error) {
-	key, cipher, err := WrappKey(rand, pub, uid, hid, len(plaintext)+sm3.Size)
+	key, cipher, err := WrapKey(rand, pub, uid, hid, len(plaintext)+sm3.Size)
 	if err != nil {
 		return nil, err
 	}
@@ -488,7 +488,7 @@ func Decrypt(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	key, err := UnwrappKey(priv, uid, c, len(c3))
+	key, err := UnwrapKey(priv, uid, c, len(c3))
 	if err != nil {
 		return nil, err
 	}
@@ -543,7 +543,7 @@ func DecryptASN1(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error
 		return nil, err
 	}
 
-	key, err := UnwrappKey(priv, uid, c, len(c2Bytes)+len(c3Bytes))
+	key, err := UnwrapKey(priv, uid, c, len(c2Bytes)+len(c3Bytes))
 	if err != nil {
 		return nil, err
 	}
