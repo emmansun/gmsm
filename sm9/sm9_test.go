@@ -78,7 +78,7 @@ func TestSignASN1(t *testing.T) {
 	}
 }
 
-func TestWrappKey(t *testing.T) {
+func TestWrapKey(t *testing.T) {
 	masterKey, err := GenerateEncryptMasterKey(rand.Reader)
 	hid := byte(0x01)
 	uid := []byte("emmansun")
@@ -89,12 +89,12 @@ func TestWrappKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	key, cipher, err := WrappKey(rand.Reader, masterKey.Public(), uid, hid, 16)
+	key, cipher, err := WrapKey(rand.Reader, masterKey.Public(), uid, hid, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	key2, err := UnwrappKey(userKey, uid, cipher, 16)
+	key2, err := UnwrapKey(userKey, uid, cipher, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func TestWrappKey(t *testing.T) {
 	}
 }
 
-func TestWrappKeyASN1(t *testing.T) {
+func TestWrapKeyASN1(t *testing.T) {
 	masterKey, err := GenerateEncryptMasterKey(rand.Reader)
 	hid := byte(0x01)
 	uid := []byte("emmansun")
@@ -115,12 +115,12 @@ func TestWrappKeyASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	key, cipher, err := masterKey.Public().WrappKey(rand.Reader, uid, hid, 16)
+	key, cipher, err := masterKey.Public().WrapKey(rand.Reader, uid, hid, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	key2, err := userKey.UnwrappKey(uid, cipher, 16)
+	key2, err := userKey.UnwrapKey(uid, cipher, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func TestUnmarshalSM9KeyPackage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := masterKey.Public().WrappKeyASN1(rand.Reader, uid, hid, 16)
+	p, err := masterKey.Public().WrapKeyASN1(rand.Reader, uid, hid, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +151,7 @@ func TestUnmarshalSM9KeyPackage(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	key2, err := UnwrappKey(userKey, uid, cipher, 16)
+	key2, err := UnwrapKey(userKey, uid, cipher, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,7 +161,7 @@ func TestUnmarshalSM9KeyPackage(t *testing.T) {
 	}
 }
 
-func TestWrappKeySM9Sample(t *testing.T) {
+func TestWrapKeySM9Sample(t *testing.T) {
 	expectedKey := "4ff5cf86d2ad40c8f4bac98d76abdbde0c0e2f0a829d3f911ef5b2bce0695480"
 	masterKey := new(EncryptMasterPrivateKey)
 	masterKey.D = bigFromHex("01EDEE3778F441F8DEA3D9FA0ACC4E07EE36C93F9A08618AF4AD85CEDE1C22")
@@ -200,7 +200,7 @@ func TestWrappKeySM9Sample(t *testing.T) {
 		t.Errorf("expected %v, got %v\n", expectedKey, hex.EncodeToString(key))
 	}
 
-	key2, err := UnwrappKey(userKey, uid, cipher, 32)
+	key2, err := UnwrapKey(userKey, uid, cipher, 32)
 	if err != nil {
 		t.Fatal(err)
 	}
