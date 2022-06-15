@@ -118,3 +118,52 @@ func Test_gfP2Div2(t *testing.T) {
 		t.Errorf("got %v, expected %v", ret, x)
 	}
 }
+
+func Test_gfP2Sqrt(t *testing.T) {
+	x := &gfP2{
+		*fromBigInt(bigFromHex("85AEF3D078640C98597B6027B441A01FF1DD2C190F5E93C454806C11D8806141")),
+		*fromBigInt(bigFromHex("3722755292130B08D2AAB97FD34EC120EE265948D19C17ABF9B7213BAF82D65B")),
+	}
+	x2, x3, sqrt, sqrtNeg := &gfP2{}, &gfP2{}, &gfP2{}, &gfP2{}
+	x2.Mul(x, x)
+	sqrt.Sqrt(x2)
+	sqrtNeg.Neg(sqrt)
+	x3.Mul(sqrt, sqrt)
+
+	if *x3 != *x2 {
+		t.Errorf("not correct")
+	}
+
+	if *sqrt != *x && *sqrtNeg != *x {
+		t.Errorf("sqrt not expected")
+	}
+}
+
+/*
+func Test_gfP2QuadraticResidue(t *testing.T) {
+	x := &gfP2{
+		*fromBigInt(bigFromHex("85AEF3D078640C98597B6027B441A01FF1DD2C190F5E93C454806C11D8806141")),
+		*fromBigInt(bigFromHex("3722755292130B08D2AAB97FD34EC120EE265948D19C17ABF9B7213BAF82D65B")),
+	}
+	n := bigFromHex("40df880001e10199aa9f985292a7740a5f3e998ff60a2401e81d08b99ba6f8ff691684e427df891a9250c20f55961961fe81f6fc785a9512ad93e28f5cfb4f84")
+	y := &gfP2{}
+	x2 := &gfP2{}
+	x2.Exp(x, n)
+	x2 = gfP2Decode(x2)
+	fmt.Printf("%v\n", x2)
+	for {
+		k, err := randomK(rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		x2.Exp(x, k)
+		y.Exp(x2, n)
+		if y.x == *zero && y.y == *one {
+			break
+		}
+	}
+	x2 = gfP2Decode(x2)
+	fmt.Printf("%v\n", x2)
+}
+*/

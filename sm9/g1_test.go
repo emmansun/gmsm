@@ -349,6 +349,36 @@ func TestLargeIsOnCurve(t *testing.T) {
 	}
 }
 
+func Test_G1MarshalCompressed(t *testing.T) {
+	e, e2 := &G1{}, &G1{}
+	ret := e.MarshalCompressed()
+	_, err := e2.UnmarshalCompressed(ret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !e2.p.IsInfinity() {
+		t.Errorf("not same")
+	}
+	e.p.Set(curveGen)
+	ret = e.MarshalCompressed()
+	_, err = e2.UnmarshalCompressed(ret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e2.p.x != e.p.x || e2.p.y != e.p.y || e2.p.z != e.p.z {
+		t.Errorf("not same")
+	}
+	e.p.Neg(e.p)
+	ret = e.MarshalCompressed()
+	_, err = e2.UnmarshalCompressed(ret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e2.p.x != e.p.x || e2.p.y != e.p.y || e2.p.z != e.p.z {
+		t.Errorf("not same")
+	}
+}
+
 func benchmarkAllCurves(b *testing.B, f func(*testing.B, Curve)) {
 	tests := []struct {
 		name  string

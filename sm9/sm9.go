@@ -389,8 +389,7 @@ func UnmarshalSM9KeyPackage(der []byte) ([]byte, *G1, error) {
 		!inner.Empty() {
 		return nil, nil, errors.New("sm9: invalid SM9KeyPackage asn.1 data")
 	}
-	g := new(G1)
-	_, err := g.Unmarshal(cipherBytes[1:])
+	g, err := unmarshalG1(cipherBytes)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -418,16 +417,12 @@ func UnwrapKey(priv *EncryptPrivateKey, uid []byte, cipher *G1, kLen int) ([]byt
 }
 
 func (priv *EncryptPrivateKey) UnwrapKey(uid, cipherDer []byte, kLen int) ([]byte, error) {
-	bytes := make([]byte, 64+1)
+	var bytes []byte
 	input := cryptobyte.String(cipherDer)
 	if !input.ReadASN1BitStringAsBytes(&bytes) || !input.Empty() {
 		return nil, errors.New("sm9: invalid chipher asn1 data")
 	}
-	if bytes[0] != 4 {
-		return nil, fmt.Errorf("sm9: unsupport curve point marshal format <%v>", bytes[0])
-	}
-	g := new(G1)
-	_, err := g.Unmarshal(bytes[1:])
+	g, err := unmarshalG1(bytes)
 	if err != nil {
 		return nil, err
 	}
@@ -534,11 +529,7 @@ func DecryptASN1(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error
 	if encType != int(ENC_TYPE_XOR) {
 		return nil, fmt.Errorf("sm9: does not support this kind of encrypt type <%v> yet", encType)
 	}
-	if c1Bytes[0] != 4 {
-		return nil, fmt.Errorf("sm9: unsupport curve point marshal format <%v>", c1Bytes[0])
-	}
-	c := &G1{}
-	_, err := c.Unmarshal(c1Bytes[1:])
+	c, err := unmarshalG1(c1Bytes)
 	if err != nil {
 		return nil, err
 	}

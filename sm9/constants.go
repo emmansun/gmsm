@@ -41,6 +41,9 @@ var pMinus2 = [4]uint64{0xe56f9b27e351457b, 0x21f2934b1a7aeedb, 0xd603ab4ff58ec7
 // pMinus1Over2 is (p-1)/2.
 var pMinus1Over2 = [4]uint64{0xf2b7cd93f1a8a2be, 0x90f949a58d3d776d, 0xeb01d5a7fac763a2, 0x5b2000000151d378}
 
+// pMinus1Over2Big is (p-1)/2.
+var pMinus1Over2Big = bigFromHex("5b2000000151d378eb01d5a7fac763a290f949a58d3d776df2b7cd93f1a8a2be")
+
 // pMinus1Over4 is (p-1)/4.
 var pMinus1Over4 = bigFromHex("2d90000000a8e9bc7580ead3fd63b1d1487ca4d2c69ebbb6f95be6c9f8d4515f")
 

@@ -56,6 +56,12 @@ func NewTwistGenerator() *twistPoint {
 	return c
 }
 
+func (c *twistPoint) polynomial(x *gfP2) *gfP2 {
+	x3 := &gfP2{}
+	x3.Square(x).Mul(x3, x).Add(x3, twistB)
+	return x3
+}
+
 // IsOnCurve returns true iff c is on the curve.
 func (c *twistPoint) IsOnCurve() bool {
 	c.MakeAffine()
@@ -63,9 +69,9 @@ func (c *twistPoint) IsOnCurve() bool {
 		return true
 	}
 
-	y2, x3 := &gfP2{}, &gfP2{}
+	y2 := &gfP2{}
 	y2.Square(&c.y)
-	x3.Square(&c.x).Mul(x3, &c.x).Add(x3, twistB)
+	x3 := c.polynomial(&c.x)
 
 	return *y2 == *x3
 }
@@ -169,7 +175,6 @@ func (c *twistPoint) Double(a *twistPoint) {
 	c.y.Sub(t2, t)
 }
 
-// TODO: improve it
 func (c *twistPoint) Mul(a *twistPoint, scalar *big.Int) {
 	sum, t := &twistPoint{}, &twistPoint{}
 

@@ -202,7 +202,7 @@ func (e *G1) Marshal() []byte {
 	return ret
 }
 
-// Marshal converts e to a byte slice with prefix
+// MarshalUncompressed converts e to a byte slice with prefix
 func (e *G1) MarshalUncompressed() []byte {
 	// Each value is a 256-bit number.
 	const numBytes = 256 / 8
@@ -212,6 +212,68 @@ func (e *G1) MarshalUncompressed() []byte {
 
 	e.fillBytes(ret[1:])
 	return ret
+}
+
+// MarshalCompressed converts e to a byte slice with compress prefix.
+// If the point is not on the curve (or is the conventional point at infinity), the behavior is undefined.
+func (e *G1) MarshalCompressed() []byte {
+	// Each value is a 256-bit number.
+	const numBytes = 256 / 8
+	ret := make([]byte, numBytes+1)
+	if e.p == nil {
+		e.p = &curvePoint{}
+	}
+
+	e.p.MakeAffine()
+	temp := &gfP{}
+	montDecode(temp, &e.p.y)
+	temp.Marshal(ret[1:])
+	ret[0] = (ret[numBytes] & 1) | 2
+	montDecode(temp, &e.p.x)
+	temp.Marshal(ret[1:])
+
+	return ret
+}
+
+// UnmarshalCompressed sets e to the result of converting the output of Marshal back into
+// a group element and then returns e.
+func (e *G1) UnmarshalCompressed(data []byte) ([]byte, error) {
+	// Each value is a 256-bit number.
+	const numBytes = 256 / 8
+	if len(data) < 1+numBytes {
+		return nil, errors.New("sm9.G1: not enough data")
+	}
+	if data[0] != 2 && data[0] != 3 { // compressed form
+		return nil, errors.New("sm9.G1: invalid point compress byte")
+	}
+	if e.p == nil {
+		e.p = &curvePoint{}
+	} else {
+		e.p.x, e.p.y = gfP{0}, gfP{0}
+	}
+	e.p.x.Unmarshal(data[1:])
+	montEncode(&e.p.x, &e.p.x)
+	x3 := e.p.polynomial(&e.p.x)
+	e.p.y.Sqrt(x3)
+	montDecode(x3, &e.p.y)
+	if byte(x3[0]&1) != data[0]&1 {
+		gfpNeg(&e.p.y, &e.p.y)
+	}
+	if e.p.x == *zero && e.p.y == *zero {
+		// This is the point at infinity.
+		e.p.y = *newGFp(1)
+		e.p.z = gfP{0}
+		e.p.t = gfP{0}
+	} else {
+		e.p.z = *newGFp(1)
+		e.p.t = *newGFp(1)
+
+		if !e.p.IsOnCurve() {
+			return nil, errors.New("sm9.G1: malformed point")
+		}
+	}
+
+	return data[numBytes+1:], nil
 }
 
 func (e *G1) fillBytes(buffer []byte) {
@@ -254,8 +316,7 @@ func (e *G1) Unmarshal(m []byte) ([]byte, error) {
 	montEncode(&e.p.x, &e.p.x)
 	montEncode(&e.p.y, &e.p.y)
 
-	zero := gfP{0}
-	if e.p.x == zero && e.p.y == zero {
+	if e.p.x == *zero && e.p.y == *zero {
 		// This is the point at infinity.
 		e.p.y = *newGFp(1)
 		e.p.z = gfP{0}

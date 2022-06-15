@@ -41,6 +41,39 @@ func TestG2Marshal(t *testing.T) {
 	}
 }
 
+func Test_G2MarshalCompressed(t *testing.T) {
+	e, e2 := &G2{}, &G2{}
+	ret := e.MarshalCompressed()
+	_, err := e2.UnmarshalCompressed(ret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !e2.p.IsInfinity() {
+		t.Errorf("not same")
+	}
+	e.p.Set(twistGen)
+	ret = e.MarshalCompressed()
+	_, err = e2.UnmarshalCompressed(ret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e2.p.x != e.p.x || e2.p.y != e.p.y || e2.p.z != e.p.z {
+		t.Errorf("not same")
+	}
+	e.p.Neg(e.p)
+	ret = e.MarshalCompressed()
+	_, err = e2.UnmarshalCompressed(ret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e2.p.x != e.p.x || e2.p.y != e.p.y || e2.p.z != e.p.z {
+		t.Errorf("not same")
+	}
+	if e2.p.x == twistGen.x && e2.p.y == twistGen.y && e2.p.z == twistGen.z {
+		t.Errorf("not expected")
+	}
+}
+
 func BenchmarkG2(b *testing.B) {
 	x, _ := rand.Int(rand.Reader, Order)
 	b.ReportAllocs()

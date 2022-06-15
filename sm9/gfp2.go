@@ -1,6 +1,8 @@
 package sm9
 
-import "math/big"
+import (
+	"math/big"
+)
 
 // For details of the algorithms used, see "Multiplication and Squaring on
 // Pairing-Friendly Fields, Devegili et al.
@@ -239,17 +241,47 @@ func (e *gfP2) Frobenius(a *gfP2) *gfP2 {
 }
 
 // Sqrt method is only required when we implement compressed format
-func (e *gfP2) Sqrt(f *gfP2) *gfP2 {
+func (ret *gfP2) Sqrt(a *gfP2) *gfP2 {
 	// Algorithm 10 https://eprint.iacr.org/2012/685.pdf
 	// TODO
+	ret.SetZero()
+	c := &twistGen.x
 	b, b2, bq := &gfP2{}, &gfP2{}, &gfP2{}
-	b.Exp(f, pMinus1Over4)
+	b.Exp(a, pMinus1Over4)
 	b2.Mul(b, b)
 	bq.Exp(b, p)
 
-	return bq
+	t := &gfP2{}
+	x0 := &gfP{}
+	/* ignore sqrt existing check
+		a0 := &gfP2{}
+		a0.Exp(b2, p)
+		a0.Mul(a0, b2)
+		a0 = gfP2Decode(a0)
+	*/
+	t.Mul(bq, b)
+	if t.x == *zero && t.y == *one {
+		t.Mul(b2, a)
+		x0.Sqrt(&t.y)
+		t.MulScalar(bq, x0)
+		ret.Set(t)
+	} else {
+		d, e, f := &gfP2{}, &gfP2{}, &gfP2{}
+		d.Exp(c, pMinus1Over2Big)
+		e.Mul(d, c)
+		f.Square(e)
+		e.Invert(e)
+		t.Mul(b2, a)
+		t.Mul(t, f)
+		x0.Sqrt(&t.y)
+		t.MulScalar(bq, x0)
+		t.Mul(t, e)
+		ret.Set(t)
+	}
+	return ret
 }
 
+// Div2 e = f / 2, not used currently
 func (e *gfP2) Div2(f *gfP2) *gfP2 {
 	t := &gfP2{}
 	t.x.Div2(&f.x)

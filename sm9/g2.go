@@ -168,7 +168,7 @@ func (e *G2) Marshal() []byte {
 	return ret
 }
 
-// Marshal converts e into a byte slice with prefix
+// MarshalUncompressed converts e into a byte slice with uncompressed point prefix
 func (e *G2) MarshalUncompressed() []byte {
 	// Each value is a 256-bit number.
 	const numBytes = 256 / 8
@@ -176,6 +176,75 @@ func (e *G2) MarshalUncompressed() []byte {
 	ret[0] = 4
 	e.fillBytes(ret[1:])
 	return ret
+}
+
+// MarshalCompressed converts e into a byte slice with uncompressed point prefix
+func (e *G2) MarshalCompressed() []byte {
+	// Each value is a 256-bit number.
+	const numBytes = 256 / 8
+	ret := make([]byte, numBytes*2+1)
+	if e.p == nil {
+		e.p = &twistPoint{}
+	}
+	e.p.MakeAffine()
+	temp := &gfP{}
+	montDecode(temp, &e.p.y.y)
+	temp.Marshal(ret[1:])
+	ret[0] = (ret[numBytes] & 1) | 2
+
+	montDecode(temp, &e.p.x.x)
+	temp.Marshal(ret[1:])
+	montDecode(temp, &e.p.x.y)
+	temp.Marshal(ret[numBytes+1:])
+
+	return ret
+}
+
+// UnmarshalCompressed sets e to the result of converting the output of Marshal back into
+// a group element and then returns e.
+func (e *G2) UnmarshalCompressed(data []byte) ([]byte, error) {
+	// Each value is a 256-bit number.
+	const numBytes = 256 / 8
+	if len(data) < 1+2*numBytes {
+		return nil, errors.New("sm9.G2: not enough data")
+	}
+	if data[0] != 2 && data[0] != 3 { // compressed form
+		return nil, errors.New("sm9.G2: invalid point compress byte")
+	}
+	var err error
+	// Unmarshal the points and check their caps
+	if e.p == nil {
+		e.p = &twistPoint{}
+	}
+	if err = e.p.x.x.Unmarshal(data[1:]); err != nil {
+		return nil, err
+	}
+	if err = e.p.x.y.Unmarshal(data[1+numBytes:]); err != nil {
+		return nil, err
+	}
+	montEncode(&e.p.x.x, &e.p.x.x)
+	montEncode(&e.p.x.y, &e.p.x.y)
+	x3 := e.p.polynomial(&e.p.x)
+	e.p.y.Sqrt(x3)
+	x3y := &gfP{}
+	montDecode(x3y, &e.p.y.y)
+	if byte(x3y[0]&1) != data[0]&1 {
+		e.p.y.Neg(&e.p.y)
+	}
+	if e.p.x.IsZero() && e.p.y.IsZero() {
+		// This is the point at infinity.
+		e.p.y.SetOne()
+		e.p.z.SetZero()
+		e.p.t.SetZero()
+	} else {
+		e.p.z.SetOne()
+		e.p.t.SetOne()
+
+		if !e.p.IsOnCurve() {
+			return nil, errors.New("sm9.G2: malformed point")
+		}
+	}
+	return data[1+2*numBytes:], nil
 }
 
 func (e *G2) fillBytes(buffer []byte) {

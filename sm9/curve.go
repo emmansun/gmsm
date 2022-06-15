@@ -36,6 +36,14 @@ func (c *curvePoint) Set(a *curvePoint) {
 	c.t.Set(&a.t)
 }
 
+func (c *curvePoint) polynomial(x *gfP) *gfP {
+	x3 := &gfP{}
+	gfpMul(x3, x, x)
+	gfpMul(x3, x3, x)
+	gfpAdd(x3, x3, curveB)
+	return x3
+}
+
 // IsOnCurve returns true iff c is on the curve.
 func (c *curvePoint) IsOnCurve() bool {
 	c.MakeAffine()
@@ -43,11 +51,10 @@ func (c *curvePoint) IsOnCurve() bool {
 		return true
 	}
 
-	y2, x3 := &gfP{}, &gfP{}
+	y2 := &gfP{}
 	gfpMul(y2, &c.y, &c.y)
-	gfpMul(x3, &c.x, &c.x)
-	gfpMul(x3, x3, &c.x)
-	gfpAdd(x3, x3, curveB)
+
+	x3 := c.polynomial(&c.x)
 
 	return *y2 == *x3
 }

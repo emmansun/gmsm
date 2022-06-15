@@ -124,6 +124,25 @@ func (pub *SignMasterPublicKey) MarshalASN1() ([]byte, error) {
 	return b.Bytes()
 }
 
+func unmarshalG2(bytes []byte) (*G2, error) {
+	g2 := new(G2)
+	switch bytes[0] {
+	case 4:
+		_, err := g2.Unmarshal(bytes[1:])
+		if err != nil {
+			return nil, err
+		}
+	case 2, 3:
+		_, err := g2.UnmarshalCompressed(bytes)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, errors.New("sm9: invalid point identity byte")
+	}
+	return g2, nil
+}
+
 // UnmarshalASN1 unmarsal der data to sign master public key
 func (pub *SignMasterPublicKey) UnmarshalASN1(der []byte) error {
 	var bytes []byte
@@ -131,11 +150,7 @@ func (pub *SignMasterPublicKey) UnmarshalASN1(der []byte) error {
 	if !input.ReadASN1BitStringAsBytes(&bytes) || !input.Empty() {
 		return errors.New("sm9: invalid sign master public key asn1 data")
 	}
-	if bytes[0] != 4 {
-		return errors.New("sm9: invalid prefix of sign master public key")
-	}
-	g2 := new(G2)
-	_, err := g2.Unmarshal(bytes[1:])
+	g2, err := unmarshalG2(bytes)
 	if err != nil {
 		return err
 	}
@@ -163,6 +178,25 @@ func (priv *SignPrivateKey) MarshalASN1() ([]byte, error) {
 	return b.Bytes()
 }
 
+func unmarshalG1(bytes []byte) (*G1, error) {
+	g := new(G1)
+	switch bytes[0] {
+	case 4:
+		_, err := g.Unmarshal(bytes[1:])
+		if err != nil {
+			return nil, err
+		}
+	case 2, 3:
+		_, err := g.UnmarshalCompressed(bytes)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, errors.New("sm9: invalid point identity byte")
+	}
+	return g, nil
+}
+
 // UnmarshalASN1 unmarsal der data to sign user private key
 // Note, priv's SignMasterPublicKey should be handled separately.
 func (priv *SignPrivateKey) UnmarshalASN1(der []byte) error {
@@ -171,11 +205,7 @@ func (priv *SignPrivateKey) UnmarshalASN1(der []byte) error {
 	if !input.ReadASN1BitStringAsBytes(&bytes) || !input.Empty() {
 		return errors.New("sm9: invalid sign user private key asn1 data")
 	}
-	if bytes[0] != 4 {
-		return errors.New("sm9: invalid prefix of sign user private key")
-	}
-	g := new(G1)
-	_, err := g.Unmarshal(bytes[1:])
+	g, err := unmarshalG1(bytes)
 	if err != nil {
 		return err
 	}
@@ -269,11 +299,7 @@ func (pub *EncryptMasterPublicKey) UnmarshalASN1(der []byte) error {
 	if !input.ReadASN1BitStringAsBytes(&bytes) || !input.Empty() {
 		return errors.New("sm9: invalid encrypt master public key asn1 data")
 	}
-	if bytes[0] != 4 {
-		return errors.New("sm9: invalid prefix of encrypt master public key")
-	}
-	g := new(G1)
-	_, err := g.Unmarshal(bytes[1:])
+	g, err := unmarshalG1(bytes)
 	if err != nil {
 		return err
 	}
@@ -309,11 +335,7 @@ func (priv *EncryptPrivateKey) UnmarshalASN1(der []byte) error {
 	if !input.ReadASN1BitStringAsBytes(&bytes) || !input.Empty() {
 		return errors.New("sm9: invalid encrypt user private key asn1 data")
 	}
-	if bytes[0] != 4 {
-		return errors.New("sm9: invalid prefix of encrypt user private key")
-	}
-	g := new(G2)
-	_, err := g.Unmarshal(bytes[1:])
+	g, err := unmarshalG2(bytes)
 	if err != nil {
 		return err
 	}
