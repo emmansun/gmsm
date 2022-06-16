@@ -16,6 +16,8 @@ import (
 	"golang.org/x/crypto/cryptobyte/asn1"
 )
 
+// SM9 ASN.1 format reference: Information security technology - SM9 cryptographic algorithm application specification
+
 var bigOne = big.NewInt(1)
 
 type hashMode byte
@@ -84,6 +86,7 @@ func randFieldElement(rand io.Reader) (k *big.Int, err error) {
 	return
 }
 
+// Pair generate the basepoint once
 func (pub *SignMasterPublicKey) Pair() *GT {
 	pub.pairOnce.Do(func() {
 		pub.basePoint = Pair(Gen1, pub.MasterPublicKey)
@@ -116,6 +119,7 @@ func (pub *SignMasterPublicKey) generatorTable() *[32 * 2]gtTable {
 	return pub.table
 }
 
+// ScalarBaseMult compute basepoint^r with precomputed table
 func (pub *SignMasterPublicKey) ScalarBaseMult(r *big.Int) *GT {
 	scalar := normalizeScalar(r.Bytes())
 	tables := pub.generatorTable()
@@ -176,6 +180,7 @@ func Sign(rand io.Reader, priv *SignPrivateKey, hash []byte) (h *big.Int, s *G1,
 
 // Sign signs digest with user's DSA key, reading randomness from rand. The opts argument
 // is not currently used but, in keeping with the crypto.Signer interface.
+// The result is SM9Signature ASN.1 format.
 func (priv *SignPrivateKey) Sign(rand io.Reader, hash []byte, opts crypto.SignerOpts) ([]byte, error) {
 	h, s, err := Sign(rand, priv, hash)
 	if err != nil {
@@ -194,7 +199,7 @@ func (priv *SignPrivateKey) Sign(rand io.Reader, hash []byte, opts crypto.Signer
 }
 
 // SignASN1 signs a hash (which should be the result of hashing a larger message)
-// using the private key, priv. It returns the ASN.1 encoded signature.
+// using the private key, priv. It returns the ASN.1 encoded signature of type SM9Signature.
 func SignASN1(rand io.Reader, priv *SignPrivateKey, hash []byte) ([]byte, error) {
 	return priv.Sign(rand, hash, nil)
 }
@@ -225,7 +230,7 @@ func Verify(pub *SignMasterPublicKey, uid []byte, hid byte, hash []byte, h *big.
 	return h.Cmp(h2) == 0
 }
 
-// VerifyASN1 verifies the ASN.1 encoded signature, sig, of hash using the
+// VerifyASN1 verifies the ASN.1 encoded signature of type SM9Signature, sig, of hash using the
 // public key, pub. Its return value records whether the signature is valid.
 func VerifyASN1(pub *SignMasterPublicKey, uid []byte, hid byte, hash, sig []byte) bool {
 	var (
@@ -260,6 +265,7 @@ func (pub *SignMasterPublicKey) Verify(uid []byte, hid byte, hash, sig []byte) b
 	return VerifyASN1(pub, uid, hid, hash, sig)
 }
 
+// Pair generate the basepoint once
 func (pub *EncryptMasterPublicKey) Pair() *GT {
 	pub.pairOnce.Do(func() {
 		pub.basePoint = Pair(pub.MasterPublicKey, Gen2)
@@ -292,6 +298,7 @@ func (pub *EncryptMasterPublicKey) generatorTable() *[32 * 2]gtTable {
 	return pub.table
 }
 
+// ScalarBaseMult compute basepoint^r with precomputed table
 func (pub *EncryptMasterPublicKey) ScalarBaseMult(r *big.Int) *GT {
 	scalar := normalizeScalar(r.Bytes())
 	tables := pub.generatorTable()
@@ -346,7 +353,7 @@ func WrapKey(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, 
 	return
 }
 
-// WrapKey wrap key and marshal the cipher as ASN1 format.
+// WrapKey wrap key and marshal the cipher as ASN1 format, SM9PublicKey1 definition.
 func (pub *EncryptMasterPublicKey) WrapKey(rand io.Reader, uid []byte, hid byte, kLen int) ([]byte, []byte, error) {
 	key, cipher, err := WrapKey(rand, pub, uid, hid, kLen)
 	if err != nil {
@@ -360,7 +367,7 @@ func (pub *EncryptMasterPublicKey) WrapKey(rand io.Reader, uid []byte, hid byte,
 }
 
 // WrapKeyASN1 wrap key and marshal the result of SM9KeyPackage as ASN1 format. according
-// SM9 cryptographic algorithm application specification
+// SM9 cryptographic algorithm application specification, SM9KeyPackage defnition.
 func (pub *EncryptMasterPublicKey) WrapKeyASN1(rand io.Reader, uid []byte, hid byte, kLen int) ([]byte, error) {
 	key, cipher, err := WrapKey(rand, pub, uid, hid, kLen)
 	if err != nil {
@@ -416,6 +423,8 @@ func UnwrapKey(priv *EncryptPrivateKey, uid []byte, cipher *G1, kLen int) ([]byt
 	return key, nil
 }
 
+// UnwrapKey unwrap key from cipherDer, user id and aligned key length.
+// cipherDer is SM9PublicKey1 format according SM9 cryptographic algorithm application specification.
 func (priv *EncryptPrivateKey) UnwrapKey(uid, cipherDer []byte, kLen int) ([]byte, error) {
 	var bytes []byte
 	input := cryptobyte.String(cipherDer)
@@ -447,13 +456,13 @@ func Encrypt(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, 
 }
 
 // EncryptASN1 encrypt plaintext and output ciphertext with ASN.1 format according
-// SM9 cryptographic algorithm application specification
+// SM9 cryptographic algorithm application specification, SM9Cipher definition.
 func EncryptASN1(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, plaintext []byte) ([]byte, error) {
 	return pub.Encrypt(rand, uid, hid, plaintext)
 }
 
 // Encrypt encrypt plaintext and output ciphertext with ASN.1 format according
-// SM9 cryptographic algorithm application specification
+// SM9 cryptographic algorithm application specification, SM9Cipher definition.
 func (pub *EncryptMasterPublicKey) Encrypt(rand io.Reader, uid []byte, hid byte, plaintext []byte) ([]byte, error) {
 	key, cipher, err := WrapKey(rand, pub, uid, hid, len(plaintext)+sm3.Size)
 	if err != nil {
@@ -504,7 +513,7 @@ func Decrypt(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error) {
 }
 
 // DecryptASN1 decrypt chipher, ciphertext should be with ASN.1 format according
-// SM9 cryptographic algorithm application specification
+// SM9 cryptographic algorithm application specification, SM9Cipher definition.
 func DecryptASN1(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error) {
 	if len(ciphertext) <= 32+65 {
 		return nil, errors.New("sm9: invalid ciphertext length")

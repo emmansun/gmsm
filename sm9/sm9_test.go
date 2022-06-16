@@ -78,6 +78,45 @@ func TestSignASN1(t *testing.T) {
 	}
 }
 
+// SM9 Appendix A
+func TestSignSM9Sample(t *testing.T) {
+	expectedH := bigFromHex("823c4b21e4bd2dfe1ed92c606653e996668563152fc33f55d7bfbb9bd9705adb")
+	expectedS := "0473bf96923ce58b6ad0e13e9643a406d8eb98417c50ef1b29cef9adb48b6d598c856712f1c2e0968ab7769f42a99586aed139d5b8b3e15891827cc2aced9baa05"
+	hash := []byte("Chinese IBS standard")
+	hid := byte(0x01)
+	uid := []byte("Alice")
+	r := bigFromHex("033c8616b06704813203dfd00965022ed15975c662337aed648835dc4b1cbe")
+	masterKey := new(SignMasterPrivateKey)
+	masterKey.D = bigFromHex("0130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4")
+	masterKey.MasterPublicKey = new(G2).ScalarBaseMult(masterKey.D)
+	userKey, err := masterKey.GenerateUserKey(uid, hid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := userKey.SignMasterPublicKey.ScalarBaseMult(r)
+
+	var buffer []byte
+	buffer = append(buffer, hash...)
+	buffer = append(buffer, w.Marshal()...)
+
+	h := hashH2(buffer)
+	if h.Cmp(expectedH) != 0 {
+		t.Fatal("not same h")
+	}
+
+	l := new(big.Int).Sub(r, h)
+
+	if l.Sign() < 0 {
+		l.Add(l, Order)
+	}
+
+	s := new(G1).ScalarMult(userKey.PrivateKey, l)
+
+	if hex.EncodeToString(s.MarshalUncompressed()) != expectedS {
+		t.Fatal("not same S")
+	}
+}
+
 func TestWrapKey(t *testing.T) {
 	masterKey, err := GenerateEncryptMasterKey(rand.Reader)
 	hid := byte(0x01)
@@ -161,6 +200,7 @@ func TestUnmarshalSM9KeyPackage(t *testing.T) {
 	}
 }
 
+// SM9 Appendix C
 func TestWrapKeySM9Sample(t *testing.T) {
 	expectedKey := "4ff5cf86d2ad40c8f4bac98d76abdbde0c0e2f0a829d3f911ef5b2bce0695480"
 	masterKey := new(EncryptMasterPrivateKey)
@@ -209,6 +249,7 @@ func TestWrapKeySM9Sample(t *testing.T) {
 	}
 }
 
+// SM9 Appendix D
 func TestEncryptSM9Sample(t *testing.T) {
 	plaintext := []byte("Chinese IBE standard")
 	expectedCiphertext := "2445471164490618e1ee20528ff1d545b0f14c8bcaa44544f03dab5dac07d8ff42ffca97d57cddc05ea405f2e586feb3a6930715532b8000759f13059ed59ac0ba672387bcd6de5016a158a52bb2e7fc429197bcab70b25afee37a2b9db9f3671b5f5b0e951489682f3e64e1378cdd5da9513b1c"

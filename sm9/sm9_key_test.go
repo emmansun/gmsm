@@ -39,7 +39,9 @@ func TestSignMasterPublicKeyMarshalASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if masterKey.MasterPublicKey.p.x != pub2.MasterPublicKey.p.x || masterKey.MasterPublicKey.p.y != pub2.MasterPublicKey.p.y || masterKey.MasterPublicKey.p.z != pub2.MasterPublicKey.p.z {
+	if masterKey.MasterPublicKey.p.x != pub2.MasterPublicKey.p.x ||
+		masterKey.MasterPublicKey.p.y != pub2.MasterPublicKey.p.y ||
+		masterKey.MasterPublicKey.p.z != pub2.MasterPublicKey.p.z {
 		t.Errorf("not same")
 	}
 }
@@ -64,7 +66,8 @@ func TestSignUserPrivateKeyMarshalASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if userKey.PrivateKey.p.x != userKey2.PrivateKey.p.x || userKey.PrivateKey.p.y != userKey2.PrivateKey.p.y {
+	if userKey.PrivateKey.p.x != userKey2.PrivateKey.p.x ||
+		userKey.PrivateKey.p.y != userKey2.PrivateKey.p.y {
 		t.Errorf("not same")
 	}
 }
@@ -102,7 +105,8 @@ func TestEncryptMasterPublicKeyMarshalASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if masterKey.MasterPublicKey.p.x != pub2.MasterPublicKey.p.x || masterKey.MasterPublicKey.p.y != pub2.MasterPublicKey.p.y {
+	if masterKey.MasterPublicKey.p.x != pub2.MasterPublicKey.p.x ||
+		masterKey.MasterPublicKey.p.y != pub2.MasterPublicKey.p.y {
 		t.Errorf("not same")
 	}
 }
@@ -127,7 +131,9 @@ func TestEncryptUserPrivateKeyMarshalASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if userKey.PrivateKey.p.x != userKey2.PrivateKey.p.x || userKey.PrivateKey.p.y != userKey2.PrivateKey.p.y || userKey.PrivateKey.p.z != userKey2.PrivateKey.p.z {
+	if userKey.PrivateKey.p.x != userKey2.PrivateKey.p.x ||
+		userKey.PrivateKey.p.y != userKey2.PrivateKey.p.y ||
+		userKey.PrivateKey.p.z != userKey2.PrivateKey.p.z {
 		t.Errorf("not same")
 	}
 }
