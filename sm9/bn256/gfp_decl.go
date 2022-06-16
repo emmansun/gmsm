@@ -1,7 +1,7 @@
 //go:build (amd64 && !generic) || (arm64 && !generic)
 // +build amd64,!generic arm64,!generic
 
-package sm9
+package bn256
 
 // This file contains forward declarations for the architecture-specific
 // assembly implementations of these functions, provided that they exist.

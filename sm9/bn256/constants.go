@@ -1,4 +1,4 @@
-package sm9
+package bn256
 
 // u is the BN parameter that determines the prime: 600000000058f98a.
 var u = bigFromHex("600000000058f98a")

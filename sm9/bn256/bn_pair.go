@@ -1,4 +1,4 @@
-package sm9
+package bn256
 
 import (
 	"math/big"

@@ -1,7 +1,7 @@
 //go:build !amd64 && !arm64 || generic
 // +build !amd64,!arm64 generic
 
-package sm9
+package bn256
 
 func gfpCarry(a *gfP, head uint64) {
 	b := &gfP{}

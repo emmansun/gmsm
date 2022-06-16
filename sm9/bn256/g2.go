@@ -1,4 +1,4 @@
-package sm9
+package bn256
 
 import (
 	"errors"
@@ -316,4 +316,18 @@ func (e *G2) Unmarshal(m []byte) ([]byte, error) {
 		}
 	}
 	return m[4*numBytes:], nil
+}
+
+func (e *G2) Equal(other *G2) bool {
+	if e.p == nil && other.p == nil {
+		return true
+	}
+	return e.p.x == other.p.x &&
+		e.p.y == other.p.y &&
+		e.p.z == other.p.z &&
+		e.p.t == other.p.t
+}
+
+func (e *G2) IsOnCurve() bool {
+	return e.p.IsOnCurve()
 }

@@ -1,4 +1,4 @@
-package sm9
+package bn256
 
 import (
 	"crypto/rand"
@@ -331,6 +331,20 @@ func (e *G1) Unmarshal(m []byte) ([]byte, error) {
 	}
 
 	return m[2*numBytes:], nil
+}
+
+func (e *G1) Equal(other *G1) bool {
+	if e.p == nil && other.p == nil {
+		return true
+	}
+	return e.p.x == other.p.x &&
+		e.p.y == other.p.y &&
+		e.p.z == other.p.z &&
+		e.p.t == other.p.t
+}
+
+func (e *G1) IsOnCurve() bool {
+	return e.p.IsOnCurve()
 }
 
 type G1Curve struct {

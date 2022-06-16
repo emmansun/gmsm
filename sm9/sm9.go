@@ -12,6 +12,7 @@ import (
 
 	"github.com/emmansun/gmsm/internal/xor"
 	"github.com/emmansun/gmsm/sm3"
+	"github.com/emmansun/gmsm/sm9/bn256"
 	"golang.org/x/crypto/cryptobyte"
 	"golang.org/x/crypto/cryptobyte/asn1"
 )
@@ -56,7 +57,7 @@ func hash(z []byte, h hashMode) *big.Int {
 		md.Reset()
 	}
 	k := new(big.Int).SetBytes(ha[:40])
-	n := new(big.Int).Sub(Order, bigOne)
+	n := new(big.Int).Sub(bn256.Order, bigOne)
 	k.Mod(k, n)
 	k.Add(k, bigOne)
 	return k
@@ -80,75 +81,36 @@ func randFieldElement(rand io.Reader) (k *big.Int, err error) {
 	}
 
 	k = new(big.Int).SetBytes(b)
-	n := new(big.Int).Sub(Order, bigOne)
+	n := new(big.Int).Sub(bn256.Order, bigOne)
 	k.Mod(k, n)
 	k.Add(k, bigOne)
 	return
 }
 
 // Pair generate the basepoint once
-func (pub *SignMasterPublicKey) Pair() *GT {
+func (pub *SignMasterPublicKey) Pair() *bn256.GT {
 	pub.pairOnce.Do(func() {
-		pub.basePoint = Pair(Gen1, pub.MasterPublicKey)
+		pub.basePoint = bn256.Pair(bn256.Gen1, pub.MasterPublicKey)
 	})
 	return pub.basePoint
 }
 
-func (pub *SignMasterPublicKey) generatorTable() *[32 * 2]gtTable {
+func (pub *SignMasterPublicKey) generatorTable() *[32 * 2]bn256.GTFieldTable {
 	pub.tableGenOnce.Do(func() {
-		pub.table = new([32 * 2]gtTable)
-		base := &GT{}
-		base.Set(pub.Pair())
-		for i := 0; i < 32*2; i++ {
-			pub.table[i][0] = &GT{}
-			pub.table[i][0].Set(base)
-			for j := 1; j < 15; j += 2 {
-				pub.table[i][j] = &GT{}
-				pub.table[i][j].p = &gfP12{}
-				pub.table[i][j].p.Square(pub.table[i][j/2].p)
-				pub.table[i][j+1] = &GT{}
-				pub.table[i][j+1].p = &gfP12{}
-				pub.table[i][j+1].Add(pub.table[i][j], base)
-			}
-			base.p.Square(base.p)
-			base.p.Square(base.p)
-			base.p.Square(base.p)
-			base.p.Square(base.p)
-		}
+		pub.table = bn256.GenerateGTFieldTable(pub.Pair())
 	})
 	return pub.table
 }
 
 // ScalarBaseMult compute basepoint^r with precomputed table
-func (pub *SignMasterPublicKey) ScalarBaseMult(r *big.Int) *GT {
-	scalar := normalizeScalar(r.Bytes())
+func (pub *SignMasterPublicKey) ScalarBaseMult(r *big.Int) *bn256.GT {
 	tables := pub.generatorTable()
-	// This is also a scalar multiplication with a four-bit window like in
-	// ScalarMult, but in this case the doublings are precomputed. The value
-	// [windowValue]G added at iteration k would normally get doubled
-	// (totIterations-k)×4 times, but with a larger precomputation we can
-	// instead add [2^((totIterations-k)×4)][windowValue]G and avoid the
-	// doublings between iterations.
-	e, t := &GT{}, &GT{}
-	tableIndex := len(tables) - 1
-	e.SetOne()
-	t.SetOne()
-	for _, byte := range scalar {
-		windowValue := byte >> 4
-		tables[tableIndex].Select(t, windowValue)
-		e.Add(e, t)
-		tableIndex--
-		windowValue = byte & 0b1111
-		tables[tableIndex].Select(t, windowValue)
-		e.Add(e, t)
-		tableIndex--
-	}
-	return e
+	return bn256.ScalarBaseMultGT(tables, r)
 }
 
 // Sign signs a hash (which should be the result of hashing a larger message)
 // using the user dsa key. It returns the signature as a pair of h and s.
-func Sign(rand io.Reader, priv *SignPrivateKey, hash []byte) (h *big.Int, s *G1, err error) {
+func Sign(rand io.Reader, priv *SignPrivateKey, hash []byte) (h *big.Int, s *bn256.G1, err error) {
 	var r *big.Int
 	for {
 		r, err = randFieldElement(rand)
@@ -167,11 +129,11 @@ func Sign(rand io.Reader, priv *SignPrivateKey, hash []byte) (h *big.Int, s *G1,
 		l := new(big.Int).Sub(r, h)
 
 		if l.Sign() < 0 {
-			l.Add(l, Order)
+			l.Add(l, bn256.Order)
 		}
 
 		if l.Sign() != 0 {
-			s = new(G1).ScalarMult(priv.PrivateKey, l)
+			s = new(bn256.G1).ScalarMult(priv.PrivateKey, l)
 			break
 		}
 	}
@@ -206,11 +168,11 @@ func SignASN1(rand io.Reader, priv *SignPrivateKey, hash []byte) ([]byte, error)
 
 // Verify verifies the signature in h, s of hash using the master dsa public key and user id, uid and hid.
 // Its return value records whether the signature is valid.
-func Verify(pub *SignMasterPublicKey, uid []byte, hid byte, hash []byte, h *big.Int, s *G1) bool {
-	if h.Sign() <= 0 || h.Cmp(Order) >= 0 {
+func Verify(pub *SignMasterPublicKey, uid []byte, hid byte, hash []byte, h *big.Int, s *bn256.G1) bool {
+	if h.Sign() <= 0 || h.Cmp(bn256.Order) >= 0 {
 		return false
 	}
-	if !s.p.IsOnCurve() {
+	if !s.IsOnCurve() {
 		return false
 	}
 
@@ -219,8 +181,8 @@ func Verify(pub *SignMasterPublicKey, uid []byte, hid byte, hash []byte, h *big.
 	// user sign public key p generation
 	p := pub.GenerateUserPublicKey(uid, hid)
 
-	u := Pair(s, p)
-	w := new(GT).Add(u, t)
+	u := bn256.Pair(s, p)
+	w := new(bn256.GT).Add(u, t)
 
 	var buffer []byte
 	buffer = append(buffer, hash...)
@@ -250,7 +212,7 @@ func VerifyASN1(pub *SignMasterPublicKey, uid []byte, hid byte, hash, sig []byte
 	if sBytes[0] != 4 {
 		return false
 	}
-	s := new(G1)
+	s := new(bn256.G1)
 	_, err := s.Unmarshal(sBytes[1:])
 	if err != nil {
 		return false
@@ -266,67 +228,28 @@ func (pub *SignMasterPublicKey) Verify(uid []byte, hid byte, hash, sig []byte) b
 }
 
 // Pair generate the basepoint once
-func (pub *EncryptMasterPublicKey) Pair() *GT {
+func (pub *EncryptMasterPublicKey) Pair() *bn256.GT {
 	pub.pairOnce.Do(func() {
-		pub.basePoint = Pair(pub.MasterPublicKey, Gen2)
+		pub.basePoint = bn256.Pair(pub.MasterPublicKey, bn256.Gen2)
 	})
 	return pub.basePoint
 }
 
-func (pub *EncryptMasterPublicKey) generatorTable() *[32 * 2]gtTable {
+func (pub *EncryptMasterPublicKey) generatorTable() *[32 * 2]bn256.GTFieldTable {
 	pub.tableGenOnce.Do(func() {
-		pub.table = new([32 * 2]gtTable)
-		base := &GT{}
-		base.Set(pub.Pair())
-		for i := 0; i < 32*2; i++ {
-			pub.table[i][0] = &GT{}
-			pub.table[i][0].Set(base)
-			for j := 1; j < 15; j += 2 {
-				pub.table[i][j] = &GT{}
-				pub.table[i][j].p = &gfP12{}
-				pub.table[i][j].p.Square(pub.table[i][j/2].p)
-				pub.table[i][j+1] = &GT{}
-				pub.table[i][j+1].p = &gfP12{}
-				pub.table[i][j+1].Add(pub.table[i][j], base)
-			}
-			base.p.Square(base.p)
-			base.p.Square(base.p)
-			base.p.Square(base.p)
-			base.p.Square(base.p)
-		}
+		pub.table = bn256.GenerateGTFieldTable(pub.Pair())
 	})
 	return pub.table
 }
 
 // ScalarBaseMult compute basepoint^r with precomputed table
-func (pub *EncryptMasterPublicKey) ScalarBaseMult(r *big.Int) *GT {
-	scalar := normalizeScalar(r.Bytes())
+func (pub *EncryptMasterPublicKey) ScalarBaseMult(r *big.Int) *bn256.GT {
 	tables := pub.generatorTable()
-	// This is also a scalar multiplication with a four-bit window like in
-	// ScalarMult, but in this case the doublings are precomputed. The value
-	// [windowValue]G added at iteration k would normally get doubled
-	// (totIterations-k)×4 times, but with a larger precomputation we can
-	// instead add [2^((totIterations-k)×4)][windowValue]G and avoid the
-	// doublings between iterations.
-	e, t := &GT{}, &GT{}
-	tableIndex := len(tables) - 1
-	e.SetOne()
-	t.SetOne()
-	for _, byte := range scalar {
-		windowValue := byte >> 4
-		tables[tableIndex].Select(t, windowValue)
-		e.Add(e, t)
-		tableIndex--
-		windowValue = byte & 0b1111
-		tables[tableIndex].Select(t, windowValue)
-		e.Add(e, t)
-		tableIndex--
-	}
-	return e
+	return bn256.ScalarBaseMultGT(tables, r)
 }
 
 // WrapKey generate and wrap key wtih reciever's uid and system hid
-func WrapKey(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, kLen int) (key []byte, cipher *G1, err error) {
+func WrapKey(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, kLen int) (key []byte, cipher *bn256.G1, err error) {
 	q := pub.GenerateUserPublicKey(uid, hid)
 	var r *big.Int
 	var ok bool
@@ -336,7 +259,7 @@ func WrapKey(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, 
 			return
 		}
 
-		cipher = new(G1).ScalarMult(q, r)
+		cipher = new(bn256.G1).ScalarMult(q, r)
 
 		w := pub.ScalarBaseMult(r)
 
@@ -382,7 +305,7 @@ func (pub *EncryptMasterPublicKey) WrapKeyASN1(rand io.Reader, uid []byte, hid b
 }
 
 // UnmarshalSM9KeyPackage is an utility to unmarshal SM9KeyPackage
-func UnmarshalSM9KeyPackage(der []byte) ([]byte, *G1, error) {
+func UnmarshalSM9KeyPackage(der []byte) ([]byte, *bn256.G1, error) {
 	input := cryptobyte.String(der)
 	var (
 		key         []byte
@@ -404,12 +327,12 @@ func UnmarshalSM9KeyPackage(der []byte) ([]byte, *G1, error) {
 }
 
 // UnwrapKey unwrap key from cipher, user id and aligned key length
-func UnwrapKey(priv *EncryptPrivateKey, uid []byte, cipher *G1, kLen int) ([]byte, error) {
-	if !cipher.p.IsOnCurve() {
+func UnwrapKey(priv *EncryptPrivateKey, uid []byte, cipher *bn256.G1, kLen int) ([]byte, error) {
+	if !cipher.IsOnCurve() {
 		return nil, errors.New("sm9: invalid cipher, it's NOT on curve")
 	}
 
-	w := Pair(cipher, priv.PrivateKey)
+	w := bn256.Pair(cipher, priv.PrivateKey)
 
 	var buffer []byte
 	buffer = append(buffer, cipher.Marshal()...)
@@ -486,7 +409,7 @@ func (pub *EncryptMasterPublicKey) Encrypt(rand io.Reader, uid []byte, hid byte,
 
 // Decrypt decrypt chipher, ciphertext should be with format C1||C3||C2
 func Decrypt(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error) {
-	c := &G1{}
+	c := &bn256.G1{}
 	c3, err := c.Unmarshal(ciphertext)
 	if err != nil {
 		return nil, err

@@ -9,7 +9,16 @@ import (
 
 	"github.com/emmansun/gmsm/internal/xor"
 	"github.com/emmansun/gmsm/sm3"
+	"github.com/emmansun/gmsm/sm9/bn256"
 )
+
+func bigFromHex(s string) *big.Int {
+	b, ok := new(big.Int).SetString(s, 16)
+	if !ok {
+		panic("sm9/elliptic: internal error: invalid encoding")
+	}
+	return b
+}
 
 func TestHashH1(t *testing.T) {
 	expected := "2acc468c3926b0bdb2767e99ff26e084de9ced8dbc7d5fbf418027b667862fab"
@@ -88,7 +97,7 @@ func TestSignSM9Sample(t *testing.T) {
 	r := bigFromHex("033c8616b06704813203dfd00965022ed15975c662337aed648835dc4b1cbe")
 	masterKey := new(SignMasterPrivateKey)
 	masterKey.D = bigFromHex("0130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4")
-	masterKey.MasterPublicKey = new(G2).ScalarBaseMult(masterKey.D)
+	masterKey.MasterPublicKey = new(bn256.G2).ScalarBaseMult(masterKey.D)
 	userKey, err := masterKey.GenerateUserKey(uid, hid)
 	if err != nil {
 		t.Fatal(err)
@@ -107,10 +116,10 @@ func TestSignSM9Sample(t *testing.T) {
 	l := new(big.Int).Sub(r, h)
 
 	if l.Sign() < 0 {
-		l.Add(l, Order)
+		l.Add(l, bn256.Order)
 	}
 
-	s := new(G1).ScalarMult(userKey.PrivateKey, l)
+	s := new(bn256.G1).ScalarMult(userKey.PrivateKey, l)
 
 	if hex.EncodeToString(s.MarshalUncompressed()) != expectedS {
 		t.Fatal("not same S")
@@ -205,7 +214,7 @@ func TestWrapKeySM9Sample(t *testing.T) {
 	expectedKey := "4ff5cf86d2ad40c8f4bac98d76abdbde0c0e2f0a829d3f911ef5b2bce0695480"
 	masterKey := new(EncryptMasterPrivateKey)
 	masterKey.D = bigFromHex("01EDEE3778F441F8DEA3D9FA0ACC4E07EE36C93F9A08618AF4AD85CEDE1C22")
-	masterKey.MasterPublicKey = new(G1).ScalarBaseMult(masterKey.D)
+	masterKey.MasterPublicKey = new(bn256.G1).ScalarBaseMult(masterKey.D)
 	fmt.Printf("Pub-e=%v\n", hex.EncodeToString(masterKey.MasterPublicKey.Marshal()))
 
 	uid := []byte("Bob")
@@ -221,11 +230,11 @@ func TestWrapKeySM9Sample(t *testing.T) {
 	fmt.Printf("Qb=%v\n", hex.EncodeToString(q.Marshal()))
 	var r *big.Int = bigFromHex("74015F8489C01EF4270456F9E6475BFB602BDE7F33FD482AB4E3684A6722")
 
-	cipher := new(G1).ScalarMult(q, r)
+	cipher := new(bn256.G1).ScalarMult(q, r)
 	fmt.Printf("C=%v\n", hex.EncodeToString(cipher.Marshal()))
 
-	g := Pair(masterKey.Public().MasterPublicKey, Gen2)
-	w := new(GT).ScalarMult(g, r)
+	g := bn256.Pair(masterKey.Public().MasterPublicKey, bn256.Gen2)
+	w := new(bn256.GT).ScalarMult(g, r)
 
 	var buffer []byte
 	buffer = append(buffer, cipher.Marshal()...)
@@ -255,7 +264,7 @@ func TestEncryptSM9Sample(t *testing.T) {
 	expectedCiphertext := "2445471164490618e1ee20528ff1d545b0f14c8bcaa44544f03dab5dac07d8ff42ffca97d57cddc05ea405f2e586feb3a6930715532b8000759f13059ed59ac0ba672387bcd6de5016a158a52bb2e7fc429197bcab70b25afee37a2b9db9f3671b5f5b0e951489682f3e64e1378cdd5da9513b1c"
 	masterKey := new(EncryptMasterPrivateKey)
 	masterKey.D = bigFromHex("01EDEE3778F441F8DEA3D9FA0ACC4E07EE36C93F9A08618AF4AD85CEDE1C22")
-	masterKey.MasterPublicKey = new(G1).ScalarBaseMult(masterKey.D)
+	masterKey.MasterPublicKey = new(bn256.G1).ScalarBaseMult(masterKey.D)
 	fmt.Printf("Pub-e=%v\n", hex.EncodeToString(masterKey.MasterPublicKey.Marshal()))
 
 	uid := []byte("Bob")
@@ -271,11 +280,11 @@ func TestEncryptSM9Sample(t *testing.T) {
 	fmt.Printf("Qb=%v\n", hex.EncodeToString(q.Marshal()))
 	var r *big.Int = bigFromHex("AAC0541779C8FC45E3E2CB25C12B5D2576B2129AE8BB5EE2CBE5EC9E785C")
 
-	cipher := new(G1).ScalarMult(q, r)
+	cipher := new(bn256.G1).ScalarMult(q, r)
 	fmt.Printf("C=%v\n", hex.EncodeToString(cipher.Marshal()))
 
-	g := Pair(masterKey.Public().MasterPublicKey, Gen2)
-	w := new(GT).ScalarMult(g, r)
+	g := bn256.Pair(masterKey.Public().MasterPublicKey, bn256.Gen2)
+	w := new(bn256.GT).ScalarMult(g, r)
 
 	var buffer []byte
 	buffer = append(buffer, cipher.Marshal()...)
