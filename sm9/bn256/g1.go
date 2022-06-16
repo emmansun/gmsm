@@ -333,6 +333,7 @@ func (e *G1) Unmarshal(m []byte) ([]byte, error) {
 	return m[2*numBytes:], nil
 }
 
+// Equal compare e and other
 func (e *G1) Equal(other *G1) bool {
 	if e.p == nil && other.p == nil {
 		return true
@@ -343,6 +344,7 @@ func (e *G1) Equal(other *G1) bool {
 		e.p.t == other.p.t
 }
 
+// IsOnCurve returns true if e is on the curve.
 func (e *G1) IsOnCurve() bool {
 	return e.p.IsOnCurve()
 }

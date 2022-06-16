@@ -126,6 +126,69 @@ func TestSignSM9Sample(t *testing.T) {
 	}
 }
 
+// SM9 Appendix B
+func TestKeyExchangeSample(t *testing.T) {
+	hid := byte(0x02)
+	expectedKey := "c5c13a8f59a97cdeae64f16a2272a9e7"
+	expectedSignatureB := "3bb4bcee8139c960b4d6566db1e0d5f0b2767680e5e1bf934103e6c66e40ffee"
+	expectedSignatureA := "195d1b7256ba7e0e67c71202a25f8c94ff8241702c2f55d613ae1c6b98215172"
+	masterKey := new(EncryptMasterPrivateKey)
+	masterKey.D = bigFromHex("02E65B0762D042F51F0D23542B13ED8CFA2E9A0E7206361E013A283905E31F")
+	masterKey.MasterPublicKey = new(bn256.G1).ScalarBaseMult(masterKey.D)
+	fmt.Printf("Pub-e=%v\n", hex.EncodeToString(masterKey.MasterPublicKey.Marshal()))
+
+	userA := []byte("Alice")
+	userB := []byte("Bob")
+
+	userKey, err := masterKey.GenerateUserKey(userA, hid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	initiator := NewKeyExchange(userKey, userA, userB, 16, true)
+
+	userKey, err = masterKey.GenerateUserKey(userB, hid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	responder:=NewKeyExchange(userKey, userB, userA, 16, true)
+
+	// A1-A4
+	initKeyExchange(initiator, hid, bigFromHex("5879DD1D51E175946F23B1B41E93BA31C584AE59A426EC1046A4D03B06C8"))
+
+	if hex.EncodeToString(initiator.secret.Marshal()) != "7cba5b19069ee66aa79d490413d11846b9ba76dd22567f809cf23b6d964bb265a9760c99cb6f706343fed05637085864958d6c90902aba7d405fbedf7b781599" {
+		t.Fatal("not same")
+	}
+
+	// B1 - B7
+	rB, sigB, err := respondKeyExchange(responder, hid, bigFromHex("018B98C44BEF9F8537FB7D071B2C928B3BC65BD3D69E1EEE213564905634FE"), initiator.secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hex.EncodeToString(responder.key) != expectedKey {
+		t.Errorf("not expected key %v\n", hex.EncodeToString(responder.key))
+	}
+	if hex.EncodeToString(sigB) != expectedSignatureB {
+		t.Errorf("not expected signature B")
+	}
+
+	// A5 -A8
+	sigA, err := initiator.ConfirmResponder(rB, sigB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hex.EncodeToString(initiator.key) != expectedKey {
+		t.Errorf("not expected key %v\n", hex.EncodeToString(initiator.key))
+	}
+	if hex.EncodeToString(sigA) != expectedSignatureA {
+		t.Errorf("not expected signature A")
+	}
+	// B8
+	err = responder.ConfirmInitiator(sigA)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestWrapKey(t *testing.T) {
 	masterKey, err := GenerateEncryptMasterKey(rand.Reader)
 	hid := byte(0x01)

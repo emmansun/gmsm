@@ -44,7 +44,7 @@ func (c *curvePoint) polynomial(x *gfP) *gfP {
 	return x3
 }
 
-// IsOnCurve returns true iff c is on the curve.
+// IsOnCurve returns true if c is on the curve.
 func (c *curvePoint) IsOnCurve() bool {
 	c.MakeAffine()
 	if c.IsInfinity() { // TBC: This is not same as golang elliptic

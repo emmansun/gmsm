@@ -485,3 +485,188 @@ func DecryptASN1(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error
 	xor.XorBytes(key, c2Bytes, key[:len(c2Bytes)])
 	return key[:len(c2Bytes)], nil
 }
+
+// Decrypt decrypt chipher, ciphertext should be with ASN.1 format according
+// SM9 cryptographic algorithm application specification, SM9Cipher definition.
+func (priv *EncryptPrivateKey) Decrypt(uid, ciphertext []byte) ([]byte, error) {
+	if ciphertext[0] == 0x30 { // should be ASN.1 format
+		return DecryptASN1(priv, uid, ciphertext)
+	}
+	// fallback to C1||C3||C2 raw format
+	return Decrypt(priv, uid, ciphertext)
+}
+
+// KeyExchange key exchange struct, include internal stat in whole key exchange flow.
+type KeyExchange struct {
+	genSignature bool
+	keyLength    int
+	privateKey   *EncryptPrivateKey
+	uid          []byte
+	peerUID      []byte
+	r            *big.Int
+	secret       *bn256.G1
+	peerSecret   *bn256.G1
+	g1           *bn256.GT
+	g2           *bn256.GT
+	g3           *bn256.GT
+	key          []byte
+}
+
+// NewKeyExchange create one new KeyExchange object
+func NewKeyExchange(priv *EncryptPrivateKey, uid, peerUID []byte, keyLen int, genSignature bool) *KeyExchange {
+	ke := &KeyExchange{}
+	ke.genSignature = genSignature
+	ke.keyLength = keyLen
+	ke.privateKey = priv
+	ke.uid = uid
+	ke.peerUID = peerUID
+	return ke
+}
+
+// GetKey return key after key alignment
+func (ke *KeyExchange) GetKey() []byte {
+	return ke.key
+}
+
+func initKeyExchange(ke *KeyExchange, hid byte, r *big.Int) {
+	pubB := ke.privateKey.GenerateUserPublicKey(ke.peerUID, hid)
+	ke.r = r
+	rA := new(bn256.G1).ScalarMult(pubB, ke.r)
+	ke.secret = rA
+}
+
+// InitKeyExchange generate random with responder uid, for initiator's step A1-A4
+func (ke *KeyExchange) InitKeyExchange(rand io.Reader, hid byte) (*bn256.G1, error) {
+	r, err := randFieldElement(rand)
+	if err != nil {
+		return nil, err
+	}
+	initKeyExchange(ke, hid, r)
+	return ke.secret, nil
+}
+
+func respondKeyExchange(ke *KeyExchange, hid byte, r *big.Int, rA *bn256.G1) (*bn256.G1, []byte, error) {
+	if !rA.IsOnCurve() {
+		return nil, nil, errors.New("SM9: received invalid random from initiator")
+	}
+	ke.peerSecret = rA
+	pubA := ke.privateKey.GenerateUserPublicKey(ke.peerUID, hid)
+	ke.r = r
+	rB := new(bn256.G1).ScalarMult(pubA, r)
+	ke.secret = rB
+
+	ke.g1 = bn256.Pair(ke.peerSecret, ke.privateKey.PrivateKey)
+	ke.g3 = &bn256.GT{}
+	ke.g3.ScalarMult(ke.g1, r)
+	ke.g2 = ke.privateKey.EncryptMasterPublicKey.ScalarBaseMult(r)
+
+	var buffer []byte
+	buffer = append(buffer, ke.peerUID...)
+	buffer = append(buffer, ke.uid...)
+	buffer = append(buffer, ke.peerSecret.Marshal()...)
+	buffer = append(buffer, ke.secret.Marshal()...)
+	buffer = append(buffer, ke.g1.Marshal()...)
+	buffer = append(buffer, ke.g2.Marshal()...)
+	buffer = append(buffer, ke.g3.Marshal()...)
+
+	key, _ := sm3.Kdf(buffer, ke.keyLength)
+	ke.key = key
+
+	if !ke.genSignature {
+		return ke.secret, nil, nil
+	}
+
+	hash := sm3.New()
+	hash.Write(ke.g2.Marshal())
+	hash.Write(ke.g3.Marshal())
+	hash.Write(ke.peerUID)
+	hash.Write(ke.uid)
+	hash.Write(ke.peerSecret.Marshal())
+	hash.Write(ke.secret.Marshal())
+	buffer = hash.Sum(nil)
+	hash.Reset()
+	hash.Write([]byte{0x82})
+	hash.Write(ke.g1.Marshal())
+	hash.Write(buffer)
+	buffer = hash.Sum(nil)
+	return ke.secret, buffer, nil
+}
+
+// RepondKeyExchange when responder receive rA, for responder's step B1-B7
+func (ke *KeyExchange) RepondKeyExchange(rand io.Reader, hid byte, rA *bn256.G1) (*bn256.G1, []byte, error) {
+	r, err := randFieldElement(rand)
+	if err != nil {
+		return nil, nil, err
+	}
+	return respondKeyExchange(ke, hid, r, rA)
+}
+
+// ConfirmResponder for initiator's step A5-A7
+func (ke *KeyExchange) ConfirmResponder(rB *bn256.G1, sB []byte) ([]byte, error) {
+	hash := sm3.New()
+	// step 5
+	ke.peerSecret = rB
+	ke.g1 = ke.privateKey.EncryptMasterPublicKey.ScalarBaseMult(ke.r)
+	ke.g2 = bn256.Pair(ke.peerSecret, ke.privateKey.PrivateKey)
+	ke.g3 = &bn256.GT{}
+	ke.g3.ScalarMult(ke.g2, ke.r)
+	// step 6, verify signature
+	var temp []byte
+	var buffer []byte
+	if len(sB) > 0 {
+		hash.Write(ke.g2.Marshal())
+		hash.Write(ke.g3.Marshal())
+		hash.Write(ke.uid)
+		hash.Write(ke.peerUID)
+		hash.Write(ke.secret.Marshal())
+		hash.Write(ke.peerSecret.Marshal())
+		temp = hash.Sum(nil)
+		hash.Reset()
+		hash.Write([]byte{0x82})
+		hash.Write(ke.g1.Marshal())
+		hash.Write(temp)
+		signature := hash.Sum(nil)
+		hash.Reset()
+		if goSubtle.ConstantTimeCompare(signature, sB) != 1 {
+			return nil, errors.New("sm9: verify signature fail")
+		}
+	}
+	buffer = append(buffer, ke.uid...)
+	buffer = append(buffer, ke.peerUID...)
+	buffer = append(buffer, ke.secret.Marshal()...)
+	buffer = append(buffer, ke.peerSecret.Marshal()...)
+	buffer = append(buffer, ke.g1.Marshal()...)
+	buffer = append(buffer, ke.g2.Marshal()...)
+	buffer = append(buffer, ke.g3.Marshal()...)
+
+	key, _ := sm3.Kdf(buffer, ke.keyLength)
+	ke.key = key
+
+	hash.Write([]byte{0x83})
+	hash.Write(ke.g1.Marshal())
+	hash.Write(temp)
+
+	return hash.Sum(nil), nil
+}
+
+// ConfirmInitiator for responder's step B8
+func (ke *KeyExchange) ConfirmInitiator(s1 []byte) error {
+	hash := sm3.New()
+	var buffer []byte
+	hash.Write(ke.g2.Marshal())
+	hash.Write(ke.g3.Marshal())
+	hash.Write(ke.peerUID)
+	hash.Write(ke.uid)
+	hash.Write(ke.peerSecret.Marshal())
+	hash.Write(ke.secret.Marshal())
+	buffer = hash.Sum(nil)
+	hash.Reset()
+	hash.Write([]byte{0x83})
+	hash.Write(ke.g1.Marshal())
+	hash.Write(buffer)
+	buffer = hash.Sum(nil)
+	if goSubtle.ConstantTimeCompare(buffer, s1) != 1 {
+		return errors.New("sm9: verify signature fail")
+	}
+	return nil
+}
