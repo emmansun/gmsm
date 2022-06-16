@@ -1,5 +1,11 @@
-SM9 current performance:
+## SM9 current supported functions:
+1.Keys generation  
+2.Sign/Verify    
+3.Key Exchange  
+4.Wrap/Unwrap Key  
+5.Encryption/Decryption (XOR mode)
 
+## SM9 current performance:
 
 **SM9 Sign Benchmark**
 

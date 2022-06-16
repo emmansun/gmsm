@@ -497,19 +497,21 @@ func (priv *EncryptPrivateKey) Decrypt(uid, ciphertext []byte) ([]byte, error) {
 }
 
 // KeyExchange key exchange struct, include internal stat in whole key exchange flow.
+// Initiator's flow will be: NewKeyExchange -> InitKeyExchange -> transmission -> ConfirmResponder
+// Responder's flow will be: NewKeyExchange -> waiting ... -> RepondKeyExchange -> transmission -> ConfirmInitiator
 type KeyExchange struct {
-	genSignature bool
-	keyLength    int
-	privateKey   *EncryptPrivateKey
-	uid          []byte
-	peerUID      []byte
-	r            *big.Int
-	secret       *bn256.G1
-	peerSecret   *bn256.G1
-	g1           *bn256.GT
-	g2           *bn256.GT
-	g3           *bn256.GT
-	key          []byte
+	genSignature bool               // control the optional sign/verify step triggered by responsder
+	keyLength    int                // key length
+	privateKey   *EncryptPrivateKey // owner's encryption private key
+	uid          []byte             // owner uid
+	peerUID      []byte             // peer uid
+	r            *big.Int           // random which will be used to compute secret
+	secret       *bn256.G1          // generated secret which will be passed to peer
+	peerSecret   *bn256.G1          // received peer's secret
+	g1           *bn256.GT          // internal state which will be used when compute the key and signature
+	g2           *bn256.GT          // internal state which will be used when compute the key and signature
+	g3           *bn256.GT          // internal state which will be used when compute the key and signature
+	key          []byte             // key will be used after key agreement
 }
 
 // NewKeyExchange create one new KeyExchange object
@@ -523,7 +525,7 @@ func NewKeyExchange(priv *EncryptPrivateKey, uid, peerUID []byte, keyLen int, ge
 	return ke
 }
 
-// GetKey return key after key alignment
+// GetKey return key after key agreement
 func (ke *KeyExchange) GetKey() []byte {
 	return ke.key
 }
