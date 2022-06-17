@@ -549,7 +549,7 @@ func (ke *KeyExchange) InitKeyExchange(rand io.Reader, hid byte) (*bn256.G1, err
 
 func respondKeyExchange(ke *KeyExchange, hid byte, r *big.Int, rA *bn256.G1) (*bn256.G1, []byte, error) {
 	if !rA.IsOnCurve() {
-		return nil, nil, errors.New("SM9: received invalid random from initiator")
+		return nil, nil, errors.New("sm9: received invalid random from initiator")
 	}
 	ke.peerSecret = rA
 	pubA := ke.privateKey.GenerateUserPublicKey(ke.peerUID, hid)
@@ -605,6 +605,9 @@ func (ke *KeyExchange) RepondKeyExchange(rand io.Reader, hid byte, rA *bn256.G1)
 
 // ConfirmResponder for initiator's step A5-A7
 func (ke *KeyExchange) ConfirmResponder(rB *bn256.G1, sB []byte) ([]byte, error) {
+	if !rB.IsOnCurve() {
+		return nil, errors.New("sm9: received invalid random from responder")
+	}
 	hash := sm3.New()
 	// step 5
 	ke.peerSecret = rB
@@ -630,7 +633,7 @@ func (ke *KeyExchange) ConfirmResponder(rB *bn256.G1, sB []byte) ([]byte, error)
 		signature := hash.Sum(nil)
 		hash.Reset()
 		if goSubtle.ConstantTimeCompare(signature, sB) != 1 {
-			return nil, errors.New("sm9: verify signature fail")
+			return nil, errors.New("sm9: verify responder's signature fail")
 		}
 	}
 	buffer = append(buffer, ke.uid...)
@@ -668,7 +671,7 @@ func (ke *KeyExchange) ConfirmInitiator(s1 []byte) error {
 	hash.Write(buffer)
 	buffer = hash.Sum(nil)
 	if goSubtle.ConstantTimeCompare(buffer, s1) != 1 {
-		return errors.New("sm9: verify signature fail")
+		return errors.New("sm9: verify initiator's signature fail")
 	}
 	return nil
 }
