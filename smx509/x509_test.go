@@ -16,7 +16,6 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
-	"fmt"
 	"io"
 	"math/big"
 	"net"
@@ -236,10 +235,12 @@ func parseAndCheckCsr(csrPem []byte) error {
 func Test_ParseCertificate(t *testing.T) {
 	cert, err := ParseCertificatePEM([]byte(sm2Certificate))
 	if err != nil {
-		t.Fatalf("%v\n", err)
+		t.Fatal(err)
 	}
-	jsonContent, err := json.Marshal(cert)
-	fmt.Printf("%s\n", jsonContent)
+	_, err = json.Marshal(cert)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestParseAliCertificateRequest(t *testing.T) {
@@ -260,7 +261,6 @@ func TestCreateSM2CertificateRequest(t *testing.T) {
 	}
 	block := &pem.Block{Bytes: csrblock, Type: "CERTIFICATE REQUEST"}
 	pemContent := string(pem.EncodeToMemory(block))
-	fmt.Printf("%s\n", pemContent)
 	err = parseAndCheckCsr([]byte(pemContent))
 	if err != nil {
 		t.Fatal(err)
@@ -327,11 +327,10 @@ func TestParsePKIXPublicKeyFromExternal(t *testing.T) {
 			t.Fatalf("%s failed to get public key %v", test.name, err)
 		}
 		pub1 := pub.(*ecdsa.PublicKey)
-		encrypted, err := sm2.Encrypt(rand.Reader, pub1, []byte("encryption standard"), sm2.ASN1EncrypterOpts)
+		_, err = sm2.Encrypt(rand.Reader, pub1, []byte("encryption standard"), sm2.ASN1EncrypterOpts)
 		if err != nil {
 			t.Fatalf("%s failed to encrypt %v", test.name, err)
 		}
-		fmt.Printf("encrypted=%s\n", base64.RawURLEncoding.EncodeToString(encrypted))
 	}
 }
 

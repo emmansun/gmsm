@@ -6,7 +6,6 @@ package sm2
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"math/big"
 	"testing"
@@ -82,14 +81,12 @@ func Test_p256Sqr(t *testing.T) {
 	gx := []uint64{0x61328990f418029e, 0x3e7981eddca6c050, 0xd6a1ed99ac24c3c3, 0x91167a5ee1c13b05}
 	p256Sqr(res, gx, 2)
 	resInt := toBigInt(res)
-	fmt.Printf("1=%s\n", hex.EncodeToString(resInt.Bytes()))
 	gxsqr := new(big.Int).Mul(x, x)
 	gxsqr = new(big.Int).Mod(gxsqr, p)
 	gxsqr = new(big.Int).Mul(gxsqr, gxsqr)
 	gxsqr = new(big.Int).Mod(gxsqr, p)
 	gxsqr = new(big.Int).Mul(gxsqr, r)
 	gxsqr = new(big.Int).Mod(gxsqr, p)
-	fmt.Printf("2=%s\n", hex.EncodeToString(gxsqr.Bytes()))
 	if resInt.Cmp(gxsqr) != 0 {
 		t.FailNow()
 	}
@@ -106,12 +103,10 @@ func Test_p256Mul(t *testing.T) {
 
 	p256Mul(res, gx, gy)
 	resInt := toBigInt(res)
-	fmt.Printf("1=%s\n", hex.EncodeToString(resInt.Bytes()))
 	xmy := new(big.Int).Mul(x, y)
 	xmy = new(big.Int).Mod(xmy, p)
 	xmy = new(big.Int).Mul(xmy, r)
 	xmy = new(big.Int).Mod(xmy, p)
-	fmt.Printf("2=%s\n", hex.EncodeToString(xmy.Bytes()))
 	if resInt.Cmp(xmy) != 0 {
 		t.FailNow()
 	}
@@ -215,14 +210,12 @@ func Test_p256MulSqr(t *testing.T) {
 
 	p256Sqr(res, gx, 32)
 	resInt := toBigInt(res)
-	fmt.Printf("0=%s\n", hex.EncodeToString(resInt.Bytes()))
 
 	p256Mul(res, gx, gx)
 	for i := 0; i < 31; i++ {
 		p256Mul(res, res, res)
 	}
 	resInt1 := toBigInt(res)
-	fmt.Printf("1=%s\n", hex.EncodeToString(resInt1.Bytes()))
 
 	resInt2 := new(big.Int).Mod(x, p)
 
@@ -232,7 +225,6 @@ func Test_p256MulSqr(t *testing.T) {
 	}
 	resInt2 = new(big.Int).Mul(resInt2, r)
 	resInt2 = new(big.Int).Mod(resInt2, p)
-	fmt.Printf("2=%s\n", hex.EncodeToString(resInt2.Bytes()))
 
 	if resInt.Cmp(resInt2) != 0 || resInt1.Cmp(resInt2) != 0 {
 		t.FailNow()
@@ -250,18 +242,15 @@ func Test_p256OrdSqr(t *testing.T) {
 	p256BigToLittle(gx, xm.Bytes())
 	p256OrdMul(res, gx, gx)
 	resInt := toBigInt(res)
-	fmt.Printf("p256OrdMul=%s\n", hex.EncodeToString(resInt.Bytes()))
 	gxsqr := new(big.Int).Mul(x, x)
 	gxsqr = new(big.Int).Mod(gxsqr, n)
 	gxsqr = new(big.Int).Mul(gxsqr, r)
 	gxsqr = new(big.Int).Mod(gxsqr, n)
-	fmt.Printf("2=%s\n", hex.EncodeToString(gxsqr.Bytes()))
 	if resInt.Cmp(gxsqr) != 0 {
 		t.FailNow()
 	}
 	p256OrdSqr(res, gx, 1)
 	resInt = toBigInt(res)
-	fmt.Printf("p256OrdSqr=%s\n", hex.EncodeToString(resInt.Bytes()))
 	if resInt.Cmp(gxsqr) != 0 {
 		t.FailNow()
 	}
@@ -275,11 +264,9 @@ func Test_p256Inverse(t *testing.T) {
 	res := make([]uint64, 4)
 	p256Inverse(res, gx)
 	resInt := toBigInt(res)
-	fmt.Printf("p256Inverse=%s\n", hex.EncodeToString(resInt.Bytes()))
 	xInv := new(big.Int).ModInverse(x, p)
 	xInv = new(big.Int).Mul(xInv, r)
 	xInv = new(big.Int).Mod(xInv, p)
-	fmt.Printf("expected=%s\n", hex.EncodeToString(xInv.Bytes()))
 	if resInt.Cmp(xInv) != 0 {
 		t.FailNow()
 	}
@@ -297,16 +284,12 @@ func Test_p256PointAddAsm_basepoint(t *testing.T) {
 	res := make([]uint64, 12)
 	copy(in, basePoint)
 	p256PointDoubleAsm(res, in)
-	n := p256PointAddAsm(res, res, in)
-	fmt.Printf("n=%d\n", n)
+	p256PointAddAsm(res, res, in)
 	var r p256Point
 	copy(r.xyz[:], res)
 	x1, y1 := r.p256PointToAffine()
-	fmt.Printf("x1=%s, y1=%s\n", hex.EncodeToString(x1.Bytes()), hex.EncodeToString(y1.Bytes()))
-
 	x2, y2 := params.Double(params.Gx, params.Gy)
 	x2, y2 = params.Add(params.Gx, params.Gy, x2, y2)
-	fmt.Printf("x2=%s, y2=%s\n", hex.EncodeToString(x2.Bytes()), hex.EncodeToString(y2.Bytes()))
 	if x1.Cmp(x2) != 0 || y1.Cmp(y2) != 0 {
 		t.FailNow()
 	}
@@ -326,14 +309,12 @@ func Test_p256PointDoubleAsm(t *testing.T) {
 	var r p256Point
 	copy(r.xyz[:], t1)
 	x1, y1 := r.p256PointToAffine()
-	fmt.Printf("x1=%s, y1=%s\n", hex.EncodeToString(x1.Bytes()), hex.EncodeToString(y1.Bytes()))
 	curve1 := P256()
 	params := curve1.Params()
 	x2, y2 := params.Double(params.Gx, params.Gy)
 	for i := 0; i < 15; i++ {
 		x2, y2 = params.Double(x2, y2)
 	}
-	fmt.Printf("x2=%s, y2=%s\n", hex.EncodeToString(x2.Bytes()), hex.EncodeToString(y2.Bytes()))
 	if x1.Cmp(x2) != 0 || y1.Cmp(y2) != 0 {
 		t.FailNow()
 	}
@@ -343,10 +324,8 @@ func Test_ScalarBaseMult(t *testing.T) {
 	scalar := big.NewInt(0xffffffff)
 	curve1 := P256()
 	x1, y1 := curve1.ScalarBaseMult(scalar.Bytes())
-	fmt.Printf("x1=%s, y1=%s\n", hex.EncodeToString(x1.Bytes()), hex.EncodeToString(y1.Bytes()))
 	params := curve1.Params()
 	x2, y2 := params.ScalarBaseMult(scalar.Bytes())
-	fmt.Printf("x2=%s, y2=%s\n", hex.EncodeToString(x2.Bytes()), hex.EncodeToString(y2.Bytes()))
 	if x1.Cmp(x2) != 0 || y1.Cmp(y2) != 0 {
 		t.FailNow()
 	}
@@ -360,7 +339,6 @@ func Test_p256PointAddAsm(t *testing.T) {
 	k2, _ := randFieldElement(params, rand.Reader)
 	x2, y2 := params.ScalarBaseMult(k2.Bytes())
 	x3, y3 := params.Add(x1, y1, x2, y2)
-	fmt.Printf("x1=%s, y1=%s\n", hex.EncodeToString(x3.Bytes()), hex.EncodeToString(y3.Bytes()))
 	var in1, in2, rp p256Point
 	fromBig(in1.xyz[0:4], maybeReduceModP(x1))
 	fromBig(in1.xyz[4:8], maybeReduceModP(y1))
@@ -380,10 +358,8 @@ func Test_p256PointAddAsm(t *testing.T) {
 	p256Mul(in2.xyz[4:8], in2.xyz[4:8], rr[:])
 	res := make([]uint64, 12)
 	n := p256PointAddAsm(res, in1.xyz[:], in2.xyz[:])
-	fmt.Printf("n=%d\n", n)
 	copy(rp.xyz[:], res)
 	x4, y4 := rp.p256PointToAffine()
-	fmt.Printf("x1=%s, y1=%s\n", hex.EncodeToString(x4.Bytes()), hex.EncodeToString(y4.Bytes()))
 	if n == 0 && (x3.Cmp(x4) != 0 || y3.Cmp(y4) != 0) {
 		t.FailNow()
 	}
@@ -393,10 +369,8 @@ func Test_ScalarMult_basepoint(t *testing.T) {
 	scalar := big.NewInt(0xffffffff)
 	curve1 := P256()
 	x1, y1 := curve1.ScalarMult(curve1.Params().Gx, curve1.Params().Gy, scalar.Bytes())
-	fmt.Printf("x1=%s, y1=%s\n", hex.EncodeToString(x1.Bytes()), hex.EncodeToString(y1.Bytes()))
 	params := curve1.Params()
 	x2, y2 := params.ScalarMult(curve1.Params().Gx, curve1.Params().Gy, scalar.Bytes())
-	fmt.Printf("x2=%s, y2=%s\n", hex.EncodeToString(x2.Bytes()), hex.EncodeToString(y2.Bytes()))
 	if x1.Cmp(x2) != 0 || y1.Cmp(y2) != 0 {
 		t.FailNow()
 	}
@@ -408,12 +382,9 @@ func Test_Inverse(t *testing.T) {
 	nm2 := new(big.Int).Sub(n, big.NewInt(2))
 	nm2a := make([]uint64, 4)
 	fromBig(nm2a, nm2)
-	fmt.Printf("%0b, %0b, %b, %b\n", nm2a[0], nm2a[1], nm2a[2], nm2a[3])
 	xInv1 := fermatInverse(x, n)
-	fmt.Printf("expect=%s\n", hex.EncodeToString(xInv1.Bytes()))
 	_ = P256()
 	xInv2 := p256.Inverse(x)
-	fmt.Printf("result=%s\n", hex.EncodeToString(xInv2.Bytes()))
 
 	if xInv1.Cmp(xInv2) != 0 {
 		t.FailNow()
