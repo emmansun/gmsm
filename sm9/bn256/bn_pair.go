@@ -1,9 +1,5 @@
 package bn256
 
-import (
-	"math/big"
-)
-
 func lineFunctionAdd(r, p *twistPoint, q *curvePoint, r2 *gfP2) (a, b, c, d *gfP2, rOut *twistPoint) {
 	// See the mixed addition algorithm from "Faster Computation of the
 	// Tate Pairing", http://arxiv.org/pdf/0904.0854v3.pdf
@@ -195,48 +191,57 @@ func miller(q *twistPoint, p *curvePoint) *gfP12 {
 	return ret
 }
 
-func finalExponentiationHardPart(in *gfP12) *gfP12 {
-	a, b, t0, t1 := &gfP12{}, &gfP12{}, &gfP12{}, &gfP12{}
-
-	a.Exp(in, sixUPlus5)
-	a.Invert(a)
-	b.Frobenius(a)
-	b.Mul(a, b) // b = ab
-
-	a.Mul(a, b)
-	t0.Frobenius(in)
-	t1.Mul(t0, in) // t1 = in ^(p+1)
-	t1.Exp(t1, big.NewInt(9))
-	a.Mul(a, t1)
-
-	t1.Square(in)
-	t1.Square(t1)
-	a.Mul(a, t1)
-
-	t0.Square(t0) // (in^p)^2
-	t0.Mul(t0, b) // b*(in^p)^2
-	b.FrobeniusP2(in)
-	t0.Mul(b, t0) // b*(in^p)^2 * in^(p^2)
-	t0.Exp(t0, sixU2Plus1)
-	a.Mul(a, t0)
-
-	b.FrobeniusP3(in)
-	b.Mul(a, b)
-	return b
-}
-
 // finalExponentiation computes the (p¹²-1)/Order-th power of an element of
 // GF(p¹²) to obtain an element of GT. https://eprint.iacr.org/2007/390.pdf
+// http://cryptojedi.org/papers/dclxvi-20100714.pdf
 func finalExponentiation(in *gfP12) *gfP12 {
-	t0, t1 := &gfP12{}, &gfP12{}
+	t1 := &gfP12{}
 
-	t0.FrobeniusP6(in)
-	t1.Invert(in)
-	t0.Mul(t0, t1)
-	t1.FrobeniusP2(t0)
-	t0.Mul(t0, t1)
+	// This is the p^6-Frobenius
+	t1.FrobeniusP6(in)
 
-	return finalExponentiationHardPart(t0)
+	inv := &gfP12{}
+	inv.Invert(in)
+	t1.Mul(t1, inv)
+
+	t2 := (&gfP12{}).FrobeniusP2(t1)
+	t1.Mul(t1, t2)
+
+	fp := (&gfP12{}).Frobenius(t1)
+	fp2 := (&gfP12{}).FrobeniusP2(t1)
+	fp3 := (&gfP12{}).Frobenius(fp2)
+
+	fu := (&gfP12{}).Exp(t1, u)
+	fu2 := (&gfP12{}).Exp(fu, u)
+	fu3 := (&gfP12{}).Exp(fu2, u)
+
+	y3 := (&gfP12{}).Frobenius(fu)
+	fu2p := (&gfP12{}).Frobenius(fu2)
+	fu3p := (&gfP12{}).Frobenius(fu3)
+	y2 := (&gfP12{}).FrobeniusP2(fu2)
+
+	y0 := &gfP12{}
+	y0.Mul(fp, fp2).Mul(y0, fp3)
+
+	y1 := (&gfP12{}).Conjugate(t1)
+	y5 := (&gfP12{}).Conjugate(fu2)
+	y3.Conjugate(y3)
+	y4 := (&gfP12{}).Mul(fu, fu2p)
+	y4.Conjugate(y4)
+
+	y6 := (&gfP12{}).Mul(fu3, fu3p)
+	y6.Conjugate(y6)
+
+	t0 := (&gfP12{}).Square(y6)
+	t0.Mul(t0, y4).Mul(t0, y5)
+	t1.Mul(y3, y5).Mul(t1, t0)
+	t0.Mul(t0, y2)
+	t1.Square(t1).Mul(t1, t0).Square(t1)
+	t0.Mul(t1, y1)
+	t1.Mul(t1, y0)
+	t0.Square(t0).Mul(t0, t1)
+
+	return t0
 }
 
 func pairing(a *twistPoint, b *curvePoint) *gfP12 {
