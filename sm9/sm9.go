@@ -547,6 +547,51 @@ func (ke *KeyExchange) InitKeyExchange(rand io.Reader, hid byte) (*bn256.G1, err
 	return ke.secret, nil
 }
 
+func (ke *KeyExchange) sign(isResponder bool, prefix byte) []byte {
+	var buffer []byte
+	hash := sm3.New()
+	hash.Write(ke.g2.Marshal())
+	hash.Write(ke.g3.Marshal())
+	if isResponder {
+		hash.Write(ke.peerUID)
+		hash.Write(ke.uid)
+		hash.Write(ke.peerSecret.Marshal())
+		hash.Write(ke.secret.Marshal())
+	} else {
+		hash.Write(ke.uid)
+		hash.Write(ke.peerUID)
+		hash.Write(ke.secret.Marshal())
+		hash.Write(ke.peerSecret.Marshal())
+	}
+	buffer = hash.Sum(nil)
+	hash.Reset()
+	hash.Write([]byte{prefix})
+	hash.Write(ke.g1.Marshal())
+	hash.Write(buffer)
+	return hash.Sum(nil)
+}
+
+func (ke *KeyExchange) generateKey(isResponder bool) {
+	var buffer []byte
+	if isResponder {
+		buffer = append(buffer, ke.peerUID...)
+		buffer = append(buffer, ke.uid...)
+		buffer = append(buffer, ke.peerSecret.Marshal()...)
+		buffer = append(buffer, ke.secret.Marshal()...)
+	} else {
+		buffer = append(buffer, ke.uid...)
+		buffer = append(buffer, ke.peerUID...)
+		buffer = append(buffer, ke.secret.Marshal()...)
+		buffer = append(buffer, ke.peerSecret.Marshal()...)
+	}
+	buffer = append(buffer, ke.g1.Marshal()...)
+	buffer = append(buffer, ke.g2.Marshal()...)
+	buffer = append(buffer, ke.g3.Marshal()...)
+
+	key, _ := sm3.Kdf(buffer, ke.keyLength)
+	ke.key = key
+}
+
 func respondKeyExchange(ke *KeyExchange, hid byte, r *big.Int, rA *bn256.G1) (*bn256.G1, []byte, error) {
 	if !rA.IsOnCurve() {
 		return nil, nil, errors.New("sm9: received invalid random from initiator")
@@ -562,36 +607,13 @@ func respondKeyExchange(ke *KeyExchange, hid byte, r *big.Int, rA *bn256.G1) (*b
 	ke.g3.ScalarMult(ke.g1, r)
 	ke.g2 = ke.privateKey.EncryptMasterPublicKey.ScalarBaseMult(r)
 
-	var buffer []byte
-	buffer = append(buffer, ke.peerUID...)
-	buffer = append(buffer, ke.uid...)
-	buffer = append(buffer, ke.peerSecret.Marshal()...)
-	buffer = append(buffer, ke.secret.Marshal()...)
-	buffer = append(buffer, ke.g1.Marshal()...)
-	buffer = append(buffer, ke.g2.Marshal()...)
-	buffer = append(buffer, ke.g3.Marshal()...)
-
-	key, _ := sm3.Kdf(buffer, ke.keyLength)
-	ke.key = key
+	ke.generateKey(true)
 
 	if !ke.genSignature {
 		return ke.secret, nil, nil
 	}
 
-	hash := sm3.New()
-	hash.Write(ke.g2.Marshal())
-	hash.Write(ke.g3.Marshal())
-	hash.Write(ke.peerUID)
-	hash.Write(ke.uid)
-	hash.Write(ke.peerSecret.Marshal())
-	hash.Write(ke.secret.Marshal())
-	buffer = hash.Sum(nil)
-	hash.Reset()
-	hash.Write([]byte{0x82})
-	hash.Write(ke.g1.Marshal())
-	hash.Write(buffer)
-	buffer = hash.Sum(nil)
-	return ke.secret, buffer, nil
+	return ke.secret, ke.sign(true, 0x82), nil
 }
 
 // RepondKeyExchange when responder receive rA, for responder's step B1-B7
@@ -608,7 +630,6 @@ func (ke *KeyExchange) ConfirmResponder(rB *bn256.G1, sB []byte) ([]byte, error)
 	if !rB.IsOnCurve() {
 		return nil, errors.New("sm9: received invalid random from responder")
 	}
-	hash := sm3.New()
 	// step 5
 	ke.peerSecret = rB
 	ke.g1 = ke.privateKey.EncryptMasterPublicKey.ScalarBaseMult(ke.r)
@@ -616,60 +637,20 @@ func (ke *KeyExchange) ConfirmResponder(rB *bn256.G1, sB []byte) ([]byte, error)
 	ke.g3 = &bn256.GT{}
 	ke.g3.ScalarMult(ke.g2, ke.r)
 	// step 6, verify signature
-	var temp []byte
-	var buffer []byte
 	if len(sB) > 0 {
-		hash.Write(ke.g2.Marshal())
-		hash.Write(ke.g3.Marshal())
-		hash.Write(ke.uid)
-		hash.Write(ke.peerUID)
-		hash.Write(ke.secret.Marshal())
-		hash.Write(ke.peerSecret.Marshal())
-		temp = hash.Sum(nil)
-		hash.Reset()
-		hash.Write([]byte{0x82})
-		hash.Write(ke.g1.Marshal())
-		hash.Write(temp)
-		signature := hash.Sum(nil)
-		hash.Reset()
+		signature := ke.sign(false, 0x82)
 		if goSubtle.ConstantTimeCompare(signature, sB) != 1 {
 			return nil, errors.New("sm9: verify responder's signature fail")
 		}
 	}
-	buffer = append(buffer, ke.uid...)
-	buffer = append(buffer, ke.peerUID...)
-	buffer = append(buffer, ke.secret.Marshal()...)
-	buffer = append(buffer, ke.peerSecret.Marshal()...)
-	buffer = append(buffer, ke.g1.Marshal()...)
-	buffer = append(buffer, ke.g2.Marshal()...)
-	buffer = append(buffer, ke.g3.Marshal()...)
+	ke.generateKey(false)
 
-	key, _ := sm3.Kdf(buffer, ke.keyLength)
-	ke.key = key
-
-	hash.Write([]byte{0x83})
-	hash.Write(ke.g1.Marshal())
-	hash.Write(temp)
-
-	return hash.Sum(nil), nil
+	return ke.sign(false, 0x83), nil
 }
 
 // ConfirmInitiator for responder's step B8
 func (ke *KeyExchange) ConfirmInitiator(s1 []byte) error {
-	hash := sm3.New()
-	var buffer []byte
-	hash.Write(ke.g2.Marshal())
-	hash.Write(ke.g3.Marshal())
-	hash.Write(ke.peerUID)
-	hash.Write(ke.uid)
-	hash.Write(ke.peerSecret.Marshal())
-	hash.Write(ke.secret.Marshal())
-	buffer = hash.Sum(nil)
-	hash.Reset()
-	hash.Write([]byte{0x83})
-	hash.Write(ke.g1.Marshal())
-	hash.Write(buffer)
-	buffer = hash.Sum(nil)
+	buffer := ke.sign(true, 0x83)
 	if goSubtle.ConstantTimeCompare(buffer, s1) != 1 {
 		return errors.New("sm9: verify initiator's signature fail")
 	}
