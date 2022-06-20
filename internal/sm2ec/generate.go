@@ -142,7 +142,7 @@ const tmplNISTEC = `// Copyright 2022 The Go Authors. All rights reserved.
 {{ end }}
 package sm2ec
 import (
-	"github.com/emmansun/gmsm/sm2ec/fiat"
+	"github.com/emmansun/gmsm/internal/sm2ec/fiat"
 	"crypto/subtle"
 	"errors"
 	"sync"
