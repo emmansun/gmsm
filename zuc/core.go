@@ -116,24 +116,30 @@ func add31(x, y uint32) uint32 {
 }
 
 func (s *zucState32) enterInitMode(w uint32) {
-	v := s.lfsr[0]
-	v = add31(v, rotateLeft31(s.lfsr[0], 8))
-	v = add31(v, rotateLeft31(s.lfsr[4], 20))
-	v = add31(v, rotateLeft31(s.lfsr[10], 21))
-	v = add31(v, rotateLeft31(s.lfsr[13], 17))
-	v = add31(v, rotateLeft31(s.lfsr[15], 15))
-	v = add31(v, w)
-	if v == 0 {
-		v = 0x7FFFFFFF
+	v := uint64(s.lfsr[15])<<15 + uint64(s.lfsr[13])<<17 + uint64(s.lfsr[10])<<21 + uint64(s.lfsr[4])<<20 + uint64(s.lfsr[0])<<8 + uint64(s.lfsr[0])
+	v = (v & 0x7FFFFFFF) + (v >> 31)
+	t := add31(uint32(v), w)
+
+	if t == 0 {
+		t = 0x7FFFFFFF
 	}
-	for i := 0; i < 15; i++ {
-		s.lfsr[i] = s.lfsr[i+1]
-	}
-	s.lfsr[15] = v
+	var temp [16]uint32
+	copy(temp[:], s.lfsr[1:])
+	copy(s.lfsr[:], temp[:])
+	s.lfsr[15] = t
 }
 
 func (s *zucState32) enterWorkMode() {
-	s.enterInitMode(0)
+	v := uint64(s.lfsr[15])<<15 + uint64(s.lfsr[13])<<17 + uint64(s.lfsr[10])<<21 + uint64(s.lfsr[4])<<20 + uint64(s.lfsr[0])<<8 + uint64(s.lfsr[0])
+	v = (v & 0x7FFFFFFF) + (v >> 31)
+
+	if v == 0 {
+		v = 0x7FFFFFFF
+	}
+	var temp [16]uint32
+	copy(temp[:], s.lfsr[1:])
+	copy(s.lfsr[:], temp[:])
+	s.lfsr[15] = uint32(v)
 }
 
 func makeFieldValue3(a, b, c uint32) uint32 {
@@ -201,7 +207,6 @@ func newZUCState(key, iv []byte) (*zucState32, error) {
 		x := state.bitReconstruction()
 		w := state.f32(x[0], x[1], x[2])
 		state.enterInitMode(w >> 1)
-
 	}
 
 	// work state
