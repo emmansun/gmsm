@@ -98,19 +98,30 @@ func lineFunctionDouble(r *twistPoint, q *curvePoint) (a, b, c, d *gfP2, rOut *t
 }
 
 func mulLine(ret *gfP12, retDen *gfP4, a, b, c, d *gfP2) {
-	l := &gfP12{}
-	l.y.SetZero()
-	l.x.x.SetZero()
-	l.x.y.Set(b)
-	l.z.x.Set(c)
-	l.z.y.Set(a)
+	tx, ty, tz, t, bx, bz := &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}
+	bx.x.SetZero()
+	bx.y.Set(b)
+	bz.x.Set(c)
+	bz.y.Set(a)
 
-	ret.Mul(ret, l)
+	tz.Mul(&ret.z, bz)
+	t.MulV(&ret.y, bx)
+	tz.Add(tz, t)
 
-	lDen := &gfP4{}
-	lDen.x.Set(d)
-	lDen.y.SetZero()
-	retDen.Mul(retDen, lDen)
+	ty.Mul(&ret.y, bz)
+	t.MulV(&ret.x, bx)
+	ret.y.Add(ty, t)
+
+	tx.Mul(&ret.z, bx)
+	t.Mul(&ret.x, bz)
+	ret.x.Add(tx, t)
+
+	ret.z.Set(tz)
+
+	txD := &gfP2{}
+	txD.Mul(&retDen.y, d)
+	retDen.y.MulU(&retDen.x, d)
+	retDen.x.Set(txD)
 }
 
 //
@@ -160,6 +171,18 @@ func miller(q *twistPoint, p *curvePoint) *gfP12 {
 		mulLine(ret, retDen, a, b, c, d)
 		r = newR
 	}
+
+	// In order to calculate Q1 we have to convert q from the sextic twist
+	// to the full GF(p^12) group, apply the Frobenius there, and convert
+	// back.
+	//
+	// The twist isomorphism is (x', y') -> (x*β^(-1/3), y*β^(-1/2)). If we consider just
+	// x for a moment, then after applying the Frobenius, we have x̄*β^(-p/3)
+	// where x̄ is the conjugate of x.	If we are going to apply the inverse
+	// isomorphism we need a value with a single coefficient of β^(-1/3) so we
+	// rewrite this as x̄*β^((-p+1)/3)*β^(-1/3).
+	//
+	// A similar argument can be made for the y value.
 	q1 := &twistPoint{}
 	q1.x.Conjugate(&aAffine.x)
 	q1.x.MulScalar(&q1.x, betaToNegPPlus1Over3)
@@ -185,7 +208,13 @@ func miller(q *twistPoint, p *curvePoint) *gfP12 {
 	a, b, c, d, _ = lineFunctionAdd(r, minusQ2, bAffine, r2)
 	mulLine(ret, retDen, a, b, c, d)
 
-	retDen.Invert(retDen)
+	//retDen.Invert(retDen)
+	t2, t3 := &gfP2{}, &gfP2{}
+	t3.SquareU(&retDen.x)
+	t3.Invert(t3)
+	t2.Mul(&retDen.x, t3)
+	retDen.x.Set(t2)
+
 	ret.MulScalar(ret, retDen)
 
 	return ret

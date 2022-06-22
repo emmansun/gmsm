@@ -218,7 +218,7 @@ func (c *twistPoint) Neg(a *twistPoint) {
 }
 
 // code logic is form https://github.com/guanzhi/GmSSL/blob/develop/src/sm9_alg.c
-// the value is not same as p*a
+// the value is not same as [p]a
 func (c *twistPoint) Frobenius(a *twistPoint) {
 	c.x.Conjugate(&a.x)
 	c.y.Conjugate(&a.y)

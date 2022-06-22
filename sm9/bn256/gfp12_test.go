@@ -105,6 +105,7 @@ func Test_gfP12Invert(t *testing.T) {
 	}
 }
 
+// Generate wToPMinus1
 func Test_gfP12Frobenius_Case1(t *testing.T) {
 	expected := &gfP12{}
 	i := &gfP12{}
@@ -123,6 +124,7 @@ func Test_gfP12Frobenius_Case1(t *testing.T) {
 	}
 }
 
+// Generate w2ToPMinus1
 func Test_gfP12Frobenius_Case2(t *testing.T) {
 	expected := &gfP12{}
 	i := &gfP12{}
@@ -141,6 +143,7 @@ func Test_gfP12Frobenius_Case2(t *testing.T) {
 	}
 }
 
+// Generate wToP2Minus1
 func Test_gfP12FrobeniusP2_Case1(t *testing.T) {
 	expected := &gfP12{}
 	i := &gfP12{}
@@ -160,6 +163,7 @@ func Test_gfP12FrobeniusP2_Case1(t *testing.T) {
 	}
 }
 
+// Generate w2ToP2Minus1
 func Test_gfP12FrobeniusP2_Case2(t *testing.T) {
 	expected := &gfP12{}
 	i := &gfP12{}
@@ -179,6 +183,7 @@ func Test_gfP12FrobeniusP2_Case2(t *testing.T) {
 	}
 }
 
+// Generate wToP3Minus1
 func Test_gfP12FrobeniusP3_Case1(t *testing.T) {
 	expected := &gfP12{}
 	i := &gfP12{}
@@ -199,6 +204,8 @@ func Test_gfP12FrobeniusP3_Case1(t *testing.T) {
 	}
 }
 
+
+// Generate w2ToP3minus1
 func Test_gfP12FrobeniusP3_Case2(t *testing.T) {
 	expected := &gfP12{}
 	i := &gfP12{}
