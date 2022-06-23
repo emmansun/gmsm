@@ -10,12 +10,6 @@ import (
 	"github.com/emmansun/gmsm/sm3"
 )
 
-// Point represent point on curve
-type Point struct {
-	X *big.Int
-	Y *big.Int
-}
-
 // KeyExchange key exchange struct, include internal stat in whole key exchange flow.
 // Initiator's flow will be: NewKeyExchange -> InitKeyExchange -> transmission -> ConfirmResponder
 // Responder's flow will be: NewKeyExchange -> waiting ... -> RepondKeyExchange -> transmission -> ConfirmInitiator
@@ -26,17 +20,17 @@ type KeyExchange struct {
 	z            []byte           // owner identifiable id
 	peerPub      *ecdsa.PublicKey // peer public key
 	peerZ        []byte           // peer identifiable id
-	r            *big.Int         // random which will be used to compute secret
-	secret       Point            // generated secret which will be passed to peer
-	peerSecret   Point            // received peer's secret
-	w2           *big.Int         // internal state which will be used when compute the key and signature
-	w2Minus1     *big.Int         // internal state which will be used when compute the key and signature
-	v            Point            // internal state which will be used when compute the key and signature
-	key          []byte           // key will be used after key agreement
+	r            *big.Int         // Ephemeral Private Key, random which will be used to compute secret
+	secret       *ecdsa.PublicKey // Ephemeral Public Key, generated secret which will be passed to peer
+	peerSecret   *ecdsa.PublicKey // received peer's secret, Ephemeral Public Key
+	w2           *big.Int         // internal state which will be used when compute the key and signature, 2^w
+	w2Minus1     *big.Int         // internal state which will be used when compute the key and signature, 2^w – 1
+	v            *ecdsa.PublicKey // internal state which will be used when compute the key and signature, u/v
+	key          []byte           // shared key will be used after key agreement
 }
 
-// GetKey return key after key agreement
-func (ke *KeyExchange) GetKey() []byte {
+// GetSharedKey return shared key after key agreement
+func (ke *KeyExchange) GetSharedKey() []byte {
 	return ke.key
 }
 
@@ -62,6 +56,13 @@ func NewKeyExchange(priv *PrivateKey, peerPub *ecdsa.PublicKey, uid, peerUID []b
 	if err != nil {
 		return nil, err
 	}
+	ke.secret = &ecdsa.PublicKey{}
+	ke.secret.Curve = priv.PublicKey.Curve
+	ke.peerSecret = &ecdsa.PublicKey{}
+	ke.peerSecret.Curve = peerPub.Curve
+	ke.v = &ecdsa.PublicKey{}
+	ke.v.Curve = priv.PublicKey.Curve
+
 	return
 }
 
@@ -71,13 +72,13 @@ func initKeyExchange(ke *KeyExchange, r *big.Int) {
 }
 
 // InitKeyExchange generate random with responder uid, for initiator's step A1-A3
-func (ke *KeyExchange) InitKeyExchange(rand io.Reader) (*Point, error) {
+func (ke *KeyExchange) InitKeyExchange(rand io.Reader) (*ecdsa.PublicKey, error) {
 	r, err := randFieldElement(ke.privateKey, rand)
 	if err != nil {
 		return nil, err
 	}
 	initKeyExchange(ke, r)
-	return &ke.secret, nil
+	return ke.secret, nil
 }
 
 func (ke *KeyExchange) sign(isResponder bool, prefix byte) []byte {
@@ -107,7 +108,7 @@ func (ke *KeyExchange) sign(isResponder bool, prefix byte) []byte {
 	return hash.Sum(nil)
 }
 
-func (ke *KeyExchange) generateKey(isResponder bool) {
+func (ke *KeyExchange) generateSharedKey(isResponder bool) {
 	var buffer []byte
 	buffer = append(buffer, toBytes(ke.privateKey, ke.v.X)...)
 	buffer = append(buffer, toBytes(ke.privateKey, ke.v.Y)...)
@@ -122,7 +123,7 @@ func (ke *KeyExchange) generateKey(isResponder bool) {
 	ke.key = key
 }
 
-func respondKeyExchange(ke *KeyExchange, r *big.Int, rA *Point) (*Point, []byte, error) {
+func respondKeyExchange(ke *KeyExchange, r *big.Int, rA *ecdsa.PublicKey) (*ecdsa.PublicKey, []byte, error) {
 	ke.secret.X, ke.secret.Y = ke.privateKey.ScalarBaseMult(r.Bytes())
 	ke.r = r
 	// Calculate tB
@@ -142,21 +143,21 @@ func respondKeyExchange(ke *KeyExchange, r *big.Int, rA *Point) (*Point, []byte,
 		return nil, nil, errors.New("sm2: key exchange fail")
 	}
 
-	ke.generateKey(true)
+	ke.generateSharedKey(true)
 
 	if !ke.genSignature {
-		return &ke.secret, nil, nil
+		return ke.secret, nil, nil
 	}
 
-	return &ke.secret, ke.sign(true, 0x02), nil
+	return ke.secret, ke.sign(true, 0x02), nil
 }
 
 // RepondKeyExchange when responder receive rA, for responder's step B1-B8
-func (ke *KeyExchange) RepondKeyExchange(rand io.Reader, rA *Point) (*Point, []byte, error) {
+func (ke *KeyExchange) RepondKeyExchange(rand io.Reader, rA *ecdsa.PublicKey) (*ecdsa.PublicKey, []byte, error) {
 	if !ke.privateKey.IsOnCurve(rA.X, rA.Y) {
 		return nil, nil, errors.New("sm2: received invalid random from initiator")
 	}
-	ke.peerSecret = *rA
+	ke.peerSecret = rA
 	r, err := randFieldElement(ke.privateKey, rand)
 	if err != nil {
 		return nil, nil, err
@@ -165,11 +166,11 @@ func (ke *KeyExchange) RepondKeyExchange(rand io.Reader, rA *Point) (*Point, []b
 }
 
 // ConfirmResponder for initiator's step A4-A10
-func (ke *KeyExchange) ConfirmResponder(rB *Point, sB []byte) ([]byte, error) {
+func (ke *KeyExchange) ConfirmResponder(rB *ecdsa.PublicKey, sB []byte) ([]byte, error) {
 	if !ke.privateKey.IsOnCurve(rB.X, rB.Y) {
 		return nil, errors.New("sm2: received invalid random from responder")
 	}
-	ke.peerSecret = *rB
+	ke.peerSecret = rB
 	// Calcualte tA
 	t := (&big.Int{}).And(ke.w2Minus1, ke.secret.X)
 	t.Add(ke.w2, t)
@@ -187,7 +188,7 @@ func (ke *KeyExchange) ConfirmResponder(rB *Point, sB []byte) ([]byte, error) {
 	if ke.v.X.Sign() == 0 && ke.v.Y.Sign() == 0 {
 		return nil, errors.New("sm2: key exchange fail")
 	}
-	ke.generateKey(false)
+	ke.generateSharedKey(false)
 	if len(sB) > 0 {
 		buffer := ke.sign(false, 0x02)
 		if goSubtle.ConstantTimeCompare(buffer, sB) != 1 {

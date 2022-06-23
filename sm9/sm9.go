@@ -511,7 +511,7 @@ type KeyExchange struct {
 	g1           *bn256.GT          // internal state which will be used when compute the key and signature
 	g2           *bn256.GT          // internal state which will be used when compute the key and signature
 	g3           *bn256.GT          // internal state which will be used when compute the key and signature
-	key          []byte             // key will be used after key agreement
+	key          []byte             // shared key will be used after key agreement
 }
 
 // NewKeyExchange create one new KeyExchange object
@@ -525,8 +525,8 @@ func NewKeyExchange(priv *EncryptPrivateKey, uid, peerUID []byte, keyLen int, ge
 	return ke
 }
 
-// GetKey return key after key agreement
-func (ke *KeyExchange) GetKey() []byte {
+// GetSharedKey return key after key agreement
+func (ke *KeyExchange) GetSharedKey() []byte {
 	return ke.key
 }
 
@@ -571,7 +571,7 @@ func (ke *KeyExchange) sign(isResponder bool, prefix byte) []byte {
 	return hash.Sum(nil)
 }
 
-func (ke *KeyExchange) generateKey(isResponder bool) {
+func (ke *KeyExchange) generateSharedKey(isResponder bool) {
 	var buffer []byte
 	if isResponder {
 		buffer = append(buffer, ke.peerUID...)
@@ -607,7 +607,7 @@ func respondKeyExchange(ke *KeyExchange, hid byte, r *big.Int, rA *bn256.G1) (*b
 	ke.g3.ScalarMult(ke.g1, r)
 	ke.g2 = ke.privateKey.EncryptMasterPublicKey.ScalarBaseMult(r)
 
-	ke.generateKey(true)
+	ke.generateSharedKey(true)
 
 	if !ke.genSignature {
 		return ke.secret, nil, nil
@@ -643,7 +643,7 @@ func (ke *KeyExchange) ConfirmResponder(rB *bn256.G1, sB []byte) ([]byte, error)
 			return nil, errors.New("sm9: verify responder's signature fail")
 		}
 	}
-	ke.generateKey(false)
+	ke.generateSharedKey(false)
 
 	return ke.sign(false, 0x83), nil
 }
