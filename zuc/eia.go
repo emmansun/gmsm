@@ -40,14 +40,14 @@ func NewHash(key, iv []byte) (*ZUC128Mac, error) {
 	}
 	// initialization
 	for i := 0; i < 32; i++ {
-		x := mac.bitReconstruction()
-		w := mac.f32(x[0], x[1], x[2])
+		mac.bitReorganization()
+		w := mac.f32()
 		mac.enterInitMode(w >> 1)
 	}
 
 	// work state
-	x := mac.bitReconstruction()
-	mac.f32(x[0], x[1], x[2])
+	mac.bitReorganization()
+	mac.f32()
 	mac.enterWorkMode()
 
 	mac.initState.r1 = mac.r1

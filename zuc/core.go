@@ -76,15 +76,17 @@ type zucState32 struct {
 	lfsr [16]uint32 // linear feedback shift register
 	r1   uint32
 	r2   uint32
+	x0   uint32 // Output X0 of the bit reorganization
+	x1   uint32 // Output X1 of the bit reorganization
+	x2   uint32 // Output X2 of the bit reorganization
+	x3   uint32 // Output X3 of the bit reorganization
 }
 
-func (s *zucState32) bitReconstruction() []uint32 {
-	result := make([]uint32, 4)
-	result[0] = ((s.lfsr[15] & 0x7FFF8000) << 1) | (s.lfsr[14] & 0xFFFF)
-	result[1] = ((s.lfsr[11] & 0xFFFF) << 16) | (s.lfsr[9] >> 15)
-	result[2] = ((s.lfsr[7] & 0xFFFF) << 16) | (s.lfsr[5] >> 15)
-	result[3] = ((s.lfsr[2] & 0xFFFF) << 16) | (s.lfsr[0] >> 15)
-	return result
+func (s *zucState32) bitReorganization() {
+	s.x0 = ((s.lfsr[15] & 0x7FFF8000) << 1) | (s.lfsr[14] & 0xFFFF)
+	s.x1 = ((s.lfsr[11] & 0xFFFF) << 16) | (s.lfsr[9] >> 15)
+	s.x2 = ((s.lfsr[7] & 0xFFFF) << 16) | (s.lfsr[5] >> 15)
+	s.x3 = ((s.lfsr[2] & 0xFFFF) << 16) | (s.lfsr[0] >> 15)
 }
 
 func l1(x uint32) uint32 {
@@ -95,10 +97,10 @@ func l2(x uint32) uint32 {
 	return x ^ bits.RotateLeft32(x, 8) ^ bits.RotateLeft32(x, 14) ^ bits.RotateLeft32(x, 22) ^ bits.RotateLeft32(x, 30)
 }
 
-func (s *zucState32) f32(x0, x1, x2 uint32) uint32 {
-	w := s.r1 ^ x0 + s.r2
-	w1 := s.r1 + x1
-	w2 := s.r2 ^ x2
+func (s *zucState32) f32() uint32 {
+	w := s.r1 ^ s.x0 + s.r2
+	w1 := s.r1 + s.x1
+	w2 := s.r2 ^ s.x2
 	u := l1((w1 << 16) | (w2 >> 16))
 	v := l2((w2 << 16) | (w1 >> 16))
 	s.r1 = binary.BigEndian.Uint32([]byte{sbox0[u>>24], sbox1[(u>>16)&0xFF], sbox0[(u>>8)&0xFF], sbox1[u&0xFF]})
@@ -204,21 +206,21 @@ func newZUCState(key, iv []byte) (*zucState32, error) {
 
 	// initialization
 	for i := 0; i < 32; i++ {
-		x := state.bitReconstruction()
-		w := state.f32(x[0], x[1], x[2])
+		state.bitReorganization()
+		w := state.f32()
 		state.enterInitMode(w >> 1)
 	}
 
 	// work state
-	x := state.bitReconstruction()
-	state.f32(x[0], x[1], x[2])
+	state.bitReorganization()
+	state.f32()
 	state.enterWorkMode()
 	return state, nil
 }
 
 func (s *zucState32) genKeyword() uint32 {
-	x := s.bitReconstruction()
-	z := x[3] ^ s.f32(x[0], x[1], x[2])
+	s.bitReorganization()
+	z := s.x3 ^ s.f32()
 	s.enterWorkMode()
 	return z
 }
