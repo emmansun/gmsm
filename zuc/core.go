@@ -219,17 +219,12 @@ func newZUCState(key, iv []byte) (*zucState32, error) {
 }
 
 func (s *zucState32) genKeyword() uint32 {
-	s.bitReorganization()
-	z := s.x3 ^ s.f32()
-	s.enterWorkMode()
-	return z
+	return genKeyword(s)
 }
 
 func (s *zucState32) genKeywords(words []uint32) {
 	if len(words) == 0 {
 		return
 	}
-	for i := 0; i < len(words); i++ {
-		words[i] = s.genKeyword()
-	}
+	genKeyStream(words, s)
 }
