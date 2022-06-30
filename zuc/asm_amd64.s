@@ -313,12 +313,48 @@ GLOBL mask_S1<>(SB), RODATA, $16
     MOVUPS (36)(SI), X2                      \
     MOVQ (52)(SI), BX                        \
     MOVL (60)(SI), CX                        \
+    \
     MOVUPS X0, (SI)                          \  
     MOVUPS X1, (16)(SI)                      \  
     MOVUPS X2, (32)(SI)                      \
     MOVQ BX, (48)(SI)                        \
     MOVL CX, (56)(SI)                        \
     MOVL AX, (60)(SI) 
+
+#define RESTORE_LFSR_2()                     \
+    MOVQ (0)(SI), AX                         \
+    MOVUPS (8)(SI), X0                       \ 
+    MOVUPS (24)(SI), X1                      \ 
+    MOVUPS (40)(SI), X2                      \
+    MOVQ (56)(SI), BX                        \
+    \
+    MOVUPS X0, (SI)                          \  
+    MOVUPS X1, (16)(SI)                      \  
+    MOVUPS X2, (32)(SI)                      \
+    MOVQ BX, (48)(SI)                        \
+    MOVQ AX, (56)(SI)
+
+#define RESTORE_LFSR_4()                     \
+    MOVUPS (0)(SI), X0                       \
+    MOVUPS (16)(SI), X1                      \
+    MOVUPS (32)(SI), X2                      \
+    MOVUPS (48)(SI), X3                      \
+    \
+    MOVUPS X1, (0)(SI)                       \
+    MOVUPS X2, (16)(SI)                      \
+    MOVUPS X3, (32)(SI)                      \
+    MOVUPS X0, (48)(SI)
+
+#define RESTORE_LFSR_8()                     \
+    MOVUPS (0)(SI), X0                       \
+    MOVUPS (16)(SI), X1                      \
+    MOVUPS (32)(SI), X2                      \
+    MOVUPS (48)(SI), X3                      \
+    \
+    MOVUPS X2, (0)(SI)                       \
+    MOVUPS X3, (16)(SI)                      \
+    MOVUPS X0, (32)(SI)                      \
+    MOVUPS X1, (48)(SI)
 
 #define NONLIN_FUN_AVX()                     \
     NONLIN_FUN()                             \
@@ -334,6 +370,14 @@ GLOBL mask_S1<>(SB), RODATA, $16
     MOVL X0, R10                             \ // F_R1
     VPEXTRD $1, X0, R11   
 
+#define LOAD_STATE()                         \
+    MOVL OFFSET_FR1(SI), R10                 \
+    MOVL OFFSET_FR2(SI), R11                 \
+    MOVL OFFSET_BRC_X0(SI), R12              \
+    MOVL OFFSET_BRC_X1(SI), R13              \
+    MOVL OFFSET_BRC_X2(SI), R14              \
+    MOVL OFFSET_BRC_X3(SI), R15
+
 #define SAVE_STATE()                         \
     MOVL R10, OFFSET_FR1(SI)                 \
     MOVL R11, OFFSET_FR2(SI)                 \
@@ -346,13 +390,7 @@ GLOBL mask_S1<>(SB), RODATA, $16
 TEXT ·genKeywordAsm(SB),NOSPLIT,$0
     MOVQ pState+0(FP), SI
     
-    MOVL OFFSET_FR1(SI), R10
-    MOVL OFFSET_FR2(SI), R11
-    MOVL OFFSET_BRC_X0(SI), R12
-    MOVL OFFSET_BRC_X1(SI), R13
-    MOVL OFFSET_BRC_X2(SI), R14
-    MOVL OFFSET_BRC_X3(SI), R15
-
+    LOAD_STATE()
 
     BITS_REORG(0)
 	CMPB ·useAVX(SB), $1
@@ -380,5 +418,161 @@ avx:
     SAVE_STATE()
     RESTORE_LFSR_0()
 
+    VZEROUPPER
+    RET
+
+#define ROUND_SSE(idx)            \
+    BITS_REORG(idx)               \
+    NONLIN_FUN_SSE()              \
+    XORL R15, AX                  \
+    MOVL AX, (idx*4)(DI)          \
+    XORQ AX, AX                   \
+    LFSR_UPDT(idx)
+
+#define ROUND_AVX(idx)            \
+    BITS_REORG(idx)               \
+    NONLIN_FUN_AVX()              \
+    XORL R15, AX                  \
+    MOVL AX, (idx*4)(DI)          \
+    XORQ AX, AX                   \
+    LFSR_UPDT(idx)
+
+// func genKeyStreamAsm(keyStream []uint32, pState *zucState32)
+TEXT ·genKeyStreamAsm(SB),NOSPLIT,$0
+    MOVQ ks+0(FP), DI
+    MOVQ ks_len+8(FP), BP
+    MOVQ pState+24(FP), SI
+
+    LOAD_STATE()
+
+	CMPB ·useAVX(SB), $1
+	JE   avxZucSixteens
+
+sseZucSixteens:
+    CMPQ BP, $16
+    JB sseZucOctet
+    SUBQ $16, BP
+    ROUND_SSE(0)
+    ROUND_SSE(1)
+    ROUND_SSE(2)
+    ROUND_SSE(3)
+    ROUND_SSE(4)
+    ROUND_SSE(5)
+    ROUND_SSE(6)
+    ROUND_SSE(7)
+    ROUND_SSE(8)
+    ROUND_SSE(9)
+    ROUND_SSE(10)
+    ROUND_SSE(11)
+    ROUND_SSE(12)
+    ROUND_SSE(13)
+    ROUND_SSE(14)
+    ROUND_SSE(15)
+    LEAQ 64(DI), DI
+    JMP sseZucSixteens
+
+sseZucOctet:
+    CMPQ BP, $8
+    JB sseZucNibble
+    SUBQ $8, BP
+    ROUND_SSE(0)
+    ROUND_SSE(1)
+    ROUND_SSE(2)
+    ROUND_SSE(3)
+    ROUND_SSE(4)
+    ROUND_SSE(5)
+    ROUND_SSE(6)
+    ROUND_SSE(7)
+    LEAQ 32(DI), DI
+    RESTORE_LFSR_8()
+sseZucNibble:
+    CMPQ BP, $4
+    JB sseZucDouble
+    SUBQ $4, BP
+    ROUND_SSE(0)
+    ROUND_SSE(1)
+    ROUND_SSE(2)
+    ROUND_SSE(3)
+    LEAQ 16(DI), DI
+    RESTORE_LFSR_4()
+sseZucDouble:
+    CMPQ BP, $2
+    JB sseZucSingle
+    SUBQ $2, BP
+    ROUND_SSE(0)
+    ROUND_SSE(1)
+    LEAQ 8(DI), DI
+    RESTORE_LFSR_2()
+sseZucSingle:
+    TESTQ BP, BP
+    JE sseZucRet
+    ROUND_SSE(0)
+    RESTORE_LFSR_0()
+sseZucRet:
+    SAVE_STATE()
+    RET
+
+avxZucSixteens:
+    CMPQ BP, $16
+    JB avxZucOctet
+    SUBQ $16, BP
+    ROUND_AVX(0)
+    ROUND_AVX(1)
+    ROUND_AVX(2)
+    ROUND_AVX(3)
+    ROUND_AVX(4)
+    ROUND_AVX(5)
+    ROUND_AVX(6)
+    ROUND_AVX(7)
+    ROUND_AVX(8)
+    ROUND_AVX(9)
+    ROUND_AVX(10)
+    ROUND_AVX(11)
+    ROUND_AVX(12)
+    ROUND_AVX(13)
+    ROUND_AVX(14)
+    ROUND_AVX(15)
+    LEAQ 64(DI), DI
+    JMP avxZucSixteens
+
+avxZucOctet:
+    CMPQ BP, $8
+    JB avxZucNibble
+    SUBQ $8, BP
+    ROUND_AVX(0)
+    ROUND_AVX(1)
+    ROUND_AVX(2)
+    ROUND_AVX(3)
+    ROUND_AVX(4)
+    ROUND_AVX(5)
+    ROUND_AVX(6)
+    ROUND_AVX(7)
+    LEAQ 32(DI), DI
+    RESTORE_LFSR_8()
+avxZucNibble:
+    CMPQ BP, $4
+    JB avxZucDouble
+    SUBQ $4, BP
+    ROUND_AVX(0)
+    ROUND_AVX(1)
+    ROUND_AVX(2)
+    ROUND_AVX(3)
+    LEAQ 16(DI), DI
+    RESTORE_LFSR_4()
+avxZucDouble:
+    CMPQ BP, $2
+    JB avxZucSingle
+    SUBQ $2, BP
+    ROUND_AVX(0)
+    ROUND_AVX(1)
+    LEAQ 8(DI), DI
+    RESTORE_LFSR_2()
+avxZucSingle:
+    TESTQ BP, BP
+    JE avxZucRet
+    ROUND_AVX(0)
+    RESTORE_LFSR_0()
+avxZucRet:
+    SAVE_STATE()
     VZEROUPPER
     RET

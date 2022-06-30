@@ -13,8 +13,14 @@ var useAVX = cpu.X86.HasAVX
 //go:noescape
 func genKeywordAsm(s *zucState32) uint32
 
+//go:noescape
+func genKeyStreamAsm(keyStream []uint32, pState *zucState32)
+
 func genKeyStream(keyStream []uint32, pState *zucState32) {
-	// TODO: will change the implementation later
+	if supportsAES {
+		genKeyStreamAsm(keyStream, pState)
+		return
+	}
 	for i := 0; i < len(keyStream); i++ {
 		keyStream[i] = genKeyword(pState)
 	}

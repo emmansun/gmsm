@@ -1,7 +1,5 @@
 package zuc
 
-// Just for reference, no performance advantage due to the block size / chunk are 4 bytes only!
-
 import (
 	"crypto/cipher"
 	"encoding/binary"
@@ -9,6 +7,8 @@ import (
 	"github.com/emmansun/gmsm/internal/subtle"
 	"github.com/emmansun/gmsm/internal/xor"
 )
+
+const RoundWords = 16
 
 // NewCipher create a stream cipher based on key and iv aguments.
 func NewCipher(key, iv []byte) (cipher.Stream, error) {
@@ -25,8 +25,6 @@ func NewEEACipher(key []byte, count, bearer, direction uint32) (cipher.Stream, e
 	return newZUCState(key, iv)
 }
 
-// Per test, even we generate key stream first, and then XOR once, the performance
-// improvement is NOT significant.
 func (c *zucState32) XORKeyStream(dst, src []byte) {
 	if len(dst) < len(src) {
 		panic("zuc: output smaller than input")
@@ -35,14 +33,23 @@ func (c *zucState32) XORKeyStream(dst, src []byte) {
 		panic("zuc: invalid buffer overlap")
 	}
 	words := (len(src) + 3) / 4
-	var keyWords [4]byte
-	for i := 0; i < words; i++ {
-		binary.BigEndian.PutUint32(keyWords[:], c.genKeyword())
-		xor.XorBytes(dst, src, keyWords[:])
-		if i < words-1 {
-			dst = dst[4:]
-			src = src[4:]
+	rounds := words / RoundWords
+	var keyWords [RoundWords]uint32
+	var keyBytes [RoundWords * 4]byte
+	for i := 0; i < rounds; i++ {
+		c.genKeywords(keyWords[:])
+		for j := 0; j < RoundWords; j++ {
+			binary.BigEndian.PutUint32(keyBytes[j*4:], keyWords[j])
 		}
+		xor.XorBytes(dst, src, keyBytes[:])
+		dst = dst[RoundWords*4:]
+		src = src[RoundWords*4:]
 	}
-
+	if rounds*RoundWords < words {
+		c.genKeywords(keyWords[:words-rounds*RoundWords])
+		for j := 0; j < words-rounds*RoundWords; j++ {
+			binary.BigEndian.PutUint32(keyBytes[j*4:], keyWords[j])
+		}
+		xor.XorBytes(dst, src, keyBytes[:])
+	}
 }
