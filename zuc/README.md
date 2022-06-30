@@ -47,3 +47,11 @@ func (s *zucState32) f32(x0, x1, x2 uint32) uint32 {
 	}
 	fmt.Println()
 ```
+
+## Performance with AMD64 SIMD & AESNI:
+    goos: windows
+    goarch: amd64
+    pkg: github.com/emmansun/gmsm/zuc
+    cpu: Intel(R) Core(TM) i5-9500 CPU @ 3.00GHz
+    BenchmarkEncrypt1K-6   	  253791	      4621 ns/op	 220.52 MB/s
+    BenchmarkEncrypt8K-6   	   31794	     37772 ns/op	 216.75 MB/s
