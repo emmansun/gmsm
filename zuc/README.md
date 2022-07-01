@@ -53,5 +53,5 @@ func (s *zucState32) f32(x0, x1, x2 uint32) uint32 {
     goarch: amd64
     pkg: github.com/emmansun/gmsm/zuc
     cpu: Intel(R) Core(TM) i5-9500 CPU @ 3.00GHz
-    BenchmarkEncrypt1K-6   	  253791	      4621 ns/op	 220.52 MB/s
-    BenchmarkEncrypt8K-6   	   31794	     37772 ns/op	 216.75 MB/s
+    BenchmarkEncrypt1K-6   	  409755	      2802 ns/op	 363.62 MB/s
+    BenchmarkEncrypt8K-6   	   54120	     22413 ns/op	 365.28 MB/s

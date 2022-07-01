@@ -8,7 +8,7 @@ import (
 	"github.com/emmansun/gmsm/internal/xor"
 )
 
-const RoundWords = 16
+const RoundWords = 32
 
 // NewCipher create a stream cipher based on key and iv aguments.
 func NewCipher(key, iv []byte) (cipher.Stream, error) {
@@ -25,13 +25,7 @@ func NewEEACipher(key []byte, count, bearer, direction uint32) (cipher.Stream, e
 	return newZUCState(key, iv)
 }
 
-func (c *zucState32) XORKeyStream(dst, src []byte) {
-	if len(dst) < len(src) {
-		panic("zuc: output smaller than input")
-	}
-	if subtle.InexactOverlap(dst[:len(src)], src) {
-		panic("zuc: invalid buffer overlap")
-	}
+func genericXorKeyStream(c *zucState32, dst, src []byte) {
 	words := (len(src) + 3) / 4
 	rounds := words / RoundWords
 	var keyWords [RoundWords]uint32
@@ -52,4 +46,14 @@ func (c *zucState32) XORKeyStream(dst, src []byte) {
 		}
 		xor.XorBytes(dst, src, keyBytes[:])
 	}
+}
+
+func (c *zucState32) XORKeyStream(dst, src []byte) {
+	if len(dst) < len(src) {
+		panic("zuc: output smaller than input")
+	}
+	if subtle.InexactOverlap(dst[:len(src)], src) {
+		panic("zuc: invalid buffer overlap")
+	}
+	xorKeyStream(c, dst, src)
 }

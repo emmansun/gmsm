@@ -72,6 +72,11 @@ DATA mask_S1<>+0x00(SB)/8, $0x00ff00ff00ff00ff
 DATA mask_S1<>+0x08(SB)/8, $0x00ff00ff00ff00ff
 GLOBL mask_S1<>(SB), RODATA, $16
 
+// shuffle byte order from LE to BE
+DATA flip_mask<>+0x00(SB)/8, $0x0405060700010203
+DATA flip_mask<>+0x08(SB)/8, $0x0c0d0e0f08090a0b
+GLOBL flip_mask<>(SB), RODATA, $16
+
 #define OFFSET_FR1      (16*4)
 #define OFFSET_FR2      (17*4)
 #define OFFSET_BRC_X0   (18*4)
@@ -429,10 +434,28 @@ avx:
     XORQ AX, AX                   \
     LFSR_UPDT(idx)
 
-#define ROUND_AVX(idx)            \
+#define ROUND_AVX(idx)      \
     BITS_REORG(idx)               \
     NONLIN_FUN_AVX()              \
     XORL R15, AX                  \
+    MOVL AX, (idx*4)(DI)          \
+    XORQ AX, AX                   \
+    LFSR_UPDT(idx)
+
+#define ROUND_REV32_SSE(idx)      \
+    BITS_REORG(idx)               \
+    NONLIN_FUN_SSE()              \
+    XORL R15, AX                  \
+    BSWAPL AX                     \
+    MOVL AX, (idx*4)(DI)          \
+    XORQ AX, AX                   \
+    LFSR_UPDT(idx)
+
+#define ROUND_REV32_AVX(idx)      \
+    BITS_REORG(idx)               \
+    NONLIN_FUN_AVX()              \
+    XORL R15, AX                  \
+    BSWAPL AX                     \
     MOVL AX, (idx*4)(DI)          \
     XORQ AX, AX                   \
     LFSR_UPDT(idx)
@@ -571,6 +594,148 @@ avxZucSingle:
     TESTQ BP, BP
     JE avxZucRet
     ROUND_AVX(0)
+    RESTORE_LFSR_0()
+avxZucRet:
+    SAVE_STATE()
+    VZEROUPPER
+    RET
+
+// func genKeyStreamRev32Asm(keyStream []byte, pState *zucState32)
+TEXT ·genKeyStreamRev32Asm(SB),NOSPLIT,$0
+    MOVQ ks+0(FP), DI
+    MOVQ ks_len+8(FP), BP
+    MOVQ pState+24(FP), SI
+
+    SHRQ $2, BP
+
+    LOAD_STATE()
+
+	CMPB ·useAVX(SB), $1
+	JE   avxZucSixteens
+
+sseZucSixteens:
+    CMPQ BP, $16
+    JB sseZucOctet
+    SUBQ $16, BP
+    ROUND_REV32_SSE(0)
+    ROUND_REV32_SSE(1)
+    ROUND_REV32_SSE(2)
+    ROUND_REV32_SSE(3)
+    ROUND_REV32_SSE(4)
+    ROUND_REV32_SSE(5)
+    ROUND_REV32_SSE(6)
+    ROUND_REV32_SSE(7)
+    ROUND_REV32_SSE(8)
+    ROUND_REV32_SSE(9)
+    ROUND_REV32_SSE(10)
+    ROUND_REV32_SSE(11)
+    ROUND_REV32_SSE(12)
+    ROUND_REV32_SSE(13)
+    ROUND_REV32_SSE(14)
+    ROUND_REV32_SSE(15)
+    LEAQ 64(DI), DI
+    JMP sseZucSixteens
+
+sseZucOctet:
+    CMPQ BP, $8
+    JB sseZucNibble
+    SUBQ $8, BP
+    ROUND_REV32_SSE(0)
+    ROUND_REV32_SSE(1)
+    ROUND_REV32_SSE(2)
+    ROUND_REV32_SSE(3)
+    ROUND_REV32_SSE(4)
+    ROUND_REV32_SSE(5)
+    ROUND_REV32_SSE(6)
+    ROUND_REV32_SSE(7)
+    LEAQ 32(DI), DI
+    RESTORE_LFSR_8()
+sseZucNibble:
+    CMPQ BP, $4
+    JB sseZucDouble
+    SUBQ $4, BP
+    ROUND_REV32_SSE(0)
+    ROUND_REV32_SSE(1)
+    ROUND_REV32_SSE(2)
+    ROUND_REV32_SSE(3)
+    LEAQ 16(DI), DI
+    RESTORE_LFSR_4()
+sseZucDouble:
+    CMPQ BP, $2
+    JB sseZucSingle
+    SUBQ $2, BP
+    ROUND_REV32_SSE(0)
+    ROUND_REV32_SSE(1)
+    LEAQ 8(DI), DI
+    RESTORE_LFSR_2()
+sseZucSingle:
+    TESTQ BP, BP
+    JE sseZucRet
+    ROUND_REV32_SSE(0)
+    RESTORE_LFSR_0()
+sseZucRet:
+    SAVE_STATE()
+    RET
+
+avxZucSixteens:
+    CMPQ BP, $16
+    JB avxZucOctet
+    SUBQ $16, BP
+    ROUND_REV32_AVX(0)
+    ROUND_REV32_AVX(1)
+    ROUND_REV32_AVX(2)
+    ROUND_REV32_AVX(3)
+    ROUND_REV32_AVX(4)
+    ROUND_REV32_AVX(5)
+    ROUND_REV32_AVX(6)
+    ROUND_REV32_AVX(7)
+    ROUND_REV32_AVX(8)
+    ROUND_REV32_AVX(9)
+    ROUND_REV32_AVX(10)
+    ROUND_REV32_AVX(11)
+    ROUND_REV32_AVX(12)
+    ROUND_REV32_AVX(13)
+    ROUND_REV32_AVX(14)
+    ROUND_REV32_AVX(15)
+    LEAQ 64(DI), DI
+    JMP avxZucSixteens
+
+avxZucOctet:
+    CMPQ BP, $8
+    JB avxZucNibble
+    SUBQ $8, BP
+    ROUND_REV32_AVX(0)
+    ROUND_REV32_AVX(1)
+    ROUND_REV32_AVX(2)
+    ROUND_REV32_AVX(3)
+    ROUND_REV32_AVX(4)
+    ROUND_REV32_AVX(5)
+    ROUND_REV32_AVX(6)
+    ROUND_REV32_AVX(7)
+    LEAQ 32(DI), DI
+    RESTORE_LFSR_8()
+avxZucNibble:
+    CMPQ BP, $4
+    JB avxZucDouble
+    SUBQ $4, BP
+    ROUND_REV32_AVX(0)
+    ROUND_REV32_AVX(1)
+    ROUND_REV32_AVX(2)
+    ROUND_REV32_AVX(3)
+    LEAQ 16(DI), DI
+    RESTORE_LFSR_4()
+avxZucDouble:
+    CMPQ BP, $2
+    JB avxZucSingle
+    SUBQ $2, BP
+    ROUND_REV32_AVX(0)
+    ROUND_REV32_AVX(1)
+    LEAQ 8(DI), DI
+    RESTORE_LFSR_2()
+avxZucSingle:
+    TESTQ BP, BP
+    JE avxZucRet
+    ROUND_REV32_AVX(0)
     RESTORE_LFSR_0()
 avxZucRet:
     SAVE_STATE()
