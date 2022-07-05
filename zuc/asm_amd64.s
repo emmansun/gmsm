@@ -40,8 +40,8 @@ DATA Aes_to_Zuc_mul_high_nibble<>+0x00(SB)/8, $0xA174A97CDD08D500
 DATA Aes_to_Zuc_mul_high_nibble<>+0x08(SB)/8, $0x3DE835E04194499C
 GLOBL Aes_to_Zuc_mul_high_nibble<>(SB), RODATA, $16
 
-DATA Comb_matrix_mul_low_nibble<>+0x00(SB)/8, $0x9A8E3024EBFF4155
-DATA Comb_matrix_mul_low_nibble<>+0x08(SB)/8, $0x2D3987935C48F6E2
+DATA Comb_matrix_mul_low_nibble<>+0x00(SB)/8, $0xCFDB6571BEAA1400
+DATA Comb_matrix_mul_low_nibble<>+0x08(SB)/8, $0x786CD2C6091DA3B7
 GLOBL Comb_matrix_mul_low_nibble<>(SB), RODATA, $16
 
 DATA Comb_matrix_mul_high_nibble<>+0x00(SB)/8, $0x638CFA1523CCBA55
@@ -148,8 +148,7 @@ GLOBL flip_mask<>(SB), RODATA, $16
     \
     MOVOU Comb_matrix_mul_low_nibble<>(SB), XTMP1       \
     MOVOU Comb_matrix_mul_high_nibble<>(SB), XIN_OUT    \
-    MUL_PSHUFB_SSE(XTMP2, XTMP1, XIN_OUT, XTMP3)        \
-    PXOR Const_comb_matrix<>(SB), XIN_OUT
+    MUL_PSHUFB_SSE(XTMP2, XTMP1, XIN_OUT, XTMP3)
 
 
 #define Rotl_5_AVX(XDATA, XTMP0)                       \
@@ -200,9 +199,7 @@ GLOBL flip_mask<>(SB), RODATA, $16
     VAESENCLAST Cancel_aes<>(SB), XTMP2, XTMP2            \
     VMOVDQU Comb_matrix_mul_low_nibble<>(SB), XTMP1       \
     VMOVDQU Comb_matrix_mul_high_nibble<>(SB), XIN_OUT    \
-    MUL_PSHUFB_AVX(XTMP2, XTMP1, XIN_OUT, XTMP3)          \
-    VPXOR Const_comb_matrix<>(SB), XIN_OUT, XIN_OUT     
-    
+    MUL_PSHUFB_AVX(XTMP2, XTMP1, XIN_OUT, XTMP3)
 
 // BITS_REORG(idx)
 // params

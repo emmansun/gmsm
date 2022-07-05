@@ -4,5 +4,5 @@
 package zuc
 
 func xorKeyStream(c *zucState32, dst, src []byte) {
-	genericXorKeyStream(c, dst, src)
+	xorKeyStreamGeneric(c, dst, src)
 }

@@ -25,7 +25,7 @@ func NewEEACipher(key []byte, count, bearer, direction uint32) (cipher.Stream, e
 	return newZUCState(key, iv)
 }
 
-func genericXorKeyStream(c *zucState32, dst, src []byte) {
+func xorKeyStreamGeneric(c *zucState32, dst, src []byte) {
 	words := (len(src) + 3) / 4
 	rounds := words / RoundWords
 	var keyWords [RoundWords]uint32

@@ -26,6 +26,6 @@ func xorKeyStream(c *zucState32, dst, src []byte) {
 			xor.XorBytes(dst[words*4:], src[words*4:], singleWord[:])
 		}
 	} else {
-		genericXorKeyStream(c, dst, src)
+		xorKeyStreamGeneric(c, dst, src)
 	}
 }
