@@ -305,21 +305,21 @@ GLOBL mask_S1<>(SB), RODATA, $16
     VST1 [V0.B16, V1.B16], (SI)                   \
     SUB $32, SI
 
-#define LOAD_STATE()                         \
-    MOVW OFFSET_FR1(SI), R10                 \
-    MOVW OFFSET_FR2(SI), R11                 \
-    MOVW OFFSET_BRC_X0(SI), R12              \
-    MOVW OFFSET_BRC_X1(SI), R13              \
-    MOVW OFFSET_BRC_X2(SI), R14              \
-    MOVW OFFSET_BRC_X3(SI), R15
+#define LOAD_STATE(r)                         \
+    MOVW 64+r, R10                            \
+    MOVW 68+r, R11                            \
+    MOVW 72+r, R12                            \
+    MOVW 76+r, R13                            \
+    MOVW 80+r, R14                            \
+    MOVW 84+r, R15
 
-#define SAVE_STATE()                         \
-    MOVW R10, OFFSET_FR1(SI)                 \
-    MOVW R11, OFFSET_FR2(SI)                 \
-    MOVW R12, OFFSET_BRC_X0(SI)              \
-    MOVW R13, OFFSET_BRC_X1(SI)              \
-    MOVW R14, OFFSET_BRC_X2(SI)              \
-    MOVW R15, OFFSET_BRC_X3(SI)
+#define SAVE_STATE(r)                         \
+    MOVW R10, 64+r                            \
+    MOVW R11, 68+r                            \
+    MOVW R12, 72+r                            \
+    MOVW R13, 76+r                            \
+    MOVW R14, 80+r                            \
+    MOVW R15, 84+r
 
 // func genKeywordAsm(s *zucState32) uint32
 TEXT ·genKeywordAsm(SB),NOSPLIT,$0
@@ -328,7 +328,7 @@ TEXT ·genKeywordAsm(SB),NOSPLIT,$0
     LOAD_GLOBAL_DATA()
     VEOR	ZERO.B16, ZERO.B16, ZERO.B16
 
-    LOAD_STATE()
+    LOAD_STATE(0(SI))
 
     BITS_REORG(0)
     NONLIN_FUN()
@@ -337,7 +337,7 @@ TEXT ·genKeywordAsm(SB),NOSPLIT,$0
     MOVW AX, ret+8(FP)
     EOR AX, AX
     LFSR_UPDT(0)
-    SAVE_STATE()
+    SAVE_STATE(0(SI))
     RESTORE_LFSR_0()
 
     RET
@@ -368,7 +368,7 @@ TEXT ·genKeyStreamAsm(SB),NOSPLIT,$0
     LOAD_GLOBAL_DATA()
     VEOR	ZERO.B16, ZERO.B16, ZERO.B16
 
-    LOAD_STATE()
+    LOAD_STATE(0(SI))
 
 zucSixteens:
     CMP $16, BP
@@ -430,7 +430,7 @@ zucSingle:
     ONEROUND(0)
     RESTORE_LFSR_0()
 zucRet:
-    SAVE_STATE()
+    SAVE_STATE(0(SI))
     RET 
 
 // func genKeyStreamRev32Asm(keyStream []byte, pState *zucState32)
@@ -443,7 +443,7 @@ TEXT ·genKeyStreamRev32Asm(SB),NOSPLIT,$0
     VEOR	ZERO.B16, ZERO.B16, ZERO.B16
     LSR $2, BP
 
-    LOAD_STATE()
+    LOAD_STATE(0(SI))
 
 zucSixteens:
     CMP $16, BP
@@ -505,5 +505,5 @@ zucSingle:
     ROUND_REV32(0)
     RESTORE_LFSR_0()
 zucRet:
-    SAVE_STATE()
+    SAVE_STATE(0(SI))
     RET
