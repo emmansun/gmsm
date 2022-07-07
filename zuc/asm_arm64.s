@@ -329,7 +329,7 @@ TEXT ·genKeywordAsm(SB),NOSPLIT,$0
     VEOR	ZERO.B16, ZERO.B16, ZERO.B16
 
     LOAD_STATE(0(SI))
-
+/*
     BITS_REORG(0)
     NONLIN_FUN()
 
@@ -339,7 +339,7 @@ TEXT ·genKeywordAsm(SB),NOSPLIT,$0
     LFSR_UPDT(0)
     SAVE_STATE(0(SI))
     RESTORE_LFSR_0()
-
+*/
     RET
 
 #define ONEROUND(idx)      \
