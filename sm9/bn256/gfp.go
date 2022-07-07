@@ -36,8 +36,18 @@ func fromBigInt(x *big.Int) (out *gfP) {
 	} else {
 		a = new(big.Int).Neg(x)
 	}
-	for i, v := range a.Bits() {
-		out[i] = uint64(v)
+	bytes := a.Bytes()
+	if len(bytes) > 32 {
+		panic("sm9: invalid byte length")
+	} else if len(bytes) < 32 {
+		fixedBytes := make([]byte, 32)
+		copy(fixedBytes[32-len(bytes):], bytes)
+		bytes = fixedBytes
+	}
+	for i := 0; i < 4; i++ {
+		start := len(bytes) - 8
+		out[i] = binary.BigEndian.Uint64(bytes[start:])
+		bytes = bytes[:start]
 	}
 	if x.Sign() < 0 {
 		gfpNeg(out, out)
