@@ -54,34 +54,45 @@ var pMinus5Over8 = [4]uint64{0x7cadf364fc6a28af, 0xa43e5269634f5ddb, 0x3ac07569f
 var twoExpPMinus5Over8 = &gfP{0xd5dd560c5235102a, 0xa3772bab091163ac, 0x0ed7304fd0711ab0, 0x8efb889ed7056e1e}
 
 // Frobenius Constant, frobConstant = i^((p-1)/6)
-var frobConstant = fromBigInt(bigFromHex("3f23ea58e5720bdb843c6cfa9c08674947c5c86e0ddd04eda91d8354377b698b"))
+// fromBigInt(bigFromHex("3f23ea58e5720bdb843c6cfa9c08674947c5c86e0ddd04eda91d8354377b698b"))
+var frobConstant = &gfP{0x1a98dfbd4575299f, 0x9ec8547b245c54fd, 0xf51f5eac13df846c, 0x9ef74015d5a16393} 
 
 // vToPMinus1 is v^(p-1), vToPMinus1 ^ 2 = p - 1
-var vToPMinus1 = fromBigInt(bigFromHex("6c648de5dc0a3f2cf55acc93ee0baf159f9d411806dc5177f5b21fd3da24d011"))
+// fromBigInt(bigFromHex("6c648de5dc0a3f2cf55acc93ee0baf159f9d411806dc5177f5b21fd3da24d011"))
+var vToPMinus1 = &gfP{0x39b4ef0f3ee72529, 0xdb043bf508582782, 0xb8554ab054ac91e3, 0x9848eec25498cab5}
 
 // wToPMinus1 is w^(p-1)
-var wToPMinus1 = fromBigInt(bigFromHex("3f23ea58e5720bdb843c6cfa9c08674947c5c86e0ddd04eda91d8354377b698b"))
+// fromBigInt(bigFromHex("3f23ea58e5720bdb843c6cfa9c08674947c5c86e0ddd04eda91d8354377b698b"))
+var wToPMinus1 = &gfP{0x1a98dfbd4575299f, 0x9ec8547b245c54fd, 0xf51f5eac13df846c, 0x9ef74015d5a16393}
 
 // w2ToPMinus1 is (w^2)^(p-1)
-var w2ToPMinus1 = fromBigInt(bigFromHex("0000000000000000f300000002a3a6f2780272354f8b78f4d5fc11967be65334"))
+// fromBigInt(bigFromHex("0000000000000000f300000002a3a6f2780272354f8b78f4d5fc11967be65334"))
+var w2ToPMinus1 =&gfP{0xb626197dce4736ca, 0x8296b3557ed0186, 0x9c705db2fd91512a, 0x1c753e748601c992} 
 
 // wToP2Minus1 is w^(p^2-1)
-var wToP2Minus1 = fromBigInt(bigFromHex("0000000000000000f300000002a3a6f2780272354f8b78f4d5fc11967be65334"))
+// fromBigInt(bigFromHex("0000000000000000f300000002a3a6f2780272354f8b78f4d5fc11967be65334"))
+var wToP2Minus1 = &gfP{0xb626197dce4736ca, 0x8296b3557ed0186, 0x9c705db2fd91512a, 0x1c753e748601c992}
 
 // w2ToP2Minus1 is (w^2)^(p^2-1), w2ToP2Minus1 = vToPMinus1 * wToPMinus1
-var w2ToP2Minus1 = fromBigInt(bigFromHex("0000000000000000f300000002a3a6f2780272354f8b78f4d5fc11967be65333"))
+// fromBigInt(bigFromHex("0000000000000000f300000002a3a6f2780272354f8b78f4d5fc11967be65333"))
+var w2ToP2Minus1 = &gfP{0x81054fcd94e9c1c4, 0x4c0e91cb8ce2df3e, 0x4877b452e8aedfb4, 0x88f53e748b491776}
 
 // vToPMinus1Mw2ToPMinus1 = vToPMinus1 * w2ToPMinus1
-var vToPMinus1Mw2ToPMinus1 = fromBigInt(bigFromHex("2d40a38cf6983351711e5f99520347cc57d778a9f8ff4c8a4c949c7fa2a96686"))
+// fromBigInt(bigFromHex("2d40a38cf6983351711e5f99520347cc57d778a9f8ff4c8a4c949c7fa2a96686"))
+var vToPMinus1Mw2ToPMinus1 = &gfP{0x48baa79dcc34107, 0x5e2e7ac4fe76c161, 0x99399754365bd4bc, 0xaf91aeac819b0e13}
 
 // betaToNegPPlus1Over3 = i^(-(p-1)/3)
-var betaToNegPPlus1Over3 = fromBigInt(bigFromHex("b640000002a3a6f0e303ab4ff2eb2052a9f02115caef75e70f738991676af24a"))
+// fromBigInt(bigFromHex("b640000002a3a6f0e303ab4ff2eb2052a9f02115caef75e70f738991676af24a"))
+var betaToNegPPlus1Over3 = &gfP{0x646a4b5a4e6783b9, 0xd5e4017f8d980f9d, 0x8d8bf6fd0cdfe790, 0x2d4ac18b775a8f7b}
 
 // betaToNegPPlus1Over2 = i^(-(p-1)/2)
-var betaToNegPPlus1Over2 = fromBigInt(bigFromHex("49db721a269967c4e0a8debc0783182f82555233139e9d63efbd7b54092c756c"))
+// fromBigInt(bigFromHex("49db721a269967c4e0a8debc0783182f82555233139e9d63efbd7b54092c756c"))
+var betaToNegPPlus1Over2 = &gfP{0xabbaac18a46a2054, 0x46ee57561222c759, 0x1dae609fa0e23561, 0x1df7113dae0adc3c}
 
 // betaToNegP2Plus1Over3 = i^(-(p^2-1)/3)
-var betaToNegP2Plus1Over3 = fromBigInt(bigFromHex("b640000002a3a6f0e303ab4ff2eb2052a9f02115caef75e70f738991676af249"))
+// fromBigInt(bigFromHex("b640000002a3a6f0e303ab4ff2eb2052a9f02115caef75e70f738991676af249"))
+var betaToNegP2Plus1Over3 = &gfP{0x2f4981aa150a0eb3, 0x19c92815c28ded55, 0x39934d9cf7fd761b, 0x99cac18b7ca1dd5f}
 
 // betaToNegP2Plus1Over2 = i^(-(p^2-1)/2)
-var betaToNegP2Plus1Over2 = fromBigInt(bigFromHex("b640000002a3a6f1d603ab4ff58ec74521f2934b1a7aeedbe56f9b27e351457c"))
+// fromBigInt(bigFromHex("b640000002a3a6f1d603ab4ff58ec74521f2934b1a7aeedbe56f9b27e351457c"))
+var betaToNegP2Plus1Over2 = &gfP{0xcadf364fc6a28afa, 0x43e5269634f5ddb7, 0xac07569feb1d8e8a, 0x6c80000005474de3}
