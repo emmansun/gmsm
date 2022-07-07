@@ -222,7 +222,7 @@ func miller(q *twistPoint, p *curvePoint) *gfP12 {
 
 // finalExponentiation computes the (p¹²-1)/Order-th power of an element of
 // GF(p¹²) to obtain an element of GT. https://eprint.iacr.org/2007/390.pdf
-// http://cryptojedi.org/papers/dclxvi-20100714.pdf https://eprint.iacr.org/2008/490.pdf
+// http://cryptojedi.org/papers/dclxvi-20100714.pdf
 func finalExponentiation(in *gfP12) *gfP12 {
 	t1 := &gfP12{}
 

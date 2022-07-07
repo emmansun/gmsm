@@ -3,7 +3,6 @@ package bn256
 import (
 	"crypto/sha256"
 	"encoding/binary"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -46,7 +45,6 @@ func fromBigInt(x *big.Int) (out *gfP) {
 	if x.Sign() != 0 {
 		montEncode(out, out)
 	}
-	fmt.Printf("%s=&gfP{0x%x, 0x%x, 0x%x, 0x%x}\n", hex.EncodeToString(x.Bytes()), out[0], out[1], out[2], out[3])
 	return out
 }
 
