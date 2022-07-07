@@ -7,7 +7,7 @@ import (
 	"golang.org/x/sys/cpu"
 )
 
-var supportsAES = cpu.X86.HasAES
+var supportsAES = cpu.X86.HasAES || cpu.ARM64.HasAES
 var useAVX = cpu.X86.HasAVX
 
 //go:noescape
