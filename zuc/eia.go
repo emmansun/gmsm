@@ -8,18 +8,18 @@ import (
 )
 
 const (
-	chunk = 4
+	chunk = 16
 )
 
 type ZUC128Mac struct {
 	zucState32
-	initState zucState32
-	tagSize   int
-	k0        uint32
+	k0        [8]uint32
 	t         uint32
 	x         [chunk]byte
 	nx        int
 	len       uint64
+	tagSize   int
+	initState zucState32
 }
 
 // NewHash create hash for zuc-128 eia, with arguments key and iv.
@@ -79,36 +79,39 @@ func (m *ZUC128Mac) Size() int {
 }
 
 func (m *ZUC128Mac) BlockSize() int {
-	return 4
+	return chunk
 }
 
 func (m *ZUC128Mac) Reset() {
-	m.k0 = 0
 	m.t = 0
 	m.nx = 0
 	m.len = 0
 	m.r1 = m.initState.r1
 	m.r2 = m.initState.r2
 	copy(m.lfsr[:], m.initState.lfsr[:])
-	m.k0 = m.genKeyword()
+	m.genKeywords(m.k0[:4])
 }
 
 func (m *ZUC128Mac) block(p []byte) {
+	var k64, t64 uint64
+	t64 = uint64(m.t) << 32
 	for len(p) >= chunk {
-		w := binary.BigEndian.Uint32(p)
-		k1 := m.genKeyword()
-
-		for i := 0; i < 32; i++ {
-			if w&0x80000000 == 0x80000000 {
-				m.t ^= m.k0
+		m.genKeywords(m.k0[4:])
+		for i := 0; i < 4; i++ {
+			k64 = uint64(m.k0[i])<<32 | uint64(m.k0[i+1])
+			w := binary.BigEndian.Uint32(p[i*4:])
+			for j := 0; j < 32; j++ {
+				if w&0x80000000 == 0x80000000 {
+					t64 ^= k64
+				}
+				w <<= 1
+				k64 <<= 1
 			}
-			w <<= 1
-			m.k0 = (m.k0 << 1) | (k1 >> 31)
-			k1 <<= 1
 		}
-
+		copy(m.k0[:4], m.k0[4:])
 		p = p[chunk:]
 	}
+	m.t = uint32(t64 >> 32)
 }
 
 func (m *ZUC128Mac) Write(p []byte) (nn int, err error) {
@@ -135,26 +138,49 @@ func (m *ZUC128Mac) Write(p []byte) (nn int, err error) {
 }
 
 func (m *ZUC128Mac) checkSum(additionalBits int, b byte) [4]byte {
-	if m.nx >= 4 {
-		panic("m.nx >= 4")
+	if m.nx >= chunk {
+		panic("m.nx >= 16")
 	}
+	kIdx := 0
 	if m.nx > 0 || additionalBits > 0 {
+		var k64, t64 uint64
+		t64 = uint64(m.t) << 32
 		m.x[m.nx] = b
-		w := binary.BigEndian.Uint32(m.x[:])
-		k1 := m.genKeyword()
-
-		for i := 0; i < 8*m.nx+additionalBits; i++ {
-			if w&0x80000000 == 0x80000000 {
-				m.t ^= m.k0
-			}
-			w <<= 1
-			m.k0 = (m.k0 << 1) | (k1 >> 31)
-			k1 <<= 1
+		nRemainBits := 8*m.nx + additionalBits
+		if nRemainBits > 64 {
+			m.genKeywords(m.k0[4:6])
 		}
+		words := (nRemainBits + 31) / 32
+		for i := 0; i < words-1; i++ {
+			k64 = uint64(m.k0[i])<<32 | uint64(m.k0[i+1])
+			w := binary.BigEndian.Uint32(m.x[i*4:])
+			for j := 0; j < 32; j++ {
+				if w&0x80000000 == 0x80000000 {
+					t64 ^= k64
+				}
+				w <<= 1
+				k64 <<= 1
+			}
+		}
+		nRemainBits -= (words - 1) * 32
+		kIdx = words - 1
+		if nRemainBits > 0 {
+			k64 = uint64(m.k0[kIdx])<<32 | uint64(m.k0[kIdx+1])
+			w := binary.BigEndian.Uint32(m.x[(words-1)*4:])
+			for j := 0; j < nRemainBits; j++ {
+				if w&0x80000000 == 0x80000000 {
+					t64 ^= k64
+				}
+				w <<= 1
+				k64 <<= 1
+			}
+			m.k0[kIdx] = uint32(k64 >> 32)
+			m.k0[kIdx+1] = m.k0[kIdx+2]
+		}
+		m.t = uint32(t64 >> 32)
 	}
-	m.t ^= m.k0
-	k1 := m.genKeyword()
-	m.t ^= k1
+	m.t ^= m.k0[kIdx]
+	m.t ^= m.k0[kIdx+1]
 
 	var digest [4]byte
 	binary.BigEndian.PutUint32(digest[:], m.t)

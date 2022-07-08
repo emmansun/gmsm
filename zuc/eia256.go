@@ -7,13 +7,13 @@ import (
 
 type ZUC256Mac struct {
 	zucState32
-	initState zucState32
-	tagSize   int
-	k0        []uint32
+	k0        [8]uint32
 	t         []uint32
 	x         [chunk]byte
 	nx        int
 	len       uint64
+	tagSize   int
+	initState zucState32
 }
 
 // NewHash256 create hash for zuc-256 eia, with arguments key, iv and tagSize.
@@ -36,7 +36,6 @@ func NewHash256(key, iv []byte, tagSize int) (*ZUC256Mac, error) {
 	}
 	mac.tagSize = tagSize
 	mac.t = make([]uint32, mac.tagSize/4)
-	mac.k0 = make([]uint32, mac.tagSize/4)
 	switch k {
 	default:
 		return nil, fmt.Errorf("zuc/eia: invalid key size %d, expect 32 in bytes", k)
@@ -81,30 +80,54 @@ func (m *ZUC256Mac) Reset() {
 	m.r2 = m.initState.r2
 	copy(m.lfsr[:], m.initState.lfsr[:])
 	m.genKeywords(m.t)
-	m.genKeywords(m.k0)
+	m.genKeywords(m.k0[:4])
 }
 
 func (m *ZUC256Mac) block(p []byte) {
+	var k64, t64 uint64
+	if m.tagSize == 4 {
+		t64 = uint64(m.t[0]) << 32
+	}
+	tagWords := m.tagSize / 4
 	for len(p) >= chunk {
-		w := binary.BigEndian.Uint32(p)
-		k1 := m.genKeyword()
-
-		for i := 0; i < 32; i++ {
-			if w&0x80000000 == 0x80000000 {
-				for j := 0; j < m.tagSize/4; j++ {
-					m.t[j] ^= m.k0[j]
+		m.genKeywords(m.k0[4:])
+		for l := 0; l < 4; l++ {
+			w := binary.BigEndian.Uint32(p[l*4:])
+			switch m.tagSize {
+			case 4:
+				k64 = uint64(m.k0[l])<<32 | uint64(m.k0[l+1])
+				for j := 0; j < 32; j++ {
+					if w&0x80000000 == 0x80000000 {
+						t64 ^= k64
+					}
+					w <<= 1
+					k64 <<= 1
+				}
+			default:
+				k1 := m.k0[tagWords+l]
+				for i := 0; i < 32; i++ {
+					if w&0x80000000 == 0x80000000 {
+						for j := 0; j < tagWords; j++ {
+							m.t[j] ^= m.k0[j]
+						}
+					}
+					w <<= 1
+					var j int
+					for j = 0; j < tagWords-1; j++ {
+						m.k0[j] = (m.k0[j] << 1) | (m.k0[j+1] >> 31)
+					}
+					m.k0[j] = (m.k0[j] << 1) | (k1 >> 31)
+					k1 <<= 1
 				}
 			}
-			w <<= 1
-			var j int
-			for j = 0; j < m.tagSize/4-1; j++ {
-				m.k0[j] = (m.k0[j] << 1) | (m.k0[j+1] >> 31)
-			}
-			m.k0[j] = (m.k0[j] << 1) | (k1 >> 31)
-			k1 <<= 1
 		}
-
+		if tagWords != 4 {
+			copy(m.k0[:4], m.k0[4:])
+		}
 		p = p[chunk:]
+	}
+	if m.tagSize == 4 {
+		m.t[0] = uint32(t64 >> 32)
 	}
 }
 
@@ -132,33 +155,57 @@ func (m *ZUC256Mac) Write(p []byte) (nn int, err error) {
 }
 
 func (m *ZUC256Mac) checkSum(additionalBits int, b byte) []byte {
-	if m.nx >= 4 {
-		panic("m.nx >= 4")
+	if m.nx >= chunk {
+		panic("m.nx >= 16")
 	}
+	kIdx := 0
 	if m.nx > 0 || additionalBits > 0 {
 		m.x[m.nx] = b
-		w := binary.BigEndian.Uint32(m.x[:])
-		k1 := m.genKeyword()
+		m.genKeywords(m.k0[4:])
+		nRemainBits := 8*m.nx + additionalBits
+		words := (nRemainBits + 31) / 32
 
-		for i := 0; i < 8*m.nx+additionalBits; i++ {
-			if w&0x80000000 == 0x80000000 {
-				for j := 0; j < m.tagSize/4; j++ {
-					m.t[j] ^= m.k0[j]
+		for l := 0; l < words-1; l++ {
+			w := binary.BigEndian.Uint32(m.x[l*4:])
+			k1 := m.k0[m.tagSize/4+l]
+			for i := 0; i < 32; i++ {
+				if w&0x80000000 == 0x80000000 {
+					for j := 0; j < m.tagSize/4; j++ {
+						m.t[j] ^= m.k0[j]
+					}
 				}
+				w <<= 1
+				var j int
+				for j = 0; j < m.tagSize/4-1; j++ {
+					m.k0[j] = (m.k0[j] << 1) | (m.k0[j+1] >> 31)
+				}
+				m.k0[j] = (m.k0[j] << 1) | (k1 >> 31)
+				k1 <<= 1
 			}
-			w <<= 1
-			var j int
-			for j = 0; j < m.tagSize/4-1; j++ {
-				m.k0[j] = (m.k0[j] << 1) | (m.k0[j+1] >> 31)
+		}
+		nRemainBits -= (words - 1) * 32
+		kIdx = words - 1
+		if nRemainBits > 0 {
+			w := binary.BigEndian.Uint32(m.x[(words-1)*4:])
+			for i := 0; i < nRemainBits; i++ {
+				if w&0x80000000 == 0x80000000 {
+					for j := 0; j < m.tagSize/4; j++ {
+						m.t[j] ^= m.k0[j+kIdx]
+					}
+				}
+				w <<= 1
+				var j int
+				for j = 0; j < m.tagSize/4; j++ {
+					m.k0[j+kIdx] = (m.k0[j+kIdx] << 1) | (m.k0[kIdx+j+1] >> 31)
+				}
+				m.k0[j+kIdx] <<= 1
 			}
-			m.k0[j] = (m.k0[j] << 1) | (k1 >> 31)
-			k1 <<= 1
 		}
 	}
 
 	digest := make([]byte, m.tagSize)
 	for j := 0; j < m.tagSize/4; j++ {
-		m.t[j] ^= m.k0[j]
+		m.t[j] ^= m.k0[j+kIdx]
 		binary.BigEndian.PutUint32(digest[j*4:], m.t[j])
 	}
 
