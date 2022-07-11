@@ -35,8 +35,11 @@ jobs:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
           
-    - name: Test
-      run: go test -v -short ./...
-      
+    - name: Test with Coverage
+      run: go test -v -short -coverprofile=coverage.txt -covermode=atomic ./...
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v1
+    
     - name: Test Generic
       run: go test -v -short -tags generic ./...      
