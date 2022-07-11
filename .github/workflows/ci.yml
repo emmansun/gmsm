@@ -36,10 +36,13 @@ jobs:
         key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
           
     - name: Test with Coverage
-      run: go test -v -short -coverprofile=coverage.txt -covermode=atomic ./...
+      run: go test -v -short -race -coverprofile=coverage.txt -covermode=atomic ./...
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
     
     - name: Test Generic
-      run: go test -v -short -tags generic ./...      
+      run: go test -v -short -tags generic -race -coverprofile=coverage.txt -covermode=atomic ./...      
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v1      
