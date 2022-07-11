@@ -15,10 +15,10 @@ jobs:
         goVer: ['1.15', '1.16', '1.17']    
     steps:
     - name: Checkout Repo
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
   
     - name: Set up Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v3
       with:
         go-version: ${{ matrix.goVer }}
 
@@ -28,7 +28,7 @@ jobs:
          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
     - name: Module cache
-      uses: actions/cache@v2.1.7
+      uses: actions/cache@v3
       env:
         cache-name: go-mod-cache
       with:
