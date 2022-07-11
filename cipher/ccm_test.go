@@ -1,9 +1,11 @@
-package cipher
+package cipher_test
 
 import (
 	"crypto/aes"
 	"encoding/hex"
 	"testing"
+
+	"github.com/emmansun/gmsm/cipher"
 )
 
 // https://tools.ietf.org/html/rfc3610, 8. Test Vectors
@@ -189,7 +191,7 @@ var aesCCMTests = []struct {
 	},
 }
 
-func TestCCM(t *testing.T) {
+func TestCCMWithAES(t *testing.T) {
 	for i, tt := range aesCCMTests {
 		nonce, _ := hex.DecodeString(tt.nonce)
 		plaintext, _ := hex.DecodeString(tt.plaintext)
@@ -199,7 +201,7 @@ func TestCCM(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		aesccm, err := NewCCMWithNonceAndTagSize(c, len(nonce), tt.tagSize)
+		aesccm, err := cipher.NewCCMWithNonceAndTagSize(c, len(nonce), tt.tagSize)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -227,20 +229,20 @@ func TestCCMInvalidTagSize(t *testing.T) {
 	c, _ := aes.NewCipher(key)
 
 	for _, tagSize := range []int{0, 1, c.BlockSize() + 1} {
-		aesccm, err := NewCCMWithTagSize(c, tagSize)
+		aesccm, err := cipher.NewCCMWithTagSize(c, tagSize)
 		if aesccm != nil || err == nil {
 			t.Fatalf("NewCCMWithNonceAndTagSize was successful with an invalid %d-byte tag size", tagSize)
 		}
 	}
 }
 
-func TestTagFailureOverwrite(t *testing.T) {
+func TestCCMTagFailureOverwrite(t *testing.T) {
 	key, _ := hex.DecodeString("ab72c77b97cb5fe9a382d9fe81ffdbed")
 	nonce, _ := hex.DecodeString("54cc7dc2c37ec006bcc6d1db")
 	ciphertext, _ := hex.DecodeString("0e1bde206a07a9c2c1b65300f8c649972b4401346697138c7a4891ee59867d0c")
 
 	c, _ := aes.NewCipher(key)
-	aesccm, _ := NewCCM(c)
+	aesccm, _ := cipher.NewCCM(c)
 
 	dst := make([]byte, len(ciphertext)-16)
 	for i := range dst {

@@ -1,14 +1,15 @@
-package cipher
+package cipher_test
 
 import (
 	"bytes"
 	"crypto/aes"
-	"encoding/hex"
 	"testing"
+
+	"github.com/emmansun/gmsm/cipher"
 )
 
 // These test vectors have been taken from IEEE P1619/D16, Annex B.
-var xtsTestVectors = []struct {
+var xtsAesTestVectors = []struct {
 	key        string
 	sector     uint64
 	plaintext  string
@@ -63,17 +64,9 @@ var xtsTestVectors = []struct {
 	},
 }
 
-func fromHex(s string) []byte {
-	ret, err := hex.DecodeString(s)
-	if err != nil {
-		panic("xts: invalid hex in test")
-	}
-	return ret
-}
-
-func TestXTS(t *testing.T) {
-	for i, test := range xtsTestVectors {
-		c, err := NewXTS(aes.NewCipher, fromHex(test.key))
+func TestXTSWithAES(t *testing.T) {
+	for i, test := range xtsAesTestVectors {
+		c, err := cipher.NewXTS(aes.NewCipher, fromHex(test.key))
 		if err != nil {
 			t.Errorf("#%d: failed to create cipher: %s", i, err)
 			continue
@@ -97,7 +90,7 @@ func TestXTS(t *testing.T) {
 }
 
 func TestShorterCiphertext(t *testing.T) {
-	c, err := NewXTS(aes.NewCipher, make([]byte, 32))
+	c, err := cipher.NewXTS(aes.NewCipher, make([]byte, 32))
 	if err != nil {
 		t.Fatalf("NewCipher failed: %s", err)
 	}
