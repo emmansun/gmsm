@@ -269,7 +269,7 @@ func TestNonceSafety(t *testing.T) {
 	}
 
 	if r0.Cmp(r1) == 0 {
-		t.Error("SM2: the nonce used for two diferent messages was the same")
+		t.Error("SM2: the nonce used for two different messages was the same")
 	}
 }
 

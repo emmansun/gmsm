@@ -171,7 +171,7 @@ func (ke *KeyExchange) ConfirmResponder(rB *ecdsa.PublicKey, sB []byte) ([]byte,
 		return nil, errors.New("sm2: received invalid random from responder")
 	}
 	ke.peerSecret = rB
-	// Calcualte tA
+	// Calculate tA
 	t := (&big.Int{}).And(ke.w2Minus1, ke.secret.X)
 	t.Add(ke.w2, t)
 	t.Mul(t, ke.r)

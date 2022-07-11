@@ -149,7 +149,7 @@ func TestNISTP256MontgomeryDomain(t *testing.T) {
 func TestForSqrt(t *testing.T) {
 	mod4 := new(big.Int).Mod(sm2Prime, big.NewInt(4))
 	if mod4.Cmp(big.NewInt(3)) != 0 {
-		t.Fatal("sm2 prime is not fufill 3 mod 4")
+		t.Fatal("sm2 prime is not fulfill 3 mod 4")
 	}
 
 	exp := new(big.Int).Add(sm2Prime, big.NewInt(1))

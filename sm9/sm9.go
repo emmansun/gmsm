@@ -248,7 +248,7 @@ func (pub *EncryptMasterPublicKey) ScalarBaseMult(r *big.Int) *bn256.GT {
 	return bn256.ScalarBaseMultGT(tables, r)
 }
 
-// WrapKey generate and wrap key wtih reciever's uid and system hid
+// WrapKey generate and wrap key with reciever's uid and system hid
 func WrapKey(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, kLen int) (key []byte, cipher *bn256.G1, err error) {
 	q := pub.GenerateUserPublicKey(uid, hid)
 	var r *big.Int
