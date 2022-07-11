@@ -3,7 +3,7 @@
 
 [![Travis CI](https://app.travis-ci.com/emmansun/gmsm.svg?branch=main)](https://app.travis-ci.com/emmansun/gmsm) 
 [![Github CI](https://github.com/emmansun/gmsm/actions/workflows/ci.yml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/ci.yml) 
-[![Go Report Card](https://goreportcard.com/report/github.com/emmansun/gmsm)](https://goreportcard.com/report/github.com/emmansun/gmsm)
+[![Go Report Card](https://goreportcard.com/badge/github.com/emmansun/gmsm)](https://goreportcard.com/report/github.com/emmansun/gmsm)
 [![Documentation](https://godoc.org/github.com/emmansun/gmsm?status.svg)](https://godoc.org/github.com/emmansun/gmsm) 
 [![Release](https://img.shields.io/github/release/emmansun/gmsm/all.svg)](https://github.com/emmansun/gmsm/releases)
 
