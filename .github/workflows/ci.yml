@@ -39,10 +39,7 @@ jobs:
       run: go test -v -short -race -coverprofile=coverage.txt -covermode=atomic ./...
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v1
+      uses: codecov/codecov-action@v3
     
     - name: Test Generic
-      run: go test -v -short -tags generic -race -coverprofile=coverage.txt -covermode=atomic ./...      
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v1      
+      run: go test -v -short -tags generic ./...      
