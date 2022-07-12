@@ -1,6 +1,8 @@
 package sm4
 
 import (
+	"bytes"
+	"crypto/cipher"
 	"reflect"
 	"testing"
 )
@@ -58,6 +60,73 @@ func Test_sample2(t *testing.T) {
 	if !reflect.DeepEqual(dst, expected) {
 		t.Errorf("expected=%v, result=%v\n", expected, dst)
 	}
+}
+
+func TestEncryptDecryptPanic(t *testing.T) {
+	key := make([]byte, 16)
+	src := make([]byte, 15)
+	dst := make([]byte, 16)
+	c, err := NewCipher(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shouldPanic(t, func() { c.Encrypt(dst, src) })
+	shouldPanic(t, func() { c.Encrypt(src, dst) })
+	shouldPanic(t, func() { c.Decrypt(dst, src) })
+	shouldPanic(t, func() { c.Decrypt(src, dst) })
+
+	src = make([]byte, 32)
+	shouldPanic(t, func() { c.Encrypt(src, src[1:]) })
+	shouldPanic(t, func() { c.Encrypt(src[1:], src) })
+	shouldPanic(t, func() { c.Decrypt(src, src[1:]) })
+	shouldPanic(t, func() { c.Decrypt(src[1:], src) })
+}
+
+func TestWithoutGFMUL(t *testing.T) {
+	key := make([]byte, 16)
+	src := make([]byte, 16)
+	var dst []byte
+	var nonce [12]byte
+	var c cipher.Block
+	var err error
+
+	if supportSM4 {
+		c, err = newCipherNI(key)
+	} else if !supportsAES {
+		c, err = newCipherGeneric(key)
+	} else {
+		blocks := 4
+		if useAVX2 {
+			blocks = 8
+		}
+		c1 := &sm4CipherAsm{sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}, blocks, blocks * BlockSize}
+		expandKeyAsm(&key[0], &ck[0], &c1.enc[0], &c1.dec[0], INST_AES)
+		c = c1
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var sm4gcm cipher.AEAD
+	sm4gcm, err = cipher.NewGCM(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dst = sm4gcm.Seal(nil, nonce[:], src, nil)
+	src, err = sm4gcm.Open(nil, nonce[:], dst, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(key, src) {
+		t.Errorf("bad encryption")
+	}
+}
+
+func shouldPanic(t *testing.T, f func()) {
+	t.Helper()
+	defer func() { _ = recover() }()
+	f()
+	t.Errorf("should have panicked")
 }
 
 func BenchmarkEncrypt(b *testing.B) {
