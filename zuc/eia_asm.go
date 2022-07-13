@@ -6,7 +6,6 @@ package zuc
 import "golang.org/x/sys/cpu"
 
 var supportsGFMUL = cpu.X86.HasPCLMULQDQ || cpu.ARM64.HasPMULL
-var useAVX2 = cpu.X86.HasAVX2 && cpu.X86.HasBMI2
 
 //go:noescape
 func eia3Round16B(t *uint32, keyStream *uint32, p *byte, tagSize int)

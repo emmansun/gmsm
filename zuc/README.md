@@ -63,3 +63,8 @@ func (s *zucState32) f32(x0, x1, x2 uint32) uint32 {
     cpu: Intel(R) Core(TM) i5-9500 CPU @ 3.00GHz
     BenchmarkHash1K-6   	  317750	      3833 ns/op	 267.13 MB/s
     BenchmarkHash8K-6   	   40460	     28921 ns/op	 283.26 MB/s
+    BenchmarkHash1K_Tag64-6   	  302163	      3979 ns/op	 257.34 MB/s
+    BenchmarkHash8K_Tag64-6   	   39210	     30859 ns/op	 265.46 MB/s
+    BenchmarkHash1K_Tag128-6   	  279069	      4134 ns/op	 247.70 MB/s
+    BenchmarkHash8K_Tag128-6   	   38238	     31395 ns/op	 260.93 MB/s
+

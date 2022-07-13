@@ -83,7 +83,7 @@ func (m *ZUC256Mac) Reset() {
 	m.genKeywords(m.k0[:4])
 }
 
-func (m *ZUC256Mac) block(p []byte) {
+func block256Generic(m *ZUC256Mac, p []byte) {
 	var k64, t64 uint64
 	if m.tagSize == 4 {
 		t64 = uint64(m.t[0]) << 32
@@ -138,14 +138,14 @@ func (m *ZUC256Mac) Write(p []byte) (nn int, err error) {
 		n := copy(m.x[m.nx:], p)
 		m.nx += n
 		if m.nx == chunk {
-			m.block(m.x[:])
+			block256(m, m.x[:])
 			m.nx = 0
 		}
 		p = p[n:]
 	}
 	if len(p) >= chunk {
 		n := len(p) &^ (chunk - 1)
-		m.block(p[:n])
+		block256(m, p[:n])
 		p = p[n:]
 	}
 	if len(p) > 0 {

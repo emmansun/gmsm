@@ -44,8 +44,8 @@ TEXT ·eia3Round16B(SB),NOSPLIT,$0
 	MOVQ p+16(FP), CX
 	MOVQ tagSize+24(FP), DX
 
-	CMPB ·useAVX2(SB), $1
-	JE   avx2
+	CMPB ·useAVX(SB), $1
+	JE   avx
 
 	// Reverse data bytes
 	MOVUPS (0)(CX), XDATA
@@ -103,7 +103,7 @@ TEXT ·eia3Round16B(SB),NOSPLIT,$0
 
 	RET
 
-avx2:
+avx:
 	VMOVDQU (0)(CX), XDATA
 
 	// Reverse data bytes

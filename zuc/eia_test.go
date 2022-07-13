@@ -150,3 +150,57 @@ func Test_Finish(t *testing.T) {
 		}
 	}
 }
+
+func TestNewHash(t *testing.T) {
+	key := make([]byte, 16)
+	iv := make([]byte, 16)
+	_, err := NewHash(key[:1], iv)
+	if err == nil {
+		t.Fatal("error is expected")
+	}
+
+	_, err = NewHash(key, iv[:1])
+	if err == nil {
+		t.Fatal("error is expected")
+	}
+
+	h, err := NewHash(key, iv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h.Size() != 4 {
+		t.Fatal("eia3 mac size should be 4 bytes")
+	}
+	if h.BlockSize() != 16 {
+		t.Fatal("current eia3 implementation's block size should be 16 bytes")
+	}
+
+}
+
+func TestSum(t *testing.T) {
+	expected := "6c2db416"
+	h, err := NewEIAHash(zucEIATests[1].key, zucEIATests[1].count, zucEIATests[1].bearer, zucEIATests[1].direction)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = h.Write([]byte("emmansun"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = h.Write([]byte("shangmi1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = h.Write([]byte("emmansun shangmi"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = h.Write([]byte("emmansun shangmi 1234"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	mac := h.Sum(nil)
+	if hex.EncodeToString(mac) != expected {
+		t.Errorf("expected=%s, result=%s\n", expected, hex.EncodeToString(mac))
+	}
+}
