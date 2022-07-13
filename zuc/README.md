@@ -48,10 +48,18 @@ func (s *zucState32) f32(x0, x1, x2 uint32) uint32 {
 	fmt.Println()
 ```
 
-## Performance with AMD64 SIMD & AESNI:
+## EEA Performance with AMD64 SIMD & AESNI:
     goos: windows
     goarch: amd64
     pkg: github.com/emmansun/gmsm/zuc
     cpu: Intel(R) Core(TM) i5-9500 CPU @ 3.00GHz
     BenchmarkEncrypt1K-6   	  409755	      2802 ns/op	 363.62 MB/s
     BenchmarkEncrypt8K-6   	   54120	     22413 ns/op	 365.28 MB/s
+
+## EIA Performance with AMD64 SIMD & AESNI & CLMUL:
+    goos: windows
+    goarch: amd64
+    pkg: github.com/emmansun/gmsm/zuc
+    cpu: Intel(R) Core(TM) i5-9500 CPU @ 3.00GHz
+    BenchmarkHash1K-6   	  317750	      3833 ns/op	 267.13 MB/s
+    BenchmarkHash8K-6   	   40460	     28921 ns/op	 283.26 MB/s

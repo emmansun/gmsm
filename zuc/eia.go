@@ -1,7 +1,5 @@
 package zuc
 
-// Just for reference, no performance advantage due to the block size / chunk are 4 bytes only!
-
 import (
 	"encoding/binary"
 	"fmt"
@@ -29,6 +27,7 @@ func NewHash(key, iv []byte) (*ZUC128Mac, error) {
 	ivLen := len(iv)
 	mac := &ZUC128Mac{}
 	mac.tagSize = 4
+
 	switch k {
 	default:
 		return nil, fmt.Errorf("zuc/eia: invalid key size %d, expect 16 in bytes", k)
@@ -38,6 +37,7 @@ func NewHash(key, iv []byte) (*ZUC128Mac, error) {
 		}
 		mac.loadKeyIV16(key, iv)
 	}
+
 	// initialization
 	for i := 0; i < 32; i++ {
 		mac.bitReorganization()
@@ -89,10 +89,10 @@ func (m *ZUC128Mac) Reset() {
 	m.r1 = m.initState.r1
 	m.r2 = m.initState.r2
 	copy(m.lfsr[:], m.initState.lfsr[:])
-	m.genKeywords(m.k0[:4])
+	m.genKeywords(m.k0[:len(m.k0)/2])
 }
 
-func (m *ZUC128Mac) block(p []byte) {
+func blockGeneric(m *ZUC128Mac, p []byte) {
 	var k64, t64 uint64
 	t64 = uint64(m.t) << 32
 	for len(p) >= chunk {
@@ -121,14 +121,14 @@ func (m *ZUC128Mac) Write(p []byte) (nn int, err error) {
 		n := copy(m.x[m.nx:], p)
 		m.nx += n
 		if m.nx == chunk {
-			m.block(m.x[:])
+			block(m, m.x[:])
 			m.nx = 0
 		}
 		p = p[n:]
 	}
 	if len(p) >= chunk {
 		n := len(p) &^ (chunk - 1)
-		m.block(p[:n])
+		block(m, p[:n])
 		p = p[n:]
 	}
 	if len(p) > 0 {
@@ -139,7 +139,7 @@ func (m *ZUC128Mac) Write(p []byte) (nn int, err error) {
 
 func (m *ZUC128Mac) checkSum(additionalBits int, b byte) [4]byte {
 	if m.nx >= chunk {
-		panic("m.nx >= 16")
+		panic("m.nx >= chunk")
 	}
 	kIdx := 0
 	if m.nx > 0 || additionalBits > 0 {
@@ -147,7 +147,7 @@ func (m *ZUC128Mac) checkSum(additionalBits int, b byte) [4]byte {
 		t64 = uint64(m.t) << 32
 		m.x[m.nx] = b
 		nRemainBits := 8*m.nx + additionalBits
-		if nRemainBits > 64 {
+		if nRemainBits > 2*32 {
 			m.genKeywords(m.k0[4:6])
 		}
 		words := (nRemainBits + 31) / 32

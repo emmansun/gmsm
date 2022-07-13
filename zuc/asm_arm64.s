@@ -127,35 +127,35 @@ GLOBL mask_S1<>(SB), RODATA, $16
 	VMOV R1, INVERSE_SHIFT_ROWS.D[1] 
 
 #define SHLDL(a, b, n) \  // NO SHLDL in GOLANG now
-    LSLW n, a          \
-    LSRW n, b          \  
-    ORRW  b, a
+	LSLW n, a          \
+	LSRW n, b          \  
+	ORRW  b, a
 
 #define Rotl_5(XDATA, XTMP0)                           \
-    VSHL $5, XDATA.S4, XTMP0.S4                        \
-    VUSHR $3, XDATA.S4, XDATA.S4                       \
-    VAND TOP3_BITS.B16, XTMP0.B16, XTMP0.B16           \
-    VAND BOTTOM5_BITS.B16, XDATA.B16, XDATA.B16        \
-    VORR XTMP0.B16, XDATA.B16, XDATA.B16
+	VSHL $5, XDATA.S4, XTMP0.S4                        \
+	VUSHR $3, XDATA.S4, XDATA.S4                       \
+	VAND TOP3_BITS.B16, XTMP0.B16, XTMP0.B16           \
+	VAND BOTTOM5_BITS.B16, XDATA.B16, XDATA.B16        \
+	VORR XTMP0.B16, XDATA.B16, XDATA.B16
 
 #define S0_comput(IN_OUT, XTMP1, XTMP2)    \
-    VUSHR $4, IN_OUT.S4, XTMP1.S4                \
-    VAND NIBBLE_MASK.B16, XTMP1.B16, XTMP1.B16   \
-    \
-    VAND NIBBLE_MASK.B16, IN_OUT.B16, IN_OUT.B16 \
-    \
-    VTBL IN_OUT.B16, [P1.B16], XTMP2.B16         \
-    VEOR XTMP1.B16, XTMP2.B16, XTMP2.B16         \
-    \
-    VTBL XTMP2.B16, [P2.B16], XTMP1.B16          \
-    VEOR IN_OUT.B16, XTMP1.B16, XTMP1.B16        \
-    \
-    VTBL XTMP1.B16, [P3.B16], IN_OUT.B16         \
-    VEOR XTMP2.B16, IN_OUT.B16, IN_OUT.B16       \
-    \
-    VSHL $4, IN_OUT.S4, IN_OUT.S4                \
-    VEOR XTMP1.B16, IN_OUT.B16, IN_OUT.B16       \
-    Rotl_5(IN_OUT, XTMP1)    
+	VUSHR $4, IN_OUT.S4, XTMP1.S4                \
+	VAND NIBBLE_MASK.B16, XTMP1.B16, XTMP1.B16   \
+	\
+	VAND NIBBLE_MASK.B16, IN_OUT.B16, IN_OUT.B16 \
+	\
+	VTBL IN_OUT.B16, [P1.B16], XTMP2.B16         \
+	VEOR XTMP1.B16, XTMP2.B16, XTMP2.B16         \
+	\
+	VTBL XTMP2.B16, [P2.B16], XTMP1.B16          \
+	VEOR IN_OUT.B16, XTMP1.B16, XTMP1.B16        \
+	\
+	VTBL XTMP1.B16, [P3.B16], IN_OUT.B16         \
+	VEOR XTMP2.B16, IN_OUT.B16, IN_OUT.B16       \
+	\
+	VSHL $4, IN_OUT.S4, IN_OUT.S4                \
+	VEOR XTMP1.B16, IN_OUT.B16, IN_OUT.B16       \
+	Rotl_5(IN_OUT, XTMP1)    
 
 #define S1_comput(x, XTMP1, XTMP2)          \    
 	VAND x.B16, NIBBLE_MASK.B16, XTMP1.B16;        \
@@ -174,335 +174,335 @@ GLOBL mask_S1<>(SB), RODATA, $16
 	VEOR XTMP2.B16, XTMP1.B16, x.B16
 
 #define BITS_REORG(idx)                      \
-    MOVW (((15 + idx) % 16)*4)(SI), R12      \
-    MOVW (((14 + idx) % 16)*4)(SI), AX       \
-    MOVW (((11 + idx) % 16)*4)(SI), R13      \
-    MOVW (((9 + idx) % 16)*4)(SI), BX        \
-    MOVW (((7 + idx) % 16)*4)(SI), R14       \ 
-    MOVW (((5 + idx) % 16)*4)(SI), CX        \
-    MOVW (((2 + idx) % 16)*4)(SI), R15       \
-    MOVW (((0 + idx) % 16)*4)(SI), DX        \
-    LSRW $15, R12                            \
-    LSLW $16, AX                             \
-    LSLW $1, BX                              \
-    LSLW $1, CX                              \
-    LSLW $1, DX                              \
-    SHLDL(R12, AX, $16)                      \
-    SHLDL(R13, BX, $16)                      \
-    SHLDL(R14, CX, $16)                      \
-    SHLDL(R15, DX, $16)           
+	MOVW (((15 + idx) % 16)*4)(SI), R12      \
+	MOVW (((14 + idx) % 16)*4)(SI), AX       \
+	MOVW (((11 + idx) % 16)*4)(SI), R13      \
+	MOVW (((9 + idx) % 16)*4)(SI), BX        \
+	MOVW (((7 + idx) % 16)*4)(SI), R14       \ 
+	MOVW (((5 + idx) % 16)*4)(SI), CX        \
+	MOVW (((2 + idx) % 16)*4)(SI), R15       \
+	MOVW (((0 + idx) % 16)*4)(SI), DX        \
+	LSRW $15, R12                            \
+	LSLW $16, AX                             \
+	LSLW $1, BX                              \
+	LSLW $1, CX                              \
+	LSLW $1, DX                              \
+	SHLDL(R12, AX, $16)                      \
+	SHLDL(R13, BX, $16)                      \
+	SHLDL(R14, CX, $16)                      \
+	SHLDL(R15, DX, $16)           
 
 #define LFSR_UPDT(idx)                       \
-    MOVW (((0 + idx) % 16)*4)(SI), BX        \
-    MOVW (((4 + idx) % 16)*4)(SI), CX        \
-    MOVW (((10 + idx) % 16)*4)(SI), DX       \
-    MOVW (((13 + idx) % 16)*4)(SI), R8       \
-    MOVW (((15 + idx) % 16)*4)(SI), R9       \
-    ADD BX, AX                              \
-    LSL $8, BX                              \
-    LSL $20, CX                             \
-    LSL $21, DX                             \
-    LSL $17, R8                             \
-    LSL $15, R9                             \
-    ADD BX, AX                              \
-    ADD CX, AX                              \
-    ADD DX, AX                              \
-    ADD R8, AX                              \
-    ADD R9, AX                              \
-    \
-    MOVD AX, BX                             \
-    AND $0x7FFFFFFF, AX                     \
-    LSR $31, BX                             \
-    ADD BX, AX                              \
-    \
-    SUBS $0x7FFFFFFF, AX, BX                \
-    CSEL	CS, BX, AX, AX                  \
-    \
-    MOVW AX, (((0 + idx) % 16)*4)(SI)
+	MOVW (((0 + idx) % 16)*4)(SI), BX        \
+	MOVW (((4 + idx) % 16)*4)(SI), CX        \
+	MOVW (((10 + idx) % 16)*4)(SI), DX       \
+	MOVW (((13 + idx) % 16)*4)(SI), R8       \
+	MOVW (((15 + idx) % 16)*4)(SI), R9       \
+	ADD BX, AX                              \
+	LSL $8, BX                              \
+	LSL $20, CX                             \
+	LSL $21, DX                             \
+	LSL $17, R8                             \
+	LSL $15, R9                             \
+	ADD BX, AX                              \
+	ADD CX, AX                              \
+	ADD DX, AX                              \
+	ADD R8, AX                              \
+	ADD R9, AX                              \
+	\
+	MOVD AX, BX                             \
+	AND $0x7FFFFFFF, AX                     \
+	LSR $31, BX                             \
+	ADD BX, AX                              \
+	\
+	SUBS $0x7FFFFFFF, AX, BX                \
+	CSEL	CS, BX, AX, AX                  \
+	\
+	MOVW AX, (((0 + idx) % 16)*4)(SI)
 
 #define NONLIN_FUN()                         \
-    MOVW R12, AX                             \
-    EORW R10, AX                             \
-    ADDW R11, AX                             \
-    ADDW R13, R10                            \ // W1= F_R1 + BRC_X1
-    EORW R14, R11                            \ // W2= F_R2 ^ BRC_X2
-    \
-    MOVW R10, DX                             \
-    MOVW R11, CX                             \
-    SHLDL(DX, CX, $16)                       \ // P = (W1 << 16) | (W2 >> 16)
-    SHLDL(R11, R10, $16)                     \ // Q = (W2 << 16) | (W1 >> 16)
-    MOVW DX, BX                              \  
-    MOVW DX, CX                              \
-    MOVW DX, R8                              \
-    MOVW DX, R9                              \
-    RORW $30, BX                             \
-    RORW $22, CX                             \
-    RORW $14, R8                             \
-    RORW $8, R9                              \
-    EORW BX, DX                              \
-    EORW CX, DX                              \
-    EORW R8, DX                              \
-    EORW R9, DX                              \ // U = L1(P) = EDX, hi(RDX)=0
-    MOVW R11, BX                             \  
-    MOVW R11, CX                             \
-    MOVW R11, R8                             \
-    MOVW R11, R9                             \
-    RORW $24, BX                             \
-    RORW $18, CX                             \
-    RORW $10, R8                             \
-    RORW $2, R9                              \
-    EORW BX, R11                             \
-    EORW CX, R11                             \
-    EORW R8, R11                             \
-    EORW R9, R11                             \ // V = L2(Q) = R11D, hi(R11)=0
-    LSL $32, R11                             \
-    EOR R11, DX                              \
-    VMOV DX, V0.D2                           \
-    VMOV V0.B16, V1.B16                      \ 
-    S0_comput(V1, V2, V3)                    \
-    S1_comput(V0, V2, V3)                    \
-    \
-    VAND S1_MASK.B16, V0.B16, V0.B16         \
-    VAND S0_MASK.B16, V1.B16, V1.B16         \ 
-    VEOR V1.B16, V0.B16, V0.B16              \ 
-    \
-    VMOV V0.S[0], R10                        \ // F_R1
-    VMOV V0.S[1], R11       
+	MOVW R12, AX                             \
+	EORW R10, AX                             \
+	ADDW R11, AX                             \
+	ADDW R13, R10                            \ // W1= F_R1 + BRC_X1
+	EORW R14, R11                            \ // W2= F_R2 ^ BRC_X2
+	\
+	MOVW R10, DX                             \
+	MOVW R11, CX                             \
+	SHLDL(DX, CX, $16)                       \ // P = (W1 << 16) | (W2 >> 16)
+	SHLDL(R11, R10, $16)                     \ // Q = (W2 << 16) | (W1 >> 16)
+	MOVW DX, BX                              \  
+	MOVW DX, CX                              \
+	MOVW DX, R8                              \
+	MOVW DX, R9                              \
+	RORW $30, BX                             \
+	RORW $22, CX                             \
+	RORW $14, R8                             \
+	RORW $8, R9                              \
+	EORW BX, DX                              \
+	EORW CX, DX                              \
+	EORW R8, DX                              \
+	EORW R9, DX                              \ // U = L1(P) = EDX, hi(RDX)=0
+	MOVW R11, BX                             \  
+	MOVW R11, CX                             \
+	MOVW R11, R8                             \
+	MOVW R11, R9                             \
+	RORW $24, BX                             \
+	RORW $18, CX                             \
+	RORW $10, R8                             \
+	RORW $2, R9                              \
+	EORW BX, R11                             \
+	EORW CX, R11                             \
+	EORW R8, R11                             \
+	EORW R9, R11                             \ // V = L2(Q) = R11D, hi(R11)=0
+	LSL $32, R11                             \
+	EOR R11, DX                              \
+	VMOV DX, V0.D2                           \
+	VMOV V0.B16, V1.B16                      \ 
+	S0_comput(V1, V2, V3)                    \
+	S1_comput(V0, V2, V3)                    \
+	\
+	VAND S1_MASK.B16, V0.B16, V0.B16         \
+	VAND S0_MASK.B16, V1.B16, V1.B16         \ 
+	VEOR V1.B16, V0.B16, V0.B16              \ 
+	\
+	VMOV V0.S[0], R10                        \ // F_R1
+	VMOV V0.S[1], R11       
 
 #define RESTORE_LFSR_0()                     \
-    MOVW.P 4(SI), AX                         \
-    VLD1 (SI), [V0.B16, V1.B16, V2.B16]      \
-    SUB $4, SI                               \
-    MOVD (52)(SI), BX                        \
-    MOVW (60)(SI), CX                        \
-    \
-    VST1 [V0.B16, V1.B16, V2.B16], (SI)      \
-    MOVD BX, (48)(SI)                        \
-    MOVW CX, (56)(SI)                        \
-    MOVW AX, (60)(SI)     
+	MOVW.P 4(SI), AX                         \
+	VLD1 (SI), [V0.B16, V1.B16, V2.B16]      \
+	SUB $4, SI                               \
+	MOVD (52)(SI), BX                        \
+	MOVW (60)(SI), CX                        \
+	\
+	VST1 [V0.B16, V1.B16, V2.B16], (SI)      \
+	MOVD BX, (48)(SI)                        \
+	MOVW CX, (56)(SI)                        \
+	MOVW AX, (60)(SI)     
 
 #define RESTORE_LFSR_2()                     \
-    MOVD.P 8(SI), AX                         \
-    VLD1 (SI), [V0.B16, V1.B16, V2.B16]      \ 
-    SUB $8, SI                               \
-    MOVD (56)(SI), BX                        \
-    \
-    VST1 [V0.B16, V1.B16, V2.B16], (SI)      \
-    MOVD BX, (48)(SI)                        \
-    MOVD AX, (56)(SI)    
+	MOVD.P 8(SI), AX                         \
+	VLD1 (SI), [V0.B16, V1.B16, V2.B16]      \ 
+	SUB $8, SI                               \
+	MOVD (56)(SI), BX                        \
+	\
+	VST1 [V0.B16, V1.B16, V2.B16], (SI)      \
+	MOVD BX, (48)(SI)                        \
+	MOVD AX, (56)(SI)    
 
 #define RESTORE_LFSR_4()                     \
-    VLD1 (SI), [V0.B16, V1.B16, V2.B16, V3.B16]   \ 
-    \
-    VST1.P [V1.B16, V2.B16, V3.B16], 48(SI)       \
-    VST1 [V0.B16], (SI)                           \
-    SUB $48, SI
+	VLD1 (SI), [V0.B16, V1.B16, V2.B16, V3.B16]   \ 
+	\
+	VST1.P [V1.B16, V2.B16, V3.B16], 48(SI)       \
+	VST1 [V0.B16], (SI)                           \
+	SUB $48, SI
 
 #define RESTORE_LFSR_8()                     \
-    VLD1 (SI), [V0.B16, V1.B16, V2.B16, V3.B16]   \ 
-    \
-    VST1.P [V2.B16, V3.B16], 32(SI)               \
-    VST1 [V0.B16, V1.B16], (SI)                   \
-    SUB $32, SI
+	VLD1 (SI), [V0.B16, V1.B16, V2.B16, V3.B16]   \ 
+	\
+	VST1.P [V2.B16, V3.B16], 32(SI)               \
+	VST1 [V0.B16, V1.B16], (SI)                   \
+	SUB $32, SI
 
 #define LOAD_STATE(r)                         \
-    MOVW 64+r, R10                            \
-    MOVW 68+r, R11                            \
-    MOVW 72+r, R12                            \
-    MOVW 76+r, R13                            \
-    MOVW 80+r, R14                            \
-    MOVW 84+r, R15
+	MOVW 64+r, R10                            \
+	MOVW 68+r, R11                            \
+	MOVW 72+r, R12                            \
+	MOVW 76+r, R13                            \
+	MOVW 80+r, R14                            \
+	MOVW 84+r, R15
 
 #define SAVE_STATE(r)                         \
-    MOVW R10, 64+r                            \
-    MOVW R11, 68+r                            \
-    MOVW R12, 72+r                            \
-    MOVW R13, 76+r                            \
-    MOVW R14, 80+r                            \
-    MOVW R15, 84+r
+	MOVW R10, 64+r                            \
+	MOVW R11, 68+r                            \
+	MOVW R12, 72+r                            \
+	MOVW R13, 76+r                            \
+	MOVW R14, 80+r                            \
+	MOVW R15, 84+r
 
 // func genKeywordAsm(s *zucState32) uint32
 TEXT ·genKeywordAsm(SB),NOSPLIT,$0
-    LOAD_GLOBAL_DATA()
-    VEOR	ZERO.B16, ZERO.B16, ZERO.B16
+	LOAD_GLOBAL_DATA()
+	VEOR	ZERO.B16, ZERO.B16, ZERO.B16
 
-    MOVD pState+0(FP), SI
-    LOAD_STATE(0(SI))
+	MOVD pState+0(FP), SI
+	LOAD_STATE(0(SI))
 
-    BITS_REORG(0)
-    NONLIN_FUN()
+	BITS_REORG(0)
+	NONLIN_FUN()
 
-    EORW R15, AX
-    MOVW AX, ret+8(FP)
-    EOR AX, AX
-    LFSR_UPDT(0)
-    SAVE_STATE(0(SI))
-    RESTORE_LFSR_0()
+	EORW R15, AX
+	MOVW AX, ret+8(FP)
+	EOR AX, AX
+	LFSR_UPDT(0)
+	SAVE_STATE(0(SI))
+	RESTORE_LFSR_0()
 
-    RET
+	RET
 
 #define ONEROUND(idx)      \
-    BITS_REORG(idx)               \
-    NONLIN_FUN()                  \
-    EORW R15, AX                  \
-    MOVW AX, (idx*4)(DI)          \
-    EOR AX, AX                    \
-    LFSR_UPDT(idx)
+	BITS_REORG(idx)               \
+	NONLIN_FUN()                  \
+	EORW R15, AX                  \
+	MOVW AX, (idx*4)(DI)          \
+	EOR AX, AX                    \
+	LFSR_UPDT(idx)
 
 #define ROUND_REV32(idx)      \
-    BITS_REORG(idx)               \
-    NONLIN_FUN()                  \
-    EORW R15, AX                  \
-    REVW AX, AX                   \
-    MOVW AX, (idx*4)(DI)          \
-    EOR AX, AX                    \
-    LFSR_UPDT(idx)    
+	BITS_REORG(idx)               \
+	NONLIN_FUN()                  \
+	EORW R15, AX                  \
+	REVW AX, AX                   \
+	MOVW AX, (idx*4)(DI)          \
+	EOR AX, AX                    \
+	LFSR_UPDT(idx)    
 
 // func genKeyStreamAsm(keyStream []uint32, pState *zucState32)
 TEXT ·genKeyStreamAsm(SB),NOSPLIT,$0
-    LOAD_GLOBAL_DATA()
-    VEOR	ZERO.B16, ZERO.B16, ZERO.B16
+	LOAD_GLOBAL_DATA()
+	VEOR	ZERO.B16, ZERO.B16, ZERO.B16
 
-    MOVD ks+0(FP), DI
-    MOVD ks_len+8(FP), BP
-    MOVD pState+24(FP), SI
+	MOVD ks+0(FP), DI
+	MOVD ks_len+8(FP), BP
+	MOVD pState+24(FP), SI
 
-    LOAD_STATE(0(SI))
+	LOAD_STATE(0(SI))
 
 zucSixteens:
-    CMP $16, BP
-    BLT zucOctet
-    SUB $16, BP
-    ONEROUND(0)
-    ONEROUND(1)
-    ONEROUND(2)
-    ONEROUND(3)
-    ONEROUND(4)
-    ONEROUND(5)
-    ONEROUND(6)
-    ONEROUND(7)
-    ONEROUND(8)
-    ONEROUND(9)
-    ONEROUND(10)
-    ONEROUND(11)
-    ONEROUND(12)
-    ONEROUND(13)
-    ONEROUND(14)
-    ONEROUND(15)
-    ADD	$4*16, DI
-    B zucSixteens
+	CMP $16, BP
+	BLT zucOctet
+	SUB $16, BP
+	ONEROUND(0)
+	ONEROUND(1)
+	ONEROUND(2)
+	ONEROUND(3)
+	ONEROUND(4)
+	ONEROUND(5)
+	ONEROUND(6)
+	ONEROUND(7)
+	ONEROUND(8)
+	ONEROUND(9)
+	ONEROUND(10)
+	ONEROUND(11)
+	ONEROUND(12)
+	ONEROUND(13)
+	ONEROUND(14)
+	ONEROUND(15)
+	ADD	$4*16, DI
+	B zucSixteens
 
 zucOctet:
-    CMP $8, BP
-    BLT zucNibble
-    SUB $8, BP
-    ONEROUND(0)
-    ONEROUND(1)
-    ONEROUND(2)
-    ONEROUND(3)
-    ONEROUND(4)
-    ONEROUND(5)
-    ONEROUND(6)
-    ONEROUND(7)
-    ADD	$2*16, DI
-    RESTORE_LFSR_8()
+	CMP $8, BP
+	BLT zucNibble
+	SUB $8, BP
+	ONEROUND(0)
+	ONEROUND(1)
+	ONEROUND(2)
+	ONEROUND(3)
+	ONEROUND(4)
+	ONEROUND(5)
+	ONEROUND(6)
+	ONEROUND(7)
+	ADD	$2*16, DI
+	RESTORE_LFSR_8()
 zucNibble:
-    CMP $4, BP
-    BLT zucDouble
-    SUB $4, BP
-    ONEROUND(0)
-    ONEROUND(1)
-    ONEROUND(2)
-    ONEROUND(3)
-    ADD	$1*16, DI
-    RESTORE_LFSR_4()
+	CMP $4, BP
+	BLT zucDouble
+	SUB $4, BP
+	ONEROUND(0)
+	ONEROUND(1)
+	ONEROUND(2)
+	ONEROUND(3)
+	ADD	$1*16, DI
+	RESTORE_LFSR_4()
 zucDouble:
-    CMP $2, BP
-    BLT zucSingle
-    SUB $2, BP
-    ONEROUND(0)
-    ONEROUND(1)
-    ADD	$8, DI
-    RESTORE_LFSR_2()
+	CMP $2, BP
+	BLT zucSingle
+	SUB $2, BP
+	ONEROUND(0)
+	ONEROUND(1)
+	ADD	$8, DI
+	RESTORE_LFSR_2()
 zucSingle:
-    TBZ	$0, BP, zucRet
-    ONEROUND(0)
-    RESTORE_LFSR_0()
+	TBZ	$0, BP, zucRet
+	ONEROUND(0)
+	RESTORE_LFSR_0()
 zucRet:
-    SAVE_STATE(0(SI))
-    RET 
+	SAVE_STATE(0(SI))
+	RET 
 
 // func genKeyStreamRev32Asm(keyStream []byte, pState *zucState32)
 TEXT ·genKeyStreamRev32Asm(SB),NOSPLIT,$0
-    LOAD_GLOBAL_DATA()
-    VEOR	ZERO.B16, ZERO.B16, ZERO.B16
+	LOAD_GLOBAL_DATA()
+	VEOR	ZERO.B16, ZERO.B16, ZERO.B16
 
-    MOVD ks+0(FP), DI
-    MOVD ks_len+8(FP), BP
-    MOVD pState+24(FP), SI
+	MOVD ks+0(FP), DI
+	MOVD ks_len+8(FP), BP
+	MOVD pState+24(FP), SI
 
-    LSR $2, BP
-    LOAD_STATE(0(SI))
+	LSR $2, BP
+	LOAD_STATE(0(SI))
 
 zucSixteens:
-    CMP $16, BP
-    BLT zucOctet
-    SUB $16, BP
-    ROUND_REV32(0)
-    ROUND_REV32(1)
-    ROUND_REV32(2)
-    ROUND_REV32(3)
-    ROUND_REV32(4)
-    ROUND_REV32(5)
-    ROUND_REV32(6)
-    ROUND_REV32(7)
-    ROUND_REV32(8)
-    ROUND_REV32(9)
-    ROUND_REV32(10)
-    ROUND_REV32(11)
-    ROUND_REV32(12)
-    ROUND_REV32(13)
-    ROUND_REV32(14)
-    ROUND_REV32(15)
-    ADD	$4*16, DI
-    B zucSixteens
+	CMP $16, BP
+	BLT zucOctet
+	SUB $16, BP
+	ROUND_REV32(0)
+	ROUND_REV32(1)
+	ROUND_REV32(2)
+	ROUND_REV32(3)
+	ROUND_REV32(4)
+	ROUND_REV32(5)
+	ROUND_REV32(6)
+	ROUND_REV32(7)
+	ROUND_REV32(8)
+	ROUND_REV32(9)
+	ROUND_REV32(10)
+	ROUND_REV32(11)
+	ROUND_REV32(12)
+	ROUND_REV32(13)
+	ROUND_REV32(14)
+	ROUND_REV32(15)
+	ADD	$4*16, DI
+	B zucSixteens
 
 zucOctet:
-    CMP $8, BP
-    BLT zucNibble
-    SUB $8, BP
-    ROUND_REV32(0)
-    ROUND_REV32(1)
-    ROUND_REV32(2)
-    ROUND_REV32(3)
-    ROUND_REV32(4)
-    ROUND_REV32(5)
-    ROUND_REV32(6)
-    ROUND_REV32(7)
-    ADD	$2*16, DI
-    RESTORE_LFSR_8()
+	CMP $8, BP
+	BLT zucNibble
+	SUB $8, BP
+	ROUND_REV32(0)
+	ROUND_REV32(1)
+	ROUND_REV32(2)
+	ROUND_REV32(3)
+	ROUND_REV32(4)
+	ROUND_REV32(5)
+	ROUND_REV32(6)
+	ROUND_REV32(7)
+	ADD	$2*16, DI
+	RESTORE_LFSR_8()
 zucNibble:
-    CMP $4, BP
-    BLT zucDouble
-    SUB $4, BP
-    ROUND_REV32(0)
-    ROUND_REV32(1)
-    ROUND_REV32(2)
-    ROUND_REV32(3)
-    ADD	$16, DI
-    RESTORE_LFSR_4()
+	CMP $4, BP
+	BLT zucDouble
+	SUB $4, BP
+	ROUND_REV32(0)
+	ROUND_REV32(1)
+	ROUND_REV32(2)
+	ROUND_REV32(3)
+	ADD	$16, DI
+	RESTORE_LFSR_4()
 zucDouble:
-    CMP $2, BP
-    BLT zucSingle
-    SUB $2, BP
-    ROUND_REV32(0)
-    ROUND_REV32(1)
-    ADD	$8, DI
-    RESTORE_LFSR_2()
+	CMP $2, BP
+	BLT zucSingle
+	SUB $2, BP
+	ROUND_REV32(0)
+	ROUND_REV32(1)
+	ADD	$8, DI
+	RESTORE_LFSR_2()
 zucSingle:
-    TBZ	$0, BP, zucRet
-    ROUND_REV32(0)
-    RESTORE_LFSR_0()
+	TBZ	$0, BP, zucRet
+	ROUND_REV32(0)
+	RESTORE_LFSR_0()
 zucRet:
-    SAVE_STATE(0(SI))
-    RET
+	SAVE_STATE(0(SI))
+	RET
