@@ -133,7 +133,7 @@ var zucEIATests = []struct {
 	},
 }
 
-func Test_Finish(t *testing.T) {
+func TestEIA_Finish(t *testing.T) {
 	for i, test := range zucEIATests {
 		h, err := NewEIAHash(test.key, test.count, test.bearer, test.direction)
 		if err != nil {
@@ -151,7 +151,7 @@ func Test_Finish(t *testing.T) {
 	}
 }
 
-func TestNewHash(t *testing.T) {
+func TestEIA_NewHash(t *testing.T) {
 	key := make([]byte, 16)
 	iv := make([]byte, 16)
 	_, err := NewHash(key[:1], iv)
@@ -177,7 +177,7 @@ func TestNewHash(t *testing.T) {
 
 }
 
-func TestSum(t *testing.T) {
+func TestEIA_Sum(t *testing.T) {
 	expected := "6c2db416"
 	h, err := NewEIAHash(zucEIATests[1].key, zucEIATests[1].count, zucEIATests[1].bearer, zucEIATests[1].direction)
 	if err != nil {

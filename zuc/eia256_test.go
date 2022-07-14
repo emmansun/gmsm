@@ -112,7 +112,7 @@ var zucEIA256Tests = []struct {
 	},
 }
 
-func Test_Finish256_32(t *testing.T) {
+func TestEIA_Finish256_32(t *testing.T) {
 	for i, test := range zucEIA256Tests {
 		h, err := NewHash256(test.key, test.iv, 4)
 		if err != nil {
@@ -142,7 +142,7 @@ func Test_Finish256_32(t *testing.T) {
 	}
 }
 
-func Test_Finish256_64(t *testing.T) {
+func TestEIA_Finish256_64(t *testing.T) {
 	for i, test := range zucEIA256Tests {
 		h, err := NewHash256(test.key, test.iv, 8)
 		if err != nil {
@@ -172,7 +172,7 @@ func Test_Finish256_64(t *testing.T) {
 	}
 }
 
-func Test_Finish256_128(t *testing.T) {
+func TestEIA_Finish256_128(t *testing.T) {
 	for i, test := range zucEIA256Tests {
 		h, err := NewHash256(test.key, test.iv, 16)
 		if err != nil {
