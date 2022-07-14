@@ -202,6 +202,46 @@ func TestEIA_Finish256_128(t *testing.T) {
 	}
 }
 
+func TestEIA256_Sum32(t *testing.T) {
+	expected := "f4f20d7c"
+	h, err := NewHash256(zucEIA256Tests[2].key, zucEIA256Tests[2].iv, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = h.Write([]byte("emmansun"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = h.Write([]byte("shangmi1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = h.Write([]byte("emmansun shangmi"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = h.Write([]byte("emmansun shangmi 1234"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	mac := h.Sum(nil)
+	if hex.EncodeToString(mac) != expected {
+		t.Errorf("expected=%s, result=%s\n", expected, hex.EncodeToString(mac))
+	}
+}
+
+func TestEIA256_Finish32(t *testing.T) {
+	expected := "f4f20d7c"
+	h, err := NewHash256(zucEIA256Tests[2].key, zucEIA256Tests[2].iv, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mac := h.Finish([]byte("emmansunshangmi1emmansun shangmiemmansun shangmi 1234"), 8*53)
+	if hex.EncodeToString(mac) != expected {
+		t.Errorf("expected=%s, result=%s\n", expected, hex.EncodeToString(mac))
+	}
+}
+
 func benchmark256Size(b *testing.B, size, tagSize int) {
 	var key [32]byte
 	var iv [23]byte
