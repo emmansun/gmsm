@@ -1,4 +1,4 @@
-// Package zuc handle shangmi zuc stream cipher, experimental/poc implementation.
+// Package zuc handle shangmi zuc stream cipher.
 package zuc
 
 import (
