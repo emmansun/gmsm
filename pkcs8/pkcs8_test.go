@@ -8,8 +8,8 @@ import (
 	"encoding/pem"
 	"testing"
 
-	"github.com/emmansun/gmsm/sm2"
 	"github.com/emmansun/gmsm/pkcs8"
+	"github.com/emmansun/gmsm/sm2"
 )
 
 const rsa2048 = `-----BEGIN PRIVATE KEY-----
@@ -177,16 +177,6 @@ zOuhMC9Oo3oMYlbEXAT9mq33MkGKMUth2ek/bQIvnCHG
 -----END ENCRYPTED PRIVATE KEY-----
 `
 
-// From https://tools.ietf.org/html/rfc7914
-const encryptedRFCscrypt = `-----BEGIN ENCRYPTED PRIVATE KEY-----
-MIHiME0GCSqGSIb3DQEFDTBAMB8GCSsGAQQB2kcECzASBAVNb3VzZQIDEAAAAgEI
-AgEBMB0GCWCGSAFlAwQBKgQQyYmguHMsOwzGMPoyObk/JgSBkJb47EWd5iAqJlyy
-+ni5ftd6gZgOPaLQClL7mEZc2KQay0VhjZm/7MbBUNbqOAXNM6OGebXxVp6sHUAL
-iBGY/Dls7B1TsWeGObE0sS1MXEpuREuloZjcsNVcNXWPlLdZtkSH6uwWzR0PyG/Z
-+ZXfNodZtd/voKlvLOw5B3opGIFaLkbtLZQwMiGtl42AS89lZg==
------END ENCRYPTED PRIVATE KEY-----
-`
-
 func TestParsePKCS8PrivateKeyRSA(t *testing.T) {
 	keyList := []struct {
 		name      string
@@ -266,13 +256,38 @@ func TestParsePKCS8PrivateKeyECDSA(t *testing.T) {
 	}
 }
 
+type testPrivateKey struct {
+	name      string
+	clear     string
+	encrypted string
+	password  string
+}
+
+func testParsePKCS8PrivateKey(t *testing.T, i int, key *testPrivateKey) {
+	block, _ := pem.Decode([]byte(key.encrypted))
+	_, err := pkcs8.ParsePKCS8PrivateKey(block.Bytes, []byte(key.password))
+	if err != nil {
+		t.Errorf("%d: ParsePKCS8PrivateKey returned: %s", i, err)
+	}
+	_, err = pkcs8.ParsePKCS8PrivateKey(block.Bytes, []byte("wrong password"))
+	if err == nil {
+		t.Errorf("%d: should have failed", i)
+	}
+	_, err = pkcs8.ParsePKCS8PrivateKey(block.Bytes)
+	if err == nil {
+		t.Errorf("%d: should have failed", i)
+	}
+
+	if key.clear != "" {
+		block, _ = pem.Decode([]byte(key.clear))
+		_, err = pkcs8.ParsePKCS8PrivateKey(block.Bytes)
+		if err != nil {
+			t.Errorf("%d: ParsePKCS8PrivateKey returned: %s", i, err)
+		}
+	}
+}
 func TestParsePKCS8PrivateKey(t *testing.T) {
-	keyList := []struct {
-		name      string
-		clear     string
-		encrypted string
-		password  string
-	}{
+	keyList := []testPrivateKey{
 		{
 			name:      "encryptedRSA2048aes",
 			clear:     rsa2048,
@@ -304,12 +319,6 @@ func TestParsePKCS8PrivateKey(t *testing.T) {
 			password:  "password",
 		},
 		{
-			name:      "encryptedRFCscrypt",
-			clear:     "",
-			encrypted: encryptedRFCscrypt,
-			password:  "Rabbit",
-		},
-		{
 			name:      "encryptedEC128aes",
 			clear:     ec128,
 			encrypted: encryptedEC128aes,
@@ -318,27 +327,7 @@ func TestParsePKCS8PrivateKey(t *testing.T) {
 	}
 	for i, key := range keyList {
 		t.Run(key.name, func(t *testing.T) {
-			block, _ := pem.Decode([]byte(key.encrypted))
-			_, err := pkcs8.ParsePKCS8PrivateKey(block.Bytes, []byte(key.password))
-			if err != nil {
-				t.Errorf("%d: ParsePKCS8PrivateKey returned: %s", i, err)
-			}
-			_, err = pkcs8.ParsePKCS8PrivateKey(block.Bytes, []byte("wrong password"))
-			if err == nil {
-				t.Errorf("%d: should have failed", i)
-			}
-			_, err = pkcs8.ParsePKCS8PrivateKey(block.Bytes)
-			if err == nil {
-				t.Errorf("%d: should have failed", i)
-			}
-
-			if key.clear != "" {
-				block, _ = pem.Decode([]byte(key.clear))
-				_, err = pkcs8.ParsePKCS8PrivateKey(block.Bytes)
-				if err != nil {
-					t.Errorf("%d: ParsePKCS8PrivateKey returned: %s", i, err)
-				}
-			}
+			testParsePKCS8PrivateKey(t, i, &key)
 		})
 	}
 }
