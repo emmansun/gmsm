@@ -4,10 +4,7 @@
 package pkcs8_test
 
 import (
-	"encoding/pem"
 	"testing"
-
-	"github.com/emmansun/gmsm/pkcs8"
 )
 
 // From https://tools.ietf.org/html/rfc7914
@@ -21,12 +18,7 @@ iBGY/Dls7B1TsWeGObE0sS1MXEpuREuloZjcsNVcNXWPlLdZtkSH6uwWzR0PyG/Z
 `
 
 func TestParseFFCscryptPrivateKey(t *testing.T) {
-	keyList := []struct {
-		name      string
-		clear     string
-		encrypted string
-		password  string
-	}{
+	keyList := []testPrivateKey{
 		{
 			name:      "encryptedRFCscrypt",
 			clear:     "",
