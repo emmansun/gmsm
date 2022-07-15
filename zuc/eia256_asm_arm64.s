@@ -69,7 +69,7 @@ TEXT ·eia256RoundTag8(SB),NOSPLIT,$0
 	MOVD ks+8(FP), BX
 	MOVD p+16(FP), CX
 
-    LOAD_GLOBAL_DATA()
+	LOAD_GLOBAL_DATA()
 
 	// Reverse data bytes
 	VLD1 (CX), [XDATA.B16]
@@ -148,7 +148,7 @@ TEXT ·eia256RoundTag16(SB),NOSPLIT,$0
 	MOVD ks+8(FP), BX
 	MOVD p+16(FP), CX
 
-    LOAD_GLOBAL_DATA()
+	LOAD_GLOBAL_DATA()
 
 	// Reverse data bytes
 	VLD1 (CX), [XDATA.B16]

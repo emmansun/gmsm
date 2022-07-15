@@ -206,6 +206,8 @@ func (m *ZUC128Mac) Finish(p []byte, nbits int) []byte {
 	return digest[:]
 }
 
+// Sum appends the current hash to in and returns the resulting slice.
+// It does not change the underlying hash state.
 func (m *ZUC128Mac) Sum(in []byte) []byte {
 	// Make a copy of d so that caller can keep writing and summing.
 	d0 := *m

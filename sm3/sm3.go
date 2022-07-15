@@ -117,7 +117,7 @@ func New() hash.Hash {
 	return d
 }
 
-// Sum appends the current hash to b and returns the resulting slice.
+// Sum appends the current hash to in and returns the resulting slice.
 // It does not change the underlying hash state.
 func (d *digest) Sum(in []byte) []byte {
 	// Make a copy of d so that caller can keep writing and summing.
