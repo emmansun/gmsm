@@ -1909,6 +1909,9 @@ func CreateRevocationList(rand io.Reader, template *x509.RevocationList, issuer 
 	if err != nil {
 		return nil, err
 	}
+	if numBytes := template.Number.Bytes(); len(numBytes) > 20 || (len(numBytes) == 20 && numBytes[0]&0x80 != 0) {
+		return nil, errors.New("x509: CRL number exceeds 20 octets")
+	}
 	crlNum, err := asn1.Marshal(template.Number)
 	if err != nil {
 		return nil, err
