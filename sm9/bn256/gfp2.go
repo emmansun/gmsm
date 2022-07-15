@@ -254,10 +254,10 @@ func (ret *gfP2) Sqrt(a *gfP2) *gfP2 {
 	t := &gfP2{}
 	x0 := &gfP{}
 	/* ignore sqrt existing check
-		a0 := &gfP2{}
-		a0.Exp(b2, p)
-		a0.Mul(a0, b2)
-		a0 = gfP2Decode(a0)
+	a0 := &gfP2{}
+	a0.Exp(b2, p)
+	a0.Mul(a0, b2)
+	a0 = gfP2Decode(a0)
 	*/
 	t.Mul(bq, b)
 	if t.x == *zero && t.y == *one {

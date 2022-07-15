@@ -428,7 +428,7 @@ func (p *p256Point) p256StorePoint(r *[16 * 4 * 3]uint64, index int) {
 // to compute the least significant recoded digit, given that there's no bit
 // b_-1, has to be b_4 b_3 b_2 b_1 b_0 0.
 //
-// Reference: 
+// Reference:
 // https://github.com/openssl/openssl/blob/master/crypto/ec/ecp_nistputil.c
 // https://github.com/google/boringssl/blob/master/crypto/fipsmodule/ec/util.c
 func boothW5(in uint) (int, int) {

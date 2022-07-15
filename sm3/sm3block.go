@@ -48,7 +48,7 @@ func blockGeneric(dig *digest, p []byte) {
 			f = e
 			e = p0(tt2)
 		}
-	
+
 		for i := 12; i < 16; i++ {
 			w[i+4] = p1(w[i-12]^w[i-5]^bits.RotateLeft32(w[i+1], 15)) ^ bits.RotateLeft32(w[i-9], 7) ^ w[i-2]
 			ss1 := bits.RotateLeft32(bits.RotateLeft32(a, 12)+e+bits.RotateLeft32(_T[0], i), 7)

@@ -204,7 +204,6 @@ func Test_gfP12FrobeniusP3_Case1(t *testing.T) {
 	}
 }
 
-
 // Generate w2ToP3minus1
 func Test_gfP12FrobeniusP3_Case2(t *testing.T) {
 	expected := &gfP12{}
