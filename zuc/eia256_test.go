@@ -230,15 +230,33 @@ func TestEIA256_Sum32(t *testing.T) {
 	}
 }
 
-func TestEIA256_Finish32(t *testing.T) {
-	expected := "f4f20d7c"
-	h, err := NewHash256(zucEIA256Tests[2].key, zucEIA256Tests[2].iv, 4)
-	if err != nil {
-		t.Fatal(err)
+func TestEIA256_Finish(t *testing.T) {
+	expected := []struct {
+		expected string
+		macLen   int
+	}{
+		{
+			"9dd592c4",
+			4,
+		},
+		{
+			"1f6f71e386a2ce01",
+			8,
+		},
+		{
+			"bf5339cfd87bba97d70ef4f5973af8bb",
+			16,
+		},
 	}
-	mac := h.Finish([]byte("emmansunshangmi1emmansun shangmiemmansun shangmi 1234"), 8*53)
-	if hex.EncodeToString(mac) != expected {
-		t.Errorf("expected=%s, result=%s\n", expected, hex.EncodeToString(mac))
+	for _, exp := range expected {
+		h, err := NewHash256(zucEIA256Tests[2].key, zucEIA256Tests[2].iv, exp.macLen)
+		if err != nil {
+			t.Fatal(err)
+		}
+		mac := h.Finish([]byte("emmansunshangmi1emmansun shangmiemmansun shangmi 12345"), 8*53+4)
+		if hex.EncodeToString(mac) != exp.expected {
+			t.Errorf("expected=%s, result=%s\n", exp.expected, hex.EncodeToString(mac))
+		}
 	}
 }
 
