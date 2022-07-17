@@ -14,6 +14,10 @@ This is also a **SM3** implementation whose performance is similar like golang n
 
 For **SM4** implementation, SIMD & AES-NI are used under **amd64** and **arm64**, for detail please refer [SM4性能优化](https://github.com/emmansun/gmsm/wiki/SM4%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96), support CBC/CFB/OFB/CTR/GCM/CCM/XTS modes.
 
+For **SM9** implementation, please reference [sm9/bn256 README.md](https://github.com/emmansun/gmsm/tree/main/sm9/bn256).
+
+For **ZUC** implementation, SIMD, AES-NI and CLMUL are used under **amd64** and **arm64**, for detail please refer [Efficient Software Implementations of ZUC](https://github.com/emmansun/gmsm/wiki/Efficient-Software-Implementations-of-ZUC)
+
 **SM2 encryption Benchmark**
 
     CPU: i5-9500
