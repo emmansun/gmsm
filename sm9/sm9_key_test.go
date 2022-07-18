@@ -78,7 +78,7 @@ func TestEncryptMasterPrivateKeyMarshalASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	masterKey2 := new(SignMasterPrivateKey)
+	masterKey2 := new(EncryptMasterPrivateKey)
 	err = masterKey2.UnmarshalASN1(der)
 	if err != nil {
 		t.Fatal(err)

@@ -559,7 +559,7 @@ func TestMarshalPrivateKey(t *testing.T) {
 			t.Fatalf("%d: MarshalPrivateKey returned: %s", i, err)
 		}
 
-		decodedSM2PrivateKey, _, err := pkcs8.ParsePrivateKey(der, tt.password)
+		decodedSM2PrivateKey, err := pkcs8.ParsePKCS8PrivateKeySM2(der, tt.password)
 		if err != nil {
 			t.Fatalf("%d: ParsePKCS8PrivateKey returned: %s", i, err)
 		}
