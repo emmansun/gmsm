@@ -329,9 +329,6 @@ func testAllCurves(t *testing.T, f func(*testing.T, Curve)) {
 		{"g1", g1Curve},
 		{"g1/Params", g1Curve.params},
 	}
-	if testing.Short() {
-		tests = tests[:1]
-	}
 	for _, test := range tests {
 		curve := test.curve
 		t.Run(test.name, func(t *testing.T) {
