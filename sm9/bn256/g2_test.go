@@ -93,6 +93,21 @@ func TestScaleMult(t *testing.T) {
 	}
 }
 
+func TestG2AddNeg(t *testing.T) {
+	g1, g2 := &G2{}, &G2{}
+
+	g1.Neg(Gen2)
+	g2.Add(g1, Gen2)
+	if !g2.p.IsInfinity() {
+		t.Fail()
+	}
+	g3 := &G2{}
+	g3.Set(Gen2)
+	if !g3.Equal(Gen2) {
+		t.Fail()
+	}
+}
+
 func BenchmarkG2(b *testing.B) {
 	x, _ := rand.Int(rand.Reader, Order)
 	b.ReportAllocs()

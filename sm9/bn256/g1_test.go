@@ -9,6 +9,21 @@ import (
 	"time"
 )
 
+func TestG1AddNeg(t *testing.T) {
+	g1, g2 := &G1{}, &G1{}
+
+	g1.Neg(Gen1)
+	g2.Add(g1, Gen1)
+	if !g2.p.IsInfinity() {
+		t.Fail()
+	}
+	g3 := &G1{}
+	g3.Set(Gen1)
+	if !g3.Equal(Gen1) {
+		t.Fail()
+	}
+}
+
 type g1BaseMultTest struct {
 	k string
 }

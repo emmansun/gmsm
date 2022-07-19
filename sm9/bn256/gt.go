@@ -68,15 +68,6 @@ func (e *GT) Add(a, b *GT) *GT {
 	return e
 }
 
-// Neg sets e to -a and then returns e.
-func (e *GT) Neg(a *GT) *GT {
-	if e.p == nil {
-		e.p = &gfP12{}
-	}
-	e.p.Neg(a.p) // TODO: fix it.
-	return e
-}
-
 // Set sets e to a and then returns e.
 func (e *GT) Set(a *GT) *GT {
 	if e.p == nil {

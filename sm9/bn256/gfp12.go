@@ -100,13 +100,6 @@ func (e *gfP12) IsOne() bool {
 	return e.x.IsZero() && e.y.IsZero() && e.z.IsOne()
 }
 
-func (e *gfP12) Neg(a *gfP12) *gfP12 {
-	e.x.Neg(&a.x)
-	e.y.Neg(&a.y)
-	e.z.Neg(&a.z)
-	return e
-}
-
 func (e *gfP12) Add(a, b *gfP12) *gfP12 {
 	e.x.Add(&a.x, &b.x)
 	e.y.Add(&a.y, &b.y)
