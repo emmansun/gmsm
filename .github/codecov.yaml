@@ -1,0 +1,6 @@
+codecov:
+  require_ci_to_pass: yes
+
+ignore:
+  - "sm2/gen_p256_table.go"
+  - "sm4/sm4ni_gcm_asm.go"

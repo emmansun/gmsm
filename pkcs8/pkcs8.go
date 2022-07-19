@@ -36,11 +36,6 @@ const (
 	SM3
 )
 
-// HashFunc simply returns the value of h so that Hash implements SignerOpts.
-func (h Hash) HashFunc() Hash {
-	return h
-}
-
 // New returns a new hash.Hash calculating the given hash function. New panics
 // if the hash function is not linked into the binary.
 func (h Hash) New() hash.Hash {
