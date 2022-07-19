@@ -74,6 +74,25 @@ func Test_G2MarshalCompressed(t *testing.T) {
 	}
 }
 
+func TestScaleMult(t *testing.T) {
+	k, e, err := RandomG2(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.p.MakeAffine()
+
+	e2, e3 := &G2{}, &G2{}
+	e3.p = &twistPoint{}
+	e3.p.Mul(twistGen, k)
+	e3.p.MakeAffine()
+
+	e2.ScalarMult(Gen2, k)
+	e2.p.MakeAffine()
+	if !e.Equal(e2) {
+		t.Errorf("not same")
+	}
+}
+
 func BenchmarkG2(b *testing.B) {
 	x, _ := rand.Int(rand.Reader, Order)
 	b.ReportAllocs()

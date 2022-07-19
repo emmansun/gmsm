@@ -1,6 +1,7 @@
 package bn256
 
 import (
+	"bytes"
 	"crypto/rand"
 	"io"
 	"math/big"
@@ -141,6 +142,34 @@ func TestG1BaseMult(t *testing.T) {
 	}
 }
 
+func TestG1ScaleMult(t *testing.T) {
+	k, e, err := RandomG1(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.p.MakeAffine()
+
+	e2, e3 := &G1{}, &G1{}
+
+	if e2.p == nil {
+		e2.p = &curvePoint{}
+	}
+
+	e2.p.Mul(curveGen, k)
+	e2.p.MakeAffine()
+
+	if !e.Equal(e2) {
+		t.Errorf("not same")
+	}
+
+	e3.ScalarMult(Gen1, k)
+	e3.p.MakeAffine()
+
+	if !e.Equal(e3) {
+		t.Errorf("not same")
+	}
+}
+
 func TestFuzz(t *testing.T) {
 	g1 := g1Curve
 	g1Generic := g1.Params()
@@ -277,21 +306,74 @@ func TestInfinity(t *testing.T) {
 	*/
 }
 
-func TestMarshal(t *testing.T) {
-	_, x, y, err := GenerateKey(g1Curve, rand.Reader)
-	if err != nil {
-		t.Fatal(err)
+func testAllCurves(t *testing.T, f func(*testing.T, Curve)) {
+	tests := []struct {
+		name  string
+		curve Curve
+	}{
+		{"g1", g1Curve},
+		{"g1/Params", g1Curve.params},
 	}
-	serialized := Marshal(g1Curve, x, y)
-	xx, yy := Unmarshal(g1Curve, serialized)
-	if xx == nil {
-		t.Fatal("failed to unmarshal")
+	if testing.Short() {
+		tests = tests[:1]
 	}
-	if xx.Cmp(x) != 0 || yy.Cmp(y) != 0 {
-		t.Fatal("unmarshal returned different values")
+	for _, test := range tests {
+		curve := test.curve
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			f(t, curve)
+		})
 	}
 }
 
+func TestMarshal(t *testing.T) {
+	testAllCurves(t, func(t *testing.T, curve Curve) {
+		_, x, y, err := GenerateKey(curve, rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		serialized := Marshal(curve, x, y)
+		xx, yy := Unmarshal(curve, serialized)
+		if xx == nil {
+			t.Fatal("failed to unmarshal")
+		}
+		if xx.Cmp(x) != 0 || yy.Cmp(y) != 0 {
+			t.Fatal("unmarshal returned different values")
+		}
+	})
+}
+
+func TestMarshalCompressed(t *testing.T) {
+	testAllCurves(t, func(t *testing.T, curve Curve) {
+		_, x, y, err := GenerateKey(curve, rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		testMarshalCompressed(t, curve, x, y, nil)
+	})
+}
+
+func testMarshalCompressed(t *testing.T, curve Curve, x, y *big.Int, want []byte) {
+	if !curve.IsOnCurve(x, y) {
+		t.Fatal("invalid test point")
+	}
+	got := MarshalCompressed(curve, x, y)
+	if want != nil && !bytes.Equal(got, want) {
+		t.Errorf("got unexpected MarshalCompressed result: got %x, want %x", got, want)
+	}
+
+	X, Y := UnmarshalCompressed(curve, got)
+	if X == nil || Y == nil {
+		t.Fatalf("UnmarshalCompressed failed unexpectedly")
+	}
+
+	if !curve.IsOnCurve(X, Y) {
+		t.Error("UnmarshalCompressed returned a point not on the curve")
+	}
+	if X.Cmp(x) != 0 || Y.Cmp(y) != 0 {
+		t.Errorf("point did not round-trip correctly: got (%v, %v), want (%v, %v)", X, Y, x, y)
+	}
+}
 func TestInvalidCoordinates(t *testing.T) {
 	checkIsOnCurveFalse := func(name string, x, y *big.Int) {
 		if g1Curve.IsOnCurve(x, y) {

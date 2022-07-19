@@ -113,13 +113,3 @@ func TestInvert(t *testing.T) {
 		t.Errorf("got %v, expected %v", y, one)
 	}
 }
-
-func TestDiv(t *testing.T) {
-	x := fromBigInt(bigFromHex("9093a2b979e6186f43a9b28d41ba644d533377f2ede8c66b19774bf4a9c7a596"))
-	ret := &gfP{}
-	ret.Div2(x)
-	gfpAdd(ret, ret, ret)
-	if *ret != *x {
-		t.Errorf("got %v, expected %v", ret, x)
-	}
-}

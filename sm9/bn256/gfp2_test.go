@@ -106,19 +106,6 @@ func Test_gfP2Frobenius(t *testing.T) {
 	}
 }
 
-func Test_gfP2Div2(t *testing.T) {
-	x := &gfP2{
-		*fromBigInt(bigFromHex("85AEF3D078640C98597B6027B441A01FF1DD2C190F5E93C454806C11D8806141")),
-		*fromBigInt(bigFromHex("3722755292130B08D2AAB97FD34EC120EE265948D19C17ABF9B7213BAF82D65B")),
-	}
-	ret := &gfP2{}
-	ret.Div2(x)
-	ret.Add(ret, ret)
-	if *ret != *x {
-		t.Errorf("got %v, expected %v", ret, x)
-	}
-}
-
 func Test_gfP2Sqrt(t *testing.T) {
 	x := &gfP2{
 		*fromBigInt(bigFromHex("85AEF3D078640C98597B6027B441A01FF1DD2C190F5E93C454806C11D8806141")),

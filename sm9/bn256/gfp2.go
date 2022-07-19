@@ -281,16 +281,6 @@ func (ret *gfP2) Sqrt(a *gfP2) *gfP2 {
 	return ret
 }
 
-// Div2 e = f / 2, not used currently
-func (e *gfP2) Div2(f *gfP2) *gfP2 {
-	t := &gfP2{}
-	t.x.Div2(&f.x)
-	t.y.Div2(&f.y)
-
-	e.Set(t)
-	return e
-}
-
 // Select sets e to p1 if cond == 1, and to p2 if cond == 0.
 func (e *gfP2) Select(p1, p2 *gfP2, cond int) *gfP2 {
 	e.x.Select(&p1.x, &p2.x, cond)
