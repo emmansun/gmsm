@@ -4,3 +4,4 @@ codecov:
 ignore:
   - "sm2/gen_p256_table.go"
   - "sm4/sm4ni_gcm_asm.go"
+  - "sm4/cipher_ni.go"

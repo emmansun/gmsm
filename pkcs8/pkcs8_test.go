@@ -5,6 +5,8 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/pem"
 	"testing"
 
@@ -596,5 +598,44 @@ func TestUnknownTypeFailure(t *testing.T) {
 	_, err := pkcs8.ConvertPrivateKeyToPKCS8(badInput, []byte("password"))
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+// for encrypted private-key information
+type encryptedPrivateKeyInfo struct {
+	EncryptionAlgorithm pkix.AlgorithmIdentifier
+	EncryptedData       []byte
+}
+
+func TestParseInvalidPrivateKey(t *testing.T) {
+	// test parse pem directly
+	_, err := pkcs8.ParsePKCS8PrivateKeyECDSA([]byte(encryptedEC256aes), []byte("password"))
+	if err == nil || err.Error() != "pkcs8: this method just supports DER-encoded key" {
+		t.Errorf("should be error: pkcs8: this method just supports DER-encoded key")
+	}
+	_, err = pkcs8.ParsePKCS8PrivateKeyECDSA(nil, []byte("password"))
+	if err == nil || err.Error() != "pkcs8: only PKCS #5 v2.0 supported" {
+		t.Errorf("should be error: pkcs8: only PKCS #5 v2.0 supported")
+	}
+
+	var privKey encryptedPrivateKeyInfo
+	privKey.EncryptionAlgorithm.Algorithm = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 5, 1}
+	data, err := asn1.Marshal(privKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = pkcs8.ParsePKCS8PrivateKeyECDSA(data, []byte("password"))
+	if err == nil || err.Error() != "pkcs8: only PBES2 supported" {
+		t.Errorf("should be error: pkcs8: only PBES2 supported")
+	}
+
+	privKey.EncryptionAlgorithm.Algorithm = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 5, 13}
+	data, err = asn1.Marshal(privKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = pkcs8.ParsePKCS8PrivateKeyECDSA(data, []byte("password"))
+	if err == nil || err.Error() != "pkcs8: invalid PBES2 parameters" {
+		t.Errorf("should be error: pkcs8: invalid PBES2 parameters")
 	}
 }
