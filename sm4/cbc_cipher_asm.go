@@ -43,28 +43,30 @@ func (x *cbc) CryptBlocks(dst, src []byte) {
 	if len(src) == 0 {
 		return
 	}
+	// For each block, we need to xor the decrypted data with the previous block's ciphertext (the iv).
+	// To avoid making a copy each time, we loop over the blocks BACKWARDS.
 	end := len(src)
+	// Copy the last block of ciphertext in preparation as the new iv.
 	copy(x.tmp, src[end-BlockSize:end])
+
 	start := end - x.b.blocksSize
 	var temp []byte = make([]byte, x.b.blocksSize)
-	var batchSrc []byte = make([]byte, x.b.blocksSize)
+	var batchSrc []byte = make([]byte, x.b.blocksSize+BlockSize)
+
 	for start > 0 {
 		x.b.DecryptBlocks(temp, src[start:end])
-		for i := 0; i < x.b.batchBlocks; i++ {
-			xor.XorBytes(dst[end-(i+1)*BlockSize:end-i*BlockSize], temp[x.b.blocksSize-(i+1)*BlockSize:x.b.blocksSize-i*BlockSize], src[end-(i+2)*BlockSize:end-(i+1)*BlockSize])
-		}
+		copy(batchSrc, src[start-BlockSize:])
+		xor.XorBytes(dst[start:], temp, batchSrc)
 		end = start
 		start -= x.b.blocksSize
 	}
 
-	copy(batchSrc, src[:end])
-	x.b.DecryptBlocks(temp, batchSrc)
-	count := end / BlockSize
-	for i := count; i > 1; i-- {
-		xor.XorBytes(dst[end-BlockSize:end], temp[end-BlockSize:end], src[end-2*BlockSize:end-BlockSize])
-		end -= BlockSize
-	}
-	xor.XorBytes(dst[0:end], temp[0:end], x.iv[:])
+	// Handle remain first blocks
+	copy(batchSrc[BlockSize:], src[:end])
+	x.b.DecryptBlocks(temp, batchSrc[BlockSize:])
+	copy(batchSrc, x.iv)
+	xor.XorBytes(dst, temp[:end], batchSrc)
+
 	// Set the new iv to the first block we copied earlier.
 	x.iv, x.tmp = x.tmp, x.iv
 }
