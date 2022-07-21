@@ -85,7 +85,8 @@ TEXT ·encryptBlocksChain(SB),NOSPLIT,$0
 	MOVD iv+56(FP), R5
     
     VEOR ZERO.B16, ZERO.B16, ZERO.B16
-
+    VLD1 (R5), [IV.B16]
+    
 loopSrc:
     CMP	$16, ptxLen
 	BLT	done_sm4
