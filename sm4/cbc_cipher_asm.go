@@ -12,16 +12,32 @@ import (
 
 // Assert that sm4CipherAsm implements the cbcDecAble interfaces.
 var _ cbcDecAble = (*sm4CipherAsm)(nil)
+var _ cbcDecAble = (*sm4CipherAsm)(nil)
+
+const cbcEncrypt = 1
+const cbcDecrypt = 0
 
 type cbc struct {
 	b   *sm4CipherAsm
 	iv  []byte
 	tmp []byte
+	enc int
+}
+
+func (b *sm4CipherAsm) NewCBCEncrypter(iv []byte) cipher.BlockMode {
+	var c cbc
+	c.b = b
+	c.enc = cbcEncrypt
+	c.iv = make([]byte, BlockSize)
+	c.tmp = make([]byte, BlockSize)
+	copy(c.iv, iv)
+	return &c
 }
 
 func (b *sm4CipherAsm) NewCBCDecrypter(iv []byte) cipher.BlockMode {
 	var c cbc
 	c.b = b
+	c.enc = cbcDecrypt
 	c.iv = make([]byte, BlockSize)
 	c.tmp = make([]byte, BlockSize)
 	copy(c.iv, iv)
@@ -29,6 +45,9 @@ func (b *sm4CipherAsm) NewCBCDecrypter(iv []byte) cipher.BlockMode {
 }
 
 func (x *cbc) BlockSize() int { return BlockSize }
+
+//go:noescape
+func encryptBlocksChain(xk *uint32, dst, src []byte, iv *byte)
 
 func (x *cbc) CryptBlocks(dst, src []byte) {
 	if len(src)%BlockSize != 0 {
@@ -41,6 +60,10 @@ func (x *cbc) CryptBlocks(dst, src []byte) {
 		panic("cipher: invalid buffer overlap")
 	}
 	if len(src) == 0 {
+		return
+	}
+	if x.enc == cbcEncrypt {
+		encryptBlocksChain(&x.b.enc[0], dst, src, &x.iv[0])
 		return
 	}
 	// For each block, we need to xor the decrypted data with the previous block's ciphertext (the iv).
