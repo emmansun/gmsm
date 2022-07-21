@@ -14,108 +14,10 @@
 #define XTMP6 X6
 #define XTMP7 X7
 
-// shuffle byte order from LE to BE
-DATA flip_mask<>+0x00(SB)/8, $0x0405060700010203
-DATA flip_mask<>+0x08(SB)/8, $0x0c0d0e0f08090a0b
-GLOBL flip_mask<>(SB), RODATA, $16
-
-// shuffle byte and word order
-DATA bswap_mask<>+0x00(SB)/8, $0x08090a0b0c0d0e0f
-DATA bswap_mask<>+0x08(SB)/8, $0x0001020304050607
-GLOBL bswap_mask<>(SB), RODATA, $16
-
-//nibble mask
-DATA nibble_mask<>+0x00(SB)/8, $0x0F0F0F0F0F0F0F0F
-DATA nibble_mask<>+0x08(SB)/8, $0x0F0F0F0F0F0F0F0F
-GLOBL nibble_mask<>(SB), RODATA, $16
-
-// inverse shift rows
-DATA inverse_shift_rows<>+0x00(SB)/8, $0x0B0E0104070A0D00
-DATA inverse_shift_rows<>+0x08(SB)/8, $0x0306090C0F020508 
-GLOBL inverse_shift_rows<>(SB), RODATA, $16
-
-// Affine transform 1 (low and high hibbles)
-DATA m1_low<>+0x00(SB)/8, $0x0A7FC3B6D5A01C69
-DATA m1_low<>+0x08(SB)/8, $0x3045F98CEF9A2653
-GLOBL m1_low<>(SB), RODATA, $16
-
-DATA m1_high<>+0x00(SB)/8, $0xC35BF46CAF379800
-DATA m1_high<>+0x08(SB)/8, $0x68F05FC7049C33AB  
-GLOBL m1_high<>(SB), RODATA, $16
-
-// Affine transform 2 (low and high hibbles)
-DATA m2_low<>+0x00(SB)/8, $0x9A950A05FEF16E61
-DATA m2_low<>+0x08(SB)/8, $0x0E019E916A65FAF5
-GLOBL m2_low<>(SB), RODATA, $16
-
-DATA m2_high<>+0x00(SB)/8, $0x892D69CD44E0A400
-DATA m2_high<>+0x08(SB)/8, $0x2C88CC68E14501A5
-GLOBL m2_high<>(SB), RODATA, $16
-
-// left rotations of 32-bit words by 8-bit increments
-DATA r08_mask<>+0x00(SB)/8, $0x0605040702010003
-DATA r08_mask<>+0x08(SB)/8, $0x0E0D0C0F0A09080B  
-GLOBL r08_mask<>(SB), RODATA, $16
-
-DATA r16_mask<>+0x00(SB)/8, $0x0504070601000302
-DATA r16_mask<>+0x08(SB)/8, $0x0D0C0F0E09080B0A   
-GLOBL r16_mask<>(SB), RODATA, $16
-
-DATA r24_mask<>+0x00(SB)/8, $0x0407060500030201
-DATA r24_mask<>+0x08(SB)/8, $0x0C0F0E0D080B0A09  
-GLOBL r24_mask<>(SB), RODATA, $16
-
-DATA fk_mask<>+0x00(SB)/8, $0x56aa3350a3b1bac6
-DATA fk_mask<>+0x08(SB)/8, $0xb27022dc677d9197
-GLOBL fk_mask<>(SB), RODATA, $16
-
-#define SM4_SBOX(x, y) \
-  ;                                   \ //#############################  inner affine ############################//
-  MOVOU x, XTMP6;                     \
-  PAND nibble_mask<>(SB), XTMP6;      \ //y = _mm_and_si128(x, c0f); 
-  MOVOU m1_low<>(SB), y;              \
-  PSHUFB XTMP6, y;                    \ //y = _mm_shuffle_epi8(m1l, y);
-  PSRLQ $4, x;                        \ //x = _mm_srli_epi64(x, 4); 
-  PAND nibble_mask<>(SB), x;          \ //x = _mm_and_si128(x, c0f);
-  MOVOU m1_high<>(SB), XTMP6;         \
-  PSHUFB x, XTMP6;                    \ //x = _mm_shuffle_epi8(m1h, x);
-  MOVOU  XTMP6, x;                    \ //x = _mm_shuffle_epi8(m1h, x);
-  PXOR y, x;                          \ //x = _mm_shuffle_epi8(m1h, x) ^ y;
-  ;                                   \ // inverse ShiftRows
-  PSHUFB inverse_shift_rows<>(SB), x; \ //x = _mm_shuffle_epi8(x, shr); 
-  AESENCLAST nibble_mask<>(SB), x;    \ // AESNI instruction
-  ;                                   \ //#############################  outer affine ############################//
-  MOVOU  x, XTMP6;                    \
-  PANDN nibble_mask<>(SB), XTMP6;     \ //XTMP6 = _mm_andnot_si128(x, c0f);
-  MOVOU m2_low<>(SB), y;              \ 
-  PSHUFB XTMP6, y;                    \ //y = _mm_shuffle_epi8(m2l, XTMP6)
-  PSRLQ $4, x;                        \ //x = _mm_srli_epi64(x, 4);
-  PAND nibble_mask<>(SB), x;          \ //x = _mm_and_si128(x, c0f); 
-  MOVOU m2_high<>(SB), XTMP6;         \
-  PSHUFB x, XTMP6;                    \
-  MOVOU  XTMP6, x;                    \ //x = _mm_shuffle_epi8(m2h, x)
-  PXOR y, x;                          \ //x = _mm_shuffle_epi8(m2h, x) ^ y; 
-
-#define SM4_TAO_L1(x, y)         \
-  SM4_SBOX(x, y);                     \
-  ;                                   \ //####################  4 parallel L1 linear transforms ##################//
-  MOVOU x, y;                         \
-  PSHUFB r08_mask<>(SB), y;           \ //y = _mm_shuffle_epi8(x, r08)
-  PXOR x, y;                          \ //y = x xor _mm_shuffle_epi8(x, r08)
-  MOVOU x, XTMP6;                     \
-  PSHUFB r16_mask<>(SB), XTMP6;       \ 
-  PXOR XTMP6, y;                      \ //y = x xor _mm_shuffle_epi8(x, r08) xor _mm_shuffle_epi8(x, r16)
-  MOVOU y, XTMP6;                     \
-  PSLLL $2, XTMP6;                    \
-  PSRLL $30, y;                       \
-  POR XTMP6, y;                       \ //y = _mm_slli_epi32(y, 2) ^ _mm_srli_epi32(y, 30);  
-  MOVOU x, XTMP7;                     \
-  PSHUFB r24_mask<>(SB), XTMP7;       \
-  PXOR y, x;                          \ //x = x xor y
-  PXOR XTMP7, x                         //x = x xor y xor _mm_shuffle_epi8(x, r24);
+#include "aesni_amd64.h"
 
 #define SM4_TAO_L2(x, y)         \
-  SM4_SBOX(x, y);                     \
+  SM4_SBOX(x, y, XTMP6);              \
   ;                                   \ //####################  4 parallel L2 linear transforms ##################//
   MOVOU x, y;                         \
   MOVOU x, XTMP6;                     \
@@ -135,7 +37,7 @@ GLOBL fk_mask<>(SB), RODATA, $16
   PXOR t1, x;                                    \
   PXOR t2, x;                                    \
   PXOR t3, x;                                    \
-  SM4_TAO_L1(x, y);                              \
+  SM4_TAO_L1(x, y, XTMP6);                       \
   PXOR x, t0
 
 #define SM4_SINGLE_ROUND(index, x, y, t0, t1, t2, t3)  \ 
@@ -143,7 +45,7 @@ GLOBL fk_mask<>(SB), RODATA, $16
   PXOR t1, x;                                    \
   PXOR t2, x;                                    \
   PXOR t3, x;                                    \
-  SM4_TAO_L1(x, y);                              \
+  SM4_TAO_L1(x, y, XTMP6);                       \
   PXOR x, t0
 
 #define SM4_EXPANDKEY_ROUND(index, x, y, t0, t1, t2, t3) \
@@ -187,110 +89,20 @@ GLOBL fk_mask<>(SB), RODATA, $16
 #define XWORD X8
 #define YWORD X9
 
-#define TRANSPOSE_MATRIX(r0, r1, r2, r3, tmp1, tmp2) \
-  VPUNPCKHDQ r1, r0, tmp2;                 \ // tmp2 =  [w15, w7, w14, w6, w11, w3, w10, w2]          tmp2 = [w7, w3, w6, w2]
-  VPUNPCKLDQ r1, r0, r0;                   \ // r0 =    [w13, w5, w12, w4, w9, w1, w8, w0]              r0 = [w5, w1, w4, w0]
-  VPUNPCKLDQ r3, r2, tmp1;                 \ // tmp1 =  [w29, w21, w28, w20, w25, w17, w24, w16]      tmp1 = [w13, w9, w12, w8]
-  VPUNPCKHDQ r3, r2, r2;                   \ // r2 =    [w31, w27, w30, w22, w27, w19, w26, w18]        r2 = [w15, w11, w14, w10] 
-  VPUNPCKHQDQ tmp1, r0, r1;                \ // r1 =    [w29, w21, w13, w5, w25, w17, w9, w1]           r1 = [w13, w9, w5, w1]
-  VPUNPCKLQDQ tmp1, r0, r0;                \ // r0 =    [w28, w20, w12, w4, w24, w16, w8, w0]           r0 = [w12, w8, w4, w0]
-  VPUNPCKHQDQ r2, tmp2, r3;                \ // r3 =    [w31, w27, w15, w7, w27, w19, w11, w3]          r3 = [w15, w11, w7, w3]
-  VPUNPCKLQDQ r2, tmp2, r2                   // r2 =    [w30, w22, w14, w6, w26, w18, w10, w2]          r2 = [w14, w10, w6, w2]
-
-// https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html
-#define AVX2_SM4_SBOX(x, y) \
-  VBROADCASTI128 nibble_mask<>(SB), NIBBLE_MASK; \
-  VPAND NIBBLE_MASK, x, XDWTMP1;                   \
-  VBROADCASTI128 m1_low<>(SB), y;                  \
-  VPSHUFB XDWTMP1, y, y;                           \
-  VPSRLQ $4, x, x;                                 \
-  VPAND NIBBLE_MASK, x, x;                         \
-  VBROADCASTI128 m1_high<>(SB), XDWTMP1;           \
-  VPSHUFB x, XDWTMP1, x;                           \
-  VPXOR y, x, x;                                   \
-  VBROADCASTI128 inverse_shift_rows<>(SB), XDWTMP1;\
-  VPSHUFB XDWTMP1, x, x;                           \
-  VEXTRACTI128 $1, x, YWORD                        \
-  VAESENCLAST X_NIBBLE_MASK, XWORD, XWORD;         \
-  VAESENCLAST X_NIBBLE_MASK, YWORD, YWORD;         \
-  VINSERTI128 $1, YWORD, x, x;                     \
-  VPANDN NIBBLE_MASK, x, XDWTMP1;                  \
-  VBROADCASTI128 m2_low<>(SB), y;                  \
-  VPSHUFB XDWTMP1, y, y;                           \
-  VPSRLQ $4, x, x;                                 \
-  VPAND NIBBLE_MASK, x, x;                         \
-  VBROADCASTI128 m2_high<>(SB), XDWTMP1;           \
-  VPSHUFB x, XDWTMP1, x;                           \
-  VPXOR y, x, x
-
-#define AVX2_SM4_TAO_L1(x, y) \
-  AVX2_SM4_SBOX(x, y);                       \
-  VBROADCASTI128 r08_mask<>(SB), XDWTMP0;    \
-  VPSHUFB XDWTMP0, x, y;                     \
-  VPXOR x, y, y;                             \        
-  VBROADCASTI128 r16_mask<>(SB), XDWTMP0;    \
-  VPSHUFB XDWTMP0, x, XDWTMP0;               \
-  VPXOR XDWTMP0, y, y;                       \
-  VPSLLD $2, y, XDWTMP1;                     \
-  VPSRLD $30, y, y;                          \
-  VPXOR XDWTMP1, y, y;                       \
-  VBROADCASTI128 r24_mask<>(SB), XDWTMP0;    \
-  VPSHUFB XDWTMP0, x, XDWTMP0;               \
-  VPXOR y, x, x;                             \
-  VPXOR x, XDWTMP0, x
-
-#define AVX2_SM4_ROUND(index, x, y, t0, t1, t2, t3)  \ 
-  VPBROADCASTD (index * 4)(AX)(CX*1), x;             \
-  VPXOR t1, x, x;                                    \
-  VPXOR t2, x, x;                                    \
-  VPXOR t3, x, x;                                    \
-  AVX2_SM4_TAO_L1(x, y);                             \  
+#define AVX2_SM4_ROUND(index, x, y, t0, t1, t2, t3)                                                    \ 
+  VPBROADCASTD (index * 4)(AX)(CX*1), x;                                                               \
+  VPXOR t1, x, x;                                                                                      \
+  VPXOR t2, x, x;                                                                                      \
+  VPXOR t3, x, x;                                                                                      \
+  AVX2_SM4_TAO_L1(x, y, XWORD, YWORD, X_NIBBLE_MASK, NIBBLE_MASK, XDWTMP0);                            \  
   VPXOR x, t0, t0
-
-#define AVX_SM4_SBOX(x, y) \
-  VMOVDQU nibble_mask<>(SB), X_NIBBLE_MASK;          \
-  VPAND X_NIBBLE_MASK, x, XWTMP1;                    \
-  VMOVDQU m1_low<>(SB), y;                           \
-  VPSHUFB XWTMP1, y, y;                              \
-  VPSRLQ $4, x, x;                                   \
-  VPAND X_NIBBLE_MASK, x, x;                         \
-  VMOVDQU m1_high<>(SB), XWTMP1;                     \
-  VPSHUFB x, XWTMP1, x;                              \
-  VPXOR y, x, x;                                     \
-  VMOVDQU inverse_shift_rows<>(SB), XWTMP1;          \
-  VPSHUFB XWTMP1, x, x;                              \
-  VAESENCLAST X_NIBBLE_MASK, x, x;                   \
-  VPANDN X_NIBBLE_MASK, x, XWTMP1;                   \
-  VMOVDQU m2_low<>(SB), y;                           \
-  VPSHUFB XWTMP1, y, y;                              \
-  VPSRLQ $4, x, x;                                   \
-  VPAND X_NIBBLE_MASK, x, x;                         \
-  VMOVDQU m2_high<>(SB), XWTMP1;                     \
-  VPSHUFB x, XWTMP1, x;                              \
-  VPXOR y, x, x
-
-#define AVX_SM4_TAO_L1(x, y) \
-  AVX_SM4_SBOX(x, y);                     \
-  VMOVDQU r08_mask<>(SB), XWTMP0;         \
-  VPSHUFB XWTMP0, x, y;                   \
-  VPXOR x, y, y;                          \        
-  VMOVDQU r16_mask<>(SB), XWTMP0;         \
-  VPSHUFB XWTMP0, x, XWTMP0;              \
-  VPXOR XWTMP0, y, y;                     \
-  VPSLLD $2, y, XWTMP1;                   \
-  VPSRLD $30, y, y;                       \
-  VPXOR XWTMP1, y, y;                     \
-  VMOVDQU r24_mask<>(SB), XWTMP0;         \
-  VPSHUFB XWTMP0, x, XWTMP0;              \
-  VPXOR y, x, x;                          \
-  VPXOR x, XWTMP0, x
 
 #define AVX_SM4_ROUND(index, x, y, t0, t1, t2, t3)  \ 
   VPBROADCASTD (index * 4)(AX)(CX*1), x;             \
   VPXOR t1, x, x;                                    \
   VPXOR t2, x, x;                                    \
   VPXOR t3, x, x;                                    \
-  AVX_SM4_TAO_L1(x, y);                              \  
+  AVX_SM4_TAO_L1(x, y, X_NIBBLE_MASK, XWTMP0);       \  
   VPXOR x, t0, t0
 
 // func expandKeyAsm(key *byte, ck, enc, dec *uint32, inst int)
@@ -408,6 +220,7 @@ done_sm4:
   RET
 
 avx2:
+  VBROADCASTI128 nibble_mask<>(SB), NIBBLE_MASK
   CMPQ DI, $64
   JBE   avx2_4blocks
 

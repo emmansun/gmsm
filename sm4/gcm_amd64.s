@@ -41,44 +41,6 @@
 #define NIBBLE_MASK Y11
 #define X_NIBBLE_MASK X11
 
-// shuffle byte order from LE to BE
-DATA flipMask<>+0x00(SB)/8, $0x0405060700010203
-DATA flipMask<>+0x08(SB)/8, $0x0c0d0e0f08090a0b
-
-//nibble mask
-DATA nibbleMask<>+0x00(SB)/8, $0x0F0F0F0F0F0F0F0F
-DATA nibbleMask<>+0x08(SB)/8, $0x0F0F0F0F0F0F0F0F
-
-// inverse shift rows
-DATA inverseShiftRows<>+0x00(SB)/8, $0x0B0E0104070A0D00
-DATA inverseShiftRows<>+0x08(SB)/8, $0x0306090C0F020508 
-
-// Affine transform 1 (low and high hibbles)
-DATA m1Low<>+0x00(SB)/8, $0x0A7FC3B6D5A01C69
-DATA m1Low<>+0x08(SB)/8, $0x3045F98CEF9A2653
-
-DATA m1High<>+0x00(SB)/8, $0xC35BF46CAF379800
-DATA m1High<>+0x08(SB)/8, $0x68F05FC7049C33AB  
-
-// Affine transform 2 (low and high hibbles)
-DATA m2Low<>+0x00(SB)/8, $0x9A950A05FEF16E61
-DATA m2Low<>+0x08(SB)/8, $0x0E019E916A65FAF5
-
-DATA m2High<>+0x00(SB)/8, $0x892D69CD44E0A400
-DATA m2High<>+0x08(SB)/8, $0x2C88CC68E14501A5
-
-// left rotations of 32-bit words by 8-bit increments
-DATA r08Mask<>+0x00(SB)/8, $0x0605040702010003
-DATA r08Mask<>+0x08(SB)/8, $0x0E0D0C0F0A09080B 
-
-DATA r16Mask<>+0x00(SB)/8, $0x0504070601000302
-DATA r16Mask<>+0x08(SB)/8, $0x0D0C0F0E09080B0A   
-
-DATA r24Mask<>+0x00(SB)/8, $0x0407060500030201
-DATA r24Mask<>+0x08(SB)/8, $0x0C0F0E0D080B0A09  
-
-DATA fkMask<>+0x00(SB)/8, $0x56aa3350a3b1bac6
-DATA fkMask<>+0x08(SB)/8, $0xb27022dc677d9197
 
 DATA bswapMask<>+0x00(SB)/8, $0x08090a0b0c0d0e0f
 DATA bswapMask<>+0x08(SB)/8, $0x0001020304050607
@@ -117,20 +79,11 @@ DATA andMask<>+0xd8(SB)/8, $0x0000ffffffffffff
 DATA andMask<>+0xe0(SB)/8, $0xffffffffffffffff
 DATA andMask<>+0xe8(SB)/8, $0x00ffffffffffffff
 
-GLOBL flipMask<>(SB), (NOPTR+RODATA), $16
-GLOBL nibbleMask<>(SB), (NOPTR+RODATA), $16
-GLOBL inverseShiftRows<>(SB), (NOPTR+RODATA), $16
-GLOBL m1Low<>(SB), (NOPTR+RODATA), $16
-GLOBL m1High<>(SB), (NOPTR+RODATA), $16
-GLOBL m2Low<>(SB), (NOPTR+RODATA), $16
-GLOBL m2High<>(SB), (NOPTR+RODATA), $16
-GLOBL r08Mask<>(SB), (NOPTR+RODATA), $16
-GLOBL r16Mask<>(SB), (NOPTR+RODATA), $16
-GLOBL r24Mask<>(SB), (NOPTR+RODATA), $16
-GLOBL fkMask<>(SB), (NOPTR+RODATA), $16
 GLOBL bswapMask<>(SB), (NOPTR+RODATA), $16
 GLOBL gcmPoly<>(SB), (NOPTR+RODATA), $16
 GLOBL andMask<>(SB), (NOPTR+RODATA), $240
+
+#include "aesni_amd64.h"
 
 // func gcmSm4Finish(productTable *[256]byte, tagMask, T *[16]byte, pLen, dLen uint64)
 TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
@@ -202,51 +155,6 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 #undef plen
 #undef dlen
 
-#define SM4_SBOX(x, y, z) \
-  ;                                   \ //#############################  inner affine ############################//
-  MOVOU x, z;                         \
-  PAND nibbleMask<>(SB), z;           \ //y = _mm_and_si128(x, c0f); 
-  MOVOU m1Low<>(SB), y;               \
-  PSHUFB z, y;                        \ //y = _mm_shuffle_epi8(m1l, y);
-  PSRLQ $4, x;                        \ //x = _mm_srli_epi64(x, 4); 
-  PAND nibbleMask<>(SB), x;           \ //x = _mm_and_si128(x, c0f);
-  MOVOU m1High<>(SB), z;              \
-  PSHUFB x, z;                        \ //x = _mm_shuffle_epi8(m1h, x);
-  MOVOU  z, x;                        \ //x = _mm_shuffle_epi8(m1h, x);
-  PXOR y, x;                          \ //x = _mm_shuffle_epi8(m1h, x) ^ y;
-  ;                                   \ // inverse ShiftRows
-  PSHUFB inverseShiftRows<>(SB), x;   \ //x = _mm_shuffle_epi8(x, shr); 
-  AESENCLAST nibbleMask<>(SB), x;     \ // AESNI instruction
-  ;                                   \ //#############################  outer affine ############################//
-  MOVOU  x, z;                        \
-  PANDN nibbleMask<>(SB), z;          \ //z = _mm_andnot_si128(x, c0f);
-  MOVOU m2Low<>(SB), y;               \ 
-  PSHUFB z, y;                        \ //y = _mm_shuffle_epi8(m2l, z)
-  PSRLQ $4, x;                        \ //x = _mm_srli_epi64(x, 4);
-  PAND nibbleMask<>(SB), x;           \ //x = _mm_and_si128(x, c0f); 
-  MOVOU m2High<>(SB), z;              \
-  PSHUFB x, z;                        \
-  MOVOU  z, x;                        \ //x = _mm_shuffle_epi8(m2h, x)
-  PXOR y, x                             //x = _mm_shuffle_epi8(m2h, x) ^ y; 
-
-#define SM4_TAO_L1(x, y, z)         \
-  SM4_SBOX(x, y, z);                     \
-  ;                                   \ //####################  4 parallel L1 linear transforms ##################//
-  MOVOU x, y;                         \
-  PSHUFB r08Mask<>(SB), y;            \ //y = _mm_shuffle_epi8(x, r08)
-  PXOR x, y;                          \ //y = x xor _mm_shuffle_epi8(x, r08)
-  MOVOU x, z;                         \
-  PSHUFB r16Mask<>(SB), z;            \ 
-  PXOR z, y;                          \ //y = x xor _mm_shuffle_epi8(x, r08) xor _mm_shuffle_epi8(x, r16)
-  MOVOU y, z;                         \
-  PSLLL $2, z;                        \
-  PSRLL $30, y;                       \
-  POR z, y;                           \ //y = _mm_slli_epi32(y, 2) ^ _mm_srli_epi32(y, 30);  
-  MOVOU x, z;                         \
-  PSHUFB r24Mask<>(SB), z;            \
-  PXOR y, x;                          \ //x = x xor y
-  PXOR z, x                             //x = x xor y xor _mm_shuffle_epi8(x, r24);
-
 #define SM4_SINGLE_ROUND(index, RK, IND, x, y, z, t0, t1, t2, t3)  \ 
   PINSRD $0, (index * 4)(RK)(IND*1), x;             \
   PXOR t1, x;                                       \
@@ -264,80 +172,11 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
   SM4_TAO_L1(x, y, z);                            \
   PXOR x, t0
 
-//	MOVOU r0, tmp2;
-//	PUNPCKHDQ r1, tmp2;
-//	PUNPCKLDQ	r1, r0; 
-//	MOVOU r2, tmp1; 
-//	PUNPCKLDQ r3, tmp1; 
-//	PUNPCKHDQ r3, r2; 
-//	MOVOU r0, r1; 
-//	PUNPCKHQDQ tmp1, r1; 
-//	PUNPCKLQDQ tmp1, r0; 
-//	MOVOU tmp2, r3; 
-//	PUNPCKHQDQ r2, r3; 
-//	PUNPCKLQDQ r2, tmp2; 
-//	MOVOU tmp2, r2
-#define SSE_TRANSPOSE_MATRIX(r, r0, r1, r2, r3, tmp1, tmp2) \
-  PEXTRD $2, r0, r; \
-  PINSRD $0, r, tmp2;  \
-  PEXTRD $2, r1, r; \
-  PINSRD $1, r, tmp2;  \  
-  ; \
-  PEXTRD $3, r0, r; \
-  PINSRD $2, r, tmp2;  \
-  PEXTRD $3, r1, r; \
-  PINSRD $3, r, tmp2;  \   // tmp2 = [w7, w3, w6, w2]
-  ; \
-  PEXTRD $1, r0, r; \
-  PINSRD $2, r, r0;  \
-  PEXTRD $0, r1, r; \
-  PINSRD $1, r, r0;  \
-  PEXTRD $1, r1, r; \
-  PINSRD $3, r, r0;  \ //   r0 = [w5, w1, w4, w0] 
-  ; \
-  PEXTRD $0, r2, r; \
-  PINSRD $0, r, tmp1;  \
-  PEXTRD $0, r3, r; \
-  PINSRD $1, r, tmp1;  \
-  PEXTRD $1, r2, r; \
-  PINSRD $2, r, tmp1;  \
-  PEXTRD $1, r3, r; \
-  PINSRD $3, r, tmp1;  \ // tmp1 = [w13, w9, w12, w8]
-  ; \
-  PEXTRD $2, r2, r; \
-  PINSRD $0, r, r2;  \
-  PEXTRD $2, r3, r; \
-  PINSRD $1, r, r2;  \
-  PEXTRD $3, r2, r; \
-  PINSRD $2, r, r2;  \
-  PEXTRD $3, r3, r; \
-  PINSRD $3, r, r2;  \ //   r2 = [w15, w11, w14, w10] 
-  ; \
-	MOVOU r0, r1; \
-  PEXTRQ $1, r1, r; \
-  PINSRQ $0, r, r1; \
-  PEXTRQ $1, tmp1, r; \ 
-  PINSRQ $1, r, r1; \ //  r1 = [w13, w9, w5, w1]
-  ; \
-  PEXTRQ $0, tmp1, r; \ 
-  PINSRQ $1, r, r0; \ //  r0 = [w12, w8, w4, w0]
-  ; \
-	MOVOU tmp2, r3; \
-  PEXTRQ $1, r3, r; \
-  PINSRQ $0, r, r3; \
-  PEXTRQ $1, r2, r; \
-  PINSRQ $1, r, r3; \ //  r3 = [w15, w11, w7, w3]
-  ; \
-  PEXTRQ $0, r2, r; \
-  PINSRQ $1, r, r2; \
-  PEXTRQ $0, tmp2, r; \
-  PINSRQ $0, r, r2
-
 #define SM4_4BLOCKS(RK, IND, x, y, z, t0, t1, t2, t3)  \ 
-	PSHUFB flipMask<>(SB), t0; \
-	PSHUFB flipMask<>(SB), t1; \
-	PSHUFB flipMask<>(SB), t2; \
-	PSHUFB flipMask<>(SB), t3; \
+	PSHUFB flip_mask<>(SB), t0; \
+	PSHUFB flip_mask<>(SB), t1; \
+	PSHUFB flip_mask<>(SB), t2; \
+	PSHUFB flip_mask<>(SB), t3; \
 	SSE_TRANSPOSE_MATRIX(R12, t0, t1, t2, t3, x, y);          \
 	XORL IND, IND;                                            \
 	SM4_ROUND(0, RK, IND, x, y, z, t0, t1, t2, t3);           \
@@ -385,107 +224,20 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 	PSHUFB BSWAP, t1; \
 	PSHUFB BSWAP, t0
 
-#define TRANSPOSE_MATRIX(r0, r1, r2, r3, tmp1, tmp2) \
-  VPUNPCKHDQ r1, r0, tmp2;                 \ // tmp2 =  [w15, w7, w14, w6, w11, w3, w10, w2]          tmp2 = [w7, w3, w6, w2]
-  VPUNPCKLDQ r1, r0, r0;                   \ // r0 =    [w13, w5, w12, w4, w9, w1, w8, w0]              r0 = [w5, w1, w4, w0]
-  VPUNPCKLDQ r3, r2, tmp1;                 \ // tmp1 =  [w29, w21, w28, w20, w25, w17, w24, w16]      tmp1 = [w13, w9, w12, w8]
-  VPUNPCKHDQ r3, r2, r2;                   \ // r2 =    [w31, w27, w30, w22, w27, w19, w26, w18]        r2 = [w15, w11, w14, w10] 
-  VPUNPCKHQDQ tmp1, r0, r1;                \ // r1 =    [w29, w21, w13, w5, w25, w17, w9, w1]           r1 = [w13, w9, w5, w1]
-  VPUNPCKLQDQ tmp1, r0, r0;                \ // r0 =    [w28, w20, w12, w4, w24, w16, w8, w0]           r0 = [w12, w8, w4, w0]
-  VPUNPCKHQDQ r2, tmp2, r3;                \ // r3 =    [w31, w27, w15, w7, w27, w19, w11, w3]          r3 = [w15, w11, w7, w3]
-  VPUNPCKLQDQ r2, tmp2, r2                   // r2 =    [w30, w22, w14, w6, w26, w18, w10, w2]          r2 = [w14, w10, w6, w2]
-
-#define AVX2_SM4_SBOX(x, y, xw, yw, tmp) \
-  VPAND NIBBLE_MASK, x, tmp;                       \
-  VBROADCASTI128 m1Low<>(SB), y;                   \
-  VPSHUFB tmp, y, y;                               \
-  VPSRLQ $4, x, x;                                 \
-  VPAND NIBBLE_MASK, x, x;                         \
-  VBROADCASTI128 m1High<>(SB), tmp;                \
-  VPSHUFB x, tmp, x;                               \
-  VPXOR y, x, x;                                   \
-  VBROADCASTI128 inverseShiftRows<>(SB), tmp;      \
-  VPSHUFB tmp, x, x;                               \
-  VEXTRACTI128 $1, x, yw                           \
-  VAESENCLAST X_NIBBLE_MASK, xw, xw;               \
-  VAESENCLAST X_NIBBLE_MASK, yw, yw;               \
-  VINSERTI128 $1, yw, x, x;                        \
-  VPANDN NIBBLE_MASK, x, tmp;                      \
-  VBROADCASTI128 m2Low<>(SB), y;                   \
-  VPSHUFB tmp, y, y;                               \
-  VPSRLQ $4, x, x;                                 \
-  VPAND NIBBLE_MASK, x, x;                         \
-  VBROADCASTI128 m2High<>(SB), tmp;                \
-  VPSHUFB x, tmp, x;                               \
-  VPXOR y, x, x
-
-#define AVX2_SM4_TAO_L1(x, y, xw, yw, tmp) \
-  AVX2_SM4_SBOX(x, y, xw, yw, tmp);          \
-  VBROADCASTI128 r08Mask<>(SB), tmp;         \
-  VPSHUFB tmp, x, y;                         \
-  VPXOR x, y, y;                             \        
-  VBROADCASTI128 r16Mask<>(SB), tmp;         \
-  VPSHUFB tmp, x, tmp;                       \
-  VPXOR tmp, y, y;                           \
-  VPSLLD $2, y, tmp;                         \
-  VPSRLD $30, y, y;                          \
-  VPXOR tmp, y, y;                           \
-  VBROADCASTI128 r24Mask<>(SB), tmp;         \
-  VPSHUFB tmp, x, tmp;                       \
-  VPXOR y, x, x;                             \
-  VPXOR x, tmp, x
-
 #define AVX2_SM4_ROUND(index, RK, IND, x, y, xw, yw, tmp, t0, t1, t2, t3)  \ 
-  VPBROADCASTD (index * 4)(RK)(IND*1), x;            \
-  VPXOR t1, x, x;                                    \
-  VPXOR t2, x, x;                                    \
-  VPXOR t3, x, x;                                    \
-  AVX2_SM4_TAO_L1(x, y, xw, yw, tmp);         \  
+  VPBROADCASTD (index * 4)(RK)(IND*1), x;                                  \
+  VPXOR t1, x, x;                                                          \
+  VPXOR t2, x, x;                                                          \
+  VPXOR t3, x, x;                                                          \
+  AVX2_SM4_TAO_L1(x, y, xw, yw, X_NIBBLE_MASK, NIBBLE_MASK, tmp);          \  
   VPXOR x, t0, t0
-
-#define AVX_SM4_SBOX(x, y, tmp) \
-  VPAND X_NIBBLE_MASK, x, tmp;                       \
-  VMOVDQU m1Low<>(SB), y;                            \
-  VPSHUFB tmp, y, y;                                 \
-  VPSRLQ $4, x, x;                                   \
-  VPAND X_NIBBLE_MASK, x, x;                         \
-  VMOVDQU m1High<>(SB), tmp;                         \
-  VPSHUFB x, tmp, x;                                 \
-  VPXOR y, x, x;                                     \
-  VMOVDQU inverseShiftRows<>(SB), tmp;               \
-  VPSHUFB tmp, x, x;                                 \
-  VAESENCLAST X_NIBBLE_MASK, x, x;                   \
-  VPANDN X_NIBBLE_MASK, x, tmp;                      \
-  VMOVDQU m2Low<>(SB), y;                            \
-  VPSHUFB tmp, y, y;                                 \
-  VPSRLQ $4, x, x;                                   \
-  VPAND X_NIBBLE_MASK, x, x;                         \
-  VMOVDQU m2High<>(SB), tmp;                         \
-  VPSHUFB x, tmp, x;                                 \
-  VPXOR y, x, x
-
-#define AVX_SM4_TAO_L1(x, y, tmp) \
-  AVX_SM4_SBOX(x, y, tmp);                \
-  VMOVDQU r08Mask<>(SB), tmp;             \
-  VPSHUFB tmp, x, y;                      \
-  VPXOR x, y, y;                          \        
-  VMOVDQU r16Mask<>(SB), tmp;             \
-  VPSHUFB tmp, x, tmp;                    \
-  VPXOR tmp, y, y;                        \
-  VPSLLD $2, y, tmp;                      \
-  VPSRLD $30, y, y;                       \
-  VPXOR tmp, y, y;                        \
-  VMOVDQU r24Mask<>(SB), tmp;             \
-  VPSHUFB tmp, x, tmp;                    \
-  VPXOR y, x, x;                          \
-  VPXOR x, tmp, x
 
 #define AVX_SM4_ROUND(index, RK, IND, x, y, tmp, t0, t1, t2, t3)  \ 
   VPBROADCASTD (index * 4)(RK)(IND*1), x;                 \
   VPXOR t1, x, x;                                         \
   VPXOR t2, x, x;                                         \
   VPXOR t3, x, x;                                         \
-  AVX_SM4_TAO_L1(x, y, tmp);                              \  
+  AVX_SM4_TAO_L1(x, y, X_NIBBLE_MASK, tmp);               \  
   VPXOR x, t0, t0
 
 // func gcmSm4Init(productTable *[256]byte, rk []uint32)
@@ -1206,7 +958,7 @@ avx2GcmSm4Enc:
 	VMOVDQU (4*32 + 2*32)(SP), DWB2
 	VMOVDQU (4*32 + 3*32)(SP), DWB3
 
-	VBROADCASTI128 flipMask<>(SB), XDWTMP0
+	VBROADCASTI128 flip_mask<>(SB), XDWTMP0
 	// Apply Byte Flip Mask: LE -> BE
 	VPSHUFB XDWTMP0, DWB0, DWB0
 	VPSHUFB XDWTMP0, DWB1, DWB1
@@ -1216,7 +968,7 @@ avx2GcmSm4Enc:
 	// Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWTMP0, XDWTMP1)
 	XORL BX, BX
-	VBROADCASTI128 nibbleMask<>(SB), NIBBLE_MASK
+	VBROADCASTI128 nibble_mask<>(SB), NIBBLE_MASK
 
 avx2GcmSm4Enc8Loop1:
 	AVX2_SM4_ROUND(0, rk, BX, XDWORD, YDWORD, X1, X3, XDWTMP1, DWB0, DWB1, DWB2, DWB3) 
@@ -1289,7 +1041,7 @@ avx2GcmSm4EncOctetsLoop:
 		VMOVDQU (4*32 + 2*32)(SP), DWB2
 		VMOVDQU (4*32 + 3*32)(SP), DWB3
 
-		VBROADCASTI128 flipMask<>(SB), XDWTMP0
+		VBROADCASTI128 flip_mask<>(SB), XDWTMP0
 		// Apply Byte Flip Mask: LE -> BE
 		VPSHUFB XDWTMP0, DWB0, DWB0
 		VPSHUFB XDWTMP0, DWB1, DWB1
@@ -1311,7 +1063,7 @@ avx2GcmSm4EncOctetsLoop:
 		// Transpose matrix 4 x 4 32bits word
 		TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWTMP0, XDWTMP1)
 		XORL BX, BX
-		VBROADCASTI128 nibbleMask<>(SB), NIBBLE_MASK
+		VBROADCASTI128 nibble_mask<>(SB), NIBBLE_MASK
 
 avx2GcmSm4Enc8Loop2:
 			AVX2_SM4_ROUND(0, rk, BX, XDWORD, YDWORD, X1, X3, XDWTMP1, DWB0, DWB1, DWB2, DWB3) 
@@ -1430,7 +1182,7 @@ avx2GcmSm4EncOctetsEnd:
 	SUBQ $4, aluCTR
 
 avx2GcmSm4EncNibbles:
-	VMOVDQU flipMask<>(SB), B7
+	VMOVDQU flip_mask<>(SB), B7
 	CMPQ ptxLen, $64
 	JBE avx2GcmSm4EncSingles
 	SUBQ $64, ptxLen
@@ -1447,7 +1199,7 @@ avx2GcmSm4EncNibbles:
 
 	TRANSPOSE_MATRIX(B0, B1, B2, B3, T0, T1)
 	XORL BX, BX	
-	VMOVDQU nibbleMask<>(SB), X_NIBBLE_MASK
+	VMOVDQU nibble_mask<>(SB), X_NIBBLE_MASK
 
 avx2GcmSm4Enc4Loop2:
 	AVX_SM4_ROUND(0, rk, BX, B4, B5, B6, B0, B1, B2, B3)
@@ -1509,7 +1261,7 @@ avx2GcmSm4EncSingles:
 
 	TRANSPOSE_MATRIX(B0, B1, B2, B3, T0, T1)
 	XORL BX, BX
-	VMOVDQU nibbleMask<>(SB), X_NIBBLE_MASK
+	VMOVDQU nibble_mask<>(SB), X_NIBBLE_MASK
 
 avx2GcmSm4Enc4Loop1:
 	AVX_SM4_ROUND(0, rk, BX, B4, B5, B6, B0, B1, B2, B3)
@@ -1937,7 +1689,7 @@ avx2GcmSm4DecOctetsLoop:
 		VMOVDQU (2*32)(SP), DWB2
 		VMOVDQU (3*32)(SP), DWB3
 
-		VBROADCASTI128 flipMask<>(SB), XDWTMP0
+		VBROADCASTI128 flip_mask<>(SB), XDWTMP0
 		// Apply Byte Flip Mask: LE -> BE
 		VPSHUFB XDWTMP0, DWB0, DWB0
 		VPSHUFB XDWTMP0, DWB1, DWB1
@@ -1962,7 +1714,7 @@ avx2GcmSm4DecOctetsLoop:
 		// Transpose matrix 4 x 4 32bits word
 		TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWTMP0, XDWTMP1)
 		XORL BX, BX
-		VBROADCASTI128 nibbleMask<>(SB), NIBBLE_MASK
+		VBROADCASTI128 nibble_mask<>(SB), NIBBLE_MASK
 
 avx2GcmSm4Dec8Loop2:
 			AVX2_SM4_ROUND(0, rk, BX, XDWORD, YDWORD, X1, X3, XDWTMP1, DWB0, DWB1, DWB2, DWB3) 
@@ -2047,7 +1799,7 @@ avx2GcmSm4DecEndOctets:
 	SUBQ $4, aluCTR
 
 avx2GcmSm4DecNibbles:
-	VMOVDQU flipMask<>(SB), B7 // DO NOT CHANGE B7
+	VMOVDQU flip_mask<>(SB), B7 // DO NOT CHANGE B7
 	CMPQ ptxLen, $64
 	JBE avx2GcmSm4DecSingles
 	SUBQ $64, ptxLen
@@ -2064,7 +1816,7 @@ avx2GcmSm4DecNibbles:
 
 	TRANSPOSE_MATRIX(B0, B1, B2, B3, T0, T1)
 	XORL BX, BX	
-	VMOVDQU nibbleMask<>(SB), X_NIBBLE_MASK
+	VMOVDQU nibble_mask<>(SB), X_NIBBLE_MASK
 
 avx2GcmSm4Dec4Loop2:
 	AVX_SM4_ROUND(0, rk, BX, B4, B5, B6, B0, B1, B2, B3)
@@ -2130,7 +1882,7 @@ avx2GcmSm4DecSingles:
 	TRANSPOSE_MATRIX(B0, B1, B2, B3, T0, T1)
 	
 	XORL BX, BX	
-	VMOVDQU nibbleMask<>(SB), X_NIBBLE_MASK
+	VMOVDQU nibble_mask<>(SB), X_NIBBLE_MASK
 
 avx2GcmSm4Dec4Loop1:
 	AVX_SM4_ROUND(0, rk, BX, B4, B5, B6, B0, B1, B2, B3)
