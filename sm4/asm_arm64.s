@@ -306,16 +306,11 @@ encryptBlockLoop:
 		CMP $128, R0
 		BNE encryptBlockLoop
 
-	VREV32 t0.B16, t0.B16
-	VREV32 t1.B16, t1.B16
-	VREV32 t2.B16, t2.B16
+	VMOV t2.S[0], t3.S[1]
+	VMOV t1.S[0], t3.S[2]
+	VMOV t0.S[0], t3.S[3]
 	VREV32 t3.B16, t3.B16
-
-	VMOV t3.S[0], V8.S[0]
-	VMOV t2.S[0], V8.S[1]
-	VMOV t1.S[0], V8.S[2]
-	VMOV t0.S[0], V8.S[3]
-	VST1 [V8.B16], (R9)
+	VST1 [t3.B16], (R9)
 	RET
 
 sm4niblock:
