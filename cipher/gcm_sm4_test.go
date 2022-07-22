@@ -12,6 +12,20 @@ import (
 var sm4GCMTests = []struct {
 	key, nonce, plaintext, ad, result string
 }{
+	{ // GB/T 36624-2018 C.5 1
+		"00000000000000000000000000000000",
+		"000000000000000000000000",
+		"",
+		"",
+		"232f0cfe308b49ea6fc88229b5dc858d",
+	},
+	{ // GB/T 36624-2018 C.5 2
+		"00000000000000000000000000000000",
+		"000000000000000000000000",
+		"00000000000000000000000000000000",
+		"",
+		"7de2aa7f1110188218063be1bfeb6d89b851b5f39493752be508f1bb4482c557",
+	},
 	{
 		"11754cd72aec309bf52f7687212e8957",
 		"3c819d9a9bed087615030b65",
@@ -236,7 +250,7 @@ func TestSM4GCM(t *testing.T) {
 
 		// Handle 0 nonce size (expect error and continue)
 		case len(nonce) == 0:
-			sm4gcm, err = cipher.NewGCMWithNonceSize(c, 0)
+			_, err = cipher.NewGCMWithNonceSize(c, 0)
 			if err == nil {
 				t.Fatal("expected error for zero nonce size")
 			}
