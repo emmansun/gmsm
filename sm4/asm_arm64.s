@@ -103,21 +103,21 @@
 	VMOV V8.S[1], V11.S[2]            \
 	VMOV V8.S[0], V11.S[3]            \
 	VST1.P	[V8.S4, V9.S4], 32(R10)   \
-	VST1	[V10.S4, V11.S4], (R11)     \
+	VST1	[V10.S4, V11.S4], (R11)   \
 	SUB  $32, R11, R11
 
 #define SM4E_ROUND() \
 	VLD1.P 16(R10), [V8.B16]    \
-	VREV32 V8.B16, V8.B16      \
-	WORD $0x0884c0ce            \ 
-	WORD $0x2884c0ce            \ 
-	WORD $0x4884c0ce            \ 
-	WORD $0x6884c0ce            \ 
-	WORD $0x8884c0ce            \ 
-	WORD $0xa884c0ce            \ 
-	WORD $0xc884c0ce            \ 
-	WORD $0xe884c0ce            \ 
-	VREV32 V8.B16, V8.B16      \
+	VREV32 V8.B16, V8.B16       \
+	WORD $0x0884c0ce            \
+	WORD $0x2884c0ce            \
+	WORD $0x4884c0ce            \
+	WORD $0x6884c0ce            \
+	WORD $0x8884c0ce            \
+	WORD $0xa884c0ce            \
+	WORD $0xc884c0ce            \
+	WORD $0xe884c0ce            \
+	VREV32 V8.B16, V8.B16       \
 	VST1.P  [V8.B16], 16(R9)
 
 // func expandKeyAsm(key *byte, ck, enc, dec *uint32, inst int)
@@ -145,14 +145,14 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
 	VEOR ZERO.B16, ZERO.B16, ZERO.B16
 
 ksLoop:
-	SM4_EXPANDKEY_ROUND(x, y, t0, t1, t2, t3)
-	SM4_EXPANDKEY_ROUND(x, y, t1, t2, t3, t0)
-	SM4_EXPANDKEY_ROUND(x, y, t2, t3, t0, t1)
-	SM4_EXPANDKEY_ROUND(x, y, t3, t0, t1, t2)
+		SM4_EXPANDKEY_ROUND(x, y, t0, t1, t2, t3)
+		SM4_EXPANDKEY_ROUND(x, y, t1, t2, t3, t0)
+		SM4_EXPANDKEY_ROUND(x, y, t2, t3, t0, t1)
+		SM4_EXPANDKEY_ROUND(x, y, t3, t0, t1, t2)
 
-	ADD $16, R0 
-	CMP $128, R0
-	BNE ksLoop
+		ADD $16, R0 
+		CMP $128, R0
+		BNE ksLoop
 	RET 
 
 sm4ekey:
@@ -226,14 +226,14 @@ TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
 	EOR R0, R0
 
 encryptBlocksLoop:
-	SM4_ROUND(R8, x, y, t0, t1, t2, t3)
-	SM4_ROUND(R8, x, y, t1, t2, t3, t0)
-	SM4_ROUND(R8, x, y, t2, t3, t0, t1)
-	SM4_ROUND(R8, x, y, t3, t0, t1, t2)
+		SM4_ROUND(R8, x, y, t0, t1, t2, t3)
+		SM4_ROUND(R8, x, y, t1, t2, t3, t0)
+		SM4_ROUND(R8, x, y, t2, t3, t0, t1)
+		SM4_ROUND(R8, x, y, t3, t0, t1, t2)
 
-	ADD $16, R0
-	CMP $128, R0
-	BNE encryptBlocksLoop
+		ADD $16, R0
+		CMP $128, R0
+		BNE encryptBlocksLoop
 
 	VREV32 t0.B16, t0.B16
 	VREV32 t1.B16, t1.B16
@@ -268,10 +268,11 @@ encryptBlocksLoop:
 sm4niblocks:
 	VLD1.P  64(R8), [V0.S4, V1.S4, V2.S4, V3.S4]
 	VLD1.P  64(R8), [V4.S4, V5.S4, V6.S4, V7.S4]
+
 sm4niblockloop:  
-	SM4E_ROUND()
-	SUB	$16, R12, R12                                  // message length - 16bytes, then compare with 16bytes
-	CBNZ	R12, sm4niblockloop  
+		SM4E_ROUND()
+		SUB	$16, R12, R12                                  // message length - 16bytes, then compare with 16bytes
+		CBNZ	R12, sm4niblockloop  
 	RET
 
 // func encryptBlockAsm(xk *uint32, dst, src *byte, inst int)
@@ -296,14 +297,14 @@ TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
 	EOR R0, R0
 
 encryptBlockLoop:
-	SM4_ROUND(R8, x, y, t0, t1, t2, t3)
-	SM4_ROUND(R8, x, y, t1, t2, t3, t0)
-	SM4_ROUND(R8, x, y, t2, t3, t0, t1)
-	SM4_ROUND(R8, x, y, t3, t0, t1, t2)
+		SM4_ROUND(R8, x, y, t0, t1, t2, t3)
+		SM4_ROUND(R8, x, y, t1, t2, t3, t0)
+		SM4_ROUND(R8, x, y, t2, t3, t0, t1)
+		SM4_ROUND(R8, x, y, t3, t0, t1, t2)
 
-	ADD $16, R0
-	CMP $128, R0
-	BNE encryptBlockLoop
+		ADD $16, R0
+		CMP $128, R0
+		BNE encryptBlockLoop
 
 	VREV32 t0.B16, t0.B16
 	VREV32 t1.B16, t1.B16

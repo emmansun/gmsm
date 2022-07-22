@@ -112,33 +112,33 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 #include "aesni_arm64.h"
 
 #define LOAD_SM4_AESNI_CONSTS() \
-  LDP nibble_mask<>(SB), (R20, R21)          \
-  VMOV R20, NIBBLE_MASK.D[0]                 \
-  VMOV R21, NIBBLE_MASK.D[1]                 \
-  LDP m1_low<>(SB), (R20, R21)               \
-  VMOV R20, M1L.D[0]                         \
-  VMOV R21, M1L.D[1]                         \
-  LDP m1_high<>(SB), (R20, R21)              \
-  VMOV R20, M1H.D[0]                         \
-  VMOV R21, M1H.D[1]                         \
-  LDP m2_low<>(SB), (R20, R21)               \
-  VMOV R20, M2L.D[0]                         \
-  VMOV R21, M2L.D[1]                         \
-  LDP m2_high<>(SB), (R20, R21)              \
-  VMOV R20, M2H.D[0]                         \
-  VMOV R21, M2H.D[1]                         \
-  LDP inverse_shift_rows<>(SB), (R20, R21)   \
-  VMOV R20, INVERSE_SHIFT_ROWS.D[0]          \
-  VMOV R21, INVERSE_SHIFT_ROWS.D[1]          \
-  LDP r08_mask<>(SB), (R20, R21)             \
-  VMOV R20, R08_MASK.D[0]                    \
-  VMOV R21, R08_MASK.D[1]                    \
-  LDP r16_mask<>(SB), (R20, R21)             \
-  VMOV R20, R16_MASK.D[0]                    \
-  VMOV R21, R16_MASK.D[1]                    \
-  LDP r24_mask<>(SB), (R20, R21)             \
-  VMOV R20, R24_MASK.D[0]                    \
-  VMOV R21, R24_MASK.D[1]
+	LDP nibble_mask<>(SB), (R20, R21)          \
+	VMOV R20, NIBBLE_MASK.D[0]                 \
+	VMOV R21, NIBBLE_MASK.D[1]                 \
+	LDP m1_low<>(SB), (R20, R21)               \
+	VMOV R20, M1L.D[0]                         \
+	VMOV R21, M1L.D[1]                         \
+	LDP m1_high<>(SB), (R20, R21)              \
+	VMOV R20, M1H.D[0]                         \
+	VMOV R21, M1H.D[1]                         \
+	LDP m2_low<>(SB), (R20, R21)               \
+	VMOV R20, M2L.D[0]                         \
+	VMOV R21, M2L.D[1]                         \
+	LDP m2_high<>(SB), (R20, R21)              \
+	VMOV R20, M2H.D[0]                         \
+	VMOV R21, M2H.D[1]                         \
+	LDP inverse_shift_rows<>(SB), (R20, R21)   \
+	VMOV R20, INVERSE_SHIFT_ROWS.D[0]          \
+	VMOV R21, INVERSE_SHIFT_ROWS.D[1]          \
+	LDP r08_mask<>(SB), (R20, R21)             \
+	VMOV R20, R08_MASK.D[0]                    \
+	VMOV R21, R08_MASK.D[1]                    \
+	LDP r16_mask<>(SB), (R20, R21)             \
+	VMOV R20, R16_MASK.D[0]                    \
+	VMOV R21, R16_MASK.D[1]                    \
+	LDP r24_mask<>(SB), (R20, R21)             \
+	VMOV R20, R24_MASK.D[0]                    \
+	VMOV R21, R24_MASK.D[1]
 
 #define SM4_ROUND(RK, x, y, z, t0, t1, t2, t3)  \ 
 	MOVW.P 4(RK), R19;                                \

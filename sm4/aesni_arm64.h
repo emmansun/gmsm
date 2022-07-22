@@ -62,7 +62,7 @@ GLOBL fk_mask<>(SB), (NOPTR+RODATA), $16
 
 #define TRANSPOSE_MATRIX(t0, t1, t2, t3, K) \
 	VMOV t0.B16, K.B16                        \
-	VMOV t3.S[0], t0.S[0]                     \   
+	VMOV t3.S[0], t0.S[0]                     \
 	VMOV t2.S[0], t0.S[1]                     \
 	VMOV t1.S[0], t0.S[2]                     \
 	VMOV K0.S[0], t0.S[3]                     \
@@ -81,21 +81,21 @@ GLOBL fk_mask<>(SB), (NOPTR+RODATA), $16
 	VMOV K.S[2], t2.S[2]
 
 #define SM4_SBOX(x, y, z) \
-  ;                                              \
-  VAND x.B16, NIBBLE_MASK.B16, z.B16;            \
-  VTBL z.B16, [M1L.B16], y.B16;                  \
-  VUSHR $4, x.D2, x.D2;                          \
-  VAND x.B16, NIBBLE_MASK.B16, z.B16;            \
-  VTBL z.B16, [M1H.B16], z.B16;                  \
-  VEOR y.B16, z.B16, x.B16;                      \
-  VTBL INVERSE_SHIFT_ROWS.B16, [x.B16], x.B16;   \
-  AESE ZERO.B16, x.B16;                          \	
-  VAND x.B16, NIBBLE_MASK.B16, z.B16;            \
-  VTBL z.B16, [M2L.B16], y.B16;                  \
-  VUSHR $4, x.D2, x.D2;                          \
-  VAND x.B16, NIBBLE_MASK.B16, z.B16;            \
-  VTBL z.B16, [M2H.B16], z.B16;                  \
-  VEOR y.B16, z.B16, x.B16
+	;                                              \
+	VAND x.B16, NIBBLE_MASK.B16, z.B16;            \
+	VTBL z.B16, [M1L.B16], y.B16;                  \
+	VUSHR $4, x.D2, x.D2;                          \
+	VAND x.B16, NIBBLE_MASK.B16, z.B16;            \
+	VTBL z.B16, [M1H.B16], z.B16;                  \
+	VEOR y.B16, z.B16, x.B16;                      \
+	VTBL INVERSE_SHIFT_ROWS.B16, [x.B16], x.B16;   \
+	AESE ZERO.B16, x.B16;                          \
+	VAND x.B16, NIBBLE_MASK.B16, z.B16;            \
+	VTBL z.B16, [M2L.B16], y.B16;                  \
+	VUSHR $4, x.D2, x.D2;                          \
+	VAND x.B16, NIBBLE_MASK.B16, z.B16;            \
+	VTBL z.B16, [M2H.B16], z.B16;                  \
+	VEOR y.B16, z.B16, x.B16
 
 #define SM4_TAO_L1(x, y, z)         \
 	SM4_SBOX(x, y, z);                                   \

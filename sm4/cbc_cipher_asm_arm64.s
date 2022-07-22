@@ -86,42 +86,42 @@ TEXT ·encryptBlocksChain(SB),NOSPLIT,$0
     
     VEOR ZERO.B16, ZERO.B16, ZERO.B16
     VLD1 (R5), [IV.B16]
-    
+
 loopSrc:
-    CMP	$16, ptxLen
-	BLT	done_sm4
-	SUB	$16, ptxLen
+        CMP	$16, ptxLen
+	    BLT	done_sm4
+	    SUB	$16, ptxLen
 
-    VLD1.P (ptx), [t0.S4]
-    VEOR IV.B16, t0.B16, t0.B16
-	VREV32 t0.B16, t0.B16
-	VMOV t0.S[1], t1.S[0]
-	VMOV t0.S[2], t2.S[0]
-	VMOV t0.S[3], t3.S[0]
+        VLD1.P (ptx), [t0.S4]
+        VEOR IV.B16, t0.B16, t0.B16
+	    VREV32 t0.B16, t0.B16
+	    VMOV t0.S[1], t1.S[0]
+	    VMOV t0.S[2], t2.S[0]
+	    VMOV t0.S[3], t3.S[0]
 
-	
-	EOR R2, R2
-    MOVD rkSave, R0
+	    EOR R2, R2
+        MOVD rkSave, R0
 
 encryptBlockLoop:
-	SM4_ROUND(R0, x, y, XTMP6, t0, t1, t2, t3)
-	SM4_ROUND(R0, x, y, XTMP6, t1, t2, t3, t0)
-	SM4_ROUND(R0, x, y, XTMP6, t2, t3, t0, t1)
-	SM4_ROUND(R0, x, y, XTMP6, t3, t0, t1, t2)
+	        SM4_ROUND(R0, x, y, XTMP6, t0, t1, t2, t3)
+	        SM4_ROUND(R0, x, y, XTMP6, t1, t2, t3, t0)
+	        SM4_ROUND(R0, x, y, XTMP6, t2, t3, t0, t1)
+	        SM4_ROUND(R0, x, y, XTMP6, t3, t0, t1, t2)
 
-	ADD $16, R2
-	CMP $128, R2
-	BNE encryptBlockLoop
+	        ADD $16, R2
+	        CMP $128, R2
+	        BNE encryptBlockLoop
 
-	VMOV t2.S[0], t3.S[1]
-	VMOV t1.S[0], t3.S[2]
-	VMOV t0.S[0], t3.S[3]
-    VREV32 t3.B16, t3.B16
+	    VMOV t2.S[0], t3.S[1]
+	    VMOV t1.S[0], t3.S[2]
+	    VMOV t0.S[0], t3.S[3]
+        VREV32 t3.B16, t3.B16
 
-    VST1.P [t3.B16], (ctx)
-    VMOV t3.B16, IV.B16
+        VST1.P [t3.B16], (ctx)
+        VMOV t3.B16, IV.B16
 
-    B loopSrc
+        B loopSrc
+
 done_sm4:
     VST1 [IV.B16], (R5)
     RET

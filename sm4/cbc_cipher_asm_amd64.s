@@ -38,45 +38,45 @@ TEXT ·encryptBlocksChain(SB),NOSPLIT,$0
 	MOVUPS (SI), IV
 
 loopSrc:
-	CMPQ ptxLen, $16
-	JB done_sm4
-	SUBQ $16, ptxLen
+		CMPQ ptxLen, $16
+		JB done_sm4
+		SUBQ $16, ptxLen
 
-	MOVUPS (ptx), t0
-	PXOR IV, t0
+		MOVUPS (ptx), t0
+		PXOR IV, t0
 
-	PSHUFB flip_mask<>(SB), t0
-	PSHUFD $1, t0, t1
-	PSHUFD $2, t0, t2
-	PSHUFD $3, t0, t3
+		PSHUFB flip_mask<>(SB), t0
+		PSHUFD $1, t0, t1
+		PSHUFD $2, t0, t2
+		PSHUFD $3, t0, t3
 
-	XORL CX, CX
+		XORL CX, CX
 
 loopRound:
-	SM4_SINGLE_ROUND(0, AX, CX, x, y, XTMP6, t0, t1, t2, t3)
-	SM4_SINGLE_ROUND(1, AX, CX, x, y, XTMP6, t1, t2, t3, t0)
-	SM4_SINGLE_ROUND(2, AX, CX, x, y, XTMP6, t2, t3, t0, t1)
-	SM4_SINGLE_ROUND(3, AX, CX, x, y, XTMP6, t3, t0, t1, t2)
+			SM4_SINGLE_ROUND(0, AX, CX, x, y, XTMP6, t0, t1, t2, t3)
+			SM4_SINGLE_ROUND(1, AX, CX, x, y, XTMP6, t1, t2, t3, t0)
+			SM4_SINGLE_ROUND(2, AX, CX, x, y, XTMP6, t2, t3, t0, t1)
+			SM4_SINGLE_ROUND(3, AX, CX, x, y, XTMP6, t3, t0, t1, t2)
 
-	ADDL $16, CX
-	CMPL CX, $4*32
-	JB loopRound
+			ADDL $16, CX
+			CMPL CX, $4*32
+			JB loopRound
 
-	PEXTRD $0, t2, R8
-	PINSRD $1, R8, t3
-	PEXTRD $0, t1, R8
-	PINSRD $2, R8, t3
-	PEXTRD $0, t0, R8
-	PINSRD $3, R8, t3
-	PSHUFB flip_mask<>(SB), t3
+		PEXTRD $0, t2, R8
+		PINSRD $1, R8, t3
+		PEXTRD $0, t1, R8
+		PINSRD $2, R8, t3
+		PEXTRD $0, t0, R8
+		PINSRD $3, R8, t3
+		PSHUFB flip_mask<>(SB), t3
 
-	MOVOU t3, IV
-	MOVUPS t3, (ctx)
+		MOVOU t3, IV
+		MOVUPS t3, (ctx)
 
-	LEAQ 16(ptx), ptx
-	LEAQ 16(ctx), ctx
+		LEAQ 16(ptx), ptx
+		LEAQ 16(ctx), ctx
 	
-	JMP loopSrc
+		JMP loopSrc
 
 done_sm4:
 	MOVUPS IV, (SI)

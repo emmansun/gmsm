@@ -156,21 +156,21 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 #undef dlen
 
 #define SM4_SINGLE_ROUND(index, RK, IND, x, y, z, t0, t1, t2, t3)  \ 
-  PINSRD $0, (index * 4)(RK)(IND*1), x;             \
-  PXOR t1, x;                                       \
-  PXOR t2, x;                                       \
-  PXOR t3, x;                                       \
-  SM4_TAO_L1(x, y, z);                              \
-  PXOR x, t0
+	PINSRD $0, (index * 4)(RK)(IND*1), x;             \
+	PXOR t1, x;                                       \
+	PXOR t2, x;                                       \
+	PXOR t3, x;                                       \
+	SM4_TAO_L1(x, y, z);                              \
+	PXOR x, t0
 
 #define SM4_ROUND(index, RK, IND, x, y, z, t0, t1, t2, t3)  \ 
-  PINSRD $0, (index * 4)(RK)(IND*1), x;           \
-  PSHUFD $0, x, x;                                \
-  PXOR t1, x;                                     \
-  PXOR t2, x;                                     \
-  PXOR t3, x;                                     \
-  SM4_TAO_L1(x, y, z);                            \
-  PXOR x, t0
+	PINSRD $0, (index * 4)(RK)(IND*1), x;           \
+	PSHUFD $0, x, x;                                \
+	PXOR t1, x;                                     \
+	PXOR t2, x;                                     \
+	PXOR t3, x;                                     \
+	SM4_TAO_L1(x, y, z);                            \
+	PXOR x, t0
 
 #define SM4_4BLOCKS(RK, IND, x, y, z, t0, t1, t2, t3)  \ 
 	PSHUFB flip_mask<>(SB), t0; \
@@ -225,20 +225,20 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 	PSHUFB BSWAP, t0
 
 #define AVX2_SM4_ROUND(index, RK, IND, x, y, xw, yw, tmp, t0, t1, t2, t3)  \ 
-  VPBROADCASTD (index * 4)(RK)(IND*1), x;                                  \
-  VPXOR t1, x, x;                                                          \
-  VPXOR t2, x, x;                                                          \
-  VPXOR t3, x, x;                                                          \
-  AVX2_SM4_TAO_L1(x, y, xw, yw, X_NIBBLE_MASK, NIBBLE_MASK, tmp);          \  
-  VPXOR x, t0, t0
+	VPBROADCASTD (index * 4)(RK)(IND*1), x;                                  \
+	VPXOR t1, x, x;                                                          \
+	VPXOR t2, x, x;                                                          \
+	VPXOR t3, x, x;                                                          \
+	AVX2_SM4_TAO_L1(x, y, xw, yw, X_NIBBLE_MASK, NIBBLE_MASK, tmp);          \  
+	VPXOR x, t0, t0
 
 #define AVX_SM4_ROUND(index, RK, IND, x, y, tmp, t0, t1, t2, t3)  \ 
-  VPBROADCASTD (index * 4)(RK)(IND*1), x;                 \
-  VPXOR t1, x, x;                                         \
-  VPXOR t2, x, x;                                         \
-  VPXOR t3, x, x;                                         \
-  AVX_SM4_TAO_L1(x, y, X_NIBBLE_MASK, tmp);               \  
-  VPXOR x, t0, t0
+	VPBROADCASTD (index * 4)(RK)(IND*1), x;                 \
+	VPXOR t1, x, x;                                         \
+	VPXOR t2, x, x;                                         \
+	VPXOR t3, x, x;                                         \
+	AVX_SM4_TAO_L1(x, y, X_NIBBLE_MASK, tmp);               \  
+	VPXOR x, t0, t0
 
 // func gcmSm4Init(productTable *[256]byte, rk []uint32)
 TEXT ·gcmSm4Init(SB),NOSPLIT,$0
