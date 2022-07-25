@@ -111,44 +111,6 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 
 #include "aesni_arm64.h"
 
-#define LOAD_SM4_AESNI_CONSTS() \
-	LDP nibble_mask<>(SB), (R20, R21)          \
-	VMOV R20, NIBBLE_MASK.D[0]                 \
-	VMOV R21, NIBBLE_MASK.D[1]                 \
-	LDP m1_low<>(SB), (R20, R21)               \
-	VMOV R20, M1L.D[0]                         \
-	VMOV R21, M1L.D[1]                         \
-	LDP m1_high<>(SB), (R20, R21)              \
-	VMOV R20, M1H.D[0]                         \
-	VMOV R21, M1H.D[1]                         \
-	LDP m2_low<>(SB), (R20, R21)               \
-	VMOV R20, M2L.D[0]                         \
-	VMOV R21, M2L.D[1]                         \
-	LDP m2_high<>(SB), (R20, R21)              \
-	VMOV R20, M2H.D[0]                         \
-	VMOV R21, M2H.D[1]                         \
-	LDP inverse_shift_rows<>(SB), (R20, R21)   \
-	VMOV R20, INVERSE_SHIFT_ROWS.D[0]          \
-	VMOV R21, INVERSE_SHIFT_ROWS.D[1]          \
-	LDP r08_mask<>(SB), (R20, R21)             \
-	VMOV R20, R08_MASK.D[0]                    \
-	VMOV R21, R08_MASK.D[1]                    \
-	LDP r16_mask<>(SB), (R20, R21)             \
-	VMOV R20, R16_MASK.D[0]                    \
-	VMOV R21, R16_MASK.D[1]                    \
-	LDP r24_mask<>(SB), (R20, R21)             \
-	VMOV R20, R24_MASK.D[0]                    \
-	VMOV R21, R24_MASK.D[1]
-
-#define SM4_ROUND(RK, x, y, z, t0, t1, t2, t3)  \ 
-	MOVW.P 4(RK), R19;                                \
-	VMOV R19, x.S4;                                   \
-	VEOR t1.B16, x.B16, x.B16;                        \
-	VEOR t2.B16, x.B16, x.B16;                        \
-	VEOR t3.B16, x.B16, x.B16;                        \
-	SM4_TAO_L1(x, y, z);                              \
-	VEOR x.B16, t0.B16, t0.B16
-
 // func gcmSm4Init(productTable *[256]byte, rk []uint32, inst int)
 TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 #define pTbl R0
@@ -178,10 +140,10 @@ TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 	EOR R3, R3
 
 sm4InitEncLoop:	
-	SM4_ROUND(RK, K0, K1, K2, B0, B1, B2, B3)
-	SM4_ROUND(RK, K0, K1, K2, B1, B2, B3, B0)
-	SM4_ROUND(RK, K0, K1, K2, B2, B3, B0, B1)
-	SM4_ROUND(RK, K0, K1, K2, B3, B0, B1, B2)
+	SM4_ROUND(RK, R19, K0, K1, K2, B0, B1, B2, B3)
+	SM4_ROUND(RK, R19, K0, K1, K2, B1, B2, B3, B0)
+	SM4_ROUND(RK, R19, K0, K1, K2, B2, B3, B0, B1)
+	SM4_ROUND(RK, R19, K0, K1, K2, B3, B0, B1, B2)
 
 	ADD $1, R3
 	CMP $8, R3
@@ -491,10 +453,10 @@ encOctetsLoop:
 		MOVD	rkSave, rk
 
 encOctetsEnc4Blocks1:	
-			SM4_ROUND(rk, K0, K1, K2, B0, B1, B2, B3)
-			SM4_ROUND(rk, K0, K1, K2, B1, B2, B3, B0)
-			SM4_ROUND(rk, K0, K1, K2, B2, B3, B0, B1)
-			SM4_ROUND(rk, K0, K1, K2, B3, B0, B1, B2)
+			SM4_ROUND(rk, R19, K0, K1, K2, B0, B1, B2, B3)
+			SM4_ROUND(rk, R19, K0, K1, K2, B1, B2, B3, B0)
+			SM4_ROUND(rk, R19, K0, K1, K2, B2, B3, B0, B1)
+			SM4_ROUND(rk, R19, K0, K1, K2, B3, B0, B1, B2)
 
 		ADD $1, R13
 		CMP $8, R13
@@ -509,10 +471,10 @@ encOctetsEnc4Blocks1:
 		MOVD	rkSave, rk
 
 encOctetsEnc4Blocks2:	
-			SM4_ROUND(rk, K0, K1, K2, B4, B5, B6, B7)
-			SM4_ROUND(rk, K0, K1, K2, B5, B6, B7, B4)
-			SM4_ROUND(rk, K0, K1, K2, B6, B7, B4, B5)
-			SM4_ROUND(rk, K0, K1, K2, B7, B4, B5, B6)
+			SM4_ROUND(rk, R19, K0, K1, K2, B4, B5, B6, B7)
+			SM4_ROUND(rk, R19, K0, K1, K2, B5, B6, B7, B4)
+			SM4_ROUND(rk, R19, K0, K1, K2, B6, B7, B4, B5)
+			SM4_ROUND(rk, R19, K0, K1, K2, B7, B4, B5, B6)
 
 		ADD $1, R13
 		CMP $16, R13
@@ -586,10 +548,10 @@ encNibblesLoop:
 	MOVD	rkSave, rk
 
 encNibblesEnc4Blocks:	
-		SM4_ROUND(rk, K0, K1, K2, B0, B1, B2, B3)
-		SM4_ROUND(rk, K0, K1, K2, B1, B2, B3, B0)
-		SM4_ROUND(rk, K0, K1, K2, B2, B3, B0, B1)
-		SM4_ROUND(rk, K0, K1, K2, B3, B0, B1, B2)
+		SM4_ROUND(rk, R19, K0, K1, K2, B0, B1, B2, B3)
+		SM4_ROUND(rk, R19, K0, K1, K2, B1, B2, B3, B0)
+		SM4_ROUND(rk, R19, K0, K1, K2, B2, B3, B0, B1)
+		SM4_ROUND(rk, R19, K0, K1, K2, B3, B0, B1, B2)
 
 	ADD $1, R13
 	CMP $8, R13
@@ -631,10 +593,10 @@ encStartSingles:
 	MOVD	rkSave, rk
 
 encSinglesEnc4Blocks:	
-		SM4_ROUND(rk, K0, K1, K2, B0, B1, B2, B3)
-		SM4_ROUND(rk, K0, K1, K2, B1, B2, B3, B0)
-		SM4_ROUND(rk, K0, K1, K2, B2, B3, B0, B1)
-		SM4_ROUND(rk, K0, K1, K2, B3, B0, B1, B2)
+		SM4_ROUND(rk, R19, K0, K1, K2, B0, B1, B2, B3)
+		SM4_ROUND(rk, R19, K0, K1, K2, B1, B2, B3, B0)
+		SM4_ROUND(rk, R19, K0, K1, K2, B2, B3, B0, B1)
+		SM4_ROUND(rk, R19, K0, K1, K2, B3, B0, B1, B2)
 
 	ADD $1, R13
 	CMP $8, R13
@@ -783,10 +745,10 @@ decOctetsLoop:
 		MOVD	rkSave, rk
 
 decOctetsEnc4Blocks1:	
-			SM4_ROUND(rk, K0, K1, K2, B0, B1, B2, B3)
-			SM4_ROUND(rk, K0, K1, K2, B1, B2, B3, B0)
-			SM4_ROUND(rk, K0, K1, K2, B2, B3, B0, B1)
-			SM4_ROUND(rk, K0, K1, K2, B3, B0, B1, B2)
+			SM4_ROUND(rk, R19, K0, K1, K2, B0, B1, B2, B3)
+			SM4_ROUND(rk, R19, K0, K1, K2, B1, B2, B3, B0)
+			SM4_ROUND(rk, R19, K0, K1, K2, B2, B3, B0, B1)
+			SM4_ROUND(rk, R19, K0, K1, K2, B3, B0, B1, B2)
 
 		ADD $1, R13
 		CMP $8, R13
@@ -802,10 +764,10 @@ decOctetsEnc4Blocks1:
 		MOVD	rkSave, rk
 
 decOctetsEnc4Blocks2:	
-			SM4_ROUND(rk, K0, K1, K2, B4, B5, B6, B7)
-			SM4_ROUND(rk, K0, K1, K2, B5, B6, B7, B4)
-			SM4_ROUND(rk, K0, K1, K2, B6, B7, B4, B5)
-			SM4_ROUND(rk, K0, K1, K2, B7, B4, B5, B6)
+			SM4_ROUND(rk, R19, K0, K1, K2, B4, B5, B6, B7)
+			SM4_ROUND(rk, R19, K0, K1, K2, B5, B6, B7, B4)
+			SM4_ROUND(rk, R19, K0, K1, K2, B6, B7, B4, B5)
+			SM4_ROUND(rk, R19, K0, K1, K2, B7, B4, B5, B6)
 
 		ADD $1, R13
 		CMP $16, R13
@@ -880,10 +842,10 @@ decNibblesLoop:
 	MOVD	rkSave, rk
 
 decNibblesEnc4Blocks:	
-		SM4_ROUND(rk, K0, K1, K2, B0, B1, B2, B3)
-		SM4_ROUND(rk, K0, K1, K2, B1, B2, B3, B0)
-		SM4_ROUND(rk, K0, K1, K2, B2, B3, B0, B1)
-		SM4_ROUND(rk, K0, K1, K2, B3, B0, B1, B2)
+		SM4_ROUND(rk, R19, K0, K1, K2, B0, B1, B2, B3)
+		SM4_ROUND(rk, R19, K0, K1, K2, B1, B2, B3, B0)
+		SM4_ROUND(rk, R19, K0, K1, K2, B2, B3, B0, B1)
+		SM4_ROUND(rk, R19, K0, K1, K2, B3, B0, B1, B2)
 
 	ADD $1, R13
 	CMP $8, R13
@@ -928,10 +890,10 @@ decStartSingles:
 	MOVD	rkSave, rk
 
 decSinglesEnc4Blocks:	
-		SM4_ROUND(rk, K0, K1, K2, B0, B1, B2, B3)
-		SM4_ROUND(rk, K0, K1, K2, B1, B2, B3, B0)
-		SM4_ROUND(rk, K0, K1, K2, B2, B3, B0, B1)
-		SM4_ROUND(rk, K0, K1, K2, B3, B0, B1, B2)
+		SM4_ROUND(rk, R19, K0, K1, K2, B0, B1, B2, B3)
+		SM4_ROUND(rk, R19, K0, K1, K2, B1, B2, B3, B0)
+		SM4_ROUND(rk, R19, K0, K1, K2, B2, B3, B0, B1)
+		SM4_ROUND(rk, R19, K0, K1, K2, B3, B0, B1, B2)
 
 	ADD $1, R13
 	CMP $8, R13

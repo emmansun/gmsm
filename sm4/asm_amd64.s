@@ -16,6 +16,12 @@
 
 #include "aesni_amd64.h"
 
+// SM4 TAO L2 function, used for key expand
+// parameters:
+// -  x: 128 bits register as TAO_L1 input/output data
+// -  y: 128 bits temp register
+// -  tmp1: 128 bits temp register
+// -  tmp2: 128 bits temp register
 #define SM4_TAO_L2(x, y, tmp1, tmp2)    \
 	SM4_SBOX(x, y, tmp1);              \
 	;                                  \ //####################  4 parallel L2 linear transforms ##################//
@@ -31,23 +37,16 @@
 	PXOR tmp2, y;                      \
 	PXOR y, x                        
 
-#define SM4_ROUND(index, x, y, t0, t1, t2, t3)  \ 
-	PINSRD $0, (index * 4)(AX)(CX*1), x;           \
-	PSHUFD $0, x, x;                               \
-	PXOR t1, x;                                    \
-	PXOR t2, x;                                    \
-	PXOR t3, x;                                    \
-	SM4_TAO_L1(x, y, XTMP6);                       \
-	PXOR x, t0
-
-#define SM4_SINGLE_ROUND(index, x, y, t0, t1, t2, t3)  \ 
-	PINSRD $0, (index * 4)(AX)(CX*1), x;           \
-	PXOR t1, x;                                    \
-	PXOR t2, x;                                    \
-	PXOR t3, x;                                    \
-	SM4_TAO_L1(x, y, XTMP6);                       \
-	PXOR x, t0
-
+// SM4 expand round function
+// t0 ^= tao_l2(t1^t2^t3^ck) and store t0.S[0] to enc/dec
+// parameters:
+// - index: round key index immediate number
+// -  x: 128 bits temp register
+// -  y: 128 bits temp register
+// - t0: 128 bits register for data
+// - t1: 128 bits register for data
+// - t2: 128 bits register for data
+// - t3: 128 bits register for data
 #define SM4_EXPANDKEY_ROUND(index, x, y, t0, t1, t2, t3) \
 	PINSRD $0, (index * 4)(BX)(CX*1), x;                   \
 	PXOR t1, x;                                            \
@@ -89,14 +88,34 @@
 #define XWORD X8
 #define YWORD X9
 
+// SM4 round function, AVX2 version, handle 256 bits
+// t0 ^= tao_l1(t1^t2^t3^xk)
+// parameters:
+// - index: round key index immediate number
+// - x: 256 bits temp register
+// - y: 256 bits temp register
+// - t0: 256 bits register for data as result
+// - t1: 256 bits register for data
+// - t2: 256 bits register for data
+// - t3: 256 bits register for data
 #define AVX2_SM4_ROUND(index, x, y, t0, t1, t2, t3)                                                    \
 	VPBROADCASTD (index * 4)(AX)(CX*1), x;                                                               \
 	VPXOR t1, x, x;                                                                                      \
 	VPXOR t2, x, x;                                                                                      \
 	VPXOR t3, x, x;                                                                                      \
-	AVX2_SM4_TAO_L1(x, y, XWORD, YWORD, X_NIBBLE_MASK, NIBBLE_MASK, XDWTMP0);                            \
+	AVX2_SM4_TAO_L1(x, y, XDWTMP0, XWORD, YWORD, X_NIBBLE_MASK, NIBBLE_MASK);                            \
 	VPXOR x, t0, t0
 
+// SM4 round function, AVX version, handle 128 bits
+// t0 ^= tao_l1(t1^t2^t3^xk)
+// parameters:
+// - index: round key index immediate number
+// - x: 128 bits temp register
+// - y: 128 bits temp register
+// - t0: 128 bits register for data as result
+// - t1: 128 bits register for data
+// - t2: 128 bits register for data
+// - t3: 128 bits register for data
 #define AVX_SM4_ROUND(index, x, y, t0, t1, t2, t3)  \ 
 	VPBROADCASTD (index * 4)(AX)(CX*1), x;             \
 	VPXOR t1, x, x;                                    \
@@ -174,10 +193,10 @@ non_avx2_start:
 	XORL CX, CX
 
 loop:
-		SM4_ROUND(0, x, y, t0, t1, t2, t3)
-		SM4_ROUND(1, x, y, t1, t2, t3, t0)
-		SM4_ROUND(2, x, y, t2, t3, t0, t1)
-		SM4_ROUND(3, x, y, t3, t0, t1, t2)
+		SM4_ROUND(0, AX, CX, x, y, XTMP6, t0, t1, t2, t3)
+		SM4_ROUND(1, AX, CX, x, y, XTMP6, t1, t2, t3, t0)
+		SM4_ROUND(2, AX, CX, x, y, XTMP6, t2, t3, t0, t1)
+		SM4_ROUND(3, AX, CX, x, y, XTMP6, t3, t0, t1, t2)
 
 		ADDL $16, CX
 		CMPL CX, $4*32
@@ -328,10 +347,10 @@ TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
 	XORL CX, CX
 
 loop:
-		SM4_SINGLE_ROUND(0, x, y, t0, t1, t2, t3)
-		SM4_SINGLE_ROUND(1, x, y, t1, t2, t3, t0)
-		SM4_SINGLE_ROUND(2, x, y, t2, t3, t0, t1)
-		SM4_SINGLE_ROUND(3, x, y, t3, t0, t1, t2)
+		SM4_SINGLE_ROUND(0, AX, CX, x, y, XTMP6, t0, t1, t2, t3)
+		SM4_SINGLE_ROUND(1, AX, CX, x, y, XTMP6, t1, t2, t3, t0)
+		SM4_SINGLE_ROUND(2, AX, CX, x, y, XTMP6, t2, t3, t0, t1)
+		SM4_SINGLE_ROUND(3, AX, CX, x, y, XTMP6, t3, t0, t1, t2)
 
 		ADDL $16, CX
 		CMPL CX, $4*32

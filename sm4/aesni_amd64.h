@@ -53,6 +53,23 @@ DATA fk_mask<>+0x00(SB)/8, $0x56aa3350a3b1bac6
 DATA fk_mask<>+0x08(SB)/8, $0xb27022dc677d9197
 GLOBL fk_mask<>(SB), RODATA, $16
 
+// Transpose matrix without PUNPCKHDQ/PUNPCKLDQ/PUNPCKHQDQ/PUNPCKLQDQ instructions, bad performance!
+// input: from high to low
+// r0 = [w3, w2, w1, w0]
+// r1 = [w7, w6, w5, w4]
+// r2 = [w11, w10, w9, w8]
+// r3 = [w15, w14, w13, w12]
+// r: 32/64 temp register
+// tmp1: 128 bits temp register
+// tmp2: 128 bits temp register
+//
+// output: from high to low
+// r0 = [w12, w8, w4, w0]
+// r1 = [w13, w9, w5, w1]
+// r2 = [w14, w10, w6, w2]
+// r3 = [w15, w11, w7, w3]
+//
+// SSE2/MMX instructions:
 //	MOVOU r0, tmp2;
 //	PUNPCKHDQ r1, tmp2;
 //	PUNPCKLDQ	r1, r0; 
@@ -122,6 +139,11 @@ GLOBL fk_mask<>(SB), RODATA, $16
 	PEXTRQ $0, tmp2, r; \
 	PINSRQ $0, r, r2
 
+// SM4 sbox function
+// parameters:
+// -  x: 128 bits register as sbox input/output data
+// -  y: 128 bits temp register
+// -  z: 128 bits temp register
 #define SM4_SBOX(x, y, z) \
 	;                                   \ //#############################  inner affine ############################//
 	MOVOU x, z;                         \
@@ -149,6 +171,11 @@ GLOBL fk_mask<>(SB), RODATA, $16
 	MOVOU  z, x;                        \ //x = _mm_shuffle_epi8(m2h, x)
 	PXOR y, x                             //x = _mm_shuffle_epi8(m2h, x) ^ y; 
 
+// SM4 TAO L1 function
+// parameters:
+// -  x: 128 bits register as TAO_L1 input/output data
+// -  y: 128 bits temp register
+// -  z: 128 bits temp register
 #define SM4_TAO_L1(x, y, z)         \
 	SM4_SBOX(x, y, z);                  \
 	;                                   \ //####################  4 parallel L1 linear transforms ##################//
@@ -167,6 +194,56 @@ GLOBL fk_mask<>(SB), RODATA, $16
 	PXOR y, x;                          \ //x = x xor y
 	PXOR z, x                             //x = x xor y xor _mm_shuffle_epi8(x, r24);
 
+// SM4 single round function, handle 16 bytes data
+// t0 ^= tao_l1(t1^t2^t3^xk)
+// used R19 as temp 32/64 bits register
+// parameters:
+// - index: round key index immediate number
+// - RK: round key register
+// - IND: round key index base register
+// -  x: 128 bits temp register
+// -  y: 128 bits temp register
+// -  z: 128 bits temp register
+// - t0: 128 bits register for data as result
+// - t1: 128 bits register for data
+// - t2: 128 bits register for data
+// - t3: 128 bits register for data
+#define SM4_SINGLE_ROUND(index, RK, IND, x, y, z, t0, t1, t2, t3)  \ 
+	PINSRD $0, (index * 4)(RK)(IND*1), x;             \
+	PXOR t1, x;                                       \
+	PXOR t2, x;                                       \
+	PXOR t3, x;                                       \
+	SM4_TAO_L1(x, y, z);                              \
+	PXOR x, t0
+
+// SM4 round function, handle 64 bytes data
+// t0 ^= tao_l1(t1^t2^t3^xk)
+// parameters:
+// - index: round key index immediate number
+// - RK: round key register
+// - IND: round key index base register
+// -  x: 128 bits temp register
+// -  y: 128 bits temp register
+// -  z: 128 bits temp register
+// - t0: 128 bits register for data as result
+// - t1: 128 bits register for data
+// - t2: 128 bits register for data
+// - t3: 128 bits register for data
+#define SM4_ROUND(index, RK, IND, x, y, z, t0, t1, t2, t3)  \ 
+	PINSRD $0, (index * 4)(RK)(IND*1), x;           \
+	PSHUFD $0, x, x;                                \
+	PXOR t1, x;                                     \
+	PXOR t2, x;                                     \
+	PXOR t3, x;                                     \
+	SM4_TAO_L1(x, y, z);                            \
+	PXOR x, t0
+
+// SM4 sbox function, AVX version
+// parameters:
+// -  x: 128 bits register as sbox input/output data
+// -  y: 128 bits temp register
+// -  X_NIBBLE_MASK: 128 bits register stored nibble mask, should be loaded earlier.
+// - tmp: 128 bits temp register
 #define AVX_SM4_SBOX(x, y, X_NIBBLE_MASK, tmp) \
 	VPAND X_NIBBLE_MASK, x, tmp;                       \
 	VMOVDQU m1_low<>(SB), y;                           \
@@ -188,8 +265,14 @@ GLOBL fk_mask<>(SB), RODATA, $16
 	VPSHUFB x, tmp, x;                                 \
 	VPXOR y, x, x
 
-#define AVX_SM4_TAO_L1(x, y, X_NIBBLE_MASK, tmp) \
-	AVX_SM4_SBOX(x, y, X_NIBBLE_MASK, tmp); \
+// SM4 TAO L1 function, AVX version
+// parameters:
+// -  x: 128 bits register as sbox input/output data
+// -  y: 128 bits temp register
+// -  xNibbleMask: 128 bits register stored nibble mask, should be loaded earlier.
+// - tmp: 128 bits temp register
+#define AVX_SM4_TAO_L1(x, y, xNibbleMask, tmp) \
+	AVX_SM4_SBOX(x, y, xNibbleMask, tmp); \
 	VMOVDQU r08_mask<>(SB), tmp;            \
 	VPSHUFB tmp, x, y;                      \
 	VPXOR x, y, y;                          \
@@ -204,6 +287,14 @@ GLOBL fk_mask<>(SB), RODATA, $16
 	VPXOR y, x, x;                          \
 	VPXOR x, tmp, x
 
+// transpose matrix function, AVX/AVX2 version
+// parameters:
+// - r0: 128/256 bits register as input/output data
+// - r1: 128/256 bits register as input/output data
+// - r2: 128/256 bits register as input/output data
+// - r3: 128/256 bits register as input/output data
+// - tmp1: 128/256 bits temp register
+// - tmp2: 128/256 bits temp register
 #define TRANSPOSE_MATRIX(r0, r1, r2, r3, tmp1, tmp2) \
 	VPUNPCKHDQ r1, r0, tmp2;                 \ // tmp2 =  [w15, w7, w14, w6, w11, w3, w10, w2]          tmp2 = [w7, w3, w6, w2]
 	VPUNPCKLDQ r1, r0, r0;                   \ // r0 =    [w13, w5, w12, w4, w9, w1, w8, w0]              r0 = [w5, w1, w4, w0]
@@ -214,42 +305,60 @@ GLOBL fk_mask<>(SB), RODATA, $16
 	VPUNPCKHQDQ r2, tmp2, r3;                \ // r3 =    [w31, w27, w15, w7, w27, w19, w11, w3]          r3 = [w15, w11, w7, w3]
 	VPUNPCKLQDQ r2, tmp2, r2                   // r2 =    [w30, w22, w14, w6, w26, w18, w10, w2]          r2 = [w14, w10, w6, w2]
 
-#define AVX2_SM4_SBOX(x, y, xw, yw, xNibbleMask, yNibbleMask, tmp) \
-	VPAND yNibbleMask, x, tmp;                       \
-	VBROADCASTI128 m1_low<>(SB), y;                  \
-	VPSHUFB tmp, y, y;                               \
-	VPSRLQ $4, x, x;                                 \
-	VPAND yNibbleMask, x, x;                         \
-	VBROADCASTI128 m1_high<>(SB), tmp;               \
-	VPSHUFB x, tmp, x;                               \
-	VPXOR y, x, x;                                   \
-	VBROADCASTI128 inverse_shift_rows<>(SB), tmp;    \
-	VPSHUFB tmp, x, x;                               \
-	VEXTRACTI128 $1, x, yw                           \
-	VAESENCLAST xNibbleMask, xw, xw;                 \
-	VAESENCLAST xNibbleMask, yw, yw;                 \
-	VINSERTI128 $1, yw, x, x;                        \
-	VPANDN yNibbleMask, x, tmp;                      \
-	VBROADCASTI128 m2_low<>(SB), y;                  \
-	VPSHUFB tmp, y, y;                               \
-	VPSRLQ $4, x, x;                                 \
-	VPAND yNibbleMask, x, x;                         \
-	VBROADCASTI128 m2_high<>(SB), tmp;               \
-	VPSHUFB x, tmp, x;                               \
+// SM4 sbox function, AVX2 version
+// parameters:
+// -  x: 256 bits register as sbox input/output data
+// -  y: 256 bits temp register
+// -  z: 256 bits temp register
+// - xw: 128 bits temp register
+// - yw: 128 bits temp register
+// - xNibbleMask: 128 bits register stored nibble mask, should be loaded earlier.
+// - yNibbleMask: 256 bits register stored nibble mask, should be loaded earlier.
+#define AVX2_SM4_SBOX(x, y, z, xw, yw, xNibbleMask, yNibbleMask) \
+	VPAND yNibbleMask, x, z;                       \
+	VBROADCASTI128 m1_low<>(SB), y;                \
+	VPSHUFB z, y, y;                               \
+	VPSRLQ $4, x, x;                               \
+	VPAND yNibbleMask, x, x;                       \
+	VBROADCASTI128 m1_high<>(SB), z;               \
+	VPSHUFB x, z, x;                               \
+	VPXOR y, x, x;                                 \
+	VBROADCASTI128 inverse_shift_rows<>(SB), z;    \
+	VPSHUFB z, x, x;                               \
+	VEXTRACTI128 $1, x, yw                         \
+	VAESENCLAST xNibbleMask, xw, xw;               \
+	VAESENCLAST xNibbleMask, yw, yw;               \
+	VINSERTI128 $1, yw, x, x;                      \
+	VPANDN yNibbleMask, x, z;                      \
+	VBROADCASTI128 m2_low<>(SB), y;                \
+	VPSHUFB z, y, y;                               \
+	VPSRLQ $4, x, x;                               \
+	VPAND yNibbleMask, x, x;                       \
+	VBROADCASTI128 m2_high<>(SB), z;               \
+	VPSHUFB x, z, x;                               \
 	VPXOR y, x, x
 
-#define AVX2_SM4_TAO_L1(x, y, xw, yw, xNibbleMask, yNibbleMask, tmp) \
-	AVX2_SM4_SBOX(x, y, xw, yw, xNibbleMask, yNibbleMask, tmp);      \
-	VBROADCASTI128 r08_mask<>(SB), tmp;        \
-	VPSHUFB tmp, x, y;                         \
-	VPXOR x, y, y;                             \
-	VBROADCASTI128 r16_mask<>(SB), tmp;        \
-	VPSHUFB tmp, x, tmp;                       \
-	VPXOR tmp, y, y;                           \
-	VPSLLD $2, y, tmp;                         \
-	VPSRLD $30, y, y;                          \
-	VPXOR tmp, y, y;                           \
-	VBROADCASTI128 r24_mask<>(SB), tmp;        \
-	VPSHUFB tmp, x, tmp;                       \
-	VPXOR y, x, x;                             \
-	VPXOR x, tmp, x
+// SM4 TAO L1 function, AVX2 version
+// parameters:
+// -  x: 256 bits register as sbox input/output data
+// -  y: 256 bits temp register
+// -  z: 256 bits temp register
+// - xw: 128 bits temp register
+// - yw: 128 bits temp register
+// - xNibbleMask: 128 bits register stored nibble mask, should be loaded earlier.
+// - yNibbleMask: 256 bits register stored nibble mask, should be loaded earlier.
+#define AVX2_SM4_TAO_L1(x, y, z, xw, yw, xNibbleMask, yNibbleMask) \
+	AVX2_SM4_SBOX(x, y, z, xw, yw, xNibbleMask, yNibbleMask);      \
+	VBROADCASTI128 r08_mask<>(SB), z;        \
+	VPSHUFB z, x, y;                         \
+	VPXOR x, y, y;                           \
+	VBROADCASTI128 r16_mask<>(SB), z;        \
+	VPSHUFB z, x, z;                         \
+	VPXOR z, y, y;                           \
+	VPSLLD $2, y, z;                         \
+	VPSRLD $30, y, y;                        \
+	VPXOR z, y, y;                           \
+	VBROADCASTI128 r24_mask<>(SB), z;        \
+	VPSHUFB z, x, z;                         \
+	VPXOR y, x, x;                           \
+	VPXOR x, z, x

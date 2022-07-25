@@ -37,15 +37,6 @@
 	VEOR XTMP7.B16, y.B16, y.B16;               \
 	VEOR x.B16, y.B16, x.B16
 
-#define SM4_ROUND(RK, x, y, t0, t1, t2, t3) \
-	MOVW.P 4(RK), R19;                        \
-	VMOV R19, x.S4;                           \
-	VEOR t1.B16, x.B16, x.B16;                \
-	VEOR t2.B16, x.B16, x.B16;                \
-	VEOR t3.B16, x.B16, x.B16;                \
-	SM4_TAO_L1(x, y, XTMP6);                  \
-	VEOR x.B16, t0.B16, t0.B16
-
 #define SM4_EXPANDKEY_ROUND(x, y, t0, t1, t2, t3) \
 	MOVW.P 4(R9), R19;                               \
 	VMOV R19, x.S[0];                                \
@@ -226,10 +217,10 @@ TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
 	EOR R0, R0
 
 encryptBlocksLoop:
-		SM4_ROUND(R8, x, y, t0, t1, t2, t3)
-		SM4_ROUND(R8, x, y, t1, t2, t3, t0)
-		SM4_ROUND(R8, x, y, t2, t3, t0, t1)
-		SM4_ROUND(R8, x, y, t3, t0, t1, t2)
+		SM4_ROUND(R8, R19, x, y, XTMP6, t0, t1, t2, t3)
+		SM4_ROUND(R8, R19, x, y, XTMP6, t1, t2, t3, t0)
+		SM4_ROUND(R8, R19, x, y, XTMP6, t2, t3, t0, t1)
+		SM4_ROUND(R8, R19, x, y, XTMP6, t3, t0, t1, t2)
 
 		ADD $16, R0
 		CMP $128, R0
@@ -297,10 +288,10 @@ TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
 	EOR R0, R0
 
 encryptBlockLoop:
-		SM4_ROUND(R8, x, y, t0, t1, t2, t3)
-		SM4_ROUND(R8, x, y, t1, t2, t3, t0)
-		SM4_ROUND(R8, x, y, t2, t3, t0, t1)
-		SM4_ROUND(R8, x, y, t3, t0, t1, t2)
+		SM4_ROUND(R8, R19, x, y, XTMP6, t0, t1, t2, t3)
+		SM4_ROUND(R8, R19, x, y, XTMP6, t1, t2, t3, t0)
+		SM4_ROUND(R8, R19, x, y, XTMP6, t2, t3, t0, t1)
+		SM4_ROUND(R8, R19, x, y, XTMP6, t3, t0, t1, t2)
 
 		ADD $16, R0
 		CMP $128, R0

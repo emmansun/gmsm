@@ -43,6 +43,45 @@ DATA fk_mask<>+0x00(SB)/8, $0x56aa3350a3b1bac6
 DATA fk_mask<>+0x08(SB)/8, $0xb27022dc677d9197
 GLOBL fk_mask<>(SB), (NOPTR+RODATA), $16
 
+#define LOAD_SM4_AESNI_CONSTS() \
+	LDP nibble_mask<>(SB), (R20, R21)          \
+	VMOV R20, NIBBLE_MASK.D[0]                 \
+	VMOV R21, NIBBLE_MASK.D[1]                 \
+	LDP m1_low<>(SB), (R20, R21)               \
+	VMOV R20, M1L.D[0]                         \
+	VMOV R21, M1L.D[1]                         \
+	LDP m1_high<>(SB), (R20, R21)              \
+	VMOV R20, M1H.D[0]                         \
+	VMOV R21, M1H.D[1]                         \
+	LDP m2_low<>(SB), (R20, R21)               \
+	VMOV R20, M2L.D[0]                         \
+	VMOV R21, M2L.D[1]                         \
+	LDP m2_high<>(SB), (R20, R21)              \
+	VMOV R20, M2H.D[0]                         \
+	VMOV R21, M2H.D[1]                         \
+	LDP inverse_shift_rows<>(SB), (R20, R21)   \
+	VMOV R20, INVERSE_SHIFT_ROWS.D[0]          \
+	VMOV R21, INVERSE_SHIFT_ROWS.D[1]          \
+	LDP r08_mask<>(SB), (R20, R21)             \
+	VMOV R20, R08_MASK.D[0]                    \
+	VMOV R21, R08_MASK.D[1]                    \
+	LDP r16_mask<>(SB), (R20, R21)             \
+	VMOV R20, R16_MASK.D[0]                    \
+	VMOV R21, R16_MASK.D[1]                    \
+	LDP r24_mask<>(SB), (R20, R21)             \
+	VMOV R20, R24_MASK.D[0]                    \
+	VMOV R21, R24_MASK.D[1]
+
+// input: from high to low
+// t0 = t0.S3, t0.S2, t0.S1, t0.S0
+// t1 = t1.S3, t1.S2, t1.S1, t1.S0
+// t2 = t2.S3, t2.S2, t2.S1, t2.S0
+// t3 = t3.S3, t3.S2, t3.S1, t3.S0
+// output: from high to low
+// t0 = t3.S0, t2.S0, t1.S0, t0.S0
+// t1 = t3.S1, t2.S1, t1.S1, t0.S1
+// t2 = t3.S2, t2.S2, t1.S2, t0.S2
+// t3 = t3.S3, t2.S3, t1.S3, t0.S3
 #define PRE_TRANSPOSE_MATRIX(t0, t1, t2, t3, K) \
 	VMOV t0.B16, K.B16                         \
 	VMOV t1.S[0], t0.S[1]                      \
@@ -60,6 +99,16 @@ GLOBL fk_mask<>(SB), (NOPTR+RODATA), $16
 	VMOV t3.S[2], t2.S[3]                      \
 	VMOV K.S[3], t3.S[2]
 
+// input: from high to low
+// t0 = t0.S3, t0.S2, t0.S1, t0.S0
+// t1 = t1.S3, t1.S2, t1.S1, t1.S0
+// t2 = t2.S3, t2.S2, t2.S1, t2.S0
+// t3 = t3.S3, t3.S2, t3.S1, t3.S0
+// output: from high to low
+// t0 = t0.S0, t1.S0, t2.S0, t3.S0
+// t1 = t0.S1, t1.S1, t2.S1, t3.S1
+// t2 = t0.S2, t1.S2, t2.S2, t3.S2
+// t3 = t0.S3, t1.S3, t2.S3, t3.S3
 #define TRANSPOSE_MATRIX(t0, t1, t2, t3, K) \
 	VMOV t0.B16, K.B16                        \
 	VMOV t3.S[0], t0.S[0]                     \
@@ -80,6 +129,11 @@ GLOBL fk_mask<>(SB), (NOPTR+RODATA), $16
 	VMOV t2.S[2], t2.S[1]                     \
 	VMOV K.S[2], t2.S[2]
 
+// SM4 sbox function
+// parameters:
+// -  x: 128 bits register as sbox input/output data
+// -  y: 128 bits temp register
+// -  z: 128 bits temp register
 #define SM4_SBOX(x, y, z) \
 	;                                              \
 	VAND x.B16, NIBBLE_MASK.B16, z.B16;            \
@@ -97,6 +151,11 @@ GLOBL fk_mask<>(SB), (NOPTR+RODATA), $16
 	VTBL z.B16, [M2H.B16], z.B16;                  \
 	VEOR y.B16, z.B16, x.B16
 
+// SM4 TAO L1 function
+// parameters:
+// -  x: 128 bits register as TAO_L1 input/output data
+// -  y: 128 bits temp register
+// -  z: 128 bits temp register
 #define SM4_TAO_L1(x, y, z)         \
 	SM4_SBOX(x, y, z);                                   \
 	VTBL R08_MASK.B16, [x.B16], y.B16;                   \
@@ -109,3 +168,24 @@ GLOBL fk_mask<>(SB), (NOPTR+RODATA), $16
 	VTBL R24_MASK.B16, [x.B16], z.B16;                   \
 	VEOR z.B16, x.B16, x.B16;                            \
 	VEOR y.B16, x.B16, x.B16
+
+// SM4 round function
+// t0 ^= tao_l1(t1^t2^t3^xk)
+// parameters:
+// - RK: round key register
+// - tmp32: temp 32/64 bits register
+// -  x: 128 bits temp register
+// -  y: 128 bits temp register
+// -  z: 128 bits temp register
+// - t0: 128 bits register for data as result
+// - t1: 128 bits register for data
+// - t2: 128 bits register for data
+// - t3: 128 bits register for data
+#define SM4_ROUND(RK, tmp32, x, y, z, t0, t1, t2, t3) \ 
+	MOVW.P 4(RK), tmp32;                              \
+	VMOV tmp32, x.S4;                                 \
+	VEOR t1.B16, x.B16, x.B16;                        \
+	VEOR t2.B16, x.B16, x.B16;                        \
+	VEOR t3.B16, x.B16, x.B16;                        \
+	SM4_TAO_L1(x, y, z);                              \
+	VEOR x.B16, t0.B16, t0.B16
