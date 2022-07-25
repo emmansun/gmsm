@@ -82,22 +82,15 @@ GLOBL fk_mask<>(SB), (NOPTR+RODATA), $16
 // t1 = t3.S1, t2.S1, t1.S1, t0.S1
 // t2 = t3.S2, t2.S2, t1.S2, t0.S2
 // t3 = t3.S3, t2.S3, t1.S3, t0.S3
-#define PRE_TRANSPOSE_MATRIX(t0, t1, t2, t3, K) \
-	VMOV t0.B16, K.B16                         \
-	VMOV t1.S[0], t0.S[1]                      \
-	VMOV t2.S[0], t0.S[2]                      \
-	VMOV t3.S[0], t0.S[3]                      \
-	VMOV K.S[1], t1.S[0]                       \
-	VMOV K.S[2], t2.S[0]                       \
-	VMOV K.S[3], t3.S[0]                       \
-	VMOV t1.D[1], K.D[1]                       \
-	VMOV t2.S[1], t1.S[2]                      \
-	VMOV t3.S[1], t1.S[3]                      \
-	VMOV K.S[2], t2.S[1]                       \
-	VMOV K.S[3], t3.S[1]                       \
-	VMOV t2.S[3], K.S[3]                       \
-	VMOV t3.S[2], t2.S[3]                      \
-	VMOV K.S[3], t3.S[2]
+#define PRE_TRANSPOSE_MATRIX(t0, t1, t2, t3, RTMP0, RTMP1, RTMP2, RTMP3) \
+	VZIP1 t1.S4, t0.S4, RTMP0.S4               \
+	VZIP1 t3.S4, t2.S4, RTMP1.S4               \
+	VZIP2 t1.S4, t0.S4, RTMP2.S4               \
+	VZIP2 t3.S4, t2.S4, RTMP3.S4               \
+	VZIP1 RTMP1.D2, RTMP0.D2, t0.D2            \
+	VZIP2 RTMP1.D2, RTMP0.D2, t1.D2            \
+	VZIP1 RTMP3.D2, RTMP2.D2, t2.D2            \
+	VZIP2 RTMP3.D2, RTMP2.D2, t3.D2
 
 // input: from high to low
 // t0 = t0.S3, t0.S2, t0.S1, t0.S0
@@ -109,25 +102,15 @@ GLOBL fk_mask<>(SB), (NOPTR+RODATA), $16
 // t1 = t0.S1, t1.S1, t2.S1, t3.S1
 // t2 = t0.S2, t1.S2, t2.S2, t3.S2
 // t3 = t0.S3, t1.S3, t2.S3, t3.S3
-#define TRANSPOSE_MATRIX(t0, t1, t2, t3, K) \
-	VMOV t0.B16, K.B16                        \
-	VMOV t3.S[0], t0.S[0]                     \
-	VMOV t2.S[0], t0.S[1]                     \
-	VMOV t1.S[0], t0.S[2]                     \
-	VMOV K0.S[0], t0.S[3]                     \
-	VMOV t3.S[1], t1.S[0]                     \
-	VMOV t3.S[2], t2.S[0]                     \
-	VMOV t3.S[3], t3.S[0]                     \
-	VMOV t2.S[3], t3.S[1]                     \
-	VMOV t1.S[3], t3.S[2]                     \
-	VMOV K.S[3], t3.S[3]                      \
-	VMOV K.S[2], t2.S[3]                      \
-	VMOV K.S[1], t1.S[3]                      \
-	VMOV t1.B16, K.B16                        \
-	VMOV t2.S[1], t1.S[1]                     \
-	VMOV K.S[1], t1.S[2]                      \
-	VMOV t2.S[2], t2.S[1]                     \
-	VMOV K.S[2], t2.S[2]
+#define TRANSPOSE_MATRIX(t0, t1, t2, t3, RTMP0, RTMP1, RTMP2, RTMP3) \
+	VZIP1 t0.S4, t1.S4, RTMP0.S4               \
+	VZIP2 t0.S4, t1.S4, RTMP1.S4               \
+	VZIP1 t2.S4, t3.S4, RTMP2.S4               \
+	VZIP2 t2.S4, t3.S4, RTMP3.S4               \
+	VZIP1 RTMP0.D2, RTMP2.D2, t0.D2            \
+	VZIP2 RTMP0.D2, RTMP2.D2, t1.D2            \
+	VZIP1 RTMP1.D2, RTMP3.D2, t2.D2            \
+	VZIP2 RTMP1.D2, RTMP3.D2, t3.D2
 
 // SM4 sbox function
 // parameters:
