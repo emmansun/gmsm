@@ -185,33 +185,14 @@ TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
 	CMP $1, R11
 	BEQ sm4niblocks
 
-	VLD1 (R10), [V5.S4, V6.S4, V7.S4, V8.S4]
-	VMOV V5.S[0], t0.S[0]
-	VMOV V5.S[1], t1.S[0]
-	VMOV V5.S[2], t2.S[0]
-	VMOV V5.S[3], t3.S[0]
-  
-	VMOV V6.S[0], t0.S[1]
-	VMOV V6.S[1], t1.S[1]
-	VMOV V6.S[2], t2.S[1]
-	VMOV V6.S[3], t3.S[1]
-
-	VMOV V7.S[0], t0.S[2]
-	VMOV V7.S[1], t1.S[2]
-	VMOV V7.S[2], t2.S[2]
-	VMOV V7.S[3], t3.S[2]  
-
-	VMOV V8.S[0], t0.S[3]
-	VMOV V8.S[1], t1.S[3]
-	VMOV V8.S[2], t2.S[3]
-	VMOV V8.S[3], t3.S[3]    
-
-	load_global_data_2()
-
+	VLD1 (R10), [t0.S4, t1.S4, t2.S4, t3.S4]
 	VREV32 t0.B16, t0.B16
 	VREV32 t1.B16, t1.B16
 	VREV32 t2.B16, t2.B16
 	VREV32 t3.B16, t3.B16
+	PRE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y, XTMP6, XTMP7)
+
+	load_global_data_2()
 
 	VEOR ZERO.B16, ZERO.B16, ZERO.B16
 	EOR R0, R0
@@ -226,34 +207,13 @@ encryptBlocksLoop:
 		CMP $128, R0
 		BNE encryptBlocksLoop
 
+	TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y, XTMP6, XTMP7)
 	VREV32 t0.B16, t0.B16
 	VREV32 t1.B16, t1.B16
 	VREV32 t2.B16, t2.B16
 	VREV32 t3.B16, t3.B16
 
-	VMOV t3.S[0], V8.S[0]
-	VMOV t2.S[0], V8.S[1]
-	VMOV t1.S[0], V8.S[2]
-	VMOV t0.S[0], V8.S[3]
-	VST1.P [V8.B16], 16(R9)
-
-	VMOV t3.S[1], V8.S[0]
-	VMOV t2.S[1], V8.S[1]
-	VMOV t1.S[1], V8.S[2]
-	VMOV t0.S[1], V8.S[3]
-	VST1.P [V8.B16], 16(R9)
-
-	VMOV t3.S[2], V8.S[0]
-	VMOV t2.S[2], V8.S[1]
-	VMOV t1.S[2], V8.S[2]
-	VMOV t0.S[2], V8.S[3]
-	VST1.P [V8.B16], 16(R9)
-
-	VMOV t3.S[3], V8.S[0]
-	VMOV t2.S[3], V8.S[1]
-	VMOV t1.S[3], V8.S[2]
-	VMOV t0.S[3], V8.S[3]
-	VST1 [V8.B16], (R9)
+	VST1 [t0.S4, t1.S4, t2.S4, t3.S4], (R9)
 	RET
 
 sm4niblocks:
