@@ -10,8 +10,8 @@ import (
 	"github.com/emmansun/gmsm/internal/xor"
 )
 
-// Assert that sm4CipherAsm implements the cbcDecAble interfaces.
-var _ cbcDecAble = (*sm4CipherAsm)(nil)
+// Assert that sm4CipherAsm implements the cbcEncAble and cbcDecAble interfaces.
+var _ cbcEncAble = (*sm4CipherAsm)(nil)
 var _ cbcDecAble = (*sm4CipherAsm)(nil)
 
 const cbcEncrypt = 1
