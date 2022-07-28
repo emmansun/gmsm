@@ -112,6 +112,28 @@ func (master *SignMasterPrivateKey) Public() *SignMasterPublicKey {
 	return &master.SignMasterPublicKey
 }
 
+// pair generate the basepoint once
+func (pub *SignMasterPublicKey) pair() *bn256.GT {
+	pub.pairOnce.Do(func() {
+		pub.basePoint = bn256.Pair(bn256.Gen1, pub.MasterPublicKey)
+	})
+	return pub.basePoint
+}
+
+func (pub *SignMasterPublicKey) generatorTable() *[32 * 2]bn256.GTFieldTable {
+	pub.tableGenOnce.Do(func() {
+		pub.table = bn256.GenerateGTFieldTable(pub.pair())
+	})
+	return pub.table
+}
+
+// ScalarBaseMult compute basepoint^r with precomputed table
+// The base point = pair(Gen1, <master public key>)
+func (pub *SignMasterPublicKey) ScalarBaseMult(r *big.Int) *bn256.GT {
+	tables := pub.generatorTable()
+	return bn256.ScalarBaseMultGT(tables, r)
+}
+
 // GenerateUserPublicKey generate user sign public key
 func (pub *SignMasterPublicKey) GenerateUserPublicKey(uid []byte, hid byte) *bn256.G2 {
 	var buffer []byte
@@ -278,6 +300,28 @@ func (master *EncryptMasterPrivateKey) UnmarshalASN1(der []byte) error {
 	master.D = d
 	master.MasterPublicKey = new(bn256.G1).ScalarBaseMult(d)
 	return nil
+}
+
+// pair generate the basepoint once
+func (pub *EncryptMasterPublicKey) pair() *bn256.GT {
+	pub.pairOnce.Do(func() {
+		pub.basePoint = bn256.Pair(pub.MasterPublicKey, bn256.Gen2)
+	})
+	return pub.basePoint
+}
+
+func (pub *EncryptMasterPublicKey) generatorTable() *[32 * 2]bn256.GTFieldTable {
+	pub.tableGenOnce.Do(func() {
+		pub.table = bn256.GenerateGTFieldTable(pub.pair())
+	})
+	return pub.table
+}
+
+// ScalarBaseMult compute basepoint^r with precomputed table.
+// The base point = pair(<master public key>, Gen2)
+func (pub *EncryptMasterPublicKey) ScalarBaseMult(r *big.Int) *bn256.GT {
+	tables := pub.generatorTable()
+	return bn256.ScalarBaseMultGT(tables, r)
 }
 
 // GenerateUserPublicKey generate user encrypt public key

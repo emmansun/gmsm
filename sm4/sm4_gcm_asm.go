@@ -35,33 +35,6 @@ func gcmSm4Data(productTable *[256]byte, data []byte, T *[16]byte)
 //go:noescape
 func gcmSm4Finish(productTable *[256]byte, tagMask, T *[16]byte, pLen, dLen uint64)
 
-// gcmSm4InitInst is used for test
-func gcmSm4InitInst(productTable *[256]byte, rk []uint32) {
-	if supportSM4 {
-		gcmSm4Init(productTable, rk, INST_SM4)
-	} else {
-		gcmSm4Init(productTable, rk, INST_AES)
-	}
-}
-
-// gcmSm4EncInst is used for test
-func gcmSm4EncInst(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk []uint32) {
-	if supportSM4 {
-		gcmSm4niEnc(productTable, dst, src, ctr, T, rk)
-	} else {
-		gcmSm4Enc(productTable, dst, src, ctr, T, rk)
-	}
-}
-
-// gcmSm4DecInst is used for test
-func gcmSm4DecInst(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk []uint32) {
-	if supportSM4 {
-		gcmSm4niDec(productTable, dst, src, ctr, T, rk)
-	} else {
-		gcmSm4Dec(productTable, dst, src, ctr, T, rk)
-	}
-}
-
 type gcmAsm struct {
 	gcm
 	bytesProductTable [256]byte

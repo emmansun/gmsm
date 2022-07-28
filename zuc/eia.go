@@ -82,6 +82,7 @@ func (m *ZUC128Mac) BlockSize() int {
 	return chunk
 }
 
+// Reset resets the Hash to its initial state.
 func (m *ZUC128Mac) Reset() {
 	m.t = 0
 	m.nx = 0

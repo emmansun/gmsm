@@ -3,7 +3,7 @@ package sm9
 
 import (
 	"crypto"
-	goSubtle "crypto/subtle"
+	"crypto/subtle"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -85,27 +85,6 @@ func randFieldElement(rand io.Reader) (k *big.Int, err error) {
 	k.Mod(k, n)
 	k.Add(k, bigOne)
 	return
-}
-
-// Pair generate the basepoint once
-func (pub *SignMasterPublicKey) Pair() *bn256.GT {
-	pub.pairOnce.Do(func() {
-		pub.basePoint = bn256.Pair(bn256.Gen1, pub.MasterPublicKey)
-	})
-	return pub.basePoint
-}
-
-func (pub *SignMasterPublicKey) generatorTable() *[32 * 2]bn256.GTFieldTable {
-	pub.tableGenOnce.Do(func() {
-		pub.table = bn256.GenerateGTFieldTable(pub.Pair())
-	})
-	return pub.table
-}
-
-// ScalarBaseMult compute basepoint^r with precomputed table
-func (pub *SignMasterPublicKey) ScalarBaseMult(r *big.Int) *bn256.GT {
-	tables := pub.generatorTable()
-	return bn256.ScalarBaseMultGT(tables, r)
 }
 
 // Sign signs a hash (which should be the result of hashing a larger message)
@@ -225,27 +204,6 @@ func VerifyASN1(pub *SignMasterPublicKey, uid []byte, hid byte, hash, sig []byte
 // public key, pub. Its return value records whether the signature is valid.
 func (pub *SignMasterPublicKey) Verify(uid []byte, hid byte, hash, sig []byte) bool {
 	return VerifyASN1(pub, uid, hid, hash, sig)
-}
-
-// Pair generate the basepoint once
-func (pub *EncryptMasterPublicKey) Pair() *bn256.GT {
-	pub.pairOnce.Do(func() {
-		pub.basePoint = bn256.Pair(pub.MasterPublicKey, bn256.Gen2)
-	})
-	return pub.basePoint
-}
-
-func (pub *EncryptMasterPublicKey) generatorTable() *[32 * 2]bn256.GTFieldTable {
-	pub.tableGenOnce.Do(func() {
-		pub.table = bn256.GenerateGTFieldTable(pub.Pair())
-	})
-	return pub.table
-}
-
-// ScalarBaseMult compute basepoint^r with precomputed table
-func (pub *EncryptMasterPublicKey) ScalarBaseMult(r *big.Int) *bn256.GT {
-	tables := pub.generatorTable()
-	return bn256.ScalarBaseMultGT(tables, r)
 }
 
 // WrapKey generate and wrap key with reciever's uid and system hid
@@ -427,7 +385,7 @@ func Decrypt(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error) {
 	hash.Write(key[len(c2):])
 	c32 := hash.Sum(nil)
 
-	if goSubtle.ConstantTimeCompare(c3[:sm3.Size], c32) != 1 {
+	if subtle.ConstantTimeCompare(c3[:sm3.Size], c32) != 1 {
 		return nil, errors.New("sm9: invalid mac value")
 	}
 
@@ -479,7 +437,7 @@ func DecryptASN1(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error
 	hash.Write(key[len(c2Bytes):])
 	c32 := hash.Sum(nil)
 
-	if goSubtle.ConstantTimeCompare(c3Bytes, c32) != 1 {
+	if subtle.ConstantTimeCompare(c3Bytes, c32) != 1 {
 		return nil, errors.New("sm9: invalid mac value")
 	}
 	xor.XorBytes(key, c2Bytes, key[:len(c2Bytes)])
@@ -639,7 +597,7 @@ func (ke *KeyExchange) ConfirmResponder(rB *bn256.G1, sB []byte) ([]byte, error)
 	// step 6, verify signature
 	if len(sB) > 0 {
 		signature := ke.sign(false, 0x82)
-		if goSubtle.ConstantTimeCompare(signature, sB) != 1 {
+		if subtle.ConstantTimeCompare(signature, sB) != 1 {
 			return nil, errors.New("sm9: verify responder's signature fail")
 		}
 	}
@@ -651,7 +609,7 @@ func (ke *KeyExchange) ConfirmResponder(rB *bn256.G1, sB []byte) ([]byte, error)
 // ConfirmInitiator for responder's step B8
 func (ke *KeyExchange) ConfirmInitiator(s1 []byte) error {
 	buffer := ke.sign(true, 0x83)
-	if goSubtle.ConstantTimeCompare(buffer, s1) != 1 {
+	if subtle.ConstantTimeCompare(buffer, s1) != 1 {
 		return errors.New("sm9: verify initiator's signature fail")
 	}
 	return nil
