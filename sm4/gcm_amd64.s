@@ -344,8 +344,8 @@ TEXT ·gcmSm4Data(SB),NOSPLIT,$0
 	MOVQ data_len+16(FP), autLen
 	MOVQ T+32(FP), tPtr
 
-	//PXOR ACC0, ACC0
-	MOVOU (tPtr), ACC0
+	PXOR ACC0, ACC0
+	// MOVOU (tPtr), ACC0 // originally we passed in tag initial value
 	MOVOU bswapMask<>(SB), BSWAP
 	MOVOU gcmPoly<>(SB), POLY
 
