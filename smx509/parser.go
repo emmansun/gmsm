@@ -1019,7 +1019,7 @@ func ParseCertificates(der []byte) ([]*Certificate, error) {
 func ParseCertificatePEM(data []byte) (*Certificate, error) {
 	block, _ := pem.Decode(data)
 	if block == nil {
-		return nil, errors.New("failed to decode PEM block containing CSR")
+		return nil, errors.New("x509: failed to decode PEM block containing certificate")
 	}
 	return ParseCertificate(block.Bytes)
 }
