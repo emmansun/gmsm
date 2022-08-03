@@ -13,7 +13,7 @@ func TestKeyExchangeSample(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	responsder, err := NewKeyExchange(priv2, &priv1.PublicKey, []byte("Bob"), []byte("Alice"), 32, true)
+	responder, err := NewKeyExchange(priv2, &priv1.PublicKey, []byte("Bob"), []byte("Alice"), 32, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,7 +22,7 @@ func TestKeyExchangeSample(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rB, s2, err := responsder.RepondKeyExchange(rand.Reader, rA)
+	rB, s2, err := responder.RepondKeyExchange(rand.Reader, rA)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,12 +32,12 @@ func TestKeyExchangeSample(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = responsder.ConfirmInitiator(s1)
+	err = responder.ConfirmInitiator(s1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if hex.EncodeToString(initiator.key) != hex.EncodeToString(responsder.key) {
+	if hex.EncodeToString(initiator.key) != hex.EncodeToString(responder.key) {
 		t.Errorf("got different key")
 	}
 }

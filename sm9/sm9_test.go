@@ -194,6 +194,56 @@ func TestKeyExchangeSample(t *testing.T) {
 	}
 }
 
+func TestKeyExchange(t *testing.T) {
+	hid := byte(0x02)
+	userA := []byte("Alice")
+	userB := []byte("Bob")
+	masterKey, err := GenerateEncryptMasterKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	userKey, err := masterKey.GenerateUserKey(userA, hid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	initiator := NewKeyExchange(userKey, userA, userB, 16, true)
+
+	userKey, err = masterKey.GenerateUserKey(userB, hid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	responder := NewKeyExchange(userKey, userB, userA, 16, true)
+
+	// A1-A4
+	rA, err := initiator.InitKeyExchange(rand.Reader, hid)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// B1 - B7
+	rB, sigB, err := responder.RepondKeyExchange(rand.Reader, hid, rA)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A5 -A8
+	sigA, err := initiator.ConfirmResponder(rB, sigB)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// B8
+	err = responder.ConfirmInitiator(sigA)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if hex.EncodeToString(initiator.GetSharedKey()) != hex.EncodeToString(responder.GetSharedKey()) {
+		t.Errorf("got different key")
+	}
+}
+
 func TestWrapKey(t *testing.T) {
 	masterKey, err := GenerateEncryptMasterKey(rand.Reader)
 	hid := byte(0x01)
