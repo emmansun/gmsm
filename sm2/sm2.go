@@ -51,6 +51,7 @@ type combinedMult interface {
 }
 
 // PrivateKey represents an ECDSA SM2 private key.
+// It implemented both crypto.Decrypter and crypto.Signer interfaces.
 type PrivateKey struct {
 	ecdsa.PrivateKey
 }

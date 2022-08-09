@@ -44,6 +44,25 @@ func TestSignMasterPublicKeyMarshalASN1(t *testing.T) {
 	}
 }
 
+func TestSignMasterPublicKeyMarshalCompressedASN1(t *testing.T) {
+	masterKey, err := GenerateSignMasterKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	der, err := masterKey.Public().MarshalCompressedASN1()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pub2 := new(SignMasterPublicKey)
+	err = pub2.UnmarshalASN1(der)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !masterKey.MasterPublicKey.Equal(pub2.MasterPublicKey) {
+		t.Errorf("not same")
+	}
+}
+
 func TestSignUserPrivateKeyMarshalASN1(t *testing.T) {
 	masterKey, err := GenerateSignMasterKey(rand.Reader)
 	uid := []byte("emmansun")
@@ -56,6 +75,31 @@ func TestSignUserPrivateKeyMarshalASN1(t *testing.T) {
 		t.Fatal(err)
 	}
 	der, err := userKey.MarshalASN1()
+	if err != nil {
+		t.Fatal(err)
+	}
+	userKey2 := new(SignPrivateKey)
+	err = userKey2.UnmarshalASN1(der)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !userKey.PrivateKey.Equal(userKey2.PrivateKey) {
+		t.Errorf("not same")
+	}
+}
+
+func TestSignUserPrivateKeyMarshalCompressedASN1(t *testing.T) {
+	masterKey, err := GenerateSignMasterKey(rand.Reader)
+	uid := []byte("emmansun")
+	hid := byte(0x01)
+	if err != nil {
+		t.Fatal(err)
+	}
+	userKey, err := masterKey.GenerateUserKey(uid, hid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	der, err := userKey.MarshalCompressedASN1()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,6 +151,25 @@ func TestEncryptMasterPublicKeyMarshalASN1(t *testing.T) {
 	}
 }
 
+func TestEncryptMasterPublicKeyMarshalCompressedASN1(t *testing.T) {
+	masterKey, err := GenerateEncryptMasterKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	der, err := masterKey.Public().MarshalCompressedASN1()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pub2 := new(EncryptMasterPublicKey)
+	err = pub2.UnmarshalASN1(der)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !masterKey.MasterPublicKey.Equal(pub2.MasterPublicKey) {
+		t.Errorf("not same")
+	}
+}
+
 func TestEncryptUserPrivateKeyMarshalASN1(t *testing.T) {
 	masterKey, err := GenerateEncryptMasterKey(rand.Reader)
 	uid := []byte("emmansun")
@@ -119,6 +182,31 @@ func TestEncryptUserPrivateKeyMarshalASN1(t *testing.T) {
 		t.Fatal(err)
 	}
 	der, err := userKey.MarshalASN1()
+	if err != nil {
+		t.Fatal(err)
+	}
+	userKey2 := new(EncryptPrivateKey)
+	err = userKey2.UnmarshalASN1(der)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !userKey.PrivateKey.Equal(userKey2.PrivateKey) {
+		t.Errorf("not same")
+	}
+}
+
+func TestEncryptUserPrivateKeyMarshalCompressedASN1(t *testing.T) {
+	masterKey, err := GenerateEncryptMasterKey(rand.Reader)
+	uid := []byte("emmansun")
+	hid := byte(0x01)
+	if err != nil {
+		t.Fatal(err)
+	}
+	userKey, err := masterKey.GenerateUserKey(uid, hid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	der, err := userKey.MarshalCompressedASN1()
 	if err != nil {
 		t.Fatal(err)
 	}

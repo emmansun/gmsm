@@ -153,6 +153,14 @@ func (pub *SignMasterPublicKey) MarshalASN1() ([]byte, error) {
 	return b.Bytes()
 }
 
+// MarshalCompressedASN1 marshal sign master public key to asn.1 format data according
+// SM9 cryptographic algorithm application specification, the curve point is in compressed form.
+func (pub *SignMasterPublicKey) MarshalCompressedASN1() ([]byte, error) {
+	var b cryptobyte.Builder
+	b.AddASN1BitString(pub.MasterPublicKey.MarshalCompressed())
+	return b.Bytes()
+}
+
 func unmarshalG2(bytes []byte) (*bn256.G2, error) {
 	g2 := new(bn256.G2)
 	switch bytes[0] {
@@ -204,6 +212,14 @@ func (priv *SignPrivateKey) SetMasterPublicKey(pub *SignMasterPublicKey) {
 func (priv *SignPrivateKey) MarshalASN1() ([]byte, error) {
 	var b cryptobyte.Builder
 	b.AddASN1BitString(priv.PrivateKey.MarshalUncompressed())
+	return b.Bytes()
+}
+
+// MarshalCompressedASN1 marshal sign user private key to asn.1 format data according
+// SM9 cryptographic algorithm application specification, the curve point is in compressed form.
+func (priv *SignPrivateKey) MarshalCompressedASN1() ([]byte, error) {
+	var b cryptobyte.Builder
+	b.AddASN1BitString(priv.PrivateKey.MarshalCompressed())
 	return b.Bytes()
 }
 
@@ -343,6 +359,14 @@ func (pub *EncryptMasterPublicKey) MarshalASN1() ([]byte, error) {
 	return b.Bytes()
 }
 
+// MarshalCompressedASN1 marshal encrypt master public key to asn.1 format data according
+// SM9 cryptographic algorithm application specification, the curve point is in compressed form.
+func (pub *EncryptMasterPublicKey) MarshalCompressedASN1() ([]byte, error) {
+	var b cryptobyte.Builder
+	b.AddASN1BitString(pub.MasterPublicKey.MarshalCompressed())
+	return b.Bytes()
+}
+
 // UnmarshalASN1 unmarsal der data to encrypt master public key
 func (pub *EncryptMasterPublicKey) UnmarshalASN1(der []byte) error {
 	var bytes []byte
@@ -375,6 +399,14 @@ func (priv *EncryptPrivateKey) SetMasterPublicKey(pub *EncryptMasterPublicKey) {
 func (priv *EncryptPrivateKey) MarshalASN1() ([]byte, error) {
 	var b cryptobyte.Builder
 	b.AddASN1BitString(priv.PrivateKey.MarshalUncompressed())
+	return b.Bytes()
+}
+
+// MarshalCompressedASN1 marshal encrypt user private key to asn.1 format data according
+// SM9 cryptographic algorithm application specification, the curve point is in compressed form.
+func (priv *EncryptPrivateKey) MarshalCompressedASN1() ([]byte, error) {
+	var b cryptobyte.Builder
+	b.AddASN1BitString(priv.PrivateKey.MarshalCompressed())
 	return b.Bytes()
 }
 
