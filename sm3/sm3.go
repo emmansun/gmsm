@@ -225,10 +225,10 @@ func Kdf(z []byte, len int) ([]byte, bool) {
 		ct++
 		md.Reset()
 	}
-	for i := 0; i < len; i++ {
-		if k[i] != 0 {
-			return k[:len], true
-		}
+	k = k[:len]
+	var b uint8
+	for _, v := range k {
+		b |= v
 	}
-	return k, false
+	return k, int((uint32(b)-1)>>31) != 1
 }
