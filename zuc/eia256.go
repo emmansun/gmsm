@@ -98,19 +98,16 @@ func block256Generic(m *ZUC256Mac, p []byte) {
 			case 4:
 				k64 = uint64(m.k0[l])<<32 | uint64(m.k0[l+1])
 				for j := 0; j < 32; j++ {
-					if w&0x80000000 == 0x80000000 {
-						t64 ^= k64
-					}
+					t64 ^= ^(uint64(w>>31) - 1) & k64
 					w <<= 1
 					k64 <<= 1
 				}
 			default:
 				k1 := m.k0[tagWords+l]
 				for i := 0; i < 32; i++ {
-					if w&0x80000000 == 0x80000000 {
-						for j := 0; j < tagWords; j++ {
-							m.t[j] ^= m.k0[j]
-						}
+					wBit := ^(w>>31 - 1)
+					for j := 0; j < tagWords; j++ {
+						m.t[j] ^= wBit & m.k0[j]
 					}
 					w <<= 1
 					var j int
@@ -170,10 +167,9 @@ func (m *ZUC256Mac) checkSum(additionalBits int, b byte) []byte {
 			w := binary.BigEndian.Uint32(m.x[l*4:])
 			k1 := m.k0[m.tagSize/4+l]
 			for i := 0; i < 32; i++ {
-				if w&0x80000000 == 0x80000000 {
-					for j := 0; j < m.tagSize/4; j++ {
-						m.t[j] ^= m.k0[j]
-					}
+				wBit := ^(w>>31 - 1)
+				for j := 0; j < m.tagSize/4; j++ {
+					m.t[j] ^= wBit & m.k0[j]
 				}
 				w <<= 1
 				var j int
@@ -189,10 +185,9 @@ func (m *ZUC256Mac) checkSum(additionalBits int, b byte) []byte {
 		if nRemainBits > 0 {
 			w := binary.BigEndian.Uint32(m.x[(words-1)*4:])
 			for i := 0; i < nRemainBits; i++ {
-				if w&0x80000000 == 0x80000000 {
-					for j := 0; j < m.tagSize/4; j++ {
-						m.t[j] ^= m.k0[j+kIdx]
-					}
+				wBit := ^(w>>31 - 1)
+				for j := 0; j < m.tagSize/4; j++ {
+					m.t[j] ^= wBit & m.k0[j+kIdx]
 				}
 				w <<= 1
 				var j int

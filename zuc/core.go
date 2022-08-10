@@ -118,30 +118,18 @@ func add31(x, y uint32) uint32 {
 }
 
 func (s *zucState32) enterInitMode(w uint32) {
-	v := uint64(s.lfsr[15])<<15 + uint64(s.lfsr[13])<<17 + uint64(s.lfsr[10])<<21 + uint64(s.lfsr[4])<<20 + uint64(s.lfsr[0])<<8 + uint64(s.lfsr[0])
+	v := uint64(s.lfsr[15])<<15 + uint64(s.lfsr[13])<<17 + uint64(s.lfsr[10])<<21 + uint64(s.lfsr[4])<<20 + uint64(s.lfsr[0])<<8 + uint64(s.lfsr[0]) + uint64(w)
 	v = (v & 0x7FFFFFFF) + (v >> 31)
-	t := add31(uint32(v), w)
-
-	if t == 0 {
-		t = 0x7FFFFFFF
-	}
-	var temp [16]uint32
-	copy(temp[:], s.lfsr[1:])
-	copy(s.lfsr[:], temp[:])
-	s.lfsr[15] = t
-}
-
-func (s *zucState32) enterWorkMode() {
-	v := uint64(s.lfsr[15])<<15 + uint64(s.lfsr[13])<<17 + uint64(s.lfsr[10])<<21 + uint64(s.lfsr[4])<<20 + uint64(s.lfsr[0])<<8 + uint64(s.lfsr[0])
 	v = (v & 0x7FFFFFFF) + (v >> 31)
 
-	if v == 0 {
-		v = 0x7FFFFFFF
-	}
 	var temp [16]uint32
 	copy(temp[:], s.lfsr[1:])
 	copy(s.lfsr[:], temp[:])
 	s.lfsr[15] = uint32(v)
+}
+
+func (s *zucState32) enterWorkMode() {
+	s.enterInitMode(uint32(0))
 }
 
 func makeFieldValue3(a, b, c uint32) uint32 {

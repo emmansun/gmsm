@@ -102,9 +102,7 @@ func blockGeneric(m *ZUC128Mac, p []byte) {
 			k64 = uint64(m.k0[i])<<32 | uint64(m.k0[i+1])
 			w := binary.BigEndian.Uint32(p[i*4:])
 			for j := 0; j < 32; j++ {
-				if w&0x80000000 == 0x80000000 {
-					t64 ^= k64
-				}
+				t64 ^= ^(uint64(w>>31) - 1) & k64
 				w <<= 1
 				k64 <<= 1
 			}
@@ -156,9 +154,7 @@ func (m *ZUC128Mac) checkSum(additionalBits int, b byte) [4]byte {
 			k64 = uint64(m.k0[i])<<32 | uint64(m.k0[i+1])
 			w := binary.BigEndian.Uint32(m.x[i*4:])
 			for j := 0; j < 32; j++ {
-				if w&0x80000000 == 0x80000000 {
-					t64 ^= k64
-				}
+				t64 ^= ^(uint64(w>>31) - 1) & k64
 				w <<= 1
 				k64 <<= 1
 			}
@@ -169,9 +165,7 @@ func (m *ZUC128Mac) checkSum(additionalBits int, b byte) [4]byte {
 			k64 = uint64(m.k0[kIdx])<<32 | uint64(m.k0[kIdx+1])
 			w := binary.BigEndian.Uint32(m.x[(words-1)*4:])
 			for j := 0; j < nRemainBits; j++ {
-				if w&0x80000000 == 0x80000000 {
-					t64 ^= k64
-				}
+				t64 ^= ^(uint64(w>>31) - 1) & k64
 				w <<= 1
 				k64 <<= 1
 			}
