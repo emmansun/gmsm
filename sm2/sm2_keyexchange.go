@@ -35,10 +35,14 @@ func (ke *KeyExchange) GetSharedKey() []byte {
 }
 
 // NewKeyExchange create one new KeyExchange object
+//
+// 在部分场景中，在初始  KeyExchange 时暂时没有对端的公开信息（如公钥、UID），这些信息可能需要在后续的交换中得到。
+// 这种情况下，可设置 peerPub、peerUID 参数为 nil，并在合适的时候通过 KeyExchange.SetPeerPub 方法配置相关参数。
+// 注意 KeyExchange.SetPeerPub 方法必须要在 KeyExchange.RepondKeyExchange 或 KeyExchange.RepondKeyExchange 方法调用。
 func NewKeyExchange(priv *PrivateKey, peerPub *ecdsa.PublicKey, uid, peerUID []byte, keyLen int, genSignature bool) (ke *KeyExchange, err error) {
 	ke = &KeyExchange{}
 	ke.genSignature = genSignature
-	ke.peerPub = peerPub
+
 	ke.keyLength = keyLen
 	ke.privateKey = priv
 	w := (priv.Params().N.BitLen()+1)/2 - 1
@@ -48,22 +52,47 @@ func NewKeyExchange(priv *PrivateKey, peerPub *ecdsa.PublicKey, uid, peerUID []b
 	x2minus1 := (&big.Int{}).Sub(x2, big.NewInt(1))
 	ke.w2Minus1 = x2minus1
 
+	if len(uid) == 0 {
+		uid = defaultUID
+	}
 	ke.z, err = calculateZA(&ke.privateKey.PublicKey, uid)
 	if err != nil {
 		return nil, err
 	}
-	ke.peerZ, err = calculateZA(ke.peerPub, peerUID)
+
+	err = ke.SetPeerPub(peerPub, peerUID)
 	if err != nil {
 		return nil, err
 	}
+
 	ke.secret = &ecdsa.PublicKey{}
 	ke.secret.Curve = priv.PublicKey.Curve
-	ke.peerSecret = &ecdsa.PublicKey{}
-	ke.peerSecret.Curve = peerPub.Curve
+
 	ke.v = &ecdsa.PublicKey{}
 	ke.v.Curve = priv.PublicKey.Curve
 
 	return
+}
+
+// SetPeerPub 设置对端公开信息，该方法用于某些初期状态无法取得对端公开参数的场景。
+// 例如：在TLCP协议中，基于SM2算法ECDHE过程。
+func (ke *KeyExchange) SetPeerPub(peerPub *ecdsa.PublicKey, peerUID []byte) error {
+	if peerPub == nil {
+		return nil
+	}
+	if len(peerUID) == 0 {
+		peerUID = defaultUID
+	}
+
+	var err error
+	ke.peerPub = peerPub
+	ke.peerZ, err = calculateZA(ke.peerPub, peerUID)
+	if err != nil {
+		return err
+	}
+	ke.peerSecret = &ecdsa.PublicKey{}
+	ke.peerSecret.Curve = peerPub.Curve
+	return nil
 }
 
 func initKeyExchange(ke *KeyExchange, r *big.Int) {
@@ -154,6 +183,9 @@ func respondKeyExchange(ke *KeyExchange, r *big.Int, rA *ecdsa.PublicKey) (*ecds
 
 // RepondKeyExchange when responder receive rA, for responder's step B1-B8
 func (ke *KeyExchange) RepondKeyExchange(rand io.Reader, rA *ecdsa.PublicKey) (*ecdsa.PublicKey, []byte, error) {
+	if ke.peerPub == nil {
+		return nil, nil, errors.New("sm2: peer public not set, you probable need call KeyExchange.SetPeerPub")
+	}
 	if !ke.privateKey.IsOnCurve(rA.X, rA.Y) {
 		return nil, nil, errors.New("sm2: received invalid random from initiator")
 	}
@@ -167,6 +199,9 @@ func (ke *KeyExchange) RepondKeyExchange(rand io.Reader, rA *ecdsa.PublicKey) (*
 
 // ConfirmResponder for initiator's step A4-A10
 func (ke *KeyExchange) ConfirmResponder(rB *ecdsa.PublicKey, sB []byte) ([]byte, error) {
+	if ke.peerPub == nil {
+		return nil, errors.New("sm2: peer public not set, you probable need call KeyExchange.SetPeerPub")
+	}
 	if !ke.privateKey.IsOnCurve(rB.X, rB.Y) {
 		return nil, errors.New("sm2: received invalid random from responder")
 	}
