@@ -319,7 +319,7 @@ type sm2p256Table [15]*SM2P256Point
 // constant time by iterating over every entry of the table. n must be in [0, 15].
 func (table *sm2p256Table) Select(p *SM2P256Point, n uint8) {
 	if n >= 16 {
-		panic("nistec: internal error: sm2p256Table called with out-of-bounds value")
+		panic("sm2ec: internal error: sm2p256Table called with out-of-bounds value")
 	}
 	p.Set(NewSM2P256Point())
 	for i := uint8(1); i < 16; i++ {

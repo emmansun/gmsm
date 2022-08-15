@@ -462,7 +462,7 @@ type {{.p}}Table [15]*{{.P}}Point
 // constant time by iterating over every entry of the table. n must be in [0, 15].
 func (table *{{.p}}Table) Select(p *{{.P}}Point, n uint8) {
 	if n >= 16 {
-		panic("nistec: internal error: {{.p}}Table called with out-of-bounds value")
+		panic("sm2ec: internal error: {{.p}}Table called with out-of-bounds value")
 	}
 	p.Set(New{{.P}}Point())
 	for i := uint8(1); i < 16; i++ {
