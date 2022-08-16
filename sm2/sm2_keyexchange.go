@@ -45,12 +45,15 @@ func NewKeyExchange(priv *PrivateKey, peerPub *ecdsa.PublicKey, uid, peerUID []b
 
 	ke.keyLength = keyLen
 	ke.privateKey = priv
+
+	one := big.NewInt(1)
+	/* compute w = [log2(n)/2 - 1] = 127 */
 	w := (priv.Params().N.BitLen()+1)/2 - 1
-	x2 := big.NewInt(2)
-	ke.w2 = x2
-	x2.Lsh(x2, uint(w))
-	x2minus1 := (&big.Int{}).Sub(x2, big.NewInt(1))
-	ke.w2Minus1 = x2minus1
+
+	/* w2 = 2^w = 0x80000000000000000000000000000000 */
+	ke.w2 = (&big.Int{}).Lsh(one, uint(w))
+	/* x2minus1 = 2^w - 1 = 0x7fffffffffffffffffffffffffffffff */
+	ke.w2Minus1 = (&big.Int{}).Sub(ke.w2, one)
 
 	if len(uid) == 0 {
 		uid = defaultUID
@@ -158,7 +161,7 @@ func (ke *KeyExchange) generateSharedKey(isResponder bool) {
 	ke.key = key
 }
 
-func respondKeyExchange(ke *KeyExchange, r *big.Int, rA *ecdsa.PublicKey) (*ecdsa.PublicKey, []byte, error) {
+func respondKeyExchange(ke *KeyExchange, r *big.Int) (*ecdsa.PublicKey, []byte, error) {
 	ke.secret.X, ke.secret.Y = ke.privateKey.ScalarBaseMult(r.Bytes())
 	ke.r = r
 	// Calculate tB
@@ -168,11 +171,15 @@ func respondKeyExchange(ke *KeyExchange, r *big.Int, rA *ecdsa.PublicKey) (*ecds
 	t.Add(t, ke.privateKey.D)
 	t.Mod(t, ke.privateKey.Params().N)
 
+	/* x1 = 2^w + (x & (2^w – 1)) */
 	x1 := (&big.Int{}).And(ke.w2Minus1, ke.peerSecret.X)
 	x1.Add(ke.w2, x1)
 
+	/* Point(x3, y3) = peerPub + [x1](peerSecret) */
 	x3, y3 := ke.privateKey.ScalarMult(ke.peerSecret.X, ke.peerSecret.Y, x1.Bytes())
 	x3, y3 = ke.privateKey.Add(ke.peerPub.X, ke.peerPub.Y, x3, y3)
+
+	/* V = [h*tB](Point(x3, y3)) */
 	ke.v.X, ke.v.Y = ke.privateKey.ScalarMult(x3, y3, t.Bytes())
 	if ke.v.X.Sign() == 0 && ke.v.Y.Sign() == 0 {
 		return nil, nil, errors.New("sm2: key exchange fail")
@@ -188,6 +195,7 @@ func respondKeyExchange(ke *KeyExchange, r *big.Int, rA *ecdsa.PublicKey) (*ecds
 }
 
 // RepondKeyExchange when responder receive rA, for responder's step B1-B8
+// rA - Received Peer's Ephemeral Public Key
 func (ke *KeyExchange) RepondKeyExchange(rand io.Reader, rA *ecdsa.PublicKey) (*ecdsa.PublicKey, []byte, error) {
 	if ke.peerPub == nil {
 		return nil, nil, errors.New("sm2: peer public not set, you probable need call KeyExchange.SetPeerParameters")
@@ -200,7 +208,7 @@ func (ke *KeyExchange) RepondKeyExchange(rand io.Reader, rA *ecdsa.PublicKey) (*
 	if err != nil {
 		return nil, nil, err
 	}
-	return respondKeyExchange(ke, r, rA)
+	return respondKeyExchange(ke, r)
 }
 
 // ConfirmResponder for initiator's step A4-A10
@@ -219,11 +227,15 @@ func (ke *KeyExchange) ConfirmResponder(rB *ecdsa.PublicKey, sB []byte) ([]byte,
 	t.Add(t, ke.privateKey.D)
 	t.Mod(t, ke.privateKey.Params().N)
 
+	/* x2 = 2^w + (x & (2^w – 1)) */
 	x2 := (&big.Int{}).And(ke.w2Minus1, ke.peerSecret.X)
 	x2.Add(ke.w2, x2)
 
+	/* Point(x3, y3) = peerPub + [x1](peerSecret) */
 	x3, y3 := ke.privateKey.ScalarMult(ke.peerSecret.X, ke.peerSecret.Y, x2.Bytes())
 	x3, y3 = ke.privateKey.Add(ke.peerPub.X, ke.peerPub.Y, x3, y3)
+
+	/* V = [h*tA](Point(x3, y3)) */
 	ke.v.X, ke.v.Y = ke.privateKey.ScalarMult(x3, y3, t.Bytes())
 
 	if ke.v.X.Sign() == 0 && ke.v.Y.Sign() == 0 {
