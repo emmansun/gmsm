@@ -221,7 +221,7 @@ func (ke *KeyExchange) RepondKeyExchange(rand io.Reader, rA *ecdsa.PublicKey) (*
 // It will check if there are peer's public key and validate the peer's Ephemeral Public Key.
 //
 // If the peer's signature is not empty, then it will also validate the peer's
-// signature and return generated signature regardless KeyExchange.genSignature value.
+// signature and return generated signature depends on KeyExchange.genSignature value.
 func (ke *KeyExchange) ConfirmResponder(rB *ecdsa.PublicKey, sB []byte) ([]byte, error) {
 	if ke.peerPub == nil {
 		return nil, errors.New("sm2: no peer public key given")
@@ -257,6 +257,9 @@ func (ke *KeyExchange) ConfirmResponder(rB *ecdsa.PublicKey, sB []byte) ([]byte,
 		if subtle.ConstantTimeCompare(buffer, sB) != 1 {
 			return nil, errors.New("sm2: invalid responder's signature")
 		}
+	}
+	if !ke.genSignature {
+		return nil, nil
 	}
 	return ke.sign(false, 0x03), nil
 }

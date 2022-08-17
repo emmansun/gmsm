@@ -43,6 +43,43 @@ func TestKeyExchangeSample(t *testing.T) {
 	}
 }
 
+func TestKeyExchangeSimplest(t *testing.T) {
+	priv1, _ := GenerateKey(rand.Reader)
+	priv2, _ := GenerateKey(rand.Reader)
+	initiator, err := NewKeyExchange(priv1, &priv2.PublicKey, nil, nil, 32, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	responder, err := NewKeyExchange(priv2, &priv1.PublicKey, nil, nil, 32, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rA, err := initiator.InitKeyExchange(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rB, s2, err := responder.RepondKeyExchange(rand.Reader, rA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s2) != 0 {
+		t.Errorf("should be no siganature")
+	}
+
+	s1, err := initiator.ConfirmResponder(rB, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s1) != 0 {
+		t.Errorf("should be no siganature")
+	}
+
+	if hex.EncodeToString(initiator.GetSharedKey()) != hex.EncodeToString(responder.GetSharedKey()) {
+		t.Errorf("got different key")
+	}
+}
+
 func TestSetPeerParameters(t *testing.T) {
 	priv1, _ := GenerateKey(rand.Reader)
 	priv2, _ := GenerateKey(rand.Reader)
@@ -67,12 +104,6 @@ func TestSetPeerParameters(t *testing.T) {
 	err = initiator.SetPeerParameters(&priv2.PublicKey, uidB)
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	// call twice
-	err = initiator.SetPeerParameters(&priv2.PublicKey, uidB)
-	if err == nil {
-		t.Fatalf("expected error")
 	}
 
 	err = responder.SetPeerParameters(&priv1.PublicKey, uidA)

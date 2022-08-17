@@ -602,7 +602,9 @@ func (ke *KeyExchange) ConfirmResponder(rB *bn256.G1, sB []byte) ([]byte, error)
 		}
 	}
 	ke.generateSharedKey(false)
-
+	if !ke.genSignature {
+		return nil, nil
+	}
 	return ke.sign(false, 0x83), nil
 }
 
