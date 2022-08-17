@@ -78,9 +78,9 @@ func loadSystemRoots() (*CertPool, error) {
 	return nil, firstErr
 }
 
-// readUniqueDirectoryEntries is like ioutil.ReadDir but omits
+// readUniqueDirectoryEntries is like os.ReadDir but omits
 // symlinks that point within the directory.
-func readUniqueDirectoryEntries(dir string) ([]os.FileInfo, error) {
+func readUniqueDirectoryEntries(dir string) ([]fs.DirEntry, error) {
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -93,6 +93,7 @@ func readUniqueDirectoryEntries(dir string) ([]os.FileInfo, error) {
 	}
 	return uniq, nil
 }
+
 
 // isSameDirSymlink reports whether fi in dir is a symlink with a
 // target not containing a slash.
