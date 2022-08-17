@@ -11,6 +11,32 @@ import (
 
 var _ = elliptic.P256() // force NIST P curves init, avoid panic when we invoke generic implementation's method
 
+// unmarshaler is implemented by curves with their own constant-time Unmarshal.
+// Since golang 1.19
+// There isn't an equivalent interface for Marshal/MarshalCompressed because
+// that doesn't involve any mathematical operations, only FillBytes and Bit.
+type unmarshaler interface {
+	Unmarshal([]byte) (x, y *big.Int)
+	UnmarshalCompressed([]byte) (x, y *big.Int)
+}
+
+func unmarshal(curve elliptic.Curve, data []byte) (x, y *big.Int) {
+	if c, ok := curve.(unmarshaler); ok {
+		return c.Unmarshal(data)
+	}
+	return elliptic.Unmarshal(curve, data)
+}
+
+// UnmarshalCompressed converts a point, serialized by MarshalCompressed, into
+// an x, y pair. It is an error if the point is not in compressed form, is not
+// on the curve, or is the point at infinity. On error, x = nil.
+func unmarshalCompressed(curve elliptic.Curve, data []byte) (x, y *big.Int) {
+	if c, ok := curve.(unmarshaler); ok {
+		return c.UnmarshalCompressed(data)
+	}
+	return elliptic.UnmarshalCompressed(curve, data)
+}
+
 // genericParamsForCurve returns the dereferenced CurveParams for
 // the specified curve. This is used to avoid the logic for
 // upgrading a curve to its specific implementation, forcing
@@ -61,7 +87,7 @@ func TestOffCurve(t *testing.T) {
 		x.FillBytes(b[1 : 1+byteLen])
 		y.FillBytes(b[1+byteLen : 1+2*byteLen])
 
-		x1, y1 := elliptic.Unmarshal(curve, b)
+		x1, y1 := unmarshal(curve, b)
 		if x1 != nil || y1 != nil {
 			t.Errorf("unmarshaling a point not on the curve succeeded")
 		}
@@ -126,18 +152,18 @@ func testInfinity(t *testing.T, curve elliptic.Curve) {
 		t.Errorf("IsOnCurve(∞) == true")
 	}
 
-	if xx, yy := elliptic.Unmarshal(curve, elliptic.Marshal(curve, x0, y0)); xx != nil || yy != nil {
+	if xx, yy := unmarshal(curve, elliptic.Marshal(curve, x0, y0)); xx != nil || yy != nil {
 		t.Errorf("Unmarshal(Marshal(∞)) did not return an error")
 	}
 	// We don't test UnmarshalCompressed(MarshalCompressed(∞)) because there are
 	// two valid points with x = 0.
-	if xx, yy := elliptic.Unmarshal(curve, []byte{0x00}); xx != nil || yy != nil {
+	if xx, yy := unmarshal(curve, []byte{0x00}); xx != nil || yy != nil {
 		t.Errorf("Unmarshal(∞) did not return an error")
 	}
 	byteLen := (curve.Params().BitSize + 7) / 8
 	buf := make([]byte, byteLen*2+1)
 	buf[0] = 4 // Uncompressed format.
-	if xx, yy := elliptic.Unmarshal(curve, buf); xx != nil || yy != nil {
+	if xx, yy := unmarshal(curve, buf); xx != nil || yy != nil {
 		t.Errorf("Unmarshal((0,0)) did not return an error")
 	}
 }
@@ -149,7 +175,7 @@ func TestMarshal(t *testing.T) {
 			t.Fatal(err)
 		}
 		serialized := elliptic.Marshal(curve, x, y)
-		xx, yy := elliptic.Unmarshal(curve, serialized)
+		xx, yy := unmarshal(curve, serialized)
 		if xx == nil {
 			t.Fatal("failed to unmarshal")
 		}
@@ -230,7 +256,7 @@ func TestMarshalCompressed(t *testing.T) {
 
 	t.Run("Invalid", func(t *testing.T) {
 		data, _ := hex.DecodeString("02fd4bf61763b46581fd9174d623516cf3c81edd40e29ffa2777fb6cb0ae3ce535")
-		X, Y := elliptic.UnmarshalCompressed(P256(), data)
+		X, Y := unmarshalCompressed(P256(), data)
 		if X != nil || Y != nil {
 			t.Error("expected an error for invalid encoding")
 		}
@@ -258,7 +284,7 @@ func testMarshalCompressed(t *testing.T, curve elliptic.Curve, x, y *big.Int, wa
 		t.Errorf("got unexpected MarshalCompressed result: got %x, want %x", got, want)
 	}
 
-	X, Y := elliptic.UnmarshalCompressed(curve, got)
+	X, Y := unmarshalCompressed(curve, got)
 	if X == nil || Y == nil {
 		t.Fatalf("UnmarshalCompressed failed unexpectedly")
 	}
@@ -328,7 +354,7 @@ func BenchmarkMarshalUnmarshal(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
 				buf := elliptic.Marshal(curve, x, y)
-				xx, yy := elliptic.Unmarshal(curve, buf)
+				xx, yy := unmarshal(curve, buf)
 				if xx.Cmp(x) != 0 || yy.Cmp(y) != 0 {
 					b.Error("Unmarshal output different from Marshal input")
 				}
@@ -338,7 +364,7 @@ func BenchmarkMarshalUnmarshal(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
 				buf := elliptic.MarshalCompressed(curve, x, y)
-				xx, yy := elliptic.UnmarshalCompressed(curve, buf)
+				xx, yy := unmarshalCompressed(curve, buf)
 				if xx.Cmp(x) != 0 || yy.Cmp(y) != 0 {
 					b.Error("Unmarshal output different from Marshal input")
 				}
