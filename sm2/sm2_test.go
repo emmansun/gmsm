@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/emmansun/gmsm/sm2/sm2ec"
 	"github.com/emmansun/gmsm/sm3"
 )
 
@@ -438,7 +439,7 @@ func BenchmarkLessThan32_P256(b *testing.B) {
 }
 
 func BenchmarkLessThan32_SM2(b *testing.B) {
-	benchmarkEncrypt(b, P256(), "encryption standard")
+	benchmarkEncrypt(b, sm2ec.P256(), "encryption standard")
 }
 
 func BenchmarkMoreThan32_P256(b *testing.B) {
@@ -446,5 +447,5 @@ func BenchmarkMoreThan32_P256(b *testing.B) {
 }
 
 func BenchmarkMoreThan32_SM2(b *testing.B) {
-	benchmarkEncrypt(b, P256(), "encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard")
+	benchmarkEncrypt(b, sm2ec.P256(), "encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard")
 }

@@ -1,0 +1,47 @@
+name: ci
+
+on:
+  push:
+    branches: [ '20221015' ]
+  pull_request:
+    branches: [ '20221015' ]
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goVer: ['1.16', '1.17', '1.18']    
+    steps:
+    - name: Checkout Repo
+      uses: actions/checkout@v3
+  
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: ${{ matrix.goVer }}
+
+    - name: Setup Environment
+      run: |
+         echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
+         echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+    - name: Module cache
+      uses: actions/cache@v3
+      env:
+        cache-name: go-mod-cache
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+          
+    - name: Test with Coverage
+      run: go test -coverpkg=./... -v -short -coverprofile=coverage1.txt -covermode=atomic ./...
+
+    - name: Test Generic
+      run: go test -coverpkg=./... -v -short -tags generic  -coverprofile=coverage2.txt -covermode=atomic ./...      
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./coverage1.txt,./coverage2.txt
