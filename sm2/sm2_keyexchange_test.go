@@ -68,6 +68,13 @@ func TestSetPeerParameters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	// call twice
+	err = initiator.SetPeerParameters(&priv2.PublicKey, uidB)
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+
 	err = responder.SetPeerParameters(&priv1.PublicKey, uidA)
 	if err != nil {
 		t.Fatal(err)

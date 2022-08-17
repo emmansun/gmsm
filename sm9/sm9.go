@@ -552,7 +552,7 @@ func (ke *KeyExchange) generateSharedKey(isResponder bool) {
 
 func respondKeyExchange(ke *KeyExchange, hid byte, r *big.Int, rA *bn256.G1) (*bn256.G1, []byte, error) {
 	if !rA.IsOnCurve() {
-		return nil, nil, errors.New("sm9: received invalid random from initiator")
+		return nil, nil, errors.New("sm9: invalid initiator's ephemeral public key")
 	}
 	ke.peerSecret = rA
 	pubA := ke.privateKey.GenerateUserPublicKey(ke.peerUID, hid)
@@ -586,7 +586,7 @@ func (ke *KeyExchange) RepondKeyExchange(rand io.Reader, hid byte, rA *bn256.G1)
 // ConfirmResponder for initiator's step A5-A7
 func (ke *KeyExchange) ConfirmResponder(rB *bn256.G1, sB []byte) ([]byte, error) {
 	if !rB.IsOnCurve() {
-		return nil, errors.New("sm9: received invalid random from responder")
+		return nil, errors.New("sm9: invalid responder's ephemeral public key")
 	}
 	// step 5
 	ke.peerSecret = rB
@@ -598,7 +598,7 @@ func (ke *KeyExchange) ConfirmResponder(rB *bn256.G1, sB []byte) ([]byte, error)
 	if len(sB) > 0 {
 		signature := ke.sign(false, 0x82)
 		if subtle.ConstantTimeCompare(signature, sB) != 1 {
-			return nil, errors.New("sm9: verify responder's signature fail")
+			return nil, errors.New("sm9: invalid responder's signature")
 		}
 	}
 	ke.generateSharedKey(false)
@@ -610,7 +610,7 @@ func (ke *KeyExchange) ConfirmResponder(rB *bn256.G1, sB []byte) ([]byte, error)
 func (ke *KeyExchange) ConfirmInitiator(s1 []byte) error {
 	buffer := ke.sign(true, 0x83)
 	if subtle.ConstantTimeCompare(buffer, s1) != 1 {
-		return errors.New("sm9: verify initiator's signature fail")
+		return errors.New("sm9: invalid initiator's signature")
 	}
 	return nil
 }

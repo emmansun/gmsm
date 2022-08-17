@@ -2,7 +2,7 @@ package sm2
 
 import (
 	"crypto/ecdsa"
-	goSubtle "crypto/subtle"
+	"crypto/subtle"
 	"errors"
 	"io"
 	"math/big"
@@ -109,7 +109,7 @@ func initKeyExchange(ke *KeyExchange, r *big.Int) {
 	ke.r = r
 }
 
-// InitKeyExchange generate random with responder uid, for initiator's step A1-A3
+// InitKeyExchange is for initiator's step A1-A3, returns generated Ephemeral Public Key which will be passed to Reponder.
 func (ke *KeyExchange) InitKeyExchange(rand io.Reader) (*ecdsa.PublicKey, error) {
 	r, err := randFieldElement(ke.privateKey, rand)
 	if err != nil {
@@ -162,27 +162,30 @@ func (ke *KeyExchange) generateSharedKey(isResponder bool) {
 }
 
 func respondKeyExchange(ke *KeyExchange, r *big.Int) (*ecdsa.PublicKey, []byte, error) {
+	// secret = RB = [r]G
 	ke.secret.X, ke.secret.Y = ke.privateKey.ScalarBaseMult(r.Bytes())
 	ke.r = r
-	// Calculate tB
+	// Calculate x2`
 	t := (&big.Int{}).And(ke.w2Minus1, ke.secret.X)
 	t.Add(ke.w2, t)
+
+	// Calculate tB
 	t.Mul(t, ke.r)
 	t.Add(t, ke.privateKey.D)
 	t.Mod(t, ke.privateKey.Params().N)
 
-	/* x1 = 2^w + (x & (2^w – 1)) */
+	// x1` = 2^w + (x & (2^w – 1))
 	x1 := (&big.Int{}).And(ke.w2Minus1, ke.peerSecret.X)
 	x1.Add(ke.w2, x1)
 
-	/* Point(x3, y3) = peerPub + [x1](peerSecret) */
+	// Point(x3, y3) = peerPub + [x1](peerSecret)
 	x3, y3 := ke.privateKey.ScalarMult(ke.peerSecret.X, ke.peerSecret.Y, x1.Bytes())
 	x3, y3 = ke.privateKey.Add(ke.peerPub.X, ke.peerPub.Y, x3, y3)
 
-	/* V = [h*tB](Point(x3, y3)) */
+	// V = [h*tB](Point(x3, y3))
 	ke.v.X, ke.v.Y = ke.privateKey.ScalarMult(x3, y3, t.Bytes())
 	if ke.v.X.Sign() == 0 && ke.v.Y.Sign() == 0 {
-		return nil, nil, errors.New("sm2: key exchange fail")
+		return nil, nil, errors.New("sm2: key exchange failed, V is infinity point")
 	}
 
 	ke.generateSharedKey(true)
@@ -194,14 +197,16 @@ func respondKeyExchange(ke *KeyExchange, r *big.Int) (*ecdsa.PublicKey, []byte, 
 	return ke.secret, ke.sign(true, 0x02), nil
 }
 
-// RepondKeyExchange when responder receive rA, for responder's step B1-B8
-// rA - Received Peer's Ephemeral Public Key
+// RepondKeyExchange is for responder's step B1-B8, returns generated Ephemeral Public Key and optional signature
+// depends on KeyExchange.genSignature value.
+//
+// It will check if there are peer's public key and validate the peer's Ephemeral Public Key.
 func (ke *KeyExchange) RepondKeyExchange(rand io.Reader, rA *ecdsa.PublicKey) (*ecdsa.PublicKey, []byte, error) {
 	if ke.peerPub == nil {
-		return nil, nil, errors.New("sm2: peer public not set, you probable need call KeyExchange.SetPeerParameters")
+		return nil, nil, errors.New("sm2: no peer public key given")
 	}
 	if !ke.privateKey.IsOnCurve(rA.X, rA.Y) {
-		return nil, nil, errors.New("sm2: received invalid random from initiator")
+		return nil, nil, errors.New("sm2: invalid initiator's ephemeral public key")
 	}
 	ke.peerSecret = rA
 	r, err := randFieldElement(ke.privateKey, rand)
@@ -211,13 +216,18 @@ func (ke *KeyExchange) RepondKeyExchange(rand io.Reader, rA *ecdsa.PublicKey) (*
 	return respondKeyExchange(ke, r)
 }
 
-// ConfirmResponder for initiator's step A4-A10
+// ConfirmResponder for initiator's step A4-A10, returns optional signature.
+//
+// It will check if there are peer's public key and validate the peer's Ephemeral Public Key.
+//
+// If the peer's signature is not empty, then it will also validate the peer's
+// signature and return generated signature regardless KeyExchange.genSignature value.
 func (ke *KeyExchange) ConfirmResponder(rB *ecdsa.PublicKey, sB []byte) ([]byte, error) {
 	if ke.peerPub == nil {
-		return nil, errors.New("sm2: peer public not set, you probable need call KeyExchange.SetPeerParameters")
+		return nil, errors.New("sm2: no peer public key given")
 	}
 	if !ke.privateKey.IsOnCurve(rB.X, rB.Y) {
-		return nil, errors.New("sm2: received invalid random from responder")
+		return nil, errors.New("sm2: invalid responder's ephemeral public key")
 	}
 	ke.peerSecret = rB
 	// Calculate tA
@@ -227,25 +237,25 @@ func (ke *KeyExchange) ConfirmResponder(rB *ecdsa.PublicKey, sB []byte) ([]byte,
 	t.Add(t, ke.privateKey.D)
 	t.Mod(t, ke.privateKey.Params().N)
 
-	/* x2 = 2^w + (x & (2^w – 1)) */
+	// x2` = 2^w + (x & (2^w – 1))
 	x2 := (&big.Int{}).And(ke.w2Minus1, ke.peerSecret.X)
 	x2.Add(ke.w2, x2)
 
-	/* Point(x3, y3) = peerPub + [x1](peerSecret) */
+	// Point(x3, y3) = peerPub + [x1](peerSecret)
 	x3, y3 := ke.privateKey.ScalarMult(ke.peerSecret.X, ke.peerSecret.Y, x2.Bytes())
 	x3, y3 = ke.privateKey.Add(ke.peerPub.X, ke.peerPub.Y, x3, y3)
 
-	/* V = [h*tA](Point(x3, y3)) */
+	// U = [h*tA](Point(x3, y3))
 	ke.v.X, ke.v.Y = ke.privateKey.ScalarMult(x3, y3, t.Bytes())
 
 	if ke.v.X.Sign() == 0 && ke.v.Y.Sign() == 0 {
-		return nil, errors.New("sm2: key exchange fail")
+		return nil, errors.New("sm2: key exchange failed, U is infinity point")
 	}
 	ke.generateSharedKey(false)
 	if len(sB) > 0 {
 		buffer := ke.sign(false, 0x02)
-		if goSubtle.ConstantTimeCompare(buffer, sB) != 1 {
-			return nil, errors.New("sm2: verify responder's signature fail")
+		if subtle.ConstantTimeCompare(buffer, sB) != 1 {
+			return nil, errors.New("sm2: invalid responder's signature")
 		}
 	}
 	return ke.sign(false, 0x03), nil
@@ -254,8 +264,8 @@ func (ke *KeyExchange) ConfirmResponder(rB *ecdsa.PublicKey, sB []byte) ([]byte,
 // ConfirmInitiator for responder's step B10
 func (ke *KeyExchange) ConfirmInitiator(s1 []byte) error {
 	buffer := ke.sign(true, 0x03)
-	if goSubtle.ConstantTimeCompare(buffer, s1) != 1 {
-		return errors.New("sm2: verify initiator's signature fail")
+	if subtle.ConstantTimeCompare(buffer, s1) != 1 {
+		return errors.New("sm2: invalid initiator's signature")
 	}
 	return nil
 }
