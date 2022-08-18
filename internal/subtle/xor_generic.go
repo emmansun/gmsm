@@ -19,7 +19,20 @@ const supportsUnaligned = runtime.GOARCH == "386" ||
 	runtime.GOARCH == "ppc64le" ||
 	runtime.GOARCH == "s390x"
 
-func xorBytes(dst, a, b []byte, n int) int {
+// XORBytes xors the bytes in a and b. The destination should have enough
+// space, otherwise XORBytes will panic. Returns the number of bytes xor'd.
+func XORBytes(dst, a, b []byte) int {
+	n := len(a)
+	if len(b) < n {
+		n = len(b)
+	}
+	if n == 0 {
+		return 0
+	}
+	if n > len(dst) {
+		panic("subtle.XORBytes: dst too short")
+	}
+
 	switch {
 	case supportsUnaligned:
 		fastXORBytes(dst, a, b, n)
