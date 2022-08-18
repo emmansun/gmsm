@@ -3,14 +3,14 @@ package sm9
 
 import (
 	"crypto"
-	"crypto/subtle"
+	goSubtle "crypto/subtle"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
 	"math/big"
 
-	"github.com/emmansun/gmsm/internal/xor"
+	"github.com/emmansun/gmsm/internal/subtle"
 	"github.com/emmansun/gmsm/sm3"
 	"github.com/emmansun/gmsm/sm9/bn256"
 	"golang.org/x/crypto/cryptobyte"
@@ -325,7 +325,7 @@ func Encrypt(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, 
 	if err != nil {
 		return nil, err
 	}
-	xor.XorBytes(key, key[:len(plaintext)], plaintext)
+	subtle.XORBytes(key, key[:len(plaintext)], plaintext)
 
 	hash := sm3.New()
 	hash.Write(key)
@@ -349,7 +349,7 @@ func (pub *EncryptMasterPublicKey) Encrypt(rand io.Reader, uid []byte, hid byte,
 	if err != nil {
 		return nil, err
 	}
-	xor.XorBytes(key, key[:len(plaintext)], plaintext)
+	subtle.XORBytes(key, key[:len(plaintext)], plaintext)
 
 	hash := sm3.New()
 	hash.Write(key)
@@ -385,11 +385,11 @@ func Decrypt(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error) {
 	hash.Write(key[len(c2):])
 	c32 := hash.Sum(nil)
 
-	if subtle.ConstantTimeCompare(c3[:sm3.Size], c32) != 1 {
+	if goSubtle.ConstantTimeCompare(c3[:sm3.Size], c32) != 1 {
 		return nil, errors.New("sm9: invalid mac value")
 	}
 
-	xor.XorBytes(key, c2, key[:len(c2)])
+	subtle.XORBytes(key, c2, key[:len(c2)])
 	return key[:len(c2)], nil
 }
 
@@ -437,10 +437,10 @@ func DecryptASN1(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error
 	hash.Write(key[len(c2Bytes):])
 	c32 := hash.Sum(nil)
 
-	if subtle.ConstantTimeCompare(c3Bytes, c32) != 1 {
+	if goSubtle.ConstantTimeCompare(c3Bytes, c32) != 1 {
 		return nil, errors.New("sm9: invalid mac value")
 	}
-	xor.XorBytes(key, c2Bytes, key[:len(c2Bytes)])
+	subtle.XORBytes(key, c2Bytes, key[:len(c2Bytes)])
 	return key[:len(c2Bytes)], nil
 }
 
@@ -597,7 +597,7 @@ func (ke *KeyExchange) ConfirmResponder(rB *bn256.G1, sB []byte) ([]byte, error)
 	// step 6, verify signature
 	if len(sB) > 0 {
 		signature := ke.sign(false, 0x82)
-		if subtle.ConstantTimeCompare(signature, sB) != 1 {
+		if goSubtle.ConstantTimeCompare(signature, sB) != 1 {
 			return nil, errors.New("sm9: invalid responder's signature")
 		}
 	}
@@ -611,7 +611,7 @@ func (ke *KeyExchange) ConfirmResponder(rB *bn256.G1, sB []byte) ([]byte, error)
 // ConfirmInitiator for responder's step B8
 func (ke *KeyExchange) ConfirmInitiator(s1 []byte) error {
 	buffer := ke.sign(true, 0x83)
-	if subtle.ConstantTimeCompare(buffer, s1) != 1 {
+	if goSubtle.ConstantTimeCompare(buffer, s1) != 1 {
 		return errors.New("sm9: invalid initiator's signature")
 	}
 	return nil

@@ -4,7 +4,7 @@
 package zuc
 
 import (
-	"github.com/emmansun/gmsm/internal/xor"
+	"github.com/emmansun/gmsm/internal/subtle"
 )
 
 //go:noescape
@@ -17,13 +17,13 @@ func xorKeyStream(c *zucState32, dst, src []byte) {
 		if words > 0 {
 			dstWords := dst[:words*4]
 			genKeyStreamRev32Asm(dstWords, c)
-			xor.XorBytes(dst, src, dstWords)
+			subtle.XORBytes(dst, src, dstWords)
 		}
 		// handle remain bytes
 		if words*4 < len(src) {
 			var singleWord [4]byte
 			genKeyStreamRev32Asm(singleWord[:], c)
-			xor.XorBytes(dst[words*4:], src[words*4:], singleWord[:])
+			subtle.XORBytes(dst[words*4:], src[words*4:], singleWord[:])
 		}
 	} else {
 		xorKeyStreamGeneric(c, dst, src)

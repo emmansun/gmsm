@@ -4,7 +4,7 @@ package padding
 import (
 	"errors"
 
-	"github.com/emmansun/gmsm/internal/subtle"
+	"github.com/emmansun/gmsm/internal/alias"
 )
 
 // https://datatracker.ietf.org/doc/html/rfc5652#section-6.3
@@ -16,7 +16,7 @@ func (pad pkcs7Padding) BlockSize() int {
 
 func (pad pkcs7Padding) Pad(src []byte) []byte {
 	overhead := pad.BlockSize() - len(src)%pad.BlockSize()
-	ret, out := subtle.SliceForAppend(src, overhead)
+	ret, out := alias.SliceForAppend(src, overhead)
 	for i := 0; i < overhead; i++ {
 		out[i] = byte(overhead)
 	}

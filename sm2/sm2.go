@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	"github.com/emmansun/gmsm/internal/randutil"
-	"github.com/emmansun/gmsm/internal/xor"
+	"github.com/emmansun/gmsm/internal/subtle"
 	"github.com/emmansun/gmsm/sm2/sm2ec"
 	"github.com/emmansun/gmsm/sm3"
 	"golang.org/x/crypto/cryptobyte"
@@ -345,7 +345,7 @@ func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Encrypter
 		}
 
 		//A6, C2 = M + t;
-		xor.XorBytes(c2, msg, c2)
+		subtle.XORBytes(c2, msg, c2)
 
 		//A7, C3 = hash(x2||M||y2)
 		c3 := calculateC3(curve, x2, y2, msg)
@@ -402,7 +402,7 @@ func rawDecrypt(priv *PrivateKey, x1, y1 *big.Int, c2, c3 []byte) ([]byte, error
 	}
 
 	//B5, calculate msg = c2 ^ t
-	xor.XorBytes(msg, c2, msg)
+	subtle.XORBytes(msg, c2, msg)
 
 	u := calculateC3(curve, x2, y2, msg)
 	for i := 0; i < sm3.Size; i++ {

@@ -6,8 +6,8 @@ package sm4
 import (
 	"crypto/cipher"
 
+	"github.com/emmansun/gmsm/internal/alias"
 	"github.com/emmansun/gmsm/internal/subtle"
-	"github.com/emmansun/gmsm/internal/xor"
 )
 
 // Assert that sm4CipherAsm implements the cbcEncAble and cbcDecAble interfaces.
@@ -56,7 +56,7 @@ func (x *cbc) CryptBlocks(dst, src []byte) {
 	if len(dst) < len(src) {
 		panic("cipher: output smaller than input")
 	}
-	if subtle.InexactOverlap(dst[:len(src)], src) {
+	if alias.InexactOverlap(dst[:len(src)], src) {
 		panic("cipher: invalid buffer overlap")
 	}
 	if len(src) == 0 {
@@ -79,7 +79,7 @@ func (x *cbc) CryptBlocks(dst, src []byte) {
 	for start > 0 {
 		x.b.DecryptBlocks(temp, src[start:end])
 		copy(batchSrc, src[start-BlockSize:])
-		xor.XorBytes(dst[start:], temp, batchSrc)
+		subtle.XORBytes(dst[start:], temp, batchSrc)
 		end = start
 		start -= x.b.blocksSize
 	}
@@ -88,7 +88,7 @@ func (x *cbc) CryptBlocks(dst, src []byte) {
 	copy(batchSrc[BlockSize:], src[:end])
 	x.b.DecryptBlocks(temp, batchSrc[BlockSize:])
 	copy(batchSrc, x.iv)
-	xor.XorBytes(dst, temp[:end], batchSrc)
+	subtle.XORBytes(dst, temp[:end], batchSrc)
 
 	// Set the new iv to the first block we copied earlier.
 	x.iv, x.tmp = x.tmp, x.iv

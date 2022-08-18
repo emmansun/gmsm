@@ -93,6 +93,10 @@ func (ke *KeyExchange) SetPeerParameters(peerPub *ecdsa.PublicKey, peerUID []byt
 		return errors.New("sm2: 'peerPub' already exists, please do not set it")
 	}
 
+	if !IsSM2PublicKey(peerPub) {
+		return errors.New("sm2: peer public key is not expected/supported")
+	}
+
 	var err error
 	ke.peerPub = peerPub
 	ke.peerZ, err = calculateZA(ke.peerPub, peerUID)
