@@ -136,7 +136,7 @@ func bytes2Point(curve elliptic.Curve, bytes []byte) (*big.Int, *big.Int, int, e
 		data := make([]byte, 1+byteLen*2)
 		data[0] = uncompressed
 		copy(data[1:], bytes[1:1+byteLen*2])
-		x, y := elliptic.Unmarshal(curve, data)
+		x, y := sm2ec.Unmarshal(curve, data)
 		if x == nil || y == nil {
 			return nil, nil, 0, fmt.Errorf("sm2: point is not on curve %s", curve.Params().Name)
 		}
@@ -148,7 +148,7 @@ func bytes2Point(curve elliptic.Curve, bytes []byte) (*big.Int, *big.Int, int, e
 		// Make sure it's NIST curve or SM2 P-256 curve
 		if strings.HasPrefix(curve.Params().Name, "P-") || strings.EqualFold(curve.Params().Name, sm2ec.P256().Params().Name) {
 			// y² = x³ - 3x + b, prime curves
-			x, y := elliptic.UnmarshalCompressed(curve, bytes[:1+byteLen])
+			x, y := sm2ec.UnmarshalCompressed(curve, bytes[:1+byteLen])
 			if x == nil || y == nil {
 				return nil, nil, 0, fmt.Errorf("sm2: point is not on curve %s", curve.Params().Name)
 			}
