@@ -1,6 +1,8 @@
 package sm2
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -83,6 +85,7 @@ func TestKeyExchangeSimplest(t *testing.T) {
 func TestSetPeerParameters(t *testing.T) {
 	priv1, _ := GenerateKey(rand.Reader)
 	priv2, _ := GenerateKey(rand.Reader)
+	priv3, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	uidA := []byte("Alice")
 	uidB := []byte("Bob")
 
@@ -101,6 +104,11 @@ func TestSetPeerParameters(t *testing.T) {
 	}
 
 	// 设置对端参数
+	err = initiator.SetPeerParameters(&priv3.PublicKey, uidB)
+	if err == nil {
+		t.Errorf("should be failed")
+	}
+
 	err = initiator.SetPeerParameters(&priv2.PublicKey, uidB)
 	if err != nil {
 		t.Fatal(err)

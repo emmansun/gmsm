@@ -6,8 +6,8 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/emmansun/gmsm/internal/alias"
 	"github.com/emmansun/gmsm/internal/subtle"
-	"github.com/emmansun/gmsm/internal/xor"
 )
 
 const GF128_FDBK byte = 0x87
@@ -89,7 +89,7 @@ func (c *xts) Encrypt(ciphertext, plaintext []byte, sectorNum uint64) {
 	if len(plaintext) < blockSize {
 		panic("xts: plaintext length is smaller than the block size")
 	}
-	if subtle.InexactOverlap(ciphertext[:len(plaintext)], plaintext) {
+	if alias.InexactOverlap(ciphertext[:len(plaintext)], plaintext) {
 		panic("xts: invalid buffer overlap")
 	}
 
@@ -112,18 +112,18 @@ func (c *xts) Encrypt(ciphertext, plaintext []byte, sectorNum uint64) {
 				copy(tweaks[blockSize*i:], tweak[:])
 				mul2(tweak)
 			}
-			xor.XorBytes(ciphertext, plaintext, tweaks)
+			subtle.XORBytes(ciphertext, plaintext, tweaks)
 			concCipher.EncryptBlocks(ciphertext, ciphertext)
-			xor.XorBytes(ciphertext, ciphertext, tweaks)
+			subtle.XORBytes(ciphertext, ciphertext, tweaks)
 			plaintext = plaintext[batchSize:]
 			lastCiphertext = ciphertext[batchSize-blockSize:]
 			ciphertext = ciphertext[batchSize:]
 		}
 	}
 	for len(plaintext) >= blockSize {
-		xor.XorBytes(ciphertext, plaintext, tweak[:])
+		subtle.XORBytes(ciphertext, plaintext, tweak[:])
 		c.k1.Encrypt(ciphertext, ciphertext)
-		xor.XorBytes(ciphertext, ciphertext, tweak[:])
+		subtle.XORBytes(ciphertext, ciphertext, tweak[:])
 		plaintext = plaintext[blockSize:]
 		lastCiphertext = ciphertext
 		ciphertext = ciphertext[blockSize:]
@@ -139,11 +139,11 @@ func (c *xts) Encrypt(ciphertext, plaintext []byte, sectorNum uint64) {
 		//Steal ciphertext to complete the block
 		copy(x[remain:], lastCiphertext[remain:blockSize])
 		//Merge the tweak into the input block
-		xor.XorBytes(x[:], x[:], tweak[:])
+		subtle.XORBytes(x[:], x[:], tweak[:])
 		//Encrypt the final block using K1
 		c.k1.Encrypt(x[:], x[:])
 		//Merge the tweak into the output block
-		xor.XorBytes(lastCiphertext, x[:], tweak[:])
+		subtle.XORBytes(lastCiphertext, x[:], tweak[:])
 	}
 	tweakPool.Put(tweak)
 }
@@ -158,7 +158,7 @@ func (c *xts) Decrypt(plaintext, ciphertext []byte, sectorNum uint64) {
 	if len(ciphertext) < blockSize {
 		panic("xts: ciphertext length is smaller than the block size")
 	}
-	if subtle.InexactOverlap(plaintext[:len(ciphertext)], ciphertext) {
+	if alias.InexactOverlap(plaintext[:len(ciphertext)], ciphertext) {
 		panic("xts: invalid buffer overlap")
 	}
 
@@ -179,18 +179,18 @@ func (c *xts) Decrypt(plaintext, ciphertext []byte, sectorNum uint64) {
 				copy(tweaks[blockSize*i:], tweak[:])
 				mul2(tweak)
 			}
-			xor.XorBytes(plaintext, ciphertext, tweaks)
+			subtle.XORBytes(plaintext, ciphertext, tweaks)
 			concCipher.DecryptBlocks(plaintext, plaintext)
-			xor.XorBytes(plaintext, plaintext, tweaks)
+			subtle.XORBytes(plaintext, plaintext, tweaks)
 			plaintext = plaintext[batchSize:]
 			ciphertext = ciphertext[batchSize:]
 		}
 	}
 
 	for len(ciphertext) >= 2*blockSize {
-		xor.XorBytes(plaintext, ciphertext, tweak[:])
+		subtle.XORBytes(plaintext, ciphertext, tweak[:])
 		c.k1.Decrypt(plaintext, plaintext)
-		xor.XorBytes(plaintext, plaintext, tweak[:])
+		subtle.XORBytes(plaintext, plaintext, tweak[:])
 		plaintext = plaintext[blockSize:]
 		ciphertext = ciphertext[blockSize:]
 
@@ -203,9 +203,9 @@ func (c *xts) Decrypt(plaintext, ciphertext []byte, sectorNum uint64) {
 			var tt [blockSize]byte
 			copy(tt[:], tweak[:])
 			mul2(&tt)
-			xor.XorBytes(x[:], ciphertext, tt[:])
+			subtle.XORBytes(x[:], ciphertext, tt[:])
 			c.k1.Decrypt(x[:], x[:])
-			xor.XorBytes(plaintext, x[:], tt[:])
+			subtle.XORBytes(plaintext, x[:], tt[:])
 
 			//Retrieve the length of the final block
 			remain -= blockSize
@@ -220,9 +220,9 @@ func (c *xts) Decrypt(plaintext, ciphertext []byte, sectorNum uint64) {
 			//The last block contains exactly 128 bits
 			copy(x[:], ciphertext)
 		}
-		xor.XorBytes(x[:], x[:], tweak[:])
+		subtle.XORBytes(x[:], x[:], tweak[:])
 		c.k1.Decrypt(x[:], x[:])
-		xor.XorBytes(plaintext, x[:], tweak[:])
+		subtle.XORBytes(plaintext, x[:], tweak[:])
 	}
 
 	tweakPool.Put(tweak)

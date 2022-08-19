@@ -1,4 +1,4 @@
-package subtle
+package alias
 
 import "unsafe"
 

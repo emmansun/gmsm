@@ -4,8 +4,8 @@ import (
 	"crypto/cipher"
 	"encoding/binary"
 
+	"github.com/emmansun/gmsm/internal/alias"
 	"github.com/emmansun/gmsm/internal/subtle"
-	"github.com/emmansun/gmsm/internal/xor"
 )
 
 const RoundWords = 32
@@ -35,7 +35,7 @@ func xorKeyStreamGeneric(c *zucState32, dst, src []byte) {
 		for j := 0; j < RoundWords; j++ {
 			binary.BigEndian.PutUint32(keyBytes[j*4:], keyWords[j])
 		}
-		xor.XorBytes(dst, src, keyBytes[:])
+		subtle.XORBytes(dst, src, keyBytes[:])
 		dst = dst[RoundWords*4:]
 		src = src[RoundWords*4:]
 	}
@@ -44,7 +44,7 @@ func xorKeyStreamGeneric(c *zucState32, dst, src []byte) {
 		for j := 0; j < words-rounds*RoundWords; j++ {
 			binary.BigEndian.PutUint32(keyBytes[j*4:], keyWords[j])
 		}
-		xor.XorBytes(dst, src, keyBytes[:])
+		subtle.XORBytes(dst, src, keyBytes[:])
 	}
 }
 
@@ -52,7 +52,7 @@ func (c *zucState32) XORKeyStream(dst, src []byte) {
 	if len(dst) < len(src) {
 		panic("zuc: output smaller than input")
 	}
-	if subtle.InexactOverlap(dst[:len(src)], src) {
+	if alias.InexactOverlap(dst[:len(src)], src) {
 		panic("zuc: invalid buffer overlap")
 	}
 	xorKeyStream(c, dst, src)

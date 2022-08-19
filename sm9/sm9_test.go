@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/emmansun/gmsm/internal/xor"
+	"github.com/emmansun/gmsm/internal/subtle"
 	"github.com/emmansun/gmsm/sm3"
 	"github.com/emmansun/gmsm/sm9/bn256"
 )
@@ -493,7 +493,7 @@ func TestEncryptSM9Sample(t *testing.T) {
 	if hex.EncodeToString(key) != expectedKey {
 		t.Errorf("not expected key")
 	}
-	xor.XorBytes(key, key[:len(plaintext)], plaintext)
+	subtle.XORBytes(key, key[:len(plaintext)], plaintext)
 
 	hash := sm3.New()
 	hash.Write(key)

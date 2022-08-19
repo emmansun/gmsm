@@ -21,10 +21,10 @@ import (
 	"io"
 	"math/big"
 	"strings"
-	"sync"
 
 	"github.com/emmansun/gmsm/internal/randutil"
-	"github.com/emmansun/gmsm/internal/xor"
+	"github.com/emmansun/gmsm/internal/subtle"
+	"github.com/emmansun/gmsm/sm2/sm2ec"
 	"github.com/emmansun/gmsm/sm3"
 	"golang.org/x/crypto/cryptobyte"
 	"golang.org/x/crypto/cryptobyte/asn1"
@@ -136,7 +136,7 @@ func bytes2Point(curve elliptic.Curve, bytes []byte) (*big.Int, *big.Int, int, e
 		data := make([]byte, 1+byteLen*2)
 		data[0] = uncompressed
 		copy(data[1:], bytes[1:1+byteLen*2])
-		x, y := elliptic.Unmarshal(curve, data)
+		x, y := sm2ec.Unmarshal(curve, data)
 		if x == nil || y == nil {
 			return nil, nil, 0, fmt.Errorf("sm2: point is not on curve %s", curve.Params().Name)
 		}
@@ -146,9 +146,9 @@ func bytes2Point(curve elliptic.Curve, bytes []byte) (*big.Int, *big.Int, int, e
 			return nil, nil, 0, fmt.Errorf("sm2: invalid point compressed form bytes length %d", len(bytes))
 		}
 		// Make sure it's NIST curve or SM2 P-256 curve
-		if strings.HasPrefix(curve.Params().Name, "P-") || strings.EqualFold(curve.Params().Name, p256.CurveParams.Name) {
+		if strings.HasPrefix(curve.Params().Name, "P-") || strings.EqualFold(curve.Params().Name, sm2ec.P256().Params().Name) {
 			// y² = x³ - 3x + b, prime curves
-			x, y := elliptic.UnmarshalCompressed(curve, bytes[:1+byteLen])
+			x, y := sm2ec.UnmarshalCompressed(curve, bytes[:1+byteLen])
 			if x == nil || y == nil {
 				return nil, nil, 0, fmt.Errorf("sm2: point is not on curve %s", curve.Params().Name)
 			}
@@ -201,7 +201,7 @@ func (*SM2SignerOption) HashFunc() crypto.Hash {
 
 // FromECPrivateKey convert an ecdsa private key to SM2 private key.
 func (priv *PrivateKey) FromECPrivateKey(key *ecdsa.PrivateKey) (*PrivateKey, error) {
-	if key.Curve != P256() {
+	if key.Curve != sm2ec.P256() {
 		return nil, errors.New("sm2: it's NOT a sm2 curve private key")
 	}
 	priv.PrivateKey = *key
@@ -259,15 +259,8 @@ func (priv *PrivateKey) Decrypt(rand io.Reader, msg []byte, opts crypto.Decrypte
 }
 
 var (
-	one      = new(big.Int).SetInt64(1)
-	initonce sync.Once
+	one = new(big.Int).SetInt64(1)
 )
-
-// P256 init and return the singleton.
-func P256() elliptic.Curve {
-	initonce.Do(initP256)
-	return p256
-}
 
 // randFieldElement returns a random element of the order of the given
 // curve using the procedure given in FIPS 186-4, Appendix B.5.1.
@@ -352,7 +345,7 @@ func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Encrypter
 		}
 
 		//A6, C2 = M + t;
-		xor.XorBytes(c2, msg, c2)
+		subtle.XORBytes(c2, msg, c2)
 
 		//A7, C3 = hash(x2||M||y2)
 		c3 := calculateC3(curve, x2, y2, msg)
@@ -372,7 +365,7 @@ func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Encrypter
 
 // GenerateKey generates a public and private key pair.
 func GenerateKey(rand io.Reader) (*PrivateKey, error) {
-	c := P256()
+	c := sm2ec.P256()
 	k, err := randFieldElement(c, rand)
 	if err != nil {
 		return nil, err
@@ -409,7 +402,7 @@ func rawDecrypt(priv *PrivateKey, x1, y1 *big.Int, c2, c3 []byte) ([]byte, error
 	}
 
 	//B5, calculate msg = c2 ^ t
-	xor.XorBytes(msg, c2, msg)
+	subtle.XORBytes(msg, c2, msg)
 
 	u := calculateC3(curve, x2, y2, msg)
 	for i := 0; i < sm3.Size; i++ {
@@ -483,7 +476,7 @@ func ASN1Ciphertext2Plain(ciphertext []byte, opts *EncrypterOpts) ([]byte, error
 	if err != nil {
 		return nil, err
 	}
-	curve := P256()
+	curve := sm2ec.P256()
 	c1 := opts.PointMarshalMode.mashal(curve, x1, y1)
 	if opts.CiphertextSplicingOrder == C1C3C2 {
 		// c1 || c3 || c2
@@ -498,7 +491,7 @@ func PlainCiphertext2ASN1(ciphertext []byte, from ciphertextSplicingOrder) ([]by
 	if ciphertext[0] == 0x30 {
 		return nil, errors.New("sm2: invalid plain encoding ciphertext")
 	}
-	curve := P256()
+	curve := sm2ec.P256()
 	ciphertextLen := len(ciphertext)
 	if ciphertextLen <= 1+(curve.Params().BitSize/8)+sm3.Size {
 		return nil, errors.New("sm2: invalid ciphertext length")
@@ -523,7 +516,7 @@ func PlainCiphertext2ASN1(ciphertext []byte, from ciphertextSplicingOrder) ([]by
 
 // AdjustCiphertextSplicingOrder utility method to change c2 c3 order
 func AdjustCiphertextSplicingOrder(ciphertext []byte, from, to ciphertextSplicingOrder) ([]byte, error) {
-	curve := P256()
+	curve := sm2ec.P256()
 	if from == to {
 		return ciphertext, nil
 	}
@@ -868,5 +861,10 @@ var zeroReader = &zr{}
 // IsSM2PublicKey check if given public key is a SM2 public key or not
 func IsSM2PublicKey(publicKey interface{}) bool {
 	pub, ok := publicKey.(*ecdsa.PublicKey)
-	return ok && pub.Curve == P256()
+	return ok && pub.Curve == sm2ec.P256()
+}
+
+// P256 return sm2 curve signleton, this function is for backward compatibility.
+func P256() elliptic.Curve {
+	return sm2ec.P256()
 }

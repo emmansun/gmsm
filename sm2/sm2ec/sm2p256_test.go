@@ -1,10 +1,7 @@
-package sm2
+package sm2ec
 
 import (
 	"crypto/elliptic"
-	"crypto/rand"
-	"encoding/hex"
-	"fmt"
 	"math/big"
 	"testing"
 )
@@ -142,11 +139,6 @@ var p256MultTests = []scalarMultTest{
 	},
 }
 
-func genericParamsForCurve(c elliptic.Curve) *elliptic.CurveParams {
-	d := *(c.Params())
-	return &d
-}
-
 func TestP256BaseMult(t *testing.T) {
 	p256 := P256()
 	p256Generic := genericParamsForCurve(p256)
@@ -177,6 +169,7 @@ func TestP256BaseMult(t *testing.T) {
 	}
 }
 
+/*
 func generateP256MultTests() {
 	p256 := P256()
 	p256Generic := genericParamsForCurve(p256)
@@ -198,7 +191,7 @@ func generateP256MultTests() {
 		fmt.Printf("%s\n", hex.EncodeToString(y2.Bytes()))
 	}
 }
-
+*/
 func TestP256Mult(t *testing.T) {
 	p256 := P256()
 	for i, e := range p256MultTests {

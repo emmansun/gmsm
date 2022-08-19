@@ -5,9 +5,9 @@ package sm4
 
 import (
 	"crypto/cipher"
-	goSubtle "crypto/subtle"
+	"crypto/subtle"
 
-	"github.com/emmansun/gmsm/internal/subtle"
+	"github.com/emmansun/gmsm/internal/alias"
 )
 
 //go:noescape
@@ -79,8 +79,8 @@ func (g *gcmNI) Seal(dst, nonce, plaintext, data []byte) []byte {
 	var tagOut [gcmTagSize]byte
 	gcmSm4Data(&g.bytesProductTable, data, &tagOut)
 
-	ret, out := subtle.SliceForAppend(dst, len(plaintext)+g.tagSize)
-	if subtle.InexactOverlap(out[:len(plaintext)], plaintext) {
+	ret, out := alias.SliceForAppend(dst, len(plaintext)+g.tagSize)
+	if alias.InexactOverlap(out[:len(plaintext)], plaintext) {
 		panic("cipher: invalid buffer overlap")
 	}
 
@@ -133,8 +133,8 @@ func (g *gcmNI) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 	var expectedTag [gcmTagSize]byte
 	gcmSm4Data(&g.bytesProductTable, data, &expectedTag)
 
-	ret, out := subtle.SliceForAppend(dst, len(ciphertext))
-	if subtle.InexactOverlap(out, ciphertext) {
+	ret, out := alias.SliceForAppend(dst, len(ciphertext))
+	if alias.InexactOverlap(out, ciphertext) {
 		panic("cipher: invalid buffer overlap")
 	}
 	if len(ciphertext) > 0 {
@@ -142,7 +142,7 @@ func (g *gcmNI) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 	}
 	gcmSm4Finish(&g.bytesProductTable, &tagMask, &expectedTag, uint64(len(ciphertext)), uint64(len(data)))
 
-	if goSubtle.ConstantTimeCompare(expectedTag[:g.tagSize], tag) != 1 {
+	if subtle.ConstantTimeCompare(expectedTag[:g.tagSize], tag) != 1 {
 		for i := range out {
 			out[i] = 0
 		}

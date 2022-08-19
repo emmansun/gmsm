@@ -9,8 +9,8 @@ import (
 	"encoding/binary"
 	"errors"
 
+	"github.com/emmansun/gmsm/internal/alias"
 	"github.com/emmansun/gmsm/internal/subtle"
-	"github.com/emmansun/gmsm/internal/xor"
 )
 
 // Assert that sm4CipherAsm implements the gcmAble interface.
@@ -86,8 +86,8 @@ func (g *gcm) Seal(dst, nonce, plaintext, data []byte) []byte {
 		panic("cipher: message too large for GCM")
 	}
 
-	ret, out := subtle.SliceForAppend(dst, len(plaintext)+g.tagSize)
-	if subtle.InexactOverlap(out, plaintext) {
+	ret, out := alias.SliceForAppend(dst, len(plaintext)+g.tagSize)
+	if alias.InexactOverlap(out, plaintext) {
 		panic("cipher: invalid buffer overlap")
 	}
 
@@ -137,8 +137,8 @@ func (g *gcm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 	var expectedTag [gcmTagSize]byte
 	g.auth(expectedTag[:], ciphertext, data, &tagMask)
 
-	ret, out := subtle.SliceForAppend(dst, len(ciphertext))
-	if subtle.InexactOverlap(out, ciphertext) {
+	ret, out := alias.SliceForAppend(dst, len(ciphertext))
+	if alias.InexactOverlap(out, ciphertext) {
 		panic("cipher: invalid buffer overlap")
 	}
 
@@ -274,7 +274,7 @@ func (g *gcm) counterCrypt(out, in []byte, counter *[gcmBlockSize]byte) {
 			gcmInc32(counter)
 		}
 		g.cipher.EncryptBlocks(mask, counters)
-		xor.XorWords(out, in, mask[:])
+		subtle.XORBytes(out, in, mask[:])
 		out = out[g.cipher.blocksSize:]
 		in = in[g.cipher.blocksSize:]
 	}
@@ -286,7 +286,7 @@ func (g *gcm) counterCrypt(out, in []byte, counter *[gcmBlockSize]byte) {
 			gcmInc32(counter)
 		}
 		g.cipher.EncryptBlocks(mask, counters)
-		xor.XorBytes(out, in, mask[:blocks*gcmBlockSize])
+		subtle.XORBytes(out, in, mask[:blocks*gcmBlockSize])
 	}
 }
 
@@ -328,5 +328,5 @@ func (g *gcm) auth(out, ciphertext, additionalData []byte, tagMask *[gcmTagSize]
 	binary.BigEndian.PutUint64(out, y.low)
 	binary.BigEndian.PutUint64(out[8:], y.high)
 
-	xor.XorWords(out, out, tagMask[:])
+	subtle.XORBytes(out, out, tagMask[:])
 }

@@ -3,7 +3,7 @@ package padding
 import (
 	"errors"
 
-	"github.com/emmansun/gmsm/internal/subtle"
+	"github.com/emmansun/gmsm/internal/alias"
 )
 
 // https://www.ibm.com/docs/en/linux-on-systems?topic=processes-ansi-x923-cipher-block-chaining
@@ -15,7 +15,7 @@ func (pad ansiX923Padding) BlockSize() int {
 
 func (pad ansiX923Padding) Pad(src []byte) []byte {
 	overhead := pad.BlockSize() - len(src)%pad.BlockSize()
-	ret, out := subtle.SliceForAppend(src, overhead)
+	ret, out := alias.SliceForAppend(src, overhead)
 	out[overhead-1] = byte(overhead)
 	for i := 0; i < overhead-1; i++ {
 		out[i] = 0
