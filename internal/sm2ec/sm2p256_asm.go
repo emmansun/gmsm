@@ -69,7 +69,7 @@ const p256CompressedLength = 1 + p256ElementLength
 
 // toElementArray, convert slice of bytes to pointer to [32]byte.
 // This function is required for low version of golang, can type cast directly
-// since golang 1.18.
+// since golang 1.17.
 func toElementArray(b []byte) *[32]byte {
 	tmpPtr := (*unsafe.Pointer)(unsafe.Pointer(&b))
 	return (*[32]byte)(*tmpPtr)
