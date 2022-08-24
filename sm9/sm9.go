@@ -469,7 +469,6 @@ type KeyExchange struct {
 	g1           *bn256.GT          // internal state which will be used when compute the key and signature
 	g2           *bn256.GT          // internal state which will be used when compute the key and signature
 	g3           *bn256.GT          // internal state which will be used when compute the key and signature
-	key          []byte             // shared key will be used after key agreement
 }
 
 // NewKeyExchange create one new KeyExchange object
@@ -483,9 +482,26 @@ func NewKeyExchange(priv *EncryptPrivateKey, uid, peerUID []byte, keyLen int, ge
 	return ke
 }
 
-// GetSharedKey return key after key agreement
-func (ke *KeyExchange) GetSharedKey() []byte {
-	return ke.key
+// Destroy clear all internal state and Ephemeral private/public keys
+func (ke *KeyExchange) Destroy() {
+	if ke.r != nil {
+		ke.r.SetInt64(0)
+	}
+	if ke.secret != nil {
+		ke.secret.Set(bn256.Gen1)
+	}
+	if ke.peerSecret != nil {
+		ke.peerSecret.Set(bn256.Gen1)
+	}
+	if ke.g1 != nil {
+		ke.g1.SetOne()
+	}
+	if ke.g2 != nil {
+		ke.g2.SetOne()
+	}
+	if ke.g3 != nil {
+		ke.g3.SetOne()
+	}
 }
 
 func initKeyExchange(ke *KeyExchange, hid byte, r *big.Int) {
@@ -529,7 +545,7 @@ func (ke *KeyExchange) sign(isResponder bool, prefix byte) []byte {
 	return hash.Sum(nil)
 }
 
-func (ke *KeyExchange) generateSharedKey(isResponder bool) {
+func (ke *KeyExchange) generateSharedKey(isResponder bool) ([]byte, error) {
 	var buffer []byte
 	if isResponder {
 		buffer = append(buffer, ke.peerUID...)
@@ -546,8 +562,11 @@ func (ke *KeyExchange) generateSharedKey(isResponder bool) {
 	buffer = append(buffer, ke.g2.Marshal()...)
 	buffer = append(buffer, ke.g3.Marshal()...)
 
-	key, _ := sm3.Kdf(buffer, ke.keyLength)
-	ke.key = key
+	key, ok := sm3.Kdf(buffer, ke.keyLength)
+	if !ok {
+		return nil, errors.New("sm9: internal error, kdf failed")
+	}
+	return key, nil
 }
 
 func respondKeyExchange(ke *KeyExchange, hid byte, r *big.Int, rA *bn256.G1) (*bn256.G1, []byte, error) {
@@ -564,8 +583,6 @@ func respondKeyExchange(ke *KeyExchange, hid byte, r *big.Int, rA *bn256.G1) (*b
 	ke.g3 = &bn256.GT{}
 	ke.g3.ScalarMult(ke.g1, r)
 	ke.g2 = ke.privateKey.EncryptMasterPublicKey.ScalarBaseMult(r)
-
-	ke.generateSharedKey(true)
 
 	if !ke.genSignature {
 		return ke.secret, nil, nil
@@ -584,9 +601,9 @@ func (ke *KeyExchange) RepondKeyExchange(rand io.Reader, hid byte, rA *bn256.G1)
 }
 
 // ConfirmResponder for initiator's step A5-A7
-func (ke *KeyExchange) ConfirmResponder(rB *bn256.G1, sB []byte) ([]byte, error) {
+func (ke *KeyExchange) ConfirmResponder(rB *bn256.G1, sB []byte) ([]byte, []byte, error) {
 	if !rB.IsOnCurve() {
-		return nil, errors.New("sm9: invalid responder's ephemeral public key")
+		return nil, nil, errors.New("sm9: invalid responder's ephemeral public key")
 	}
 	// step 5
 	ke.peerSecret = rB
@@ -598,21 +615,26 @@ func (ke *KeyExchange) ConfirmResponder(rB *bn256.G1, sB []byte) ([]byte, error)
 	if len(sB) > 0 {
 		signature := ke.sign(false, 0x82)
 		if goSubtle.ConstantTimeCompare(signature, sB) != 1 {
-			return nil, errors.New("sm9: invalid responder's signature")
+			return nil, nil, errors.New("sm9: invalid responder's signature")
 		}
 	}
-	ke.generateSharedKey(false)
-	if !ke.genSignature {
-		return nil, nil
+	key, err := ke.generateSharedKey(false)
+	if err != nil {
+		return nil, nil, err
 	}
-	return ke.sign(false, 0x83), nil
+	if !ke.genSignature {
+		return key, nil, nil
+	}
+	return key, ke.sign(false, 0x83), nil
 }
 
 // ConfirmInitiator for responder's step B8
-func (ke *KeyExchange) ConfirmInitiator(s1 []byte) error {
-	buffer := ke.sign(true, 0x83)
-	if goSubtle.ConstantTimeCompare(buffer, s1) != 1 {
-		return errors.New("sm9: invalid initiator's signature")
+func (ke *KeyExchange) ConfirmInitiator(s1 []byte) ([]byte, error) {
+	if s1 != nil {
+		buffer := ke.sign(true, 0x83)
+		if goSubtle.ConstantTimeCompare(buffer, s1) != 1 {
+			return nil, errors.New("sm9: invalid initiator's signature")
+		}
 	}
-	return nil
+	return ke.generateSharedKey(true)
 }

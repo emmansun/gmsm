@@ -26,12 +26,47 @@ type KeyExchange struct {
 	w2           *big.Int         // internal state which will be used when compute the key and signature, 2^w
 	w2Minus1     *big.Int         // internal state which will be used when compute the key and signature, 2^w – 1
 	v            *ecdsa.PublicKey // internal state which will be used when compute the key and signature, u/v
-	key          []byte           // shared key will be used after key agreement
 }
 
-// GetSharedKey return shared key after key agreement
-func (ke *KeyExchange) GetSharedKey() []byte {
-	return ke.key
+// Destroy clear all internal state and Ephemeral private/public keys.
+func (ke *KeyExchange) Destroy() {
+	if ke.z != nil {
+		for v := range ke.z {
+			ke.z[v] = 0
+		}
+	}
+	if ke.peerZ != nil {
+		for v := range ke.peerZ {
+			ke.peerZ[v] = 0
+		}
+	}
+	if ke.r != nil {
+		ke.r.SetInt64(0)
+	}
+	if ke.secret != nil {
+		if ke.secret.X != nil {
+			ke.secret.X.SetInt64(0)
+		}
+		if ke.secret.Y != nil {
+			ke.secret.Y.SetInt64(0)
+		}
+	}
+	if ke.peerSecret != nil {
+		if ke.peerSecret.X != nil {
+			ke.peerSecret.X.SetInt64(0)
+		}
+		if ke.peerSecret.Y != nil {
+			ke.peerSecret.Y.SetInt64(0)
+		}
+	}
+	if ke.v != nil {
+		if ke.v.X != nil {
+			ke.v.X.SetInt64(0)
+		}
+		if ke.v.Y != nil {
+			ke.v.Y.SetInt64(0)
+		}
+	}
 }
 
 // NewKeyExchange create one new KeyExchange object
@@ -150,7 +185,7 @@ func (ke *KeyExchange) sign(isResponder bool, prefix byte) []byte {
 	return hash.Sum(nil)
 }
 
-func (ke *KeyExchange) generateSharedKey(isResponder bool) {
+func (ke *KeyExchange) generateSharedKey(isResponder bool) ([]byte, error) {
 	var buffer []byte
 	buffer = append(buffer, toBytes(ke.privateKey, ke.v.X)...)
 	buffer = append(buffer, toBytes(ke.privateKey, ke.v.Y)...)
@@ -161,38 +196,53 @@ func (ke *KeyExchange) generateSharedKey(isResponder bool) {
 		buffer = append(buffer, ke.z...)
 		buffer = append(buffer, ke.peerZ...)
 	}
-	key, _ := sm3.Kdf(buffer, ke.keyLength)
-	ke.key = key
+	key, ok := sm3.Kdf(buffer, ke.keyLength)
+	if !ok {
+		return nil, errors.New("sm2: internal error, kdf failed")
+	}
+	return key, nil
+}
+
+// avf is the associative value function.
+func (ke *KeyExchange) avf(x *big.Int) *big.Int {
+	t := (&big.Int{}).And(ke.w2Minus1, x)
+	t.Add(ke.w2, t)
+	return t
+}
+
+func (ke *KeyExchange) implicitSig() []byte {
+	// Calculate x2`
+	t := ke.avf(ke.secret.X)
+
+	// Calculate tB
+	t.Mul(t, ke.r)
+	t.Add(t, ke.privateKey.D)
+	t.Mod(t, ke.privateKey.Params().N)
+	return t.Bytes()
+}
+
+func (ke *KeyExchange) basePoint() (*big.Int, *big.Int) {
+	// x1` = 2^w + (x & (2^w – 1))
+	x1 := ke.avf(ke.peerSecret.X)
+	// Point(x3, y3) = peerPub + [x1](peerSecret)
+	x, y := ke.privateKey.ScalarMult(ke.peerSecret.X, ke.peerSecret.Y, x1.Bytes())
+	x, y = ke.privateKey.Add(ke.peerPub.X, ke.peerPub.Y, x, y)
+	return x, y
 }
 
 func respondKeyExchange(ke *KeyExchange, r *big.Int) (*ecdsa.PublicKey, []byte, error) {
 	// secret = RB = [r]G
 	ke.secret.X, ke.secret.Y = ke.privateKey.ScalarBaseMult(r.Bytes())
 	ke.r = r
-	// Calculate x2`
-	t := (&big.Int{}).And(ke.w2Minus1, ke.secret.X)
-	t.Add(ke.w2, t)
-
-	// Calculate tB
-	t.Mul(t, ke.r)
-	t.Add(t, ke.privateKey.D)
-	t.Mod(t, ke.privateKey.Params().N)
-
-	// x1` = 2^w + (x & (2^w – 1))
-	x1 := (&big.Int{}).And(ke.w2Minus1, ke.peerSecret.X)
-	x1.Add(ke.w2, x1)
 
 	// Point(x3, y3) = peerPub + [x1](peerSecret)
-	x3, y3 := ke.privateKey.ScalarMult(ke.peerSecret.X, ke.peerSecret.Y, x1.Bytes())
-	x3, y3 = ke.privateKey.Add(ke.peerPub.X, ke.peerPub.Y, x3, y3)
+	x, y := ke.basePoint()
 
 	// V = [h*tB](Point(x3, y3))
-	ke.v.X, ke.v.Y = ke.privateKey.ScalarMult(x3, y3, t.Bytes())
+	ke.v.X, ke.v.Y = ke.privateKey.ScalarMult(x, y, ke.implicitSig())
 	if ke.v.X.Sign() == 0 && ke.v.Y.Sign() == 0 {
 		return nil, nil, errors.New("sm2: key exchange failed, V is infinity point")
 	}
-
-	ke.generateSharedKey(true)
 
 	if !ke.genSignature {
 		return ke.secret, nil, nil
@@ -220,59 +270,52 @@ func (ke *KeyExchange) RepondKeyExchange(rand io.Reader, rA *ecdsa.PublicKey) (*
 	return respondKeyExchange(ke, r)
 }
 
-// ConfirmResponder for initiator's step A4-A10, returns optional signature.
+// ConfirmResponder for initiator's step A4-A10, returns keying data and optional signature.
 //
 // It will check if there are peer's public key and validate the peer's Ephemeral Public Key.
 //
 // If the peer's signature is not empty, then it will also validate the peer's
 // signature and return generated signature depends on KeyExchange.genSignature value.
-func (ke *KeyExchange) ConfirmResponder(rB *ecdsa.PublicKey, sB []byte) ([]byte, error) {
+func (ke *KeyExchange) ConfirmResponder(rB *ecdsa.PublicKey, sB []byte) ([]byte, []byte, error) {
 	if ke.peerPub == nil {
-		return nil, errors.New("sm2: no peer public key given")
+		return nil, nil, errors.New("sm2: no peer public key given")
 	}
 	if !ke.privateKey.IsOnCurve(rB.X, rB.Y) {
-		return nil, errors.New("sm2: invalid responder's ephemeral public key")
+		return nil, nil, errors.New("sm2: invalid responder's ephemeral public key")
 	}
 	ke.peerSecret = rB
-	// Calculate tA
-	t := (&big.Int{}).And(ke.w2Minus1, ke.secret.X)
-	t.Add(ke.w2, t)
-	t.Mul(t, ke.r)
-	t.Add(t, ke.privateKey.D)
-	t.Mod(t, ke.privateKey.Params().N)
 
-	// x2` = 2^w + (x & (2^w – 1))
-	x2 := (&big.Int{}).And(ke.w2Minus1, ke.peerSecret.X)
-	x2.Add(ke.w2, x2)
-
-	// Point(x3, y3) = peerPub + [x1](peerSecret)
-	x3, y3 := ke.privateKey.ScalarMult(ke.peerSecret.X, ke.peerSecret.Y, x2.Bytes())
-	x3, y3 = ke.privateKey.Add(ke.peerPub.X, ke.peerPub.Y, x3, y3)
-
+	x, y := ke.basePoint()
 	// U = [h*tA](Point(x3, y3))
-	ke.v.X, ke.v.Y = ke.privateKey.ScalarMult(x3, y3, t.Bytes())
+	ke.v.X, ke.v.Y = ke.privateKey.ScalarMult(x, y, ke.implicitSig())
 
 	if ke.v.X.Sign() == 0 && ke.v.Y.Sign() == 0 {
-		return nil, errors.New("sm2: key exchange failed, U is infinity point")
+		return nil, nil, errors.New("sm2: key exchange failed, U is infinity point")
 	}
-	ke.generateSharedKey(false)
 	if len(sB) > 0 {
 		buffer := ke.sign(false, 0x02)
 		if subtle.ConstantTimeCompare(buffer, sB) != 1 {
-			return nil, errors.New("sm2: invalid responder's signature")
+			return nil, nil, errors.New("sm2: invalid responder's signature")
 		}
 	}
-	if !ke.genSignature {
-		return nil, nil
+	key, err := ke.generateSharedKey(false)
+	if err != nil {
+		return nil, nil, err
 	}
-	return ke.sign(false, 0x03), nil
+
+	if !ke.genSignature {
+		return key, nil, nil
+	}
+	return key, ke.sign(false, 0x03), nil
 }
 
 // ConfirmInitiator for responder's step B10
-func (ke *KeyExchange) ConfirmInitiator(s1 []byte) error {
-	buffer := ke.sign(true, 0x03)
-	if subtle.ConstantTimeCompare(buffer, s1) != 1 {
-		return errors.New("sm2: invalid initiator's signature")
+func (ke *KeyExchange) ConfirmInitiator(s1 []byte) ([]byte, error) {
+	if s1 != nil {
+		buffer := ke.sign(true, 0x03)
+		if subtle.ConstantTimeCompare(buffer, s1) != 1 {
+			return nil, errors.New("sm2: invalid initiator's signature")
+		}
 	}
-	return nil
+	return ke.generateSharedKey(true)
 }

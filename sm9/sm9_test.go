@@ -156,7 +156,10 @@ func TestKeyExchangeSample(t *testing.T) {
 		t.Fatal(err)
 	}
 	responder := NewKeyExchange(userKey, userB, userA, 16, true)
-
+	defer func() {
+		initiator.Destroy()
+		responder.Destroy()
+	}()
 	// A1-A4
 	initKeyExchange(initiator, hid, bigFromHex("5879DD1D51E175946F23B1B41E93BA31C584AE59A426EC1046A4D03B06C8"))
 
@@ -169,28 +172,29 @@ func TestKeyExchangeSample(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hex.EncodeToString(responder.key) != expectedKey {
-		t.Errorf("not expected key %v\n", hex.EncodeToString(responder.key))
-	}
+
 	if hex.EncodeToString(sigB) != expectedSignatureB {
 		t.Errorf("not expected signature B")
 	}
 
 	// A5 -A8
-	sigA, err := initiator.ConfirmResponder(rB, sigB)
+	key1, sigA, err := initiator.ConfirmResponder(rB, sigB)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hex.EncodeToString(initiator.key) != expectedKey {
-		t.Errorf("not expected key %v\n", hex.EncodeToString(initiator.key))
+	if hex.EncodeToString(key1) != expectedKey {
+		t.Errorf("not expected key %v\n", hex.EncodeToString(key1))
 	}
 	if hex.EncodeToString(sigA) != expectedSignatureA {
 		t.Errorf("not expected signature A")
 	}
 	// B8
-	err = responder.ConfirmInitiator(sigA)
+	key2, err := responder.ConfirmInitiator(sigA)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if hex.EncodeToString(key2) != expectedKey {
+		t.Errorf("not expected key %v\n", hex.EncodeToString(key2))
 	}
 }
 
@@ -214,7 +218,10 @@ func TestKeyExchange(t *testing.T) {
 		t.Fatal(err)
 	}
 	responder := NewKeyExchange(userKey, userB, userA, 16, true)
-
+	defer func() {
+		initiator.Destroy()
+		responder.Destroy()
+	}()
 	// A1-A4
 	rA, err := initiator.InitKeyExchange(rand.Reader, hid)
 	if err != nil {
@@ -228,18 +235,18 @@ func TestKeyExchange(t *testing.T) {
 	}
 
 	// A5 -A8
-	sigA, err := initiator.ConfirmResponder(rB, sigB)
+	key1, sigA, err := initiator.ConfirmResponder(rB, sigB)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// B8
-	err = responder.ConfirmInitiator(sigA)
+	key2, err := responder.ConfirmInitiator(sigA)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if hex.EncodeToString(initiator.GetSharedKey()) != hex.EncodeToString(responder.GetSharedKey()) {
+	if hex.EncodeToString(key1) != hex.EncodeToString(key2) {
 		t.Errorf("got different key")
 	}
 }
@@ -264,7 +271,10 @@ func TestKeyExchangeWithoutSignature(t *testing.T) {
 		t.Fatal(err)
 	}
 	responder := NewKeyExchange(userKey, userB, userA, 16, false)
-
+	defer func() {
+		initiator.Destroy()
+		responder.Destroy()
+	}()
 	// A1-A4
 	rA, err := initiator.InitKeyExchange(rand.Reader, hid)
 	if err != nil {
@@ -281,7 +291,7 @@ func TestKeyExchangeWithoutSignature(t *testing.T) {
 	}
 
 	// A5 -A8
-	sigA, err := initiator.ConfirmResponder(rB, sigB)
+	key1, sigA, err := initiator.ConfirmResponder(rB, sigB)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -289,7 +299,12 @@ func TestKeyExchangeWithoutSignature(t *testing.T) {
 		t.Errorf("should no signature")
 	}
 
-	if hex.EncodeToString(initiator.GetSharedKey()) != hex.EncodeToString(responder.GetSharedKey()) {
+	key2, err := responder.ConfirmInitiator(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if hex.EncodeToString(key1) != hex.EncodeToString(key2) {
 		t.Errorf("got different key")
 	}
 }

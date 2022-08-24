@@ -20,6 +20,10 @@ func TestKeyExchangeSample(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		initiator.Destroy()
+		responder.Destroy()
+	}()
 	rA, err := initiator.InitKeyExchange(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
@@ -30,17 +34,17 @@ func TestKeyExchangeSample(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s1, err := initiator.ConfirmResponder(rB, s2)
+	key1, s1, err := initiator.ConfirmResponder(rB, s2)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = responder.ConfirmInitiator(s1)
+	key2, err := responder.ConfirmInitiator(s1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if hex.EncodeToString(initiator.key) != hex.EncodeToString(responder.key) {
+	if hex.EncodeToString(key1) != hex.EncodeToString(key2) {
 		t.Errorf("got different key")
 	}
 }
@@ -56,6 +60,10 @@ func TestKeyExchangeSimplest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		initiator.Destroy()
+		responder.Destroy()
+	}()
 	rA, err := initiator.InitKeyExchange(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
@@ -69,7 +77,7 @@ func TestKeyExchangeSimplest(t *testing.T) {
 		t.Errorf("should be no siganature")
 	}
 
-	s1, err := initiator.ConfirmResponder(rB, nil)
+	key1, s1, err := initiator.ConfirmResponder(rB, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +85,12 @@ func TestKeyExchangeSimplest(t *testing.T) {
 		t.Errorf("should be no siganature")
 	}
 
-	if hex.EncodeToString(initiator.GetSharedKey()) != hex.EncodeToString(responder.GetSharedKey()) {
+	key2, err := responder.ConfirmInitiator(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if hex.EncodeToString(key1) != hex.EncodeToString(key2) {
 		t.Errorf("got different key")
 	}
 }
@@ -97,7 +110,10 @@ func TestSetPeerParameters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	defer func() {
+		initiator.Destroy()
+		responder.Destroy()
+	}()
 	rA, err := initiator.InitKeyExchange(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
@@ -124,17 +140,17 @@ func TestSetPeerParameters(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s1, err := initiator.ConfirmResponder(rB, s2)
+	key1, s1, err := initiator.ConfirmResponder(rB, s2)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = responder.ConfirmInitiator(s1)
+	key2, err := responder.ConfirmInitiator(s1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if hex.EncodeToString(initiator.key) != hex.EncodeToString(responder.key) {
+	if hex.EncodeToString(key1) != hex.EncodeToString(key2) {
 		t.Errorf("got different key")
 	}
 }
@@ -153,7 +169,10 @@ func TestKeyExchange_SetPeerParameters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	defer func() {
+		initiator.Destroy()
+		responder.Destroy()
+	}()
 	rA, err := initiator.InitKeyExchange(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
@@ -174,17 +193,17 @@ func TestKeyExchange_SetPeerParameters(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s1, err := initiator.ConfirmResponder(rB, s2)
+	key1, s1, err := initiator.ConfirmResponder(rB, s2)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = responder.ConfirmInitiator(s1)
+	key2, err := responder.ConfirmInitiator(s1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if hex.EncodeToString(initiator.key) != hex.EncodeToString(responder.key) {
+	if hex.EncodeToString(key1) != hex.EncodeToString(key2) {
 		t.Errorf("got different key")
 	}
 }
@@ -203,7 +222,10 @@ func TestKeyExchange_SetPeerParameters_ErrCase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	defer func() {
+		initiator.Destroy()
+		responder.Destroy()
+	}()
 	rA, err := initiator.InitKeyExchange(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
@@ -213,7 +235,7 @@ func TestKeyExchange_SetPeerParameters_ErrCase(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = initiator.ConfirmResponder(rB, s2)
+	_, _, err = initiator.ConfirmResponder(rB, s2)
 	if err == nil {
 		t.Fatal(errors.New("expect call ConfirmResponder got a error, but not"))
 	}
