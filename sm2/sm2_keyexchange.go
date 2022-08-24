@@ -28,45 +28,33 @@ type KeyExchange struct {
 	v            *ecdsa.PublicKey // internal state which will be used when compute the key and signature, u/v
 }
 
+func destroyBigInt(n *big.Int) {
+	if n != nil {
+		n.SetInt64(0)
+	}
+}
+
+func destroyPublicKey(pub *ecdsa.PublicKey) {
+	if pub != nil {
+		destroyBigInt(pub.X)
+		destroyBigInt(pub.Y)
+	}
+}
+
+func destroyBytes(bytes []byte) {
+	for v := range bytes {
+		bytes[v] = 0
+	}
+}
+
 // Destroy clear all internal state and Ephemeral private/public keys.
 func (ke *KeyExchange) Destroy() {
-	if ke.z != nil {
-		for v := range ke.z {
-			ke.z[v] = 0
-		}
-	}
-	if ke.peerZ != nil {
-		for v := range ke.peerZ {
-			ke.peerZ[v] = 0
-		}
-	}
-	if ke.r != nil {
-		ke.r.SetInt64(0)
-	}
-	if ke.secret != nil {
-		if ke.secret.X != nil {
-			ke.secret.X.SetInt64(0)
-		}
-		if ke.secret.Y != nil {
-			ke.secret.Y.SetInt64(0)
-		}
-	}
-	if ke.peerSecret != nil {
-		if ke.peerSecret.X != nil {
-			ke.peerSecret.X.SetInt64(0)
-		}
-		if ke.peerSecret.Y != nil {
-			ke.peerSecret.Y.SetInt64(0)
-		}
-	}
-	if ke.v != nil {
-		if ke.v.X != nil {
-			ke.v.X.SetInt64(0)
-		}
-		if ke.v.Y != nil {
-			ke.v.Y.SetInt64(0)
-		}
-	}
+	destroyBytes(ke.z)
+	destroyBytes(ke.peerZ)
+	destroyBigInt(ke.r)
+	destroyPublicKey(ke.secret)
+	destroyPublicKey(ke.peerSecret)
+	destroyPublicKey(ke.v)
 }
 
 // NewKeyExchange create one new KeyExchange object
@@ -210,7 +198,9 @@ func (ke *KeyExchange) avf(x *big.Int) *big.Int {
 	return t
 }
 
-func (ke *KeyExchange) implicitSig() []byte {
+// mqv implements SM2-MQV procedure
+func (ke *KeyExchange) mqv() {
+	// implicitSig: (sPriv + avf(ePub) * ePriv) mod N
 	// Calculate x2`
 	t := ke.avf(ke.secret.X)
 
@@ -218,16 +208,15 @@ func (ke *KeyExchange) implicitSig() []byte {
 	t.Mul(t, ke.r)
 	t.Add(t, ke.privateKey.D)
 	t.Mod(t, ke.privateKey.Params().N)
-	return t.Bytes()
-}
 
-func (ke *KeyExchange) basePoint() (*big.Int, *big.Int) {
+	// new base point: peerPub + [x1](peerSecret)
 	// x1` = 2^w + (x & (2^w – 1))
 	x1 := ke.avf(ke.peerSecret.X)
-	// Point(x3, y3) = peerPub + [x1](peerSecret)
+	// Point(x, y) = peerPub + [x1](peerSecret)
 	x, y := ke.privateKey.ScalarMult(ke.peerSecret.X, ke.peerSecret.Y, x1.Bytes())
 	x, y = ke.privateKey.Add(ke.peerPub.X, ke.peerPub.Y, x, y)
-	return x, y
+
+	ke.v.X, ke.v.Y = ke.privateKey.ScalarMult(x, y, t.Bytes())
 }
 
 func respondKeyExchange(ke *KeyExchange, r *big.Int) (*ecdsa.PublicKey, []byte, error) {
@@ -235,11 +224,7 @@ func respondKeyExchange(ke *KeyExchange, r *big.Int) (*ecdsa.PublicKey, []byte, 
 	ke.secret.X, ke.secret.Y = ke.privateKey.ScalarBaseMult(r.Bytes())
 	ke.r = r
 
-	// Point(x3, y3) = peerPub + [x1](peerSecret)
-	x, y := ke.basePoint()
-
-	// V = [h*tB](Point(x3, y3))
-	ke.v.X, ke.v.Y = ke.privateKey.ScalarMult(x, y, ke.implicitSig())
+	ke.mqv()
 	if ke.v.X.Sign() == 0 && ke.v.Y.Sign() == 0 {
 		return nil, nil, errors.New("sm2: key exchange failed, V is infinity point")
 	}
@@ -285,13 +270,11 @@ func (ke *KeyExchange) ConfirmResponder(rB *ecdsa.PublicKey, sB []byte) ([]byte,
 	}
 	ke.peerSecret = rB
 
-	x, y := ke.basePoint()
-	// U = [h*tA](Point(x3, y3))
-	ke.v.X, ke.v.Y = ke.privateKey.ScalarMult(x, y, ke.implicitSig())
-
+	ke.mqv()
 	if ke.v.X.Sign() == 0 && ke.v.Y.Sign() == 0 {
 		return nil, nil, errors.New("sm2: key exchange failed, U is infinity point")
 	}
+
 	if len(sB) > 0 {
 		buffer := ke.sign(false, 0x02)
 		if subtle.ConstantTimeCompare(buffer, sB) != 1 {
