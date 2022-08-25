@@ -211,7 +211,6 @@ func (pub *SignMasterPublicKey) Verify(uid []byte, hid byte, hash, sig []byte) b
 func WrapKey(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, kLen int) (key []byte, cipher *bn256.G1, err error) {
 	q := pub.GenerateUserPublicKey(uid, hid)
 	var r *big.Int
-	var ok bool
 	for {
 		r, err = randFieldElement(rand)
 		if err != nil {
