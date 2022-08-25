@@ -337,8 +337,7 @@ func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Encrypter
 		//A5, calculate t=KDF(x2||y2, klen)
 		var kdfCount int = 0
 		c2 := kdf.Kdf(sm3.New(), append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
-		success := subtle.ConstantTimeAllZero(c2)
-		if !success {
+		if subtle.ConstantTimeAllZero(c2) {
 			kdfCount++
 			if kdfCount > maxRetryLimit {
 				return nil, fmt.Errorf("sm2: A5, failed to calculate valid t, tried %v times", kdfCount)
@@ -399,8 +398,7 @@ func rawDecrypt(priv *PrivateKey, x1, y1 *big.Int, c2, c3 []byte) ([]byte, error
 	x2, y2 := curve.ScalarMult(x1, y1, priv.D.Bytes())
 	msgLen := len(c2)
 	msg := kdf.Kdf(sm3.New(), append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
-	success := subtle.ConstantTimeAllZero(c2)
-	if !success {
+	if subtle.ConstantTimeAllZero(c2) {
 		return nil, errors.New("sm2: invalid cipher text")
 	}
 

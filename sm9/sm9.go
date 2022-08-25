@@ -228,8 +228,7 @@ func WrapKey(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, 
 		buffer = append(buffer, uid...)
 
 		key = kdf.Kdf(sm3.New(), buffer, kLen)
-		ok = subtle.ConstantTimeAllZero(key)
-		if ok {
+		if !subtle.ConstantTimeAllZero(key) {
 			break
 		}
 	}
@@ -300,8 +299,7 @@ func UnwrapKey(priv *EncryptPrivateKey, uid []byte, cipher *bn256.G1, kLen int) 
 	buffer = append(buffer, uid...)
 
 	key := kdf.Kdf(sm3.New(), buffer, kLen)
-	ok := subtle.ConstantTimeAllZero(key)
-	if !ok {
+	if subtle.ConstantTimeAllZero(key) {
 		return nil, errors.New("sm9: invalid cipher")
 	}
 	return key, nil
