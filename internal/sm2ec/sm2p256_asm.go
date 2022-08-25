@@ -34,21 +34,21 @@ var p256P = p256Element{0xffffffffffffffff, 0xffffffff00000000,
 
 // P256Point is a P-256 point. The zero value should not be assumed to be valid
 // (although it is in this implementation).
-type P256Point struct {
+type SM2P256Point struct {
 	// (X:Y:Z) are Jacobian coordinates where x = X/Z² and y = Y/Z³. The point
 	// at infinity can be represented by any set of coordinates with Z = 0.
 	x, y, z p256Element
 }
 
-// NewP256Point returns a new P256Point representing the point at infinity.
-func NewP256Point() *P256Point {
-	return &P256Point{
+// NewSM2P256Point returns a new SM2P256Point representing the point at infinity.
+func NewSM2P256Point() *SM2P256Point {
+	return &SM2P256Point{
 		x: p256One, y: p256One, z: p256Zero,
 	}
 }
 
 // SetGenerator sets p to the canonical generator and returns p.
-func (p *P256Point) SetGenerator() *P256Point {
+func (p *SM2P256Point) SetGenerator() *SM2P256Point {
 	p.x = p256Element{0x61328990f418029e, 0x3e7981eddca6c050,
 		0xd6a1ed99ac24c3c3, 0x91167a5ee1c13b05}
 	p.y = p256Element{0xc1354e593c2d0ddd, 0xc1f5e5788d3295fa,
@@ -58,7 +58,7 @@ func (p *P256Point) SetGenerator() *P256Point {
 }
 
 // Set sets p = q and returns p.
-func (p *P256Point) Set(q *P256Point) *P256Point {
+func (p *SM2P256Point) Set(q *SM2P256Point) *SM2P256Point {
 	p.x, p.y, p.z = q.x, q.y, q.z
 	return p
 }
@@ -79,7 +79,7 @@ func toElementArray(b []byte) *[32]byte {
 // b, as specified in SEC 1, Version 2.0, Section 2.3.4. If the point is not on
 // the curve, it returns nil and an error, and the receiver is unchanged.
 // Otherwise, it returns p.
-func (p *P256Point) SetBytes(b []byte) (*P256Point, error) {
+func (p *SM2P256Point) SetBytes(b []byte) (*SM2P256Point, error) {
 	// p256Mul operates in the Montgomery domain with R = 2²⁵⁶ mod p. Thus rr
 	// here is R in the Montgomery domain, or R×R mod p. See comment in
 	// P256OrdInverse about how this is used.
@@ -89,11 +89,11 @@ func (p *P256Point) SetBytes(b []byte) (*P256Point, error) {
 	switch {
 	// Point at infinity.
 	case len(b) == 1 && b[0] == 0:
-		return p.Set(NewP256Point()), nil
+		return p.Set(NewSM2P256Point()), nil
 
 	// Uncompressed form.
 	case len(b) == p256UncompressedLength && b[0] == 4:
-		var r P256Point
+		var r SM2P256Point
 		p256BigToLittle(&r.x, toElementArray(b[1:33]))
 		p256BigToLittle(&r.y, toElementArray(b[33:65]))
 		if p256LessThanP(&r.x) == 0 || p256LessThanP(&r.y) == 0 {
@@ -109,7 +109,7 @@ func (p *P256Point) SetBytes(b []byte) (*P256Point, error) {
 
 	// Compressed form.
 	case len(b) == p256CompressedLength && (b[0] == 2 || b[0] == 3):
-		var r P256Point
+		var r SM2P256Point
 		p256BigToLittle(&r.x, toElementArray(b[1:33]))
 		if p256LessThanP(&r.x) == 0 {
 			return nil, errors.New("invalid P256 element encoding")
@@ -334,7 +334,7 @@ func p256NegCond(val *p256Element, cond int)
 // If cond is 0, sets res = b, otherwise sets res = a.
 //
 //go:noescape
-func p256MovCond(res, a, b *P256Point, cond int)
+func p256MovCond(res, a, b *SM2P256Point, cond int)
 
 //go:noescape
 func p256BigToLittle(res *p256Element, in *[32]byte)
@@ -351,13 +351,13 @@ func p256OrdLittleToBig(res *[32]byte, in *p256OrdElement)
 // p256Table is a table of the first 16 multiples of a point. Points are stored
 // at an index offset of -1 so [8]P is at index 7, P is at 0, and [16]P is at 15.
 // [0]P is the point at infinity and it's not stored.
-type p256Table [16]P256Point
+type p256Table [16]SM2P256Point
 
 // p256Select sets res to the point at index idx in the table.
 // idx must be in [0, 15]. It executes in constant time.
 //
 //go:noescape
-func p256Select(res *P256Point, table *p256Table, idx int)
+func p256Select(res *SM2P256Point, table *p256Table, idx int)
 
 // p256AffinePoint is a point in affine coordinates (x, y). x and y are still
 // Montgomery domain elements. The point can't be the point at infinity.
@@ -397,27 +397,27 @@ func p256SelectAffine(res *p256AffinePoint, table *p256AffineTable, idx int)
 // If sign is not 0, sets res = in1 + -in2. Otherwise, sets res = in1 + in2
 //
 //go:noescape
-func p256PointAddAffineAsm(res, in1 *P256Point, in2 *p256AffinePoint, sign, sel, zero int)
+func p256PointAddAffineAsm(res, in1 *SM2P256Point, in2 *p256AffinePoint, sign, sel, zero int)
 
 // Point addition. Sets res = in1 + in2. Returns one if the two input points
 // were equal and zero otherwise. If in1 or in2 are the point at infinity, res
 // and the return value are undefined.
 //
 //go:noescape
-func p256PointAddAsm(res, in1, in2 *P256Point) int
+func p256PointAddAsm(res, in1, in2 *SM2P256Point) int
 
 // Point doubling. Sets res = in + in. in can be the point at infinity.
 //
 //go:noescape
-func p256PointDoubleAsm(res, in *P256Point)
+func p256PointDoubleAsm(res, in *SM2P256Point)
 
 // p256OrdElement is a P-256 scalar field element in [0, ord(G)-1] in the
 // Montgomery domain (with R 2²⁵⁶) as four uint64 limbs in little-endian order.
 type p256OrdElement [4]uint64
 
 // Add sets q = p1 + p2, and returns q. The points may overlap.
-func (q *P256Point) Add(r1, r2 *P256Point) *P256Point {
-	var sum, double P256Point
+func (q *SM2P256Point) Add(r1, r2 *SM2P256Point) *SM2P256Point {
+	var sum, double SM2P256Point
 	r1IsInfinity := r1.isInfinity()
 	r2IsInfinity := r2.isInfinity()
 	pointsEqual := p256PointAddAsm(&sum, r1, r2)
@@ -429,8 +429,8 @@ func (q *P256Point) Add(r1, r2 *P256Point) *P256Point {
 }
 
 // Double sets q = p + p, and returns q. The points may overlap.
-func (q *P256Point) Double(p *P256Point) *P256Point {
-	var double P256Point
+func (q *SM2P256Point) Double(p *SM2P256Point) *SM2P256Point {
+	var double SM2P256Point
 	p256PointDoubleAsm(&double, p)
 	return q.Set(&double)
 }
@@ -438,7 +438,7 @@ func (q *P256Point) Double(p *P256Point) *P256Point {
 // ScalarBaseMult sets r = scalar * generator, where scalar is a 32-byte big
 // endian value, and returns r. If scalar is not 32 bytes long, ScalarBaseMult
 // returns an error and the receiver is unchanged.
-func (r *P256Point) ScalarBaseMult(scalar []byte) (*P256Point, error) {
+func (r *SM2P256Point) ScalarBaseMult(scalar []byte) (*SM2P256Point, error) {
 	if len(scalar) != 32 {
 		return nil, errors.New("invalid scalar length")
 	}
@@ -452,7 +452,7 @@ func (r *P256Point) ScalarBaseMult(scalar []byte) (*P256Point, error) {
 // ScalarMult sets r = scalar * q, where scalar is a 32-byte big endian value,
 // and returns r. If scalar is not 32 bytes long, ScalarBaseMult returns an
 // error and the receiver is unchanged.
-func (r *P256Point) ScalarMult(q *P256Point, scalar []byte) (*P256Point, error) {
+func (r *SM2P256Point) ScalarMult(q *SM2P256Point, scalar []byte) (*SM2P256Point, error) {
 	if len(scalar) != 32 {
 		return nil, errors.New("invalid scalar length")
 	}
@@ -485,21 +485,21 @@ func p256Equal(a, b *p256Element) int {
 }
 
 // isInfinity returns 1 if p is the point at infinity and 0 otherwise.
-func (p *P256Point) isInfinity() int {
+func (p *SM2P256Point) isInfinity() int {
 	return p256Equal(&p.z, &p256Zero)
 }
 
 // Bytes returns the uncompressed or infinity encoding of p, as specified in
 // SEC 1, Version 2.0, Section 2.3.3. Note that the encoding of the point at
 // infinity is shorter than all other encodings.
-func (p *P256Point) Bytes() []byte {
+func (p *SM2P256Point) Bytes() []byte {
 	// This function is outlined to make the allocations inline in the caller
 	// rather than happen on the heap.
 	var out [p256UncompressedLength]byte
 	return p.bytes(&out)
 }
 
-func (p *P256Point) bytes(out *[p256UncompressedLength]byte) []byte {
+func (p *SM2P256Point) bytes(out *[p256UncompressedLength]byte) []byte {
 	// The proper representation of the point at infinity is a single zero byte.
 	if p.isInfinity() == 1 {
 		return append(out[:0], 0)
@@ -517,7 +517,7 @@ func (p *P256Point) bytes(out *[p256UncompressedLength]byte) []byte {
 
 // affineFromMont sets (x, y) to the affine coordinates of p, converted out of the
 // Montgomery domain.
-func (p *P256Point) affineFromMont(x, y *p256Element) {
+func (p *SM2P256Point) affineFromMont(x, y *p256Element) {
 	p256Inverse(y, &p.z)
 	p256Sqr(x, y, 1)
 	p256Mul(y, y, x)
@@ -529,17 +529,41 @@ func (p *P256Point) affineFromMont(x, y *p256Element) {
 	p256FromMont(y, y)
 }
 
+// BytesX returns the encoding of the x-coordinate of p, as specified in SEC 1,
+// Version 2.0, Section 2.3.5, or an error if p is the point at infinity.
+func (p *SM2P256Point) BytesX() ([]byte, error) {
+	// This function is outlined to make the allocations inline in the caller
+	// rather than happen on the heap.
+	var out [p256ElementLength]byte
+	return p.bytesX(&out)
+}
+
+func (p *SM2P256Point) bytesX(out *[p256ElementLength]byte) ([]byte, error) {
+	if p.isInfinity() == 1 {
+		return nil, errors.New("SM2 point is the point at infinity")
+	}
+
+	x := new(p256Element)
+	p256Inverse(x, &p.z)
+	p256Sqr(x, x, 1)
+	p256Mul(x, &p.x, x)
+	p256FromMont(x, x)
+	p256LittleToBig(toElementArray(out[:]), x)
+
+	return out[:], nil
+}
+
 // BytesCompressed returns the compressed or infinity encoding of p, as
 // specified in SEC 1, Version 2.0, Section 2.3.3. Note that the encoding of the
 // point at infinity is shorter than all other encodings.
-func (p *P256Point) BytesCompressed() []byte {
+func (p *SM2P256Point) BytesCompressed() []byte {
 	// This function is outlined to make the allocations inline in the caller
 	// rather than happen on the heap.
 	var out [p256CompressedLength]byte
 	return p.bytesCompressed(&out)
 }
 
-func (p *P256Point) bytesCompressed(out *[p256CompressedLength]byte) []byte {
+func (p *SM2P256Point) bytesCompressed(out *[p256CompressedLength]byte) []byte {
 	if p.isInfinity() == 1 {
 		return append(out[:0], 0)
 	}
@@ -554,7 +578,7 @@ func (p *P256Point) bytesCompressed(out *[p256CompressedLength]byte) []byte {
 }
 
 // Select sets q to p1 if cond == 1, and to p2 if cond == 0.
-func (q *P256Point) Select(p1, p2 *P256Point, cond int) *P256Point {
+func (q *SM2P256Point) Select(p1, p2 *SM2P256Point, cond int) *SM2P256Point {
 	p256MovCond(q, p1, p2, cond)
 	return q
 }
@@ -757,7 +781,7 @@ func boothW6(in uint) (int, int) {
 	return int(d), int(s & 1)
 }
 
-func (p *P256Point) p256BaseMult(scalar *p256OrdElement) {
+func (p *SM2P256Point) p256BaseMult(scalar *p256OrdElement) {
 	var t0 p256AffinePoint
 
 	wvalue := (scalar[0] << 1) & 0x7f
@@ -783,14 +807,14 @@ func (p *P256Point) p256BaseMult(scalar *p256OrdElement) {
 	}
 
 	// If the whole scalar was zero, set to the point at infinity.
-	p256MovCond(p, p, NewP256Point(), zero)
+	p256MovCond(p, p, NewSM2P256Point(), zero)
 }
 
-func (p *P256Point) p256ScalarMult(scalar *p256OrdElement) {
+func (p *SM2P256Point) p256ScalarMult(scalar *p256OrdElement) {
 	// precomp is a table of precomputed points that stores powers of p
 	// from p^1 to p^16.
 	var precomp p256Table
-	var t0, t1, t2, t3 P256Point
+	var t0, t1, t2, t3 SM2P256Point
 
 	// Prepare the table
 	precomp[0] = *p // 1

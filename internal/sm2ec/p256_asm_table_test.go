@@ -9,7 +9,7 @@ import (
 )
 
 func TestP256PrecomputedTable(t *testing.T) {
-	base := NewP256Point().SetGenerator()
+	base := NewSM2P256Point().SetGenerator()
 
 	for i := 0; i < 43; i++ {
 		t.Run(fmt.Sprintf("table[%d]", i), func(t *testing.T) {
@@ -22,8 +22,8 @@ func TestP256PrecomputedTable(t *testing.T) {
 	}
 }
 
-func testP256AffineTable(t *testing.T, base *P256Point, table *p256AffineTable) {
-	p := NewP256Point()
+func testP256AffineTable(t *testing.T, base *SM2P256Point, table *p256AffineTable) {
+	p := NewSM2P256Point()
 	zInv := new(p256Element)
 	zInvSq := new(p256Element)
 

@@ -75,7 +75,7 @@ TEXT ·p256BigToLittle(SB),NOSPLIT,$0
 
 	RET
 /* ---------------------------------------*/
-// func p256MovCond(res, a, b *P256Point, cond int)
+// func p256MovCond(res, a, b *SM2P256Point, cond int)
 TEXT ·p256MovCond(SB),NOSPLIT,$0
 	MOVQ res+0(FP), res_ptr
 	MOVQ a+8(FP), x_ptr
@@ -671,7 +671,7 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 
 	RET
 /* ---------------------------------------*/
-// func p256Select(res *P256Point, table *p256Table, idx int)
+// func p256Select(res *SM2P256Point, table *p256Table, idx int)
 TEXT ·p256Select(SB),NOSPLIT,$0
 	MOVQ idx+16(FP),AX
 	MOVQ table+8(FP),DI
@@ -1797,7 +1797,7 @@ TEXT sm2P256SqrInternal(SB),NOSPLIT,$8
 #define sel_save  (32*15 + 8)(SP)
 #define zero_save (32*15 + 8 + 4)(SP)
 
-// func p256PointAddAffineAsm(res, in1 *P256Point, in2 *p256AffinePoint, sign, sel, zero int)
+// func p256PointAddAffineAsm(res, in1 *SM2P256Point, in2 *p256AffinePoint, sign, sel, zero int)
 TEXT ·p256PointAddAffineAsm(SB),0,$512-48
 	// Move input to stack in order to free registers
 	MOVQ res+0(FP), AX
@@ -2110,7 +2110,7 @@ TEXT sm2P256IsZero(SB),NOSPLIT,$0
 #define rptr       (32*20)(SP)
 #define points_eq  (32*20+8)(SP)
 
-//func p256PointAddAsm(res, in1, in2 *P256Point) int
+//func p256PointAddAsm(res, in1, in2 *SM2P256Point) int
 TEXT ·p256PointAddAsm(SB),0,$680-32
 	// See https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#addition-add-2007-bl
 	// Move input to stack in order to free registers
@@ -2290,7 +2290,7 @@ TEXT ·p256PointAddAsm(SB),0,$680-32
 #define tmp(off)  (32*6 + off)(SP)
 #define rptr	  (32*7)(SP)
 
-//func p256PointDoubleAsm(res, in *P256Point)
+//func p256PointDoubleAsm(res, in *SM2P256Point)
 TEXT ·p256PointDoubleAsm(SB),NOSPLIT,$256-16
 	// Move input to stack in order to free registers
 	MOVQ res+0(FP), AX
