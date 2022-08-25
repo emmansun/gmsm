@@ -175,21 +175,3 @@ func (curve *sm2Curve) UnmarshalCompressed(data []byte) (x, y *big.Int) {
 	}
 	return curve.pointToAffine(p)
 }
-
-// Inverse, implements invertible interface, used by Sign()
-func (curve *sm2Curve) Inverse(k *big.Int) *big.Int {
-	if k.Sign() < 0 {
-		// This should never happen.
-		k = new(big.Int).Neg(k)
-	}
-	if k.Cmp(curve.params.N) >= 0 {
-		// This should never happen.
-		k = new(big.Int).Mod(k, curve.params.N)
-	}
-	scalar := k.FillBytes(make([]byte, 32))
-	inverse, err := _sm2ec.P256OrdInverse(scalar)
-	if err != nil {
-		panic("sm2/elliptic: sm2 rejected normalized scalar")
-	}
-	return new(big.Int).SetBytes(inverse)
-}
