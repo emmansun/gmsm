@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/emmansun/gmsm/internal/subtle"
+	"github.com/emmansun/gmsm/kdf"
 	"github.com/emmansun/gmsm/sm3"
 	"github.com/emmansun/gmsm/sm9/bn256"
 )
@@ -437,10 +438,8 @@ func TestWrapKeySM9Sample(t *testing.T) {
 	buffer = append(buffer, w.Marshal()...)
 	buffer = append(buffer, uid...)
 
-	key, ok := sm3.Kdf(buffer, 32)
-	if !ok {
-		t.Failed()
-	}
+	key := kdf.Kdf(sm3.New(), buffer, 32)
+
 	if hex.EncodeToString(key) != expectedKey {
 		t.Errorf("expected %v, got %v\n", expectedKey, hex.EncodeToString(key))
 	}
@@ -501,10 +500,8 @@ func TestEncryptSM9Sample(t *testing.T) {
 	buffer = append(buffer, w.Marshal()...)
 	buffer = append(buffer, uid...)
 
-	key, ok := sm3.Kdf(buffer, len(plaintext)+32)
-	if !ok {
-		t.Failed()
-	}
+	key := kdf.Kdf(sm3.New(), buffer, len(plaintext)+32)
+	
 	if hex.EncodeToString(key) != expectedKey {
 		t.Errorf("not expected key")
 	}

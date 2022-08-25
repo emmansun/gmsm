@@ -24,6 +24,7 @@ import (
 
 	"github.com/emmansun/gmsm/internal/randutil"
 	"github.com/emmansun/gmsm/internal/subtle"
+	"github.com/emmansun/gmsm/kdf"
 	"github.com/emmansun/gmsm/sm2/sm2ec"
 	"github.com/emmansun/gmsm/sm3"
 	"golang.org/x/crypto/cryptobyte"
@@ -335,7 +336,8 @@ func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Encrypter
 
 		//A5, calculate t=KDF(x2||y2, klen)
 		var kdfCount int = 0
-		c2, success := sm3.Kdf(append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
+		c2 := kdf.Kdf(sm3.New(), append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
+		success := subtle.ConstantTimeAllZero(c2)
 		if !success {
 			kdfCount++
 			if kdfCount > maxRetryLimit {
@@ -396,7 +398,8 @@ func rawDecrypt(priv *PrivateKey, x1, y1 *big.Int, c2, c3 []byte) ([]byte, error
 	curve := priv.Curve
 	x2, y2 := curve.ScalarMult(x1, y1, priv.D.Bytes())
 	msgLen := len(c2)
-	msg, success := sm3.Kdf(append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
+	msg := kdf.Kdf(sm3.New(), append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
+	success := subtle.ConstantTimeAllZero(c2)
 	if !success {
 		return nil, errors.New("sm2: invalid cipher text")
 	}

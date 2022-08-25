@@ -5,11 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"hash"
 	"io"
-	"math/big"
 	"testing"
 
 	"golang.org/x/sys/cpu"
@@ -113,24 +111,6 @@ func TestBlockSize(t *testing.T) {
 		t.Errorf("BlockSize = %d want %d", got, BlockSize)
 	}
 	fmt.Printf("ARM64 has sm3 %v, has sm4 %v, has aes %v\n", cpu.ARM64.HasSM3, cpu.ARM64.HasSM4, cpu.ARM64.HasAES)
-}
-
-func Test_kdf(t *testing.T) {
-	x2, _ := new(big.Int).SetString("64D20D27D0632957F8028C1E024F6B02EDF23102A566C932AE8BD613A8E865FE", 16)
-	y2, _ := new(big.Int).SetString("58D225ECA784AE300A81A2D48281A828E1CEDF11C4219099840265375077BF78", 16)
-
-	expected := "006e30dae231b071dfad8aa379e90264491603"
-
-	result, success := Kdf(append(x2.Bytes(), y2.Bytes()...), 19)
-	if !success {
-		t.Fatalf("failed")
-	}
-
-	resultStr := hex.EncodeToString(result)
-
-	if expected != resultStr {
-		t.Fatalf("expected %s, real value %s", expected, resultStr)
-	}
 }
 
 var bench = New()

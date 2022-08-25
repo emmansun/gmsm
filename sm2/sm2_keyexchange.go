@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/big"
 
+	"github.com/emmansun/gmsm/kdf"
 	"github.com/emmansun/gmsm/sm3"
 )
 
@@ -184,11 +185,7 @@ func (ke *KeyExchange) generateSharedKey(isResponder bool) ([]byte, error) {
 		buffer = append(buffer, ke.z...)
 		buffer = append(buffer, ke.peerZ...)
 	}
-	key, ok := sm3.Kdf(buffer, ke.keyLength)
-	if !ok {
-		return nil, errors.New("sm2: internal error, kdf failed")
-	}
-	return key, nil
+	return kdf.Kdf(sm3.New(), buffer, ke.keyLength), nil
 }
 
 // avf is the associative value function.

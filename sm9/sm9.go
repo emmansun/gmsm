@@ -11,6 +11,7 @@ import (
 	"math/big"
 
 	"github.com/emmansun/gmsm/internal/subtle"
+	"github.com/emmansun/gmsm/kdf"
 	"github.com/emmansun/gmsm/sm3"
 	"github.com/emmansun/gmsm/sm9/bn256"
 	"golang.org/x/crypto/cryptobyte"
@@ -226,7 +227,8 @@ func WrapKey(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, 
 		buffer = append(buffer, w.Marshal()...)
 		buffer = append(buffer, uid...)
 
-		key, ok = sm3.Kdf(buffer, kLen)
+		key = kdf.Kdf(sm3.New(), buffer, kLen)
+		ok = subtle.ConstantTimeAllZero(key)
 		if ok {
 			break
 		}
@@ -297,7 +299,8 @@ func UnwrapKey(priv *EncryptPrivateKey, uid []byte, cipher *bn256.G1, kLen int) 
 	buffer = append(buffer, w.Marshal()...)
 	buffer = append(buffer, uid...)
 
-	key, ok := sm3.Kdf(buffer, kLen)
+	key := kdf.Kdf(sm3.New(), buffer, kLen)
+	ok := subtle.ConstantTimeAllZero(key)
 	if !ok {
 		return nil, errors.New("sm9: invalid cipher")
 	}
@@ -562,11 +565,7 @@ func (ke *KeyExchange) generateSharedKey(isResponder bool) ([]byte, error) {
 	buffer = append(buffer, ke.g2.Marshal()...)
 	buffer = append(buffer, ke.g3.Marshal()...)
 
-	key, ok := sm3.Kdf(buffer, ke.keyLength)
-	if !ok {
-		return nil, errors.New("sm9: internal error, kdf failed")
-	}
-	return key, nil
+	return kdf.Kdf(sm3.New(), buffer, ke.keyLength), nil
 }
 
 func respondKeyExchange(ke *KeyExchange, hid byte, r *big.Int, rA *bn256.G1) (*bn256.G1, []byte, error) {
