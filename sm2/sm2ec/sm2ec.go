@@ -8,7 +8,6 @@ import (
 	_sm2ec "github.com/emmansun/gmsm/internal/sm2ec"
 )
 
-// TODO: will merge it with sm2p256_generic.go from golang 1.18 with generic support.
 type sm2Curve struct {
 	newPoint func() *_sm2ec.SM2P256Point
 	params   *elliptic.CurveParams

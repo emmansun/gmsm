@@ -487,12 +487,6 @@ func (ke *KeyExchange) Destroy() {
 	if ke.r != nil {
 		ke.r.SetInt64(0)
 	}
-	if ke.secret != nil {
-		ke.secret.Set(bn256.Gen1)
-	}
-	if ke.peerSecret != nil {
-		ke.peerSecret.Set(bn256.Gen1)
-	}
 	if ke.g1 != nil {
 		ke.g1.SetOne()
 	}

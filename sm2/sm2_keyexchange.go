@@ -53,8 +53,6 @@ func (ke *KeyExchange) Destroy() {
 	destroyBytes(ke.z)
 	destroyBytes(ke.peerZ)
 	destroyBigInt(ke.r)
-	destroyPublicKey(ke.secret)
-	destroyPublicKey(ke.peerSecret)
 	destroyPublicKey(ke.v)
 }
 
