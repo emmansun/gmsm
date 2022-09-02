@@ -3,6 +3,6 @@ module github.com/emmansun/gmsm
 go 1.16
 
 require (
-	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
-	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10
+	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
+	golang.org/x/sys v0.0.0-20220829200755-d48e67d00261
 )

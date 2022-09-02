@@ -5,6 +5,7 @@ import (
 	"crypto"
 	"crypto/cipher"
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"testing"
@@ -22,6 +23,14 @@ var _ interface {
 	Public() crypto.PublicKey
 	Equal(x crypto.PrivateKey) bool
 } = &ecdh.PrivateKey{}
+
+func hexDecode(t *testing.T, s string) []byte {
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		t.Fatal("invalid hex string:", s)
+	}
+	return b
+}
 
 func TestECDH(t *testing.T) {
 	aliceKey, err := ecdh.P256().GenerateKey(rand.Reader)
@@ -66,6 +75,180 @@ func TestECDH(t *testing.T) {
 
 	if !bytes.Equal(bobSecret, aliceSecret) {
 		t.Error("two ECDH computations came out different")
+	}
+}
+
+func TestSM2MQV(t *testing.T) {
+	aliceSKey, err := ecdh.P256().GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	aliceEKey, err := ecdh.P256().GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bobSKey, err := ecdh.P256().GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bobEKey, err := ecdh.P256().GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bobSecret, err := ecdh.P256().SM2MQV(bobSKey, bobEKey, aliceSKey.PublicKey(), aliceEKey.PublicKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	aliceSecret, err := ecdh.P256().SM2MQV(aliceSKey, aliceEKey, bobSKey.PublicKey(), bobEKey.PublicKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !aliceSecret.Equal(bobSecret) {
+		t.Error("two SM2MQV computations came out different")
+	}
+}
+
+func TestSM2SharedKey(t *testing.T) {
+	aliceSKey, err := ecdh.P256().GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	aliceEKey, err := ecdh.P256().GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bobSKey, err := ecdh.P256().GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bobEKey, err := ecdh.P256().GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bobSecret, err := ecdh.P256().SM2MQV(bobSKey, bobEKey, aliceSKey.PublicKey(), aliceEKey.PublicKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	aliceSecret, err := ecdh.P256().SM2MQV(aliceSKey, aliceEKey, bobSKey.PublicKey(), bobEKey.PublicKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !aliceSecret.Equal(bobSecret) {
+		t.Error("two SM2MQV computations came out different")
+	}
+
+	bobKey, err := ecdh.P256().SM2SharedKey(true, 48, bobSecret, bobSKey.PublicKey(), aliceSKey.PublicKey(), []byte("Bob"), []byte("Alice"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	aliceKey, err := ecdh.P256().SM2SharedKey(false, 48, aliceSecret, aliceSKey.PublicKey(), bobSKey.PublicKey(), []byte("Alice"), []byte("Bob"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(bobKey, aliceKey) {
+		t.Error("two SM2SharedKey computations came out different")
+	}
+}
+
+var vectors = []struct {
+	LocalStaticPriv, LocalEphemeralPriv   string
+	RemoteStaticPriv, RemoteEphemeralPriv string
+	SharedSecret, Key                     string
+}{
+	{
+		"e04c3fd77408b56a648ad439f673511a2ae248def3bab26bdfc9cdbd0ae9607e",
+		"6fe0bac5b09d3ab10f724638811c34464790520e4604e71e6cb0e5310623b5b1",
+		"7a1136f60d2c5531447e5a3093078c2a505abf74f33aefed927ac0a5b27e7dd7",
+		"d0233bdbb0b8a7bfe1aab66132ef06fc4efaedd5d5000692bc21185242a31f6f",
+		"046ab5c9709277837cedc515730d04751ef81c71e81e0e52357a98cf41796ab560508da6e858b40c6264f17943037434174284a847f32c4f54104a98af5148d89f",
+		"1ad809ebc56ddda532020c352e1e60b121ebeb7b4e632db4dd90a362cf844f8bba85140e30984ddb581199bf5a9dda22",
+	},
+	{
+		"cb5ac204b38d0e5c9fc38a467075986754018f7dbb7cbbc5b4c78d56a88a8ad8",
+		"1681a66c02b67fdadfc53cba9b417b9499d0159435c86bb8760c3a03ae157539",
+		"4f54b10e0d8e9e2fe5cc79893e37fd0fd990762d1372197ed92dde464b2773ef",
+		"a2fe43dea141e9acc88226eaba8908ad17e81376c92102cb8186e8fef61a8700",
+		"04677d055355a1dcc9de4df00d3a80b6daa76bdf54ff7e0a3a6359fcd0c6f1e4b4697fffc41bbbcc3a28ea3aa1c6c380d1e92f142233afa4b430d02ab4cebc43b2",
+		"7a103ae61a30ed9df573a5febb35a9609cbed5681bcb98a8545351bf7d6824cc4635df5203712ea506e2e3c4ec9b12e7",
+	},
+	{
+		"ee690a34a779ab48227a2f68b062a80f92e26d82835608dd01b7452f1e4fb296",
+		"2046c6cee085665e9f3abeba41fd38e17a26c08f2f5e8f0e1007afc0bf6a2a5d",
+		"8ef49ea427b13cc31151e1c96ae8a48cb7919063f2d342560fb7eaaffb93d8fe",
+		"9baf8d602e43fbae83fedb7368f98c969d378b8a647318f8cafb265296ae37de",
+		"04f7e9f1447968b284ff43548fcec3752063ea386b48bfabb9baf2f9c1caa05c2fb12c2cca37326ce27e68f8cc6414c2554895519c28da1ca21e61890d0bc525c4",
+		"b18e78e5072f301399dc1f4baf2956c0ed2d5f52f19abb1705131b0865b079031259ee6c629b4faed528bcfa1c5d2cbc",
+	},
+}
+
+func TestSM2SharedKeyVectors(t *testing.T) {
+	initiator := []byte("Alice")
+	responder := []byte("Bob")
+	kenLen := 48
+
+	for i, v := range vectors {
+		aliceSKey, err := ecdh.P256().NewPrivateKey(hexDecode(t, v.LocalStaticPriv))
+		if err != nil {
+			t.Fatal(err)
+		}
+		aliceEKey, err := ecdh.P256().NewPrivateKey(hexDecode(t, v.LocalEphemeralPriv))
+		if err != nil {
+			t.Fatal(err)
+		}
+		bobSKey, err := ecdh.P256().NewPrivateKey(hexDecode(t, v.RemoteStaticPriv))
+		if err != nil {
+			t.Fatal(err)
+		}
+		bobEKey, err := ecdh.P256().NewPrivateKey(hexDecode(t, v.RemoteEphemeralPriv))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		bobSecret, err := ecdh.P256().SM2MQV(bobSKey, bobEKey, aliceSKey.PublicKey(), aliceEKey.PublicKey())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		aliceSecret, err := ecdh.P256().SM2MQV(aliceSKey, aliceEKey, bobSKey.PublicKey(), bobEKey.PublicKey())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !aliceSecret.Equal(bobSecret) {
+			t.Error("two SM2MQV computations came out different")
+		}
+
+		if !bytes.Equal(aliceSecret.Bytes(), hexDecode(t, v.SharedSecret)) {
+			t.Errorf("%v shared secret is not expected.", i)
+		}
+
+		bobKey, err := ecdh.P256().SM2SharedKey(true, kenLen, bobSecret, bobSKey.PublicKey(), aliceSKey.PublicKey(), responder, initiator)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		aliceKey, err := ecdh.P256().SM2SharedKey(false, kenLen, aliceSecret, aliceSKey.PublicKey(), bobSKey.PublicKey(), initiator, responder)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !bytes.Equal(bobKey, aliceKey) {
+			t.Error("two SM2SharedKey computations came out different")
+		}
+
+		if !bytes.Equal(bobKey, hexDecode(t, v.Key)) {
+			t.Errorf("%v keying data is not expected.", i)
+		}
 	}
 }
 

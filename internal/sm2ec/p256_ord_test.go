@@ -1,6 +1,3 @@
-//go:build (amd64 && !generic) || (arm64 && !generic)
-// +build amd64,!generic arm64,!generic
-
 package sm2ec_test
 
 import (

@@ -74,6 +74,10 @@ func TestSM2P256MontgomeryDomainN(t *testing.T) {
 		in  string
 		out string
 	}{
+		{ // One
+			"01",
+			"010000000000000000000000008dfc2094de39fad4ac440bf6c62abedd",
+		},
 		{ // R
 			"010000000000000000000000000000000000000000000000000000000000000000",
 			"1eb5e412a22b3d3b620fc84c3affe0d43464504ade6fa2fa901192af7c114f20",

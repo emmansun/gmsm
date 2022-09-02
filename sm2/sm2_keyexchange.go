@@ -214,7 +214,14 @@ func (ke *KeyExchange) mqv() {
 	ke.v.X, ke.v.Y = ke.privateKey.ScalarMult(x, y, t.Bytes())
 }
 
-func respondKeyExchange(ke *KeyExchange, r *big.Int) (*ecdsa.PublicKey, []byte, error) {
+func respondKeyExchange(ke *KeyExchange, rA *ecdsa.PublicKey, r *big.Int) (*ecdsa.PublicKey, []byte, error) {
+	if ke.peerPub == nil {
+		return nil, nil, errors.New("sm2: no peer public key given")
+	}
+	if !ke.privateKey.IsOnCurve(rA.X, rA.Y) {
+		return nil, nil, errors.New("sm2: invalid initiator's ephemeral public key")
+	}
+	ke.peerSecret = rA
 	// secret = RB = [r]G
 	ke.secret.X, ke.secret.Y = ke.privateKey.ScalarBaseMult(r.Bytes())
 	ke.r = r
@@ -236,18 +243,11 @@ func respondKeyExchange(ke *KeyExchange, r *big.Int) (*ecdsa.PublicKey, []byte, 
 //
 // It will check if there are peer's public key and validate the peer's Ephemeral Public Key.
 func (ke *KeyExchange) RepondKeyExchange(rand io.Reader, rA *ecdsa.PublicKey) (*ecdsa.PublicKey, []byte, error) {
-	if ke.peerPub == nil {
-		return nil, nil, errors.New("sm2: no peer public key given")
-	}
-	if !ke.privateKey.IsOnCurve(rA.X, rA.Y) {
-		return nil, nil, errors.New("sm2: invalid initiator's ephemeral public key")
-	}
-	ke.peerSecret = rA
 	r, err := randFieldElement(ke.privateKey, rand)
 	if err != nil {
 		return nil, nil, err
 	}
-	return respondKeyExchange(ke, r)
+	return respondKeyExchange(ke, rA, r)
 }
 
 // ConfirmResponder for initiator's step A4-A10, returns keying data and optional signature.
