@@ -9,103 +9,26 @@
 ![GitHub go.mod Go version (branch)](https://img.shields.io/github/go-mod/go-version/emmansun/gmsm)
 [![Release](https://img.shields.io/github/release/emmansun/gmsm/all.svg)](https://github.com/emmansun/gmsm/releases)
 
-This is a **SM2 sm2p256v1** implementation whose performance is similar like golang native NIST P256 under **amd64** and **arm64**, for implementation detail, please refer [SM2实现细节](https://github.com/emmansun/gmsm/wiki/SM2%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96).
+## Packages
+* **SM2** - This is a SM2 sm2p256v1 implementation whose performance is similar like golang native NIST P256 under **amd64** and **arm64**, for implementation detail, please refer [SM2实现细节](https://github.com/emmansun/gmsm/wiki/SM2%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96). It supports ShangMi sm2 digital signature, public key encryption algorithm and also key exchange.
 
-This is also a **SM3** implementation whose performance is similar like golang native SHA 256 with SIMD under **amd64**, for implementation detail, please refer [SM3性能优化](https://github.com/emmansun/gmsm/wiki/SM3%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96).
+* **SM3** - This is also a SM3 implementation whose performance is similar like golang native SHA 256 with SIMD under **amd64**, for implementation detail, please refer [SM3性能优化](https://github.com/emmansun/gmsm/wiki/SM3%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96). It also provides A64 cryptographic instructions SM3 POC without test.
 
-For **SM4** implementation, SIMD & AES-NI are used under **amd64** and **arm64**, for detail please refer [SM4性能优化](https://github.com/emmansun/gmsm/wiki/SM4%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96), support CBC/CFB/OFB/CTR/GCM/CCM/XTS modes.
+* **SM4** - For SM4 implementation, SIMD & AES-NI are used under **amd64** and **arm64**, for detail please refer [SM4性能优化](https://github.com/emmansun/gmsm/wiki/SM4%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96), it supports CBC/CFB/OFB/CTR/GCM/CCM/XTS modes. It also provides A64 cryptographic instructions SM4 POC without test.
 
-For **SM9** implementation, please reference [sm9/bn256 README.md](https://github.com/emmansun/gmsm/tree/main/sm9/bn256).
+* **SM9** - For SM9 implementation, please reference [sm9/bn256 README.md](https://github.com/emmansun/gmsm/tree/main/sm9/bn256).
 
-For **ZUC** implementation, SIMD, AES-NI and CLMUL are used under **amd64** and **arm64**, for detail please refer [Efficient Software Implementations of ZUC](https://github.com/emmansun/gmsm/wiki/Efficient-Software-Implementations-of-ZUC)
+* **ZUC** - For ZUC implementation, SIMD, AES-NI and CLMUL are used under **amd64** and **arm64**, for detail please refer [Efficient Software Implementations of ZUC](https://github.com/emmansun/gmsm/wiki/Efficient-Software-Implementations-of-ZUC)
 
-**SM2 encryption Benchmark**
+* **CIPHER** - CCM/XTS cipher modes.
 
-    CPU: i5-9500
-    P-256/SM2(No tuning)
-    goos: windows
-    goarch: amd64
-    pkg: gmsm/sm2
-    BenchmarkLessThan32-6   	     210	   5665861 ns/op	   0.01 MB/s	 2601864 B/op	   27725 allocs/op
-    PASS
-    ok  	gmsm/sm2	5.629s
-    
-    P-256/SM2(with P256/SM2 curve pure golang implementation)
-    goos: windows
-    goarch: amd64
-    pkg: gmsm/sm2
-    BenchmarkLessThan32_P256SM2-6   	    1027	   1169516 ns/op	    3874 B/op	      74 allocs/op
-    PASS
-    ok  	gmsm/sm2	1.564s
+* **SMX509** - a fork of golang X509 that supports ShangMi.
 
-    P-256/SM2(with P256/SM2 amd64 curve implementation, i think there are still improvement space for p256Sqr function)
-    goos: windows
-    goarch: amd64
-    pkg: github.com/emmansun/gmsm/sm2
-    BenchmarkLessThan32_P256SM2-6   	   10447	    115618 ns/op	    2357 B/op	      46 allocs/op
-    PASS
-    ok  	github.com/emmansun/gmsm/sm2	2.199s
+* **PKCS8** - a fork of [youmark/pkcs8](https://github.com/youmark/pkcs8) that supports ShangMi.
 
-    P-256 (SM2 based on NIST P-256 curve)
-    goos: windows
-    goarch: amd64
-    pkg: gmsm/sm2
-    BenchmarkMoreThan32-6   	   13656	     86252 ns/op	    3141 B/op	      50 allocs/op
-    PASS
-    ok  	gmsm/sm2	4.139s
+* **ECDH** - a similar implementation of golang ECDH that supports SM2 ECDH & SM2MQV without usage of **big.Int**, a replacement of SM2 key exchange. For detail, pleaes refer [is my code constant time?](https://github.com/emmansun/gmsm/wiki/is-my-code-constant-time%3F)
 
-**SM3 hash Benchmark**
-
-    CPU: i5-9500
-    Pure golang version
-    goos: windows
-    goarch: amd64
-    pkg: github.com/emmansun/gmsm/sm3
-    BenchmarkHash8K-6   	   27097	     41112 ns/op	 199.26 MB/s	       0 B/op	       0 allocs/op
-    PASS
-    ok  	github.com/emmansun/gmsm/sm3	3.463s
-
-    ASM (non-AVX2) version
-    goos: windows
-    goarch: amd64
-    pkg: github.com/emmansun/gmsm/sm3
-    BenchmarkHash8K-6   	   35080	     33235 ns/op	 246.49 MB/s	       0 B/op	       0 allocs/op
-    PASS
-    ok  	github.com/emmansun/gmsm/sm3	3.102s
-
-    ASM AVX2 version
-    goos: windows
-    goarch: amd64
-    pkg: github.com/emmansun/gmsm/sm3
-    BenchmarkHash8K-6   	   53208	     22223 ns/op	 368.63 MB/s	       0 B/op	       0 allocs/op
-    PASS
-    ok  	github.com/emmansun/gmsm/sm3	1.720s 
-
-    SHA256 ASM AVX2 version
-    goos: windows
-    goarch: amd64
-    pkg: github.com/emmansun/gmsm/sm3
-    BenchmarkHash8K_SH256-6   	   68352	     17116 ns/op	 478.63 MB/s	       0 B/op	       0 allocs/op
-    PASS
-    ok  	github.com/emmansun/gmsm/sm3	3.043s    
-
-**SM4 Benchmark**
-
-    CPU: i5-9500
-    Pure golang version
-    goos: windows
-    goarch: amd64
-    pkg: github.com/emmansun/gmsm/sm4
-    BenchmarkEncrypt-6   	 2671431	       441 ns/op	  36.28 MB/s	       0 B/op	       0 allocs/op
-    BenchmarkDecrypt-6   	 2709132	       440 ns/op	  36.40 MB/s	       0 B/op	       0 allocs/op
-    BenchmarkExpand-6    	 2543746	       471 ns/op	      16 B/op	       1 allocs/op
-    
-    ASM AES-NI version
-    goos: windows
-    goarch: amd64
-    pkg: github.com/emmansun/gmsm/sm4
-    BenchmarkEncrypt-6   	 5881989	       206 ns/op	  77.75 MB/s	       0 B/op	       0 allocs/op
-    BenchmarkDecrypt-6   	 5853994	       204 ns/op	  78.45 MB/s	       0 B/op	       0 allocs/op
-    BenchmarkExpand-6    	 5985129	       200 ns/op	       0 B/op	       0 allocs/op
-    PASS
-    ok  	github.com/emmansun/gmsm/sm4	6.193s
+## Some Related Projects
+* **PKCS12** - https://github.com/emmansun/go-pkcs12
+* **PKCS7** - https://github.com/emmansun/pkcs7
+* **TLCP** - https://github.com/Trisia/gotlcp
