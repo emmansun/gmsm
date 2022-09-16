@@ -363,6 +363,22 @@ func BenchmarkSign_SM2(b *testing.B) {
 	}
 }
 
+func BenchmarkSign_SM2Specific(b *testing.B) {
+	priv, err := GenerateKey(rand.Reader)
+	if err != nil {
+		b.Fatal(err)
+	}
+	hashed := []byte("testingtestingtestingtestingtestingtestingtestingtestingtestingtestingtestingtestingtestingtestingtestingtestingtestingtestingtestingtesting")
+	b.RunParallel(func(p *testing.PB) {
+		for p.Next() {
+			_, err := priv.SignWithSM2(rand.Reader, nil, hashed)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+}
+
 func BenchmarkSign_P256(b *testing.B) {
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
