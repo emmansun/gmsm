@@ -66,12 +66,6 @@ func (e *SM2P256Element) bytes(out *[sm2p256ElementLen]byte) []byte {
 	return out[:]
 }
 
-// sm2p256MinusOneEncoding is the encoding of -1 mod p, so p - 1, the
-// highest canonical encoding. It is used by SetBytes to check for non-canonical
-// encodings such as p + k, 2p + k, etc.
-var sm2p256MinusOneEncoding = new(SM2P256Element).Sub(
-	new(SM2P256Element), new(SM2P256Element).One()).Bytes()
-
 // SetBytes sets e = v, where v is a big-endian 32-byte encoding, and returns e.
 // If v is not 32 bytes or it encodes a value higher than 2^256 - 2^224 - 2^96 + 2^64 - 1,
 // SetBytes returns nil and an error, and e is unchanged.
@@ -80,7 +74,7 @@ func (e *SM2P256Element) SetBytes(v []byte) (*SM2P256Element, error) {
 		return nil, errors.New("invalid SM2P256Element encoding")
 	}
 
-		// Check for non-canonical encodings (p + k, 2p + k, etc.) by comparing to
+	// Check for non-canonical encodings (p + k, 2p + k, etc.) by comparing to
 	// the encoding of -1 mod p, so p - 1, the highest canonical encoding.
 	var minusOneEncoding = new(SM2P256Element).Sub(
 		new(SM2P256Element), new(SM2P256Element).One()).Bytes()
