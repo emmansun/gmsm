@@ -11,7 +11,6 @@ import (
 
 const HASH_DRBG_SEED_SIZE = 55
 const HASH_DRBG_MAX_SEED_SIZE = 111
-const MAX_BYTES_PER_GENERATE = 1 << 11
 
 type HashDrbg struct {
 	BaseDrbg
@@ -24,13 +23,7 @@ func NewHashDrbg(md hash.Hash, securityLevel SecurityLevel, gm bool, entropy, no
 	hd := &HashDrbg{}
 
 	hd.gm = gm
-	hd.securityLevel = securityLevel
-	hd.reseedIntervalInCounter = DRBG_RESEED_COUNTER_INTERVAL_LEVEL1
-	hd.reseedIntervalInTime = DRBG_RESEED_TIME_INTERVAL_LEVEL1
-	if hd.securityLevel == SECURITY_LEVEL_TWO {
-		hd.reseedIntervalInCounter = DRBG_RESEED_COUNTER_INTERVAL_LEVEL2
-		hd.reseedIntervalInTime = DRBG_RESEED_TIME_INTERVAL_LEVEL2
-	}
+	hd.setSecurityLevel(securityLevel)
 
 	// here for the min length, we just check <=0 now
 	if len(entropy) <= 0 || len(entropy) >= MAX_BYTES {
@@ -140,11 +133,18 @@ func (hd *HashDrbg) addReseedCounter() {
 	add(t, hd.v, hd.seedLength)
 }
 
+func (hd *HashDrbg) MaxBytesPerRequest() int {
+	if hd.gm {
+		return hd.md.Size()
+	}
+	return MAX_BYTES_PER_GENERATE
+}
+
 // Generate hash DRBG generate process. GM/T 0105-2021 has a little different with NIST.
 // GM/T 0105-2021 can only generate no more than hash.Size bytes once.
 func (hd *HashDrbg) Generate(b, additional []byte) error {
 	if hd.NeedReseed() {
-		return errors.New("reseed reuqired")
+		return ErrReseedRequired
 	}
 	if (hd.gm && len(b) > hd.md.Size()) || (!hd.gm && len(b) > MAX_BYTES_PER_GENERATE) {
 		return errors.New("too many bytes requested")

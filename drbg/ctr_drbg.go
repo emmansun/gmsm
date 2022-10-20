@@ -22,13 +22,7 @@ func NewCtrDrbg(cipherProvider func(key []byte) (cipher.Block, error), keyLen in
 	hd := &CtrDrbg{}
 
 	hd.gm = gm
-	hd.securityLevel = securityLevel
-	hd.reseedIntervalInCounter = DRBG_RESEED_COUNTER_INTERVAL_LEVEL1
-	hd.reseedIntervalInTime = DRBG_RESEED_TIME_INTERVAL_LEVEL1
-	if hd.securityLevel == SECURITY_LEVEL_TWO {
-		hd.reseedIntervalInCounter = DRBG_RESEED_COUNTER_INTERVAL_LEVEL2
-		hd.reseedIntervalInTime = DRBG_RESEED_TIME_INTERVAL_LEVEL2
-	}
+	hd.setSecurityLevel(securityLevel)
 
 	// here for the min length, we just check <=0 now
 	if len(entropy) <= 0 || len(entropy) >= MAX_BYTES {
@@ -109,10 +103,17 @@ func (hd *CtrDrbg) newBlockCipher(key []byte) cipher.Block {
 	return block
 }
 
+func (hd *CtrDrbg) MaxBytesPerRequest() int {
+	if hd.gm {
+		return len(hd.v)
+	}
+	return MAX_BYTES_PER_GENERATE
+}
+
 // Generate CTR DRBG generate process.
 func (hd *CtrDrbg) Generate(b, additional []byte) error {
 	if hd.NeedReseed() {
-		return errors.New("reseed reuqired")
+		return ErrReseedRequired
 	}
 	outlen := len(hd.v)
 	if (hd.gm && len(b) > outlen) || (!hd.gm && len(b) > MAX_BYTES_PER_GENERATE) {
