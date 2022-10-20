@@ -156,6 +156,24 @@ var tests = []struct {
 		"00d98d35a2fab8df23e9e1fb9aad143d62c0759eb79e15c37e8f2bc5064e68da",
 		"299d084f049dd9b7f62ee712b5b2c1c602f078980f4d9816d8f2baf38765be984b6c493497af30f68a56072404f27e45af419d04eb9e35",
 	},
+	{
+		true,
+		sm3.New(),
+		"9cfb7ad03be487a3b42be06e9ae44f283c2b1458cec801da2ae6532fcb56cc4c",
+		"a20765538e8db31295747ec922c13a69",
+		"",
+		"997cd31a7032c8643ca56de1d34ff4f930b13192e17c8947bcaf9b9d010cf79805511255c7ea18b41cde77e491ca943861ec29780f3f36", // v0
+		"4c5b167d27fa9d40cbc45d0d9f3c52504a1cb5aa2f37a3fa812037bd1e458412ecff0641dd5cb2785d0f8044151b42842777211547b457", // c0
+		"96bc8014f90ebdf690db0e171b59cc46c75e2e9b8e1dc699c65c03ceb2f4d7dc",
+		"6fea0894052dab3c44d503950c7c72bd7b87de87cb81d3bb51c32a62f742286d",
+		"e3d804eda66df62f425c41047c5812fca471c8236395c92d4bd834c2e52d606be6ad3da8973df16e8567bcb16e45f2842ace91bf6dfeb3", // v1
+		"1a1b2fffca26953626e0fa3afd377e14e63c5e81275b39f1436b707efb2c3059e6ced8fdb238a45bf05aae9f2417dbf5c4f89d3772f324", // c1
+		"d3467c78563b74c13db7af36c2a964820f2a9b1b167474906508fdac9b2049a6",
+		"fdf334ed70948b65693d3b3f798f91118aae26a48af1045be386984b75695902870479c3c53593d332d195ee7f1bed45fc5069cc4f9948", // v2
+		"5840a11cc9ebf77b963854726a826370ffdb2fc2b3d8479e1df5dcfa3dddd10b",
+		"48709db5509a03d6131775fbbfe74fe52611e760d22fde61e274a295f4354d67",
+		"180e64ed3abb209b901e357a76c70f2670ea8525b24c401d146b70b178e33d8fd10f7680c50bbe1f9773ba664dd14cd25d329c380bf399", // v3
+	},
 }
 
 func TestHashDRBG(t *testing.T) {
@@ -175,6 +193,7 @@ func TestHashDRBG(t *testing.T) {
 		if !bytes.Equal(hd.c[:len(c0)], c0) {
 			t.Errorf("not same c0 %s", hex.EncodeToString(hd.c[:len(c0)]))
 		}
+		// Reseed
 		entropyInputReseed, _ := hex.DecodeString(test.entropyInputReseed)
 		additionalInputReseed, _ := hex.DecodeString(test.additionalInputReseed)
 		v1, _ := hex.DecodeString(test.v1)
@@ -189,6 +208,7 @@ func TestHashDRBG(t *testing.T) {
 		if !bytes.Equal(hd.c[:len(c0)], c1) {
 			t.Errorf("not same c1 %s", hex.EncodeToString(hd.c[:len(c0)]))
 		}
+		// Generate 1
 		returnbits1, _ := hex.DecodeString(test.returnbits1)
 		v2, _ := hex.DecodeString(test.v2)
 		output := make([]byte, len(returnbits1))
@@ -197,6 +217,7 @@ func TestHashDRBG(t *testing.T) {
 		if !bytes.Equal(hd.v[:len(v0)], v2) {
 			t.Errorf("not same v2 %s", hex.EncodeToString(hd.v[:len(v0)]))
 		}
+		// Generate 2
 		v3, _ := hex.DecodeString(test.v3)
 		additionalInput2, _ := hex.DecodeString(test.additionalInput2)
 		hd.Generate(output, additionalInput2)

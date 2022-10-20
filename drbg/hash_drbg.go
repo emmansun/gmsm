@@ -1,40 +1,22 @@
 package drbg
 
 import (
-	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"hash"
 	"time"
+
+	"github.com/emmansun/gmsm/sm3"
 )
 
 const HASH_DRBG_SEED_SIZE = 55
 const HASH_DRBG_MAX_SEED_SIZE = 111
-const HASH_DRBG_RESEED_COUNTER_INTERVAL_LEVEL2 uint64 = 1 << 10
-const HASH_DRBG_RESEED_COUNTER_INTERVAL_LEVEL1 uint64 = 1 << 20
-const HASH_DRBG_RESEED_TIME_INTERVAL_LEVEL2 = time.Duration(60) * time.Second
-const HASH_DRBG_RESEED_TIME_INTERVAL_LEVEL1 = time.Duration(600) * time.Second
-const MAX_BYTES = 1 << 27
 const MAX_BYTES_PER_GENERATE = 1 << 11
 
-type SecurityLevel byte
-
-const (
-	SECURITY_LEVEL_ONE SecurityLevel = 0x01
-	SECURITY_LEVEL_TWO SecurityLevel = 0x02
-)
-
 type HashDrbg struct {
-	md                      hash.Hash
-	v                       []byte
-	c                       []byte
-	seedLength              int
-	reseedTime              time.Time
-	reseedIntervalInTime    time.Duration
-	reseedCounter           uint64
-	reseedIntervalInCounter uint64
-	securityLevel           SecurityLevel
-	gm                      bool
+	BaseDrbg
+	md hash.Hash
+	c  []byte
 }
 
 // NewHashDrbg create one hash DRBG instance
@@ -43,11 +25,11 @@ func NewHashDrbg(md hash.Hash, securityLevel SecurityLevel, gm bool, entropy, no
 
 	hd.gm = gm
 	hd.securityLevel = securityLevel
-	hd.reseedIntervalInCounter = HASH_DRBG_RESEED_COUNTER_INTERVAL_LEVEL1
-	hd.reseedIntervalInTime = HASH_DRBG_RESEED_TIME_INTERVAL_LEVEL1
+	hd.reseedIntervalInCounter = DRBG_RESEED_COUNTER_INTERVAL_LEVEL1
+	hd.reseedIntervalInTime = DRBG_RESEED_TIME_INTERVAL_LEVEL1
 	if hd.securityLevel == SECURITY_LEVEL_TWO {
-		hd.reseedIntervalInCounter = HASH_DRBG_RESEED_COUNTER_INTERVAL_LEVEL2
-		hd.reseedIntervalInTime = HASH_DRBG_RESEED_TIME_INTERVAL_LEVEL2
+		hd.reseedIntervalInCounter = DRBG_RESEED_COUNTER_INTERVAL_LEVEL2
+		hd.reseedIntervalInTime = DRBG_RESEED_TIME_INTERVAL_LEVEL2
 	}
 
 	// here for the min length, we just check <=0 now
@@ -65,7 +47,7 @@ func NewHashDrbg(md hash.Hash, securityLevel SecurityLevel, gm bool, entropy, no
 	}
 
 	hd.md = md
-	if md.Size() <= sha256.Size {
+	if md.Size() <= sm3.Size {
 		hd.v = make([]byte, HASH_DRBG_SEED_SIZE)
 		hd.c = make([]byte, HASH_DRBG_SEED_SIZE)
 		hd.seedLength = HASH_DRBG_SEED_SIZE
@@ -91,14 +73,14 @@ func NewHashDrbg(md hash.Hash, securityLevel SecurityLevel, gm bool, entropy, no
 	return hd, nil
 }
 
-// NewNISTHashDrbg return hash DRBG implementation which follow NIST standard
+// NewNISTHashDrbg return hash DRBG implementation which follows NIST standard
 func NewNISTHashDrbg(md hash.Hash, securityLevel SecurityLevel, entropy, nonce, personalization []byte) (*HashDrbg, error) {
 	return NewHashDrbg(md, securityLevel, false, entropy, nonce, personalization)
 }
 
-// NewGMHashDrbg return hash DRBG implementation which follow GM/T 0105-2021 standard
-func NewGMHashDrbg(md hash.Hash, securityLevel SecurityLevel, entropy, nonce, personalization []byte) (*HashDrbg, error) {
-	return NewHashDrbg(md, securityLevel, true, entropy, nonce, personalization)
+// NewGMHashDrbg return hash DRBG implementation which follows GM/T 0105-2021 standard
+func NewGMHashDrbg(securityLevel SecurityLevel, entropy, nonce, personalization []byte) (*HashDrbg, error) {
+	return NewHashDrbg(sm3.New(), securityLevel, true, entropy, nonce, personalization)
 }
 
 // Reseed hash DRBG reseed process. GM/T 0105-2021 has a little different with NIST.
@@ -135,19 +117,6 @@ func (hd *HashDrbg) Reseed(entropy, additional []byte) error {
 	return nil
 }
 
-func (hd *HashDrbg) NeedReseed() bool {
-	return (hd.reseedCounter > hd.reseedIntervalInCounter) || (hd.gm && time.Since(hd.reseedTime) > hd.reseedIntervalInTime)
-}
-
-func add(left, right []byte, len int) {
-	var temp uint16 = 0
-	for i := len - 1; i >= 0; i-- {
-		temp += uint16(left[i]) + uint16(right[i])
-		right[i] = byte(temp & 0xff)
-		temp >>= 8
-	}
-}
-
 func (hd *HashDrbg) addW(w []byte) {
 	t := make([]byte, hd.seedLength)
 	copy(t[hd.seedLength-len(w):], w)
@@ -169,15 +138,6 @@ func (hd *HashDrbg) addReseedCounter() {
 	t := make([]byte, hd.seedLength)
 	binary.BigEndian.PutUint64(t[hd.seedLength-8:], hd.reseedCounter)
 	add(t, hd.v, hd.seedLength)
-}
-
-func (hd *HashDrbg) addOne(data []byte) {
-	var temp uint16 = 1
-	for i := hd.seedLength - 1; i >= 0; i-- {
-		temp += uint16(data[i])
-		data[i] = byte(temp & 0xff)
-		temp >>= 8
-	}
 }
 
 // Generate hash DRBG generate process. GM/T 0105-2021 has a little different with NIST.
@@ -210,7 +170,7 @@ func (hd *HashDrbg) Generate(b, additional []byte) error {
 		for i := 0; i < int(limit); i++ {
 			md.Write(data)
 			copy(b[i*md.Size():], md.Sum(nil))
-			hd.addOne(data)
+			addOne(data, hd.seedLength)
 			md.Reset()
 		}
 	}
@@ -222,7 +182,7 @@ func (hd *HashDrbg) Generate(b, additional []byte) error {
 	return nil
 }
 
-func (hd *HashDrbg) derive(seedMaternial []byte, len int) []byte {
+func (hd *HashDrbg) derive(seedMaterial []byte, len int) []byte {
 	md := hd.md
 	limit := uint64(len+md.Size()-1) / uint64(md.Size())
 	var requireBytes [4]byte
@@ -232,7 +192,7 @@ func (hd *HashDrbg) derive(seedMaternial []byte, len int) []byte {
 	for i := 0; i < int(limit); i++ {
 		md.Write([]byte{ct})
 		md.Write(requireBytes[:])
-		md.Write(seedMaternial)
+		md.Write(seedMaterial)
 		copy(k[i*md.Size():], md.Sum(nil))
 		ct++
 		md.Reset()
