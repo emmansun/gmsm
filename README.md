@@ -28,6 +28,8 @@
 
 * **ECDH** - a similar implementation of golang ECDH that supports SM2 ECDH & SM2MQV without usage of **big.Int**, a replacement of SM2 key exchange. For detail, pleaes refer [is my code constant time?](https://github.com/emmansun/gmsm/wiki/is-my-code-constant-time%3F)
 
+* **DRBG** - Random Number Generation Using Deterministic Random Bit Generators, for detail, please reference **NIST Special Publication 800-90A** and **GM/T 0105-2021**: CTR-DRBG using derivation function and HASH-DRBG. NIST related implementations are tested with part of NIST provided test vectors.
+
 ## Some Related Projects
 * **PKCS12** - https://github.com/emmansun/go-pkcs12
 * **PKCS7** - https://github.com/emmansun/pkcs7
