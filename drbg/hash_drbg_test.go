@@ -185,7 +185,7 @@ func TestHashDRBG(t *testing.T) {
 		c0, _ := hex.DecodeString(test.c0)
 		hd, err := NewHashDrbg(test.md, SECURITY_LEVEL_ONE, test.gm, entropyInput, nonce, personalizationString)
 		if err != nil {
-			t.Error(err)
+			t.Fatal(err)
 		}
 		if !bytes.Equal(hd.v[:len(v0)], v0) {
 			t.Errorf("not same v0 %s", hex.EncodeToString(hd.v[:len(v0)]))
@@ -200,7 +200,7 @@ func TestHashDRBG(t *testing.T) {
 		c1, _ := hex.DecodeString(test.c1)
 		err = hd.Reseed(entropyInputReseed, additionalInputReseed)
 		if err != nil {
-			t.Error(err)
+			t.Fatal(err)
 		}
 		if !bytes.Equal(hd.v[:len(v0)], v1) {
 			t.Errorf("not same v1 %s", hex.EncodeToString(hd.v[:len(v0)]))

@@ -182,43 +182,43 @@ var ctrtests = []struct {
 		true,
 		sm4.NewCipher,
 		16,
-		"0f65da13dca407999d4773c2b4a11d85",
-		"5209e5b4ed82a234",
+		"2d4c9f46b981c6a0b2b5d8c69391e569ff13851437ebc0fc00d616340252fed5",
+		"0bf814b411f65ec4866be1abb59d3c32",
 		"",
-		"3dee0b770815026b88a86a1637c4c9f6",
-		"40ef052e0dffc441fd644f6dce7430c0",
-		"1dea0a12c52bf64339dd291c80d8ca89",
+		"044f9ff3b7e8ad2b60a7b2c05fe6b5b7",
+		"7fce60b97d8ceb60506bff1d37b1a936",
+		"93500fae4fa32b86033b7a7bac9d37e710dcc67ca266bc8607d665937766d207",
 		"",
-		"1c5c3a1369b7ab6ea6f5631b0a8e4f2d", // v1
-		"ac5783e385d6d4c6a2c5a184e7cebecb", //key1
+		"8bd44b2e39f8186497f889c73555797d", // v1
+		"02b9a8f88124bd9cec909e1fd7ec9971", //key1
 		"",
-		"22b16dfe04896ef1ddf69f12e5d9a1dd", // v2
-		"3f7b6539fc274b97565b2a1b26d021e0", //key2
+		"fbc91ad876ba3a84588be2f358b9e13c", // v2
+		"4804b2a1a971ca729abff5bada051cf6", //key2
 		"",
-		"58129d515c9bb6d32e1ab1206fe6c618",
-		"69bfff2ab5f3dbcc5eaca7eb5a3cf8e4",
-		"c2b4a693df1f768e7d45d0926a40f527",
+		"e732a524de8ad239aa293ac8ae588f9d",
+		"ce60250d77048bdbe48ade354b6869f6",
+		"6788e31ae27aae09a14aed967ce8b219",
 	},
 	{ // SM4-128, with additional input
 		false,
 		sm4.NewCipher,
 		16,
-		"285da6cf762552634636bfee3400b156",
-		"8f8bada74820cb43",
+		"6f60f0f9d486bc23e1223b934e61c0c78ae9232fa2e9a87c6dacd447c3f10e9e",
+		"401e3f87762fa8a14ab232ccb8480a2f",
 		"",
-		"f5cb0d67b1784b97b1d90fff63e67d32", // v0
-		"f55a8ee6f9414feac90fe15a43c9bc11", // key0
-		"b4699b33354a83bfed115f770f32db0b", // EntropyInputReseed
-		"38bfec9a10e6e40c106841dae48dc3b8", // AdditionalInputReseed
-		"7398bf677878ae483b0e560b9c5bf666", // v1
-		"402b8f4743e52ba2d7dc88541f5d23b1", // key1
-		"629ead5bacfac8235711ffeb22f57558", // AdditionalInput1
-		"095162afa9927d43e1bb531ff9719a32", // v2
-		"c8a759bc36a5b86ede53122a89041a1c", // key2
-		"dd8a02ee668ca3e03949b38cb6e6b4df", // AdditionalInput2
-		"71f9fbd6bc78149061eabfbd248f54eb",
-		"eddc1b09ff7ce31f19a0922249d78345", // v3
-		"8c10825d503632f8cabed20bc62d6a08", // key3
+		"5e8c10afe142dc9c8caf35411b38730a", // v0
+		"d72aefa9fd527383ad418f6158627feb", // key0
+		"350be52552a65a804a106543ebb7dd046cffae104e4e8b2f18936d564d3c1950", // EntropyInputReseed
+		"7a3688adb1cfb6c03264e2762ece96bfe4daf9558fabf74d7fff203c08b4dd9f", // AdditionalInputReseed
+		"c00836da0fd780cdc81dabec80e344ce",                                 // v1
+		"f5f3abdeff30df22f4866d83cd96bc1b",                                 // key1
+		"67cf4a56d081c53670f257c25557014cd5e8b0e919aa58f23d6861b10b00ea80", // AdditionalInput1
+		"6ddb205ec76567b31a07ee48437acebc",                                 // v2
+		"5e23cbe8b97065102ca0d87bfd9ae0da",                                 // key2
+		"648d4a229198b43f33dd7dd8426650be11c5656adcdf913bb3ee5eb49a2a3892", // AdditionalInput2
+		"b0ac91f148efbdc3570d7e434aba8d24",
+		"d1f029bb089613d836ddc6fe1d6fb96f", // v3
+		"8adfe65e9137b18f060ae91e7a6224c1", // key3
 	},
 }
 
@@ -231,7 +231,7 @@ func TestCtrDRBG(t *testing.T) {
 		key0, _ := hex.DecodeString(test.key0)
 		hd, err := NewCtrDrbg(test.cipherProvider, test.keyLen, SECURITY_LEVEL_ONE, test.gm, entropyInput, nonce, personalizationString)
 		if err != nil {
-			t.Error(err)
+			t.Fatal(err)
 		}
 		if !bytes.Equal(hd.v[:len(v0)], v0) {
 			t.Errorf("case %v, not same v0 %s", i+1, hex.EncodeToString(hd.v))
@@ -246,7 +246,7 @@ func TestCtrDRBG(t *testing.T) {
 		key1, _ := hex.DecodeString(test.key1)
 		err = hd.Reseed(entropyInputReseed, additionalInputReseed)
 		if err != nil {
-			t.Error(err)
+			t.Fatal(err)
 		}
 		if !bytes.Equal(hd.v, v1) {
 			t.Errorf("case %v, not same v1 %s", i+1, hex.EncodeToString(hd.v))

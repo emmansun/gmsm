@@ -15,9 +15,11 @@ import (
 const DRBG_RESEED_COUNTER_INTERVAL_LEVEL_TEST uint64 = 8
 const DRBG_RESEED_COUNTER_INTERVAL_LEVEL2 uint64 = 1 << 10
 const DRBG_RESEED_COUNTER_INTERVAL_LEVEL1 uint64 = 1 << 20
+
 const DRBG_RESEED_TIME_INTERVAL_LEVEL_TEST = time.Duration(6) * time.Second
 const DRBG_RESEED_TIME_INTERVAL_LEVEL2 = time.Duration(60) * time.Second
 const DRBG_RESEED_TIME_INTERVAL_LEVEL1 = time.Duration(600) * time.Second
+
 const MAX_BYTES = 1 << 27
 const MAX_BYTES_PER_GENERATE = 1 << 11
 
@@ -46,7 +48,11 @@ func NewCtrDrbgPrng(cipherProvider func(key []byte) (cipher.Block, error), keyLe
 	} else {
 		prng.entropySource = rand.Reader
 	}
+
 	prng.securityStrength = selectSecurityStrength(securityStrength)
+	if gm && securityStrength < 32 {
+		return nil, errors.New("invalid security strength")
+	}
 
 	// Get entropy input
 	entropyInput := make([]byte, prng.securityStrength)
@@ -89,6 +95,9 @@ func NewHashDrbgPrng(md hash.Hash, entropySource io.Reader, securityStrength int
 		prng.entropySource = rand.Reader
 	}
 	prng.securityStrength = selectSecurityStrength(securityStrength)
+	if gm && securityStrength < 32 {
+		return nil, errors.New("invalid security strength")
+	}
 
 	// Get entropy input
 	entropyInput := make([]byte, prng.securityStrength)
@@ -97,7 +106,7 @@ func NewHashDrbgPrng(md hash.Hash, entropySource io.Reader, securityStrength int
 		return nil, err
 	}
 
-	// Get nonce
+	// Get nonce from entropy source here
 	nonce := make([]byte, prng.securityStrength/2)
 	err = prng.getEntropy(nonce)
 	if err != nil {
@@ -213,8 +222,10 @@ func selectSecurityStrength(requested int) int {
 		return 16
 	case requested <= 24:
 		return 24
-	default:
+	case requested <= 32:
 		return 32
+	default:
+		return requested
 	}
 }
 

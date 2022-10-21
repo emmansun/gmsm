@@ -23,15 +23,16 @@ func NewHashDrbg(md hash.Hash, securityLevel SecurityLevel, gm bool, entropy, no
 	hd := &HashDrbg{}
 
 	hd.gm = gm
+	hd.md = md
 	hd.setSecurityLevel(securityLevel)
 
 	// here for the min length, we just check <=0 now
-	if len(entropy) <= 0 || len(entropy) >= MAX_BYTES {
+	if len(entropy) == 0 || (hd.gm && len(entropy) < hd.md.Size()) || len(entropy) >= MAX_BYTES {
 		return nil, errors.New("invalid entropy length")
 	}
 
 	// here for the min length, we just check <=0 now
-	if len(nonce) <= 0 || len(nonce) >= MAX_BYTES>>1 {
+	if len(nonce) == 0 || (hd.gm && len(entropy) < hd.md.Size()/2) || len(nonce) >= MAX_BYTES>>1 {
 		return nil, errors.New("invalid nonce length")
 	}
 
@@ -39,7 +40,6 @@ func NewHashDrbg(md hash.Hash, securityLevel SecurityLevel, gm bool, entropy, no
 		return nil, errors.New("personalization is too long")
 	}
 
-	hd.md = md
 	if md.Size() <= sm3.Size {
 		hd.v = make([]byte, HASH_DRBG_SEED_SIZE)
 		hd.c = make([]byte, HASH_DRBG_SEED_SIZE)
@@ -49,17 +49,24 @@ func NewHashDrbg(md hash.Hash, securityLevel SecurityLevel, gm bool, entropy, no
 		hd.c = make([]byte, HASH_DRBG_MAX_SEED_SIZE)
 		hd.seedLength = HASH_DRBG_MAX_SEED_SIZE
 	}
+	// seed_material = entropy_input || instantiation_nonce || personalization_string
 	seedMaterial := make([]byte, len(entropy)+len(nonce)+len(personalization))
 	copy(seedMaterial, entropy)
 	copy(seedMaterial[len(entropy):], nonce)
 	copy(seedMaterial[len(entropy)+len(nonce):], personalization)
+
+	// seed = Hash_df(seed_material, seed_length)
 	seed := hd.derive(seedMaterial, hd.seedLength)
+	// V = seed
 	copy(hd.v, seed)
+
+	// C = Hash_df(0x00 || V, seed_length)
 	temp := make([]byte, hd.seedLength+1)
 	temp[0] = 0
 	copy(temp[1:], seed)
 	seed = hd.derive(temp, hd.seedLength)
 	copy(hd.c, seed)
+
 	hd.reseedCounter = 1
 	hd.reseedTime = time.Now()
 
@@ -79,7 +86,7 @@ func NewGMHashDrbg(securityLevel SecurityLevel, entropy, nonce, personalization 
 // Reseed hash DRBG reseed process. GM/T 0105-2021 has a little different with NIST.
 func (hd *HashDrbg) Reseed(entropy, additional []byte) error {
 	// here for the min length, we just check <=0 now
-	if len(entropy) <= 0 || len(entropy) >= MAX_BYTES {
+	if len(entropy) == 0 || (hd.gm && len(entropy) < hd.md.Size()) || len(entropy) >= MAX_BYTES {
 		return errors.New("invalid entropy length")
 	}
 
@@ -88,23 +95,28 @@ func (hd *HashDrbg) Reseed(entropy, additional []byte) error {
 	}
 	seedMaterial := make([]byte, len(entropy)+hd.seedLength+len(additional)+1)
 	seedMaterial[0] = 1
-
-	if hd.gm { // entropy_input || V || additional_input
+	if hd.gm { // seed_material = 0x01 || entropy_input || V || additional_input
 		copy(seedMaterial[1:], entropy)
 		copy(seedMaterial[len(entropy)+1:], hd.v)
-	} else { // V || entropy_input || additional_input
+	} else { // seed_material = 0x01 || V || entropy_input || additional_input
 		copy(seedMaterial[1:], hd.v)
 		copy(seedMaterial[hd.seedLength+1:], entropy)
 	}
-
 	copy(seedMaterial[len(entropy)+hd.seedLength+1:], additional)
+
+	// seed = Hash_df(seed_material, seed_length)
 	seed := hd.derive(seedMaterial, hd.seedLength)
+
+	// V = seed
 	copy(hd.v, seed)
 	temp := make([]byte, hd.seedLength+1)
+
+	// C = Hash_df(0x01 || V, seed_length)
 	temp[0] = 0
 	copy(temp[1:], seed)
 	seed = hd.derive(temp, hd.seedLength)
 	copy(hd.c, seed)
+
 	hd.reseedCounter = 1
 	hd.reseedTime = time.Now()
 	return nil
@@ -140,7 +152,7 @@ func (hd *HashDrbg) MaxBytesPerRequest() int {
 	return MAX_BYTES_PER_GENERATE
 }
 
-// Generate hash DRBG generate process. GM/T 0105-2021 has a little different with NIST.
+// Generate hash DRBG pseudorandom bits process. GM/T 0105-2021 has a little different with NIST.
 // GM/T 0105-2021 can only generate no more than hash.Size bytes once.
 func (hd *HashDrbg) Generate(b, additional []byte) error {
 	if hd.NeedReseed() {
@@ -151,6 +163,9 @@ func (hd *HashDrbg) Generate(b, additional []byte) error {
 	}
 	md := hd.md
 	m := len(b)
+
+	// if len(additional_input) > 0, then
+	// w = Hash(0x02 || V || additional_input)
 	if len(additional) > 0 {
 		md.Write([]byte{0x02})
 		md.Write(hd.v)
@@ -159,7 +174,7 @@ func (hd *HashDrbg) Generate(b, additional []byte) error {
 		md.Reset()
 		hd.addW(w)
 	}
-	if hd.gm { // leftmost(HASH(V))
+	if hd.gm { // leftmost(Hash(V))
 		md.Write(hd.v)
 		copy(b, md.Sum(nil))
 		md.Reset()
@@ -174,6 +189,7 @@ func (hd *HashDrbg) Generate(b, additional []byte) error {
 			md.Reset()
 		}
 	}
+	// V = (V + H + C + reseed_counter) mode 2^seed_length
 	hd.addH()
 	hd.addC()
 	hd.addReseedCounter()
@@ -182,6 +198,7 @@ func (hd *HashDrbg) Generate(b, additional []byte) error {
 	return nil
 }
 
+// derive Hash_df
 func (hd *HashDrbg) derive(seedMaterial []byte, len int) []byte {
 	md := hd.md
 	limit := uint64(len+md.Size()-1) / uint64(md.Size())
@@ -190,6 +207,7 @@ func (hd *HashDrbg) derive(seedMaterial []byte, len int) []byte {
 	var ct byte = 1
 	k := make([]byte, len)
 	for i := 0; i < int(limit); i++ {
+		// Hash( counter_byte || return_bits || seed_material )
 		md.Write([]byte{ct})
 		md.Write(requireBytes[:])
 		md.Write(seedMaterial)

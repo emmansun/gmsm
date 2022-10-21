@@ -7,7 +7,7 @@ import (
 )
 
 func TestGmCtrDrbgPrng(t *testing.T) {
-	prng, err := NewGmCtrDrbgPrng(nil, 16, SECURITY_LEVEL_TEST, nil)
+	prng, err := NewGmCtrDrbgPrng(nil, 32, SECURITY_LEVEL_TEST, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

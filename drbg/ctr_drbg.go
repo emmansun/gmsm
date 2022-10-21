@@ -25,12 +25,12 @@ func NewCtrDrbg(cipherProvider func(key []byte) (cipher.Block, error), keyLen in
 	hd.setSecurityLevel(securityLevel)
 
 	// here for the min length, we just check <=0 now
-	if len(entropy) <= 0 || len(entropy) >= MAX_BYTES {
+	if len(entropy) == 0 || (hd.gm && len(entropy) < 32) || len(entropy) >= MAX_BYTES {
 		return nil, errors.New("invalid entropy length")
 	}
 
 	// here for the min length, we just check <=0 now
-	if len(nonce) <= 0 || len(nonce) >= MAX_BYTES>>1 {
+	if len(nonce) == 0 || (hd.gm && len(entropy) < 16) || len(nonce) >= MAX_BYTES>>1 {
 		return nil, errors.New("invalid nonce length")
 	}
 
@@ -49,12 +49,16 @@ func NewCtrDrbg(cipherProvider func(key []byte) (cipher.Block, error), keyLen in
 	hd.v = make([]byte, block.BlockSize())
 	hd.key = make([]byte, hd.keyLen)
 
+	// seed_material = entropy_input || instantiation_nonce || personalization_string
 	seedMaterial := make([]byte, len(entropy)+len(nonce)+len(personalization))
 	copy(seedMaterial, entropy)
 	copy(seedMaterial[len(entropy):], nonce)
 	copy(seedMaterial[len(entropy)+len(nonce):], personalization)
-	seed := hd.derive(seedMaterial, hd.seedLength)
-	hd.update(seed)
+	// seed_material = Block_Cipher_df(seed_material, seed_length)
+	seedMaterial = hd.derive(seedMaterial, hd.seedLength)
+	// CTR_DRBG_Updae(seed_material, Key, V)
+	hd.update(seedMaterial)
+
 	hd.reseedCounter = 1
 	hd.reseedTime = time.Now()
 	return hd, nil
@@ -72,7 +76,7 @@ func NewGMCtrDrbg(securityLevel SecurityLevel, entropy, nonce, personalization [
 
 func (hd *CtrDrbg) Reseed(entropy, additional []byte) error {
 	// here for the min length, we just check <=0 now
-	if len(entropy) <= 0 || len(entropy) >= MAX_BYTES {
+	if len(entropy) <= 0 || (hd.gm && len(entropy) < 32) || len(entropy) >= MAX_BYTES {
 		return errors.New("invalid entropy length")
 	}
 
@@ -80,6 +84,7 @@ func (hd *CtrDrbg) Reseed(entropy, additional []byte) error {
 		return errors.New("additional input too long")
 	}
 
+	// seed_material = entropy_input || additional_input
 	var seedMaterial []byte
 	if len(additional) == 0 {
 		seedMaterial = entropy
@@ -88,8 +93,11 @@ func (hd *CtrDrbg) Reseed(entropy, additional []byte) error {
 		copy(seedMaterial, entropy)
 		copy(seedMaterial[len(entropy):], additional)
 	}
-	seed := hd.derive(seedMaterial, hd.seedLength)
-	hd.update(seed)
+	// seed_material = Block_Cipher_df(seed_material, seed_length)
+	seedMaterial = hd.derive(seedMaterial, hd.seedLength)
+	// CTR_DRBG_Updae(seed_material, Key, V)
+	hd.update(seedMaterial)
+
 	hd.reseedCounter = 1
 	hd.reseedTime = time.Now()
 	return nil
@@ -110,7 +118,7 @@ func (hd *CtrDrbg) MaxBytesPerRequest() int {
 	return MAX_BYTES_PER_GENERATE
 }
 
-// Generate CTR DRBG generate process.
+// Generate CTR DRBG pseudorandom bits generate process.
 func (hd *CtrDrbg) Generate(b, additional []byte) error {
 	if hd.NeedReseed() {
 		return ErrReseedRequired
@@ -120,6 +128,9 @@ func (hd *CtrDrbg) Generate(b, additional []byte) error {
 		return errors.New("too many bytes requested")
 	}
 
+	// If len(additional_input) > 0, then
+	// additional_input = Block_Cipher_df(additional_input, seed_length)
+	// CTR_DRBG_Update(additional_input, Key, V)
 	if len(additional) > 0 {
 		additional = hd.derive(additional, hd.seedLength)
 		hd.update(additional)
@@ -131,7 +142,9 @@ func (hd *CtrDrbg) Generate(b, additional []byte) error {
 	m := len(b)
 	limit := uint64(m+outlen-1) / uint64(outlen)
 	for i := 0; i < int(limit); i++ {
+		// V = (V + 1) mod 2^outlen)
 		addOne(hd.v, outlen)
+		// output_block = Encrypt(Key, V)
 		block.Encrypt(temp, hd.v)
 		copy(b[i*outlen:], temp)
 	}
@@ -149,20 +162,28 @@ func (cd *CtrDrbg) update(seedMaterial []byte) {
 	output := make([]byte, outlen)
 	copy(v, cd.v)
 	for i := 0; i < (cd.seedLength+outlen-1)/outlen; i++ {
+		// V = (V + 1) mod 2^outlen
 		addOne(v, outlen)
+		// output_block = Encrypt(Key, V)
 		block.Encrypt(output, v)
 		copy(temp[i*outlen:], output)
 	}
+	// temp = temp XOR seed_material
 	subtle.XORBytes(temp, temp, seedMaterial)
+	// Key = leftmost(temp, key_length)
 	copy(cd.key, temp)
+	// V = rightmost(temp, outlen)
 	copy(cd.v, temp[cd.keyLen:])
 }
 
+// derive Block_Cipher_df
 func (cd *CtrDrbg) derive(seedMaterial []byte, returnBytes int) []byte {
 	outlen := cd.seedLength - cd.keyLen
 	lenS := ((4 + 4 + len(seedMaterial) + outlen) / outlen) * outlen
 	S := make([]byte, lenS+outlen)
 
+	// S = counter || len(seed_material) || len(return_bytes) || seed_material || 0x80
+	// len(S) = ((outlen + 4 + 4 + len(seed_material) + 1 + outlen - 1) / outlen) * outlen
 	binary.BigEndian.PutUint32(S[outlen:], uint32(len(seedMaterial)))
 	binary.BigEndian.PutUint32(S[outlen+4:], uint32(returnBytes))
 	copy(S[outlen+8:], seedMaterial)
