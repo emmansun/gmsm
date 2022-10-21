@@ -30,7 +30,7 @@ func NewCtrDrbg(cipherProvider func(key []byte) (cipher.Block, error), keyLen in
 	}
 
 	// here for the min length, we just check <=0 now
-	if len(nonce) == 0 || (hd.gm && len(entropy) < 16) || len(nonce) >= MAX_BYTES>>1 {
+	if len(nonce) == 0 || (hd.gm && len(nonce) < 16) || len(nonce) >= MAX_BYTES>>1 {
 		return nil, errors.New("invalid nonce length")
 	}
 

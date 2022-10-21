@@ -229,3 +229,23 @@ func TestHashDRBG(t *testing.T) {
 		}
 	}
 }
+
+func TestGmHashDRBG_Validation(t *testing.T) {
+	entropyInput := make([]byte, 64)
+	_, err := NewHashDrbg(sm3.New(), SECURITY_LEVEL_ONE, true, entropyInput[:16], entropyInput[16:24], nil)
+	if err == nil {
+		t.Fatalf("expected error here")
+	}
+	_, err = NewHashDrbg(sm3.New(), SECURITY_LEVEL_ONE, true, entropyInput[:32], entropyInput[32:40], nil)
+	if err == nil {
+		t.Fatalf("expected error here")
+	}
+	hd, err := NewHashDrbg(sm3.New(), SECURITY_LEVEL_ONE, true, entropyInput[:32], entropyInput[32:48], nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = hd.Reseed(entropyInput[:16], nil)
+	if err == nil {
+		t.Fatalf("expected error here")
+	}
+}

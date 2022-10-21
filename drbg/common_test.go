@@ -69,3 +69,14 @@ func TestNistHashDrbgPrng(t *testing.T) {
 		t.Errorf("not got enough random bytes")
 	}
 }
+
+func TestGMSecurityStrengthValidation(t *testing.T) {
+	_, err := NewGmHashDrbgPrng(nil, 24, SECURITY_LEVEL_TEST, nil)
+	if err == nil {
+		t.Fatalf("expected error here")
+	}
+	_, err = NewGmCtrDrbgPrng(nil, 24, SECURITY_LEVEL_TEST, nil)
+	if err == nil {
+		t.Fatalf("expected error here")
+	}
+}

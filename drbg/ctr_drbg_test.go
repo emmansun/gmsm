@@ -283,3 +283,23 @@ func TestCtrDRBG(t *testing.T) {
 		}
 	}
 }
+
+func TestGmCtrDRBG_Validation(t *testing.T) {
+	entropyInput := make([]byte, 64)
+	_, err := NewCtrDrbg(sm4.NewCipher, 16, SECURITY_LEVEL_ONE, true, entropyInput[:16], entropyInput[16:24], nil)
+	if err == nil {
+		t.Fatalf("expected error here")
+	}
+	_, err = NewCtrDrbg(sm4.NewCipher, 16, SECURITY_LEVEL_ONE, true, entropyInput[:32], entropyInput[32:40], nil)
+	if err == nil {
+		t.Fatalf("expected error here")
+	}
+	hd, err := NewCtrDrbg(sm4.NewCipher, 16, SECURITY_LEVEL_ONE, true, entropyInput[:32], entropyInput[32:48], nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = hd.Reseed(entropyInput[:16], nil)
+	if err == nil {
+		t.Fatalf("expected error here")
+	}
+}

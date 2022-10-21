@@ -32,7 +32,7 @@ func NewHashDrbg(md hash.Hash, securityLevel SecurityLevel, gm bool, entropy, no
 	}
 
 	// here for the min length, we just check <=0 now
-	if len(nonce) == 0 || (hd.gm && len(entropy) < hd.md.Size()/2) || len(nonce) >= MAX_BYTES>>1 {
+	if len(nonce) == 0 || (hd.gm && len(nonce) < hd.md.Size()/2) || len(nonce) >= MAX_BYTES>>1 {
 		return nil, errors.New("invalid nonce length")
 	}
 
