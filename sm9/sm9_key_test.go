@@ -253,3 +253,18 @@ func BenchmarkGenerateEncryptPrivKey(b *testing.B) {
 		}
 	}
 }
+
+const sm9SignMasterPublicKeyFromGMSSL = `-----BEGIN SM9 SIGN MASTER PUBLIC KEY-----
+MIGFA4GCAARvTUvk1ztAlmjlUK0kP3zdFEVHHr8HUL4sUbcnFoQPukP0AjurnySy
+f1MY0Plzt4lZ5u0/6GC4zUjYEcjWiYV+bV9YCnOGVQAYfPr/a+4/alewf43qBJuX
+Ri1gDhueE6gkoeZ4HHUu1wfhRbKRF8okwSO933f/ZSpLlYu1P7/ckw==
+-----END SM9 SIGN MASTER PUBLIC KEY-----
+`
+
+func TestParseSM9SignMasterPublicKey(t *testing.T) {
+	key := new(SignMasterPublicKey)
+	err := key.ParseFromPEM([]byte(sm9SignMasterPublicKeyFromGMSSL))
+	if err != nil {
+		t.Fatal(err)
+	}
+}

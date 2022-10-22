@@ -219,7 +219,7 @@ func ParsePrivateKey(der []byte, password []byte) (interface{}, KDFParameters, e
 
 	key, err := smx509.ParsePKCS8PrivateKey(decryptedKey)
 	if err != nil {
-		return nil, nil, errors.New("pkcs8: incorrect password")
+		return nil, nil, errors.New("pkcs8: failed to parse private key while ParsePKCS8PrivateKey: " + err.Error())
 	}
 	return key, kdfParams, nil
 }

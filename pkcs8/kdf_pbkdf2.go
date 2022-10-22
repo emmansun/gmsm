@@ -101,6 +101,7 @@ func newPRFParamFromHash(h Hash) (pkix.AlgorithmIdentifier, error) {
 type pbkdf2Params struct {
 	Salt           []byte
 	IterationCount int
+	KeyLen         int                      `asn1:"optional"`
 	PRF            pkix.AlgorithmIdentifier `asn1:"optional"`
 }
 
@@ -127,7 +128,7 @@ func (p PBKDF2Opts) DeriveKey(password, salt []byte, size int) (
 	if err != nil {
 		return nil, nil, err
 	}
-	params = pbkdf2Params{salt, p.IterationCount, prfParam}
+	params = pbkdf2Params{salt, p.IterationCount, size, prfParam}
 	return key, params, nil
 }
 

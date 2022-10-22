@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/emmansun/gmsm/sm2"
+	"github.com/emmansun/gmsm/sm9"
 )
 
 // Generated using:
@@ -154,4 +155,58 @@ func TestMarshalPKCS8SM2PrivateKey(t *testing.T) {
 		t.Fatalf("%v\n", err)
 	}
 	fmt.Printf("%s\n", hex.EncodeToString(res))
+}
+
+func TestMarshalPKCS8SM9SignPrivateKey(t *testing.T) {
+	masterKey, err := sm9.GenerateSignMasterKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	privateKey, err := masterKey.GenerateUserKey([]byte("emmansun"), 0x01)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := MarshalPKCS8PrivateKey(privateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	privateKey1, err := ParsePKCS8PrivateKey(res)
+	if err != nil {
+		t.Fatal(err)
+	}
+	privateKey2, ok := privateKey1.(*sm9.SignPrivateKey)
+	if !ok {
+		t.Fatalf("not expected key")
+	}
+	if !privateKey.PrivateKey.Equal(privateKey2.PrivateKey) ||
+		!privateKey.MasterPublicKey.Equal(privateKey2.MasterPublicKey) {
+		t.Fatalf("not same key")
+	}
+}
+
+func TestMarshalPKCS8SM9EncPrivateKey(t *testing.T) {
+	masterKey, err := sm9.GenerateEncryptMasterKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	privateKey, err := masterKey.GenerateUserKey([]byte("emmansun"), 0x01)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := MarshalPKCS8PrivateKey(privateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	privateKey1, err := ParsePKCS8PrivateKey(res)
+	if err != nil {
+		t.Fatal(err)
+	}
+	privateKey2, ok := privateKey1.(*sm9.EncryptPrivateKey)
+	if !ok {
+		t.Fatalf("not expected key")
+	}
+	if !privateKey.PrivateKey.Equal(privateKey2.PrivateKey) ||
+		!privateKey.MasterPublicKey.Equal(privateKey2.MasterPublicKey) {
+		t.Fatalf("not same key")
+	}
 }

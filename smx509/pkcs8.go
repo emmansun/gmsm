@@ -8,6 +8,13 @@ import (
 	"errors"
 
 	"github.com/emmansun/gmsm/sm2"
+	"github.com/emmansun/gmsm/sm9"
+)
+
+var (
+	oidSM9     = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 302}
+	oidSM9Sign = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 302, 1}
+	oidSM9Enc  = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 302, 3}
 )
 
 // pkcs8 reflects an ASN.1, PKCS #8 PrivateKey. See
@@ -37,6 +44,9 @@ func ParsePKCS8PrivateKey(der []byte) (key interface{}, err error) {
 		}
 		return nil, err
 	}
+	if privKey.Algo.Algorithm.Equal(oidSM9) || privKey.Algo.Algorithm.Equal(oidSM9Sign) || privKey.Algo.Algorithm.Equal(oidSM9Enc) {
+		return parseSM9PrivateKey(privKey)
+	}
 	if !privKey.Algo.Algorithm.Equal(oidPublicKeyECDSA) {
 		return x509.ParsePKCS8PrivateKey(der)
 	}
@@ -57,6 +67,30 @@ func ParsePKCS8PrivateKey(der []byte) (key interface{}, err error) {
 	return key, err
 }
 
+func parseSM9PrivateKey(privKey pkcs8) (key interface{}, err error) {
+	switch {
+	case privKey.Algo.Algorithm.Equal(oidSM9Sign):
+		sm9SignKey := new(sm9.SignPrivateKey)
+		err = sm9SignKey.UnmarshalASN1(privKey.PrivateKey)
+		if err != nil {
+			return
+		}
+		key = sm9SignKey
+		return
+	case privKey.Algo.Algorithm.Equal(oidSM9Enc):
+		sm9EncKey := new(sm9.EncryptPrivateKey)
+		err = sm9EncKey.UnmarshalASN1(privKey.PrivateKey)
+		if err != nil {
+			return
+		}
+		key = sm9EncKey
+		return
+	default:
+		return nil, errors.New("not support yet")
+	}
+
+}
+
 // MarshalPKCS8PrivateKey converts a private key to PKCS #8, ASN.1 DER form.
 //
 // The following key types are currently supported: *rsa.PrivateKey, *ecdsa.PrivateKey
@@ -67,8 +101,70 @@ func MarshalPKCS8PrivateKey(key interface{}) ([]byte, error) {
 	switch k := key.(type) {
 	case *sm2.PrivateKey:
 		return marshalPKCS8ECPrivateKey(&k.PrivateKey)
+	case *sm9.SignPrivateKey:
+		return marshalPKCS8SM9SignPrivateKey(k)
+	case *sm9.EncryptPrivateKey:
+		return marshalPKCS8SM9EncPrivateKey(k)
+	case *sm9.SignMasterPrivateKey:
+		return nil, errors.New("not implemented")
+	case *sm9.EncryptMasterPrivateKey:
+		return nil, errors.New("not implemented")
 	}
 	return x509.MarshalPKCS8PrivateKey(key)
+}
+
+type sm9PrivateKey struct {
+	PrivateKey asn1.RawValue
+	PublicKey  asn1.RawValue
+}
+
+func marshalPKCS8SM9SignPrivateKey(k *sm9.SignPrivateKey) ([]byte, error) {
+	var privKey pkcs8
+	privKey.Algo = pkix.AlgorithmIdentifier{
+		Algorithm:  oidSM9Sign,
+		Parameters: asn1.NullRawValue,
+	}
+
+	key := sm9PrivateKey{}
+	privans1, err := k.MarshalASN1()
+	if err != nil {
+		return nil, err
+	}
+	pubasn1, err := k.MasterPublic().MarshalASN1()
+	if err != nil {
+		return nil, err
+	}
+	key.PrivateKey.FullBytes = privans1
+	key.PublicKey.FullBytes = pubasn1
+
+	if privKey.PrivateKey, err = asn1.Marshal(key); err != nil {
+		return nil, errors.New("x509: failed to marshal sm9 sign private key while building PKCS#8: " + err.Error())
+	}
+	return asn1.Marshal(privKey)
+}
+
+func marshalPKCS8SM9EncPrivateKey(k *sm9.EncryptPrivateKey) ([]byte, error) {
+	var privKey pkcs8
+	privKey.Algo = pkix.AlgorithmIdentifier{
+		Algorithm:  oidSM9Enc,
+		Parameters: asn1.NullRawValue,
+	}
+	key := sm9PrivateKey{}
+	privans1, err := k.MarshalASN1()
+	if err != nil {
+		return nil, err
+	}
+	pubasn1, err := k.MasterPublic().MarshalASN1()
+	if err != nil {
+		return nil, err
+	}
+	key.PrivateKey.FullBytes = privans1
+	key.PublicKey.FullBytes = pubasn1
+
+	if privKey.PrivateKey, err = asn1.Marshal(key); err != nil {
+		return nil, errors.New("x509: failed to marshal sm9 encrypt private key while building PKCS#8: " + err.Error())
+	}
+	return asn1.Marshal(privKey)
 }
 
 func marshalPKCS8ECPrivateKey(k *ecdsa.PrivateKey) ([]byte, error) {
