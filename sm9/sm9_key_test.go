@@ -267,4 +267,24 @@ func TestParseSM9SignMasterPublicKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if key.MasterPublicKey == nil {
+		t.Errorf("not expected nil")
+	}
+}
+
+const sm9EncMasterPublicKeyFromGMSSL = `-----BEGIN SM9 ENC MASTER PUBLIC KEY-----
+MEQDQgAEUWC+GS/3JrpMJqH/ZBItUDROFg62fmY4HuU0kHlnK/trA/GBX/P+MH0P
+tYwoUdCETdYJwxiKXlI1jytVTuuT2Q==
+-----END SM9 ENC MASTER PUBLIC KEY-----
+`
+
+func TestParseSM9EncryptMasterPublicKey(t *testing.T) {
+	key := new(EncryptMasterPublicKey)
+	err := key.ParseFromPEM([]byte(sm9EncMasterPublicKeyFromGMSSL))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if key.MasterPublicKey == nil {
+		t.Errorf("not expected nil")
+	}
 }

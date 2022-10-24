@@ -45,12 +45,46 @@ fYuup/MCEz2zpA==
 -----END ENCRYPTED SM9 SIGN PRIVATE KEY-----
 `
 
+const encryptedSM9EncMasterPrivateKey = `-----BEGIN ENCRYPTED SM9 ENC MASTER KEY-----
+MIH2MGEGCSqGSIb3DQEFDTBUMDQGCSqGSIb3DQEFDDAnBBAjXv966WmKuBfUH1Bq
+OMwUAgMBAAACARAwCwYJKoEcz1UBgxECMBwGCCqBHM9VAWgCBBAtVvud0awyXO1r
+dz92Pn+9BIGQlAsGegoSrApDm+rbszu1wsUwAVbq+EtgkraBSZRqGYByBOSN9G9m
+p0lZJ75/TJMqRunkUhAUorNzXkdy2nab1VRs+Y8lKzhw5Y7KLnjbRsoDEPcvluSW
+UVHgVDiaGKLKlKWTdhRRzLnBOocE0LA3FnOH86eUFjGY87ss6vz8iD9JHHfap4yr
+Yut8eao1nBSY
+-----END ENCRYPTED SM9 ENC MASTER KEY-----
+`
+
+const encryptedSM9EncPrivateKey = `-----BEGIN ENCRYPTED SM9 ENC PRIVATE KEY-----
+MIIBVjBhBgkqhkiG9w0BBQ0wVDA0BgkqhkiG9w0BBQwwJwQQ7qFYth3lhEj9pHl4
+V0HeiwIDAQAAAgEQMAsGCSqBHM9VAYMRAjAcBggqgRzPVQFoAgQQvk8cAqLQcGr1
+LfRo8lz6TwSB8Ma6HVx/t1q+wbu+NLLzq1uok7zNBKM8Z9hFiqrY1pngZTtweVHP
+w/r6inOU4rI9Eex6R7C4koT9cGYN4QBur3BHxTLPM7C4knldxxYHuA98MEGHMMcE
+gJIcgZlrkdprvLSXqdKJ/Ee7Ut4SuJuMW/Ww0hTrOmnI0j4cRAaZAgEh9Lh9B5CK
+tzO+xTcb9siTzgRDKxnsZB85c1pwzQ3LH1KNR7tsg1z/AW+Hab4+8WX7mIIlvmVM
+zkRVx8ZgZCNo/MTFjw2qCNVsGrcj/xFm63p8eWoYGx6eXS6nr3IYRIDwR5F7CoNY
+h1/9v+oJWBaPxQ==
+-----END ENCRYPTED SM9 ENC PRIVATE KEY-----
+`
+
 func TestParseSM9PrivateKey(t *testing.T) {
 	keyList := []testPrivateKey{
 		{
 			name:      "encryptedSM9SignPrivateKey",
 			clear:     "",
 			encrypted: encryptedSM9SignPrivateKey,
+			password:  "123456",
+		},
+		{
+			name:      "encryptedSM9EncMasterPrivateKey",
+			clear:     "",
+			encrypted: encryptedSM9EncMasterPrivateKey,
+			password:  "123456",
+		},
+		{
+			name:      "encryptedSM9EncPrivateKey",
+			clear:     "",
+			encrypted: encryptedSM9EncPrivateKey,
 			password:  "123456",
 		},
 	}
