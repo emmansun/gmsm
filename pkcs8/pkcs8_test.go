@@ -12,6 +12,7 @@ import (
 
 	"github.com/emmansun/gmsm/pkcs8"
 	"github.com/emmansun/gmsm/sm2"
+	"github.com/emmansun/gmsm/sm9"
 )
 
 const rsa2048 = `-----BEGIN PRIVATE KEY-----
@@ -566,6 +567,90 @@ func TestMarshalPrivateKey(t *testing.T) {
 			t.Fatalf("%d: ParsePKCS8PrivateKey returned: %s", i, err)
 		}
 		if !sm2PrivateKey.Equal(decodedSM2PrivateKey) {
+			t.Fatalf("%d: Decoded key does not match original key", i)
+		}
+
+		sm9SignMasterPrivateKey, err := sm9.GenerateSignMasterKey(rand.Reader)
+		if err != nil {
+			t.Fatalf("%d: GenerateKey returned: %s", i, err)
+		}
+
+		der, err = pkcs8.MarshalPrivateKey(sm9SignMasterPrivateKey, tt.password, tt.opts)
+		if err != nil {
+			t.Fatalf("%d: MarshalPrivateKey returned: %s", i, err)
+		}
+		decodedSM9SignMasterPrivateKey, err := pkcs8.ParseSM9SignMasterPrivateKey(der, tt.password)
+		if err != nil {
+			t.Fatalf("%d: ParseSM9SignMasterPrivateKey returned: %s", i, err)
+		}
+
+		_, err = pkcs8.ParseSM9SignPrivateKey(der, tt.password)
+		if err == nil {
+			t.Fatalf("%d: ParseSM9SignPrivateKey should return error", i)
+		}
+
+		if sm9SignMasterPrivateKey.D.Cmp(decodedSM9SignMasterPrivateKey.D) != 0 {
+			t.Fatalf("%d: Decoded key does not match original key", i)
+		}
+
+		sm9SignPrivateKey, err := sm9SignMasterPrivateKey.GenerateUserKey([]byte("emmansun"), 0x01)
+		if err != nil {
+			t.Fatalf("%d: GenerateUserKey returned: %s", i, err)
+		}
+		der, err = pkcs8.MarshalPrivateKey(sm9SignPrivateKey, tt.password, tt.opts)
+		if err != nil {
+			t.Fatalf("%d: MarshalPrivateKey returned: %s", i, err)
+		}
+		decodedSM9SignPrivateKey, err := pkcs8.ParseSM9SignPrivateKey(der, tt.password)
+		if err != nil {
+			t.Fatalf("%d: ParseSM9SignPrivateKey returned: %s", i, err)
+		}
+		_, err = pkcs8.ParseSM9SignMasterPrivateKey(der, tt.password)
+		if err == nil {
+			t.Fatalf("%d: ParseSM9SignMasterPrivateKey should return error", i)
+		}
+		if !sm9SignPrivateKey.PrivateKey.Equal(decodedSM9SignPrivateKey.PrivateKey) {
+			t.Fatalf("%d: Decoded key does not match original key", i)
+		}
+
+		sm9EncMasterPrivateKey, err := sm9.GenerateEncryptMasterKey(rand.Reader)
+		if err != nil {
+			t.Fatalf("%d: GenerateKey returned: %s", i, err)
+		}
+
+		der, err = pkcs8.MarshalPrivateKey(sm9EncMasterPrivateKey, tt.password, tt.opts)
+		if err != nil {
+			t.Fatalf("%d: MarshalPrivateKey returned: %s", i, err)
+		}
+		decodedSM9EncMasterPrivateKey, err := pkcs8.ParseSM9EncryptMasterPrivateKey(der, tt.password)
+		if err != nil {
+			t.Fatalf("%d: ParseSM9EncryptMasterPrivateKey returned: %s", i, err)
+		}
+		_, err = pkcs8.ParseSM9EncryptPrivateKey(der, tt.password)
+		if err == nil {
+			t.Fatalf("%d: ParseSM9EncryptPrivateKey should return error", i)
+		}
+		if sm9EncMasterPrivateKey.D.Cmp(decodedSM9EncMasterPrivateKey.D) != 0 {
+			t.Fatalf("%d: Decoded key does not match original key", i)
+		}
+
+		sm9EncPrivateKey, err := sm9EncMasterPrivateKey.GenerateUserKey([]byte("emmansun"), 0x02)
+		if err != nil {
+			t.Fatalf("%d: GenerateUserKey returned: %s", i, err)
+		}
+		der, err = pkcs8.MarshalPrivateKey(sm9EncPrivateKey, tt.password, tt.opts)
+		if err != nil {
+			t.Fatalf("%d: MarshalPrivateKey returned: %s", i, err)
+		}
+		decodedSM9EncPrivateKey, err := pkcs8.ParseSM9EncryptPrivateKey(der, tt.password)
+		if err != nil {
+			t.Fatalf("%d: ParseSM9EncryptPrivateKey returned: %s", i, err)
+		}
+		_, err = pkcs8.ParseSM9EncryptMasterPrivateKey(der, tt.password)
+		if err == nil {
+			t.Fatalf("%d: ParseSM9EncryptMasterPrivateKey should return error", i)
+		}
+		if !sm9EncPrivateKey.PrivateKey.Equal(decodedSM9EncPrivateKey.PrivateKey) {
 			t.Fatalf("%d: Decoded key does not match original key", i)
 		}
 

@@ -1,7 +1,6 @@
 package sm9
 
 import (
-	"encoding/asn1"
 	"encoding/pem"
 
 	"errors"
@@ -209,16 +208,19 @@ func (pub *SignMasterPublicKey) UnmarshalRaw(bytes []byte) error {
 // UnmarshalASN1 unmarsal der data to sign master public key
 func (pub *SignMasterPublicKey) UnmarshalASN1(der []byte) error {
 	var bytes []byte
+	var inner cryptobyte.String
 	input := cryptobyte.String(der)
-	if !input.ReadASN1BitStringAsBytes(&bytes) || !input.Empty() {
+	if der[0] == 0x30 {
+		if !input.ReadASN1(&inner, cryptobyte_asn1.SEQUENCE) ||
+			!input.Empty() ||
+			!inner.ReadASN1BitStringAsBytes(&bytes) ||
+			!inner.Empty() {
+			return errors.New("sm9: invalid sign master public key asn1 data")
+		}
+	} else if !input.ReadASN1BitStringAsBytes(&bytes) || !input.Empty() {
 		return errors.New("sm9: invalid sign master public key asn1 data")
 	}
 	return pub.UnmarshalRaw(bytes)
-}
-
-type publicKeyInfo struct {
-	Raw       asn1.RawContent
-	PublicKey asn1.BitString
 }
 
 // ParseFromPEM just for GMSSL, there are no Algorithm pkix.AlgorithmIdentifier
@@ -227,15 +229,7 @@ func (pub *SignMasterPublicKey) ParseFromPEM(data []byte) error {
 	if block == nil {
 		return errors.New("failed to parse PEM block")
 	}
-
-	var pki publicKeyInfo
-	if rest, err := asn1.Unmarshal(block.Bytes, &pki); err != nil {
-		return err
-	} else if len(rest) != 0 {
-		return errors.New("trailing data after ASN.1 of public-key")
-	}
-	der := cryptobyte.String(pki.PublicKey.RightAlign())
-	return pub.UnmarshalRaw(der)
+	return pub.UnmarshalASN1(block.Bytes)
 }
 
 // MasterPublic returns the master public key corresponding to priv.
@@ -467,22 +461,22 @@ func (pub *EncryptMasterPublicKey) ParseFromPEM(data []byte) error {
 	if block == nil {
 		return errors.New("failed to parse PEM block")
 	}
-
-	var pki publicKeyInfo
-	if rest, err := asn1.Unmarshal(block.Bytes, &pki); err != nil {
-		return err
-	} else if len(rest) != 0 {
-		return errors.New("trailing data after ASN.1 of public-key")
-	}
-	der := cryptobyte.String(pki.PublicKey.RightAlign())
-	return pub.UnmarshalRaw(der)
+	return pub.UnmarshalASN1(block.Bytes)
 }
 
 // UnmarshalASN1 unmarsal der data to encrypt master public key
 func (pub *EncryptMasterPublicKey) UnmarshalASN1(der []byte) error {
 	var bytes []byte
+	var inner cryptobyte.String
 	input := cryptobyte.String(der)
-	if !input.ReadASN1BitStringAsBytes(&bytes) || !input.Empty() {
+	if der[0] == 0x30 {
+		if !input.ReadASN1(&inner, cryptobyte_asn1.SEQUENCE) ||
+			!input.Empty() ||
+			!inner.ReadASN1BitStringAsBytes(&bytes) ||
+			!inner.Empty() {
+			return errors.New("sm9: invalid encrypt master public key asn1 data")
+		}
+	} else if !input.ReadASN1BitStringAsBytes(&bytes) || !input.Empty() {
 		return errors.New("sm9: invalid encrypt master public key asn1 data")
 	}
 	return pub.UnmarshalRaw(bytes)

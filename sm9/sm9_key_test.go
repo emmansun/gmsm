@@ -3,7 +3,11 @@ package sm9
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/pem"
 	"testing"
+
+	"golang.org/x/crypto/cryptobyte"
+	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
 
 func TestSignMasterPrivateKeyMarshalASN1(t *testing.T) {
@@ -270,6 +274,23 @@ func TestParseSM9SignMasterPublicKey(t *testing.T) {
 	if key.MasterPublicKey == nil {
 		t.Errorf("not expected nil")
 	}
+
+	// create sign master public key PEM with cryptobyte
+	var b cryptobyte.Builder
+	bytes, _ := key.MarshalASN1()
+	b.AddASN1(cryptobyte_asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+		b.AddBytes(bytes)
+	})
+	data, err := b.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	block := &pem.Block{Bytes: data, Type: "SM9 SIGN MASTER PUBLIC KEY"}
+	pemContent := string(pem.EncodeToMemory(block))
+
+	if pemContent != sm9SignMasterPublicKeyFromGMSSL {
+		t.Fatalf("failed %s\n", pemContent)
+	}
 }
 
 const sm9EncMasterPublicKeyFromGMSSL = `-----BEGIN SM9 ENC MASTER PUBLIC KEY-----
@@ -286,5 +307,25 @@ func TestParseSM9EncryptMasterPublicKey(t *testing.T) {
 	}
 	if key.MasterPublicKey == nil {
 		t.Errorf("not expected nil")
+	}
+
+	// create encrypt master public key PEM with asn1
+	var b cryptobyte.Builder
+
+	b.AddASN1(cryptobyte_asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+		b.AddASN1BitString(key.MasterPublicKey.MarshalUncompressed())
+	})
+	data, err := b.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	block := &pem.Block{Bytes: data, Type: "SM9 ENC MASTER PUBLIC KEY"}
+	pemContent := string(pem.EncodeToMemory(block))
+
+	if pemContent != sm9EncMasterPublicKeyFromGMSSL {
+		t.Fatalf("failed %s\n", pemContent)
 	}
 }

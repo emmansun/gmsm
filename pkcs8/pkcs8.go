@@ -18,6 +18,7 @@ import (
 
 	"github.com/emmansun/gmsm/sm2"
 	"github.com/emmansun/gmsm/sm3"
+	"github.com/emmansun/gmsm/sm9"
 	"github.com/emmansun/gmsm/smx509"
 )
 
@@ -219,7 +220,7 @@ func ParsePrivateKey(der []byte, password []byte) (interface{}, KDFParameters, e
 
 	key, err := smx509.ParsePKCS8PrivateKey(decryptedKey)
 	if err != nil {
-		return nil, nil, errors.New("pkcs8: failed to parse private key while ParsePKCS8PrivateKey: " + err.Error())
+		return nil, nil, errors.New("pkcs8: incorrect password? failed to parse private key while ParsePKCS8PrivateKey: " + err.Error())
 	}
 	return key, kdfParams, nil
 }
@@ -327,7 +328,7 @@ func ParsePKCS8PrivateKeyECDSA(der []byte, v ...[]byte) (*ecdsa.PrivateKey, erro
 	return typedKey, nil
 }
 
-// ParsePKCS8PrivateKeySM2 parses encrypted/unencrypted private keys in PKCS#8 format.
+// ParsePKCS8PrivateKeySM2 parses encrypted/unencrypted SM2 private key in PKCS#8 format.
 // To parse encrypted private keys, a password of []byte type should be provided to the function as the second parameter.
 func ParsePKCS8PrivateKeySM2(der []byte, v ...[]byte) (*sm2.PrivateKey, error) {
 	key, err := ParsePKCS8PrivateKey(der, v...)
@@ -337,6 +338,62 @@ func ParsePKCS8PrivateKeySM2(der []byte, v ...[]byte) (*sm2.PrivateKey, error) {
 	typedKey, ok := key.(*sm2.PrivateKey)
 	if !ok {
 		return nil, errors.New("pkcs8: key block is not of type SM2")
+	}
+	return typedKey, nil
+}
+
+// ParseSM9SignMasterPrivateKey parses encrypted/unencrypted SM9 sign master private key in PKCS#8 format.
+// To parse encrypted private keys, a password of []byte type should be provided to the function as the second parameter.
+func ParseSM9SignMasterPrivateKey(der []byte, v ...[]byte) (*sm9.SignMasterPrivateKey, error) {
+	key, err := ParsePKCS8PrivateKey(der, v...)
+	if err != nil {
+		return nil, err
+	}
+	typedKey, ok := key.(*sm9.SignMasterPrivateKey)
+	if !ok {
+		return nil, errors.New("pkcs8: key block is not of type SM9 sign master private key")
+	}
+	return typedKey, nil
+}
+
+// ParseSM9SignPrivateKey parses encrypted/unencrypted SM9 sign private key in PKCS#8 format.
+// To parse encrypted private keys, a password of []byte type should be provided to the function as the second parameter.
+func ParseSM9SignPrivateKey(der []byte, v ...[]byte) (*sm9.SignPrivateKey, error) {
+	key, err := ParsePKCS8PrivateKey(der, v...)
+	if err != nil {
+		return nil, err
+	}
+	typedKey, ok := key.(*sm9.SignPrivateKey)
+	if !ok {
+		return nil, errors.New("pkcs8: key block is not of type SM9 sign user private key")
+	}
+	return typedKey, nil
+}
+
+// ParseSM9EncryptMasterPrivateKey parses encrypted/unencrypted SM9 encrypt master private key in PKCS#8 format.
+// To parse encrypted private keys, a password of []byte type should be provided to the function as the second parameter.
+func ParseSM9EncryptMasterPrivateKey(der []byte, v ...[]byte) (*sm9.EncryptMasterPrivateKey, error) {
+	key, err := ParsePKCS8PrivateKey(der, v...)
+	if err != nil {
+		return nil, err
+	}
+	typedKey, ok := key.(*sm9.EncryptMasterPrivateKey)
+	if !ok {
+		return nil, errors.New("pkcs8: key block is not of type SM9 encrypt master private key")
+	}
+	return typedKey, nil
+}
+
+// ParseSM9EncryptPrivateKey parses encrypted/unencrypted SM9 encrypt private key in PKCS#8 format.
+// To parse encrypted private keys, a password of []byte type should be provided to the function as the second parameter.
+func ParseSM9EncryptPrivateKey(der []byte, v ...[]byte) (*sm9.EncryptPrivateKey, error) {
+	key, err := ParsePKCS8PrivateKey(der, v...)
+	if err != nil {
+		return nil, err
+	}
+	typedKey, ok := key.(*sm9.EncryptPrivateKey)
+	if !ok {
+		return nil, errors.New("pkcs8: key block is not of type SM9 encrypt user private key")
 	}
 	return typedKey, nil
 }
