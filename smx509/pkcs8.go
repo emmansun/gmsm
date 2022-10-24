@@ -86,9 +86,32 @@ func parseSM9PrivateKey(privKey pkcs8) (key interface{}, err error) {
 		key = sm9EncKey
 		return
 	default:
+		bytes := privKey.Algo.Parameters.FullBytes
+		detailOID := new(asn1.ObjectIdentifier)
+		_, err = asn1.Unmarshal(bytes, detailOID)
+		if err != nil {
+			return
+		}
+		switch {
+		case oidSM9Sign.Equal(*detailOID):
+			sm9SignMasterKey := new(sm9.SignMasterPrivateKey)
+			err = sm9SignMasterKey.UnmarshalASN1(privKey.PrivateKey)
+			if err != nil {
+				return
+			}
+			key = sm9SignMasterKey
+			return
+		case oidSM9Enc.Equal(*detailOID):
+			sm9EncMasterKey := new(sm9.EncryptMasterPrivateKey)
+			err = sm9EncMasterKey.UnmarshalASN1(privKey.PrivateKey)
+			if err != nil {
+				return
+			}
+			key = sm9EncMasterKey
+			return
+		}
 		return nil, errors.New("not support yet")
 	}
-
 }
 
 // MarshalPKCS8PrivateKey converts a private key to PKCS #8, ASN.1 DER form.
@@ -106,9 +129,9 @@ func MarshalPKCS8PrivateKey(key interface{}) ([]byte, error) {
 	case *sm9.EncryptPrivateKey:
 		return marshalPKCS8SM9EncPrivateKey(k)
 	case *sm9.SignMasterPrivateKey:
-		return nil, errors.New("not implemented")
+		return marshalPKCS8SM9SignMasterPrivateKey(k)
 	case *sm9.EncryptMasterPrivateKey:
-		return nil, errors.New("not implemented")
+		return marshalPKCS8SM9EncMasterPrivateKey(k)
 	}
 	return x509.MarshalPKCS8PrivateKey(key)
 }
@@ -163,6 +186,70 @@ func marshalPKCS8SM9EncPrivateKey(k *sm9.EncryptPrivateKey) ([]byte, error) {
 
 	if privKey.PrivateKey, err = asn1.Marshal(key); err != nil {
 		return nil, errors.New("x509: failed to marshal sm9 encrypt private key while building PKCS#8: " + err.Error())
+	}
+	return asn1.Marshal(privKey)
+}
+
+func marshalPKCS8SM9SignMasterPrivateKey(k *sm9.SignMasterPrivateKey) ([]byte, error) {
+	var privKey pkcs8
+	oidBytes, err := asn1.Marshal(oidSM9Sign)
+	if err != nil {
+		return nil, errors.New("x509: failed to marshal SM9 OID: " + err.Error())
+	}
+
+	privKey.Algo = pkix.AlgorithmIdentifier{
+		Algorithm: oidSM9,
+		Parameters: asn1.RawValue{
+			FullBytes: oidBytes,
+		},
+	}
+
+	key := sm9PrivateKey{}
+	privans1, err := k.MarshalASN1()
+	if err != nil {
+		return nil, err
+	}
+	pubasn1, err := k.Public().MarshalASN1()
+	if err != nil {
+		return nil, err
+	}
+	key.PrivateKey.FullBytes = privans1
+	key.PublicKey.FullBytes = pubasn1
+
+	if privKey.PrivateKey, err = asn1.Marshal(key); err != nil {
+		return nil, errors.New("x509: failed to marshal sm9 sign master private key while building PKCS#8: " + err.Error())
+	}
+	return asn1.Marshal(privKey)
+}
+
+func marshalPKCS8SM9EncMasterPrivateKey(k *sm9.EncryptMasterPrivateKey) ([]byte, error) {
+	var privKey pkcs8
+	oidBytes, err := asn1.Marshal(oidSM9Enc)
+	if err != nil {
+		return nil, errors.New("x509: failed to marshal SM9 OID: " + err.Error())
+	}
+
+	privKey.Algo = pkix.AlgorithmIdentifier{
+		Algorithm: oidSM9,
+		Parameters: asn1.RawValue{
+			FullBytes: oidBytes,
+		},
+	}
+
+	key := sm9PrivateKey{}
+	privans1, err := k.MarshalASN1()
+	if err != nil {
+		return nil, err
+	}
+	pubasn1, err := k.Public().MarshalASN1()
+	if err != nil {
+		return nil, err
+	}
+	key.PrivateKey.FullBytes = privans1
+	key.PublicKey.FullBytes = pubasn1
+
+	if privKey.PrivateKey, err = asn1.Marshal(key); err != nil {
+		return nil, errors.New("x509: failed to marshal sm9 encrypt master private key while building PKCS#8: " + err.Error())
 	}
 	return asn1.Marshal(privKey)
 }

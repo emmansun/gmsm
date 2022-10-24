@@ -210,3 +210,49 @@ func TestMarshalPKCS8SM9EncPrivateKey(t *testing.T) {
 		t.Fatalf("not same key")
 	}
 }
+
+func TestMarshalPKCS8SM9SignMasterPrivateKey(t *testing.T) {
+	masterKey, err := sm9.GenerateSignMasterKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := MarshalPKCS8PrivateKey(masterKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	masterKey1, err := ParsePKCS8PrivateKey(res)
+	if err != nil {
+		t.Fatal(err)
+	}
+	masterKey2, ok := masterKey1.(*sm9.SignMasterPrivateKey)
+	if !ok {
+		t.Fatalf("not expected key")
+	}
+	masterKey2.MasterPublicKey.Marshal()
+	if !(masterKey.D.Cmp(masterKey2.D) == 0 && masterKey.MasterPublicKey.Equal(masterKey2.MasterPublicKey)) {
+		t.Fatalf("not same key")
+	}
+}
+
+func TestMarshalPKCS8SM9EncMasterPrivateKey(t *testing.T) {
+	masterKey, err := sm9.GenerateEncryptMasterKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := MarshalPKCS8PrivateKey(masterKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	masterKey1, err := ParsePKCS8PrivateKey(res)
+	if err != nil {
+		t.Fatal(err)
+	}
+	masterKey2, ok := masterKey1.(*sm9.EncryptMasterPrivateKey)
+	if !ok {
+		t.Fatalf("not expected key")
+	}
+	masterKey2.MasterPublicKey.Marshal()
+	if !(masterKey.D.Cmp(masterKey2.D) == 0 && masterKey.MasterPublicKey.Equal(masterKey2.MasterPublicKey)) {
+		t.Fatalf("not same key")
+	}
+}

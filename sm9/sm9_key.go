@@ -81,8 +81,20 @@ func (master *SignMasterPrivateKey) MarshalASN1() ([]byte, error) {
 func (master *SignMasterPrivateKey) UnmarshalASN1(der []byte) error {
 	input := cryptobyte.String(der)
 	d := &big.Int{}
-	if !input.ReadASN1Integer(d) || !input.Empty() {
-		return errors.New("sm9: invalid sign master key asn1 data")
+	var inner cryptobyte.String
+	var pubBytes []byte
+	if der[0] == 0x30 {
+		if !input.ReadASN1(&inner, cryptobyte_asn1.SEQUENCE) ||
+			!input.Empty() ||
+			!inner.ReadASN1Integer(d) {
+			return errors.New("sm9: invalid sign master private key asn1 data")
+		}
+		// Just parse it, did't validate it
+		if !inner.Empty() && (!inner.ReadASN1BitStringAsBytes(&pubBytes) || !inner.Empty()) {
+			return errors.New("sm9: invalid sign master public key asn1 data")
+		}
+	} else if !input.ReadASN1Integer(d) || !input.Empty() {
+		return errors.New("sm9: invalid sign master private key asn1 data")
 	}
 	master.D = d
 	master.MasterPublicKey = new(bn256.G2).ScalarBaseMult(d)
@@ -366,12 +378,24 @@ func (master *EncryptMasterPrivateKey) MarshalASN1() ([]byte, error) {
 	return b.Bytes()
 }
 
-// UnmarshalASN1 unmarsal der data to encrpt master private key
+// UnmarshalASN1 unmarsal der data to encrypt master private key
 func (master *EncryptMasterPrivateKey) UnmarshalASN1(der []byte) error {
 	input := cryptobyte.String(der)
 	d := &big.Int{}
-	if !input.ReadASN1Integer(d) || !input.Empty() {
-		return errors.New("sm9: invalid encrpt master key asn1 data")
+	var inner cryptobyte.String
+	var pubBytes []byte
+	if der[0] == 0x30 {
+		if !input.ReadASN1(&inner, cryptobyte_asn1.SEQUENCE) ||
+			!input.Empty() ||
+			!inner.ReadASN1Integer(d) {
+			return errors.New("sm9: invalid encrypt master private key asn1 data")
+		}
+		// Just parse it, did't validate it
+		if !inner.Empty() && (!inner.ReadASN1BitStringAsBytes(&pubBytes) || !inner.Empty()) {
+			return errors.New("sm9: invalid encrypt master public key asn1 data")
+		}
+	} else if !input.ReadASN1Integer(d) || !input.Empty() {
+		return errors.New("sm9: invalid encrypt master key asn1 data")
 	}
 	master.D = d
 	master.MasterPublicKey = new(bn256.G1).ScalarBaseMult(d)
