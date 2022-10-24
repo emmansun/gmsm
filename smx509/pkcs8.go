@@ -29,7 +29,8 @@ type pkcs8 struct {
 
 // ParsePKCS8PrivateKey parses an unencrypted private key in PKCS #8, ASN.1 DER form.
 //
-// It returns a *rsa.PrivateKey, a *ecdsa.PrivateKey, or a ed25519.PrivateKey.
+// It returns a *rsa.PrivateKey, a *ecdsa.PrivateKey, a *sm2.PrivateKey, a *sm9.SignMasterPrivateKey, 
+// a *sm9.SignPrivateKey, a *sm9.EncryptMasterPrivateKey, a *sm9.EncryptPrivateKey or a ed25519.PrivateKey.
 // More types might be supported in the future.
 //
 // This kind of key is commonly encoded in PEM blocks of type "PRIVATE KEY".
@@ -116,7 +117,8 @@ func parseSM9PrivateKey(privKey pkcs8) (key interface{}, err error) {
 
 // MarshalPKCS8PrivateKey converts a private key to PKCS #8, ASN.1 DER form.
 //
-// The following key types are currently supported: *rsa.PrivateKey, *ecdsa.PrivateKey
+// The following key types are currently supported: *rsa.PrivateKey, *ecdsa.PrivateKey, a *sm2.PrivateKey, 
+// a *sm9.SignMasterPrivateKey, a *sm9.SignPrivateKey, a *sm9.EncryptMasterPrivateKey, a *sm9.EncryptPrivateKey 
 // and ed25519.PrivateKey. Unsupported key types result in an error.
 //
 // This kind of key is commonly encoded in PEM blocks of type "PRIVATE KEY".
