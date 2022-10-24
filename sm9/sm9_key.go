@@ -227,7 +227,7 @@ func (pub *SignMasterPublicKey) UnmarshalASN1(der []byte) error {
 func (pub *SignMasterPublicKey) ParseFromPEM(data []byte) error {
 	block, _ := pem.Decode([]byte(data))
 	if block == nil {
-		return errors.New("failed to parse PEM block")
+		return errors.New("sm9: failed to parse PEM block")
 	}
 	return pub.UnmarshalASN1(block.Bytes)
 }
@@ -389,7 +389,7 @@ func (master *EncryptMasterPrivateKey) UnmarshalASN1(der []byte) error {
 			return errors.New("sm9: invalid encrypt master public key asn1 data")
 		}
 	} else if !input.ReadASN1Integer(d) || !input.Empty() {
-		return errors.New("sm9: invalid encrypt master key asn1 data")
+		return errors.New("sm9: invalid encrypt master private key asn1 data")
 	}
 	master.D = d
 	master.MasterPublicKey = new(bn256.G1).ScalarBaseMult(d)
@@ -459,7 +459,7 @@ func (pub *EncryptMasterPublicKey) UnmarshalRaw(bytes []byte) error {
 func (pub *EncryptMasterPublicKey) ParseFromPEM(data []byte) error {
 	block, _ := pem.Decode([]byte(data))
 	if block == nil {
-		return errors.New("failed to parse PEM block")
+		return errors.New("sm9: failed to parse PEM block")
 	}
 	return pub.UnmarshalASN1(block.Bytes)
 }
