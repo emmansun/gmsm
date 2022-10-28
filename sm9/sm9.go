@@ -408,7 +408,7 @@ func DecryptASN1(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error
 	)
 	input := cryptobyte.String(ciphertext)
 	if !input.ReadASN1(&inner, asn1.SEQUENCE) ||
-		!input.Empty() ||
+		(!input.Empty() && !subtle.ConstantTimeAllZero(input)) ||
 		!inner.ReadASN1Integer(&encType) ||
 		!inner.ReadASN1BitStringAsBytes(&c1Bytes) ||
 		!inner.ReadASN1Bytes(&c3Bytes, asn1.OCTET_STRING) ||

@@ -5,11 +5,16 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"encoding/hex"
+	"math/big"
 	"reflect"
 	"testing"
 
+	"github.com/emmansun/gmsm/internal/subtle"
 	"github.com/emmansun/gmsm/sm2/sm2ec"
 	"github.com/emmansun/gmsm/sm3"
+	"golang.org/x/crypto/cryptobyte"
+	"golang.org/x/crypto/cryptobyte/asn1"
 )
 
 func Test_SplicingOrder(t *testing.T) {
@@ -321,6 +326,25 @@ func TestEqual(t *testing.T) {
 	}
 	if private.Equal(otherPriv) {
 		t.Errorf("different private keys are Equal")
+	}
+}
+
+func TestCipherASN1WithInvalidBytes(t *testing.T) {
+	var (
+		x1, y1 = &big.Int{}, &big.Int{}
+		c2, c3 []byte
+		inner  cryptobyte.String
+	)
+	ciphertext, _ := hex.DecodeString("3081980220298ED52AE2A0EBA8B7567D54DF41C5F9B310EDFA4A8E15ECCB44EDA94F9F1FC20220116BE33B0833C95D8E5FF9483CD2D7EFF7033C92FE5DEAB6197D809FF1EEE05F042097A90979A6FCEBDE883C2E07E9C286818E694EDE37C3CDAA70E4CD481BE883E00430D62160BB179CB20CE3B5ECA0F5A535BEB6E221566C78FEA92105F71BD37F3F850AD2F86F2D1E35F15E9356557DAC026A0000")
+	input := cryptobyte.String(ciphertext)
+	if !input.ReadASN1(&inner, asn1.SEQUENCE) ||
+		(!input.Empty() && !subtle.ConstantTimeAllZero(input)) ||
+		!inner.ReadASN1Integer(x1) ||
+		!inner.ReadASN1Integer(y1) ||
+		!inner.ReadASN1Bytes(&c3, asn1.OCTET_STRING) ||
+		!inner.ReadASN1Bytes(&c2, asn1.OCTET_STRING) ||
+		!inner.Empty() {
+		t.Fatalf("invalid cipher text")
 	}
 }
 

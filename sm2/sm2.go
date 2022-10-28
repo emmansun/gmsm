@@ -457,7 +457,7 @@ func unmarshalASN1Ciphertext(ciphertext []byte) (*big.Int, *big.Int, []byte, []b
 	)
 	input := cryptobyte.String(ciphertext)
 	if !input.ReadASN1(&inner, asn1.SEQUENCE) ||
-		!input.Empty() ||
+		(!input.Empty() && !subtle.ConstantTimeAllZero(input)) ||
 		!inner.ReadASN1Integer(x1) ||
 		!inner.ReadASN1Integer(y1) ||
 		!inner.ReadASN1Bytes(&c3, asn1.OCTET_STRING) ||
