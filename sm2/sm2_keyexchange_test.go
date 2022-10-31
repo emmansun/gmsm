@@ -70,7 +70,7 @@ func TestKeyExchangeSample(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		responder, err := NewKeyExchange(priv2, &priv1.PublicKey, responderUID, initiatorUID, 48, true)
+		responder, err := NewKeyExchange(priv2, &priv1.PublicKey, responderUID, initiatorUID, kenLen, true)
 		if err != nil {
 			t.Fatal(err)
 		}
