@@ -320,6 +320,7 @@ func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Encrypter
 	if pub.X.Sign() == 0 && pub.Y.Sign() == 0 {
 		return nil, errors.New("sm2: invalid public key")
 	}
+	var retryCount int = 0
 	for {
 		//A1, generate random k
 		k, err := randFieldElement(curve, random)
@@ -335,12 +336,11 @@ func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Encrypter
 		x2, y2 := curve.ScalarMult(pub.X, pub.Y, k.Bytes())
 
 		//A5, calculate t=KDF(x2||y2, klen)
-		var kdfCount int = 0
 		c2 := kdf.Kdf(sm3.New(), append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
 		if subtle.ConstantTimeAllZero(c2) {
-			kdfCount++
-			if kdfCount > maxRetryLimit {
-				return nil, fmt.Errorf("sm2: A5, failed to calculate valid t, tried %v times", kdfCount)
+			retryCount++
+			if retryCount > maxRetryLimit {
+				return nil, fmt.Errorf("sm2: A5, failed to calculate valid t, tried %v times", retryCount)
 			}
 			continue
 		}
