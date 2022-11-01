@@ -99,6 +99,40 @@ func Test_encryptDecrypt_ASN1(t *testing.T) {
 	}
 }
 
+func TestPlainCiphertext2ASN1(t *testing.T) {
+	ciphertext, _ := hex.DecodeString("047928e22045eec8dc00e95639dd0c1c8dfb75cf8cedcf496731a6a6f423baa54c5014c60b73495886d8d7bc996a4a716cb58e6bfc8e03078b24e7b0f5cba0efd5b9272c27fc263bb59eaca6eabc97c0323bf1de953aeabaf59700b3bf49c9a1056decc08dd18544960541a2239afa7b1512df05")
+	_, err := PlainCiphertext2ASN1(append([]byte{0x30}, ciphertext...), C1C3C2)
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	_, err = PlainCiphertext2ASN1(ciphertext[:65], C1C3C2)
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	ciphertext[0] = 0x10
+	_, err = PlainCiphertext2ASN1(ciphertext, C1C3C2)
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestAdjustCiphertextSplicingOrder(t *testing.T) {
+	ciphertext, _ := hex.DecodeString("047928e22045eec8dc00e95639dd0c1c8dfb75cf8cedcf496731a6a6f423baa54c5014c60b73495886d8d7bc996a4a716cb58e6bfc8e03078b24e7b0f5cba0efd5b9272c27fc263bb59eaca6eabc97c0323bf1de953aeabaf59700b3bf49c9a1056decc08dd18544960541a2239afa7b1512df05")
+	res, err := AdjustCiphertextSplicingOrder(ciphertext, C1C3C2, C1C3C2)
+	if err != nil || &res[0] != &ciphertext[0] {
+		t.Fatalf("should be same one")
+	}
+	_, err = AdjustCiphertextSplicingOrder(ciphertext[:65], C1C3C2, C1C2C3)
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	ciphertext[0] = 0x10
+	_, err = AdjustCiphertextSplicingOrder(ciphertext, C1C3C2, C1C2C3)
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
 func Test_Ciphertext2ASN1(t *testing.T) {
 	priv, _ := GenerateKey(rand.Reader)
 	tests := []struct {
@@ -112,15 +146,32 @@ func Test_Ciphertext2ASN1(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ciphertext, err := Encrypt(rand.Reader, &priv.PublicKey, []byte(tt.plainText), nil)
+			ciphertext1, err := Encrypt(rand.Reader, &priv.PublicKey, []byte(tt.plainText), nil)
 			if err != nil {
 				t.Fatalf("encrypt failed %v", err)
 			}
-			ciphertext, err = PlainCiphertext2ASN1(ciphertext, C1C3C2)
+
+			ciphertext, err := PlainCiphertext2ASN1(ciphertext1, C1C3C2)
 			if err != nil {
 				t.Fatalf("convert to ASN.1 failed %v", err)
 			}
 			plaintext, err := priv.Decrypt(rand.Reader, ciphertext, ASN1DecrypterOpts)
+			if err != nil {
+				t.Fatalf("decrypt failed %v", err)
+			}
+			if !reflect.DeepEqual(string(plaintext), tt.plainText) {
+				t.Errorf("Decrypt() = %v, want %v", string(plaintext), tt.plainText)
+			}
+
+			ciphertext2, err := AdjustCiphertextSplicingOrder(ciphertext1, C1C3C2, C1C2C3)
+			if err != nil {
+				t.Fatalf("adjust order failed %v", err)
+			}
+			ciphertext, err = PlainCiphertext2ASN1(ciphertext2, C1C2C3)
+			if err != nil {
+				t.Fatalf("convert to ASN.1 failed %v", err)
+			}
+			plaintext, err = priv.Decrypt(rand.Reader, ciphertext, ASN1DecrypterOpts)
 			if err != nil {
 				t.Fatalf("decrypt failed %v", err)
 			}
