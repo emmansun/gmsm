@@ -82,7 +82,7 @@ func (curve *CurveParams) Add(x1, y1, x2, y2 *big.Int) (*big.Int, *big.Int) {
 // addJacobian takes two points in Jacobian coordinates, (x1, y1, z1) and
 // (x2, y2, z2) and returns their sum, also in Jacobian form.
 func (curve *CurveParams) addJacobian(x1, y1, z1, x2, y2, z2 *big.Int) (*big.Int, *big.Int, *big.Int) {
-	// See https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#addition-add-2007-bl
+	// See https://hyperelliptic.org/EFD/g1p/data/shortw/jacobian/addition/add-2007-bl
 	x3, y3, z3 := new(big.Int), new(big.Int), new(big.Int)
 	if z1.Sign() == 0 {
 		x3.Set(x2)
@@ -310,54 +310,67 @@ func calculateSampleZA(pub *ecdsa.PublicKey, a *big.Int, uid []byte) ([]byte, er
 	return md.Sum(nil), nil
 }
 
+// Sample from Appendix A.2
 func TestKeyExchangeRealSample(t *testing.T) {
 	initiatorUID := []byte("ALICE123@YAHOO.COM")
 	responderUID := []byte("BILL456@YAHOO.COM")
 	kenLen := 16
 
-	priv1 := new(PrivateKey)
-	priv1.D = bigFromHex("6FCBA2EF9AE0AB902BC3BDE3FF915D44BA4CC78F88E2F8E7F8996D3B8CCEEDEE")
-	priv1.Curve = sampleParams
-	priv1.X, priv1.Y = priv1.Curve.ScalarBaseMult(priv1.D.Bytes())
-
-	priv2 := new(PrivateKey)
-	priv2.D = bigFromHex("5E35D7D3F3C54DBAC72E61819E730B019A84208CA3A35E4C2E353DFCCB2A3B53")
-	priv2.Curve = sampleParams
-	priv2.X, priv2.Y = priv2.Curve.ScalarBaseMult(priv2.D.Bytes())
-
-	initiator, err := NewKeyExchange(priv1, &priv2.PublicKey, initiatorUID, responderUID, kenLen, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// overwrite ZA, due to different A
-	initiator.z, _ = calculateSampleZA(&priv1.PublicKey, sampleParams.A, initiatorUID)
-	initiator.peerZ, _ = calculateSampleZA(&priv2.PublicKey, sampleParams.A, responderUID)
-
-	if hex.EncodeToString(priv1.X.Bytes()) != "3099093bf3c137d8fcbbcdf4a2ae50f3b0f216c3122d79425fe03a45dbfe1655" ||
-		hex.EncodeToString(priv1.Y.Bytes()) != "3df79e8dac1cf0ecbaa2f2b49d51a4b387f2efaf482339086a27a8e05baed98b" {
+	// initiator's private key
+	privA := new(PrivateKey)
+	privA.D = bigFromHex("6FCBA2EF9AE0AB902BC3BDE3FF915D44BA4CC78F88E2F8E7F8996D3B8CCEEDEE")
+	privA.Curve = sampleParams
+	privA.X, privA.Y = privA.Curve.ScalarBaseMult(privA.D.Bytes())
+	if hex.EncodeToString(privA.X.Bytes()) != "3099093bf3c137d8fcbbcdf4a2ae50f3b0f216c3122d79425fe03a45dbfe1655" ||
+		hex.EncodeToString(privA.Y.Bytes()) != "3df79e8dac1cf0ecbaa2f2b49d51a4b387f2efaf482339086a27a8e05baed98b" {
 		t.Fatalf("unexpected public key PA")
 	}
-	if hex.EncodeToString(initiator.z) != "e4d1d0c3ca4c7f11bc8ff8cb3f4c02a78f108fa098e51a668487240f75e20f31" {
+
+	// initiator's Z value
+	za, _ := calculateSampleZA(&privA.PublicKey, sampleParams.A, initiatorUID)
+	if hex.EncodeToString(za) != "e4d1d0c3ca4c7f11bc8ff8cb3f4c02a78f108fa098e51a668487240f75e20f31" {
 		t.Fatalf("unexpected ZA")
 	}
-	if hex.EncodeToString(initiator.peerZ) != "6b4b6d0e276691bd4a11bf72f4fb501ae309fdacb72fa6cc336e6656119abd67" {
+
+	// responder's private key
+	privB := new(PrivateKey)
+	privB.D = bigFromHex("5E35D7D3F3C54DBAC72E61819E730B019A84208CA3A35E4C2E353DFCCB2A3B53")
+	privB.Curve = sampleParams
+	privB.X, privB.Y = privB.Curve.ScalarBaseMult(privB.D.Bytes())
+	if hex.EncodeToString(privB.X.Bytes()) != "245493d446c38d8cc0f118374690e7df633a8a4bfb3329b5ece604b2b4f37f43" ||
+		hex.EncodeToString(privB.Y.Bytes()) != "53c0869f4b9e17773de68fec45e14904e0dea45bf6cecf9918c85ea047c60a4c" {
+		t.Fatalf("unexpected public key PB")
+	}
+	// responder's Z value
+	zb, _ := calculateSampleZA(&privB.PublicKey, sampleParams.A, responderUID)
+	if hex.EncodeToString(zb) != "6b4b6d0e276691bd4a11bf72f4fb501ae309fdacb72fa6cc336e6656119abd67" {
 		t.Fatalf("unexpected ZB")
 	}
 
-	responder, err := NewKeyExchange(priv2, &priv1.PublicKey, responderUID, initiatorUID, kenLen, true)
+	// create initiator
+	initiator, err := NewKeyExchange(privA, &privB.PublicKey, initiatorUID, responderUID, kenLen, true)
 	if err != nil {
-		t.Fatalf("unexpected public key PB")
+		t.Fatal(err)
 	}
-	responder.z, _ = calculateSampleZA(&priv2.PublicKey, sampleParams.A, responderUID)
-	responder.peerZ, _ = calculateSampleZA(&priv1.PublicKey, sampleParams.A, initiatorUID)
-	if hex.EncodeToString(priv2.X.Bytes()) != "245493d446c38d8cc0f118374690e7df633a8a4bfb3329b5ece604b2b4f37f43" ||
-		hex.EncodeToString(priv2.Y.Bytes()) != "53c0869f4b9e17773de68fec45e14904e0dea45bf6cecf9918c85ea047c60a4c" {
-		t.Fatalf("unexpected public key PB")
+	// overwrite Z values, due to different A
+	initiator.z = za
+	initiator.peerZ = zb
+
+	// create responder
+	responder, err := NewKeyExchange(privB, &privA.PublicKey, responderUID, initiatorUID, kenLen, true)
+	if err != nil {
+		t.Fatal(err)
 	}
+	// overwrite Z values, due to different A
+	responder.z = zb
+	responder.peerZ = za
+
 	defer func() {
 		initiator.Destroy()
 		responder.Destroy()
 	}()
+
+	// for initiator's step A1-A3
 	rA := bigFromHex("83A2C9C8B96E5AF70BD480B472409A9A327257F1EBB73F5B073354B248668563")
 	initKeyExchange(initiator, rA)
 	if hex.EncodeToString(initiator.secret.X.Bytes()) != "6cb5633816f4dd560b1dec458310cbcc6856c09505324a6d23150c408f162bf0" ||
@@ -365,30 +378,35 @@ func TestKeyExchangeRealSample(t *testing.T) {
 		t.Fatalf("unexpected RA")
 	}
 
+	// for responder's step B1-B8
 	rB := bigFromHex("33FE21940342161C55619C4A0C060293D543C80AF19748CE176D83477DE71C80")
-	RB, s2, _ := respondKeyExchange(responder, initiator.secret, rB)
+	RB, sB, _ := respondKeyExchange(responder, initiator.secret, rB)
 	if hex.EncodeToString(RB.X.Bytes()) != "1799b2a2c778295300d9a2325c686129b8f2b5337b3dcf4514e8bbc19d900ee5" ||
 		hex.EncodeToString(RB.Y.Bytes()) != "54c9288c82733efdf7808ae7f27d0e732f7c73a7d9ac98b7d8740a91d0db3cf4" {
 		t.Fatalf("unexpected RB")
 	}
-	if hex.EncodeToString(s2) != "284c8f198f141b502e81250f1581c7e9eeb4ca6990f9e02df388b45471f5bc5c" {
-		t.Fatalf("unexpected S2")
+	if hex.EncodeToString(sB) != "284c8f198f141b502e81250f1581c7e9eeb4ca6990f9e02df388b45471f5bc5c" {
+		t.Fatalf("unexpected sB")
 	}
-	key1, s1, err := initiator.ConfirmResponder(RB, s2)
+
+	// for initiator's step A4-A10
+	keyA, sA, err := initiator.ConfirmResponder(RB, sB)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hex.EncodeToString(s1) != "23444daf8ed7534366cb901c84b3bdbb63504f4065c1116c91a4c00697e6cf7a" {
-		t.Fatalf("unexpected S1")
+	if hex.EncodeToString(sA) != "23444daf8ed7534366cb901c84b3bdbb63504f4065c1116c91a4c00697e6cf7a" {
+		t.Fatalf("unexpected sA")
 	}
-	key2, err := responder.ConfirmInitiator(s1)
+
+	// for responder's step B10
+	keyB, err := responder.ConfirmInitiator(sA)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(key1, key2) {
+	if !bytes.Equal(keyA, keyB) {
 		t.Errorf("got different key")
 	}
-	if !bytes.Equal(key1, hexDecode(t, "55B0AC62A6B927BA23703832C853DED4")) {
-		t.Errorf("got unexpected keying data %v\n", hex.EncodeToString(key1))
+	if !bytes.Equal(keyA, hexDecode(t, "55B0AC62A6B927BA23703832C853DED4")) {
+		t.Errorf("got unexpected keying data %v\n", hex.EncodeToString(keyA))
 	}
 }
