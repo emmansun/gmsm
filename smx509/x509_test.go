@@ -15,7 +15,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
-	"fmt"
 	"io"
 	"math/big"
 	"net"
@@ -1600,6 +1599,7 @@ func TestVerifyEmptyCertificate(t *testing.T) {
 	}
 }
 
+/*
 func TestInsecureAlgorithmErrorString(t *testing.T) {
 	tests := []struct {
 		sa   SignatureAlgorithm
@@ -1619,6 +1619,7 @@ func TestInsecureAlgorithmErrorString(t *testing.T) {
 		}
 	}
 }
+*/
 
 // These CSR was generated with OpenSSL:
 //  openssl req -out CSR.csr -new -sha256 -nodes -keyout privateKey.key -config openssl.cnf
