@@ -469,6 +469,9 @@ func testVerify(t *testing.T, test verifyTest, useSystemRoots bool) {
 	chains, err := leaf.Verify(opts)
 
 	if test.errorCallback == nil && err != nil {
+		//if runtime.GOOS == "windows" && strings.HasSuffix(testenv.Builder(), "-2008") && err.Error() == "x509: certificate signed by unknown authority" {
+		//	testenv.SkipFlaky(t, 19564)
+		//}
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if test.errorCallback != nil {
@@ -530,6 +533,18 @@ func testVerify(t *testing.T, test verifyTest, useSystemRoots bool) {
 				}
 			}
 		}
+	}
+}
+
+func TestGoVerify(t *testing.T) {
+	// Temporarily enable SHA-1 verification since a number of test chains
+	// require it. TODO(filippo): regenerate test chains.
+	t.Setenv("GODEBUG", "x509sha1=1")
+
+	for _, test := range verifyTests {
+		t.Run(test.name, func(t *testing.T) {
+			testVerify(t, test, false)
+		})
 	}
 }
 
@@ -1501,7 +1516,7 @@ func TestUnknownAuthorityError(t *testing.T) {
 	for i, tt := range unknownAuthorityErrorTests {
 		der, _ := pem.Decode([]byte(tt.cert))
 		if der == nil {
-			t.Errorf("#%d: Unable to decode PEM block", i)
+			t.Fatalf("#%d: Unable to decode PEM block", i)
 		}
 		c, err := ParseCertificate(der.Bytes)
 		if err != nil {
@@ -1853,7 +1868,6 @@ func TestSystemRootsError(t *testing.T) {
 	}
 }
 
-/* failed with golang 1.15.x
 func TestSystemRootsErrorUnwrap(t *testing.T) {
 	var err1 = errors.New("err1")
 	err := x509.SystemRootsError{Err: err1}
@@ -1861,7 +1875,6 @@ func TestSystemRootsErrorUnwrap(t *testing.T) {
 		t.Error("errors.Is failed, wanted success")
 	}
 }
-*/
 
 func TestIssue51759(t *testing.T) {
 	// badCertData contains a cert that we parse as valid

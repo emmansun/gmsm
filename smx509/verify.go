@@ -625,6 +625,8 @@ func (c *Certificate) isValid(certType int, currentChain []*Certificate, opts *V
 // list. (While this is not specified, it is common practice in order to limit
 // the types of certificates a CA can issue.)
 //
+// Certificates other than c in the returned chains should not be modified.
+//
 // WARNING: this function doesn't do any revocation checking.
 func (c *Certificate) Verify(opts VerifyOptions) (chains [][]*Certificate, err error) {
 	// Platform-specific verification needs the ASN.1 contents so
@@ -670,6 +672,13 @@ func (c *Certificate) Verify(opts VerifyOptions) (chains [][]*Certificate, err e
 		return
 	}
 
+	if len(opts.DNSName) > 0 {
+		err = c.VerifyHostname(opts.DNSName)
+		if err != nil {
+			return
+		}
+	}
+
 	var candidateChains [][]*Certificate
 	if opts.Roots.contains(c) {
 		candidateChains = [][]*Certificate{{c}}
@@ -700,7 +709,7 @@ func (c *Certificate) Verify(opts VerifyOptions) (chains [][]*Certificate, err e
 	}
 
 	if len(chains) == 0 {
-		return nil, CertificateInvalidError{c.asX509(), IncompatibleUsage, ""}
+		return nil, CertificateInvalidError{Cert: c.asX509(), Reason: IncompatibleUsage, Detail: ""}
 	}
 
 	return chains, nil
