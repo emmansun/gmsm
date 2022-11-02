@@ -1688,7 +1688,8 @@ func TestSHA1(t *testing.T) {
 		t.Fatalf("certificate verification returned %v (%T), wanted InsecureAlgorithmError", err, err)
 	}
 
-	t.Setenv("GODEBUG", "x509sha1=1")
+	defer func(old bool) { debugAllowSHA1 = old }(debugAllowSHA1)
+	debugAllowSHA1 = true
 	if err = cert.CheckSignatureFrom(cert); err != nil {
 		t.Fatalf("SHA-1 certificate did not verify with GODEBUG=x509sha1=1: %v", err)
 	}
@@ -3034,7 +3035,8 @@ func TestParseUniqueID(t *testing.T) {
 }
 
 func TestDisableSHA1ForCertOnly(t *testing.T) {
-	t.Setenv("GODEBUG", "")
+	defer func(old bool) { debugAllowSHA1 = old }(debugAllowSHA1)
+	debugAllowSHA1 = false
 
 	tmpl := &Certificate{
 		SerialNumber:          big.NewInt(1),

@@ -248,7 +248,7 @@ var (
 	// 附录A（规范性附录）商用密码领域中的相关OID定义
 	//
 	// http://gmssl.org/docs/oid.html
-	oidSignatureSM2WithSM3    = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 501}
+	oidSignatureSM2WithSM3 = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 501}
 	//oidSignatureSM2WithSHA1   = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 502}
 	//oidSignatureSM2WithSHA256 = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 503}
 )
@@ -548,6 +548,9 @@ func oidFromExtKeyUsage(eku ExtKeyUsage) (oid asn1.ObjectIdentifier, ok bool) {
 	return
 }
 
+// debugAllowSHA1 allows SHA-1 signatures. See issue 41682.
+var debugAllowSHA1 = godebug.Get("x509sha1") == "1"
+
 // A Certificate represents an X.509 certificate.
 type Certificate x509.Certificate
 
@@ -593,7 +596,7 @@ func (c *Certificate) CheckSignatureFrom(parent *Certificate) error {
 
 	// TODO(agl): don't ignore the path length constraint.
 
-	return checkSignature(c.SignatureAlgorithm, c.RawTBSCertificate, c.Signature, parent.PublicKey, false)
+	return checkSignature(c.SignatureAlgorithm, c.RawTBSCertificate, c.Signature, parent.PublicKey, debugAllowSHA1)
 }
 
 // CheckSignature verifies that signature is a valid signature over signed from
@@ -641,7 +644,7 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 	case crypto.MD5:
 		return x509.InsecureAlgorithmError(algo)
 	case crypto.SHA1:
-		if !allowSHA1 && godebug.Get("x509sha1") != "1" {
+		if !allowSHA1 {
 			return x509.InsecureAlgorithmError(algo)
 		}
 		fallthrough
