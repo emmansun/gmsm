@@ -1,3 +1,4 @@
+// Package smx509 parses X.509-encoded keys and certificates include SM2/SM3 support.
 package smx509
 
 import (
@@ -20,6 +21,12 @@ import (
 	"net/url"
 	"time"
 	"unicode"
+
+	// Explicitly import these for their crypto.RegisterHash init side-effects.
+	// Keep these as blank imports, even if they're imported above.
+	_ "crypto/sha1"
+	_ "crypto/sha256"
+	_ "crypto/sha512"
 
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
@@ -217,6 +224,55 @@ const (
 )
 
 // OIDs for signature algorithms
+//
+//	pkcs-1 OBJECT IDENTIFIER ::= {
+//		iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) 1 }
+//
+// RFC 3279 2.2.1 RSA Signature Algorithms
+//
+//	md2WithRSAEncryption OBJECT IDENTIFIER ::= { pkcs-1 2 }
+//
+//	md5WithRSAEncryption OBJECT IDENTIFIER ::= { pkcs-1 4 }
+//
+//	sha-1WithRSAEncryption OBJECT IDENTIFIER ::= { pkcs-1 5 }
+//
+//	dsaWithSha1 OBJECT IDENTIFIER ::= {
+//		iso(1) member-body(2) us(840) x9-57(10040) x9cm(4) 3 }
+//
+// RFC 3279 2.2.3 ECDSA Signature Algorithm
+//
+//	ecdsa-with-SHA1 OBJECT IDENTIFIER ::= {
+//		iso(1) member-body(2) us(840) ansi-x962(10045)
+//		signatures(4) ecdsa-with-SHA1(1)}
+//
+// RFC 4055 5 PKCS #1 Version 1.5
+//
+//	sha256WithRSAEncryption OBJECT IDENTIFIER ::= { pkcs-1 11 }
+//
+//	sha384WithRSAEncryption OBJECT IDENTIFIER ::= { pkcs-1 12 }
+//
+//	sha512WithRSAEncryption OBJECT IDENTIFIER ::= { pkcs-1 13 }
+//
+// RFC 5758 3.1 DSA Signature Algorithms
+//
+//	dsaWithSha256 OBJECT IDENTIFIER ::= {
+//		joint-iso-ccitt(2) country(16) us(840) organization(1) gov(101)
+//		csor(3) algorithms(4) id-dsa-with-sha2(3) 2}
+//
+// RFC 5758 3.2 ECDSA Signature Algorithm
+//
+//	ecdsa-with-SHA256 OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+//		us(840) ansi-X9-62(10045) signatures(4) ecdsa-with-SHA2(3) 2 }
+//
+//	ecdsa-with-SHA384 OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+//		us(840) ansi-X9-62(10045) signatures(4) ecdsa-with-SHA2(3) 3 }
+//
+//	ecdsa-with-SHA512 OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+//		us(840) ansi-X9-62(10045) signatures(4) ecdsa-with-SHA2(3) 4 }
+//
+// RFC 8410 3 Curve25519 and Curve448 Algorithm Identifiers
+//
+//	id-Ed25519   OBJECT IDENTIFIER ::= { 1 3 101 112 }
 var (
 	oidSignatureMD2WithRSA      = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 2}
 	oidSignatureMD5WithRSA      = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 4}
@@ -283,10 +339,10 @@ var signatureAlgorithmDetails = []struct {
 // hashToPSSParameters contains the DER encoded RSA PSS parameters for the
 // SHA256, SHA384, and SHA512 hashes as defined in RFC 3447, Appendix A.2.3.
 // The parameters contain the following values:
-//   * hashAlgorithm contains the associated hash identifier with NULL parameters
-//   * maskGenAlgorithm always contains the default mgf1SHA1 identifier
-//   * saltLength contains the length of the associated hash
-//   * trailerField always contains the default trailerFieldBC value
+//   - hashAlgorithm contains the associated hash identifier with NULL parameters
+//   - maskGenAlgorithm always contains the default mgf1SHA1 identifier
+//   - saltLength contains the length of the associated hash
+//   - trailerField always contains the default trailerFieldBC value
 var hashToPSSParameters = map[crypto.Hash]asn1.RawValue{
 	crypto.SHA256: {FullBytes: []byte{48, 52, 160, 15, 48, 13, 6, 9, 96, 134, 72, 1, 101, 3, 4, 2, 1, 5, 0, 161, 28, 48, 26, 6, 9, 42, 134, 72, 134, 247, 13, 1, 1, 8, 48, 13, 6, 9, 96, 134, 72, 1, 101, 3, 4, 2, 1, 5, 0, 162, 3, 2, 1, 32}},
 	crypto.SHA384: {FullBytes: []byte{48, 52, 160, 15, 48, 13, 6, 9, 96, 134, 72, 1, 101, 3, 4, 2, 2, 5, 0, 161, 28, 48, 26, 6, 9, 42, 134, 72, 134, 247, 13, 1, 1, 8, 48, 13, 6, 9, 96, 134, 72, 1, 101, 3, 4, 2, 2, 5, 0, 162, 3, 2, 1, 48}},
@@ -363,18 +419,18 @@ func getSignatureAlgorithmFromAI(ai pkix.AlgorithmIdentifier) SignatureAlgorithm
 
 // RFC 3279, 2.3 Public Key Algorithms
 //
-// pkcs-1 OBJECT IDENTIFIER ::== { iso(1) member-body(2) us(840)
-//    rsadsi(113549) pkcs(1) 1 }
+//	pkcs-1 OBJECT IDENTIFIER ::== { iso(1) member-body(2) us(840)
+//		rsadsi(113549) pkcs(1) 1 }
 //
 // rsaEncryption OBJECT IDENTIFIER ::== { pkcs1-1 1 }
 //
-// id-dsa OBJECT IDENTIFIER ::== { iso(1) member-body(2) us(840)
-//    x9-57(10040) x9cm(4) 1 }
+//	id-dsa OBJECT IDENTIFIER ::== { iso(1) member-body(2) us(840)
+//		x9-57(10040) x9cm(4) 1 }
 //
 // RFC 5480, 2.1.1 Unrestricted Algorithm Identifier and Parameters
 //
-// id-ecPublicKey OBJECT IDENTIFIER ::= {
-//       iso(1) member-body(2) us(840) ansi-X9-62(10045) keyType(2) 1 }
+//	id-ecPublicKey OBJECT IDENTIFIER ::= {
+//		iso(1) member-body(2) us(840) ansi-X9-62(10045) keyType(2) 1 }
 var (
 	oidPublicKeyRSA     = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 1}
 	oidPublicKeyDSA     = asn1.ObjectIdentifier{1, 2, 840, 10040, 4, 1}
@@ -461,16 +517,16 @@ const (
 
 // RFC 5280, 4.2.1.12  Extended Key Usage
 //
-// anyExtendedKeyUsage OBJECT IDENTIFIER ::= { id-ce-extKeyUsage 0 }
+//	anyExtendedKeyUsage OBJECT IDENTIFIER ::= { id-ce-extKeyUsage 0 }
 //
-// id-kp OBJECT IDENTIFIER ::= { id-pkix 3 }
+//	id-kp OBJECT IDENTIFIER ::= { id-pkix 3 }
 //
-// id-kp-serverAuth             OBJECT IDENTIFIER ::= { id-kp 1 }
-// id-kp-clientAuth             OBJECT IDENTIFIER ::= { id-kp 2 }
-// id-kp-codeSigning            OBJECT IDENTIFIER ::= { id-kp 3 }
-// id-kp-emailProtection        OBJECT IDENTIFIER ::= { id-kp 4 }
-// id-kp-timeStamping           OBJECT IDENTIFIER ::= { id-kp 8 }
-// id-kp-OCSPSigning            OBJECT IDENTIFIER ::= { id-kp 9 }
+//	id-kp-serverAuth             OBJECT IDENTIFIER ::= { id-kp 1 }
+//	id-kp-clientAuth             OBJECT IDENTIFIER ::= { id-kp 2 }
+//	id-kp-codeSigning            OBJECT IDENTIFIER ::= { id-kp 3 }
+//	id-kp-emailProtection        OBJECT IDENTIFIER ::= { id-kp 4 }
+//	id-kp-timeStamping           OBJECT IDENTIFIER ::= { id-kp 8 }
+//	id-kp-OCSPSigning            OBJECT IDENTIFIER ::= { id-kp 9 }
 var (
 	oidExtKeyUsageAny                            = asn1.ObjectIdentifier{2, 5, 29, 37, 0}
 	oidExtKeyUsageServerAuth                     = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 3, 1}
@@ -574,7 +630,7 @@ func (c *Certificate) hasSANExtension() bool {
 }
 
 // CheckSignatureFrom verifies that the signature on c is a valid signature
-// from parent.
+// from parent. SHA1WithRSA and ECDSAWithSHA1 signatures are not supported.
 func (c *Certificate) CheckSignatureFrom(parent *Certificate) error {
 	// RFC 5280, 4.2.1.9:
 	// "If the basic constraints extension is not present in a version 3
@@ -644,6 +700,7 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 	case crypto.MD5:
 		return x509.InsecureAlgorithmError(algo)
 	case crypto.SHA1:
+		// SHA-1 signatures are mostly disabled. See go.dev/issue/41682.
 		if !allowSHA1 {
 			return x509.InsecureAlgorithmError(algo)
 		}
@@ -673,7 +730,7 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 		}
 		if isSM2 {
 			if !sm2.VerifyASN1WithSM2(pub, nil, signed, signature) {
-				return errors.New("x509: ECDSA verification failure")
+				return errors.New("x509: SM2 verification failure")
 			}
 		} else if !ecdsa.VerifyASN1(pub, signed, signature) {
 			return errors.New("x509: ECDSA verification failure")
@@ -1761,7 +1818,6 @@ func CreateCertificateRequest(rand io.Reader, template *x509.CertificateRequest,
 	tbsCSR.Raw = tbsCSRContents
 
 	signed := tbsCSRContents
-	var signature []byte
 	var opts crypto.SignerOpts = hashFunc
 	if hashFunc != 0 {
 		h := hashFunc.New()
@@ -1771,6 +1827,8 @@ func CreateCertificateRequest(rand io.Reader, template *x509.CertificateRequest,
 	if sigAlgo.Algorithm.Equal(oidSignatureSM2WithSM3) {
 		opts = sm2.NewSM2SignerOption(true, nil)
 	}
+
+	var signature []byte
 	signature, err = key.Sign(rand, signed, opts)
 	if err != nil {
 		return

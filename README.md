@@ -28,12 +28,13 @@
 
 * **ECDH** - a similar implementation of golang ECDH that supports SM2 ECDH & SM2MQV without usage of **big.Int**, a replacement of SM2 key exchange. For detail, pleaes refer [is my code constant time?](https://github.com/emmansun/gmsm/wiki/is-my-code-constant-time%3F)
 
-* **DRBG** - Random Number Generation Using Deterministic Random Bit Generators, for detail, please reference **NIST Special Publication 800-90A** and **GM/T 0105-2021**: CTR-DRBG using derivation function and HASH-DRBG. NIST related implementations are tested with part of NIST provided test vectors.
+* **DRBG** - Random Number Generation Using Deterministic Random Bit Generators, for detail, please reference **NIST Special Publication 800-90A** and **GM/T 0105-2021**: CTR-DRBG using derivation function and HASH-DRBG. NIST related implementations are tested with part of NIST provided test vectors. You can also use [randomness](https://github.com/Trisia/randomness) tool to check the generated random bits.
 
 ## Some Related Projects
-* **PKCS12** - https://github.com/emmansun/go-pkcs12
-* **PKCS7** - https://github.com/emmansun/pkcs7
-* **TLCP** - https://github.com/Trisia/gotlcp
+* **[PKCS12](https://github.com/emmansun/go-pkcs12)** - pkcs12 supports ShangMi, a fork of [SSLMate/go-pkcs12](https://github.com/SSLMate/go-pkcs12).
+* **[PKCS7](https://github.com/emmansun/pkcs7)** - pkcs7 supports ShangMi (not supports SM9 yet), a fork of [mozilla-services/pkcs7](https://github.com/mozilla-services/pkcs7).
+* **[TLCP](https://github.com/Trisia/gotlcp)** - An implementation of GB/T 38636-2020 Information security technology Transport Layer Cryptography Protocol (TLCP). 
+* **[MKSMCERT](https://github.com/emmansun/mksmcert)** - A simple tool for making locally-trusted development ShangMi certificates, a fork of [FiloSottile/mkcert](https://github.com/FiloSottile/mkcert).
 
 ## Disclaimer
 
