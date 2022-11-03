@@ -34,3 +34,7 @@
 * **PKCS12** - https://github.com/emmansun/go-pkcs12
 * **PKCS7** - https://github.com/emmansun/pkcs7
 * **TLCP** - https://github.com/Trisia/gotlcp
+
+## Disclaimer
+
+Please read [disclaimer](DISCLAIMER.md) carefully!
