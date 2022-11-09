@@ -102,9 +102,8 @@ func parseASN1String(tag cryptobyte_asn1.Tag, value []byte) (string, error) {
 	return "", fmt.Errorf("unsupported string type: %v", tag)
 }
 
-// parseName parses a DER encoded Name as defined in RFC 5280. We may
-// want to export this function in the future for use in crypto/tls.
-func parseName(raw cryptobyte.String) (*pkix.RDNSequence, error) {
+// ParseName parses a DER encoded Name as defined in RFC 5280.
+func ParseName(raw cryptobyte.String) (*pkix.RDNSequence, error) {
 	if !raw.ReadASN1(&raw, cryptobyte_asn1.SEQUENCE) {
 		return nil, errors.New("x509: invalid RDNSequence")
 	}
@@ -883,7 +882,7 @@ func parseCertificate(der []byte) (*Certificate, error) {
 		return nil, errors.New("x509: malformed issuer")
 	}
 	cert.RawIssuer = issuerSeq
-	issuerRDNs, err := parseName(issuerSeq)
+	issuerRDNs, err := ParseName(issuerSeq)
 	if err != nil {
 		return nil, err
 	}
@@ -903,7 +902,7 @@ func parseCertificate(der []byte) (*Certificate, error) {
 		return nil, errors.New("x509: malformed issuer")
 	}
 	cert.RawSubject = subjectSeq
-	subjectRDNs, err := parseName(subjectSeq)
+	subjectRDNs, err := ParseName(subjectSeq)
 	if err != nil {
 		return nil, err
 	}
