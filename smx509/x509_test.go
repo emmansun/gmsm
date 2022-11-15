@@ -2731,6 +2731,22 @@ func TestCreateCertificateLegacy(t *testing.T) {
 	}
 }
 
+func (s *CertPool) mustCert(t *testing.T, n int) *Certificate {
+	c, err := s.lazyCerts[n].getCert()
+	if err != nil {
+		t.Fatalf("failed to load cert %d: %v", n, err)
+	}
+	return c
+}
+
+func allCerts(t *testing.T, p *CertPool) []*Certificate {
+	all := make([]*Certificate, p.len())
+	for i := range all {
+		all[i] = p.mustCert(t, i)
+	}
+	return all
+}
+
 // certPoolEqual reports whether a and b are equal, except for the
 // function pointers.
 func certPoolEqual(a, b *CertPool) bool {
