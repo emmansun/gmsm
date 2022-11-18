@@ -1669,7 +1669,7 @@ func parseCSRExtensions(rawAttributes []asn1.RawValue) ([]pkix.Extension, error)
 		if _, err := asn1.Unmarshal(attr.Values[0].FullBytes, &extensions); err != nil {
 			return nil, err
 		}
-		
+
 		for _, ext := range extensions {
 			oidStr := ext.Id.String()
 			if requestedExts[oidStr] {
@@ -1943,6 +1943,29 @@ func (c *CertificateRequest) CheckSignature() error {
 	return checkSignature(c.SignatureAlgorithm, c.RawTBSCertificateRequest, c.Signature, c.PublicKey, true)
 }
 
+// These structures reflect the ASN.1 structure of X.509 CRLs better than
+// the existing crypto/x509/pkix variants do. These mirror the existing
+// certificate structs in this file.
+//
+// Notably, we include issuer as an asn1.RawValue, mirroring the behavior of
+// tbsCertificate and allowing raw (unparsed) subjects to be passed cleanly.
+type certificateList struct {
+	TBSCertList        tbsCertificateList
+	SignatureAlgorithm pkix.AlgorithmIdentifier
+	SignatureValue     asn1.BitString
+}
+
+type tbsCertificateList struct {
+	Raw                 asn1.RawContent
+	Version             int `asn1:"optional,default:0"`
+	Signature           pkix.AlgorithmIdentifier
+	Issuer              asn1.RawValue
+	ThisUpdate          time.Time
+	NextUpdate          time.Time                 `asn1:"optional"`
+	RevokedCertificates []pkix.RevokedCertificate `asn1:"optional"`
+	Extensions          []pkix.Extension          `asn1:"tag:0,optional,explicit"`
+}
+
 // CreateRevocationList creates a new X.509 v2 Certificate Revocation List,
 // according to RFC 5280, based on template.
 //
@@ -1999,10 +2022,16 @@ func CreateRevocationList(rand io.Reader, template *x509.RevocationList, issuer 
 		return nil, err
 	}
 
-	tbsCertList := pkix.TBSCertificateList{
+	// Correctly use the issuer's subject sequence if one is specified.
+	issuerSubject, err := subjectBytes(issuer.asX509())
+	if err != nil {
+		return nil, err
+	}
+
+	tbsCertList := tbsCertificateList{
 		Version:    1, // v2
 		Signature:  signatureAlgorithm,
-		Issuer:     issuer.Subject.ToRDNSequence(),
+		Issuer:     asn1.RawValue{FullBytes: issuerSubject},
 		ThisUpdate: template.ThisUpdate.UTC(),
 		NextUpdate: template.NextUpdate.UTC(),
 		Extensions: []pkix.Extension{
@@ -2029,6 +2058,10 @@ func CreateRevocationList(rand io.Reader, template *x509.RevocationList, issuer 
 		return nil, err
 	}
 
+	// Optimization to only marshal this struct once, when signing and
+	// then embedding in certificateList below.
+	tbsCertList.Raw = tbsCertListContents
+
 	input := tbsCertListContents
 	if hashFunc != 0 {
 		h := hashFunc.New()
@@ -2050,7 +2083,7 @@ func CreateRevocationList(rand io.Reader, template *x509.RevocationList, issuer 
 		return nil, err
 	}
 
-	return asn1.Marshal(pkix.CertificateList{
+	return asn1.Marshal(certificateList{
 		TBSCertList:        tbsCertList,
 		SignatureAlgorithm: signatureAlgorithm,
 		SignatureValue:     asn1.BitString{Bytes: signature, BitLength: len(signature) * 8},
