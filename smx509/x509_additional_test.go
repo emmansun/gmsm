@@ -158,8 +158,8 @@ func TestCreateSM2CertificateRequest(t *testing.T) {
 
 func TestParseAliCertificateRequest(t *testing.T) {
 	err := parseAndCheckCsr([]byte(csrFromAli))
-	if err == nil {
-		t.Fatal("ParseCertificate should fail when parsing certificate with duplicate extensions")
+	if err != nil {
+		t.Fatal("ParseCertificateRequest should succeed when parsing CSR with duplicate attributes")
 	}
 }
 
