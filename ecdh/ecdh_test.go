@@ -64,11 +64,11 @@ func TestECDH(t *testing.T) {
 		t.Error("encoded and decoded private keys are different")
 	}
 
-	bobSecret, err := ecdh.P256().ECDH(bobKey, aliceKey.PublicKey())
+	bobSecret, err := bobKey.ECDH(aliceKey.PublicKey())
 	if err != nil {
 		t.Fatal(err)
 	}
-	aliceSecret, err := ecdh.P256().ECDH(aliceKey, bobKey.PublicKey())
+	aliceSecret, err := aliceKey.ECDH(bobKey.PublicKey())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,12 +97,12 @@ func TestSM2MQV(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	bobSecret, err := ecdh.P256().SM2MQV(bobSKey, bobEKey, aliceSKey.PublicKey(), aliceEKey.PublicKey())
+	bobSecret, err := bobSKey.SM2MQV(bobEKey, aliceSKey.PublicKey(), aliceEKey.PublicKey())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	aliceSecret, err := ecdh.P256().SM2MQV(aliceSKey, aliceEKey, bobSKey.PublicKey(), bobEKey.PublicKey())
+	aliceSecret, err := aliceSKey.SM2MQV(aliceEKey, bobSKey.PublicKey(), bobEKey.PublicKey())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,12 +131,12 @@ func TestSM2SharedKey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	bobSecret, err := ecdh.P256().SM2MQV(bobSKey, bobEKey, aliceSKey.PublicKey(), aliceEKey.PublicKey())
+	bobSecret, err := bobSKey.SM2MQV(bobEKey, aliceSKey.PublicKey(), aliceEKey.PublicKey())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	aliceSecret, err := ecdh.P256().SM2MQV(aliceSKey, aliceEKey, bobSKey.PublicKey(), bobEKey.PublicKey())
+	aliceSecret, err := aliceSKey.SM2MQV(aliceEKey, bobSKey.PublicKey(), bobEKey.PublicKey())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,12 +145,12 @@ func TestSM2SharedKey(t *testing.T) {
 		t.Error("two SM2MQV computations came out different")
 	}
 
-	bobKey, err := ecdh.P256().SM2SharedKey(true, 48, bobSecret, bobSKey.PublicKey(), aliceSKey.PublicKey(), []byte("Bob"), []byte("Alice"))
+	bobKey, err := bobSecret.SM2SharedKey(true, 48, bobSKey.PublicKey(), aliceSKey.PublicKey(), []byte("Bob"), []byte("Alice"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	aliceKey, err := ecdh.P256().SM2SharedKey(false, 48, aliceSecret, aliceSKey.PublicKey(), bobSKey.PublicKey(), []byte("Alice"), []byte("Bob"))
+	aliceKey, err := aliceSecret.SM2SharedKey(false, 48, aliceSKey.PublicKey(), bobSKey.PublicKey(), []byte("Alice"), []byte("Bob"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,12 +214,12 @@ func TestSM2SharedKeyVectors(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		bobSecret, err := ecdh.P256().SM2MQV(bobSKey, bobEKey, aliceSKey.PublicKey(), aliceEKey.PublicKey())
+		bobSecret, err := bobSKey.SM2MQV(bobEKey, aliceSKey.PublicKey(), aliceEKey.PublicKey())
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		aliceSecret, err := ecdh.P256().SM2MQV(aliceSKey, aliceEKey, bobSKey.PublicKey(), bobEKey.PublicKey())
+		aliceSecret, err := aliceSKey.SM2MQV(aliceEKey, bobSKey.PublicKey(), bobEKey.PublicKey())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -232,12 +232,12 @@ func TestSM2SharedKeyVectors(t *testing.T) {
 			t.Errorf("%v shared secret is not expected.", i)
 		}
 
-		bobKey, err := ecdh.P256().SM2SharedKey(true, kenLen, bobSecret, bobSKey.PublicKey(), aliceSKey.PublicKey(), responder, initiator)
+		bobKey, err := bobSecret.SM2SharedKey(true, kenLen, bobSKey.PublicKey(), aliceSKey.PublicKey(), responder, initiator)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		aliceKey, err := ecdh.P256().SM2SharedKey(false, kenLen, aliceSecret, aliceSKey.PublicKey(), bobSKey.PublicKey(), initiator, responder)
+		aliceKey, err := aliceSecret.SM2SharedKey(false, kenLen, aliceSKey.PublicKey(), bobSKey.PublicKey(), initiator, responder)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -317,7 +317,7 @@ func BenchmarkECDH(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
-			secret, err := curve.ECDH(key, peerPubKey)
+			secret, err := key.ECDH(peerPubKey)
 			if err != nil {
 				b.Fatal(err)
 			}

@@ -10,8 +10,6 @@ import (
 	"github.com/emmansun/gmsm/internal/randutil"
 	sm2ec "github.com/emmansun/gmsm/internal/sm2ec"
 	"github.com/emmansun/gmsm/internal/subtle"
-	"github.com/emmansun/gmsm/kdf"
-	"github.com/emmansun/gmsm/sm3"
 )
 
 type sm2Curve struct {
@@ -101,7 +99,7 @@ func (c *sm2Curve) NewPublicKey(key []byte) (*PublicKey, error) {
 	}, nil
 }
 
-func (c *sm2Curve) ECDH(local *PrivateKey, remote *PublicKey) ([]byte, error) {
+func (c *sm2Curve) ecdh(local *PrivateKey, remote *PublicKey) ([]byte, error) {
 	p, err := c.newPoint().SetBytes(remote.publicKey)
 	if err != nil {
 		return nil, err
@@ -122,7 +120,7 @@ func (c *sm2Curve) sm2avf(secret *PublicKey) []byte {
 	return result[:]
 }
 
-func (c *sm2Curve) SM2MQV(sLocal, eLocal *PrivateKey, sRemote, eRemote *PublicKey) (*PublicKey, error) {
+func (c *sm2Curve) sm2mqv(sLocal, eLocal *PrivateKey, sRemote, eRemote *PublicKey) (*PublicKey, error) {
 	// implicitSig: (sLocal + avf(eLocal.Pub) * ePriv) mod N
 	x2 := c.sm2avf(eLocal.PublicKey())
 	t, err := sm2ec.ImplicitSig(sLocal.privateKey, eLocal.privateKey, x2)
@@ -149,28 +147,6 @@ func (c *sm2Curve) SM2MQV(sLocal, eLocal *PrivateKey, sRemote, eRemote *PublicKe
 		return nil, err
 	}
 	return c.NewPublicKey(p2.Bytes())
-}
-
-func (c *sm2Curve) SM2SharedKey(isResponder bool, kenLen int, uv, sPub, sRemote *PublicKey, uid []byte, remoteUID []byte) ([]byte, error) {
-	var buffer [128]byte
-	copy(buffer[:], uv.publicKey[1:])
-	peerZ, err := c.sm2za(sm3.New(), sRemote, remoteUID)
-	if err != nil {
-		return nil, err
-	}
-	z, err := c.sm2za(sm3.New(), sPub, uid)
-	if err != nil {
-		return nil, err
-	}
-	if isResponder {
-		copy(buffer[64:], peerZ)
-		copy(buffer[96:], z)
-	} else {
-		copy(buffer[64:], z)
-		copy(buffer[96:], peerZ)
-	}
-
-	return kdf.Kdf(sm3.New(), buffer[:], kenLen), nil
 }
 
 var defaultUID = []byte{0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38}
