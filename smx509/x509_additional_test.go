@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/emmansun/gmsm/ecdh"
 	"github.com/emmansun/gmsm/sm2"
 )
 
@@ -185,4 +186,30 @@ func parseAndCheckCsr(csrPem []byte) error {
 		return err
 	}
 	return csr.CheckSignature()
+}
+
+func TestMarshalECDHPKIXPublicKey(t *testing.T) {
+	privKey, err := ecdh.P256().GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result1, err := MarshalPKIXPublicKey(privKey.Public())
+	if err != nil {
+		t.Fatal(err)
+	}
+	pubKey, err := ParsePKIXPublicKey(result1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sm2PubKey, ok := pubKey.(*ecdsa.PublicKey)
+	if !ok {
+		t.Fatal("should be valid sm2 public key")
+	}
+	sm2ecdhPub, err := sm2.PublicKeyToECDH(sm2PubKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !privKey.PublicKey().Equal(sm2ecdhPub) {
+		t.Fatal("should be same")
+	}
 }

@@ -424,6 +424,20 @@ func TestCipherASN1WithInvalidBytes(t *testing.T) {
 	}
 }
 
+func TestPublicKeyToECDH(t *testing.T) {
+	priv, _ := GenerateKey(rand.Reader)
+	_, err := PublicKeyToECDH(&priv.PublicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	p256, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	_, err = PublicKeyToECDH(&p256.PublicKey)
+	if err == nil {
+		t.Fatal("should be error")
+	}
+}
+
 func BenchmarkGenerateKey_SM2(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
