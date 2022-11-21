@@ -7,6 +7,7 @@ import (
 	"encoding/asn1"
 	"errors"
 
+	"github.com/emmansun/gmsm/ecdh"
 	"github.com/emmansun/gmsm/sm2"
 	"github.com/emmansun/gmsm/sm9"
 )
@@ -29,7 +30,7 @@ type pkcs8 struct {
 
 // ParsePKCS8PrivateKey parses an unencrypted private key in PKCS #8, ASN.1 DER form.
 //
-// It returns a *rsa.PrivateKey, a *ecdsa.PrivateKey, a *sm2.PrivateKey, a *sm9.SignMasterPrivateKey, 
+// It returns a *rsa.PrivateKey, a *ecdsa.PrivateKey, a *sm2.PrivateKey, a *sm9.SignMasterPrivateKey,
 // a *sm9.SignPrivateKey, a *sm9.EncryptMasterPrivateKey, a *sm9.EncryptPrivateKey or a ed25519.PrivateKey.
 // More types might be supported in the future.
 //
@@ -117,8 +118,8 @@ func parseSM9PrivateKey(privKey pkcs8) (key interface{}, err error) {
 
 // MarshalPKCS8PrivateKey converts a private key to PKCS #8, ASN.1 DER form.
 //
-// The following key types are currently supported: *rsa.PrivateKey, *ecdsa.PrivateKey, a *sm2.PrivateKey, 
-// a *sm9.SignMasterPrivateKey, a *sm9.SignPrivateKey, a *sm9.EncryptMasterPrivateKey, a *sm9.EncryptPrivateKey 
+// The following key types are currently supported: *rsa.PrivateKey, *ecdsa.PrivateKey, a *sm2.PrivateKey, a *ecdh.PrivateKey
+// a *sm9.SignMasterPrivateKey, a *sm9.SignPrivateKey, a *sm9.EncryptMasterPrivateKey, a *sm9.EncryptPrivateKey
 // and ed25519.PrivateKey. Unsupported key types result in an error.
 //
 // This kind of key is commonly encoded in PEM blocks of type "PRIVATE KEY".
@@ -126,6 +127,8 @@ func MarshalPKCS8PrivateKey(key interface{}) ([]byte, error) {
 	switch k := key.(type) {
 	case *sm2.PrivateKey:
 		return marshalPKCS8ECPrivateKey(&k.PrivateKey)
+	case *ecdh.PrivateKey:
+		return marshalPKCS8ECDHPrivateKey(k)
 	case *sm9.SignPrivateKey:
 		return marshalPKCS8SM9SignPrivateKey(k)
 	case *sm9.EncryptPrivateKey:
@@ -276,6 +279,28 @@ func marshalPKCS8ECPrivateKey(k *ecdsa.PrivateKey) ([]byte, error) {
 	}
 
 	if privKey.PrivateKey, err = marshalECPrivateKeyWithOID(k, nil); err != nil {
+		return nil, errors.New("x509: failed to marshal EC private key while building PKCS#8: " + err.Error())
+	}
+	return asn1.Marshal(privKey)
+}
+
+func marshalPKCS8ECDHPrivateKey(k *ecdh.PrivateKey) ([]byte, error) {
+	var privKey pkcs8
+	oid, ok := oidFromECDHCurve(k.Curve())
+	if !ok {
+		return nil, errors.New("x509: unknown curve while marshaling to PKCS#8")
+	}
+	oidBytes, err := asn1.Marshal(oid)
+	if err != nil {
+		return nil, errors.New("x509: failed to marshal curve OID: " + err.Error())
+	}
+	privKey.Algo = pkix.AlgorithmIdentifier{
+		Algorithm: oidPublicKeyECDSA,
+		Parameters: asn1.RawValue{
+			FullBytes: oidBytes,
+		},
+	}
+	if privKey.PrivateKey, err = marshalECDHPrivateKey(k); err != nil {
 		return nil, errors.New("x509: failed to marshal EC private key while building PKCS#8: " + err.Error())
 	}
 	return asn1.Marshal(privKey)

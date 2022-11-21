@@ -22,6 +22,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/emmansun/gmsm/ecdh"
 	"github.com/emmansun/gmsm/internal/randutil"
 	"github.com/emmansun/gmsm/internal/subtle"
 	"github.com/emmansun/gmsm/kdf"
@@ -868,4 +869,42 @@ func IsSM2PublicKey(publicKey interface{}) bool {
 // P256 return sm2 curve signleton, this function is for backward compatibility.
 func P256() elliptic.Curve {
 	return sm2ec.P256()
+}
+
+// PublicKeyToECDH returns k as a [ecdh.PublicKey]. It returns an error if the key is
+// invalid according to the definition of [ecdh.Curve.NewPublicKey], or if the
+// Curve is not supported by ecdh.
+func PublicKeyToECDH(k *ecdsa.PublicKey) (*ecdh.PublicKey, error) {
+	c := curveToECDH(k.Curve)
+	if c == nil {
+		return nil, errors.New("sm2: unsupported curve by ecdh")
+	}
+	if !k.Curve.IsOnCurve(k.X, k.Y) {
+		return nil, errors.New("sm2: invalid public key")
+	}
+	return c.NewPublicKey(elliptic.Marshal(k.Curve, k.X, k.Y))
+}
+
+// ECDH returns k as a [ecdh.PrivateKey]. It returns an error if the key is
+// invalid according to the definition of [ecdh.Curve.NewPrivateKey], or if the
+// Curve is not supported by ecdh.
+func (k *PrivateKey) ECDH() (*ecdh.PrivateKey, error) {
+	c := curveToECDH(k.Curve)
+	if c == nil {
+		return nil, errors.New("sm2: unsupported curve by ecdh")
+	}
+	size := (k.Curve.Params().N.BitLen() + 7) / 8
+	if k.D.BitLen() > size*8 {
+		return nil, errors.New("sm2: invalid private key")
+	}
+	return c.NewPrivateKey(k.D.FillBytes(make([]byte, size)))
+}
+
+func curveToECDH(c elliptic.Curve) ecdh.Curve {
+	switch c {
+	case sm2ec.P256():
+		return ecdh.P256()
+	default:
+		return nil
+	}
 }

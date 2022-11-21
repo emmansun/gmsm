@@ -66,6 +66,10 @@ type Curve interface {
 }
 
 // PublicKey is an ECDH public key, usually a peer's ECDH share sent over the wire.
+//
+// These keys can be parsed with [smx509.ParsePKIXPublicKey] and encoded
+// with [smx509.MarshalPKIXPublicKey]. For SM2 curve, it then needs to
+// be converted with [sm2.PublicKeyToECDH] after parsing.
 type PublicKey struct {
 	curve     Curve
 	publicKey []byte
@@ -129,6 +133,10 @@ func (uv *PublicKey) SM2SharedKey(isResponder bool, kenLen int, sPub, sRemote *P
 }
 
 // PrivateKey is an ECDH private key, usually kept secret.
+//
+// These keys can be parsed with [smx509.ParsePKCS8PrivateKey] and encoded
+// with [smx509.MarshalPKCS8PrivateKey]. For SM2 curve, it then needs to
+// be converted with [sm2.PrivateKey.ECDH] after parsing.
 type PrivateKey struct {
 	curve      Curve
 	privateKey []byte

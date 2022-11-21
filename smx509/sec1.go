@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/emmansun/gmsm/ecdh"
 	"github.com/emmansun/gmsm/sm2"
 )
 
@@ -132,4 +133,14 @@ func parseECPrivateKey(namedCurveOID *asn1.ObjectIdentifier, der []byte) (key *e
 	priv.X, priv.Y = curve.ScalarBaseMult(privateKey)
 
 	return priv, nil
+}
+
+// marshalECDHPrivateKey marshals an EC private key into ASN.1, DER format
+// suitable for SM2 curve.
+func marshalECDHPrivateKey(key *ecdh.PrivateKey) ([]byte, error) {
+	return asn1.Marshal(ecPrivateKey{
+		Version:    1,
+		PrivateKey: key.Bytes(),
+		PublicKey:  asn1.BitString{Bytes: key.PublicKey().Bytes()},
+	})
 }

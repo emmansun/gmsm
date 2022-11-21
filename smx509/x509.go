@@ -49,6 +49,7 @@ import (
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 
+	"github.com/emmansun/gmsm/ecdh"
 	"github.com/emmansun/gmsm/internal/godebug"
 	"github.com/emmansun/gmsm/sm2"
 )
@@ -114,6 +115,20 @@ func marshalPublicKey(pub interface{}) (publicKeyBytes []byte, publicKeyAlgorith
 	case ed25519.PublicKey:
 		publicKeyBytes = pub
 		publicKeyAlgorithm.Algorithm = oidPublicKeyEd25519
+	case *ecdh.PublicKey: //TODO:will add SDK ECDH public key support from golang 1.19 later.
+		publicKeyBytes = pub.Bytes()
+
+		oid, ok := oidFromECDHCurve(pub.Curve())
+		if !ok {
+			return nil, pkix.AlgorithmIdentifier{}, errors.New("x509: unsupported elliptic curve")
+		}
+		publicKeyAlgorithm.Algorithm = oidPublicKeyECDSA
+		var paramBytes []byte
+		paramBytes, err = asn1.Marshal(oid)
+		if err != nil {
+			return
+		}
+		publicKeyAlgorithm.Parameters.FullBytes = paramBytes
 	default:
 		return nil, pkix.AlgorithmIdentifier{}, fmt.Errorf("x509: unsupported public key type: %T", pub)
 	}
@@ -513,6 +528,15 @@ func oidFromNamedCurve(curve elliptic.Curve) (asn1.ObjectIdentifier, bool) {
 	case elliptic.P521():
 		return oidNamedCurveP521, true
 	case sm2.P256():
+		return oidNamedCurveP256SM2, true
+	}
+
+	return nil, false
+}
+
+func oidFromECDHCurve(curve ecdh.Curve) (asn1.ObjectIdentifier, bool) {
+	switch curve {
+	case ecdh.P256():
 		return oidNamedCurveP256SM2, true
 	}
 
