@@ -1,5 +1,5 @@
-//go:build (amd64 && !generic) || (arm64 && !generic)
-// +build amd64,!generic arm64,!generic
+//go:build (amd64 && !purego) || (arm64 && !purego)
+// +build amd64,!purego arm64,!purego
 
 package zuc
 

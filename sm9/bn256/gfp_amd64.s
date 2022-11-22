@@ -1,5 +1,5 @@
-//go:build amd64 && !generic
-// +build amd64,!generic
+//go:build amd64 && !purego
+// +build amd64,!purego
 
 #define storeBlock(a0,a1,a2,a3, r) \
 	MOVQ a0,  0+r \

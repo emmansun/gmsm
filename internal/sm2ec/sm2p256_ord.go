@@ -1,5 +1,5 @@
-//go:build (!amd64 && !arm64) || generic
-// +build !amd64,!arm64 generic
+//go:build (!amd64 && !arm64) || purego
+// +build !amd64,!arm64 purego
 
 package sm2ec
 

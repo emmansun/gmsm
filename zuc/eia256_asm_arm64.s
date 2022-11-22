@@ -1,5 +1,5 @@
-//go:build arm64 && !generic
-// +build arm64,!generic
+//go:build arm64 && !purego
+// +build arm64,!purego
 
 #include "textflag.h"
 

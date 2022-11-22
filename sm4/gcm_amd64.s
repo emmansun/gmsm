@@ -4,8 +4,8 @@
 //     Instruction and its Usage for Computing the GCM Mode rev. 2.02
 // [2] Gueron, S., Krasnov, V.: Speeding up Counter Mode in Software and
 //     Hardware
-//go:build amd64 && !generic
-// +build amd64,!generic
+//go:build amd64 && !purego
+// +build amd64,!purego
 
 #include "textflag.h"
 

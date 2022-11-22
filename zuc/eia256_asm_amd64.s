@@ -1,6 +1,6 @@
 // Referenced https://github.com/intel/intel-ipsec-mb/
-//go:build amd64 && !generic
-// +build amd64,!generic
+//go:build amd64 && !purego
+// +build amd64,!purego
 
 #include "textflag.h"
 
