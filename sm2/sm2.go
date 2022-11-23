@@ -617,11 +617,12 @@ func signSM2EC(c *sm2Curve, priv *PrivateKey, csprng io.Reader, hash []byte) (si
 	}
 	dp1Inv.Add(oneNat, c.N)
 	dp1Bytes, err := _sm2ec.P256OrdInverse(dp1Inv.Bytes(c.N))
-	if err == nil {
-		dp1Inv, err = bigmod.NewNat().SetBytes(dp1Bytes, c.N)
-		if err != nil {
-			panic("sm2: internal error: P256OrdInverse produced an invalid value")
-		}
+	if err != nil {
+		return nil, err
+	}
+	dp1Inv, err = bigmod.NewNat().SetBytes(dp1Bytes, c.N)
+	if err != nil {
+		panic("sm2: internal error: P256OrdInverse produced an invalid value")
 	}
 
 	for {
