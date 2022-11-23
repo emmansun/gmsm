@@ -3,10 +3,17 @@ package sm2
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	_subtle "crypto/subtle"
 	"errors"
+	"fmt"
 	"io"
 	"math/big"
+	"strings"
 
+	"github.com/emmansun/gmsm/internal/subtle"
+	"github.com/emmansun/gmsm/kdf"
+	"github.com/emmansun/gmsm/sm2/sm2ec"
+	"github.com/emmansun/gmsm/sm3"
 	"golang.org/x/crypto/cryptobyte"
 	"golang.org/x/crypto/cryptobyte/asn1"
 )
@@ -119,6 +126,17 @@ func signLegacy(priv *PrivateKey, csprng io.Reader, hash []byte) (sig []byte, er
 	return encodeSignature(r.Bytes(), s.Bytes())
 }
 
+// fermatInverse calculates the inverse of k in GF(P) using Fermat's method
+// (exponentiation modulo P - 2, per Euler's theorem). This has better
+// constant-time properties than Euclid's method (implemented in
+// math/big.Int.ModInverse and FIPS 186-4, Appendix C.1) although math/big
+// itself isn't strictly constant-time so it's not perfect.
+func fermatInverse(k, N *big.Int) *big.Int {
+	two := big.NewInt(2)
+	nMinus2 := new(big.Int).Sub(N, two)
+	return new(big.Int).Exp(k, nMinus2, N)
+}
+
 // SignWithSM2 follow sm2 dsa standards for hash part, compliance with GB/T 32918.2-2016.
 func SignWithSM2(rand io.Reader, priv *ecdsa.PrivateKey, uid, msg []byte) (r, s *big.Int, err error) {
 	digest, err := calculateSM2Hash(&priv.PublicKey, msg, uid)
@@ -213,5 +231,289 @@ func randFieldElement(c elliptic.Curve, rand io.Reader) (k *big.Int, err error) 
 		if k.Sign() != 0 && k.Cmp(N) < 0 {
 			return
 		}
+	}
+}
+
+func encryptLegacy(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *EncrypterOpts) ([]byte, error) {
+	curve := pub.Curve
+	msgLen := len(msg)
+
+	var retryCount int = 0
+	for {
+		//A1, generate random k
+		k, err := randFieldElement(curve, random)
+		if err != nil {
+			return nil, err
+		}
+
+		//A2, calculate C1 = k * G
+		x1, y1 := curve.ScalarBaseMult(k.Bytes())
+		c1 := opts.PointMarshalMode.mashal(curve, x1, y1)
+
+		//A4, calculate k * P (point of Public Key)
+		x2, y2 := curve.ScalarMult(pub.X, pub.Y, k.Bytes())
+
+		//A5, calculate t=KDF(x2||y2, klen)
+		c2 := kdf.Kdf(sm3.New(), append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
+		if subtle.ConstantTimeAllZero(c2) {
+			retryCount++
+			if retryCount > maxRetryLimit {
+				return nil, fmt.Errorf("sm2: A5, failed to calculate valid t, tried %v times", retryCount)
+			}
+			continue
+		}
+
+		//A6, C2 = M + t;
+		subtle.XORBytes(c2, msg, c2)
+
+		//A7, C3 = hash(x2||M||y2)
+		c3 := calculateC3(curve, x2, y2, msg)
+
+		if opts.CiphertextEncoding == ENCODING_PLAIN {
+			if opts.CiphertextSplicingOrder == C1C3C2 {
+				// c1 || c3 || c2
+				return append(append(c1, c3...), c2...), nil
+			}
+			// c1 || c2 || c3
+			return append(append(c1, c2...), c3...), nil
+		}
+		// ASN.1 format will force C3 C2 order
+		return mashalASN1Ciphertext(x1, y1, c2, c3)
+	}
+}
+
+func calculateC3(curve elliptic.Curve, x2, y2 *big.Int, msg []byte) []byte {
+	md := sm3.New()
+	md.Write(toBytes(curve, x2))
+	md.Write(msg)
+	md.Write(toBytes(curve, y2))
+	return md.Sum(nil)
+}
+
+func mashalASN1Ciphertext(x1, y1 *big.Int, c2, c3 []byte) ([]byte, error) {
+	var b cryptobyte.Builder
+	b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+		b.AddASN1BigInt(x1)
+		b.AddASN1BigInt(y1)
+		b.AddASN1OctetString(c3)
+		b.AddASN1OctetString(c2)
+	})
+	return b.Bytes()
+}
+
+func unmarshalASN1Ciphertext(ciphertext []byte) (*big.Int, *big.Int, []byte, []byte, error) {
+	var (
+		x1, y1 = &big.Int{}, &big.Int{}
+		c2, c3 []byte
+		inner  cryptobyte.String
+	)
+	input := cryptobyte.String(ciphertext)
+	if !input.ReadASN1(&inner, asn1.SEQUENCE) ||
+		!input.Empty() ||
+		!inner.ReadASN1Integer(x1) ||
+		!inner.ReadASN1Integer(y1) ||
+		!inner.ReadASN1Bytes(&c3, asn1.OCTET_STRING) ||
+		!inner.ReadASN1Bytes(&c2, asn1.OCTET_STRING) ||
+		!inner.Empty() {
+		return nil, nil, nil, nil, errors.New("sm2: invalid asn1 format ciphertext")
+	}
+	return x1, y1, c2, c3, nil
+}
+
+// ASN1Ciphertext2Plain utility method to convert ASN.1 encoding ciphertext to plain encoding format
+func ASN1Ciphertext2Plain(ciphertext []byte, opts *EncrypterOpts) ([]byte, error) {
+	if opts == nil {
+		opts = defaultEncrypterOpts
+	}
+	x1, y1, c2, c3, err := unmarshalASN1Ciphertext((ciphertext))
+	if err != nil {
+		return nil, err
+	}
+	curve := sm2ec.P256()
+	c1 := opts.PointMarshalMode.mashal(curve, x1, y1)
+	if opts.CiphertextSplicingOrder == C1C3C2 {
+		// c1 || c3 || c2
+		return append(append(c1, c3...), c2...), nil
+	}
+	// c1 || c2 || c3
+	return append(append(c1, c2...), c3...), nil
+}
+
+// PlainCiphertext2ASN1 utility method to convert plain encoding ciphertext to ASN.1 encoding format
+func PlainCiphertext2ASN1(ciphertext []byte, from ciphertextSplicingOrder) ([]byte, error) {
+	if ciphertext[0] == 0x30 {
+		return nil, errors.New("sm2: invalid plain encoding ciphertext")
+	}
+	curve := sm2ec.P256()
+	ciphertextLen := len(ciphertext)
+	if ciphertextLen <= 1+(curve.Params().BitSize/8)+sm3.Size {
+		return nil, errors.New("sm2: invalid ciphertext length")
+	}
+	// get C1, and check C1
+	x1, y1, c3Start, err := bytes2Point(curve, ciphertext)
+	if err != nil {
+		return nil, err
+	}
+
+	var c2, c3 []byte
+
+	if from == C1C3C2 {
+		c2 = ciphertext[c3Start+sm3.Size:]
+		c3 = ciphertext[c3Start : c3Start+sm3.Size]
+	} else {
+		c2 = ciphertext[c3Start : ciphertextLen-sm3.Size]
+		c3 = ciphertext[ciphertextLen-sm3.Size:]
+	}
+	return mashalASN1Ciphertext(x1, y1, c2, c3)
+}
+
+// AdjustCiphertextSplicingOrder utility method to change c2 c3 order
+func AdjustCiphertextSplicingOrder(ciphertext []byte, from, to ciphertextSplicingOrder) ([]byte, error) {
+	curve := sm2ec.P256()
+	if from == to {
+		return ciphertext, nil
+	}
+	ciphertextLen := len(ciphertext)
+	if ciphertextLen <= 1+(curve.Params().BitSize/8)+sm3.Size {
+		return nil, errors.New("sm2: invalid ciphertext length")
+	}
+
+	// get C1, and check C1
+	_, _, c3Start, err := bytes2Point(curve, ciphertext)
+	if err != nil {
+		return nil, err
+	}
+
+	var c1, c2, c3 []byte
+
+	c1 = ciphertext[:c3Start]
+	if from == C1C3C2 {
+		c2 = ciphertext[c3Start+sm3.Size:]
+		c3 = ciphertext[c3Start : c3Start+sm3.Size]
+	} else {
+		c2 = ciphertext[c3Start : ciphertextLen-sm3.Size]
+		c3 = ciphertext[ciphertextLen-sm3.Size:]
+	}
+
+	result := make([]byte, ciphertextLen)
+	copy(result, c1)
+	if to == C1C3C2 {
+		// c1 || c3 || c2
+		copy(result[c3Start:], c3)
+		copy(result[c3Start+sm3.Size:], c2)
+	} else {
+		// c1 || c2 || c3
+		copy(result[c3Start:], c2)
+		copy(result[ciphertextLen-sm3.Size:], c3)
+	}
+	return result, nil
+}
+
+func decryptASN1(priv *PrivateKey, ciphertext []byte) ([]byte, error) {
+	x1, y1, c2, c3, err := unmarshalASN1Ciphertext(ciphertext)
+	if err != nil {
+		return nil, err
+	}
+	return rawDecrypt(priv, x1, y1, c2, c3)
+}
+
+func rawDecrypt(priv *PrivateKey, x1, y1 *big.Int, c2, c3 []byte) ([]byte, error) {
+	curve := priv.Curve
+	x2, y2 := curve.ScalarMult(x1, y1, priv.D.Bytes())
+	msgLen := len(c2)
+	msg := kdf.Kdf(sm3.New(), append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
+	if subtle.ConstantTimeAllZero(c2) {
+		return nil, errors.New("sm2: invalid cipher text")
+	}
+
+	//B5, calculate msg = c2 ^ t
+	subtle.XORBytes(msg, c2, msg)
+
+	u := calculateC3(curve, x2, y2, msg)
+	if _subtle.ConstantTimeCompare(u, c3) == 1 {
+		return msg, nil
+	}
+	return nil, errors.New("sm2: invalid plaintext digest")
+}
+
+func decryptLegacy(priv *PrivateKey, ciphertext []byte, opts *DecrypterOpts) ([]byte, error) {
+	splicingOrder := C1C3C2
+	if opts != nil {
+		if opts.CiphertextEncoding == ENCODING_ASN1 {
+			return decryptASN1(priv, ciphertext)
+		}
+		splicingOrder = opts.CipherTextSplicingOrder
+	}
+	if ciphertext[0] == 0x30 {
+		return decryptASN1(priv, ciphertext)
+	}
+	ciphertextLen := len(ciphertext)
+	curve := priv.Curve
+	// B1, get C1, and check C1
+	x1, y1, c3Start, err := bytes2Point(curve, ciphertext)
+	if err != nil {
+		return nil, err
+	}
+
+	//B4, calculate t=KDF(x2||y2, klen)
+	var c2, c3 []byte
+	if splicingOrder == C1C3C2 {
+		c2 = ciphertext[c3Start+sm3.Size:]
+		c3 = ciphertext[c3Start : c3Start+sm3.Size]
+	} else {
+		c2 = ciphertext[c3Start : ciphertextLen-sm3.Size]
+		c3 = ciphertext[ciphertextLen-sm3.Size:]
+	}
+
+	return rawDecrypt(priv, x1, y1, c2, c3)
+}
+
+func bytes2Point(curve elliptic.Curve, bytes []byte) (*big.Int, *big.Int, int, error) {
+	if len(bytes) < 1+(curve.Params().BitSize/8) {
+		return nil, nil, 0, fmt.Errorf("sm2: invalid bytes length %d", len(bytes))
+	}
+	format := bytes[0]
+	byteLen := (curve.Params().BitSize + 7) >> 3
+	switch format {
+	case uncompressed, hybrid06, hybrid07: // what's the hybrid format purpose?
+		if len(bytes) < 1+byteLen*2 {
+			return nil, nil, 0, fmt.Errorf("sm2: invalid point uncompressed/hybrid form bytes length %d", len(bytes))
+		}
+		data := make([]byte, 1+byteLen*2)
+		data[0] = uncompressed
+		copy(data[1:], bytes[1:1+byteLen*2])
+		x, y := sm2ec.Unmarshal(curve, data)
+		if x == nil || y == nil {
+			return nil, nil, 0, fmt.Errorf("sm2: point is not on curve %s", curve.Params().Name)
+		}
+		return x, y, 1 + byteLen*2, nil
+	case compressed02, compressed03:
+		if len(bytes) < 1+byteLen {
+			return nil, nil, 0, fmt.Errorf("sm2: invalid point compressed form bytes length %d", len(bytes))
+		}
+		// Make sure it's NIST curve or SM2 P-256 curve
+		if strings.HasPrefix(curve.Params().Name, "P-") || strings.EqualFold(curve.Params().Name, sm2ec.P256().Params().Name) {
+			// y² = x³ - 3x + b, prime curves
+			x, y := sm2ec.UnmarshalCompressed(curve, bytes[:1+byteLen])
+			if x == nil || y == nil {
+				return nil, nil, 0, fmt.Errorf("sm2: point is not on curve %s", curve.Params().Name)
+			}
+			return x, y, 1 + byteLen, nil
+		}
+		return nil, nil, 0, fmt.Errorf("sm2: unsupport point form %d, curve %s", format, curve.Params().Name)
+	}
+	return nil, nil, 0, fmt.Errorf("sm2: unknown point form %d", format)
+}
+
+func (mode pointMarshalMode) mashal(curve elliptic.Curve, x, y *big.Int) []byte {
+	switch mode {
+	case MarshalCompressed:
+		return elliptic.MarshalCompressed(curve, x, y)
+	case MarshalHybrid:
+		buffer := elliptic.Marshal(curve, x, y)
+		buffer[0] = byte(y.Bit(0)) | hybrid06
+		return buffer
+	default:
+		return elliptic.Marshal(curve, x, y)
 	}
 }

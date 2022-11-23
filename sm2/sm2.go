@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-	"strings"
 	"sync"
 
 	"github.com/emmansun/gmsm/ecdh"
@@ -96,61 +95,11 @@ func NewPlainDecrypterOpts(splicingOrder ciphertextSplicingOrder) *DecrypterOpts
 	return &DecrypterOpts{ENCODING_PLAIN, splicingOrder}
 }
 
-func (mode pointMarshalMode) mashal(curve elliptic.Curve, x, y *big.Int) []byte {
-	switch mode {
-	case MarshalCompressed:
-		return elliptic.MarshalCompressed(curve, x, y)
-	case MarshalHybrid:
-		buffer := elliptic.Marshal(curve, x, y)
-		buffer[0] = byte(y.Bit(0)) | hybrid06
-		return buffer
-	default:
-		return elliptic.Marshal(curve, x, y)
-	}
-}
-
 func toBytes(curve elliptic.Curve, value *big.Int) []byte {
 	byteLen := (curve.Params().BitSize + 7) >> 3
 	result := make([]byte, byteLen)
 	value.FillBytes(result)
 	return result
-}
-
-func bytes2Point(curve elliptic.Curve, bytes []byte) (*big.Int, *big.Int, int, error) {
-	if len(bytes) < 1+(curve.Params().BitSize/8) {
-		return nil, nil, 0, fmt.Errorf("sm2: invalid bytes length %d", len(bytes))
-	}
-	format := bytes[0]
-	byteLen := (curve.Params().BitSize + 7) >> 3
-	switch format {
-	case uncompressed, hybrid06, hybrid07: // what's the hybrid format purpose?
-		if len(bytes) < 1+byteLen*2 {
-			return nil, nil, 0, fmt.Errorf("sm2: invalid point uncompressed/hybrid form bytes length %d", len(bytes))
-		}
-		data := make([]byte, 1+byteLen*2)
-		data[0] = uncompressed
-		copy(data[1:], bytes[1:1+byteLen*2])
-		x, y := sm2ec.Unmarshal(curve, data)
-		if x == nil || y == nil {
-			return nil, nil, 0, fmt.Errorf("sm2: point is not on curve %s", curve.Params().Name)
-		}
-		return x, y, 1 + byteLen*2, nil
-	case compressed02, compressed03:
-		if len(bytes) < 1+byteLen {
-			return nil, nil, 0, fmt.Errorf("sm2: invalid point compressed form bytes length %d", len(bytes))
-		}
-		// Make sure it's NIST curve or SM2 P-256 curve
-		if strings.HasPrefix(curve.Params().Name, "P-") || strings.EqualFold(curve.Params().Name, sm2ec.P256().Params().Name) {
-			// y² = x³ - 3x + b, prime curves
-			x, y := sm2ec.UnmarshalCompressed(curve, bytes[:1+byteLen])
-			if x == nil || y == nil {
-				return nil, nil, 0, fmt.Errorf("sm2: point is not on curve %s", curve.Params().Name)
-			}
-			return x, y, 1 + byteLen, nil
-		}
-		return nil, nil, 0, fmt.Errorf("sm2: unsupport point form %d, curve %s", format, curve.Params().Name)
-	}
-	return nil, nil, 0, fmt.Errorf("sm2: unknown point form %d", format)
 }
 
 var defaultEncrypterOpts = &EncrypterOpts{ENCODING_PLAIN, MarshalUncompressed, C1C3C2}
@@ -245,25 +194,6 @@ func (priv *PrivateKey) Decrypt(rand io.Reader, msg []byte, opts crypto.Decrypte
 
 const maxRetryLimit = 100
 
-func calculateC3(curve elliptic.Curve, x2, y2 *big.Int, msg []byte) []byte {
-	md := sm3.New()
-	md.Write(toBytes(curve, x2))
-	md.Write(msg)
-	md.Write(toBytes(curve, y2))
-	return md.Sum(nil)
-}
-
-func mashalASN1Ciphertext(x1, y1 *big.Int, c2, c3 []byte) ([]byte, error) {
-	var b cryptobyte.Builder
-	b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
-		b.AddASN1BigInt(x1)
-		b.AddASN1BigInt(y1)
-		b.AddASN1OctetString(c3)
-		b.AddASN1OctetString(c2)
-	})
-	return b.Bytes()
-}
-
 // EncryptASN1 sm2 encrypt and output ASN.1 result, compliance with GB/T 32918.4-2016.
 func EncryptASN1(random io.Reader, pub *ecdsa.PublicKey, msg []byte) ([]byte, error) {
 	return Encrypt(random, pub, msg, ASN1EncrypterOpts)
@@ -271,35 +201,41 @@ func EncryptASN1(random io.Reader, pub *ecdsa.PublicKey, msg []byte) ([]byte, er
 
 // Encrypt sm2 encrypt implementation, compliance with GB/T 32918.4-2016.
 func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *EncrypterOpts) ([]byte, error) {
-	curve := pub.Curve
-	msgLen := len(msg)
-	if msgLen == 0 {
+	//A3, requirement is to check if h*P is infinite point, h is 1
+	if pub.X.Sign() == 0 && pub.Y.Sign() == 0 {
+		return nil, errors.New("sm2: invalid public key")
+	}
+	if len(msg) == 0 {
 		return nil, nil
 	}
 	if opts == nil {
 		opts = defaultEncrypterOpts
 	}
-	//A3, requirement is to check if h*P is infinite point, h is 1
-	if pub.X.Sign() == 0 && pub.Y.Sign() == 0 {
-		return nil, errors.New("sm2: invalid public key")
+	switch pub.Curve.Params() {
+	case P256().Params():
+		return encryptSM2EC(p256(), pub, random, msg, opts)
+	default:
+		return encryptLegacy(random, pub, msg, opts)
+	}
+}
+
+func encryptSM2EC(c *sm2Curve, pub *ecdsa.PublicKey, random io.Reader, msg []byte, opts *EncrypterOpts) ([]byte, error) {
+	Q, err := c.pointFromAffine(pub.X, pub.Y)
+	if err != nil {
+		return nil, err
 	}
 	var retryCount int = 0
 	for {
-		//A1, generate random k
-		k, err := randFieldElement(curve, random)
+		k, C1, err := randomPoint(c, random)
 		if err != nil {
 			return nil, err
 		}
-
-		//A2, calculate C1 = k * G
-		x1, y1 := curve.ScalarBaseMult(k.Bytes())
-		c1 := opts.PointMarshalMode.mashal(curve, x1, y1)
-
-		//A4, calculate k * P (point of Public Key)
-		x2, y2 := curve.ScalarMult(pub.X, pub.Y, k.Bytes())
-
-		//A5, calculate t=KDF(x2||y2, klen)
-		c2 := kdf.Kdf(sm3.New(), append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
+		C2, err := Q.ScalarMult(Q, k.Bytes(c.N))
+		if err != nil {
+			return nil, err
+		}
+		C2Bytes := C2.Bytes()[1:]
+		c2 := kdf.Kdf(sm3.New(), C2Bytes, len(msg))
 		if subtle.ConstantTimeAllZero(c2) {
 			retryCount++
 			if retryCount > maxRetryLimit {
@@ -307,24 +243,50 @@ func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Encrypter
 			}
 			continue
 		}
-
 		//A6, C2 = M + t;
 		subtle.XORBytes(c2, msg, c2)
 
 		//A7, C3 = hash(x2||M||y2)
-		c3 := calculateC3(curve, x2, y2, msg)
+		md := sm3.New()
+		md.Write(C2Bytes[:len(C2Bytes)/2])
+		md.Write(msg)
+		md.Write(C2Bytes[len(C2Bytes)/2:])
+		c3 := md.Sum(nil)
 
 		if opts.CiphertextEncoding == ENCODING_PLAIN {
-			if opts.CiphertextSplicingOrder == C1C3C2 {
-				// c1 || c3 || c2
-				return append(append(c1, c3...), c2...), nil
-			}
-			// c1 || c2 || c3
-			return append(append(c1, c2...), c3...), nil
+			return encodingCiphertext(opts, C1, c2, c3)
 		}
-		// ASN.1 format will force C3 C2 order
-		return mashalASN1Ciphertext(x1, y1, c2, c3)
+		return encodingCiphertextASN1(C1, c2, c3)
 	}
+}
+
+func encodingCiphertext(opts *EncrypterOpts, C1 *_sm2ec.SM2P256Point, c2, c3 []byte) ([]byte, error) {
+	var c1 []byte
+	switch opts.PointMarshalMode {
+	case MarshalCompressed:
+		c1 = C1.BytesCompressed()
+	default:
+		c1 = C1.Bytes()
+	}
+
+	if opts.CiphertextSplicingOrder == C1C3C2 {
+		// c1 || c3 || c2
+		return append(append(c1, c3...), c2...), nil
+	}
+	// c1 || c2 || c3
+	return append(append(c1, c2...), c3...), nil
+}
+
+func encodingCiphertextASN1(C1 *_sm2ec.SM2P256Point, c2, c3 []byte) ([]byte, error) {
+	c1 := C1.Bytes()
+	var b cryptobyte.Builder
+	b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+		addASN1IntBytes(b, c1[1:len(c1)/2+1])
+		addASN1IntBytes(b, c1[len(c1)/2+1:])
+		b.AddASN1OctetString(c3)
+		b.AddASN1OctetString(c2)
+	})
+	return b.Bytes()
 }
 
 // GenerateKey generates a public and private key pair.
@@ -351,19 +313,36 @@ func Decrypt(priv *PrivateKey, ciphertext []byte) ([]byte, error) {
 	return decrypt(priv, ciphertext, nil)
 }
 
-func decryptASN1(priv *PrivateKey, ciphertext []byte) ([]byte, error) {
-	x1, y1, c2, c3, err := unmarshalASN1Ciphertext(ciphertext)
+func decrypt(priv *PrivateKey, ciphertext []byte, opts *DecrypterOpts) ([]byte, error) {
+	ciphertextLen := len(ciphertext)
+	if ciphertextLen <= 1+(priv.Params().BitSize/8)+sm3.Size {
+		return nil, errors.New("sm2: invalid ciphertext length")
+	}
+	switch priv.Curve.Params() {
+	case P256().Params():
+		return decryptSM2EC(p256(), priv, ciphertext, opts)
+	default:
+		return decryptLegacy(priv, ciphertext, opts)
+	}
+}
+
+func decryptSM2EC(c *sm2Curve, priv *PrivateKey, ciphertext []byte, opts *DecrypterOpts) ([]byte, error) {
+	C1, c2, c3, err := parseCiphertext(c, ciphertext, opts)
 	if err != nil {
 		return nil, err
 	}
-	return rawDecrypt(priv, x1, y1, c2, c3)
-}
+	d, err := bigmod.NewNat().SetBytes(priv.D.Bytes(), c.N)
+	if err != nil {
+		return nil, err
+	}
 
-func rawDecrypt(priv *PrivateKey, x1, y1 *big.Int, c2, c3 []byte) ([]byte, error) {
-	curve := priv.Curve
-	x2, y2 := curve.ScalarMult(x1, y1, priv.D.Bytes())
+	C2, err := C1.ScalarMult(C1, d.Bytes(c.N))
+	if err != nil {
+		return nil, err
+	}
+	C2Bytes := C2.Bytes()[1:]
 	msgLen := len(c2)
-	msg := kdf.Kdf(sm3.New(), append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
+	msg := kdf.Kdf(sm3.New(), C2Bytes, msgLen)
 	if subtle.ConstantTimeAllZero(c2) {
 		return nil, errors.New("sm2: invalid cipher text")
 	}
@@ -371,167 +350,73 @@ func rawDecrypt(priv *PrivateKey, x1, y1 *big.Int, c2, c3 []byte) ([]byte, error
 	//B5, calculate msg = c2 ^ t
 	subtle.XORBytes(msg, c2, msg)
 
-	u := calculateC3(curve, x2, y2, msg)
-	for i := 0; i < sm3.Size; i++ {
-		if c3[i] != u[i] {
-			return nil, errors.New("sm2: invalid hash value")
-		}
+	md := sm3.New()
+	md.Write(C2Bytes[:len(C2Bytes)/2])
+	md.Write(msg)
+	md.Write(C2Bytes[len(C2Bytes)/2:])
+	u := md.Sum(nil)
+
+	if _subtle.ConstantTimeCompare(u, c3) == 1 {
+		return msg, nil
 	}
-	return msg, nil
+	return nil, errors.New("sm2: invalid plaintext digest")
 }
 
-func decrypt(priv *PrivateKey, ciphertext []byte, opts *DecrypterOpts) ([]byte, error) {
+func parseCiphertext(c *sm2Curve, ciphertext []byte, opts *DecrypterOpts) (*_sm2ec.SM2P256Point, []byte, []byte, error) {
+	bitSize := c.curve.Params().BitSize
+	// Encode the coordinates and let SetBytes reject invalid points.
+	byteLen := (bitSize + 7) / 8
 	splicingOrder := C1C3C2
 	if opts != nil {
-		if opts.CiphertextEncoding == ENCODING_ASN1 {
-			return decryptASN1(priv, ciphertext)
-		}
 		splicingOrder = opts.CipherTextSplicingOrder
 	}
-	if ciphertext[0] == 0x30 {
-		return decryptASN1(priv, ciphertext)
+
+	b := ciphertext[0]
+	switch b {
+	case uncompressed:
+		if len(ciphertext) <= 1+2*byteLen {
+			return nil, nil, nil, errors.New("sm2: invalid ciphertext length")
+		}
+		C1, err := c.newPoint().SetBytes(ciphertext[:1+2*byteLen])
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		c2, c3 := parseCiphertextC2C3(ciphertext[1+2*byteLen:], splicingOrder)
+		return C1, c2, c3, nil
+	case compressed02, compressed03:
+		if len(ciphertext) <= 1+byteLen {
+			return nil, nil, nil, errors.New("sm2: invalid ciphertext length")
+		}
+		C1, err := c.newPoint().SetBytes(ciphertext[:1+byteLen])
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		c2, c3 := parseCiphertextC2C3(ciphertext[1+byteLen:], splicingOrder)
+		return C1, c2, c3, nil
+	case byte(0x30):
+		return parseCiphertextASN1(c, ciphertext)
+	default:
+		return nil, nil, nil, errors.New("sm2: invalid/unsupport ciphertext format")
 	}
-	ciphertextLen := len(ciphertext)
-	if ciphertextLen <= 1+(priv.Params().BitSize/8)+sm3.Size {
-		return nil, errors.New("sm2: invalid ciphertext length")
+}
+
+func parseCiphertextC2C3(ciphertext []byte, order ciphertextSplicingOrder) ([]byte, []byte) {
+	if order == C1C3C2 {
+		return ciphertext[sm3.Size:], ciphertext[:sm3.Size]
 	}
-	curve := priv.Curve
-	// B1, get C1, and check C1
-	x1, y1, c3Start, err := bytes2Point(curve, ciphertext)
+	return ciphertext[:len(ciphertext)-sm3.Size], ciphertext[len(ciphertext)-sm3.Size:]
+}
+
+func parseCiphertextASN1(c *sm2Curve, ciphertext []byte) (*_sm2ec.SM2P256Point, []byte, []byte, error) {
+	x1, y1, c2, c3, err := unmarshalASN1Ciphertext(ciphertext)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
-
-	//B4, calculate t=KDF(x2||y2, klen)
-	var c2, c3 []byte
-	if splicingOrder == C1C3C2 {
-		c2 = ciphertext[c3Start+sm3.Size:]
-		c3 = ciphertext[c3Start : c3Start+sm3.Size]
-	} else {
-		c2 = ciphertext[c3Start : ciphertextLen-sm3.Size]
-		c3 = ciphertext[ciphertextLen-sm3.Size:]
-	}
-
-	return rawDecrypt(priv, x1, y1, c2, c3)
-}
-
-func unmarshalASN1Ciphertext(ciphertext []byte) (*big.Int, *big.Int, []byte, []byte, error) {
-	var (
-		x1, y1 = &big.Int{}, &big.Int{}
-		c2, c3 []byte
-		inner  cryptobyte.String
-	)
-	input := cryptobyte.String(ciphertext)
-	if !input.ReadASN1(&inner, asn1.SEQUENCE) ||
-		!input.Empty() ||
-		!inner.ReadASN1Integer(x1) ||
-		!inner.ReadASN1Integer(y1) ||
-		!inner.ReadASN1Bytes(&c3, asn1.OCTET_STRING) ||
-		!inner.ReadASN1Bytes(&c2, asn1.OCTET_STRING) ||
-		!inner.Empty() {
-		return nil, nil, nil, nil, errors.New("sm2: invalid asn1 format ciphertext")
-	}
-	return x1, y1, c2, c3, nil
-}
-
-// ASN1Ciphertext2Plain utility method to convert ASN.1 encoding ciphertext to plain encoding format
-func ASN1Ciphertext2Plain(ciphertext []byte, opts *EncrypterOpts) ([]byte, error) {
-	if opts == nil {
-		opts = defaultEncrypterOpts
-	}
-	x1, y1, c2, c3, err := unmarshalASN1Ciphertext((ciphertext))
+	C1, err := c.pointFromAffine(x1, y1)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
-	curve := sm2ec.P256()
-	c1 := opts.PointMarshalMode.mashal(curve, x1, y1)
-	if opts.CiphertextSplicingOrder == C1C3C2 {
-		// c1 || c3 || c2
-		return append(append(c1, c3...), c2...), nil
-	}
-	// c1 || c2 || c3
-	return append(append(c1, c2...), c3...), nil
-}
-
-// PlainCiphertext2ASN1 utility method to convert plain encoding ciphertext to ASN.1 encoding format
-func PlainCiphertext2ASN1(ciphertext []byte, from ciphertextSplicingOrder) ([]byte, error) {
-	if ciphertext[0] == 0x30 {
-		return nil, errors.New("sm2: invalid plain encoding ciphertext")
-	}
-	curve := sm2ec.P256()
-	ciphertextLen := len(ciphertext)
-	if ciphertextLen <= 1+(curve.Params().BitSize/8)+sm3.Size {
-		return nil, errors.New("sm2: invalid ciphertext length")
-	}
-	// get C1, and check C1
-	x1, y1, c3Start, err := bytes2Point(curve, ciphertext)
-	if err != nil {
-		return nil, err
-	}
-
-	var c2, c3 []byte
-
-	if from == C1C3C2 {
-		c2 = ciphertext[c3Start+sm3.Size:]
-		c3 = ciphertext[c3Start : c3Start+sm3.Size]
-	} else {
-		c2 = ciphertext[c3Start : ciphertextLen-sm3.Size]
-		c3 = ciphertext[ciphertextLen-sm3.Size:]
-	}
-	return mashalASN1Ciphertext(x1, y1, c2, c3)
-}
-
-// AdjustCiphertextSplicingOrder utility method to change c2 c3 order
-func AdjustCiphertextSplicingOrder(ciphertext []byte, from, to ciphertextSplicingOrder) ([]byte, error) {
-	curve := sm2ec.P256()
-	if from == to {
-		return ciphertext, nil
-	}
-	ciphertextLen := len(ciphertext)
-	if ciphertextLen <= 1+(curve.Params().BitSize/8)+sm3.Size {
-		return nil, errors.New("sm2: invalid ciphertext length")
-	}
-
-	// get C1, and check C1
-	_, _, c3Start, err := bytes2Point(curve, ciphertext)
-	if err != nil {
-		return nil, err
-	}
-
-	var c1, c2, c3 []byte
-
-	c1 = ciphertext[:c3Start]
-	if from == C1C3C2 {
-		c2 = ciphertext[c3Start+sm3.Size:]
-		c3 = ciphertext[c3Start : c3Start+sm3.Size]
-	} else {
-		c2 = ciphertext[c3Start : ciphertextLen-sm3.Size]
-		c3 = ciphertext[ciphertextLen-sm3.Size:]
-	}
-
-	result := make([]byte, ciphertextLen)
-	copy(result, c1)
-	if to == C1C3C2 {
-		// c1 || c3 || c2
-		copy(result[c3Start:], c3)
-		copy(result[c3Start+sm3.Size:], c2)
-	} else {
-		// c1 || c2 || c3
-		copy(result[c3Start:], c2)
-		copy(result[ciphertextLen-sm3.Size:], c3)
-	}
-	return result, nil
-}
-
-// fermatInverse calculates the inverse of k in GF(P) using Fermat's method
-// (exponentiation modulo P - 2, per Euler's theorem). This has better
-// constant-time properties than Euclid's method (implemented in
-// math/big.Int.ModInverse and FIPS 186-4, Appendix C.1) although math/big
-// itself isn't strictly constant-time so it's not perfect.
-func fermatInverse(k, N *big.Int) *big.Int {
-	two := big.NewInt(2)
-	nMinus2 := new(big.Int).Sub(N, two)
-	return new(big.Int).Exp(k, nMinus2, N)
+	return C1, c2, c3, nil
 }
 
 var defaultUID = []byte{0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38}
@@ -955,8 +840,8 @@ func randomPoint(c *sm2Curve, rand io.Reader) (k *bigmod.Nat, p *_sm2ec.SM2P256P
 		if excess := len(b)*8 - c.N.BitLen(); excess > 0 {
 			// Just to be safe, assert that this only happens for the one curve that
 			// doesn't have a round number of bits.
-			if excess != 0 && c.curve.Params().Name != "P-521" {
-				panic("ecdsa: internal error: unexpectedly masking off bits")
+			if excess != 0 {
+				panic("sm2: internal error: unexpectedly masking off bits")
 			}
 			b[0] >>= excess
 		}
