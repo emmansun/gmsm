@@ -16,14 +16,18 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/sha512"
+	_subtle "crypto/subtle"
 	"errors"
 	"fmt"
 	"io"
 	"math/big"
 	"strings"
+	"sync"
 
 	"github.com/emmansun/gmsm/ecdh"
+	"github.com/emmansun/gmsm/internal/bigmod"
 	"github.com/emmansun/gmsm/internal/randutil"
+	_sm2ec "github.com/emmansun/gmsm/internal/sm2ec"
 	"github.com/emmansun/gmsm/internal/subtle"
 	"github.com/emmansun/gmsm/kdf"
 	"github.com/emmansun/gmsm/sm2/sm2ec"
@@ -39,18 +43,6 @@ const (
 	hybrid06     byte = 0x06
 	hybrid07     byte = hybrid06 | 0x01
 )
-
-// A invertible implements fast inverse in GF(N).
-type invertible interface {
-	// Inverse returns the inverse of k mod Params().N.
-	Inverse(k *big.Int) *big.Int
-}
-
-// A combinedMult implements fast combined multiplication for verification.
-type combinedMult interface {
-	// CombinedMult returns [s1]G + [s2]P where G is the generator.
-	CombinedMult(bigX, bigY *big.Int, baseScalar, scalar []byte) (x, y *big.Int)
-}
 
 // PrivateKey represents an ECDSA SM2 private key.
 // It implemented both crypto.Decrypter and crypto.Signer interfaces.
@@ -215,7 +207,13 @@ func (priv *PrivateKey) Equal(x crypto.PrivateKey) bool {
 	if !ok {
 		return false
 	}
-	return priv.PublicKey.Equal(&xx.PublicKey) && priv.D.Cmp(xx.D) == 0
+	return priv.PublicKey.Equal(&xx.PublicKey) && bigIntEqual(priv.D, xx.D)
+}
+
+// bigIntEqual reports whether a and b are equal leaking only their bit length
+// through timing side-channels.
+func bigIntEqual(a, b *big.Int) bool {
+	return _subtle.ConstantTimeCompare(a.Bytes(), b.Bytes()) == 1
 }
 
 // Sign signs digest with priv, reading randomness from rand. Compliance with GB/T 32918.2-2016.
@@ -227,22 +225,7 @@ func (priv *PrivateKey) Equal(x crypto.PrivateKey) bool {
 // where the private part is kept in, for example, a hardware module. Common
 // uses can use the SignASN1 function in this package directly.
 func (priv *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
-	var r, s *big.Int
-	var err error
-	if sm2Opts, ok := opts.(*SM2SignerOption); ok && sm2Opts.ForceGMSign {
-		r, s, err = SignWithSM2(rand, &priv.PrivateKey, sm2Opts.UID, digest)
-	} else {
-		r, s, err = Sign(rand, &priv.PrivateKey, digest)
-	}
-	if err != nil {
-		return nil, err
-	}
-	var b cryptobyte.Builder
-	b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
-		b.AddASN1BigInt(r)
-		b.AddASN1BigInt(s)
-	})
-	return b.Bytes()
+	return SignASN1(rand, priv, digest, opts)
 }
 
 // SignWithSM2 signs uid, msg with priv, reading randomness from rand. Compliance with GB/T 32918.2-2016.
@@ -258,27 +241,6 @@ func (priv *PrivateKey) Decrypt(rand io.Reader, msg []byte, opts crypto.Decrypte
 	var sm2Opts *DecrypterOpts
 	sm2Opts, _ = opts.(*DecrypterOpts)
 	return decrypt(priv, msg, sm2Opts)
-}
-
-var (
-	one = new(big.Int).SetInt64(1)
-)
-
-// randFieldElement returns a random element of the order of the given
-// curve using the procedure given in FIPS 186-4, Appendix B.5.1.
-func randFieldElement(c elliptic.Curve, rand io.Reader) (k *big.Int, err error) {
-	params := c.Params()
-	b := make([]byte, params.BitSize/8+8) // (N + 64) / 8 = （256 + 64） / 8
-	_, err = io.ReadFull(rand, b)
-	if err != nil {
-		return
-	}
-
-	k = new(big.Int).SetBytes(b) // 5.Convert returned_bits to the (non-negtive) integrer c
-	n := new(big.Int).Sub(params.N, one)
-	k.Mod(k, n)
-	k.Add(k, one) // 6. k = (c mod (n-1)) + 1, here n = params.N
-	return
 }
 
 const maxRetryLimit = 100
@@ -367,16 +329,19 @@ func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Encrypter
 
 // GenerateKey generates a public and private key pair.
 func GenerateKey(rand io.Reader) (*PrivateKey, error) {
-	c := sm2ec.P256()
-	k, err := randFieldElement(c, rand)
+	c := p256()
+	k, Q, err := randomPoint(c, rand)
 	if err != nil {
 		return nil, err
 	}
 
 	priv := new(PrivateKey)
-	priv.PublicKey.Curve = c
-	priv.D = k
-	priv.PublicKey.X, priv.PublicKey.Y = c.ScalarBaseMult(k.Bytes())
+	priv.PublicKey.Curve = c.curve
+	priv.D = new(big.Int).SetBytes(k.Bytes(c.N))
+	priv.PublicKey.X, priv.PublicKey.Y, err = c.pointToAffine(Q)
+	if err != nil {
+		return nil, err
+	}
 	return priv, nil
 }
 
@@ -558,30 +523,6 @@ func AdjustCiphertextSplicingOrder(ciphertext []byte, from, to ciphertextSplicin
 	return result, nil
 }
 
-// hashToInt converts a hash value to an integer. Per FIPS 186-4, Section 6.4,
-// we use the left-most bits of the hash to match the bit-length of the order of
-// the curve. This also performs Step 5 of SEC 1, Version 2.0, Section 4.1.3.
-func hashToInt(hash []byte, c elliptic.Curve) *big.Int {
-	orderBits := c.Params().N.BitLen()
-	orderBytes := (orderBits + 7) / 8
-	if len(hash) > orderBytes {
-		hash = hash[:orderBytes]
-	}
-
-	ret := new(big.Int).SetBytes(hash)
-	excess := len(hash)*8 - orderBits
-	if excess > 0 {
-		ret.Rsh(ret, uint(excess))
-	}
-	return ret
-}
-
-const (
-	aesIV = "IV for ECDSA CTR"
-)
-
-var errZeroParam = errors.New("zero parameter")
-
 // fermatInverse calculates the inverse of k in GF(P) using Fermat's method
 // (exponentiation modulo P - 2, per Euler's theorem). This has better
 // constant-time properties than Euclid's method (implemented in
@@ -593,120 +534,11 @@ func fermatInverse(k, N *big.Int) *big.Int {
 	return new(big.Int).Exp(k, nMinus2, N)
 }
 
-// Sign signs a hash (which should be the result of hashing a larger message)
-// using the private key, priv. If the hash is longer than the bit-length of the
-// private key's curve order, the hash will be truncated to that length. It
-// returns the signature as a pair of integers. Most applications should use
-// SignASN1 instead of dealing directly with r, s.
-//
-// Compliance with GB/T 32918.2-2016 regardless it's SM2 curve or not.
-func Sign(rand io.Reader, priv *ecdsa.PrivateKey, hash []byte) (r, s *big.Int, err error) {
-	randutil.MaybeReadByte(rand)
-
-	// We use SDK's nouce generation implementation here.
-	//
-	// This implementation derives the nonce from an AES-CTR CSPRNG keyed by:
-	//
-	//    SHA2-512(priv.D || entropy || hash)[:32]
-	//
-	// The CSPRNG key is indifferentiable from a random oracle as shown in
-	// [Coron], the AES-CTR stream is indifferentiable from a random oracle
-	// under standard cryptographic assumptions (see [Larsson] for examples).
-	//
-	// [Coron]: https://cs.nyu.edu/~dodis/ps/merkle.pdf
-	// [Larsson]: https://web.archive.org/web/20040719170906/https://www.nada.kth.se/kurser/kth/2D1441/semteo03/lecturenotes/assump.pdf
-
-	// Get 256 bits of entropy from rand.
-	entropy := make([]byte, 32)
-
-	_, err = io.ReadFull(rand, entropy)
-	if err != nil {
-		return
-	}
-
-	// Initialize an SHA-512 hash context; digest ...
-	md := sha512.New()
-	md.Write(priv.D.Bytes()) // the private key,
-	md.Write(entropy)        // the entropy,
-	md.Write(hash)           // and the input hash;
-	key := md.Sum(nil)[:32]  // and compute ChopMD-256(SHA-512),
-	// which is an indifferentiable MAC.
-
-	// Create an AES-CTR instance to use as a CSPRNG.
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Create a CSPRNG that xors a stream of zeros with
-	// the output of the AES-CTR instance.
-	csprng := cipher.StreamReader{
-		R: zeroReader,
-		S: cipher.NewCTR(block, []byte(aesIV)),
-	}
-
-	return signGeneric(priv, &csprng, hash)
-}
-
-func signGeneric(priv *ecdsa.PrivateKey, csprng *cipher.StreamReader, hash []byte) (r, s *big.Int, err error) {
-	// See [NSA] 3.4.1
-	c := priv.PublicKey.Curve
-	N := c.Params().N
-	if N.Sign() == 0 {
-		return nil, nil, errZeroParam
-	}
-	var k *big.Int
-	e := hashToInt(hash, c)
-	for {
-		for {
-			k, err = randFieldElement(c, csprng)
-			if err != nil {
-				r = nil
-				return
-			}
-
-			r, _ = priv.Curve.ScalarBaseMult(k.Bytes()) // (x, y) = k*G
-			r.Add(r, e)                                 // r = x + e
-			r.Mod(r, N)                                 // r = (x + e) mod N
-			if r.Sign() != 0 {
-				t := new(big.Int).Add(r, k)
-				if t.Cmp(N) != 0 { // if r != 0 && (r + k) != N then ok
-					break
-				}
-			}
-		}
-		s = new(big.Int).Mul(priv.D, r)
-		s = new(big.Int).Sub(k, s)
-		dp1 := new(big.Int).Add(priv.D, one)
-
-		var dp1Inv *big.Int
-
-		if in, ok := priv.Curve.(invertible); ok {
-			dp1Inv = in.Inverse(dp1)
-		} else {
-			dp1Inv = fermatInverse(dp1, N) // N != 0
-		}
-
-		s.Mul(s, dp1Inv)
-		s.Mod(s, N) // N != 0
-		if s.Sign() != 0 {
-			break
-		}
-	}
-
-	return
-}
-
 var defaultUID = []byte{0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38}
 
 // CalculateZA ZA = H256(ENTLA || IDA || a || b || xG || yG || xA || yA).
 // Compliance with GB/T 32918.2-2016 5.5
 func CalculateZA(pub *ecdsa.PublicKey, uid []byte) ([]byte, error) {
-	return calculateZA(pub, uid)
-}
-
-// calculateZA ZA = H256(ENTLA || IDA || a || b || xG || yG || xA || yA)
-func calculateZA(pub *ecdsa.PublicKey, uid []byte) ([]byte, error) {
 	uidLen := len(uid)
 	if uidLen >= 0x2000 {
 		return nil, errors.New("sm2: the uid is too long")
@@ -727,20 +559,18 @@ func calculateZA(pub *ecdsa.PublicKey, uid []byte) ([]byte, error) {
 	return md.Sum(nil), nil
 }
 
-// SignWithSM2 follow sm2 dsa standards for hash part, compliance with GB/T 32918.2-2016.
-func SignWithSM2(rand io.Reader, priv *ecdsa.PrivateKey, uid, msg []byte) (r, s *big.Int, err error) {
+func calculateSM2Hash(pub *ecdsa.PublicKey, data, uid []byte) ([]byte, error) {
 	if len(uid) == 0 {
 		uid = defaultUID
 	}
-	za, err := calculateZA(&priv.PublicKey, uid)
+	za, err := CalculateZA(pub, uid)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	md := sm3.New()
 	md.Write(za)
-	md.Write(msg)
-
-	return Sign(rand, priv, md.Sum(nil))
+	md.Write(data)
+	return md.Sum(nil), nil
 }
 
 // SignASN1 signs a hash (which should be the result of hashing a larger message)
@@ -749,44 +579,110 @@ func SignWithSM2(rand io.Reader, priv *ecdsa.PrivateKey, uid, msg []byte) (r, s 
 // returns the ASN.1 encoded signature.
 // It invokes priv.Sign directly.
 func SignASN1(rand io.Reader, priv *PrivateKey, hash []byte, opts crypto.SignerOpts) ([]byte, error) {
-	return priv.Sign(rand, hash, opts)
+	if sm2Opts, ok := opts.(*SM2SignerOption); ok && sm2Opts.ForceGMSign {
+		newHash, err := calculateSM2Hash(&priv.PublicKey, hash, sm2Opts.UID)
+		if err != nil {
+			return nil, err
+		}
+		hash = newHash
+	}
+
+	randutil.MaybeReadByte(rand)
+	csprng, err := mixedCSPRNG(rand, &priv.PrivateKey, hash)
+	if err != nil {
+		return nil, err
+	}
+
+	switch priv.Curve.Params() {
+	case P256().Params():
+		return signSM2EC(p256(), priv, csprng, hash)
+	default:
+		return signLegacy(priv, csprng, hash)
+	}
 }
 
-// Verify verifies the signature in r, s of hash using the public key, pub. Its
-// return value records whether the signature is valid. Most applications should
-// use VerifyASN1 instead of dealing directly with r, s.
-//
-// Compliance with GB/T 32918.2-2016 regardless it's SM2 curve or not.
-// Caller should make sure the hash's correctness.
-func Verify(pub *ecdsa.PublicKey, hash []byte, r, s *big.Int) bool {
-	c := pub.Curve
-	N := c.Params().N
+func signSM2EC(c *sm2Curve, priv *PrivateKey, csprng io.Reader, hash []byte) (sig []byte, err error) {
+	e := bigmod.NewNat()
+	hashToNat(c, e, hash)
+	var k, r, s, dp1Inv, oneNat *bigmod.Nat
+	var R *_sm2ec.SM2P256Point
 
-	if r.Sign() <= 0 || s.Sign() <= 0 {
-		return false
+	oneNat, err = bigmod.NewNat().SetBytes(one.Bytes(), c.N)
+	if err != nil {
+		return nil, err
 	}
-	if r.Cmp(N) >= 0 || s.Cmp(N) >= 0 {
-		return false
+	dp1Inv, err = bigmod.NewNat().SetBytes(priv.D.Bytes(), c.N)
+	if err != nil {
+		return nil, err
 	}
-	e := hashToInt(hash, c)
-	t := new(big.Int).Add(r, s)
-	t.Mod(t, N)
-	if t.Sign() == 0 {
-		return false
-	}
-
-	var x *big.Int
-	if opt, ok := c.(combinedMult); ok {
-		x, _ = opt.CombinedMult(pub.X, pub.Y, s.Bytes(), t.Bytes())
-	} else {
-		x1, y1 := c.ScalarBaseMult(s.Bytes())
-		x2, y2 := c.ScalarMult(pub.X, pub.Y, t.Bytes())
-		x, _ = c.Add(x1, y1, x2, y2)
+	dp1Inv.Add(oneNat, c.N)
+	dp1Bytes, err := _sm2ec.P256OrdInverse(dp1Inv.Bytes(c.N))
+	if err == nil {
+		dp1Inv, err = bigmod.NewNat().SetBytes(dp1Bytes, c.N)
+		if err != nil {
+			panic("sm2: internal error: P256OrdInverse produced an invalid value")
+		}
 	}
 
-	x.Add(x, e)
-	x.Mod(x, N)
-	return x.Cmp(r) == 0
+	for {
+		for {
+			k, R, err = randomPoint(c, csprng)
+			if err != nil {
+				return nil, err
+			}
+			Rx, err := R.BytesX()
+			if err != nil {
+				return nil, err
+			}
+			r, err = bigmod.NewNat().SetOverflowingBytes(Rx, c.N)
+			if err != nil {
+				return nil, err
+			}
+			r.Add(e, c.N) // r = (Rx + e) mod N
+			if r.IsZero() != 1 {
+				t := bigmod.NewNat().Set(k)
+				t.Add(r, c.N)
+				if t.IsZero() != 1 { // if (r + k) != N then ok
+					break
+				}
+			}
+		}
+		s, err = bigmod.NewNat().SetBytes(priv.D.Bytes(), c.N)
+		if err != nil {
+			return nil, err
+		}
+		s.Mul(r, c.N)
+		k.Sub(s, c.N)
+		k.Mul(dp1Inv, c.N)
+		if k.IsZero() != 1 {
+			break
+		}
+	}
+
+	return encodeSignature(r.Bytes(c.N), k.Bytes(c.N))
+}
+
+func encodeSignature(r, s []byte) ([]byte, error) {
+	var b cryptobyte.Builder
+	b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+		addASN1IntBytes(b, r)
+		addASN1IntBytes(b, s)
+	})
+	return b.Bytes()
+}
+
+// addASN1IntBytes encodes in ASN.1 a positive integer represented as
+// a big-endian byte slice with zero or more leading zeroes.
+func addASN1IntBytes(b *cryptobyte.Builder, bytes []byte) {
+	for len(bytes) > 1 && bytes[0] == 0 {
+		bytes = bytes[1:]
+	}
+	b.AddASN1(asn1.INTEGER, func(c *cryptobyte.Builder) {
+		if bytes[0]&0x80 != 0 {
+			c.AddUint8(0)
+		}
+		c.AddBytes(bytes)
+	})
 }
 
 // VerifyASN1 verifies the ASN.1 encoded signature, sig, of hash using the
@@ -795,35 +691,64 @@ func Verify(pub *ecdsa.PublicKey, hash []byte, r, s *big.Int) bool {
 // Compliance with GB/T 32918.2-2016 regardless it's SM2 curve or not.
 // Caller should make sure the hash's correctness.
 func VerifyASN1(pub *ecdsa.PublicKey, hash, sig []byte) bool {
-	var (
-		r, s  = &big.Int{}, &big.Int{}
-		inner cryptobyte.String
-	)
-	input := cryptobyte.String(sig)
-	if !input.ReadASN1(&inner, asn1.SEQUENCE) ||
-		!input.Empty() ||
-		!inner.ReadASN1Integer(r) ||
-		!inner.ReadASN1Integer(s) ||
-		!inner.Empty() {
-		return false
+	switch pub.Curve.Params() {
+	case P256().Params():
+		return verifySM2EC(p256(), pub, hash, sig)
+	default:
+		return verifyLegacy(pub, hash, sig)
 	}
-	return Verify(pub, hash, r, s)
 }
 
-// VerifyWithSM2 verifies the signature in r, s of raw msg and uid using the public key, pub.
-// It returns value records whether the signature is valid. Compliance with GB/T 32918.2-2016.
-func VerifyWithSM2(pub *ecdsa.PublicKey, uid, msg []byte, r, s *big.Int) bool {
-	if len(uid) == 0 {
-		uid = defaultUID
-	}
-	za, err := calculateZA(pub, uid)
+func verifySM2EC(c *sm2Curve, pub *ecdsa.PublicKey, hash, sig []byte) bool {
+	rBytes, sBytes, err := parseSignature(sig)
 	if err != nil {
 		return false
 	}
-	md := sm3.New()
-	md.Write(za)
-	md.Write(msg)
-	return Verify(pub, md.Sum(nil), r, s)
+
+	Q, err := c.pointFromAffine(pub.X, pub.Y)
+	if err != nil {
+		return false
+	}
+
+	r, err := bigmod.NewNat().SetBytes(rBytes, c.N)
+	if err != nil || r.IsZero() == 1 {
+		return false
+	}
+	s, err := bigmod.NewNat().SetBytes(sBytes, c.N)
+	if err != nil || s.IsZero() == 1 {
+		return false
+	}
+
+	e := bigmod.NewNat()
+	hashToNat(c, e, hash)
+
+	t := bigmod.NewNat().Set(r)
+	t.Add(s, c.N)
+	if t.IsZero() == 1 {
+		return false
+	}
+
+	p1, err := c.newPoint().ScalarBaseMult(s.Bytes(c.N))
+	if err != nil {
+		return false
+	}
+	p2, err := Q.ScalarMult(Q, t.Bytes(c.N))
+	if err != nil {
+		return false
+	}
+
+	Rx, err := p1.Add(p1, p2).BytesX()
+	if err != nil {
+		return false
+	}
+
+	v, err := bigmod.NewNat().SetOverflowingBytes(Rx, c.N)
+	if err != nil {
+		return false
+	}
+
+	v.Add(e, c.N)
+	return v.Equal(r) == 1
 }
 
 // VerifyASN1WithSM2 verifies the signature in ASN.1 encoding format sig of raw msg
@@ -831,34 +756,137 @@ func VerifyWithSM2(pub *ecdsa.PublicKey, uid, msg []byte, r, s *big.Int) bool {
 //
 // It returns value records whether the signature is valid. Compliance with GB/T 32918.2-2016.
 func VerifyASN1WithSM2(pub *ecdsa.PublicKey, uid, msg, sig []byte) bool {
-	var (
-		r, s  = &big.Int{}, &big.Int{}
-		inner cryptobyte.String
-	)
+	digest, err := calculateSM2Hash(pub, msg, uid)
+	if err != nil {
+		return false
+	}
+	return VerifyASN1(pub, digest, sig)
+}
+
+func readASN1Bytes(input *cryptobyte.String, out *[]byte) bool {
+	var bytes cryptobyte.String
+	if !input.ReadASN1(&bytes, asn1.INTEGER) || !checkASN1Integer(bytes) {
+		return false
+	}
+	if bytes[0]&0x80 == 0x80 {
+		return false
+	}
+	for len(bytes) > 1 && bytes[0] == 0 {
+		bytes = bytes[1:]
+	}
+	*out = bytes
+	return true
+}
+
+func checkASN1Integer(bytes []byte) bool {
+	if len(bytes) == 0 {
+		// An INTEGER is encoded with at least one octet.
+		return false
+	}
+	if len(bytes) == 1 {
+		return true
+	}
+	if bytes[0] == 0 && bytes[1]&0x80 == 0 || bytes[0] == 0xff && bytes[1]&0x80 == 0x80 {
+		// Value is not minimally encoded.
+		return false
+	}
+	return true
+}
+
+func parseSignature(sig []byte) (r, s []byte, err error) {
+	var inner cryptobyte.String
 	input := cryptobyte.String(sig)
 	if !input.ReadASN1(&inner, asn1.SEQUENCE) ||
 		!input.Empty() ||
-		!inner.ReadASN1Integer(r) ||
-		!inner.ReadASN1Integer(s) ||
+		!readASN1Bytes(&inner, &r) ||
+		!readASN1Bytes(&inner, &s) ||
 		!inner.Empty() {
-		return false
+		return nil, nil, errors.New("invalid ASN.1")
 	}
-	return VerifyWithSM2(pub, uid, msg, r, s)
+	return r, s, nil
 }
 
-type zr struct {
-	io.Reader
+// hashToNat sets e to the left-most bits of hash, according to
+// SEC 1, Section 4.1.3, point 5 and Section 4.1.4, point 3.
+func hashToNat(c *sm2Curve, e *bigmod.Nat, hash []byte) {
+	// ECDSA asks us to take the left-most log2(N) bits of hash, and use them as
+	// an integer modulo N. This is the absolute worst of all worlds: we still
+	// have to reduce, because the result might still overflow N, but to take
+	// the left-most bits for P-521 we have to do a right shift.
+	if size := c.N.Size(); len(hash) > size {
+		hash = hash[:size]
+		if excess := len(hash)*8 - c.N.BitLen(); excess > 0 {
+			hash = append([]byte{}, hash...)
+			for i := len(hash) - 1; i >= 0; i-- {
+				hash[i] >>= excess
+				if i > 0 {
+					hash[i] |= hash[i-1] << (8 - excess)
+				}
+			}
+		}
+	}
+	_, err := e.SetOverflowingBytes(hash, c.N)
+	if err != nil {
+		panic("sm2: internal error: truncated hash is too long")
+	}
 }
+
+// mixedCSPRNG returns a CSPRNG that mixes entropy from rand with the message
+// and the private key, to protect the key in case rand fails. This is
+// equivalent in security to RFC 6979 deterministic nonce generation, but still
+// produces randomized signatures.
+func mixedCSPRNG(rand io.Reader, priv *ecdsa.PrivateKey, hash []byte) (io.Reader, error) {
+	// This implementation derives the nonce from an AES-CTR CSPRNG keyed by:
+	//
+	//    SHA2-512(priv.D || entropy || hash)[:32]
+	//
+	// The CSPRNG key is indifferentiable from a random oracle as shown in
+	// [Coron], the AES-CTR stream is indifferentiable from a random oracle
+	// under standard cryptographic assumptions (see [Larsson] for examples).
+	//
+	// [Coron]: https://cs.nyu.edu/~dodis/ps/merkle.pdf
+	// [Larsson]: https://web.archive.org/web/20040719170906/https://www.nada.kth.se/kurser/kth/2D1441/semteo03/lecturenotes/assump.pdf
+
+	// Get 256 bits of entropy from rand.
+	entropy := make([]byte, 32)
+	if _, err := io.ReadFull(rand, entropy); err != nil {
+		return nil, err
+	}
+
+	// Initialize an SHA-512 hash context; digest...
+	md := sha512.New()
+	md.Write(priv.D.Bytes()) // the private key,
+	md.Write(entropy)        // the entropy,
+	md.Write(hash)           // and the input hash;
+	key := md.Sum(nil)[:32]  // and compute ChopMD-256(SHA-512),
+	// which is an indifferentiable MAC.
+
+	// Create an AES-CTR instance to use as a CSPRNG.
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a CSPRNG that xors a stream of zeros with
+	// the output of the AES-CTR instance.
+	const aesIV = "IV for ECDSA CTR"
+	return &cipher.StreamReader{
+		R: zeroReader,
+		S: cipher.NewCTR(block, []byte(aesIV)),
+	}, nil
+}
+
+type zr struct{}
+
+var zeroReader = &zr{}
 
 // Read replaces the contents of dst with zeros.
-func (z *zr) Read(dst []byte) (n int, err error) {
+func (zr) Read(dst []byte) (n int, err error) {
 	for i := range dst {
 		dst[i] = 0
 	}
 	return len(dst), nil
 }
-
-var zeroReader = &zr{}
 
 // IsSM2PublicKey check if given public key is a SM2 public key or not
 func IsSM2PublicKey(publicKey interface{}) bool {
@@ -907,4 +935,107 @@ func curveToECDH(c elliptic.Curve) ecdh.Curve {
 	default:
 		return nil
 	}
+}
+
+// randomPoint returns a random scalar and the corresponding point using the
+// procedure given in FIPS 186-4, Appendix B.5.2 (rejection sampling).
+func randomPoint(c *sm2Curve, rand io.Reader) (k *bigmod.Nat, p *_sm2ec.SM2P256Point, err error) {
+	k = bigmod.NewNat()
+	for {
+		b := make([]byte, c.N.Size())
+		if _, err = io.ReadFull(rand, b); err != nil {
+			return
+		}
+
+		// Mask off any excess bits to increase the chance of hitting a value in
+		// (0, N). These are the most dangerous lines in the package and maybe in
+		// the library: a single bit of bias in the selection of nonces would likely
+		// lead to key recovery, but no tests would fail. Look but DO NOT TOUCH.
+		if excess := len(b)*8 - c.N.BitLen(); excess > 0 {
+			// Just to be safe, assert that this only happens for the one curve that
+			// doesn't have a round number of bits.
+			if excess != 0 && c.curve.Params().Name != "P-521" {
+				panic("ecdsa: internal error: unexpectedly masking off bits")
+			}
+			b[0] >>= excess
+		}
+
+		// FIPS 186-4 makes us check k <= N - 2 and then add one.
+		// Checking 0 < k <= N - 1 is strictly equivalent.
+		// None of this matters anyway because the chance of selecting
+		// zero is cryptographically negligible.
+		if _, err = k.SetBytes(b, c.N); err == nil && k.IsZero() == 0 {
+			break
+		}
+
+		if testingOnlyRejectionSamplingLooped != nil {
+			testingOnlyRejectionSamplingLooped()
+		}
+	}
+
+	p, err = c.newPoint().ScalarBaseMult(k.Bytes(c.N))
+	return
+}
+
+// testingOnlyRejectionSamplingLooped is called when rejection sampling in
+// randomPoint rejects a candidate for being higher than the modulus.
+var testingOnlyRejectionSamplingLooped func()
+
+type sm2Curve struct {
+	newPoint func() *_sm2ec.SM2P256Point
+	curve    elliptic.Curve
+	N        *bigmod.Modulus
+	nMinus2  []byte
+}
+
+// pointFromAffine is used to convert the PublicKey to a nistec Point.
+func (curve *sm2Curve) pointFromAffine(x, y *big.Int) (p *_sm2ec.SM2P256Point, err error) {
+	bitSize := curve.curve.Params().BitSize
+	// Reject values that would not get correctly encoded.
+	if x.Sign() < 0 || y.Sign() < 0 {
+		return p, errors.New("negative coordinate")
+	}
+	if x.BitLen() > bitSize || y.BitLen() > bitSize {
+		return p, errors.New("overflowing coordinate")
+	}
+	// Encode the coordinates and let SetBytes reject invalid points.
+	byteLen := (bitSize + 7) / 8
+	buf := make([]byte, 1+2*byteLen)
+	buf[0] = 4 // uncompressed point
+	x.FillBytes(buf[1 : 1+byteLen])
+	y.FillBytes(buf[1+byteLen : 1+2*byteLen])
+	return curve.newPoint().SetBytes(buf)
+}
+
+// pointToAffine is used to convert a nistec Point to a PublicKey.
+func (curve *sm2Curve) pointToAffine(p *_sm2ec.SM2P256Point) (x, y *big.Int, err error) {
+	out := p.Bytes()
+	if len(out) == 1 && out[0] == 0 {
+		// This is the encoding of the point at infinity.
+		return nil, nil, errors.New("ecdsa: public key point is the infinity")
+	}
+	byteLen := (curve.curve.Params().BitSize + 7) / 8
+	x = new(big.Int).SetBytes(out[1 : 1+byteLen])
+	y = new(big.Int).SetBytes(out[1+byteLen:])
+	return x, y, nil
+}
+
+var p256Once sync.Once
+var _p256 *sm2Curve
+
+func p256() *sm2Curve {
+	p256Once.Do(func() {
+		_p256 = &sm2Curve{
+			newPoint: func() *_sm2ec.SM2P256Point { return _sm2ec.NewSM2P256Point() },
+		}
+		precomputeParams(_p256, P256())
+	})
+	return _p256
+}
+
+func precomputeParams(c *sm2Curve, curve elliptic.Curve) {
+	params := curve.Params()
+	c.curve = curve
+	c.N = bigmod.NewModulusFromBig(params.N)
+	c.nMinus2 = new(big.Int).Sub(params.N, big.NewInt(2)).Bytes()
 }

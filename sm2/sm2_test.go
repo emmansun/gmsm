@@ -1,12 +1,14 @@
 package sm2
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"io"
 	"math/big"
 	"reflect"
 	"testing"
@@ -302,6 +304,32 @@ func Test_signVerify(t *testing.T) {
 	}
 }
 
+func Test_signVerifyLegacy(t *testing.T) {
+	priv, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	tests := []struct {
+		name      string
+		plainText string
+	}{
+		// TODO: Add test cases.
+		{"less than 32", "encryption standard"},
+		{"equals 32", "encryption standard encryption "},
+		{"long than 32", "encryption standard encryption standard"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hash := sm3.Sum([]byte(tt.plainText))
+			r, s, err := Sign(rand.Reader, priv, hash[:])
+			if err != nil {
+				t.Fatalf("sign failed %v", err)
+			}
+			result := Verify(&priv.PublicKey, hash[:], r, s)
+			if !result {
+				t.Fatal("verify failed")
+			}
+		})
+	}
+}
+
 // Check that signatures are safe even with a broken entropy source.
 func TestNonceSafety(t *testing.T) {
 	priv, _ := GenerateKey(rand.Reader)
@@ -435,6 +463,41 @@ func TestPublicKeyToECDH(t *testing.T) {
 	_, err = PublicKeyToECDH(&p256.PublicKey)
 	if err == nil {
 		t.Fatal("should be error")
+	}
+}
+
+func TestRandomPoint(t *testing.T) {
+	c := p256()
+	t.Cleanup(func() { testingOnlyRejectionSamplingLooped = nil })
+	var loopCount int
+	testingOnlyRejectionSamplingLooped = func() { loopCount++ }
+
+	// A sequence of all ones will generate 2^N-1, which should be rejected.
+	// (Unless, for example, we are masking too many bits.)
+	r := io.MultiReader(bytes.NewReader(bytes.Repeat([]byte{0xff}, 100)), rand.Reader)
+	if k, p, err := randomPoint(c, r); err != nil {
+		t.Fatal(err)
+	} else if k.IsZero() == 1 {
+		t.Error("k is zero")
+	} else if p.Bytes()[0] != 4 {
+		t.Error("p is infinity")
+	}
+	if loopCount == 0 {
+		t.Error("overflow was not rejected")
+	}
+	loopCount = 0
+
+	// A sequence of all zeroes will generate zero, which should be rejected.
+	r = io.MultiReader(bytes.NewReader(bytes.Repeat([]byte{0}, 100)), rand.Reader)
+	if k, p, err := randomPoint(c, r); err != nil {
+		t.Fatal(err)
+	} else if k.IsZero() == 1 {
+		t.Error("k is zero")
+	} else if p.Bytes()[0] != 4 {
+		t.Error("p is infinity")
+	}
+	if loopCount == 0 {
+		t.Error("zero was not rejected")
 	}
 }
 

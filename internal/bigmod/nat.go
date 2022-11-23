@@ -117,7 +117,7 @@ func (x *Nat) reset(n int) *Nat {
 }
 
 // set assigns x = y, optionally resizing x to the appropriate size.
-func (x *Nat) set(y *Nat) *Nat {
+func (x *Nat) Set(y *Nat) *Nat {
 	x.reset(len(y.limbs))
 	copy(x.limbs, y.limbs)
 	return x
@@ -565,7 +565,7 @@ func (x *Nat) Add(y *Nat, m *Modulus) *Nat {
 func (x *Nat) montgomeryRepresentation(m *Modulus) *Nat {
 	// A Montgomery multiplication (which computes a * b / R) by R * R works out
 	// to a multiplication by R, which takes the value out of the Montgomery domain.
-	return x.montgomeryMul(NewNat().set(x), m.rr, m)
+	return x.montgomeryMul(NewNat().Set(x), m.rr, m)
 }
 
 // montgomeryReduction calculates x = x / R mod m, with R = 2^(_W * n) and
@@ -576,7 +576,7 @@ func (x *Nat) montgomeryReduction(m *Modulus) *Nat {
 	// By Montgomery multiplying with 1 not in Montgomery representation, we
 	// convert out back from Montgomery representation, because it works out to
 	// dividing by R.
-	t0 := NewNat().set(x)
+	t0 := NewNat().Set(x)
 	t1 := NewNat().ExpandFor(m)
 	t1.limbs[0] = 1
 	return x.montgomeryMul(t0, t1, m)
@@ -650,7 +650,7 @@ func montgomeryLoopGeneric(d, a, b, m []uint, m0inv uint) (overflow uint) {
 func (x *Nat) Mul(y *Nat, m *Modulus) *Nat {
 	// A Montgomery multiplication by a value out of the Montgomery domain
 	// takes the result out of Montgomery representation.
-	xR := NewNat().set(x).montgomeryRepresentation(m) // xR = x * R mod m
+	xR := NewNat().Set(x).montgomeryRepresentation(m) // xR = x * R mod m
 	return x.montgomeryMul(xR, y, m)                  // x = xR * y / R mod m
 }
 
@@ -669,7 +669,7 @@ func (out *Nat) Exp(x *Nat, e []byte, m *Modulus) *Nat {
 		NewNat(), NewNat(), NewNat(), NewNat(), NewNat(),
 		NewNat(), NewNat(), NewNat(), NewNat(), NewNat(),
 	}
-	table[0].set(x).montgomeryRepresentation(m)
+	table[0].Set(x).montgomeryRepresentation(m)
 	for i := 1; i < len(table); i++ {
 		table[i].montgomeryMul(table[i-1], table[0], m)
 	}

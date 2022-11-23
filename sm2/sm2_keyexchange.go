@@ -80,7 +80,7 @@ func NewKeyExchange(priv *PrivateKey, peerPub *ecdsa.PublicKey, uid, peerUID []b
 	if len(uid) == 0 {
 		uid = defaultUID
 	}
-	ke.z, err = calculateZA(&ke.privateKey.PublicKey, uid)
+	ke.z, err = CalculateZA(&ke.privateKey.PublicKey, uid)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +121,7 @@ func (ke *KeyExchange) SetPeerParameters(peerPub *ecdsa.PublicKey, peerUID []byt
 
 	var err error
 	ke.peerPub = peerPub
-	ke.peerZ, err = calculateZA(ke.peerPub, peerUID)
+	ke.peerZ, err = CalculateZA(ke.peerPub, peerUID)
 	if err != nil {
 		return err
 	}

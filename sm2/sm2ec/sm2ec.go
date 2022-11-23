@@ -34,11 +34,10 @@ func (curve *sm2Curve) IsOnCurve(x, y *big.Int) bool {
 }
 
 func (curve *sm2Curve) pointFromAffine(x, y *big.Int) (p *_sm2ec.SM2P256Point, err error) {
-	p = curve.newPoint()
 	// (0, 0) is by convention the point at infinity, which can't be represented
 	// in affine coordinates. See Issue 37294.
 	if x.Sign() == 0 && y.Sign() == 0 {
-		return p, nil
+		return curve.newPoint(), nil
 	}
 	// Reject values that would not get correctly encoded.
 	if x.Sign() < 0 || y.Sign() < 0 {
@@ -53,7 +52,7 @@ func (curve *sm2Curve) pointFromAffine(x, y *big.Int) (p *_sm2ec.SM2P256Point, e
 	buf[0] = 4 // uncompressed point
 	x.FillBytes(buf[1 : 1+byteLen])
 	y.FillBytes(buf[1+byteLen : 1+2*byteLen])
-	return p.SetBytes(buf)
+	return curve.newPoint().SetBytes(buf)
 }
 
 func (curve *sm2Curve) pointToAffine(p *_sm2ec.SM2P256Point) (x, y *big.Int) {
