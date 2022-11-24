@@ -11,6 +11,8 @@ import (
 	"github.com/emmansun/gmsm/sm3"
 )
 
+// This file contains a math/big implementation of SM2 key exchange which is deprecated, please use ecdh instead.
+
 // KeyExchange key exchange struct, include internal stat in whole key exchange flow.
 // Initiator's flow will be: NewKeyExchange -> InitKeyExchange -> transmission -> ConfirmResponder
 // Responder's flow will be: NewKeyExchange -> waiting ... -> RepondKeyExchange -> transmission -> ConfirmInitiator

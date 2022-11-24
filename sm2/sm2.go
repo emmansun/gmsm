@@ -374,7 +374,7 @@ func parseCiphertext(c *sm2Curve, ciphertext []byte, opts *DecrypterOpts) (*_sm2
 	b := ciphertext[0]
 	switch b {
 	case uncompressed:
-		if len(ciphertext) <= 1+2*byteLen {
+		if len(ciphertext) <= 1+2*byteLen+sm3.Size {
 			return nil, nil, nil, errors.New("sm2: invalid ciphertext length")
 		}
 		C1, err := c.newPoint().SetBytes(ciphertext[:1+2*byteLen])
@@ -384,9 +384,6 @@ func parseCiphertext(c *sm2Curve, ciphertext []byte, opts *DecrypterOpts) (*_sm2
 		c2, c3 := parseCiphertextC2C3(ciphertext[1+2*byteLen:], splicingOrder)
 		return C1, c2, c3, nil
 	case compressed02, compressed03:
-		if len(ciphertext) <= 1+byteLen {
-			return nil, nil, nil, errors.New("sm2: invalid ciphertext length")
-		}
 		C1, err := c.newPoint().SetBytes(ciphertext[:1+byteLen])
 		if err != nil {
 			return nil, nil, nil, err
@@ -405,6 +402,25 @@ func parseCiphertextC2C3(ciphertext []byte, order ciphertextSplicingOrder) ([]by
 		return ciphertext[sm3.Size:], ciphertext[:sm3.Size]
 	}
 	return ciphertext[:len(ciphertext)-sm3.Size], ciphertext[len(ciphertext)-sm3.Size:]
+}
+
+func unmarshalASN1Ciphertext(ciphertext []byte) (*big.Int, *big.Int, []byte, []byte, error) {
+	var (
+		x1, y1 = &big.Int{}, &big.Int{}
+		c2, c3 []byte
+		inner  cryptobyte.String
+	)
+	input := cryptobyte.String(ciphertext)
+	if !input.ReadASN1(&inner, asn1.SEQUENCE) ||
+		!input.Empty() ||
+		!inner.ReadASN1Integer(x1) ||
+		!inner.ReadASN1Integer(y1) ||
+		!inner.ReadASN1Bytes(&c3, asn1.OCTET_STRING) ||
+		!inner.ReadASN1Bytes(&c2, asn1.OCTET_STRING) ||
+		!inner.Empty() {
+		return nil, nil, nil, nil, errors.New("sm2: invalid asn1 format ciphertext")
+	}
+	return x1, y1, c2, c3, nil
 }
 
 func parseCiphertextASN1(c *sm2Curve, ciphertext []byte) (*_sm2ec.SM2P256Point, []byte, []byte, error) {

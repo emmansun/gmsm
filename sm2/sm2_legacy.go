@@ -18,6 +18,9 @@ import (
 	"golang.org/x/crypto/cryptobyte/asn1"
 )
 
+// This file contains a math/big implementation of SM2 DSA/Encryption that is only used for
+// deprecated custom curves.
+
 // A invertible implements fast inverse in GF(N).
 type invertible interface {
 	// Inverse returns the inverse of k mod Params().N.
@@ -299,25 +302,6 @@ func mashalASN1Ciphertext(x1, y1 *big.Int, c2, c3 []byte) ([]byte, error) {
 		b.AddASN1OctetString(c2)
 	})
 	return b.Bytes()
-}
-
-func unmarshalASN1Ciphertext(ciphertext []byte) (*big.Int, *big.Int, []byte, []byte, error) {
-	var (
-		x1, y1 = &big.Int{}, &big.Int{}
-		c2, c3 []byte
-		inner  cryptobyte.String
-	)
-	input := cryptobyte.String(ciphertext)
-	if !input.ReadASN1(&inner, asn1.SEQUENCE) ||
-		!input.Empty() ||
-		!inner.ReadASN1Integer(x1) ||
-		!inner.ReadASN1Integer(y1) ||
-		!inner.ReadASN1Bytes(&c3, asn1.OCTET_STRING) ||
-		!inner.ReadASN1Bytes(&c2, asn1.OCTET_STRING) ||
-		!inner.Empty() {
-		return nil, nil, nil, nil, errors.New("sm2: invalid asn1 format ciphertext")
-	}
-	return x1, y1, c2, c3, nil
 }
 
 // ASN1Ciphertext2Plain utility method to convert ASN.1 encoding ciphertext to plain encoding format
