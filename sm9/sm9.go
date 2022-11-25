@@ -21,11 +21,10 @@ import (
 
 // SM9 ASN.1 format reference: Information security technology - SM9 cryptographic algorithm application specification
 
-// OrderNat is the Nat presentation of Order
-var OrderNat = bigmod.NewModulusFromBig(bn256.Order)
-var OrderMinus2 = new(big.Int).Sub(bn256.Order, big.NewInt(2)).Bytes()
-
+var orderNat = bigmod.NewModulusFromBig(bn256.Order)
+var orderMinus2 = new(big.Int).Sub(bn256.Order, big.NewInt(2)).Bytes()
 var bigOne = big.NewInt(1)
+var orderMinus1 = new(big.Int).Sub(bn256.Order, bigOne)
 
 type hashMode byte
 
@@ -64,8 +63,7 @@ func hash(z []byte, h hashMode) *big.Int {
 	}
 	//TODO: how to rewrite this part with nat?
 	k := new(big.Int).SetBytes(ha[:40])
-	n := new(big.Int).Sub(bn256.Order, bigOne)
-	k.Mod(k, n)
+	k.Mod(k, orderMinus1)
 	k.Add(k, bigOne)
 	return k
 }
@@ -81,7 +79,7 @@ func hashH2(z []byte) *big.Int {
 func randomScalar(rand io.Reader) (k *bigmod.Nat, err error) {
 	k = bigmod.NewNat()
 	for {
-		b := make([]byte, OrderNat.Size())
+		b := make([]byte, orderNat.Size())
 		if _, err = io.ReadFull(rand, b); err != nil {
 			return
 		}
@@ -90,7 +88,7 @@ func randomScalar(rand io.Reader) (k *bigmod.Nat, err error) {
 		// (0, N). These are the most dangerous lines in the package and maybe in
 		// the library: a single bit of bias in the selection of nonces would likely
 		// lead to key recovery, but no tests would fail. Look but DO NOT TOUCH.
-		if excess := len(b)*8 - OrderNat.BitLen(); excess > 0 {
+		if excess := len(b)*8 - orderNat.BitLen(); excess > 0 {
 			// Just to be safe, assert that this only happens for the one curve that
 			// doesn't have a round number of bits.
 			if excess != 0 {
@@ -103,7 +101,7 @@ func randomScalar(rand io.Reader) (k *bigmod.Nat, err error) {
 		// Checking 0 < k <= N - 1 is strictly equivalent.
 		// None of this matters anyway because the chance of selecting
 		// zero is cryptographically negligible.
-		if _, err = k.SetBytes(b, OrderNat); err == nil && k.IsZero() == 0 {
+		if _, err = k.SetBytes(b, orderNat); err == nil && k.IsZero() == 0 {
 			break
 		}
 	}
@@ -124,7 +122,7 @@ func Sign(rand io.Reader, priv *SignPrivateKey, hash []byte) (h *big.Int, s *bn2
 			return
 		}
 
-		w, err = priv.SignMasterPublicKey.ScalarBaseMult(r.Bytes(OrderNat))
+		w, err = priv.SignMasterPublicKey.ScalarBaseMult(r.Bytes(orderNat))
 		if err != nil {
 			return
 		}
@@ -134,14 +132,14 @@ func Sign(rand io.Reader, priv *SignPrivateKey, hash []byte) (h *big.Int, s *bn2
 		buffer = append(buffer, w.Marshal()...)
 
 		h = hashH2(buffer)
-		hNat, err = bigmod.NewNat().SetBytes(h.Bytes(), OrderNat)
+		hNat, err = bigmod.NewNat().SetBytes(h.Bytes(), orderNat)
 		if err != nil {
 			return
 		}
-		r.Sub(hNat, OrderNat)
+		r.Sub(hNat, orderNat)
 
 		if r.IsZero() == 0 {
-			s, err = new(bn256.G1).ScalarMult(priv.PrivateKey, r.Bytes(OrderNat))
+			s, err = new(bn256.G1).ScalarMult(priv.PrivateKey, r.Bytes(orderNat))
 			break
 		}
 	}
@@ -157,7 +155,7 @@ func (priv *SignPrivateKey) Sign(rand io.Reader, hash []byte, opts crypto.Signer
 		return nil, err
 	}
 
-	hBytes := make([]byte, OrderNat.Size())
+	hBytes := make([]byte, orderNat.Size())
 	h.FillBytes(hBytes)
 
 	var b cryptobyte.Builder
@@ -184,12 +182,12 @@ func Verify(pub *SignMasterPublicKey, uid []byte, hid byte, hash []byte, h *big.
 		return false
 	}
 
-	hNat, err := bigmod.NewNat().SetBytes(h.Bytes(), OrderNat)
+	hNat, err := bigmod.NewNat().SetBytes(h.Bytes(), orderNat)
 	if err != nil {
 		return false
 	}
 
-	t, err := pub.ScalarBaseMult(hNat.Bytes(OrderNat))
+	t, err := pub.ScalarBaseMult(hNat.Bytes(orderNat))
 	if err != nil {
 		return false
 	}
@@ -256,7 +254,7 @@ func WrapKey(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, 
 			return
 		}
 
-		rBytes := r.Bytes(OrderNat)
+		rBytes := r.Bytes(orderNat)
 		cipher, err = new(bn256.G1).ScalarMult(q, rBytes)
 		if err != nil {
 			return
@@ -527,7 +525,7 @@ func NewKeyExchange(priv *EncryptPrivateKey, uid, peerUID []byte, keyLen int, ge
 // Destroy clear all internal state and Ephemeral private/public keys
 func (ke *KeyExchange) Destroy() {
 	if ke.r != nil {
-		ke.r.SetBytes([]byte{0}, OrderNat)
+		ke.r.SetBytes([]byte{0}, orderNat)
 	}
 	if ke.g1 != nil {
 		ke.g1.SetOne()
@@ -543,7 +541,7 @@ func (ke *KeyExchange) Destroy() {
 func initKeyExchange(ke *KeyExchange, hid byte, r *bigmod.Nat) {
 	pubB := ke.privateKey.GenerateUserPublicKey(ke.peerUID, hid)
 	ke.r = r
-	rA, err := new(bn256.G1).ScalarMult(pubB, ke.r.Bytes(OrderNat))
+	rA, err := new(bn256.G1).ScalarMult(pubB, ke.r.Bytes(orderNat))
 	if err != nil {
 		panic(err)
 	}
@@ -611,7 +609,7 @@ func respondKeyExchange(ke *KeyExchange, hid byte, r *bigmod.Nat, rA *bn256.G1) 
 	ke.peerSecret = rA
 	pubA := ke.privateKey.GenerateUserPublicKey(ke.peerUID, hid)
 	ke.r = r
-	rBytes := r.Bytes(OrderNat)
+	rBytes := r.Bytes(orderNat)
 	rB, err := new(bn256.G1).ScalarMult(pubA, rBytes)
 	if err != nil {
 		return nil, nil, err
@@ -655,14 +653,14 @@ func (ke *KeyExchange) ConfirmResponder(rB *bn256.G1, sB []byte) ([]byte, []byte
 	}
 	// step 5
 	ke.peerSecret = rB
-	g1, err := ke.privateKey.EncryptMasterPublicKey.ScalarBaseMult(ke.r.Bytes(OrderNat))
+	g1, err := ke.privateKey.EncryptMasterPublicKey.ScalarBaseMult(ke.r.Bytes(orderNat))
 	if err != nil {
 		return nil, nil, err
 	}
 	ke.g1 = g1
 	ke.g2 = bn256.Pair(ke.peerSecret, ke.privateKey.PrivateKey)
 	ke.g3 = &bn256.GT{}
-	g3, err := bn256.ScalarMultGT(ke.g2, ke.r.Bytes(OrderNat))
+	g3, err := bn256.ScalarMultGT(ke.g2, ke.r.Bytes(orderNat))
 	if err != nil {
 		return nil, nil, err
 	}

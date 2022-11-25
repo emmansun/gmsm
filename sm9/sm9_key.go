@@ -62,7 +62,7 @@ func GenerateSignMasterKey(rand io.Reader) (*SignMasterPrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	kBytes := k.Bytes(OrderNat)
+	kBytes := k.Bytes(orderNat)
 	p, err := new(bn256.G2).ScalarBaseMult(kBytes)
 	if err != nil {
 		return nil, err
@@ -118,27 +118,27 @@ func (master *SignMasterPrivateKey) GenerateUserKey(uid []byte, hid byte) (*Sign
 
 	t1 := hashH1(id)
 
-	t1Nat, err := bigmod.NewNat().SetBytes(t1.Bytes(), OrderNat)
+	t1Nat, err := bigmod.NewNat().SetBytes(t1.Bytes(), orderNat)
 	if err != nil {
 		return nil, err
 	}
 
-	d, err := bigmod.NewNat().SetBytes(master.D.Bytes(), OrderNat)
+	d, err := bigmod.NewNat().SetBytes(master.D.Bytes(), orderNat)
 	if err != nil {
 		return nil, err
 	}
 
-	t1Nat.Add(d, OrderNat)
+	t1Nat.Add(d, orderNat)
 	if t1Nat.IsZero() == 1 {
 		return nil, errors.New("sm9: need to re-generate sign master private key")
 	}
 
-	t1Nat = bigmod.NewNat().Exp(t1Nat, OrderMinus2, OrderNat)
-	t1Nat.Mul(d, OrderNat)
+	t1Nat = bigmod.NewNat().Exp(t1Nat, orderMinus2, orderNat)
+	t1Nat.Mul(d, orderNat)
 
 	priv := new(SignPrivateKey)
 	priv.SignMasterPublicKey = master.SignMasterPublicKey
-	g1, err := new(bn256.G1).ScalarBaseMult(t1Nat.Bytes(OrderNat))
+	g1, err := new(bn256.G1).ScalarBaseMult(t1Nat.Bytes(orderNat))
 	if err != nil {
 		return nil, err
 	}
@@ -358,7 +358,7 @@ func GenerateEncryptMasterKey(rand io.Reader) (*EncryptMasterPrivateKey, error) 
 	if err != nil {
 		return nil, err
 	}
-	kBytes := k.Bytes(OrderNat)
+	kBytes := k.Bytes(orderNat)
 
 	priv := new(EncryptMasterPrivateKey)
 	priv.D = new(big.Int).SetBytes(kBytes)
@@ -378,27 +378,27 @@ func (master *EncryptMasterPrivateKey) GenerateUserKey(uid []byte, hid byte) (*E
 
 	t1 := hashH1(id)
 
-	t1Nat, err := bigmod.NewNat().SetBytes(t1.Bytes(), OrderNat)
+	t1Nat, err := bigmod.NewNat().SetBytes(t1.Bytes(), orderNat)
 	if err != nil {
 		return nil, err
 	}
 
-	d, err := bigmod.NewNat().SetBytes(master.D.Bytes(), OrderNat)
+	d, err := bigmod.NewNat().SetBytes(master.D.Bytes(), orderNat)
 	if err != nil {
 		return nil, err
 	}
 
-	t1Nat.Add(d, OrderNat)
+	t1Nat.Add(d, orderNat)
 	if t1Nat.IsZero() == 1 {
 		return nil, errors.New("sm9: need to re-generate encrypt master private key")
 	}
 
-	t1Nat = bigmod.NewNat().Exp(t1Nat, OrderMinus2, OrderNat)
-	t1Nat.Mul(d, OrderNat)
+	t1Nat = bigmod.NewNat().Exp(t1Nat, orderMinus2, orderNat)
+	t1Nat.Mul(d, orderNat)
 
 	priv := new(EncryptPrivateKey)
 	priv.EncryptMasterPublicKey = master.EncryptMasterPublicKey
-	p, err := new(bn256.G2).ScalarBaseMult(t1Nat.Bytes(OrderNat))
+	p, err := new(bn256.G2).ScalarBaseMult(t1Nat.Bytes(orderNat))
 	if err != nil {
 		panic(err)
 	}

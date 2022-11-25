@@ -177,7 +177,7 @@ func TestKeyExchangeSample(t *testing.T) {
 		responder.Destroy()
 	}()
 	// A1-A4
-	k, err := bigmod.NewNat().SetBytes(bigFromHex("5879DD1D51E175946F23B1B41E93BA31C584AE59A426EC1046A4D03B06C8").Bytes(), OrderNat)
+	k, err := bigmod.NewNat().SetBytes(bigFromHex("5879DD1D51E175946F23B1B41E93BA31C584AE59A426EC1046A4D03B06C8").Bytes(), orderNat)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +188,7 @@ func TestKeyExchangeSample(t *testing.T) {
 	}
 
 	// B1 - B7
-	k, err = bigmod.NewNat().SetBytes(bigFromHex("018B98C44BEF9F8537FB7D071B2C928B3BC65BD3D69E1EEE213564905634FE").Bytes(), OrderNat)
+	k, err = bigmod.NewNat().SetBytes(bigFromHex("018B98C44BEF9F8537FB7D071B2C928B3BC65BD3D69E1EEE213564905634FE").Bytes(), orderNat)
 	if err != nil {
 		t.Fatal(err)
 	}
