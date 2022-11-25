@@ -47,8 +47,8 @@ func RandomG2(r io.Reader) (*big.Int, *G2, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-
-	return k, new(G2).ScalarBaseMult(k), nil
+	g2, err := new(G2).ScalarBaseMult(NormalizeScalar(k.Bytes()))
+	return k, g2, err
 }
 
 func (e *G2) String() string {
@@ -57,13 +57,15 @@ func (e *G2) String() string {
 
 // ScalarBaseMult sets e to g*k where g is the generator of the group and then
 // returns out.
-func (e *G2) ScalarBaseMult(k *big.Int) *G2 {
+func (e *G2) ScalarBaseMult(scalar []byte) (*G2, error) {
+	if len(scalar) != 32 {
+		return nil, errors.New("invalid scalar length")
+	}
 	if e.p == nil {
 		e.p = &twistPoint{}
 	}
 	//e.p.Mul(twistGen, k)
 
-	scalar := normalizeScalar(k.Bytes())
 	tables := e.generatorTable()
 	// This is also a scalar multiplication with a four-bit window like in
 	// ScalarMult, but in this case the doublings are precomputed. The value
@@ -85,11 +87,11 @@ func (e *G2) ScalarBaseMult(k *big.Int) *G2 {
 		tableIndex--
 	}
 
-	return e
+	return e, nil
 }
 
 // ScalarMult sets e to a*k and then returns e.
-func (e *G2) ScalarMult(a *G2, k *big.Int) *G2 {
+func (e *G2) ScalarMult(a *G2, scalar []byte) (*G2, error) {
 	if e.p == nil {
 		e.p = &twistPoint{}
 	}
@@ -108,8 +110,7 @@ func (e *G2) ScalarMult(a *G2, k *big.Int) *G2 {
 	// four-bit window: we double four times, and then add [0-15]P.
 	t := &G2{NewTwistPoint()}
 	e.p.SetInfinity()
-	scalarBytes := normalizeScalar(k.Bytes())
-	for i, byte := range scalarBytes {
+	for i, byte := range scalar {
 		// No need to double on the first iteration, as p is the identity at
 		// this point, and [N]∞ = ∞.
 		if i != 0 {
@@ -129,7 +130,7 @@ func (e *G2) ScalarMult(a *G2, k *big.Int) *G2 {
 		table.Select(t.p, windowValue)
 		e.Add(e, t)
 	}
-	return e
+	return e, nil
 }
 
 // Add sets e to a+b and then returns e.

@@ -53,7 +53,10 @@ func init() {
 func Test_Pairing_A2(t *testing.T) {
 	pk := bigFromHex("0130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4")
 	g2 := &G2{}
-	g2.ScalarBaseMult(pk)
+	_, err := g2.ScalarBaseMult(NormalizeScalar(pk.Bytes()))
+	if err != nil {
+		t.Fatal(err)
+	}
 	ret := pairing(g2.p, curveGen)
 	if ret.x != expected1.x || ret.y != expected1.y || ret.z != expected1.z {
 		t.Errorf("not expected")

@@ -241,8 +241,10 @@ func GenerateGTFieldTable(basePoint *GT) *[32 * 2]GTFieldTable {
 }
 
 // ScalarBaseMultGT compute basepoint^r with precomputed table
-func ScalarBaseMultGT(tables *[32 * 2]GTFieldTable, r *big.Int) *GT {
-	scalar := normalizeScalar(r.Bytes())
+func ScalarBaseMultGT(tables *[32 * 2]GTFieldTable, scalar []byte) (*GT, error) {
+	if len(scalar) != 32 {
+		return nil, errors.New("invalid scalar length")
+	}
 	// This is also a scalar multiplication with a four-bit window like in
 	// ScalarMult, but in this case the doublings are precomputed. The value
 	// [windowValue]G added at iteration k would normally get doubled
@@ -263,5 +265,48 @@ func ScalarBaseMultGT(tables *[32 * 2]GTFieldTable, r *big.Int) *GT {
 		e.Add(e, t)
 		tableIndex--
 	}
-	return e
+	return e, nil
+}
+
+// ScalarMultGT compute a^scalar
+func ScalarMultGT(a *GT, scalar []byte) (*GT, error) {
+	var table GTFieldTable
+
+	table[0] = &GT{}
+	table[0].Set(a)
+	for i := 1; i < 15; i += 2 {
+		table[i] = &GT{}
+		table[i].p = &gfP12{}
+		table[i].p.Square(table[i/2].p)
+
+		table[i+1] = &GT{}
+		table[i+1].p = &gfP12{}
+		table[i+1].Add(table[i], a)
+	}
+
+	e, t := &GT{}, &GT{}
+	e.SetOne()
+	t.SetOne()
+
+	for i, byte := range scalar {
+		// No need to double on the first iteration, as p is the identity at
+		// this point, and [N]∞ = ∞.
+		if i != 0 {
+			e.p.Square(e.p)
+			e.p.Square(e.p)
+			e.p.Square(e.p)
+			e.p.Square(e.p)
+		}
+		windowValue := byte >> 4
+		table.Select(t, windowValue)
+		e.Add(e, t)
+		e.p.Square(e.p)
+		e.p.Square(e.p)
+		e.p.Square(e.p)
+		e.p.Square(e.p)
+		windowValue = byte & 0b1111
+		table.Select(t, windowValue)
+		e.Add(e, t)
+	}
+	return e, nil
 }

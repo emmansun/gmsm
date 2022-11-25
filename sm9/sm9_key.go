@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/emmansun/gmsm/internal/bigmod"
 	"github.com/emmansun/gmsm/sm9/bn256"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
@@ -57,14 +58,19 @@ type EncryptPrivateKey struct {
 
 // GenerateSignMasterKey generates a master public and private key pair for DSA usage.
 func GenerateSignMasterKey(rand io.Reader) (*SignMasterPrivateKey, error) {
-	k, err := randFieldElement(rand)
+	k, err := randomScalar(rand)
+	if err != nil {
+		return nil, err
+	}
+	kBytes := k.Bytes(OrderNat)
+	p, err := new(bn256.G2).ScalarBaseMult(kBytes)
 	if err != nil {
 		return nil, err
 	}
 
 	priv := new(SignMasterPrivateKey)
-	priv.D = k
-	priv.MasterPublicKey = new(bn256.G2).ScalarBaseMult(k)
+	priv.D = new(big.Int).SetBytes(kBytes)
+	priv.MasterPublicKey = p
 	return priv, nil
 }
 
@@ -96,7 +102,11 @@ func (master *SignMasterPrivateKey) UnmarshalASN1(der []byte) error {
 		return errors.New("sm9: invalid sign master private key asn1 data")
 	}
 	master.D = d
-	master.MasterPublicKey = new(bn256.G2).ScalarBaseMult(d)
+	p, err := new(bn256.G2).ScalarBaseMult(bn256.NormalizeScalar(d.Bytes()))
+	if err != nil {
+		return err
+	}
+	master.MasterPublicKey = p
 	return nil
 }
 
@@ -107,17 +117,32 @@ func (master *SignMasterPrivateKey) GenerateUserKey(uid []byte, hid byte) (*Sign
 	id = append(id, hid)
 
 	t1 := hashH1(id)
-	t1.Add(t1, master.D)
-	if t1.Sign() == 0 {
+
+	t1Nat, err := bigmod.NewNat().SetBytes(t1.Bytes(), OrderNat)
+	if err != nil {
+		return nil, err
+	}
+
+	d, err := bigmod.NewNat().SetBytes(master.D.Bytes(), OrderNat)
+	if err != nil {
+		return nil, err
+	}
+
+	t1Nat.Add(d, OrderNat)
+	if t1Nat.IsZero() == 1 {
 		return nil, errors.New("sm9: need to re-generate sign master private key")
 	}
-	t1 = fermatInverse(t1, bn256.Order)
-	t2 := new(big.Int).Mul(t1, master.D)
-	t2.Mod(t2, bn256.Order)
+
+	t1Nat = bigmod.NewNat().Exp(t1Nat, OrderMinus2, OrderNat)
+	t1Nat.Mul(d, OrderNat)
 
 	priv := new(SignPrivateKey)
 	priv.SignMasterPublicKey = master.SignMasterPublicKey
-	priv.PrivateKey = new(bn256.G1).ScalarBaseMult(t2)
+	g1, err := new(bn256.G1).ScalarBaseMult(t1Nat.Bytes(OrderNat))
+	if err != nil {
+		return nil, err
+	}
+	priv.PrivateKey = g1
 
 	return priv, nil
 }
@@ -144,9 +169,9 @@ func (pub *SignMasterPublicKey) generatorTable() *[32 * 2]bn256.GTFieldTable {
 
 // ScalarBaseMult compute basepoint^r with precomputed table
 // The base point = pair(Gen1, <master public key>)
-func (pub *SignMasterPublicKey) ScalarBaseMult(r *big.Int) *bn256.GT {
+func (pub *SignMasterPublicKey) ScalarBaseMult(scalar []byte) (*bn256.GT, error) {
 	tables := pub.generatorTable()
-	return bn256.ScalarBaseMultGT(tables, r)
+	return bn256.ScalarBaseMultGT(tables, scalar)
 }
 
 // GenerateUserPublicKey generate user sign public key
@@ -155,7 +180,10 @@ func (pub *SignMasterPublicKey) GenerateUserPublicKey(uid []byte, hid byte) *bn2
 	buffer = append(buffer, uid...)
 	buffer = append(buffer, hid)
 	h1 := hashH1(buffer)
-	p := new(bn256.G2).ScalarBaseMult(h1)
+	p, err := new(bn256.G2).ScalarBaseMult(bn256.NormalizeScalar(h1.Bytes()))
+	if err != nil {
+		panic(err)
+	}
 	p.Add(p, pub.MasterPublicKey)
 	return p
 }
@@ -326,14 +354,19 @@ func (priv *SignPrivateKey) UnmarshalASN1(der []byte) error {
 
 // GenerateEncryptMasterKey generates a master public and private key pair for encryption usage.
 func GenerateEncryptMasterKey(rand io.Reader) (*EncryptMasterPrivateKey, error) {
-	k, err := randFieldElement(rand)
+	k, err := randomScalar(rand)
 	if err != nil {
 		return nil, err
 	}
+	kBytes := k.Bytes(OrderNat)
 
 	priv := new(EncryptMasterPrivateKey)
-	priv.D = k
-	priv.MasterPublicKey = new(bn256.G1).ScalarBaseMult(k)
+	priv.D = new(big.Int).SetBytes(kBytes)
+	p, err := new(bn256.G1).ScalarBaseMult(kBytes)
+	if err != nil {
+		panic(err)
+	}
+	priv.MasterPublicKey = p
 	return priv, nil
 }
 
@@ -344,17 +377,32 @@ func (master *EncryptMasterPrivateKey) GenerateUserKey(uid []byte, hid byte) (*E
 	id = append(id, hid)
 
 	t1 := hashH1(id)
-	t1.Add(t1, master.D)
-	if t1.Sign() == 0 {
+
+	t1Nat, err := bigmod.NewNat().SetBytes(t1.Bytes(), OrderNat)
+	if err != nil {
+		return nil, err
+	}
+
+	d, err := bigmod.NewNat().SetBytes(master.D.Bytes(), OrderNat)
+	if err != nil {
+		return nil, err
+	}
+
+	t1Nat.Add(d, OrderNat)
+	if t1Nat.IsZero() == 1 {
 		return nil, errors.New("sm9: need to re-generate encrypt master private key")
 	}
-	t1 = fermatInverse(t1, bn256.Order)
-	t2 := new(big.Int).Mul(t1, master.D)
-	t2.Mod(t2, bn256.Order)
+
+	t1Nat = bigmod.NewNat().Exp(t1Nat, OrderMinus2, OrderNat)
+	t1Nat.Mul(d, OrderNat)
 
 	priv := new(EncryptPrivateKey)
 	priv.EncryptMasterPublicKey = master.EncryptMasterPublicKey
-	priv.PrivateKey = new(bn256.G2).ScalarBaseMult(t2)
+	p, err := new(bn256.G2).ScalarBaseMult(t1Nat.Bytes(OrderNat))
+	if err != nil {
+		panic(err)
+	}
+	priv.PrivateKey = p
 
 	return priv, nil
 }
@@ -392,7 +440,11 @@ func (master *EncryptMasterPrivateKey) UnmarshalASN1(der []byte) error {
 		return errors.New("sm9: invalid encrypt master private key asn1 data")
 	}
 	master.D = d
-	master.MasterPublicKey = new(bn256.G1).ScalarBaseMult(d)
+	p, err := new(bn256.G1).ScalarBaseMult(bn256.NormalizeScalar(d.Bytes()))
+	if err != nil {
+		return err
+	}
+	master.MasterPublicKey = p
 	return nil
 }
 
@@ -413,9 +465,9 @@ func (pub *EncryptMasterPublicKey) generatorTable() *[32 * 2]bn256.GTFieldTable 
 
 // ScalarBaseMult compute basepoint^r with precomputed table.
 // The base point = pair(<master public key>, Gen2)
-func (pub *EncryptMasterPublicKey) ScalarBaseMult(r *big.Int) *bn256.GT {
+func (pub *EncryptMasterPublicKey) ScalarBaseMult(scalar []byte) (*bn256.GT, error) {
 	tables := pub.generatorTable()
-	return bn256.ScalarBaseMultGT(tables, r)
+	return bn256.ScalarBaseMultGT(tables, scalar)
 }
 
 // GenerateUserPublicKey generate user encrypt public key
@@ -424,7 +476,10 @@ func (pub *EncryptMasterPublicKey) GenerateUserPublicKey(uid []byte, hid byte) *
 	buffer = append(buffer, uid...)
 	buffer = append(buffer, hid)
 	h1 := hashH1(buffer)
-	p := new(bn256.G1).ScalarBaseMult(h1)
+	p, err := new(bn256.G1).ScalarBaseMult(bn256.NormalizeScalar(h1.Bytes()))
+	if err != nil {
+		panic(err)
+	}
 	p.Add(p, pub.MasterPublicKey)
 	return p
 }
@@ -553,15 +608,4 @@ func (priv *EncryptPrivateKey) UnmarshalASN1(der []byte) error {
 		priv.SetMasterPublicKey(masterPK)
 	}
 	return nil
-}
-
-// fermatInverse calculates the inverse of k in GF(P) using Fermat's method
-// (exponentiation modulo P - 2, per Euler's theorem). This has better
-// constant-time properties than Euclid's method (implemented in
-// math/big.Int.ModInverse and FIPS 186-4, Appendix C.1) although math/big
-// itself isn't strictly constant-time so it's not perfect.
-func fermatInverse(k, N *big.Int) *big.Int {
-	two := big.NewInt(2)
-	nMinus2 := new(big.Int).Sub(N, two)
-	return new(big.Int).Exp(k, nMinus2, N)
 }

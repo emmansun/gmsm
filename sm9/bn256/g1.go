@@ -59,14 +59,15 @@ func RandomG1(r io.Reader) (*big.Int, *G1, error) {
 		return nil, nil, err
 	}
 
-	return k, new(G1).ScalarBaseMult(k), nil
+	g1, err := new(G1).ScalarBaseMult(NormalizeScalar(k.Bytes()))
+	return k, g1, err
 }
 
 func (g *G1) String() string {
 	return "sm9.G1" + g.p.String()
 }
 
-func normalizeScalar(scalar []byte) []byte {
+func NormalizeScalar(scalar []byte) []byte {
 	if len(scalar) == 32 {
 		return scalar
 	}
@@ -78,16 +79,18 @@ func normalizeScalar(scalar []byte) []byte {
 	return s.FillBytes(out)
 }
 
-// ScalarBaseMult sets e to g*k where g is the generator of the group and then
+// ScalarBaseMult sets e to scaler*g where g is the generator of the group and then
 // returns e.
-func (e *G1) ScalarBaseMult(k *big.Int) *G1 {
+func (e *G1) ScalarBaseMult(scalar []byte) (*G1, error) {
+	if len(scalar) != 32 {
+		return nil, errors.New("invalid scalar length")
+	}
 	if e.p == nil {
 		e.p = &curvePoint{}
 	}
 
 	//e.p.Mul(curveGen, k)
 
-	scalar := normalizeScalar(k.Bytes())
 	tables := e.generatorTable()
 	// This is also a scalar multiplication with a four-bit window like in
 	// ScalarMult, but in this case the doublings are precomputed. The value
@@ -108,11 +111,11 @@ func (e *G1) ScalarBaseMult(k *big.Int) *G1 {
 		e.p.Add(e.p, t)
 		tableIndex--
 	}
-	return e
+	return e, nil
 }
 
 // ScalarMult sets e to a*k and then returns e.
-func (e *G1) ScalarMult(a *G1, k *big.Int) *G1 {
+func (e *G1) ScalarMult(a *G1, scalar []byte) (*G1, error) {
 	if e.p == nil {
 		e.p = &curvePoint{}
 	}
@@ -131,8 +134,7 @@ func (e *G1) ScalarMult(a *G1, k *big.Int) *G1 {
 	// four-bit window: we double four times, and then add [0-15]P.
 	t := &G1{NewCurvePoint()}
 	e.p.SetInfinity()
-	scalarBytes := normalizeScalar(k.Bytes())
-	for i, byte := range scalarBytes {
+	for i, byte := range scalar {
 		// No need to double on the first iteration, as p is the identity at
 		// this point, and [N]∞ = ∞.
 		if i != 0 {
@@ -152,7 +154,7 @@ func (e *G1) ScalarMult(a *G1, k *big.Int) *G1 {
 		table.Select(t.p, windowValue)
 		e.Add(e, t)
 	}
-	return e
+	return e, nil
 }
 
 // Add sets e to a+b and then returns e.
@@ -398,27 +400,37 @@ func (g1 *G1Curve) Params() *CurveParams {
 
 // normalizeScalar brings the scalar within the byte size of the order of the
 // curve, as expected by the nistec scalar multiplication functions.
-func (curve *G1Curve) normalizeScalar(scalar []byte) *big.Int {
+func (curve *G1Curve) normalizeScalar(scalar []byte) []byte {
 	byteSize := (curve.params.N.BitLen() + 7) / 8
 	s := new(big.Int).SetBytes(scalar)
 	if len(scalar) > byteSize {
 		s.Mod(s, curve.params.N)
 	}
-	return s
+	out := make([]byte, byteSize)
+	return s.FillBytes(out)
 }
 
-func (g1 *G1Curve) ScalarBaseMult(k []byte) (*big.Int, *big.Int) {
-	scalar := g1.normalizeScalar(k)
-	res := g1.g.ScalarBaseMult(scalar).Marshal()
+func (g1 *G1Curve) ScalarBaseMult(scalar []byte) (*big.Int, *big.Int) {
+	scalar = g1.normalizeScalar(scalar)
+	p, err := g1.g.ScalarBaseMult(scalar)
+	if err != nil {
+		panic("sm9: g1 rejected normalized scalar")
+	}
+	res := p.Marshal()
 	return new(big.Int).SetBytes(res[:32]), new(big.Int).SetBytes(res[32:])
 }
 
-func (g1 *G1Curve) ScalarMult(Bx, By *big.Int, k []byte) (*big.Int, *big.Int) {
+func (g1 *G1Curve) ScalarMult(Bx, By *big.Int, scalar []byte) (*big.Int, *big.Int) {
 	a, err := g1.pointFromAffine(Bx, By)
 	if err != nil {
 		panic("sm9: ScalarMult was called on an invalid point")
 	}
-	res := g1.g.ScalarMult(a, new(big.Int).SetBytes(k)).Marshal()
+	scalar = g1.normalizeScalar(scalar)
+	p, err := g1.g.ScalarMult(a, scalar)
+	if err != nil {
+		panic("sm9: g1 rejected normalized scalar")
+	}
+	res := p.Marshal()
 	return new(big.Int).SetBytes(res[:32]), new(big.Int).SetBytes(res[32:])
 }
 

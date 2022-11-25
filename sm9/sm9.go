@@ -10,6 +10,7 @@ import (
 	"io"
 	"math/big"
 
+	"github.com/emmansun/gmsm/internal/bigmod"
 	"github.com/emmansun/gmsm/internal/subtle"
 	"github.com/emmansun/gmsm/kdf"
 	"github.com/emmansun/gmsm/sm3"
@@ -19,6 +20,10 @@ import (
 )
 
 // SM9 ASN.1 format reference: Information security technology - SM9 cryptographic algorithm application specification
+
+// OrderNat is the Nat presentation of Order
+var OrderNat = bigmod.NewModulusFromBig(bn256.Order)
+var OrderMinus2 = new(big.Int).Sub(bn256.Order, big.NewInt(2)).Bytes()
 
 var bigOne = big.NewInt(1)
 
@@ -57,6 +62,7 @@ func hash(z []byte, h hashMode) *big.Int {
 		ct++
 		md.Reset()
 	}
+	//TODO: how to rewrite this part with nat?
 	k := new(big.Int).SetBytes(ha[:40])
 	n := new(big.Int).Sub(bn256.Order, bigOne)
 	k.Mod(k, n)
@@ -72,48 +78,70 @@ func hashH2(z []byte) *big.Int {
 	return hash(z, H2)
 }
 
-// randFieldElement returns a random element of the order of the given
-// curve using the procedure given in FIPS 186-4, Appendix B.5.1.
-func randFieldElement(rand io.Reader) (k *big.Int, err error) {
-	b := make([]byte, 40) // (256 + 64） / 8
-	_, err = io.ReadFull(rand, b)
-	if err != nil {
-		return
-	}
+func randomScalar(rand io.Reader) (k *bigmod.Nat, err error) {
+	k = bigmod.NewNat()
+	for {
+		b := make([]byte, OrderNat.Size())
+		if _, err = io.ReadFull(rand, b); err != nil {
+			return
+		}
 
-	k = new(big.Int).SetBytes(b)
-	n := new(big.Int).Sub(bn256.Order, bigOne)
-	k.Mod(k, n)
-	k.Add(k, bigOne)
+		// Mask off any excess bits to increase the chance of hitting a value in
+		// (0, N). These are the most dangerous lines in the package and maybe in
+		// the library: a single bit of bias in the selection of nonces would likely
+		// lead to key recovery, but no tests would fail. Look but DO NOT TOUCH.
+		if excess := len(b)*8 - OrderNat.BitLen(); excess > 0 {
+			// Just to be safe, assert that this only happens for the one curve that
+			// doesn't have a round number of bits.
+			if excess != 0 {
+				panic("sm9: internal error: unexpectedly masking off bits")
+			}
+			b[0] >>= excess
+		}
+
+		// FIPS 186-4 makes us check k <= N - 2 and then add one.
+		// Checking 0 < k <= N - 1 is strictly equivalent.
+		// None of this matters anyway because the chance of selecting
+		// zero is cryptographically negligible.
+		if _, err = k.SetBytes(b, OrderNat); err == nil && k.IsZero() == 0 {
+			break
+		}
+	}
 	return
 }
 
 // Sign signs a hash (which should be the result of hashing a larger message)
 // using the user dsa key. It returns the signature as a pair of h and s.
 func Sign(rand io.Reader, priv *SignPrivateKey, hash []byte) (h *big.Int, s *bn256.G1, err error) {
-	var r *big.Int
+	var (
+		r    *bigmod.Nat
+		w    *bn256.GT
+		hNat *bigmod.Nat
+	)
 	for {
-		r, err = randFieldElement(rand)
+		r, err = randomScalar(rand)
 		if err != nil {
 			return
 		}
 
-		w := priv.SignMasterPublicKey.ScalarBaseMult(r)
+		w, err = priv.SignMasterPublicKey.ScalarBaseMult(r.Bytes(OrderNat))
+		if err != nil {
+			return
+		}
 
 		var buffer []byte
 		buffer = append(buffer, hash...)
 		buffer = append(buffer, w.Marshal()...)
 
 		h = hashH2(buffer)
-
-		l := new(big.Int).Sub(r, h)
-
-		if l.Sign() < 0 {
-			l.Add(l, bn256.Order)
+		hNat, err = bigmod.NewNat().SetBytes(h.Bytes(), OrderNat)
+		if err != nil {
+			return
 		}
+		r.Sub(hNat, OrderNat)
 
-		if l.Sign() != 0 {
-			s = new(bn256.G1).ScalarMult(priv.PrivateKey, l)
+		if r.IsZero() == 0 {
+			s, err = new(bn256.G1).ScalarMult(priv.PrivateKey, r.Bytes(OrderNat))
 			break
 		}
 	}
@@ -129,7 +157,7 @@ func (priv *SignPrivateKey) Sign(rand io.Reader, hash []byte, opts crypto.Signer
 		return nil, err
 	}
 
-	hBytes := make([]byte, 32)
+	hBytes := make([]byte, OrderNat.Size())
 	h.FillBytes(hBytes)
 
 	var b cryptobyte.Builder
@@ -156,7 +184,15 @@ func Verify(pub *SignMasterPublicKey, uid []byte, hid byte, hash []byte, h *big.
 		return false
 	}
 
-	t := pub.ScalarBaseMult(h)
+	hNat, err := bigmod.NewNat().SetBytes(h.Bytes(), OrderNat)
+	if err != nil {
+		return false
+	}
+
+	t, err := pub.ScalarBaseMult(hNat.Bytes(OrderNat))
+	if err != nil {
+		return false
+	}
 
 	// user sign public key p generation
 	p := pub.GenerateUserPublicKey(uid, hid)
@@ -210,17 +246,26 @@ func (pub *SignMasterPublicKey) Verify(uid []byte, hid byte, hash, sig []byte) b
 // WrapKey generate and wrap key with reciever's uid and system hid
 func WrapKey(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, kLen int) (key []byte, cipher *bn256.G1, err error) {
 	q := pub.GenerateUserPublicKey(uid, hid)
-	var r *big.Int
+	var (
+		r *bigmod.Nat
+		w *bn256.GT
+	)
 	for {
-		r, err = randFieldElement(rand)
+		r, err = randomScalar(rand)
 		if err != nil {
 			return
 		}
 
-		cipher = new(bn256.G1).ScalarMult(q, r)
+		rBytes := r.Bytes(OrderNat)
+		cipher, err = new(bn256.G1).ScalarMult(q, rBytes)
+		if err != nil {
+			return
+		}
 
-		w := pub.ScalarBaseMult(r)
-
+		w, err = pub.ScalarBaseMult(rBytes)
+		if err != nil {
+			return
+		}
 		var buffer []byte
 		buffer = append(buffer, cipher.Marshal()...)
 		buffer = append(buffer, w.Marshal()...)
@@ -463,7 +508,7 @@ type KeyExchange struct {
 	privateKey   *EncryptPrivateKey // owner's encryption private key
 	uid          []byte             // owner uid
 	peerUID      []byte             // peer uid
-	r            *big.Int           // random which will be used to compute secret
+	r            *bigmod.Nat        // random which will be used to compute secret
 	secret       *bn256.G1          // generated secret which will be passed to peer
 	peerSecret   *bn256.G1          // received peer's secret
 	g1           *bn256.GT          // internal state which will be used when compute the key and signature
@@ -485,7 +530,7 @@ func NewKeyExchange(priv *EncryptPrivateKey, uid, peerUID []byte, keyLen int, ge
 // Destroy clear all internal state and Ephemeral private/public keys
 func (ke *KeyExchange) Destroy() {
 	if ke.r != nil {
-		ke.r.SetInt64(0)
+		ke.r.SetBytes([]byte{0}, OrderNat)
 	}
 	if ke.g1 != nil {
 		ke.g1.SetOne()
@@ -498,16 +543,19 @@ func (ke *KeyExchange) Destroy() {
 	}
 }
 
-func initKeyExchange(ke *KeyExchange, hid byte, r *big.Int) {
+func initKeyExchange(ke *KeyExchange, hid byte, r *bigmod.Nat) {
 	pubB := ke.privateKey.GenerateUserPublicKey(ke.peerUID, hid)
 	ke.r = r
-	rA := new(bn256.G1).ScalarMult(pubB, ke.r)
+	rA, err := new(bn256.G1).ScalarMult(pubB, ke.r.Bytes(OrderNat))
+	if err != nil {
+		panic(err)
+	}
 	ke.secret = rA
 }
 
 // InitKeyExchange generate random with responder uid, for initiator's step A1-A4
 func (ke *KeyExchange) InitKeyExchange(rand io.Reader, hid byte) (*bn256.G1, error) {
-	r, err := randFieldElement(rand)
+	r, err := randomScalar(rand)
 	if err != nil {
 		return nil, err
 	}
@@ -559,20 +607,33 @@ func (ke *KeyExchange) generateSharedKey(isResponder bool) ([]byte, error) {
 	return kdf.Kdf(sm3.New(), buffer, ke.keyLength), nil
 }
 
-func respondKeyExchange(ke *KeyExchange, hid byte, r *big.Int, rA *bn256.G1) (*bn256.G1, []byte, error) {
+func respondKeyExchange(ke *KeyExchange, hid byte, r *bigmod.Nat, rA *bn256.G1) (*bn256.G1, []byte, error) {
 	if !rA.IsOnCurve() {
 		return nil, nil, errors.New("sm9: invalid initiator's ephemeral public key")
 	}
 	ke.peerSecret = rA
 	pubA := ke.privateKey.GenerateUserPublicKey(ke.peerUID, hid)
 	ke.r = r
-	rB := new(bn256.G1).ScalarMult(pubA, r)
+	rBytes := r.Bytes(OrderNat)
+	rB, err := new(bn256.G1).ScalarMult(pubA, rBytes)
+	if err != nil {
+		return nil, nil, err
+	}
 	ke.secret = rB
 
 	ke.g1 = bn256.Pair(ke.peerSecret, ke.privateKey.PrivateKey)
 	ke.g3 = &bn256.GT{}
-	ke.g3.ScalarMult(ke.g1, r)
-	ke.g2 = ke.privateKey.EncryptMasterPublicKey.ScalarBaseMult(r)
+	g3, err := bn256.ScalarMultGT(ke.g1, rBytes)
+	if err != nil {
+		return nil, nil, err
+	}
+	ke.g3 = g3
+
+	g2, err := ke.privateKey.EncryptMasterPublicKey.ScalarBaseMult(rBytes)
+	if err != nil {
+		return nil, nil, err
+	}
+	ke.g2 = g2
 
 	if !ke.genSignature {
 		return ke.secret, nil, nil
@@ -583,7 +644,7 @@ func respondKeyExchange(ke *KeyExchange, hid byte, r *big.Int, rA *bn256.G1) (*b
 
 // RepondKeyExchange when responder receive rA, for responder's step B1-B7
 func (ke *KeyExchange) RepondKeyExchange(rand io.Reader, hid byte, rA *bn256.G1) (*bn256.G1, []byte, error) {
-	r, err := randFieldElement(rand)
+	r, err := randomScalar(rand)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -597,10 +658,18 @@ func (ke *KeyExchange) ConfirmResponder(rB *bn256.G1, sB []byte) ([]byte, []byte
 	}
 	// step 5
 	ke.peerSecret = rB
-	ke.g1 = ke.privateKey.EncryptMasterPublicKey.ScalarBaseMult(ke.r)
+	g1, err := ke.privateKey.EncryptMasterPublicKey.ScalarBaseMult(ke.r.Bytes(OrderNat))
+	if err != nil {
+		return nil, nil, err
+	}
+	ke.g1 = g1
 	ke.g2 = bn256.Pair(ke.peerSecret, ke.privateKey.PrivateKey)
 	ke.g3 = &bn256.GT{}
-	ke.g3.ScalarMult(ke.g2, ke.r)
+	g3, err := bn256.ScalarMultGT(ke.g2, ke.r.Bytes(OrderNat))
+	if err != nil {
+		return nil, nil, err
+	}
+	ke.g3 = g3
 	// step 6, verify signature
 	if len(sB) > 0 {
 		signature := ke.sign(false, 0x82)

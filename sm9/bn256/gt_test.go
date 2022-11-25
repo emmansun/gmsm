@@ -24,6 +24,19 @@ func TestGT(t *testing.T) {
 	if !bytes.Equal(ma, mb) {
 		t.Fatal("bytes are different")
 	}
+
+	_, err = Gb.Unmarshal((&GT{gfP12Gen}).Marshal())
+	if err != nil {
+		t.Fatal("unmarshal not ok")
+	}
+	Gc, err := ScalarMultGT(Gb, k.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	mc := Gc.Marshal()
+	if !bytes.Equal(ma, mc) {
+		t.Fatal("bytes are different")
+	}
 }
 
 func BenchmarkGT(b *testing.B) {

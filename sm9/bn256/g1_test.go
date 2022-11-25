@@ -177,7 +177,10 @@ func TestG1ScaleMult(t *testing.T) {
 		t.Errorf("not same")
 	}
 
-	e3.ScalarMult(Gen1, k)
+	_, err = e3.ScalarMult(Gen1, NormalizeScalar(k.Bytes()))
+	if err != nil {
+		t.Fatal(err)
+	}
 	e3.p.MakeAffine()
 
 	if !e.Equal(e3) {

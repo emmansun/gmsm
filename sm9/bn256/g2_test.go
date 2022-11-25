@@ -14,7 +14,10 @@ func TestG2(t *testing.T) {
 	}
 	ma := Ga.Marshal()
 
-	Gb := new(G2).ScalarBaseMult(k)
+	Gb, err := new(G2).ScalarBaseMult(NormalizeScalar(k.Bytes()))
+	if err != nil {
+		t.Fatal(err)
+	}
 	mb := Gb.Marshal()
 
 	if !bytes.Equal(ma, mb) {
@@ -86,7 +89,10 @@ func TestScaleMult(t *testing.T) {
 	e3.p.Mul(twistGen, k)
 	e3.p.MakeAffine()
 
-	e2.ScalarMult(Gen2, k)
+	_, err = e2.ScalarMult(Gen2, NormalizeScalar(k.Bytes()))
+	if err != nil {
+		t.Fatal(err)
+	}
 	e2.p.MakeAffine()
 	if !e.Equal(e2) {
 		t.Errorf("not same")
@@ -110,10 +116,11 @@ func TestG2AddNeg(t *testing.T) {
 
 func BenchmarkG2(b *testing.B) {
 	x, _ := rand.Int(rand.Reader, Order)
+	xb := NormalizeScalar(x.Bytes())
 	b.ReportAllocs()
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		new(G2).ScalarBaseMult(x)
+		new(G2).ScalarBaseMult(xb)
 	}
 }
