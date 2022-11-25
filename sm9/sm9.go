@@ -24,7 +24,12 @@ import (
 var orderNat = bigmod.NewModulusFromBig(bn256.Order)
 var orderMinus2 = new(big.Int).Sub(bn256.Order, big.NewInt(2)).Bytes()
 var bigOne = big.NewInt(1)
-var orderMinus1 = new(big.Int).Sub(bn256.Order, bigOne)
+var bigOneNat *bigmod.Nat
+var orderMinus1 = bigmod.NewNat().SetBig(new(big.Int).Sub(bn256.Order, bigOne))
+
+func init() {
+	bigOneNat, _ = bigmod.NewNat().SetBytes(bigOne.Bytes(), orderNat)
+}
 
 type hashMode byte
 
@@ -46,7 +51,7 @@ const (
 )
 
 //hash implements H1(Z,n) or H2(Z,n) in sm9 algorithm.
-func hash(z []byte, h hashMode) *big.Int {
+func hash(z []byte, h hashMode) *bigmod.Nat {
 	md := sm3.New()
 	var ha [64]byte
 	var countBytes [4]byte
@@ -61,18 +66,18 @@ func hash(z []byte, h hashMode) *big.Int {
 		ct++
 		md.Reset()
 	}
-	//TODO: how to rewrite this part with nat?
 	k := new(big.Int).SetBytes(ha[:40])
-	k.Mod(k, orderMinus1)
-	k.Add(k, bigOne)
-	return k
+	kNat := bigmod.NewNat().SetBig(k)
+	kNat = bigmod.NewNat().ModNat(kNat, orderMinus1)
+	kNat.Add(bigOneNat, orderNat)
+	return kNat
 }
 
-func hashH1(z []byte) *big.Int {
+func hashH1(z []byte) *bigmod.Nat {
 	return hash(z, H1)
 }
 
-func hashH2(z []byte) *big.Int {
+func hashH2(z []byte) *bigmod.Nat {
 	return hash(z, H2)
 }
 
@@ -131,14 +136,11 @@ func Sign(rand io.Reader, priv *SignPrivateKey, hash []byte) (h *big.Int, s *bn2
 		buffer = append(buffer, hash...)
 		buffer = append(buffer, w.Marshal()...)
 
-		h = hashH2(buffer)
-		hNat, err = bigmod.NewNat().SetBytes(h.Bytes(), orderNat)
-		if err != nil {
-			return
-		}
+		hNat = hashH2(buffer)
 		r.Sub(hNat, orderNat)
 
 		if r.IsZero() == 0 {
+			h = new(big.Int).SetBytes(hNat.Bytes(orderNat))
 			s, err = new(bn256.G1).ScalarMult(priv.PrivateKey, r.Bytes(orderNat))
 			break
 		}
@@ -203,7 +205,7 @@ func Verify(pub *SignMasterPublicKey, uid []byte, hid byte, hash []byte, h *big.
 	buffer = append(buffer, w.Marshal()...)
 	h2 := hashH2(buffer)
 
-	return h.Cmp(h2) == 0
+	return h2.Equal(hNat) == 1
 }
 
 // VerifyASN1 verifies the ASN.1 encoded signature of type SM9Signature, sig, of hash using the

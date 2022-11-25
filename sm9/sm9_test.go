@@ -24,8 +24,8 @@ func bigFromHex(s string) *big.Int {
 func TestHashH1(t *testing.T) {
 	expected := "2acc468c3926b0bdb2767e99ff26e084de9ced8dbc7d5fbf418027b667862fab"
 	h := hashH1([]byte{0x41, 0x6c, 0x69, 0x63, 0x65, 0x01})
-	if hex.EncodeToString(h.Bytes()) != expected {
-		t.Errorf("got %v, expected %v", hex.EncodeToString(h.Bytes()), expected)
+	if hex.EncodeToString(h.Bytes(orderNat)) != expected {
+		t.Errorf("got %v, expected %v", h.Bytes(orderNat), expected)
 	}
 }
 
@@ -37,8 +37,8 @@ func TestHashH2(t *testing.T) {
 		t.Fatal(err)
 	}
 	h := hashH2(z)
-	if hex.EncodeToString(h.Bytes()) != expected {
-		t.Errorf("got %v, expected %v", hex.EncodeToString(h.Bytes()), expected)
+	if hex.EncodeToString(h.Bytes(orderNat)) != expected {
+		t.Errorf("got %v, expected %v", h.Bytes(orderNat), expected)
 	}
 }
 
@@ -91,11 +91,19 @@ func TestSignASN1(t *testing.T) {
 // SM9 Appendix A
 func TestSignSM9Sample(t *testing.T) {
 	expectedH := bigFromHex("823c4b21e4bd2dfe1ed92c606653e996668563152fc33f55d7bfbb9bd9705adb")
+	expectedHNat, err := bigmod.NewNat().SetBytes(expectedH.Bytes(), orderNat)
+	if err != nil {
+		t.Fatal(err)
+	}
 	expectedS := "0473bf96923ce58b6ad0e13e9643a406d8eb98417c50ef1b29cef9adb48b6d598c856712f1c2e0968ab7769f42a99586aed139d5b8b3e15891827cc2aced9baa05"
 	hash := []byte("Chinese IBS standard")
 	hid := byte(0x01)
 	uid := []byte("Alice")
 	r := bigFromHex("033c8616b06704813203dfd00965022ed15975c662337aed648835dc4b1cbe")
+	rNat, err := bigmod.NewNat().SetBytes(r.Bytes(), orderNat)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	masterKey := new(SignMasterPrivateKey)
 	masterKey.D = bigFromHex("0130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4")
@@ -118,17 +126,13 @@ func TestSignSM9Sample(t *testing.T) {
 	buffer = append(buffer, w.Marshal()...)
 
 	h := hashH2(buffer)
-	if h.Cmp(expectedH) != 0 {
+	if h.Equal(expectedHNat) == 0 {
 		t.Fatal("not same h")
 	}
 
-	l := new(big.Int).Sub(r, h)
+	rNat.Sub(h, orderNat)
 
-	if l.Sign() < 0 {
-		l.Add(l, bn256.Order)
-	}
-
-	s, err := new(bn256.G1).ScalarMult(userKey.PrivateKey, bn256.NormalizeScalar(l.Bytes()))
+	s, err := new(bn256.G1).ScalarMult(userKey.PrivateKey, rNat.Bytes(orderNat))
 	if err != nil {
 		t.Fatal(err)
 	}

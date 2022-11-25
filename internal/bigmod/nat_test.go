@@ -244,6 +244,52 @@ func TestMod(t *testing.T) {
 	}
 }
 
+func TestModNat(t *testing.T) {
+	order, _ := new(big.Int).SetString("b640000002a3a6f1d603ab4ff58ec74449f2934b18ea8beee56ee19cd69ecf25", 16)
+	orderNat := NewModulusFromBig(order)
+	oneNat, err := NewNat().SetBytes(big.NewInt(1).Bytes(), orderNat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	orderMinus1, _ := new(big.Int).SetString("b640000002a3a6f1d603ab4ff58ec74449f2934b18ea8beee56ee19cd69ecf24", 16)
+	hashValue1, _ := new(big.Int).SetString("1000000000000000a640000002a3a6f1d603ab4ff58ec74449f2934b18ea8beee56ee19cd69ecf25", 16)
+	hashValue2, _ := new(big.Int).SetString("1000000000000000b640000002a3a6f1d603ab4ff58ec74449f2934b18ea8beee56ee19cd69ecf23", 16)
+	examples := []struct {
+		in       *big.Int
+		expected *big.Int
+	}{
+		{
+			big.NewInt(1),
+			big.NewInt(2),
+		},
+		{
+			orderMinus1,
+			big.NewInt(1),
+		},
+		{
+			order,
+			big.NewInt(2),
+		},
+		{
+			hashValue1,
+			new(big.Int).Add(new(big.Int).Mod(hashValue1, orderMinus1), big.NewInt(1)),
+		},
+		{
+			hashValue2,
+			new(big.Int).Add(new(big.Int).Mod(hashValue2, orderMinus1), big.NewInt(1)),
+		},
+	}
+	for i, tt := range examples {
+		kNat := NewNat().SetBig(tt.in)
+		kNat = NewNat().ModNat(kNat, NewNat().SetBig(orderMinus1))
+		kNat.Add(oneNat, orderNat)
+		out := new(big.Int).SetBytes(kNat.Bytes(orderNat))
+		if out.Cmp(tt.expected) != 0 {
+			t.Errorf("%d: got %x, expected %x", i, out, tt.expected)
+		}
+	}
+}
+
 func TestModSub(t *testing.T) {
 	m := modulusFromBytes([]byte{13})
 	x := &Nat{[]uint{6}}
@@ -293,7 +339,7 @@ func natBytes(n *Nat) []byte {
 
 func natFromBytes(b []byte) *Nat {
 	bb := new(big.Int).SetBytes(b)
-	return NewNat().setBig(bb)
+	return NewNat().SetBig(bb)
 }
 
 func modulusFromBytes(b []byte) *Modulus {

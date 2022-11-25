@@ -123,11 +123,11 @@ func (x *Nat) Set(y *Nat) *Nat {
 	return x
 }
 
-// setBig assigns x = n, optionally resizing n to the appropriate size.
+// SetBig assigns x = n, optionally resizing n to the appropriate size.
 //
 // The announced length of x is set based on the actual bit size of the input,
 // ignoring leading zeroes.
-func (x *Nat) setBig(n *big.Int) *Nat {
+func (x *Nat) SetBig(n *big.Int) *Nat {
 	requiredLimbs := (n.BitLen() + _W - 1) / _W
 	x.reset(requiredLimbs)
 
@@ -386,7 +386,7 @@ func minusInverseModW(x uint) uint {
 // The Int must be odd. The number of significant bits must be leakable.
 func NewModulusFromBig(n *big.Int) *Modulus {
 	m := &Modulus{}
-	m.nat = NewNat().setBig(n)
+	m.nat = NewNat().SetBig(n)
 	m.leading = _W - bitLen(m.nat.limbs[len(m.nat.limbs)-1])
 	m.m0inv = minusInverseModW(m.nat.limbs[0])
 	m.rr = rr(m)
@@ -426,13 +426,20 @@ func (m *Modulus) Nat() *Nat {
 //
 // This assumes that x is already reduced mod m, and that y < 2^_W.
 func (x *Nat) shiftIn(y uint, m *Modulus) *Nat {
-	d := NewNat().resetFor(m)
+	return x.shiftInNat(y, m.nat)
+}
+
+// shiftIn calculates x = x << _W + y mod m.
+//
+// This assumes that x is already reduced mod m, and that y < 2^_W.
+func (x *Nat) shiftInNat(y uint, m *Nat) *Nat {
+	d := NewNat().reset(len(m.limbs))
 
 	// Eliminate bounds checks in the loop.
-	size := len(m.nat.limbs)
+	size := len(m.limbs)
 	xLimbs := x.limbs[:size]
 	dLimbs := d.limbs[:size]
-	mLimbs := m.nat.limbs[:size]
+	mLimbs := m.limbs[:size]
 
 	// Each iteration of this loop computes x = 2x + b mod m, where b is a bit
 	// from y. Effectively, it left-shifts x and adds y one bit at a time,
@@ -469,7 +476,16 @@ func (x *Nat) shiftIn(y uint, m *Modulus) *Nat {
 //
 // The output will be resized to the size of m and overwritten.
 func (out *Nat) Mod(x *Nat, m *Modulus) *Nat {
-	out.resetFor(m)
+	return out.ModNat(x, m.nat)
+}
+
+// Mod calculates out = x mod m.
+//
+// This works regardless how large the value of x is.
+//
+// The output will be resized to the size of m and overwritten.
+func (out *Nat) ModNat(x *Nat, m *Nat) *Nat {
+	out.reset(len(m.limbs))
 	// Working our way from the most significant to the least significant limb,
 	// we can insert each limb at the least significant position, shifting all
 	// previous limbs left by _W. This way each limb will get shifted by the
@@ -478,7 +494,7 @@ func (out *Nat) Mod(x *Nat, m *Modulus) *Nat {
 	i := len(x.limbs) - 1
 	// For the first N - 1 limbs we can skip the actual shifting and position
 	// them at the shifted position, which starts at min(N - 2, i).
-	start := len(m.nat.limbs) - 2
+	start := len(m.limbs) - 2
 	if i < start {
 		start = i
 	}
@@ -488,7 +504,7 @@ func (out *Nat) Mod(x *Nat, m *Modulus) *Nat {
 	}
 	// We shift in the remaining limbs, reducing modulo m each time.
 	for i >= 0 {
-		out.shiftIn(x.limbs[i], m)
+		out.shiftInNat(x.limbs[i], m)
 		i--
 	}
 	return out

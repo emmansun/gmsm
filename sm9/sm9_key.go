@@ -116,12 +116,7 @@ func (master *SignMasterPrivateKey) GenerateUserKey(uid []byte, hid byte) (*Sign
 	id = append(id, uid...)
 	id = append(id, hid)
 
-	t1 := hashH1(id)
-
-	t1Nat, err := bigmod.NewNat().SetBytes(t1.Bytes(), orderNat)
-	if err != nil {
-		return nil, err
-	}
+	t1Nat := hashH1(id)
 
 	d, err := bigmod.NewNat().SetBytes(master.D.Bytes(), orderNat)
 	if err != nil {
@@ -180,7 +175,7 @@ func (pub *SignMasterPublicKey) GenerateUserPublicKey(uid []byte, hid byte) *bn2
 	buffer = append(buffer, uid...)
 	buffer = append(buffer, hid)
 	h1 := hashH1(buffer)
-	p, err := new(bn256.G2).ScalarBaseMult(bn256.NormalizeScalar(h1.Bytes()))
+	p, err := new(bn256.G2).ScalarBaseMult(h1.Bytes(orderNat))
 	if err != nil {
 		panic(err)
 	}
@@ -376,12 +371,7 @@ func (master *EncryptMasterPrivateKey) GenerateUserKey(uid []byte, hid byte) (*E
 	id = append(id, uid...)
 	id = append(id, hid)
 
-	t1 := hashH1(id)
-
-	t1Nat, err := bigmod.NewNat().SetBytes(t1.Bytes(), orderNat)
-	if err != nil {
-		return nil, err
-	}
+	t1Nat := hashH1(id)
 
 	d, err := bigmod.NewNat().SetBytes(master.D.Bytes(), orderNat)
 	if err != nil {
@@ -476,7 +466,7 @@ func (pub *EncryptMasterPublicKey) GenerateUserPublicKey(uid []byte, hid byte) *
 	buffer = append(buffer, uid...)
 	buffer = append(buffer, hid)
 	h1 := hashH1(buffer)
-	p, err := new(bn256.G1).ScalarBaseMult(bn256.NormalizeScalar(h1.Bytes()))
+	p, err := new(bn256.G1).ScalarBaseMult(h1.Bytes(orderNat))
 	if err != nil {
 		panic(err)
 	}
