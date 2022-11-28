@@ -115,21 +115,38 @@ func randomScalar(rand io.Reader) (k *bigmod.Nat, err error) {
 
 // Sign signs a hash (which should be the result of hashing a larger message)
 // using the user dsa key. It returns the signature as a pair of h and s.
+// Please use SignASN1 instead.
 func Sign(rand io.Reader, priv *SignPrivateKey, hash []byte) (h *big.Int, s *bn256.G1, err error) {
+	sig, err := SignASN1(rand, priv, hash)
+	if err != nil {
+		return nil, nil, err
+	}
+	return parseSignature(sig)
+}
+
+// Sign signs digest with user's DSA key, reading randomness from rand. The opts argument
+// is not currently used but, in keeping with the crypto.Signer interface.
+// The result is SM9Signature ASN.1 format.
+func (priv *SignPrivateKey) Sign(rand io.Reader, hash []byte, opts crypto.SignerOpts) ([]byte, error) {
+	return SignASN1(rand, priv, hash)
+}
+
+// SignASN1 signs a hash (which should be the result of hashing a larger message)
+// using the private key, priv. It returns the ASN.1 encoded signature of type SM9Signature.
+func SignASN1(rand io.Reader, priv *SignPrivateKey, hash []byte) ([]byte, error) {
 	var (
-		r    *bigmod.Nat
-		w    *bn256.GT
 		hNat *bigmod.Nat
+		s    *bn256.G1
 	)
 	for {
-		r, err = randomScalar(rand)
+		r, err := randomScalar(rand)
 		if err != nil {
-			return
+			return nil, err
 		}
 
-		w, err = priv.SignMasterPublicKey.ScalarBaseMult(r.Bytes(orderNat))
+		w, err := priv.SignMasterPublicKey.ScalarBaseMult(r.Bytes(orderNat))
 		if err != nil {
-			return
+			return nil, err
 		}
 
 		var buffer []byte
@@ -140,26 +157,30 @@ func Sign(rand io.Reader, priv *SignPrivateKey, hash []byte) (h *big.Int, s *bn2
 		r.Sub(hNat, orderNat)
 
 		if r.IsZero() == 0 {
-			h = new(big.Int).SetBytes(hNat.Bytes(orderNat))
 			s, err = new(bn256.G1).ScalarMult(priv.PrivateKey, r.Bytes(orderNat))
+			if err != nil {
+				return nil, err
+			}
 			break
 		}
 	}
-	return
+
+	return encodeSignature(hNat.Bytes(orderNat), s)
 }
 
-// Sign signs digest with user's DSA key, reading randomness from rand. The opts argument
-// is not currently used but, in keeping with the crypto.Signer interface.
-// The result is SM9Signature ASN.1 format.
-func (priv *SignPrivateKey) Sign(rand io.Reader, hash []byte, opts crypto.SignerOpts) ([]byte, error) {
-	h, s, err := Sign(rand, priv, hash)
-	if err != nil {
-		return nil, err
-	}
-
+// Verify verifies the signature in h, s of hash using the master dsa public key and user id, uid and hid.
+// Its return value records whether the signature is valid. Please use VerifyASN1 instead.
+func Verify(pub *SignMasterPublicKey, uid []byte, hid byte, hash []byte, h *big.Int, s *bn256.G1) bool {
 	hBytes := make([]byte, orderNat.Size())
 	h.FillBytes(hBytes)
+	sig, err := encodeSignature(hBytes, s)
+	if err != nil {
+		return false
+	}
+	return VerifyASN1(pub, uid, hid, hash, sig)
+}
 
+func encodeSignature(hBytes []byte, s *bn256.G1) ([]byte, error) {
 	var b cryptobyte.Builder
 	b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
 		b.AddASN1OctetString(hBytes)
@@ -168,15 +189,39 @@ func (priv *SignPrivateKey) Sign(rand io.Reader, hash []byte, opts crypto.Signer
 	return b.Bytes()
 }
 
-// SignASN1 signs a hash (which should be the result of hashing a larger message)
-// using the private key, priv. It returns the ASN.1 encoded signature of type SM9Signature.
-func SignASN1(rand io.Reader, priv *SignPrivateKey, hash []byte) ([]byte, error) {
-	return priv.Sign(rand, hash, nil)
+func parseSignature(sig []byte) (*big.Int, *bn256.G1, error) {
+	var (
+		hBytes []byte
+		sBytes []byte
+		inner  cryptobyte.String
+	)
+	input := cryptobyte.String(sig)
+	if !input.ReadASN1(&inner, asn1.SEQUENCE) ||
+		!input.Empty() ||
+		!inner.ReadASN1Bytes(&hBytes, asn1.OCTET_STRING) ||
+		!inner.ReadASN1BitStringAsBytes(&sBytes) ||
+		!inner.Empty() {
+		return nil, nil, errors.New("invalid ASN.1")
+	}
+	h := new(big.Int).SetBytes(hBytes)
+	if sBytes[0] != 4 {
+		return nil, nil, errors.New("sm9: invalid point format")
+	}
+	s := new(bn256.G1)
+	_, err := s.Unmarshal(sBytes[1:])
+	if err != nil {
+		return nil, nil, err
+	}
+	return h, s, nil
 }
 
-// Verify verifies the signature in h, s of hash using the master dsa public key and user id, uid and hid.
-// Its return value records whether the signature is valid.
-func Verify(pub *SignMasterPublicKey, uid []byte, hid byte, hash []byte, h *big.Int, s *bn256.G1) bool {
+// VerifyASN1 verifies the ASN.1 encoded signature of type SM9Signature, sig, of hash using the
+// public key, pub. Its return value records whether the signature is valid.
+func VerifyASN1(pub *SignMasterPublicKey, uid []byte, hid byte, hash, sig []byte) bool {
+	h, s, err := parseSignature(sig)
+	if err != nil {
+		return false
+	}
 	if h.Sign() <= 0 || h.Cmp(bn256.Order) >= 0 {
 		return false
 	}
@@ -206,35 +251,6 @@ func Verify(pub *SignMasterPublicKey, uid []byte, hid byte, hash []byte, h *big.
 	h2 := hashH2(buffer)
 
 	return h2.Equal(hNat) == 1
-}
-
-// VerifyASN1 verifies the ASN.1 encoded signature of type SM9Signature, sig, of hash using the
-// public key, pub. Its return value records whether the signature is valid.
-func VerifyASN1(pub *SignMasterPublicKey, uid []byte, hid byte, hash, sig []byte) bool {
-	var (
-		hBytes []byte
-		sBytes []byte
-		inner  cryptobyte.String
-	)
-	input := cryptobyte.String(sig)
-	if !input.ReadASN1(&inner, asn1.SEQUENCE) ||
-		!input.Empty() ||
-		!inner.ReadASN1Bytes(&hBytes, asn1.OCTET_STRING) ||
-		!inner.ReadASN1BitStringAsBytes(&sBytes) ||
-		!inner.Empty() {
-		return false
-	}
-	h := new(big.Int).SetBytes(hBytes)
-	if sBytes[0] != 4 {
-		return false
-	}
-	s := new(bn256.G1)
-	_, err := s.Unmarshal(sBytes[1:])
-	if err != nil {
-		return false
-	}
-
-	return Verify(pub, uid, hid, hash, h, s)
 }
 
 // Verify verifies the ASN.1 encoded signature, sig, of hash using the

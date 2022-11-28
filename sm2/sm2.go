@@ -505,8 +505,10 @@ func SignASN1(rand io.Reader, priv *PrivateKey, hash []byte, opts crypto.SignerO
 func signSM2EC(c *sm2Curve, priv *PrivateKey, csprng io.Reader, hash []byte) (sig []byte, err error) {
 	e := bigmod.NewNat()
 	hashToNat(c, e, hash)
-	var k, r, s, dp1Inv, oneNat *bigmod.Nat
-	var R *_sm2ec.SM2P256Point
+	var (
+		k, r, s, dp1Inv, oneNat *bigmod.Nat
+		R                       *_sm2ec.SM2P256Point
+	)
 
 	oneNat, err = bigmod.NewNat().SetBytes(one.Bytes(), c.N)
 	if err != nil {
