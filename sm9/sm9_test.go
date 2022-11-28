@@ -79,11 +79,11 @@ func TestSignASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sig, err := SignASN1(rand.Reader, userKey, hashed)
+	sig, err := userKey.Sign(rand.Reader, hashed, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !VerifyASN1(masterKey.Public(), uid, hid, hashed, sig) {
+	if !masterKey.Public().Verify(uid, hid, hashed, sig) {
 		t.Errorf("Verify failed")
 	}
 }
@@ -584,7 +584,7 @@ func TestEncryptDecrypt(t *testing.T) {
 		t.Errorf("expected %v, got %v\n", string(plaintext), string(got))
 	}
 
-	got, err = Decrypt(userKey, uid, cipher)
+	got, err = userKey.Decrypt(uid, cipher)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -620,7 +620,7 @@ func TestEncryptDecryptASN1(t *testing.T) {
 		t.Errorf("expected %v, got %v\n", string(plaintext), string(got))
 	}
 
-	got, err = DecryptASN1(userKey, uid, cipher)
+	got, err = userKey.Decrypt(uid, cipher)
 	if err != nil {
 		t.Fatal(err)
 	}
