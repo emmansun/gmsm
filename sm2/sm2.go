@@ -543,10 +543,10 @@ func signSM2EC(c *sm2Curve, priv *PrivateKey, csprng io.Reader, hash []byte) (si
 				return nil, err
 			}
 			r.Add(e, c.N) // r = (Rx + e) mod N
-			if r.IsZero() != 1 {
+			if r.IsZero() == 0 {
 				t := bigmod.NewNat().Set(k)
 				t.Add(r, c.N)
-				if t.IsZero() != 1 { // if (r + k) != N then ok
+				if t.IsZero() == 0 { // if (r + k) != N then ok
 					break
 				}
 			}
@@ -558,7 +558,7 @@ func signSM2EC(c *sm2Curve, priv *PrivateKey, csprng io.Reader, hash []byte) (si
 		s.Mul(r, c.N)
 		k.Sub(s, c.N)
 		k.Mul(dp1Inv, c.N)
-		if k.IsZero() != 1 {
+		if k.IsZero() == 0 {
 			break
 		}
 	}
