@@ -1,6 +1,7 @@
 package sm2
 
 import (
+	"bufio"
 	"bytes"
 	"crypto"
 	"crypto/ecdsa"
@@ -19,7 +20,7 @@ import (
 	"golang.org/x/crypto/cryptobyte/asn1"
 )
 
-func Test_SplicingOrder(t *testing.T) {
+func TestSplicingOrder(t *testing.T) {
 	priv, _ := GenerateKey(rand.Reader)
 	tests := []struct {
 		name      string
@@ -65,7 +66,7 @@ func Test_SplicingOrder(t *testing.T) {
 	}
 }
 
-func Test_encryptDecrypt_ASN1(t *testing.T) {
+func TestEncryptDecryptASN1(t *testing.T) {
 	priv, _ := GenerateKey(rand.Reader)
 	priv2, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	key2 := new(PrivateKey)
@@ -142,7 +143,7 @@ func TestAdjustCiphertextSplicingOrder(t *testing.T) {
 	}
 }
 
-func Test_Ciphertext2ASN1(t *testing.T) {
+func TestCiphertext2ASN1(t *testing.T) {
 	priv, _ := GenerateKey(rand.Reader)
 	tests := []struct {
 		name      string
@@ -191,7 +192,7 @@ func Test_Ciphertext2ASN1(t *testing.T) {
 	}
 }
 
-func Test_ASN1Ciphertext2Plain(t *testing.T) {
+func TestCiphertextASN12Plain(t *testing.T) {
 	priv, _ := GenerateKey(rand.Reader)
 	tests := []struct {
 		name      string
@@ -223,7 +224,7 @@ func Test_ASN1Ciphertext2Plain(t *testing.T) {
 	}
 }
 
-func Test_encryptDecrypt(t *testing.T) {
+func TestEncryptDecrypt(t *testing.T) {
 	priv, _ := GenerateKey(rand.Reader)
 	priv2, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	key2 := new(PrivateKey)
@@ -292,7 +293,7 @@ func Test_encryptDecrypt(t *testing.T) {
 	}
 }
 
-func Test_signVerify(t *testing.T) {
+func TestSignVerify(t *testing.T) {
 	priv, _ := GenerateKey(rand.Reader)
 	tests := []struct {
 		name      string
@@ -305,20 +306,24 @@ func Test_signVerify(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hash := sm3.Sum([]byte(tt.plainText))
-			signature, err := priv.Sign(rand.Reader, hash[:], nil)
+			hashed := sm3.Sum([]byte(tt.plainText))
+			signature, err := priv.Sign(rand.Reader, hashed[:], nil)
 			if err != nil {
 				t.Fatalf("sign failed %v", err)
 			}
-			result := VerifyASN1(&priv.PublicKey, hash[:], signature)
+			result := VerifyASN1(&priv.PublicKey, hashed[:], signature)
 			if !result {
 				t.Fatal("verify failed")
+			}
+			hashed[0] ^= 0xff
+			if VerifyASN1(&priv.PublicKey, hashed[:], signature) {
+				t.Errorf("VerifyASN1 always works!")
 			}
 		})
 	}
 }
 
-func Test_signVerifyLegacy(t *testing.T) {
+func TestSignVerifyLegacy(t *testing.T) {
 	priv, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	tests := []struct {
 		name      string
@@ -331,14 +336,18 @@ func Test_signVerifyLegacy(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hash := sm3.Sum([]byte(tt.plainText))
-			r, s, err := Sign(rand.Reader, priv, hash[:])
+			hashed := sm3.Sum([]byte(tt.plainText))
+			r, s, err := Sign(rand.Reader, priv, hashed[:])
 			if err != nil {
 				t.Fatalf("sign failed %v", err)
 			}
-			result := Verify(&priv.PublicKey, hash[:], r, s)
+			result := Verify(&priv.PublicKey, hashed[:], r, s)
 			if !result {
 				t.Fatal("verify failed")
+			}
+			hashed[0] ^= 0xff
+			if Verify(&priv.PublicKey, hashed[:], r, s) {
+				t.Errorf("VerifyASN1 always works!")
 			}
 		})
 	}
@@ -346,7 +355,10 @@ func Test_signVerifyLegacy(t *testing.T) {
 
 // Check that signatures are safe even with a broken entropy source.
 func TestNonceSafety(t *testing.T) {
-	priv, _ := GenerateKey(rand.Reader)
+	priv, err := GenerateKey(rand.Reader)
+	if err != nil {
+		t.Errorf("failed to generate key")
+	}
 
 	hashed := []byte("testing")
 	r0, s0, err := Sign(zeroReader, &priv.PrivateKey, hashed)
@@ -374,7 +386,10 @@ func TestNonceSafety(t *testing.T) {
 
 // Check that signatures remain non-deterministic with a functional entropy source.
 func TestINDCCA(t *testing.T) {
-	priv, _ := GenerateKey(rand.Reader)
+	priv, err := GenerateKey(rand.Reader)
+	if err != nil {
+		t.Errorf("failed to generate key")
+	}
 
 	hashed := []byte("testing")
 	r0, s0, err := Sign(rand.Reader, &priv.PrivateKey, hashed)
@@ -395,6 +410,42 @@ func TestINDCCA(t *testing.T) {
 
 	if r0.Cmp(r1) == 0 {
 		t.Error("SM2: two signatures of the same message produced the same nonce")
+	}
+}
+
+func TestNegativeInputs(t *testing.T) {
+	key, err := GenerateKey(rand.Reader)
+	if err != nil {
+		t.Errorf("failed to generate key")
+	}
+
+	var hash [32]byte
+	r := new(big.Int).SetInt64(1)
+	r.Lsh(r, 550 /* larger than any supported curve */)
+	r.Neg(r)
+
+	if Verify(&key.PublicKey, hash[:], r, r) {
+		t.Errorf("bogus signature accepted")
+	}
+}
+
+func TestZeroHashSignature(t *testing.T) {
+	zeroHash := make([]byte, 64)
+
+	privKey, err := GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	// Sign a hash consisting of all zeros.
+	r, s, err := Sign(rand.Reader, &privKey.PrivateKey, zeroHash)
+	if err != nil {
+		panic(err)
+	}
+
+	// Confirm that it can be verified.
+	if !Verify(&privKey.PublicKey, zeroHash, r, s) {
+		t.Errorf("zero hash signature verify failed")
 	}
 }
 
@@ -516,27 +567,30 @@ func TestRandomPoint(t *testing.T) {
 }
 
 func BenchmarkGenerateKey_SM2(b *testing.B) {
+	r := bufio.NewReaderSize(rand.Reader, 1<<15)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := GenerateKey(rand.Reader); err != nil {
+		if _, err := GenerateKey(r); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkGenerateKey_P256(b *testing.B) {
+	r := bufio.NewReaderSize(rand.Reader, 1<<15)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader); err != nil {
+		if _, err := ecdsa.GenerateKey(elliptic.P256(), r); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkSign_SM2(b *testing.B) {
-	priv, err := GenerateKey(rand.Reader)
+	r := bufio.NewReaderSize(rand.Reader, 1<<15)
+	priv, err := GenerateKey(r)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -555,7 +609,8 @@ func BenchmarkSign_SM2(b *testing.B) {
 }
 
 func BenchmarkSign_SM2Specific(b *testing.B) {
-	priv, err := GenerateKey(rand.Reader)
+	r := bufio.NewReaderSize(rand.Reader, 1<<15)
+	priv, err := GenerateKey(r)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -571,7 +626,8 @@ func BenchmarkSign_SM2Specific(b *testing.B) {
 }
 
 func BenchmarkSign_P256(b *testing.B) {
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	r := bufio.NewReaderSize(rand.Reader, 1<<15)
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), r)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -590,7 +646,8 @@ func BenchmarkSign_P256(b *testing.B) {
 }
 
 func BenchmarkVerify_P256(b *testing.B) {
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	rd := bufio.NewReaderSize(rand.Reader, 1<<15)
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rd)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -610,7 +667,8 @@ func BenchmarkVerify_P256(b *testing.B) {
 }
 
 func BenchmarkVerify_SM2(b *testing.B) {
-	priv, err := GenerateKey(rand.Reader)
+	rd := bufio.NewReaderSize(rand.Reader, 1<<15)
+	priv, err := GenerateKey(rd)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -630,7 +688,8 @@ func BenchmarkVerify_SM2(b *testing.B) {
 }
 
 func benchmarkEncrypt(b *testing.B, curve elliptic.Curve, plaintext string) {
-	priv, err := ecdsa.GenerateKey(curve, rand.Reader)
+	r := bufio.NewReaderSize(rand.Reader, 1<<15)
+	priv, err := ecdsa.GenerateKey(curve, r)
 	if err != nil {
 		b.Fatal(err)
 	}
