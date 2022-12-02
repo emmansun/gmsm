@@ -578,7 +578,7 @@ func encodeSignature(r, s []byte) ([]byte, error) {
 // addASN1IntBytes encodes in ASN.1 a positive integer represented as
 // a big-endian byte slice with zero or more leading zeroes.
 func addASN1IntBytes(b *cryptobyte.Builder, bytes []byte) {
-	for len(bytes) > 1 && bytes[0] == 0 {
+	for len(bytes) > 0 && bytes[0] == 0 {
 		bytes = bytes[1:]
 	}
 	if len(bytes) == 0 {

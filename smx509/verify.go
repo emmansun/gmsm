@@ -802,6 +802,10 @@ func (c *Certificate) buildChains(currentChain []*Certificate, sigChecks *int, o
 
 		err = candidate.isValid(certType, currentChain, opts)
 		if err != nil {
+			if hintErr == nil {
+				hintErr = err
+				hintCert = candidate
+			}
 			return
 		}
 
