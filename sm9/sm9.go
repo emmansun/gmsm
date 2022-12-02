@@ -121,7 +121,7 @@ func Sign(rand io.Reader, priv *SignPrivateKey, hash []byte) (h *big.Int, s *bn2
 	if err != nil {
 		return nil, nil, err
 	}
-	return parseSignature(sig)
+	return parseSignatureLegacy(sig)
 }
 
 // Sign signs digest with user's DSA key, reading randomness from rand. The opts argument
@@ -171,9 +171,10 @@ func SignASN1(rand io.Reader, priv *SignPrivateKey, hash []byte) ([]byte, error)
 // Verify verifies the signature in h, s of hash using the master dsa public key and user id, uid and hid.
 // Its return value records whether the signature is valid. Please use VerifyASN1 instead.
 func Verify(pub *SignMasterPublicKey, uid []byte, hid byte, hash []byte, h *big.Int, s *bn256.G1) bool {
-	hBytes := make([]byte, orderNat.Size())
-	h.FillBytes(hBytes)
-	sig, err := encodeSignature(hBytes, s)
+	if h.Sign() <= 0 {
+		return false
+	}
+	sig, err := encodeSignature(h.Bytes(), s)
 	if err != nil {
 		return false
 	}
@@ -189,7 +190,7 @@ func encodeSignature(hBytes []byte, s *bn256.G1) ([]byte, error) {
 	return b.Bytes()
 }
 
-func parseSignature(sig []byte) (*big.Int, *bn256.G1, error) {
+func parseSignature(sig []byte) ([]byte, *bn256.G1, error) {
 	var (
 		hBytes []byte
 		sBytes []byte
@@ -203,7 +204,6 @@ func parseSignature(sig []byte) (*big.Int, *bn256.G1, error) {
 		!inner.Empty() {
 		return nil, nil, errors.New("invalid ASN.1")
 	}
-	h := new(big.Int).SetBytes(hBytes)
 	if sBytes[0] != 4 {
 		return nil, nil, errors.New("sm9: invalid point format")
 	}
@@ -212,7 +212,15 @@ func parseSignature(sig []byte) (*big.Int, *bn256.G1, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return h, s, nil
+	return hBytes, s, nil
+}
+
+func parseSignatureLegacy(sig []byte) (*big.Int, *bn256.G1, error) {
+	hBytes, s, err := parseSignature(sig)
+	if err != nil {
+		return nil, nil, err
+	}
+	return new(big.Int).SetBytes(hBytes), s, nil
 }
 
 // VerifyASN1 verifies the ASN.1 encoded signature of type SM9Signature, sig, of hash using the
@@ -222,15 +230,15 @@ func VerifyASN1(pub *SignMasterPublicKey, uid []byte, hid byte, hash, sig []byte
 	if err != nil {
 		return false
 	}
-	if h.Sign() <= 0 || h.Cmp(bn256.Order) >= 0 {
-		return false
-	}
 	if !s.IsOnCurve() {
 		return false
 	}
 
-	hNat, err := bigmod.NewNat().SetBytes(h.Bytes(), orderNat)
+	hNat, err := bigmod.NewNat().SetBytes(h, orderNat)
 	if err != nil {
+		return false
+	}
+	if hNat.IsZero() == 1 {
 		return false
 	}
 
