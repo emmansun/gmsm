@@ -61,9 +61,45 @@ func TestSign(t *testing.T) {
 	if !Verify(masterKey.Public(), uid, hid, hashed, h, s) {
 		t.Errorf("Verify failed")
 	}
+	sNeg := new(bn256.G1).Neg(s)
+	if Verify(masterKey.Public(), uid, hid, hashed, h, sNeg) {
+		t.Errorf("Verify with s=-s succeeded")
+	}
 	hashed[0] ^= 0xff
 	if Verify(masterKey.Public(), uid, hid, hashed, h, s) {
 		t.Errorf("Verify always works!")
+	}
+}
+
+func TestNegativeInputs(t *testing.T) {
+	masterKey, err := GenerateSignMasterKey(rand.Reader)
+	hashed := []byte("Chinese IBS standard")
+	uid := []byte("emmansun")
+	hid := byte(0x01)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := new(big.Int).SetInt64(1)
+	h.Lsh(h, 550 /* larger than any supported curve */)
+	h.Neg(h)
+	if Verify(masterKey.Public(), uid, hid, hashed, h, bn256.Gen1) {
+		t.Errorf("bogus signature accepted")
+	}
+}
+
+func TestZeroSignature(t *testing.T) {
+	masterKey, err := GenerateSignMasterKey(rand.Reader)
+	hashed := []byte("Chinese IBS standard")
+	uid := []byte("emmansun")
+	hid := byte(0x01)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if Verify(masterKey.Public(), uid, hid, hashed, big.NewInt(0), bn256.Gen1) {
+		t.Error("Verify with h=0 succeeded")
+	}
+	if Verify(masterKey.Public(), uid, hid, hashed, bn256.Order, bn256.Gen1) {
+		t.Error("Verify with h=order succeeded")
 	}
 }
 
@@ -85,6 +121,31 @@ func TestSignASN1(t *testing.T) {
 	}
 	if !masterKey.Public().Verify(uid, hid, hashed, sig) {
 		t.Errorf("Verify failed")
+	}
+	sig[0] = 0xff
+	if masterKey.Public().Verify(uid, hid, hashed, sig) {
+		t.Errorf("Verify with invalid asn1 format successed")
+	}
+}
+
+func TestParseInvalidASN1(t *testing.T) {
+	tests := []struct {
+		name   string
+		sigHex string
+	}{
+		// TODO: Add test cases.
+		{"invalid point format", "30660420723a8b38dd2441c2aa1c3ec092eaa34996c53bf9ca7515272395c012ab6e6e070342000C389fc45b711d9dfd9d91958f64d89d3528cf577c6dc2bc792c2969188e76865e16c2d85419f8f923a0e77c7f269c0eeb97b6c4d7e2735189180ec719a380fe1d"},
+		{"invalid point encoding length", "30660420723a8b38dd2441c2aa1c3ec092eaa34996c53bf9ca7515272395c012ab6e6e0703420004389fc45b711d9dfd9d91958f64d89d3528cf577c6dc2bc792c2969188e76865e16c2d85419f8f923a0e77c7f269c0eeb97b6c4d7e2735189180ec719a380fe"},
+	}
+	for _, tt := range tests {
+		sig, err := hex.DecodeString(tt.sigHex)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _, err = parseSignature(sig)
+		if err == nil {
+			t.Errorf("%s should be failed", tt.name)
+		}
 	}
 }
 
