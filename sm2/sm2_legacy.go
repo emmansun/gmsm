@@ -157,6 +157,9 @@ func SignWithSM2(rand io.Reader, priv *ecdsa.PrivateKey, uid, msg []byte) (r, s 
 // Compliance with GB/T 32918.2-2016 regardless it's SM2 curve or not.
 // Caller should make sure the hash's correctness.
 func Verify(pub *ecdsa.PublicKey, hash []byte, r, s *big.Int) bool {
+	if r.Sign() <= 0 || s.Sign() <= 0 {
+		return false
+	}
 	sig, err := encodeSignature(r.Bytes(), s.Bytes())
 	if err != nil {
 		return false

@@ -581,6 +581,10 @@ func addASN1IntBytes(b *cryptobyte.Builder, bytes []byte) {
 	for len(bytes) > 1 && bytes[0] == 0 {
 		bytes = bytes[1:]
 	}
+	if len(bytes) == 0 {
+		b.SetError(errors.New("invalid integer"))
+		return
+	}
 	b.AddASN1(asn1.INTEGER, func(c *cryptobyte.Builder) {
 		if bytes[0]&0x80 != 0 {
 			c.AddUint8(0)

@@ -449,6 +449,70 @@ func TestZeroHashSignature(t *testing.T) {
 	}
 }
 
+func TestZeroSignature(t *testing.T) {
+	privKey, err := GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	if Verify(&privKey.PublicKey, make([]byte, 64), big.NewInt(0), big.NewInt(0)) {
+		t.Error("Verify with r,s=0 succeeded")
+	}
+}
+
+func TestNegtativeSignature(t *testing.T) {
+	zeroHash := make([]byte, 64)
+
+	privKey, err := GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	r, s, err := Sign(rand.Reader, &privKey.PrivateKey, zeroHash)
+	if err != nil {
+		panic(err)
+	}
+
+	r = r.Neg(r)
+	if Verify(&privKey.PublicKey, zeroHash, r, s) {
+		t.Error("Verify with r=-r succeeded")
+	}
+}
+
+func TestRPlusNSignature(t *testing.T) {
+	zeroHash := make([]byte, 64)
+
+	privKey, err := GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	r, s, err := Sign(rand.Reader, &privKey.PrivateKey, zeroHash)
+	if err != nil {
+		panic(err)
+	}
+
+	r = r.Add(r, P256().Params().N)
+	if Verify(&privKey.PublicKey, zeroHash, r, s) {
+		t.Error("Verify with r=r+n succeeded")
+	}
+}
+
+func TestRMinusNSignature(t *testing.T) {
+	zeroHash := make([]byte, 64)
+
+	privKey, err := GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	r, s, err := Sign(rand.Reader, &privKey.PrivateKey, zeroHash)
+	if err != nil {
+		panic(err)
+	}
+
+	r = r.Sub(r, P256().Params().N)
+	if Verify(&privKey.PublicKey, zeroHash, r, s) {
+		t.Error("Verify with r=r-n succeeded")
+	}
+}
+
 func TestEqual(t *testing.T) {
 	private, _ := GenerateKey(rand.Reader)
 	public := &private.PublicKey
