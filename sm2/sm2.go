@@ -194,6 +194,10 @@ func (priv *PrivateKey) Decrypt(rand io.Reader, msg []byte, opts crypto.Decrypte
 
 const maxRetryLimit = 100
 
+var (
+	errCiphertextTooShort = errors.New("sm2: ciphertext too short")
+)
+
 // EncryptASN1 sm2 encrypt and output ASN.1 result, compliance with GB/T 32918.4-2016.
 func EncryptASN1(random io.Reader, pub *ecdsa.PublicKey, msg []byte) ([]byte, error) {
 	return Encrypt(random, pub, msg, ASN1EncrypterOpts)
@@ -203,7 +207,7 @@ func EncryptASN1(random io.Reader, pub *ecdsa.PublicKey, msg []byte) ([]byte, er
 func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *EncrypterOpts) ([]byte, error) {
 	//A3, requirement is to check if h*P is infinite point, h is 1
 	if pub.X.Sign() == 0 && pub.Y.Sign() == 0 {
-		return nil, errors.New("sm2: invalid public key")
+		return nil, errors.New("sm2: public key point is the infinity")
 	}
 	if len(msg) == 0 {
 		return nil, nil
@@ -316,7 +320,7 @@ func Decrypt(priv *PrivateKey, ciphertext []byte) ([]byte, error) {
 func decrypt(priv *PrivateKey, ciphertext []byte, opts *DecrypterOpts) ([]byte, error) {
 	ciphertextLen := len(ciphertext)
 	if ciphertextLen <= 1+(priv.Params().BitSize/8)+sm3.Size {
-		return nil, errors.New("sm2: invalid ciphertext length")
+		return nil, errCiphertextTooShort
 	}
 	switch priv.Curve.Params() {
 	case P256().Params():
@@ -375,7 +379,7 @@ func parseCiphertext(c *sm2Curve, ciphertext []byte, opts *DecrypterOpts) (*_sm2
 	switch b {
 	case uncompressed:
 		if len(ciphertext) <= 1+2*byteLen+sm3.Size {
-			return nil, nil, nil, errors.New("sm2: invalid ciphertext length")
+			return nil, nil, nil, errCiphertextTooShort
 		}
 		C1, err := c.newPoint().SetBytes(ciphertext[:1+2*byteLen])
 		if err != nil {
@@ -920,7 +924,7 @@ func (curve *sm2Curve) pointToAffine(p *_sm2ec.SM2P256Point) (x, y *big.Int, err
 	out := p.Bytes()
 	if len(out) == 1 && out[0] == 0 {
 		// This is the encoding of the point at infinity.
-		return nil, nil, errors.New("ecdsa: public key point is the infinity")
+		return nil, nil, errors.New("sm2: public key point is the infinity")
 	}
 	byteLen := (curve.curve.Params().BitSize + 7) / 8
 	x = new(big.Int).SetBytes(out[1 : 1+byteLen])

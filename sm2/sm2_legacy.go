@@ -334,7 +334,7 @@ func PlainCiphertext2ASN1(ciphertext []byte, from ciphertextSplicingOrder) ([]by
 	curve := sm2ec.P256()
 	ciphertextLen := len(ciphertext)
 	if ciphertextLen <= 1+(curve.Params().BitSize/8)+sm3.Size {
-		return nil, errors.New("sm2: invalid ciphertext length")
+		return nil, errCiphertextTooShort
 	}
 	// get C1, and check C1
 	x1, y1, c3Start, err := bytes2Point(curve, ciphertext)
@@ -362,7 +362,7 @@ func AdjustCiphertextSplicingOrder(ciphertext []byte, from, to ciphertextSplicin
 	}
 	ciphertextLen := len(ciphertext)
 	if ciphertextLen <= 1+(curve.Params().BitSize/8)+sm3.Size {
-		return nil, errors.New("sm2: invalid ciphertext length")
+		return nil, errCiphertextTooShort
 	}
 
 	// get C1, and check C1
