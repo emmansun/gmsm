@@ -224,6 +224,30 @@ func TestCiphertextASN12Plain(t *testing.T) {
 	}
 }
 
+func TestEncryptWithInfinitePublicKey(t *testing.T) {
+	pub := new(ecdsa.PublicKey)
+	pub.Curve = P256()
+	pub.X = big.NewInt(0)
+	pub.Y = big.NewInt(0)
+
+	_, err := Encrypt(rand.Reader, pub, []byte("sm2 encryption standard"), nil)
+	if err == nil {
+		t.Fatalf("should be failed")
+	}
+}
+
+func TestEncryptEmptyPlaintext(t *testing.T) {
+	priv, _ := GenerateKey(rand.Reader)
+	ciphertext, err := Encrypt(rand.Reader, &priv.PublicKey, nil, nil)
+	if err != nil || ciphertext != nil {
+		t.Fatalf("nil plaintext should return nil")
+	}
+	ciphertext, err = Encrypt(rand.Reader, &priv.PublicKey, []byte{}, nil)
+	if err != nil || ciphertext != nil {
+		t.Fatalf("empty plaintext should return nil")
+	}
+}
+
 func TestEncryptDecrypt(t *testing.T) {
 	priv, _ := GenerateKey(rand.Reader)
 	priv2, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -290,6 +314,28 @@ func TestEncryptDecrypt(t *testing.T) {
 				t.Errorf("Decrypt() = %v, want %v", string(plaintext), tt.plainText)
 			}
 		})
+	}
+}
+
+func TestInvalidCiphertext(t *testing.T) {
+	priv, _ := GenerateKey(rand.Reader)
+	tests := []struct {
+		name       string
+		ciphertext []byte
+	}{
+		// TODO: Add test cases.
+		{errCiphertextTooShort.Error(), make([]byte, 65)},
+		{ErrDecryption.Error(), append([]byte{0x04}, make([]byte, 96)...)},
+		{ErrDecryption.Error(), append([]byte{0x04}, make([]byte, 97)...)},
+		{ErrDecryption.Error(), append([]byte{0x02}, make([]byte, 65)...)},
+		{ErrDecryption.Error(), append([]byte{0x30}, make([]byte, 97)...)},
+		{ErrDecryption.Error(), make([]byte, 97)},
+	}
+	for i, tt := range tests {
+		_, err := Decrypt(priv, tt.ciphertext)
+		if err.Error() != tt.name {
+			t.Fatalf("case %v, expected %v, got %v\n", i, tt.name, err.Error())
+		}
 	}
 }
 
