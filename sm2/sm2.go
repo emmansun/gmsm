@@ -317,6 +317,10 @@ func Decrypt(priv *PrivateKey, ciphertext []byte) ([]byte, error) {
 	return decrypt(priv, ciphertext, nil)
 }
 
+// ErrDecryption represents a failure to decrypt a message.
+// It is deliberately vague to avoid adaptive attacks.
+var ErrDecryption = errors.New("sm2: decryption error")
+
 func decrypt(priv *PrivateKey, ciphertext []byte, opts *DecrypterOpts) ([]byte, error) {
 	ciphertextLen := len(ciphertext)
 	if ciphertextLen <= 1+(priv.Params().BitSize/8)+sm3.Size {
@@ -333,22 +337,22 @@ func decrypt(priv *PrivateKey, ciphertext []byte, opts *DecrypterOpts) ([]byte, 
 func decryptSM2EC(c *sm2Curve, priv *PrivateKey, ciphertext []byte, opts *DecrypterOpts) ([]byte, error) {
 	C1, c2, c3, err := parseCiphertext(c, ciphertext, opts)
 	if err != nil {
-		return nil, err
+		return nil, ErrDecryption
 	}
 	d, err := bigmod.NewNat().SetBytes(priv.D.Bytes(), c.N)
 	if err != nil {
-		return nil, err
+		return nil, ErrDecryption
 	}
 
 	C2, err := C1.ScalarMult(C1, d.Bytes(c.N))
 	if err != nil {
-		return nil, err
+		return nil, ErrDecryption
 	}
 	C2Bytes := C2.Bytes()[1:]
 	msgLen := len(c2)
 	msg := kdf.Kdf(sm3.New(), C2Bytes, msgLen)
 	if subtle.ConstantTimeAllZero(c2) {
-		return nil, errors.New("sm2: invalid cipher text")
+		return nil, ErrDecryption
 	}
 
 	//B5, calculate msg = c2 ^ t
@@ -363,7 +367,7 @@ func decryptSM2EC(c *sm2Curve, priv *PrivateKey, ciphertext []byte, opts *Decryp
 	if _subtle.ConstantTimeCompare(u, c3) == 1 {
 		return msg, nil
 	}
-	return nil, errors.New("sm2: invalid plaintext digest")
+	return nil, ErrDecryption
 }
 
 func parseCiphertext(c *sm2Curve, ciphertext []byte, opts *DecrypterOpts) (*_sm2ec.SM2P256Point, []byte, []byte, error) {

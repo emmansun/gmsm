@@ -399,7 +399,7 @@ func AdjustCiphertextSplicingOrder(ciphertext []byte, from, to ciphertextSplicin
 func decryptASN1(priv *PrivateKey, ciphertext []byte) ([]byte, error) {
 	x1, y1, c2, c3, err := unmarshalASN1Ciphertext(ciphertext)
 	if err != nil {
-		return nil, err
+		return nil, ErrDecryption
 	}
 	return rawDecrypt(priv, x1, y1, c2, c3)
 }
@@ -410,7 +410,7 @@ func rawDecrypt(priv *PrivateKey, x1, y1 *big.Int, c2, c3 []byte) ([]byte, error
 	msgLen := len(c2)
 	msg := kdf.Kdf(sm3.New(), append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
 	if subtle.ConstantTimeAllZero(c2) {
-		return nil, errors.New("sm2: invalid cipher text")
+		return nil, ErrDecryption
 	}
 
 	//B5, calculate msg = c2 ^ t
@@ -420,7 +420,7 @@ func rawDecrypt(priv *PrivateKey, x1, y1 *big.Int, c2, c3 []byte) ([]byte, error
 	if _subtle.ConstantTimeCompare(u, c3) == 1 {
 		return msg, nil
 	}
-	return nil, errors.New("sm2: invalid plaintext digest")
+	return nil, ErrDecryption
 }
 
 func decryptLegacy(priv *PrivateKey, ciphertext []byte, opts *DecrypterOpts) ([]byte, error) {
@@ -439,7 +439,7 @@ func decryptLegacy(priv *PrivateKey, ciphertext []byte, opts *DecrypterOpts) ([]
 	// B1, get C1, and check C1
 	x1, y1, c3Start, err := bytes2Point(curve, ciphertext)
 	if err != nil {
-		return nil, err
+		return nil, ErrDecryption
 	}
 
 	//B4, calculate t=KDF(x2||y2, klen)
