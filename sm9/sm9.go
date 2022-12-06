@@ -353,10 +353,14 @@ func UnmarshalSM9KeyPackage(der []byte) ([]byte, *bn256.G1, error) {
 	return key, g, nil
 }
 
+// ErrDecryption represents a failure to decrypt a message.
+// It is deliberately vague to avoid adaptive attacks.
+var ErrDecryption = errors.New("sm9: decryption error")
+
 // UnwrapKey unwrap key from cipher, user id and aligned key length
 func UnwrapKey(priv *EncryptPrivateKey, uid []byte, cipher *bn256.G1, kLen int) ([]byte, error) {
 	if !cipher.IsOnCurve() {
-		return nil, errors.New("sm9: invalid cipher, it's NOT on curve")
+		return nil, ErrDecryption
 	}
 
 	w := bn256.Pair(cipher, priv.PrivateKey)
@@ -368,7 +372,7 @@ func UnwrapKey(priv *EncryptPrivateKey, uid []byte, cipher *bn256.G1, kLen int) 
 
 	key := kdf.Kdf(sm3.New(), buffer, kLen)
 	if subtle.ConstantTimeAllZero(key) {
-		return nil, errors.New("sm9: invalid cipher")
+		return nil, ErrDecryption
 	}
 	return key, nil
 }
@@ -379,11 +383,11 @@ func (priv *EncryptPrivateKey) UnwrapKey(uid, cipherDer []byte, kLen int) ([]byt
 	var bytes []byte
 	input := cryptobyte.String(cipherDer)
 	if !input.ReadASN1BitStringAsBytes(&bytes) || !input.Empty() {
-		return nil, errors.New("sm9: invalid chipher asn1 data")
+		return nil, ErrDecryption
 	}
 	g, err := unmarshalG1(bytes)
 	if err != nil {
-		return nil, err
+		return nil, ErrDecryption
 	}
 	return UnwrapKey(priv, uid, g, kLen)
 }
@@ -439,7 +443,7 @@ func Decrypt(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error) {
 	c := &bn256.G1{}
 	c3, err := c.Unmarshal(ciphertext)
 	if err != nil {
-		return nil, err
+		return nil, ErrDecryption
 	}
 
 	key, err := UnwrapKey(priv, uid, c, len(c3))
@@ -455,7 +459,7 @@ func Decrypt(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error) {
 	c32 := hash.Sum(nil)
 
 	if goSubtle.ConstantTimeCompare(c3[:sm3.Size], c32) != 1 {
-		return nil, errors.New("sm9: invalid mac value")
+		return nil, ErrDecryption
 	}
 
 	subtle.XORBytes(key, c2, key[:len(c2)])
@@ -466,7 +470,7 @@ func Decrypt(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error) {
 // SM9 cryptographic algorithm application specification, SM9Cipher definition.
 func DecryptASN1(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error) {
 	if len(ciphertext) <= 32+65 {
-		return nil, errors.New("sm9: invalid ciphertext length")
+		return nil, errors.New("sm9: ciphertext too short")
 	}
 	var (
 		encType int
@@ -490,7 +494,7 @@ func DecryptASN1(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error
 	}
 	c, err := unmarshalG1(c1Bytes)
 	if err != nil {
-		return nil, err
+		return nil, ErrDecryption
 	}
 
 	key, err := UnwrapKey(priv, uid, c, len(c2Bytes)+len(c3Bytes))
@@ -504,7 +508,7 @@ func DecryptASN1(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error
 	c32 := hash.Sum(nil)
 
 	if goSubtle.ConstantTimeCompare(c3Bytes, c32) != 1 {
-		return nil, errors.New("sm9: invalid mac value")
+		return nil, ErrDecryption
 	}
 	subtle.XORBytes(key, c2Bytes, key[:len(c2Bytes)])
 	return key[:len(c2Bytes)], nil
