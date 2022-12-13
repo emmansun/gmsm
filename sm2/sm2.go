@@ -679,43 +679,13 @@ func VerifyASN1WithSM2(pub *ecdsa.PublicKey, uid, msg, sig []byte) bool {
 	return VerifyASN1(pub, digest, sig)
 }
 
-func readASN1Bytes(input *cryptobyte.String, out *[]byte) bool {
-	var bytes cryptobyte.String
-	if !input.ReadASN1(&bytes, asn1.INTEGER) || !checkASN1Integer(bytes) {
-		return false
-	}
-	if bytes[0]&0x80 == 0x80 {
-		return false
-	}
-	for len(bytes) > 1 && bytes[0] == 0 {
-		bytes = bytes[1:]
-	}
-	*out = bytes
-	return true
-}
-
-func checkASN1Integer(bytes []byte) bool {
-	if len(bytes) == 0 {
-		// An INTEGER is encoded with at least one octet.
-		return false
-	}
-	if len(bytes) == 1 {
-		return true
-	}
-	if bytes[0] == 0 && bytes[1]&0x80 == 0 || bytes[0] == 0xff && bytes[1]&0x80 == 0x80 {
-		// Value is not minimally encoded.
-		return false
-	}
-	return true
-}
-
 func parseSignature(sig []byte) (r, s []byte, err error) {
 	var inner cryptobyte.String
 	input := cryptobyte.String(sig)
 	if !input.ReadASN1(&inner, asn1.SEQUENCE) ||
 		!input.Empty() ||
-		!readASN1Bytes(&inner, &r) ||
-		!readASN1Bytes(&inner, &s) ||
+		!inner.ReadASN1Integer(&r) ||
+		!inner.ReadASN1Integer(&s) ||
 		!inner.Empty() {
 		return nil, nil, errors.New("invalid ASN.1")
 	}
