@@ -676,6 +676,32 @@ func TestRandomPoint(t *testing.T) {
 	}
 }
 
+// This test method is just for reference, it's NOT a standard method for key transmission.
+// In general, private key will be encoded/formatted with PKCS8, public key will be encoded/formatted with a SubjectPublicKeyInfo structure
+// (see RFC 5280, Section 4.1).
+func TestCreateKeysFromRawValue(t *testing.T) {
+	key, _ := GenerateKey(rand.Reader)
+
+	d := new(big.Int).SetBytes(key.D.Bytes()) // here we do NOT check if the d is in (0, N) or not
+	// Create private key from *big.Int
+	keyCopy := new(PrivateKey)
+	keyCopy.Curve = P256()
+	keyCopy.D = d
+	keyCopy.PublicKey.X, keyCopy.PublicKey.Y = keyCopy.ScalarBaseMult(keyCopy.D.Bytes())
+	if !key.Equal(keyCopy) {
+		t.Fatalf("private key and copy should be equal")
+	}
+
+	pointBytes := elliptic.Marshal(key.Curve, key.X, key.Y)
+	// Create public key from point
+	publicKeyCopy := new(ecdsa.PublicKey)
+	publicKeyCopy.Curve = P256()
+	publicKeyCopy.X, publicKeyCopy.Y = elliptic.Unmarshal(publicKeyCopy.Curve, pointBytes)
+	if !key.PublicKey.Equal(publicKeyCopy) {
+		t.Fatalf("public key and copy should be equal")
+	}
+}
+
 func BenchmarkGenerateKey_SM2(b *testing.B) {
 	r := bufio.NewReaderSize(rand.Reader, 1<<15)
 	b.ReportAllocs()
