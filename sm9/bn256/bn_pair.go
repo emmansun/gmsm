@@ -1,3 +1,4 @@
+// Package bn256 defines/implements ShangMi(SM) sm9's curves and pairing.
 package bn256
 
 func lineFunctionAdd(r, p *twistPoint, q *curvePoint, r2 *gfP2) (a, b, c, d *gfP2, rOut *twistPoint) {

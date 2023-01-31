@@ -1,4 +1,4 @@
-// Package zuc handle shangmi zuc stream cipher.
+// Package zuc implements ShangMi(SM) zuc stream cipher and integrity algorithm.
 package zuc
 
 import (

@@ -1,4 +1,4 @@
-// Package sm4 handle shangmi sm4 symmetric encryption algorithm
+// Package sm4 implements ShangMi(SM) sm4 symmetric encryption algorithm.
 package sm4
 
 import (

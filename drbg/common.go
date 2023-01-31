@@ -1,3 +1,4 @@
+// Package drbg implements Random Number Generation Using Deterministic Random Bit Generators.
 package drbg
 
 import (

@@ -1,4 +1,4 @@
-// Package pkcs8 implements functions to parse and convert private keys in PKCS#8 format, as defined in RFC5208 and RFC5958
+// Package pkcs8 implements functions to parse and convert private keys in PKCS#8 format with ShangMi(SM) support, as defined in RFC5208 and RFC5958.
 package pkcs8
 
 import (

@@ -1,4 +1,4 @@
-// Package sm3 handle shangmi sm3 hash algorithm
+// Package sm3 implements ShangMi(SM) sm3 hash algorithm.
 package sm3
 
 // [GM/T] SM3 GB/T 32905-2016

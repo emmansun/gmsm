@@ -1,4 +1,4 @@
-// Package sm9 handle shangmi sm9 algorithm and its curves and pairing implementation
+// Package sm9 implements ShangMi(SM) sm9 digital signature, encryption and key exchange algorithms.
 package sm9
 
 import (

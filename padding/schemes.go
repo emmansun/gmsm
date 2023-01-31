@@ -1,3 +1,4 @@
+// Package padding implements some padding schemes for padding octets at the trailing end.
 package padding
 
 // Padding interface represents a padding scheme

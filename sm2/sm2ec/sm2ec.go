@@ -1,3 +1,4 @@
+// Package sm2ec defines/implements SM2 curve structure.
 package sm2ec
 
 import (

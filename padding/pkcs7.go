@@ -1,4 +1,3 @@
-// Package padding handle padding octets at the trailing end
 package padding
 
 import (

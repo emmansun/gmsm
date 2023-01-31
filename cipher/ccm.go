@@ -1,3 +1,4 @@
+// Package cipher provides several extra chipher modes.
 package cipher
 
 import (

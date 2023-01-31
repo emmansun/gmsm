@@ -1,3 +1,4 @@
+// Package kdf implements ShangMi(SM) used Key Derivation Function, compliances with GB/T 32918.4-2016 5.4.3.
 package kdf
 
 import (

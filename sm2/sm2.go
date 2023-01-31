@@ -1,4 +1,4 @@
-// Package sm2 handle shangmi sm2 digital signature and public key encryption algorithm and its curve implementation
+// Package sm2 implements ShangMi(SM) sm2 digital signature, public key encryption and key exchange algorithms.
 package sm2
 
 // Further references:
