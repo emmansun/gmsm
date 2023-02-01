@@ -400,8 +400,6 @@ func ParseSM9EncryptPrivateKey(der []byte, v ...[]byte) (*sm9.EncryptPrivateKey,
 
 // ConvertPrivateKeyToPKCS8 converts the private key into PKCS#8 format.
 // To encrypt the private key, the password of []byte type should be provided as the second parameter.
-//
-// The only supported key types are RSA and ECDSA (*rsa.PrivateKey or *ecdsa.PrivateKey for priv)
 func ConvertPrivateKeyToPKCS8(priv interface{}, v ...[]byte) ([]byte, error) {
 	var password []byte
 	if len(v) > 0 {

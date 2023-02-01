@@ -27,7 +27,7 @@ func ExampleMarshalPrivateKey_withoutPassword() {
 		return
 	}
 
-	// ecode to pem
+	// encode der bytes to pem
 	block := &pem.Block{Bytes: der, Type: "PRIVATE KEY"}
 	pemContent := string(pem.EncodeToMemory(block))
 	fmt.Printf("%v\n", pemContent)
@@ -131,7 +131,7 @@ func ExampleMarshalPrivateKey() {
 		return
 	}
 
-	// ecode to pem
+	// encode der bytes to pem
 	block := &pem.Block{Bytes: der, Type: "ENCRYPTED PRIVATE KEY"}
 	pemContent := string(pem.EncodeToMemory(block))
 	fmt.Printf("%v\n", pemContent)
