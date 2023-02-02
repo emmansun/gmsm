@@ -9,6 +9,8 @@ import (
 
 	"github.com/emmansun/gmsm/pkcs8"
 	"github.com/emmansun/gmsm/sm2"
+	"github.com/emmansun/gmsm/sm9"
+	"golang.org/x/crypto/cryptobyte"
 )
 
 func ExampleMarshalPrivateKey_withoutPassword() {
@@ -215,6 +217,58 @@ jZHNffmk4ii7NxCfjrzpiFq4clYsNMXeSEnq1tuOEur4kYcjHYSIFc9bPG656a60
 	pk, err := pkcs8.ParsePKCS8PrivateKeySM2(block.Bytes, password)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error from ParsePKCS8PrivateKeySM2: %s\n", err)
+		return
+	}
+	if pk != nil {
+		fmt.Println("ok")
+	} else {
+		fmt.Println("fail")
+	}
+	// Output: ok
+}
+
+func ExampleMarshalPrivateKey_withoutPasswordSM9MasterSignKey() {
+	// real private key should be from secret storage, or generate directly
+	kb, _ := hex.DecodeString("0130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4")
+	var b cryptobyte.Builder
+	b.AddASN1BigInt(new(big.Int).SetBytes(kb))
+	kb, _ = b.Bytes()
+	testkey := new(sm9.SignMasterPrivateKey)
+	err := testkey.UnmarshalASN1(kb)
+	if err != nil {
+		panic(err)
+	}
+
+	// generate der bytes
+	der, err := pkcs8.MarshalPrivateKey(testkey, nil, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error from MarshalPrivateKey: %s\n", err)
+		return
+	}
+
+	// encode der bytes to pem
+	block := &pem.Block{Bytes: der, Type: "SM9 SIGN PRIVATE KEY"}
+	pemContent := string(pem.EncodeToMemory(block))
+	fmt.Printf("%v\n", pemContent)
+}
+
+func ExampleParseSM9SignMasterPrivateKey_withoutPassword() {
+	const privateKeyPem = `
+-----BEGIN SM9 SIGN PRIVATE KEY-----
+MIHGAgEAMBUGCCqBHM9VAYIuBgkqgRzPVQGCLgEEgakwgaYCHwEw54RZ14VFy1TF
+h+As9IDOC2Y0DzGfNIodWx8txfQDgYIABJ9kCAswhPcz5Ir/S0G1ZQEc4HEcXjks
++wqxtnkblMQIKduhFhUtH3hs6EPtJKO1c0FNIXc4apLdjxTWVpbqXjJphQk4q+oB
+ErVzKfRH46DLrT4v2xp38zXonhQI0O8cJUHgClPdpTLaGnzgJ7ekb3QQBuhfXN/w
+cw51wF+04yFt
+-----END SM9 SIGN PRIVATE KEY-----`
+	block, _ := pem.Decode([]byte(privateKeyPem))
+	if block == nil {
+		fmt.Fprintf(os.Stderr, "Failed to parse PEM block\n")
+		return
+	}
+	pk, err := pkcs8.ParseSM9SignMasterPrivateKey(block.Bytes)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error from ParseSM9SignMasterPrivateKey: %s\n", err)
 		return
 	}
 	if pk != nil {

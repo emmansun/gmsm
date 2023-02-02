@@ -11,6 +11,7 @@ import (
 	"github.com/emmansun/gmsm/kdf"
 	"github.com/emmansun/gmsm/sm3"
 	"github.com/emmansun/gmsm/sm9/bn256"
+	"golang.org/x/crypto/cryptobyte"
 )
 
 func bigFromHex(s string) *big.Int {
@@ -149,6 +150,22 @@ func TestParseInvalidASN1(t *testing.T) {
 	}
 }
 
+func signMasterPrivateKeyFromHex(s string) (*SignMasterPrivateKey, error) {
+	kb, err := hex.DecodeString(s)
+	if err != nil {
+		return nil, err
+	}
+	var b cryptobyte.Builder
+	b.AddASN1BigInt(new(big.Int).SetBytes(kb))
+	kb, _ = b.Bytes()
+	testkey := new(SignMasterPrivateKey)
+	err = testkey.UnmarshalASN1(kb)
+	if err != nil {
+		return nil, err
+	}
+	return testkey, nil
+}
+
 // SM9 Appendix A
 func TestSignSM9Sample(t *testing.T) {
 	expectedH := bigFromHex("823c4b21e4bd2dfe1ed92c606653e996668563152fc33f55d7bfbb9bd9705adb")
@@ -166,13 +183,11 @@ func TestSignSM9Sample(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	masterKey := new(SignMasterPrivateKey)
-	masterKey.D = bigFromHex("0130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4")
-	p, err := new(bn256.G2).ScalarBaseMult(bn256.NormalizeScalar(masterKey.D.Bytes()))
+	masterKey, err := signMasterPrivateKeyFromHex("0130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4")
 	if err != nil {
 		t.Fatal(err)
 	}
-	masterKey.MasterPublicKey = p
+
 	userKey, err := masterKey.GenerateUserKey(uid, hid)
 	if err != nil {
 		t.Fatal(err)
@@ -211,13 +226,10 @@ func TestKeyExchangeSample(t *testing.T) {
 	expectedSignatureB := "3bb4bcee8139c960b4d6566db1e0d5f0b2767680e5e1bf934103e6c66e40ffee"
 	expectedSignatureA := "195d1b7256ba7e0e67c71202a25f8c94ff8241702c2f55d613ae1c6b98215172"
 
-	masterKey := new(EncryptMasterPrivateKey)
-	masterKey.D = bigFromHex("02E65B0762D042F51F0D23542B13ED8CFA2E9A0E7206361E013A283905E31F")
-	p, err := new(bn256.G1).ScalarBaseMult(bn256.NormalizeScalar(masterKey.D.Bytes()))
+	masterKey, err := encryptMasterPrivateKeyFromHex("02E65B0762D042F51F0D23542B13ED8CFA2E9A0E7206361E013A283905E31F")
 	if err != nil {
 		t.Fatal(err)
 	}
-	masterKey.MasterPublicKey = p
 
 	if hex.EncodeToString(masterKey.MasterPublicKey.Marshal()) != expectedPube {
 		t.Errorf("not expected master public key")
@@ -481,6 +493,22 @@ func TestUnmarshalSM9KeyPackage(t *testing.T) {
 	}
 }
 
+func encryptMasterPrivateKeyFromHex(s string) (*EncryptMasterPrivateKey, error) {
+	kb, err := hex.DecodeString(s)
+	if err != nil {
+		return nil, err
+	}
+	var b cryptobyte.Builder
+	b.AddASN1BigInt(new(big.Int).SetBytes(kb))
+	kb, _ = b.Bytes()
+	testkey := new(EncryptMasterPrivateKey)
+	err = testkey.UnmarshalASN1(kb)
+	if err != nil {
+		return nil, err
+	}
+	return testkey, nil
+}
+
 // SM9 Appendix C
 func TestWrapKeySM9Sample(t *testing.T) {
 	expectedMasterPublicKey := "787ed7b8a51f3ab84e0a66003f32da5c720b17eca7137d39abc66e3c80a892ff769de61791e5adc4b9ff85a31354900b202871279a8c49dc3f220f644c57a7b1"
@@ -489,13 +517,10 @@ func TestWrapKeySM9Sample(t *testing.T) {
 	expectedCipher := "1edee2c3f465914491de44cefb2cb434ab02c308d9dc5e2067b4fed5aaac8a0f1c9b4c435eca35ab83bb734174c0f78fde81a53374aff3b3602bbc5e37be9a4c"
 	expectedKey := "4ff5cf86d2ad40c8f4bac98d76abdbde0c0e2f0a829d3f911ef5b2bce0695480"
 
-	masterKey := new(EncryptMasterPrivateKey)
-	masterKey.D = bigFromHex("01EDEE3778F441F8DEA3D9FA0ACC4E07EE36C93F9A08618AF4AD85CEDE1C22")
-	p, err := new(bn256.G1).ScalarBaseMult(bn256.NormalizeScalar(masterKey.D.Bytes()))
+	masterKey, err := encryptMasterPrivateKeyFromHex("01EDEE3778F441F8DEA3D9FA0ACC4E07EE36C93F9A08618AF4AD85CEDE1C22")
 	if err != nil {
 		t.Fatal(err)
 	}
-	masterKey.MasterPublicKey = p
 	if hex.EncodeToString(masterKey.MasterPublicKey.Marshal()) != expectedMasterPublicKey {
 		t.Errorf("not expected master public key")
 	}
@@ -558,13 +583,10 @@ func TestEncryptSM9Sample(t *testing.T) {
 	expectedKey := "58373260f067ec48667c21c144f8bc33cd3049788651ffd5f738003e51df31174d0e4e402fd87f4581b612f74259db574f67ece6"
 	expectedCiphertext := "2445471164490618e1ee20528ff1d545b0f14c8bcaa44544f03dab5dac07d8ff42ffca97d57cddc05ea405f2e586feb3a6930715532b8000759f13059ed59ac0ba672387bcd6de5016a158a52bb2e7fc429197bcab70b25afee37a2b9db9f3671b5f5b0e951489682f3e64e1378cdd5da9513b1c"
 
-	masterKey := new(EncryptMasterPrivateKey)
-	masterKey.D = bigFromHex("01EDEE3778F441F8DEA3D9FA0ACC4E07EE36C93F9A08618AF4AD85CEDE1C22")
-	p, err := new(bn256.G1).ScalarBaseMult(bn256.NormalizeScalar(masterKey.D.Bytes()))
+	masterKey, err := encryptMasterPrivateKeyFromHex("01EDEE3778F441F8DEA3D9FA0ACC4E07EE36C93F9A08618AF4AD85CEDE1C22")
 	if err != nil {
 		t.Fatal(err)
 	}
-	masterKey.MasterPublicKey = p
 	if hex.EncodeToString(masterKey.MasterPublicKey.Marshal()) != expectedMasterPublicKey {
 		t.Errorf("not expected master public key")
 	}
