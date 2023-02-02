@@ -7,6 +7,11 @@ import (
 	"math/bits"
 )
 
+const (
+	IVSize128 = 16
+	IVSize256 = 23
+)
+
 // constant D for ZUC-128
 var kd = [16]uint32{
 	0x44D7, 0x26BC, 0x626B, 0x135E, 0x5789, 0x35E2, 0x7135, 0x09AF,
@@ -181,13 +186,13 @@ func newZUCState(key, iv []byte) (*zucState32, error) {
 	default:
 		return nil, fmt.Errorf("zuc: invalid key size %d, we support 16/32 now", k)
 	case 16: // ZUC-128
-		if ivLen != 16 {
-			return nil, fmt.Errorf("zuc: invalid iv size %d, expect 16 in bytes", ivLen)
+		if ivLen != IVSize128 {
+			return nil, fmt.Errorf("zuc: invalid iv size %d, expect %d in bytes", ivLen, IVSize128)
 		}
 		state.loadKeyIV16(key, iv)
 	case 32: // ZUC-256
-		if ivLen != 23 {
-			return nil, fmt.Errorf("zuc: invalid iv size %d, expect 23 in bytes", ivLen)
+		if ivLen != IVSize256 {
+			return nil, fmt.Errorf("zuc: invalid iv size %d, expect %d in bytes", ivLen, IVSize256)
 		}
 		state.loadKeyIV32(key, iv, zuc256_d0[:])
 	}

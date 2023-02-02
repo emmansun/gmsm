@@ -40,8 +40,8 @@ func NewHash256(key, iv []byte, tagSize int) (*ZUC256Mac, error) {
 	default:
 		return nil, fmt.Errorf("zuc/eia: invalid key size %d, expect 32 in bytes", k)
 	case 32: // ZUC-256
-		if ivLen != 23 {
-			return nil, fmt.Errorf("zuc/eia: invalid iv size %d, expect 23 in bytes", ivLen)
+		if ivLen != IVSize256 {
+			return nil, fmt.Errorf("zuc/eia: invalid iv size %d, expect %d in bytes", ivLen, IVSize256)
 		}
 		mac.loadKeyIV32(key, iv, d)
 	}
