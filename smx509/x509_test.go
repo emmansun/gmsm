@@ -2747,7 +2747,7 @@ func TestCreateCertificateLegacy(t *testing.T) {
 		DNSNames:           []string{"example.com"},
 		SignatureAlgorithm: sigAlg,
 	}
-	_, err := CreateCertificate(rand.Reader, template.asX509(), template.asX509(), testPrivateKey.Public(), &brokenSigner{testPrivateKey.Public()})
+	_, err := CreateCertificate(rand.Reader, template, template, testPrivateKey.Public(), &brokenSigner{testPrivateKey.Public()})
 	if err == nil {
 		t.Fatal("CreateCertificate didn't fail when SignatureAlgorithm = MD5WithRSA")
 	}
@@ -3085,7 +3085,7 @@ func TestDisableSHA1ForCertOnly(t *testing.T) {
 		IsCA:                  true,
 		KeyUsage:              KeyUsageCertSign | KeyUsageCRLSign,
 	}
-	certDER, err := CreateCertificate(rand.Reader, tmpl.asX509(), tmpl.asX509(), rsaPrivateKey.Public(), rsaPrivateKey)
+	certDER, err := CreateCertificate(rand.Reader, tmpl, tmpl, rsaPrivateKey.Public(), rsaPrivateKey)
 	if err != nil {
 		t.Fatalf("failed to generate test cert: %s", err)
 	}
@@ -3148,7 +3148,7 @@ func TestOmitEmptyExtensions(t *testing.T) {
 		NotAfter:  time.Now().Add(time.Hour),
 		NotBefore: time.Now().Add(-time.Hour),
 	}
-	der, err := CreateCertificate(rand.Reader, tmpl.asX509(), tmpl.asX509(), k.Public(), k)
+	der, err := CreateCertificate(rand.Reader, tmpl, tmpl, k.Public(), k)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3190,7 +3190,7 @@ func TestCreateNegativeSerial(t *testing.T) {
 		NotBefore: time.Now().Add(-time.Hour),
 	}
 	expectedErr := "x509: serial number must be positive"
-	_, err = CreateCertificate(rand.Reader, tmpl.asX509(), tmpl.asX509(), k.Public(), k)
+	_, err = CreateCertificate(rand.Reader, tmpl, tmpl, k.Public(), k)
 	if err == nil || err.Error() != expectedErr {
 		t.Errorf("CreateCertificate returned unexpected error: want %q, got %q", expectedErr, err)
 	}

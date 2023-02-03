@@ -213,3 +213,52 @@ func TestMarshalECDHPKIXPublicKey(t *testing.T) {
 		t.Fatal("should be same")
 	}
 }
+
+func TestToCertificate(t *testing.T) {
+	x509Cert := new(x509.Certificate)
+
+	c, err := toCertificate(x509Cert)
+	if err != nil || c != x509Cert {
+		t.Fatal("should be no error")
+	}
+
+	smX509Cert := new(Certificate)
+	_, err = toCertificate(smX509Cert)
+	if err != nil {
+		t.Fatal("should be no error")
+	}
+
+	_, err = toCertificate("test")
+	if err == nil {
+		t.Fatal("should be error")
+	}
+
+	_, err = toCertificate(nil)
+	if err == nil {
+		t.Fatal("should be error")
+	}
+}
+
+func TestInvalidParentTemplate(t *testing.T) {
+	random := rand.Reader
+
+	sm2Priv, err := sm2.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("Failed to generate SM2 key: %s", err)
+	}
+	_, err = CreateCertificate(random, nil, nil, sm2Priv.PublicKey, sm2Priv)
+	if err == nil {
+		t.Fatal("should be error")
+	}
+	if err.Error() != "x509: unsupported template parameter type: <nil>" {
+		t.Fatalf("unexpected error message: %v", err.Error())
+	}
+
+	_, err = CreateCertificate(random, new(x509.Certificate), nil, sm2Priv.PublicKey, sm2Priv)
+	if err == nil {
+		t.Fatal("should be error")
+	}
+	if err.Error() != "x509: unsupported parent parameter type: <nil>" {
+		t.Fatalf("unexpected error message: %v", err.Error())
+	}
+}

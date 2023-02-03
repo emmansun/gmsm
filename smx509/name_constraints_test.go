@@ -1624,7 +1624,7 @@ func makeConstraintsCACert(constraints constraintsSpec, name string, key *ecdsa.
 	if parent == nil {
 		parent = template
 	}
-	derBytes, err := CreateCertificate(rand.Reader, template.asX509(), parent.asX509(), &key.PublicKey, parentKey)
+	derBytes, err := CreateCertificate(rand.Reader, template, parent, &key.PublicKey, parentKey)
 	if err != nil {
 		return nil, err
 	}

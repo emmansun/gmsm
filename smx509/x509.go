@@ -658,6 +658,7 @@ func (c *Certificate) asX509() *x509.Certificate {
 	return (*x509.Certificate)(c)
 }
 
+// ToX509 convert smx509.Certificate reference to x509.Certificate
 func (c *Certificate) ToX509() *x509.Certificate {
 	return c.asX509()
 }
@@ -1374,8 +1375,9 @@ var emptyASN1Subject = []byte{0x30, 0}
 //  - UnknownExtKeyUsage
 //
 // The certificate is signed by parent. If parent is equal to template then the
-// certificate is self-signed. The parameter pub is the public key of the
-// certificate to be generated and priv is the private key of the signer.
+// certificate is self-signed, both parent and template should be *x509.Certificate or
+// *smx509.Certificate type. The parameter pub is the public key of the certificate to
+// be generated and priv is the private key of the signer.
 //
 // The returned slice is the certificate in DER encoding.
 //
@@ -1389,13 +1391,23 @@ var emptyASN1Subject = []byte{0x30, 0}
 //
 // If SubjectKeyId from template is empty and the template is a CA, SubjectKeyId
 // will be generated from the hash of the public key.
-func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, priv interface{}) ([]byte, error) {
+func CreateCertificate(rand io.Reader, template, parent, pub, priv interface{}) ([]byte, error) {
+	realTemplate, err := toCertificate(template)
+	if err != nil {
+		return nil, fmt.Errorf("x509: unsupported template parameter type: %T", template)
+	}
+
+	realParent, err := toCertificate(parent)
+	if err != nil {
+		return nil, fmt.Errorf("x509: unsupported parent parameter type: %T", parent)
+	}
+
 	key, ok := priv.(crypto.Signer)
 	if !ok {
 		return nil, errors.New("x509: certificate private key does not implement crypto.Signer")
 	}
 
-	if template.SerialNumber == nil {
+	if realTemplate.SerialNumber == nil {
 		return nil, errors.New("x509: no SerialNumber given")
 	}
 
@@ -1404,15 +1416,15 @@ func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, 
 	// We _should_ also restrict serials to <= 20 octets, but it turns out a lot of people
 	// get this wrong, in part because the encoding can itself alter the length of the
 	// serial. For now we accept these non-conformant serials.
-	if template.SerialNumber.Sign() == -1 {
+	if realTemplate.SerialNumber.Sign() == -1 {
 		return nil, errors.New("x509: serial number must be positive")
 	}
 
-	if template.BasicConstraintsValid && !template.IsCA && template.MaxPathLen != -1 && (template.MaxPathLen != 0 || template.MaxPathLenZero) {
+	if realTemplate.BasicConstraintsValid && !realTemplate.IsCA && realTemplate.MaxPathLen != -1 && (realTemplate.MaxPathLen != 0 || realTemplate.MaxPathLenZero) {
 		return nil, errors.New("x509: only CAs are allowed to specify MaxPathLen")
 	}
 
-	hashFunc, signatureAlgorithm, err := signingParamsForPublicKey(key.Public(), template.SignatureAlgorithm)
+	hashFunc, signatureAlgorithm, err := signingParamsForPublicKey(key.Public(), realTemplate.SignatureAlgorithm)
 	if err != nil {
 		return nil, err
 	}
@@ -1426,23 +1438,23 @@ func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, 
 		return nil, fmt.Errorf("x509: unsupported public key type: %T", pub)
 	}
 
-	asn1Issuer, err := subjectBytes(parent)
+	asn1Issuer, err := subjectBytes(realParent)
 	if err != nil {
 		return nil, err
 	}
 
-	asn1Subject, err := subjectBytes(template)
+	asn1Subject, err := subjectBytes(realTemplate)
 	if err != nil {
 		return nil, err
 	}
 
-	authorityKeyId := template.AuthorityKeyId
-	if !bytes.Equal(asn1Issuer, asn1Subject) && len(parent.SubjectKeyId) > 0 {
-		authorityKeyId = parent.SubjectKeyId
+	authorityKeyId := realTemplate.AuthorityKeyId
+	if !bytes.Equal(asn1Issuer, asn1Subject) && len(realParent.SubjectKeyId) > 0 {
+		authorityKeyId = realParent.SubjectKeyId
 	}
 
-	subjectKeyId := template.SubjectKeyId
-	if len(subjectKeyId) == 0 && template.IsCA {
+	subjectKeyId := realTemplate.SubjectKeyId
+	if len(subjectKeyId) == 0 && realTemplate.IsCA {
 		// SubjectKeyId generated using method 1 in RFC 5280, Section 4.2.1.2:
 		//   (1) The keyIdentifier is composed of the 160-bit SHA-1 hash of the
 		//   value of the BIT STRING subjectPublicKey (excluding the tag,
@@ -1458,11 +1470,11 @@ func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, 
 
 	if privPub, ok := key.Public().(privateKey); !ok {
 		return nil, errors.New("x509: internal error: supported public key does not implement Equal")
-	} else if parent.PublicKey != nil && !privPub.Equal(parent.PublicKey) {
+	} else if realParent.PublicKey != nil && !privPub.Equal(realParent.PublicKey) {
 		return nil, errors.New("x509: provided PrivateKey doesn't match parent's PublicKey")
 	}
 
-	extensions, err := buildCertExtensions(template, bytes.Equal(asn1Subject, emptyASN1Subject), authorityKeyId, subjectKeyId)
+	extensions, err := buildCertExtensions(realTemplate, bytes.Equal(asn1Subject, emptyASN1Subject), authorityKeyId, subjectKeyId)
 	if err != nil {
 		return nil, err
 	}
@@ -1470,10 +1482,10 @@ func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, 
 	encodedPublicKey := asn1.BitString{BitLength: len(publicKeyBytes) * 8, Bytes: publicKeyBytes}
 	c := tbsCertificate{
 		Version:            2,
-		SerialNumber:       template.SerialNumber,
+		SerialNumber:       realTemplate.SerialNumber,
 		SignatureAlgorithm: signatureAlgorithm,
 		Issuer:             asn1.RawValue{FullBytes: asn1Issuer},
-		Validity:           validity{template.NotBefore.UTC(), template.NotAfter.UTC()},
+		Validity:           validity{realTemplate.NotBefore.UTC(), realTemplate.NotAfter.UTC()},
 		Subject:            asn1.RawValue{FullBytes: asn1Subject},
 		PublicKey:          publicKeyInfo{nil, publicKeyAlgorithm, encodedPublicKey},
 		Extensions:         extensions,
@@ -1495,7 +1507,7 @@ func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, 
 	}
 
 	var signerOpts crypto.SignerOpts = hashFunc
-	if template.SignatureAlgorithm != 0 && isRSAPSS(template.SignatureAlgorithm) {
+	if realTemplate.SignatureAlgorithm != 0 && isRSAPSS(realTemplate.SignatureAlgorithm) {
 		signerOpts = &rsa.PSSOptions{
 			SaltLength: rsa.PSSSaltLengthEqualsHash,
 			Hash:       hashFunc,
@@ -1523,6 +1535,17 @@ func CreateCertificate(rand io.Reader, template, parent *x509.Certificate, pub, 
 	}
 
 	return signedCert, nil
+}
+
+func toCertificate(in interface{}) (*x509.Certificate, error) {
+	switch c := in.(type) {
+	case *x509.Certificate:
+		return c, nil
+	case *Certificate:
+		return c.asX509(), nil
+	default:
+		return nil, fmt.Errorf("unsupported certificate of type %T", in)
+	}
 }
 
 // ParseCRL parses a CRL from the given bytes. It's often the case that PEM
@@ -1615,6 +1638,7 @@ func (c *CertificateRequest) asX509() *x509.CertificateRequest {
 	return (*x509.CertificateRequest)(c)
 }
 
+// ToX509 convert smx509.CertificateRequest reference to x509.CertificateRequest
 func (c *CertificateRequest) ToX509() *x509.CertificateRequest {
 	return c.asX509()
 }

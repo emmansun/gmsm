@@ -1952,7 +1952,7 @@ func genCertEdge(t *testing.T, subject string, key crypto.Signer, mutateTmpl fun
 		signer = key
 	}
 
-	d, err := CreateCertificate(rand.Reader, tmpl.asX509(), issuer.asX509(), key.Public(), signer)
+	d, err := CreateCertificate(rand.Reader, tmpl, issuer, key.Public(), signer)
 	if err != nil {
 		t.Fatalf("failed to generate test cert: %s", err)
 	}
@@ -2598,7 +2598,7 @@ func TestVerifyEKURootAsLeaf(t *testing.T) {
 				DNSNames:     []string{"localhost"},
 				ExtKeyUsage:  tc.rootEKUs,
 			}
-			rootDER, err := CreateCertificate(rand.Reader, tmpl.asX509(), tmpl.asX509(), k.Public(), k)
+			rootDER, err := CreateCertificate(rand.Reader, tmpl, tmpl, k.Public(), k)
 			if err != nil {
 				t.Fatalf("failed to create certificate: %s", err)
 			}
