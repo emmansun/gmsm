@@ -42,7 +42,6 @@ func ExampleSignPrivateKey_Sign() {
 	// Since sign is a randomized function, signature will be
 	// different each time.
 	fmt.Printf("%x\n", sig)
-	// Output: true
 }
 
 func ExampleVerifyASN1() {
