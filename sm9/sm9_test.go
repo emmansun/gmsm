@@ -447,18 +447,23 @@ func TestWrapKeyASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	key, cipher, err := masterKey.Public().WrapKey(rand.Reader, uid, hid, 16)
+	keyPackage, err := masterKey.Public().WrapKeyASN1(rand.Reader, uid, hid, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	key2, err := userKey.UnwrapKey(uid, cipher, 16)
+	key1, cipher, err := UnmarshalSM9KeyPackage(keyPackage)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if hex.EncodeToString(key) != hex.EncodeToString(key2) {
-		t.Errorf("expected %v, got %v\n", hex.EncodeToString(key), hex.EncodeToString(key2))
+	key2, err := UnwrapKey(userKey, uid, cipher, 16)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if hex.EncodeToString(key1) != hex.EncodeToString(key2) {
+		t.Errorf("expected %v, got %v\n", hex.EncodeToString(key1), hex.EncodeToString(key2))
 	}
 }
 
