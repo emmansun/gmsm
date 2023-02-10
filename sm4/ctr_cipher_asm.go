@@ -34,7 +34,7 @@ func (c *sm4CipherAsm) NewCTR(iv []byte) cipher.Stream {
 	}
 	s := &ctr{
 		b:       c,
-		ctr:     make([]byte, c.batchBlocks*len(iv)),
+		ctr:     make([]byte, c.blocksSize),
 		out:     make([]byte, 0, bufSize),
 		outUsed: 0,
 	}

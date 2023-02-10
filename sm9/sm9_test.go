@@ -659,26 +659,31 @@ func TestEncryptDecrypt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cipher, err := Encrypt(rand.Reader, masterKey.Public(), uid, hid, plaintext)
-	if err != nil {
-		t.Fatal(err)
+	encTypes := []*EncrypterOpts{
+		DefaultEncrypterOpts, SM4ECBEncrypterOpts, SM4CBCEncrypterOpts, SM4CFBEncrypterOpts, SM4OFBEncrypterOpts,
 	}
+	for _, opts := range encTypes {
+		cipher, err := Encrypt(rand.Reader, masterKey.Public(), uid, hid, plaintext, opts)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	got, err := Decrypt(userKey, uid, cipher)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) != string(plaintext) {
-		t.Errorf("expected %v, got %v\n", string(plaintext), string(got))
-	}
+		got, err := Decrypt(userKey, uid, cipher, opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(got) != string(plaintext) {
+			t.Errorf("expected %v, got %v\n", string(plaintext), string(got))
+		}
 
-	got, err = userKey.Decrypt(uid, cipher)
-	if err != nil {
-		t.Fatal(err)
-	}
+		got, err = userKey.Decrypt(uid, cipher, opts)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	if string(got) != string(plaintext) {
-		t.Errorf("expected %v, got %v\n", string(plaintext), string(got))
+		if string(got) != string(plaintext) {
+			t.Errorf("expected %v, got %v\n", string(plaintext), string(got))
+		}
 	}
 }
 
@@ -694,27 +699,32 @@ func TestEncryptDecryptASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cipher, err := EncryptASN1(rand.Reader, masterKey.Public(), uid, hid, plaintext)
-	if err != nil {
-		t.Fatal(err)
+	encTypes := []*EncrypterOpts{
+		DefaultEncrypterOpts, SM4ECBEncrypterOpts, SM4CBCEncrypterOpts, SM4CFBEncrypterOpts, SM4OFBEncrypterOpts,
 	}
+	for _, opts := range encTypes {
+		cipher, err := EncryptASN1(rand.Reader, masterKey.Public(), uid, hid, plaintext, opts)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	got, err := DecryptASN1(userKey, uid, cipher)
-	if err != nil {
-		t.Fatal(err)
-	}
+		got, err := DecryptASN1(userKey, uid, cipher)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	if string(got) != string(plaintext) {
-		t.Errorf("expected %v, got %v\n", string(plaintext), string(got))
-	}
+		if string(got) != string(plaintext) {
+			t.Errorf("expected %v, got %v\n", string(plaintext), string(got))
+		}
 
-	got, err = userKey.Decrypt(uid, cipher)
-	if err != nil {
-		t.Fatal(err)
-	}
+		got, err = userKey.Decrypt(uid, cipher, opts)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	if string(got) != string(plaintext) {
-		t.Errorf("expected %v, got %v\n", string(plaintext), string(got))
+		if string(got) != string(plaintext) {
+			t.Errorf("expected %v, got %v\n", string(plaintext), string(got))
+		}
 	}
 }
 
@@ -782,7 +792,7 @@ func BenchmarkEncrypt(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cipher, err := Encrypt(rand.Reader, masterKey.Public(), uid, hid, plaintext)
+		cipher, err := Encrypt(rand.Reader, masterKey.Public(), uid, hid, plaintext, nil)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -803,14 +813,14 @@ func BenchmarkDecrypt(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	cipher, err := Encrypt(rand.Reader, masterKey.Public(), uid, hid, plaintext)
+	cipher, err := Encrypt(rand.Reader, masterKey.Public(), uid, hid, plaintext, nil)
 	if err != nil {
 		b.Fatal(err)
 	}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		got, err := Decrypt(userKey, uid, cipher)
+		got, err := Decrypt(userKey, uid, cipher, nil)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -832,7 +842,7 @@ func BenchmarkDecryptASN1(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	cipher, err := EncryptASN1(rand.Reader, masterKey.Public(), uid, hid, plaintext)
+	cipher, err := EncryptASN1(rand.Reader, masterKey.Public(), uid, hid, plaintext, nil)
 	if err != nil {
 		b.Fatal(err)
 	}

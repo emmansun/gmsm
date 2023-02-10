@@ -3,7 +3,7 @@
 2.Sign/Verify    
 3.Key Exchange  
 4.Wrap/Unwrap Key  
-5.Encryption/Decryption (XOR mode)
+5.Encryption/Decryption
 
 ## SM9 current performance:
 
