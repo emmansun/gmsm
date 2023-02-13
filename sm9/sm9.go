@@ -529,14 +529,15 @@ func DecryptASN1(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error
 	return decrypt(c, key[:key1Len], key[key1Len:], c2Bytes, c3Bytes, opts)
 }
 
-// Decrypt decrypt chipher, ciphertext should be with ASN.1 format according
-// SM9 cryptographic algorithm application specification, SM9Cipher definition.
+// Decrypt decrypt chipher, ciphertext should be with format C1||C3||C2
 func (priv *EncryptPrivateKey) Decrypt(uid, ciphertext []byte, opts EncrypterOpts) ([]byte, error) {
-	if ciphertext[0] == 0x30 { // should be ASN.1 format
-		return DecryptASN1(priv, uid, ciphertext)
-	}
-	// fallback to C1||C3||C2 raw format
 	return Decrypt(priv, uid, ciphertext, opts)
+}
+
+// DecryptASN1 decrypt chipher, ciphertext should be with ASN.1 format according
+// SM9 cryptographic algorithm application specification, SM9Cipher definition.
+func (priv *EncryptPrivateKey) DecryptASN1(uid, ciphertext []byte) ([]byte, error) {
+	return DecryptASN1(priv, uid, ciphertext)
 }
 
 // KeyExchange key exchange struct, include internal stat in whole key exchange flow.

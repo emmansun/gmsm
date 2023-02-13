@@ -750,7 +750,7 @@ func TestEncryptDecrypt(t *testing.T) {
 
 		got, err = userKey.Decrypt(uid, cipher, opts)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("encType %v, first byte %x, %v", opts.GetEncryptType(), cipher[0], err)
 		}
 
 		if string(got) != string(plaintext) {
@@ -789,7 +789,7 @@ func TestEncryptDecryptASN1(t *testing.T) {
 			t.Errorf("expected %v, got %v\n", string(plaintext), string(got))
 		}
 
-		got, err = userKey.Decrypt(uid, cipher, opts)
+		got, err = userKey.DecryptASN1(uid, cipher)
 		if err != nil {
 			t.Fatal(err)
 		}
