@@ -3,21 +3,16 @@ package sm9
 
 import (
 	"crypto"
-	"crypto/cipher"
 	goSubtle "crypto/subtle"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"io"
 	"math/big"
 
-	_cipher "github.com/emmansun/gmsm/cipher"
 	"github.com/emmansun/gmsm/internal/bigmod"
 	"github.com/emmansun/gmsm/internal/subtle"
 	"github.com/emmansun/gmsm/kdf"
-	"github.com/emmansun/gmsm/padding"
 	"github.com/emmansun/gmsm/sm3"
-	"github.com/emmansun/gmsm/sm4"
 	"github.com/emmansun/gmsm/sm9/bn256"
 	"golang.org/x/crypto/cryptobyte"
 	"golang.org/x/crypto/cryptobyte/asn1"
@@ -396,52 +391,8 @@ func (priv *EncryptPrivateKey) UnwrapKey(uid, cipherDer []byte, kLen int) ([]byt
 	return UnwrapKey(priv, uid, g, kLen)
 }
 
-type CipherFactory func(key []byte) (cipher.Block, error)
-
-// EncrypterOpts indicate encrypt/decrypt options
-type EncrypterOpts struct {
-	EncryptType   encryptType
-	Padding       padding.Padding
-	CipherFactory CipherFactory
-	CipherKeySize int
-}
-
-type DecrypterOpts EncrypterOpts
-
-func (opts *EncrypterOpts) getKeySize(plaintext []byte) int {
-	if opts.EncryptType == ENC_TYPE_XOR {
-		return len(plaintext)
-	}
-	return opts.CipherKeySize
-}
-
-// NewEncrypterOpts creates EncrypterOpts with given parameters
-func NewEncrypterOpts(encType encryptType, padMode padding.Padding, factory CipherFactory, cipherKeySize int) *EncrypterOpts {
-	opts := new(EncrypterOpts)
-	opts.EncryptType = encType
-	opts.Padding = padMode
-	opts.CipherFactory = factory
-	opts.CipherKeySize = cipherKeySize
-	return opts
-}
-
-// DefaultEncrypterOpts default option represents XOR mode
-var DefaultEncrypterOpts = NewEncrypterOpts(ENC_TYPE_XOR, nil, nil, 0)
-
-// SM4ECBEncrypterOpts option represents SM4 ECB mode
-var SM4ECBEncrypterOpts = NewEncrypterOpts(ENC_TYPE_ECB, padding.NewPKCS7Padding(sm4.BlockSize), sm4.NewCipher, sm4.BlockSize)
-
-// SM4CBCEncrypterOpts option represents SM4 CBC mode
-var SM4CBCEncrypterOpts = NewEncrypterOpts(ENC_TYPE_CBC, padding.NewPKCS7Padding(sm4.BlockSize), sm4.NewCipher, sm4.BlockSize)
-
-// SM4CFBEncrypterOpts option represents SM4 CFB mode
-var SM4CFBEncrypterOpts = NewEncrypterOpts(ENC_TYPE_CFB, padding.NewPKCS7Padding(sm4.BlockSize), sm4.NewCipher, sm4.BlockSize)
-
-// SM4OFBEncrypterOpts option represents SM4 OFB mode
-var SM4OFBEncrypterOpts = NewEncrypterOpts(ENC_TYPE_OFB, padding.NewPKCS7Padding(sm4.BlockSize), sm4.NewCipher, sm4.BlockSize)
-
 // Encrypt encrypt plaintext, output ciphertext with format C1||C3||C2.
-func Encrypt(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, plaintext []byte, opts *EncrypterOpts) ([]byte, error) {
+func Encrypt(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, plaintext []byte, opts EncrypterOpts) ([]byte, error) {
 	c1, c2, c3, err := encrypt(rand, pub, uid, hid, plaintext, opts)
 	if err != nil {
 		return nil, err
@@ -451,16 +402,16 @@ func Encrypt(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, 
 	return ciphertext, nil
 }
 
-func encrypt(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, plaintext []byte, opts *EncrypterOpts) (c1 *bn256.G1, c2, c3 []byte, err error) {
+func encrypt(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, plaintext []byte, opts EncrypterOpts) (c1 *bn256.G1, c2, c3 []byte, err error) {
 	if opts == nil {
 		opts = DefaultEncrypterOpts
 	}
-	key1Len := opts.getKeySize(plaintext)
+	key1Len := opts.GetKeySize(plaintext)
 	key, c1, err := WrapKey(rand, pub, uid, hid, key1Len+sm3.Size)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	c2, err = encryptPlaintext(rand, key[:key1Len], plaintext, opts)
+	c2, err = opts.Encrypt(rand, key[:key1Len], plaintext)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -473,77 +424,15 @@ func encrypt(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, 
 	return
 }
 
-func encryptPlaintext(rand io.Reader, key, plaintext []byte, opts *EncrypterOpts) ([]byte, error) {
-	switch opts.EncryptType {
-	case ENC_TYPE_XOR:
-		subtle.XORBytes(key, key, plaintext)
-		return key, nil
-	case ENC_TYPE_ECB:
-		block, err := opts.CipherFactory(key)
-		if err != nil {
-			return nil, err
-		}
-		paddedPlainText := opts.Padding.Pad(plaintext)
-		ciphertext := make([]byte, len(paddedPlainText))
-		mode := _cipher.NewECBEncrypter(block)
-		mode.CryptBlocks(ciphertext, paddedPlainText)
-		return ciphertext, nil
-	case ENC_TYPE_CBC:
-		block, err := opts.CipherFactory(key)
-		if err != nil {
-			return nil, err
-		}
-		paddedPlainText := opts.Padding.Pad(plaintext)
-		blockSize := block.BlockSize()
-		ciphertext := make([]byte, blockSize+len(paddedPlainText))
-		iv := ciphertext[:blockSize]
-		if _, err := io.ReadFull(rand, iv); err != nil {
-			return nil, err
-		}
-		mode := cipher.NewCBCEncrypter(block, iv)
-		mode.CryptBlocks(ciphertext[blockSize:], paddedPlainText)
-		return ciphertext, nil
-	case ENC_TYPE_CFB:
-		block, err := opts.CipherFactory(key)
-		if err != nil {
-			return nil, err
-		}
-		blockSize := block.BlockSize()
-		ciphertext := make([]byte, blockSize+len(plaintext))
-		iv := ciphertext[:blockSize]
-		if _, err := io.ReadFull(rand, iv); err != nil {
-			return nil, err
-		}
-		stream := cipher.NewCFBEncrypter(block, iv)
-		stream.XORKeyStream(ciphertext[blockSize:], plaintext)
-		return ciphertext, nil
-	case ENC_TYPE_OFB:
-		block, err := opts.CipherFactory(key)
-		if err != nil {
-			return nil, err
-		}
-		blockSize := block.BlockSize()
-		ciphertext := make([]byte, blockSize+len(plaintext))
-		iv := ciphertext[:blockSize]
-		if _, err := io.ReadFull(rand, iv); err != nil {
-			return nil, err
-		}
-		stream := cipher.NewOFB(block, iv)
-		stream.XORKeyStream(ciphertext[blockSize:], plaintext)
-		return ciphertext, nil
-	}
-	return nil, fmt.Errorf("sm9: unsupported encryption type <%v>", opts.EncryptType)
-}
-
 // EncryptASN1 encrypt plaintext and output ciphertext with ASN.1 format according
 // SM9 cryptographic algorithm application specification, SM9Cipher definition.
-func EncryptASN1(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, plaintext []byte, opts *EncrypterOpts) ([]byte, error) {
+func EncryptASN1(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, plaintext []byte, opts EncrypterOpts) ([]byte, error) {
 	return pub.Encrypt(rand, uid, hid, plaintext, opts)
 }
 
 // Encrypt encrypt plaintext and output ciphertext with ASN.1 format according
 // SM9 cryptographic algorithm application specification, SM9Cipher definition.
-func (pub *EncryptMasterPublicKey) Encrypt(rand io.Reader, uid []byte, hid byte, plaintext []byte, opts *EncrypterOpts) ([]byte, error) {
+func (pub *EncryptMasterPublicKey) Encrypt(rand io.Reader, uid []byte, hid byte, plaintext []byte, opts EncrypterOpts) ([]byte, error) {
 	if opts == nil {
 		opts = DefaultEncrypterOpts
 	}
@@ -554,7 +443,7 @@ func (pub *EncryptMasterPublicKey) Encrypt(rand io.Reader, uid []byte, hid byte,
 
 	var b cryptobyte.Builder
 	b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
-		b.AddASN1Int64(int64(opts.EncryptType))
+		b.AddASN1Int64(int64(opts.GetEncryptType()))
 		b.AddASN1BitString(c1.MarshalUncompressed())
 		b.AddASN1OctetString(c3)
 		b.AddASN1OctetString(c2)
@@ -563,7 +452,7 @@ func (pub *EncryptMasterPublicKey) Encrypt(rand io.Reader, uid []byte, hid byte,
 }
 
 // Decrypt decrypt chipher, ciphertext should be with format C1||C3||C2
-func Decrypt(priv *EncryptPrivateKey, uid, ciphertext []byte, opts *EncrypterOpts) ([]byte, error) {
+func Decrypt(priv *EncryptPrivateKey, uid, ciphertext []byte, opts EncrypterOpts) ([]byte, error) {
 	if opts == nil {
 		opts = DefaultEncrypterOpts
 	}
@@ -575,7 +464,7 @@ func Decrypt(priv *EncryptPrivateKey, uid, ciphertext []byte, opts *EncrypterOpt
 	}
 
 	c2 := c3c2[sm3.Size:]
-	key1Len := opts.getKeySize(c2)
+	key1Len := opts.GetKeySize(c2)
 
 	key, err := UnwrapKey(priv, uid, c, key1Len+sm3.Size)
 	if err != nil {
@@ -585,7 +474,7 @@ func Decrypt(priv *EncryptPrivateKey, uid, ciphertext []byte, opts *EncrypterOpt
 	return decrypt(c, key[:key1Len], key[key1Len:], c2, c3c2[:sm3.Size], opts)
 }
 
-func decrypt(cipher *bn256.G1, key1, key2, c2, c3 []byte, opts *EncrypterOpts) ([]byte, error) {
+func decrypt(cipher *bn256.G1, key1, key2, c2, c3 []byte, opts EncrypterOpts) ([]byte, error) {
 	hash := sm3.New()
 	hash.Write(c2)
 	hash.Write(key2)
@@ -595,70 +484,7 @@ func decrypt(cipher *bn256.G1, key1, key2, c2, c3 []byte, opts *EncrypterOpts) (
 		return nil, ErrDecryption
 	}
 
-	return decryptCiphertext(key1, c2, opts)
-}
-
-func decryptCiphertext(key, ciphertext []byte, opts *EncrypterOpts) ([]byte, error) {
-	switch opts.EncryptType {
-	case ENC_TYPE_XOR:
-		subtle.XORBytes(key, ciphertext, key)
-		return key, nil
-	case ENC_TYPE_ECB:
-		block, err := opts.CipherFactory(key)
-		if err != nil {
-			return nil, err
-		}
-		plaintext := make([]byte, len(ciphertext))
-		mode := _cipher.NewECBDecrypter(block)
-		mode.CryptBlocks(plaintext, ciphertext)
-		return opts.Padding.Unpad(plaintext)
-	case ENC_TYPE_CBC:
-		block, err := opts.CipherFactory(key)
-		if err != nil {
-			return nil, err
-		}
-		blockSize := block.BlockSize()
-		if len(ciphertext) < blockSize {
-			return nil, ErrDecryption
-		}
-		iv := ciphertext[:blockSize]
-		ciphertext = ciphertext[blockSize:]
-		plaintext := make([]byte, len(ciphertext))
-		mode := cipher.NewCBCDecrypter(block, iv)
-		mode.CryptBlocks(plaintext, ciphertext)
-		return opts.Padding.Unpad(plaintext)
-	case ENC_TYPE_CFB:
-		block, err := opts.CipherFactory(key)
-		if err != nil {
-			return nil, err
-		}
-		blockSize := block.BlockSize()
-		if len(ciphertext) < blockSize {
-			return nil, ErrDecryption
-		}
-		iv := ciphertext[:blockSize]
-		ciphertext = ciphertext[blockSize:]
-		plaintext := make([]byte, len(ciphertext))
-		stream := cipher.NewCFBDecrypter(block, iv)
-		stream.XORKeyStream(plaintext, ciphertext)
-		return plaintext, nil
-	case ENC_TYPE_OFB:
-		block, err := opts.CipherFactory(key)
-		if err != nil {
-			return nil, err
-		}
-		blockSize := block.BlockSize()
-		if len(ciphertext) < blockSize {
-			return nil, ErrDecryption
-		}
-		iv := ciphertext[:blockSize]
-		ciphertext = ciphertext[blockSize:]
-		plaintext := make([]byte, len(ciphertext))
-		stream := cipher.NewOFB(block, iv)
-		stream.XORKeyStream(plaintext, ciphertext)
-		return plaintext, nil
-	}
-	return nil, fmt.Errorf("sm9: unsupported encryption type <%v>", opts.EncryptType)
+	return opts.Decrypt(key1, c2)
 }
 
 // DecryptASN1 decrypt chipher, ciphertext should be with ASN.1 format according
@@ -685,13 +511,16 @@ func DecryptASN1(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error
 		return nil, errors.New("sm9: invalid ciphertext asn.1 data")
 	}
 	// We just make assumption block cipher is SM4 and padding scheme is pkcs7
-	opts := NewEncrypterOpts(encryptType(encType), padding.NewPKCS7Padding(sm4.BlockSize), sm4.NewCipher, sm4.BlockSize)
+	opts := shangMiEncrypterOpts(encryptType(encType))
+	if opts == nil {
+		return nil, ErrDecryption
+	}
 	c, err := unmarshalG1(c1Bytes)
 	if err != nil {
 		return nil, ErrDecryption
 	}
 
-	key1Len := opts.getKeySize(c2Bytes)
+	key1Len := opts.GetKeySize(c2Bytes)
 	key, err := UnwrapKey(priv, uid, c, key1Len+sm3.Size)
 	if err != nil {
 		return nil, err
@@ -702,7 +531,7 @@ func DecryptASN1(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error
 
 // Decrypt decrypt chipher, ciphertext should be with ASN.1 format according
 // SM9 cryptographic algorithm application specification, SM9Cipher definition.
-func (priv *EncryptPrivateKey) Decrypt(uid, ciphertext []byte, opts *EncrypterOpts) ([]byte, error) {
+func (priv *EncryptPrivateKey) Decrypt(uid, ciphertext []byte, opts EncrypterOpts) ([]byte, error) {
 	if ciphertext[0] == 0x30 { // should be ASN.1 format
 		return DecryptASN1(priv, uid, ciphertext)
 	}

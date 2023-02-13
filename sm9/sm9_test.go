@@ -647,6 +647,78 @@ func TestEncryptSM9Sample(t *testing.T) {
 	}
 }
 
+func TestEncryptSM9SampleBlockMode(t *testing.T) {
+	plaintext := []byte("Chinese IBE standard")
+	expectedMasterPublicKey := "787ed7b8a51f3ab84e0a66003f32da5c720b17eca7137d39abc66e3c80a892ff769de61791e5adc4b9ff85a31354900b202871279a8c49dc3f220f644c57a7b1"
+	expectedUserPrivateKey := "94736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b1587aa5e47570da7600cd760a0cf7beaf71c447f3844753fe74fa7ba92ca7d3b55f27538a62e7f7bfb51dce08704796d94c9d56734f119ea44732b50e31cdeb75c1"
+	expectedUserPublicKey := "709d165808b0a43e2574e203fa885abcbab16a240c4c1916552e7c43d09763b8693269a6be2456f43333758274786b6051ff87b7f198da4ba1a2c6e336f51fcc"
+	expectedCipher := "2445471164490618e1ee20528ff1d545b0f14c8bcaa44544f03dab5dac07d8ff42ffca97d57cddc05ea405f2e586feb3a6930715532b8000759f13059ed59ac0"
+	expectedKey := "58373260f067ec48667c21c144f8bc33cd3049788651ffd5f738003e51df31174d0e4e402fd87f4581b612f74259db57"
+	expectedCiphertext := "2445471164490618e1ee20528ff1d545b0f14c8bcaa44544f03dab5dac07d8ff42ffca97d57cddc05ea405f2e586feb3a6930715532b8000759f13059ed59ac0fd3c98dd92c44c68332675a370cceede31e0c5cd209c257601149d12b394a2bee05b6fac6f11b965268c994f00dba7a8bb00fd60583546cbdf4649250863f10a"
+
+	masterKey, err := encryptMasterPrivateKeyFromHex("01EDEE3778F441F8DEA3D9FA0ACC4E07EE36C93F9A08618AF4AD85CEDE1C22")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hex.EncodeToString(masterKey.MasterPublicKey.Marshal()) != expectedMasterPublicKey {
+		t.Errorf("not expected master public key")
+	}
+
+	uid := []byte("Bob")
+	hid := byte(0x03)
+
+	userKey, err := masterKey.GenerateUserKey(uid, hid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hex.EncodeToString(userKey.PrivateKey.Marshal()) != expectedUserPrivateKey {
+		t.Errorf("not expected user private key")
+	}
+
+	q := masterKey.Public().GenerateUserPublicKey(uid, hid)
+	if hex.EncodeToString(q.Marshal()) != expectedUserPublicKey {
+		t.Errorf("not expected user public key")
+	}
+
+	var r *big.Int = bigFromHex("AAC0541779C8FC45E3E2CB25C12B5D2576B2129AE8BB5EE2CBE5EC9E785C")
+	cipher, err := new(bn256.G1).ScalarMult(q, bn256.NormalizeScalar(r.Bytes()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hex.EncodeToString(cipher.Marshal()) != expectedCipher {
+		t.Errorf("not expected cipher")
+	}
+
+	g := bn256.Pair(masterKey.Public().MasterPublicKey, bn256.Gen2)
+	w := new(bn256.GT).ScalarMult(g, r)
+
+	var buffer []byte
+	buffer = append(buffer, cipher.Marshal()...)
+	buffer = append(buffer, w.Marshal()...)
+	buffer = append(buffer, uid...)
+
+	key := kdf.Kdf(sm3.New(), buffer, 16+32)
+
+	if hex.EncodeToString(key) != expectedKey {
+		t.Errorf("not expected key, expected %v, got %x\n", expectedKey, key)
+	}
+
+	c2, err := SM4ECBEncrypterOpts.Encrypt(nil, key[:16], plaintext)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hash := sm3.New()
+	hash.Write(c2)
+	hash.Write(key[16:])
+	c3 := hash.Sum(nil)
+
+	ciphertext := append(cipher.Marshal(), c3...)
+	ciphertext = append(ciphertext, c2...)
+	if hex.EncodeToString(ciphertext) != expectedCiphertext {
+		t.Errorf("expected %v, got %v\n", expectedCiphertext, hex.EncodeToString(ciphertext))
+	}
+}
+
 func TestEncryptDecrypt(t *testing.T) {
 	plaintext := []byte("Chinese IBE standard")
 	masterKey, err := GenerateEncryptMasterKey(rand.Reader)
@@ -659,7 +731,7 @@ func TestEncryptDecrypt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	encTypes := []*EncrypterOpts{
+	encTypes := []EncrypterOpts{
 		DefaultEncrypterOpts, SM4ECBEncrypterOpts, SM4CBCEncrypterOpts, SM4CFBEncrypterOpts, SM4OFBEncrypterOpts,
 	}
 	for _, opts := range encTypes {
@@ -699,7 +771,7 @@ func TestEncryptDecryptASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	encTypes := []*EncrypterOpts{
+	encTypes := []EncrypterOpts{
 		DefaultEncrypterOpts, SM4ECBEncrypterOpts, SM4CBCEncrypterOpts, SM4CFBEncrypterOpts, SM4OFBEncrypterOpts,
 	}
 	for _, opts := range encTypes {
