@@ -1716,7 +1716,7 @@ func makeConstraintsLeafCert(leaf leafSpec, key *ecdsa.PrivateKey, parent *Certi
 		parent = template
 	}
 
-	derBytes, err := CreateCertificate(rand.Reader, template.asX509(), parent.asX509(), &key.PublicKey, parentKey)
+	derBytes, err := CreateCertificate(rand.Reader, template, parent, &key.PublicKey, parentKey)
 	if err != nil {
 		return nil, err
 	}

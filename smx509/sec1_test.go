@@ -2,6 +2,7 @@ package smx509
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -74,4 +75,31 @@ func TestMarshalSM2PrivateKey(t *testing.T) {
 		t.Fatalf("%v\n", err)
 	}
 	fmt.Printf("%s\n", hex.EncodeToString(res))
+}
+
+func TestParseTypedECPrivateKey(t *testing.T) {
+	for i, test := range ecKeyTests {
+		derBytes, _ := hex.DecodeString(test.derHex)
+		key, err := ParseTypedECPrivateKey(derBytes)
+		if err != nil {
+			t.Fatalf("#%d: failed to decode EC private key: %s", i, err)
+		}
+		var serialized []byte
+		switch privKey := key.(type) {
+		case *ecdsa.PrivateKey:
+			serialized, err = MarshalECPrivateKey(privKey)
+			if err != nil {
+				t.Fatalf("#%d: failed to encode EC private key: %s", i, err)
+			}
+		case *sm2.PrivateKey:
+			serialized, err = MarshalSM2PrivateKey(privKey)
+			if err != nil {
+				t.Fatalf("#%d: failed to encode SM2 private key: %s", i, err)
+			}
+		}
+		matches := bytes.Equal(serialized, derBytes)
+		if matches != test.shouldReserialize {
+			t.Fatalf("#%d: when serializing key: matches=%t, should match=%t: original %x, reserialized %x", i, matches, test.shouldReserialize, serialized, derBytes)
+		}
+	}
 }

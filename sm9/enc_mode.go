@@ -22,7 +22,7 @@ type EncrypterOpts interface {
 	Decrypt(key, ciphertext []byte) ([]byte, error)
 }
 
-// XOREncrypterOpts represents XOR encrypt type/mode.
+// XOREncrypterOpts represents XOR mode.
 type XOREncrypterOpts struct{}
 
 func (opts *XOREncrypterOpts) GetEncryptType() encryptType {
@@ -62,6 +62,7 @@ func (opts *baseBlockEncrypterOpts) GetKeySize(plaintext []byte) int {
 	return opts.cipherKeySize
 }
 
+// CBCEncrypterOpts represents CBC (Cipher block chaining) mode.
 type CBCEncrypterOpts struct {
 	baseBlockEncrypterOpts
 	padding padding.Padding
@@ -76,6 +77,7 @@ func NewCBCEncrypterOpts(padding padding.Padding, cipherFactory CipherFactory, k
 	return opts
 }
 
+// Encrypt encrypts the plaintext with the key, includes generated IV at the beginning of the ciphertext.
 func (opts *CBCEncrypterOpts) Encrypt(rand io.Reader, key, plaintext []byte) ([]byte, error) {
 	block, err := opts.cipherFactory(key)
 	if err != nil {
@@ -99,7 +101,7 @@ func (opts *CBCEncrypterOpts) Decrypt(key, ciphertext []byte) ([]byte, error) {
 		return nil, err
 	}
 	blockSize := block.BlockSize()
-	if len(ciphertext) < blockSize {
+	if len(ciphertext) <= blockSize {
 		return nil, ErrDecryption
 	}
 	iv := ciphertext[:blockSize]
@@ -110,6 +112,7 @@ func (opts *CBCEncrypterOpts) Decrypt(key, ciphertext []byte) ([]byte, error) {
 	return opts.padding.Unpad(plaintext)
 }
 
+// ECBEncrypterOpts represents ECB (Electronic Code Book) mode.
 type ECBEncrypterOpts struct {
 	baseBlockEncrypterOpts
 	padding padding.Padding
@@ -150,6 +153,7 @@ func (opts *ECBEncrypterOpts) Decrypt(key, ciphertext []byte) ([]byte, error) {
 	return opts.padding.Unpad(plaintext)
 }
 
+// CFBEncrypterOpts represents CFB (Cipher Feedback) mode.
 type CFBEncrypterOpts struct {
 	baseBlockEncrypterOpts
 }
@@ -162,6 +166,7 @@ func NewCFBEncrypterOpts(cipherFactory CipherFactory, keySize int) EncrypterOpts
 	return opts
 }
 
+// Encrypt encrypts the plaintext with the key, includes generated IV at the beginning of the ciphertext.
 func (opts *CFBEncrypterOpts) Encrypt(rand io.Reader, key, plaintext []byte) ([]byte, error) {
 	block, err := opts.cipherFactory(key)
 	if err != nil {
@@ -184,7 +189,7 @@ func (opts *CFBEncrypterOpts) Decrypt(key, ciphertext []byte) ([]byte, error) {
 		return nil, err
 	}
 	blockSize := block.BlockSize()
-	if len(ciphertext) < blockSize {
+	if len(ciphertext) <= blockSize {
 		return nil, ErrDecryption
 	}
 	iv := ciphertext[:blockSize]
@@ -195,6 +200,7 @@ func (opts *CFBEncrypterOpts) Decrypt(key, ciphertext []byte) ([]byte, error) {
 	return plaintext, nil
 }
 
+// OFBEncrypterOpts represents OFB (Output Feedback) mode.
 type OFBEncrypterOpts struct {
 	baseBlockEncrypterOpts
 }
@@ -207,6 +213,7 @@ func NewOFBEncrypterOpts(cipherFactory CipherFactory, keySize int) EncrypterOpts
 	return opts
 }
 
+// Encrypt encrypts the plaintext with the key, includes generated IV at the beginning of the ciphertext.
 func (opts *OFBEncrypterOpts) Encrypt(rand io.Reader, key, plaintext []byte) ([]byte, error) {
 	block, err := opts.cipherFactory(key)
 	if err != nil {
@@ -229,7 +236,7 @@ func (opts *OFBEncrypterOpts) Decrypt(key, ciphertext []byte) ([]byte, error) {
 		return nil, err
 	}
 	blockSize := block.BlockSize()
-	if len(ciphertext) < blockSize {
+	if len(ciphertext) <= blockSize {
 		return nil, ErrDecryption
 	}
 	iv := ciphertext[:blockSize]
