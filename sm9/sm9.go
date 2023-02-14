@@ -302,7 +302,7 @@ func WrapKey(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, 
 	return
 }
 
-// WrapKey wrap key and marshal the cipher as ASN1 format, SM9PublicKey1 definition.
+// WrapKey wraps key and converts the cipher as ASN1 format, SM9PublicKey1 definition.
 func (pub *EncryptMasterPublicKey) WrapKey(rand io.Reader, uid []byte, hid byte, kLen int) ([]byte, []byte, error) {
 	key, cipher, err := WrapKey(rand, pub, uid, hid, kLen)
 	if err != nil {
@@ -315,7 +315,7 @@ func (pub *EncryptMasterPublicKey) WrapKey(rand io.Reader, uid []byte, hid byte,
 	return key, cipherASN1, err
 }
 
-// WrapKeyASN1 wrap key and marshal the result of SM9KeyPackage as ASN1 format. according
+// WrapKeyASN1 wraps key and converts the result of SM9KeyPackage as ASN1 format. according
 // SM9 cryptographic algorithm application specification, SM9KeyPackage defnition.
 func (pub *EncryptMasterPublicKey) WrapKeyASN1(rand io.Reader, uid []byte, hid byte, kLen int) ([]byte, error) {
 	key, cipher, err := WrapKey(rand, pub, uid, hid, kLen)
@@ -356,7 +356,10 @@ func UnmarshalSM9KeyPackage(der []byte) ([]byte, *bn256.G1, error) {
 // It is deliberately vague to avoid adaptive attacks.
 var ErrDecryption = errors.New("sm9: decryption error")
 
-// UnwrapKey unwrap key from cipher, user id and aligned key length
+// ErrEmptyPlaintext represents a failure to encrypt an empty message.
+var ErrEmptyPlaintext = errors.New("sm9: empty plaintext")
+
+// UnwrapKey unwraps key from cipher, user id and aligned key length
 func UnwrapKey(priv *EncryptPrivateKey, uid []byte, cipher *bn256.G1, kLen int) ([]byte, error) {
 	if !cipher.IsOnCurve() {
 		return nil, ErrDecryption
@@ -376,7 +379,7 @@ func UnwrapKey(priv *EncryptPrivateKey, uid []byte, cipher *bn256.G1, kLen int) 
 	return key, nil
 }
 
-// UnwrapKey unwrap key from cipherDer, user id and aligned key length.
+// UnwrapKey unwraps key from cipherDer, user id and aligned key length.
 // cipherDer is SM9PublicKey1 format according SM9 cryptographic algorithm application specification.
 func (priv *EncryptPrivateKey) UnwrapKey(uid, cipherDer []byte, kLen int) ([]byte, error) {
 	var bytes []byte
@@ -391,7 +394,7 @@ func (priv *EncryptPrivateKey) UnwrapKey(uid, cipherDer []byte, kLen int) ([]byt
 	return UnwrapKey(priv, uid, g, kLen)
 }
 
-// Encrypt encrypt plaintext, output ciphertext with format C1||C3||C2.
+// Encrypt encrypts plaintext, returns ciphertext with format C1||C3||C2.
 func Encrypt(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, plaintext []byte, opts EncrypterOpts) ([]byte, error) {
 	c1, c2, c3, err := encrypt(rand, pub, uid, hid, plaintext, opts)
 	if err != nil {
@@ -405,6 +408,9 @@ func Encrypt(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, 
 func encrypt(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, plaintext []byte, opts EncrypterOpts) (c1 *bn256.G1, c2, c3 []byte, err error) {
 	if opts == nil {
 		opts = DefaultEncrypterOpts
+	}
+	if len(plaintext) == 0 {
+		return nil, nil, nil, ErrEmptyPlaintext
 	}
 	key1Len := opts.GetKeySize(plaintext)
 	key, c1, err := WrapKey(rand, pub, uid, hid, key1Len+sm3.Size)
@@ -424,13 +430,13 @@ func encrypt(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, 
 	return
 }
 
-// EncryptASN1 encrypt plaintext and output ciphertext with ASN.1 format according
+// EncryptASN1 encrypts plaintext and returns ciphertext with ASN.1 format according
 // SM9 cryptographic algorithm application specification, SM9Cipher definition.
 func EncryptASN1(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, plaintext []byte, opts EncrypterOpts) ([]byte, error) {
 	return pub.Encrypt(rand, uid, hid, plaintext, opts)
 }
 
-// Encrypt encrypt plaintext and output ciphertext with ASN.1 format according
+// Encrypt encrypts plaintext and returns ciphertext with ASN.1 format according
 // SM9 cryptographic algorithm application specification, SM9Cipher definition.
 func (pub *EncryptMasterPublicKey) Encrypt(rand io.Reader, uid []byte, hid byte, plaintext []byte, opts EncrypterOpts) ([]byte, error) {
 	if opts == nil {
@@ -451,7 +457,7 @@ func (pub *EncryptMasterPublicKey) Encrypt(rand io.Reader, uid []byte, hid byte,
 	return b.Bytes()
 }
 
-// Decrypt decrypt chipher, ciphertext should be with format C1||C3||C2
+// Decrypt decrypts chipher, the ciphertext should be with format C1||C3||C2
 func Decrypt(priv *EncryptPrivateKey, uid, ciphertext []byte, opts EncrypterOpts) ([]byte, error) {
 	if opts == nil {
 		opts = DefaultEncrypterOpts
@@ -487,7 +493,7 @@ func decrypt(cipher *bn256.G1, key1, key2, c2, c3 []byte, opts EncrypterOpts) ([
 	return opts.Decrypt(key1, c2)
 }
 
-// DecryptASN1 decrypt chipher, ciphertext should be with ASN.1 format according
+// DecryptASN1 decrypts chipher, the ciphertext should be with ASN.1 format according
 // SM9 cryptographic algorithm application specification, SM9Cipher definition.
 func DecryptASN1(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error) {
 	if len(ciphertext) <= 32+65 {
@@ -529,18 +535,18 @@ func DecryptASN1(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error
 	return decrypt(c, key[:key1Len], key[key1Len:], c2Bytes, c3Bytes, opts)
 }
 
-// Decrypt decrypt chipher, ciphertext should be with format C1||C3||C2
+// Decrypt decrypts chipher, the ciphertext should be with format C1||C3||C2
 func (priv *EncryptPrivateKey) Decrypt(uid, ciphertext []byte, opts EncrypterOpts) ([]byte, error) {
 	return Decrypt(priv, uid, ciphertext, opts)
 }
 
-// DecryptASN1 decrypt chipher, ciphertext should be with ASN.1 format according
+// DecryptASN1 decrypts chipher, the ciphertext should be with ASN.1 format according
 // SM9 cryptographic algorithm application specification, SM9Cipher definition.
 func (priv *EncryptPrivateKey) DecryptASN1(uid, ciphertext []byte) ([]byte, error) {
 	return DecryptASN1(priv, uid, ciphertext)
 }
 
-// KeyExchange key exchange struct, include internal stat in whole key exchange flow.
+// KeyExchange represents key exchange struct, include internal stat in whole key exchange flow.
 // Initiator's flow will be: NewKeyExchange -> InitKeyExchange -> transmission -> ConfirmResponder
 // Responder's flow will be: NewKeyExchange -> waiting ... -> RepondKeyExchange -> transmission -> ConfirmInitiator
 type KeyExchange struct {
@@ -557,7 +563,7 @@ type KeyExchange struct {
 	g3           *bn256.GT          // internal state which will be used when compute the key and signature
 }
 
-// NewKeyExchange create one new KeyExchange object
+// NewKeyExchange creates one new KeyExchange object
 func NewKeyExchange(priv *EncryptPrivateKey, uid, peerUID []byte, keyLen int, genSignature bool) *KeyExchange {
 	ke := &KeyExchange{}
 	ke.genSignature = genSignature
@@ -568,7 +574,7 @@ func NewKeyExchange(priv *EncryptPrivateKey, uid, peerUID []byte, keyLen int, ge
 	return ke
 }
 
-// Destroy clear all internal state and Ephemeral private/public keys
+// Destroy clears all internal state and Ephemeral private/public keys
 func (ke *KeyExchange) Destroy() {
 	if ke.r != nil {
 		ke.r.SetBytes([]byte{0}, orderNat)
@@ -594,7 +600,7 @@ func initKeyExchange(ke *KeyExchange, hid byte, r *bigmod.Nat) {
 	ke.secret = rA
 }
 
-// InitKeyExchange generate random with responder uid, for initiator's step A1-A4
+// InitKeyExchange generates random with responder uid, for initiator's step A1-A4
 func (ke *KeyExchange) InitKeyExchange(rand io.Reader, hid byte) (*bn256.G1, error) {
 	r, err := randomScalar(rand)
 	if err != nil {

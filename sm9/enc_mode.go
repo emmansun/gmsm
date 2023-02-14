@@ -39,6 +39,9 @@ func (opts *XOREncrypterOpts) Encrypt(rand io.Reader, key, plaintext []byte) ([]
 }
 
 func (opts *XOREncrypterOpts) Decrypt(key, ciphertext []byte) ([]byte, error) {
+	if len(ciphertext) == 0 {
+		return nil, ErrDecryption
+	}
 	subtle.XORBytes(key, ciphertext, key)
 	return key, nil
 }
@@ -137,6 +140,9 @@ func (opts *ECBEncrypterOpts) Decrypt(key, ciphertext []byte) ([]byte, error) {
 	block, err := opts.cipherFactory(key)
 	if err != nil {
 		return nil, err
+	}
+	if len(ciphertext) == 0 {
+		return nil, ErrDecryption
 	}
 	plaintext := make([]byte, len(ciphertext))
 	mode := _cipher.NewECBDecrypter(block)

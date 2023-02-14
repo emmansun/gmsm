@@ -759,6 +759,24 @@ func TestEncryptDecrypt(t *testing.T) {
 	}
 }
 
+func TestEncryptEmptyPlaintext(t *testing.T) {
+	masterKey, err := GenerateEncryptMasterKey(rand.Reader)
+	hid := byte(0x01)
+	uid := []byte("emmansun")
+	if err != nil {
+		t.Fatal(err)
+	}
+	encTypes := []EncrypterOpts{
+		DefaultEncrypterOpts, SM4ECBEncrypterOpts, SM4CBCEncrypterOpts, SM4CFBEncrypterOpts, SM4OFBEncrypterOpts,
+	}
+	for _, opts := range encTypes {
+		_, err := Encrypt(rand.Reader, masterKey.Public(), uid, hid, nil, opts)
+		if err != ErrEmptyPlaintext {
+			t.Fatalf("should be ErrEmptyPlaintext")
+		}
+	}
+}
+
 func TestEncryptDecryptASN1(t *testing.T) {
 	plaintext := []byte("Chinese IBE standard")
 	masterKey, err := GenerateEncryptMasterKey(rand.Reader)
