@@ -46,11 +46,11 @@ func (opts *XOREncrypterOpts) Decrypt(key, ciphertext []byte) ([]byte, error) {
 	return key, nil
 }
 
-type CipherFactory func(key []byte) (cipher.Block, error)
+type newCipher func(key []byte) (cipher.Block, error)
 
 type baseBlockEncrypterOpts struct {
 	encryptType   encryptType
-	cipherFactory CipherFactory
+	newCipher     newCipher
 	cipherKeySize int
 }
 
@@ -68,18 +68,18 @@ type CBCEncrypterOpts struct {
 	padding padding.Padding
 }
 
-func NewCBCEncrypterOpts(padding padding.Padding, cipherFactory CipherFactory, keySize int) EncrypterOpts {
+func NewCBCEncrypterOpts(padding padding.Padding, newCipher newCipher, keySize int) EncrypterOpts {
 	opts := new(CBCEncrypterOpts)
 	opts.encryptType = ENC_TYPE_CBC
 	opts.padding = padding
-	opts.cipherFactory = cipherFactory
+	opts.newCipher = newCipher
 	opts.cipherKeySize = keySize
 	return opts
 }
 
 // Encrypt encrypts the plaintext with the key, includes generated IV at the beginning of the ciphertext.
 func (opts *CBCEncrypterOpts) Encrypt(rand io.Reader, key, plaintext []byte) ([]byte, error) {
-	block, err := opts.cipherFactory(key)
+	block, err := opts.newCipher(key)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +96,7 @@ func (opts *CBCEncrypterOpts) Encrypt(rand io.Reader, key, plaintext []byte) ([]
 }
 
 func (opts *CBCEncrypterOpts) Decrypt(key, ciphertext []byte) ([]byte, error) {
-	block, err := opts.cipherFactory(key)
+	block, err := opts.newCipher(key)
 	if err != nil {
 		return nil, err
 	}
@@ -118,17 +118,17 @@ type ECBEncrypterOpts struct {
 	padding padding.Padding
 }
 
-func NewECBEncrypterOpts(padding padding.Padding, cipherFactory CipherFactory, keySize int) EncrypterOpts {
+func NewECBEncrypterOpts(padding padding.Padding, newCipher newCipher, keySize int) EncrypterOpts {
 	opts := new(ECBEncrypterOpts)
 	opts.encryptType = ENC_TYPE_ECB
 	opts.padding = padding
-	opts.cipherFactory = cipherFactory
+	opts.newCipher = newCipher
 	opts.cipherKeySize = keySize
 	return opts
 }
 
 func (opts *ECBEncrypterOpts) Encrypt(rand io.Reader, key, plaintext []byte) ([]byte, error) {
-	block, err := opts.cipherFactory(key)
+	block, err := opts.newCipher(key)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +140,7 @@ func (opts *ECBEncrypterOpts) Encrypt(rand io.Reader, key, plaintext []byte) ([]
 }
 
 func (opts *ECBEncrypterOpts) Decrypt(key, ciphertext []byte) ([]byte, error) {
-	block, err := opts.cipherFactory(key)
+	block, err := opts.newCipher(key)
 	if err != nil {
 		return nil, err
 	}
@@ -158,17 +158,17 @@ type CFBEncrypterOpts struct {
 	baseBlockEncrypterOpts
 }
 
-func NewCFBEncrypterOpts(cipherFactory CipherFactory, keySize int) EncrypterOpts {
+func NewCFBEncrypterOpts(newCipher newCipher, keySize int) EncrypterOpts {
 	opts := new(CFBEncrypterOpts)
 	opts.encryptType = ENC_TYPE_CFB
-	opts.cipherFactory = cipherFactory
+	opts.newCipher = newCipher
 	opts.cipherKeySize = keySize
 	return opts
 }
 
 // Encrypt encrypts the plaintext with the key, includes generated IV at the beginning of the ciphertext.
 func (opts *CFBEncrypterOpts) Encrypt(rand io.Reader, key, plaintext []byte) ([]byte, error) {
-	block, err := opts.cipherFactory(key)
+	block, err := opts.newCipher(key)
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +184,7 @@ func (opts *CFBEncrypterOpts) Encrypt(rand io.Reader, key, plaintext []byte) ([]
 }
 
 func (opts *CFBEncrypterOpts) Decrypt(key, ciphertext []byte) ([]byte, error) {
-	block, err := opts.cipherFactory(key)
+	block, err := opts.newCipher(key)
 	if err != nil {
 		return nil, err
 	}
@@ -205,17 +205,17 @@ type OFBEncrypterOpts struct {
 	baseBlockEncrypterOpts
 }
 
-func NewOFBEncrypterOpts(cipherFactory CipherFactory, keySize int) EncrypterOpts {
+func NewOFBEncrypterOpts(newCipher newCipher, keySize int) EncrypterOpts {
 	opts := new(OFBEncrypterOpts)
 	opts.encryptType = ENC_TYPE_OFB
-	opts.cipherFactory = cipherFactory
+	opts.newCipher = newCipher
 	opts.cipherKeySize = keySize
 	return opts
 }
 
 // Encrypt encrypts the plaintext with the key, includes generated IV at the beginning of the ciphertext.
 func (opts *OFBEncrypterOpts) Encrypt(rand io.Reader, key, plaintext []byte) ([]byte, error) {
-	block, err := opts.cipherFactory(key)
+	block, err := opts.newCipher(key)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +231,7 @@ func (opts *OFBEncrypterOpts) Encrypt(rand io.Reader, key, plaintext []byte) ([]
 }
 
 func (opts *OFBEncrypterOpts) Decrypt(key, ciphertext []byte) ([]byte, error) {
-	block, err := opts.cipherFactory(key)
+	block, err := opts.newCipher(key)
 	if err != nil {
 		return nil, err
 	}
