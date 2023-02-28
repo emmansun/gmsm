@@ -135,8 +135,7 @@ func (c cipherWithGCM) Encrypt(key, plaintext []byte) (*pkix.AlgorithmIdentifier
 	encryptionAlgorithm := pkix.AlgorithmIdentifier{
 		Algorithm: c.oid,
 		Parameters: asn1.RawValue{
-			Tag:   asn1.TagSequence,
-			Bytes: paramBytes,
+			FullBytes: paramBytes,
 		},
 	}
 	return &encryptionAlgorithm, ciphertext, nil
@@ -148,7 +147,7 @@ func (c cipherWithGCM) Decrypt(key []byte, parameters *asn1.RawValue, encryptedK
 		return nil, err
 	}
 	params := gcmParameters{}
-	_, err = asn1.Unmarshal(parameters.Bytes, &params)
+	_, err = asn1.Unmarshal(parameters.FullBytes, &params)
 	if err != nil {
 		return nil, err
 	}
