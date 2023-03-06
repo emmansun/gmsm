@@ -20,7 +20,7 @@ func init() {
 	})
 }
 
-var DESCBC = cipherWithBlock{
+var DESCBC = cbcBlockCipher{
 	ivSize:   des.BlockSize,
 	keySize:  8,
 	newBlock: des.NewCipher,
@@ -28,7 +28,7 @@ var DESCBC = cipherWithBlock{
 }
 
 // TripleDESCBC is the 168-bit key 3DES cipher in CBC mode.
-var TripleDESCBC = cipherWithBlock{
+var TripleDESCBC = cbcBlockCipher{
 	ivSize:   des.BlockSize,
 	keySize:  24,
 	newBlock: des.NewTripleDESCipher,

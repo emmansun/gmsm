@@ -21,7 +21,7 @@ func init() {
 }
 
 // SM4CBC is the 128-bit key SM4 cipher in CBC mode.
-var SM4CBC = cipherWithBlock{
+var SM4CBC = cbcBlockCipher{
 	ivSize:   sm4.BlockSize,
 	keySize:  16,
 	newBlock: sm4.NewCipher,
@@ -29,7 +29,7 @@ var SM4CBC = cipherWithBlock{
 }
 
 // SM4GCM is the 128-bit key SM4 cipher in GCM mode.
-var SM4GCM = cipherWithGCM{
+var SM4GCM = gcmBlockCipher{
 	nonceSize: 12,
 	keySize:   16,
 	newBlock:  sm4.NewCipher,

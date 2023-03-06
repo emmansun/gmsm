@@ -16,22 +16,22 @@ func genRandom(len int) ([]byte, error) {
 	return value, err
 }
 
-type cipherWithBlock struct {
+type cbcBlockCipher struct {
 	oid      asn1.ObjectIdentifier
 	ivSize   int
 	keySize  int
 	newBlock func(key []byte) (cipher.Block, error)
 }
 
-func (c cipherWithBlock) KeySize() int {
+func (c cbcBlockCipher) KeySize() int {
 	return c.keySize
 }
 
-func (c cipherWithBlock) OID() asn1.ObjectIdentifier {
+func (c cbcBlockCipher) OID() asn1.ObjectIdentifier {
 	return c.oid
 }
 
-func (c cipherWithBlock) Encrypt(key, plaintext []byte) (*pkix.AlgorithmIdentifier, []byte, error) {
+func (c cbcBlockCipher) Encrypt(key, plaintext []byte) (*pkix.AlgorithmIdentifier, []byte, error) {
 	block, err := c.newBlock(key)
 	if err != nil {
 		return nil, nil, err
@@ -44,6 +44,7 @@ func (c cipherWithBlock) Encrypt(key, plaintext []byte) (*pkix.AlgorithmIdentifi
 	if err != nil {
 		return nil, nil, err
 	}
+	
 	marshalledIV, err := asn1.Marshal(iv)
 	if err != nil {
 		return nil, nil, err
@@ -57,7 +58,7 @@ func (c cipherWithBlock) Encrypt(key, plaintext []byte) (*pkix.AlgorithmIdentifi
 	return &encryptionScheme, ciphertext, nil
 }
 
-func (c cipherWithBlock) Decrypt(key []byte, parameters *asn1.RawValue, encryptedKey []byte) ([]byte, error) {
+func (c cbcBlockCipher) Decrypt(key []byte, parameters *asn1.RawValue, encryptedKey []byte) ([]byte, error) {
 	block, err := c.newBlock(key)
 	if err != nil {
 		return nil, err
@@ -88,7 +89,7 @@ func cbcDecrypt(block cipher.Block, key, iv, ciphertext []byte) ([]byte, error) 
 	return pkcs7.Unpad(plaintext)
 }
 
-type cipherWithGCM struct {
+type gcmBlockCipher struct {
 	oid       asn1.ObjectIdentifier
 	nonceSize int
 	keySize   int
@@ -101,15 +102,15 @@ type gcmParameters struct {
 	ICVLen int
 }
 
-func (c cipherWithGCM) KeySize() int {
+func (c gcmBlockCipher) KeySize() int {
 	return c.keySize
 }
 
-func (c cipherWithGCM) OID() asn1.ObjectIdentifier {
+func (c gcmBlockCipher) OID() asn1.ObjectIdentifier {
 	return c.oid
 }
 
-func (c cipherWithGCM) Encrypt(key, plaintext []byte) (*pkix.AlgorithmIdentifier, []byte, error) {
+func (c gcmBlockCipher) Encrypt(key, plaintext []byte) (*pkix.AlgorithmIdentifier, []byte, error) {
 	block, err := c.newBlock(key)
 	if err != nil {
 		return nil, nil, err
@@ -141,7 +142,7 @@ func (c cipherWithGCM) Encrypt(key, plaintext []byte) (*pkix.AlgorithmIdentifier
 	return &encryptionAlgorithm, ciphertext, nil
 }
 
-func (c cipherWithGCM) Decrypt(key []byte, parameters *asn1.RawValue, encryptedKey []byte) ([]byte, error) {
+func (c gcmBlockCipher) Decrypt(key []byte, parameters *asn1.RawValue, encryptedKey []byte) ([]byte, error) {
 	block, err := c.newBlock(key)
 	if err != nil {
 		return nil, err
