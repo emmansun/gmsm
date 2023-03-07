@@ -14,7 +14,7 @@ import (
 func randomK(r io.Reader, ord *big.Int) (k *big.Int, err error) {
 	for {
 		k, err = rand.Int(r, ord)
-		if k.Sign() > 0 || err != nil {
+		if err != nil || (k.Sign() > 0 && len(k.Bytes()) == 32) {
 			return
 		}
 	}
