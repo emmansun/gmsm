@@ -8,7 +8,7 @@ import (
 	"golang.org/x/sys/cpu"
 )
 
-var useSM3NI = cpu.ARM64.HasSM3 && os.Getenv("DISABLE_SM3NI")) != "1"
+var useSM3NI = cpu.ARM64.HasSM3 && os.Getenv("DISABLE_SM3NI") != "1"
 
 var t = []uint32{
 	0x79cc4519,
