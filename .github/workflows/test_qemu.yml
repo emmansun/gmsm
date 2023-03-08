@@ -45,4 +45,6 @@ jobs:
     - name: Test
       run: go test -v -short ./...
       env:
+        DISABLE_SM3NI: 1
+        DISABLE_SM4NI: 1
         GOARCH: ${{ matrix.arch }}      

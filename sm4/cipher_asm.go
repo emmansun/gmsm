@@ -5,12 +5,13 @@ package sm4
 
 import (
 	"crypto/cipher"
+	"os"
 
 	"github.com/emmansun/gmsm/internal/alias"
 	"golang.org/x/sys/cpu"
 )
 
-var supportSM4 = cpu.ARM64.HasSM4
+var supportSM4 = cpu.ARM64.HasSM4 && os.Getenv("DISABLE_SM4NI") != "1"
 var supportsAES = cpu.X86.HasAES || cpu.ARM64.HasAES
 var supportsGFMUL = cpu.X86.HasPCLMULQDQ || cpu.ARM64.HasPMULL
 var useAVX2 = cpu.X86.HasAVX2 && cpu.X86.HasBMI2
