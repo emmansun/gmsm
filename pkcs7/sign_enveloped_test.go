@@ -3,7 +3,6 @@ package pkcs7
 import (
 	"bytes"
 	"encoding/pem"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -188,14 +187,14 @@ func TestCreateSignedEvnvelopedData(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		fmt.Printf("%x\n", result)
+		// fmt.Printf("%x\n", result)
 
 		// parse, decrypt, verify
 		p7Data, err := Parse(result)
 		if err != nil {
 			t.Fatal(err)
 		}
-		encKeyBytes, err := p7Data.DecryptAndVerifyOnlyOne(*recipient.PrivateKey, func() error {
+		encKeyBytes, err := p7Data.DecryptAndVerify(recipient.Certificate, *recipient.PrivateKey, func() error {
 			return p7Data.Verify()
 		})
 		if err != nil {
