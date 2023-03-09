@@ -10,6 +10,7 @@ import (
 	"encoding/pem"
 	"testing"
 
+	"github.com/emmansun/gmsm/pkcs"
 	"github.com/emmansun/gmsm/pkcs8"
 	"github.com/emmansun/gmsm/sm2"
 	"github.com/emmansun/gmsm/sm9"
@@ -391,7 +392,7 @@ func TestMarshalPrivateKey(t *testing.T) {
 		{
 			password: []byte("password"),
 			opts: &pkcs8.Opts{
-				Cipher: pkcs8.SM4CBC,
+				Cipher: pkcs.SM4CBC,
 				KDFOpts: pkcs8.PBKDF2Opts{
 					SaltSize: 8, IterationCount: 2048, HMACHash: pkcs8.SM3,
 				},
@@ -400,7 +401,7 @@ func TestMarshalPrivateKey(t *testing.T) {
 		{
 			password: []byte("password"),
 			opts: &pkcs8.Opts{
-				Cipher: pkcs8.SM4GCM,
+				Cipher: pkcs.SM4GCM,
 				KDFOpts: pkcs8.PBKDF2Opts{
 					SaltSize: 8, IterationCount: 2048, HMACHash: pkcs8.SM3,
 				},
@@ -409,7 +410,7 @@ func TestMarshalPrivateKey(t *testing.T) {
 		{
 			password: []byte("password"),
 			opts: &pkcs8.Opts{
-				Cipher: pkcs8.AES128CBC,
+				Cipher: pkcs.AES128CBC,
 				KDFOpts: pkcs8.PBKDF2Opts{
 					SaltSize: 8, IterationCount: 2048, HMACHash: pkcs8.SHA224,
 				},
@@ -418,7 +419,7 @@ func TestMarshalPrivateKey(t *testing.T) {
 		{
 			password: []byte("password"),
 			opts: &pkcs8.Opts{
-				Cipher: pkcs8.AES128CBC,
+				Cipher: pkcs.AES128CBC,
 				KDFOpts: pkcs8.PBKDF2Opts{
 					SaltSize: 8, IterationCount: 2048, HMACHash: pkcs8.SHA256,
 				},
@@ -427,7 +428,7 @@ func TestMarshalPrivateKey(t *testing.T) {
 		{
 			password: []byte("password"),
 			opts: &pkcs8.Opts{
-				Cipher: pkcs8.AES128CBC,
+				Cipher: pkcs.AES128CBC,
 				KDFOpts: pkcs8.PBKDF2Opts{
 					SaltSize: 8, IterationCount: 2048, HMACHash: pkcs8.SHA512,
 				},
@@ -436,7 +437,7 @@ func TestMarshalPrivateKey(t *testing.T) {
 		{
 			password: []byte("password"),
 			opts: &pkcs8.Opts{
-				Cipher: pkcs8.AES128CBC,
+				Cipher: pkcs.AES128CBC,
 				KDFOpts: pkcs8.PBKDF2Opts{
 					SaltSize: 8, IterationCount: 2048, HMACHash: pkcs8.SHA384,
 				},
@@ -445,7 +446,7 @@ func TestMarshalPrivateKey(t *testing.T) {
 		{
 			password: []byte("password"),
 			opts: &pkcs8.Opts{
-				Cipher: pkcs8.AES128CBC,
+				Cipher: pkcs.AES128CBC,
 				KDFOpts: pkcs8.PBKDF2Opts{
 					SaltSize: 8, IterationCount: 2048, HMACHash: pkcs8.SHA512_224,
 				},
@@ -454,7 +455,7 @@ func TestMarshalPrivateKey(t *testing.T) {
 		{
 			password: []byte("password"),
 			opts: &pkcs8.Opts{
-				Cipher: pkcs8.AES128CBC,
+				Cipher: pkcs.AES128CBC,
 				KDFOpts: pkcs8.PBKDF2Opts{
 					SaltSize: 8, IterationCount: 2048, HMACHash: pkcs8.SHA512_256,
 				},
@@ -463,7 +464,7 @@ func TestMarshalPrivateKey(t *testing.T) {
 		{
 			password: []byte("password"),
 			opts: &pkcs8.Opts{
-				Cipher: pkcs8.AES192CBC,
+				Cipher: pkcs.AES192CBC,
 				KDFOpts: pkcs8.PBKDF2Opts{
 					SaltSize: 8, IterationCount: 1000, HMACHash: pkcs8.SHA256,
 				},
@@ -472,7 +473,7 @@ func TestMarshalPrivateKey(t *testing.T) {
 		{
 			password: []byte("password"),
 			opts: &pkcs8.Opts{
-				Cipher: pkcs8.AES256CBC,
+				Cipher: pkcs.AES256CBC,
 				KDFOpts: pkcs8.PBKDF2Opts{
 					SaltSize: 16, IterationCount: 2000, HMACHash: pkcs8.SHA256,
 				},
@@ -481,7 +482,7 @@ func TestMarshalPrivateKey(t *testing.T) {
 		{
 			password: []byte("password"),
 			opts: &pkcs8.Opts{
-				Cipher: pkcs8.AES128GCM,
+				Cipher: pkcs.AES128GCM,
 				KDFOpts: pkcs8.PBKDF2Opts{
 					SaltSize: 8, IterationCount: 2048, HMACHash: pkcs8.SHA256,
 				},
@@ -490,7 +491,7 @@ func TestMarshalPrivateKey(t *testing.T) {
 		{
 			password: []byte("password"),
 			opts: &pkcs8.Opts{
-				Cipher: pkcs8.AES192GCM,
+				Cipher: pkcs.AES192GCM,
 				KDFOpts: pkcs8.PBKDF2Opts{
 					SaltSize: 8, IterationCount: 10000, HMACHash: pkcs8.SHA256,
 				},
@@ -499,7 +500,7 @@ func TestMarshalPrivateKey(t *testing.T) {
 		{
 			password: []byte("password"),
 			opts: &pkcs8.Opts{
-				Cipher: pkcs8.AES256GCM,
+				Cipher: pkcs.AES256GCM,
 				KDFOpts: pkcs8.PBKDF2Opts{
 					SaltSize: 16, IterationCount: 16, HMACHash: pkcs8.SHA256,
 				},
@@ -508,7 +509,7 @@ func TestMarshalPrivateKey(t *testing.T) {
 		{
 			password: []byte("password"),
 			opts: &pkcs8.Opts{
-				Cipher: pkcs8.DESCBC,
+				Cipher: pkcs.DESCBC,
 				KDFOpts: pkcs8.PBKDF2Opts{
 					SaltSize: 16, IterationCount: 16, HMACHash: pkcs8.SHA1,
 				},
@@ -517,7 +518,7 @@ func TestMarshalPrivateKey(t *testing.T) {
 		{
 			password: []byte("password"),
 			opts: &pkcs8.Opts{
-				Cipher: pkcs8.TripleDESCBC,
+				Cipher: pkcs.TripleDESCBC,
 				KDFOpts: pkcs8.PBKDF2Opts{
 					SaltSize: 16, IterationCount: 16, HMACHash: pkcs8.SHA1,
 				},
@@ -526,7 +527,7 @@ func TestMarshalPrivateKey(t *testing.T) {
 		{
 			password: []byte("password"),
 			opts: &pkcs8.Opts{
-				Cipher: pkcs8.AES256CBC,
+				Cipher: pkcs.AES256CBC,
 				KDFOpts: pkcs8.ScryptOpts{
 					CostParameter:            1 << 2,
 					BlockSize:                8,

@@ -1,4 +1,4 @@
-package pkcs8
+package pkcs
 
 import (
 	"crypto/des"
@@ -12,25 +12,29 @@ var (
 
 func init() {
 	RegisterCipher(oidDESCBC, func() Cipher {
-		return &DESCBC
+		return DESCBC
 	})
 
 	RegisterCipher(oidDESEDE3CBC, func() Cipher {
-		return &TripleDESCBC
+		return TripleDESCBC
 	})
 }
 
-var DESCBC = cbcBlockCipher{
+var DESCBC = &cbcBlockCipher{
+	baseBlockCipher: baseBlockCipher{
+		keySize:  8,
+		newBlock: des.NewCipher,
+		oid:      oidDESCBC,
+	},
 	ivSize:   des.BlockSize,
-	keySize:  8,
-	newBlock: des.NewCipher,
-	oid:      oidDESCBC,
 }
 
 // TripleDESCBC is the 168-bit key 3DES cipher in CBC mode.
-var TripleDESCBC = cbcBlockCipher{
+var TripleDESCBC = &cbcBlockCipher{
+	baseBlockCipher: baseBlockCipher{
+		keySize:  24,
+		newBlock: des.NewTripleDESCipher,
+		oid:      oidDESEDE3CBC,
+	},
 	ivSize:   des.BlockSize,
-	keySize:  24,
-	newBlock: des.NewTripleDESCipher,
-	oid:      oidDESEDE3CBC,
 }

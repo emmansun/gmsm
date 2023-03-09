@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"os"
 
+	"github.com/emmansun/gmsm/pkcs"
 	"github.com/emmansun/gmsm/pkcs8"
 	"github.com/emmansun/gmsm/sm2"
 	"github.com/emmansun/gmsm/sm9"
@@ -121,7 +122,7 @@ func ExampleMarshalPrivateKey() {
 
 	password := []byte("Password1")
 	opts := &pkcs8.Opts{
-		Cipher: pkcs8.SM4CBC,
+		Cipher: pkcs.SM4CBC,
 		KDFOpts: pkcs8.PBKDF2Opts{
 			SaltSize: 16, IterationCount: 16, HMACHash: pkcs8.SM3,
 		},

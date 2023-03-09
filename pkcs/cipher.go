@@ -1,4 +1,5 @@
-package pkcs8
+// Package pkcs implements ciphers used by PKCS#7 & PKCS#8.
+package pkcs
 
 import (
 	"crypto/cipher"
@@ -6,32 +7,92 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"errors"
+	"fmt"
 
+	smcipher "github.com/emmansun/gmsm/cipher"
 	"github.com/emmansun/gmsm/padding"
 )
 
-func genRandom(len int) ([]byte, error) {
-	value := make([]byte, len)
-	_, err := rand.Read(value)
-	return value, err
+// Cipher represents a cipher for encrypting the key material.
+type Cipher interface {
+	// KeySize returns the key size of the cipher, in bytes.
+	KeySize() int
+	// Encrypt encrypts the key material.
+	Encrypt(key, plaintext []byte) (*pkix.AlgorithmIdentifier, []byte, error)
+	// Decrypt decrypts the key material.
+	Decrypt(key []byte, parameters *asn1.RawValue, encryptedKey []byte) ([]byte, error)
+	// OID returns the OID of the cipher specified.
+	OID() asn1.ObjectIdentifier
 }
 
-type cbcBlockCipher struct {
+var ciphers = make(map[string]func() Cipher)
+
+// RegisterCipher registers a function that returns a new instance of the given
+// cipher. This allows the library to support client-provided ciphers.
+func RegisterCipher(oid asn1.ObjectIdentifier, cipher func() Cipher) {
+	ciphers[oid.String()] = cipher
+}
+
+func GetCipher(oid asn1.ObjectIdentifier) (Cipher, error) {
+	newCipher, ok := ciphers[oid.String()]
+	if !ok {
+		return nil, fmt.Errorf("pkcs: unsupported cipher (OID: %s)", oid)
+	}
+	return newCipher(), nil
+}
+
+type baseBlockCipher struct {
 	oid      asn1.ObjectIdentifier
-	ivSize   int
 	keySize  int
 	newBlock func(key []byte) (cipher.Block, error)
 }
 
-func (c cbcBlockCipher) KeySize() int {
-	return c.keySize
+func (b *baseBlockCipher) KeySize() int {
+	return b.keySize
 }
 
-func (c cbcBlockCipher) OID() asn1.ObjectIdentifier {
-	return c.oid
+func (b *baseBlockCipher) OID() asn1.ObjectIdentifier {
+	return b.oid
 }
 
-func (c cbcBlockCipher) Encrypt(key, plaintext []byte) (*pkix.AlgorithmIdentifier, []byte, error) {
+type ecbBlockCipher struct {
+	baseBlockCipher
+}
+
+func (ecb *ecbBlockCipher) Encrypt(key, plaintext []byte) (*pkix.AlgorithmIdentifier, []byte, error) {
+	block, err := ecb.newBlock(key)
+	if err != nil {
+		return nil, nil, err
+	}
+	mode := smcipher.NewECBEncrypter(block)
+	ciphertext := make([]byte, len(plaintext))
+	mode.CryptBlocks(ciphertext, plaintext)
+
+	encryptionScheme := pkix.AlgorithmIdentifier{
+		Algorithm: ecb.oid,
+	}
+
+	return &encryptionScheme, ciphertext, nil
+}
+
+func (ecb *ecbBlockCipher) Decrypt(key []byte, parameters *asn1.RawValue, ciphertext []byte) ([]byte, error) {
+	block, err := ecb.newBlock(key)
+	if err != nil {
+		return nil, err
+	}
+	mode := smcipher.NewECBDecrypter(block)
+	plaintext := make([]byte, len(ciphertext))
+	mode.CryptBlocks(plaintext, ciphertext)
+	return plaintext, nil
+}
+
+
+type cbcBlockCipher struct {
+	baseBlockCipher
+	ivSize int
+}
+
+func (c *cbcBlockCipher) Encrypt(key, plaintext []byte) (*pkix.AlgorithmIdentifier, []byte, error) {
 	block, err := c.newBlock(key)
 	if err != nil {
 		return nil, nil, err
@@ -44,7 +105,7 @@ func (c cbcBlockCipher) Encrypt(key, plaintext []byte) (*pkix.AlgorithmIdentifie
 	if err != nil {
 		return nil, nil, err
 	}
-	
+
 	marshalledIV, err := asn1.Marshal(iv)
 	if err != nil {
 		return nil, nil, err
@@ -58,7 +119,7 @@ func (c cbcBlockCipher) Encrypt(key, plaintext []byte) (*pkix.AlgorithmIdentifie
 	return &encryptionScheme, ciphertext, nil
 }
 
-func (c cbcBlockCipher) Decrypt(key []byte, parameters *asn1.RawValue, encryptedKey []byte) ([]byte, error) {
+func (c *cbcBlockCipher) Decrypt(key []byte, parameters *asn1.RawValue, encryptedKey []byte) ([]byte, error) {
 	block, err := c.newBlock(key)
 	if err != nil {
 		return nil, err
@@ -66,7 +127,7 @@ func (c cbcBlockCipher) Decrypt(key []byte, parameters *asn1.RawValue, encrypted
 
 	var iv []byte
 	if _, err := asn1.Unmarshal(parameters.FullBytes, &iv); err != nil {
-		return nil, errors.New("pkcs8: invalid cipher parameters")
+		return nil, errors.New("pkcs: invalid cipher parameters")
 	}
 
 	return cbcDecrypt(block, key, iv, encryptedKey)
@@ -90,10 +151,8 @@ func cbcDecrypt(block cipher.Block, key, iv, ciphertext []byte) ([]byte, error) 
 }
 
 type gcmBlockCipher struct {
-	oid       asn1.ObjectIdentifier
+	baseBlockCipher
 	nonceSize int
-	keySize   int
-	newBlock  func(key []byte) (cipher.Block, error)
 }
 
 // http://javadoc.iaik.tugraz.at/iaik_jce/current/index.html?iaik/security/cipher/GCMParameters.html
@@ -102,15 +161,7 @@ type gcmParameters struct {
 	ICVLen int
 }
 
-func (c gcmBlockCipher) KeySize() int {
-	return c.keySize
-}
-
-func (c gcmBlockCipher) OID() asn1.ObjectIdentifier {
-	return c.oid
-}
-
-func (c gcmBlockCipher) Encrypt(key, plaintext []byte) (*pkix.AlgorithmIdentifier, []byte, error) {
+func (c *gcmBlockCipher) Encrypt(key, plaintext []byte) (*pkix.AlgorithmIdentifier, []byte, error) {
 	block, err := c.newBlock(key)
 	if err != nil {
 		return nil, nil, err
@@ -142,7 +193,7 @@ func (c gcmBlockCipher) Encrypt(key, plaintext []byte) (*pkix.AlgorithmIdentifie
 	return &encryptionAlgorithm, ciphertext, nil
 }
 
-func (c gcmBlockCipher) Decrypt(key []byte, parameters *asn1.RawValue, encryptedKey []byte) ([]byte, error) {
+func (c *gcmBlockCipher) Decrypt(key []byte, parameters *asn1.RawValue, encryptedKey []byte) ([]byte, error) {
 	block, err := c.newBlock(key)
 	if err != nil {
 		return nil, err
@@ -157,8 +208,14 @@ func (c gcmBlockCipher) Decrypt(key []byte, parameters *asn1.RawValue, encrypted
 		return nil, err
 	}
 	if params.ICVLen != aead.Overhead() {
-		return nil, errors.New("pkcs8: invalid tag size")
+		return nil, errors.New("pkcs: invalid tag size")
 	}
 
 	return aead.Open(nil, params.Nonce, encryptedKey, nil)
+}
+
+func genRandom(len int) ([]byte, error) {
+	value := make([]byte, len)
+	_, err := rand.Read(value)
+	return value, err
 }

@@ -16,6 +16,7 @@ import (
 	"hash"
 	"strconv"
 
+	"github.com/emmansun/gmsm/pkcs"
 	"github.com/emmansun/gmsm/sm2"
 	"github.com/emmansun/gmsm/sm3"
 	"github.com/emmansun/gmsm/sm9"
@@ -65,7 +66,7 @@ func (h Hash) New() hash.Hash {
 // DefaultOpts are the default options for encrypting a key if none are given.
 // The defaults can be changed by the library user.
 var DefaultOpts = &Opts{
-	Cipher: AES256CBC,
+	Cipher: pkcs.AES256CBC,
 	KDFOpts: PBKDF2Opts{
 		SaltSize:       8,
 		IterationCount: 10000,
@@ -108,29 +109,9 @@ type encryptedPrivateKeyInfo struct {
 	EncryptedData       []byte
 }
 
-// Cipher represents a cipher for encrypting the key material.
-type Cipher interface {
-	// KeySize returns the key size of the cipher, in bytes.
-	KeySize() int
-	// Encrypt encrypts the key material.
-	Encrypt(key, plaintext []byte) (*pkix.AlgorithmIdentifier, []byte, error)
-	// Decrypt decrypts the key material.
-	Decrypt(key []byte, parameters *asn1.RawValue, encryptedKey []byte) ([]byte, error)
-	// OID returns the OID of the cipher specified.
-	OID() asn1.ObjectIdentifier
-}
-
-var ciphers = make(map[string]func() Cipher)
-
-// RegisterCipher registers a function that returns a new instance of the given
-// cipher. This allows the library to support client-provided ciphers.
-func RegisterCipher(oid asn1.ObjectIdentifier, cipher func() Cipher) {
-	ciphers[oid.String()] = cipher
-}
-
 // Opts contains options for encrypting a PKCS#8 key.
 type Opts struct {
-	Cipher  Cipher
+	Cipher  pkcs.Cipher
 	KDFOpts KDFOpts
 }
 
@@ -156,16 +137,6 @@ func parseKeyDerivationFunc(keyDerivationFunc pkix.AlgorithmIdentifier) (KDFPara
 		return nil, errors.New("pkcs8: invalid KDF parameters")
 	}
 	return params, nil
-}
-
-func parseEncryptionScheme(encryptionScheme *pkix.AlgorithmIdentifier) (Cipher, error) {
-	oid := encryptionScheme.Algorithm.String()
-	newCipher, ok := ciphers[oid]
-	if !ok {
-		return nil, fmt.Errorf("pkcs8: unsupported cipher (OID: %s)", oid)
-	}
-	cipher := newCipher()
-	return cipher, nil
 }
 
 // ParsePrivateKey parses a DER-encoded PKCS#8 private key.
@@ -196,7 +167,7 @@ func ParsePrivateKey(der []byte, password []byte) (interface{}, KDFParameters, e
 		return nil, nil, errors.New("pkcs8: invalid PBES2 parameters")
 	}
 
-	cipher, err := parseEncryptionScheme(&params.EncryptionScheme)
+	cipher, err := pkcs.GetCipher(params.EncryptionScheme.Algorithm)
 	if err != nil {
 		return nil, nil, err
 	}

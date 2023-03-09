@@ -1,4 +1,4 @@
-package pkcs8
+package pkcs
 
 import (
 	"crypto/aes"
@@ -16,69 +16,81 @@ var (
 
 func init() {
 	RegisterCipher(oidAES128CBC, func() Cipher {
-		return &AES128CBC
+		return AES128CBC
 	})
 	RegisterCipher(oidAES128GCM, func() Cipher {
-		return &AES128GCM
+		return AES128GCM
 	})
 	RegisterCipher(oidAES192CBC, func() Cipher {
-		return &AES192CBC
+		return AES192CBC
 	})
 	RegisterCipher(oidAES192GCM, func() Cipher {
-		return &AES192GCM
+		return AES192GCM
 	})
 	RegisterCipher(oidAES256CBC, func() Cipher {
-		return &AES256CBC
+		return AES256CBC
 	})
 	RegisterCipher(oidAES256GCM, func() Cipher {
-		return &AES256GCM
+		return AES256GCM
 	})
 }
 
 // AES128CBC is the 128-bit key AES cipher in CBC mode.
-var AES128CBC = cbcBlockCipher{
-	ivSize:   aes.BlockSize,
-	keySize:  16,
-	newBlock: aes.NewCipher,
-	oid:      oidAES128CBC,
+var AES128CBC = &cbcBlockCipher{
+	baseBlockCipher: baseBlockCipher{
+		keySize:  16,
+		newBlock: aes.NewCipher,
+		oid:      oidAES128CBC,
+	},
+	ivSize: aes.BlockSize,
 }
 
 // AES128GCM is the 128-bit key AES cipher in GCM mode.
-var AES128GCM = gcmBlockCipher{
+var AES128GCM = &gcmBlockCipher{
+	baseBlockCipher: baseBlockCipher{
+		keySize:  16,
+		newBlock: aes.NewCipher,
+		oid:      oidAES128GCM,
+	},
 	nonceSize: 12,
-	keySize:   16,
-	newBlock:  aes.NewCipher,
-	oid:       oidAES128GCM,
 }
 
 // AES192CBC is the 192-bit key AES cipher in CBC mode.
-var AES192CBC = cbcBlockCipher{
+var AES192CBC = &cbcBlockCipher{
+	baseBlockCipher: baseBlockCipher{
+		keySize:  24,
+		newBlock: aes.NewCipher,
+		oid:      oidAES192CBC,
+	},
 	ivSize:   aes.BlockSize,
-	keySize:  24,
-	newBlock: aes.NewCipher,
-	oid:      oidAES192CBC,
 }
 
 // AES192GCM is the 912-bit key AES cipher in GCM mode.
-var AES192GCM = gcmBlockCipher{
+var AES192GCM = &gcmBlockCipher{
+	baseBlockCipher: baseBlockCipher{
+		keySize:  24,
+		newBlock: aes.NewCipher,
+		oid:      oidAES192GCM,
+	},
 	nonceSize: 12,
-	keySize:   24,
-	newBlock:  aes.NewCipher,
-	oid:       oidAES192GCM,
 }
 
 // AES256CBC is the 256-bit key AES cipher in CBC mode.
-var AES256CBC = cbcBlockCipher{
+var AES256CBC = &cbcBlockCipher{
+	baseBlockCipher: baseBlockCipher{
+		keySize:  32,
+		newBlock: aes.NewCipher,
+		oid:      oidAES256CBC,
+	},
 	ivSize:   aes.BlockSize,
-	keySize:  32,
-	newBlock: aes.NewCipher,
-	oid:      oidAES256CBC,
 }
 
 // AES256GCM is the 256-bit key AES cipher in GCM mode.
-var AES256GCM = gcmBlockCipher{
+var AES256GCM = &gcmBlockCipher{
+	baseBlockCipher: baseBlockCipher{
+		keySize:  32,
+		newBlock: aes.NewCipher,
+		oid:      oidAES256GCM,
+	},
 	nonceSize: 12,
-	keySize:   32,
-	newBlock:  aes.NewCipher,
-	oid:       oidAES256GCM,
 }
