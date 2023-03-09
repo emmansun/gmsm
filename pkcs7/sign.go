@@ -3,7 +3,6 @@ package pkcs7
 import (
 	"bytes"
 	"crypto"
-	"crypto/dsa"
 	"crypto/rand"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -245,27 +244,13 @@ func (sd *SignedData) SignWithoutAttr(ee *smx509.Certificate, pkey crypto.Privat
 	h := newHash(hasher, sd.digestOid)
 	h.Write(sd.data)
 	sd.messageDigest = h.Sum(nil)
-	switch pkey := pkey.(type) {
-	case *dsa.PrivateKey:
-		// dsa doesn't implement crypto.Signer so we make a special case
-		// https://github.com/golang/go/issues/27889
-		r, s, err := dsa.Sign(rand.Reader, pkey, sd.messageDigest)
-		if err != nil {
-			return err
-		}
-		signature, err = asn1.Marshal(dsaSignature{r, s})
-		if err != nil {
-			return err
-		}
-	default:
-		key, ok := pkey.(crypto.Signer)
-		if !ok {
-			return errors.New("pkcs7: private key does not implement crypto.Signer")
-		}
-		signature, err = key.Sign(rand.Reader, sd.messageDigest, nil)
-		if err != nil {
-			return err
-		}
+	key, ok := pkey.(crypto.Signer)
+	if !ok {
+		return errors.New("pkcs7: private key does not implement crypto.Signer")
+	}
+	signature, err = key.Sign(rand.Reader, sd.messageDigest, nil)
+	if err != nil {
+		return err
 	}
 	var ias issuerAndSerial
 	ias.SerialNumber = ee.SerialNumber
@@ -404,26 +389,11 @@ func signAttributes(attrs []attribute, pkey crypto.PrivateKey, hasher crypto.Has
 	h.Write(attrBytes)
 	hash := h.Sum(nil)
 
-	// dsa doesn't implement crypto.Signer so we make a special case
-	// https://github.com/golang/go/issues/27889
-	switch pkey := pkey.(type) {
-	case *dsa.PrivateKey:
-		r, s, err := dsa.Sign(rand.Reader, pkey, hash)
-		if err != nil {
-			return nil, err
-		}
-		return asn1.Marshal(dsaSignature{r, s})
-	}
-
 	key, ok := pkey.(crypto.Signer)
 	if !ok {
 		return nil, errors.New("pkcs7: private key does not implement crypto.Signer")
 	}
 	return key.Sign(rand.Reader, hash, hasher)
-}
-
-type dsaSignature struct {
-	R, S *big.Int
 }
 
 // concats and wraps the certificates in the RawValue structure
