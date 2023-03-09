@@ -47,4 +47,5 @@ jobs:
       env:
         DISABLE_SM3NI: 1
         DISABLE_SM4NI: 1
+        GODEBUG: x509sha1=1
         GOARCH: ${{ matrix.arch }}      

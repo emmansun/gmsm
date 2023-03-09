@@ -37,9 +37,13 @@ jobs:
           
     - name: Test with Coverage
       run: go test -coverpkg=./... -v -short -coverprofile=coverage1.txt -covermode=atomic ./...
+      env:
+        GODEBUG: x509sha1=1
 
     - name: Test Generic
       run: go test -coverpkg=./... -v -short -tags purego  -coverprofile=coverage2.txt -covermode=atomic ./...      
+      env:
+        GODEBUG: x509sha1=1
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
