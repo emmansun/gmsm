@@ -42,7 +42,7 @@ func TestImplicitSig(t *testing.T) {
 	res2.Mul(ePriv, k)
 	res2.Add(res2, sPriv)
 	res2.Mod(res2, n)
-	if !bytes.Equal(res1, res2.Bytes()) {
+	if !bytes.Equal(new(big.Int).SetBytes(res1).Bytes(), res2.Bytes()) {
 		t.Errorf("expected %s, got %s", hex.EncodeToString(res1), hex.EncodeToString(res2.Bytes()))
 	}
 }
