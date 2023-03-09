@@ -1681,18 +1681,21 @@ func TestSHA1(t *testing.T) {
 	if sa := cert.SignatureAlgorithm; sa != ECDSAWithSHA1 {
 		t.Errorf("signature algorithm is %v, want %v", sa, ECDSAWithSHA1)
 	}
-	if err = cert.CheckSignatureFrom(cert); err == nil {
-		t.Fatalf("certificate verification succeeded incorrectly")
-	}
-	if _, ok := err.(x509.InsecureAlgorithmError); !ok {
-		t.Fatalf("certificate verification returned %v (%T), wanted InsecureAlgorithmError", err, err)
-	}
+	if !debugAllowSHA1 {
+		if err = cert.CheckSignatureFrom(cert); err == nil {
+			t.Fatalf("certificate verification succeeded incorrectly")
+		}
+		if _, ok := err.(x509.InsecureAlgorithmError); !ok {
+			t.Fatalf("certificate verification returned %v (%T), wanted InsecureAlgorithmError", err, err)
+		}
 
-	defer func(old bool) { debugAllowSHA1 = old }(debugAllowSHA1)
-	debugAllowSHA1 = true
+		defer func(old bool) { debugAllowSHA1 = old }(debugAllowSHA1)
+		debugAllowSHA1 = true
+	}
 	if err = cert.CheckSignatureFrom(cert); err != nil {
 		t.Fatalf("SHA-1 certificate did not verify with GODEBUG=x509sha1=1: %v", err)
 	}
+
 }
 
 // certMissingRSANULL contains an RSA public key where the AlgorithmIdentifier
