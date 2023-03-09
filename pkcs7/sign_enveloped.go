@@ -25,7 +25,7 @@ type signedEnvelopedData struct {
 	SignerInfos                []signerInfo           `asn1:"set"`
 }
 
-func (data signedEnvelopedData) findRecipient(cert *smx509.Certificate) *recipientInfo {
+func (data signedEnvelopedData) GetRecipient(cert *smx509.Certificate) *recipientInfo {
 	for _, recp := range data.RecipientInfos {
 		if isCertMatchForIssuerAndSerial(cert, recp.IssuerAndSerialNumber) {
 			return &recp
@@ -93,7 +93,7 @@ func (p7 *PKCS7) DecryptAndVerify(cert *smx509.Certificate, pkey crypto.PrivateK
 	if !ok {
 		return nil, errors.New("pkcs7: it's NOT SignedAndEvelopedData")
 	}
-	recipient := sed.findRecipient(cert)
+	recipient := sed.GetRecipient(cert)
 	if recipient == nil {
 		return nil, errors.New("pkcs7: no enveloped recipient for provided certificate")
 	}
