@@ -2,6 +2,7 @@ package pkcs7
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"encoding/pem"
 	"math/big"
 	"testing"
@@ -148,7 +149,7 @@ func TestParseSignedEvnvelopedData(t *testing.T) {
 	}
 }
 
-func TestCreateSignedEvnvelopedData(t *testing.T) {
+func TestCreateSignedEvnvelopedDataSM(t *testing.T) {
 	rootCert, err := createTestCertificateByIssuer("PKCS7 Test Root CA", nil, smx509.SM2WithSM3, true)
 	if err != nil {
 		t.Fatal(err)
@@ -182,6 +183,74 @@ func TestCreateSignedEvnvelopedData(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		result, err := saed.Finish()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// fmt.Printf("%x\n", result)
+
+		// parse, decrypt, verify
+		p7Data, err := Parse(result)
+		if err != nil {
+			t.Fatal(err)
+		}
+		encKeyBytes, err := p7Data.DecryptAndVerify(recipient.Certificate, *recipient.PrivateKey, func() error {
+			return p7Data.Verify()
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(encKeyBytes, privKey) {
+			t.Fatal("not same private key")
+		}
+	}
+}
+
+func TestCreateSignedEvnvelopedData(t *testing.T) {
+	rootCert, err := createTestCertificateByIssuer("PKCS7 Test Root CA", nil, smx509.ECDSAWithSHA256, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recipient, err := createTestCertificateByIssuer("PKCS7 Test Recipient", rootCert, smx509.SHA256WithRSA, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unsupportRecipient, err := createTestCertificateByIssuer("PKCS7 Test Unsupport Recipient", rootCert, smx509.ECDSAWithSHA256, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	encryptKey, err := createTestCertificateByIssuer("PKCS7 Test Encrypt Key", rootCert, smx509.ECDSAWithSHA256, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	privKey := make([]byte, 32)
+	ecdsaKey, ok := (*encryptKey.PrivateKey).(*ecdsa.PrivateKey)
+	if !ok {
+		t.Fatal("should be ecdsa private key")
+	}
+	ecdsaKey.D.FillBytes(privKey)
+
+	testCipers := []pkcs.Cipher{pkcs.AES256CBC, pkcs.AES256GCM}
+	for _, cipher := range testCipers {
+		saed, err := NewSignedAndEnvelopedData(privKey, cipher)
+		if err != nil {
+			t.Fatal(err)
+		}
+		saed.SetDigestAlgorithm(OIDDigestAlgorithmSHA256)
+		err = saed.AddSigner(rootCert.Certificate, *rootCert.PrivateKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = saed.AddRecipient(recipient.Certificate)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = saed.AddRecipient(unsupportRecipient.Certificate); err.Error() != "pkcs7: only supports RSA/SM2 key" {
+			t.Fatal("not expected error message")
+		}
+
 		result, err := saed.Finish()
 		if err != nil {
 			t.Fatal(err)

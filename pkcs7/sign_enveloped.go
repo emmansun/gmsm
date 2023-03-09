@@ -31,9 +31,6 @@ func (data signedEnvelopedData) GetRecipient(cert *smx509.Certificate) *recipien
 			return &recp
 		}
 	}
-	if len(data.RecipientInfos) == 1 {
-		return &data.RecipientInfos[0]
-	}
 	return nil
 }
 

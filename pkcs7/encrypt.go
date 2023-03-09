@@ -224,5 +224,5 @@ func encryptKey(key []byte, recipient *smx509.Certificate) ([]byte, error) {
 	if pub, ok := recipient.PublicKey.(*ecdsa.PublicKey); ok && pub.Curve == sm2.P256() {
 		return sm2.EncryptASN1(rand.Reader, pub, key)
 	}
-	return nil, ErrUnsupportedAlgorithm
+	return nil, errors.New("pkcs7: only supports RSA/SM2 key")
 }
