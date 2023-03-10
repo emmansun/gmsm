@@ -190,7 +190,7 @@ func getOIDForEncryptionAlgorithm(pkey interface{}, OIDDigestAlg asn1.ObjectIden
 	case crypto.Signer:
 		return getOIDForEncryptionAlgorithm(k.Public(), OIDDigestAlg)
 	}
-	return nil, fmt.Errorf("pkcs7: cannot convert encryption algorithm to oid, unknown private key type %T", pkey)
+	return nil, fmt.Errorf("pkcs7: cannot convert encryption algorithm to oid, unknown or unsupported private key type %T", pkey)
 
 }
 

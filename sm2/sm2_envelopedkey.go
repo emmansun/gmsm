@@ -25,7 +25,7 @@ var (
 //
 // SM2EnvelopedKey ::= SEQUENCE {
 //   symAlgID                AlgorithmIdentifier,
-//   sysmEncryptedKey        SM2Cipher,
+//   symEncryptedKey         SM2Cipher,
 //   sm2PublicKey            SM2PublicKey,
 //   sm2EncryptedPrivateKey  BIT STRING,
 // }

@@ -16,7 +16,7 @@ import (
 // since the signed-and-enveloped-data content type does not have authenticated or unauthenticated attributes,
 // and does not provide enveloping of signer information other than the signature.
 type signedEnvelopedData struct {
-	Version                    int
+	Version                    int                        `asn1:"default:1"`
 	RecipientInfos             []recipientInfo            `asn1:"set"`
 	DigestAlgorithmIdentifiers []pkix.AlgorithmIdentifier `asn1:"set"`
 	EncryptedContentInfo       encryptedContentInfo
