@@ -185,14 +185,6 @@ func (sd *SignedData) AddSignerChain(ee *smx509.Certificate, pkey crypto.Private
 	if err != nil {
 		return err
 	}
-	unsignedAttrs := &attributes{}
-	for _, attr := range config.ExtraUnsignedAttributes {
-		unsignedAttrs.Add(attr.Type, attr.Value)
-	}
-	finalUnsignedAttrs, err := unsignedAttrs.ForMarshalling()
-	if err != nil {
-		return err
-	}
 	// create signature of signed attributes
 	signature, err := signAttributes(finalAttrs, pkey, hasher)
 	if err != nil {
@@ -200,13 +192,16 @@ func (sd *SignedData) AddSignerChain(ee *smx509.Certificate, pkey crypto.Private
 	}
 	signer := signerInfo{
 		AuthenticatedAttributes:   finalAttrs,
-		UnauthenticatedAttributes: finalUnsignedAttrs,
 		DigestAlgorithm:           pkix.AlgorithmIdentifier{Algorithm: sd.digestOid},
 		DigestEncryptionAlgorithm: pkix.AlgorithmIdentifier{Algorithm: encryptionOid},
 		IssuerAndSerialNumber:     ias,
 		EncryptedDigest:           signature,
 		Version:                   1,
 	}
+	if err = signer.SetUnauthenticatedAttributes(config.ExtraUnsignedAttributes); err != nil {
+		return err
+	}
+
 	if !config.SkipCertificates {
 		sd.certs = append(sd.certs, ee)
 		if len(parents) > 0 {
@@ -227,6 +222,7 @@ func newHash(hasher crypto.Hash, hashOid asn1.ObjectIdentifier) hash.Hash {
 	return h
 }
 
+/*
 // SignWithoutAttr issues a signature on the content of the pkcs7 SignedData.
 // Unlike AddSigner/AddSignerChain, it calculates the digest on the data alone
 // and does not include any signed attributes like timestamp and so on.
@@ -276,6 +272,7 @@ func (sd *SignedData) SignWithoutAttr(ee *smx509.Certificate, pkey crypto.Privat
 	sd.sd.SignerInfos = append(sd.sd.SignerInfos, signer)
 	return nil
 }
+*/
 
 func (si *signerInfo) SetUnauthenticatedAttributes(extraUnsignedAttrs []Attribute) error {
 	unsignedAttrs := &attributes{}
