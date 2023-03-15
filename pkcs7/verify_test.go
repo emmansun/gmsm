@@ -254,12 +254,16 @@ func TestVerifyFirefoxAddon(t *testing.T) {
 		t.Errorf("Verify failed with error: %v", err)
 	}
 
+	// fake content
 	p7.Content = []byte("bad content")
 	if err = p7.VerifyWithChain(certPool); err == nil {
 		t.Errorf("Verify with incorrect content did not error")
 	}
 	p7.Content = FirefoxAddonContent
 
+	if p7.GetOnlySigner() == nil {
+		t.Errorf("no only signer")
+	}
 	// The chain has validity:
 	//
 	// EE:           2016-08-17 20:04:58 +0000 UTC 2021-08-16 20:04:58 +0000 UTC
