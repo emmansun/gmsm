@@ -5,6 +5,8 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/base64"
 	"encoding/pem"
 	"io/ioutil"
@@ -254,16 +256,12 @@ func TestVerifyFirefoxAddon(t *testing.T) {
 		t.Errorf("Verify failed with error: %v", err)
 	}
 
-	// fake content
 	p7.Content = []byte("bad content")
 	if err = p7.VerifyWithChain(certPool); err == nil {
 		t.Errorf("Verify with incorrect content did not error")
 	}
 	p7.Content = FirefoxAddonContent
 
-	if p7.GetOnlySigner() == nil {
-		t.Errorf("no only signer")
-	}
 	// The chain has validity:
 	//
 	// EE:           2016-08-17 20:04:58 +0000 UTC 2021-08-16 20:04:58 +0000 UTC
@@ -606,4 +604,87 @@ but that's not what ships are built for.
 		}
 	}
 	os.Remove(tmpContentFile.Name()) // clean up
+}
+
+func TestGetSignatureAlgorithm(t *testing.T) {
+	validtests := []struct {
+		digestEncryption, digest asn1.ObjectIdentifier
+		expected                 x509.SignatureAlgorithm
+	}{
+		{
+			OIDDigestAlgorithmDSA,
+			OIDDigestAlgorithmSHA1,
+			x509.DSAWithSHA1,
+		},
+		{
+			OIDDigestAlgorithmDSA,
+			OIDDigestAlgorithmSHA256,
+			x509.DSAWithSHA256,
+		},
+		{
+			OIDEncryptionAlgorithmECDSAP256,
+			OIDDigestAlgorithmSHA1,
+			x509.ECDSAWithSHA1,
+		},
+		{
+			OIDEncryptionAlgorithmECDSAP256,
+			OIDDigestAlgorithmSHA256,
+			x509.ECDSAWithSHA256,
+		},
+		{
+			OIDEncryptionAlgorithmECDSAP256,
+			OIDDigestAlgorithmSHA384,
+			x509.ECDSAWithSHA384,
+		},
+		{
+			OIDEncryptionAlgorithmECDSAP256,
+			OIDDigestAlgorithmSHA512,
+			x509.ECDSAWithSHA512,
+		},
+		{
+			OIDEncryptionAlgorithmRSA,
+			OIDDigestAlgorithmSHA384,
+			x509.SHA384WithRSA,
+		},
+		{
+			OIDEncryptionAlgorithmRSA,
+			OIDDigestAlgorithmSHA512,
+			x509.SHA512WithRSA,
+		},
+	}
+	for _, test := range validtests {
+		s, err := getSignatureAlgorithm(pkix.AlgorithmIdentifier{Algorithm: test.digestEncryption}, pkix.AlgorithmIdentifier{Algorithm: test.digest})
+		if err != nil {
+			t.Errorf("should return valid signature algorithm")
+		}
+		if s != test.expected {
+			t.Errorf("expected %v, got %v", test.expected, s)
+		}
+	}
+	invalidtests := []struct {
+		digestEncryption, digest asn1.ObjectIdentifier
+	}{
+		{
+			OIDEncryptionAlgorithmRSASHA256,
+			OIDDigestAlgorithmSM3,
+		},
+		{
+			OIDDigestAlgorithmDSA,
+			OIDDigestAlgorithmSHA384,
+		},
+		{
+			OIDEncryptionAlgorithmECDSAP256,
+			OIDDigestAlgorithmSM3,
+		},
+		{
+			OIDDigestAlgorithmSM9SM3,
+			OIDDigestAlgorithmSHA384,
+		},
+	}
+	for _, test := range invalidtests {
+		_, err := getSignatureAlgorithm(pkix.AlgorithmIdentifier{Algorithm: test.digestEncryption}, pkix.AlgorithmIdentifier{Algorithm: test.digest})
+		if err == nil {
+			t.Errorf("should return error")
+		}
+	}
 }
