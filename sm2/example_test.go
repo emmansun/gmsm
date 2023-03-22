@@ -98,7 +98,7 @@ func ExamplePrivateKey_Sign_forceSM2() {
 	testkey.PublicKey.X, testkey.PublicKey.Y = testkey.ScalarBaseMult(testkey.D.Bytes())
 
 	// force SM2 sign standard and use default UID
-	sig, err := testkey.Sign(rand.Reader, toSign, sm2.NewSM2SignerOption(true, nil))
+	sig, err := testkey.Sign(rand.Reader, toSign, sm2.DefaultSM2SignerOpts)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error from sign: %s\n", err)
 		return

@@ -1513,7 +1513,7 @@ func CreateCertificate(rand io.Reader, template, parent, pub, priv interface{}) 
 			Hash:       hashFunc,
 		}
 	} else if signatureAlgorithm.Algorithm.Equal(oidSignatureSM2WithSM3) {
-		signerOpts = sm2.NewSM2SignerOption(true, nil)
+		signerOpts = sm2.DefaultSM2SignerOpts
 	}
 	signature, err = key.Sign(rand, signed, signerOpts)
 	if err != nil {
@@ -1612,7 +1612,7 @@ func (c *Certificate) CreateCRL(rand io.Reader, priv interface{}, revokedCerts [
 	signed := tbsCertListContents
 	var opts crypto.SignerOpts = hashFunc
 	if signatureAlgorithm.Algorithm.Equal(oidSignatureSM2WithSM3) {
-		opts = sm2.NewSM2SignerOption(true, nil)
+		opts = sm2.DefaultSM2SignerOpts
 	}
 	if hashFunc != 0 {
 		h := hashFunc.New()
@@ -1899,7 +1899,7 @@ func CreateCertificateRequest(rand io.Reader, template *x509.CertificateRequest,
 		signed = h.Sum(nil)
 	}
 	if sigAlgo.Algorithm.Equal(oidSignatureSM2WithSM3) {
-		opts = sm2.NewSM2SignerOption(true, nil)
+		opts = sm2.DefaultSM2SignerOpts
 	}
 
 	var signature []byte
@@ -2130,7 +2130,7 @@ func CreateRevocationList(rand io.Reader, template *x509.RevocationList, issuer 
 			Hash:       hashFunc,
 		}
 	} else if signatureAlgorithm.Algorithm.Equal(oidSignatureSM2WithSM3) {
-		signerOpts = sm2.NewSM2SignerOption(true, nil)
+		signerOpts = sm2.DefaultSM2SignerOpts
 	}
 
 	signature, err := priv.Sign(rand, input, signerOpts)

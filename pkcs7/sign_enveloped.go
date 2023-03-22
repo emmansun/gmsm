@@ -221,7 +221,7 @@ func (saed *SignedAndEnvelopedData) AddSignerChain(ee *smx509.Certificate, pkey 
 	var tobeSigned []byte
 
 	if saed.isSM {
-		signOpt = sm2.NewSM2SignerOption(true, nil)
+		signOpt = sm2.DefaultSM2SignerOpts
 		tobeSigned = saed.data
 	} else {
 		signOpt = hasher

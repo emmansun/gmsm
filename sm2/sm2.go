@@ -87,10 +87,12 @@ type DecrypterOpts struct {
 	CipherTextSplicingOrder ciphertextSplicingOrder
 }
 
+// NewPlainEncrypterOpts creates a SM2 non-ASN1 encrypter options.
 func NewPlainEncrypterOpts(marhsalMode pointMarshalMode, splicingOrder ciphertextSplicingOrder) *EncrypterOpts {
 	return &EncrypterOpts{ENCODING_PLAIN, marhsalMode, splicingOrder}
 }
 
+// NewPlainDecrypterOpts creates a SM2 non-ASN1 decrypter options.
 func NewPlainDecrypterOpts(splicingOrder ciphertextSplicingOrder) *DecrypterOpts {
 	return &DecrypterOpts{ENCODING_PLAIN, splicingOrder}
 }
@@ -124,7 +126,7 @@ type SM2SignerOption struct {
 	ForceGMSign bool
 }
 
-// NewSM2SignerOption create a SM2 specific signer option.
+// NewSM2SignerOption creates a SM2 specific signer option.
 // forceGMSign - if use GM specific sign logic, if yes, should pass raw message to sign.
 // uid - if forceGMSign is true, then you can pass uid, if no uid is provided, system will use default one.
 func NewSM2SignerOption(forceGMSign bool, uid []byte) *SM2SignerOption {
@@ -137,6 +139,9 @@ func NewSM2SignerOption(forceGMSign bool, uid []byte) *SM2SignerOption {
 	}
 	return opt
 }
+
+// DefaultSM2SignerOpts uses default UID and forceGMSign is true.
+var DefaultSM2SignerOpts = NewSM2SignerOption(true, nil)
 
 func (*SM2SignerOption) HashFunc() crypto.Hash {
 	return directSigning
@@ -171,8 +176,7 @@ func bigIntEqual(a, b *big.Int) bool {
 // digest argument will be treated as raw data and UID will be taken from opts.
 //
 // This method implements crypto.Signer, which is an interface to support keys
-// where the private part is kept in, for example, a hardware module. Common
-// uses can use the SignASN1 function in this package directly.
+// where the private part is kept in, for example, a hardware module.
 func (priv *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
 	return SignASN1(rand, priv, digest, opts)
 }
@@ -446,7 +450,9 @@ func parseCiphertextASN1(c *sm2Curve, ciphertext []byte) (*_sm2ec.SM2P256Point, 
 var defaultUID = []byte{0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38}
 
 // CalculateZA ZA = H256(ENTLA || IDA || a || b || xG || yG || xA || yA).
-// Compliance with GB/T 32918.2-2016 5.5
+// Compliance with GB/T 32918.2-2016 5.5.
+//
+// This function will not use default UID even the uid argument is empty.
 func CalculateZA(pub *ecdsa.PublicKey, uid []byte) ([]byte, error) {
 	uidLen := len(uid)
 	if uidLen >= 0x2000 {
@@ -486,7 +492,9 @@ func calculateSM2Hash(pub *ecdsa.PublicKey, data, uid []byte) ([]byte, error) {
 // using the private key, priv. If the hash is longer than the bit-length of the
 // private key's curve order, the hash will be truncated to that length. It
 // returns the ASN.1 encoded signature.
-// It invokes priv.Sign directly.
+//
+// If the opts argument is instance of [*SM2SignerOption], and its ForceGMSign is true,
+// then the hash will be treated as raw message.
 func SignASN1(rand io.Reader, priv *PrivateKey, hash []byte, opts crypto.SignerOpts) ([]byte, error) {
 	if sm2Opts, ok := opts.(*SM2SignerOption); ok && sm2Opts.ForceGMSign {
 		newHash, err := calculateSM2Hash(&priv.PublicKey, hash, sm2Opts.UID)
@@ -605,7 +613,8 @@ func addASN1IntBytes(b *cryptobyte.Builder, bytes []byte) {
 // public key, pub. Its return value records whether the signature is valid.
 //
 // Compliance with GB/T 32918.2-2016 regardless it's SM2 curve or not.
-// Caller should make sure the hash's correctness.
+// Caller should make sure the hash's correctness, in other words,
+// the caller must pre-calculate the hash value.
 func VerifyASN1(pub *ecdsa.PublicKey, hash, sig []byte) bool {
 	switch pub.Curve.Params() {
 	case P256().Params():
@@ -668,7 +677,7 @@ func verifySM2EC(c *sm2Curve, pub *ecdsa.PublicKey, hash, sig []byte) bool {
 }
 
 // VerifyASN1WithSM2 verifies the signature in ASN.1 encoding format sig of raw msg
-// and uid using the public key, pub.
+// and uid using the public key, pub. The uid can be empty, meaning to use the default value.
 //
 // It returns value records whether the signature is valid. Compliance with GB/T 32918.2-2016.
 func VerifyASN1WithSM2(pub *ecdsa.PublicKey, uid, msg, sig []byte) bool {
@@ -780,7 +789,7 @@ func IsSM2PublicKey(publicKey interface{}) bool {
 	return ok && pub.Curve == sm2ec.P256()
 }
 
-// P256 return sm2 curve signleton, this function is for backward compatibility.
+// P256 returns sm2 curve signleton, this function is for backward compatibility.
 func P256() elliptic.Curve {
 	return sm2ec.P256()
 }
