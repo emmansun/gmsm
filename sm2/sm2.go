@@ -76,15 +76,15 @@ const (
 
 // EncrypterOpts encryption options
 type EncrypterOpts struct {
-	CiphertextEncoding      ciphertextEncoding
-	PointMarshalMode        pointMarshalMode
-	CiphertextSplicingOrder ciphertextSplicingOrder
+	ciphertextEncoding      ciphertextEncoding
+	pointMarshalMode        pointMarshalMode
+	ciphertextSplicingOrder ciphertextSplicingOrder
 }
 
 // DecrypterOpts decryption options
 type DecrypterOpts struct {
-	CiphertextEncoding      ciphertextEncoding
-	CipherTextSplicingOrder ciphertextSplicingOrder
+	ciphertextEncoding      ciphertextEncoding
+	cipherTextSplicingOrder ciphertextSplicingOrder
 }
 
 // NewPlainEncrypterOpts creates a SM2 non-ASN1 encrypter options.
@@ -122,8 +122,8 @@ type Signer interface {
 // SM2SignerOption implements crypto.SignerOpts interface.
 // It is specific for SM2, used in private key's Sign method.
 type SM2SignerOption struct {
-	UID         []byte
-	ForceGMSign bool
+	uid         []byte
+	forceGMSign bool
 }
 
 // NewSM2SignerOption creates a SM2 specific signer option.
@@ -131,11 +131,11 @@ type SM2SignerOption struct {
 // uid - if forceGMSign is true, then you can pass uid, if no uid is provided, system will use default one.
 func NewSM2SignerOption(forceGMSign bool, uid []byte) *SM2SignerOption {
 	opt := &SM2SignerOption{
-		UID:         uid,
-		ForceGMSign: forceGMSign,
+		uid:         uid,
+		forceGMSign: forceGMSign,
 	}
 	if forceGMSign && len(uid) == 0 {
-		opt.UID = defaultUID
+		opt.uid = defaultUID
 	}
 	return opt
 }
@@ -261,7 +261,7 @@ func encryptSM2EC(c *sm2Curve, pub *ecdsa.PublicKey, random io.Reader, msg []byt
 		md.Write(C2Bytes[len(C2Bytes)/2:])
 		c3 := md.Sum(nil)
 
-		if opts.CiphertextEncoding == ENCODING_PLAIN {
+		if opts.ciphertextEncoding == ENCODING_PLAIN {
 			return encodingCiphertext(opts, C1, c2, c3)
 		}
 		return encodingCiphertextASN1(C1, c2, c3)
@@ -270,14 +270,14 @@ func encryptSM2EC(c *sm2Curve, pub *ecdsa.PublicKey, random io.Reader, msg []byt
 
 func encodingCiphertext(opts *EncrypterOpts, C1 *_sm2ec.SM2P256Point, c2, c3 []byte) ([]byte, error) {
 	var c1 []byte
-	switch opts.PointMarshalMode {
+	switch opts.pointMarshalMode {
 	case MarshalCompressed:
 		c1 = C1.BytesCompressed()
 	default:
 		c1 = C1.Bytes()
 	}
 
-	if opts.CiphertextSplicingOrder == C1C3C2 {
+	if opts.ciphertextSplicingOrder == C1C3C2 {
 		// c1 || c3 || c2
 		return append(append(c1, c3...), c2...), nil
 	}
@@ -380,7 +380,7 @@ func parseCiphertext(c *sm2Curve, ciphertext []byte, opts *DecrypterOpts) (*_sm2
 	byteLen := (bitSize + 7) / 8
 	splicingOrder := C1C3C2
 	if opts != nil {
-		splicingOrder = opts.CipherTextSplicingOrder
+		splicingOrder = opts.cipherTextSplicingOrder
 	}
 
 	b := ciphertext[0]
@@ -496,8 +496,8 @@ func calculateSM2Hash(pub *ecdsa.PublicKey, data, uid []byte) ([]byte, error) {
 // If the opts argument is instance of [*SM2SignerOption], and its ForceGMSign is true,
 // then the hash will be treated as raw message.
 func SignASN1(rand io.Reader, priv *PrivateKey, hash []byte, opts crypto.SignerOpts) ([]byte, error) {
-	if sm2Opts, ok := opts.(*SM2SignerOption); ok && sm2Opts.ForceGMSign {
-		newHash, err := calculateSM2Hash(&priv.PublicKey, hash, sm2Opts.UID)
+	if sm2Opts, ok := opts.(*SM2SignerOption); ok && sm2Opts.forceGMSign {
+		newHash, err := calculateSM2Hash(&priv.PublicKey, hash, sm2Opts.uid)
 		if err != nil {
 			return nil, err
 		}

@@ -254,7 +254,7 @@ func encryptLegacy(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Enc
 
 		//A2, calculate C1 = k * G
 		x1, y1 := curve.ScalarBaseMult(k.Bytes())
-		c1 := opts.PointMarshalMode.mashal(curve, x1, y1)
+		c1 := opts.pointMarshalMode.mashal(curve, x1, y1)
 
 		//A4, calculate k * P (point of Public Key)
 		x2, y2 := curve.ScalarMult(pub.X, pub.Y, k.Bytes())
@@ -275,8 +275,8 @@ func encryptLegacy(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Enc
 		//A7, C3 = hash(x2||M||y2)
 		c3 := calculateC3(curve, x2, y2, msg)
 
-		if opts.CiphertextEncoding == ENCODING_PLAIN {
-			if opts.CiphertextSplicingOrder == C1C3C2 {
+		if opts.ciphertextEncoding == ENCODING_PLAIN {
+			if opts.ciphertextSplicingOrder == C1C3C2 {
 				// c1 || c3 || c2
 				return append(append(c1, c3...), c2...), nil
 			}
@@ -317,8 +317,8 @@ func ASN1Ciphertext2Plain(ciphertext []byte, opts *EncrypterOpts) ([]byte, error
 		return nil, err
 	}
 	curve := sm2ec.P256()
-	c1 := opts.PointMarshalMode.mashal(curve, x1, y1)
-	if opts.CiphertextSplicingOrder == C1C3C2 {
+	c1 := opts.pointMarshalMode.mashal(curve, x1, y1)
+	if opts.ciphertextSplicingOrder == C1C3C2 {
 		// c1 || c3 || c2
 		return append(append(c1, c3...), c2...), nil
 	}
@@ -426,10 +426,10 @@ func rawDecrypt(priv *PrivateKey, x1, y1 *big.Int, c2, c3 []byte) ([]byte, error
 func decryptLegacy(priv *PrivateKey, ciphertext []byte, opts *DecrypterOpts) ([]byte, error) {
 	splicingOrder := C1C3C2
 	if opts != nil {
-		if opts.CiphertextEncoding == ENCODING_ASN1 {
+		if opts.ciphertextEncoding == ENCODING_ASN1 {
 			return decryptASN1(priv, ciphertext)
 		}
-		splicingOrder = opts.CipherTextSplicingOrder
+		splicingOrder = opts.cipherTextSplicingOrder
 	}
 	if ciphertext[0] == 0x30 {
 		return decryptASN1(priv, ciphertext)
