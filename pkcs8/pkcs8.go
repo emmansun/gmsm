@@ -167,7 +167,7 @@ func ParsePrivateKey(der []byte, password []byte) (interface{}, KDFParameters, e
 		return nil, nil, errors.New("pkcs8: invalid PBES2 parameters")
 	}
 
-	cipher, err := pkcs.GetCipher(params.EncryptionScheme.Algorithm)
+	cipher, err := pkcs.GetCipher(params.EncryptionScheme)
 	if err != nil {
 		return nil, nil, err
 	}

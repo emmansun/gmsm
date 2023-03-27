@@ -31,6 +31,7 @@ var (
 // }
 //
 // This implementation follows GB/T 35276-2017, uses SM4 cipher to encrypt sm2 private key.
+// Please note the standard did NOT clarify if the ECB mode requires padding or not.
 func MarshalEnvelopedPrivateKey(rand io.Reader, pub *ecdsa.PublicKey, tobeEnveloped *PrivateKey) ([]byte, error) {
 	// encrypt sm2 private key
 	size := (tobeEnveloped.Curve.Params().N.BitLen() + 7) / 8
@@ -61,7 +62,7 @@ func MarshalEnvelopedPrivateKey(rand io.Reader, pub *ecdsa.PublicKey, tobeEnvelo
 	// marshal the result
 	var b cryptobyte.Builder
 	b.AddASN1(cryptobyte_asn1.SEQUENCE, func(b *cryptobyte.Builder) {
-		b.AddASN1ObjectIdentifier(oidSM4) // use oidSM4ECB?
+		b.AddASN1ObjectIdentifier(oidSM4ECB) // use oidSM4?
 		b.AddBytes(encryptedKey)
 		b.AddASN1BitString(elliptic.Marshal(tobeEnveloped.Curve, tobeEnveloped.X, tobeEnveloped.Y))
 		b.AddASN1BitString(encryptedPrivateKey)
@@ -114,6 +115,7 @@ func ParseEnvelopedPrivateKey(priv *PrivateKey, enveloped []byte) (*PrivateKey, 
 	bytes := encryptedPrivateKey.RightAlign()
 	plaintext := make([]byte, len(bytes))
 	mode.CryptBlocks(plaintext, bytes)
+	// Do we need to check length in order to be compatible with some implementations with padding?
 	sm2Key := new(PrivateKey)
 	sm2Key.D = new(big.Int).SetBytes(plaintext)
 	sm2Key.Curve = P256()

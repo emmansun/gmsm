@@ -33,8 +33,16 @@ func RegisterCipher(oid asn1.ObjectIdentifier, cipher func() Cipher) {
 	ciphers[oid.String()] = cipher
 }
 
-func GetCipher(oid asn1.ObjectIdentifier) (Cipher, error) {
-	newCipher, ok := ciphers[oid.String()]
+func GetCipher(alg pkix.AlgorithmIdentifier) (Cipher, error) {
+	oid := alg.Algorithm.String()
+	if oid == oidSM4.String() {
+		if len(alg.Parameters.Bytes) != 0 {
+			return SM4CBC, nil
+		} else {
+			return SM4ECB, nil
+		}
+	}
+	newCipher, ok := ciphers[oid]
 	if !ok {
 		return nil, fmt.Errorf("pkcs: unsupported cipher (OID: %s)", oid)
 	}
@@ -65,6 +73,8 @@ func (ecb *ecbBlockCipher) Encrypt(key, plaintext []byte) (*pkix.AlgorithmIdenti
 		return nil, nil, err
 	}
 	mode := smcipher.NewECBEncrypter(block)
+	pkcs7 := padding.NewPKCS7Padding(uint(block.BlockSize()))
+	plaintext = pkcs7.Pad(plaintext)
 	ciphertext := make([]byte, len(plaintext))
 	mode.CryptBlocks(ciphertext, plaintext)
 
@@ -83,9 +93,13 @@ func (ecb *ecbBlockCipher) Decrypt(key []byte, parameters *asn1.RawValue, cipher
 	mode := smcipher.NewECBDecrypter(block)
 	plaintext := make([]byte, len(ciphertext))
 	mode.CryptBlocks(plaintext, ciphertext)
-	return plaintext, nil
+	pkcs7 := padding.NewPKCS7Padding(uint(block.BlockSize()))
+	unpadded, err := pkcs7.Unpad(plaintext)
+	if err != nil { // In order to be compatible with some implementations without padding
+		return plaintext, nil
+	}
+	return unpadded, nil
 }
-
 
 type cbcBlockCipher struct {
 	baseBlockCipher

@@ -20,21 +20,9 @@ func init() {
 	RegisterCipher(oidSM4GCM, func() Cipher {
 		return SM4GCM
 	})
-	RegisterCipher(oidSM4, func() Cipher {
-		return SM4
-	})
 	RegisterCipher(oidSM4ECB, func() Cipher {
 		return SM4ECB
 	})
-}
-
-// SM4 is the 128-bit key SM4 cipher in ECB mode.
-var SM4 = &ecbBlockCipher{
-	baseBlockCipher: baseBlockCipher{
-		keySize:  16,
-		newBlock: sm4.NewCipher,
-		oid:      oidSM4,
-	},
 }
 
 // SM4ECB is the 128-bit key SM4 cipher in ECB mode.

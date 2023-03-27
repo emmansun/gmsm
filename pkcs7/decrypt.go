@@ -79,8 +79,7 @@ func (eci encryptedContentInfo) getCiphertext() (ciphertext []byte) {
 }
 
 func (eci encryptedContentInfo) decrypt(key []byte) ([]byte, error) {
-	alg := eci.ContentEncryptionAlgorithm.Algorithm
-	cipher, err := pkcs.GetCipher(alg)
+	cipher, err := pkcs.GetCipher(eci.ContentEncryptionAlgorithm)
 	if err != nil {
 		return nil, ErrUnsupportedAlgorithm
 	}

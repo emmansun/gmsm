@@ -169,7 +169,7 @@ func TestCreateSignedEvnvelopedDataSM(t *testing.T) {
 	}
 	sm2Key.D.FillBytes(privKey)
 
-	testCipers := []pkcs.Cipher{pkcs.SM4, pkcs.SM4ECB, pkcs.SM4CBC, pkcs.SM4GCM}
+	testCipers := []pkcs.Cipher{pkcs.SM4ECB, pkcs.SM4CBC, pkcs.SM4GCM}
 	for _, cipher := range testCipers {
 		saed, err := NewSMSignedAndEnvelopedData(privKey, cipher)
 		if err != nil {
