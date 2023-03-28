@@ -257,3 +257,56 @@ func testOpenSSLParse(t *testing.T, certBytes []byte) {
 		t.Fatal(err)
 	}
 }
+
+func TestSignWithoutAttr(t *testing.T) {
+	content := []byte("Hello World")
+	sigalgs := []struct {
+		isSM   bool
+		sigAlg x509.SignatureAlgorithm
+	}{
+		{
+			false,
+			x509.SHA256WithRSA,
+		},
+		{
+			true,
+			smx509.SM2WithSM3,
+		},
+	}
+	for _, sigalg := range sigalgs {
+		cert, err := createTestCertificate(sigalg.sigAlg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var toBeSigned *SignedData
+		if sigalg.isSM {
+			toBeSigned, err = NewSMSignedData(content)
+		} else {
+			toBeSigned, err = NewSignedData(content)
+			signerDigest, _ := getDigestOIDForSignatureAlgorithm(sigalg.sigAlg)
+			toBeSigned.SetDigestAlgorithm(signerDigest)
+		}
+		if err != nil {
+			t.Fatalf("Cannot initialize signed data: %s", err)
+		}
+		if err := toBeSigned.SignWithoutAttr(cert.Certificate, *cert.PrivateKey, SignerInfoConfig{}); err != nil {
+			t.Fatalf("Cannot add signer: %s", err)
+		}
+		signed, err := toBeSigned.Finish()
+		if err != nil {
+			t.Fatalf("Cannot finish signing data: %s", err)
+		}
+		p7, err := Parse(signed)
+		if err != nil {
+			t.Fatalf("Cannot parse signed data: %v", err)
+		}
+		if len(p7.Certificates) == 0 {
+			t.Errorf("No certificates")
+		}
+
+		err = p7.Verify()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}

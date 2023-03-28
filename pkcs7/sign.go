@@ -222,7 +222,6 @@ func newHash(hasher crypto.Hash, hashOid asn1.ObjectIdentifier) hash.Hash {
 	return h
 }
 
-/*
 // SignWithoutAttr issues a signature on the content of the pkcs7 SignedData.
 // Unlike AddSigner/AddSignerChain, it calculates the digest on the data alone
 // and does not include any signed attributes like timestamp and so on.
@@ -237,14 +236,19 @@ func (sd *SignedData) SignWithoutAttr(ee *smx509.Certificate, pkey crypto.Privat
 	if err != nil {
 		return err
 	}
-	h := newHash(hasher, sd.digestOid)
-	h.Write(sd.data)
-	sd.messageDigest = h.Sum(nil)
 	key, ok := pkey.(crypto.Signer)
 	if !ok {
 		return errors.New("pkcs7: private key does not implement crypto.Signer")
 	}
-	signature, err = key.Sign(rand.Reader, sd.messageDigest, nil)
+	_, isSM2 := pkey.(sm2.Signer)
+	if isSM2 {
+		signature, err = key.Sign(rand.Reader, sd.data, sm2.DefaultSM2SignerOpts)
+	} else {
+		h := newHash(hasher, sd.digestOid)
+		h.Write(sd.data)
+		sd.messageDigest = h.Sum(nil)
+		signature, err = key.Sign(rand.Reader, sd.messageDigest, hasher)
+	}
 	if err != nil {
 		return err
 	}
@@ -272,7 +276,6 @@ func (sd *SignedData) SignWithoutAttr(ee *smx509.Certificate, pkey crypto.Privat
 	sd.sd.SignerInfos = append(sd.sd.SignerInfos, signer)
 	return nil
 }
-*/
 
 func (si *signerInfo) SetUnauthenticatedAttributes(extraUnsignedAttrs []Attribute) error {
 	unsignedAttrs := &attributes{}

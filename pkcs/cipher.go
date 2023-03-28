@@ -36,7 +36,7 @@ func RegisterCipher(oid asn1.ObjectIdentifier, cipher func() Cipher) {
 func GetCipher(alg pkix.AlgorithmIdentifier) (Cipher, error) {
 	oid := alg.Algorithm.String()
 	if oid == oidSM4.String() {
-		if len(alg.Parameters.Bytes) != 0 {
+		if len(alg.Parameters.Bytes) != 0 || len(alg.Parameters.FullBytes) != 0 {
 			return SM4CBC, nil
 		} else {
 			return SM4ECB, nil
