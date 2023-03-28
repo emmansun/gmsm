@@ -169,10 +169,13 @@ type gcmBlockCipher struct {
 	nonceSize int
 }
 
-// http://javadoc.iaik.tugraz.at/iaik_jce/current/index.html?iaik/security/cipher/GCMParameters.html
+// https://datatracker.ietf.org/doc/rfc5084/
+// GCMParameters ::= SEQUENCE {
+// 	aes-nonce        OCTET STRING, -- recommended size is 12 octets
+// 	aes-ICVlen       AES-GCM-ICVlen DEFAULT 12 }
 type gcmParameters struct {
-	Nonce  []byte `asn1:"tag:4"`
-	ICVLen int
+	Nonce  []byte
+	ICVLen int `asn1:"default:12,optional"`
 }
 
 func (c *gcmBlockCipher) Encrypt(key, plaintext []byte) (*pkix.AlgorithmIdentifier, []byte, error) {
@@ -222,7 +225,7 @@ func (c *gcmBlockCipher) Decrypt(key []byte, parameters *asn1.RawValue, encrypte
 		return nil, err
 	}
 	if params.ICVLen != aead.Overhead() {
-		return nil, errors.New("pkcs: invalid tag size")
+		return nil, errors.New("pkcs: we do not support non-standard tag size")
 	}
 
 	return aead.Open(nil, params.Nonce, encryptedKey, nil)

@@ -1,9 +1,13 @@
 package pkcs
 
 import (
+	"bytes"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"testing"
+
+	"golang.org/x/crypto/cryptobyte"
+	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
 
 func TestGetCipher(t *testing.T) {
@@ -55,5 +59,29 @@ func TestInvalidKeyLen(t *testing.T) {
 	_, err = SM4GCM.Decrypt(invalidKey, nil, nil)
 	if err == nil {
 		t.Errorf("should be error")
+	}
+}
+
+func TestGcmParameters(t *testing.T) {
+	var b cryptobyte.Builder
+	b.AddASN1(cryptobyte_asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+		b.AddASN1OctetString([]byte("123456789012"))
+	})
+	pb1, _ := b.Bytes()
+	params := gcmParameters{}
+	_, err := asn1.Unmarshal(pb1, &params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if params.ICVLen != 12 {
+		t.Errorf("should be 12, but got %v", params.ICVLen)
+	}
+	if !bytes.Equal([]byte("123456789012"), params.Nonce) {
+		t.Errorf("not expected nonce")
+	}
+
+	pb2, _ := asn1.Marshal(params)
+	if !bytes.Equal(pb1, pb2) {
+		t.Errorf("not consistent result")
 	}
 }
