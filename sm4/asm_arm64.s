@@ -28,13 +28,11 @@
 #define SM4_TAO_L2(x, y)         \
 	SM4_SBOX(x, y, XTMP6);                      \
 	;                                           \ //####################  4 parallel L2 linear transforms ##################//
-	VSHL $13, x.S4, XTMP6.S4;                   \
-	VUSHR $19, x.S4, y.S4;                      \
-	VORR XTMP6.B16, y.B16, y.B16;               \
+	VSHL $13, x.S4, y.S4;                       \
+	VSRI $19, x.S4, y.S4;                       \
 	VSHL $23, x.S4, XTMP6.S4;                   \
-	VUSHR $9, x.S4, XTMP7.S4;                   \
-	VORR XTMP6.B16, XTMP7.B16, XTMP7.B16;       \
-	VEOR XTMP7.B16, y.B16, y.B16;               \
+	VSRI $9, x.S4, XTMP6.S4;                    \
+	VEOR XTMP6.B16, y.B16, y.B16;               \
 	VEOR x.B16, y.B16, x.B16
 
 #define SM4_EXPANDKEY_ROUND(x, y, t0, t1, t2, t3) \

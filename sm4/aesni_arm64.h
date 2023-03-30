@@ -144,10 +144,9 @@ GLOBL fk_mask<>(SB), (NOPTR+RODATA), $16
 	VTBL R08_MASK.B16, [x.B16], y.B16;                   \
 	VEOR y.B16, x.B16, y.B16;                            \
 	VTBL R16_MASK.B16, [x.B16], z.B16;                   \
-	VEOR z.B16, y.B16, y.B16;                            \
-	VSHL $2, y.S4, z.S4;                                 \
-	VUSHR $30, y.S4, y.S4;                               \
-	VORR y.B16, z.B16, y.B16;                            \
+	VEOR z.B16, y.B16, z.B16;                            \
+	VSHL $2, z.S4, y.S4;                                 \
+	VSRI $30, z.S4, y.S4;                                \
 	VTBL R24_MASK.B16, [x.B16], z.B16;                   \
 	VEOR z.B16, x.B16, x.B16;                            \
 	VEOR y.B16, x.B16, x.B16
