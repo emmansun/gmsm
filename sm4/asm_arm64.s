@@ -100,14 +100,14 @@
 #define SM4E_ROUND() \
 	VLD1.P 16(R10), [V8.B16]    \
 	VREV32 V8.B16, V8.B16       \
-	WORD $0x0884c0ce            \
-	WORD $0x2884c0ce            \
-	WORD $0x4884c0ce            \
-	WORD $0x6884c0ce            \
-	WORD $0x8884c0ce            \
-	WORD $0xa884c0ce            \
-	WORD $0xc884c0ce            \
-	WORD $0xe884c0ce            \
+	WORD $0xcec08408            \ //SM4E V8.4S, V0.4S
+	WORD $0xcec08428            \ //SM4E V8.4S, V1.4S
+	WORD $0xcec08448            \ //SM4E V8.4S, V2.4S
+	WORD $0xcec08468            \ //SM4E V8.4S, V3.4S
+	WORD $0xcec08488            \ //SM4E V8.4S, V4.4S
+	WORD $0xcec084a8            \ //SM4E V8.4S, V5.4S
+	WORD $0xcec084c8            \ //SM4E V8.4S, V6.4S
+	WORD $0xcec084e8            \ //SM4E V8.4S, V7.4S
 	VREV32 V8.B16, V8.B16       \
 	VST1.P  [V8.B16], 16(R9)
 
@@ -268,15 +268,15 @@ sm4niblock:
 	VLD1 (R10), [V8.B16]
 	VREV32 V8.B16, V8.B16
 	VLD1.P	64(R8), [V0.S4, V1.S4, V2.S4, V3.S4]
-	WORD $0x0884c0ce          //SM4E V8.4S, V0.4S
-	WORD $0x2884c0ce          //SM4E V8.4S, V1.4S
-	WORD $0x4884c0ce          //SM4E V8.4S, V2.4S
-	WORD $0x6884c0ce          //SM4E V8.4S, V3.4S
+	WORD $0xcec08408          //SM4E V8.4S, V0.4S
+	WORD $0xcec08428          //SM4E V8.4S, V1.4S
+	WORD $0xcec08448          //SM4E V8.4S, V2.4S
+	WORD $0xcec08468          //SM4E V8.4S, V3.4S
 	VLD1.P	64(R8), [V0.S4, V1.S4, V2.S4, V3.S4]
-	WORD $0x0884c0ce          //SM4E V8.4S, V0.4S
-	WORD $0x2884c0ce          //SM4E V8.4S, V1.4S
-	WORD $0x4884c0ce          //SM4E V8.4S, V2.4S
-	WORD $0x6884c0ce          //SM4E V8.4S, V3.4S
+	WORD $0xcec08408          //SM4E V8.4S, V0.4S
+	WORD $0xcec08428          //SM4E V8.4S, V1.4S
+	WORD $0xcec08448          //SM4E V8.4S, V2.4S
+	WORD $0xcec08468          //SM4E V8.4S, V3.4S
 	VREV32 V8.B16, V8.B16
 	VST1	[V8.B16], (R9)
 	RET  
