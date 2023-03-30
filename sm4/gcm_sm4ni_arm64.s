@@ -392,6 +392,8 @@ octetsLoop:
 
 		sm4eEnc8blocks()      
 
+		VMOV B0.B16, T1.B16
+		VMOV B1.B16, T2.B16
 		VLD1.P	32(srcPtr), [B0.B16, B1.B16]
 		VEOR	B0.B16, T1.B16, T1.B16
 		VEOR	B1.B16, T2.B16, T2.B16
