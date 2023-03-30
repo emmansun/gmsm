@@ -279,8 +279,7 @@ sm4niblock:
 	WORD $0xcec08428          //SM4E V8.4S, V1.4S
 	WORD $0xcec08448          //SM4E V8.4S, V2.4S
 	WORD $0xcec08468          //SM4E V8.4S, V3.4S
-	VREV64	V8.S4, V8.S4
+	VREV64	V8.B16, V8.B16
 	VEXT $8, V8.B16, V8.B16, V8.B16
-	VREV32 V8.B16, V8.B16
 	VST1	[V8.B16], (R9)
 	RET  
