@@ -94,9 +94,8 @@ TEXT ·encryptBlockSM4E(SB),NOSPLIT,$0
 	sm4eRound(buf, 8, 2)
 	sm4eRound(buf, 8, 3)
 	fmt.Fprintf(buf, `
-	VREV64	V8.S4, V8.S4
+	VREV64	V8.B16, V8.B16
 	VEXT $8, V8.B16, V8.B16, V8.B16
-	VREV32 V8.B16, V8.B16
 	VST1	[V8.B16], (R9)
 	RET
 `[1:])
@@ -124,9 +123,8 @@ TEXT ·encryptBlocksSM4E(SB),NOSPLIT,$0
 		sm4eRound(buf, 8, 5)
 		sm4eRound(buf, 8, 6)
 		sm4eRound(buf, 8, 7)
-		fmt.Fprintf(buf, "\tVREV64	V8.S4, V8.S4\n")
+		fmt.Fprintf(buf, "\tVREV64	V8.B16, V8.B16\n")
 		fmt.Fprintf(buf, "\tVEXT $8, V8.B16, V8.B16, V8.B16\n")
-		fmt.Fprintf(buf, "\tVREV32 V8.B16, V8.B16\n")
 		fmt.Fprintf(buf, "\tVST1.P	[V8.B16], 16(R9)\n\n")
 	}
 	fmt.Fprintf(buf, `
