@@ -43,7 +43,7 @@ jobs:
         key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
 
     - name: Test
-      run: go test -v -short ./sm3/...
+      run: go test -v -short ./...
       env:
         GODEBUG: x509sha1=1
         GOARCH: ${{ matrix.arch }}      
