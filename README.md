@@ -1,7 +1,6 @@
 
 # GM-Standards SM2/SM3/SM4/SM9/ZUC for Go
 
-![Travis (.org)](https://img.shields.io/travis/emmansun/gmsm?label=arm64)
 [![Github CI](https://github.com/emmansun/gmsm/actions/workflows/ci.yml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/emmansun/gmsm/branch/main/graph/badge.svg?token=Otdi8m8sFj)](https://codecov.io/gh/emmansun/gmsm)
 [![Go Report Card](https://goreportcard.com/badge/github.com/emmansun/gmsm)](https://goreportcard.com/report/github.com/emmansun/gmsm)
