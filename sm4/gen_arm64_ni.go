@@ -10,20 +10,21 @@ import (
 	"bytes"
 	"fmt"
 	"log"
-	"math/bits"
 	"os"
 )
 
 //SM4E <Vd>.4S, <Vn>.4S
 func sm4e(Vd, Vn byte) uint32 {
 	inst := uint32(0xcec08400) | uint32(Vd&0x1f) | uint32(Vn&0x1f)<<5
-	return bits.ReverseBytes32(inst)
+	// return bits.ReverseBytes32(inst)
+	return inst
 }
 
 //SM4EKEY <Vd>.4S, <Vn>.4S, <Vm>.4S
 func sm4ekey(Vd, Vn, Vm byte) uint32 {
 	inst := uint32(0xce60c800) | uint32(Vd&0x1f) | uint32(Vn&0x1f)<<5 | (uint32(Vm&0x1f) << 16)
-	return bits.ReverseBytes32(inst)
+	// return bits.ReverseBytes32(inst)
+	return inst
 }
 
 func sm4ekeyRound(buf *bytes.Buffer, d, n, m byte) {
@@ -93,6 +94,8 @@ TEXT ·encryptBlockSM4E(SB),NOSPLIT,$0
 	sm4eRound(buf, 8, 2)
 	sm4eRound(buf, 8, 3)
 	fmt.Fprintf(buf, `
+	VREV64	V8.S4, V8.S4
+	VEXT $8, V8.B16, V8.B16, V8.B16
 	VREV32 V8.B16, V8.B16
 	VST1	[V8.B16], (R9)
 	RET
@@ -121,6 +124,8 @@ TEXT ·encryptBlocksSM4E(SB),NOSPLIT,$0
 		sm4eRound(buf, 8, 5)
 		sm4eRound(buf, 8, 6)
 		sm4eRound(buf, 8, 7)
+		fmt.Fprintf(buf, "\tVREV64	V8.S4, V8.S4\n")
+		fmt.Fprintf(buf, "\tVEXT $8, V8.B16, V8.B16, V8.B16\n")
 		fmt.Fprintf(buf, "\tVREV32 V8.B16, V8.B16\n")
 		fmt.Fprintf(buf, "\tVST1.P	[V8.B16], 16(R9)\n\n")
 	}

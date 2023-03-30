@@ -30,11 +30,11 @@ func Test_sample1(t *testing.T) {
 	dst := make([]byte, 16)
 	c.Encrypt(dst, src)
 	if !reflect.DeepEqual(dst, expected) {
-		t.Errorf("expected=%v, result=%v\n", expected, dst)
+		t.Errorf("expected=%x, result=%x\n", expected, dst)
 	}
 	c.Decrypt(dst, expected)
 	if !reflect.DeepEqual(dst, src) {
-		t.Errorf("expected=%v, result=%v\n", src, dst)
+		t.Errorf("expected=%x, result=%x\n", src, dst)
 	}
 }
 
@@ -56,7 +56,7 @@ func Test_sample2(t *testing.T) {
 		c.Encrypt(dst, dst)
 	}
 	if !reflect.DeepEqual(dst, expected) {
-		t.Errorf("expected=%v, result=%v\n", expected, dst)
+		t.Errorf("expected=%x, result=%x\n", expected, dst)
 	}
 }
 

@@ -36,10 +36,10 @@ func TestExpandKey(t *testing.T) {
 		expandKeyGo(key, encRes1, decRes1)
 		expandKey(key, encRes2, decRes2)
 		if !reflect.DeepEqual(encRes1, encRes2) {
-			t.Errorf("expected=%v, result=%v\n", encRes1, encRes2)
+			t.Errorf("expected=%x, result=%x\n", encRes1, encRes2)
 		}
 		if !reflect.DeepEqual(decRes1, decRes2) {
-			t.Errorf("expected=%v, result=%v\n", encRes1, encRes2)
+			t.Errorf("expected=%x, result=%x\n", encRes1, encRes2)
 		}
 	}
 }

@@ -108,7 +108,9 @@
 	WORD $0xcec084a8            \ //SM4E V8.4S, V5.4S
 	WORD $0xcec084c8            \ //SM4E V8.4S, V6.4S
 	WORD $0xcec084e8            \ //SM4E V8.4S, V7.4S
-	VREV32 V8.B16, V8.B16       \
+	VREV64	V8.S4, V8.S4               \ 
+	VEXT $8, V8.B16, V8.B16, V8.B16    \	
+	VREV32 V8.B16, V8.B16              \
 	VST1.P  [V8.B16], 16(R9)
 
 // func expandKeyAsm(key *byte, ck, enc, dec *uint32, inst int)
@@ -277,6 +279,8 @@ sm4niblock:
 	WORD $0xcec08428          //SM4E V8.4S, V1.4S
 	WORD $0xcec08448          //SM4E V8.4S, V2.4S
 	WORD $0xcec08468          //SM4E V8.4S, V3.4S
+	VREV64	V8.S4, V8.S4
+	VEXT $8, V8.B16, V8.B16, V8.B16
 	VREV32 V8.B16, V8.B16
 	VST1	[V8.B16], (R9)
 	RET  
