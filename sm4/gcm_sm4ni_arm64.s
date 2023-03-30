@@ -63,73 +63,73 @@
 	VEOR	T3.B16, ACCM.B16, ACCM.B16
 
 #define sm4eEnc1block() \
-	WORD $0x6086c0ce         \ //SM4E V0.4S, V19.4S
-	WORD $0x8086c0ce         \ //SM4E V0.4S, V20.4S
-	WORD $0xa086c0ce         \ //SM4E V0.4S, V21.4S
-	WORD $0xc086c0ce         \ //SM4E V0.4S, V22.4S
-	WORD $0xe086c0ce         \ //SM4E V0.4S, V23.4S
-	WORD $0x0087c0ce         \ //SM4E V0.4S, V24.4S
-	WORD $0x2087c0ce         \ //SM4E V0.4S, V25.4S
-	WORD $0x4087c0ce           //SM4E V0.4S, V26.4S
+	WORD $0xcec08660         \ //SM4E V0.4S, V19.4S
+	WORD $0xcec08680         \ //SM4E V0.4S, V20.4S
+	WORD $0xcec086a0         \ //SM4E V0.4S, V21.4S
+	WORD $0xcec086c0         \ //SM4E V0.4S, V22.4S
+	WORD $0xcec086e0         \ //SM4E V0.4S, V23.4S
+	WORD $0xcec08700         \ //SM4E V0.4S, V24.4S
+	WORD $0xcec08720         \ //SM4E V0.4S, V25.4S
+	WORD $0xcec08740           //SM4E V0.4S, V26.4S
 
 #define sm4eEnc8blocks() \
 	sm4eEnc1block()         \
-	WORD $0x6186c0ce         \ //SM4E V1.4S, V19.4S
-	WORD $0x8186c0ce         \ //SM4E V1.4S, V20.4S
-	WORD $0xa186c0ce         \ //SM4E V1.4S, V21.4S
-	WORD $0xc186c0ce         \ //SM4E V1.4S, V22.4S
-	WORD $0xe186c0ce         \ //SM4E V1.4S, V23.4S
-	WORD $0x0187c0ce         \ //SM4E V1.4S, V24.4S
-	WORD $0x2187c0ce         \ //SM4E V1.4S, V25.4S
-	WORD $0x4187c0ce         \ //SM4E V1.4S, V26.4S
-	WORD $0x6286c0ce         \ //SM4E V2.4S, V19.4S
-	WORD $0x8286c0ce         \ //SM4E V2.4S, V20.4S
-	WORD $0xa286c0ce         \ //SM4E V2.4S, V21.4S
-	WORD $0xc286c0ce         \ //SM4E V2.4S, V22.4S
-	WORD $0xe286c0ce         \ //SM4E V2.4S, V23.4S
-	WORD $0x0287c0ce         \ //SM4E V2.4S, V24.4S
-	WORD $0x2287c0ce         \ //SM4E V2.4S, V25.4S
-	WORD $0x4287c0ce         \ //SM4E V2.4S, V26.4S
-	WORD $0x6386c0ce         \ //SM4E V3.4S, V19.4S
-	WORD $0x8386c0ce         \ //SM4E V3.4S, V20.4S
-	WORD $0xa386c0ce         \ //SM4E V3.4S, V21.4S
-	WORD $0xc386c0ce         \ //SM4E V3.4S, V22.4S
-	WORD $0xe386c0ce         \ //SM4E V3.4S, V23.4S
-	WORD $0x0387c0ce         \ //SM4E V3.4S, V24.4S
-	WORD $0x2387c0ce         \ //SM4E V3.4S, V25.4S
-	WORD $0x4387c0ce         \ //SM4E V3.4S, V26.4S
-	WORD $0x6486c0ce         \ //SM4E V4.4S, V19.4S
-	WORD $0x8486c0ce         \ //SM4E V4.4S, V20.4S
-	WORD $0xa486c0ce         \ //SM4E V4.4S, V21.4S
-	WORD $0xc486c0ce         \ //SM4E V4.4S, V22.4S
-	WORD $0xe486c0ce         \ //SM4E V4.4S, V23.4S
-	WORD $0x0487c0ce         \ //SM4E V4.4S, V24.4S
-	WORD $0x2487c0ce         \ //SM4E V4.4S, V25.4S
-	WORD $0x4487c0ce         \ //SM4E V4.4S, V26.4S
-	WORD $0x6586c0ce         \ //SM4E V5.4S, V19.4S
-	WORD $0x8586c0ce         \ //SM4E V5.4S, V20.4S
-	WORD $0xa586c0ce         \ //SM4E V5.4S, V21.4S
-	WORD $0xc586c0ce         \ //SM4E V5.4S, V22.4S
-	WORD $0xe586c0ce         \ //SM4E V5.4S, V23.4S
-	WORD $0x0587c0ce         \ //SM4E V5.4S, V24.4S
-	WORD $0x2587c0ce         \ //SM4E V5.4S, V25.4S
-	WORD $0x4587c0ce         \ //SM4E V5.4S, V26.4S
-	WORD $0x6686c0ce         \ //SM4E V6.4S, V19.4S
-	WORD $0x8686c0ce         \ //SM4E V6.4S, V20.4S
-	WORD $0xa686c0ce         \ //SM4E V6.4S, V21.4S
-	WORD $0xc686c0ce         \ //SM4E V6.4S, V22.4S
-	WORD $0xe686c0ce         \ //SM4E V6.4S, V23.4S
-	WORD $0x0687c0ce         \ //SM4E V6.4S, V24.4S
-	WORD $0x2687c0ce         \ //SM4E V6.4S, V25.4S
-	WORD $0x4687c0ce         \ //SM4E V6.4S, V26.4S
-	WORD $0x6786c0ce         \ //SM4E V7.4S, V19.4S
-	WORD $0x8786c0ce         \ //SM4E V7.4S, V20.4S
-	WORD $0xa786c0ce         \ //SM4E V7.4S, V21.4S
-	WORD $0xc786c0ce         \ //SM4E V7.4S, V22.4S
-	WORD $0xe786c0ce         \ //SM4E V7.4S, V23.4S
-	WORD $0x0787c0ce         \ //SM4E V7.4S, V24.4S
-	WORD $0x2787c0ce         \ //SM4E V7.4S, V25.4S
-	WORD $0x4787c0ce           //SM4E V7.4S, V26.4S    
+	WORD $0xcec08661         \ //SM4E V1.4S, V19.4S
+	WORD $0xcec08681         \ //SM4E V1.4S, V20.4S
+	WORD $0xcec086a1         \ //SM4E V1.4S, V21.4S
+	WORD $0xcec086c1         \ //SM4E V1.4S, V22.4S
+	WORD $0xcec086e1         \ //SM4E V1.4S, V23.4S
+	WORD $0xcec08701         \ //SM4E V1.4S, V24.4S
+	WORD $0xcec08721         \ //SM4E V1.4S, V25.4S
+	WORD $0xcec08741         \ //SM4E V1.4S, V26.4S
+	WORD $0xcec08662         \ //SM4E V2.4S, V19.4S
+	WORD $0xcec08682         \ //SM4E V2.4S, V20.4S
+	WORD $0xcec086a2         \ //SM4E V2.4S, V21.4S
+	WORD $0xcec086c2         \ //SM4E V2.4S, V22.4S
+	WORD $0xcec086e2         \ //SM4E V2.4S, V23.4S
+	WORD $0xcec08702         \ //SM4E V2.4S, V24.4S
+	WORD $0xcec08722         \ //SM4E V2.4S, V25.4S
+	WORD $0xcec08742         \ //SM4E V2.4S, V26.4S
+	WORD $0xcec08663         \ //SM4E V3.4S, V19.4S
+	WORD $0xcec08683         \ //SM4E V3.4S, V20.4S
+	WORD $0xcec086a3         \ //SM4E V3.4S, V21.4S
+	WORD $0xcec086c3         \ //SM4E V3.4S, V22.4S
+	WORD $0xcec086e3         \ //SM4E V3.4S, V23.4S
+	WORD $0xcec08703         \ //SM4E V3.4S, V24.4S
+	WORD $0xcec08723         \ //SM4E V3.4S, V25.4S
+	WORD $0xcec08743         \ //SM4E V3.4S, V26.4S
+	WORD $0xcec08664         \ //SM4E V4.4S, V19.4S
+	WORD $0xcec08684         \ //SM4E V4.4S, V20.4S
+	WORD $0xcec086a4         \ //SM4E V4.4S, V21.4S
+	WORD $0xcec086c4         \ //SM4E V4.4S, V22.4S
+	WORD $0xcec086e4         \ //SM4E V4.4S, V23.4S
+	WORD $0xcec08704         \ //SM4E V4.4S, V24.4S
+	WORD $0xcec08724         \ //SM4E V4.4S, V25.4S
+	WORD $0xcec08744         \ //SM4E V4.4S, V26.4S
+	WORD $0xcec08665         \ //SM4E V5.4S, V19.4S
+	WORD $0xcec08685         \ //SM4E V5.4S, V20.4S
+	WORD $0xcec086a5         \ //SM4E V5.4S, V21.4S
+	WORD $0xcec086c5         \ //SM4E V5.4S, V22.4S
+	WORD $0xcec086e5         \ //SM4E V5.4S, V23.4S
+	WORD $0xcec08705         \ //SM4E V5.4S, V24.4S
+	WORD $0xcec08725         \ //SM4E V5.4S, V25.4S
+	WORD $0xcec08745         \ //SM4E V5.4S, V26.4S
+	WORD $0xcec08666         \ //SM4E V6.4S, V19.4S
+	WORD $0xcec08686         \ //SM4E V6.4S, V20.4S
+	WORD $0xcec086a6         \ //SM4E V6.4S, V21.4S
+	WORD $0xcec086c6         \ //SM4E V6.4S, V22.4S
+	WORD $0xcec086e6         \ //SM4E V6.4S, V23.4S
+	WORD $0xcec08706         \ //SM4E V6.4S, V24.4S
+	WORD $0xcec08726         \ //SM4E V6.4S, V25.4S
+	WORD $0xcec08746         \ //SM4E V6.4S, V26.4S
+	WORD $0xcec08667         \ //SM4E V7.4S, V19.4S
+	WORD $0xcec08687         \ //SM4E V7.4S, V20.4S
+	WORD $0xcec086a7         \ //SM4E V7.4S, V21.4S
+	WORD $0xcec086c7         \ //SM4E V7.4S, V22.4S
+	WORD $0xcec086e7         \ //SM4E V7.4S, V23.4S
+	WORD $0xcec08707         \ //SM4E V7.4S, V24.4S
+	WORD $0xcec08727         \ //SM4E V7.4S, V25.4S
+	WORD $0xcec08747           //SM4E V7.4S, V26.4S    
 
 // func gcmSm4niEnc(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk []uint32)
 TEXT ·gcmSm4niEnc(SB),NOSPLIT,$0
