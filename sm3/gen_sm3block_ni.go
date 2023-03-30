@@ -63,17 +63,19 @@ func sm3tt2b(Vd, Vn, Vm, imm2 byte) uint32 {
 }
 
 // Used v5 as temp register
-func roundA(buf *bytes.Buffer, i, t, st1, st2, w, wt byte) {
-	fmt.Fprintf(buf, "\tWORD $0x%08x           //SM3SS1 V%d.4S, V%d.4S, V%d.4S, V%d.4S\n", sm3ss1(5, st1, t, st2), 5, st1, t, st2)
-	fmt.Fprintf(buf, "\tVSHL $1, V%d.S4, V%d.S4\n", t, t)
+func roundA(buf *bytes.Buffer, i, t0, t1, st1, st2, w, wt byte) {
+	fmt.Fprintf(buf, "\tWORD $0x%08x           //SM3SS1 V%d.4S, V%d.4S, V%d.4S, V%d.4S\n", sm3ss1(5, st1, t0, st2), 5, st1, t0, st2)
+	fmt.Fprintf(buf, "\tVSHL $1, V%d.S4, V%d.S4\n", t0, t1)
+	fmt.Fprintf(buf, "\tVSRI $31, V%d.S4, V%d.S4\n", t0, t1)
 	fmt.Fprintf(buf, "\tWORD $0x%08x           //SM3TT1A V%dd.4S, V%d.4S, V%d.S, %d\n", sm3tt1a(st1, 5, wt, i), st1, 5, wt, i)
 	fmt.Fprintf(buf, "\tWORD $0x%08x           //SM3TT2A V%dd.4S, V%d.4S, V%d.S, %d\n", sm3tt2a(st2, 5, w, i), st2, 5, w, i)
 }
 
 // Used v5 as temp register
-func roundB(buf *bytes.Buffer, i, t, st1, st2, w, wt byte) {
-	fmt.Fprintf(buf, "\tWORD $0x%08x           //SM3SS1 V%d.4S, V%d.4S, V%d.4S, V%d.4S\n", sm3ss1(5, st1, t, st2), 5, st1, t, st2)
-	fmt.Fprintf(buf, "\tVSHL $1, V%d.S4, V%d.S4\n", t, t)
+func roundB(buf *bytes.Buffer, i, t0, t1, st1, st2, w, wt byte) {
+	fmt.Fprintf(buf, "\tWORD $0x%08x           //SM3SS1 V%d.4S, V%d.4S, V%d.4S, V%d.4S\n", sm3ss1(5, st1, t0, st2), 5, st1, t0, st2)
+	fmt.Fprintf(buf, "\tVSHL $1, V%d.S4, V%d.S4\n", t0, t1)
+	fmt.Fprintf(buf, "\tVSRI $31, V%d.S4, V%d.S4\n", t0, t1)
 	fmt.Fprintf(buf, "\tWORD $0x%08x           //SM3TT1B V%dd.4S, V%d.4S, V%d.S, %d\n", sm3tt1b(st1, 5, wt, i), st1, 5, wt, i)
 	fmt.Fprintf(buf, "\tWORD $0x%08x           //SM3TT2B V%dd.4S, V%d.4S, V%d.S, %d\n", sm3tt2b(st2, 5, w, i), st2, 5, w, i)
 }
@@ -86,7 +88,7 @@ func roundB(buf *bytes.Buffer, i, t, st1, st2, w, wt byte) {
 // s3, W(4i+12) W(4i+13) W(4i+14) W(4i+15)
 // t, t constant
 // st1, st2, sm3 state
-func qroundA(buf *bytes.Buffer, t, st1, st2, s0, s1, s2, s3, s4 byte) {
+func qroundA(buf *bytes.Buffer, t0, t1, st1, st2, s0, s1, s2, s3, s4 byte) {
 	fmt.Fprintf(buf, "\t// Extension\n")
 	fmt.Fprintf(buf, "\tVEXT $12, V%d.B16, V%d.B16, V%d.B16\n", s2, s1, s4)
 	fmt.Fprintf(buf, "\tVEXT $12, V%d.B16, V%d.B16, V%d.B16\n", s1, s0, 6)
@@ -95,15 +97,15 @@ func qroundA(buf *bytes.Buffer, t, st1, st2, s0, s1, s2, s3, s4 byte) {
 	fmt.Fprintf(buf, "\tWORD $0x%08x          //SM3PARTW2 V%d.4S, V%d.4S, V%d.4S\n", sm3partw2(s4, 7, 6), s4, 7, 6)
 	fmt.Fprintf(buf, "\tVEOR V%d.B16, V%d.B16, V10.B16\n", s1, s0)
 	fmt.Fprintf(buf, "\t// Compression\n")
-	roundA(buf, 0, t, st1, st2, s0, 10)
-	roundA(buf, 1, t, st1, st2, s0, 10)
-	roundA(buf, 2, t, st1, st2, s0, 10)
-	roundA(buf, 3, t, st1, st2, s0, 10)
+	roundA(buf, 0, t0, t1, st1, st2, s0, 10)
+	roundA(buf, 1, t1, t0, st1, st2, s0, 10)
+	roundA(buf, 2, t0, t1, st1, st2, s0, 10)
+	roundA(buf, 3, t1, t0, st1, st2, s0, 10)
 	fmt.Fprintf(buf, "\n")
 }
 
 // Used v6, v7, v10 as temp registers
-func qroundB(buf *bytes.Buffer, t, st1, st2, s0, s1, s2, s3, s4 byte) {
+func qroundB(buf *bytes.Buffer, t0, t1, st1, st2, s0, s1, s2, s3, s4 byte) {
 	if s4 != 0xff {
 		fmt.Fprintf(buf, "\t// Extension\n")
 		fmt.Fprintf(buf, "\tVEXT $12, V%d.B16, V%d.B16, V%d.B16\n", s2, s1, s4)
@@ -114,10 +116,10 @@ func qroundB(buf *bytes.Buffer, t, st1, st2, s0, s1, s2, s3, s4 byte) {
 	}
 	fmt.Fprintf(buf, "\tVEOR V%d.B16, V%d.B16, V10.B16\n", s1, s0)
 	fmt.Fprintf(buf, "\t// Compression\n")
-	roundB(buf, 0, t, st1, st2, s0, 10)
-	roundB(buf, 1, t, st1, st2, s0, 10)
-	roundB(buf, 2, t, st1, st2, s0, 10)
-	roundB(buf, 3, t, st1, st2, s0, 10)
+	roundB(buf, 0, t0, t1, st1, st2, s0, 10)
+	roundB(buf, 1, t1, t0, st1, st2, s0, 10)
+	roundB(buf, 2, t0, t1, st1, st2, s0, 10)
+	roundB(buf, 3, t1, t0, st1, st2, s0, 10)
 	fmt.Fprintf(buf, "\n")
 }
 
@@ -138,6 +140,10 @@ TEXT ·blockSM3NI(SB), 0, $0
 	MOVD	t_base+48(FP), R2                          // t constants first address
 
 	VLD1 (R0), [V8.S4, V9.S4]                          // load h(a,b,c,d,e,f,g,h)
+	VREV64  V8.S4, V8.S4
+	VEXT $8, V8.B16, V8.B16, V8.B16
+	VREV64  V9.S4, V9.S4
+	VEXT $8, V9.B16, V9.B16, V9.B16
 	LDPW	(0*8)(R2), (R5, R6)                        // load t constants
     
 blockloop:
@@ -151,25 +157,25 @@ blockloop:
 	// first 16 rounds
 	VMOV R5, V11.S[3]
 `[1:])
-	qroundA(buf, 11, 8, 9, 0, 1, 2, 3, 4)
-	qroundA(buf, 11, 8, 9, 1, 2, 3, 4, 0)
-	qroundA(buf, 11, 8, 9, 2, 3, 4, 0, 1)
-	qroundA(buf, 11, 8, 9, 3, 4, 0, 1, 2)
+	qroundA(buf, 11, 12, 8, 9, 0, 1, 2, 3, 4)
+	qroundA(buf, 11, 12, 8, 9, 1, 2, 3, 4, 0)
+	qroundA(buf, 11, 12, 8, 9, 2, 3, 4, 0, 1)
+	qroundA(buf, 11, 12, 8, 9, 3, 4, 0, 1, 2)
 
 	fmt.Fprintf(buf, "\t// second 48 rounds\n")
 	fmt.Fprintf(buf, "\tVMOV R6, V11.S[3]\n")
-	qroundB(buf, 11, 8, 9, 4, 0, 1, 2, 3)
-	qroundB(buf, 11, 8, 9, 0, 1, 2, 3, 4)
-	qroundB(buf, 11, 8, 9, 1, 2, 3, 4, 0)
-	qroundB(buf, 11, 8, 9, 2, 3, 4, 0, 1)
-	qroundB(buf, 11, 8, 9, 3, 4, 0, 1, 2)
-	qroundB(buf, 11, 8, 9, 4, 0, 1, 2, 3)
-	qroundB(buf, 11, 8, 9, 0, 1, 2, 3, 4)
-	qroundB(buf, 11, 8, 9, 1, 2, 3, 4, 0)
-	qroundB(buf, 11, 8, 9, 2, 3, 4, 0, 1)
-	qroundB(buf, 11, 8, 9, 3, 4, 0xff, 0xff, 0xff)
-	qroundB(buf, 11, 8, 9, 4, 0, 0xff, 0xff, 0xff)
-	qroundB(buf, 11, 8, 9, 0, 1, 0xff, 0xff, 0xff)
+	qroundB(buf, 11, 12, 8, 9, 4, 0, 1, 2, 3)
+	qroundB(buf, 11, 12, 8, 9, 0, 1, 2, 3, 4)
+	qroundB(buf, 11, 12, 8, 9, 1, 2, 3, 4, 0)
+	qroundB(buf, 11, 12, 8, 9, 2, 3, 4, 0, 1)
+	qroundB(buf, 11, 12, 8, 9, 3, 4, 0, 1, 2)
+	qroundB(buf, 11, 12, 8, 9, 4, 0, 1, 2, 3)
+	qroundB(buf, 11, 12, 8, 9, 0, 1, 2, 3, 4)
+	qroundB(buf, 11, 12, 8, 9, 1, 2, 3, 4, 0)
+	qroundB(buf, 11, 12, 8, 9, 2, 3, 4, 0, 1)
+	qroundB(buf, 11, 12, 8, 9, 3, 4, 0xff, 0xff, 0xff)
+	qroundB(buf, 11, 12, 8, 9, 4, 0, 0xff, 0xff, 0xff)
+	qroundB(buf, 11, 12, 8, 9, 0, 1, 0xff, 0xff, 0xff)
 
 	fmt.Fprint(buf, `
 	SUB	$64, R3, R3                                  // message length - 64bytes, then compare with 64bytes
@@ -178,6 +184,10 @@ blockloop:
 	CBNZ	R3, blockloop
 
 sm3ret:
+	VREV64  V8.S4, V8.S4
+	VEXT $8, V8.B16, V8.B16, V8.B16
+	VREV64  V9.S4, V9.S4
+	VEXT $8, V9.B16, V9.B16, V9.B16
 	VST1	[V8.S4, V9.S4], (R0)                       // store hash value H	
 	RET
 
