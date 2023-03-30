@@ -88,9 +88,9 @@ func roundB(buf *bytes.Buffer, i, t, st1, st2, w, wt byte) {
 // st1, st2, sm3 state
 func qroundA(buf *bytes.Buffer, t, st1, st2, s0, s1, s2, s3, s4 byte) {
 	fmt.Fprintf(buf, "\t// Extension\n")
-	fmt.Fprintf(buf, "\tVEXT $3, V%d.B16, V%d.B16, V%d.B16\n", s2, s1, s4)
-	fmt.Fprintf(buf, "\tVEXT $3, V%d.B16, V%d.B16, V%d.B16\n", s1, s0, 6)
-	fmt.Fprintf(buf, "\tVEXT $2, V%d.B16, V%d.B16, V%d.B16\n", s3, s2, 7)
+	fmt.Fprintf(buf, "\tVEXT $12, V%d.B16, V%d.B16, V%d.B16\n", s2, s1, s4)
+	fmt.Fprintf(buf, "\tVEXT $12, V%d.B16, V%d.B16, V%d.B16\n", s1, s0, 6)
+	fmt.Fprintf(buf, "\tVEXT $8, V%d.B16, V%d.B16, V%d.B16\n", s3, s2, 7)
 	fmt.Fprintf(buf, "\tWORD $0x%08x          //SM3PARTW1 V%d.4S, V%d.4S, V%d.4S\n", sm3partw1(s4, s0, s3), s4, s0, s3)
 	fmt.Fprintf(buf, "\tWORD $0x%08x          //SM3PARTW2 V%d.4S, V%d.4S, V%d.4S\n", sm3partw2(s4, 7, 6), s4, 7, 6)
 	fmt.Fprintf(buf, "\tVEOR V%d.B16, V%d.B16, V10.B16\n", s1, s0)
@@ -106,9 +106,9 @@ func qroundA(buf *bytes.Buffer, t, st1, st2, s0, s1, s2, s3, s4 byte) {
 func qroundB(buf *bytes.Buffer, t, st1, st2, s0, s1, s2, s3, s4 byte) {
 	if s4 != 0xff {
 		fmt.Fprintf(buf, "\t// Extension\n")
-		fmt.Fprintf(buf, "\tVEXT $3, V%d.B16, V%d.B16, V%d.B16\n", s2, s1, s4)
-		fmt.Fprintf(buf, "\tVEXT $3, V%d.B16, V%d.B16, V%d.B16\n", s1, s0, 6)
-		fmt.Fprintf(buf, "\tVEXT $2, V%d.B16, V%d.B16, V%d.B16\n", s3, s2, 7)
+		fmt.Fprintf(buf, "\tVEXT $12, V%d.B16, V%d.B16, V%d.B16\n", s2, s1, s4)
+		fmt.Fprintf(buf, "\tVEXT $12, V%d.B16, V%d.B16, V%d.B16\n", s1, s0, 6)
+		fmt.Fprintf(buf, "\tVEXT $8, V%d.B16, V%d.B16, V%d.B16\n", s3, s2, 7)
 		fmt.Fprintf(buf, "\tWORD $0x%08x          //SM3PARTW1 V%d.4S, V%d.4S, V%d.4S\n", sm3partw1(s4, s0, s3), s4, s0, s3)
 		fmt.Fprintf(buf, "\tWORD $0x%08x          //SM3PARTW2 V%d.4S, V%d.4S, V%d.4S\n", sm3partw2(s4, 7, 6), s4, 7, 6)
 	}
@@ -183,7 +183,7 @@ sm3ret:
 
 `[1:])
 	src := buf.Bytes()
-	fmt.Println(string(src))
+	// fmt.Println(string(src))
 
 	err := os.WriteFile("sm3blockni_arm64.s", src, 0644)
 	if err != nil {
