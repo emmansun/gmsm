@@ -12,6 +12,10 @@ TEXT ·blockSM3NI(SB), 0, $0
 	MOVD	t_base+48(FP), R2                          // t constants first address
 
 	VLD1 (R0), [V8.S4, V9.S4]                          // load h(a,b,c,d,e,f,g,h)
+	VREV64  V8.S4, V8.S4
+	VEXT $8, V8.B16, V8.B16, V8.B16
+	VREV64  V9.S4, V9.S4
+	VEXT $8, V9.B16, V9.B16, V9.B16
 	LDPW	(0*8)(R2), (R5, R6)                        // load t constants
     
 blockloop:
@@ -414,5 +418,9 @@ blockloop:
 	CBNZ	R3, blockloop
 
 sm3ret:
+	VREV64  V8.S4, V8.S4
+	VEXT $8, V8.B16, V8.B16, V8.B16
+	VREV64  V9.S4, V9.S4
+	VEXT $8, V9.B16, V9.B16, V9.B16
 	VST1	[V8.S4, V9.S4], (R0)                       // store hash value H	
 	RET
