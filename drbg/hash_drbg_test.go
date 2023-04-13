@@ -14,7 +14,7 @@ import (
 
 var tests = []struct {
 	gm                    bool
-	md                    hash.Hash
+	newHash               func() hash.Hash
 	entropyInput          string
 	nonce                 string
 	personalizationString string
@@ -32,7 +32,7 @@ var tests = []struct {
 }{
 	{
 		false,
-		sha1.New(),
+		sha1.New,
 		"1610b828ccd27de08ceea032a20e9208",
 		"492cf1709242f6b5",
 		"",
@@ -50,7 +50,7 @@ var tests = []struct {
 	},
 	{
 		false,
-		sha1.New(),
+		sha1.New,
 		"d9bab5cedca96f6178d64509a0dfdc5e",
 		"dad8989414450e01",
 		"",
@@ -68,7 +68,7 @@ var tests = []struct {
 	},
 	{
 		false,
-		sha256.New(),
+		sha256.New,
 		"63363377e41e86468deb0ab4a8ed683f6a134e47e014c700454e81e95358a569",
 		"808aa38f2a72a62359915a9f8a04ca68",
 		"",
@@ -86,7 +86,7 @@ var tests = []struct {
 	},
 	{
 		false,
-		sha256.New(),
+		sha256.New,
 		"9cfb7ad03be487a3b42be06e9ae44f283c2b1458cec801da2ae6532fcb56cc4c",
 		"a20765538e8db31295747ec922c13a69",
 		"",
@@ -104,7 +104,7 @@ var tests = []struct {
 	},
 	{
 		false,
-		sha512.New(),
+		sha512.New,
 		"3144e17a10c856129764f58fd8e4231020546996c0bf6cff8e91c24ee09be333",
 		"b16fcb1cf0c010f31feab733588b8e04",
 		"",
@@ -122,7 +122,7 @@ var tests = []struct {
 	},
 	{
 		false,
-		sha512.New(),
+		sha512.New,
 		"c73a7820f0f53e8bbfc3b7b71d994143cf6e98642e9ea6d8df5dccbc43db8720",
 		"20cc9834b588adcb1bbde64f0d2a34cb",
 		"",
@@ -140,7 +140,7 @@ var tests = []struct {
 	},
 	{
 		true,
-		sm3.New(),
+		sm3.New,
 		"63363377e41e86468deb0ab4a8ed683f6a134e47e014c700454e81e95358a569",
 		"808aa38f2a72a62359915a9f8a04ca68",
 		"",
@@ -158,7 +158,7 @@ var tests = []struct {
 	},
 	{
 		true,
-		sm3.New(),
+		sm3.New,
 		"9cfb7ad03be487a3b42be06e9ae44f283c2b1458cec801da2ae6532fcb56cc4c",
 		"a20765538e8db31295747ec922c13a69",
 		"",
@@ -183,7 +183,7 @@ func TestHashDRBG(t *testing.T) {
 		personalizationString, _ := hex.DecodeString(test.personalizationString)
 		v0, _ := hex.DecodeString(test.v0)
 		c0, _ := hex.DecodeString(test.c0)
-		hd, err := NewHashDrbg(test.md, SECURITY_LEVEL_ONE, test.gm, entropyInput, nonce, personalizationString)
+		hd, err := NewHashDrbg(test.newHash, SECURITY_LEVEL_ONE, test.gm, entropyInput, nonce, personalizationString)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -232,15 +232,15 @@ func TestHashDRBG(t *testing.T) {
 
 func TestGmHashDRBG_Validation(t *testing.T) {
 	entropyInput := make([]byte, 64)
-	_, err := NewHashDrbg(sm3.New(), SECURITY_LEVEL_ONE, true, entropyInput[:16], entropyInput[16:24], nil)
+	_, err := NewHashDrbg(sm3.New, SECURITY_LEVEL_ONE, true, entropyInput[:16], entropyInput[16:24], nil)
 	if err == nil {
 		t.Fatalf("expected error here")
 	}
-	_, err = NewHashDrbg(sm3.New(), SECURITY_LEVEL_ONE, true, entropyInput[:32], entropyInput[32:40], nil)
+	_, err = NewHashDrbg(sm3.New, SECURITY_LEVEL_ONE, true, entropyInput[:32], entropyInput[32:40], nil)
 	if err == nil {
 		t.Fatalf("expected error here")
 	}
-	hd, err := NewHashDrbg(sm3.New(), SECURITY_LEVEL_ONE, true, entropyInput[:32], entropyInput[32:48], nil)
+	hd, err := NewHashDrbg(sm3.New, SECURITY_LEVEL_ONE, true, entropyInput[:32], entropyInput[32:48], nil)
 	if err != nil {
 		t.Fatal(err)
 	}

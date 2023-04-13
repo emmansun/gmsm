@@ -10,6 +10,7 @@ import (
 	"github.com/emmansun/gmsm/sm4"
 )
 
+// CtrDrbg CTR DRBG structure, its instance is NOT goroutine safe!!!
 type CtrDrbg struct {
 	BaseDrbg
 	cipherProvider func(key []byte) (cipher.Block, error)

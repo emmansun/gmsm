@@ -88,7 +88,7 @@ func NewGmCtrDrbgPrng(entropySource io.Reader, securityStrength int, securityLev
 }
 
 // NewHashDrbgPrng create pseudo random number generator base on HASH DRBG
-func NewHashDrbgPrng(md hash.Hash, entropySource io.Reader, securityStrength int, gm bool, securityLevel SecurityLevel, personalization []byte) (*DrbgPrng, error) {
+func NewHashDrbgPrng(newHash func() hash.Hash, entropySource io.Reader, securityStrength int, gm bool, securityLevel SecurityLevel, personalization []byte) (*DrbgPrng, error) {
 	prng := new(DrbgPrng)
 	if entropySource != nil {
 		prng.entropySource = entropySource
@@ -114,7 +114,7 @@ func NewHashDrbgPrng(md hash.Hash, entropySource io.Reader, securityStrength int
 		return nil, err
 	}
 
-	prng.impl, err = NewHashDrbg(md, securityLevel, gm, entropyInput, nonce, personalization)
+	prng.impl, err = NewHashDrbg(newHash, securityLevel, gm, entropyInput, nonce, personalization)
 	if err != nil {
 		return nil, err
 	}
@@ -123,13 +123,13 @@ func NewHashDrbgPrng(md hash.Hash, entropySource io.Reader, securityStrength int
 }
 
 // NewNistHashDrbgPrng create pseudo random number generator base on hash DRBG which follows NIST standard
-func NewNistHashDrbgPrng(md hash.Hash, entropySource io.Reader, securityStrength int, securityLevel SecurityLevel, personalization []byte) (*DrbgPrng, error) {
-	return NewHashDrbgPrng(md, entropySource, securityStrength, false, securityLevel, personalization)
+func NewNistHashDrbgPrng(newHash func() hash.Hash, entropySource io.Reader, securityStrength int, securityLevel SecurityLevel, personalization []byte) (*DrbgPrng, error) {
+	return NewHashDrbgPrng(newHash, entropySource, securityStrength, false, securityLevel, personalization)
 }
 
 // NewGmHashDrbgPrng create pseudo random number generator base on hash DRBG which follows GM/T 0105-2021 standard
 func NewGmHashDrbgPrng(entropySource io.Reader, securityStrength int, securityLevel SecurityLevel, personalization []byte) (*DrbgPrng, error) {
-	return NewHashDrbgPrng(sm3.New(), entropySource, securityStrength, true, securityLevel, personalization)
+	return NewHashDrbgPrng(sm3.New, entropySource, securityStrength, true, securityLevel, personalization)
 }
 
 func (prng *DrbgPrng) getEntropy(entropyInput []byte) error {

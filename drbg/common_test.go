@@ -56,7 +56,7 @@ func TestGmHashDrbgPrng(t *testing.T) {
 }
 
 func TestNistHashDrbgPrng(t *testing.T) {
-	prng, err := NewNistHashDrbgPrng(sha256.New(), nil, 32, SECURITY_LEVEL_TEST, nil)
+	prng, err := NewNistHashDrbgPrng(sha256.New, nil, 32, SECURITY_LEVEL_TEST, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

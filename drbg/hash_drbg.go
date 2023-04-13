@@ -12,27 +12,32 @@ import (
 const HASH_DRBG_SEED_SIZE = 55
 const HASH_DRBG_MAX_SEED_SIZE = 111
 
+// HashDrbg hash DRBG structure, its instance is NOT goroutine safe!!!
 type HashDrbg struct {
 	BaseDrbg
-	md hash.Hash
-	c  []byte
+	newHash func() hash.Hash
+	c       []byte
+	hashSize int
 }
 
 // NewHashDrbg create one hash DRBG instance
-func NewHashDrbg(md hash.Hash, securityLevel SecurityLevel, gm bool, entropy, nonce, personalization []byte) (*HashDrbg, error) {
+func NewHashDrbg(newHash func() hash.Hash, securityLevel SecurityLevel, gm bool, entropy, nonce, personalization []byte) (*HashDrbg, error) {
 	hd := &HashDrbg{}
 
 	hd.gm = gm
-	hd.md = md
+	hd.newHash = newHash
 	hd.setSecurityLevel(securityLevel)
 
+	md := newHash()
+	hd.hashSize = md.Size()
+
 	// here for the min length, we just check <=0 now
-	if len(entropy) == 0 || (hd.gm && len(entropy) < hd.md.Size()) || len(entropy) >= MAX_BYTES {
+	if len(entropy) == 0 || (hd.gm && len(entropy) < hd.hashSize) || len(entropy) >= MAX_BYTES {
 		return nil, errors.New("invalid entropy length")
 	}
 
 	// here for the min length, we just check <=0 now
-	if len(nonce) == 0 || (hd.gm && len(nonce) < hd.md.Size()/2) || len(nonce) >= MAX_BYTES>>1 {
+	if len(nonce) == 0 || (hd.gm && len(nonce) < hd.hashSize/2) || len(nonce) >= MAX_BYTES>>1 {
 		return nil, errors.New("invalid nonce length")
 	}
 
@@ -40,7 +45,7 @@ func NewHashDrbg(md hash.Hash, securityLevel SecurityLevel, gm bool, entropy, no
 		return nil, errors.New("personalization is too long")
 	}
 
-	if md.Size() <= sm3.Size {
+	if hd.hashSize <= sm3.Size {
 		hd.v = make([]byte, HASH_DRBG_SEED_SIZE)
 		hd.c = make([]byte, HASH_DRBG_SEED_SIZE)
 		hd.seedLength = HASH_DRBG_SEED_SIZE
@@ -74,19 +79,19 @@ func NewHashDrbg(md hash.Hash, securityLevel SecurityLevel, gm bool, entropy, no
 }
 
 // NewNISTHashDrbg return hash DRBG implementation which follows NIST standard
-func NewNISTHashDrbg(md hash.Hash, securityLevel SecurityLevel, entropy, nonce, personalization []byte) (*HashDrbg, error) {
-	return NewHashDrbg(md, securityLevel, false, entropy, nonce, personalization)
+func NewNISTHashDrbg(newHash func() hash.Hash, securityLevel SecurityLevel, entropy, nonce, personalization []byte) (*HashDrbg, error) {
+	return NewHashDrbg(newHash, securityLevel, false, entropy, nonce, personalization)
 }
 
 // NewGMHashDrbg return hash DRBG implementation which follows GM/T 0105-2021 standard
 func NewGMHashDrbg(securityLevel SecurityLevel, entropy, nonce, personalization []byte) (*HashDrbg, error) {
-	return NewHashDrbg(sm3.New(), securityLevel, true, entropy, nonce, personalization)
+	return NewHashDrbg(sm3.New, securityLevel, true, entropy, nonce, personalization)
 }
 
 // Reseed hash DRBG reseed process. GM/T 0105-2021 has a little different with NIST.
 func (hd *HashDrbg) Reseed(entropy, additional []byte) error {
 	// here for the min length, we just check <=0 now
-	if len(entropy) == 0 || (hd.gm && len(entropy) < hd.md.Size()) || len(entropy) >= MAX_BYTES {
+	if len(entropy) == 0 || (hd.gm && len(entropy) < hd.hashSize) || len(entropy) >= MAX_BYTES {
 		return errors.New("invalid entropy length")
 	}
 
@@ -133,10 +138,10 @@ func (hd *HashDrbg) addC() {
 }
 
 func (hd *HashDrbg) addH() {
-	hd.md.Write([]byte{0x03})
-	hd.md.Write(hd.v)
-	hd.addW(hd.md.Sum(nil))
-	hd.md.Reset()
+	md := hd.newHash()
+	md.Write([]byte{0x03})
+	md.Write(hd.v)
+	hd.addW(md.Sum(nil))
 }
 
 func (hd *HashDrbg) addReseedCounter() {
@@ -147,7 +152,7 @@ func (hd *HashDrbg) addReseedCounter() {
 
 func (hd *HashDrbg) MaxBytesPerRequest() int {
 	if hd.gm {
-		return hd.md.Size()
+		return hd.hashSize
 	}
 	return MAX_BYTES_PER_GENERATE
 }
@@ -158,10 +163,10 @@ func (hd *HashDrbg) Generate(b, additional []byte) error {
 	if hd.NeedReseed() {
 		return ErrReseedRequired
 	}
-	if (hd.gm && len(b) > hd.md.Size()) || (!hd.gm && len(b) > MAX_BYTES_PER_GENERATE) {
+	if (hd.gm && len(b) > hd.hashSize) || (!hd.gm && len(b) > MAX_BYTES_PER_GENERATE) {
 		return errors.New("too many bytes requested")
 	}
-	md := hd.md
+	md := hd.newHash()
 	m := len(b)
 
 	// if len(additional_input) > 0, then
@@ -200,8 +205,8 @@ func (hd *HashDrbg) Generate(b, additional []byte) error {
 
 // derive Hash_df
 func (hd *HashDrbg) derive(seedMaterial []byte, len int) []byte {
-	md := hd.md
-	limit := uint64(len+md.Size()-1) / uint64(md.Size())
+	md := hd.newHash()
+	limit := uint64(len+hd.hashSize-1) / uint64(hd.hashSize)
 	var requireBytes [4]byte
 	binary.BigEndian.PutUint32(requireBytes[:], uint32(len<<3))
 	var ct byte = 1
