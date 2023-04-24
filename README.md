@@ -33,7 +33,7 @@
 
 * **ECDH** - a similar implementation of golang ECDH that supports SM2 ECDH & SM2MQV without usage of **big.Int**, a replacement of SM2 key exchange. For detail, pleaes refer [is my code constant time?](https://github.com/emmansun/gmsm/wiki/is-my-code-constant-time%3F)
 
-* **DRBG** - Random Number Generation Using Deterministic Random Bit Generators, for detail, please reference **NIST Special Publication 800-90A** and **GM/T 0105-2021**: CTR-DRBG using derivation function and HASH-DRBG. NIST related implementations are tested with part of NIST provided test vectors. You can also use [randomness](https://github.com/Trisia/randomness) tool to check the generated random bits.
+* **DRBG** - Random Number Generation Using Deterministic Random Bit Generators, for detail, please reference **NIST Special Publication 800-90A** and **GM/T 0105-2021**: CTR-DRBG using derivation function and HASH-DRBG. NIST related implementations are tested with part of NIST provided test vectors. It's **NOT** concurrent safe! You can also use [randomness](https://github.com/Trisia/randomness) tool to check the generated random bits.
 
 ## Some Related Projects
 * **[TLCP](https://github.com/Trisia/gotlcp)** - An implementation of GB/T 38636-2020 Information security technology Transport Layer Cryptography Protocol (TLCP). 
