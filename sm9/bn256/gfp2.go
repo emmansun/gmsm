@@ -146,12 +146,26 @@ func (e *gfP2) MulU(a, b *gfP2) *gfP2 {
 	gfpSub(ty, ty, v1)
 	gfpAdd(ty, ty, ty)
 	gfpNeg(ty, ty)
-	
+
 	gfpSub(tx, v0, v1)
 	gfpSub(tx, tx, v1)
 
 	e.x.Set(tx)
 	e.y.Set(ty)
+	return e
+}
+
+// MulU1: a  * u
+//(a0+a1*u)u=c0+c1*u, where
+//c1 = a0
+//c0 = -2a1
+func (e *gfP2) MulU1(a *gfP2) *gfP2 {
+	t := &gfP{}
+	gfpAdd(t, &a.x, &a.x)
+	gfpNeg(t, t)
+
+	e.x.Set(&a.y)
+	e.y.Set(t)
 	return e
 }
 

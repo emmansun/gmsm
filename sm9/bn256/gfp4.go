@@ -99,15 +99,18 @@ func (e *gfP4) Mul(a, b *gfP4) *gfP4 {
 	//(a0+a1*v)(b0+b1*v)=c0+c1*v, where
 	//c0 = a0*b0 +a1*b1*u
 	//c1 = (a0 + a1)(b0 + b1) - a0*b0 - a1*b1 = a0*b1 + a1*b0
-	tx, t := &gfP2{}, &gfP2{}
-	tx.Mul(&a.x, &b.y)
-	t.Mul(&a.y, &b.x)
-	tx.Add(tx, t)
+	tx, ty, v0, v1 := &gfP2{}, &gfP2{}, &gfP2{}, &gfP2{}
+	v0.Mul(&a.y, &b.y)
+	v1.Mul(&a.x, &b.x)
 
-	ty := &gfP2{}
-	ty.Mul(&a.y, &b.y)
-	t.MulU(&a.x, &b.x)
-	ty.Add(ty, t)
+	tx.Add(&a.x, &a.y)
+	ty.Add(&b.x, &b.y)
+	tx.Mul(tx, ty)
+	tx.Sub(tx, v0)
+	tx.Sub(tx, v1)
+
+	ty.MulU1(v1)
+	ty.Add(ty, v0)
 
 	e.x.Set(tx)
 	e.y.Set(ty)
@@ -121,14 +124,19 @@ func (e *gfP4) Mul(a, b *gfP4) *gfP4 {
 // c0 = a0*b1*u + a1*b0*u
 // c1 = a0*b0 + a1*b1*u
 func (e *gfP4) MulV(a, b *gfP4) *gfP4 {
-	tx, ty, t := &gfP2{}, &gfP2{}, &gfP2{}
-	ty.MulU(&a.y, &b.x)
-	t.MulU(&a.x, &b.y)
-	ty.Add(ty, t)
+	tx, ty, v0, v1 := &gfP2{}, &gfP2{}, &gfP2{}, &gfP2{}
+	v0.Mul(&a.y, &b.y)
+	v1.Mul(&a.x, &b.x)
 
-	tx.Mul(&a.y, &b.y)
-	t.MulU(&a.x, &b.x)
-	tx.Add(tx, t)
+	tx.Add(&a.x, &a.y)
+	ty.Add(&b.x, &b.y)
+	ty.Mul(tx, ty)
+	ty.Sub(ty, v0)
+	ty.Sub(ty, v1)
+	ty.MulU1(ty)
+
+	tx.MulU1(v1)
+	tx.Add(tx, v0)
 
 	e.x.Set(tx)
 	e.y.Set(ty)
