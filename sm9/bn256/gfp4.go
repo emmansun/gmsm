@@ -143,6 +143,18 @@ func (e *gfP4) MulV(a, b *gfP4) *gfP4 {
 	return e
 }
 
+// MulV1: a * v
+//(a0+a1*v)*v=c0+c1*v, where
+// c0 = a1*u
+// c1 = a0
+func (e *gfP4) MulV1(a *gfP4) *gfP4 {
+	tx := (&gfP2{}).Set(&a.y)
+
+	e.y.MulU1(&a.x)
+	e.x.Set(tx)
+	return e
+}
+
 func (e *gfP4) Square(a *gfP4) *gfP4 {
 	// Complex squaring algorithm:
 	// (xv+y)² = (x^2*u + y^2) + 2*x*y*v

@@ -141,24 +141,33 @@ func (e *gfP12) Mul(a, b *gfP12) *gfP12 {
 	// +y0*z1*w + y0*y1*w^2 + y0*x1*v
 	// +x0*z1*w^2 + x0*y1*v + x0*x1*v*w
 	//=(z0*z1+y0*x1*v+x0*y1*v) + (z0*y1+y0*z1+x0*x1*v)w + (z0*x1 + y0*y1 + x0*z1)*w^2
-	tx, ty, tz, t := &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}
-	tz.Mul(&a.z, &b.z)
-	t.MulV(&a.y, &b.x)
-	tz.Add(tz, t)
-	t.MulV(&a.x, &b.y)
-	tz.Add(tz, t)
+	tx, ty, tz, t, v0, v1, v2 := &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}
+	v0.Mul(&a.z, &b.z)
+	v1.Mul(&a.y, &b.y)
+	v2.Mul(&a.x, &b.x)
 
-	ty.Mul(&a.z, &b.y)
-	t.Mul(&a.y, &b.z)
-	ty.Add(ty, t)
-	t.MulV(&a.x, &b.x)
+	t.Add(&a.y, &a.x)
+	tz.Add(&b.y, &b.x)
+	t.Mul(t, tz)
+	t.Sub(t, v1)
+	t.Sub(t, v2)
+	t.MulV1(t)
+	tz.Add(t, v0)
+
+	t.Add(&a.z, &a.y)
+	ty.Add(&b.z, &b.y)
+	ty.Mul(t, ty)
+	ty.Sub(ty, v0)
+	ty.Sub(ty, v1)
+	t.MulV1(v2)
 	ty.Add(ty, t)
 
-	tx.Mul(&a.z, &b.x)
-	t.Mul(&a.y, &b.y)
-	tx.Add(tx, t)
-	t.Mul(&a.x, &b.z)
-	tx.Add(tx, t)
+	t.Add(&a.z, &a.x)
+	tx.Add(&b.z, &b.x)
+	tx.Mul(tx, t)
+	tx.Sub(tx, v0)
+	tx.Add(tx, v1)
+	tx.Sub(tx, v2)
 
 	e.x.Set(tx)
 	e.y.Set(ty)
