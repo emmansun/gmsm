@@ -85,3 +85,15 @@ var betaToNegP2Plus1Over3 = fromBigInt(bigFromHex("b640000002a3a6f0e303ab4ff2eb2
 
 // betaToNegP2Plus1Over2 = i^(-(p^2-1)/2)
 var betaToNegP2Plus1Over2 = fromBigInt(bigFromHex("b640000002a3a6f1d603ab4ff58ec74521f2934b1a7aeedbe56f9b27e351457c"))
+
+var sToPMinus1 = w2ToPMinus1
+
+var sTo2PMinus2 = w2ToP2Minus1
+
+var sToPSquaredMinus1 = w2ToP2Minus1
+
+var sTo2PSquaredMinus2 = betaToNegP2Plus1Over3
+
+var sToPMinus1Over2 = frobConstant
+
+var sToPSquaredMinus1Over2 = sToPMinus1
