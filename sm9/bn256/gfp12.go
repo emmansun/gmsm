@@ -251,6 +251,13 @@ func (e *gfP12) Invert(a *gfP12) *gfP12 {
 	return e
 }
 
+func (e *gfP12) Neg(a *gfP12) *gfP12 {
+	e.x.Neg(&a.x)
+	e.y.Neg(&a.y)
+	e.z.Neg(&a.z)
+	return e
+}
+
 // (z + y*w + x*w^2)^p
 //= z^p + y^p*w*w^(p-1)+x^p*w^2*(w^2)^(p-1)
 // w2ToP2Minus1 = vToPMinus1 * wToPMinus1

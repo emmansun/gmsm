@@ -8,9 +8,9 @@ import "math/big"
 //
 
 // gfP4 implements the field of size p^4 as a quadratic extension of gfP2
-// where u²=i.
+// where v²=ξ and ξ=u.
 type gfP4 struct {
-	x, y gfP2 // value is xi+y.
+	x, y gfP2 // value is xv+y.
 }
 
 func gfP4Decode(in *gfP4) *gfP4 {
