@@ -256,7 +256,9 @@ func (e *G1) UnmarshalCompressed(data []byte) ([]byte, error) {
 	e.p.x.Unmarshal(data[1:])
 	montEncode(&e.p.x, &e.p.x)
 	x3 := e.p.polynomial(&e.p.x)
-	e.p.y.Sqrt(x3)
+	if !Sqrt(&e.p.y, x3) {
+		return nil, errors.New("sm9.G1: invalid compressed point encoding")
+	}
 	montDecode(x3, &e.p.y)
 	if byte(x3[0]&1) != data[0]&1 {
 		gfpNeg(&e.p.y, &e.p.y)

@@ -260,15 +260,16 @@ func (e *gfP2) Frobenius(a *gfP2) *gfP2 {
 }
 
 // Sqrt method is only required when we implement compressed format
+// TODO: use addchain to improve performance for 3 exp operations.
 func (ret *gfP2) Sqrt(a *gfP2) *gfP2 {
 	// Algorithm 10 https://eprint.iacr.org/2012/685.pdf
 	// TODO
 	ret.SetZero()
 	c := &twistGen.x
 	b, b2, bq := &gfP2{}, &gfP2{}, &gfP2{}
-	b.Exp(a, pMinus1Over4)
+	b = b.expPMinus1Over4(a)
 	b2.Mul(b, b)
-	bq.Exp(b, p)
+	bq = bq.expP(b)
 
 	t := &gfP2{}
 	x0 := &gfP{}
@@ -286,7 +287,7 @@ func (ret *gfP2) Sqrt(a *gfP2) *gfP2 {
 		ret.Set(t)
 	} else {
 		d, e, f := &gfP2{}, &gfP2{}, &gfP2{}
-		d.Exp(c, pMinus1Over2Big)
+		d = d.expPMinus1Over2(c)
 		e.Mul(d, c)
 		f.Square(e)
 		e.Invert(e)
