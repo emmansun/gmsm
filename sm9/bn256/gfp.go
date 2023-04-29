@@ -59,11 +59,13 @@ func (e *gfP) String() string {
 	return fmt.Sprintf("%16.16x%16.16x%16.16x%16.16x", e[3], e[2], e[1], e[0])
 }
 
-func (e *gfP) Set(f *gfP) {
+func (e *gfP) Set(f *gfP) *gfP {
 	e[0] = f[0]
 	e[1] = f[1]
 	e[2] = f[2]
 	e[3] = f[3]
+
+	return e
 }
 
 func (e *gfP) exp(f *gfP, bits [4]uint64) {
@@ -84,8 +86,22 @@ func (e *gfP) exp(f *gfP, bits [4]uint64) {
 	e.Set(sum)
 }
 
-func (e *gfP) Invert(f *gfP) {
-	e.exp(f, pMinus2)
+func (e *gfP) Mul(a, b *gfP) *gfP {
+	gfpMul(e, a, b)
+	return e
+}
+
+func (e *gfP) Square(a *gfP) *gfP {
+	gfpMul(e, a, a)
+	return e
+}
+
+// Equal returns 1 if e == t, and zero otherwise.
+func (e *gfP) Equal(t *gfP) int {
+	if *e == *t {
+		return 1
+	}
+	return 0
 }
 
 func (e *gfP) Sqrt(f *gfP) {
@@ -95,7 +111,7 @@ func (e *gfP) Sqrt(f *gfP) {
 	// https://eprint.iacr.org/2012/685.pdf
 	//
 	a1, b, i := &gfP{}, &gfP{}, &gfP{}
-	a1.exp(f, pMinus5Over8)
+	sqrtCandidate(a1, f)
 	gfpMul(b, twoExpPMinus5Over8, a1) // b=ta1
 	gfpMul(a1, f, b)                  // a1=fb
 	gfpMul(i, two, a1)                // i=2(fb)
