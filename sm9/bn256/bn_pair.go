@@ -7,7 +7,6 @@ func lineFunctionAdd(r, p *twistPoint, q *curvePoint, r2 *gfP2) (a, b, c *gfP2, 
 	B := (&gfP2{}).Mul(&p.x, &r.t) // B = Xp * Zr^2
 
 	D := (&gfP2{}).Mul(&r.z, &r.x)
-
 	D = (&gfP2{}).Add(&p.y, &r.z)                    // D = Yp + Zr
 	D.Square(D).Sub(D, r2).Sub(D, &r.t).Mul(D, &r.t) // D = ((Yp + Zr)^2 - Zr^2 - Yp^2)*Zr^2 = 2Yp*Zr^3
 
@@ -95,23 +94,21 @@ func lineFunctionDouble(r *twistPoint, q *curvePoint) (a, b, c *gfP2, rOut *twis
 }
 
 func mulLine(ret *gfP12, a, b, c *gfP2) {
-	tx, ty, tz, t, bx, bz := &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}
-	bx.x.SetZero()
-	bx.y.Set(b)
+	t1, tz, t, bz := &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}
 	bz.x.Set(c)
 	bz.y.Set(a)
 
 	tz.Mul(&ret.z, bz)
-	t.MulV(&ret.y, bx)
+	t.MulScalar(&ret.y, b).MulV1(t)
 	tz.Add(tz, t)
 
-	ty.Mul(&ret.y, bz)
-	t.MulV(&ret.x, bx)
-	ret.y.Add(ty, t)
+	t1.Mul(&ret.y, bz)
+	t.MulScalar(&ret.x, b).MulV1(t)
+	ret.y.Add(t1, t)
 
-	tx.Mul(&ret.z, bx)
+	t1.MulScalar(&ret.z, b)
 	t.Mul(&ret.x, bz)
-	ret.x.Add(tx, t)
+	ret.x.Add(t1, t)
 
 	ret.z.Set(tz)
 }
