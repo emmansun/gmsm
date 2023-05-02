@@ -6,8 +6,7 @@ func lineFunctionAdd(r, p *twistPoint, q *curvePoint, r2 *gfP2) (a, b, c *gfP2, 
 	// Tate Pairing", http://arxiv.org/pdf/0904.0854v3.pdf
 	B := (&gfP2{}).Mul(&p.x, &r.t) // B = Xp * Zr^2
 
-	D := (&gfP2{}).Mul(&r.z, &r.x)
-	D = (&gfP2{}).Add(&p.y, &r.z)                    // D = Yp + Zr
+	D := (&gfP2{}).Add(&p.y, &r.z)                   // D = Yp + Zr
 	D.Square(D).Sub(D, r2).Sub(D, &r.t).Mul(D, &r.t) // D = ((Yp + Zr)^2 - Zr^2 - Yp^2)*Zr^2 = 2Yp*Zr^3
 
 	H := (&gfP2{}).Sub(B, &r.x) // H = Xp * Zr^2 - Xr
@@ -93,6 +92,7 @@ func lineFunctionDouble(r *twistPoint, q *curvePoint) (a, b, c *gfP2, rOut *twis
 	return
 }
 
+// (ret.z + ret.y*w + ret.x*w^2)* ((cv+a) + b*w^2)
 func mulLine(ret *gfP12, a, b, c *gfP2) {
 	t1, tz, t, bz := &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}
 	bz.x.Set(c)
@@ -106,8 +106,8 @@ func mulLine(ret *gfP12, a, b, c *gfP2) {
 	t.MulScalar(&ret.x, b).MulV1(t)
 	ret.y.Add(t1, t)
 
-	t1.MulScalar(&ret.z, b)
 	t.Mul(&ret.x, bz)
+	t1.MulScalar(&ret.z, b)
 	ret.x.Add(t1, t)
 
 	ret.z.Set(tz)
