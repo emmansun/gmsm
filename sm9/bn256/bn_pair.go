@@ -1,14 +1,12 @@
 // Package bn256 defines/implements ShangMi(SM) sm9's curves and pairing.
 package bn256
 
-func lineFunctionAdd(r, p *twistPoint, q *curvePoint, r2 *gfP2) (a, b, c, d *gfP2, rOut *twistPoint) {
+func lineFunctionAdd(r, p *twistPoint, q *curvePoint, r2 *gfP2) (a, b, c *gfP2, rOut *twistPoint) {
 	// See the mixed addition algorithm from "Faster Computation of the
 	// Tate Pairing", http://arxiv.org/pdf/0904.0854v3.pdf
 	B := (&gfP2{}).Mul(&p.x, &r.t) // B = Xp * Zr^2
 
-	d = (&gfP2{}).Mul(B, &r.z) // d =  Xp * Zr^3
 	D := (&gfP2{}).Mul(&r.z, &r.x)
-	d.Sub(D, d) // d = Xr*Zr - Xp * Zr^3
 
 	D = (&gfP2{}).Add(&p.y, &r.z)                    // D = Yp + Zr
 	D.Square(D).Sub(D, r2).Sub(D, &r.t).Mul(D, &r.t) // D = ((Yp + Zr)^2 - Zr^2 - Yp^2)*Zr^2 = 2Yp*Zr^3
@@ -54,7 +52,7 @@ func lineFunctionAdd(r, p *twistPoint, q *curvePoint, r2 *gfP2) (a, b, c, d *gfP
 	return
 }
 
-func lineFunctionDouble(r *twistPoint, q *curvePoint) (a, b, c, d *gfP2, rOut *twistPoint) {
+func lineFunctionDouble(r *twistPoint, q *curvePoint) (a, b, c *gfP2, rOut *twistPoint) {
 	// See the doubling algorithm for a=0 from "Faster Computation of the
 	// Tate Pairing", http://arxiv.org/pdf/0904.0854v3.pdf
 	A := (&gfP2{}).Square(&r.x)
@@ -81,8 +79,6 @@ func lineFunctionDouble(r *twistPoint, q *curvePoint) (a, b, c, d *gfP2, rOut *t
 
 	rOut.t.Square(&rOut.z)
 
-	d = (&gfP2{}).Mul(&rOut.z, &rOut.t) // d = 2Yr*Zr^3
-
 	t.Mul(E, &r.t).Add(t, t)
 	b = (&gfP2{}).Neg(t)
 	b.MulScalar(b, &q.x)
@@ -98,7 +94,7 @@ func lineFunctionDouble(r *twistPoint, q *curvePoint) (a, b, c, d *gfP2, rOut *t
 	return
 }
 
-func mulLine(ret *gfP12, retDen *gfP4, a, b, c, d *gfP2) {
+func mulLine(ret *gfP12, a, b, c *gfP2) {
 	tx, ty, tz, t, bx, bz := &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}
 	bx.x.SetZero()
 	bx.y.Set(b)
@@ -118,11 +114,6 @@ func mulLine(ret *gfP12, retDen *gfP4, a, b, c, d *gfP2) {
 	ret.x.Add(tx, t)
 
 	ret.z.Set(tz)
-
-	txD := &gfP2{}
-	txD.Mul(&retDen.y, d)
-	retDen.y.MulU(&retDen.x, d)
-	retDen.x.Set(txD)
 }
 
 //
@@ -134,7 +125,6 @@ func mulLine(ret *gfP12, retDen *gfP4, a, b, c, d *gfP2) {
 //
 func miller(q *twistPoint, p *curvePoint) *gfP12 {
 	ret := (&gfP12{}).SetOne()
-	retDen := (&gfP4{}).SetOne() // denominator
 
 	aAffine := &twistPoint{}
 	aAffine.Set(q)
@@ -153,23 +143,22 @@ func miller(q *twistPoint, p *curvePoint) *gfP12 {
 	r2 := (&gfP2{}).Square(&aAffine.y)
 
 	for i := len(sixUPlus2NAF) - 1; i > 0; i-- {
-		a, b, c, d, newR := lineFunctionDouble(r, bAffine)
+		a, b, c, newR := lineFunctionDouble(r, bAffine)
 		if i != len(sixUPlus2NAF)-1 {
 			ret.Square(ret)
-			retDen.Square(retDen)
 		}
-		mulLine(ret, retDen, a, b, c, d)
+		mulLine(ret, a, b, c)
 		r = newR
 		switch sixUPlus2NAF[i-1] {
 		case 1:
-			a, b, c, d, newR = lineFunctionAdd(r, aAffine, bAffine, r2)
+			a, b, c, newR = lineFunctionAdd(r, aAffine, bAffine, r2)
 		case -1:
-			a, b, c, d, newR = lineFunctionAdd(r, minusA, bAffine, r2)
+			a, b, c, newR = lineFunctionAdd(r, minusA, bAffine, r2)
 		default:
 			continue
 		}
 
-		mulLine(ret, retDen, a, b, c, d)
+		mulLine(ret, a, b, c)
 		r = newR
 	}
 
@@ -201,22 +190,13 @@ func miller(q *twistPoint, p *curvePoint) *gfP12 {
 	minusQ2.t.SetOne()
 
 	r2.Square(&q1.y)
-	a, b, c, d, newR := lineFunctionAdd(r, q1, bAffine, r2)
-	mulLine(ret, retDen, a, b, c, d)
+	a, b, c, newR := lineFunctionAdd(r, q1, bAffine, r2)
+	mulLine(ret, a, b, c)
 	r = newR
 
 	r2.Square(&minusQ2.y)
-	a, b, c, d, _ = lineFunctionAdd(r, minusQ2, bAffine, r2)
-	mulLine(ret, retDen, a, b, c, d)
-
-	//retDen.Invert(retDen)
-	t2, t3 := &gfP2{}, &gfP2{}
-	t3.SquareU(&retDen.x)
-	t3.Invert(t3)
-	t2.Mul(&retDen.x, t3)
-	retDen.x.Set(t2)
-
-	ret.MulScalar(ret, retDen)
+	a, b, c, _ = lineFunctionAdd(r, minusQ2, bAffine, r2)
+	mulLine(ret, a, b, c)
 
 	return ret
 }
