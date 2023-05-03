@@ -18,30 +18,30 @@ func gfP12b6Decode(in *gfP12b6) *gfP12b6 {
 var gfP12b6Gen *gfP12b6 = &gfP12b6{
 	x: gfP6{
 		x: gfP2{
-			x: *fromBigInt(bigFromHex("5f23b1ce3ac438e768411e843fea2a9be192c39d7c3e6440eb2aeaa2823d010c")),
-			y: *fromBigInt(bigFromHex("61ebca2110d736bf0d4eba5c8c017781e2447d6d5edfdda6065c1ad6d376db4f")),
+			x: *fromBigInt(bigFromHex("256943fbdb2bf87ab91ae7fbeaff14e146cf7e2279b9d155d13461e09b22f523")),
+			y: *fromBigInt(bigFromHex("0167b0280051495c6af1ec23ba2cd2ff1cdcdeca461a5ab0b5449e9091308310")),
 		},
 		y: gfP2{
-			x: *fromBigInt(bigFromHex("3b0fc03d5711c93dff31b23d5bc78184c4e4ad66027f8f55c219536a54552cae")),
-			y: *fromBigInt(bigFromHex("254eb32dea84e64dfa196a2583564700074e1694c800c130290e1c8bdb9441aa")),
+			x: *fromBigInt(bigFromHex("8ffe1c0e9de45fd0fed790ac26be91f6b3f0a49c084fe29a3fb6ed288ad7994d")),
+			y: *fromBigInt(bigFromHex("1664a1366beb3196f0443e15f5f9042a947354a5678430d45ba031cff06db927")),
 		},
 		z: gfP2{
-			x: *fromBigInt(bigFromHex("a3eec3cd6a795be8671d686fd9c9271dd32d71f71d7bd3de24fb5abe38626c9c")),
-			y: *fromBigInt(bigFromHex("b101d668bfbf8ac8e546ccb8d6e1f9b89b988c0c238fb05e7b9c733c1f964b52")),
+			x: *fromBigInt(bigFromHex("7fc6eb2aa771d99c9234fddd31752edfd60723e05a4ebfdeb5c33fbd47e0cf06")),
+			y: *fromBigInt(bigFromHex("6fa6b6fa6dd6b6d3b19a959a110e748154eef796dc0fc2dd766ea414de786968")),
 		},
 	},
 	y: gfP6{
 		x: gfP2{
-			x: *fromBigInt(bigFromHex("2efe33f18332bb77282c24f00c10930f7e2a3e36c6c822c7487ab1a6229d91f3")),
-			y: *fromBigInt(bigFromHex("a6db7142e0ca24ae9ba7630e295a5ce7ed43ed38c0ce33e6346965f4dc5b5813")),
+			x: *fromBigInt(bigFromHex("082cde173022da8cd09b28a2d80a8cee53894436a52007f978dc37f36116d39b")),
+			y: *fromBigInt(bigFromHex("3fa7ed741eaed99a58f53e3df82df7ccd3407bcc7b1d44a9441920ced5fb824f")),
 		},
 		y: gfP2{
-			x: *fromBigInt(bigFromHex("9ee43c7e3740bcd8e9d6067a4cf3c571441e074b4573390cfea0bce10965b32b")),
-			y: *fromBigInt(bigFromHex("aa07010f9d42787cb0ebd9852fc780efb01ab631f2f10a180e06727b47ee6118")),
+			x: *fromBigInt(bigFromHex("5e7addaddf7fbfe16291b4e89af50b8217ddc47ba3cba833c6e77c3fb027685e")),
+			y: *fromBigInt(bigFromHex("79d0c8337072c93fef482bb055f44d6247ccac8e8e12525854b3566236337ebe")),
 		},
 		z: gfP2{
-			x: *fromBigInt(bigFromHex("6a5fed210720de5844e199bee3498d4d2a72158dbf514e31be7381e2bce90a00")),
-			y: *fromBigInt(bigFromHex("a0f422c35d7b6262796c802ec3f1370b9ef5d413e3176666b55d63ee8d7a8468")),
+			x: *fromBigInt(bigFromHex("7f7c6d52b475e6aaa827fdc5b4175ac6929320f782d998f86b6b57cda42a0426")),
+			y: *fromBigInt(bigFromHex("36a699de7c136f78eee2dbac4ca9727bff0cee02ee920f5822e65ea170aa9669")),
 		},
 	},
 }
@@ -64,11 +64,11 @@ func (e *gfP12b6) ToGfP12() *gfP12 {
 }
 
 func (e *gfP12b6) SetGfP12(a *gfP12) *gfP12b6 {
-	e.y.z.Set(&a.z.y)
-	e.y.y.Set(&a.x.y)
+	e.y.z.Set(&a.z.y) //a
+	e.y.y.Set(&a.x.y) //b
 	e.y.x.Set(&a.y.x)
 	e.x.z.Set(&a.y.y)
-	e.x.y.Set(&a.z.x)
+	e.x.y.Set(&a.z.x) //c
 	e.x.x.Set(&a.x.x)
 
 	return e
