@@ -7,6 +7,10 @@
 
 package subtle
 
+import "golang.org/x/sys/cpu"
+
+var useAVX2 = cpu.X86.HasAVX2
+
 // XORBytes xors the bytes in a and b. The destination should have enough
 // space, otherwise XORBytes will panic. Returns the number of bytes xor'd.
 func XORBytes(dst, a, b []byte) int {

@@ -13,6 +13,12 @@ TEXT ·xorBytes(SB), NOSPLIT, $0
 	MOVQ  a+8(FP), SI
 	MOVQ  b+16(FP), CX
 	MOVQ  n+24(FP), DX
+	CMPQ  DX, $32         // if len less than 32, non avx2.
+	JL non_avx2
+	CMPB ·useAVX2(SB), $1
+	JE   avx2
+
+non_avx2:
 	TESTQ $15, DX            // AND 15 & len, if not zero jump to not_aligned.
 	JNZ   not_aligned
 
@@ -54,4 +60,64 @@ not_aligned:
 	JGE   aligned
 
 ret:
+	RET
+
+avx2:
+	TESTQ $31, DX            // AND 31 & len, if not zero jump to not_aligned.
+	JNZ   avx2_not_aligned
+
+avx2_aligned:
+	TESTQ $16, DX          // AND 16 & len, if zero jump to loop32b_start.
+	JE loop32b_start
+	SUBQ  $16, DX          // XOR 16bytes backwards.
+	MOVOU (SI)(DX*1), X0
+	MOVOU (CX)(DX*1), X1
+	PXOR  X1, X0
+	MOVOU X0, (BX)(DX*1)
+	CMPQ  DX, $0           // if len is 0, ret.
+	JE avx2_ret
+
+loop32b_start:
+	MOVQ $0, AX            // position in slices
+
+loop32b:
+	VMOVDQU (SI)(AX*1), Y0   // XOR 32byte forwards.
+	VMOVDQU (CX)(AX*1), Y1
+	VPXOR Y0, Y1, Y0
+	VMOVDQU Y0, (BX)(AX*1)
+	ADDQ  $32, AX
+	CMPQ  DX, AX
+	JNE   loop32b
+	VZEROUPPER
+	RET
+
+avx2_loop_1b:
+	SUBQ  $1, DX           // XOR 1byte backwards.
+	MOVB  (SI)(DX*1), DI
+	MOVB  (CX)(DX*1), AX
+	XORB  AX, DI
+	MOVB  DI, (BX)(DX*1)
+	TESTQ $7, DX           // AND 7 & len, if not zero jump to avx2_loop_1b.
+	JNZ   avx2_loop_1b
+	CMPQ  DX, $0           // if len is 0, ret.
+	JE    avx2_ret
+	TESTQ $15, DX          // AND 15 & len, if zero jump to aligned.
+	JZ    avx2_aligned
+
+avx2_not_aligned:
+	TESTQ $7, DX           // AND $7 & len, if not zero jump to avx2_loop_1b.
+	JNE   avx2_loop_1b
+	TESTQ $8, DX           // AND $8 & len, if zero jump to avx2_16b.
+	JE   avx2_16b
+	SUBQ  $8, DX           // XOR 8bytes backwards.
+	MOVQ  (SI)(DX*1), DI
+	MOVQ  (CX)(DX*1), AX
+	XORQ  AX, DI
+	MOVQ  DI, (BX)(DX*1)
+avx2_16b:	
+	CMPQ  DX, $16          // if len is greater or equal 16 here, it must be aligned.
+	JGE   avx2_aligned
+
+avx2_ret:
+	VZEROUPPER
 	RET

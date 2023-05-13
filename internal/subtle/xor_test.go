@@ -64,7 +64,7 @@ func BenchmarkXORBytes(b *testing.B) {
 	dst := make([]byte, 1<<15)
 	data0 := make([]byte, 1<<15)
 	data1 := make([]byte, 1<<15)
-	sizes := []int64{1 << 3, 1 << 7, 1 << 11, 1 << 15}
+	sizes := []int64{1 << 3, 1 << 4, 1 << 5, 1 << 7, 1 << 11, 1 << 15}
 	for _, size := range sizes {
 		b.Run(fmt.Sprintf("%dBytes", size), func(b *testing.B) {
 			s0 := data0[:size]
