@@ -20,7 +20,7 @@ import (
 
 // SM9 ASN.1 format reference: Information security technology - SM9 cryptographic algorithm application specification
 
-var orderNat = bigmod.NewModulusFromBig(bn256.Order)
+var orderNat, _ = bigmod.NewModulusFromBig(bn256.Order)
 var orderMinus2 = new(big.Int).Sub(bn256.Order, big.NewInt(2)).Bytes()
 var bigOne = big.NewInt(1)
 var bigOneNat *bigmod.Nat
