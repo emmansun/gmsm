@@ -70,7 +70,7 @@ func encryptBlockGo(xk []uint32, dst, src []byte) {
 // Key expansion algorithm.
 func expandKeyGo(key []byte, enc, dec []uint32) {
 	// Encryption key setup.
-	enc = enc[:rounds-1]
+	enc = enc[:rounds]
 	var i int
 	var mk [4]uint32
 	var k [rounds + 4]uint32
@@ -85,7 +85,6 @@ func expandKeyGo(key []byte, enc, dec []uint32) {
 	mk[3] = binary.BigEndian.Uint32(key[12:])
 	k[3] = mk[3] ^ fk[3]
 
-	_ = enc[rounds-1]
 	for i = 0; i < rounds; i++ {
 		k[i+4] = k[i] ^ t2(k[i+1]^k[i+2]^k[i+3]^ck[i])
 		enc[i] = k[i+4]
@@ -96,7 +95,7 @@ func expandKeyGo(key []byte, enc, dec []uint32) {
 		return
 	}
 
-	dec = dec[:rounds-1]
+	dec = dec[:rounds]
 	for i = 0; i < rounds; i++ {
 		dec[i] = enc[rounds-1-i]
 	}
