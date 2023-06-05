@@ -214,3 +214,5 @@ var ck = [32]uint32{
 var fk = [4]uint32{
 	0xa3b1bac6, 0x56aa3350, 0x677d9197, 0xb27022dc,
 }
+
+const KeySize = 16

@@ -78,8 +78,8 @@ func (x *cbc) CryptBlocks(dst, src []byte) {
 
 	for start > 0 {
 		x.b.DecryptBlocks(temp, src[start:end])
-		copy(batchSrc, src[start-BlockSize:])
-		subtle.XORBytes(dst[start:], temp, batchSrc)
+		subtle.XORBytes(temp, temp, src[start-BlockSize:end-BlockSize])
+		copy(dst[start:], temp)
 		end = start
 		start -= x.b.blocksSize
 	}
