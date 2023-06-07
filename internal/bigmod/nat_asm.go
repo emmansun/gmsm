@@ -21,6 +21,9 @@ import "golang.org/x/sys/cpu"
 var supportADX = cpu.X86.HasADX && cpu.X86.HasBMI2
 
 //go:noescape
+func addMulVVW256(z, x *uint, y uint) (c uint)
+
+//go:noescape
 func addMulVVW1024(z, x *uint, y uint) (c uint)
 
 //go:noescape

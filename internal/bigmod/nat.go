@@ -636,6 +636,19 @@ func (x *Nat) montgomeryMul(a *Nat, b *Nat, m *Modulus) *Nat {
 	// optimized for the sizes most used in RSA. addMulVVW is implemented in
 	// assembly with loop unrolling depending on the architecture and bounds
 	// checks are removed by the compiler thanks to the constant size.
+	case 256 / _W: // optimization for 256 bits nat
+		const n = 256 / _W // compiler hint
+		T := make([]uint, n*2)
+		var c uint
+		for i := 0; i < n; i++ {
+			d := bLimbs[i]
+			c1 := addMulVVW256(&T[i], &aLimbs[0], d)
+			Y := T[i] * m.m0inv
+			c2 := addMulVVW256(&T[i], &mLimbs[0], Y)
+			T[n+i], c = bits.Add(c1, c2, c)
+		}
+		copy(x.reset(n).limbs, T[n:])
+		x.maybeSubtractModulus(choice(c), m)
 	case 1024 / _W:
 		const n = 1024 / _W // compiler hint
 		T := make([]uint, n*2)

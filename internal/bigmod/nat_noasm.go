@@ -10,6 +10,10 @@ package bigmod
 import "unsafe"
 
 // TODO: will use unsafe.Slice directly once upgrade golang sdk to 1.17+
+func slice256(ptr *uint) []uint {
+	return (*[256 / _W]uint)(unsafe.Pointer(ptr))[:]
+}
+
 func slice1024(ptr *uint) []uint {
 	return (*[1024 / _W]uint)(unsafe.Pointer(ptr))[:]
 }
@@ -20,6 +24,10 @@ func slice1536(ptr *uint) []uint {
 
 func slice2048(ptr *uint) []uint {
 	return (*[2048 / _W]uint)(unsafe.Pointer(ptr))[:]
+}
+
+func addMulVVW256(z, x *uint, y uint) (c uint) {
+	return addMulVVW(slice256(z), slice256(x), y)
 }
 
 func addMulVVW1024(z, x *uint, y uint) (c uint) {

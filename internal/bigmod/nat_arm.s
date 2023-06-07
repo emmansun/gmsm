@@ -7,6 +7,11 @@
 
 #include "textflag.h"
 
+// func addMulVVW256(z, x *uint, y uint) (c uint)
+TEXT ·addMulVVW256(SB), $0-16
+	MOVW	$8, R5
+	JMP		addMulVVWx(SB)
+
 // func addMulVVW1024(z, x *uint, y uint) (c uint)
 TEXT ·addMulVVW1024(SB), $0-16
 	MOVW	$32, R5

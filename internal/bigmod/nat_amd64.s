@@ -3,6 +3,94 @@
 //go:build !purego
 // +build !purego
 
+// func addMulVVW256(z *uint, x *uint, y uint) (c uint)
+// Requires: ADX, BMI2
+TEXT ·addMulVVW256(SB), $0-32
+	CMPB ·supportADX+0(SB), $0x01
+	JEQ  adx
+	MOVQ z+0(FP), CX
+	MOVQ x+8(FP), BX
+	MOVQ y+16(FP), SI
+	XORQ DI, DI
+
+	// Iteration 0
+	MOVQ (BX), AX
+	MULQ SI
+	ADDQ (CX), AX
+	ADCQ $0x00, DX
+	ADDQ DI, AX
+	ADCQ $0x00, DX
+	MOVQ DX, DI
+	MOVQ AX, (CX)
+
+	// Iteration 1
+	MOVQ 8(BX), AX
+	MULQ SI
+	ADDQ 8(CX), AX
+	ADCQ $0x00, DX
+	ADDQ DI, AX
+	ADCQ $0x00, DX
+	MOVQ DX, DI
+	MOVQ AX, 8(CX)
+
+	// Iteration 2
+	MOVQ 16(BX), AX
+	MULQ SI
+	ADDQ 16(CX), AX
+	ADCQ $0x00, DX
+	ADDQ DI, AX
+	ADCQ $0x00, DX
+	MOVQ DX, DI
+	MOVQ AX, 16(CX)
+
+	// Iteration 3
+	MOVQ 24(BX), AX
+	MULQ SI
+	ADDQ 24(CX), AX
+	ADCQ $0x00, DX
+	ADDQ DI, AX
+	ADCQ $0x00, DX
+	MOVQ DX, DI
+	MOVQ AX, 24(CX)
+	RET
+
+adx:
+	MOVQ z+0(FP), AX
+	MOVQ x+8(FP), CX
+	MOVQ y+16(FP), DX
+	XORQ BX, BX
+	XORQ SI, SI
+
+	// Iteration 0
+	MULXQ (CX), R8, DI
+	ADCXQ BX, R8
+	ADOXQ (AX), R8
+	MOVQ  R8, (AX)
+
+	// Iteration 1
+	MULXQ 8(CX), R8, BX
+	ADCXQ DI, R8
+	ADOXQ 8(AX), R8
+	MOVQ  R8, 8(AX)
+
+	// Iteration 2
+	MULXQ 16(CX), R8, DI
+	ADCXQ BX, R8
+	ADOXQ 16(AX), R8
+	MOVQ  R8, 16(AX)
+
+	// Iteration 3
+	MULXQ 24(CX), R8, BX
+	ADCXQ DI, R8
+	ADOXQ 24(AX), R8
+	MOVQ  R8, 24(AX)
+
+	// Add back carry flags and return
+	ADCXQ SI, BX
+	ADOXQ SI, BX
+	MOVQ  BX, c+24(FP)
+	RET
+
 // func addMulVVW1024(z *uint, x *uint, y uint) (c uint)
 // Requires: ADX, BMI2
 TEXT ·addMulVVW1024(SB), $0-32

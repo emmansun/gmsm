@@ -363,13 +363,13 @@ func maxModulus(n uint) *Modulus {
 	return m
 }
 
-func makeBenchmarkModulus() *Modulus {
-	return maxModulus(32)
+func makeBenchmarkModulus(n uint) *Modulus {
+	return maxModulus(n)
 }
 
-func makeBenchmarkValue() *Nat {
-	x := make([]uint, 32)
-	for i := 0; i < 32; i++ {
+func makeBenchmarkValue(n int) *Nat {
+	x := make([]uint, n)
+	for i := 0; i < n; i++ {
 		x[i]--
 	}
 	return &Nat{limbs: x}
@@ -384,9 +384,9 @@ func makeBenchmarkExponent() []byte {
 }
 
 func BenchmarkModAdd(b *testing.B) {
-	x := makeBenchmarkValue()
-	y := makeBenchmarkValue()
-	m := makeBenchmarkModulus()
+	x := makeBenchmarkValue(32)
+	y := makeBenchmarkValue(32)
+	m := makeBenchmarkModulus(32)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -395,9 +395,9 @@ func BenchmarkModAdd(b *testing.B) {
 }
 
 func BenchmarkModSub(b *testing.B) {
-	x := makeBenchmarkValue()
-	y := makeBenchmarkValue()
-	m := makeBenchmarkModulus()
+	x := makeBenchmarkValue(32)
+	y := makeBenchmarkValue(32)
+	m := makeBenchmarkModulus(32)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -406,8 +406,8 @@ func BenchmarkModSub(b *testing.B) {
 }
 
 func BenchmarkMontgomeryRepr(b *testing.B) {
-	x := makeBenchmarkValue()
-	m := makeBenchmarkModulus()
+	x := makeBenchmarkValue(32)
+	m := makeBenchmarkModulus(32)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -416,10 +416,10 @@ func BenchmarkMontgomeryRepr(b *testing.B) {
 }
 
 func BenchmarkMontgomeryMul(b *testing.B) {
-	x := makeBenchmarkValue()
-	y := makeBenchmarkValue()
-	out := makeBenchmarkValue()
-	m := makeBenchmarkModulus()
+	x := makeBenchmarkValue(32)
+	y := makeBenchmarkValue(32)
+	out := makeBenchmarkValue(32)
+	m := makeBenchmarkModulus(32)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -428,9 +428,20 @@ func BenchmarkMontgomeryMul(b *testing.B) {
 }
 
 func BenchmarkModMul(b *testing.B) {
-	x := makeBenchmarkValue()
-	y := makeBenchmarkValue()
-	m := makeBenchmarkModulus()
+	x := makeBenchmarkValue(32)
+	y := makeBenchmarkValue(32)
+	m := makeBenchmarkModulus(32)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		x.Mul(y, m)
+	}
+}
+
+func BenchmarkModMul256(b *testing.B) {
+	x := makeBenchmarkValue(4)
+	y := makeBenchmarkValue(4)
+	m := makeBenchmarkModulus(4)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -454,10 +465,10 @@ func BenchmarkExpBig(b *testing.B) {
 }
 
 func BenchmarkExp(b *testing.B) {
-	x := makeBenchmarkValue()
+	x := makeBenchmarkValue(32)
 	e := makeBenchmarkExponent()
-	out := makeBenchmarkValue()
-	m := makeBenchmarkModulus()
+	out := makeBenchmarkValue(32)
+	m := makeBenchmarkModulus(32)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
