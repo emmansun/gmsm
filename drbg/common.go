@@ -166,9 +166,10 @@ func (prng *DrbgPrng) Read(data []byte) (int, error) {
 			}
 		} else if err != nil {
 			return 0, err
+		} else {
+			total += len(b)
+			data = data[len(b):]
 		}
-		total += len(b)
-		data = data[len(b):]
 	}
 	return total, nil
 }
