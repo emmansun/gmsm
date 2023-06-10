@@ -17,6 +17,8 @@ import (
 	"errors"
 	"math/bits"
 	"unsafe"
+
+	"golang.org/x/sys/cpu"
 )
 
 // p256Element is a P-256 base field element in [0, P-1] in the Montgomery
@@ -309,6 +311,9 @@ func p256Sqrt(e, x *p256Element) (isSquare bool) {
 }
 
 // The following assembly functions are implemented in p256_asm_*.s
+var supportBMI2 = cpu.X86.HasBMI2
+
+var supportAVX2 = cpu.X86.HasAVX2
 
 // Montgomery multiplication. Sets res = in1 * in2 * R⁻¹ mod p.
 //
@@ -410,6 +415,11 @@ func p256PointAddAsm(res, in1, in2 *SM2P256Point) int
 //
 //go:noescape
 func p256PointDoubleAsm(res, in *SM2P256Point)
+
+// Point doubling 5 times. in can be the point at infinity.
+//
+//go:noescape
+func p256PointDouble5TimesAsm(res, in *SM2P256Point)
 
 // p256OrdElement is a P-256 scalar field element in [0, ord(G)-1] in the
 // Montgomery domain (with R 2²⁵⁶) as four uint64 limbs in little-endian order.
@@ -867,11 +877,8 @@ func (p *SM2P256Point) p256ScalarMult(scalar *p256OrdElement) {
 
 	for index > 4 {
 		index -= 5
-		p256PointDoubleAsm(p, p)
-		p256PointDoubleAsm(p, p)
-		p256PointDoubleAsm(p, p)
-		p256PointDoubleAsm(p, p)
-		p256PointDoubleAsm(p, p)
+
+		p256PointDouble5TimesAsm(p, p)
 
 		if index < 192 {
 			wvalue = ((scalar[index/64] >> (index % 64)) + (scalar[index/64+1] << (64 - (index % 64)))) & 0x3f
@@ -888,12 +895,7 @@ func (p *SM2P256Point) p256ScalarMult(scalar *p256OrdElement) {
 		p256MovCond(p, &t1, &t0, zero)
 		zero |= sel
 	}
-
-	p256PointDoubleAsm(p, p)
-	p256PointDoubleAsm(p, p)
-	p256PointDoubleAsm(p, p)
-	p256PointDoubleAsm(p, p)
-	p256PointDoubleAsm(p, p)
+	p256PointDouble5TimesAsm(p, p)
 
 	wvalue = (scalar[0] << 1) & 0x3f
 	sel, sign = boothW5(uint(wvalue))

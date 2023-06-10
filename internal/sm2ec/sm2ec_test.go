@@ -162,6 +162,43 @@ func TestForSqrt(t *testing.T) {
 	exp.Div(exp, big.NewInt(4))
 }
 
+func TestEquivalents(t *testing.T) {
+	p := NewSM2P256Point().SetGenerator()
+
+	elementSize := 32
+	two := make([]byte, elementSize)
+	two[len(two)-1] = 2
+	nPlusTwo := make([]byte, elementSize)
+	new(big.Int).Add(sm2n, big.NewInt(2)).FillBytes(nPlusTwo)
+
+	p1 := NewSM2P256Point().Double(p)
+	p2 := NewSM2P256Point().Add(p, p)
+	p3, err := NewSM2P256Point().ScalarMult(p, two)
+	fatalIfErr(t, err)
+	p4, err := NewSM2P256Point().ScalarBaseMult(two)
+	fatalIfErr(t, err)
+	p5, err := NewSM2P256Point().ScalarMult(p, nPlusTwo)
+	fatalIfErr(t, err)
+	p6, err := NewSM2P256Point().ScalarBaseMult(nPlusTwo)
+	fatalIfErr(t, err)
+
+	if !bytes.Equal(p1.Bytes(), p2.Bytes()) {
+		t.Error("P+P != 2*P")
+	}
+	if !bytes.Equal(p1.Bytes(), p3.Bytes()) {
+		t.Error("P+P != [2]P")
+	}
+	if !bytes.Equal(p1.Bytes(), p4.Bytes()) {
+		t.Error("G+G != [2]G")
+	}
+	if !bytes.Equal(p1.Bytes(), p5.Bytes()) {
+		t.Error("P+P != [N+2]P")
+	}
+	if !bytes.Equal(p1.Bytes(), p6.Bytes()) {
+		t.Error("G+G != [N+2]G")
+	}
+}
+
 func TestScalarMult(t *testing.T) {
 	G := NewSM2P256Point().SetGenerator()
 	checkScalar := func(t *testing.T, scalar []byte) {

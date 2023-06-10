@@ -1364,13 +1364,13 @@ TEXT ·p256PointDoubleAsm(SB),NOSPLIT,$136-16
 	LDP	p256p<>+0x10(SB), (const2, const3)
 
 	// Begin point double
-	LDP	4*16(a_ptr), (x0, x1)
+	LDP	4*16(a_ptr), (x0, x1)        // load z
 	LDP	5*16(a_ptr), (x2, x3)
 	CALL	sm2P256SqrInternal<>(SB)
-	STP	(y0, y1), zsqr(0*8)
+	STP	(y0, y1), zsqr(0*8)          // store z^2
 	STP	(y2, y3), zsqr(2*8)
 
-	LDP	0*16(a_ptr), (x0, x1)
+	LDP	0*16(a_ptr), (x0, x1)        // load x
 	LDP	1*16(a_ptr), (x2, x3)
 	p256AddInline
 	STx(m)
@@ -1446,6 +1446,187 @@ TEXT ·p256PointDoubleAsm(SB),NOSPLIT,$136-16
 	CALL	sm2P256Subinternal<>(SB)
 	STx(y3out)
 	RET
+
+#define p256PointDoubleRound() \
+	LDx(z3out)                       \ // load z
+	CALL	sm2P256SqrInternal<>(SB) \
+	STP	(y0, y1), zsqr(0*8)          \ // store z^2
+	STP	(y2, y3), zsqr(2*8)          \
+	\
+	LDx(x3out)                       \// load x
+	p256AddInline                    \
+	STx(m)                           \
+	\
+	LDx(z3out)                       \ // load z
+	LDy(y3out)                       \ // load y
+	CALL	sm2P256MulInternal<>(SB) \
+	p256MulBy2Inline                 \
+	STx(z3out)                       \ // store result z
+	\
+	LDy(x3out)                       \ // load x
+	LDx(zsqr)                        \
+	CALL	sm2P256Subinternal<>(SB) \
+	LDy(m)                           \
+	CALL	sm2P256MulInternal<>(SB) \
+	\
+	\// Multiply by 3
+	p256MulBy2Inline                 \
+	p256AddInline                    \
+	STx(m)                           \
+	\
+	LDy(y3out)                       \  // load y
+	p256MulBy2Inline                 \
+	CALL	sm2P256SqrInternal<>(SB) \
+	STy(s)                           \
+	MOVD	y0, x0                   \
+	MOVD	y1, x1                   \
+	MOVD	y2, x2                   \
+	MOVD	y3, x3                   \
+	CALL	sm2P256SqrInternal<>(SB) \
+	\
+	\// Divide by 2
+	ADDS	const0, y0, t0           \
+	ADCS	const1, y1, t1           \
+	ADCS	const2, y2, acc5         \
+	ADCS	const3, y3, acc6         \
+	ADC	$0, ZR, hlp0                 \
+	\
+	ANDS	$1, y0, ZR               \
+	CSEL	EQ, y0, t0, t0           \
+	CSEL	EQ, y1, t1, t1           \
+	CSEL	EQ, y2, acc5, acc5       \
+	CSEL	EQ, y3, acc6, acc6       \
+	AND	y0, hlp0, hlp0               \
+	\
+	EXTR	$1, t0, t1, y0           \
+	EXTR	$1, t1, acc5, y1         \
+	EXTR	$1, acc5, acc6, y2       \
+	EXTR	$1, acc6, hlp0, y3       \
+	STy(y3out)                       \                
+	\
+	LDx(x3out)                       \  // load x
+	LDy(s)                           \
+	CALL	sm2P256MulInternal<>(SB) \
+	STy(s)                           \
+	p256MulBy2Inline                 \
+	STx(tmp)                         \
+	\
+	LDx(m)                           \
+	CALL	sm2P256SqrInternal<>(SB) \
+	LDx(tmp)                         \
+	CALL	sm2P256Subinternal<>(SB) \
+	\
+	STx(x3out)                       \
+	\
+	LDy(s)                           \
+	CALL	sm2P256Subinternal<>(SB) \
+	\
+	LDy(m)                           \
+	CALL	sm2P256MulInternal<>(SB) \
+	\
+	LDx(y3out)                       \
+	CALL	sm2P256Subinternal<>(SB) \
+	STx(y3out)                       \
+
+//func p256PointDoubleAsm(res, in *SM2P256Point)
+TEXT ·p256PointDouble5TimesAsm(SB),NOSPLIT,$136-16
+	MOVD	res+0(FP), res_ptr
+	MOVD	in+8(FP), a_ptr
+
+	LDP	p256p<>+0x00(SB), (const0, const1)
+	LDP	p256p<>+0x10(SB), (const2, const3)
+
+	// Begin point double round 1
+	LDP	4*16(a_ptr), (x0, x1)        // load z
+	LDP	5*16(a_ptr), (x2, x3)
+	CALL	sm2P256SqrInternal<>(SB)
+	STP	(y0, y1), zsqr(0*8)          // store z^2
+	STP	(y2, y3), zsqr(2*8)
+
+	LDP	0*16(a_ptr), (x0, x1)        // load x
+	LDP	1*16(a_ptr), (x2, x3)
+	p256AddInline
+	STx(m)
+
+	LDx(z1in)                        // load z
+	LDy(y1in)                        // load y
+	CALL	sm2P256MulInternal<>(SB)
+	p256MulBy2Inline
+	STx(z3out)                        // store result z
+
+	LDy(x1in)                        // load x
+	LDx(zsqr)
+	CALL	sm2P256Subinternal<>(SB)
+	LDy(m)
+	CALL	sm2P256MulInternal<>(SB)
+
+	// Multiply by 3
+	p256MulBy2Inline
+	p256AddInline
+	STx(m)
+
+	LDy(y1in)                         // load y
+	p256MulBy2Inline
+	CALL	sm2P256SqrInternal<>(SB)
+	STy(s)
+	MOVD	y0, x0
+	MOVD	y1, x1
+	MOVD	y2, x2
+	MOVD	y3, x3
+	CALL	sm2P256SqrInternal<>(SB)
+
+	// Divide by 2
+	ADDS	const0, y0, t0
+	ADCS	const1, y1, t1
+	ADCS	const2, y2, acc5
+	ADCS	const3, y3, acc6
+	ADC	$0, ZR, hlp0
+
+	ANDS	$1, y0, ZR
+	CSEL	EQ, y0, t0, t0
+	CSEL	EQ, y1, t1, t1
+	CSEL	EQ, y2, acc5, acc5
+	CSEL	EQ, y3, acc6, acc6
+	AND	y0, hlp0, hlp0
+
+	EXTR	$1, t0, t1, y0
+	EXTR	$1, t1, acc5, y1
+	EXTR	$1, acc5, acc6, y2
+	EXTR	$1, acc6, hlp0, y3
+	STy(y3out)                       
+
+	LDx(x1in)                         // load x
+	LDy(s)
+	CALL	sm2P256MulInternal<>(SB)
+	STy(s)
+	p256MulBy2Inline
+	STx(tmp)
+
+	LDx(m)
+	CALL	sm2P256SqrInternal<>(SB)
+	LDx(tmp)
+	CALL	sm2P256Subinternal<>(SB)
+
+	STx(x3out)
+
+	LDy(s)
+	CALL	sm2P256Subinternal<>(SB)
+
+	LDy(m)
+	CALL	sm2P256MulInternal<>(SB)
+
+	LDx(y3out)
+	CALL	sm2P256Subinternal<>(SB)
+	STx(y3out)
+
+	// Begin point double rounds 2 - 5
+	p256PointDoubleRound()
+	p256PointDoubleRound()
+	p256PointDoubleRound()
+	p256PointDoubleRound()
+	
+	RET
+
 /* ---------------------------------------*/
 #undef y2in
 #undef x3out

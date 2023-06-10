@@ -649,6 +649,7 @@ func (x *Nat) montgomeryMul(a *Nat, b *Nat, m *Modulus) *Nat {
 		}
 		copy(x.reset(n).limbs, T[n:])
 		x.maybeSubtractModulus(choice(c), m)
+		
 	case 1024 / _W:
 		const n = 1024 / _W // compiler hint
 		T := make([]uint, n*2)

@@ -118,6 +118,22 @@ func TestFuzzyP256Sqr(t *testing.T) {
 	}
 }
 
+func BenchmarkP256Sqr(b *testing.B) {
+	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF", 16)
+	r, _ := new(big.Int).SetString("10000000000000000000000000000000000000000000000000000000000000000", 16)
+	var scalar1 [32]byte
+	io.ReadFull(rand.Reader, scalar1[:])
+	x := new(big.Int).SetBytes(scalar1[:])
+	x1 := new(big.Int).Mul(x, r)
+	x1 = x1.Mod(x1, p)
+	ax := new(p256Element)
+	res := new(p256Element)
+	fromBig(ax, x1)
+	for i := 0; i < b.N; i++ {
+		p256Sqr(res, ax, 20)
+	}
+}
+
 func Test_p256Inverse(t *testing.T) {
 	r, _ := new(big.Int).SetString("10000000000000000000000000000000000000000000000000000000000000000", 16)
 	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF", 16)
@@ -131,5 +147,12 @@ func Test_p256Inverse(t *testing.T) {
 	xInv = new(big.Int).Mod(xInv, p)
 	if resInt.Cmp(xInv) != 0 {
 		t.Errorf("expected %v, got %v", hex.EncodeToString(xInv.Bytes()), hex.EncodeToString(resInt.Bytes()))
+	}
+}
+
+func BenchmarkP256SelectAffine(b *testing.B) {
+	var t0 p256AffinePoint
+	for i := 0; i < b.N; i++ {
+		p256SelectAffine(&t0, &p256Precomputed[20], 20)
 	}
 }
