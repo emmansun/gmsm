@@ -2550,13 +2550,13 @@ internalMulBMI2:
 	\ // First reduction step
 	MOVQ acc0, mul0                   \
 	MOVQ acc0, mul1                   \
-	SHLQ $32, mul0                   \
-	SHRQ $32, mul1                   \
+	SHLQ $32, mul0                    \
+	SHRQ $32, mul1                    \
 	\
 	ADDQ acc0, acc1                   \
-	ADCQ $0, acc2                   \
-	ADCQ $0, acc3                   \
-	ADCQ $0, acc0                   \
+	ADCQ $0, acc2                     \
+	ADCQ $0, acc3                     \
+	ADCQ $0, acc0                     \
 	\
 	SUBQ mul0, acc1                   \
 	SBBQ mul1, acc2                   \
@@ -2565,13 +2565,13 @@ internalMulBMI2:
 	\ // Second reduction step
 	MOVQ acc1, mul0                   \
 	MOVQ acc1, mul1                   \
-	SHLQ $32, mul0                   \
-	SHRQ $32, mul1                   \
+	SHLQ $32, mul0                    \
+	SHRQ $32, mul1                    \
 	\
 	ADDQ acc1, acc2                   \
-	ADCQ $0, acc3                   \
-	ADCQ $0, acc0                   \
-	ADCQ $0, acc1                   \
+	ADCQ $0, acc3                     \
+	ADCQ $0, acc0                     \
+	ADCQ $0, acc1                     \
 	\
 	SUBQ mul0, acc2                   \
 	SBBQ mul1, acc3                   \
@@ -2580,13 +2580,13 @@ internalMulBMI2:
 	\ // Third reduction step
 	MOVQ acc2, mul0                   \
 	MOVQ acc2, mul1                   \
-	SHLQ $32, mul0                   \
-	SHRQ $32, mul1                   \
+	SHLQ $32, mul0                    \
+	SHRQ $32, mul1                    \
 	\
 	ADDQ acc2, acc3                   \
-	ADCQ $0, acc0                   \
-	ADCQ $0, acc1                   \
-	ADCQ $0, acc2                   \
+	ADCQ $0, acc0                     \
+	ADCQ $0, acc1                     \
+	ADCQ $0, acc2                     \
 	\
 	SUBQ mul0, acc3                   \
 	SBBQ mul1, acc0                   \
@@ -2595,36 +2595,36 @@ internalMulBMI2:
 	\ // Last reduction step
 	MOVQ acc3, mul0                   \
 	MOVQ acc3, mul1                   \
-	SHLQ $32, mul0                   \
-	SHRQ $32, mul1                   \
+	SHLQ $32, mul0                    \
+	SHRQ $32, mul1                    \
 	\
 	ADDQ acc3, acc0                   \
-	ADCQ $0, acc1                   \
-	ADCQ $0, acc2                   \
-	ADCQ $0, acc3                   \
+	ADCQ $0, acc1                     \
+	ADCQ $0, acc2                     \
+	ADCQ $0, acc3                     \
 	\
 	SUBQ mul0, acc0                   \
 	SBBQ mul1, acc1                   \
 	SBBQ mul0, acc2                   \
 	SBBQ mul1, acc3                   \
-	MOVQ $0, BP                   \
+	MOVQ $0, BP                       \
 	\ // Add bits [511:256] of the result
-	ADCQ acc0, t0                   \
-	ADCQ acc1, t1                   \
-	ADCQ acc2, t2                   \
-	ADCQ acc3, t3                   \
-	ADCQ $0, hlp                   \
+	ADCQ acc0, t0                     \
+	ADCQ acc1, t1                     \
+	ADCQ acc2, t2                     \
+	ADCQ acc3, t3                     \
+	ADCQ $0, hlp                      \
 	\ // Copy result
-	MOVQ t0, acc4                   \
-	MOVQ t1, acc5                   \
-	MOVQ t2, acc6                   \
-	MOVQ t3, acc7                   \
+	MOVQ t0, acc4                     \
+	MOVQ t1, acc5                     \
+	MOVQ t2, acc6                     \
+	MOVQ t3, acc7                     \
 	\ // Subtract p256
-	SUBQ $-1, acc4                   \
-	SBBQ p256p<>+0x08(SB), acc5                   \
-	SBBQ $-1, acc6                   \
-	SBBQ p256p<>+0x018(SB), acc7                   \
-	SBBQ $0, hlp                   \
+	SUBQ $-1, acc4                     \
+	SBBQ p256p<>+0x08(SB), acc5        \
+	SBBQ $-1, acc6                     \
+	SBBQ p256p<>+0x018(SB), acc7       \
+	SBBQ $0, hlp                       \
 	\ // If the result of the subtraction is negative, restore the previous result
 	CMOVQCS t0, acc4                   \
 	CMOVQCS t1, acc5                   \
@@ -2838,6 +2838,125 @@ internalSqrBMI2:
 #define sel_save  (32*15 + 8)(SP)
 #define zero_save (32*15 + 8 + 4)(SP)
 
+#define p256PointAddAffineInline() \
+	\// Store pointer to result
+	MOVQ mul0, rptr                   \
+	MOVL t1, sel_save                 \
+	MOVL t2, zero_save                \
+	\// Negate y2in based on sign
+	MOVQ (16*2 + 8*0)(CX), acc4       \
+	MOVQ (16*2 + 8*1)(CX), acc5       \
+	MOVQ (16*2 + 8*2)(CX), acc6       \
+	MOVQ (16*2 + 8*3)(CX), acc7       \
+	MOVQ $-1, acc0                    \
+	MOVQ p256p<>+0x08(SB), acc1       \
+	MOVQ $-1, acc2                    \
+	MOVQ p256p<>+0x018(SB), acc3      \
+	XORQ mul0, mul0                   \
+	\// Speculatively subtract
+	SUBQ acc4, acc0                   \
+	SBBQ acc5, acc1                   \
+	SBBQ acc6, acc2                   \
+	SBBQ acc7, acc3                   \
+	SBBQ $0, mul0                     \
+	MOVQ acc0, t0                     \
+	MOVQ acc1, t1                     \
+	MOVQ acc2, t2                     \
+	MOVQ acc3, t3                     \
+	\// Add in case the operand was > p256
+	ADDQ $-1, acc0                  \
+	ADCQ p256p<>+0x08(SB), acc1     \
+	ADCQ $-1, acc2                  \
+	ADCQ p256p<>+0x018(SB), acc3    \
+	ADCQ $0, mul0                   \
+	CMOVQNE t0, acc0                \
+	CMOVQNE t1, acc1                \
+	CMOVQNE t2, acc2                \
+	CMOVQNE t3, acc3                \
+	\// If condition is 0, keep original value
+	TESTQ DX, DX                      \
+	CMOVQEQ acc4, acc0                \
+	CMOVQEQ acc5, acc1                \
+	CMOVQEQ acc6, acc2                \
+	CMOVQEQ acc7, acc3                \
+	\// Store result
+	MOVQ acc0, y2in(8*0)                \
+	MOVQ acc1, y2in(8*1)                \
+	MOVQ acc2, y2in(8*2)                \
+	MOVQ acc3, y2in(8*3)                \
+	\// Begin point add
+	LDacc (z1in)                        \
+	CALL sm2P256SqrInternal(SB)	        \// z1ˆ2
+	ST (z1sqr)                          \
+	\
+	LDt (x2in)                          \
+	CALL sm2P256MulInternal(SB)	        \// x2 * z1ˆ2
+	\
+	LDt (x1in)                          \
+	CALL sm2P256SubInternal(SB)	        \// h = u2 - u1
+	ST (h)                              \
+	\
+	LDt (z1in)                          \
+	CALL sm2P256MulInternal(SB)	        \// z3 = h * z1
+	ST (zout)                           \
+	\
+	LDacc (z1sqr)                       \
+	CALL sm2P256MulInternal(SB)	        \// z1ˆ3
+	\
+	LDt (y2in)                          \
+	CALL sm2P256MulInternal(SB)	        \// s2 = y2 * z1ˆ3
+	ST (s2)                             \
+	\
+	LDt (y1in)                          \
+	CALL sm2P256SubInternal(SB)	        \// r = s2 - s1
+	ST (r)                              \
+	\
+	CALL sm2P256SqrInternal(SB)	        \// rsqr = rˆ2
+	ST (rsqr)                           \
+	\
+	LDacc (h)                           \
+	CALL sm2P256SqrInternal(SB)	        \// hsqr = hˆ2
+	ST (hsqr)                           \
+	\
+	LDt (h)                             \
+	CALL sm2P256MulInternal(SB)	        \// hcub = hˆ3
+	ST (hcub)                           \
+	\
+	LDt (y1in)                          \
+	CALL sm2P256MulInternal(SB)	        \// y1 * hˆ3
+	ST (s2)                             \
+	\
+	LDacc (x1in)                        \
+	LDt (hsqr)                          \
+	CALL sm2P256MulInternal(SB)	        \// u1 * hˆ2
+	ST (h)                              \
+	\
+	p256MulBy2Inline			        \// u1 * hˆ2 * 2, inline
+	LDacc (rsqr)                        \
+	CALL sm2P256SubInternal(SB)	        \// rˆ2 - u1 * hˆ2 * 2
+	\
+	LDt (hcub)                          \
+	CALL sm2P256SubInternal(SB)         \
+	ST (xout)                           \
+	\
+	MOVQ acc4, t0                       \
+	MOVQ acc5, t1                       \
+	MOVQ acc6, t2                       \
+	MOVQ acc7, t3                       \
+	LDacc (h)                           \
+	CALL sm2P256SubInternal(SB)         \
+	\
+	LDt (r)                             \
+	CALL sm2P256MulInternal(SB)         \
+	\
+	LDt (s2)                            \
+	CALL sm2P256SubInternal(SB)         \
+	ST (yout)                           \
+	\// Load stored values from stack
+	MOVQ rptr, AX                       \
+	MOVL sel_save, BX                   \
+	MOVL zero_save, CX                  \
+
 // func p256PointAddAffineAsm(res, in1 *SM2P256Point, in2 *p256AffinePoint, sign, sel, zero int)
 TEXT ·p256PointAddAffineAsm(SB),0,$512-48
 	// Move input to stack in order to free registers
@@ -2870,123 +2989,8 @@ TEXT ·p256PointAddAffineAsm(SB),0,$512-48
 
 	MOVOU X0, x2in(16*0)
 	MOVOU X1, x2in(16*1)
-	// Store pointer to result
-	MOVQ mul0, rptr
-	MOVL t1, sel_save
-	MOVL t2, zero_save
-	// Negate y2in based on sign
-	MOVQ (16*2 + 8*0)(CX), acc4
-	MOVQ (16*2 + 8*1)(CX), acc5
-	MOVQ (16*2 + 8*2)(CX), acc6
-	MOVQ (16*2 + 8*3)(CX), acc7
-	MOVQ $-1, acc0
-	MOVQ p256p<>+0x08(SB), acc1
-	MOVQ $-1, acc2
-	MOVQ p256p<>+0x018(SB), acc3
-	XORQ mul0, mul0
-	// Speculatively subtract
-	SUBQ acc4, acc0
-	SBBQ acc5, acc1
-	SBBQ acc6, acc2
-	SBBQ acc7, acc3
-	SBBQ $0, mul0
-	MOVQ acc0, t0
-	MOVQ acc1, t1
-	MOVQ acc2, t2
-	MOVQ acc3, t3
-	// Add in case the operand was > p256
-	ADDQ $-1, acc0
-	ADCQ p256p<>+0x08(SB), acc1
-	ADCQ $-1, acc2
-	ADCQ p256p<>+0x018(SB), acc3
-	ADCQ $0, mul0
-	CMOVQNE t0, acc0
-	CMOVQNE t1, acc1
-	CMOVQNE t2, acc2
-	CMOVQNE t3, acc3
-	// If condition is 0, keep original value
-	TESTQ DX, DX
-	CMOVQEQ acc4, acc0
-	CMOVQEQ acc5, acc1
-	CMOVQEQ acc6, acc2
-	CMOVQEQ acc7, acc3
-	// Store result
-	MOVQ acc0, y2in(8*0)
-	MOVQ acc1, y2in(8*1)
-	MOVQ acc2, y2in(8*2)
-	MOVQ acc3, y2in(8*3)
-	// Begin point add
-	LDacc (z1in)
-	CALL sm2P256SqrInternal(SB)	// z1ˆ2
-	ST (z1sqr)
-
-	LDt (x2in)
-	CALL sm2P256MulInternal(SB)	// x2 * z1ˆ2
-
-	LDt (x1in)
-	CALL sm2P256SubInternal(SB)	// h = u2 - u1
-	ST (h)
-
-	LDt (z1in)
-	CALL sm2P256MulInternal(SB)	// z3 = h * z1
-	ST (zout)
-
-	LDacc (z1sqr)
-	CALL sm2P256MulInternal(SB)	// z1ˆ3
-
-	LDt (y2in)
-	CALL sm2P256MulInternal(SB)	// s2 = y2 * z1ˆ3
-	ST (s2)
-
-	LDt (y1in)
-	CALL sm2P256SubInternal(SB)	// r = s2 - s1
-	ST (r)
-
-	CALL sm2P256SqrInternal(SB)	// rsqr = rˆ2
-	ST (rsqr)
-
-	LDacc (h)
-	CALL sm2P256SqrInternal(SB)	// hsqr = hˆ2
-	ST (hsqr)
-
-	LDt (h)
-	CALL sm2P256MulInternal(SB)	// hcub = hˆ3
-	ST (hcub)
-
-	LDt (y1in)
-	CALL sm2P256MulInternal(SB)	// y1 * hˆ3
-	ST (s2)
-
-	LDacc (x1in)
-	LDt (hsqr)
-	CALL sm2P256MulInternal(SB)	// u1 * hˆ2
-	ST (h)
-
-	p256MulBy2Inline			// u1 * hˆ2 * 2, inline
-	LDacc (rsqr)
-	CALL sm2P256SubInternal(SB)	// rˆ2 - u1 * hˆ2 * 2
-
-	LDt (hcub)
-	CALL sm2P256SubInternal(SB)
-	ST (xout)
-
-	MOVQ acc4, t0
-	MOVQ acc5, t1
-	MOVQ acc6, t2
-	MOVQ acc7, t3
-	LDacc (h)
-	CALL sm2P256SubInternal(SB)
-
-	LDt (r)
-	CALL sm2P256MulInternal(SB)
-
-	LDt (s2)
-	CALL sm2P256SubInternal(SB)
-	ST (yout)
-	// Load stored values from stack
-	MOVQ rptr, AX
-	MOVL sel_save, BX
-	MOVL zero_save, CX
+	
+	p256PointAddAffineInline()
 	// The result is not valid if (sel == 0), conditional choose
 	MOVOU xout(16*0), X0
 	MOVOU xout(16*1), X1
@@ -3091,123 +3095,7 @@ pointaddaffine_avx2:
 	VMOVDQU (32*0)(CX), Y0
 	VMOVDQU Y0, x2in(32*0)
 
-	// Store pointer to result
-	MOVQ mul0, rptr
-	MOVL t1, sel_save
-	MOVL t2, zero_save
-	// Negate y2in based on sign
-	MOVQ (16*2 + 8*0)(CX), acc4
-	MOVQ (16*2 + 8*1)(CX), acc5
-	MOVQ (16*2 + 8*2)(CX), acc6
-	MOVQ (16*2 + 8*3)(CX), acc7
-	MOVQ $-1, acc0
-	MOVQ p256p<>+0x08(SB), acc1
-	MOVQ $-1, acc2
-	MOVQ p256p<>+0x018(SB), acc3
-	XORQ mul0, mul0
-	// Speculatively subtract
-	SUBQ acc4, acc0
-	SBBQ acc5, acc1
-	SBBQ acc6, acc2
-	SBBQ acc7, acc3
-	SBBQ $0, mul0
-	MOVQ acc0, t0
-	MOVQ acc1, t1
-	MOVQ acc2, t2
-	MOVQ acc3, t3
-	// Add in case the operand was > p256
-	ADDQ $-1, acc0
-	ADCQ p256p<>+0x08(SB), acc1
-	ADCQ $-1, acc2
-	ADCQ p256p<>+0x018(SB), acc3
-	ADCQ $0, mul0
-	CMOVQNE t0, acc0
-	CMOVQNE t1, acc1
-	CMOVQNE t2, acc2
-	CMOVQNE t3, acc3
-	// If condition is 0, keep original value
-	TESTQ DX, DX
-	CMOVQEQ acc4, acc0
-	CMOVQEQ acc5, acc1
-	CMOVQEQ acc6, acc2
-	CMOVQEQ acc7, acc3
-	// Store result
-	MOVQ acc0, y2in(8*0)
-	MOVQ acc1, y2in(8*1)
-	MOVQ acc2, y2in(8*2)
-	MOVQ acc3, y2in(8*3)
-	// Begin point add
-	LDacc (z1in)
-	CALL sm2P256SqrInternal(SB)	// z1ˆ2
-	ST (z1sqr)
-
-	LDt (x2in)
-	CALL sm2P256MulInternal(SB)	// x2 * z1ˆ2
-
-	LDt (x1in)
-	CALL sm2P256SubInternal(SB)	// h = u2 - u1
-	ST (h)
-
-	LDt (z1in)
-	CALL sm2P256MulInternal(SB)	// z3 = h * z1
-	ST (zout)
-
-	LDacc (z1sqr)
-	CALL sm2P256MulInternal(SB)	// z1ˆ3
-
-	LDt (y2in)
-	CALL sm2P256MulInternal(SB)	// s2 = y2 * z1ˆ3
-	ST (s2)
-
-	LDt (y1in)
-	CALL sm2P256SubInternal(SB)	// r = s2 - s1
-	ST (r)
-
-	CALL sm2P256SqrInternal(SB)	// rsqr = rˆ2
-	ST (rsqr)
-
-	LDacc (h)
-	CALL sm2P256SqrInternal(SB)	// hsqr = hˆ2
-	ST (hsqr)
-
-	LDt (h)
-	CALL sm2P256MulInternal(SB)	// hcub = hˆ3
-	ST (hcub)
-
-	LDt (y1in)
-	CALL sm2P256MulInternal(SB)	// y1 * hˆ3
-	ST (s2)
-
-	LDacc (x1in)
-	LDt (hsqr)
-	CALL sm2P256MulInternal(SB)	// u1 * hˆ2
-	ST (h)
-
-	p256MulBy2Inline			// u1 * hˆ2 * 2, inline
-	LDacc (rsqr)
-	CALL sm2P256SubInternal(SB)	// rˆ2 - u1 * hˆ2 * 2
-
-	LDt (hcub)
-	CALL sm2P256SubInternal(SB)
-	ST (xout)
-
-	MOVQ acc4, t0
-	MOVQ acc5, t1
-	MOVQ acc6, t2
-	MOVQ acc7, t3
-	LDacc (h)
-	CALL sm2P256SubInternal(SB)
-
-	LDt (r)
-	CALL sm2P256MulInternal(SB)
-
-	LDt (s2)
-	CALL sm2P256SubInternal(SB)
-	ST (yout)
-	// Load stored values from stack
-	MOVQ rptr, AX
-	MOVL sel_save, BX
-	MOVL zero_save, CX
+	p256PointAddAffineInline()
 	// The result is not valid if (sel == 0), conditional choose
 	VMOVDQU xout(32*0), Y0
 	VMOVDQU yout(32*0), Y1
@@ -3347,6 +3235,98 @@ TEXT sm2P256IsZero(SB),NOSPLIT,$0
 #define rptr       (32*20)(SP)
 #define points_eq  (32*20+8)(SP)
 
+#define p256PointAddInline() \
+	\// Begin point add
+	LDacc (z2in)                 \
+	CALL sm2P256SqrInternal(SB)	 \// z2ˆ2
+	ST (z2sqr)                   \
+	LDt (z2in)                   \
+	CALL sm2P256MulInternal(SB)	 \// z2ˆ3
+	LDt (y1in)                   \
+	CALL sm2P256MulInternal(SB)	 \// s1 = z2ˆ3*y1
+	ST (s1)                      \
+	\
+	LDacc (z1in)                 \ 
+	CALL sm2P256SqrInternal(SB)	 \// z1ˆ2
+	ST (z1sqr)                   \
+	LDt (z1in)                   \
+	CALL sm2P256MulInternal(SB)	 \// z1ˆ3
+	LDt (y2in)                   \
+	CALL sm2P256MulInternal(SB)	 \// s2 = z1ˆ3*y2
+	ST (s2)                      \ 
+	\
+	LDt (s1)                     \
+	CALL sm2P256SubInternal(SB)	 \// r = s2 - s1
+	ST (r)                       \
+	CALL sm2P256IsZero(SB)       \
+	MOVQ AX, points_eq           \
+	\
+	LDacc (z2sqr)                \
+	LDt (x1in)                   \
+	CALL sm2P256MulInternal(SB)	 \// u1 = x1 * z2ˆ2
+	ST (u1)                      \
+	LDacc (z1sqr)                \
+	LDt (x2in)                   \ 
+	CALL sm2P256MulInternal(SB)	 \// u2 = x2 * z1ˆ2
+	ST (u2)                      \
+	\
+	LDt (u1)                     \ 
+	CALL sm2P256SubInternal(SB)	 \// h = u2 - u1
+	ST (h)                       \
+	CALL sm2P256IsZero(SB)       \
+	ANDQ points_eq, AX           \
+	MOVQ AX, points_eq           \
+	\
+	LDacc (r)                    \
+	CALL sm2P256SqrInternal(SB)	 \// rsqr = rˆ2
+	ST (rsqr)                    \
+	\
+	LDacc (h)                    \
+	CALL sm2P256SqrInternal(SB)	 \// hsqr = hˆ2
+	ST (hsqr)                    \
+	\
+	LDt (h)                      \
+	CALL sm2P256MulInternal(SB)	 \// hcub = hˆ3
+	ST (hcub)                    \
+	\
+	LDt (s1)                     \
+	CALL sm2P256MulInternal(SB)  \
+	ST (s2)                      \
+	\
+	LDacc (z1in)                 \
+	LDt (z2in)                   \
+	CALL sm2P256MulInternal(SB)	 \// z1 * z2
+	LDt (h)                      \
+	CALL sm2P256MulInternal(SB)	 \// z1 * z2 * h
+	ST (zout)                    \
+	\
+	LDacc (hsqr)                 \
+	LDt (u1)                     \
+	CALL sm2P256MulInternal(SB)	 \// hˆ2 * u1
+	ST (u2)                      \
+	\
+	p256MulBy2Inline	         \// u1 * hˆ2 * 2, inline
+	LDacc (rsqr)                 \
+	CALL sm2P256SubInternal(SB)	 \// rˆ2 - u1 * hˆ2 * 2
+	\
+	LDt (hcub)                   \
+	CALL sm2P256SubInternal(SB)  \
+	ST (xout)                    \
+	\
+	MOVQ acc4, t0                \
+	MOVQ acc5, t1                \
+	MOVQ acc6, t2                \
+	MOVQ acc7, t3                \
+	LDacc (u2)                   \
+	CALL sm2P256SubInternal(SB)  \
+	\
+	LDt (r)                      \
+	CALL sm2P256MulInternal(SB)  \
+	\
+	LDt (s2)                     \
+	CALL sm2P256SubInternal(SB)  \
+	ST (yout)                    \
+
 //func p256PointAddAsm(res, in1, in2 *SM2P256Point) int
 TEXT ·p256PointAddAsm(SB),0,$680-32
 	// See https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#addition-add-2007-bl
@@ -3387,96 +3367,7 @@ TEXT ·p256PointAddAsm(SB),0,$680-32
 	MOVOU X5, z2in(16*1)
 	// Store pointer to result
 	MOVQ AX, rptr
-	// Begin point add
-	LDacc (z2in)
-	CALL sm2P256SqrInternal(SB)	// z2ˆ2
-	ST (z2sqr)
-	LDt (z2in)
-	CALL sm2P256MulInternal(SB)	// z2ˆ3
-	LDt (y1in)
-	CALL sm2P256MulInternal(SB)	// s1 = z2ˆ3*y1
-	ST (s1)
-
-	LDacc (z1in)
-	CALL sm2P256SqrInternal(SB)	// z1ˆ2
-	ST (z1sqr)
-	LDt (z1in)
-	CALL sm2P256MulInternal(SB)	// z1ˆ3
-	LDt (y2in)
-	CALL sm2P256MulInternal(SB)	// s2 = z1ˆ3*y2
-	ST (s2)
-
-	LDt (s1)
-	CALL sm2P256SubInternal(SB)	// r = s2 - s1
-	ST (r)
-	CALL sm2P256IsZero(SB)
-	MOVQ AX, points_eq
-
-	LDacc (z2sqr)
-	LDt (x1in)
-	CALL sm2P256MulInternal(SB)	// u1 = x1 * z2ˆ2
-	ST (u1)
-	LDacc (z1sqr)
-	LDt (x2in)
-	CALL sm2P256MulInternal(SB)	// u2 = x2 * z1ˆ2
-	ST (u2)
-
-	LDt (u1)
-	CALL sm2P256SubInternal(SB)	// h = u2 - u1
-	ST (h)
-	CALL sm2P256IsZero(SB)
-	ANDQ points_eq, AX
-	MOVQ AX, points_eq
-
-	LDacc (r)
-	CALL sm2P256SqrInternal(SB)	// rsqr = rˆ2
-	ST (rsqr)
-
-	LDacc (h)
-	CALL sm2P256SqrInternal(SB)	// hsqr = hˆ2
-	ST (hsqr)
-
-	LDt (h)
-	CALL sm2P256MulInternal(SB)	// hcub = hˆ3
-	ST (hcub)
-
-	LDt (s1)
-	CALL sm2P256MulInternal(SB)
-	ST (s2)
-
-	LDacc (z1in)
-	LDt (z2in)
-	CALL sm2P256MulInternal(SB)	// z1 * z2
-	LDt (h)
-	CALL sm2P256MulInternal(SB)	// z1 * z2 * h
-	ST (zout)
-
-	LDacc (hsqr)
-	LDt (u1)
-	CALL sm2P256MulInternal(SB)	// hˆ2 * u1
-	ST (u2)
-
-	p256MulBy2Inline	// u1 * hˆ2 * 2, inline
-	LDacc (rsqr)
-	CALL sm2P256SubInternal(SB)	// rˆ2 - u1 * hˆ2 * 2
-
-	LDt (hcub)
-	CALL sm2P256SubInternal(SB)
-	ST (xout)
-
-	MOVQ acc4, t0
-	MOVQ acc5, t1
-	MOVQ acc6, t2
-	MOVQ acc7, t3
-	LDacc (u2)
-	CALL sm2P256SubInternal(SB)
-
-	LDt (r)
-	CALL sm2P256MulInternal(SB)
-
-	LDt (s2)
-	CALL sm2P256SubInternal(SB)
-	ST (yout)
+	p256PointAddInline()
 
 	MOVOU xout(16*0), X0
 	MOVOU xout(16*1), X1
@@ -3517,96 +3408,7 @@ pointadd_avx2:
 
 	// Store pointer to result
 	MOVQ AX, rptr
-	// Begin point add
-	LDacc (z2in)
-	CALL sm2P256SqrInternal(SB)	// z2ˆ2
-	ST (z2sqr)
-	LDt (z2in)
-	CALL sm2P256MulInternal(SB)	// z2ˆ3
-	LDt (y1in)
-	CALL sm2P256MulInternal(SB)	// s1 = z2ˆ3*y1
-	ST (s1)
-
-	LDacc (z1in)
-	CALL sm2P256SqrInternal(SB)	// z1ˆ2
-	ST (z1sqr)
-	LDt (z1in)
-	CALL sm2P256MulInternal(SB)	// z1ˆ3
-	LDt (y2in)
-	CALL sm2P256MulInternal(SB)	// s2 = z1ˆ3*y2
-	ST (s2)
-
-	LDt (s1)
-	CALL sm2P256SubInternal(SB)	// r = s2 - s1
-	ST (r)
-	CALL sm2P256IsZero(SB)
-	MOVQ AX, points_eq
-
-	LDacc (z2sqr)
-	LDt (x1in)
-	CALL sm2P256MulInternal(SB)	// u1 = x1 * z2ˆ2
-	ST (u1)
-	LDacc (z1sqr)
-	LDt (x2in)
-	CALL sm2P256MulInternal(SB)	// u2 = x2 * z1ˆ2
-	ST (u2)
-
-	LDt (u1)
-	CALL sm2P256SubInternal(SB)	// h = u2 - u1
-	ST (h)
-	CALL sm2P256IsZero(SB)
-	ANDQ points_eq, AX
-	MOVQ AX, points_eq
-
-	LDacc (r)
-	CALL sm2P256SqrInternal(SB)	// rsqr = rˆ2
-	ST (rsqr)
-
-	LDacc (h)
-	CALL sm2P256SqrInternal(SB)	// hsqr = hˆ2
-	ST (hsqr)
-
-	LDt (h)
-	CALL sm2P256MulInternal(SB)	// hcub = hˆ3
-	ST (hcub)
-
-	LDt (s1)
-	CALL sm2P256MulInternal(SB)
-	ST (s2)
-
-	LDacc (z1in)
-	LDt (z2in)
-	CALL sm2P256MulInternal(SB)	// z1 * z2
-	LDt (h)
-	CALL sm2P256MulInternal(SB)	// z1 * z2 * h
-	ST (zout)
-
-	LDacc (hsqr)
-	LDt (u1)
-	CALL sm2P256MulInternal(SB)	// hˆ2 * u1
-	ST (u2)
-
-	p256MulBy2Inline	// u1 * hˆ2 * 2, inline
-	LDacc (rsqr)
-	CALL sm2P256SubInternal(SB)	// rˆ2 - u1 * hˆ2 * 2
-
-	LDt (hcub)
-	CALL sm2P256SubInternal(SB)
-	ST (xout)
-
-	MOVQ acc4, t0
-	MOVQ acc5, t1
-	MOVQ acc6, t2
-	MOVQ acc7, t3
-	LDacc (u2)
-	CALL sm2P256SubInternal(SB)
-
-	LDt (r)
-	CALL sm2P256MulInternal(SB)
-
-	LDt (s2)
-	CALL sm2P256SubInternal(SB)
-	ST (yout)
+	p256PointAddInline()
 
 	VMOVDQU xout(32*0), Y0
 	VMOVDQU yout(32*0), Y1
@@ -3738,6 +3540,62 @@ pointadd_avx2:
 	LDt (y)                                 \
 	CALL sm2P256SubInternal(SB)             \ 
 
+#define lastP256PointDouble() \
+	calZ()                            \
+	MOVQ rptr, AX                     \
+	\// Store z
+	MOVQ t0, (16*4 + 8*0)(AX)         \
+	MOVQ t1, (16*4 + 8*1)(AX)         \
+	MOVQ t2, (16*4 + 8*2)(AX)         \
+	MOVQ t3, (16*4 + 8*3)(AX)         \
+	\
+	calX()                            \
+	MOVQ rptr, AX                     \
+	\// Store x
+	MOVQ acc4, (16*0 + 8*0)(AX)       \
+	MOVQ acc5, (16*0 + 8*1)(AX)       \
+	MOVQ acc6, (16*0 + 8*2)(AX)       \
+	MOVQ acc7, (16*0 + 8*3)(AX)       \
+	\
+	calY()                            \
+	MOVQ rptr, AX                     \ 
+	\// Store y
+	MOVQ acc4, (16*2 + 8*0)(AX)       \  
+	MOVQ acc5, (16*2 + 8*1)(AX)       \ 
+	MOVQ acc6, (16*2 + 8*2)(AX)       \
+	MOVQ acc7, (16*2 + 8*3)(AX)       \
+	\///////////////////////
+	MOVQ $0, rptr                     \
+
+#define p256PointDoubleInit() \
+	MOVOU (16*0)(BX), X0 \
+	MOVOU (16*1)(BX), X1 \
+	MOVOU (16*2)(BX), X2 \
+	MOVOU (16*3)(BX), X3 \
+	MOVOU (16*4)(BX), X4 \
+	MOVOU (16*5)(BX), X5 \
+	\
+	MOVOU X0, x(16*0) \
+	MOVOU X1, x(16*1) \
+	MOVOU X2, y(16*0) \
+	MOVOU X3, y(16*1) \
+	MOVOU X4, z(16*0) \
+	MOVOU X5, z(16*1) \
+
+//func p256PointDoubleAsm(res, in *SM2P256Point)
+TEXT ·p256PointDoubleAsm(SB),NOSPLIT,$256-16
+	// Move input to stack in order to free registers
+	MOVQ res+0(FP), AX
+	MOVQ in+8(FP), BX
+
+	p256PointDoubleInit()
+	// Store pointer to result
+	MOVQ AX, rptr
+	// Begin point double
+	lastP256PointDouble()
+
+	RET
+
 #define storeTmpX() \
 	MOVQ acc4, x(8*0) \
 	MOVQ acc5, x(8*1) \
@@ -3756,55 +3614,13 @@ pointadd_avx2:
 	MOVQ t2, z(8*2) \
 	MOVQ t3, z(8*3) \
 
-//func p256PointDoubleAsm(res, in *SM2P256Point)
-TEXT ·p256PointDoubleAsm(SB),NOSPLIT,$256-16
-	// Move input to stack in order to free registers
-	MOVQ res+0(FP), AX
-	MOVQ in+8(FP), BX
-
-	MOVOU (16*0)(BX), X0
-	MOVOU (16*1)(BX), X1
-	MOVOU (16*2)(BX), X2
-	MOVOU (16*3)(BX), X3
-	MOVOU (16*4)(BX), X4
-	MOVOU (16*5)(BX), X5
-
-	MOVOU X0, x(16*0)
-	MOVOU X1, x(16*1)
-	MOVOU X2, y(16*0)
-	MOVOU X3, y(16*1)
-	MOVOU X4, z(16*0)
-	MOVOU X5, z(16*1)
-	// Store pointer to result
-	MOVQ AX, rptr
-	// Begin point double
-	calZ()
-	MOVQ rptr, AX
-	// Store z
-	MOVQ t0, (16*4 + 8*0)(AX)
-	MOVQ t1, (16*4 + 8*1)(AX)
-	MOVQ t2, (16*4 + 8*2)(AX)
-	MOVQ t3, (16*4 + 8*3)(AX)
-
-	calX()
-	MOVQ rptr, AX
-	// Store x
-	MOVQ acc4, (16*0 + 8*0)(AX)
-	MOVQ acc5, (16*0 + 8*1)(AX)
-	MOVQ acc6, (16*0 + 8*2)(AX)
-	MOVQ acc7, (16*0 + 8*3)(AX)
-
-	calY()
-	MOVQ rptr, AX
-	// Store y
-	MOVQ acc4, (16*2 + 8*0)(AX)
-	MOVQ acc5, (16*2 + 8*1)(AX)
-	MOVQ acc6, (16*2 + 8*2)(AX)
-	MOVQ acc7, (16*2 + 8*3)(AX)
-	///////////////////////
-	MOVQ $0, rptr
-
-	RET
+#define p256PointDoubleRound() \
+	calZ()                  \
+	storeTmpZ()             \ 
+	calX()                  \
+	storeTmpX()             \
+	calY()                  \
+	storeTmpY()             \
 
 //func p256PointDouble5TimesAsm(res, in *SM2P256Point)
 TEXT ·p256PointDouble5TimesAsm(SB),NOSPLIT,$256-16
@@ -3812,100 +3628,18 @@ TEXT ·p256PointDouble5TimesAsm(SB),NOSPLIT,$256-16
 	MOVQ res+0(FP), AX
 	MOVQ in+8(FP), BX
 
-	MOVOU (16*0)(BX), X0
-	MOVOU (16*1)(BX), X1
-	MOVOU (16*2)(BX), X2
-	MOVOU (16*3)(BX), X3
-	MOVOU (16*4)(BX), X4
-	MOVOU (16*5)(BX), X5
-
-	MOVOU X0, x(16*0)
-	MOVOU X1, x(16*1)
-	MOVOU X2, y(16*0)
-	MOVOU X3, y(16*1)
-	MOVOU X4, z(16*0)
-	MOVOU X5, z(16*1)
+	p256PointDoubleInit()
 	// Store pointer to result
 	MOVQ AX, rptr
 
-	// Begin point double 1
-	calZ()
-	// Store z
-	storeTmpZ()
-
-	calX()
-	// Store x
-	storeTmpX()
-
-	calY()
-	// Store y
-	storeTmpY()
-
-	// Begin point double 2
-	calZ()
-	// Store z
-	storeTmpZ()
-
-	calX()
-	// Store x
-	storeTmpX()
-
-	calY()
-	// Store y
-	storeTmpY()
-
-	// Begin point double 3
-	calZ()
-	// Store z
-	storeTmpZ()
-
-	calX()
-	// Store x
-	storeTmpX()
-
-	calY()
-	// Store y
-	storeTmpY()
-
-	// Begin point double 4
-	calZ()
-	// Store z
-	storeTmpZ()
-
-	calX()
-	// Store x
-	storeTmpX()
-
-	calY()
-	// Store y
-	storeTmpY()
+	// Begin point double 1-4 rounds
+	p256PointDoubleRound()
+	p256PointDoubleRound()
+	p256PointDoubleRound()
+	p256PointDoubleRound()
 
 	// Begin point double 5
-	calZ()
-	MOVQ rptr, AX
-	// Store z
-	MOVQ t0, (16*4 + 8*0)(AX)
-	MOVQ t1, (16*4 + 8*1)(AX)
-	MOVQ t2, (16*4 + 8*2)(AX)
-	MOVQ t3, (16*4 + 8*3)(AX)
-
-	calX()
-	MOVQ rptr, AX
-	// Store x
-	MOVQ acc4, (16*0 + 8*0)(AX)
-	MOVQ acc5, (16*0 + 8*1)(AX)
-	MOVQ acc6, (16*0 + 8*2)(AX)
-	MOVQ acc7, (16*0 + 8*3)(AX)
-
-	calY()
-	MOVQ rptr, AX
-	// Store y
-	MOVQ acc4, (16*2 + 8*0)(AX)
-	MOVQ acc5, (16*2 + 8*1)(AX)
-	MOVQ acc6, (16*2 + 8*2)(AX)
-	MOVQ acc7, (16*2 + 8*3)(AX)
-	///////////////////////
-	MOVQ $0, rptr
+	lastP256PointDouble()
 
 	RET
 /* ---------------------------------------*/
