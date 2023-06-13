@@ -902,7 +902,10 @@ func (p *SM2P256Point) p256ScalarMult(scalar *p256OrdElement) {
 
 	p256Select(&t0, &precomp, sel)
 	p256NegCond(&t0.y, sign)
-	p256PointAddAsm(&t1, p, &t0)
+	// t0 = p when scalar = N - 6
+	pointsEqual := p256PointAddAsm(&t1, p, &t0)
+	p256PointDoubleAsm(&t2, p)
+	p256MovCond(&t1, &t2, &t1, pointsEqual)
 	p256MovCond(&t1, &t1, p, sel)
 	p256MovCond(p, &t1, &t0, zero)
 }

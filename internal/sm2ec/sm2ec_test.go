@@ -227,6 +227,9 @@ func TestScalarMult(t *testing.T) {
 	t.Run("1", func(t *testing.T) {
 		checkScalar(t, big.NewInt(1).FillBytes(make([]byte, byteLen)))
 	})
+	t.Run("N-6", func(t *testing.T) {
+		checkScalar(t, new(big.Int).Sub(sm2n, big.NewInt(6)).Bytes())
+	})
 	t.Run("N-1", func(t *testing.T) {
 		checkScalar(t, new(big.Int).Sub(sm2n, big.NewInt(1)).Bytes())
 	})
@@ -248,10 +251,15 @@ func TestScalarMult(t *testing.T) {
 			checkScalar(t, s.FillBytes(make([]byte, byteLen)))
 		})
 	}
-	// Test N+1...N+32 since they risk overlapping with precomputed table values
+	for i := 0; i <= 64; i++ {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			checkScalar(t, big.NewInt(int64(i)).FillBytes(make([]byte, byteLen)))
+		})
+	}
+	// Test N-64...N+64 since they risk overlapping with precomputed table values
 	// in the final additions.
-	for i := int64(2); i <= 32; i++ {
-		t.Run(fmt.Sprintf("N+%d", i), func(t *testing.T) {
+	for i := int64(-64); i <= 64; i++ {
+		t.Run(fmt.Sprintf("N%+d", i), func(t *testing.T) {
 			checkScalar(t, new(big.Int).Add(sm2n, big.NewInt(i)).Bytes())
 		})
 	}
