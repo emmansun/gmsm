@@ -2,6 +2,7 @@ package sm2ec
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -14,6 +15,7 @@ var r0 = bigFromHex("010000000000000000")
 var sm2Prime = bigFromHex("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF")
 var sm2n = bigFromHex("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123")
 var nistP256Prime = bigFromDecimal("115792089210356248762697446949407573530086143415290314195533631308867097853951")
+var nistP256N = bigFromDecimal("115792089210356248762697446949407573529996955224135760342422259061068512044369")
 
 func generateMontgomeryDomain(in *big.Int, p *big.Int) *big.Int {
 	tmp := new(big.Int)
@@ -237,6 +239,9 @@ func TestScalarMult(t *testing.T) {
 	t.Run("N+1", func(t *testing.T) {
 		checkScalar(t, new(big.Int).Add(sm2n, big.NewInt(1)).Bytes())
 	})
+	t.Run("N+58", func(t *testing.T) {
+		checkScalar(t, new(big.Int).Add(sm2n, big.NewInt(58)).Bytes())
+	})
 	t.Run("all1s", func(t *testing.T) {
 		s := new(big.Int).Lsh(big.NewInt(1), uint(bitLen))
 		s.Sub(s, big.NewInt(1))
@@ -256,6 +261,7 @@ func TestScalarMult(t *testing.T) {
 			checkScalar(t, big.NewInt(int64(i)).FillBytes(make([]byte, byteLen)))
 		})
 	}
+	
 	// Test N-64...N+64 since they risk overlapping with precomputed table values
 	// in the final additions.
 	for i := int64(-64); i <= 64; i++ {
@@ -263,11 +269,34 @@ func TestScalarMult(t *testing.T) {
 			checkScalar(t, new(big.Int).Add(sm2n, big.NewInt(i)).Bytes())
 		})
 	}
+	
 }
 
 func fatalIfErr(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func BenchmarkScalarBaseMult(b *testing.B) {
+	p := NewSM2P256Point().SetGenerator()
+	scalar := make([]byte, 32)
+	rand.Read(scalar)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		p.ScalarBaseMult(scalar)
+	}
+}
+
+func BenchmarkScalarMult(b *testing.B) {
+	p := NewSM2P256Point().SetGenerator()
+	scalar := make([]byte, 32)
+	rand.Read(scalar)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		p.ScalarMult(p, scalar)
 	}
 }

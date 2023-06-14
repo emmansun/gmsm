@@ -356,13 +356,13 @@ func p256OrdLittleToBig(res *[32]byte, in *p256OrdElement)
 // p256Table is a table of the first 16 multiples of a point. Points are stored
 // at an index offset of -1 so [8]P is at index 7, P is at 0, and [16]P is at 15.
 // [0]P is the point at infinity and it's not stored.
-type p256Table [16]SM2P256Point
+type p256Table [32]SM2P256Point
 
 // p256Select sets res to the point at index idx in the table.
-// idx must be in [0, 15]. It executes in constant time.
+// idx must be in [0, limit-1]. It executes in constant time.
 //
 //go:noescape
-func p256Select(res *SM2P256Point, table *p256Table, idx int)
+func p256Select(res *SM2P256Point, table *p256Table, idx, limit int)
 
 // p256AffinePoint is a point in affine coordinates (x, y). x and y are still
 // Montgomery domain elements. The point can't be the point at infinity.
@@ -416,14 +416,29 @@ func p256PointAddAsm(res, in1, in2 *SM2P256Point) int
 //go:noescape
 func p256PointDoubleAsm(res, in *SM2P256Point)
 
-// Point doubling 5 times. in can be the point at infinity.
+// Point doubling 6 times. in can be the point at infinity.
 //
 //go:noescape
-func p256PointDouble5TimesAsm(res, in *SM2P256Point)
+func p256PointDouble6TimesAsm(res, in *SM2P256Point)
 
 // p256OrdElement is a P-256 scalar field element in [0, ord(G)-1] in the
 // Montgomery domain (with R 2²⁵⁶) as four uint64 limbs in little-endian order.
 type p256OrdElement [4]uint64
+
+// p256OrdReduce ensures s is in the range [0, ord(G)-1].
+func p256OrdReduce(s *p256OrdElement) {
+	// Since 2 * ord(G) > 2²⁵⁶, we can just conditionally subtract ord(G),
+	// keeping the result if it doesn't underflow.
+	t0, b := bits.Sub64(s[0], 0x53bbf40939d54123, 0)
+	t1, b := bits.Sub64(s[1], 0x7203df6b21c6052b, b)
+	t2, b := bits.Sub64(s[2], 0xffffffffffffffff, b)
+	t3, b := bits.Sub64(s[3], 0xfffffffeffffffff, b)
+	tMask := b - 1 // zero if subtraction underflowed
+	s[0] ^= (t0 ^ s[0]) & tMask
+	s[1] ^= (t1 ^ s[1]) & tMask
+	s[2] ^= (t2 ^ s[2]) & tMask
+	s[3] ^= (t3 ^ s[3]) & tMask
+}
 
 // Add sets q = p1 + p2, and returns q. The points may overlap.
 func (q *SM2P256Point) Add(r1, r2 *SM2P256Point) *SM2P256Point {
@@ -454,7 +469,7 @@ func (r *SM2P256Point) ScalarBaseMult(scalar []byte) (*SM2P256Point, error) {
 	}
 	scalarReversed := new(p256OrdElement)
 	p256OrdBigToLittle(scalarReversed, toElementArray(scalar))
-
+	p256OrdReduce(scalarReversed)
 	r.p256BaseMult(scalarReversed)
 	return r, nil
 }
@@ -468,7 +483,7 @@ func (r *SM2P256Point) ScalarMult(q *SM2P256Point, scalar []byte) (*SM2P256Point
 	}
 	scalarReversed := new(p256OrdElement)
 	p256OrdBigToLittle(scalarReversed, toElementArray(scalar))
-
+	p256OrdReduce(scalarReversed)
 	r.Set(q).p256ScalarMult(scalarReversed)
 	return r, nil
 }
@@ -804,10 +819,14 @@ func (p *SM2P256Point) p256BaseMult(scalar *p256OrdElement) {
 	zero := sel
 
 	for i := 1; i < 43; i++ {
-		if index < 192 {
-			wvalue = ((scalar[index/64] >> (index % 64)) + (scalar[index/64+1] << (64 - (index % 64)))) & 0x7f
+		if index >= 192 {
+			wvalue = (scalar[3] >> (index & 63)) & 0x7f
+		} else if index >= 128 {
+			wvalue = ((scalar[2] >> (index & 63)) + (scalar[3] << (64 - (index & 63)))) & 0x7f
+		} else if index >= 64 {
+			wvalue = ((scalar[1] >> (index & 63)) + (scalar[2] << (64 - (index & 63)))) & 0x7f
 		} else {
-			wvalue = (scalar[index/64] >> (index % 64)) & 0x7f
+			wvalue = ((scalar[0] >> (index & 63)) + (scalar[1] << (64 - (index & 63)))) & 0x7f
 		}
 		index += 6
 		sel, sign = boothW6(uint(wvalue))
@@ -822,90 +841,88 @@ func (p *SM2P256Point) p256BaseMult(scalar *p256OrdElement) {
 
 func (p *SM2P256Point) p256ScalarMult(scalar *p256OrdElement) {
 	// precomp is a table of precomputed points that stores powers of p
-	// from p^1 to p^16.
+	// from p^1 to p^32.
 	var precomp p256Table
-	var t0, t1, t2, t3 SM2P256Point
+	var t0, t1 SM2P256Point
 
 	// Prepare the table
 	precomp[0] = *p // 1
 
-	p256PointDoubleAsm(&t0, p)
-	p256PointDoubleAsm(&t1, &t0)
-	p256PointDoubleAsm(&t2, &t1)
-	p256PointDoubleAsm(&t3, &t2)
-	precomp[1] = t0  // 2
-	precomp[3] = t1  // 4
-	precomp[7] = t2  // 8
-	precomp[15] = t3 // 16
+	p256PointDoubleAsm(&precomp[1], p)             //2
+	p256PointAddAsm(&precomp[2], &precomp[1], p)   //3
+	p256PointDoubleAsm(&precomp[3], &precomp[1])   //4
+	p256PointAddAsm(&precomp[4], &precomp[3], p)   //5
+	p256PointDoubleAsm(&precomp[5], &precomp[2])   //6
+	p256PointAddAsm(&precomp[6], &precomp[5], p)   //7
+	p256PointDoubleAsm(&precomp[7], &precomp[3])   //8
+	p256PointAddAsm(&precomp[8], &precomp[7], p)   //9
+	p256PointDoubleAsm(&precomp[9], &precomp[4])   //10
+	p256PointAddAsm(&precomp[10], &precomp[9], p)  //11
+	p256PointDoubleAsm(&precomp[11], &precomp[5])  //12
+	p256PointAddAsm(&precomp[12], &precomp[11], p) //13
+	p256PointDoubleAsm(&precomp[13], &precomp[6])  //14
+	p256PointAddAsm(&precomp[14], &precomp[13], p) //15
+	p256PointDoubleAsm(&precomp[15], &precomp[7])  //16
 
-	p256PointAddAsm(&t0, &t0, p)
-	p256PointAddAsm(&t1, &t1, p)
-	p256PointAddAsm(&t2, &t2, p)
-	precomp[2] = t0 // 3
-	precomp[4] = t1 // 5
-	precomp[8] = t2 // 9
-
-	p256PointDoubleAsm(&t0, &t0)
-	p256PointDoubleAsm(&t1, &t1)
-	precomp[5] = t0 // 6
-	precomp[9] = t1 // 10
-
-	p256PointAddAsm(&t2, &t0, p)
-	p256PointAddAsm(&t1, &t1, p)
-	precomp[6] = t2  // 7
-	precomp[10] = t1 // 11
-
-	p256PointDoubleAsm(&t0, &t0)
-	p256PointDoubleAsm(&t2, &t2)
-	precomp[11] = t0 // 12
-	precomp[13] = t2 // 14
-
-	p256PointAddAsm(&t0, &t0, p)
-	p256PointAddAsm(&t2, &t2, p)
-	precomp[12] = t0 // 13
-	precomp[14] = t2 // 15
+	p256PointAddAsm(&precomp[16], &precomp[15], p) //17
+	p256PointDoubleAsm(&precomp[17], &precomp[8])  //18
+	p256PointAddAsm(&precomp[18], &precomp[17], p) //19
+	p256PointDoubleAsm(&precomp[19], &precomp[9])  //20
+	p256PointAddAsm(&precomp[20], &precomp[19], p) //21
+	p256PointDoubleAsm(&precomp[21], &precomp[10]) //22
+	p256PointAddAsm(&precomp[22], &precomp[21], p) //23
+	p256PointDoubleAsm(&precomp[23], &precomp[11]) //24
+	p256PointAddAsm(&precomp[24], &precomp[23], p) //25
+	p256PointDoubleAsm(&precomp[25], &precomp[12]) //26
+	p256PointAddAsm(&precomp[26], &precomp[25], p) //27
+	p256PointDoubleAsm(&precomp[27], &precomp[13]) //28
+	p256PointAddAsm(&precomp[28], &precomp[27], p) //29
+	p256PointDoubleAsm(&precomp[29], &precomp[14]) //30
+	p256PointAddAsm(&precomp[30], &precomp[29], p) //31
+	p256PointDoubleAsm(&precomp[31], &precomp[15]) //32
 
 	// Start scanning the window from top bit
-	index := uint(254)
+	index := uint(251)
 	var sel, sign int
 
-	wvalue := (scalar[index/64] >> (index % 64)) & 0x3f
-	sel, _ = boothW5(uint(wvalue))
+	wvalue := (scalar[index/64] >> (index % 64)) & 0x7f
+	sel, _ = boothW6(uint(wvalue))
 
-	p256Select(p, &precomp, sel)
+	p256Select(p, &precomp, sel, 32)
 	zero := sel
 
-	for index > 4 {
-		index -= 5
+	for index > 5 {
+		index -= 6
 
-		p256PointDouble5TimesAsm(p, p)
+		p256PointDouble6TimesAsm(p, p)
 
-		if index < 192 {
-			wvalue = ((scalar[index/64] >> (index % 64)) + (scalar[index/64+1] << (64 - (index % 64)))) & 0x3f
+		if index >= 192 {
+			wvalue = (scalar[3] >> (index & 63)) & 0x7f
+		} else if index >= 128 {
+			wvalue = ((scalar[2] >> (index & 63)) + (scalar[3] << (64 - (index & 63)))) & 0x7f
+		} else if index >= 64 {
+			wvalue = ((scalar[1] >> (index & 63)) + (scalar[2] << (64 - (index & 63)))) & 0x7f
 		} else {
-			wvalue = (scalar[index/64] >> (index % 64)) & 0x3f
+			wvalue = ((scalar[0] >> (index & 63)) + (scalar[1] << (64 - (index & 63)))) & 0x7f
 		}
 
-		sel, sign = boothW5(uint(wvalue))
+		sel, sign = boothW6(uint(wvalue))
 
-		p256Select(&t0, &precomp, sel)
+		p256Select(&t0, &precomp, sel, 32)
 		p256NegCond(&t0.y, sign)
 		p256PointAddAsm(&t1, p, &t0)
 		p256MovCond(&t1, &t1, p, sel)
 		p256MovCond(p, &t1, &t0, zero)
 		zero |= sel
 	}
-	p256PointDouble5TimesAsm(p, p)
+	p256PointDouble6TimesAsm(p, p)
 
-	wvalue = (scalar[0] << 1) & 0x3f
-	sel, sign = boothW5(uint(wvalue))
+	wvalue = (scalar[0] << 1) & 0x7f
+	sel, sign = boothW6(uint(wvalue))
 
-	p256Select(&t0, &precomp, sel)
+	p256Select(&t0, &precomp, sel, 32)
 	p256NegCond(&t0.y, sign)
-	// t0 = p when scalar = N - 6
-	pointsEqual := p256PointAddAsm(&t1, p, &t0)
-	p256PointDoubleAsm(&t2, p)
-	p256MovCond(&t1, &t2, &t1, pointsEqual)
+	p256PointAddAsm(&t1, p, &t0)
 	p256MovCond(&t1, &t1, p, sel)
 	p256MovCond(p, &t1, &t0, zero)
 }

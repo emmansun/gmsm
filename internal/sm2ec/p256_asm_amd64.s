@@ -152,13 +152,9 @@ move_avx2:
 	VPANDN (32*1)(x_ptr), Y12, Y1
 	VPANDN (32*2)(x_ptr), Y12, Y2
 
-	VMOVDQU (32*0)(y_ptr), Y3
-	VMOVDQU (32*1)(y_ptr), Y4
-	VMOVDQU (32*2)(y_ptr), Y5
-
-	VPAND Y12, Y3, Y3
-	VPAND Y12, Y4, Y4
-	VPAND Y12, Y5, Y5
+	VPAND (32*0)(y_ptr), Y12, Y3
+	VPAND (32*1)(y_ptr), Y12, Y4
+	VPAND (32*2)(y_ptr), Y12, Y5
 
 	VPXOR Y3, Y0, Y0
 	VPXOR Y4, Y1, Y1
@@ -963,7 +959,7 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 
 	RET
 /* ---------------------------------------*/
-// func p256Select(res *SM2P256Point, table *p256Table, idx int)
+// func p256Select(res *SM2P256Point, table *p256Table, idx, limit int)
 TEXT ·p256Select(SB),NOSPLIT,$0
 	//MOVQ idx+16(FP),AX
 	MOVQ table+8(FP),DI
@@ -984,7 +980,7 @@ TEXT ·p256Select(SB),NOSPLIT,$0
 	PXOR X3, X3
 	PXOR X4, X4
 	PXOR X5, X5
-	MOVQ $16, AX
+	MOVQ limit+24(FP),AX
 
 	MOVOU X15, X13
 
@@ -1035,7 +1031,7 @@ select_avx2:
 	MOVL idx+16(FP), X14     // x14 = idx
 	VPBROADCASTD X14, Y14
 
-	MOVQ $16, AX
+	MOVQ limit+24(FP),AX
 	VMOVDQU Y15, Y13
 
 	VPXOR Y0, Y0, Y0
@@ -1047,15 +1043,11 @@ loop_select_avx2:
 		VPADDD Y15, Y13, Y13
 		VPCMPEQD Y14, Y12, Y12
 
-		VMOVDQU (32*0)(DI), Y3
-		VMOVDQU (32*1)(DI), Y4
-		VMOVDQU (32*2)(DI), Y5
+		VPAND (32*0)(DI), Y12, Y3
+		VPAND (32*1)(DI), Y12, Y4
+		VPAND (32*2)(DI), Y12, Y5
 
 		ADDQ $(32*3), DI
-
-		VPAND Y12, Y3, Y3
-		VPAND Y12, Y4, Y4
-		VPAND Y12, Y5, Y5
 
 		VPXOR Y3, Y0, Y0
 		VPXOR Y4, Y1, Y1
@@ -1163,22 +1155,17 @@ loop_select_base_avx2:
 		VPADDD Y15, Y13, Y13
 		VPCMPEQD Y14, Y12, Y12
 
-		VMOVDQU (32*0)(DI), Y2
-		VMOVDQU (32*1)(DI), Y3
-		VMOVDQU (32*2)(DI), Y4
-		VMOVDQU (32*3)(DI), Y5
-
-		ADDQ $(32*4), DI
-
-		VPAND Y12, Y2, Y2
-		VPAND Y12, Y3, Y3
+		VPAND (32*0)(DI), Y12, Y2
+		VPAND (32*1)(DI), Y12, Y3
 
 		VMOVDQU Y13, Y12
 		VPADDD Y15, Y13, Y13
 		VPCMPEQD Y14, Y12, Y12
 
-		VPAND Y12, Y4, Y4
-		VPAND Y12, Y5, Y5
+		VPAND (32*2)(DI), Y12, Y4
+		VPAND (32*3)(DI), Y12, Y5
+
+		ADDQ $(32*4), DI
 
 		VPXOR Y2, Y0, Y0
 		VPXOR Y3, Y1, Y1
@@ -3097,10 +3084,6 @@ pointaddaffine_avx2:
 
 	p256PointAddAffineInline()
 	// The result is not valid if (sel == 0), conditional choose
-	VMOVDQU xout(32*0), Y0
-	VMOVDQU yout(32*0), Y1
-	VMOVDQU zout(32*0), Y2
-
 	MOVL BX, X6
 	MOVL CX, X7
 
@@ -3116,17 +3099,13 @@ pointaddaffine_avx2:
 	VMOVDQU Y6, Y15
 	VPANDN Y9, Y15, Y15
 
-	VMOVDQU x1in(32*0), Y9
-	VMOVDQU y1in(32*0), Y10
-	VMOVDQU z1in(32*0), Y11
+	VPAND xout(32*0), Y15, Y0
+	VPAND yout(32*0), Y15, Y1
+	VPAND zout(32*0), Y15, Y2
 
-	VPAND Y15, Y0, Y0
-	VPAND Y15, Y1, Y1
-	VPAND Y15, Y2, Y2
-
-	VPAND Y6, Y9, Y9
-	VPAND Y6, Y10, Y10
-	VPAND Y6, Y11, Y11
+	VPAND x1in(32*0), Y6, Y9
+	VPAND y1in(32*0), Y6, Y10
+	VPAND z1in(32*0), Y6, Y11
 
 	VPXOR Y9, Y0, Y0
 	VPXOR Y10, Y1, Y1
@@ -3136,17 +3115,13 @@ pointaddaffine_avx2:
 	VPCMPEQD Y9, Y9, Y9
 	VPANDN Y9, Y7, Y15
 
-	VMOVDQU x2in(32*0), Y9
-	VMOVDQU y2in(32*0), Y10
-	VMOVDQU p256one<>+0x00(SB), Y11
-
 	VPAND Y15, Y0, Y0
 	VPAND Y15, Y1, Y1
 	VPAND Y15, Y2, Y2
 
-	VPAND Y7, Y9, Y9
-	VPAND Y7, Y10, Y10
-	VPAND Y7, Y11, Y11
+	VPAND x2in(32*0), Y7, Y9
+	VPAND y2in(32*0), Y7, Y10
+	VPAND p256one<>+0x00(SB), Y7, Y11
 
 	VPXOR Y9, Y0, Y0
 	VPXOR Y10, Y1, Y1
@@ -3622,8 +3597,8 @@ TEXT ·p256PointDoubleAsm(SB),NOSPLIT,$256-16
 	calY()                  \
 	storeTmpY()             \
 
-//func p256PointDouble5TimesAsm(res, in *SM2P256Point)
-TEXT ·p256PointDouble5TimesAsm(SB),NOSPLIT,$256-16
+//func p256PointDouble6TimesAsm(res, in *SM2P256Point)
+TEXT ·p256PointDouble6TimesAsm(SB),NOSPLIT,$256-16
 	// Move input to stack in order to free registers
 	MOVQ res+0(FP), AX
 	MOVQ in+8(FP), BX
@@ -3632,7 +3607,8 @@ TEXT ·p256PointDouble5TimesAsm(SB),NOSPLIT,$256-16
 	// Store pointer to result
 	MOVQ AX, rptr
 
-	// Begin point double 1-4 rounds
+	// Begin point double 1-5 rounds
+	p256PointDoubleRound()
 	p256PointDoubleRound()
 	p256PointDoubleRound()
 	p256PointDoubleRound()

@@ -291,8 +291,9 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 
 	RET
 /* ---------------------------------------*/
-// func p256Select(res *SM2P256Point, table *p256Table, idx int)
+// func p256Select(res *SM2P256Point, table *p256Table, idx, limit int)
 TEXT ·p256Select(SB),NOSPLIT,$0
+	MOVD	limit+24(FP), const3
 	MOVD	idx+16(FP), const0
 	MOVD	table+8(FP), b_ptr
 	MOVD	res+0(FP), res_ptr
@@ -334,7 +335,7 @@ loop_select:
 		CSEL	EQ, acc2, t2, t2
 		CSEL	EQ, acc3, t3, t3
 
-		CMP	$16, const1
+		CMP	const3, const1
 		BNE	loop_select
 
 	STP	(x0, x1), 0*16(res_ptr)
@@ -1619,7 +1620,8 @@ TEXT ·p256PointDouble5TimesAsm(SB),NOSPLIT,$136-16
 	CALL	sm2P256Subinternal<>(SB)
 	STx(y3out)
 
-	// Begin point double rounds 2 - 5
+	// Begin point double rounds 2 - 6
+	p256PointDoubleRound()
 	p256PointDoubleRound()
 	p256PointDoubleRound()
 	p256PointDoubleRound()
