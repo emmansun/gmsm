@@ -293,7 +293,7 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 /* ---------------------------------------*/
 // func p256Select(res *SM2P256Point, table *p256Table, idx, limit int)
 TEXT ·p256Select(SB),NOSPLIT,$0
-	MOVD	limit+24(FP), const3
+	MOVD	limit+24(FP), a_ptr
 	MOVD	idx+16(FP), const0
 	MOVD	table+8(FP), b_ptr
 	MOVD	res+0(FP), res_ptr
@@ -335,7 +335,7 @@ loop_select:
 		CSEL	EQ, acc2, t2, t2
 		CSEL	EQ, acc3, t3, t3
 
-		CMP	const3, const1
+		CMP	a_ptr, const1
 		BNE	loop_select
 
 	STP	(x0, x1), 0*16(res_ptr)
