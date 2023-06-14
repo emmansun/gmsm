@@ -1529,8 +1529,8 @@ TEXT ·p256PointDoubleAsm(SB),NOSPLIT,$136-16
 	CALL	sm2P256Subinternal<>(SB) \
 	STx(y3out)                       \
 
-//func p256PointDoubleAsm(res, in *SM2P256Point)
-TEXT ·p256PointDouble5TimesAsm(SB),NOSPLIT,$136-16
+//func p256PointDouble6TimesAsm(res, in *SM2P256Point)
+TEXT ·p256PointDouble6TimesAsm(SB),NOSPLIT,$136-16
 	MOVD	res+0(FP), res_ptr
 	MOVD	in+8(FP), a_ptr
 
