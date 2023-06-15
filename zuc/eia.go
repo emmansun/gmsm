@@ -98,14 +98,33 @@ func blockGeneric(m *ZUC128Mac, p []byte) {
 	t64 = uint64(m.t) << 32
 	for len(p) >= chunk {
 		m.genKeywords(m.k0[4:])
-		for i := 0; i < 4; i++ {
-			k64 = uint64(m.k0[i])<<32 | uint64(m.k0[i+1])
-			w := binary.BigEndian.Uint32(p[i*4:])
-			for j := 0; j < 32; j++ {
-				t64 ^= ^(uint64(w>>31) - 1) & k64
-				w <<= 1
-				k64 <<= 1
-			}
+		k64 = uint64(m.k0[0])<<32 | uint64(m.k0[1])
+		w := binary.BigEndian.Uint32(p[0:4])
+		for j := 0; j < 32; j++ {
+			t64 ^= ^(uint64(w>>31) - 1) & k64
+			w <<= 1
+			k64 <<= 1
+		}
+		k64 = uint64(m.k0[1])<<32 | uint64(m.k0[2])
+		w = binary.BigEndian.Uint32(p[4:8])
+		for j := 0; j < 32; j++ {
+			t64 ^= ^(uint64(w>>31) - 1) & k64
+			w <<= 1
+			k64 <<= 1
+		}
+		k64 = uint64(m.k0[2])<<32 | uint64(m.k0[3])
+		w = binary.BigEndian.Uint32(p[8:12])
+		for j := 0; j < 32; j++ {
+			t64 ^= ^(uint64(w>>31) - 1) & k64
+			w <<= 1
+			k64 <<= 1
+		}
+		k64 = uint64(m.k0[3])<<32 | uint64(m.k0[4])
+		w = binary.BigEndian.Uint32(p[12:16])
+		for j := 0; j < 32; j++ {
+			t64 ^= ^(uint64(w>>31) - 1) & k64
+			w <<= 1
+			k64 <<= 1
 		}
 		copy(m.k0[:4], m.k0[4:])
 		p = p[chunk:]

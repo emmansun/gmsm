@@ -62,7 +62,7 @@ var zuc256_d0 = [16]byte{
 	0x40, 0x40, 0x40, 0x40, 0x40, 0x52, 0x10, 0x30,
 }
 
-var zuc256_d = [][16]byte{
+var zuc256_d = [3][16]byte{
 	{
 		0x22, 0x2F, 0x25, 0x2A, 0x6D, 0x40, 0x40, 0x40,
 		0x40, 0x40, 0x40, 0x40, 0x40, 0x52, 0x10, 0x30,
@@ -113,15 +113,16 @@ func (s *zucState32) f32() uint32 {
 	return w
 }
 
-func rotateLeft31(x uint32, k int) uint32 {
-	return (x<<k | x>>(31-k)) & 0x7FFFFFFF
-}
+/*
+	func rotateLeft31(x uint32, k int) uint32 {
+		return (x<<k | x>>(31-k)) & 0x7FFFFFFF
+	}
 
-func add31(x, y uint32) uint32 {
-	resut := x + y
-	return (resut & 0x7FFFFFFF) + (resut >> 31)
-}
-
+	func add31(x, y uint32) uint32 {
+		resut := x + y
+		return (resut & 0x7FFFFFFF) + (resut >> 31)
+	}
+*/
 func (s *zucState32) enterInitMode(w uint32) {
 	v := uint64(s.lfsr[15])<<15 + uint64(s.lfsr[13])<<17 + uint64(s.lfsr[10])<<21 + uint64(s.lfsr[4])<<20 + uint64(s.lfsr[0])<<8 + uint64(s.lfsr[0]) + uint64(w)
 	v = (v & 0x7FFFFFFF) + (v >> 31)
@@ -146,12 +147,27 @@ func makeFieldValue4(a, b, c, d uint32) uint32 {
 }
 
 func (s *zucState32) loadKeyIV16(key, iv []byte) {
-	for i := 0; i < 16; i++ {
-		s.lfsr[i] = makeFieldValue3(uint32(key[i]), kd[i], uint32(iv[i]))
-	}
+	s.lfsr[15] = makeFieldValue3(uint32(key[15]), kd[15], uint32(iv[15]))
+	s.lfsr[0] = makeFieldValue3(uint32(key[0]), kd[0], uint32(iv[0]))
+	s.lfsr[1] = makeFieldValue3(uint32(key[1]), kd[1], uint32(iv[1]))
+	s.lfsr[2] = makeFieldValue3(uint32(key[2]), kd[2], uint32(iv[2]))
+	s.lfsr[3] = makeFieldValue3(uint32(key[3]), kd[3], uint32(iv[3]))
+	s.lfsr[4] = makeFieldValue3(uint32(key[4]), kd[4], uint32(iv[4]))
+	s.lfsr[5] = makeFieldValue3(uint32(key[5]), kd[5], uint32(iv[5]))
+	s.lfsr[6] = makeFieldValue3(uint32(key[6]), kd[6], uint32(iv[6]))
+	s.lfsr[7] = makeFieldValue3(uint32(key[7]), kd[7], uint32(iv[7]))
+	s.lfsr[8] = makeFieldValue3(uint32(key[8]), kd[8], uint32(iv[8]))
+	s.lfsr[9] = makeFieldValue3(uint32(key[9]), kd[9], uint32(iv[9]))
+	s.lfsr[10] = makeFieldValue3(uint32(key[10]), kd[10], uint32(iv[10]))
+	s.lfsr[11] = makeFieldValue3(uint32(key[11]), kd[11], uint32(iv[11]))
+	s.lfsr[12] = makeFieldValue3(uint32(key[12]), kd[12], uint32(iv[12]))
+	s.lfsr[13] = makeFieldValue3(uint32(key[13]), kd[13], uint32(iv[13]))
+	s.lfsr[14] = makeFieldValue3(uint32(key[14]), kd[14], uint32(iv[14]))
 }
 
 func (s *zucState32) loadKeyIV32(key, iv, d []byte) {
+	_ = iv[22]
+	_ = key[31]
 	iv17 := iv[17] >> 2
 	iv18 := ((iv[17] & 0x3) << 4) | (iv[18] >> 4)
 	iv19 := ((iv[18] & 0xf) << 2) | (iv[19] >> 6)
@@ -160,6 +176,7 @@ func (s *zucState32) loadKeyIV32(key, iv, d []byte) {
 	iv22 := ((iv[20] & 0x3) << 4) | (iv[21] >> 4)
 	iv23 := ((iv[21] & 0xf) << 2) | (iv[22] >> 6)
 	iv24 := iv[22] & 0x3f
+	s.lfsr[15] = makeFieldValue4(uint32(key[15]), uint32(d[15]|(key[31]&0x0f)), uint32(key[30]), uint32(key[29]))
 	s.lfsr[0] = makeFieldValue4(uint32(key[0]), uint32(d[0]), uint32(key[21]), uint32(key[16]))
 	s.lfsr[1] = makeFieldValue4(uint32(key[1]), uint32(d[1]), uint32(key[22]), uint32(key[17]))
 	s.lfsr[2] = makeFieldValue4(uint32(key[2]), uint32(d[2]), uint32(key[23]), uint32(key[18]))
@@ -175,7 +192,6 @@ func (s *zucState32) loadKeyIV32(key, iv, d []byte) {
 	s.lfsr[12] = makeFieldValue4(uint32(key[12]), uint32(d[12]|iv24), uint32(iv[7]), uint32(iv[14]))
 	s.lfsr[13] = makeFieldValue4(uint32(key[13]), uint32(d[13]), uint32(iv[15]), uint32(iv[8]))
 	s.lfsr[14] = makeFieldValue4(uint32(key[14]), uint32(d[14]|(key[31]>>4)), uint32(iv[16]), uint32(iv[9]))
-	s.lfsr[15] = makeFieldValue4(uint32(key[15]), uint32(d[15]|(key[31]&0x0f)), uint32(key[30]), uint32(key[29]))
 }
 
 func newZUCState(key, iv []byte) (*zucState32, error) {
@@ -220,4 +236,12 @@ func (s *zucState32) genKeywords(words []uint32) {
 		return
 	}
 	genKeyStream(words, s)
+}
+
+func genKeyStreamRev32(keyStream []byte, pState *zucState32) {
+	for len(keyStream) >= 4 {
+		z := genKeyword(pState)
+		binary.BigEndian.PutUint32(keyStream, z)
+		keyStream = keyStream[4:]
+	}
 }

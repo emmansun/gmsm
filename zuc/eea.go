@@ -28,22 +28,15 @@ func NewEEACipher(key []byte, count, bearer, direction uint32) (cipher.Stream, e
 func xorKeyStreamGeneric(c *zucState32, dst, src []byte) {
 	words := (len(src) + 3) / 4
 	rounds := words / RoundWords
-	var keyWords [RoundWords]uint32
 	var keyBytes [RoundWords * 4]byte
 	for i := 0; i < rounds; i++ {
-		c.genKeywords(keyWords[:])
-		for j := 0; j < RoundWords; j++ {
-			binary.BigEndian.PutUint32(keyBytes[j*4:], keyWords[j])
-		}
+		genKeyStreamRev32(keyBytes[:], c)
 		subtle.XORBytes(dst, src, keyBytes[:])
 		dst = dst[RoundWords*4:]
 		src = src[RoundWords*4:]
 	}
 	if rounds*RoundWords < words {
-		c.genKeywords(keyWords[:words-rounds*RoundWords])
-		for j := 0; j < words-rounds*RoundWords; j++ {
-			binary.BigEndian.PutUint32(keyBytes[j*4:], keyWords[j])
-		}
+		genKeyStreamRev32(keyBytes[:4*(words-rounds*RoundWords)], c)
 		subtle.XORBytes(dst, src, keyBytes[:])
 	}
 }
