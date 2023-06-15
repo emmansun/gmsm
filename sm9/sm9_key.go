@@ -264,7 +264,7 @@ func (priv *SignPrivateKey) MasterPublic() *SignMasterPublicKey {
 
 // SetMasterPublicKey bind the sign master public key to it.
 func (priv *SignPrivateKey) SetMasterPublicKey(pub *SignMasterPublicKey) {
-	if priv.SignMasterPublicKey.MasterPublicKey == nil {
+	if priv.SignMasterPublicKey == nil || priv.SignMasterPublicKey.MasterPublicKey == nil {
 		priv.SignMasterPublicKey = pub
 	}
 }
@@ -538,7 +538,7 @@ func (priv *EncryptPrivateKey) MasterPublic() *EncryptMasterPublicKey {
 
 // SetMasterPublicKey bind the encrypt master public key to it.
 func (priv *EncryptPrivateKey) SetMasterPublicKey(pub *EncryptMasterPublicKey) {
-	if priv.EncryptMasterPublicKey.MasterPublicKey == nil {
+	if priv.EncryptMasterPublicKey == nil || priv.EncryptMasterPublicKey.MasterPublicKey == nil {
 		priv.EncryptMasterPublicKey = pub
 	}
 }
