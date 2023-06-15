@@ -3607,14 +3607,14 @@ TEXT ·p256PointDouble6TimesAsm(SB),NOSPLIT,$256-16
 	// Store pointer to result
 	MOVQ AX, rptr
 
-	// Begin point double 1-5 rounds
+	// point double 1-5 rounds
 	p256PointDoubleRound()
 	p256PointDoubleRound()
 	p256PointDoubleRound()
 	p256PointDoubleRound()
 	p256PointDoubleRound()
 
-	// Begin point double 5
+	// last point double round
 	lastP256PointDouble()
 
 	RET
