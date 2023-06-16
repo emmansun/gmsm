@@ -24,7 +24,7 @@ type G1 struct {
 	p *curvePoint
 }
 
-//Gen1 is the generator of G1.
+// Gen1 is the generator of G1.
 var Gen1 = &G1{curveGen}
 
 var g1GeneratorTable *[32 * 2]curvePointTable
@@ -37,12 +37,42 @@ func (g *G1) generatorTable() *[32 * 2]curvePointTable {
 		for i := 0; i < 32*2; i++ {
 			g1GeneratorTable[i][0] = &curvePoint{}
 			g1GeneratorTable[i][0].Set(base)
-			for j := 1; j < 15; j += 2 {
-				g1GeneratorTable[i][j] = &curvePoint{}
-				g1GeneratorTable[i][j].Double(g1GeneratorTable[i][j/2])
-				g1GeneratorTable[i][j+1] = &curvePoint{}
-				g1GeneratorTable[i][j+1].Add(g1GeneratorTable[i][j], base)
-			}
+
+			g1GeneratorTable[i][1] = &curvePoint{}
+			g1GeneratorTable[i][1].Double(g1GeneratorTable[i][0])
+			g1GeneratorTable[i][2] = &curvePoint{}
+			g1GeneratorTable[i][2].Add(g1GeneratorTable[i][1], base)
+
+			g1GeneratorTable[i][3] = &curvePoint{}
+			g1GeneratorTable[i][3].Double(g1GeneratorTable[i][1])
+			g1GeneratorTable[i][4] = &curvePoint{}
+			g1GeneratorTable[i][4].Add(g1GeneratorTable[i][3], base)
+
+			g1GeneratorTable[i][5] = &curvePoint{}
+			g1GeneratorTable[i][5].Double(g1GeneratorTable[i][2])
+			g1GeneratorTable[i][6] = &curvePoint{}
+			g1GeneratorTable[i][6].Add(g1GeneratorTable[i][5], base)
+
+			g1GeneratorTable[i][7] = &curvePoint{}
+			g1GeneratorTable[i][7].Double(g1GeneratorTable[i][3])
+			g1GeneratorTable[i][8] = &curvePoint{}
+			g1GeneratorTable[i][8].Add(g1GeneratorTable[i][7], base)
+
+			g1GeneratorTable[i][9] = &curvePoint{}
+			g1GeneratorTable[i][9].Double(g1GeneratorTable[i][4])
+			g1GeneratorTable[i][10] = &curvePoint{}
+			g1GeneratorTable[i][10].Add(g1GeneratorTable[i][9], base)
+
+			g1GeneratorTable[i][11] = &curvePoint{}
+			g1GeneratorTable[i][11].Double(g1GeneratorTable[i][5])
+			g1GeneratorTable[i][12] = &curvePoint{}
+			g1GeneratorTable[i][12].Add(g1GeneratorTable[i][11], base)
+
+			g1GeneratorTable[i][13] = &curvePoint{}
+			g1GeneratorTable[i][13].Double(g1GeneratorTable[i][6])
+			g1GeneratorTable[i][14] = &curvePoint{}
+			g1GeneratorTable[i][14].Add(g1GeneratorTable[i][13], base)
+
 			base.Double(base)
 			base.Double(base)
 			base.Double(base)
@@ -229,6 +259,7 @@ func (e *G1) MarshalCompressed() []byte {
 	e.p.MakeAffine()
 	temp := &gfP{}
 	montDecode(temp, &e.p.y)
+	
 	temp.Marshal(ret[1:])
 	ret[0] = (ret[numBytes] & 1) | 2
 	montDecode(temp, &e.p.x)

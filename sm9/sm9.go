@@ -49,22 +49,27 @@ const (
 	ENC_TYPE_CFB encryptType = 8
 )
 
-//hash implements H1(Z,n) or H2(Z,n) in sm9 algorithm.
+// hash implements H1(Z,n) or H2(Z,n) in sm9 algorithm.
 func hash(z []byte, h hashMode) *bigmod.Nat {
 	md := sm3.New()
 	var ha [64]byte
 	var countBytes [4]byte
 	var ct uint32 = 1
 
-	for i := 0; i < 2; i++ {
-		binary.BigEndian.PutUint32(countBytes[:], ct)
-		md.Write([]byte{byte(h)})
-		md.Write(z)
-		md.Write(countBytes[:])
-		copy(ha[i*sm3.Size:], md.Sum(nil))
-		ct++
-		md.Reset()
-	}
+	binary.BigEndian.PutUint32(countBytes[:], ct)
+	md.Write([]byte{byte(h)})
+	md.Write(z)
+	md.Write(countBytes[:])
+	copy(ha[:], md.Sum(nil))
+	ct++
+	md.Reset()
+
+	binary.BigEndian.PutUint32(countBytes[:], ct)
+	md.Write([]byte{byte(h)})
+	md.Write(z)
+	md.Write(countBytes[:])
+	copy(ha[sm3.Size:], md.Sum(nil))
+
 	k := new(big.Int).SetBytes(ha[:40])
 	kNat := bigmod.NewNat().SetBig(k)
 	kNat = bigmod.NewNat().ModNat(kNat, orderMinus1)
@@ -469,6 +474,8 @@ func Decrypt(priv *EncryptPrivateKey, uid, ciphertext []byte, opts EncrypterOpts
 		return nil, ErrDecryption
 	}
 
+	_ = c3c2[sm3.Size] // bounds check elimination hint
+	c3 := c3c2[:sm3.Size]
 	c2 := c3c2[sm3.Size:]
 	key1Len := opts.GetKeySize(c2)
 
@@ -476,8 +483,8 @@ func Decrypt(priv *EncryptPrivateKey, uid, ciphertext []byte, opts EncrypterOpts
 	if err != nil {
 		return nil, err
 	}
-
-	return decrypt(c, key[:key1Len], key[key1Len:], c2, c3c2[:sm3.Size], opts)
+	_ = key[key1Len] // bounds check elimination hint
+	return decrypt(c, key[:key1Len], key[key1Len:], c2, c3, opts)
 }
 
 func decrypt(cipher *bn256.G1, key1, key2, c2, c3 []byte, opts EncrypterOpts) ([]byte, error) {
@@ -532,6 +539,7 @@ func DecryptASN1(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error
 		return nil, err
 	}
 
+	_ = key[key1Len] // bounds check elimination hint
 	return decrypt(c, key[:key1Len], key[key1Len:], c2Bytes, c3Bytes, opts)
 }
 

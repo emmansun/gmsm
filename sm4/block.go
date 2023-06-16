@@ -4,7 +4,6 @@ package sm4
 
 import (
 	"encoding/binary"
-	"math/bits"
 )
 
 // Encrypt one block from src into dst, using the expanded key xk.
@@ -164,7 +163,8 @@ func t(in uint32) uint32 {
 	b |= uint32(sbox[(in>>16)&0xff]) << 16
 	b |= uint32(sbox[(in>>24)&0xff]) << 24
 
-	return b ^ bits.RotateLeft32(b, 2) ^ bits.RotateLeft32(b, 10) ^ bits.RotateLeft32(b, 18) ^ bits.RotateLeft32(b, 24)
+	// L
+	return b ^ (b<<2 | b>>30) ^ (b<<10 | b>>22) ^ (b<<18 | b>>14) ^ (b<<24 | b>>8)
 }
 
 // T'
@@ -176,7 +176,8 @@ func t2(in uint32) uint32 {
 	b |= uint32(sbox[(in>>16)&0xff]) << 16
 	b |= uint32(sbox[(in>>24)&0xff]) << 24
 
-	return b ^ bits.RotateLeft32(b, 13) ^ bits.RotateLeft32(b, 23)
+	// L2
+	return b ^ (b<<13 | b>>19) ^ (b<<23 | b>>9)
 }
 
 func precompute_t(in uint32) uint32 {

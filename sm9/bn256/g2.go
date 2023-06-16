@@ -26,12 +26,42 @@ func (g *G2) generatorTable() *[32 * 2]twistPointTable {
 		for i := 0; i < 32*2; i++ {
 			g2GeneratorTable[i][0] = &twistPoint{}
 			g2GeneratorTable[i][0].Set(base)
-			for j := 1; j < 15; j += 2 {
-				g2GeneratorTable[i][j] = &twistPoint{}
-				g2GeneratorTable[i][j].Double(g2GeneratorTable[i][j/2])
-				g2GeneratorTable[i][j+1] = &twistPoint{}
-				g2GeneratorTable[i][j+1].Add(g2GeneratorTable[i][j], base)
-			}
+
+			g2GeneratorTable[i][1] = &twistPoint{}
+			g2GeneratorTable[i][1].Double(g2GeneratorTable[i][0])
+			g2GeneratorTable[i][2] = &twistPoint{}
+			g2GeneratorTable[i][2].Add(g2GeneratorTable[i][1], base)
+
+			g2GeneratorTable[i][3] = &twistPoint{}
+			g2GeneratorTable[i][3].Double(g2GeneratorTable[i][1])
+			g2GeneratorTable[i][4] = &twistPoint{}
+			g2GeneratorTable[i][4].Add(g2GeneratorTable[i][3], base)
+
+			g2GeneratorTable[i][5] = &twistPoint{}
+			g2GeneratorTable[i][5].Double(g2GeneratorTable[i][2])
+			g2GeneratorTable[i][6] = &twistPoint{}
+			g2GeneratorTable[i][6].Add(g2GeneratorTable[i][5], base)
+
+			g2GeneratorTable[i][7] = &twistPoint{}
+			g2GeneratorTable[i][7].Double(g2GeneratorTable[i][3])
+			g2GeneratorTable[i][8] = &twistPoint{}
+			g2GeneratorTable[i][8].Add(g2GeneratorTable[i][7], base)
+
+			g2GeneratorTable[i][9] = &twistPoint{}
+			g2GeneratorTable[i][9].Double(g2GeneratorTable[i][4])
+			g2GeneratorTable[i][10] = &twistPoint{}
+			g2GeneratorTable[i][10].Add(g2GeneratorTable[i][9], base)
+
+			g2GeneratorTable[i][11] = &twistPoint{}
+			g2GeneratorTable[i][11].Double(g2GeneratorTable[i][5])
+			g2GeneratorTable[i][12] = &twistPoint{}
+			g2GeneratorTable[i][12].Add(g2GeneratorTable[i][11], base)
+
+			g2GeneratorTable[i][13] = &twistPoint{}
+			g2GeneratorTable[i][13].Double(g2GeneratorTable[i][6])
+			g2GeneratorTable[i][14] = &twistPoint{}
+			g2GeneratorTable[i][14].Add(g2GeneratorTable[i][13], base)
+
 			base.Double(base)
 			base.Double(base)
 			base.Double(base)

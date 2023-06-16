@@ -2,10 +2,12 @@ package sm3
 
 import "math/bits"
 
-var _T = [2]uint32{
-	0x79cc4519,
-	0x7a879d8a,
-}
+
+const (
+	_T0 = 0x79cc4519
+	_T1 = 0x7a879d8a
+)
+
 
 func p1(x uint32) uint32 {
 	return x ^ bits.RotateLeft32(x, 15) ^ bits.RotateLeft32(x, 23)
@@ -39,7 +41,7 @@ func blockGeneric(dig *digest, p []byte) {
 
 		// handle first 12 rounds state
 		for i := 0; i < 12; i++ {
-			ss1 := bits.RotateLeft32(bits.RotateLeft32(a, 12)+e+bits.RotateLeft32(_T[0], i), 7)
+			ss1 := bits.RotateLeft32(bits.RotateLeft32(a, 12)+e+bits.RotateLeft32(_T0, i), 7)
 			ss2 := ss1 ^ bits.RotateLeft32(a, 12)
 			tt1 := a ^ b ^ c + d + ss2 + (w[i] ^ w[i+4])
 			tt2 := e ^ f ^ g + h + ss1 + w[i]
@@ -56,7 +58,7 @@ func blockGeneric(dig *digest, p []byte) {
 		// handle next 4 rounds state
 		for i := 12; i < 16; i++ {
 			w[i+4] = p1(w[i-12]^w[i-5]^bits.RotateLeft32(w[i+1], 15)) ^ bits.RotateLeft32(w[i-9], 7) ^ w[i-2]
-			ss1 := bits.RotateLeft32(bits.RotateLeft32(a, 12)+e+bits.RotateLeft32(_T[0], i), 7)
+			ss1 := bits.RotateLeft32(bits.RotateLeft32(a, 12)+e+bits.RotateLeft32(_T0, i), 7)
 			ss2 := ss1 ^ bits.RotateLeft32(a, 12)
 			tt1 := a ^ b ^ c + d + ss2 + (w[i] ^ w[i+4])
 			tt2 := e ^ f ^ g + h + ss1 + w[i]
@@ -73,7 +75,7 @@ func blockGeneric(dig *digest, p []byte) {
 		// handle last 48 rounds state
 		for i := 16; i < 64; i++ {
 			w[i+4] = p1(w[i-12]^w[i-5]^bits.RotateLeft32(w[i+1], 15)) ^ bits.RotateLeft32(w[i-9], 7) ^ w[i-2]
-			ss1 := bits.RotateLeft32(bits.RotateLeft32(a, 12)+e+bits.RotateLeft32(_T[1], i), 7)
+			ss1 := bits.RotateLeft32(bits.RotateLeft32(a, 12)+e+bits.RotateLeft32(_T1, i), 7)
 			ss2 := ss1 ^ bits.RotateLeft32(a, 12)
 			tt1 := (a & b) | (a & c) | (b & c) + d + ss2 + (w[i] ^ w[i+4])
 			tt2 := (e & f) | (^e & g) + h + ss1 + w[i]
