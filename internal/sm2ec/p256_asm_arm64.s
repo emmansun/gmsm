@@ -387,6 +387,35 @@ loop_select:
 	STP	(y0, y1), 2*16(res_ptr)
 	STP	(y2, y3), 3*16(res_ptr)
 	RET
+
+/* ---------------------------------------*/
+//func p256OrdReduce(s *p256OrdElement)
+TEXT ·p256OrdReduce(SB),NOSPLIT,$0
+	MOVD	s+0(FP), res_ptr
+
+	LDP	p256ord<>+0x00(SB), (const0, const1)
+	LDP	p256ord<>+0x10(SB), (const2, const3)
+
+	LDP	0*16(res_ptr), (acc0, acc1)
+	LDP	1*16(res_ptr), (acc2, acc3)
+	EOR acc4, acc4, acc4
+
+	SUBS	const0, acc0, y0
+	SBCS	const1, acc1, y1
+	SBCS	const2, acc2, y2
+	SBCS	const3, acc3, y3
+	SBCS	$0, acc4, acc4
+
+	CSEL	CS, y0, acc0, x0
+	CSEL	CS, y1, acc1, x1
+	CSEL	CS, y2, acc2, x2
+	CSEL	CS, y3, acc3, x3
+
+	STP	(x0, x1), 0*16(res_ptr)
+	STP	(x2, x3), 1*16(res_ptr)
+
+	RET
+
 /* ---------------------------------------*/
 // func p256OrdSqr(res, in *p256OrdElement, n int)
 TEXT ·p256OrdSqr(SB),NOSPLIT,$0

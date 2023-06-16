@@ -353,6 +353,11 @@ func p256OrdBigToLittle(res *p256OrdElement, in *[32]byte)
 //go:noescape
 func p256OrdLittleToBig(res *[32]byte, in *p256OrdElement)
 
+// p256OrdReduce ensures s is in the range [0, ord(G)-1].
+//
+//go:noescape
+func p256OrdReduce(s *p256OrdElement)
+
 // p256Table is a table of the first 16 multiples of a point. Points are stored
 // at an index offset of -1 so [8]P is at index 7, P is at 0, and [16]P is at 15.
 // [0]P is the point at infinity and it's not stored.
@@ -424,21 +429,6 @@ func p256PointDouble6TimesAsm(res, in *SM2P256Point)
 // p256OrdElement is a P-256 scalar field element in [0, ord(G)-1] in the
 // Montgomery domain (with R 2²⁵⁶) as four uint64 limbs in little-endian order.
 type p256OrdElement [4]uint64
-
-// p256OrdReduce ensures s is in the range [0, ord(G)-1].
-func p256OrdReduce(s *p256OrdElement) {
-	// Since 2 * ord(G) > 2²⁵⁶, we can just conditionally subtract ord(G),
-	// keeping the result if it doesn't underflow.
-	t0, b := bits.Sub64(s[0], 0x53bbf40939d54123, 0)
-	t1, b := bits.Sub64(s[1], 0x7203df6b21c6052b, b)
-	t2, b := bits.Sub64(s[2], 0xffffffffffffffff, b)
-	t3, b := bits.Sub64(s[3], 0xfffffffeffffffff, b)
-	tMask := b - 1 // zero if subtraction underflowed
-	s[0] ^= (t0 ^ s[0]) & tMask
-	s[1] ^= (t1 ^ s[1]) & tMask
-	s[2] ^= (t2 ^ s[2]) & tMask
-	s[3] ^= (t3 ^ s[3]) & tMask
-}
 
 // Add sets q = p1 + p2, and returns q. The points may overlap.
 func (q *SM2P256Point) Add(r1, r2 *SM2P256Point) *SM2P256Point {

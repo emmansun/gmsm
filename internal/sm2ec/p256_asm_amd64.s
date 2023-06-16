@@ -201,7 +201,29 @@ TEXT ·p256NegCond(SB),NOSPLIT,$0
 
 	RET
 
-#define p256sqrReduction() \
+#define p256PrimReduce(a0, a1, a2, a3, a4, b0, b1, b2, b3, res) \
+	MOVQ a0, b0            \
+	MOVQ a1, b1            \
+	MOVQ a2, b2            \
+	MOVQ a3, b3                        \
+	\ // Subtract p256
+	SUBQ $-1, a0                       \
+	SBBQ p256p<>+0x08(SB), a1          \
+	SBBQ $-1, a2                       \
+	SBBQ p256p<>+0x018(SB), a3         \
+	SBBQ $0, a4                          \
+	\
+	CMOVQCS b0, a0                   \
+	CMOVQCS b1, a1                   \
+	CMOVQCS b2, a2                  \
+	CMOVQCS b3, a3                     \
+	\
+	MOVQ a0, (8*0)(res)            \
+	MOVQ a1, (8*1)(res)            \
+	MOVQ a2, (8*2)(res)            \
+	MOVQ a3, (8*3)(res)            \
+
+#define p256SqrMontReduce() \
 	\ // First reduction step
 	MOVQ acc0, AX           \
 	MOVQ acc0, DX           \
@@ -268,30 +290,7 @@ TEXT ·p256NegCond(SB),NOSPLIT,$0
 	ADCQ acc5, acc1            \
 	ADCQ y_ptr, acc2            \
 	ADCQ x_ptr, acc3            \
-	ADCQ $0, t0            \
-	\
-	MOVQ acc0, acc4            \
-	MOVQ acc1, acc5            \
-	MOVQ acc2, y_ptr            \
-	MOVQ acc3, t1                        \
-	\ // Subtract p256
-	SUBQ $-1, acc0                       \
-	SBBQ p256p<>+0x08(SB), acc1          \
-	SBBQ $-1, acc2                       \
-	SBBQ p256p<>+0x018(SB), acc3         \
-	SBBQ $0, t0                          \
-	\
-	CMOVQCS acc4, acc0                   \
-	CMOVQCS acc5, acc1                   \
-	CMOVQCS y_ptr, acc2                  \
-	CMOVQCS t1, acc3                     \
-	\
-	MOVQ acc0, (8*0)(res_ptr)            \
-	MOVQ acc1, (8*1)(res_ptr)            \
-	MOVQ acc2, (8*2)(res_ptr)            \
-	MOVQ acc3, (8*3)(res_ptr)            \
-	MOVQ res_ptr, x_ptr                  \
-	DECQ BX                              \
+	ADCQ $0, t0                 \
 
 /* ---------------------------------------*/
 // func p256Sqr(res, in *p256Element, n int)
@@ -383,7 +382,10 @@ sqrLoop:
 	ADCQ DX, t1
 	MOVQ t1, x_ptr
 
-	p256sqrReduction()
+	p256SqrMontReduce()
+	p256PrimReduce(acc0, acc1, acc2, acc3, t0, acc4, acc5, y_ptr, t1, res_ptr)
+	MOVQ res_ptr, x_ptr            
+	DECQ BX                              
 	JNE  sqrLoop
 	RET
 	
@@ -448,7 +450,10 @@ sqrBMI2:
 	ADCQ AX, y_ptr
 	ADCQ t1, x_ptr
 
-	p256sqrReduction()
+	p256SqrMontReduce()
+	p256PrimReduce(acc0, acc1, acc2, acc3, t0, acc4, acc5, y_ptr, t1, res_ptr)
+	MOVQ res_ptr, x_ptr            
+	DECQ BX
 	JNE  sqrBMI2
 	RET
 
@@ -657,28 +662,7 @@ TEXT ·p256Mul(SB),NOSPLIT,$0
 	SBBQ AX, acc0
 	SBBQ DX, acc1
 	SBBQ $0, acc2	
-	// Copy result [255:0]
-	MOVQ acc4, x_ptr
-	MOVQ acc5, acc3
-	MOVQ acc0, t0
-	MOVQ acc1, t1
-	// Subtract p256
-	SUBQ $-1, acc4
-	SBBQ p256p<>+0x08(SB), acc5
-	SBBQ $-1, acc0
-	SBBQ p256p<>+0x018(SB), acc1
-	SBBQ $0, acc2
-
-	CMOVQCS x_ptr, acc4
-	CMOVQCS acc3, acc5
-	CMOVQCS t0, acc0
-	CMOVQCS t1, acc1
-
-	MOVQ acc4, (8*0)(res_ptr)
-	MOVQ acc5, (8*1)(res_ptr)
-	MOVQ acc0, (8*2)(res_ptr)
-	MOVQ acc1, (8*3)(res_ptr)
-
+	p256PrimReduce(acc4, acc5, acc0, acc1, acc2, x_ptr, acc3, t0, t1, res_ptr)
 	RET
 
 mulBMI2:
@@ -836,27 +820,7 @@ mulBMI2:
 	SBBQ AX, acc0
 	SBBQ DX, acc1
 	SBBQ $0, acc2	
-	// Copy result [255:0]
-	MOVQ acc4, x_ptr
-	MOVQ acc5, acc3
-	MOVQ acc0, t0
-	MOVQ acc1, t1
-	// Subtract p256
-	SUBQ $-1, acc4
-	SBBQ p256p<>+0x08(SB), acc5
-	SBBQ $-1, acc0
-	SBBQ p256p<>+0x018(SB), acc1
-	SBBQ $0, acc2
-
-	CMOVQCS x_ptr, acc4
-	CMOVQCS acc3, acc5
-	CMOVQCS t0, acc0
-	CMOVQCS t1, acc1
-
-	MOVQ acc4, (8*0)(res_ptr)
-	MOVQ acc5, (8*1)(res_ptr)
-	MOVQ acc0, (8*2)(res_ptr)
-	MOVQ acc1, (8*3)(res_ptr)
+	p256PrimReduce(acc4, acc5, acc0, acc1, acc2, x_ptr, acc3, t0, t1, res_ptr)
 	RET
 
 /* ---------------------------------------*/
@@ -1182,6 +1146,40 @@ loop_select_base_avx2:
 	RET
 
 /* ---------------------------------------*/
+#define p256OrdReduceInline(a0, a1, a2, a3, a4, b0, b1, b2, b3, res) \
+	\// Copy result [255:0]
+	MOVQ a0, b0                    \
+	MOVQ a1, b1                    \
+	MOVQ a2, b2                    \
+	MOVQ a3, b3                    \
+	\// Subtract p256
+	SUBQ p256ord<>+0x00(SB), a0    \
+	SBBQ p256ord<>+0x08(SB) ,a1    \
+	SBBQ p256ord<>+0x10(SB), a2    \
+	SBBQ p256ord<>+0x18(SB), a3    \
+	SBBQ $0, a4                    \
+	\
+	CMOVQCS b0, a0                 \
+	CMOVQCS b1, a1                 \
+	CMOVQCS b2, a2                 \
+	CMOVQCS b3, a3                 \
+	\
+	MOVQ a0, (8*0)(res)            \
+	MOVQ a1, (8*1)(res)            \
+	MOVQ a2, (8*2)(res)            \
+	MOVQ a3, (8*3)(res)            \
+
+//func p256OrdReduce(s *p256OrdElement)
+TEXT ·p256OrdReduce(SB),NOSPLIT,$0
+	MOVQ s+0(FP), res_ptr
+	MOVQ (8*0)(res_ptr), acc0
+	MOVQ (8*1)(res_ptr), acc1
+	MOVQ (8*2)(res_ptr), acc2
+	MOVQ (8*3)(res_ptr), acc3
+	XORQ acc4, acc4
+	p256OrdReduceInline(acc0, acc1, acc2, acc3, acc4, acc5, x_ptr, y_ptr, t0, res_ptr)
+	RET
+
 // func p256OrdMul(res, in1, in2 *p256OrdElement)
 TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	MOVQ res+0(FP), res_ptr
@@ -1432,27 +1430,8 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	SBBQ AX, acc0
 	SBBQ DX, acc1
 	SBBQ $0, acc2
-	// Copy result [255:0]
-	MOVQ acc4, x_ptr
-	MOVQ acc5, acc3
-	MOVQ acc0, t0
-	MOVQ acc1, t1
-	// Subtract p256
-	SUBQ p256ord<>+0x00(SB), acc4
-	SBBQ p256ord<>+0x08(SB) ,acc5
-	SBBQ p256ord<>+0x10(SB), acc0
-	SBBQ p256ord<>+0x18(SB), acc1
-	SBBQ $0, acc2
 
-	CMOVQCS x_ptr, acc4
-	CMOVQCS acc3, acc5
-	CMOVQCS t0, acc0
-	CMOVQCS t1, acc1
-
-	MOVQ acc4, (8*0)(res_ptr)
-	MOVQ acc5, (8*1)(res_ptr)
-	MOVQ acc0, (8*2)(res_ptr)
-	MOVQ acc1, (8*3)(res_ptr)
+	p256OrdReduceInline(acc4, acc5, acc0, acc1, acc2, x_ptr, acc3, t0, t1, res_ptr)
 
 	RET
 
@@ -1649,27 +1628,7 @@ ordMulBMI2:
 	SBBQ DX, acc1
 	SBBQ $0, acc2
 
-	// Copy result [255:0]
-	MOVQ acc4, x_ptr
-	MOVQ acc5, acc3
-	MOVQ acc0, t0
-	MOVQ acc1, t1
-	// Subtract p256
-	SUBQ p256ord<>+0x00(SB), acc4
-	SBBQ p256ord<>+0x08(SB) ,acc5
-	SBBQ p256ord<>+0x10(SB), acc0
-	SBBQ p256ord<>+0x18(SB), acc1
-	SBBQ $0, acc2
-
-	CMOVQCS x_ptr, acc4
-	CMOVQCS acc3, acc5
-	CMOVQCS t0, acc0
-	CMOVQCS t1, acc1
-
-	MOVQ acc4, (8*0)(res_ptr)
-	MOVQ acc5, (8*1)(res_ptr)
-	MOVQ acc0, (8*2)(res_ptr)
-	MOVQ acc1, (8*3)(res_ptr)
+	p256OrdReduceInline(acc4, acc5, acc0, acc1, acc2, x_ptr, acc3, t0, t1, res_ptr)
 
 	RET
 	
@@ -1892,26 +1851,7 @@ ordSqrLoop:
 	ADCQ x_ptr, acc3
 	ADCQ $0, t0
 
-	MOVQ acc0, acc4
-	MOVQ acc1, acc5
-	MOVQ acc2, y_ptr
-	MOVQ acc3, t1
-	// Subtract p256
-	SUBQ p256ord<>+0x00(SB), acc0
-	SBBQ p256ord<>+0x08(SB) ,acc1
-	SBBQ p256ord<>+0x10(SB), acc2
-	SBBQ p256ord<>+0x18(SB), acc3
-	SBBQ $0, t0
-
-	CMOVQCS acc4, acc0
-	CMOVQCS acc5, acc1
-	CMOVQCS y_ptr, acc2
-	CMOVQCS t1, acc3
-
-	MOVQ acc0, (8*0)(res_ptr)
-	MOVQ acc1, (8*1)(res_ptr)
-	MOVQ acc2, (8*2)(res_ptr)
-	MOVQ acc3, (8*3)(res_ptr)
+	p256OrdReduceInline(acc0, acc1, acc2, acc3, t0, acc4, acc5, y_ptr, t1, res_ptr)
 	MOVQ res_ptr, x_ptr
 	DECQ BX
 	JNE ordSqrLoop
@@ -2088,26 +2028,7 @@ ordSqrLoopBMI2:
 	ADCQ x_ptr, acc3
 	ADCQ $0, t0
 
-	MOVQ acc0, acc4
-	MOVQ acc1, acc5
-	MOVQ acc2, y_ptr
-	MOVQ acc3, t1
-	// Subtract p256
-	SUBQ p256ord<>+0x00(SB), acc0
-	SBBQ p256ord<>+0x08(SB) ,acc1
-	SBBQ p256ord<>+0x10(SB), acc2
-	SBBQ p256ord<>+0x18(SB), acc3
-	SBBQ $0, t0
-
-	CMOVQCS acc4, acc0
-	CMOVQCS acc5, acc1
-	CMOVQCS y_ptr, acc2
-	CMOVQCS t1, acc3
-
-	MOVQ acc0, (8*0)(res_ptr)
-	MOVQ acc1, (8*1)(res_ptr)
-	MOVQ acc2, (8*2)(res_ptr)
-	MOVQ acc3, (8*3)(res_ptr)
+	p256OrdReduceInline(acc0, acc1, acc2, acc3, t0, acc4, acc5, y_ptr, t1, res_ptr)
 	MOVQ res_ptr, x_ptr
 	DECQ BX
 	JNE ordSqrLoopBMI2
