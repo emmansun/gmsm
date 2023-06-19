@@ -338,7 +338,7 @@ TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
 	MOVQ dst+8(FP), BX
 	MOVQ src+16(FP), DX
   
-	MOVUPS (DX), t0
+	MOVOU (DX), t0
 	PSHUFB flip_mask<>(SB), t0
 	PSHUFD $1, t0, t1
 	PSHUFD $2, t0, t2
@@ -356,14 +356,12 @@ loop:
 		CMPL CX, $4*32
 		JB loop
 
-	PEXTRD $0, t2, R8
-	PINSRD $1, R8, t3
-	PEXTRD $0, t1, R8
-	PINSRD $2, R8, t3
-	PEXTRD $0, t0, R8
-	PINSRD $3, R8, t3
-	PSHUFB flip_mask<>(SB), t3
-	MOVUPS t3, (BX)
+	PALIGNR $4, t3, t3
+	PALIGNR $4, t3, t2
+	PALIGNR $4, t2, t1
+	PALIGNR $4, t1, t0
+	PSHUFB flip_mask<>(SB), t0
+	MOVOU t0, (BX)
 
 done_sm4:
 	RET

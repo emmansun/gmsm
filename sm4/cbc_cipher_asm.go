@@ -7,7 +7,6 @@ import (
 	"crypto/cipher"
 
 	"github.com/emmansun/gmsm/internal/alias"
-	"github.com/emmansun/gmsm/internal/subtle"
 )
 
 // Assert that sm4CipherAsm implements the cbcEncAble and cbcDecAble interfaces.
@@ -49,6 +48,9 @@ func (x *cbc) BlockSize() int { return BlockSize }
 //go:noescape
 func encryptBlocksChain(xk *uint32, dst, src []byte, iv *byte)
 
+//go:noescape
+func decryptBlocksChain(xk *uint32, dst, src []byte, iv *byte)
+
 func (x *cbc) CryptBlocks(dst, src []byte) {
 	if len(src)%BlockSize != 0 {
 		panic("cipher: input not full blocks")
@@ -76,19 +78,18 @@ func (x *cbc) CryptBlocks(dst, src []byte) {
 	var temp []byte = make([]byte, x.b.blocksSize)
 	var batchSrc []byte = make([]byte, x.b.blocksSize+BlockSize)
 
+	decKeyPtr := &x.b.dec[0]
 	for start > 0 {
-		x.b.DecryptBlocks(temp, src[start:end])
-		subtle.XORBytes(temp, temp, src[start-BlockSize:end-BlockSize])
-		copy(dst[start:], temp)
+		decryptBlocksChain(decKeyPtr, dst[start:end], src[start:end], &src[start-BlockSize])
 		end = start
 		start -= x.b.blocksSize
 	}
 
 	// Handle remain first blocks
-	copy(batchSrc[BlockSize:], src[:end])
-	x.b.DecryptBlocks(temp, batchSrc[BlockSize:])
 	copy(batchSrc, x.iv)
-	subtle.XORBytes(dst, temp[:end], batchSrc)
+	copy(batchSrc[BlockSize:], src[:end])
+	decryptBlocksChain(decKeyPtr, temp, batchSrc[BlockSize:], &batchSrc[0])
+	copy(dst, temp[:end])
 
 	// Set the new iv to the first block we copied earlier.
 	x.iv, x.tmp = x.tmp, x.iv

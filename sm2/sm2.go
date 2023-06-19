@@ -883,7 +883,7 @@ type sm2Curve struct {
 	nMinus2  []byte
 }
 
-// pointFromAffine is used to convert the PublicKey to a nistec Point.
+// pointFromAffine is used to convert the PublicKey to a sm2 Point.
 func (curve *sm2Curve) pointFromAffine(x, y *big.Int) (p *_sm2ec.SM2P256Point, err error) {
 	bitSize := curve.curve.Params().BitSize
 	// Reject values that would not get correctly encoded.
@@ -902,7 +902,7 @@ func (curve *sm2Curve) pointFromAffine(x, y *big.Int) (p *_sm2ec.SM2P256Point, e
 	return curve.newPoint().SetBytes(buf)
 }
 
-// pointToAffine is used to convert a nistec Point to a PublicKey.
+// pointToAffine is used to convert a sm2 Point to a PublicKey.
 func (curve *sm2Curve) pointToAffine(p *_sm2ec.SM2P256Point) (x, y *big.Int, err error) {
 	out := p.Bytes()
 	if len(out) == 1 && out[0] == 0 {

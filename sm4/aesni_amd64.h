@@ -209,7 +209,7 @@ GLOBL fk_mask<>(SB), RODATA, $16
 // - t2: 128 bits register for data
 // - t3: 128 bits register for data
 #define SM4_SINGLE_ROUND(index, RK, IND, x, y, z, t0, t1, t2, t3)  \ 
-	PINSRD $0, (index * 4)(RK)(IND*1), x;             \
+	MOVL (index * 4)(RK)(IND*1), x;                   \
 	PXOR t1, x;                                       \
 	PXOR t2, x;                                       \
 	PXOR t3, x;                                       \

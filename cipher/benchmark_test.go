@@ -32,7 +32,7 @@ func BenchmarkSM4CBCEncrypt1K(b *testing.B) {
 	benchmarkCBCEncrypt1K(b, c)
 }
 
-func benchmarkSM4CBCDecrypt1K(b *testing.B, block cipher.Block) {
+func benchmarkCBCDecrypt1K(b *testing.B, block cipher.Block) {
 	buf := make([]byte, 1024)
 	b.SetBytes(int64(len(buf)))
 
@@ -46,13 +46,13 @@ func benchmarkSM4CBCDecrypt1K(b *testing.B, block cipher.Block) {
 func BenchmarkAESCBCDecrypt1K(b *testing.B) {
 	var key [16]byte
 	c, _ := aes.NewCipher(key[:])
-	benchmarkSM4CBCDecrypt1K(b, c)
+	benchmarkCBCDecrypt1K(b, c)
 }
 
 func BenchmarkSM4CBCDecrypt1K(b *testing.B) {
 	var key [16]byte
 	c, _ := sm4.NewCipher(key[:])
-	benchmarkSM4CBCDecrypt1K(b, c)
+	benchmarkCBCDecrypt1K(b, c)
 }
 
 func benchmarkStream(b *testing.B, block cipher.Block, mode func(cipher.Block, []byte) cipher.Stream, buf []byte) {
