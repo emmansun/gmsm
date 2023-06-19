@@ -87,6 +87,8 @@ done_sm4:
 #undef ptxLen
 #undef rkSave
 
+#define XTMP7 V7
+
 // func decryptBlocksChain(xk *uint32, dst, src []byte, iv *byte)
 TEXT ·decryptBlocksChain(SB),NOSPLIT,$0
 	LOAD_SM4_AESNI_CONSTS()
