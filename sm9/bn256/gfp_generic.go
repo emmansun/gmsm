@@ -30,8 +30,8 @@ func gfpNeg(c, a *gfP) {
 	for i, pi := range p2 {
 		c[i], carry = bits.Sub64(pi, a[i], carry)
 	}
-	// Is this required?
-	//gfpCarry(c, 0)
+	// really required
+	gfpCarry(c, 0)
 }
 
 func gfpAdd(c, a, b *gfP) {
