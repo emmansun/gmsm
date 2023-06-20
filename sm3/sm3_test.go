@@ -142,3 +142,133 @@ func BenchmarkHash8K(b *testing.B) {
 func BenchmarkHash8K_SH256(b *testing.B) {
 	benchmarkSize(benchSH256, b, 8192)
 }
+
+/*
+func round1(a, b, c, d, e, f, g, h string, i int) {
+	fmt.Printf("//Round %d\n", i+1)
+	fmt.Printf("tt2 = bits.RotateLeft32(%s, 12)\n", a)
+	fmt.Printf("ss1 = bits.RotateLeft32(tt2+%s+_K[%d], 7)\n", e, i)
+	fmt.Printf("%s = %s ^ %s ^ %s + %s + (ss1 ^ tt2) + (w[%d] ^ w[%d])\n", d, a, b, c, d, i, i+4)
+	fmt.Printf("tt2 = %s ^ %s ^ %s + %s + ss1 + w[%d]\n", e, f, g, h, i)
+	fmt.Printf("%s = bits.RotateLeft32(%s, 9)\n", b, b)
+	fmt.Printf("%s = bits.RotateLeft32(%s, 19)\n", f, f)
+	fmt.Printf("%s = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)\n\n", h)
+}
+
+func round2(a, b, c, d, e, f, g, h string, i int) {
+	fmt.Printf("//Round %d\n", i+1)
+	fmt.Printf("w[%d] = p1(w[%d]^w[%d]^bits.RotateLeft32(w[%d], 15)) ^ bits.RotateLeft32(w[%d], 7) ^ w[%d]\n", i+4, i-12, i-5, i+1, i-9, i-2)
+	fmt.Printf("tt2 = bits.RotateLeft32(%s, 12)\n", a)
+	fmt.Printf("ss1 = bits.RotateLeft32(tt2+%s+_K[%d], 7)\n", e, i)
+	fmt.Printf("%s = %s ^ %s ^ %s + %s + (ss1 ^ tt2) + (w[%d] ^ w[%d])\n", d, a, b, c, d, i, i+4)
+	fmt.Printf("tt2 = %s ^ %s ^ %s + %s + ss1 + w[%d]\n", e, f, g, h, i)
+	fmt.Printf("%s = bits.RotateLeft32(%s, 9)\n", b, b)
+	fmt.Printf("%s = bits.RotateLeft32(%s, 19)\n", f, f)
+	fmt.Printf("%s = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)\n\n", h)
+}
+
+func round3(a, b, c, d, e, f, g, h string, i int) {
+	fmt.Printf("//Round %d\n", i+1)
+	fmt.Printf("w[%d] = p1(w[%d]^w[%d]^bits.RotateLeft32(w[%d], 15)) ^ bits.RotateLeft32(w[%d], 7) ^ w[%d]\n", i+4, i-12, i-5, i+1, i-9, i-2)
+	fmt.Printf("tt2 = bits.RotateLeft32(%s, 12)\n", a)
+	fmt.Printf("ss1 = bits.RotateLeft32(tt2+%s+_K[%d], 7)\n", e, i)
+	fmt.Printf("%s = (%s & %s) | (%s & %s) | (%s & %s) + %s + (ss1 ^ tt2) + (w[%d] ^ w[%d])\n", d, a, b, a, c, b, c, d, i, i+4)
+	fmt.Printf("tt2 = (%s & %s) | (^%s & %s) + %s + ss1 + w[%d]\n", e, f, e, g, h, i)
+	fmt.Printf("%s = bits.RotateLeft32(%s, 9)\n", b, b)
+	fmt.Printf("%s = bits.RotateLeft32(%s, 19)\n", f, f)
+	fmt.Printf("%s = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)\n\n", h)
+}
+
+func TestGenerateBlock(t *testing.T) {
+	round1("a", "b", "c", "d", "e", "f", "g", "h", 0)
+	round1("d", "a", "b", "c", "h", "e", "f", "g", 1)
+	round1("c", "d", "a", "b", "g", "h", "e", "f", 2)
+	round1("b", "c", "d", "a", "f", "g", "h", "e", 3)
+
+	round1("a", "b", "c", "d", "e", "f", "g", "h", 4)
+	round1("d", "a", "b", "c", "h", "e", "f", "g", 5)
+	round1("c", "d", "a", "b", "g", "h", "e", "f", 6)
+	round1("b", "c", "d", "a", "f", "g", "h", "e", 7)
+
+	round1("a", "b", "c", "d", "e", "f", "g", "h", 8)
+	round1("d", "a", "b", "c", "h", "e", "f", "g", 9)
+	round1("c", "d", "a", "b", "g", "h", "e", "f", 10)
+	round1("b", "c", "d", "a", "f", "g", "h", "e", 11)
+
+	round2("a", "b", "c", "d", "e", "f", "g", "h", 12)
+	round2("d", "a", "b", "c", "h", "e", "f", "g", 13)
+	round2("c", "d", "a", "b", "g", "h", "e", "f", 14)
+	round2("b", "c", "d", "a", "f", "g", "h", "e", 15)
+
+	round3("a", "b", "c", "d", "e", "f", "g", "h", 16)
+	round3("d", "a", "b", "c", "h", "e", "f", "g", 17)
+	round3("c", "d", "a", "b", "g", "h", "e", "f", 18)
+	round3("b", "c", "d", "a", "f", "g", "h", "e", 19)
+
+	round3("a", "b", "c", "d", "e", "f", "g", "h", 20)
+	round3("d", "a", "b", "c", "h", "e", "f", "g", 21)
+	round3("c", "d", "a", "b", "g", "h", "e", "f", 22)
+	round3("b", "c", "d", "a", "f", "g", "h", "e", 23)
+
+	round3("a", "b", "c", "d", "e", "f", "g", "h", 24)
+	round3("d", "a", "b", "c", "h", "e", "f", "g", 25)
+	round3("c", "d", "a", "b", "g", "h", "e", "f", 26)
+	round3("b", "c", "d", "a", "f", "g", "h", "e", 27)
+
+	round3("a", "b", "c", "d", "e", "f", "g", "h", 28)
+	round3("d", "a", "b", "c", "h", "e", "f", "g", 29)
+	round3("c", "d", "a", "b", "g", "h", "e", "f", 30)
+	round3("b", "c", "d", "a", "f", "g", "h", "e", 31)
+
+	round3("a", "b", "c", "d", "e", "f", "g", "h", 32)
+	round3("d", "a", "b", "c", "h", "e", "f", "g", 33)
+	round3("c", "d", "a", "b", "g", "h", "e", "f", 34)
+	round3("b", "c", "d", "a", "f", "g", "h", "e", 35)
+
+	round3("a", "b", "c", "d", "e", "f", "g", "h", 36)
+	round3("d", "a", "b", "c", "h", "e", "f", "g", 37)
+	round3("c", "d", "a", "b", "g", "h", "e", "f", 38)
+	round3("b", "c", "d", "a", "f", "g", "h", "e", 39)
+
+	round3("a", "b", "c", "d", "e", "f", "g", "h", 40)
+	round3("d", "a", "b", "c", "h", "e", "f", "g", 41)
+	round3("c", "d", "a", "b", "g", "h", "e", "f", 42)
+	round3("b", "c", "d", "a", "f", "g", "h", "e", 43)
+
+	round3("a", "b", "c", "d", "e", "f", "g", "h", 44)
+	round3("d", "a", "b", "c", "h", "e", "f", "g", 45)
+	round3("c", "d", "a", "b", "g", "h", "e", "f", 46)
+	round3("b", "c", "d", "a", "f", "g", "h", "e", 47)
+
+	round3("a", "b", "c", "d", "e", "f", "g", "h", 48)
+	round3("d", "a", "b", "c", "h", "e", "f", "g", 49)
+	round3("c", "d", "a", "b", "g", "h", "e", "f", 50)
+	round3("b", "c", "d", "a", "f", "g", "h", "e", 51)
+
+	round3("a", "b", "c", "d", "e", "f", "g", "h", 52)
+	round3("d", "a", "b", "c", "h", "e", "f", "g", 53)
+	round3("c", "d", "a", "b", "g", "h", "e", "f", 54)
+	round3("b", "c", "d", "a", "f", "g", "h", "e", 55)
+
+	round3("a", "b", "c", "d", "e", "f", "g", "h", 56)
+	round3("d", "a", "b", "c", "h", "e", "f", "g", 57)
+	round3("c", "d", "a", "b", "g", "h", "e", "f", 58)
+	round3("b", "c", "d", "a", "f", "g", "h", "e", 59)
+
+	round3("a", "b", "c", "d", "e", "f", "g", "h", 60)
+	round3("d", "a", "b", "c", "h", "e", "f", "g", 61)
+	round3("c", "d", "a", "b", "g", "h", "e", "f", 62)
+	round3("b", "c", "d", "a", "f", "g", "h", "e", 63)
+}
+
+func TestGenerateT(t *testing.T) {
+	for i := 0; i < 16; i++ {
+		fmt.Printf("0x%x, ", bits.RotateLeft32(_T0, i))
+	}
+	fmt.Println()
+	for i := 16; i < 64; i++ {
+		fmt.Printf("0x%x, ", bits.RotateLeft32(_T1, i))
+	}
+	fmt.Println()
+}
+*/
