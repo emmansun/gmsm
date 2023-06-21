@@ -264,7 +264,7 @@ func (table *twistPointTable) Select(p *twistPoint, n uint8) {
 	p.SetInfinity()
 	for i, f := range table {
 		cond := subtle.ConstantTimeByteEq(uint8(i+1), n)
-		p.Select(f, p, cond)
+		twistPointMovCond(p, f, p, cond)
 	}
 }
 

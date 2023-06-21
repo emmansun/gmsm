@@ -272,6 +272,6 @@ func (table *curvePointTable) Select(p *curvePoint, n uint8) {
 	p.SetInfinity()
 	for i, f := range table {
 		cond := subtle.ConstantTimeByteEq(uint8(i+1), n)
-		p.Select(f, p, cond)
+		curvePointMovCond(p, f, p, cond)
 	}
 }
