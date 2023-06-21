@@ -213,7 +213,7 @@ func (table *GTFieldTable) Select(p *GT, n uint8) {
 	p.p.SetOne()
 	for i, f := range table {
 		cond := subtle.ConstantTimeByteEq(uint8(i+1), n)
-		p.p.Select(f.p, p.p, cond)
+		gfP12MovCond(p.p, f.p, p.p, cond)
 	}
 }
 
