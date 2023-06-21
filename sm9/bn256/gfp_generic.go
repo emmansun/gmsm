@@ -30,7 +30,7 @@ func gfpNeg(c, a *gfP) {
 	for i, pi := range p2 {
 		c[i], carry = bits.Sub64(pi, a[i], carry)
 	}
-	// really required
+	// required for "zero", bn256 treat infinity point as valid
 	gfpCarry(c, 0)
 }
 
