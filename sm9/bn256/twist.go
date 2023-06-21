@@ -262,9 +262,9 @@ func (table *twistPointTable) Select(p *twistPoint, n uint8) {
 		panic("sm9: internal error: twistPointTable called with out-of-bounds value")
 	}
 	p.SetInfinity()
-	for i := uint8(1); i < 16; i++ {
-		cond := subtle.ConstantTimeByteEq(i, n)
-		p.Select(table[i-1], p, cond)
+	for i, f := range table {
+		cond := subtle.ConstantTimeByteEq(uint8(i+1), n)
+		p.Select(f, p, cond)
 	}
 }
 

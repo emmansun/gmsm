@@ -322,9 +322,9 @@ func (table *sm2p256Table) Select(p *SM2P256Point, n uint8) {
 		panic("sm2ec: internal error: sm2p256Table called with out-of-bounds value")
 	}
 	p.Set(NewSM2P256Point())
-	for i := uint8(1); i < 16; i++ {
-		cond := subtle.ConstantTimeByteEq(i, n)
-		p.Select(table[i-1], p, cond)
+	for i, f := range table {
+		cond := subtle.ConstantTimeByteEq(uint8(i+1), n)
+		p.Select(f, p, cond)
 	}
 }
 

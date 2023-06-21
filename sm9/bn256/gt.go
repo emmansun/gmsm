@@ -211,9 +211,9 @@ func (table *GTFieldTable) Select(p *GT, n uint8) {
 		panic("sm9: internal error: GTFieldTable called with out-of-bounds value")
 	}
 	p.p.SetOne()
-	for i := uint8(1); i < 16; i++ {
-		cond := subtle.ConstantTimeByteEq(i, n)
-		p.p.Select(table[i-1].p, p.p, cond)
+	for i, f := range table {
+		cond := subtle.ConstantTimeByteEq(uint8(i+1), n)
+		p.p.Select(f.p, p.p, cond)
 	}
 }
 
