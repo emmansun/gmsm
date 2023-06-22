@@ -562,8 +562,8 @@ TEXT ·gfpFromMont(SB),NOSPLIT,$0
 	LDP	·p2+0x00(SB), (const0, const1)
 	LDP	·p2+0x10(SB), (const2, const3)
 
-	LDP	0*16(a_ptr), (x0, x1)
-	LDP	1*16(a_ptr), (x2, x3)
+	LDP	0*16(a_ptr), (acc0, acc1)
+	LDP	1*16(a_ptr), (acc2, acc3)
 	// Only reduce, no multiplications are needed
 	// First reduction step
 	MUL	acc0, hlp1, hlp0
