@@ -173,8 +173,8 @@ func (e *gfP2) Square(a *gfP2) *gfP2 {
 	// Complex squaring algorithm:
 	// (xu+y)² = y^2-2*x^2 + 2*u*x*y
 	tx, ty := &gfP{}, &gfP{}
-	gfpMul(tx, &a.x, &a.x)
-	gfpMul(ty, &a.y, &a.y)
+	gfpSqr(tx, &a.x, 1)
+	gfpSqr(ty, &a.y, 1)
 	gfpSub(ty, ty, tx)
 	gfpSub(ty, ty, tx)
 
@@ -192,8 +192,8 @@ func (e *gfP2) SquareU(a *gfP2) *gfP2 {
 
 	tx, ty := &gfP{}, &gfP{}
 	// tx = a0^2 - 2 * a1^2
-	gfpMul(ty, &a.x, &a.x)
-	gfpMul(tx, &a.y, &a.y)
+	gfpSqr(ty, &a.x, 1)
+	gfpSqr(tx, &a.y, 1)
 	gfpAdd(ty, ty, ty)
 	gfpSub(tx, tx, ty)
 

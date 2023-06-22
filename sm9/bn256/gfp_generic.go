@@ -125,3 +125,14 @@ func gfpMul(c, a, b *gfP) {
 	*c = gfP{T[4], T[5], T[6], T[7]}
 	gfpCarry(c, carry)
 }
+
+func gfpSqr(res, in *gfP, n int) {
+	gfpMul(res, in, in)
+	for i := 1; i < n; i++ {
+		gfpMul(res, res, res)
+	}
+}
+
+func gfpFromMont(res, in *gfP) {
+	gfpMul(res, in, &gfP{1})
+}

@@ -73,8 +73,8 @@ func (e *gfP) Invert(x *gfP) *gfP {
 	var t19 = new(gfP)
 	var t20 = new(gfP)
 
-	t17.Square(x)
-	t15.Square(t17)
+	t17.Square(x, 1)
+	t15.Square(t17, 1)
 	z.Mul(t17, t15)
 	t2.Mul(t15, z)
 	t14.Mul(x, t2)
@@ -100,122 +100,66 @@ func (e *gfP) Invert(x *gfP) *gfP {
 	t17.Mul(z, t18)
 	z.Mul(z, t17)
 	t20.Mul(t13, z)
-	for s := 0; s < 2; s++ {
-		t20.Square(t20)
-	}
+	t20.Square(t20, 2)
 	t20.Mul(x, t20)
-	for s := 0; s < 33; s++ {
-		t20.Square(t20)
-	}
+	t20.Square(t20, 33)
 	t19.Mul(t19, t20)
-	for s := 0; s < 8; s++ {
-		t19.Square(t19)
-	}
+	t19.Square(t19, 8)
 	t19.Mul(t12, t19)
-	for s := 0; s < 9; s++ {
-		t19.Square(t19)
-	}
+	t19.Square(t19, 9)
 	t18.Mul(t18, t19)
-	for s := 0; s < 10; s++ {
-		t18.Square(t18)
-	}
+	t18.Square(t18, 10)
 	t18.Mul(t17, t18)
-	t18.Square(t18)
+	t18.Square(t18, 1)
 	t18.Mul(x, t18)
-	for s := 0; s < 14; s++ {
-		t18.Square(t18)
-	}
+	t18.Square(t18, 14)
 	t17.Mul(t17, t18)
-	for s := 0; s < 5; s++ {
-		t17.Square(t17)
-	}
+	t17.Square(t17, 5)
 	t16.Mul(t16, t17)
-	for s := 0; s < 9; s++ {
-		t16.Square(t16)
-	}
+	t16.Square(t16, 9)
 	t16.Mul(z, t16)
 	t15.Mul(t15, t16)
-	t15.Square(t15)
+	t15.Square(t15, 1)
 	t15.Mul(x, t15)
-	for s := 0; s < 5; s++ {
-		t15.Square(t15)
-	}
+	t15.Square(t15, 5)
 	t14.Mul(t14, t15)
-	for s := 0; s < 9; s++ {
-		t14.Square(t14)
-	}
+	t14.Square(t14, 9)
 	t13.Mul(t13, t14)
-	for s := 0; s < 8; s++ {
-		t13.Square(t13)
-	}
+	t13.Square(t13, 8)
 	t12.Mul(t12, t13)
-	for s := 0; s < 9; s++ {
-		t12.Square(t12)
-	}
+	t12.Square(t12, 9)
 	t12.Mul(t11, t12)
-	for s := 0; s < 9; s++ {
-		t12.Square(t12)
-	}
+	t12.Square(t12, 9)
 	t12.Mul(t5, t12)
-	for s := 0; s < 8; s++ {
-		t12.Square(t12)
-	}
+	t12.Square(t12, 8)
 	t11.Mul(t11, t12)
-	for s := 0; s < 9; s++ {
-		t11.Square(t11)
-	}
+	t11.Square(t11, 9)
 	t10.Mul(t10, t11)
-	for s := 0; s < 8; s++ {
-		t10.Square(t10)
-	}
+	t10.Square(t10, 8)
 	t10.Mul(t2, t10)
-	for s := 0; s < 8; s++ {
-		t10.Square(t10)
-	}
+	t10.Square(t10, 8)
 	t10.Mul(t3, t10)
-	for s := 0; s < 8; s++ {
-		t10.Square(t10)
-	}
+	t10.Square(t10, 8)
 	t9.Mul(t9, t10)
-	for s := 0; s < 7; s++ {
-		t9.Square(t9)
-	}
+	t9.Square(t9, 7)
 	t8.Mul(t8, t9)
-	for s := 0; s < 7; s++ {
-		t8.Square(t8)
-	}
+	t8.Square(t8, 7)
 	t7.Mul(t7, t8)
-	for s := 0; s < 8; s++ {
-		t7.Square(t7)
-	}
+	t7.Square(t7, 8)
 	t6.Mul(t6, t7)
-	for s := 0; s < 6; s++ {
-		t6.Square(t6)
-	}
+	t6.Square(t6, 6)
 	t5.Mul(t5, t6)
-	for s := 0; s < 7; s++ {
-		t5.Square(t5)
-	}
+	t5.Square(t5, 7)
 	t4.Mul(t4, t5)
-	for s := 0; s < 9; s++ {
-		t4.Square(t4)
-	}
+	t4.Square(t4, 9)
 	t3.Mul(t3, t4)
-	for s := 0; s < 7; s++ {
-		t3.Square(t3)
-	}
+	t3.Square(t3, 7)
 	t2.Mul(t2, t3)
-	for s := 0; s < 8; s++ {
-		t2.Square(t2)
-	}
+	t2.Square(t2, 8)
 	t1.Mul(t1, t2)
-	for s := 0; s < 8; s++ {
-		t1.Square(t1)
-	}
+	t1.Square(t1, 8)
 	t0.Mul(t0, t1)
-	for s := 0; s < 8; s++ {
-		t0.Square(t0)
-	}
+	t0.Square(t0, 8)
 	z.Mul(z, t0)
 	return e.Set(z)
 }
@@ -231,7 +175,7 @@ func Sqrt(e, x *gfP) (isSquare bool) {
 	gfpMul(i, i, b)                          // i=2(fb)b
 	gfpSub(i, i, one)                        // i=2(fb)b-1
 	gfpMul(i, candidate, i)                  // i=(fb)(2(fb)b-1)
-	square := new(gfP).Square(i)
+	square := new(gfP).Square(i, 1)
 	if square.Equal(x) != 1 {
 		return false
 	}
@@ -306,8 +250,8 @@ func sqrtCandidate(z, x *gfP) {
 	var t18 = new(gfP)
 	var t19 = new(gfP)
 
-	t18.Square(x)
-	t8.Square(t18)
+	t18.Square(x, 1)
+	t8.Square(t18, 1)
 	t16.Mul(t18, t8)
 	t2.Mul(t8, t16)
 	t14.Mul(x, t2)
@@ -332,120 +276,64 @@ func sqrtCandidate(z, x *gfP) {
 	t8.Mul(t8, t10)
 	t18.Mul(t18, t8)
 	t16.Mul(t16, t18)
-	for s := 0; s < 3; s++ {
-		t19.Square(t19)
-	}
+	t19.Square(t19, 3)
 	t19.Mul(x, t19)
-	for s := 0; s < 33; s++ {
-		t19.Square(t19)
-	}
+	t19.Square(t19, 33)
 	t19.Mul(t15, t19)
-	for s := 0; s < 8; s++ {
-		t19.Square(t19)
-	}
+	t19.Square(t19, 8)
 	t19.Mul(t12, t19)
-	for s := 0; s < 9; s++ {
-		t19.Square(t19)
-	}
+	t19.Square(t19, 9)
 	t18.Mul(t18, t19)
-	for s := 0; s < 10; s++ {
-		t18.Square(t18)
-	}
+	t18.Square(t18, 10)
 	t18.Mul(t16, t18)
-	t18.Square(t18)
+	t18.Square(t18, 1)
 	t18.Mul(x, t18)
-	for s := 0; s < 14; s++ {
-		t18.Square(t18)
-	}
+	t18.Square(t18, 14)
 	t18.Mul(t16, t18)
-	for s := 0; s < 5; s++ {
-		t18.Square(t18)
-	}
+	t18.Square(t18, 5)
 	t17.Mul(t17, t18)
-	for s := 0; s < 9; s++ {
-		t17.Square(t17)
-	}
+	t17.Square(t17, 9)
 	t16.Mul(t16, t17)
-	t16.Square(t16)
+	t16.Square(t16, 1)
 	t15.Mul(t15, t16)
-	for s := 0; s < 5; s++ {
-		t15.Square(t15)
-	}
+	t15.Square(t15, 5)
 	t14.Mul(t14, t15)
-	for s := 0; s < 9; s++ {
-		t14.Square(t14)
-	}
+	t14.Square(t14, 9)
 	t13.Mul(t13, t14)
-	for s := 0; s < 8; s++ {
-		t13.Square(t13)
-	}
+	t13.Square(t13, 8)
 	t12.Mul(t12, t13)
-	for s := 0; s < 9; s++ {
-		t12.Square(t12)
-	}
+	t12.Square(t12, 9)
 	t12.Mul(t11, t12)
-	for s := 0; s < 9; s++ {
-		t12.Square(t12)
-	}
+	t12.Square(t12, 9)
 	t12.Mul(t5, t12)
-	for s := 0; s < 8; s++ {
-		t12.Square(t12)
-	}
+	t12.Square(t12, 8)
 	t11.Mul(t11, t12)
-	for s := 0; s < 9; s++ {
-		t11.Square(t11)
-	}
+	t11.Square(t11, 9)
 	t10.Mul(t10, t11)
-	for s := 0; s < 8; s++ {
-		t10.Square(t10)
-	}
+	t10.Square(t10, 8)
 	t10.Mul(t2, t10)
-	for s := 0; s < 8; s++ {
-		t10.Square(t10)
-	}
+	t10.Square(t10, 8)
 	t10.Mul(t3, t10)
-	for s := 0; s < 8; s++ {
-		t10.Square(t10)
-	}
+	t10.Square(t10, 8)
 	t9.Mul(t9, t10)
-	for s := 0; s < 7; s++ {
-		t9.Square(t9)
-	}
+	t9.Square(t9, 7)
 	t8.Mul(t8, t9)
-	for s := 0; s < 7; s++ {
-		t8.Square(t8)
-	}
+	t8.Square(t8, 7)
 	t7.Mul(t7, t8)
-	for s := 0; s < 8; s++ {
-		t7.Square(t7)
-	}
+	t7.Square(t7, 8)
 	t6.Mul(t6, t7)
-	for s := 0; s < 6; s++ {
-		t6.Square(t6)
-	}
+	t6.Square(t6, 6)
 	t5.Mul(t5, t6)
-	for s := 0; s < 7; s++ {
-		t5.Square(t5)
-	}
+	t5.Square(t5, 7)
 	t4.Mul(t4, t5)
-	for s := 0; s < 9; s++ {
-		t4.Square(t4)
-	}
+	t4.Square(t4, 9)
 	t3.Mul(t3, t4)
-	for s := 0; s < 7; s++ {
-		t3.Square(t3)
-	}
+	t3.Square(t3, 7)
 	t2.Mul(t2, t3)
-	for s := 0; s < 8; s++ {
-		t2.Square(t2)
-	}
+	t2.Square(t2, 8)
 	t1.Mul(t1, t2)
-	for s := 0; s < 8; s++ {
-		t1.Square(t1)
-	}
+	t1.Square(t1, 8)
 	t0.Mul(t0, t1)
-	for s := 0; s < 5; s++ {
-		t0.Square(t0)
-	}
+	t0.Square(t0, 5)
 	z.Mul(z, t0)
 }

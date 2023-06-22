@@ -91,8 +91,8 @@ func (e *gfP) Mul(a, b *gfP) *gfP {
 	return e
 }
 
-func (e *gfP) Square(a *gfP) *gfP {
-	gfpMul(e, a, a)
+func (e *gfP) Square(a *gfP, n int) *gfP {
+	gfpSqr(e, a, n)
 	return e
 }
 
@@ -150,7 +150,7 @@ func (e *gfP) Unmarshal(in []byte) error {
 }
 
 func montEncode(c, a *gfP) { gfpMul(c, a, r2) }
-func montDecode(c, a *gfP) { gfpMul(c, a, &gfP{1}) }
+func montDecode(c, a *gfP) { gfpFromMont(c, a) }
 
 // cmovznzU64 is a single-word conditional move.
 //
