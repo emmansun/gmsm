@@ -660,7 +660,7 @@ TEXT ·gfpFromMont(SB),NOSPLIT,$0
 	ADCS	t0, acc2, acc2
 
 	UMULH	const3, hlp0, hlp0
-	ADC	$0, acc7
+	ADC	$0, hlp0
 
 	ADDS	t1, acc0, acc0
 	ADCS	y0, acc1, acc1
