@@ -12,15 +12,23 @@ import (
 
 var hasBMI2 = cpu.X86.HasBMI2
 
+// Set c = p - a, if c == p, then c = 0
+//
 // go:noescape
 func gfpNeg(c, a *gfP)
 
+// Set c = a + b, if c >= p, then c = c - p
+//
 //go:noescape
 func gfpAdd(c, a, b *gfP)
 
+// Set c = a - b, if c is negative, then c = c + p
+//
 //go:noescape
 func gfpSub(c, a, b *gfP)
 
+// Montgomery multiplication. Sets res = in1 * in2 * R⁻¹ mod p.
+//
 //go:noescape
 func gfpMul(c, a, b *gfP)
 

@@ -7,52 +7,26 @@
 
 ## SM9 current performance:
 
-**SM9 Sign Benchmark**
+**SM9 Sign/Verify/Enc/Dec Benchmark**
 
     goos: windows
     goarch: amd64
     pkg: github.com/emmansun/gmsm/sm9
-    cpu: Intel(R) Core(TM) i5-9500 CPU @ 3.00GHz
-    BenchmarkSign-6   	    1344	    871597 ns/op	   35870 B/op	    1013 allocs/op
+    cpu: Intel(R) Core(TM) i5-8265U CPU @ 1.60GHz
+    BenchmarkSign-8          	    3492	    319540 ns/op	   19752 B/op	     545 allocs/op
+    BenchmarkVerify-8        	     806	   1475192 ns/op	  161320 B/op	    3894 allocs/op
+    BenchmarkEncrypt-8       	    3351	    357549 ns/op	   20971 B/op	     551 allocs/op
+    BenchmarkDecrypt-8       	    1052	   1135588 ns/op	  142868 B/op	    3356 allocs/op
+    BenchmarkDecryptASN1-8   	    1063	   1129712 ns/op	  142888 B/op	    3358 allocs/op
 
-**SM9 Verify Benchmark**
 
-    goos: windows
-    goarch: amd64
-    pkg: github.com/emmansun/gmsm/sm9
-    cpu: Intel(R) Core(TM) i5-9500 CPU @ 3.00GHz
-    BenchmarkVerify-6   	     352	   3331673 ns/op	  237676 B/op	    6283 allocs/op
-
-**SM9 Encrypt(XOR) Benchmark**
+**SM9 Generate User Sign/Encrypt Private Key Benchmark**
 
     goos: windows
     goarch: amd64
     pkg: github.com/emmansun/gmsm/sm9
-    cpu: Intel(R) Core(TM) i5-9500 CPU @ 3.00GHz
-    BenchmarkEncrypt-6   	    1120	    971188 ns/op	   38125 B/op	    1036 allocs/op
-
-**SM9 Decrypt(XOR) Benchmark**
-
-    goos: windows
-    goarch: amd64
-    pkg: github.com/emmansun/gmsm/sm9
-    cpu: Intel(R) Core(TM) i5-9500 CPU @ 3.00GHz
-    BenchmarkDecrypt-6   	     507	   2345492 ns/op	  202360 B/op	    5228 allocs/op
-
-**SM9 Generate User Sign Private Key Benchmark**
-
-    goos: windows
-    goarch: amd64
-    pkg: github.com/emmansun/gmsm/sm9
-    cpu: Intel(R) Core(TM) i5-9500 CPU @ 3.00GHz
-    BenchmarkGenerateSignPrivKey-6   	    8078	    147638 ns/op	    3176 B/op	      47 allocs/op
-
-**SM9 Generate User Encrypt Private Key Benchmark**
-
-    goos: windows
-    goarch: amd64
-    pkg: github.com/emmansun/gmsm/sm9
-    cpu: Intel(R) Core(TM) i5-9500 CPU @ 3.00GHz
-    BenchmarkGenerateEncryptPrivKey-6   	    3445	    326796 ns/op	    3433 B/op	      47 allocs/op
+    cpu: Intel(R) Core(TM) i5-8265U CPU @ 1.60GHz
+    BenchmarkGenerateSignPrivKey-8      	   18608	     65422 ns/op	     944 B/op	      14 allocs/op
+    BenchmarkGenerateEncryptPrivKey-8   	    8486	    151201 ns/op	    1072 B/op	      14 allocs/op
 
 To further improve `Verify()/Decrypt()` performance, need to improve `Pair()` method performance.
