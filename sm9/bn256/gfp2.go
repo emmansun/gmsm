@@ -218,9 +218,9 @@ func (e *gfP2) Invert(a *gfP2) *gfP2 {
 	// See "Implementing cryptographic pairings", M. Scott, section 3.2.
 	// ftp://136.206.11.249/pub/crypto/pairings.pdf
 	t1, t2, t3 := &gfP{}, &gfP{}, &gfP{}
-	gfpMul(t1, &a.x, &a.x)
+	gfpSqr(t1, &a.x, 1)
 	gfpAdd(t3, t1, t1)
-	gfpMul(t2, &a.y, &a.y)
+	gfpSqr(t2, &a.y, 1)
 	gfpAdd(t3, t3, t2)
 
 	inv := &gfP{}

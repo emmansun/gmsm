@@ -78,7 +78,7 @@ func (e *gfP) exp(f *gfP, bits [4]uint64) {
 			if (bits[word]>>bit)&1 == 1 {
 				gfpMul(sum, sum, power)
 			}
-			gfpMul(power, power, power)
+			gfpSqr(power, power, 1)
 		}
 	}
 

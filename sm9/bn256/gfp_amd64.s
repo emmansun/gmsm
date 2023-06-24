@@ -28,19 +28,37 @@
 	MOVQ 16+r, a2 \
 	MOVQ 24+r, a3
 
-#define gfpCarry(a0,a1,a2,a3,a4, b0,b1,b2,b3,b4) \
+#define gfpCarry(a0,a1,a2,a3, b0,b1,b2,b3,b4) \
 	\ // b = a-p
 	MOVQ a0, b0 \
 	MOVQ a1, b1 \
 	MOVQ a2, b2 \
 	MOVQ a3, b3 \
-	MOVQ a4, b4 \
 	\
 	SUBQ ·p2+0(SB), b0 \
 	SBBQ ·p2+8(SB), b1 \
 	SBBQ ·p2+16(SB), b2 \
 	SBBQ ·p2+24(SB), b3 \
 	SBBQ $0, b4 \
+	\
+	\ // if b is negative then return a
+	\ // else return b
+	CMOVQCC b0, a0 \
+	CMOVQCC b1, a1 \
+	CMOVQCC b2, a2 \
+	CMOVQCC b3, a3
+
+#define gfpCarryWithoutCarry(a0,a1,a2,a3, b0,b1,b2,b3) \
+	\ // b = a-p
+	MOVQ a0, b0 \
+	MOVQ a1, b1 \
+	MOVQ a2, b2 \
+	MOVQ a3, b3 \
+	\
+	SUBQ ·p2+0(SB), b0 \
+	SBBQ ·p2+8(SB), b1 \
+	SBBQ ·p2+16(SB), b2 \
+	SBBQ ·p2+24(SB), b3 \
 	\
 	\ // if b is negative then return a
 	\ // else return b
@@ -61,8 +79,7 @@ TEXT ·gfpNeg(SB),0,$0-16
 	SBBQ 16(DI), R10
 	SBBQ 24(DI), R11
 
-	MOVQ $0, AX
-	gfpCarry(R8,R9,R10,R11,AX, R12,R13,R14,CX,BX)
+	gfpCarryWithoutCarry(R8,R9,R10,R11, R12,R13,R14,CX)
 
 	MOVQ c+0(FP), DI
 	storeBlock(R8,R9,R10,R11, 0(DI))
@@ -81,7 +98,7 @@ TEXT ·gfpAdd(SB),0,$0-24
 	ADCQ 24(SI), R11
 	ADCQ $0, R12
 
-	gfpCarry(R8,R9,R10,R11,R12, R13,R14,CX,AX,BX)
+	gfpCarry(R8,R9,R10,R11, R13,R14,CX,AX,R12)
 
 	MOVQ c+0(FP), DI
 	storeBlock(R8,R9,R10,R11, 0(DI))
@@ -306,26 +323,8 @@ TEXT ·gfpMul(SB),0,$0-24
 	ADCQ t1, acc1
 	ADCQ $0, acc2
 	// Copy result [255:0]
-	MOVQ acc4, x_ptr
-	MOVQ acc5, acc3
-	MOVQ acc0, t0
-	MOVQ acc1, t1
-	// Subtract p2
-	SUBQ ·p2+0x00(SB), acc4
-	SBBQ ·p2+0x08(SB) ,acc5
-	SBBQ ·p2+0x10(SB), acc0
-	SBBQ ·p2+0x18(SB), acc1
-	SBBQ $0, acc2
-
-	CMOVQCS x_ptr, acc4
-	CMOVQCS acc3, acc5
-	CMOVQCS t0, acc0
-	CMOVQCS t1, acc1
-
-	MOVQ acc4, (8*0)(res_ptr)
-	MOVQ acc5, (8*1)(res_ptr)
-	MOVQ acc0, (8*2)(res_ptr)
-	MOVQ acc1, (8*3)(res_ptr)
+	gfpCarry(acc4,acc5,acc0,acc1, x_ptr,acc3,t0,t1,acc2)
+	storeBlock(acc4,acc5,acc0,acc1, 0(res_ptr))
 
 	RET
 nobmi2Mul:
@@ -588,26 +587,8 @@ nobmi2Mul:
 	ADCQ DX, acc1
 	ADCQ $0, acc2
 	// Copy result [255:0]
-	MOVQ acc4, x_ptr
-	MOVQ acc5, acc3
-	MOVQ acc0, t0
-	MOVQ acc1, t1
-	// Subtract p2
-	SUBQ ·p2+0x00(SB), acc4
-	SBBQ ·p2+0x08(SB) ,acc5
-	SBBQ ·p2+0x10(SB), acc0
-	SBBQ ·p2+0x18(SB), acc1
-	SBBQ $0, acc2
-
-	CMOVQCS x_ptr, acc4
-	CMOVQCS acc3, acc5
-	CMOVQCS t0, acc0
-	CMOVQCS t1, acc1
-
-	MOVQ acc4, (8*0)(res_ptr)
-	MOVQ acc5, (8*1)(res_ptr)
-	MOVQ acc0, (8*2)(res_ptr)
-	MOVQ acc1, (8*3)(res_ptr)
+	gfpCarry(acc4,acc5,acc0,acc1, x_ptr,acc3,t0,t1,acc2)
+	storeBlock(acc4,acc5,acc0,acc1, 0(res_ptr))
 
 	RET
 
@@ -780,26 +761,9 @@ gfpSqrLoopBMI2:
 	ADCQ x_ptr, acc3
 	ADCQ $0, t0
 	
-	MOVQ acc0, acc4
-	MOVQ acc1, acc5
-	MOVQ acc2, y_ptr
-	MOVQ acc3, t1
-	// Subtract p2
-	SUBQ ·p2+0x00(SB), acc0
-	SBBQ ·p2+0x08(SB) ,acc1
-	SBBQ ·p2+0x10(SB), acc2
-	SBBQ ·p2+0x18(SB), acc3
-	SBBQ $0, t0
+	gfpCarry(acc0,acc1,acc2,acc3, acc4,acc5,y_ptr,t1,t0)
+	storeBlock(acc0,acc1,acc2,acc3, 0(res_ptr))
 
-	CMOVQCS acc4, acc0
-	CMOVQCS acc5, acc1
-	CMOVQCS y_ptr, acc2
-	CMOVQCS t1, acc3
-
-	MOVQ acc0, (8*0)(res_ptr)
-	MOVQ acc1, (8*1)(res_ptr)
-	MOVQ acc2, (8*2)(res_ptr)
-	MOVQ acc3, (8*3)(res_ptr)
 	MOVQ res_ptr, x_ptr
 	DECQ BX
 	JNE gfpSqrLoopBMI2
@@ -1039,26 +1003,8 @@ gfpSqrLoop:
 	ADCQ x_ptr, acc3
 	ADCQ $0, t0
 	
-	MOVQ acc0, acc4
-	MOVQ acc1, acc5
-	MOVQ acc2, y_ptr
-	MOVQ acc3, t1
-	// Subtract p2
-	SUBQ ·p2+0x00(SB), acc0
-	SBBQ ·p2+0x08(SB) ,acc1
-	SBBQ ·p2+0x10(SB), acc2
-	SBBQ ·p2+0x18(SB), acc3
-	SBBQ $0, t0
-
-	CMOVQCS acc4, acc0
-	CMOVQCS acc5, acc1
-	CMOVQCS y_ptr, acc2
-	CMOVQCS t1, acc3
-
-	MOVQ acc0, (8*0)(res_ptr)
-	MOVQ acc1, (8*1)(res_ptr)
-	MOVQ acc2, (8*2)(res_ptr)
-	MOVQ acc3, (8*3)(res_ptr)
+	gfpCarry(acc0,acc1,acc2,acc3, acc4,acc5,y_ptr,t1,t0)
+	storeBlock(acc0,acc1,acc2,acc3, 0(res_ptr))
 	MOVQ res_ptr, x_ptr
 	DECQ BX
 	JNE gfpSqrLoop
@@ -1222,24 +1168,6 @@ TEXT ·gfpFromMont(SB),NOSPLIT,$0
 	ADDQ AX, acc0
 	ADCQ DX, acc1
 
-	MOVQ acc4, x_ptr
-	MOVQ acc5, acc3
-	MOVQ acc0, t0
-	MOVQ acc1, t1
-
-	SUBQ ·p2+0x00(SB), acc4
-	SBBQ ·p2+0x08(SB) ,acc5
-	SBBQ ·p2+0x10(SB), acc0
-	SBBQ ·p2+0x18(SB), acc1
-
-	CMOVQCS x_ptr, acc4
-	CMOVQCS acc3, acc5
-	CMOVQCS t0, acc0
-	CMOVQCS t1, acc1
-
-	MOVQ acc4, (8*0)(res_ptr)
-	MOVQ acc5, (8*1)(res_ptr)
-	MOVQ acc0, (8*2)(res_ptr)
-	MOVQ acc1, (8*3)(res_ptr)
-
+	gfpCarryWithoutCarry(acc4, acc5, acc0, acc1, x_ptr, acc3, t0, t1)
+	storeBlock(acc4,acc5,acc0,acc1, 0(res_ptr))
 	RET

@@ -36,9 +36,25 @@ func Test_gfpBasicOperations(t *testing.T) {
 		t.Errorf("mul not same")
 	}
 
-	gfpMul(ret, ret, ret)
-	if *expectedMul2 != *ret {
+	ret1, ret2 := &gfP{}, &gfP{}
+	gfpMul(ret1, ret, ret)
+	if *ret1 != *expectedMul2 {
 		t.Errorf("mul not same")
+	}
+	gfpMul(ret1, ret1, ret1)
+	gfpSqr(ret2, ret, 2)
+	if *ret1 != *ret2 {
+		t.Errorf("mul/sqr not same")
+	}
+}
+
+func TestFromMont(t *testing.T) {
+	x := fromBigInt(bigFromHex("85AEF3D078640C98597B6027B441A01FF1DD2C190F5E93C454806C11D8806141"))
+	ret1, ret2 := &gfP{}, &gfP{}
+	gfpFromMont(ret1, x)
+	gfpMul(ret2, x, &gfP{1})
+	if *ret1 != *ret2 {
+		t.Errorf("mul/fromMont not same")
 	}
 }
 
@@ -138,5 +154,25 @@ func TestInvert(t *testing.T) {
 	gfpMul(y, x, xInv)
 	if *y != *one {
 		t.Errorf("got %v, expected %v", y, one)
+	}
+}
+
+func BenchmarkGfPMul(b *testing.B) {
+	x := fromBigInt(bigFromHex("9093a2b979e6186f43a9b28d41ba644d533377f2ede8c66b19774bf4a9c7a596"))
+	b.ReportAllocs()
+	b.ResetTimer()
+	ret := &gfP{}
+	for i := 0; i < b.N; i++ {
+		gfpMul(ret, x, x)
+	}
+}
+
+func BenchmarkGfPSqr(b *testing.B) {
+	x := fromBigInt(bigFromHex("9093a2b979e6186f43a9b28d41ba644d533377f2ede8c66b19774bf4a9c7a596"))
+	b.ReportAllocs()
+	b.ResetTimer()
+	ret := &gfP{}
+	for i := 0; i < b.N; i++ {
+		gfpSqr(ret, x, 1)
 	}
 }
