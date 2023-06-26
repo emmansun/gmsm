@@ -569,7 +569,7 @@ ordSqrLoop:
 	// Last reduction step
 	MUL	acc3, hlp1, hlp0
 
-	MUL	const0, hlp0, t0
+	MUL	const0, hlp1, t0
 	ADDS	t0, acc3, acc3
 	UMULH	const0, hlp0, t1
 
