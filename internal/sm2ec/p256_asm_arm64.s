@@ -493,7 +493,7 @@ ordSqrLoop:
 	// First reduction step
 	MUL	acc0, hlp1, hlp0
 
-	MUL	const0, hlp1, t0
+	MUL	const0, hlp0, t0
 	ADDS	t0, acc0, acc0
 	UMULH	const0, hlp0, t1
 
@@ -518,7 +518,7 @@ ordSqrLoop:
 	// Second reduction step
 	MUL	acc1, hlp1, hlp0
 
-	MUL	const0, hlp1, t0
+	MUL	const0, hlp0, t0
 	ADDS	t0, acc1, acc1
 	UMULH	const0, hlp0, t1
 
@@ -543,7 +543,7 @@ ordSqrLoop:
 	// Third reduction step
 	MUL	acc2, hlp1, hlp0
 
-	MUL	const0, hlp1, t0
+	MUL	const0, hlp0, t0
 	ADDS	t0, acc2, acc2
 	UMULH	const0, hlp0, t1
 
@@ -569,7 +569,7 @@ ordSqrLoop:
 	// Last reduction step
 	MUL	acc3, hlp1, hlp0
 
-	MUL	const0, hlp1, t0
+	MUL	const0, hlp0, t0
 	ADDS	t0, acc3, acc3
 	UMULH	const0, hlp0, t1
 
