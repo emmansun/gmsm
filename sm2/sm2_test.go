@@ -395,37 +395,6 @@ func TestSignVerifyLegacy(t *testing.T) {
 	}
 }
 
-// Check that signatures are safe even with a broken entropy source.
-func TestNonceSafety(t *testing.T) {
-	priv, err := GenerateKey(rand.Reader)
-	if err != nil {
-		t.Errorf("failed to generate key")
-	}
-
-	hashed := []byte("testing")
-	r0, s0, err := Sign(zeroReader, &priv.PrivateKey, hashed)
-	if err != nil {
-		t.Errorf("SM2: error signing: %s", err)
-		return
-	}
-
-	hashed = []byte("testing...")
-	r1, s1, err := Sign(zeroReader, &priv.PrivateKey, hashed)
-	if err != nil {
-		t.Errorf("SM2: error signing: %s", err)
-		return
-	}
-
-	if s0.Cmp(s1) == 0 {
-		// This should never happen.
-		t.Error("SM2: the signatures on two different messages were the same")
-	}
-
-	if r0.Cmp(r1) == 0 {
-		t.Error("SM2: the nonce used for two different messages was the same")
-	}
-}
-
 // Check that signatures remain non-deterministic with a functional entropy source.
 func TestINDCCA(t *testing.T) {
 	priv, err := GenerateKey(rand.Reader)

@@ -81,7 +81,7 @@ func Sign(rand io.Reader, priv *ecdsa.PrivateKey, hash []byte) (r, s *big.Int, e
 	return r, s, nil
 }
 
-func signLegacy(priv *PrivateKey, csprng io.Reader, hash []byte) (sig []byte, err error) {
+func signLegacy(priv *PrivateKey, rand io.Reader, hash []byte) (sig []byte, err error) {
 	// See [NSA] 3.4.1
 	c := priv.PublicKey.Curve
 	N := c.Params().N
@@ -92,7 +92,7 @@ func signLegacy(priv *PrivateKey, csprng io.Reader, hash []byte) (sig []byte, er
 	e := hashToInt(hash, c)
 	for {
 		for {
-			k, err = randFieldElement(c, csprng)
+			k, err = randFieldElement(c, rand)
 			if err != nil {
 				return nil, err
 			}

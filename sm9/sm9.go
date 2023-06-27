@@ -10,6 +10,7 @@ import (
 	"math/big"
 
 	"github.com/emmansun/gmsm/internal/bigmod"
+	"github.com/emmansun/gmsm/internal/randutil"
 	"github.com/emmansun/gmsm/internal/subtle"
 	"github.com/emmansun/gmsm/kdf"
 	"github.com/emmansun/gmsm/sm3"
@@ -120,6 +121,10 @@ func randomScalar(rand io.Reader) (k *bigmod.Nat, err error) {
 // Sign signs a hash (which should be the result of hashing a larger message)
 // using the user dsa key. It returns the signature as a pair of h and s.
 // Please use SignASN1 instead.
+//
+// The signature is randomized. Most applications should use [crypto/rand.Reader]
+// as rand. Note that the returned signature does not depend deterministically on
+// the bytes read from rand, and may change between calls and/or between versions.
 func Sign(rand io.Reader, priv *SignPrivateKey, hash []byte) (h *big.Int, s *bn256.G1, err error) {
 	sig, err := SignASN1(rand, priv, hash)
 	if err != nil {
@@ -131,17 +136,26 @@ func Sign(rand io.Reader, priv *SignPrivateKey, hash []byte) (h *big.Int, s *bn2
 // Sign signs digest with user's DSA key, reading randomness from rand. The opts argument
 // is not currently used but, in keeping with the crypto.Signer interface.
 // The result is SM9Signature ASN.1 format.
+//
+// The signature is randomized. Most applications should use [crypto/rand.Reader]
+// as rand. Note that the returned signature does not depend deterministically on
+// the bytes read from rand, and may change between calls and/or between versions.
 func (priv *SignPrivateKey) Sign(rand io.Reader, hash []byte, opts crypto.SignerOpts) ([]byte, error) {
 	return SignASN1(rand, priv, hash)
 }
 
 // SignASN1 signs a hash (which should be the result of hashing a larger message)
 // using the private key, priv. It returns the ASN.1 encoded signature of type SM9Signature.
+//
+// The signature is randomized. Most applications should use [crypto/rand.Reader]
+// as rand. Note that the returned signature does not depend deterministically on
+// the bytes read from rand, and may change between calls and/or between versions.
 func SignASN1(rand io.Reader, priv *SignPrivateKey, hash []byte) ([]byte, error) {
 	var (
 		hNat *bigmod.Nat
 		s    *bn256.G1
 	)
+	randutil.MaybeReadByte(rand)
 	for {
 		r, err := randomScalar(rand)
 		if err != nil {
@@ -272,6 +286,10 @@ func (pub *SignMasterPublicKey) Verify(uid []byte, hid byte, hash, sig []byte) b
 }
 
 // WrapKey generates and wraps key with reciever's uid and system hid, returns generated key and cipher.
+//
+// The rand parameter is used as a source of entropy to ensure that
+// calls this function twice doesn't result in the same key.
+// Most applications should use [crypto/rand.Reader] as random.
 func WrapKey(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, kLen int) (key []byte, cipher *bn256.G1, err error) {
 	q := pub.GenerateUserPublicKey(uid, hid)
 	var (
@@ -308,6 +326,10 @@ func WrapKey(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, 
 }
 
 // WrapKey wraps key and converts the cipher as ASN1 format, SM9PublicKey1 definition.
+//
+// The rand parameter is used as a source of entropy to ensure that
+// calls this function twice doesn't result in the same key.
+// Most applications should use [crypto/rand.Reader] as random.
 func (pub *EncryptMasterPublicKey) WrapKey(rand io.Reader, uid []byte, hid byte, kLen int) ([]byte, []byte, error) {
 	key, cipher, err := WrapKey(rand, pub, uid, hid, kLen)
 	if err != nil {
@@ -322,6 +344,10 @@ func (pub *EncryptMasterPublicKey) WrapKey(rand io.Reader, uid []byte, hid byte,
 
 // WrapKeyASN1 wraps key and converts the result of SM9KeyPackage as ASN1 format. according
 // SM9 cryptographic algorithm application specification, SM9KeyPackage defnition.
+//
+// The rand parameter is used as a source of entropy to ensure that
+// calls this function twice doesn't result in the same key.
+// Most applications should use [crypto/rand.Reader] as random.
 func (pub *EncryptMasterPublicKey) WrapKeyASN1(rand io.Reader, uid []byte, hid byte, kLen int) ([]byte, error) {
 	key, cipher, err := WrapKey(rand, pub, uid, hid, kLen)
 	if err != nil {

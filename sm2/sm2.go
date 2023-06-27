@@ -11,11 +11,8 @@ package sm2
 
 import (
 	"crypto"
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/elliptic"
-	"crypto/sha512"
 	_subtle "crypto/subtle"
 	"errors"
 	"fmt"
@@ -203,11 +200,19 @@ var (
 )
 
 // EncryptASN1 sm2 encrypt and output ASN.1 result, compliance with GB/T 32918.4-2016.
+//
+// The random parameter is used as a source of entropy to ensure that
+// encrypting the same message twice doesn't result in the same ciphertext.
+// Most applications should use [crypto/rand.Reader] as random.
 func EncryptASN1(random io.Reader, pub *ecdsa.PublicKey, msg []byte) ([]byte, error) {
 	return Encrypt(random, pub, msg, ASN1EncrypterOpts)
 }
 
 // Encrypt sm2 encrypt implementation, compliance with GB/T 32918.4-2016.
+//
+// The random parameter is used as a source of entropy to ensure that
+// encrypting the same message twice doesn't result in the same ciphertext.
+// Most applications should use [crypto/rand.Reader] as random.
 func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *EncrypterOpts) ([]byte, error) {
 	//A3, requirement is to check if h*P is infinite point, h is 1
 	if pub.X.Sign() == 0 && pub.Y.Sign() == 0 {
@@ -297,8 +302,14 @@ func encodingCiphertextASN1(C1 *_sm2ec.SM2P256Point, c2, c3 []byte) ([]byte, err
 	return b.Bytes()
 }
 
-// GenerateKey generates a public and private key pair.
+// GenerateKey generates a new SM2 private key.
+//
+// Most applications should use [crypto/rand.Reader] as rand. Note that the
+// returned key does not depend deterministically on the bytes read from rand,
+// and may change between calls and/or between versions.
 func GenerateKey(rand io.Reader) (*PrivateKey, error) {
+	randutil.MaybeReadByte(rand)
+
 	c := p256()
 	k, Q, err := randomPoint(c, rand)
 	if err != nil {
@@ -493,6 +504,10 @@ func calculateSM2Hash(pub *ecdsa.PublicKey, data, uid []byte) ([]byte, error) {
 // private key's curve order, the hash will be truncated to that length. It
 // returns the ASN.1 encoded signature.
 //
+// The signature is randomized. Most applications should use [crypto/rand.Reader]
+// as rand. Note that the returned signature does not depend deterministically on
+// the bytes read from rand, and may change between calls and/or between versions.
+//
 // If the opts argument is instance of [*SM2SignerOption], and its ForceGMSign is true,
 // then the hash will be treated as raw message.
 func SignASN1(rand io.Reader, priv *PrivateKey, hash []byte, opts crypto.SignerOpts) ([]byte, error) {
@@ -505,20 +520,16 @@ func SignASN1(rand io.Reader, priv *PrivateKey, hash []byte, opts crypto.SignerO
 	}
 
 	randutil.MaybeReadByte(rand)
-	csprng, err := mixedCSPRNG(rand, &priv.PrivateKey, hash)
-	if err != nil {
-		return nil, err
-	}
 
 	switch priv.Curve.Params() {
 	case P256().Params():
-		return signSM2EC(p256(), priv, csprng, hash)
+		return signSM2EC(p256(), priv, rand, hash)
 	default:
-		return signLegacy(priv, csprng, hash)
+		return signLegacy(priv, rand, hash)
 	}
 }
 
-func signSM2EC(c *sm2Curve, priv *PrivateKey, csprng io.Reader, hash []byte) (sig []byte, err error) {
+func signSM2EC(c *sm2Curve, priv *PrivateKey, rand io.Reader, hash []byte) (sig []byte, err error) {
 	e := bigmod.NewNat()
 	hashToNat(c, e, hash)
 	var (
@@ -546,7 +557,7 @@ func signSM2EC(c *sm2Curve, priv *PrivateKey, csprng io.Reader, hash []byte) (si
 
 	for {
 		for {
-			k, R, err = randomPoint(c, csprng)
+			k, R, err = randomPoint(c, rand)
 			if err != nil {
 				return nil, err
 			}
@@ -724,63 +735,6 @@ func hashToNat(c *sm2Curve, e *bigmod.Nat, hash []byte) {
 	if err != nil {
 		panic("sm2: internal error: truncated hash is too long")
 	}
-}
-
-// mixedCSPRNG returns a CSPRNG that mixes entropy from rand with the message
-// and the private key, to protect the key in case rand fails. This is
-// equivalent in security to RFC 6979 deterministic nonce generation, but still
-// produces randomized signatures.
-func mixedCSPRNG(rand io.Reader, priv *ecdsa.PrivateKey, hash []byte) (io.Reader, error) {
-	// This implementation derives the nonce from an AES-CTR CSPRNG keyed by:
-	//
-	//    SHA2-512(priv.D || entropy || hash)[:32]
-	//
-	// The CSPRNG key is indifferentiable from a random oracle as shown in
-	// [Coron], the AES-CTR stream is indifferentiable from a random oracle
-	// under standard cryptographic assumptions (see [Larsson] for examples).
-	//
-	// [Coron]: https://cs.nyu.edu/~dodis/ps/merkle.pdf
-	// [Larsson]: https://web.archive.org/web/20040719170906/https://www.nada.kth.se/kurser/kth/2D1441/semteo03/lecturenotes/assump.pdf
-
-	// Get 256 bits of entropy from rand.
-	entropy := make([]byte, 32)
-	if _, err := io.ReadFull(rand, entropy); err != nil {
-		return nil, err
-	}
-
-	// Initialize an SHA-512 hash context; digest...
-	md := sha512.New()
-	md.Write(priv.D.Bytes()) // the private key,
-	md.Write(entropy)        // the entropy,
-	md.Write(hash)           // and the input hash;
-	key := md.Sum(nil)[:32]  // and compute ChopMD-256(SHA-512),
-	// which is an indifferentiable MAC.
-
-	// Create an AES-CTR instance to use as a CSPRNG.
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create a CSPRNG that xors a stream of zeros with
-	// the output of the AES-CTR instance.
-	const aesIV = "IV for ECDSA CTR"
-	return &cipher.StreamReader{
-		R: zeroReader,
-		S: cipher.NewCTR(block, []byte(aesIV)),
-	}, nil
-}
-
-type zr struct{}
-
-var zeroReader = &zr{}
-
-// Read replaces the contents of dst with zeros.
-func (zr) Read(dst []byte) (n int, err error) {
-	for i := range dst {
-		dst[i] = 0
-	}
-	return len(dst), nil
 }
 
 // IsSM2PublicKey check if given public key is a SM2 public key or not
