@@ -54,7 +54,7 @@ func (x *ctr) genCtr(start int) {
 	}
 	// Increment counter
 	end := start + BlockSize
-	for i := end - 1; i >= 0; i-- {
+	for i := end - 1; i >= start; i-- {
 		x.ctr[i]++
 		if x.ctr[i] != 0 {
 			break
@@ -70,7 +70,7 @@ func (x *ctr) refill() {
 		x.b.EncryptBlocks(x.out[remain:], x.ctr)
 		remain += x.b.blocksSize
 
-		// Increment counter
+		// Generate complelte [x.b.batchBlocks] counters
 		for i := 0; i < x.b.batchBlocks; i++ {
 			x.genCtr(i * BlockSize)
 		}
