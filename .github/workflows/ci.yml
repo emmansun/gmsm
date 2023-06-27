@@ -23,16 +23,31 @@ jobs:
         go-version: ${{ matrix.goVer }}
        
     - name: Test with Coverage
+      if: ${{ matrix.goVer == '1.18' }}
       run: go test -coverpkg=./... -v -short -coverprofile=coverage1.txt -covermode=atomic ./...
       env:
         GODEBUG: x509sha1=1
 
-    - name: Test Generic
+    - name: Test Generic with Coverage
+      if: ${{ matrix.goVer == '1.18' }}
       run: go test -coverpkg=./... -v -short -tags purego  -coverprofile=coverage2.txt -covermode=atomic ./...      
       env:
         GODEBUG: x509sha1=1
 
     - name: Upload coverage to Codecov
+      if: ${{ matrix.goVer == '1.18' }}
       uses: codecov/codecov-action@v3
       with:
         files: ./coverage1.txt,./coverage2.txt
+
+    - name: Test only
+      if: ${{ matrix.goVer != '1.18' }}
+      run: go test -short ./...
+      env:
+        GODEBUG: x509sha1=1
+
+    - name: Test Generic only
+      if: ${{ matrix.goVer != '1.18' }}
+      run: go test -short -tags purego ./...      
+      env:
+        GODEBUG: x509sha1=1
