@@ -23,7 +23,7 @@
 #define XTMP6 V6
 #define XTMP7 V7
 
-#include "aesni_arm64.h"
+#include "aesni_macros_arm64.s"
 
 #define SM4_TAO_L2(x, y)         \
 	SM4_SBOX(x, y, XTMP6);                      \

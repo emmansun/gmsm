@@ -83,7 +83,7 @@ GLOBL bswapMask<>(SB), (NOPTR+RODATA), $16
 GLOBL gcmPoly<>(SB), (NOPTR+RODATA), $16
 GLOBL andMask<>(SB), (NOPTR+RODATA), $240
 
-#include "aesni_amd64.h"
+#include "aesni_macros_amd64.s"
 
 // func gcmSm4Finish(productTable *[256]byte, tagMask, T *[16]byte, pLen, dLen uint64)
 TEXT ·gcmSm4Finish(SB),NOSPLIT,$0

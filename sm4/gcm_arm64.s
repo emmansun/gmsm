@@ -109,7 +109,7 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 #undef plen
 #undef dlen
 
-#include "aesni_arm64.h"
+#include "aesni_macros_arm64.s"
 
 // func gcmSm4Init(productTable *[256]byte, rk []uint32, inst int)
 TEXT ·gcmSm4Init(SB),NOSPLIT,$0

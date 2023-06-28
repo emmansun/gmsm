@@ -14,7 +14,7 @@
 #define XTMP6 X6
 #define XTMP7 X7
 
-#include "aesni_amd64.h"
+#include "aesni_macros_amd64.s"
 
 // SM4 TAO L2 function, used for key expand
 // parameters:

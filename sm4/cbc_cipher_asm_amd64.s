@@ -13,7 +13,7 @@
 #define XTMP6 X6
 #define IV X8
 
-#include "aesni_amd64.h"
+#include "aesni_macros_amd64.s"
 
 // func encryptBlocksChain(xk *uint32, dst, src []byte, iv *byte)
 TEXT ·encryptBlocksChain(SB),NOSPLIT,$0
