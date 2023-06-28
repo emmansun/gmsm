@@ -48,6 +48,28 @@ func Test_gfpBasicOperations(t *testing.T) {
 	}
 }
 
+func Test_gfpSqr(t *testing.T) {
+	// p - 1
+	pMinusOne := new(big.Int).Sub(p, big.NewInt(1))
+	x := fromBigInt(pMinusOne)
+	ret := &gfP{}
+	gfpSqr(ret, x, 1)
+	pMinusOne.Mul(pMinusOne, pMinusOne)
+	pMinusOne.Mod(pMinusOne, p)
+	if *ret != *fromBigInt(pMinusOne) {
+		t.Errorf("bad sqr")
+	}
+	// p + 1
+	pPlusOne := new(big.Int).Add(p, big.NewInt(1))
+	x = fromBigInt(pPlusOne)
+	gfpSqr(ret, x, 1)
+	pPlusOne.Mul(pPlusOne, pPlusOne)
+	pPlusOne.Mod(pPlusOne, p)
+	if *ret != *fromBigInt(pPlusOne) {
+		t.Errorf("bad sqr")
+	}
+}
+
 func TestFromMont(t *testing.T) {
 	x := fromBigInt(bigFromHex("85AEF3D078640C98597B6027B441A01FF1DD2C190F5E93C454806C11D8806141"))
 	ret1, ret2 := &gfP{}, &gfP{}

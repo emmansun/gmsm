@@ -10,7 +10,10 @@ import (
 	"golang.org/x/sys/cpu"
 )
 
-var hasBMI2 = cpu.X86.HasBMI2
+// amd64 assembly uses ADCX/ADOX/MULX if ADX is available to run two carry
+// chains in the flags in parallel across the whole operation, and aggressively
+// unrolls loops. arm64 processes four words at a time.
+var supportADX = cpu.X86.HasADX && cpu.X86.HasBMI2
 
 // Set c = p - a, if c == p, then c = 0
 //

@@ -134,5 +134,15 @@ func gfpSqr(res, in *gfP, n int) {
 }
 
 func gfpFromMont(res, in *gfP) {
-	gfpMul(res, in, &gfP{1})
+	var T [8]uint64
+	var carry uint64
+	copy(T[:], in[:])
+	for i := 0; i < 4; i++ {
+		Y := T[i] * np[0]
+		c2 := addMulVVW(T[i:4+i], p2[:], Y)
+		T[4+i], carry = bits.Add64(uint64(0), c2, carry)
+	}
+
+	*res = gfP{T[4], T[5], T[6], T[7]}
+	gfpCarry(res, carry)
 }
