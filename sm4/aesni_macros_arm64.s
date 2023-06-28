@@ -1,47 +1,47 @@
 //nibble mask
 DATA nibble_mask<>+0x00(SB)/8, $0x0F0F0F0F0F0F0F0F
 DATA nibble_mask<>+0x08(SB)/8, $0x0F0F0F0F0F0F0F0F
-GLOBL nibble_mask<>(SB), (NOPTR+RODATA), $16
+GLOBL nibble_mask<>(SB), (16+8), $16
 
 // inverse shift rows
 DATA inverse_shift_rows<>+0x00(SB)/8, $0x0B0E0104070A0D00
 DATA inverse_shift_rows<>+0x08(SB)/8, $0x0306090C0F020508 
-GLOBL inverse_shift_rows<>(SB), (NOPTR+RODATA), $16
+GLOBL inverse_shift_rows<>(SB), (16+8), $16
 
 // Affine transform 1 (low and high hibbles)
 DATA m1_low<>+0x00(SB)/8, $0x0A7FC3B6D5A01C69
 DATA m1_low<>+0x08(SB)/8, $0x3045F98CEF9A2653
-GLOBL m1_low<>(SB), (NOPTR+RODATA), $16
+GLOBL m1_low<>(SB), (16+8), $16
 
 DATA m1_high<>+0x00(SB)/8, $0xC35BF46CAF379800
 DATA m1_high<>+0x08(SB)/8, $0x68F05FC7049C33AB  
-GLOBL m1_high<>(SB), (NOPTR+RODATA), $16
+GLOBL m1_high<>(SB), (16+8), $16
 
 // Affine transform 2 (low and high hibbles)
 DATA m2_low<>+0x00(SB)/8, $0x9A950A05FEF16E61
 DATA m2_low<>+0x08(SB)/8, $0x0E019E916A65FAF5
-GLOBL m2_low<>(SB), (NOPTR+RODATA), $16
+GLOBL m2_low<>(SB), (16+8), $16
 
 DATA m2_high<>+0x00(SB)/8, $0x892D69CD44E0A400
 DATA m2_high<>+0x08(SB)/8, $0x2C88CC68E14501A5
-GLOBL m2_high<>(SB), (NOPTR+RODATA), $16
+GLOBL m2_high<>(SB), (16+8), $16
 
 // left rotations of 32-bit words by 8-bit increments
 DATA r08_mask<>+0x00(SB)/8, $0x0605040702010003
 DATA r08_mask<>+0x08(SB)/8, $0x0E0D0C0F0A09080B  
-GLOBL r08_mask<>(SB), (NOPTR+RODATA), $16
+GLOBL r08_mask<>(SB), (16+8), $16
 
 DATA r16_mask<>+0x00(SB)/8, $0x0504070601000302
 DATA r16_mask<>+0x08(SB)/8, $0x0D0C0F0E09080B0A   
-GLOBL r16_mask<>(SB), (NOPTR+RODATA), $16
+GLOBL r16_mask<>(SB), (16+8), $16
 
 DATA r24_mask<>+0x00(SB)/8, $0x0407060500030201
 DATA r24_mask<>+0x08(SB)/8, $0x0C0F0E0D080B0A09  
-GLOBL r24_mask<>(SB), (NOPTR+RODATA), $16
+GLOBL r24_mask<>(SB), (16+8), $16
 
 DATA fk_mask<>+0x00(SB)/8, $0x56aa3350a3b1bac6
 DATA fk_mask<>+0x08(SB)/8, $0xb27022dc677d9197
-GLOBL fk_mask<>(SB), (NOPTR+RODATA), $16
+GLOBL fk_mask<>(SB), (16+8), $16
 
 #define LOAD_SM4_AESNI_CONSTS() \
 	LDP nibble_mask<>(SB), (R20, R21)          \
