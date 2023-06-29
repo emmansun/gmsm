@@ -52,6 +52,7 @@ TEXT ·addMulVVW256(SB), $0-32
 	ADCQ $0x00, DX
 	MOVQ DX, DI
 	MOVQ AX, 24(CX)
+	MOVQ DI, c+24(FP)
 	RET
 
 adx:
