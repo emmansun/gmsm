@@ -21,3 +21,15 @@ func curvePointMovCond(res, a, b *curvePoint, cond int)
 //
 //go:noescape
 func twistPointMovCond(res, a, b *twistPoint, cond int)
+
+//go:noescape
+func gfpCopy(res, in *gfP)
+
+//go:noescape
+func gfp2Copy(res, in *gfP2)
+
+//go:noescape
+func gfp4Copy(res, in *gfP4)
+
+//go:noescape
+func gfp12Copy(res, in *gfP12)

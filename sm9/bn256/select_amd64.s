@@ -7,6 +7,198 @@
 #define x_ptr SI
 #define y_ptr CX
 
+// func gfpCopy(res, a *gfP)
+TEXT ·gfpCopy(SB),NOSPLIT,$0
+	MOVQ res+0(FP), res_ptr
+	MOVQ a+8(FP), x_ptr
+
+	CMPB ·supportAVX2+0(SB), $0x01
+	JEQ  copygfp_avx2
+
+	MOVOU (16*0)(x_ptr), X0
+	MOVOU (16*1)(x_ptr), X1
+
+	MOVOU X0, (16*0)(res_ptr)
+	MOVOU X1, (16*1)(res_ptr)
+
+copygfp_avx2:
+	VMOVDQU (x_ptr), Y0
+	VMOVDQU Y0, (res_ptr)
+	VZEROUPPER
+	RET
+
+// func gfp2Copy(res, a *gfP2)
+TEXT ·gfp2Copy(SB),NOSPLIT,$0
+	MOVQ res+0(FP), res_ptr
+	MOVQ a+8(FP), x_ptr
+
+	CMPB ·supportAVX2+0(SB), $0x01
+	JEQ  copygfp2_avx2
+
+	MOVOU (16*0)(x_ptr), X0
+	MOVOU (16*1)(x_ptr), X1
+	MOVOU (16*2)(x_ptr), X2
+	MOVOU (16*3)(x_ptr), X3
+
+	MOVOU X0, (16*0)(res_ptr)
+	MOVOU X1, (16*1)(res_ptr)
+	MOVOU X2, (16*2)(res_ptr)
+	MOVOU X3, (16*3)(res_ptr)
+
+copygfp2_avx2:
+	VMOVDQU (32*0)(x_ptr), Y0
+	VMOVDQU (32*1)(x_ptr), Y1
+
+	VMOVDQU Y0, (32*0)(res_ptr)
+	VMOVDQU Y1, (32*1)(res_ptr)
+
+	VZEROUPPER
+	RET
+
+// func gfp4Copy(res, a *gfP4)
+TEXT ·gfp4Copy(SB),NOSPLIT,$0
+	MOVQ res+0(FP), res_ptr
+	MOVQ a+8(FP), x_ptr
+
+	CMPB ·supportAVX2+0(SB), $0x01
+	JEQ  copygfp4_avx2
+
+	MOVOU (16*0)(x_ptr), X0
+	MOVOU (16*1)(x_ptr), X1
+	MOVOU (16*2)(x_ptr), X2
+	MOVOU (16*3)(x_ptr), X3
+	
+	MOVOU (16*4)(x_ptr), X4
+	MOVOU (16*5)(x_ptr), X5
+	MOVOU (16*6)(x_ptr), X6
+	MOVOU (16*7)(x_ptr), X7
+
+	MOVOU X0, (16*0)(res_ptr)
+	MOVOU X1, (16*1)(res_ptr)
+	MOVOU X2, (16*2)(res_ptr)
+	MOVOU X3, (16*3)(res_ptr)
+
+	MOVOU X4, (16*4)(res_ptr)
+	MOVOU X5, (16*5)(res_ptr)
+	MOVOU X6, (16*6)(res_ptr)
+	MOVOU X7, (16*7)(res_ptr)
+
+copygfp4_avx2:
+	VMOVDQU (32*0)(x_ptr), Y0
+	VMOVDQU (32*1)(x_ptr), Y1
+	VMOVDQU (32*2)(x_ptr), Y2
+	VMOVDQU (32*3)(x_ptr), Y3
+
+	VMOVDQU Y0, (32*0)(res_ptr)
+	VMOVDQU Y1, (32*1)(res_ptr)
+	VMOVDQU Y2, (32*2)(res_ptr)
+	VMOVDQU Y3, (32*3)(res_ptr)
+
+	VZEROUPPER
+	RET		
+
+// func gfp12Copy(res, a *gfP12)
+TEXT ·gfp12Copy(SB),NOSPLIT,$0
+	MOVQ res+0(FP), res_ptr
+	MOVQ a+8(FP), x_ptr
+
+	CMPB ·supportAVX2+0(SB), $0x01
+	JEQ  copygfp12_avx2
+
+	MOVOU (16*0)(x_ptr), X0
+	MOVOU (16*1)(x_ptr), X1
+	MOVOU (16*2)(x_ptr), X2
+	MOVOU (16*3)(x_ptr), X3
+	
+	MOVOU (16*4)(x_ptr), X4
+	MOVOU (16*5)(x_ptr), X5
+	MOVOU (16*6)(x_ptr), X6
+	MOVOU (16*7)(x_ptr), X7
+
+	MOVOU X0, (16*0)(res_ptr)
+	MOVOU X1, (16*1)(res_ptr)
+	MOVOU X2, (16*2)(res_ptr)
+	MOVOU X3, (16*3)(res_ptr)
+
+	MOVOU X4, (16*4)(res_ptr)
+	MOVOU X5, (16*5)(res_ptr)
+	MOVOU X6, (16*6)(res_ptr)
+	MOVOU X7, (16*7)(res_ptr)
+
+	MOVOU (16*8)(x_ptr), X0
+	MOVOU (16*9)(x_ptr), X1
+	MOVOU (16*10)(x_ptr), X2
+	MOVOU (16*11)(x_ptr), X3
+	
+	MOVOU (16*12)(x_ptr), X4
+	MOVOU (16*13)(x_ptr), X5
+	MOVOU (16*14)(x_ptr), X6
+	MOVOU (16*15)(x_ptr), X7
+
+	MOVOU X0, (16*8)(res_ptr)
+	MOVOU X1, (16*9)(res_ptr)
+	MOVOU X2, (16*10)(res_ptr)
+	MOVOU X3, (16*11)(res_ptr)
+
+	MOVOU X4, (16*12)(res_ptr)
+	MOVOU X5, (16*13)(res_ptr)
+	MOVOU X6, (16*14)(res_ptr)
+	MOVOU X7, (16*15)(res_ptr)
+
+	MOVOU (16*16)(x_ptr), X0
+	MOVOU (16*17)(x_ptr), X1
+	MOVOU (16*18)(x_ptr), X2
+	MOVOU (16*19)(x_ptr), X3
+	
+	MOVOU (16*20)(x_ptr), X4
+	MOVOU (16*21)(x_ptr), X5
+	MOVOU (16*22)(x_ptr), X6
+	MOVOU (16*23)(x_ptr), X7
+
+	MOVOU X0, (16*16)(res_ptr)
+	MOVOU X1, (16*17)(res_ptr)
+	MOVOU X2, (16*18)(res_ptr)
+	MOVOU X3, (16*19)(res_ptr)
+
+	MOVOU X4, (16*20)(res_ptr)
+	MOVOU X5, (16*21)(res_ptr)
+	MOVOU X6, (16*22)(res_ptr)
+	MOVOU X7, (16*23)(res_ptr)
+
+copygfp12_avx2:
+	VMOVDQU (32*0)(x_ptr), Y0
+	VMOVDQU (32*1)(x_ptr), Y1
+	VMOVDQU (32*2)(x_ptr), Y2
+	VMOVDQU (32*3)(x_ptr), Y3
+
+	VMOVDQU (32*4)(x_ptr), Y4
+	VMOVDQU (32*5)(x_ptr), Y5
+	VMOVDQU (32*6)(x_ptr), Y6
+	VMOVDQU (32*7)(x_ptr), Y7
+
+	VMOVDQU (32*8)(x_ptr), Y8
+	VMOVDQU (32*9)(x_ptr), Y9
+	VMOVDQU (32*10)(x_ptr), Y10
+	VMOVDQU (32*11)(x_ptr), Y11
+
+	VMOVDQU Y0, (32*0)(res_ptr)
+	VMOVDQU Y1, (32*1)(res_ptr)
+	VMOVDQU Y2, (32*2)(res_ptr)
+	VMOVDQU Y3, (32*3)(res_ptr)
+
+	VMOVDQU Y4, (32*4)(res_ptr)
+	VMOVDQU Y5, (32*5)(res_ptr)
+	VMOVDQU Y6, (32*6)(res_ptr)
+	VMOVDQU Y7, (32*7)(res_ptr)
+
+	VMOVDQU Y8, (32*8)(res_ptr)
+	VMOVDQU Y9, (32*9)(res_ptr)
+	VMOVDQU Y10, (32*10)(res_ptr)
+	VMOVDQU Y11, (32*11)(res_ptr)
+
+	VZEROUPPER
+	RET		
+
 // func gfP12MovCond(res, a, b *gfP12, cond int)
 TEXT ·gfP12MovCond(SB),NOSPLIT,$0
 	MOVQ res+0(FP), res_ptr

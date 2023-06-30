@@ -58,9 +58,7 @@ func (e *gfP12) String() string {
 }
 
 func (e *gfP12) Set(a *gfP12) *gfP12 {
-	e.x.Set(&a.x)
-	e.y.Set(&a.y)
-	e.z.Set(&a.z)
+	gfp12Copy(e, a)
 	return e
 }
 
@@ -141,7 +139,11 @@ func (e *gfP12) Mul(a, b *gfP12) *gfP12 {
 	// +y0*z1*w + y0*y1*w^2 + y0*x1*v
 	// +x0*z1*w^2 + x0*y1*v + x0*x1*v*w
 	//=(z0*z1+y0*x1*v+x0*y1*v) + (z0*y1+y0*z1+x0*x1*v)w + (z0*x1 + y0*y1 + x0*z1)*w^2
-	tx, ty, tz, t, v0, v1, v2 := &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}
+	tmp := &gfP12{}
+	tx := &tmp.x
+	ty := &tmp.y
+	tz := &tmp.z
+	t, v0, v1, v2 := &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}
 	v0.Mul(&a.z, &b.z)
 	v1.Mul(&a.y, &b.y)
 	v2.Mul(&a.x, &b.x)
@@ -168,10 +170,7 @@ func (e *gfP12) Mul(a, b *gfP12) *gfP12 {
 	tx.Sub(tx, v0)
 	tx.Add(tx, v1)
 	tx.Sub(tx, v2)
-
-	e.x.Set(tx)
-	e.y.Set(ty)
-	e.z.Set(tz)
+	gfp12Copy(e, tmp)
 	return e
 }
 
@@ -180,7 +179,37 @@ func (e *gfP12) Square(a *gfP12) *gfP12 {
 	// z^2 + z*y*w + z*x*w^2 + y*z*w + y^2*w^2 + y*x*v + x*z*w^2 + x*y*v + x^2 *v *w
 	// (z^2 + y*x*v + x*y*v) + (z*y + y*z + v * x^2)w + (z*x + y^2 + x*z)*w^2
 	// (z^2 + 2*x*y*v) + (v*x^2 + 2*y*z) *w + (y^2 + 2*x*z) * w^2
-	tx, ty, tz, t := &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}
+	tmp := &gfP12{}
+	tx := &tmp.x
+	ty := &tmp.y
+	tz := &tmp.z
+	t := &gfP4{}
+
+	tz.Square(&a.z)
+	t.MulV(&a.x, &a.y)
+	t.Add(t, t)
+	tz.Add(tz, t)
+
+	ty.SquareV(&a.x)
+	t.Mul(&a.y, &a.z)
+	t.Add(t, t)
+	ty.Add(ty, t)
+
+	tx.Square(&a.y)
+	t.Mul(&a.x, &a.z)
+	t.Add(t, t)
+	tx.Add(tx, t)
+	gfp12Copy(e, tmp)
+	return e
+}
+
+func (e *gfP12) Squares(a *gfP12, n int) *gfP12 {
+	// Square first round
+	in := &gfP12{}
+	tx := &in.x
+	ty := &in.y
+	tz := &in.z
+	t := &gfP4{}
 
 	tz.Square(&a.z)
 	t.MulV(&a.x, &a.y)
@@ -197,9 +226,36 @@ func (e *gfP12) Square(a *gfP12) *gfP12 {
 	t.Add(t, t)
 	tx.Add(tx, t)
 
-	e.x.Set(tx)
-	e.y.Set(ty)
-	e.z.Set(tz)
+	tmp := &gfP12{}
+	var tmp2 *gfP12
+	tx = &tmp.x
+	ty = &tmp.y
+	tz = &tmp.z
+	for i := 1; i < n; i++ {
+		tz.Square(&in.z)
+		t.MulV(&in.x, &in.y)
+		t.Add(t, t)
+		tz.Add(tz, t)
+
+		ty.SquareV(&in.x)
+		t.Mul(&in.y, &in.z)
+		t.Add(t, t)
+		ty.Add(ty, t)
+
+		tx.Square(&in.y)
+		t.Mul(&in.x, &in.z)
+		t.Add(t, t)
+		tx.Add(tx, t)
+
+		// Switch references
+		tmp2 = in
+		in = tmp
+		tmp = tmp2
+		tx = &tmp.x
+		ty = &tmp.y
+		tz = &tmp.z
+	}
+	gfp12Copy(e, in)
 	return e
 }
 
@@ -215,8 +271,7 @@ func (e *gfP12) Exp(f *gfP12, power *big.Int) *gfP12 {
 			sum.Set(t)
 		}
 	}
-
-	e.Set(sum)
+	gfp12Copy(e, sum)
 	return e
 }
 
@@ -268,38 +323,39 @@ func (e *gfP12) Neg(a *gfP12) *gfP12 {
 }
 
 // (z + y*w + x*w^2)^p
-//= z^p + y^p*w*w^(p-1)+x^p*w^2*(w^2)^(p-1)
+// = z^p + y^p*w*w^(p-1)+x^p*w^2*(w^2)^(p-1)
 // w2ToP2Minus1 = vToPMinus1 * wToPMinus1
 func (e *gfP12) Frobenius(a *gfP12) *gfP12 {
-	x, y := &gfP2{}, &gfP2{}
+	tmp := &gfP4{}
+	x := &tmp.x
+	y := &tmp.y
 
 	x.Conjugate(&a.z.x)
 	y.Conjugate(&a.z.y)
 	x.MulScalar(x, vToPMinus1)
-	e.z.x.Set(x)
-	e.z.y.Set(y)
+	gfp4Copy(&e.z, tmp)
 
 	x.Conjugate(&a.y.x)
 	y.Conjugate(&a.y.y)
 	x.MulScalar(x, w2ToP2Minus1)
 	y.MulScalar(y, wToPMinus1)
-	e.y.x.Set(x)
-	e.y.y.Set(y)
+	gfp4Copy(&e.y, tmp)
 
 	x.Conjugate(&a.x.x)
 	y.Conjugate(&a.x.y)
 	x.MulScalar(x, vToPMinus1Mw2ToPMinus1)
 	y.MulScalar(y, w2ToPMinus1)
-	e.x.x.Set(x)
-	e.x.y.Set(y)
+	gfp4Copy(&e.x, tmp)
 
 	return e
 }
 
 // (z + y*w + x*w^2)^(p^2)
-//= z^(p^2) + y^(p^2)*w*w^((p^2)-1)+x^(p^2)*w^2*(w^2)^((p^2)-1)
+// = z^(p^2) + y^(p^2)*w*w^((p^2)-1)+x^(p^2)*w^2*(w^2)^((p^2)-1)
 func (e *gfP12) FrobeniusP2(a *gfP12) *gfP12 {
-	tx, ty, tz := &gfP4{}, &gfP4{}, &gfP4{}
+	tx := &e.x
+	ty := &e.y
+	tz := &e.z
 
 	tz.Conjugate(&a.z)
 
@@ -308,17 +364,12 @@ func (e *gfP12) FrobeniusP2(a *gfP12) *gfP12 {
 
 	tx.Conjugate(&a.x)
 	tx.MulGFP(tx, w2ToP2Minus1)
-
-	e.x.Set(tx)
-	e.y.Set(ty)
-	e.z.Set(tz)
-
 	return e
 }
 
 // (z + y*w + x*w^2)^(p^3)
-//=z^(p^3) + y^(p^3)*w*w^((p^3)-1)+x^(p^3)*w^2*(w^2)^((p^3)-1)
-//=z^(p^3) + y^(p^3)*w*vToPMinus1-x^(p^3)*w^2
+// =z^(p^3) + y^(p^3)*w*w^((p^3)-1)+x^(p^3)*w^2*(w^2)^((p^3)-1)
+// =z^(p^3) + y^(p^3)*w*vToPMinus1-x^(p^3)*w^2
 // vToPMinus1 * vToPMinus1 = -1
 func (e *gfP12) FrobeniusP3(a *gfP12) *gfP12 {
 	x, y := &gfP2{}, &gfP2{}
@@ -352,7 +403,9 @@ func (e *gfP12) FrobeniusP3(a *gfP12) *gfP12 {
 // (z + y*w + x*w^2)^(p^6)
 // = ((z + y*w + x*w^2)^(p^3))^(p^3)
 func (e *gfP12) FrobeniusP6(a *gfP12) *gfP12 {
-	tx, ty, tz := &gfP4{}, &gfP4{}, &gfP4{}
+	tx := &e.x
+	ty := &e.y
+	tz := &e.z
 
 	tz.Conjugate(&a.z)
 
@@ -360,10 +413,6 @@ func (e *gfP12) FrobeniusP6(a *gfP12) *gfP12 {
 	ty.Neg(ty)
 
 	tx.Conjugate(&a.x)
-
-	e.x.Set(tx)
-	e.y.Set(ty)
-	e.z.Set(tz)
 
 	return e
 }

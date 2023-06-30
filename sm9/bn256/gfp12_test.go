@@ -35,6 +35,20 @@ func Test_gfP12Square(t *testing.T) {
 	}
 }
 
+func BenchmarkGfP12Square(b *testing.B) {
+	x := &gfP12{
+		testdataP4,
+		testdataP4,
+		*(&gfP4{}).SetOne(),
+	}
+	x2 := &gfP12{}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		x2.Square(x)
+	}
+}
+
 func testGfP12Invert(t *testing.T, x *gfP12) {
 	xInv := &gfP12{}
 	xInv.Invert(x)
@@ -283,5 +297,33 @@ func BenchmarkGfP12Frobenius(b *testing.B) {
 		if *expected != *got {
 			b.Errorf("got %v, expected %v", got, expected)
 		}
+	}
+}
+
+func BenchmarkGfP12ExpU(b *testing.B) {
+	x := &gfP12{
+		testdataP4,
+		testdataP4,
+		testdataP4,
+	}
+	got := &gfP12{}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		got.gfP12ExpU(x)
+	}
+}
+
+func BenchmarkGfP12ExpU2(b *testing.B) {
+	x := &gfP12{
+		testdataP4,
+		testdataP4,
+		testdataP4,
+	}
+	got := &gfP12{}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		got.Exp(x, u)
 	}
 }

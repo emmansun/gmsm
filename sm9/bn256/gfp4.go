@@ -25,8 +25,7 @@ func (e *gfP4) String() string {
 }
 
 func (e *gfP4) Set(a *gfP4) *gfP4 {
-	e.x.Set(&a.x)
-	e.y.Set(&a.y)
+	gfp4Copy(e, a)
 	return e
 }
 
@@ -99,7 +98,10 @@ func (e *gfP4) Mul(a, b *gfP4) *gfP4 {
 	//(a0+a1*v)(b0+b1*v)=c0+c1*v, where
 	//c0 = a0*b0 +a1*b1*u
 	//c1 = (a0 + a1)(b0 + b1) - a0*b0 - a1*b1 = a0*b1 + a1*b0
-	tx, ty, v0, v1 := &gfP2{}, &gfP2{}, &gfP2{}, &gfP2{}
+	tmp := &gfP4{}
+	tx := &tmp.x
+	ty := &tmp.y
+	v0, v1 := &gfP2{}, &gfP2{}
 	v0.Mul(&a.y, &b.y)
 	v1.Mul(&a.x, &b.x)
 
@@ -112,19 +114,21 @@ func (e *gfP4) Mul(a, b *gfP4) *gfP4 {
 	ty.MulU1(v1)
 	ty.Add(ty, v0)
 
-	e.x.Set(tx)
-	e.y.Set(ty)
+	gfp4Copy(e, tmp)
 	return e
 }
 
 // MulV: a * b * v
-//(a0+a1*v)(b0+b1*v)*v=c0+c1*v, where
+// (a0+a1*v)(b0+b1*v)*v=c0+c1*v, where
 // (a0*b0 + a0*b1v + a1*b0*v + a1*b1*u)*v
 // a0*b0*v + a0*b1*u + a1*b0*u + a1*b1*u*v
 // c0 = a0*b1*u + a1*b0*u
 // c1 = a0*b0 + a1*b1*u
 func (e *gfP4) MulV(a, b *gfP4) *gfP4 {
-	tx, ty, v0, v1 := &gfP2{}, &gfP2{}, &gfP2{}, &gfP2{}
+	tmp := &gfP4{}
+	tx := &tmp.x
+	ty := &tmp.y
+	v0, v1 := &gfP2{}, &gfP2{}
 	v0.Mul(&a.y, &b.y)
 	v1.Mul(&a.x, &b.x)
 
@@ -138,27 +142,29 @@ func (e *gfP4) MulV(a, b *gfP4) *gfP4 {
 	tx.MulU1(v1)
 	tx.Add(tx, v0)
 
-	e.x.Set(tx)
-	e.y.Set(ty)
+	gfp4Copy(e, tmp)
 	return e
 }
 
 // MulV1: a * v
-//(a0+a1*v)*v=c0+c1*v, where
+// (a0+a1*v)*v=c0+c1*v, where
 // c0 = a1*u
 // c1 = a0
 func (e *gfP4) MulV1(a *gfP4) *gfP4 {
-	tx := (&gfP2{}).Set(&a.y)
+	tx := &gfP2{}
+	gfp2Copy(tx, &a.y)
 
 	e.y.MulU1(&a.x)
-	e.x.Set(tx)
+	gfp2Copy(&e.x, tx)
 	return e
 }
 
 func (e *gfP4) Square(a *gfP4) *gfP4 {
 	// Complex squaring algorithm:
 	// (xv+y)² = (x^2*u + y^2) + 2*x*y*v
-	tx, ty := &gfP2{}, &gfP2{}
+	tmp := &gfP4{}
+	tx := &tmp.x
+	ty := &tmp.y
 	tx.SquareU(&a.x)
 	ty.Square(&a.y)
 	ty.Add(tx, ty)
@@ -166,15 +172,16 @@ func (e *gfP4) Square(a *gfP4) *gfP4 {
 	tx.Mul(&a.x, &a.y)
 	tx.Add(tx, tx)
 
-	e.x.Set(tx)
-	e.y.Set(ty)
+	gfp4Copy(e, tmp)
 	return e
 }
 
 // SquareV: (a^2) * v
 // v*(xv+y)² = (x^2*u + y^2)v + 2*x*y*u
 func (e *gfP4) SquareV(a *gfP4) *gfP4 {
-	tx, ty := &gfP2{}, &gfP2{}
+	tmp := &gfP4{}
+	tx := &tmp.x
+	ty := &tmp.y
 	tx.SquareU(&a.x)
 	ty.Square(&a.y)
 	tx.Add(tx, ty)
@@ -182,15 +189,18 @@ func (e *gfP4) SquareV(a *gfP4) *gfP4 {
 	ty.MulU(&a.x, &a.y)
 	ty.Add(ty, ty)
 
-	e.x.Set(tx)
-	e.y.Set(ty)
+	gfp4Copy(e, tmp)
 	return e
 }
 
 func (e *gfP4) Invert(a *gfP4) *gfP4 {
 	// See "Implementing cryptographic pairings", M. Scott, section 3.2.
 	// ftp://136.206.11.249/pub/crypto/pairings.pdf
-	t1, t2, t3 := &gfP2{}, &gfP2{}, &gfP2{}
+	tmp := &gfP4{}
+	t2 := &tmp.x
+	t1 := &tmp.y
+
+	t3 := &gfP2{}
 
 	t3.SquareU(&a.x)
 	t1.Square(&a.y)
@@ -202,8 +212,7 @@ func (e *gfP4) Invert(a *gfP4) *gfP4 {
 
 	t2.Mul(&a.x, t3)
 
-	e.x.Set(t2)
-	e.y.Set(t1)
+	gfp4Copy(e, tmp)
 	return e
 }
 
@@ -224,40 +233,46 @@ func (e *gfP4) Exp(f *gfP4, power *big.Int) *gfP4 {
 	return e
 }
 
-//  (y+x*v)^p
+//	(y+x*v)^p
+//
 // = y^p + x^p*v^p
 // = f(y) + f(x) * v^p
 // = f(y) + f(x) * v * v^(p-1)
 func (e *gfP4) Frobenius(a *gfP4) *gfP4 {
-	x, y := &gfP2{}, &gfP2{}
+	tmp := &gfP4{}
+	x := &tmp.x
+	y := &tmp.y
+	
 	x.Conjugate(&a.x)
 	y.Conjugate(&a.y)
 	x.MulScalar(x, vToPMinus1)
 
-	e.x.Set(x)
-	e.y.Set(y)
+	gfp4Copy(e, tmp)
 
 	return e
 }
 
-//  (y+x*v)^(p^2)
+//	(y+x*v)^(p^2)
+//
 // y + x*v * v^(p^2-1)
 func (e *gfP4) FrobeniusP2(a *gfP4) *gfP4 {
 	e.Conjugate(a)
 	return e
 }
 
-//  (y+x*v)^(p^3)
+//	(y+x*v)^(p^3)
+//
 // = ((y+x*v)^p)^(p^2)
 func (e *gfP4) FrobeniusP3(a *gfP4) *gfP4 {
-	x, y := &gfP2{}, &gfP2{}
+	tmp := &gfP4{}
+	x := &tmp.x
+	y := &tmp.y
 	x.Conjugate(&a.x)
 	y.Conjugate(&a.y)
 	x.MulScalar(x, vToPMinus1)
 	x.Neg(x)
 
-	e.x.Set(x)
-	e.y.Set(y)
+	gfp4Copy(e, tmp)
 
 	return e
 }

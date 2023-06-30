@@ -60,11 +60,7 @@ func (e *gfP) String() string {
 }
 
 func (e *gfP) Set(f *gfP) *gfP {
-	e[0] = f[0]
-	e[1] = f[1]
-	e[2] = f[2]
-	e[3] = f[3]
-
+	gfpCopy(e, f)
 	return e
 }
 

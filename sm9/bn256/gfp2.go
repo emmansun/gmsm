@@ -26,8 +26,7 @@ func (e *gfP2) String() string {
 }
 
 func (e *gfP2) Set(a *gfP2) *gfP2 {
-	e.x.Set(&a.x)
-	e.y.Set(&a.y)
+	gfp2Copy(e, a)
 	return e
 }
 
@@ -105,11 +104,14 @@ func (e *gfP2) Triple(a *gfP2) *gfP2 {
 // See "Multiplication and Squaring in Pairing-Friendly Fields",
 // http://eprint.iacr.org/2006/471.pdf
 // The Karatsuba method
-//(a0+a1*u)(b0+b1*u)=c0+c1*u, where
-//c0 = a0*b0 - 2a1*b1
-//c1 = (a0 + a1)(b0 + b1) - a0*b0 - a1*b1 = a0*b1 + a1*b0
+// (a0+a1*u)(b0+b1*u)=c0+c1*u, where
+// c0 = a0*b0 - 2a1*b1
+// c1 = (a0 + a1)(b0 + b1) - a0*b0 - a1*b1 = a0*b1 + a1*b0
 func (e *gfP2) Mul(a, b *gfP2) *gfP2 {
-	tx, ty, v0, v1 := &gfP{}, &gfP{}, &gfP{}, &gfP{}
+	tmp := &gfP2{}
+	tx := &tmp.x
+	ty := &tmp.y
+	v0, v1 := &gfP{}, &gfP{}
 
 	gfpMul(v0, &a.y, &b.y)
 	gfpMul(v1, &a.x, &b.x)
@@ -123,17 +125,19 @@ func (e *gfP2) Mul(a, b *gfP2) *gfP2 {
 	gfpSub(ty, v0, v1)
 	gfpSub(ty, ty, v1)
 
-	e.x.Set(tx)
-	e.y.Set(ty)
+	gfp2Copy(e, tmp)
 	return e
 }
 
 // MulU: a * b * u
-//(a0+a1*u)(b0+b1*u)*u=c0+c1*u, where
-//c1 = (a0*b0 - 2a1*b1)u
-//c0 = -2 * ((a0 + a1)(b0 + b1) - a0*b0 - a1*b1) = -2 * (a0*b1 + a1*b0)
+// (a0+a1*u)(b0+b1*u)*u=c0+c1*u, where
+// c1 = (a0*b0 - 2a1*b1)u
+// c0 = -2 * ((a0 + a1)(b0 + b1) - a0*b0 - a1*b1) = -2 * (a0*b1 + a1*b0)
 func (e *gfP2) MulU(a, b *gfP2) *gfP2 {
-	tx, ty, v0, v1 := &gfP{}, &gfP{}, &gfP{}, &gfP{}
+	tmp := &gfP2{}
+	tx := &tmp.x
+	ty := &tmp.y
+	v0, v1 := &gfP{}, &gfP{}
 
 	gfpMul(v0, &a.y, &b.y)
 	gfpMul(v1, &a.x, &b.x)
@@ -150,29 +154,30 @@ func (e *gfP2) MulU(a, b *gfP2) *gfP2 {
 	gfpSub(tx, v0, v1)
 	gfpSub(tx, tx, v1)
 
-	e.x.Set(tx)
-	e.y.Set(ty)
+	gfp2Copy(e, tmp)
 	return e
 }
 
 // MulU1: a  * u
-//(a0+a1*u)u=c0+c1*u, where
-//c1 = a0
-//c0 = -2a1
+// (a0+a1*u)u=c0+c1*u, where
+// c1 = a0
+// c0 = -2a1
 func (e *gfP2) MulU1(a *gfP2) *gfP2 {
 	t := &gfP{}
 	gfpAdd(t, &a.x, &a.x)
 	gfpNeg(t, t)
 
-	e.x.Set(&a.y)
-	e.y.Set(t)
+	gfpCopy(&e.x, &a.y)
+	gfpCopy(&e.y, t)
 	return e
 }
 
 func (e *gfP2) Square(a *gfP2) *gfP2 {
 	// Complex squaring algorithm:
 	// (xu+y)² = y^2-2*x^2 + 2*u*x*y
-	tx, ty := &gfP{}, &gfP{}
+	tmp := &gfP2{}
+	tx := &tmp.x
+	ty := &tmp.y
 	gfpSqr(tx, &a.x, 1)
 	gfpSqr(ty, &a.y, 1)
 	gfpSub(ty, ty, tx)
@@ -180,9 +185,7 @@ func (e *gfP2) Square(a *gfP2) *gfP2 {
 
 	gfpMul(tx, &a.x, &a.y)
 	gfpAdd(tx, tx, tx)
-
-	e.x.Set(tx)
-	e.y.Set(ty)
+	gfp2Copy(e, tmp)
 	return e
 }
 
@@ -190,7 +193,9 @@ func (e *gfP2) SquareU(a *gfP2) *gfP2 {
 	// Complex squaring algorithm:
 	// (xu+y)²*u = (y^2-2*x^2)u - 4*x*y
 
-	tx, ty := &gfP{}, &gfP{}
+	tmp := &gfP2{}
+	tx := &tmp.x
+	ty := &tmp.y
 	// tx = a0^2 - 2 * a1^2
 	gfpSqr(ty, &a.x, 1)
 	gfpSqr(tx, &a.y, 1)
@@ -203,8 +208,7 @@ func (e *gfP2) SquareU(a *gfP2) *gfP2 {
 	gfpAdd(ty, ty, ty)
 	gfpNeg(ty, ty)
 
-	e.x.Set(tx)
-	e.y.Set(ty)
+	gfp2Copy(e, tmp)
 	return e
 }
 
@@ -251,8 +255,10 @@ func (e *gfP2) Exp(f *gfP2, power *big.Int) *gfP2 {
 }
 
 // （xu+y)^p = x * u^p + y
-//  = x * u * u^(p-1) + y
-//  = (-x)*u + y
+//
+//	= x * u * u^(p-1) + y
+//	= (-x)*u + y
+//
 // here u^(p-1) = -1
 func (e *gfP2) Frobenius(a *gfP2) *gfP2 {
 	e.Conjugate(a)

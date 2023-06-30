@@ -95,8 +95,8 @@ func lineFunctionDouble(r *twistPoint, q *curvePoint) (a, b, c *gfP2, rOut *twis
 // (ret.z + ret.y*w + ret.x*w^2)* ((cv+a) + b*w^2)
 func mulLine(ret *gfP12, a, b, c *gfP2) {
 	t1, tz, t, bz := &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}
-	bz.x.Set(c)
-	bz.y.Set(a)
+	gfp2Copy(&bz.x, c)
+	gfp2Copy(&bz.y, a)
 
 	tz.Mul(&ret.z, bz)
 	t.MulScalar(&ret.y, b).MulV1(t)
@@ -109,17 +109,14 @@ func mulLine(ret *gfP12, a, b, c *gfP2) {
 	t.Mul(&ret.x, bz)
 	t1.MulScalar(&ret.z, b)
 	ret.x.Add(t1, t)
-
-	ret.z.Set(tz)
+	gfp4Copy(&ret.z, tz)
 }
 
-//
 // R-ate Pairing G2 x G1 -> GT
 //
 // P is a point of order q in G1. Q(x,y) is a point of order q in G2.
 // Note that Q is a point on the sextic twist of the curve over Fp^2, P(x,y) is a point on the
 // curve over the base field Fp
-//
 func miller(q *twistPoint, p *curvePoint) *gfP12 {
 	ret := (&gfP12{}).SetOne()
 
@@ -218,9 +215,9 @@ func finalExponentiation(in *gfP12) *gfP12 {
 	fp2 := (&gfP12{}).FrobeniusP2(t1)
 	fp3 := (&gfP12{}).Frobenius(fp2)
 
-	fu := (&gfP12{}).Exp(t1, u)
-	fu2 := (&gfP12{}).Exp(fu, u)
-	fu3 := (&gfP12{}).Exp(fu2, u)
+	fu := (&gfP12{}).gfP12ExpU(t1)
+	fu2 := (&gfP12{}).gfP12ExpU(fu)
+	fu3 := (&gfP12{}).gfP12ExpU(fu2)
 
 	y3 := (&gfP12{}).Frobenius(fu)
 	fu2p := (&gfP12{}).Frobenius(fu2)
