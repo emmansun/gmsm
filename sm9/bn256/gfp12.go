@@ -144,9 +144,9 @@ func (e *gfP12) Mul(a, b *gfP12) *gfP12 {
 	ty := &tmp.y
 	tz := &tmp.z
 	t, v0, v1, v2 := &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}
-	v0.Mul(&a.z, &b.z)
-	v1.Mul(&a.y, &b.y)
-	v2.Mul(&a.x, &b.x)
+	v0.MulNC(&a.z, &b.z)
+	v1.MulNC(&a.y, &b.y)
+	v2.MulNC(&a.x, &b.x)
 
 	t.Add(&a.y, &a.x)
 	tz.Add(&b.y, &b.x)
@@ -174,6 +174,45 @@ func (e *gfP12) Mul(a, b *gfP12) *gfP12 {
 	return e
 }
 
+func (e *gfP12) MulNC(a, b *gfP12) *gfP12 {
+	// (z0 + y0*w + x0*w^2)* (z1 + y1*w + x1*w^2)
+	//  z0*z1 + z0*y1*w + z0*x1*w^2
+	// +y0*z1*w + y0*y1*w^2 + y0*x1*v
+	// +x0*z1*w^2 + x0*y1*v + x0*x1*v*w
+	//=(z0*z1+y0*x1*v+x0*y1*v) + (z0*y1+y0*z1+x0*x1*v)w + (z0*x1 + y0*y1 + x0*z1)*w^2
+	tx := &e.x
+	ty := &e.y
+	tz := &e.z
+	t, v0, v1, v2 := &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}
+	v0.MulNC(&a.z, &b.z)
+	v1.MulNC(&a.y, &b.y)
+	v2.MulNC(&a.x, &b.x)
+
+	t.Add(&a.y, &a.x)
+	tz.Add(&b.y, &b.x)
+	t.Mul(t, tz)
+	t.Sub(t, v1)
+	t.Sub(t, v2)
+	t.MulV1(t)
+	tz.Add(t, v0)
+
+	t.Add(&a.z, &a.y)
+	ty.Add(&b.z, &b.y)
+	ty.Mul(t, ty)
+	ty.Sub(ty, v0)
+	ty.Sub(ty, v1)
+	t.MulV1(v2)
+	ty.Add(ty, t)
+
+	t.Add(&a.z, &a.x)
+	tx.Add(&b.z, &b.x)
+	tx.Mul(tx, t)
+	tx.Sub(tx, v0)
+	tx.Add(tx, v1)
+	tx.Sub(tx, v2)
+	return e
+}
+
 func (e *gfP12) Square(a *gfP12) *gfP12 {
 	// (z + y*w + x*w^2)* (z + y*w + x*w^2)
 	// z^2 + z*y*w + z*x*w^2 + y*z*w + y^2*w^2 + y*x*v + x*z*w^2 + x*y*v + x^2 *v *w
@@ -185,21 +224,48 @@ func (e *gfP12) Square(a *gfP12) *gfP12 {
 	tz := &tmp.z
 	t := &gfP4{}
 
-	tz.Square(&a.z)
+	tz.SquareNC(&a.z)
 	t.MulV(&a.x, &a.y)
 	t.Add(t, t)
 	tz.Add(tz, t)
 
-	ty.SquareV(&a.x)
+	ty.SquareVNC(&a.x)
 	t.Mul(&a.y, &a.z)
 	t.Add(t, t)
 	ty.Add(ty, t)
 
-	tx.Square(&a.y)
+	tx.SquareNC(&a.y)
 	t.Mul(&a.x, &a.z)
 	t.Add(t, t)
 	tx.Add(tx, t)
 	gfp12Copy(e, tmp)
+	return e
+}
+
+func (e *gfP12) SquareNC(a *gfP12) *gfP12 {
+	// (z + y*w + x*w^2)* (z + y*w + x*w^2)
+	// z^2 + z*y*w + z*x*w^2 + y*z*w + y^2*w^2 + y*x*v + x*z*w^2 + x*y*v + x^2 *v *w
+	// (z^2 + y*x*v + x*y*v) + (z*y + y*z + v * x^2)w + (z*x + y^2 + x*z)*w^2
+	// (z^2 + 2*x*y*v) + (v*x^2 + 2*y*z) *w + (y^2 + 2*x*z) * w^2
+	tx := &e.x
+	ty := &e.y
+	tz := &e.z
+	t := &gfP4{}
+
+	tz.SquareNC(&a.z)
+	t.MulV(&a.x, &a.y)
+	t.Add(t, t)
+	tz.Add(tz, t)
+
+	ty.SquareVNC(&a.x)
+	t.Mul(&a.y, &a.z)
+	t.Add(t, t)
+	ty.Add(ty, t)
+
+	tx.SquareNC(&a.y)
+	t.Mul(&a.x, &a.z)
+	t.Add(t, t)
+	tx.Add(tx, t)
 	return e
 }
 
@@ -211,17 +277,17 @@ func (e *gfP12) Squares(a *gfP12, n int) *gfP12 {
 	tz := &in.z
 	t := &gfP4{}
 
-	tz.Square(&a.z)
+	tz.SquareNC(&a.z)
 	t.MulV(&a.x, &a.y)
 	t.Add(t, t)
 	tz.Add(tz, t)
 
-	ty.SquareV(&a.x)
+	ty.SquareVNC(&a.x)
 	t.Mul(&a.y, &a.z)
 	t.Add(t, t)
 	ty.Add(ty, t)
 
-	tx.Square(&a.y)
+	tx.SquareNC(&a.y)
 	t.Mul(&a.x, &a.z)
 	t.Add(t, t)
 	tx.Add(tx, t)
@@ -232,17 +298,17 @@ func (e *gfP12) Squares(a *gfP12, n int) *gfP12 {
 	ty = &tmp.y
 	tz = &tmp.z
 	for i := 1; i < n; i++ {
-		tz.Square(&in.z)
+		tz.SquareNC(&in.z)
 		t.MulV(&in.x, &in.y)
 		t.Add(t, t)
 		tz.Add(tz, t)
 
-		ty.SquareV(&in.x)
+		ty.SquareVNC(&in.x)
 		t.Mul(&in.y, &in.z)
 		t.Add(t, t)
 		ty.Add(ty, t)
 
-		tx.Square(&in.y)
+		tx.SquareNC(&in.y)
 		t.Mul(&in.x, &in.z)
 		t.Add(t, t)
 		tx.Add(tx, t)
@@ -289,19 +355,19 @@ func (e *gfP12) Invert(a *gfP12) *gfP12 {
 	// = τ²(y²-ξxz) + τ(ξx²-yz) + (z²-ξxy)
 	//
 	// So that's why A = (z²-ξxy), B = (ξx²-yz), C = (y²-ξxz)
-	t1 := (&gfP4{}).MulV(&a.x, &a.y)
-	A := (&gfP4{}).Square(&a.z)
+	t1 := (&gfP4{}).MulVNC(&a.x, &a.y)
+	A := (&gfP4{}).SquareNC(&a.z)
 	A.Sub(A, t1)
 
-	B := (&gfP4{}).SquareV(&a.x)
+	B := (&gfP4{}).SquareVNC(&a.x)
 	t1.Mul(&a.y, &a.z)
 	B.Sub(B, t1)
 
-	C := (&gfP4{}).Square(&a.y)
+	C := (&gfP4{}).SquareNC(&a.y)
 	t1.Mul(&a.x, &a.z)
 	C.Sub(C, t1)
 
-	F := (&gfP4{}).MulV(C, &a.y)
+	F := (&gfP4{}).MulVNC(C, &a.y)
 	t1.Mul(A, &a.z)
 	F.Add(F, t1)
 	t1.MulV(B, &a.x)

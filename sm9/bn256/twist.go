@@ -100,23 +100,23 @@ func (c *twistPoint) Add(a, b *twistPoint) {
 	}
 
 	// See http://hyperelliptic.org/EFD/g1p/auto-code/shortw/jacobian-0/addition/add-2007-bl.op3
-	z12 := (&gfP2{}).Square(&a.z)
-	z22 := (&gfP2{}).Square(&b.z)
-	u1 := (&gfP2{}).Mul(&a.x, z22)
-	u2 := (&gfP2{}).Mul(&b.x, z12)
+	z12 := (&gfP2{}).SquareNC(&a.z)
+	z22 := (&gfP2{}).SquareNC(&b.z)
+	u1 := (&gfP2{}).MulNC(&a.x, z22)
+	u2 := (&gfP2{}).MulNC(&b.x, z12)
 
-	t := (&gfP2{}).Mul(&b.z, z22)
-	s1 := (&gfP2{}).Mul(&a.y, t)
+	t := (&gfP2{}).MulNC(&b.z, z22)
+	s1 := (&gfP2{}).MulNC(&a.y, t)
 
 	t.Mul(&a.z, z12)
-	s2 := (&gfP2{}).Mul(&b.y, t)
+	s2 := (&gfP2{}).MulNC(&b.y, t)
 
 	h := (&gfP2{}).Sub(u2, u1)
 	xEqual := h.IsZero()
 
 	t.Add(h, h)
-	i := (&gfP2{}).Square(t)
-	j := (&gfP2{}).Mul(h, i)
+	i := (&gfP2{}).SquareNC(t)
+	j := (&gfP2{}).MulNC(h, i)
 
 	t.Sub(s2, s1)
 	yEqual := t.IsZero()
@@ -126,9 +126,9 @@ func (c *twistPoint) Add(a, b *twistPoint) {
 	}
 	r := (&gfP2{}).Add(t, t)
 
-	v := (&gfP2{}).Mul(u1, i)
+	v := (&gfP2{}).MulNC(u1, i)
 
-	t4 := (&gfP2{}).Square(r)
+	t4 := (&gfP2{}).SquareNC(r)
 	t.Add(v, v)
 	t6 := (&gfP2{}).Sub(t4, j)
 	c.x.Sub(t6, t)
@@ -148,18 +148,18 @@ func (c *twistPoint) Add(a, b *twistPoint) {
 
 func (c *twistPoint) Double(a *twistPoint) {
 	// See http://hyperelliptic.org/EFD/g1p/auto-code/shortw/jacobian-0/doubling/dbl-2009-l.op3
-	A := (&gfP2{}).Square(&a.x)
-	B := (&gfP2{}).Square(&a.y)
-	C := (&gfP2{}).Square(B)
+	A := (&gfP2{}).SquareNC(&a.x)
+	B := (&gfP2{}).SquareNC(&a.y)
+	C := (&gfP2{}).SquareNC(B)
 
 	t := (&gfP2{}).Add(&a.x, B)
-	t2 := (&gfP2{}).Square(t)
+	t2 := (&gfP2{}).SquareNC(t)
 	t.Sub(t2, A)
 	t2.Sub(t, C)
 	d := (&gfP2{}).Add(t2, t2)
 	t.Add(A, A)
 	e := (&gfP2{}).Add(t, A)
-	f := (&gfP2{}).Square(e)
+	f := (&gfP2{}).SquareNC(e)
 
 	t.Add(d, d)
 	c.x.Sub(f, t)
@@ -201,8 +201,8 @@ func (c *twistPoint) MakeAffine() {
 	}
 
 	zInv := (&gfP2{}).Invert(&c.z)
-	t := (&gfP2{}).Mul(&c.y, zInv)
-	zInv2 := (&gfP2{}).Square(zInv)
+	t := (&gfP2{}).MulNC(&c.y, zInv)
+	zInv2 := (&gfP2{}).SquareNC(zInv)
 	c.y.Mul(t, zInv2)
 	t.Mul(&c.x, zInv2)
 	c.x.Set(t)

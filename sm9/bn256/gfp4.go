@@ -102,8 +102,8 @@ func (e *gfP4) Mul(a, b *gfP4) *gfP4 {
 	tx := &tmp.x
 	ty := &tmp.y
 	v0, v1 := &gfP2{}, &gfP2{}
-	v0.Mul(&a.y, &b.y)
-	v1.Mul(&a.x, &b.x)
+	v0.MulNC(&a.y, &b.y)
+	v1.MulNC(&a.x, &b.x)
 
 	tx.Add(&a.x, &a.y)
 	ty.Add(&b.x, &b.y)
@@ -118,6 +118,31 @@ func (e *gfP4) Mul(a, b *gfP4) *gfP4 {
 	return e
 }
 
+func (e *gfP4) MulNC(a, b *gfP4) *gfP4 {
+	// "Multiplication and Squaring on Pairing-Friendly Fields"
+	// Section 4, Karatsuba method.
+	// http://eprint.iacr.org/2006/471.pdf
+	//(a0+a1*v)(b0+b1*v)=c0+c1*v, where
+	//c0 = a0*b0 +a1*b1*u
+	//c1 = (a0 + a1)(b0 + b1) - a0*b0 - a1*b1 = a0*b1 + a1*b0
+	tx := &e.x
+	ty := &e.y
+	v0, v1 := &gfP2{}, &gfP2{}
+	v0.MulNC(&a.y, &b.y)
+	v1.MulNC(&a.x, &b.x)
+
+	tx.Add(&a.x, &a.y)
+	ty.Add(&b.x, &b.y)
+	tx.Mul(tx, ty)
+	tx.Sub(tx, v0)
+	tx.Sub(tx, v1)
+
+	ty.MulU1(v1)
+	ty.Add(ty, v0)
+
+	return e
+}
+
 // MulV: a * b * v
 // (a0+a1*v)(b0+b1*v)*v=c0+c1*v, where
 // (a0*b0 + a0*b1v + a1*b0*v + a1*b1*u)*v
@@ -129,8 +154,8 @@ func (e *gfP4) MulV(a, b *gfP4) *gfP4 {
 	tx := &tmp.x
 	ty := &tmp.y
 	v0, v1 := &gfP2{}, &gfP2{}
-	v0.Mul(&a.y, &b.y)
-	v1.Mul(&a.x, &b.x)
+	v0.MulNC(&a.y, &b.y)
+	v1.MulNC(&a.x, &b.x)
 
 	tx.Add(&a.x, &a.y)
 	ty.Add(&b.x, &b.y)
@@ -143,6 +168,26 @@ func (e *gfP4) MulV(a, b *gfP4) *gfP4 {
 	tx.Add(tx, v0)
 
 	gfp4Copy(e, tmp)
+	return e
+}
+
+func (e *gfP4) MulVNC(a, b *gfP4) *gfP4 {
+	tx := &e.x
+	ty := &e.y
+	v0, v1 := &gfP2{}, &gfP2{}
+	v0.MulNC(&a.y, &b.y)
+	v1.MulNC(&a.x, &b.x)
+
+	tx.Add(&a.x, &a.y)
+	ty.Add(&b.x, &b.y)
+	ty.Mul(tx, ty)
+	ty.Sub(ty, v0)
+	ty.Sub(ty, v1)
+	ty.MulU1(ty)
+
+	tx.MulU1(v1)
+	tx.Add(tx, v0)
+
 	return e
 }
 
@@ -165,8 +210,8 @@ func (e *gfP4) Square(a *gfP4) *gfP4 {
 	tmp := &gfP4{}
 	tx := &tmp.x
 	ty := &tmp.y
-	tx.SquareU(&a.x)
-	ty.Square(&a.y)
+	tx.SquareUNC(&a.x)
+	ty.SquareNC(&a.y)
 	ty.Add(tx, ty)
 
 	tx.Mul(&a.x, &a.y)
@@ -176,20 +221,48 @@ func (e *gfP4) Square(a *gfP4) *gfP4 {
 	return e
 }
 
+func (e *gfP4) SquareNC(a *gfP4) *gfP4 {
+	// Complex squaring algorithm:
+	// (xv+y)² = (x^2*u + y^2) + 2*x*y*v
+	tx := &e.x
+	ty := &e.y
+	tx.SquareUNC(&a.x)
+	ty.SquareNC(&a.y)
+	ty.Add(tx, ty)
+
+	tx.Mul(&a.x, &a.y)
+	tx.Add(tx, tx)
+
+	return e
+}
+
 // SquareV: (a^2) * v
 // v*(xv+y)² = (x^2*u + y^2)v + 2*x*y*u
 func (e *gfP4) SquareV(a *gfP4) *gfP4 {
 	tmp := &gfP4{}
 	tx := &tmp.x
 	ty := &tmp.y
-	tx.SquareU(&a.x)
-	ty.Square(&a.y)
+	tx.SquareUNC(&a.x)
+	ty.SquareNC(&a.y)
 	tx.Add(tx, ty)
 
 	ty.MulU(&a.x, &a.y)
 	ty.Add(ty, ty)
 
 	gfp4Copy(e, tmp)
+	return e
+}
+
+func (e *gfP4) SquareVNC(a *gfP4) *gfP4 {
+	tx := &e.x
+	ty := &e.y
+	tx.SquareUNC(&a.x)
+	ty.SquareNC(&a.y)
+	tx.Add(tx, ty)
+
+	ty.MulU(&a.x, &a.y)
+	ty.Add(ty, ty)
+
 	return e
 }
 
@@ -202,15 +275,15 @@ func (e *gfP4) Invert(a *gfP4) *gfP4 {
 
 	t3 := &gfP2{}
 
-	t3.SquareU(&a.x)
-	t1.Square(&a.y)
+	t3.SquareUNC(&a.x)
+	t1.SquareNC(&a.y)
 	t3.Sub(t3, t1)
 	t3.Invert(t3)
 
 	t1.Mul(&a.y, t3)
 	t1.Neg(t1)
 
-	t2.Mul(&a.x, t3)
+	t2.MulNC(&a.x, t3)
 
 	gfp4Copy(e, tmp)
 	return e
@@ -242,7 +315,7 @@ func (e *gfP4) Frobenius(a *gfP4) *gfP4 {
 	tmp := &gfP4{}
 	x := &tmp.x
 	y := &tmp.y
-	
+
 	x.Conjugate(&a.x)
 	y.Conjugate(&a.y)
 	x.MulScalar(x, vToPMinus1)

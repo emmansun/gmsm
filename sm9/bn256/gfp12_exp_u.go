@@ -14,18 +14,18 @@ func (e *gfP12) gfP12ExpU(x *gfP12) *gfP12 {
 	//	i69    = (2*(i56 << 4 + _1001) + 1) << 6
 	//	return   2*(_101 + i69)
 	//
-	var z = new(gfP12)
+	var z = e
 	var t0 = new(gfP12)
 	var t1 = new(gfP12)
 	var t2 = new(gfP12)
 	var t3 = new(gfP12)
 
-	t2.Square(x)
-	t1.Square(t2)
-	z.Mul(x, t1)
-	t0.Mul(t1, z)
+	t2.SquareNC(x)
+	t1.SquareNC(t2)
+	z.MulNC(x, t1)
+	t0.MulNC(t1, z)
 	t2.Mul(t2, t0)
-	t3.Mul(x, t2)
+	t3.MulNC(x, t2)
 	t3.Squares(t3, 40)
 	t3.Mul(t2, t3)
 	t3.Squares(t3, 7)
@@ -38,6 +38,5 @@ func (e *gfP12) gfP12ExpU(x *gfP12) *gfP12 {
 	t0.Squares(t0, 6)
 	z.Mul(z, t0)
 	z.Square(z)
-	gfp12Copy(e, z)
 	return e
 }

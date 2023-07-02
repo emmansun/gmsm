@@ -1,9 +1,20 @@
 package bn256
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 )
+
+func TestToGfP12_1(t *testing.T) {
+	x := &gfP12b6{}
+	x.SetGfP12(expected1)
+	fmt.Printf("%v\n", gfP12b6Decode(x))
+	x.SetGfP12(expected_b2)
+	fmt.Printf("%v\n", gfP12b6Decode(x))
+	x.SetGfP12(expected_b2_2)
+	fmt.Printf("%v\n", gfP12b6Decode(x))
+}
 
 func Test_finalExponentiationB6(t *testing.T) {
 	x := &gfP12b6{
@@ -86,6 +97,23 @@ func BenchmarkFinalExponentiationB6(b *testing.B) {
 		got := finalExponentiationB6(x)
 		if *got != *expected {
 			b.Errorf("got %v, expected %v\n", got, expected)
+		}
+	}
+}
+
+func BenchmarkPairingB6(b *testing.B) {
+	pk := bigFromHex("0130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4")
+	g2 := &G2{}
+	_, err := g2.ScalarBaseMult(NormalizeScalar(pk.Bytes()))
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ret := pairingB6(g2.p, curveGen)
+		if *ret != *expected1 {
+			b.Errorf("not expected")
 		}
 	}
 }
