@@ -162,6 +162,20 @@ func BenchmarkFinalExponentiation(b *testing.B) {
 	}
 }
 
+func BenchmarkMiller(b *testing.B) {
+	pk := bigFromHex("0130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4")
+	g2 := &G2{}
+	_, err := g2.ScalarBaseMult(NormalizeScalar(pk.Bytes()))
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		miller(g2.p, curveGen)
+	}
+}
+
 func BenchmarkPairingB4(b *testing.B) {
 	pk := bigFromHex("0130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4")
 	g2 := &G2{}

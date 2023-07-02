@@ -58,7 +58,7 @@ func NewTwistGenerator() *twistPoint {
 
 func (c *twistPoint) polynomial(x *gfP2) *gfP2 {
 	x3 := &gfP2{}
-	x3.Square(x).Mul(x3, x).Add(x3, twistB)
+	x3.SquareNC(x).Mul(x3, x).Add(x3, twistB)
 	return x3
 }
 
@@ -70,7 +70,7 @@ func (c *twistPoint) IsOnCurve() bool {
 	}
 
 	y2 := &gfP2{}
-	y2.Square(&c.y)
+	y2.SquareNC(&c.y)
 	x3 := c.polynomial(&c.x)
 
 	return *y2 == *x3
