@@ -169,29 +169,15 @@ TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
 	JE   avx
 
 non_avx2_start:
-	PINSRD $0, 0(DX), t0
-	PINSRD $1, 16(DX), t0
-	PINSRD $2, 32(DX), t0
-	PINSRD $3, 48(DX), t0
+	MOVOU 0(DX), t0
+	MOVOU 16(DX), t1
+	MOVOU 32(DX), t2
+	MOVOU 48(DX), t3
 	PSHUFB flip_mask<>(SB), t0
-
-	PINSRD $0, 4(DX), t1
-	PINSRD $1, 20(DX), t1
-	PINSRD $2, 36(DX), t1
-	PINSRD $3, 52(DX), t1
 	PSHUFB flip_mask<>(SB), t1
-
-	PINSRD $0, 8(DX), t2
-	PINSRD $1, 24(DX), t2
-	PINSRD $2, 40(DX), t2
-	PINSRD $3, 56(DX), t2
 	PSHUFB flip_mask<>(SB), t2
-
-	PINSRD $0, 12(DX), t3
-	PINSRD $1, 28(DX), t3
-	PINSRD $2, 44(DX), t3
-	PINSRD $3, 60(DX), t3
 	PSHUFB flip_mask<>(SB), t3
+	SSE_TRANSPOSE_MATRIX(R12, t0, t1, t2, t3, x, y);  
 
 	XORL CX, CX
 
@@ -205,38 +191,16 @@ loop:
 		CMPL CX, $4*32
 		JB loop
 
-	PSHUFB flip_mask<>(SB), t3
-	PSHUFB flip_mask<>(SB), t2
-	PSHUFB flip_mask<>(SB), t1
-	PSHUFB flip_mask<>(SB), t0
-	MOVUPS t3, 0(BX)
-	MOVUPS t2, 16(BX)
-	MOVUPS t1, 32(BX)
-	MOVUPS t0, 48(BX)
-	MOVL  4(BX), R8
-	MOVL  8(BX), R9
-	MOVL  12(BX), R10
-	MOVL  16(BX), R11
-	MOVL  32(BX), R12
-	MOVL  48(BX), R13
-	MOVL  R11, 4(BX)
-	MOVL  R12, 8(BX)
-	MOVL  R13, 12(BX)
-	MOVL  R8, 16(BX)
-	MOVL  R9, 32(BX)
-	MOVL  R10, 48(BX)
-	MOVL  24(BX), R8
-	MOVL  28(BX), R9
-	MOVL  36(BX), R10
-	MOVL  52(BX), R11
-	MOVL  R10, 24(BX)
-	MOVL  R11, 28(BX)
-	MOVL  R8, 36(BX)
-	MOVL  R9, 52(BX)
-	MOVL  44(BX), R8
-	MOVL  56(BX), R9
-	MOVL  R9, 44(BX)
-	MOVL  R8, 56(BX)
+	SSE_TRANSPOSE_MATRIX(R12, t0, t1, t2, t3, x, y);  
+	PSHUFB bswap_mask<>(SB), t3
+	PSHUFB bswap_mask<>(SB), t2
+	PSHUFB bswap_mask<>(SB), t1
+	PSHUFB bswap_mask<>(SB), t0
+	
+	MOVOU t0, 0(BX)
+	MOVOU t1, 16(BX)
+	MOVOU t2, 32(BX)
+	MOVOU t3, 48(BX)
 
 done_sm4:
 	RET

@@ -84,60 +84,19 @@ GLOBL fk_mask<>(SB), 8, $16
 //	PUNPCKLQDQ r2, tmp2; 
 //	MOVOU tmp2, r2
 #define SSE_TRANSPOSE_MATRIX(r, r0, r1, r2, r3, tmp1, tmp2) \
-	PEXTRD $2, r0, r; \
-	PINSRD $0, r, tmp2;  \
-	PEXTRD $2, r1, r; \
-	PINSRD $1, r, tmp2;  \
-	; \
-	PEXTRD $3, r0, r; \
-	PINSRD $2, r, tmp2;  \
-	PEXTRD $3, r1, r; \
-	PINSRD $3, r, tmp2;  \ // tmp2 = [w7, w3, w6, w2]
-	; \
-	PEXTRD $1, r0, r; \
-	PINSRD $2, r, r0;  \
-	PEXTRD $0, r1, r; \
-	PINSRD $1, r, r0;  \
-	PEXTRD $1, r1, r; \
-	PINSRD $3, r, r0;  \ //   r0 = [w5, w1, w4, w0] 
-	; \
-	PEXTRD $0, r2, r; \
-	PINSRD $0, r, tmp1;  \
-	PEXTRD $0, r3, r; \
-	PINSRD $1, r, tmp1;  \
-	PEXTRD $1, r2, r; \
-	PINSRD $2, r, tmp1;  \
-	PEXTRD $1, r3, r; \
-	PINSRD $3, r, tmp1;  \ // tmp1 = [w13, w9, w12, w8]
-	; \
-	PEXTRD $2, r2, r; \
-	PINSRD $0, r, r2;  \
-	PEXTRD $2, r3, r; \
-	PINSRD $1, r, r2;  \
-	PEXTRD $3, r2, r; \
-	PINSRD $2, r, r2;  \
-	PEXTRD $3, r3, r; \
-	PINSRD $3, r, r2;  \ //   r2 = [w15, w11, w14, w10] 
-	; \
-	MOVOU r0, r1; \
-	PEXTRQ $1, r1, r; \
-	PINSRQ $0, r, r1; \
-	PEXTRQ $1, tmp1, r; \
-	PINSRQ $1, r, r1; \ //  r1 = [w13, w9, w5, w1]
-	; \
-	PEXTRQ $0, tmp1, r; \
-	PINSRQ $1, r, r0; \ //  r0 = [w12, w8, w4, w0]
-	; \
-	MOVOU tmp2, r3; \
-	PEXTRQ $1, r3, r; \
-	PINSRQ $0, r, r3; \
-	PEXTRQ $1, r2, r; \
-	PINSRQ $1, r, r3; \ //  r3 = [w15, w11, w7, w3]
-	; \
-	PEXTRQ $0, r2, r; \
-	PINSRQ $1, r, r2; \
-	PEXTRQ $0, tmp2, r; \
-	PINSRQ $0, r, r2
+	MOVOU r0, tmp2;      \
+	PUNPCKHLQ r1, tmp2;  \
+	PUNPCKLLQ	r1, r0;  \
+	MOVOU r2, tmp1;      \
+	PUNPCKLLQ r3, tmp1;  \
+	PUNPCKHLQ r3, r2; 	 \
+	MOVOU r0, r1;        \
+	PUNPCKHQDQ tmp1, r1; \
+	PUNPCKLQDQ tmp1, r0; \
+	MOVOU tmp2, r3;      \
+	PUNPCKHQDQ r2, r3;   \
+	PUNPCKLQDQ r2, tmp2; \
+	MOVOU tmp2, r2
 
 // SM4 sbox function
 // parameters:
