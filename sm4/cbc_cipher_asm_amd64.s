@@ -85,9 +85,20 @@ done_sm4:
 #define XDWORD2 Y6
 #define XDWORD3 Y7
 
+#define XWTMP0 X0
+#define XWTMP1 X1
+#define XWTMP2 X2
+
+#define XWORD0 X4
+#define XWORD1 X5
+#define XWORD2 X6
+#define XWORD3 X7
+
 #define NIBBLE_MASK Y3
 #define X_NIBBLE_MASK X3
+
 #define BYTE_FLIP_MASK 	Y13 // mask to convert LE -> BE
+#define X_BYTE_FLIP_MASK 	X13 // mask to convert LE -> BE
 
 #define XDWORD Y8
 #define YDWORD Y9
@@ -113,6 +124,24 @@ done_sm4:
 	AVX2_SM4_TAO_L1(x, y, XDWTMP0, XWORD, YWORD, X_NIBBLE_MASK, NIBBLE_MASK);                            \
 	VPXOR x, t0, t0
 
+// SM4 round function, AVX version, handle 128 bits
+// t0 ^= tao_l1(t1^t2^t3^xk)
+// parameters:
+// - index: round key index immediate number
+// - x: 128 bits temp register
+// - y: 128 bits temp register
+// - t0: 128 bits register for data as result
+// - t1: 128 bits register for data
+// - t2: 128 bits register for data
+// - t3: 128 bits register for data
+#define AVX_SM4_ROUND(index, x, y, t0, t1, t2, t3)  \ 
+	VPBROADCASTD (index * 4)(AX)(CX*1), x;             \
+	VPXOR t1, x, x;                                    \
+	VPXOR t2, x, x;                                    \
+	VPXOR t3, x, x;                                    \
+	AVX_SM4_TAO_L1(x, y, X_NIBBLE_MASK, XWTMP0);       \  
+	VPXOR x, t0, t0
+
 // func decryptBlocksChain(xk *uint32, dst, src []byte, iv *byte)
 TEXT ·decryptBlocksChain(SB),NOSPLIT,$0
 	MOVQ xk+0(FP), AX
@@ -122,6 +151,9 @@ TEXT ·decryptBlocksChain(SB),NOSPLIT,$0
 
 	CMPB ·useAVX2(SB), $1
 	JE   avx2
+
+	CMPB ·useAVX(SB), $1
+	JE   avx
 
 non_avx2_start:
 	PINSRD $0, 0(DX), t0
@@ -178,6 +210,56 @@ loop:
 	MOVUPS t0, 48(BX)
 
 done_sm4:
+	RET
+
+avx:
+	VMOVDQU 0(DX), XWORD0
+	VMOVDQU 16(DX), XWORD1
+	VMOVDQU 32(DX), XWORD2
+	VMOVDQU 48(DX), XWORD3
+
+	VMOVDQU nibble_mask<>(SB), X_NIBBLE_MASK
+	VMOVDQU flip_mask<>(SB), X_BYTE_FLIP_MASK
+
+	VPSHUFB X_BYTE_FLIP_MASK, XWORD0, XWORD0
+	VPSHUFB X_BYTE_FLIP_MASK, XWORD1, XWORD1
+	VPSHUFB X_BYTE_FLIP_MASK, XWORD2, XWORD2
+	VPSHUFB X_BYTE_FLIP_MASK, XWORD3, XWORD3
+
+	// Transpose matrix 4 x 4 32bits word
+	TRANSPOSE_MATRIX(XWORD0, XWORD1, XWORD2, XWORD3, XWTMP1, XWTMP2)
+
+	XORL CX, CX
+
+avx_loop:
+		AVX_SM4_ROUND(0, XWORD, YWORD, XWORD0, XWORD1, XWORD2, XWORD3)
+		AVX_SM4_ROUND(1, XWORD, YWORD, XWORD1, XWORD2, XWORD3, XWORD0)
+		AVX_SM4_ROUND(2, XWORD, YWORD, XWORD2, XWORD3, XWORD0, XWORD1)
+		AVX_SM4_ROUND(3, XWORD, YWORD, XWORD3, XWORD0, XWORD1, XWORD2)
+
+		ADDL $16, CX
+		CMPL CX, $4*32
+		JB avx_loop
+
+	// Transpose matrix 4 x 4 32bits word
+	TRANSPOSE_MATRIX(XWORD0, XWORD1, XWORD2, XWORD3, XWTMP1, XWTMP2)
+
+	VMOVDQU bswap_mask<>(SB), X_BYTE_FLIP_MASK
+	VPSHUFB X_BYTE_FLIP_MASK, XWORD0, XWORD0
+	VPSHUFB X_BYTE_FLIP_MASK, XWORD1, XWORD1
+	VPSHUFB X_BYTE_FLIP_MASK, XWORD2, XWORD2
+	VPSHUFB X_BYTE_FLIP_MASK, XWORD3, XWORD3
+
+	VPXOR 0(SI), XWORD0, XWORD0
+	VPXOR 16(SI), XWORD1, XWORD1
+	VPXOR 32(SI), XWORD2, XWORD2
+	VPXOR 48(SI), XWORD3, XWORD3
+
+	VMOVDQU XWORD0, 0(BX)
+	VMOVDQU XWORD1, 16(BX)
+	VMOVDQU XWORD2, 32(BX)
+	VMOVDQU XWORD3, 48(BX)
+
 	RET
 
 avx2:

@@ -14,7 +14,8 @@ import (
 var supportSM4 = cpu.ARM64.HasSM4 && os.Getenv("DISABLE_SM4NI") != "1"
 var supportsAES = cpu.X86.HasAES || cpu.ARM64.HasAES
 var supportsGFMUL = cpu.X86.HasPCLMULQDQ || cpu.ARM64.HasPMULL
-var useAVX2 = cpu.X86.HasAVX2 && cpu.X86.HasBMI2
+var useAVX2 = cpu.X86.HasAVX512
+var useAVX = cpu.X86.HasAVX
 
 const (
 	INST_AES int = iota

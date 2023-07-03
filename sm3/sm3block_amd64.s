@@ -213,7 +213,7 @@
 
 #define ROUND_AND_SCHED_N_0_0(disp, const, a, b, c, d, e, f, g, h, XDWORD0, XDWORD1, XDWORD2, XDWORD3) \
 	;                                          \ // #############################  RND N + 0 ############################//
-	RORXL    $(-12), a, y0;                    \ // y0 = a <<< 12
+	RORXL    $(-12), a, y0;                    \ // y0 = a <<< 12, RORXL is BMI2 instr
   MOVL     e, y1;                            \
   ADDL     $const, y1;                       \
   VPALIGNR $12, XDWORD0, XDWORD1, XTMP0;     \ // XTMP0 = W[-13] = {w6,w5,w4,w3}

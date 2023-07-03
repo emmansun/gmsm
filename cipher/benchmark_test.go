@@ -9,6 +9,22 @@ import (
 	"github.com/emmansun/gmsm/sm4"
 )
 
+func benchmarkEBCEncrypt1K(b *testing.B, block cipher.Block) {
+	buf := make([]byte, 1024)
+	b.SetBytes(int64(len(buf)))
+
+	ecb := smcipher.NewECBEncrypter(block)
+	for i := 0; i < b.N; i++ {
+		ecb.CryptBlocks(buf, buf)
+	}
+}
+
+func BenchmarkSM4EBCEncrypt1K(b *testing.B) {
+	var key [16]byte
+	c, _ := sm4.NewCipher(key[:])
+	benchmarkEBCEncrypt1K(b, c)
+}
+
 func benchmarkCBCEncrypt1K(b *testing.B, block cipher.Block) {
 	buf := make([]byte, 1024)
 	b.SetBytes(int64(len(buf)))
