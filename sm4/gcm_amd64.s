@@ -216,7 +216,7 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 	PSHUFB flip_mask<>(SB), t1; \
 	PSHUFB flip_mask<>(SB), t2; \
 	PSHUFB flip_mask<>(SB), t3; \
-	SSE_TRANSPOSE_MATRIX(R12, t0, t1, t2, t3, x, y);          \
+	SSE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y);          \
 	XORL IND, IND;                                            \
 	SM4_ROUND(0, RK, IND, x, y, z, t0, t1, t2, t3);           \
 	SM4_ROUND(1, RK, IND, x, y, z, t1, t2, t3, t0);           \
@@ -257,7 +257,7 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 	SM4_ROUND(1, RK, IND, x, y, z, t1, t2, t3, t0);           \
 	SM4_ROUND(2, RK, IND, x, y, z, t2, t3, t0, t1);           \
 	SM4_ROUND(3, RK, IND, x, y, z, t3, t0, t1, t2);           \
-	SSE_TRANSPOSE_MATRIX(R12, t0, t1, t2, t3, x, y);          \
+	SSE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y);          \
 	PSHUFB BSWAP, t3; \
 	PSHUFB BSWAP, t2; \
 	PSHUFB BSWAP, t1; \

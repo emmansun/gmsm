@@ -177,7 +177,7 @@ non_avx2_start:
 	PSHUFB flip_mask<>(SB), t1
 	PSHUFB flip_mask<>(SB), t2
 	PSHUFB flip_mask<>(SB), t3
-	SSE_TRANSPOSE_MATRIX(R12, t0, t1, t2, t3, x, y);  
+	SSE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y)
 
 	XORL CX, CX
 
@@ -191,7 +191,7 @@ loop:
 		CMPL CX, $4*32
 		JB loop
 
-	SSE_TRANSPOSE_MATRIX(R12, t0, t1, t2, t3, x, y);  
+	SSE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y);  
 	PSHUFB bswap_mask<>(SB), t3
 	PSHUFB bswap_mask<>(SB), t2
 	PSHUFB bswap_mask<>(SB), t1

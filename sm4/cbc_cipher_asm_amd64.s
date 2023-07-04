@@ -156,29 +156,15 @@ TEXT ·decryptBlocksChain(SB),NOSPLIT,$0
 	JE   avx
 
 non_avx2_start:
-	PINSRD $0, 0(DX), t0
-	PINSRD $1, 16(DX), t0
-	PINSRD $2, 32(DX), t0
-	PINSRD $3, 48(DX), t0
+	MOVOU 0(DX), t0
+	MOVOU 16(DX), t1
+	MOVOU 32(DX), t2
+	MOVOU 48(DX), t3
 	PSHUFB flip_mask<>(SB), t0
-
-	PINSRD $0, 4(DX), t1
-	PINSRD $1, 20(DX), t1
-	PINSRD $2, 36(DX), t1
-	PINSRD $3, 52(DX), t1
 	PSHUFB flip_mask<>(SB), t1
-
-	PINSRD $0, 8(DX), t2
-	PINSRD $1, 24(DX), t2
-	PINSRD $2, 40(DX), t2
-	PINSRD $3, 56(DX), t2
 	PSHUFB flip_mask<>(SB), t2
-
-	PINSRD $0, 12(DX), t3
-	PINSRD $1, 28(DX), t3
-	PINSRD $2, 44(DX), t3
-	PINSRD $3, 60(DX), t3
 	PSHUFB flip_mask<>(SB), t3
+	SSE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y)
 
 	XORL CX, CX
 
@@ -192,22 +178,21 @@ loop:
 		CMPL CX, $4*32
 		JB loop
 
-	PSHUFB flip_mask<>(SB), t3
-	PSHUFB flip_mask<>(SB), t2
-	PSHUFB flip_mask<>(SB), t1
-	PSHUFB flip_mask<>(SB), t0
+	SSE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y);  
+	PSHUFB bswap_mask<>(SB), t3
+	PSHUFB bswap_mask<>(SB), t2
+	PSHUFB bswap_mask<>(SB), t1
+	PSHUFB bswap_mask<>(SB), t0
 
-	SSE_TRANSPOSE_MATRIX(CX, t3, t2, t1, t0, XWORD, YWORD)
+	PXOR 0(SI), t0
+	PXOR 16(SI), t1
+	PXOR 32(SI), t2
+	PXOR 48(SI), t3
 
-	PXOR 0(SI), t3
-	PXOR 16(SI), t2
-	PXOR 32(SI), t1
-	PXOR 48(SI), t0
-
-	MOVUPS t3, 0(BX)
-	MOVUPS t2, 16(BX)
-	MOVUPS t1, 32(BX)
-	MOVUPS t0, 48(BX)
+	MOVUPS t0, 0(BX)
+	MOVUPS t1, 16(BX)
+	MOVUPS t2, 32(BX)
+	MOVUPS t3, 48(BX)
 
 done_sm4:
 	RET

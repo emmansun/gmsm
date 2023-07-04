@@ -83,13 +83,13 @@ GLOBL fk_mask<>(SB), 8, $16
 //	PUNPCKHQDQ r2, r3; 
 //	PUNPCKLQDQ r2, tmp2; 
 //	MOVOU tmp2, r2
-#define SSE_TRANSPOSE_MATRIX(r, r0, r1, r2, r3, tmp1, tmp2) \
+#define SSE_TRANSPOSE_MATRIX(r0, r1, r2, r3, tmp1, tmp2) \
 	MOVOU r0, tmp2;      \
 	PUNPCKHLQ r1, tmp2;  \
 	PUNPCKLLQ	r1, r0;  \
 	MOVOU r2, tmp1;      \
 	PUNPCKLLQ r3, tmp1;  \
-	PUNPCKHLQ r3, r2; 	 \
+	PUNPCKHLQ r3, r2;    \
 	MOVOU r0, r1;        \
 	PUNPCKHQDQ tmp1, r1; \
 	PUNPCKLQDQ tmp1, r0; \
