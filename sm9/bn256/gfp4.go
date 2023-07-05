@@ -99,21 +99,7 @@ func (e *gfP4) Mul(a, b *gfP4) *gfP4 {
 	//c0 = a0*b0 +a1*b1*u
 	//c1 = (a0 + a1)(b0 + b1) - a0*b0 - a1*b1 = a0*b1 + a1*b0
 	tmp := &gfP4{}
-	tx := &tmp.x
-	ty := &tmp.y
-	v0, v1 := &gfP2{}, &gfP2{}
-	v0.MulNC(&a.y, &b.y)
-	v1.MulNC(&a.x, &b.x)
-
-	tx.Add(&a.x, &a.y)
-	ty.Add(&b.x, &b.y)
-	tx.Mul(tx, ty)
-	tx.Sub(tx, v0)
-	tx.Sub(tx, v1)
-
-	ty.MulU1(v1)
-	ty.Add(ty, v0)
-
+	tmp.MulNC(a, b)
 	gfp4Copy(e, tmp)
 	return e
 }
@@ -151,22 +137,7 @@ func (e *gfP4) MulNC(a, b *gfP4) *gfP4 {
 // c1 = a0*b0 + a1*b1*u
 func (e *gfP4) MulV(a, b *gfP4) *gfP4 {
 	tmp := &gfP4{}
-	tx := &tmp.x
-	ty := &tmp.y
-	v0, v1 := &gfP2{}, &gfP2{}
-	v0.MulNC(&a.y, &b.y)
-	v1.MulNC(&a.x, &b.x)
-
-	tx.Add(&a.x, &a.y)
-	ty.Add(&b.x, &b.y)
-	ty.Mul(tx, ty)
-	ty.Sub(ty, v0)
-	ty.Sub(ty, v1)
-	ty.MulU1(ty)
-
-	tx.MulU1(v1)
-	tx.Add(tx, v0)
-
+	tmp.MulVNC(a, b)
 	gfp4Copy(e, tmp)
 	return e
 }
@@ -208,15 +179,7 @@ func (e *gfP4) Square(a *gfP4) *gfP4 {
 	// Complex squaring algorithm:
 	// (xv+y)² = (x^2*u + y^2) + 2*x*y*v
 	tmp := &gfP4{}
-	tx := &tmp.x
-	ty := &tmp.y
-	tx.SquareUNC(&a.x)
-	ty.SquareNC(&a.y)
-	ty.Add(tx, ty)
-
-	tx.Mul(&a.x, &a.y)
-	tx.Add(tx, tx)
-
+	tmp.SquareNC(a)
 	gfp4Copy(e, tmp)
 	return e
 }
@@ -224,13 +187,15 @@ func (e *gfP4) Square(a *gfP4) *gfP4 {
 func (e *gfP4) SquareNC(a *gfP4) *gfP4 {
 	// Complex squaring algorithm:
 	// (xv+y)² = (x^2*u + y^2) + 2*x*y*v
+	// = (xu + y)(x + y) -xy(1+u) + 2xy*v
 	tx := &e.x
 	ty := &e.y
+
 	tx.SquareUNC(&a.x)
 	ty.SquareNC(&a.y)
 	ty.Add(tx, ty)
 
-	tx.Mul(&a.x, &a.y)
+	tx.MulNC(&a.x, &a.y)
 	tx.Add(tx, tx)
 
 	return e
@@ -240,15 +205,7 @@ func (e *gfP4) SquareNC(a *gfP4) *gfP4 {
 // v*(xv+y)² = (x^2*u + y^2)v + 2*x*y*u
 func (e *gfP4) SquareV(a *gfP4) *gfP4 {
 	tmp := &gfP4{}
-	tx := &tmp.x
-	ty := &tmp.y
-	tx.SquareUNC(&a.x)
-	ty.SquareNC(&a.y)
-	tx.Add(tx, ty)
-
-	ty.MulU(&a.x, &a.y)
-	ty.Add(ty, ty)
-
+	tmp.SquareVNC(a)
 	gfp4Copy(e, tmp)
 	return e
 }

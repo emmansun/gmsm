@@ -10,7 +10,7 @@ func lineFunctionAdd(r, p, rOut *twistPoint, q *curvePoint, r2, a, b, c *gfP2) {
 	D.Square(D).Sub(D, r2).Sub(D, &r.t).Mul(D, &r.t) // D = ((Yp + Zr)^2 - Zr^2 - Yp^2)*Zr^2 = 2Yp*Zr^3
 
 	H := (&gfP2{}).Sub(B, &r.x) // H = Xp * Zr^2 - Xr
-	I := (&gfP2{}).SquareNC(H)    // I = (Xp * Zr^2 - Xr)^2 = Xp^2*Zr^4 + Xr^2 - 2Xr*Xp*Zr^2
+	I := (&gfP2{}).SquareNC(H)  // I = (Xp * Zr^2 - Xr)^2 = Xp^2*Zr^4 + Xr^2 - 2Xr*Xp*Zr^2
 
 	E := (&gfP2{}).Add(I, I) // E = 2*(Xp * Zr^2 - Xr)^2
 	E.Add(E, E)              // E = 4*(Xp * Zr^2 - Xr)^2
@@ -37,8 +37,8 @@ func lineFunctionAdd(r, p, rOut *twistPoint, q *curvePoint, r2, a, b, c *gfP2) {
 	t.Add(&p.y, &rOut.z).Square(t).Sub(t, r2).Sub(t, &rOut.t) // t = (Yp + rOut.Z)^2 - Yp^2 - rOut.Z^2 = 2Yp*rOut.Z
 
 	t2.Mul(L1, &p.x)
-	t2.Add(t2, t2)           // t2 = 2 L1 * Xp
-	a.Sub(t2, t) // a =  2 L1 * Xp - 2 Yp * rOut.z
+	t2.Add(t2, t2) // t2 = 2 L1 * Xp
+	a.Sub(t2, t)   // a =  2 L1 * Xp - 2 Yp * rOut.z
 
 	c.MulScalar(&rOut.z, &q.y)
 	c.Add(c, c)
@@ -139,9 +139,9 @@ func miller(q *twistPoint, p *curvePoint) *gfP12 {
 			ret.Square(ret)
 		}
 		mulLine(ret, a, b, c)
-		tmpR= r
+		tmpR = r
 		r = newR
-		newR= tmpR
+		newR = tmpR
 		switch sixUPlus2NAF[i-1] {
 		case 1:
 			lineFunctionAdd(r, aAffine, newR, bAffine, r2, a, b, c)
@@ -152,9 +152,9 @@ func miller(q *twistPoint, p *curvePoint) *gfP12 {
 		}
 
 		mulLine(ret, a, b, c)
-		tmpR= r
+		tmpR = r
 		r = newR
-		newR= tmpR
+		newR = tmpR
 	}
 
 	// In order to calculate Q1 we have to convert q from the sextic twist
@@ -187,9 +187,9 @@ func miller(q *twistPoint, p *curvePoint) *gfP12 {
 	r2.Square(&q1.y)
 	lineFunctionAdd(r, q1, newR, bAffine, r2, a, b, c)
 	mulLine(ret, a, b, c)
-	tmpR= r
+	tmpR = r
 	r = newR
-	newR= tmpR
+	newR = tmpR
 
 	r2.Square(&minusQ2.y)
 	lineFunctionAdd(r, minusQ2, newR, bAffine, r2, a, b, c)
@@ -202,51 +202,50 @@ func miller(q *twistPoint, p *curvePoint) *gfP12 {
 // GF(p¹²) to obtain an element of GT. https://eprint.iacr.org/2007/390.pdf
 // http://cryptojedi.org/papers/dclxvi-20100714.pdf
 func finalExponentiation(in *gfP12) *gfP12 {
-	t1 := &gfP12{}
-
 	// This is the p^6-Frobenius
-	t1.FrobeniusP6(in)
+	t1 := (&gfP12{}).FrobeniusP6(in)
 
-	inv := &gfP12{}
-	inv.Invert(in)
+	inv := (&gfP12{}).Invert(in)
 	t1.Mul(t1, inv)
 
-	t2 := (&gfP12{}).FrobeniusP2(t1)
-	t1.Mul(t1, t2)
+	t2 := inv.FrobeniusP2(t1) // reuse inv
+	t1.Mul(t1, t2)            // t1 = in ^ ((p^6 - 1) * (p^2 + 1)), the first two parts of the exponentiation
 
 	fp := (&gfP12{}).Frobenius(t1)
 	fp2 := (&gfP12{}).FrobeniusP2(t1)
 	fp3 := (&gfP12{}).Frobenius(fp2)
 
-	fu := (&gfP12{}).gfP12ExpU(t1)
-	fu2 := (&gfP12{}).gfP12ExpU(fu)
-	fu3 := (&gfP12{}).gfP12ExpU(fu2)
+	y0 := &gfP12{}
+	y0.MulNC(fp, fp2).Mul(y0, fp3) // y0 = (t1^p) * (t1^(p^2)) * (t1^(p^3))
 
-	y3 := (&gfP12{}).Frobenius(fu)
+	// reuse fp, fp2, fp3 local variables
+	// [gfP12ExpU] is most time consuming operation
+	fu := fp.gfP12ExpU(t1)
+	fu2 := fp2.gfP12ExpU(fu)
+	fu3 := fp3.gfP12ExpU(fu2)
+
 	fu2p := (&gfP12{}).Frobenius(fu2)
 	fu3p := (&gfP12{}).Frobenius(fu3)
-	y2 := (&gfP12{}).FrobeniusP2(fu2)
 
-	y0 := &gfP12{}
-	y0.MulNC(fp, fp2).Mul(y0, fp3)
+	y1 := (&gfP12{}).Conjugate(t1)    // y1 = 1 / t1
+	y2 := (&gfP12{}).FrobeniusP2(fu2) // y2 = (t1^(u^2))^(p^2)
+	y3 := (&gfP12{}).Frobenius(fu)    // y3 = (t1^u)^p
+	y3.Conjugate(y3)                  // y3 = 1 / (t1^u)^p
+	y4 := (&gfP12{}).MulNC(fu, fu2p)  // y4 = (t1^u) * ((t1^(u^2))^p)
+	y4.Conjugate(y4)                  // y4 = 1 / ((t1^u) * ((t1^(u^2))^p))
+	y5 := fu2p.Conjugate(fu2)         // y5 = 1 / t1^(u^2), reuse fu2p
+	y6 := (&gfP12{}).MulNC(fu3, fu3p) // y6 = t1^(u^3) * (t1^(u^3))^p
+	y6.Conjugate(y6)                  // y6 = 1 / (t1^(u^3) * (t1^(u^3))^p)
 
-	y1 := (&gfP12{}).Conjugate(t1)
-	y5 := (&gfP12{}).Conjugate(fu2)
-	y3.Conjugate(y3)
-	y4 := (&gfP12{}).MulNC(fu, fu2p)
-	y4.Conjugate(y4)
-
-	y6 := (&gfP12{}).MulNC(fu3, fu3p)
-	y6.Conjugate(y6)
-
-	t0 := (&gfP12{}).SquareNC(y6)
+	// https://eprint.iacr.org/2008/490.pdf
+	t0 := (&gfP12{}).SpecialSquareNC(y6)
 	t0.Mul(t0, y4).Mul(t0, y5)
 	t1.Mul(y3, y5).Mul(t1, t0)
 	t0.Mul(t0, y2)
-	t1.Square(t1).Mul(t1, t0).Square(t1)
+	t1.SpecialSquare(t1).Mul(t1, t0).SpecialSquare(t1)
 	t0.Mul(t1, y1)
 	t1.Mul(t1, y0)
-	t0.Square(t0).Mul(t0, t1)
+	t0.SpecialSquare(t0).Mul(t0, t1)
 
 	return t0
 }

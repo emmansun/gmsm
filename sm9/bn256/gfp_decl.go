@@ -16,6 +16,7 @@ import (
 var supportADX = cpu.X86.HasADX && cpu.X86.HasBMI2
 
 // Set c = p - a, if c == p, then c = 0
+// It seems this function's performance is worse than gfpSub with zero.
 //
 // go:noescape
 func gfpNeg(c, a *gfP)

@@ -35,6 +35,31 @@ func Test_gfP12Square(t *testing.T) {
 	}
 }
 
+func TestSpecialSquare(t *testing.T) {
+	in := &gfP12{
+		testdataP4,
+		testdataP4,
+		*(&gfP4{}).SetOne(),
+	}
+
+	// This is the p^6-Frobenius
+	t1 := (&gfP12{}).FrobeniusP6(in)
+
+	inv := (&gfP12{}).Invert(in)
+	t1.Mul(t1, inv)
+
+	t2 := inv.FrobeniusP2(t1) // reuse inv
+	t1.Mul(t1, t2)            // t1 = in ^ ((p^6 - 1) * (p^2 + 1)), the first two parts of the exponentiation
+
+	got := &gfP12{}
+	expected := &gfP12{}
+	got.SpecialSquare(t1)
+	expected.Square(t1)
+	if *got != *expected {
+		t.Errorf("not same got=%v, expected=%v", got, expected)
+	}
+}
+
 func BenchmarkGfP12Square(b *testing.B) {
 	x := &gfP12{
 		testdataP4,
@@ -46,6 +71,52 @@ func BenchmarkGfP12Square(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		x2.Square(x)
+	}
+}
+
+func BenchmarkGfP12SpecialSquare(b *testing.B) {
+	in := &gfP12{
+		testdataP4,
+		testdataP4,
+		*(&gfP4{}).SetOne(),
+	}
+
+	// This is the p^6-Frobenius
+	t1 := (&gfP12{}).FrobeniusP6(in)
+
+	inv := (&gfP12{}).Invert(in)
+	t1.Mul(t1, inv)
+
+	t2 := inv.FrobeniusP2(t1) // reuse inv
+	t1.Mul(t1, t2)            // t1 = in ^ ((p^6 - 1) * (p^2 + 1)), the first two parts of the exponentiation
+	x2 := &gfP12{}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		x2.Square(t1)
+	}
+}
+
+func BenchmarkGfP12SpecialSqures(b *testing.B) {
+	in := &gfP12{
+		testdataP4,
+		testdataP4,
+		*(&gfP4{}).SetOne(),
+	}
+
+	// This is the p^6-Frobenius
+	t1 := (&gfP12{}).FrobeniusP6(in)
+
+	inv := (&gfP12{}).Invert(in)
+	t1.Mul(t1, inv)
+
+	t2 := inv.FrobeniusP2(t1) // reuse inv
+	t1.Mul(t1, t2)            // t1 = in ^ ((p^6 - 1) * (p^2 + 1)), the first two parts of the exponentiation
+	got := &gfP12{}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		got.SpecialSquares(in, 61)
 	}
 }
 
@@ -281,6 +352,20 @@ func Test_W3(t *testing.T) {
 	}
 }
 
+func BenchmarkGfP12Invert(b *testing.B) {
+	x := &gfP12{
+		testdataP4,
+		testdataP4,
+		testdataP4,
+	}
+	got := &gfP12{}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		got.Invert(x)
+	}
+}
+
 func BenchmarkGfP12Frobenius(b *testing.B) {
 	x := &gfP12{
 		testdataP4,
@@ -300,6 +385,48 @@ func BenchmarkGfP12Frobenius(b *testing.B) {
 	}
 }
 
+func BenchmarkGfP12Mul(b *testing.B) {
+	x := &gfP12{
+		testdataP4,
+		testdataP4,
+		testdataP4,
+	}
+	got := &gfP12{}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		got.Mul(x, x)
+	}
+}
+
+func BenchmarkGfP12Squre(b *testing.B) {
+	x := &gfP12{
+		testdataP4,
+		testdataP4,
+		testdataP4,
+	}
+	got := &gfP12{}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		got.Square(x)
+	}
+}
+
+func BenchmarkGfP12Squres(b *testing.B) {
+	x := &gfP12{
+		testdataP4,
+		testdataP4,
+		testdataP4,
+	}
+	got := &gfP12{}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		got.Squares(x, 61)
+	}
+}
+
 func BenchmarkGfP12ExpU(b *testing.B) {
 	x := &gfP12{
 		testdataP4,
@@ -310,6 +437,8 @@ func BenchmarkGfP12ExpU(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		got.gfP12ExpU(x)
+		got.gfP12ExpU(x)
 		got.gfP12ExpU(x)
 	}
 }
@@ -324,6 +453,8 @@ func BenchmarkGfP12ExpU2(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		got.Exp(x, u)
+		got.Exp(x, u)
 		got.Exp(x, u)
 	}
 }

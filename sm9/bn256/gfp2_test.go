@@ -172,6 +172,18 @@ func BenchmarkGfP2Square(b *testing.B) {
 	}
 }
 
+func BenchmarkGfP2SquareU(b *testing.B) {
+	x := &gfP2{
+		*fromBigInt(bigFromHex("85AEF3D078640C98597B6027B441A01FF1DD2C190F5E93C454806C11D8806141")),
+		*fromBigInt(bigFromHex("3722755292130B08D2AAB97FD34EC120EE265948D19C17ABF9B7213BAF82D65B")),
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		x.SquareU(x)
+	}
+}
+
 /*
 func Test_gfP2QuadraticResidue(t *testing.T) {
 	x := &gfP2{

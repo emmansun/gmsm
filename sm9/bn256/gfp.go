@@ -9,6 +9,7 @@ import (
 
 type gfP [4]uint64
 
+var genericZero = &gfP{0}
 var zero = newGFp(0)
 var one = newGFp(1)
 var two = newGFp(2)

@@ -140,36 +140,7 @@ func (e *gfP12) Mul(a, b *gfP12) *gfP12 {
 	// +x0*z1*w^2 + x0*y1*v + x0*x1*v*w
 	//=(z0*z1+y0*x1*v+x0*y1*v) + (z0*y1+y0*z1+x0*x1*v)w + (z0*x1 + y0*y1 + x0*z1)*w^2
 	tmp := &gfP12{}
-	tx := &tmp.x
-	ty := &tmp.y
-	tz := &tmp.z
-	t, v0, v1, v2 := &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}
-	v0.MulNC(&a.z, &b.z)
-	v1.MulNC(&a.y, &b.y)
-	v2.MulNC(&a.x, &b.x)
-
-	t.Add(&a.y, &a.x)
-	tz.Add(&b.y, &b.x)
-	t.Mul(t, tz)
-	t.Sub(t, v1)
-	t.Sub(t, v2)
-	t.MulV1(t)
-	tz.Add(t, v0)
-
-	t.Add(&a.z, &a.y)
-	ty.Add(&b.z, &b.y)
-	ty.Mul(t, ty)
-	ty.Sub(ty, v0)
-	ty.Sub(ty, v1)
-	t.MulV1(v2)
-	ty.Add(ty, t)
-
-	t.Add(&a.z, &a.x)
-	tx.Add(&b.z, &b.x)
-	tx.Mul(tx, t)
-	tx.Sub(tx, v0)
-	tx.Add(tx, v1)
-	tx.Sub(tx, v2)
+	tmp.MulNC(a, b)
 	gfp12Copy(e, tmp)
 	return e
 }
@@ -180,6 +151,7 @@ func (e *gfP12) MulNC(a, b *gfP12) *gfP12 {
 	// +y0*z1*w + y0*y1*w^2 + y0*x1*v
 	// +x0*z1*w^2 + x0*y1*v + x0*x1*v*w
 	//=(z0*z1+y0*x1*v+x0*y1*v) + (z0*y1+y0*z1+x0*x1*v)w + (z0*x1 + y0*y1 + x0*z1)*w^2
+	// Karatsuba method
 	tx := &e.x
 	ty := &e.y
 	tz := &e.z
@@ -219,25 +191,7 @@ func (e *gfP12) Square(a *gfP12) *gfP12 {
 	// (z^2 + y*x*v + x*y*v) + (z*y + y*z + v * x^2)w + (z*x + y^2 + x*z)*w^2
 	// (z^2 + 2*x*y*v) + (v*x^2 + 2*y*z) *w + (y^2 + 2*x*z) * w^2
 	tmp := &gfP12{}
-	tx := &tmp.x
-	ty := &tmp.y
-	tz := &tmp.z
-	t := &gfP4{}
-
-	tz.SquareNC(&a.z)
-	t.MulV(&a.x, &a.y)
-	t.Add(t, t)
-	tz.Add(tz, t)
-
-	ty.SquareVNC(&a.x)
-	t.Mul(&a.y, &a.z)
-	t.Add(t, t)
-	ty.Add(ty, t)
-
-	tx.SquareNC(&a.y)
-	t.Mul(&a.x, &a.z)
-	t.Add(t, t)
-	tx.Add(tx, t)
+	tmp.SquareNC(a)
 	gfp12Copy(e, tmp)
 	return e
 }
@@ -247,25 +201,148 @@ func (e *gfP12) SquareNC(a *gfP12) *gfP12 {
 	// z^2 + z*y*w + z*x*w^2 + y*z*w + y^2*w^2 + y*x*v + x*z*w^2 + x*y*v + x^2 *v *w
 	// (z^2 + y*x*v + x*y*v) + (z*y + y*z + v * x^2)w + (z*x + y^2 + x*z)*w^2
 	// (z^2 + 2*x*y*v) + (v*x^2 + 2*y*z) *w + (y^2 + 2*x*z) * w^2
+	// Karatsuba method
 	tx := &e.x
 	ty := &e.y
 	tz := &e.z
-	t := &gfP4{}
+	t, v0, v1, v2 := &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}
+	v0.SquareNC(&a.z)
+	v1.SquareNC(&a.y)
+	v2.SquareNC(&a.x)
 
-	tz.SquareNC(&a.z)
-	t.MulV(&a.x, &a.y)
-	t.Add(t, t)
-	tz.Add(tz, t)
+	t.Add(&a.y, &a.x)
+	tz.SquareNC(t)
+	tz.Sub(tz, v1)
+	tz.Sub(tz, v2)
+	tz.MulV1(tz)
+	tz.Add(tz, v0)
 
-	ty.SquareVNC(&a.x)
-	t.Mul(&a.y, &a.z)
-	t.Add(t, t)
+	t.Add(&a.z, &a.y)
+	ty.SquareNC(t)
+	ty.Sub(ty, v0)
+	ty.Sub(ty, v1)
+	t.MulV1(v2)
 	ty.Add(ty, t)
 
-	tx.SquareNC(&a.y)
-	t.Mul(&a.x, &a.z)
-	t.Add(t, t)
-	tx.Add(tx, t)
+	t.Add(&a.z, &a.x)
+	tx.SquareNC(t)
+	tx.Sub(tx, v0)
+	tx.Add(tx, v1)
+	tx.Sub(tx, v2)
+
+	return e
+}
+
+// Special squaring for use on elements in T_6(fp2) (after the
+// easy part of the final exponentiation. Used in the hard part
+// of the final exponentiation. Function uses formulas in
+// Granger/Scott (PKC2010).
+func (e *gfP12) SpecialSquare(a *gfP12) *gfP12 {
+	tmp := &gfP12{}
+	tmp.SpecialSquareNC(a)
+	gfp12Copy(e, tmp)
+	return e
+}
+
+func (e *gfP12) SpecialSquares(a *gfP12, n int) *gfP12 {
+	// Square first round
+	in := &gfP12{}
+	tx, ty, tz := &gfP4{}, &gfP4{}, &gfP4{}
+
+	v0 := &in.x
+	v1 := &in.y
+	v2 := &in.z
+
+	v0.SquareVNC(&a.x) // (t02, t10)
+	v1.SquareNC(&a.y) // (t12, t01)
+	v2.SquareNC(&a.z) // (t11, t00)
+
+	tx.Add(v0, v0)
+	tx.Add(v0, tx)
+	ty.Add(v1, v1)
+	ty.Add(v1, ty)
+	tz.Add(v2, v2)
+	tz.Add(v2, tz)
+
+	v0.Add(&a.x, &a.x) // (f12, f01)
+	v0.y.Neg(&v0.y)
+	v1.Add(&a.y, &a.y) // (f02, f10)
+	v1.x.Neg(&v1.x)
+	v2.Add(&a.z, &a.z) // (f11, f00)
+	v2.y.Neg(&v2.y)
+
+	v0.Add(ty, v0)
+	v1.Add(tx, v1)
+	v2.Add(tz, v2)
+
+	tmp := &gfP12{}
+	var tmp2 *gfP12
+
+	for i := 1; i < n; i++ {
+		v0 = &tmp.x
+		v1 = &tmp.y
+		v2 = &tmp.z
+
+		v0.SquareVNC(&in.x) // (t02, t10)
+		v1.SquareNC(&in.y) // (t12, t01)
+		v2.SquareNC(&in.z) // (t11, t00)
+	
+		tx.Add(v0, v0)
+		tx.Add(v0, tx)
+		ty.Add(v1, v1)
+		ty.Add(v1, ty)
+		tz.Add(v2, v2)
+		tz.Add(v2, tz)
+	
+		v0.Add(&in.x, &in.x) // (f12, f01)
+		v0.y.Neg(&v0.y)
+		v1.Add(&in.y, &in.y) // (f02, f10)
+		v1.x.Neg(&v1.x)
+		v2.Add(&in.z, &in.z) // (f11, f00)
+		v2.y.Neg(&v2.y)
+	
+		v0.Add(ty, v0)
+		v1.Add(tx, v1)
+		v2.Add(tz, v2)
+
+		// Switch references
+		tmp2 = in
+		in = tmp
+		tmp = tmp2
+	}
+	gfp12Copy(e, in)
+	return e
+}
+
+func (e *gfP12) SpecialSquareNC(a *gfP12) *gfP12 {
+	tx, ty, tz := &gfP4{}, &gfP4{}, &gfP4{}
+
+	v0 := &e.x
+	v1 := &e.y
+	v2 := &e.z
+
+	v0.SquareVNC(&a.x) // (t02, t10)
+	v1.SquareNC(&a.y) // (t12, t01)
+	v2.SquareNC(&a.z) // (t11, t00)
+
+	tx.Add(v0, v0)
+	tx.Add(v0, tx)
+	ty.Add(v1, v1)
+	ty.Add(v1, ty)
+	tz.Add(v2, v2)
+	tz.Add(v2, tz)
+
+	v0.Add(&a.x, &a.x) // (f12, f01)
+	v0.y.Neg(&v0.y)
+	v1.Add(&a.y, &a.y) // (f02, f10)
+	v1.x.Neg(&v1.x)
+	v2.Add(&a.z, &a.z) // (f11, f00)
+	v2.y.Neg(&v2.y)
+
+	v0.Add(ty, v0)
+	v1.Add(tx, v1)
+	v2.Add(tz, v2)
+
 	return e
 }
 
@@ -275,51 +352,68 @@ func (e *gfP12) Squares(a *gfP12, n int) *gfP12 {
 	tx := &in.x
 	ty := &in.y
 	tz := &in.z
-	t := &gfP4{}
+	t, v0, v1, v2 := &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}
 
-	tz.SquareNC(&a.z)
-	t.MulV(&a.x, &a.y)
-	t.Add(t, t)
-	tz.Add(tz, t)
+	v0.SquareNC(&a.z)
+	v1.SquareNC(&a.y)
+	v2.SquareNC(&a.x)
 
-	ty.SquareVNC(&a.x)
-	t.Mul(&a.y, &a.z)
-	t.Add(t, t)
+	t.Add(&a.y, &a.x)
+	tz.SquareNC(t)
+	tz.Sub(tz, v1)
+	tz.Sub(tz, v2)
+	tz.MulV1(tz)
+	tz.Add(tz, v0)
+
+	t.Add(&a.z, &a.y)
+	ty.SquareNC(t)
+	ty.Sub(ty, v0)
+	ty.Sub(ty, v1)
+	t.MulV1(v2)
 	ty.Add(ty, t)
 
-	tx.SquareNC(&a.y)
-	t.Mul(&a.x, &a.z)
-	t.Add(t, t)
-	tx.Add(tx, t)
+	t.Add(&a.z, &a.x)
+	tx.SquareNC(t)
+	tx.Sub(tx, v0)
+	tx.Add(tx, v1)
+	tx.Sub(tx, v2)
 
 	tmp := &gfP12{}
 	var tmp2 *gfP12
-	tx = &tmp.x
-	ty = &tmp.y
-	tz = &tmp.z
-	for i := 1; i < n; i++ {
-		tz.SquareNC(&in.z)
-		t.MulV(&in.x, &in.y)
-		t.Add(t, t)
-		tz.Add(tz, t)
 
-		ty.SquareVNC(&in.x)
-		t.Mul(&in.y, &in.z)
-		t.Add(t, t)
+	for i := 1; i < n; i++ {
+		tx = &tmp.x
+		ty = &tmp.y
+		tz = &tmp.z
+
+		v0.SquareNC(&in.z)
+		v1.SquareNC(&in.y)
+		v2.SquareNC(&in.x)
+
+		t.Add(&in.y, &in.x)
+		tz.SquareNC(t)
+		tz.Sub(tz, v1)
+		tz.Sub(tz, v2)
+		tz.MulV1(tz)
+		tz.Add(tz, v0)
+
+		t.Add(&in.z, &in.y)
+		ty.SquareNC(t)
+		ty.Sub(ty, v0)
+		ty.Sub(ty, v1)
+		t.MulV1(v2)
 		ty.Add(ty, t)
 
-		tx.SquareNC(&in.y)
-		t.Mul(&in.x, &in.z)
-		t.Add(t, t)
-		tx.Add(tx, t)
+		t.Add(&in.z, &in.x)
+		tx.SquareNC(t)
+		tx.Sub(tx, v0)
+		tx.Add(tx, v1)
+		tx.Sub(tx, v2)
 
 		// Switch references
 		tmp2 = in
 		in = tmp
 		tmp = tmp2
-		tx = &tmp.x
-		ty = &tmp.y
-		tz = &tmp.z
 	}
 	gfp12Copy(e, in)
 	return e
