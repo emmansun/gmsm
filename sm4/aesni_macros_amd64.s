@@ -302,8 +302,8 @@ GLOBL fk_mask<>(SB), 8, $16
 // -  x: 256 bits register as sbox input/output data
 // -  y: 256 bits temp register
 // -  z: 256 bits temp register
-// - xw: 128 bits temp register
-// - yw: 128 bits temp register
+// - xw: 128 bits temp register, x's related low 128 bits register!
+// - yw: 128 bits temp register, y's related low 128 bits register!
 // - xNibbleMask: 128 bits register stored nibble mask, should be loaded earlier.
 // - yNibbleMask: 256 bits register stored nibble mask, should be loaded earlier.
 #define AVX2_SM4_TAO_L1(x, y, z, xw, yw, xNibbleMask, yNibbleMask) \

@@ -92,8 +92,8 @@
 // t0 ^= tao_l1(t1^t2^t3^xk)
 // parameters:
 // - index: round key index immediate number
-// - x: 256 bits temp register
-// - y: 256 bits temp register
+// - x: 256 bits temp register, MUST use XDWORD!
+// - y: 256 bits temp register, MUST use YDWORD!
 // - t0: 256 bits register for data as result
 // - t1: 256 bits register for data
 // - t2: 256 bits register for data
