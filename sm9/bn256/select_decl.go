@@ -32,4 +32,7 @@ func gfp2Copy(res, in *gfP2)
 func gfp4Copy(res, in *gfP4)
 
 //go:noescape
+func gfp6Copy(res, in *gfP6)
+
+//go:noescape
 func gfp12Copy(res, in *gfP12)

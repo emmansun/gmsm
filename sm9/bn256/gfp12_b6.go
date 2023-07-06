@@ -125,15 +125,25 @@ func (e *gfP12b6) Sub(a, b *gfP12b6) *gfP12b6 {
 }
 
 func (e *gfP12b6) Mul(a, b *gfP12b6) *gfP12b6 {
+	tmp := &gfP12b6{}
+	tmp.MulNC(a, b)
+	e.x.Set(&tmp.x)
+	e.y.Set(&tmp.y)
+	return e
+}
+
+func (e *gfP12b6) MulNC(a, b *gfP12b6) *gfP12b6 {
 	// "Multiplication and Squaring on Pairing-Friendly Fields"
 	// Section 4, Karatsuba method.
 	// http://eprint.iacr.org/2006/471.pdf
 	//(a0+a1*t)(b0+b1*t)=c0+c1*t, where
 	//c0 = a0*b0 +a1*b1*s
 	//c1 = (a0 + a1)(b0 + b1) - a0*b0 - a1*b1 = a0*b1 + a1*b0
-	tx, ty, v0, v1 := &gfP6{}, &gfP6{}, &gfP6{}, &gfP6{}
-	v0.Mul(&a.y, &b.y)
-	v1.Mul(&a.x, &b.x)
+	tx := &e.x
+	ty := &e.y
+	v0, v1 := &gfP6{}, &gfP6{}
+	v0.MulNC(&a.y, &b.y)
+	v1.MulNC(&a.x, &b.x)
 
 	tx.Add(&a.x, &a.y)
 	ty.Add(&b.x, &b.y)
@@ -144,8 +154,6 @@ func (e *gfP12b6) Mul(a, b *gfP12b6) *gfP12b6 {
 	ty.MulS(v1)
 	ty.Add(ty, v0)
 
-	e.x.Set(tx)
-	e.y.Set(ty)
 	return e
 }
 
@@ -168,19 +176,207 @@ func (e *gfP12b6) MulGfP2(a *gfP12b6, b *gfP2) *gfP12b6 {
 }
 
 func (e *gfP12b6) Square(a *gfP12b6) *gfP12b6 {
+	tmp := &gfP12b6{}
+	tmp.SquareNC(a)
+	e.x.Set(&tmp.x)
+	e.y.Set(&tmp.y)
+	return e
+}
+
+func (e *gfP12b6) SquareNC(a *gfP12b6) *gfP12b6 {
 	// Complex squaring algorithm
 	// (xt+y)² = (x^2*s + y^2) + 2*x*y*t
-	tx, ty := &gfP6{}, &gfP6{}
-	tx.Square(&a.x).MulS(tx)
-	ty.Square(&a.y)
+	tx := &e.x
+	ty := &e.y
+
+	tx.SquareNC(&a.x).MulS(tx)
+	ty.SquareNC(&a.y)
 	ty.Add(tx, ty)
 
 	tx.Mul(&a.x, &a.y)
 	tx.Add(tx, tx)
 
-	e.x.Set(tx)
-	e.y.Set(ty)
 	return e
+}
+
+// Special squaring for use on elements in T_6(fp2) (after the
+// easy part of the final exponentiation. Used in the hard part
+// of the final exponentiation. Function uses formulas in
+// Granger/Scott (PKC2010).
+func (e *gfP12b6) SpecialSquare(a *gfP12b6) *gfP12b6 {
+	tmp := &gfP12b6{}
+	tmp.SpecialSquareNC(a)
+	e.x.Set(&tmp.x)
+	e.y.Set(&tmp.y)
+	return e
+}
+
+func (e *gfP12b6) SpecialSquareNC(a *gfP12b6) *gfP12b6 {
+	f02 := &e.y.x
+	f01 := &e.y.y
+	f00 := &e.y.z
+	f12 := &e.x.x
+	f11 := &e.x.y
+	f10 := &e.x.z
+
+	t00, t01, t02, t10, t11, t12 := &gfP2{}, &gfP2{}, &gfP2{}, &gfP2{}, &gfP2{}, &gfP2{}
+
+	gfP4Square(t11, t00, &a.x.y, &a.y.z)
+	gfP4Square(t12, t01, &a.y.x, &a.x.z)
+	gfP4Square(t02, t10, &a.x.x, &a.y.y)
+
+	f00.MulU1(t02)
+	t02.Set(t10)
+	t10.Set(f00)
+
+	f00.Add(t00, t00)
+	t00.Add(f00, t00)
+	f00.Add(t01, t01)
+	t01.Add(f00, t01)
+	f00.Add(t02, t02)
+	t02.Add(f00, t02)
+	f00.Add(t10, t10)
+	t10.Add(f00, t10)
+	f00.Add(t11, t11)
+	t11.Add(f00, t11)
+	f00.Add(t12, t12)
+	t12.Add(f00, t12)
+
+	f00.Add(&a.y.z, &a.y.z)
+	f00.Neg(f00)
+	f01.Add(&a.y.y, &a.y.y)
+	f01.Neg(f01)
+	f02.Add(&a.y.x, &a.y.x)
+	f02.Neg(f02)
+	f10.Add(&a.x.z, &a.x.z)
+	f11.Add(&a.x.y, &a.x.y)
+	f12.Add(&a.x.x, &a.x.x)
+
+	f00.Add(f00, t00)
+	f01.Add(f01, t01)
+	f02.Add(f02, t02)
+	f10.Add(f10, t10)
+	f11.Add(f11, t11)
+	f12.Add(f12, t12)
+
+	return e
+}
+
+func (e *gfP12b6) SpecialSquares(a *gfP12b6, n int) *gfP12b6 {
+	// Square first round
+	in := &gfP12b6{}
+	f02 := &in.y.x
+	f01 := &in.y.y
+	f00 := &in.y.z
+	f12 := &in.x.x
+	f11 := &in.x.y
+	f10 := &in.x.z
+
+	t00, t01, t02, t10, t11, t12 := &gfP2{}, &gfP2{}, &gfP2{}, &gfP2{}, &gfP2{}, &gfP2{}
+	gfP4Square(t11, t00, &a.x.y, &a.y.z)
+	gfP4Square(t12, t01, &a.y.x, &a.x.z)
+	gfP4Square(t02, t10, &a.x.x, &a.y.y)
+
+	f00.MulU1(t02)
+	t02.Set(t10)
+	t10.Set(f00)
+
+	f00.Add(t00, t00)
+	t00.Add(f00, t00)
+	f00.Add(t01, t01)
+	t01.Add(f00, t01)
+	f00.Add(t02, t02)
+	t02.Add(f00, t02)
+	f00.Add(t10, t10)
+	t10.Add(f00, t10)
+	f00.Add(t11, t11)
+	t11.Add(f00, t11)
+	f00.Add(t12, t12)
+	t12.Add(f00, t12)
+
+	f00.Add(&a.y.z, &a.y.z)
+	f00.Neg(f00)
+	f01.Add(&a.y.y, &a.y.y)
+	f01.Neg(f01)
+	f02.Add(&a.y.x, &a.y.x)
+	f02.Neg(f02)
+	f10.Add(&a.x.z, &a.x.z)
+	f11.Add(&a.x.y, &a.x.y)
+	f12.Add(&a.x.x, &a.x.x)
+
+	f00.Add(f00, t00)
+	f01.Add(f01, t01)
+	f02.Add(f02, t02)
+	f10.Add(f10, t10)
+	f11.Add(f11, t11)
+	f12.Add(f12, t12)
+
+	tmp := &gfP12b6{}
+	var tmp2 *gfP12b6
+
+	for i := 1; i < n; i++ {
+		f02 = &tmp.y.x
+		f01 = &tmp.y.y
+		f00 = &tmp.y.z
+		f12 = &tmp.x.x
+		f11 = &tmp.x.y
+		f10 = &tmp.x.z
+
+		gfP4Square(t11, t00, &in.x.y, &in.y.z)
+		gfP4Square(t12, t01, &in.y.x, &in.x.z)
+		gfP4Square(t02, t10, &in.x.x, &in.y.y)
+	
+		f00.MulU1(t02)
+		t02.Set(t10)
+		t10.Set(f00)
+	
+		f00.Add(t00, t00)
+		t00.Add(f00, t00)
+		f00.Add(t01, t01)
+		t01.Add(f00, t01)
+		f00.Add(t02, t02)
+		t02.Add(f00, t02)
+		f00.Add(t10, t10)
+		t10.Add(f00, t10)
+		f00.Add(t11, t11)
+		t11.Add(f00, t11)
+		f00.Add(t12, t12)
+		t12.Add(f00, t12)
+	
+		f00.Add(&in.y.z, &in.y.z)
+		f00.Neg(f00)
+		f01.Add(&in.y.y, &in.y.y)
+		f01.Neg(f01)
+		f02.Add(&in.y.x, &in.y.x)
+		f02.Neg(f02)
+		f10.Add(&in.x.z, &in.x.z)
+		f11.Add(&in.x.y, &in.x.y)
+		f12.Add(&in.x.x, &in.x.x)
+	
+		f00.Add(f00, t00)
+		f01.Add(f01, t01)
+		f02.Add(f02, t02)
+		f10.Add(f10, t10)
+		f11.Add(f11, t11)
+		f12.Add(f12, t12)
+
+		// Switch references
+		tmp2 = in
+		in = tmp
+		tmp = tmp2
+	}
+	e.x.Set(&in.x)
+	e.y.Set(&in.y)
+	return e
+}
+
+func gfP4Square(retX, retY, x, y *gfP2) {
+	retX.SquareUNC(x)
+	retY.SquareNC(y)
+	retY.Add(retX, retY)
+
+	retX.MulNC(x, y)
+	retX.Add(retX, retX)
 }
 
 func (c *gfP12b6) Exp(a *gfP12b6, power *big.Int) *gfP12b6 {
@@ -206,8 +402,8 @@ func (e *gfP12b6) Invert(a *gfP12b6) *gfP12b6 {
 
 	t0, t1 := &gfP6{}, &gfP6{}
 
-	t0.Mul(&a.y, &a.y)
-	t1.Mul(&a.x, &a.x).MulS(t1)
+	t0.MulNC(&a.y, &a.y)
+	t1.MulNC(&a.x, &a.x).MulS(t1)
 	t0.Sub(t0, t1)
 	t0.Invert(t0)
 

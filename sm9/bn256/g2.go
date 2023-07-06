@@ -13,7 +13,7 @@ type G2 struct {
 	p *twistPoint
 }
 
-//Gen2 is the generator of G2.
+// Gen2 is the generator of G2.
 var Gen2 = &G2{twistGen}
 
 var g2GeneratorTable *[32 * 2]twistPointTable

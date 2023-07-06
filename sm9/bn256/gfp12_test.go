@@ -93,7 +93,7 @@ func BenchmarkGfP12SpecialSquare(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		x2.Square(t1)
+		x2.SpecialSquare(t1)
 	}
 }
 

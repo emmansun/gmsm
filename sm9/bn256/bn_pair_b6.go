@@ -61,9 +61,9 @@ func millerB6(q *twistPoint, p *curvePoint) *gfP12b6 {
 			ret.Square(ret)
 		}
 		mulLineB6(ret, a, b, c)
-		tmpR= r
+		tmpR = r
 		r = newR
-		newR= tmpR
+		newR = tmpR
 		switch sixUPlus2NAF[i-1] {
 		case 1:
 			lineFunctionAdd(r, aAffine, newR, bAffine, r2, a, b, c)
@@ -74,9 +74,9 @@ func millerB6(q *twistPoint, p *curvePoint) *gfP12b6 {
 		}
 
 		mulLineB6(ret, a, b, c)
-		tmpR= r
+		tmpR = r
 		r = newR
-		newR= tmpR
+		newR = tmpR
 	}
 
 	// In order to calculate Q1 we have to convert q from the sextic twist
@@ -109,9 +109,9 @@ func millerB6(q *twistPoint, p *curvePoint) *gfP12b6 {
 	r2.Square(&q1.y)
 	lineFunctionAdd(r, q1, newR, bAffine, r2, a, b, c)
 	mulLineB6(ret, a, b, c)
-	tmpR= r
+	tmpR = r
 	r = newR
-	newR= tmpR
+	newR = tmpR
 
 	r2.Square(&minusQ2.y)
 	lineFunctionAdd(r, minusQ2, newR, bAffine, r2, a, b, c)
@@ -144,42 +144,44 @@ func finalExponentiationB6(in *gfP12b6) *gfP12b6 {
 	inv.Invert(in)
 	t1.Mul(t1, inv)
 
-	t2 := (&gfP12b6{}).FrobeniusP2(t1)
+	t2 := inv.FrobeniusP2(t1) // reuse inv
 	t1.Mul(t1, t2)
 
 	fp := (&gfP12b6{}).Frobenius(t1)
 	fp2 := (&gfP12b6{}).FrobeniusP2(t1)
 	fp3 := (&gfP12b6{}).Frobenius(fp2)
 
-	fu := (&gfP12b6{}).Exp(t1, u)
-	fu2 := (&gfP12b6{}).Exp(fu, u)
-	fu3 := (&gfP12b6{}).Exp(fu2, u)
+	y0 := &gfP12b6{}
+	y0.MulNC(fp, fp2).Mul(y0, fp3)
+
+	// reuse fp, fp2, fp3 local variables
+	// [gfP12ExpU] is most time consuming operation
+	fu := fp.gfP12ExpU(t1)
+	fu2 := fp2.gfP12ExpU(fu)
+	fu3 := fp3.gfP12ExpU(fu2)
 
 	y3 := (&gfP12b6{}).Frobenius(fu)
 	fu2p := (&gfP12b6{}).Frobenius(fu2)
 	fu3p := (&gfP12b6{}).Frobenius(fu3)
 	y2 := (&gfP12b6{}).FrobeniusP2(fu2)
 
-	y0 := &gfP12b6{}
-	y0.Mul(fp, fp2).Mul(y0, fp3)
-
 	y1 := (&gfP12b6{}).Conjugate(t1)
 	y5 := (&gfP12b6{}).Conjugate(fu2)
 	y3.Conjugate(y3)
-	y4 := (&gfP12b6{}).Mul(fu, fu2p)
+	y4 := (&gfP12b6{}).MulNC(fu, fu2p)
 	y4.Conjugate(y4)
 
-	y6 := (&gfP12b6{}).Mul(fu3, fu3p)
+	y6 := (&gfP12b6{}).MulNC(fu3, fu3p)
 	y6.Conjugate(y6)
 
-	t0 := (&gfP12b6{}).Square(y6)
+	t0 := (&gfP12b6{}).SpecialSquareNC(y6)
 	t0.Mul(t0, y4).Mul(t0, y5)
 	t1.Mul(y3, y5).Mul(t1, t0)
 	t0.Mul(t0, y2)
-	t1.Square(t1).Mul(t1, t0).Square(t1)
+	t1.SpecialSquare(t1).Mul(t1, t0).SpecialSquare(t1)
 	t0.Mul(t1, y1)
 	t1.Mul(t1, y0)
-	t0.Square(t0).Mul(t0, t1)
+	t0.SpecialSquare(t0).Mul(t0, t1)
 
 	return t0
 }

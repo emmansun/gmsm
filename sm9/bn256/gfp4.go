@@ -73,6 +73,12 @@ func (e *gfP4) Add(a, b *gfP4) *gfP4 {
 	return e
 }
 
+func (e *gfP4) Triple(a *gfP4) *gfP4 {
+	e.x.Triple(&a.x)
+	e.y.Triple(&a.y)
+	return e
+}
+
 func (e *gfP4) Sub(a, b *gfP4) *gfP4 {
 	e.x.Sub(&a.x, &b.x)
 	e.y.Sub(&a.y, &b.y)
@@ -92,12 +98,6 @@ func (e *gfP4) MulGFP(a *gfP4, b *gfP) *gfP4 {
 }
 
 func (e *gfP4) Mul(a, b *gfP4) *gfP4 {
-	// "Multiplication and Squaring on Pairing-Friendly Fields"
-	// Section 4, Karatsuba method.
-	// http://eprint.iacr.org/2006/471.pdf
-	//(a0+a1*v)(b0+b1*v)=c0+c1*v, where
-	//c0 = a0*b0 +a1*b1*u
-	//c1 = (a0 + a1)(b0 + b1) - a0*b0 - a1*b1 = a0*b1 + a1*b0
 	tmp := &gfP4{}
 	tmp.MulNC(a, b)
 	gfp4Copy(e, tmp)
@@ -119,6 +119,33 @@ func (e *gfP4) MulNC(a, b *gfP4) *gfP4 {
 
 	tx.Add(&a.x, &a.y)
 	ty.Add(&b.x, &b.y)
+	tx.Mul(tx, ty)
+	tx.Sub(tx, v0)
+	tx.Sub(tx, v1)
+
+	ty.MulU1(v1)
+	ty.Add(ty, v0)
+
+	return e
+}
+
+// MulNC2 muls a with (xv+y), this method is used in mulLine function
+// to avoid gfP4 instance construction.
+func (e *gfP4) MulNC2(a *gfP4, x, y *gfP2) *gfP4 {
+	// "Multiplication and Squaring on Pairing-Friendly Fields"
+	// Section 4, Karatsuba method.
+	// http://eprint.iacr.org/2006/471.pdf
+	//(a0+a1*v)(b0+b1*v)=c0+c1*v, where
+	//c0 = a0*b0 +a1*b1*u
+	//c1 = (a0 + a1)(b0 + b1) - a0*b0 - a1*b1 = a0*b1 + a1*b0
+	tx := &e.x
+	ty := &e.y
+	v0, v1 := &gfP2{}, &gfP2{}
+	v0.MulNC(&a.y, y)
+	v1.MulNC(&a.x, x)
+
+	tx.Add(&a.x, &a.y)
+	ty.Add(x, y)
 	tx.Mul(tx, ty)
 	tx.Sub(tx, v0)
 	tx.Sub(tx, v1)

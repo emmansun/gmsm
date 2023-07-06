@@ -32,19 +32,20 @@ func lineFunctionAdd(r, p, rOut *twistPoint, q *curvePoint, r2, a, b, c *gfP2) {
 	t2.Add(t2, t2)    // t2 = 2Yr * J
 	rOut.y.Sub(t, t2) // rOut.y = L1*(V-rOut.x) - 2Yr*J
 
-	rOut.t.Square(&rOut.z)
+	rOut.t.SquareNC(&rOut.z)
 
-	t.Add(&p.y, &rOut.z).Square(t).Sub(t, r2).Sub(t, &rOut.t) // t = (Yp + rOut.Z)^2 - Yp^2 - rOut.Z^2 = 2Yp*rOut.Z
+	// t = (Yp + rOut.Z)^2 - Yp^2 - rOut.Z^2 = 2Yp*rOut.Z
+	t.Add(&p.y, &rOut.z).Square(t).Sub(t, r2).Sub(t, &rOut.t)
 
 	t2.Mul(L1, &p.x)
 	t2.Add(t2, t2) // t2 = 2 L1 * Xp
-	a.Sub(t2, t)   // a =  2 L1 * Xp - 2 Yp * rOut.z
+	a.Sub(t2, t)   // a =  2 L1 * Xp - 2 Yp * rOut.z = 2 L1 * Xp - (Yp + rOut.Z)^2 + Yp^2 + rOut.Z^2
 
-	c.MulScalar(&rOut.z, &q.y)
-	c.Add(c, c)
+	c.MulScalar(&rOut.z, &q.y) // c = rOut.z * Yq
+	c.Add(c, c)                // c = 2 * rOut.z * Yq
 
-	b.Neg(L1)
-	b.MulScalar(b, &q.x).Add(b, b)
+	b.Neg(L1)                      // b= -L1
+	b.MulScalar(b, &q.x).Add(b, b) // b = -2 * L1 * Xq
 }
 
 func lineFunctionDouble(r, rOut *twistPoint, q *curvePoint, a, b, c *gfP2) {
@@ -71,38 +72,36 @@ func lineFunctionDouble(r, rOut *twistPoint, q *curvePoint, a, b, c *gfP2) {
 	t.Add(t, t).Add(t, t)    // t = 8 * Yr ^ 4
 	rOut.y.Sub(&rOut.y, t)
 
-	rOut.t.Square(&rOut.z)
+	rOut.t.SquareNC(&rOut.z)
 
-	t.Mul(E, &r.t).Add(t, t)
-	b.Neg(t)
-	b.MulScalar(b, &q.x)
+	t.Mul(E, &r.t).Add(t, t) // t = 2(E * Tr)
+	b.Neg(t)                 // b = -2(E * Tr)
+	b.MulScalar(b, &q.x)     // b = -2(E * Tr * Xq)
 
-	a.Add(&r.x, E)
-	a.Square(a).Sub(a, A).Sub(a, G)
-	t.Add(B, B).Add(t, t)
-	a.Sub(a, t)
+	a.Add(&r.x, E)                  // a = Xr + E
+	a.Square(a).Sub(a, A).Sub(a, G) // a = (Xr + E) ^ 2 - A - G
+	t.Add(B, B).Add(t, t)           // t = 4B
+	a.Sub(a, t)                     // a = (Xr + E) ^ 2 - A - G - 4B
 
-	c.Mul(&rOut.z, &r.t)
-	c.Add(c, c).MulScalar(c, &q.y)
+	c.Mul(&rOut.z, &r.t)           // c = rOut.z * Tr
+	c.Add(c, c).MulScalar(c, &q.y) // c = 2 rOut.z * Tr * Yq
 }
 
 // (ret.z + ret.y*w + ret.x*w^2)* ((cv+a) + b*w^2)
 func mulLine(ret *gfP12, a, b, c *gfP2) {
-	t1, tz, t, bz := &gfP4{}, &gfP4{}, &gfP4{}, &gfP4{}
-	gfp2Copy(&bz.x, c)
-	gfp2Copy(&bz.y, a)
-
-	tz.MulNC(&ret.z, bz)
+	tz, t := &gfP4{}, &gfP4{}
+	tz.MulNC2(&ret.z, c, a)
 	t.MulScalar(&ret.y, b).MulV1(t)
 	tz.Add(tz, t)
 
-	t1.MulNC(&ret.y, bz)
-	t.MulScalar(&ret.x, b).MulV1(t)
-	ret.y.Add(t1, t)
+	t.MulNC2(&ret.y, c, a)
+	ret.y.MulScalar(&ret.x, b).MulV1(&ret.y)
+	ret.y.Add(&ret.y, t)
 
-	t.MulNC(&ret.x, bz)
-	t1.MulScalar(&ret.z, b)
-	ret.x.Add(t1, t)
+	t.MulNC2(&ret.x, c, a)
+	ret.x.MulScalar(&ret.z, b)
+	ret.x.Add(&ret.x, t)
+
 	gfp4Copy(&ret.z, tz)
 }
 

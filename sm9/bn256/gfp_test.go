@@ -179,6 +179,22 @@ func TestInvert(t *testing.T) {
 	}
 }
 
+func TestGfpNeg(t *testing.T) {
+	x := fromBigInt(bigFromHex("9093a2b979e6186f43a9b28d41ba644d533377f2ede8c66b19774bf4a9c7a596"))
+	got := &gfP{}
+	gfpSub(got, zero, x)
+	expected  := &gfP{}
+	gfpNeg(expected, x)
+	if *expected != *got {
+		t.Errorf("got %v, expected %v", got, expected)
+	}
+	gfpSub(got, zero, zero)
+	gfpNeg(expected, zero)
+	if *expected != *got {
+		t.Errorf("got %v, expected %v", got, expected)
+	}
+}
+
 func BenchmarkGfPMul(b *testing.B) {
 	x := fromBigInt(bigFromHex("9093a2b979e6186f43a9b28d41ba644d533377f2ede8c66b19774bf4a9c7a596"))
 	b.ReportAllocs()

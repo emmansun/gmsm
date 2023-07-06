@@ -311,3 +311,28 @@ func BenchmarkGfP12b6Frobenius(b *testing.B) {
 		}
 	}
 }
+
+func TestGfP12b6SpecialSquare(t *testing.T) {
+	in := &gfP12b6{
+		p6,
+		p6,
+	}
+	t1 := &gfP12b6{}
+	t1.x.Neg(&in.x)
+	t1.y.Set(&in.y)
+
+	inv := &gfP12b6{}
+	inv.Invert(in)
+	t1.Mul(t1, inv)
+
+	t2 := (&gfP12b6{}).FrobeniusP2(t1)
+	t1.Mul(t1, t2)
+
+	got := &gfP12b6{}
+	expected := &gfP12b6{}
+	got.SpecialSquare(t1)
+	expected.Square(t1)
+	if *got != *expected {
+		t.Errorf("not same got=%v, expected=%v", got, expected)
+	}
+}

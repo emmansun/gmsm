@@ -26,9 +26,7 @@ func (e *gfP6) String() string {
 }
 
 func (e *gfP6) Set(a *gfP6) *gfP6 {
-	e.x.Set(&a.x)
-	e.y.Set(&a.y)
-	e.z.Set(&a.z)
+	gfp6Copy(e, a)
 	return e
 }
 
@@ -104,15 +102,25 @@ func (e *gfP6) MulGfP(a *gfP6, b *gfP) *gfP6 {
 }
 
 func (e *gfP6) Mul(a, b *gfP6) *gfP6 {
+	tmp := &gfP6{}
+	tmp.MulNC(a, b)
+	gfp6Copy(e, tmp)
+	return e
+}
+
+func (e *gfP6) MulNC(a, b *gfP6) *gfP6 {
 	// (z0 + y0*s + x0*s²)* (z1 + y1*s + x1*s²)
 	//  z0*z1 + z0*y1*s + z0*x1*s²
 	// +y0*z1*s + y0*y1*s² + y0*x1*u
 	// +x0*z1*s² + x0*y1*u + x0*x1*s*u
 	//=(z0*z1+y0*x1*u+x0*y1*u) + (z0*y1+y0*z1+x0*x1*u)s + (z0*x1 + y0*y1 + x0*z1)*s²
-	tx, ty, tz, t, v0, v1, v2 := &gfP2{}, &gfP2{}, &gfP2{}, &gfP2{}, &gfP2{}, &gfP2{}, &gfP2{}
-	v0.Mul(&a.z, &b.z)
-	v1.Mul(&a.y, &b.y)
-	v2.Mul(&a.x, &b.x)
+	tx := &e.x
+	ty := &e.y
+	tz := &e.z
+	t, v0, v1, v2 := &gfP2{}, &gfP2{}, &gfP2{}, &gfP2{}
+	v0.MulNC(&a.z, &b.z)
+	v1.MulNC(&a.y, &b.y)
+	v2.MulNC(&a.x, &b.x)
 
 	t.Add(&a.y, &a.x)
 	tz.Add(&b.y, &b.x)
@@ -137,9 +145,6 @@ func (e *gfP6) Mul(a, b *gfP6) *gfP6 {
 	tx.Add(tx, v1)
 	tx.Sub(tx, v2)
 
-	e.x.Set(tx)
-	e.y.Set(ty)
-	e.z.Set(tz)
 	return e
 }
 
@@ -161,30 +166,47 @@ func (e *gfP6) MulS(a *gfP6) *gfP6 {
 }
 
 func (e *gfP6) Square(a *gfP6) *gfP6 {
+	tmp := &gfP6{}
+	tmp.SquareNC(a)
+	gfp6Copy(e, tmp)
+	return e
+}
+
+func (e *gfP6) SquareNC(a *gfP6) *gfP6 {
 	// (z + y*s + x*s²)* (z + y*s + x*s²)
 	// z^2 + z*y*s + z*x*s² + y*z*s + y^2*s² + y*x*u + x*z*s² + x*y*u + x^2 *u *s
 	// (z^2 + y*x*s + x*y*u) + (z*y + y*z + u * x^2)s + (z*x + y^2 + x*z)*s²
 	// (z^2 + 2*x*y*u) + (u*x^2 + 2*y*z) * s + (y^2 + 2*x*z) * s²
-	tx, ty, tz, t := &gfP2{}, &gfP2{}, &gfP2{}, &gfP2{}
+	// Karatsuba method
+	tx := &e.x
+	ty := &e.y
+	tz := &e.z
+	t, v0, v1, v2 := &gfP2{}, &gfP2{}, &gfP2{}, &gfP2{}
 
-	tz.Square(&a.z)
-	t.MulU(&a.x, &a.y)
-	t.Add(t, t)
-	tz.Add(tz, t)
+	v0.SquareNC(&a.z)
+	v1.SquareNC(&a.y)
+	v2.SquareNC(&a.x)
 
-	ty.SquareU(&a.x)
-	t.Mul(&a.y, &a.z)
-	t.Add(t, t)
+	t.Add(&a.y, &a.x)
+	tz.SquareNC(t)
+	tz.Sub(tz, v1)
+	tz.Sub(tz, v2)
+	tz.MulU1(tz)
+	tz.Add(tz, v0)
+
+	t.Add(&a.z, &a.y)
+	ty.SquareNC(t)
+	ty.Sub(ty, v0)
+	ty.Sub(ty, v1)
+	t.MulU1(v2)
 	ty.Add(ty, t)
 
-	tx.Square(&a.y)
-	t.Mul(&a.x, &a.z)
-	t.Add(t, t)
-	tx.Add(tx, t)
+	t.Add(&a.z, &a.x)
+	tx.SquareNC(t)
+	tx.Sub(tx, v0)
+	tx.Add(tx, v1)
+	tx.Sub(tx, v2)
 
-	e.x.Set(tx)
-	e.y.Set(ty)
-	e.z.Set(tz)
 	return e
 }
 
@@ -209,19 +231,19 @@ func (e *gfP6) Invert(a *gfP6) *gfP6 {
 	// See "Implementing cryptographic pairings", M. Scott, section 3.2.
 	// ftp://136.206.11.249/pub/crypto/pairings.pdf
 
-	t1 := (&gfP2{}).MulU(&a.x, &a.y)
-	A := (&gfP2{}).Square(&a.z)
+	t1 := (&gfP2{}).MulUNC(&a.x, &a.y)
+	A := (&gfP2{}).SquareNC(&a.z)
 	A.Sub(A, t1)
 
-	B := (&gfP2{}).SquareU(&a.x)
+	B := (&gfP2{}).SquareUNC(&a.x)
 	t1.Mul(&a.y, &a.z)
 	B.Sub(B, t1)
 
-	C := (&gfP2{}).Square(&a.y)
+	C := (&gfP2{}).SquareNC(&a.y)
 	t1.Mul(&a.x, &a.z)
 	C.Sub(C, t1)
 
-	F := (&gfP2{}).MulU(C, &a.y)
+	F := (&gfP2{}).MulUNC(C, &a.y)
 	t1.Mul(A, &a.z)
 	F.Add(F, t1)
 	t1.MulU(B, &a.x)

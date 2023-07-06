@@ -64,13 +64,13 @@ func (e *gfP2) IsOne() bool {
 
 func (e *gfP2) Conjugate(a *gfP2) *gfP2 {
 	e.y.Set(&a.y)
-	gfpSub(&e.x, genericZero, &a.x)
+	gfpSub(&e.x, zero, &a.x)
 	return e
 }
 
 func (e *gfP2) Neg(a *gfP2) *gfP2 {
-	gfpSub(&e.x, genericZero, &a.x)
-	gfpSub(&e.y, genericZero, &a.y)
+	gfpSub(&e.x, zero, &a.x)
+	gfpSub(&e.y, zero, &a.y)
 	return e
 }
 
@@ -135,14 +135,20 @@ func (e *gfP2) MulNC(a, b *gfP2) *gfP2 {
 	return e
 }
 
+func (e *gfP2) MulU(a, b *gfP2) *gfP2 {
+	tmp := &gfP2{}
+	tmp.MulUNC(a, b)
+	gfp2Copy(e, tmp)
+	return e
+}
+
 // MulU: a * b * u
 // (a0+a1*u)(b0+b1*u)*u=c0+c1*u, where
 // c1 = (a0*b0 - 2a1*b1)u
 // c0 = -2 * ((a0 + a1)(b0 + b1) - a0*b0 - a1*b1) = -2 * (a0*b1 + a1*b0)
-func (e *gfP2) MulU(a, b *gfP2) *gfP2 {
-	tmp := &gfP2{}
-	tx := &tmp.x
-	ty := &tmp.y
+func (e *gfP2) MulUNC(a, b *gfP2) *gfP2 {
+	tx := &e.x
+	ty := &e.y
 	v0, v1 := &gfP{}, &gfP{}
 
 	gfpMul(v0, &a.y, &b.y)
@@ -155,12 +161,11 @@ func (e *gfP2) MulU(a, b *gfP2) *gfP2 {
 	gfpSub(ty, ty, v0)
 	gfpSub(ty, ty, v1)
 	gfpAdd(ty, ty, ty)
-	gfpSub(ty, genericZero, ty)
+	gfpSub(ty, zero, ty)
 
 	gfpSub(tx, v0, v1)
 	gfpSub(tx, tx, v1)
 
-	gfp2Copy(e, tmp)
 	return e
 }
 
@@ -171,7 +176,7 @@ func (e *gfP2) MulU(a, b *gfP2) *gfP2 {
 func (e *gfP2) MulU1(a *gfP2) *gfP2 {
 	t := &gfP{}
 	gfpAdd(t, &a.x, &a.x)
-	gfpSub(t, genericZero, t)
+	gfpSub(t, zero, t)
 
 	gfpCopy(&e.x, &a.y)
 	gfpCopy(&e.y, t)
@@ -228,7 +233,7 @@ func (e *gfP2) SquareUNC(a *gfP2) *gfP2 {
 	gfpAdd(tx, tx, ty)
 	gfpAdd(ty, ty, ty)
 	gfpAdd(ty, ty, ty)
-	gfpSub(ty, genericZero, ty)
+	gfpSub(ty, zero, ty)
 
 	return e
 }
@@ -251,7 +256,7 @@ func (e *gfP2) Invert(a *gfP2) *gfP2 {
 	inv := &gfP{}
 	inv.Invert(t3) // inv = (2 * a.x ^ 2 + a.y ^ 2) ^ (-1)
 
-	gfpSub(t1, genericZero, &a.x)
+	gfpSub(t1, zero, &a.x)
 
 	gfpMul(&e.x, t1, inv)   // x = - a.x * inv
 	gfpMul(&e.y, &a.y, inv) // y = a.y * inv

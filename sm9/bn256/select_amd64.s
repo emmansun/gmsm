@@ -95,7 +95,63 @@ copygfp4_avx2:
 	VMOVDQU Y3, (32*3)(res_ptr)
 
 	VZEROUPPER
-	RET		
+	RET
+
+// func gfp6Copy(res, a *gfP6)
+TEXT ·gfp6Copy(SB),NOSPLIT,$0
+	MOVQ res+0(FP), res_ptr
+	MOVQ a+8(FP), x_ptr
+
+	CMPB ·supportAVX2+0(SB), $0x01
+	JEQ  copygfp6_avx2
+
+	MOVOU (16*0)(x_ptr), X0
+	MOVOU (16*1)(x_ptr), X1
+	MOVOU (16*2)(x_ptr), X2
+	MOVOU (16*3)(x_ptr), X3
+	
+	MOVOU (16*4)(x_ptr), X4
+	MOVOU (16*5)(x_ptr), X5
+	MOVOU (16*6)(x_ptr), X6
+	MOVOU (16*7)(x_ptr), X7
+
+	MOVOU (16*8)(x_ptr), X8
+	MOVOU (16*9)(x_ptr), X9
+	MOVOU (16*10)(x_ptr), X10
+	MOVOU (16*11)(x_ptr), X11
+
+	MOVOU X0, (16*0)(res_ptr)
+	MOVOU X1, (16*1)(res_ptr)
+	MOVOU X2, (16*2)(res_ptr)
+	MOVOU X3, (16*3)(res_ptr)
+
+	MOVOU X4, (16*4)(res_ptr)
+	MOVOU X5, (16*5)(res_ptr)
+	MOVOU X6, (16*6)(res_ptr)
+	MOVOU X7, (16*7)(res_ptr)
+
+	MOVOU X8, (16*8)(res_ptr)
+	MOVOU X9, (16*9)(res_ptr)
+	MOVOU X10, (16*10)(res_ptr)
+	MOVOU X11, (16*11)(res_ptr)
+
+copygfp6_avx2:
+	VMOVDQU (32*0)(x_ptr), Y0
+	VMOVDQU (32*1)(x_ptr), Y1
+	VMOVDQU (32*2)(x_ptr), Y2
+	VMOVDQU (32*3)(x_ptr), Y3
+	VMOVDQU (32*4)(x_ptr), Y4
+	VMOVDQU (32*5)(x_ptr), Y5
+
+	VMOVDQU Y0, (32*0)(res_ptr)
+	VMOVDQU Y1, (32*1)(res_ptr)
+	VMOVDQU Y2, (32*2)(res_ptr)
+	VMOVDQU Y3, (32*3)(res_ptr)
+	VMOVDQU Y4, (32*4)(res_ptr)
+	VMOVDQU Y5, (32*5)(res_ptr)
+
+	VZEROUPPER
+	RET	
 
 // func gfp12Copy(res, a *gfP12)
 TEXT ·gfp12Copy(SB),NOSPLIT,$0

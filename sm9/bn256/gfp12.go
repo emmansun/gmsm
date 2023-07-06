@@ -134,11 +134,6 @@ func (e *gfP12) MulGFP(a *gfP12, b *gfP) *gfP12 {
 }
 
 func (e *gfP12) Mul(a, b *gfP12) *gfP12 {
-	// (z0 + y0*w + x0*w^2)* (z1 + y1*w + x1*w^2)
-	//  z0*z1 + z0*y1*w + z0*x1*w^2
-	// +y0*z1*w + y0*y1*w^2 + y0*x1*v
-	// +x0*z1*w^2 + x0*y1*v + x0*x1*v*w
-	//=(z0*z1+y0*x1*v+x0*y1*v) + (z0*y1+y0*z1+x0*x1*v)w + (z0*x1 + y0*y1 + x0*z1)*w^2
 	tmp := &gfP12{}
 	tmp.MulNC(a, b)
 	gfp12Copy(e, tmp)
@@ -186,10 +181,6 @@ func (e *gfP12) MulNC(a, b *gfP12) *gfP12 {
 }
 
 func (e *gfP12) Square(a *gfP12) *gfP12 {
-	// (z + y*w + x*w^2)* (z + y*w + x*w^2)
-	// z^2 + z*y*w + z*x*w^2 + y*z*w + y^2*w^2 + y*x*v + x*z*w^2 + x*y*v + x^2 *v *w
-	// (z^2 + y*x*v + x*y*v) + (z*y + y*z + v * x^2)w + (z*x + y^2 + x*z)*w^2
-	// (z^2 + 2*x*y*v) + (v*x^2 + 2*y*z) *w + (y^2 + 2*x*z) * w^2
 	tmp := &gfP12{}
 	tmp.SquareNC(a)
 	gfp12Copy(e, tmp)
@@ -244,6 +235,10 @@ func (e *gfP12) SpecialSquare(a *gfP12) *gfP12 {
 	return e
 }
 
+// Special squaring loop for use on elements in T_6(fp2) (after the
+// easy part of the final exponentiation. Used in the hard part
+// of the final exponentiation. Function uses formulas in
+// Granger/Scott (PKC2010).
 func (e *gfP12) SpecialSquares(a *gfP12, n int) *gfP12 {
 	// Square first round
 	in := &gfP12{}
@@ -254,15 +249,12 @@ func (e *gfP12) SpecialSquares(a *gfP12, n int) *gfP12 {
 	v2 := &in.z
 
 	v0.SquareVNC(&a.x) // (t02, t10)
-	v1.SquareNC(&a.y) // (t12, t01)
-	v2.SquareNC(&a.z) // (t11, t00)
+	v1.SquareNC(&a.y)  // (t12, t01)
+	v2.SquareNC(&a.z)  // (t11, t00)
 
-	tx.Add(v0, v0)
-	tx.Add(v0, tx)
-	ty.Add(v1, v1)
-	ty.Add(v1, ty)
-	tz.Add(v2, v2)
-	tz.Add(v2, tz)
+	tx.Triple(v0)
+	ty.Triple(v1)
+	tz.Triple(v2)
 
 	v0.Add(&a.x, &a.x) // (f12, f01)
 	v0.y.Neg(&v0.y)
@@ -284,23 +276,20 @@ func (e *gfP12) SpecialSquares(a *gfP12, n int) *gfP12 {
 		v2 = &tmp.z
 
 		v0.SquareVNC(&in.x) // (t02, t10)
-		v1.SquareNC(&in.y) // (t12, t01)
-		v2.SquareNC(&in.z) // (t11, t00)
-	
-		tx.Add(v0, v0)
-		tx.Add(v0, tx)
-		ty.Add(v1, v1)
-		ty.Add(v1, ty)
-		tz.Add(v2, v2)
-		tz.Add(v2, tz)
-	
+		v1.SquareNC(&in.y)  // (t12, t01)
+		v2.SquareNC(&in.z)  // (t11, t00)
+
+		tx.Triple(v0)
+		ty.Triple(v1)
+		tz.Triple(v2)
+
 		v0.Add(&in.x, &in.x) // (f12, f01)
 		v0.y.Neg(&v0.y)
 		v1.Add(&in.y, &in.y) // (f02, f10)
 		v1.x.Neg(&v1.x)
 		v2.Add(&in.z, &in.z) // (f11, f00)
 		v2.y.Neg(&v2.y)
-	
+
 		v0.Add(ty, v0)
 		v1.Add(tx, v1)
 		v2.Add(tz, v2)
@@ -322,15 +311,12 @@ func (e *gfP12) SpecialSquareNC(a *gfP12) *gfP12 {
 	v2 := &e.z
 
 	v0.SquareVNC(&a.x) // (t02, t10)
-	v1.SquareNC(&a.y) // (t12, t01)
-	v2.SquareNC(&a.z) // (t11, t00)
+	v1.SquareNC(&a.y)  // (t12, t01)
+	v2.SquareNC(&a.z)  // (t11, t00)
 
-	tx.Add(v0, v0)
-	tx.Add(v0, tx)
-	ty.Add(v1, v1)
-	ty.Add(v1, ty)
-	tz.Add(v2, v2)
-	tz.Add(v2, tz)
+	tx.Triple(v0)
+	ty.Triple(v1)
+	tz.Triple(v2)
 
 	v0.Add(&a.x, &a.x) // (f12, f01)
 	v0.y.Neg(&v0.y)
