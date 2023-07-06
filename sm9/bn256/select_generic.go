@@ -34,6 +34,15 @@ func gfp4Copy(res, in *gfP4) {
 	gfpCopy(&res.y.y, &in.y.y)
 }
 
+func gfp6Copy(res, in *gfP6) {
+	gfpCopy(&res.x.x, &in.x.x)
+	gfpCopy(&res.x.y, &in.x.y)
+	gfpCopy(&res.y.x, &in.y.x)
+	gfpCopy(&res.y.y, &in.y.y)
+	gfpCopy(&res.z.x, &in.z.x)
+	gfpCopy(&res.z.y, &in.z.y)
+}
+
 func gfp12Copy(res, in *gfP12) {
 	gfpCopy(&res.x.x.x, &in.x.x.x)
 	gfpCopy(&res.x.x.y, &in.x.x.y)
