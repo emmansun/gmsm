@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"math/big"
-	"math/bits"
 	"sync"
 )
 
@@ -259,7 +258,7 @@ func (e *G1) MarshalCompressed() []byte {
 	e.p.MakeAffine()
 	temp := &gfP{}
 	montDecode(temp, &e.p.y)
-	
+
 	temp.Marshal(ret[1:])
 	ret[0] = (ret[numBytes] & 1) | 2
 	montDecode(temp, &e.p.x)
@@ -282,7 +281,8 @@ func (e *G1) UnmarshalCompressed(data []byte) ([]byte, error) {
 	if e.p == nil {
 		e.p = &curvePoint{}
 	} else {
-		e.p.x, e.p.y = gfP{0}, gfP{0}
+		e.p.x.Set(zero)
+		e.p.y.Set(zero)
 	}
 	e.p.x.Unmarshal(data[1:])
 	montEncode(&e.p.x, &e.p.x)
@@ -292,14 +292,12 @@ func (e *G1) UnmarshalCompressed(data []byte) ([]byte, error) {
 	if byte(x3[0]&1) != data[0]&1 {
 		gfpNeg(&e.p.y, &e.p.y)
 	}
-	if e.p.x == *zero && e.p.y == *zero {
+	if e.p.x.Equal(zero) == 1 && e.p.y.Equal(zero) == 1 {
 		// This is the point at infinity.
-		e.p.y = *newGFp(1)
-		e.p.z = gfP{0}
-		e.p.t = gfP{0}
+		e.p.SetInfinity()
 	} else {
-		e.p.z = *newGFp(1)
-		e.p.t = *newGFp(1)
+		e.p.z.Set(one)
+		e.p.t.Set(one)
 
 		if !e.p.IsOnCurve() {
 			return nil, errors.New("sm9.G1: malformed point")
@@ -341,7 +339,8 @@ func (e *G1) Unmarshal(m []byte) ([]byte, error) {
 	if e.p == nil {
 		e.p = &curvePoint{}
 	} else {
-		e.p.x, e.p.y = gfP{0}, gfP{0}
+		e.p.x.Set(zero)
+		e.p.y.Set(zero)
 	}
 
 	e.p.x.Unmarshal(m)
@@ -349,14 +348,12 @@ func (e *G1) Unmarshal(m []byte) ([]byte, error) {
 	montEncode(&e.p.x, &e.p.x)
 	montEncode(&e.p.y, &e.p.y)
 
-	if e.p.x == *zero && e.p.y == *zero {
+	if e.p.x.Equal(zero) == 1 && e.p.y.Equal(zero) == 1 {
 		// This is the point at infinity.
-		e.p.y = *newGFp(1)
-		e.p.z = gfP{0}
-		e.p.t = gfP{0}
+		e.p.SetInfinity()
 	} else {
-		e.p.z = *newGFp(1)
-		e.p.t = *newGFp(1)
+		e.p.z.Set(one)
+		e.p.t.Set(one)
 
 		if !e.p.IsOnCurve() {
 			return nil, errors.New("sm9.G1: malformed point")
@@ -371,10 +368,10 @@ func (e *G1) Equal(other *G1) bool {
 	if e.p == nil && other.p == nil {
 		return true
 	}
-	return e.p.x == other.p.x &&
-		e.p.y == other.p.y &&
-		e.p.z == other.p.z &&
-		e.p.t == other.p.t
+	return e.p.x.Equal(&other.p.x) == 1 &&
+		e.p.y.Equal(&other.p.y) == 1 &&
+		e.p.z.Equal(&other.p.z) == 1 &&
+		e.p.t.Equal(&other.p.t) == 1
 }
 
 // IsOnCurve returns true if e is on the curve.
@@ -490,15 +487,6 @@ func (g1 *G1Curve) Double(x, y *big.Int) (*big.Int, *big.Int) {
 func (g1 *G1Curve) IsOnCurve(x, y *big.Int) bool {
 	_, err := g1.pointFromAffine(x, y)
 	return err == nil
-}
-
-func lessThanP(x *gfP) int {
-	var b uint64
-	_, b = bits.Sub64(x[0], p2[0], b)
-	_, b = bits.Sub64(x[1], p2[1], b)
-	_, b = bits.Sub64(x[2], p2[2], b)
-	_, b = bits.Sub64(x[3], p2[3], b)
-	return int(b)
 }
 
 func (curve *G1Curve) UnmarshalCompressed(data []byte) (x, y *big.Int) {

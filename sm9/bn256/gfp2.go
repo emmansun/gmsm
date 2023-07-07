@@ -31,35 +31,46 @@ func (e *gfP2) Set(a *gfP2) *gfP2 {
 }
 
 func (e *gfP2) SetZero() *gfP2 {
-	e.x = *zero
-	e.y = *zero
+	e.x.Set(zero)
+	e.y.Set(zero)
 	return e
 }
 
 func (e *gfP2) SetOne() *gfP2 {
-	e.x = *zero
-	e.y = *one
+	e.x.Set(zero)
+	e.y.Set(one)
 	return e
 }
 
 func (e *gfP2) SetU() *gfP2 {
-	e.x = *one
-	e.y = *zero
+	e.x.Set(one)
+	e.y.Set(zero)
 	return e
 }
 
 func (e *gfP2) SetFrobConstant() *gfP2 {
-	e.x = *zero
-	e.y = *frobConstant
+	e.x.Set(zero)
+	e.y.Set(frobConstant)
 	return e
 }
 
+func (e *gfP2) Equal(t *gfP2) int {
+	var acc uint64
+	for i := range e.x {
+		acc |= e.x[i] ^ t.x[i]
+	}
+	for i := range e.y {
+		acc |= e.y[i] ^ t.y[i]
+	}
+	return uint64IsZero(acc)
+}
+
 func (e *gfP2) IsZero() bool {
-	return e.x == *zero && e.y == *zero
+	return (e.x.Equal(zero) == 1) && (e.y.Equal(zero) == 1)
 }
 
 func (e *gfP2) IsOne() bool {
-	return e.x == *zero && e.y == *one
+	return (e.x.Equal(zero) == 1) && (e.y.Equal(one) == 1)
 }
 
 func (e *gfP2) Conjugate(a *gfP2) *gfP2 {
@@ -114,7 +125,7 @@ func (e *gfP2) Mul(a, b *gfP2) *gfP2 {
 	return e
 }
 
-// Mul without Copy
+// Mul without value copy, will use e directly, so e can't be same as a and b.
 func (e *gfP2) MulNC(a, b *gfP2) *gfP2 {
 	tx := &e.x
 	ty := &e.y
@@ -142,6 +153,7 @@ func (e *gfP2) MulU(a, b *gfP2) *gfP2 {
 	return e
 }
 
+// MulU without value copy, will use e directly, so e can't be same as a and b.
 // MulU: a * b * u
 // (a0+a1*u)(b0+b1*u)*u=c0+c1*u, where
 // c1 = (a0*b0 - 2a1*b1)u
@@ -192,6 +204,7 @@ func (e *gfP2) Square(a *gfP2) *gfP2 {
 	return e
 }
 
+// Square without value copy, will use e directly, so e can't be same as a.
 func (e *gfP2) SquareNC(a *gfP2) *gfP2 {
 	// Complex squaring algorithm:
 	// (xu+y)² = y^2-2*x^2 + 2*u*x*y
@@ -219,6 +232,7 @@ func (e *gfP2) SquareU(a *gfP2) *gfP2 {
 	return e
 }
 
+// SquareU without value copy, will use e directly, so e can't be same as a.
 func (e *gfP2) SquareUNC(a *gfP2) *gfP2 {
 	// Complex squaring algorithm:
 	// (xu+y)²*u = (y^2-2*x^2)u - 4*x*y
@@ -312,7 +326,7 @@ func (ret *gfP2) Sqrt(a *gfP2) *gfP2 {
 	a0 = gfP2Decode(a0)
 	*/
 	t.Mul(bq, b)
-	if t.x == *zero && t.y == *one {
+	if t.x.Equal(zero) == 1 && t.y.Equal(one) == 1 {
 		t.Mul(b2, a)
 		x0.Sqrt(&t.y)
 		t.MulScalar(bq, x0)

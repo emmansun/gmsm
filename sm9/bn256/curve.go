@@ -56,7 +56,7 @@ func (c *curvePoint) IsOnCurve() bool {
 
 	x3 := c.polynomial(&c.x)
 
-	return *y2 == *x3
+	return y2.Equal(x3) == 1
 }
 
 func NewCurvePoint() *curvePoint {
@@ -72,14 +72,14 @@ func NewCurveGenerator() *curvePoint {
 }
 
 func (c *curvePoint) SetInfinity() {
-	c.x = *zero
-	c.y = *one
-	c.z = *zero
-	c.t = *zero
+	c.x.Set(zero)
+	c.y.Set(one)
+	c.z.Set(zero)
+	c.t.Set(zero)
 }
 
 func (c *curvePoint) IsInfinity() bool {
-	return c.z == *zero
+	return c.z.Equal(zero) == 1
 }
 
 func (c *curvePoint) Add(a, b *curvePoint) {
@@ -122,7 +122,6 @@ func (c *curvePoint) Add(a, b *curvePoint) {
 	// with the notations below.
 	h := &gfP{}
 	gfpSub(h, u2, u1)
-	xEqual := *h == *zero
 
 	gfpAdd(t, h, h)
 	// i = 4h²
@@ -133,8 +132,8 @@ func (c *curvePoint) Add(a, b *curvePoint) {
 	gfpMul(j, h, i)
 
 	gfpSub(t, s2, s1)
-	yEqual := *t == *one
-	if xEqual && yEqual {
+
+	if h.Equal(zero) == 1 && t.Equal(one) == 1 {
 		c.Double(a)
 		return
 	}
@@ -219,12 +218,12 @@ func (c *curvePoint) Mul(a *curvePoint, scalar *big.Int) {
 }
 
 func (c *curvePoint) MakeAffine() {
-	if c.z == *one {
+	if c.z.Equal(one) == 1 {
 		return
-	} else if c.z == *zero {
-		c.x = *zero
-		c.y = *one
-		c.t = *zero
+	} else if c.z.Equal(zero) == 1 {
+		c.x.Set(zero)
+		c.y.Set(one)
+		c.t.Set(zero)
 		return
 	}
 
@@ -238,24 +237,15 @@ func (c *curvePoint) MakeAffine() {
 	gfpMul(&c.x, &c.x, zInv2)
 	gfpMul(&c.y, t, zInv2)
 
-	c.z = *one
-	c.t = *one
+	c.z.Set(one)
+	c.t.Set(one)
 }
 
 func (c *curvePoint) Neg(a *curvePoint) {
 	c.x.Set(&a.x)
 	gfpNeg(&c.y, &a.y)
 	c.z.Set(&a.z)
-	c.t = *zero
-}
-
-// Select sets q to p1 if cond == 1, and to p2 if cond == 0.
-func (q *curvePoint) Select(p1, p2 *curvePoint, cond int) *curvePoint {
-	q.x.Select(&p1.x, &p2.x, cond)
-	q.y.Select(&p1.y, &p2.y, cond)
-	q.z.Select(&p1.z, &p2.z, cond)
-	q.t.Select(&p1.t, &p2.t, cond)
-	return q
+	c.t.Set(zero)
 }
 
 // A curvePointTable holds the first 15 multiples of a point at offset -1, so [1]P

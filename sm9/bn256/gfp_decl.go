@@ -46,3 +46,13 @@ func gfpSqr(res, in *gfP, n int)
 //
 //go:noescape
 func gfpFromMont(res, in *gfP)
+
+// Marshal gfP into big endian form
+//
+//go:noescape
+func gfpMarshal(out *[32]byte, in *gfP)
+
+// Unmarshal the bytes into little endian form
+//
+//go:noescape
+func gfpUnmarshal(out *gfP, in *[32]byte)

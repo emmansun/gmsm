@@ -195,6 +195,17 @@ func TestGfpNeg(t *testing.T) {
 	}
 }
 
+func BenchmarkGfPUnmarshal(b *testing.B) {
+	x := fromBigInt(bigFromHex("9093a2b979e6186f43a9b28d41ba644d533377f2ede8c66b19774bf4a9c7a596"))
+	b.ReportAllocs()
+	b.ResetTimer()
+	var out [32]byte
+	x.Marshal(out[:])
+	for i := 0; i < b.N; i++ {
+		x.Unmarshal(out[:])
+	}
+}
+
 func BenchmarkGfPMul(b *testing.B) {
 	x := fromBigInt(bigFromHex("9093a2b979e6186f43a9b28d41ba644d533377f2ede8c66b19774bf4a9c7a596"))
 	b.ReportAllocs()

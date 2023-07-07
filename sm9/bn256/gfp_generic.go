@@ -146,3 +146,20 @@ func gfpFromMont(res, in *gfP) {
 	*res = gfP{T[4], T[5], T[6], T[7]}
 	gfpCarry(res, carry)
 }
+
+func gfpMarshal(out *[32]byte, in *gfP) {
+	for w := uint(0); w < 4; w++ {
+		for b := uint(0); b < 8; b++ {
+			out[8*w+b] = byte(in[3-w] >> (56 - 8*b))
+		}
+	}
+}
+
+func gfpUnmarshal(out *gfP, in *[32]byte) {
+	for w := uint(0); w < 4; w++ {
+		out[3-w] = 0
+		for b := uint(0); b < 8; b++ {
+			out[3-w] += uint64(in[8*w+b]) << (56 - 8*b)
+		}
+	}
+}

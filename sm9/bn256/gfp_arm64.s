@@ -682,3 +682,26 @@ TEXT ·gfpFromMont(SB),NOSPLIT,$0
 	STP	(x2, x3), 1*16(res_ptr)
 
 	RET
+
+/* ---------------------------------------*/
+// func gfpUnmarshal(res *gfP, in *[32]byte)
+TEXT ·gfpUnmarshal(SB),NOSPLIT,$0
+	JMP	·gfpMarshal(SB)
+
+/* ---------------------------------------*/
+// func gfpMarshal(res *[32]byte, in *gfP)
+TEXT ·gfpMarshal(SB),NOSPLIT,$0
+	MOVD	res+0(FP), res_ptr
+	MOVD	in+8(FP), a_ptr
+
+	LDP	0*16(a_ptr), (acc0, acc1)
+	LDP	1*16(a_ptr), (acc2, acc3)
+
+	REV	acc0, acc0
+	REV	acc1, acc1
+	REV	acc2, acc2
+	REV	acc3, acc3
+
+	STP	(acc3, acc2), 0*16(res_ptr)
+	STP	(acc1, acc0), 1*16(res_ptr)
+	RET

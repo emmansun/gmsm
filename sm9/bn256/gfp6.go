@@ -108,6 +108,7 @@ func (e *gfP6) Mul(a, b *gfP6) *gfP6 {
 	return e
 }
 
+// Mul without value copy, will use e directly, so e can't be same as a and b.
 func (e *gfP6) MulNC(a, b *gfP6) *gfP6 {
 	// (z0 + y0*s + x0*s²)* (z1 + y1*s + x1*s²)
 	//  z0*z1 + z0*y1*s + z0*x1*s²
@@ -172,6 +173,7 @@ func (e *gfP6) Square(a *gfP6) *gfP6 {
 	return e
 }
 
+// Square without value copy, will use e directly, so e can't be same as a.
 func (e *gfP6) SquareNC(a *gfP6) *gfP6 {
 	// (z + y*s + x*s²)* (z + y*s + x*s²)
 	// z^2 + z*y*s + z*x*s² + y*z*s + y^2*s² + y*x*u + x*z*s² + x*y*u + x^2 *u *s

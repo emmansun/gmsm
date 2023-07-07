@@ -1162,3 +1162,31 @@ TEXT ·gfpFromMont(SB),NOSPLIT,$0
 	gfpCarryWithoutCarry(acc4, acc5, acc0, acc1, x_ptr, acc3, t0, t1)
 	storeBlock(acc4,acc5,acc0,acc1, 0(res_ptr))
 	RET
+
+/* ---------------------------------------*/
+// func gfpUnmarshal(res *gfP, in *[32]byte)
+TEXT ·gfpUnmarshal(SB),NOSPLIT,$0
+	JMP ·gfpMarshal(SB)
+
+/* ---------------------------------------*/
+// func gfpMarshal(res *[32]byte, in *gfP)
+TEXT ·gfpMarshal(SB),NOSPLIT,$0
+	MOVQ res+0(FP), res_ptr
+	MOVQ in+8(FP), x_ptr
+
+	MOVQ (8*0)(x_ptr), acc0
+	MOVQ (8*1)(x_ptr), acc1
+	MOVQ (8*2)(x_ptr), acc2
+	MOVQ (8*3)(x_ptr), acc3
+
+	BSWAPQ acc0
+	BSWAPQ acc1
+	BSWAPQ acc2
+	BSWAPQ acc3
+
+	MOVQ acc3, (8*0)(res_ptr)
+	MOVQ acc2, (8*1)(res_ptr)
+	MOVQ acc1, (8*2)(res_ptr)
+	MOVQ acc0, (8*3)(res_ptr)
+
+	RET

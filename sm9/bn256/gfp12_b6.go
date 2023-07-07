@@ -132,6 +132,7 @@ func (e *gfP12b6) Mul(a, b *gfP12b6) *gfP12b6 {
 	return e
 }
 
+// Mul without value copy, will use e directly, so e can't be same as a and b.
 func (e *gfP12b6) MulNC(a, b *gfP12b6) *gfP12b6 {
 	// "Multiplication and Squaring on Pairing-Friendly Fields"
 	// Section 4, Karatsuba method.
@@ -183,6 +184,7 @@ func (e *gfP12b6) Square(a *gfP12b6) *gfP12b6 {
 	return e
 }
 
+// Square without value copy, will use e directly, so e can't be same as a.
 func (e *gfP12b6) SquareNC(a *gfP12b6) *gfP12b6 {
 	// Complex squaring algorithm
 	// (xt+y)² = (x^2*s + y^2) + 2*x*y*t
@@ -211,6 +213,7 @@ func (e *gfP12b6) SpecialSquare(a *gfP12b6) *gfP12b6 {
 	return e
 }
 
+// Special Square without value copy, will use e directly, so e can't be same as a.
 func (e *gfP12b6) SpecialSquareNC(a *gfP12b6) *gfP12b6 {
 	f02 := &e.y.x
 	f01 := &e.y.y

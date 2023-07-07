@@ -49,6 +49,15 @@ func TestGT(t *testing.T) {
 	}
 }
 
+func BenchmarkGTMarshal(b *testing.B) {
+	x := &GT{gfP12Gen}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		x.Marshal()
+	}
+}
+
 func BenchmarkGT(b *testing.B) {
 	x, _ := rand.Int(rand.Reader, Order)
 	b.ReportAllocs()

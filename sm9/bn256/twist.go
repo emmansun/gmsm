@@ -73,7 +73,7 @@ func (c *twistPoint) IsOnCurve() bool {
 	y2.SquareNC(&c.y)
 	x3 := c.polynomial(&c.x)
 
-	return *y2 == *x3
+	return y2.Equal(x3) == 1
 }
 
 func (c *twistPoint) SetInfinity() {
@@ -239,15 +239,6 @@ func (c *twistPoint) NegFrobeniusP2(a *twistPoint) {
 	c.y.Neg(&a.y)
 	c.z.MulScalar(&a.z, wToP2Minus1)
 	c.t.Square(&a.z)
-}
-
-// Select sets q to p1 if cond == 1, and to p2 if cond == 0.
-func (q *twistPoint) Select(p1, p2 *twistPoint, cond int) *twistPoint {
-	q.x.Select(&p1.x, &p2.x, cond)
-	q.y.Select(&p1.y, &p2.y, cond)
-	q.z.Select(&p1.z, &p2.z, cond)
-	q.t.Select(&p1.t, &p2.t, cond)
-	return q
 }
 
 // A twistPointTable holds the first 15 multiples of a point at offset -1, so [1]P

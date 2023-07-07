@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"math/bits"
+	"unsafe"
 )
 
 type gfP [4]uint64
@@ -94,10 +96,11 @@ func (e *gfP) Square(a *gfP, n int) *gfP {
 
 // Equal returns 1 if e == t, and zero otherwise.
 func (e *gfP) Equal(t *gfP) int {
-	if *e == *t {
-		return 1
+	var acc uint64
+	for i := range e {
+		acc |= e[i] ^ t[i]
 	}
-	return 0
+	return uint64IsZero(acc)
 }
 
 func (e *gfP) Sqrt(f *gfP) {
@@ -117,23 +120,43 @@ func (e *gfP) Sqrt(f *gfP) {
 	e.Set(i)
 }
 
+// toElementArray, convert slice of bytes to pointer to [32]byte.
+// This function is required for low version of golang, can type cast directly
+// since golang 1.17.
+func toElementArray(b []byte) *[32]byte {
+	tmpPtr := (*unsafe.Pointer)(unsafe.Pointer(&b))
+	return (*[32]byte)(*tmpPtr)
+}
+
 func (e *gfP) Marshal(out []byte) {
-	for w := uint(0); w < 4; w++ {
-		for b := uint(0); b < 8; b++ {
-			out[8*w+b] = byte(e[3-w] >> (56 - 8*b))
-		}
-	}
+	gfpMarshal(toElementArray(out), e)
+}
+
+// uint64IsZero returns 1 if x is zero and zero otherwise.
+func uint64IsZero(x uint64) int {
+	x = ^x
+	x &= x >> 32
+	x &= x >> 16
+	x &= x >> 8
+	x &= x >> 4
+	x &= x >> 2
+	x &= x >> 1
+	return int(x & 1)
+}
+
+func lessThanP(x *gfP) int {
+	var b uint64
+	_, b = bits.Sub64(x[0], p2[0], b)
+	_, b = bits.Sub64(x[1], p2[1], b)
+	_, b = bits.Sub64(x[2], p2[2], b)
+	_, b = bits.Sub64(x[3], p2[3], b)
+	return int(b)
 }
 
 func (e *gfP) Unmarshal(in []byte) error {
-	// Unmarshal the bytes into little endian form
-	for w := uint(0); w < 4; w++ {
-		e[3-w] = 0
-		for b := uint(0); b < 8; b++ {
-			e[3-w] += uint64(in[8*w+b]) << (56 - 8*b)
-		}
-	}
+	gfpUnmarshal(e, toElementArray(in))
 	// Ensure the point respects the curve modulus
+	// TODO: Do we need to change it to constant time version ?
 	for i := 3; i >= 0; i-- {
 		if e[i] < p2[i] {
 			return nil
@@ -151,14 +174,18 @@ func montDecode(c, a *gfP) { gfpFromMont(c, a) }
 // cmovznzU64 is a single-word conditional move.
 //
 // Postconditions:
-//   out1 = (if arg1 = 0 then arg2 else arg3)
+//
+//	out1 = (if arg1 = 0 then arg2 else arg3)
 //
 // Input Bounds:
-//   arg1: [0x0 ~> 0x1]
-//   arg2: [0x0 ~> 0xffffffffffffffff]
-//   arg3: [0x0 ~> 0xffffffffffffffff]
+//
+//	arg1: [0x0 ~> 0x1]
+//	arg2: [0x0 ~> 0xffffffffffffffff]
+//	arg3: [0x0 ~> 0xffffffffffffffff]
+//
 // Output Bounds:
-//   out1: [0x0 ~> 0xffffffffffffffff]
+//
+//	out1: [0x0 ~> 0xffffffffffffffff]
 func cmovznzU64(out1 *uint64, arg1 uint64, arg2 uint64, arg3 uint64) {
 	x1 := (uint64(arg1) * 0xffffffffffffffff)
 	x2 := ((x1 & arg3) | ((^x1) & arg2))

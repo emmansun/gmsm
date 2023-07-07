@@ -104,6 +104,7 @@ func (e *gfP4) Mul(a, b *gfP4) *gfP4 {
 	return e
 }
 
+// Mul without value copy, will use e directly, so e can't be same as a and b.
 func (e *gfP4) MulNC(a, b *gfP4) *gfP4 {
 	// "Multiplication and Squaring on Pairing-Friendly Fields"
 	// Section 4, Karatsuba method.
@@ -130,7 +131,7 @@ func (e *gfP4) MulNC(a, b *gfP4) *gfP4 {
 }
 
 // MulNC2 muls a with (xv+y), this method is used in mulLine function
-// to avoid gfP4 instance construction.
+// to avoid gfP4 instance construction. e can't be same as a.
 func (e *gfP4) MulNC2(a *gfP4, x, y *gfP2) *gfP4 {
 	// "Multiplication and Squaring on Pairing-Friendly Fields"
 	// Section 4, Karatsuba method.
@@ -169,6 +170,7 @@ func (e *gfP4) MulV(a, b *gfP4) *gfP4 {
 	return e
 }
 
+// MulV without value copy, will use e directly, so e can't be same as a and b.
 func (e *gfP4) MulVNC(a, b *gfP4) *gfP4 {
 	tx := &e.x
 	ty := &e.y
@@ -211,6 +213,7 @@ func (e *gfP4) Square(a *gfP4) *gfP4 {
 	return e
 }
 
+// Square without value copy, will use e directly, so e can't be same as a.
 func (e *gfP4) SquareNC(a *gfP4) *gfP4 {
 	// Complex squaring algorithm:
 	// (xv+y)² = (x^2*u + y^2) + 2*x*y*v
@@ -228,6 +231,7 @@ func (e *gfP4) SquareNC(a *gfP4) *gfP4 {
 	return e
 }
 
+// SquareV without value copy, will use e directly, so e can't be same as a.
 // SquareV: (a^2) * v
 // v*(xv+y)² = (x^2*u + y^2)v + 2*x*y*u
 func (e *gfP4) SquareV(a *gfP4) *gfP4 {

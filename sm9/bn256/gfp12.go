@@ -140,6 +140,7 @@ func (e *gfP12) Mul(a, b *gfP12) *gfP12 {
 	return e
 }
 
+// Mul without value copy, will use e directly, so e can't be same as a and b.
 func (e *gfP12) MulNC(a, b *gfP12) *gfP12 {
 	// (z0 + y0*w + x0*w^2)* (z1 + y1*w + x1*w^2)
 	//  z0*z1 + z0*y1*w + z0*x1*w^2
@@ -187,6 +188,7 @@ func (e *gfP12) Square(a *gfP12) *gfP12 {
 	return e
 }
 
+// Square without value copy, will use e directly, so e can't be same as a.
 func (e *gfP12) SquareNC(a *gfP12) *gfP12 {
 	// (z + y*w + x*w^2)* (z + y*w + x*w^2)
 	// z^2 + z*y*w + z*x*w^2 + y*z*w + y^2*w^2 + y*x*v + x*z*w^2 + x*y*v + x^2 *v *w
@@ -303,6 +305,7 @@ func (e *gfP12) SpecialSquares(a *gfP12, n int) *gfP12 {
 	return e
 }
 
+// Special Square without value copy, will use e directly, so e can't be same as a.
 func (e *gfP12) SpecialSquareNC(a *gfP12) *gfP12 {
 	tx, ty, tz := &gfP4{}, &gfP4{}, &gfP4{}
 

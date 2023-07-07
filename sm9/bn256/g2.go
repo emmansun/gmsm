@@ -354,10 +354,10 @@ func (e *G2) Equal(other *G2) bool {
 	if e.p == nil && other.p == nil {
 		return true
 	}
-	return e.p.x == other.p.x &&
-		e.p.y == other.p.y &&
-		e.p.z == other.p.z &&
-		e.p.t == other.p.t
+	return e.p.x.Equal(&other.p.x) == 1 &&
+		e.p.y.Equal(&other.p.y) == 1 &&
+		e.p.z.Equal(&other.p.z) == 1 &&
+		e.p.t.Equal(&other.p.t) == 1
 }
 
 // IsOnCurve returns true if e is on the twist curve.
