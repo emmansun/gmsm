@@ -8,11 +8,18 @@ func gfP12MovCond(res, a, b *gfP12, cond int) {
 }
 
 func curvePointMovCond(res, a, b *curvePoint, cond int) {
-	res.Select(a, b, cond)
+	res.x.Select(&a.x, &b.x, cond)
+	res.y.Select(&a.y, &b.y, cond)
+	res.z.Select(&a.z, &b.z, cond)
+	res.t.Select(&a.t, &b.t, cond)
 }
 
 func twistPointMovCond(res, a, b *twistPoint, cond int) {
-	res.Select(a, b, cond)
+	// Select sets q to p1 if cond == 1, and to p2 if cond == 0.
+	res.x.Select(&a.x, &b.x, cond)
+	res.y.Select(&a.y, &b.y, cond)
+	res.z.Select(&a.z, &b.z, cond)
+	res.t.Select(&a.t, &b.t, cond)
 }
 
 func gfpCopy(res, in *gfP) {
