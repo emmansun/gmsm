@@ -5,6 +5,6 @@ This part codes mainly refer two projects:
 3. [SM9 precompute pairing per master public key level](https://github.com/emmansun/gmsm/discussions/60)。
 4. G1, G2曲线倍点运算预计算。
 5. 更加高效的基础域gfP汇编方法实现。
-6. 分圆子域上的特殊平方运算实现。
+6. 分圆子群上的特殊平方运算实现。
 7. Miller运算中，line add/double运算不返回新建对象。
 8. Marshal/Unmarshal，select，set的asm实现。
