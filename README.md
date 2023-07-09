@@ -17,7 +17,7 @@
 
 * **SM4** - For SM4 implementation, SIMD & AES-NI are used under **amd64** and **arm64**, for detail please refer [SM4性能优化](https://github.com/emmansun/gmsm/wiki/SM4%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96), it supports ECB/CBC/CFB/OFB/CTR/GCM/CCM/XTS modes. It also provides A64 cryptographic instructions SM4 tested with QEMU.
 
-* **SM9** - For SM9 implementation, please reference [sm9/bn256 README.md](https://github.com/emmansun/gmsm/tree/main/sm9/bn256).
+* **SM9** - For SM9 implementation, please reference [SM9实现及优化](https://github.com/emmansun/gmsm/wiki/SM9%E5%AE%9E%E7%8E%B0%E5%8F%8A%E4%BC%98%E5%8C%96)
 
 * **ZUC** - For ZUC implementation, SIMD, AES-NI and CLMUL are used under **amd64** and **arm64**, for detail please refer [Efficient Software Implementations of ZUC](https://github.com/emmansun/gmsm/wiki/Efficient-Software-Implementations-of-ZUC)
 
