@@ -114,7 +114,7 @@ func (c *twistPoint) Add(a, b *twistPoint) {
 	h := (&gfP2{}).Sub(u2, u1)
 	xEqual := h.IsZero()
 
-	t.Add(h, h)
+	t.Double(h)
 	i := (&gfP2{}).SquareNC(t)
 	j := (&gfP2{}).MulNC(h, i)
 
@@ -124,18 +124,18 @@ func (c *twistPoint) Add(a, b *twistPoint) {
 		c.Double(a)
 		return
 	}
-	r := (&gfP2{}).Add(t, t)
+	r := (&gfP2{}).Double(t)
 
 	v := (&gfP2{}).MulNC(u1, i)
 
 	t4 := (&gfP2{}).SquareNC(r)
-	t.Add(v, v)
+	t.Double(v)
 	t6 := (&gfP2{}).Sub(t4, j)
 	c.x.Sub(t6, t)
 
 	t.Sub(v, &c.x) // t7
 	t4.Mul(s1, j)  // t8
-	t6.Add(t4, t4) // t9
+	t6.Double(t4)  // t9
 	t4.Mul(r, t)   // t10
 	c.y.Sub(t4, t6)
 
@@ -156,20 +156,20 @@ func (c *twistPoint) Double(a *twistPoint) {
 	t2 := (&gfP2{}).SquareNC(t)
 	t.Sub(t2, A)
 	t2.Sub(t, C)
-	d := (&gfP2{}).Add(t2, t2)
-	t.Add(A, A)
+	d := (&gfP2{}).Double(t2)
+	t.Double(A)
 	e := (&gfP2{}).Add(t, A)
 	f := (&gfP2{}).SquareNC(e)
 
-	t.Add(d, d)
+	t.Double(d)
 	c.x.Sub(f, t)
 
 	c.z.Mul(&a.y, &a.z)
-	c.z.Add(&c.z, &c.z)
+	c.z.Double(&c.z)
 
-	t.Add(C, C)
-	t2.Add(t, t)
-	t.Add(t2, t2)
+	t.Double(C)
+	t2.Double(t)
+	t.Double(t2)
 	c.y.Sub(d, &c.x)
 	t2.Mul(e, &c.y)
 	c.y.Sub(t2, t)

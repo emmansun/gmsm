@@ -75,13 +75,13 @@ func (e *gfP2) IsOne() bool {
 
 func (e *gfP2) Conjugate(a *gfP2) *gfP2 {
 	e.y.Set(&a.y)
-	gfpSub(&e.x, zero, &a.x)
+	gfpNeg(&e.x, &a.x)
 	return e
 }
 
 func (e *gfP2) Neg(a *gfP2) *gfP2 {
-	gfpSub(&e.x, zero, &a.x)
-	gfpSub(&e.y, zero, &a.y)
+	gfpNeg(&e.x, &a.x)
+	gfpNeg(&e.y, &a.y)
 	return e
 }
 
@@ -98,17 +98,14 @@ func (e *gfP2) Sub(a, b *gfP2) *gfP2 {
 }
 
 func (e *gfP2) Double(a *gfP2) *gfP2 {
-	gfpAdd(&e.x, &a.x, &a.x)
-	gfpAdd(&e.y, &a.y, &a.y)
+	gfpDouble(&e.x, &a.x)
+	gfpDouble(&e.y, &a.y)
 	return e
 }
 
 func (e *gfP2) Triple(a *gfP2) *gfP2 {
-	gfpAdd(&e.x, &a.x, &a.x)
-	gfpAdd(&e.y, &a.y, &a.y)
-
-	gfpAdd(&e.x, &e.x, &a.x)
-	gfpAdd(&e.y, &e.y, &a.y)
+	gfpTriple(&e.x, &a.x)
+	gfpTriple(&e.y, &a.y)
 	return e
 }
 
@@ -172,8 +169,8 @@ func (e *gfP2) MulUNC(a, b *gfP2) *gfP2 {
 	gfpMul(ty, tx, ty)
 	gfpSub(ty, ty, v0)
 	gfpSub(ty, ty, v1)
-	gfpAdd(ty, ty, ty)
-	gfpSub(ty, zero, ty)
+	gfpDouble(ty, ty)
+	gfpNeg(ty, ty)
 
 	gfpSub(tx, v0, v1)
 	gfpSub(tx, tx, v1)
@@ -187,8 +184,8 @@ func (e *gfP2) MulUNC(a, b *gfP2) *gfP2 {
 // c0 = -2a1
 func (e *gfP2) MulU1(a *gfP2) *gfP2 {
 	t := &gfP{}
-	gfpAdd(t, &a.x, &a.x)
-	gfpSub(t, zero, t)
+	gfpDouble(t, &a.x)
+	gfpNeg(t, t)
 
 	gfpCopy(&e.x, &a.y)
 	gfpCopy(&e.y, t)
@@ -212,12 +209,12 @@ func (e *gfP2) SquareNC(a *gfP2) *gfP2 {
 	ty := &e.y
 
 	gfpAdd(ty, &a.x, &a.y)
-	gfpAdd(tx, &a.x, &a.x)
+	gfpDouble(tx, &a.x)
 	gfpSub(tx, &a.y, tx)
 	gfpMul(ty, tx, ty)
 	gfpMul(tx, &a.x, &a.y)
 	gfpAdd(ty, tx, ty)
-	gfpAdd(tx, tx, tx)
+	gfpDouble(tx, tx)
 
 	return e
 }
@@ -240,14 +237,14 @@ func (e *gfP2) SquareUNC(a *gfP2) *gfP2 {
 	ty := &e.y
 
 	gfpAdd(tx, &a.x, &a.y)
-	gfpAdd(ty, &a.x, &a.x)
+	gfpDouble(ty, &a.x)
 	gfpSub(ty, &a.y, ty)
 	gfpMul(tx, tx, ty)
 	gfpMul(ty, &a.x, &a.y)
 	gfpAdd(tx, tx, ty)
-	gfpAdd(ty, ty, ty)
-	gfpAdd(ty, ty, ty)
-	gfpSub(ty, zero, ty)
+	gfpDouble(ty, ty)
+	gfpDouble(ty, ty)
+	gfpNeg(ty, ty)
 
 	return e
 }
@@ -263,14 +260,14 @@ func (e *gfP2) Invert(a *gfP2) *gfP2 {
 	// ftp://136.206.11.249/pub/crypto/pairings.pdf
 	t1, t2, t3 := &gfP{}, &gfP{}, &gfP{}
 	gfpSqr(t1, &a.x, 1)
-	gfpAdd(t3, t1, t1)
+	gfpDouble(t3, t1)
 	gfpSqr(t2, &a.y, 1)
 	gfpAdd(t3, t3, t2)
 
 	inv := &gfP{}
 	inv.Invert(t3) // inv = (2 * a.x ^ 2 + a.y ^ 2) ^ (-1)
 
-	gfpSub(t1, zero, &a.x)
+	gfpNeg(t1, &a.x)
 
 	gfpMul(&e.x, t1, inv)   // x = - a.x * inv
 	gfpMul(&e.y, &a.y, inv) // y = a.y * inv

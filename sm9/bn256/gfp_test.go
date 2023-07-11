@@ -225,3 +225,64 @@ func BenchmarkGfPSqr(b *testing.B) {
 		gfpSqr(ret, x, 1)
 	}
 }
+
+func BenchmarkGfPTriple(b *testing.B) {
+	x := fromBigInt(bigFromHex("9093a2b979e6186f43a9b28d41ba644d533377f2ede8c66b19774bf4a9c7a596"))
+	b.ReportAllocs()
+	b.ResetTimer()
+	ret := &gfP{}
+	for i := 0; i < b.N; i++ {
+		gfpTriple(ret, x)
+	}
+}
+
+func BenchmarkGfPTriple2(b *testing.B) {
+	x := fromBigInt(bigFromHex("9093a2b979e6186f43a9b28d41ba644d533377f2ede8c66b19774bf4a9c7a596"))
+	b.ReportAllocs()
+	b.ResetTimer()
+	ret := &gfP{}
+	for i := 0; i < b.N; i++ {
+		gfpAdd(ret, x, x)
+		gfpAdd(ret, ret, x)
+	}
+}
+
+func BenchmarkGfPDouble(b *testing.B) {
+	x := fromBigInt(bigFromHex("9093a2b979e6186f43a9b28d41ba644d533377f2ede8c66b19774bf4a9c7a596"))
+	b.ReportAllocs()
+	b.ResetTimer()
+	ret := &gfP{}
+	for i := 0; i < b.N; i++ {
+		gfpDouble(ret, x)
+	}
+}
+
+func BenchmarkGfPDouble2(b *testing.B) {
+	x := fromBigInt(bigFromHex("9093a2b979e6186f43a9b28d41ba644d533377f2ede8c66b19774bf4a9c7a596"))
+	b.ReportAllocs()
+	b.ResetTimer()
+	ret := &gfP{}
+	for i := 0; i < b.N; i++ {
+		gfpAdd(ret, x, x)
+	}
+}
+
+func BenchmarkGfPNeg(b *testing.B) {
+	x := fromBigInt(bigFromHex("9093a2b979e6186f43a9b28d41ba644d533377f2ede8c66b19774bf4a9c7a596"))
+	b.ReportAllocs()
+	b.ResetTimer()
+	ret := &gfP{}
+	for i := 0; i < b.N; i++ {
+		gfpNeg(ret, x)
+	}
+}
+
+func BenchmarkGfPNeg2(b *testing.B) {
+	x := fromBigInt(bigFromHex("9093a2b979e6186f43a9b28d41ba644d533377f2ede8c66b19774bf4a9c7a596"))
+	b.ReportAllocs()
+	b.ResetTimer()
+	ret := &gfP{}
+	for i := 0; i < b.N; i++ {
+		gfpSub(ret, zero, x)
+	}
+}

@@ -109,6 +109,83 @@ TEXT ·gfpAdd(SB),0,$0-24
 	storeBlock(R1,R2,R3,R4, 0(R0))
 	RET
 
+TEXT ·gfpDouble(SB),0,$0-16
+	MOVD a+8(FP), R0
+	loadBlock(0(R0), R1,R2,R3,R4)
+	loadModulus(R9,R10,R11,R12)
+	MOVD ZR, R0
+
+	ADDS R1, R1
+	ADCS R2, R2
+	ADCS R3, R3
+	ADCS R4, R4
+	ADCS ZR, R0
+
+	SUBS  R9, R1, R5
+	SBCS R10, R2, R6
+	SBCS R11, R3, R7
+	SBCS R12, R4, R8
+	SBCS  ZR, R0, R0
+
+	CSEL CS, R5, R1, R1
+	CSEL CS, R6, R2, R2
+	CSEL CS, R7, R3, R3
+	CSEL CS, R8, R4, R4
+
+	MOVD c+0(FP), R0
+	storeBlock(R1,R2,R3,R4, 0(R0))
+	RET
+
+TEXT ·gfpTriple(SB),0,$0-16
+	MOVD a+8(FP), R0
+	loadBlock(0(R0), R1,R2,R3,R4)
+	MOVD R1, R19
+	MOVD R2, R20
+	MOVD R3, R21
+	MOVD R4, R22
+	loadModulus(R9,R10,R11,R12)
+	MOVD ZR, R0
+
+	ADDS R1, R1
+	ADCS R2, R2
+	ADCS R3, R3
+	ADCS R4, R4
+	ADCS ZR, R0
+
+	SUBS  R9, R1, R5
+	SBCS R10, R2, R6
+	SBCS R11, R3, R7
+	SBCS R12, R4, R8
+	SBCS  ZR, R0, R0
+
+	CSEL CS, R5, R1, R1
+	CSEL CS, R6, R2, R2
+	CSEL CS, R7, R3, R3
+	CSEL CS, R8, R4, R4
+
+	MOVD ZR, R0
+
+	ADDS R19, R1
+	ADCS R20, R2
+	ADCS R21, R3
+	ADCS R22, R4
+	ADCS ZR, R0
+
+	SUBS  R9, R1, R5
+	SBCS R10, R2, R6
+	SBCS R11, R3, R7
+	SBCS R12, R4, R8
+	SBCS  ZR, R0, R0
+
+	CSEL CS, R5, R1, R1
+	CSEL CS, R6, R2, R2
+	CSEL CS, R7, R3, R3
+	CSEL CS, R8, R4, R4
+
+	MOVD c+0(FP), R0
+	storeBlock(R1,R2,R3,R4, 0(R0))
+	RET
+
 TEXT ·gfpSub(SB),0,$0-24
 	MOVD a+8(FP), R0
 	loadBlock(0(R0), R1,R2,R3,R4)

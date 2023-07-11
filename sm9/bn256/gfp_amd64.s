@@ -104,6 +104,51 @@ TEXT ·gfpAdd(SB),0,$0-24
 	storeBlock(R8,R9,R10,R11, 0(DI))
 	RET
 
+TEXT ·gfpDouble(SB),0,$0-16
+	MOVQ a+0(FP), DI
+	MOVQ b+8(FP), SI
+
+	loadBlock(0(SI), R8,R9,R10,R11)
+	XORQ R12, R12
+
+	ADDQ  R8, R8
+	ADCQ  R9, R9
+	ADCQ  R10, R10
+	ADCQ  R11, R11
+	ADCQ  $0, R12
+
+	gfpCarry(R8,R9,R10,R11, R13,R14,CX,AX,R12)
+
+	storeBlock(R8,R9,R10,R11, 0(DI))
+	RET
+
+TEXT ·gfpTriple(SB),0,$0-16
+	MOVQ a+0(FP), DI
+	MOVQ b+8(FP), SI
+
+	loadBlock(0(SI), R8,R9,R10,R11)
+	XORQ R12, R12
+
+	ADDQ  R8, R8
+	ADCQ  R9, R9
+	ADCQ  R10, R10
+	ADCQ  R11, R11
+	ADCQ $0, R12
+
+	gfpCarry(R8,R9,R10,R11, R13,R14,CX,AX,R12)
+
+	XORQ R12, R12
+	ADDQ  0(SI), R8
+	ADCQ  8(SI), R9
+	ADCQ 16(SI), R10
+	ADCQ 24(SI), R11
+	ADCQ $0, R12
+
+	gfpCarry(R8,R9,R10,R11, R13,R14,CX,AX,R12)
+
+	storeBlock(R8,R9,R10,R11, 0(DI))
+	RET
+
 TEXT ·gfpSub(SB),0,$0-24
 	MOVQ a+8(FP), DI
 	MOVQ b+16(FP), SI

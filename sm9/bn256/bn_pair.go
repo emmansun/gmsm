@@ -12,8 +12,8 @@ func lineFunctionAdd(r, p, rOut *twistPoint, q *curvePoint, r2, a, b, c *gfP2) {
 	H := (&gfP2{}).Sub(B, &r.x) // H = Xp * Zr^2 - Xr
 	I := (&gfP2{}).SquareNC(H)  // I = (Xp * Zr^2 - Xr)^2 = Xp^2*Zr^4 + Xr^2 - 2Xr*Xp*Zr^2
 
-	E := (&gfP2{}).Add(I, I) // E = 2*(Xp * Zr^2 - Xr)^2
-	E.Add(E, E)              // E = 4*(Xp * Zr^2 - Xr)^2
+	E := (&gfP2{}).Double(I) // E = 2*(Xp * Zr^2 - Xr)^2
+	E.Double(E)              // E = 4*(Xp * Zr^2 - Xr)^2
 
 	J := (&gfP2{}).MulNC(H, E) // J =  4*(Xp * Zr^2 - Xr)^3
 
@@ -29,7 +29,7 @@ func lineFunctionAdd(r, p, rOut *twistPoint, q *curvePoint, r2, a, b, c *gfP2) {
 	t := (&gfP2{}).Sub(V, &rOut.x) // t = V - rOut.x
 	t.Mul(t, L1)                   // t = L1*(V-rOut.x)
 	t2 := (&gfP2{}).MulNC(&r.y, J)
-	t2.Add(t2, t2)    // t2 = 2Yr * J
+	t2.Double(t2)     // t2 = 2Yr * J
 	rOut.y.Sub(t, t2) // rOut.y = L1*(V-rOut.x) - 2Yr*J
 
 	rOut.t.SquareNC(&rOut.z)
@@ -38,14 +38,14 @@ func lineFunctionAdd(r, p, rOut *twistPoint, q *curvePoint, r2, a, b, c *gfP2) {
 	t.Add(&p.y, &rOut.z).Square(t).Sub(t, r2).Sub(t, &rOut.t)
 
 	t2.Mul(L1, &p.x)
-	t2.Add(t2, t2) // t2 = 2 L1 * Xp
-	a.Sub(t2, t)   // a =  2 L1 * Xp - 2 Yp * rOut.z = 2 L1 * Xp - (Yp + rOut.Z)^2 + Yp^2 + rOut.Z^2
+	t2.Double(t2) // t2 = 2 L1 * Xp
+	a.Sub(t2, t)  // a =  2 L1 * Xp - 2 Yp * rOut.z = 2 L1 * Xp - (Yp + rOut.Z)^2 + Yp^2 + rOut.Z^2
 
 	c.MulScalar(&rOut.z, &q.y) // c = rOut.z * Yq
-	c.Add(c, c)                // c = 2 * rOut.z * Yq
+	c.Double(c)                // c = 2 * rOut.z * Yq
 
 	b.Neg(L1)                      // b= -L1
-	b.MulScalar(b, &q.x).Add(b, b) // b = -2 * L1 * Xq
+	b.MulScalar(b, &q.x).Double(b) // b = -2 * L1 * Xq
 }
 
 func lineFunctionDouble(r, rOut *twistPoint, q *curvePoint, a, b, c *gfP2) {
@@ -56,9 +56,9 @@ func lineFunctionDouble(r, rOut *twistPoint, q *curvePoint, a, b, c *gfP2) {
 	C := (&gfP2{}).SquareNC(B) // C = Yr ^ 4
 
 	D := (&gfP2{}).Add(&r.x, B)
-	D.Square(D).Sub(D, A).Sub(D, C).Add(D, D)
+	D.Square(D).Sub(D, A).Sub(D, C).Double(D)
 
-	E := (&gfP2{}).Add(A, A) //
+	E := (&gfP2{}).Double(A) //
 	E.Add(E, A)              // E = 3 * Xr ^ 2
 
 	G := (&gfP2{}).SquareNC(E) // G = 9 * Xr^4
@@ -68,23 +68,23 @@ func lineFunctionDouble(r, rOut *twistPoint, q *curvePoint, a, b, c *gfP2) {
 	rOut.z.Add(&r.y, &r.z).Square(&rOut.z).Sub(&rOut.z, B).Sub(&rOut.z, &r.t) // Z3 = (Yr + Zr)^2 - Yr^2 - Zr^2 = 2Yr*Zr
 
 	rOut.y.Sub(D, &rOut.x).Mul(&rOut.y, E)
-	t := (&gfP2{}).Add(C, C) // t = 2 * r.y ^ 4
-	t.Add(t, t).Add(t, t)    // t = 8 * Yr ^ 4
+	t := (&gfP2{}).Double(C) // t = 2 * r.y ^ 4
+	t.Double(t).Double(t)    // t = 8 * Yr ^ 4
 	rOut.y.Sub(&rOut.y, t)
 
 	rOut.t.SquareNC(&rOut.z)
 
-	t.Mul(E, &r.t).Add(t, t) // t = 2(E * Tr)
+	t.Mul(E, &r.t).Double(t) // t = 2(E * Tr)
 	b.Neg(t)                 // b = -2(E * Tr)
 	b.MulScalar(b, &q.x)     // b = -2(E * Tr * Xq)
 
 	a.Add(&r.x, E)                  // a = Xr + E
 	a.Square(a).Sub(a, A).Sub(a, G) // a = (Xr + E) ^ 2 - A - G
-	t.Add(B, B).Add(t, t)           // t = 4B
+	t.Double(B).Double(t)           // t = 4B
 	a.Sub(a, t)                     // a = (Xr + E) ^ 2 - A - G - 4B
 
 	c.Mul(&rOut.z, &r.t)           // c = rOut.z * Tr
-	c.Add(c, c).MulScalar(c, &q.y) // c = 2 rOut.z * Tr * Yq
+	c.Double(c).MulScalar(c, &q.y) // c = 2 rOut.z * Tr * Yq
 }
 
 // (ret.z + ret.y*w + ret.x*w^2)* ((cv+a) + b*w^2)

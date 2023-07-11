@@ -18,13 +18,23 @@ var supportADX = cpu.X86.HasADX && cpu.X86.HasBMI2
 // Set c = p - a, if c == p, then c = 0
 // It seems this function's performance is worse than gfpSub with zero.
 //
-// go:noescape
+//go:noescape
 func gfpNeg(c, a *gfP)
 
 // Set c = a + b, if c >= p, then c = c - p
 //
 //go:noescape
 func gfpAdd(c, a, b *gfP)
+
+// Set c = a + a
+//
+//go:noescape
+func gfpDouble(c, a *gfP)
+
+// Set c = a + a + a
+//
+//go:noescape
+func gfpTriple(c, a *gfP)
 
 // Set c = a - b, if c is negative, then c = c + p
 //

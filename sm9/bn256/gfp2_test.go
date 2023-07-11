@@ -152,10 +152,11 @@ func BenchmarkGfP2MulU(b *testing.B) {
 		*fromBigInt(bigFromHex("17509B092E845C1266BA0D262CBEE6ED0736A96FA347C8BD856DC76B84EBEB96")),
 		*fromBigInt(bigFromHex("A7CF28D519BE3DA65F3170153D278FF247EFBA98A71A08116215BBA5C999A7C7")),
 	}
+
+	t := &gfP2{}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		t := &gfP2{}
 		t.MulU(x, y)
 	}
 }
@@ -181,6 +182,32 @@ func BenchmarkGfP2SquareU(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		x.SquareU(x)
+	}
+}
+
+func BenchmarkGfP2Neg(b *testing.B) {
+	x := &gfP2{
+		*fromBigInt(bigFromHex("85AEF3D078640C98597B6027B441A01FF1DD2C190F5E93C454806C11D8806141")),
+		*fromBigInt(bigFromHex("3722755292130B08D2AAB97FD34EC120EE265948D19C17ABF9B7213BAF82D65B")),
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		gfpNeg(&x.x, &x.x)
+		gfpNeg(&x.y, &x.y)
+	}
+}
+
+func BenchmarkGfP2Neg2(b *testing.B) {
+	x := &gfP2{
+		*fromBigInt(bigFromHex("85AEF3D078640C98597B6027B441A01FF1DD2C190F5E93C454806C11D8806141")),
+		*fromBigInt(bigFromHex("3722755292130B08D2AAB97FD34EC120EE265948D19C17ABF9B7213BAF82D65B")),
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		gfpSub(&x.x, zero, &x.x)
+		gfpSub(&x.y, zero, &x.y)
 	}
 }
 

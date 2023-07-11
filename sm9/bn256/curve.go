@@ -38,7 +38,7 @@ func (c *curvePoint) Set(a *curvePoint) {
 
 func (c *curvePoint) polynomial(x *gfP) *gfP {
 	x3 := &gfP{}
-	gfpMul(x3, x, x)
+	gfpSqr(x3, x, 1)
 	gfpMul(x3, x3, x)
 	gfpAdd(x3, x3, curveB)
 	return x3
@@ -52,7 +52,7 @@ func (c *curvePoint) IsOnCurve() bool {
 	}
 
 	y2 := &gfP{}
-	gfpMul(y2, &c.y, &c.y)
+	gfpSqr(y2, &c.y, 1)
 
 	x3 := c.polynomial(&c.x)
 
@@ -98,8 +98,8 @@ func (c *curvePoint) Add(a, b *curvePoint) {
 	// by [u1:s1:z1·z2] and [u2:s2:z1·z2]
 	// where u1 = x1·z2², s1 = y1·z2³ and u1 = x2·z1², s2 = y2·z1³
 	z12, z22 := &gfP{}, &gfP{}
-	gfpMul(z12, &a.z, &a.z)
-	gfpMul(z22, &b.z, &b.z)
+	gfpSqr(z12, &a.z, 1)
+	gfpSqr(z22, &b.z, 1)
 
 	u1, u2 := &gfP{}, &gfP{}
 	gfpMul(u1, &a.x, z22)
@@ -123,10 +123,10 @@ func (c *curvePoint) Add(a, b *curvePoint) {
 	h := &gfP{}
 	gfpSub(h, u2, u1)
 
-	gfpAdd(t, h, h)
+	gfpDouble(t, h)
 	// i = 4h²
 	i := &gfP{}
-	gfpMul(i, t, t)
+	gfpSqr(i, t, 1)
 	// j = 4h³
 	j := &gfP{}
 	gfpMul(j, h, i)
@@ -138,15 +138,15 @@ func (c *curvePoint) Add(a, b *curvePoint) {
 		return
 	}
 	r := &gfP{}
-	gfpAdd(r, t, t)
+	gfpDouble(r, t)
 
 	v := &gfP{}
 	gfpMul(v, u1, i)
 
 	// t4 = 4(s2-s1)²
 	t4, t6 := &gfP{}, &gfP{}
-	gfpMul(t4, r, r)
-	gfpAdd(t, v, v)
+	gfpSqr(t4, r, 1)
+	gfpDouble(t, v)
 	gfpSub(t6, t4, j)
 
 	gfpSub(&c.x, t6, t)
@@ -156,13 +156,13 @@ func (c *curvePoint) Add(a, b *curvePoint) {
 	// y = - 2·s1·j - (s2-s1)(2x - 2i·u1) = r(v-x) - 2·s1·j
 	gfpSub(t, v, &c.x) // t7
 	gfpMul(t4, s1, j)  // t8
-	gfpAdd(t6, t4, t4) // t9
+	gfpDouble(t6, t4) // t9
 	gfpMul(t4, r, t)   // t10
 	gfpSub(&c.y, t4, t6)
 
 	// Set z = 2(u2-u1)·z1·z2 = 2h·z1·z2
 	gfpAdd(t, &a.z, &b.z) // t11
-	gfpMul(t4, t, t)      // t12
+	gfpSqr(t4, t, 1)      // t12
 	gfpSub(t, t4, z12)    // t13
 	gfpSub(t4, t, z22)    // t14
 	gfpMul(&c.z, t4, h)
@@ -171,31 +171,31 @@ func (c *curvePoint) Add(a, b *curvePoint) {
 func (c *curvePoint) Double(a *curvePoint) {
 	// See http://hyperelliptic.org/EFD/g1p/auto-code/shortw/jacobian-0/doubling/dbl-2009-l.op3
 	A, B, C := &gfP{}, &gfP{}, &gfP{}
-	gfpMul(A, &a.x, &a.x)
-	gfpMul(B, &a.y, &a.y)
-	gfpMul(C, B, B)
+	gfpSqr(A, &a.x, 1)
+	gfpSqr(B, &a.y, 1)
+	gfpSqr(C, B, 1)
 
 	t, t2 := &gfP{}, &gfP{}
 	gfpAdd(t, &a.x, B)
-	gfpMul(t2, t, t)
+	gfpSqr(t2, t, 1)
 	gfpSub(t, t2, A)
 	gfpSub(t2, t, C)
 
 	d, e, f := &gfP{}, &gfP{}, &gfP{}
 	gfpAdd(d, t2, t2)
-	gfpAdd(t, A, A)
+	gfpDouble(t, A)
 	gfpAdd(e, t, A)
-	gfpMul(f, e, e)
+	gfpSqr(f, e, 1)
 
-	gfpAdd(t, d, d)
+	gfpDouble(t, d)
 	gfpSub(&c.x, f, t)
 
 	gfpMul(&c.z, &a.y, &a.z)
-	gfpAdd(&c.z, &c.z, &c.z)
+	gfpDouble(&c.z, &c.z)
 
-	gfpAdd(t, C, C)
-	gfpAdd(t2, t, t)
-	gfpAdd(t, t2, t2)
+	gfpDouble(t, C)
+	gfpDouble(t2, t)
+	gfpDouble(t, t2)
 	gfpSub(&c.y, d, &c.x)
 	gfpMul(t2, e, &c.y)
 	gfpSub(&c.y, t2, t)
@@ -232,7 +232,7 @@ func (c *curvePoint) MakeAffine() {
 
 	t, zInv2 := &gfP{}, &gfP{}
 	gfpMul(t, &c.y, zInv)
-	gfpMul(zInv2, zInv, zInv)
+	gfpSqr(zInv2, zInv, 1)
 
 	gfpMul(&c.x, &c.x, zInv2)
 	gfpMul(&c.y, t, zInv2)

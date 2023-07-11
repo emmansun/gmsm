@@ -42,6 +42,15 @@ func gfpAdd(c, a, b *gfP) {
 	gfpCarry(c, carry)
 }
 
+func gfpDouble(c, a *gfP) {
+	gfpAdd(c, a, a)
+}
+
+func gfpTriple(c, a *gfP) {
+	gfpAdd(c, a, a)
+	gfpAdd(c, c, a)
+}
+
 func gfpSub(c, a, b *gfP) {
 	t := &gfP{}
 

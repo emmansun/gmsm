@@ -73,6 +73,12 @@ func (e *gfP4) Add(a, b *gfP4) *gfP4 {
 	return e
 }
 
+func (e *gfP4) Double(a *gfP4) *gfP4 {
+	e.x.Double(&a.x)
+	e.y.Double(&a.y)
+	return e
+}
+
 func (e *gfP4) Triple(a *gfP4) *gfP4 {
 	e.x.Triple(&a.x)
 	e.y.Triple(&a.y)

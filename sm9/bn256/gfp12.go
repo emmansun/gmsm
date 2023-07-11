@@ -258,11 +258,11 @@ func (e *gfP12) SpecialSquares(a *gfP12, n int) *gfP12 {
 	ty.Triple(v1)
 	tz.Triple(v2)
 
-	v0.Add(&a.x, &a.x) // (f12, f01)
+	v0.Double(&a.x) // (f12, f01)
 	v0.y.Neg(&v0.y)
-	v1.Add(&a.y, &a.y) // (f02, f10)
+	v1.Double(&a.y) // (f02, f10)
 	v1.x.Neg(&v1.x)
-	v2.Add(&a.z, &a.z) // (f11, f00)
+	v2.Double(&a.z) // (f11, f00)
 	v2.y.Neg(&v2.y)
 
 	v0.Add(ty, v0)
@@ -285,11 +285,11 @@ func (e *gfP12) SpecialSquares(a *gfP12, n int) *gfP12 {
 		ty.Triple(v1)
 		tz.Triple(v2)
 
-		v0.Add(&in.x, &in.x) // (f12, f01)
+		v0.Double(&in.x) // (f12, f01)
 		v0.y.Neg(&v0.y)
-		v1.Add(&in.y, &in.y) // (f02, f10)
+		v1.Double(&in.y) // (f02, f10)
 		v1.x.Neg(&v1.x)
-		v2.Add(&in.z, &in.z) // (f11, f00)
+		v2.Double(&in.z) // (f11, f00)
 		v2.y.Neg(&v2.y)
 
 		v0.Add(ty, v0)
@@ -321,11 +321,11 @@ func (e *gfP12) SpecialSquareNC(a *gfP12) *gfP12 {
 	ty.Triple(v1)
 	tz.Triple(v2)
 
-	v0.Add(&a.x, &a.x) // (f12, f01)
+	v0.Double(&a.x) // (f12, f01)
 	v0.y.Neg(&v0.y)
-	v1.Add(&a.y, &a.y) // (f02, f10)
+	v1.Double(&a.y) // (f02, f10)
 	v1.x.Neg(&v1.x)
-	v2.Add(&a.z, &a.z) // (f11, f00)
+	v2.Double(&a.z) // (f11, f00)
 	v2.y.Neg(&v2.y)
 
 	v0.Add(ty, v0)
