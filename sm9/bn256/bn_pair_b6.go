@@ -50,7 +50,7 @@ func millerB6(q *twistPoint, p *curvePoint) *gfP12b6 {
 	r := &twistPoint{}
 	r.Set(aAffine)
 
-	r2 := (&gfP2{}).Square(&aAffine.y)
+	r2 := (&gfP2{}).SquareNC(&aAffine.y)
 
 	a, b, c := &gfP2{}, &gfP2{}, &gfP2{}
 	newR := &twistPoint{}

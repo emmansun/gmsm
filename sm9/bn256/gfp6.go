@@ -156,7 +156,7 @@ func (e *gfP6) MulS(a *gfP6) *gfP6 {
 	tz := &gfP2{}
 
 	tz.x.Set(&a.x.y)
-	gfpAdd(&tz.y, &a.x.x, &a.x.x)
+	gfpDouble(&tz.y, &a.x.x)
 	gfpNeg(&tz.y, &tz.y)
 
 	e.y.Set(&a.z)

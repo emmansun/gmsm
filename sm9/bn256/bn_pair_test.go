@@ -1,6 +1,7 @@
 package bn256
 
 import (
+	"crypto/rand"
 	"math/big"
 	"testing"
 )
@@ -142,6 +143,22 @@ func Test_finalExponentiation(t *testing.T) {
 
 	if got.x != expected.x || got.y != expected.y || got.z != expected.z {
 		t.Errorf("got %v, expected %v\n", got, expected)
+	}
+}
+
+func TestBilinearity(t *testing.T) {
+	for i := 0; i < 2; i++ {
+		a, p1, _ := RandomG1(rand.Reader)
+		b, p2, _ := RandomG2(rand.Reader)
+		e1 := Pair(p1, p2)
+
+		e2 := Pair(&G1{curveGen}, &G2{twistGen})
+		e2.ScalarMult(e2, a)
+		e2.ScalarMult(e2, b)
+
+		if *e1.p != *e2.p {
+			t.Fatalf("bad pairing result: %s", e1)
+		}
 	}
 }
 

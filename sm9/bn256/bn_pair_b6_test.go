@@ -1,6 +1,7 @@
 package bn256
 
 import (
+	"crypto/rand"
 	"fmt"
 	"math/big"
 	"testing"
@@ -78,6 +79,22 @@ func Test_PairingB6_B2_2(t *testing.T) {
 	ret.Exp(ret, bigFromHex("00018B98C44BEF9F8537FB7D071B2C928B3BC65BD3D69E1EEE213564905634FE"))
 	if ret.x != expected_b2_2.x || ret.y != expected_b2_2.y || ret.z != expected_b2_2.z {
 		t.Errorf("not expected")
+	}
+}
+
+func TestBilinearityB6(t *testing.T) {
+	for i := 0; i < 2; i++ {
+		a, p1, _ := RandomG1(rand.Reader)
+		b, p2, _ := RandomG2(rand.Reader)
+		e1 := pairingB6(p2.p, p1.p)
+
+		e2 := pairingB6(twistGen, curveGen)
+		e2.Exp(e2, a)
+		e2.Exp(e2, b)
+
+		if *e1 != *e2 {
+			t.Fatalf("bad pairing result: %s", e1)
+		}
 	}
 }
 

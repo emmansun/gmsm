@@ -286,3 +286,23 @@ func BenchmarkGfPNeg2(b *testing.B) {
 		gfpSub(ret, zero, x)
 	}
 }
+
+func BenchmarkGfPInvert(b *testing.B) {
+	x := fromBigInt(bigFromHex("9093a2b979e6186f43a9b28d41ba644d533377f2ede8c66b19774bf4a9c7a596"))
+	b.ReportAllocs()
+	b.ResetTimer()
+	ret := &gfP{}
+	for i := 0; i < b.N; i++ {
+		ret.Invert(x)
+	}
+}
+
+func BenchmarkGfPInvert2(b *testing.B) {
+	x := fromBigInt(bigFromHex("9093a2b979e6186f43a9b28d41ba644d533377f2ede8c66b19774bf4a9c7a596"))
+	b.ReportAllocs()
+	b.ResetTimer()
+	ret := &gfP{}
+	for i := 0; i < b.N; i++ {
+		ret.exp(x, pMinus2)
+	}
+}
