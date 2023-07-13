@@ -264,6 +264,25 @@ GLOBL fk_mask<>(SB), 8, $16
 	VPUNPCKHQDQ r2, tmp2, r3;                \ // r3 =    [w31, w27, w15, w7, w27, w19, w11, w3]          r3 = [w15, w11, w7, w3]
 	VPUNPCKLQDQ r2, tmp2, r2                   // r2 =    [w30, w22, w14, w6, w26, w18, w10, w2]          r2 = [w14, w10, w6, w2]
 
+// SM4 round function, AVX version, handle 128 bits
+// t0 ^= tao_l1(t1^t2^t3^xk)
+// parameters:
+// - index: round key index immediate number
+// - x: 128 bits temp register
+// - y: 128 bits temp register
+// - t0: 128 bits register for data as result
+// - t1: 128 bits register for data
+// - t2: 128 bits register for data
+// - t3: 128 bits register for data
+#define AVX_SM4_ROUND(index, RK, IND, x, y, tmp, t0, t1, t2, t3)  \ 
+	MOVL (index * 4)(RK)(IND*1), x;                    \
+	VPSHUFD $0, x, x;                                  \
+	VPXOR t1, x, x;                                    \
+	VPXOR t2, x, x;                                    \
+	VPXOR t3, x, x;                                    \
+	AVX_SM4_TAO_L1(x, y, X_NIBBLE_MASK, tmp);          \  
+	VPXOR x, t0, t0
+
 // SM4 sbox function, AVX2 version
 // parameters:
 // -  x: 256 bits register as sbox input/output data
@@ -321,3 +340,40 @@ GLOBL fk_mask<>(SB), 8, $16
 	VPSHUFB z, x, z;                         \
 	VPXOR y, x, x;                           \
 	VPXOR x, z, x
+
+// SM4 round function, AVX2 version, handle 256 bits
+// t0 ^= tao_l1(t1^t2^t3^xk)
+// parameters:
+// - index: round key index immediate number
+// - x: 256 bits temp register, MUST use XDWORD!
+// - y: 256 bits temp register, MUST use YDWORD!
+// - t0: 256 bits register for data as result
+// - t1: 256 bits register for data
+// - t2: 256 bits register for data
+// - t3: 256 bits register for data
+#define AVX2_SM4_ROUND(index, RK, IND, x, y, xw, yw, tmp, t0, t1, t2, t3)  \ 
+	VPBROADCASTD (index * 4)(RK)(IND*1), x;                                  \
+	VPXOR t1, x, x;                                                          \
+	VPXOR t2, x, x;                                                          \
+	VPXOR t3, x, x;                                                          \
+	AVX2_SM4_TAO_L1(x, y, tmp, xw, yw, X_NIBBLE_MASK, NIBBLE_MASK);          \  
+	VPXOR x, t0, t0
+
+// SM4 round function, AVX version, handle 128 bits
+// t0 ^= tao_l1(t1^t2^t3^xk)
+// parameters:
+// - index: round key index immediate number
+// - x: 128 bits temp register
+// - y: 128 bits temp register
+// - t0: 128 bits register for data as result
+// - t1: 128 bits register for data
+// - t2: 128 bits register for data
+// - t3: 128 bits register for data
+#define AVX2_SM4_ROUND_4BLOCKS(index, RK, IND, x, y, tmp, t0, t1, t2, t3)  \ 
+	VPBROADCASTD (index * 4)(RK)(IND*1), x;            \
+	VPSHUFD $0, x, x;                                  \
+	VPXOR t1, x, x;                                    \
+	VPXOR t2, x, x;                                    \
+	VPXOR t3, x, x;                                    \
+	AVX_SM4_TAO_L1(x, y, X_NIBBLE_MASK, tmp);          \  
+	VPXOR x, t0, t0

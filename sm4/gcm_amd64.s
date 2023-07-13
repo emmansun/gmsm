@@ -263,22 +263,6 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 	PSHUFB BSWAP, t1; \
 	PSHUFB BSWAP, t0
 
-#define AVX2_SM4_ROUND(index, RK, IND, x, y, xw, yw, tmp, t0, t1, t2, t3)  \ 
-	VPBROADCASTD (index * 4)(RK)(IND*1), x;                                  \
-	VPXOR t1, x, x;                                                          \
-	VPXOR t2, x, x;                                                          \
-	VPXOR t3, x, x;                                                          \
-	AVX2_SM4_TAO_L1(x, y, tmp, xw, yw, X_NIBBLE_MASK, NIBBLE_MASK);          \  
-	VPXOR x, t0, t0
-
-#define AVX_SM4_ROUND(index, RK, IND, x, y, tmp, t0, t1, t2, t3)  \ 
-	VPBROADCASTD (index * 4)(RK)(IND*1), x;                 \
-	VPXOR t1, x, x;                                         \
-	VPXOR t2, x, x;                                         \
-	VPXOR t3, x, x;                                         \
-	AVX_SM4_TAO_L1(x, y, X_NIBBLE_MASK, tmp);               \  
-	VPXOR x, t0, t0
-
 // func gcmSm4Init(productTable *[256]byte, rk []uint32)
 TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 #define dst DI
@@ -1614,10 +1598,10 @@ avx2GcmSm4EncNibbles:
 	VMOVDQU nibble_mask<>(SB), X_NIBBLE_MASK
 
 avx2GcmSm4Enc4Loop2:
-	AVX_SM4_ROUND(0, rk, BX, B4, B5, B6, B0, B1, B2, B3)
-	AVX_SM4_ROUND(1, rk, BX, B4, B5, B6, B1, B2, B3, B0)
-	AVX_SM4_ROUND(2, rk, BX, B4, B5, B6, B2, B3, B0, B1)
-	AVX_SM4_ROUND(3, rk, BX, B4, B5, B6, B3, B0, B1, B2)
+	AVX2_SM4_ROUND_4BLOCKS(0, rk, BX, B4, B5, B6, B0, B1, B2, B3)
+	AVX2_SM4_ROUND_4BLOCKS(1, rk, BX, B4, B5, B6, B1, B2, B3, B0)
+	AVX2_SM4_ROUND_4BLOCKS(2, rk, BX, B4, B5, B6, B2, B3, B0, B1)
+	AVX2_SM4_ROUND_4BLOCKS(3, rk, BX, B4, B5, B6, B3, B0, B1, B2)
 
 	ADDL $16, BX
 	CMPL BX, $4*32
@@ -1676,10 +1660,10 @@ avx2GcmSm4EncSingles:
 	VMOVDQU nibble_mask<>(SB), X_NIBBLE_MASK
 
 avx2GcmSm4Enc4Loop1:
-	AVX_SM4_ROUND(0, rk, BX, B4, B5, B6, B0, B1, B2, B3)
-	AVX_SM4_ROUND(1, rk, BX, B4, B5, B6, B1, B2, B3, B0)
-	AVX_SM4_ROUND(2, rk, BX, B4, B5, B6, B2, B3, B0, B1)
-	AVX_SM4_ROUND(3, rk, BX, B4, B5, B6, B3, B0, B1, B2)
+	AVX2_SM4_ROUND_4BLOCKS(0, rk, BX, B4, B5, B6, B0, B1, B2, B3)
+	AVX2_SM4_ROUND_4BLOCKS(1, rk, BX, B4, B5, B6, B1, B2, B3, B0)
+	AVX2_SM4_ROUND_4BLOCKS(2, rk, BX, B4, B5, B6, B2, B3, B0, B1)
+	AVX2_SM4_ROUND_4BLOCKS(3, rk, BX, B4, B5, B6, B3, B0, B1, B2)
 
 	ADDL $16, BX
 	CMPL BX, $4*32
@@ -2472,10 +2456,10 @@ avx2GcmSm4DecNibbles:
 	VMOVDQU nibble_mask<>(SB), X_NIBBLE_MASK
 
 avx2GcmSm4Dec4Loop2:
-	AVX_SM4_ROUND(0, rk, BX, B4, B5, B6, B0, B1, B2, B3)
-	AVX_SM4_ROUND(1, rk, BX, B4, B5, B6, B1, B2, B3, B0)
-	AVX_SM4_ROUND(2, rk, BX, B4, B5, B6, B2, B3, B0, B1)
-	AVX_SM4_ROUND(3, rk, BX, B4, B5, B6, B3, B0, B1, B2)
+	AVX2_SM4_ROUND_4BLOCKS(0, rk, BX, B4, B5, B6, B0, B1, B2, B3)
+	AVX2_SM4_ROUND_4BLOCKS(1, rk, BX, B4, B5, B6, B1, B2, B3, B0)
+	AVX2_SM4_ROUND_4BLOCKS(2, rk, BX, B4, B5, B6, B2, B3, B0, B1)
+	AVX2_SM4_ROUND_4BLOCKS(3, rk, BX, B4, B5, B6, B3, B0, B1, B2)
 
 	ADDL $16, BX
 	CMPL BX, $4*32
@@ -2538,10 +2522,10 @@ avx2GcmSm4DecSingles:
 	VMOVDQU nibble_mask<>(SB), X_NIBBLE_MASK
 
 avx2GcmSm4Dec4Loop1:
-	AVX_SM4_ROUND(0, rk, BX, B4, B5, B6, B0, B1, B2, B3)
-	AVX_SM4_ROUND(1, rk, BX, B4, B5, B6, B1, B2, B3, B0)
-	AVX_SM4_ROUND(2, rk, BX, B4, B5, B6, B2, B3, B0, B1)
-	AVX_SM4_ROUND(3, rk, BX, B4, B5, B6, B3, B0, B1, B2)
+	AVX2_SM4_ROUND_4BLOCKS(0, rk, BX, B4, B5, B6, B0, B1, B2, B3)
+	AVX2_SM4_ROUND_4BLOCKS(1, rk, BX, B4, B5, B6, B1, B2, B3, B0)
+	AVX2_SM4_ROUND_4BLOCKS(2, rk, BX, B4, B5, B6, B2, B3, B0, B1)
+	AVX2_SM4_ROUND_4BLOCKS(3, rk, BX, B4, B5, B6, B3, B0, B1, B2)
 
 	ADDL $16, BX
 	CMPL BX, $4*32

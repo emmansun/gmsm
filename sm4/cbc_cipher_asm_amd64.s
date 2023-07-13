@@ -106,42 +106,6 @@ done_sm4:
 #define XWORD X8
 #define YWORD X9
 
-// SM4 round function, AVX2 version, handle 256 bits
-// t0 ^= tao_l1(t1^t2^t3^xk)
-// parameters:
-// - index: round key index immediate number
-// - x: 256 bits temp register
-// - y: 256 bits temp register
-// - t0: 256 bits register for data as result
-// - t1: 256 bits register for data
-// - t2: 256 bits register for data
-// - t3: 256 bits register for data
-#define AVX2_SM4_ROUND(index, x, y, t0, t1, t2, t3)                                                    \
-	VPBROADCASTD (index * 4)(AX)(CX*1), x;                                                               \
-	VPXOR t1, x, x;                                                                                      \
-	VPXOR t2, x, x;                                                                                      \
-	VPXOR t3, x, x;                                                                                      \
-	AVX2_SM4_TAO_L1(x, y, XDWTMP0, XWORD, YWORD, X_NIBBLE_MASK, NIBBLE_MASK);                            \
-	VPXOR x, t0, t0
-
-// SM4 round function, AVX version, handle 128 bits
-// t0 ^= tao_l1(t1^t2^t3^xk)
-// parameters:
-// - index: round key index immediate number
-// - x: 128 bits temp register
-// - y: 128 bits temp register
-// - t0: 128 bits register for data as result
-// - t1: 128 bits register for data
-// - t2: 128 bits register for data
-// - t3: 128 bits register for data
-#define AVX_SM4_ROUND(index, x, y, t0, t1, t2, t3)  \ 
-	VPBROADCASTD (index * 4)(AX)(CX*1), x;             \
-	VPXOR t1, x, x;                                    \
-	VPXOR t2, x, x;                                    \
-	VPXOR t3, x, x;                                    \
-	AVX_SM4_TAO_L1(x, y, X_NIBBLE_MASK, XWTMP0);       \  
-	VPXOR x, t0, t0
-
 // func decryptBlocksChain(xk *uint32, dst, src []byte, iv *byte)
 TEXT ·decryptBlocksChain(SB),NOSPLIT,$0
 	MOVQ xk+0(FP), AX
@@ -217,10 +181,10 @@ avx:
 	XORL CX, CX
 
 avx_loop:
-		AVX_SM4_ROUND(0, XWORD, YWORD, XWORD0, XWORD1, XWORD2, XWORD3)
-		AVX_SM4_ROUND(1, XWORD, YWORD, XWORD1, XWORD2, XWORD3, XWORD0)
-		AVX_SM4_ROUND(2, XWORD, YWORD, XWORD2, XWORD3, XWORD0, XWORD1)
-		AVX_SM4_ROUND(3, XWORD, YWORD, XWORD3, XWORD0, XWORD1, XWORD2)
+		AVX_SM4_ROUND(0, AX, CX, XWORD, YWORD, XWTMP0, XWORD0, XWORD1, XWORD2, XWORD3)
+		AVX_SM4_ROUND(1, AX, CX, XWORD, YWORD, XWTMP0, XWORD1, XWORD2, XWORD3, XWORD0)
+		AVX_SM4_ROUND(2, AX, CX, XWORD, YWORD, XWTMP0, XWORD2, XWORD3, XWORD0, XWORD1)
+		AVX_SM4_ROUND(3, AX, CX, XWORD, YWORD, XWTMP0, XWORD3, XWORD0, XWORD1, XWORD2)
 
 		ADDL $16, CX
 		CMPL CX, $4*32
@@ -269,10 +233,10 @@ avx2_8blocks:
 	XORL CX, CX
 
 avx2_loop:
-		AVX2_SM4_ROUND(0, XDWORD, YDWORD, XDWORD0, XDWORD1, XDWORD2, XDWORD3)
-		AVX2_SM4_ROUND(1, XDWORD, YDWORD, XDWORD1, XDWORD2, XDWORD3, XDWORD0)
-		AVX2_SM4_ROUND(2, XDWORD, YDWORD, XDWORD2, XDWORD3, XDWORD0, XDWORD1)
-		AVX2_SM4_ROUND(3, XDWORD, YDWORD, XDWORD3, XDWORD0, XDWORD1, XDWORD2)
+		AVX2_SM4_ROUND(0, AX, CX, XDWORD, YDWORD, XWORD, YWORD, XDWTMP0, XDWORD0, XDWORD1, XDWORD2, XDWORD3)
+		AVX2_SM4_ROUND(1, AX, CX, XDWORD, YDWORD, XWORD, YWORD, XDWTMP0, XDWORD1, XDWORD2, XDWORD3, XDWORD0)
+		AVX2_SM4_ROUND(2, AX, CX, XDWORD, YDWORD, XWORD, YWORD, XDWTMP0, XDWORD2, XDWORD3, XDWORD0, XDWORD1)
+		AVX2_SM4_ROUND(3, AX, CX, XDWORD, YDWORD, XWORD, YWORD, XDWTMP0, XDWORD3, XDWORD0, XDWORD1, XDWORD2)
 
 		ADDL $16, CX
 		CMPL CX, $4*32
