@@ -740,7 +740,7 @@ gfpSqrLoopAdx:
 
 	MULXQ ·p2+0x18(SB), AX, acc1
 	ADCXQ t0, AX
-	ADOXQ AX, acc4
+	ADOXQ AX, acc0
 	MOVQ $0, t0
 	ADCXQ t0, acc1
 	ADOXQ t0, acc1
