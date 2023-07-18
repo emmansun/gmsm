@@ -182,7 +182,7 @@ func (c *curvePoint) Double(a *curvePoint) {
 	gfpSub(t2, t, C)
 
 	d, e, f := &gfP{}, &gfP{}, &gfP{}
-	gfpAdd(d, t2, t2)
+	gfpDouble(d, t2)
 	gfpDouble(t, A)
 	gfpAdd(e, t, A)
 	gfpSqr(f, e, 1)

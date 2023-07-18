@@ -1,7 +1,7 @@
 package bn256
 
 // Use special square
-func (e *gfP12) gfP12ExpU(x *gfP12) *gfP12 {
+func (e *gfP12) Cyclo6PowToU(x *gfP12) *gfP12 {
 	// The sequence of 10 multiplications and 61 squarings is derived from the
 	// following addition chain generated with github.com/mmcloughlin/addchain v0.4.0.
 	//
@@ -21,23 +21,23 @@ func (e *gfP12) gfP12ExpU(x *gfP12) *gfP12 {
 	var t2 = new(gfP12)
 	var t3 = new(gfP12)
 
-	t2.SpecialSquareNC(x)
-	t1.SpecialSquareNC(t2)
+	t2.Cyclo6SquareNC(x)
+	t1.Cyclo6SquareNC(t2)
 	z.MulNC(x, t1)
 	t0.MulNC(t1, z)
 	t2.Mul(t2, t0)
 	t3.MulNC(x, t2)
-	t3.SpecialSquares(t3, 40)
+	t3.Cyclo6Squares(t3, 40)
 	t3.Mul(t2, t3)
-	t3.SpecialSquares(t3, 7)
+	t3.Cyclo6Squares(t3, 7)
 	t2.Mul(t2, t3)
 	t1.Mul(t1, t2)
-	t1.SpecialSquares(t1, 4)
+	t1.Cyclo6Squares(t1, 4)
 	t0.Mul(t0, t1)
-	t0.SpecialSquare(t0)
+	t0.Cyclo6Square(t0)
 	t0.Mul(x, t0)
-	t0.SpecialSquares(t0, 6)
+	t0.Cyclo6Squares(t0, 6)
 	z.Mul(z, t0)
-	z.SpecialSquare(z)
+	z.Cyclo6Square(z)
 	return e
 }

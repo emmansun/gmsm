@@ -226,13 +226,19 @@ func (e *gfP12) SquareNC(a *gfP12) *gfP12 {
 	return e
 }
 
-// Special squaring for use on elements in T_6(fp2) (after the
-// easy part of the final exponentiation. Used in the hard part
-// of the final exponentiation. Function uses formulas in
-// Granger/Scott (PKC2010).
-func (e *gfP12) SpecialSquare(a *gfP12) *gfP12 {
+// Cyclo6Square is used in final exponentiation after easy part(a ^ ((p^2 + 1)(p^6-1))).
+// Note that after the easy part of the final exponentiation, 
+// the resulting element lies in cyclotomic subgroup. 
+// "New software speed records for cryptographic pairings"
+// Section 3.3, Final exponentiation
+// https://cryptojedi.org/papers/dclxvi-20100714.pdf
+// The fomula reference:
+// Granger/Scott (PKC2010). 
+// Section 3.2
+// https://eprint.iacr.org/2009/565.pdf
+func (e *gfP12) Cyclo6Square(a *gfP12) *gfP12 {
 	tmp := &gfP12{}
-	tmp.SpecialSquareNC(a)
+	tmp.Cyclo6SquareNC(a)
 	gfp12Copy(e, tmp)
 	return e
 }
@@ -241,7 +247,7 @@ func (e *gfP12) SpecialSquare(a *gfP12) *gfP12 {
 // easy part of the final exponentiation. Used in the hard part
 // of the final exponentiation. Function uses formulas in
 // Granger/Scott (PKC2010).
-func (e *gfP12) SpecialSquares(a *gfP12, n int) *gfP12 {
+func (e *gfP12) Cyclo6Squares(a *gfP12, n int) *gfP12 {
 	// Square first round
 	in := &gfP12{}
 	tx, ty, tz := &gfP4{}, &gfP4{}, &gfP4{}
@@ -306,7 +312,7 @@ func (e *gfP12) SpecialSquares(a *gfP12, n int) *gfP12 {
 }
 
 // Special Square without value copy, will use e directly, so e can't be same as a.
-func (e *gfP12) SpecialSquareNC(a *gfP12) *gfP12 {
+func (e *gfP12) Cyclo6SquareNC(a *gfP12) *gfP12 {
 	tx, ty, tz := &gfP4{}, &gfP4{}, &gfP4{}
 
 	v0 := &e.x

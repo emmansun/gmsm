@@ -35,7 +35,7 @@ func Test_gfP12Square(t *testing.T) {
 	}
 }
 
-func TestSpecialSquare(t *testing.T) {
+func TestCyclo6Square(t *testing.T) {
 	in := &gfP12{
 		testdataP4,
 		testdataP4,
@@ -51,9 +51,18 @@ func TestSpecialSquare(t *testing.T) {
 	t2 := inv.FrobeniusP2(t1) // reuse inv
 	t1.Mul(t1, t2)            // t1 = in ^ ((p^6 - 1) * (p^2 + 1)), the first two parts of the exponentiation
 
+	one := (&gfP12{}).SetOne()
+	t3 := (&gfP12{}).FrobeniusP2(t1)
+	t4 := (&gfP12{}).FrobeniusP2(t3)
+	t5 := (&gfP12{}).Invert(t3)
+	t5.Mul(t4, t5).Mul(t1, t5)
+	if *t5 != *one {
+		t.Errorf("t1 should be in Cyclotomic Subgroup")
+	}
+
 	got := &gfP12{}
 	expected := &gfP12{}
-	got.SpecialSquare(t1)
+	got.Cyclo6Square(t1)
 	expected.Square(t1)
 	if *got != *expected {
 		t.Errorf("not same got=%v, expected=%v", got, expected)
@@ -74,7 +83,7 @@ func BenchmarkGfP12Square(b *testing.B) {
 	}
 }
 
-func BenchmarkGfP12SpecialSquare(b *testing.B) {
+func BenchmarkGfP12Cyclo6Square(b *testing.B) {
 	in := &gfP12{
 		testdataP4,
 		testdataP4,
@@ -93,7 +102,7 @@ func BenchmarkGfP12SpecialSquare(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		x2.SpecialSquare(t1)
+		x2.Cyclo6Square(t1)
 	}
 }
 
@@ -116,7 +125,7 @@ func BenchmarkGfP12SpecialSqures(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		got.SpecialSquares(in, 61)
+		got.Cyclo6Squares(in, 61)
 	}
 }
 
@@ -433,13 +442,22 @@ func BenchmarkGfP12ExpU(b *testing.B) {
 		testdataP4,
 		testdataP4,
 	}
+	// This is the p^6-Frobenius
+	t1 := (&gfP12{}).FrobeniusP6(x)
+
+	inv := (&gfP12{}).Invert(x)
+	t1.Mul(t1, inv)
+
+	t2 := inv.FrobeniusP2(t1) // reuse inv
+	t1.Mul(t1, t2)            // t1 = in ^ ((p^6 - 1) * (p^2 + 1)), the first two parts of the exponentiation
+
 	got := &gfP12{}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		got.gfP12ExpU(x)
-		got.gfP12ExpU(x)
-		got.gfP12ExpU(x)
+		got.Cyclo6PowToU(t1)
+		got.Cyclo6PowToU(t1)
+		got.Cyclo6PowToU(t1)
 	}
 }
 

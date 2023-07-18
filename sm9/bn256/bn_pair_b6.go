@@ -155,10 +155,9 @@ func finalExponentiationB6(in *gfP12b6) *gfP12b6 {
 	y0.MulNC(fp, fp2).Mul(y0, fp3)
 
 	// reuse fp, fp2, fp3 local variables
-	// [gfP12ExpU] is most time consuming operation
-	fu := fp.gfP12ExpU(t1)
-	fu2 := fp2.gfP12ExpU(fu)
-	fu3 := fp3.gfP12ExpU(fu2)
+	fu := fp.Cyclo6PowToU(t1)
+	fu2 := fp2.Cyclo6PowToU(fu)
+	fu3 := fp3.Cyclo6PowToU(fu2)
 
 	y3 := (&gfP12b6{}).Frobenius(fu)
 	fu2p := (&gfP12b6{}).Frobenius(fu2)
@@ -174,14 +173,14 @@ func finalExponentiationB6(in *gfP12b6) *gfP12b6 {
 	y6 := (&gfP12b6{}).MulNC(fu3, fu3p)
 	y6.Conjugate(y6)
 
-	t0 := (&gfP12b6{}).SpecialSquareNC(y6)
+	t0 := (&gfP12b6{}).Cyclo6SquareNC(y6)
 	t0.Mul(t0, y4).Mul(t0, y5)
 	t1.Mul(y3, y5).Mul(t1, t0)
 	t0.Mul(t0, y2)
-	t1.SpecialSquare(t1).Mul(t1, t0).SpecialSquare(t1)
+	t1.Cyclo6Square(t1).Mul(t1, t0).Cyclo6Square(t1)
 	t0.Mul(t1, y1)
 	t1.Mul(t1, y0)
-	t0.SpecialSquare(t0).Mul(t0, t1)
+	t0.Cyclo6Square(t0).Mul(t0, t1)
 
 	return t0
 }

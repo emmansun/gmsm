@@ -330,7 +330,7 @@ func TestGfP12b6SpecialSquare(t *testing.T) {
 
 	got := &gfP12b6{}
 	expected := &gfP12b6{}
-	got.SpecialSquare(t1)
+	got.Cyclo6Square(t1)
 	expected.Square(t1)
 	if *got != *expected {
 		t.Errorf("not same got=%v, expected=%v", got, expected)
