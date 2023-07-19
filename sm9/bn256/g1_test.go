@@ -24,6 +24,16 @@ func TestG1AddNeg(t *testing.T) {
 	}
 }
 
+func TestG1AddSame(t *testing.T) {
+	g1, g2 := &G1{}, &G1{}
+	g1.Add(Gen1, Gen1)
+	g2.Double(Gen1)
+
+	if !g1.Equal(g2) {
+		t.Fail()
+	}
+}
+
 type g1BaseMultTest struct {
 	k string
 }

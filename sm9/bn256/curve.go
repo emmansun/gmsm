@@ -133,7 +133,7 @@ func (c *curvePoint) Add(a, b *curvePoint) {
 
 	gfpSub(t, s2, s1)
 
-	if h.Equal(zero) == 1 && t.Equal(one) == 1 {
+	if h.Equal(zero) == 1 && t.Equal(zero) == 1 {
 		c.Double(a)
 		return
 	}
