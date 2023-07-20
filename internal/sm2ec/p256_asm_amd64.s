@@ -2095,6 +2095,7 @@ TEXT sm2P256MulInternal(SB),NOSPLIT,$8
 	CMPB ·supportBMI2+0(SB), $0x01
 	JEQ  internalMulBMI2
 
+	// [t3, t2, t1, t0] * acc4
 	MOVQ acc4, mul0
 	MULQ t0
 	MOVQ mul0, acc0
@@ -2118,6 +2119,7 @@ TEXT sm2P256MulInternal(SB),NOSPLIT,$8
 	ADCQ $0, mul1
 	MOVQ mul1, acc4
 
+	// [t3, t2, t1, t0] * acc5
 	MOVQ acc5, mul0
 	MULQ t0
 	ADDQ mul0, acc1
@@ -2148,6 +2150,7 @@ TEXT sm2P256MulInternal(SB),NOSPLIT,$8
 	ADCQ $0, mul1
 	MOVQ mul1, acc5
 
+	// [t3, t2, t1, t0] * acc6
 	MOVQ acc6, mul0
 	MULQ t0
 	ADDQ mul0, acc2
@@ -2178,6 +2181,7 @@ TEXT sm2P256MulInternal(SB),NOSPLIT,$8
 	ADCQ $0, mul1
 	MOVQ mul1, acc6
 
+	// [t3, t2, t1, t0] * acc7
 	MOVQ acc7, mul0
 	MULQ t0
 	ADDQ mul0, acc3
@@ -2207,6 +2211,8 @@ TEXT sm2P256MulInternal(SB),NOSPLIT,$8
 	ADDQ mul0, acc6
 	ADCQ $0, mul1
 	MOVQ mul1, acc7
+
+	// T = [acc7, acc6, acc5, acc4, acc3, acc2, acc1, acc0]
 	// First reduction step
 	MOVQ acc0, mul0
 	MOVQ acc0, mul1
@@ -2292,22 +2298,23 @@ TEXT sm2P256MulInternal(SB),NOSPLIT,$8
 	CMOVQCS acc3, acc7
 
 	RET
+
 internalMulBMI2:
+	// [t3, t2, t1, t0] * acc4
 	MOVQ acc4, mul1
 	MULXQ t0, acc0, acc1
 
 	MULXQ t1, mul0, acc2
 	ADDQ mul0, acc1
-	ADCQ $0, acc2
 
 	MULXQ t2, mul0, acc3
-	ADDQ mul0, acc2
-	ADCQ $0, acc3
+	ADCQ mul0, acc2
 
 	MULXQ t3, mul0, acc4
-	ADDQ mul0, acc3
+	ADCQ mul0, acc3
 	ADCQ $0, acc4
 
+	// [t3, t2, t1, t0] * acc5
 	MOVQ acc5, mul1
 	MULXQ t0, mul0, hlp
 	ADDQ mul0, acc1
@@ -2328,6 +2335,7 @@ internalMulBMI2:
 	ADDQ mul0, acc4
 	ADCQ $0, acc5
 
+	// [t3, t2, t1, t0] * acc6
 	MOVQ acc6, mul1
 	MULXQ t0, mul0, hlp
 	ADDQ mul0, acc2
@@ -2348,6 +2356,7 @@ internalMulBMI2:
 	ADDQ mul0, acc5
 	ADCQ $0, acc6
 
+	// [t3, t2, t1, t0] * acc7
 	MOVQ acc7, mul1
 	MULXQ t0, mul0, hlp
 	ADDQ mul0, acc3
@@ -2368,6 +2377,7 @@ internalMulBMI2:
 	ADDQ mul0, acc6
 	ADCQ $0, acc7
 
+	// T = [acc7, acc6, acc5, acc4, acc3, acc2, acc1, acc0]
 	// First reduction step
 	MOVQ acc0, mul0
 	MOVQ acc0, mul1
@@ -2544,6 +2554,7 @@ TEXT sm2P256SqrInternal(SB),NOSPLIT,$8
 	CMPB ·supportBMI2+0(SB), $0x01
 	JEQ  internalSqrBMI2
 
+	// [acc7, acc6, acc5] * acc4
 	MOVQ acc4, mul0
 	MULQ acc5
 	MOVQ mul0, acc1
@@ -2561,6 +2572,7 @@ TEXT sm2P256SqrInternal(SB),NOSPLIT,$8
 	ADCQ $0, mul1
 	MOVQ mul1, t0
 
+	// [acc7, acc6] * acc5
 	MOVQ acc5, mul0
 	MULQ acc6
 	ADDQ mul0, acc3
@@ -2575,6 +2587,7 @@ TEXT sm2P256SqrInternal(SB),NOSPLIT,$8
 	ADCQ $0, mul1
 	MOVQ mul1, t1
 
+	// acc7 * acc6
 	MOVQ acc6, mul0
 	MULQ acc7
 	ADDQ mul0, t1
@@ -2615,64 +2628,70 @@ TEXT sm2P256SqrInternal(SB),NOSPLIT,$8
 	ADCQ mul0, t2
 	ADCQ DX, t3
 
+	// T = [t3, t2, t1, t0, acc3, acc2, acc1, acc0]
 	sm2P256SqrReductionInternal()
 	RET
 
 internalSqrBMI2:
+	XORQ t3, t3
+
+	// [acc7, acc6, acc5] * acc4
 	MOVQ acc4, mul1
 	MULXQ acc5, acc1, acc2
 
 	MULXQ acc6, mul0, acc3
-	ADDQ mul0, acc2
+	ADOXQ mul0, acc2
 
 	MULXQ acc7, mul0, t0
-	ADCQ mul0, acc3
-	ADCQ $0, t0
+	ADOXQ mul0, acc3
+	ADOXQ t3, t0
 
+	// [acc7, acc6] * acc5
 	MOVQ acc5, mul1
 	MULXQ acc6, mul0, hlp
-	ADDQ mul0, acc3
-	ADCQ hlp, t0
+	ADOXQ mul0, acc3
 
 	MULXQ acc7, mul0, t1
-	ADCQ $0, t1
-	ADDQ mul0, t0
+	ADCXQ hlp, mul0
+	ADOXQ mul0, t0
+	ADCXQ t3, t1
 
+	// acc7 * acc6
 	MOVQ acc6, mul1
 	MULXQ acc7, mul0, t2
-	ADCQ mul0, t1
-	ADCQ $0, t2
-	XORQ t3, t3
-
+	ADOXQ mul0, t1
+	ADOXQ t3, t2
+	
 	// *2
-	ADDQ acc1, acc1
-	ADCQ acc2, acc2
-	ADCQ acc3, acc3
-	ADCQ t0, t0
-	ADCQ t1, t1
-	ADCQ t2, t2
-	ADCQ $0, t3
+	ADOXQ acc1, acc1
+	ADOXQ acc2, acc2
+	ADOXQ acc3, acc3
+	ADOXQ t0, t0
+	ADOXQ t1, t1
+	ADOXQ t2, t2
+	ADOXQ t3, t3
 
 	// Missing products
 	MOVQ acc4, mul1
 	MULXQ mul1, acc0, acc4 
-	ADDQ acc4, acc1
+	ADCXQ acc4, acc1
 
 	MOVQ acc5, mul1
 	MULXQ mul1, mul0, acc4
-	ADCQ mul0, acc2
-	ADCQ  acc4, acc3
+	ADCXQ mul0, acc2
+	ADCXQ acc4, acc3
 
 	MOVQ acc6, mul1
 	MULXQ mul1, mul0, acc4
-	ADCQ mul0, t0
-	ADCQ acc4, t1
+	ADCXQ mul0, t0
+	ADCXQ acc4, t1
 
 	MOVQ acc7, mul1
 	MULXQ mul1, mul0, acc4
-	ADCQ mul0, t2
-	ADCQ acc4, t3
-	
+	ADCXQ mul0, t2
+	ADCXQ acc4, t3
+
+	// T = [t3, t2, t1, t0, acc3, acc2, acc1, acc0]
 	sm2P256SqrReductionInternal()
 
 	RET
