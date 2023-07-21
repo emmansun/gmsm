@@ -119,9 +119,9 @@ func (e *gfP6) MulNC(a, b *gfP6) *gfP6 {
 	ty := &e.y
 	tz := &e.z
 	t, v0, v1, v2 := &gfP2{}, &gfP2{}, &gfP2{}, &gfP2{}
-	v0.MulNC(&a.z, &b.z)
-	v1.MulNC(&a.y, &b.y)
-	v2.MulNC(&a.x, &b.x)
+	v0.Mul(&a.z, &b.z)
+	v1.Mul(&a.y, &b.y)
+	v2.Mul(&a.x, &b.x)
 
 	t.Add(&a.y, &a.x)
 	tz.Add(&b.y, &b.x)
@@ -185,26 +185,26 @@ func (e *gfP6) SquareNC(a *gfP6) *gfP6 {
 	tz := &e.z
 	t, v0, v1, v2 := &gfP2{}, &gfP2{}, &gfP2{}, &gfP2{}
 
-	v0.SquareNC(&a.z)
-	v1.SquareNC(&a.y)
-	v2.SquareNC(&a.x)
+	v0.Square(&a.z)
+	v1.Square(&a.y)
+	v2.Square(&a.x)
 
 	t.Add(&a.y, &a.x)
-	tz.SquareNC(t)
+	tz.Square(t)
 	tz.Sub(tz, v1)
 	tz.Sub(tz, v2)
 	tz.MulU1(tz)
 	tz.Add(tz, v0)
 
 	t.Add(&a.z, &a.y)
-	ty.SquareNC(t)
+	ty.Square(t)
 	ty.Sub(ty, v0)
 	ty.Sub(ty, v1)
 	t.MulU1(v2)
 	ty.Add(ty, t)
 
 	t.Add(&a.z, &a.x)
-	tx.SquareNC(t)
+	tx.Square(t)
 	tx.Sub(tx, v0)
 	tx.Add(tx, v1)
 	tx.Sub(tx, v2)
@@ -233,19 +233,19 @@ func (e *gfP6) Invert(a *gfP6) *gfP6 {
 	// See "Implementing cryptographic pairings", M. Scott, section 3.2.
 	// ftp://136.206.11.249/pub/crypto/pairings.pdf
 
-	t1 := (&gfP2{}).MulUNC(&a.x, &a.y)
-	A := (&gfP2{}).SquareNC(&a.z)
+	t1 := (&gfP2{}).MulU(&a.x, &a.y)
+	A := (&gfP2{}).Square(&a.z)
 	A.Sub(A, t1)
 
-	B := (&gfP2{}).SquareUNC(&a.x)
+	B := (&gfP2{}).SquareU(&a.x)
 	t1.Mul(&a.y, &a.z)
 	B.Sub(B, t1)
 
-	C := (&gfP2{}).SquareNC(&a.y)
+	C := (&gfP2{}).Square(&a.y)
 	t1.Mul(&a.x, &a.z)
 	C.Sub(C, t1)
 
-	F := (&gfP2{}).MulUNC(C, &a.y)
+	F := (&gfP2{}).MulU(C, &a.y)
 	t1.Mul(A, &a.z)
 	F.Add(F, t1)
 	t1.MulU(B, &a.x)

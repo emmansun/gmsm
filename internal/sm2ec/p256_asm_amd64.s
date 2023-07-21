@@ -2298,14 +2298,12 @@ internalMulBMI2:
 
 	MULXQ t1, mul0, acc2
 	ADDQ mul0, acc1
-	ADCQ $0, acc2
 
 	MULXQ t2, mul0, acc3
-	ADDQ mul0, acc2
-	ADCQ $0, acc3
+	ADCQ mul0, acc2
 
 	MULXQ t3, mul0, acc4
-	ADDQ mul0, acc3
+	ADCQ mul0, acc3
 	ADCQ $0, acc4
 
 	MOVQ acc5, mul1

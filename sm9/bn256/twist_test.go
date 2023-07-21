@@ -28,7 +28,7 @@ func TestAddNeg(t *testing.T) {
 func Test_TwistFrobeniusP(t *testing.T) {
 	ret1, ret2 := &twistPoint{}, &twistPoint{}
 	ret1.Frobenius(twistGen)
-	ret1.MakeAffine()
+	ret1.AffineFromJacobian()
 
 	ret2.x.Conjugate(&twistGen.x)
 	ret2.x.MulScalar(&ret2.x, betaToNegPPlus1Over3)
@@ -49,12 +49,15 @@ func Test_TwistFrobeniusP(t *testing.T) {
 func Test_TwistFrobeniusP2(t *testing.T) {
 	ret1, ret2 := &twistPoint{}, &twistPoint{}
 	ret1.Frobenius(twistGen)
+	ret1.AffineFromJacobian()
 	ret1.Frobenius(ret1)
+	ret1.AffineFromJacobian()
 	if !ret1.IsOnCurve() {
 		t.Errorf("point should be on curve")
 	}
 
 	ret2.FrobeniusP2(twistGen)
+	ret2.AffineFromJacobian()
 	if !ret2.IsOnCurve() {
 		t.Errorf("point should be on curve")
 	}
@@ -77,7 +80,7 @@ func Test_TwistFrobeniusP2_Case2(t *testing.T) {
 	}
 
 	ret2.FrobeniusP2(twistGen)
-	ret2.MakeAffine()
+	ret2.AffineFromJacobian()
 	if !ret2.IsOnCurve() {
 		t.Errorf("point should be on curve")
 	}
@@ -100,7 +103,7 @@ func Test_TwistNegFrobeniusP2_Case2(t *testing.T) {
 	}
 
 	ret2.NegFrobeniusP2(twistGen)
-	ret2.MakeAffine()
+	ret2.AffineFromJacobian()
 	if !ret2.IsOnCurve() {
 		t.Errorf("point should be on curve")
 	}

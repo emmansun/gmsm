@@ -17,6 +17,11 @@ var twistB = &gfP2{
 	*zero,
 }
 
+var threeTwistB = &gfP2{
+	*newGFp(3 * 5),
+	*zero,
+}
+
 // twistGen is the generator of group G₂.
 var twistGen = &twistPoint{
 	gfP2{
@@ -58,7 +63,7 @@ func NewTwistGenerator() *twistPoint {
 
 func (c *twistPoint) polynomial(x *gfP2) *gfP2 {
 	x3 := &gfP2{}
-	x3.SquareNC(x).Mul(x3, x).Add(x3, twistB)
+	x3.Square(x).Mul(x3, x).Add(x3, twistB)
 	return x3
 }
 
@@ -70,7 +75,7 @@ func (c *twistPoint) IsOnCurve() bool {
 	}
 
 	y2 := &gfP2{}
-	y2.SquareNC(&c.y)
+	y2.Square(&c.y)
 	x3 := c.polynomial(&c.x)
 
 	return y2.Equal(x3) == 1
@@ -87,92 +92,79 @@ func (c *twistPoint) IsInfinity() bool {
 	return c.z.IsZero()
 }
 
-func (c *twistPoint) Add(a, b *twistPoint) {
-	// For additional comments, see the same function in curve.go.
+func (c *twistPoint) Add(p1, p2 *twistPoint) {
+	// Complete addition formula for a = 0 from "Complete addition formulas for
+	// prime order elliptic curves" (https://eprint.iacr.org/2015/1060), §3.2.
+	// Algorithm 7: Complete, projective point addition for prime order j-invariant 0 short Weierstrass curves.
 
-	if a.IsInfinity() {
-		c.Set(b)
-		return
-	}
-	if b.IsInfinity() {
-		c.Set(a)
-		return
-	}
+	t0, t1, t2, t3, t4 := new(gfP2), new(gfP2), new(gfP2), new(gfP2), new(gfP2)
+	x3, y3, z3 := new(gfP2), new(gfP2), new(gfP2)
+	t0.Mul(&p1.x, &p2.x)    // t0 := X1X2
+	t1.Mul(&p1.y, &p2.y)    // t1 := Y1Y2
+	t2.Mul(&p1.z, &p2.z)    // t2 := Z1Z2
+	t3.Add(&p1.x, &p1.y)    // t3 := X1 + Y1
+	t4.Add(&p2.x, &p2.y)    // t4 := X2 + Y2
+	t3.Mul(t3, t4)          // t3 := t3 * t4 = (X1 + Y1) * (X2 + Y2)
+	t4.Add(t0, t1)          // t4 := t0 + t1
+	t3.Sub(t3, t4)          // t3 := t3 - t4 = X1Y2 + X2Y1
+	t4.Add(&p1.y, &p1.z)    // t4 := Y1 + Z1
+	x3.Add(&p2.y, &p2.z)    // X3 := Y2 + Z2
+	t4.Mul(t4, x3)          // t4 := t4 * X3 = (Y1 + Z1)(Y2 + Z2)
+	x3.Add(t1, t2)          // X3 := t1 + t2
+	t4.Sub(t4, x3)          // t4 := t4 - X3 = Y1Z2 + Y2Z1
+	x3.Add(&p1.x, &p1.z)    // X3 := X1 + Z1
+	y3.Add(&p2.x, &p2.z)    // Y3 := X2 + Z2
+	x3.Mul(x3, y3)          // X3 := X3 * Y3
+	y3.Add(t0, t2)          // Y3 := t0 + t2
+	y3.Sub(x3, y3)          // Y3 := X3 - Y3 = X1Z2 + X2Z1
+	t0.Triple(t0)           // t0 := t0 + t0 + t0 = 3X1X2
+	t2.Mul(threeTwistB, t2) // t2 := 3b * t2 = 3bZ1Z2
+	z3.Add(t1, t2)          // Z3 := t1 + t2 = Y1Y2 + 3bZ1Z2
+	t1.Sub(t1, t2)          // t1 := t1 - t2 = Y1Y2 - 3bZ1Z2
+	y3.Mul(threeTwistB, y3) // Y3 = 3b * Y3 = 3b(X1Z2 + X2Z1)
+	x3.Mul(t4, y3)          // X3 := t4 * Y3 = 3b(X1Z2 + X2Z1)(Y1Z2 + Y2Z1)
+	t2.Mul(t3, t1)          // t2 := t3 * t1 = (X1Y2 + X2Y1)(Y1Y2 - 3bZ1Z2)
+	x3.Sub(t2, x3)          // X3 := t2 - X3 = (X1Y2 + X2Y1)(Y1Y2 - 3bZ1Z2) - 3b(Y1Z2 + Y2Z1)(X1Z2 + X2Z1)
+	y3.Mul(y3, t0)          // Y3 := Y3 * t0 = 9bX1X2(X1Z2 + X2Z1)
+	t1.Mul(t1, z3)          // t1 := t1 * Z3 = (Y1Y2 + 3bZ1Z2)(Y1Y2 - 3bZ1Z2)
+	y3.Add(t1, y3)          // Y3 := t1 + Y3 = (Y1Y2 + 3bZ1Z2)(Y1Y2 - 3bZ1Z2) + 9bX1X2(X1Z2 + X2Z1)
+	t0.Mul(t0, t3)          // t0 := t0 * t3 = 3X1X2(X1Y2 + X2Y1)
+	z3.Mul(z3, t4)          // Z3 := Z3 * t4 = (Y1Z2 + Y2Z1)(Y1Y2 + 3bZ1Z2)
+	z3.Add(z3, t0)          // Z3 := Z3 + t0 = (Y1Z2 + Y2Z1)(Y1Y2 + 3bZ1Z2) + 3X1X2(X1Y2 + X2Y1)
 
-	// See http://hyperelliptic.org/EFD/g1p/auto-code/shortw/jacobian-0/addition/add-2007-bl.op3
-	z12 := (&gfP2{}).SquareNC(&a.z)
-	z22 := (&gfP2{}).SquareNC(&b.z)
-	u1 := (&gfP2{}).MulNC(&a.x, z22)
-	u2 := (&gfP2{}).MulNC(&b.x, z12)
-
-	t := (&gfP2{}).MulNC(&b.z, z22)
-	s1 := (&gfP2{}).MulNC(&a.y, t)
-
-	t.Mul(&a.z, z12)
-	s2 := (&gfP2{}).MulNC(&b.y, t)
-
-	h := (&gfP2{}).Sub(u2, u1)
-	xEqual := h.IsZero()
-
-	t.Double(h)
-	i := (&gfP2{}).SquareNC(t)
-	j := (&gfP2{}).MulNC(h, i)
-
-	t.Sub(s2, s1)
-	yEqual := t.IsZero()
-	if xEqual && yEqual {
-		c.Double(a)
-		return
-	}
-	r := (&gfP2{}).Double(t)
-
-	v := (&gfP2{}).MulNC(u1, i)
-
-	t4 := (&gfP2{}).SquareNC(r)
-	t.Double(v)
-	t6 := (&gfP2{}).Sub(t4, j)
-	c.x.Sub(t6, t)
-
-	t.Sub(v, &c.x) // t7
-	t4.Mul(s1, j)  // t8
-	t6.Double(t4)  // t9
-	t4.Mul(r, t)   // t10
-	c.y.Sub(t4, t6)
-
-	t.Add(&a.z, &b.z) // t11
-	t4.Square(t)      // t12
-	t.Sub(t4, z12)    // t13
-	t4.Sub(t, z22)    // t14
-	c.z.Mul(t4, h)
+	c.x.Set(x3)
+	c.y.Set(y3)
+	c.z.Set(z3)
 }
 
-func (c *twistPoint) Double(a *twistPoint) {
-	// See http://hyperelliptic.org/EFD/g1p/auto-code/shortw/jacobian-0/doubling/dbl-2009-l.op3
-	A := (&gfP2{}).SquareNC(&a.x)
-	B := (&gfP2{}).SquareNC(&a.y)
-	C := (&gfP2{}).SquareNC(B)
+func (c *twistPoint) Double(p *twistPoint) {
+	// Complete addition formula for a = 0 from "Complete addition formulas for
+	// prime order elliptic curves" (https://eprint.iacr.org/2015/1060), §3.2.
+	// Algorithm 9: Exception-free point doubling for prime order j-invariant 0 short Weierstrass curves.
+	t0, t1, t2 := new(gfP2), new(gfP2), new(gfP2)
+	x3, y3, z3 := new(gfP2), new(gfP2), new(gfP2)
 
-	t := (&gfP2{}).Add(&a.x, B)
-	t2 := (&gfP2{}).SquareNC(t)
-	t.Sub(t2, A)
-	t2.Sub(t, C)
-	d := (&gfP2{}).Double(t2)
-	t.Double(A)
-	e := (&gfP2{}).Add(t, A)
-	f := (&gfP2{}).SquareNC(e)
+	t0.Square(&p.y)         // t0 := Y^2
+	z3.Double(t0)           // Z3 := t0 + t0
+	z3.Double(z3)           // Z3 := Z3 + Z3
+	z3.Double(z3)           // Z3 := Z3 + Z3
+	t1.Mul(&p.y, &p.z)      // t1 := YZ
+	t2.Square(&p.z)         // t0 := Z^2
+	t2.Mul(threeTwistB, t2) // t2 := 3b * t2 = 3bZ^2
+	x3.Mul(t2, z3)          // X3 := t2 * Z3
+	y3.Add(t0, t2)          // Y3 := t0 + t2
+	z3.Mul(t1, z3)          // Z3 := t1 * Z3
+	t2.Triple(t2)           // t2 := t2 + t2 + t2
+	t0.Sub(t0, t2)          // t0 := t0 - t2
+	y3.Mul(t0, y3)          // t0 := t0 * Y3
+	y3.Add(x3, y3)          // Y3 := X3 + Y3
+	t1.Mul(&p.x, &p.y)      // t1 := XY
+	x3.Mul(t0, t1)          // X3 := t0 * t1
+	x3.Double(x3)           // X3 := X3 + X3
 
-	t.Double(d)
-	c.x.Sub(f, t)
-
-	c.z.Mul(&a.y, &a.z)
-	c.z.Double(&c.z)
-
-	t.Double(C)
-	t2.Double(t)
-	t.Double(t2)
-	c.y.Sub(d, &c.x)
-	t2.Mul(e, &c.y)
-	c.y.Sub(t2, t)
+	c.x.Set(x3)
+	c.y.Set(y3)
+	c.z.Set(z3)
 }
 
 func (c *twistPoint) Mul(a *twistPoint, scalar *big.Int) {
@@ -190,7 +182,36 @@ func (c *twistPoint) Mul(a *twistPoint, scalar *big.Int) {
 	c.Set(sum)
 }
 
+// MakeAffine reverses the Projective transform.
+// A = 1/Z1
+// X3 = A*X1
+// Y3 = A*Y1
+// Z3 = 1
 func (c *twistPoint) MakeAffine() {
+	// TODO: do we need to change it to constant-time implementation?
+	if c.z.IsOne() {
+		return
+	} else if c.z.IsZero() {
+		c.x.SetZero()
+		c.y.SetOne()
+		c.t.SetZero()
+		return
+	}
+
+	zInv := &gfP2{}
+	zInv.Invert(&c.z)
+
+	c.x.Mul(&c.x, zInv)
+	c.y.Mul(&c.y, zInv)
+
+	c.z.SetOne()
+	c.t.SetOne()
+}
+
+// MakeAffine reverses the Jacobian transform.
+// the Jacobian coordinates are (x1, y1, z1)
+// where x = x1/z1² and y = y1/z1³.
+func (c *twistPoint) AffineFromJacobian() {
 	if c.z.IsOne() {
 		return
 	} else if c.z.IsZero() {
@@ -201,8 +222,8 @@ func (c *twistPoint) MakeAffine() {
 	}
 
 	zInv := (&gfP2{}).Invert(&c.z)
-	t := (&gfP2{}).MulNC(&c.y, zInv)
-	zInv2 := (&gfP2{}).SquareNC(zInv)
+	t := (&gfP2{}).Mul(&c.y, zInv)
+	zInv2 := (&gfP2{}).Square(zInv)
 	c.y.Mul(t, zInv2)
 	t.Mul(&c.x, zInv2)
 	c.x.Set(t)

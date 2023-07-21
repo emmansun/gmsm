@@ -67,7 +67,7 @@
 	CMOVQCC b2, a2 \
 	CMOVQCC b3, a3
 
-TEXT ·gfpNeg(SB),0,$0-16
+TEXT ·gfpNeg(SB),NOSPLIT,$0-16
 	MOVQ ·p2+0(SB), R8
 	MOVQ ·p2+8(SB), R9
 	MOVQ ·p2+16(SB), R10
@@ -85,7 +85,7 @@ TEXT ·gfpNeg(SB),0,$0-16
 	storeBlock(R8,R9,R10,R11, 0(DI))
 	RET
 
-TEXT ·gfpAdd(SB),0,$0-24
+TEXT ·gfpAdd(SB),NOSPLIT,$0-24
 	MOVQ a+8(FP), DI
 	MOVQ b+16(FP), SI
 
@@ -104,7 +104,7 @@ TEXT ·gfpAdd(SB),0,$0-24
 	storeBlock(R8,R9,R10,R11, 0(DI))
 	RET
 
-TEXT ·gfpDouble(SB),0,$0-16
+TEXT ·gfpDouble(SB),NOSPLIT,$0-16
 	MOVQ a+0(FP), DI
 	MOVQ b+8(FP), SI
 
@@ -122,7 +122,7 @@ TEXT ·gfpDouble(SB),0,$0-16
 	storeBlock(R8,R9,R10,R11, 0(DI))
 	RET
 
-TEXT ·gfpTriple(SB),0,$0-16
+TEXT ·gfpTriple(SB),NOSPLIT,$0-16
 	MOVQ a+0(FP), DI
 	MOVQ b+8(FP), SI
 
@@ -149,7 +149,7 @@ TEXT ·gfpTriple(SB),0,$0-16
 	storeBlock(R8,R9,R10,R11, 0(DI))
 	RET
 
-TEXT ·gfpSub(SB),0,$0-24
+TEXT ·gfpSub(SB),NOSPLIT,$0-24
 	MOVQ a+8(FP), DI
 	MOVQ b+16(FP), SI
 
@@ -180,7 +180,7 @@ TEXT ·gfpSub(SB),0,$0-24
 	storeBlock(R8,R9,R10,R11, 0(DI))
 	RET
 
-TEXT ·gfpMul(SB),0,$0-24
+TEXT ·gfpMul(SB),NOSPLIT,$0-24
 	MOVQ in1+8(FP), x_ptr
 	MOVQ in2+16(FP), y_ptr
 	

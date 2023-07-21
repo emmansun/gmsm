@@ -3,6 +3,7 @@ package bn256
 import (
 	"bytes"
 	"crypto/rand"
+	"fmt"
 	"io"
 	"math/big"
 	"testing"
@@ -20,6 +21,24 @@ func TestG1AddNeg(t *testing.T) {
 	g3 := &G1{}
 	g3.Set(Gen1)
 	if !g3.Equal(Gen1) {
+		t.Fail()
+	}
+}
+
+func TestG1AddSame(t *testing.T) {
+	g1, g2 := &G1{}, &G1{}
+	g1.Add(Gen1, Gen1)
+	g2.Double(Gen1)
+
+	if !g1.Equal(g2) {
+		t.Fail()
+	}
+}
+
+func TestCurvePointDouble(t *testing.T) {
+	p := &curvePoint{}
+	p.Double(p)
+	if !p.IsInfinity() {
 		t.Fail()
 	}
 }
@@ -157,34 +176,83 @@ func TestG1BaseMult(t *testing.T) {
 	}
 }
 
-func TestG1ScaleMult(t *testing.T) {
-	k, e, err := RandomG1(rand.Reader)
+func TestG1ScalarMult(t *testing.T) {
+	checkScalar := func(t *testing.T, scalar []byte) {
+		p1, err := (&G1{}).ScalarBaseMult(scalar)
+		fatalIfErr(t, err)
+		p2, err := (&G1{}).ScalarMult(Gen1, scalar)
+		fatalIfErr(t, err)
+		p1.p.MakeAffine()
+		p2.p.MakeAffine()
+		if !p1.Equal(p2) {
+			t.Error("[k]G != ScalarBaseMult(k)")
+		}
+
+		d := new(big.Int).SetBytes(scalar)
+		d.Sub(Order, d)
+		d.Mod(d, Order)
+		g1, err := (&G1{}).ScalarBaseMult(d.FillBytes(make([]byte, len(scalar))))
+		fatalIfErr(t, err)
+		g1.Add(g1, p1)
+		g1.p.MakeAffine()
+		if !g1.p.IsInfinity() {
+			t.Error("[N - k]G + [k]G != ∞")
+		}
+	}
+
+	byteLen := len(Order.Bytes())
+	bitLen := Order.BitLen()
+	t.Run("0", func(t *testing.T) { checkScalar(t, make([]byte, byteLen)) })
+	t.Run("1", func(t *testing.T) {
+		checkScalar(t, big.NewInt(1).FillBytes(make([]byte, byteLen)))
+	})
+	t.Run("N-6", func(t *testing.T) {
+		checkScalar(t, new(big.Int).Sub(Order, big.NewInt(6)).Bytes())
+	})
+	t.Run("N-1", func(t *testing.T) {
+		checkScalar(t, new(big.Int).Sub(Order, big.NewInt(1)).Bytes())
+	})
+	t.Run("N", func(t *testing.T) { checkScalar(t, Order.Bytes()) })
+	t.Run("N+1", func(t *testing.T) {
+		checkScalar(t, new(big.Int).Add(Order, big.NewInt(1)).Bytes())
+	})
+	t.Run("N+22", func(t *testing.T) {
+		checkScalar(t, new(big.Int).Add(Order, big.NewInt(22)).Bytes())
+	})
+	t.Run("all1s", func(t *testing.T) {
+		s := new(big.Int).Lsh(big.NewInt(1), uint(bitLen))
+		s.Sub(s, big.NewInt(1))
+		checkScalar(t, s.Bytes())
+	})
+	if testing.Short() {
+		return
+	}
+	for i := 0; i < bitLen; i++ {
+		t.Run(fmt.Sprintf("1<<%d", i), func(t *testing.T) {
+			s := new(big.Int).Lsh(big.NewInt(1), uint(i))
+			checkScalar(t, s.FillBytes(make([]byte, byteLen)))
+		})
+	}
+	for i := 0; i <= 64; i++ {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			checkScalar(t, big.NewInt(int64(i)).FillBytes(make([]byte, byteLen)))
+		})
+	}
+
+	// Test N-64...N+64 since they risk overlapping with precomputed table values
+	// in the final additions.
+	for i := int64(-64); i <= 64; i++ {
+		t.Run(fmt.Sprintf("N%+d", i), func(t *testing.T) {
+			checkScalar(t, new(big.Int).Add(Order, big.NewInt(i)).Bytes())
+		})
+	}
+
+}
+
+func fatalIfErr(t *testing.T, err error) {
+	t.Helper()
 	if err != nil {
 		t.Fatal(err)
-	}
-	e.p.MakeAffine()
-
-	e2, e3 := &G1{}, &G1{}
-
-	if e2.p == nil {
-		e2.p = &curvePoint{}
-	}
-
-	e2.p.Mul(curveGen, k)
-	e2.p.MakeAffine()
-
-	if !e.Equal(e2) {
-		t.Errorf("not same")
-	}
-
-	_, err = e3.ScalarMult(Gen1, NormalizeScalar(k.Bytes()))
-	if err != nil {
-		t.Fatal(err)
-	}
-	e3.p.MakeAffine()
-
-	if !e.Equal(e3) {
-		t.Errorf("not same")
 	}
 }
 
@@ -540,5 +608,133 @@ func BenchmarkMarshalUnmarshal(b *testing.B) {
 				}
 			}
 		})
+	})
+}
+
+func TestCurvePointAddComplete(t *testing.T) {
+	t.Run("normal case", func(t *testing.T) {
+		p1 := &curvePoint{}
+		curvePointDouble(p1, curveGen)
+		p1.AffineFromJacobian()
+
+		p2 := &curvePoint{}
+		p2.AddComplete(p1, curveGen)
+		p2.AffineFromProjective()
+
+		p3 := &curvePoint{}
+		curvePointAdd(p3, curveGen, p1)
+		p3.AffineFromJacobian()
+
+		if !p2.Equal(p3) {
+			t.Errorf("Got %v, expected %v", p2, p3)
+		}
+	})
+	t.Run("exception case: double", func(t *testing.T) {
+		p2 := &curvePoint{}
+		p2.AddComplete(curveGen, curveGen)
+		p2.AffineFromProjective()
+
+		p3 := &curvePoint{}
+		curvePointDouble(p3, curveGen)
+		p3.AffineFromJacobian()
+		if !p2.Equal(p3) {
+			t.Errorf("Got %v, expected %v", p2, p3)
+		}
+	})
+	t.Run("exception case: neg", func(t *testing.T) {
+		p1 := &curvePoint{}
+		p1.Neg(curveGen)
+		p2 := &curvePoint{}
+		p2.AddComplete(curveGen, p1)
+		p2.AffineFromProjective()
+		if !p2.IsInfinity() {
+			t.Fatal("should be infinity")
+		}
+	})
+	t.Run("exception case: IsInfinity", func(t *testing.T) {
+		p1 := &curvePoint{}
+		p1.SetInfinity()
+		p2 := &curvePoint{}
+		p2.AddComplete(curveGen, p1)
+		p2.AffineFromProjective()
+		if !p2.Equal(curveGen) {
+			t.Fatal("should be curveGen")
+		}
+		p2.AddComplete(p1, curveGen)
+		p2.AffineFromProjective()
+		if !p2.Equal(curveGen) {
+			t.Fatal("should be curveGen")
+		}
+		p2.AddComplete(p1, p1)
+		p2.AffineFromProjective()
+		if !p2.IsInfinity() {
+			t.Fatal("should be infinity")
+		}
+	})
+}
+
+func BenchmarkAddPoint(b *testing.B) {
+	p1 := &curvePoint{}
+	curvePointDouble(p1, curveGen)
+	p1.AffineFromJacobian()
+	p2 := &curvePoint{}
+
+	b.Run("Add complete", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			p2.AddComplete(curveGen, p1)
+		}
+	})
+
+	b.Run("Add traditional", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			curvePointAdd(p2, curveGen, p1)
+		}
+	})
+}
+
+func TestCurvePointDobuleComplete(t *testing.T) {
+	t.Run("normal case", func(t *testing.T) {
+		p2 := &curvePoint{}
+		p2.DoubleComplete(curveGen)
+		p2.AffineFromProjective()
+
+		p3 := &curvePoint{}
+		curvePointDouble(p3, curveGen)
+		p3.AffineFromJacobian()
+
+		if !p2.Equal(p3) {
+			t.Errorf("Got %v, expected %v", p2, p3)
+		}
+	})
+
+	t.Run("exception case: IsInfinity", func(t *testing.T) {
+		p1 := &curvePoint{}
+		p1.SetInfinity()
+		p2 := &curvePoint{}
+		p2.DoubleComplete(p1)
+		p2.AffineFromProjective()
+		if !p2.IsInfinity() {
+			t.Fatal("should be infinity")
+		}
+	})
+}
+
+func BenchmarkDoublePoint(b *testing.B) {
+	p2 := &curvePoint{}
+
+	b.Run("Double complete", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			p2.DoubleComplete(curveGen)
+		}
+	})
+
+	b.Run("Double traditional", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			curvePointDouble(p2, curveGen)
+		}
 	})
 }

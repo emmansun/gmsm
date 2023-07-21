@@ -116,37 +116,7 @@ func (e *gfP2) Triple(a *gfP2) *gfP2 {
 // c0 = a0*b0 - 2a1*b1
 // c1 = (a0 + a1)(b0 + b1) - a0*b0 - a1*b1 = a0*b1 + a1*b0
 func (e *gfP2) Mul(a, b *gfP2) *gfP2 {
-	tmp := &gfP2{}
-	tmp.MulNC(a, b)
-	gfp2Copy(e, tmp)
-	return e
-}
-
-// Mul without value copy, will use e directly, so e can't be same as a and b.
-func (e *gfP2) MulNC(a, b *gfP2) *gfP2 {
-	tx := &e.x
-	ty := &e.y
-	v0, v1 := &gfP{}, &gfP{}
-
-	gfpMul(v0, &a.y, &b.y)
-	gfpMul(v1, &a.x, &b.x)
-
-	gfpAdd(tx, &a.x, &a.y)
-	gfpAdd(ty, &b.x, &b.y)
-	gfpMul(tx, tx, ty)
-	gfpSub(tx, tx, v0)
-	gfpSub(tx, tx, v1)
-
-	gfpSub(ty, v0, v1)
-	gfpSub(ty, ty, v1)
-
-	return e
-}
-
-func (e *gfP2) MulU(a, b *gfP2) *gfP2 {
-	tmp := &gfP2{}
-	tmp.MulUNC(a, b)
-	gfp2Copy(e, tmp)
+	gfp2Mul(e, a, b)
 	return e
 }
 
@@ -155,26 +125,8 @@ func (e *gfP2) MulU(a, b *gfP2) *gfP2 {
 // (a0+a1*u)(b0+b1*u)*u=c0+c1*u, where
 // c1 = (a0*b0 - 2a1*b1)u
 // c0 = -2 * ((a0 + a1)(b0 + b1) - a0*b0 - a1*b1) = -2 * (a0*b1 + a1*b0)
-func (e *gfP2) MulUNC(a, b *gfP2) *gfP2 {
-	tx := &e.x
-	ty := &e.y
-	v0, v1 := &gfP{}, &gfP{}
-
-	gfpMul(v0, &a.y, &b.y)
-	gfpMul(v1, &a.x, &b.x)
-
-	gfpAdd(tx, &a.x, &a.y)
-	gfpAdd(ty, &b.x, &b.y)
-
-	gfpMul(ty, tx, ty)
-	gfpSub(ty, ty, v0)
-	gfpSub(ty, ty, v1)
-	gfpDouble(ty, ty)
-	gfpNeg(ty, ty)
-
-	gfpSub(tx, v0, v1)
-	gfpSub(tx, tx, v1)
-
+func (e *gfP2) MulU(a, b *gfP2) *gfP2 {
+	gfp2MulU(e, a, b)
 	return e
 }
 
@@ -195,57 +147,14 @@ func (e *gfP2) MulU1(a *gfP2) *gfP2 {
 func (e *gfP2) Square(a *gfP2) *gfP2 {
 	// Complex squaring algorithm:
 	// (xu+y)² = y^2-2*x^2 + 2*u*x*y
-	tmp := &gfP2{}
-	tmp.SquareNC(a)
-	gfp2Copy(e, tmp)
-	return e
-}
-
-// Square without value copy, will use e directly, so e can't be same as a.
-func (e *gfP2) SquareNC(a *gfP2) *gfP2 {
-	// Complex squaring algorithm:
-	// (xu+y)² = y^2-2*x^2 + 2*u*x*y
-	tx := &e.x
-	ty := &e.y
-
-	gfpAdd(ty, &a.x, &a.y)
-	gfpDouble(tx, &a.x)
-	gfpSub(tx, &a.y, tx)
-	gfpMul(ty, tx, ty)
-	gfpMul(tx, &a.x, &a.y)
-	gfpAdd(ty, tx, ty)
-	gfpDouble(tx, tx)
-
+	gfp2Square(e, a)
 	return e
 }
 
 func (e *gfP2) SquareU(a *gfP2) *gfP2 {
 	// Complex squaring algorithm:
 	// (xu+y)²*u = (y^2-2*x^2)u - 4*x*y
-
-	tmp := &gfP2{}
-	tmp.SquareUNC(a)
-	gfp2Copy(e, tmp)
-	return e
-}
-
-// SquareU without value copy, will use e directly, so e can't be same as a.
-func (e *gfP2) SquareUNC(a *gfP2) *gfP2 {
-	// Complex squaring algorithm:
-	// (xu+y)²*u = (y^2-2*x^2)u - 4*x*y
-	tx := &e.x
-	ty := &e.y
-
-	gfpAdd(tx, &a.x, &a.y)
-	gfpDouble(ty, &a.x)
-	gfpSub(ty, &a.y, ty)
-	gfpMul(tx, tx, ty)
-	gfpMul(ty, &a.x, &a.y)
-	gfpAdd(tx, tx, ty)
-	gfpDouble(ty, ty)
-	gfpDouble(ty, ty)
-	gfpNeg(ty, ty)
-
+	gfp2SquareU(e, a)
 	return e
 }
 

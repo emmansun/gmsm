@@ -201,20 +201,26 @@ func (e *gfP12b6) SquareNC(a *gfP12b6) *gfP12b6 {
 	return e
 }
 
-// Special squaring for use on elements in T_6(fp2) (after the
-// easy part of the final exponentiation. Used in the hard part
-// of the final exponentiation. Function uses formulas in
-// Granger/Scott (PKC2010).
-func (e *gfP12b6) SpecialSquare(a *gfP12b6) *gfP12b6 {
+// Cyclo6Square is used in final exponentiation after easy part(a ^ ((p^2 + 1)(p^6-1))).
+// Note that after the easy part of the final exponentiation, 
+// the resulting element lies in cyclotomic subgroup. 
+// "New software speed records for cryptographic pairings"
+// Section 3.3, Final exponentiation
+// https://cryptojedi.org/papers/dclxvi-20100714.pdf
+// The fomula reference:
+// Granger/Scott (PKC2010). 
+// Section 3.2
+// https://eprint.iacr.org/2009/565.pdf
+func (e *gfP12b6) Cyclo6Square(a *gfP12b6) *gfP12b6 {
 	tmp := &gfP12b6{}
-	tmp.SpecialSquareNC(a)
+	tmp.Cyclo6SquareNC(a)
 	e.x.Set(&tmp.x)
 	e.y.Set(&tmp.y)
 	return e
 }
 
 // Special Square without value copy, will use e directly, so e can't be same as a.
-func (e *gfP12b6) SpecialSquareNC(a *gfP12b6) *gfP12b6 {
+func (e *gfP12b6) Cyclo6SquareNC(a *gfP12b6) *gfP12b6 {
 	f02 := &e.y.x
 	f01 := &e.y.y
 	f00 := &e.y.z
@@ -232,28 +238,28 @@ func (e *gfP12b6) SpecialSquareNC(a *gfP12b6) *gfP12b6 {
 	t02.Set(t10)
 	t10.Set(f00)
 
-	f00.Double(t00)
+	f00.Add(t00, t00)
 	t00.Add(f00, t00)
-	f00.Double(t01)
+	f00.Add(t01, t01)
 	t01.Add(f00, t01)
-	f00.Double(t02)
+	f00.Add(t02, t02)
 	t02.Add(f00, t02)
-	f00.Double(t10)
+	f00.Add(t10, t10)
 	t10.Add(f00, t10)
-	f00.Double(t11)
+	f00.Add(t11, t11)
 	t11.Add(f00, t11)
-	f00.Double(t12)
+	f00.Add(t12, t12)
 	t12.Add(f00, t12)
 
-	f00.Double(&a.y.z)
+	f00.Add(&a.y.z, &a.y.z)
 	f00.Neg(f00)
-	f01.Double(&a.y.y)
+	f01.Add(&a.y.y, &a.y.y)
 	f01.Neg(f01)
-	f02.Double(&a.y.x)
+	f02.Add(&a.y.x, &a.y.x)
 	f02.Neg(f02)
-	f10.Double(&a.x.z)
-	f11.Double(&a.x.y)
-	f12.Double(&a.x.x)
+	f10.Add(&a.x.z, &a.x.z)
+	f11.Add(&a.x.y, &a.x.y)
+	f12.Add(&a.x.x, &a.x.x)
 
 	f00.Add(f00, t00)
 	f01.Add(f01, t01)
@@ -265,7 +271,7 @@ func (e *gfP12b6) SpecialSquareNC(a *gfP12b6) *gfP12b6 {
 	return e
 }
 
-func (e *gfP12b6) SpecialSquares(a *gfP12b6, n int) *gfP12b6 {
+func (e *gfP12b6) Cyclo6Squares(a *gfP12b6, n int) *gfP12b6 {
 	// Square first round
 	in := &gfP12b6{}
 	f02 := &in.y.x
@@ -284,28 +290,28 @@ func (e *gfP12b6) SpecialSquares(a *gfP12b6, n int) *gfP12b6 {
 	t02.Set(t10)
 	t10.Set(f00)
 
-	f00.Double(t00)
+	f00.Add(t00, t00)
 	t00.Add(f00, t00)
-	f00.Double(t01)
+	f00.Add(t01, t01)
 	t01.Add(f00, t01)
-	f00.Double(t02)
+	f00.Add(t02, t02)
 	t02.Add(f00, t02)
-	f00.Double(t10)
+	f00.Add(t10, t10)
 	t10.Add(f00, t10)
-	f00.Double(t11)
+	f00.Add(t11, t11)
 	t11.Add(f00, t11)
-	f00.Double(t12)
+	f00.Add(t12, t12)
 	t12.Add(f00, t12)
 
-	f00.Double(&a.y.z)
+	f00.Add(&a.y.z, &a.y.z)
 	f00.Neg(f00)
-	f01.Double(&a.y.y)
+	f01.Add(&a.y.y, &a.y.y)
 	f01.Neg(f01)
-	f02.Double(&a.y.x)
+	f02.Add(&a.y.x, &a.y.x)
 	f02.Neg(f02)
-	f10.Double(&a.x.z)
-	f11.Double(&a.x.y)
-	f12.Double(&a.x.x)
+	f10.Add(&a.x.z, &a.x.z)
+	f11.Add(&a.x.y, &a.x.y)
+	f12.Add(&a.x.x, &a.x.x)
 
 	f00.Add(f00, t00)
 	f01.Add(f01, t01)
@@ -333,28 +339,28 @@ func (e *gfP12b6) SpecialSquares(a *gfP12b6, n int) *gfP12b6 {
 		t02.Set(t10)
 		t10.Set(f00)
 	
-		f00.Double(t00)
+		f00.Add(t00, t00)
 		t00.Add(f00, t00)
-		f00.Double(t01)
+		f00.Add(t01, t01)
 		t01.Add(f00, t01)
-		f00.Double(t02)
+		f00.Add(t02, t02)
 		t02.Add(f00, t02)
-		f00.Double(t10)
+		f00.Add(t10, t10)
 		t10.Add(f00, t10)
-		f00.Double(t11)
+		f00.Add(t11, t11)
 		t11.Add(f00, t11)
-		f00.Double(t12)
+		f00.Add(t12, t12)
 		t12.Add(f00, t12)
 	
-		f00.Double(&in.y.z)
+		f00.Add(&in.y.z, &in.y.z)
 		f00.Neg(f00)
-		f01.Double(&in.y.y)
+		f01.Add(&in.y.y, &in.y.y)
 		f01.Neg(f01)
-		f02.Double(&in.y.x)
+		f02.Add(&in.y.x, &in.y.x)
 		f02.Neg(f02)
-		f10.Double(&in.x.z)
-		f11.Double(&in.x.y)
-		f12.Double(&in.x.x)
+		f10.Add(&in.x.z, &in.x.z)
+		f11.Add(&in.x.y, &in.x.y)
+		f12.Add(&in.x.x, &in.x.x)
 	
 		f00.Add(f00, t00)
 		f01.Add(f01, t01)
@@ -374,12 +380,12 @@ func (e *gfP12b6) SpecialSquares(a *gfP12b6, n int) *gfP12b6 {
 }
 
 func gfP4Square(retX, retY, x, y *gfP2) {
-	retX.SquareUNC(x)
-	retY.SquareNC(y)
+	retX.SquareU(x)
+	retY.Square(y)
 	retY.Add(retX, retY)
 
-	retX.MulNC(x, y)
-	retX.Double(retX)
+	retX.Mul(x, y)
+	retX.Add(retX, retX)
 }
 
 func (c *gfP12b6) Exp(a *gfP12b6, power *big.Int) *gfP12b6 {

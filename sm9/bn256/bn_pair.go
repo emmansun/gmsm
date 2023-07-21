@@ -4,23 +4,23 @@ package bn256
 func lineFunctionAdd(r, p, rOut *twistPoint, q *curvePoint, r2, a, b, c *gfP2) {
 	// See the mixed addition algorithm from "Faster Computation of the
 	// Tate Pairing", http://arxiv.org/pdf/0904.0854v3.pdf
-	B := (&gfP2{}).MulNC(&p.x, &r.t) // B = Xp * Zr^2
+	B := (&gfP2{}).Mul(&p.x, &r.t) // B = Xp * Zr^2
 
 	D := (&gfP2{}).Add(&p.y, &r.z)                   // D = Yp + Zr
 	D.Square(D).Sub(D, r2).Sub(D, &r.t).Mul(D, &r.t) // D = ((Yp + Zr)^2 - Zr^2 - Yp^2)*Zr^2 = 2Yp*Zr^3
 
 	H := (&gfP2{}).Sub(B, &r.x) // H = Xp * Zr^2 - Xr
-	I := (&gfP2{}).SquareNC(H)  // I = (Xp * Zr^2 - Xr)^2 = Xp^2*Zr^4 + Xr^2 - 2Xr*Xp*Zr^2
+	I := (&gfP2{}).Square(H)  // I = (Xp * Zr^2 - Xr)^2 = Xp^2*Zr^4 + Xr^2 - 2Xr*Xp*Zr^2
 
 	E := (&gfP2{}).Double(I) // E = 2*(Xp * Zr^2 - Xr)^2
 	E.Double(E)              // E = 4*(Xp * Zr^2 - Xr)^2
 
-	J := (&gfP2{}).MulNC(H, E) // J =  4*(Xp * Zr^2 - Xr)^3
+	J := (&gfP2{}).Mul(H, E) // J =  4*(Xp * Zr^2 - Xr)^3
 
 	L1 := (&gfP2{}).Sub(D, &r.y) // L1 = 2Yp*Zr^3 - Yr
 	L1.Sub(L1, &r.y)             // L1 = 2Yp*Zr^3 - 2*Yr
 
-	V := (&gfP2{}).MulNC(&r.x, E) // V = 4 * Xr * (Xp * Zr^2 - Xr)^2
+	V := (&gfP2{}).Mul(&r.x, E) // V = 4 * Xr * (Xp * Zr^2 - Xr)^2
 
 	rOut.x.Square(L1).Sub(&rOut.x, J).Sub(&rOut.x, V).Sub(&rOut.x, V) // rOut.x = L1^2 - J - 2V
 
@@ -28,11 +28,11 @@ func lineFunctionAdd(r, p, rOut *twistPoint, q *curvePoint, r2, a, b, c *gfP2) {
 
 	t := (&gfP2{}).Sub(V, &rOut.x) // t = V - rOut.x
 	t.Mul(t, L1)                   // t = L1*(V-rOut.x)
-	t2 := (&gfP2{}).MulNC(&r.y, J)
+	t2 := (&gfP2{}).Mul(&r.y, J)
 	t2.Double(t2)     // t2 = 2Yr * J
 	rOut.y.Sub(t, t2) // rOut.y = L1*(V-rOut.x) - 2Yr*J
 
-	rOut.t.SquareNC(&rOut.z)
+	rOut.t.Square(&rOut.z)
 
 	// t = (Yp + rOut.Z)^2 - Yp^2 - rOut.Z^2 = 2Yp*rOut.Z
 	t.Add(&p.y, &rOut.z).Square(t).Sub(t, r2).Sub(t, &rOut.t)
@@ -51,9 +51,9 @@ func lineFunctionAdd(r, p, rOut *twistPoint, q *curvePoint, r2, a, b, c *gfP2) {
 func lineFunctionDouble(r, rOut *twistPoint, q *curvePoint, a, b, c *gfP2) {
 	// See the doubling algorithm for a=0 from "Faster Computation of the
 	// Tate Pairing", http://arxiv.org/pdf/0904.0854v3.pdf
-	A := (&gfP2{}).SquareNC(&r.x)
-	B := (&gfP2{}).SquareNC(&r.y)
-	C := (&gfP2{}).SquareNC(B) // C = Yr ^ 4
+	A := (&gfP2{}).Square(&r.x)
+	B := (&gfP2{}).Square(&r.y)
+	C := (&gfP2{}).Square(B) // C = Yr ^ 4
 
 	D := (&gfP2{}).Add(&r.x, B)
 	D.Square(D).Sub(D, A).Sub(D, C).Double(D)
@@ -61,7 +61,7 @@ func lineFunctionDouble(r, rOut *twistPoint, q *curvePoint, a, b, c *gfP2) {
 	E := (&gfP2{}).Double(A) //
 	E.Add(E, A)              // E = 3 * Xr ^ 2
 
-	G := (&gfP2{}).SquareNC(E) // G = 9 * Xr^4
+	G := (&gfP2{}).Square(E) // G = 9 * Xr^4
 
 	rOut.x.Sub(G, D).Sub(&rOut.x, D)
 
@@ -72,7 +72,7 @@ func lineFunctionDouble(r, rOut *twistPoint, q *curvePoint, a, b, c *gfP2) {
 	t.Double(t).Double(t)    // t = 8 * Yr ^ 4
 	rOut.y.Sub(&rOut.y, t)
 
-	rOut.t.SquareNC(&rOut.z)
+	rOut.t.Square(&rOut.z)
 
 	t.Mul(E, &r.t).Double(t) // t = 2(E * Tr)
 	b.Neg(t)                 // b = -2(E * Tr)
@@ -127,7 +127,7 @@ func miller(q *twistPoint, p *curvePoint) *gfP12 {
 	r := &twistPoint{}
 	r.Set(aAffine)
 
-	r2 := (&gfP2{}).SquareNC(&aAffine.y)
+	r2 := (&gfP2{}).Square(&aAffine.y)
 
 	a, b, c := &gfP2{}, &gfP2{}, &gfP2{}
 	newR := &twistPoint{}
@@ -218,10 +218,9 @@ func finalExponentiation(in *gfP12) *gfP12 {
 	y0.MulNC(fp, fp2).Mul(y0, fp3) // y0 = (t1^p) * (t1^(p^2)) * (t1^(p^3))
 
 	// reuse fp, fp2, fp3 local variables
-	// [gfP12ExpU] is most time consuming operation
-	fu := fp.gfP12ExpU(t1)
-	fu2 := fp2.gfP12ExpU(fu)
-	fu3 := fp3.gfP12ExpU(fu2)
+	fu := fp.Cyclo6PowToU(t1)
+	fu2 := fp2.Cyclo6PowToU(fu)
+	fu3 := fp3.Cyclo6PowToU(fu2)
 
 	fu2p := (&gfP12{}).Frobenius(fu2)
 	fu3p := (&gfP12{}).Frobenius(fu3)
@@ -237,14 +236,14 @@ func finalExponentiation(in *gfP12) *gfP12 {
 	y6.Conjugate(y6)                  // y6 = 1 / (t1^(u^3) * (t1^(u^3))^p)
 
 	// https://eprint.iacr.org/2008/490.pdf
-	t0 := (&gfP12{}).SpecialSquareNC(y6)
+	t0 := (&gfP12{}).Cyclo6SquareNC(y6)
 	t0.Mul(t0, y4).Mul(t0, y5)
 	t1.Mul(y3, y5).Mul(t1, t0)
 	t0.Mul(t0, y2)
-	t1.SpecialSquare(t1).Mul(t1, t0).SpecialSquare(t1)
+	t1.Cyclo6Square(t1).Mul(t1, t0).Cyclo6Square(t1)
 	t0.Mul(t1, y1)
 	t1.Mul(t1, y0)
-	t0.SpecialSquare(t0).Mul(t0, t1)
+	t0.Cyclo6Square(t0).Mul(t0, t1)
 
 	return t0
 }
