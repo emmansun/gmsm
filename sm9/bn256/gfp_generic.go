@@ -47,8 +47,9 @@ func gfpDouble(c, a *gfP) {
 }
 
 func gfpTriple(c, a *gfP) {
-	gfpAdd(c, a, a)
-	gfpAdd(c, c, a)
+	t := &gfP{}
+	gfpAdd(t, a, a)
+	gfpAdd(c, t, a)
 }
 
 func gfpSub(c, a, b *gfP) {
