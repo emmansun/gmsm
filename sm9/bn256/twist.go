@@ -208,6 +208,29 @@ func (c *twistPoint) MakeAffine() {
 	c.t.SetOne()
 }
 
+// MakeAffine reverses the Jacobian transform.
+// the Jacobian coordinates are (x1, y1, z1)
+// where x = x1/z1² and y = y1/z1³.
+func (c *twistPoint) AffineFromJacobian() {
+	if c.z.IsOne() {
+		return
+	} else if c.z.IsZero() {
+		c.x.SetZero()
+		c.y.SetOne()
+		c.t.SetZero()
+		return
+	}
+
+	zInv := (&gfP2{}).Invert(&c.z)
+	t := (&gfP2{}).Mul(&c.y, zInv)
+	zInv2 := (&gfP2{}).Square(zInv)
+	c.y.Mul(t, zInv2)
+	t.Mul(&c.x, zInv2)
+	c.x.Set(t)
+	c.z.SetOne()
+	c.t.SetOne()
+}
+
 func (c *twistPoint) Neg(a *twistPoint) {
 	c.x.Set(&a.x)
 	c.y.Neg(&a.y)
