@@ -56,7 +56,8 @@ func Test_gfpSqr(t *testing.T) {
 	gfpSqr(ret, x, 1)
 	pMinusOne.Mul(pMinusOne, pMinusOne)
 	pMinusOne.Mod(pMinusOne, p)
-	if *ret != *fromBigInt(pMinusOne) {
+	expected := fromBigInt(pMinusOne)
+	if *ret != *expected {
 		t.Errorf("bad sqr")
 	}
 	// p + 1

@@ -368,10 +368,7 @@ func (e *G1) Equal(other *G1) bool {
 	if e.p == nil && other.p == nil {
 		return true
 	}
-	return e.p.x.Equal(&other.p.x) == 1 &&
-		e.p.y.Equal(&other.p.y) == 1 &&
-		e.p.z.Equal(&other.p.z) == 1 &&
-		e.p.t.Equal(&other.p.t) == 1
+	return e.p.Equal(other.p)
 }
 
 // IsOnCurve returns true if e is on the curve.

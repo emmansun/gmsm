@@ -380,11 +380,11 @@ func (e *gfP12b6) Cyclo6Squares(a *gfP12b6, n int) *gfP12b6 {
 }
 
 func gfP4Square(retX, retY, x, y *gfP2) {
-	retX.SquareUNC(x)
-	retY.SquareNC(y)
+	retX.SquareU(x)
+	retY.Square(y)
 	retY.Add(retX, retY)
 
-	retX.MulNC(x, y)
+	retX.Mul(x, y)
 	retX.Add(retX, retX)
 }
 

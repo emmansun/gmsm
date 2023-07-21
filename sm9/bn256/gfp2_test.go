@@ -135,10 +135,10 @@ func BenchmarkGfP2Mul(b *testing.B) {
 		*fromBigInt(bigFromHex("17509B092E845C1266BA0D262CBEE6ED0736A96FA347C8BD856DC76B84EBEB96")),
 		*fromBigInt(bigFromHex("A7CF28D519BE3DA65F3170153D278FF247EFBA98A71A08116215BBA5C999A7C7")),
 	}
+	t := &gfP2{}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		t := &gfP2{}
 		t.Mul(x, y)
 	}
 }

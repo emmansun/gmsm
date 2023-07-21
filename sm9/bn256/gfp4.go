@@ -121,8 +121,8 @@ func (e *gfP4) MulNC(a, b *gfP4) *gfP4 {
 	tx := &e.x
 	ty := &e.y
 	v0, v1 := &gfP2{}, &gfP2{}
-	v0.MulNC(&a.y, &b.y)
-	v1.MulNC(&a.x, &b.x)
+	v0.Mul(&a.y, &b.y)
+	v1.Mul(&a.x, &b.x)
 
 	tx.Add(&a.x, &a.y)
 	ty.Add(&b.x, &b.y)
@@ -148,8 +148,8 @@ func (e *gfP4) MulNC2(a *gfP4, x, y *gfP2) *gfP4 {
 	tx := &e.x
 	ty := &e.y
 	v0, v1 := &gfP2{}, &gfP2{}
-	v0.MulNC(&a.y, y)
-	v1.MulNC(&a.x, x)
+	v0.Mul(&a.y, y)
+	v1.Mul(&a.x, x)
 
 	tx.Add(&a.x, &a.y)
 	ty.Add(x, y)
@@ -181,8 +181,8 @@ func (e *gfP4) MulVNC(a, b *gfP4) *gfP4 {
 	tx := &e.x
 	ty := &e.y
 	v0, v1 := &gfP2{}, &gfP2{}
-	v0.MulNC(&a.y, &b.y)
-	v1.MulNC(&a.x, &b.x)
+	v0.Mul(&a.y, &b.y)
+	v1.Mul(&a.x, &b.x)
 
 	tx.Add(&a.x, &a.y)
 	ty.Add(&b.x, &b.y)
@@ -227,11 +227,11 @@ func (e *gfP4) SquareNC(a *gfP4) *gfP4 {
 	tx := &e.x
 	ty := &e.y
 
-	tx.SquareUNC(&a.x)
-	ty.SquareNC(&a.y)
+	tx.SquareU(&a.x)
+	ty.Square(&a.y)
 	ty.Add(tx, ty)
 
-	tx.MulNC(&a.x, &a.y)
+	tx.Mul(&a.x, &a.y)
 	tx.Add(tx, tx)
 
 	return e
@@ -250,8 +250,8 @@ func (e *gfP4) SquareV(a *gfP4) *gfP4 {
 func (e *gfP4) SquareVNC(a *gfP4) *gfP4 {
 	tx := &e.x
 	ty := &e.y
-	tx.SquareUNC(&a.x)
-	ty.SquareNC(&a.y)
+	tx.SquareU(&a.x)
+	ty.Square(&a.y)
 	tx.Add(tx, ty)
 
 	ty.MulU(&a.x, &a.y)
@@ -269,15 +269,15 @@ func (e *gfP4) Invert(a *gfP4) *gfP4 {
 
 	t3 := &gfP2{}
 
-	t3.SquareUNC(&a.x)
-	t1.SquareNC(&a.y)
+	t3.SquareU(&a.x)
+	t1.Square(&a.y)
 	t3.Sub(t3, t1)
 	t3.Invert(t3)
 
 	t1.Mul(&a.y, t3)
 	t1.Neg(t1)
 
-	t2.MulNC(&a.x, t3)
+	t2.Mul(&a.x, t3)
 
 	gfp4Copy(e, tmp)
 	return e
