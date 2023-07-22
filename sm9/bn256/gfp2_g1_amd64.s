@@ -1321,19 +1321,19 @@ TEXT ·gfp2SquareU(SB),NOSPLIT,$160-16
 #undef rptr
 
 /* ---------------------------------------*/
-#define x(off) (32*0 + off)(SP)
-#define y(off) (32*1 + off)(SP)
-#define z(off) (32*2 + off)(SP)
+#define xin(off) (32*0 + off)(SP)
+#define yin(off) (32*1 + off)(SP)
+#define zin(off) (32*2 + off)(SP)
 
-#define a(off) (32*3 + off)(SP)
-#define b(off) (32*4 + off)(SP)
-#define c(off) (32*5 + off)(SP)
-#define rptr	  (32*6)(SP)
+#define xout(off) (32*3 + off)(SP)
+#define yout(off) (32*4 + off)(SP)
+#define zout(off) (32*5 + off)(SP)
+#define tmp0(off) (32*6 + off)(SP)
+#define tmp2(off) (32*7 + off)(SP)
+#define rptr	  (32*8)(SP)
 
-// func curvePointDouble(c, a *curvePoint)
-TEXT ·curvePointDouble(SB),NOSPLIT,$224-16
-	// https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
-	// Move input to stack in order to free registers
+// func curvePointDoubleComplete(c, a *curvePoint)
+TEXT ·curvePointDoubleComplete(SB),NOSPLIT,$288-16
 	MOVQ res+0(FP), AX
 	MOVQ in+8(FP), BX
 
@@ -1344,104 +1344,104 @@ TEXT ·curvePointDouble(SB),NOSPLIT,$224-16
 	MOVOU (16*4)(BX), X4
 	MOVOU (16*5)(BX), X5
 	
-	MOVOU X0, x(16*0)
-	MOVOU X1, x(16*1)
-	MOVOU X2, y(16*0)
-	MOVOU X3, y(16*1)
-	MOVOU X4, z(16*0)
-	MOVOU X5, z(16*1)
+	MOVOU X0, xin(16*0)
+	MOVOU X1, xin(16*1)
+	MOVOU X2, yin(16*0)
+	MOVOU X3, yin(16*1)
+	MOVOU X4, zin(16*0)
+	MOVOU X5, zin(16*1)
 
 	// Store pointer to result
 	MOVQ AX, rptr
 
-	LDacc (y)
-	LDt (z)
-	CALL gfpMulInternal(SB)
-	gfpMulBy2Inline         // Z3 = 2*Y1*Z1
+	LDacc (yin)
+	CALL gfpSqrInternal(SB) // t0 := Y^2
+	ST (tmp0)
+
+	gfpMulBy2Inline // Z3 := t0 + t0
+	t2acc
+	gfpMulBy2Inline // Z3 := Z3 + Z3
+	t2acc
+	gfpMulBy2Inline // Z3 := Z3 + Z3
+	STt (zout)	
+
+	LDacc (zin)
+	CALL gfpSqrInternal(SB) // t2 := Z^2
+	ST (tmp2)
+	gfpMulBy2Inline
+	t2acc
+	gfpMulBy2Inline
+	t2acc
+	gfpMulBy2Inline
+	t2acc
+	gfpMulBy2Inline
+	t2acc
+	LDt (tmp2)
+	CALL gfpSubInternal(SB)  // t2 := 3b * t2
+	ST (tmp2)
+	LDt (zout)
+	CALL gfpMulInternal(SB) // X3 := Z3 * t2
+	ST (xout)
+
+	LDacc (tmp0)
+	LDt (tmp2)
+	gfpAddInline // Y3 := t0 + t2
+	STt (yout)
+
+	LDacc (yin)
+	LDt (zin)
+	CALL gfpMulInternal(SB) // t1 := YZ
+	LDt (zout)
+	CALL gfpMulInternal(SB) // Z3 := t1 * Z3
 	MOVQ rptr, AX
 	// Store Z
-	MOVQ t0, (16*4 + 8*0)(AX)
-	MOVQ t1, (16*4 + 8*1)(AX)
-	MOVQ t2, (16*4 + 8*2)(AX)
-	MOVQ t3, (16*4 + 8*3)(AX)	
+	MOVQ acc4, (16*4 + 8*0)(AX)
+	MOVQ acc5, (16*4 + 8*1)(AX)
+	MOVQ acc6, (16*4 + 8*2)(AX)
+	MOVQ acc7, (16*4 + 8*3)(AX)	
 
-	LDacc (x)
-	CALL gfpSqrInternal(SB) // A = X1^2
-	ST (a)
-
-	LDacc (y)
-	CALL gfpSqrInternal(SB) // B = Y1^2
-	ST (b)
-	CALL gfpSqrInternal(SB) // C = B^2
-	ST (c)
-
-	LDacc (x)
-	LDt (b)
-	gfpAddInline            // X1+B
-	t2acc
-	CALL gfpSqrInternal(SB) // (X1+B)^2
-	LDt (a)
-	CALL gfpSubInternal(SB)
-	LDt (c)
-	CALL gfpSubInternal(SB)
-	gfpMulBy2Inline         //  B = D = 2*((X1+B)^2-A-C)
-	STt (b)                 // Store D
-
-	LDacc (a)
+	LDacc (tmp2) 
 	gfpMulBy2Inline
-	LDacc (a)
-	gfpAddInline            // A = E = 3*A
-	STt (a)                 // Store E
-	t2acc
-	CALL gfpSqrInternal(SB) // F = E^2
-
-	LDt (b)                 // Load D
-	CALL gfpSubInternal(SB)
-	LDt (b)                 // Load D
-	CALL gfpSubInternal(SB) // X3 = F-2*D
-
-	ST (x)
-
+	LDacc (tmp2)
+	gfpAddInline // t2 := t2 + t2 + t2
+	LDacc (tmp0)
+	CALL gfpSubInternal(SB) // t0 := t0 - t2
+	ST (tmp0)
+	LDt (yout)
+	CALL gfpMulInternal(SB) // Y3 = t0 * Y3
+	LDt (xout)
+	gfpAddInline // Y3 := X3 + Y3
 	MOVQ rptr, AX
-	// Store x
-	MOVQ acc4, (16*0 + 8*0)(AX)
-	MOVQ acc5, (16*0 + 8*1)(AX)
-	MOVQ acc6, (16*0 + 8*2)(AX)
-	MOVQ acc7, (16*0 + 8*3)(AX)
-
-	LDacc (c)
-	gfpMulBy2Inline
-	t2acc
-	gfpMulBy2Inline
-	t2acc
-	gfpMulBy2Inline // 8*C
-	STt (c)
-
-	LDacc (b)               // Load D
-	LDt (x)
-	CALL gfpSubInternal(SB) // (D-X3)
-	LDt (a)                 // Load E
-	CALL gfpMulInternal(SB) // E*(D-X3)
-	LDt (c)
-	CALL gfpSubInternal(SB) // Y3 = E*(D-X3)-8*C
-
-	MOVQ rptr, AX
-	///////////////////////
-	MOVQ $0, rptr	
 	// Store y
-	MOVQ acc4, (16*2 + 8*0)(AX)
-	MOVQ acc5, (16*2 + 8*1)(AX)
-	MOVQ acc6, (16*2 + 8*2)(AX)
-	MOVQ acc7, (16*2 + 8*3)(AX)
+	MOVQ t0, (16*2 + 8*0)(AX)
+	MOVQ t1, (16*2 + 8*1)(AX)
+	MOVQ t2, (16*2 + 8*2)(AX)
+	MOVQ t3, (16*2 + 8*3)(AX)
+
+	LDacc (xin)
+	LDt (yin)
+	CALL gfpMulInternal(SB) // t1 := XY
+	LDt (tmp0)
+	CALL gfpMulInternal(SB) // X3 := t0 * t1
+	gfpMulBy2Inline         // X3 := X3 + X3
+	MOVQ rptr, AX
+	MOVQ $0, rptr
+	// Store x
+	MOVQ t0, (16*0 + 8*0)(AX)
+	MOVQ t1, (16*0 + 8*1)(AX)
+	MOVQ t2, (16*0 + 8*2)(AX)
+	MOVQ t3, (16*0 + 8*3)(AX)
 
 	RET
 
-#undef x
-#undef y
-#undef z
-#undef a
-#undef b
-#undef c
+#undef xin
+#undef yin
+#undef zin
+#undef xout
+#undef yout
+#undef zout
+#undef tmp0
+#undef tmp2
 #undef rptr
 
 // gfpIsZero returns 1 in AX if [acc4..acc7] represents zero and zero
@@ -1475,6 +1475,7 @@ TEXT gfpIsZero(SB),NOSPLIT,$0
 	RET
 
 /* ---------------------------------------*/
+/*
 #define x1in(off) (32*0 + off)(SP)
 #define y1in(off) (32*1 + off)(SP)
 #define z1in(off) (32*2 + off)(SP)
@@ -1651,3 +1652,4 @@ TEXT ·curvePointAdd(SB),0,$680-32
 	MOVQ AX, ret+24(FP)
 
 	RET
+*/

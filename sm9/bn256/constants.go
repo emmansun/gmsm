@@ -26,6 +26,9 @@ var p2 = [4]uint64{0xe56f9b27e351457d, 0x21f2934b1a7aeedb, 0xd603ab4ff58ec745, 0
 // np is the negative inverse of p, mod 2^256.
 var np = [4]uint64{0x892bc42c2f2ee42b, 0x181ae39613c8dbaf, 0x966a4b291522b137, 0xafd2bac5558a13b3}
 
+// b3 is 15
+var b3 = [4]uint64{0x2dd845ba5a554cbf, 0x3719ead6d3ea67f6, 0x71b2f270db49a754, 0x0cbfffffc8934e29}
+
 // rN1 is R^-1 where R = 2^256 mod p.
 var rN1 = &gfP{0x0a1c7970e5df544d, 0xe74504e9a96b56cc, 0xcda02d92d4d62924, 0x7d2bc576fdf597d1}
 

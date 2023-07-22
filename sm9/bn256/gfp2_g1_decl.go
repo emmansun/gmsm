@@ -26,11 +26,10 @@ func gfp2SquareU(c, a *gfP2)
 // Point doubling. Sets res = in + in. in can be the point at infinity.
 //
 //go:noescape
-func curvePointDouble(c, a *curvePoint)
-
-// Point addition. Sets res = in1 + in2. Returns one if the two input points
-// were equal and zero otherwise. If in1 or in2 are the point at infinity, res
-// and the return value are undefined.
+func curvePointDoubleComplete(c, a *curvePoint)
+/*
+// Point addition. Sets res = in1 + in2. in1 can be same as in2, also can be at infinity.
 //
 //go:noescape
-func curvePointAdd(c, a, b *curvePoint) int
+func curvePointAddComplete(c, a, b *curvePoint)
+*/

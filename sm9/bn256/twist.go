@@ -149,14 +149,14 @@ func (c *twistPoint) Double(p *twistPoint) {
 	z3.Double(z3)           // Z3 := Z3 + Z3
 	z3.Double(z3)           // Z3 := Z3 + Z3
 	t1.Mul(&p.y, &p.z)      // t1 := YZ
-	t2.Square(&p.z)         // t0 := Z^2
+	t2.Square(&p.z)         // t2 := Z^2
 	t2.Mul(threeTwistB, t2) // t2 := 3b * t2 = 3bZ^2
 	x3.Mul(t2, z3)          // X3 := t2 * Z3
 	y3.Add(t0, t2)          // Y3 := t0 + t2
 	z3.Mul(t1, z3)          // Z3 := t1 * Z3
 	t2.Triple(t2)           // t2 := t2 + t2 + t2
 	t0.Sub(t0, t2)          // t0 := t0 - t2
-	y3.Mul(t0, y3)          // t0 := t0 * Y3
+	y3.Mul(t0, y3)          // Y3 := t0 * Y3
 	y3.Add(x3, y3)          // Y3 := X3 + Y3
 	t1.Mul(&p.x, &p.y)      // t1 := XY
 	x3.Mul(t0, t1)          // X3 := t0 * t1

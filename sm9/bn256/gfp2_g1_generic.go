@@ -82,112 +82,32 @@ func gfp2SquareU(c, a *gfP2) {
 	gfp2Copy(c, tmp)
 }
 
-func curvePointDouble(c, a *curvePoint) {
-	// See http://hyperelliptic.org/EFD/g1p/auto-code/shortw/jacobian-0/doubling/dbl-2009-l.op3
-	A, B, C := &gfP{}, &gfP{}, &gfP{}
-	gfpSqr(A, &a.x, 1)
-	gfpSqr(B, &a.y, 1)
-	gfpSqr(C, B, 1)
+func curvePointDoubleComplete(c, p *curvePoint) {
+	// Complete addition formula for a = 0 from "Complete addition formulas for
+	// prime order elliptic curves" (https://eprint.iacr.org/2015/1060), §3.2.
+	// Algorithm 9: Exception-free point doubling for prime order j-invariant 0 short Weierstrass curves.
+	t0, t1, t2 := new(gfP), new(gfP), new(gfP)
+	x3, y3, z3 := new(gfP), new(gfP), new(gfP)
 
-	t := &gfP{}
-	gfpAdd(B, &a.x, B)
-	gfpSqr(t, B, 1)
-	gfpSub(B, t, A)
-	gfpSub(t, B, C)
+	gfpSqr(t0, &p.y, 1)         // t0 := Y^2
+	gfpDouble(z3, t0)           // Z3 := t0 + t0
+	gfpDouble(z3, z3)           // Z3 := Z3 + Z3
+	gfpDouble(z3, z3)           // Z3 := Z3 + Z3
+	gfpMul(t1, &p.y, &p.z)      // t1 := YZ
+	gfpSqr(t2, &p.z, 1)         // t2 := Z^2
+	gfpMul(t2, threeCurveB, t2) // t2 := 3b * t2 = 3bZ^2
+	gfpMul(x3, t2, z3)          // X3 := t2 * Z3
+	gfpAdd(y3, t0, t2)          // Y3 := t0 + t2
+	gfpMul(z3, t1, z3)          // Z3 := t1 * Z3
+	gfpTriple(t2, t2)           // t2 := t2 + t2 + t2
+	gfpSub(t0, t0, t2)          // t0 := t0 - t2
+	gfpMul(y3, t0, y3)          // Y3 := t0 * Y3
+	gfpAdd(y3, x3, y3)          // Y3 := X3 + Y3
+	gfpMul(t1, &p.x, &p.y)      // t1 := XY
+	gfpMul(x3, t0, t1)          // X3 := t0 * t1
+	gfpDouble(x3, x3)           // X3 := X3 + X3
 
-	d, e := &gfP{}, &gfP{}
-	gfpDouble(d, t)
-	gfpDouble(B, A)
-	gfpAdd(e, B, A)
-	gfpSqr(A, e, 1)
-
-	gfpDouble(B, d)
-	gfpSub(&c.x, A, B)
-
-	gfpMul(&c.z, &a.y, &a.z)
-	gfpDouble(&c.z, &c.z)
-
-	gfpDouble(B, C)
-	gfpDouble(t, B)
-	gfpDouble(B, t)
-	gfpSub(&c.y, d, &c.x)
-	gfpMul(t, e, &c.y)
-	gfpSub(&c.y, t, B)	
-}
-
-func curvePointAdd(c, a, b *curvePoint) int {
-	// See http://hyperelliptic.org/EFD/g1p/auto-code/shortw/jacobian-0/addition/add-2007-bl.op3
-	var pointEq int
-	// Normalize the points by replacing a = [x1:y1:z1] and b = [x2:y2:z2]
-	// by [u1:s1:z1·z2] and [u2:s2:z1·z2]
-	// where u1 = x1·z2², s1 = y1·z2³ and u1 = x2·z1², s2 = y2·z1³
-	z12, z22 := &gfP{}, &gfP{}
-	gfpSqr(z12, &a.z, 1)
-	gfpSqr(z22, &b.z, 1)
-
-	u1, u2 := &gfP{}, &gfP{}
-	gfpMul(u1, &a.x, z22)
-	gfpMul(u2, &b.x, z12)
-
-	t, s1 := &gfP{}, &gfP{}
-	gfpMul(t, &b.z, z22)
-	gfpMul(s1, &a.y, t)
-
-	s2 := &gfP{}
-	gfpMul(t, &a.z, z12)
-	gfpMul(s2, &b.y, t)
-
-	// Compute x = (2h)²(s²-u1-u2)
-	// where s = (s2-s1)/(u2-u1) is the slope of the line through
-	// (u1,s1) and (u2,s2). The extra factor 2h = 2(u2-u1) comes from the value of z below.
-	// This is also:
-	// 4(s2-s1)² - 4h²(u1+u2) = 4(s2-s1)² - 4h³ - 4h²(2u1)
-	//                        = r² - j - 2v
-	// with the notations below.
-	h := &gfP{}
-	gfpSub(h, u2, u1)
-
-	gfpDouble(t, h)
-	// i = 4h²
-	i := &gfP{}
-	gfpSqr(i, t, 1)
-	// j = 4h³
-	j := &gfP{}
-	gfpMul(j, h, i)
-
-	gfpSub(t, s2, s1)
-
-	pointEq = h.Equal(zero) & t.Equal(zero) 
-
-	r := &gfP{}
-	gfpDouble(r, t)
-
-	v := &gfP{}
-	gfpMul(v, u1, i)
-
-	// t4 = 4(s2-s1)²
-	t4, t6 := &gfP{}, &gfP{}
-	gfpSqr(t4, r, 1)
-	gfpDouble(t, v)
-	gfpSub(t6, t4, j)
-
-	gfpSub(&c.x, t6, t)
-
-	// Set y = -(2h)³(s1 + s*(x/4h²-u1))
-	// This is also
-	// y = - 2·s1·j - (s2-s1)(2x - 2i·u1) = r(v-x) - 2·s1·j
-	gfpSub(t, v, &c.x) // t7
-	gfpMul(t4, s1, j)  // t8
-	gfpDouble(t6, t4)  // t9
-	gfpMul(t4, r, t)   // t10
-	gfpSub(&c.y, t4, t6)
-
-	// Set z = 2(u2-u1)·z1·z2 = 2h·z1·z2
-	gfpAdd(t, &a.z, &b.z) // t11
-	gfpSqr(t4, t, 1)      // t12
-	gfpSub(t, t4, z12)    // t13
-	gfpSub(t4, t, z22)    // t14
-	gfpMul(&c.z, t4, h)
-
-	return pointEq
+	c.x.Set(x3)
+	c.y.Set(y3)
+	c.z.Set(z3)
 }
