@@ -542,7 +542,7 @@ TEXT ·gfp2Mul(SB),NOSPLIT,$104-24
 	STx (y3out)
 
 	RET
-
+/*
 // func gfp2MulU(c, a, b *gfP2)
 TEXT ·gfp2MulU(SB),NOSPLIT,$104-24
 	MOVD	res+0(FP), res_ptr
@@ -670,3 +670,4 @@ TEXT ·gfp2SquareU(SB),NOSPLIT,$72-16
 	STx (y3out)
 
 	RET
+*/
