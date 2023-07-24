@@ -1475,6 +1475,263 @@ TEXT gfpIsZero(SB),NOSPLIT,$0
 	RET
 
 /* ---------------------------------------*/
+#define x1in(off) (32*0 + off)(SP)
+#define y1in(off) (32*1 + off)(SP)
+#define z1in(off) (32*2 + off)(SP)
+#define x2in(off) (32*3 + off)(SP)
+#define y2in(off) (32*4 + off)(SP)
+#define z2in(off) (32*5 + off)(SP)
+#define xout(off) (32*6 + off)(SP)
+#define yout(off) (32*7 + off)(SP)
+#define zout(off) (32*8 + off)(SP)
+#define tmp0(off) (32*9 + off)(SP)
+#define tmp1(off) (32*10 + off)(SP)
+#define tmp2(off) (32*11 + off)(SP)
+#define tmp3(off) (32*12 + off)(SP)
+#define tmp4(off) (32*13 + off)(SP)
+#define rptr      (32*14)(SP)
+
+#define curvePointAddCompleteInline \
+	LDacc (x1in) \
+	LDt (x2in)   \
+	CALL gfpMulInternal(SB) \ // t0 := X1X2
+	ST (tmp0)    \
+	LDacc (y1in) \
+	LDt (y2in)   \
+	CALL gfpMulInternal(SB) \ // t1 := Y1Y2
+	ST (tmp1)    \
+	LDacc (z1in) \
+	LDt (z2in)   \
+	CALL gfpMulInternal(SB) \ // t2 := Z1Z2
+	ST (tmp2)    \
+	\
+	LDacc (x1in) \
+	LDt (y1in)   \
+	gfpAddInline \
+	STt (tmp3)   \            // t3 := X1 + Y1
+	LDacc (x2in) \
+	LDt (y2in)   \
+	gfpAddInline \
+	LDacc (tmp3) \
+	CALL gfpMulInternal(SB) \ // t3 := t3 * t4 = (X1 + Y1) * (X2 + Y2)
+	ST (tmp3)    \
+	LDacc (tmp0) \
+	LDt (tmp1)   \
+	gfpAddInline \
+	LDacc (tmp3) \
+	CALL gfpSubInternal(SB) \ // t3 := t3 - t4 = X1Y2 + X2Y1
+	ST (tmp3)    \
+	\
+	LDacc (y1in) \
+	LDt (z1in)   \
+	gfpAddInline \            // t4 := Y1 + Z1
+	STt (tmp4)   \
+	LDacc (y2in) \ 
+	LDt (z2in)   \
+	gfpAddInline \
+	LDacc (tmp4) \
+	CALL gfpMulInternal(SB) \ // t4 := t4 * X3 = (Y1 + Z1)(Y2 + Z2)
+	ST (tmp4)    \
+	LDacc (tmp1) \
+	LDt (tmp2)   \
+	gfpAddInline \
+	LDacc (tmp4) \
+	CALL gfpSubInternal(SB) \ // t4 := t4 - X3 = Y1Z2 + Y2Z1
+	ST (tmp4)    \
+	\
+	LDacc (z1in) \
+	LDt (x1in)   \
+	gfpAddInline \            // X3 := X1 + Z1
+	STt (xout)   \
+	LDacc (z2in) \
+	LDt (x2in)   \
+	gfpAddInline \
+	LDacc (xout) \
+	CALL gfpMulInternal(SB) \ // X3 := X3 * Y3
+	ST (xout)    \
+	LDacc (tmp0) \
+	LDt (tmp2)   \
+	gfpAddInline \
+	LDacc (xout) \
+	CALL gfpSubInternal(SB) \ // Y3 := X3 - Y3 = X1Z2 + X2Z1
+	ST (yout)    \
+	\
+	LDacc (tmp0) \
+	gfpMulBy2Inline \
+	LDacc (tmp0)    \
+	gfpAddInline    \         // t0 := t0 + t0 + t0 = 3X1X2
+	STt (tmp0)   \
+	\
+	LDacc (tmp2) \
+	gfpMulBy2Inline  \
+	t2acc        \
+	gfpMulBy2Inline  \
+	t2acc            \
+	gfpMulBy2Inline  \
+	t2acc            \
+	gfpMulBy2Inline  \
+	t2acc            \
+	LDt (tmp2)       \
+	CALL gfpSubInternal(SB) \ // t2 := 3b * t2 = 3bZ1Z2
+	ST (tmp2)        \  
+	\
+	LDt (tmp1)       \  
+	gfpAddInline     \        // Z3 := t1 + t2 = Y1Y2 + 3bZ1Z2
+	STt (zout)       \
+	\
+	LDacc (tmp1)     \
+	LDt (tmp2)       \
+	CALL gfpSubInternal(SB) \ // t1 := t1 - t2 = Y1Y2 - 3bZ1Z2
+	ST (tmp1)        \
+	\
+	LDacc (yout)     \
+	gfpMulBy2Inline  \
+	t2acc            \
+	gfpMulBy2Inline  \
+	t2acc            \
+	gfpMulBy2Inline  \
+	t2acc            \
+	gfpMulBy2Inline  \
+	t2acc            \
+	LDt (yout)       \
+	CALL gfpSubInternal(SB) \ // Y3 = 3b * Y3 = 3b(X1Z2 + X2Z1)
+	ST (yout)        \
+	\
+	LDt (tmp4)       \
+	CALL gfpMulInternal(SB) \ // X3 := t4 * Y3 = 3b(X1Z2 + X2Z1)(Y1Z2 + Y2Z1)
+	ST (xout)        \
+	\
+	LDacc (tmp1)     \
+	LDt (tmp3)       \
+	CALL gfpMulInternal(SB) \ // t2 := t3 * t1 = (X1Y2 + X2Y1)(Y1Y2 - 3bZ1Z2)
+	LDt (xout)       \
+	CALL gfpSubInternal(SB) \ // X3 := t2 - X3 = (X1Y2 + X2Y1)(Y1Y2 - 3bZ1Z2) - 3b(Y1Z2 + Y2Z1)(X1Z2 + X2Z1)
+	MOVQ rptr, AX    \
+	\// Store x
+	MOVQ acc4, (16*0 + 8*0)(AX) \
+	MOVQ acc5, (16*0 + 8*1)(AX) \
+	MOVQ acc6, (16*0 + 8*2)(AX) \
+	MOVQ acc7, (16*0 + 8*3)(AX) \
+	\
+	LDacc (yout)     \
+	LDt (tmp0)       \
+	CALL gfpMulInternal(SB) \ // Y3 := Y3 * t0 = 9bX1X2(X1Z2 + X2Z1)
+	ST (yout)        \ 
+	\
+	LDacc (tmp1)     \ 
+	LDt (zout)       \
+	CALL gfpMulInternal(SB) \ // t1 := t1 * Z3 = (Y1Y2 + 3bZ1Z2)(Y1Y2 - 3bZ1Z2)
+	LDt (yout)       \  
+	gfpAddInline     \        // Y3 := t1 + Y3 = (Y1Y2 + 3bZ1Z2)(Y1Y2 - 3bZ1Z2) + 9bX1X2(X1Z2 + X2Z1)
+	MOVQ rptr, AX    \
+	\// Store y
+	MOVQ t0, (16*2 + 8*0)(AX) \
+	MOVQ t1, (16*2 + 8*1)(AX) \
+	MOVQ t2, (16*2 + 8*2)(AX) \
+	MOVQ t3, (16*2 + 8*3)(AX) \
+	\
+	LDacc (tmp0)     \    
+	LDt (tmp3)       \
+	CALL gfpMulInternal(SB) \ // t0 := t0 * t3 = 3X1X2(X1Y2 + X2Y1)
+	ST (tmp0)        \
+	LDacc (zout)     \
+	LDt (tmp4)       \
+	CALL gfpMulInternal(SB) \ // Z3 := Z3 * t4 = (Y1Z2 + Y2Z1)(Y1Y2 + 3bZ1Z2)
+	LDt (tmp0)       \
+	gfpAddInline     \        // Z3 := Z3 + t0 = (Y1Z2 + Y2Z1)(Y1Y2 + 3bZ1Z2) + 3X1X2(X1Y2 + X2Y1)
+	MOVQ rptr, AX    \
+	MOVQ $0, rptr    \
+	\// Store z
+	MOVQ t0, (16*4 + 8*0)(AX) \
+	MOVQ t1, (16*4 + 8*1)(AX) \
+	MOVQ t2, (16*4 + 8*2)(AX) \
+	MOVQ t3, (16*4 + 8*3)(AX) \
+
+// func curvePointAddComplete(c, a, b *curvePoint)
+TEXT ·curvePointAddComplete(SB),0,$480-24
+	// Move input to stack in order to free registers
+	MOVQ res+0(FP), AX
+	MOVQ in1+8(FP), BX
+	MOVQ in2+16(FP), CX
+
+	CMPB ·supportAVX2+0(SB), $0x01
+	JEQ  pointadd_avx2
+
+	MOVOU (16*0)(BX), X0
+	MOVOU (16*1)(BX), X1
+	MOVOU (16*2)(BX), X2
+	MOVOU (16*3)(BX), X3
+	MOVOU (16*4)(BX), X4
+	MOVOU (16*5)(BX), X5
+
+	MOVOU X0, x1in(16*0)
+	MOVOU X1, x1in(16*1)
+	MOVOU X2, y1in(16*0)
+	MOVOU X3, y1in(16*1)
+	MOVOU X4, z1in(16*0)
+	MOVOU X5, z1in(16*1)
+
+	MOVOU (16*0)(CX), X0
+	MOVOU (16*1)(CX), X1
+	MOVOU (16*2)(CX), X2
+	MOVOU (16*3)(CX), X3
+	MOVOU (16*4)(CX), X4
+	MOVOU (16*5)(CX), X5
+
+	MOVOU X0, x2in(16*0)
+	MOVOU X1, x2in(16*1)
+	MOVOU X2, y2in(16*0)
+	MOVOU X3, y2in(16*1)
+	MOVOU X4, z2in(16*0)
+	MOVOU X5, z2in(16*1)
+	// Store pointer to result
+	MOVQ AX, rptr
+	
+	curvePointAddCompleteInline
+
+	RET
+	
+pointadd_avx2:	
+	VMOVDQU (32*0)(BX), Y0
+	VMOVDQU (32*1)(BX), Y1
+	VMOVDQU (32*2)(BX), Y2
+
+	VMOVDQU Y0, x1in(32*0)
+	VMOVDQU Y1, y1in(32*0)
+	VMOVDQU Y2, z1in(32*0)
+
+	VMOVDQU (32*0)(CX), Y0
+	VMOVDQU (32*1)(CX), Y1
+	VMOVDQU (32*2)(CX), Y2
+
+	VMOVDQU Y0, x2in(32*0)
+	VMOVDQU Y1, y2in(32*0)
+	VMOVDQU Y2, z2in(32*0)
+
+	// Store pointer to result
+	MOVQ AX, rptr
+	curvePointAddCompleteInline
+
+	VZEROUPPER
+	RET
+
+#undef x1in
+#undef y1in
+#undef z1in
+#undef x2in
+#undef y2in
+#undef z2in
+#undef xout
+#undef yout
+#undef zout
+#undef tmp0
+#undef tmp1
+#undef tmp2
+#undef tmp3
+#undef tmp4
+#undef rptr
+
+/* ---------------------------------------*/
 /*
 #define x1in(off) (32*0 + off)(SP)
 #define y1in(off) (32*1 + off)(SP)

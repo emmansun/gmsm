@@ -27,9 +27,9 @@ func gfp2SquareU(c, a *gfP2)
 //
 //go:noescape
 func curvePointDoubleComplete(c, a *curvePoint)
-/*
+
 // Point addition. Sets res = in1 + in2. in1 can be same as in2, also can be at infinity.
 //
 //go:noescape
 func curvePointAddComplete(c, a, b *curvePoint)
-*/
+
