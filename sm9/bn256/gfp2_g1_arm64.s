@@ -239,6 +239,12 @@ TEXT gfpMulInternal(SB),NOSPLIT,$0
 
 	UMULH	const3, hlp0, hlp0
 	ADC	$0, acc7
+
+	ADDS	t1, acc0, acc0
+	ADCS	y0, acc1, acc1
+	ADCS	acc3, acc2, acc2
+	ADC	$0, hlp0, acc3
+
 	// Add bits [511:256] of the mul result
 	ADDS	acc4, acc0, acc0
 	ADCS	acc5, acc1, acc1
