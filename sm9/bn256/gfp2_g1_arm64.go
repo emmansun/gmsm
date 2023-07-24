@@ -3,8 +3,6 @@
 
 package bn256
 
-package bn256
-
 // gfP2 multiplication.
 //
 //go:noescape
