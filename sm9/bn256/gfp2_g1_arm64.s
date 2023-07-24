@@ -24,7 +24,7 @@
 #define const3 R14
 
 #define hlp0 R17
-#define hlp1 res_ptr
+#define hlp1 R27
 
 #define x0 R19
 #define x1 R20
