@@ -44,10 +44,10 @@ TEXT gfpSubInternal<>(SB),NOSPLIT,$0
 	SBCS	x3, y3, acc3
 	SBC	$0, ZR, t0
 
-	ADDS	·p2+0(SB), acc0, acc4
-	ADCS	·p2+8(SB), acc1, acc5
-	ADCS	·p2+16(SB), acc2, acc6
-	ADC	·p2+24(SB), acc3, acc7
+	ADDS	const0, acc0, acc4
+	ADCS	const1, acc1, acc5
+	ADCS	const2, acc2, acc6
+	ADC	    const3, acc3, acc7
 
 	ANDS	$1, t0
 	CSEL	EQ, acc0, acc4, x0
@@ -447,10 +447,10 @@ TEXT gfpSqrInternal<>(SB),NOSPLIT,$0
 	ADCS	y2, y2, x2;    \
 	ADCS	y3, y3, x3;    \
 	ADC	$0, ZR, hlp0;  \
-	SUBS	·p2+0(SB), x0, acc0;   \
-	SBCS	·p2+8(SB), x1, acc1;\
-	SBCS	·p2+16(SB), x2, acc2;    \
-	SBCS	·p2+24(SB), x3, acc3;\
+	SUBS	const0, x0, acc0;   \
+	SBCS	const1, x1, acc1;\
+	SBCS	const2, x2, acc2;    \
+	SBCS	const3, x3, acc3;\
 	SBCS	$0, hlp0, hlp0;\
 	CSEL	CC, x0, acc0, x0;\
 	CSEL	CC, x1, acc1, x1;\
@@ -465,10 +465,10 @@ TEXT gfpSqrInternal<>(SB),NOSPLIT,$0
 	ADCS	y2, x2, x2;    \
 	ADCS	y3, x3, x3;    \
 	ADC	$0, ZR, hlp0;  \
-	SUBS	·p2+0(SB), x0, acc0;   \
-	SBCS	·p2+8(SB), x1, acc1;\
-	SBCS	·p2+16(SB), x2, acc2;    \
-	SBCS	·p2+24(SB), x3, acc3;\
+	SUBS	const0, x0, acc0;   \
+	SBCS	const1, x1, acc1;\
+	SBCS	const2, x2, acc2;    \
+	SBCS	const3, x3, acc3;\
 	SBCS	$0, hlp0, hlp0;\
 	CSEL	CC, x0, acc0, x0;\
 	CSEL	CC, x1, acc1, x1;\
@@ -480,6 +480,7 @@ TEXT gfpSqrInternal<>(SB),NOSPLIT,$0
 #define y1in(off) (off + 32)(a_ptr)
 #define z1in(off) (off + 64)(a_ptr)
 #define x2in(off) (off)(b_ptr)
+#define y2in(off) (off + 32)(b_ptr)
 #define z2in(off) (off + 64)(b_ptr)
 #define x3out(off) (off)(res_ptr)
 #define y3out(off) (off + 32)(res_ptr)
@@ -537,6 +538,134 @@ TEXT ·gfp2Mul(SB),NOSPLIT,$104-24
 	LDy (tmp1)
 	gfpMulBy2Inline
 	LDy (tmp0)
+	CALL gfpSubInternal(SB)
+	STx (y3out)
+
+	RET
+
+// func gfp2MulU(c, a, b *gfP2)
+TEXT ·gfp2MulU(SB),NOSPLIT,$104-24
+	MOVD	res+0(FP), res_ptr
+	MOVD	in1+8(FP), a_ptr
+	MOVD	in2+16(FP), b_ptr
+
+	MOVD	·np+0x00(SB), hlp1
+	LDP	·p2+0x00(SB), (const0, const1)
+	LDP	·p2+0x10(SB), (const2, const3)
+
+	LDx (y1in)
+	LDy (y2in)
+	CALL gfpMulInternal(SB)
+	STy (tmp0)
+
+	LDx (x1in)
+	LDy (x2in)
+	CALL gfpMulInternal(SB)
+	STy (tmp1)
+
+	LDx (x1in)
+	LDy (y1in)
+	gfpAddInline
+	STx (tmp2)
+
+	LDx (x2in)
+	LDy (y2in)
+	gfpAddInline
+	LDy (tmp2)
+	CALL gfpMulInternal(SB)
+
+	LDx (tmp0)
+	CALL gfpSubInternal(SB)
+	x2y
+	LDx (tmp1)
+	CALL gfpSubInternal(SB)
+	x2y
+	gfpMulBy2Inline
+	MOVD	$0, y0 
+	MOVD	$0, y1 
+	MOVD	$0, y2 
+	MOVD	$0, y3
+	CALL gfpSubInternal(SB)
+	STx (y3out)
+
+	LDy (tmp1)
+	gfpMulBy2Inline
+	LDy (tmp0)
+	CALL gfpSubInternal(SB)
+	STx (x3out)
+
+	RET
+
+// func gfp2Square(c, a *gfP2)
+TEXT ·gfp2Square(SB),NOSPLIT,$72-16
+	MOVD	res+0(FP), res_ptr
+	MOVD	in1+8(FP), a_ptr
+
+	MOVD	·np+0x00(SB), hlp1
+	LDP	·p2+0x00(SB), (const0, const1)
+	LDP	·p2+0x10(SB), (const2, const3)
+
+	LDx (y1in)
+	LDy (x1in)
+	gfpAddInline
+	STx (tmp0)
+	gfpMulBy2Inline
+	LDy (y1in)
+	CALL gfpSubInternal(SB)
+	LDy (tmp0)
+	CALL gfpMulInternal(SB)
+	STy (tmp0)
+
+	LDx (y1in)
+	LDy (x1in)
+	CALL gfpMulInternal(SB)
+	STy (tmp1)
+	LDx (tmp0)
+	gfpAddInline
+	STx (y3out)
+
+	LDy (tmp1)
+	gfpMulBy2Inline
+	STy (x3out)
+
+	RET
+
+// func gfp2SquareU(c, a *gfP2)
+TEXT ·gfp2SquareU(SB),NOSPLIT,$72-16
+	MOVD	res+0(FP), res_ptr
+	MOVD	in1+8(FP), a_ptr
+
+	MOVD	·np+0x00(SB), hlp1
+	LDP	·p2+0x00(SB), (const0, const1)
+	LDP	·p2+0x10(SB), (const2, const3)
+
+	LDx (y1in)
+	LDy (x1in)
+	gfpAddInline
+	STx (tmp0)
+	gfpMulBy2Inline
+	LDy (y1in)
+	CALL gfpSubInternal(SB)
+	LDy (tmp0)
+	CALL gfpMulInternal(SB)
+	STy (tmp0)
+
+	LDx (y1in)
+	LDy (x1in)
+	CALL gfpMulInternal(SB)
+	STy (tmp1)
+	LDx (tmp0)
+	gfpAddInline
+	STx (x3out)
+
+	LDy (tmp1)
+	gfpMulBy2Inline
+	x2y
+	gfpMulBy2Inline
+	MOVD	$0, y0 
+	MOVD	$0, y1 
+	MOVD	$0, y2 
+	MOVD	$0, y3
 	CALL gfpSubInternal(SB)
 	STx (y3out)
 
