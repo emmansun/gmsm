@@ -517,7 +517,8 @@ TEXT ·gfp2Mul(SB),NOSPLIT,$104-24
 	LDy (y2in)
 	CALL gfpMulInternal(SB)
 	STy (tmp0)
-
+    STy (x3out)
+/*
 	LDx (x1in)
 	LDy (x2in)
 	CALL gfpMulInternal(SB)
@@ -546,5 +547,5 @@ TEXT ·gfp2Mul(SB),NOSPLIT,$104-24
 	LDy (tmp0)
 	CALL gfpSubInternal(SB)
 	STx (y3out)
-
+*/
 	RET
