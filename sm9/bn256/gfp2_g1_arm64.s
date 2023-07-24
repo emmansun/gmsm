@@ -37,7 +37,7 @@
 
 /* ---------------------------------------*/
 // (x3, x2, x1, x0) = (y3, y2, y1, y0) - (x3, x2, x1, x0)
-TEXT gfpSubInternal<>(SB),NOSPLIT,$0
+TEXT gfpSubInternal(SB),NOSPLIT,$0
 	SUBS	x0, y0, acc0
 	SBCS	x1, y1, acc1
 	SBCS	x2, y2, acc2
@@ -59,7 +59,7 @@ TEXT gfpSubInternal<>(SB),NOSPLIT,$0
 
 /* ---------------------------------------*/
 // (y3, y2, y1, y0) = (x3, x2, x1, x0) * (y3, y2, y1, y0)
-TEXT gfpMulInternal<>(SB),NOSPLIT,$0
+TEXT gfpMulInternal(SB),NOSPLIT,$0
 	// y[0] * x
 	MUL	y0, x0, acc0
 	UMULH	y0, x0, acc1
@@ -261,7 +261,7 @@ TEXT gfpMulInternal<>(SB),NOSPLIT,$0
 
 /* ---------------------------------------*/
 // (y3, y2, y1, y0) = (x3, x2, x1, x0) ^ 2
-TEXT gfpSqrInternal<>(SB),NOSPLIT,$0
+TEXT gfpSqrInternal(SB),NOSPLIT,$0
 	// x[1:] * x[0]
 	MUL	x0, x1, acc1
 	UMULH	x0, x1, acc2
