@@ -3,7 +3,7 @@
 
 #include "textflag.h"
 
-#define res_ptr R27
+#define res_ptr R0
 #define a_ptr R1
 #define b_ptr R2
 
@@ -24,7 +24,7 @@
 #define const3 R16
 
 #define hlp0 R17
-#define hlp1 R0
+#define hlp1 res_ptr
 
 #define x0 R19
 #define x1 R20
@@ -505,7 +505,6 @@ TEXT gfpSqrInternal(SB),NOSPLIT,$0
 
 // func gfp2Mul(c, a, b *gfP2)
 TEXT ·gfp2Mul(SB),NOSPLIT,$104-24
-	MOVD	res+0(FP), res_ptr
 	MOVD	in1+8(FP), a_ptr
 	MOVD	in2+16(FP), b_ptr
 
@@ -518,8 +517,6 @@ TEXT ·gfp2Mul(SB),NOSPLIT,$104-24
 	CALL gfpMulInternal(SB)
 
 	STy (tmp0)
-    STy (x3out)
-/*
 	LDx (x1in)
 	LDy (x2in)
 	CALL gfpMulInternal(SB)
@@ -541,6 +538,7 @@ TEXT ·gfp2Mul(SB),NOSPLIT,$104-24
 	x2y
 	LDx (tmp1)
 	CALL gfpSubInternal(SB)
+	MOVD	res+0(FP), res_ptr  // not use hlp1 any more    
 	STx (x3out)
 
 	LDy (tmp1)
@@ -548,5 +546,5 @@ TEXT ·gfp2Mul(SB),NOSPLIT,$104-24
 	LDy (tmp0)
 	CALL gfpSubInternal(SB)
 	STx (y3out)
-*/
+
 	RET
