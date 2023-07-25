@@ -757,6 +757,171 @@ TEXT ·curvePointDoubleComplete(SB),NOSPLIT,$168-16
 
 	RET
 
+/* ---------------------------------------*/
 #undef x3t
 #undef y3t
 #undef z3t
+
+#define tmp2(off) (32*2 + 8 + off)(RSP)
+#define tmp3(off) (32*3 + 8 + off)(RSP)
+#define tmp4(off) (32*4 + 8 + off)(RSP)
+#define x3t(off) (32*5 + 8 + off)(RSP)
+#define y3t(off) (32*6 + 8 + off)(RSP)
+#define z3t(off) (32*7 + 8 + off)(RSP)
+
+// func curvePointAddComplete(c, a, b *curvePoint)
+TEXT ·curvePointAddComplete(SB),0,$264-24
+	MOVD	in1+8(FP), a_ptr
+	MOVD	in2+16(FP), b_ptr
+
+	MOVD	·np+0x00(SB), hlp1
+	LDP	·p2+0x00(SB), (const0, const1)
+	LDP	·p2+0x10(SB), (const2, const3)
+
+	LDx (x1in)
+	LDy (x2in)
+	CALL gfpMulInternal(SB)         // t0 := X1X2
+	STy (tmp0)
+	LDx (y1in)
+	LDy (y2in)
+	CALL gfpMulInternal(SB)         // t1 := Y1Y2
+	STy (tmp1)
+	LDx (z1in)
+	LDy (z2in)
+	CALL gfpMulInternal(SB)         // t2 := Z1Z2
+	STy (tmp2)
+
+	LDx (x1in)
+	LDy (y1in)
+	gfpAddInline                    // t3 := X1 + Y1
+	STx (tmp3)
+
+	LDx (x2in)
+	LDy (y2in)
+	gfpAddInline                    // t4 := X2 + Y2
+	LDy (tmp3)
+	CALL gfpMulInternal(SB)         // t3 := t3 * t4 = (X1 + Y1) * (X2 + Y2)
+	STy (tmp3)
+
+	LDx (tmp0)
+	LDy (tmp1)
+	gfpAddInline                    // t4 := t0 + t1
+	LDy (tmp3)
+	CALL gfpSubInternal(SB)         // t3 := t3 - t4 = X1Y2 + X2Y1
+	STx (tmp3)
+
+	LDx (y1in)
+	LDy (z1in)
+	gfpAddInline                    // t4 := Y1 + Z1
+	STx (tmp4)
+
+	LDx (y2in)
+	LDy (z2in)
+	gfpAddInline                    // t3 := Y2 + Z2
+	LDy (tmp4)
+	CALL gfpMulInternal(SB)         // t4 := t4 * X3 = (Y1 + Z1)(Y2 + Z2)
+	STy (tmp4)
+
+	LDx (tmp1)
+	LDy (tmp2)
+	gfpAddInline                    // X3 := t1 + t2
+	LDy (tmp4)
+	CALL gfpSubInternal(SB)         // t4 := t4 - X3 = Y1Z2 + Y2Z1
+	STx (tmp4)
+
+	LDx (x1in)
+	LDy (z1in)
+	gfpAddInline                    // X3 := X1 + Z1
+	STx (x3t)
+
+	LDx (x2in)
+	LDy (z2in)
+	gfpAddInline                    // Y3 := X2 + Z2
+	LDy (x3t)
+	CALL gfpMulInternal(SB)         // X3 := X3 * Y3
+	STy (x3t)
+
+	LDx (tmp0)
+	LDy (tmp2)
+	gfpAddInline                    // Y3 := t0 + t2
+	LDy (x3t)
+	CALL gfpSubInternal(SB)         // Y3 := X3 - Y3 = X1Z2 + X2Z1
+	STx (y3t)
+
+	LDy (tmp0)
+	gfpMulBy2Inline
+	gfpAddInline                    // t0 := t0 + t0 + t0 = 3X1X2
+	STx (tmp0)
+
+	LDy (tmp2)
+	gfpMulBy2Inline
+	x2y
+	gfpMulBy2Inline
+	x2y
+	gfpMulBy2Inline
+	x2y
+	gfpMulBy2Inline
+	x2y
+	LDx (tmp2)
+	CALL gfpSubInternal(SB)        // t2 := 3b * t2 = 3bZ1Z2
+	STx (tmp2)
+
+	LDy (tmp1)
+	gfpAddInline                   // Z3 := t1 + t2 = Y1Y2 + 3bZ1Z2
+	STx (z3t)
+
+	LDx (tmp2)
+	CALL gfpSubInternal(SB)        // t1 := t1 - t2 = Y1Y2 - 3bZ1Z2
+	STx (tmp1)
+
+	LDy (y3t)
+	gfpMulBy2Inline
+	x2y
+	gfpMulBy2Inline
+	x2y
+	gfpMulBy2Inline
+	x2y
+	gfpMulBy2Inline
+	x2y
+	LDx (y3t)
+	CALL gfpSubInternal(SB)        // Y3 = 3b * Y3 = 3b(X1Z2 + X2Z1)
+	STx (y3t)
+
+	LDy (tmp4)
+	CALL gfpMulInternal(SB)        // X3 := t4 * Y3 = 3b(X1Z2 + X2Z1)(Y1Z2 + Y2Z1)
+	STy (x3t)
+
+	MOVD res+0(FP), b_ptr
+
+	LDx (tmp3)
+	LDy (tmp1)
+	CALL gfpMulInternal(SB)        // t2 := t3 * t1 = (X1Y2 + X2Y1)(Y1Y2 - 3bZ1Z2)
+	LDx (x3t)
+	CALL gfpSubInternal(SB)        // X3 := t2 - X3 = (X1Y2 + X2Y1)(Y1Y2 - 3bZ1Z2) - 3b(Y1Z2 + Y2Z1)(X1Z2 + X2Z1)
+	STx (x2in)
+
+	LDy (y3t)
+	LDx (tmp0)
+	CALL gfpMulInternal(SB)        // Y3 := Y3 * t0 = 9bX1X2(X1Z2 + X2Z1)
+	STy (y3t)
+
+	LDx (tmp1)
+	LDy (z3t)
+	CALL gfpMulInternal(SB)        // t1 := t1 * Z3 = (Y1Y2 + 3bZ1Z2)(Y1Y2 - 3bZ1Z2)
+	LDx (y3t)
+	gfpAddInline                   // Y3 := t1 + Y3 = (Y1Y2 + 3bZ1Z2)(Y1Y2 - 3bZ1Z2) + 9bX1X2(X1Z2 + X2Z1)
+	STx (y2in)
+
+	LDx (tmp0)
+	LDy (tmp3)
+	CALL gfpMulInternal(SB)        // t0 := t0 * t3 = 3X1X2(X1Y2 + X2Y1)
+	STy (tmp0)
+
+	LDx (tmp4)
+	LDy (z3t)
+	CALL gfpMulInternal(SB)        // Z3 := Z3 * t4 = (Y1Z2 + Y2Z1)(Y1Y2 + 3bZ1Z2)
+	LDx (tmp0)
+	gfpAddInline                   // Z3 := Z3 + t0 = (Y1Z2 + Y2Z1)(Y1Y2 + 3bZ1Z2) + 3X1X2(X1Y2 + X2Y1)
+	STx (x2in)
+
+	RET
