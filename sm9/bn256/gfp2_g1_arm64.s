@@ -922,6 +922,6 @@ TEXT ·curvePointAddComplete(SB),0,$264-24
 	CALL gfpMulInternal(SB)        // Z3 := Z3 * t4 = (Y1Z2 + Y2Z1)(Y1Y2 + 3bZ1Z2)
 	LDx (tmp0)
 	gfpAddInline                   // Z3 := Z3 + t0 = (Y1Z2 + Y2Z1)(Y1Y2 + 3bZ1Z2) + 3X1X2(X1Y2 + X2Y1)
-	STx (x2in)
+	STx (z2in)
 
 	RET
