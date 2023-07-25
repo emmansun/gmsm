@@ -30,7 +30,7 @@ jobs:
       uses: actions/checkout@v3
       
     - name: Test
-      run: go test -v -short ./sm9/bn256/...
+      run: go test -v -short ./...
       env:
         DISABLE_SM3NI: 1
         DISABLE_SM4NI: 1
