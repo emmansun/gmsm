@@ -18,13 +18,13 @@
 #define acc7 R10
 #define t0 R11
 #define t1 R12
-#define const0 R15
-#define const1 R16
-#define const2 R13
-#define const3 R14
+#define const0 R13
+#define const1 R14
+#define const2 R15
+#define const3 R16
 
 #define hlp0 R17
-#define hlp1 R27
+#define hlp1 res_ptr
 
 #define x0 R19
 #define x1 R20
@@ -505,7 +505,6 @@ TEXT gfpSqrInternal(SB),NOSPLIT,$0
 
 // func gfp2Mul(c, a, b *gfP2)
 TEXT ·gfp2Mul(SB),NOSPLIT,$104-24
-	MOVD	res+0(FP), res_ptr
 	MOVD	in1+8(FP), a_ptr
 	MOVD	in2+16(FP), b_ptr
 
@@ -516,6 +515,7 @@ TEXT ·gfp2Mul(SB),NOSPLIT,$104-24
 	LDx (y1in)
 	LDy (y2in)
 	CALL gfpMulInternal(SB)
+    MOVD	res+0(FP), res_ptr
 	STy (tmp0)
     STy (x3out)
 /*
