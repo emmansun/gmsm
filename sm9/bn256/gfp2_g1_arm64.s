@@ -734,14 +734,14 @@ TEXT ·curvePointDoubleComplete(SB),NOSPLIT,$168-16
 	CALL gfpMulInternal(SB) // Y3 := t0 * Y3
 	LDx (x3t)
 	gfpAddInline            // Y3 := X3 + Y3
-	STx (y2in)
+	STx (y3t)
 
 	LDx (y1in)
 	LDy (z1in)
 	CALL gfpMulInternal(SB) // t1 := YZ
 	LDx (z3t)
 	CALL gfpMulInternal(SB) // Z3 := t1 * Z3
-	STy (z2in)
+	STy (z2in)              // Store Z3
 
 	LDx (x1in)
 	LDy (y1in)
@@ -749,7 +749,10 @@ TEXT ·curvePointDoubleComplete(SB),NOSPLIT,$168-16
 	LDx (tmp0)
 	CALL gfpMulInternal(SB) // X3 := t0 * t1
 	gfpMulBy2Inline         // X3 := X3 + X3
-	STx (x2in)
+	STx (x2in)              // Store X3
+	// Store Y3
+    LDx (y3t)
+    STx (y2in)
 
 	RET
 
