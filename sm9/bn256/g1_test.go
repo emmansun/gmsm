@@ -43,6 +43,95 @@ func TestCurvePointDouble(t *testing.T) {
 	}
 }
 
+func TestCurvePointDobuleComplete(t *testing.T) {
+	t.Run("normal case", func(t *testing.T) {
+		p2 := &curvePoint{}
+		p2.DoubleComplete(curveGen)
+		p2.AffineFromProjective()
+
+		p3 := &curvePoint{}
+		curvePointDouble(p3, curveGen)
+		p3.AffineFromJacobian()
+
+		if !p2.Equal(p3) {
+			t.Errorf("Got %v, expected %v", p2, p3)
+		}
+	})
+
+	t.Run("exception case: IsInfinity", func(t *testing.T) {
+		p1 := &curvePoint{}
+		p1.SetInfinity()
+		p2 := &curvePoint{}
+		p2.DoubleComplete(p1)
+		p2.AffineFromProjective()
+		if !p2.IsInfinity() {
+			t.Fatal("should be infinity")
+		}
+	})
+}
+
+func TestCurvePointAddComplete(t *testing.T) {
+	t.Run("normal case", func(t *testing.T) {
+		p1 := &curvePoint{}
+		curvePointDouble(p1, curveGen)
+		p1.AffineFromJacobian()
+
+		p2 := &curvePoint{}
+		p2.AddComplete(p1, curveGen)
+		p2.AffineFromProjective()
+
+		p3 := &curvePoint{}
+		curvePointAdd(p3, curveGen, p1)
+		p3.AffineFromJacobian()
+
+		if !p2.Equal(p3) {
+			t.Errorf("Got %v, expected %v", p2, p3)
+		}
+	})
+	t.Run("exception case: double", func(t *testing.T) {
+		p2 := &curvePoint{}
+		p2.AddComplete(curveGen, curveGen)
+		p2.AffineFromProjective()
+
+		p3 := &curvePoint{}
+		curvePointDouble(p3, curveGen)
+		p3.AffineFromJacobian()
+		if !p2.Equal(p3) {
+			t.Errorf("Got %v, expected %v", p2, p3)
+		}
+	})
+	t.Run("exception case: neg", func(t *testing.T) {
+		p1 := &curvePoint{}
+		p1.Neg(curveGen)
+		p2 := &curvePoint{}
+		p2.AddComplete(curveGen, p1)
+		p2.AffineFromProjective()
+		if !p2.IsInfinity() {
+			t.Fatal("should be infinity")
+		}
+	})
+	t.Run("exception case: IsInfinity", func(t *testing.T) {
+		p1 := &curvePoint{}
+		p1.SetInfinity()
+		p2 := &curvePoint{}
+		p2.AddComplete(curveGen, p1)
+		p2.AffineFromProjective()
+		if !p2.Equal(curveGen) {
+			t.Fatal("should be curveGen")
+		}
+		p2.AddComplete(p1, curveGen)
+		p2.AffineFromProjective()
+		if !p2.Equal(curveGen) {
+			t.Fatal("should be curveGen")
+		}
+		p2.AddComplete(p1, p1)
+		p2.AffineFromProjective()
+		if !p2.IsInfinity() {
+			t.Fatal("should be infinity")
+		}
+	})
+}
+
 type g1BaseMultTest struct {
 	k string
 }
@@ -611,68 +700,6 @@ func BenchmarkMarshalUnmarshal(b *testing.B) {
 	})
 }
 
-func TestCurvePointAddComplete(t *testing.T) {
-	t.Run("normal case", func(t *testing.T) {
-		p1 := &curvePoint{}
-		curvePointDouble(p1, curveGen)
-		p1.AffineFromJacobian()
-
-		p2 := &curvePoint{}
-		p2.AddComplete(p1, curveGen)
-		p2.AffineFromProjective()
-
-		p3 := &curvePoint{}
-		curvePointAdd(p3, curveGen, p1)
-		p3.AffineFromJacobian()
-
-		if !p2.Equal(p3) {
-			t.Errorf("Got %v, expected %v", p2, p3)
-		}
-	})
-	t.Run("exception case: double", func(t *testing.T) {
-		p2 := &curvePoint{}
-		p2.AddComplete(curveGen, curveGen)
-		p2.AffineFromProjective()
-
-		p3 := &curvePoint{}
-		curvePointDouble(p3, curveGen)
-		p3.AffineFromJacobian()
-		if !p2.Equal(p3) {
-			t.Errorf("Got %v, expected %v", p2, p3)
-		}
-	})
-	t.Run("exception case: neg", func(t *testing.T) {
-		p1 := &curvePoint{}
-		p1.Neg(curveGen)
-		p2 := &curvePoint{}
-		p2.AddComplete(curveGen, p1)
-		p2.AffineFromProjective()
-		if !p2.IsInfinity() {
-			t.Fatal("should be infinity")
-		}
-	})
-	t.Run("exception case: IsInfinity", func(t *testing.T) {
-		p1 := &curvePoint{}
-		p1.SetInfinity()
-		p2 := &curvePoint{}
-		p2.AddComplete(curveGen, p1)
-		p2.AffineFromProjective()
-		if !p2.Equal(curveGen) {
-			t.Fatal("should be curveGen")
-		}
-		p2.AddComplete(p1, curveGen)
-		p2.AffineFromProjective()
-		if !p2.Equal(curveGen) {
-			t.Fatal("should be curveGen")
-		}
-		p2.AddComplete(p1, p1)
-		p2.AffineFromProjective()
-		if !p2.IsInfinity() {
-			t.Fatal("should be infinity")
-		}
-	})
-}
-
 func BenchmarkAddPoint(b *testing.B) {
 	p1 := &curvePoint{}
 	curvePointDouble(p1, curveGen)
@@ -690,33 +717,6 @@ func BenchmarkAddPoint(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			curvePointAdd(p2, curveGen, p1)
-		}
-	})
-}
-
-func TestCurvePointDobuleComplete(t *testing.T) {
-	t.Run("normal case", func(t *testing.T) {
-		p2 := &curvePoint{}
-		p2.DoubleComplete(curveGen)
-		p2.AffineFromProjective()
-
-		p3 := &curvePoint{}
-		curvePointDouble(p3, curveGen)
-		p3.AffineFromJacobian()
-
-		if !p2.Equal(p3) {
-			t.Errorf("Got %v, expected %v", p2, p3)
-		}
-	})
-
-	t.Run("exception case: IsInfinity", func(t *testing.T) {
-		p1 := &curvePoint{}
-		p1.SetInfinity()
-		p2 := &curvePoint{}
-		p2.DoubleComplete(p1)
-		p2.AffineFromProjective()
-		if !p2.IsInfinity() {
-			t.Fatal("should be infinity")
 		}
 	})
 }
