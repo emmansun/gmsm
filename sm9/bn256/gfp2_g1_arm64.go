@@ -8,29 +8,10 @@ package bn256
 //go:noescape
 func gfp2Mul(c, a, b *gfP2)
 
-func gfp2MulU(c, a, b *gfP2) {
-	tmp := &gfP2{}
-	tx := &tmp.x
-	ty := &tmp.y
-	v0, v1 := &gfP{}, &gfP{}
-
-	gfpMul(v0, &a.y, &b.y)
-	gfpMul(v1, &a.x, &b.x)
-
-	gfpAdd(tx, &a.x, &a.y)
-	gfpAdd(ty, &b.x, &b.y)
-
-	gfpMul(ty, tx, ty)
-	gfpSub(ty, ty, v0)
-	gfpSub(ty, ty, v1)
-	gfpDouble(ty, ty)
-	gfpNeg(ty, ty)
-
-	gfpSub(tx, v0, v1)
-	gfpSub(tx, tx, v1)
-
-	gfp2Copy(c, tmp)
-}
+// gfP2 multiplication. c = a*b*u
+//
+//go:noescape
+func gfp2MulU(c, a, b *gfP2)
 
 func gfp2Square(c, a *gfP2) {
 	tmp := &gfP2{}

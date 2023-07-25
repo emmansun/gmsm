@@ -515,8 +515,8 @@ TEXT ·gfp2Mul(SB),NOSPLIT,$104-24
 	LDx (y1in)
 	LDy (y2in)
 	CALL gfpMulInternal(SB)
-
 	STy (tmp0)
+
 	LDx (x1in)
 	LDy (x2in)
 	CALL gfpMulInternal(SB)
@@ -538,7 +538,7 @@ TEXT ·gfp2Mul(SB),NOSPLIT,$104-24
 	x2y
 	LDx (tmp1)
 	CALL gfpSubInternal(SB)
-	MOVD	res+0(FP), res_ptr  // not use hlp1 any more    
+	MOVD	res+0(FP), res_ptr  // not use hlp1 any more
 	STx (x3out)
 
 	LDy (tmp1)
@@ -546,5 +546,58 @@ TEXT ·gfp2Mul(SB),NOSPLIT,$104-24
 	LDy (tmp0)
 	CALL gfpSubInternal(SB)
 	STx (y3out)
+
+	RET
+
+// func gfp2MulU(c, a, b *gfP2)
+TEXT ·gfp2MulU(SB),NOSPLIT,$104-24
+	MOVD	in1+8(FP), a_ptr
+	MOVD	in2+16(FP), b_ptr
+
+	MOVD	·np+0x00(SB), hlp1
+	LDP	·p2+0x00(SB), (const0, const1)
+	LDP	·p2+0x10(SB), (const2, const3)
+
+	LDx (y1in)
+	LDy (y2in)
+	CALL gfpMulInternal(SB)
+	STy (tmp0)
+
+	LDx (x1in)
+	LDy (x2in)
+	CALL gfpMulInternal(SB)
+	STy (tmp1)
+
+	LDx (x1in)
+	LDy (y1in)
+	gfpAddInline
+	STx (tmp2)
+
+	LDx (x2in)
+	LDy (y2in)
+	gfpAddInline
+	LDy (tmp2)
+	CALL gfpMulInternal(SB)
+
+	LDx (tmp0)
+	CALL gfpSubInternal(SB)
+	x2y
+	LDx (tmp1)
+	CALL gfpSubInternal(SB)
+	x2y
+	gfpMulBy2Inline
+	MOVD	$0, y0 
+	MOVD	$0, y1 
+	MOVD	$0, y2 
+	MOVD	$0, y3
+	CALL gfpSubInternal(SB)
+	MOVD	res+0(FP), res_ptr    // not use hlp1 any more
+	STx (y3out)
+
+	LDy (tmp1)
+	gfpMulBy2Inline
+	LDy (tmp0)
+	CALL gfpSubInternal(SB)
+	STx (x3out)
 
 	RET
