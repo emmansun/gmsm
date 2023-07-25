@@ -5,7 +5,7 @@
 4.Wrap/Unwrap Key  
 5.Encryption/Decryption
 
-## SM9 current performance:
+## SM9 current performance (for reference only):
 
 **SM9 Sign/Verify/Enc/Dec Benchmark**
 
@@ -29,4 +29,3 @@
     BenchmarkGenerateSignPrivKey-8      	   18608	     65422 ns/op	     944 B/op	      14 allocs/op
     BenchmarkGenerateEncryptPrivKey-8   	    8486	    151201 ns/op	    1072 B/op	      14 allocs/op
 
-To further improve `Verify()/Decrypt()` performance, need to improve `Pair()` method performance.

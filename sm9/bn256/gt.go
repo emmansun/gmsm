@@ -227,7 +227,7 @@ func GenerateGTFieldTable(basePoint *GT) *[32 * 2]GTFieldTable {
 		for j := 1; j < 15; j += 2 {
 			table[i][j] = &GT{}
 			table[i][j].p = &gfP12{}
-			table[i][j].p.SquareNC(table[i][j/2].p)
+			table[i][j].p.Cyclo6SquareNC(table[i][j/2].p)
 			table[i][j+1] = &GT{}
 			table[i][j+1].p = &gfP12{}
 			table[i][j+1].Add(table[i][j], base)
@@ -274,7 +274,7 @@ func ScalarMultGT(a *GT, scalar []byte) (*GT, error) {
 	for i := 1; i < 15; i += 2 {
 		table[i] = &GT{}
 		table[i].p = &gfP12{}
-		table[i].p.SquareNC(table[i/2].p)
+		table[i].p.Cyclo6SquareNC(table[i/2].p)
 
 		table[i+1] = &GT{}
 		table[i+1].p = &gfP12{}
@@ -289,12 +289,12 @@ func ScalarMultGT(a *GT, scalar []byte) (*GT, error) {
 		// No need to double on the first iteration, as p is the identity at
 		// this point, and [N]∞ = ∞.
 		if i != 0 {
-			e.p.Squares(e.p, 4)
+			e.p.Cyclo6Squares(e.p, 4)
 		}
 		windowValue := byte >> 4
 		table.Select(t, windowValue)
 		e.Add(e, t)
-		e.p.Squares(e.p, 4)
+		e.p.Cyclo6Squares(e.p, 4)
 		windowValue = byte & 0b1111
 		table.Select(t, windowValue)
 		e.Add(e, t)
