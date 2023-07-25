@@ -13,39 +13,15 @@ func gfp2Mul(c, a, b *gfP2)
 //go:noescape
 func gfp2MulU(c, a, b *gfP2)
 
-func gfp2Square(c, a *gfP2) {
-	tmp := &gfP2{}
-	tx := &tmp.x
-	ty := &tmp.y
+// gfP2 square.
+//
+//go:noescape
+func gfp2Square(c, a *gfP2)
 
-	gfpAdd(ty, &a.x, &a.y)
-	gfpDouble(tx, &a.x)
-	gfpSub(tx, &a.y, tx)
-	gfpMul(ty, tx, ty)
-	gfpMul(tx, &a.x, &a.y)
-	gfpAdd(ty, tx, ty)
-	gfpDouble(tx, tx)
-
-	gfp2Copy(c, tmp)
-}
-
-func gfp2SquareU(c, a *gfP2) {
-	tmp := &gfP2{}
-	tx := &tmp.x
-	ty := &tmp.y
-
-	gfpAdd(tx, &a.x, &a.y)
-	gfpDouble(ty, &a.x)
-	gfpSub(ty, &a.y, ty)
-	gfpMul(tx, tx, ty)
-	gfpMul(ty, &a.x, &a.y)
-	gfpAdd(tx, tx, ty)
-	gfpDouble(ty, ty)
-	gfpDouble(ty, ty)
-	gfpNeg(ty, ty)
-
-	gfp2Copy(c, tmp)
-}
+// gfP2 square and mult u.
+//
+//go:noescape
+func gfp2SquareU(c, a *gfP2)
 
 func curvePointDoubleComplete(c, p *curvePoint) {
 	// Complete addition formula for a = 0 from "Complete addition formulas for
