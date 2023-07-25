@@ -676,3 +676,83 @@ TEXT ·gfp2SquareU(SB),NOSPLIT,$72-16
 	STx (y2in)
 
 	RET
+
+/* ---------------------------------------*/
+#undef tmp2
+#define x3t(off) (32*2 + 8 + off)(RSP)
+#define y3t(off) (32*3 + 8 + off)(RSP)
+#define z3t(off) (32*4 + 8 + off)(RSP)
+
+// func curvePointDoubleComplete(c, a *curvePoint)
+TEXT ·curvePointDoubleComplete(SB),NOSPLIT,$168-16
+	MOVD	res+0(FP), b_ptr
+	MOVD	in1+8(FP), a_ptr
+
+	MOVD	·np+0x00(SB), hlp1
+	LDP	·p2+0x00(SB), (const0, const1)
+	LDP	·p2+0x10(SB), (const2, const3)
+
+	LDx (y1in)
+	CALL gfpSqrInternal(SB) // t0 := Y^2
+	STy (tmp0)
+
+	gfpMulBy2Inline         // Z3 := t0 + t0
+	x2y
+	gfpMulBy2Inline         // Z3 := Z3 + Z3
+	x2y
+	gfpMulBy2Inline         // Z3 := Z3 + Z3
+	STx (z3t)
+	
+	LDx (z1in)
+	CALL gfpSqrInternal(SB) // t2 := Z^2
+	STy (tmp1)
+	gfpMulBy2Inline
+	x2y
+	gfpMulBy2Inline
+	x2y
+	gfpMulBy2Inline
+	x2y
+	gfpMulBy2Inline
+	x2y
+	LDx (tmp1)
+	CALL gfpSubInternal(SB) // t2 := 3b * t2 = 3bZ^2
+	STx (tmp1)
+	LDy (z3t)
+	CALL gfpMulInternal(SB) // X3 := t2 * Z3
+	STy (x3t)
+
+	LDx (tmp0)
+	LDy (tmp1)
+	gfpAddInline            // Y3 := t0 + t2
+	STx (y3t)
+	gfpMulBy2Inline
+	gfpAddInline            // t2 := t2 + t2 + t2
+	STx (tmp1)
+	LDy (tmp0)
+	CALL gfpSubInternal(SB) // t0 := t0 - t2
+	LDy (y3t)
+	CALL gfpMulInternal(SB) // Y3 := t0 * Y3
+	LDx (x3t)
+	gfpAddInline            // Y3 := X3 + Y3
+	STx (y2in)
+
+	LDx (y1in)
+	LDy (z1in)
+	CALL gfpMulInternal(SB) // t1 := YZ
+	LDx (z3t)
+	CALL gfpMulInternal(SB) // Z3 := t1 * Z3
+	STy (z2in)
+
+	LDx (x1in)
+	LDy (y1in)
+	CALL gfpMulInternal(SB) // t1 := XY
+	LDx (tmp0)
+	CALL gfpMulInternal(SB) // X3 := t0 * t1
+	gfpMulBy2Inline         // X3 := X3 + X3
+	STx (x2in)
+
+	RET
+
+#undef x3t
+#undef y3t
+#undef z3t
