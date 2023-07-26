@@ -5,6 +5,112 @@ import (
 	"testing"
 )
 
+func TestGfp4BasicOperations(t *testing.T) {
+	x := &gfP4{
+		gfP2{
+			*fromBigInt(bigFromHex("85AEF3D078640C98597B6027B441A01FF1DD2C190F5E93C454806C11D8806141")),
+			*fromBigInt(bigFromHex("3722755292130B08D2AAB97FD34EC120EE265948D19C17ABF9B7213BAF82D65B")),
+		},
+		gfP2{
+			*fromBigInt(bigFromHex("17509B092E845C1266BA0D262CBEE6ED0736A96FA347C8BD856DC76B84EBEB96")),
+			*fromBigInt(bigFromHex("A7CF28D519BE3DA65F3170153D278FF247EFBA98A71A08116215BBA5C999A7C7")),
+		},
+	}
+	y := &gfP4{}
+	y.x.Set(&x.y)
+	y.y.Set(&x.x)
+
+	expectedAdd := "((5bf55bb67d25f098609a367366d94d6599da7405db44c388edb64706908922e4, 728185f97d3df3a01d3ad2a0e140d12011e10fa47d50fd12e6413a361e549cd9), (5bf55bb67d25f098609a367366d94d6599da7405db44c388edb64706908922e4, 728185f97d3df3a01d3ad2a0e140d12011e10fa47d50fd12e6413a361e549cd9))"
+	expectedSub := "((0e6cca2ef0f4dce3fa4a249bb48a25d84dbf1f63ac843004e3b586d5dac6e8eb, 51785a37fb519603d4b026648151d768ebe9b9193a9c83c365c31316fb711845), (a7d335d111aeca0ddbb986b44104a16cd43373e76df6bed701ba1452088a5c92, 64c7a5c8075210ee015384eb743cefdc3608da31dfde6b187fac8810e7e02d38))"
+	expectedMul := "((5f318c234b817377df2179ff82a0759c6b926330853e5abd919e45a6a93e658e, 3c9db0f3bbdb89a9a407dfec4f8f4d6b8ef35b2a3f05e7bcc9bb6a956876faf7), (3ef93f2e9fa8c29914fd823d04d243503646107711ec6068eb28c59946d24878, 2caf5e47bc5be242917002b1f89afaf5ff27ebafcb9a7bcdab917c82b6a4cb41))"
+	expectedMulV := "((3ef93f2e9fa8c29914fd823d04d243503646107711ec6068eb28c59946d24878, 2caf5e47bc5be242917002b1f89afaf5ff27ebafcb9a7bcdab917c82b6a4cb41), (3c9db0f3bbdb89a9a407dfec4f8f4d6b8ef35b2a3f05e7bcc9bb6a956876faf7, ae1ce7b96e4466f3edc462a0e5dca3516cc060352a79283ca7a2ab027425bfde))"
+
+	t.Run("Add", func(t *testing.T) {
+		got := &gfP4{}
+		got.Set(x)
+		got.Add(got, y)
+		if got.String() != expectedAdd {
+			t.Errorf("got %v, expected %v", got, expectedAdd)
+		}
+	})
+
+	t.Run("Sub", func(t *testing.T) {
+		got := &gfP4{}
+		got.Set(x)
+		got.Sub(got, y)
+		if got.String() != expectedSub {
+			t.Errorf("got %v, expected %v", got, expectedSub)
+		}
+	})
+
+	t.Run("Mul", func(t *testing.T) {
+		got := &gfP4{}
+		got.Set(x)
+		got.Mul(got, y)
+		if got.String() != expectedMul {
+			t.Errorf("got %v, expected %v", got, expectedMul)
+		}
+	})
+
+	t.Run("MulV", func(t *testing.T) {
+		got := &gfP4{}
+		got.Set(x)
+		got.MulV(got, y)
+		if got.String() != expectedMulV {
+			t.Errorf("got %v, expected %v", got, expectedMulV)
+		}
+	})
+
+	t.Run("Double", func(t *testing.T) {
+		got := &gfP4{}
+		got.Set(x)
+		got.Double(got)
+
+		expected := &gfP4{}
+		expected.Add(x, x)
+		if got.x.Equal(&expected.x) != 1 || got.y.Equal(&expected.y) != 1 {
+			t.Errorf("got %v, expected %v", got, expected)
+		}
+	})
+
+	t.Run("Triple", func(t *testing.T) {
+		got := &gfP4{}
+		got.Set(x)
+		got.Triple(got)
+
+		expected := &gfP4{}
+		expected.Add(x, x)
+		expected.Add(expected, x)
+		if got.x.Equal(&expected.x) != 1 || got.y.Equal(&expected.y) != 1 {
+			t.Errorf("got %v, expected %v", got, expected)
+		}
+	})
+
+	t.Run("Square", func(t *testing.T) {
+		got := &gfP4{}
+		got.Set(x)
+		got.Square(got)
+
+		expected := &gfP4{}
+		expected.Mul(x, x)
+		if got.x.Equal(&expected.x) != 1 || got.y.Equal(&expected.y) != 1 {
+			t.Errorf("got %v, expected %v", got, expected)
+		}
+	})
+
+	t.Run("SquareV", func(t *testing.T) {
+		got := &gfP4{}
+		got.Set(x)
+		got.SquareV(got)
+
+		expected := &gfP4{}
+		expected.MulV(x, x)
+		if got.x.Equal(&expected.x) != 1 || got.y.Equal(&expected.y) != 1 {
+			t.Errorf("got %v, expected %v", got, expected)
+		}
+	})
+}
+
 func Test_gfP4Square(t *testing.T) {
 	x := &gfP4{
 		gfP2{
