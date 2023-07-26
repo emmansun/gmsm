@@ -837,6 +837,7 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 
 	RET
 /* ---------------------------------------*/
+// (x3, x2, x1, x0) = (y3, y2, y1, y0) - (x3, x2, x1, x0)	
 TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
 	SUBS	x0, y0, acc0
 	SBCS	x1, y1, acc1
@@ -858,6 +859,7 @@ TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
 	RET
 
 /* ---------------------------------------*/
+// (y3, y2, y1, y0) = (x3, x2, x1, x0) ^ 2
 TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	// x[1:] * x[0]
 	MUL	x0, x1, acc1
@@ -988,6 +990,7 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	CSEL	CS, acc6, acc3, y3
 	RET
 /* ---------------------------------------*/
+// (y3, y2, y1, y0) = (x3, x2, x1, x0) * (y3, y2, y1, y0)
 TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	// y[0] * x
 	MUL	y0, x0, acc0
@@ -1146,6 +1149,7 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	CSEL	CS, acc6, acc3, y3
 	RET
 /* ---------------------------------------*/
+// (x3, x2, x1, x0) = 2(y3, y2, y1, y0)
 #define p256MulBy2Inline       \
 	ADDS	y0, y0, x0;    \
 	ADCS	y1, y1, x1;    \
@@ -1364,6 +1368,7 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 
 	RET
 
+// (x3, x2, x1, x0) = (x3, x2, x1, x0) + (y3, y2, y1, y0)
 #define p256AddInline          \
 	ADDS	y0, x0, x0;    \
 	ADCS	y1, x1, x1;    \

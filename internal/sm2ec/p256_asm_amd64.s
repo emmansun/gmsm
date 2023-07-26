@@ -224,18 +224,19 @@ TEXT ·p256NegCond(SB),NOSPLIT,$0
 	MOVQ a3, (8*3)(res)            \
 
 #define p256SqrMontReduce() \
-	\ // First reduction step
+	\ // First reduction step, [p3, p2, p1, p0] = [1, -0x100000000, 0, (1 - 0x100000000), -1]
 	MOVQ acc0, AX           \
 	MOVQ acc0, DX           \
-	SHLQ $32, AX            \
-	SHRQ $32, DX            \
-	\
-	ADDQ acc0, acc1            \
-	ADCQ $0, acc2            \
-	ADCQ $0, acc3            \
-	ADCQ $0, acc0            \
-	\
-	SUBQ AX, acc1            \
+	SHLQ $32, AX            \  // AX = L(acc0 * 2^32), low part
+	SHRQ $32, DX            \  // DX = H(acc0 * 2^32), high part
+	\ // calculate the positive part first: [1, 0, 0, 1] * acc0 + [0, acc3, acc2, acc1], 
+	\ // due to (-1) * acc0 + acc0 == 0, so last lowest lamb 0 is dropped directly, no carry.
+	ADDQ acc0, acc1          \ // acc1' = L (acc0 + acc1)
+	ADCQ $0, acc2            \ // acc2' = acc2 + carry1
+	ADCQ $0, acc3            \ // acc3' = acc3 + carry2
+	ADCQ $0, acc0            \ // acc0' = acc0 + carry3
+	\// calculate the negative part: [0, -0x100000000, 0, -0x100000000] * acc0
+	SUBQ AX, acc1            \ 
 	SBBQ DX, acc2            \
 	SBBQ AX, acc3            \
 	SBBQ DX, acc0            \
@@ -382,6 +383,7 @@ sqrLoop:
 	ADCQ DX, t1
 	MOVQ t1, x_ptr
 
+	// T = [x_ptr, y_ptr, acc5, acc4, acc3, acc2, acc1, acc0]
 	p256SqrMontReduce()
 	p256PrimReduce(acc0, acc1, acc2, acc3, t0, acc4, acc5, y_ptr, t1, res_ptr)
 	MOVQ res_ptr, x_ptr            
@@ -450,6 +452,7 @@ sqrBMI2:
 	ADCQ AX, y_ptr
 	ADCQ t1, x_ptr
 
+	// T = [x_ptr, y_ptr, acc5, acc4, acc3, acc2, acc1, acc0]
 	p256SqrMontReduce()
 	p256PrimReduce(acc0, acc1, acc2, acc3, t0, acc4, acc5, y_ptr, t1, res_ptr)
 	MOVQ res_ptr, x_ptr            
@@ -1722,17 +1725,20 @@ ordSqrLoop:
 	ADCQ AX, y_ptr
 	ADCQ DX, t1
 	MOVQ t1, x_ptr
-	// First reduction step
+
+	// T = [x_ptr, y_ptr, acc5, acc4, acc3, acc2, acc1, acc0]
+	// First reduction step, [ord3, ord2, ord1, ord0] = [1, -0x100000000, -1, ord1, ord0]
 	MOVQ acc0, AX
 	MULQ p256ordK0<>(SB)
 	MOVQ AX, t0                 // Y = t0 = (k0 * acc0) mod 2^64
-
+	// calculate the positive part first: [1, 0, 0, ord1, ord0] * t0 + [0, acc3, acc2, acc1, acc0]
+	// the result is [acc0, acc3, acc2, acc1], last lowest limb is dropped.
 	MOVQ p256ord<>+0x00(SB), AX
 	MULQ t0
-	ADDQ AX, acc0               // (carry1, acc0) = acc0 + t0 * ord0
+	ADDQ AX, acc0               // (carry1, acc0) = acc0 + L(t0 * ord0)
 	ADCQ $0, DX                 // DX = carry1 + H(t0 * ord0)
 	MOVQ DX, t1                 // t1 = carry1 + H(t0 * ord0)
-	MOVQ t0, acc0
+	MOVQ t0, acc0               // acc0 =  t0
 
 	MOVQ p256ord<>+0x08(SB), AX
 	MULQ t0
@@ -1743,7 +1749,7 @@ ordSqrLoop:
 	ADCQ DX, acc2
 	ADCQ $0, acc3
 	ADCQ $0, acc0
-
+	// calculate the positive part: [acc0, acc3, acc2, acc1] - [0, 0x100000000, 1, 0] * t0
 	MOVQ t0, AX
 	MOVQ t0, DX
 	SHLQ $32, AX
@@ -1918,23 +1924,25 @@ ordSqrLoopBMI2:
 	ADCQ AX, y_ptr
 	ADCQ t1, x_ptr
 
-	// First reduction step
+	// T = [x_ptr, y_ptr, acc5, acc4, acc3, acc2, acc1, acc0]
+	// First reduction step, [ord3, ord2, ord1, ord0] = [1, -0x100000000, -1, ord1, ord0]
 	MOVQ acc0, DX
 	MULXQ p256ordK0<>(SB), t0, AX
-
+	// calculate the positive part first: [1, 0, 0, ord1, ord0] * t0 + [0, acc3, acc2, acc1, acc0]
+	// the result is [acc0, acc3, acc2, acc1], last lowest limb is dropped.
 	MOVQ t0, DX                 // Y = t0 = (k0 * acc0) mod 2^64
 	MULXQ p256ord<>+0x00(SB), AX, t1
-	ADDQ AX, acc0               // (carry1, acc0) = acc0 + t0 * ord0
-	ADCQ t1, acc1
-	MOVQ t0, acc0
+	ADDQ AX, acc0               // (carry1, acc0) = acc0 + L(t0 * ord0)
+	ADCQ t1, acc1               // (carry2, acc1) = acc1 + H(t0 * ord0) + carry1
+	MOVQ t0, acc0               // acc0 = t0 
 
 	MULXQ p256ord<>+0x08(SB), AX, t1
 	ADCQ $0, t1                 // t1 = carry2 + H(t0*ord1)
-	ADDQ AX, acc1               // (carry3, acc1) = acc1 + t1 + L(t0*ord1)
-	ADCQ t1, acc2
-	ADCQ $0, acc3
-	ADCQ $0, acc0
-
+	ADDQ AX, acc1               // (carry3, acc1) = acc1 + L(t0*ord1)
+	ADCQ t1, acc2               // (carry4, acc2) = acc2 + t1 + carry3
+	ADCQ $0, acc3               // (carry5, acc3) = acc3 + carry4
+	ADCQ $0, acc0               //           acc0 = t0 + carry5 
+	// calculate the positive part: [acc0, acc3, acc2, acc1] - [0, 0x100000000, 1, 0] * t0
 	MOVQ t0, AX
 	//MOVQ t0, DX              // This is not required due to t0=DX already
 	SHLQ $32, AX
@@ -2065,6 +2073,7 @@ ordSqrLoopBMI2:
 #define t3 SI
 #define hlp BP
 /* ---------------------------------------*/
+// [acc7, acc6, acc5, acc4] = [acc7, acc6, acc5, acc4] - [t3, t2, t1, t0]
 TEXT sm2P256SubInternal(SB),NOSPLIT,$0
 	XORQ mul0, mul0
 	SUBQ t0, acc4
@@ -2091,6 +2100,7 @@ TEXT sm2P256SubInternal(SB),NOSPLIT,$0
 
 	RET
 /* ---------------------------------------*/
+// [acc7, acc6, acc5, acc4] = [acc7, acc6, acc5, acc4] * [t3, t2, t1, t0]
 TEXT sm2P256MulInternal(SB),NOSPLIT,$8
 	CMPB ·supportBMI2+0(SB), $0x01
 	JEQ  internalMulBMI2
@@ -2538,6 +2548,7 @@ internalMulBMI2:
 	CMOVQCS t3, acc7                   \
 
 /* ---------------------------------------*/
+// [acc7, acc6, acc5, acc4] = [acc7, acc6, acc5, acc4]^2
 TEXT sm2P256SqrInternal(SB),NOSPLIT,$8
 	CMPB ·supportBMI2+0(SB), $0x01
 	JEQ  internalSqrBMI2
@@ -2612,7 +2623,7 @@ TEXT sm2P256SqrInternal(SB),NOSPLIT,$8
 	ADDQ acc4, t1
 	ADCQ mul0, t2
 	ADCQ DX, t3
-
+	// T = [t3, t2,, t1, t0, acc3, acc2, acc1, acc0]
 	sm2P256SqrReductionInternal()
 	RET
 
@@ -2670,12 +2681,13 @@ internalSqrBMI2:
 	MULXQ mul1, mul0, acc4
 	ADCQ mul0, t2
 	ADCQ acc4, t3
-	
+	// T = [t3, t2,, t1, t0, acc3, acc2, acc1, acc0]
 	sm2P256SqrReductionInternal()
 
 	RET
 
 /* ---------------------------------------*/
+// [t3, t2, t1, t0] = 2[acc7, acc6, acc5, acc4]
 #define p256MulBy2Inline\
 	XORQ mul0, mul0;\
 	ADDQ acc4, acc4;\
@@ -2697,6 +2709,7 @@ internalSqrBMI2:
 	CMOVQCS acc6, t2;\
 	CMOVQCS acc7, t3;
 /* ---------------------------------------*/
+// [t3, t2, t1, t0] = [acc7, acc6, acc5, acc4] + [t3, t2, t1, t0]
 #define p256AddInline \
 	XORQ mul0, mul0;\
 	ADDQ t0, acc4;\
