@@ -636,8 +636,8 @@ TEXT ·gfp2MulU1(SB),NOSPLIT,$0-16
 	CALL gfpSubInternal(SB)
 	
 	ADD $32, a_ptr, a_ptr
-	VLD1 32(a_ptr), [V0.B16, V1.B16]
-	VST1 [V0.B16, V1.B16], 32(b_ptr)
+	VLD1 (a_ptr), [V0.B16, V1.B16]
+	VST1 [V0.B16, V1.B16], (b_ptr)
 	STx (y2in)
 
 	RET
