@@ -619,6 +619,29 @@ TEXT ·gfp2MulU(SB),NOSPLIT,$104-24
 
 	RET
 
+// func gfp2MulU1(c, a *gfP2)
+TEXT ·gfp2MulU1(SB),NOSPLIT,$0-16
+	MOVD	res+0(FP), b_ptr
+	MOVD	in1+8(FP), a_ptr
+
+	LDP	·p2+0x00(SB), (const0, const1)
+	LDP	·p2+0x10(SB), (const2, const3)
+
+	LDy (x1in)
+	gfpMulBy2Inline
+	MOVD	$0, y0 
+	MOVD	$0, y1 
+	MOVD	$0, y2 
+	MOVD	$0, y3
+	CALL gfpSubInternal(SB)
+	
+	ADD $32, a_ptr, a_ptr
+	VLD1 32(a_ptr), [V0.B16, V1.B16]
+	VST1 [V0.B16, V1.B16], 32(b_ptr)
+	STx (y2in)
+
+	RET
+
 // func gfp2Square(c, a *gfP2)
 TEXT ·gfp2Square(SB),NOSPLIT,$72-16
 	MOVD	res+0(FP), b_ptr

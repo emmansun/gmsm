@@ -18,6 +18,8 @@ func TestGfp2BasicOperations(t *testing.T) {
 	expectedSub := "(0e6cca2ef0f4dce3fa4a249bb48a25d84dbf1f63ac843004e3b586d5dac6e8eb, 51785a37fb519603d4b026648151d768ebe9b9193a9c83c365c31316fb711845)"
 	expectedMul := "(7f98a04cf83164be0fdc4763a7c6f24c2901191f2917eb71037cd5221cf002bb, 75a09ee1aa1b04ccdb24e629529a18492f378aa3034f63d3cd1b8b9f0d338b3a)"
 	expectedMulU := "(75a09ee1aa1b04ccdb24e629529a18492f378aa3034f63d3cd1b8b9f0d338b3a, 6d4ebf6614e484678c4ec7d89b8fa9f1f1e2f457e2c606d5c3e58c0b8cc28584)"
+
+	t.Parallel()
 	t.Run("Add", func(t *testing.T) {
 		ret := &gfP2{}
 		ret.Add(x, y)
@@ -240,6 +242,34 @@ func BenchmarkGfP2Mul(b *testing.B) {
 	}
 }
 
+func BenchmarkGfP2MulScalar(b *testing.B) {
+	x := &gfP2{
+		*fromBigInt(bigFromHex("85AEF3D078640C98597B6027B441A01FF1DD2C190F5E93C454806C11D8806141")),
+		*fromBigInt(bigFromHex("3722755292130B08D2AAB97FD34EC120EE265948D19C17ABF9B7213BAF82D65B")),
+	}
+
+	t := &gfP2{}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		t.MulScalar(x, &x.x)
+	}
+}
+
+func BenchmarkGfP2MulU1(b *testing.B) {
+	x := &gfP2{
+		*fromBigInt(bigFromHex("85AEF3D078640C98597B6027B441A01FF1DD2C190F5E93C454806C11D8806141")),
+		*fromBigInt(bigFromHex("3722755292130B08D2AAB97FD34EC120EE265948D19C17ABF9B7213BAF82D65B")),
+	}
+
+	t := &gfP2{}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		t.MulU1(x)
+	}
+}
+
 func BenchmarkGfP2MulU(b *testing.B) {
 	x := &gfP2{
 		*fromBigInt(bigFromHex("85AEF3D078640C98597B6027B441A01FF1DD2C190F5E93C454806C11D8806141")),
@@ -279,6 +309,19 @@ func BenchmarkGfP2SquareU(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		x.SquareU(x)
+	}
+}
+
+func BenchmarkGfP2Invert(b *testing.B) {
+	x := &gfP2{
+		*fromBigInt(bigFromHex("85AEF3D078640C98597B6027B441A01FF1DD2C190F5E93C454806C11D8806141")),
+		*fromBigInt(bigFromHex("3722755292130B08D2AAB97FD34EC120EE265948D19C17ABF9B7213BAF82D65B")),
+	}
+	t := &gfP2{}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		t.Invert(x)
 	}
 }
 

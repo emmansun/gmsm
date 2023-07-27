@@ -25,6 +25,7 @@ func TestGfp4BasicOperations(t *testing.T) {
 	expectedMul := "((5f318c234b817377df2179ff82a0759c6b926330853e5abd919e45a6a93e658e, 3c9db0f3bbdb89a9a407dfec4f8f4d6b8ef35b2a3f05e7bcc9bb6a956876faf7), (3ef93f2e9fa8c29914fd823d04d243503646107711ec6068eb28c59946d24878, 2caf5e47bc5be242917002b1f89afaf5ff27ebafcb9a7bcdab917c82b6a4cb41))"
 	expectedMulV := "((3ef93f2e9fa8c29914fd823d04d243503646107711ec6068eb28c59946d24878, 2caf5e47bc5be242917002b1f89afaf5ff27ebafcb9a7bcdab917c82b6a4cb41), (3c9db0f3bbdb89a9a407dfec4f8f4d6b8ef35b2a3f05e7bcc9bb6a956876faf7, ae1ce7b96e4466f3edc462a0e5dca3516cc060352a79283ca7a2ab027425bfde))"
 
+	t.Parallel()
 	t.Run("Add", func(t *testing.T) {
 		got := &gfP4{}
 		got.Set(x)
@@ -306,10 +307,10 @@ func BenchmarkGfP4Mul(b *testing.B) {
 			*fromBigInt(bigFromHex("3722755292130B08D2AAB97FD34EC120EE265948D19C17ABF9B7213BAF82D65B")),
 		},
 	}
+	t := &gfP4{}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		t := &gfP4{}
 		t.Mul(x, y)
 	}
 }

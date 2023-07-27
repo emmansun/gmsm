@@ -135,12 +135,7 @@ func (e *gfP2) MulU(a, b *gfP2) *gfP2 {
 // c1 = a0
 // c0 = -2a1
 func (e *gfP2) MulU1(a *gfP2) *gfP2 {
-	t := &gfP{}
-	gfpDouble(t, &a.x)
-	gfpNeg(t, t)
-
-	gfpCopy(&e.x, &a.y)
-	gfpCopy(&e.y, t)
+	gfp2MulU1(e, a)
 	return e
 }
 

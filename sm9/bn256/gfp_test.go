@@ -16,6 +16,7 @@ func TestGfpBasicOperations(t *testing.T) {
 	expectedMul := fromBigInt(bigFromHex("3d08bbad376584e4f74bd31f78f716372b96ba8c3f939c12b8d54e79b6489e76"))
 	expectedMul2 := fromBigInt(bigFromHex("1df94a9e05a559ff38e0ab50cece734dc058d33738ceacaa15986a67cbff1ef6"))
 
+	t.Parallel()
 	t.Run("add", func(t *testing.T) {
 		ret := &gfP{}
 		gfpAdd(ret, x, y)

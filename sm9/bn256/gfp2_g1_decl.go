@@ -13,6 +13,11 @@ func gfp2Mul(c, a, b *gfP2)
 //go:noescape
 func gfp2MulU(c, a, b *gfP2)
 
+// gfP2 multiplication. c = a*u
+//
+//go:noescape
+func gfp2MulU1(c, a *gfP2)
+
 // gfP2 square.
 //
 //go:noescape

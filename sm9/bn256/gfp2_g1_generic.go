@@ -48,6 +48,15 @@ func gfp2MulU(c, a, b *gfP2) {
 	gfp2Copy(c, tmp)
 }
 
+func gfp2MulU1(c, a *gfP2) {
+	t := &gfP{}
+	gfpDouble(t, &a.x)
+	gfpNeg(t, t)
+
+	gfpCopy(&c.x, &a.y)
+	gfpCopy(&c.y, t)
+}
+
 func gfp2Square(c, a *gfP2) {
 	tmp := &gfP2{}
 	tx := &tmp.x

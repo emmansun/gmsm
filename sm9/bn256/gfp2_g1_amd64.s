@@ -1197,6 +1197,35 @@ TEXT ·gfp2MulU(SB),NOSPLIT,$256-24
 #undef cxout
 #undef rptr
 
+TEXT ·gfp2MulU1(SB),NOSPLIT,$0-16
+	// Move input to stack in order to free registers
+	MOVQ res+0(FP), mul1
+	MOVQ in1+8(FP), AX
+
+	//LDacc (axin)
+	MOVOU (16*2)(AX), X2
+	MOVOU (16*3)(AX), X3
+	MOVQ (16*0 + 8*0)(AX), acc4
+	MOVQ (16*0 + 8*1)(AX), acc5
+	MOVQ (16*0 + 8*2)(AX), acc6
+	MOVQ (16*0 + 8*3)(AX), acc7
+
+	gfpMulBy2Inline
+	XORQ acc4, acc4
+	XORQ acc5, acc5
+	XORQ acc6, acc6
+	XORQ acc7, acc7
+	CALL gfpSubInternal(SB)
+
+	MOVOU X2, (16*0)(mul1)
+	MOVOU X3, (16*1)(mul1)
+	MOVQ acc4, (16*2 + 8*0)(mul1)
+	MOVQ acc5, (16*2 + 8*1)(mul1)
+	MOVQ acc6, (16*2 + 8*2)(mul1)
+	MOVQ acc7, (16*2 + 8*3)(mul1)
+
+	RET
+
 #define axin(off) (32*0 + off)(SP)
 #define ayin(off) (32*1 + off)(SP)
 #define cxout(off) (32*2 + off)(SP)

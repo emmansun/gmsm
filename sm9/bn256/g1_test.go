@@ -44,6 +44,7 @@ func TestCurvePointDouble(t *testing.T) {
 }
 
 func TestCurvePointDobuleComplete(t *testing.T) {
+	t.Parallel()
 	t.Run("normal case", func(t *testing.T) {
 		p2 := &curvePoint{}
 		p2.DoubleComplete(curveGen)
@@ -71,6 +72,7 @@ func TestCurvePointDobuleComplete(t *testing.T) {
 }
 
 func TestCurvePointAddComplete(t *testing.T) {
+	t.Parallel()
 	t.Run("normal case", func(t *testing.T) {
 		p1 := &curvePoint{}
 		curvePointDouble(p1, curveGen)
@@ -737,4 +739,5 @@ func BenchmarkDoublePoint(b *testing.B) {
 			curvePointDouble(p2, curveGen)
 		}
 	})
+	
 }
