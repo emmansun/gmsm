@@ -965,6 +965,28 @@ noAdxSqr:
 	CMOVQCS acc6, t2;\
 	CMOVQCS acc7, t3;
 
+// (acc7, acc6, acc5, acc4) = 2(acc7, acc6, acc5, acc4)
+#define gfpMulBy2Inline2 \
+	XORQ mul0, mul0;\
+	ADDQ acc4, acc4;\
+	ADCQ acc5, acc5;\
+	ADCQ acc6, acc6;\
+	ADCQ acc7, acc7;\
+	ADCQ $0, mul0;\
+	MOVQ acc4, t0;\
+	MOVQ acc5, t1;\
+	MOVQ acc6, t2;\
+	MOVQ acc7, t3;\
+	SUBQ ·p2+0(SB), acc4;\
+	SBBQ ·p2+8(SB), acc5;\
+	SBBQ ·p2+16(SB), acc6;\
+	SBBQ ·p2+24(SB), acc7;\
+	SBBQ $0, mul0;\
+	CMOVQCS t0, acc4;\ // CMOVQCS: Move if below (CF == 1)
+	CMOVQCS t1, acc5;\
+	CMOVQCS t2, acc6;\
+	CMOVQCS t3, acc7;	
+
 /* ---------------------------------------*/
 // (t3, t2, t1, t0) = (acc7, acc6, acc5, acc4) + (t3, t2, t1, t0)
 #define gfpAddInline \
@@ -1294,8 +1316,7 @@ TEXT ·gfp2SquareU(SB),NOSPLIT,$160-16
 	MOVQ t3, (16*0 + 8*3)(AX)
 
 	LDacc (cyout)
-	gfpMulBy2Inline
-	t2acc
+	gfpMulBy2Inline2
 	gfpMulBy2Inline
 	XORQ acc4, acc4
 	XORQ acc5, acc5
@@ -1358,41 +1379,41 @@ TEXT ·curvePointDoubleComplete(SB),NOSPLIT,$288-16
 	CALL gfpSqrInternal(SB) // t0 := Y^2
 	ST (tmp0)
 
-	gfpMulBy2Inline // Z3 := t0 + t0
-	t2acc
-	gfpMulBy2Inline // Z3 := Z3 + Z3
-	t2acc
-	gfpMulBy2Inline // Z3 := Z3 + Z3
+	gfpMulBy2Inline2        // Z3 := t0 + t0
+	gfpMulBy2Inline2        // Z3 := Z3 + Z3
+	gfpMulBy2Inline         // Z3 := Z3 + Z3
 	STt (zout)	
 
 	LDacc (zin)
 	CALL gfpSqrInternal(SB) // t2 := Z^2
-	ST (tmp2)
-	gfpMulBy2Inline
-	t2acc
-	gfpMulBy2Inline
-	t2acc
-	gfpMulBy2Inline
-	t2acc
-	gfpMulBy2Inline
-	t2acc
-	LDt (tmp2)
+	MOVQ acc4, acc0
+	MOVQ acc5, acc1
+	MOVQ acc6, acc2
+	MOVQ acc7, acc3
+	gfpMulBy2Inline2
+	gfpMulBy2Inline2
+	gfpMulBy2Inline2
+	gfpMulBy2Inline2
+	MOVQ acc0, t0
+	MOVQ acc1, t1
+	MOVQ acc2, t2
+	MOVQ acc3, t3	
 	CALL gfpSubInternal(SB)  // t2 := 3b * t2
 	ST (tmp2)
 	LDt (zout)
-	CALL gfpMulInternal(SB) // X3 := Z3 * t2
+	CALL gfpMulInternal(SB)  // X3 := Z3 * t2
 	ST (xout)
 
 	LDacc (tmp0)
 	LDt (tmp2)
-	gfpAddInline // Y3 := t0 + t2
+	gfpAddInline             // Y3 := t0 + t2
 	STt (yout)
 
 	LDacc (yin)
 	LDt (zin)
-	CALL gfpMulInternal(SB) // t1 := YZ
+	CALL gfpMulInternal(SB)  // t1 := YZ
 	LDt (zout)
-	CALL gfpMulInternal(SB) // Z3 := t1 * Z3
+	CALL gfpMulInternal(SB)  // Z3 := t1 * Z3
 	MOVQ rptr, AX
 	// Store Z
 	MOVQ acc4, (16*4 + 8*0)(AX)
@@ -1403,14 +1424,14 @@ TEXT ·curvePointDoubleComplete(SB),NOSPLIT,$288-16
 	LDacc (tmp2) 
 	gfpMulBy2Inline
 	LDacc (tmp2)
-	gfpAddInline // t2 := t2 + t2 + t2
+	gfpAddInline            // t2 := t2 + t2 + t2
 	LDacc (tmp0)
 	CALL gfpSubInternal(SB) // t0 := t0 - t2
 	ST (tmp0)
 	LDt (yout)
 	CALL gfpMulInternal(SB) // Y3 = t0 * Y3
 	LDt (xout)
-	gfpAddInline // Y3 := X3 + Y3
+	gfpAddInline            // Y3 := X3 + Y3
 	MOVQ rptr, AX
 	// Store y
 	MOVQ t0, (16*2 + 8*0)(AX)
@@ -1563,14 +1584,10 @@ TEXT gfpIsZero(SB),NOSPLIT,$0
 	STt (tmp0)   \
 	\
 	LDacc (tmp2) \
-	gfpMulBy2Inline  \
-	t2acc        \
-	gfpMulBy2Inline  \
-	t2acc            \
-	gfpMulBy2Inline  \
-	t2acc            \
-	gfpMulBy2Inline  \
-	t2acc            \
+	gfpMulBy2Inline2  \
+	gfpMulBy2Inline2  \
+	gfpMulBy2Inline2  \
+	gfpMulBy2Inline2  \
 	LDt (tmp2)       \
 	CALL gfpSubInternal(SB) \ // t2 := 3b * t2 = 3bZ1Z2
 	ST (tmp2)        \  
@@ -1585,14 +1602,10 @@ TEXT gfpIsZero(SB),NOSPLIT,$0
 	ST (tmp1)        \
 	\
 	LDacc (yout)     \
-	gfpMulBy2Inline  \
-	t2acc            \
-	gfpMulBy2Inline  \
-	t2acc            \
-	gfpMulBy2Inline  \
-	t2acc            \
-	gfpMulBy2Inline  \
-	t2acc            \
+	gfpMulBy2Inline2  \
+	gfpMulBy2Inline2  \
+	gfpMulBy2Inline2  \
+	gfpMulBy2Inline2  \
 	LDt (yout)       \
 	CALL gfpSubInternal(SB) \ // Y3 = 3b * Y3 = 3b(X1Z2 + X2Z1)
 	ST (yout)        \

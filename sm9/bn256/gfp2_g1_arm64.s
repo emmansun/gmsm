@@ -463,6 +463,23 @@ TEXT gfpSqrInternal(SB),NOSPLIT,$0
 	CSEL	CC, x2, acc2, x2;\
 	CSEL	CC, x3, acc3, x3;    
 
+// (y3, y2, y1, y0) = 2(y3, y2, y1, y0)
+#define gfpMulBy2Inline2       \
+	ADDS	y0, y0, x0;    \
+	ADCS	y1, y1, x1;    \
+	ADCS	y2, y2, x2;    \
+	ADCS	y3, y3, x3;    \
+	ADC	$0, ZR, hlp0;  \
+	SUBS	const0, x0, acc0;   \
+	SBCS	const1, x1, acc1;\
+	SBCS	const2, x2, acc2;    \
+	SBCS	const3, x3, acc3;\
+	SBCS	$0, hlp0, hlp0;\
+	CSEL	CC, x0, acc0, y0;\
+	CSEL	CC, x1, acc1, y1;\
+	CSEL	CC, x2, acc2, y2;\
+	CSEL	CC, x3, acc3, y3;    
+
 /* ---------------------------------------*/
 // (x3, x2, x1, x0) = (x3, x2, x1, x0) + (y3, y2, y1, y0)
 #define gfpAddInline          \
@@ -665,8 +682,7 @@ TEXT ·gfp2SquareU(SB),NOSPLIT,$72-16
 	STx (x2in)
 
 	//LDy (tmp1)
-	gfpMulBy2Inline
-	x2y
+	gfpMulBy2Inline2
 	gfpMulBy2Inline
 	MOVD	$0, y0 
 	MOVD	$0, y1 
@@ -696,24 +712,18 @@ TEXT ·curvePointDoubleComplete(SB),NOSPLIT,$168-16
 	CALL gfpSqrInternal(SB) // t0 := Y^2
 	STy (tmp0)
 
-	gfpMulBy2Inline         // Z3 := t0 + t0
-	x2y
-	gfpMulBy2Inline         // Z3 := Z3 + Z3
-	x2y
+	gfpMulBy2Inline2        // Z3 := t0 + t0
+	gfpMulBy2Inline2        // Z3 := Z3 + Z3
 	gfpMulBy2Inline         // Z3 := Z3 + Z3
 	STx (z3t)
 	
 	LDx (z1in)
 	CALL gfpSqrInternal(SB) // t2 := Z^2
 	STy (tmp1)
-	gfpMulBy2Inline
-	x2y
-	gfpMulBy2Inline
-	x2y
-	gfpMulBy2Inline
-	x2y
-	gfpMulBy2Inline
-	x2y
+	gfpMulBy2Inline2
+	gfpMulBy2Inline2
+	gfpMulBy2Inline2
+	gfpMulBy2Inline2
 	LDx (tmp1)
 	CALL gfpSubInternal(SB) // t2 := 3b * t2 = 3bZ^2
 	STx (tmp1)
@@ -854,14 +864,10 @@ TEXT ·curvePointAddComplete(SB),0,$264-24
 	STx (tmp0)
 
 	LDy (tmp2)
-	gfpMulBy2Inline
-	x2y
-	gfpMulBy2Inline
-	x2y
-	gfpMulBy2Inline
-	x2y
-	gfpMulBy2Inline
-	x2y
+	gfpMulBy2Inline2
+	gfpMulBy2Inline2
+	gfpMulBy2Inline2
+	gfpMulBy2Inline2
 	LDx (tmp2)
 	CALL gfpSubInternal(SB)        // t2 := 3b * t2 = 3bZ1Z2
 	STx (tmp2)
@@ -875,14 +881,10 @@ TEXT ·curvePointAddComplete(SB),0,$264-24
 	STx (tmp1)
 
 	LDy (y3t)
-	gfpMulBy2Inline
-	x2y
-	gfpMulBy2Inline
-	x2y
-	gfpMulBy2Inline
-	x2y
-	gfpMulBy2Inline
-	x2y
+	gfpMulBy2Inline2
+	gfpMulBy2Inline2
+	gfpMulBy2Inline2
+	gfpMulBy2Inline2
 	LDx (y3t)
 	CALL gfpSubInternal(SB)        // Y3 = 3b * Y3 = 3b(X1Z2 + X2Z1)
 	STx (y3t)
