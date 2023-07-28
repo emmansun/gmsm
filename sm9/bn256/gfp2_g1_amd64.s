@@ -90,7 +90,7 @@ TEXT gfpMulInternal(SB),NOSPLIT,$8
 	ADDQ mul0, acc4
 	ADCQ $0, acc5
 
-	// [t3, t2, t1, t0] * acc5
+	// [t3, t2, t1, t0] * acc6
 	MOVQ acc6, mul1
 	MULXQ t0, mul0, hlp
 	ADDQ mul0, acc2

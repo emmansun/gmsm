@@ -51,6 +51,13 @@ func p256MulTest(t *testing.T, x, y, p, r *big.Int) {
 	}
 }
 
+func TestP256MulPMinus1(t *testing.T) {
+	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF", 16)
+	r, _ := new(big.Int).SetString("10000000000000000000000000000000000000000000000000000000000000000", 16)
+	pMinus1 := new(big.Int).Sub(p, big.NewInt(1))
+	p256MulTest(t, pMinus1, pMinus1, p, r)
+}
+
 func TestFuzzyP256Mul(t *testing.T) {
 	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF", 16)
 	r, _ := new(big.Int).SetString("10000000000000000000000000000000000000000000000000000000000000000", 16)
@@ -93,6 +100,13 @@ func p256SqrTest(t *testing.T, x, p, r *big.Int) {
 	if resInt.Cmp(expected) != 0 {
 		t.FailNow()
 	}
+}
+
+func TestP256SqrPMinus1(t *testing.T) {
+	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF", 16)
+	r, _ := new(big.Int).SetString("10000000000000000000000000000000000000000000000000000000000000000", 16)
+	pMinus1 := new(big.Int).Sub(p, big.NewInt(1))
+	p256SqrTest(t, pMinus1, p, r)
 }
 
 func TestFuzzyP256Sqr(t *testing.T) {
