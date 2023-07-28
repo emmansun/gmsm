@@ -1257,11 +1257,8 @@ TEXT ·gfp2Square(SB),NOSPLIT,$160-16
 
 	LDacc (axin)
 	gfpMulBy2Inline
-	STt (cxout)
-
 	LDacc (ayin)
 	CALL gfpSubInternal(SB)
-	ST (cxout)
 
 	LDt (cyout)
 	CALL gfpMulInternal(SB)
@@ -1319,11 +1316,9 @@ TEXT ·gfp2SquareU(SB),NOSPLIT,$160-16
 
 	LDacc (axin)
 	gfpMulBy2Inline
-	STt (cyout)
 
 	LDacc (ayin)
 	CALL gfpSubInternal(SB)
-	ST (cyout)
 
 	LDt (cxout)
 	CALL gfpMulInternal(SB)
@@ -1493,36 +1488,6 @@ TEXT ·curvePointDoubleComplete(SB),NOSPLIT,$288-16
 #undef tmp0
 #undef tmp2
 #undef rptr
-
-// gfpIsZero returns 1 in AX if [acc4..acc7] represents zero and zero
-// otherwise. It writes to [acc4..acc7], t0 and t1.
-TEXT gfpIsZero(SB),NOSPLIT,$0
-	// AX contains a flag that is set if the input is zero.
-	XORQ AX, AX
-	MOVQ $1, t1
-
-	// Check whether [acc4..acc7] are all zero.
-	MOVQ acc4, t0
-	ORQ acc5, t0
-	ORQ acc6, t0
-	ORQ acc7, t0
-
-	// Set the zero flag if so. (CMOV of a constant to a register doesn't
-	// appear to be supported in Go. Thus t1 = 1.)
-	CMOVQEQ t1, AX
-
-	// XOR [acc4..acc7] with P and compare with zero again.
-	XORQ ·p2+0(SB), acc4
-	XORQ ·p2+8(SB), acc5
-	XORQ ·p2+16(SB), acc6
-	XORQ ·p2+24(SB), acc7
-	ORQ acc5, acc4
-	ORQ acc6, acc4
-	ORQ acc7, acc4
-
-	// Set the zero flag if so.
-	CMOVQEQ t1, AX
-	RET
 
 /* ---------------------------------------*/
 #define x1in(off) (32*0 + off)(SP)
@@ -1775,6 +1740,36 @@ pointadd_avx2:
 
 /* ---------------------------------------*/
 /*
+// gfpIsZero returns 1 in AX if [acc4..acc7] represents zero and zero
+// otherwise. It writes to [acc4..acc7], t0 and t1.
+TEXT gfpIsZero(SB),NOSPLIT,$0
+	// AX contains a flag that is set if the input is zero.
+	XORQ AX, AX
+	MOVQ $1, t1
+
+	// Check whether [acc4..acc7] are all zero.
+	MOVQ acc4, t0
+	ORQ acc5, t0
+	ORQ acc6, t0
+	ORQ acc7, t0
+
+	// Set the zero flag if so. (CMOV of a constant to a register doesn't
+	// appear to be supported in Go. Thus t1 = 1.)
+	CMOVQEQ t1, AX
+
+	// XOR [acc4..acc7] with P and compare with zero again.
+	XORQ ·p2+0(SB), acc4
+	XORQ ·p2+8(SB), acc5
+	XORQ ·p2+16(SB), acc6
+	XORQ ·p2+24(SB), acc7
+	ORQ acc5, acc4
+	ORQ acc6, acc4
+	ORQ acc7, acc4
+
+	// Set the zero flag if so.
+	CMOVQEQ t1, AX
+	RET
+
 #define x1in(off) (32*0 + off)(SP)
 #define y1in(off) (32*1 + off)(SP)
 #define z1in(off) (32*2 + off)(SP)
