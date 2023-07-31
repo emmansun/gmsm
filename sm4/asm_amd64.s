@@ -54,7 +54,7 @@
 	PXOR t3, x;                                            \
 	SM4_TAO_L2(x, y, XTMP6, XTMP7);                        \
 	PXOR x, t0;                                            \
-	PEXTRD $0, t0, R8;                                     \
+	MOVL t0, R8;                                           \ // _mm_cvtsi128_si32
 	MOVL R8, (index * 4)(DX)(CX*1);                        \
 	MOVL R8, (12 - index * 4)(DI)(SI*1)
 
