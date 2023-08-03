@@ -2240,12 +2240,12 @@ avx2GcmSm4DecNibbles:
 	JBE avx2GcmSm4DecSingles
 	SUBQ $64, ptxLen
 
-	VMOVDQU (0*16)(SP), B0
+	VMOVDQU (0*16)(SP), B4
 	VMOVDQU (1*16)(SP), B1
 	VMOVDQU (2*16)(SP), B2
 	VMOVDQU (3*16)(SP), B3
 	
-	AVX_SM4_4BLOCKS(rk, B4, B5, B6, B7, B0, B1, B2, B3)
+	AVX_SM4_4BLOCKS(rk, B0, B5, B6, B7, B4, B1, B2, B3)
 
 	VMOVDQU (16*14)(pTbl), T2
 	VMOVDQU (16*0)(ctx), B0
