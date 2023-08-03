@@ -185,13 +185,14 @@ decrypt8BlocksLoop:
 	VEOR V7.B16, t1.B16, t1.B16
 	VEOR V8.B16, t2.B16, t2.B16
 	VEOR V9.B16, t3.B16, t3.B16
-	VST1.P [t0.S4, t1.S4, t2.S4, t3.S4], 64(R9)
 
 	VLD1.P 64(R11), [V6.S4, V7.S4, V8.S4, V9.S4]
 	VEOR V6.B16, t4.B16, t4.B16
 	VEOR V7.B16, t5.B16, t5.B16
 	VEOR V8.B16, t6.B16, t6.B16
 	VEOR V9.B16, t7.B16, t7.B16
+
+	VST1.P [t0.S4, t1.S4, t2.S4, t3.S4], 64(R9)
 	VST1.P [t4.S4, t5.S4, t6.S4, t7.S4], 64(R9)
 
 	RET
