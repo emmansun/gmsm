@@ -193,8 +193,8 @@ GLOBL fk_mask<>(SB), (16+8), $16
 	SM4_TAO_L1(x, y, z);                              \
 	VEOR x.B16, t0.B16, t0.B16;                       \ 
 	; \
-	VEOR t1.B16, tmp.B16, x.B16;                      \
-	VEOR t2.B16, x.B16, x.B16;                        \
-	VEOR t3.B16, x.B16, x.B16;                        \
+	VEOR t5.B16, tmp.B16, x.B16;                      \
+	VEOR t6.B16, x.B16, x.B16;                        \
+	VEOR t7.B16, x.B16, x.B16;                        \
 	SM4_TAO_L1(x, y, z);                              \
-	VEOR x.B16, t0.B16, t0.B16
+	VEOR x.B16, t4.B16, t4.B16
