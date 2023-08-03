@@ -54,6 +54,15 @@ func (x *ecb) CryptBlocks(dst, src []byte) {
 	if len(src) == 0 {
 		return
 	}
+	for len(src) >= 2*x.b.blocksSize {
+		if x.enc == ecbEncrypt {
+			x.b.EncryptBlocks(dst[:2*x.b.blocksSize], src[:2*x.b.blocksSize])
+		} else {
+			x.b.DecryptBlocks(dst[:2*x.b.blocksSize], src[:2*x.b.blocksSize])
+		}
+		src = src[2*x.b.blocksSize:]
+		dst = dst[2*x.b.blocksSize:]
+	}
 	for len(src) >= x.b.blocksSize {
 		if x.enc == ecbEncrypt {
 			x.b.EncryptBlocks(dst[:x.b.blocksSize], src[:x.b.blocksSize])

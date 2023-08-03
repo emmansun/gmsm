@@ -88,6 +88,10 @@ done_sm4:
 #undef rkSave
 
 #define XTMP7 V7
+#define t4 V10
+#define t5 V11
+#define t6 V12
+#define t7 V13
 
 // func decryptBlocksChain(xk *uint32, dst, src []byte, iv *byte)
 TEXT ·decryptBlocksChain(SB),NOSPLIT,$0
@@ -99,6 +103,8 @@ TEXT ·decryptBlocksChain(SB),NOSPLIT,$0
 	MOVD src_len+40(FP), R12
 	MOVD iv+56(FP), R11
 
+	CMP $128, R12
+	BEQ double_dec
 
 	VLD1 (R10), [t0.S4, t1.S4, t2.S4, t3.S4]
 	VREV32 t0.B16, t0.B16
@@ -134,4 +140,58 @@ encryptBlocksLoop:
 	VEOR V9.B16, t3.B16, t3.B16
 
 	VST1 [t0.S4, t1.S4, t2.S4, t3.S4], (R9)
+	RET
+
+double_dec:
+	VLD1.P 64(R10), [t0.S4, t1.S4, t2.S4, t3.S4]
+	VLD1.P 64(R10), [t4.S4, t5.S4, t6.S4, t7.S4]
+	VREV32 t0.B16, t0.B16
+	VREV32 t1.B16, t1.B16
+	VREV32 t2.B16, t2.B16
+	VREV32 t3.B16, t3.B16
+	VREV32 t4.B16, t4.B16
+	VREV32 t5.B16, t5.B16
+	VREV32 t6.B16, t6.B16
+	VREV32 t7.B16, t7.B16	
+	PRE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y, XTMP6, XTMP7)
+	PRE_TRANSPOSE_MATRIX(t4, t5, t6, t7, x, y, XTMP6, XTMP7)
+
+	VEOR ZERO.B16, ZERO.B16, ZERO.B16
+	EOR R0, R0
+
+decrypt8BlocksLoop:
+		SM4_8BLOCKS_ROUND(R8, R19, x, y, XTMP6, XTMP7, t0, t1, t2, t3, t4, t5, t6, t7)
+		SM4_8BLOCKS_ROUND(R8, R19, x, y, XTMP6, XTMP7, t1, t2, t3, t0, t5, t6, t7, t4)
+		SM4_8BLOCKS_ROUND(R8, R19, x, y, XTMP6, XTMP7, t2, t3, t0, t1, t6, t7, t4, t5)
+		SM4_8BLOCKS_ROUND(R8, R19, x, y, XTMP6, XTMP7, t3, t0, t1, t2, t7, t4, t5, t6)
+
+		ADD $16, R0
+		CMP $128, R0
+		BNE decrypt8BlocksLoop
+
+	TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y, XTMP6, XTMP7)
+	TRANSPOSE_MATRIX(t4, t5, t6, t7, x, y, XTMP6, XTMP7)
+	VREV32 t0.B16, t0.B16
+	VREV32 t1.B16, t1.B16
+	VREV32 t2.B16, t2.B16
+	VREV32 t3.B16, t3.B16
+	VREV32 t4.B16, t4.B16
+	VREV32 t5.B16, t5.B16
+	VREV32 t6.B16, t6.B16
+	VREV32 t7.B16, t7.B16
+
+	VLD1.P 64(R11), [V6.S4, V7.S4, V8.S4, V9.S4]
+	VEOR V6.B16, t0.B16, t0.B16
+	VEOR V7.B16, t1.B16, t1.B16
+	VEOR V8.B16, t2.B16, t2.B16
+	VEOR V9.B16, t3.B16, t3.B16
+	VST1.P [t0.S4, t1.S4, t2.S4, t3.S4], 64(R9)
+
+	VLD1.P 64(R11), [V6.S4, V7.S4, V8.S4, V9.S4]
+	VEOR V6.B16, t4.B16, t4.B16
+	VEOR V7.B16, t5.B16, t5.B16
+	VEOR V8.B16, t6.B16, t6.B16
+	VEOR V9.B16, t7.B16, t7.B16
+	VST1.P [t4.S4, t5.S4, t6.S4, t7.S4], 64(R9)
+
 	RET

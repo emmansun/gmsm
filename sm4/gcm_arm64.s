@@ -449,36 +449,24 @@ encOctetsLoop:
 
 		// encryption first 4 blocks
 		PRE_TRANSPOSE_MATRIX(B0, B1, B2, B3, K0, K1, K2, K3)
+		PRE_TRANSPOSE_MATRIX(B4, B5, B6, B7, K0, K1, K2, K3)
 		EOR R13, R13
 		MOVD	rkSave, rk
 
-encOctetsEnc4Blocks1:	
-			SM4_ROUND(rk, R19, K0, K1, K2, B0, B1, B2, B3)
-			SM4_ROUND(rk, R19, K0, K1, K2, B1, B2, B3, B0)
-			SM4_ROUND(rk, R19, K0, K1, K2, B2, B3, B0, B1)
-			SM4_ROUND(rk, R19, K0, K1, K2, B3, B0, B1, B2)
+encOctetsEnc8Blocks:
+			SM4_8BLOCKS_ROUND(rk, R19, K0, K1, K2, K3, B0, B1, B2, B3, B4, B5, B6, B7)
+			SM4_8BLOCKS_ROUND(rk, R19, K0, K1, K2, K3, B1, B2, B3, B0, B5, B6, B7, B4)
+			SM4_8BLOCKS_ROUND(rk, R19, K0, K1, K2, K3, B2, B3, B0, B1, B6, B7, B4, B5)
+			SM4_8BLOCKS_ROUND(rk, R19, K0, K1, K2, K3, B3, B0, B1, B2, B7, B4, B5, B6)
 
 		ADD $1, R13
 		CMP $8, R13
-		BNE encOctetsEnc4Blocks1
+		BNE encOctetsEnc8Blocks
 		VREV32 B0.B16, B0.B16
 		VREV32 B1.B16, B1.B16
 		VREV32 B2.B16, B2.B16
 		VREV32 B3.B16, B3.B16
 		TRANSPOSE_MATRIX(B0, B1, B2, B3, K0, K1, K2, K3)
-		// encryption second 4 blocks
-		PRE_TRANSPOSE_MATRIX(B4, B5, B6, B7, K0, K1, K2, K3)
-		MOVD	rkSave, rk
-
-encOctetsEnc4Blocks2:	
-			SM4_ROUND(rk, R19, K0, K1, K2, B4, B5, B6, B7)
-			SM4_ROUND(rk, R19, K0, K1, K2, B5, B6, B7, B4)
-			SM4_ROUND(rk, R19, K0, K1, K2, B6, B7, B4, B5)
-			SM4_ROUND(rk, R19, K0, K1, K2, B7, B4, B5, B6)
-
-		ADD $1, R13
-		CMP $16, R13
-		BNE encOctetsEnc4Blocks2
 		VREV32 B4.B16, B4.B16
 		VREV32 B5.B16, B5.B16
 		VREV32 B6.B16, B6.B16
@@ -741,41 +729,28 @@ decOctetsLoop:
 
 		// encryption first 4 blocks
 		PRE_TRANSPOSE_MATRIX(B0, B1, B2, B3, K0, K1, K2, K3)
+		PRE_TRANSPOSE_MATRIX(B4, B5, B6, B7, K0, K1, K2, K3)
 		EOR R13, R13
 		MOVD	rkSave, rk
 
-decOctetsEnc4Blocks1:	
-			SM4_ROUND(rk, R19, K0, K1, K2, B0, B1, B2, B3)
-			SM4_ROUND(rk, R19, K0, K1, K2, B1, B2, B3, B0)
-			SM4_ROUND(rk, R19, K0, K1, K2, B2, B3, B0, B1)
-			SM4_ROUND(rk, R19, K0, K1, K2, B3, B0, B1, B2)
+decOctetsEnc8Blocks:	
+			SM4_8BLOCKS_ROUND(rk, R19, K0, K1, K2, K3, B0, B1, B2, B3, B4, B5, B6, B7)
+			SM4_8BLOCKS_ROUND(rk, R19, K0, K1, K2, K3, B1, B2, B3, B0, B5, B6, B7, B4)
+			SM4_8BLOCKS_ROUND(rk, R19, K0, K1, K2, K3, B2, B3, B0, B1, B6, B7, B4, B5)
+			SM4_8BLOCKS_ROUND(rk, R19, K0, K1, K2, K3, B3, B0, B1, B2, B7, B4, B5, B6)
 
 		ADD $1, R13
 		CMP $8, R13
-		BNE decOctetsEnc4Blocks1
+		BNE decOctetsEnc8Blocks
 		VREV32 B0.B16, T1.B16
 		VREV32 B1.B16, T2.B16
 		VREV32 B2.B16, B2.B16
 		VREV32 B3.B16, B3.B16
 		TRANSPOSE_MATRIX(T1, T2, B2, B3, K0, K1, K2, K3)
-
-		// encryption second 4 blocks
-		PRE_TRANSPOSE_MATRIX(B4, B5, B6, B7, K0, K1, K2, K3)
-		MOVD	rkSave, rk
-
-decOctetsEnc4Blocks2:	
-			SM4_ROUND(rk, R19, K0, K1, K2, B4, B5, B6, B7)
-			SM4_ROUND(rk, R19, K0, K1, K2, B5, B6, B7, B4)
-			SM4_ROUND(rk, R19, K0, K1, K2, B6, B7, B4, B5)
-			SM4_ROUND(rk, R19, K0, K1, K2, B7, B4, B5, B6)
-
-		ADD $1, R13
-		CMP $16, R13
-		BNE decOctetsEnc4Blocks2
 		VREV32 B4.B16, B4.B16
 		VREV32 B5.B16, B5.B16
 		VREV32 B6.B16, B6.B16
-		VREV32 B7.B16, B7.B16
+		VREV32 B7.B16, B7.B16		
 		TRANSPOSE_MATRIX(B4, B5, B6, B7, K0, K1, K2, K3)
 
 		VLD1.P	32(srcPtr), [B0.B16, B1.B16]

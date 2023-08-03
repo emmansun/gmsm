@@ -9,6 +9,10 @@
 #define t1 V3
 #define t2 V4
 #define t3 V5
+#define t4 V8
+#define t5 V9
+#define t6 V10
+#define t7 V11
 #define ZERO V16
 #define NIBBLE_MASK V20
 #define INVERSE_SHIFT_ROWS V21
@@ -184,6 +188,9 @@ TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
 	CMP $1, R11
 	BEQ sm4niblocks
 
+	CMP $128, R12
+	BEQ double_enc
+
 	VLD1 (R10), [t0.S4, t1.S4, t2.S4, t3.S4]
 	VREV32 t0.B16, t0.B16
 	VREV32 t1.B16, t1.B16
@@ -213,6 +220,51 @@ encryptBlocksLoop:
 	VREV32 t3.B16, t3.B16
 
 	VST1 [t0.S4, t1.S4, t2.S4, t3.S4], (R9)
+	RET
+
+double_enc:
+	VLD1.P 64(R10), [t0.S4, t1.S4, t2.S4, t3.S4]
+	VLD1.P 64(R10), [t4.S4, t5.S4, t6.S4, t7.S4]
+	VREV32 t0.B16, t0.B16
+	VREV32 t1.B16, t1.B16
+	VREV32 t2.B16, t2.B16
+	VREV32 t3.B16, t3.B16
+	VREV32 t4.B16, t4.B16
+	VREV32 t5.B16, t5.B16
+	VREV32 t6.B16, t6.B16
+	VREV32 t7.B16, t7.B16
+	PRE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y, XTMP6, XTMP7)
+	PRE_TRANSPOSE_MATRIX(t4, t5, t6, t7, x, y, XTMP6, XTMP7)
+
+	load_global_data_2()
+
+	VEOR ZERO.B16, ZERO.B16, ZERO.B16
+	EOR R0, R0
+
+encrypt8BlocksLoop:
+		SM4_8BLOCKS_ROUND(R8, R19, x, y, XTMP6, XTMP7, t0, t1, t2, t3, t4, t5, t6, t7)
+		SM4_8BLOCKS_ROUND(R8, R19, x, y, XTMP6, XTMP7, t1, t2, t3, t0, t5, t6, t7, t4)
+		SM4_8BLOCKS_ROUND(R8, R19, x, y, XTMP6, XTMP7, t2, t3, t0, t1, t6, t7, t4, t5)
+		SM4_8BLOCKS_ROUND(R8, R19, x, y, XTMP6, XTMP7, t3, t0, t1, t2, t7, t4, t5, t6)
+
+		ADD $16, R0
+		CMP $128, R0
+		BNE encrypt8BlocksLoop
+
+	TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y, XTMP6, XTMP7)
+	TRANSPOSE_MATRIX(t4, t5, t6, t7, x, y, XTMP6, XTMP7)
+	VREV32 t0.B16, t0.B16
+	VREV32 t1.B16, t1.B16
+	VREV32 t2.B16, t2.B16
+	VREV32 t3.B16, t3.B16
+	VREV32 t4.B16, t4.B16
+	VREV32 t5.B16, t5.B16
+	VREV32 t6.B16, t6.B16
+	VREV32 t7.B16, t7.B16
+
+	VST1.P [t0.S4, t1.S4, t2.S4, t3.S4], 64(R9)
+	VST1.P [t4.S4, t5.S4, t6.S4, t7.S4], 64(R9)
+
 	RET
 
 sm4niblocks:

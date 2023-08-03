@@ -2,6 +2,8 @@ package cipher_test
 
 import (
 	"bytes"
+	"crypto/rand"
+	"io"
 	"testing"
 
 	"github.com/emmansun/gmsm/cipher"
@@ -63,6 +65,11 @@ var ecbSM4Tests = []struct {
 		[]byte("0123456789ABCDEF"),
 		[]byte("exampleplaintextexampleplaintextexampleplaintextexampleplaintextexampleplaintextexampleplaintextexampleplaintextexampleplaintextexampleplaintext"),
 	},
+	{
+		"18 same blocks",
+		[]byte("0123456789ABCDEF"),
+		[]byte("exampleplaintextexampleplaintextexampleplaintextexampleplaintextexampleplaintextexampleplaintextexampleplaintextexampleplaintextexampleplaintextexampleplaintextexampleplaintextexampleplaintextexampleplaintextexampleplaintextexampleplaintextexampleplaintextexampleplaintextexampleplaintext"),
+	},
 }
 
 func TestECBBasic(t *testing.T) {
@@ -80,8 +87,27 @@ func TestECBBasic(t *testing.T) {
 		decrypter := cipher.NewECBDecrypter(c)
 		decrypter.CryptBlocks(plaintext, ciphertext)
 		if !bytes.Equal(test.in, plaintext) {
-			t.Errorf("%s: ECB encrypt/decrypt failed", test.name)
+			t.Errorf("%s: ECB encrypt/decrypt failed, %s", test.name, string(plaintext))
 		}
+	}
+}
+
+func TestECBRandom(t *testing.T) {
+	key := []byte("0123456789ABCDEF")
+	plaintext := make([]byte, 448)
+	ciphertext := make([]byte, 448)
+	io.ReadFull(rand.Reader, plaintext)
+	c, err := sm4.NewCipher(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encrypter := cipher.NewECBEncrypter(c)
+	encrypter.CryptBlocks(ciphertext, plaintext)
+	result := make([]byte, 448)
+	decrypter := cipher.NewECBDecrypter(c)
+	decrypter.CryptBlocks(result, ciphertext)
+	if !bytes.Equal(result, plaintext) {
+		t.Error("ECB encrypt/decrypt failed")
 	}
 }
 

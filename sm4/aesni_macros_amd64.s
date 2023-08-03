@@ -15,7 +15,7 @@ GLOBL nibble_mask<>(SB), 8, $16
 
 // inverse shift rows
 DATA inverse_shift_rows<>+0x00(SB)/8, $0x0B0E0104070A0D00
-DATA inverse_shift_rows<>+0x08(SB)/8, $0x0306090C0F020508 
+DATA inverse_shift_rows<>+0x08(SB)/8, $0x0306090C0F020508
 GLOBL inverse_shift_rows<>(SB), 8, $16
 
 // Affine transform 1 (low and high hibbles)
@@ -24,7 +24,7 @@ DATA m1_low<>+0x08(SB)/8, $0x3045F98CEF9A2653
 GLOBL m1_low<>(SB), 8, $16
 
 DATA m1_high<>+0x00(SB)/8, $0xC35BF46CAF379800
-DATA m1_high<>+0x08(SB)/8, $0x68F05FC7049C33AB  
+DATA m1_high<>+0x08(SB)/8, $0x68F05FC7049C33AB
 GLOBL m1_high<>(SB), 8, $16
 
 // Affine transform 2 (low and high hibbles)
@@ -38,20 +38,45 @@ GLOBL m2_high<>(SB), 8, $16
 
 // left rotations of 32-bit words by 8-bit increments
 DATA r08_mask<>+0x00(SB)/8, $0x0605040702010003
-DATA r08_mask<>+0x08(SB)/8, $0x0E0D0C0F0A09080B  
+DATA r08_mask<>+0x08(SB)/8, $0x0E0D0C0F0A09080B
 GLOBL r08_mask<>(SB), 8, $16
 
 DATA r16_mask<>+0x00(SB)/8, $0x0504070601000302
-DATA r16_mask<>+0x08(SB)/8, $0x0D0C0F0E09080B0A   
+DATA r16_mask<>+0x08(SB)/8, $0x0D0C0F0E09080B0A
 GLOBL r16_mask<>(SB), 8, $16
 
 DATA r24_mask<>+0x00(SB)/8, $0x0407060500030201
-DATA r24_mask<>+0x08(SB)/8, $0x0C0F0E0D080B0A09  
+DATA r24_mask<>+0x08(SB)/8, $0x0C0F0E0D080B0A09
 GLOBL r24_mask<>(SB), 8, $16
 
 DATA fk_mask<>+0x00(SB)/8, $0x56aa3350a3b1bac6
 DATA fk_mask<>+0x08(SB)/8, $0xb27022dc677d9197
 GLOBL fk_mask<>(SB), 8, $16
+
+// inverse shift rows
+DATA inverse_shift_rows256<>+0x00(SB)/8, $0x0B0E0104070A0D00
+DATA inverse_shift_rows256<>+0x08(SB)/8, $0x0306090C0F020508
+DATA inverse_shift_rows256<>+0x10(SB)/8, $0x0B0E0104070A0D00
+DATA inverse_shift_rows256<>+0x18(SB)/8, $0x0306090C0F020508
+GLOBL inverse_shift_rows256<>(SB), 8, $32
+
+DATA r08_mask256<>+0x00(SB)/8, $0x0605040702010003
+DATA r08_mask256<>+0x08(SB)/8, $0x0E0D0C0F0A09080B
+DATA r08_mask256<>+0x10(SB)/8, $0x0605040702010003
+DATA r08_mask256<>+0x18(SB)/8, $0x0E0D0C0F0A09080B
+GLOBL r08_mask256<>(SB), 8, $32
+
+DATA r16_mask256<>+0x00(SB)/8, $0x0504070601000302
+DATA r16_mask256<>+0x08(SB)/8, $0x0D0C0F0E09080B0A
+DATA r16_mask256<>+0x10(SB)/8, $0x0504070601000302
+DATA r16_mask256<>+0x18(SB)/8, $0x0D0C0F0E09080B0A
+GLOBL r16_mask256<>(SB), 8, $32
+
+DATA r24_mask256<>+0x00(SB)/8, $0x0407060500030201
+DATA r24_mask256<>+0x08(SB)/8, $0x0C0F0E0D080B0A09
+DATA r24_mask256<>+0x10(SB)/8, $0x0407060500030201
+DATA r24_mask256<>+0x18(SB)/8, $0x0C0F0E0D080B0A09
+GLOBL r24_mask256<>(SB), 8, $32
 
 // Transpose matrix without PUNPCKHDQ/PUNPCKLDQ/PUNPCKHQDQ/PUNPCKLQDQ instructions, bad performance!
 // input: from high to low
@@ -189,7 +214,7 @@ GLOBL fk_mask<>(SB), 8, $16
 // - t2: 128 bits register for data
 // - t3: 128 bits register for data
 #define SM4_ROUND(index, RK, IND, x, y, z, t0, t1, t2, t3)  \ 
-	PINSRD $0, (index * 4)(RK)(IND*1), x;           \
+	MOVL (index * 4)(RK)(IND*1), x;                 \
 	PSHUFD $0, x, x;                                \
 	PXOR t1, x;                                     \
 	PXOR t2, x;                                     \
@@ -197,29 +222,128 @@ GLOBL fk_mask<>(SB), 8, $16
 	SM4_TAO_L1(x, y, z);                            \
 	PXOR x, t0
 
+#define SM4_ONE_ROUND_SSE(x, y, z, t0, t1, t2, t3)  \
+	PXOR t1, x;                                     \
+	PXOR t2, x;                                     \
+	PXOR t3, x;                                     \
+	SM4_TAO_L1(x, y, z);                            \
+	PXOR x, t0                                      \
+
+#define SM4_4BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3) \
+	PSHUFD $0, rk128, x;                                   \
+	SM4_ONE_ROUND_SSE(x, y, z, t0, t1, t2, t3);            \
+	PSHUFD $0x55, rk128, x;                                \
+	SM4_ONE_ROUND_SSE(x, y, z, t1, t2, t3, t0);            \
+	PSHUFD $0xAA, rk128, x;                                \
+	SM4_ONE_ROUND_SSE(x, y, z, t2, t3, t0, t1);            \
+	PSHUFD $0xFF, rk128, x;                                \
+	SM4_ONE_ROUND_SSE(x, y, z, t3, t0, t1, t2);            \
+
+#define SM4_4BLOCKS(RK, rk128, x, y, z, t0, t1, t2, t3)  \ 
+	PSHUFB flip_mask<>(SB), t0; \
+	PSHUFB flip_mask<>(SB), t1; \
+	PSHUFB flip_mask<>(SB), t2; \
+	PSHUFB flip_mask<>(SB), t3; \
+	SSE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y);            \
+	MOVOU (0*16)(RK), rk128;                               \
+	SM4_4BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3);   \
+	MOVOU (1*16)(RK), rk128;                               \
+	SM4_4BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3);   \
+	MOVOU (2*16)(RK), rk128;                               \
+	SM4_4BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3);   \
+	MOVOU (3*16)(RK), rk128;                               \
+	SM4_4BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3);   \
+	MOVOU (4*16)(RK), rk128;                               \
+	SM4_4BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3);   \
+	MOVOU (5*16)(RK), rk128;                               \
+	SM4_4BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3);   \
+	MOVOU (6*16)(RK), rk128;                               \
+	SM4_4BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3);   \
+	MOVOU (7*16)(RK), rk128;                               \
+	SM4_4BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3);   \
+	SSE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y);          \
+	PSHUFB bswap_mask<>(SB), t3; \
+	PSHUFB bswap_mask<>(SB), t2; \
+	PSHUFB bswap_mask<>(SB), t1; \
+	PSHUFB bswap_mask<>(SB), t0
+
+#define SM4_8BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7) \
+	PSHUFD $0, rk128, x;                                   \
+	SM4_ONE_ROUND_SSE(x, y, z, t0, t1, t2, t3);            \
+	PSHUFD $0, rk128, x;                                   \
+	SM4_ONE_ROUND_SSE(x, y, z, t4, t5, t6, t7);            \
+	PSHUFD $0x55, rk128, x;                                \
+	SM4_ONE_ROUND_SSE(x, y, z, t1, t2, t3, t0);            \
+	PSHUFD $0x55, rk128, x;                                \
+	SM4_ONE_ROUND_SSE(x, y, z, t5, t6, t7, t4);            \
+	PSHUFD $0xAA, rk128, x;                                \
+	SM4_ONE_ROUND_SSE(x, y, z, t2, t3, t0, t1);            \
+	PSHUFD $0xAA, rk128, x;                                \
+	SM4_ONE_ROUND_SSE(x, y, z, t6, t7, t4, t5);            \
+	PSHUFD $0xFF, rk128, x;                                \
+	SM4_ONE_ROUND_SSE(x, y, z, t3, t0, t1, t2);            \
+	PSHUFD $0xFF, rk128, x;                                \
+	SM4_ONE_ROUND_SSE(x, y, z, t7, t4, t5, t6);            \
+
+#define SM4_8BLOCKS(RK, rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7)  \ 
+	PSHUFB flip_mask<>(SB), t0; \
+	PSHUFB flip_mask<>(SB), t1; \
+	PSHUFB flip_mask<>(SB), t2; \
+	PSHUFB flip_mask<>(SB), t3; \
+	PSHUFB flip_mask<>(SB), t4; \
+	PSHUFB flip_mask<>(SB), t5; \
+	PSHUFB flip_mask<>(SB), t6; \
+	PSHUFB flip_mask<>(SB), t7; \	
+	SSE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y);          \
+	SSE_TRANSPOSE_MATRIX(t4, t5, t6, t7, x, y);          \
+	MOVOU (0*16)(RK), rk128;                               \
+	SM4_8BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7);                                   \
+	MOVOU (1*16)(RK), rk128;                               \
+	SM4_8BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7);                                   \
+	MOVOU (2*16)(RK), rk128;                               \
+	SM4_8BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7);                                   \
+	MOVOU (3*16)(RK), rk128;                               \
+	SM4_8BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7);                                   \
+	MOVOU (4*16)(RK), rk128;                               \
+	SM4_8BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7);                                   \
+	MOVOU (5*16)(RK), rk128;                               \
+	SM4_8BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7);                                   \
+	MOVOU (6*16)(RK), rk128;                               \
+	SM4_8BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7);                                   \
+	MOVOU (7*16)(RK), rk128;                               \
+	SM4_8BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7);                                   \
+	SSE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y);            \
+	SSE_TRANSPOSE_MATRIX(t4, t5, t6, t7, x, y);            \
+	PSHUFB bswap_mask<>(SB), t3; \
+	PSHUFB bswap_mask<>(SB), t2; \
+	PSHUFB bswap_mask<>(SB), t1; \
+	PSHUFB bswap_mask<>(SB), t0; \
+	PSHUFB bswap_mask<>(SB), t7; \
+	PSHUFB bswap_mask<>(SB), t6; \
+	PSHUFB bswap_mask<>(SB), t5; \
+	PSHUFB bswap_mask<>(SB), t4
+
 // SM4 sbox function, AVX version
 // parameters:
 // -  x: 128 bits register as sbox input/output data
 // -  y: 128 bits temp register
-// -  X_NIBBLE_MASK: 128 bits register stored nibble mask, should be loaded earlier.
 // - tmp: 128 bits temp register
-#define AVX_SM4_SBOX(x, y, X_NIBBLE_MASK, tmp) \
-	VPAND X_NIBBLE_MASK, x, tmp;                       \
+#define AVX_SM4_SBOX(x, y, tmp) \
+	VPAND nibble_mask<>(SB), x, tmp;                   \
 	VMOVDQU m1_low<>(SB), y;                           \
 	VPSHUFB tmp, y, y;                                 \
 	VPSRLQ $4, x, x;                                   \
-	VPAND X_NIBBLE_MASK, x, x;                         \
+	VPAND nibble_mask<>(SB), x, x;                     \
 	VMOVDQU m1_high<>(SB), tmp;                        \
 	VPSHUFB x, tmp, x;                                 \
 	VPXOR y, x, x;                                     \
-	VMOVDQU inverse_shift_rows<>(SB), tmp;             \
-	VPSHUFB tmp, x, x;                                 \
-	VAESENCLAST X_NIBBLE_MASK, x, x;                   \
-	VPANDN X_NIBBLE_MASK, x, tmp;                      \
+	VPSHUFB inverse_shift_rows<>(SB), x, x;            \
+	VAESENCLAST nibble_mask<>(SB), x, x;               \
+	VPANDN nibble_mask<>(SB), x, tmp;                  \
 	VMOVDQU m2_low<>(SB), y;                           \
 	VPSHUFB tmp, y, y;                                 \
 	VPSRLQ $4, x, x;                                   \
-	VPAND X_NIBBLE_MASK, x, x;                         \
+	VPAND nibble_mask<>(SB), x, x;                     \
 	VMOVDQU m2_high<>(SB), tmp;                        \
 	VPSHUFB x, tmp, x;                                 \
 	VPXOR y, x, x
@@ -228,21 +352,17 @@ GLOBL fk_mask<>(SB), 8, $16
 // parameters:
 // -  x: 128 bits register as sbox input/output data
 // -  y: 128 bits temp register
-// -  xNibbleMask: 128 bits register stored nibble mask, should be loaded earlier.
 // - tmp: 128 bits temp register
-#define AVX_SM4_TAO_L1(x, y, xNibbleMask, tmp) \
-	AVX_SM4_SBOX(x, y, xNibbleMask, tmp); \
-	VMOVDQU r08_mask<>(SB), tmp;            \
-	VPSHUFB tmp, x, y;                      \
+#define AVX_SM4_TAO_L1(x, y, tmp) \
+	AVX_SM4_SBOX(x, y, tmp);   \
+	VPSHUFB r08_mask<>(SB), x, y;           \
 	VPXOR x, y, y;                          \
-	VMOVDQU r16_mask<>(SB), tmp;            \
-	VPSHUFB tmp, x, tmp;                    \
+	VPSHUFB r16_mask<>(SB), x, tmp;         \
 	VPXOR tmp, y, y;                        \
 	VPSLLD $2, y, tmp;                      \
 	VPSRLD $30, y, y;                       \
 	VPXOR tmp, y, y;                        \
-	VMOVDQU r24_mask<>(SB), tmp;            \
-	VPSHUFB tmp, x, tmp;                    \
+	VPSHUFB r24_mask<>(SB), x, tmp;         \
 	VPXOR y, x, x;                          \
 	VPXOR x, tmp, x
 
@@ -280,8 +400,114 @@ GLOBL fk_mask<>(SB), 8, $16
 	VPXOR t1, x, x;                                    \
 	VPXOR t2, x, x;                                    \
 	VPXOR t3, x, x;                                    \
-	AVX_SM4_TAO_L1(x, y, X_NIBBLE_MASK, tmp);          \  
+	AVX_SM4_TAO_L1(x, y, tmp);          \  
 	VPXOR x, t0, t0
+
+
+#define SM4_ONE_ROUND_AVX(x, y, z, t0, t1, t2, t3)  \
+	VPXOR t1, x, x;                                    \
+	VPXOR t2, x, x;                                    \
+	VPXOR t3, x, x;                                    \
+	AVX_SM4_TAO_L1(x, y, z);                           \
+	VPXOR x, t0, t0                                    \
+
+#define SM4_4BLOCKS_4ROUNDS_AVX(rk128, x, y, z, t0, t1, t2, t3) \
+	VPSHUFD $0, rk128, x;                                   \
+	SM4_ONE_ROUND_AVX(x, y, z, t0, t1, t2, t3);             \
+	VPSHUFD $0x55, rk128, x;                                \
+	SM4_ONE_ROUND_AVX(x, y, z, t1, t2, t3, t0);             \
+	VPSHUFD $0xAA, rk128, x;                                \
+	SM4_ONE_ROUND_AVX(x, y, z, t2, t3, t0, t1);             \
+	VPSHUFD $0xFF, rk128, x;                                \
+	SM4_ONE_ROUND_AVX(x, y, z, t3, t0, t1, t2);             \
+
+#define AVX_SM4_4BLOCKS(RK, rk128, x, y, z, t0, t1, t2, t3) \
+	VPSHUFB flip_mask<>(SB), t0, t0                              \
+	VPSHUFB flip_mask<>(SB), t1, t1                              \  
+	VPSHUFB flip_mask<>(SB), t2, t2                              \
+	VPSHUFB flip_mask<>(SB), t3, t3                              \
+	;                                              \
+	TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y)         \
+	VMOVDQU (0*16)(RK), rk128;                                 \
+	SM4_4BLOCKS_4ROUNDS_AVX(rk128, x, y, z, t0, t1, t2, t3);   \
+	VMOVDQU (1*16)(RK), rk128;                                 \
+	SM4_4BLOCKS_4ROUNDS_AVX(rk128, x, y, z, t0, t1, t2, t3);   \
+	VMOVDQU (2*16)(RK), rk128;                                 \
+	SM4_4BLOCKS_4ROUNDS_AVX(rk128, x, y, z, t0, t1, t2, t3);   \
+	VMOVDQU (3*16)(RK), rk128;                                 \
+	SM4_4BLOCKS_4ROUNDS_AVX(rk128, x, y, z, t0, t1, t2, t3);   \
+	VMOVDQU (4*16)(RK), rk128;                                 \
+	SM4_4BLOCKS_4ROUNDS_AVX(rk128, x, y, z, t0, t1, t2, t3);   \
+	VMOVDQU (5*16)(RK), rk128;                                 \
+	SM4_4BLOCKS_4ROUNDS_AVX(rk128, x, y, z, t0, t1, t2, t3);   \
+	VMOVDQU (6*16)(RK), rk128;                                 \
+	SM4_4BLOCKS_4ROUNDS_AVX(rk128, x, y, z, t0, t1, t2, t3);   \
+	VMOVDQU (7*16)(RK), rk128;                                 \
+	SM4_4BLOCKS_4ROUNDS_AVX(rk128, x, y, z, t0, t1, t2, t3);   \
+	; \ // Transpose matrix 4 x 4 32bits word
+	TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y)                     \
+	VPSHUFB bswap_mask<>(SB), t0, t0                           \
+	VPSHUFB bswap_mask<>(SB), t1, t1                           \
+	VPSHUFB bswap_mask<>(SB), t2, t2                           \
+	VPSHUFB bswap_mask<>(SB), t3, t3                           \
+
+#define SM4_8BLOCKS_4ROUNDS_AVX(rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7) \
+	VPSHUFD $0, rk128, x;                                   \
+	SM4_ONE_ROUND_AVX(x, y, z, t0, t1, t2, t3);             \
+	VPSHUFD $0, rk128, x;                                   \
+	SM4_ONE_ROUND_AVX(x, y, z, t4, t5, t6, t7);             \
+	VPSHUFD $0x55, rk128, x;                                \
+	SM4_ONE_ROUND_AVX(x, y, z, t1, t2, t3, t0);             \
+	VPSHUFD $0x55, rk128, x;                                \
+	SM4_ONE_ROUND_AVX(x, y, z, t5, t6, t7, t4);             \
+	VPSHUFD $0xAA, rk128, x;                                \
+	SM4_ONE_ROUND_AVX(x, y, z, t2, t3, t0, t1);             \
+	VPSHUFD $0xAA, rk128, x;                                \
+	SM4_ONE_ROUND_AVX(x, y, z, t6, t7, t4, t5);             \
+	VPSHUFD $0xFF, rk128, x;                                \
+	SM4_ONE_ROUND_AVX(x, y, z, t3, t0, t1, t2);             \
+	VPSHUFD $0xFF, rk128, x;                                \
+	SM4_ONE_ROUND_AVX(x, y, z, t7, t4, t5, t6);             \
+
+#define AVX_SM4_8BLOCKS(RK, rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7) \
+	VPSHUFB flip_mask<>(SB), t0, t0                              \
+	VPSHUFB flip_mask<>(SB), t1, t1                              \
+	VPSHUFB flip_mask<>(SB), t2, t2                              \
+	VPSHUFB flip_mask<>(SB), t3, t3                              \
+	VPSHUFB flip_mask<>(SB), t4, t4                              \
+	VPSHUFB flip_mask<>(SB), t5, t5                              \
+	VPSHUFB flip_mask<>(SB), t6, t6                              \
+	VPSHUFB flip_mask<>(SB), t7, t7                              \	
+	;                                              \
+	TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y)         \
+	TRANSPOSE_MATRIX(t4, t5, t6, t7, x, y)         \
+	VMOVDQU (0*16)(RK), rk128;                               \
+	SM4_8BLOCKS_4ROUNDS_AVX(rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7);                                   \
+	VMOVDQU (1*16)(RK), rk128;                               \
+	SM4_8BLOCKS_4ROUNDS_AVX(rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7);                                   \
+	VMOVDQU (2*16)(RK), rk128;                               \
+	SM4_8BLOCKS_4ROUNDS_AVX(rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7);                                   \
+	VMOVDQU (3*16)(RK), rk128;                               \
+	SM4_8BLOCKS_4ROUNDS_AVX(rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7);                                   \
+	VMOVDQU (4*16)(RK), rk128;                               \
+	SM4_8BLOCKS_4ROUNDS_AVX(rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7);                                   \
+	VMOVDQU (5*16)(RK), rk128;                               \
+	SM4_8BLOCKS_4ROUNDS_AVX(rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7);                                   \
+	VMOVDQU (6*16)(RK), rk128;                               \
+	SM4_8BLOCKS_4ROUNDS_AVX(rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7);                                   \
+	VMOVDQU (7*16)(RK), rk128;                               \
+	SM4_8BLOCKS_4ROUNDS_AVX(rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7);                                   \		
+	; \ // Transpose matrix 4 x 4 32bits word
+	TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y)                        \
+	TRANSPOSE_MATRIX(t4, t5, t6, t7, x, y)                        \
+	VPSHUFB bswap_mask<>(SB), t0, t0                                         \
+	VPSHUFB bswap_mask<>(SB), t1, t1                                         \
+	VPSHUFB bswap_mask<>(SB), t2, t2                                         \
+	VPSHUFB bswap_mask<>(SB), t3, t3                                         \
+	VPSHUFB bswap_mask<>(SB), t4, t4                                         \
+	VPSHUFB bswap_mask<>(SB), t5, t5                                         \
+	VPSHUFB bswap_mask<>(SB), t6, t6                                         \
+	VPSHUFB bswap_mask<>(SB), t7, t7                                         \
 
 // SM4 sbox function, AVX2 version
 // parameters:
@@ -301,8 +527,7 @@ GLOBL fk_mask<>(SB), 8, $16
 	VBROADCASTI128 m1_high<>(SB), z;               \
 	VPSHUFB x, z, x;                               \
 	VPXOR y, x, x;                                 \
-	VBROADCASTI128 inverse_shift_rows<>(SB), z;    \
-	VPSHUFB z, x, x;                               \
+	VPSHUFB inverse_shift_rows256<>(SB), x, x;     \
 	VEXTRACTI128 $1, x, yw                         \
 	VAESENCLAST xNibbleMask, xw, xw;               \
 	VAESENCLAST xNibbleMask, yw, yw;               \
@@ -327,17 +552,14 @@ GLOBL fk_mask<>(SB), 8, $16
 // - yNibbleMask: 256 bits register stored nibble mask, should be loaded earlier.
 #define AVX2_SM4_TAO_L1(x, y, z, xw, yw, xNibbleMask, yNibbleMask) \
 	AVX2_SM4_SBOX(x, y, z, xw, yw, xNibbleMask, yNibbleMask);      \
-	VBROADCASTI128 r08_mask<>(SB), z;        \
-	VPSHUFB z, x, y;                         \
+	VPSHUFB r08_mask256<>(SB), x, y;         \
 	VPXOR x, y, y;                           \
-	VBROADCASTI128 r16_mask<>(SB), z;        \
-	VPSHUFB z, x, z;                         \
+	VPSHUFB r16_mask256<>(SB), x, z;         \
 	VPXOR z, y, y;                           \
 	VPSLLD $2, y, z;                         \
 	VPSRLD $30, y, y;                        \
 	VPXOR z, y, y;                           \
-	VBROADCASTI128 r24_mask<>(SB), z;        \
-	VPSHUFB z, x, z;                         \
+	VPSHUFB r24_mask256<>(SB), x, z;         \
 	VPXOR y, x, x;                           \
 	VPXOR x, z, x
 
@@ -359,6 +581,24 @@ GLOBL fk_mask<>(SB), 8, $16
 	AVX2_SM4_TAO_L1(x, y, tmp, xw, yw, X_NIBBLE_MASK, NIBBLE_MASK);          \  
 	VPXOR x, t0, t0
 
+// SM4 round function, AVX2 version, handle 256 bits
+// t0 ^= tao_l1(t1^t2^t3^xk)
+// parameters:
+// - index: round key index immediate number
+// - x: 256 bits temp register, MUST use XDWORD!
+// - y: 256 bits temp register, MUST use YDWORD!
+// - t0: 256 bits register for data as result
+// - t1: 256 bits register for data
+// - t2: 256 bits register for data
+// - t3: 256 bits register for data
+#define AVX2_SM4_ROUND2(index, RK, x, y, xw, yw, tmp, t0, t1, t2, t3)  \ 
+	VPBROADCASTD (index * 4)(RK), x;                                  \
+	VPXOR t1, x, x;                                                          \
+	VPXOR t2, x, x;                                                          \
+	VPXOR t3, x, x;                                                          \
+	AVX2_SM4_TAO_L1(x, y, tmp, xw, yw, X_NIBBLE_MASK, NIBBLE_MASK);          \  
+	VPXOR x, t0, t0
+
 // SM4 round function, AVX version, handle 128 bits
 // t0 ^= tao_l1(t1^t2^t3^xk)
 // parameters:
@@ -371,9 +611,100 @@ GLOBL fk_mask<>(SB), 8, $16
 // - t3: 128 bits register for data
 #define AVX2_SM4_ROUND_4BLOCKS(index, RK, IND, x, y, tmp, t0, t1, t2, t3)  \ 
 	VPBROADCASTD (index * 4)(RK)(IND*1), x;            \
-	VPSHUFD $0, x, x;                                  \
 	VPXOR t1, x, x;                                    \
 	VPXOR t2, x, x;                                    \
 	VPXOR t3, x, x;                                    \
-	AVX_SM4_TAO_L1(x, y, X_NIBBLE_MASK, tmp);          \  
+	AVX_SM4_TAO_L1(x, y, tmp);                         \  
 	VPXOR x, t0, t0
+
+#define AVX2_SM4_8BLOCKS(RK, x, y, xw, yw, tmp, t0, t1, t2, t3)	\
+	AVX2_SM4_ROUND2(0, RK, x, y, xw, yw, tmp, t0, t1, t2, t3); \
+	AVX2_SM4_ROUND2(1, RK, x, y, xw, yw, tmp, t1, t2, t3, t0); \
+	AVX2_SM4_ROUND2(2, RK, x, y, xw, yw, tmp, t2, t3, t0, t1); \
+	AVX2_SM4_ROUND2(3, RK, x, y, xw, yw, tmp, t3, t0, t1, t2); \
+	AVX2_SM4_ROUND2(4, RK, x, y, xw, yw, tmp, t0, t1, t2, t3); \
+	AVX2_SM4_ROUND2(5, RK, x, y, xw, yw, tmp, t1, t2, t3, t0); \
+	AVX2_SM4_ROUND2(6, RK, x, y, xw, yw, tmp, t2, t3, t0, t1); \
+	AVX2_SM4_ROUND2(7, RK, x, y, xw, yw, tmp, t3, t0, t1, t2); \
+	AVX2_SM4_ROUND2(8, RK, x, y, xw, yw, tmp, t0, t1, t2, t3); \
+	AVX2_SM4_ROUND2(9, RK, x, y, xw, yw, tmp, t1, t2, t3, t0); \
+	AVX2_SM4_ROUND2(10, RK, x, y, xw, yw, tmp, t2, t3, t0, t1); \
+	AVX2_SM4_ROUND2(11, RK, x, y, xw, yw, tmp, t3, t0, t1, t2); \
+	AVX2_SM4_ROUND2(12, RK, x, y, xw, yw, tmp, t0, t1, t2, t3); \
+	AVX2_SM4_ROUND2(13, RK, x, y, xw, yw, tmp, t1, t2, t3, t0); \
+	AVX2_SM4_ROUND2(14, RK, x, y, xw, yw, tmp, t2, t3, t0, t1); \
+	AVX2_SM4_ROUND2(15, RK, x, y, xw, yw, tmp, t3, t0, t1, t2); \
+	AVX2_SM4_ROUND2(16, RK, x, y, xw, yw, tmp, t0, t1, t2, t3); \
+	AVX2_SM4_ROUND2(17, RK, x, y, xw, yw, tmp, t1, t2, t3, t0); \
+	AVX2_SM4_ROUND2(18, RK, x, y, xw, yw, tmp, t2, t3, t0, t1); \
+	AVX2_SM4_ROUND2(19, RK, x, y, xw, yw, tmp, t3, t0, t1, t2); \
+	AVX2_SM4_ROUND2(20, RK, x, y, xw, yw, tmp, t0, t1, t2, t3); \
+	AVX2_SM4_ROUND2(21, RK, x, y, xw, yw, tmp, t1, t2, t3, t0); \
+	AVX2_SM4_ROUND2(22, RK, x, y, xw, yw, tmp, t2, t3, t0, t1); \
+	AVX2_SM4_ROUND2(23, RK, x, y, xw, yw, tmp, t3, t0, t1, t2); \
+	AVX2_SM4_ROUND2(24, RK, x, y, xw, yw, tmp, t0, t1, t2, t3); \
+	AVX2_SM4_ROUND2(25, RK, x, y, xw, yw, tmp, t1, t2, t3, t0); \
+	AVX2_SM4_ROUND2(26, RK, x, y, xw, yw, tmp, t2, t3, t0, t1); \
+	AVX2_SM4_ROUND2(27, RK, x, y, xw, yw, tmp, t3, t0, t1, t2); \
+	AVX2_SM4_ROUND2(28, RK, x, y, xw, yw, tmp, t0, t1, t2, t3); \
+	AVX2_SM4_ROUND2(29, RK, x, y, xw, yw, tmp, t1, t2, t3, t0); \
+	AVX2_SM4_ROUND2(30, RK, x, y, xw, yw, tmp, t2, t3, t0, t1); \
+	AVX2_SM4_ROUND2(31, RK, x, y, xw, yw, tmp, t3, t0, t1, t2)
+
+// SM4 round function, AVX2 version, handle 256 bits
+// t0 ^= tao_l1(t1^t2^t3^xk)
+// parameters:
+// - index: round key index immediate number
+// - x: 256 bits temp register, MUST use XDWORD!
+// - y: 256 bits temp register, MUST use YDWORD!
+// - t0: 256 bits register for data as result
+// - t1: 256 bits register for data
+// - t2: 256 bits register for data
+// - t3: 256 bits register for data
+#define AVX2_SM4_16BLOCKS_ROUND(index, RK, x, y, xw, yw, tmp, tmp1, t0, t1, t2, t3, t4, t5, t6, t7)  \ 
+	VPBROADCASTD (index * 4)(RK), tmp1;                                         \
+	VPXOR t1, tmp1, x;                                                          \
+	VPXOR t2, x, x;                                                             \
+	VPXOR t3, x, x;                                                             \
+	AVX2_SM4_TAO_L1(x, y, tmp, xw, yw, X_NIBBLE_MASK, NIBBLE_MASK);             \  
+	VPXOR x, t0, t0;                                                            \
+	;\
+	VPXOR t5, tmp1, x;                                                          \
+	VPXOR t6, x, x;                                                             \
+	VPXOR t7, x, x;                                                             \
+	AVX2_SM4_TAO_L1(x, y, tmp, xw, yw, X_NIBBLE_MASK, NIBBLE_MASK);             \  
+	VPXOR x, t4, t4;                                                            \
+
+#define AVX2_SM4_16BLOCKS(RK, x, y, xw, yw, tmp, tmp1, t0, t1, t2, t3, t4, t5, t6, t7)	\
+	AVX2_SM4_16BLOCKS_ROUND(0, RK, x, y, xw, yw, tmp, tmp1, t0, t1, t2, t3, t4, t5, t6, t7); \
+	AVX2_SM4_16BLOCKS_ROUND(1, RK, x, y, xw, yw, tmp, tmp1, t1, t2, t3, t0, t5, t6, t7, t4); \
+	AVX2_SM4_16BLOCKS_ROUND(2, RK, x, y, xw, yw, tmp, tmp1, t2, t3, t0, t1, t6, t7, t4, t5); \
+	AVX2_SM4_16BLOCKS_ROUND(3, RK, x, y, xw, yw, tmp, tmp1, t3, t0, t1, t2, t7, t4, t5, t6); \
+	AVX2_SM4_16BLOCKS_ROUND(4, RK, x, y, xw, yw, tmp, tmp1, t0, t1, t2, t3, t4, t5, t6, t7); \
+	AVX2_SM4_16BLOCKS_ROUND(5, RK, x, y, xw, yw, tmp, tmp1, t1, t2, t3, t0, t5, t6, t7, t4); \
+	AVX2_SM4_16BLOCKS_ROUND(6, RK, x, y, xw, yw, tmp, tmp1, t2, t3, t0, t1, t6, t7, t4, t5); \
+	AVX2_SM4_16BLOCKS_ROUND(7, RK, x, y, xw, yw, tmp, tmp1, t3, t0, t1, t2, t7, t4, t5, t6); \
+	AVX2_SM4_16BLOCKS_ROUND(8, RK, x, y, xw, yw, tmp, tmp1, t0, t1, t2, t3, t4, t5, t6, t7); \
+	AVX2_SM4_16BLOCKS_ROUND(9, RK, x, y, xw, yw, tmp, tmp1, t1, t2, t3, t0, t5, t6, t7, t4); \
+	AVX2_SM4_16BLOCKS_ROUND(10, RK, x, y, xw, yw, tmp, tmp1, t2, t3, t0, t1, t6, t7, t4, t5); \
+	AVX2_SM4_16BLOCKS_ROUND(11, RK, x, y, xw, yw, tmp, tmp1, t3, t0, t1, t2, t7, t4, t5, t6); \
+	AVX2_SM4_16BLOCKS_ROUND(12, RK, x, y, xw, yw, tmp, tmp1, t0, t1, t2, t3, t4, t5, t6, t7); \
+	AVX2_SM4_16BLOCKS_ROUND(13, RK, x, y, xw, yw, tmp, tmp1, t1, t2, t3, t0, t5, t6, t7, t4); \
+	AVX2_SM4_16BLOCKS_ROUND(14, RK, x, y, xw, yw, tmp, tmp1, t2, t3, t0, t1, t6, t7, t4, t5); \
+	AVX2_SM4_16BLOCKS_ROUND(15, RK, x, y, xw, yw, tmp, tmp1, t3, t0, t1, t2, t7, t4, t5, t6); \
+	AVX2_SM4_16BLOCKS_ROUND(16, RK, x, y, xw, yw, tmp, tmp1, t0, t1, t2, t3, t4, t5, t6, t7); \
+	AVX2_SM4_16BLOCKS_ROUND(17, RK, x, y, xw, yw, tmp, tmp1, t1, t2, t3, t0, t5, t6, t7, t4); \
+	AVX2_SM4_16BLOCKS_ROUND(18, RK, x, y, xw, yw, tmp, tmp1, t2, t3, t0, t1, t6, t7, t4, t5); \
+	AVX2_SM4_16BLOCKS_ROUND(19, RK, x, y, xw, yw, tmp, tmp1, t3, t0, t1, t2, t7, t4, t5, t6); \
+	AVX2_SM4_16BLOCKS_ROUND(20, RK, x, y, xw, yw, tmp, tmp1, t0, t1, t2, t3, t4, t5, t6, t7); \
+	AVX2_SM4_16BLOCKS_ROUND(21, RK, x, y, xw, yw, tmp, tmp1, t1, t2, t3, t0, t5, t6, t7, t4); \
+	AVX2_SM4_16BLOCKS_ROUND(22, RK, x, y, xw, yw, tmp, tmp1, t2, t3, t0, t1, t6, t7, t4, t5); \
+	AVX2_SM4_16BLOCKS_ROUND(23, RK, x, y, xw, yw, tmp, tmp1, t3, t0, t1, t2, t7, t4, t5, t6); \
+	AVX2_SM4_16BLOCKS_ROUND(24, RK, x, y, xw, yw, tmp, tmp1, t0, t1, t2, t3, t4, t5, t6, t7); \
+	AVX2_SM4_16BLOCKS_ROUND(25, RK, x, y, xw, yw, tmp, tmp1, t1, t2, t3, t0, t5, t6, t7, t4); \
+	AVX2_SM4_16BLOCKS_ROUND(26, RK, x, y, xw, yw, tmp, tmp1, t2, t3, t0, t1, t6, t7, t4, t5); \
+	AVX2_SM4_16BLOCKS_ROUND(27, RK, x, y, xw, yw, tmp, tmp1, t3, t0, t1, t2, t7, t4, t5, t6); \
+	AVX2_SM4_16BLOCKS_ROUND(28, RK, x, y, xw, yw, tmp, tmp1, t0, t1, t2, t3, t4, t5, t6, t7); \
+	AVX2_SM4_16BLOCKS_ROUND(29, RK, x, y, xw, yw, tmp, tmp1, t1, t2, t3, t0, t5, t6, t7, t4); \
+	AVX2_SM4_16BLOCKS_ROUND(30, RK, x, y, xw, yw, tmp, tmp1, t2, t3, t0, t1, t6, t7, t4, t5); \
+	AVX2_SM4_16BLOCKS_ROUND(31, RK, x, y, xw, yw, tmp, tmp1, t3, t0, t1, t2, t7, t4, t5, t6)

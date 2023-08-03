@@ -171,3 +171,30 @@ GLOBL fk_mask<>(SB), (16+8), $16
 	VEOR t3.B16, x.B16, x.B16;                        \
 	SM4_TAO_L1(x, y, z);                              \
 	VEOR x.B16, t0.B16, t0.B16
+
+// SM4 round function
+// t0 ^= tao_l1(t1^t2^t3^xk)
+// parameters:
+// - RK: round key register
+// - tmp32: temp 32/64 bits register
+// -  x: 128 bits temp register
+// -  y: 128 bits temp register
+// -  z: 128 bits temp register
+// - t0: 128 bits register for data as result
+// - t1: 128 bits register for data
+// - t2: 128 bits register for data
+// - t3: 128 bits register for data
+#define SM4_8BLOCKS_ROUND(RK, tmp32, x, y, z, tmp, t0, t1, t2, t3, t4, t5, t6, t7) \ 
+	MOVW.P 4(RK), tmp32;                              \
+	VMOV tmp32, tmp.S4;                               \
+	VEOR t1.B16, tmp.B16, x.B16;                      \
+	VEOR t2.B16, x.B16, x.B16;                        \
+	VEOR t3.B16, x.B16, x.B16;                        \
+	SM4_TAO_L1(x, y, z);                              \
+	VEOR x.B16, t0.B16, t0.B16;                       \ 
+	; \
+	VEOR t1.B16, tmp.B16, x.B16;                      \
+	VEOR t2.B16, x.B16, x.B16;                        \
+	VEOR t3.B16, x.B16, x.B16;                        \
+	SM4_TAO_L1(x, y, z);                              \
+	VEOR x.B16, t0.B16, t0.B16
