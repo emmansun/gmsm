@@ -94,8 +94,8 @@ func TestECBBasic(t *testing.T) {
 
 func TestECBRandom(t *testing.T) {
 	key := []byte("0123456789ABCDEF")
-	plaintext := make([]byte, 448)
-	ciphertext := make([]byte, 448)
+	plaintext := make([]byte, 464)
+	ciphertext := make([]byte, 464)
 	io.ReadFull(rand.Reader, plaintext)
 	c, err := sm4.NewCipher(key)
 	if err != nil {
@@ -103,7 +103,7 @@ func TestECBRandom(t *testing.T) {
 	}
 	encrypter := cipher.NewECBEncrypter(c)
 	encrypter.CryptBlocks(ciphertext, plaintext)
-	result := make([]byte, 448)
+	result := make([]byte, 464)
 	decrypter := cipher.NewECBDecrypter(c)
 	decrypter.CryptBlocks(result, ciphertext)
 	if !bytes.Equal(result, plaintext) {

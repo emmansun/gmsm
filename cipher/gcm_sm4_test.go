@@ -3,7 +3,9 @@ package cipher_test
 import (
 	"bytes"
 	"crypto/cipher"
+	"crypto/rand"
 	"encoding/hex"
+	"io"
 	"testing"
 
 	"github.com/emmansun/gmsm/sm4"
@@ -389,5 +391,30 @@ func TestGCMCounterWrap(t *testing.T) {
 		if err != nil {
 			t.Errorf("test[%v]: authentication failed", i)
 		}
+	}
+}
+
+func TestSM4GCMRandom(t *testing.T) {
+	key := []byte("0123456789ABCDEF")
+	nonce := []byte("0123456789AB")
+	plaintext := make([]byte, 464)
+	
+	io.ReadFull(rand.Reader, plaintext)
+	c, err := sm4.NewCipher(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	aead, err := cipher.NewGCMWithNonceSize(c, len(nonce))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := aead.Seal(nil, nonce, plaintext, nil)
+
+	result, err := aead.Open(nil, nonce, got, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(result, plaintext) {
+		t.Error("gcm seal/open 464 bytes fail")
 	}
 }
