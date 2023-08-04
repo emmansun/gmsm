@@ -1229,6 +1229,7 @@ avx2GcmSm4Enc:
 	VMOVDQU T0, (8*16 + 7*16)(SP)
 	increment(7)
 
+	VBROADCASTI128 bswapMask<>(SB), DWBSWAP
 	// load 8 ctrs for encryption
 	VMOVDQU (4*32 + 0*32)(SP), DWB0
 	VMOVDQU (4*32 + 1*32)(SP), DWB1
@@ -1251,7 +1252,6 @@ avx2GcmSm4Enc:
 	// Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWTMP0, XDWTMP1)
 
-	VBROADCASTI128 bswapMask<>(SB), DWBSWAP
 	VPSHUFB DWBSWAP, DWB0, DWB0
 	VPSHUFB DWBSWAP, DWB1, DWB1
 	VPSHUFB DWBSWAP, DWB2, DWB2
@@ -1336,7 +1336,6 @@ avx2GcmSm4EncOctetsLoop:
 		// Transpose matrix 4 x 4 32bits word
 		TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWTMP0, XDWTMP1)
 
-		VBROADCASTI128 bswapMask<>(SB), DWBSWAP
 		VPSHUFB DWBSWAP, DWB0, DWB0
 		VPSHUFB DWBSWAP, DWB1, DWB1
 		VPSHUFB DWBSWAP, DWB2, DWB2
@@ -1370,14 +1369,10 @@ avx2GcmSm4EncOctetsLoop:
 		VPXOR ACC1, ACC0, ACC0
 
 		// XOR plaintext
-		VMOVDQU (32*0)(ptx), XDWTMP0
-		VPXOR XDWTMP0, DWB0, DWB0
-		VMOVDQU (32*1)(ptx), XDWTMP0
-		VPXOR XDWTMP0, DWB1, DWB1
-		VMOVDQU (32*2)(ptx), XDWTMP0
-		VPXOR XDWTMP0, DWB2, DWB2
-		VMOVDQU (32*3)(ptx), XDWTMP0
-		VPXOR XDWTMP0, DWB3, DWB3
+		VPXOR (32*0)(ptx), DWB0, DWB0
+		VPXOR (32*1)(ptx), DWB1, DWB1
+		VPXOR (32*2)(ptx), DWB2, DWB2
+		VPXOR (32*3)(ptx), DWB3, DWB3
 
 		// Store ciphertext
 		VMOVDQU DWB0, (32*0)(ctx)
@@ -1451,14 +1446,10 @@ avx2GcmSm4EncNibbles:
 	
 	AVX_SM4_4BLOCKS(rk, B4, B5, B6, B7, B0, B1, B2, B3)
 
-	VMOVDQU (16*0)(ptx), T0
-	VPXOR T0, B0, B0
-	VMOVDQU (16*1)(ptx), T0
-	VPXOR T0, B1, B1
-	VMOVDQU (16*2)(ptx), T0
-	VPXOR T0, B2, B2
-	VMOVDQU (16*3)(ptx), T0
-	VPXOR T0, B3, B3
+	VPXOR (16*0)(ptx), B0, B0
+	VPXOR (16*1)(ptx), B1, B1
+	VPXOR (16*2)(ptx), B2, B2
+	VPXOR (16*3)(ptx), B3, B3
 
 	VMOVDQU B0, (16*0)(ctx)
 	VMOVDQU B1, (16*1)(ctx)
@@ -1596,9 +1587,6 @@ TEXT ·gcmSm4Dec(SB),0,$128-96
 #define avxDecMulRound(i) \
 	VMOVDQU (16*i)(ctx), T0;\
 	VPSHUFB BSWAP, T0, T0;\
-	internalAvxDecMulRound(i)
-
-#define internalAvxDecMulRound(i) \
 	VMOVDQU (16*(i*2))(pTbl), T2;\
 	VPCLMULQDQ $0x00, T0, T2, T1;\
 	VPXOR T1, ACC0, ACC0;\
@@ -2126,6 +2114,8 @@ avx2GcmSm4Dec:
 	VMOVDQU T0, (7*16)(SP)
 	increment(7)
 
+	VBROADCASTI128 bswapMask<>(SB), DWBSWAP
+
 avx2GcmSm4DecOctetsLoop:
 		CMPQ ptxLen, $128
 		JB avx2GcmSm4DecEndOctets
@@ -2150,6 +2140,34 @@ avx2GcmSm4DecOctetsLoop:
 		VPCLMULQDQ $0x00, T0, ACC1, ACC0
 		VPCLMULQDQ $0x11, T0, ACC1, ACC1
 
+		avxDecMulRound(1)
+		increment(0)
+		avxDecMulRound(2)
+		increment(1)
+		avxDecMulRound(3)
+		increment(2)
+	 	avxDecMulRound(4)
+		increment(3)
+		avxDecMulRound(5)
+		increment(4)
+		avxDecMulRound(6)
+		increment(5)
+	 	avxDecMulRound(7)
+		increment(6)
+		increment(7)
+
+		VPXOR ACC0, ACCM, ACCM
+		VPXOR ACC1, ACCM, ACCM
+		VPSLLDQ $8, ACCM, T0
+		VPSRLDQ $8, ACCM, ACCM
+		
+		VPXOR ACCM, ACC1, ACC1
+		VPXOR T0, ACC0, ACC0
+
+		avxReduceRound(ACC0)
+		avxReduceRound(ACC0)
+		VPXOR ACC1, ACC0, ACC0
+
 		VBROADCASTI128 flip_mask<>(SB), XDWTMP0
 		// Apply Byte Flip Mask: LE -> BE
 		VPSHUFB XDWTMP0, DWB0, DWB0
@@ -2166,67 +2184,21 @@ avx2GcmSm4DecOctetsLoop:
 		// Transpose matrix 4 x 4 32bits word
 		TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWTMP0, XDWTMP1)
 
-		VBROADCASTI128 bswapMask<>(SB), DWBSWAP
 		VPSHUFB DWBSWAP, DWB0, DWB0
 		VPSHUFB DWBSWAP, DWB1, DWB1
 		VPSHUFB DWBSWAP, DWB2, DWB2
 		VPSHUFB DWBSWAP, DWB3, DWB3
 
-		VMOVDQU (32*0)(ctx), XDWTMP0
-		VPXOR XDWTMP0, DWB0, DWB0
-		VEXTRACTI128 $1, XDWTMP0, T0
-		VPSHUFB BSWAP, T0, T0
-		internalAvxDecMulRound(1)
-		increment(0)
-
-		VMOVDQU (32*1)(ctx), XDWTMP0
-		VPXOR XDWTMP0, DWB1, DWB1
-		VPSHUFB DWBSWAP, XDWTMP0, XDWTMP0
-		VEXTRACTI128 $0, XDWTMP0, T0
-		internalAvxDecMulRound(2)
-		increment(1)
-		VEXTRACTI128 $1, XDWTMP0, T0
-		internalAvxDecMulRound(3)
-		increment(2)
-
-		VMOVDQU (32*2)(ctx), XDWTMP0
-		VPXOR XDWTMP0, DWB2, DWB2
-		VPSHUFB DWBSWAP, XDWTMP0, XDWTMP0
-		VEXTRACTI128 $0, XDWTMP0, T0
-		internalAvxDecMulRound(4)
-		increment(3)
-		VEXTRACTI128 $1, XDWTMP0, T0
-		internalAvxDecMulRound(5)
-		increment(4)
-
-		VMOVDQU (32*3)(ctx), XDWTMP0
-		VPXOR XDWTMP0, DWB3, DWB3
-		VPSHUFB DWBSWAP, XDWTMP0, XDWTMP0
-		VEXTRACTI128 $0, XDWTMP0, T0
-		internalAvxDecMulRound(6)
-		increment(5)
-		VEXTRACTI128 $1, XDWTMP0, T0
-		internalAvxDecMulRound(7)
-		increment(6)
-		increment(7)
+		VPXOR (32*0)(ctx), DWB0, DWB0
+		VPXOR (32*1)(ctx), DWB1, DWB1
+		VPXOR (32*2)(ctx), DWB2, DWB2
+		VPXOR (32*3)(ctx), DWB3, DWB3
 
 		VMOVDQU DWB0, (32*0)(ptx)
 		VMOVDQU DWB1, (32*1)(ptx)
 		VMOVDQU DWB2, (32*2)(ptx)
 		VMOVDQU DWB3, (32*3)(ptx)
-
-		VPXOR ACC0, ACCM, ACCM
-		VPXOR ACC1, ACCM, ACCM
-		VPSLLDQ $8, ACCM, T0
-		VPSRLDQ $8, ACCM, ACCM
 		
-		VPXOR ACCM, ACC1, ACC1
-		VPXOR T0, ACC0, ACC0
-
-		avxReduceRound(ACC0)
-		avxReduceRound(ACC0)
-		VPXOR ACC1, ACC0, ACC0
-
 		LEAQ 128(ptx), ptx
 		LEAQ 128(ctx), ctx
 
