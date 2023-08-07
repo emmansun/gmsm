@@ -86,6 +86,7 @@ done_sm4:
 #undef ptx
 #undef ptxLen
 #undef rkSave
+#undef IV
 
 #define XTMP7 V7
 #define t4 V10
