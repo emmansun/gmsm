@@ -141,6 +141,7 @@ ecbSm4Single:
 ecbSm4Single16:
 	VLD1.P 16(srcPtr), [t0.S4]
 	VREV32 t0.B16, t0.B16
+    PRE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y, XTMP6, XTMP7)
 
 encryptBlocksLoop1:
 		SM4_ROUND(rk, R6, x, y, XTMP6, t0, t1, t2, t3)
@@ -162,6 +163,7 @@ ecbSm4Single32:
 	VLD1.P 32(srcPtr), [t0.S4, t1.S4]
 	VREV32 t0.B16, t0.B16
 	VREV32 t1.B16, t1.B16
+    PRE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y, XTMP6, XTMP7)
 
 encryptBlocksLoop2:
 		SM4_ROUND(rk, R6, x, y, XTMP6, t0, t1, t2, t3)
@@ -185,6 +187,7 @@ ecbSm4Single48:
 	VREV32 t0.B16, t0.B16
 	VREV32 t1.B16, t1.B16
 	VREV32 t2.B16, t2.B16
+    PRE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y, XTMP6, XTMP7)
 
 encryptBlocksLoop3:
 		SM4_ROUND(rk, R6, x, y, XTMP6, t0, t1, t2, t3)
