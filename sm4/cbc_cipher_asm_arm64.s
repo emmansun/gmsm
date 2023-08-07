@@ -112,7 +112,7 @@ TEXT ·decryptBlocksChain(SB),NOSPLIT,$0
 	MOVD src_len+40(FP), srcPtrLen
 	MOVD iv+56(FP), R6
 	MOVD rk, rkSave
-	VLD1 (R6), [IV]
+	VLD1 (R6), [IV.B16]
 
 cbcSm4Octets:
 	CMP	$128, srcPtrLen
