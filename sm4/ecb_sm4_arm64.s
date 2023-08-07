@@ -3,8 +3,6 @@
 
 #include "textflag.h"
 
-#include "textflag.h"
-
 #define x V0
 #define y V1
 #define t0 V2
