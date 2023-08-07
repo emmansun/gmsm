@@ -49,43 +49,17 @@ func (b *sm4CipherAsm) NewECBDecrypter() cipher.BlockMode {
 
 func (x *ecb) BlockSize() int { return BlockSize }
 
+//go:noescape
+func encryptSm4Ecb(xk *uint32, dst, src []byte)
+
 func (x *ecb) CryptBlocks(dst, src []byte) {
 	x.validate(dst, src)
 	if len(src) == 0 {
 		return
 	}
-	for len(src) >= 2*x.b.blocksSize {
-		if x.enc == ecbEncrypt {
-			x.b.EncryptBlocks(dst[:2*x.b.blocksSize], src[:2*x.b.blocksSize])
-		} else {
-			x.b.DecryptBlocks(dst[:2*x.b.blocksSize], src[:2*x.b.blocksSize])
-		}
-		src = src[2*x.b.blocksSize:]
-		dst = dst[2*x.b.blocksSize:]
+	xk := &x.b.enc[0]
+	if x.enc == ecbDecrypt {
+		xk = &x.b.dec[0]
 	}
-	for len(src) >= x.b.blocksSize {
-		if x.enc == ecbEncrypt {
-			x.b.EncryptBlocks(dst[:x.b.blocksSize], src[:x.b.blocksSize])
-		} else {
-			x.b.DecryptBlocks(dst[:x.b.blocksSize], src[:x.b.blocksSize])
-		}
-		src = src[x.b.blocksSize:]
-		dst = dst[x.b.blocksSize:]
-	}
-	if len(src) > BlockSize {
-		temp := make([]byte, x.b.blocksSize)
-		copy(temp, src)
-		if x.enc == ecbEncrypt {
-			x.b.EncryptBlocks(temp, temp)
-		} else {
-			x.b.DecryptBlocks(temp, temp)
-		}
-		copy(dst, temp[:len(src)])
-	} else if len(src) > 0 {
-		if x.enc == ecbEncrypt {
-			x.b.Encrypt(dst, src)
-		} else {
-			x.b.Decrypt(dst, src)
-		}
-	}
+	encryptSm4Ecb(xk, dst, src)
 }

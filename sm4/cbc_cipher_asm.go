@@ -74,31 +74,7 @@ func (x *cbc) CryptBlocks(dst, src []byte) {
 	// Copy the last block of ciphertext in preparation as the new iv.
 	copy(x.tmp, src[end-BlockSize:end])
 
-	
-
-	decKeyPtr := &x.b.dec[0]
-
-	start := end - 2*x.b.blocksSize
-	for start > 0 {
-		decryptBlocksChain(decKeyPtr, dst[start:end], src[start:end], &src[start-BlockSize])
-		end = start
-		start -= 2*x.b.blocksSize
-	}
-
-	start = end - x.b.blocksSize
-	for start > 0 {
-		decryptBlocksChain(decKeyPtr, dst[start:end], src[start:end], &src[start-BlockSize])
-		end = start
-		start -= x.b.blocksSize
-	}
-
-	// Handle remain first blocks
-	var temp []byte = make([]byte, x.b.blocksSize)
-	var batchSrc []byte = make([]byte, x.b.blocksSize+BlockSize)	
-	copy(batchSrc, x.iv)
-	copy(batchSrc[BlockSize:], src[:end])
-	decryptBlocksChain(decKeyPtr, temp, batchSrc[BlockSize:], &batchSrc[0])
-	copy(dst, temp[:end])
+	decryptBlocksChain(&x.b.dec[0], dst, src, &x.iv[0])
 
 	// Set the new iv to the first block we copied earlier.
 	x.iv, x.tmp = x.tmp, x.iv

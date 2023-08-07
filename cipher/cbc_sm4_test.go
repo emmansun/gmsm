@@ -3,8 +3,10 @@ package cipher_test
 import (
 	"bytes"
 	"crypto/cipher"
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"testing"
 
 	"github.com/emmansun/gmsm/padding"
@@ -182,6 +184,27 @@ func TestCBCDecrypterSM4(t *testing.T) {
 		}
 		if !bytes.Equal(test.in, data) {
 			t.Errorf("%s: CBCDecrypter\nhave %x\nwant %x", test.name, data, test.in)
+		}
+	}
+}
+
+func TestSM4CBCRandom(t *testing.T) {
+	key := []byte("0123456789ABCDEF")
+	c, err := sm4.NewCipher(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encrypter := cipher.NewCBCEncrypter(c, key)
+	decrypter := cipher.NewCBCDecrypter(c, key)
+	for i:=1; i<=50; i++ {
+		plaintext := make([]byte, i*16)
+		ciphertext := make([]byte, i*16)
+		got := make([]byte, i*16)
+		io.ReadFull(rand.Reader, plaintext)
+		encrypter.CryptBlocks(ciphertext, plaintext)
+		decrypter.CryptBlocks(got, ciphertext)
+		if !bytes.Equal(got, plaintext) {
+			t.Errorf("test %v blocks failed", i)
 		}
 	}
 }
