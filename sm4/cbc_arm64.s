@@ -268,7 +268,9 @@ cbc4BlocksLoop64:
 cbcSm4Single16:
 	VLD1 (srcPtr), [t0.S4]
 	VREV32 t0.B16, t0.B16
-	PRE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y, XTMP6, XTMP7)
+	VMOV t0.S[1], t1.S[0]
+	VMOV t0.S[2], t2.S[0]
+	VMOV t0.S[3], t3.S[0]
 
 cbc4BlocksLoop16:
 		SM4_ROUND(rk, R19, x, y, XTMP6, t0, t1, t2, t3)
@@ -280,12 +282,14 @@ cbc4BlocksLoop16:
 		CMP $128, R0
 		BNE cbc4BlocksLoop16
 
-	TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y, XTMP6, XTMP7)
-	VREV32 t0.B16, t0.B16
+	VMOV t2.S[0], t3.S[1]
+	VMOV t1.S[0], t3.S[2]
+	VMOV t0.S[0], t3.S[3]
+	VREV32 t3.B16, t3.B16
 
-	VEOR IV.B16, t0.B16, t0.B16
+	VEOR IV.B16, t3.B16, t3.B16
 
-	VST1 [t0.S4], (dstPtr)
+	VST1 [t3.S4], (dstPtr)
 
 	B cbcSm4Done
 
