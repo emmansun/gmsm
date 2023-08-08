@@ -21,3 +21,10 @@ func NewANSIX923Padding(blockSize uint) Padding {
 	}
 	return ansiX923Padding(blockSize)
 }
+
+func NewISO9797M2Padding(blockSize uint) Padding {
+	if blockSize == 0 || blockSize > 255 {
+		panic("padding: invalid block size")
+	}
+	return iso9797M2Padding(blockSize)
+}
