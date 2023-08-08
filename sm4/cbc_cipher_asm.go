@@ -19,7 +19,6 @@ const cbcDecrypt = 0
 type cbc struct {
 	b   *sm4CipherAsm
 	iv  []byte
-	tmp []byte
 	enc int
 }
 
@@ -28,7 +27,6 @@ func (b *sm4CipherAsm) NewCBCEncrypter(iv []byte) cipher.BlockMode {
 	c.b = b
 	c.enc = cbcEncrypt
 	c.iv = make([]byte, BlockSize)
-	c.tmp = make([]byte, BlockSize)
 	copy(c.iv, iv)
 	return &c
 }
@@ -38,7 +36,6 @@ func (b *sm4CipherAsm) NewCBCDecrypter(iv []byte) cipher.BlockMode {
 	c.b = b
 	c.enc = cbcDecrypt
 	c.iv = make([]byte, BlockSize)
-	c.tmp = make([]byte, BlockSize)
 	copy(c.iv, iv)
 	return &c
 }
@@ -68,16 +65,8 @@ func (x *cbc) CryptBlocks(dst, src []byte) {
 		encryptBlocksChain(&x.b.enc[0], dst, src, &x.iv[0])
 		return
 	}
-	// For each block, we need to xor the decrypted data with the previous block's ciphertext (the iv).
-	// To avoid making a copy each time, we loop over the blocks BACKWARDS.
-	end := len(src)
-	// Copy the last block of ciphertext in preparation as the new iv.
-	copy(x.tmp, src[end-BlockSize:end])
 
 	decryptBlocksChain(&x.b.dec[0], dst, src, &x.iv[0])
-
-	// Set the new iv to the first block we copied earlier.
-	x.iv, x.tmp = x.tmp, x.iv
 }
 
 func (x *cbc) SetIV(iv []byte) {
