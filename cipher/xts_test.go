@@ -74,7 +74,7 @@ func TestXTSWithAES(t *testing.T) {
 		plaintext := fromHex(test.plaintext)
 		ciphertext := make([]byte, len(plaintext))
 
-		c.Encrypt(ciphertext, plaintext, test.sector)
+		c.EncryptSector(ciphertext, plaintext, test.sector)
 		expectedCiphertext := fromHex(test.ciphertext)
 		if !bytes.Equal(ciphertext, expectedCiphertext) {
 			t.Errorf("#%d: encrypted failed, got: %x, want: %x", i, ciphertext, expectedCiphertext)
@@ -82,7 +82,7 @@ func TestXTSWithAES(t *testing.T) {
 		}
 
 		decrypted := make([]byte, len(ciphertext))
-		c.Decrypt(decrypted, ciphertext, test.sector)
+		c.DecryptSector(decrypted, ciphertext, test.sector)
 		if !bytes.Equal(decrypted, plaintext) {
 			t.Errorf("#%d: decryption failed, got: %x, want: %x", i, decrypted, plaintext)
 		}
@@ -99,8 +99,8 @@ func TestShorterCiphertext(t *testing.T) {
 	encrypted := make([]byte, 48)
 	decrypted := make([]byte, 48)
 
-	c.Encrypt(encrypted, plaintext, 0)
-	c.Decrypt(decrypted, encrypted[:len(plaintext)], 0)
+	c.EncryptSector(encrypted, plaintext, 0)
+	c.DecryptSector(decrypted, encrypted[:len(plaintext)], 0)
 
 	if !bytes.Equal(plaintext, decrypted[:len(plaintext)]) {
 		t.Errorf("En/Decryption is not inverse")

@@ -77,7 +77,7 @@ func TestXTS(t *testing.T) {
 		plaintext := fromHex(test.plaintext)
 		ciphertext := make([]byte, len(plaintext))
 
-		c.Encrypt(ciphertext, plaintext, test.sector)
+		c.EncryptSector(ciphertext, plaintext, test.sector)
 		expectedCiphertext := fromHex(test.ciphertext)
 		if !bytes.Equal(ciphertext, expectedCiphertext) {
 			t.Errorf("#%d: encrypted failed, got: %x, want: %x", i, ciphertext, expectedCiphertext)
@@ -85,7 +85,53 @@ func TestXTS(t *testing.T) {
 		}
 
 		decrypted := make([]byte, len(ciphertext))
-		c.Decrypt(decrypted, ciphertext, test.sector)
+		c.DecryptSector(decrypted, ciphertext, test.sector)
+		if !bytes.Equal(decrypted, plaintext) {
+			t.Errorf("#%d: decryption failed, got: %x, want: %x", i, decrypted, plaintext)
+		}
+	}
+}
+
+// Test data is from GB/T 17964-2021 B.7
+var xtsGBTestVectors = []struct {
+	key        string
+	tweak      string
+	plaintext  string
+	ciphertext string
+}{
+	{
+		"2B7E151628AED2A6ABF7158809CF4F3C000102030405060708090A0B0C0D0E0F",
+		"F0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF",
+		"6BC1BEE22E409F96E93D7E117393172AAE2D8A571E03AC9C9EB76FAC45AF8E5130C81C46A35CE411E5FBC1191A0A52EFF69F2445DF4F9B17",
+		"E9538251C71D7B80BBE4483FEF497BD12C5C581BD6242FC51E08964FB4F60FDB0BA42F63499279213D318D2C11F6886E903BE7F93A1B3479",
+	},
+}
+
+func TestXTS_GB(t *testing.T) {
+	for i, test := range xtsGBTestVectors {
+		c, err := cipher.NewGBXTS(sm4.NewCipher, fromHex(test.key))
+		if err != nil {
+			t.Errorf("#%d: failed to create cipher: %s", i, err)
+			continue
+		}
+		plaintext := fromHex(test.plaintext)
+		ciphertext := make([]byte, len(plaintext))
+		var tweak1 [16]byte
+		var tweak2 [16]byte
+
+		tweak := fromHex(test.tweak)
+		copy(tweak1[:], tweak)
+		copy(tweak2[:], tweak)
+
+		c.Encrypt(ciphertext, plaintext, &tweak1)
+		expectedCiphertext := fromHex(test.ciphertext)
+		if !bytes.Equal(ciphertext, expectedCiphertext) {
+			t.Errorf("#%d: encrypted failed, got: %x, want: %x", i, ciphertext, expectedCiphertext)
+			continue
+		}
+
+		decrypted := make([]byte, len(ciphertext))
+		c.Decrypt(decrypted, ciphertext, &tweak2)
 		if !bytes.Equal(decrypted, plaintext) {
 			t.Errorf("#%d: decryption failed, got: %x, want: %x", i, decrypted, plaintext)
 		}
