@@ -395,7 +395,7 @@ func benchmarkXTS(b *testing.B, cipherFunc func([]byte) (cipher.Block, error), l
 	b.SetBytes(int64(len(plaintext)))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		c.Encrypt(encrypted, plaintext, 0)
+		c.EncryptSector(encrypted, plaintext, 0)
 		//c.Decrypt(decrypted, encrypted[:len(plaintext)], 0)
 	}
 }
