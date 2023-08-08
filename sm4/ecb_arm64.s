@@ -138,7 +138,6 @@ ecbSm4Single:
 ecbSm4Single16:
 	VLD1.P 16(srcPtr), [t0.S4]
 	VREV32 t0.B16, t0.B16
-	VREV32 t0.B16, t0.B16
 	VMOV t0.S[1], t1.S[0]
 	VMOV t0.S[2], t2.S[0]
 	VMOV t0.S[3], t3.S[0]
