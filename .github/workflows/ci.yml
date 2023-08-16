@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goVer: ['1.16', '1.18', '1.20']    
+        goVer: ['1.16', '1.18', '1.20', '1.21']    
     steps:
     - name: Checkout Repo
       uses: actions/checkout@v3
