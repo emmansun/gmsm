@@ -11,24 +11,24 @@
 // func addMulVVW256(z, x *uint, y uint) (c uint)
 TEXT ·addMulVVW256(SB), $0-32
 	MOVD	$4, R22 // R22 = z_len
-	JMP		addMulVVWx(SB)
+	JMP		addMulVVWy(SB)
 
 // func addMulVVW1024(z, x *uint, y uint) (c uint)
 TEXT ·addMulVVW1024(SB), $0-32
 	MOVD	$16, R22 // R22 = z_len
-	JMP		addMulVVWx(SB)
+	JMP		addMulVVWy(SB)
 
 // func addMulVVW1536(z, x *uint, y uint) (c uint)
 TEXT ·addMulVVW1536(SB), $0-32
 	MOVD	$24, R22 // R22 = z_len
-	JMP		addMulVVWx(SB)
+	JMP		addMulVVWy(SB)
 
 // func addMulVVW2048(z, x *uint, y uint) (c uint)
 TEXT ·addMulVVW2048(SB), $0-32
 	MOVD	$32, R22 // R22 = z_len
-	JMP		addMulVVWx(SB)
+	JMP		addMulVVWy(SB)
 
-TEXT addMulVVWx(SB), NOFRAME|NOSPLIT, $0
+TEXT addMulVVWy(SB), NOFRAME|NOSPLIT, $0
 	MOVD z+0(FP), R10	// R10 = z[]
 	MOVD x+8(FP), R8	// R8 = x[]
 	MOVD y+16(FP), R9	// R9 = y
