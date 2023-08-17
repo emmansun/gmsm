@@ -385,7 +385,7 @@ func benchmarkSM4CCMOpen(b *testing.B, buf []byte) {
 }
 
 func benchmarkXTS(b *testing.B, cipherFunc func([]byte) (cipher.Block, error), length, keylen int64) {
-	c, err := smcipher.NewXTS(cipherFunc, make([]byte, keylen))
+	c, err := smcipher.NewXTSEncrypterWithSector(cipherFunc, make([]byte, keylen), make([]byte, keylen), 0)
 	if err != nil {
 		b.Fatalf("NewCipher failed: %s", err)
 	}
@@ -395,43 +395,43 @@ func benchmarkXTS(b *testing.B, cipherFunc func([]byte) (cipher.Block, error), l
 	b.SetBytes(int64(len(plaintext)))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		c.EncryptSector(encrypted, plaintext, 0)
+		c.CryptBlocks(encrypted, plaintext)
 		//c.Decrypt(decrypted, encrypted[:len(plaintext)], 0)
 	}
 }
 
 func BenchmarkAES128XTSEncrypt512(b *testing.B) {
-	benchmarkXTS(b, aes.NewCipher, 512, 32)
+	benchmarkXTS(b, aes.NewCipher, 512, 16)
 }
 
 func BenchmarkAES128XTSEncrypt1K(b *testing.B) {
-	benchmarkXTS(b, aes.NewCipher, 1024, 32)
+	benchmarkXTS(b, aes.NewCipher, 1024, 16)
 }
 
 func BenchmarkAES128XTSEncrypt4K(b *testing.B) {
-	benchmarkXTS(b, aes.NewCipher, 4096, 32)
+	benchmarkXTS(b, aes.NewCipher, 4096, 16)
 }
 
 func BenchmarkAES256XTSEncrypt512(b *testing.B) {
-	benchmarkXTS(b, aes.NewCipher, 512, 64)
+	benchmarkXTS(b, aes.NewCipher, 512, 32)
 }
 
 func BenchmarkAES256XTSEncrypt1K(b *testing.B) {
-	benchmarkXTS(b, aes.NewCipher, 1024, 64)
+	benchmarkXTS(b, aes.NewCipher, 1024, 32)
 }
 
 func BenchmarkAES256XTSEncrypt4K(b *testing.B) {
-	benchmarkXTS(b, aes.NewCipher, 4096, 64)
+	benchmarkXTS(b, aes.NewCipher, 4096, 32)
 }
 
 func BenchmarkSM4XTSEncrypt512(b *testing.B) {
-	benchmarkXTS(b, sm4.NewCipher, 512, 32)
+	benchmarkXTS(b, sm4.NewCipher, 512, 16)
 }
 
 func BenchmarkSM4XTSEncrypt1K(b *testing.B) {
-	benchmarkXTS(b, sm4.NewCipher, 1024, 32)
+	benchmarkXTS(b, sm4.NewCipher, 1024, 16)
 }
 
 func BenchmarkSM4XTSEncrypt4K(b *testing.B) {
-	benchmarkXTS(b, sm4.NewCipher, 4096, 32)
+	benchmarkXTS(b, sm4.NewCipher, 4096, 16)
 }
