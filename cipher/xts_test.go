@@ -66,15 +66,22 @@ var xtsAesTestVectors = []struct {
 
 func TestXTSWithAES(t *testing.T) {
 	for i, test := range xtsAesTestVectors {
-		c, err := cipher.NewXTS(aes.NewCipher, fromHex(test.key))
+		key := fromHex(test.key)
+
+		encrypter, err := cipher.NewXTSEncrypterWithSector(aes.NewCipher, key[:len(key)/2], key[len(key)/2:], test.sector)
 		if err != nil {
-			t.Errorf("#%d: failed to create cipher: %s", i, err)
+			t.Errorf("#%d: failed to create encrypter: %s", i, err)
+			continue
+		}
+		decrypter, err := cipher.NewXTSDecrypterWithSector(aes.NewCipher, key[:len(key)/2], key[len(key)/2:], test.sector)
+		if err != nil {
+			t.Errorf("#%d: failed to create decrypter: %s", i, err)
 			continue
 		}
 		plaintext := fromHex(test.plaintext)
 		ciphertext := make([]byte, len(plaintext))
 
-		c.EncryptSector(ciphertext, plaintext, test.sector)
+		encrypter.CryptBlocks(ciphertext, plaintext)
 		expectedCiphertext := fromHex(test.ciphertext)
 		if !bytes.Equal(ciphertext, expectedCiphertext) {
 			t.Errorf("#%d: encrypted failed, got: %x, want: %x", i, ciphertext, expectedCiphertext)
@@ -82,7 +89,7 @@ func TestXTSWithAES(t *testing.T) {
 		}
 
 		decrypted := make([]byte, len(ciphertext))
-		c.DecryptSector(decrypted, ciphertext, test.sector)
+		decrypter.CryptBlocks(decrypted, ciphertext)
 		if !bytes.Equal(decrypted, plaintext) {
 			t.Errorf("#%d: decryption failed, got: %x, want: %x", i, decrypted, plaintext)
 		}
@@ -90,17 +97,22 @@ func TestXTSWithAES(t *testing.T) {
 }
 
 func TestShorterCiphertext(t *testing.T) {
-	c, err := cipher.NewXTS(aes.NewCipher, make([]byte, 32))
+	encrypter, err := cipher.NewXTSEncrypterWithSector(aes.NewCipher, make([]byte, 16), make([]byte, 16), 0)
 	if err != nil {
-		t.Fatalf("NewCipher failed: %s", err)
+		t.Fatalf("NewXTSEncrypterWithSector failed: %s", err)
+	}
+
+	decrypter, err := cipher.NewXTSDecrypterWithSector(aes.NewCipher, make([]byte, 16), make([]byte, 16), 0)
+	if err != nil {
+		t.Fatalf("NewXTSDecrypterWithSector failed: %s", err)
 	}
 
 	plaintext := make([]byte, 32)
 	encrypted := make([]byte, 48)
 	decrypted := make([]byte, 48)
 
-	c.EncryptSector(encrypted, plaintext, 0)
-	c.DecryptSector(decrypted, encrypted[:len(plaintext)], 0)
+	encrypter.CryptBlocks(encrypted, plaintext)
+	decrypter.CryptBlocks(decrypted, encrypted[:len(plaintext)])
 
 	if !bytes.Equal(plaintext, decrypted[:len(plaintext)]) {
 		t.Errorf("En/Decryption is not inverse")

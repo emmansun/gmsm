@@ -69,15 +69,22 @@ func fromHex(s string) []byte {
 
 func TestXTS(t *testing.T) {
 	for i, test := range xtsTestVectors {
-		c, err := cipher.NewXTS(sm4.NewCipher, fromHex(test.key))
+		key := fromHex(test.key)
+
+		encrypter, err := cipher.NewXTSEncrypterWithSector(sm4.NewCipher, key[:len(key)/2], key[len(key)/2:], test.sector)
 		if err != nil {
-			t.Errorf("#%d: failed to create cipher: %s", i, err)
+			t.Errorf("#%d: failed to create encrypter: %s", i, err)
+			continue
+		}
+		decrypter, err := cipher.NewXTSDecrypterWithSector(sm4.NewCipher, key[:len(key)/2], key[len(key)/2:], test.sector)
+		if err != nil {
+			t.Errorf("#%d: failed to create decrypter: %s", i, err)
 			continue
 		}
 		plaintext := fromHex(test.plaintext)
 		ciphertext := make([]byte, len(plaintext))
 
-		c.EncryptSector(ciphertext, plaintext, test.sector)
+		encrypter.CryptBlocks(ciphertext, plaintext)
 		expectedCiphertext := fromHex(test.ciphertext)
 		if !bytes.Equal(ciphertext, expectedCiphertext) {
 			t.Errorf("#%d: encrypted failed, got: %x, want: %x", i, ciphertext, expectedCiphertext)
@@ -85,7 +92,7 @@ func TestXTS(t *testing.T) {
 		}
 
 		decrypted := make([]byte, len(ciphertext))
-		c.DecryptSector(decrypted, ciphertext, test.sector)
+		decrypter.CryptBlocks(decrypted, ciphertext)
 		if !bytes.Equal(decrypted, plaintext) {
 			t.Errorf("#%d: decryption failed, got: %x, want: %x", i, decrypted, plaintext)
 		}
@@ -109,21 +116,22 @@ var xtsGBTestVectors = []struct {
 
 func TestXTS_GB(t *testing.T) {
 	for i, test := range xtsGBTestVectors {
-		c, err := cipher.NewGBXTS(sm4.NewCipher, fromHex(test.key))
+		key := fromHex(test.key)
+		tweak := fromHex(test.tweak)
+		encrypter, err := cipher.NewGBXTSEncrypter(sm4.NewCipher, key[:len(key)/2], key[len(key)/2:], tweak)
 		if err != nil {
-			t.Errorf("#%d: failed to create cipher: %s", i, err)
+			t.Errorf("#%d: failed to create encrypter: %s", i, err)
+			continue
+		}
+		decrypter, err := cipher.NewGBXTSDecrypter(sm4.NewCipher, key[:len(key)/2], key[len(key)/2:], tweak)
+		if err != nil {
+			t.Errorf("#%d: failed to create decrypter: %s", i, err)
 			continue
 		}
 		plaintext := fromHex(test.plaintext)
 		ciphertext := make([]byte, len(plaintext))
-		var tweak1 [16]byte
-		var tweak2 [16]byte
 
-		tweak := fromHex(test.tweak)
-		copy(tweak1[:], tweak)
-		copy(tweak2[:], tweak)
-
-		c.Encrypt(ciphertext, plaintext, &tweak1)
+		encrypter.CryptBlocks(ciphertext, plaintext)
 		expectedCiphertext := fromHex(test.ciphertext)
 		if !bytes.Equal(ciphertext, expectedCiphertext) {
 			t.Errorf("#%d: encrypted failed, got: %x, want: %x", i, ciphertext, expectedCiphertext)
@@ -131,7 +139,7 @@ func TestXTS_GB(t *testing.T) {
 		}
 
 		decrypted := make([]byte, len(ciphertext))
-		c.Decrypt(decrypted, ciphertext, &tweak2)
+		decrypter.CryptBlocks(decrypted, ciphertext)
 		if !bytes.Equal(decrypted, plaintext) {
 			t.Errorf("#%d: decryption failed, got: %x, want: %x", i, decrypted, plaintext)
 		}

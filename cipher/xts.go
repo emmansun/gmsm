@@ -19,102 +19,170 @@ type concurrentBlocks interface {
 	DecryptBlocks(dst, src []byte)
 }
 
-// A XTSBlockMode represents a block cipher running in a XTS mode
-type XTSBlockMode interface {
-	// BlockSize returns the mode's block size.
-	BlockSize() int
-
-	// Encrypt encrypts or decrypts a number of blocks. The length of
-	// src must be a multiple of the block size. Dst and src must overlap
-	// entirely or not at all.
-	//
-	Encrypt(dst, src []byte, tweak *[blockSize]byte)
-
-	// Decrypt decrypts a number of blocks. The length of
-	// src must be a multiple of the block size. Dst and src must overlap
-	// entirely or not at all.
-	//
-	Decrypt(dst, src []byte, tweak *[blockSize]byte)
-
-	// Encrypt encrypts or decrypts a number of blocks. The length of
-	// src must be a multiple of the block size. Dst and src must overlap
-	// entirely or not at all.
-	//
-	EncryptSector(dst, src []byte, sectorNum uint64)
-
-	// Decrypt decrypts a number of blocks. The length of
-	// src must be a multiple of the block size. Dst and src must overlap
-	// entirely or not at all.
-	//
-	DecryptSector(dst, src []byte, sectorNum uint64)
-}
-
 // Cipher contains an expanded key structure. It is safe for concurrent use if
 // the underlying block cipher is safe for concurrent use.
 type xts struct {
-	k1, k2 _cipher.Block
-	isGB   bool // if true, follows GB/T 17964-2021
+	b     _cipher.Block
+	tweak [blockSize]byte
+	isGB  bool // if true, follows GB/T 17964-2021
 }
 
 // blockSize is the block size that the underlying cipher must have. XTS is
 // only defined for 16-byte ciphers.
 const blockSize = 16
 
-// NewGBXTS creates a Cipher given a function for creating the underlying
-// block cipher (which must have a block size of 16 bytes). The key must be
-// twice the length of the underlying cipher's key.
+type xtsEncrypter xts
+
+// xtsEncAble is an interface implemented by ciphers that have a specific
+// optimized implementation of XTS encryption, like sm4.
+// NewXTSEncrypter will check for this interface and return the specific
+// BlockMode if found.
+type xtsEncAble interface {
+	NewXTSEncrypter(encryptedTweak *[blockSize]byte, isGB bool) _cipher.BlockMode
+}
+
+// NewXTSEncrypter creates a Cipher given a function for creating the underlying
+// block cipher (which must have a block size of 16 bytes).
+func NewXTSEncrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte) (_cipher.BlockMode, error) {
+	return newXTSEncrypter(cipherFunc, key, tweakKey, tweak, false)
+}
+
+// NewXTSEncrypterWithSector creates a Cipher given a function for creating the underlying
+// block cipher (which must have a block size of 16 bytes) with sector number.
+func NewXTSEncrypterWithSector(cipherFunc CipherCreator, key, tweakKey []byte, sectorNum uint64) (_cipher.BlockMode, error) {
+	tweak := make([]byte, blockSize)
+	binary.LittleEndian.PutUint64(tweak[:8], sectorNum)
+	return NewXTSEncrypter(cipherFunc, key, tweakKey, tweak)
+}
+
+// NewGBXTSEncrypter creates a Cipher given a function for creating the underlying
+// block cipher (which must have a block size of 16 bytes).
 // It follows GB/T 17964-2021.
-func NewGBXTS(cipherFunc CipherCreator, key []byte) (XTSBlockMode, error) {
-	return newXTS(cipherFunc, key, true)
+func NewGBXTSEncrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte) (_cipher.BlockMode, error) {
+	return newXTSEncrypter(cipherFunc, key, tweakKey, tweak, true)
 }
 
-// NewXTS creates a Cipher given a function for creating the underlying
-// block cipher (which must have a block size of 16 bytes). The key must be
-// twice the length of the underlying cipher's key.
-func NewXTS(cipherFunc CipherCreator, key []byte) (XTSBlockMode, error) {
-	return newXTS(cipherFunc, key, false)
+// NewGBXTSEncrypterWithSector creates a Cipher given a function for creating the underlying
+// block cipher (which must have a block size of 16 bytes) with sector number.
+// It follows GB/T 17964-2021.
+func NewGBXTSEncrypterWithSector(cipherFunc CipherCreator, key, tweakKey []byte, sectorNum uint64) (_cipher.BlockMode, error) {
+	tweak := make([]byte, blockSize)
+	binary.LittleEndian.PutUint64(tweak[:8], sectorNum)
+	return NewGBXTSEncrypter(cipherFunc, key, tweakKey, tweak)
 }
 
-func newXTS(cipherFunc CipherCreator, key []byte, isGB bool) (*xts, error) {
-	k1, err := cipherFunc(key[:len(key)/2])
+func newXTSEncrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte, isGB bool) (_cipher.BlockMode, error) {
+	if len(tweak) != blockSize {
+		return nil, errors.New("xts: invalid tweak length")
+	}
+
+	k1, err := cipherFunc(key)
 	if err != nil {
 		return nil, err
 	}
-	k2, err := cipherFunc(key[len(key)/2:])
+	if k1.BlockSize() != blockSize {
+		return nil, errors.New("xts: cipher does not have a block size of 16")
+	}
+
+	k2, err := cipherFunc(tweakKey)
 	if err != nil {
 		return nil, err
 	}
+
+	if xtsable, ok := k1.(xtsEncAble); ok {
+		var encryptedTweak [blockSize]byte
+		k2.Encrypt(encryptedTweak[:], tweak)
+		return xtsable.NewXTSEncrypter(&encryptedTweak, isGB), nil
+	}
+
 	c := &xts{
-		k1,
-		k2,
-		isGB,
+		b:    k1,
+		isGB: isGB,
 	}
-
-	if c.k1.BlockSize() != blockSize {
-		err = errors.New("xts: cipher does not have a block size of 16")
-		return nil, err
-	}
-	return c, nil
+	k2.Encrypt(c.tweak[:], tweak)
+	return (*xtsEncrypter)(c), nil
 }
 
-func (c *xts) BlockSize() int {
+type xtsDecrypter xts
+
+// xtsDecAble is an interface implemented by ciphers that have a specific
+// optimized implementation of XTS encryption, like sm4.
+// NewXTSDecrypter will check for this interface and return the specific
+// BlockMode if found.
+type xtsDecAble interface {
+	NewXTSDecrypter(encryptedTweak *[blockSize]byte, isGB bool) _cipher.BlockMode
+}
+
+// NewXTSDecrypter creates a Cipher given a function for creating the underlying
+// block cipher (which must have a block size of 16 bytes) for decryption.
+func NewXTSDecrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte) (_cipher.BlockMode, error) {
+	return newXTSDecrypter(cipherFunc, key, tweakKey, tweak, false)
+}
+
+// NewXTSDecrypterWithSector creates a Cipher given a function for creating the underlying
+// block cipher (which must have a block size of 16 bytes) with sector number for decryption.
+func NewXTSDecrypterWithSector(cipherFunc CipherCreator, key, tweakKey []byte, sectorNum uint64) (_cipher.BlockMode, error) {
+	tweak := make([]byte, blockSize)
+	binary.LittleEndian.PutUint64(tweak[:8], sectorNum)
+	return NewXTSDecrypter(cipherFunc, key, tweakKey, tweak)
+}
+
+// NewGBXTSDecrypter creates a Cipher given a function for creating the underlying
+// block cipher (which must have a block size of 16 bytes) for decryption.
+// It follows GB/T 17964-2021.
+func NewGBXTSDecrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte) (_cipher.BlockMode, error) {
+	return newXTSDecrypter(cipherFunc, key, tweakKey, tweak, true)
+}
+
+// NewGBXTSDecrypterWithSector creates a Cipher given a function for creating the underlying
+// block cipher (which must have a block size of 16 bytes) with sector number for decryption.
+// It follows GB/T 17964-2021.
+func NewGBXTSDecrypterWithSector(cipherFunc CipherCreator, key, tweakKey []byte, sectorNum uint64) (_cipher.BlockMode, error) {
+	tweak := make([]byte, blockSize)
+	binary.LittleEndian.PutUint64(tweak[:8], sectorNum)
+	return NewGBXTSDecrypter(cipherFunc, key, tweakKey, tweak)
+}
+
+func newXTSDecrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte, isGB bool) (_cipher.BlockMode, error) {
+	if len(tweak) != blockSize {
+		return nil, errors.New("xts: invalid tweak length")
+	}
+
+	k1, err := cipherFunc(key)
+	if err != nil {
+		return nil, err
+	}
+	if k1.BlockSize() != blockSize {
+		return nil, errors.New("xts: cipher does not have a block size of 16")
+	}
+
+	k2, err := cipherFunc(tweakKey)
+	if err != nil {
+		return nil, err
+	}
+
+	if xtsable, ok := k1.(xtsDecAble); ok {
+		var encryptedTweak [blockSize]byte
+		k2.Encrypt(encryptedTweak[:], tweak)
+		return xtsable.NewXTSDecrypter(&encryptedTweak, isGB), nil
+	}
+
+	c := &xts{
+		b:    k1,
+		isGB: isGB,
+	}
+	k2.Encrypt(c.tweak[:], tweak)
+	return (*xtsDecrypter)(c), nil
+}
+
+func (c *xtsEncrypter) BlockSize() int {
 	return blockSize
 }
 
-func (c *xts) fillTweak(tweak *[blockSize]byte, sectorNum uint64) {
-	for i := range tweak {
-		tweak[i] = 0
-	}
-	binary.LittleEndian.PutUint64(tweak[:8], sectorNum)
-}
-
-// Encrypt encrypts a sector of plaintext and puts the result into ciphertext.
+// CryptBlocks encrypts a sector of plaintext and puts the result into ciphertext.
 // Plaintext and ciphertext must overlap entirely or not at all.
 // Sectors must be a multiple of 16 bytes and less than 2²⁴ bytes.
-func (c *xts) Encrypt(ciphertext, plaintext []byte, tweak *[blockSize]byte) {
-	if tweak == nil {
-		panic("xts: invalid tweak")
-	}
+func (c *xtsEncrypter) CryptBlocks(ciphertext, plaintext []byte) {
 	if len(ciphertext) < len(plaintext) {
 		panic("xts: ciphertext is smaller than plaintext")
 	}
@@ -125,18 +193,16 @@ func (c *xts) Encrypt(ciphertext, plaintext []byte, tweak *[blockSize]byte) {
 		panic("xts: invalid buffer overlap")
 	}
 
-	c.k2.Encrypt(tweak[:], tweak[:])
-
 	lastCiphertext := ciphertext
 
-	if concCipher, ok := c.k1.(concurrentBlocks); ok {
+	if concCipher, ok := c.b.(concurrentBlocks); ok {
 		batchSize := concCipher.Concurrency() * blockSize
 		var tweaks []byte = make([]byte, batchSize)
 
 		for len(plaintext) >= batchSize {
 			for i := 0; i < concCipher.Concurrency(); i++ {
-				copy(tweaks[blockSize*i:], tweak[:])
-				mul2(tweak, c.isGB)
+				copy(tweaks[blockSize*i:], c.tweak[:])
+				mul2(&c.tweak, c.isGB)
 			}
 			subtle.XORBytes(ciphertext, plaintext, tweaks)
 			concCipher.EncryptBlocks(ciphertext, ciphertext)
@@ -147,13 +213,13 @@ func (c *xts) Encrypt(ciphertext, plaintext []byte, tweak *[blockSize]byte) {
 		}
 	}
 	for len(plaintext) >= blockSize {
-		subtle.XORBytes(ciphertext, plaintext, tweak[:])
-		c.k1.Encrypt(ciphertext, ciphertext)
-		subtle.XORBytes(ciphertext, ciphertext, tweak[:])
+		subtle.XORBytes(ciphertext, plaintext, c.tweak[:])
+		c.b.Encrypt(ciphertext, ciphertext)
+		subtle.XORBytes(ciphertext, ciphertext, c.tweak[:])
 		plaintext = plaintext[blockSize:]
 		lastCiphertext = ciphertext
 		ciphertext = ciphertext[blockSize:]
-		mul2(tweak, c.isGB)
+		mul2(&c.tweak, c.isGB)
 	}
 	// is there a final partial block to handle?
 	if remain := len(plaintext); remain > 0 {
@@ -165,30 +231,22 @@ func (c *xts) Encrypt(ciphertext, plaintext []byte, tweak *[blockSize]byte) {
 		//Steal ciphertext to complete the block
 		copy(x[remain:], lastCiphertext[remain:blockSize])
 		//Merge the tweak into the input block
-		subtle.XORBytes(x[:], x[:], tweak[:])
+		subtle.XORBytes(x[:], x[:], c.tweak[:])
 		//Encrypt the final block using K1
-		c.k1.Encrypt(x[:], x[:])
+		c.b.Encrypt(x[:], x[:])
 		//Merge the tweak into the output block
-		subtle.XORBytes(lastCiphertext, x[:], tweak[:])
+		subtle.XORBytes(lastCiphertext, x[:], c.tweak[:])
 	}
 }
 
-// Encrypt encrypts a sector of plaintext and puts the result into ciphertext.
-// Plaintext and ciphertext must overlap entirely or not at all.
-// Sectors must be a multiple of 16 bytes and less than 2²⁴ bytes.
-func (c *xts) EncryptSector(ciphertext, plaintext []byte, sectorNum uint64) {
-	var tweak [blockSize]byte
-	c.fillTweak(&tweak, sectorNum)
-	c.Encrypt(ciphertext, plaintext, &tweak)
+func (c *xtsDecrypter) BlockSize() int {
+	return blockSize
 }
 
-// Decrypt decrypts a sector of ciphertext and puts the result into plaintext.
+// CryptBlocks decrypts a sector of ciphertext and puts the result into plaintext.
 // Plaintext and ciphertext must overlap entirely or not at all.
 // Sectors must be a multiple of 16 bytes and less than 2²⁴ bytes.
-func (c *xts) Decrypt(plaintext, ciphertext []byte, tweak *[blockSize]byte) {
-	if tweak == nil {
-		panic("xts: invalid tweak")
-	}
+func (c *xtsDecrypter) CryptBlocks(plaintext, ciphertext []byte) {
 	if len(plaintext) < len(ciphertext) {
 		panic("xts: plaintext is smaller than ciphertext")
 	}
@@ -199,16 +257,14 @@ func (c *xts) Decrypt(plaintext, ciphertext []byte, tweak *[blockSize]byte) {
 		panic("xts: invalid buffer overlap")
 	}
 
-	c.k2.Encrypt(tweak[:], tweak[:])
-
-	if concCipher, ok := c.k1.(concurrentBlocks); ok {
+	if concCipher, ok := c.b.(concurrentBlocks); ok {
 		batchSize := concCipher.Concurrency() * blockSize
 		var tweaks []byte = make([]byte, batchSize)
 
 		for len(ciphertext) >= batchSize {
 			for i := 0; i < concCipher.Concurrency(); i++ {
-				copy(tweaks[blockSize*i:], tweak[:])
-				mul2(tweak, c.isGB)
+				copy(tweaks[blockSize*i:], c.tweak[:])
+				mul2(&c.tweak, c.isGB)
 			}
 			subtle.XORBytes(plaintext, ciphertext, tweaks)
 			concCipher.DecryptBlocks(plaintext, plaintext)
@@ -219,23 +275,23 @@ func (c *xts) Decrypt(plaintext, ciphertext []byte, tweak *[blockSize]byte) {
 	}
 
 	for len(ciphertext) >= 2*blockSize {
-		subtle.XORBytes(plaintext, ciphertext, tweak[:])
-		c.k1.Decrypt(plaintext, plaintext)
-		subtle.XORBytes(plaintext, plaintext, tweak[:])
+		subtle.XORBytes(plaintext, ciphertext, c.tweak[:])
+		c.b.Decrypt(plaintext, plaintext)
+		subtle.XORBytes(plaintext, plaintext, c.tweak[:])
 		plaintext = plaintext[blockSize:]
 		ciphertext = ciphertext[blockSize:]
 
-		mul2(tweak, c.isGB)
+		mul2(&c.tweak, c.isGB)
 	}
 
 	if remain := len(ciphertext); remain >= blockSize {
 		var x [blockSize]byte
 		if remain > blockSize {
 			var tt [blockSize]byte
-			copy(tt[:], tweak[:])
+			copy(tt[:], c.tweak[:])
 			mul2(&tt, c.isGB)
 			subtle.XORBytes(x[:], ciphertext, tt[:])
-			c.k1.Decrypt(x[:], x[:])
+			c.b.Decrypt(x[:], x[:])
 			subtle.XORBytes(plaintext, x[:], tt[:])
 
 			//Retrieve the length of the final block
@@ -251,19 +307,10 @@ func (c *xts) Decrypt(plaintext, ciphertext []byte, tweak *[blockSize]byte) {
 			//The last block contains exactly 128 bits
 			copy(x[:], ciphertext)
 		}
-		subtle.XORBytes(x[:], x[:], tweak[:])
-		c.k1.Decrypt(x[:], x[:])
-		subtle.XORBytes(plaintext, x[:], tweak[:])
+		subtle.XORBytes(x[:], x[:], c.tweak[:])
+		c.b.Decrypt(x[:], x[:])
+		subtle.XORBytes(plaintext, x[:], c.tweak[:])
 	}
-}
-
-// Decrypt decrypts a sector of ciphertext and puts the result into plaintext.
-// Plaintext and ciphertext must overlap entirely or not at all.
-// Sectors must be a multiple of 16 bytes and less than 2²⁴ bytes.
-func (c *xts) DecryptSector(plaintext, ciphertext []byte, sectorNum uint64) {
-	var tweak [blockSize]byte
-	c.fillTweak(&tweak, sectorNum)
-	c.Decrypt(plaintext, ciphertext, &tweak)
 }
 
 // mul2 multiplies tweak by 2 in GF(2¹²⁸) with an irreducible polynomial of
