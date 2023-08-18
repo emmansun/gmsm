@@ -19,8 +19,7 @@ type concurrentBlocks interface {
 	DecryptBlocks(dst, src []byte)
 }
 
-// Cipher contains an expanded key structure. It is safe for concurrent use if
-// the underlying block cipher is safe for concurrent use.
+// Cipher contains an expanded key structure. It is unsafe for concurrent use.
 type xts struct {
 	b     _cipher.Block
 	tweak [blockSize]byte
@@ -198,12 +197,8 @@ func (c *xtsEncrypter) CryptBlocks(ciphertext, plaintext []byte) {
 	if concCipher, ok := c.b.(concurrentBlocks); ok {
 		batchSize := concCipher.Concurrency() * blockSize
 		var tweaks []byte = make([]byte, batchSize)
-
 		for len(plaintext) >= batchSize {
-			for i := 0; i < concCipher.Concurrency(); i++ {
-				copy(tweaks[blockSize*i:], c.tweak[:])
-				mul2(&c.tweak, c.isGB)
-			}
+			doubleTweaks(&c.tweak, tweaks, c.isGB)
 			subtle.XORBytes(ciphertext, plaintext, tweaks)
 			concCipher.EncryptBlocks(ciphertext, ciphertext)
 			subtle.XORBytes(ciphertext, ciphertext, tweaks)
@@ -212,6 +207,7 @@ func (c *xtsEncrypter) CryptBlocks(ciphertext, plaintext []byte) {
 			ciphertext = ciphertext[batchSize:]
 		}
 	}
+
 	for len(plaintext) >= blockSize {
 		subtle.XORBytes(ciphertext, plaintext, c.tweak[:])
 		c.b.Encrypt(ciphertext, ciphertext)
@@ -262,10 +258,7 @@ func (c *xtsDecrypter) CryptBlocks(plaintext, ciphertext []byte) {
 		var tweaks []byte = make([]byte, batchSize)
 
 		for len(ciphertext) >= batchSize {
-			for i := 0; i < concCipher.Concurrency(); i++ {
-				copy(tweaks[blockSize*i:], c.tweak[:])
-				mul2(&c.tweak, c.isGB)
-			}
+			doubleTweaks(&c.tweak, tweaks, c.isGB)
 			subtle.XORBytes(plaintext, ciphertext, tweaks)
 			concCipher.DecryptBlocks(plaintext, plaintext)
 			subtle.XORBytes(plaintext, plaintext, tweaks)
@@ -313,9 +306,9 @@ func (c *xtsDecrypter) CryptBlocks(plaintext, ciphertext []byte) {
 	}
 }
 
-// mul2 multiplies tweak by 2 in GF(2¹²⁸) with an irreducible polynomial of
+// mul2Generic multiplies tweak by 2 in GF(2¹²⁸) with an irreducible polynomial of
 // x¹²⁸ + x⁷ + x² + x + 1.
-func mul2(tweak *[blockSize]byte, isGB bool) {
+func mul2Generic(tweak *[blockSize]byte, isGB bool) {
 	var carryIn byte
 	if !isGB {
 		// tweak[0] represents the coefficients of {x^7, x^6, ..., x^0}
