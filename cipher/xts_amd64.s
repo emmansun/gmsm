@@ -58,14 +58,13 @@ gb_alg:
 
 	// B0 * 2
 	MOVOU B0, T0
-	MOVOU B0, T1
+ 	PSHUFD $0, B0, T1
 	PSRLQ $1, B0
 	PSLLQ $63, T0
 	PSRLDQ $8, T0
 	POR T0, B0
 
 	// reduction
-	PSHUFD $0, T1, T1
 	PSLLL $31, T1
 	PSRAL $31, T1
 	PAND POLY, T1
@@ -126,14 +125,13 @@ gb_loop:
 
 	// B0 * 2
 	MOVOU B0, T0
-	MOVOU B0, T1
+ 	PSHUFD $0, B0, T1
 	PSRLQ $1, B0
 	PSLLQ $63, T0
 	PSRLDQ $8, T0
 	POR T0, B0
 
 	// reduction
-	PSHUFD $0, T1, T1
 	PSLLL $31, T1
 	PSRAL $31, T1
 	PAND POLY, T1
