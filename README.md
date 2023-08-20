@@ -23,7 +23,7 @@
 
 * **CFCA** - some cfca specific implementations.
 
-* **CIPHER** - ECB/CCM/XTS cipher modes.
+* **CIPHER** - ECB/CCM/XTS cipher modes, XTS mode also supports **GB/T 17964-2021**.
 
 * **SMX509** - a fork of golang X509 that supports ShangMi.
 

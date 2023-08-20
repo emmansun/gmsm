@@ -12,21 +12,16 @@ DATA gcmPoly<>+0x08(SB)/8, $0x0000000000000000
 DATA gbGcmPoly<>+0x00(SB)/8, $0x0000000000000000
 DATA gbGcmPoly<>+0x08(SB)/8, $0xe100000000000000
 
-DATA one<>+0x00(SB)/8, $0x0000000000000001
-DATA one<>+0x08(SB)/8, $0x0000000000000000
-
 GLOBL bswapMask<>(SB), (NOPTR+RODATA), $16
 GLOBL gcmPoly<>(SB), (NOPTR+RODATA), $16
 GLOBL gbGcmPoly<>(SB), (NOPTR+RODATA), $16
-GLOBL one<>(SB), (NOPTR+RODATA), $16
 
 
 #define POLY X0
 #define BSWAP X1
-#define ONE X2
-#define B0 X3
-#define T0 X4
-#define T1 X5
+#define B0 X2
+#define T0 X3
+#define T1 X4
 
 // func mul2(tweak *[blockSize]byte, isGB bool)
 TEXT ·mul2(SB),NOSPLIT,$0
@@ -58,8 +53,6 @@ TEXT ·mul2(SB),NOSPLIT,$0
 gb_alg:
 	MOVOU bswapMask<>(SB), BSWAP
 	MOVOU gbGcmPoly<>(SB), POLY
-	MOVOU one<>(SB), ONE
-	PXOR X6, X6
 
 	PSHUFB BSWAP, B0
 
@@ -72,10 +65,10 @@ gb_alg:
 	POR T0, B0
 
 	// reduction
-	PAND ONE, T1
 	PSHUFD $0, T1, T1
-	PCMPEQL X6, T1
-	PANDN POLY, T1
+	PSLLL $31, T1
+	PSRAL $31, T1
+	PAND POLY, T1
 	PXOR T1, B0
 
 	PSHUFB BSWAP, B0
@@ -124,8 +117,6 @@ loop:
 dt_gb_alg:
 	MOVOU bswapMask<>(SB), BSWAP
 	MOVOU gbGcmPoly<>(SB), POLY
-	MOVOU one<>(SB), ONE
-	PXOR X6, X6
 
 gb_loop:
 	MOVOU B0, (0*16)(AX)
@@ -142,10 +133,10 @@ gb_loop:
 	POR T0, B0
 
 	// reduction
-	PAND ONE, T1
 	PSHUFD $0, T1, T1
-	PCMPEQL X6, T1
-	PANDN POLY, T1
+	PSLLL $31, T1
+	PSRAL $31, T1
+	PAND POLY, T1
 	PXOR T1, B0
 
 	PSHUFB BSWAP, B0
