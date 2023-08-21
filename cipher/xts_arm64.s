@@ -10,16 +10,16 @@
 #define POLY V3
 #define ZERO V4
 
-#define tweak R0
+#define TW R0
 #define GB R1
 #define I R2
 
 // func mul2(tweak *[blockSize]byte, isGB bool)
 TEXT ·mul2(SB),NOSPLIT,$0
-	MOVD tweak+0(FP), tweak
+	MOVD tweak+0(FP), TW
 	MOVB isGB+8(FP), GB
 
-	VLD1 (tweak), [B0.B16]
+	VLD1 (TW), [B0.B16]
 
 	VEOR	POLY.B16, POLY.B16, POLY.B16
 	VEOR	ZERO.B16, ZERO.B16, ZERO.B16
@@ -42,7 +42,7 @@ TEXT ·mul2(SB),NOSPLIT,$0
 	VEOR	T1.B16, B0.B16, B0.B16
 	VEOR	T2.B16, B0.B16, B0.B16
 
-	VST1 [B0.B16], (tweak)
+	VST1 [B0.B16], (TW)
 	RET
 
 gb_alg:
@@ -69,12 +69,12 @@ gb_alg:
 	VEXT	$8, B0.B16, B0.B16, B0.B16
 	VREV64 B0.B16, B0.B16
 
-	VST1 [B0.B16], (tweak)
+	VST1 [B0.B16], (TW)
 	RET
 
 // func doubleTweaks(tweak *[blockSize]byte, tweaks []byte, isGB bool)
 TEXT ·doubleTweaks(SB),NOSPLIT,$0
-	MOVD tweak+0(FP), tweak
+	MOVD tweak+0(FP), TW
 	MOVD tweaks+8(FP), R3
 	MOVD tweaks_len+16(FP), R4
 	MOVB isGB+32(FP), GB
@@ -85,7 +85,7 @@ TEXT ·doubleTweaks(SB),NOSPLIT,$0
 	VEOR	POLY.B16, POLY.B16, POLY.B16
 	VEOR	ZERO.B16, ZERO.B16, ZERO.B16
 
-	VLD1 (tweak), [B0.B16]
+	VLD1 (TW), [B0.B16]
 
 	CMP $1, GB
 	BEQ dt_gb_alg
@@ -112,7 +112,7 @@ loop:
 	CMP R4, R5
 	BNE loop
 
-	VST1 [B0.B16], (tweak)
+	VST1 [B0.B16], (TW)
 	RET
 
 dt_gb_alg:
@@ -146,5 +146,5 @@ gb_loop:
 	CMP R4, R5
 	BNE gb_loop
 
-	VST1 [B0.B16], (tweak)	
+	VST1 [B0.B16], (TW)	
 	RET
