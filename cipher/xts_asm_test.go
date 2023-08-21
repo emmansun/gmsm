@@ -5,7 +5,9 @@ package cipher
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/hex"
+	"io"
 	"testing"
 )
 
@@ -43,6 +45,31 @@ func TestDoubleTweak(t *testing.T) {
 
 func TestDoubleTweakGB(t *testing.T) {
 	testDoubleTweak(t, true)
+}
+
+func testDoubleTweakRandomly(t *testing.T, isGB bool) {
+	var tweak, t1, t2 [16]byte
+	io.ReadFull(rand.Reader, tweak[:])
+	copy(t1[:], tweak[:])
+	copy(t2[:], tweak[:])
+	mul2(&t1, isGB)
+	mul2Generic(&t2, isGB)
+
+	if !bytes.Equal(t1[:], t2[:]) {
+		t.Errorf("tweak %x, expected %x, got %x", tweak[:], t2[:], t1[:])
+	}
+}
+
+func TestDoubleTweakRandomly(t *testing.T) {
+	for i := 0; i < 10; i++ {
+		testDoubleTweakRandomly(t, false)
+	}
+}
+
+func TestDoubleTweakGBRandomly(t *testing.T) {
+	for i := 0; i < 10; i++ {
+		testDoubleTweakRandomly(t, true)
+	}
 }
 
 func testDoubleTweaks(t *testing.T, isGB bool) {
