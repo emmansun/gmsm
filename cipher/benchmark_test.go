@@ -384,54 +384,148 @@ func benchmarkSM4CCMOpen(b *testing.B, buf []byte) {
 	benchmarkGCMOpen(b, sm4gcm, buf)
 }
 
-func benchmarkXTS(b *testing.B, cipherFunc func([]byte) (cipher.Block, error), length, keylen int64) {
-	c, err := smcipher.NewXTSEncrypterWithSector(cipherFunc, make([]byte, keylen), make([]byte, keylen), 0)
-	if err != nil {
-		b.Fatalf("NewCipher failed: %s", err)
-	}
+func benchmarkXTS(b *testing.B, isGB bool, cipherFunc func([]byte) (cipher.Block, error), length, keylen int64) {
 	plaintext := make([]byte, length)
 	encrypted := make([]byte, length)
+	var c cipher.BlockMode
+	var err error
+	if !isGB {
+		c, err = smcipher.NewXTSEncrypterWithSector(cipherFunc, make([]byte, keylen), make([]byte, keylen), 0)
+		if err != nil {
+			b.Fatalf("NewCipher failed: %s", err)
+		}
+	} else {
+		c, err = smcipher.NewGBXTSEncrypterWithSector(cipherFunc, make([]byte, keylen), make([]byte, keylen), 0)
+		if err != nil {
+			b.Fatalf("NewCipher failed: %s", err)
+		}		
+	}
+
 	//decrypted := make([]byte, length)
 	b.SetBytes(int64(len(plaintext)))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		c.CryptBlocks(encrypted, plaintext)
-		//c.Decrypt(decrypted, encrypted[:len(plaintext)], 0)
+	//c.Decrypt(decrypted, encrypted[:len(plaintext)], 0)
 	}
 }
 
 func BenchmarkAES128XTSEncrypt512(b *testing.B) {
-	benchmarkXTS(b, aes.NewCipher, 512, 16)
+	benchmarkXTS(b, false, aes.NewCipher, 512, 16)
 }
 
 func BenchmarkAES128XTSEncrypt1K(b *testing.B) {
-	benchmarkXTS(b, aes.NewCipher, 1024, 16)
+	benchmarkXTS(b, false, aes.NewCipher, 1024, 16)
 }
 
 func BenchmarkAES128XTSEncrypt4K(b *testing.B) {
-	benchmarkXTS(b, aes.NewCipher, 4096, 16)
+	benchmarkXTS(b, false, aes.NewCipher, 4096, 16)
 }
 
 func BenchmarkAES256XTSEncrypt512(b *testing.B) {
-	benchmarkXTS(b, aes.NewCipher, 512, 32)
+	benchmarkXTS(b, false, aes.NewCipher, 512, 32)
 }
 
 func BenchmarkAES256XTSEncrypt1K(b *testing.B) {
-	benchmarkXTS(b, aes.NewCipher, 1024, 32)
+	benchmarkXTS(b, false, aes.NewCipher, 1024, 32)
 }
 
 func BenchmarkAES256XTSEncrypt4K(b *testing.B) {
-	benchmarkXTS(b, aes.NewCipher, 4096, 32)
+	benchmarkXTS(b, false, aes.NewCipher, 4096, 32)
 }
 
 func BenchmarkSM4XTSEncrypt512(b *testing.B) {
-	benchmarkXTS(b, sm4.NewCipher, 512, 16)
+	benchmarkXTS(b, false, sm4.NewCipher, 512, 16)
 }
 
 func BenchmarkSM4XTSEncrypt1K(b *testing.B) {
-	benchmarkXTS(b, sm4.NewCipher, 1024, 16)
+	benchmarkXTS(b, false, sm4.NewCipher, 1024, 16)
 }
 
 func BenchmarkSM4XTSEncrypt4K(b *testing.B) {
-	benchmarkXTS(b, sm4.NewCipher, 4096, 16)
+	benchmarkXTS(b, false, sm4.NewCipher, 4096, 16)
+}
+
+func BenchmarkSM4XTSEncrypt512_GB(b *testing.B) {
+	benchmarkXTS(b, true, sm4.NewCipher, 512, 16)
+}
+
+func BenchmarkSM4XTSEncrypt1K_GB(b *testing.B) {
+	benchmarkXTS(b, true, sm4.NewCipher, 1024, 16)
+}
+
+func BenchmarkSM4XTSEncrypt4K_GB(b *testing.B) {
+	benchmarkXTS(b, true, sm4.NewCipher, 4096, 16)
+}
+
+func benchmarkXTS_Decrypt(b *testing.B, isGB bool, cipherFunc func([]byte) (cipher.Block, error), length, keylen int64) {
+	plaintext := make([]byte, length)
+	encrypted := make([]byte, length)
+	var c cipher.BlockMode
+	var err error
+	if !isGB {
+		c, err = smcipher.NewXTSDecrypterWithSector(cipherFunc, make([]byte, keylen), make([]byte, keylen), 0)
+		if err != nil {
+			b.Fatalf("NewCipher failed: %s", err)
+		}
+	} else {
+		c, err = smcipher.NewGBXTSDecrypterWithSector(cipherFunc, make([]byte, keylen), make([]byte, keylen), 0)
+		if err != nil {
+			b.Fatalf("NewCipher failed: %s", err)
+		}		
+	}
+
+	b.SetBytes(int64(len(plaintext)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		c.CryptBlocks(plaintext, encrypted)
+	}
+}
+
+func BenchmarkAES128XTSDecrypt512(b *testing.B) {
+	benchmarkXTS_Decrypt(b, false, aes.NewCipher, 512, 16)
+}
+
+func BenchmarkAES128XTSDecrypt1K(b *testing.B) {
+	benchmarkXTS_Decrypt(b, false, aes.NewCipher, 1024, 16)
+}
+
+func BenchmarkAES128XTSDecrypt4K(b *testing.B) {
+	benchmarkXTS_Decrypt(b, false, aes.NewCipher, 4096, 16)
+}
+
+func BenchmarkAES256XTSDecrypt512(b *testing.B) {
+	benchmarkXTS_Decrypt(b, false, aes.NewCipher, 512, 32)
+}
+
+func BenchmarkAES256XTSDecrypt1K(b *testing.B) {
+	benchmarkXTS_Decrypt(b, false, aes.NewCipher, 1024, 32)
+}
+
+func BenchmarkAES256XTSDecrypt4K(b *testing.B) {
+	benchmarkXTS_Decrypt(b, false, aes.NewCipher, 4096, 32)
+}
+
+func BenchmarkSM4XTSDecrypt512(b *testing.B) {
+	benchmarkXTS_Decrypt(b, false, sm4.NewCipher, 512, 16)
+}
+
+func BenchmarkSM4XTSDecrypt1K(b *testing.B) {
+	benchmarkXTS_Decrypt(b, false, sm4.NewCipher, 1024, 16)
+}
+
+func BenchmarkSM4XTSDecrypt4K(b *testing.B) {
+	benchmarkXTS_Decrypt(b, false, sm4.NewCipher, 4096, 16)
+}
+
+func BenchmarkSM4XTSDecrypt512_GB(b *testing.B) {
+	benchmarkXTS_Decrypt(b, true, sm4.NewCipher, 512, 16)
+}
+
+func BenchmarkSM4XTSDecrypt1K_GB(b *testing.B) {
+	benchmarkXTS_Decrypt(b, true, sm4.NewCipher, 1024, 16)
+}
+
+func BenchmarkSM4XTSDecrypt4K_GB(b *testing.B) {
+	benchmarkXTS_Decrypt(b, true, sm4.NewCipher, 4096, 16)
 }
