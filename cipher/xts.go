@@ -220,12 +220,12 @@ func (c *xtsEncrypter) CryptBlocks(ciphertext, plaintext []byte) {
 	// is there a final partial block to handle?
 	if remain := len(plaintext); remain > 0 {
 		var x [blockSize]byte
-		//Copy the final ciphertext bytes
-		copy(ciphertext, lastCiphertext[:remain])
 		//Copy the final plaintext bytes
 		copy(x[:], plaintext)
 		//Steal ciphertext to complete the block
 		copy(x[remain:], lastCiphertext[remain:blockSize])
+		//Copy the final ciphertext bytes
+		copy(ciphertext, lastCiphertext[:remain])
 		//Merge the tweak into the input block
 		subtle.XORBytes(x[:], x[:], c.tweak[:])
 		//Encrypt the final block using K1
@@ -290,12 +290,12 @@ func (c *xtsDecrypter) CryptBlocks(plaintext, ciphertext []byte) {
 			//Retrieve the length of the final block
 			remain -= blockSize
 
-			//Copy the final plaintext bytes
-			copy(plaintext[blockSize:], plaintext)
 			//Copy the final ciphertext bytes
 			copy(x[:], ciphertext[blockSize:])
 			//Steal ciphertext to complete the block
 			copy(x[remain:], plaintext[remain:blockSize])
+			//Copy the final plaintext bytes
+			copy(plaintext[blockSize:], plaintext)
 		} else {
 			//The last block contains exactly 128 bits
 			copy(x[:], ciphertext)

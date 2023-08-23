@@ -81,17 +81,18 @@ func TestXTSWithAES(t *testing.T) {
 		plaintext := fromHex(test.plaintext)
 		ciphertext := make([]byte, len(plaintext))
 
-		encrypter.CryptBlocks(ciphertext, plaintext)
+		copy(ciphertext, plaintext)
+
+		encrypter.CryptBlocks(ciphertext, ciphertext)
 		expectedCiphertext := fromHex(test.ciphertext)
 		if !bytes.Equal(ciphertext, expectedCiphertext) {
 			t.Errorf("#%d: encrypted failed, got: %x, want: %x", i, ciphertext, expectedCiphertext)
 			continue
 		}
 
-		decrypted := make([]byte, len(ciphertext))
-		decrypter.CryptBlocks(decrypted, ciphertext)
-		if !bytes.Equal(decrypted, plaintext) {
-			t.Errorf("#%d: decryption failed, got: %x, want: %x", i, decrypted, plaintext)
+		decrypter.CryptBlocks(ciphertext, ciphertext)
+		if !bytes.Equal(ciphertext, plaintext) {
+			t.Errorf("#%d: decryption failed, got: %x, want: %x", i, ciphertext, plaintext)
 		}
 	}
 }
