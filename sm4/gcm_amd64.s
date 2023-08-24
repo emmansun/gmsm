@@ -41,10 +41,6 @@
 #define NIBBLE_MASK Y11
 #define X_NIBBLE_MASK X11
 
-
-DATA bswapMask<>+0x00(SB)/8, $0x08090a0b0c0d0e0f
-DATA bswapMask<>+0x08(SB)/8, $0x0001020304050607
-
 DATA gcmPoly<>+0x00(SB)/8, $0x0000000000000001
 DATA gcmPoly<>+0x08(SB)/8, $0xc200000000000000
 
@@ -79,7 +75,6 @@ DATA andMask<>+0xd8(SB)/8, $0x0000ffffffffffff
 DATA andMask<>+0xe0(SB)/8, $0xffffffffffffffff
 DATA andMask<>+0xe8(SB)/8, $0x00ffffffffffffff
 
-GLOBL bswapMask<>(SB), (NOPTR+RODATA), $16
 GLOBL gcmPoly<>(SB), (NOPTR+RODATA), $16
 GLOBL andMask<>(SB), (NOPTR+RODATA), $240
 
@@ -102,7 +97,7 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 	MOVOU (tPtr), ACC0
 	MOVOU (tMsk), T2
 
-	MOVOU bswapMask<>(SB), BSWAP
+	MOVOU bswap_mask<>(SB), BSWAP
 	MOVOU gcmPoly<>(SB), POLY
 
 	SHLQ $3, plen
@@ -277,7 +272,7 @@ TEXT ·gcmSm4Data(SB),NOSPLIT,$0
 
 	PXOR ACC0, ACC0
 	// MOVOU (tPtr), ACC0 // originally we passed in tag initial value
-	MOVOU bswapMask<>(SB), BSWAP
+	MOVOU bswap_mask<>(SB), BSWAP
 	MOVOU gcmPoly<>(SB), POLY
 
 	TESTQ autLen, autLen
@@ -525,7 +520,7 @@ TEXT ·gcmSm4Enc(SB),0,$256-96
 	CMPB ·useAVX(SB), $1
 	JE   avxGcmSm4Enc
 
-	MOVOU bswapMask<>(SB), BSWAP
+	MOVOU bswap_mask<>(SB), BSWAP
 	MOVOU gcmPoly<>(SB), POLY
 
 	MOVOU (tPtr), ACC0
@@ -868,7 +863,7 @@ gcmSm4EncDone:
 	RET
 
 avxGcmSm4Enc:
-	VMOVDQU bswapMask<>(SB), BSWAP
+	VMOVDQU bswap_mask<>(SB), BSWAP
 	VMOVDQU gcmPoly<>(SB), POLY
 
 	VMOVDQU (tPtr), ACC0
@@ -1196,7 +1191,7 @@ avxGcmSm4EncDone:
 	RET
 
 avx2GcmSm4Enc:
-	VMOVDQU bswapMask<>(SB), BSWAP
+	VMOVDQU bswap_mask<>(SB), BSWAP
 	VMOVDQU gcmPoly<>(SB), POLY
 
 	VMOVDQU (tPtr), ACC0
@@ -1229,7 +1224,7 @@ avx2GcmSm4Enc:
 	VMOVDQU T0, (8*16 + 7*16)(SP)
 	increment(7)
 
-	VBROADCASTI128 bswapMask<>(SB), DWBSWAP
+	VBROADCASTI128 bswap_mask<>(SB), DWBSWAP
 	// load 8 ctrs for encryption
 	VMOVDQU (4*32 + 0*32)(SP), DWB0
 	VMOVDQU (4*32 + 1*32)(SP), DWB1
@@ -1631,7 +1626,7 @@ TEXT ·gcmSm4Dec(SB),0,$128-96
 	CMPB ·useAVX(SB), $1
 	JE   avxGcmSm4Dec
 
-	MOVOU bswapMask<>(SB), BSWAP
+	MOVOU bswap_mask<>(SB), BSWAP
 	MOVOU gcmPoly<>(SB), POLY
 
 	MOVOU (tPtr), ACC0
@@ -1859,7 +1854,7 @@ gcmSm4DecDone:
 	RET
 
 avxGcmSm4Dec:
-	VMOVDQU bswapMask<>(SB), BSWAP
+	VMOVDQU bswap_mask<>(SB), BSWAP
 	VMOVDQU gcmPoly<>(SB), POLY
 
 	VMOVDQU (tPtr), ACC0
@@ -2082,7 +2077,7 @@ avxGcmSm4DecDone:
 	RET
 
 avx2GcmSm4Dec:
-	VMOVDQU bswapMask<>(SB), BSWAP
+	VMOVDQU bswap_mask<>(SB), BSWAP
 	VMOVDQU gcmPoly<>(SB), POLY
 
 	VMOVDQU (tPtr), ACC0
@@ -2114,7 +2109,7 @@ avx2GcmSm4Dec:
 	VMOVDQU T0, (7*16)(SP)
 	increment(7)
 
-	VBROADCASTI128 bswapMask<>(SB), DWBSWAP
+	VBROADCASTI128 bswap_mask<>(SB), DWBSWAP
 
 avx2GcmSm4DecOctetsLoop:
 		CMPQ ptxLen, $128

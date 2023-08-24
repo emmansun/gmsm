@@ -43,3 +43,19 @@ type ctrAble interface {
 type gcmAble interface {
 	NewGCM(nonceSize, tagSize int) (cipher.AEAD, error)
 }
+
+// xtsEncAble is an interface implemented by ciphers that have a specific
+// optimized implementation of XTS encryption, like sm4.
+// NewXTSEncrypter will check for this interface and return the specific
+// BlockMode if found.
+type xtsEncAble interface {
+	NewXTSEncrypter(encryptedTweak *[BlockSize]byte, isGB bool) cipher.BlockMode
+}
+
+// xtsDecAble is an interface implemented by ciphers that have a specific
+// optimized implementation of XTS encryption, like sm4.
+// NewXTSDecrypter will check for this interface and return the specific
+// BlockMode if found.
+type xtsDecAble interface {
+	NewXTSDecrypter(encryptedTweak *[BlockSize]byte, isGB bool) cipher.BlockMode
+}

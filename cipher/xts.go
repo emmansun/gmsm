@@ -296,13 +296,19 @@ func (c *xtsDecrypter) CryptBlocks(plaintext, ciphertext []byte) {
 			copy(x[remain:], plaintext[remain:blockSize])
 			//Copy the final plaintext bytes
 			copy(plaintext[blockSize:], plaintext)
+
+			subtle.XORBytes(x[:], x[:], c.tweak[:])
+			c.b.Decrypt(x[:], x[:])
+			subtle.XORBytes(plaintext, x[:], c.tweak[:])
 		} else {
 			//The last block contains exactly 128 bits
-			copy(x[:], ciphertext)
+			subtle.XORBytes(plaintext, ciphertext, c.tweak[:])
+			c.b.Decrypt(plaintext, plaintext)
+			subtle.XORBytes(plaintext, plaintext, c.tweak[:])
+			// Maybe there are still ciphertext
+			mul2(&c.tweak, c.isGB)
 		}
-		subtle.XORBytes(x[:], x[:], c.tweak[:])
-		c.b.Decrypt(x[:], x[:])
-		subtle.XORBytes(plaintext, x[:], c.tweak[:])
+
 	}
 }
 

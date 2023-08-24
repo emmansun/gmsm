@@ -239,6 +239,33 @@ GLOBL r24_mask256<>(SB), 8, $32
 	PSHUFD $0xFF, rk128, x;                                \
 	SM4_ONE_ROUND_SSE(x, y, z, t3, t0, t1, t2);            \
 
+#define SM4_SINGLE_BLOCK(RK, rk128, x, y, z, t0, t1, t2, t3) \
+	PSHUFB flip_mask<>(SB), t0;                            \
+	PSHUFD $1, t0, t1;                                     \
+	PSHUFD $2, t0, t2;                                     \
+	PSHUFD $3, t0, t3;                                     \
+	MOVOU (0*16)(RK), rk128;                               \
+	SM4_4BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3);   \
+	MOVOU (1*16)(RK), rk128;                               \
+	SM4_4BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3);   \
+	MOVOU (2*16)(RK), rk128;                               \
+	SM4_4BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3);   \
+	MOVOU (3*16)(RK), rk128;                               \
+	SM4_4BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3);   \
+	MOVOU (4*16)(RK), rk128;                               \
+	SM4_4BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3);   \
+	MOVOU (5*16)(RK), rk128;                               \
+	SM4_4BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3);   \
+	MOVOU (6*16)(RK), rk128;                               \
+	SM4_4BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3);   \
+	MOVOU (7*16)(RK), rk128;                               \
+	SM4_4BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3);   \
+	PALIGNR $4, t3, t3;                                    \
+	PALIGNR $4, t3, t2;                                    \
+	PALIGNR $4, t2, t1;                                    \
+	PALIGNR $4, t1, t0;                                    \
+	PSHUFB flip_mask<>(SB), t0
+
 #define SM4_4BLOCKS(RK, rk128, x, y, z, t0, t1, t2, t3)  \ 
 	PSHUFB flip_mask<>(SB), t0; \
 	PSHUFB flip_mask<>(SB), t1; \
