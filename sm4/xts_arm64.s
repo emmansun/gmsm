@@ -282,7 +282,7 @@ encNibblesEnc4Blocks:
 
 xtsSm4EncSingles:
 	CMP	$16, srcPtrLen
-	BLT	xtsSm4EncTail
+	BLT	xtsSm4EncDone
 	SUB	$16, srcPtrLen
 
 	loadOneBlock
@@ -302,69 +302,6 @@ encSinglesEnc4Blocks:
 	storeOneBlock
 	mul2Inline
 	B	xtsSm4EncSingles
-
-xtsSm4EncTail:
-	CBZ	srcPtrLen, xtsSm4EncDone
-	SUB $16, dstPtr, R7
-	MOVD R7, R9
-	MOVD RSP, R8
-	VLD1 (R7), [B0.B16]
-	VST1 [B0.B16], (R8)
-
-	TBZ	$3, srcPtrLen, less_than8
-	MOVD.P 8(srcPtr), R11
-	MOVD.P R11, 8(R8)
-	MOVD.P 8(R7), R12
-	MOVD.P R12, 8(dstPtr)
-
-less_than8:
-	TBZ	$2, srcPtrLen, less_than4
-	MOVWU.P 4(srcPtr), R11
-	MOVWU.P R11, 4(R8)
-	MOVWU.P 4(R7), R12
-	MOVWU.P R12, 4(dstPtr)
-
-less_than4:
-	TBZ	$1, srcPtrLen, less_than2
-	MOVHU.P 2(srcPtr), R11
-	MOVHU.P R11, 2(R8)
-	MOVHU.P 2(R7), R12
-	MOVHU.P R12, 2(dstPtr)
-
-less_than2:
-	TBZ	$0, srcPtrLen, xtsSm4EncTailEnc
-	MOVBU (srcPtr), R11
-	MOVBU R11, (R8)
-	MOVBU (R7), R12
-	MOVBU R12, (dstPtr)
-
-xtsSm4EncTailEnc:
-	VLD1 (RSP), [B0.B16]
-	VEOR TW.B16, B0.B16, B0.B16
-	VREV32 B0.B16, B0.B16
-	VMOV B0.S[1], B1.S[0]
-	VMOV B0.S[2], B2.S[0]
-	VMOV B0.S[3], B3.S[0]
-
-	MOVD rkSave, rk
-	EOR R13, R13
-
-tailEncLoop:
-		SM4_ROUND(rk, R19, K0, K1, K2, B0, B1, B2, B3)
-		SM4_ROUND(rk, R19, K0, K1, K2, B1, B2, B3, B0)
-		SM4_ROUND(rk, R19, K0, K1, K2, B2, B3, B0, B1)
-		SM4_ROUND(rk, R19, K0, K1, K2, B3, B0, B1, B2)
-		ADD $1, R13
-		CMP $8, R13
-		BNE tailEncLoop
-
-	VMOV B2.S[0], B3.S[1]
-	VMOV B1.S[0], B3.S[2]
-	VMOV B0.S[0], B3.S[3]
-	VREV32 B3.B16, B3.B16
-
-	VEOR TW.B16, B3.B16, B3.B16
-	VST1 [B3.B16], (R9)
 
 xtsSm4EncDone:
 	VST1 [TW.B16], (twPtr)
