@@ -55,7 +55,7 @@ func decryptSm4Xts(xk *uint32, tweak *[BlockSize]byte, dst, src []byte)
 //go:noescape
 func decryptSm4XtsGB(xk *uint32, tweak *[BlockSize]byte, dst, src []byte)
 
-func (x *xts) CryptBlocks(dst, src []byte) {
+func validateXtsInput(dst, src []byte) {
 	if len(dst) < len(src) {
 		panic("xts: dst is smaller than src")
 	}
@@ -65,6 +65,10 @@ func (x *xts) CryptBlocks(dst, src []byte) {
 	if alias.InexactOverlap(dst[:len(src)], src) {
 		panic("xts: invalid buffer overlap")
 	}
+}
+
+func (x *xts) CryptBlocks(dst, src []byte) {
+	validateXtsInput(dst, src)
 	if x.enc == xtsEncrypt {
 		if x.isGB {
 			encryptSm4XtsGB(&x.b.enc[0], &x.tweak, dst, src)

@@ -1,0 +1,56 @@
+//go:build (amd64 && !purego) || (arm64 && !purego)
+// +build amd64,!purego arm64,!purego
+
+package sm4
+
+import (
+	"crypto/cipher"
+)
+
+// Assert that sm4CipherAsm implements the xtsEncAble and xtsDecAble interfaces.
+var _ xtsEncAble = (*sm4CipherNI)(nil)
+var _ xtsDecAble = (*sm4CipherNI)(nil)
+
+type xtsNI struct {
+	b     *sm4CipherNI
+	tweak [BlockSize]byte
+	isGB  bool // if true, follows GB/T 17964-2021
+	enc   int
+}
+
+func (b *sm4CipherNI) NewXTSEncrypter(encryptedTweak *[BlockSize]byte, isGB bool) cipher.BlockMode {
+	var c xtsNI
+	c.b = b
+	c.enc = xtsEncrypt
+	c.isGB = isGB
+	copy(c.tweak[:], encryptedTweak[:])
+	return &c
+}
+
+func (b *sm4CipherNI) NewXTSDecrypter(encryptedTweak *[BlockSize]byte, isGB bool) cipher.BlockMode {
+	var c xtsNI
+	c.b = b
+	c.enc = xtsDecrypt
+	c.isGB = isGB
+	copy(c.tweak[:], encryptedTweak[:])
+	return &c
+}
+
+func (x *xtsNI) BlockSize() int { return BlockSize }
+
+func (x *xtsNI) CryptBlocks(dst, src []byte) {
+	validateXtsInput(dst, src)
+	if x.enc == xtsEncrypt {
+		if x.isGB {
+			encryptSm4XtsGB(&x.b.enc[0], &x.tweak, dst, src)
+		} else {
+			encryptSm4Xts(&x.b.enc[0], &x.tweak, dst, src)
+		}
+	} else {
+		if x.isGB {
+			decryptSm4XtsGB(&x.b.dec[0], &x.tweak, dst, src)
+		} else {
+			decryptSm4Xts(&x.b.dec[0], &x.tweak, dst, src)
+		}
+	}
+}
