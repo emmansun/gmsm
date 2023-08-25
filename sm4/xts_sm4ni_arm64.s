@@ -70,8 +70,8 @@
 #define srcPtrLen R4
 #define I R5
 
-// func encryptSm4Xts(xk *uint32, tweak *[BlockSize]byte, dst, src []byte)
-TEXT ·encryptSm4Xts(SB),0,$128-64
+// func encryptSm4NiXts(xk *uint32, tweak *[BlockSize]byte, dst, src []byte)
+TEXT ·encryptSm4NiXts(SB),0,$128-64
 	MOVD xk+0(FP), rk
 	MOVD tweak+8(FP), twPtr
 	MOVD dst+16(FP), dstPtr
@@ -161,8 +161,8 @@ xtsSm4EncDone:
 	VST1 [TW.B16], (twPtr)
 	RET
 
-// func encryptSm4XtsGB(xk *uint32, tweak *[BlockSize]byte, dst, src []byte)
-TEXT ·encryptSm4XtsGB(SB),0,$128-64
+// func encryptSm4NiXtsGB(xk *uint32, tweak *[BlockSize]byte, dst, src []byte)
+TEXT ·encryptSm4NiXtsGB(SB),0,$128-64
 	MOVD xk+0(FP), rk
 	MOVD tweak+8(FP), twPtr
 	MOVD dst+16(FP), dstPtr
@@ -253,8 +253,8 @@ xtsSm4EncDone:
 	VST1 [TW.B16], (twPtr)
     RET
 
-// func decryptSm4Xts(xk *uint32, tweak *[BlockSize]byte, dst, src []byte)
-TEXT ·decryptSm4Xts(SB),0,$128-64
+// func decryptSm4NiXts(xk *uint32, tweak *[BlockSize]byte, dst, src []byte)
+TEXT ·decryptSm4NiXts(SB),0,$128-64
 	MOVD xk+0(FP), rk
 	MOVD tweak+8(FP), twPtr
 	MOVD dst+16(FP), dstPtr
@@ -367,8 +367,8 @@ xtsSm4DecDone:
 	VST1 [TW.B16], (twPtr)
     RET
 
-// func decryptSm4XtsGB(xk *uint32, tweak *[BlockSize]byte, dst, src []byte)
-TEXT ·decryptSm4XtsGB(SB),0,$128-64
+// func decryptSm4NiXtsGB(xk *uint32, tweak *[BlockSize]byte, dst, src []byte)
+TEXT ·decryptSm4NiXtsGB(SB),0,$128-64
 	MOVD xk+0(FP), rk
 	MOVD tweak+8(FP), twPtr
 	MOVD dst+16(FP), dstPtr

@@ -38,19 +38,31 @@ func (b *sm4CipherNI) NewXTSDecrypter(encryptedTweak *[BlockSize]byte, isGB bool
 
 func (x *xtsNI) BlockSize() int { return BlockSize }
 
+//go:noescape
+func encryptSm4NiXts(xk *uint32, tweak *[BlockSize]byte, dst, src []byte)
+
+//go:noescape
+func encryptSm4NiXtsGB(xk *uint32, tweak *[BlockSize]byte, dst, src []byte)
+
+//go:noescape
+func decryptSm4NiXts(xk *uint32, tweak *[BlockSize]byte, dst, src []byte)
+
+//go:noescape
+func decryptSm4NiXtsGB(xk *uint32, tweak *[BlockSize]byte, dst, src []byte)
+
 func (x *xtsNI) CryptBlocks(dst, src []byte) {
 	validateXtsInput(dst, src)
 	if x.enc == xtsEncrypt {
 		if x.isGB {
-			encryptSm4XtsGB(&x.b.enc[0], &x.tweak, dst, src)
+			encryptSm4NiXtsGB(&x.b.enc[0], &x.tweak, dst, src)
 		} else {
-			encryptSm4Xts(&x.b.enc[0], &x.tweak, dst, src)
+			encryptSm4NiXts(&x.b.enc[0], &x.tweak, dst, src)
 		}
 	} else {
 		if x.isGB {
-			decryptSm4XtsGB(&x.b.dec[0], &x.tweak, dst, src)
+			decryptSm4NiXtsGB(&x.b.dec[0], &x.tweak, dst, src)
 		} else {
-			decryptSm4Xts(&x.b.dec[0], &x.tweak, dst, src)
+			decryptSm4NiXts(&x.b.dec[0], &x.tweak, dst, src)
 		}
 	}
 }
