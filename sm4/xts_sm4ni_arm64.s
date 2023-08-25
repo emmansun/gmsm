@@ -48,7 +48,16 @@
 	VEOR T4.B16, B4.B16, B4.B16; \
 	VEOR T5.B16, B5.B16, B5.B16; \
 	VEOR T6.B16, B6.B16, B6.B16; \
-	VEOR T7.B16, B7.B16, B7.B16
+	VEOR T7.B16, B7.B16, B7.B16; \
+    \
+	VREV32 B0.B16, B0.B16; \
+	VREV32 B1.B16, B1.B16; \
+	VREV32 B2.B16, B2.B16; \
+	VREV32 B3.B16, B3.B16; \
+	VREV32 B4.B16, B4.B16; \
+	VREV32 B5.B16, B5.B16; \
+	VREV32 B6.B16, B6.B16; \
+	VREV32 B7.B16, B7.B16
 
 #define store8blocks \
 	VEOR T0.B16, B0.B16, B0.B16; \
@@ -108,6 +117,7 @@ xtsSm4EncSingles:
 
 	VLD1.P 16(srcPtr), [B0.S4]
 	VEOR TW.B16, B0.B16, B0.B16
+    VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1.P [B0.S4], 16(dstPtr)
@@ -153,6 +163,7 @@ less_than2:
 xtsSm4EncTailEnc:
 	VLD1 (RSP), [B0.B16]
 	VEOR TW.B16, B0.B16, B0.B16
+    VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1 [B0.B16], (R9)
@@ -200,6 +211,7 @@ xtsSm4EncSingles:
 
 	VLD1.P 16(srcPtr), [B0.S4]
 	VEOR TW.B16, B0.B16, B0.B16
+    VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1.P [B0.S4], 16(dstPtr)
@@ -245,6 +257,7 @@ less_than2:
 xtsSm4EncTailEnc:
 	VLD1 (RSP), [B0.B16]
 	VEOR TW.B16, B0.B16, B0.B16
+    VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1 [B0.B16], (R9)
@@ -292,6 +305,7 @@ xtsSm4DecSingles:
 
 	VLD1.P 16(srcPtr), [B0.S4]
 	VEOR TW.B16, B0.B16, B0.B16
+    VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1.P [B0.S4], 16(dstPtr)
@@ -309,6 +323,7 @@ xtsSm4DecTail:
 	mul2Inline
 	VLD1.P 16(srcPtr), [B0.S4]
 	VEOR TW.B16, B0.B16, B0.B16
+    VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1.P [B0.S4], 16(dstPtr)
@@ -349,6 +364,7 @@ less_than2:
 xtsSm4DecTailDec:
 	VLD1 (RSP), [B0.B16]
 	VEOR TW.B16, B0.B16, B0.B16
+    VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1 [B0.B16], (R9)
@@ -358,6 +374,7 @@ xtsSm4DecTailDec:
 xtsSm4DecLastBlock:
 	VLD1.P 16(srcPtr), [B0.S4]
 	VEOR TW.B16, B0.B16, B0.B16
+    VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1.P [B0.S4], 16(dstPtr)
@@ -407,6 +424,7 @@ xtsSm4DecSingles:
 
 	VLD1.P 16(srcPtr), [B0.S4]
 	VEOR TW.B16, B0.B16, B0.B16
+    VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1.P [B0.S4], 16(dstPtr)
@@ -424,6 +442,7 @@ xtsSm4DecTail:
 	mul2GBInline
 	VLD1.P 16(srcPtr), [B0.S4]
 	VEOR TW.B16, B0.B16, B0.B16
+    VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1.P [B0.S4], 16(dstPtr)
@@ -464,6 +483,7 @@ less_than2:
 xtsSm4DecTailDec:
 	VLD1 (RSP), [B0.B16]
 	VEOR TW.B16, B0.B16, B0.B16
+    VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1 [B0.B16], (R9)
@@ -473,6 +493,7 @@ xtsSm4DecTailDec:
 xtsSm4DecLastBlock:
 	VLD1.P 16(srcPtr), [B0.S4]
 	VEOR TW.B16, B0.B16, B0.B16
+    VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1.P [B0.S4], 16(dstPtr)
