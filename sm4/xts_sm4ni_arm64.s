@@ -25,14 +25,17 @@
 #define T6 V17
 #define T7 V18
 
-#define K0 V19
-#define K1 V20
-#define K2 V21
-#define K3 V22
-#define K4 V23
-#define K5 V24
-#define K6 V25
-#define K7 V26
+#define RK0 V19
+#define RK1 V20
+#define RK2 V21
+#define RK3 V22
+#define RK4 V23
+#define RK5 V24
+#define RK6 V25
+#define RK7 V26
+
+#define K0 V27
+#define K1 V28
 
 #include "sm4ni_macros_arm64.s"
 #include "xts_macros_arm64.s"
@@ -93,9 +96,9 @@ TEXT ·encryptSm4NiXts(SB),0,$128-64
 	MOVD	$0x87, I
 	VMOV	I, POLY.D[0]
 
-	// For SM4 round keys are stored in: K0 .. K7
-	VLD1.P	64(rk), [K0.S4, K1.S4, K2.S4, K3.S4]
-	VLD1.P	64(rk), [K4.S4, K5.S4, K6.S4, K7.S4]
+	// For SM4 round keys are stored in: RK0 .. RK7
+	VLD1.P	64(rk), [RK0.S4, RK1.S4, RK2.S4, RK3.S4]
+	VLD1.P	64(rk), [RK4.S4, RK5.S4, RK6.S4, RK7.S4]
 
 	VLD1 (twPtr), [TW.B16]
 
@@ -117,7 +120,7 @@ xtsSm4EncSingles:
 
 	VLD1.P 16(srcPtr), [B0.S4]
 	VEOR TW.B16, B0.B16, B0.B16
-    VREV32 B0.B16, B0.B16
+	VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1.P [B0.S4], 16(dstPtr)
@@ -163,7 +166,7 @@ less_than2:
 xtsSm4EncTailEnc:
 	VLD1 (RSP), [B0.B16]
 	VEOR TW.B16, B0.B16, B0.B16
-    VREV32 B0.B16, B0.B16
+	VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1 [B0.B16], (R9)
@@ -187,9 +190,9 @@ TEXT ·encryptSm4NiXtsGB(SB),0,$128-64
 	LSL	$56, I
 	VMOV	I, POLY.D[1]
 
-	// For SM4 round keys are stored in: K0 .. K7
-	VLD1.P	64(rk), [K0.S4, K1.S4, K2.S4, K3.S4]
-	VLD1.P	64(rk), [K4.S4, K5.S4, K6.S4, K7.S4]
+	// For SM4 round keys are stored in: RK0 .. RK7
+	VLD1.P	64(rk), [RK0.S4, RK1.S4, RK2.S4, RK3.S4]
+	VLD1.P	64(rk), [RK4.S4, RK5.S4, RK6.S4, RK7.S4]
 
 	VLD1 (twPtr), [TW.B16]
 
@@ -211,7 +214,7 @@ xtsSm4EncSingles:
 
 	VLD1.P 16(srcPtr), [B0.S4]
 	VEOR TW.B16, B0.B16, B0.B16
-    VREV32 B0.B16, B0.B16
+	VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1.P [B0.S4], 16(dstPtr)
@@ -257,7 +260,7 @@ less_than2:
 xtsSm4EncTailEnc:
 	VLD1 (RSP), [B0.B16]
 	VEOR TW.B16, B0.B16, B0.B16
-    VREV32 B0.B16, B0.B16
+	VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1 [B0.B16], (R9)
@@ -280,9 +283,9 @@ TEXT ·decryptSm4NiXts(SB),0,$128-64
 	MOVD	$0x87, I
 	VMOV	I, POLY.D[0]
 
-	// For SM4 round keys are stored in: K0 .. K7
-	VLD1.P	64(rk), [K0.S4, K1.S4, K2.S4, K3.S4]
-	VLD1.P	64(rk), [K4.S4, K5.S4, K6.S4, K7.S4]
+	// For SM4 round keys are stored in: RK0 .. RK7
+	VLD1.P	64(rk), [RK0.S4, RK1.S4, RK2.S4, RK3.S4]
+	VLD1.P	64(rk), [RK4.S4, RK5.S4, RK6.S4, RK7.S4]
 
 	VLD1 (twPtr), [TW.B16]
 
@@ -305,7 +308,7 @@ xtsSm4DecSingles:
 
 	VLD1.P 16(srcPtr), [B0.S4]
 	VEOR TW.B16, B0.B16, B0.B16
-    VREV32 B0.B16, B0.B16
+	VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1.P [B0.S4], 16(dstPtr)
@@ -323,7 +326,7 @@ xtsSm4DecTail:
 	mul2Inline
 	VLD1.P 16(srcPtr), [B0.S4]
 	VEOR TW.B16, B0.B16, B0.B16
-    VREV32 B0.B16, B0.B16
+	VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1.P [B0.S4], 16(dstPtr)
@@ -364,7 +367,7 @@ less_than2:
 xtsSm4DecTailDec:
 	VLD1 (RSP), [B0.B16]
 	VEOR TW.B16, B0.B16, B0.B16
-    VREV32 B0.B16, B0.B16
+	VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1 [B0.B16], (R9)
@@ -374,7 +377,7 @@ xtsSm4DecTailDec:
 xtsSm4DecLastBlock:
 	VLD1.P 16(srcPtr), [B0.S4]
 	VEOR TW.B16, B0.B16, B0.B16
-    VREV32 B0.B16, B0.B16
+	VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1.P [B0.S4], 16(dstPtr)
@@ -399,9 +402,9 @@ TEXT ·decryptSm4NiXtsGB(SB),0,$128-64
 	LSL	$56, I
 	VMOV	I, POLY.D[1]
 
-	// For SM4 round keys are stored in: K0 .. K7
-	VLD1.P	64(rk), [K0.S4, K1.S4, K2.S4, K3.S4]
-	VLD1.P	64(rk), [K4.S4, K5.S4, K6.S4, K7.S4]
+	// For SM4 round keys are stored in: RK0 .. RK7
+	VLD1.P	64(rk), [RK0.S4, RK1.S4, RK2.S4, RK3.S4]
+	VLD1.P	64(rk), [RK4.S4, RK5.S4, RK6.S4, RK7.S4]
 
 	VLD1 (twPtr), [TW.B16]
 
@@ -424,7 +427,7 @@ xtsSm4DecSingles:
 
 	VLD1.P 16(srcPtr), [B0.S4]
 	VEOR TW.B16, B0.B16, B0.B16
-    VREV32 B0.B16, B0.B16
+	VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1.P [B0.S4], 16(dstPtr)
@@ -442,7 +445,7 @@ xtsSm4DecTail:
 	mul2GBInline
 	VLD1.P 16(srcPtr), [B0.S4]
 	VEOR TW.B16, B0.B16, B0.B16
-    VREV32 B0.B16, B0.B16
+	VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1.P [B0.S4], 16(dstPtr)
@@ -483,7 +486,7 @@ less_than2:
 xtsSm4DecTailDec:
 	VLD1 (RSP), [B0.B16]
 	VEOR TW.B16, B0.B16, B0.B16
-    VREV32 B0.B16, B0.B16
+	VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1 [B0.B16], (R9)
@@ -493,7 +496,7 @@ xtsSm4DecTailDec:
 xtsSm4DecLastBlock:
 	VLD1.P 16(srcPtr), [B0.S4]
 	VEOR TW.B16, B0.B16, B0.B16
-    VREV32 B0.B16, B0.B16
+	VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1.P [B0.S4], 16(dstPtr)
