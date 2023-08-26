@@ -271,6 +271,9 @@ GLOBL r24_mask256<>(SB), 8, $32
 	PSHUFB flip_mask<>(SB), t1; \
 	PSHUFB flip_mask<>(SB), t2; \
 	PSHUFB flip_mask<>(SB), t3; \
+	SM4_4BLOCKS_WO_BS(RK, rk128, x, y, z, t0, t1, t2, t3)
+
+#define SM4_4BLOCKS_WO_BS(RK, rk128, x, y, z, t0, t1, t2, t3)  \ 
 	SSE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y);            \
 	MOVOU (0*16)(RK), rk128;                               \
 	SM4_4BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3);   \
@@ -321,6 +324,9 @@ GLOBL r24_mask256<>(SB), 8, $32
 	PSHUFB flip_mask<>(SB), t5; \
 	PSHUFB flip_mask<>(SB), t6; \
 	PSHUFB flip_mask<>(SB), t7; \	
+	SM4_8BLOCKS_WO_BS(RK, rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7)
+
+#define SM4_8BLOCKS_WO_BS(RK, rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7)  \ 
 	SSE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y);          \
 	SSE_TRANSPOSE_MATRIX(t4, t5, t6, t7, x, y);          \
 	MOVOU (0*16)(RK), rk128;                               \
@@ -454,6 +460,9 @@ GLOBL r24_mask256<>(SB), 8, $32
 	VPSHUFB flip_mask<>(SB), t2, t2                              \
 	VPSHUFB flip_mask<>(SB), t3, t3                              \
 	;                                              \
+	AVX_SM4_4BLOCKS_WO_BS(RK, rk128, x, y, z, t0, t1, t2, t3)
+
+#define AVX_SM4_4BLOCKS_WO_BS(RK, rk128, x, y, z, t0, t1, t2, t3) \
 	TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y)         \
 	VMOVDQU (0*16)(RK), rk128;                                 \
 	SM4_4BLOCKS_4ROUNDS_AVX(rk128, x, y, z, t0, t1, t2, t3);   \
@@ -506,6 +515,9 @@ GLOBL r24_mask256<>(SB), 8, $32
 	VPSHUFB flip_mask<>(SB), t6, t6                              \
 	VPSHUFB flip_mask<>(SB), t7, t7                              \	
 	;                                              \
+	AVX_SM4_8BLOCKS_WO_BS(RK, rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7)
+
+#define AVX_SM4_8BLOCKS_WO_BS(RK, rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7) \
 	TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y)         \
 	TRANSPOSE_MATRIX(t4, t5, t6, t7, x, y)         \
 	VMOVDQU (0*16)(RK), rk128;                               \

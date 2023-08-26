@@ -436,7 +436,7 @@ TEXT ·gcmSm4Enc(SB),0,$256-96
 #define aluCTR R10
 #define aluTMP R11
 
-#define increment(i) ADDL $1, aluCTR; MOVL aluCTR, aluTMP; BSWAPL aluTMP; MOVL aluTMP, (3*4 + 8*16 + i*16)(SP)
+#define increment(i) ADDL $1, aluCTR; MOVL aluCTR, (3*4 + 8*16 + i*16)(SP)
 
 #define mulRound(i) \
 	MOVOU (16*i)(SP), T0;\
@@ -528,8 +528,9 @@ TEXT ·gcmSm4Enc(SB),0,$256-96
 	PXOR ACCM, ACCM
 	MOVOU (ctrPtr), T0
 	MOVL (3*4)(ctrPtr), aluCTR
-	
 	BSWAPL aluCTR
+
+	PSHUFB flip_mask<>(SB), T0
 	MOVOU T0, (8*16 + 0*16)(SP)
 	increment(0)
 	MOVOU T0, (8*16 + 1*16)(SP)
@@ -563,7 +564,7 @@ TEXT ·gcmSm4Enc(SB),0,$256-96
 	MOVOU (8*16 + 6*16)(SP), B6
 	MOVOU (8*16 + 7*16)(SP), B7
 
-	SM4_8BLOCKS(rk, ACC1, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
+	SM4_8BLOCKS_WO_BS(rk, ACC1, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
 	PXOR ACC1, ACC1
 	increment(0)
 	increment(1)
@@ -676,7 +677,7 @@ gcmSm4EncOctetsLoop:
 		reduceRound(ACC0)
 		PXOR ACC1, ACC0
 		
-		SM4_8BLOCKS(rk, ACC1, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
+		SM4_8BLOCKS_WO_BS(rk, ACC1, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
 
 		MOVOU (16*0)(ptx), T0
 		PXOR T0, B0
@@ -773,7 +774,7 @@ gcmSm4EncNibbles:
 	MOVOU (8*16 + 2*16)(SP), B2
 	MOVOU (8*16 + 3*16)(SP), B3
 	
-	SM4_4BLOCKS(AX, B4, T0, T1, T2, B0, B1, B2, B3)
+	SM4_4BLOCKS_WO_BS(AX, B4, T0, T1, T2, B0, B1, B2, B3)
 	MOVOU (16*0)(ptx), T0
 	PXOR T0, B0
 	MOVOU (16*1)(ptx), T0
@@ -809,7 +810,7 @@ gcmSm4EncSingles:
 	MOVOU (8*16 + 2*16)(SP), B2
 	MOVOU (8*16 + 3*16)(SP), B3
 	
-	SM4_4BLOCKS(AX, B4, T0, T1, T2, B0, B1, B2, B3)
+	SM4_4BLOCKS_WO_BS(AX, B4, T0, T1, T2, B0, B1, B2, B3)
 	MOVOU B0, (16*0)(SP)
 	MOVOU B1, (16*1)(SP)
 	MOVOU B2, (16*2)(SP)
@@ -873,6 +874,7 @@ avxGcmSm4Enc:
 	MOVL (3*4)(ctrPtr), aluCTR
 	
 	BSWAPL aluCTR
+	VPSHUFB flip_mask<>(SB), T0, T0
 	VMOVDQU T0, (8*16 + 0*16)(SP)
 	increment(0)
 	VMOVDQU T0, (8*16 + 1*16)(SP)
@@ -906,7 +908,7 @@ avxGcmSm4Enc:
 	VMOVDQU (8*16 + 6*16)(SP), B6
 	VMOVDQU (8*16 + 7*16)(SP), B7
 
-	AVX_SM4_8BLOCKS(rk, ACC1, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
+	AVX_SM4_8BLOCKS_WO_BS(rk, ACC1, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
 	VPXOR ACC1, ACC1, ACC1 // clean ACC1
 	increment(0)
 	increment(1)
@@ -1010,7 +1012,7 @@ avxGcmSm4EncOctetsLoop:
 		avxReduceRound(ACC0)
 		VPXOR ACC1, ACC0, ACC0
 
-		AVX_SM4_8BLOCKS(rk, ACC1, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
+		AVX_SM4_8BLOCKS_WO_BS(rk, ACC1, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
 		// XOR plaintext
 		VPXOR (16*0)(ptx), B0, B0
 		VPXOR (16*1)(ptx), B1, B1
@@ -1101,7 +1103,7 @@ avxGcmSm4EncNibbles:
 	VMOVDQU (8*16 + 2*16)(SP), B2
 	VMOVDQU (8*16 + 3*16)(SP), B3
 
-	AVX_SM4_4BLOCKS(rk, B6, B7, T1, T2, B0, B1, B2, B3)
+	AVX_SM4_4BLOCKS_WO_BS(rk, B6, B7, T1, T2, B0, B1, B2, B3)
 	// XOR plaintext
 	VPXOR (16*0)(ptx), B0, B0
 	VPXOR (16*1)(ptx), B1, B1
@@ -1136,7 +1138,7 @@ avxGcmSm4EncSingles:
 	VMOVDQU (8*16 + 2*16)(SP), B2
 	VMOVDQU (8*16 + 3*16)(SP), B3
 
-	AVX_SM4_4BLOCKS(rk, B6, B7, T1, T2, B0, B1, B2, B3)
+	AVX_SM4_4BLOCKS_WO_BS(rk, B6, B7, T1, T2, B0, B1, B2, B3)
 	VMOVDQU B0, (16*0)(SP)
 	VMOVDQU B1, (16*1)(SP)
 	VMOVDQU B2, (16*2)(SP)
@@ -1198,9 +1200,10 @@ avx2GcmSm4Enc:
 	VPXOR ACC1, ACC1, ACC1
 	VPXOR ACCM, ACCM, ACCM
 	VMOVDQU (ctrPtr), T0
+	VPSHUFB flip_mask<>(SB), T0, T0
 	MOVL (3*4)(ctrPtr), aluCTR
-	
 	BSWAPL aluCTR
+
 	VMOVDQU T0, (8*16 + 0*16)(SP)
 	increment(0)
 	VMOVDQU T0, (8*16 + 1*16)(SP)
@@ -1230,13 +1233,6 @@ avx2GcmSm4Enc:
 	VMOVDQU (4*32 + 1*32)(SP), DWB1
 	VMOVDQU (4*32 + 2*32)(SP), DWB2
 	VMOVDQU (4*32 + 3*32)(SP), DWB3
-
-	VBROADCASTI128 flip_mask<>(SB), XDWTMP0
-	// Apply Byte Flip Mask: LE -> BE
-	VPSHUFB XDWTMP0, DWB0, DWB0
-	VPSHUFB XDWTMP0, DWB1, DWB1
-	VPSHUFB XDWTMP0, DWB2, DWB2
-	VPSHUFB XDWTMP0, DWB3, DWB3
 
 	// Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWTMP0, XDWTMP1)
@@ -1303,13 +1299,6 @@ avx2GcmSm4EncOctetsLoop:
 		VMOVDQU (4*32 + 1*32)(SP), DWB1
 		VMOVDQU (4*32 + 2*32)(SP), DWB2
 		VMOVDQU (4*32 + 3*32)(SP), DWB3
-
-		VBROADCASTI128 flip_mask<>(SB), XDWTMP0
-		// Apply Byte Flip Mask: LE -> BE
-		VPSHUFB XDWTMP0, DWB0, DWB0
-		VPSHUFB XDWTMP0, DWB1, DWB1
-		VPSHUFB XDWTMP0, DWB2, DWB2
-		VPSHUFB XDWTMP0, DWB3, DWB3
 
 		VMOVDQU (16*0)(SP), T0
 		VPSHUFD $78, T0, T1
@@ -1439,7 +1428,7 @@ avx2GcmSm4EncNibbles:
 	VMOVDQU (8*16 + 2*16)(SP), B2
 	VMOVDQU (8*16 + 3*16)(SP), B3
 	
-	AVX_SM4_4BLOCKS(rk, B4, B5, B6, B7, B0, B1, B2, B3)
+	AVX_SM4_4BLOCKS_WO_BS(rk, B4, B5, B6, B7, B0, B1, B2, B3)
 
 	VPXOR (16*0)(ptx), B0, B0
 	VPXOR (16*1)(ptx), B1, B1
@@ -1473,7 +1462,7 @@ avx2GcmSm4EncSingles:
 	VMOVDQU (8*16 + 2*16)(SP), B2
 	VMOVDQU (8*16 + 3*16)(SP), B3
 
-	AVX_SM4_4BLOCKS(rk, B4, B5, B6, B7, B0, B1, B2, B3)
+	AVX_SM4_4BLOCKS_WO_BS(rk, B4, B5, B6, B7, B0, B1, B2, B3)
 
 	VMOVDQU B0, (16*0)(SP)
 	VMOVDQU B1, (16*1)(SP)
@@ -1533,7 +1522,7 @@ avx2GcmSm4EncDone:
 
 // func gcmSm4Dec(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk []uint32)
 TEXT ·gcmSm4Dec(SB),0,$128-96
-#define increment(i) ADDL $1, aluCTR; MOVL aluCTR, aluTMP; BSWAPL aluTMP; MOVL aluTMP, (3*4 + i*16)(SP)
+#define increment(i) ADDL $1, aluCTR; MOVL aluCTR, (3*4 + i*16)(SP)
 
 #define decMulRound(i) \
 	MOVOU (16*i)(ctx), T0;\
@@ -1636,6 +1625,7 @@ TEXT ·gcmSm4Dec(SB),0,$128-96
 	MOVL (3*4)(ctrPtr), aluCTR
 	BSWAPL aluCTR
 
+	PSHUFB flip_mask<>(SB), T0
 	MOVOU T0, (0*16)(SP)
 	increment(0)
 	MOVOU T0, (1*16)(SP)
@@ -1714,7 +1704,7 @@ gcmSm4DecOctetsLoop:
 		reduceRound(ACC0)
 		PXOR ACC1, ACC0
 
-		SM4_8BLOCKS(rk, ACC1, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
+		SM4_8BLOCKS_WO_BS(rk, ACC1, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
 
 		MOVOU (16*0)(ctx), T0
 		PXOR T0, B0
@@ -1760,7 +1750,7 @@ gcmSm4DecNibbles:
 	MOVOU (2*16)(SP), B6
 	MOVOU (3*16)(SP), B7
 
-	SM4_4BLOCKS(rk, B0, T0, T1, T2, B4, B5, B6, B7)
+	SM4_4BLOCKS_WO_BS(rk, B0, T0, T1, T2, B4, B5, B6, B7)
 	MOVOU (16*14)(pTbl), T2
 	MOVOU (16*0)(ctx), T0
 	PXOR T0, B4
@@ -1796,7 +1786,7 @@ gcmSm4DecSingles:
 	MOVOU (2*16)(SP), B2
 	MOVOU (3*16)(SP), B3
 	
-	SM4_4BLOCKS(rk, B4, T0, T1, T2, B0, B1, B2, B3)
+	SM4_4BLOCKS_WO_BS(rk, B4, T0, T1, T2, B0, B1, B2, B3)
 	MOVOU B0, (16*4)(SP)
 	MOVOU B1, (16*5)(SP)
 	MOVOU B2, (16*6)(SP)
@@ -1864,6 +1854,7 @@ avxGcmSm4Dec:
 	MOVL (3*4)(ctrPtr), aluCTR
 	BSWAPL aluCTR
 
+	VPSHUFB flip_mask<>(SB), T0, T0
 	VMOVDQU T0, (0*16)(SP)
 	increment(0)
 	VMOVDQU T0, (1*16)(SP)
@@ -1941,7 +1932,7 @@ avxGcmSm4DecOctetsLoop:
 		avxReduceRound(ACC0)
 		VPXOR ACC1, ACC0, ACC0
 
-		AVX_SM4_8BLOCKS(rk, ACC1, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
+		AVX_SM4_8BLOCKS_WO_BS(rk, ACC1, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
 
 		VPXOR (16*0)(ctx), B0, B0
 		VPXOR (16*1)(ctx), B1, B1
@@ -1979,7 +1970,7 @@ avxGcmSm4DecNibbles:
 	VMOVDQU (2*16)(SP), B6
 	VMOVDQU (3*16)(SP), B7
 
-	AVX_SM4_4BLOCKS(rk, B0, B1, T1, T2, B4, B5, B6, B7)
+	AVX_SM4_4BLOCKS_WO_BS(rk, B0, B1, T1, T2, B4, B5, B6, B7)
 
 	VMOVDQU (16*14)(pTbl), T2
 	VMOVDQU (16*0)(ctx), B0
@@ -2019,7 +2010,7 @@ avxGcmSm4DecSingles:
 	VMOVDQU (2*16)(SP), B2
 	VMOVDQU (3*16)(SP), B3
 	
-	AVX_SM4_4BLOCKS(rk, B7, B6, B5, B4, B0, B1, B2, B3)
+	AVX_SM4_4BLOCKS_WO_BS(rk, B7, B6, B5, B4, B0, B1, B2, B3)
 	VMOVDQU B0, (16*4)(SP)
 	VMOVDQU B1, (16*5)(SP)
 	VMOVDQU B2, (16*6)(SP)
@@ -2087,6 +2078,7 @@ avx2GcmSm4Dec:
 	MOVL (3*4)(ctrPtr), aluCTR
 	BSWAPL aluCTR
 
+	VPSHUFB flip_mask<>(SB), T0, T0
 	VMOVDQU T0, (0*16)(SP)
 	increment(0)
 	VMOVDQU T0, (1*16)(SP)
@@ -2163,13 +2155,6 @@ avx2GcmSm4DecOctetsLoop:
 		avxReduceRound(ACC0)
 		VPXOR ACC1, ACC0, ACC0
 
-		VBROADCASTI128 flip_mask<>(SB), XDWTMP0
-		// Apply Byte Flip Mask: LE -> BE
-		VPSHUFB XDWTMP0, DWB0, DWB0
-		VPSHUFB XDWTMP0, DWB1, DWB1
-		VPSHUFB XDWTMP0, DWB2, DWB2
-		VPSHUFB XDWTMP0, DWB3, DWB3
-
 		// Transpose matrix 4 x 4 32bits word
 		TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWTMP0, XDWTMP1)
 		VBROADCASTI128 nibble_mask<>(SB), NIBBLE_MASK
@@ -2212,7 +2197,7 @@ avx2GcmSm4DecNibbles:
 	VMOVDQU (2*16)(SP), B2
 	VMOVDQU (3*16)(SP), B3
 	
-	AVX_SM4_4BLOCKS(rk, B0, B5, B6, B7, B4, B1, B2, B3)
+	AVX_SM4_4BLOCKS_WO_BS(rk, B0, B5, B6, B7, B4, B1, B2, B3)
 
 	VMOVDQU (16*14)(pTbl), T2
 	VMOVDQU (16*0)(ctx), B0
@@ -2253,7 +2238,7 @@ avx2GcmSm4DecSingles:
 	VMOVDQU (2*16)(SP), B2
 	VMOVDQU (3*16)(SP), B3
 
-	AVX_SM4_4BLOCKS(rk, B4, B5, B6, B7, B0, B1, B2, B3)
+	AVX_SM4_4BLOCKS_WO_BS(rk, B4, B5, B6, B7, B0, B1, B2, B3)
 
 	VMOVDQU B0, (16*4)(SP)
 	VMOVDQU B1, (16*5)(SP)
