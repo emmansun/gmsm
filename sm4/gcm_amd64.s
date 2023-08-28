@@ -26,7 +26,6 @@
 #define XDWORD Y1
 #define YDWORD Y3
 #define XDWTMP0 Y5
-#define XDWTMP1 Y7
 
 #define ACC0 X8
 #define ACC1 X9
@@ -38,8 +37,8 @@
 #define POLY X14
 #define BSWAP X15
 #define DWBSWAP Y15
-#define NIBBLE_MASK Y11
-#define X_NIBBLE_MASK X11
+#define NIBBLE_MASK Y7
+#define X_NIBBLE_MASK X7
 
 DATA gcmPoly<>+0x00(SB)/8, $0x0000000000000001
 DATA gcmPoly<>+0x08(SB)/8, $0xc200000000000000
@@ -527,10 +526,9 @@ TEXT ·gcmSm4Enc(SB),0,$256-96
 	PXOR ACC1, ACC1
 	PXOR ACCM, ACCM
 	MOVOU (ctrPtr), T0
-	MOVL (3*4)(ctrPtr), aluCTR
-	BSWAPL aluCTR
-
 	PSHUFB flip_mask<>(SB), T0
+	PEXTRD $3, T0, aluCTR
+
 	MOVOU T0, (8*16 + 0*16)(SP)
 	increment(0)
 	MOVOU T0, (8*16 + 1*16)(SP)
@@ -567,29 +565,29 @@ TEXT ·gcmSm4Enc(SB),0,$256-96
 	SM4_8BLOCKS_WO_BS(rk, ACC1, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
 	PXOR ACC1, ACC1
 	increment(0)
-	increment(1)
-	increment(2)
-	increment(3)
-	increment(4)
-	increment(5)
-	increment(6)
-	increment(7)	
 
 	// XOR plaintext
 	MOVOU (16*0)(ptx), T0
 	PXOR T0, B0
+	increment(1)
 	MOVOU (16*1)(ptx), T0
 	PXOR T0, B1
+	increment(2)
 	MOVOU (16*2)(ptx), T0
 	PXOR T0, B2
+	increment(3)
 	MOVOU (16*3)(ptx), T0
 	PXOR T0, B3
+	increment(4)
 	MOVOU (16*4)(ptx), T0
 	PXOR T0, B4
+	increment(5)
 	MOVOU (16*5)(ptx), T0
 	PXOR T0, B5
+	increment(6)
 	MOVOU (16*6)(ptx), T0
 	PXOR T0, B6
+	increment(7)
 	MOVOU (16*7)(ptx), T0
 	PXOR T0, B7
 
@@ -664,7 +662,7 @@ gcmSm4EncOctetsLoop:
 		increment(5)
 	 	mulRound(7)
 		increment(6)
-		increment(7)
+		
 		PXOR ACC0, ACCM
 		PXOR ACC1, ACCM
 		MOVOU ACCM, T0
@@ -672,29 +670,22 @@ gcmSm4EncOctetsLoop:
 		PSLLDQ $8, T0
 		PXOR ACCM, ACC1
 		PXOR T0, ACC0
-
+		
+		increment(7)
 		reduceRound(ACC0)
 		reduceRound(ACC0)
 		PXOR ACC1, ACC0
 		
 		SM4_8BLOCKS_WO_BS(rk, ACC1, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
 
-		MOVOU (16*0)(ptx), T0
-		PXOR T0, B0
-		MOVOU (16*1)(ptx), T0
-		PXOR T0, B1
-		MOVOU (16*2)(ptx), T0
-		PXOR T0, B2
-		MOVOU (16*3)(ptx), T0
-		PXOR T0, B3
-		MOVOU (16*4)(ptx), T0
-		PXOR T0, B4
-		MOVOU (16*5)(ptx), T0
-		PXOR T0, B5
-		MOVOU (16*6)(ptx), T0
-		PXOR T0, B6
-		MOVOU (16*7)(ptx), T0
-		PXOR T0, B7
+		PXOR (16*0)(ptx), B0
+		PXOR (16*1)(ptx), B1
+		PXOR (16*2)(ptx), B2
+		PXOR (16*3)(ptx), B3
+		PXOR (16*4)(ptx), B4
+		PXOR (16*5)(ptx), B5
+		PXOR (16*6)(ptx), B6
+		PXOR (16*7)(ptx), B7
 
 		MOVOU B0, (16*0)(ctx)
 		PSHUFB BSWAP, B0
@@ -775,14 +766,10 @@ gcmSm4EncNibbles:
 	MOVOU (8*16 + 3*16)(SP), B3
 	
 	SM4_4BLOCKS_WO_BS(AX, B4, T0, T1, T2, B0, B1, B2, B3)
-	MOVOU (16*0)(ptx), T0
-	PXOR T0, B0
-	MOVOU (16*1)(ptx), T0
-	PXOR T0, B1
-	MOVOU (16*2)(ptx), T0
-	PXOR T0, B2
-	MOVOU (16*3)(ptx), T0
-	PXOR T0, B3
+	PXOR (16*0)(ptx), B0
+	PXOR (16*1)(ptx), B1
+	PXOR (16*2)(ptx), B2
+	PXOR (16*3)(ptx), B3
 
 	MOVOU B0, (16*0)(ctx)
 	MOVOU B1, (16*1)(ctx)
@@ -790,14 +777,14 @@ gcmSm4EncNibbles:
 	MOVOU B3, (16*3)(ctx)
 
 	MOVOU (16*14)(pTbl), T2
-	gcmEncDataStep(B0)
-	gcmEncDataStep(B1)
-	gcmEncDataStep(B2)
-	gcmEncDataStep(B3)
 	increment(0)
+	gcmEncDataStep(B0)
 	increment(1)
+	gcmEncDataStep(B1)
 	increment(2)
+	gcmEncDataStep(B2)
 	increment(3)
+	gcmEncDataStep(B3)
 
 	LEAQ 64(ptx), ptx
 	LEAQ 64(ctx), ctx
@@ -871,10 +858,9 @@ avxGcmSm4Enc:
 	VPXOR ACC1, ACC1, ACC1
 	VPXOR ACCM, ACCM, ACCM
 	VMOVDQU (ctrPtr), T0
-	MOVL (3*4)(ctrPtr), aluCTR
-	
-	BSWAPL aluCTR
 	VPSHUFB flip_mask<>(SB), T0, T0
+	VPEXTRD $3, T0, aluCTR
+
 	VMOVDQU T0, (8*16 + 0*16)(SP)
 	increment(0)
 	VMOVDQU T0, (8*16 + 1*16)(SP)
@@ -911,31 +897,32 @@ avxGcmSm4Enc:
 	AVX_SM4_8BLOCKS_WO_BS(rk, ACC1, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
 	VPXOR ACC1, ACC1, ACC1 // clean ACC1
 	increment(0)
-	increment(1)
-	increment(2)
-	increment(3)
-	increment(4)
-	increment(5)
-	increment(6)
-	increment(7)
+	
 	// XOR plaintext
 	VPXOR (16*0)(ptx), B0, B0
 	VPXOR (16*1)(ptx), B1, B1
+	increment(1)
 	VPXOR (16*2)(ptx), B2, B2
 	VPXOR (16*3)(ptx), B3, B3
+	increment(2)
 	VPXOR (16*4)(ptx), B4, B4
 	VPXOR (16*5)(ptx), B5, B5
+	increment(3)
 	VPXOR (16*6)(ptx), B6, B6
 	VPXOR (16*7)(ptx), B7, B7	
 	// Store ciphertext
 	VMOVDQU B0, (16*0)(ctx)
 	VPSHUFB BSWAP, B0, B0
+	increment(4)
 	VMOVDQU B1, (16*1)(ctx)
 	VPSHUFB BSWAP, B1, B1
+	increment(5)
 	VMOVDQU B2, (16*2)(ctx)
 	VPSHUFB BSWAP, B2, B2
+	increment(6)
 	VMOVDQU B3, (16*3)(ctx)
 	VPSHUFB BSWAP, B3, B3
+	increment(7)
 	VMOVDQU B4, (16*4)(ctx)
 	VPSHUFB BSWAP, B4, B4
 	VMOVDQU B5, (16*5)(ctx)
@@ -999,7 +986,6 @@ avxGcmSm4EncOctetsLoop:
 		increment(5)
 	 	avxMulRound(7)
 		increment(6)
-		increment(7)
 		VPXOR ACC0, ACCM, ACCM
 		VPXOR ACC1, ACCM, ACCM
 		VPSLLDQ $8, ACCM, T0
@@ -1008,6 +994,7 @@ avxGcmSm4EncOctetsLoop:
 		VPXOR ACCM, ACC1, ACC1
 		VPXOR T0, ACC0, ACC0
 
+		increment(7)
 		avxReduceRound(ACC0)
 		avxReduceRound(ACC0)
 		VPXOR ACC1, ACC0, ACC0
@@ -1117,15 +1104,15 @@ avxGcmSm4EncNibbles:
 	VMOVDQU B3, (16*3)(ctx)
 
 	VMOVDQU (16*14)(pTbl), T2
-	avxGcmEncDataStep(B0)
-	avxGcmEncDataStep(B1)
-	avxGcmEncDataStep(B2)
-	avxGcmEncDataStep(B3)
 	increment(0)
+	avxGcmEncDataStep(B0)
 	increment(1)
+	avxGcmEncDataStep(B1)
 	increment(2)
+	avxGcmEncDataStep(B2)
 	increment(3)
-
+	avxGcmEncDataStep(B3)
+	
 	LEAQ 64(ptx), ptx
 	LEAQ 64(ctx), ctx
 
@@ -1201,16 +1188,14 @@ avx2GcmSm4Enc:
 	VPXOR ACCM, ACCM, ACCM
 	VMOVDQU (ctrPtr), T0
 	VPSHUFB flip_mask<>(SB), T0, T0
-	MOVL (3*4)(ctrPtr), aluCTR
-	BSWAPL aluCTR
+	VPEXTRD $3, T0, aluCTR
 
-	VMOVDQU T0, (8*16 + 0*16)(SP)
+	VINSERTI128 $1, T0, Y11, Y11
+	VMOVDQU Y11, (8*16 + 0*32)(SP)
 	increment(0)
-	VMOVDQU T0, (8*16 + 1*16)(SP)
 	increment(1)
-	VMOVDQU T0, (8*16 + 2*16)(SP)
+	VMOVDQU Y11, (8*16 + 1*32)(SP)
 	increment(2)
-	VMOVDQU T0, (8*16 + 3*16)(SP)
 	increment(3)
 
 	CMPQ ptxLen, $128
@@ -1218,13 +1203,11 @@ avx2GcmSm4Enc:
 	SUBQ $128, ptxLen
 
 	// We have at least 8 blocks to encrypt, prepare the rest of the counters
-	VMOVDQU T0, (8*16 + 4*16)(SP)
+	VMOVDQU Y11, (8*16 + 2*32)(SP)
 	increment(4)
-	VMOVDQU T0, (8*16 + 5*16)(SP)
 	increment(5)
-	VMOVDQU T0, (8*16 + 6*16)(SP)
+	VMOVDQU Y11, (8*16 + 3*32)(SP)
 	increment(6)
-	VMOVDQU T0, (8*16 + 7*16)(SP)
 	increment(7)
 
 	VBROADCASTI128 bswap_mask<>(SB), DWBSWAP
@@ -1234,39 +1217,36 @@ avx2GcmSm4Enc:
 	VMOVDQU (4*32 + 2*32)(SP), DWB2
 	VMOVDQU (4*32 + 3*32)(SP), DWB3
 
+	increment(0)
 	// Transpose matrix 4 x 4 32bits word
-	TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWTMP0, XDWTMP1)
+	TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWORD, YDWORD)
+	
 	VBROADCASTI128 nibble_mask<>(SB), NIBBLE_MASK
-
-	AVX2_SM4_8BLOCKS(rk, XDWORD, YDWORD, X1, X3, XDWTMP1, DWB0, DWB1, DWB2, DWB3)
-
+	increment(1)
+	AVX2_SM4_8BLOCKS(rk, XDWORD, YDWORD, X1, X3, XDWTMP0, DWB0, DWB1, DWB2, DWB3)
+	increment(2)
 	// Transpose matrix 4 x 4 32bits word
-	TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWTMP0, XDWTMP1)
-
+	TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWORD, YDWORD)
+	
 	VPSHUFB DWBSWAP, DWB0, DWB0
 	VPSHUFB DWBSWAP, DWB1, DWB1
+	increment(3)
 	VPSHUFB DWBSWAP, DWB2, DWB2
 	VPSHUFB DWBSWAP, DWB3, DWB3
-
-	increment(0)
-	increment(1)
-	increment(2)
-	increment(3)
 	increment(4)
-	increment(5)
-	increment(6)
-	increment(7)
-
+	
 	// XOR plaintext
 	VMOVDQU (32*0)(ptx), XDWTMP0
 	VPXOR XDWTMP0, DWB0, DWB0
 	VMOVDQU (32*1)(ptx), XDWTMP0
 	VPXOR XDWTMP0, DWB1, DWB1
+	increment(5)
 	VMOVDQU (32*2)(ptx), XDWTMP0
 	VPXOR XDWTMP0, DWB2, DWB2
 	VMOVDQU (32*3)(ptx), XDWTMP0
 	VPXOR XDWTMP0, DWB3, DWB3
-
+	increment(6)
+	
 	// Store ciphertext
 	VMOVDQU DWB0, (32*0)(ctx)
 	VPSHUFB DWBSWAP, DWB0, DWB0
@@ -1276,7 +1256,7 @@ avx2GcmSm4Enc:
 	VPSHUFB DWBSWAP, DWB2, DWB2
 	VMOVDQU DWB3, (32*3)(ctx)
 	VPSHUFB DWBSWAP, DWB3, DWB3
-
+	increment(7)
 	//VPXOR XDWTMP0, XDWTMP0, XDWTMP0
 	//VINSERTI128 $0, ACC0, XDWTMP0, XDWTMP0
 	//VPXOR XDWTMP0, DWB0, DWB0
@@ -1312,13 +1292,12 @@ avx2GcmSm4EncOctetsLoop:
 		VPCLMULQDQ $0x11, T0, ACC1, ACC1
 
 		// Transpose matrix 4 x 4 32bits word
-		TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWTMP0, XDWTMP1)
-		VBROADCASTI128 nibble_mask<>(SB), NIBBLE_MASK
+		TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWORD, YDWORD)
 
-		AVX2_SM4_8BLOCKS(rk, XDWORD, YDWORD, X1, X3, XDWTMP1, DWB0, DWB1, DWB2, DWB3)
+		AVX2_SM4_8BLOCKS(rk, XDWORD, YDWORD, X1, X3, XDWTMP0, DWB0, DWB1, DWB2, DWB3)
 
 		// Transpose matrix 4 x 4 32bits word
-		TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWTMP0, XDWTMP1)
+		TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWORD, YDWORD)
 
 		VPSHUFB DWBSWAP, DWB0, DWB0
 		VPSHUFB DWBSWAP, DWB1, DWB1
@@ -1339,7 +1318,7 @@ avx2GcmSm4EncOctetsLoop:
 		increment(5)
 	 	avxMulRound(7)
 		increment(6)
-		increment(7)
+		
 		VPXOR ACC0, ACCM, ACCM
 		VPXOR ACC1, ACCM, ACCM
 		VPSLLDQ $8, ACCM, T0
@@ -1348,6 +1327,7 @@ avx2GcmSm4EncOctetsLoop:
 		VPXOR ACCM, ACC1, ACC1
 		VPXOR T0, ACC0, ACC0
 
+		increment(7)
 		avxReduceRound(ACC0)
 		avxReduceRound(ACC0)
 		VPXOR ACC1, ACC0, ACC0
@@ -1442,12 +1422,12 @@ avx2GcmSm4EncNibbles:
 
 	VMOVDQU (16*14)(pTbl), T2
 	avxGcmEncDataStep(B0)
-	avxGcmEncDataStep(B1)
-	avxGcmEncDataStep(B2)
-	avxGcmEncDataStep(B3)
 	increment(0)
+	avxGcmEncDataStep(B1)
 	increment(1)
+	avxGcmEncDataStep(B2)
 	increment(2)
+	avxGcmEncDataStep(B3)
 	increment(3)
 
 	LEAQ 64(ptx), ptx
@@ -1622,10 +1602,9 @@ TEXT ·gcmSm4Dec(SB),0,$128-96
 	PXOR ACC1, ACC1
 	PXOR ACCM, ACCM
 	MOVOU (ctrPtr), T0
-	MOVL (3*4)(ctrPtr), aluCTR
-	BSWAPL aluCTR
-
 	PSHUFB flip_mask<>(SB), T0
+	PEXTRD $3, T0, aluCTR
+
 	MOVOU T0, (0*16)(SP)
 	increment(0)
 	MOVOU T0, (1*16)(SP)
@@ -1706,22 +1685,14 @@ gcmSm4DecOctetsLoop:
 
 		SM4_8BLOCKS_WO_BS(rk, ACC1, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
 
-		MOVOU (16*0)(ctx), T0
-		PXOR T0, B0
-		MOVOU (16*1)(ctx), T0
-		PXOR T0, B1
-		MOVOU (16*2)(ctx), T0
-		PXOR T0, B2
-		MOVOU (16*3)(ctx), T0
-		PXOR T0, B3
-		MOVOU (16*4)(ctx), T0
-		PXOR T0, B4
-		MOVOU (16*5)(ctx), T0
-		PXOR T0, B5
-		MOVOU (16*6)(ctx), T0
-		PXOR T0, B6
-		MOVOU (16*7)(ctx), T0
-		PXOR T0, B7
+		PXOR (16*0)(ctx), B0
+		PXOR (16*1)(ctx), B1
+		PXOR (16*2)(ctx), B2
+		PXOR (16*3)(ctx), B3
+		PXOR (16*4)(ctx), B4
+		PXOR (16*5)(ctx), B5
+		PXOR (16*6)(ctx), B6
+		PXOR (16*7)(ctx), B7
 
 		MOVOU B0, (16*0)(ptx)
 		MOVOU B1, (16*1)(ptx)
@@ -1752,22 +1723,22 @@ gcmSm4DecNibbles:
 
 	SM4_4BLOCKS_WO_BS(rk, B0, T0, T1, T2, B4, B5, B6, B7)
 	MOVOU (16*14)(pTbl), T2
-	MOVOU (16*0)(ctx), T0
-	PXOR T0, B4
-	MOVOU (16*1)(ctx), T0
-	PXOR T0, B5
-	MOVOU (16*2)(ctx), T0
-	PXOR T0, B6
-	MOVOU (16*3)(ctx), T0
-	PXOR T0, B7
 
-	decGhashRound(0)
+	MOVOU (16*0)(ctx), B0
+	PXOR B0, B4
+	internalDecGhashRound()
 	increment(0)
-	decGhashRound(1)
+	MOVOU (16*1)(ctx), B0
+	PXOR B0, B5
+	internalDecGhashRound()
 	increment(1)
-	decGhashRound(2)
+	MOVOU (16*2)(ctx), B0
+	PXOR B0, B6
+	internalDecGhashRound()
 	increment(2)
-	decGhashRound(3)
+	MOVOU (16*3)(ctx), B0
+	PXOR B0, B7
+	internalDecGhashRound()
 	increment(3)
 
 	MOVOU B4, (16*0)(ptx)
@@ -1851,10 +1822,9 @@ avxGcmSm4Dec:
 	VPXOR ACC1, ACC1, ACC1
 	VPXOR ACCM, ACCM, ACCM
 	VMOVDQU (ctrPtr), T0
-	MOVL (3*4)(ctrPtr), aluCTR
-	BSWAPL aluCTR
-
 	VPSHUFB flip_mask<>(SB), T0, T0
+	VPEXTRD $3, T0, aluCTR
+
 	VMOVDQU T0, (0*16)(SP)
 	increment(0)
 	VMOVDQU T0, (1*16)(SP)
@@ -1918,7 +1888,7 @@ avxGcmSm4DecOctetsLoop:
 		increment(5)
 	 	avxDecMulRound(7)
 		increment(6)
-		increment(7)
+		
 		VPXOR ACC0, ACCM, ACCM
 		VPXOR ACC1, ACCM, ACCM
 
@@ -1928,6 +1898,7 @@ avxGcmSm4DecOctetsLoop:
 		VPXOR ACCM, ACC1, ACC1
 		VPXOR T0, ACC0, ACC0
 
+		increment(7)
 		avxReduceRound(ACC0)
 		avxReduceRound(ACC0)
 		VPXOR ACC1, ACC0, ACC0
@@ -2075,33 +2046,30 @@ avx2GcmSm4Dec:
 	VPXOR ACC1, ACC1, ACC1
 	VPXOR ACCM, ACCM, ACCM
 	VMOVDQU (ctrPtr), T0
-	MOVL (3*4)(ctrPtr), aluCTR
-	BSWAPL aluCTR
-
 	VPSHUFB flip_mask<>(SB), T0, T0
-	VMOVDQU T0, (0*16)(SP)
+	VPEXTRD $3, T0, aluCTR
+
+	VINSERTI128 $1, T0, Y11, Y11
+	VMOVDQU Y11, (0*32)(SP)
 	increment(0)
-	VMOVDQU T0, (1*16)(SP)
 	increment(1)
-	VMOVDQU T0, (2*16)(SP)
+	VMOVDQU Y11, (1*32)(SP)
 	increment(2)
-	VMOVDQU T0, (3*16)(SP)
 	increment(3)
 
 	CMPQ ptxLen, $128
 	JB avx2GcmSm4DecNibbles
 
 	// We have at least 8 blocks to dencrypt, prepare the rest of the counters
-	VMOVDQU T0, (4*16)(SP)
+	VMOVDQU Y11, (2*32)(SP)
 	increment(4)
-	VMOVDQU T0, (5*16)(SP)
 	increment(5)
-	VMOVDQU T0, (6*16)(SP)
+	VMOVDQU Y11, (3*32)(SP)
 	increment(6)
-	VMOVDQU T0, (7*16)(SP)
 	increment(7)
 
 	VBROADCASTI128 bswap_mask<>(SB), DWBSWAP
+	VBROADCASTI128 nibble_mask<>(SB), NIBBLE_MASK
 
 avx2GcmSm4DecOctetsLoop:
 		CMPQ ptxLen, $128
@@ -2141,8 +2109,7 @@ avx2GcmSm4DecOctetsLoop:
 		increment(5)
 	 	avxDecMulRound(7)
 		increment(6)
-		increment(7)
-
+		
 		VPXOR ACC0, ACCM, ACCM
 		VPXOR ACC1, ACCM, ACCM
 		VPSLLDQ $8, ACCM, T0
@@ -2150,19 +2117,19 @@ avx2GcmSm4DecOctetsLoop:
 		
 		VPXOR ACCM, ACC1, ACC1
 		VPXOR T0, ACC0, ACC0
+		increment(7)
 
 		avxReduceRound(ACC0)
 		avxReduceRound(ACC0)
 		VPXOR ACC1, ACC0, ACC0
 
 		// Transpose matrix 4 x 4 32bits word
-		TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWTMP0, XDWTMP1)
-		VBROADCASTI128 nibble_mask<>(SB), NIBBLE_MASK
+		TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWORD, YDWORD)
 
-		AVX2_SM4_8BLOCKS(rk, XDWORD, YDWORD, X1, X3, XDWTMP1, DWB0, DWB1, DWB2, DWB3)
+		AVX2_SM4_8BLOCKS(rk, XDWORD, YDWORD, X1, X3, XDWTMP0, DWB0, DWB1, DWB2, DWB3)
 
 		// Transpose matrix 4 x 4 32bits word
-		TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWTMP0, XDWTMP1)
+		TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWORD, YDWORD)
 
 		VPSHUFB DWBSWAP, DWB0, DWB0
 		VPSHUFB DWBSWAP, DWB1, DWB1
@@ -2202,29 +2169,28 @@ avx2GcmSm4DecNibbles:
 	VMOVDQU (16*14)(pTbl), T2
 	VMOVDQU (16*0)(ctx), B0
 	VPXOR B0, B4, B4
+	increment(0)
 	internalAvxDecGhashRound()
 
 	VMOVDQU (16*1)(ctx), B0
 	VPXOR B0, B1, B1
+	increment(1)
 	internalAvxDecGhashRound()
 
 	VMOVDQU (16*2)(ctx), B0
 	VPXOR B0, B2, B2
+	increment(2)
 	internalAvxDecGhashRound()
 
 	VMOVDQU (16*3)(ctx), B0
 	VPXOR B0, B3, B3
+	increment(3)
 	internalAvxDecGhashRound()
 
 	VMOVDQU B4, (16*0)(ptx)
 	VMOVDQU B1, (16*1)(ptx)
 	VMOVDQU B2, (16*2)(ptx)
 	VMOVDQU B3, (16*3)(ptx)
-
-	increment(0)
-	increment(1)
-	increment(2)
-	increment(3)
 
 	LEAQ 64(ptx), ptx
 	LEAQ 64(ctx), ctx
