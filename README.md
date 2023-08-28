@@ -43,15 +43,15 @@
 ## Acknowledgements
 The basic architecture, design and some codes are from [golang crypto](https://github.com/golang/go/commits/master/src/crypto).
 
-The SM4 amd64 SIMD AES-NI implementation is inspired by code from [sm4ni](https://github.com/mjosaarinen/sm4ni).
+The SM4 amd64 SIMD AES-NI implementation is inspired by code from [mjosaarinen/sm4ni](https://github.com/mjosaarinen/sm4ni). 
 
-The original SM9/BN256 version is based on code from [bn256](https://github.com/cloudflare/bn256).
+The original SM9/BN256 version is based on code from [cloudflare/bn256](https://github.com/cloudflare/bn256).
 
-The ZUC amd64 SIMD AES-NI, CLMUL implementation is inspired by [Intel(R) Multi-Buffer Crypto for IPsec Library](https://github.com/intel/intel-ipsec-mb/).
+The ZUC amd64 SIMD AES-NI, CLMUL implementation is inspired by code from [Intel(R) Multi-Buffer Crypto for IPsec Library](https://github.com/intel/intel-ipsec-mb/).
 
-The pkcs7 is a fork of [mozilla-services/pkcs7](https://github.com/mozilla-services/pkcs7) and I modified it to support ShangMi
+The pkcs7 is based on code from [mozilla-services/pkcs7](https://github.com/mozilla-services/pkcs7).
 
-The pkcs8 is a fork of [youmark/pkcs8](https://github.com/youmark/pkcs8) ,and I modified it to support ShangMi.
+The pkcs8 is based on code from [youmark/pkcs8](https://github.com/youmark/pkcs8).
 
 ## Disclaimer
 
