@@ -40,6 +40,19 @@
 * **[PKCS12](https://github.com/emmansun/go-pkcs12)** - pkcs12 supports ShangMi, a fork of [SSLMate/go-pkcs12](https://github.com/SSLMate/go-pkcs12).
 * **[MKSMCERT](https://github.com/emmansun/mksmcert)** - A simple tool for making locally-trusted development ShangMi certificates, a fork of [FiloSottile/mkcert](https://github.com/FiloSottile/mkcert).
 
+## Acknowledgements
+The basic architecture, design and some codes are from [golang crypto](https://github.com/golang/go/commits/master/src/crypto).
+
+The SM4 amd64 SIMD AES-NI implementation is inspired by code from [sm4ni](https://github.com/mjosaarinen/sm4ni).
+
+The original SM9/BN256 version is based on code from [bn256](https://github.com/cloudflare/bn256).
+
+The ZUC amd64 SIMD AES-NI, CLMUL implementation is inspired by [Intel(R) Multi-Buffer Crypto for IPsec Library](https://github.com/intel/intel-ipsec-mb/).
+
+The pkcs7 is a fork of [mozilla-services/pkcs7](https://github.com/mozilla-services/pkcs7) and I modified it to support ShangMi
+
+The pkcs8 is a fork of [youmark/pkcs8](https://github.com/youmark/pkcs8) ,and I modified it to support ShangMi.
+
 ## Disclaimer
 
 Please read [disclaimer](DISCLAIMER.md) carefully!
