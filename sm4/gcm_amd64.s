@@ -563,7 +563,6 @@ TEXT ·gcmSm4Enc(SB),0,$256-96
 	MOVOU (8*16 + 7*16)(SP), B7
 
 	SM4_8BLOCKS_WO_BS(rk, ACC1, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
-	PXOR ACC1, ACC1
 	increment(0)
 
 	// XOR plaintext
@@ -884,7 +883,7 @@ avxGcmSm4Enc:
 	VMOVDQU T0, (8*16 + 7*16)(SP)
 	increment(7)
 
-	// load 4 ctrs for encryption
+	// load 8 ctrs for encryption
 	VMOVDQU (8*16 + 0*16)(SP), B0
 	VMOVDQU (8*16 + 1*16)(SP), B1
 	VMOVDQU (8*16 + 2*16)(SP), B2
@@ -895,7 +894,6 @@ avxGcmSm4Enc:
 	VMOVDQU (8*16 + 7*16)(SP), B7
 
 	AVX_SM4_8BLOCKS_WO_BS(rk, ACC1, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
-	VPXOR ACC1, ACC1, ACC1 // clean ACC1
 	increment(0)
 	
 	// XOR plaintext
