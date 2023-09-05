@@ -8,7 +8,7 @@ import (
 )
 
 var supportsAES = cpu.X86.HasAES || cpu.ARM64.HasAES
-var useAVX = false //cpu.X86.HasAVX
+var useAVX = cpu.X86.HasAVX
 
 // Generate single keyword, 4 bytes.
 //
