@@ -8,11 +8,15 @@ import (
 )
 
 var supportsAES = cpu.X86.HasAES || cpu.ARM64.HasAES
-var useAVX = cpu.X86.HasAVX
+var useAVX = false //cpu.X86.HasAVX
 
+// Generate single keyword, 4 bytes.
+//
 //go:noescape
 func genKeywordAsm(s *zucState32) uint32
 
+// Generate multiple keywords, n*4 bytes.
+//
 //go:noescape
 func genKeyStreamAsm(keyStream []uint32, pState *zucState32)
 

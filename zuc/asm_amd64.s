@@ -89,52 +89,55 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	SHRL n, b          \  
 	ORL  b, a
 
+// Rotate left 5 bits in each byte, within an XMM register, SSE version.
 #define Rotl_5_SSE(XDATA, XTMP0)               \
 	MOVOU XDATA, XTMP0                         \
-	PSLLQ $5, XTMP0                            \ // should use pslld
-	PSRLQ $3, XDATA                            \ // should use psrld
+	PSLLL $5, XTMP0                            \
+	PSRLL $3, XDATA                            \
 	PAND Top3_bits_of_the_byte<>(SB), XTMP0    \
 	PAND Bottom5_bits_of_the_byte<>(SB), XDATA \
 	POR XTMP0, XDATA
 
+// Compute 16 S0 box values from 16 bytes, SSE version.
 #define S0_comput_SSE(IN_OUT, XTMP1, XTMP2)    \
 	MOVOU IN_OUT, XTMP1                        \
 	\
-	PAND Low_nibble_mask<>(SB), IN_OUT         \ 
+	PAND Low_nibble_mask<>(SB), IN_OUT         \  // x2
 	\
 	PAND High_nibble_mask<>(SB), XTMP1         \ 
-	PSRLQ $4, XTMP1                            \
+	PSRLQ $4, XTMP1                            \  // x1
 	\
 	MOVOU P1<>(SB), XTMP2                      \
-	PSHUFB IN_OUT, XTMP2                       \
-	PXOR XTMP1, XTMP2                          \
+	PSHUFB IN_OUT, XTMP2                       \ // P1[x2]
+	PXOR XTMP1, XTMP2                          \ // q = x1 ^ P1[x2], XTMP1 free
 	\
 	MOVOU P2<>(SB), XTMP1                      \
-	PSHUFB XTMP2, XTMP1                        \
-	PXOR IN_OUT, XTMP1                         \
+	PSHUFB XTMP2, XTMP1                        \ // P2[q]
+	PXOR IN_OUT, XTMP1                         \ // r = x2 ^ P2[q]; IN_OUT free
 	\
 	MOVOU P3<>(SB), IN_OUT                     \
-	PSHUFB XTMP1, IN_OUT                       \
-	PXOR XTMP2, IN_OUT                         \
-	\
+	PSHUFB XTMP1, IN_OUT                       \ // P3[r]
+	PXOR XTMP2, IN_OUT                         \ // s = q ^ P3[r], XTMP2 free
+	\ // s << 4 (since high nibble of each byte is 0, no masking is required)
 	PSLLQ $4, IN_OUT                           \
-	POR XTMP1, IN_OUT                          \
+	POR XTMP1, IN_OUT                          \ // t = (s << 4) | r
 	Rotl_5_SSE(IN_OUT, XTMP1)
 
 // Perform 8x8 matrix multiplication using lookup tables with partial results
-// for high and low nible of each input byte
+// for high and low nible of each input byte, SSE versiion.
 #define MUL_PSHUFB_SSE(XIN, XLO, XHI_OUT, XTMP)        \
+	\ // Get low nibble of input data
 	MOVOU Low_nibble_mask<>(SB), XTMP                  \
 	PAND XIN, XTMP                                     \
-	\
+	\ // Get low nibble of output
 	PSHUFB XTMP, XLO                                   \
-	\
+	\ // Get high nibble of input data
 	MOVOU High_nibble_mask<>(SB), XTMP                 \
 	PAND XIN, XTMP                                     \
 	PSRLQ $4, XTMP                                     \
-	\
+	\ // Get high nibble of output
 	PSHUFB XTMP, XHI_OUT                               \
-	\
+	\ // XOR high and low nibbles to get full bytes
 	PXOR XLO, XHI_OUT
 
 // Compute 16 S1 box values from 16 bytes, stored in XMM register
@@ -150,7 +153,7 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	MOVOU Comb_matrix_mul_high_nibble<>(SB), XIN_OUT    \
 	MUL_PSHUFB_SSE(XTMP2, XTMP1, XIN_OUT, XTMP3)
 
-
+// Rotate left 5 bits in each byte, within an XMM register, AVX version.
 #define Rotl_5_AVX(XDATA, XTMP0)                       \
 	VPSLLD $5, XDATA, XTMP0                            \
 	VPSRLD $3, XDATA, XDATA                            \
@@ -158,81 +161,106 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	VPAND Bottom5_bits_of_the_byte<>(SB), XDATA, XDATA \
 	VPOR XTMP0, XDATA, XDATA
 
+// Compute 16 S0 box values from 16 bytes, AVX version.
 #define S0_comput_AVX(IN_OUT, XTMP1, XTMP2)    \
 	VPAND High_nibble_mask<>(SB), IN_OUT, XTMP1  \
-	VPSRLQ $4, XTMP1, XTMP1                      \
+	VPSRLQ $4, XTMP1, XTMP1                      \ // x1
 	\
-	VPAND Low_nibble_mask<>(SB), IN_OUT, IN_OUT  \
+	VPAND Low_nibble_mask<>(SB), IN_OUT, IN_OUT  \ // x2
 	\
 	VMOVDQU P1<>(SB), XTMP2                      \
-	VPSHUFB IN_OUT, XTMP2, XTMP2                 \
-	VPXOR XTMP1, XTMP2, XTMP2                    \
+	VPSHUFB IN_OUT, XTMP2, XTMP2                 \ // P1[x2]
+	VPXOR XTMP1, XTMP2, XTMP2                    \ // q = x1 ^ P1[x2] ; XTMP1 free
 	\
 	VMOVDQU P2<>(SB), XTMP1                      \
-	VPSHUFB XTMP2, XTMP1, XTMP1                  \
-	VPXOR IN_OUT, XTMP1, XTMP1                   \
+	VPSHUFB XTMP2, XTMP1, XTMP1                  \ // P2[q]
+	VPXOR IN_OUT, XTMP1, XTMP1                   \ // r = x2 ^ P2[q] ; IN_OUT free
 	\
 	VMOVDQU P3<>(SB), IN_OUT                     \
-	VPSHUFB XTMP1, IN_OUT, IN_OUT                \
-	VPXOR XTMP2, IN_OUT, IN_OUT                  \
-	\
+	VPSHUFB XTMP1, IN_OUT, IN_OUT                \ // P3[r]
+	VPXOR XTMP2, IN_OUT, IN_OUT                  \ // s = q ^ P3[r] ; XTMP2 free
+	\ // s << 4 (since high nibble of each byte is 0, no masking is required)
 	VPSLLQ $4, IN_OUT, IN_OUT                    \
-	VPOR XTMP1, IN_OUT, IN_OUT                   \
+	VPOR XTMP1, IN_OUT, IN_OUT                   \ // t = (s << 4) | r
 	Rotl_5_AVX(IN_OUT, XTMP1)
 
 // Perform 8x8 matrix multiplication using lookup tables with partial results
-// for high and low nible of each input byte
+// for high and low nible of each input byte, AVX version.
 #define MUL_PSHUFB_AVX(XIN, XLO, XHI_OUT, XTMP)        \
+	\ // Get low nibble of input data
 	VPAND Low_nibble_mask<>(SB), XIN, XTMP             \
+	\ // Get low nibble of output
 	VPSHUFB XTMP, XLO, XLO                             \
+	\ // Get high nibble of input data
 	VPAND High_nibble_mask<>(SB), XIN, XTMP            \
 	VPSRLQ $4, XTMP, XTMP                              \
+	\ // Get high nibble of output
 	VPSHUFB XTMP, XHI_OUT, XHI_OUT                     \
+	\ // XOR high and low nibbles to get full bytes
 	VPXOR XLO, XHI_OUT, XHI_OUT
 
 // Compute 16 S1 box values from 16 bytes, stored in XMM register
 #define S1_comput_AVX(XIN_OUT, XTMP1, XTMP2, XTMP3)       \
+	\ // gf2p8affineqb  XIN_OUT, [rel Aes_to_Zuc], 0x00
 	VMOVDQU Aes_to_Zuc_mul_low_nibble<>(SB), XTMP1        \
 	VMOVDQU Aes_to_Zuc_mul_high_nibble<>(SB), XTMP2       \
 	MUL_PSHUFB_AVX(XIN_OUT, XTMP1, XTMP2, XTMP3)          \
+	\
 	VPSHUFB Shuf_mask<>(SB), XTMP2, XTMP2                 \
 	VAESENCLAST Cancel_aes<>(SB), XTMP2, XTMP2            \
+	\ // gf2p8affineqb  XIN_OUT, [rel CombMatrix], 0x55
 	VMOVDQU Comb_matrix_mul_low_nibble<>(SB), XTMP1       \
 	VMOVDQU Comb_matrix_mul_high_nibble<>(SB), XIN_OUT    \
 	MUL_PSHUFB_AVX(XTMP2, XTMP1, XIN_OUT, XTMP3)
 
+#define F_R1 R10
+#define F_R2 R11
+#define BRC_X0 R12
+#define BRC_X1 R13
+#define BRC_X2 R14
+#define BRC_X3 R15
+
 // BITS_REORG(idx)
+//
 // params
 //      %1 - round number
 // uses
 //      AX, BX, CX, DX
 // return 
-//      R12, R13, R14, R15
+//      updates R12, R13, R14, R15
+//
 #define BITS_REORG(idx)                      \
-	MOVL (((15 + idx) % 16)*4)(SI), R12      \
+	MOVL (((15 + idx) % 16)*4)(SI), BRC_X0   \
 	MOVL (((14 + idx) % 16)*4)(SI), AX       \
-	MOVL (((11 + idx) % 16)*4)(SI), R13      \
+	MOVL (((11 + idx) % 16)*4)(SI), BRC_X1   \
 	MOVL (((9 + idx) % 16)*4)(SI), BX        \
-	MOVL (((7 + idx) % 16)*4)(SI), R14       \ 
+	MOVL (((7 + idx) % 16)*4)(SI), BRC_X2    \ 
 	MOVL (((5 + idx) % 16)*4)(SI), CX        \
-	MOVL (((2 + idx) % 16)*4)(SI), R15       \
+	MOVL (((2 + idx) % 16)*4)(SI), BRC_X3    \
 	MOVL (((0 + idx) % 16)*4)(SI), DX        \
-	SHRL $15, R12                            \
+	SHRL $15, BRC_X0                         \
 	SHLL $16, AX                             \
 	SHLL $1, BX                              \
 	SHLL $1, CX                              \
 	SHLL $1, DX                              \
-	SHLDL(R12, AX, $16)                      \
-	SHLDL(R13, BX, $16)                      \
-	SHLDL(R14, CX, $16)                      \
-	SHLDL(R15, DX, $16)                      
+	SHLDL(BRC_X0, AX, $16)                   \
+	SHLDL(BRC_X1, BX, $16)                   \
+	SHLDL(BRC_X2, CX, $16)                   \
+	SHLDL(BRC_X3, DX, $16)                      
 
+// LFSR_UPDT calculates the next state word and places/overwrites it to lfsr[idx % 16]
+// 
+// params
+//      %1 - round number
+// uses
+//      AX as input (ZERO or W), BX, CX, DX, R8, R9
 #define LFSR_UPDT(idx)                       \
 	MOVL (((0 + idx) % 16)*4)(SI), BX        \
 	MOVL (((4 + idx) % 16)*4)(SI), CX        \
 	MOVL (((10 + idx) % 16)*4)(SI), DX       \
 	MOVL (((13 + idx) % 16)*4)(SI), R8       \
 	MOVL (((15 + idx) % 16)*4)(SI), R9       \
+	\ // Calculate 64-bit LFSR feedback
 	ADDQ BX, AX                              \
 	SHLQ $8, BX                              \
 	SHLQ $20, CX                             \
@@ -244,7 +272,7 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	ADDQ DX, AX                              \
 	ADDQ R8, AX                              \
 	ADDQ R9, AX                              \
-	\
+	\ // Reduce it to 31-bit value
 	MOVQ AX, BX                              \
 	ANDQ $0x7FFFFFFF, AX                     \
 	SHRQ $31, BX                             \
@@ -253,21 +281,21 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	MOVQ AX, BX                              \
 	SUBQ $0x7FFFFFFF, AX                     \
 	CMOVQCS BX, AX                           \
-	\
+	\ // LFSR_S16 = (LFSR_S15++) = AX
 	MOVL AX, (((0 + idx) % 16)*4)(SI)
 
 #define NONLIN_FUN()                         \
-	MOVL R12, AX                             \
-	XORL R10, AX                             \
-	ADDL R11, AX                             \
-	ADDL R13, R10                            \ // W1= F_R1 + BRC_X1
-	XORL R14, R11                            \ // W2= F_R2 ^ BRC_X2
+	MOVL BRC_X0, AX                          \
+	XORL F_R1, AX                            \ // F_R1 xor BRC_X1
+	ADDL F_R2, AX                            \ // W = (F_R1 xor BRC_X1) + F_R2
+	ADDL BRC_X1, F_R1                        \ // W1= F_R1 + BRC_X1
+	XORL BRC_X2, F_R2                        \ // W2= F_R2 ^ BRC_X2
 	\
-	MOVL R10, DX                             \
-	MOVL R11, CX                             \
+	MOVL F_R1, DX                            \
+	MOVL F_R2, CX                            \
 	SHLDL(DX, CX, $16)                       \ // P = (W1 << 16) | (W2 >> 16)
-	SHLDL(R11, R10, $16)                     \ // Q = (W2 << 16) | (W1 >> 16)
-	MOVL DX, BX                              \  
+	SHLDL(F_R2, F_R1, $16)                   \ // Q = (W2 << 16) | (W1 >> 16)
+	MOVL DX, BX                              \ // start L1 
 	MOVL DX, CX                              \
 	MOVL DX, R8                              \
 	MOVL DX, R9                              \
@@ -279,21 +307,28 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	XORL CX, DX                              \
 	XORL R8, DX                              \
 	XORL R9, DX                              \ // U = L1(P) = EDX, hi(RDX)=0
-	MOVL R11, BX                             \  
-	MOVL R11, CX                             \
-	MOVL R11, R8                             \
-	MOVL R11, R9                             \
+	MOVL F_R2, BX                            \  
+	MOVL F_R2, CX                            \
+	MOVL F_R2, R8                            \
+	MOVL F_R2, R9                            \
 	ROLL $8, BX                              \
 	ROLL $14, CX                             \
 	ROLL $22, R8                             \
 	ROLL $30, R9                             \
-	XORL BX, R11                             \
-	XORL CX, R11                             \
-	XORL R8, R11                             \
-	XORL R9, R11                             \ // V = L2(Q) = R11D, hi(R11)=0
-	SHLQ $32, R11                            \
-	XORQ R11, DX                             
+	XORL BX, F_R2                            \
+	XORL CX, F_R2                            \
+	XORL R8, F_R2                            \
+	XORL R9, F_R2                            \ // V = L2(Q) = R11D, hi(R11)=0
+	SHLQ $32, F_R2                           \ // DX = V || U
+	XORQ F_R2, DX                             
 
+// Non-Linear function F, SSE version.
+// uses
+//      AX, BX, CX, DX, R8, R9
+//      X0, X1, X2, X3, X4
+// return 
+//      W in AX
+//      updated F_R1, F_R2  
 #define NONLIN_FUN_SSE()                     \
 	NONLIN_FUN()                             \
 	MOVQ DX, X0                              \
@@ -305,16 +340,17 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	PAND mask_S0<>(SB), X1                   \ 
 	PXOR X1, X0                              \ 
 	\
-	MOVL X0, R10                             \ // F_R1
-	PEXTRD $1, X0, R11
+	MOVL X0, F_R1                            \ // F_R1
+	PEXTRD $1, X0, F_R2
 
+// RESTORE_LFSR_0, appends the first 4 bytes to last.
 #define RESTORE_LFSR_0()                     \
-	MOVL (0*4)(SI), AX                       \
+	MOVL (0*4)(SI), AX                       \ // first 4-bytes
 	MOVUPS (4)(SI), X0                       \ 
 	MOVUPS (20)(SI), X1                      \ 
 	MOVUPS (36)(SI), X2                      \
 	MOVQ (52)(SI), BX                        \
-	MOVL (60)(SI), CX                        \
+	MOVL (60)(SI), CX                        \ // last 4-bytes
 	\
 	MOVUPS X0, (SI)                          \  
 	MOVUPS X1, (16)(SI)                      \  
@@ -323,12 +359,13 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	MOVL CX, (56)(SI)                        \
 	MOVL AX, (60)(SI) 
 
+// RESTORE_LFSR_2, appends the first 8 bytes to last.
 #define RESTORE_LFSR_2()                     \
-	MOVQ (0)(SI), AX                         \
+	MOVQ (0)(SI), AX                         \ // first 8-bytes
 	MOVUPS (8)(SI), X0                       \ 
 	MOVUPS (24)(SI), X1                      \ 
 	MOVUPS (40)(SI), X2                      \
-	MOVQ (56)(SI), BX                        \
+	MOVQ (56)(SI), BX                        \ // last 8-bytes
 	\
 	MOVUPS X0, (SI)                          \  
 	MOVUPS X1, (16)(SI)                      \  
@@ -336,17 +373,19 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	MOVQ BX, (48)(SI)                        \
 	MOVQ AX, (56)(SI)
 
+// RESTORE_LFSR_4, appends the first 16 bytes to last.
 #define RESTORE_LFSR_4()                     \
-	MOVUPS (0)(SI), X0                       \
+	MOVUPS (0)(SI), X0                       \ // first 16 bytes
 	MOVUPS (16)(SI), X1                      \
 	MOVUPS (32)(SI), X2                      \
-	MOVUPS (48)(SI), X3                      \
+	MOVUPS (48)(SI), X3                      \ // last 16 bytes
 	\
 	MOVUPS X1, (0)(SI)                       \
 	MOVUPS X2, (16)(SI)                      \
 	MOVUPS X3, (32)(SI)                      \
 	MOVUPS X0, (48)(SI)
 
+// RESTORE_LFSR_8, appends the first 32 bytes to last.
 #define RESTORE_LFSR_8()                     \
 	MOVUPS (0)(SI), X0                       \
 	MOVUPS (16)(SI), X1                      \
@@ -358,6 +397,13 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	MOVUPS X0, (32)(SI)                      \
 	MOVUPS X1, (48)(SI)
 
+// Non-Linear function F, AVX version.
+// uses
+//      AX, BX, CX, DX, R8, R9
+//      X0, X1, X2, X3, X4
+// return 
+//      W in AX
+//      updated F_R1, F_R2
 #define NONLIN_FUN_AVX()                     \
 	NONLIN_FUN()                             \
 	VMOVQ DX, X0                             \
@@ -373,20 +419,20 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	VPEXTRD $1, X0, R11   
 
 #define LOAD_STATE()                         \
-	MOVL OFFSET_FR1(SI), R10                 \
-	MOVL OFFSET_FR2(SI), R11                 \
-	MOVL OFFSET_BRC_X0(SI), R12              \
-	MOVL OFFSET_BRC_X1(SI), R13              \
-	MOVL OFFSET_BRC_X2(SI), R14              \
-	MOVL OFFSET_BRC_X3(SI), R15
+	MOVL OFFSET_FR1(SI), F_R1                \
+	MOVL OFFSET_FR2(SI), F_R2                \
+	MOVL OFFSET_BRC_X0(SI), BRC_X0           \
+	MOVL OFFSET_BRC_X1(SI), BRC_X1           \
+	MOVL OFFSET_BRC_X2(SI), BRC_X2           \
+	MOVL OFFSET_BRC_X3(SI), BRC_X3
 
 #define SAVE_STATE()                         \
-	MOVL R10, OFFSET_FR1(SI)                 \
-	MOVL R11, OFFSET_FR2(SI)                 \
-	MOVL R12, OFFSET_BRC_X0(SI)              \
-	MOVL R13, OFFSET_BRC_X1(SI)              \
-	MOVL R14, OFFSET_BRC_X2(SI)              \
-	MOVL R15, OFFSET_BRC_X3(SI)
+	MOVL F_R1, OFFSET_FR1(SI)                \
+	MOVL F_R2, OFFSET_FR2(SI)                \
+	MOVL BRC_X0, OFFSET_BRC_X0(SI)           \
+	MOVL BRC_X1, OFFSET_BRC_X1(SI)           \
+	MOVL BRC_X2, OFFSET_BRC_X2(SI)           \
+	MOVL BRC_X3, OFFSET_BRC_X3(SI)
 
 // func genKeywordAsm(s *zucState32) uint32
 TEXT ·genKeywordAsm(SB),NOSPLIT,$0
@@ -401,10 +447,14 @@ TEXT ·genKeywordAsm(SB),NOSPLIT,$0
 sse:
 	NONLIN_FUN_SSE()
 
-	XORL R15, AX
+	// (BRC_X3 xor W) as result
+	XORL BRC_X3, AX
 	MOVL AX, ret+8(FP)
+
+	// LFSRWithWorkMode
 	XORQ AX, AX
 	LFSR_UPDT(0)
+
 	SAVE_STATE()
 	RESTORE_LFSR_0()
 
@@ -413,14 +463,17 @@ sse:
 avx:
 	NONLIN_FUN_AVX()
 
-	XORL R15, AX
+	// (BRC_X3 xor W) as result
+	XORL BRC_X3, AX
 	MOVL AX, ret+8(FP)
+
+	// LFSRWithWorkMode
 	XORQ AX, AX
 	LFSR_UPDT(0)
+
 	SAVE_STATE()
 	RESTORE_LFSR_0()
 
-	VZEROUPPER
 	RET
 
 #define ROUND_SSE(idx)            \
@@ -594,7 +647,6 @@ avxZucSingle:
 	RESTORE_LFSR_0()
 avxZucRet:
 	SAVE_STATE()
-	VZEROUPPER
 	RET
 
 // func genKeyStreamRev32Asm(keyStream []byte, pState *zucState32)
@@ -736,5 +788,4 @@ avxZucSingle:
 	RESTORE_LFSR_0()
 avxZucRet:
 	SAVE_STATE()
-	VZEROUPPER
 	RET

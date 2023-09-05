@@ -79,12 +79,12 @@ var zuc256_d = [3][16]byte{
 
 type zucState32 struct {
 	lfsr [16]uint32 // linear feedback shift register
-	r1   uint32
-	r2   uint32
-	x0   uint32 // Output X0 of the bit reorganization
-	x1   uint32 // Output X1 of the bit reorganization
-	x2   uint32 // Output X2 of the bit reorganization
-	x3   uint32 // Output X3 of the bit reorganization
+	r1   uint32     // register of F
+	r2   uint32     // register of F
+	x0   uint32     // Output X0 of the bit reorganization
+	x1   uint32     // Output X1 of the bit reorganization
+	x2   uint32     // Output X2 of the bit reorganization
+	x3   uint32     // Output X3 of the bit reorganization
 }
 
 func (s *zucState32) bitReorganization() {
