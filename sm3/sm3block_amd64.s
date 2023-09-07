@@ -1,5 +1,5 @@
-//go:build amd64 && !purego && !plugin
-// +build amd64,!purego,!plugin
+//go:build amd64 && !purego
+// +build amd64,!purego
 
 #include "textflag.h"
 
@@ -28,15 +28,14 @@
   XORL  BX, AX; \
   MOVL  AX, BX; \
   ROLL  $15, BX; \
-  MOVL  AX, CX; \
-  ROLL  $23, CX; \
   XORL  BX, AX; \
-  XORL  CX, AX; \
+  ROLL  $8, BX; \
+  XORL  BX, AX; \
   MOVL	((index-9)*4)(BP), BX; \
   ROLL  $7, BX; \
-  MOVL	((index-2)*4)(BP), CX; \
   XORL  BX, AX; \
-  XORL  CX, AX; \
+  MOVL	((index-2)*4)(BP), BX; \
+  XORL  BX, AX; \
   MOVL  AX, ((index+4)*4)(BP)
 
 // Calculate ss1 in BX
@@ -52,65 +51,62 @@
 // Calculate tt1 in CX
 // ret = (a XOR b XOR c) + d + (ROTL(12, a) XOR ss1) + (Wt XOR Wt+4)
 #define SM3TT10(index, a, b, c, d) \  
-  MOVL a, CX; \
   MOVL b, DX; \
-  XORL CX, DX; \
-  MOVL c, DI; \
-  XORL DI, DX; \  // (a XOR b XOR c)
+  XORL a, DX; \
+  XORL c, DX; \  // (a XOR b XOR c)
   ADDL d, DX; \   // (a XOR b XOR c) + d 
-  MOVL ((index)*4)(BP), DI; \ //Wt
-  XORL DI, AX; \ //Wt XOR Wt+4
+  MOVL ((index)*4)(BP), CX; \ //Wt
+  XORL CX, AX; \ //Wt XOR Wt+4
   ADDL AX, DX;  \
+  MOVL a, CX; \
   ROLL $12, CX; \
   XORL BX, CX; \ // ROTL(12, a) XOR ss1
   ADDL DX, CX  // (a XOR b XOR c) + d + (ROTL(12, a) XOR ss1)
 
 // Calculate tt2 in BX
 // ret = (e XOR f XOR g) + h + ss1 + Wt
-#define SM3TT20(e, f, g, h) \  
-  ADDL h, DI; \   //Wt + h
-  ADDL BX, DI; \  //Wt + h + ss1
+#define SM3TT20(index, e, f, g, h) \
+  MOVL ((index)*4)(BP), DX; \ //Wt
+  ADDL h, DX; \   //Wt + h
+  ADDL BX, DX; \  //Wt + h + ss1
   MOVL e, BX; \
-  MOVL f, DX; \
-  XORL DX, BX; \  // e XOR f
-  MOVL g, DX; \
-  XORL DX, BX; \  // e XOR f XOR g
-  ADDL DI, BX     // (e XOR f XOR g) + Wt + h + ss1
+  XORL f, BX; \  // e XOR f
+  XORL g, BX; \  // e XOR f XOR g
+  ADDL DX, BX     // (e XOR f XOR g) + Wt + h + ss1
 
-// Calculate tt1 in CX, used DX, DI
+// Calculate tt1 in CX, used DX
 // ret = ((a AND b) OR (a AND c) OR (b AND c)) + d + (ROTL(12, a) XOR ss1) + (Wt XOR Wt+4)
 #define SM3TT11(index, a, b, c, d) \  
-  MOVL a, CX; \
   MOVL b, DX; \
-  ANDL CX, DX; \  // a AND b
-  MOVL c, DI; \
-  ANDL DI, CX; \  // a AND c
+  ANDL a, DX; \  // a AND b
+  MOVL a, CX; \
+  ANDL c, CX; \  // a AND c
   ORL  DX, CX; \  // (a AND b) OR (a AND c)
   MOVL b, DX; \
-  ANDL DI, DX; \  // b AND c
+  ANDL c, DX; \  // b AND c
   ORL  CX, DX; \  // (a AND b) OR (a AND c) OR (b AND c)
   ADDL d, DX; \
   MOVL a, CX; \
   ROLL $12, CX; \
   XORL BX, CX; \
   ADDL DX, CX; \  // ((a AND b) OR (a AND c) OR (b AND c)) + d + (ROTL(12, a) XOR ss1)
-  MOVL ((index)*4)(BP), DI; \
-  XORL DI, AX; \  // Wt XOR Wt+4
+  MOVL ((index)*4)(BP), DX; \
+  XORL DX, AX; \  // Wt XOR Wt+4
   ADDL AX, CX
 
 // Calculate tt2 in BX
 // ret = ((e AND f) OR (NOT(e) AND g)) + h + ss1 + Wt
-#define SM3TT21(e, f, g, h) \  
-  ADDL h, DI; \   // Wt + h
-  ADDL BX, DI; \  // h + ss1 + Wt
+#define SM3TT21(index, e, f, g, h) \
+  MOVL ((index)*4)(BP), DX; \
+  ADDL h, DX; \   // Wt + h
+  ADDL BX, DX; \  // h + ss1 + Wt
   MOVL e, BX; \
-  MOVL f, DX; \   
-  ANDL BX, DX; \  // e AND f
+  MOVL f, AX; \   
+  ANDL BX, AX; \  // e AND f
   NOTL BX; \      // NOT(e)
-  MOVL g, AX; \
-  ANDL AX, BX; \ // NOT(e) AND g
-  ORL  DX, BX; \
-  ADDL DI, BX
+  ANDL g, BX; \ // NOT(e) AND g
+  ORL  AX, BX; \
+  ADDL DX, BX
 
 #define COPYRESULT(b, d, f, h) \
   ROLL $9, b; \
@@ -127,21 +123,21 @@
   MSGSCHEDULE01(index); \
   SM3SS1(const, a, e); \
   SM3TT10(index, a, b, c, d); \
-  SM3TT20(e, f, g, h); \
+  SM3TT20(index, e, f, g, h); \
   COPYRESULT(b, d, f, h)
 
 #define SM3ROUND1(index, const, a, b, c, d, e, f, g, h) \
   MSGSCHEDULE1(index); \
   SM3SS1(const, a, e); \
   SM3TT10(index, a, b, c, d); \
-  SM3TT20(e, f, g, h); \
+  SM3TT20(index, e, f, g, h); \
   COPYRESULT(b, d, f, h)
 
 #define SM3ROUND2(index, const, a, b, c, d, e, f, g, h) \
   MSGSCHEDULE1(index); \
   SM3SS1(const, a, e); \
   SM3TT11(index, a, b, c, d); \
-  SM3TT21(e, f, g, h); \
+  SM3TT21(index, e, f, g, h); \
   COPYRESULT(b, d, f, h)
 
 // Definitions for AVX2 version
@@ -188,17 +184,11 @@
 #define g R10
 #define h R11
 
-//#define old_h R11
-
-//#define TBL BP
-
 #define SRND SI // SRND is same register as CTX
 
-#define T1 R12
-
-#define y0 R13
-#define y1 R14
-#define y2 R15
+#define y0 R12
+#define y1 R13
+#define y2 R14
 #define y3 DI
 
 // Offsets
@@ -400,12 +390,11 @@
   MOVL     b, y3;                            \
   VPOR     XTMP0, XTMP1, XTMP1;              \ // XTMP1 = W[-13] rol 7
   ANDL     y1, y3;                           \
-  MOVL     c, T1;                            \
-  ANDL     T1, y1;                           \
+  ANDL     c, y1;                           \
   ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c)
   VPALIGNR $8, XDWORD2, XDWORD3, XTMP0;      \ // XTMP0 = W[-6] = {w13,w12,w11,w10}
   MOVL     b, y3;                            \
-  ANDL     T1, y3;                           \
+  ANDL     c, y3;                           \
   ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c) OR (b AND c)
   ADDL     y1, y0;                           \ // y0 = FF(a, b, c) + d + SS2 + W' = tt1
   ;                                          \
@@ -414,8 +403,7 @@
   MOVL     f, y3;                            \
   ANDL     y1, y3;                           \ // y3 = e AND f
   NOTL     y1;                               \
-  MOVL     g, T1;                            \
-  ANDL     T1, y1;                           \ // y1 = NOT(e) AND g
+  ANDL     g, y1;                           \ // y1 = NOT(e) AND g
   ORL      y3, y1;                           \ // y1 = (e AND f) OR (NOT(e) AND g)
   VPALIGNR $12, XDWORD1, XDWORD2, XTMP1;     \ // XTMP1 = W[-9] = {w10,w9,w8,w7}
   ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
@@ -452,12 +440,11 @@
   VPSLLD   $15, XTMP2, XTMP3;                \
   MOVL     b, y3;                            \
   ANDL     y1, y3;                           \
-  MOVL     c, T1;                            \
-  ANDL     T1, y1;                           \
+  ANDL     c, y1;                           \
   VPSRLD   $(32-15), XTMP2, XTMP4;           \
   ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c)
   MOVL     b, y3;                            \
-  ANDL     T1, y3;                           \
+  ANDL     c, y3;                           \
   ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c) OR (b AND c)
   VPOR     XTMP3, XTMP4, XTMP4;              \ // XTMP4 = XTMP2 rol 15 {xxBA}
   ADDL     y1, y0;                           \ // y0 = FF(a, b, c) + d + SS2 + W' = tt1
@@ -466,9 +453,8 @@
   MOVL     f, y3;                            \
   ANDL     y1, y3;                           \ // y3 = e AND f
   NOTL     y1;                               \
-  MOVL     g, T1;                            \
   VPXOR    XTMP2, XTMP4, XTMP4;              \ // XTMP4 = XTMP2 XOR (XTMP2 rol 15 {xxBA})
-  ANDL     T1, y1;                           \ // y1 = NOT(e) AND g
+  ANDL     g, y1;                           \ // y1 = NOT(e) AND g
   ORL      y3, y1;                           \ // y1 = (e AND f) OR (NOT(e) AND g)
   ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
   ;                                          \
@@ -504,12 +490,11 @@
   MOVL     b, y3;                            \
   VPALIGNR $12, XDWORD3, XTMP2, XTMP3;       \ // XTMP3 = {..., W[1], W[0], w15}
   ANDL     y1, y3;                           \
-  MOVL     c, T1;                            \
-  ANDL     T1, y1;                           \
+  ANDL     c, y1;                           \
   ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c)
   VPSHUFD $80, XTMP3, XTMP4;                 \ // XTMP4 =  = W[-3] {DDCC}
   MOVL     b, y3;                            \
-  ANDL     T1, y3;                           \
+  ANDL     c, y3;                           \
   ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c) OR (b AND c)
   ADDL     y1, y0;                           \ // y0 = FF(a, b, c) + d + SS2 + W' = tt1
   VPSLLQ  $15, XTMP4, XTMP4;                 \ // XTMP4 = W[-3] rol 15 {DxCx}
@@ -519,8 +504,7 @@
   ANDL     y1, y3;                           \ // y3 = e AND f
   NOTL     y1;                               \
   VPSHUFB shuff_DC00<>(SB), XTMP4, XTMP4;    \ // XTMP4 = W[-3] rol 15 {DC00}
-  MOVL     g, T1;                            \
-  ANDL     T1, y1;                           \ // y1 = NOT(e) AND g
+  ANDL     g, y1;                           \ // y1 = NOT(e) AND g
   ORL      y3, y1;                           \ // y1 = (e AND f) OR (NOT(e) AND g)
   ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
   VPXOR   XTMP1, XTMP4, XTMP4;               \ // XTMP4 = W[-9] XOR W[-16] XOR (W[-3] rol 15) {DCxx}
@@ -556,12 +540,11 @@
   VPSLLD   $23, XTMP4, XTMP5;                \
   MOVL     b, y3;                            \
   ANDL     y1, y3;                           \
-  MOVL     c, T1;                            \
-  ANDL     T1, y1;                           \
+  ANDL     c, y1;                           \
   VPSRLD   $(32-23), XTMP4, XTMP1;           \
   ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c)
   MOVL     b, y3;                            \
-  ANDL     T1, y3;                           \
+  ANDL     c, y3;                           \
   ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c) OR (b AND c)
   ADDL     y1, y0;                           \ // y0 = FF(a, b, c) + d + SS2 + W' = tt1
   VPOR     XTMP1, XTMP5, XTMP1;              \ // XTMP1 = XTMP4 rol 23 {DCxx}
@@ -571,8 +554,7 @@
   ANDL     y1, y3;                           \ // y3 = e AND f
   NOTL     y1;                               \
   VPXOR    XTMP3, XTMP1, XTMP1;              \ // XTMP1 = XTMP4 XOR (XTMP4 rol 15 {DCxx}) XOR (XTMP4 rol 23 {DCxx})
-  MOVL     g, T1;                            \
-  ANDL     T1, y1;                           \ // y1 = NOT(e) AND g
+  ANDL     g, y1;                           \ // y1 = NOT(e) AND g
   ORL      y3, y1;                           \ // y1 = (e AND f) OR (NOT(e) AND g)
   ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
   VPXOR    XTMP1, XTMP0, XTMP1;              \ // XTMP1 = {W[3], W[2], ..., ...}
@@ -737,11 +719,10 @@
   MOVL     a, y1;                            \
   MOVL     b, y3;                            \
   ANDL     y1, y3;                           \
-  MOVL     c, T1;                            \
-  ANDL     T1, y1;                           \
+  ANDL     c, y1;                           \
   ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c)
   MOVL     b, y3;                            \
-  ANDL     T1, y3;                           \
+  ANDL     c, y3;                           \
   ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c) OR (b AND c)
   ADDL     y1, y0;                           \ // y0 = FF(a, b, c) + d + SS2 + W' = tt1
   ;                                          \
@@ -749,8 +730,7 @@
   MOVL     f, y3;                            \
   ANDL     y1, y3;                           \ // y3 = e AND f
   NOTL     y1;                               \
-  MOVL     g, T1;                            \
-  ANDL     T1, y1;                           \ // y1 = NOT(e) AND g
+  ANDL     g, y1;                           \ // y1 = NOT(e) AND g
   ORL      y3, y1;                           \ // y1 = (e AND f) OR (NOT(e) AND g)
   ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
   ;                                          \
@@ -780,11 +760,10 @@
   MOVL     a, y1;                            \
   MOVL     b, y3;                            \
   ANDL     y1, y3;                           \
-  MOVL     c, T1;                            \
-  ANDL     T1, y1;                           \
+  ANDL     c, y1;                           \
   ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c)
   MOVL     b, y3;                            \
-  ANDL     T1, y3;                           \
+  ANDL     c, y3;                           \
   ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c) OR (b AND c)
   ADDL     y1, y0;                           \ // y0 = FF(a, b, c) + d + SS2 + W' = tt1
   ;                                          \
@@ -792,8 +771,7 @@
   MOVL     f, y3;                            \
   ANDL     y1, y3;                           \ // y3 = e AND f
   NOTL     y1;                               \
-  MOVL     g, T1;                            \
-  ANDL     T1, y1;                           \ // y1 = NOT(e) AND g
+  ANDL     g, y1;                           \ // y1 = NOT(e) AND g
   ORL      y3, y1;                           \ // y1 = (e AND f) OR (NOT(e) AND g)
   ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
   ;                                          \
@@ -823,11 +801,10 @@
   MOVL     a, y1;                            \
   MOVL     b, y3;                            \
   ANDL     y1, y3;                           \
-  MOVL     c, T1;                            \
-  ANDL     T1, y1;                           \
+  ANDL     c, y1;                           \
   ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c)
   MOVL     b, y3;                            \
-  ANDL     T1, y3;                           \
+  ANDL     c, y3;                           \
   ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c) OR (b AND c)
   ADDL     y1, y0;                           \ // y0 = FF(a, b, c) + d + SS2 + W' = tt1
   ;                                          \
@@ -835,8 +812,7 @@
   MOVL     f, y3;                            \
   ANDL     y1, y3;                           \ // y3 = e AND f
   NOTL     y1;                               \
-  MOVL     g, T1;                            \
-  ANDL     T1, y1;                           \ // y1 = NOT(e) AND g
+  ANDL     g, y1;                           \ // y1 = NOT(e) AND g
   ORL      y3, y1;                           \ // y1 = (e AND f) OR (NOT(e) AND g)
   ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
   ;                                          \
@@ -866,11 +842,10 @@
   MOVL     a, y1;                            \
   MOVL     b, y3;                            \
   ANDL     y1, y3;                           \
-  MOVL     c, T1;                            \
-  ANDL     T1, y1;                           \
+  ANDL     c, y1;                           \
   ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c)
   MOVL     b, y3;                            \
-  ANDL     T1, y3;                           \
+  ANDL     c, y3;                           \
   ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c) OR (b AND c)
   ADDL     y1, y0;                           \ // y0 = FF(a, b, c) + d + SS2 + W' = tt1
   ;                                          \
@@ -878,8 +853,7 @@
   MOVL     f, y3;                            \
   ANDL     y1, y3;                           \ // y3 = e AND f
   NOTL     y1;                               \
-  MOVL     g, T1;                            \
-  ANDL     T1, y1;                           \ // y1 = NOT(e) AND g
+  ANDL     g, y1;                           \ // y1 = NOT(e) AND g
   ORL      y3, y1;                           \ // y1 = (e AND f) OR (NOT(e) AND g)
   ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
   ;                                          \
@@ -915,7 +889,7 @@ TEXT ·block(SB), 0, $1048-32
 	MOVL (4*4)(BP), R12 // e = H4
 	MOVL (5*4)(BP), R13 // f = H5
 	MOVL (6*4)(BP), R14 // g = H6
-	MOVL (7*4)(BP), R15 // h = H7
+	MOVL (7*4)(BP), DI // h = H7
 
 loop:
 	MOVQ SP, BP
@@ -925,72 +899,72 @@ loop:
   MSGSCHEDULE0(2)
   MSGSCHEDULE0(3)
 
-  SM3ROUND0(0, 0x79cc4519, R8, R9, R10, R11, R12, R13, R14, R15)
-  SM3ROUND0(1, 0xf3988a32, R15, R8, R9, R10, R11, R12, R13, R14)
-  SM3ROUND0(2, 0xe7311465, R14, R15, R8, R9, R10, R11, R12, R13)
-  SM3ROUND0(3, 0xce6228cb, R13, R14, R15, R8, R9, R10, R11, R12)
-  SM3ROUND0(4, 0x9cc45197, R12, R13, R14, R15, R8, R9, R10, R11)
-  SM3ROUND0(5, 0x3988a32f, R11, R12, R13, R14, R15, R8, R9, R10)
-  SM3ROUND0(6, 0x7311465e, R10, R11, R12, R13, R14, R15, R8, R9)
-  SM3ROUND0(7, 0xe6228cbc, R9, R10, R11, R12, R13, R14, R15, R8)
-  SM3ROUND0(8, 0xcc451979, R8, R9, R10, R11, R12, R13, R14, R15)
-  SM3ROUND0(9, 0x988a32f3, R15, R8, R9, R10, R11, R12, R13, R14)
-  SM3ROUND0(10, 0x311465e7, R14, R15, R8, R9, R10, R11, R12, R13)
-  SM3ROUND0(11, 0x6228cbce, R13, R14, R15, R8, R9, R10, R11, R12)
+  SM3ROUND0(0, 0x79cc4519, R8, R9, R10, R11, R12, R13, R14, DI)
+  SM3ROUND0(1, 0xf3988a32, DI, R8, R9, R10, R11, R12, R13, R14)
+  SM3ROUND0(2, 0xe7311465, R14, DI, R8, R9, R10, R11, R12, R13)
+  SM3ROUND0(3, 0xce6228cb, R13, R14, DI, R8, R9, R10, R11, R12)
+  SM3ROUND0(4, 0x9cc45197, R12, R13, R14, DI, R8, R9, R10, R11)
+  SM3ROUND0(5, 0x3988a32f, R11, R12, R13, R14, DI, R8, R9, R10)
+  SM3ROUND0(6, 0x7311465e, R10, R11, R12, R13, R14, DI, R8, R9)
+  SM3ROUND0(7, 0xe6228cbc, R9, R10, R11, R12, R13, R14, DI, R8)
+  SM3ROUND0(8, 0xcc451979, R8, R9, R10, R11, R12, R13, R14, DI)
+  SM3ROUND0(9, 0x988a32f3, DI, R8, R9, R10, R11, R12, R13, R14)
+  SM3ROUND0(10, 0x311465e7, R14, DI, R8, R9, R10, R11, R12, R13)
+  SM3ROUND0(11, 0x6228cbce, R13, R14, DI, R8, R9, R10, R11, R12)
   
-  SM3ROUND1(12, 0xc451979c, R12, R13, R14, R15, R8, R9, R10, R11)
-  SM3ROUND1(13, 0x88a32f39, R11, R12, R13, R14, R15, R8, R9, R10)
-  SM3ROUND1(14, 0x11465e73, R10, R11, R12, R13, R14, R15, R8, R9)
-  SM3ROUND1(15, 0x228cbce6, R9, R10, R11, R12, R13, R14, R15, R8)
+  SM3ROUND1(12, 0xc451979c, R12, R13, R14, DI, R8, R9, R10, R11)
+  SM3ROUND1(13, 0x88a32f39, R11, R12, R13, R14, DI, R8, R9, R10)
+  SM3ROUND1(14, 0x11465e73, R10, R11, R12, R13, R14, DI, R8, R9)
+  SM3ROUND1(15, 0x228cbce6, R9, R10, R11, R12, R13, R14, DI, R8)
   
-  SM3ROUND2(16, 0x9d8a7a87, R8, R9, R10, R11, R12, R13, R14, R15)
-  SM3ROUND2(17, 0x3b14f50f, R15, R8, R9, R10, R11, R12, R13, R14)
-  SM3ROUND2(18, 0x7629ea1e, R14, R15, R8, R9, R10, R11, R12, R13)
-  SM3ROUND2(19, 0xec53d43c, R13, R14, R15, R8, R9, R10, R11, R12)
-  SM3ROUND2(20, 0xd8a7a879, R12, R13, R14, R15, R8, R9, R10, R11)
-  SM3ROUND2(21, 0xb14f50f3, R11, R12, R13, R14, R15, R8, R9, R10)
-  SM3ROUND2(22, 0x629ea1e7, R10, R11, R12, R13, R14, R15, R8, R9)
-  SM3ROUND2(23, 0xc53d43ce, R9, R10, R11, R12, R13, R14, R15, R8)
-  SM3ROUND2(24, 0x8a7a879d, R8, R9, R10, R11, R12, R13, R14, R15)
-  SM3ROUND2(25, 0x14f50f3b, R15, R8, R9, R10, R11, R12, R13, R14)
-  SM3ROUND2(26, 0x29ea1e76, R14, R15, R8, R9, R10, R11, R12, R13)
-  SM3ROUND2(27, 0x53d43cec, R13, R14, R15, R8, R9, R10, R11, R12)
-  SM3ROUND2(28, 0xa7a879d8, R12, R13, R14, R15, R8, R9, R10, R11)
-  SM3ROUND2(29, 0x4f50f3b1, R11, R12, R13, R14, R15, R8, R9, R10)
-  SM3ROUND2(30, 0x9ea1e762, R10, R11, R12, R13, R14, R15, R8, R9)
-  SM3ROUND2(31, 0x3d43cec5, R9, R10, R11, R12, R13, R14, R15, R8)
-  SM3ROUND2(32, 0x7a879d8a, R8, R9, R10, R11, R12, R13, R14, R15)
-  SM3ROUND2(33, 0xf50f3b14, R15, R8, R9, R10, R11, R12, R13, R14)
-  SM3ROUND2(34, 0xea1e7629, R14, R15, R8, R9, R10, R11, R12, R13)
-  SM3ROUND2(35, 0xd43cec53, R13, R14, R15, R8, R9, R10, R11, R12)
-  SM3ROUND2(36, 0xa879d8a7, R12, R13, R14, R15, R8, R9, R10, R11)
-  SM3ROUND2(37, 0x50f3b14f, R11, R12, R13, R14, R15, R8, R9, R10)
-  SM3ROUND2(38, 0xa1e7629e, R10, R11, R12, R13, R14, R15, R8, R9)
-  SM3ROUND2(39, 0x43cec53d, R9, R10, R11, R12, R13, R14, R15, R8)
-  SM3ROUND2(40, 0x879d8a7a, R8, R9, R10, R11, R12, R13, R14, R15)
-  SM3ROUND2(41, 0xf3b14f5, R15, R8, R9, R10, R11, R12, R13, R14)
-  SM3ROUND2(42, 0x1e7629ea, R14, R15, R8, R9, R10, R11, R12, R13)
-  SM3ROUND2(43, 0x3cec53d4, R13, R14, R15, R8, R9, R10, R11, R12)
-  SM3ROUND2(44, 0x79d8a7a8, R12, R13, R14, R15, R8, R9, R10, R11)
-  SM3ROUND2(45, 0xf3b14f50, R11, R12, R13, R14, R15, R8, R9, R10)
-  SM3ROUND2(46, 0xe7629ea1, R10, R11, R12, R13, R14, R15, R8, R9)
-  SM3ROUND2(47, 0xcec53d43, R9, R10, R11, R12, R13, R14, R15, R8)
-  SM3ROUND2(48, 0x9d8a7a87, R8, R9, R10, R11, R12, R13, R14, R15)
-  SM3ROUND2(49, 0x3b14f50f, R15, R8, R9, R10, R11, R12, R13, R14)
-  SM3ROUND2(50, 0x7629ea1e, R14, R15, R8, R9, R10, R11, R12, R13)
-  SM3ROUND2(51, 0xec53d43c, R13, R14, R15, R8, R9, R10, R11, R12)
-  SM3ROUND2(52, 0xd8a7a879, R12, R13, R14, R15, R8, R9, R10, R11)
-  SM3ROUND2(53, 0xb14f50f3, R11, R12, R13, R14, R15, R8, R9, R10)
-  SM3ROUND2(54, 0x629ea1e7, R10, R11, R12, R13, R14, R15, R8, R9)
-  SM3ROUND2(55, 0xc53d43ce, R9, R10, R11, R12, R13, R14, R15, R8)
-  SM3ROUND2(56, 0x8a7a879d, R8, R9, R10, R11, R12, R13, R14, R15)
-  SM3ROUND2(57, 0x14f50f3b, R15, R8, R9, R10, R11, R12, R13, R14)
-  SM3ROUND2(58, 0x29ea1e76, R14, R15, R8, R9, R10, R11, R12, R13)
-  SM3ROUND2(59, 0x53d43cec, R13, R14, R15, R8, R9, R10, R11, R12)
-  SM3ROUND2(60, 0xa7a879d8, R12, R13, R14, R15, R8, R9, R10, R11)
-  SM3ROUND2(61, 0x4f50f3b1, R11, R12, R13, R14, R15, R8, R9, R10)
-  SM3ROUND2(62, 0x9ea1e762, R10, R11, R12, R13, R14, R15, R8, R9)
-  SM3ROUND2(63, 0x3d43cec5, R9, R10, R11, R12, R13, R14, R15, R8)
+  SM3ROUND2(16, 0x9d8a7a87, R8, R9, R10, R11, R12, R13, R14, DI)
+  SM3ROUND2(17, 0x3b14f50f, DI, R8, R9, R10, R11, R12, R13, R14)
+  SM3ROUND2(18, 0x7629ea1e, R14, DI, R8, R9, R10, R11, R12, R13)
+  SM3ROUND2(19, 0xec53d43c, R13, R14, DI, R8, R9, R10, R11, R12)
+  SM3ROUND2(20, 0xd8a7a879, R12, R13, R14, DI, R8, R9, R10, R11)
+  SM3ROUND2(21, 0xb14f50f3, R11, R12, R13, R14, DI, R8, R9, R10)
+  SM3ROUND2(22, 0x629ea1e7, R10, R11, R12, R13, R14, DI, R8, R9)
+  SM3ROUND2(23, 0xc53d43ce, R9, R10, R11, R12, R13, R14, DI, R8)
+  SM3ROUND2(24, 0x8a7a879d, R8, R9, R10, R11, R12, R13, R14, DI)
+  SM3ROUND2(25, 0x14f50f3b, DI, R8, R9, R10, R11, R12, R13, R14)
+  SM3ROUND2(26, 0x29ea1e76, R14, DI, R8, R9, R10, R11, R12, R13)
+  SM3ROUND2(27, 0x53d43cec, R13, R14, DI, R8, R9, R10, R11, R12)
+  SM3ROUND2(28, 0xa7a879d8, R12, R13, R14, DI, R8, R9, R10, R11)
+  SM3ROUND2(29, 0x4f50f3b1, R11, R12, R13, R14, DI, R8, R9, R10)
+  SM3ROUND2(30, 0x9ea1e762, R10, R11, R12, R13, R14, DI, R8, R9)
+  SM3ROUND2(31, 0x3d43cec5, R9, R10, R11, R12, R13, R14, DI, R8)
+  SM3ROUND2(32, 0x7a879d8a, R8, R9, R10, R11, R12, R13, R14, DI)
+  SM3ROUND2(33, 0xf50f3b14, DI, R8, R9, R10, R11, R12, R13, R14)
+  SM3ROUND2(34, 0xea1e7629, R14, DI, R8, R9, R10, R11, R12, R13)
+  SM3ROUND2(35, 0xd43cec53, R13, R14, DI, R8, R9, R10, R11, R12)
+  SM3ROUND2(36, 0xa879d8a7, R12, R13, R14, DI, R8, R9, R10, R11)
+  SM3ROUND2(37, 0x50f3b14f, R11, R12, R13, R14, DI, R8, R9, R10)
+  SM3ROUND2(38, 0xa1e7629e, R10, R11, R12, R13, R14, DI, R8, R9)
+  SM3ROUND2(39, 0x43cec53d, R9, R10, R11, R12, R13, R14, DI, R8)
+  SM3ROUND2(40, 0x879d8a7a, R8, R9, R10, R11, R12, R13, R14, DI)
+  SM3ROUND2(41, 0xf3b14f5, DI, R8, R9, R10, R11, R12, R13, R14)
+  SM3ROUND2(42, 0x1e7629ea, R14, DI, R8, R9, R10, R11, R12, R13)
+  SM3ROUND2(43, 0x3cec53d4, R13, R14, DI, R8, R9, R10, R11, R12)
+  SM3ROUND2(44, 0x79d8a7a8, R12, R13, R14, DI, R8, R9, R10, R11)
+  SM3ROUND2(45, 0xf3b14f50, R11, R12, R13, R14, DI, R8, R9, R10)
+  SM3ROUND2(46, 0xe7629ea1, R10, R11, R12, R13, R14, DI, R8, R9)
+  SM3ROUND2(47, 0xcec53d43, R9, R10, R11, R12, R13, R14, DI, R8)
+  SM3ROUND2(48, 0x9d8a7a87, R8, R9, R10, R11, R12, R13, R14, DI)
+  SM3ROUND2(49, 0x3b14f50f, DI, R8, R9, R10, R11, R12, R13, R14)
+  SM3ROUND2(50, 0x7629ea1e, R14, DI, R8, R9, R10, R11, R12, R13)
+  SM3ROUND2(51, 0xec53d43c, R13, R14, DI, R8, R9, R10, R11, R12)
+  SM3ROUND2(52, 0xd8a7a879, R12, R13, R14, DI, R8, R9, R10, R11)
+  SM3ROUND2(53, 0xb14f50f3, R11, R12, R13, R14, DI, R8, R9, R10)
+  SM3ROUND2(54, 0x629ea1e7, R10, R11, R12, R13, R14, DI, R8, R9)
+  SM3ROUND2(55, 0xc53d43ce, R9, R10, R11, R12, R13, R14, DI, R8)
+  SM3ROUND2(56, 0x8a7a879d, R8, R9, R10, R11, R12, R13, R14, DI)
+  SM3ROUND2(57, 0x14f50f3b, DI, R8, R9, R10, R11, R12, R13, R14)
+  SM3ROUND2(58, 0x29ea1e76, R14, DI, R8, R9, R10, R11, R12, R13)
+  SM3ROUND2(59, 0x53d43cec, R13, R14, DI, R8, R9, R10, R11, R12)
+  SM3ROUND2(60, 0xa7a879d8, R12, R13, R14, DI, R8, R9, R10, R11)
+  SM3ROUND2(61, 0x4f50f3b1, R11, R12, R13, R14, DI, R8, R9, R10)
+  SM3ROUND2(62, 0x9ea1e762, R10, R11, R12, R13, R14, DI, R8, R9)
+  SM3ROUND2(63, 0x3d43cec5, R9, R10, R11, R12, R13, R14, DI, R8)
 
 	MOVQ dig+0(FP), BP
 
@@ -1008,8 +982,8 @@ loop:
 	MOVL R13, (5*4)(BP)
 	XORL (6*4)(BP), R14 // H6 = g XOR H6
 	MOVL R14, (6*4)(BP)
-	XORL (7*4)(BP), R15 // H7 = h XOR H7
-	MOVL R15, (7*4)(BP)
+	XORL (7*4)(BP), DI // H7 = h XOR H7
+	MOVL DI, (7*4)(BP)
 
 	ADDQ $64, SI
 	CMPQ SI, 272(SP)

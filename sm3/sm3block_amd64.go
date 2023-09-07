@@ -1,5 +1,5 @@
-//go:build amd64 && !purego && !plugin
-// +build amd64,!purego,!plugin
+//go:build amd64 && !purego
+// +build amd64,!purego
 
 package sm3
 
