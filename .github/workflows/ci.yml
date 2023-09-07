@@ -51,3 +51,9 @@ jobs:
       run: go test -short -tags purego ./...      
       env:
         GODEBUG: x509sha1=1
+
+    - name: Test Plugin only
+      if: ${{ matrix.goVer != '1.18' }}
+      run: go test -short -tags plugin ./...      
+      env:
+        GODEBUG: x509sha1=1
