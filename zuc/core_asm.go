@@ -3,10 +3,6 @@
 
 package zuc
 
-import (
-	"golang.org/x/sys/cpu"
-)
-
 // Generate single keyword, 4 bytes.
 //
 //go:noescape
