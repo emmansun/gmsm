@@ -211,12 +211,12 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	VMOVDQU Comb_matrix_mul_high_nibble<>(SB), XIN_OUT    \
 	MUL_PSHUFB_AVX(XTMP2, XTMP1, XIN_OUT, XTMP3)
 
-#define F_R1 R10
-#define F_R2 R11
-#define BRC_X0 R12
-#define BRC_X1 R13
-#define BRC_X2 R14
-#define BRC_X3 R15
+#define F_R1 R9
+#define F_R2 R10
+#define BRC_X0 R11
+#define BRC_X1 R12
+#define BRC_X2 R13
+#define BRC_X3 R14
 
 // BITS_REORG(idx)
 //
@@ -225,7 +225,7 @@ GLOBL flip_mask<>(SB), RODATA, $16
 // uses
 //      AX, BX, CX, DX
 // return 
-//      updates R12, R13, R14, R15
+//      updates R11, R12, R13, R14
 //
 #define BITS_REORG(idx)                      \
 	MOVL (((15 + idx) % 16)*4)(SI), BRC_X0   \
@@ -251,25 +251,25 @@ GLOBL flip_mask<>(SB), RODATA, $16
 // params
 //      %1 - round number
 // uses
-//      AX as input (ZERO or W), BX, CX, DX, R8, R9
+//      AX as input (ZERO or W), BX, CX, DX, R8
 #define LFSR_UPDT(idx)                       \
 	MOVL (((0 + idx) % 16)*4)(SI), BX        \
 	MOVL (((4 + idx) % 16)*4)(SI), CX        \
 	MOVL (((10 + idx) % 16)*4)(SI), DX       \
 	MOVL (((13 + idx) % 16)*4)(SI), R8       \
-	MOVL (((15 + idx) % 16)*4)(SI), R9       \
 	\ // Calculate 64-bit LFSR feedback
 	ADDQ BX, AX                              \
 	SHLQ $8, BX                              \
 	SHLQ $20, CX                             \
 	SHLQ $21, DX                             \
 	SHLQ $17, R8                             \
-	SHLQ $15, R9                             \
 	ADDQ BX, AX                              \
 	ADDQ CX, AX                              \
 	ADDQ DX, AX                              \
 	ADDQ R8, AX                              \
-	ADDQ R9, AX                              \
+	MOVL (((15 + idx) % 16)*4)(SI), R8       \
+	SHLQ $15, R8                             \
+	ADDQ R8, AX                              \
 	\ // Reduce it to 31-bit value
 	MOVQ AX, BX                              \
 	ANDQ $0x7FFFFFFF, AX                     \
@@ -295,34 +295,30 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	SHLDL(F_R2, F_R1, $16)                   \ // Q = (W2 << 16) | (W1 >> 16)
 	MOVL DX, BX                              \ // start L1 
 	MOVL DX, CX                              \
-	MOVL DX, R8                              \
-	MOVL DX, R9                              \
 	ROLL $2, BX                              \
-	ROLL $10, CX                             \
-	ROLL $18, R8                             \
-	ROLL $24, R9                             \
-	XORL BX, DX                              \
+	ROLL $24, CX                             \
 	XORL CX, DX                              \
-	XORL R8, DX                              \
-	XORL R9, DX                              \ // U = L1(P) = EDX, hi(RDX)=0
+	XORL BX, DX                              \
+	ROLL $8, BX                              \
+	XORL BX, DX                              \
+	ROLL $8, BX                              \
+	XORL BX, DX                              \ // U = L1(P) = EDX, hi(RDX)=0
 	MOVL F_R2, BX                            \  
 	MOVL F_R2, CX                            \
-	MOVL F_R2, R8                            \
-	MOVL F_R2, R9                            \
 	ROLL $8, BX                              \
-	ROLL $14, CX                             \
-	ROLL $22, R8                             \
-	ROLL $30, R9                             \
 	XORL BX, F_R2                            \
+	ROLL $14, CX                             \
 	XORL CX, F_R2                            \
-	XORL R8, F_R2                            \
-	XORL R9, F_R2                            \ // V = L2(Q) = R11D, hi(R11)=0
+	ROLL $8, CX                              \
+	XORL CX, F_R2                            \
+	ROLL $8, CX                              \
+	XORL CX, F_R2                            \ // V = L2(Q) = R11D, hi(R11)=0
 	SHLQ $32, F_R2                           \ // DX = V || U
 	XORQ F_R2, DX                             
 
 // Non-Linear function F, SSE version.
 // uses
-//      AX, BX, CX, DX, R8, R9
+//      AX, BX, CX, DX, R8
 //      X0, X1, X2, X3, X4
 // return 
 //      W in AX
@@ -397,7 +393,7 @@ GLOBL flip_mask<>(SB), RODATA, $16
 
 // Non-Linear function F, AVX version.
 // uses
-//      AX, BX, CX, DX, R8, R9
+//      AX, BX, CX, DX, R8
 //      X0, X1, X2, X3, X4
 // return 
 //      W in AX
@@ -413,8 +409,8 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	VPAND mask_S0<>(SB), X1, X1              \ 
 	VPXOR X1, X0, X0                         \ 
 	\
-	MOVL X0, R10                             \ // F_R1
-	VPEXTRD $1, X0, R11   
+	MOVL X0, F_R1                            \ // F_R1
+	VPEXTRD $1, X0, F_R2   
 
 #define LOAD_STATE                           \
 	MOVL OFFSET_FR1(SI), F_R1                \
@@ -477,7 +473,7 @@ avx:
 #define ROUND_SSE(idx)            \
 	BITS_REORG(idx)               \
 	NONLIN_FUN_SSE                \
-	XORL R15, AX                  \
+	XORL BRC_X3, AX               \
 	MOVL AX, (idx*4)(DI)          \
 	XORQ AX, AX                   \
 	LFSR_UPDT(idx)
@@ -485,7 +481,7 @@ avx:
 #define ROUND_AVX(idx)            \
 	BITS_REORG(idx)               \
 	NONLIN_FUN_AVX                \
-	XORL R15, AX                  \
+	XORL BRC_X3, AX               \
 	MOVL AX, (idx*4)(DI)          \
 	XORQ AX, AX                   \
 	LFSR_UPDT(idx)
@@ -493,7 +489,7 @@ avx:
 #define ROUND_REV32_SSE(idx)      \
 	BITS_REORG(idx)               \
 	NONLIN_FUN_SSE                \
-	XORL R15, AX                  \
+	XORL BRC_X3, AX               \
 	BSWAPL AX                     \
 	MOVL AX, (idx*4)(DI)          \
 	XORQ AX, AX                   \
@@ -502,7 +498,7 @@ avx:
 #define ROUND_REV32_AVX(idx)      \
 	BITS_REORG(idx)               \
 	NONLIN_FUN_AVX                \
-	XORL R15, AX                  \
+	XORL BRC_X3, AX               \
 	BSWAPL AX                     \
 	MOVL AX, (idx*4)(DI)          \
 	XORQ AX, AX                   \
