@@ -1,5 +1,5 @@
-//go:build !amd64 && !arm64 || purego
-// +build !amd64,!arm64 purego
+//go:build !amd64 && !arm64 || purego || plugin
+// +build !amd64,!arm64 purego plugin
 
 package sm3
 

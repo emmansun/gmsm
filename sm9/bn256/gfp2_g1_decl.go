@@ -1,5 +1,5 @@
-//go:build (amd64 && !purego) || (arm64 && !purego)
-// +build amd64,!purego arm64,!purego
+//go:build (amd64 && !purego && !plugin) || (arm64 && !purego)
+// +build amd64,!purego,!plugin arm64,!purego
 
 package bn256
 

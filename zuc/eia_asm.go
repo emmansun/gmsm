@@ -5,6 +5,8 @@ package zuc
 
 import "golang.org/x/sys/cpu"
 
+var supportsAES = cpu.X86.HasAES || cpu.ARM64.HasAES
+var useAVX = cpu.X86.HasAVX
 var supportsGFMUL = cpu.X86.HasPCLMULQDQ || cpu.ARM64.HasPMULL
 
 //go:noescape

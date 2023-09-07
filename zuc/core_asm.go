@@ -1,14 +1,11 @@
-//go:build (amd64 && !purego) || (arm64 && !purego)
-// +build amd64,!purego arm64,!purego
+//go:build (amd64 && !purego && !plugin) || (arm64 && !purego)
+// +build amd64,!purego,!plugin arm64,!purego
 
 package zuc
 
 import (
 	"golang.org/x/sys/cpu"
 )
-
-var supportsAES = cpu.X86.HasAES || cpu.ARM64.HasAES
-var useAVX = cpu.X86.HasAVX
 
 // Generate single keyword, 4 bytes.
 //
