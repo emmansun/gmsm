@@ -1,5 +1,5 @@
-//go:build (!amd64 && !arm64) || purego || plugin
-// +build !amd64,!arm64 purego plugin
+//go:build (!amd64 && !arm64) || purego
+// +build !amd64,!arm64 purego
 
 package sm2ec
 

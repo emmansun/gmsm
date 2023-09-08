@@ -7,8 +7,8 @@
 //                          256-bit primes"
 // https://link.springer.com/article/10.1007%2Fs13389-014-0090-x
 // https://eprint.iacr.org/2013/816.pdf
-//go:build (amd64 && !purego && !plugin) || (arm64 && !purego)
-// +build amd64,!purego,!plugin arm64,!purego
+//go:build (amd64 && !purego) || (arm64 && !purego)
+// +build amd64,!purego arm64,!purego
 
 package sm2ec
 
