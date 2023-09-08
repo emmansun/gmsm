@@ -9,7 +9,7 @@
 
 #include "textflag.h"
 
-#include "p256_macro_amd64.s"
+#include "p256_macros_amd64.s"
 
 /* ---------------------------------------*/
 // func p256Sqr(res, in *p256Element, n int)
