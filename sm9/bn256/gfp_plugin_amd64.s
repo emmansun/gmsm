@@ -5,16 +5,15 @@
 #include "gfp_macros_amd64.s"
 
 // func gfpSqr(res, in *gfP, n int)
-TEXT ·gfpSqr(SB),NOSPLIT,$24-8
+TEXT ·gfpSqr(SB),NOSPLIT,$0
 	MOVQ res+0(FP), res_ptr
 	MOVQ in+8(FP), x_ptr
-	MOVQ n+16(FP), BX
+	MOVQ n+16(FP), BP
 
 	CMPB ·supportADX(SB), $0
 	JE   gfpSqrLoop
 
 gfpSqrLoopAdx:
-	MOVQ BX, (SP)
 	XORQ acc0, acc0
 	XORQ y_ptr, y_ptr
 	// y[1:] * y[0]
@@ -174,14 +173,12 @@ gfpSqrLoopAdx:
 	storeBlock(acc0,acc1,acc2,acc3, 0(res_ptr))
 
 	MOVQ res_ptr, x_ptr
-	MOVQ (SP), BX
-	DECQ BX
+	DECQ BP
 	JNE gfpSqrLoopAdx
 
 	RET
 
 gfpSqrLoop:
-	MOVQ BX, (SP)
 	// y[1:] * y[0]
 	MOVQ (8*0)(x_ptr), t0
 
@@ -416,8 +413,7 @@ gfpSqrLoop:
 	gfpCarry(acc0,acc1,acc2,acc3, acc4,acc5,y_ptr,BX,t0)
 	storeBlock(acc0,acc1,acc2,acc3, 0(res_ptr))
 	MOVQ res_ptr, x_ptr
-	MOVQ (SP), BX
-	DECQ BX
+	DECQ BP
 	JNE gfpSqrLoop
 
 	RET

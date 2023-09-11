@@ -13,16 +13,15 @@
 
 /* ---------------------------------------*/
 // func p256Sqr(res, in *p256Element, n int)
-TEXT ·p256Sqr(SB),NOSPLIT,$8-24
+TEXT ·p256Sqr(SB),NOSPLIT,$0
 	MOVQ res+0(FP), res_ptr
 	MOVQ in+8(FP), x_ptr
-	MOVQ n+16(FP), BX
+	MOVQ n+16(FP), BP
 	
 	CMPB ·supportBMI2+0(SB), $0x01
 	JEQ  sqrBMI2
 
 sqrLoop:
-	MOVQ BX, (SP)
 	// y[1:] * y[0]
 	MOVQ (8*0)(x_ptr), t0
 
@@ -106,13 +105,11 @@ sqrLoop:
 	p256SqrMontReduce()
 	p256PrimReduce(acc0, acc1, acc2, acc3, t0, acc4, acc5, y_ptr, BX, res_ptr)
 	MOVQ res_ptr, x_ptr
-	MOVQ (SP), BX  
-	DECQ BX
+	DECQ BP
 	JNE  sqrLoop
 	RET
 	
 sqrBMI2:
-	MOVQ BX, (SP)
 	// y[1:] * y[0]
 	MOVQ (8*0)(x_ptr), DX
 
@@ -177,23 +174,21 @@ sqrBMI2:
 	p256SqrMontReduce()
 	p256PrimReduce(acc0, acc1, acc2, acc3, t0, acc4, acc5, y_ptr, BX, res_ptr)
 	MOVQ res_ptr, x_ptr            
-	MOVQ (SP), BX  
-	DECQ BX
+	DECQ BP
 	JNE  sqrBMI2
 	RET
 
 /* ---------------------------------------*/
 // func p256OrdSqr(res, in *p256OrdElement, n int)
-TEXT ·p256OrdSqr(SB),NOSPLIT,$8-24
+TEXT ·p256OrdSqr(SB),NOSPLIT,$0
 	MOVQ res+0(FP), res_ptr
 	MOVQ in+8(FP), x_ptr
-	MOVQ n+16(FP), BX
+	MOVQ n+16(FP), BP
 
 	CMPB ·supportBMI2+0(SB), $0x01
 	JEQ  ordSqrLoopBMI2
 
 ordSqrLoop:
-	MOVQ BX, (SP)
 	// y[1:] * y[0]
 	MOVQ (8*0)(x_ptr), t0
 
@@ -406,14 +401,12 @@ ordSqrLoop:
 
 	p256OrdReduceInline(acc0, acc1, acc2, acc3, t0, acc4, acc5, y_ptr, BX, res_ptr)
 	MOVQ res_ptr, x_ptr
-	MOVQ (SP), BX
-	DECQ BX
+	DECQ BP
 	JNE ordSqrLoop
 
 	RET
 
 ordSqrLoopBMI2:
-	MOVQ BX, (SP)
 	// y[1:] * y[0]
 	MOVQ (8*0)(x_ptr), DX
 	MULXQ (8*1)(x_ptr), acc1, acc2 
@@ -587,8 +580,7 @@ ordSqrLoopBMI2:
 
 	p256OrdReduceInline(acc0, acc1, acc2, acc3, t0, acc4, acc5, y_ptr, BX, res_ptr)
 	MOVQ res_ptr, x_ptr
-	MOVQ (SP), BX
-	DECQ BX
+	DECQ BP
 	JNE ordSqrLoopBMI2
 
 	RET
