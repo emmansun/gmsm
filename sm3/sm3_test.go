@@ -100,8 +100,8 @@ func TestGoldenMarshal(t *testing.T) {
 }
 
 var sm3TestVector = []struct {
-	out       string
-	in        string
+	out string
+	in  string
 }{
 	// Test vectors from Crypto++
 	{
@@ -339,7 +339,6 @@ var sm3TestVector = []struct {
 	},
 }
 
-
 func TestSM3(t *testing.T) {
 	for i, tt := range sm3TestVector {
 		input, _ := hex.DecodeString(tt.in)
@@ -385,6 +384,10 @@ func BenchmarkHash8Bytes(b *testing.B) {
 
 func BenchmarkHash1K(b *testing.B) {
 	benchmarkSize(bench, b, 1024)
+}
+
+func BenchmarkHash1K_SH256(b *testing.B) {
+	benchmarkSize(benchSH256, b, 1024)
 }
 
 func BenchmarkHash8K(b *testing.B) {

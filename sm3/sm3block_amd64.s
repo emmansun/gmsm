@@ -201,14 +201,15 @@
 #define _INP _INP_END + INP_END_SIZE
 #define STACK_SIZE _INP + INP_SIZE
 
+// For rounds [0 - 16)
 #define ROUND_AND_SCHED_N_0_0(disp, const, a, b, c, d, e, f, g, h, XDWORD0, XDWORD1, XDWORD2, XDWORD3) \
 	;                                          \ // #############################  RND N + 0 ############################//
-	RORXL    $(-12), a, y0;                    \ // y0 = a <<< 12, RORXL is BMI2 instr
+	RORXL    $20, a, y0;                       \ // y0 = a <<< 12, RORXL is BMI2 instr
 	MOVL     e, y1;                            \
 	ADDL     $const, y1;                       \
 	VPALIGNR $12, XDWORD0, XDWORD1, XTMP0;     \ // XTMP0 = W[-13] = {w6,w5,w4,w3}
 	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
-	RORXL    $(-7), y1, y2;                    \ // y2 = SS1
+	RORXL    $25, y1, y2;                      \ // y2 = SS1
 	VPSLLD   $7, XTMP0, XTMP1;                 \
 	XORL     y2, y0                            \ // y0 = SS2
 	ADDL     (disp + 0*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
@@ -234,21 +235,21 @@
 	ROLL     $9, b;                            \
 	ROLL     $19, f;                           \
 	;                                          \
-	RORXL    $(-9), y2, y0;                    \
+	RORXL    $23, y2, y0;                      \
 	VPXOR XDWORD0, XTMP1, XTMP1;               \ // XTMP1 = W[-9] XOR W[-16]
-	RORXL    $(-8), y0, d;                    \
+	RORXL    $15, y2, d;                       \
 	XORL     y0, d;                            \
 	XORL     y2, d;                            \ // d = P(tt2)
 	VPSHUFD $0xA5, XDWORD3, XTMP2;             \ // XTMP2 = W[-3] {BBAA} {w14,w14,w13,w13}
 
 #define ROUND_AND_SCHED_N_0_1(disp, const, a, b, c, d, e, f, g, h, XDWORD0, XDWORD1, XDWORD2, XDWORD3) \
 	;                                          \ // #############################  RND N + 1 ############################//
-	RORXL    $-12, a, y0;                      \ // y0 = a <<< 12
+	RORXL    $20, a, y0;                      \ // y0 = a <<< 12
 	MOVL     e, y1;                            \
 	ADDL     $const, y1;                       \
 	VPSLLQ  $15, XTMP2, XTMP2;                 \ // XTMP2 = W[-3] rol 15 {BxAx}
 	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
-	RORXL    $-7, y1, y2;                      \ // y2 = SS1
+	RORXL    $25, y1, y2;                      \ // y2 = SS1
 	XORL     y2, y0                            \ // y0 = SS2
 	VPSHUFB shuff_00BA<>(SB), XTMP2, XTMP2;    \ // XTMP2 = W[-3] rol 15 {00BA}
 	ADDL     (disp + 1*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
@@ -273,21 +274,21 @@
 	ROLL     $9, b;                            \
 	ROLL     $19, f;                           \
 	;                                          \
-	RORXL    $-9, y2, y0;                      \
+	RORXL    $23, y2, y0;                      \
 	VPSHUFB  r08_mask<>(SB), XTMP4, XTMP3;     \ // XTMP3 = XTMP2 rol 23 {DCxx}
-	RORXL    $-8, y0, d;                       \
+	RORXL    $15, y2, d;                       \
 	XORL     y0, d;                            \
 	XORL     y2, d;                            \ // d = P(tt2)
 	VPXOR    XTMP2, XTMP4, XTMP4;              \ // XTMP4 = XTMP2 XOR (XTMP2 rol 15 {xxBA})
 
 #define ROUND_AND_SCHED_N_0_2(disp, const, a, b, c, d, e, f, g, h, XDWORD0, XDWORD1, XDWORD2, XDWORD3) \
 	;                                          \ // #############################  RND N + 2 ############################//
-	RORXL    $-12, a, y0;                      \ // y0 = a <<< 12
+	RORXL    $20, a, y0;                      \ // y0 = a <<< 12
 	MOVL     e, y1;                            \
 	ADDL     $const, y1;                       \
 	VPXOR    XTMP4, XTMP3, XTMP4;              \ // XTMP4 = XTMP2 XOR (XTMP2 rol 15 {xxBA}) XOR (XTMP2 rol 23 {xxBA})
 	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
-	RORXL    $-7, y1, y2;                      \ // y2 = SS1
+	RORXL    $25, y1, y2;                      \ // y2 = SS1
 	XORL     y2, y0                            \ // y0 = SS2
 	VPXOR    XTMP4, XTMP0, XTMP2;              \ // XTMP2 = {..., ..., W[1], W[0]}
 	ADDL     (disp + 2*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
@@ -312,21 +313,21 @@
 	ROLL     $9, b;                            \
 	ROLL     $19, f;                           \
 	;                                          \
-	RORXL    $-9, y2, y0;                      \
+	RORXL    $23, y2, y0;                      \
 	VPXOR   XTMP1, XTMP4, XTMP4;               \ // XTMP4 = W[-9] XOR W[-16] XOR (W[-3] rol 15) {DCxx}
-	RORXL    $-8, y0, d;                      \
+	RORXL    $15, y2, d;                       \
 	XORL     y0, d;                            \
 	XORL     y2, d;                            \ // d = P(tt2)
 	VPSLLD   $15, XTMP4, XTMP5;
 
 #define ROUND_AND_SCHED_N_0_3(disp, const, a, b, c, d, e, f, g, h, XDWORD0, XDWORD1, XDWORD2, XDWORD3) \
 	;                                          \ // #############################  RND N + 3 ############################//
-	RORXL    $-12, a, y0;                      \ // y0 = a <<< 12
+	RORXL    $20, a, y0;                      \ // y0 = a <<< 12
 	MOVL     e, y1;                            \
 	ADDL     $const, y1;                       \
 	VPSRLD   $(32-15), XTMP4, XTMP3;           \
 	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
-	RORXL    $-7, y1, y2;                      \ // y2 = SS1
+	RORXL    $25, y1, y2;                      \ // y2 = SS1
 	XORL     y2, y0                            \ // y0 = SS2
 	VPOR     XTMP3, XTMP5, XTMP3;              \ // XTMP3 = XTMP4 rol 15 {DCxx}
 	ADDL     (disp + 3*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
@@ -351,21 +352,22 @@
 	ROLL     $9, b;                            \
 	ROLL     $19, f;                           \
 	;                                          \
-	RORXL    $-9, y2, y0;                      \
+	RORXL    $23, y2, y0;                      \
 	VPALIGNR $8, XTMP1, XTMP2, XTMP3;          \ // XTMP3 = {W[1], W[0], W[3], W[2]}
-	RORXL    $-8, y0, d;                      \
+	RORXL    $15, y2, d;                       \
 	XORL     y0, d;                            \
 	XORL     y2, d;                            \ // d = P(tt2)
 	VPSHUFD $0x4E, XTMP3, XDWORD0;             \ // XDWORD0 = {W[3], W[2], W[1], W[0]}
 
+// For rounds [16 - 64)
 #define ROUND_AND_SCHED_N_1_0(disp, const, a, b, c, d, e, f, g, h, XDWORD0, XDWORD1, XDWORD2, XDWORD3) \
 	;                                          \ // #############################  RND N + 0 ############################//
-	RORXL    $-12, a, y0;                      \ // y0 = a <<< 12
+	RORXL    $20, a, y0;                      \ // y0 = a <<< 12
 	MOVL     e, y1;                            \
 	ADDL     $const, y1;                       \
 	VPALIGNR $12, XDWORD0, XDWORD1, XTMP0;     \ // XTMP0 = W[-13] = {w6,w5,w4,w3}
 	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
-	RORXL    $-7, y1, y2;                      \ // y2 = SS1
+	RORXL    $25, y1, y2;                      \ // y2 = SS1
 	XORL     y2, y0                            \ // y0 = SS2
 	VPSLLD   $7, XTMP0, XTMP1;                 \
 	ADDL     (disp + 0*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
@@ -400,20 +402,20 @@
 	ROLL     $19, f;                           \
 	VPXOR XDWORD0, XTMP1, XTMP1;               \ // XTMP1 = W[-9] XOR W[-16]
 	;                                          \
-	RORXL    $-9, y2, y0;                      \
-	RORXL    $-8, y0, d;                      \
+	RORXL    $23, y2, y0;                      \
+	RORXL    $15, y2, d;                       \
 	XORL     y0, d;                            \
 	XORL     y2, d;                            \ // d = P(tt2)
 	VPSHUFD $0xA5, XDWORD3, XTMP2;             \ // XTMP2 = W[-3] {BBAA} {w14,w14,w13,w13}
 
 #define ROUND_AND_SCHED_N_1_1(disp, const, a, b, c, d, e, f, g, h, XDWORD0, XDWORD1, XDWORD2, XDWORD3) \
 	;                                          \ // #############################  RND N + 1 ############################//
-	RORXL    $-12, a, y0;                      \ // y0 = a <<< 12
+	RORXL    $20, a, y0;                      \ // y0 = a <<< 12
 	MOVL     e, y1;                            \
 	ADDL     $const, y1;                       \
 	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
 	VPSLLQ  $15, XTMP2, XTMP2;                 \ // XTMP2 = W[-3] rol 15 {BxAx}
-	RORXL    $-7, y1, y2;                      \ // y2 = SS1
+	RORXL    $25, y1, y2;                      \ // y2 = SS1
 	XORL     y2, y0                            \ // y0 = SS2
 	ADDL     (disp + 1*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
 	ADDL     h, y2;                            \ // y2 = h + SS1 + W    
@@ -447,20 +449,20 @@
 	ROLL     $19, f;                           \
 	VPSHUFB  r08_mask<>(SB), XTMP4, XTMP3;     \ // XTMP3 = XTMP2 rol 23 {xxBA}
 	;                                          \
-	RORXL    $-9, y2, y0;                      \
-	RORXL    $-8, y0, d;                       \
+	RORXL    $23, y2, y0;                      \
+	RORXL    $15, y2, d;                       \
 	XORL     y0, d;                            \
 	XORL     y2, d;                            \ // d = P(tt2)
 	VPXOR    XTMP2, XTMP4, XTMP4;              \ // XTMP4 = XTMP2 XOR (XTMP2 rol 15 {xxBA})
 
 #define ROUND_AND_SCHED_N_1_2(disp, const, a, b, c, d, e, f, g, h, XDWORD0, XDWORD1, XDWORD2, XDWORD3) \
 	;                                          \ // #############################  RND N + 2 ############################//
-	RORXL    $-12, a, y0;                      \ // y0 = a <<< 12
+	RORXL    $20, a, y0;                      \ // y0 = a <<< 12
 	MOVL     e, y1;                            \
 	ADDL     $const, y1;                       \
 	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
 	VPXOR    XTMP4, XTMP3, XTMP4;              \ // XTMP4 = XTMP2 XOR (XTMP2 rol 15 {xxBA}) XOR (XTMP2 rol 23 {xxBA})
-	RORXL    $-7, y1, y2;                      \ // y2 = SS1
+	RORXL    $25, y1, y2;                      \ // y2 = SS1
 	XORL     y2, y0                            \ // y0 = SS2
 	ADDL     (disp + 2*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
 	ADDL     h, y2;                            \ // y2 = h + SS1 + W    
@@ -494,20 +496,20 @@
 	ROLL     $19, f;                           \
 	VPXOR   XTMP1, XTMP4, XTMP4;               \ // XTMP4 = W[-9] XOR W[-16] XOR (W[-3] rol 15) {DCxx}
 	;                                          \
-	RORXL    $-9, y2, y0;                      \
-	RORXL    $-8, y0, d;                       \
+	RORXL    $23, y2, y0;                      \
+	RORXL    $15, y2, d;                       \
 	XORL     y0, d;                            \
 	XORL     y2, d;                            \ // d = P(tt2)
 	VPSLLD   $15, XTMP4, XTMP5;                \ 
 
 #define ROUND_AND_SCHED_N_1_3(disp, const, a, b, c, d, e, f, g, h, XDWORD0, XDWORD1, XDWORD2, XDWORD3) \
 	;                                          \ // #############################  RND N + 3 ############################//
-	RORXL    $-12, a, y0;                      \ // y0 = a <<< 12
+	RORXL    $20, a, y0;                      \ // y0 = a <<< 12
 	MOVL     e, y1;                            \
 	ADDL     $const, y1;                       \
 	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
 	VPSRLD   $(32-15), XTMP4, XTMP3;           \
-	RORXL    $-7, y1, y2;                      \ // y2 = SS1
+	RORXL    $25, y1, y2;                      \ // y2 = SS1
 	XORL     y2, y0                            \ // y0 = SS2
 	ADDL     (disp + 3*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
 	ADDL     h, y2;                            \ // y2 = h + SS1 + W    
@@ -541,19 +543,20 @@
 	ROLL     $19, f;                           \
 	VPALIGNR $8, XTMP1, XTMP2, XTMP3;          \ // XTMP3 = {W[1], W[0], W[3], W[2]}
 	;                                          \
-	RORXL    $-9, y2, y0;                      \
-	RORXL    $-8, y0, d;                       \
+	RORXL    $23, y2, y0;                      \
+	RORXL    $15, y2, d;                       \
 	XORL     y0, d;                            \
 	XORL     y2, d;                            \ // d = P(tt2)
 	VPSHUFD $0x4E, XTMP3, XDWORD0;             \ // XDWORD0 = {W[3], W[2], W[1], W[0]}
 
+// For rounds [0 - 16)
 #define DO_ROUND_N_0(disp, idx, const, a, b, c, d, e, f, g, h) \
 	;                                            \ // #############################  RND N + 0 ############################//
-	RORXL    $-12, a, y0;                        \ // y0 = a <<< 12
+	RORXL    $20, a, y0;                        \ // y0 = a <<< 12
 	MOVL     e, y1;                              \
 	ADDL     $const, y1;                         \
 	ADDL     y0, y1;                             \ // y1 = a <<< 12 + e + T
-	RORXL    $-7, y1, y2;                        \ // y2 = SS1
+	RORXL    $25, y1, y2;                        \ // y2 = SS1
 	XORL     y2, y0                              \ // y0 = SS2
 	ADDL     (disp + idx*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
 	ADDL     h, y2;                              \ // y2 = h + SS1 + W    
@@ -573,18 +576,19 @@
 	ROLL     $9, b;                              \
 	ROLL     $19, f;                             \
 	;                                            \
-	RORXL    $-9, y2, y0;                        \
-	RORXL    $-8, y0, d;                         \
+	RORXL    $23, y2, y0;                        \
+	RORXL    $15, y2, d;                         \
 	XORL     y0, d;                              \
 	XORL     y2, d;                              \ // d = P(tt2)
 
+// For rounds [16 - 64)
 #define DO_ROUND_N_1(disp, idx, const, a, b, c, d, e, f, g, h) \
 	;                                            \ // #############################  RND N + 0 ############################//
-	RORXL    $-12, a, y0;                        \ // y0 = a <<< 12
+	RORXL    $20, a, y0;                        \ // y0 = a <<< 12
 	MOVL     e, y1;                              \
 	ADDL     $const, y1;                         \
 	ADDL     y0, y1;                             \ // y1 = a <<< 12 + e + T
-	RORXL    $-7, y1, y2;                        \ // y2 = SS1
+	RORXL    $25, y1, y2;                        \ // y2 = SS1
 	XORL     y2, y0                              \ // y0 = SS2
 	ADDL     (disp + idx*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
 	ADDL     h, y2;                              \ // y2 = h + SS1 + W    
@@ -612,8 +616,8 @@
 	ROLL     $9, b;                              \
 	ROLL     $19, f;                             \
 	;                                            \
-	RORXL    $-9, y2, y0;                        \
-	RORXL    $-8, y0, d;                         \
+	RORXL    $23, y2, y0;                        \
+	RORXL    $15, y2, d;                         \
 	XORL     y0, d;                              \
 	XORL     y2, d;                              \ // d = P(tt2)
 
@@ -763,7 +767,7 @@ avx2:
 	MOVL 24(CTX), g // g = H6
 	MOVL 28(CTX), h // h = H7
 
-avx2_loop0: // at each iteration works with one block (512 bit)
+avx2_loop: // at each iteration works with one block (512 bit)
 
 	VMOVDQU (0*32)(INP), XTMP0
 	VMOVDQU (1*32)(INP), XTMP1
@@ -789,7 +793,7 @@ avx2_last_block_enter:
 	MOVQ INP, _INP(SP)
 	XORQ SRND, SRND
 
-avx2_loop1: // for w0 - w47
+avx2_schedule_compress: // for w0 - w47
 	// Do 4 rounds and scheduling
 	VMOVDQU XDWORD0, (_XFER + 0*32)(SP)(SRND*1)
 	VPXOR  XDWORD0, XDWORD1, XFER
@@ -905,7 +909,7 @@ avx2_loop1: // for w0 - w47
 
 	ADDQ $8*32, SRND
 
-	// w48 - w63 processed with no scheduling (last 16 rounds)
+	// w48 - w63 processed with only 4 rounds scheduling (last 16 rounds)
 	// Do 4 rounds and scheduling
 	VMOVDQU XDWORD0, (_XFER + 0*32)(SP)(SRND*1)
 	VPXOR  XDWORD0, XDWORD1, XFER
@@ -915,7 +919,8 @@ avx2_loop1: // for w0 - w47
 	ROUND_AND_SCHED_N_1_2(_XFER + 0*32, 0x7629ea1e, g, h, a, b, c, d, e, f, XDWORD0, XDWORD1, XDWORD2, XDWORD3)
 	ROUND_AND_SCHED_N_1_3(_XFER + 0*32, 0xec53d43c, f, g, h, a, b, c, d, e, XDWORD0, XDWORD1, XDWORD2, XDWORD3)  
 
-	// Do 4 rounds and scheduling
+	// w52 - w63 processed with no scheduling (last 12 rounds)
+	// Do 4 rounds
 	VMOVDQU XDWORD1, (_XFER + 2*32)(SP)(SRND*1)
 	VPXOR  XDWORD1, XDWORD2, XFER
 	VMOVDQU XFER, (_XFER + 3*32)(SP)(SRND*1)
@@ -924,7 +929,7 @@ avx2_loop1: // for w0 - w47
 	DO_ROUND_N_1(_XFER + 2*32, 2, 0x629ea1e7, c, d, e, f, g, h, a, b)
 	DO_ROUND_N_1(_XFER + 2*32, 3, 0xc53d43ce, b, c, d, e, f, g, h, a)
 
-	// Do 4 rounds and scheduling
+	// Do 4 rounds
 	VMOVDQU XDWORD2, (_XFER + 4*32)(SP)(SRND*1)
 	VPXOR  XDWORD2, XDWORD3, XFER
 	VMOVDQU XFER, (_XFER + 5*32)(SP)(SRND*1)
@@ -933,7 +938,7 @@ avx2_loop1: // for w0 - w47
 	DO_ROUND_N_1(_XFER + 4*32, 2, 0x29ea1e76, g, h, a, b, c, d, e, f)
 	DO_ROUND_N_1(_XFER + 4*32, 3, 0x53d43cec, f, g, h, a, b, c, d, e)
 
-	// Do 4 rounds and scheduling
+	// Do 4 rounds
 	VMOVDQU XDWORD3, (_XFER + 6*32)(SP)(SRND*1)
 	VPXOR  XDWORD3, XDWORD0, XFER
 	VMOVDQU XFER, (_XFER + 7*32)(SP)(SRND*1)
@@ -959,7 +964,7 @@ avx2_loop1: // for w0 - w47
 
 	XORQ SRND, SRND
 
-avx2_loop3: // Do second block using previously scheduled results
+avx2_compress: // Do second block using previously scheduled results
 	DO_ROUND_N_0(_XFER + 0*32 + 16, 0, 0x79cc4519, a, b, c, d, e, f, g, h)
 	DO_ROUND_N_0(_XFER + 0*32 + 16, 1, 0xf3988a32, h, a, b, c, d, e, f, g)
 	DO_ROUND_N_0(_XFER + 0*32 + 16, 2, 0xe7311465, g, h, a, b, c, d, e, f)
@@ -1060,7 +1065,7 @@ avx2_loop3: // Do second block using previously scheduled results
 	xorm( 28(CTX), h)
 
 	CMPQ _INP_END(SP), INP
-	JA   avx2_loop0
+	JA   avx2_loop
 	JB   done_hash
 
 avx2_do_last_block:
