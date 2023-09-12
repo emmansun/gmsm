@@ -448,7 +448,7 @@
 	VPSHUFB  r08_mask<>(SB), XTMP4, XTMP3;     \ // XTMP3 = XTMP2 rol 23 {xxBA}
 	;                                          \
 	RORXL    $-9, y2, y0;                      \
-	RORXL    $-8, y0, d;                      \
+	RORXL    $-8, y0, d;                       \
 	XORL     y0, d;                            \
 	XORL     y2, d;                            \ // d = P(tt2)
 	VPXOR    XTMP2, XTMP4, XTMP4;              \ // XTMP4 = XTMP2 XOR (XTMP2 rol 15 {xxBA})
@@ -495,7 +495,7 @@
 	VPXOR   XTMP1, XTMP4, XTMP4;               \ // XTMP4 = W[-9] XOR W[-16] XOR (W[-3] rol 15) {DCxx}
 	;                                          \
 	RORXL    $-9, y2, y0;                      \
-	RORXL    $-8, y0, d;                      \
+	RORXL    $-8, y0, d;                       \
 	XORL     y0, d;                            \
 	XORL     y2, d;                            \ // d = P(tt2)
 	VPSLLD   $15, XTMP4, XTMP5;                \ 
@@ -542,290 +542,80 @@
 	VPALIGNR $8, XTMP1, XTMP2, XTMP3;          \ // XTMP3 = {W[1], W[0], W[3], W[2]}
 	;                                          \
 	RORXL    $-9, y2, y0;                      \
-	RORXL    $-8, y0, d;                      \
+	RORXL    $-8, y0, d;                       \
 	XORL     y0, d;                            \
 	XORL     y2, d;                            \ // d = P(tt2)
 	VPSHUFD $0x4E, XTMP3, XDWORD0;             \ // XDWORD0 = {W[3], W[2], W[1], W[0]}
 
-#define ROUND_N_0_0(disp, const, a, b, c, d, e, f, g, h) \
-	;                                          \ // #############################  RND N + 0 ############################//
-	RORXL    $-12, a, y0;                      \ // y0 = a <<< 12
-	MOVL     e, y1;                            \
-	ADDL     $const, y1;                       \
-	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
-	RORXL    $-7, y1, y2;                      \ // y2 = SS1
-	XORL     y2, y0                            \ // y0 = SS2
-	ADDL     (disp + 0*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
-	ADDL     h, y2;                            \ // y2 = h + SS1 + W    
-	ADDL     (disp + 0*4 + 32)(SP)(SRND*1), y0;\ // y0 = SS2 + W'
-	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
-	;                                          \
-	MOVL     a, h;                             \
-	XORL     b, h;                             \
-	XORL     c, h;                             \
-	ADDL     y0, h;                            \ // h = FF(a, b, c) + d + SS2 + W' = tt1
-	;                                          \
-	MOVL     e, y1;                            \
-	XORL     f, y1;                            \
-	XORL     g, y1;                            \
-	ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
-	;                                          \
-	ROLL     $9, b;                            \
-	ROLL     $19, f;                           \
-	;                                          \
-	RORXL    $-9, y2, y0;                      \
-	RORXL    $-8, y0, d;                      \
-	XORL     y0, d;                            \
-	XORL     y2, d;                            \ // d = P(tt2)
+#define DO_ROUND_N_0(disp, idx, const, a, b, c, d, e, f, g, h) \
+	;                                            \ // #############################  RND N + 0 ############################//
+	RORXL    $-12, a, y0;                        \ // y0 = a <<< 12
+	MOVL     e, y1;                              \
+	ADDL     $const, y1;                         \
+	ADDL     y0, y1;                             \ // y1 = a <<< 12 + e + T
+	RORXL    $-7, y1, y2;                        \ // y2 = SS1
+	XORL     y2, y0                              \ // y0 = SS2
+	ADDL     (disp + idx*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
+	ADDL     h, y2;                              \ // y2 = h + SS1 + W    
+	ADDL     (disp + idx*4 + 32)(SP)(SRND*1), y0;\ // y0 = SS2 + W'
+	ADDL     d, y0;                              \ // y0 = d + SS2 + W'
+	;                                            \
+	MOVL     a, h;                               \
+	XORL     b, h;                               \
+	XORL     c, h;                               \
+	ADDL     y0, h;                              \ // h = FF(a, b, c) + d + SS2 + W' = tt1
+	;                                            \
+	MOVL     e, y1;                              \
+	XORL     f, y1;                              \
+	XORL     g, y1;                              \
+	ADDL     y1, y2;                             \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
+	;                                            \
+	ROLL     $9, b;                              \
+	ROLL     $19, f;                             \
+	;                                            \
+	RORXL    $-9, y2, y0;                        \
+	RORXL    $-8, y0, d;                         \
+	XORL     y0, d;                              \
+	XORL     y2, d;                              \ // d = P(tt2)
 
-#define ROUND_N_0_1(disp, const, a, b, c, d, e, f, g, h) \
-	;                                          \ // #############################  RND N + 1 ############################//
-	RORXL    $-12, a, y0;                      \ // y0 = a <<< 12
-	MOVL     e, y1;                            \
-	ADDL     $const, y1;                       \
-	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
-	RORXL    $-7, y1, y2;                      \ // y2 = SS1
-	XORL     y2, y0                            \ // y0 = SS2
-	ADDL     (disp + 1*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
-	ADDL     h, y2;                            \ // y2 = h + SS1 + W    
-	ADDL     (disp + 1*4 + 32)(SP)(SRND*1), y0;\ // y0 = SS2 + W'
-	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
-	;                                          \
-	MOVL     a, h;                             \
-	XORL     b, h;                             \
-	XORL     c, h;                             \
-	ADDL     y0, h;                            \ // h = FF(a, b, c) + d + SS2 + W' = tt1
-	;                                          \
-	MOVL     e, y1;                            \
-	XORL     f, y1;                            \
-	XORL     g, y1;                            \
-	ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
-	;                                          \
-	ROLL     $9, b;                            \
-	ROLL     $19, f;                           \
-	;                                          \
-	RORXL    $-9, y2, y0;                      \
-	RORXL    $-8, y0, d;                      \
-	XORL     y0, d;                            \
-	XORL     y2, d;                            \ // d = P(tt2)
-
-#define ROUND_N_0_2(disp, const, a, b, c, d, e, f, g, h) \
-	;                                          \ // #############################  RND N + 2 ############################//
-	RORXL    $-12, a, y0;                      \ // y0 = a <<< 12
-	MOVL     e, y1;                            \
-	ADDL     $const, y1;                       \
-	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
-	RORXL    $-7, y1, y2;                      \ // y2 = SS1
-	XORL     y2, y0                            \ // y0 = SS2
-	ADDL     (disp + 2*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
-	ADDL     h, y2;                            \ // y2 = h + SS1 + W    
-	ADDL     (disp + 2*4 + 32)(SP)(SRND*1), y0;\ // y0 = SS2 + W'
-	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
-	;                                          \
-	MOVL     a, h;                             \
-	XORL     b, h;                             \
-	XORL     c, h;                             \
-	ADDL     y0, h;                            \ // h = FF(a, b, c) + d + SS2 + W' = tt1
-	;                                          \
-	MOVL     e, y1;                            \
-	XORL     f, y1;                            \
-	XORL     g, y1;                            \
-	ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
-	;                                          \
-	ROLL     $9, b;                            \
-	ROLL     $19, f;                           \
-	;                                          \
-	RORXL    $-9, y2, y0;                      \
-	RORXL    $-8, y0, d;                      \
-	XORL     y0, d;                            \
-	XORL     y2, d;                            \ // d = P(tt2)
-
-#define ROUND_N_0_3(disp, const, a, b, c, d, e, f, g, h) \
-	;                                          \ // #############################  RND N + 3 ############################//
-	RORXL    $-12, a, y0;                      \ // y0 = a <<< 12
-	MOVL     e, y1;                            \
-	ADDL     $const, y1;                       \
-	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
-	RORXL    $-7, y1, y2;                      \ // y2 = SS1
-	XORL     y2, y0                            \ // y0 = SS2
-	ADDL     (disp + 3*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
-	ADDL     h, y2;                            \ // y2 = h + SS1 + W    
-	ADDL     (disp + 3*4 + 32)(SP)(SRND*1), y0;\ // y0 = SS2 + W'
-	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
-	;                                          \
-	MOVL     a, h;                             \
-	XORL     b, h;                             \
-	XORL     c, h;                             \
-	ADDL     y0, h;                            \ // h = FF(a, b, c) + d + SS2 + W' = tt1
-	;                                          \
-	MOVL     e, y1;                            \
-	XORL     f, y1;                            \
-	XORL     g, y1;                            \
-	ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
-	;                                          \
-	ROLL     $9, b;                            \
-	ROLL     $19, f;                           \
-	;                                          \
-	RORXL    $-9, y2, y0;                      \
-	RORXL    $-8, y0, d;                      \
-	XORL     y0, d;                            \
-	XORL     y2, d;                            \ // d = P(tt2)
-
-#define ROUND_N_1_0(disp, const, a, b, c, d, e, f, g, h) \
-	;                                          \ // #############################  RND N + 0 ############################//
-	RORXL    $-12, a, y0;                      \ // y0 = a <<< 12
-	MOVL     e, y1;                            \
-	ADDL     $const, y1;                       \
-	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
-	RORXL    $-7, y1, y2;                      \ // y2 = SS1
-	XORL     y2, y0                            \ // y0 = SS2
-	ADDL     (disp + 0*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
-	ADDL     h, y2;                            \ // y2 = h + SS1 + W    
-	ADDL     (disp + 0*4 + 32)(SP)(SRND*1), y0;\ // y0 = SS2 + W'
-	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
-	;                                          \
-	MOVL     a, y1;                            \
-	MOVL     b, y3;                            \
-	ANDL     y1, y3;                           \
-	ANDL     c, y1;                            \
-	ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c)
-	MOVL     b, h;                             \
-	ANDL     c, h;                             \
-	ORL      y1, h;                            \ // h =  (a AND b) OR (a AND c) OR (b AND c)
-	ADDL     y0, h;                            \ // h = FF(a, b, c) + d + SS2 + W' = tt1
-	;                                          \
-	MOVL     e, y1;                            \
-	MOVL     f, y3;                            \
-	ANDL     y1, y3;                           \ // y3 = e AND f
-	NOTL     y1;                               \
-	ANDL     g, y1;                            \ // y1 = NOT(e) AND g
-	ORL      y3, y1;                           \ // y1 = (e AND f) OR (NOT(e) AND g)
-	ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
-	;                                          \
-	ROLL     $9, b;                            \
-	ROLL     $19, f;                           \
-	;                                          \
-	RORXL    $-9, y2, y0;                      \
-	RORXL    $-8, y0, d;                       \
-	XORL     y0, d;                            \
-	XORL     y2, d;                            \ // d = P(tt2)
-
-#define ROUND_N_1_1(disp, const, a, b, c, d, e, f, g, h) \
-	;                                          \ // #############################  RND N + 1 ############################//
-	RORXL    $-12, a, y0;                      \ // y0 = a <<< 12
-	MOVL     e, y1;                            \
-	ADDL     $const, y1;                       \
-	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
-	RORXL    $-7, y1, y2;                      \ // y2 = SS1
-	XORL     y2, y0                            \ // y0 = SS2
-	ADDL     (disp + 1*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
-	ADDL     h, y2;                            \ // y2 = h + SS1 + W    
-	ADDL     (disp + 1*4 + 32)(SP)(SRND*1), y0;\ // y0 = SS2 + W'
-	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
-	;                                          \
-	MOVL     a, y1;                            \
-	MOVL     b, y3;                            \
-	ANDL     y1, y3;                           \
-	ANDL     c, y1;                            \
-	ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c)
-	MOVL     b, h;                             \
-	ANDL     c, h;                             \
-	ORL      y1, h;                            \ // h =  (a AND b) OR (a AND c) OR (b AND c)
-	ADDL     y0, h;                            \ // h = FF(a, b, c) + d + SS2 + W' = tt1
-	;                                          \
-	MOVL     e, y1;                            \
-	MOVL     f, y3;                            \
-	ANDL     y1, y3;                           \ // y3 = e AND f
-	NOTL     y1;                               \
-	ANDL     g, y1;                            \ // y1 = NOT(e) AND g
-	ORL      y3, y1;                           \ // y1 = (e AND f) OR (NOT(e) AND g)
-	ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
-	;                                          \
-	ROLL     $9, b;                            \
-	ROLL     $19, f;                           \
-	;                                          \
-	RORXL    $-9, y2, y0;                      \
-	RORXL    $-8, y0, d;                       \
-	XORL     y0, d;                            \
-	XORL     y2, d;                            \ // d = P(tt2)
-
-#define ROUND_N_1_2(disp, const, a, b, c, d, e, f, g, h) \
-	;                                          \ // #############################  RND N + 2 ############################//
-	RORXL    $-12, a, y0;                      \ // y0 = a <<< 12
-	MOVL     e, y1;                            \
-	ADDL     $const, y1;                       \
-	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
-	RORXL    $-7, y1, y2;                      \ // y2 = SS1
-	XORL     y2, y0                            \ // y0 = SS2
-	ADDL     (disp + 2*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
-	ADDL     h, y2;                            \ // y2 = h + SS1 + W    
-	ADDL     (disp + 2*4 + 32)(SP)(SRND*1), y0;\ // y0 = SS2 + W'
-	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
-	;                                          \
-	MOVL     a, y1;                            \
-	MOVL     b, y3;                            \
-	ANDL     y1, y3;                           \
-	ANDL     c, y1;                            \
-	ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c)
-	MOVL     b, h;                             \
-	ANDL     c, h;                             \
-	ORL      y1, h;                            \ // h =  (a AND b) OR (a AND c) OR (b AND c)
-	ADDL     y0, h;                            \ // h = FF(a, b, c) + d + SS2 + W' = tt1
-	;                                          \
-	MOVL     e, y1;                            \
-	MOVL     f, y3;                            \
-	ANDL     y1, y3;                           \ // y3 = e AND f
-	NOTL     y1;                               \
-	ANDL     g, y1;                            \ // y1 = NOT(e) AND g
-	ORL      y3, y1;                           \ // y1 = (e AND f) OR (NOT(e) AND g)
-	ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
-	;                                          \
-	ROLL     $9, b;                            \
-	ROLL     $19, f;                           \
-	;                                          \
-	RORXL    $-9, y2, y0;                      \
-	RORXL    $-8, y0, d;                       \
-	XORL     y0, d;                            \
-	XORL     y2, d;                            \ // d = P(tt2)
-
-#define ROUND_N_1_3(disp, const, a, b, c, d, e, f, g, h) \
-	;                                          \ // #############################  RND N + 3 ############################//
-	RORXL    $-12, a, y0;                      \ // y0 = a <<< 12
-	MOVL     e, y1;                            \
-	ADDL     $const, y1;                       \
-	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
-	RORXL    $-7, y1, y2;                      \ // y2 = SS1
-	XORL     y2, y0                            \ // y0 = SS2
-	ADDL     (disp + 3*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
-	ADDL     h, y2;                            \ // y2 = h + SS1 + W    
-	ADDL     (disp + 3*4 + 32)(SP)(SRND*1), y0;\ // y0 = SS2 + W'
-	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
-	;                                          \
-	MOVL     a, y1;                            \
-	MOVL     b, y3;                            \
-	ANDL     y1, y3;                           \
-	ANDL     c, y1;                            \
-	ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c)
-	MOVL     b, h;                             \
-	ANDL     c, h;                             \
-	ORL      y1, h;                            \ // h =  (a AND b) OR (a AND c) OR (b AND c)
-	ADDL     y0, h;                            \ // h = FF(a, b, c) + d + SS2 + W' = tt1
-	;                                          \
-	MOVL     e, y1;                            \
-	MOVL     f, y3;                            \
-	ANDL     y1, y3;                           \ // y3 = e AND f
-	NOTL     y1;                               \
-	ANDL     g, y1;                            \ // y1 = NOT(e) AND g
-	ORL      y3, y1;                           \ // y1 = (e AND f) OR (NOT(e) AND g)
-	ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
-	;                                          \
-	ROLL     $9, b;                            \
-	ROLL     $19, f;                           \
-	;                                          \
-	RORXL    $-9, y2, y0;                      \
-	RORXL    $-8, y0, d;                       \
-	XORL     y0, d;                            \
-	XORL     y2, d;                            \ // d = P(tt2)
+#define DO_ROUND_N_1(disp, idx, const, a, b, c, d, e, f, g, h) \
+	;                                            \ // #############################  RND N + 0 ############################//
+	RORXL    $-12, a, y0;                        \ // y0 = a <<< 12
+	MOVL     e, y1;                              \
+	ADDL     $const, y1;                         \
+	ADDL     y0, y1;                             \ // y1 = a <<< 12 + e + T
+	RORXL    $-7, y1, y2;                        \ // y2 = SS1
+	XORL     y2, y0                              \ // y0 = SS2
+	ADDL     (disp + idx*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
+	ADDL     h, y2;                              \ // y2 = h + SS1 + W    
+	ADDL     (disp + idx*4 + 32)(SP)(SRND*1), y0;\ // y0 = SS2 + W'
+	ADDL     d, y0;                              \ // y0 = d + SS2 + W'
+	;                                            \
+	MOVL     a, y1;                              \
+	MOVL     b, y3;                              \
+	ANDL     y1, y3;                             \
+	ANDL     c, y1;                              \
+	ORL      y3, y1;                             \ // y1 =  (a AND b) OR (a AND c)
+	MOVL     b, h;                               \
+	ANDL     c, h;                               \
+	ORL      y1, h;                              \ // h =  (a AND b) OR (a AND c) OR (b AND c)
+	ADDL     y0, h;                              \ // h = FF(a, b, c) + d + SS2 + W' = tt1
+	;                                            \
+	MOVL     e, y1;                              \
+	MOVL     f, y3;                              \
+	ANDL     y1, y3;                             \ // y3 = e AND f
+	NOTL     y1;                                 \
+	ANDL     g, y1;                              \ // y1 = NOT(e) AND g
+	ORL      y3, y1;                             \ // y1 = (e AND f) OR (NOT(e) AND g)
+	ADDL     y1, y2;                             \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
+	;                                            \
+	ROLL     $9, b;                              \
+	ROLL     $19, f;                             \
+	;                                            \
+	RORXL    $-9, y2, y0;                        \
+	RORXL    $-8, y0, d;                         \
+	XORL     y0, d;                              \
+	XORL     y2, d;                              \ // d = P(tt2)
 
 TEXT ·block(SB), 0, $1048-32
 	CMPB ·useAVX2(SB), $1
@@ -1129,28 +919,28 @@ avx2_loop1: // for w0 - w47
 	VMOVDQU XDWORD1, (_XFER + 2*32)(SP)(SRND*1)
 	VPXOR  XDWORD1, XDWORD2, XFER
 	VMOVDQU XFER, (_XFER + 3*32)(SP)(SRND*1)
-	ROUND_N_1_0(_XFER + 2*32, 0xd8a7a879, e, f, g, h, a, b, c, d)
-	ROUND_N_1_1(_XFER + 2*32, 0xb14f50f3, d, e, f, g, h, a, b, c)
-	ROUND_N_1_2(_XFER + 2*32, 0x629ea1e7, c, d, e, f, g, h, a, b)
-	ROUND_N_1_3(_XFER + 2*32, 0xc53d43ce, b, c, d, e, f, g, h, a)
+	DO_ROUND_N_1(_XFER + 2*32, 0, 0xd8a7a879, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_1(_XFER + 2*32, 1, 0xb14f50f3, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_1(_XFER + 2*32, 2, 0x629ea1e7, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_1(_XFER + 2*32, 3, 0xc53d43ce, b, c, d, e, f, g, h, a)
 
 	// Do 4 rounds and scheduling
 	VMOVDQU XDWORD2, (_XFER + 4*32)(SP)(SRND*1)
 	VPXOR  XDWORD2, XDWORD3, XFER
 	VMOVDQU XFER, (_XFER + 5*32)(SP)(SRND*1)
-	ROUND_N_1_0(_XFER + 4*32, 0x8a7a879d, a, b, c, d, e, f, g, h)
-	ROUND_N_1_1(_XFER + 4*32, 0x14f50f3b, h, a, b, c, d, e, f, g)
-	ROUND_N_1_2(_XFER + 4*32, 0x29ea1e76, g, h, a, b, c, d, e, f)
-	ROUND_N_1_3(_XFER + 4*32, 0x53d43cec, f, g, h, a, b, c, d, e)
+	DO_ROUND_N_1(_XFER + 4*32, 0, 0x8a7a879d, a, b, c, d, e, f, g, h)
+	DO_ROUND_N_1(_XFER + 4*32, 1, 0x14f50f3b, h, a, b, c, d, e, f, g)
+	DO_ROUND_N_1(_XFER + 4*32, 2, 0x29ea1e76, g, h, a, b, c, d, e, f)
+	DO_ROUND_N_1(_XFER + 4*32, 3, 0x53d43cec, f, g, h, a, b, c, d, e)
 
 	// Do 4 rounds and scheduling
 	VMOVDQU XDWORD3, (_XFER + 6*32)(SP)(SRND*1)
 	VPXOR  XDWORD3, XDWORD0, XFER
 	VMOVDQU XFER, (_XFER + 7*32)(SP)(SRND*1)
-	ROUND_N_1_0(_XFER + 6*32, 0xa7a879d8, e, f, g, h, a, b, c, d)
-	ROUND_N_1_1(_XFER + 6*32, 0x4f50f3b1, d, e, f, g, h, a, b, c)
-	ROUND_N_1_2(_XFER + 6*32, 0x9ea1e762, c, d, e, f, g, h, a, b)
-	ROUND_N_1_3(_XFER + 6*32, 0x3d43cec5, b, c, d, e, f, g, h, a)
+	DO_ROUND_N_1(_XFER + 6*32, 0, 0xa7a879d8, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_1(_XFER + 6*32, 1, 0x4f50f3b1, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_1(_XFER + 6*32, 2, 0x9ea1e762, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_1(_XFER + 6*32, 3, 0x3d43cec5, b, c, d, e, f, g, h, a)
 
 	MOVQ dig+0(FP), CTX // d.h[8]
 	MOVQ _INP(SP), INP
@@ -1170,91 +960,91 @@ avx2_loop1: // for w0 - w47
 	XORQ SRND, SRND
 
 avx2_loop3: // Do second block using previously scheduled results
-	ROUND_N_0_0(_XFER + 0*32 + 16, 0x79cc4519, a, b, c, d, e, f, g, h)
-	ROUND_N_0_1(_XFER + 0*32 + 16, 0xf3988a32, h, a, b, c, d, e, f, g)
-	ROUND_N_0_2(_XFER + 0*32 + 16, 0xe7311465, g, h, a, b, c, d, e, f)
-	ROUND_N_0_3(_XFER + 0*32 + 16, 0xce6228cb, f, g, h, a, b, c, d, e)
+	DO_ROUND_N_0(_XFER + 0*32 + 16, 0, 0x79cc4519, a, b, c, d, e, f, g, h)
+	DO_ROUND_N_0(_XFER + 0*32 + 16, 1, 0xf3988a32, h, a, b, c, d, e, f, g)
+	DO_ROUND_N_0(_XFER + 0*32 + 16, 2, 0xe7311465, g, h, a, b, c, d, e, f)
+	DO_ROUND_N_0(_XFER + 0*32 + 16, 3, 0xce6228cb, f, g, h, a, b, c, d, e)
 
-	ROUND_N_0_0(_XFER + 2*32 + 16, 0x9cc45197, e, f, g, h, a, b, c, d)
-	ROUND_N_0_1(_XFER + 2*32 + 16, 0x3988a32f, d, e, f, g, h, a, b, c)
-	ROUND_N_0_2(_XFER + 2*32 + 16, 0x7311465e, c, d, e, f, g, h, a, b)
-	ROUND_N_0_3(_XFER + 2*32 + 16, 0xe6228cbc, b, c, d, e, f, g, h, a)
+	DO_ROUND_N_0(_XFER + 2*32 + 16, 0, 0x9cc45197, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_0(_XFER + 2*32 + 16, 1, 0x3988a32f, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_0(_XFER + 2*32 + 16, 2, 0x7311465e, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_0(_XFER + 2*32 + 16, 3, 0xe6228cbc, b, c, d, e, f, g, h, a)
 
-	ROUND_N_0_0(_XFER + 4*32 + 16, 0xcc451979, a, b, c, d, e, f, g, h)
-	ROUND_N_0_1(_XFER + 4*32 + 16, 0x988a32f3, h, a, b, c, d, e, f, g)
-	ROUND_N_0_2(_XFER + 4*32 + 16, 0x311465e7, g, h, a, b, c, d, e, f)
-	ROUND_N_0_3(_XFER + 4*32 + 16, 0x6228cbce, f, g, h, a, b, c, d, e)
+	DO_ROUND_N_0(_XFER + 4*32 + 16, 0, 0xcc451979, a, b, c, d, e, f, g, h)
+	DO_ROUND_N_0(_XFER + 4*32 + 16, 1, 0x988a32f3, h, a, b, c, d, e, f, g)
+	DO_ROUND_N_0(_XFER + 4*32 + 16, 2, 0x311465e7, g, h, a, b, c, d, e, f)
+	DO_ROUND_N_0(_XFER + 4*32 + 16, 3, 0x6228cbce, f, g, h, a, b, c, d, e)
 
-	ROUND_N_0_0(_XFER + 6*32 + 16, 0xc451979c, e, f, g, h, a, b, c, d)
-	ROUND_N_0_1(_XFER + 6*32 + 16, 0x88a32f39, d, e, f, g, h, a, b, c)
-	ROUND_N_0_2(_XFER + 6*32 + 16, 0x11465e73, c, d, e, f, g, h, a, b)
-	ROUND_N_0_3(_XFER + 6*32 + 16, 0x228cbce6, b, c, d, e, f, g, h, a)
-
-	ADDQ $8*32, SRND
-
-	ROUND_N_1_0(_XFER + 0*32 + 16, 0x9d8a7a87, a, b, c, d, e, f, g, h)
-	ROUND_N_1_1(_XFER + 0*32 + 16, 0x3b14f50f, h, a, b, c, d, e, f, g)
-	ROUND_N_1_2(_XFER + 0*32 + 16, 0x7629ea1e, g, h, a, b, c, d, e, f)
-	ROUND_N_1_3(_XFER + 0*32 + 16, 0xec53d43c, f, g, h, a, b, c, d, e)
-
-	ROUND_N_1_0(_XFER + 2*32 + 16, 0xd8a7a879, e, f, g, h, a, b, c, d)
-	ROUND_N_1_1(_XFER + 2*32 + 16, 0xb14f50f3, d, e, f, g, h, a, b, c)
-	ROUND_N_1_2(_XFER + 2*32 + 16, 0x629ea1e7, c, d, e, f, g, h, a, b)
-	ROUND_N_1_3(_XFER + 2*32 + 16, 0xc53d43ce, b, c, d, e, f, g, h, a)
-
-	ROUND_N_1_0(_XFER + 4*32 + 16, 0x8a7a879d, a, b, c, d, e, f, g, h)
-	ROUND_N_1_1(_XFER + 4*32 + 16, 0x14f50f3b, h, a, b, c, d, e, f, g)
-	ROUND_N_1_2(_XFER + 4*32 + 16, 0x29ea1e76, g, h, a, b, c, d, e, f)
-	ROUND_N_1_3(_XFER + 4*32 + 16, 0x53d43cec, f, g, h, a, b, c, d, e)
-
-	ROUND_N_1_0(_XFER + 6*32 + 16, 0xa7a879d8, e, f, g, h, a, b, c, d)
-	ROUND_N_1_1(_XFER + 6*32 + 16, 0x4f50f3b1, d, e, f, g, h, a, b, c)
-	ROUND_N_1_2(_XFER + 6*32 + 16, 0x9ea1e762, c, d, e, f, g, h, a, b)
-	ROUND_N_1_3(_XFER + 6*32 + 16, 0x3d43cec5, b, c, d, e, f, g, h, a)
+	DO_ROUND_N_0(_XFER + 6*32 + 16, 0, 0xc451979c, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_0(_XFER + 6*32 + 16, 1, 0x88a32f39, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_0(_XFER + 6*32 + 16, 2, 0x11465e73, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_0(_XFER + 6*32 + 16, 3, 0x228cbce6, b, c, d, e, f, g, h, a)
 
 	ADDQ $8*32, SRND
 
-	ROUND_N_1_0(_XFER + 0*32 + 16, 0x7a879d8a, a, b, c, d, e, f, g, h)
-	ROUND_N_1_1(_XFER + 0*32 + 16, 0xf50f3b14, h, a, b, c, d, e, f, g)
-	ROUND_N_1_2(_XFER + 0*32 + 16, 0xea1e7629, g, h, a, b, c, d, e, f)
-	ROUND_N_1_3(_XFER + 0*32 + 16, 0xd43cec53, f, g, h, a, b, c, d, e)
+	DO_ROUND_N_1(_XFER + 0*32 + 16, 0, 0x9d8a7a87, a, b, c, d, e, f, g, h)
+	DO_ROUND_N_1(_XFER + 0*32 + 16, 1, 0x3b14f50f, h, a, b, c, d, e, f, g)
+	DO_ROUND_N_1(_XFER + 0*32 + 16, 2, 0x7629ea1e, g, h, a, b, c, d, e, f)
+	DO_ROUND_N_1(_XFER + 0*32 + 16, 3, 0xec53d43c, f, g, h, a, b, c, d, e)
 
-	ROUND_N_1_0(_XFER + 2*32 + 16, 0xa879d8a7, e, f, g, h, a, b, c, d)
-	ROUND_N_1_1(_XFER + 2*32 + 16, 0x50f3b14f, d, e, f, g, h, a, b, c)
-	ROUND_N_1_2(_XFER + 2*32 + 16, 0xa1e7629e, c, d, e, f, g, h, a, b)
-	ROUND_N_1_3(_XFER + 2*32 + 16, 0x43cec53d, b, c, d, e, f, g, h, a)
+	DO_ROUND_N_1(_XFER + 2*32 + 16, 0, 0xd8a7a879, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_1(_XFER + 2*32 + 16, 1, 0xb14f50f3, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_1(_XFER + 2*32 + 16, 2, 0x629ea1e7, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_1(_XFER + 2*32 + 16, 3, 0xc53d43ce, b, c, d, e, f, g, h, a)
 
-	ROUND_N_1_0(_XFER + 4*32 + 16, 0x879d8a7a, a, b, c, d, e, f, g, h)
-	ROUND_N_1_1(_XFER + 4*32 + 16, 0xf3b14f5, h, a, b, c, d, e, f, g)
-	ROUND_N_1_2(_XFER + 4*32 + 16, 0x1e7629ea, g, h, a, b, c, d, e, f)
-	ROUND_N_1_3(_XFER + 4*32 + 16, 0x3cec53d4, f, g, h, a, b, c, d, e)
+	DO_ROUND_N_1(_XFER + 4*32 + 16, 0, 0x8a7a879d, a, b, c, d, e, f, g, h)
+	DO_ROUND_N_1(_XFER + 4*32 + 16, 1, 0x14f50f3b, h, a, b, c, d, e, f, g)
+	DO_ROUND_N_1(_XFER + 4*32 + 16, 2, 0x29ea1e76, g, h, a, b, c, d, e, f)
+	DO_ROUND_N_1(_XFER + 4*32 + 16, 3, 0x53d43cec, f, g, h, a, b, c, d, e)
 
-	ROUND_N_1_0(_XFER + 6*32 + 16, 0x79d8a7a8, e, f, g, h, a, b, c, d)
-	ROUND_N_1_1(_XFER + 6*32 + 16, 0xf3b14f50, d, e, f, g, h, a, b, c)
-	ROUND_N_1_2(_XFER + 6*32 + 16, 0xe7629ea1, c, d, e, f, g, h, a, b)
-	ROUND_N_1_3(_XFER + 6*32 + 16, 0xcec53d43, b, c, d, e, f, g, h, a)
+	DO_ROUND_N_1(_XFER + 6*32 + 16, 0, 0xa7a879d8, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_1(_XFER + 6*32 + 16, 1, 0x4f50f3b1, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_1(_XFER + 6*32 + 16, 2, 0x9ea1e762, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_1(_XFER + 6*32 + 16, 3, 0x3d43cec5, b, c, d, e, f, g, h, a)
 
 	ADDQ $8*32, SRND
 
-	ROUND_N_1_0(_XFER + 0*32 + 16, 0x9d8a7a87, a, b, c, d, e, f, g, h)
-	ROUND_N_1_1(_XFER + 0*32 + 16, 0x3b14f50f, h, a, b, c, d, e, f, g)
-	ROUND_N_1_2(_XFER + 0*32 + 16, 0x7629ea1e, g, h, a, b, c, d, e, f)
-	ROUND_N_1_3(_XFER + 0*32 + 16, 0xec53d43c, f, g, h, a, b, c, d, e)
+	DO_ROUND_N_1(_XFER + 0*32 + 16, 0, 0x7a879d8a, a, b, c, d, e, f, g, h)
+	DO_ROUND_N_1(_XFER + 0*32 + 16, 1, 0xf50f3b14, h, a, b, c, d, e, f, g)
+	DO_ROUND_N_1(_XFER + 0*32 + 16, 2, 0xea1e7629, g, h, a, b, c, d, e, f)
+	DO_ROUND_N_1(_XFER + 0*32 + 16, 3, 0xd43cec53, f, g, h, a, b, c, d, e)
 
-	ROUND_N_1_0(_XFER + 2*32 + 16, 0xd8a7a879, e, f, g, h, a, b, c, d)
-	ROUND_N_1_1(_XFER + 2*32 + 16, 0xb14f50f3, d, e, f, g, h, a, b, c)
-	ROUND_N_1_2(_XFER + 2*32 + 16, 0x629ea1e7, c, d, e, f, g, h, a, b)
-	ROUND_N_1_3(_XFER + 2*32 + 16, 0xc53d43ce, b, c, d, e, f, g, h, a)
+	DO_ROUND_N_1(_XFER + 2*32 + 16, 0, 0xa879d8a7, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_1(_XFER + 2*32 + 16, 1, 0x50f3b14f, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_1(_XFER + 2*32 + 16, 2, 0xa1e7629e, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_1(_XFER + 2*32 + 16, 3, 0x43cec53d, b, c, d, e, f, g, h, a)
 
-	ROUND_N_1_0(_XFER + 4*32 + 16, 0x8a7a879d, a, b, c, d, e, f, g, h)
-	ROUND_N_1_1(_XFER + 4*32 + 16, 0x14f50f3b, h, a, b, c, d, e, f, g)
-	ROUND_N_1_2(_XFER + 4*32 + 16, 0x29ea1e76, g, h, a, b, c, d, e, f)
-	ROUND_N_1_3(_XFER + 4*32 + 16, 0x53d43cec, f, g, h, a, b, c, d, e)
+	DO_ROUND_N_1(_XFER + 4*32 + 16, 0, 0x879d8a7a, a, b, c, d, e, f, g, h)
+	DO_ROUND_N_1(_XFER + 4*32 + 16, 1, 0xf3b14f5, h, a, b, c, d, e, f, g)
+	DO_ROUND_N_1(_XFER + 4*32 + 16, 2, 0x1e7629ea, g, h, a, b, c, d, e, f)
+	DO_ROUND_N_1(_XFER + 4*32 + 16, 3, 0x3cec53d4, f, g, h, a, b, c, d, e)
 
-	ROUND_N_1_0(_XFER + 6*32 + 16, 0xa7a879d8, e, f, g, h, a, b, c, d)
-	ROUND_N_1_1(_XFER + 6*32 + 16, 0x4f50f3b1, d, e, f, g, h, a, b, c)
-	ROUND_N_1_2(_XFER + 6*32 + 16, 0x9ea1e762, c, d, e, f, g, h, a, b)
-	ROUND_N_1_3(_XFER + 6*32 + 16, 0x3d43cec5, b, c, d, e, f, g, h, a)
+	DO_ROUND_N_1(_XFER + 6*32 + 16, 0, 0x79d8a7a8, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_1(_XFER + 6*32 + 16, 1, 0xf3b14f50, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_1(_XFER + 6*32 + 16, 2, 0xe7629ea1, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_1(_XFER + 6*32 + 16, 3, 0xcec53d43, b, c, d, e, f, g, h, a)
+
+	ADDQ $8*32, SRND
+
+	DO_ROUND_N_1(_XFER + 0*32 + 16, 0, 0x9d8a7a87, a, b, c, d, e, f, g, h)
+	DO_ROUND_N_1(_XFER + 0*32 + 16, 1, 0x3b14f50f, h, a, b, c, d, e, f, g)
+	DO_ROUND_N_1(_XFER + 0*32 + 16, 2, 0x7629ea1e, g, h, a, b, c, d, e, f)
+	DO_ROUND_N_1(_XFER + 0*32 + 16, 3, 0xec53d43c, f, g, h, a, b, c, d, e)
+
+	DO_ROUND_N_1(_XFER + 2*32 + 16, 0, 0xd8a7a879, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_1(_XFER + 2*32 + 16, 1, 0xb14f50f3, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_1(_XFER + 2*32 + 16, 2, 0x629ea1e7, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_1(_XFER + 2*32 + 16, 3, 0xc53d43ce, b, c, d, e, f, g, h, a)
+
+	DO_ROUND_N_1(_XFER + 4*32 + 16, 0, 0x8a7a879d, a, b, c, d, e, f, g, h)
+	DO_ROUND_N_1(_XFER + 4*32 + 16, 1, 0x14f50f3b, h, a, b, c, d, e, f, g)
+	DO_ROUND_N_1(_XFER + 4*32 + 16, 2, 0x29ea1e76, g, h, a, b, c, d, e, f)
+	DO_ROUND_N_1(_XFER + 4*32 + 16, 3, 0x53d43cec, f, g, h, a, b, c, d, e)
+
+	DO_ROUND_N_1(_XFER + 6*32 + 16, 0, 0xa7a879d8, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_1(_XFER + 6*32 + 16, 1, 0x4f50f3b1, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_1(_XFER + 6*32 + 16, 2, 0x9ea1e762, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_1(_XFER + 6*32 + 16, 3, 0x3d43cec5, b, c, d, e, f, g, h, a)
 
 	MOVQ dig+0(FP), CTX // d.h[8]
 	MOVQ _INP(SP), INP
