@@ -94,8 +94,7 @@
 	ADDW h, hlp0; \                    // Wt + h
 	ADDW BX, hlp0; \                   // h + ss1 + Wt
 	ANDW e, f, DX; \                   // e AND f
-	MVNW e, BX; \                      // NOT(e)
-	ANDW g, BX; \                      // NOT(e) AND g
+	BICW e, g, BX; \                   // NOT(e) AND g
 	ORRW  DX, BX; \
 	ADDW hlp0, BX
 
