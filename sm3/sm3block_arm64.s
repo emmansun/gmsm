@@ -523,8 +523,8 @@ schedule_compress: // for w0 - w47
 	ROUND_AND_SCHED_N_1_3(20*16, 0x3cec53d4, f, g, h, a, b, c, d, e, XWORD2, XWORD3, XWORD0, XWORD1)
 
 	// Do 4 rounds and scheduling
-	VST1.P [XWORD2.B16], 16(rspSave)
-	VEOR XWORD2.B16, XWORD3.B16, XFER.B16
+	VST1.P [XWORD3.B16], 16(rspSave)
+	VEOR XWORD3.B16, XWORD0.B16, XFER.B16
 	VST1.P [XFER.B16], 16(rspSave)
 	ROUND_AND_SCHED_N_1_0(22*16, 0x79d8a7a8, e, f, g, h, a, b, c, d, XWORD3, XWORD0, XWORD1, XWORD2)
 	ROUND_AND_SCHED_N_1_1(22*16, 0xf3b14f50, d, e, f, g, h, a, b, c, XWORD3, XWORD0, XWORD1, XWORD2)
