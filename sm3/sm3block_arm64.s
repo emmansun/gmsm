@@ -35,14 +35,14 @@
 #define CTX R14 // Beginning of digest in memory (a, b, c, ... , h)
 #define rspSave R15
 
-#define a1 R20
-#define b1 R21
-#define c1 R22
-#define d1 R23
-#define e1 R24
-#define f1 R25
-#define g1 R26
-#define h1 R27
+#define a1 R19
+#define b1 R20
+#define c1 R21
+#define d1 R22
+#define e1 R23
+#define f1 R24
+#define g1 R25
+#define h1 R26
 
 // For rounds [0 - 16)
 #define ROUND_AND_SCHED_N_0_0(disp, const, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3) \
