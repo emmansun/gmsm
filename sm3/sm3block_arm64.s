@@ -216,7 +216,7 @@
 	BICW  e, g, y3;                               \
 	ORRW  y3, y1;                                 \ // y1 = (e AND f) OR (NOT(e) AND g)
 	ADDW  y1, y2;                                 \ // y2 = GG(e, f, g) + h + SS1 + W = tt2 
-	;
+	; \
 	RORW  $23, b;                                 \
 	RORW  $13, f;                                 \
 	; \
@@ -257,7 +257,7 @@
 	BICW  e, g, y3;                               \
 	ORRW  y3, y1;                                 \ // y1 = (e AND f) OR (NOT(e) AND g)
 	ADDW  y1, y2;                                 \ // y2 = GG(e, f, g) + h + SS1 + W = tt2 
-	;
+	; \
 	RORW  $23, b;                                 \
 	RORW  $13, f;                                 \
 	; \
@@ -298,7 +298,7 @@
 	BICW  e, g, y3;                               \
 	ORRW  y3, y1;                                 \ // y1 = (e AND f) OR (NOT(e) AND g)
 	ADDW  y1, y2;                                 \ // y2 = GG(e, f, g) + h + SS1 + W = tt2 
-	;
+	; \
 	RORW  $23, b;                                 \
 	RORW  $13, f;                                 \
 	; \
@@ -339,7 +339,7 @@
 	BICW  e, g, y3;                               \
 	ORRW  y3, y1;                                 \ // y1 = (e AND f) OR (NOT(e) AND g)
 	ADDW  y1, y2;                                 \ // y2 = GG(e, f, g) + h + SS1 + W = tt2 
-	;
+	; \
 	RORW  $23, b;                                 \
 	RORW  $13, f;                                 \
 	; \
@@ -380,7 +380,7 @@
 	BICW  e, g, y3;                            \
 	ORRW  y3, y1;                              \ // y1 = (e AND f) OR (NOT(e) AND g)
 	ADDW  y1, y2;                              \ // y2 = GG(e, f, g) + h + SS1 + W = tt2 
-	;
+	; \
 	RORW  $23, b;                              \
 	RORW  $13, f;                              \
 	; \
