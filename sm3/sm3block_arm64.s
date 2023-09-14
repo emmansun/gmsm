@@ -3,254 +3,585 @@
 
 #include "textflag.h"
 
-#define SI R0
-#define DI R1
-#define BP R2
-#define AX R3
-#define BX R4
-#define CX R5
-#define DX R6
-#define hlp0 R7
-#define hlp1 R9
+#define XWORD0 V0
+#define XWORD1 V1
+#define XWORD2 V2
+#define XWORD3 V3
 
-// Wt+4 = Mt+4; for 0 <= t <= 11
-#define MSGSCHEDULE01(index) \
-	MOVW	((index+4)*4)(SI), AX; \
-	REVW	AX, AX; \
-	MOVW	AX, ((index+4)*4)(BP)
+#define XTMP0 V4
+#define XTMP1 V5
+#define XTMP2 V6
+#define XTMP3 V7
+#define XTMP4 V8
 
-// x = Wt-12 XOR Wt-5 XOR ROTL(15, Wt+1)
-// p1(x) = x XOR ROTL(15, x) XOR ROTL(23, x)
-// Wt+4 = p1(x) XOR ROTL(7, Wt-9) XOR Wt-2
-// for 12 <= t <= 63
-#define MSGSCHEDULE1(index) \
-	MOVW	((index+1)*4)(BP), AX; \
-	RORW  $17, AX; \
-	MOVW	((index-12)*4)(BP), BX; \
-	EORW  BX, AX; \
-	MOVW	((index-5)*4)(BP), BX; \
-	EORW  BX, AX; \                      // AX = x
-	RORW  $17, AX, BX; \                 // BX =  ROTL(15, x)
-	RORW  $9, AX, CX; \                  // CX = ROTL(23, x)   
-	EORW  BX, AX; \                      // AX = x xor ROTL(15, x)  
-	EORW  CX, AX; \                      // AX = x xor ROTL(15, x) xor ROTL(23, x)  
-	MOVW	((index-9)*4)(BP), BX; \
-	RORW  $25, BX; \
-	MOVW	((index-2)*4)(BP), CX; \
-	EORW  BX, AX; \
-	EORW  CX, AX; \
-	MOVW  AX, ((index+4)*4)(BP)
+#define XFER  V9
 
-// Calculate ss1 in BX
-// x = ROTL(12, a) + e + ROTL(index, const)
-// ret = ROTL(7, x)
-#define SM3SS1(const, a, e) \
-	RORW  $20, a, BX; \
-	ADDW  e, BX; \
-	ADDW  $const, BX; \
-	RORW  $25, BX
+#define a R0
+#define b R1
+#define c R2
+#define d R3
+#define e R4
+#define f R5
+#define g R6
+#define h R7
 
-// Calculate tt1 in CX
-// ret = (a XOR b XOR c) + d + (ROTL(12, a) XOR ss1) + (Wt XOR Wt+4)
-#define SM3TT10(index, a, b, c, d) \  
-	EORW a, b, DX; \
-	EORW c, DX; \                      // (a XOR b XOR c)
-	ADDW d, DX; \                      // (a XOR b XOR c) + d 
-	MOVW ((index)*4)(BP), hlp0; \      // Wt
-	EORW hlp0, AX; \                   // Wt XOR Wt+4
-	ADDW AX, DX;  \
-	RORW $20, a, CX; \
-	EORW BX, CX; \                     // ROTL(12, a) XOR ss1
-	ADDW DX, CX                        // (a XOR b XOR c) + d + (ROTL(12, a) XOR ss1)
+#define y0 R8
+#define y1 R9
+#define y2 R10
+#define y3 R11
 
-// Calculate tt2 in BX
-// ret = (e XOR f XOR g) + h + ss1 + Wt
-#define SM3TT20(e, f, g, h) \  
-	ADDW h, hlp0; \                    // Wt + h
-	ADDW BX, hlp0; \                   // Wt + h + ss1
-	EORW e, f, BX; \                   // e XOR f
-	EORW g, BX; \                      // e XOR f XOR g
-	ADDW hlp0, BX                      // (e XOR f XOR g) + Wt + h + ss1
+#define NUM_BYTES R12
+#define INP	R13
+#define CTX R14 // Beginning of digest in memory (a, b, c, ... , h)
 
-// Calculate tt1 in CX, used DX, hlp0
-// ret = ((a AND b) OR (a AND c) OR (b AND c)) + d + (ROTL(12, a) XOR ss1) + (Wt XOR Wt+4)
-#define SM3TT11(index, a, b, c, d) \  
-	ANDW a, b, DX; \                   // a AND b
-	ANDW a, c, CX; \                   // a AND c
-	ORRW  DX, CX; \                    // (a AND b) OR (a AND c)
-	ANDW b, c, DX; \                   // b AND c
-	ORRW  CX, DX; \                    // (a AND b) OR (a AND c) OR (b AND c)
-	ADDW d, DX; \
-	RORW $20, a, CX; \
-	EORW BX, CX; \
-	ADDW DX, CX; \                     // ((a AND b) OR (a AND c) OR (b AND c)) + d + (ROTL(12, a) XOR ss1)
-	MOVW ((index)*4)(BP), hlp0; \
-	EORW hlp0, AX; \                   // Wt XOR Wt+4
-	ADDW AX, CX
+#define a1 R20
+#define b1 R21
+#define c1 R22
+#define d1 R23
+#define e1 R24
+#define f1 R25
+#define g1 R26
+#define h1 R27
 
-// Calculate tt2 in BX
-// ret = ((e AND f) OR (NOT(e) AND g)) + h + ss1 + Wt
-#define SM3TT21(e, f, g, h) \  
-	ADDW h, hlp0; \                    // Wt + h
-	ADDW BX, hlp0; \                   // h + ss1 + Wt
-	ANDW e, f, DX; \                   // e AND f
-	BICW e, g, BX; \                   // NOT(e) AND g
-	ORRW  DX, BX; \
-	ADDW hlp0, BX
+// For rounds [0 - 16)
+#define ROUND_AND_SCHED_N_0_0(disp, const, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3) \
+	RORW  $20, a, y0;                             \ // y0 = a <<< 12
+	ADDW  $const, e, y1;                          \
+	ADDW  y0, y1;                                 \ // y1 = a <<< 12 + e + T
+	RORW  $25, y1, y2;                            \ // y2 = SS1
+	EORW  y2, y0;                                 \ // y0 = SS2
+	MOVW  (disp + 0*4)(RSP), y1;                  \
+	ADDW  y1, y2;                                 \ // y2 = SS1 + W
+	ADDW  h, y2;                                  \ // y2 = h + SS1 + W
+	MOVW  (disp + 16 + 0*4)(RSP), y1;             \
+	ADDW  y1, y0;                                 \ // y0 = SS2 + W'
+	ADDW  d, y0;                                  \ // y0 = d + SS2 + W'
+	; \
+	EORW  a, b, h;                                \
+	EORW  c, h;                                   \
+	ADDW  y0, h;                                  \ // h = FF(a, b, c) + d + SS2 + W' = tt1
+	; \
+	EORW  e, f, y1;                               \
+	EORW  g, y1;                                  \
+	ADDW  y1, y2;                                 \ // y2 = GG(e, f, g) + h + SS1 + W = tt2
+	; \
+	RORW  $23, b;                                 \
+	RORW  $13, f;                                 \
+	; \
+	RORW  $23, y2, y0;                            \
+	RORW  $15, y2, d;                             \
+	EORW  y0, d;                                  \
+	EORW  y2, d;                                  \ // d = P(tt2)
+	VEXT $12, XWORD1.B16, XWORD0.B16, XTMP0.B16;  \ // XTMP0 = W[-13] = {w6,w5,w4,w3}, Vm = XWORD1, Vn = XWORD0
+	VSHL $7, XTMP0.S4, XTMP1.S4;                  \ 
+	VSRI $25, XTMP0.S4, XTMP1.S4;                 \ // XTMP1 = W[-13] rol 7
+	VEXT $8, XWORD3.B16, XWORD2.B16, XTMP0.B16;   \ // XTMP0 = W[-6] = {w13,w12,w11,w10}
+	VEOR XTMP1.B16, XTMP0.B16, XTMP0.B16;         \ // XTMP0 = W[-6] ^ (W[-13] rol 7)
+	VEXT $12, XWORD2.B16, XWORD1.B16, XTMP1.B16;  \ // XTMP1 = W[-9] = {w10,w9,w8,w7}, Vm = XWORD2, Vn = XWORD1
+	VEOR XWORD0.B16, XTMP1.B16, XTMP1.B16;        \ // XTMP1 = W[-9] ^ W[-16]
+	VEXT $4, XWORD2.B16, XWORD3.B16, XTMP3.B16;   \ // XTMP3 = W[-3] {w11,w15,w14,w13}
 
-#define COPYRESULT(b, d, f, h) \
-	RORW $23, b; \
-	MOVW CX, h; \                      // a = ttl
-	RORW $13, f; \
-	RORW $23, BX, CX; \
-	EORW BX, CX; \                     // tt2 XOR ROTL(9, tt2)
-	RORW $15, BX; \
-	EORW BX, CX; \                     // tt2 XOR ROTL(9, tt2) XOR ROTL(17, tt2)
-	MOVW CX, d                         // e = tt2 XOR ROTL(9, tt2) XOR ROTL(17, tt2)
+#define ROUND_AND_SCHED_N_0_1(disp, const, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3) \
+	RORW  $20, a, y0;                             \ // y0 = a <<< 12
+	ADDW  $const, e, y1;                          \
+	ADDW  y0, y1;                                 \ // y1 = a <<< 12 + e + T
+	RORW  $25, y1, y2;                            \ // y2 = SS1
+	EORW  y2, y0;                                 \ // y0 = SS2
+	MOVW  (disp + 1*4)(RSP), y1;                  \
+	ADDW  y1, y2;                                 \ // y2 = SS1 + W
+	ADDW  h, y2;                                  \ // y2 = h + SS1 + W
+	MOVW  (disp + 16 + 1*4)(RSP), y1;             \
+	ADDW  y1, y0;                                 \ // y0 = SS2 + W'
+	ADDW  d, y0;                                  \ // y0 = d + SS2 + W'
+	; \
+	EORW  a, b, h;                                \
+	EORW  c, h;                                   \
+	ADDW  y0, h;                                  \ // h = FF(a, b, c) + d + SS2 + W' = tt1
+	; \
+	EORW  e, f, y1;                               \
+	EORW  g, y1;                                  \
+	ADDW  y1, y2;                                 \ // y2 = GG(e, f, g) + h + SS1 + W = tt2
+	; \
+	RORW  $23, b;                                 \
+	RORW  $13, f;                                 \
+	; \
+	RORW  $23, y2, y0;                            \
+	RORW  $15, y2, d;                             \
+	EORW  y0, d;                                  \
+	EORW  y2, d;                                  \ // d = P(tt2)
+	VSHL $15, XTMP3.S4, XTMP2.S4;                 \           
+	VSRI $17, XTMP3.S4, XTMP2.S4;                 \ // XTMP2 = W[-3] rol 15 {xxBA}
+	VEOR XTMP1.B16, XTMP2.B16, XTMP2.B16;         \ // XTMP2 = W[-9] ^ W[-16] ^ (W[-3] rol 15) {xxBA}
+	VSHL $15, XTMP2.S4, XTMP4.S4;                 \
+	VSRI $17, XTMP2.S4, XTMP4.S4;                 \ // XTMP4 =  = XTMP2 rol 15 {xxBA}
+	VSHL $8, XTMP4.S4, XTMP3.S4;                  \
+	VSRI $24, XTMP4.S4, XTMP3.S4;                 \ // XTMP3 = XTMP2 rol 23 {xxBA}
+	VEOR XTMP2.B16, XTMP4.B16, XTMP4.B16;         \ // XTMP4 = XTMP2 XOR (XTMP2 rol 15 {xxBA})	
 
-#define SM3ROUND0(index, const, a, b, c, d, e, f, g, h) \
-	MSGSCHEDULE01(index); \
-	SM3SS1(const, a, e); \
-	SM3TT10(index, a, b, c, d); \
-	SM3TT20(e, f, g, h); \
-	COPYRESULT(b, d, f, h)
+#define ROUND_AND_SCHED_N_0_2(disp, const, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3) \
+	RORW  $20, a, y0;                             \ // y0 = a <<< 12
+	ADDW  $const, e, y1;                          \
+	ADDW  y0, y1;                                 \ // y1 = a <<< 12 + e + T
+	RORW  $25, y1, y2;                            \ // y2 = SS1
+	EORW  y2, y0;                                 \ // y0 = SS2
+	MOVW  (disp + 2*4)(RSP), y1;                  \
+	ADDW  y1, y2;                                 \ // y2 = SS1 + W
+	ADDW  h, y2;                                  \ // y2 = h + SS1 + W
+	MOVW  (disp + 16 + 2*4)(RSP), y1;             \
+	ADDW  y1, y0;                                 \ // y0 = SS2 + W'
+	ADDW  d, y0;                                  \ // y0 = d + SS2 + W'
+	; \
+	EORW  a, b, h;                                \
+	EORW  c, h;                                   \
+	ADDW  y0, h;                                  \ // h = FF(a, b, c) + d + SS2 + W' = tt1
+	; \
+	EORW  e, f, y1;                               \
+	EORW  g, y1;                                  \
+	ADDW  y1, y2;                                 \ // y2 = GG(e, f, g) + h + SS1 + W = tt2
+	; \
+	RORW  $23, b;                                 \
+	RORW  $13, f;                                 \
+	; \
+	RORW  $23, y2, y0;                            \
+	RORW  $15, y2, d;                             \
+	EORW  y0, d;                                  \
+	EORW  y2, d;                                  \ // d = P(tt2)
+	VEOR XTMP4.B16, XTMP3.B16, XTMP4.B16;         \ // XTMP4 = XTMP2 XOR (XTMP2 rol 15 {xxBA}) XOR (XTMP2 rol 23 {xxBA})
+	VEOR XTMP4.B16, XTMP0.B16, XTMP2.B16;         \ // XTMP2 = {..., ..., W[1], W[0]}
+	VEXT $4, XTMP2.B16, XWORD3.B16, XTMP3.B16;    \ // XTMP3 = W[-3] {W[0],w15, w14, w13}, Vm = XTMP2, Vn = XWORD3
+	VSHL $15, XTMP3.S4, XTMP4.S4;                 \
+	VSRI $17, XTMP3.S4, XTMP4.S4;                 \ // XTMP4 = W[-3] rol 15 {DCxx}
+	VEOR XTMP1.B16, XTMP4.B16, XTMP4.B16;         \ // XTMP4 = W[-9] XOR W[-16] XOR (W[-3] rol 15) {DCxx}
+	VSHL $15, XTMP4.S4, XTMP3.S4;                 \
+	VSRI $17, XTMP4.S4, XTMP3.S4;                 \ // XTMP3 = XTMP4 rol 15 {DCxx}
 
-#define SM3ROUND1(index, const, a, b, c, d, e, f, g, h) \
-	MSGSCHEDULE1(index); \
-	SM3SS1(const, a, e); \
-	SM3TT10(index, a, b, c, d); \
-	SM3TT20(e, f, g, h); \
-	COPYRESULT(b, d, f, h)
+#define ROUND_AND_SCHED_N_0_3(disp, const, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3) \
+	RORW  $20, a, y0;                             \ // y0 = a <<< 12
+	ADDW  $const, e, y1;                          \
+	ADDW  y0, y1;                                 \ // y1 = a <<< 12 + e + T
+	RORW  $25, y1, y2;                            \ // y2 = SS1
+	EORW  y2, y0;                                 \ // y0 = SS2
+	MOVW  (disp + 3*4)(RSP), y1;                  \
+	ADDW  y1, y2;                                 \ // y2 = SS1 + W
+	ADDW  h, y2;                                  \ // y2 = h + SS1 + W
+	MOVW  (disp + 16 + 3*4)(RSP), y1;             \
+	ADDW  y1, y0;                                 \ // y0 = SS2 + W'
+	ADDW  d, y0;                                  \ // y0 = d + SS2 + W'
+	; \
+	EORW  a, b, h;                                \
+	EORW  c, h;                                   \
+	ADDW  y0, h;                                  \ // h = FF(a, b, c) + d + SS2 + W' = tt1
+	; \
+	EORW  e, f, y1;                               \
+	EORW  g, y1;                                  \
+	ADDW  y1, y2;                                 \ // y2 = GG(e, f, g) + h + SS1 + W = tt2
+	; \
+	RORW  $23, b;                                 \
+	RORW  $13, f;                                 \
+	; \
+	RORW  $23, y2, y0;                            \
+	RORW  $15, y2, d;                             \
+	EORW  y0, d;                                  \
+	EORW  y2, d;                                  \ // d = P(tt2)
+	VSHL $8, XTMP3.S4, XTMP1.S4;                  \
+	VSRI $24, XTMP3.S4, XTMP1.S4;                 \ // XTMP1 = XTMP4 rol 23 {DCxx}
+	VEOR XTMP3.B16, XTMP4.B16, XTMP3.B16;         \ // XTMP3 = XTMP4 XOR (XTMP4 rol 15 {DCxx})
+	VEOR XTMP3.B16, XTMP1.B16, XTMP1.B16;         \ // XTMP1 = XTMP4 XOR (XTMP4 rol 15 {DCxx}) XOR (XTMP4 rol 23 {DCxx})
+	VEOR XTMP1.B16, XTMP0.B16, XTMP1.B16;         \ // XTMP1 = {W[3], W[2], ..., ...}
+	VEXT $8, XTMP2.B16, XTMP1.B16, XTMP3.B16;     \ // XTMP3 = {W[1], W[0], W[3], W[2]}, Vm = XTMP2, Vn = XTMP1
+	VEXT $8, XTMP3.B16, XTMP3.B16, XWORD0.B16;    \ // XWORD0 = {W[3], W[2], W[1], W[0]}	
 
-#define SM3ROUND2(index, const, a, b, c, d, e, f, g, h) \
-	MSGSCHEDULE1(index); \
-	SM3SS1(const, a, e); \
-	SM3TT11(index, a, b, c, d); \
-	SM3TT21(e, f, g, h); \
-	COPYRESULT(b, d, f, h)
+// For rounds [16 - 64)
+#define ROUND_AND_SCHED_N_1_0(disp, const, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3) \
+	RORW  $20, a, y0;                             \ // y0 = a <<< 12
+	ADDW  $const, e, y1;                          \
+	ADDW  y0, y1;                                 \ // y1 = a <<< 12 + e + T
+	RORW  $25, y1, y2;                            \ // y2 = SS1
+	EORW  y2, y0;                                 \ // y0 = SS2
+	MOVW  (disp + 0*4)(RSP), y1;                  \
+	ADDW  y1, y2;                                 \ // y2 = SS1 + W
+	ADDW  h, y2;                                  \ // y2 = h + SS1 + W
+	MOVW  (disp + 16 + 0*4)(RSP), y1;             \
+	ADDW  y1, y0;                                 \ // y0 = SS2 + W'
+	ADDW  d, y0;                                  \ // y0 = d + SS2 + W'
+	; \
+	ANDW  a, b, y1;                               \
+	ANDW  a, c, y3;                               \
+	ORRW  y3, y1;                                 \ // y1 =  (a AND b) OR (a AND c)
+	ANDW  b, c, h;                                \
+	ORRW  y1, h;                                  \ // h =  (a AND b) OR (a AND c) OR (b AND c)
+	ADDW  y0, h;                                  \ // h = FF(a, b, c) + d + SS2 + W' = tt1
+	; \
+	ANDW  e, f, y1;                               \
+	BICW  e, g, y3;                               \
+	ORRW  y3, y1;                                 \ // y1 = (e AND f) OR (NOT(e) AND g)
+	ADDW  y1, y2;                                 \ // y2 = GG(e, f, g) + h + SS1 + W = tt2 
+	;
+	RORW  $23, b;                                 \
+	RORW  $13, f;                                 \
+	; \
+	RORW  $23, y2, y0;                            \
+	RORW  $15, y2, d;                             \
+	EORW  y0, d;                                  \
+	EORW  y2, d;                                  \ // d = P(tt2)	
+	VEXT $12, XWORD1.B16, XWORD0.B16, XTMP0.B16;  \ // XTMP0 = W[-13] = {w6,w5,w4,w3}, Vm = XWORD1, Vn = XWORD0
+	VSHL $7, XTMP0.S4, XTMP1.S4;                  \ 
+	VSRI $25, XTMP0.S4, XTMP1.S4;                 \ // XTMP1 = W[-13] rol 7
+	VEXT $8, XWORD3.B16, XWORD2.B16, XTMP0.B16;   \ // XTMP0 = W[-6] = {w13,w12,w11,w10}
+	VEOR XTMP1.B16, XTMP0.B16, XTMP0.B16;         \ // XTMP0 = W[-6] ^ (W[-13] rol 7)
+	VEXT $12, XWORD2.B16, XWORD1.B16, XTMP1.B16;  \ // XTMP1 = W[-9] = {w10,w9,w8,w7}, Vm = XWORD2, Vn = XWORD1
+	VEOR XWORD0.B16, XTMP1.B16, XTMP1.B16;        \ // XTMP1 = W[-9] ^ W[-16]
+	VEXT $4, XWORD2.B16, XWORD3.B16, XTMP3.B16;   \ // XTMP3 = W[-3] {w11,w15,w14,w13}
+
+#define ROUND_AND_SCHED_N_1_1(disp, const, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3) \
+	RORW  $20, a, y0;                             \ // y0 = a <<< 12
+	ADDW  $const, e, y1;                          \
+	ADDW  y0, y1;                                 \ // y1 = a <<< 12 + e + T
+	RORW  $25, y1, y2;                            \ // y2 = SS1
+	EORW  y2, y0;                                 \ // y0 = SS2
+	MOVW  (disp + 1*4)(RSP), y1;                  \
+	ADDW  y1, y2;                                 \ // y2 = SS1 + W
+	ADDW  h, y2;                                  \ // y2 = h + SS1 + W
+	MOVW  (disp + 16 + 1*4)(RSP), y1;             \
+	ADDW  y1, y0;                                 \ // y0 = SS2 + W'
+	ADDW  d, y0;                                  \ // y0 = d + SS2 + W'
+	; \
+	ANDW  a, b, y1;                               \
+	ANDW  a, c, y3;                               \
+	ORRW  y3, y1;                                 \ // y1 =  (a AND b) OR (a AND c)
+	ANDW  b, c, h;                                \
+	ORRW  y1, h;                                  \ // h =  (a AND b) OR (a AND c) OR (b AND c)
+	ADDW  y0, h;                                  \ // h = FF(a, b, c) + d + SS2 + W' = tt1
+	; \
+	ANDW  e, f, y1;                               \
+	BICW  e, g, y3;                               \
+	ORRW  y3, y1;                                 \ // y1 = (e AND f) OR (NOT(e) AND g)
+	ADDW  y1, y2;                                 \ // y2 = GG(e, f, g) + h + SS1 + W = tt2 
+	;
+	RORW  $23, b;                                 \
+	RORW  $13, f;                                 \
+	; \
+	RORW  $23, y2, y0;                            \
+	RORW  $15, y2, d;                             \
+	EORW  y0, d;                                  \
+	EORW  y2, d;                                  \ // d = P(tt2)	
+	VSHL $15, XTMP3.S4, XTMP2.S4;                 \           
+	VSRI $17, XTMP3.S4, XTMP2.S4;                 \ // XTMP2 = W[-3] rol 15 {xxBA}
+	VEOR XTMP1.B16, XTMP2.B16, XTMP2.B16;         \ // XTMP2 = W[-9] ^ W[-16] ^ (W[-3] rol 15) {xxBA}
+	VSHL $15, XTMP2.S4, XTMP4.S4;                 \
+	VSRI $17, XTMP2.S4, XTMP4.S4;                 \ // XTMP4 =  = XTMP2 rol 15 {xxBA}
+	VSHL $8, XTMP4.S4, XTMP3.S4;                  \
+	VSRI $24, XTMP4.S4, XTMP3.S4;                 \ // XTMP3 = XTMP2 rol 23 {xxBA}
+	VEOR XTMP2.B16, XTMP4.B16, XTMP4.B16;         \ // XTMP4 = XTMP2 XOR (XTMP2 rol 15 {xxBA})
+
+#define ROUND_AND_SCHED_N_1_2(disp, const, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3) \
+	RORW  $20, a, y0;                             \ // y0 = a <<< 12
+	ADDW  $const, e, y1;                          \
+	ADDW  y0, y1;                                 \ // y1 = a <<< 12 + e + T
+	RORW  $25, y1, y2;                            \ // y2 = SS1
+	EORW  y2, y0;                                 \ // y0 = SS2
+	MOVW  (disp + 2*4)(RSP), y1;                  \
+	ADDW  y1, y2;                                 \ // y2 = SS1 + W
+	ADDW  h, y2;                                  \ // y2 = h + SS1 + W
+	MOVW  (disp + 16 + 2*4)(RSP), y1;             \
+	ADDW  y1, y0;                                 \ // y0 = SS2 + W'
+	ADDW  d, y0;                                  \ // y0 = d + SS2 + W'
+	; \
+	ANDW  a, b, y1;                               \
+	ANDW  a, c, y3;                               \
+	ORRW  y3, y1;                                 \ // y1 =  (a AND b) OR (a AND c)
+	ANDW  b, c, h;                                \
+	ORRW  y1, h;                                  \ // h =  (a AND b) OR (a AND c) OR (b AND c)
+	ADDW  y0, h;                                  \ // h = FF(a, b, c) + d + SS2 + W' = tt1
+	; \
+	ANDW  e, f, y1;                               \
+	BICW  e, g, y3;                               \
+	ORRW  y3, y1;                                 \ // y1 = (e AND f) OR (NOT(e) AND g)
+	ADDW  y1, y2;                                 \ // y2 = GG(e, f, g) + h + SS1 + W = tt2 
+	;
+	RORW  $23, b;                                 \
+	RORW  $13, f;                                 \
+	; \
+	RORW  $23, y2, y0;                            \
+	RORW  $15, y2, d;                             \
+	EORW  y0, d;                                  \
+	EORW  y2, d;                                  \ // d = P(tt2)	
+	VEOR XTMP4.B16, XTMP3.B16, XTMP4.B16;         \ // XTMP4 = XTMP2 XOR (XTMP2 rol 15 {xxBA}) XOR (XTMP2 rol 23 {xxBA})
+	VEOR XTMP4.B16, XTMP0.B16, XTMP2.B16;         \ // XTMP2 = {..., ..., W[1], W[0]}
+	VEXT $4, XTMP2.B16, XWORD3.B16, XTMP3.B16;    \ // XTMP3 = W[-3] {W[0],w15, w14, w13}, Vm = XTMP2, Vn = XWORD3
+	VSHL $15, XTMP3.S4, XTMP4.S4;                 \
+	VSRI $17, XTMP3.S4, XTMP4.S4;                 \ // XTMP4 = W[-3] rol 15 {DCxx}
+	VEOR XTMP1.B16, XTMP4.B16, XTMP4.B16;         \ // XTMP4 = W[-9] XOR W[-16] XOR (W[-3] rol 15) {DCxx}
+	VSHL $15, XTMP4.S4, XTMP3.S4;                 \
+	VSRI $17, XTMP4.S4, XTMP3.S4;                 \ // XTMP3 = XTMP4 rol 15 {DCxx}
+
+#define ROUND_AND_SCHED_N_1_3(disp, const, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3) \
+	RORW  $20, a, y0;                             \ // y0 = a <<< 12
+	ADDW  $const, e, y1;                          \
+	ADDW  y0, y1;                                 \ // y1 = a <<< 12 + e + T
+	RORW  $25, y1, y2;                            \ // y2 = SS1
+	EORW  y2, y0;                                 \ // y0 = SS2
+	MOVW  (disp + 3*4)(RSP), y1;                  \
+	ADDW  y1, y2;                                 \ // y2 = SS1 + W
+	ADDW  h, y2;                                  \ // y2 = h + SS1 + W
+	MOVW  (disp + 16 + 3*4)(RSP), y1;             \
+	ADDW  y1, y0;                                 \ // y0 = SS2 + W'
+	ADDW  d, y0;                                  \ // y0 = d + SS2 + W'
+	; \
+	ANDW  a, b, y1;                               \
+	ANDW  a, c, y3;                               \
+	ORRW  y3, y1;                                 \ // y1 =  (a AND b) OR (a AND c)
+	ANDW  b, c, h;                                \
+	ORRW  y1, h;                                  \ // h =  (a AND b) OR (a AND c) OR (b AND c)
+	ADDW  y0, h;                                  \ // h = FF(a, b, c) + d + SS2 + W' = tt1
+	; \
+	ANDW  e, f, y1;                               \
+	BICW  e, g, y3;                               \
+	ORRW  y3, y1;                                 \ // y1 = (e AND f) OR (NOT(e) AND g)
+	ADDW  y1, y2;                                 \ // y2 = GG(e, f, g) + h + SS1 + W = tt2 
+	;
+	RORW  $23, b;                                 \
+	RORW  $13, f;                                 \
+	; \
+	RORW  $23, y2, y0;                            \
+	RORW  $15, y2, d;                             \
+	EORW  y0, d;                                  \
+	EORW  y2, d;                                  \ // d = P(tt2)	
+	VSHL $8, XTMP3.S4, XTMP1.S4;                  \
+	VSRI $24, XTMP3.S4, XTMP1.S4;                 \ // XTMP1 = XTMP4 rol 23 {DCxx}
+	VEOR XTMP3.B16, XTMP4.B16, XTMP3.B16;         \ // XTMP3 = XTMP4 XOR (XTMP4 rol 15 {DCxx})
+	VEOR XTMP3.B16, XTMP1.B16, XTMP1.B16;         \ // XTMP1 = XTMP4 XOR (XTMP4 rol 15 {DCxx}) XOR (XTMP4 rol 23 {DCxx})
+	VEOR XTMP1.B16, XTMP0.B16, XTMP1.B16;         \ // XTMP1 = {W[3], W[2], ..., ...}
+	VEXT $8, XTMP2.B16, XTMP1.B16, XTMP3.B16;     \ // XTMP3 = {W[1], W[0], W[3], W[2]}, Vm = XTMP2, Vn = XTMP1
+	VEXT $8, XTMP3.B16, XTMP3.B16, XWORD0.B16;    \ // XWORD0 = {W[3], W[2], W[1], W[0]}
+
+// For rounds [16 - 64)
+#define DO_ROUND_N_1(disp, idx, const, a, b, c, d, e, f, g, h) \
+	RORW  $20, a, y0;                          \ // y0 = a <<< 12
+	ADDW  $const, e, y1;                       \
+	ADDW  y0, y1;                              \ // y1 = a <<< 12 + e + T
+	RORW  $25, y1, y2;                         \ // y2 = SS1
+	EORW  y2, y0;                              \ // y0 = SS2
+	MOVW  (disp + idx*4)(RSP), y1;             \
+	ADDW  y1, y2;                              \ // y2 = SS1 + W
+	ADDW  h, y2;                               \ // y2 = h + SS1 + W
+	MOVW  (disp + 16 + idx*4)(RSP), y1;        \
+	ADDW  y1, y0;                              \ // y0 = SS2 + W'
+	ADDW  d, y0;                               \ // y0 = d + SS2 + W'
+	; \
+	ANDW  a, b, y1;                            \
+	ANDW  a, c, y3;                            \
+	ORRW  y3, y1;                              \ // y1 =  (a AND b) OR (a AND c)
+	ANDW  b, c, h;                             \
+	ORRW  y1, h;                               \ // h =  (a AND b) OR (a AND c) OR (b AND c)
+	ADDW  y0, h;                               \ // h = FF(a, b, c) + d + SS2 + W' = tt1
+	; \
+	ANDW  e, f, y1;                            \
+	BICW  e, g, y3;                            \
+	ORRW  y3, y1;                              \ // y1 = (e AND f) OR (NOT(e) AND g)
+	ADDW  y1, y2;                              \ // y2 = GG(e, f, g) + h + SS1 + W = tt2 
+	;
+	RORW  $23, b;                              \
+	RORW  $13, f;                              \
+	; \
+	RORW  $23, y2, y0;                         \
+	RORW  $15, y2, d;                          \
+	EORW  y0, d;                               \
+	EORW  y2, d;                               \ // d = P(tt2)	
 
 // func blockARM64(dig *digest, p []byte)
-TEXT ·blockARM64(SB), 0, $272-32
-	MOVD dig+0(FP), hlp1
-	MOVD p_base+8(FP), SI
-	MOVD p_len+16(FP), DX
-	MOVD RSP, BP
+TEXT ·blockARM64(SB), 0, $512-32
+	MOVD dig+0(FP), CTX
+	MOVD p_base+8(FP), INP
+	MOVD p_len+16(FP), NUM_BYTES
 
-	AND	$~63, DX
-	CBZ	DX, end  
+	AND	$~63, NUM_BYTES
+	CBZ	NUM_BYTES, end  
 
-	ADD SI, DX, DI
-
-	LDPW	(0*8)(hlp1), (R19, R20)
-	LDPW	(1*8)(hlp1), (R21, R22)
-	LDPW	(2*8)(hlp1), (R23, R24)
-	LDPW	(3*8)(hlp1), (R25, R26)
+	LDPW	(0*8)(CTX), (a, b)
+	LDPW	(1*8)(CTX), (c, d)
+	LDPW	(2*8)(CTX), (e, f)
+	LDPW	(3*8)(CTX), (g, h)
 
 loop:
-	MOVW  R19, R10
-	MOVW  R20, R11
-	MOVW  R21, R12
-	MOVW  R22, R13
-	MOVW  R23, R14
-	MOVW  R24, R15
-	MOVW  R25, R16
-	MOVW  R26, R17
+	MOVW  a, a1
+	MOVW  b, b1
+	MOVW  c, c1
+	MOVW  d, d1
+	MOVW  e, e1
+	MOVW  f, f1
+	MOVW  g, g1
+	MOVW  h, h1
 
-	// Wt = Mt; for 0 <= t <= 3
-	LDPW	(0*8)(SI), (AX, BX)
-	REVW	AX, AX
-	REVW	BX, BX
-	STPW	(AX, BX), (0*8)(BP)
+	VLD1.P	64(INP), [XWORD0.B16, XWORD1.B16, XWORD2.B16, XWORD3.B16]
+	VREV32	XWORD0.B16, XWORD0.B16
+	VREV32	XWORD1.B16, XWORD1.B16
+	VREV32	XWORD2.B16, XWORD2.B16
+	VREV32	XWORD3.B16, XWORD3.B16
 
-	LDPW	(1*8)(SI), (CX, DX)
-	REVW	CX, CX
-	REVW	DX, DX
-	STPW	(CX, DX), (1*8)(BP)
+schedule_compress: // for w0 - w47
+	// Do 4 rounds and scheduling
+	VST1 [XWORD0.B16], (RSP)
+	VEOR XWORD0.B16, XWORD1.B16, XFER.B16
+	VST1 [XFER.B16], 16(RSP)
+	ROUND_AND_SCHED_N_0_0(0*16, 0x79cc4519, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_0_1(0*16, 0xf3988a32, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_0_2(0*16, 0xe7311465, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_0_3(0*16, 0xce6228cb, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3)
 
-	SM3ROUND0(0, 0x79cc4519, R19, R20, R21, R22, R23, R24, R25, R26)
-	SM3ROUND0(1, 0xf3988a32, R26, R19, R20, R21, R22, R23, R24, R25)
-	SM3ROUND0(2, 0xe7311465, R25, R26, R19, R20, R21, R22, R23, R24)
-	SM3ROUND0(3, 0xce6228cb, R24, R25, R26, R19, R20, R21, R22, R23)
-	SM3ROUND0(4, 0x9cc45197, R23, R24, R25, R26, R19, R20, R21, R22)
-	SM3ROUND0(5, 0x3988a32f, R22, R23, R24, R25, R26, R19, R20, R21)
-	SM3ROUND0(6, 0x7311465e, R21, R22, R23, R24, R25, R26, R19, R20)
-	SM3ROUND0(7, 0xe6228cbc, R20, R21, R22, R23, R24, R25, R26, R19)
-	SM3ROUND0(8, 0xcc451979, R19, R20, R21, R22, R23, R24, R25, R26)
-	SM3ROUND0(9, 0x988a32f3, R26, R19, R20, R21, R22, R23, R24, R25)
-	SM3ROUND0(10, 0x311465e7, R25, R26, R19, R20, R21, R22, R23, R24)
-	SM3ROUND0(11, 0x6228cbce, R24, R25, R26, R19, R20, R21, R22, R23)
-  
-	SM3ROUND1(12, 0xc451979c, R23, R24, R25, R26, R19, R20, R21, R22)
-	SM3ROUND1(13, 0x88a32f39, R22, R23, R24, R25, R26, R19, R20, R21)
-	SM3ROUND1(14, 0x11465e73, R21, R22, R23, R24, R25, R26, R19, R20)
-	SM3ROUND1(15, 0x228cbce6, R20, R21, R22, R23, R24, R25, R26, R19)
-  
-	SM3ROUND2(16, 0x9d8a7a87, R19, R20, R21, R22, R23, R24, R25, R26)
-	SM3ROUND2(17, 0x3b14f50f, R26, R19, R20, R21, R22, R23, R24, R25)
-	SM3ROUND2(18, 0x7629ea1e, R25, R26, R19, R20, R21, R22, R23, R24)
-	SM3ROUND2(19, 0xec53d43c, R24, R25, R26, R19, R20, R21, R22, R23)
-	SM3ROUND2(20, 0xd8a7a879, R23, R24, R25, R26, R19, R20, R21, R22)
-	SM3ROUND2(21, 0xb14f50f3, R22, R23, R24, R25, R26, R19, R20, R21)
-	SM3ROUND2(22, 0x629ea1e7, R21, R22, R23, R24, R25, R26, R19, R20)
-	SM3ROUND2(23, 0xc53d43ce, R20, R21, R22, R23, R24, R25, R26, R19)
-	SM3ROUND2(24, 0x8a7a879d, R19, R20, R21, R22, R23, R24, R25, R26)
-	SM3ROUND2(25, 0x14f50f3b, R26, R19, R20, R21, R22, R23, R24, R25)
-	SM3ROUND2(26, 0x29ea1e76, R25, R26, R19, R20, R21, R22, R23, R24)
-	SM3ROUND2(27, 0x53d43cec, R24, R25, R26, R19, R20, R21, R22, R23)
-	SM3ROUND2(28, 0xa7a879d8, R23, R24, R25, R26, R19, R20, R21, R22)
-	SM3ROUND2(29, 0x4f50f3b1, R22, R23, R24, R25, R26, R19, R20, R21)
-	SM3ROUND2(30, 0x9ea1e762, R21, R22, R23, R24, R25, R26, R19, R20)
-	SM3ROUND2(31, 0x3d43cec5, R20, R21, R22, R23, R24, R25, R26, R19)
-	SM3ROUND2(32, 0x7a879d8a, R19, R20, R21, R22, R23, R24, R25, R26)
-	SM3ROUND2(33, 0xf50f3b14, R26, R19, R20, R21, R22, R23, R24, R25)
-	SM3ROUND2(34, 0xea1e7629, R25, R26, R19, R20, R21, R22, R23, R24)
-	SM3ROUND2(35, 0xd43cec53, R24, R25, R26, R19, R20, R21, R22, R23)
-	SM3ROUND2(36, 0xa879d8a7, R23, R24, R25, R26, R19, R20, R21, R22)
-	SM3ROUND2(37, 0x50f3b14f, R22, R23, R24, R25, R26, R19, R20, R21)
-	SM3ROUND2(38, 0xa1e7629e, R21, R22, R23, R24, R25, R26, R19, R20)
-	SM3ROUND2(39, 0x43cec53d, R20, R21, R22, R23, R24, R25, R26, R19)
-	SM3ROUND2(40, 0x879d8a7a, R19, R20, R21, R22, R23, R24, R25, R26)
-	SM3ROUND2(41, 0xf3b14f5, R26, R19, R20, R21, R22, R23, R24, R25)
-	SM3ROUND2(42, 0x1e7629ea, R25, R26, R19, R20, R21, R22, R23, R24)
-	SM3ROUND2(43, 0x3cec53d4, R24, R25, R26, R19, R20, R21, R22, R23)
-	SM3ROUND2(44, 0x79d8a7a8, R23, R24, R25, R26, R19, R20, R21, R22)
-	SM3ROUND2(45, 0xf3b14f50, R22, R23, R24, R25, R26, R19, R20, R21)
-	SM3ROUND2(46, 0xe7629ea1, R21, R22, R23, R24, R25, R26, R19, R20)
-	SM3ROUND2(47, 0xcec53d43, R20, R21, R22, R23, R24, R25, R26, R19)
-	SM3ROUND2(48, 0x9d8a7a87, R19, R20, R21, R22, R23, R24, R25, R26)
-	SM3ROUND2(49, 0x3b14f50f, R26, R19, R20, R21, R22, R23, R24, R25)
-	SM3ROUND2(50, 0x7629ea1e, R25, R26, R19, R20, R21, R22, R23, R24)
-	SM3ROUND2(51, 0xec53d43c, R24, R25, R26, R19, R20, R21, R22, R23)
-	SM3ROUND2(52, 0xd8a7a879, R23, R24, R25, R26, R19, R20, R21, R22)
-	SM3ROUND2(53, 0xb14f50f3, R22, R23, R24, R25, R26, R19, R20, R21)
-	SM3ROUND2(54, 0x629ea1e7, R21, R22, R23, R24, R25, R26, R19, R20)
-	SM3ROUND2(55, 0xc53d43ce, R20, R21, R22, R23, R24, R25, R26, R19)
-	SM3ROUND2(56, 0x8a7a879d, R19, R20, R21, R22, R23, R24, R25, R26)
-	SM3ROUND2(57, 0x14f50f3b, R26, R19, R20, R21, R22, R23, R24, R25)
-	SM3ROUND2(58, 0x29ea1e76, R25, R26, R19, R20, R21, R22, R23, R24)
-	SM3ROUND2(59, 0x53d43cec, R24, R25, R26, R19, R20, R21, R22, R23)
-	SM3ROUND2(60, 0xa7a879d8, R23, R24, R25, R26, R19, R20, R21, R22)
-	SM3ROUND2(61, 0x4f50f3b1, R22, R23, R24, R25, R26, R19, R20, R21)
-	SM3ROUND2(62, 0x9ea1e762, R21, R22, R23, R24, R25, R26, R19, R20)
-	SM3ROUND2(63, 0x3d43cec5, R20, R21, R22, R23, R24, R25, R26, R19)
+	// Do 4 rounds and scheduling
+	VST1 [XWORD1.B16], 32(RSP)
+	VEOR XWORD1.B16, XWORD2.B16, XFER.B16
+	VST1 [XFER.B16], 48(RSP)
+	ROUND_AND_SCHED_N_0_0(2*16, 0x9cc45197, e, f, g, h, a, b, c, d, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_0_1(2*16, 0x3988a32f, d, e, f, g, h, a, b, c, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_0_2(2*16, 0x7311465e, c, d, e, f, g, h, a, b, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_0_3(2*16, 0xe6228cbc, b, c, d, e, f, g, h, a, XWORD1, XWORD2, XWORD3, XWORD0)
 
-	EORW R10, R19  // H0 = a XOR H0
-	EORW R11, R20  // H1 = b XOR H1
-	EORW R12, R21  // H0 = a XOR H0
-	EORW R13, R22  // H1 = b XOR H1
-	EORW R14, R23  // H0 = a XOR H0
-	EORW R15, R24  // H1 = b XOR H1
-	EORW R16, R25  // H0 = a XOR H0
-	EORW R17, R26  // H1 = b XOR H1
+	// Do 4 rounds and scheduling
+	VST1 [XWORD2.B16], 64(RSP)
+	VEOR XWORD2.B16, XWORD3.B16, XFER.B16
+	VST1 [XFER.B16], 80(RSP)
+	ROUND_AND_SCHED_N_0_0(4*16, 0xcc451979, a, b, c, d, e, f, g, h, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_0_1(4*16, 0x988a32f3, h, a, b, c, d, e, f, g, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_0_2(4*16, 0x311465e7, g, h, a, b, c, d, e, f, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_0_3(4*16, 0x6228cbce, f, g, h, a, b, c, d, e, XWORD2, XWORD3, XWORD0, XWORD1)
+
+	// Do 4 rounds and scheduling
+	VST1 [XWORD3.B16], 96(RSP)
+	VEOR XWORD3.B16, XWORD0.B16, XFER.B16
+	VST1 [XFER.B16], 112(RSP)
+	ROUND_AND_SCHED_N_0_0(6*16, 0xc451979c, e, f, g, h, a, b, c, d, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_0_1(6*16, 0x88a32f39, d, e, f, g, h, a, b, c, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_0_2(6*16, 0x11465e73, c, d, e, f, g, h, a, b, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_0_3(6*16, 0x228cbce6, b, c, d, e, f, g, h, a, XWORD3, XWORD0, XWORD1, XWORD2)
+
+	// Do 4 rounds and scheduling
+	VST1 [XWORD0.B16], 128(RSP)
+	VEOR XWORD0.B16, XWORD1.B16, XFER.B16
+	VST1 [XFER.B16], 144(RSP)
+	ROUND_AND_SCHED_N_1_0(8*16, 0x9d8a7a87, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_1(8*16, 0x3b14f50f, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_2(8*16, 0x7629ea1e, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_3(8*16, 0xec53d43c, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3)
+
+	// Do 4 rounds and scheduling
+	VST1 [XWORD1.B16], 160(RSP)
+	VEOR XWORD1.B16, XWORD2.B16, XFER.B16
+	VST1 [XFER.B16], 176(RSP)
+	ROUND_AND_SCHED_N_1_0(10*16, 0xd8a7a879, e, f, g, h, a, b, c, d, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_1_1(10*16, 0xb14f50f3, d, e, f, g, h, a, b, c, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_1_2(10*16, 0x629ea1e7, c, d, e, f, g, h, a, b, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_1_3(10*16, 0xc53d43ce, b, c, d, e, f, g, h, a, XWORD1, XWORD2, XWORD3, XWORD0)
+
+	// Do 4 rounds and scheduling
+	VST1 [XWORD2.B16], 192(RSP)
+	VEOR XWORD2.B16, XWORD3.B16, XFER.B16
+	VST1 [XFER.B16], 208(RSP)
+	ROUND_AND_SCHED_N_1_0(12*16, 0x8a7a879d, a, b, c, d, e, f, g, h, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_1_1(12*16, 0x14f50f3b, h, a, b, c, d, e, f, g, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_1_2(12*16, 0x29ea1e76, g, h, a, b, c, d, e, f, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_1_3(12*16, 0x53d43cec, f, g, h, a, b, c, d, e, XWORD2, XWORD3, XWORD0, XWORD1)
+
+	// Do 4 rounds and scheduling
+	VST1 [XWORD3.B16], 224(RSP)
+	VEOR XWORD3.B16, XWORD0.B16, XFER.B16
+	VST1 [XFER.B16], 240(RSP)
+	ROUND_AND_SCHED_N_1_0(14*16, 0xa7a879d8, e, f, g, h, a, b, c, d, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_1_1(14*16, 0x4f50f3b1, d, e, f, g, h, a, b, c, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_1_2(14*16, 0x9ea1e762, c, d, e, f, g, h, a, b, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_1_3(14*16, 0x3d43cec5, b, c, d, e, f, g, h, a, XWORD3, XWORD0, XWORD1, XWORD2)
+
+	// Do 4 rounds and scheduling
+	VST1 [XWORD0.B16], 256(RSP)
+	VEOR XWORD0.B16, XWORD1.B16, XFER.B16
+	VST1 [XFER.B16], 272(RSP)
+	ROUND_AND_SCHED_N_1_0(16*16, 0x7a879d8a, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_1(16*16, 0xf50f3b14, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_2(16*16, 0xea1e7629, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_3(16*16, 0xd43cec53, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3)
+
+	// Do 4 rounds and scheduling
+	VST1 [XWORD1.B16], 288(RSP)
+	VEOR XWORD1.B16, XWORD2.B16, XFER.B16
+	VST1 [XFER.B16], 304(RSP)
+	ROUND_AND_SCHED_N_1_0(18*16, 0xa879d8a7, e, f, g, h, a, b, c, d, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_1_1(18*16, 0x50f3b14f, d, e, f, g, h, a, b, c, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_1_2(18*16, 0xa1e7629e, c, d, e, f, g, h, a, b, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_1_3(18*16, 0x43cec53d, b, c, d, e, f, g, h, a, XWORD1, XWORD2, XWORD3, XWORD0)
+
+	// Do 4 rounds and scheduling
+	VST1 [XWORD2.B16], 320(RSP)
+	VEOR XWORD2.B16, XWORD3.B16, XFER.B16
+	VST1 [XFER.B16], 336(RSP)
+	ROUND_AND_SCHED_N_1_0(20*16, 0x879d8a7a, a, b, c, d, e, f, g, h, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_1_1(20*16, 0xf3b14f5, h, a, b, c, d, e, f, g, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_1_2(20*16, 0x1e7629ea, g, h, a, b, c, d, e, f, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_1_3(20*16, 0x3cec53d4, f, g, h, a, b, c, d, e, XWORD2, XWORD3, XWORD0, XWORD1)
+
+	// Do 4 rounds and scheduling
+	VST1 [XWORD2.B16], 352(RSP)
+	VEOR XWORD2.B16, XWORD3.B16, XFER.B16
+	VST1 [XFER.B16], 368(RSP)
+	ROUND_AND_SCHED_N_1_0(22*16, 0x79d8a7a8, e, f, g, h, a, b, c, d, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_1_1(22*16, 0xf3b14f50, d, e, f, g, h, a, b, c, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_1_2(22*16, 0xe7629ea1, c, d, e, f, g, h, a, b, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_1_3(22*16, 0xcec53d43, b, c, d, e, f, g, h, a, XWORD3, XWORD0, XWORD1, XWORD2)
+
+	// w48 - w63 processed with only 4 rounds scheduling (last 16 rounds)
+	// Do 4 rounds and scheduling
+	VST1 [XWORD0.B16], 384(RSP)
+	VEOR XWORD0.B16, XWORD1.B16, XFER.B16
+	VST1 [XFER.B16], 400(RSP)
+	ROUND_AND_SCHED_N_1_0(24*16, 0x9d8a7a87, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_1(24*16, 0x3b14f50f, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_2(24*16, 0x7629ea1e, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_3(24*16, 0xec53d43c, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3)  
+
+	// w52 - w63 processed with no scheduling (last 12 rounds)
+	// Do 4 rounds
+	VST1 [XWORD1.B16], 416(RSP)
+	VEOR XWORD1.B16, XWORD2.B16, XFER.B16
+	VST1 [XFER.B16], 432(RSP)
+	DO_ROUND_N_1(26*16, 0, 0xd8a7a879, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_1(26*16, 1, 0xb14f50f3, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_1(26*16, 2, 0x629ea1e7, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_1(26*16, 3, 0xc53d43ce, b, c, d, e, f, g, h, a)
+
+	// Do 4 rounds
+	VST1 [XWORD2.B16], 448(RSP)
+	VEOR XWORD2.B16, XWORD3.B16, XFER.B16
+	VST1 [XFER.B16], 464(RSP)
+	DO_ROUND_N_1(28*16, 0, 0x8a7a879d, a, b, c, d, e, f, g, h)
+	DO_ROUND_N_1(28*16, 1, 0x14f50f3b, h, a, b, c, d, e, f, g)
+	DO_ROUND_N_1(28*16, 2, 0x29ea1e76, g, h, a, b, c, d, e, f)
+	DO_ROUND_N_1(28*16, 3, 0x53d43cec, f, g, h, a, b, c, d, e)
+
+	// Do 4 rounds
+	VST1 [XWORD3.B16], 480(RSP)
+	VEOR XWORD3.B16, XWORD0.B16, XFER.B16
+	VST1 [XFER.B16], 496(RSP)
+	DO_ROUND_N_1(30*16, 0, 0xa7a879d8, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_1(30*16, 1, 0x4f50f3b1, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_1(30*16, 2, 0x9ea1e762, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_1(30*16, 3, 0x3d43cec5, b, c, d, e, f, g, h, a)
+
+	EORW a1, a  // H0 = a XOR H0
+	EORW b1, b  // H1 = b XOR H1
+	EORW c1, c  // H0 = a XOR H0
+	EORW d1, d  // H1 = b XOR H1
+	EORW e1, e  // H0 = a XOR H0
+	EORW f1, f  // H1 = b XOR H1
+	EORW g1, g  // H0 = a XOR H0
+	EORW h1, h  // H1 = b XOR H1
  
-	ADD $64, SI
-	CMP SI, DI
-	BNE	loop
+	SUB	$64, NUM_BYTES, NUM_BYTES
+	CBNZ	NUM_BYTES, loop  	
 
-	STPW	(R19, R20), (0*8)(hlp1)
-	STPW	(R21, R22), (1*8)(hlp1)
-	STPW	(R23, R24), (2*8)(hlp1)
-	STPW	(R25, R26), (3*8)(hlp1)
+	STPW	(a, b), (0*8)(CTX)
+	STPW	(c, d), (1*8)(CTX)
+	STPW	(e, f), (2*8)(CTX)
+	STPW	(g, h), (3*8)(CTX)
 
 end:	
 	RET
