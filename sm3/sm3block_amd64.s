@@ -77,13 +77,11 @@
 // Calculate tt1 in CX, used DX
 // ret = ((a AND b) OR (a AND c) OR (b AND c)) + d + (ROTL(12, a) XOR ss1) + (Wt XOR Wt+4)
 #define SM3TT11(index, a, b, c, d) \  
-	MOVL b, DX; \
-	ANDL a, DX; \  // a AND b
+	MOVL a, DX; \
+	ORL  b, DX; \  // a AND b
 	MOVL a, CX; \
-	ANDL c, CX; \  // a AND c
-	ORL  DX, CX; \  // (a AND b) OR (a AND c)
-	MOVL b, DX; \
-	ANDL c, DX; \  // b AND c
+	ANDL b, CX; \  // a AND b
+	ANDL c, DX; \
 	ORL  CX, DX; \  // (a AND b) OR (a AND c) OR (b AND c)
 	ADDL d, DX; \
 	MOVL a, CX; \

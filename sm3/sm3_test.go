@@ -432,7 +432,7 @@ func round3(a, b, c, d, e, f, g, h string, i int) {
 	fmt.Printf("w[%d] = p1(w[%d]^w[%d]^bits.RotateLeft32(w[%d], 15)) ^ bits.RotateLeft32(w[%d], 7) ^ w[%d]\n", i+4, i-12, i-5, i+1, i-9, i-2)
 	fmt.Printf("tt2 = bits.RotateLeft32(%s, 12)\n", a)
 	fmt.Printf("ss1 = bits.RotateLeft32(tt2+%s+_K[%d], 7)\n", e, i)
-	fmt.Printf("%s = (%s & %s) | (%s & %s) | (%s & %s) + %s + (ss1 ^ tt2) + (w[%d] ^ w[%d])\n", d, a, b, a, c, b, c, d, i, i+4)
+	fmt.Printf("%s = %s&(%s|%s) | (%s & %s) + %s + (ss1 ^ tt2) + (w[%d] ^ w[%d])\n", d, c, a, b, a, b, d, i, i+4)
 	fmt.Printf("tt2 = (%s & %s) | (^%s & %s) + %s + ss1 + w[%d]\n", e, f, e, g, h, i)
 	fmt.Printf("%s = bits.RotateLeft32(%s, 9)\n", b, b)
 	fmt.Printf("%s = bits.RotateLeft32(%s, 19)\n", f, f)

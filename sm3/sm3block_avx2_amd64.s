@@ -240,15 +240,13 @@
 	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
 	;                                          \
 	MOVL     a, y1;                            \
-	MOVL     b, y3;                            \
 	VPOR     XTMP0, XTMP1, XTMP1;              \ // XTMP1 = W[-13] rol 7 = {ROTL(7,w6),ROTL(7,w5),ROTL(7,w4),ROTL(7,w3)}
-	ANDL     y1, y3;                           \
-	ANDL     c, y1;                            \
-	ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c)
-	MOVL     b, h;                             \
+	ORL      b, y1;                            \
+	MOVL     a, h;                             \
+	ANDL     b, h;                             \
 	VPALIGNR $8, XDWORD2, XDWORD3, XTMP0;      \ // XTMP0 = W[-6] = {w13,w12,w11,w10}
-	ANDL     c, h;                             \
-	ORL      y1, h;                            \ // h =  (a AND b) OR (a AND c) OR (b AND c)
+	ANDL     c, y1;                            \
+	ORL      y1, h;                            \ // h =  (a AND b) OR (a AND c) OR (b AND c)  
 	ADDL     y0, h;                            \ // h = FF(a, b, c) + d + SS2 + W' = tt1
 	;                                          \
 	VPXOR   XTMP1, XTMP0, XTMP0;               \ // XTMP0 = W[-6] ^ (W[-13] rol 7) 
@@ -285,15 +283,13 @@
 	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
 	;                                          \
 	MOVL     a, y1;                            \
-	MOVL     b, y3;                            \
 	VPXOR   XTMP1, XTMP2, XTMP2;               \ // XTMP2 = W[-9] ^ W[-16] ^ (W[-3] rol 15) {xxBA}
-	ANDL     y1, y3;                           \
-	ANDL     c, y1;                            \
-	ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c)
-	MOVL     b, h;                             \
+	ORL      b, y1;                            \
+	MOVL     a, h;                             \
+	ANDL     b, h;                             \
 	VPSLLD   $15, XTMP2, XTMP3;                \
-	ANDL     c, h;                             \
-	ORL      y1, h;                            \ // h =  (a AND b) OR (a AND c) OR (b AND c)
+	ANDL     c, y1;                            \
+	ORL      y1, h;                            \ // h =  (a AND b) OR (a AND c) OR (b AND c)     
 	ADDL     y0, h;                            \ // h = FF(a, b, c) + d + SS2 + W' = tt1
 	;                                          \
 	VPSRLD   $(32-15), XTMP2, XTMP4;           \
@@ -330,15 +326,13 @@
 	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
 	;                                          \
 	MOVL     a, y1;                            \
-	MOVL     b, y3;                            \
 	VPALIGNR $12, XDWORD3, XTMP2, XTMP3;       \ // XTMP3 = {..., W[1], W[0], w15}
-	ANDL     y1, y3;                           \
-	ANDL     c, y1;                            \
-	ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c)
-	MOVL     b, h;                             \
+	ORL      b, y1;                            \
+	MOVL     a, h;                             \
+	ANDL     b, h;                             \
 	VPSHUFD $80, XTMP3, XTMP4;                 \ // XTMP4 = W[-3] {DDCC} = {W[0],W[0],w15,w15}
-	ANDL     c, h;                             \
-	ORL      y1, h;                            \ // h =  (a AND b) OR (a AND c) OR (b AND c)
+	ANDL     c, y1;                            \
+	ORL      y1, h;                            \ // h =  (a AND b) OR (a AND c) OR (b AND c)     
 	ADDL     y0, h;                            \ // h = FF(a, b, c) + d + SS2 + W' = tt1
 	;                                          \
 	VPSLLQ  $15, XTMP4, XTMP4;                 \ // XTMP4 = W[-3] rol 15 {DxCx}
@@ -375,14 +369,12 @@
 	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
 	;                                          \
 	MOVL     a, y1;                            \
-	MOVL     b, y3;                            \
 	VPSHUFB  r08_mask<>(SB), XTMP3, XTMP1;     \ // XTMP1 = XTMP4 rol 23 {DCxx}
-	ANDL     y1, y3;                           \
-	ANDL     c, y1;                            \
-	ORL      y3, y1;                           \ // y1 =  (a AND b) OR (a AND c)
-	MOVL     b, h;                             \
+	ORL      b, y1;                            \
+	MOVL     a, h;                             \
+	ANDL     b, h;                             \
 	VPXOR    XTMP3, XTMP4, XTMP3;              \ // XTMP3 = XTMP4 ^ (XTMP4 rol 15 {DCxx})
-	ANDL     c, h;                             \
+	ANDL     c, y1;                            \
 	ORL      y1, h;                            \ // h =  (a AND b) OR (a AND c) OR (b AND c)
 	ADDL     y0, h;                            \ // h = FF(a, b, c) + d + SS2 + W' = tt1
 	;                                          \
@@ -451,13 +443,11 @@
 	ADDL     d, y0;                              \ // y0 = d + SS2 + W'
 	;                                            \
 	MOVL     a, y1;                              \
-	MOVL     b, y3;                              \
-	ANDL     y1, y3;                             \
+	ORL      b, y1;                              \
+	MOVL     a, h;                               \
+	ANDL     b, h;                               \
 	ANDL     c, y1;                              \
-	ORL      y3, y1;                             \ // y1 =  (a AND b) OR (a AND c)
-	MOVL     b, h;                               \
-	ANDL     c, h;                               \
-	ORL      y1, h;                              \ // h =  (a AND b) OR (a AND c) OR (b AND c)
+	ORL      y1, h;                              \ // h =  (a AND b) OR (a AND c) OR (b AND c)     
 	ADDL     y0, h;                              \ // h = FF(a, b, c) + d + SS2 + W' = tt1
 	;                                            \
 	MOVL     f, y3;                              \
@@ -482,6 +472,8 @@ TEXT ·blockAVX2(SB), 0, $1048-32
 	LEAQ -64(INP)(NUM_BYTES*1), NUM_BYTES // Pointer to the last block
 	MOVQ NUM_BYTES, _INP_END(SP)
 
+	VMOVDQU flip_mask<>(SB), BYTE_FLIP_MASK
+
 	CMPQ NUM_BYTES, INP
 	JE   avx2_only_one_block
 
@@ -501,8 +493,6 @@ avx2_loop: // at each iteration works with one block (512 bit)
 	VMOVDQU (1*32)(INP), XTMP1
 	VMOVDQU (2*32)(INP), XTMP2
 	VMOVDQU (3*32)(INP), XTMP3
-
-	VMOVDQU flip_mask<>(SB), BYTE_FLIP_MASK
 
 	// Apply Byte Flip Mask: LE -> BE
 	VPSHUFB BYTE_FLIP_MASK, XTMP0, XTMP0
@@ -802,8 +792,6 @@ avx2_do_last_block:
 	VMOVDQU 16(INP), XWORD1
 	VMOVDQU 32(INP), XWORD2
 	VMOVDQU 48(INP), XWORD3
-
-	VMOVDQU flip_mask<>(SB), BYTE_FLIP_MASK
 
 	VPSHUFB X_BYTE_FLIP_MASK, XWORD0, XWORD0
 	VPSHUFB X_BYTE_FLIP_MASK, XWORD1, XWORD1

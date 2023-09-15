@@ -206,13 +206,12 @@
 	ADDW  y1, y0;                                 \ // y0 = SS2 + W'
 	ADDW  d, y0;                                  \ // y0 = d + SS2 + W'
 	; \
-	ANDW  a, b, y1;                               \
+	ORRW  a, b, y1;                               \
 	VEXT $8, XWORD3.B16, XWORD2.B16, XTMP0.B16;   \ // XTMP0 = W[-6] = {w13,w12,w11,w10}
-	ANDW  a, c, y3;                               \
-	ORRW  y3, y1;                                 \ // y1 =  (a AND b) OR (a AND c)
-	ANDW  b, c, h;                                \
+	ANDW  a, b, h;                                \
+	ANDW  c, y1;                                  \
+	ORRW  y1, h;                                  \ // h =  (a AND b) OR (a AND c) OR (b AND c)	
 	VEOR XTMP1.B16, XTMP0.B16, XTMP0.B16;         \ // XTMP0 = W[-6] ^ (W[-13] rol 7)
-	ORRW  y1, h;                                  \ // h =  (a AND b) OR (a AND c) OR (b AND c)
 	ADDW  y0, h;                                  \ // h = FF(a, b, c) + d + SS2 + W' = tt1
 	; \
 	ANDW  e, f, y1;                               \
@@ -247,12 +246,11 @@
 	ADDW  y1, y0;                                 \ // y0 = SS2 + W'
 	ADDW  d, y0;                                  \ // y0 = d + SS2 + W'
 	; \
-	ANDW  a, b, y1;                               \
+	ORRW  a, b, y1;                               \
 	VSHL $15, XTMP2.S4, XTMP4.S4;                 \
-	ANDW  a, c, y3;                               \
-	ORRW  y3, y1;                                 \ // y1 =  (a AND b) OR (a AND c)
-	ANDW  b, c, h;                                \
-	ORRW  y1, h;                                  \ // h =  (a AND b) OR (a AND c) OR (b AND c)
+	ANDW  a, b, h;                                \
+	ANDW  c, y1;                                  \
+	ORRW  y1, h;                                  \ // h =  (a AND b) OR (a AND c) OR (b AND c)	
 	VSRI $17, XTMP2.S4, XTMP4.S4;                 \ // XTMP4 =  = XTMP2 rol 15 {xxBA}
 	ADDW  y0, h;                                  \ // h = FF(a, b, c) + d + SS2 + W' = tt1
 	; \
@@ -288,12 +286,11 @@
 	ADDW  y1, y0;                                 \ // y0 = SS2 + W'
 	ADDW  d, y0;                                  \ // y0 = d + SS2 + W'
 	; \
-	ANDW  a, b, y1;                               \
+	ORRW  a, b, y1;                               \
 	VSHL $15, XTMP3.S4, XTMP4.S4;                 \
-	ANDW  a, c, y3;                               \
-	ORRW  y3, y1;                                 \ // y1 =  (a AND b) OR (a AND c)
-	ANDW  b, c, h;                                \
-	ORRW  y1, h;                                  \ // h =  (a AND b) OR (a AND c) OR (b AND c)
+	ANDW  a, b, h;                                \
+	ANDW  c, y1;                                  \
+	ORRW  y1, h;                                  \ // h =  (a AND b) OR (a AND c) OR (b AND c)	
 	VSRI $17, XTMP3.S4, XTMP4.S4;                 \ // XTMP4 = W[-3] rol 15 {DCxx}
 	ADDW  y0, h;                                  \ // h = FF(a, b, c) + d + SS2 + W' = tt1
 	; \
@@ -328,11 +325,10 @@
 	ADDW  y1, y0;                                 \ // y0 = SS2 + W'
 	ADDW  d, y0;                                  \ // y0 = d + SS2 + W'
 	; \
-	ANDW  a, b, y1;                               \
 	VEOR XTMP3.B16, XTMP4.B16, XTMP3.B16;         \ // XTMP3 = XTMP4 XOR (XTMP4 rol 15 {DCxx})
-	ANDW  a, c, y3;                               \
-	ORRW  y3, y1;                                 \ // y1 =  (a AND b) OR (a AND c)
-	ANDW  b, c, h;                                \
+	ORRW  a, b, y1;                               \
+	ANDW  a, b, h;                                \
+	ANDW  c, y1;                                  \
 	ORRW  y1, h;                                  \ // h =  (a AND b) OR (a AND c) OR (b AND c)
 	VEOR XTMP3.B16, XTMP1.B16, XTMP1.B16;         \ // XTMP1 = XTMP4 XOR (XTMP4 rol 15 {DCxx}) XOR (XTMP4 rol 23 {DCxx})
 	ADDW  y0, h;                                  \ // h = FF(a, b, c) + d + SS2 + W' = tt1
@@ -367,10 +363,9 @@
 	ADDW  y1, y0;                              \ // y0 = SS2 + W'
 	ADDW  d, y0;                               \ // y0 = d + SS2 + W'
 	; \
-	ANDW  a, b, y1;                            \
-	ANDW  a, c, y3;                            \
-	ORRW  y3, y1;                              \ // y1 =  (a AND b) OR (a AND c)
-	ANDW  b, c, h;                             \
+	ORRW  a, b, y1;                            \
+	ANDW  a, b, h;                             \
+	ANDW  c, y1;                               \
 	ORRW  y1, h;                               \ // h =  (a AND b) OR (a AND c) OR (b AND c)
 	ADDW  y0, h;                               \ // h = FF(a, b, c) + d + SS2 + W' = tt1
 	; \
