@@ -41,15 +41,13 @@
 #define g R10
 #define h R11
 
-#define SRND SI // SRND is same register as CTX
-
 #define y0 R12
 #define y1 R13
 #define y2 R14
 #define y3 DI
 
 // Offsets
-#define XFER_SIZE 2*64*4
+#define XFER_SIZE 2*16
 #define INP_END_SIZE 8
 #define INP_SIZE 8
 
@@ -69,10 +67,10 @@
 	ROLL     $7, y2;                           \ // y2 = SS1
 	VPSLLD   $7, XTMP0, XTMP1;                 \ // XTMP1 = W[-13] << 7 = {w6<<7,w5<<7,w4<<7,w3<<7}
 	XORL     y2, y0                            \ // y0 = SS2
-	ADDL     (disp + 0*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
+	ADDL     (disp + 0*4)(SP), y2;             \ // y2 = SS1 + W
 	VPSRLD   $(32-7), XTMP0, XTMP0;            \ // XTMP0 = W[-13] >> 25 = {w6>>25,w5>>25,w4>>25,w3>>25}
 	ADDL     h, y2;                            \ // y2 = h + SS1 + W    
-	ADDL     (disp + 0*4 + 16)(SP)(SRND*1), y0;\ // y0 = SS2 + W'
+	ADDL     (disp + 0*4 + 16)(SP), y0;        \ // y0 = SS2 + W'
 	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
 	VPOR     XTMP0, XTMP1, XTMP1;              \ // XTMP1 = W[-13] rol 7
 	;                                          \
@@ -109,9 +107,9 @@
 	ROLL     $7, y2;                           \ // y2 = SS1
 	XORL     y2, y0                            \ // y0 = SS2
 	VPSHUFB shuff_00BA<>(SB), XTMP2, XTMP2;    \ // XTMP2 = W[-3] rol 15 {00BA}
-	ADDL     (disp + 1*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
+	ADDL     (disp + 1*4)(SP), y2;             \ // y2 = SS1 + W
 	ADDL     h, y2;                            \ // y2 = h + SS1 + W
-	ADDL     (disp + 1*4 + 16)(SP)(SRND*1), y0;\ // y0 = SS2 + W'
+	ADDL     (disp + 1*4 + 16)(SP), y0;        \ // y0 = SS2 + W'
 	VPXOR   XTMP1, XTMP2, XTMP2;               \ // XTMP2 = W[-9] ^ W[-16] ^ (W[-3] rol 15) {xxBA}
 	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
 	;                                          \
@@ -148,9 +146,9 @@
 	ROLL     $7, y2;                           \ // y2 = SS1
 	XORL     y2, y0                            \ // y0 = SS2
 	VPXOR    XTMP4, XTMP0, XTMP2;              \ // XTMP2 = {..., ..., W[1], W[0]}
-	ADDL     (disp + 2*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
+	ADDL     (disp + 2*4)(SP), y2;             \ // y2 = SS1 + W
 	ADDL     h, y2;                            \ // y2 = h + SS1 + W
-	ADDL     (disp + 2*4 + 16)(SP)(SRND*1), y0;\ // y0 = SS2 + W'
+	ADDL     (disp + 2*4 + 16)(SP), y0;        \ // y0 = SS2 + W'
 	VPALIGNR $12, XWORD3, XTMP2, XTMP3;        \ // XTMP3 = {..., W[1], W[0], w15}
 	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
 	;                                          \
@@ -187,9 +185,9 @@
 	ROLL     $7, y2;                           \ // y2 = SS1
 	XORL     y2, y0                            \ // y0 = SS2
 	VPOR     XTMP3, XTMP5, XTMP3;              \ // XTMP3 = XTMP4 rol 15 {DCxx}
-	ADDL     (disp + 3*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
+	ADDL     (disp + 3*4)(SP), y2;             \ // y2 = SS1 + W
 	ADDL     h, y2;                            \ // y2 = h + SS1 + W    
-	ADDL     (disp + 3*4 + 16)(SP)(SRND*1), y0;\ // y2 = SS2 + W'
+	ADDL     (disp + 3*4 + 16)(SP), y0;        \ // y2 = SS2 + W'
 	VPSHUFB  r08_mask<>(SB), XTMP3, XTMP1;     \ // XTMP1 = XTMP4 rol 23 {DCxx}
 	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
 	;                                          \
@@ -227,9 +225,9 @@
 	ROLL     $7, y2;                           \ // y2 = SS1
 	XORL     y2, y0                            \ // y0 = SS2
 	VPSLLD   $7, XTMP0, XTMP1;                 \ // XTMP1 = W[-13] << 7 = {w6<<7,w5<<7,w4<<7,w3<<7}
-	ADDL     (disp + 0*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
+	ADDL     (disp + 0*4)(SP), y2;             \ // y2 = SS1 + W
 	ADDL     h, y2;                            \ // y2 = h + SS1 + W    
-	ADDL     (disp + 0*4 + 16)(SP)(SRND*1), y0;\ // y0 = SS2 + W'
+	ADDL     (disp + 0*4 + 16)(SP), y0;        \ // y0 = SS2 + W'
 	VPSRLD   $(32-7), XTMP0, XTMP0;            \ // XTMP0 = W[-13] >> 25 = {w6>>25,w5>>25,w4>>25,w3>>25}
 	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
 	;                                          \
@@ -272,10 +270,10 @@
 	VPSLLQ  $15, XTMP2, XTMP2;                 \ // XTMP2 = W[-3] rol 15 {BxAx}
 	ROLL     $7, y2;                           \ // y2 = SS1
 	XORL     y2, y0                            \ // y0 = SS2
-	ADDL     (disp + 1*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
+	ADDL     (disp + 1*4)(SP), y2;             \ // y2 = SS1 + W
 	ADDL     h, y2;                            \ // y2 = h + SS1 + W    
 	VPSHUFB shuff_00BA<>(SB), XTMP2, XTMP2;    \ // XTMP2 = W[-3] rol 15 {00BA}
-	ADDL     (disp + 1*4 + 16)(SP)(SRND*1), y0;\ // y0 = SS2 + W'
+	ADDL     (disp + 1*4 + 16)(SP), y0;        \ // y0 = SS2 + W'
 	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
 	;                                          \
 	MOVL     a, y1;                            \
@@ -317,10 +315,10 @@
 	VPXOR    XTMP4, XTMP3, XTMP4;              \ // XTMP4 = XTMP2 ^ (XTMP2 rol 15 {xxBA}) ^ (XTMP2 rol 23 {xxBA})
 	ROLL     $7, y2;                           \ // y2 = SS1
 	XORL     y2, y0                            \ // y0 = SS2
-	ADDL     (disp + 2*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
+	ADDL     (disp + 2*4)(SP), y2;             \ // y2 = SS1 + W
 	ADDL     h, y2;                            \ // y2 = h + SS1 + W    
 	VPXOR    XTMP4, XTMP0, XTMP2;              \ // XTMP2 = {..., ..., W[1], W[0]}
-	ADDL     (disp + 2*4 + 16)(SP)(SRND*1), y0;\ // y0 = SS2 + W'
+	ADDL     (disp + 2*4 + 16)(SP), y0;        \ // y0 = SS2 + W'
 	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
 	;                                          \
 	MOVL     a, y1;                            \
@@ -362,10 +360,10 @@
 	VPSRLD   $(32-15), XTMP4, XTMP3;           \
 	ROLL     $7, y2;                           \ // y2 = SS1
 	XORL     y2, y0                            \ // y0 = SS2
-	ADDL     (disp + 3*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
+	ADDL     (disp + 3*4)(SP), y2;             \ // y2 = SS1 + W
 	ADDL     h, y2;                            \ // y2 = h + SS1 + W    
 	VPOR     XTMP3, XTMP5, XTMP3;              \ // XTMP3 = XTMP4 rol 15 {DCxx}
-	ADDL     (disp + 3*4 + 16)(SP)(SRND*1), y0;\ // y0 = SS2 + W'
+	ADDL     (disp + 3*4 + 16)(SP), y0;        \ // y0 = SS2 + W'
 	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
 	;                                          \
 	MOVL     a, y1;                            \
@@ -407,9 +405,9 @@
 	ADDL     y0, y2;                             \ // y2 = a <<< 12 + e + T
 	ROLL     $7, y2;                             \ // y2 = SS1
 	XORL     y2, y0                              \ // y0 = SS2
-	ADDL     (disp + idx*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
+	ADDL     (disp + idx*4)(SP), y2;             \ // y2 = SS1 + W
 	ADDL     h, y2;                              \ // y2 = h + SS1 + W    
-	ADDL     (disp + idx*4 + 16)(SP)(SRND*1), y0;\ // y0 = SS2 + W'
+	ADDL     (disp + idx*4 + 16)(SP), y0;        \ // y0 = SS2 + W'
 	ADDL     d, y0;                              \ // y0 = d + SS2 + W'
 	;                                            \
 	MOVL     a, y1;                              \
@@ -436,7 +434,7 @@
 	XORL     y0, d;                              \
 	XORL     y2, d;                              \ // d = P(tt2)
 
-TEXT ·blockAVX(SB), 0, $536-32
+TEXT ·blockAVX(SB), 0, $56-32
 	MOVQ dig+0(FP), CTX          // d.h[8]
 	MOVQ p_base+8(FP), INP
 	MOVQ p_len+16(FP), NUM_BYTES
@@ -470,163 +468,155 @@ avx_loop: // at each iteration works with one block (256 bit)
 
 	ADDQ $64, INP
 	MOVQ INP, _INP(SP)
-	XORQ SRND, SRND
 
 avx_schedule_compress: // for w0 - w47
 	// Do 4 rounds and scheduling
-	VMOVDQU XWORD0, (_XFER + 0*16)(SP)(SRND*1)
+	VMOVDQU XWORD0, (_XFER + 0*16)(SP)
 	VPXOR  XWORD0, XWORD1, XFER
-	VMOVDQU XFER, (_XFER + 1*16)(SP)(SRND*1)
-	ROUND_AND_SCHED_N_0_0(_XFER + 0*16, 0x79cc4519, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_0_1(_XFER + 0*16, 0xf3988a32, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_0_2(_XFER + 0*16, 0xe7311465, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_0_3(_XFER + 0*16, 0xce6228cb, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3)
+	VMOVDQU XFER, (_XFER + 1*16)(SP)
+	ROUND_AND_SCHED_N_0_0(_XFER, 0x79cc4519, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_0_1(_XFER, 0xf3988a32, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_0_2(_XFER, 0xe7311465, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_0_3(_XFER, 0xce6228cb, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3)
 
 	// Do 4 rounds and scheduling
-	VMOVDQU XWORD1, (_XFER + 2*16)(SP)(SRND*1)
+	VMOVDQU XWORD1, (_XFER + 0*16)(SP)
 	VPXOR  XWORD1, XWORD2, XFER
-	VMOVDQU XFER, (_XFER + 3*16)(SP)(SRND*1)
-	ROUND_AND_SCHED_N_0_0(_XFER + 2*16, 0x9cc45197, e, f, g, h, a, b, c, d, XWORD1, XWORD2, XWORD3, XWORD0)
-	ROUND_AND_SCHED_N_0_1(_XFER + 2*16, 0x3988a32f, d, e, f, g, h, a, b, c, XWORD1, XWORD2, XWORD3, XWORD0)
-	ROUND_AND_SCHED_N_0_2(_XFER + 2*16, 0x7311465e, c, d, e, f, g, h, a, b, XWORD1, XWORD2, XWORD3, XWORD0)
-	ROUND_AND_SCHED_N_0_3(_XFER + 2*16, 0xe6228cbc, b, c, d, e, f, g, h, a, XWORD1, XWORD2, XWORD3, XWORD0)
+	VMOVDQU XFER, (_XFER + 1*16)(SP)
+	ROUND_AND_SCHED_N_0_0(_XFER, 0x9cc45197, e, f, g, h, a, b, c, d, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_0_1(_XFER, 0x3988a32f, d, e, f, g, h, a, b, c, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_0_2(_XFER, 0x7311465e, c, d, e, f, g, h, a, b, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_0_3(_XFER, 0xe6228cbc, b, c, d, e, f, g, h, a, XWORD1, XWORD2, XWORD3, XWORD0)
 
 	// Do 4 rounds and scheduling
-	VMOVDQU XWORD2, (_XFER + 4*16)(SP)(SRND*1)
+	VMOVDQU XWORD2, (_XFER + 0*16)(SP)
 	VPXOR  XWORD2, XWORD3, XFER
-	VMOVDQU XFER, (_XFER + 5*16)(SP)(SRND*1)
-	ROUND_AND_SCHED_N_0_0(_XFER + 4*16, 0xcc451979, a, b, c, d, e, f, g, h, XWORD2, XWORD3, XWORD0, XWORD1)
-	ROUND_AND_SCHED_N_0_1(_XFER + 4*16, 0x988a32f3, h, a, b, c, d, e, f, g, XWORD2, XWORD3, XWORD0, XWORD1)
-	ROUND_AND_SCHED_N_0_2(_XFER + 4*16, 0x311465e7, g, h, a, b, c, d, e, f, XWORD2, XWORD3, XWORD0, XWORD1)
-	ROUND_AND_SCHED_N_0_3(_XFER + 4*16, 0x6228cbce, f, g, h, a, b, c, d, e, XWORD2, XWORD3, XWORD0, XWORD1)
+	VMOVDQU XFER, (_XFER + 1*16)(SP)
+	ROUND_AND_SCHED_N_0_0(_XFER, 0xcc451979, a, b, c, d, e, f, g, h, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_0_1(_XFER, 0x988a32f3, h, a, b, c, d, e, f, g, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_0_2(_XFER, 0x311465e7, g, h, a, b, c, d, e, f, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_0_3(_XFER, 0x6228cbce, f, g, h, a, b, c, d, e, XWORD2, XWORD3, XWORD0, XWORD1)
 
 	// Do 4 rounds and scheduling
-	VMOVDQU XWORD3, (_XFER + 6*16)(SP)(SRND*1)
+	VMOVDQU XWORD3, (_XFER + 0*16)(SP)
 	VPXOR  XWORD3, XWORD0, XFER
-	VMOVDQU XFER, (_XFER + 7*16)(SP)(SRND*1)
-	ROUND_AND_SCHED_N_0_0(_XFER + 6*16, 0xc451979c, e, f, g, h, a, b, c, d, XWORD3, XWORD0, XWORD1, XWORD2)
-	ROUND_AND_SCHED_N_0_1(_XFER + 6*16, 0x88a32f39, d, e, f, g, h, a, b, c, XWORD3, XWORD0, XWORD1, XWORD2)
-	ROUND_AND_SCHED_N_0_2(_XFER + 6*16, 0x11465e73, c, d, e, f, g, h, a, b, XWORD3, XWORD0, XWORD1, XWORD2)
-	ROUND_AND_SCHED_N_0_3(_XFER + 6*16, 0x228cbce6, b, c, d, e, f, g, h, a, XWORD3, XWORD0, XWORD1, XWORD2)
-
-	ADDQ $8*16, SRND
+	VMOVDQU XFER, (_XFER + 1*16)(SP)
+	ROUND_AND_SCHED_N_0_0(_XFER, 0xc451979c, e, f, g, h, a, b, c, d, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_0_1(_XFER, 0x88a32f39, d, e, f, g, h, a, b, c, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_0_2(_XFER, 0x11465e73, c, d, e, f, g, h, a, b, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_0_3(_XFER, 0x228cbce6, b, c, d, e, f, g, h, a, XWORD3, XWORD0, XWORD1, XWORD2)
 
 	// Do 4 rounds and scheduling
-	VMOVDQU XWORD0, (_XFER + 0*16)(SP)(SRND*1)
+	VMOVDQU XWORD0, (_XFER + 0*16)(SP)
 	VPXOR  XWORD0, XWORD1, XFER
-	VMOVDQU XFER, (_XFER + 1*16)(SP)(SRND*1)
-	ROUND_AND_SCHED_N_1_0(_XFER + 0*16, 0x9d8a7a87, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_1_1(_XFER + 0*16, 0x3b14f50f, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_1_2(_XFER + 0*16, 0x7629ea1e, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_1_3(_XFER + 0*16, 0xec53d43c, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3)
+	VMOVDQU XFER, (_XFER + 1*16)(SP)
+	ROUND_AND_SCHED_N_1_0(_XFER, 0x9d8a7a87, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_1(_XFER, 0x3b14f50f, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_2(_XFER, 0x7629ea1e, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_3(_XFER, 0xec53d43c, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3)
 
 	// Do 4 rounds and scheduling
-	VMOVDQU XWORD1, (_XFER + 2*16)(SP)(SRND*1)
+	VMOVDQU XWORD1, (_XFER + 0*16)(SP)
 	VPXOR  XWORD1, XWORD2, XFER
-	VMOVDQU XFER, (_XFER + 3*16)(SP)(SRND*1)
-	ROUND_AND_SCHED_N_1_0(_XFER + 2*16, 0xd8a7a879, e, f, g, h, a, b, c, d, XWORD1, XWORD2, XWORD3, XWORD0)
-	ROUND_AND_SCHED_N_1_1(_XFER + 2*16, 0xb14f50f3, d, e, f, g, h, a, b, c, XWORD1, XWORD2, XWORD3, XWORD0)
-	ROUND_AND_SCHED_N_1_2(_XFER + 2*16, 0x629ea1e7, c, d, e, f, g, h, a, b, XWORD1, XWORD2, XWORD3, XWORD0)
-	ROUND_AND_SCHED_N_1_3(_XFER + 2*16, 0xc53d43ce, b, c, d, e, f, g, h, a, XWORD1, XWORD2, XWORD3, XWORD0)
+	VMOVDQU XFER, (_XFER + 1*16)(SP)
+	ROUND_AND_SCHED_N_1_0(_XFER, 0xd8a7a879, e, f, g, h, a, b, c, d, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_1_1(_XFER, 0xb14f50f3, d, e, f, g, h, a, b, c, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_1_2(_XFER, 0x629ea1e7, c, d, e, f, g, h, a, b, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_1_3(_XFER, 0xc53d43ce, b, c, d, e, f, g, h, a, XWORD1, XWORD2, XWORD3, XWORD0)
 
 	// Do 4 rounds and scheduling
-	VMOVDQU XWORD2, (_XFER + 4*16)(SP)(SRND*1)
+	VMOVDQU XWORD2, (_XFER + 0*16)(SP)
 	VPXOR  XWORD2, XWORD3, XFER
-	VMOVDQU XFER, (_XFER + 5*16)(SP)(SRND*1)
+	VMOVDQU XFER, (_XFER + 1*16)(SP)
 
-	ROUND_AND_SCHED_N_1_0(_XFER + 4*16, 0x8a7a879d, a, b, c, d, e, f, g, h, XWORD2, XWORD3, XWORD0, XWORD1)
-	ROUND_AND_SCHED_N_1_1(_XFER + 4*16, 0x14f50f3b, h, a, b, c, d, e, f, g, XWORD2, XWORD3, XWORD0, XWORD1)
-	ROUND_AND_SCHED_N_1_2(_XFER + 4*16, 0x29ea1e76, g, h, a, b, c, d, e, f, XWORD2, XWORD3, XWORD0, XWORD1)
-	ROUND_AND_SCHED_N_1_3(_XFER + 4*16, 0x53d43cec, f, g, h, a, b, c, d, e, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_1_0(_XFER, 0x8a7a879d, a, b, c, d, e, f, g, h, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_1_1(_XFER, 0x14f50f3b, h, a, b, c, d, e, f, g, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_1_2(_XFER, 0x29ea1e76, g, h, a, b, c, d, e, f, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_1_3(_XFER, 0x53d43cec, f, g, h, a, b, c, d, e, XWORD2, XWORD3, XWORD0, XWORD1)
 
 	// Do 4 rounds and scheduling
-	VMOVDQU XWORD3, (_XFER + 6*16)(SP)(SRND*1)
+	VMOVDQU XWORD3, (_XFER + 0*16)(SP)
 	VPXOR  XWORD3, XWORD0, XFER
-	VMOVDQU XFER, (_XFER + 7*16)(SP)(SRND*1)
-	ROUND_AND_SCHED_N_1_0(_XFER + 6*16, 0xa7a879d8, e, f, g, h, a, b, c, d, XWORD3, XWORD0, XWORD1, XWORD2)
-	ROUND_AND_SCHED_N_1_1(_XFER + 6*16, 0x4f50f3b1, d, e, f, g, h, a, b, c, XWORD3, XWORD0, XWORD1, XWORD2)
-	ROUND_AND_SCHED_N_1_2(_XFER + 6*16, 0x9ea1e762, c, d, e, f, g, h, a, b, XWORD3, XWORD0, XWORD1, XWORD2)
-	ROUND_AND_SCHED_N_1_3(_XFER + 6*16, 0x3d43cec5, b, c, d, e, f, g, h, a, XWORD3, XWORD0, XWORD1, XWORD2)
-
-	ADDQ $8*16, SRND
+	VMOVDQU XFER, (_XFER + 1*16)(SP)
+	ROUND_AND_SCHED_N_1_0(_XFER, 0xa7a879d8, e, f, g, h, a, b, c, d, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_1_1(_XFER, 0x4f50f3b1, d, e, f, g, h, a, b, c, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_1_2(_XFER, 0x9ea1e762, c, d, e, f, g, h, a, b, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_1_3(_XFER, 0x3d43cec5, b, c, d, e, f, g, h, a, XWORD3, XWORD0, XWORD1, XWORD2)
 
 	// Do 4 rounds and scheduling
-	VMOVDQU XWORD0, (_XFER + 0*16)(SP)(SRND*1)
+	VMOVDQU XWORD0, (_XFER + 0*16)(SP)
 	VPXOR  XWORD0, XWORD1, XFER
-	VMOVDQU XFER, (_XFER + 1*16)(SP)(SRND*1)
-	ROUND_AND_SCHED_N_1_0(_XFER + 0*16, 0x7a879d8a, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_1_1(_XFER + 0*16, 0xf50f3b14, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_1_2(_XFER + 0*16, 0xea1e7629, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_1_3(_XFER + 0*16, 0xd43cec53, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3)
+	VMOVDQU XFER, (_XFER + 1*16)(SP)
+	ROUND_AND_SCHED_N_1_0(_XFER, 0x7a879d8a, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_1(_XFER, 0xf50f3b14, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_2(_XFER, 0xea1e7629, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_3(_XFER, 0xd43cec53, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3)
 
 	// Do 4 rounds and scheduling
-	VMOVDQU XWORD1, (_XFER + 2*16)(SP)(SRND*1)
+	VMOVDQU XWORD1, (_XFER + 0*16)(SP)
 	VPXOR  XWORD1, XWORD2, XFER
-	VMOVDQU XFER, (_XFER + 3*16)(SP)(SRND*1)
-	ROUND_AND_SCHED_N_1_0(_XFER + 2*16, 0xa879d8a7, e, f, g, h, a, b, c, d, XWORD1, XWORD2, XWORD3, XWORD0)
-	ROUND_AND_SCHED_N_1_1(_XFER + 2*16, 0x50f3b14f, d, e, f, g, h, a, b, c, XWORD1, XWORD2, XWORD3, XWORD0)
-	ROUND_AND_SCHED_N_1_2(_XFER + 2*16, 0xa1e7629e, c, d, e, f, g, h, a, b, XWORD1, XWORD2, XWORD3, XWORD0)
-	ROUND_AND_SCHED_N_1_3(_XFER + 2*16, 0x43cec53d, b, c, d, e, f, g, h, a, XWORD1, XWORD2, XWORD3, XWORD0)
+	VMOVDQU XFER, (_XFER + 1*16)(SP)
+	ROUND_AND_SCHED_N_1_0(_XFER, 0xa879d8a7, e, f, g, h, a, b, c, d, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_1_1(_XFER, 0x50f3b14f, d, e, f, g, h, a, b, c, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_1_2(_XFER, 0xa1e7629e, c, d, e, f, g, h, a, b, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_1_3(_XFER, 0x43cec53d, b, c, d, e, f, g, h, a, XWORD1, XWORD2, XWORD3, XWORD0)
 
 	// Do 4 rounds and scheduling
-	VMOVDQU XWORD2, (_XFER + 4*16)(SP)(SRND*1)
+	VMOVDQU XWORD2, (_XFER + 0*16)(SP)
 	VPXOR  XWORD2, XWORD3, XFER
-	VMOVDQU XFER, (_XFER + 5*16)(SP)(SRND*1)
-	ROUND_AND_SCHED_N_1_0(_XFER + 4*16, 0x879d8a7a, a, b, c, d, e, f, g, h, XWORD2, XWORD3, XWORD0, XWORD1)
-	ROUND_AND_SCHED_N_1_1(_XFER + 4*16, 0xf3b14f5, h, a, b, c, d, e, f, g, XWORD2, XWORD3, XWORD0, XWORD1)
-	ROUND_AND_SCHED_N_1_2(_XFER + 4*16, 0x1e7629ea, g, h, a, b, c, d, e, f, XWORD2, XWORD3, XWORD0, XWORD1)
-	ROUND_AND_SCHED_N_1_3(_XFER + 4*16, 0x3cec53d4, f, g, h, a, b, c, d, e, XWORD2, XWORD3, XWORD0, XWORD1)
+	VMOVDQU XFER, (_XFER + 1*16)(SP)
+	ROUND_AND_SCHED_N_1_0(_XFER, 0x879d8a7a, a, b, c, d, e, f, g, h, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_1_1(_XFER, 0xf3b14f5, h, a, b, c, d, e, f, g, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_1_2(_XFER, 0x1e7629ea, g, h, a, b, c, d, e, f, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_1_3(_XFER, 0x3cec53d4, f, g, h, a, b, c, d, e, XWORD2, XWORD3, XWORD0, XWORD1)
 
 	// Do 4 rounds and scheduling
-	VMOVDQU XWORD3, (_XFER + 6*16)(SP)(SRND*1)
+	VMOVDQU XWORD3, (_XFER + 0*16)(SP)
 	VPXOR  XWORD3, XWORD0, XFER
-	VMOVDQU XFER, (_XFER + 7*16)(SP)(SRND*1)
-	ROUND_AND_SCHED_N_1_0(_XFER + 6*16, 0x79d8a7a8, e, f, g, h, a, b, c, d, XWORD3, XWORD0, XWORD1, XWORD2)
-	ROUND_AND_SCHED_N_1_1(_XFER + 6*16, 0xf3b14f50, d, e, f, g, h, a, b, c, XWORD3, XWORD0, XWORD1, XWORD2)
-	ROUND_AND_SCHED_N_1_2(_XFER + 6*16, 0xe7629ea1, c, d, e, f, g, h, a, b, XWORD3, XWORD0, XWORD1, XWORD2)
-	ROUND_AND_SCHED_N_1_3(_XFER + 6*16, 0xcec53d43, b, c, d, e, f, g, h, a, XWORD3, XWORD0, XWORD1, XWORD2)
-
-	ADDQ $8*16, SRND
+	VMOVDQU XFER, (_XFER + 1*16)(SP)
+	ROUND_AND_SCHED_N_1_0(_XFER, 0x79d8a7a8, e, f, g, h, a, b, c, d, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_1_1(_XFER, 0xf3b14f50, d, e, f, g, h, a, b, c, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_1_2(_XFER, 0xe7629ea1, c, d, e, f, g, h, a, b, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_1_3(_XFER, 0xcec53d43, b, c, d, e, f, g, h, a, XWORD3, XWORD0, XWORD1, XWORD2)
 
 	// w48 - w63 processed with only 4 rounds scheduling (last 16 rounds)
 	// Do 4 rounds and scheduling
-	VMOVDQU XWORD0, (_XFER + 0*16)(SP)(SRND*1)
+	VMOVDQU XWORD0, (_XFER + 0*16)(SP)
 	VPXOR  XWORD0, XWORD1, XFER
-	VMOVDQU XFER, (_XFER + 1*16)(SP)(SRND*1)
-	ROUND_AND_SCHED_N_1_0(_XFER + 0*16, 0x9d8a7a87, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_1_1(_XFER + 0*16, 0x3b14f50f, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_1_2(_XFER + 0*16, 0x7629ea1e, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_1_3(_XFER + 0*16, 0xec53d43c, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3)  
+	VMOVDQU XFER, (_XFER + 1*16)(SP)
+	ROUND_AND_SCHED_N_1_0(_XFER, 0x9d8a7a87, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_1(_XFER, 0x3b14f50f, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_2(_XFER, 0x7629ea1e, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_3(_XFER, 0xec53d43c, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3)  
 
 	// w52 - w63 processed with no scheduling (last 12 rounds)
 	// Do 4 rounds
-	VMOVDQU XWORD1, (_XFER + 2*16)(SP)(SRND*1)
+	VMOVDQU XWORD1, (_XFER + 0*16)(SP)
 	VPXOR  XWORD1, XWORD2, XFER
-	VMOVDQU XFER, (_XFER + 3*16)(SP)(SRND*1)
-	DO_ROUND_N_1(_XFER + 2*16, 0, 0xd8a7a879, e, f, g, h, a, b, c, d)
-	DO_ROUND_N_1(_XFER + 2*16, 1, 0xb14f50f3, d, e, f, g, h, a, b, c)
-	DO_ROUND_N_1(_XFER + 2*16, 2, 0x629ea1e7, c, d, e, f, g, h, a, b)
-	DO_ROUND_N_1(_XFER + 2*16, 3, 0xc53d43ce, b, c, d, e, f, g, h, a)
+	VMOVDQU XFER, (_XFER + 1*16)(SP)
+	DO_ROUND_N_1(_XFER, 0, 0xd8a7a879, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_1(_XFER, 1, 0xb14f50f3, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_1(_XFER, 2, 0x629ea1e7, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_1(_XFER, 3, 0xc53d43ce, b, c, d, e, f, g, h, a)
 
 	// Do 4 rounds
-	VMOVDQU XWORD2, (_XFER + 4*16)(SP)(SRND*1)
+	VMOVDQU XWORD2, (_XFER + 0*16)(SP)
 	VPXOR  XWORD2, XWORD3, XFER
-	VMOVDQU XFER, (_XFER + 5*16)(SP)(SRND*1)
-	DO_ROUND_N_1(_XFER + 4*16, 0, 0x8a7a879d, a, b, c, d, e, f, g, h)
-	DO_ROUND_N_1(_XFER + 4*16, 1, 0x14f50f3b, h, a, b, c, d, e, f, g)
-	DO_ROUND_N_1(_XFER + 4*16, 2, 0x29ea1e76, g, h, a, b, c, d, e, f)
-	DO_ROUND_N_1(_XFER + 4*16, 3, 0x53d43cec, f, g, h, a, b, c, d, e)
+	VMOVDQU XFER, (_XFER + 1*16)(SP)
+	DO_ROUND_N_1(_XFER, 0, 0x8a7a879d, a, b, c, d, e, f, g, h)
+	DO_ROUND_N_1(_XFER, 1, 0x14f50f3b, h, a, b, c, d, e, f, g)
+	DO_ROUND_N_1(_XFER, 2, 0x29ea1e76, g, h, a, b, c, d, e, f)
+	DO_ROUND_N_1(_XFER, 3, 0x53d43cec, f, g, h, a, b, c, d, e)
 
 	// Do 4 rounds
-	VMOVDQU XWORD3, (_XFER + 6*16)(SP)(SRND*1)
+	VMOVDQU XWORD3, (_XFER + 0*16)(SP)
 	VPXOR  XWORD3, XWORD0, XFER
-	VMOVDQU XFER, (_XFER + 7*16)(SP)(SRND*1)
-	DO_ROUND_N_1(_XFER + 6*16, 0, 0xa7a879d8, e, f, g, h, a, b, c, d)
-	DO_ROUND_N_1(_XFER + 6*16, 1, 0x4f50f3b1, d, e, f, g, h, a, b, c)
-	DO_ROUND_N_1(_XFER + 6*16, 2, 0x9ea1e762, c, d, e, f, g, h, a, b)
-	DO_ROUND_N_1(_XFER + 6*16, 3, 0x3d43cec5, b, c, d, e, f, g, h, a)
+	VMOVDQU XFER, (_XFER + 1*16)(SP)
+	DO_ROUND_N_1(_XFER, 0, 0xa7a879d8, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_1(_XFER, 1, 0x4f50f3b1, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_1(_XFER, 2, 0x9ea1e762, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_1(_XFER, 3, 0x3d43cec5, b, c, d, e, f, g, h, a)
 
-	MOVQ dig+0(FP), CTX // d.h[8]
 	MOVQ _INP(SP), INP
 
 	xorm(  0(CTX), a)
