@@ -68,11 +68,11 @@
 #define ROUND_AND_SCHED_N_0_0(disp, const, a, b, c, d, e, f, g, h, XDWORD0, XDWORD1, XDWORD2, XDWORD3) \
 	;                                          \ // #############################  RND N + 0 ############################//
 	RORXL    $20, a, y0;                       \ // y0 = a <<< 12, RORXL is BMI2 instr
-	MOVL     e, y1;                            \
-	ADDL     $const, y1;                       \
+	MOVL     e, y2;                            \
+	ADDL     $const, y2;                       \
 	VPALIGNR $12, XDWORD0, XDWORD1, XTMP0;     \ // XTMP0 = W[-13] = {w6,w5,w4,w3}
-	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
-	RORXL    $25, y1, y2;                      \ // y2 = SS1
+	ADDL     y0, y2;                           \ // y2 = a <<< 12 + e + T
+	ROLL     $7, y2;                           \ // y2 = SS1
 	VPSLLD   $7, XTMP0, XTMP1;                 \ // XTMP1 = W[-13] << 7 = {w6<<7,w5<<7,w4<<7,w3<<7}
 	XORL     y2, y0                            \ // y0 = SS2
 	ADDL     (disp + 0*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
@@ -107,12 +107,12 @@
 
 #define ROUND_AND_SCHED_N_0_1(disp, const, a, b, c, d, e, f, g, h, XDWORD0, XDWORD1, XDWORD2, XDWORD3) \
 	;                                          \ // #############################  RND N + 1 ############################//
-	RORXL    $20, a, y0;                      \ // y0 = a <<< 12
-	MOVL     e, y1;                            \
-	ADDL     $const, y1;                       \
+	RORXL    $20, a, y0;                       \ // y0 = a <<< 12
+	MOVL     e, y2;                            \
+	ADDL     $const, y2;                       \
 	VPSLLQ  $15, XTMP2, XTMP2;                 \ // XTMP2 = W[-3] rol 15 {BxAx}
-	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
-	RORXL    $25, y1, y2;                      \ // y2 = SS1
+	ADDL     y0, y2;                           \ // y2 = a <<< 12 + e + T
+	ROLL     $7, y2;                           \ // y2 = SS1
 	XORL     y2, y0                            \ // y0 = SS2
 	VPSHUFB shuff_00BA<>(SB), XTMP2, XTMP2;    \ // XTMP2 = W[-3] rol 15 {00BA}
 	ADDL     (disp + 1*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
@@ -146,12 +146,12 @@
 
 #define ROUND_AND_SCHED_N_0_2(disp, const, a, b, c, d, e, f, g, h, XDWORD0, XDWORD1, XDWORD2, XDWORD3) \
 	;                                          \ // #############################  RND N + 2 ############################//
-	RORXL    $20, a, y0;                      \ // y0 = a <<< 12
-	MOVL     e, y1;                            \
-	ADDL     $const, y1;                       \
+	RORXL    $20, a, y0;                       \ // y0 = a <<< 12
+	MOVL     e, y2;                            \
+	ADDL     $const, y2;                       \
 	VPXOR    XTMP4, XTMP3, XTMP4;              \ // XTMP4 = XTMP2 ^ (XTMP2 rol 15 {xxBA}) ^ (XTMP2 rol 23 {xxBA})
-	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
-	RORXL    $25, y1, y2;                      \ // y2 = SS1
+	ADDL     y0, y2;                           \ // y2 = a <<< 12 + e + T
+	ROLL     $7, y2;                           \ // y2 = SS1
 	XORL     y2, y0                            \ // y0 = SS2
 	VPXOR    XTMP4, XTMP0, XTMP2;              \ // XTMP2 = {..., ..., W[1], W[0]}
 	ADDL     (disp + 2*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
@@ -185,12 +185,12 @@
 
 #define ROUND_AND_SCHED_N_0_3(disp, const, a, b, c, d, e, f, g, h, XDWORD0, XDWORD1, XDWORD2, XDWORD3) \
 	;                                          \ // #############################  RND N + 3 ############################//
-	RORXL    $20, a, y0;                      \ // y0 = a <<< 12
-	MOVL     e, y1;                            \
-	ADDL     $const, y1;                       \
+	RORXL    $20, a, y0;                       \ // y0 = a <<< 12
+	MOVL     e, y2;                            \
+	ADDL     $const, y2;                       \
 	VPSRLD   $(32-15), XTMP4, XTMP3;           \
-	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
-	RORXL    $25, y1, y2;                      \ // y2 = SS1
+	ADDL     y0, y2;                           \ // y2 = a <<< 12 + e + T
+	ROLL     $7, y2;                           \ // y2 = SS1
 	XORL     y2, y0                            \ // y0 = SS2
 	VPOR     XTMP3, XTMP5, XTMP3;              \ // XTMP3 = XTMP4 rol 15 {DCxx}
 	ADDL     (disp + 3*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
@@ -225,12 +225,12 @@
 // For rounds [16 - 64)
 #define ROUND_AND_SCHED_N_1_0(disp, const, a, b, c, d, e, f, g, h, XDWORD0, XDWORD1, XDWORD2, XDWORD3) \
 	;                                          \ // #############################  RND N + 0 ############################//
-	RORXL    $20, a, y0;                      \ // y0 = a <<< 12
-	MOVL     e, y1;                            \
-	ADDL     $const, y1;                       \
+	RORXL    $20, a, y0;                       \ // y0 = a <<< 12
+	MOVL     e, y2;                            \
+	ADDL     $const, y2;                       \
 	VPALIGNR $12, XDWORD0, XDWORD1, XTMP0;     \ // XTMP0 = W[-13] = {w6,w5,w4,w3}
-	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
-	RORXL    $25, y1, y2;                      \ // y2 = SS1
+	ADDL     y0, y2;                           \ // y2 = a <<< 12 + e + T
+	ROLL     $7, y2;                           \ // y2 = SS1
 	XORL     y2, y0                            \ // y0 = SS2
 	VPSLLD   $7, XTMP0, XTMP1;                 \ // XTMP1 = W[-13] << 7 = {w6<<7,w5<<7,w4<<7,w3<<7}
 	ADDL     (disp + 0*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
@@ -251,12 +251,10 @@
 	ORL      y1, h;                            \ // h =  (a AND b) OR (a AND c) OR (b AND c)
 	ADDL     y0, h;                            \ // h = FF(a, b, c) + d + SS2 + W' = tt1
 	;                                          \
-	MOVL     e, y1;                            \
 	VPXOR   XTMP1, XTMP0, XTMP0;               \ // XTMP0 = W[-6] ^ (W[-13] rol 7) 
 	MOVL     f, y3;                            \
-	ANDL     y1, y3;                           \ // y3 = e AND f
-	NOTL     y1;                               \
-	ANDL     g, y1;                            \ // y1 = NOT(e) AND g
+	ANDL     e, y3;                            \ // y3 = e AND f
+	ANDNL    g, e, y1;                         \ // y1 = NOT(e) AND g
 	VPALIGNR $12, XDWORD1, XDWORD2, XTMP1;     \ // XTMP1 = W[-9] = {w10,w9,w8,w7}
 	ORL      y3, y1;                           \ // y1 = (e AND f) OR (NOT(e) AND g)
 	ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
@@ -273,12 +271,12 @@
 
 #define ROUND_AND_SCHED_N_1_1(disp, const, a, b, c, d, e, f, g, h, XDWORD0, XDWORD1, XDWORD2, XDWORD3) \
 	;                                          \ // #############################  RND N + 1 ############################//
-	RORXL    $20, a, y0;                      \ // y0 = a <<< 12
-	MOVL     e, y1;                            \
-	ADDL     $const, y1;                       \
-	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
+	RORXL    $20, a, y0;                       \ // y0 = a <<< 12
+	MOVL     e, y2;                            \
+	ADDL     $const, y2;                       \
+	ADDL     y0, y2;                           \ // y2 = a <<< 12 + e + T
 	VPSLLQ  $15, XTMP2, XTMP2;                 \ // XTMP2 = W[-3] rol 15 {BxAx}
-	RORXL    $25, y1, y2;                      \ // y2 = SS1
+	ROLL    $7, y2;                            \ // y2 = SS1
 	XORL     y2, y0                            \ // y0 = SS2
 	ADDL     (disp + 1*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
 	ADDL     h, y2;                            \ // y2 = h + SS1 + W    
@@ -298,12 +296,10 @@
 	ORL      y1, h;                            \ // h =  (a AND b) OR (a AND c) OR (b AND c)
 	ADDL     y0, h;                            \ // h = FF(a, b, c) + d + SS2 + W' = tt1
 	;                                          \
-	MOVL     e, y1;                            \
 	VPSRLD   $(32-15), XTMP2, XTMP4;           \
 	MOVL     f, y3;                            \
-	ANDL     y1, y3;                           \ // y3 = e AND f
-	NOTL     y1;                               \
-	ANDL     g, y1;                            \ // y1 = NOT(e) AND g
+	ANDL     e, y3;                            \ // y3 = e AND f
+	ANDNL    g, e, y1;                         \ // y1 = NOT(e) AND g
 	VPOR     XTMP3, XTMP4, XTMP4;              \ // XTMP4 = XTMP2 rol 15 {xxBA}
 	ORL      y3, y1;                           \ // y1 = (e AND f) OR (NOT(e) AND g)
 	ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
@@ -320,12 +316,12 @@
 
 #define ROUND_AND_SCHED_N_1_2(disp, const, a, b, c, d, e, f, g, h, XDWORD0, XDWORD1, XDWORD2, XDWORD3) \
 	;                                          \ // #############################  RND N + 2 ############################//
-	RORXL    $20, a, y0;                      \ // y0 = a <<< 12
-	MOVL     e, y1;                            \
-	ADDL     $const, y1;                       \
-	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
+	RORXL    $20, a, y0;                       \ // y0 = a <<< 12
+	MOVL     e, y2;                            \
+	ADDL     $const, y2;                       \
+	ADDL     y0, y2;                           \ // y2 = a <<< 12 + e + T
 	VPXOR    XTMP4, XTMP3, XTMP4;              \ // XTMP4 = XTMP2 ^ (XTMP2 rol 15 {xxBA}) ^ (XTMP2 rol 23 {xxBA})
-	RORXL    $25, y1, y2;                      \ // y2 = SS1
+	ROLL     $7, y2;                           \ // y2 = SS1
 	XORL     y2, y0                            \ // y0 = SS2
 	ADDL     (disp + 2*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
 	ADDL     h, y2;                            \ // y2 = h + SS1 + W    
@@ -345,12 +341,10 @@
 	ORL      y1, h;                            \ // h =  (a AND b) OR (a AND c) OR (b AND c)
 	ADDL     y0, h;                            \ // h = FF(a, b, c) + d + SS2 + W' = tt1
 	;                                          \
-	MOVL     e, y1;                            \
 	VPSLLQ  $15, XTMP4, XTMP4;                 \ // XTMP4 = W[-3] rol 15 {DxCx}
 	MOVL     f, y3;                            \
-	ANDL     y1, y3;                           \ // y3 = e AND f
-	NOTL     y1;                               \
-	ANDL     g, y1;                            \ // y1 = NOT(e) AND g
+	ANDL     e, y3;                            \ // y3 = e AND f
+	ANDNL    g, e, y1;                         \ // y1 = NOT(e) AND g
 	VPSHUFB shuff_DC00<>(SB), XTMP4, XTMP4;    \ // XTMP4 = W[-3] rol 15 {DC00}
 	ORL      y3, y1;                           \ // y1 = (e AND f) OR (NOT(e) AND g)
 	ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
@@ -367,12 +361,12 @@
 
 #define ROUND_AND_SCHED_N_1_3(disp, const, a, b, c, d, e, f, g, h, XDWORD0, XDWORD1, XDWORD2, XDWORD3) \
 	;                                          \ // #############################  RND N + 3 ############################//
-	RORXL    $20, a, y0;                      \ // y0 = a <<< 12
-	MOVL     e, y1;                            \
-	ADDL     $const, y1;                       \
-	ADDL     y0, y1;                           \ // y1 = a <<< 12 + e + T
+	RORXL    $20, a, y0;                       \ // y0 = a <<< 12
+	MOVL     e, y2;                            \
+	ADDL     $const, y2;                       \
+	ADDL     y0, y2;                           \ // y2 = a <<< 12 + e + T
 	VPSRLD   $(32-15), XTMP4, XTMP3;           \
-	RORXL    $25, y1, y2;                      \ // y2 = SS1
+	ROLL     $7, y2;                           \ // y2 = SS1
 	XORL     y2, y0                            \ // y0 = SS2
 	ADDL     (disp + 3*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
 	ADDL     h, y2;                            \ // y2 = h + SS1 + W    
@@ -392,12 +386,10 @@
 	ORL      y1, h;                            \ // h =  (a AND b) OR (a AND c) OR (b AND c)
 	ADDL     y0, h;                            \ // h = FF(a, b, c) + d + SS2 + W' = tt1
 	;                                          \
-	MOVL     e, y1;                            \
 	VPXOR    XTMP3, XTMP1, XTMP1;              \ // XTMP1 = XTMP4 ^ (XTMP4 rol 15 {DCxx}) ^ (XTMP4 rol 23 {DCxx})
 	MOVL     f, y3;                            \
-	ANDL     y1, y3;                           \ // y3 = e AND f
-	NOTL     y1;                               \
-	ANDL     g, y1;                            \ // y1 = NOT(e) AND g
+	ANDL     e, y3;                            \ // y3 = e AND f
+	ANDNL    g, e, y1;                         \ // y1 = NOT(e) AND g
 	VPXOR    XTMP1, XTMP0, XTMP1;              \ // XTMP1 = {W[3], W[2], ..., ...}
 	ORL      y3, y1;                           \ // y1 = (e AND f) OR (NOT(e) AND g)
 	ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
@@ -415,11 +407,11 @@
 // For rounds [0 - 16)
 #define DO_ROUND_N_0(disp, idx, const, a, b, c, d, e, f, g, h) \
 	;                                            \ // #############################  RND N + 0 ############################//
-	RORXL    $20, a, y0;                        \ // y0 = a <<< 12
-	MOVL     e, y1;                              \
-	ADDL     $const, y1;                         \
-	ADDL     y0, y1;                             \ // y1 = a <<< 12 + e + T
-	RORXL    $25, y1, y2;                        \ // y2 = SS1
+	RORXL    $20, a, y0;                         \ // y0 = a <<< 12
+	MOVL     e, y2;                              \
+	ADDL     $const, y2;                         \
+	ADDL     y0, y2;                             \ // y2 = a <<< 12 + e + T
+	ROLL     $7, y2;                             \ // y2 = SS1
 	XORL     y2, y0                              \ // y0 = SS2
 	ADDL     (disp + idx*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
 	ADDL     h, y2;                              \ // y2 = h + SS1 + W    
@@ -447,11 +439,11 @@
 // For rounds [16 - 64)
 #define DO_ROUND_N_1(disp, idx, const, a, b, c, d, e, f, g, h) \
 	;                                            \ // #############################  RND N + 0 ############################//
-	RORXL    $20, a, y0;                        \ // y0 = a <<< 12
-	MOVL     e, y1;                              \
-	ADDL     $const, y1;                         \
-	ADDL     y0, y1;                             \ // y1 = a <<< 12 + e + T
-	RORXL    $25, y1, y2;                        \ // y2 = SS1
+	RORXL    $20, a, y0;                         \ // y0 = a <<< 12
+	MOVL     e, y2;                              \
+	ADDL     $const, y2;                         \
+	ADDL     y0, y2;                             \ // y2 = a <<< 12 + e + T
+	ROLL     $7, y2;                             \ // y2 = SS1
 	XORL     y2, y0                              \ // y0 = SS2
 	ADDL     (disp + idx*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
 	ADDL     h, y2;                              \ // y2 = h + SS1 + W    
@@ -468,11 +460,9 @@
 	ORL      y1, h;                              \ // h =  (a AND b) OR (a AND c) OR (b AND c)
 	ADDL     y0, h;                              \ // h = FF(a, b, c) + d + SS2 + W' = tt1
 	;                                            \
-	MOVL     e, y1;                              \
 	MOVL     f, y3;                              \
-	ANDL     y1, y3;                             \ // y3 = e AND f
-	NOTL     y1;                                 \
-	ANDL     g, y1;                              \ // y1 = NOT(e) AND g
+	ANDL     e, y3;                              \ // y3 = e AND f
+	ANDNL    g, e, y1;                           \ // y1 = NOT(e) AND g
 	ORL      y3, y1;                             \ // y1 = (e AND f) OR (NOT(e) AND g)
 	ADDL     y1, y2;                             \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
 	;                                            \

@@ -100,11 +100,9 @@
 	MOVL ((index)*4)(BP), DX; \
 	ADDL h, DX; \   // Wt + h
 	ADDL BX, DX; \  // h + ss1 + Wt
-	MOVL e, BX; \
 	MOVL f, AX; \   
-	ANDL BX, AX; \  // e AND f
-	NOTL BX; \      // NOT(e)
-	ANDL g, BX; \ // NOT(e) AND g
+	ANDL e, AX; \  // e AND f
+	ANDNL g, e, BX; \ // NOT(e) AND g
 	ORL  AX, BX; \
 	ADDL DX, BX
 
