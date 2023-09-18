@@ -140,56 +140,48 @@
 	ADDW  y0, h;                                  \ // h = FF(a, b, c) + d + SS2 + W' = tt1
 	; \
 	EORW  e, f, y1;                               \
-	VSRI $17, XTMP3.S4, XTMP4.S4;                 \ // XTMP4 = W[-3] rol 15 {DCxx}
+	VSRI $17, XTMP3.S4, XTMP4.S4;                 \ // XTMP4 = W[-3] rol 15 {DCBA}
 	EORW  g, y1;                                  \
 	ADDW  y1, y2;                                 \ // y2 = GG(e, f, g) + h + SS1 + W = tt2
-	; \
 	RORW  $23, b;                                 \
-	VEOR XTMP1.B16, XTMP4.B16, XTMP4.B16;         \ // XTMP4 = W[-9] XOR W[-16] XOR (W[-3] rol 15) {DCxx}
 	RORW  $13, f;                                 \
-	; \
+	VEOR XTMP1.B16, XTMP4.B16, XTMP4.B16;         \ // XTMP4 = W[-9] XOR W[-16] XOR (W[-3] rol 15) {DCBA}
 	RORW  $23, y2, y0;                            \
 	RORW  $15, y2, d;                             \
-	VSHL $15, XTMP4.S4, XTMP3.S4;                 \
 	EORW  y0, d;                                  \
 	EORW  y2, d;                                  \ // d = P(tt2)
-	VSRI $17, XTMP4.S4, XTMP3.S4;                 \ // XTMP3 = XTMP4 rol 15 {DCxx}
+	VSHL $15, XTMP4.S4, XTMP3.S4;                 \
 
 #define ROUND_AND_SCHED_N_0_3(disp, const, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3, Wt) \
 	RORW  $20, a, y0;                             \ // y0 = a <<< 12
 	ADDW  $const, e, y1;                          \
 	ADDW  y0, y1;                                 \ // y1 = a <<< 12 + e + T
 	RORW  $25, y1, y2;                            \ // y2 = SS1
-	VSHL $8, XTMP3.S4, XTMP1.S4;                  \
+	VSRI $17, XTMP4.S4, XTMP3.S4;                 \ // XTMP3 = XTMP4 rol 15 {DCBA}
 	EORW  y2, y0;                                 \ // y0 = SS2
 	VMOV  XWORD0.S[3], y1;                        \
 	ADDW  y1, y2;                                 \ // y2 = SS1 + W
+	VSHL $8, XTMP3.S4, XTMP1.S4;                  \
 	ADDW  h, y2;                                  \ // y2 = h + SS1 + W
-	VSRI $24, XTMP3.S4, XTMP1.S4;                 \ // XTMP1 = XTMP4 rol 23 {DCxx}
 	VMOV  Wt.S[3], y1;                            \
 	ADDW  y1, y0;                                 \ // y0 = SS2 + W'
 	ADDW  d, y0;                                  \ // y0 = d + SS2 + W'
-	; \
-	VEOR XTMP3.B16, XTMP4.B16, XTMP3.B16;         \ // XTMP3 = XTMP4 XOR (XTMP4 rol 15 {DCxx})
+	VSRI $24, XTMP3.S4, XTMP1.S4;                 \ // XTMP1 = XTMP4 rol 23 {DCBA}
 	EORW  a, b, h;                                \
 	EORW  c, h;                                   \
 	ADDW  y0, h;                                  \ // h = FF(a, b, c) + d + SS2 + W' = tt1
-	VEOR XTMP3.B16, XTMP1.B16, XTMP1.B16;         \ // XTMP1 = XTMP4 XOR (XTMP4 rol 15 {DCxx}) XOR (XTMP4 rol 23 {DCxx})
-	; \
 	EORW  e, f, y1;                               \
+	VEOR XTMP3.B16, XTMP4.B16, XTMP3.B16;         \ // XTMP3 = XTMP4 XOR (XTMP4 rol 15 {DCBA})
 	EORW  g, y1;                                  \
 	ADDW  y1, y2;                                 \ // y2 = GG(e, f, g) + h + SS1 + W = tt2
-	VEOR XTMP1.B16, XTMP0.B16, XTMP1.B16;         \ // XTMP1 = {W[3], W[2], ..., ...}
-	; \
 	RORW  $23, b;                                 \
 	RORW  $13, f;                                 \
-	; \
+	VEOR XTMP3.B16, XTMP1.B16, XTMP1.B16;         \ // XTMP1 = XTMP4 XOR (XTMP4 rol 15 {DCBA}) XOR (XTMP4 rol 23 {DCBA})
 	RORW  $23, y2, y0;                            \
-	VEXT $8, XTMP2.B16, XTMP1.B16, XTMP3.B16;     \ // XTMP3 = {W[1], W[0], W[3], W[2]}, Vm = XTMP2, Vn = XTMP1
 	RORW  $15, y2, d;                             \
 	EORW  y0, d;                                  \
 	EORW  y2, d;                                  \ // d = P(tt2)
-	VEXT $8, XTMP3.B16, XTMP3.B16, XWORD0.B16;    \ // XWORD0 = {W[3], W[2], W[1], W[0]}	
+	VEOR XTMP1.B16, XTMP0.B16, XWORD0.B16;        \ // XWORD0 = {W[3], W[2], W[1], W[0]}	
 
 // For rounds [16 - 64)
 #define ROUND_AND_SCHED_N_1_0(disp, const, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3, Wt) \
@@ -284,72 +276,62 @@
 	ADDW  y1, y2;                                 \ // y2 = SS1 + W
 	ADDW  h, y2;                                  \ // y2 = h + SS1 + W
 	VMOV  Wt.S[2], y1;                            \
-	VEXT $4, XTMP2.B16, XWORD3.B16, XTMP3.B16;    \ // XTMP3 = W[-3] {W[0],w15, w14, w13}, Vm = XTMP2, Vn = XWORD3
 	ADDW  y1, y0;                                 \ // y0 = SS2 + W'
+	VEXT $4, XTMP2.B16, XWORD3.B16, XTMP3.B16;    \ // XTMP3 = W[-3] {W[0],w15, w14, w13}, Vm = XTMP2, Vn = XWORD3
 	ADDW  d, y0;                                  \ // y0 = d + SS2 + W'
-	; \
 	ORRW  a, b, y1;                               \
-	VSHL $15, XTMP3.S4, XTMP4.S4;                 \
 	ANDW  a, b, h;                                \
 	ANDW  c, y1;                                  \
+	VSHL $15, XTMP3.S4, XTMP4.S4;                 \
 	ORRW  y1, h;                                  \ // h =  (a AND b) OR (a AND c) OR (b AND c)	
-	VSRI $17, XTMP3.S4, XTMP4.S4;                 \ // XTMP4 = W[-3] rol 15 {DCxx}
 	ADDW  y0, h;                                  \ // h = FF(a, b, c) + d + SS2 + W' = tt1
-	; \
 	ANDW  e, f, y1;                               \
 	BICW  e, g, y3;                               \
+	VSRI $17, XTMP3.S4, XTMP4.S4;                 \ // XTMP4 = W[-3] rol 15 {DCBA}
 	ORRW  y3, y1;                                 \ // y1 = (e AND f) OR (NOT(e) AND g)
-	VEOR XTMP1.B16, XTMP4.B16, XTMP4.B16;         \ // XTMP4 = W[-9] XOR W[-16] XOR (W[-3] rol 15) {DCxx}
 	ADDW  y1, y2;                                 \ // y2 = GG(e, f, g) + h + SS1 + W = tt2 
-	; \
 	RORW  $23, b;                                 \
 	RORW  $13, f;                                 \
-	; \
+	VEOR XTMP1.B16, XTMP4.B16, XTMP4.B16;         \ // XTMP4 = W[-9] XOR W[-16] XOR (W[-3] rol 15) {DCBA}
 	RORW  $23, y2, y0;                            \
-	VSHL $15, XTMP4.S4, XTMP3.S4;                 \
 	RORW  $15, y2, d;                             \
 	EORW  y0, d;                                  \
 	EORW  y2, d;                                  \ // d = P(tt2)	
-	VSRI $17, XTMP4.S4, XTMP3.S4;                 \ // XTMP3 = XTMP4 rol 15 {DCxx}
+	VSHL $15, XTMP4.S4, XTMP3.S4;                 \
 
 #define ROUND_AND_SCHED_N_1_3(disp, const, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3, Wt) \
 	RORW  $20, a, y0;                             \ // y0 = a <<< 12
 	ADDW  $const, e, y1;                          \
 	ADDW  y0, y1;                                 \ // y1 = a <<< 12 + e + T
 	RORW  $25, y1, y2;                            \ // y2 = SS1
-	VSHL $8, XTMP3.S4, XTMP1.S4;                  \
+	VSRI $17, XTMP4.S4, XTMP3.S4;                 \ // XTMP3 = XTMP4 rol 15 {DCBA}
 	EORW  y2, y0;                                 \ // y0 = SS2
 	VMOV  XWORD0.S[3], y1;                        \
 	ADDW  y1, y2;                                 \ // y2 = SS1 + W
 	ADDW  h, y2;                                  \ // y2 = h + SS1 + W
-	VSRI $24, XTMP3.S4, XTMP1.S4;                 \ // XTMP1 = XTMP4 rol 23 {DCxx}
 	VMOV  Wt.S[3], y1;                            \
+	VSHL $8, XTMP3.S4, XTMP1.S4;                  \
 	ADDW  y1, y0;                                 \ // y0 = SS2 + W'
 	ADDW  d, y0;                                  \ // y0 = d + SS2 + W'
-	; \
-	VEOR XTMP3.B16, XTMP4.B16, XTMP3.B16;         \ // XTMP3 = XTMP4 XOR (XTMP4 rol 15 {DCxx})
 	ORRW  a, b, y1;                               \
 	ANDW  a, b, h;                                \
 	ANDW  c, y1;                                  \
+	VSRI $24, XTMP3.S4, XTMP1.S4;                 \ // XTMP1 = XTMP4 rol 23 {DCBA}
 	ORRW  y1, h;                                  \ // h =  (a AND b) OR (a AND c) OR (b AND c)
-	VEOR XTMP3.B16, XTMP1.B16, XTMP1.B16;         \ // XTMP1 = XTMP4 XOR (XTMP4 rol 15 {DCxx}) XOR (XTMP4 rol 23 {DCxx})
 	ADDW  y0, h;                                  \ // h = FF(a, b, c) + d + SS2 + W' = tt1
-	; \
 	ANDW  e, f, y1;                               \
 	BICW  e, g, y3;                               \
+	VEOR XTMP3.B16, XTMP4.B16, XTMP3.B16;         \ // XTMP3 = XTMP4 XOR (XTMP4 rol 15 {DCBA})
 	ORRW  y3, y1;                                 \ // y1 = (e AND f) OR (NOT(e) AND g)
-	VEOR XTMP1.B16, XTMP0.B16, XTMP1.B16;         \ // XTMP1 = {W[3], W[2], ..., ...}
 	ADDW  y1, y2;                                 \ // y2 = GG(e, f, g) + h + SS1 + W = tt2 
-	; \
 	RORW  $23, b;                                 \
 	RORW  $13, f;                                 \
-	; \
+	VEOR XTMP3.B16, XTMP1.B16, XTMP1.B16;         \ // XTMP1 = XTMP4 XOR (XTMP4 rol 15 {DCBA}) XOR (XTMP4 rol 23 {DCBA})
 	RORW  $23, y2, y0;                            \
-	VEXT $8, XTMP2.B16, XTMP1.B16, XTMP3.B16;     \ // XTMP3 = {W[1], W[0], W[3], W[2]}, Vm = XTMP2, Vn = XTMP1
 	RORW  $15, y2, d;                             \
 	EORW  y0, d;                                  \
 	EORW  y2, d;                                  \ // d = P(tt2)	
-	VEXT $8, XTMP3.B16, XTMP3.B16, XWORD0.B16;    \ // XWORD0 = {W[3], W[2], W[1], W[0]}
+	VEOR XTMP1.B16, XTMP0.B16, XWORD0.B16;        \ // XWORD0 = {W[3], W[2], W[1], W[0]}
 
 // For rounds [16 - 64)
 #define DO_ROUND_N_1(disp, idx, const, a, b, c, d, e, f, g, h, W, Wt) \
