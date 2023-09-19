@@ -3,6 +3,23 @@
 
 #include "textflag.h"
 
+#include "sm3_const_asm.s"
+
+// xorm (mem), reg
+// Xor reg to mem using reg-mem xor and store
+#define xorm(P1, P2) \
+	XORL P2, P1; \
+	MOVL P1, P2
+
+#define a R8
+#define b R9
+#define c R10
+#define d R11
+#define e R12
+#define f R13
+#define g R14
+#define h DI
+
 // Wt = Mt; for 0 <= t <= 3
 #define MSGSCHEDULE0(index) \
 	MOVL	(index*4)(SI), AX; \
@@ -148,14 +165,14 @@ TEXT ·blockAMD64(SB), 0, $288-32
 	JEQ  end
 
 	MOVQ dig+0(FP), BP
-	MOVL (0*4)(BP), R8  // a = H0
-	MOVL (1*4)(BP), R9  // b = H1
-	MOVL (2*4)(BP), R10 // c = H2
-	MOVL (3*4)(BP), R11 // d = H3
-	MOVL (4*4)(BP), R12 // e = H4
-	MOVL (5*4)(BP), R13 // f = H5
-	MOVL (6*4)(BP), R14 // g = H6
-	MOVL (7*4)(BP), DI // h = H7
+	MOVL (0*4)(BP), a // a = H0
+	MOVL (1*4)(BP), b // b = H1
+	MOVL (2*4)(BP), c // c = H2
+	MOVL (3*4)(BP), d // d = H3
+	MOVL (4*4)(BP), e // e = H4
+	MOVL (5*4)(BP), f // f = H5
+	MOVL (6*4)(BP), g // g = H6
+	MOVL (7*4)(BP), h // h = H7
 
 loop:
 	MOVQ SP, BP
@@ -165,91 +182,83 @@ loop:
 	MSGSCHEDULE0(2)
 	MSGSCHEDULE0(3)
 
-	SM3ROUND0(0, 0x79cc4519, R8, R9, R10, R11, R12, R13, R14, DI)
-	SM3ROUND0(1, 0xf3988a32, DI, R8, R9, R10, R11, R12, R13, R14)
-	SM3ROUND0(2, 0xe7311465, R14, DI, R8, R9, R10, R11, R12, R13)
-	SM3ROUND0(3, 0xce6228cb, R13, R14, DI, R8, R9, R10, R11, R12)
-	SM3ROUND0(4, 0x9cc45197, R12, R13, R14, DI, R8, R9, R10, R11)
-	SM3ROUND0(5, 0x3988a32f, R11, R12, R13, R14, DI, R8, R9, R10)
-	SM3ROUND0(6, 0x7311465e, R10, R11, R12, R13, R14, DI, R8, R9)
-	SM3ROUND0(7, 0xe6228cbc, R9, R10, R11, R12, R13, R14, DI, R8)
-	SM3ROUND0(8, 0xcc451979, R8, R9, R10, R11, R12, R13, R14, DI)
-	SM3ROUND0(9, 0x988a32f3, DI, R8, R9, R10, R11, R12, R13, R14)
-	SM3ROUND0(10, 0x311465e7, R14, DI, R8, R9, R10, R11, R12, R13)
-	SM3ROUND0(11, 0x6228cbce, R13, R14, DI, R8, R9, R10, R11, R12)
+	SM3ROUND0(0, T0, a, b, c, d, e, f, g, h)
+	SM3ROUND0(1, T1, h, a, b, c, d, e, f, g)
+	SM3ROUND0(2, T2, g, h, a, b, c, d, e, f)
+	SM3ROUND0(3, T3, f, g, h, a, b, c, d, e)
+	SM3ROUND0(4, T4, e, f, g, h, a, b, c, d)
+	SM3ROUND0(5, T5, d, e, f, g, h, a, b, c)
+	SM3ROUND0(6, T6, c, d, e, f, g, h, a, b)
+	SM3ROUND0(7, T7, b, c, d, e, f, g, h, a)
+	SM3ROUND0(8, T8, a, b, c, d, e, f, g, h)
+	SM3ROUND0(9, T9, h, a, b, c, d, e, f, g)
+	SM3ROUND0(10, T10, g, h, a, b, c, d, e, f)
+	SM3ROUND0(11, T11, f, g, h, a, b, c, d, e)
   
-	SM3ROUND1(12, 0xc451979c, R12, R13, R14, DI, R8, R9, R10, R11)
-	SM3ROUND1(13, 0x88a32f39, R11, R12, R13, R14, DI, R8, R9, R10)
-	SM3ROUND1(14, 0x11465e73, R10, R11, R12, R13, R14, DI, R8, R9)
-	SM3ROUND1(15, 0x228cbce6, R9, R10, R11, R12, R13, R14, DI, R8)
+	SM3ROUND1(12, T12, e, f, g, h, a, b, c, d)
+	SM3ROUND1(13, T13, d, e, f, g, h, a, b, c)
+	SM3ROUND1(14, T14, c, d, e, f, g, h, a, b)
+	SM3ROUND1(15, T15, b, c, d, e, f, g, h, a)
   
-	SM3ROUND2(16, 0x9d8a7a87, R8, R9, R10, R11, R12, R13, R14, DI)
-	SM3ROUND2(17, 0x3b14f50f, DI, R8, R9, R10, R11, R12, R13, R14)
-	SM3ROUND2(18, 0x7629ea1e, R14, DI, R8, R9, R10, R11, R12, R13)
-	SM3ROUND2(19, 0xec53d43c, R13, R14, DI, R8, R9, R10, R11, R12)
-	SM3ROUND2(20, 0xd8a7a879, R12, R13, R14, DI, R8, R9, R10, R11)
-	SM3ROUND2(21, 0xb14f50f3, R11, R12, R13, R14, DI, R8, R9, R10)
-	SM3ROUND2(22, 0x629ea1e7, R10, R11, R12, R13, R14, DI, R8, R9)
-	SM3ROUND2(23, 0xc53d43ce, R9, R10, R11, R12, R13, R14, DI, R8)
-	SM3ROUND2(24, 0x8a7a879d, R8, R9, R10, R11, R12, R13, R14, DI)
-	SM3ROUND2(25, 0x14f50f3b, DI, R8, R9, R10, R11, R12, R13, R14)
-	SM3ROUND2(26, 0x29ea1e76, R14, DI, R8, R9, R10, R11, R12, R13)
-	SM3ROUND2(27, 0x53d43cec, R13, R14, DI, R8, R9, R10, R11, R12)
-	SM3ROUND2(28, 0xa7a879d8, R12, R13, R14, DI, R8, R9, R10, R11)
-	SM3ROUND2(29, 0x4f50f3b1, R11, R12, R13, R14, DI, R8, R9, R10)
-	SM3ROUND2(30, 0x9ea1e762, R10, R11, R12, R13, R14, DI, R8, R9)
-	SM3ROUND2(31, 0x3d43cec5, R9, R10, R11, R12, R13, R14, DI, R8)
-	SM3ROUND2(32, 0x7a879d8a, R8, R9, R10, R11, R12, R13, R14, DI)
-	SM3ROUND2(33, 0xf50f3b14, DI, R8, R9, R10, R11, R12, R13, R14)
-	SM3ROUND2(34, 0xea1e7629, R14, DI, R8, R9, R10, R11, R12, R13)
-	SM3ROUND2(35, 0xd43cec53, R13, R14, DI, R8, R9, R10, R11, R12)
-	SM3ROUND2(36, 0xa879d8a7, R12, R13, R14, DI, R8, R9, R10, R11)
-	SM3ROUND2(37, 0x50f3b14f, R11, R12, R13, R14, DI, R8, R9, R10)
-	SM3ROUND2(38, 0xa1e7629e, R10, R11, R12, R13, R14, DI, R8, R9)
-	SM3ROUND2(39, 0x43cec53d, R9, R10, R11, R12, R13, R14, DI, R8)
-	SM3ROUND2(40, 0x879d8a7a, R8, R9, R10, R11, R12, R13, R14, DI)
-	SM3ROUND2(41, 0xf3b14f5, DI, R8, R9, R10, R11, R12, R13, R14)
-	SM3ROUND2(42, 0x1e7629ea, R14, DI, R8, R9, R10, R11, R12, R13)
-	SM3ROUND2(43, 0x3cec53d4, R13, R14, DI, R8, R9, R10, R11, R12)
-	SM3ROUND2(44, 0x79d8a7a8, R12, R13, R14, DI, R8, R9, R10, R11)
-	SM3ROUND2(45, 0xf3b14f50, R11, R12, R13, R14, DI, R8, R9, R10)
-	SM3ROUND2(46, 0xe7629ea1, R10, R11, R12, R13, R14, DI, R8, R9)
-	SM3ROUND2(47, 0xcec53d43, R9, R10, R11, R12, R13, R14, DI, R8)
-	SM3ROUND2(48, 0x9d8a7a87, R8, R9, R10, R11, R12, R13, R14, DI)
-	SM3ROUND2(49, 0x3b14f50f, DI, R8, R9, R10, R11, R12, R13, R14)
-	SM3ROUND2(50, 0x7629ea1e, R14, DI, R8, R9, R10, R11, R12, R13)
-	SM3ROUND2(51, 0xec53d43c, R13, R14, DI, R8, R9, R10, R11, R12)
-	SM3ROUND2(52, 0xd8a7a879, R12, R13, R14, DI, R8, R9, R10, R11)
-	SM3ROUND2(53, 0xb14f50f3, R11, R12, R13, R14, DI, R8, R9, R10)
-	SM3ROUND2(54, 0x629ea1e7, R10, R11, R12, R13, R14, DI, R8, R9)
-	SM3ROUND2(55, 0xc53d43ce, R9, R10, R11, R12, R13, R14, DI, R8)
-	SM3ROUND2(56, 0x8a7a879d, R8, R9, R10, R11, R12, R13, R14, DI)
-	SM3ROUND2(57, 0x14f50f3b, DI, R8, R9, R10, R11, R12, R13, R14)
-	SM3ROUND2(58, 0x29ea1e76, R14, DI, R8, R9, R10, R11, R12, R13)
-	SM3ROUND2(59, 0x53d43cec, R13, R14, DI, R8, R9, R10, R11, R12)
-	SM3ROUND2(60, 0xa7a879d8, R12, R13, R14, DI, R8, R9, R10, R11)
-	SM3ROUND2(61, 0x4f50f3b1, R11, R12, R13, R14, DI, R8, R9, R10)
-	SM3ROUND2(62, 0x9ea1e762, R10, R11, R12, R13, R14, DI, R8, R9)
-	SM3ROUND2(63, 0x3d43cec5, R9, R10, R11, R12, R13, R14, DI, R8)
+	SM3ROUND2(16, T16, a, b, c, d, e, f, g, h)
+	SM3ROUND2(17, T17, h, a, b, c, d, e, f, g)
+	SM3ROUND2(18, T18, g, h, a, b, c, d, e, f)
+	SM3ROUND2(19, T19, f, g, h, a, b, c, d, e)
+	SM3ROUND2(20, T20, e, f, g, h, a, b, c, d)
+	SM3ROUND2(21, T21, d, e, f, g, h, a, b, c)
+	SM3ROUND2(22, T22, c, d, e, f, g, h, a, b)
+	SM3ROUND2(23, T23, b, c, d, e, f, g, h, a)
+	SM3ROUND2(24, T24, a, b, c, d, e, f, g, h)
+	SM3ROUND2(25, T25, h, a, b, c, d, e, f, g)
+	SM3ROUND2(26, T26, g, h, a, b, c, d, e, f)
+	SM3ROUND2(27, T27, f, g, h, a, b, c, d, e)
+	SM3ROUND2(28, T28, e, f, g, h, a, b, c, d)
+	SM3ROUND2(29, T29, d, e, f, g, h, a, b, c)
+	SM3ROUND2(30, T30, c, d, e, f, g, h, a, b)
+	SM3ROUND2(31, T31, b, c, d, e, f, g, h, a)
+	SM3ROUND2(32, T32, a, b, c, d, e, f, g, h)
+	SM3ROUND2(33, T33, h, a, b, c, d, e, f, g)
+	SM3ROUND2(34, T34, g, h, a, b, c, d, e, f)
+	SM3ROUND2(35, T35, f, g, h, a, b, c, d, e)
+	SM3ROUND2(36, T36, e, f, g, h, a, b, c, d)
+	SM3ROUND2(37, T37, d, e, f, g, h, a, b, c)
+	SM3ROUND2(38, T38, c, d, e, f, g, h, a, b)
+	SM3ROUND2(39, T39, b, c, d, e, f, g, h, a)
+	SM3ROUND2(40, T40, a, b, c, d, e, f, g, h)
+	SM3ROUND2(41, T41, h, a, b, c, d, e, f, g)
+	SM3ROUND2(42, T42, g, h, a, b, c, d, e, f)
+	SM3ROUND2(43, T43, f, g, h, a, b, c, d, e)
+	SM3ROUND2(44, T44, e, f, g, h, a, b, c, d)
+	SM3ROUND2(45, T45, d, e, f, g, h, a, b, c)
+	SM3ROUND2(46, T46, c, d, e, f, g, h, a, b)
+	SM3ROUND2(47, T47, b, c, d, e, f, g, h, a)
+	SM3ROUND2(48, T48, a, b, c, d, e, f, g, h)
+	SM3ROUND2(49, T49, h, a, b, c, d, e, f, g)
+	SM3ROUND2(50, T50, g, h, a, b, c, d, e, f)
+	SM3ROUND2(51, T51, f, g, h, a, b, c, d, e)
+	SM3ROUND2(52, T52, e, f, g, h, a, b, c, d)
+	SM3ROUND2(53, T53, d, e, f, g, h, a, b, c)
+	SM3ROUND2(54, T54, c, d, e, f, g, h, a, b)
+	SM3ROUND2(55, T55, b, c, d, e, f, g, h, a)
+	SM3ROUND2(56, T56, a, b, c, d, e, f, g, h)
+	SM3ROUND2(57, T57, h, a, b, c, d, e, f, g)
+	SM3ROUND2(58, T58, g, h, a, b, c, d, e, f)
+	SM3ROUND2(59, T59, f, g, h, a, b, c, d, e)
+	SM3ROUND2(60, T60, e, f, g, h, a, b, c, d)
+	SM3ROUND2(61, T61, d, e, f, g, h, a, b, c)
+	SM3ROUND2(62, T62, c, d, e, f, g, h, a, b)
+	SM3ROUND2(63, T63, b, c, d, e, f, g, h, a)
 
-	MOVQ dig+0(FP), BP
+	MOVQ hg+0(FP), BP
 
-	XORL (0*4)(BP), R8  // H0 = a XOR H0
-	MOVL R8, (0*4)(BP)
-	XORL (1*4)(BP), R9  // H1 = b XOR H1
-	MOVL R9, (1*4)(BP)
-	XORL (2*4)(BP), R10 // H2 = c XOR H2
-	MOVL R10, (2*4)(BP)
-	XORL (3*4)(BP), R11 // H3 = d XOR H3
-	MOVL R11, (3*4)(BP)
-	XORL (4*4)(BP), R12 // H4 = e XOR H4
-	MOVL R12, (4*4)(BP)
-	XORL (5*4)(BP), R13 // H5 = f XOR H5
-	MOVL R13, (5*4)(BP)
-	XORL (6*4)(BP), R14 // H6 = g XOR H6
-	MOVL R14, (6*4)(BP)
-	XORL (7*4)(BP), DI // H7 = h XOR H7
-	MOVL DI, (7*4)(BP)
+	xorm(  0(BP), a)
+	xorm(  4(BP), b)
+	xorm(  8(BP), c)
+	xorm( 12(BP), d)
+	xorm( 16(BP), e)
+	xorm( 20(BP), f)
+	xorm( 24(BP), g)
+	xorm( 28(BP), h)
 
 	ADDQ $64, SI
 	CMPQ SI, 272(SP)

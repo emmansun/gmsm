@@ -3,6 +3,8 @@
 
 #include "textflag.h"
 
+#include "sm3_const_asm.s"
+
 #define XWORD0 V0
 #define XWORD1 V1
 #define XWORD2 V2
@@ -399,117 +401,117 @@ loop:
 schedule_compress: // for w0 - w47
 	// Do 4 rounds and scheduling
 	VEOR XWORD0.B16, XWORD1.B16, Wt.B16
-	ROUND_AND_SCHED_N_0_0(0*16, 0x79cc4519, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
-	ROUND_AND_SCHED_N_0_1(0*16, 0xf3988a32, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
-	ROUND_AND_SCHED_N_0_2(0*16, 0xe7311465, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
-	ROUND_AND_SCHED_N_0_3(0*16, 0xce6228cb, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
+	ROUND_AND_SCHED_N_0_0(0*16, T0, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
+	ROUND_AND_SCHED_N_0_1(0*16, T1, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
+	ROUND_AND_SCHED_N_0_2(0*16, T2, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
+	ROUND_AND_SCHED_N_0_3(0*16, T3, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
 
 	// Do 4 rounds and scheduling
 	VEOR XWORD1.B16, XWORD2.B16, Wt.B16
-	ROUND_AND_SCHED_N_0_0(0*16, 0x9cc45197, e, f, g, h, a, b, c, d, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
-	ROUND_AND_SCHED_N_0_1(0*16, 0x3988a32f, d, e, f, g, h, a, b, c, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
-	ROUND_AND_SCHED_N_0_2(0*16, 0x7311465e, c, d, e, f, g, h, a, b, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
-	ROUND_AND_SCHED_N_0_3(0*16, 0xe6228cbc, b, c, d, e, f, g, h, a, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
+	ROUND_AND_SCHED_N_0_0(0*16, T4, e, f, g, h, a, b, c, d, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
+	ROUND_AND_SCHED_N_0_1(0*16, T5, d, e, f, g, h, a, b, c, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
+	ROUND_AND_SCHED_N_0_2(0*16, T6, c, d, e, f, g, h, a, b, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
+	ROUND_AND_SCHED_N_0_3(0*16, T7, b, c, d, e, f, g, h, a, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
 
 	// Do 4 rounds and scheduling
 	VEOR XWORD2.B16, XWORD3.B16, Wt.B16
-	ROUND_AND_SCHED_N_0_0(0*16, 0xcc451979, a, b, c, d, e, f, g, h, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
-	ROUND_AND_SCHED_N_0_1(0*16, 0x988a32f3, h, a, b, c, d, e, f, g, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
-	ROUND_AND_SCHED_N_0_2(0*16, 0x311465e7, g, h, a, b, c, d, e, f, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
-	ROUND_AND_SCHED_N_0_3(0*16, 0x6228cbce, f, g, h, a, b, c, d, e, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
+	ROUND_AND_SCHED_N_0_0(0*16, T8, a, b, c, d, e, f, g, h, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
+	ROUND_AND_SCHED_N_0_1(0*16, T9, h, a, b, c, d, e, f, g, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
+	ROUND_AND_SCHED_N_0_2(0*16, T10, g, h, a, b, c, d, e, f, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
+	ROUND_AND_SCHED_N_0_3(0*16, T11, f, g, h, a, b, c, d, e, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
 
 	// Do 4 rounds and scheduling
 	VEOR XWORD3.B16, XWORD0.B16, Wt.B16
-	ROUND_AND_SCHED_N_0_0(0*16, 0xc451979c, e, f, g, h, a, b, c, d, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
-	ROUND_AND_SCHED_N_0_1(0*16, 0x88a32f39, d, e, f, g, h, a, b, c, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
-	ROUND_AND_SCHED_N_0_2(0*16, 0x11465e73, c, d, e, f, g, h, a, b, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
-	ROUND_AND_SCHED_N_0_3(0*16, 0x228cbce6, b, c, d, e, f, g, h, a, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
+	ROUND_AND_SCHED_N_0_0(0*16, T12, e, f, g, h, a, b, c, d, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
+	ROUND_AND_SCHED_N_0_1(0*16, T13, d, e, f, g, h, a, b, c, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
+	ROUND_AND_SCHED_N_0_2(0*16, T14, c, d, e, f, g, h, a, b, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
+	ROUND_AND_SCHED_N_0_3(0*16, T15, b, c, d, e, f, g, h, a, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
 
 	// Do 4 rounds and scheduling
 	VEOR XWORD0.B16, XWORD1.B16, Wt.B16
-	ROUND_AND_SCHED_N_1_0(0*16, 0x9d8a7a87, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
-	ROUND_AND_SCHED_N_1_1(0*16, 0x3b14f50f, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
-	ROUND_AND_SCHED_N_1_2(0*16, 0x7629ea1e, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
-	ROUND_AND_SCHED_N_1_3(0*16, 0xec53d43c, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
+	ROUND_AND_SCHED_N_1_0(0*16, T16, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
+	ROUND_AND_SCHED_N_1_1(0*16, T17, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
+	ROUND_AND_SCHED_N_1_2(0*16, T18, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
+	ROUND_AND_SCHED_N_1_3(0*16, T19, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
 
 	// Do 4 rounds and scheduling
 	VEOR XWORD1.B16, XWORD2.B16, Wt.B16
-	ROUND_AND_SCHED_N_1_0(0*16, 0xd8a7a879, e, f, g, h, a, b, c, d, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
-	ROUND_AND_SCHED_N_1_1(0*16, 0xb14f50f3, d, e, f, g, h, a, b, c, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
-	ROUND_AND_SCHED_N_1_2(0*16, 0x629ea1e7, c, d, e, f, g, h, a, b, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
-	ROUND_AND_SCHED_N_1_3(0*16, 0xc53d43ce, b, c, d, e, f, g, h, a, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
+	ROUND_AND_SCHED_N_1_0(0*16, T20, e, f, g, h, a, b, c, d, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
+	ROUND_AND_SCHED_N_1_1(0*16, T21, d, e, f, g, h, a, b, c, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
+	ROUND_AND_SCHED_N_1_2(0*16, T22, c, d, e, f, g, h, a, b, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
+	ROUND_AND_SCHED_N_1_3(0*16, T23, b, c, d, e, f, g, h, a, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
 
 	// Do 4 rounds and scheduling
 	VEOR XWORD2.B16, XWORD3.B16, Wt.B16
-	ROUND_AND_SCHED_N_1_0(0*16, 0x8a7a879d, a, b, c, d, e, f, g, h, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
-	ROUND_AND_SCHED_N_1_1(0*16, 0x14f50f3b, h, a, b, c, d, e, f, g, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
-	ROUND_AND_SCHED_N_1_2(0*16, 0x29ea1e76, g, h, a, b, c, d, e, f, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
-	ROUND_AND_SCHED_N_1_3(0*16, 0x53d43cec, f, g, h, a, b, c, d, e, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
+	ROUND_AND_SCHED_N_1_0(0*16, T24, a, b, c, d, e, f, g, h, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
+	ROUND_AND_SCHED_N_1_1(0*16, T25, h, a, b, c, d, e, f, g, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
+	ROUND_AND_SCHED_N_1_2(0*16, T26, g, h, a, b, c, d, e, f, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
+	ROUND_AND_SCHED_N_1_3(0*16, T27, f, g, h, a, b, c, d, e, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
 
 	// Do 4 rounds and scheduling
 	VEOR XWORD3.B16, XWORD0.B16, Wt.B16
-	ROUND_AND_SCHED_N_1_0(0*16, 0xa7a879d8, e, f, g, h, a, b, c, d, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
-	ROUND_AND_SCHED_N_1_1(0*16, 0x4f50f3b1, d, e, f, g, h, a, b, c, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
-	ROUND_AND_SCHED_N_1_2(0*16, 0x9ea1e762, c, d, e, f, g, h, a, b, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
-	ROUND_AND_SCHED_N_1_3(0*16, 0x3d43cec5, b, c, d, e, f, g, h, a, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
+	ROUND_AND_SCHED_N_1_0(0*16, T28, e, f, g, h, a, b, c, d, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
+	ROUND_AND_SCHED_N_1_1(0*16, T29, d, e, f, g, h, a, b, c, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
+	ROUND_AND_SCHED_N_1_2(0*16, T30, c, d, e, f, g, h, a, b, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
+	ROUND_AND_SCHED_N_1_3(0*16, T31, b, c, d, e, f, g, h, a, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
 
 	// Do 4 rounds and scheduling
 	VEOR XWORD0.B16, XWORD1.B16, Wt.B16
-	ROUND_AND_SCHED_N_1_0(0*16, 0x7a879d8a, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
-	ROUND_AND_SCHED_N_1_1(0*16, 0xf50f3b14, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
-	ROUND_AND_SCHED_N_1_2(0*16, 0xea1e7629, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
-	ROUND_AND_SCHED_N_1_3(0*16, 0xd43cec53, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
+	ROUND_AND_SCHED_N_1_0(0*16, T32, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
+	ROUND_AND_SCHED_N_1_1(0*16, T33, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
+	ROUND_AND_SCHED_N_1_2(0*16, T34, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
+	ROUND_AND_SCHED_N_1_3(0*16, T35, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
 
 	// Do 4 rounds and scheduling
 	VEOR XWORD1.B16, XWORD2.B16, Wt.B16
-	ROUND_AND_SCHED_N_1_0(0*16, 0xa879d8a7, e, f, g, h, a, b, c, d, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
-	ROUND_AND_SCHED_N_1_1(0*16, 0x50f3b14f, d, e, f, g, h, a, b, c, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
-	ROUND_AND_SCHED_N_1_2(0*16, 0xa1e7629e, c, d, e, f, g, h, a, b, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
-	ROUND_AND_SCHED_N_1_3(0*16, 0x43cec53d, b, c, d, e, f, g, h, a, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
+	ROUND_AND_SCHED_N_1_0(0*16, T36, e, f, g, h, a, b, c, d, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
+	ROUND_AND_SCHED_N_1_1(0*16, T37, d, e, f, g, h, a, b, c, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
+	ROUND_AND_SCHED_N_1_2(0*16, T38, c, d, e, f, g, h, a, b, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
+	ROUND_AND_SCHED_N_1_3(0*16, T39, b, c, d, e, f, g, h, a, XWORD1, XWORD2, XWORD3, XWORD0, Wt)
 
 	// Do 4 rounds and scheduling
 	VEOR XWORD2.B16, XWORD3.B16, Wt.B16
-	ROUND_AND_SCHED_N_1_0(0*16, 0x879d8a7a, a, b, c, d, e, f, g, h, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
-	ROUND_AND_SCHED_N_1_1(0*16, 0xf3b14f5, h, a, b, c, d, e, f, g, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
-	ROUND_AND_SCHED_N_1_2(0*16, 0x1e7629ea, g, h, a, b, c, d, e, f, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
-	ROUND_AND_SCHED_N_1_3(0*16, 0x3cec53d4, f, g, h, a, b, c, d, e, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
+	ROUND_AND_SCHED_N_1_0(0*16, T40, a, b, c, d, e, f, g, h, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
+	ROUND_AND_SCHED_N_1_1(0*16, T41, h, a, b, c, d, e, f, g, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
+	ROUND_AND_SCHED_N_1_2(0*16, T42, g, h, a, b, c, d, e, f, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
+	ROUND_AND_SCHED_N_1_3(0*16, T43, f, g, h, a, b, c, d, e, XWORD2, XWORD3, XWORD0, XWORD1, Wt)
 
 	// Do 4 rounds and scheduling
 	VEOR XWORD3.B16, XWORD0.B16, Wt.B16
-	ROUND_AND_SCHED_N_1_0(0*16, 0x79d8a7a8, e, f, g, h, a, b, c, d, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
-	ROUND_AND_SCHED_N_1_1(0*16, 0xf3b14f50, d, e, f, g, h, a, b, c, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
-	ROUND_AND_SCHED_N_1_2(0*16, 0xe7629ea1, c, d, e, f, g, h, a, b, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
-	ROUND_AND_SCHED_N_1_3(0*16, 0xcec53d43, b, c, d, e, f, g, h, a, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
+	ROUND_AND_SCHED_N_1_0(0*16, T44, e, f, g, h, a, b, c, d, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
+	ROUND_AND_SCHED_N_1_1(0*16, T45, d, e, f, g, h, a, b, c, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
+	ROUND_AND_SCHED_N_1_2(0*16, T46, c, d, e, f, g, h, a, b, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
+	ROUND_AND_SCHED_N_1_3(0*16, T47, b, c, d, e, f, g, h, a, XWORD3, XWORD0, XWORD1, XWORD2, Wt)
 
 	// w48 - w63 processed with only 4 rounds scheduling (last 16 rounds)
 	// Do 4 rounds and scheduling
 	VEOR XWORD0.B16, XWORD1.B16, Wt.B16
-	ROUND_AND_SCHED_N_1_0(0*16, 0x9d8a7a87, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
-	ROUND_AND_SCHED_N_1_1(0*16, 0x3b14f50f, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
-	ROUND_AND_SCHED_N_1_2(0*16, 0x7629ea1e, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
-	ROUND_AND_SCHED_N_1_3(0*16, 0xec53d43c, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3, Wt)  
+	ROUND_AND_SCHED_N_1_0(0*16, T48, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
+	ROUND_AND_SCHED_N_1_1(0*16, T49, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
+	ROUND_AND_SCHED_N_1_2(0*16, T50, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
+	ROUND_AND_SCHED_N_1_3(0*16, T51, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3, Wt)  
 
 	// w52 - w63 processed with no scheduling (last 12 rounds)
 	// Do 4 rounds
 	VEOR XWORD1.B16, XWORD2.B16, Wt.B16
-	DO_ROUND_N_1(0*16, 0, 0xd8a7a879, e, f, g, h, a, b, c, d, XWORD1, Wt)
-	DO_ROUND_N_1(0*16, 1, 0xb14f50f3, d, e, f, g, h, a, b, c, XWORD1, Wt)
-	DO_ROUND_N_1(0*16, 2, 0x629ea1e7, c, d, e, f, g, h, a, b, XWORD1, Wt)
-	DO_ROUND_N_1(0*16, 3, 0xc53d43ce, b, c, d, e, f, g, h, a, XWORD1, Wt)
+	DO_ROUND_N_1(0*16, 0, T52, e, f, g, h, a, b, c, d, XWORD1, Wt)
+	DO_ROUND_N_1(0*16, 1, T53, d, e, f, g, h, a, b, c, XWORD1, Wt)
+	DO_ROUND_N_1(0*16, 2, T54, c, d, e, f, g, h, a, b, XWORD1, Wt)
+	DO_ROUND_N_1(0*16, 3, T55, b, c, d, e, f, g, h, a, XWORD1, Wt)
 
 	// Do 4 rounds
 	VEOR XWORD2.B16, XWORD3.B16, Wt.B16
-	DO_ROUND_N_1(0*16, 0, 0x8a7a879d, a, b, c, d, e, f, g, h, XWORD2, Wt)
-	DO_ROUND_N_1(0*16, 1, 0x14f50f3b, h, a, b, c, d, e, f, g, XWORD2, Wt)
-	DO_ROUND_N_1(0*16, 2, 0x29ea1e76, g, h, a, b, c, d, e, f, XWORD2, Wt)
-	DO_ROUND_N_1(0*16, 3, 0x53d43cec, f, g, h, a, b, c, d, e, XWORD2, Wt)
+	DO_ROUND_N_1(0*16, 0, T56, a, b, c, d, e, f, g, h, XWORD2, Wt)
+	DO_ROUND_N_1(0*16, 1, T57, h, a, b, c, d, e, f, g, XWORD2, Wt)
+	DO_ROUND_N_1(0*16, 2, T58, g, h, a, b, c, d, e, f, XWORD2, Wt)
+	DO_ROUND_N_1(0*16, 3, T59, f, g, h, a, b, c, d, e, XWORD2, Wt)
 
 	// Do 4 rounds
 	VEOR XWORD3.B16, XWORD0.B16, Wt.B16
-	DO_ROUND_N_1(0*16, 0, 0xa7a879d8, e, f, g, h, a, b, c, d, XWORD3, Wt)
-	DO_ROUND_N_1(0*16, 1, 0x4f50f3b1, d, e, f, g, h, a, b, c, XWORD3, Wt)
-	DO_ROUND_N_1(0*16, 2, 0x9ea1e762, c, d, e, f, g, h, a, b, XWORD3, Wt)
-	DO_ROUND_N_1(0*16, 3, 0x3d43cec5, b, c, d, e, f, g, h, a, XWORD3, Wt)
+	DO_ROUND_N_1(0*16, 0, T60, e, f, g, h, a, b, c, d, XWORD3, Wt)
+	DO_ROUND_N_1(0*16, 1, T61, d, e, f, g, h, a, b, c, XWORD3, Wt)
+	DO_ROUND_N_1(0*16, 2, T62, c, d, e, f, g, h, a, b, XWORD3, Wt)
+	DO_ROUND_N_1(0*16, 3, T63, b, c, d, e, f, g, h, a, XWORD3, Wt)
 
 	EORW a1, a  // H0 = a XOR H0
 	EORW b1, b  // H1 = b XOR H1

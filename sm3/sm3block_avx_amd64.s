@@ -3,6 +3,7 @@
 
 #include "textflag.h"
 
+#include "sm3_const_asm.s"
 // Definitions for AVX version
 
 // xorm (mem), reg
@@ -425,148 +426,148 @@ avx_schedule_compress: // for w0 - w47
 	VMOVDQU XWORD0, (_XFER + 0*16)(SP)
 	VPXOR  XWORD0, XWORD1, XFER
 	VMOVDQU XFER, (_XFER + 1*16)(SP)
-	ROUND_AND_SCHED_N_0_0(_XFER, 0x79cc4519, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_0_1(_XFER, 0xf3988a32, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_0_2(_XFER, 0xe7311465, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_0_3(_XFER, 0xce6228cb, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_0_0(_XFER, T0, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_0_1(_XFER, T1, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_0_2(_XFER, T2, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_0_3(_XFER, T3, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3)
 
 	// Do 4 rounds and scheduling
 	VMOVDQU XWORD1, (_XFER + 0*16)(SP)
 	VPXOR  XWORD1, XWORD2, XFER
 	VMOVDQU XFER, (_XFER + 1*16)(SP)
-	ROUND_AND_SCHED_N_0_0(_XFER, 0x9cc45197, e, f, g, h, a, b, c, d, XWORD1, XWORD2, XWORD3, XWORD0)
-	ROUND_AND_SCHED_N_0_1(_XFER, 0x3988a32f, d, e, f, g, h, a, b, c, XWORD1, XWORD2, XWORD3, XWORD0)
-	ROUND_AND_SCHED_N_0_2(_XFER, 0x7311465e, c, d, e, f, g, h, a, b, XWORD1, XWORD2, XWORD3, XWORD0)
-	ROUND_AND_SCHED_N_0_3(_XFER, 0xe6228cbc, b, c, d, e, f, g, h, a, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_0_0(_XFER, T4, e, f, g, h, a, b, c, d, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_0_1(_XFER, T5, d, e, f, g, h, a, b, c, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_0_2(_XFER, T6, c, d, e, f, g, h, a, b, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_0_3(_XFER, T7, b, c, d, e, f, g, h, a, XWORD1, XWORD2, XWORD3, XWORD0)
 
 	// Do 4 rounds and scheduling
 	VMOVDQU XWORD2, (_XFER + 0*16)(SP)
 	VPXOR  XWORD2, XWORD3, XFER
 	VMOVDQU XFER, (_XFER + 1*16)(SP)
-	ROUND_AND_SCHED_N_0_0(_XFER, 0xcc451979, a, b, c, d, e, f, g, h, XWORD2, XWORD3, XWORD0, XWORD1)
-	ROUND_AND_SCHED_N_0_1(_XFER, 0x988a32f3, h, a, b, c, d, e, f, g, XWORD2, XWORD3, XWORD0, XWORD1)
-	ROUND_AND_SCHED_N_0_2(_XFER, 0x311465e7, g, h, a, b, c, d, e, f, XWORD2, XWORD3, XWORD0, XWORD1)
-	ROUND_AND_SCHED_N_0_3(_XFER, 0x6228cbce, f, g, h, a, b, c, d, e, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_0_0(_XFER, T8, a, b, c, d, e, f, g, h, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_0_1(_XFER, T9, h, a, b, c, d, e, f, g, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_0_2(_XFER, T10, g, h, a, b, c, d, e, f, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_0_3(_XFER, T11, f, g, h, a, b, c, d, e, XWORD2, XWORD3, XWORD0, XWORD1)
 
 	// Do 4 rounds and scheduling
 	VMOVDQU XWORD3, (_XFER + 0*16)(SP)
 	VPXOR  XWORD3, XWORD0, XFER
 	VMOVDQU XFER, (_XFER + 1*16)(SP)
-	ROUND_AND_SCHED_N_0_0(_XFER, 0xc451979c, e, f, g, h, a, b, c, d, XWORD3, XWORD0, XWORD1, XWORD2)
-	ROUND_AND_SCHED_N_0_1(_XFER, 0x88a32f39, d, e, f, g, h, a, b, c, XWORD3, XWORD0, XWORD1, XWORD2)
-	ROUND_AND_SCHED_N_0_2(_XFER, 0x11465e73, c, d, e, f, g, h, a, b, XWORD3, XWORD0, XWORD1, XWORD2)
-	ROUND_AND_SCHED_N_0_3(_XFER, 0x228cbce6, b, c, d, e, f, g, h, a, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_0_0(_XFER, T12, e, f, g, h, a, b, c, d, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_0_1(_XFER, T13, d, e, f, g, h, a, b, c, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_0_2(_XFER, T14, c, d, e, f, g, h, a, b, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_0_3(_XFER, T15, b, c, d, e, f, g, h, a, XWORD3, XWORD0, XWORD1, XWORD2)
 
 	// Do 4 rounds and scheduling
 	VMOVDQU XWORD0, (_XFER + 0*16)(SP)
 	VPXOR  XWORD0, XWORD1, XFER
 	VMOVDQU XFER, (_XFER + 1*16)(SP)
-	ROUND_AND_SCHED_N_1_0(_XFER, 0x9d8a7a87, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_1_1(_XFER, 0x3b14f50f, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_1_2(_XFER, 0x7629ea1e, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_1_3(_XFER, 0xec53d43c, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_0(_XFER, T16, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_1(_XFER, T17, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_2(_XFER, T18, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_3(_XFER, T19, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3)
 
 	// Do 4 rounds and scheduling
 	VMOVDQU XWORD1, (_XFER + 0*16)(SP)
 	VPXOR  XWORD1, XWORD2, XFER
 	VMOVDQU XFER, (_XFER + 1*16)(SP)
-	ROUND_AND_SCHED_N_1_0(_XFER, 0xd8a7a879, e, f, g, h, a, b, c, d, XWORD1, XWORD2, XWORD3, XWORD0)
-	ROUND_AND_SCHED_N_1_1(_XFER, 0xb14f50f3, d, e, f, g, h, a, b, c, XWORD1, XWORD2, XWORD3, XWORD0)
-	ROUND_AND_SCHED_N_1_2(_XFER, 0x629ea1e7, c, d, e, f, g, h, a, b, XWORD1, XWORD2, XWORD3, XWORD0)
-	ROUND_AND_SCHED_N_1_3(_XFER, 0xc53d43ce, b, c, d, e, f, g, h, a, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_1_0(_XFER, T20, e, f, g, h, a, b, c, d, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_1_1(_XFER, T21, d, e, f, g, h, a, b, c, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_1_2(_XFER, T22, c, d, e, f, g, h, a, b, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_1_3(_XFER, T23, b, c, d, e, f, g, h, a, XWORD1, XWORD2, XWORD3, XWORD0)
 
 	// Do 4 rounds and scheduling
 	VMOVDQU XWORD2, (_XFER + 0*16)(SP)
 	VPXOR  XWORD2, XWORD3, XFER
 	VMOVDQU XFER, (_XFER + 1*16)(SP)
 
-	ROUND_AND_SCHED_N_1_0(_XFER, 0x8a7a879d, a, b, c, d, e, f, g, h, XWORD2, XWORD3, XWORD0, XWORD1)
-	ROUND_AND_SCHED_N_1_1(_XFER, 0x14f50f3b, h, a, b, c, d, e, f, g, XWORD2, XWORD3, XWORD0, XWORD1)
-	ROUND_AND_SCHED_N_1_2(_XFER, 0x29ea1e76, g, h, a, b, c, d, e, f, XWORD2, XWORD3, XWORD0, XWORD1)
-	ROUND_AND_SCHED_N_1_3(_XFER, 0x53d43cec, f, g, h, a, b, c, d, e, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_1_0(_XFER, T24, a, b, c, d, e, f, g, h, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_1_1(_XFER, T25, h, a, b, c, d, e, f, g, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_1_2(_XFER, T26, g, h, a, b, c, d, e, f, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_1_3(_XFER, T27, f, g, h, a, b, c, d, e, XWORD2, XWORD3, XWORD0, XWORD1)
 
 	// Do 4 rounds and scheduling
 	VMOVDQU XWORD3, (_XFER + 0*16)(SP)
 	VPXOR  XWORD3, XWORD0, XFER
 	VMOVDQU XFER, (_XFER + 1*16)(SP)
-	ROUND_AND_SCHED_N_1_0(_XFER, 0xa7a879d8, e, f, g, h, a, b, c, d, XWORD3, XWORD0, XWORD1, XWORD2)
-	ROUND_AND_SCHED_N_1_1(_XFER, 0x4f50f3b1, d, e, f, g, h, a, b, c, XWORD3, XWORD0, XWORD1, XWORD2)
-	ROUND_AND_SCHED_N_1_2(_XFER, 0x9ea1e762, c, d, e, f, g, h, a, b, XWORD3, XWORD0, XWORD1, XWORD2)
-	ROUND_AND_SCHED_N_1_3(_XFER, 0x3d43cec5, b, c, d, e, f, g, h, a, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_1_0(_XFER, T28, e, f, g, h, a, b, c, d, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_1_1(_XFER, T29, d, e, f, g, h, a, b, c, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_1_2(_XFER, T30, c, d, e, f, g, h, a, b, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_1_3(_XFER, T31, b, c, d, e, f, g, h, a, XWORD3, XWORD0, XWORD1, XWORD2)
 
 	// Do 4 rounds and scheduling
 	VMOVDQU XWORD0, (_XFER + 0*16)(SP)
 	VPXOR  XWORD0, XWORD1, XFER
 	VMOVDQU XFER, (_XFER + 1*16)(SP)
-	ROUND_AND_SCHED_N_1_0(_XFER, 0x7a879d8a, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_1_1(_XFER, 0xf50f3b14, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_1_2(_XFER, 0xea1e7629, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_1_3(_XFER, 0xd43cec53, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_0(_XFER, T32, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_1(_XFER, T33, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_2(_XFER, T34, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_3(_XFER, T35, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3)
 
 	// Do 4 rounds and scheduling
 	VMOVDQU XWORD1, (_XFER + 0*16)(SP)
 	VPXOR  XWORD1, XWORD2, XFER
 	VMOVDQU XFER, (_XFER + 1*16)(SP)
-	ROUND_AND_SCHED_N_1_0(_XFER, 0xa879d8a7, e, f, g, h, a, b, c, d, XWORD1, XWORD2, XWORD3, XWORD0)
-	ROUND_AND_SCHED_N_1_1(_XFER, 0x50f3b14f, d, e, f, g, h, a, b, c, XWORD1, XWORD2, XWORD3, XWORD0)
-	ROUND_AND_SCHED_N_1_2(_XFER, 0xa1e7629e, c, d, e, f, g, h, a, b, XWORD1, XWORD2, XWORD3, XWORD0)
-	ROUND_AND_SCHED_N_1_3(_XFER, 0x43cec53d, b, c, d, e, f, g, h, a, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_1_0(_XFER, T36, e, f, g, h, a, b, c, d, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_1_1(_XFER, T37, d, e, f, g, h, a, b, c, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_1_2(_XFER, T38, c, d, e, f, g, h, a, b, XWORD1, XWORD2, XWORD3, XWORD0)
+	ROUND_AND_SCHED_N_1_3(_XFER, T39, b, c, d, e, f, g, h, a, XWORD1, XWORD2, XWORD3, XWORD0)
 
 	// Do 4 rounds and scheduling
 	VMOVDQU XWORD2, (_XFER + 0*16)(SP)
 	VPXOR  XWORD2, XWORD3, XFER
 	VMOVDQU XFER, (_XFER + 1*16)(SP)
-	ROUND_AND_SCHED_N_1_0(_XFER, 0x879d8a7a, a, b, c, d, e, f, g, h, XWORD2, XWORD3, XWORD0, XWORD1)
-	ROUND_AND_SCHED_N_1_1(_XFER, 0xf3b14f5, h, a, b, c, d, e, f, g, XWORD2, XWORD3, XWORD0, XWORD1)
-	ROUND_AND_SCHED_N_1_2(_XFER, 0x1e7629ea, g, h, a, b, c, d, e, f, XWORD2, XWORD3, XWORD0, XWORD1)
-	ROUND_AND_SCHED_N_1_3(_XFER, 0x3cec53d4, f, g, h, a, b, c, d, e, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_1_0(_XFER, T40, a, b, c, d, e, f, g, h, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_1_1(_XFER, T41, h, a, b, c, d, e, f, g, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_1_2(_XFER, T42, g, h, a, b, c, d, e, f, XWORD2, XWORD3, XWORD0, XWORD1)
+	ROUND_AND_SCHED_N_1_3(_XFER, T43, f, g, h, a, b, c, d, e, XWORD2, XWORD3, XWORD0, XWORD1)
 
 	// Do 4 rounds and scheduling
 	VMOVDQU XWORD3, (_XFER + 0*16)(SP)
 	VPXOR  XWORD3, XWORD0, XFER
 	VMOVDQU XFER, (_XFER + 1*16)(SP)
-	ROUND_AND_SCHED_N_1_0(_XFER, 0x79d8a7a8, e, f, g, h, a, b, c, d, XWORD3, XWORD0, XWORD1, XWORD2)
-	ROUND_AND_SCHED_N_1_1(_XFER, 0xf3b14f50, d, e, f, g, h, a, b, c, XWORD3, XWORD0, XWORD1, XWORD2)
-	ROUND_AND_SCHED_N_1_2(_XFER, 0xe7629ea1, c, d, e, f, g, h, a, b, XWORD3, XWORD0, XWORD1, XWORD2)
-	ROUND_AND_SCHED_N_1_3(_XFER, 0xcec53d43, b, c, d, e, f, g, h, a, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_1_0(_XFER, T44, e, f, g, h, a, b, c, d, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_1_1(_XFER, T45, d, e, f, g, h, a, b, c, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_1_2(_XFER, T46, c, d, e, f, g, h, a, b, XWORD3, XWORD0, XWORD1, XWORD2)
+	ROUND_AND_SCHED_N_1_3(_XFER, T47, b, c, d, e, f, g, h, a, XWORD3, XWORD0, XWORD1, XWORD2)
 
 	// w48 - w63 processed with only 4 rounds scheduling (last 16 rounds)
 	// Do 4 rounds and scheduling
 	VMOVDQU XWORD0, (_XFER + 0*16)(SP)
 	VPXOR  XWORD0, XWORD1, XFER
 	VMOVDQU XFER, (_XFER + 1*16)(SP)
-	ROUND_AND_SCHED_N_1_0(_XFER, 0x9d8a7a87, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_1_1(_XFER, 0x3b14f50f, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_1_2(_XFER, 0x7629ea1e, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3)
-	ROUND_AND_SCHED_N_1_3(_XFER, 0xec53d43c, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3)  
+	ROUND_AND_SCHED_N_1_0(_XFER, T48, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_1(_XFER, T49, h, a, b, c, d, e, f, g, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_2(_XFER, T50, g, h, a, b, c, d, e, f, XWORD0, XWORD1, XWORD2, XWORD3)
+	ROUND_AND_SCHED_N_1_3(_XFER, T51, f, g, h, a, b, c, d, e, XWORD0, XWORD1, XWORD2, XWORD3)  
 
 	// w52 - w63 processed with no scheduling (last 12 rounds)
 	// Do 4 rounds
 	VMOVDQU XWORD1, (_XFER + 0*16)(SP)
 	VPXOR  XWORD1, XWORD2, XFER
 	VMOVDQU XFER, (_XFER + 1*16)(SP)
-	DO_ROUND_N_1(_XFER, 0, 0xd8a7a879, e, f, g, h, a, b, c, d)
-	DO_ROUND_N_1(_XFER, 1, 0xb14f50f3, d, e, f, g, h, a, b, c)
-	DO_ROUND_N_1(_XFER, 2, 0x629ea1e7, c, d, e, f, g, h, a, b)
-	DO_ROUND_N_1(_XFER, 3, 0xc53d43ce, b, c, d, e, f, g, h, a)
+	DO_ROUND_N_1(_XFER, 0, T52, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_1(_XFER, 1, T53, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_1(_XFER, 2, T54, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_1(_XFER, 3, T55, b, c, d, e, f, g, h, a)
 
 	// Do 4 rounds
 	VMOVDQU XWORD2, (_XFER + 0*16)(SP)
 	VPXOR  XWORD2, XWORD3, XFER
 	VMOVDQU XFER, (_XFER + 1*16)(SP)
-	DO_ROUND_N_1(_XFER, 0, 0x8a7a879d, a, b, c, d, e, f, g, h)
-	DO_ROUND_N_1(_XFER, 1, 0x14f50f3b, h, a, b, c, d, e, f, g)
-	DO_ROUND_N_1(_XFER, 2, 0x29ea1e76, g, h, a, b, c, d, e, f)
-	DO_ROUND_N_1(_XFER, 3, 0x53d43cec, f, g, h, a, b, c, d, e)
+	DO_ROUND_N_1(_XFER, 0, T56, a, b, c, d, e, f, g, h)
+	DO_ROUND_N_1(_XFER, 1, T57, h, a, b, c, d, e, f, g)
+	DO_ROUND_N_1(_XFER, 2, T58, g, h, a, b, c, d, e, f)
+	DO_ROUND_N_1(_XFER, 3, T59, f, g, h, a, b, c, d, e)
 
 	// Do 4 rounds
 	VMOVDQU XWORD3, (_XFER + 0*16)(SP)
 	VPXOR  XWORD3, XWORD0, XFER
 	VMOVDQU XFER, (_XFER + 1*16)(SP)
-	DO_ROUND_N_1(_XFER, 0, 0xa7a879d8, e, f, g, h, a, b, c, d)
-	DO_ROUND_N_1(_XFER, 1, 0x4f50f3b1, d, e, f, g, h, a, b, c)
-	DO_ROUND_N_1(_XFER, 2, 0x9ea1e762, c, d, e, f, g, h, a, b)
-	DO_ROUND_N_1(_XFER, 3, 0x3d43cec5, b, c, d, e, f, g, h, a)
+	DO_ROUND_N_1(_XFER, 0, T60, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_1(_XFER, 1, T61, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_1(_XFER, 2, T62, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_1(_XFER, 3, T63, b, c, d, e, f, g, h, a)
 
 	MOVQ _INP(SP), INP
 
