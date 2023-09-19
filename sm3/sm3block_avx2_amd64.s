@@ -118,23 +118,22 @@
 	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
 	MOVL     a, h;                             \
 	XORL     b, h;                             \
-	VPSLLD   $15, XTMP2, XTMP3;                \
+	VPSHUFD $0x00, XTMP2, XTMP2;               \ // XTMP2 = {AAAA}
 	XORL     c, h;                             \
 	ADDL     y0, h;                            \ // h = FF(a, b, c) + d + SS2 + W' = tt1
-	MOVL     e, y1;                            \
-	VPSRLD   $(32-15), XTMP2, XTMP4;           \
+	MOVL     e, y1;                            \ 
 	XORL     f, y1;                            \
+	VPSRLQ  $17, XTMP2, XTMP3;                 \ // XTMP3 = XTMP2 rol 15 {xxxA}
 	XORL     g, y1;                            \
 	ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2
-	VPOR     XTMP3, XTMP4, XTMP4;              \ // XTMP4 = XTMP2 rol 15 {xxxA}
 	ROLL     $9, b;                            \
 	ROLL     $19, f;                           \
+	VPSRLQ  $9, XTMP2, XTMP4;                  \ // XTMP4 = XTMP2 rol 23 {xxxA}
 	RORXL    $23, y2, y0;                      \
-	VPSHUFB  R08_SHUFFLE_MASK, XTMP4, XTMP3;   \ // XTMP3 = XTMP2 rol 23 {xxxA}
 	RORXL    $15, y2, d;                       \
 	XORL     y0, d;                            \
 	XORL     y2, d;                            \ // d = P(tt2)
-	VPXOR    XTMP2, XTMP4, XTMP4;              \ // XTMP4 = XTMP2 ^ (XTMP2 rol 15 {xxxA})
+	VPXOR    XTMP2, XTMP4, XTMP4;              \ // XTMP4 = XTMP2 ^ (XTMP2 rol 23 {xxxA})
 
 #define ROUND_AND_SCHED_N_0_2(disp, const, a, b, c, d, e, f, g, h, XDWORD0, XDWORD1, XDWORD2, XDWORD3) \
 	;                                          \ // #############################  RND N + 2 ############################//
@@ -259,29 +258,28 @@
 	ADDL     (disp + 1*4 + 32)(SP)(SRND*1), y0;\ // y0 = SS2 + W'
 	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
 	MOVL     a, y1;                            \
-	VPXOR   XTMP1, XTMP2, XTMP2;               \ // XTMP2 = W[-9] ^ W[-16] ^ (W[-3] rol 15) {xxxA}
 	ORL      b, y1;                            \
+	VPXOR   XTMP1, XTMP2, XTMP2;               \ // XTMP2 = W[-9] ^ W[-16] ^ (W[-3] rol 15) {xxxA}
 	MOVL     a, h;                             \
 	ANDL     b, h;                             \
-	VPSLLD   $15, XTMP2, XTMP3;                \
 	ANDL     c, y1;                            \
 	ORL      y1, h;                            \ // h =  (a AND b) OR (a AND c) OR (b AND c)     
+	VPSHUFD $0x00, XTMP2, XTMP2;               \ // XTMP2 = {AAAA}
 	ADDL     y0, h;                            \ // h = FF(a, b, c) + d + SS2 + W' = tt1
-	VPSRLD   $(32-15), XTMP2, XTMP4;           \
 	MOVL     f, y3;                            \
 	ANDL     e, y3;                            \ // y3 = e AND f
 	ANDNL    g, e, y1;                         \ // y1 = NOT(e) AND g
-	VPOR     XTMP3, XTMP4, XTMP4;              \ // XTMP4 = XTMP2 rol 15 {xxxA}
+	VPSRLQ  $17, XTMP2, XTMP3;                 \ // XTMP3 = XTMP2 rol 15 {xxxA}
 	ORL      y3, y1;                           \ // y1 = (e AND f) OR (NOT(e) AND g)
 	ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
 	ROLL     $9, b;                            \
 	ROLL     $19, f;                           \
-	VPSHUFB  R08_SHUFFLE_MASK, XTMP4, XTMP3;   \ // XTMP3 = XTMP2 rol 23 {xxxA}
+	VPSRLQ  $9, XTMP2, XTMP4;                  \ // XTMP4 = XTMP2 rol 23 {xxxA}
 	RORXL    $23, y2, y0;                      \
 	RORXL    $15, y2, d;                       \
 	XORL     y0, d;                            \
 	XORL     y2, d;                            \ // d = P(tt2)
-	VPXOR    XTMP2, XTMP4, XTMP4;              \ // XTMP4 = XTMP2 XOR (XTMP2 rol 15 {xxxA})
+	VPXOR    XTMP2, XTMP4, XTMP4;              \ // XTMP4 = XTMP2 XOR (XTMP2 rol 23 {xxxA})
 
 #define ROUND_AND_SCHED_N_1_2(disp, const, a, b, c, d, e, f, g, h, XDWORD0, XDWORD1, XDWORD2, XDWORD3) \
 	;                                          \ // #############################  RND N + 2 ############################//
@@ -536,7 +534,6 @@ avx2_schedule_compress: // for w0 - w47
 	VMOVDQU XDWORD2, (_XFER + 4*32)(SP)(SRND*1)
 	VPXOR  XDWORD2, XDWORD3, XFER
 	VMOVDQU XFER, (_XFER + 5*32)(SP)(SRND*1)
-
 	ROUND_AND_SCHED_N_1_0(_XFER + 4*32, 0x8a7a879d, a, b, c, d, e, f, g, h, XDWORD2, XDWORD3, XDWORD0, XDWORD1)
 	ROUND_AND_SCHED_N_1_1(_XFER + 4*32, 0x14f50f3b, h, a, b, c, d, e, f, g, XDWORD2, XDWORD3, XDWORD0, XDWORD1)
 	ROUND_AND_SCHED_N_1_2(_XFER + 4*32, 0x29ea1e76, g, h, a, b, c, d, e, f, XDWORD2, XDWORD3, XDWORD0, XDWORD1)
