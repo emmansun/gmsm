@@ -28,7 +28,6 @@
 #define XTMP2 Y2
 #define XTMP3 Y3
 #define XTMP4 Y8
-#define XTMP5 Y11
 
 #define XFER  Y9
 #define R08_SHUFFLE_MASK Y10
@@ -176,7 +175,7 @@
 	RORXL    $20, a, y0;                       \ // y0 = a <<< 12
 	MOVL     e, y2;                            \
 	ADDL     $const, y2;                       \
-	VPSLLD   $15, XTMP4, XTMP5;                \
+	VPSLLD   $15, XTMP4, XTMP2;                \
 	ADDL     y0, y2;                           \ // y2 = a <<< 12 + e + T
 	ROLL     $7, y2;                           \ // y2 = SS1
 	XORL     y2, y0                            \ // y0 = SS2
@@ -185,7 +184,7 @@
 	ADDL     h, y2;                            \ // y2 = h + SS1 + W    
 	ADDL     (disp + 3*4 + 32)(SP)(SRND*1), y0;\ // y2 = SS2 + W'
 	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
-	VPOR     XTMP3, XTMP5, XTMP3;              \ // XTMP3 = XTMP4 rol 15 {DCBA}
+	VPOR     XTMP3, XTMP2, XTMP3;              \ // XTMP3 = XTMP4 rol 15 {DCBA}
 	MOVL     a, h;                             \
 	XORL     b, h;                             \
 	XORL     c, h;                             \
@@ -327,7 +326,7 @@
 	MOVL     e, y2;                            \
 	ADDL     $const, y2;                       \
 	ADDL     y0, y2;                           \ // y2 = a <<< 12 + e + T
-	VPSLLD   $15, XTMP4, XTMP5;                \ 
+	VPSLLD   $15, XTMP4, XTMP2;                \ 
 	ROLL     $7, y2;                           \ // y2 = SS1
 	XORL     y2, y0                            \ // y0 = SS2
 	ADDL     (disp + 3*4)(SP)(SRND*1), y2;     \ // y2 = SS1 + W
@@ -337,7 +336,7 @@
 	ADDL     d, y0;                            \ // y0 = d + SS2 + W'
 	MOVL     a, y1;                            \
 	ORL      b, y1;                            \
-	VPOR     XTMP3, XTMP5, XTMP3;              \ // XTMP3 = XTMP4 rol 15 {DCBA}
+	VPOR     XTMP3, XTMP2, XTMP3;              \ // XTMP3 = XTMP4 rol 15 {DCBA}
 	MOVL     a, h;                             \
 	ANDL     b, h;                             \
 	ANDL     c, y1;                            \
