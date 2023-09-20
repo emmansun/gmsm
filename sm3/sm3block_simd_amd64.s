@@ -696,8 +696,7 @@ sse_schedule_compress: // for w0 - w47
 	xorm( 28(CTX), h)
 
 	CMPQ _INP_END(SP), INP
-	JB   sse_done_hash
-	JMP   sse_loop
+	JAE   sse_loop
 
 sse_done_hash:
 	RET
@@ -881,8 +880,7 @@ avx_schedule_compress: // for w0 - w47
 	xorm( 28(CTX), h)
 
 	CMPQ _INP_END(SP), INP
-	JB   done_hash
-	JMP   avx_loop
+	JAE   avx_loop
 
 done_hash:
 	RET
