@@ -15,14 +15,14 @@ func Kdf(md hash.Hash, z []byte, len int) []byte {
 	}
 	var countBytes [4]byte
 	var ct uint32 = 1
-	k := make([]byte, len)
+	var k []byte
 	for i := 0; i < int(limit); i++ {
 		binary.BigEndian.PutUint32(countBytes[:], ct)
 		md.Write(z)
 		md.Write(countBytes[:])
-		copy(k[i*md.Size():], md.Sum(nil))
+		k = md.Sum(k)
 		ct++
 		md.Reset()
 	}
-	return k
+	return k[:len]
 }
