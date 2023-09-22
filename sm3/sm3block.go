@@ -201,7 +201,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(a, 12)
 		ss1 = bits.RotateLeft32(tt2+e+_K[16], 7)
 		d = c&(a|b) | (a & b) + d + (ss1 ^ tt2) + (w[16] ^ w[20])
-		tt2 = (e & f) | (^e & g) + h + ss1 + w[16]
+		tt2 = (f^g)&e ^ g + h + ss1 + w[16]
 		b = bits.RotateLeft32(b, 9)
 		f = bits.RotateLeft32(f, 19)
 		h = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -211,7 +211,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(d, 12)
 		ss1 = bits.RotateLeft32(tt2+h+_K[17], 7)
 		c = d&(a|b) | (a & b) + c + (ss1 ^ tt2) + (w[17] ^ w[21])
-		tt2 = (h & e) | (^h & f) + g + ss1 + w[17]
+		tt2 = (e^f)&h ^ f + g + ss1 + w[17]
 		a = bits.RotateLeft32(a, 9)
 		e = bits.RotateLeft32(e, 19)
 		g = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -221,7 +221,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(c, 12)
 		ss1 = bits.RotateLeft32(tt2+g+_K[18], 7)
 		b = c&(d|a) | (d & a) + b + (ss1 ^ tt2) + (w[18] ^ w[22])
-		tt2 = (g & h) | (^g & e) + f + ss1 + w[18]
+		tt2 = (h^e)&g ^ e + f + ss1 + w[18]
 		d = bits.RotateLeft32(d, 9)
 		h = bits.RotateLeft32(h, 19)
 		f = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -231,7 +231,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(b, 12)
 		ss1 = bits.RotateLeft32(tt2+f+_K[19], 7)
 		a = b&(c|d) | (c & d) + a + (ss1 ^ tt2) + (w[19] ^ w[23])
-		tt2 = (f & g) | (^f & h) + e + ss1 + w[19]
+		tt2 = (g^h)&f ^ h + e + ss1 + w[19]
 		c = bits.RotateLeft32(c, 9)
 		g = bits.RotateLeft32(g, 19)
 		e = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -241,7 +241,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(a, 12)
 		ss1 = bits.RotateLeft32(tt2+e+_K[20], 7)
 		d = a&(b|c) | (b & c) + d + (ss1 ^ tt2) + (w[20] ^ w[24])
-		tt2 = (e & f) | (^e & g) + h + ss1 + w[20]
+		tt2 = (f^g)&e ^ g + h + ss1 + w[20]
 		b = bits.RotateLeft32(b, 9)
 		f = bits.RotateLeft32(f, 19)
 		h = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -251,7 +251,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(d, 12)
 		ss1 = bits.RotateLeft32(tt2+h+_K[21], 7)
 		c = d&(a|b) | (a & b) + c + (ss1 ^ tt2) + (w[21] ^ w[25])
-		tt2 = (h & e) | (^h & f) + g + ss1 + w[21]
+		tt2 = (e^f)&h ^ f + g + ss1 + w[21]
 		a = bits.RotateLeft32(a, 9)
 		e = bits.RotateLeft32(e, 19)
 		g = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -261,7 +261,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(c, 12)
 		ss1 = bits.RotateLeft32(tt2+g+_K[22], 7)
 		b = c&(d|a) | (d & a) + b + (ss1 ^ tt2) + (w[22] ^ w[26])
-		tt2 = (g & h) | (^g & e) + f + ss1 + w[22]
+		tt2 = (h^e)&g ^ e + f + ss1 + w[22]
 		d = bits.RotateLeft32(d, 9)
 		h = bits.RotateLeft32(h, 19)
 		f = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -271,7 +271,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(b, 12)
 		ss1 = bits.RotateLeft32(tt2+f+_K[23], 7)
 		a = b&(c|d) | (c & d) + a + (ss1 ^ tt2) + (w[23] ^ w[27])
-		tt2 = (f & g) | (^f & h) + e + ss1 + w[23]
+		tt2 = (g^h)&f ^ h + e + ss1 + w[23]
 		c = bits.RotateLeft32(c, 9)
 		g = bits.RotateLeft32(g, 19)
 		e = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -281,7 +281,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(a, 12)
 		ss1 = bits.RotateLeft32(tt2+e+_K[24], 7)
 		d = a&(b|c) | (b & c) + d + (ss1 ^ tt2) + (w[24] ^ w[28])
-		tt2 = (e & f) | (^e & g) + h + ss1 + w[24]
+		tt2 = (f^g)&e ^ g + h + ss1 + w[24]
 		b = bits.RotateLeft32(b, 9)
 		f = bits.RotateLeft32(f, 19)
 		h = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -291,7 +291,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(d, 12)
 		ss1 = bits.RotateLeft32(tt2+h+_K[25], 7)
 		c = d&(a|b) | (a & b) + c + (ss1 ^ tt2) + (w[25] ^ w[29])
-		tt2 = (h & e) | (^h & f) + g + ss1 + w[25]
+		tt2 = (e^f)&h ^ f + g + ss1 + w[25]
 		a = bits.RotateLeft32(a, 9)
 		e = bits.RotateLeft32(e, 19)
 		g = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -301,7 +301,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(c, 12)
 		ss1 = bits.RotateLeft32(tt2+g+_K[26], 7)
 		b = c&(d|a) | (d & a) + b + (ss1 ^ tt2) + (w[26] ^ w[30])
-		tt2 = (g & h) | (^g & e) + f + ss1 + w[26]
+		tt2 = (h^e)&g ^ e + f + ss1 + w[26]
 		d = bits.RotateLeft32(d, 9)
 		h = bits.RotateLeft32(h, 19)
 		f = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -311,7 +311,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(b, 12)
 		ss1 = bits.RotateLeft32(tt2+f+_K[27], 7)
 		a = b&(c|d) | (c & d) + a + (ss1 ^ tt2) + (w[27] ^ w[31])
-		tt2 = (f & g) | (^f & h) + e + ss1 + w[27]
+		tt2 = (g^h)&f ^ h + e + ss1 + w[27]
 		c = bits.RotateLeft32(c, 9)
 		g = bits.RotateLeft32(g, 19)
 		e = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -321,7 +321,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(a, 12)
 		ss1 = bits.RotateLeft32(tt2+e+_K[28], 7)
 		d = a&(b|c) | (b & c) + d + (ss1 ^ tt2) + (w[28] ^ w[32])
-		tt2 = (e & f) | (^e & g) + h + ss1 + w[28]
+		tt2 = (f^g)&e ^ g + h + ss1 + w[28]
 		b = bits.RotateLeft32(b, 9)
 		f = bits.RotateLeft32(f, 19)
 		h = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -331,7 +331,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(d, 12)
 		ss1 = bits.RotateLeft32(tt2+h+_K[29], 7)
 		c = d&(a|b) | (a & b) + c + (ss1 ^ tt2) + (w[29] ^ w[33])
-		tt2 = (h & e) | (^h & f) + g + ss1 + w[29]
+		tt2 = (e^f)&h ^ f + g + ss1 + w[29]
 		a = bits.RotateLeft32(a, 9)
 		e = bits.RotateLeft32(e, 19)
 		g = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -341,7 +341,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(c, 12)
 		ss1 = bits.RotateLeft32(tt2+g+_K[30], 7)
 		b = c&(d|a) | (d & a) + b + (ss1 ^ tt2) + (w[30] ^ w[34])
-		tt2 = (g & h) | (^g & e) + f + ss1 + w[30]
+		tt2 = (h^e)&g ^ e + f + ss1 + w[30]
 		d = bits.RotateLeft32(d, 9)
 		h = bits.RotateLeft32(h, 19)
 		f = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -351,7 +351,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(b, 12)
 		ss1 = bits.RotateLeft32(tt2+f+_K[31], 7)
 		a = b&(c|d) | (c & d) + a + (ss1 ^ tt2) + (w[31] ^ w[35])
-		tt2 = (f & g) | (^f & h) + e + ss1 + w[31]
+		tt2 = (g^h)&f ^ h + e + ss1 + w[31]
 		c = bits.RotateLeft32(c, 9)
 		g = bits.RotateLeft32(g, 19)
 		e = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -361,7 +361,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(a, 12)
 		ss1 = bits.RotateLeft32(tt2+e+_K[32], 7)
 		d = a&(b|c) | (b & c) + d + (ss1 ^ tt2) + (w[32] ^ w[36])
-		tt2 = (e & f) | (^e & g) + h + ss1 + w[32]
+		tt2 = (f^g)&e ^ g + h + ss1 + w[32]
 		b = bits.RotateLeft32(b, 9)
 		f = bits.RotateLeft32(f, 19)
 		h = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -371,7 +371,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(d, 12)
 		ss1 = bits.RotateLeft32(tt2+h+_K[33], 7)
 		c = d&(a|b) | (a & b) + c + (ss1 ^ tt2) + (w[33] ^ w[37])
-		tt2 = (h & e) | (^h & f) + g + ss1 + w[33]
+		tt2 = (e^f)&h ^ f + g + ss1 + w[33]
 		a = bits.RotateLeft32(a, 9)
 		e = bits.RotateLeft32(e, 19)
 		g = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -381,7 +381,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(c, 12)
 		ss1 = bits.RotateLeft32(tt2+g+_K[34], 7)
 		b = c&(d|a) | (d & a) + b + (ss1 ^ tt2) + (w[34] ^ w[38])
-		tt2 = (g & h) | (^g & e) + f + ss1 + w[34]
+		tt2 = (h^e)&g ^ e + f + ss1 + w[34]
 		d = bits.RotateLeft32(d, 9)
 		h = bits.RotateLeft32(h, 19)
 		f = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -391,7 +391,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(b, 12)
 		ss1 = bits.RotateLeft32(tt2+f+_K[35], 7)
 		a = b&(c|d) | (c & d) + a + (ss1 ^ tt2) + (w[35] ^ w[39])
-		tt2 = (f & g) | (^f & h) + e + ss1 + w[35]
+		tt2 = (g^h)&f ^ h + e + ss1 + w[35]
 		c = bits.RotateLeft32(c, 9)
 		g = bits.RotateLeft32(g, 19)
 		e = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -401,7 +401,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(a, 12)
 		ss1 = bits.RotateLeft32(tt2+e+_K[36], 7)
 		d = a&(b|c) | (b & c) + d + (ss1 ^ tt2) + (w[36] ^ w[40])
-		tt2 = (e & f) | (^e & g) + h + ss1 + w[36]
+		tt2 = (f^g)&e ^ g + h + ss1 + w[36]
 		b = bits.RotateLeft32(b, 9)
 		f = bits.RotateLeft32(f, 19)
 		h = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -411,7 +411,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(d, 12)
 		ss1 = bits.RotateLeft32(tt2+h+_K[37], 7)
 		c = d&(a|b) | (a & b) + c + (ss1 ^ tt2) + (w[37] ^ w[41])
-		tt2 = (h & e) | (^h & f) + g + ss1 + w[37]
+		tt2 = (e^f)&h ^ f + g + ss1 + w[37]
 		a = bits.RotateLeft32(a, 9)
 		e = bits.RotateLeft32(e, 19)
 		g = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -421,7 +421,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(c, 12)
 		ss1 = bits.RotateLeft32(tt2+g+_K[38], 7)
 		b = c&(d|a) | (d & a) + b + (ss1 ^ tt2) + (w[38] ^ w[42])
-		tt2 = (g & h) | (^g & e) + f + ss1 + w[38]
+		tt2 = (h^e)&g ^ e + f + ss1 + w[38]
 		d = bits.RotateLeft32(d, 9)
 		h = bits.RotateLeft32(h, 19)
 		f = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -431,7 +431,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(b, 12)
 		ss1 = bits.RotateLeft32(tt2+f+_K[39], 7)
 		a = b&(c|d) | (c & d) + a + (ss1 ^ tt2) + (w[39] ^ w[43])
-		tt2 = (f & g) | (^f & h) + e + ss1 + w[39]
+		tt2 = (g^h)&f ^ h + e + ss1 + w[39]
 		c = bits.RotateLeft32(c, 9)
 		g = bits.RotateLeft32(g, 19)
 		e = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -441,16 +441,17 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(a, 12)
 		ss1 = bits.RotateLeft32(tt2+e+_K[40], 7)
 		d = a&(b|c) | (b & c) + d + (ss1 ^ tt2) + (w[40] ^ w[44])
-		tt2 = (e & f) | (^e & g) + h + ss1 + w[40]
+		tt2 = (f^g)&e ^ g + h + ss1 + w[40]
 		b = bits.RotateLeft32(b, 9)
 		f = bits.RotateLeft32(f, 19)
 		h = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
+
 		// Round 42
 		w[45] = p1(w[29]^w[36]^bits.RotateLeft32(w[42], 15)) ^ bits.RotateLeft32(w[32], 7) ^ w[39]
 		tt2 = bits.RotateLeft32(d, 12)
 		ss1 = bits.RotateLeft32(tt2+h+_K[41], 7)
 		c = d&(a|b) | (a & b) + c + (ss1 ^ tt2) + (w[41] ^ w[45])
-		tt2 = (h & e) | (^h & f) + g + ss1 + w[41]
+		tt2 = (e^f)&h ^ f + g + ss1 + w[41]
 		a = bits.RotateLeft32(a, 9)
 		e = bits.RotateLeft32(e, 19)
 		g = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -460,7 +461,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(c, 12)
 		ss1 = bits.RotateLeft32(tt2+g+_K[42], 7)
 		b = c&(d|a) | (d & a) + b + (ss1 ^ tt2) + (w[42] ^ w[46])
-		tt2 = (g & h) | (^g & e) + f + ss1 + w[42]
+		tt2 = (h^e)&g ^ e + f + ss1 + w[42]
 		d = bits.RotateLeft32(d, 9)
 		h = bits.RotateLeft32(h, 19)
 		f = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -470,7 +471,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(b, 12)
 		ss1 = bits.RotateLeft32(tt2+f+_K[43], 7)
 		a = b&(c|d) | (c & d) + a + (ss1 ^ tt2) + (w[43] ^ w[47])
-		tt2 = (f & g) | (^f & h) + e + ss1 + w[43]
+		tt2 = (g^h)&f ^ h + e + ss1 + w[43]
 		c = bits.RotateLeft32(c, 9)
 		g = bits.RotateLeft32(g, 19)
 		e = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -480,7 +481,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(a, 12)
 		ss1 = bits.RotateLeft32(tt2+e+_K[44], 7)
 		d = a&(b|c) | (b & c) + d + (ss1 ^ tt2) + (w[44] ^ w[48])
-		tt2 = (e & f) | (^e & g) + h + ss1 + w[44]
+		tt2 = (f^g)&e ^ g + h + ss1 + w[44]
 		b = bits.RotateLeft32(b, 9)
 		f = bits.RotateLeft32(f, 19)
 		h = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -490,7 +491,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(d, 12)
 		ss1 = bits.RotateLeft32(tt2+h+_K[45], 7)
 		c = d&(a|b) | (a & b) + c + (ss1 ^ tt2) + (w[45] ^ w[49])
-		tt2 = (h & e) | (^h & f) + g + ss1 + w[45]
+		tt2 = (e^f)&h ^ f + g + ss1 + w[45]
 		a = bits.RotateLeft32(a, 9)
 		e = bits.RotateLeft32(e, 19)
 		g = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -500,7 +501,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(c, 12)
 		ss1 = bits.RotateLeft32(tt2+g+_K[46], 7)
 		b = c&(d|a) | (d & a) + b + (ss1 ^ tt2) + (w[46] ^ w[50])
-		tt2 = (g & h) | (^g & e) + f + ss1 + w[46]
+		tt2 = (h^e)&g ^ e + f + ss1 + w[46]
 		d = bits.RotateLeft32(d, 9)
 		h = bits.RotateLeft32(h, 19)
 		f = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -510,7 +511,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(b, 12)
 		ss1 = bits.RotateLeft32(tt2+f+_K[47], 7)
 		a = b&(c|d) | (c & d) + a + (ss1 ^ tt2) + (w[47] ^ w[51])
-		tt2 = (f & g) | (^f & h) + e + ss1 + w[47]
+		tt2 = (g^h)&f ^ h + e + ss1 + w[47]
 		c = bits.RotateLeft32(c, 9)
 		g = bits.RotateLeft32(g, 19)
 		e = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -520,7 +521,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(a, 12)
 		ss1 = bits.RotateLeft32(tt2+e+_K[48], 7)
 		d = a&(b|c) | (b & c) + d + (ss1 ^ tt2) + (w[48] ^ w[52])
-		tt2 = (e & f) | (^e & g) + h + ss1 + w[48]
+		tt2 = (f^g)&e ^ g + h + ss1 + w[48]
 		b = bits.RotateLeft32(b, 9)
 		f = bits.RotateLeft32(f, 19)
 		h = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -530,7 +531,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(d, 12)
 		ss1 = bits.RotateLeft32(tt2+h+_K[49], 7)
 		c = d&(a|b) | (a & b) + c + (ss1 ^ tt2) + (w[49] ^ w[53])
-		tt2 = (h & e) | (^h & f) + g + ss1 + w[49]
+		tt2 = (e^f)&h ^ f + g + ss1 + w[49]
 		a = bits.RotateLeft32(a, 9)
 		e = bits.RotateLeft32(e, 19)
 		g = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -540,7 +541,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(c, 12)
 		ss1 = bits.RotateLeft32(tt2+g+_K[50], 7)
 		b = c&(d|a) | (d & a) + b + (ss1 ^ tt2) + (w[50] ^ w[54])
-		tt2 = (g & h) | (^g & e) + f + ss1 + w[50]
+		tt2 = (h^e)&g ^ e + f + ss1 + w[50]
 		d = bits.RotateLeft32(d, 9)
 		h = bits.RotateLeft32(h, 19)
 		f = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -550,7 +551,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(b, 12)
 		ss1 = bits.RotateLeft32(tt2+f+_K[51], 7)
 		a = b&(c|d) | (c & d) + a + (ss1 ^ tt2) + (w[51] ^ w[55])
-		tt2 = (f & g) | (^f & h) + e + ss1 + w[51]
+		tt2 = (g^h)&f ^ h + e + ss1 + w[51]
 		c = bits.RotateLeft32(c, 9)
 		g = bits.RotateLeft32(g, 19)
 		e = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -560,7 +561,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(a, 12)
 		ss1 = bits.RotateLeft32(tt2+e+_K[52], 7)
 		d = a&(b|c) | (b & c) + d + (ss1 ^ tt2) + (w[52] ^ w[56])
-		tt2 = (e & f) | (^e & g) + h + ss1 + w[52]
+		tt2 = (f^g)&e ^ g + h + ss1 + w[52]
 		b = bits.RotateLeft32(b, 9)
 		f = bits.RotateLeft32(f, 19)
 		h = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -570,7 +571,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(d, 12)
 		ss1 = bits.RotateLeft32(tt2+h+_K[53], 7)
 		c = d&(a|b) | (a & b) + c + (ss1 ^ tt2) + (w[53] ^ w[57])
-		tt2 = (h & e) | (^h & f) + g + ss1 + w[53]
+		tt2 = (e^f)&h ^ f + g + ss1 + w[53]
 		a = bits.RotateLeft32(a, 9)
 		e = bits.RotateLeft32(e, 19)
 		g = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -580,7 +581,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(c, 12)
 		ss1 = bits.RotateLeft32(tt2+g+_K[54], 7)
 		b = c&(d|a) | (d & a) + b + (ss1 ^ tt2) + (w[54] ^ w[58])
-		tt2 = (g & h) | (^g & e) + f + ss1 + w[54]
+		tt2 = (h^e)&g ^ e + f + ss1 + w[54]
 		d = bits.RotateLeft32(d, 9)
 		h = bits.RotateLeft32(h, 19)
 		f = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -590,7 +591,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(b, 12)
 		ss1 = bits.RotateLeft32(tt2+f+_K[55], 7)
 		a = b&(c|d) | (c & d) + a + (ss1 ^ tt2) + (w[55] ^ w[59])
-		tt2 = (f & g) | (^f & h) + e + ss1 + w[55]
+		tt2 = (g^h)&f ^ h + e + ss1 + w[55]
 		c = bits.RotateLeft32(c, 9)
 		g = bits.RotateLeft32(g, 19)
 		e = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -600,7 +601,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(a, 12)
 		ss1 = bits.RotateLeft32(tt2+e+_K[56], 7)
 		d = a&(b|c) | (b & c) + d + (ss1 ^ tt2) + (w[56] ^ w[60])
-		tt2 = (e & f) | (^e & g) + h + ss1 + w[56]
+		tt2 = (f^g)&e ^ g + h + ss1 + w[56]
 		b = bits.RotateLeft32(b, 9)
 		f = bits.RotateLeft32(f, 19)
 		h = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -610,7 +611,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(d, 12)
 		ss1 = bits.RotateLeft32(tt2+h+_K[57], 7)
 		c = d&(a|b) | (a & b) + c + (ss1 ^ tt2) + (w[57] ^ w[61])
-		tt2 = (h & e) | (^h & f) + g + ss1 + w[57]
+		tt2 = (e^f)&h ^ f + g + ss1 + w[57]
 		a = bits.RotateLeft32(a, 9)
 		e = bits.RotateLeft32(e, 19)
 		g = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -620,7 +621,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(c, 12)
 		ss1 = bits.RotateLeft32(tt2+g+_K[58], 7)
 		b = c&(d|a) | (d & a) + b + (ss1 ^ tt2) + (w[58] ^ w[62])
-		tt2 = (g & h) | (^g & e) + f + ss1 + w[58]
+		tt2 = (h^e)&g ^ e + f + ss1 + w[58]
 		d = bits.RotateLeft32(d, 9)
 		h = bits.RotateLeft32(h, 19)
 		f = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -630,7 +631,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(b, 12)
 		ss1 = bits.RotateLeft32(tt2+f+_K[59], 7)
 		a = b&(c|d) | (c & d) + a + (ss1 ^ tt2) + (w[59] ^ w[63])
-		tt2 = (f & g) | (^f & h) + e + ss1 + w[59]
+		tt2 = (g^h)&f ^ h + e + ss1 + w[59]
 		c = bits.RotateLeft32(c, 9)
 		g = bits.RotateLeft32(g, 19)
 		e = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -640,7 +641,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(a, 12)
 		ss1 = bits.RotateLeft32(tt2+e+_K[60], 7)
 		d = a&(b|c) | (b & c) + d + (ss1 ^ tt2) + (w[60] ^ w[64])
-		tt2 = (e & f) | (^e & g) + h + ss1 + w[60]
+		tt2 = (f^g)&e ^ g + h + ss1 + w[60]
 		b = bits.RotateLeft32(b, 9)
 		f = bits.RotateLeft32(f, 19)
 		h = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -650,7 +651,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(d, 12)
 		ss1 = bits.RotateLeft32(tt2+h+_K[61], 7)
 		c = d&(a|b) | (a & b) + c + (ss1 ^ tt2) + (w[61] ^ w[65])
-		tt2 = (h & e) | (^h & f) + g + ss1 + w[61]
+		tt2 = (e^f)&h ^ f + g + ss1 + w[61]
 		a = bits.RotateLeft32(a, 9)
 		e = bits.RotateLeft32(e, 19)
 		g = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -660,7 +661,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(c, 12)
 		ss1 = bits.RotateLeft32(tt2+g+_K[62], 7)
 		b = c&(d|a) | (d & a) + b + (ss1 ^ tt2) + (w[62] ^ w[66])
-		tt2 = (g & h) | (^g & e) + f + ss1 + w[62]
+		tt2 = (h^e)&g ^ e + f + ss1 + w[62]
 		d = bits.RotateLeft32(d, 9)
 		h = bits.RotateLeft32(h, 19)
 		f = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)
@@ -670,7 +671,7 @@ func blockGeneric(dig *digest, p []byte) {
 		tt2 = bits.RotateLeft32(b, 12)
 		ss1 = bits.RotateLeft32(tt2+f+_K[63], 7)
 		a = b&(c|d) | (c & d) + a + (ss1 ^ tt2) + (w[63] ^ w[67])
-		tt2 = (f & g) | (^f & h) + e + ss1 + w[63]
+		tt2 = (g^h)&f ^ h + e + ss1 + w[63]
 		c = bits.RotateLeft32(c, 9)
 		g = bits.RotateLeft32(g, 19)
 		e = tt2 ^ bits.RotateLeft32(tt2, 9) ^ bits.RotateLeft32(tt2, 17)

@@ -115,10 +115,10 @@
 	MOVL ((index)*4)(BP), DX; \
 	ADDL h, DX; \   // Wt + h
 	ADDL BX, DX; \  // h + ss1 + Wt
-	MOVL f, AX; \   
-	ANDL e, AX; \  // e AND f
-	ANDNL g, e, BX; \ // NOT(e) AND g
-	ORL  AX, BX; \
+	MOVL f, BX; \   
+	XORL g, BX; \
+	ANDL e, BX; \
+	XORL g, BX; \ // GG2(e, f, g)
 	ADDL DX, BX
 
 #define COPYRESULT(b, d, f, h) \

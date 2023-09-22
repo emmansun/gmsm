@@ -30,11 +30,10 @@
 #define y0 R8
 #define y1 R9
 #define y2 R10
-#define y3 R11
 
-#define NUM_BYTES R12
-#define INP	R13
-#define CTX R14 // Beginning of digest in memory (a, b, c, ... , h)
+#define NUM_BYTES R11
+#define INP	R12
+#define CTX R13 // Beginning of digest in memory (a, b, c, ... , h)
 
 #define a1 R15
 #define b1 R16
@@ -210,10 +209,10 @@
 	VEOR XTMP1.B16, XTMP0.B16, XTMP0.B16;         \ // XTMP0 = W[-6] ^ (W[-13] rol 7)
 	ADDW  y0, h;                                  \ // h = FF(a, b, c) + d + SS2 + W' = tt1
 	; \
-	ANDW  e, f, y1;                               \
-	BICW  e, g, y3;                               \
+	EORW  f, g, y1;                               \
+	ANDW  e, y1;                                  \	
 	VEXT $12, XWORD2.B16, XWORD1.B16, XTMP1.B16;  \ // XTMP1 = W[-9] = {w10,w9,w8,w7}, Vm = XWORD2, Vn = XWORD1
-	ORRW  y3, y1;                                 \ // y1 = (e AND f) OR (NOT(e) AND g)
+	EORW  g, y1;                                  \ // y1 = GG2(e, f, g) = (e AND f) OR (NOT(e) AND g)	
 	ADDW  y1, y2;                                 \ // y2 = GG(e, f, g) + h + SS1 + W = tt2 
 	; \
 	RORW  $23, b;                                 \
@@ -250,9 +249,9 @@
 	VSRI $17, XTMP2.S4, XTMP4.S4;                 \ // XTMP4 =  = XTMP2 rol 15 {xxBA}
 	ADDW  y0, h;                                  \ // h = FF(a, b, c) + d + SS2 + W' = tt1
 	; \
-	ANDW  e, f, y1;                               \
-	BICW  e, g, y3;                               \
-	ORRW  y3, y1;                                 \ // y1 = (e AND f) OR (NOT(e) AND g)
+	EORW  f, g, y1;                               \
+	ANDW  e, y1;                                  \	
+	EORW  g, y1;                                  \ // y1 = GG2(e, f, g) = (e AND f) OR (NOT(e) AND g)	
 	VSHL $8, XTMP4.S4, XTMP3.S4;                  \
 	ADDW  y1, y2;                                 \ // y2 = GG(e, f, g) + h + SS1 + W = tt2 
 	; \
@@ -287,10 +286,10 @@
 	VSHL $15, XTMP3.S4, XTMP4.S4;                 \
 	ORRW  y1, h;                                  \ // h =  (a AND b) OR (a AND c) OR (b AND c)	
 	ADDW  y0, h;                                  \ // h = FF(a, b, c) + d + SS2 + W' = tt1
-	ANDW  e, f, y1;                               \
-	BICW  e, g, y3;                               \
+	EORW  f, g, y1;                               \
+	ANDW  e, y1;                                  \	
 	VSRI $17, XTMP3.S4, XTMP4.S4;                 \ // XTMP4 = W[-3] rol 15 {DCBA}
-	ORRW  y3, y1;                                 \ // y1 = (e AND f) OR (NOT(e) AND g)
+	EORW  g, y1;                                  \ // y1 = GG2(e, f, g) = (e AND f) OR (NOT(e) AND g)	
 	ADDW  y1, y2;                                 \ // y2 = GG(e, f, g) + h + SS1 + W = tt2 
 	RORW  $23, b;                                 \
 	RORW  $13, f;                                 \
@@ -321,10 +320,10 @@
 	VSRI $24, XTMP3.S4, XTMP1.S4;                 \ // XTMP1 = XTMP4 rol 23 {DCBA}
 	ORRW  y1, h;                                  \ // h =  (a AND b) OR (a AND c) OR (b AND c)
 	ADDW  y0, h;                                  \ // h = FF(a, b, c) + d + SS2 + W' = tt1
-	ANDW  e, f, y1;                               \
-	BICW  e, g, y3;                               \
+	EORW  f, g, y1;                               \
+	ANDW  e, y1;                                  \
 	VEOR XTMP3.B16, XTMP4.B16, XTMP3.B16;         \ // XTMP3 = XTMP4 XOR (XTMP4 rol 15 {DCBA})
-	ORRW  y3, y1;                                 \ // y1 = (e AND f) OR (NOT(e) AND g)
+	EORW  g, y1;                                  \ // y1 = GG2(e, f, g) = (e AND f) OR (NOT(e) AND g)
 	ADDW  y1, y2;                                 \ // y2 = GG(e, f, g) + h + SS1 + W = tt2 
 	RORW  $23, b;                                 \
 	RORW  $13, f;                                 \
@@ -355,10 +354,10 @@
 	ORRW  y1, h;                               \ // h =  (a AND b) OR (a AND c) OR (b AND c)
 	ADDW  y0, h;                               \ // h = FF(a, b, c) + d + SS2 + W' = tt1
 	; \
-	ANDW  e, f, y1;                            \
-	BICW  e, g, y3;                            \
-	ORRW  y3, y1;                              \ // y1 = (e AND f) OR (NOT(e) AND g)
-	ADDW  y1, y2;                              \ // y2 = GG(e, f, g) + h + SS1 + W = tt2 
+	EORW  f, g, y1;                            \
+	ANDW  e, y1;                               \
+	EORW  g, y1;                               \ // y1 = GG2(e, f, g) = (e AND f) OR (NOT(e) AND g)
+	ADDW  y1, y2;                              \ // y2 = GG2(e, f, g) + h + SS1 + W = tt2 
 	; \
 	RORW  $23, b;                              \
 	RORW  $13, f;                              \

@@ -52,17 +52,14 @@
 #define y0 R12
 #define y1 R13
 #define y2 R14
-#define y3 DI
 
 // Offsets
 #define XFER_SIZE 4*64*4
 #define INP_END_SIZE 8
-#define INP_SIZE 8
 
 #define _XFER 0
 #define _INP_END _XFER + XFER_SIZE
-#define _INP _INP_END + INP_END_SIZE
-#define STACK_SIZE _INP + INP_SIZE
+#define STACK_SIZE _INP_END + INP_END_SIZE
 
 #define P0(tt2, tmp, out) \
 	RORXL    $23, tt2, tmp;                        \
@@ -221,12 +218,12 @@
 	ORL      y1, h;                            \ // h =  (a AND b) OR (a AND c) OR (b AND c)  
 	VPALIGNR $8, XDWORD2, XDWORD3, XTMP0;      \ // XTMP0 = W[-6] = {w13,w12,w11,w10}
 	ADDL     y0, h;                            \ // h = FF(a, b, c) + d + SS2 + W' = tt1
-	MOVL     f, y3;                            \
-	ANDL     e, y3;                            \ // y3 = e AND f
-	ANDNL    g, e, y1;                         \ // y1 = NOT(e) AND g
+	MOVL     f, y1;                            \
+	XORL     g, y1;                            \
+	ANDL     e, y1;                            \
 	VPXOR   XTMP1, XTMP0, XTMP0;               \ // XTMP0 = W[-6] ^ (W[-13] rol 7) 
-	ORL      y3, y1;                           \ // y1 = (e AND f) OR (NOT(e) AND g)
-	ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
+	XORL     g, y1;                            \ // y1 = GG2(e, f, g) = (e AND f) OR (NOT(e) AND g)
+	ADDL     y1, y2;                           \ // y2 = GG2(e, f, g) + h + SS1 + W = tt2  	 
 	ROLL     $9, b;                            \
 	ROLL     $19, f;                           \
 	VPALIGNR $12, XDWORD1, XDWORD2, XTMP1;     \ // XTMP1 = W[-9] = {w10,w9,w8,w7}
@@ -256,12 +253,12 @@
 	ORL      y1, h;                            \ // h =  (a AND b) OR (a AND c) OR (b AND c)     
 	VPSHUFD $0x00, XTMP2, XTMP2;               \ // XTMP2 = {AAAA}
 	ADDL     y0, h;                            \ // h = FF(a, b, c) + d + SS2 + W' = tt1
-	MOVL     f, y3;                            \
-	ANDL     e, y3;                            \ // y3 = e AND f
-	ANDNL    g, e, y1;                         \ // y1 = NOT(e) AND g
+	MOVL     f, y1;                            \
+	XORL     g, y1;                            \
+	ANDL     e, y1;                            \
 	VPSRLQ  $17, XTMP2, XTMP3;                 \ // XTMP3 = XTMP2 rol 15 {xxxA}
-	ORL      y3, y1;                           \ // y1 = (e AND f) OR (NOT(e) AND g)
-	ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
+	XORL     g, y1;                            \ // y1 = GG2(e, f, g) = (e AND f) OR (NOT(e) AND g)
+	ADDL     y1, y2;                           \ // y2 = GG2(e, f, g) + h + SS1 + W = tt2  	
 	ROLL     $9, b;                            \
 	ROLL     $19, f;                           \
 	VPSRLQ  $9, XTMP2, XTMP4;                  \ // XTMP4 = XTMP2 rol 23 {xxxA}
@@ -291,12 +288,12 @@
 	ORL      y1, h;                            \ // h =  (a AND b) OR (a AND c) OR (b AND c)     
 	VPSLLD   $15, XTMP3, XTMP4;                \
 	ADDL     y0, h;                            \ // h = FF(a, b, c) + d + SS2 + W' = tt1
-	MOVL     f, y3;                            \
-	ANDL     e, y3;                            \ // y3 = e AND f
-	ANDNL    g, e, y1;                         \ // y1 = NOT(e) AND g
+	MOVL     f, y1;                            \
+	XORL     g, y1;                            \
+	ANDL     e, y1;                            \
 	VPSRLD   $(32-15), XTMP3, XTMP3;           \
-	ORL      y3, y1;                           \ // y1 = (e AND f) OR (NOT(e) AND g)
-	ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
+	XORL     g, y1;                            \ // y1 = GG2(e, f, g) = (e AND f) OR (NOT(e) AND g)
+	ADDL     y1, y2;                           \ // y2 = GG2(e, f, g) + h + SS1 + W = tt2  
 	ROLL     $9, b;                            \
 	ROLL     $19, f;                           \
 	VPOR    XTMP3, XTMP4, XTMP4;               \ // XTMP4 = (W[-3] rol 15) {DCBA}
@@ -326,12 +323,12 @@
 	ORL      y1, h;                            \ // h =  (a AND b) OR (a AND c) OR (b AND c)
 	VPSHUFB  R08_SHUFFLE_MASK, XTMP3, XTMP1;   \ // XTMP1 = XTMP4 rol 23 {DCBA}
 	ADDL     y0, h;                            \ // h = FF(a, b, c) + d + SS2 + W' = tt1
-	MOVL     f, y3;                            \
-	ANDL     e, y3;                            \ // y3 = e AND f
-	ANDNL    g, e, y1;                         \ // y1 = NOT(e) AND g
+	MOVL     f, y1;                            \
+	XORL     g, y1;                            \
+	ANDL     e, y1;                            \
 	VPXOR    XTMP3, XTMP4, XTMP3;              \ // XTMP3 = XTMP4 ^ (XTMP4 rol 15 {DCBA})
-	ORL      y3, y1;                           \ // y1 = (e AND f) OR (NOT(e) AND g)
-	ADDL     y1, y2;                           \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
+	XORL     g, y1;                            \ // y1 = GG2(e, f, g) = (e AND f) OR (NOT(e) AND g)
+	ADDL     y1, y2;                           \ // y2 = GG2(e, f, g) + h + SS1 + W = tt2  
 	ROLL     $9, b;                            \
 	ROLL     $19, f;                           \
 	VPXOR    XTMP3, XTMP1, XTMP1;              \ // XTMP1 = XTMP4 ^ (XTMP4 rol 15 {DCBA}) ^ (XTMP4 rol 23 {DCBA})
@@ -387,18 +384,18 @@
 	ORL      y1, h;                              \ // h =  (a AND b) OR (a AND c) OR (b AND c)     
 	ADDL     y0, h;                              \ // h = FF(a, b, c) + d + SS2 + W' = tt1
 	;                                            \
-	MOVL     f, y3;                              \
-	ANDL     e, y3;                              \ // y3 = e AND f
-	ANDNL    g, e, y1;                           \ // y1 = NOT(e) AND g
-	ORL      y3, y1;                             \ // y1 = (e AND f) OR (NOT(e) AND g)
-	ADDL     y1, y2;                             \ // y2 = GG(e, f, g) + h + SS1 + W = tt2  
+	MOVL     f, y1;                              \
+	XORL     g, y1;                              \
+	ANDL     e, y1;                              \
+	XORL     g, y1;                              \ // y1 = GG2(e, f, g)
+	ADDL     y1, y2;                             \ // y2 = GG2(e, f, g) + h + SS1 + W = tt2  
 	;                                            \
 	ROLL     $9, b;                              \
 	ROLL     $19, f;                             \
 	;                                            \
 	P0(y2, y0, d)
 
-TEXT ·blockAVX2(SB), 0, $1048-32
+TEXT ·blockAVX2(SB), 0, $1040-32
 	MOVQ dig+0(FP), CTX          // d.h[8]
 	MOVQ p_base+8(FP), INP
 	MOVQ p_len+16(FP), NUM_BYTES
@@ -443,7 +440,6 @@ avx2_loop: // at each iteration works with one block (512 bit)
 
 avx2_last_block_enter:
 	ADDQ $64, INP
-	MOVQ INP, _INP(SP)
 
 avx2_schedule_compress: // for w0 - w47
 	// Do 4 rounds and scheduling
@@ -592,8 +588,6 @@ avx2_schedule_compress: // for w0 - w47
 	DO_ROUND_N_1(_XFER + 30*32, 2, T62, c, d, e, f, g, h, a, b)
 	DO_ROUND_N_1(_XFER + 30*32, 3, T63, b, c, d, e, f, g, h, a)
 
-	MOVQ _INP(SP), INP
-
 	xorm(  0(CTX), a)
 	xorm(  4(CTX), b)
 	xorm(  8(CTX), c)
@@ -687,7 +681,6 @@ avx2_compress: // Do second block using previously scheduled results
 	DO_ROUND_N_1(_XFER + 30*32 + 16, 2, T62, c, d, e, f, g, h, a, b)
 	DO_ROUND_N_1(_XFER + 30*32 + 16, 3, T63, b, c, d, e, f, g, h, a)
 
-	MOVQ _INP(SP), INP
 	ADDQ $64, INP
 
 	xorm(  0(CTX), a)
