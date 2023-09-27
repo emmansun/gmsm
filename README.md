@@ -1,4 +1,6 @@
 
+English | [简体中文](README-CN.md)
+
 # GM-Standards SM2/SM3/SM4/SM9/ZUC for Go
 
 [![Github CI](https://github.com/emmansun/gmsm/actions/workflows/ci.yml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/ci.yml)
