@@ -394,7 +394,7 @@ GLOBL r24_mask256<>(SB), 8, $32
 	VPXOR tmp, y, y;                        \
 	VPSLLD $2, y, tmp;                      \
 	VPSRLD $30, y, y;                       \
-	VPXOR tmp, y, y;                        \
+	VPOR tmp, y, y;                         \
 	VPSHUFB r24_mask<>(SB), x, tmp;         \
 	VPXOR y, x, x;                          \
 	VPXOR x, tmp, x
@@ -597,7 +597,7 @@ GLOBL r24_mask256<>(SB), 8, $32
 	VPXOR z, y, y;                           \
 	VPSLLD $2, y, z;                         \
 	VPSRLD $30, y, y;                        \
-	VPXOR z, y, y;                           \
+	VPOR z, y, y;                            \
 	VPSHUFB r24_mask256<>(SB), x, z;         \
 	VPXOR y, x, x;                           \
 	VPXOR x, z, x
