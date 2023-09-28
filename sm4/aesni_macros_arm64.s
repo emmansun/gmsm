@@ -31,7 +31,7 @@ DATA fk_mask<>+0x08(SB)/8, $0xb27022dc677d9197
 GLOBL fk_mask<>(SB), (16+8), $16
 
 #define LOAD_SM4_AESNI_CONSTS() \
-	MOVW 0x0F0F0F0F, R20                       \
+	MOVW $0x0F0F0F0F, R20                      \
 	VMOV R20, NIBBLE_MASK.S4                   \
 	LDP m1_low<>(SB), (R20, R21)               \
 	VMOV R20, M1L.D[0]                         \
