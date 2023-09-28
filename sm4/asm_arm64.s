@@ -50,8 +50,8 @@
 	MOVW.P R2, -4(R11)
 
 #define load_global_data_1() \
-	MOVW 0x0F0F0F0F, R20                    \
-	VMOV R20, NIBBLE_MASK.S4                \
+	MOVW $0x0F0F0F0F, R0                    \
+	VMOV R0, NIBBLE_MASK.S4                 \
 	LDP m1_low<>(SB), (R0, R1)              \
 	VMOV R0, M1L.D[0]                       \
 	VMOV R1, M1L.D[1]                       \
