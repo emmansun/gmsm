@@ -1,8 +1,3 @@
-//nibble mask
-DATA nibble_mask<>+0x00(SB)/8, $0x0F0F0F0F0F0F0F0F
-DATA nibble_mask<>+0x08(SB)/8, $0x0F0F0F0F0F0F0F0F
-GLOBL nibble_mask<>(SB), (16+8), $16
-
 // inverse shift rows
 DATA inverse_shift_rows<>+0x00(SB)/8, $0x0B0E0104070A0D00
 DATA inverse_shift_rows<>+0x08(SB)/8, $0x0306090C0F020508 
@@ -36,9 +31,8 @@ DATA fk_mask<>+0x08(SB)/8, $0xb27022dc677d9197
 GLOBL fk_mask<>(SB), (16+8), $16
 
 #define LOAD_SM4_AESNI_CONSTS() \
-	LDP nibble_mask<>(SB), (R20, R21)          \
-	VMOV R20, NIBBLE_MASK.D[0]                 \
-	VMOV R21, NIBBLE_MASK.D[1]                 \
+	MOVW 0x0F0F0F0F, R20                       \
+	VMOV R20, NIBBLE_MASK.S4                   \
 	LDP m1_low<>(SB), (R20, R21)               \
 	VMOV R20, M1L.D[0]                         \
 	VMOV R21, M1L.D[1]                         \
