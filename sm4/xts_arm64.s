@@ -37,8 +37,6 @@
 #define M2L V27 
 #define M2H V28
 #define R08_MASK V29 
-#define R16_MASK V30
-#define R24_MASK V31
 
 #include "aesni_macros_arm64.s"
 #include "xts_macros_arm64.s"

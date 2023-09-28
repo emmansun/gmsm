@@ -31,14 +31,6 @@ DATA r08_mask<>+0x00(SB)/8, $0x0605040702010003
 DATA r08_mask<>+0x08(SB)/8, $0x0E0D0C0F0A09080B  
 GLOBL r08_mask<>(SB), (16+8), $16
 
-DATA r16_mask<>+0x00(SB)/8, $0x0504070601000302
-DATA r16_mask<>+0x08(SB)/8, $0x0D0C0F0E09080B0A   
-GLOBL r16_mask<>(SB), (16+8), $16
-
-DATA r24_mask<>+0x00(SB)/8, $0x0407060500030201
-DATA r24_mask<>+0x08(SB)/8, $0x0C0F0E0D080B0A09  
-GLOBL r24_mask<>(SB), (16+8), $16
-
 DATA fk_mask<>+0x00(SB)/8, $0x56aa3350a3b1bac6
 DATA fk_mask<>+0x08(SB)/8, $0xb27022dc677d9197
 GLOBL fk_mask<>(SB), (16+8), $16
@@ -64,13 +56,7 @@ GLOBL fk_mask<>(SB), (16+8), $16
 	VMOV R21, INVERSE_SHIFT_ROWS.D[1]          \
 	LDP r08_mask<>(SB), (R20, R21)             \
 	VMOV R20, R08_MASK.D[0]                    \
-	VMOV R21, R08_MASK.D[1]                    \
-	LDP r16_mask<>(SB), (R20, R21)             \
-	VMOV R20, R16_MASK.D[0]                    \
-	VMOV R21, R16_MASK.D[1]                    \
-	LDP r24_mask<>(SB), (R20, R21)             \
-	VMOV R20, R24_MASK.D[0]                    \
-	VMOV R21, R24_MASK.D[1]
+	VMOV R21, R08_MASK.D[1]
 
 // input: from high to low
 // t0 = t0.S3, t0.S2, t0.S1, t0.S0
@@ -141,15 +127,15 @@ GLOBL fk_mask<>(SB), (16+8), $16
 // -  z: 128 bits temp register
 #define SM4_TAO_L1(x, y, z)         \
 	SM4_SBOX(x, y, z);                                   \
-	VTBL R08_MASK.B16, [x.B16], y.B16;                   \
-	VEOR y.B16, x.B16, y.B16;                            \
-	VTBL R16_MASK.B16, [x.B16], z.B16;                   \
-	VEOR z.B16, y.B16, z.B16;                            \
-	VSHL $2, z.S4, y.S4;                                 \
-	VSRI $30, z.S4, y.S4;                                \
-	VTBL R24_MASK.B16, [x.B16], z.B16;                   \
-	VEOR z.B16, x.B16, x.B16;                            \
-	VEOR y.B16, x.B16, x.B16
+	VTBL R08_MASK.B16, [x.B16], y.B16;                   \ // y = x <<< 8
+	VTBL R08_MASK.B16, [y.B16], z.B16;                   \ // z = x <<< 16
+	VEOR x.B16, y.B16, y.B16;                            \ // y = x ^ (x <<< 8)
+	VEOR z.B16, y.B16, y.B16;                            \ // y = x ^ (x <<< 8) ^ (x <<< 16)
+	VTBL R08_MASK.B16, [z.B16], z.B16;                   \ // z = x <<< 24
+	VEOR z.B16, x.B16, x.B16;                            \ // x = x ^ (x <<< 24)
+	VSHL $2, y.S4, z.S4;                                 \
+	VSRI $30, y.S4, z.S4;                                \ // z = (x <<< 2) ^ (x <<< 10) ^ (x <<< 18)
+	VEOR z.B16, x.B16, x.B16
 
 // SM4 round function
 // t0 ^= tao_l1(t1^t2^t3^xk)

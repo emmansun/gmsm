@@ -17,9 +17,7 @@
 #define M2L V24 
 #define M2H V25
 #define R08_MASK V26 
-#define R16_MASK V27
-#define R24_MASK V28
-#define FK_MASK V29
+#define FK_MASK V27
 #define XTMP6 V6
 #define IV V7
 

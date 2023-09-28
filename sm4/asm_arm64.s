@@ -21,9 +21,7 @@
 #define M2L V24 
 #define M2H V25
 #define R08_MASK V26 
-#define R16_MASK V27
-#define R24_MASK V28
-#define FK_MASK V29
+#define FK_MASK V27
 #define XTMP6 V6
 #define XTMP7 V7
 
@@ -78,13 +76,7 @@
 	load_global_data_1()         \
 	LDP r08_mask<>(SB), (R0, R1) \
 	VMOV R0, R08_MASK.D[0]       \
-	VMOV R1, R08_MASK.D[1]       \
-	LDP r16_mask<>(SB), (R0, R1) \
-	VMOV R0, R16_MASK.D[0]       \
-	VMOV R1, R16_MASK.D[1]       \
-	LDP r24_mask<>(SB), (R0, R1) \
-	VMOV R0, R24_MASK.D[0]       \
-	VMOV R1, R24_MASK.D[1]
+	VMOV R1, R08_MASK.D[1]
 
 #define SM4EKEY_EXPORT_KEYS() \
 	VMOV V9.S[3], V10.S[0]            \

@@ -322,6 +322,7 @@ avx2_sm4_done:
 	RET
 
 // func encryptBlockAsm(xk *uint32, dst, src *byte, inst int)
+// Requires: SSSE3
 TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
 	MOVQ xk+0(FP), AX
 	MOVQ dst+8(FP), BX

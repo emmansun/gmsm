@@ -41,14 +41,6 @@ DATA r08_mask<>+0x00(SB)/8, $0x0605040702010003
 DATA r08_mask<>+0x08(SB)/8, $0x0E0D0C0F0A09080B
 GLOBL r08_mask<>(SB), 8, $16
 
-DATA r16_mask<>+0x00(SB)/8, $0x0504070601000302
-DATA r16_mask<>+0x08(SB)/8, $0x0D0C0F0E09080B0A
-GLOBL r16_mask<>(SB), 8, $16
-
-DATA r24_mask<>+0x00(SB)/8, $0x0407060500030201
-DATA r24_mask<>+0x08(SB)/8, $0x0C0F0E0D080B0A09
-GLOBL r24_mask<>(SB), 8, $16
-
 DATA fk_mask<>+0x00(SB)/8, $0x56aa3350a3b1bac6
 DATA fk_mask<>+0x08(SB)/8, $0xb27022dc677d9197
 GLOBL fk_mask<>(SB), 8, $16
@@ -65,18 +57,6 @@ DATA r08_mask256<>+0x08(SB)/8, $0x0E0D0C0F0A09080B
 DATA r08_mask256<>+0x10(SB)/8, $0x0605040702010003
 DATA r08_mask256<>+0x18(SB)/8, $0x0E0D0C0F0A09080B
 GLOBL r08_mask256<>(SB), 8, $32
-
-DATA r16_mask256<>+0x00(SB)/8, $0x0504070601000302
-DATA r16_mask256<>+0x08(SB)/8, $0x0D0C0F0E09080B0A
-DATA r16_mask256<>+0x10(SB)/8, $0x0504070601000302
-DATA r16_mask256<>+0x18(SB)/8, $0x0D0C0F0E09080B0A
-GLOBL r16_mask256<>(SB), 8, $32
-
-DATA r24_mask256<>+0x00(SB)/8, $0x0407060500030201
-DATA r24_mask256<>+0x08(SB)/8, $0x0C0F0E0D080B0A09
-DATA r24_mask256<>+0x10(SB)/8, $0x0407060500030201
-DATA r24_mask256<>+0x18(SB)/8, $0x0C0F0E0D080B0A09
-GLOBL r24_mask256<>(SB), 8, $32
 
 // Transpose matrix without PUNPCKHDQ/PUNPCKLDQ/PUNPCKHQDQ/PUNPCKLQDQ instructions, bad performance!
 // input: from high to low
@@ -164,19 +144,18 @@ GLOBL r24_mask256<>(SB), 8, $32
 	SM4_SBOX(x, y, z);                  \
 	;                                   \ //####################  4 parallel L1 linear transforms ##################//
 	MOVOU x, y;                         \
-	PSHUFB r08_mask<>(SB), y;           \ //y = _mm_shuffle_epi8(x, r08)
-	PXOR x, y;                          \ //y = x xor _mm_shuffle_epi8(x, r08)
-	MOVOU x, z;                         \
-	PSHUFB r16_mask<>(SB), z;           \
-	PXOR z, y;                          \ //y = x xor _mm_shuffle_epi8(x, r08) xor _mm_shuffle_epi8(x, r16)
+	PSHUFB r08_mask<>(SB), y;           \ //y = x <<< 8
+	MOVOU y, z;                         \
+	PSHUFB r08_mask<>(SB), z;           \ //z = x <<< 16
+	PXOR x, y;                          \ //y = x ^ (x <<< 8)
+	PXOR z, y;                          \ //y = x ^ (x <<< 8) ^ (x <<< 16)
+	PSHUFB r08_mask<>(SB), z;           \ //z = x <<< 24
+	PXOR z, x;                          \ //x = x ^ (x <<< 24)
 	MOVOU y, z;                         \
 	PSLLL $2, z;                        \
 	PSRLL $30, y;                       \
-	POR z, y;                           \ //y = _mm_slli_epi32(y, 2) ^ _mm_srli_epi32(y, 30);  
-	MOVOU x, z;                         \
-	PSHUFB r24_mask<>(SB), z;           \
-	PXOR y, x;                          \ //x = x xor y
-	PXOR z, x                             //x = x xor y xor _mm_shuffle_epi8(x, r24);
+	POR z, y;                           \ // y = (x <<< 2) ^ (x <<< 10) ^ (x <<< 18)
+	PXOR y, x
 
 // SM4 single round function, handle 16 bytes data
 // t0 ^= tao_l1(t1^t2^t3^xk)
@@ -239,6 +218,7 @@ GLOBL r24_mask256<>(SB), 8, $32
 	PSHUFD $0xFF, rk128, x;                                \
 	SM4_ONE_ROUND_SSE(x, y, z, t3, t0, t1, t2);            \
 
+// Requires: SSSE3
 #define SM4_SINGLE_BLOCK(RK, rk128, x, y, z, t0, t1, t2, t3) \
 	PSHUFB flip_mask<>(SB), t0;                            \
 	PSHUFD $1, t0, t1;                                     \
@@ -388,16 +368,16 @@ GLOBL r24_mask256<>(SB), 8, $32
 // - tmp: 128 bits temp register
 #define AVX_SM4_TAO_L1(x, y, tmp) \
 	AVX_SM4_SBOX(x, y, tmp);   \
-	VPSHUFB r08_mask<>(SB), x, y;           \
-	VPXOR x, y, y;                          \
-	VPSHUFB r16_mask<>(SB), x, tmp;         \
-	VPXOR tmp, y, y;                        \
+	VPSHUFB r08_mask<>(SB), x, y;           \ // y = x <<< 8
+	VPSHUFB r08_mask<>(SB), y, tmp;         \ // tmp = x <<< 16
+	VPXOR x, y, y;                          \ // y = x ^ (x <<< 8)
+	VPXOR tmp, y, y;                        \ // y = x ^ (x <<< 8) ^ (x <<< 16)
+	VPSHUFB r08_mask<>(SB), tmp, tmp;       \ // tmp = x <<< 24
+	VPXOR x, tmp, x;                        \ // x = x ^ (x <<< 24)
 	VPSLLD $2, y, tmp;                      \
 	VPSRLD $30, y, y;                       \
-	VPOR tmp, y, y;                         \
-	VPSHUFB r24_mask<>(SB), x, tmp;         \
-	VPXOR y, x, x;                          \
-	VPXOR x, tmp, x
+	VPOR tmp, y, y;                         \ // y = (x <<< 2) ^ (x <<< 10) ^ (x <<< 18)
+	VPXOR y, x, x
 
 // transpose matrix function, AVX/AVX2 version
 // parameters:
@@ -433,7 +413,7 @@ GLOBL r24_mask256<>(SB), 8, $32
 	VPXOR t1, x, x;                                    \
 	VPXOR t2, x, x;                                    \
 	VPXOR t3, x, x;                                    \
-	AVX_SM4_TAO_L1(x, y, tmp);          \  
+	AVX_SM4_TAO_L1(x, y, tmp);                         \  
 	VPXOR x, t0, t0
 
 
@@ -591,16 +571,16 @@ GLOBL r24_mask256<>(SB), 8, $32
 // - yNibbleMask: 256 bits register stored nibble mask, should be loaded earlier.
 #define AVX2_SM4_TAO_L1(x, y, z, xw, yw, xNibbleMask, yNibbleMask) \
 	AVX2_SM4_SBOX(x, y, z, xw, yw, xNibbleMask, yNibbleMask);      \
-	VPSHUFB r08_mask256<>(SB), x, y;         \
-	VPXOR x, y, y;                           \
-	VPSHUFB r16_mask256<>(SB), x, z;         \
-	VPXOR z, y, y;                           \
+	VPSHUFB r08_mask256<>(SB), x, y;         \ // y = x <<< 8
+	VPSHUFB r08_mask256<>(SB), y, z;         \ // z = x <<< 16
+	VPXOR x, y, y;                           \ // y = x ^ (x <<< 8)
+	VPXOR z, y, y;                           \ // y = x ^ (x <<< 8) ^ (x <<< 16)
+	VPSHUFB r08_mask256<>(SB), z, z;         \ // z = x <<< 24
+	VPXOR x, z, x;                           \ // x = x ^ (x <<< 24)
 	VPSLLD $2, y, z;                         \
 	VPSRLD $30, y, y;                        \
-	VPOR z, y, y;                            \
-	VPSHUFB r24_mask256<>(SB), x, z;         \
-	VPXOR y, x, x;                           \
-	VPXOR x, z, x
+	VPOR z, y, y;                            \ // y = (x <<< 2) ^ (x <<< 10) ^ (x <<< 18)
+	VPXOR y, x, x
 
 // SM4 round function, AVX2 version, handle 256 bits
 // t0 ^= tao_l1(t1^t2^t3^xk)

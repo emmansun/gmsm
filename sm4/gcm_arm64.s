@@ -37,8 +37,6 @@
 #define M2L V27 
 #define M2H V28
 #define R08_MASK V29 
-#define R16_MASK V30
-#define R24_MASK V31
 
 #define reduce() \
 	VEOR	ACC0.B16, ACCM.B16, ACCM.B16     \
