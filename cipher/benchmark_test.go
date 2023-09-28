@@ -25,7 +25,7 @@ func BenchmarkSM4ECBEncrypt1K(b *testing.B) {
 	benchmarkECBEncrypt1K(b, c)
 }
 
-func BenchmarkAES128EBCEncrypt1K(b *testing.B) {
+func BenchmarkAES128ECBEncrypt1K(b *testing.B) {
 	var key [16]byte
 	c, _ := aes.NewCipher(key[:])
 	benchmarkECBEncrypt1K(b, c)

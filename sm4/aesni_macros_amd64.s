@@ -16,47 +16,46 @@ GLOBL nibble_mask<>(SB), 8, $16
 // inverse shift rows
 DATA inverse_shift_rows<>+0x00(SB)/8, $0x0B0E0104070A0D00
 DATA inverse_shift_rows<>+0x08(SB)/8, $0x0306090C0F020508
-GLOBL inverse_shift_rows<>(SB), 8, $16
+DATA inverse_shift_rows<>+0x10(SB)/8, $0x0B0E0104070A0D00
+DATA inverse_shift_rows<>+0x18(SB)/8, $0x0306090C0F020508
+GLOBL inverse_shift_rows<>(SB), 8, $32
 
 // Affine transform 1 (low and high hibbles)
 DATA m1_low<>+0x00(SB)/8, $0x0A7FC3B6D5A01C69
 DATA m1_low<>+0x08(SB)/8, $0x3045F98CEF9A2653
-GLOBL m1_low<>(SB), 8, $16
+DATA m1_low<>+0x10(SB)/8, $0x0A7FC3B6D5A01C69
+DATA m1_low<>+0x18(SB)/8, $0x3045F98CEF9A2653
+GLOBL m1_low<>(SB), 8, $32
 
 DATA m1_high<>+0x00(SB)/8, $0xC35BF46CAF379800
 DATA m1_high<>+0x08(SB)/8, $0x68F05FC7049C33AB
-GLOBL m1_high<>(SB), 8, $16
+DATA m1_high<>+0x10(SB)/8, $0xC35BF46CAF379800
+DATA m1_high<>+0x18(SB)/8, $0x68F05FC7049C33AB
+GLOBL m1_high<>(SB), 8, $32
 
 // Affine transform 2 (low and high hibbles)
 DATA m2_low<>+0x00(SB)/8, $0x9A950A05FEF16E61
 DATA m2_low<>+0x08(SB)/8, $0x0E019E916A65FAF5
-GLOBL m2_low<>(SB), 8, $16
+DATA m2_low<>+0x10(SB)/8, $0x9A950A05FEF16E61
+DATA m2_low<>+0x18(SB)/8, $0x0E019E916A65FAF5
+GLOBL m2_low<>(SB), 8, $32
 
 DATA m2_high<>+0x00(SB)/8, $0x892D69CD44E0A400
 DATA m2_high<>+0x08(SB)/8, $0x2C88CC68E14501A5
-GLOBL m2_high<>(SB), 8, $16
+DATA m2_high<>+0x10(SB)/8, $0x892D69CD44E0A400
+DATA m2_high<>+0x18(SB)/8, $0x2C88CC68E14501A5
+GLOBL m2_high<>(SB), 8, $32
 
 // left rotations of 32-bit words by 8-bit increments
 DATA r08_mask<>+0x00(SB)/8, $0x0605040702010003
 DATA r08_mask<>+0x08(SB)/8, $0x0E0D0C0F0A09080B
-GLOBL r08_mask<>(SB), 8, $16
+DATA r08_mask<>+0x10(SB)/8, $0x0605040702010003
+DATA r08_mask<>+0x18(SB)/8, $0x0E0D0C0F0A09080B
+GLOBL r08_mask<>(SB), 8, $32
 
 DATA fk_mask<>+0x00(SB)/8, $0x56aa3350a3b1bac6
 DATA fk_mask<>+0x08(SB)/8, $0xb27022dc677d9197
 GLOBL fk_mask<>(SB), 8, $16
-
-// inverse shift rows
-DATA inverse_shift_rows256<>+0x00(SB)/8, $0x0B0E0104070A0D00
-DATA inverse_shift_rows256<>+0x08(SB)/8, $0x0306090C0F020508
-DATA inverse_shift_rows256<>+0x10(SB)/8, $0x0B0E0104070A0D00
-DATA inverse_shift_rows256<>+0x18(SB)/8, $0x0306090C0F020508
-GLOBL inverse_shift_rows256<>(SB), 8, $32
-
-DATA r08_mask256<>+0x00(SB)/8, $0x0605040702010003
-DATA r08_mask256<>+0x08(SB)/8, $0x0E0D0C0F0A09080B
-DATA r08_mask256<>+0x10(SB)/8, $0x0605040702010003
-DATA r08_mask256<>+0x18(SB)/8, $0x0E0D0C0F0A09080B
-GLOBL r08_mask256<>(SB), 8, $32
 
 // Transpose matrix without PUNPCKHDQ/PUNPCKLDQ/PUNPCKHQDQ/PUNPCKLQDQ instructions, bad performance!
 // input: from high to low
@@ -539,24 +538,24 @@ GLOBL r08_mask256<>(SB), 8, $32
 // - yNibbleMask: 256 bits register stored nibble mask, should be loaded earlier.
 #define AVX2_SM4_SBOX(x, y, z, xw, yw, xNibbleMask, yNibbleMask) \
 	VPAND yNibbleMask, x, z;                       \
-	VBROADCASTI128 m1_low<>(SB), y;                \
+	VMOVDQU m1_low<>(SB), y;                    \
 	VPSHUFB z, y, y;                               \
 	VPSRLQ $4, x, x;                               \
 	VPAND yNibbleMask, x, x;                       \
-	VBROADCASTI128 m1_high<>(SB), z;               \
+	VMOVDQU m1_high<>(SB), z;                   \
 	VPSHUFB x, z, x;                               \
 	VPXOR y, x, x;                                 \
-	VPSHUFB inverse_shift_rows256<>(SB), x, x;     \
+	VPSHUFB inverse_shift_rows<>(SB), x, x;     \
 	VEXTRACTI128 $1, x, yw                         \
 	VAESENCLAST xNibbleMask, xw, xw;               \
 	VAESENCLAST xNibbleMask, yw, yw;               \
 	VINSERTI128 $1, yw, x, x;                      \
 	VPANDN yNibbleMask, x, z;                      \
-	VBROADCASTI128 m2_low<>(SB), y;                \
+	VMOVDQU m2_low<>(SB), y;                    \
 	VPSHUFB z, y, y;                               \
 	VPSRLQ $4, x, x;                               \
 	VPAND yNibbleMask, x, x;                       \
-	VBROADCASTI128 m2_high<>(SB), z;               \
+	VMOVDQU m2_high<>(SB), z;                   \
 	VPSHUFB x, z, x;                               \
 	VPXOR y, x, x
 
@@ -571,11 +570,11 @@ GLOBL r08_mask256<>(SB), 8, $32
 // - yNibbleMask: 256 bits register stored nibble mask, should be loaded earlier.
 #define AVX2_SM4_TAO_L1(x, y, z, xw, yw, xNibbleMask, yNibbleMask) \
 	AVX2_SM4_SBOX(x, y, z, xw, yw, xNibbleMask, yNibbleMask);      \
-	VPSHUFB r08_mask256<>(SB), x, y;         \ // y = x <<< 8
-	VPSHUFB r08_mask256<>(SB), y, z;         \ // z = x <<< 16
+	VPSHUFB r08_mask<>(SB), x, y;         \ // y = x <<< 8
+	VPSHUFB r08_mask<>(SB), y, z;         \ // z = x <<< 16
 	VPXOR x, y, y;                           \ // y = x ^ (x <<< 8)
 	VPXOR z, y, y;                           \ // y = x ^ (x <<< 8) ^ (x <<< 16)
-	VPSHUFB r08_mask256<>(SB), z, z;         \ // z = x <<< 24
+	VPSHUFB r08_mask<>(SB), z, z;         \ // z = x <<< 24
 	VPXOR x, z, x;                           \ // x = x ^ (x <<< 24)
 	VPSLLD $2, y, z;                         \
 	VPSRLD $30, y, y;                        \
