@@ -50,11 +50,12 @@ func Test_EEA(t *testing.T) {
 			t.Error(err)
 		}
 		in, err := hex.DecodeString(test.in)
-		out := make([]byte, len(in))
 		if err != nil {
 			t.Error(err)
 		}
-		c.XORKeyStream(out, in)
+		out := make([]byte, len(in))
+		copy(out, in)
+		c.XORKeyStream(out, out)
 		if hex.EncodeToString(out) != test.out {
 			t.Errorf("case %d, expected=%s, result=%s\n", i+1, test.out, hex.EncodeToString(out))
 		}

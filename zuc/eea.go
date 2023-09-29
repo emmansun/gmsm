@@ -25,7 +25,21 @@ func NewEEACipher(key []byte, count, bearer, direction uint32) (cipher.Stream, e
 	return newZUCState(key, iv)
 }
 
-func xorKeyStreamGeneric(c *zucState32, dst, src []byte) {
+func genKeyStreamRev32Generic(keyStream []byte, pState *zucState32) {
+	for len(keyStream) >= 4 {
+		z := genKeyword(pState)
+		binary.BigEndian.PutUint32(keyStream, z)
+		keyStream = keyStream[4:]
+	}
+}
+
+func (c *zucState32) XORKeyStream(dst, src []byte) {
+	if len(dst) < len(src) {
+		panic("zuc: output smaller than input")
+	}
+	if alias.InexactOverlap(dst[:len(src)], src) {
+		panic("zuc: invalid buffer overlap")
+	}
 	words := (len(src) + 3) / 4
 	rounds := words / RoundWords
 	var keyBytes [RoundWords * 4]byte
@@ -39,14 +53,4 @@ func xorKeyStreamGeneric(c *zucState32, dst, src []byte) {
 		genKeyStreamRev32(keyBytes[:4*(words-rounds*RoundWords)], c)
 		subtle.XORBytes(dst, src, keyBytes[:])
 	}
-}
-
-func (c *zucState32) XORKeyStream(dst, src []byte) {
-	if len(dst) < len(src) {
-		panic("zuc: output smaller than input")
-	}
-	if alias.InexactOverlap(dst[:len(src)], src) {
-		panic("zuc: invalid buffer overlap")
-	}
-	xorKeyStream(c, dst, src)
 }

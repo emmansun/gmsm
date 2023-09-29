@@ -3,6 +3,6 @@
 
 package zuc
 
-func xorKeyStream(c *zucState32, dst, src []byte) {
-	xorKeyStreamGeneric(c, dst, src)
+func genKeyStreamRev32(keyStream []byte, pState *zucState32) {
+	genKeyStreamRev32Generic(keyStream, pState)
 }

@@ -237,11 +237,3 @@ func (s *zucState32) genKeywords(words []uint32) {
 	}
 	genKeyStream(words, s)
 }
-
-func genKeyStreamRev32(keyStream []byte, pState *zucState32) {
-	for len(keyStream) >= 4 {
-		z := genKeyword(pState)
-		binary.BigEndian.PutUint32(keyStream, z)
-		keyStream = keyStream[4:]
-	}
-}
