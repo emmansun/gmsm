@@ -11,7 +11,6 @@
 #define t3 X5
 
 #define XTMP6 X6
-#define IV X8
 
 #include "aesni_macros_amd64.s"
 
@@ -27,15 +26,14 @@ TEXT ·encryptBlocksChain(SB),NOSPLIT,$0
 	MOVQ src_len+40(FP), ptxLen
 	MOVQ iv+56(FP), SI
 
-	MOVUPS (SI), IV
+	MOVOU (SI), t0
 
 loopSrc:
 		CMPQ ptxLen, $16
 		JB done_sm4
 		SUBQ $16, ptxLen
 
-		MOVOU (ptx), t0
-		PXOR IV, t0
+		PXOR (ptx), t0
 
 		PSHUFB flip_mask<>(SB), t0
 		PSHUFD $1, t0, t1
@@ -60,7 +58,6 @@ loopRound:
 		PALIGNR $4, t1, t0
 		PSHUFB flip_mask<>(SB), t0
 
-		MOVOU t0, IV
 		MOVOU t0, (ctx)
 
 		LEAQ 16(ptx), ptx
@@ -69,7 +66,7 @@ loopRound:
 		JMP loopSrc
 
 done_sm4:
-	MOVUPS IV, (SI)
+	MOVOU t0, (SI)
 	RET
 
 #undef ctx
