@@ -21,6 +21,8 @@ TEXT ·gfpCopy(SB),NOSPLIT,$0
 	MOVOU X0, (16*0)(res_ptr)
 	MOVOU X1, (16*1)(res_ptr)
 
+	RET
+
 copygfp_avx2:
 	VMOVDQU (x_ptr), Y0
 	VMOVDQU Y0, (res_ptr)
@@ -44,6 +46,7 @@ TEXT ·gfp2Copy(SB),NOSPLIT,$0
 	MOVOU X1, (16*1)(res_ptr)
 	MOVOU X2, (16*2)(res_ptr)
 	MOVOU X3, (16*3)(res_ptr)
+	RET
 
 copygfp2_avx2:
 	VMOVDQU (32*0)(x_ptr), Y0
@@ -82,6 +85,8 @@ TEXT ·gfp4Copy(SB),NOSPLIT,$0
 	MOVOU X5, (16*5)(res_ptr)
 	MOVOU X6, (16*6)(res_ptr)
 	MOVOU X7, (16*7)(res_ptr)
+	
+	RET
 
 copygfp4_avx2:
 	VMOVDQU (32*0)(x_ptr), Y0
@@ -134,6 +139,8 @@ TEXT ·gfp6Copy(SB),NOSPLIT,$0
 	MOVOU X9, (16*9)(res_ptr)
 	MOVOU X10, (16*10)(res_ptr)
 	MOVOU X11, (16*11)(res_ptr)
+	
+	RET
 
 copygfp6_avx2:
 	VMOVDQU (32*0)(x_ptr), Y0
@@ -220,6 +227,8 @@ TEXT ·gfp12Copy(SB),NOSPLIT,$0
 	MOVOU X5, (16*21)(res_ptr)
 	MOVOU X6, (16*22)(res_ptr)
 	MOVOU X7, (16*23)(res_ptr)
+
+	RET
 
 copygfp12_avx2:
 	VMOVDQU (32*0)(x_ptr), Y0
