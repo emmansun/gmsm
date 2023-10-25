@@ -24,7 +24,7 @@
 
 * **CFCA** - CFCA特定实现，目前实现的是SM2私钥、证书封装处理，对应SADK中的**PKCS12_SM2**。
 
-* **CIPHER** - ECB/CCM/XTS加密模式实现, XTS模式同时支持NIST规范和国标 **GB/T 17964-2021**。
+* **CIPHER** - ECB/CCM/XTS加密模式实现, XTS模式同时支持NIST规范和国标 **GB/T 17964-2021**。当前的XTS模式由于实现了BlockMode，其结构包含一个tweak数组，所以其**不支持并发使用**。
 
 * **SMX509** - Go语言X509包的分支，加入了商用密码支持。
 
@@ -34,7 +34,7 @@
 
 * **ECDH** - 一个类似Go语言中ECDH包的实现，支持SM2椭圆曲线密码算法的ECDH & SM2MQV协议，该实现没有使用 **big.Int**，也是一个SM2包中密钥交换协议实现的替换实现（推荐使用）。
 
-* **DRBG** - 《GM/T 0105-2021软件随机数发生器设计指南》实现。本实现同时支持**NIST Special Publication 800-90A**（部分） 和 **GM/T 0105-2021**，NIST相关实现使用了NIST提供的测试数据进行测试。本实现不支持并发使用。
+* **DRBG** - 《GM/T 0105-2021软件随机数发生器设计指南》实现。本实现同时支持**NIST Special Publication 800-90A**（部分） 和 **GM/T 0105-2021**，NIST相关实现使用了NIST提供的测试数据进行测试。本实现**不支持并发使用**。
 
 ## 相关项目
 * **[Trisia/TLCP](https://github.com/Trisia/gotlcp)** - 一个《GB/T 38636-2020 信息安全技术 传输层密码协议》Go语言实现项目。 

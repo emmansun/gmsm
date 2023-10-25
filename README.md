@@ -25,7 +25,7 @@ English | [简体中文](README-CN.md)
 
 * **CFCA** - some cfca specific implementations.
 
-* **CIPHER** - ECB/CCM/XTS cipher modes, XTS mode also supports **GB/T 17964-2021**.
+* **CIPHER** - ECB/CCM/XTS cipher modes, XTS mode also supports **GB/T 17964-2021**. Current XTS mode implementation is **NOT** concurrent safe!
 
 * **SMX509** - a fork of golang X509 that supports ShangMi.
 
