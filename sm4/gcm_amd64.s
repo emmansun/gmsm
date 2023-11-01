@@ -677,14 +677,22 @@ gcmSm4EncOctetsLoop:
 		
 		SM4_8BLOCKS_WO_BS(rk, ACC1, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
 
-		PXOR (16*0)(ptx), B0
-		PXOR (16*1)(ptx), B1
-		PXOR (16*2)(ptx), B2
-		PXOR (16*3)(ptx), B3
-		PXOR (16*4)(ptx), B4
-		PXOR (16*5)(ptx), B5
-		PXOR (16*6)(ptx), B6
-		PXOR (16*7)(ptx), B7
+		MOVOU (16*0)(ptx), T0 
+		PXOR T0, B0
+		MOVOU (16*1)(ptx), T0
+		PXOR T0, B1
+		MOVOU (16*2)(ptx), T0
+		PXOR T0, B2
+		MOVOU (16*3)(ptx), T0
+		PXOR T0, B3
+		MOVOU (16*4)(ptx), T0
+		PXOR T0, B4
+		MOVOU (16*5)(ptx), T0
+		PXOR T0, B5
+		MOVOU (16*6)(ptx), T0
+		PXOR T0, B6
+		MOVOU (16*7)(ptx), T0
+		PXOR T0, B7
 
 		MOVOU B0, (16*0)(ctx)
 		PSHUFB BSWAP, B0
@@ -765,10 +773,14 @@ gcmSm4EncNibbles:
 	MOVOU (8*16 + 3*16)(SP), B3
 	
 	SM4_4BLOCKS_WO_BS(AX, B4, T0, T1, T2, B0, B1, B2, B3)
-	PXOR (16*0)(ptx), B0
-	PXOR (16*1)(ptx), B1
-	PXOR (16*2)(ptx), B2
-	PXOR (16*3)(ptx), B3
+	MOVOU (16*0)(ptx), T0
+	PXOR T0, B0
+	MOVOU (16*1)(ptx), T0
+	PXOR T0, B1
+	MOVOU (16*2)(ptx), T0
+	PXOR T0, B2
+	MOVOU (16*3)(ptx), T0
+	PXOR T0, B3
 
 	MOVOU B0, (16*0)(ctx)
 	MOVOU B1, (16*1)(ctx)
@@ -1683,14 +1695,22 @@ gcmSm4DecOctetsLoop:
 
 		SM4_8BLOCKS_WO_BS(rk, ACC1, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
 
-		PXOR (16*0)(ctx), B0
-		PXOR (16*1)(ctx), B1
-		PXOR (16*2)(ctx), B2
-		PXOR (16*3)(ctx), B3
-		PXOR (16*4)(ctx), B4
-		PXOR (16*5)(ctx), B5
-		PXOR (16*6)(ctx), B6
-		PXOR (16*7)(ctx), B7
+		MOVOU (16*0)(ctx), T0 
+		PXOR T0, B0
+		MOVOU (16*1)(ctx), T0
+		PXOR T0, B1
+		MOVOU (16*2)(ctx), T0
+		PXOR T0, B2
+		MOVOU (16*3)(ctx), T0
+		PXOR T0, B3
+		MOVOU (16*4)(ctx), T0
+		PXOR T0, B4
+		MOVOU (16*5)(ctx), T0
+		PXOR T0, B5
+		MOVOU (16*6)(ctx), T0
+		PXOR T0, B6
+		MOVOU (16*7)(ctx), T0
+		PXOR T0, B7
 
 		MOVOU B0, (16*0)(ptx)
 		MOVOU B1, (16*1)(ptx)

@@ -210,44 +210,60 @@ GLOBL gbGcmPoly<>(SB), (NOPTR+RODATA), $16
 
 #define sseLoad4Blocks \
 	MOVOU (16*0)(DX), B0; \
-	PXOR (16*0)(SP), B0; \
+	MOVOU (16*0)(SP), T0; \ 
+	PXOR T0, B0; \
 	MOVOU (16*1)(DX), B1; \
-	PXOR (16*1)(SP), B1; \
+	MOVOU (16*1)(SP), T0; \
+	PXOR T0, B1; \
 	MOVOU (16*2)(DX), B2; \
-	PXOR (16*2)(SP), B2; \
+	MOVOU (16*2)(SP), T0; \
+	PXOR T0, B2; \
 	MOVOU (16*3)(DX), B3; \
-	PXOR (16*3)(SP), B3
+	MOVOU (16*3)(SP), T0; \
+	PXOR T0, B3
 
 #define sseStore4Blocks \
-	PXOR (16*0)(SP), B0; \
+	MOVOU (16*0)(SP), T0; \
+	PXOR T0, B0; \
 	MOVOU B0, (16*0)(CX); \
-	PXOR (16*1)(SP), B1; \
+	MOVOU (16*1)(SP), T0; \
+	PXOR T0, B1; \
 	MOVOU B1, (16*1)(CX); \
-	PXOR (16*2)(SP), B2; \
+	MOVOU (16*2)(SP), T0; \
+	PXOR T0, B2; \
 	MOVOU B2, (16*2)(CX); \
-	PXOR (16*3)(SP), B3; \
+	MOVOU (16*3)(SP), T0; \
+	PXOR T0, B3; \
 	MOVOU B3, (16*3)(CX)
 
 #define sseLoad8Blocks \
 	sseLoad4Blocks;  \
 	MOVOU (16*4)(DX), B4;  \
-	PXOR (16*4)(SP), B4;  \
+	MOVOU (16*4)(SP), T0;  \ 
+	PXOR T0, B4;           \
 	MOVOU (16*5)(DX), B5;  \
-	PXOR (16*5)(SP), B5;  \
+	MOVOU (16*5)(SP), T0;  \ 
+	PXOR T0, B5;           \
 	MOVOU (16*6)(DX), B6;  \
-	PXOR (16*6)(SP), B6;  \
+	MOVOU (16*6)(SP), T0;  \ 
+	PXOR T0, B6;           \
 	MOVOU (16*7)(DX), B7;  \
-	PXOR (16*7)(SP), B7
+	MOVOU (16*7)(SP), T0;  \
+	PXOR T0, B7
 
 #define sseStore8Blocks \
 	sseStore4Blocks; \
-	PXOR (16*4)(SP), B4; \
+	MOVOU (16*4)(SP), T0; \ 
+	PXOR T0, B4; \
 	MOVOU B4, (16*4)(CX); \
-	PXOR (16*5)(SP), B5; \
+	MOVOU (16*5)(SP), T0; \
+	PXOR T0, B5; \
 	MOVOU B5, (16*5)(CX); \
-	PXOR (16*6)(SP), B6; \
+	MOVOU (16*6)(SP), T0; \
+	PXOR T0, B6; \
 	MOVOU B6, (16*6)(CX); \
-	PXOR (16*7)(SP), B7; \
+	MOVOU (16*7)(SP), T0; \
+	PXOR T0, B7; \
 	MOVOU B7, (16*7)(CX)
 
 #define avxLoad4Blocks \
