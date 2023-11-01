@@ -33,7 +33,8 @@ loopSrc:
 		JB done_sm4
 		SUBQ $16, ptxLen
 
-		PXOR (ptx), t0
+		MOVOU (ptx), t1
+		PXOR t1, t0
 
 		PSHUFB flip_mask<>(SB), t0
 		PSHUFD $1, t0, t1
