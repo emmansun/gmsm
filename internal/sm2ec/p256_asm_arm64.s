@@ -279,52 +279,34 @@ TEXT ·p256Select(SB),NOSPLIT,$0
 	MOVD	table+8(FP), b_ptr
 	MOVD	res+0(FP), res_ptr
 
-	EOR	x0, x0, x0
-	EOR	x1, x1, x1
-	EOR	x2, x2, x2
-	EOR	x3, x3, x3
-	EOR	y0, y0, y0
-	EOR	y1, y1, y1
-	EOR	y2, y2, y2
-	EOR	y3, y3, y3
-	EOR	t0, t0, t0
-	EOR	t1, t1, t1
-	EOR	t2, t2, t2
-	EOR	t3, t3, t3
+	VMOV const0, V0.S4                  // will use VDUP after upgrade go to 1.17+
+
+	VEOR V2.B16, V2.B16, V2.B16
+	VEOR V3.B16, V3.B16, V3.B16
+	VEOR V4.B16, V4.B16, V4.B16
+	VEOR V5.B16, V5.B16, V5.B16
+	VEOR V6.B16, V6.B16, V6.B16
+	VEOR V7.B16, V7.B16, V7.B16
 
 	MOVD	$0, const1
 
 loop_select:
 		ADD	$1, const1
-		CMP	const0, const1
-		LDP.P	16(b_ptr), (acc0, acc1)
-		CSEL	EQ, acc0, x0, x0
-		CSEL	EQ, acc1, x1, x1
-		LDP.P	16(b_ptr), (acc2, acc3)
-		CSEL	EQ, acc2, x2, x2
-		CSEL	EQ, acc3, x3, x3
-		LDP.P	16(b_ptr), (acc4, acc5)
-		CSEL	EQ, acc4, y0, y0
-		CSEL	EQ, acc5, y1, y1
-		LDP.P	16(b_ptr), (acc6, acc7)
-		CSEL	EQ, acc6, y2, y2
-		CSEL	EQ, acc7, y3, y3
-		LDP.P	16(b_ptr), (acc0, acc1)
-		CSEL	EQ, acc0, t0, t0
-		CSEL	EQ, acc1, t1, t1
-		LDP.P	16(b_ptr), (acc2, acc3)
-		CSEL	EQ, acc2, t2, t2
-		CSEL	EQ, acc3, t3, t3
+		VMOV const1, V1.S4             // will use VDUP after upgrade go to 1.17+
+		VCMEQ V0.S4, V1.S4, V14.S4
+		VLD1.P (48)(b_ptr), [V8.B16, V9.B16, V10.B16]
+		VLD1.P (48)(b_ptr), [V11.B16, V12.B16, V13.B16]
+		VBIT V14.B16, V8.B16, V2.B16
+		VBIT V14.B16, V9.B16, V3.B16
+		VBIT V14.B16, V10.B16, V4.B16
+		VBIT V14.B16, V11.B16, V5.B16
+		VBIT V14.B16, V12.B16, V6.B16
+		VBIT V14.B16, V13.B16, V7.B16
 
 		CMP	a_ptr, const1
 		BNE	loop_select
-
-	STP	(x0, x1), 0*16(res_ptr)
-	STP	(x2, x3), 1*16(res_ptr)
-	STP	(y0, y1), 2*16(res_ptr)
-	STP	(y2, y3), 3*16(res_ptr)
-	STP	(t0, t1), 4*16(res_ptr)
-	STP	(t2, t3), 5*16(res_ptr)
+	VST1.P [V2.B16, V3.B16, V4.B16], (48)(res_ptr)
+	VST1 [V5.B16, V6.B16, V7.B16], (res_ptr)
 	RET
 /* ---------------------------------------*/
 // func p256SelectAffine(res *p256AffinePoint, table *p256AffineTable, idx int)
