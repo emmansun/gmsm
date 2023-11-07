@@ -99,41 +99,23 @@ TEXT ·p256MovCond(SB),NOSPLIT,$0
 	MOVD	b+16(FP), b_ptr
 	MOVD	cond+24(FP), R3
 
-	CMP	$0, R3
-	// Two remarks:
-	// 1) Will want to revisit NEON, when support is better
-	// 2) CSEL might not be constant time on all ARM processors
-	LDP	0*16(a_ptr), (R4, R5)
-	LDP	1*16(a_ptr), (R6, R7)
-	LDP	2*16(a_ptr), (R8, R9)
-	LDP	0*16(b_ptr), (R16, R17)
-	LDP	1*16(b_ptr), (R19, R20)
-	LDP	2*16(b_ptr), (R21, R22)
-	CSEL	EQ, R16, R4, R4
-	CSEL	EQ, R17, R5, R5
-	CSEL	EQ, R19, R6, R6
-	CSEL	EQ, R20, R7, R7
-	CSEL	EQ, R21, R8, R8
-	CSEL	EQ, R22, R9, R9
-	STP	(R4, R5), 0*16(res_ptr)
-	STP	(R6, R7), 1*16(res_ptr)
-	STP	(R8, R9), 2*16(res_ptr)
+	VEOR V0.B16, V0.B16, V0.B16
+	VMOV R3, V1.S4
+	VCMEQ V0.S4, V1.S4, V2.S4
 
-	LDP	3*16(a_ptr), (R4, R5)
-	LDP	4*16(a_ptr), (R6, R7)
-	LDP	5*16(a_ptr), (R8, R9)
-	LDP	3*16(b_ptr), (R16, R17)
-	LDP	4*16(b_ptr), (R19, R20)
-	LDP	5*16(b_ptr), (R21, R22)
-	CSEL	EQ, R16, R4, R4
-	CSEL	EQ, R17, R5, R5
-	CSEL	EQ, R19, R6, R6
-	CSEL	EQ, R20, R7, R7
-	CSEL	EQ, R21, R8, R8
-	CSEL	EQ, R22, R9, R9
-	STP	(R4, R5), 3*16(res_ptr)
-	STP	(R6, R7), 4*16(res_ptr)
-	STP	(R8, R9), 5*16(res_ptr)
+	VLD1.P (48)(a_ptr), [V3.B16, V4.B16, V5.B16]
+	VLD1.P (48)(b_ptr), [V6.B16, V7.B16, V8.B16]
+	VBIT V2.B16, V6.B16, V3.B16
+	VBIT V2.B16, V7.B16, V4.B16
+	VBIT V2.B16, V8.B16, V5.B16
+	VST1.P [V3.B16, V4.B16, V5.B16], (48)(res_ptr)
+
+	VLD1 (a_ptr), [V3.B16, V4.B16, V5.B16]
+	VLD1 (b_ptr), [V6.B16, V7.B16, V8.B16]
+	VBIT V2.B16, V6.B16, V3.B16
+	VBIT V2.B16, V7.B16, V4.B16
+	VBIT V2.B16, V8.B16, V5.B16
+	VST1 [V3.B16, V4.B16, V5.B16], (res_ptr)
 
 	RET
 /* ---------------------------------------*/
