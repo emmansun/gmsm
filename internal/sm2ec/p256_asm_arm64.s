@@ -333,40 +333,29 @@ TEXT ·p256SelectAffine(SB),NOSPLIT,$0
 	MOVD	table+8(FP), t1
 	MOVD	res+0(FP), res_ptr
 
-	EOR	x0, x0, x0
-	EOR	x1, x1, x1
-	EOR	x2, x2, x2
-	EOR	x3, x3, x3
-	EOR	y0, y0, y0
-	EOR	y1, y1, y1
-	EOR	y2, y2, y2
-	EOR	y3, y3, y3
+	VMOV t0, V0.S4                  // will use VDUP after upgrade go to 1.17+
+
+	VEOR V2.B16, V2.B16, V2.B16
+	VEOR V3.B16, V3.B16, V3.B16
+	VEOR V4.B16, V4.B16, V4.B16
+	VEOR V5.B16, V5.B16, V5.B16
 
 	MOVD	$0, t2
 
 loop_select:
 		ADD	$1, t2
-		CMP	t0, t2
-		LDP.P	16(t1), (acc0, acc1)
-		CSEL	EQ, acc0, x0, x0
-		CSEL	EQ, acc1, x1, x1
-		LDP.P	16(t1), (acc2, acc3)
-		CSEL	EQ, acc2, x2, x2
-		CSEL	EQ, acc3, x3, x3
-		LDP.P	16(t1), (acc4, acc5)
-		CSEL	EQ, acc4, y0, y0
-		CSEL	EQ, acc5, y1, y1
-		LDP.P	16(t1), (acc6, acc7)
-		CSEL	EQ, acc6, y2, y2
-		CSEL	EQ, acc7, y3, y3
+		VMOV t2, V1.S4             // will use VDUP after upgrade go to 1.17+
+		VCMEQ V0.S4, V1.S4, V10.S4
+		VLD1.P (64)(t1), [V6.B16, V7.B16, V8.B16, V9.B16]
+		VBIT V10.B16, V6.B16, V2.B16
+		VBIT V10.B16, V7.B16, V3.B16
+		VBIT V10.B16, V8.B16, V4.B16
+		VBIT V10.B16, V9.B16, V5.B16
 
 		CMP	$32, t2
 		BNE	loop_select
 
-	STP	(x0, x1), 0*16(res_ptr)
-	STP	(x2, x3), 1*16(res_ptr)
-	STP	(y0, y1), 2*16(res_ptr)
-	STP	(y2, y3), 3*16(res_ptr)
+	VST1 [V2.B16, V3.B16, V4.B16, V5.B16], (res_ptr)
 	RET
 
 /* ---------------------------------------*/
