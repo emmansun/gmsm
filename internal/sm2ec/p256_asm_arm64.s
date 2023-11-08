@@ -1286,14 +1286,8 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 
 	// If zero is 0, sets res = in2
 	VLD1 (b_ptr), [V6.B16, V7.B16]
-	// how to load constant value more efficiently?
-	LDP	p256one<>+0x00(SB), (acc0, acc1)
-	LDP	p256one<>+0x10(SB), (acc2, acc3)
-	VMOV acc0, V10.D[0]
-	VMOV acc1, V10.D[1]
-	VMOV acc2, V11.D[0]
-	VMOV acc3, V11.D[1]
-
+	MOVD $p256one<>(SB), hlp1
+	VLD1 (hlp1), [V10.B16, V11.B16]
 	VBIT V14.B16, V6.B16, V0.B16
 	VBIT V14.B16, V7.B16, V1.B16
 	VBIT V14.B16, V8.B16, V2.B16
