@@ -1208,14 +1208,17 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	CALL	sm2P256Subinternal<>(SB)    // h = u2 - u1
 	STx(h)
 
-	LDy(z1in)
+	MOVD	x0, y0
+	MOVD	x1, y1
+	MOVD	x2, y2
+	MOVD	x3, y3
+	LDx(z1in)
 	CALL	sm2P256MulInternal<>(SB)    // z3 = h * z1
 	VMOV y0, V4.D[0]            // save z3
 	VMOV y1, V4.D[1]
 	VMOV y2, V5.D[0]
 	VMOV y3, V5.D[1]
 
-	LDx(z1in)
 	LDy(z1sqr)
 	CALL	sm2P256MulInternal<>(SB)    // z1 ^ 3
 
