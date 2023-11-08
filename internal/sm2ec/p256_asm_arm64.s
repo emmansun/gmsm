@@ -1310,7 +1310,7 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 
 	MOVD	res+0(FP), t0
 	VST1.P [V0.B16, V1.B16, V2.B16], (48)(t0)
-	VST1 [V3.B16, V4.B16, V5.B16], t0
+	VST1 [V3.B16, V4.B16, V5.B16], (t0)
 	RET
 
 // (x3, x2, x1, x0) = (x3, x2, x1, x0) + (y3, y2, y1, y0)
