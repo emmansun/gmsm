@@ -1191,6 +1191,10 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	CSEL	EQ, y3, acc3, y3
 	// Store result
 	STy(y2in)
+	VMOV y0, V8.D[0] // save y2
+	VMOV y1, V8.D[1]
+	VMOV y2, V9.D[0]
+	VMOV y3, V9.D[1]
 
 	// Begin point add
 	LDx(z1in)
@@ -1282,8 +1286,6 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 
 	// If zero is 0, sets res = in2
 	VLD1 (b_ptr), [V6.B16, V7.B16]
-	MOVD RSP, hlp1
-	VLD1.W 8(hlp1), [V8.B16, V9.B16]
 	MOVD $p256one<>(SB), hlp1
 	VLD1 (hlp1), [V10.B16, V11.B16]
 	VBIT V14.B16, V6.B16, V0.B16
