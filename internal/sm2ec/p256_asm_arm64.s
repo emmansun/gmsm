@@ -1283,7 +1283,7 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	// If zero is 0, sets res = in2
 	VLD1 (b_ptr), [V6.B16, V7.B16]
 	MOVD $8, hlp1
-	VLD1 (hlp1)(RSP), [V8.B16, V9.B16]
+	VLD1 (RSP)(hlp1), [V8.B16, V9.B16]
 	MOVD $p256one<>(SB), hlp1
 	VLD1 (hlp1), [V10.B16, V11.B16]
 	VBIT V14.B16, V6.B16, V0.B16
