@@ -1153,15 +1153,14 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	MOVD	sel+32(FP), hlp1
 	MOVD	zero+40(FP), t1
 
-	MOVD	$1, t0
-	CMP	$0, t1
-	CSEL	EQ, ZR, t0, t1
-	CMP	$0, hlp1
-	CSEL	EQ, ZR, t0, hlp1
+	VEOR X12.B16, X12.B16, X12.B16
+	VMOV hlp1, X13.S4  // will use VDUP after go 1.17
+	VCMEQ X12.S4, X13.S4, X13.S4
+	VMOV t1, X14.S4    // will use VDUP after go 1.17
+	VCMEQ X12.S4, X14.S4, X14.S4	
 
 	LDP	p256p<>+0x00(SB), (const0, const1)
 	LDP	p256p<>+0x10(SB), (const2, const3)
-	EOR	t1<<1, hlp1
 
 	// Negate y2in based on sign
 	LDP	2*16(b_ptr), (y0, y1)
@@ -1192,6 +1191,11 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	CSEL	EQ, y3, acc3, y3
 	// Store result
 	STy(y2in)
+	VMOV y0, V8.D[0] // save y2
+	VMOV y1, V8.D[1]
+	VMOV y2, V9.D[0]
+	VMOV y3, V9.D[1]
+
 	// Begin point add
 	LDx(z1in)
 	CALL	sm2P256SqrInternal<>(SB)    // z1ˆ2
@@ -1206,26 +1210,12 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 
 	LDy(z1in)
 	CALL	sm2P256MulInternal<>(SB)    // z3 = h * z1
+	VMOV y0, V4.D[0]            // save z3
+	VMOV y1, V4.D[1]
+	VMOV y2, V5.D[0]
+	VMOV y3, V5.D[1]
 
-	LDP	4*16(a_ptr), (acc0, acc1)// iff select[0] == 0, z3 = z1
-	LDP	5*16(a_ptr), (acc2, acc3)
-	ANDS	$1, hlp1, ZR
-	CSEL	EQ, acc0, y0, y0
-	CSEL	EQ, acc1, y1, y1
-	CSEL	EQ, acc2, y2, y2
-	CSEL	EQ, acc3, y3, y3
-	LDP	p256one<>+0x00(SB), (acc0, acc1)
-	LDP	p256one<>+0x10(SB), (acc2, acc3)
-	ANDS	$2, hlp1, ZR            // iff select[1] == 0, z3 = 1
-	CSEL	EQ, acc0, y0, y0
-	CSEL	EQ, acc1, y1, y1
-	CSEL	EQ, acc2, y2, y2
-	CSEL	EQ, acc3, y3, y3
 	LDx(z1in)
-	MOVD	res+0(FP), t0
-	STP	(y0, y1), 4*16(t0)
-	STP	(y2, y3), 5*16(t0)
-
 	LDy(z1sqr)
 	CALL	sm2P256MulInternal<>(SB)    // z1 ^ 3
 
@@ -1270,24 +1260,10 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	MOVD	x3, y3
 	LDx(hcub)
 	CALL	sm2P256Subinternal<>(SB)
-
-	LDP	0*16(a_ptr), (acc0, acc1)
-	LDP	1*16(a_ptr), (acc2, acc3)
-	ANDS	$1, hlp1, ZR           // iff select[0] == 0, x3 = x1
-	CSEL	EQ, acc0, x0, x0
-	CSEL	EQ, acc1, x1, x1
-	CSEL	EQ, acc2, x2, x2
-	CSEL	EQ, acc3, x3, x3
-	LDP	0*16(b_ptr), (acc0, acc1)
-	LDP	1*16(b_ptr), (acc2, acc3)
-	ANDS	$2, hlp1, ZR           // iff select[1] == 0, x3 = x2
-	CSEL	EQ, acc0, x0, x0
-	CSEL	EQ, acc1, x1, x1
-	CSEL	EQ, acc2, x2, x2
-	CSEL	EQ, acc3, x3, x3
-	MOVD	res+0(FP), t0
-	STP	(x0, x1), 0*16(t0)
-	STP	(x2, x3), 1*16(t0)
+	VMOV x0, V0.D[0]      // save x3
+	VMOV x1, V0.D[1]
+	VMOV x2, V1.D[0]
+	VMOV x3, V1.D[1]
 
 	LDP	h(0*8), (y0, y1)
 	LDP	h(2*8), (y2, y3)
@@ -1300,24 +1276,41 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	LDP	s2(0*8), (x0, x1)
 	LDP	s2(2*8), (x2, x3)
 	CALL	sm2P256Subinternal<>(SB)
-	LDP	2*16(a_ptr), (acc0, acc1)
-	LDP	3*16(a_ptr), (acc2, acc3)
-	ANDS	$1, hlp1, ZR           // iff select[0] == 0, y3 = y1
-	CSEL	EQ, acc0, x0, x0
-	CSEL	EQ, acc1, x1, x1
-	CSEL	EQ, acc2, x2, x2
-	CSEL	EQ, acc3, x3, x3
-	LDP	y2in(0*8), (acc0, acc1)
-	LDP	y2in(2*8), (acc2, acc3)
-	ANDS	$2, hlp1, ZR            // iff select[1] == 0, y3 = y2
-	CSEL	EQ, acc0, x0, x0
-	CSEL	EQ, acc1, x1, x1
-	CSEL	EQ, acc2, x2, x2
-	CSEL	EQ, acc3, x3, x3
-	MOVD	res+0(FP), t0
-	STP	(x0, x1), 2*16(t0)
-	STP	(x2, x3), 3*16(t0)
+	VMOV x0, V2.D[0]      // save y3
+	VMOV x1, V2.D[1]
+	VMOV x2, V3.D[0]
+	VMOV x3, V3.D[1]
 
+	// If zero is 0, sets res = in2
+	VLD1 (b_ptr), [V6.B16, V7.B16]
+	// how to load constant value more efficiently?
+	LDP	p256one<>+0x00(SB), (acc0, acc1)
+	LDP	p256one<>+0x10(SB), (acc2, acc3)
+	VMOV acc0, V10.D[0]
+	VMOV acc1, V10.D[1]
+	VMOV acc2, V11.D[0]
+	VMOV acc3, V11.D[1]
+
+	VBIT V14.B16, V6.B16, V0.B16
+	VBIT V14.B16, V7.B16, V1.B16
+	VBIT V14.B16, V8.B16, V2.B16
+	VBIT V14.B16, V9.B16, V3.B16
+	VBIT V14.B16, V10.B16, V4.B16
+	VBIT V14.B16, V11.B16, V5.B16
+
+	// If sel is 0, sets res = in1.
+	VLD1.P (48)(a_ptr), [V6.B16, V7.B16, V8.B16]
+	VLD1 (a_ptr), [V9.B16, V10.B16, V11.B16]
+	VBIT V13.B16, V6.B16, V0.B16
+	VBIT V13.B16, V7.B16, V1.B16
+	VBIT V13.B16, V8.B16, V2.B16
+	VBIT V13.B16, V9.B16, V3.B16
+	VBIT V13.B16, V10.B16, V4.B16
+	VBIT V13.B16, V11.B16, V5.B16
+
+	MOVD	res+0(FP), t0
+	VST1.P [V0.B16, V1.B16, V2.B16], (48)(t0)
+	VST1 [V3.B16, V4.B16, V5.B16], t0
 	RET
 
 // (x3, x2, x1, x0) = (x3, x2, x1, x0) + (y3, y2, y1, y0)
