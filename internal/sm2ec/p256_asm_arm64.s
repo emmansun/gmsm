@@ -1153,11 +1153,11 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	MOVD	sel+32(FP), hlp1
 	MOVD	zero+40(FP), t1
 
-	VEOR X12.B16, X12.B16, X12.B16
-	VMOV hlp1, X13.S4  // will use VDUP after go 1.17
-	VCMEQ X12.S4, X13.S4, X13.S4
+	VEOR V12.B16, V12.B16, V12.B16
+	VMOV hlp1, V13.S4  // will use VDUP after go 1.17
+	VCMEQ V12.S4, V13.S4, V13.S4
 	VMOV t1, X14.S4    // will use VDUP after go 1.17
-	VCMEQ X12.S4, X14.S4, X14.S4	
+	VCMEQ V12.S4, V14.S4, V14.S4	
 
 	LDP	p256p<>+0x00(SB), (const0, const1)
 	LDP	p256p<>+0x10(SB), (const2, const3)
