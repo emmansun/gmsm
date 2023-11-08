@@ -33,24 +33,18 @@ GLOBL fk_mask<>(SB), (16+8), $16
 #define LOAD_SM4_AESNI_CONSTS() \
 	MOVW $0x0F0F0F0F, R20                      \
 	VMOV R20, NIBBLE_MASK.S4                   \
-	LDP m1_low<>(SB), (R20, R21)               \
-	VMOV R20, M1L.D[0]                         \
-	VMOV R21, M1L.D[1]                         \
-	LDP m1_high<>(SB), (R20, R21)              \
-	VMOV R20, M1H.D[0]                         \
-	VMOV R21, M1H.D[1]                         \
-	LDP m2_low<>(SB), (R20, R21)               \
-	VMOV R20, M2L.D[0]                         \
-	VMOV R21, M2L.D[1]                         \
-	LDP m2_high<>(SB), (R20, R21)              \
-	VMOV R20, M2H.D[0]                         \
-	VMOV R21, M2H.D[1]                         \
-	LDP inverse_shift_rows<>(SB), (R20, R21)   \
-	VMOV R20, INVERSE_SHIFT_ROWS.D[0]          \
-	VMOV R21, INVERSE_SHIFT_ROWS.D[1]          \
-	LDP r08_mask<>(SB), (R20, R21)             \
-	VMOV R20, R08_MASK.D[0]                    \
-	VMOV R21, R08_MASK.D[1]
+	MOVD $m1_low<>(SB), R20                    \
+	VLD1 (R20), [M1L.B16]                      \
+	MOVD $m1_high<>(SB), R20                   \ 
+	VLD1 (R20), [M1H.B16]                      \ 
+	MOVD $m2_low<>(SB), R20                    \
+	VLD1 (R20), [M2L.B16]                      \
+	MOVD $m2_high<>(SB), R20                   \ 
+	VLD1 (R20), [M2H.B16]                      \ 
+	MOVD $inverse_shift_rows<>(SB), R20        \ 
+	VLD1 (R20), [INVERSE_SHIFT_ROWS.B16]       \ 
+	MOVD $r08_mask<>(SB), R20                  \ 
+	VLD1 (R20), [R08_MASK.B16]                 \ 
 
 // input: from high to low
 // t0 = t0.S3, t0.S2, t0.S1, t0.S0

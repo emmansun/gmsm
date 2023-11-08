@@ -52,30 +52,24 @@
 #define load_global_data_1() \
 	MOVW $0x0F0F0F0F, R0                    \
 	VMOV R0, NIBBLE_MASK.S4                 \
-	LDP m1_low<>(SB), (R0, R1)              \
-	VMOV R0, M1L.D[0]                       \
-	VMOV R1, M1L.D[1]                       \
-	LDP m1_high<>(SB), (R0, R1)             \
-	VMOV R0, M1H.D[0]                       \
-	VMOV R1, M1H.D[1]                       \
-	LDP m2_low<>(SB), (R0, R1)              \
-	VMOV R0, M2L.D[0]                       \
-	VMOV R1, M2L.D[1]                       \
-	LDP m2_high<>(SB), (R0, R1)             \
-	VMOV R0, M2H.D[0]                       \
-	VMOV R1, M2H.D[1]                       \
-	LDP fk_mask<>(SB), (R0, R1)             \
-	VMOV R0, FK_MASK.D[0]                   \
-	VMOV R1, FK_MASK.D[1]                   \
-	LDP inverse_shift_rows<>(SB), (R0, R1)  \
-	VMOV R0, INVERSE_SHIFT_ROWS.D[0]        \
-	VMOV R1, INVERSE_SHIFT_ROWS.D[1]  
+	MOVD $m1_low<>(SB), R0                  \
+	VLD1 (R0), [M1L.B16]                    \
+	MOVD $m1_high<>(SB), R0                 \
+	VLD1 (R0), [M1H.B16]                    \
+	MOVD $m2_low<>(SB), R0                  \
+	VLD1 (R0), [M2L.B16]                    \
+	MOVD $m2_high<>(SB), R0                 \
+	VLD1 (R0), [M2H.B16]                    \
+	MOVD $fk_mask<>(SB), R0                 \
+	VLD1 (R0), [FK_MASK.B16]                \
+	MOVD $inverse_shift_rows<>(SB), R0      \
+	VLD1 (R0), [INVERSE_SHIFT_ROWS.B16]     \
+
 
 #define load_global_data_2() \
 	load_global_data_1()         \
-	LDP r08_mask<>(SB), (R0, R1) \
-	VMOV R0, R08_MASK.D[0]       \
-	VMOV R1, R08_MASK.D[1]
+	MOVD $r08_mask<>(SB), R0     \
+	VLD1 (R0), [R08_MASK.B16]    \
 
 #define SM4EKEY_EXPORT_KEYS() \
 	VMOV V9.S[3], V10.S[0]            \
