@@ -86,45 +86,32 @@ GLOBL mask_S1<>(SB), RODATA, $16
 #define OFFSET_BRC_X3   (21*4)
 
 #define LOAD_GLOBAL_DATA() \
-	LDP nibble_mask<>(SB), (R0, R1)                   \
-	VMOV R0, NIBBLE_MASK.D[0]                         \
-	VMOV R1, NIBBLE_MASK.D[1]                         \
-	LDP Top3_bits_of_the_byte<>(SB), (R0, R1)         \
-	VMOV R0, TOP3_BITS.D[0]                           \
-	VMOV R1, TOP3_BITS.D[1]                           \ 
-	LDP Bottom5_bits_of_the_byte<>(SB), (R0, R1)      \
-	VMOV R0, BOTTOM5_BITS.D[0]                        \
-	VMOV R1, BOTTOM5_BITS.D[1]                        \
-	LDP Aes_to_Zuc_mul_low_nibble<>(SB), (R0, R1)     \
-	VMOV R0, M1L.D[0]                                 \
-	VMOV R1, M1L.D[1]                                 \
-	LDP Aes_to_Zuc_mul_high_nibble<>(SB), (R0, R1)    \
-	VMOV R0, M1H.D[0]                                 \
-	VMOV R1, M1H.D[1]                                 \
-	LDP Comb_matrix_mul_low_nibble<>(SB), (R0, R1)    \
-	VMOV R0, M2L.D[0]                                 \
-	VMOV R1, M2L.D[1]                                 \
-	LDP Comb_matrix_mul_high_nibble<>(SB), (R0, R1)   \
-	VMOV R0, M2H.D[0]                                 \
-	VMOV R1, M2H.D[1]                                 \
-	LDP P1_data<>(SB), (R0, R1)                       \
-	VMOV R0, P1.D[0]                                  \
-	VMOV R1, P1.D[1]                                  \
-	LDP P2_data<>(SB), (R0, R1)                       \
-	VMOV R0, P2.D[0]                                  \
-	VMOV R1, P2.D[1]                                  \   
-	LDP P3_data<>(SB), (R0, R1)                       \
-	VMOV R0, P3.D[0]                                  \
-	VMOV R1, P3.D[1]                                  \
-	LDP mask_S0<>(SB), (R0, R1)                       \
-	VMOV R0, S0_MASK.D[0]                             \
-	VMOV R1, S0_MASK.D[1]                             \
-	LDP mask_S1<>(SB), (R0, R1)                       \
-	VMOV R0, S1_MASK.D[0]                             \
-	VMOV R1, S1_MASK.D[1]                             \
-	LDP Shuf_mask<>(SB), (R0, R1)                     \
-	VMOV R0, INVERSE_SHIFT_ROWS.D[0]                  \
-	VMOV R1, INVERSE_SHIFT_ROWS.D[1] 
+	MOVD $nibble_mask<>(SB), R0                       \
+	VLD1 (R0), [NIBBLE_MASK.B16]                      \
+	MOVD $Top3_bits_of_the_byte<>(SB), R0             \
+	VLD1 (R0), [TOP3_BITS.B16]                        \
+	MOVD $Bottom5_bits_of_the_byte<>(SB), R0          \
+	VLD1 (R0), [BOTTOM5_BITS.B16]                     \
+	MOVD $Aes_to_Zuc_mul_low_nibble<>(SB), R0         \
+	VLD1 (R0), [M1L.B16]                              \
+	MOVD $Aes_to_Zuc_mul_high_nibble<>(SB), R0        \
+	VLD1 (R0), [M1H.B16]                              \
+	MOVD $Comb_matrix_mul_low_nibble<>(SB), R0        \
+	VLD1 (R0), [M2L.B16]                              \
+	MOVD $Comb_matrix_mul_high_nibble<>(SB), R0       \
+	VLD1 (R0), [M2H.B16]                              \
+	MOVD $P1_data<>(SB), R0                           \
+	VLD1 (R0), [P1.B16]                               \
+	MOVD $P2_data<>(SB), R0                           \
+	VLD1 (R0), [P2.B16]                               \
+	MOVD $P3_data<>(SB), R0                           \
+	VLD1 (R0), [P3.B16]                               \
+	MOVD $mask_S0<>(SB), R0                           \
+	VLD1 (R0), [S0_MASK.B16]                          \
+	MOVD $mask_S1<>(SB), R0                           \
+	VLD1 (R0), [S1_MASK.B16]                          \
+	MOVD $Shuf_mask<>(SB), R0                         \
+	VLD1 (R0), [INVERSE_SHIFT_ROWS.B16]               \
 
 #define SHLDL(a, b, n) \  // NO SHLDL in GOLANG now
 	LSLW n, a          \
