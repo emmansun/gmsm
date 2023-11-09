@@ -1,6 +1,5 @@
 // This SM4 implementation referenced https://github.com/mjosaarinen/sm4ni/blob/master/sm4ni.c
 //go:build amd64 && !purego
-// +build amd64,!purego
 
 #include "textflag.h"
 

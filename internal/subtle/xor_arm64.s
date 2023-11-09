@@ -3,7 +3,6 @@
 // license that can be found in the LICENSE file.
 //
 //go:build arm64 && !purego
-// +build arm64,!purego
 
 #include "textflag.h"
 

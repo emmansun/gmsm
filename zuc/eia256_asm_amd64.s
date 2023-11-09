@@ -1,7 +1,6 @@
 // Referenced Intel(R) Multi-Buffer Crypto for IPsec
 // https://github.com/intel/intel-ipsec-mb/
 //go:build amd64 && !purego
-// +build amd64,!purego
 
 #include "textflag.h"
 

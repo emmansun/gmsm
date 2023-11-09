@@ -1,5 +1,4 @@
 //go:build arm64 && !purego
-// +build arm64,!purego
 
 #include "textflag.h"
 

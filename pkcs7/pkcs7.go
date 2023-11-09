@@ -26,7 +26,7 @@ type PKCS7 struct {
 	Certificates []*smx509.Certificate
 	CRLs         []pkix.CertificateList
 	Signers      []signerInfo
-	raw          interface{}
+	raw          any
 }
 
 type contentInfo struct {
@@ -152,7 +152,7 @@ func getDigestOIDForSignatureAlgorithm(digestAlg x509.SignatureAlgorithm) (asn1.
 
 // getOIDForEncryptionAlgorithm takes the public or private key type of the signer and
 // the OID of a digest algorithm to return the appropriate signerInfo.DigestEncryptionAlgorithm
-func getOIDForEncryptionAlgorithm(pkey interface{}, OIDDigestAlg asn1.ObjectIdentifier) (asn1.ObjectIdentifier, error) {
+func getOIDForEncryptionAlgorithm(pkey any, OIDDigestAlg asn1.ObjectIdentifier) (asn1.ObjectIdentifier, error) {
 	switch k := pkey.(type) {
 	case *rsa.PrivateKey, *rsa.PublicKey:
 		switch {
@@ -269,16 +269,16 @@ func isCertMatchForIssuerAndSerial(cert *smx509.Certificate, ias issuerAndSerial
 // `encoding/asn1`
 type Attribute struct {
 	Type  asn1.ObjectIdentifier
-	Value interface{}
+	Value any
 }
 
 type attributes struct {
 	types  []asn1.ObjectIdentifier
-	values []interface{}
+	values []any
 }
 
 // Add adds the attribute, maintaining insertion order
-func (attrs *attributes) Add(attrType asn1.ObjectIdentifier, value interface{}) {
+func (attrs *attributes) Add(attrType asn1.ObjectIdentifier, value any) {
 	attrs.types = append(attrs.types, attrType)
 	attrs.values = append(attrs.values, value)
 }

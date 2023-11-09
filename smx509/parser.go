@@ -233,7 +233,7 @@ func parseExtension(der cryptobyte.String) (pkix.Extension, error) {
 	return ext, nil
 }
 
-func parsePublicKey(keyData *publicKeyInfo) (interface{}, error) {
+func parsePublicKey(keyData *publicKeyInfo) (any, error) {
 	oid := keyData.Algorithm.Algorithm
 	params := keyData.Algorithm.Parameters
 	der := cryptobyte.String(keyData.PublicKey.RightAlign())

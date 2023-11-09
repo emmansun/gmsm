@@ -3,8 +3,6 @@
 // license that can be found in the LICENSE file.
 
 //go:build !purego && (ppc64 || ppc64le)
-// +build !purego
-// +build ppc64 ppc64le
 
 #include "textflag.h"
 

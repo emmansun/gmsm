@@ -5,7 +5,6 @@
 // http://link.springer.com/article/10.1007%2Fs13389-014-0090-x
 // https://eprint.iacr.org/2013/816.pdf
 //go:build arm64 && !purego
-// +build arm64,!purego
 
 #include "textflag.h"
 

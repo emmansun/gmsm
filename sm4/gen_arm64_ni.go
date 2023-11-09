@@ -2,7 +2,6 @@
 // go run gen_arm64_ni.go
 
 //go:build ignore
-// +build ignore
 
 package main
 

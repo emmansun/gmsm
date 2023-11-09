@@ -738,7 +738,7 @@ func hashToNat(c *sm2Curve, e *bigmod.Nat, hash []byte) {
 }
 
 // IsSM2PublicKey check if given public key is a SM2 public key or not
-func IsSM2PublicKey(publicKey interface{}) bool {
+func IsSM2PublicKey(publicKey any) bool {
 	pub, ok := publicKey.(*ecdsa.PublicKey)
 	return ok && pub.Curve == sm2ec.P256()
 }

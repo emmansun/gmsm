@@ -103,7 +103,7 @@ func TestSignByCloudVerifyAtLocal(t *testing.T) {
 	}
 }
 
-func getPublicKey(pemContent []byte) (interface{}, error) {
+func getPublicKey(pemContent []byte) (any, error) {
 	block, _ := pem.Decode(pemContent)
 	if block == nil {
 		return nil, errors.New("Failed to parse PEM block")

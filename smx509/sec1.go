@@ -48,7 +48,7 @@ func ParseSM2PrivateKey(der []byte) (*sm2.PrivateKey, error) {
 // It returns a *ecdsa.PrivateKey or a *sm2.PrivateKey.
 //
 // This kind of key is commonly encoded in PEM blocks of type "EC PRIVATE KEY".
-func ParseTypedECPrivateKey(der []byte) (interface{}, error) {
+func ParseTypedECPrivateKey(der []byte) (any, error) {
 	key, err := parseECPrivateKey(nil, der)
 	if err != nil {
 		return nil, err

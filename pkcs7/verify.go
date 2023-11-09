@@ -125,7 +125,7 @@ func (p7 *PKCS7) GetOnlySigner() *smx509.Certificate {
 }
 
 // UnmarshalSignedAttribute decodes a single attribute from the signer info
-func (p7 *PKCS7) UnmarshalSignedAttribute(attributeType asn1.ObjectIdentifier, out interface{}) error {
+func (p7 *PKCS7) UnmarshalSignedAttribute(attributeType asn1.ObjectIdentifier, out any) error {
 	sd, ok := p7.raw.(signedData)
 	if !ok {
 		return errors.New("pkcs7: payload is not signedData content")
@@ -278,7 +278,7 @@ func getCertFromCertsByIssuerAndSerial(certs []*smx509.Certificate, ias issuerAn
 	return nil
 }
 
-func unmarshalAttribute(attrs []attribute, attributeType asn1.ObjectIdentifier, out interface{}) error {
+func unmarshalAttribute(attrs []attribute, attributeType asn1.ObjectIdentifier, out any) error {
 	for _, attr := range attrs {
 		if attr.Type.Equal(attributeType) {
 			_, err := asn1.Unmarshal(attr.Value.Bytes, out)

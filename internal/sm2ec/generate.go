@@ -3,7 +3,6 @@
 // license that can be found in the LICENSE file.
 
 //go:build ignore
-// +build ignore
 
 package main
 
@@ -71,7 +70,7 @@ func main() {
 		}
 		defer f.Close()
 		buf := &bytes.Buffer{}
-		if err := t.Execute(buf, map[string]interface{}{
+		if err := t.Execute(buf, map[string]any{
 			"P": c.P, "p": p, "B": B, "Gx": Gx, "Gy": Gy,
 			"Element": c.Element, "ElementLen": elementLen,
 			"BuildTags": c.BuildTags,
@@ -134,7 +133,6 @@ const tmplNISTEC = `// Copyright 2022 The Go Authors. All rights reserved.
 
 {{ if .BuildTags }}
 //go:build {{ .BuildTags }}
-// +build {{ .BuildTags }}
 {{ end }}
 
 package sm2ec
