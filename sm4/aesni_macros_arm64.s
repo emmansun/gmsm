@@ -139,7 +139,7 @@ GLOBL fk_mask<>(SB), (16+8), $16
 // - t3: 128 bits register for data
 #define SM4_ROUND(RK, tmp32, x, y, z, t0, t1, t2, t3) \ 
 	MOVW.P 4(RK), tmp32;                              \
-	VMOV tmp32, x.S4;                                 \
+	VDUP tmp32, x.S4;                                 \
 	VEOR t1.B16, x.B16, x.B16;                        \
 	VEOR t2.B16, x.B16, x.B16;                        \
 	VEOR t3.B16, x.B16, x.B16;                        \
@@ -160,7 +160,7 @@ GLOBL fk_mask<>(SB), (16+8), $16
 // - t3: 128 bits register for data
 #define SM4_8BLOCKS_ROUND(RK, tmp32, x, y, z, tmp, t0, t1, t2, t3, t4, t5, t6, t7) \ 
 	MOVW.P 4(RK), tmp32;                              \
-	VMOV tmp32, tmp.S4;                               \
+	VDUP tmp32, tmp.S4;                               \
 	VEOR t1.B16, tmp.B16, x.B16;                      \
 	VEOR t2.B16, x.B16, x.B16;                        \
 	VEOR t3.B16, x.B16, x.B16;                        \

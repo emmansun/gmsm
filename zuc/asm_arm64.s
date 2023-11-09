@@ -243,7 +243,7 @@ GLOBL mask_S1<>(SB), RODATA, $16
 	EORW R9, R11                             \ // V = L2(Q) = R11D, hi(R11)=0
 	LSL $32, R11                             \
 	EOR R11, DX                              \
-	VMOV DX, V0.D2                           \
+	VDUP DX, V0.D2                           \
 	VMOV V0.B16, V1.B16                      \ 
 	S0_comput(V1, V2, V3)                    \
 	S1_comput(V0, V2, V3)                    \

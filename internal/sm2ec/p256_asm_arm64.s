@@ -99,7 +99,7 @@ TEXT ·p256MovCond(SB),NOSPLIT,$0
 	MOVD	cond+24(FP), R3
 
 	VEOR V0.B16, V0.B16, V0.B16
-	VMOV R3, V1.S4
+	VDUP R3, V1.S4
 	VCMEQ V0.S4, V1.S4, V2.S4
 
 	VLD1.P (48)(a_ptr), [V3.B16, V4.B16, V5.B16]
@@ -278,7 +278,7 @@ TEXT ·p256Select(SB),NOSPLIT,$0
 	MOVD	table+8(FP), b_ptr
 	MOVD	res+0(FP), res_ptr
 
-	VMOV const0, V0.S4                  // will use VDUP after upgrade go to 1.17+
+	VDUP const0, V0.S4
 
 	VEOR V2.B16, V2.B16, V2.B16
 	VEOR V3.B16, V3.B16, V3.B16
@@ -291,7 +291,7 @@ TEXT ·p256Select(SB),NOSPLIT,$0
 
 loop_select:
 		ADD	$1, const1
-		VMOV const1, V1.S4             // will use VDUP after upgrade go to 1.17+
+		VDUP const1, V1.S4
 		VCMEQ V0.S4, V1.S4, V14.S4
 		VLD1.P (48)(b_ptr), [V8.B16, V9.B16, V10.B16]
 		VLD1.P (48)(b_ptr), [V11.B16, V12.B16, V13.B16]
@@ -314,7 +314,7 @@ TEXT ·p256SelectAffine(SB),NOSPLIT,$0
 	MOVD	table+8(FP), t1
 	MOVD	res+0(FP), res_ptr
 
-	VMOV t0, V0.S4                  // will use VDUP after upgrade go to 1.17+
+	VDUP t0, V0.S4
 
 	VEOR V2.B16, V2.B16, V2.B16
 	VEOR V3.B16, V3.B16, V3.B16
@@ -325,7 +325,7 @@ TEXT ·p256SelectAffine(SB),NOSPLIT,$0
 
 loop_select:
 		ADD	$1, t2
-		VMOV t2, V1.S4             // will use VDUP after upgrade go to 1.17+
+		VDUP t2, V1.S4
 		VCMEQ V0.S4, V1.S4, V10.S4
 		VLD1.P (64)(t1), [V6.B16, V7.B16, V8.B16, V9.B16]
 		VBIT V10.B16, V6.B16, V2.B16
@@ -1153,9 +1153,9 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	MOVD	zero+40(FP), t1
 
 	VEOR V12.B16, V12.B16, V12.B16
-	VMOV hlp1, V13.S4  // will use VDUP after go 1.17
+	VDUP hlp1, V13.S4
 	VCMEQ V12.S4, V13.S4, V13.S4
-	VMOV t1, V14.S4    // will use VDUP after go 1.17
+	VDUP t1, V14.S4
 	VCMEQ V12.S4, V14.S4, V14.S4	
 
 	LDP	p256p<>+0x00(SB), (const0, const1)
