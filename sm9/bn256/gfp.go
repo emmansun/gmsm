@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"math/bits"
-	"unsafe"
 )
 
 type gfP [4]uint64
