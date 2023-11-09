@@ -68,10 +68,10 @@ const p256ElementLength = 32
 const p256UncompressedLength = 1 + 2*p256ElementLength
 const p256CompressedLength = 1 + p256ElementLength
 
-// toElementArray, convert slice of bytes to pointer to [32]byte.
+// (*[32]byte), convert slice of bytes to pointer to [32]byte.
 // This function is required for low version of golang, can type cast directly
 // since golang 1.17.
-func toElementArray(b []byte) *[32]byte {
+func (*[32]byte)(b []byte) *[32]byte {
 	tmpPtr := (*unsafe.Pointer)(unsafe.Pointer(&b))
 	return (*[32]byte)(*tmpPtr)
 }
@@ -95,8 +95,8 @@ func (p *SM2P256Point) SetBytes(b []byte) (*SM2P256Point, error) {
 	// Uncompressed form.
 	case len(b) == p256UncompressedLength && b[0] == 4:
 		var r SM2P256Point
-		p256BigToLittle(&r.x, toElementArray(b[1:33]))
-		p256BigToLittle(&r.y, toElementArray(b[33:65]))
+		p256BigToLittle(&r.x, (*[32]byte)(b[1:33]))
+		p256BigToLittle(&r.y, (*[32]byte)(b[33:65]))
 		if p256LessThanP(&r.x) == 0 || p256LessThanP(&r.y) == 0 {
 			return nil, errors.New("invalid P256 element encoding")
 		}
@@ -111,7 +111,7 @@ func (p *SM2P256Point) SetBytes(b []byte) (*SM2P256Point, error) {
 	// Compressed form.
 	case len(b) == p256CompressedLength && (b[0] == 2 || b[0] == 3):
 		var r SM2P256Point
-		p256BigToLittle(&r.x, toElementArray(b[1:33]))
+		p256BigToLittle(&r.x, (*[32]byte)(b[1:33]))
 		if p256LessThanP(&r.x) == 0 {
 			return nil, errors.New("invalid P256 element encoding")
 		}
@@ -457,7 +457,7 @@ func (r *SM2P256Point) ScalarBaseMult(scalar []byte) (*SM2P256Point, error) {
 		return nil, errors.New("invalid scalar length")
 	}
 	scalarReversed := new(p256OrdElement)
-	p256OrdBigToLittle(scalarReversed, toElementArray(scalar))
+	p256OrdBigToLittle(scalarReversed, (*[32]byte)(scalar))
 	p256OrdReduce(scalarReversed)
 	r.p256BaseMult(scalarReversed)
 	return r, nil
@@ -471,7 +471,7 @@ func (r *SM2P256Point) ScalarMult(q *SM2P256Point, scalar []byte) (*SM2P256Point
 		return nil, errors.New("invalid scalar length")
 	}
 	scalarReversed := new(p256OrdElement)
-	p256OrdBigToLittle(scalarReversed, toElementArray(scalar))
+	p256OrdBigToLittle(scalarReversed, (*[32]byte)(scalar))
 	p256OrdReduce(scalarReversed)
 	r.Set(q).p256ScalarMult(scalarReversed)
 	return r, nil
@@ -523,8 +523,8 @@ func (p *SM2P256Point) bytes(out *[p256UncompressedLength]byte) []byte {
 	p.affineFromMont(x, y)
 
 	out[0] = 4 // Uncompressed form.
-	p256LittleToBig(toElementArray(out[1:33]), x)
-	p256LittleToBig(toElementArray(out[33:65]), y)
+	p256LittleToBig((*[32]byte)(out[1:33]), x)
+	p256LittleToBig((*[32]byte)(out[33:65]), y)
 
 	return out[:]
 }
@@ -562,7 +562,7 @@ func (p *SM2P256Point) bytesX(out *[p256ElementLength]byte) ([]byte, error) {
 	p256Sqr(x, x, 1)
 	p256Mul(x, &p.x, x)
 	p256FromMont(x, x)
-	p256LittleToBig(toElementArray(out[:]), x)
+	p256LittleToBig((*[32]byte)(out[:]), x)
 
 	return out[:], nil
 }
@@ -586,7 +586,7 @@ func (p *SM2P256Point) bytesCompressed(out *[p256CompressedLength]byte) []byte {
 	p.affineFromMont(x, y)
 
 	out[0] = 2 | byte(y[0]&1)
-	p256LittleToBig(toElementArray(out[1:33]), x)
+	p256LittleToBig((*[32]byte)(out[1:33]), x)
 
 	return out[:]
 }

@@ -33,7 +33,7 @@ func P256OrdInverse(k []byte) ([]byte, error) {
 		return nil, errors.New("invalid scalar length")
 	}
 	x := new(p256OrdElement)
-	p256OrdBigToLittle(x, toElementArray(k))
+	p256OrdBigToLittle(x, (*[32]byte)(k))
 
 	// Inversion is implemented as exponentiation by n - 2, per Fermat's little theorem.
 	//
@@ -106,11 +106,11 @@ func P256OrdMul(in1, in2 []byte) ([]byte, error) {
 		return nil, errors.New("invalid scalar length")
 	}
 	x1 := new(p256OrdElement)
-	p256OrdBigToLittle(x1, toElementArray(in1))
+	p256OrdBigToLittle(x1, (*[32]byte)(in1))
 	p256OrdMul(x1, x1, RR)
 
 	x2 := new(p256OrdElement)
-	p256OrdBigToLittle(x2, toElementArray(in2))
+	p256OrdBigToLittle(x2, (*[32]byte)(in2))
 	p256OrdMul(x2, x2, RR)
 
 	res := new(p256OrdElement)

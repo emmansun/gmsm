@@ -120,16 +120,8 @@ func (e *gfP) Sqrt(f *gfP) {
 	e.Set(i)
 }
 
-// toElementArray, convert slice of bytes to pointer to [32]byte.
-// This function is required for low version of golang, can type cast directly
-// since golang 1.17.
-func toElementArray(b []byte) *[32]byte {
-	tmpPtr := (*unsafe.Pointer)(unsafe.Pointer(&b))
-	return (*[32]byte)(*tmpPtr)
-}
-
 func (e *gfP) Marshal(out []byte) {
-	gfpMarshal(toElementArray(out), e)
+	gfpMarshal((*[32]byte)(out), e)
 }
 
 // uint64IsZero returns 1 if x is zero and zero otherwise.
@@ -154,7 +146,7 @@ func lessThanP(x *gfP) int {
 }
 
 func (e *gfP) Unmarshal(in []byte) error {
-	gfpUnmarshal(e, toElementArray(in))
+	gfpUnmarshal(e, (*[32]byte)(in))
 	// Ensure the point respects the curve modulus
 	// TODO: Do we need to change it to constant time version ?
 	for i := 3; i >= 0; i-- {
