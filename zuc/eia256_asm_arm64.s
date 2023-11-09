@@ -47,15 +47,15 @@ GLOBL shuf_mask_dw2_0_dw3_0<>(SB), RODATA, $16
 
 #define LOAD_GLOBAL_DATA() \
 	MOVD $bit_reverse_table_l<>(SB), R0                   \
-	VMOV (R0), [BIT_REV_TAB_L.B16]                        \
+	VLD1 (R0), [BIT_REV_TAB_L.B16]                        \
 	MOVD $bit_reverse_table_h<>(SB), R0                   \
-	VMOV (R0), [BIT_REV_TAB_H.B16]                        \
+	VLD1 (R0), [BIT_REV_TAB_H.B16]                        \
 	MOVD $bit_reverse_and_table<>(SB), R0                 \
-	VMOV (R0), [BIT_REV_AND_TAB.B16]                      \
+	VLD1 (R0), [BIT_REV_AND_TAB.B16]                      \
 	MOVD $shuf_mask_dw0_0_dw1_0<>(SB), R0                 \
-	VMOV (R0), [SHUF_MASK_DW0_DW1.B16]                    \
+	VLD1 (R0), [SHUF_MASK_DW0_DW1.B16]                    \
 	MOVD $shuf_mask_dw2_0_dw3_0<>(SB), R0                 \
-	VMOV (R0), [SHUF_MASK_DW2_DW3.B16]                    \
+	VLD1 (R0), [SHUF_MASK_DW2_DW3.B16]                    \
 
 // func eia256RoundTag8(t *uint32, keyStream *uint32, p *byte)
 TEXT ·eia256RoundTag8(SB),NOSPLIT,$0
