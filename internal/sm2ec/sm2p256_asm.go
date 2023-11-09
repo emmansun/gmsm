@@ -68,14 +68,6 @@ const p256ElementLength = 32
 const p256UncompressedLength = 1 + 2*p256ElementLength
 const p256CompressedLength = 1 + p256ElementLength
 
-// (*[32]byte), convert slice of bytes to pointer to [32]byte.
-// This function is required for low version of golang, can type cast directly
-// since golang 1.17.
-func (*[32]byte)(b []byte) *[32]byte {
-	tmpPtr := (*unsafe.Pointer)(unsafe.Pointer(&b))
-	return (*[32]byte)(*tmpPtr)
-}
-
 // SetBytes sets p to the compressed, uncompressed, or infinity value encoded in
 // b, as specified in SEC 1, Version 2.0, Section 2.3.4. If the point is not on
 // the curve, it returns nil and an error, and the receiver is unchanged.
