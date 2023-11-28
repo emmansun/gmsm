@@ -28,6 +28,8 @@
 
 * **SMX509** - Go语言X509包的分支，加入了商用密码支持。
 
+* **PADDING** - 一些填充方法实现（非常量时间运行）：**pkcs7**，这是当前主要使用的填充方式，对应**GB/T 17964-2021**的附录C.2 填充方法 1；**iso9797m2**，对应**GB/T 17964-2021**的附录C.3 填充方法 2；**ansix923**，对应ANSI X9.23标准。**GB/T 17964-2021**的附录C.4 填充方法 3，目前没有实现，它对应ISO/IEC_9797-1 padding method 3，如有使用需求，可以考虑实现。
+
 * **PKCS7** - [mozilla-services/pkcs7](https://github.com/mozilla-services/pkcs7) 项目的分支，加入了商用密码支持。
 
 * **PKCS8** - [youmark/pkcs8](https://github.com/youmark/pkcs8)项目的分支，加入了商用密码支持。
