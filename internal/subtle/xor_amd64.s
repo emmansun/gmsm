@@ -62,7 +62,7 @@ ret:
 	RET
 
 avx2:
-	TESTQ $31, DX            // AND 31 & len, if not zero jump to not_aligned.
+	TESTQ $31, DX            // AND 31 & len, if not zero jump to avx2_not_aligned.
 	JNZ   avx2_not_aligned
 
 avx2_aligned:

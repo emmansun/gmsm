@@ -317,8 +317,10 @@ func (c *xtsDecrypter) CryptBlocks(plaintext, ciphertext []byte) {
 func mul2Generic(tweak *[blockSize]byte, isGB bool) {
 	var carryIn byte
 	if !isGB {
-		// tweak[0] represents the coefficients of {x^7, x^6, ..., x^0}
-		// tweak[15] represents the coefficients of {x^127, x^126, ..., x^120}
+		// the coefficient of x⁰ can be obtained by tweak[0] & 1
+		// the coefficient of x⁷ can be obtained by tweak[0] >> 7
+		// the coefficient of x¹²⁰ can be obtained by tweak[15] & 1
+		// the coefficient of x¹²⁷ can be obtained by tweak[15] >> 7
 		for j := range tweak {
 			carryOut := tweak[j] >> 7
 			tweak[j] = (tweak[j] << 1) + carryIn
@@ -334,9 +336,11 @@ func mul2Generic(tweak *[blockSize]byte, isGB bool) {
 			tweak[0] ^= GF128_FDBK // 1<<7 | 1<<2 | 1<<1 | 1
 		}
 	} else {
-		// GB/T 17964-2021, because of the bit-ordering, doubling is actually a right shift.
-		// tweak[0] represents the coefficients of {x^0, x^1, ..., x^7}
-		// tweak[15] represents the coefficients of {x^120, x^121, ..., x^127}
+		// GB/T 17964-2021, 
+		// the coefficient of x⁰ can be obtained by tweak[0] >> 7
+		// the coefficient of x⁷ can be obtained by tweak[0] & 1
+		// the coefficient of x¹²⁰ can be obtained by tweak[15] >> 7
+		// the coefficient of x¹²⁷ can be obtained by tweak[15] & 1
 		for j := range tweak {
 			carryOut := (tweak[j] << 7) & 0x80
 			tweak[j] = (tweak[j] >> 1) + carryIn

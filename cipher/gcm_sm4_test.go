@@ -397,7 +397,7 @@ func TestGCMCounterWrap(t *testing.T) {
 func TestSM4GCMRandom(t *testing.T) {
 	key := []byte("0123456789ABCDEF")
 	nonce := []byte("0123456789AB")
-	plaintext := make([]byte, 464)
+	plaintext := make([]byte, 0x198)
 	
 	io.ReadFull(rand.Reader, plaintext)
 	c, err := sm4.NewCipher(key)
@@ -410,11 +410,11 @@ func TestSM4GCMRandom(t *testing.T) {
 	}
 	got := aead.Seal(nil, nonce, plaintext, nil)
 
-	result, err := aead.Open(nil, nonce, got, nil)
+	result, err := aead.Open(got[:0], nonce, got, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !bytes.Equal(result, plaintext) {
-		t.Error("gcm seal/open 464 bytes fail")
+		t.Error("gcm seal/open 408 bytes fail")
 	}
 }
