@@ -3,11 +3,27 @@ package cipher_test
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/rand"
+	"io"
 	"testing"
 
 	smcipher "github.com/emmansun/gmsm/cipher"
 	"github.com/emmansun/gmsm/sm4"
 )
+
+func BenchmarkSM4HCTREncrypt1K(b *testing.B) {
+	var key [16]byte
+	var tweak [32]byte
+	c, _ := sm4.NewCipher(key[:])
+	io.ReadFull(rand.Reader, tweak[:])
+	hctr, _ := smcipher.NewHCTR(c, tweak[:16], tweak[16:])
+	buf := make([]byte, 1024)
+	b.SetBytes(int64(len(buf)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		hctr.Encrypt(buf, buf)
+	}
+}
 
 func benchmarkECBEncrypt1K(b *testing.B, block cipher.Block) {
 	buf := make([]byte, 1024)
