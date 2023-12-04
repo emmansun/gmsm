@@ -87,6 +87,13 @@ func hctrDouble(x *hctrFieldElement) (double hctrFieldElement) {
 	return
 }
 
+// hctrReductionTable is stored irreducible polynomial's double & add precomputed results.
+// 0000 - 0
+// 0001 - irreducible polynomial >> 3
+// 0010 - irreducible polynomial >> 2
+// 0011 - (irreducible polynomial >> 3 xor irreducible polynomial >> 2)
+// ...
+// 1000 - just the irreducible polynomial
 var hctrReductionTable = []uint16{
 	0x0000, 0x1c20, 0x3840, 0x2460, 0x7080, 0x6ca0, 0x48c0, 0x54e0,
 	0xe100, 0xfd20, 0xd940, 0xc560, 0x9180, 0x8da0, 0xa9c0, 0xb5e0,
