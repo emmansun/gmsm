@@ -156,7 +156,7 @@ func (h *hctr) mul(y *hctrFieldElement) {
 
 			// the values in |table| are ordered for
 			// little-endian bit positions. See the comment
-			// in NewGCMWithNonceSize.
+			// in NewHCTR.
 			t := &h.productTable[word&0xf]
 
 			z.low ^= t.low
