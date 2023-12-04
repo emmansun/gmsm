@@ -21,7 +21,7 @@ func BenchmarkSM4HCTREncrypt1K(b *testing.B) {
 	b.SetBytes(int64(len(buf)))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		hctr.Encrypt(buf, buf)
+		hctr.EncryptBytes(buf, buf)
 	}
 }
 

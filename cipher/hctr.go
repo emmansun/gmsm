@@ -12,29 +12,32 @@ import (
 // A LengthPreservingMode represents a block cipher running in a length preserving mode (HCTR,
 // HCTR2 etc).
 type LengthPreservingMode interface {
-	// Encrypt encrypts a number of plaintext bytes. The length of
+	// EncryptBytes encrypts a number of plaintext bytes. The length of
 	// src must be NOT smaller than block size. Dst and src must overlap
 	// entirely or not at all.
 	//
-	// If len(dst) < len(src), Encrypt should panic. It is acceptable
+	// If len(dst) < len(src), EncryptBytes should panic. It is acceptable
 	// to pass a dst bigger than src, and in that case, Encrypt will
 	// only update dst[:len(src)] and will not touch the rest of dst.
 	//
-	// Multiple calls to Encrypt behave NOT same as if the concatenation of
+	// Multiple calls to EncryptBytes behave NOT same as if the concatenation of
 	// the src buffers was passed in a single run.
-	Encrypt(dst, src []byte)
+	EncryptBytes(dst, src []byte)
 
-	// Decrypt decrypts a number of ciphertext bytes. The length of
+	// DecryptBytes decrypts a number of ciphertext bytes. The length of
 	// src must be NOT smaller than block size. Dst and src must overlap
 	// entirely or not at all.
 	//
-	// If len(dst) < len(src), Decrypt should panic. It is acceptable
-	// to pass a dst bigger than src, and in that case, Decrypt will
+	// If len(dst) < len(src), DecryptBytes should panic. It is acceptable
+	// to pass a dst bigger than src, and in that case, DecryptBytes will
 	// only update dst[:len(src)] and will not touch the rest of dst.
 	//
-	// Multiple calls to Decrypt behave NOT same as if the concatenation of
+	// Multiple calls to DecryptBytes behave NOT same as if the concatenation of
 	// the src buffers was passed in a single run.
-	Decrypt(dst, src []byte)
+	DecryptBytes(dst, src []byte)
+
+	// BlockSize returns the mode's block size.
+	BlockSize() int
 }
 
 // hctrFieldElement represents a value in GF(2¹²⁸). In order to reflect the HCTR
@@ -101,6 +104,10 @@ type hctr struct {
 	productTable [16]hctrFieldElement
 }
 
+func (h *hctr) BlockSize() int {
+	return blockSize
+}
+
 // NewHCTR returns a [LengthPreservingMode] which encrypts/decrypts useing the given [Block]
 // in HCTR mode. The lenght of tweak and hash key must be the same as the [Block]'s block size.
 func NewHCTR(cipher _cipher.Block, tweak, hkey []byte) (LengthPreservingMode, error) {
@@ -164,7 +171,7 @@ func (h *hctr) mul(y *hctrFieldElement) {
 func (h *hctr) updateBlock(block []byte, y *hctrFieldElement) {
 	y.low ^= binary.BigEndian.Uint64(block)
 	y.high ^= binary.BigEndian.Uint64(block[8:blockSize])
-	h.mul(y)	
+	h.mul(y)
 }
 
 // Universal Hash Function.
@@ -200,7 +207,7 @@ func (h *hctr) uhash(m []byte, out *[blockSize]byte) {
 	binary.BigEndian.PutUint64(out[8:], y.high)
 }
 
-func (h *hctr) Encrypt(ciphertext, plaintext []byte) {
+func (h *hctr) EncryptBytes(ciphertext, plaintext []byte) {
 	if len(ciphertext) < len(plaintext) {
 		panic("hctr: ciphertext is smaller than plaintext")
 	}
@@ -225,7 +232,7 @@ func (h *hctr) Encrypt(ciphertext, plaintext []byte) {
 	subtle.XORBytes(ciphertext, z2[:], z1[:])
 }
 
-func (h *hctr) Decrypt(plaintext, ciphertext []byte) {
+func (h *hctr) DecryptBytes(plaintext, ciphertext []byte) {
 	if len(plaintext) < len(ciphertext) {
 		panic("hctr: plaintext is smaller than cihpertext")
 	}

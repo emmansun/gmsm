@@ -62,12 +62,12 @@ func TestHCTR(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		hctr.Encrypt(got, plaintext)
+		hctr.EncryptBytes(got, plaintext)
 		if !bytes.Equal(got, ciphertext) {
 			t.Fatalf("%v case encrypt failed, got %x\n", i+1, got)
 		}
 
-		hctr.Decrypt(got, ciphertext)
+		hctr.DecryptBytes(got, ciphertext)
 		if !bytes.Equal(got, plaintext) {
 			t.Fatalf("%v case decrypt failed, got %x\n", i+1, got)
 		}
