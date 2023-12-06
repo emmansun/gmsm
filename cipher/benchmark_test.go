@@ -11,6 +11,40 @@ import (
 	"github.com/emmansun/gmsm/sm4"
 )
 
+func BenchmarkSM4BCEncrypt1K(b *testing.B) {
+	var key [16]byte
+	c, _ := sm4.NewCipher(key[:])
+	benchmarkBCEncrypt1K(b, c)
+}
+
+func benchmarkBCEncrypt1K(b *testing.B, block cipher.Block) {
+	buf := make([]byte, 1024)
+	b.SetBytes(int64(len(buf)))
+
+	var iv [16]byte
+	bc := smcipher.NewBCEncrypter(block, iv[:])
+	for i := 0; i < b.N; i++ {
+		bc.CryptBlocks(buf, buf)
+	}
+}
+
+func BenchmarkSM4BCDecrypt1K(b *testing.B) {
+	var key [16]byte
+	c, _ := sm4.NewCipher(key[:])
+	benchmarkBCDecrypt1K(b, c)
+}
+
+func benchmarkBCDecrypt1K(b *testing.B, block cipher.Block) {
+	buf := make([]byte, 1024)
+	b.SetBytes(int64(len(buf)))
+
+	var iv [16]byte
+	bc := smcipher.NewBCDecrypter(block, iv[:])
+	for i := 0; i < b.N; i++ {
+		bc.CryptBlocks(buf, buf)
+	}
+}
+
 func BenchmarkSM4HCTREncrypt1K(b *testing.B) {
 	var key [16]byte
 	var tweak [32]byte
