@@ -43,10 +43,11 @@ type LengthPreservingMode interface {
 // hctrFieldElement represents a value in GF(2¹²⁸). In order to reflect the HCTR
 // standard and make binary.BigEndian suitable for marshaling these values, the
 // bits are stored in big endian order. For example:
-//   the coefficient of x⁰ can be obtained by v.low >> 63.
-//   the coefficient of x⁶³ can be obtained by v.low & 1.
-//   the coefficient of x⁶⁴ can be obtained by v.high >> 63.
-//   the coefficient of x¹²⁷ can be obtained by v.high & 1.
+//
+//	the coefficient of x⁰ can be obtained by v.low >> 63.
+//	the coefficient of x⁶³ can be obtained by v.low & 1.
+//	the coefficient of x⁶⁴ can be obtained by v.high >> 63.
+//	the coefficient of x¹²⁷ can be obtained by v.high & 1.
 type hctrFieldElement struct {
 	low, high uint64
 }
@@ -146,6 +147,9 @@ func NewHCTR(cipher _cipher.Block, tweak, hkey []byte) (LengthPreservingMode, er
 func (h *hctr) mul(y *hctrFieldElement) {
 	var z hctrFieldElement
 
+	// Eliminate bounds checks in the loop.
+	_ = hctrReductionTable[0xf]
+
 	for i := 0; i < 2; i++ {
 		word := y.high
 		if i == 1 {
@@ -177,7 +181,7 @@ func (h *hctr) mul(y *hctrFieldElement) {
 
 func (h *hctr) updateBlock(block []byte, y *hctrFieldElement) {
 	y.low ^= binary.BigEndian.Uint64(block)
-	y.high ^= binary.BigEndian.Uint64(block[8:blockSize])
+	y.high ^= binary.BigEndian.Uint64(block[8:])
 	h.mul(y)
 }
 
