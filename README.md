@@ -17,7 +17,7 @@ English | [简体中文](README-CN.md)
 
 * **SM3** - This is also a SM3 implementation whose performance is similar like golang native SHA 256 with SIMD under **amd64** and **arm64**, for implementation detail, please refer [SM3性能优化](https://github.com/emmansun/gmsm/wiki/SM3%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96). It also provides A64 cryptographic instructions SM3 tested with QEMU.
 
-* **SM4** - For SM4 implementation, SIMD & AES-NI are used under **amd64** and **arm64**, for detail please refer [SM4性能优化](https://github.com/emmansun/gmsm/wiki/SM4%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96), it supports ECB/CBC/CFB/OFB/CTR/GCM/CCM/XTS modes. It also provides A64 cryptographic instructions SM4 tested with QEMU.
+* **SM4** - For SM4 implementation, SIMD & AES-NI are used under **amd64** and **arm64**, for detail please refer [SM4性能优化](https://github.com/emmansun/gmsm/wiki/SM4%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96). It is optimized for **ECB/CBC/GCM/XTS** operation modes. It also provides A64 cryptographic instructions SM4 tested with QEMU.
 
 * **SM9** - For SM9 implementation, please reference [SM9实现及优化](https://github.com/emmansun/gmsm/wiki/SM9%E5%AE%9E%E7%8E%B0%E5%8F%8A%E4%BC%98%E5%8C%96)
 
@@ -25,7 +25,7 @@ English | [简体中文](README-CN.md)
 
 * **CFCA** - some cfca specific implementations.
 
-* **CIPHER** - ECB/CCM/XTS cipher modes, XTS mode also supports **GB/T 17964-2021**. Current XTS mode implementation is **NOT** concurrent safe!
+* **CIPHER** - ECB/CCM/XTS/HCTR/BC/OFBNLF operation modes, XTS mode also supports **GB/T 17964-2021**. Current XTS mode implementation is **NOT** concurrent safe! **BC** and **OFBNLF** are legacy operation modes, **HCTR** is new operation mode in **GB/T 17964-2021**. **BC** operation mode is similar like **CBC**, there is no room for performance optimization in **OFBNLF** operation mode.
 
 * **SMX509** - a fork of golang X509 that supports ShangMi.
 
