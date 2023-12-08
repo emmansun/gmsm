@@ -56,13 +56,13 @@ func decryptSm4XtsGB(xk *uint32, tweak *[BlockSize]byte, dst, src []byte)
 
 func validateXtsInput(dst, src []byte) {
 	if len(dst) < len(src) {
-		panic("xts: dst is smaller than src")
+		panic("cipher: dst is smaller than src")
 	}
 	if len(src) < BlockSize {
-		panic("xts: src length is smaller than the block size")
+		panic("cipher: src length is smaller than the block size")
 	}
 	if alias.InexactOverlap(dst[:len(src)], src) {
-		panic("xts: invalid buffer overlap")
+		panic("cipher: invalid buffer overlap")
 	}
 }
 

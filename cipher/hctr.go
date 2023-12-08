@@ -120,7 +120,7 @@ func (h *hctr) BlockSize() int {
 // in HCTR mode. The lenght of tweak and hash key must be the same as the [Block]'s block size.
 func NewHCTR(cipher _cipher.Block, tweak, hkey []byte) (LengthPreservingMode, error) {
 	if len(tweak) != blockSize || len(hkey) != blockSize {
-		return nil, errors.New("hctr: invalid tweak and/or hash key length")
+		return nil, errors.New("cipher: invalid tweak and/or hash key length")
 	}
 	c := &hctr{}
 	c.cipher = cipher
@@ -220,13 +220,13 @@ func (h *hctr) uhash(m []byte, out *[blockSize]byte) {
 
 func (h *hctr) EncryptBytes(ciphertext, plaintext []byte) {
 	if len(ciphertext) < len(plaintext) {
-		panic("hctr: ciphertext is smaller than plaintext")
+		panic("cipher: ciphertext is smaller than plaintext")
 	}
 	if len(plaintext) < blockSize {
-		panic("hctr: plaintext length is smaller than the block size")
+		panic("cipher: plaintext length is smaller than the block size")
 	}
 	if alias.InexactOverlap(ciphertext[:len(plaintext)], plaintext) {
-		panic("hctr: invalid buffer overlap")
+		panic("cipher: invalid buffer overlap")
 	}
 
 	var z1, z2 [blockSize]byte
@@ -245,13 +245,13 @@ func (h *hctr) EncryptBytes(ciphertext, plaintext []byte) {
 
 func (h *hctr) DecryptBytes(plaintext, ciphertext []byte) {
 	if len(plaintext) < len(ciphertext) {
-		panic("hctr: plaintext is smaller than cihpertext")
+		panic("cipher: plaintext is smaller than cihpertext")
 	}
 	if len(ciphertext) < blockSize {
-		panic("hctr: ciphertext length is smaller than the block size")
+		panic("cipher: ciphertext length is smaller than the block size")
 	}
 	if alias.InexactOverlap(plaintext[:len(ciphertext)], ciphertext) {
-		panic("hctr: invalid buffer overlap")
+		panic("cipher: invalid buffer overlap")
 	}
 
 	var z1, z2 [blockSize]byte

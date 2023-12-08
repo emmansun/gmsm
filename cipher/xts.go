@@ -72,7 +72,7 @@ func NewGBXTSEncrypterWithSector(cipherFunc CipherCreator, key, tweakKey []byte,
 
 func newXTSEncrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte, isGB bool) (_cipher.BlockMode, error) {
 	if len(tweak) != blockSize {
-		return nil, errors.New("xts: invalid tweak length")
+		return nil, errors.New("cipher: invalid tweak length")
 	}
 
 	k1, err := cipherFunc(key)
@@ -80,7 +80,7 @@ func newXTSEncrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte, isGB
 		return nil, err
 	}
 	if k1.BlockSize() != blockSize {
-		return nil, errors.New("xts: cipher does not have a block size of 16")
+		return nil, errors.New("cipher: cipher does not have a block size of 16")
 	}
 
 	k2, err := cipherFunc(tweakKey)
@@ -144,7 +144,7 @@ func NewGBXTSDecrypterWithSector(cipherFunc CipherCreator, key, tweakKey []byte,
 
 func newXTSDecrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte, isGB bool) (_cipher.BlockMode, error) {
 	if len(tweak) != blockSize {
-		return nil, errors.New("xts: invalid tweak length")
+		return nil, errors.New("cipher: invalid tweak length")
 	}
 
 	k1, err := cipherFunc(key)
@@ -152,7 +152,7 @@ func newXTSDecrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte, isGB
 		return nil, err
 	}
 	if k1.BlockSize() != blockSize {
-		return nil, errors.New("xts: cipher does not have a block size of 16")
+		return nil, errors.New("cipher: cipher does not have a block size of 16")
 	}
 
 	k2, err := cipherFunc(tweakKey)
@@ -183,13 +183,13 @@ func (c *xtsEncrypter) BlockSize() int {
 // Sectors must be a multiple of 16 bytes and less than 2²⁴ bytes.
 func (c *xtsEncrypter) CryptBlocks(ciphertext, plaintext []byte) {
 	if len(ciphertext) < len(plaintext) {
-		panic("xts: ciphertext is smaller than plaintext")
+		panic("cipher: ciphertext is smaller than plaintext")
 	}
 	if len(plaintext) < blockSize {
-		panic("xts: plaintext length is smaller than the block size")
+		panic("cipher: plaintext length is smaller than the block size")
 	}
 	if alias.InexactOverlap(ciphertext[:len(plaintext)], plaintext) {
-		panic("xts: invalid buffer overlap")
+		panic("cipher: invalid buffer overlap")
 	}
 
 	lastCiphertext := ciphertext
@@ -244,13 +244,13 @@ func (c *xtsDecrypter) BlockSize() int {
 // Sectors must be a multiple of 16 bytes and less than 2²⁴ bytes.
 func (c *xtsDecrypter) CryptBlocks(plaintext, ciphertext []byte) {
 	if len(plaintext) < len(ciphertext) {
-		panic("xts: plaintext is smaller than ciphertext")
+		panic("cipher: plaintext is smaller than ciphertext")
 	}
 	if len(ciphertext) < blockSize {
-		panic("xts: ciphertext length is smaller than the block size")
+		panic("cipher: ciphertext length is smaller than the block size")
 	}
 	if alias.InexactOverlap(plaintext[:len(ciphertext)], ciphertext) {
-		panic("xts: invalid buffer overlap")
+		panic("cipher: invalid buffer overlap")
 	}
 
 	if concCipher, ok := c.b.(concurrentBlocks); ok {
