@@ -33,16 +33,16 @@ func NewHashDrbg(newHash func() hash.Hash, securityLevel SecurityLevel, gm bool,
 
 	// here for the min length, we just check <=0 now
 	if len(entropy) == 0 || (hd.gm && len(entropy) < hd.hashSize) || len(entropy) >= MAX_BYTES {
-		return nil, errors.New("invalid entropy length")
+		return nil, errors.New("drbg: invalid entropy length")
 	}
 
 	// here for the min length, we just check <=0 now
 	if len(nonce) == 0 || (hd.gm && len(nonce) < hd.hashSize/2) || len(nonce) >= MAX_BYTES>>1 {
-		return nil, errors.New("invalid nonce length")
+		return nil, errors.New("drbg: invalid nonce length")
 	}
 
 	if len(personalization) >= MAX_BYTES {
-		return nil, errors.New("personalization is too long")
+		return nil, errors.New("drbg: personalization is too long")
 	}
 
 	if hd.hashSize <= sm3.Size {
@@ -92,11 +92,11 @@ func NewGMHashDrbg(securityLevel SecurityLevel, entropy, nonce, personalization 
 func (hd *HashDrbg) Reseed(entropy, additional []byte) error {
 	// here for the min length, we just check <=0 now
 	if len(entropy) == 0 || (hd.gm && len(entropy) < hd.hashSize) || len(entropy) >= MAX_BYTES {
-		return errors.New("invalid entropy length")
+		return errors.New("drbg: invalid entropy length")
 	}
 
 	if len(additional) >= MAX_BYTES {
-		return errors.New("additional input too long")
+		return errors.New("drbg: additional input too long")
 	}
 	seedMaterial := make([]byte, len(entropy)+hd.seedLength+len(additional)+1)
 	seedMaterial[0] = 1
@@ -164,7 +164,7 @@ func (hd *HashDrbg) Generate(b, additional []byte) error {
 		return ErrReseedRequired
 	}
 	if (hd.gm && len(b) > hd.hashSize) || (!hd.gm && len(b) > MAX_BYTES_PER_GENERATE) {
-		return errors.New("too many bytes requested")
+		return errors.New("drbg: too many bytes requested")
 	}
 	md := hd.newHash()
 	m := len(b)

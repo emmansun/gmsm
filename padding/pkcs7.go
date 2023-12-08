@@ -26,15 +26,15 @@ func (pad pkcs7Padding) Pad(src []byte) []byte {
 func (pad pkcs7Padding) Unpad(src []byte) ([]byte, error) {
 	srcLen := len(src)
 	if srcLen == 0 || srcLen%pad.BlockSize() != 0 {
-		return nil, errors.New("pkcs7: src length is not multiple of block size")
+		return nil, errors.New("padding: src length is not multiple of block size")
 	}
 	paddedLen := src[srcLen-1]
 	if paddedLen == 0 || int(paddedLen) > pad.BlockSize() {
-		return nil, errors.New("pkcs7: invalid padding byte/length")
+		return nil, errors.New("padding: invalid padding byte/length")
 	}
 	for _, b := range src[srcLen-int(paddedLen) : srcLen-1] {
 		if b != paddedLen {
-			return nil, errors.New("pkcs7: inconsistent padding bytes")
+			return nil, errors.New("padding: inconsistent padding bytes")
 		}
 	}
 	return src[:srcLen-int(paddedLen)], nil

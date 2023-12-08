@@ -26,7 +26,7 @@ func NewHash256(key, iv []byte, tagSize int) (*ZUC256Mac, error) {
 	var d []byte
 	switch tagSize {
 	default:
-		return nil, fmt.Errorf("zuc/eia: invalid tag size %d, support 4/8/16 in bytes", tagSize)
+		return nil, fmt.Errorf("zuc: invalid tag size %d, support 4/8/16 in bytes", tagSize)
 	case 4:
 		d = zuc256_d[0][:]
 	case 8:
@@ -38,10 +38,10 @@ func NewHash256(key, iv []byte, tagSize int) (*ZUC256Mac, error) {
 	mac.t = make([]uint32, mac.tagSize/4)
 	switch k {
 	default:
-		return nil, fmt.Errorf("zuc/eia: invalid key size %d, expect 32 in bytes", k)
+		return nil, fmt.Errorf("zuc: invalid key size %d, expect 32 in bytes", k)
 	case 32: // ZUC-256
 		if ivLen != IVSize256 {
-			return nil, fmt.Errorf("zuc/eia: invalid iv size %d, expect %d in bytes", ivLen, IVSize256)
+			return nil, fmt.Errorf("zuc: invalid iv size %d, expect %d in bytes", ivLen, IVSize256)
 		}
 		mac.loadKeyIV32(key, iv, d)
 	}

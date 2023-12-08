@@ -24,7 +24,7 @@ const DRBG_RESEED_TIME_INTERVAL_LEVEL1 = time.Duration(600) * time.Second
 const MAX_BYTES = 1 << 27
 const MAX_BYTES_PER_GENERATE = 1 << 11
 
-var ErrReseedRequired = errors.New("reseed reuqired")
+var ErrReseedRequired = errors.New("drbg: reseed reuqired")
 
 type SecurityLevel byte
 
@@ -52,7 +52,7 @@ func NewCtrDrbgPrng(cipherProvider func(key []byte) (cipher.Block, error), keyLe
 
 	prng.securityStrength = selectSecurityStrength(securityStrength)
 	if gm && securityStrength < 32 {
-		return nil, errors.New("invalid security strength")
+		return nil, errors.New("drbg: invalid security strength")
 	}
 
 	// Get entropy input
@@ -97,7 +97,7 @@ func NewHashDrbgPrng(newHash func() hash.Hash, entropySource io.Reader, security
 	}
 	prng.securityStrength = selectSecurityStrength(securityStrength)
 	if gm && securityStrength < 32 {
-		return nil, errors.New("invalid security strength")
+		return nil, errors.New("drbg: invalid security strength")
 	}
 
 	// Get entropy input
@@ -138,7 +138,7 @@ func (prng *DrbgPrng) getEntropy(entropyInput []byte) error {
 		return err
 	}
 	if n != len(entropyInput) {
-		return errors.New("fail to read enough entropy input")
+		return errors.New("drbg: fail to read enough entropy input")
 	}
 	return nil
 }

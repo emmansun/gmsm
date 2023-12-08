@@ -31,7 +31,7 @@ func (pad iso9797M2Padding) Pad(src []byte) []byte {
 func (pad iso9797M2Padding) Unpad(src []byte) ([]byte, error) {
 	srcLen := len(src)
 	if srcLen == 0 || srcLen%pad.BlockSize() != 0 {
-		return nil, errors.New("iso/iec 9797-1 method 2: src length is not multiple of block size")
+		return nil, errors.New("padding: src length is not multiple of block size")
 	}
 	padStart := -1
 

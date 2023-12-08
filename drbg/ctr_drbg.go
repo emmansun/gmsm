@@ -27,16 +27,16 @@ func NewCtrDrbg(cipherProvider func(key []byte) (cipher.Block, error), keyLen in
 
 	// here for the min length, we just check <=0 now
 	if len(entropy) == 0 || (hd.gm && len(entropy) < 32) || len(entropy) >= MAX_BYTES {
-		return nil, errors.New("invalid entropy length")
+		return nil, errors.New("drbg: invalid entropy length")
 	}
 
 	// here for the min length, we just check <=0 now
 	if len(nonce) == 0 || (hd.gm && len(nonce) < 16) || len(nonce) >= MAX_BYTES>>1 {
-		return nil, errors.New("invalid nonce length")
+		return nil, errors.New("drbg: invalid nonce length")
 	}
 
 	if len(personalization) >= MAX_BYTES {
-		return nil, errors.New("personalization is too long")
+		return nil, errors.New("drbg: personalization is too long")
 	}
 
 	hd.cipherProvider = cipherProvider
@@ -78,11 +78,11 @@ func NewGMCtrDrbg(securityLevel SecurityLevel, entropy, nonce, personalization [
 func (hd *CtrDrbg) Reseed(entropy, additional []byte) error {
 	// here for the min length, we just check <=0 now
 	if len(entropy) <= 0 || (hd.gm && len(entropy) < 32) || len(entropy) >= MAX_BYTES {
-		return errors.New("invalid entropy length")
+		return errors.New("drbg: invalid entropy length")
 	}
 
 	if len(additional) >= MAX_BYTES {
-		return errors.New("additional input too long")
+		return errors.New("drbg: additional input too long")
 	}
 
 	// seed_material = entropy_input || additional_input
@@ -126,7 +126,7 @@ func (hd *CtrDrbg) Generate(b, additional []byte) error {
 	}
 	outlen := len(hd.v)
 	if (hd.gm && len(b) > outlen) || (!hd.gm && len(b) > MAX_BYTES_PER_GENERATE) {
-		return errors.New("too many bytes requested")
+		return errors.New("drbg: too many bytes requested")
 	}
 
 	// If len(additional_input) > 0, then

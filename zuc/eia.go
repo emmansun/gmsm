@@ -30,10 +30,10 @@ func NewHash(key, iv []byte) (*ZUC128Mac, error) {
 
 	switch k {
 	default:
-		return nil, fmt.Errorf("zuc/eia: invalid key size %d, expect 16 in bytes", k)
+		return nil, fmt.Errorf("zuc: invalid key size %d, expect 16 in bytes", k)
 	case 16: // ZUC-128
 		if ivLen != IVSize128 {
-			return nil, fmt.Errorf("zuc/eia: invalid iv size %d, expect %d in bytes", ivLen, IVSize128)
+			return nil, fmt.Errorf("zuc: invalid iv size %d, expect %d in bytes", ivLen, IVSize128)
 		}
 		mac.loadKeyIV16(key, iv)
 	}
