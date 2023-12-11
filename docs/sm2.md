@@ -9,8 +9,9 @@
 您可以从[国家标准全文公开系统](https://openstd.samr.gov.cn/)在线阅读这些标准。
 
 # 概述
-既然是椭圆曲线公钥密码算法，它就和NIST P系列椭圆曲线公钥密码算法类似，特别是P-256。NIST P 系列椭圆曲线公钥密码算法主要用于数字签名和密钥交换，NIST没有定义基于椭圆曲线的公钥加密算法标准，[SEC 1: Elliptic Curve Cryptography](https://www.secg.org/sec1-v2.pdf)第五章定义了“Elliptic Curve Integrated Encryption Scheme (ECIES)”，不过应用不广。感兴趣的同学可以进一步对比一下：  
-| SM2 | NIST / SEC 1 |
+既然是椭圆曲线公钥密码算法，它就和NIST P系列椭圆曲线公钥密码算法类似，特别是P-256。NIST P 系列椭圆曲线公钥密码算法主要用于数字签名和密钥交换，NIST没有定义基于椭圆曲线的公钥加密算法标准，[SEC 1: Elliptic Curve Cryptography](https://www.secg.org/sec1-v2.pdf)第五章定义了“Elliptic Curve Integrated Encryption Scheme (ECIES)”，不过应用不广。感兴趣的同学可以进一步对比一下：
+
+| SM2 | SEC 1 |
 | :--- | :--- |
 | 数字签名算法 | ECDSA |
 | 密钥交换协议 | ECMQV |
@@ -141,7 +142,7 @@ func ExampleVerifyASN1WithSM2() {
 请牢记，非对称加密算法通常不用于加密大量数据，而是用来加密对称加密密钥，我们在tlcp以及信封加密机制中能找到这种用法。
 
 SM2公钥加密算法支持的密文编码格式有两种：  
-* 简单串接方式: C1 || C3 || C2，曾经老的标准为 C1 || C2 || C3
+* 简单串接方式: C1C3C2，曾经老的标准为 C1C2C3
 * ASN.1格式
 
 SM2公钥加密示例：
@@ -198,4 +199,4 @@ func ExamplePrivateKey_Decrypt() {
 ```
 这个SM2私钥的解密方法```Decrypt```，通常情况下，对```crypto.DecrypterOpts```类型参数，您只需传入nil，系统会自己检测输入密文是ASN.1还是普通拼接，但是，如果密文是老旧的C1 || C2 || C3拼接，请传入相应的```crypto.DecrypterOpts```类型参数，或者您可以先通过上面介绍的辅助函数转换一下。
 
-具体API文档请参考：https://godoc.org/github.com/emmansun/gmsm
+具体API文档请参考：[API Document](https://godoc.org/github.com/emmansun/gmsm)
