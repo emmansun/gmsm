@@ -200,3 +200,22 @@ func ExamplePrivateKey_Decrypt() {
 这个SM2私钥的解密方法```Decrypt```，通常情况下，对```crypto.DecrypterOpts```类型参数，您只需传入nil，系统会自己检测输入密文是ASN.1还是普通拼接，但是，如果密文是老旧的C1 || C2 || C3拼接，请传入相应的```crypto.DecrypterOpts```类型参数，或者您可以先通过上面介绍的辅助函数转换一下。
 
 具体API文档请参考：[API Document](https://godoc.org/github.com/emmansun/gmsm)
+
+# 与KMS集成
+国内云服务商的KMS服务大都提供SM2密钥，我们一般调用其API进行签名和解密，而验签和加密操作，一般在本地用公钥即可完成。不过需要注意的是，KMS提供的签名通常需要您在本地进行hash操作，而sm2签名的hash又比较特殊，下面示例供参考（将在下个发布版本公开此函数）：  
+```go
+func calculateSM2Hash(pub *ecdsa.PublicKey, data, uid []byte) ([]byte, error) {
+	if len(uid) == 0 {
+		uid = defaultUID
+	}
+	za, err := sm2.CalculateZA(pub, uid)
+	if err != nil {
+		return nil, err
+	}
+	md := sm3.New()
+	md.Write(za)
+	md.Write(data)
+	return md.Sum(nil), nil
+}
+```
+公钥加密就没啥特殊，只要确保输出密文的编码格式和KMS一致即可。
