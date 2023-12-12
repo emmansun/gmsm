@@ -47,7 +47,7 @@ SM4分组密码算法，其地位类似NIST中的AES分组密码算法，密钥�
 
 另外一个就是必须和密文一起存储/传输的参数，譬如，如果使用CBC工作模式，那IV怎么办？如果是GCM模式，那Nonce、Nonce长度、Tag长度怎么办？这通常也有两种方案：
 * 使用预定义的ASN.1结构
-* 和密文简单拼接：譬如CBC工作模式：IV || ciphertext；GCM模式（使用默认Tag长度和Nonce长度）：Nonce || ciphertext。
+* 和密文简单拼接：譬如CBC工作模式：前面16字节IV，后面ciphertext；GCM模式（使用默认Tag长度和Nonce长度）：前面12字节Nonce，后面ciphertext。
 
 至于要将二进制转为文本传输、存储，编个码就行：标准base64 / URL base64 / HEX，事先协调、定义好就可以了。
 
