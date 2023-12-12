@@ -40,6 +40,8 @@
 
 ## 文档
 * [SM2椭圆曲线公钥密码算法应用指南](./docs/sm2.md) 
+* [SM3密码杂凑算法应用指南](./docs/sm3.md) 
+* [SM4分组密码算法应用指南](./docs/sm4.md) 
 
 ## 相关项目
 * **[Trisia/TLCP](https://github.com/Trisia/gotlcp)** - 一个《GB/T 38636-2020 信息安全技术 传输层密码协议》Go语言实现项目。 
