@@ -18,7 +18,7 @@
 | 公钥加密算法 | ECIES |
 
 # SM2公私钥对
-SM2公私钥对的话，要么是自己产生，要么是别的系统产生后通过某种格式传输给您的。
+SM2公私钥对的话，要么是自己产生，要么是别的系统产生后通过某种方式传输给您的。
 
 ## SM2公私钥对的生成
 您可以通过调用```sm2.GenerateKey```方法产生SM2公私钥对，SM2的私钥通过组合方式扩展了```ecdsa.PrivateKey```，用于定义一些SM2特定的方法：
@@ -32,7 +32,10 @@ type PrivateKey struct {
 SM2的公钥类型沿用了```ecdsa.PublicKey```结构。
 
 ## SM2公钥的解析、构造
-通常情况下，公钥是通过PEM编码的文本传输的，您可以通过两步获得公钥：  
+通常情况下，公钥是通过PEM编码的文本传输的，您可以通过两步获得公钥：   
+* 获得PEM中的block
+* 解析block中的公钥
+
 ```go
 func getPublicKey(pemContent []byte) (any, error) {
 	block, _ := pem.Decode(pemContent)
@@ -84,7 +87,7 @@ func getPublicKey(pemContent []byte) (any, error) {
 	priv.D = d
 	priv.PublicKey.X, priv.PublicKey.Y = priv.ScalarBaseMult(priv.D.Bytes())
 ```
-当然，你也可以使用ecdh包的方法```ecdh.P256().NewPrivateKey```来构造私钥，您要确保输入的字节数组是256位（16字节）的。
+当然，你也可以使用ecdh包的方法```ecdh.P256().NewPrivateKey```来构造私钥，您要确保输入的字节数组是256位（16字节）的，如果不是，请先自行处理。
 
 # 数字签名算法
 您可以直接使用sm2私钥的签名方法```Sign```：
@@ -170,7 +173,7 @@ func ExampleEncryptASN1() {
 	fmt.Printf("Ciphertext: %x\n", ciphertext)
 }
 ```
-如果您需要要普通拼接编码输出，您可以调用```sm2.Encrypt```方法，其中```EncrypterOpts```类型参数可以传入nil，表示默认C1C3C2。
+如果您需要普通拼接编码输出，您可以调用```sm2.Encrypt```方法，其中```EncrypterOpts```类型参数可以传入nil，表示默认C1C3C2。
 
 sm2包也提供了辅助方法用于密文输出编码格式转换：您可以通过```sm2.ASN1Ciphertext2Plain```方法把ASN.1密文转换为简单拼接输出；反过来，您也可以通过```sm2.PlainCiphertext2ASN1```将简单拼接密文输出转换为ASN.1密文。你还可以通过```sm2.AdjustCiphertextSplicingOrder```方法来改变串接顺序。
 
@@ -197,12 +200,12 @@ func ExamplePrivateKey_Decrypt() {
 	// Output: Plaintext: send reinforcements, we're going to advance
 }
 ```
-这个SM2私钥的解密方法```Decrypt```，通常情况下，对```crypto.DecrypterOpts```类型参数，您只需传入nil，系统会自己检测输入密文是ASN.1还是普通拼接，但是，如果密文是老旧的C1 || C2 || C3拼接，请传入相应的```crypto.DecrypterOpts```类型参数，或者您可以先通过上面介绍的辅助函数转换一下。
+这个SM2私钥的解密方法```Decrypt```，通常情况下，对```crypto.DecrypterOpts```类型参数，您只需传入nil，系统会自己检测输入密文是ASN.1还是普通拼接，但是，如果密文是老旧的C1||C2||C3拼接，请传入相应的```crypto.DecrypterOpts```类型参数，或者您可以先通过上面介绍的辅助函数转换一下。
 
 具体API文档请参考：[API Document](https://godoc.org/github.com/emmansun/gmsm)
 
 # 与KMS集成
-国内云服务商的KMS服务大都提供SM2密钥，我们一般调用其API进行签名和解密，而验签和加密操作，一般在本地用公钥即可完成。不过需要注意的是，KMS提供的签名通常需要您在本地进行hash操作，而sm2签名的hash又比较特殊，下面示例供参考（将在下个发布版本公开此函数）：  
+国内云服务商的KMS服务大都提供SM2密钥，我们一般调用其API进行签名和解密，而验签和加密操作，一般在本地用公钥即可完成。不过需要注意的是，KMS提供的签名通常需要您在本地进行hash操作，而sm2签名的hash又比较特殊，下面示例供参考（将在下个发布版本**v0.24.0**中公开此函数```sm2.CalculateSM2Hash```）：  
 ```go
 func calculateSM2Hash(pub *ecdsa.PublicKey, data, uid []byte) ([]byte, error) {
 	if len(uid) == 0 {

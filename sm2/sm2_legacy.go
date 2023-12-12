@@ -142,7 +142,7 @@ func fermatInverse(k, N *big.Int) *big.Int {
 
 // SignWithSM2 follow sm2 dsa standards for hash part, compliance with GB/T 32918.2-2016.
 func SignWithSM2(rand io.Reader, priv *ecdsa.PrivateKey, uid, msg []byte) (r, s *big.Int, err error) {
-	digest, err := calculateSM2Hash(&priv.PublicKey, msg, uid)
+	digest, err := CalculateSM2Hash(&priv.PublicKey, msg, uid)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -207,7 +207,7 @@ func verifyLegacy(pub *ecdsa.PublicKey, hash, sig []byte) bool {
 // VerifyWithSM2 verifies the signature in r, s of raw msg and uid using the public key, pub.
 // It returns value records whether the signature is valid. Compliance with GB/T 32918.2-2016.
 func VerifyWithSM2(pub *ecdsa.PublicKey, uid, msg []byte, r, s *big.Int) bool {
-	digest, err := calculateSM2Hash(pub, msg, uid)
+	digest, err := CalculateSM2Hash(pub, msg, uid)
 	if err != nil {
 		return false
 	}

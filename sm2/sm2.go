@@ -485,7 +485,11 @@ func CalculateZA(pub *ecdsa.PublicKey, uid []byte) ([]byte, error) {
 	return md.Sum(nil), nil
 }
 
-func calculateSM2Hash(pub *ecdsa.PublicKey, data, uid []byte) ([]byte, error) {
+// CalculateSM2Hash calculates hash value for data including uid and public key parameters
+// according standards. 
+//
+// uid can be nil, then it will use default uid (1234567812345678)
+func CalculateSM2Hash(pub *ecdsa.PublicKey, data, uid []byte) ([]byte, error) {
 	if len(uid) == 0 {
 		uid = defaultUID
 	}
@@ -512,7 +516,7 @@ func calculateSM2Hash(pub *ecdsa.PublicKey, data, uid []byte) ([]byte, error) {
 // then the hash will be treated as raw message.
 func SignASN1(rand io.Reader, priv *PrivateKey, hash []byte, opts crypto.SignerOpts) ([]byte, error) {
 	if sm2Opts, ok := opts.(*SM2SignerOption); ok && sm2Opts.forceGMSign {
-		newHash, err := calculateSM2Hash(&priv.PublicKey, hash, sm2Opts.uid)
+		newHash, err := CalculateSM2Hash(&priv.PublicKey, hash, sm2Opts.uid)
 		if err != nil {
 			return nil, err
 		}
@@ -692,7 +696,7 @@ func verifySM2EC(c *sm2Curve, pub *ecdsa.PublicKey, hash, sig []byte) bool {
 //
 // It returns value records whether the signature is valid. Compliance with GB/T 32918.2-2016.
 func VerifyASN1WithSM2(pub *ecdsa.PublicKey, uid, msg, sig []byte) bool {
-	digest, err := calculateSM2Hash(pub, msg, uid)
+	digest, err := CalculateSM2Hash(pub, msg, uid)
 	if err != nil {
 		return false
 	}
