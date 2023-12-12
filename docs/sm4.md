@@ -7,7 +7,12 @@
 # 概述
 SM4分组密码算法，其地位类似NIST中的AES分组密码算法，密钥长度128位（16字节），分组大小也是128位（16字节）。在本软件库中，SM4的实现与Go语言中的AES实现一致，也实现了```cipher.Block```接口，所以，所有Go语言中实现的工作模式（CBC/GCM/CFB/OFB/CTR），都能与SM4组合使用。
 
-# 工作模式
+# [工作模式](https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation)
+Go语言实现的工作模式，主要有三类：
+* 基于分组的工作模式 ```cipher.BlockMode```，譬如CBC。
+* 带有关联数据的认证加密工作模式```cipher.AEAD```，譬如GCM。
+* 流加密工作模式```cipher.Stream```，譬如CTR、CFB、OFB。
+
 在实际加解密操作中，我们一般不会直接使用```cipher.Block```，必须结合分组密码算法的工作模式使用。除了Go语言自带的工作模式（CBC/GCM/CFB/OFB/CTR），本软件库也实现了下列工作模式：
 * ECB - 电码本模式
 * BC - 分组链接模式
@@ -19,7 +24,7 @@ SM4分组密码算法，其地位类似NIST中的AES分组密码算法，密钥�
 其中，ECB/BC/HCTR/XTS/OFBNLF是《GB/T 17964-2021 信息安全技术 分组密码算法的工作模式》列出的工作模式。BC/OFBNLF模式是商密中的遗留工作模式，**不建议**在新的应用中使用。XTS/HCTR模式适用于对磁盘加密，其中HCTR模式是《GB/T 17964-2021 信息安全技术 分组密码算法的工作模式》最新引入的，HCTR模式最近业界研究比较多，也指出了原论文中的Bugs：On modern processors HCTR [WFW05](https://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.470.5288) is one of the most efficient constructions for building a tweakable super-pseudorandom permutation. However, a bug in the specification and another in Chakraborty and Nandi’s security proof [CN08](https://www.iacr.org/cryptodb/archive/2008/FSE/paper/15611.pdf) invalidate the claimed security bound.  
 不知道这个不足是否会影响到这个工作模式的采用。很奇怪《GB/T 17964-2021 信息安全技术 分组密码算法的工作模式》为何没有纳入GCM工作模式，难道是版权问题？
 
-引入CCM模式，只是为了有些标准还用到该模式。ECB模式也不建议单独使用。
+本软件库引入CCM模式，只是为了有些标准还用到该模式。ECB模式也不建议单独使用。
 
 目前，本软件库的SM4针对ECB/CBC/GCM/XTS工作模式进行了绑定组合性能优化，暂时没有计划使用汇编优化HCTR模式（HCTR模式可以采用和GCM类似的方法进行汇编优化）。
 
@@ -49,8 +54,144 @@ SM4分组密码算法，其地位类似NIST中的AES分组密码算法，密钥�
 * 使用预定义的ASN.1结构
 * 和密文简单拼接：譬如CBC工作模式：前面16字节IV，后面ciphertext；GCM模式（使用默认Tag长度和Nonce长度）：前面12字节Nonce，后面ciphertext。
 
-至于要将二进制转为文本传输、存储，编个码就行：标准base64 / URL base64 / HEX，事先协调、定义好就可以了。
+至于要将二进制转为文本传输、存储，编个码就行：标准base64 / URL base64 / HEX，事先协调、定义好就可以了。这里顺便推荐一下[性能更好的BASE64实现](https://github.com/emmansun/base64)。
 
+# API文档及示例
+这里只列出GCM/CBC的例子，其余请参考[API Document](https://godoc.org/github.com/emmansun/gmsm)。
+
+## GCM示例
+```go
+func Example_encryptGCM() {
+	// Load your secret key from a safe place and reuse it across multiple
+	// Seal/Open calls. (Obviously don't use this example key for anything
+	// real.) If you want to convert a passphrase to a key, use a suitable
+	// package like bcrypt or scrypt.
+	key, _ := hex.DecodeString("6368616e676520746869732070617373")
+	plaintext := []byte("exampleplaintext")
+
+	block, err := sm4.NewCipher(key)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	// Never use more than 2^32 random nonces with a given key because of the risk of a repeat.
+	nonce := make([]byte, 12)
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		panic(err.Error())
+	}
+
+	sm4gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	// You can encode the nonce and ciphertext with your own scheme
+	ciphertext := sm4gcm.Seal(nil, nonce, plaintext, nil)
+	fmt.Printf("%x %x\n", nonce, ciphertext)
+}
+
+func Example_decryptGCM() {
+	// Load your secret key from a safe place and reuse it across multiple
+	// Seal/Open calls. (Obviously don't use this example key for anything
+	// real.) If you want to convert a passphrase to a key, use a suitable
+	// package like bcrypt or scrypt.
+	key, _ := hex.DecodeString("6368616e676520746869732070617373")
+	// You can decode the nonce and ciphertext with your encoding scheme
+	ciphertext, _ := hex.DecodeString("b7fdece1c6b3dce9cc386e8bc93df0ce496df789166229f14b973b694a4a23c3")
+	nonce, _ := hex.DecodeString("07d168e0517656ab7131f495")
+
+	block, err := sm4.NewCipher(key)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	sm4gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	plaintext, err := sm4gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	fmt.Printf("%s\n", plaintext)
+	// Output: exampleplaintext
+}
+```
+
+## CBC示例
+```go
+func Example_encryptCBC() {
+	// Load your secret key from a safe place and reuse it across multiple
+	// NewCipher calls. (Obviously don't use this example key for anything
+	// real.) If you want to convert a passphrase to a key, use a suitable
+	// package like bcrypt or scrypt.
+	key, _ := hex.DecodeString("6368616e676520746869732070617373")
+	plaintext := []byte("sm4 exampleplaintext")
+
+	block, err := sm4.NewCipher(key)
+	if err != nil {
+		panic(err)
+	}
+
+	// CBC mode works on blocks so plaintexts may need to be padded to the
+	// next whole block. For an example of such padding, see
+	// https://tools.ietf.org/html/rfc5246#section-6.2.3.2.
+	pkcs7 := padding.NewPKCS7Padding(sm4.BlockSize)
+	paddedPlainText := pkcs7.Pad(plaintext)
+
+	// The IV needs to be unique, but not secure. Therefore it's common to
+	// include it at the beginning of the ciphertext.
+	ciphertext := make([]byte, sm4.BlockSize+len(paddedPlainText))
+	iv := ciphertext[:sm4.BlockSize]
+	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+		panic(err)
+	}
+
+	mode := cipher.NewCBCEncrypter(block, iv)
+	mode.CryptBlocks(ciphertext[sm4.BlockSize:], paddedPlainText)
+
+	fmt.Printf("%x\n", ciphertext)
+}
+
+func Example_decryptCBC() {
+	// Load your secret key from a safe place and reuse it across multiple
+	// NewCipher calls. (Obviously don't use this example key for anything
+	// real.) If you want to convert a passphrase to a key, use a suitable
+	// package like bcrypt or scrypt.
+	key, _ := hex.DecodeString("6368616e676520746869732070617373")
+	ciphertext, _ := hex.DecodeString("4d5a1486bfda1b34447afd5bb852e77a867cc6b726a8a0e0ef9b2c21fffc3a30b42acf504628f65cb3fba339101c98ff")
+
+	block, err := sm4.NewCipher(key)
+	if err != nil {
+		panic(err)
+	}
+
+	// The IV needs to be unique, but not secure. Therefore it's common to
+	// include it at the beginning of the ciphertext.
+	if len(ciphertext) < sm4.BlockSize {
+		panic("ciphertext too short")
+	}
+	iv := ciphertext[:sm4.BlockSize]
+	ciphertext = ciphertext[sm4.BlockSize:]
+
+	mode := cipher.NewCBCDecrypter(block, iv)
+
+	// CryptBlocks can work in-place if the two arguments are the same.
+	mode.CryptBlocks(ciphertext, ciphertext)
+
+	// Unpad plaintext
+	pkcs7 := padding.NewPKCS7Padding(sm4.BlockSize)
+	ciphertext, err = pkcs7.Unpad(ciphertext)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("%s\n", ciphertext)
+	// Output: sm4 exampleplaintext
+}
+```
 # 性能
 SM4分组密码算法的软件高效实现，不算CPU指令支持的话，已知有如下几种方法：
 * S盒和L转换预计算
@@ -60,6 +201,15 @@ SM4分组密码算法的软件高效实现，不算CPU指令支持的话，已�
 
 当然，这些与有CPU指令支持的AES算法相比，性能差距依然偏大，要是工作模式不支持并行，差距就更巨大了。
 
-# API文档及示例
-详见[API Document](https://godoc.org/github.com/emmansun/gmsm)。
+# 与KMS集成
+可能您会说，如果我在KMS中创建了一个SM4对称密钥，就不需要本地加解密了，这话很对，不过有种场景会用到：  
+* 在KMS中只创建非对称密钥（KEK）；
+* 对称加解密在本地进行；
+* 对称加密密钥，或者称为数据密钥(DEK/CEK)，可以在本地通过安全伪随机数函数生成，也可以通过KMS的Data Key API生成（如果有这类API的话），用Data Key API的话，会有DEK/CEK明文传输问题，毕竟KMS需要把DEK/CEK的密文/明文同时返回。
 
+这种加密方案有什么优点呢？  
+* KMS API通常都会限流，譬如200次/秒，通过把对称加解密放在本地进行，可以有效减少KMS交互。
+* 减少网络带宽占用。
+* 避免明文数据的网络传输。
+
+当然，前提是用于本地对称加解密的SM4分组密码算法和选用的工作模式性能可以满足需求。
