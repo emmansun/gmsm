@@ -1,13 +1,14 @@
-# 参考标准
+# SM4分组密码算法应用指南
+## 参考标准
 * 《GB/T 32907-2016 信息安全技术 SM4分组密码算法》
 * 《GB/T 17964-2021 信息安全技术 分组密码算法的工作模式》
 
 您可以从[国家标准全文公开系统](https://openstd.samr.gov.cn/)在线阅读这些标准。
 
-# 概述
+## 概述
 SM4分组密码算法，其地位类似NIST中的AES分组密码算法，密钥长度128位（16字节），分组大小也是128位（16字节）。在本软件库中，SM4的实现与Go语言中的AES实现一致，也实现了```cipher.Block```接口，所以，所有Go语言中实现的工作模式（CBC/GCM/CFB/OFB/CTR），都能与SM4组合使用。
 
-# [工作模式](https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation)
+## [工作模式](https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation)
 Go语言实现的工作模式，主要有三类：
 * 基于分组的工作模式 ```cipher.BlockMode```，譬如CBC。
 * 带有关联数据的认证加密工作模式```cipher.AEAD```，譬如GCM。
@@ -28,10 +29,11 @@ Go语言实现的工作模式，主要有三类：
 
 目前，本软件库的SM4针对ECB/CBC/GCM/XTS工作模式进行了绑定组合性能优化，暂时没有计划使用汇编优化HCTR模式（HCTR模式可以采用和GCM类似的方法进行汇编优化）。
 
-**使用建议**：常用的对称加解密应用场合，推荐优先使用GCM模式，其次CBC模式（一些安全扫描工具，也会把CBC工作模式列为安全性不高的工作模式）。我能想到的GCM模式的缺点是：加解密的相关方不支持GCM模式，或者实现性能不好。
+### 使用建议
+常用的对称加解密应用场合，推荐优先使用GCM模式，其次CBC模式（一些安全扫描工具，也会把CBC工作模式列为安全性不高的工作模式）。我能想到的GCM模式的缺点是：加解密的相关方不支持GCM模式，或者实现性能不好。
 
 
-# 填充（padding）
+## 填充（padding）
 有些分组密码算法的工作模式（譬如实现了```cipher.BlockMode```接口的模式）的输入要求是其长度必须是分组大小的整数倍。《GB/T 17964-2021 信息安全技术 分组密码算法的工作模式》附录C中列出了以下几种填充模式：
 * 填充方式 1，对应本软件库的```padding.NewPKCS7Padding```
 * 填充方式 2，对应本软件库的```padding.NewISO9797M2Padding```
@@ -41,7 +43,7 @@ Go语言实现的工作模式，主要有三类：
 
 您如果使用实现了```cipher.BlockMode```接口的分组加密工作模式，那您也必须与相关方协调好填充模式。JAVA库的对称加密算法字符串名就包含了所有信息，譬如**AES/CBC/PKCS7Padding**。
 
-# 密文及其相关参数的传输和存储
+## 密文及其相关参数的传输和存储
 如果是自描述的，那肯定有相关标准，定义相关ASN.1结构，并且给分组密码算法、工作模式、填充方式都赋予一个OID。
 
 如果是内部服务之间，可能是在应用/服务级别自定义所使用分组密码算法、工作模式、填充方式的标识，作为应用的METADATA，也就是加密用的METADATA和密文分离。
@@ -56,10 +58,10 @@ Go语言实现的工作模式，主要有三类：
 
 至于要将二进制转为文本传输、存储，编个码就行：标准base64 / URL base64 / HEX，事先协调、定义好就可以了。这里顺便推荐一下[性能更好的BASE64实现](https://github.com/emmansun/base64)。
 
-# API文档及示例
+## API文档及示例
 这里只列出GCM/CBC的例子，其余请参考[API Document](https://godoc.org/github.com/emmansun/gmsm)。
 
-## GCM示例
+### GCM示例
 ```go
 func Example_encryptGCM() {
 	// Load your secret key from a safe place and reuse it across multiple
@@ -120,7 +122,7 @@ func Example_decryptGCM() {
 }
 ```
 
-## CBC示例
+### CBC示例
 ```go
 func Example_encryptCBC() {
 	// Load your secret key from a safe place and reuse it across multiple
@@ -192,7 +194,7 @@ func Example_decryptCBC() {
 	// Output: sm4 exampleplaintext
 }
 ```
-# 性能
+## 性能
 SM4分组密码算法的软件高效实现，不算CPU指令支持的话，已知有如下几种方法：
 * S盒和L转换预计算
 * SIMD并行处理：并行查表
@@ -201,7 +203,7 @@ SM4分组密码算法的软件高效实现，不算CPU指令支持的话，已�
 
 当然，这些与有CPU指令支持的AES算法相比，性能差距依然偏大，要是工作模式不支持并行，差距就更巨大了。
 
-# 与KMS集成
+## 与KMS集成
 可能您会说，如果我在KMS中创建了一个SM4对称密钥，就不需要本地加解密了，这话很对，不过有种场景会用到：  
 * 在KMS中只创建非对称密钥（KEK）；
 * 对称加解密在本地进行；
