@@ -1,3 +1,10 @@
+## Reference
+* Information security technology—ZUC stream cipher algorithm—Part 1: Algorithm description 《GB/T 33133.1-2016 信息安全技术 祖冲之序列密码算法 第1部分：算法描述》
+* Information security technology—ZUC stream cipher algorithm—Part 2: Confidentiality algorithm 《GB/T 33133.2-2021 信息安全技术 祖冲之序列密码算法 第2部分：保密性算法》
+* Information security technology—ZUC stream cipher algorithm—Part 3: Integrity algorithm 《GB/T 33133.3-2021 信息安全技术 祖冲之序列密码算法 第3部分：完整性算法》
+
+您可以从[国家标准全文公开系统](https://openstd.samr.gov.cn/)在线阅读这些标准。
+
 ## ZUC original performance:
 
     goos: windows

@@ -27,7 +27,7 @@ func TestMarshalEnvelopedPrivateKey(t *testing.T) {
 }
 
 func TestParseEnvelopedPrivateKey(t *testing.T) {
-	key, _ := hex.DecodeString("622dddddf4658c971e6485f1599a814a9aa0161aadcbc4f880d5841ea79561cb")
+	key, _ := hex.DecodeString("5cbd96822bb1491ec835ae9c09d4d3825e30bd9955e3c7031fbbe0e72d6fddf6")
 	sm2Key := new(sm2.PrivateKey)
 	sm2Key.D = new(big.Int).SetBytes(key)
 	sm2Key.Curve = sm2.P256()
@@ -38,13 +38,13 @@ func TestParseEnvelopedPrivateKey(t *testing.T) {
 		t.Errorf("expected asn1 error, got %s", err)
 	}
 
-	decryptErr, _ := hex.DecodeString("3081ed06082a811ccf55016801307a022100e5ef46b1d4ebd964852e4166d345027625a38e0a17ad41c9febc7bf024f5efc7022100ca5bf589d32f8e9312196fcbb2624442f16e78470ee09dcf770e54eb28a2f3a9042084c55d419c24dbaa5814e9fde8f74e43c0a876a2055f9900ec6d25fd81e1a42104103c6ca06f337cfc666bf59fb02ad1d8d503420004e82a429129f2d73231edcf06f4dad403de94cae7ad565dd3dd511f7d404bef9edcf4e4c856808d797db90bae9ff1f77f6041435ded07b5d783605f5681c17681032100002f5ba3a33feb59e67be3ae4b087bcc42fec46e2d7f15f3b86162ab83965c74")
-	if _, err := sm2.ParseEnvelopedPrivateKey(sm2Key, decryptErr); err.Error() != "sm2: decryption error" {
-		t.Errorf("expected decrypt error, got %s", err)
-	}
-
-	invalidOID, _ := hex.DecodeString("3081ec06082a811ccf550168023079022010cae556013f072ae40873b3e0a4cef6bc841277da233b12f3d8676bb9b0f8a8022100f626c7122e8b7d977d60694bf876433a5a1a9298c109b541d35b928b8eed43550420423c303ec2c8ee14dcea529ffb887c781dcc2e0fc7b77acd1d355d6d344f62700410b9365ed091fde6bbd8152d09fa3a24e10342000445b8fadb3e0f932bfebfead4d686e8b3b7d215d60c4893b18152e3cf35eede1b06e62ca4943bfc8fd47d5651605b808bdde3f701e4d51783485903cfba6cc812032100c9fd8695e09d25c9974ae82f519aa1cdd7b7a7f29c0a5aa8cc93ec6384222fca")
+	invalidOID, _ := hex.DecodeString("3081ef300c06082a811ccf55016802050030780220760c5d4eb80f7ec4bb12026586e4badcd41c293b416618575894d9278214aa6c02203fea869801f94f1cf3839e9b666482703c86cef160af8a540daf9c6b9adff5b20420685f05616055daf4948e44d76c366b16745f7a487614c0542d16871baa34be8704104abfcab6cea65caf2c130b222ebe519903420004944a5887f6fad9808516755e81c62f41566dab0f56ca55ad7909880acc051ce157694b11557eba725291166508868e6988c596a30472bef32e03a3dcef6866270321003ec6b59fece00ca37336c12f6d529aa84be07597e315eda1b7b58b0bef2fead9")
 	if _, err := sm2.ParseEnvelopedPrivateKey(sm2Key, invalidOID); err.Error() != "sm2: unsupported symmetric cipher <1.2.156.10197.1.104.2>" {
 		t.Errorf("expected invalid oid error, got %s", err)
+	}
+
+	decryptErr, _ := hex.DecodeString("308183300c06082a811ccf550168010500300c06082a811ccf55016801050003420004cb51edb59a99b3b6bc894f203465bf04045eb8a85f5a14ba7c894aadbba7f7b5093e568351675d4ffd6d90be77ae182656eb98a80289358cd4ad4d65fafec5dc03210074bd8d993eeeb0220a664087b80478c43ddf322dd75e16db1642f5938ca34a0c")
+	if _, err := sm2.ParseEnvelopedPrivateKey(sm2Key, decryptErr); err.Error() != "sm2: ciphertext too short" {
+		t.Errorf("expected decrypt error, got %s", err)
 	}
 }

@@ -1,9 +1,16 @@
 ## SM9 current supported functions:
-1.Keys generation  
-2.Sign/Verify    
-3.Key Exchange  
-4.Wrap/Unwrap Key  
-5.Encryption/Decryption
+* Keys generation（密钥生成）  
+* Sign/Verify （数字签名算法）   
+* Key Exchange （密钥交换协议）  
+* Wrap/Unwrap Key （密钥封装机制）  
+* Encryption/Decryption （公钥加密算法）
+
+## Reference
+* Information security technology—Identity-based cryptographic algorithms SM9—Part 1：General《GB/T 38635.1-2020  信息安全技术 SM9标识密码算法 第1部分：总则》
+* Information security technology—Identity-based cryptographic algorithms SM9—Part 2：Algorithms《GB/T 38635.2-2020 信息安全技术 SM9标识密码算法 第2部分：算法》
+* Information security technology—SM9 cryptographic algorithm application specification《GB/T 41389-2022 信息安全技术 SM9密码算法使用规范》
+
+您可以从[国家标准全文公开系统](https://openstd.samr.gov.cn/)在线阅读这些标准。
 
 ## SM9 current performance (for reference only):
 

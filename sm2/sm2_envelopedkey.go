@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/x509/pkix"
 	"encoding/asn1"
 	"errors"
 	"fmt"
@@ -23,12 +24,12 @@ var (
 
 // MarshalEnvelopedPrivateKey, returns sm2 key pair protected data with ASN.1 format:
 //
-// SM2EnvelopedKey ::= SEQUENCE {
-//   symAlgID                AlgorithmIdentifier,
-//   symEncryptedKey         SM2Cipher,
-//   sm2PublicKey            SM2PublicKey,
-//   sm2EncryptedPrivateKey  BIT STRING,
-// }
+//	SM2EnvelopedKey ::= SEQUENCE {
+//	  symAlgID                AlgorithmIdentifier,
+//	  symEncryptedKey         SM2Cipher,
+//	  sm2PublicKey            SM2PublicKey,
+//	  sm2EncryptedPrivateKey  BIT STRING,
+//	}
 //
 // This implementation follows GB/T 35276-2017, uses SM4 cipher to encrypt sm2 private key.
 // Please note the standard did NOT clarify if the ECB mode requires padding or not.
@@ -59,10 +60,16 @@ func MarshalEnvelopedPrivateKey(rand io.Reader, pub *ecdsa.PublicKey, tobeEnvelo
 		return nil, err
 	}
 
+	symAlgID := pkix.AlgorithmIdentifier{
+		Algorithm:  oidSM4ECB,
+		Parameters: asn1.NullRawValue,
+	}
+	symAlgIDBytes, _ := asn1.Marshal(symAlgID)
+
 	// marshal the result
 	var b cryptobyte.Builder
 	b.AddASN1(cryptobyte_asn1.SEQUENCE, func(b *cryptobyte.Builder) {
-		b.AddASN1ObjectIdentifier(oidSM4ECB) // use oidSM4?
+		b.AddBytes(symAlgIDBytes)
 		b.AddBytes(encryptedKey)
 		b.AddASN1BitString(elliptic.Marshal(tobeEnveloped.Curve, tobeEnveloped.X, tobeEnveloped.Y))
 		b.AddASN1BitString(encryptedPrivateKey)
@@ -75,14 +82,14 @@ func MarshalEnvelopedPrivateKey(rand io.Reader, pub *ecdsa.PublicKey, tobeEnvelo
 func ParseEnvelopedPrivateKey(priv *PrivateKey, enveloped []byte) (*PrivateKey, error) {
 	// unmarshal the asn.1 data
 	var (
-		symAlgId                 asn1.ObjectIdentifier
+		symAlgId                 pkix.AlgorithmIdentifier
 		encryptedPrivateKey, pub asn1.BitString
-		inner, symEncryptedKey   cryptobyte.String
+		inner, symEncryptedKey, symAlgIdBytes   cryptobyte.String
 	)
 	input := cryptobyte.String(enveloped)
 	if !input.ReadASN1(&inner, cryptobyte_asn1.SEQUENCE) ||
 		!input.Empty() ||
-		!inner.ReadASN1ObjectIdentifier(&symAlgId) ||
+		!inner.ReadASN1Element(&symAlgIdBytes, cryptobyte_asn1.SEQUENCE) ||
 		!inner.ReadASN1Element(&symEncryptedKey, cryptobyte_asn1.SEQUENCE) ||
 		!inner.ReadASN1BitString(&pub) ||
 		!inner.ReadASN1BitString(&encryptedPrivateKey) ||
@@ -90,8 +97,12 @@ func ParseEnvelopedPrivateKey(priv *PrivateKey, enveloped []byte) (*PrivateKey, 
 		return nil, errors.New("sm2: invalid asn1 format enveloped key")
 	}
 
-	if !(symAlgId.Equal(oidSM4) || symAlgId.Equal(oidSM4ECB)) {
-		return nil, fmt.Errorf("sm2: unsupported symmetric cipher <%v>", symAlgId)
+	if _, err := asn1.Unmarshal(symAlgIdBytes, &symAlgId); err != nil {
+		return nil, err
+	}
+
+	if !(symAlgId.Algorithm.Equal(oidSM4) || symAlgId.Algorithm.Equal(oidSM4ECB)) {
+		return nil, fmt.Errorf("sm2: unsupported symmetric cipher <%v>", symAlgId.Algorithm)
 	}
 
 	// parse public key
