@@ -5,7 +5,6 @@ package cipher
 import (
 	_cipher "crypto/cipher"
 
-	"github.com/emmansun/gmsm/internal/alias"
 	"github.com/emmansun/gmsm/internal/subtle"
 )
 
@@ -51,15 +50,7 @@ func NewBCEncrypter(b _cipher.Block, iv []byte) _cipher.BlockMode {
 func (x *bcEncrypter) BlockSize() int { return x.blockSize }
 
 func (x *bcEncrypter) CryptBlocks(dst, src []byte) {
-	if len(src)%x.blockSize != 0 {
-		panic("cipher: input not full blocks")
-	}
-	if len(dst) < len(src) {
-		panic("cipher: output smaller than input")
-	}
-	if alias.InexactOverlap(dst[:len(src)], src) {
-		panic("cipher: invalid buffer overlap")
-	}
+	validate(x.blockSize, dst, src)
 
 	iv := x.iv
 
@@ -110,15 +101,8 @@ func NewBCDecrypter(b _cipher.Block, iv []byte) _cipher.BlockMode {
 func (x *bcDecrypter) BlockSize() int { return x.blockSize }
 
 func (x *bcDecrypter) CryptBlocks(dst, src []byte) {
-	if len(src)%x.blockSize != 0 {
-		panic("cipher: input not full blocks")
-	}
-	if len(dst) < len(src) {
-		panic("cipher: output smaller than input")
-	}
-	if alias.InexactOverlap(dst[:len(src)], src) {
-		panic("cipher: invalid buffer overlap")
-	}
+	validate(x.blockSize, dst, src)
+
 	if len(src) == 0 {
 		return
 	}

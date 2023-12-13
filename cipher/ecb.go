@@ -21,8 +21,8 @@ func newECB(b goCipher.Block) *ecb {
 	}
 }
 
-func (x *ecb) validate(dst, src []byte) {
-	if len(src)%x.blockSize != 0 {
+func validate(size int, dst, src []byte) {
+	if len(src)%size != 0 {
 		panic("cipher: input not full blocks")
 	}
 	if len(dst) < len(src) {
@@ -55,7 +55,7 @@ func NewECBEncrypter(b goCipher.Block) goCipher.BlockMode {
 func (x *ecbEncrypter) BlockSize() int { return x.blockSize }
 
 func (x *ecbEncrypter) CryptBlocks(dst, src []byte) {
-	(*ecb)(x).validate(dst, src)
+	validate(x.blockSize, dst, src)
 
 	for len(src) > 0 {
 		x.b.Encrypt(dst[:x.blockSize], src[:x.blockSize])
@@ -86,11 +86,12 @@ func NewECBDecrypter(b goCipher.Block) goCipher.BlockMode {
 func (x *ecbDecrypter) BlockSize() int { return x.blockSize }
 
 func (x *ecbDecrypter) CryptBlocks(dst, src []byte) {
-	(*ecb)(x).validate(dst, src)
+	validate(x.blockSize, dst, src)
 
 	if len(src) == 0 {
 		return
 	}
+
 	for len(src) > 0 {
 		x.b.Decrypt(dst[:x.blockSize], src[:x.blockSize])
 		src = src[x.blockSize:]
