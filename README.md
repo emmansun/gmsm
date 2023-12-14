@@ -9,7 +9,7 @@
 ![GitHub go.mod Go version (branch)](https://img.shields.io/github/go-mod/go-version/emmansun/gmsm)
 [![Release](https://img.shields.io/github/release/emmansun/gmsm/all.svg)](https://github.com/emmansun/gmsm/releases)
 
-[English](README.md) | 简体中文
+[English](README-EN.md) | 简体中文
 
 ## 包结构
 * **SM2** - SM2椭圆曲线公钥密码算法，曲线的具体实现位于[internal/sm2ec](https://github.com/emmansun/gmsm/tree/main/internal/sm2ec) package中。SM2曲线实现性能和Golang SDK中的NIST P256椭圆曲线原生实现（非BoringCrypto）类似，也对**amd64** 和 **arm64**架构做了专门汇编优化实现，您也可以参考[SM2实现细节](https://github.com/emmansun/gmsm/wiki/SM2%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96)及相关Wiki和代码，以获得更多实现细节。SM2包实现了SM2椭圆曲线公钥密码算法的数字签名算法、公钥加密算法、密钥交换算法，以及《GB/T 35276-2017信息安全技术 SM2密码算法使用规范》中的密钥对保护数据格式。
