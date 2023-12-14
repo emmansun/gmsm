@@ -7,17 +7,21 @@
 * 《GB/T 32918.4-2016 信息安全技术 SM2椭圆曲线公钥密码算法 第4部分：公钥加密算法》
 * 《GB/T 32918.5-2016 信息安全技术 SM2椭圆曲线公钥密码算法 第5部分：参数定义》
 * 《GB/T 35276-2017 信息安全技术 SM2密码算法使用规范》
+* 《GB/T 35275-2017 信息安全技术 SM2密码算法加密签名消息语法规范》(对应PKCS#7)
 
 您可以从[国家标准全文公开系统](https://openstd.samr.gov.cn/)在线阅读这些标准。
 
 ## 概述
-既然是椭圆曲线公钥密码算法，它就和NIST P系列椭圆曲线公钥密码算法类似，特别是P-256。NIST P 系列椭圆曲线公钥密码算法主要用于数字签名和密钥交换，NIST没有定义基于椭圆曲线的公钥加密算法标准，[SEC 1: Elliptic Curve Cryptography](https://www.secg.org/sec1-v2.pdf)第五章定义了“Elliptic Curve Integrated Encryption Scheme (ECIES)”，不过应用不广。感兴趣的同学可以进一步对比一下：
+既然是椭圆曲线公钥密码算法，它就和NIST P系列椭圆曲线公钥密码算法类似，特别是P-256。NIST P 系列椭圆曲线公钥密码算法主要用于数字签名和密钥交换，NIST没有定义基于椭圆曲线的公钥加密算法标准，[SEC 1: Elliptic Curve Cryptography](https://www.secg.org/sec1-v2.pdf)第五章定义了“Elliptic Curve Integrated Encryption Scheme (ECIES)”，不过应用不广。SM2公钥加密算法与其相似，只是MAC不同。感兴趣的同学可以进一步对比一下：
 
 | SM2 | SEC 1 |
 | :--- | :--- |
 | 数字签名算法 | ECDSA |
 | 密钥交换协议 | ECMQV |
 | 公钥加密算法 | ECIES |
+
+**注**：最新的阿里KMS支持ECIES，难道客户有这个需求？
+ECIES_DH_SHA_1_XOR_HMAC：遵循[SEC 1: Elliptic Curve Cryptography, Version 2.0](https://www.secg.org/sec1-v2.pdf)标准，密钥协商算法采用ECDH，密钥派生算法采用 KDF2 with SHA-1，MAC算法采用HMAC-SHA-1，对称加密算法采用XOR。
 
 ## SM2公私钥对
 SM2公私钥对的话，要么是自己产生，要么是别的系统产生后通过某种方式传输给您的。
@@ -64,9 +68,11 @@ func getPublicKey(pemContent []byte) (any, error) {
 * RFC 5915 / SEC1 - http://www.secg.org/sec1-v2.pdf
 * PKCS#12
 * PKCS#8
-* PKCS#7
+* PKCS#7（《GB/T 35275-2017 信息安全技术 SM2密码算法加密签名消息语法规范》）
 * CFCA自定义封装
-* 《GB/T 35276-2017 信息安全技术 SM2密码算法使用规范》
+* 《GB/T 35276-2017 信息安全技术 SM2密码算法使用规范》  
+
+（存在于智能密码钥匙中，符合《GB/T 35291-2017 信息安全技术 智能密码钥匙应用接口规范》的，不在这里说明。）
 
 所以，当您拿到一个密钥文件，您需要知道它的封装格式，然后选用合适的方法。PEM编码的密钥文本通常第一行会有相关信息。如果您得到的是一个ASN.1编码，那可能需要通过ASN.1结构和一些其中的OID来判断了。私钥信息是非常关键的信息，通常密钥文件被加密保护。可能是标准落后于应用的原因，目前这一块的互操作性可能差一点。
 

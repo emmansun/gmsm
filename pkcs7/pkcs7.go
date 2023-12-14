@@ -80,7 +80,8 @@ var (
 )
 
 var (
-	//SM2 Signed Data OIDs
+	// SM2 Signed Data OIDs
+	// 《GB/T 35275-2017 信息安全技术 SM2密码算法加密签名消息语法规范》
 	SM2OIDData                = asn1.ObjectIdentifier{1, 2, 156, 10197, 6, 1, 4, 2, 1}
 	SM2OIDSignedData          = asn1.ObjectIdentifier{1, 2, 156, 10197, 6, 1, 4, 2, 2}
 	SM2OIDEnvelopedData       = asn1.ObjectIdentifier{1, 2, 156, 10197, 6, 1, 4, 2, 3}
