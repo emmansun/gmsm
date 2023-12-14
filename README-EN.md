@@ -56,5 +56,4 @@ The pkcs7 is based on code from [mozilla-services/pkcs7](https://github.com/mozi
 The pkcs8 is based on code from [youmark/pkcs8](https://github.com/youmark/pkcs8).
 
 ## Disclaimer
-
-Please read [disclaimer](DISCLAIMER.md) carefully!
+This library is not fully audited and is offered as-is, and without a guarantee. Therefore, it is expected that changes in the code, repository, and API occur in the future. We recommend to take caution before using this library in a production application.
