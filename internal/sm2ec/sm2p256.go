@@ -131,7 +131,7 @@ func sm2p256CheckOnCurve(x, y *fiat.SM2P256Element) error {
 	rhs := sm2p256Polynomial(new(fiat.SM2P256Element), x)
 	lhs := new(fiat.SM2P256Element).Square(y)
 	if rhs.Equal(lhs) != 1 {
-		return errors.New("SM2P256 point not on curve")
+		return errors.New("point not on SM2 P256 curve")
 	}
 	return nil
 }
