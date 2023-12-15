@@ -640,7 +640,7 @@ func TestEqual(t *testing.T) {
 		t.Errorf("private.Public() is not Equal to public: %q", public)
 	}
 	if !private.Equal(private) {
-		t.Errorf("private key is not equal to itself")
+		t.Errorf("private key is not equal to itself: %q", private.PrivateKey)
 	}
 
 	otherPriv, _ := GenerateKey(rand.Reader)
