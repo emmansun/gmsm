@@ -13,12 +13,12 @@ import (
 )
 
 type sm2Curve struct {
-	name        string
-	newPoint    func() *sm2ec.SM2P256Point
-	scalarOrder []byte
-	constantA   []byte
-	constantB   []byte
-	generator   []byte
+	name              string
+	newPoint          func() *sm2ec.SM2P256Point
+	scalarOrderMinus1 []byte
+	constantA         []byte
+	constantB         []byte
+	generator         []byte
 }
 
 func (c *sm2Curve) String() string {
@@ -26,7 +26,7 @@ func (c *sm2Curve) String() string {
 }
 
 func (c *sm2Curve) GenerateKey(rand io.Reader) (*PrivateKey, error) {
-	key := make([]byte, len(c.scalarOrder))
+	key := make([]byte, len(c.scalarOrderMinus1))
 	randutil.MaybeReadByte(rand)
 
 	for {
@@ -48,10 +48,10 @@ func (c *sm2Curve) GenerateKey(rand io.Reader) (*PrivateKey, error) {
 }
 
 func (c *sm2Curve) NewPrivateKey(key []byte) (*PrivateKey, error) {
-	if len(key) != len(c.scalarOrder) {
+	if len(key) != len(c.scalarOrderMinus1) {
 		return nil, errors.New("ecdh: invalid private key size")
 	}
-	if subtle.ConstantTimeAllZero(key) || !isLess(key, c.scalarOrder) {
+	if subtle.ConstantTimeAllZero(key) || !isLess(key, c.scalarOrderMinus1) {
 		return nil, errInvalidPrivateKey
 	}
 	return &PrivateKey{
@@ -181,19 +181,19 @@ func (c *sm2Curve) sm2za(md hash.Hash, pub *PublicKey, uid []byte) ([]byte, erro
 func P256() Curve { return sm2P256 }
 
 var sm2P256 = &sm2Curve{
-	name:        "sm2p256v1",
-	newPoint:    sm2ec.NewSM2P256Point,
-	scalarOrder: sm2P256Order,
-	generator:   sm2Generator,
-	constantA:   sm2ConstantA,
-	constantB:   sm2ConstantB,
+	name:              "sm2p256v1",
+	newPoint:          sm2ec.NewSM2P256Point,
+	scalarOrderMinus1: sm2P256OrderMinus1,
+	generator:         sm2Generator,
+	constantA:         sm2ConstantA,
+	constantB:         sm2ConstantB,
 }
 
-var sm2P256Order = []byte{
+var sm2P256OrderMinus1 = []byte{
 	0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xff, 0xff,
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 	0x72, 0x03, 0xdf, 0x6b, 0x21, 0xc6, 0x05, 0x2b,
-	0x53, 0xbb, 0xf4, 0x09, 0x39, 0xd5, 0x41, 0x23}
+	0x53, 0xbb, 0xf4, 0x09, 0x39, 0xd5, 0x41, 0x22}
 var sm2Generator = []byte{
 	0x32, 0xc4, 0xae, 0x2c, 0x1f, 0x19, 0x81, 0x19,
 	0x5f, 0x99, 0x4, 0x46, 0x6a, 0x39, 0xc9, 0x94,

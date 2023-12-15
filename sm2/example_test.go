@@ -1,7 +1,6 @@
 package sm2_test
 
 import (
-	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/hex"
@@ -16,29 +15,34 @@ import (
 	"golang.org/x/crypto/cryptobyte/asn1"
 )
 
-// This example method is just for reference, it's NOT a standard method for key transmission.
-// In general, private key will be encoded/formatted with PKCS8, public key will be encoded/formatted with a SubjectPublicKeyInfo structure
-// (see RFC 5280, Section 4.1).
-func Example_createKeysFromRawValue() {
-	key, _ := sm2.GenerateKey(rand.Reader)
+func ExampleNewPrivateKey() {
+	keyBytes, _ := hex.DecodeString("6c5a0a0b2eed3cbec3e4f1252bfe0e28c504a1c6bf1999eebb0af9ef0f8e6c85")
+	priv, err := sm2.NewPrivateKey(keyBytes)
+	if err != nil {
+		log.Fatalf("fail to new private key %v", err)
+	}
+	fmt.Printf("%x\n", priv.D.Bytes())
+	// Output: 6c5a0a0b2eed3cbec3e4f1252bfe0e28c504a1c6bf1999eebb0af9ef0f8e6c85
+}
 
-	d := new(big.Int).SetBytes(key.D.Bytes()) // here we do NOT check if the d is in (0, N) or not
-	// Create private key from *big.Int
-	keyCopy := new(sm2.PrivateKey)
-	keyCopy.Curve = sm2.P256()
-	keyCopy.D = d
-	keyCopy.PublicKey.X, keyCopy.PublicKey.Y = keyCopy.ScalarBaseMult(keyCopy.D.Bytes())
-	if !key.Equal(keyCopy) {
-		log.Fatalf("private key and copy should be equal")
+func ExampleNewPrivateKeyFromInt() {
+	key := big.NewInt(0x123456)
+	priv, err := sm2.NewPrivateKeyFromInt(key)
+	if err != nil {
+		log.Fatalf("fail to new private key %v", err)
 	}
-	pointBytes := elliptic.Marshal(key.Curve, key.X, key.Y)
-	// Create public key from point (uncompressed)
-	publicKeyCopy := new(ecdsa.PublicKey)
-	publicKeyCopy.Curve = sm2.P256()
-	publicKeyCopy.X, publicKeyCopy.Y = elliptic.Unmarshal(publicKeyCopy.Curve, pointBytes)
-	if !key.PublicKey.Equal(publicKeyCopy) {
-		log.Fatalf("public key and copy should be equal")
+	fmt.Printf("%x\n", priv.D.Bytes())
+	// Output: 123456
+}
+
+func ExampleNewPublicKey() {
+	keypoints, _ := hex.DecodeString("048356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1")
+	pub, err := sm2.NewPublicKey(keypoints)
+	if err != nil {
+		log.Fatalf("fail to new public key %v", err)
 	}
+	fmt.Printf("%x\n", elliptic.Marshal(sm2.P256(), pub.X, pub.Y))
+	// Output: 048356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1
 }
 
 // This method provide a sample to handle ASN1 ciphertext ends with extra bytes.
@@ -91,11 +95,10 @@ func ExamplePrivateKey_Sign_forceSM2() {
 	toSign := []byte("ShangMi SM2 Sign Standard")
 	// real private key should be from secret storage
 	privKey, _ := hex.DecodeString("6c5a0a0b2eed3cbec3e4f1252bfe0e28c504a1c6bf1999eebb0af9ef0f8e6c85")
-	d := new(big.Int).SetBytes(privKey)
-	testkey := new(sm2.PrivateKey)
-	testkey.Curve = sm2.P256()
-	testkey.D = d
-	testkey.PublicKey.X, testkey.PublicKey.Y = testkey.ScalarBaseMult(testkey.D.Bytes())
+	testkey, err := sm2.NewPrivateKey(privKey)
+	if err != nil {
+		log.Fatalf("fail to new private key %v", err)
+	}
 
 	// force SM2 sign standard and use default UID
 	sig, err := testkey.Sign(rand.Reader, toSign, sm2.DefaultSM2SignerOpts)
@@ -112,9 +115,10 @@ func ExamplePrivateKey_Sign_forceSM2() {
 func ExampleVerifyASN1WithSM2() {
 	// real public key should be from cert or public key pem file
 	keypoints, _ := hex.DecodeString("048356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1")
-	testkey := new(ecdsa.PublicKey)
-	testkey.Curve = sm2.P256()
-	testkey.X, testkey.Y = elliptic.Unmarshal(testkey.Curve, keypoints)
+	testkey, err := sm2.NewPublicKey(keypoints)
+	if err != nil {
+		log.Fatalf("fail to new public key %v", err)
+	}
 
 	toSign := []byte("ShangMi SM2 Sign Standard")
 	signature, _ := hex.DecodeString("304402205b3a799bd94c9063120d7286769220af6b0fa127009af3e873c0e8742edc5f890220097968a4c8b040fd548d1456b33f470cabd8456bfea53e8a828f92f6d4bdcd77")
@@ -128,9 +132,10 @@ func ExampleVerifyASN1WithSM2() {
 func ExampleEncryptASN1() {
 	// real public key should be from cert or public key pem file
 	keypoints, _ := hex.DecodeString("048356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1")
-	testkey := new(ecdsa.PublicKey)
-	testkey.Curve = sm2.P256()
-	testkey.X, testkey.Y = elliptic.Unmarshal(testkey.Curve, keypoints)
+	testkey, err := sm2.NewPublicKey(keypoints)
+	if err != nil {
+		log.Fatalf("fail to new public key %v", err)
+	}
 
 	secretMessage := []byte("send reinforcements, we're going to advance")
 
@@ -153,11 +158,10 @@ func ExamplePrivateKey_Decrypt() {
 
 	// real private key should be from secret storage
 	privKey, _ := hex.DecodeString("6c5a0a0b2eed3cbec3e4f1252bfe0e28c504a1c6bf1999eebb0af9ef0f8e6c85")
-	d := new(big.Int).SetBytes(privKey)
-	testkey := new(sm2.PrivateKey)
-	testkey.Curve = sm2.P256()
-	testkey.D = d
-	testkey.PublicKey.X, testkey.PublicKey.Y = testkey.ScalarBaseMult(testkey.D.Bytes())
+	testkey, err := sm2.NewPrivateKey(privKey)
+	if err != nil {
+		log.Fatalf("fail to new private key %v", err)
+	}
 
 	plaintext, err := testkey.Decrypt(nil, ciphertext, nil)
 	if err != nil {

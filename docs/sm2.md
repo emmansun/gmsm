@@ -55,11 +55,15 @@ func getPublicKey(pemContent []byte) (any, error) {
 
 有些应用可能会直接存储公钥的曲线点X, Y 坐标值，这时候，您可以通过以下类似方法构造公钥（假设输入的是点的非压缩序列化字节数组）：
 ```go
-	// Create public key from point (uncompressed)
-	publicKeyCopy := new(ecdsa.PublicKey)
-	publicKeyCopy.Curve = sm2.P256()
-	publicKeyCopy.X, publicKeyCopy.Y = elliptic.Unmarshal(publicKeyCopy.Curve, pointBytes)
-
+func ExampleNewPublicKey() {
+	keypoints, _ := hex.DecodeString("048356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1")
+	pub, err := sm2.NewPublicKey(keypoints)
+	if err != nil {
+		log.Fatalf("fail to new public key %v", err)
+	}
+	fmt.Printf("%x\n", elliptic.Marshal(sm2.P256(), pub.X, pub.Y))
+	// Output: 048356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1
+}
 ```
 当然，您也可以使用ecdh包下的方法```ecdh.P256().NewPublicKey```来构造，目前只支持非压缩方式。
 
@@ -87,13 +91,25 @@ func getPublicKey(pemContent []byte) (any, error) {
 
 有些系统可能会直接存储、得到私钥的字节数组，那么您可以使用如下方法来构造私钥：
 ```go
-	bytes, _ := hex.DecodeString("4e85afbc996fdc67b4f05880bd9c0d037932649215ae10cf7085720b6571054c")
-	d := new(big.Int).SetBytes(bytes)
-	// Create private key from *big.Int
-	priv := new(PrivateKey)
-	priv.Curve = sm2.P256()
-	priv.D = d
-	priv.PublicKey.X, priv.PublicKey.Y = priv.ScalarBaseMult(priv.D.Bytes())
+func ExampleNewPrivateKey() {
+	keyBytes, _ := hex.DecodeString("6c5a0a0b2eed3cbec3e4f1252bfe0e28c504a1c6bf1999eebb0af9ef0f8e6c85")
+	priv, err := sm2.NewPrivateKey(keyBytes)
+	if err != nil {
+		log.Fatalf("fail to new private key %v", err)
+	}
+	fmt.Printf("%x\n", priv.D.Bytes())
+	// Output: 6c5a0a0b2eed3cbec3e4f1252bfe0e28c504a1c6bf1999eebb0af9ef0f8e6c85
+}
+
+func ExampleNewPrivateKeyFromInt() {
+	key := big.NewInt(0x123456)
+	priv, err := sm2.NewPrivateKeyFromInt(key)
+	if err != nil {
+		log.Fatalf("fail to new private key %v", err)
+	}
+	fmt.Printf("%x\n", priv.D.Bytes())
+	// Output: 123456
+}
 ```
 当然，你也可以使用ecdh包的方法```ecdh.P256().NewPrivateKey```来构造私钥，您要确保输入的字节数组是256位（16字节）的，如果不是，请先自行处理。
 

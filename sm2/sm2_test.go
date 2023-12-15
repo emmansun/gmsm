@@ -16,6 +16,99 @@ import (
 	"github.com/emmansun/gmsm/sm3"
 )
 
+func TestNewPrivateKey(t *testing.T) {
+	c := p256()
+	// test nil
+	_, err := NewPrivateKey(nil)
+	if err == nil || err.Error() != "sm2: invalid private key size" {
+		t.Errorf("should throw sm2: invalid private key size")
+	}
+	// test all zero
+	key := make([]byte, c.N.Size())
+	_, err = NewPrivateKey(key)
+	if err == nil || err != errInvalidPrivateKey {
+		t.Errorf("should throw errInvalidPrivateKey")
+	}
+	// test N-1
+	_, err = NewPrivateKey(c.nMinus1.Bytes(c.N))
+	if err == nil || err != errInvalidPrivateKey {
+		t.Errorf("should throw errInvalidPrivateKey")
+	}
+	// test N
+	_, err = NewPrivateKey(P256().Params().N.Bytes())
+	if err == nil || err != errInvalidPrivateKey {
+		t.Errorf("should throw errInvalidPrivateKey")
+	}
+	// test 1
+	key[31] = 1
+	_, err = NewPrivateKey(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// test N-2
+	_, err = NewPrivateKey(c.nMinus2)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestNewPrivateKeyFromInt(t *testing.T) {
+	// test nil
+	_, err := NewPrivateKeyFromInt(nil)
+	if err == nil || err.Error() != "sm2: invalid private key size" {
+		t.Errorf("should throw sm2: invalid private key size")
+	}
+	// test 1
+	_, err = NewPrivateKeyFromInt(big.NewInt(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// test N
+	_, err = NewPrivateKeyFromInt(P256().Params().N)
+	if err == nil || err != errInvalidPrivateKey {
+		t.Errorf("should throw errInvalidPrivateKey")
+	}
+
+	// test N + 1
+	_, err = NewPrivateKeyFromInt(new(big.Int).Add(P256().Params().N, big.NewInt(1)))
+	if err == nil || err != errInvalidPrivateKey {
+		t.Errorf("should throw errInvalidPrivateKey")
+	}
+
+	c := p256()
+	// test N - 1
+	_, err = NewPrivateKeyFromInt(new(big.Int).SetBytes(c.nMinus1.Bytes(c.N)))
+	if err == nil || err != errInvalidPrivateKey {
+		t.Errorf("should throw errInvalidPrivateKey")
+	}
+}
+
+func TestNewPublicKey(t *testing.T) {
+	// test nil
+	_, err := NewPublicKey(nil)
+	if err == nil || err.Error() != "sm2: invalid public key" {
+		t.Errorf("should throw sm2: invalid public key")
+	}
+	// test without point format prefix byte
+	keypoints, _ := hex.DecodeString("8356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1")
+	_, err = NewPublicKey(keypoints)
+	if err == nil || err.Error() != "sm2: invalid public key" {
+		t.Errorf("should throw sm2: invalid public key")
+	}
+	// test correct point
+	keypoints, _ = hex.DecodeString("048356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1")
+	_, err = NewPublicKey(keypoints)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// test point not on curve
+	keypoints, _ = hex.DecodeString("048356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba2")
+	_, err = NewPublicKey(keypoints)
+	if err == nil || err.Error() != "point not on SM2 P256 curve" {
+		t.Errorf("should throw point not on SM2 P256 curve, got %v", err)
+	}
+}
+
 func TestSplicingOrder(t *testing.T) {
 	priv, _ := GenerateKey(rand.Reader)
 	tests := []struct {
@@ -335,6 +428,18 @@ func TestInvalidCiphertext(t *testing.T) {
 	}
 }
 
+func TestPrivateKeyPlus1WithOrderMinus1(t *testing.T) {
+	priv := new(PrivateKey)
+	priv.D = new(big.Int).Sub(P256().Params().N, big.NewInt(1))
+	priv.Curve = P256()
+	priv.PublicKey.X, priv.PublicKey.Y = P256().ScalarBaseMult(priv.D.Bytes())
+
+	_, err := priv.inverseOfPrivateKeyPlus1(p256())
+	if err == nil || err != errInvalidPrivateKey {
+		t.Errorf("expected invalid private key error")
+	}
+}
+
 func TestSignVerify(t *testing.T) {
 	priv, _ := GenerateKey(rand.Reader)
 	tests := []struct {
@@ -535,7 +640,7 @@ func TestEqual(t *testing.T) {
 		t.Errorf("private.Public() is not Equal to public: %q", public)
 	}
 	if !private.Equal(private) {
-		t.Errorf("private key is not equal to itself: %q", private)
+		t.Errorf("private key is not equal to itself")
 	}
 
 	otherPriv, _ := GenerateKey(rand.Reader)
@@ -571,7 +676,7 @@ func TestRandomPoint(t *testing.T) {
 	// A sequence of all ones will generate 2^N-1, which should be rejected.
 	// (Unless, for example, we are masking too many bits.)
 	r := io.MultiReader(bytes.NewReader(bytes.Repeat([]byte{0xff}, 100)), rand.Reader)
-	if k, p, err := randomPoint(c, r); err != nil {
+	if k, p, err := randomPoint(c, r, false); err != nil {
 		t.Fatal(err)
 	} else if k.IsZero() == 1 {
 		t.Error("k is zero")
@@ -585,7 +690,7 @@ func TestRandomPoint(t *testing.T) {
 
 	// A sequence of all zeroes will generate zero, which should be rejected.
 	r = io.MultiReader(bytes.NewReader(bytes.Repeat([]byte{0}, 100)), rand.Reader)
-	if k, p, err := randomPoint(c, r); err != nil {
+	if k, p, err := randomPoint(c, r, false); err != nil {
 		t.Fatal(err)
 	} else if k.IsZero() == 1 {
 		t.Error("k is zero")
@@ -625,12 +730,12 @@ func BenchmarkSign_SM2(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	hashed := []byte("testing")
+	hashed := sm3.Sum([]byte("testing"))
 
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		sig, err := SignASN1(rand.Reader, priv, hashed, nil)
+		sig, err := SignASN1(rand.Reader, priv, hashed[:], nil)
 		if err != nil {
 			b.Fatal(err)
 		}

@@ -44,6 +44,9 @@ const (
 // It implemented both crypto.Decrypter and crypto.Signer interfaces.
 type PrivateKey struct {
 	ecdsa.PrivateKey
+	// inverseOfkeyPlus1 is set under inverseOfkeyPlus1Once
+	inverseOfkeyPlus1     *bigmod.Nat
+	inverseOfkeyPlus1Once sync.Once
 }
 
 type pointMarshalMode byte
@@ -239,7 +242,7 @@ func encryptSM2EC(c *sm2Curve, pub *ecdsa.PublicKey, random io.Reader, msg []byt
 	}
 	var retryCount int = 0
 	for {
-		k, C1, err := randomPoint(c, random)
+		k, C1, err := randomPoint(c, random, false)
 		if err != nil {
 			return nil, err
 		}
@@ -311,7 +314,7 @@ func GenerateKey(rand io.Reader) (*PrivateKey, error) {
 	randutil.MaybeReadByte(rand)
 
 	c := p256()
-	k, Q, err := randomPoint(c, rand)
+	k, Q, err := randomPoint(c, rand, true)
 	if err != nil {
 		return nil, err
 	}
@@ -324,6 +327,61 @@ func GenerateKey(rand io.Reader) (*PrivateKey, error) {
 		return nil, err
 	}
 	return priv, nil
+}
+
+// NewPrivateKey checks that key is valid and returns a SM2 PrivateKey.
+//
+// key - the private key byte slice, the length must be 32 for SM2.
+func NewPrivateKey(key []byte) (*PrivateKey, error) {
+	c := p256()
+	if len(key) != c.N.Size() {
+		return nil, errors.New("sm2: invalid private key size")
+	}
+	k, err := bigmod.NewNat().SetBytes(key, c.N)
+	if err != nil || k.IsZero() == 1 || k.Equal(c.nMinus1) == 1 {
+		return nil, errInvalidPrivateKey
+	}
+	p, err := c.newPoint().ScalarBaseMult(k.Bytes(c.N))
+	if err != nil {
+		return nil, err
+	}
+	priv := new(PrivateKey)
+	priv.PublicKey.Curve = c.curve
+	priv.D = new(big.Int).SetBytes(k.Bytes(c.N))
+	priv.PublicKey.X, priv.PublicKey.Y, err = c.pointToAffine(p)
+	if err != nil {
+		return nil, err
+	}
+	return priv, nil
+}
+
+// NewPrivateKeyFromInt checks that key is valid and returns a SM2 PrivateKey.
+func NewPrivateKeyFromInt(key *big.Int) (*PrivateKey, error) {
+	if key == nil {
+		return nil, errors.New("sm2: invalid private key size")
+	}
+	keyBytes := make([]byte, p256().N.Size())
+	return NewPrivateKey(key.FillBytes(keyBytes))
+}
+
+// NewPublicKey checks that key is valid and returns a PublicKey.
+func NewPublicKey(key []byte) (*ecdsa.PublicKey, error) {
+	c := p256()
+	// Reject the point at infinity and compressed encodings.
+	if len(key) == 0 || key[0] != 4 {
+		return nil, errors.New("sm2: invalid public key")
+	}
+	// SetBytes also checks that the point is on the curve.
+	p, err := c.newPoint().SetBytes(key)
+	if err != nil {
+		return nil, err
+	}
+	k := new(ecdsa.PublicKey)
+	k.X, k.Y, err = c.pointToAffine(p)
+	if err != nil {
+		return nil, err
+	}
+	return k, nil
 }
 
 // Decrypt sm2 decrypt implementation by default DecrypterOpts{C1C3C2}.
@@ -486,7 +544,7 @@ func CalculateZA(pub *ecdsa.PublicKey, uid []byte) ([]byte, error) {
 }
 
 // CalculateSM2Hash calculates hash value for data including uid and public key parameters
-// according standards. 
+// according standards.
 //
 // uid can be nil, then it will use default uid (1234567812345678)
 func CalculateSM2Hash(pub *ecdsa.PublicKey, data, uid []byte) ([]byte, error) {
@@ -533,35 +591,52 @@ func SignASN1(rand io.Reader, priv *PrivateKey, hash []byte, opts crypto.SignerO
 	}
 }
 
-func signSM2EC(c *sm2Curve, priv *PrivateKey, rand io.Reader, hash []byte) (sig []byte, err error) {
-	e := bigmod.NewNat()
-	hashToNat(c, e, hash)
+func (priv *PrivateKey) inverseOfPrivateKeyPlus1(c *sm2Curve) (*bigmod.Nat, error) {
 	var (
-		k, r, s, dp1Inv, oneNat *bigmod.Nat
-		R                       *_sm2ec.SM2P256Point
+		err            error
+		dp1Inv, oneNat *bigmod.Nat
+		dp1Bytes       []byte
+	)
+	priv.inverseOfkeyPlus1Once.Do(func() {
+		oneNat, _ = bigmod.NewNat().SetBytes(one.Bytes(), c.N)
+		dp1Inv, err = bigmod.NewNat().SetBytes(priv.D.Bytes(), c.N)
+		if err == nil {
+			dp1Inv.Add(oneNat, c.N)
+			if dp1Inv.IsZero() == 1 { // make sure private key is NOT N-1
+				err = errInvalidPrivateKey
+			} else {
+				dp1Bytes, err = _sm2ec.P256OrdInverse(dp1Inv.Bytes(c.N))
+				if err == nil {
+					priv.inverseOfkeyPlus1, err = bigmod.NewNat().SetBytes(dp1Bytes, c.N)
+				}
+			}
+		}
+	})
+	if err != nil {
+		return nil, errInvalidPrivateKey
+	}
+	return priv.inverseOfkeyPlus1, nil
+}
+
+func signSM2EC(c *sm2Curve, priv *PrivateKey, rand io.Reader, hash []byte) (sig []byte, err error) {
+	// get/compute inv(d+1)
+	dp1Inv, err := priv.inverseOfPrivateKeyPlus1(c)
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		k, r, s *bigmod.Nat
+		R       *_sm2ec.SM2P256Point
 	)
 
-	oneNat, err = bigmod.NewNat().SetBytes(one.Bytes(), c.N)
-	if err != nil {
-		return nil, err
-	}
-	dp1Inv, err = bigmod.NewNat().SetBytes(priv.D.Bytes(), c.N)
-	if err != nil {
-		return nil, err
-	}
-	dp1Inv.Add(oneNat, c.N)
-	dp1Bytes, err := _sm2ec.P256OrdInverse(dp1Inv.Bytes(c.N))
-	if err != nil {
-		return nil, err
-	}
-	dp1Inv, err = bigmod.NewNat().SetBytes(dp1Bytes, c.N)
-	if err != nil {
-		panic("sm2: internal error: P256OrdInverse produced an invalid value")
-	}
+	// hash to int
+	e := bigmod.NewNat()
+	hashToNat(c, e, hash)
 
 	for {
 		for {
-			k, R, err = randomPoint(c, rand)
+			k, R, err = randomPoint(c, rand, false)
 			if err != nil {
 				return nil, err
 			}
@@ -792,7 +867,7 @@ func curveToECDH(c elliptic.Curve) ecdh.Curve {
 
 // randomPoint returns a random scalar and the corresponding point using the
 // procedure given in FIPS 186-4, Appendix B.5.2 (rejection sampling).
-func randomPoint(c *sm2Curve, rand io.Reader) (k *bigmod.Nat, p *_sm2ec.SM2P256Point, err error) {
+func randomPoint(c *sm2Curve, rand io.Reader, checkOrderMinus1 bool) (k *bigmod.Nat, p *_sm2ec.SM2P256Point, err error) {
 	k = bigmod.NewNat()
 	for {
 		b := make([]byte, c.N.Size())
@@ -813,11 +888,10 @@ func randomPoint(c *sm2Curve, rand io.Reader) (k *bigmod.Nat, p *_sm2ec.SM2P256P
 			b[0] >>= excess
 		}
 
-		// FIPS 186-4 makes us check k <= N - 2 and then add one.
-		// Checking 0 < k <= N - 1 is strictly equivalent.
+		// Checking 0 < k <= N - 2.
 		// None of this matters anyway because the chance of selecting
 		// zero is cryptographically negligible.
-		if _, err = k.SetBytes(b, c.N); err == nil && k.IsZero() == 0 {
+		if _, err = k.SetBytes(b, c.N); err == nil && k.IsZero() == 0 && (!checkOrderMinus1 || k.Equal(c.nMinus1) == 0) {
 			break
 		}
 
@@ -838,6 +912,7 @@ type sm2Curve struct {
 	newPoint func() *_sm2ec.SM2P256Point
 	curve    elliptic.Curve
 	N        *bigmod.Modulus
+	nMinus1  *bigmod.Nat
 	nMinus2  []byte
 }
 
@@ -891,4 +966,7 @@ func precomputeParams(c *sm2Curve, curve elliptic.Curve) {
 	c.curve = curve
 	c.N, _ = bigmod.NewModulusFromBig(params.N)
 	c.nMinus2 = new(big.Int).Sub(params.N, big.NewInt(2)).Bytes()
+	c.nMinus1, _ = bigmod.NewNat().SetBytes(new(big.Int).Sub(params.N, big.NewInt(1)).Bytes(), c.N)
 }
+
+var errInvalidPrivateKey = errors.New("sm2: invalid private key")
