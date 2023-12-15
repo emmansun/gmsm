@@ -377,6 +377,7 @@ func NewPublicKey(key []byte) (*ecdsa.PublicKey, error) {
 		return nil, err
 	}
 	k := new(ecdsa.PublicKey)
+	k.Curve = c.curve
 	k.X, k.Y, err = c.pointToAffine(p)
 	if err != nil {
 		return nil, err
