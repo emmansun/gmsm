@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/emmansun/gmsm/cipher"
 	"github.com/emmansun/gmsm/sm4"
@@ -82,9 +81,9 @@ func MarshalEnvelopedPrivateKey(rand io.Reader, pub *ecdsa.PublicKey, tobeEnvelo
 func ParseEnvelopedPrivateKey(priv *PrivateKey, enveloped []byte) (*PrivateKey, error) {
 	// unmarshal the asn.1 data
 	var (
-		symAlgId                 pkix.AlgorithmIdentifier
-		encryptedPrivateKey, pub asn1.BitString
-		inner, symEncryptedKey, symAlgIdBytes   cryptobyte.String
+		symAlgId                              pkix.AlgorithmIdentifier
+		encryptedPrivateKey, pub              asn1.BitString
+		inner, symEncryptedKey, symAlgIdBytes cryptobyte.String
 	)
 	input := cryptobyte.String(enveloped)
 	if !input.ReadASN1(&inner, cryptobyte_asn1.SEQUENCE) ||
@@ -106,9 +105,9 @@ func ParseEnvelopedPrivateKey(priv *PrivateKey, enveloped []byte) (*PrivateKey, 
 	}
 
 	// parse public key
-	x, y := elliptic.Unmarshal(P256(), pub.RightAlign())
-	if x == nil || y == nil {
-		return nil, errors.New("sm2: invald public key in enveloped data")
+	pubKey, err := NewPublicKey(pub.RightAlign())
+	if err != nil {
+		return nil, err
 	}
 
 	// decrypt symmetric cipher key
@@ -127,12 +126,11 @@ func ParseEnvelopedPrivateKey(priv *PrivateKey, enveloped []byte) (*PrivateKey, 
 	plaintext := make([]byte, len(bytes))
 	mode.CryptBlocks(plaintext, bytes)
 	// Do we need to check length in order to be compatible with some implementations with padding?
-	sm2Key := new(PrivateKey)
-	sm2Key.D = new(big.Int).SetBytes(plaintext)
-	sm2Key.Curve = P256()
-	sm2Key.X, sm2Key.Y = sm2Key.ScalarBaseMult(plaintext)
-
-	if sm2Key.X.Cmp(x) != 0 || sm2Key.Y.Cmp(y) != 0 {
+	sm2Key, err := NewPrivateKey(plaintext)
+	if err != nil {
+		return nil, err
+	}
+	if !sm2Key.PublicKey.Equal(pubKey) {
 		return nil, errors.New("sm2: mismatch key pair in enveloped data")
 	}
 

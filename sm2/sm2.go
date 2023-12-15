@@ -620,7 +620,7 @@ func (priv *PrivateKey) inverseOfPrivateKeyPlus1(c *sm2Curve) (*bigmod.Nat, erro
 }
 
 func signSM2EC(c *sm2Curve, priv *PrivateKey, rand io.Reader, hash []byte) (sig []byte, err error) {
-	// get/compute inv(d+1)
+	// dp1Inv = (d+1)⁻¹
 	dp1Inv, err := priv.inverseOfPrivateKeyPlus1(c)
 	if err != nil {
 		return nil, err
@@ -649,21 +649,27 @@ func signSM2EC(c *sm2Curve, priv *PrivateKey, rand io.Reader, hash []byte) (sig 
 			if err != nil {
 				return nil, err
 			}
-			r.Add(e, c.N) // r = (Rx + e) mod N
+
+			// r = [Rx + e]
+			r.Add(e, c.N)
+
+			// checks if r is zero or [r+k] is zero
 			if r.IsZero() == 0 {
-				t := bigmod.NewNat().Set(k)
-				t.Add(r, c.N)
-				if t.IsZero() == 0 { // if (r + k) != N then ok
+				t := bigmod.NewNat().Set(k).Add(r, c.N)
+				if t.IsZero() == 0 {
 					break
 				}
 			}
 		}
+		// s = [r * d]
 		s, err = bigmod.NewNat().SetBytes(priv.D.Bytes(), c.N)
 		if err != nil {
 			return nil, err
 		}
 		s.Mul(r, c.N)
+		// k = [k - s]
 		k.Sub(s, c.N)
+		// k = [(d+1)⁻¹ * (k - r * d)]
 		k.Mul(dp1Inv, c.N)
 		if k.IsZero() == 0 {
 			break
@@ -738,21 +744,25 @@ func verifySM2EC(c *sm2Curve, pub *ecdsa.PublicKey, hash, sig []byte) bool {
 	e := bigmod.NewNat()
 	hashToNat(c, e, hash)
 
+	// t = [r + s]
 	t := bigmod.NewNat().Set(r)
 	t.Add(s, c.N)
 	if t.IsZero() == 1 {
 		return false
 	}
 
+	// p₁ = [s]G
 	p1, err := c.newPoint().ScalarBaseMult(s.Bytes(c.N))
 	if err != nil {
 		return false
 	}
+	// p₂ = [t]Q
 	p2, err := Q.ScalarMult(Q, t.Bytes(c.N))
 	if err != nil {
 		return false
 	}
 
+	// BytesX returns an error for the point at infinity.
 	Rx, err := p1.Add(p1, p2).BytesX()
 	if err != nil {
 		return false
@@ -762,8 +772,8 @@ func verifySM2EC(c *sm2Curve, pub *ecdsa.PublicKey, hash, sig []byte) bool {
 	if err != nil {
 		return false
 	}
-
 	v.Add(e, c.N)
+
 	return v.Equal(r) == 1
 }
 
