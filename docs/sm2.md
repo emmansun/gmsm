@@ -111,7 +111,7 @@ func ExampleNewPrivateKeyFromInt() {
 	// Output: 123456
 }
 ```
-当然，你也可以使用ecdh包的方法```ecdh.P256().NewPrivateKey```来构造私钥，您要确保输入的字节数组是256位（16字节）的，如果不是，请先自行处理。
+当然，你也可以使用ecdh包的方法```ecdh.P256().NewPrivateKey```来构造私钥，您要确保输入的字节数组是256位（32字节）的，如果不是，请先自行处理。
 
 ## 数字签名算法
 您可以直接使用sm2私钥的签名方法```Sign```：
