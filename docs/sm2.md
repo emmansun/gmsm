@@ -121,11 +121,10 @@ func ExamplePrivateKey_Sign_forceSM2() {
 	toSign := []byte("ShangMi SM2 Sign Standard")
 	// real private key should be from secret storage
 	privKey, _ := hex.DecodeString("6c5a0a0b2eed3cbec3e4f1252bfe0e28c504a1c6bf1999eebb0af9ef0f8e6c85")
-	d := new(big.Int).SetBytes(privKey)
-	testkey := new(sm2.PrivateKey)
-	testkey.Curve = sm2.P256()
-	testkey.D = d
-	testkey.PublicKey.X, testkey.PublicKey.Y = testkey.ScalarBaseMult(testkey.D.Bytes())
+	testkey, err := sm2.NewPrivateKey(privKey)
+	if err != nil {
+		log.Fatalf("fail to new private key %v", err)
+	}
 
 	// force SM2 sign standard and use default UID
 	sig, err := testkey.Sign(rand.Reader, toSign, sm2.DefaultSM2SignerOpts)
@@ -148,9 +147,10 @@ func ExamplePrivateKey_Sign_forceSM2() {
 func ExampleVerifyASN1WithSM2() {
 	// real public key should be from cert or public key pem file
 	keypoints, _ := hex.DecodeString("048356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1")
-	testkey := new(ecdsa.PublicKey)
-	testkey.Curve = sm2.P256()
-	testkey.X, testkey.Y = elliptic.Unmarshal(testkey.Curve, keypoints)
+	testkey, err := sm2.NewPublicKey(keypoints)
+	if err != nil {
+		log.Fatalf("fail to new public key %v", err)
+	}
 
 	toSign := []byte("ShangMi SM2 Sign Standard")
 	signature, _ := hex.DecodeString("304402205b3a799bd94c9063120d7286769220af6b0fa127009af3e873c0e8742edc5f890220097968a4c8b040fd548d1456b33f470cabd8456bfea53e8a828f92f6d4bdcd77")
@@ -177,9 +177,10 @@ SM2公钥加密示例：
 func ExampleEncryptASN1() {
 	// real public key should be from cert or public key pem file
 	keypoints, _ := hex.DecodeString("048356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1")
-	testkey := new(ecdsa.PublicKey)
-	testkey.Curve = sm2.P256()
-	testkey.X, testkey.Y = elliptic.Unmarshal(testkey.Curve, keypoints)
+	testkey, err := sm2.NewPublicKey(keypoints)
+	if err != nil {
+		log.Fatalf("fail to new public key %v", err)
+	}
 
 	secretMessage := []byte("send reinforcements, we're going to advance")
 
@@ -208,11 +209,10 @@ func ExamplePrivateKey_Decrypt() {
 
 	// real private key should be from secret storage
 	privKey, _ := hex.DecodeString("6c5a0a0b2eed3cbec3e4f1252bfe0e28c504a1c6bf1999eebb0af9ef0f8e6c85")
-	d := new(big.Int).SetBytes(privKey)
-	testkey := new(sm2.PrivateKey)
-	testkey.Curve = sm2.P256()
-	testkey.D = d
-	testkey.PublicKey.X, testkey.PublicKey.Y = testkey.ScalarBaseMult(testkey.D.Bytes())
+	testkey, err := sm2.NewPrivateKey(privKey)
+	if err != nil {
+		log.Fatalf("fail to new private key %v", err)
+	}
 
 	plaintext, err := testkey.Decrypt(nil, ciphertext, nil)
 	if err != nil {
