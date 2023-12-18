@@ -44,9 +44,9 @@ const (
 // It implemented both crypto.Decrypter and crypto.Signer interfaces.
 type PrivateKey struct {
 	ecdsa.PrivateKey
-	// inverseOfkeyPlus1 is set under inverseOfkeyPlus1Once
-	inverseOfkeyPlus1     *bigmod.Nat
-	inverseOfkeyPlus1Once sync.Once
+	// inverseOfKeyPlus1 is set under inverseOfKeyPlus1Once
+	inverseOfKeyPlus1     *bigmod.Nat
+	inverseOfKeyPlus1Once sync.Once
 }
 
 type pointMarshalMode byte
@@ -598,7 +598,7 @@ func (priv *PrivateKey) inverseOfPrivateKeyPlus1(c *sm2Curve) (*bigmod.Nat, erro
 		dp1Inv, oneNat *bigmod.Nat
 		dp1Bytes       []byte
 	)
-	priv.inverseOfkeyPlus1Once.Do(func() {
+	priv.inverseOfKeyPlus1Once.Do(func() {
 		oneNat, _ = bigmod.NewNat().SetBytes(one.Bytes(), c.N)
 		dp1Inv, err = bigmod.NewNat().SetBytes(priv.D.Bytes(), c.N)
 		if err == nil {
@@ -608,7 +608,7 @@ func (priv *PrivateKey) inverseOfPrivateKeyPlus1(c *sm2Curve) (*bigmod.Nat, erro
 			} else {
 				dp1Bytes, err = _sm2ec.P256OrdInverse(dp1Inv.Bytes(c.N))
 				if err == nil {
-					priv.inverseOfkeyPlus1, err = bigmod.NewNat().SetBytes(dp1Bytes, c.N)
+					priv.inverseOfKeyPlus1, err = bigmod.NewNat().SetBytes(dp1Bytes, c.N)
 				}
 			}
 		}
@@ -616,7 +616,7 @@ func (priv *PrivateKey) inverseOfPrivateKeyPlus1(c *sm2Curve) (*bigmod.Nat, erro
 	if err != nil {
 		return nil, errInvalidPrivateKey
 	}
-	return priv.inverseOfkeyPlus1, nil
+	return priv.inverseOfKeyPlus1, nil
 }
 
 func signSM2EC(c *sm2Curve, priv *PrivateKey, rand io.Reader, hash []byte) (sig []byte, err error) {
