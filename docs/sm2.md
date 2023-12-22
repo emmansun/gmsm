@@ -12,7 +12,7 @@
 您可以从[国家标准全文公开系统](https://openstd.samr.gov.cn/)在线阅读这些标准。
 
 ## 概述
-既然是椭圆曲线公钥密码算法，它就和NIST P系列椭圆曲线公钥密码算法类似，特别是P-256。NIST P 系列椭圆曲线公钥密码算法主要用于数字签名和密钥交换，NIST没有定义基于椭圆曲线的公钥加密算法标准，[SEC 1: Elliptic Curve Cryptography](https://www.secg.org/sec1-v2.pdf)第五章定义了“Elliptic Curve Integrated Encryption Scheme (ECIES)”，不过应用不广。SM2公钥加密算法与其相似，只是MAC不同。感兴趣的同学可以进一步对比一下：
+SM2既然是椭圆曲线公钥密码算法，它就和NIST P系列椭圆曲线公钥密码算法类似，特别是P-256。NIST P 系列椭圆曲线公钥密码算法主要用于数字签名和密钥交换，NIST没有定义基于椭圆曲线的公钥加密算法标准，[SEC 1: Elliptic Curve Cryptography](https://www.secg.org/sec1-v2.pdf)第五章定义了“Elliptic Curve Integrated Encryption Scheme (ECIES)”，不过应用不广。SM2公钥加密算法与其相似，只是MAC不同。感兴趣的同学可以进一步对比一下：
 
 | SM2 | SEC 1 |
 | :--- | :--- |
@@ -33,9 +33,10 @@ SM2公私钥对的话，要么是自己产生，要么是别的系统产生后�
 // It implemented both crypto.Decrypter and crypto.Signer interfaces.
 type PrivateKey struct {
 	ecdsa.PrivateKey
+	...
 }
 ```
-SM2的公钥类型沿用了```ecdsa.PublicKey```结构。
+SM2的公钥类型沿用了```ecdsa.PublicKey```结构。注意：Go从v1.20开始，```ecdsa.PublicKey```增加了```func (k *PublicKey) ECDH() (*ecdh.PublicKey, error)```方法，这个方法对SM2的公钥不适用，SM2公钥请使用```func PublicKeyToECDH(k *ecdsa.PublicKey) (*ecdh.PublicKey, error)```。
 
 ### SM2公钥的解析、构造
 通常情况下，公钥是通过PEM编码的文本传输的，您可以通过两步获得公钥：   
@@ -166,7 +167,7 @@ func ExampleVerifyASN1WithSM2() {
 这里有两个实现，一个是传统实现，位于sm2包中；另外一个参考最新go语言的实现在ecdh包中。在这里不详细介绍使用方法，一般只有tls/tlcp才会用到，普通应用通常不会涉及这一块，感兴趣的话可以参考github.com/Trisia/gotlcp中的应用。
 
 ## 公钥加密算法
-请牢记，非对称加密算法通常不用于加密大量数据，而是用来加密对称加密密钥，我们在tlcp以及信封加密机制中能找到这种用法。
+请牢记，非对称加密算法通常不用于加密大量数据，而是用来加密对称加密密钥，我们在**tlcp**以及**信封加密**机制中能找到这种用法。
 
 SM2公钥加密算法支持的密文编码格式有两种：  
 * 简单串接方式: C1C3C2，曾经老的标准为 C1C2C3
@@ -229,7 +230,7 @@ func ExamplePrivateKey_Decrypt() {
 具体API文档请参考：[API Document](https://godoc.org/github.com/emmansun/gmsm)
 
 ## 与KMS集成
-国内云服务商的KMS服务大都提供SM2密钥，我们一般调用其API进行签名和解密，而验签和加密操作，一般在本地用公钥即可完成。不过需要注意的是，KMS提供的签名通常需要您在本地进行hash操作，而sm2签名的hash又比较特殊，下面示例供参考（将在下个发布版本**v0.24.0**中公开此函数```sm2.CalculateSM2Hash```）：  
+国内云服务商的KMS服务大都提供SM2密钥，我们一般调用其API进行签名和解密，而验签和加密操作，一般在本地用公钥即可完成。不过需要注意的是，KMS提供的签名通常需要您在本地进行hash操作，而sm2签名的hash又比较特殊，下面示例供参考（自版本**v0.24.0**开始，您可以直接使用函数```sm2.CalculateSM2Hash```）：  
 ```go
 func calculateSM2Hash(pub *ecdsa.PublicKey, data, uid []byte) ([]byte, error) {
 	if len(uid) == 0 {
