@@ -52,6 +52,9 @@ Go语言商用密码软件，简称**GMSM**，一个安全、高性能、易于�
 * **[PKCS12](https://github.com/emmansun/go-pkcs12)** - [SSLMate/go-pkcs12](https://github.com/SSLMate/go-pkcs12)项目的一个分支，加入了商用密码支持，由于PKCS12标准比较老，安全性不高，所以以独立项目进行维护。
 * **[MKSMCERT](https://github.com/emmansun/mksmcert)** - 一个用于生成SM2私钥和证书的工具，主要用于开发测试，它是[FiloSottile/mkcert](https://github.com/FiloSottile/mkcert)项目的一个分支，加入了商用密码支持。
 
+## 软件许可
+本软件使用MIT许可证，详情请参考[软件许可](./LICENSE)。如果不熟悉MIT许可证条款，请参考[MIT许可证](https://zh.wikipedia.org/zh-cn/MIT%E8%A8%B1%E5%8F%AF%E8%AD%89)。请知晓和遵守**被许可人义务**！
+
 ## 致谢
 本项目的基础架构、设计和部分代码源自[golang crypto](https://github.com/golang/go/commits/master/src/crypto).
 

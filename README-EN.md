@@ -44,6 +44,9 @@ ShangMi (SM) cipher suites for Golang, referred to as **GMSM**, is a secure, hig
 * **[PKCS12](https://github.com/emmansun/go-pkcs12)** - pkcs12 supports ShangMi, a fork of [SSLMate/go-pkcs12](https://github.com/SSLMate/go-pkcs12).
 * **[MKSMCERT](https://github.com/emmansun/mksmcert)** - A simple tool for making locally-trusted development ShangMi certificates, a fork of [FiloSottile/mkcert](https://github.com/FiloSottile/mkcert).
 
+## License
+This work is licensed under a MIT License. See the [LICENSE](./LICENSE) file for details.
+
 ## Acknowledgements
 The basic architecture, design and some codes are from [golang crypto](https://github.com/golang/go/commits/master/src/crypto).
 
