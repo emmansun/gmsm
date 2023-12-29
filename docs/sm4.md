@@ -194,6 +194,48 @@ func Example_decryptCBC() {
 	// Output: sm4 exampleplaintext
 }
 ```
+
+需要注意一下，```cipher.AEAD```对```dst```参数的要求：
+
+```cipher.AEAD```是**追加**结果，所以如果要重用切片，要注意一下。而且```Seal```的结果要比plaintext长（加上tag），所以只有```cap(plaintext)>=len(plaintext)+tagSize```时才会重用，否则还是会新建一个切片。
+```go
+// AEAD is a cipher mode providing authenticated encryption with associated
+// data. For a description of the methodology, see
+// https://en.wikipedia.org/wiki/Authenticated_encryption.
+type AEAD interface {
+	// NonceSize returns the size of the nonce that must be passed to Seal
+	// and Open.
+	NonceSize() int
+
+	// Overhead returns the maximum difference between the lengths of a
+	// plaintext and its ciphertext.
+	Overhead() int
+
+	// Seal encrypts and authenticates plaintext, authenticates the
+	// additional data and appends the result to dst, returning the updated
+	// slice. The nonce must be NonceSize() bytes long and unique for all
+	// time, for a given key.
+	//
+	// To reuse plaintext's storage for the encrypted output, use plaintext[:0]
+	// as dst. Otherwise, the remaining capacity of dst must not overlap plaintext.
+	Seal(dst, nonce, plaintext, additionalData []byte) []byte
+
+	// Open decrypts and authenticates ciphertext, authenticates the
+	// additional data and, if successful, appends the resulting plaintext
+	// to dst, returning the updated slice. The nonce must be NonceSize()
+	// bytes long and both it and the additional data must match the
+	// value passed to Seal.
+	//
+	// To reuse ciphertext's storage for the decrypted output, use ciphertext[:0]
+	// as dst. Otherwise, the remaining capacity of dst must not overlap plaintext.
+	//
+	// Even if the function fails, the contents of dst, up to its capacity,
+	// may be overwritten.
+	Open(dst, nonce, ciphertext, additionalData []byte) ([]byte, error)
+}
+```
+而```cipher.BlockMode```和```cipher.Stream```的话，则是直接覆盖。
+
 ## 性能
 SM4分组密码算法的软件高效实现，不算CPU指令支持的话，已知有如下几种方法：
 * S盒和L转换预计算
