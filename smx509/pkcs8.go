@@ -49,7 +49,7 @@ func ParsePKCS8PrivateKey(der []byte) (key any, err error) {
 	if privKey.Algo.Algorithm.Equal(oidSM9) || privKey.Algo.Algorithm.Equal(oidSM9Sign) || privKey.Algo.Algorithm.Equal(oidSM9Enc) {
 		return parseSM9PrivateKey(privKey)
 	}
-	if !privKey.Algo.Algorithm.Equal(oidPublicKeyECDSA) {
+	if !privKey.Algo.Algorithm.Equal(oidPublicKeyECDSA) && !privKey.Algo.Algorithm.Equal(oidNamedCurveP256SM2) {
 		return x509.ParsePKCS8PrivateKey(der)
 	}
 	bytes := privKey.Algo.Parameters.FullBytes
