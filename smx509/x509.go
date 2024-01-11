@@ -462,6 +462,9 @@ var (
 	//	id-ecPublicKey OBJECT IDENTIFIER ::= {
 	//		iso(1) member-body(2) us(840) ansi-X9-62(10045) keyType(2) 1 }
 	oidPublicKeyECDSA = asn1.ObjectIdentifier{1, 2, 840, 10045, 2, 1}
+	// GB/T 33560-2017 信息安全技术 密码应用标识规范
+	// 附录A（规范性附录）商用密码领域中的相关OID定义
+	oidPublicKeySM2 = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 301}
 	// RFC 8410, Section 3
 	//
 	//	id-X25519    OBJECT IDENTIFIER ::= { 1 3 101 110 }

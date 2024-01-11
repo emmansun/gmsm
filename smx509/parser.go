@@ -21,6 +21,7 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
+	"github.com/emmansun/gmsm/sm2"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
@@ -288,6 +289,27 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
 			Y:     y,
 		}
 		return pub, nil
+	case oid.Equal(oidPublicKeySM2):
+		paramsDer := cryptobyte.String(params.FullBytes)
+		namedCurveOID := new(asn1.ObjectIdentifier)
+		if !paramsDer.ReadASN1ObjectIdentifier(namedCurveOID) {
+			return nil, errors.New("x509: invalid SM2 parameters")
+		}
+		namedCurve := namedCurveFromOID(*namedCurveOID)
+		if namedCurve != sm2.P256() {
+			return nil, errors.New("x509: unsupported SM2 curve")
+		}
+		x, y := elliptic.Unmarshal(namedCurve, der)
+		if x == nil {
+			return nil, errors.New("x509: failed to unmarshal SM2 curve point")
+		}
+		pub := &ecdsa.PublicKey{
+			Curve: namedCurve,
+			X:     x,
+			Y:     y,
+		}
+		return pub, nil
+
 	case oid.Equal(oidPublicKeyEd25519):
 		// RFC 8410, Section 3
 		// > For all of the OIDs, the parameters MUST be absent.

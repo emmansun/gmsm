@@ -46,27 +46,42 @@ func ParsePKCS8PrivateKey(der []byte) (key any, err error) {
 		}
 		return nil, err
 	}
-	if privKey.Algo.Algorithm.Equal(oidSM9) || privKey.Algo.Algorithm.Equal(oidSM9Sign) || privKey.Algo.Algorithm.Equal(oidSM9Enc) {
+	switch {
+	case privKey.Algo.Algorithm.Equal(oidPublicKeySM2):
+		bytes := privKey.Algo.Parameters.FullBytes
+		namedCurveOID := new(asn1.ObjectIdentifier)
+		if _, err := asn1.Unmarshal(bytes, namedCurveOID); err != nil {
+			namedCurveOID = nil
+		}
+		ecKey, err := parseECPrivateKey(namedCurveOID, privKey.PrivateKey)
+		if err != nil {
+			return nil, errors.New("x509: failed to parse SM2 private key embedded in PKCS#8: " + err.Error())
+		}
+		if ecKey.Curve != sm2.P256() {
+			return nil, errors.New("x509: unsupported SM2 curve")
+		}
+		return new(sm2.PrivateKey).FromECPrivateKey(ecKey)
+	case privKey.Algo.Algorithm.Equal(oidSM9), privKey.Algo.Algorithm.Equal(oidSM9Sign), privKey.Algo.Algorithm.Equal(oidSM9Enc):
 		return parseSM9PrivateKey(privKey)
-	}
-	if !privKey.Algo.Algorithm.Equal(oidPublicKeyECDSA) && !privKey.Algo.Algorithm.Equal(oidNamedCurveP256SM2) {
+	case privKey.Algo.Algorithm.Equal(oidPublicKeyECDSA):
+		bytes := privKey.Algo.Parameters.FullBytes
+		namedCurveOID := new(asn1.ObjectIdentifier)
+		if _, err := asn1.Unmarshal(bytes, namedCurveOID); err != nil {
+			namedCurveOID = nil
+		}
+		ecKey, err := parseECPrivateKey(namedCurveOID, privKey.PrivateKey)
+		if err != nil {
+			return nil, errors.New("x509: failed to parse EC private key embedded in PKCS#8: " + err.Error())
+		}
+		// convert *ecdsa.PrivateKey to *sm2.PrivateKey
+		if ecKey.Curve == sm2.P256() {
+			return new(sm2.PrivateKey).FromECPrivateKey(ecKey)
+		}
+		return ecKey, err
+	default:
+		// fallback to golang sdk
 		return x509.ParsePKCS8PrivateKey(der)
 	}
-	bytes := privKey.Algo.Parameters.FullBytes
-	namedCurveOID := new(asn1.ObjectIdentifier)
-	if _, err := asn1.Unmarshal(bytes, namedCurveOID); err != nil {
-		namedCurveOID = nil
-	}
-	ecKey, err := parseECPrivateKey(namedCurveOID, privKey.PrivateKey)
-	if err != nil {
-		return nil, errors.New("x509: failed to parse EC private key embedded in PKCS#8: " + err.Error())
-	}
-	if namedCurveOID.Equal(oidNamedCurveP256SM2) {
-		key, err = new(sm2.PrivateKey).FromECPrivateKey(ecKey)
-	} else {
-		key = ecKey
-	}
-	return key, err
 }
 
 func parseSM9PrivateKey(privKey pkcs8) (key any, err error) {
