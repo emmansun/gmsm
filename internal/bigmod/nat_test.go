@@ -303,7 +303,7 @@ func TestExpShort(t *testing.T) {
 	m := modulusFromBytes([]byte{13})
 	x := &Nat{[]uint{3}}
 	out := &Nat{[]uint{0}}
-	out.ExpShort(x, 12, m)
+	out.ExpShortVarTime(x, 12, m)
 	expected := &Nat{[]uint{1}}
 	if out.Equal(expected) != 1 {
 		t.Errorf("%+v != %+v", out, expected)
@@ -381,6 +381,13 @@ func makeBenchmarkExponent() []byte {
 		e[i] = 0xFF
 	}
 	return e
+}
+
+func BenchmarkRR256(b *testing.B) {
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		makeBenchmarkModulus(4)
+	}
 }
 
 func BenchmarkModAdd(b *testing.B) {
