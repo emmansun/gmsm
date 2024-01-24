@@ -2,11 +2,14 @@
 
 package zuc
 
-import "golang.org/x/sys/cpu"
+import (
+	"github.com/emmansun/gmsm/internal/cpuid"
+	"golang.org/x/sys/cpu"
+)
 
-var supportsAES = cpu.X86.HasAES || cpu.ARM64.HasAES
+var supportsAES = cpuid.HasAES
+var supportsGFMUL = cpuid.HasGFMUL
 var useAVX = cpu.X86.HasAVX
-var supportsGFMUL = cpu.X86.HasPCLMULQDQ || cpu.ARM64.HasPMULL
 
 //go:noescape
 func eia3Round16B(t *uint32, keyStream *uint32, p *byte, tagSize int)
