@@ -38,7 +38,7 @@ jobs:
         GOARCH: ${{ matrix.arch }}      
 
     - name: Test Force SM4 Single Block with AES-NI
-      run: go test -v -short sm4/...      
+      run: go test -v -short ./sm4/...      
       env:
         DISABLE_SM4NI: 1
         FORCE_SM4BLOCK_AESNI: 1

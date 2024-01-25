@@ -41,7 +41,7 @@ jobs:
         files: ./coverage1.txt,./coverage2.txt
 
     - name: Test Force SM4 Single Block with AES-NI
-      run: go test -short sm4/...      
+      run: go test -short ./sm4/...      
       env:
         FORCE_SM4BLOCK_AESNI: 1
 
