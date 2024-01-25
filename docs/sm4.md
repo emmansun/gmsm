@@ -238,12 +238,15 @@ type AEAD interface {
 
 ## 性能
 SM4分组密码算法的软件高效实现，不算CPU指令支持的话，已知有如下几种方法：
-* S盒和L转换预计算
+* S盒和L转换预计算，本软件库纯Go语言实现采用该方法
 * SIMD并行处理：并行查表
 * SIMD并行处理：借助CPU的AES指令，本软件库采用该方法
 * SIMD并行处理：位切片(bitslicing)，[参考实现](https://github.com/emmansun/sm4bs)
 
 当然，这些与有CPU指令支持的AES算法相比，性能差距依然偏大，要是工作模式不支持并行，差距就更巨大了。
+
+### 混合方式
+从**v0.25.0**开始，AMD64/ARM64 支持AES-NI的CPU架构下，**默认会使用混合方式**，即```cipher.Block```的方法会用纯Go语言实现，而对于可以并行的加解密模式，则还是会尽量采用AES-NI和SIMD并行处理。您可以通过环境变量```FORCE_SM4BLOCK_AESNI=1```来强制都使用AES-NI实现（和v0.25.0之前版本的行为一样）。请参考[SM4: 单block的性能问题](https://github.com/emmansun/gmsm/discussions/172)。
 
 ## 与KMS集成
 可能您会说，如果我在KMS中创建了一个SM4对称密钥，就不需要本地加解密了，这话很对，不过有种场景会用到：  

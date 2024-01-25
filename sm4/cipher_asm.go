@@ -16,6 +16,7 @@ var supportsAES = cpuid.HasAES
 var supportsGFMUL = cpuid.HasGFMUL
 var useAVX2 = cpu.X86.HasAVX2
 var useAVX = cpu.X86.HasAVX
+var useAESNI4SingleBlock = os.Getenv("FORCE_SM4BLOCK_AESNI") == "1"
 
 const (
 	INST_AES int = iota
@@ -70,7 +71,28 @@ func (c *sm4CipherAsm) Encrypt(dst, src []byte) {
 	if alias.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
-	encryptBlockGo(c.enc, dst, src)
+	if useAESNI4SingleBlock {
+		encryptBlockAsm(&c.enc[0], &dst[0], &src[0], INST_AES)
+	} else {
+		encryptBlockGo(c.enc, dst, src)
+	}
+}
+
+func (c *sm4CipherAsm) Decrypt(dst, src []byte) {
+	if len(src) < BlockSize {
+		panic("sm4: input not full block")
+	}
+	if len(dst) < BlockSize {
+		panic("sm4: output not full block")
+	}
+	if alias.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
+		panic("sm4: invalid buffer overlap")
+	}
+	if useAESNI4SingleBlock {
+		encryptBlockAsm(&c.dec[0], &dst[0], &src[0], INST_AES)
+	} else {
+		decryptBlockGo(c.dec, dst, src)
+	}
 }
 
 func (c *sm4CipherAsm) EncryptBlocks(dst, src []byte) {
@@ -84,19 +106,6 @@ func (c *sm4CipherAsm) EncryptBlocks(dst, src []byte) {
 		panic("sm4: invalid buffer overlap")
 	}
 	encryptBlocksAsm(&c.enc[0], dst, src, INST_AES)
-}
-
-func (c *sm4CipherAsm) Decrypt(dst, src []byte) {
-	if len(src) < BlockSize {
-		panic("sm4: input not full block")
-	}
-	if len(dst) < BlockSize {
-		panic("sm4: output not full block")
-	}
-	if alias.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
-		panic("sm4: invalid buffer overlap")
-	}
-	decryptBlockGo(c.dec, dst, src)
 }
 
 func (c *sm4CipherAsm) DecryptBlocks(dst, src []byte) {

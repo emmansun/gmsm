@@ -43,9 +43,6 @@ func (b *sm4CipherAsm) NewCBCDecrypter(iv []byte) cipher.BlockMode {
 func (x *cbc) BlockSize() int { return BlockSize }
 
 //go:noescape
-func encryptBlocksChain(xk *uint32, dst, src []byte, iv *byte)
-
-//go:noescape
 func decryptBlocksChain(xk *uint32, dst, src []byte, iv *byte)
 
 func (x *cbc) CryptBlocks(dst, src []byte) {
