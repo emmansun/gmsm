@@ -6,6 +6,7 @@ import (
 	"crypto/cipher"
 
 	"github.com/emmansun/gmsm/internal/alias"
+	"github.com/emmansun/gmsm/internal/subtle"
 )
 
 // Assert that sm4CipherAsm implements the cbcEncAble and cbcDecAble interfaces.
@@ -61,7 +62,21 @@ func (x *cbc) CryptBlocks(dst, src []byte) {
 		return
 	}
 	if x.enc == cbcEncrypt {
-		encryptBlocksChain(&x.b.enc[0], dst, src, &x.iv[0])
+		iv := x.iv
+
+		for len(src) > 0 {
+			// Write the xor to dst, then encrypt in place.
+			subtle.XORBytes(dst[:BlockSize], src[:BlockSize], iv)
+			x.b.Encrypt(dst[:BlockSize], dst[:BlockSize])
+
+			// Move to the next block with this block as the next iv.
+			iv = dst[:BlockSize]
+			src = src[BlockSize:]
+			dst = dst[BlockSize:]
+		}
+
+		// Save the iv for the next CryptBlocks call.
+		copy(x.iv, iv)
 		return
 	}
 

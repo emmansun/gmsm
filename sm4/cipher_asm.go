@@ -70,7 +70,7 @@ func (c *sm4CipherAsm) Encrypt(dst, src []byte) {
 	if alias.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
-	encryptBlockAsm(&c.enc[0], &dst[0], &src[0], INST_AES)
+	encryptBlockGo(c.enc, dst, src)
 }
 
 func (c *sm4CipherAsm) EncryptBlocks(dst, src []byte) {
@@ -96,7 +96,7 @@ func (c *sm4CipherAsm) Decrypt(dst, src []byte) {
 	if alias.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
-	encryptBlockAsm(&c.dec[0], &dst[0], &src[0], INST_AES)
+	decryptBlockGo(c.dec, dst, src)
 }
 
 func (c *sm4CipherAsm) DecryptBlocks(dst, src []byte) {
