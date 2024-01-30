@@ -744,20 +744,20 @@ func verifySM2EC(c *sm2Curve, pub *ecdsa.PublicKey, hash, sig []byte) bool {
 	e := bigmod.NewNat()
 	hashToNat(c, e, hash)
 
-	// t = [r + s]
-	t := bigmod.NewNat().Set(r)
-	t.Add(s, c.N)
-	if t.IsZero() == 1 {
-		return false
-	}
-
 	// p₁ = [s]G
 	p1, err := c.newPoint().ScalarBaseMult(s.Bytes(c.N))
 	if err != nil {
 		return false
 	}
-	// p₂ = [t]Q
-	p2, err := Q.ScalarMult(Q, t.Bytes(c.N))
+
+	// s = [r + s]
+	s.Add(r, c.N)
+	if s.IsZero() == 1 {
+		return false
+	}
+
+	// p₂ = [r+s]Q
+	p2, err := Q.ScalarMult(Q, s.Bytes(c.N))
 	if err != nil {
 		return false
 	}
@@ -768,13 +768,13 @@ func verifySM2EC(c *sm2Curve, pub *ecdsa.PublicKey, hash, sig []byte) bool {
 		return false
 	}
 
-	v, err := bigmod.NewNat().SetOverflowingBytes(Rx, c.N)
+	_, err = s.SetOverflowingBytes(Rx, c.N)
 	if err != nil {
 		return false
 	}
-	v.Add(e, c.N)
+	s.Add(e, c.N)
 
-	return v.Equal(r) == 1
+	return s.Equal(r) == 1
 }
 
 // VerifyASN1WithSM2 verifies the signature in ASN.1 encoding format sig of raw msg
