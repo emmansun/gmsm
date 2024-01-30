@@ -49,20 +49,14 @@
 	MOVW.P R2, -4(R11)
 
 #define load_global_data_1() \
-	MOVW $0x0F0F0F0F, R0                    \
-	VMOV R0, NIBBLE_MASK.S4                 \
-	MOVD $m1_low<>(SB), R0                  \
-	VLD1 (R0), [M1L.B16]                    \
-	MOVD $m1_high<>(SB), R0                 \
-	VLD1 (R0), [M1H.B16]                    \
-	MOVD $m2_low<>(SB), R0                  \
-	VLD1 (R0), [M2L.B16]                    \
-	MOVD $m2_high<>(SB), R0                 \
-	VLD1 (R0), [M2H.B16]                    \
-	MOVD $fk_mask<>(SB), R0                 \
-	VLD1 (R0), [FK_MASK.B16]                \
-	MOVD $inverse_shift_rows<>(SB), R0      \
-	VLD1 (R0), [INVERSE_SHIFT_ROWS.B16]     \
+	MOVW $0x0F0F0F0F, R0                              \
+	VMOV R0, NIBBLE_MASK.S4                           \
+	MOVD $m1_2<>(SB), R0                              \
+	VLD1 (R0), [M1L.B16, M1H.B16, M2L.B16, M2H.B16]   \
+	MOVD $fk_mask<>(SB), R0                           \
+	VLD1 (R0), [FK_MASK.B16]                          \
+	MOVD $inverse_shift_rows<>(SB), R0                \
+	VLD1 (R0), [INVERSE_SHIFT_ROWS.B16]
 
 
 #define load_global_data_2() \
