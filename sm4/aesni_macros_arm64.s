@@ -3,23 +3,16 @@ DATA inverse_shift_rows<>+0x00(SB)/8, $0x0B0E0104070A0D00
 DATA inverse_shift_rows<>+0x08(SB)/8, $0x0306090C0F020508 
 GLOBL inverse_shift_rows<>(SB), (16+8), $16
 
-// Affine transform 1 (low and high hibbles)
-DATA m1_low<>+0x00(SB)/8, $0x0A7FC3B6D5A01C69
-DATA m1_low<>+0x08(SB)/8, $0x3045F98CEF9A2653
-GLOBL m1_low<>(SB), (16+8), $16
-
-DATA m1_high<>+0x00(SB)/8, $0xC35BF46CAF379800
-DATA m1_high<>+0x08(SB)/8, $0x68F05FC7049C33AB  
-GLOBL m1_high<>(SB), (16+8), $16
-
-// Affine transform 2 (low and high hibbles)
-DATA m2_low<>+0x00(SB)/8, $0x9A950A05FEF16E61
-DATA m2_low<>+0x08(SB)/8, $0x0E019E916A65FAF5
-GLOBL m2_low<>(SB), (16+8), $16
-
-DATA m2_high<>+0x00(SB)/8, $0x892D69CD44E0A400
-DATA m2_high<>+0x08(SB)/8, $0x2C88CC68E14501A5
-GLOBL m2_high<>(SB), (16+8), $16
+// Affine transform 1 & 2 (low and high nibbles)
+DATA m1_2<>+0x00(SB)/8, $0x0A7FC3B6D5A01C69
+DATA m1_2<>+0x08(SB)/8, $0x3045F98CEF9A2653
+DATA m1_2<>+0x10(SB)/8, $0xC35BF46CAF379800
+DATA m1_2<>+0x18(SB)/8, $0x68F05FC7049C33AB
+DATA m1_2<>+0x20(SB)/8, $0x9A950A05FEF16E61
+DATA m1_2<>+0x28(SB)/8, $0x0E019E916A65FAF5
+DATA m1_2<>+0x30(SB)/8, $0x892D69CD44E0A400
+DATA m1_2<>+0x38(SB)/8, $0x2C88CC68E14501A5
+GLOBL m1_2<>(SB), (16+8), $64
 
 // left rotations of 32-bit words by 8-bit increments
 DATA r08_mask<>+0x00(SB)/8, $0x0605040702010003
@@ -31,20 +24,14 @@ DATA fk_mask<>+0x08(SB)/8, $0xb27022dc677d9197
 GLOBL fk_mask<>(SB), (16+8), $16
 
 #define LOAD_SM4_AESNI_CONSTS() \
-	MOVW $0x0F0F0F0F, R20                      \
-	VMOV R20, NIBBLE_MASK.S4                   \
-	MOVD $m1_low<>(SB), R20                    \
-	VLD1 (R20), [M1L.B16]                      \
-	MOVD $m1_high<>(SB), R20                   \ 
-	VLD1 (R20), [M1H.B16]                      \ 
-	MOVD $m2_low<>(SB), R20                    \
-	VLD1 (R20), [M2L.B16]                      \
-	MOVD $m2_high<>(SB), R20                   \ 
-	VLD1 (R20), [M2H.B16]                      \ 
-	MOVD $inverse_shift_rows<>(SB), R20        \ 
-	VLD1 (R20), [INVERSE_SHIFT_ROWS.B16]       \ 
-	MOVD $r08_mask<>(SB), R20                  \ 
-	VLD1 (R20), [R08_MASK.B16]                 \ 
+	MOVW $0x0F0F0F0F, R20                             \
+	VDUP R20, NIBBLE_MASK.S4                          \
+	MOVD $m1_2<>(SB), R20                             \
+	VLD1 (R20), [M1L.B16, M1H.B16, M2L.B16, M2H.B16]  \
+	MOVD $inverse_shift_rows<>(SB), R20               \ 
+	VLD1 (R20), [INVERSE_SHIFT_ROWS.B16]              \ 
+	MOVD $r08_mask<>(SB), R20                         \ 
+	VLD1 (R20), [R08_MASK.B16]                        \ 
 
 // input: from high to low
 // t0 = t0.S3, t0.S2, t0.S1, t0.S0
@@ -86,6 +73,21 @@ GLOBL fk_mask<>(SB), (16+8), $16
 	VZIP1 RTMP1.D2, RTMP3.D2, t2.D2            \
 	VZIP2 RTMP1.D2, RTMP3.D2, t3.D2
 
+// Affine Transform
+// parameters:
+// -  L: table low nibbles
+// -  H: table high nibbles
+// -  x: 128 bits register as sbox input/output data
+// -  y: 128 bits temp register
+// -  z: 128 bits temp register
+#define AFFINE_TRANSFORM(L, H, x, y, z)            \
+	VAND x.B16, NIBBLE_MASK.B16, z.B16;            \
+	VTBL z.B16, [L.B16], y.B16;                    \
+	VUSHR $4, x.D2, x.D2;                          \
+	VAND x.B16, NIBBLE_MASK.B16, z.B16;            \
+	VTBL z.B16, [H.B16], z.B16;                    \
+	VEOR y.B16, z.B16, x.B16
+
 // SM4 sbox function
 // parameters:
 // -  x: 128 bits register as sbox input/output data
@@ -93,20 +95,10 @@ GLOBL fk_mask<>(SB), (16+8), $16
 // -  z: 128 bits temp register
 #define SM4_SBOX(x, y, z) \
 	;                                              \
-	VAND x.B16, NIBBLE_MASK.B16, z.B16;            \
-	VTBL z.B16, [M1L.B16], y.B16;                  \
-	VUSHR $4, x.D2, x.D2;                          \
-	VAND x.B16, NIBBLE_MASK.B16, z.B16;            \
-	VTBL z.B16, [M1H.B16], z.B16;                  \
-	VEOR y.B16, z.B16, x.B16;                      \
+	AFFINE_TRANSFORM(M1L, M1H, x, y, z);           \
 	VTBL INVERSE_SHIFT_ROWS.B16, [x.B16], x.B16;   \
 	AESE ZERO.B16, x.B16;                          \
-	VAND x.B16, NIBBLE_MASK.B16, z.B16;            \
-	VTBL z.B16, [M2L.B16], y.B16;                  \
-	VUSHR $4, x.D2, x.D2;                          \
-	VAND x.B16, NIBBLE_MASK.B16, z.B16;            \
-	VTBL z.B16, [M2H.B16], z.B16;                  \
-	VEOR y.B16, z.B16, x.B16
+	AFFINE_TRANSFORM(M2L, M2H, x, y, z)
 
 // SM4 TAO L1 function
 // parameters:
