@@ -2,57 +2,40 @@
 
 #include "textflag.h"
 
-DATA Top3_bits_of_the_byte<>+0x00(SB)/8, $0xe0e0e0e0e0e0e0e0
-DATA Top3_bits_of_the_byte<>+0x08(SB)/8, $0xe0e0e0e0e0e0e0e0
-GLOBL Top3_bits_of_the_byte<>(SB), RODATA, $16
+DATA Top3_Bottom5_bits_of_the_byte<>+0x00(SB)/8, $0xe0e0e0e0e0e0e0e0
+DATA Top3_Bottom5_bits_of_the_byte<>+0x08(SB)/8, $0xe0e0e0e0e0e0e0e0
+DATA Top3_Bottom5_bits_of_the_byte<>+0x10(SB)/8, $0x1f1f1f1f1f1f1f1f
+DATA Top3_Bottom5_bits_of_the_byte<>+0x18(SB)/8, $0x1f1f1f1f1f1f1f1f
+GLOBL Top3_Bottom5_bits_of_the_byte<>(SB), RODATA, $32
 
-DATA Bottom5_bits_of_the_byte<>+0x00(SB)/8, $0x1f1f1f1f1f1f1f1f
-DATA Bottom5_bits_of_the_byte<>+0x08(SB)/8, $0x1f1f1f1f1f1f1f1f
-GLOBL Bottom5_bits_of_the_byte<>(SB), RODATA, $16
+DATA P123_data<>+0x00(SB)/8, $0x0A020F0F0E000F09
+DATA P123_data<>+0x08(SB)/8, $0x090305070C000400
+DATA P123_data<>+0x10(SB)/8, $0x040C000705060D08
+DATA P123_data<>+0x18(SB)/8, $0x0209030F0A0E010B
+DATA P123_data<>+0x20(SB)/8, $0x0F0A0D00060A0602
+DATA P123_data<>+0x28(SB)/8, $0x0D0C0900050D0303
+GLOBL P123_data<>(SB), RODATA, $48
 
-DATA nibble_mask<>+0x00(SB)/8, $0x0F0F0F0F0F0F0F0F
-DATA nibble_mask<>+0x08(SB)/8, $0x0F0F0F0F0F0F0F0F
-GLOBL nibble_mask<>(SB), RODATA, $16
-
-DATA P1_data<>+0x00(SB)/8, $0x0A020F0F0E000F09
-DATA P1_data<>+0x08(SB)/8, $0x090305070C000400
-GLOBL P1_data<>(SB), RODATA, $16
-
-DATA P2_data<>+0x00(SB)/8, $0x040C000705060D08
-DATA P2_data<>+0x08(SB)/8, $0x0209030F0A0E010B
-GLOBL P2_data<>(SB), RODATA, $16
-
-DATA P3_data<>+0x00(SB)/8, $0x0F0A0D00060A0602
-DATA P3_data<>+0x08(SB)/8, $0x0D0C0900050D0303
-GLOBL P3_data<>(SB), RODATA, $16
-
-DATA Aes_to_Zuc_mul_low_nibble<>+0x00(SB)/8, $0x1D1C9F9E83820100
-DATA Aes_to_Zuc_mul_low_nibble<>+0x08(SB)/8, $0x3938BBBAA7A62524
-GLOBL Aes_to_Zuc_mul_low_nibble<>(SB), RODATA, $16
-
-DATA Aes_to_Zuc_mul_high_nibble<>+0x00(SB)/8, $0xA174A97CDD08D500
-DATA Aes_to_Zuc_mul_high_nibble<>+0x08(SB)/8, $0x3DE835E04194499C
-GLOBL Aes_to_Zuc_mul_high_nibble<>(SB), RODATA, $16
-
-DATA Comb_matrix_mul_low_nibble<>+0x00(SB)/8, $0xA8BC0216D9CD7367
-DATA Comb_matrix_mul_low_nibble<>+0x08(SB)/8, $0x1F0BB5A16E7AC4D0
-GLOBL Comb_matrix_mul_low_nibble<>(SB), RODATA, $16
-
-DATA Comb_matrix_mul_high_nibble<>+0x00(SB)/8, $0x638CFA1523CCBA55
-DATA Comb_matrix_mul_high_nibble<>+0x08(SB)/8, $0x3FD0A6497F90E609
-GLOBL Comb_matrix_mul_high_nibble<>(SB), RODATA, $16
+// Affine transform 1 & 2 (low and high nibbles)
+DATA m1_2<>+0x00(SB)/8, $0x1D1C9F9E83820100
+DATA m1_2<>+0x08(SB)/8, $0x3938BBBAA7A62524
+DATA m1_2<>+0x10(SB)/8, $0xA174A97CDD08D500
+DATA m1_2<>+0x18(SB)/8, $0x3DE835E04194499C
+DATA m1_2<>+0x20(SB)/8, $0xA8BC0216D9CD7367
+DATA m1_2<>+0x28(SB)/8, $0x1F0BB5A16E7AC4D0
+DATA m1_2<>+0x30(SB)/8, $0x638CFA1523CCBA55
+DATA m1_2<>+0x38(SB)/8, $0x3FD0A6497F90E609
+GLOBL m1_2<>(SB), RODATA, $64
 
 DATA Shuf_mask<>+0x00(SB)/8, $0x0B0E0104070A0D00
 DATA Shuf_mask<>+0x08(SB)/8, $0x0306090C0F020508
 GLOBL Shuf_mask<>(SB), RODATA, $16
 
-DATA mask_S0<>+0x00(SB)/8, $0xff00ff00ff00ff00
-DATA mask_S0<>+0x08(SB)/8, $0xff00ff00ff00ff00
-GLOBL mask_S0<>(SB), RODATA, $16
-
-DATA mask_S1<>+0x00(SB)/8, $0x00ff00ff00ff00ff
-DATA mask_S1<>+0x08(SB)/8, $0x00ff00ff00ff00ff
-GLOBL mask_S1<>(SB), RODATA, $16
+DATA mask_S01<>+0x00(SB)/8, $0xff00ff00ff00ff00
+DATA mask_S01<>+0x08(SB)/8, $0xff00ff00ff00ff00
+DATA mask_S01<>+0x10(SB)/8, $0x00ff00ff00ff00ff
+DATA mask_S01<>+0x18(SB)/8, $0x00ff00ff00ff00ff
+GLOBL mask_S01<>(SB), RODATA, $32
 
 #define SI R0
 #define DI R1
@@ -85,30 +68,16 @@ GLOBL mask_S1<>(SB), RODATA, $16
 #define OFFSET_BRC_X3   (21*4)
 
 #define LOAD_GLOBAL_DATA() \
-	MOVD $nibble_mask<>(SB), R0                       \
-	VLD1 (R0), [NIBBLE_MASK.B16]                      \
-	MOVD $Top3_bits_of_the_byte<>(SB), R0             \
-	VLD1 (R0), [TOP3_BITS.B16]                        \
-	MOVD $Bottom5_bits_of_the_byte<>(SB), R0          \
-	VLD1 (R0), [BOTTOM5_BITS.B16]                     \
-	MOVD $Aes_to_Zuc_mul_low_nibble<>(SB), R0         \
-	VLD1 (R0), [M1L.B16]                              \
-	MOVD $Aes_to_Zuc_mul_high_nibble<>(SB), R0        \
-	VLD1 (R0), [M1H.B16]                              \
-	MOVD $Comb_matrix_mul_low_nibble<>(SB), R0        \
-	VLD1 (R0), [M2L.B16]                              \
-	MOVD $Comb_matrix_mul_high_nibble<>(SB), R0       \
-	VLD1 (R0), [M2H.B16]                              \
-	MOVD $P1_data<>(SB), R0                           \
-	VLD1 (R0), [P1.B16]                               \
-	MOVD $P2_data<>(SB), R0                           \
-	VLD1 (R0), [P2.B16]                               \
-	MOVD $P3_data<>(SB), R0                           \
-	VLD1 (R0), [P3.B16]                               \
-	MOVD $mask_S0<>(SB), R0                           \
-	VLD1 (R0), [S0_MASK.B16]                          \
-	MOVD $mask_S1<>(SB), R0                           \
-	VLD1 (R0), [S1_MASK.B16]                          \
+	MOVW $0x0F0F0F0F, R0                              \
+	VDUP R0, NIBBLE_MASK.S4                           \
+	MOVD $Top3_Bottom5_bits_of_the_byte<>(SB), R0     \
+	VLD1 (R0), [TOP3_BITS.B16, BOTTOM5_BITS.B16]      \
+	MOVD $m1_2<>(SB), R0                              \
+	VLD1 (R0), [M1L.B16, M1H.B16, M2L.B16, M2H.B16]   \
+	MOVD $P123_data<>(SB), R0                         \
+	VLD1 (R0), [P1.B16, P2.B16, P3.B16]               \
+	MOVD $mask_S01<>(SB), R0                          \
+	VLD1 (R0), [S0_MASK.B16, S1_MASK.B16]             \
 	MOVD $Shuf_mask<>(SB), R0                         \
 	VLD1 (R0), [INVERSE_SHIFT_ROWS.B16]               \
 

@@ -2,25 +2,17 @@
 
 #include "textflag.h"
 
-DATA bit_reverse_table_l<>+0x00(SB)/8, $0x0e060a020c040800
-DATA bit_reverse_table_l<>+0x08(SB)/8, $0x0f070b030d050901
-GLOBL bit_reverse_table_l<>(SB), RODATA, $16
+DATA bit_reverse_table<>+0x00(SB)/8, $0x0e060a020c040800
+DATA bit_reverse_table<>+0x08(SB)/8, $0x0f070b030d050901
+DATA bit_reverse_table<>+0x10(SB)/8, $0xe060a020c0408000
+DATA bit_reverse_table<>+0x18(SB)/8, $0xf070b030d0509010
+GLOBL bit_reverse_table<>(SB), RODATA, $32
 
-DATA bit_reverse_table_h<>+0x00(SB)/8, $0xe060a020c0408000
-DATA bit_reverse_table_h<>+0x08(SB)/8, $0xf070b030d0509010
-GLOBL bit_reverse_table_h<>(SB), RODATA, $16
-
-DATA bit_reverse_and_table<>+0x00(SB)/8, $0x0f0f0f0f0f0f0f0f
-DATA bit_reverse_and_table<>+0x08(SB)/8, $0x0f0f0f0f0f0f0f0f
-GLOBL bit_reverse_and_table<>(SB), RODATA, $16
-
-DATA shuf_mask_dw0_0_dw1_0<>+0x00(SB)/8, $0xffffffff03020100
-DATA shuf_mask_dw0_0_dw1_0<>+0x08(SB)/8, $0xffffffff07060504
-GLOBL shuf_mask_dw0_0_dw1_0<>(SB), RODATA, $16
-
-DATA shuf_mask_dw2_0_dw3_0<>+0x00(SB)/8, $0xffffffff0b0a0908
-DATA shuf_mask_dw2_0_dw3_0<>+0x08(SB)/8, $0xffffffff0f0e0d0c
-GLOBL shuf_mask_dw2_0_dw3_0<>(SB), RODATA, $16
+DATA shuf_mask_dw<>+0x00(SB)/8, $0xffffffff03020100
+DATA shuf_mask_dw<>+0x08(SB)/8, $0xffffffff07060504
+DATA shuf_mask_dw<>+0x10(SB)/8, $0xffffffff0b0a0908
+DATA shuf_mask_dw<>+0x18(SB)/8, $0xffffffff0f0e0d0c
+GLOBL shuf_mask_dw<>(SB), RODATA, $32
 
 #define AX R2
 #define BX R3
@@ -46,16 +38,12 @@ GLOBL shuf_mask_dw2_0_dw3_0<>(SB), RODATA, $16
 #define SHUF_MASK_DW2_DW3 V24
 
 #define LOAD_GLOBAL_DATA() \
-	MOVD $bit_reverse_table_l<>(SB), R0                       \ 
-	VLD1 (R0), [BIT_REV_TAB_L.B16]                            \
-	MOVD $bit_reverse_table_h<>(SB), R0                       \ 
-	VLD1 (R0), [BIT_REV_TAB_H.B16]                            \
-	MOVD $bit_reverse_and_table<>(SB), R0                     \ 
-	VLD1 (R0), [BIT_REV_AND_TAB.B16]                          \
-	MOVD $shuf_mask_dw0_0_dw1_0<>(SB), R0                     \ 
-	VLD1 (R0), [SHUF_MASK_DW0_DW1.B16]                        \
-	MOVD $shuf_mask_dw2_0_dw3_0<>(SB), R0                     \ 
-	VLD1 (R0), [SHUF_MASK_DW2_DW3.B16]                        \
+	MOVD $bit_reverse_table<>(SB), R0                         \
+	VLD1 (R0), [BIT_REV_TAB_L.B16, BIT_REV_TAB_H.B16]         \
+	MOVW $0x0F0F0F0F, R0                                      \
+	VDUP R0, BIT_REV_AND_TAB.S4                               \
+	MOVD $shuf_mask_dw<>(SB), R0                              \
+	VLD1 (R0), [SHUF_MASK_DW0_DW1.B16, SHUF_MASK_DW2_DW3.B16]
 
 // func eia3Round16B(t *uint32, keyStream *uint32, p *byte, tagSize int)
 TEXT ·eia3Round16B(SB),NOSPLIT,$0
