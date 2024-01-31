@@ -65,5 +65,5 @@ func (c *sm4Cipher) Decrypt(dst, src []byte) {
 	if alias.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
-	decryptBlockGo(c.dec, dst, src)
+	encryptBlockGo(c.dec, dst, src)
 }

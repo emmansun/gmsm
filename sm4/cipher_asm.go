@@ -91,7 +91,7 @@ func (c *sm4CipherAsm) Decrypt(dst, src []byte) {
 	if useAESNI4SingleBlock {
 		encryptBlockAsm(&c.dec[0], &dst[0], &src[0], INST_AES)
 	} else {
-		decryptBlockGo(c.dec, dst, src)
+		encryptBlockGo(c.dec, dst, src)
 	}
 }
 
