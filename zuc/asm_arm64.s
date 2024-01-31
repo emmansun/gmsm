@@ -112,21 +112,26 @@ GLOBL mask_S01<>(SB), RODATA, $32
 	VEOR XTMP1.B16, IN_OUT.B16, IN_OUT.B16       \
 	Rotl_5(IN_OUT, XTMP1)    
 
-#define S1_comput(x, XTMP1, XTMP2)          \    
-	VAND x.B16, NIBBLE_MASK.B16, XTMP1.B16;        \
-	VTBL XTMP1.B16, [M1L.B16], XTMP2.B16;          \
+// Affine Transform
+// parameters:
+// -  L: table low nibbles
+// -  H: table high nibbles
+// -  x: 128 bits register as sbox input/output data
+// -  y: 128 bits temp register
+// -  z: 128 bits temp register
+#define AFFINE_TRANSFORM(L, H, x, y, z)            \
+	VAND x.B16, NIBBLE_MASK.B16, z.B16;            \
+	VTBL z.B16, [L.B16], y.B16;                    \
 	VUSHR $4, x.D2, x.D2;                          \
-	VAND x.B16, NIBBLE_MASK.B16, XTMP1.B16;        \
-	VTBL XTMP1.B16, [M1H.B16], XTMP1.B16;          \
-	VEOR XTMP2.B16, XTMP1.B16, x.B16;              \
+	VAND x.B16, NIBBLE_MASK.B16, z.B16;            \
+	VTBL z.B16, [H.B16], z.B16;                    \
+	VEOR y.B16, z.B16, x.B16
+
+#define S1_comput(x, XTMP1, XTMP2)          \    
+	AFFINE_TRANSFORM(M1L, M1H, x, XTMP1, XTMP2);   \
 	VTBL INVERSE_SHIFT_ROWS.B16, [x.B16], x.B16;   \
 	AESE ZERO.B16, x.B16;                          \
-	VAND x.B16, NIBBLE_MASK.B16, XTMP1.B16;        \
-	VTBL XTMP1.B16, [M2L.B16], XTMP2.B16;          \
-	VUSHR $4, x.D2, x.D2;                          \
-	VAND x.B16, NIBBLE_MASK.B16, XTMP1.B16;        \
-	VTBL XTMP1.B16, [M2H.B16], XTMP1.B16;          \
-	VEOR XTMP2.B16, XTMP1.B16, x.B16
+	AFFINE_TRANSFORM(M2L, M2H, x, XTMP1, XTMP2)
 
 #define BITS_REORG(idx)                      \
 	MOVW (((15 + idx) % 16)*4)(SI), R12      \
