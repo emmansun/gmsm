@@ -3,7 +3,6 @@ package cipher_test
 import (
 	"bytes"
 	"crypto/cipher"
-	"fmt"
 	"testing"
 
 	"github.com/emmansun/gmsm/sm4"
