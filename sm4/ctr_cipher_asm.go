@@ -46,16 +46,16 @@ func (c *sm4CipherAsm) NewCTR(iv []byte) cipher.Stream {
 }
 
 func (x *ctr) genCtr(start int) {
-	if start > 0 {
+	if start >= BlockSize {
 		copy(x.ctr[start:], x.ctr[start-BlockSize:start])
 	} else {
-		copy(x.ctr[start:], x.ctr[len(x.ctr)-BlockSize:])
+		copy(x.ctr[0:], x.ctr[len(x.ctr)-BlockSize:])
 	}
 	// Increment counter
-	end := start + BlockSize
-	for i := end - 1; i >= start; i-- {
-		x.ctr[i]++
-		if x.ctr[i] != 0 {
+	buffer := x.ctr[start : start+BlockSize]
+	for i := BlockSize - 1; i >= 0; i-- {
+		buffer[i]++
+		if buffer[i] != 0 {
 			break
 		}
 	}
