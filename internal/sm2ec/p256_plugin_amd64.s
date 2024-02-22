@@ -757,67 +757,9 @@ TEXT sm2P256MulInternal(SB),NOSPLIT,$8
 	ADDQ mul0, acc6
 	ADCQ $0, mul1
 	MOVQ mul1, acc7
-	// First reduction step
+
 	PEXTRQ $0, X0, acc0
-	MOVQ acc0, mul0
-	MOVQ acc0, mul1
-	SHLQ $32, mul0
-	SHRQ $32, mul1
-
-	ADDQ acc0, acc1
-	ADCQ $0, acc2
-	ADCQ $0, acc3
-	ADCQ $0, acc0
-	
-	SUBQ mul0, acc1
-	SBBQ mul1, acc2
-	SBBQ mul0, acc3
-	SBBQ mul1, acc0
-	// Second reduction step
-	MOVQ acc1, mul0
-	MOVQ acc1, mul1
-	SHLQ $32, mul0
-	SHRQ $32, mul1
-
-	ADDQ acc1, acc2
-	ADCQ $0, acc3
-	ADCQ $0, acc0
-	ADCQ $0, acc1
-	
-	SUBQ mul0, acc2
-	SBBQ mul1, acc3
-	SBBQ mul0, acc0
-	SBBQ mul1, acc1
-	// Third reduction step
-	MOVQ acc2, mul0
-	MOVQ acc2, mul1
-	SHLQ $32, mul0
-	SHRQ $32, mul1
-
-	ADDQ acc2, acc3
-	ADCQ $0, acc0
-	ADCQ $0, acc1
-	ADCQ $0, acc2
-	
-	SUBQ mul0, acc3
-	SBBQ mul1, acc0
-	SBBQ mul0, acc1
-	SBBQ mul1, acc2
-	// Last reduction step
-	MOVQ acc3, mul0
-	MOVQ acc3, mul1
-	SHLQ $32, mul0
-	SHRQ $32, mul1
-
-	ADDQ acc3, acc0
-	ADCQ $0, acc1
-	ADCQ $0, acc2
-	ADCQ $0, acc3
-	
-	SUBQ mul0, acc0
-	SBBQ mul1, acc1
-	SBBQ mul0, acc2
-	SBBQ mul1, acc3
+	sm2P256MulReductionInternal()
 	MOVQ $0, mul0
 	// Add bits [511:256] of the result
 	ADCQ acc0, acc4
@@ -918,67 +860,8 @@ internalMulBMI2:
 	ADDQ mul0, acc6
 	ADCQ $0, acc7
 
-	// First reduction step
 	PEXTRQ $0, X0, acc0
-	MOVQ acc0, mul0
-	MOVQ acc0, mul1
-	SHLQ $32, mul0
-	SHRQ $32, mul1
-
-	ADDQ acc0, acc1
-	ADCQ $0, acc2
-	ADCQ $0, acc3
-	ADCQ $0, acc0
-	
-	SUBQ mul0, acc1
-	SBBQ mul1, acc2
-	SBBQ mul0, acc3
-	SBBQ mul1, acc0
-	// Second reduction step
-	MOVQ acc1, mul0
-	MOVQ acc1, mul1
-	SHLQ $32, mul0
-	SHRQ $32, mul1
-
-	ADDQ acc1, acc2
-	ADCQ $0, acc3
-	ADCQ $0, acc0
-	ADCQ $0, acc1
-	
-	SUBQ mul0, acc2
-	SBBQ mul1, acc3
-	SBBQ mul0, acc0
-	SBBQ mul1, acc1
-	// Third reduction step
-	MOVQ acc2, mul0
-	MOVQ acc2, mul1
-	SHLQ $32, mul0
-	SHRQ $32, mul1
-
-	ADDQ acc2, acc3
-	ADCQ $0, acc0
-	ADCQ $0, acc1
-	ADCQ $0, acc2
-	
-	SUBQ mul0, acc3
-	SBBQ mul1, acc0
-	SBBQ mul0, acc1
-	SBBQ mul1, acc2
-	// Last reduction step
-	MOVQ acc3, mul0
-	MOVQ acc3, mul1
-	SHLQ $32, mul0
-	SHRQ $32, mul1
-
-	ADDQ acc3, acc0
-	ADCQ $0, acc1
-	ADCQ $0, acc2
-	ADCQ $0, acc3
-	
-	SUBQ mul0, acc0
-	SBBQ mul1, acc1
-	SBBQ mul0, acc2
-	SBBQ mul1, acc3
+	sm2P256MulReductionInternal()
 	MOVQ $0, mul0
 	// Add bits [511:256] of the result
 	ADCQ acc0, acc4

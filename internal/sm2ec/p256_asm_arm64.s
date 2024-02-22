@@ -207,54 +207,57 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	LSL $32, acc0, y0
 	LSR	$32, acc0, y1
 
-	ADDS acc0, acc1, acc1
-	ADCS $0, acc2, acc2
-	ADCS $0, acc3, acc3
-	ADC $0, acc0, acc0
-
 	SUBS y0, acc1
 	SBCS y1, acc2
 	SBCS y0, acc3
-	SBC y1, acc0	
+	SBC y1, acc0, y0	
+
+	ADDS acc0, acc1, acc1
+	ADCS $0, acc2, acc2
+	ADCS $0, acc3, acc3
+	ADC $0, y0, acc0
+
 	// Second reduction step
 	LSL $32, acc1, y0
 	LSR	$32, acc1, y1
 
-	ADDS acc1, acc2, acc2
-	ADCS $0, acc3, acc3
-	ADCS $0, acc0, acc0
-	ADC $0, acc1, acc1
-
 	SUBS y0, acc2
 	SBCS y1, acc3
 	SBCS y0, acc0
-	SBC y1, acc1	
+	SBC y1, acc1, y0
+
+	ADDS acc1, acc2, acc2
+	ADCS $0, acc3, acc3
+	ADCS $0, acc0, acc0
+	ADC $0, y0, acc1
+
 	// Third reduction step
 	LSL $32, acc2, y0
 	LSR	$32, acc2, y1
 
-	ADDS acc2, acc3, acc3
-	ADCS $0, acc0, acc0
-	ADCS $0, acc1, acc1
-	ADC $0, acc2, acc2
-
 	SUBS y0, acc3
 	SBCS y1, acc0
 	SBCS y0, acc1
-	SBC y1, acc2
+	SBC y1, acc2, y0
+
+	ADDS acc2, acc3, acc3
+	ADCS $0, acc0, acc0
+	ADCS $0, acc1, acc1
+	ADC $0, y0, acc2
+
 	// Last reduction step
 	LSL $32, acc3, y0
 	LSR	$32, acc3, y1
 
-	ADDS acc3, acc0, acc0
-	ADCS $0, acc1, acc1
-	ADCS $0, acc2, acc2
-	ADC $0, acc3, acc3
-
 	SUBS y0, acc0
 	SBCS y1, acc1
 	SBCS y0, acc2
-	SBC y1, acc3
+	SBC y1, acc3, y0
+
+	ADDS acc3, acc0, acc0
+	ADCS $0, acc1, acc1
+	ADCS $0, acc2, acc2
+	ADC $0, y0, acc3
 
 	SUBS	const0, acc0, t0
 	SBCS	const1, acc1, t1
@@ -967,15 +970,15 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	LSL $32, acc0, t0
 	LSR	$32, acc0, t1
 
-	ADDS acc0, acc1, acc1
-	ADCS $0, acc2, acc2
-	ADCS $0, acc3, acc3
-	ADC $0, acc0, acc0
-
 	SUBS t0, acc1
 	SBCS t1, acc2
 	SBCS t0, acc3
-	SBC t1, acc0	
+	SBC t1, acc0, t0
+
+	ADDS acc0, acc1, acc1
+	ADCS $0, acc2, acc2
+	ADCS $0, acc3, acc3
+	ADC $0, t0, acc0
 
 	// y[1] * x
 	MUL	y1, x0, t0
@@ -1003,15 +1006,15 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	LSL $32, acc1, t0
 	LSR	$32, acc1, t1
 
-	ADDS acc1, acc2, acc2
-	ADCS $0, acc3, acc3
-	ADCS $0, acc0, acc0
-	ADC $0, acc1, acc1
-
 	SUBS t0, acc2
 	SBCS t1, acc3
 	SBCS t0, acc0
-	SBC t1, acc1	
+	SBC t1, acc1, t0
+
+	ADDS acc1, acc2, acc2
+	ADCS $0, acc3, acc3
+	ADCS $0, acc0, acc0
+	ADC $0, t0, acc1
 
 	// y[2] * x
 	MUL	y2, x0, t0
@@ -1039,15 +1042,15 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	LSL $32, acc2, t0
 	LSR	$32, acc2, t1
 
-	ADDS acc2, acc3, acc3
-	ADCS $0, acc0, acc0
-	ADCS $0, acc1, acc1
-	ADC $0, acc2, acc2
-
 	SUBS t0, acc3
 	SBCS t1, acc0
 	SBCS t0, acc1
-	SBC t1, acc2	
+	SBC t1, acc2, t0
+
+	ADDS acc2, acc3, acc3
+	ADCS $0, acc0, acc0
+	ADCS $0, acc1, acc1
+	ADC $0, t0, acc2
 
 	// y[3] * x
 	MUL	y3, x0, t0
@@ -1075,15 +1078,15 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	LSL $32, acc3, t0
 	LSR	$32, acc3, t1
 
-	ADDS acc3, acc0, acc0
-	ADCS $0, acc1, acc1
-	ADCS $0, acc2, acc2
-	ADC $0, acc3, acc3
-
 	SUBS t0, acc0
 	SBCS t1, acc1
 	SBCS t0, acc2
-	SBC t1, acc3	
+	SBC t1, acc3, t0
+
+	ADDS acc3, acc0, acc0
+	ADCS $0, acc1, acc1
+	ADCS $0, acc2, acc2
+	ADC $0, t0, acc3
 
 	// Add bits [511:256] of the mul result
 	ADDS	acc4, acc0, acc0

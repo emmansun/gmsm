@@ -207,19 +207,19 @@ TEXT ·p256Mul(SB),NOSPLIT,$0
 	SHLQ $32, AX
 	SHRQ $32, DX
 
-	ADDQ acc0, acc1
+	SUBQ AX, acc1
+	SBBQ DX, acc2
+	SBBQ AX, acc3
+	MOVQ acc0, AX
+	SBBQ DX, acc0
+
+	ADDQ AX, acc1
 	ADCQ $0, acc2
 	ADCQ $0, acc3
 	ADCQ acc0, acc4
 	ADCQ $0, acc5
 	
-	SUBQ AX, acc1
-	SBBQ DX, acc2
-	SBBQ AX, acc3
-	SBBQ DX, acc4
-	SBBQ $0, acc5
 	XORQ acc0, acc0
-
 	// x * y[1]
 	MOVQ (8*1)(y_ptr), t0
 
@@ -258,19 +258,19 @@ TEXT ·p256Mul(SB),NOSPLIT,$0
 	SHLQ $32, AX
 	SHRQ $32, DX
 
-	ADDQ acc1, acc2
+	SUBQ AX, acc2
+	SBBQ DX, acc3
+	SBBQ AX, acc4
+	MOVQ acc1, AX
+	SBBQ DX, acc1
+
+	ADDQ AX, acc2
 	ADCQ $0, acc3
 	ADCQ $0, acc4
 	ADCQ acc1, acc5
 	ADCQ $0, acc0
 	
-	SUBQ AX, acc2
-	SBBQ DX, acc3
-	SBBQ AX, acc4
-	SBBQ DX, acc5
-	SBBQ $0, acc0	
 	XORQ acc1, acc1
-
 	// x * y[2]
 	MOVQ (8*2)(y_ptr), t0
 
@@ -309,17 +309,18 @@ TEXT ·p256Mul(SB),NOSPLIT,$0
 	SHLQ $32, AX
 	SHRQ $32, DX
 
-	ADDQ acc2, acc3
+	SUBQ AX, acc3
+	SBBQ DX, acc4
+	SBBQ AX, acc5
+	MOVQ acc2, AX
+	SBBQ DX, acc2
+
+	ADDQ AX, acc3
 	ADCQ $0, acc4
 	ADCQ $0, acc5
 	ADCQ acc2, acc0
 	ADCQ $0, acc1
 	
-	SUBQ AX, acc3
-	SBBQ DX, acc4
-	SBBQ AX, acc5
-	SBBQ DX, acc0
-	SBBQ $0, acc1	
 	XORQ acc2, acc2
 	// x * y[3]
 	MOVQ (8*3)(y_ptr), t0
@@ -359,17 +360,18 @@ TEXT ·p256Mul(SB),NOSPLIT,$0
 	SHLQ $32, AX
 	SHRQ $32, DX
 
-	ADDQ acc3, acc4
+	SUBQ AX, acc4
+	SBBQ DX, acc5
+	SBBQ AX, acc0
+	MOVQ acc3, AX
+	SBBQ DX, acc3
+
+	ADDQ AX, acc4
 	ADCQ $0, acc5
 	ADCQ $0, acc0
 	ADCQ acc3, acc1
 	ADCQ $0, acc2
 	
-	SUBQ AX, acc4
-	SBBQ DX, acc5
-	SBBQ AX, acc0
-	SBBQ DX, acc1
-	SBBQ $0, acc2	
 	p256PrimReduce(acc4, acc5, acc0, acc1, acc2, x_ptr, acc3, t0, BX, res_ptr)
 	RET
 
@@ -395,19 +397,19 @@ mulBMI2:
 	SHLQ $32, AX
 	SHRQ $32, DX
 
-	ADDQ acc0, acc1
+	SUBQ AX, acc1
+	SBBQ DX, acc2
+	SBBQ AX, acc3
+	MOVQ acc0, AX
+	SBBQ DX, acc0
+
+	ADDQ AX, acc1
 	ADCQ $0, acc2
 	ADCQ $0, acc3
 	ADCQ acc0, acc4
 	ADCQ $0, acc5
-	
-	SUBQ AX, acc1
-	SBBQ DX, acc2
-	SBBQ AX, acc3
-	SBBQ DX, acc4
-	SBBQ $0, acc5
-	XORQ acc0, acc0
 
+	XORQ acc0, acc0
 	// x * y[1]
 	MOVQ (8*1)(y_ptr), DX
 	MULXQ (8*0)(x_ptr), AX, BX
@@ -436,19 +438,19 @@ mulBMI2:
 	SHLQ $32, AX
 	SHRQ $32, DX
 
-	ADDQ acc1, acc2
+	SUBQ AX, acc2
+	SBBQ DX, acc3
+	SBBQ AX, acc4
+	MOVQ acc1, AX
+	SBBQ DX, acc1
+
+	ADDQ AX, acc2
 	ADCQ $0, acc3
 	ADCQ $0, acc4
 	ADCQ acc1, acc5
 	ADCQ $0, acc0
 	
-	SUBQ AX, acc2
-	SBBQ DX, acc3
-	SBBQ AX, acc4
-	SBBQ DX, acc5
-	SBBQ $0, acc0	
 	XORQ acc1, acc1
-
 	// x * y[2]
 	MOVQ (8*2)(y_ptr), DX
 
@@ -477,17 +479,18 @@ mulBMI2:
 	SHLQ $32, AX
 	SHRQ $32, DX
 
-	ADDQ acc2, acc3
+	SUBQ AX, acc3
+	SBBQ DX, acc4
+	SBBQ AX, acc5
+	MOVQ acc2, AX
+	SBBQ DX, acc2
+
+	ADDQ AX, acc3
 	ADCQ $0, acc4
 	ADCQ $0, acc5
 	ADCQ acc2, acc0
 	ADCQ $0, acc1
 	
-	SUBQ AX, acc3
-	SBBQ DX, acc4
-	SBBQ AX, acc5
-	SBBQ DX, acc0
-	SBBQ $0, acc1	
 	XORQ acc2, acc2
 	// x * y[3]
 	MOVQ (8*3)(y_ptr), DX
@@ -517,17 +520,18 @@ mulBMI2:
 	SHLQ $32, AX
 	SHRQ $32, DX
 
-	ADDQ acc3, acc4
+	SUBQ AX, acc4
+	SBBQ DX, acc5
+	SBBQ AX, acc0
+	MOVQ acc3, AX
+	SBBQ DX, acc3
+
+	ADDQ AX, acc4
 	ADCQ $0, acc5
 	ADCQ $0, acc0
 	ADCQ acc3, acc1
 	ADCQ $0, acc2
 	
-	SUBQ AX, acc4
-	SBBQ DX, acc5
-	SBBQ AX, acc0
-	SBBQ DX, acc1
-	SBBQ $0, acc2	
 	p256PrimReduce(acc4, acc5, acc0, acc1, acc2, x_ptr, acc3, t0, BX, res_ptr)
 	RET
 
@@ -550,32 +554,35 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	SHLQ $32, AX
 	SHRQ $32, DX
 
-	ADDQ acc0, acc1
+	SUBQ AX, acc1
+	SBBQ DX, acc2
+	SBBQ AX, acc3
+	MOVQ acc0, AX
+	SBBQ DX, acc0
+
+	ADDQ AX, acc1
 	ADCQ $0, acc2
 	ADCQ $0, acc3
 	ADCQ acc0, acc4
 	
-	SUBQ AX, acc1
-	SBBQ DX, acc2
-	SBBQ AX, acc3
-	SBBQ DX, acc4
 	XORQ acc5, acc5
-
 	// Second stage
 	MOVQ acc1, AX
 	MOVQ acc1, DX
 	SHLQ $32, AX
 	SHRQ $32, DX
 
-	ADDQ acc1, acc2
+	SUBQ AX, acc2
+	SBBQ DX, acc3
+	SBBQ AX, acc4
+	MOVQ acc1, AX
+	SBBQ DX, acc5
+
+	ADDQ AX, acc2
 	ADCQ $0, acc3
 	ADCQ $0, acc4
 	ADCQ acc1, acc5
 	
-	SUBQ AX, acc2
-	SBBQ DX, acc3
-	SBBQ AX, acc4
-	SBBQ DX, acc5
 	XORQ acc0, acc0
 	// Third stage
 	MOVQ acc2, AX
@@ -583,15 +590,17 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	SHLQ $32, AX
 	SHRQ $32, DX
 
-	ADDQ acc2, acc3
+	SUBQ AX, acc3
+	SBBQ DX, acc4
+	SBBQ AX, acc5
+	MOVQ acc2, AX
+	SBBQ DX, acc2
+
+	ADDQ AX, acc3
 	ADCQ $0, acc4
 	ADCQ $0, acc5
 	ADCQ acc2, acc0
 	
-	SUBQ AX, acc3
-	SBBQ DX, acc4
-	SBBQ AX, acc5
-	SBBQ DX, acc0
 	XORQ acc1, acc1
 	// Last stage
 	MOVQ acc3, AX
@@ -599,15 +608,16 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	SHLQ $32, AX
 	SHRQ $32, DX
 
-	ADDQ acc3, acc4
-	ADCQ $0, acc5
-	ADCQ $0, acc0
-	ADCQ acc3, acc1
-	
 	SUBQ AX, acc4
 	SBBQ DX, acc5
 	SBBQ AX, acc0
-	SBBQ DX, acc1
+	MOVQ acc3, AX
+	SBBQ DX, acc3
+
+	ADDQ AX, acc4
+	ADCQ $0, acc5
+	ADCQ $0, acc0
+	ADCQ acc3, acc1
 	
 	MOVQ acc4, x_ptr
 	MOVQ acc5, acc3

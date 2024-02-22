@@ -237,6 +237,72 @@ GLOBL p256one<>(SB), 8, $32
 	CMOVQCS t2, acc6                   \
 	CMOVQCS t3, acc7
 
+#define sm2P256MulReductionInternal() \
+	\// First reduction step
+	MOVQ acc0, mul0                     \
+	MOVQ acc0, mul1                     \
+	SHLQ $32, mul0                     \
+	SHRQ $32, mul1                     \
+	\
+	SUBQ mul0, acc1                     \
+	SBBQ mul1, acc2                     \
+	SBBQ mul0, acc3                     \
+	MOVQ acc0, mul0                     \
+	SBBQ mul1, acc0                     \
+	\
+	ADDQ mul0, acc1                     \
+	ADCQ $0, acc2                     \
+	ADCQ $0, acc3                     \
+	ADCQ $0, acc0                     \
+	\// Second reduction step
+	MOVQ acc1, mul0                     \
+	MOVQ acc1, mul1                     \
+	SHLQ $32, mul0                     \
+	SHRQ $32, mul1                     \
+	\
+	SUBQ mul0, acc2                     \
+	SBBQ mul1, acc3                     \
+	SBBQ mul0, acc0                     \
+	MOVQ acc1, mul0                     \
+	SBBQ mul1, acc1                     \
+	\
+	ADDQ mul0, acc2                     \
+	ADCQ $0, acc3                     \
+	ADCQ $0, acc0                     \
+	ADCQ $0, acc1                     \
+	\// Third reduction step
+	MOVQ acc2, mul0                     \
+	MOVQ acc2, mul1                     \
+	SHLQ $32, mul0                     \
+	SHRQ $32, mul1                     \
+	\
+	SUBQ mul0, acc3                     \
+	SBBQ mul1, acc0                     \
+	SBBQ mul0, acc1                     \
+	MOVQ acc2, mul0                     \
+	SBBQ mul1, acc2                     \
+	\
+	ADDQ mul0, acc3                     \
+	ADCQ $0, acc0                     \
+	ADCQ $0, acc1                     \
+	ADCQ $0, acc2                     \
+	\// Last reduction step
+	MOVQ acc3, mul0                     \
+	MOVQ acc3, mul1                     \
+	SHLQ $32, mul0                     \
+	SHRQ $32, mul1                     \
+	\
+	SUBQ mul0, acc0                     \
+	SBBQ mul1, acc1                     \
+	SBBQ mul0, acc2                     \
+	MOVQ acc3, mul0                     \
+	SBBQ mul1, acc3                     \
+	\
+	ADDQ mul0, acc0                     \
+	ADCQ $0, acc1                     \
+	ADCQ $0, acc2                     \
+	ADCQ $0, acc3
+
 #define p256PointDoubleInit() \
 	MOVOU (16*0)(BX), X0 \
 	MOVOU (16*1)(BX), X1 \

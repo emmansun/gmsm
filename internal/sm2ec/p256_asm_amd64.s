@@ -291,7 +291,7 @@ ordSqrLoop:
 	ADCQ DX, acc2
 	ADCQ $0, acc3
 	ADCQ $0, acc0
-	// calculate the positive part: [acc0, acc3, acc2, acc1] - [0, 0x100000000, 1, 0] * t0
+	// calculate the negative part: [acc0, acc3, acc2, acc1] - [0, 0x100000000, 1, 0] * t0
 	MOVQ t0, AX
 	MOVQ t0, DX
 	SHLQ $32, AX
@@ -484,7 +484,7 @@ ordSqrLoopBMI2:
 	ADCQ t1, acc2               // (carry4, acc2) = acc2 + t1 + carry3
 	ADCQ $0, acc3               // (carry5, acc3) = acc3 + carry4
 	ADCQ $0, acc0               //           acc0 = t0 + carry5 
-	// calculate the positive part: [acc0, acc3, acc2, acc1] - [0, 0x100000000, 1, 0] * t0
+	// calculate the negative part: [acc0, acc3, acc2, acc1] - [0, 0x100000000, 1, 0] * t0
 	MOVQ t0, AX
 	//MOVQ t0, DX              // This is not required due to t0=DX already
 	SHLQ $32, AX
@@ -759,66 +759,8 @@ TEXT sm2P256MulInternal(SB),NOSPLIT,$8
 	ADDQ mul0, acc6
 	ADCQ $0, mul1
 	MOVQ mul1, acc7
-	// First reduction step
-	MOVQ acc0, mul0
-	MOVQ acc0, mul1
-	SHLQ $32, mul0
-	SHRQ $32, mul1
-
-	ADDQ acc0, acc1
-	ADCQ $0, acc2
-	ADCQ $0, acc3
-	ADCQ $0, acc0
+	sm2P256MulReductionInternal()
 	
-	SUBQ mul0, acc1
-	SBBQ mul1, acc2
-	SBBQ mul0, acc3
-	SBBQ mul1, acc0
-	// Second reduction step
-	MOVQ acc1, mul0
-	MOVQ acc1, mul1
-	SHLQ $32, mul0
-	SHRQ $32, mul1
-
-	ADDQ acc1, acc2
-	ADCQ $0, acc3
-	ADCQ $0, acc0
-	ADCQ $0, acc1
-	
-	SUBQ mul0, acc2
-	SBBQ mul1, acc3
-	SBBQ mul0, acc0
-	SBBQ mul1, acc1
-	// Third reduction step
-	MOVQ acc2, mul0
-	MOVQ acc2, mul1
-	SHLQ $32, mul0
-	SHRQ $32, mul1
-
-	ADDQ acc2, acc3
-	ADCQ $0, acc0
-	ADCQ $0, acc1
-	ADCQ $0, acc2
-	
-	SUBQ mul0, acc3
-	SBBQ mul1, acc0
-	SBBQ mul0, acc1
-	SBBQ mul1, acc2
-	// Last reduction step
-	MOVQ acc3, mul0
-	MOVQ acc3, mul1
-	SHLQ $32, mul0
-	SHRQ $32, mul1
-
-	ADDQ acc3, acc0
-	ADCQ $0, acc1
-	ADCQ $0, acc2
-	ADCQ $0, acc3
-	
-	SUBQ mul0, acc0
-	SBBQ mul1, acc1
-	SBBQ mul0, acc2
-	SBBQ mul1, acc3
 	MOVQ $0, BP
 	// Add bits [511:256] of the result
 	ADCQ acc0, acc4
@@ -918,66 +860,7 @@ internalMulBMI2:
 	ADDQ mul0, acc6
 	ADCQ $0, acc7
 
-	// First reduction step
-	MOVQ acc0, mul0
-	MOVQ acc0, mul1
-	SHLQ $32, mul0
-	SHRQ $32, mul1
-
-	ADDQ acc0, acc1
-	ADCQ $0, acc2
-	ADCQ $0, acc3
-	ADCQ $0, acc0
-	
-	SUBQ mul0, acc1
-	SBBQ mul1, acc2
-	SBBQ mul0, acc3
-	SBBQ mul1, acc0
-	// Second reduction step
-	MOVQ acc1, mul0
-	MOVQ acc1, mul1
-	SHLQ $32, mul0
-	SHRQ $32, mul1
-
-	ADDQ acc1, acc2
-	ADCQ $0, acc3
-	ADCQ $0, acc0
-	ADCQ $0, acc1
-	
-	SUBQ mul0, acc2
-	SBBQ mul1, acc3
-	SBBQ mul0, acc0
-	SBBQ mul1, acc1
-	// Third reduction step
-	MOVQ acc2, mul0
-	MOVQ acc2, mul1
-	SHLQ $32, mul0
-	SHRQ $32, mul1
-
-	ADDQ acc2, acc3
-	ADCQ $0, acc0
-	ADCQ $0, acc1
-	ADCQ $0, acc2
-	
-	SUBQ mul0, acc3
-	SBBQ mul1, acc0
-	SBBQ mul0, acc1
-	SBBQ mul1, acc2
-	// Last reduction step
-	MOVQ acc3, mul0
-	MOVQ acc3, mul1
-	SHLQ $32, mul0
-	SHRQ $32, mul1
-
-	ADDQ acc3, acc0
-	ADCQ $0, acc1
-	ADCQ $0, acc2
-	ADCQ $0, acc3
-	
-	SUBQ mul0, acc0
-	SBBQ mul1, acc1
-	SBBQ mul0, acc2
-	SBBQ mul1, acc3
+	sm2P256MulReductionInternal()
 	MOVQ $0, BP
 	// Add bits [511:256] of the result
 	ADCQ acc0, acc4
