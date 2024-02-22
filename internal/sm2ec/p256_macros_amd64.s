@@ -30,72 +30,76 @@ GLOBL p256one<>(SB), 8, $32
 
 #define p256SqrMontReduce() \
 	\ // First reduction step, [p3, p2, p1, p0] = [1, -0x100000000, 0, (1 - 0x100000000), -1]
-	MOVQ acc0, AX           \
-	MOVQ acc0, DX           \
-	SHLQ $32, AX            \  // AX = L(acc0 * 2^32), low part
-	SHRQ $32, DX            \  // DX = H(acc0 * 2^32), high part
-	\ // calculate the positive part first: [1, 0, 0, 1] * acc0 + [0, acc3, acc2, acc1], 
-	\ // due to (-1) * acc0 + acc0 == 0, so last lowest lamb 0 is dropped directly, no carry.
-	ADDQ acc0, acc1          \ // acc1' = L (acc0 + acc1)
-	ADCQ $0, acc2            \ // acc2' = acc2 + carry1
-	ADCQ $0, acc3            \ // acc3' = acc3 + carry2
-	ADCQ $0, acc0            \ // acc0' = acc0 + carry3
+	MOVQ acc0, AX            \
+	MOVQ acc0, DX            \
+	SHLQ $32, AX             \  // AX = L(acc0 * 2^32), low part
+	SHRQ $32, DX             \  // DX = H(acc0 * 2^32), high part
 	\// calculate the negative part: [0, -0x100000000, 0, -0x100000000] * acc0
 	SUBQ AX, acc1            \ 
 	SBBQ DX, acc2            \
 	SBBQ AX, acc3            \
+	MOVQ acc0, AX            \
 	SBBQ DX, acc0            \
+	\ // calculate the positive part: [1, 0, 0, 1] * acc0 + [0, acc3, acc2, acc1], 
+	\ // due to (-1) * acc0 + acc0 == 0, so last lowest lamb 0 is dropped directly, no carry.
+	ADDQ AX, acc1            \ // acc1' = L (acc0 + acc1)
+	ADCQ $0, acc2            \ // acc2' = acc2 + carry1
+	ADCQ $0, acc3            \ // acc3' = acc3 + carry2
+	ADCQ $0, acc0            \ // acc0' = acc0 + carry3
 	\ // Second reduction step
 	MOVQ acc1, AX            \
 	MOVQ acc1, DX            \
-	SHLQ $32, AX            \
-	SHRQ $32, DX            \
-	\
-	ADDQ acc1, acc2            \
-	ADCQ $0, acc3            \
-	ADCQ $0, acc0            \
-	ADCQ $0, acc1            \
+	SHLQ $32, AX             \
+	SHRQ $32, DX             \
 	\
 	SUBQ AX, acc2            \
 	SBBQ DX, acc3            \
 	SBBQ AX, acc0            \
+	MOVQ acc1, AX            \
 	SBBQ DX, acc1            \
+	\
+	ADDQ AX, acc2            \
+	ADCQ $0, acc3            \
+	ADCQ $0, acc0            \
+	ADCQ $0, acc1            \
 	\ // Third reduction step
 	MOVQ acc2, AX            \
 	MOVQ acc2, DX            \
-	SHLQ $32, AX            \
-	SHRQ $32, DX            \
-	\
-	ADDQ acc2, acc3            \
-	ADCQ $0, acc0            \
-	ADCQ $0, acc1            \
-	ADCQ $0, acc2            \
+	SHLQ $32, AX             \
+	SHRQ $32, DX             \
 	\
 	SUBQ AX, acc3            \
 	SBBQ DX, acc0            \
 	SBBQ AX, acc1            \
+	MOVQ acc2, AX            \
 	SBBQ DX, acc2            \
-	\ // Last reduction step
-	XORQ t0, t0            \
-	MOVQ acc3, AX            \
-	MOVQ acc3, DX            \
-	SHLQ $32, AX            \
-	SHRQ $32, DX            \
 	\
-	ADDQ acc3, acc0            \
+	ADDQ AX, acc3            \
+	ADCQ $0, acc0            \
 	ADCQ $0, acc1            \
 	ADCQ $0, acc2            \
-	ADCQ $0, acc3            \
+	\ // Last reduction step
+	XORQ t0, t0              \
+	MOVQ acc3, AX            \
+	MOVQ acc3, DX            \
+	SHLQ $32, AX             \
+	SHRQ $32, DX             \
 	\
 	SUBQ AX, acc0            \
 	SBBQ DX, acc1            \
 	SBBQ AX, acc2            \
+	MOVQ acc3, AX            \
 	SBBQ DX, acc3            \
+	\
+	ADDQ AX, acc0            \
+	ADCQ $0, acc1            \
+	ADCQ $0, acc2            \
+	ADCQ $0, acc3            \
 	\ // Add bits [511:256] of the sqr result
-	ADCQ acc4, acc0            \
-	ADCQ acc5, acc1            \
-	ADCQ y_ptr, acc2            \
-	ADCQ x_ptr, acc3            \
+	ADCQ acc4, acc0          \
+	ADCQ acc5, acc1          \
+	ADCQ y_ptr, acc2         \
+	ADCQ x_ptr, acc3         \
 	ADCQ $0, t0
 
 #define p256PrimReduce(a0, a1, a2, a3, a4, b0, b1, b2, b3, res) \
@@ -151,60 +155,64 @@ GLOBL p256one<>(SB), 8, $32
 	SHLQ $32, mul0                    \
 	SHRQ $32, mul1                    \
 	\
-	ADDQ acc0, acc1                   \
-	ADCQ $0, acc2                     \
-	ADCQ $0, acc3                     \
-	ADCQ $0, acc0                     \
-	\
 	SUBQ mul0, acc1                   \
 	SBBQ mul1, acc2                   \
 	SBBQ mul0, acc3                   \
+	MOVQ acc0, mul0                   \
 	SBBQ mul1, acc0                   \
+	\
+	ADDQ mul0, acc1                   \
+	ADCQ $0, acc2                     \
+	ADCQ $0, acc3                     \
+	ADCQ $0, acc0                     \
 	\ // Second reduction step
 	MOVQ acc1, mul0                   \
 	MOVQ acc1, mul1                   \
 	SHLQ $32, mul0                    \
 	SHRQ $32, mul1                    \
 	\
-	ADDQ acc1, acc2                   \
-	ADCQ $0, acc3                     \
-	ADCQ $0, acc0                     \
-	ADCQ $0, acc1                     \
-	\
 	SUBQ mul0, acc2                   \
 	SBBQ mul1, acc3                   \
 	SBBQ mul0, acc0                   \
+	MOVQ acc1, mul0                   \
 	SBBQ mul1, acc1                   \
+	\
+	ADDQ mul0, acc2                   \
+	ADCQ $0, acc3                     \
+	ADCQ $0, acc0                     \
+	ADCQ $0, acc1                     \
 	\ // Third reduction step
 	MOVQ acc2, mul0                   \
 	MOVQ acc2, mul1                   \
 	SHLQ $32, mul0                    \
 	SHRQ $32, mul1                    \
 	\
-	ADDQ acc2, acc3                   \
-	ADCQ $0, acc0                     \
-	ADCQ $0, acc1                     \
-	ADCQ $0, acc2                     \
-	\
 	SUBQ mul0, acc3                   \
 	SBBQ mul1, acc0                   \
 	SBBQ mul0, acc1                   \
+	MOVQ acc2, mul0                   \
 	SBBQ mul1, acc2                   \
+	\
+	ADDQ mul0, acc3                   \
+	ADCQ $0, acc0                     \
+	ADCQ $0, acc1                     \
+	ADCQ $0, acc2                     \
 	\ // Last reduction step
 	MOVQ acc3, mul0                   \
 	MOVQ acc3, mul1                   \
 	SHLQ $32, mul0                    \
 	SHRQ $32, mul1                    \
 	\
-	ADDQ acc3, acc0                   \
-	ADCQ $0, acc1                     \
-	ADCQ $0, acc2                     \
-	ADCQ $0, acc3                     \
-	\
 	SUBQ mul0, acc0                   \
 	SBBQ mul1, acc1                   \
 	SBBQ mul0, acc2                   \
+	MOVQ acc3, mul0                   \
 	SBBQ mul1, acc3                   \
+	\
+	ADDQ mul0, acc0                   \
+	ADCQ $0, acc1                     \
+	ADCQ $0, acc2                     \
+	ADCQ $0, acc3                     \
 	MOVQ $0, mul0                       \
 	\ // Add bits [511:256] of the result
 	ADCQ acc0, t0                     \

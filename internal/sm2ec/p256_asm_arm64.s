@@ -869,58 +869,62 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	ADCS	t0, acc6, acc6
 	UMULH	x3, x3, t1
 	ADCS	t1, acc7, acc7
+
 	// First reduction step
 	LSL $32, acc0, y0
 	LSR	$32, acc0, y1
 
-	ADDS acc0, acc1, acc1
-	ADCS $0, acc2, acc2
-	ADCS $0, acc3, acc3
-	ADC $0, acc0, acc0
-
 	SUBS y0, acc1
 	SBCS y1, acc2
 	SBCS y0, acc3
-	SBC y1, acc0	
+	SBC y1, acc0, y0
+
+	ADDS acc0, acc1, acc1
+	ADCS $0, acc2, acc2
+	ADCS $0, acc3, acc3
+	ADC $0, y0, acc0
+
 	// Second reduction step
 	LSL $32, acc1, y0
 	LSR	$32, acc1, y1
 
-	ADDS acc1, acc2, acc2
-	ADCS $0, acc3, acc3
-	ADCS $0, acc0, acc0
-	ADC $0, acc1, acc1
-
 	SUBS y0, acc2
 	SBCS y1, acc3
 	SBCS y0, acc0
-	SBC y1, acc1	
+	SBC y1, acc1, y0
+
+	ADDS acc1, acc2, acc2
+	ADCS $0, acc3, acc3
+	ADCS $0, acc0, acc0
+	ADC $0, y0, acc1
+
 	// Third reduction step
 	LSL $32, acc2, y0
 	LSR	$32, acc2, y1
 
-	ADDS acc2, acc3, acc3
-	ADCS $0, acc0, acc0
-	ADCS $0, acc1, acc1
-	ADC $0, acc2, acc2
-
 	SUBS y0, acc3
 	SBCS y1, acc0
 	SBCS y0, acc1
-	SBC y1, acc2
+	SBC y1, acc2, y0
+
+	ADDS acc2, acc3, acc3
+	ADCS $0, acc0, acc0
+	ADCS $0, acc1, acc1
+	ADC $0, y0, acc2
+
 	// Last reduction step
 	LSL $32, acc3, y0
 	LSR	$32, acc3, y1
 
-	ADDS acc3, acc0, acc0
-	ADCS $0, acc1, acc1
-	ADCS $0, acc2, acc2
-	ADC $0, acc3, acc3
-
 	SUBS y0, acc0
 	SBCS y1, acc1
 	SBCS y0, acc2
-	SBC y1, acc3
+	SBC y1, acc3, y0
+
+	ADDS acc3, acc0, acc0
+	ADCS $0, acc1, acc1
+	ADCS $0, acc2, acc2
+	ADC $0, y0, acc3
 
 	// Add bits [511:256] of the sqr result
 	ADDS	acc4, acc0, acc0
