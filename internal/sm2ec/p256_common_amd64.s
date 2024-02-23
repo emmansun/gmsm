@@ -876,7 +876,6 @@ TEXT ·p256OrdReduce(SB),NOSPLIT,$0
 
 // func p256OrdMul(res, in1, in2 *p256OrdElement)
 TEXT ·p256OrdMul(SB),NOSPLIT,$0
-	MOVQ res+0(FP), res_ptr
 	MOVQ in1+8(FP), x_ptr
 	MOVQ in2+16(FP), y_ptr
 	CMPB ·supportBMI2+0(SB), $0x01
@@ -1125,203 +1124,187 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	SBBQ DX, acc1
 	SBBQ $0, acc2
 
+	MOVQ res+0(FP), res_ptr
 	p256OrdReduceInline(acc4, acc5, acc0, acc1, acc2, x_ptr, acc3, t0, BX, res_ptr)
 
 	RET
 
 ordMulBMI2:
+	XORQ acc5, acc5
+	XORQ res_ptr, res_ptr
 	// x * y[0]
 	MOVQ (8*0)(y_ptr), DX
 	MULXQ (8*0)(x_ptr), acc0, acc1 
 
 	MULXQ (8*1)(x_ptr), AX, acc2
-	ADDQ AX, acc1
-	ADCQ $0, acc2
+	ADCXQ AX, acc1
 
 	MULXQ (8*2)(x_ptr), AX, acc3
-	ADDQ AX, acc2
-	ADCQ $0, acc3
+	ADCXQ AX, acc2
 
 	MULXQ (8*3)(x_ptr), AX, acc4
-	ADDQ AX, acc3
-	ADCQ $0, acc4
-
-	XORQ acc5, acc5
+	ADCXQ AX, acc3
+	ADCXQ acc5, acc4
 
 	// First reduction step
 	MOVQ acc0, DX
-	MULXQ p256ordK0<>(SB), t0, AX 
+	MULXQ p256ordK0<>(SB), DX, AX 
 
-	MOVQ t0, DX
-	MULXQ p256ord<>+0x00(SB), AX, BX
-	ADDQ AX, acc0
-	ADCQ BX, acc1
+	MULXQ p256ord<>+0x00(SB), AX, t0
+	ADOXQ AX, acc0
 
 	MULXQ p256ord<>+0x08(SB), AX, BX
-	ADCQ $0, BX
-	ADDQ AX, acc1
-	ADCQ BX, acc2
-	ADCQ $0, acc3
-	ADCQ t0, acc4
-	ADCQ $0, acc5
+	ADCXQ t0, AX
+	ADOXQ AX, acc1
 
-	MOVQ t0, AX
-	//MOVQ t0, DX // This is not required due to t0=DX already
-	SHLQ $32, AX
-	SHRQ $32, DX
-		
-	SUBQ t0, acc2
-	SBBQ AX, acc3
-	SBBQ DX, acc4
-	SBBQ $0, acc5
+	MULXQ p256ord<>+0x10(SB), AX, t0
+	ADCXQ BX, AX
+	ADOXQ AX, acc2
+
+	MULXQ p256ord<>+0x18(SB), AX, BX
+	ADCXQ t0, AX
+	ADOXQ AX, acc3
+
+	ADCXQ res_ptr, BX
+	ADOXQ BX, acc4
+	ADOXQ res_ptr, acc5
+	XORQ acc0, acc0
 
 	// x * y[1]
 	MOVQ (8*1)(y_ptr), DX
-	MULXQ (8*0)(x_ptr), AX, BX
-	ADDQ AX, acc1
-	ADCQ BX, acc2
+	MULXQ (8*0)(x_ptr), AX, t0
+	ADOXQ AX, acc1
 
-	MULXQ (8*1)(x_ptr), AX, BX
-	ADCQ $0, BX
-	ADDQ AX, acc2
-	ADCQ BX, acc3
+	MULXQ (8*1)(x_ptr), AX, BX 
+	ADCXQ t0, AX
+	ADOXQ AX, acc2
 
-	MULXQ (8*2)(x_ptr), AX, BX
-	ADCQ $0, BX
-	ADDQ AX, acc3
-	ADCQ BX, acc4
+	MULXQ (8*2)(x_ptr), AX, t0
+	ADCXQ BX, AX
+	ADOXQ AX, acc3
 
 	MULXQ (8*3)(x_ptr), AX, BX
-	ADCQ $0, BX
-	ADDQ AX, acc4
-	ADCQ BX, acc5
-	ADCQ $0, acc0
+	ADCXQ t0, AX
+	ADOXQ AX, acc4
+
+	ADCXQ acc0, BX
+	ADOXQ BX, acc5
+	ADOXQ res_ptr, acc0
 
 	// Second reduction step
 	MOVQ acc1, DX
-	MULXQ p256ordK0<>(SB), t0, AX 
+	MULXQ p256ordK0<>(SB), DX, AX
 
-	MOVQ t0, DX
-	MULXQ p256ord<>+0x00(SB), AX, BX
-	ADDQ AX, acc1
-	ADCQ BX, acc2
+	MULXQ p256ord<>+0x00(SB), AX, t0
+	ADOXQ AX, acc1
 
 	MULXQ p256ord<>+0x08(SB), AX, BX
-	ADCQ $0, BX
-	ADDQ AX, acc2
-	ADCQ BX, acc3
-	ADCQ $0, acc4
-	ADCQ t0, acc5
-	ADCQ $0, acc0
+	ADCXQ t0, AX
+	ADOXQ AX, acc2
 
-	MOVQ t0, AX
-	//MOVQ t0, DX // This is not required due to t0=DX already
-	SHLQ $32, AX
-	SHRQ $32, DX
-		
-	SUBQ t0, acc3
-	SBBQ AX, acc4
-	SBBQ DX, acc5
-	SBBQ $0, acc0
+	MULXQ p256ord<>+0x10(SB), AX, t0
+	ADCXQ BX, AX
+	ADOXQ AX, acc3
+
+	MULXQ p256ord<>+0x18(SB), AX, BX
+	ADCXQ t0, AX
+	ADOXQ AX, acc4
+
+	ADCXQ res_ptr, BX
+	ADOXQ BX, acc5
+	ADOXQ res_ptr, acc0
+	XORQ acc1, acc1
 
 	// x * y[2]
 	MOVQ (8*2)(y_ptr), DX
-	MULXQ (8*0)(x_ptr), AX, BX
-	ADDQ AX, acc2
-	ADCQ BX, acc3
+	MULXQ (8*0)(x_ptr), AX, t0
+	ADOXQ AX, acc2
 
-	MULXQ (8*1)(x_ptr), AX, BX
-	ADCQ $0, BX
-	ADDQ AX, acc3
-	ADCQ BX, acc4
+	MULXQ (8*1)(x_ptr), AX, BX 
+	ADCXQ t0, AX
+	ADOXQ AX, acc3
 
-	MULXQ (8*2)(x_ptr), AX, BX
-	ADCQ $0, BX
-	ADDQ AX, acc4
-	ADCQ BX, acc5
+	MULXQ (8*2)(x_ptr), AX, t0
+	ADCXQ BX, AX
+	ADOXQ AX, acc4
 
 	MULXQ (8*3)(x_ptr), AX, BX
-	ADCQ $0, BX
-	ADDQ AX, acc5
-	ADCQ BX, acc0
-	ADCQ $0, acc1
+	ADCXQ t0, AX
+	ADOXQ AX, acc5
+
+	ADCXQ res_ptr, BX
+	ADOXQ BX, acc0
+	ADOXQ res_ptr, acc1
 
 	// Third reduction step
 	MOVQ acc2, DX
-	MULXQ p256ordK0<>(SB), t0, AX 
+	MULXQ p256ordK0<>(SB), DX, AX
 
-	MOVQ t0, DX
-	MULXQ p256ord<>+0x00(SB), AX, BX
-	ADDQ AX, acc2
-	ADCQ BX, acc3
+	MULXQ p256ord<>+0x00(SB), AX, t0
+	ADOXQ AX, acc2
 
 	MULXQ p256ord<>+0x08(SB), AX, BX
-	ADCQ $0, BX
-	ADDQ AX, acc3
-	ADCQ BX, acc4
-	ADCQ $0, acc5
-	ADCQ t0, acc0
-	ADCQ $0, acc1
+	ADCXQ t0, AX
+	ADOXQ AX, acc3
 
-	MOVQ t0, AX
-	//MOVQ t0, DX // This is not required due to t0=DX already
-	SHLQ $32, AX
-	SHRQ $32, DX
-		
-	SUBQ t0, acc4
-	SBBQ AX, acc5
-	SBBQ DX, acc0
-	SBBQ $0, acc1
+	MULXQ p256ord<>+0x10(SB), AX, t0
+	ADCXQ BX, AX
+	ADOXQ AX, acc4
+
+	MULXQ p256ord<>+0x18(SB), AX, BX
+	ADCXQ t0, AX
+	ADOXQ AX, acc5
+
+	ADCXQ res_ptr, BX
+	ADOXQ BX, acc0
+	ADOXQ res_ptr, acc1
+	XORQ acc2, acc2
 
 	// x * y[3]
 	MOVQ (8*3)(y_ptr), DX
-	MULXQ (8*0)(x_ptr), AX, BX
-	ADDQ AX, acc3
-	ADCQ BX, acc4
+	MULXQ (8*0)(x_ptr), AX, t0
+	ADOXQ AX, acc3
 
-	MULXQ (8*1)(x_ptr), AX, BX
-	ADCQ $0, BX
-	ADDQ AX, acc4
-	ADCQ BX, acc5
+	MULXQ (8*1)(x_ptr), AX, BX 
+	ADCXQ t0, AX
+	ADOXQ AX, acc4
 
-	MULXQ (8*2)(x_ptr), AX, BX
-	ADCQ $0, BX
-	ADDQ AX, acc5
-	ADCQ BX, acc0
+	MULXQ (8*2)(x_ptr), AX, t0 
+	ADCXQ BX, AX
+	ADOXQ AX, acc5
 
 	MULXQ (8*3)(x_ptr), AX, BX
-	ADCQ $0, BX
-	ADDQ AX, acc0
-	ADCQ BX, acc1
-	ADCQ $0, acc2
+	ADCXQ t0, AX
+	ADOXQ AX, acc0
+
+	ADCXQ res_ptr, BX
+	ADOXQ BX, acc1
+	ADOXQ res_ptr, acc2
 
 	// Last reduction step
 	MOVQ acc3, DX
-	MULXQ p256ordK0<>(SB), t0, AX 
+	MULXQ p256ordK0<>(SB), DX, AX
 
-	MOVQ t0, DX
-	MULXQ p256ord<>+0x00(SB), AX, BX
-	ADDQ AX, acc3
-	ADCQ BX, acc4
+	MULXQ p256ord<>+0x00(SB), AX, t0
+	ADOXQ AX, acc3
 
 	MULXQ p256ord<>+0x08(SB), AX, BX
-	ADCQ $0, BX
-	ADDQ AX, acc4
-	ADCQ BX, acc5
-	ADCQ $0, acc0
-	ADCQ t0, acc1
-	ADCQ $0, acc2
+	ADCXQ t0, AX
+	ADOXQ AX, acc4
 
-	MOVQ t0, AX
-	//MOVQ t0, DX // This is not required due to t0=DX already
-	SHLQ $32, AX
-	SHRQ $32, DX
-		
-	SUBQ t0, acc5
-	SBBQ AX, acc0
-	SBBQ DX, acc1
-	SBBQ $0, acc2
+	MULXQ p256ord<>+0x10(SB), AX, t0
+	ADCXQ BX, AX
+	ADOXQ AX, acc5
 
+	MULXQ p256ord<>+0x18(SB), AX, BX
+	ADCXQ t0, AX
+	ADOXQ AX, acc0
+
+	ADCXQ res_ptr, BX
+	ADOXQ BX, acc1
+	ADOXQ res_ptr, acc2
+
+	MOVQ res+0(FP), res_ptr
 	p256OrdReduceInline(acc4, acc5, acc0, acc1, acc2, x_ptr, acc3, t0, BX, res_ptr)
 
 	RET

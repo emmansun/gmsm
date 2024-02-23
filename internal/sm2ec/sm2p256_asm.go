@@ -302,7 +302,9 @@ func p256Sqrt(e, x *p256Element) (isSquare bool) {
 }
 
 // The following assembly functions are implemented in p256_asm_*.s
-var supportBMI2 = cpu.X86.HasBMI2
+
+// amd64 assembly uses ADCX/ADOX/MULX
+var supportBMI2 = cpu.X86.HasADX && cpu.X86.HasBMI2
 
 var supportAVX2 = cpu.X86.HasAVX2
 
