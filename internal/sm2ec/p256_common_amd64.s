@@ -918,16 +918,7 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	ADCQ $0, DX
 	MOVQ DX, BX
 
-	MOVQ p256ord<>+0x08(SB), AX
-	MULQ t0
-	ADDQ BX, acc1
-	ADCQ $0, DX
-	ADDQ AX, acc1
-	ADCQ DX, acc2
-	ADCQ $0, acc3
-	ADCQ t0, acc4
-	ADCQ $0, acc5
-
+	MOVQ t0, acc0
 	MOVQ t0, AX
 	MOVQ t0, DX
 	SHLQ $32, AX
@@ -935,8 +926,19 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 		
 	SUBQ t0, acc2
 	SBBQ AX, acc3
-	SBBQ DX, acc4
-	SBBQ $0, acc5
+	SBBQ DX, acc0
+
+	MOVQ p256ord<>+0x08(SB), AX
+	MULQ t0
+	ADDQ BX, acc1
+	ADCQ $0, DX
+	ADDQ AX, acc1
+	ADCQ DX, acc2
+	ADCQ $0, acc3
+	ADCQ acc0, acc4
+	ADCQ $0, acc5
+
+	XORQ acc0, acc0
 	// x * y[1]
 	MOVQ (8*1)(y_ptr), t0
 
@@ -980,16 +982,7 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	ADCQ $0, DX
 	MOVQ DX, BX
 
-	MOVQ p256ord<>+0x08(SB), AX
-	MULQ t0
-	ADDQ BX, acc2
-	ADCQ $0, DX
-	ADDQ AX, acc2
-	ADCQ DX, acc3
-	ADCQ $0, acc4
-	ADCQ t0, acc5
-	ADCQ $0, acc0
-
+	MOVQ t0, acc1
 	MOVQ t0, AX
 	MOVQ t0, DX
 	SHLQ $32, AX
@@ -997,8 +990,19 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 		
 	SUBQ t0, acc3
 	SBBQ AX, acc4
-	SBBQ DX, acc5
-	SBBQ $0, acc0
+	SBBQ DX, acc1
+
+	MOVQ p256ord<>+0x08(SB), AX
+	MULQ t0
+	ADDQ BX, acc2
+	ADCQ $0, DX
+	ADDQ AX, acc2
+	ADCQ DX, acc3
+	ADCQ $0, acc4
+	ADCQ acc1, acc5
+	ADCQ $0, acc0
+
+	XORQ acc1, acc1
 	// x * y[2]
 	MOVQ (8*2)(y_ptr), t0
 
@@ -1042,16 +1046,7 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	ADCQ $0, DX
 	MOVQ DX, BX
 
-	MOVQ p256ord<>+0x08(SB), AX
-	MULQ t0
-	ADDQ BX, acc3
-	ADCQ $0, DX
-	ADDQ AX, acc3
-	ADCQ DX, acc4
-	ADCQ $0, acc5
-	ADCQ t0, acc0
-	ADCQ $0, acc1
-
+	MOVQ t0, acc2
 	MOVQ t0, AX
 	MOVQ t0, DX
 	SHLQ $32, AX
@@ -1059,8 +1054,19 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 		
 	SUBQ t0, acc4
 	SBBQ AX, acc5
-	SBBQ DX, acc0
-	SBBQ $0, acc1
+	SBBQ DX, acc2
+
+	MOVQ p256ord<>+0x08(SB), AX
+	MULQ t0
+	ADDQ BX, acc3
+	ADCQ $0, DX
+	ADDQ AX, acc3
+	ADCQ DX, acc4
+	ADCQ $0, acc5
+	ADCQ acc2, acc0
+	ADCQ $0, acc1
+
+	XORQ acc2, acc2
 	// x * y[3]
 	MOVQ (8*3)(y_ptr), t0
 
@@ -1104,6 +1110,16 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	ADCQ $0, DX
 	MOVQ DX, BX
 
+	MOVQ t0, acc3
+	MOVQ t0, AX
+	MOVQ t0, DX
+	SHLQ $32, AX
+	SHRQ $32, DX
+	
+	SUBQ t0, acc5
+	SBBQ AX, acc0
+	SBBQ DX, acc3
+	
 	MOVQ p256ord<>+0x08(SB), AX
 	MULQ t0
 	ADDQ BX, acc4
@@ -1111,18 +1127,8 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	ADDQ AX, acc4
 	ADCQ DX, acc5
 	ADCQ $0, acc0
-	ADCQ t0, acc1
+	ADCQ acc3, acc1
 	ADCQ $0, acc2
-
-	MOVQ t0, AX
-	MOVQ t0, DX
-	SHLQ $32, AX
-	SHRQ $32, DX
-		
-	SUBQ t0, acc5
-	SBBQ AX, acc0
-	SBBQ DX, acc1
-	SBBQ $0, acc2
 
 	MOVQ res+0(FP), res_ptr
 	p256OrdReduceInline(acc4, acc5, acc0, acc1, acc2, x_ptr, acc3, t0, BX, res_ptr)

@@ -364,6 +364,8 @@ noAdxMul:
 	ADDQ AX, acc3
 	ADCQ DX, acc4
 	ADCQ $0, acc5
+
+	XORQ acc0, acc0
 	// x * y[1]
 	MOVQ (8*1)(y_ptr), t0
 
@@ -430,6 +432,8 @@ noAdxMul:
 	ADDQ AX, acc4
 	ADCQ DX, acc5
 	ADCQ $0, acc0
+
+	XORQ acc1, acc1
 	// x * y[2]
 	MOVQ (8*2)(y_ptr), t0
 
@@ -496,6 +500,8 @@ noAdxMul:
 	ADDQ AX, acc5
 	ADCQ DX, acc0
 	ADCQ $0, acc1
+
+	XORQ acc2, acc2
 	// x * y[3]
 	MOVQ (8*3)(y_ptr), t0
 

@@ -269,18 +269,26 @@ ordSqrLoop:
 	MOVQ t1, x_ptr
 
 	// T = [x_ptr, y_ptr, acc5, acc4, acc3, acc2, acc1, acc0]
-	// First reduction step, [ord3, ord2, ord1, ord0] = [1, -0x100000000, -1, ord1, ord0]
 	MOVQ acc0, AX
 	MULQ p256ordK0<>(SB)
 	MOVQ AX, t0                 // Y = t0 = (k0 * acc0) mod 2^64
-	// calculate the positive part first: [1, 0, 0, ord1, ord0] * t0 + [0, acc3, acc2, acc1, acc0]
-	// the result is [acc0, acc3, acc2, acc1], last lowest limb is dropped.
+
 	MOVQ p256ord<>+0x00(SB), AX
 	MULQ t0
 	ADDQ AX, acc0               // (carry1, acc0) = acc0 + L(t0 * ord0)
 	ADCQ $0, DX                 // DX = carry1 + H(t0 * ord0)
 	MOVQ DX, t1                 // t1 = carry1 + H(t0 * ord0)
 	MOVQ t0, acc0               // acc0 =  t0
+
+	// calculate the negative part: [acc0, acc3, acc2, acc1] - [0, 0x100000000, 1, 0] * t0
+	MOVQ t0, AX
+	MOVQ t0, DX
+	SHLQ $32, AX
+	SHRQ $32, DX
+
+	SUBQ t0, acc2
+	SBBQ AX, acc3
+	SBBQ DX, acc0
 
 	MOVQ p256ord<>+0x08(SB), AX
 	MULQ t0
@@ -291,15 +299,7 @@ ordSqrLoop:
 	ADCQ DX, acc2
 	ADCQ $0, acc3
 	ADCQ $0, acc0
-	// calculate the negative part: [acc0, acc3, acc2, acc1] - [0, 0x100000000, 1, 0] * t0
-	MOVQ t0, AX
-	MOVQ t0, DX
-	SHLQ $32, AX
-	SHRQ $32, DX
 
-	SUBQ t0, acc2
-	SBBQ AX, acc3
-	SBBQ DX, acc0
 	// Second reduction step
 	MOVQ acc1, AX
 	MULQ p256ordK0<>(SB)
@@ -312,6 +312,15 @@ ordSqrLoop:
 	MOVQ DX, t1
 	MOVQ t0, acc1
 
+	MOVQ t0, AX
+	MOVQ t0, DX
+	SHLQ $32, AX
+	SHRQ $32, DX
+
+	SUBQ t0, acc3
+	SBBQ AX, acc0
+	SBBQ DX, acc1
+
 	MOVQ p256ord<>+0x08(SB), AX
 	MULQ t0
 	ADDQ t1, acc2
@@ -322,14 +331,6 @@ ordSqrLoop:
 	ADCQ $0, acc0
 	ADCQ $0, acc1
 
-	MOVQ t0, AX
-	MOVQ t0, DX
-	SHLQ $32, AX
-	SHRQ $32, DX
-
-	SUBQ t0, acc3
-	SBBQ AX, acc0
-	SBBQ DX, acc1
 	// Third reduction step
 	MOVQ acc2, AX
 	MULQ p256ordK0<>(SB)
@@ -342,6 +343,15 @@ ordSqrLoop:
 	MOVQ DX, t1
 	MOVQ t0, acc2
 
+	MOVQ t0, AX
+	MOVQ t0, DX
+	SHLQ $32, AX
+	SHRQ $32, DX
+
+	SUBQ t0, acc0
+	SBBQ AX, acc1
+	SBBQ DX, acc2
+
 	MOVQ p256ord<>+0x08(SB), AX
 	MULQ t0
 	ADDQ t1, acc3
@@ -352,14 +362,6 @@ ordSqrLoop:
 	ADCQ $0, acc1
 	ADCQ $0, acc2
 
-	MOVQ t0, AX
-	MOVQ t0, DX
-	SHLQ $32, AX
-	SHRQ $32, DX
-
-	SUBQ t0, acc0
-	SBBQ AX, acc1
-	SBBQ DX, acc2
 	// Last reduction step
 	MOVQ acc3, AX
 	MULQ p256ordK0<>(SB)
@@ -372,6 +374,15 @@ ordSqrLoop:
 	MOVQ DX, t1
 	MOVQ t0, acc3
 
+	MOVQ t0, AX
+	MOVQ t0, DX
+	SHLQ $32, AX
+	SHRQ $32, DX
+
+	SUBQ t0, acc1
+	SBBQ AX, acc2
+	SBBQ DX, acc3
+
 	MOVQ p256ord<>+0x08(SB), AX
 	MULQ t0
 	ADDQ t1, acc0
@@ -381,15 +392,6 @@ ordSqrLoop:
 	ADCQ DX, acc1
 	ADCQ $0, acc2
 	ADCQ $0, acc3
-
-	MOVQ t0, AX
-	MOVQ t0, DX
-	SHLQ $32, AX
-	SHRQ $32, DX
-
-	SUBQ t0, acc1
-	SBBQ AX, acc2
-	SBBQ DX, acc3
 
 	XORQ t0, t0
 	// Add bits [511:256] of the sqr result
