@@ -938,7 +938,7 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	ADCQ acc0, acc4
 	ADCQ $0, acc5
 
-	XORQ acc0, acc0
+	XORQ acc0, acc0  // It seems this line is optional.
 	// x * y[1]
 	MOVQ (8*1)(y_ptr), t0
 
@@ -1002,7 +1002,7 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	ADCQ acc1, acc5
 	ADCQ $0, acc0
 
-	XORQ acc1, acc1
+	XORQ acc1, acc1  // It seems this line is optional.
 	// x * y[2]
 	MOVQ (8*2)(y_ptr), t0
 
@@ -1066,7 +1066,7 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	ADCQ acc2, acc0
 	ADCQ $0, acc1
 
-	XORQ acc2, acc2
+	XORQ acc2, acc2  // It seems this line is optional.
 	// x * y[3]
 	MOVQ (8*3)(y_ptr), t0
 
@@ -1174,7 +1174,7 @@ ordMulBMI2:
 	ADCXQ res_ptr, BX
 	ADOXQ BX, acc4
 	ADOXQ res_ptr, acc5
-	XORQ acc0, acc0
+	XORQ acc0, acc0  // It seems this line is optional.
 
 	// x * y[1]
 	MOVQ (8*1)(y_ptr), DX
@@ -1219,7 +1219,7 @@ ordMulBMI2:
 	ADCXQ res_ptr, BX
 	ADOXQ BX, acc5
 	ADOXQ res_ptr, acc0
-	XORQ acc1, acc1
+	XORQ acc1, acc1  // It seems this line is optional.
 
 	// x * y[2]
 	MOVQ (8*2)(y_ptr), DX
@@ -1264,7 +1264,7 @@ ordMulBMI2:
 	ADCXQ res_ptr, BX
 	ADOXQ BX, acc0
 	ADOXQ res_ptr, acc1
-	XORQ acc2, acc2
+	XORQ acc2, acc2  // It seems this line is optional.
 
 	// x * y[3]
 	MOVQ (8*3)(y_ptr), DX
