@@ -168,7 +168,6 @@ TEXT ·p256NegCond(SB),NOSPLIT,$0
 /* ---------------------------------------*/
 // func p256Mul(res, in1, in2 *p256Element)
 TEXT ·p256Mul(SB),NOSPLIT,$0
-	MOVQ res+0(FP), res_ptr
 	MOVQ in1+8(FP), x_ptr
 	MOVQ in2+16(FP), y_ptr
 
@@ -372,25 +371,27 @@ TEXT ·p256Mul(SB),NOSPLIT,$0
 	ADCQ acc3, acc1
 	ADCQ $0, acc2
 	
+	MOVQ res+0(FP), res_ptr
 	p256PrimReduce(acc4, acc5, acc0, acc1, acc2, x_ptr, acc3, t0, BX, res_ptr)
 	RET
 
 mulBMI2:
+	XORQ acc5, acc5
+	XORQ res_ptr, res_ptr
 	// x * y[0]
 	MOVQ (8*0)(y_ptr), DX
 	MULXQ (8*0)(x_ptr), acc0, acc1
 
 	MULXQ (8*1)(x_ptr), AX, acc2
-	ADDQ AX, acc1
+	ADCXQ AX, acc1
 
 	MULXQ (8*2)(x_ptr), AX, acc3
-	ADCQ AX, acc2
+	ADCXQ AX, acc2
 
 	MULXQ (8*3)(x_ptr), AX, acc4
-	ADCQ AX, acc3
-	ADCQ $0, acc4
+	ADCXQ AX, acc3
+	ADCXQ acc5, acc4
 
-	XORQ acc5, acc5
 	// First reduction step
 	MOVQ acc0, AX
 	MOVQ acc0, DX
@@ -403,34 +404,32 @@ mulBMI2:
 	MOVQ acc0, AX
 	SBBQ DX, acc0
 
-	ADDQ AX, acc1
-	ADCQ $0, acc2
-	ADCQ $0, acc3
-	ADCQ acc0, acc4
-	ADCQ $0, acc5
+	ADOXQ AX, acc1
+	ADOXQ res_ptr, acc2
+	ADOXQ res_ptr, acc3
+	ADOXQ acc0, acc4
+	ADOXQ res_ptr, acc5
 
 	XORQ acc0, acc0
 	// x * y[1]
 	MOVQ (8*1)(y_ptr), DX
-	MULXQ (8*0)(x_ptr), AX, BX
-	ADDQ AX, acc1
-	ADCQ BX, acc2
+	MULXQ (8*0)(x_ptr), AX, t0
+	ADOXQ AX, acc1
 
 	MULXQ (8*1)(x_ptr), AX, BX
-	ADCQ $0, BX
-	ADDQ AX, acc2
-	ADCQ BX, acc3
+	ADCXQ t0, AX
+	ADOXQ AX, acc2
 
-	MULXQ (8*2)(x_ptr), AX, BX
-	ADCQ $0, BX
-	ADDQ AX, acc3
-	ADCQ BX, acc4
+	MULXQ (8*2)(x_ptr), AX, t0
+	ADCXQ BX, AX
+	ADOXQ AX, acc3
 
 	MULXQ (8*3)(x_ptr), AX, BX
-	ADCQ $0, BX
-	ADDQ AX, acc4
-	ADCQ BX, acc5
-	ADCQ $0, acc0
+	ADCXQ t0, AX
+	ADOXQ AX, acc4
+	ADCXQ acc0, BX
+	ADOXQ BX, acc5
+	ADOXQ res_ptr, acc0
 
 	// Second reduction step
 	MOVQ acc1, AX
@@ -444,35 +443,33 @@ mulBMI2:
 	MOVQ acc1, AX
 	SBBQ DX, acc1
 
-	ADDQ AX, acc2
-	ADCQ $0, acc3
-	ADCQ $0, acc4
-	ADCQ acc1, acc5
-	ADCQ $0, acc0
+	ADOXQ AX, acc2
+	ADOXQ res_ptr, acc3
+	ADOXQ res_ptr, acc4
+	ADOXQ acc1, acc5
+	ADOXQ res_ptr, acc0
 	
 	XORQ acc1, acc1
 	// x * y[2]
 	MOVQ (8*2)(y_ptr), DX
-
-	MULXQ (8*0)(x_ptr), AX, BX
-	ADDQ AX, acc2
-	ADCQ BX, acc3
+	MULXQ (8*0)(x_ptr), AX, t0
+	ADOXQ AX, acc2
 
 	MULXQ (8*1)(x_ptr), AX, BX
-	ADCQ $0, BX
-	ADDQ AX, acc3
-	ADCQ BX, acc4
+	ADCXQ t0, AX
+	ADOXQ AX, acc3
 
-	MULXQ (8*2)(x_ptr), AX, BX
-	ADCQ $0, BX
-	ADDQ AX, acc4
-	ADCQ BX, acc5
+	MULXQ (8*2)(x_ptr), AX, t0
+	ADCXQ BX, AX
+	ADOXQ AX, acc4
 
 	MULXQ (8*3)(x_ptr), AX, BX
-	ADCQ $0, BX
-	ADDQ AX, acc5
-	ADCQ BX, acc0
-	ADCQ $0, acc1
+	ADCXQ t0, AX
+	ADOXQ AX, acc5
+	ADCXQ res_ptr, BX
+	ADOXQ BX, acc0
+	ADOXQ res_ptr, acc1
+
 	// Third reduction step
 	MOVQ acc2, AX
 	MOVQ acc2, DX
@@ -485,35 +482,33 @@ mulBMI2:
 	MOVQ acc2, AX
 	SBBQ DX, acc2
 
-	ADDQ AX, acc3
-	ADCQ $0, acc4
-	ADCQ $0, acc5
-	ADCQ acc2, acc0
-	ADCQ $0, acc1
+	ADOXQ AX, acc3
+	ADOXQ res_ptr, acc4
+	ADOXQ res_ptr, acc5
+	ADOXQ acc2, acc0
+	ADOXQ res_ptr, acc1
 	
 	XORQ acc2, acc2
 	// x * y[3]
 	MOVQ (8*3)(y_ptr), DX
-
-	MULXQ (8*0)(x_ptr), AX, BX
-	ADDQ AX, acc3
-	ADCQ BX, acc4
+	MULXQ (8*0)(x_ptr), AX, t0
+	ADOXQ AX, acc3
 
 	MULXQ (8*1)(x_ptr), AX, BX
-	ADCQ $0, BX
-	ADDQ AX, acc4
-	ADCQ BX, acc5
+	ADCXQ t0, AX
+	ADOXQ AX, acc4
 
-	MULXQ (8*2)(x_ptr), AX, BX
-	ADCQ $0, BX
-	ADDQ AX, acc5
-	ADCQ BX, acc0
+	MULXQ (8*2)(x_ptr), AX, t0
+	ADCXQ BX, AX
+	ADOXQ AX, acc5
 
 	MULXQ (8*3)(x_ptr), AX, BX
-	ADCQ $0, BX
-	ADDQ AX, acc0
-	ADCQ BX, acc1
-	ADCQ $0, acc2
+	ADCXQ t0, AX
+	ADOXQ AX, acc0
+	ADCXQ res_ptr, BX
+	ADOXQ BX, acc1
+	ADOXQ res_ptr, acc2
+
 	// Last reduction step
 	MOVQ acc3, AX
 	MOVQ acc3, DX
@@ -526,12 +521,13 @@ mulBMI2:
 	MOVQ acc3, AX
 	SBBQ DX, acc3
 
-	ADDQ AX, acc4
-	ADCQ $0, acc5
-	ADCQ $0, acc0
-	ADCQ acc3, acc1
-	ADCQ $0, acc2
+	ADOXQ AX, acc4
+	ADOXQ res_ptr, acc5
+	ADOXQ res_ptr, acc0
+	ADOXQ acc3, acc1
+	ADOXQ res_ptr, acc2
 	
+	MOVQ res+0(FP), res_ptr
 	p256PrimReduce(acc4, acc5, acc0, acc1, acc2, x_ptr, acc3, t0, BX, res_ptr)
 	RET
 
