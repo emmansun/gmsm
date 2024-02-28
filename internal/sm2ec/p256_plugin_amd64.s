@@ -1674,14 +1674,11 @@ pointadd_avx2:
 	CALL sm2P256MulInternal(SB)             \
 	ST (m)                                  \
 	\// Multiply by 3
-	p256MulBy2Inline                        \ 
-	LDacc (m)                               \ 
-	p256AddInline                           \
+	p256TripleInline                        \
 	STt (m)                                 \  
 	\////////////////////////
 	LDacc (y)                               \
-	p256MulBy2Inline                        \
-	t2acc                                   \
+	p256MulBy2Inline2                       \
 	CALL sm2P256SqrInternal(SB)             \
 	ST (s)                                  \
 	CALL sm2P256SqrInternal(SB)             \
@@ -1735,6 +1732,7 @@ pointadd_avx2:
 	CALL sm2P256SubInternal(SB)             \ 
 
 #define lastP256PointDouble() \
+	\ // See https://hyperelliptic.org/EFD/g1p/data/shortw/jacobian-3/doubling/dbl-2007-bl
 	calZ()                            \
 	MOVQ rptr, AX                     \
 	\// Store z

@@ -1654,86 +1654,84 @@ pointadd_avx2:
 #define calZ() \
 	LDacc (z)                              \
 	CALL sm2P256SqrInternal(SB)            \
-	ST (zsqr)                              \
+	ST (zsqr)                              \  // ZZ = Z1^2
 	\
 	LDt (x)                                \
 	p256AddInline                          \
-	STt (m)                                \
+	STt (m)                                \  // M = ZZ + X1
 	\
 	LDacc (z)                              \
 	LDt (y)                                \
-	CALL sm2P256MulInternal(SB)            \
-	p256MulBy2Inline                       \  
+	CALL sm2P256MulInternal(SB)            \ // Z1 * Y1
+	p256MulBy2Inline                       \ // Z3 = 2(Z1 * Y1) = (Y1 + Z1)^2 - Y1^2 - Z1^2
 
 #define calX() \
 	LDacc (x)                               \
 	LDt (zsqr)                              \
-	CALL sm2P256SubInternal(SB)             \
+	CALL sm2P256SubInternal(SB)             \ // X1 - ZZ
 	LDt (m)                                 \
-	CALL sm2P256MulInternal(SB)             \
+	CALL sm2P256MulInternal(SB)             \ // M = (X1 - ZZ) * (X1 + ZZ) = X1^2 - ZZ^2
 	ST (m)                                  \
 	\// Multiply by 3
-	p256MulBy2Inline                        \ 
-	LDacc (m)                               \ 
-	p256AddInline                           \
-	STt (m)                                 \  
+	p256TripleInline                        \
+	STt (m)                                 \  // M = 3 * (X1^2 - ZZ^2)
 	\////////////////////////
 	LDacc (y)                               \
-	p256MulBy2Inline                        \
-	t2acc                                   \
-	CALL sm2P256SqrInternal(SB)             \
-	ST (s)                                  \
-	CALL sm2P256SqrInternal(SB)             \
+	p256MulBy2Inline2                       \
+	CALL sm2P256SqrInternal(SB)             \ // 4 * YY = (2*Y1)^2
+	ST (s)                                  \ // S = 4 * YY
+	CALL sm2P256SqrInternal(SB)             \ // (4 * YY)^2 = 16 * YYYY
 	\// Divide by 2
 	XORQ mul0, mul0                         \
 	MOVQ acc4, t0                           \
 	MOVQ acc5, t1                           \  
 	MOVQ acc6, t2                           \
 	MOVQ acc7, t3                           \
-	\
+	\ // [mul0, acc7, acc6, acc5, acc4] := [acc7, acc6, acc5, acc4] + P
 	ADDQ $-1, acc4                          \
 	ADCQ p256p<>+0x08(SB), acc5             \
 	ADCQ $-1, acc6                          \
 	ADCQ p256p<>+0x018(SB), acc7            \
 	ADCQ $0, mul0                           \
-	TESTQ $1, t0                            \
-	\
-	CMOVQEQ t0, acc4                        \
-	CMOVQEQ t1, acc5                        \
-	CMOVQEQ t2, acc6                        \
-	CMOVQEQ t3, acc7                        \
-	ANDQ t0, mul0                           \
-	\
-	SHRQ $1, acc5, acc4                     \
-	SHRQ $1, acc6, acc5                     \ 
-	SHRQ $1, acc7, acc6                     \
-	SHRQ $1, mul0, acc7                     \ 
-	ST (y)                                  \
+	TESTQ $1, t0                            \ // ZF := 1 if (t0 AND 1 == 0)
+	\ // CMOVQEQ: Move if equal (ZF == 1)
+	CMOVQEQ t0, acc4                        \ // acc4 := t0 if (ZF == 1)
+	CMOVQEQ t1, acc5                        \ // acc5 := t1 if (ZF == 1)
+	CMOVQEQ t2, acc6                        \ // acc6 := t2 if (ZF == 1)
+	CMOVQEQ t3, acc7                        \ // acc7 := t3 if (ZF == 1)
+	ANDQ t0, mul0                           \ // mul0 := t0 AND mul0 (mul0 := 0 if (ZF == 1) else keeping the original value 0 or 1) 
+	\ // Divide even by 2 
+	SHRQ $1, acc5, acc4                     \ // acc4 := acc4 >> 1 | acc5 << 63
+	SHRQ $1, acc6, acc5                     \ // acc5 := acc5 >> 1 | acc6 << 63
+	SHRQ $1, acc7, acc6                     \ // acc6 := acc6 >> 1 | acc7 << 63
+	SHRQ $1, mul0, acc7                     \ // acc7 := acc7 >> 1 | mul0 << 63
+	ST (y)                                  \ // Y3 = 8 * YYYY
 	\/////////////////////////
 	LDacc (x)                               \
 	LDt (s)                                 \
-	CALL sm2P256MulInternal(SB)             \
-	ST (s)                                  \
+	CALL sm2P256MulInternal(SB)             \ // X1 * 4 * YY
+	ST (s)                                  \ // S = 4 * X1 * YY = 2 * ((X1+YY)^2 - XX - YYYY)
 	p256MulBy2Inline                        \
-	STt (tmp)                               \
+	STt (tmp)                               \ // tmp = 2*S = 8 * X1 * YY
 	\
 	LDacc (m)                               \
-	CALL sm2P256SqrInternal(SB)             \
+	CALL sm2P256SqrInternal(SB)             \ // M^2 = (3 * (X1^2 - ZZ^2))^2
 	LDt (tmp)                               \
-	CALL sm2P256SubInternal(SB)             \
+	CALL sm2P256SubInternal(SB)             \ // X3 = M^2 - 2*S
 
 #define calY() \
 	acc2t                                   \
-	LDacc (s)                               \
-	CALL sm2P256SubInternal(SB)             \
+	LDacc (s)                               \ // S = 4 * X1 * YY = 2 * ((X1+YY)^2 - XX - YYYY)
+	CALL sm2P256SubInternal(SB)             \ // S - X3 
 	\
 	LDt (m)                                 \
-	CALL sm2P256MulInternal(SB)             \
+	CALL sm2P256MulInternal(SB)             \ // M * (S - X3)
 	\
 	LDt (y)                                 \
-	CALL sm2P256SubInternal(SB)             \ 
+	CALL sm2P256SubInternal(SB)             \ // Y3 = M * (S - X3) - 8 * YYYYY
 
 #define lastP256PointDouble() \
+	\ // See https://hyperelliptic.org/EFD/g1p/data/shortw/jacobian-3/doubling/dbl-2007-bl
 	calZ()                            \
 	MOVQ rptr, AX                     \
 	\// Store z

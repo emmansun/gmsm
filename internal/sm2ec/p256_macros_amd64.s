@@ -340,6 +340,76 @@ GLOBL p256one<>(SB), 8, $32
 	CMOVQCS acc5, t1;\
 	CMOVQCS acc6, t2;\
 	CMOVQCS acc7, t3;
+
+/* ---------------------------------------*/
+// [acc7, acc6, acc5, acc4] = 2[acc7, acc6, acc5, acc4]
+#define p256MulBy2Inline2\
+	XORQ mul0, mul0;\
+	ADDQ acc4, acc4;\
+	ADCQ acc5, acc5;\
+	ADCQ acc6, acc6;\
+	ADCQ acc7, acc7;\
+	ADCQ $0, mul0;\
+	MOVQ acc4, t0;\
+	MOVQ acc5, t1;\
+	MOVQ acc6, t2;\
+	MOVQ acc7, t3;\
+	SUBQ $-1, acc4;\
+	SBBQ p256p<>+0x08(SB), acc5;\
+	SBBQ $-1, acc6;\
+	SBBQ p256p<>+0x018(SB), acc7;\
+	SBBQ $0, mul0;\
+	CMOVQCS t0, acc4;\
+	CMOVQCS t1, acc5;\
+	CMOVQCS t2, acc6;\
+	CMOVQCS t3, acc7;
+
+/* ---------------------------------------*/
+// [t3, t2, t1, t0] = 3[acc7, acc6, acc5, acc4]
+#define p256TripleInline\
+	XORQ mul0, mul0;\
+	MOVQ acc4, acc0;\
+	MOVQ acc5, acc1;\
+	MOVQ acc6, acc2;\
+	MOVQ acc7, acc3;\
+	ADDQ acc4, acc4;\
+	ADCQ acc5, acc5;\
+	ADCQ acc6, acc6;\
+	ADCQ acc7, acc7;\
+	ADCQ $0, mul0;\
+	MOVQ acc4, t0;\
+	MOVQ acc5, t1;\
+	MOVQ acc6, t2;\
+	MOVQ acc7, t3;\
+	SUBQ $-1, acc4;\
+	SBBQ p256p<>+0x08(SB), acc5;\
+	SBBQ $-1, acc6;\
+	SBBQ p256p<>+0x018(SB), acc7;\
+	SBBQ $0, mul0;\
+	CMOVQCS t0, acc4;\
+	CMOVQCS t1, acc5;\
+	CMOVQCS t2, acc6;\
+	CMOVQCS t3, acc7;\
+	XORQ mul0, mul0;\
+	ADDQ acc0, acc4;\
+	ADCQ acc1, acc5;\
+	ADCQ acc2, acc6;\
+	ADCQ acc3, acc7;\
+	ADCQ $0, mul0;\
+	MOVQ acc4, t0;\
+	MOVQ acc5, t1;\
+	MOVQ acc6, t2;\
+	MOVQ acc7, t3;\
+	SUBQ $-1, t0;\
+	SBBQ p256p<>+0x08(SB), t1;\
+	SBBQ $-1, t2;\
+	SBBQ p256p<>+0x018(SB), t3;\
+	SBBQ $0, mul0;\
+	CMOVQCS acc4, t0;\
+	CMOVQCS acc5, t1;\
+	CMOVQCS acc6, t2;\
+	CMOVQCS acc7, t3;	
+
 /* ---------------------------------------*/
 // [t3, t2, t1, t0] = [acc7, acc6, acc5, acc4] + [t3, t2, t1, t0]
 #define p256AddInline \
