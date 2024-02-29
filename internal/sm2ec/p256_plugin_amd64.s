@@ -6,11 +6,21 @@
 // https://eprint.iacr.org/2013/816.pdf
 //go:build amd64 && !purego && plugin
 
+// plugin mode - DO NOT use the R15 Register.
+// Below functions are different:
+// 1.p256Sqr
+// 2.p256OrdSqr
+// 3.sm2P256MulInternal
+// 4.sm2P256SqrInternal
+
 #include "textflag.h"
 
 #include "p256_macros_amd64.s"
 
 /* ---------------------------------------*/
+// This func is same as non-plugin mode, except that it uses BP to store n 
+// and does not use R15.
+//
 // func p256Sqr(res, in *p256Element, n int)
 TEXT ·p256Sqr(SB),NOSPLIT,$0
 	MOVQ res+0(FP), res_ptr
@@ -21,162 +31,21 @@ TEXT ·p256Sqr(SB),NOSPLIT,$0
 	JEQ  sqrBMI2
 
 sqrLoop:
-	// y[1:] * y[0]
-	MOVQ (8*0)(x_ptr), t0
-
-	MOVQ (8*1)(x_ptr), AX
-	MULQ t0
-	MOVQ AX, acc1
-	MOVQ DX, acc2
-
-	MOVQ (8*2)(x_ptr), AX
-	MULQ t0
-	ADDQ AX, acc2
-	ADCQ $0, DX
-	MOVQ DX, acc3
-
-	MOVQ (8*3)(x_ptr), AX
-	MULQ t0
-	ADDQ AX, acc3
-	ADCQ $0, DX
-	MOVQ DX, acc4
-	// y[2:] * y[1]
-	MOVQ (8*1)(x_ptr), t0
-
-	MOVQ (8*2)(x_ptr), AX
-	MULQ t0
-	ADDQ AX, acc3
-	ADCQ $0, DX
-	MOVQ DX, BX
-
-	MOVQ (8*3)(x_ptr), AX
-	MULQ t0
-	ADDQ BX, acc4
-	ADCQ $0, DX
-	ADDQ AX, acc4
-	ADCQ $0, DX
-	MOVQ DX, acc5
-	// y[3] * y[2]
-	MOVQ (8*2)(x_ptr), t0
-
-	MOVQ (8*3)(x_ptr), AX
-	MULQ t0
-	ADDQ AX, acc5
-	ADCQ $0, DX
-	MOVQ DX, y_ptr
-	XORQ BX, BX
-	// *2
-	ADDQ acc1, acc1
-	ADCQ acc2, acc2
-	ADCQ acc3, acc3
-	ADCQ acc4, acc4
-	ADCQ acc5, acc5
-	ADCQ y_ptr, y_ptr
-	ADCQ $0, BX
-	// Missing products
-	MOVQ (8*0)(x_ptr), AX
-	MULQ AX
-	MOVQ AX, acc0
-	MOVQ DX, t0
-
-	MOVQ (8*1)(x_ptr), AX
-	MULQ AX
-	ADDQ t0, acc1
-	ADCQ AX, acc2
-	ADCQ $0, DX
-	MOVQ DX, t0
-
-	MOVQ (8*2)(x_ptr), AX
-	MULQ AX
-	ADDQ t0, acc3
-	ADCQ AX, acc4
-	ADCQ $0, DX
-	MOVQ DX, t0
-
-	MOVQ (8*3)(x_ptr), AX
-	MULQ AX
-	ADDQ t0, acc5
-	ADCQ AX, y_ptr
-	ADCQ DX, BX
-	MOVQ BX, x_ptr
-
-	// T = [x_ptr, y_ptr, acc5, acc4, acc3, acc2, acc1, acc0]
-	p256SqrMontReduce()
-	p256PrimReduce(acc0, acc1, acc2, acc3, t0, acc4, acc5, y_ptr, BX, res_ptr)
-	MOVQ res_ptr, x_ptr
+	p256SqrRound(BX)
 	DECQ BP
 	JNE  sqrLoop
 	RET
 	
 sqrBMI2:
-	XORQ acc0, acc0
-	XORQ y_ptr, y_ptr
-	// x[1:] * x[0]
-	MOVQ (8*0)(x_ptr), DX
-	MULXQ (8*1)(x_ptr), acc1, acc2
-
-	MULXQ (8*2)(x_ptr), AX, acc3
-	ADOXQ AX, acc2
-
-	MULXQ (8*3)(x_ptr), AX, acc4
-	ADOXQ AX, acc3
-	ADOXQ y_ptr, acc4
-
-	// x[2:] * x[1]
-	MOVQ (8*1)(x_ptr), DX
-	MULXQ (8*2)(x_ptr), AX, BX
-	ADOXQ AX, acc3
-
-	MULXQ (8*3)(x_ptr), AX, acc5
-	ADCXQ BX, AX
-	ADOXQ AX, acc4
-	ADCXQ y_ptr, acc5
-
-	// x[3] * x[2]
-	MOVQ (8*2)(x_ptr), DX
-	MULXQ (8*3)(x_ptr), AX, y_ptr
-	ADOXQ AX, acc5
-	ADOXQ acc0, y_ptr
-	XORQ BX, BX
-
-	// *2
-	ADOXQ acc1, acc1
-	ADOXQ acc2, acc2
-	ADOXQ acc3, acc3
-	ADOXQ acc4, acc4
-	ADOXQ acc5, acc5
-	ADOXQ y_ptr, y_ptr
-	ADOXQ acc0, BX
-
-	// Missing products
-	MOVQ (8*0)(x_ptr), DX
-	MULXQ DX, acc0, t0
-	ADCXQ t0, acc1
-
-	MOVQ (8*1)(x_ptr), DX
-	MULXQ DX, AX, t0
-	ADCXQ AX, acc2
-	ADCXQ t0, acc3
-
-	MOVQ (8*2)(x_ptr), DX
-	MULXQ DX, AX, t0
-	ADCXQ AX, acc4
-	ADCXQ t0, acc5
-
-	MOVQ (8*3)(x_ptr), DX
-	MULXQ DX, AX, x_ptr
-	ADCXQ AX, y_ptr
-	ADCXQ BX, x_ptr
-
-	// T = [x_ptr, y_ptr, acc5, acc4, acc3, acc2, acc1, acc0]
-	p256SqrMontReduce()
-	p256PrimReduce(acc0, acc1, acc2, acc3, t0, acc4, acc5, y_ptr, BX, res_ptr)
-	MOVQ res_ptr, x_ptr            
+	p256SqrRoundAdx(BX)
 	DECQ BP
 	JNE  sqrBMI2
 	RET
 
 /* ---------------------------------------*/
+// This func is same as non-plugin mode, except that it uses BP to store n 
+// and does not use R15.
+//
 // func p256OrdSqr(res, in *p256OrdElement, n int)
 TEXT ·p256OrdSqr(SB),NOSPLIT,$0
 	MOVQ res+0(FP), res_ptr
@@ -187,385 +56,14 @@ TEXT ·p256OrdSqr(SB),NOSPLIT,$0
 	JEQ  ordSqrLoopBMI2
 
 ordSqrLoop:
-	// y[1:] * y[0]
-	MOVQ (8*0)(x_ptr), t0
-
-	MOVQ (8*1)(x_ptr), AX
-	MULQ t0
-	MOVQ AX, acc1
-	MOVQ DX, acc2
-
-	MOVQ (8*2)(x_ptr), AX
-	MULQ t0
-	ADDQ AX, acc2
-	ADCQ $0, DX
-	MOVQ DX, acc3
-
-	MOVQ (8*3)(x_ptr), AX
-	MULQ t0
-	ADDQ AX, acc3
-	ADCQ $0, DX
-	MOVQ DX, acc4
-	// y[2:] * y[1]
-	MOVQ (8*1)(x_ptr), t0
-
-	MOVQ (8*2)(x_ptr), AX
-	MULQ t0
-	ADDQ AX, acc3
-	ADCQ $0, DX
-	MOVQ DX, BX
-
-	MOVQ (8*3)(x_ptr), AX
-	MULQ t0
-	ADDQ BX, acc4
-	ADCQ $0, DX
-	ADDQ AX, acc4
-	ADCQ $0, DX
-	MOVQ DX, acc5
-	// y[3] * y[2]
-	MOVQ (8*2)(x_ptr), t0
-
-	MOVQ (8*3)(x_ptr), AX
-	MULQ t0
-	ADDQ AX, acc5
-	ADCQ $0, DX
-	MOVQ DX, y_ptr
-	XORQ BX, BX
-	// *2
-	ADDQ acc1, acc1
-	ADCQ acc2, acc2
-	ADCQ acc3, acc3
-	ADCQ acc4, acc4
-	ADCQ acc5, acc5
-	ADCQ y_ptr, y_ptr
-	ADCQ $0, BX
-	// Missing products
-	MOVQ (8*0)(x_ptr), AX
-	MULQ AX
-	MOVQ AX, acc0
-	MOVQ DX, t0
-
-	MOVQ (8*1)(x_ptr), AX
-	MULQ AX
-	ADDQ t0, acc1
-	ADCQ AX, acc2
-	ADCQ $0, DX
-	MOVQ DX, t0
-
-	MOVQ (8*2)(x_ptr), AX
-	MULQ AX
-	ADDQ t0, acc3
-	ADCQ AX, acc4
-	ADCQ $0, DX
-	MOVQ DX, t0
-
-	MOVQ (8*3)(x_ptr), AX
-	MULQ AX
-	ADDQ t0, acc5
-	ADCQ AX, y_ptr
-	ADCQ DX, BX
-	MOVQ BX, x_ptr
-
-	// T = [x_ptr, y_ptr, acc5, acc4, acc3, acc2, acc1, acc0]
-	// First reduction step, [ord3, ord2, ord1, ord0] = [1, -0x100000000, -1, ord1, ord0]
-	MOVQ acc0, AX
-	MULQ p256ordK0<>(SB)
-	MOVQ AX, t0                 // Y = t0 = (k0 * acc0) mod 2^64
-
-	MOVQ p256ord<>+0x00(SB), AX
-	MULQ t0
-	ADDQ AX, acc0               // (carry1, acc0) = acc0 + L(t0 * ord0)
-	ADCQ $0, DX                 // DX = carry1 + H(t0 * ord0)
-	MOVQ DX, BX                 // BX = carry1 + H(t0 * ord0)
-	MOVQ t0, acc0               // acc0 =  t0
-
-	// calculate the negative part: [acc0, acc3, acc2] - [0, 0x100000000, 1] * t0
-	MOVQ t0, AX
-	MOVQ t0, DX
-	SHLQ $32, AX
-	SHRQ $32, DX
-
-	SUBQ t0, acc2
-	SBBQ AX, acc3
-	SBBQ DX, acc0
-
-	MOVQ p256ord<>+0x08(SB), AX
-	MULQ t0
-	ADDQ BX, acc1               // (carry2, acc1) = acc1 + BX
-	ADCQ $0, DX                 // DX = carry2 + H(t0*ord1)
-
-	ADDQ AX, acc1               // (carry3, acc1) = acc1 + BX + L(t0*ord1)
-	ADCQ DX, acc2
-	ADCQ $0, acc3
-	ADCQ $0, acc0
-
-	// Second reduction step
-	MOVQ acc1, AX
-	MULQ p256ordK0<>(SB)
-	MOVQ AX, t0
-
-	MOVQ p256ord<>+0x00(SB), AX
-	MULQ t0
-	ADDQ AX, acc1
-	ADCQ $0, DX
-	MOVQ DX, BX
-	MOVQ t0, acc1
-
-	MOVQ t0, AX
-	MOVQ t0, DX
-	SHLQ $32, AX
-	SHRQ $32, DX
-
-	SUBQ t0, acc3
-	SBBQ AX, acc0
-	SBBQ DX, acc1
-
-	MOVQ p256ord<>+0x08(SB), AX
-	MULQ t0
-	ADDQ BX, acc2
-	ADCQ $0, DX
-
-	ADDQ AX, acc2
-	ADCQ DX, acc3
-	ADCQ $0, acc0
-	ADCQ $0, acc1
-
-	// Third reduction step
-	MOVQ acc2, AX
-	MULQ p256ordK0<>(SB)
-	MOVQ AX, t0
-
-	MOVQ p256ord<>+0x00(SB), AX
-	MULQ t0
-	ADDQ AX, acc2
-	ADCQ $0, DX
-	MOVQ DX, BX
-	MOVQ t0, acc2
-
-	MOVQ t0, AX
-	MOVQ t0, DX
-	SHLQ $32, AX
-	SHRQ $32, DX
-
-	SUBQ t0, acc0
-	SBBQ AX, acc1
-	SBBQ DX, acc2
-
-	MOVQ p256ord<>+0x08(SB), AX
-	MULQ t0
-	ADDQ BX, acc3
-	ADCQ $0, DX
-
-	ADDQ AX, acc3
-	ADCQ DX, acc0
-	ADCQ $0, acc1
-	ADCQ $0, acc2
-
-	// Last reduction step
-	MOVQ acc3, AX
-	MULQ p256ordK0<>(SB)
-	MOVQ AX, t0
-
-	MOVQ p256ord<>+0x00(SB), AX
-	MULQ t0
-	ADDQ AX, acc3
-	ADCQ $0, DX
-	MOVQ DX, BX
-	MOVQ t0, acc3
-
-	MOVQ t0, AX
-	MOVQ t0, DX
-	SHLQ $32, AX
-	SHRQ $32, DX
-
-	SUBQ t0, acc1
-	SBBQ AX, acc2
-	SBBQ DX, acc3
-
-	MOVQ p256ord<>+0x08(SB), AX
-	MULQ t0
-	ADDQ BX, acc0
-	ADCQ $0, DX
-
-	ADDQ AX, acc0
-	ADCQ DX, acc1
-	ADCQ $0, acc2
-	ADCQ $0, acc3
-
-	XORQ t0, t0
-	// Add bits [511:256] of the sqr result
-	ADCQ acc4, acc0
-	ADCQ acc5, acc1
-	ADCQ y_ptr, acc2
-	ADCQ x_ptr, acc3
-	ADCQ $0, t0
-
-	p256OrdReduceInline(acc0, acc1, acc2, acc3, t0, acc4, acc5, y_ptr, BX, res_ptr)
-	MOVQ res_ptr, x_ptr
+	p256OrdSqrRound(BX)
 	DECQ BP
 	JNE ordSqrLoop
 
 	RET
 
 ordSqrLoopBMI2:
-	XORQ acc0, acc0
-	XORQ y_ptr, y_ptr
-	// y[1:] * y[0]
-	MOVQ (8*0)(x_ptr), DX
-	MULXQ (8*1)(x_ptr), acc1, acc2 
-
-	MULXQ (8*2)(x_ptr), AX, acc3
-	ADOXQ AX, acc2
-
-	MULXQ (8*3)(x_ptr), AX, acc4
-	ADOXQ AX, acc3
-	ADOXQ y_ptr, acc4
-
-	// y[2:] * y[1]
-	MOVQ (8*1)(x_ptr), DX
-	MULXQ (8*2)(x_ptr), AX, BX
-	ADOXQ AX, acc3
-
-	MULXQ (8*3)(x_ptr), AX, acc5
-	ADCXQ BX, AX
-	ADOXQ AX, acc4
-	ADCXQ y_ptr, acc5
-
-	// y[3] * y[2]
-	MOVQ (8*2)(x_ptr), DX
-	MULXQ (8*3)(x_ptr), AX, y_ptr 
-	ADOXQ AX, acc5
-	ADOXQ acc0, y_ptr
-
-	XORQ BX, BX
-	// *2
-	ADOXQ acc1, acc1
-	ADOXQ acc2, acc2
-	ADOXQ acc3, acc3
-	ADOXQ acc4, acc4
-	ADOXQ acc5, acc5
-	ADOXQ y_ptr, y_ptr
-	ADOXQ acc0, BX
-	
-	// Missing products
-	MOVQ (8*0)(x_ptr), DX
-	MULXQ DX, acc0, t0
-	ADCXQ t0, acc1
-
-	MOVQ (8*1)(x_ptr), DX
-	MULXQ DX, AX, t0
-	ADCXQ AX, acc2
-	ADCXQ t0, acc3
-
-	MOVQ (8*2)(x_ptr), DX
-	MULXQ DX, AX, t0 
-	ADCXQ AX, acc4
-	ADCXQ t0, acc5
-
-	MOVQ (8*3)(x_ptr), DX
-	MULXQ DX, AX, x_ptr
-	ADCXQ AX, y_ptr
-	ADCXQ BX, x_ptr
-
-	// T = [x_ptr, y_ptr, acc5, acc4, acc3, acc2, acc1, acc0]
-	// First reduction step
-	MOVQ acc0, DX
-	MULXQ p256ordK0<>(SB), DX, AX
-
-	MULXQ p256ord<>+0x00(SB), AX, t0
-	ADOXQ AX, acc0               // (carry1, acc0) = acc0 + t0 * ord0
-
-	MULXQ p256ord<>+0x08(SB), AX, BX
-	ADCXQ t0, AX
-	ADOXQ AX, acc1
-
-	MULXQ p256ord<>+0x10(SB), AX, t0
-	ADCXQ BX, AX
-	ADOXQ AX, acc2
-	
-	MULXQ p256ord<>+0x18(SB), AX, acc0
-	ADCXQ t0, AX
-	ADOXQ AX, acc3
-	MOVQ $0, t0
-	ADCXQ t0, acc0
-	ADOXQ t0, acc0
-
-	// Second reduction step
-	MOVQ acc1, DX
-	MULXQ p256ordK0<>(SB), DX, AX
-
-	MULXQ p256ord<>+0x00(SB), AX, t0
-	ADOXQ AX, acc1
-
-	MULXQ p256ord<>+0x08(SB), AX, BX
-	ADCXQ t0, AX
-	ADOXQ AX, acc2
-
-	MULXQ p256ord<>+0x10(SB), AX, t0
-	ADCXQ BX, AX
-	ADOXQ AX, acc3
-
-	MULXQ p256ord<>+0x18(SB), AX, acc1
-	ADCXQ t0, AX
-	ADOXQ AX, acc0
-	MOVQ $0, t0
-	ADCXQ t0, acc1
-	ADOXQ t0, acc1
-
-	// Third reduction step
-	MOVQ acc2, DX
-	MULXQ p256ordK0<>(SB), DX, AX
-
-	MULXQ p256ord<>+0x00(SB), AX, t0
-	ADOXQ AX, acc2
-
-	MULXQ p256ord<>+0x08(SB), AX, BX
-	ADCXQ t0, AX
-	ADOXQ AX, acc3
-
-	MULXQ p256ord<>+0x10(SB), AX, t0
-	ADCXQ BX, AX
-	ADOXQ AX, acc0
-
-	MULXQ p256ord<>+0x18(SB), AX, acc2
-	ADCXQ t0, AX
-	ADOXQ AX, acc1
-	MOVQ $0, t0
-	ADCXQ t0, acc2
-	ADOXQ t0, acc2
-
-	// Last reduction step
-	MOVQ acc3, DX
-	MULXQ p256ordK0<>(SB), DX, AX
-
-	MULXQ p256ord<>+0x00(SB), AX, t0
-	ADOXQ AX, acc3
-
-	MULXQ p256ord<>+0x08(SB), AX, BX
-	ADCXQ t0, AX
-	ADOXQ AX, acc0
-
-	MULXQ p256ord<>+0x10(SB), AX, t0
-	ADCXQ BX, AX
-	ADOXQ AX, acc1
-
-	MULXQ p256ord<>+0x18(SB), AX, acc3
-	ADCXQ t0, AX
-	ADOXQ AX, acc2
-	MOVQ $0, t0
-	ADCXQ t0, acc3
-	ADOXQ t0, acc3
-
-	XORQ BX, BX
-	// Add bits [511:256] of the sqr result
-	ADCXQ acc4, acc0
-	ADCXQ acc5, acc1
-	ADCXQ y_ptr, acc2
-	ADCXQ x_ptr, acc3
-	ADCXQ BX, t0
-
-	p256OrdReduceInline(acc0, acc1, acc2, acc3, t0, acc4, acc5, y_ptr, BX, res_ptr)
-	MOVQ res_ptr, x_ptr
+	p256OrdSqrRoundAdx(BX)
 	DECQ BP
 	JNE ordSqrLoopBMI2
 
@@ -600,33 +98,6 @@ ordSqrLoopBMI2:
 #define t3 R9
 
 /* ---------------------------------------*/
-// [acc7, acc6, acc5, acc4] = [acc7, acc6, acc5, acc4] - [t3, t2, t1, t0]
-TEXT sm2P256SubInternal(SB),NOSPLIT,$0
-	XORQ mul0, mul0
-	SUBQ t0, acc4
-	SBBQ t1, acc5
-	SBBQ t2, acc6
-	SBBQ t3, acc7
-	SBBQ $0, mul0
-
-	MOVQ acc4, acc0
-	MOVQ acc5, acc1
-	MOVQ acc6, acc2
-	MOVQ acc7, acc3
-
-	ADDQ $-1, acc4
-	ADCQ p256p<>+0x08(SB), acc5
-	ADCQ $-1, acc6
-	ADCQ p256p<>+0x018(SB), acc7
-	ANDQ $1, mul0
-
-	CMOVQEQ acc0, acc4
-	CMOVQEQ acc1, acc5
-	CMOVQEQ acc2, acc6
-	CMOVQEQ acc3, acc7
-
-	RET
-/* ---------------------------------------*/
 // [acc7, acc6, acc5, acc4] = [acc7, acc6, acc5, acc4] * [t3, t2, t1, t0]
 TEXT sm2P256MulInternal(SB),NOSPLIT,$8
 	CMPB ·supportBMI2+0(SB), $0x01
@@ -634,7 +105,7 @@ TEXT sm2P256MulInternal(SB),NOSPLIT,$8
 
 	MOVQ acc4, mul0
 	MULQ t0
-	MOVQ mul0, X0
+	MOVQ mul0, X0   // uses X0 as temp register/storage
 	MOVQ mul1, acc1
 
 	MOVQ acc4, mul0
@@ -746,7 +217,7 @@ TEXT sm2P256MulInternal(SB),NOSPLIT,$8
 	MOVQ mul1, acc7
 
 	PEXTRQ $0, X0, acc0
-	sm2P256MulReductionInternal()
+	sm2P256MulReductionInline
 	MOVQ $0, mul0
 	// Add bits [511:256] of the result
 	ADCQ acc0, acc4
@@ -775,7 +246,7 @@ TEXT sm2P256MulInternal(SB),NOSPLIT,$8
 internalMulBMI2:
 	MOVQ acc4, mul1
 	MULXQ t0, acc0, acc1
-	MOVQ acc0, X0
+	MOVQ acc0, X0 // uses X0 as temp register/storage
 
 	MULXQ t1, mul0, acc2
 	ADDQ mul0, acc1
@@ -848,7 +319,7 @@ internalMulBMI2:
 	ADCQ $0, acc7
 
 	PEXTRQ $0, X0, acc0
-	sm2P256MulReductionInternal()
+	sm2P256MulReductionInline
 	MOVQ $0, mul0
 	// Add bits [511:256] of the result
 	ADCQ acc0, acc4
@@ -881,140 +352,11 @@ TEXT sm2P256SqrInternal(SB),NOSPLIT,$8
 	CMPB ·supportBMI2+0(SB), $0x01
 	JEQ  internalSqrBMI2
 
-	MOVQ acc4, mul0
-	MULQ acc5
-	MOVQ mul0, acc1
-	MOVQ mul1, acc2
-
-	MOVQ acc4, mul0
-	MULQ acc6
-	ADDQ mul0, acc2
-	ADCQ $0, mul1
-	MOVQ mul1, acc3
-
-	MOVQ acc4, mul0
-	MULQ acc7
-	ADDQ mul0, acc3
-	ADCQ $0, mul1
-	MOVQ mul1, t0
-
-	MOVQ acc5, mul0
-	MULQ acc6
-	ADDQ mul0, acc3
-	ADCQ $0, mul1
-	MOVQ mul1, acc0
-
-	MOVQ acc5, mul0
-	MULQ acc7
-	ADDQ acc0, t0
-	ADCQ $0, mul1
-	ADDQ mul0, t0
-	ADCQ $0, mul1
-	MOVQ mul1, t1
-
-	MOVQ acc6, mul0
-	MULQ acc7
-	ADDQ mul0, t1
-	ADCQ $0, mul1
-	MOVQ mul1, t2
-	XORQ t3, t3
-	// *2
-	ADDQ acc1, acc1
-	ADCQ acc2, acc2
-	ADCQ acc3, acc3
-	ADCQ t0, t0
-	ADCQ t1, t1
-	ADCQ t2, t2
-	ADCQ $0, t3
-	// Missing products
-	MOVQ acc4, mul0
-	MULQ mul0
-	MOVQ mul0, acc0
-	MOVQ mul1, acc4
-
-	MOVQ acc5, mul0
-	MULQ mul0
-	ADDQ acc4, acc1
-	ADCQ mul0, acc2
-	ADCQ $0, mul1
-	MOVQ mul1, acc4
-
-	MOVQ acc6, mul0
-	MULQ mul0
-	ADDQ acc4, acc3
-	ADCQ mul0, t0
-	ADCQ $0, mul1
-	MOVQ mul1, acc4
-
-	MOVQ acc7, mul0
-	MULQ mul0
-	ADDQ acc4, t1
-	ADCQ mul0, t2
-	ADCQ mul1, t3
-	// T = [t3, t2,, t1, t0, acc3, acc2, acc1, acc0]
-	sm2P256SqrReductionInternal()
+	p256SqrInternalInline
 	RET
 
 internalSqrBMI2:
-	XORQ acc0, acc0
-	XORQ t2, t2
-	MOVQ acc4, mul1
-	MULXQ acc5, acc1, acc2
-
-	MULXQ acc6, mul0, acc3
-	ADOXQ mul0, acc2
-
-	MULXQ acc7, mul0, t0
-	ADOXQ mul0, acc3
-	ADOXQ t2, t0
-
-	MOVQ acc5, mul1
-	MULXQ acc6, mul0, t3
-	ADOXQ mul0, acc3
-
-	MULXQ acc7, mul0, t1
-	ADCXQ t3, mul0
-	ADOXQ mul0, t0
-	ADCXQ t2, t1
-
-	MOVQ acc6, mul1
-	MULXQ acc7, mul0, t2
-	ADOXQ mul0, t1
-	ADOXQ acc0, t2
-
-	XORQ t3, t3
-
-	// *2
-	ADOXQ acc1, acc1
-	ADOXQ acc2, acc2
-	ADOXQ acc3, acc3
-	ADOXQ t0, t0
-	ADOXQ t1, t1
-	ADOXQ t2, t2
-	ADOXQ acc0, t3
-
-	// Missing products
-	MOVQ acc4, mul1
-	MULXQ mul1, acc0, acc4 
-	ADDQ acc4, acc1
-
-	MOVQ acc5, mul1
-	MULXQ mul1, mul0, acc4
-	ADCXQ mul0, acc2
-	ADCXQ acc4, acc3
-
-	MOVQ acc6, mul1
-	MULXQ mul1, mul0, acc4
-	ADCXQ mul0, t0
-	ADCXQ acc4, t1
-
-	MOVQ acc7, mul1
-	MULXQ mul1, mul0, acc4
-	ADCXQ mul0, t2
-	ADCXQ acc4, t3
-	// T = [t3, t2,, t1, t0, acc3, acc2, acc1, acc0]
-	sm2P256SqrReductionInternal()
-
+	p256SqrInternalInlineAdx
 	RET
 
 /* ---------------------------------------*/
@@ -1099,7 +441,7 @@ internalSqrBMI2:
 	CALL sm2P256MulInternal(SB)	        \// x2 * z1ˆ2
 	\
 	LDt (x1in)                          \
-	CALL sm2P256SubInternal(SB)	        \// h = u2 - u1
+	p256SubInline2          	        \// h = u2 - u1
 	ST (h)                              \
 	\
 	LDt (z1in)                          \
@@ -1114,7 +456,7 @@ internalSqrBMI2:
 	ST (s2)                             \
 	\
 	LDt (y1in)                          \
-	CALL sm2P256SubInternal(SB)	        \// r = s2 - s1
+	p256SubInline2          	        \// r = s2 - s1
 	ST (r)                              \
 	\
 	CALL sm2P256SqrInternal(SB)	        \// rsqr = rˆ2
@@ -1139,10 +481,10 @@ internalSqrBMI2:
 	\
 	p256MulBy2Inline			        \// u1 * hˆ2 * 2, inline
 	LDacc (rsqr)                        \
-	CALL sm2P256SubInternal(SB)	        \// rˆ2 - u1 * hˆ2 * 2
+	p256SubInline2          	        \// rˆ2 - u1 * hˆ2 * 2
 	\
 	LDt (hcub)                          \
-	CALL sm2P256SubInternal(SB)         \
+	p256SubInline2                      \
 	ST (xout)                           \
 	\
 	MOVQ acc4, t0                       \
@@ -1150,13 +492,13 @@ internalSqrBMI2:
 	MOVQ acc6, t2                       \
 	MOVQ acc7, t3                       \
 	LDacc (h)                           \
-	CALL sm2P256SubInternal(SB)         \
+	p256SubInline2                      \
 	\
 	LDt (r)                             \
 	CALL sm2P256MulInternal(SB)         \
 	\
 	LDt (s2)                            \
-	CALL sm2P256SubInternal(SB)         \
+	p256SubInline2                      \
 	ST (yout)                           \
 	\// Load stored values from stack
 	MOVQ rptr, AX                       \
@@ -1373,36 +715,6 @@ pointaddaffine_avx2:
 #undef sel_save
 #undef zero_save
 
-// sm2P256IsZero returns 1 in AX if [acc4..acc7] represents zero and zero
-// otherwise. It writes to [acc4..acc7], t0 and t1.
-TEXT sm2P256IsZero(SB),NOSPLIT,$0
-	// AX contains a flag that is set if the input is zero.
-	XORQ AX, AX
-	MOVQ $1, t1
-
-	// Check whether [acc4..acc7] are all zero.
-	MOVQ acc4, t0
-	ORQ acc5, t0
-	ORQ acc6, t0
-	ORQ acc7, t0
-
-	// Set the zero flag if so. (CMOV of a constant to a register doesn't
-	// appear to be supported in Go. Thus t1 = 1.)
-	CMOVQEQ t1, AX
-
-	// XOR [acc4..acc7] with P and compare with zero again.
-	XORQ $-1, acc4
-	XORQ p256p<>+0x08(SB), acc5
-	XORQ $-1, acc6
-	XORQ p256p<>+0x018(SB), acc7
-	ORQ acc5, acc4
-	ORQ acc6, acc4
-	ORQ acc7, acc4
-
-	// Set the zero flag if so.
-	CMOVQEQ t1, AX
-	RET
-
 /* ---------------------------------------*/
 #define x1in(off) (32*0 + off)(SP)
 #define y1in(off) (32*1 + off)(SP)
@@ -1450,9 +762,9 @@ TEXT sm2P256IsZero(SB),NOSPLIT,$0
 	ST (s2)                      \ 
 	\
 	LDt (s1)                     \
-	CALL sm2P256SubInternal(SB)	 \// r = s2 - s1
+	p256SubInline2           	 \// r = s2 - s1
 	ST (r)                       \
-	CALL sm2P256IsZero(SB)       \
+	p256IsZeroInline             \
 	MOVQ AX, points_eq           \
 	\
 	LDacc (z2sqr)                \
@@ -1465,9 +777,9 @@ TEXT sm2P256IsZero(SB),NOSPLIT,$0
 	ST (u2)                      \
 	\
 	LDt (u1)                     \ 
-	CALL sm2P256SubInternal(SB)	 \// h = u2 - u1
+	p256SubInline2          	 \// h = u2 - u1
 	ST (h)                       \
-	CALL sm2P256IsZero(SB)       \
+	p256IsZeroInline             \
 	ANDQ points_eq, AX           \
 	MOVQ AX, points_eq           \
 	\
@@ -1501,10 +813,10 @@ TEXT sm2P256IsZero(SB),NOSPLIT,$0
 	\
 	p256MulBy2Inline	         \// u1 * hˆ2 * 2, inline
 	LDacc (rsqr)                 \
-	CALL sm2P256SubInternal(SB)	 \// rˆ2 - u1 * hˆ2 * 2
+	p256SubInline2          	 \// rˆ2 - u1 * hˆ2 * 2
 	\
 	LDt (hcub)                   \
-	CALL sm2P256SubInternal(SB)  \
+	p256SubInline2               \
 	ST (xout)                    \
 	\
 	MOVQ acc4, t0                \
@@ -1512,13 +824,13 @@ TEXT sm2P256IsZero(SB),NOSPLIT,$0
 	MOVQ acc6, t2                \
 	MOVQ acc7, t3                \
 	LDacc (u2)                   \
-	CALL sm2P256SubInternal(SB)  \
+	p256SubInline2               \
 	\
 	LDt (r)                      \
 	CALL sm2P256MulInternal(SB)  \
 	\
 	LDt (s2)                     \
-	CALL sm2P256SubInternal(SB)  \
+	p256SubInline2               \
 	ST (yout)                    \
 
 //func p256PointAddAsm(res, in1, in2 *SM2P256Point) int
@@ -1669,7 +981,7 @@ pointadd_avx2:
 #define calX() \
 	LDacc (x)                               \
 	LDt (zsqr)                              \
-	CALL sm2P256SubInternal(SB)             \
+	p256SubInline2                          \
 	LDt (m)                                 \
 	CALL sm2P256MulInternal(SB)             \
 	ST (m)                                  \
@@ -1718,18 +1030,18 @@ pointadd_avx2:
 	LDacc (m)                               \
 	CALL sm2P256SqrInternal(SB)             \
 	LDt (tmp)                               \
-	CALL sm2P256SubInternal(SB)             \
+	p256SubInline2                          \
 
 #define calY() \
 	acc2t                                   \
 	LDacc (s)                               \
-	CALL sm2P256SubInternal(SB)             \
+	p256SubInline2                          \
 	\
 	LDt (m)                                 \
 	CALL sm2P256MulInternal(SB)             \
 	\
 	LDt (y)                                 \
-	CALL sm2P256SubInternal(SB)             \ 
+	p256SubInline2                          \ 
 
 #define lastP256PointDouble() \
 	\ // See https://hyperelliptic.org/EFD/g1p/data/shortw/jacobian-3/doubling/dbl-2007-bl
