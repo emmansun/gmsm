@@ -4,6 +4,7 @@
 //                          256-bit primes"
 // https://link.springer.com/article/10.1007%2Fs13389-014-0090-x
 // https://eprint.iacr.org/2013/816.pdf
+// https://github.com/emmansun/gmsm/wiki/SM2-WWMM-(2)
 //go:build amd64 && !purego && !plugin
 
 #include "textflag.h"
@@ -423,10 +424,10 @@ internalSqrBMI2:
 	ST (z1sqr)                        \
 	\
 	LDt (x2in)                        \
-	CALL sm2P256MulInternal(SB)	      \// x2 * z1ˆ2
+	CALL sm2P256MulInternal(SB)	      \// u2 = x2 * z1ˆ2
 	\
 	LDt (x1in)                        \
-	p256SubInline2          	      \// h = u2 - u1
+	p256SubInline2          	      \// h = u2 - x1
 	ST (h)                            \
 	\
 	LDt (z1in)                        \
@@ -441,7 +442,7 @@ internalSqrBMI2:
 	ST (s2)                           \
 	\
 	LDt (y1in)                        \
-	p256SubInline2                    \// r = s2 - s1
+	p256SubInline2                    \// r = s2 - y1
 	ST (r)                            \
 	\
 	CALL sm2P256SqrInternal(SB)	      \// rsqr = rˆ2
@@ -456,26 +457,21 @@ internalSqrBMI2:
 	ST (hcub)                         \
 	\
 	LDt (y1in)                        \
-	CALL sm2P256MulInternal(SB)	      \// y1 * hˆ3
+	CALL sm2P256MulInternal(SB)	      \// s2 = y1 * hˆ3
 	ST (s2)                           \
 	\
 	LDacc (x1in)                      \
 	LDt (hsqr)                        \
-	CALL sm2P256MulInternal(SB)	      \// u1 * hˆ2
+	CALL sm2P256MulInternal(SB)	      \// x1 * hˆ2
 	ST (h)                            \
 	\
-	p256MulBy2Inline			      \// u1 * hˆ2 * 2, inline
+	p256MulBy2Inline			      \// x1 * hˆ2 * 2, inline
 	LDacc (rsqr)                      \
-	p256SubInline2          	      \// rˆ2 - u1 * hˆ2 * 2
+	p256SubInline2          	      \// rˆ2 - x1 * hˆ2 * 2
 	\
 	LDt (hcub)                        \
-	p256SubInline2                    \
-	ST (xout)                         \
-	\
-	MOVQ acc4, t0                     \
-	MOVQ acc5, t1                     \
-	MOVQ acc6, t2                     \
-	MOVQ acc7, t3                     \
+	p256SubInline                     \
+	STt (xout)                         \// xout = rˆ2 - 2 * x1 * hˆ2 - h^3
 	LDacc (h)                         \
 	p256SubInline2                    \
 	\
@@ -532,20 +528,20 @@ TEXT ·p256PointAddAffineAsm(SB),0,$512-48
 	MOVOU zout(16*0), X4
 	MOVOU zout(16*1), X5
 
-	MOVL BX, X6
-	MOVL CX, X7
+	MOVL BX, X6 // sel 
+	MOVL CX, X7 // zero
 
-	PXOR X8, X8
-	PCMPEQL X9, X9
+	PXOR X8, X8 // X8's bits are all 0
+	PCMPEQL X9, X9 // X9's bits are all 1
 
 	PSHUFD $0, X6, X6
 	PSHUFD $0, X7, X7
 
-	PCMPEQL X8, X6
-	PCMPEQL X8, X7
+	PCMPEQL X8, X6  // X6's bits are all 1 if sel = 0, else are 0
+	PCMPEQL X8, X7  // X7's bits are all 1 if zero = 0, else are 0
 
 	MOVOU X6, X15
-	PANDN X9, X15
+	PANDN X9, X15 // X15 = NOT(X6)
 
 	MOVOU x1in(16*0), X9
 	MOVOU x1in(16*1), X10
@@ -577,7 +573,7 @@ TEXT ·p256PointAddAffineAsm(SB),0,$512-48
 	// Similarly if zero == 0
 	PCMPEQL X9, X9
 	MOVOU X7, X15
-	PANDN X9, X15
+	PANDN X9, X15 // X15 = NOT(X7)
 
 	MOVOU x2in(16*0), X9
 	MOVOU x2in(16*1), X10
@@ -630,24 +626,20 @@ pointaddaffine_avx2:
 
 	p256PointAddAffineInline()
 	// The result is not valid if (sel == 0), conditional choose
-	MOVL BX, X6
-	MOVL CX, X7
+	MOVL BX, X6 // sel
+	MOVL CX, X7 // zero
 
-	VPXOR Y8, Y8, Y8
-	VPCMPEQD Y9, Y9, Y9
+	VPXOR Y8, Y8, Y8 // Y8's bits are all 0
 
 	VPBROADCASTD X6, Y6
 	VPBROADCASTD X7, Y7
 
-	VPCMPEQD Y8, Y6, Y6
-	VPCMPEQD Y8, Y7, Y7
+	VPCMPEQD Y8, Y6, Y6 // Y6's bits are all 1 if sel = 0, else are 0
+	VPCMPEQD Y8, Y7, Y7 // Y7's bits are all 1 if zero = 0, else are 0
 
-	VMOVDQU Y6, Y15
-	VPANDN Y9, Y15, Y15
-
-	VPAND xout(32*0), Y15, Y0
-	VPAND yout(32*0), Y15, Y1
-	VPAND zout(32*0), Y15, Y2
+	VPANDN xout(32*0), Y6, Y0
+	VPANDN yout(32*0), Y6, Y1
+	VPANDN zout(32*0), Y6, Y2
 
 	VPAND x1in(32*0), Y6, Y9
 	VPAND y1in(32*0), Y6, Y10
@@ -658,12 +650,9 @@ pointaddaffine_avx2:
 	VPXOR Y11, Y2, Y2
 
 	// Similarly if zero == 0
-	VPCMPEQD Y9, Y9, Y9
-	VPANDN Y9, Y7, Y15
-
-	VPAND Y15, Y0, Y0
-	VPAND Y15, Y1, Y1
-	VPAND Y15, Y2, Y2
+	VPANDN Y0, Y7, Y0
+	VPANDN Y1, Y7, Y1
+	VPANDN Y2, Y7, Y2
 
 	VPAND x2in(32*0), Y7, Y9
 	VPAND y2in(32*0), Y7, Y10
@@ -801,13 +790,8 @@ pointaddaffine_avx2:
 	p256SubInline2          	 \// rˆ2 - u1 * hˆ2 * 2
 	\
 	LDt (hcub)                   \
-	p256SubInline2               \
-	ST (xout)                    \
-	\
-	MOVQ acc4, t0                \
-	MOVQ acc5, t1                \
-	MOVQ acc6, t2                \
-	MOVQ acc7, t3                \
+	p256SubInline                \
+	STt (xout)                   \
 	LDacc (u2)                   \
 	p256SubInline2               \
 	\

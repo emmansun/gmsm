@@ -32,20 +32,20 @@ GLOBL p256one<>(SB), 8, $32
 	\ // First reduction step, [p3, p2, p1, p0] = [1, -0x100000000, 0, (1 - 0x100000000), -1]
 	MOVQ acc0, AX     \
 	MOVQ acc0, DX     \
-	SHLQ $32, AX      \  // AX = L(acc0 * 2^32), low part
-	SHRQ $32, DX      \  // DX = H(acc0 * 2^32), high part
-	\// calculate the negative part: [0, -0x100000000, 0, -0x100000000] * acc0
+	SHLQ $32, AX      \
+	SHRQ $32, DX      \
+	\// calculate the negative part: [1, -0x100000000, 0, -0x100000000] * acc0 + [0, acc3, acc2, acc1]
 	SUBQ AX, acc1     \ 
 	SBBQ DX, acc2     \
 	SBBQ AX, acc3     \
 	MOVQ acc0, AX     \
 	SBBQ DX, acc0     \
-	\ // calculate the positive part: [1, 0, 0, 1] * acc0 + [0, acc3, acc2, acc1], 
+	\ // calculate the positive part: [0, 0, 0, AX] + [acc0, acc3, acc2, acc1], 
 	\ // due to (-1) * acc0 + acc0 == 0, so last lowest lamb 0 is dropped directly, no carry.
-	ADDQ AX, acc1     \ // acc1' = L (acc0 + acc1)
-	ADCQ $0, acc2     \ // acc2' = acc2 + carry1
-	ADCQ $0, acc3     \ // acc3' = acc3 + carry2
-	ADCQ $0, acc0     \ // acc0' = acc0 + carry3
+	ADDQ AX, acc1     \
+	ADCQ $0, acc2     \
+	ADCQ $0, acc3     \
+	ADCQ $0, acc0     \
 	\ // Second reduction step
 	MOVQ acc1, AX     \
 	MOVQ acc1, DX     \
@@ -102,6 +102,7 @@ GLOBL p256one<>(SB), 8, $32
 	ADCQ x_ptr, acc3  \
 	ADCQ $0, t0
 
+/* ---------------------------------------*/
 #define p256PrimReduce(a0, a1, a2, a3, a4, b0, b1, b2, b3, res) \
 	MOVQ a0, b0                 \
 	MOVQ a1, b1                 \
@@ -113,7 +114,7 @@ GLOBL p256one<>(SB), 8, $32
 	SBBQ $-1, a2                \
 	SBBQ p256p<>+0x018(SB), a3  \
 	SBBQ $0, a4                 \
-	\
+	\ // If the result of the subtraction is negative, restore the previous result
 	CMOVQCS b0, a0              \ // CMOVQCS: Move if below (CF == 1)
 	CMOVQCS b1, a1              \
 	CMOVQCS b2, a2              \
@@ -131,13 +132,13 @@ GLOBL p256one<>(SB), 8, $32
 	MOVQ a1, b1                    \
 	MOVQ a2, b2                    \
 	MOVQ a3, b3                    \
-	\// Subtract p256
+	\// Subtract p256ord
 	SUBQ p256ord<>+0x00(SB), a0    \
 	SBBQ p256ord<>+0x08(SB) ,a1    \
 	SBBQ p256ord<>+0x10(SB), a2    \
 	SBBQ p256ord<>+0x18(SB), a3    \
 	SBBQ $0, a4                    \
-	\
+	\ // If the result of the subtraction is negative, restore the previous result
 	CMOVQCS b0, a0                 \ // CMOVQCS: Move if below (CF == 1)
 	CMOVQCS b1, a1                 \
 	CMOVQCS b2, a2                 \
@@ -148,6 +149,7 @@ GLOBL p256one<>(SB), 8, $32
 	MOVQ a2, (8*2)(res)            \
 	MOVQ a3, (8*3)(res)
 
+/* ---------------------------------------*/
 #define sm2P256SqrReductionInline \
 	\ // First reduction step
 	MOVQ acc0, mul0             \
@@ -237,6 +239,7 @@ GLOBL p256one<>(SB), 8, $32
 	CMOVQCS t2, acc6            \
 	CMOVQCS t3, acc7
 
+/* ---------------------------------------*/
 #define sm2P256MulReductionInline \
 	\// First reduction step
 	MOVQ acc0, mul0              \
@@ -302,159 +305,6 @@ GLOBL p256one<>(SB), 8, $32
 	ADCQ $0, acc1                \
 	ADCQ $0, acc2                \
 	ADCQ $0, acc3
-
-#define p256PointDoubleInit() \
-	MOVOU (16*0)(BX), X0;\
-	MOVOU (16*1)(BX), X1;\
-	MOVOU (16*2)(BX), X2;\
-	MOVOU (16*3)(BX), X3;\
-	MOVOU (16*4)(BX), X4;\
-	MOVOU (16*5)(BX), X5;\
-	\
-	MOVOU X0, x(16*0);\
-	MOVOU X1, x(16*1);\
-	MOVOU X2, y(16*0);\
-	MOVOU X3, y(16*1);\
-	MOVOU X4, z(16*0);\
-	MOVOU X5, z(16*1);
-
-/* ---------------------------------------*/
-// [t3, t2, t1, t0] = 2[acc7, acc6, acc5, acc4]
-#define p256MulBy2Inline\
-	XORQ mul0, mul0;\
-	ADDQ acc4, acc4;\
-	ADCQ acc5, acc5;\
-	ADCQ acc6, acc6;\
-	ADCQ acc7, acc7;\
-	ADCQ $0, mul0;\
-	MOVQ acc4, t0;\
-	MOVQ acc5, t1;\
-	MOVQ acc6, t2;\
-	MOVQ acc7, t3;\
-	SUBQ $-1, t0;\
-	SBBQ p256p<>+0x08(SB), t1;\
-	SBBQ $-1, t2;\
-	SBBQ p256p<>+0x018(SB), t3;\
-	SBBQ $0, mul0;\
-	CMOVQCS acc4, t0;\ // CMOVQCS: Move if below (CF == 1)
-	CMOVQCS acc5, t1;\
-	CMOVQCS acc6, t2;\
-	CMOVQCS acc7, t3;
-
-/* ---------------------------------------*/
-// [acc7, acc6, acc5, acc4] = 2[acc7, acc6, acc5, acc4]
-#define p256MulBy2Inline2\
-	XORQ mul0, mul0;\
-	ADDQ acc4, acc4;\
-	ADCQ acc5, acc5;\
-	ADCQ acc6, acc6;\
-	ADCQ acc7, acc7;\
-	ADCQ $0, mul0;\
-	MOVQ acc4, t0;\
-	MOVQ acc5, t1;\
-	MOVQ acc6, t2;\
-	MOVQ acc7, t3;\
-	SUBQ $-1, acc4;\
-	SBBQ p256p<>+0x08(SB), acc5;\
-	SBBQ $-1, acc6;\
-	SBBQ p256p<>+0x018(SB), acc7;\
-	SBBQ $0, mul0;\
-	CMOVQCS t0, acc4;\ // CMOVQCS: Move if below (CF == 1)
-	CMOVQCS t1, acc5;\
-	CMOVQCS t2, acc6;\
-	CMOVQCS t3, acc7;
-
-/* ---------------------------------------*/
-// [t3, t2, t1, t0] = 3[acc7, acc6, acc5, acc4]
-#define p256TripleInline\
-	XORQ mul0, mul0;\
-	MOVQ acc4, acc0;\
-	MOVQ acc5, acc1;\
-	MOVQ acc6, acc2;\
-	MOVQ acc7, acc3;\
-	ADDQ acc4, acc4;\
-	ADCQ acc5, acc5;\
-	ADCQ acc6, acc6;\
-	ADCQ acc7, acc7;\
-	ADCQ $0, mul0;\
-	MOVQ acc4, t0;\
-	MOVQ acc5, t1;\
-	MOVQ acc6, t2;\
-	MOVQ acc7, t3;\
-	SUBQ $-1, acc4;\
-	SBBQ p256p<>+0x08(SB), acc5;\
-	SBBQ $-1, acc6;\
-	SBBQ p256p<>+0x018(SB), acc7;\
-	SBBQ $0, mul0;\
-	CMOVQCS t0, acc4;\ // CMOVQCS: Move if below (CF == 1)
-	CMOVQCS t1, acc5;\
-	CMOVQCS t2, acc6;\
-	CMOVQCS t3, acc7;\
-	XORQ mul0, mul0;\
-	ADDQ acc0, acc4;\
-	ADCQ acc1, acc5;\
-	ADCQ acc2, acc6;\
-	ADCQ acc3, acc7;\
-	ADCQ $0, mul0;\
-	MOVQ acc4, t0;\
-	MOVQ acc5, t1;\
-	MOVQ acc6, t2;\
-	MOVQ acc7, t3;\
-	SUBQ $-1, t0;\
-	SBBQ p256p<>+0x08(SB), t1;\
-	SBBQ $-1, t2;\
-	SBBQ p256p<>+0x018(SB), t3;\
-	SBBQ $0, mul0;\
-	CMOVQCS acc4, t0;\ // CMOVQCS: Move if below (CF == 1)
-	CMOVQCS acc5, t1;\
-	CMOVQCS acc6, t2;\
-	CMOVQCS acc7, t3;	
-
-/* ---------------------------------------*/
-// [t3, t2, t1, t0] = [acc7, acc6, acc5, acc4] + [t3, t2, t1, t0]
-#define p256AddInline \
-	XORQ mul0, mul0;\
-	ADDQ t0, acc4;\
-	ADCQ t1, acc5;\
-	ADCQ t2, acc6;\
-	ADCQ t3, acc7;\
-	ADCQ $0, mul0;\
-	MOVQ acc4, t0;\
-	MOVQ acc5, t1;\
-	MOVQ acc6, t2;\
-	MOVQ acc7, t3;\
-	SUBQ $-1, t0;\
-	SBBQ p256p<>+0x08(SB), t1;\
-	SBBQ $-1, t2;\
-	SBBQ p256p<>+0x018(SB), t3;\
-	SBBQ $0, mul0;\
-	CMOVQCS acc4, t0;\ // CMOVQCS: Move if below (CF == 1)
-	CMOVQCS acc5, t1;\
-	CMOVQCS acc6, t2;\
-	CMOVQCS acc7, t3;
-
-/* ---------------------------------------*/
-// [acc7, acc6, acc5, acc4] = [acc7, acc6, acc5, acc4] - [t3, t2, t1, t0]
-#define p256SubInline2 \
-	XORQ mul0, mul0;\
-	SUBQ t0, acc4;\
-	SBBQ t1, acc5;\
-	SBBQ t2, acc6;\
-	SBBQ t3, acc7;\
-	SBBQ $0, mul0;\
-	MOVQ acc4, acc0;\
-	MOVQ acc5, acc1;\
-	MOVQ acc6, acc2;\
-	MOVQ acc7, acc3;\
-	ADDQ $-1, acc4;\
-	ADCQ p256p<>+0x08(SB), acc5;\
-	ADCQ $-1, acc6;\
-	ADCQ p256p<>+0x018(SB), acc7;\
-	ANDQ $1, mul0;\
-	CMOVQEQ acc0, acc4;\  // CMOVQEQ: Move if equal (ZF == 1)
-	CMOVQEQ acc1, acc5;\
-	CMOVQEQ acc2, acc6;\
-	CMOVQEQ acc3, acc7;\
 
 /* ---------------------------------------*/
 #define p256SqrRound(t1) \
@@ -891,7 +741,7 @@ GLOBL p256one<>(SB), 8, $32
 	MULXQ p256ordK0<>(SB), DX, AX;\
 	\
 	MULXQ p256ord<>+0x00(SB), AX, t0;\
-	ADOXQ AX, acc0        ;\// (carry1, acc0) = acc0 + t0 * ord0
+	ADOXQ AX, acc0;\// (carry1, acc0) = acc0 + t0 * ord0
 	\
 	MULXQ p256ord<>+0x08(SB), AX, t1;\
 	ADCXQ t0, AX;\
@@ -984,6 +834,168 @@ GLOBL p256one<>(SB), 8, $32
 	\
 	p256OrdReduceInline(acc0, acc1, acc2, acc3, t0, acc4, acc5, y_ptr, t1, res_ptr);\
 	MOVQ res_ptr, x_ptr;
+
+// Below marcors are used for point operation
+/* ---------------------------------------*/
+// [t3, t2, t1, t0] = 2[acc7, acc6, acc5, acc4]
+#define p256MulBy2Inline\
+	XORQ mul0, mul0;\
+	ADDQ acc4, acc4;\
+	ADCQ acc5, acc5;\
+	ADCQ acc6, acc6;\
+	ADCQ acc7, acc7;\
+	ADCQ $0, mul0;\
+	MOVQ acc4, t0;\
+	MOVQ acc5, t1;\
+	MOVQ acc6, t2;\
+	MOVQ acc7, t3;\
+	SUBQ $-1, t0;\
+	SBBQ p256p<>+0x08(SB), t1;\
+	SBBQ $-1, t2;\
+	SBBQ p256p<>+0x018(SB), t3;\
+	SBBQ $0, mul0;\
+	CMOVQCS acc4, t0;\ // CMOVQCS: Move if below (CF == 1)
+	CMOVQCS acc5, t1;\
+	CMOVQCS acc6, t2;\
+	CMOVQCS acc7, t3;
+
+/* ---------------------------------------*/
+// [acc7, acc6, acc5, acc4] = 2[acc7, acc6, acc5, acc4]
+#define p256MulBy2Inline2\
+	XORQ mul0, mul0;\
+	ADDQ acc4, acc4;\
+	ADCQ acc5, acc5;\
+	ADCQ acc6, acc6;\
+	ADCQ acc7, acc7;\
+	ADCQ $0, mul0;\
+	MOVQ acc4, t0;\
+	MOVQ acc5, t1;\
+	MOVQ acc6, t2;\
+	MOVQ acc7, t3;\
+	SUBQ $-1, acc4;\
+	SBBQ p256p<>+0x08(SB), acc5;\
+	SBBQ $-1, acc6;\
+	SBBQ p256p<>+0x018(SB), acc7;\
+	SBBQ $0, mul0;\
+	CMOVQCS t0, acc4;\ // CMOVQCS: Move if below (CF == 1)
+	CMOVQCS t1, acc5;\
+	CMOVQCS t2, acc6;\
+	CMOVQCS t3, acc7;
+
+/* ---------------------------------------*/
+// [t3, t2, t1, t0] = 3[acc7, acc6, acc5, acc4]
+#define p256TripleInline\
+	XORQ mul0, mul0;\
+	MOVQ acc4, acc0;\
+	MOVQ acc5, acc1;\
+	MOVQ acc6, acc2;\
+	MOVQ acc7, acc3;\
+	ADDQ acc4, acc4;\
+	ADCQ acc5, acc5;\
+	ADCQ acc6, acc6;\
+	ADCQ acc7, acc7;\
+	ADCQ $0, mul0;\
+	MOVQ acc4, t0;\
+	MOVQ acc5, t1;\
+	MOVQ acc6, t2;\
+	MOVQ acc7, t3;\
+	SUBQ $-1, acc4;\
+	SBBQ p256p<>+0x08(SB), acc5;\
+	SBBQ $-1, acc6;\
+	SBBQ p256p<>+0x018(SB), acc7;\
+	SBBQ $0, mul0;\
+	CMOVQCS t0, acc4;\ // CMOVQCS: Move if below (CF == 1)
+	CMOVQCS t1, acc5;\
+	CMOVQCS t2, acc6;\
+	CMOVQCS t3, acc7;\
+	XORQ mul0, mul0;\
+	ADDQ acc0, acc4;\
+	ADCQ acc1, acc5;\
+	ADCQ acc2, acc6;\
+	ADCQ acc3, acc7;\
+	ADCQ $0, mul0;\
+	MOVQ acc4, t0;\
+	MOVQ acc5, t1;\
+	MOVQ acc6, t2;\
+	MOVQ acc7, t3;\
+	SUBQ $-1, t0;\
+	SBBQ p256p<>+0x08(SB), t1;\
+	SBBQ $-1, t2;\
+	SBBQ p256p<>+0x018(SB), t3;\
+	SBBQ $0, mul0;\
+	CMOVQCS acc4, t0;\ // CMOVQCS: Move if below (CF == 1)
+	CMOVQCS acc5, t1;\
+	CMOVQCS acc6, t2;\
+	CMOVQCS acc7, t3;	
+
+/* ---------------------------------------*/
+// [t3, t2, t1, t0] = [acc7, acc6, acc5, acc4] + [t3, t2, t1, t0]
+#define p256AddInline \
+	XORQ mul0, mul0;\
+	ADDQ t0, acc4;\
+	ADCQ t1, acc5;\
+	ADCQ t2, acc6;\
+	ADCQ t3, acc7;\
+	ADCQ $0, mul0;\
+	MOVQ acc4, t0;\
+	MOVQ acc5, t1;\
+	MOVQ acc6, t2;\
+	MOVQ acc7, t3;\
+	SUBQ $-1, t0;\
+	SBBQ p256p<>+0x08(SB), t1;\
+	SBBQ $-1, t2;\
+	SBBQ p256p<>+0x018(SB), t3;\
+	SBBQ $0, mul0;\
+	CMOVQCS acc4, t0;\ // CMOVQCS: Move if below (CF == 1)
+	CMOVQCS acc5, t1;\
+	CMOVQCS acc6, t2;\
+	CMOVQCS acc7, t3;
+
+/* ---------------------------------------*/
+// [t3, t2, t1, t0] = [acc7, acc6, acc5, acc4] - [t3, t2, t1, t0]
+#define p256SubInline \
+	XORQ mul0, mul0;\
+	SUBQ t0, acc4;\
+	SBBQ t1, acc5;\
+	SBBQ t2, acc6;\
+	SBBQ t3, acc7;\
+	SBBQ $0, mul0;\
+	MOVQ acc4, t0;\
+	MOVQ acc5, t1;\
+	MOVQ acc6, t2;\
+	MOVQ acc7, t3;\
+	ADDQ $-1, t0;\
+	ADCQ p256p<>+0x08(SB), t1;\
+	ADCQ $-1, t2;\
+	ADCQ p256p<>+0x018(SB), t3;\
+	ANDQ $1, mul0;\
+	CMOVQEQ acc4, t0;\  // CMOVQEQ: Move if equal (ZF == 1)
+	CMOVQEQ acc5, t1;\
+	CMOVQEQ acc6, t2;\
+	CMOVQEQ acc7, t3;\
+
+/* ---------------------------------------*/
+// [acc7, acc6, acc5, acc4] = [acc7, acc6, acc5, acc4] - [t3, t2, t1, t0]
+#define p256SubInline2 \
+	XORQ mul0, mul0;\
+	SUBQ t0, acc4;\
+	SBBQ t1, acc5;\
+	SBBQ t2, acc6;\
+	SBBQ t3, acc7;\
+	SBBQ $0, mul0;\
+	MOVQ acc4, acc0;\
+	MOVQ acc5, acc1;\
+	MOVQ acc6, acc2;\
+	MOVQ acc7, acc3;\
+	ADDQ $-1, acc4;\
+	ADCQ p256p<>+0x08(SB), acc5;\
+	ADCQ $-1, acc6;\
+	ADCQ p256p<>+0x018(SB), acc7;\
+	ANDQ $1, mul0;\
+	CMOVQEQ acc0, acc4;\  // CMOVQEQ: Move if equal (ZF == 1)
+	CMOVQEQ acc1, acc5;\
+	CMOVQEQ acc2, acc6;\
+	CMOVQEQ acc3, acc7;\
 
 #define p256SqrInternalInline \
 	MOVQ acc4, mul0;\
@@ -1143,3 +1155,18 @@ GLOBL p256one<>(SB), 8, $32
 	\// Set the zero flag if so.
 	\// CMOVQEQ: Move if equal (ZF == 1)
 	CMOVQEQ t1, AX;
+
+#define p256PointDoubleInit() \
+	MOVOU (16*0)(BX), X0;\
+	MOVOU (16*1)(BX), X1;\
+	MOVOU (16*2)(BX), X2;\
+	MOVOU (16*3)(BX), X3;\
+	MOVOU (16*4)(BX), X4;\
+	MOVOU (16*5)(BX), X5;\
+	\
+	MOVOU X0, x(16*0);\
+	MOVOU X1, x(16*1);\
+	MOVOU X2, y(16*0);\
+	MOVOU X3, y(16*1);\
+	MOVOU X4, z(16*0);\
+	MOVOU X5, z(16*1);
