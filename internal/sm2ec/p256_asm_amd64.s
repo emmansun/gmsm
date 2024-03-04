@@ -483,8 +483,6 @@ internalSqrBMI2:
 	ST (yout)                         \
 	\// Load stored values from stack
 	MOVQ rptr, AX                     \
-	MOVL sel_save, BX                 \
-	MOVL zero_save, CX                \
 
 // func p256PointAddAffineAsm(res, in1 *SM2P256Point, in2 *p256AffinePoint, sign, sel, zero int)
 TEXT ·p256PointAddAffineAsm(SB),0,$512-48
@@ -528,8 +526,8 @@ TEXT ·p256PointAddAffineAsm(SB),0,$512-48
 	MOVOU zout(16*0), X4
 	MOVOU zout(16*1), X5
 
-	MOVL BX, X6 // sel 
-	MOVL CX, X7 // zero
+	MOVL sel_save, X6 // sel 
+	MOVL zero_save, X7 // zero
 
 	PXOR X8, X8 // X8's bits are all 0
 	PCMPEQL X9, X9 // X9's bits are all 1
@@ -626,13 +624,9 @@ pointaddaffine_avx2:
 
 	p256PointAddAffineInline()
 	// The result is not valid if (sel == 0), conditional choose
-	MOVL BX, X6 // sel
-	MOVL CX, X7 // zero
-
 	VPXOR Y8, Y8, Y8 // Y8's bits are all 0
-
-	VPBROADCASTD X6, Y6
-	VPBROADCASTD X7, Y7
+	VPBROADCASTD sel_save, Y6 // sel
+	VPBROADCASTD zero_save, Y7 // zero
 
 	VPCMPEQD Y8, Y6, Y6 // Y6's bits are all 1 if sel = 0, else are 0
 	VPCMPEQD Y8, Y7, Y7 // Y7's bits are all 1 if zero = 0, else are 0
