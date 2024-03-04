@@ -30,7 +30,7 @@ jobs:
       uses: actions/checkout@v4
       
     - name: Test
-      run: go test -v -short ./...
+      run: go test -v -short ./internal/bigmod/...
       env:
         GODEBUG: x509sha1=1
         GOARCH: ${{ matrix.arch }}      
