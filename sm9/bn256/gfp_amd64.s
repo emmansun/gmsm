@@ -1,4 +1,4 @@
-//go:build amd64 && !purego && !plugin
+//go:build !(purego || plugin)
 
 #include "textflag.h"
 #include "gfp_macros_amd64.s"

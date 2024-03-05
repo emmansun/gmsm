@@ -37,7 +37,7 @@ var curves = []struct {
 		P:       "SM2P256",
 		Element: "fiat.SM2P256Element",
 		Params: _sm2ec.P256().Params(),
-		BuildTags: "",
+		BuildTags: "purego || !(amd64 || arm64)",
 	},
 }
 

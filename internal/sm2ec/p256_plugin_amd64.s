@@ -5,7 +5,7 @@
 // https://link.springer.com/article/10.1007%2Fs13389-014-0090-x
 // https://eprint.iacr.org/2013/816.pdf
 // https://github.com/emmansun/gmsm/wiki/SM2-WWMM-(2)
-//go:build amd64 && !purego && plugin
+//go:build plugin && !purego
 
 // plugin mode - DO NOT use the R15 Register.
 // Below functions are different:

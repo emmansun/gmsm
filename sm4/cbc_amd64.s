@@ -1,4 +1,4 @@
-//go:build amd64 && !purego
+//go:build !purego
 
 #include "textflag.h"
 #include "aesni_macros_amd64.s"

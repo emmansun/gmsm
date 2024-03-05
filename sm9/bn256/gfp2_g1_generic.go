@@ -1,4 +1,4 @@
-//go:build (!amd64 && !arm64) || purego || plugin
+//go:build purego || plugin || !(amd64 || arm64)
 
 package bn256
 
