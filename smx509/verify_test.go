@@ -1915,11 +1915,13 @@ type trustGraphEdge struct {
 	Subject        string
 	Type           int
 	MutateTemplate func(*Certificate)
+	Constraint func([]*Certificate) error
 }
 
 type rootDescription struct {
 	Subject        string
 	MutateTemplate func(*Certificate)
+	Constraint func([]*Certificate) error
 }
 
 type trustGraphDescription struct {
@@ -1972,19 +1974,23 @@ func buildTrustGraph(t *testing.T, d trustGraphDescription) (*CertPool, *CertPoo
 
 	certs := map[string]*Certificate{}
 	keys := map[string]crypto.Signer{}
-	roots := []*Certificate{}
+	rootPool := NewCertPool()
 	for _, r := range d.Roots {
 		k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		if err != nil {
 			t.Fatalf("failed to generate test key: %s", err)
 		}
 		root := genCertEdge(t, r.Subject, k, r.MutateTemplate, rootCertificate, nil, nil)
-		roots = append(roots, root)
+		if r.Constraint != nil {
+			rootPool.AddCertWithConstraint(root, r.Constraint)
+		} else {
+			rootPool.AddCert(root)
+		}
 		certs[r.Subject] = root
 		keys[r.Subject] = k
 	}
 
-	intermediates := []*Certificate{}
+	intermediatePool := NewCertPool()
 	var leaf *Certificate
 	for _, e := range d.Graph {
 		issuerCert, ok := certs[e.Issuer]
@@ -2010,16 +2016,12 @@ func buildTrustGraph(t *testing.T, d trustGraphDescription) (*CertPool, *CertPoo
 		if e.Subject == d.Leaf {
 			leaf = cert
 		} else {
-			intermediates = append(intermediates, cert)
+			if e.Constraint != nil {
+				intermediatePool.AddCertWithConstraint(cert, e.Constraint)
+			} else {
+				intermediatePool.AddCert(cert)
+			}
 		}
-	}
-
-	rootPool, intermediatePool := NewCertPool(), NewCertPool()
-	for i := len(roots) - 1; i >= 0; i-- {
-		rootPool.AddCert(roots[i])
-	}
-	for i := len(intermediates) - 1; i >= 0; i-- {
-		intermediatePool.AddCert(intermediates[i])
 	}
 
 	return rootPool, intermediatePool, leaf
@@ -2476,6 +2478,78 @@ func TestPathBuilding(t *testing.T) {
 				},
 			},
 			expectedChains: []string{"CN=leaf -> CN=inter -> CN=root"},
+		},
+		{
+			// A code constraint on the root, applying to one of two intermediates in the graph, should
+			// result in only one valid chain.
+			name: "code constrained root, two paths, one valid",
+			graph: trustGraphDescription{
+				Roots: []rootDescription{{Subject: "root", Constraint: func(chain []*Certificate) error {
+					for _, c := range chain {
+						if c.Subject.CommonName == "inter a" {
+							return errors.New("bad")
+						}
+					}
+					return nil
+				}}},
+				Leaf: "leaf",
+				Graph: []trustGraphEdge{
+					{
+						Issuer:  "root",
+						Subject: "inter a",
+						Type:    intermediateCertificate,
+					},
+					{
+						Issuer:  "root",
+						Subject: "inter b",
+						Type:    intermediateCertificate,
+					},
+					{
+						Issuer:  "inter a",
+						Subject: "inter c",
+						Type:    intermediateCertificate,
+					},
+					{
+						Issuer:  "inter b",
+						Subject: "inter c",
+						Type:    intermediateCertificate,
+					},
+					{
+						Issuer:  "inter c",
+						Subject: "leaf",
+						Type:    leafCertificate,
+					},
+				},
+			},
+			expectedChains: []string{"CN=leaf -> CN=inter c -> CN=inter b -> CN=root"},
+		},
+		{
+			// A code constraint on the root, applying to the only path, should result in an error.
+			name: "code constrained root, one invalid path",
+			graph: trustGraphDescription{
+				Roots: []rootDescription{{Subject: "root", Constraint: func(chain []*Certificate) error {
+					for _, c := range chain {
+						if c.Subject.CommonName == "leaf" {
+							return errors.New("bad")
+						}
+					}
+					return nil
+				}}},
+				Leaf: "leaf",
+				Graph: []trustGraphEdge{
+					{
+						Issuer:  "root",
+						Subject: "inter",
+						Type:    intermediateCertificate,
+					},
+					{
+						Issuer:  "inter",
+						Subject: "leaf",
+						Type:    leafCertificate,
+					},
+				},
+			},
+			expectedErr: "x509: certificate signed by unknown authority (possibly because of \"bad\" while trying to verify candidate authority certificate \"root\")",
 		},		
 	}
 
@@ -2689,4 +2763,23 @@ func TestVerifyEKURootAsLeaf(t *testing.T) {
 		})
 	}
 
+}
+
+func TestVerifyNilPubKey(t *testing.T) {
+	c := &Certificate{
+		RawIssuer:      []byte{1, 2, 3},
+		AuthorityKeyId: []byte{1, 2, 3},
+	}
+	opts := &VerifyOptions{}
+	opts.Roots = NewCertPool()
+	r := &Certificate{
+		RawSubject:   []byte{1, 2, 3},
+		SubjectKeyId: []byte{1, 2, 3},
+	}
+	opts.Roots.AddCert(r)
+
+	_, err := c.buildChains([]*Certificate{r}, nil, opts)
+	if _, ok := err.(UnknownAuthorityError); !ok {
+		t.Fatalf("buildChains returned unexpected error, got: %v, want %v", err, UnknownAuthorityError{})
+	}
 }
