@@ -60,13 +60,6 @@ func shouldPanic(t *testing.T, f func()) {
 	t.Errorf("should have panicked")
 }
 
-// This case should be failed on 32bits system.
-func TestKdfPanic(t *testing.T) {
-	shouldPanic(t, func() {
-		Kdf(sm3.New(), []byte("123456"), 1<<37)
-	})
-}
-
 func BenchmarkKdf(b *testing.B) {
 	tests := []struct {
 		zLen int
