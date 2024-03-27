@@ -73,7 +73,7 @@ func (g *gcmNI) Seal(dst, nonce, plaintext, data []byte) []byte {
 		gcmSm4Finish(&g.bytesProductTable, &tagMask, &counter, uint64(len(nonce)), uint64(0))
 	}
 
-	g.cipher.Encrypt(tagMask[:], counter[:])
+	encryptBlockAsm(&g.cipher.enc[0], &tagMask[0], &counter[0], INST_SM4)
 
 	var tagOut [gcmTagSize]byte
 	gcmSm4Data(&g.bytesProductTable, data, &tagOut)
@@ -127,7 +127,7 @@ func (g *gcmNI) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 		gcmSm4Finish(&g.bytesProductTable, &tagMask, &counter, uint64(len(nonce)), uint64(0))
 	}
 
-	g.cipher.Encrypt(tagMask[:], counter[:])
+	encryptBlockAsm(&g.cipher.enc[0], &tagMask[0], &counter[0], INST_SM4)
 
 	var expectedTag [gcmTagSize]byte
 	gcmSm4Data(&g.bytesProductTable, data, &expectedTag)

@@ -80,7 +80,7 @@ func (g *gcmAsm) Seal(dst, nonce, plaintext, data []byte) []byte {
 		gcmSm4Finish(&g.bytesProductTable, &tagMask, &counter, uint64(len(nonce)), uint64(0))
 	}
 
-	g.cipher.Encrypt(tagMask[:], counter[:])
+	g.cipher.encrypt(tagMask[:], counter[:])
 
 	var tagOut [gcmTagSize]byte
 	gcmSm4Data(&g.bytesProductTable, data, &tagOut)
@@ -134,7 +134,7 @@ func (g *gcmAsm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 		gcmSm4Finish(&g.bytesProductTable, &tagMask, &counter, uint64(len(nonce)), uint64(0))
 	}
 
-	g.cipher.Encrypt(tagMask[:], counter[:])
+	g.cipher.encrypt(tagMask[:], counter[:])
 
 	var expectedTag [gcmTagSize]byte
 	gcmSm4Data(&g.bytesProductTable, data, &expectedTag)

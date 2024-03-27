@@ -66,7 +66,8 @@ func (x *ctr) refill() {
 	copy(x.out, x.out[x.outUsed:])
 	x.out = x.out[:cap(x.out)]
 	for remain <= len(x.out)-x.b.blocksSize {
-		x.b.EncryptBlocks(x.out[remain:], x.ctr)
+		encryptBlocksAsm(&x.b.enc[0], x.out[remain:], x.ctr, INST_AES)
+
 		remain += x.b.blocksSize
 
 		// Generate complelte [x.b.batchBlocks] counters

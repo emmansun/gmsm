@@ -93,7 +93,7 @@ func (g *gcm) Seal(dst, nonce, plaintext, data []byte) []byte {
 	var counter, tagMask [gcmBlockSize]byte
 	g.deriveCounter(&counter, nonce)
 
-	g.cipher.Encrypt(tagMask[:], counter[:])
+	g.cipher.encrypt(tagMask[:], counter[:])
 	gcmInc32(&counter)
 
 	g.counterCrypt(out, plaintext, &counter)
@@ -130,7 +130,7 @@ func (g *gcm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 	var counter, tagMask [gcmBlockSize]byte
 	g.deriveCounter(&counter, nonce)
 
-	g.cipher.Encrypt(tagMask[:], counter[:])
+	g.cipher.encrypt(tagMask[:], counter[:])
 	gcmInc32(&counter)
 
 	var expectedTag [gcmTagSize]byte

@@ -71,6 +71,10 @@ func (c *sm4CipherAsm) Encrypt(dst, src []byte) {
 	if alias.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
+	c.encrypt(dst, src)
+}
+
+func (c *sm4CipherAsm) encrypt(dst, src []byte) {
 	if useAESNI4SingleBlock {
 		encryptBlockAsm(&c.enc[0], &dst[0], &src[0], INST_AES)
 	} else {
