@@ -64,7 +64,7 @@ func (x *cbc) CryptBlocks(dst, src []byte) {
 		for len(src) >= BlockSize {
 			// Write the xor to dst, then encrypt in place.
 			subtle.XORBytes(dst[:BlockSize], src[:BlockSize], iv)
-			x.b.Encrypt(dst[:BlockSize], dst[:BlockSize])
+			x.b.encrypt(dst[:BlockSize], dst[:BlockSize])
 
 			// Move to the next block with this block as the next iv.
 			iv = dst[:BlockSize]
