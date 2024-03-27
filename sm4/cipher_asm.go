@@ -51,12 +51,12 @@ func newCipher(key []byte) (cipher.Block, error) {
 	if useAVX2 {
 		blocks = 8
 	}
-	c := &sm4CipherAsm{sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}, blocks, blocks * BlockSize}
+	c := &sm4CipherGCM{sm4CipherAsm{sm4Cipher{}, blocks, blocks * BlockSize}}
 	expandKeyAsm(&key[0], &ck[0], &c.enc[0], &c.dec[0], INST_AES)
 	if supportsGFMUL {
-		return &sm4CipherGCM{c}, nil
+		return c, nil
 	}
-	return c, nil
+	return &c.sm4CipherAsm, nil
 }
 
 func (c *sm4CipherAsm) Concurrency() int { return c.batchBlocks }
@@ -74,7 +74,7 @@ func (c *sm4CipherAsm) Encrypt(dst, src []byte) {
 	if useAESNI4SingleBlock {
 		encryptBlockAsm(&c.enc[0], &dst[0], &src[0], INST_AES)
 	} else {
-		encryptBlockGo(c.enc, dst, src)
+		encryptBlockGo(&c.enc, dst, src)
 	}
 }
 
@@ -91,7 +91,7 @@ func (c *sm4CipherAsm) Decrypt(dst, src []byte) {
 	if useAESNI4SingleBlock {
 		encryptBlockAsm(&c.dec[0], &dst[0], &src[0], INST_AES)
 	} else {
-		encryptBlockGo(c.dec, dst, src)
+		encryptBlockGo(&c.dec, dst, src)
 	}
 }
 
@@ -129,6 +129,6 @@ func expandKey(key []byte, enc, dec []uint32) {
 	} else if supportsAES {
 		expandKeyAsm(&key[0], &ck[0], &enc[0], &dec[0], INST_AES)
 	} else {
-		expandKeyGo(key, enc, dec)
+		expandKeyGo(key, (*[rounds]uint32)(enc), (*[rounds]uint32)(dec))
 	}
 }

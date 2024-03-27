@@ -13,12 +13,12 @@ type sm4CipherNI struct {
 }
 
 func newCipherNI(key []byte) (cipher.Block, error) {
-	c := &sm4CipherNI{sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}}
+	c := &sm4CipherNIGCM{sm4CipherNI{sm4Cipher{}}}
 	expandKeyAsm(&key[0], &ck[0], &c.enc[0], &c.dec[0], INST_SM4)
 	if supportsGFMUL {
-		return &sm4CipherNIGCM{c}, nil
+		return c, nil
 	}
-	return c, nil
+	return &c.sm4CipherNI, nil
 }
 
 func (c *sm4CipherNI) Encrypt(dst, src []byte) {

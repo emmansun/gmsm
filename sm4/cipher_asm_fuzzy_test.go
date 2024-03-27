@@ -13,8 +13,8 @@ import (
 func TestExpandKey(t *testing.T) {
 	key := make([]byte, 16)
 
-	encRes1 := make([]uint32, 32)
-	decRes1 := make([]uint32, 32)
+	var encRes1 [rounds]uint32
+	var decRes1 [rounds]uint32
 	encRes2 := make([]uint32, 32)
 	decRes2 := make([]uint32, 32)
 	var timeout *time.Timer
@@ -32,13 +32,13 @@ func TestExpandKey(t *testing.T) {
 		default:
 		}
 		io.ReadFull(rand.Reader, key)
-		expandKeyGo(key, encRes1, decRes1)
+		expandKeyGo(key, &encRes1, &decRes1)
 		expandKey(key, encRes2, decRes2)
-		if !reflect.DeepEqual(encRes1, encRes2) {
-			t.Errorf("expected=%x, result=%x\n", encRes1, encRes2)
+		if !reflect.DeepEqual(encRes1[:], encRes2) {
+			t.Errorf("expected=%x, result=%x\n", encRes1[:], encRes2)
 		}
-		if !reflect.DeepEqual(decRes1, decRes2) {
-			t.Errorf("expected=%x, result=%x\n", encRes1, encRes2)
+		if !reflect.DeepEqual(decRes1[:], decRes2) {
+			t.Errorf("expected=%x, result=%x\n", decRes1[:], decRes2)
 		}
 	}
 }

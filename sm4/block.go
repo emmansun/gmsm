@@ -7,9 +7,8 @@ import (
 )
 
 // Encrypt one block from src into dst, using the expanded key xk.
-func encryptBlockGo(xk []uint32, dst, src []byte) {
+func encryptBlockGo(xk *[rounds]uint32, dst, src []byte) {
 	_ = src[15] // early bounds check
-	_ = xk[31]  // bounds check elimination hint
 
 	var b0, b1, b2, b3 uint32
 	b0 = binary.BigEndian.Uint32(src[0:4])
@@ -68,10 +67,8 @@ func encryptBlockGo(xk []uint32, dst, src []byte) {
 }
 
 // Key expansion algorithm.
-func expandKeyGo(key []byte, enc, dec []uint32) {
+func expandKeyGo(key []byte, enc, dec *[rounds]uint32) {
 	// Encryption key setup.
-	enc = enc[:rounds]
-	dec = dec[:rounds]
 	key = key[:KeySize]
 	var b0, b1, b2, b3 uint32
 	b0 = binary.BigEndian.Uint32(key[:4]) ^ fk[0]

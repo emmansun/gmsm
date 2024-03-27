@@ -15,8 +15,8 @@ const rounds = 32
 
 // A cipher is an instance of SM4 encryption using a particular key.
 type sm4Cipher struct {
-	enc []uint32
-	dec []uint32
+	enc [rounds]uint32
+	dec [rounds]uint32
 }
 
 // NewCipher creates and returns a new cipher.Block.
@@ -35,9 +35,9 @@ func NewCipher(key []byte) (cipher.Block, error) {
 // newCipher creates and returns a new cipher.Block
 // implemented in pure Go.
 func newCipherGeneric(key []byte) (cipher.Block, error) {
-	c := sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}
-	expandKeyGo(key, c.enc, c.dec)
-	return &c, nil
+	c := &sm4Cipher{}
+	expandKeyGo(key, &c.enc, &c.dec)
+	return c, nil
 }
 
 func (c *sm4Cipher) BlockSize() int { return BlockSize }
@@ -52,7 +52,7 @@ func (c *sm4Cipher) Encrypt(dst, src []byte) {
 	if alias.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
-	encryptBlockGo(c.enc, dst, src)
+	encryptBlockGo(&c.enc, dst, src)
 }
 
 func (c *sm4Cipher) Decrypt(dst, src []byte) {
@@ -65,5 +65,5 @@ func (c *sm4Cipher) Decrypt(dst, src []byte) {
 	if alias.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
 		panic("sm4: invalid buffer overlap")
 	}
-	encryptBlockGo(c.dec, dst, src)
+	encryptBlockGo(&c.dec, dst, src)
 }

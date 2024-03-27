@@ -114,12 +114,3 @@ func BenchmarkDecrypt(b *testing.B) {
 		c.Decrypt(out, tt.out)
 	}
 }
-
-func BenchmarkExpand(b *testing.B) {
-	tt := encryptTests[0]
-	c := &sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		expandKey(tt.key, c.enc, c.dec)
-	}
-}

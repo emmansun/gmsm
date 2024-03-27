@@ -25,7 +25,7 @@ func TestWithoutGFMUL(t *testing.T) {
 		if useAVX2 {
 			blocks = 8
 		}
-		c1 := &sm4CipherAsm{sm4Cipher{make([]uint32, rounds), make([]uint32, rounds)}, blocks, blocks * BlockSize}
+		c1 := &sm4CipherAsm{sm4Cipher{}, blocks, blocks * BlockSize}
 		expandKeyAsm(&key[0], &ck[0], &c1.enc[0], &c1.dec[0], INST_AES)
 		c = c1
 	}

@@ -13,7 +13,7 @@ import (
 // will use the optimised implementation in this file when possible. Instances
 // of this type only exist when hasGCMAsm and hasAES returns true.
 type sm4CipherGCM struct {
-	*sm4CipherAsm
+	sm4CipherAsm
 }
 
 // Assert that sm4CipherGCM implements the gcmAble interface.
@@ -43,10 +43,10 @@ type gcmAsm struct {
 // called by crypto/cipher.NewGCM via the gcmAble interface.
 func (c *sm4CipherGCM) NewGCM(nonceSize, tagSize int) (cipher.AEAD, error) {
 	g := &gcmAsm{}
-	g.cipher = c.sm4CipherAsm
+	g.cipher = &c.sm4CipherAsm
 	g.nonceSize = nonceSize
 	g.tagSize = tagSize
-	gcmSm4Init(&g.bytesProductTable, g.cipher.enc, INST_AES)
+	gcmSm4Init(&g.bytesProductTable, g.cipher.enc[:], INST_AES)
 	return g, nil
 }
 
@@ -91,7 +91,7 @@ func (g *gcmAsm) Seal(dst, nonce, plaintext, data []byte) []byte {
 	}
 
 	if len(plaintext) > 0 {
-		gcmSm4Enc(&g.bytesProductTable, out, plaintext, &counter, &tagOut, g.cipher.enc)
+		gcmSm4Enc(&g.bytesProductTable, out, plaintext, &counter, &tagOut, g.cipher.enc[:])
 	}
 	gcmSm4Finish(&g.bytesProductTable, &tagMask, &tagOut, uint64(len(plaintext)), uint64(len(data)))
 	copy(out[len(plaintext):], tagOut[:])
@@ -144,7 +144,7 @@ func (g *gcmAsm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 		panic("cipher: invalid buffer overlap")
 	}
 	if len(ciphertext) > 0 {
-		gcmSm4Dec(&g.bytesProductTable, out, ciphertext, &counter, &expectedTag, g.cipher.enc)
+		gcmSm4Dec(&g.bytesProductTable, out, ciphertext, &counter, &expectedTag, g.cipher.enc[:])
 	}
 	gcmSm4Finish(&g.bytesProductTable, &tagMask, &expectedTag, uint64(len(ciphertext)), uint64(len(data)))
 

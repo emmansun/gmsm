@@ -19,7 +19,7 @@ func gcmSm4niDec(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk 
 // will use the optimised implementation in this file when possible. Instances
 // of this type only exist when hasGCMAsm and hasSM4 returns true.
 type sm4CipherNIGCM struct {
-	*sm4CipherNI
+	sm4CipherNI
 }
 
 // Assert that sm4CipherNIGCM implements the gcmAble interface.
@@ -44,10 +44,10 @@ func (g *gcmNI) Overhead() int {
 // called by crypto/cipher.NewGCM via the gcmAble interface.
 func (c *sm4CipherNIGCM) NewGCM(nonceSize, tagSize int) (cipher.AEAD, error) {
 	g := &gcmNI{}
-	g.cipher = c.sm4CipherNI
+	g.cipher = &c.sm4CipherNI
 	g.nonceSize = nonceSize
 	g.tagSize = tagSize
-	gcmSm4Init(&g.bytesProductTable, g.cipher.enc, INST_SM4)
+	gcmSm4Init(&g.bytesProductTable, g.cipher.enc[:], INST_SM4)
 	return g, nil
 }
 
@@ -84,7 +84,7 @@ func (g *gcmNI) Seal(dst, nonce, plaintext, data []byte) []byte {
 	}
 
 	if len(plaintext) > 0 {
-		gcmSm4niEnc(&g.bytesProductTable, out, plaintext, &counter, &tagOut, g.cipher.enc)
+		gcmSm4niEnc(&g.bytesProductTable, out, plaintext, &counter, &tagOut, g.cipher.enc[:])
 	}
 	gcmSm4Finish(&g.bytesProductTable, &tagMask, &tagOut, uint64(len(plaintext)), uint64(len(data)))
 	copy(out[len(plaintext):], tagOut[:])
@@ -137,7 +137,7 @@ func (g *gcmNI) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 		panic("cipher: invalid buffer overlap")
 	}
 	if len(ciphertext) > 0 {
-		gcmSm4niDec(&g.bytesProductTable, out, ciphertext, &counter, &expectedTag, g.cipher.enc)
+		gcmSm4niDec(&g.bytesProductTable, out, ciphertext, &counter, &expectedTag, g.cipher.enc[:])
 	}
 	gcmSm4Finish(&g.bytesProductTable, &tagMask, &expectedTag, uint64(len(ciphertext)), uint64(len(data)))
 
