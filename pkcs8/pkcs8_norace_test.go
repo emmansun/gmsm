@@ -1,5 +1,3 @@
-//go:build !race
-
 package pkcs8_test
 
 import (
