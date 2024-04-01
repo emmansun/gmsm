@@ -24,7 +24,6 @@ non_avx2:
 aligned:
 	MOVQ $0, AX // position in slices
 
-	PCALIGN $16
 loop16b:
 	MOVOU (SI)(AX*1), X0   // XOR 16byte forwards.
 	MOVOU (CX)(AX*1), X1
@@ -35,7 +34,6 @@ loop16b:
 	JNE   loop16b
 	RET
 
-	PCALIGN $16
 loop_1b:
 	SUBQ  $1, DX           // XOR 1byte backwards.
 	MOVB  (SI)(DX*1), DI
@@ -78,7 +76,6 @@ avx2_aligned:              // input length = 16*n, where n is greater or equal 2
 loop32b_start:
 	MOVQ $0, AX            // position in slices
 
-	PCALIGN $32
 loop32b:
 	VMOVDQU (SI)(AX*1), Y0   // XOR 32byte forwards.
 	VPXOR (CX)(AX*1), Y0, Y0
@@ -91,7 +88,6 @@ avx2_ret:
 	VZEROUPPER
 	RET
 
-	PCALIGN $16
 avx2_loop_1b:
 	SUBQ  $1, DX           // XOR 1byte backwards.
 	MOVB  (SI)(DX*1), DI
