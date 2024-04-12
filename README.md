@@ -13,6 +13,12 @@
 
 Go语言商用密码软件，简称**GMSM**，一个安全、高性能、易于使用的Go语言商用密码软件库，涵盖商用密码公开算法SM2/SM3/SM4/SM9/ZUC。
 
+## 用户文档
+* [SM2椭圆曲线公钥密码算法应用指南](./docs/sm2.md) 
+* [SM3密码杂凑算法应用指南](./docs/sm3.md) 
+* [SM4分组密码算法应用指南](./docs/sm4.md) 
+* [SM9标识密码算法应用指南](./docs/sm9.md)
+
 ## 包结构
 * **SM2** - SM2椭圆曲线公钥密码算法，曲线的具体实现位于[internal/sm2ec](https://github.com/emmansun/gmsm/tree/main/internal/sm2ec) package中。SM2曲线实现性能和Golang SDK中的NIST P256椭圆曲线原生实现（非BoringCrypto）类似，也对**amd64** 和 **arm64**架构做了专门汇编优化实现，您也可以参考[SM2实现细节](https://github.com/emmansun/gmsm/wiki/SM2%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96)及相关Wiki和代码，以获得更多实现细节。SM2包实现了SM2椭圆曲线公钥密码算法的数字签名算法、公钥加密算法、密钥交换算法，以及《GB/T 35276-2017信息安全技术 SM2密码算法使用规范》中的密钥对保护数据格式。
 
@@ -39,12 +45,6 @@ Go语言商用密码软件，简称**GMSM**，一个安全、高性能、易于�
 * **ECDH** - 一个类似Go语言中ECDH包的实现，支持SM2椭圆曲线密码算法的ECDH & SM2MQV协议，该实现没有使用 **big.Int**，也是一个SM2包中密钥交换协议实现的替换实现（推荐使用）。
 
 * **DRBG** - 《GM/T 0105-2021软件随机数发生器设计指南》实现。本实现同时支持**NIST Special Publication 800-90A**（部分） 和 **GM/T 0105-2021**，NIST相关实现使用了NIST提供的测试数据进行测试。本实现**不支持并发使用**。
-
-## 用户文档
-* [SM2椭圆曲线公钥密码算法应用指南](./docs/sm2.md) 
-* [SM3密码杂凑算法应用指南](./docs/sm3.md) 
-* [SM4分组密码算法应用指南](./docs/sm4.md) 
-* [SM9标识密码算法应用指南](./docs/sm9.md)
 
 ## 相关项目
 * **[Trisia/TLCP](https://github.com/Trisia/gotlcp)** - 一个《GB/T 38636-2020 信息安全技术 传输层密码协议》Go语言实现项目。 
