@@ -823,12 +823,13 @@ func BenchmarkVerify_SM2(b *testing.B) {
 	}
 }
 
-func benchmarkEncrypt(b *testing.B, curve elliptic.Curve, plaintext string) {
+func benchmarkEncrypt(b *testing.B, curve elliptic.Curve, plaintext []byte) {
 	r := bufio.NewReaderSize(rand.Reader, 1<<15)
 	priv, err := ecdsa.GenerateKey(curve, r)
 	if err != nil {
 		b.Fatal(err)
 	}
+	b.SetBytes(int64(len(plaintext)))
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -836,26 +837,30 @@ func benchmarkEncrypt(b *testing.B, curve elliptic.Curve, plaintext string) {
 	}
 }
 
-func BenchmarkLessThan32_P256(b *testing.B) {
-	benchmarkEncrypt(b, elliptic.P256(), "encryption standard")
+func BenchmarkEncryptNoMoreThan32_P256(b *testing.B) {
+	benchmarkEncrypt(b, elliptic.P256(), make([]byte, 31))
 }
 
-func BenchmarkLessThan32_SM2(b *testing.B) {
-	benchmarkEncrypt(b, P256(), "encryption standard")
+func BenchmarkEncryptNoMoreThan32_SM2(b *testing.B) {
+	benchmarkEncrypt(b, P256(), make([]byte, 31))
 }
 
-func BenchmarkMoreThan32_P256(b *testing.B) {
-	benchmarkEncrypt(b, elliptic.P256(), "encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard")
+func BenchmarkEncrypt128_P256(b *testing.B) {
+	benchmarkEncrypt(b, elliptic.P256(), make([]byte, 128))
 }
 
-func BenchmarkMoreThan32_SM2(b *testing.B) {
-	benchmarkEncrypt(b, P256(), "encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard")
+func BenchmarkEncrypt128_SM2(b *testing.B) {
+	benchmarkEncrypt(b, P256(), make([]byte, 128))
 }
 
 func BenchmarkEncrypt512_SM2(b *testing.B) {
-	benchmarkEncrypt(b, P256(), "encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption s")
+	benchmarkEncrypt(b, P256(), make([]byte, 512))
 }
 
-func BenchmarkEncrypt1024_SM2(b *testing.B) {
-	benchmarkEncrypt(b, P256(), "encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption sencryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption standard encryption s")
+func BenchmarkEncrypt1K_SM2(b *testing.B) {
+	benchmarkEncrypt(b, P256(), make([]byte, 1024))
+}
+
+func BenchmarkEncrypt8K_SM2(b *testing.B) {
+	benchmarkEncrypt(b, P256(), make([]byte, 8*1024))
 }

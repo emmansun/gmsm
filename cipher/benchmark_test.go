@@ -14,11 +14,10 @@ import (
 func BenchmarkSM4BCEncrypt1K(b *testing.B) {
 	var key [16]byte
 	c, _ := sm4.NewCipher(key[:])
-	benchmarkBCEncrypt1K(b, c)
+	benchmarkBCEncrypt(b, c, make([]byte, 1024))
 }
 
-func benchmarkBCEncrypt1K(b *testing.B, block cipher.Block) {
-	buf := make([]byte, 1024)
+func benchmarkBCEncrypt(b *testing.B, block cipher.Block, buf []byte) {
 	b.SetBytes(int64(len(buf)))
 
 	var iv [16]byte
@@ -31,11 +30,10 @@ func benchmarkBCEncrypt1K(b *testing.B, block cipher.Block) {
 func BenchmarkSM4BCDecrypt1K(b *testing.B) {
 	var key [16]byte
 	c, _ := sm4.NewCipher(key[:])
-	benchmarkBCDecrypt1K(b, c)
+	benchmarkBCDecrypt(b, c, make([]byte, 1024))
 }
 
-func benchmarkBCDecrypt1K(b *testing.B, block cipher.Block) {
-	buf := make([]byte, 1024)
+func benchmarkBCDecrypt(b *testing.B, block cipher.Block, buf []byte) {
 	b.SetBytes(int64(len(buf)))
 
 	var iv [16]byte
@@ -59,8 +57,7 @@ func BenchmarkSM4HCTREncrypt1K(b *testing.B) {
 	}
 }
 
-func benchmarkECBEncrypt1K(b *testing.B, block cipher.Block) {
-	buf := make([]byte, 1024)
+func benchmarkECBEncrypt(b *testing.B, block cipher.Block, buf []byte) {
 	b.SetBytes(int64(len(buf)))
 
 	ecb := smcipher.NewECBEncrypter(block)
@@ -72,17 +69,16 @@ func benchmarkECBEncrypt1K(b *testing.B, block cipher.Block) {
 func BenchmarkSM4ECBEncrypt1K(b *testing.B) {
 	var key [16]byte
 	c, _ := sm4.NewCipher(key[:])
-	benchmarkECBEncrypt1K(b, c)
+	benchmarkECBEncrypt(b, c, make([]byte, 1024))
 }
 
 func BenchmarkAES128ECBEncrypt1K(b *testing.B) {
 	var key [16]byte
 	c, _ := aes.NewCipher(key[:])
-	benchmarkECBEncrypt1K(b, c)
+	benchmarkECBEncrypt(b, c, make([]byte, 1024))
 }
 
-func benchmarkCBCEncrypt1K(b *testing.B, block cipher.Block) {
-	buf := make([]byte, 1024)
+func benchmarkCBCEncrypt(b *testing.B, block cipher.Block, buf []byte) {
 	b.SetBytes(int64(len(buf)))
 
 	var iv [16]byte
@@ -95,17 +91,22 @@ func benchmarkCBCEncrypt1K(b *testing.B, block cipher.Block) {
 func BenchmarkAESCBCEncrypt1K(b *testing.B) {
 	var key [16]byte
 	c, _ := aes.NewCipher(key[:])
-	benchmarkCBCEncrypt1K(b, c)
+	benchmarkCBCEncrypt(b, c, make([]byte, 1024))
 }
 
 func BenchmarkSM4CBCEncrypt1K(b *testing.B) {
 	var key [16]byte
 	c, _ := sm4.NewCipher(key[:])
-	benchmarkCBCEncrypt1K(b, c)
+	benchmarkCBCEncrypt(b, c, make([]byte, 1024))
 }
 
-func benchmarkCBCDecrypt1K(b *testing.B, block cipher.Block) {
-	buf := make([]byte, 1024)
+func BenchmarkSM4CBCEncrypt8K(b *testing.B) {
+	var key [16]byte
+	c, _ := sm4.NewCipher(key[:])
+	benchmarkCBCEncrypt(b, c, make([]byte, 8*1024))
+}
+
+func benchmarkCBCDecrypt(b *testing.B, block cipher.Block, buf []byte) {
 	b.SetBytes(int64(len(buf)))
 
 	var iv [16]byte
@@ -118,13 +119,13 @@ func benchmarkCBCDecrypt1K(b *testing.B, block cipher.Block) {
 func BenchmarkAESCBCDecrypt1K(b *testing.B) {
 	var key [16]byte
 	c, _ := aes.NewCipher(key[:])
-	benchmarkCBCDecrypt1K(b, c)
+	benchmarkCBCDecrypt(b, c, make([]byte, 1024))
 }
 
 func BenchmarkSM4CBCDecrypt1K(b *testing.B) {
 	var key [16]byte
 	c, _ := sm4.NewCipher(key[:])
-	benchmarkCBCDecrypt1K(b, c)
+	benchmarkCBCDecrypt(b, c, make([]byte, 1024))
 }
 
 func benchmarkStream(b *testing.B, block cipher.Block, mode func(cipher.Block, []byte) cipher.Stream, buf []byte) {
