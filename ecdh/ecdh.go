@@ -9,7 +9,6 @@ import (
 	"io"
 	"sync"
 
-	"github.com/emmansun/gmsm/kdf"
 	"github.com/emmansun/gmsm/sm3"
 )
 
@@ -129,7 +128,7 @@ func (uv *PublicKey) SM2SharedKey(isResponder bool, kenLen int, sPub, sRemote *P
 		copy(buffer[96:], peerZ)
 	}
 
-	return kdf.Kdf(sm3.New(), buffer[:], kenLen), nil
+	return sm3.Kdf(buffer[:], kenLen), nil
 }
 
 // PrivateKey is an ECDH private key, usually kept secret.
