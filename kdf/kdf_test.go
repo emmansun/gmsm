@@ -31,7 +31,7 @@ func TestKdf(t *testing.T) {
 	for _, tt := range tests {
 		wantBytes, _ := hex.DecodeString(tt.want)
 		t.Run(tt.name, func(t *testing.T) {
-			if got := Kdf(tt.args.md, tt.args.z, tt.args.len); !reflect.DeepEqual(got, wantBytes) {
+			if got := Kdf(sm3.New, tt.args.z, tt.args.len); !reflect.DeepEqual(got, wantBytes) {
 				t.Errorf("Kdf(%v) = %x, want %v", tt.name, got, tt.want)
 			}
 		})
@@ -44,7 +44,7 @@ func TestKdfOldCase(t *testing.T) {
 
 	expected := "006e30dae231b071dfad8aa379e90264491603"
 
-	result := Kdf(sm3.New(), append(x2.Bytes(), y2.Bytes()...), 19)
+	result := Kdf(sm3.New, append(x2.Bytes(), y2.Bytes()...), 19)
 
 	resultStr := hex.EncodeToString(result)
 
@@ -71,16 +71,17 @@ func BenchmarkKdf(b *testing.B) {
 		{64, 32},
 		{64, 64},
 		{64, 128},
-		{440, 32},
+		{64, 256},
+		{64, 512},
+		{64, 1024},
 	}
-	sm3Hash := sm3.New()
 	z := make([]byte, 512)
 	for _, tt := range tests {
 		b.Run(fmt.Sprintf("zLen=%v-kLen=%v", tt.zLen, tt.kLen), func(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				Kdf(sm3Hash, z[:tt.zLen], tt.kLen)
+				Kdf(sm3.New, z[:tt.zLen], tt.kLen)
 			}
 		})
 	}

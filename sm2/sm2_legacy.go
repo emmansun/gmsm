@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/emmansun/gmsm/internal/subtle"
-	"github.com/emmansun/gmsm/kdf"
 	"github.com/emmansun/gmsm/sm2/sm2ec"
 	"github.com/emmansun/gmsm/sm3"
 	"golang.org/x/crypto/cryptobyte"
@@ -260,7 +259,7 @@ func encryptLegacy(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Enc
 		x2, y2 := curve.ScalarMult(pub.X, pub.Y, k.Bytes())
 
 		//A5, calculate t=KDF(x2||y2, klen)
-		c2 := kdf.Kdf(sm3.New(), append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
+		c2 := sm3.Kdf(append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
 		if subtle.ConstantTimeAllZero(c2) {
 			retryCount++
 			if retryCount > maxRetryLimit {
@@ -408,7 +407,7 @@ func rawDecrypt(priv *PrivateKey, x1, y1 *big.Int, c2, c3 []byte) ([]byte, error
 	curve := priv.Curve
 	x2, y2 := curve.ScalarMult(x1, y1, priv.D.Bytes())
 	msgLen := len(c2)
-	msg := kdf.Kdf(sm3.New(), append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
+	msg := sm3.Kdf(append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
 	if subtle.ConstantTimeAllZero(c2) {
 		return nil, ErrDecryption
 	}

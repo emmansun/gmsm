@@ -2,27 +2,48 @@
 package kdf
 
 import (
+	"encoding"
 	"encoding/binary"
 	"hash"
 )
 
 // Kdf key derivation function, compliance with GB/T 32918.4-2016 5.4.3.
 // ANSI-X9.63-KDF
-func Kdf(md hash.Hash, z []byte, len int) []byte {
-	limit := uint64(len+md.Size()-1) / uint64(md.Size())
+func Kdf(newHash func() hash.Hash, z []byte, keyLen int) []byte {
+	baseMD := newHash()
+	limit := uint64(keyLen+baseMD.Size()-1) / uint64(baseMD.Size())
 	if limit >= uint64(1<<32)-1 {
 		panic("kdf: key length too long")
 	}
 	var countBytes [4]byte
 	var ct uint32 = 1
 	var k []byte
-	for i := 0; i < int(limit); i++ {
-		binary.BigEndian.PutUint32(countBytes[:], ct)
-		md.Write(z)
-		md.Write(countBytes[:])
-		k = md.Sum(k)
-		ct++
-		md.Reset()
+
+	marshaler, ok := baseMD.(encoding.BinaryMarshaler)
+	if limit == 1 || len(z) < baseMD.BlockSize() || !ok {
+		for i := 0; i < int(limit); i++ {
+			binary.BigEndian.PutUint32(countBytes[:], ct)
+			baseMD.Write(z)
+			baseMD.Write(countBytes[:])
+			k = baseMD.Sum(k)
+			ct++
+			baseMD.Reset()
+		}
+	} else {
+		baseMD.Write(z)
+		zstate, _ := marshaler.MarshalBinary()
+		for i := 0; i < int(limit); i++ {
+			md := newHash()
+			err := md.(encoding.BinaryUnmarshaler).UnmarshalBinary(zstate)
+			if err != nil {
+				panic(err)
+			}
+			binary.BigEndian.PutUint32(countBytes[:], ct)
+			md.Write(countBytes[:])
+			k = md.Sum(k)
+			ct++
+		}		
 	}
-	return k[:len]
+
+	return k[:keyLen]
 }

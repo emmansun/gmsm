@@ -12,7 +12,6 @@ import (
 	"github.com/emmansun/gmsm/internal/bigmod"
 	"github.com/emmansun/gmsm/internal/randutil"
 	"github.com/emmansun/gmsm/internal/subtle"
-	"github.com/emmansun/gmsm/kdf"
 	"github.com/emmansun/gmsm/sm3"
 	"github.com/emmansun/gmsm/sm9/bn256"
 	"golang.org/x/crypto/cryptobyte"
@@ -317,7 +316,7 @@ func WrapKey(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, 
 		buffer = append(buffer, w.Marshal()...)
 		buffer = append(buffer, uid...)
 
-		key = kdf.Kdf(sm3.New(), buffer, kLen)
+		key = sm3.Kdf(buffer, kLen)
 		if !subtle.ConstantTimeAllZero(key) {
 			break
 		}
@@ -403,7 +402,7 @@ func UnwrapKey(priv *EncryptPrivateKey, uid []byte, cipher *bn256.G1, kLen int) 
 	buffer = append(buffer, w.Marshal()...)
 	buffer = append(buffer, uid...)
 
-	key := kdf.Kdf(sm3.New(), buffer, kLen)
+	key := sm3.Kdf(buffer, kLen)
 	if subtle.ConstantTimeAllZero(key) {
 		return nil, ErrDecryption
 	}
@@ -685,7 +684,7 @@ func (ke *KeyExchange) generateSharedKey(isResponder bool) ([]byte, error) {
 	buffer = append(buffer, ke.g2.Marshal()...)
 	buffer = append(buffer, ke.g3.Marshal()...)
 
-	return kdf.Kdf(sm3.New(), buffer, ke.keyLength), nil
+	return sm3.Kdf(buffer, ke.keyLength), nil
 }
 
 func respondKeyExchange(ke *KeyExchange, hid byte, r *bigmod.Nat, rA *bn256.G1) (*bn256.G1, []byte, error) {

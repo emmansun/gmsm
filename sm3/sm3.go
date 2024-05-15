@@ -211,3 +211,26 @@ func Sum(data []byte) [Size]byte {
 	d.Write(data)
 	return d.checkSum()
 }
+
+// Kdf key derivation function using SM3, compliance with GB/T 32918.4-2016 5.4.3.
+func Kdf(z []byte, keyLen int) []byte {
+	limit := uint64(keyLen+Size-1) / uint64(Size)
+	if limit >= uint64(1<<32)-1 {
+		panic("sm3: key length too long")
+	}
+	var countBytes [4]byte
+	var ct uint32 = 1
+	var k []byte
+	baseMD := new(digest)
+	baseMD.Reset()
+	baseMD.Write(z)
+	for i := 0; i < int(limit); i++ {
+		binary.BigEndian.PutUint32(countBytes[:], ct)
+		md := *baseMD
+		md.Write(countBytes[:])
+		h := md.checkSum()
+		k = append(k, h[:]...)
+		ct++
+	}
+	return k[:keyLen]
+}

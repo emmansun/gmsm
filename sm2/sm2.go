@@ -25,7 +25,6 @@ import (
 	"github.com/emmansun/gmsm/internal/randutil"
 	_sm2ec "github.com/emmansun/gmsm/internal/sm2ec"
 	"github.com/emmansun/gmsm/internal/subtle"
-	"github.com/emmansun/gmsm/kdf"
 	"github.com/emmansun/gmsm/sm2/sm2ec"
 	"github.com/emmansun/gmsm/sm3"
 	"golang.org/x/crypto/cryptobyte"
@@ -251,7 +250,7 @@ func encryptSM2EC(c *sm2Curve, pub *ecdsa.PublicKey, random io.Reader, msg []byt
 			return nil, err
 		}
 		C2Bytes := C2.Bytes()[1:]
-		c2 := kdf.Kdf(sm3.New(), C2Bytes, len(msg))
+		c2 := sm3.Kdf(C2Bytes, len(msg))
 		if subtle.ConstantTimeAllZero(c2) {
 			retryCount++
 			if retryCount > maxRetryLimit {
@@ -424,7 +423,7 @@ func decryptSM2EC(c *sm2Curve, priv *PrivateKey, ciphertext []byte, opts *Decryp
 	}
 	C2Bytes := C2.Bytes()[1:]
 	msgLen := len(c2)
-	msg := kdf.Kdf(sm3.New(), C2Bytes, msgLen)
+	msg := sm3.Kdf(C2Bytes, msgLen)
 	if subtle.ConstantTimeAllZero(c2) {
 		return nil, ErrDecryption
 	}

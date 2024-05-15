@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/emmansun/gmsm/kdf"
 	"github.com/emmansun/gmsm/padding"
 	"github.com/emmansun/gmsm/pkcs"
 	"github.com/emmansun/gmsm/sm2"
@@ -59,7 +58,7 @@ func ParseSM2(password, data []byte) (*sm2.PrivateKey, *smx509.Certificate, erro
 	if !keys.EncryptedKey.Algorithm.Equal(oidSM4) && !keys.EncryptedKey.Algorithm.Equal(oidSM4CBC) {
 		return nil, nil, fmt.Errorf("cfca: unsupported algorithm <%v>", keys.EncryptedKey.Algorithm)
 	}
-	ivkey := kdf.Kdf(sm3.New(), password, 32)
+	ivkey := sm3.Kdf(password, 32)
 	marshalledIV, err := asn1.Marshal(ivkey[:16])
 	if err != nil {
 		return nil, nil, err
@@ -91,7 +90,7 @@ func MarshalSM2(password []byte, key *sm2.PrivateKey, cert *smx509.Certificate) 
 	if len(password) == 0 {
 		return nil, errors.New("cfca: invalid password")
 	}
-	ivkey := kdf.Kdf(sm3.New(), password, 32)
+	ivkey := sm3.Kdf(password, 32)
 	block, err := sm4.NewCipher(ivkey[16:])
 	if err != nil {
 		return nil, err
