@@ -220,7 +220,7 @@ func Kdf(z []byte, keyLen int) []byte {
 	}
 	var countBytes [4]byte
 	var ct uint32 = 1
-	var k []byte
+	k := make([]byte, keyLen)
 	baseMD := new(digest)
 	baseMD.Reset()
 	baseMD.Write(z)
@@ -229,8 +229,8 @@ func Kdf(z []byte, keyLen int) []byte {
 		md := *baseMD
 		md.Write(countBytes[:])
 		h := md.checkSum()
-		k = append(k, h[:]...)
+		copy(k[i*Size:], h[:])
 		ct++
 	}
-	return k[:keyLen]
+	return k
 }
