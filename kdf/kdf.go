@@ -7,10 +7,19 @@ import (
 	"hash"
 )
 
+// KdfInterface is the interface implemented by some specific Hash implementations.
+type KdfInterface interface {
+	Kdf(z []byte, keyLen int) []byte
+}
+
 // Kdf key derivation function, compliance with GB/T 32918.4-2016 5.4.3.
 // ANSI-X9.63-KDF
 func Kdf(newHash func() hash.Hash, z []byte, keyLen int) []byte {
 	baseMD := newHash()
+	// If the hash implements KdfInterface, use the optimized Kdf method.
+	if kdfImpl, ok := baseMD.(KdfInterface); ok {
+		return kdfImpl.Kdf(z, keyLen)
+	}
 	limit := uint64(keyLen+baseMD.Size()-1) / uint64(baseMD.Size())
 	if limit >= uint64(1<<32)-1 {
 		panic("kdf: key length too long")
@@ -19,8 +28,7 @@ func Kdf(newHash func() hash.Hash, z []byte, keyLen int) []byte {
 	var ct uint32 = 1
 	var k []byte
 
-	marshaler, ok := baseMD.(encoding.BinaryMarshaler)
-	if limit == 1 || len(z) < baseMD.BlockSize() || !ok {
+	if marshaler, ok := baseMD.(encoding.BinaryMarshaler); limit == 1 || len(z) < baseMD.BlockSize() || !ok {
 		for i := 0; i < int(limit); i++ {
 			binary.BigEndian.PutUint32(countBytes[:], ct)
 			baseMD.Write(z)
