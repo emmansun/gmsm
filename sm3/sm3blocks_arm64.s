@@ -109,7 +109,7 @@
 	VEOR V12.B16, V10.B16, V10.B16   \
 	loadWordByIndex(V11, index-2)    \ // Wj-6
 	VEOR V11.B16, V10.B16, V11.B16   \
-	VST1.P V11.S4, 16(wordPtr)       \
+	VST1.P [V11.S4], 16(wordPtr)     \
 
 #define ROUND_12_15(index, const, a, b, c, d, e, f, g, h) \
 	MESSAGE_SCHEDULE(index)                        \
