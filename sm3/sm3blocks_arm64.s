@@ -43,7 +43,7 @@
 	VSRI $(32-n), s.S4, d.S4  \
 
 #define loadWordByIndex(W, i) \
-	ADD $(16*i), wordStart, R20 \
+	ADD $(16*(i)), wordStart, R20 \
 	VLD1 (R20), [W.S4]          \ 
 
 #define prepare4Words \
