@@ -112,11 +112,11 @@
 	VST1.P [V11.S4], 16(wordPtr)     \
 
 #define ROUND_12_15(index, const, a, b, c, d, e, f, g, h) \
-	MESSAGE_SCHEDULE(index)                        \
+	MESSAGE_SCHEDULE(index)                               \
 	ROUND_00_11(index, const, a, b, c, d, e, f, g, h)     \
 
 #define ROUND_16_63(index, const, a, b, c, d, e, f, g, h) \
-	MESSAGE_SCHEDULE(index); \ // V11 is Wt+4 now, Pls do not use it
+	MESSAGE_SCHEDULE(index)          \ // V11 is Wt+4 now, Pls do not use it
 	PROLD(a, V12, 12)                \
 	VMOV V12.B16, V13.B16            \
 	LOAD_T(const, tmp1)              \
