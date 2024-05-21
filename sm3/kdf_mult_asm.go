@@ -30,8 +30,7 @@ func copyResult(result []byte, dig *[8]uint32) {
 
 // state || words
 // 1216 = 68 * 4 * 4 + 8 * 4 * 4 = 76 * 16
-// 8 * 16 = 128
-const preallocSize = 1344
+const preallocSize = 1216
 
 func kdfBy4(baseMD *digest, keyLen int, limit int) []byte {
 	if limit < 4 {
