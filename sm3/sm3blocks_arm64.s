@@ -273,8 +273,8 @@ loop:
 	ROUND_16_63(62, T30, c, d, e, f, g, h, a, b)
 	ROUND_16_63(63, T31, b, c, d, e, f, g, h, a)
 
-	VLD1.P 64(statePtr), [V8.S4, V9.S4, V10.S4, V11.S4]
-	VLD1 (statePtr), [V12.S4, V13.S4, V14.S4, V15.S4]
+	VLD1 (statePtr), [V8.S4, V9.S4, V10.S4, V11.S4]
+	VLD1 64+(statePtr), [V12.S4, V13.S4, V14.S4, V15.S4]
 	VEOR a.B16, V8.B16, a.B16
 	VEOR b.B16, V9.B16, b.B16
 	VEOR c.B16, V10.B16, c.B16
@@ -283,8 +283,8 @@ loop:
 	VEOR f.B16, V13.B16, f.B16
 	VEOR g.B16, V14.B16, g.B16
 	VEOR h.B16, V15.B16, h.B16
-	VST1.P [e.S4, f.S4, g.S4, h.S4], -64(statePtr)
 	VST1 [a.S4, b.S4, c.S4, d.S4], (statePtr)
+	VST1 [e.S4, f.S4, g.S4, h.S4], 64+(statePtr)
 
 	SUB $1, blockCount
 	CBNZ blockCount, loop
