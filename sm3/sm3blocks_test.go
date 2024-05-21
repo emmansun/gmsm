@@ -3,7 +3,6 @@
 package sm3
 
 import (
-	"encoding/binary"
 	"fmt"
 	"testing"
 )
@@ -54,13 +53,6 @@ func TestBlockMultBy4(t *testing.T) {
 	buffer := make([]byte, preallocSize)
 	blockMultBy4(&digs[0], &p[0], &buffer[0], 1)
 	expected := "[66c7f0f4 62eeedd9 d1f2d46b dc10e4e2 4167c487 5cf2f7a2 297da02b 8f4ba8e0]"
-	for i := 0; i < 128+68*4*4; i += 64 {
-		fmt.Printf("%08x %08x %08x %08x ", binary.LittleEndian.Uint32(buffer[i:]), binary.LittleEndian.Uint32(buffer[i+4:]), binary.LittleEndian.Uint32(buffer[i+8:]), binary.LittleEndian.Uint32(buffer[i+12:]))
-		fmt.Printf("%08x %08x %08x %08x ", binary.LittleEndian.Uint32(buffer[i+16:]), binary.LittleEndian.Uint32(buffer[i+20:]), binary.LittleEndian.Uint32(buffer[i+24:]), binary.LittleEndian.Uint32(buffer[i+28:]))
-		fmt.Printf("%08x %08x %08x %08x ", binary.LittleEndian.Uint32(buffer[i+32:]), binary.LittleEndian.Uint32(buffer[i+36:]), binary.LittleEndian.Uint32(buffer[i+40:]), binary.LittleEndian.Uint32(buffer[i+44:]))
-		fmt.Printf("%08x %08x %08x %08x ", binary.LittleEndian.Uint32(buffer[i+48:]), binary.LittleEndian.Uint32(buffer[i+52:]), binary.LittleEndian.Uint32(buffer[i+56:]), binary.LittleEndian.Uint32(buffer[i+60:]))
-		fmt.Println()
-	}
 	s := fmt.Sprintf("%x", digs[0][:])
 	if s != expected {
 		t.Errorf("digs[0] got %s", s)
