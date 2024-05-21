@@ -35,16 +35,16 @@
 	VZIP1 RTMP1.D2, RTMP0.D2, t0.D2            \
 	VZIP2 RTMP1.D2, RTMP0.D2, t1.D2            \
 	VZIP1 RTMP3.D2, RTMP2.D2, t2.D2            \
-	VZIP2 RTMP3.D2, RTMP2.D2, t3.D2
+	VZIP2 RTMP3.D2, RTMP2.D2, t3.D2            \
 
 // d = s <<< n
 #define PROLD(s, d, n) \
-	VSHL $(n), s.S4, d.S4
-	VSRI $(32-n), s.S4, d.S4
+	VSHL $(n), s.S4, d.S4     \
+	VSRI $(32-n), s.S4, d.S4  \
 
 #define loadWordByIndex(W, i) \
-	ADD $(16*i), wordStart, R20
-	VLD1 (R20), [W.S4]
+	ADD $(16*i), wordStart, R20 \
+	VLD1 (R20), [W.S4]          \ 
 
 #define prepare4Words \
 	VLD1.P 16(srcPtr1), [V12.B16] \
