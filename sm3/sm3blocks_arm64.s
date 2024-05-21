@@ -288,7 +288,7 @@ loop:
 
 	SUB $1, blockCount
 	CBNZ blockCount, loop
-
+/*
 	// transpose state
 	TRANSPOSE_MATRIX(a, b, c, d, tmp1, tmp2, tmp3, tmp4)
 	TRANSPOSE_MATRIX(e, f, g, h, tmp1, tmp2, tmp3, tmp4)
@@ -305,5 +305,5 @@ loop:
 	MOVD (digSave), R20
 	VST1.P [d.S4], 16(R20)
 	VST1 [h.S4], (R20)
-
+*/
 	RET
