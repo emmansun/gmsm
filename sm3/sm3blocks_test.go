@@ -51,7 +51,7 @@ func createTwoBlocksBy4() [4]*byte {
 func TestBlockMultBy4(t *testing.T) {
 	digs := initState4()
 	p := createOneBlockBy4()
-	buffer := make([]byte, 1216)
+	buffer := make([]byte, preallocSize)
 	blockMultBy4(&digs[0], &p[0], &buffer[0], 1)
 	expected := "[66c7f0f4 62eeedd9 d1f2d46b dc10e4e2 4167c487 5cf2f7a2 297da02b 8f4ba8e0]"
 	for i := 128; i < 128+68*4*4; i += 64 {

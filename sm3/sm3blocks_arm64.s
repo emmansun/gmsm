@@ -59,7 +59,7 @@
 	VST1.P [V12.B16, V13.B16, V14.B16, V15.B16], 64(wordPtr)
 
 #define LOAD_T(const, T) \
-	MOVD $const, R20     \
+	MOVW $const, R20     \
 	VDUP R20, T.S4       \
 
 #define ROUND_00_11(index, const, a, b, c, d, e, f, g, h) \
