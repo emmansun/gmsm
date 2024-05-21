@@ -28,9 +28,10 @@ func copyResult(result []byte, dig *[8]uint32) {
 	binary.BigEndian.PutUint32(result[28:], dig[7])
 }
 
+// state || words
 // 1216 = 68 * 4 * 4 + 8 * 4 * 4 = 76 * 16
-// 64 * 2 * 4 = 512
-const preallocSize = 1728
+// 8 * 16 = 128
+const preallocSize = 1344
 
 func kdfBy4(baseMD *digest, keyLen int, limit int) []byte {
 	if limit < 4 {

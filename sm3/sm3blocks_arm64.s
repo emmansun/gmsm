@@ -37,10 +37,10 @@
 	VZIP1 RTMP3.D2, RTMP2.D2, t2.D2            \
 	VZIP2 RTMP3.D2, RTMP2.D2, t3.D2            \
 
-// d = s <<< n
-#define PROLD(s, d, n) \
-	VSHL $(n), s.S4, d.S4     \
-	VSRI $(32-n), s.S4, d.S4  \
+// r = s <<< n
+#define PROLD(s, r, n) \
+	VSHL $(n), s.S4, r.S4     \
+	VSRI $(32-n), s.S4, r.S4  \
 
 #define loadWordByIndex(W, i) \
 	ADD $(16*(i)), wordStart, R20 \
@@ -191,7 +191,7 @@ TEXT ·blockMultBy4(SB), NOSPLIT, $0
 	VST1.P [a.S4, b.S4, c.S4, d.S4], 64(wordStart)
 	VST1.P [e.S4, f.S4, g.S4, h.S4], 64(wordStart)
 	MOVD wordStart, wordPtr
-/*
+
 	MOVD.P 8(srcPtrPtr), srcPtr1
 	MOVD.P 8(srcPtrPtr), srcPtr2
 	MOVD.P 8(srcPtrPtr), srcPtr3
@@ -305,5 +305,5 @@ loop:
 	MOVD (digSave), R20
 	VST1.P [d.S4], 16(R20)
 	VST1 [h.S4], (R20)
-*/
+
 	RET
