@@ -111,9 +111,9 @@
 	VEOR V11.B16, V10.B16, V11.B16   \
 	VST1.P V11.S4, 16(wordPtr)       \
 
-#define ROUND_12_15(index, a, b, c, d, e, f, g, h) \
+#define ROUND_12_15(index, const, a, b, c, d, e, f, g, h) \
 	MESSAGE_SCHEDULE(index)                        \
-	ROUND_00_11(index, a, b, c, d, e, f, g, h)     \
+	ROUND_00_11(index, const, a, b, c, d, e, f, g, h)     \
 
 #define ROUND_16_63(index, const, a, b, c, d, e, f, g, h) \
 	MESSAGE_SCHEDULE(index); \ // V11 is Wt+4 now, Pls do not use it
