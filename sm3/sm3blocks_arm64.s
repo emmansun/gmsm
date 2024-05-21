@@ -137,7 +137,7 @@
 	VADD V12.S4, V10.S4, V10.S4      \ // Wt + h + SS1
 	VEOR f.B16, g.B16, V11.B16       \
 	VAND V11.B16, e.B16, V11.B16     \
-	VEOR g.B16, v11.B16, V11.B16     \ // (f XOR g) AND e XOR g
+	VEOR g.B16, V11.B16, V11.B16     \ // (f XOR g) AND e XOR g
 	VADD V14.S4, V11.S4, V10.S4      \ // TT2
 	VMOV b.B16, V11.B16              \
 	PROLD(V11, b, 9)                 \ // b = b <<< 9
@@ -149,7 +149,7 @@
 	VEOR V10.B16, V11.B16, V11.B16   \ // V11 = TT2 XOR (TT2 <<< 9)
 	VEOR V11.B16, V12.B16, d.B16     \ // d = TT2 XOR (TT2 <<< 9) XOR (TT2 <<< 17)
 
-// func blockMultBy4(dig *digest, p []byte)
+// blockMultBy4(dig **[8]uint32, p **byte, buffer *byte, blocks int)
 TEXT ·blockMultBy4(SB), NOSPLIT, $0
 #define digPtr R0
 #define srcPtrPtr R1
