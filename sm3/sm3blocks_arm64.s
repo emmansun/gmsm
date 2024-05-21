@@ -134,7 +134,7 @@
 	VADD V13.S4, V11.S4, V13.S4      \ // (a AND b) OR (a AND c) OR (b AND c) + d + (Wt XOR Wt+4)
 	VADD V13.S4, V12.S4, V13.S4      \ // TT1
 	VADD h.S4, V10.S4, V10.S4        \ // Wt + h
-	VADD V12.S4, V10.S4, V10.S4      \ // Wt + h + SS1
+	VADD V14.S4, V10.S4, V10.S4      \ // Wt + h + SS1
 	VEOR f.B16, g.B16, V11.B16       \
 	VAND V11.B16, e.B16, V11.B16     \
 	VEOR g.B16, V11.B16, V11.B16     \ // (f XOR g) AND e XOR g
