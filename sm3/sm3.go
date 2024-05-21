@@ -218,12 +218,16 @@ func (baseMD *digest) Kdf(z []byte, keyLen int) []byte {
 	if limit >= uint64(1<<32)-1 {
 		panic("sm3: key length too long")
 	}
+	baseMD.Reset()
+	baseMD.Write(z)
+	return kdf(baseMD, keyLen, int(limit))
+}
+
+func kdfGeneric(baseMD *digest, keyLen int, limit int) []byte {
 	var countBytes [4]byte
 	var ct uint32 = 1
 	k := make([]byte, keyLen)
-	baseMD.Reset()
-	baseMD.Write(z)
-	for i := 0; i < int(limit); i++ {
+	for i := 0; i < limit; i++ {
 		binary.BigEndian.PutUint32(countBytes[:], ct)
 		md := *baseMD
 		md.Write(countBytes[:])
