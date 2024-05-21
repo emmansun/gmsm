@@ -138,7 +138,7 @@
 	VEOR f.B16, g.B16, V11.B16       \
 	VAND V11.B16, e.B16, V11.B16     \
 	VEOR g.B16, V11.B16, V11.B16     \ // (f XOR g) AND e XOR g
-	VADD V14.S4, V11.S4, V10.S4      \ // TT2
+	VADD V10.S4, V11.S4, V10.S4      \ // TT2
 	VMOV b.B16, V11.B16              \
 	PROLD(V11, b, 9)                 \ // b = b <<< 9
 	VMOV V13.B16, h.B16              \ // h = TT1
