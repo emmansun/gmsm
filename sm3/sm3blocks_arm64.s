@@ -191,7 +191,7 @@ TEXT ·blockMultBy4(SB), NOSPLIT, $0
 	VST1.P [a.S4, b.S4, c.S4, d.S4], 64(wordStart)
 	VST1.P [e.S4, f.S4, g.S4, h.S4], 64(wordStart)
 	MOVD wordStart, wordPtr
-
+/*
 	MOVD.P 8(srcPtrPtr), srcPtr1
 	MOVD.P 8(srcPtrPtr), srcPtr2
 	MOVD.P 8(srcPtrPtr), srcPtr3
@@ -288,7 +288,7 @@ loop:
 
 	SUB $1, blockCount
 	CBNZ blockCount, loop
-/*
+
 	// transpose state
 	TRANSPOSE_MATRIX(a, b, c, d, tmp1, tmp2, tmp3, tmp4)
 	TRANSPOSE_MATRIX(e, f, g, h, tmp1, tmp2, tmp3, tmp4)
