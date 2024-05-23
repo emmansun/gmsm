@@ -211,8 +211,8 @@ type SignatureAlgorithm = x509.SignatureAlgorithm
 const (
 	UnknownSignatureAlgorithm = x509.UnknownSignatureAlgorithm
 
-	MD2WithRSA       = x509.MD2WithRSA // Unsupported.
-	MD5WithRSA       = x509.MD5WithRSA // Only supported for signing, not verification.
+	MD2WithRSA       = x509.MD2WithRSA  // Unsupported.
+	MD5WithRSA       = x509.MD5WithRSA  // Only supported for signing, not verification.
 	SHA1WithRSA      = x509.SHA1WithRSA // Only supported for signing, and verification of CRLs, CSRs, and OCSP responses.
 	SHA256WithRSA    = x509.SHA256WithRSA
 	SHA384WithRSA    = x509.SHA384WithRSA
@@ -2036,63 +2036,69 @@ func CreateRevocationList(rand io.Reader, template *x509.RevocationList, issuer 
 	}
 
 	var revokedCerts []pkix.RevokedCertificate
-	// Only process the deprecated RevokedCertificates field if it is populated
-	// and the new RevokedCertificateEntries field is not populated.
-	if len(template.RevokedCertificates) > 0 && len(template.RevokedCertificateEntries) == 0 {
-		// Force revocation times to UTC per RFC 5280.
-		revokedCerts = make([]pkix.RevokedCertificate, len(template.RevokedCertificates))
-		for i, rc := range template.RevokedCertificates {
-			rc.RevocationTime = rc.RevocationTime.UTC()
-			revokedCerts[i] = rc
-		}
-	} else {
-		// Convert the ReasonCode field to a proper extension, and force revocation
-		// times to UTC per RFC 5280.
-		revokedCerts = make([]pkix.RevokedCertificate, len(template.RevokedCertificateEntries))
-		for i, rce := range template.RevokedCertificateEntries {
-			if rce.SerialNumber == nil {
-				return nil, errors.New("x509: template contains entry with nil SerialNumber field")
-			}
-			if rce.RevocationTime.IsZero() {
-				return nil, errors.New("x509: template contains entry with zero RevocationTime field")
-			}
-
-			rc := pkix.RevokedCertificate{
-				SerialNumber:   rce.SerialNumber,
-				RevocationTime: rce.RevocationTime.UTC(),
-			}
-
-			// Copy over any extra extensions, except for a Reason Code extension,
-			// because we'll synthesize that ourselves to ensure it is correct.
-			exts := make([]pkix.Extension, 0, len(rce.ExtraExtensions))
-			for _, ext := range rce.ExtraExtensions {
-				if ext.Id.Equal(oidExtensionReasonCode) {
-					return nil, errors.New("x509: template contains entry with ReasonCode ExtraExtension; use ReasonCode field instead")
-				}
-				exts = append(exts, ext)
-			}
-
-			// Only add a reasonCode extension if the reason is non-zero, as per
-			// RFC 5280 Section 5.3.1.
-			if rce.ReasonCode != 0 {
-				reasonBytes, err := asn1.Marshal(asn1.Enumerated(rce.ReasonCode))
-				if err != nil {
-					return nil, err
-				}
-
-				exts = append(exts, pkix.Extension{
-					Id:    oidExtensionReasonCode,
-					Value: reasonBytes,
-				})
-			}
-
-			if len(exts) > 0 {
-				rc.Extensions = exts
-			}
-			revokedCerts[i] = rc
-		}
+	revokedCerts = make([]pkix.RevokedCertificate, len(template.RevokedCertificates))
+	for i, rc := range template.RevokedCertificates {
+		rc.RevocationTime = rc.RevocationTime.UTC()
+		revokedCerts[i] = rc
 	}
+	/*
+		// Only process the deprecated RevokedCertificates field if it is populated
+		// and the new RevokedCertificateEntries field is not populated.
+		if len(template.RevokedCertificates) > 0 && len(template.RevokedCertificateEntries) == 0 {
+			// Force revocation times to UTC per RFC 5280.
+			revokedCerts = make([]pkix.RevokedCertificate, len(template.RevokedCertificates))
+			for i, rc := range template.RevokedCertificates {
+				rc.RevocationTime = rc.RevocationTime.UTC()
+				revokedCerts[i] = rc
+			}
+		} else {
+			// Convert the ReasonCode field to a proper extension, and force revocation
+			// times to UTC per RFC 5280.
+			revokedCerts = make([]pkix.RevokedCertificate, len(template.RevokedCertificateEntries))
+			for i, rce := range template.RevokedCertificateEntries {
+				if rce.SerialNumber == nil {
+					return nil, errors.New("x509: template contains entry with nil SerialNumber field")
+				}
+				if rce.RevocationTime.IsZero() {
+					return nil, errors.New("x509: template contains entry with zero RevocationTime field")
+				}
 
+				rc := pkix.RevokedCertificate{
+					SerialNumber:   rce.SerialNumber,
+					RevocationTime: rce.RevocationTime.UTC(),
+				}
+
+				// Copy over any extra extensions, except for a Reason Code extension,
+				// because we'll synthesize that ourselves to ensure it is correct.
+				exts := make([]pkix.Extension, 0, len(rce.ExtraExtensions))
+				for _, ext := range rce.ExtraExtensions {
+					if ext.Id.Equal(oidExtensionReasonCode) {
+						return nil, errors.New("x509: template contains entry with ReasonCode ExtraExtension; use ReasonCode field instead")
+					}
+					exts = append(exts, ext)
+				}
+
+				// Only add a reasonCode extension if the reason is non-zero, as per
+				// RFC 5280 Section 5.3.1.
+				if rce.ReasonCode != 0 {
+					reasonBytes, err := asn1.Marshal(asn1.Enumerated(rce.ReasonCode))
+					if err != nil {
+						return nil, err
+					}
+
+					exts = append(exts, pkix.Extension{
+						Id:    oidExtensionReasonCode,
+						Value: reasonBytes,
+					})
+				}
+
+				if len(exts) > 0 {
+					rc.Extensions = exts
+				}
+				revokedCerts[i] = rc
+			}
+		}
+	*/
 
 	aki, err := asn1.Marshal(authKeyId{Id: issuer.SubjectKeyId})
 	if err != nil {
