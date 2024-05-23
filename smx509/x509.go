@@ -1295,7 +1295,7 @@ func signingParamsForKey(key crypto.Signer, sigAlgo SignatureAlgorithm) (Signatu
 		case elliptic.P521():
 			defaultAlgo = ECDSAWithSHA512
 		case sm2.P256():
-			defaultAlgo = SM2WithSM3
+			sigAlgo = SM2WithSM3
 		default:
 			return 0, ai, errors.New("x509: unsupported elliptic curve")
 		}
