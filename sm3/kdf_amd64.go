@@ -7,5 +7,9 @@ func kdf(baseMD *digest, keyLen int, limit int) []byte {
 		return kdfGeneric(baseMD, keyLen, limit)
 	}
 
+	if useAVX2 && limit >= 8 {
+		return kdfBy8(baseMD, keyLen, limit)
+	}
+
 	return kdfBy4(baseMD, keyLen, limit)
 }
