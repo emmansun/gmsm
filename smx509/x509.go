@@ -1295,7 +1295,7 @@ func signingParamsForKey(key crypto.Signer, sigAlgo SignatureAlgorithm) (Signatu
 		case elliptic.P521():
 			defaultAlgo = ECDSAWithSHA512
 		case sm2.P256():
-			sigAlgo = SM2WithSM3
+			defaultAlgo = SM2WithSM3
 		default:
 			return 0, ai, errors.New("x509: unsupported elliptic curve")
 		}
@@ -1314,7 +1314,7 @@ func signingParamsForKey(key crypto.Signer, sigAlgo SignatureAlgorithm) (Signatu
 
 	for _, details := range signatureAlgorithmDetails {
 		if details.algo == sigAlgo {
-			if details.pubKeyAlgo != pubType {
+			if details.pubKeyAlgo != pubType || (sigAlgo != defaultAlgo && defaultAlgo == SM2WithSM3) {
 				return 0, ai, errors.New("x509: requested SignatureAlgorithm does not match private key type")
 			}
 			if details.hash == crypto.MD5 {

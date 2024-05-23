@@ -2208,6 +2208,10 @@ func TestMultipleURLsInCRLDP(t *testing.T) {
 }
 
 func TestCreateRevocationList(t *testing.T) {
+	ec256Priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("Failed to generate ECDSA P256 key: %s", err)
+	}
 	sm2Priv, err := sm2.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatalf("Failed to generate SM2 key: %s", err)
@@ -2403,7 +2407,7 @@ func TestCreateRevocationList(t *testing.T) {
 		},
 		{
 			name: "valid, non-default signature algorithm",
-			key:  sm2Priv,
+			key:  ec256Priv,
 			issuer: &x509.Certificate{
 				KeyUsage: KeyUsageCRLSign,
 				Subject: pkix.Name{
