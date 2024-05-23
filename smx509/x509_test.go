@@ -1099,11 +1099,13 @@ func TestCRLCreation(t *testing.T) {
 		crlBytes, err := test.cert.CreateCRL(rand.Reader, test.priv, revokedCerts, now, expiry)
 		if err != nil {
 			t.Errorf("%s: error creating CRL: %s", test.name, err)
+			continue
 		}
 
 		parsedCRL, err := ParseDERCRL(crlBytes)
 		if err != nil {
 			t.Errorf("%s: error reparsing CRL: %s", test.name, err)
+			continue
 		}
 		if !reflect.DeepEqual(parsedCRL.TBSCertList.RevokedCertificates, expectedCerts) {
 			t.Errorf("%s: RevokedCertificates mismatch: got %v; want %v.", test.name,
@@ -2596,10 +2598,13 @@ func TestRSAPSAParameters(t *testing.T) {
 		return serialized
 	}
 
-	for h, params := range hashToPSSParameters {
-		generated := generateParams(h)
-		if !bytes.Equal(params.FullBytes, generated) {
-			t.Errorf("hardcoded parameters for %s didn't match generated parameters: got (generated) %x, wanted (hardcoded) %x", h, generated, params.FullBytes)
+	for _, detail := range signatureAlgorithmDetails {
+		if !detail.isRSAPSS {
+			continue
+		}
+		generated := generateParams(detail.hash)
+		if !bytes.Equal(detail.params.FullBytes, generated) {
+			t.Errorf("hardcoded parameters for %s didn't match generated parameters: got (generated) %x, wanted (hardcoded) %x", detail.hash, generated, detail.params.FullBytes)
 		}
 	}
 }
@@ -2730,15 +2735,11 @@ func TestCreateCertificateBrokenSigner(t *testing.T) {
 		SerialNumber: big.NewInt(10),
 		DNSNames:     []string{"example.com"},
 	}
-	k, err := rsa.GenerateKey(rand.Reader, 1024)
-	if err != nil {
-		t.Fatalf("failed to generate test key: %s", err)
-	}
-	expectedErr := "x509: signature over certificate returned by signer is invalid: crypto/rsa: verification error"
-	_, err = CreateCertificate(rand.Reader, template, template, k.Public(), &brokenSigner{k.Public()})
+	expectedErr := "signature returned by signer is invalid"
+	_, err := CreateCertificate(rand.Reader, template, template, testPrivateKey.Public(), &brokenSigner{testPrivateKey.Public()})
 	if err == nil {
 		t.Fatal("expected CreateCertificate to fail with a broken signer")
-	} else if err.Error() != expectedErr {
+	} else if !strings.Contains(err.Error(), expectedErr) {
 		t.Fatalf("CreateCertificate returned an unexpected error: got %q, want %q", err, expectedErr)
 	}
 }
@@ -3264,5 +3265,80 @@ func TestDuplicateAttributesCSR(t *testing.T) {
 	_, err := ParseCertificateRequest(b.Bytes)
 	if err != nil {
 		t.Fatal("ParseCertificateRequest should succeed when parsing CSR with duplicate attributes")
+	}
+}
+
+func TestRejectCriticalAKI(t *testing.T) {
+	template := Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "Cert"},
+		NotBefore:    time.Unix(1000, 0),
+		NotAfter:     time.Unix(100000, 0),
+		ExtraExtensions: []pkix.Extension{
+			{
+				Id:       asn1.ObjectIdentifier{2, 5, 29, 35},
+				Critical: true,
+				Value:    []byte{1, 2, 3},
+			},
+		},
+	}
+	certDER, err := CreateCertificate(rand.Reader, &template, &template, rsaPrivateKey.Public(), rsaPrivateKey)
+	if err != nil {
+		t.Fatalf("CreateCertificate() unexpected error: %v", err)
+	}
+	expectedErr := "x509: authority key identifier incorrectly marked critical"
+	_, err = ParseCertificate(certDER)
+	if err == nil || err.Error() != expectedErr {
+		t.Fatalf("ParseCertificate() unexpected error: %v, want: %s", err, expectedErr)
+	}
+}
+
+func TestRejectCriticalAIA(t *testing.T) {
+	template := Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "Cert"},
+		NotBefore:    time.Unix(1000, 0),
+		NotAfter:     time.Unix(100000, 0),
+		ExtraExtensions: []pkix.Extension{
+			{
+				Id:       asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 1, 1},
+				Critical: true,
+				Value:    []byte{1, 2, 3},
+			},
+		},
+	}
+	certDER, err := CreateCertificate(rand.Reader, &template, &template, rsaPrivateKey.Public(), rsaPrivateKey)
+	if err != nil {
+		t.Fatalf("CreateCertificate() unexpected error: %v", err)
+	}
+	expectedErr := "x509: authority info access incorrectly marked critical"
+	_, err = ParseCertificate(certDER)
+	if err == nil || err.Error() != expectedErr {
+		t.Fatalf("ParseCertificate() unexpected error: %v, want: %s", err, expectedErr)
+	}
+}
+
+func TestRejectCriticalSKI(t *testing.T) {
+	template := Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "Cert"},
+		NotBefore:    time.Unix(1000, 0),
+		NotAfter:     time.Unix(100000, 0),
+		ExtraExtensions: []pkix.Extension{
+			{
+				Id:       asn1.ObjectIdentifier{2, 5, 29, 14},
+				Critical: true,
+				Value:    []byte{1, 2, 3},
+			},
+		},
+	}
+	certDER, err := CreateCertificate(rand.Reader, &template, &template, rsaPrivateKey.Public(), rsaPrivateKey)
+	if err != nil {
+		t.Fatalf("CreateCertificate() unexpected error: %v", err)
+	}
+	expectedErr := "x509: subject key identifier incorrectly marked critical"
+	_, err = ParseCertificate(certDER)
+	if err == nil || err.Error() != expectedErr {
+		t.Fatalf("ParseCertificate() unexpected error: %v, want: %s", err, expectedErr)
 	}
 }
