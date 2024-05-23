@@ -32,7 +32,9 @@ func copyResult(result []byte, dig *[8]uint32) {
 // p = 64 * 4 * 2 = 512
 // state = 8 * 16 = 128
 // words = 68 * 16 = 1088
-const preallocSize = 1728
+const preallocSizeBy4 = 1728
+
+const parallelSize4 = 4
 
 func kdfBy4(baseMD *digest, keyLen int, limit int) []byte {
 	if limit < 4 {
@@ -51,13 +53,13 @@ func kdfBy4(baseMD *digest, keyLen int, limit int) []byte {
 	}
 	len <<= 3
 	// prepare temporary buffer
-	tmpStart := 4 * blocks * BlockSize
-	buffer := make([]byte, preallocSize)
+	tmpStart := parallelSize4 * blocks * BlockSize
+	buffer := make([]byte, preallocSizeBy4)
 	tmp := buffer[tmpStart:]
 	// prepare processing data
-	var data [4]*byte
-	var digs [4]*[8]uint32
-	var states [4][8]uint32
+	var data [parallelSize4]*byte
+	var digs [parallelSize4]*[8]uint32
+	var states [parallelSize4][8]uint32
 	for j := 0; j < 4; j++ {
 		digs[j] = &states[j]
 	}
@@ -65,9 +67,9 @@ func kdfBy4(baseMD *digest, keyLen int, limit int) []byte {
 	var ct uint32 = 1
 	k := make([]byte, keyLen)
 	ret := k
-	times := limit / 4
+	times := limit / parallelSize4
 	for i := 0; i < times; i++ {
-		for j := 0; j < 4; j++ {
+		for j := 0; j < parallelSize4; j++ {
 			// prepare states
 			states[j] = baseMD.h
 			// prepare data
@@ -77,12 +79,12 @@ func kdfBy4(baseMD *digest, keyLen int, limit int) []byte {
 			ct++
 		}
 		blockMultBy4(&digs[0], &data[0], &tmp[0], blocks)
-		for j := 0; j < 4; j++ {
+		for j := 0; j < parallelSize4; j++ {
 			copyResult(ret, digs[j])
 			ret = ret[Size:]
 		}
 	}
-	remain := limit % 4
+	remain := limit % parallelSize4
 	for i := 0; i < remain; i++ {
 		binary.BigEndian.PutUint32(tmp[:], ct)
 		md := *baseMD
