@@ -89,7 +89,7 @@ GLOBL r08_mask<>(SB), 8, $16
 #define storeWord(W, j) MOVOU W, (128+(j)*16)(BX)
 #define loadWord(W, i) MOVOU (128+(i)*16)(BX), W
 
-#define prepareFirst16Words(i) \
+#define prepare4Words(i) \
 	MOVOU (i*16)(R8), X10; \
 	MOVOU (i*16)(R9), X11; \
 	MOVOU (i*16)(R10), X12; \
@@ -244,7 +244,7 @@ GLOBL r08_mask<>(SB), 8, $16
 #define avxStoreWord(W, j) VMOVDQU W, (128+(j)*16)(BX)
 #define avxLoadWord(W, i) VMOVDQU (128+(i)*16)(BX), W
 
-#define avxPrepareFirst16Words(i) \
+#define avxPrepare4Words(i) \
 	VMOVDQU (i*16)(R8), X10; \
 	VMOVDQU (i*16)(R9), X11; \
 	VMOVDQU (i*16)(R10), X12; \
@@ -400,10 +400,10 @@ TEXT ·blockMultBy4(SB),NOSPLIT,$0
 
 loop:	
 	// load message block
-	prepareFirst16Words(0)
-	prepareFirst16Words(1)
-	prepareFirst16Words(2)
-	prepareFirst16Words(3)
+	prepare4Words(0)
+	prepare4Words(1)
+	prepare4Words(2)
+	prepare4Words(3)
 
 	ROUND_00_11(0, a, b, c, d, e, f, g, h)
 	ROUND_00_11(1, h, a, b, c, d, e, f, g)
@@ -544,10 +544,10 @@ avx:
 
 avxLoop:
 	// load message block
-	avxPrepareFirst16Words(0)
-	avxPrepareFirst16Words(1)
-	avxPrepareFirst16Words(2)
-	avxPrepareFirst16Words(3)
+	avxPrepare4Words(0)
+	avxPrepare4Words(1)
+	avxPrepare4Words(2)
+	avxPrepare4Words(3)
 
 	AVX_ROUND_00_11(0, a, b, c, d, e, f, g, h)
 	AVX_ROUND_00_11(1, h, a, b, c, d, e, f, g)
