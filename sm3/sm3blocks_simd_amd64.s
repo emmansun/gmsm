@@ -79,13 +79,6 @@ GLOBL r08_mask<>(SB), 8, $16
 	MOVOU g, 96(BX) \
 	MOVOU h, 112(BX)
 
-// xorm (mem), reg
-// Xor reg to mem using reg-mem xor and store
-#define xorm(P1, P2) \
-	MOVOU P1, tmp1; \
-	PXOR tmp1, P2; \
-	MOVOU P2, P1
-	
 #define storeWord(W, j) MOVOU W, (128+(j)*16)(BX)
 #define loadWord(W, i) MOVOU (128+(i)*16)(BX), W
 
@@ -235,12 +228,6 @@ GLOBL r08_mask<>(SB), 8, $16
 	VPUNPCKHQDQ r2, tmp2, r3;                \ // r3 =    [w31, w27, w15, w7, w27, w19, w11, w3]          r3 = [w15, w11, w7, w3]
 	VPUNPCKLQDQ r2, tmp2, r2                   // r2 =    [w30, w22, w14, w6, w26, w18, w10, w2]          r2 = [w14, w10, w6, w2]
 
-// avxXorm (mem), reg
-// Xor reg to mem using reg-mem xor and store
-#define avxXorm(P1, P2) \
-	VPXOR P1, P2, P2; \
-	VMOVDQU P2, P1
-	
 #define avxStoreWord(W, j) VMOVDQU W, (128+(j)*16)(BX)
 #define avxLoadWord(W, i) VMOVDQU (128+(i)*16)(BX), W
 
@@ -472,23 +459,34 @@ loop:
 	ROUND_16_63(62, c, d, e, f, g, h, a, b)
 	ROUND_16_63(63, b, c, d, e, f, g, h, a)
 
-	xorm(  0(BX), a)
-	xorm( 16(BX), b)
-	xorm( 32(BX), c)
-	xorm( 48(BX), d)
-	xorm( 64(BX), e)
-	xorm( 80(BX), f)
-	xorm( 96(BX), g)
-	xorm(112(BX), h)
+	MOVOU (0*16)(BX), tmp1
+	PXOR tmp1, a
+	MOVOU (1*16)(BX), tmp1
+	PXOR tmp1, b
+	MOVOU (2*16)(BX), tmp1
+	PXOR tmp1, c
+	MOVOU (3*16)(BX), tmp1
+	PXOR tmp1, d
+	MOVOU (4*16)(BX), tmp1
+	PXOR tmp1, e
+	MOVOU (5*16)(BX), tmp1
+	PXOR tmp1, f
+	MOVOU (6*16)(BX), tmp1
+	PXOR tmp1, g
+	MOVOU (7*16)(BX), tmp1
+	PXOR tmp1, h
 
+	DECQ DX
+	JZ end
+	
+	storeState
 	LEAQ 64(R8), R8
 	LEAQ 64(R9), R9
 	LEAQ 64(R10), R10
 	LEAQ 64(R11), R11
+	JMP loop
 
-	DECQ DX
-	JNZ loop
-
+end:
 	// transpose state
 	SSE_TRANSPOSE_MATRIX(a, b, c, d, tmp1, tmp2)
 	SSE_TRANSPOSE_MATRIX(e, f, g, h, tmp1, tmp2)
@@ -616,23 +614,35 @@ avxLoop:
 	AVX_ROUND_16_63(62, c, d, e, f, g, h, a, b)
 	AVX_ROUND_16_63(63, b, c, d, e, f, g, h, a)
 
-	avxXorm(  0(BX), a)
-	avxXorm( 16(BX), b)
-	avxXorm( 32(BX), c)
-	avxXorm( 48(BX), d)
-	avxXorm( 64(BX), e)
-	avxXorm( 80(BX), f)
-	avxXorm( 96(BX), g)
-	avxXorm(112(BX), h)
+	VPXOR (0*16)(BX), a, a
+	VPXOR (1*16)(BX), b, b
+	VPXOR (2*16)(BX), c, c
+	VPXOR (3*16)(BX), d, d
+	VPXOR (4*16)(BX), e, e
+	VPXOR (5*16)(BX), f, f
+	VPXOR (6*16)(BX), g, g
+	VPXOR (7*16)(BX), h, h
+
+	DECQ DX
+	JZ avxEnd
+
+	// store current state
+	VMOVDQU a, (0*16)(BX)
+	VMOVDQU b, (1*16)(BX)
+	VMOVDQU c, (2*16)(BX)
+	VMOVDQU d, (3*16)(BX)
+	VMOVDQU e, (4*16)(BX)
+	VMOVDQU f, (5*16)(BX)
+	VMOVDQU g, (6*16)(BX)
+	VMOVDQU h, (7*16)(BX)
 
 	LEAQ 64(R8), R8
 	LEAQ 64(R9), R9
 	LEAQ 64(R10), R10
 	LEAQ 64(R11), R11
+	JMP avxLoop
 
-	DECQ DX
-	JNZ avxLoop
-
+avxEnd:
 	// transpose state
 	TRANSPOSE_MATRIX(a, b, c, d, tmp1, tmp2)
 	TRANSPOSE_MATRIX(e, f, g, h, tmp1, tmp2)

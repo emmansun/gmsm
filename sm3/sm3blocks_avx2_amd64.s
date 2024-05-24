@@ -81,12 +81,6 @@ GLOBL r08_mask<>(SB), 8, $32
 	VPERM2I128 $0x31, r6, tmp4, r6;              \ // r6 =    [w62, w54, w46, w38, w30, w22, w14, w6]
 	VPERM2I128 $0x31, r7, tmp3, r7;              \ // r7 =    [w63, w55, w47, w39, w31, w23, w15, w7]
 
-// xorm (mem), reg
-// xor reg to mem using reg-mem xor and store
-#define xorm(P1, P2) \
-	VPXOR P1, P2, P2; \
-	VMOVDQU P2, P1
-
 // store 256 bits
 #define storeWord(W, j) VMOVDQU W, (256+(j)*32)(BX)
 // load 256 bits
@@ -329,6 +323,7 @@ loop:
 	prepare8Words(0)
 	prepare8Words(1)
 
+	// Need to load state again due to YMM registers are used in prepare8Words
 	loadState
 
 	ROUND_00_11(0, a, b, c, d, e, f, g, h)
@@ -398,15 +393,19 @@ loop:
 	ROUND_16_63(62, c, d, e, f, g, h, a, b)
 	ROUND_16_63(63, b, c, d, e, f, g, h, a)
 
-	xorm(  0(BX), a)
-	xorm( 32(BX), b)
-	xorm( 64(BX), c)
-	xorm( 96(BX), d)
-	xorm( 128(BX), e)
-	xorm( 160(BX), f)
-	xorm( 192(BX), g)
-	xorm(224(BX), h)
+	VPXOR (0*32)(BX), a, a
+	VPXOR (1*32)(BX), b, b
+	VPXOR (2*32)(BX), c, c
+	VPXOR (3*32)(BX), d, d
+	VPXOR (4*32)(BX), e, e
+	VPXOR (5*32)(BX), f, f
+	VPXOR (6*32)(BX), g, g
+	VPXOR (7*32)(BX), h, h
 
+	DECQ DX
+	JZ end
+
+	saveState
 	LEAQ 64(srcPtr1), srcPtr1
 	LEAQ 64(srcPtr2), srcPtr2
 	LEAQ 64(srcPtr3), srcPtr3
@@ -416,9 +415,9 @@ loop:
 	LEAQ 64(srcPtr7), srcPtr7
 	LEAQ 64(srcPtr8), srcPtr8
 
-	DECQ DX
-	JNZ loop
+	JMP loop
 
+end:
 	TRANSPOSE_MATRIX(a, b, c, d, e, f, g, h, TMP1, TMP2, TMP3, TMP4)
 
 	// save state
