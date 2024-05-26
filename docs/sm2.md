@@ -230,6 +230,9 @@ func ExamplePrivateKey_Decrypt() {
 
 具体API文档请参考：[API Document](https://godoc.org/github.com/emmansun/gmsm)
 
+### 性能
+从**v0.27.0**开始，对大数据量的加解密做了优化处理，尤其是KDF并行计算。详情请参考[SM2加解密性能](https://github.com/emmansun/gmsm/wiki/SM2%E5%8A%A0%E8%A7%A3%E5%AF%86%E6%80%A7%E8%83%BD)。
+
 ## 与KMS集成
 国内云服务商的KMS服务大都提供SM2密钥，我们一般调用其API进行签名和解密，而验签和加密操作，一般在本地用公钥即可完成。不过需要注意的是，KMS提供的签名通常需要您在本地进行hash操作，而sm2签名的hash又比较特殊，下面示例供参考（自版本**v0.24.0**开始，您可以直接使用函数```sm2.CalculateSM2Hash```）：  
 ```go
