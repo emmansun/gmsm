@@ -310,6 +310,7 @@ loop:
 
 	RET
 
+#undef digPtr
 // func copyResultsBy4(dig *uint32, dst *byte)
 TEXT ·copyResultsBy4(SB),NOSPLIT,$0
 #define digPtr R0
