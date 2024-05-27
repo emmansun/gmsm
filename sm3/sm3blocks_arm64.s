@@ -320,7 +320,7 @@ TEXT ·copyResultsBy4(SB),NOSPLIT,$0
 
 	// load state
 	VLD1.P 64(digPtr), [a.S4, b.S4, c.S4, d.S4]
-	VLD1 64(digPtr), [e.S4, f.S4, g.S4, h.S4]
+	VLD1 (digPtr), [e.S4, f.S4, g.S4, h.S4]
 
 	VREV32 a.B16, a.B16
 	VREV32 b.B16, b.B16
