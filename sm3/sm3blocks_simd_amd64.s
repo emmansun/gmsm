@@ -661,3 +661,72 @@ avxEnd:
 	VMOVDQU h, (1*16)(R8)
 
 	RET
+
+// func copyResultsBy4(dig *uint32, dst *byte)
+TEXT ·copyResultsBy4(SB),NOSPLIT,$0
+	MOVQ	dig+0(FP), DI
+	MOVQ	dst+8(FP), SI
+
+	CMPB ·useAVX(SB), $1
+	JE   avx
+
+	// load state
+	MOVOU (0*16)(DI), a
+	MOVOU (1*16)(DI), b
+	MOVOU (2*16)(DI), c
+	MOVOU (3*16)(DI), d
+	MOVOU (4*16)(DI), e
+	MOVOU (5*16)(DI), f
+	MOVOU (6*16)(DI), g
+	MOVOU (7*16)(DI), h
+	
+	MOVOU flip_mask<>(SB), tmp1
+	PSHUFB tmp1, a
+	PSHUFB tmp1, b
+	PSHUFB tmp1, c
+	PSHUFB tmp1, d
+	PSHUFB tmp1, e
+	PSHUFB tmp1, f
+	PSHUFB tmp1, g
+	PSHUFB tmp1, h
+	MOVOU a, (0*16)(SI)
+	MOVOU b, (1*16)(SI)
+	MOVOU c, (2*16)(SI)
+	MOVOU d, (3*16)(SI)
+	MOVOU e, (4*16)(SI)
+	MOVOU f, (5*16)(SI)
+	MOVOU g, (6*16)(SI)
+	MOVOU h, (7*16)(SI)
+
+	RET
+
+avx:
+	// load state
+	VMOVDQU (0*16)(DI), a
+	VMOVDQU (1*16)(DI), b
+	VMOVDQU (2*16)(DI), c
+	VMOVDQU (3*16)(DI), d
+	VMOVDQU (4*16)(DI), e
+	VMOVDQU (5*16)(DI), f
+	VMOVDQU (6*16)(DI), g
+	VMOVDQU (7*16)(DI), h
+
+	VPSHUFB flip_mask<>(SB), a, a
+	VPSHUFB flip_mask<>(SB), b, b
+	VPSHUFB flip_mask<>(SB), c, c
+	VPSHUFB flip_mask<>(SB), d, d
+	VPSHUFB flip_mask<>(SB), e, e
+	VPSHUFB flip_mask<>(SB), f, f
+	VPSHUFB flip_mask<>(SB), g, g
+	VPSHUFB flip_mask<>(SB), h, h
+
+	VMOVDQU a, (0*16)(SI)
+	VMOVDQU b, (1*16)(SI)
+	VMOVDQU c, (2*16)(SI)
+	VMOVDQU d, (3*16)(SI)
+	VMOVDQU e, (4*16)(SI)
+	VMOVDQU f, (5*16)(SI)
+	VMOVDQU g, (6*16)(SI)
+	VMOVDQU h, (7*16)(SI)
+
+	RET

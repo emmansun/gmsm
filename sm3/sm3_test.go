@@ -469,6 +469,7 @@ func BenchmarkKdfWithSM3(b *testing.B) {
 	z := make([]byte, 512)
 	for _, tt := range tests {
 		b.Run(fmt.Sprintf("zLen=%v-kLen=%v", tt.zLen, tt.kLen), func(b *testing.B) {
+			b.SetBytes(int64(tt.kLen))
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {

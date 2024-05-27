@@ -4,28 +4,17 @@ package sm3
 
 import "encoding/binary"
 
-func prepareData(baseMD *digest, p []byte, ct uint32, len, t uint64) {
+func prepareInitData(baseMD *digest, p []byte, len, t uint64) {
 	if baseMD.nx > 0 {
 		copy(p, baseMD.x[:baseMD.nx])
 	}
-	binary.BigEndian.PutUint32(p[baseMD.nx:], ct)
+	// binary.BigEndian.PutUint32(p[baseMD.nx:], ct)
 	// Padding. Add a 1 bit and 0 bits until 56 bytes mod 64.
 	var tmp [64 + 8]byte // padding + length buffer
 	tmp[0] = 0x80
 	padlen := tmp[:t+8]
 	binary.BigEndian.PutUint64(padlen[t:], len)
 	copy(p[baseMD.nx+4:], padlen)
-}
-
-func copyResult(result []byte, dig *[8]uint32) {
-	binary.BigEndian.PutUint32(result[0:], dig[0])
-	binary.BigEndian.PutUint32(result[4:], dig[1])
-	binary.BigEndian.PutUint32(result[8:], dig[2])
-	binary.BigEndian.PutUint32(result[12:], dig[3])
-	binary.BigEndian.PutUint32(result[16:], dig[4])
-	binary.BigEndian.PutUint32(result[20:], dig[5])
-	binary.BigEndian.PutUint32(result[24:], dig[6])
-	binary.BigEndian.PutUint32(result[28:], dig[7])
 }
 
 // p || state || words
@@ -57,11 +46,21 @@ func kdfBy4(baseMD *digest, keyLen int, limit int) []byte {
 	buffer := make([]byte, preallocSizeBy4)
 	tmp := buffer[tmpStart:]
 	// prepare processing data
-	var data [parallelSize4]*byte
+	var dataPtrs [parallelSize4]*byte
+	var data [parallelSize4][]byte
 	var digs [parallelSize4]*[8]uint32
 	var states [parallelSize4][8]uint32
-	for j := 0; j < 4; j++ {
+	
+	for j := 0; j < parallelSize4; j++ {
 		digs[j] = &states[j]
+		p := buffer[blocks*BlockSize*j:]
+		data[j] = p
+		dataPtrs[j] = &p[0]
+		if j == 0 {
+			prepareInitData(baseMD, p, len, t)
+		} else {
+			copy(p, data[0])
+		}
 	}
 
 	var ct uint32 = 1
@@ -73,16 +72,12 @@ func kdfBy4(baseMD *digest, keyLen int, limit int) []byte {
 			// prepare states
 			states[j] = baseMD.h
 			// prepare data
-			p := buffer[blocks*BlockSize*j:]
-			data[j] = &p[0]
-			prepareData(baseMD, p, ct, len, t)
+			binary.BigEndian.PutUint32(data[j][baseMD.nx:], ct)
 			ct++
 		}
-		blockMultBy4(&digs[0], &data[0], &tmp[0], blocks)
-		for j := 0; j < parallelSize4; j++ {
-			copyResult(ret, digs[j])
-			ret = ret[Size:]
-		}
+		blockMultBy4(&digs[0], &dataPtrs[0], &tmp[0], blocks)
+		copyResultsBy4(&states[0][0], &ret[0])
+		ret = ret[Size*parallelSize4:]
 	}
 	remain := limit % parallelSize4
 	for i := 0; i < remain; i++ {
@@ -99,3 +94,6 @@ func kdfBy4(baseMD *digest, keyLen int, limit int) []byte {
 
 //go:noescape
 func blockMultBy4(dig **[8]uint32, p **byte, buffer *byte, blocks int)
+
+//go:noescape
+func copyResultsBy4(dig *uint32, p *byte)

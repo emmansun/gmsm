@@ -440,3 +440,39 @@ end:
 
 	VZEROUPPER
 	RET
+
+// func copyResultsBy8(dig *uint32, dst *byte)
+TEXT ·copyResultsBy8(SB),NOSPLIT,$0
+	MOVQ	dig+0(FP), DI
+	MOVQ	dst+8(FP), SI
+
+	// load state
+	VMOVDQU (0*32)(DI), a
+	VMOVDQU (1*32)(DI), b
+	VMOVDQU (2*32)(DI), c
+	VMOVDQU (3*32)(DI), d
+	VMOVDQU (4*32)(DI), e
+	VMOVDQU (5*32)(DI), f
+	VMOVDQU (6*32)(DI), g
+	VMOVDQU (7*32)(DI), h
+	
+	VPSHUFB flip_mask<>(SB), a, a
+	VPSHUFB flip_mask<>(SB), b, b
+	VPSHUFB flip_mask<>(SB), c, c
+	VPSHUFB flip_mask<>(SB), d, d
+	VPSHUFB flip_mask<>(SB), e, e
+	VPSHUFB flip_mask<>(SB), f, f
+	VPSHUFB flip_mask<>(SB), g, g
+	VPSHUFB flip_mask<>(SB), h, h
+
+	VMOVDQU a, (0*32)(SI)
+	VMOVDQU b, (1*32)(SI)
+	VMOVDQU c, (2*32)(SI)
+	VMOVDQU d, (3*32)(SI)
+	VMOVDQU e, (4*32)(SI)
+	VMOVDQU f, (5*32)(SI)
+	VMOVDQU g, (6*32)(SI)
+	VMOVDQU h, (7*32)(SI)
+
+	VZEROUPPER
+	RET

@@ -309,3 +309,28 @@ loop:
 	VST1 [h.S4], (R20)
 
 	RET
+
+// func copyResultsBy4(dig *uint32, dst *byte)
+TEXT ·copyResultsBy4(SB),NOSPLIT,$0
+#define digPtr R0
+#define dstPtr R1
+	MOVD	dig+0(FP), digPtr
+	MOVD	dst+8(FP), dstPtr
+
+	// load state
+	VLD1.P 64(digPtr), [a.S4, b.S4, c.S4, d.S4]
+	VLD1 64(digPtr), [e.S4, f.S4, g.S4, h.S4]
+
+	VREV32 a.B16, a.B16
+	VREV32 b.B16, b.B16
+	VREV32 c.B16, c.B16
+	VREV32 d.B16, d.B16
+	VREV32 e.B16, e.B16
+	VREV32 f.B16, f.B16
+	VREV32 g.B16, g.B16
+	VREV32 h.B16, h.B16
+
+	VST1.P [a.B16, b.B16, c.B16, d.B16], 64(dstPtr)
+	VST1 [e.B16, f.B16, g.B16, h.B16], (dstPtr)
+
+	RET

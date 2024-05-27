@@ -34,48 +34,50 @@ func kdfBy8(baseMD *digest, keyLen int, limit int) []byte {
 	buffer := make([]byte, preallocSizeBy8)
 	tmp := buffer[tmpStart:]
 	// prepare processing data
-	var data [parallelSize8]*byte
+	var dataPtrs [parallelSize8]*byte
+	var data [parallelSize8][]byte
 	var digs [parallelSize8]*[8]uint32
 	var states [parallelSize8][8]uint32
+	
 	for j := 0; j < parallelSize8; j++ {
 		digs[j] = &states[j]
+		p := buffer[blocks*BlockSize*j:]
+		data[j] = p
+		dataPtrs[j] = &p[0]
+		if j == 0 {
+			prepareInitData(baseMD, p, len, t)
+		} else {
+			copy(p, data[0])
+		}
 	}
-
+	
 	times := limit / parallelSize8
 	for i := 0; i < times; i++ {
 		for j := 0; j < parallelSize8; j++ {
 			// prepare states
 			states[j] = baseMD.h
 			// prepare data
-			p := buffer[blocks*BlockSize*j:]
-			data[j] = &p[0]
-			prepareData(baseMD, p, ct, len, t)
+			binary.BigEndian.PutUint32(data[j][baseMD.nx:], ct)
 			ct++
 		}
-		blockMultBy8(&digs[0], &data[0], &tmp[0], blocks)
-		for j := 0; j < parallelSize8; j++ {
-			copyResult(ret, digs[j])
-			ret = ret[Size:]
-		}
+		blockMultBy8(&digs[0], &dataPtrs[0], &tmp[0], blocks)
+		copyResultsBy8(&states[0][0], &ret[0])
+		ret = ret[Size*parallelSize8:]
 	}
 
 	remain := limit % parallelSize8
-	if remain >= 4 {
-		for j := 0; j < 4; j++ {
+	if remain >= parallelSize4 {
+		for j := 0; j < parallelSize4; j++ {
 			// prepare states
 			states[j] = baseMD.h
 			// prepare data
-			p := buffer[blocks*BlockSize*j:]
-			data[j] = &p[0]
-			prepareData(baseMD, p, ct, len, t)
+			binary.BigEndian.PutUint32(data[j][baseMD.nx:], ct)
 			ct++
 		}
-		blockMultBy4(&digs[0], &data[0], &tmp[0], blocks)
-		for j := 0; j < 4; j++ {
-			copyResult(ret, digs[j])
-			ret = ret[Size:]
-		}
-		remain -= 4
+		blockMultBy4(&digs[0], &dataPtrs[0], &tmp[0], blocks)
+		copyResultsBy4(&states[0][0], &ret[0])
+		ret = ret[Size*parallelSize4:]
+		remain -= parallelSize4
 	}
 
 	for i := 0; i < remain; i++ {
@@ -95,3 +97,6 @@ func blockMultBy8(dig **[8]uint32, p **byte, buffer *byte, blocks int)
 
 //go:noescape
 func transposeMatrix8x8(dig **[8]uint32)
+
+//go:noescape
+func copyResultsBy8(dig *uint32, p *byte)
