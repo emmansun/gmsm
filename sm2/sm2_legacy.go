@@ -260,7 +260,7 @@ func encryptLegacy(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Enc
 
 		//A5, calculate t=KDF(x2||y2, klen)
 		c2 := sm3.Kdf(append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
-		if subtle.ConstantTimeAllZero(c2) {
+		if subtle.ConstantTimeAllZero(c2) == 1 {
 			retryCount++
 			if retryCount > maxRetryLimit {
 				return nil, fmt.Errorf("sm2: A5, failed to calculate valid t, tried %v times", retryCount)
@@ -408,7 +408,7 @@ func rawDecrypt(priv *PrivateKey, x1, y1 *big.Int, c2, c3 []byte) ([]byte, error
 	x2, y2 := curve.ScalarMult(x1, y1, priv.D.Bytes())
 	msgLen := len(c2)
 	msg := sm3.Kdf(append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
-	if subtle.ConstantTimeAllZero(c2) {
+	if subtle.ConstantTimeAllZero(c2) == 1 {
 		return nil, ErrDecryption
 	}
 

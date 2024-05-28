@@ -251,7 +251,7 @@ func encryptSM2EC(c *sm2Curve, pub *ecdsa.PublicKey, random io.Reader, msg []byt
 		}
 		C2Bytes := C2.Bytes()[1:]
 		c2 := sm3.Kdf(C2Bytes, len(msg))
-		if subtle.ConstantTimeAllZero(c2) {
+		if subtle.ConstantTimeAllZero(c2) == 1 {
 			retryCount++
 			if retryCount > maxRetryLimit {
 				return nil, fmt.Errorf("sm2: A5, failed to calculate valid t, tried %v times", retryCount)
@@ -424,7 +424,7 @@ func decryptSM2EC(c *sm2Curve, priv *PrivateKey, ciphertext []byte, opts *Decryp
 	C2Bytes := C2.Bytes()[1:]
 	msgLen := len(c2)
 	msg := sm3.Kdf(C2Bytes, msgLen)
-	if subtle.ConstantTimeAllZero(c2) {
+	if subtle.ConstantTimeAllZero(c2) == 1 {
 		return nil, ErrDecryption
 	}
 

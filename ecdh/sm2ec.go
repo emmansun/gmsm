@@ -51,7 +51,7 @@ func (c *sm2Curve) NewPrivateKey(key []byte) (*PrivateKey, error) {
 	if len(key) != len(c.scalarOrderMinus1) {
 		return nil, errors.New("ecdh: invalid private key size")
 	}
-	if subtle.ConstantTimeAllZero(key) || !isLess(key, c.scalarOrderMinus1) {
+	if subtle.ConstantTimeAllZero(key) == 1 || !isLess(key, c.scalarOrderMinus1) {
 		return nil, errInvalidPrivateKey
 	}
 	return &PrivateKey{
