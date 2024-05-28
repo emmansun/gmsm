@@ -86,6 +86,16 @@ GLOBL r08_mask<>(SB), 8, $32
 // load 256 bits
 #define loadWord(W, i) VMOVDQU (256+(i)*32)(BX), W
 
+#define REV32(a, b, c, d, e, f, g, h) \
+	VPSHUFB flip_mask<>(SB), a, a; \
+	VPSHUFB flip_mask<>(SB), b, b; \
+	VPSHUFB flip_mask<>(SB), c, c; \
+	VPSHUFB flip_mask<>(SB), d, d; \
+	VPSHUFB flip_mask<>(SB), e, e; \
+	VPSHUFB flip_mask<>(SB), f, f; \
+	VPSHUFB flip_mask<>(SB), g, g; \
+	VPSHUFB flip_mask<>(SB), h, h
+
 #define prepare8Words(i) \
 	VMOVDQU (i*32)(srcPtr1), a; \
 	VMOVDQU (i*32)(srcPtr2), b; \
@@ -97,14 +107,7 @@ GLOBL r08_mask<>(SB), 8, $32
 	VMOVDQU (i*32)(srcPtr8), h; \    
 	; \
 	TRANSPOSE_MATRIX(a, b, c, d, e, f, g, h, TMP1, TMP2, TMP3, TMP4); \
-	VPSHUFB flip_mask<>(SB), a, a; \
-	VPSHUFB flip_mask<>(SB), b, b; \
-	VPSHUFB flip_mask<>(SB), c, c; \
-	VPSHUFB flip_mask<>(SB), d, d; \
-	VPSHUFB flip_mask<>(SB), e, e; \
-	VPSHUFB flip_mask<>(SB), f, f; \
-	VPSHUFB flip_mask<>(SB), g, g; \
-	VPSHUFB flip_mask<>(SB), h, h; \    
+	REV32(a, b, c, d, e, f, g, h); \
 	; \
 	storeWord(a, 8*i+0); \
 	storeWord(b, 8*i+1); \
@@ -115,25 +118,25 @@ GLOBL r08_mask<>(SB), 8, $32
 	storeWord(g, 8*i+6); \
 	storeWord(h, 8*i+7)
 
-#define saveState \
-	VMOVDQU a, (0*32)(BX); \
-	VMOVDQU b, (1*32)(BX); \
-	VMOVDQU c, (2*32)(BX); \
-	VMOVDQU d, (3*32)(BX); \
-	VMOVDQU e, (4*32)(BX); \
-	VMOVDQU f, (5*32)(BX); \
-	VMOVDQU g, (6*32)(BX); \
-	VMOVDQU h, (7*32)(BX)
+#define saveState(R) \
+	VMOVDQU a, (0*32)(R); \
+	VMOVDQU b, (1*32)(R); \
+	VMOVDQU c, (2*32)(R); \
+	VMOVDQU d, (3*32)(R); \
+	VMOVDQU e, (4*32)(R); \
+	VMOVDQU f, (5*32)(R); \
+	VMOVDQU g, (6*32)(R); \
+	VMOVDQU h, (7*32)(R)
 
-#define loadState \
-	VMOVDQU (0*32)(BX), a; \
-	VMOVDQU (1*32)(BX), b; \
-	VMOVDQU (2*32)(BX), c; \
-	VMOVDQU (3*32)(BX), d; \
-	VMOVDQU (4*32)(BX), e; \
-	VMOVDQU (5*32)(BX), f; \
-	VMOVDQU (6*32)(BX), g; \
-	VMOVDQU (7*32)(BX), h
+#define loadState(R) \
+	VMOVDQU (0*32)(R), a; \
+	VMOVDQU (1*32)(R), b; \
+	VMOVDQU (2*32)(R), c; \
+	VMOVDQU (3*32)(R), d; \
+	VMOVDQU (4*32)(R), e; \
+	VMOVDQU (5*32)(R), f; \
+	VMOVDQU (6*32)(R), g; \
+	VMOVDQU (7*32)(R), h
 
 // r <<< n
 #define VPROLD(r, n) \
@@ -150,16 +153,49 @@ GLOBL r08_mask<>(SB), 8, $32
 #define LOAD_T(index, T) \
 	VPBROADCASTD (index*4)(AX), T
 
+// DST = X XOR Y XOR Z
+#define FF0(X, Y, Z, DST) \
+	VPXOR X, Y, DST; \
+	VPXOR Z, DST, DST
+
+// DST = (X AND Y) OR (X AND Z) OR (Y AND Z)
+#define FF1(X, Y, Z, TMP, DST) \
+	VPOR X, Y, DST; \
+	VPAND X, Y, TMP; \
+	VPAND Z, DST, DST; \
+	VPOR TMP, DST, DST
+
+// DST = X XOR Y XOR Z
+#define GG0(X, Y, Z, DST) \
+	FF0(X, Y, Z, DST)
+
+// DST = (Y XOR Z) AND X XOR Z
+#define GG1(X, Y, Z, DST) \
+	VPXOR Y, Z, DST; \
+	VPAND X, DST, DST; \ 
+	VPXOR Z, DST, DST
+
+#define SS1SS2(index, a, e, SS1, SS2) \
+	VPROLD2(a, SS2, 12); \ // a <<< 12
+	LOAD_T(index, SS1);   \ // const
+	VPADDD SS1, SS2, SS1; \
+	VPADDD e, SS1, SS1; \
+	VPROLD(SS1, 7); \ // SS1
+	VPXOR SS1, SS2, SS2; \ // SS2
+
+#define COPY_RESULT(b, d, f, h, TT1, TT2) \
+	VPROLD(b, 9); \
+	VMOVDQU TT1, h; \ // TT1
+	VPROLD(f, 19); \
+	VPROLD2(TT2, TT1, 9); \ // tt2 <<< 9
+	VPXOR TT2, TT1, TT2; \ // tt2 XOR ROTL(9, tt2)
+	VPSHUFB r08_mask<>(SB), TT1, TT1; \ // ROTL(17, tt2)
+	VPXOR TT1, TT2, d
+
 #define ROUND_00_11(index, a, b, c, d, e, f, g, h) \
-	VPROLD2(a, Y13, 12); \ // a <<< 12
-	LOAD_T(index, Y12);   \
-	VPADDD Y12, Y13, Y12; \
-	VPADDD e, Y12, Y12; \
-	VPROLD(Y12, 7); \ // SS1
-	VPXOR Y12, Y13, Y13; \ // SS2
+	SS1SS2(index, a, e, Y12, Y13); \
 	; \
-	VPXOR a, b, Y14; \
-	VPXOR c, Y14, Y14; \ // (a XOR b XOR c)
+	FF0(a, b, c, Y14); \
 	VPADDD d, Y14, Y14; \ // (a XOR b XOR c) + d 
 	loadWord(Y10, index); \
 	loadWord(Y11, index+4); \
@@ -168,17 +204,10 @@ GLOBL r08_mask<>(SB), 8, $32
 	VPADDD Y14, Y13, Y13; \ // TT1
 	VPADDD h, Y10, Y10; \ // Wt + h
 	VPADDD Y12, Y10, Y10; \ // Wt + h + SS1
-	VPXOR e, f, Y11; \
-	VPXOR g, Y11, Y11; \ // (e XOR f XOR g)
+	GG0(e, f, g, Y11); \
 	VPADDD Y11, Y10, Y10; \ // TT2 = (e XOR f XOR g) + Wt + h + SS1
 	; \ // copy result
-	VPROLD(b, 9); \
-	VMOVDQU Y13, h; \
-	VPROLD(f, 19); \
-	VPROLD2(Y10, Y13, 9); \ // tt2 <<< 9
-	VPSHUFB r08_mask<>(SB), Y13, Y11; \ // ROTL(17, tt2)
-	VPXOR Y10, Y13, Y13; \ // tt2 XOR ROTL(9, tt2)
-	VPXOR Y11, Y13, d
+	COPY_RESULT(b, d, f, h, Y13, Y10)
 
 #define MESSAGE_SCHEDULE(index) \
 	loadWord(Y10, index+1); \ // Wj-3
@@ -202,17 +231,9 @@ GLOBL r08_mask<>(SB), 8, $32
 
 #define ROUND_16_63(index, a, b, c, d, e, f, g, h) \
 	MESSAGE_SCHEDULE(index); \ // Y11 is Wt+4 now, Pls do not use it
-	VPROLD2(a, Y13, 12); \ // a <<< 12
-	LOAD_T(index, Y12);  \
-	VPADDD Y12, Y13, Y12; \
-	VPADDD e, Y12, Y12; \
-	VPROLD(Y12, 7); \ // SS1
-	VPXOR Y12, Y13, Y13; \ // SS2
+	SS1SS2(index, a, e, Y12, Y13); \
 	; \
-	VPOR a, b, Y14; \
-	VPAND a, b, Y10; \
-	VPAND c, Y14, Y14; \
-	VPOR Y10, Y14, Y14; \ // (a AND b) OR (a AND c) OR (b AND c)
+	FF1(a, b, c, Y10, Y14); \ // (a AND b) OR (a AND c) OR (b AND c)
 	VPADDD d, Y14, Y14; \ // (a AND b) OR (a AND c) OR (b AND c) + d
 	loadWord(Y10, index); \
 	VPXOR Y10, Y11, Y11; \ //Wt XOR Wt+4
@@ -221,18 +242,10 @@ GLOBL r08_mask<>(SB), 8, $32
 	; \
 	VPADDD h, Y10, Y10; \ // Wt + h
 	VPADDD Y12, Y10, Y10; \ // Wt + h + SS1
-	VPXOR f, g, Y11; \
-	VPAND e, Y11, Y11; \ 
-	VPXOR g, Y11, Y11; \ // (f XOR g) AND e XOR g
+	GG1(e, f, g, Y11); \
 	VPADDD Y11, Y10, Y10; \ // TT2 = (e XOR f XOR g) + Wt + h + SS1
 	; \ // copy result
-	VPROLD(b, 9); \
-	VMOVDQU Y13, h; \
-	VPROLD(f, 19); \
-	VPROLD2(Y10, Y13, 9); \ // tt2 <<< 9
-	VPSHUFB r08_mask<>(SB), Y13, Y11; \ // ROTL(17, tt2)
-	VPXOR Y10, Y13, Y13; \ // tt2 XOR ROTL(9, tt2)
-	VPXOR Y11, Y13, d
+	COPY_RESULT(b, d, f, h, Y13, Y10)
 
 // transposeMatrix8x8(dig **[8]uint32)
 TEXT ·transposeMatrix8x8(SB),NOSPLIT,$0
@@ -307,7 +320,7 @@ TEXT ·blockMultBy8(SB),NOSPLIT,$0
 
 	TRANSPOSE_MATRIX(a, b, c, d, e, f, g, h, TMP1, TMP2, TMP3, TMP4)
 
-	saveState
+	saveState(BX)
 
 	MOVQ $·_K+0(SB), AX
 	MOVQ (0*8)(SI), srcPtr1
@@ -324,7 +337,7 @@ loop:
 	prepare8Words(1)
 
 	// Need to load state again due to YMM registers are used in prepare8Words
-	loadState
+	loadState(BX)
 
 	ROUND_00_11(0, a, b, c, d, e, f, g, h)
 	ROUND_00_11(1, h, a, b, c, d, e, f, g)
@@ -405,7 +418,7 @@ loop:
 	DECQ DX
 	JZ end
 
-	saveState
+	saveState(BX)
 	LEAQ 64(srcPtr1), srcPtr1
 	LEAQ 64(srcPtr2), srcPtr2
 	LEAQ 64(srcPtr3), srcPtr3
@@ -446,33 +459,9 @@ TEXT ·copyResultsBy8(SB),NOSPLIT,$0
 	MOVQ	dig+0(FP), DI
 	MOVQ	dst+8(FP), SI
 
-	// load state
-	VMOVDQU (0*32)(DI), a
-	VMOVDQU (1*32)(DI), b
-	VMOVDQU (2*32)(DI), c
-	VMOVDQU (3*32)(DI), d
-	VMOVDQU (4*32)(DI), e
-	VMOVDQU (5*32)(DI), f
-	VMOVDQU (6*32)(DI), g
-	VMOVDQU (7*32)(DI), h
-	
-	VPSHUFB flip_mask<>(SB), a, a
-	VPSHUFB flip_mask<>(SB), b, b
-	VPSHUFB flip_mask<>(SB), c, c
-	VPSHUFB flip_mask<>(SB), d, d
-	VPSHUFB flip_mask<>(SB), e, e
-	VPSHUFB flip_mask<>(SB), f, f
-	VPSHUFB flip_mask<>(SB), g, g
-	VPSHUFB flip_mask<>(SB), h, h
-
-	VMOVDQU a, (0*32)(SI)
-	VMOVDQU b, (1*32)(SI)
-	VMOVDQU c, (2*32)(SI)
-	VMOVDQU d, (3*32)(SI)
-	VMOVDQU e, (4*32)(SI)
-	VMOVDQU f, (5*32)(SI)
-	VMOVDQU g, (6*32)(SI)
-	VMOVDQU h, (7*32)(SI)
+	loadState(DI)
+	REV32(a, b, c, d, e, f, g, h)
+	saveState(SI)
 
 	VZEROUPPER
 	RET

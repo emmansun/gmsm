@@ -69,18 +69,24 @@ GLOBL r08_mask<>(SB), 8, $16
 #define tmp1 X8
 #define tmp2 X9
 
-#define storeState \
-	MOVOU a, (BX) \
-	MOVOU b, 16(BX) \
-	MOVOU c, 32(BX) \
-	MOVOU d, 48(BX) \
-	MOVOU e, 64(BX) \
-	MOVOU f, 80(BX) \
-	MOVOU g, 96(BX) \
-	MOVOU h, 112(BX)
+#define storeState(R) \
+	MOVOU a, (R) \
+	MOVOU b, 16(R) \
+	MOVOU c, 32(R) \
+	MOVOU d, 48(R) \
+	MOVOU e, 64(R) \
+	MOVOU f, 80(R) \
+	MOVOU g, 96(R) \
+	MOVOU h, 112(R)
 
 #define storeWord(W, j) MOVOU W, (128+(j)*16)(BX)
 #define loadWord(W, i) MOVOU (128+(i)*16)(BX), W
+
+#define SSE_REV32(a, b, c, d) \
+	PSHUFB flip_mask<>(SB), a; \
+	PSHUFB flip_mask<>(SB), b; \
+	PSHUFB flip_mask<>(SB), c; \
+	PSHUFB flip_mask<>(SB), d
 
 #define prepare4Words(i) \
 	MOVOU (i*16)(R8), X10; \
@@ -89,11 +95,7 @@ GLOBL r08_mask<>(SB), 8, $16
 	MOVOU (i*16)(R11), X13; \
 	; \
 	SSE_TRANSPOSE_MATRIX(X10, X11, X12, X13, tmp1, tmp2); \
-	MOVOU flip_mask<>(SB), tmp1; \
-	PSHUFB tmp1, X10; \
-	PSHUFB tmp1, X11; \
-	PSHUFB tmp1, X12; \
-	PSHUFB tmp1, X13; \
+	SSE_REV32(X10, X11, X12, X13); \
 	; \
 	storeWord(X10, 4*i+0); \
 	storeWord(X11, 4*i+1); \
@@ -111,18 +113,53 @@ GLOBL r08_mask<>(SB), 8, $16
 	PSRLL $(32-n), tmp1; \
 	POR tmp1, r
 
+#define SSE_SS1SS2(index, a, e, TMP, SS1, SS2) \
+	MOVOU a, SS1; \
+	PROLD(SS1, 12); \
+	MOVOU SS1, SS2; \ // a <<< 12
+	LOAD_T(index, TMP); \
+	PADDL TMP, SS1; \
+	PADDL e, SS1; \
+	PROLD(SS1, 7); \ // SS1
+	PXOR SS1, SS2; \ // SS2
+
+#define SSE_FF0(X, Y, Z, DST) \
+	MOVOU X, DST; \
+	PXOR Y, DST; \
+	PXOR Z, DST
+
+#define SSE_FF1(X, Y, Z, TMP, DST) \
+	MOVOU X, DST; \
+	POR Y, DST; \
+	MOVOU X, TMP; \
+	PAND Y, TMP; \
+	PAND Z, DST; \
+	POR TMP, DST; \ // (a AND b) OR (a AND c) OR (b AND c)
+
+#define SSE_GG0(X, Y, Z, DST) \
+	SSE_FF0(X, Y, Z, DST)
+
+// DST = (Y XOR Z) AND X XOR Z
+#define SSE_GG1(X, Y, Z, DST) \
+	MOVOU Y, DST; \
+	PXOR Z, DST; \
+	PAND X, DST; \
+	PXOR Z, DST
+
+#define SSE_COPY_RESULT(b, d, f, h, TT1, TT2) \
+	PROLD(b, 9); \
+	MOVOU TT1, h; \
+	PROLD(f, 19); \
+	MOVOU TT2, TT1; \
+	PROLD(TT1, 9); \
+	PXOR TT1, TT2; \ // tt2 XOR ROTL(9, tt2)
+	PSHUFB r08_mask<>(SB), TT1; \ // ROTL(17, tt2)
+	PXOR TT2, TT1; \ // tt2 XOR ROTL(9, tt2) XOR ROTL(17, tt2)
+	MOVOU TT1, d
+
 #define ROUND_00_11(index, a, b, c, d, e, f, g, h) \
-	MOVOU a, X12; \
-	PROLD(X12, 12); \
-	MOVOU X12, X13; \ // a <<< 12
-	LOAD_T(index, tmp2); \
-	PADDL tmp2, X12; \
-	PADDL e, X12; \
-	PROLD(X12, 7); \ // SS1
-	PXOR X12, X13; \ // SS2
-	MOVOU b, X14; \
-	PXOR a, X14; \
-	PXOR c, X14; \ // (a XOR b XOR c)
+	SSE_SS1SS2(index, a, e, tmp2, X12, X13); \
+	SSE_FF0(a, b, c, X14); \
 	PADDL d, X14; \ // (a XOR b XOR c) + d 
 	loadWord(X10, index); \
 	loadWord(X11, index+4); \
@@ -131,20 +168,10 @@ GLOBL r08_mask<>(SB), 8, $16
 	PADDL X14, X13; \ // TT1
 	PADDL h, X10; \ // Wt + h
 	PADDL X12, X10; \ // Wt + h + SS1
-	MOVOU e, X11; \
-	PXOR f, X11; \
-	PXOR g, X11; \ // (e XOR f XOR g)
+	SSE_GG0(e, f, g, X11); \
 	PADDL X11, X10; \ // TT2 = (e XOR f XOR g) + Wt + h + SS1
 	; \ // copy result
-	PROLD(b, 9); \
-	MOVOU X13, h; \
-	PROLD(f, 19); \
-	MOVOU X10, X13; \
-	PROLD(X13, 9); \
-	PXOR X13, X10; \ // tt2 XOR ROTL(9, tt2)
-	PSHUFB r08_mask<>(SB), X13; \ // ROTL(17, tt2)
-	PXOR X10, X13; \ // tt2 XOR ROTL(9, tt2) XOR ROTL(17, tt2)
-	MOVOU X13, d
+	SSE_COPY_RESULT(b, d, f, h, X13, X10)
 
 #define MESSAGE_SCHEDULE(index) \
 	loadWord(X10, index+1); \ // Wj-3
@@ -171,21 +198,9 @@ GLOBL r08_mask<>(SB), 8, $16
 
 #define ROUND_16_63(index, a, b, c, d, e, f, g, h) \
 	MESSAGE_SCHEDULE(index); \ // X11 is Wt+4 now, Pls do not use it
-	MOVOU a, X12; \
-	PROLD(X12, 12); \
-	MOVOU X12, X13; \ // a <<< 12
-	LOAD_T(index, tmp2); \
-	PADDL tmp2, X12; \
-	PADDL e, X12; \
-	PROLD(X12, 7); \ // SS1
-	PXOR X12, X13; \ // SS2
+	SSE_SS1SS2(index, a, e, tmp2, X12, X13); \
 	; \
-	MOVOU a, X14; \
-	POR b, X14; \
-	MOVOU a, X10; \
-	PAND b, X10; \
-	PAND c, X14; \
-	POR X10, X14; \ // (a AND b) OR (a AND c) OR (b AND c)
+	SSE_FF1(a, b, c, X10, X14); \
 	PADDL d, X14; \ // (a AND b) OR (a AND c) OR (b AND c) + d
 	loadWord(X10, index); \
 	PXOR X10, X11; \ //Wt XOR Wt+4
@@ -194,42 +209,47 @@ GLOBL r08_mask<>(SB), 8, $16
 	; \
 	PADDL h, X10; \ // Wt + h
 	PADDL X12, X10; \ // Wt + h + SS1
-	MOVOU f, X11; \
-	PXOR g, X11; \
-	PAND e, X11; \ // (f XOR g) AND e XOR g
-	PXOR g, X11; \
+	SSE_GG1(e, f, g, X11); \
 	PADDL X11, X10; \ // TT2 = (e XOR f XOR g) + Wt + h + SS1
 	; \ // copy result
-	PROLD(b, 9); \
-	MOVOU X13, h; \
-	PROLD(f, 19); \
-	MOVOU X10, X13; \
-	PROLD(X13, 9); \
-	PXOR X13, X10; \ // tt2 XOR ROTL(9, tt2)
-	PSHUFB r08_mask<>(SB), X13; \ // ROTL(17, tt2)
-	PXOR X10, X13; \ // tt2 XOR ROTL(9, tt2) XOR ROTL(17, tt2)
-	MOVOU X13, d
+	SSE_COPY_RESULT(b, d, f, h, X13, X10)
 
-// transpose matrix function, AVX/AVX2 version
+// transpose matrix function, AVX version
 // parameters:
-// - r0: 128/256 bits register as input/output data
-// - r1: 128/256 bits register as input/output data
-// - r2: 128/256 bits register as input/output data
-// - r3: 128/256 bits register as input/output data
-// - tmp1: 128/256 bits temp register
-// - tmp2: 128/256 bits temp register
+// - r0: 128 bits register as input/output data
+// - r1: 128 bits register as input/output data
+// - r2: 128 bits register as input/output data
+// - r3: 128 bits register as input/output data
+// - tmp1: 128 bits temp register
+// - tmp2: 128 bits temp register
 #define TRANSPOSE_MATRIX(r0, r1, r2, r3, tmp1, tmp2) \
-	VPUNPCKHDQ r1, r0, tmp2;                 \ // tmp2 =  [w15, w7, w14, w6, w11, w3, w10, w2]          tmp2 = [w7, w3, w6, w2]
-	VPUNPCKLDQ r1, r0, r0;                   \ // r0 =    [w13, w5, w12, w4, w9, w1, w8, w0]              r0 = [w5, w1, w4, w0]
-	VPUNPCKLDQ r3, r2, tmp1;                 \ // tmp1 =  [w29, w21, w28, w20, w25, w17, w24, w16]      tmp1 = [w13, w9, w12, w8]
-	VPUNPCKHDQ r3, r2, r2;                   \ // r2 =    [w31, w27, w30, w22, w27, w19, w26, w18]        r2 = [w15, w11, w14, w10] 
-	VPUNPCKHQDQ tmp1, r0, r1;                \ // r1 =    [w29, w21, w13, w5, w25, w17, w9, w1]           r1 = [w13, w9, w5, w1]
-	VPUNPCKLQDQ tmp1, r0, r0;                \ // r0 =    [w28, w20, w12, w4, w24, w16, w8, w0]           r0 = [w12, w8, w4, w0]
-	VPUNPCKHQDQ r2, tmp2, r3;                \ // r3 =    [w31, w27, w15, w7, w27, w19, w11, w3]          r3 = [w15, w11, w7, w3]
-	VPUNPCKLQDQ r2, tmp2, r2                   // r2 =    [w30, w22, w14, w6, w26, w18, w10, w2]          r2 = [w14, w10, w6, w2]
+	VPUNPCKHDQ r1, r0, tmp2;                 \ // tmp2 =  tmp2 = [w07, w03, w06, w02]
+	VPUNPCKLDQ r1, r0, r0;                   \ // r0 =      r0 = [w05, w01, w04, w00]
+	VPUNPCKLDQ r3, r2, tmp1;                 \ // tmp1 =  tmp1 = [w13, w09, w12, w08]
+	VPUNPCKHDQ r3, r2, r2;                   \ // r2 =      r2 = [w15, w11, w14, w10] 
+	VPUNPCKHQDQ tmp1, r0, r1;                \ // r1 =      r1 = [w13, w09, w05, w01]
+	VPUNPCKLQDQ tmp1, r0, r0;                \ // r0 =      r0 = [w12, w08, w04, w00]
+	VPUNPCKHQDQ r2, tmp2, r3;                \ // r3 =      r3 = [w15, w11, w07, w03]
+	VPUNPCKLQDQ r2, tmp2, r2                   // r2 =      r2 = [w14, w10, w06, w02]
 
 #define avxStoreWord(W, j) VMOVDQU W, (128+(j)*16)(BX)
 #define avxLoadWord(W, i) VMOVDQU (128+(i)*16)(BX), W
+
+#define avxStoreState(R) \
+	VMOVDQU a, (0*16)(R) \
+	VMOVDQU b, (1*16)(R) \
+	VMOVDQU c, (2*16)(R) \
+	VMOVDQU d, (3*16)(R) \
+	VMOVDQU e, (4*16)(R) \
+	VMOVDQU f, (5*16)(R) \
+	VMOVDQU g, (6*16)(R) \
+	VMOVDQU h, (7*16)(R)
+
+#define AVX_REV32(a, b, c, d) \
+	VPSHUFB flip_mask<>(SB), a, a; \
+	VPSHUFB flip_mask<>(SB), b, b; \
+	VPSHUFB flip_mask<>(SB), c, c; \
+	VPSHUFB flip_mask<>(SB), d, d
 
 #define avxPrepare4Words(i) \
 	VMOVDQU (i*16)(R8), X10; \
@@ -238,10 +258,7 @@ GLOBL r08_mask<>(SB), 8, $16
 	VMOVDQU (i*16)(R11), X13; \
 	; \
 	TRANSPOSE_MATRIX(X10, X11, X12, X13, tmp1, tmp2); \
-	VPSHUFB flip_mask<>(SB), X10, X10; \
-	VPSHUFB flip_mask<>(SB), X11, X11; \
-	VPSHUFB flip_mask<>(SB), X12, X12; \
-	VPSHUFB flip_mask<>(SB), X13, X13; \
+	AVX_REV32(X10, X11, X12, X13); \
 	; \
 	avxStoreWord(X10, 4*i+0); \
 	avxStoreWord(X11, 4*i+1); \
@@ -264,16 +281,49 @@ GLOBL r08_mask<>(SB), 8, $16
 	VPSRLD $(32-n), r, d; \
 	VPOR tmp1, d, d
 
+#define AVX_SS1SS2(index, a, e, SS1, SS2) \
+	VPROLD2(a, SS2, 12); \ // a <<< 12
+	AVX_LOAD_T(index, SS1); \
+	VPADDD SS1, SS2, SS1; \
+	VPADDD e, SS1, SS1; \
+	VPROLD(SS1, 7); \ // SS1
+	VPXOR SS1, SS2, SS2
+
+// DST = X XOR Y XOR Z
+#define AVX_FF0(X, Y, Z, DST) \
+	VPXOR X, Y, DST; \
+	VPXOR Z, DST, DST
+
+// DST = (X AND Y) OR (X AND Z) OR (Y AND Z)
+#define AVX_FF1(X, Y, Z, TMP, DST) \
+	VPOR X, Y, DST; \
+	VPAND X, Y, TMP; \
+	VPAND Z, DST, DST; \
+	VPOR TMP, DST, DST
+
+// DST = X XOR Y XOR Z
+#define AVX_GG0(X, Y, Z, DST) \
+	AVX_FF0(X, Y, Z, DST)
+
+// DST = (Y XOR Z) AND X XOR Z
+#define AVX_GG1(X, Y, Z, DST) \
+	VPXOR Y, Z, DST; \
+	VPAND X, DST, DST; \ 
+	VPXOR Z, DST, DST
+
+#define AVX_COPY_RESULT(b, d, f, h, TT1, TT2) \
+	VPROLD(b, 9); \
+	VMOVDQU TT1, h; \
+	VPROLD(f, 19); \
+	VPROLD2(TT2, TT1, 9); \ // tt2 <<< 9
+	VPXOR TT2, TT1, TT2; \ // tt2 XOR ROTL(9, tt2)
+	VPSHUFB r08_mask<>(SB), TT1, TT1; \ // ROTL(17, tt2)
+	VPXOR TT2, TT1, d
+
 #define AVX_ROUND_00_11(index, a, b, c, d, e, f, g, h) \
-	VPROLD2(a, X13, 12); \ // a <<< 12
-	AVX_LOAD_T(index, X12); \
-	VPADDD X12, X13, X12; \
-	VPADDD e, X12, X12; \
-	VPROLD(X12, 7); \ // SS1
-	VPXOR X12, X13, X13; \ // SS2
+	AVX_SS1SS2(index, a, e, X12, X13); \
 	; \
-	VPXOR a, b, X14; \
-	VPXOR c, X14, X14; \ // (a XOR b XOR c)
+	AVX_FF0(a, b, c, X14); \
 	VPADDD d, X14, X14; \ // (a XOR b XOR c) + d 
 	avxLoadWord(X10, index); \
 	avxLoadWord(X11, index+4); \
@@ -282,17 +332,10 @@ GLOBL r08_mask<>(SB), 8, $16
 	VPADDD X14, X13, X13; \ // TT1
 	VPADDD h, X10, X10; \ // Wt + h
 	VPADDD X12, X10, X10; \ // Wt + h + SS1
-	VPXOR e, f, X11; \
-	VPXOR g, X11, X11; \ // (e XOR f XOR g)
+	AVX_GG0(e, f, g, X11); \
 	VPADDD X11, X10, X10; \ // TT2 = (e XOR f XOR g) + Wt + h + SS1
 	; \ // copy result
-	VPROLD(b, 9); \
-	VMOVDQU X13, h; \
-	VPROLD(f, 19); \
-	VPROLD2(X10, X13, 9); \ // tt2 <<< 9
-	VPXOR X10, X13, X10; \ // tt2 XOR ROTL(9, tt2)
-	VPSHUFB r08_mask<>(SB), X13, X13; \ // ROTL(17, tt2)
-	VPXOR X10, X13, d
+	AVX_COPY_RESULT(b, d, f, h, X13, X10)
 
 #define AVX_MESSAGE_SCHEDULE(index) \
 	avxLoadWord(X10, index+1); \ // Wj-3
@@ -316,17 +359,9 @@ GLOBL r08_mask<>(SB), 8, $16
 
 #define AVX_ROUND_16_63(index, a, b, c, d, e, f, g, h) \
 	AVX_MESSAGE_SCHEDULE(index); \ // X11 is Wt+4 now, Pls do not use it
-	VPROLD2(a, X13, 12); \ // a <<< 12
-	AVX_LOAD_T(index, X12); \
-	VPADDD X12, X13, X12; \
-	VPADDD e, X12, X12; \
-	VPROLD(X12, 7); \ // SS1
-	VPXOR X12, X13, X13; \ // SS2
+	AVX_SS1SS2(index, a, e, X12, X13); \
 	; \
-	VPOR a, b, X14; \
-	VPAND a, b, X10; \
-	VPAND c, X14, X14; \
-	VPOR X10, X14, X14; \ // (a AND b) OR (a AND c) OR (b AND c)
+	AVX_FF1(a, b, c, X10, X14); \
 	VPADDD d, X14, X14; \ // (a AND b) OR (a AND c) OR (b AND c) + d
 	avxLoadWord(X10, index); \
 	VPXOR X10, X11, X11; \ //Wt XOR Wt+4
@@ -335,18 +370,10 @@ GLOBL r08_mask<>(SB), 8, $16
 	; \
 	VPADDD h, X10, X10; \ // Wt + h
 	VPADDD X12, X10, X10; \ // Wt + h + SS1
-	VPXOR f, g, X11; \
-	VPAND e, X11, X11; \ 
-	VPXOR g, X11, X11; \ // (f XOR g) AND e XOR g
+	AVX_GG1(e, f, g, X11); \
 	VPADDD X11, X10, X10; \ // TT2 = (e XOR f XOR g) + Wt + h + SS1
 	; \ // copy result
-	VPROLD(b, 9); \
-	VMOVDQU X13, h; \
-	VPROLD(f, 19); \
-	VPROLD2(X10, X13, 9); \ // tt2 <<< 9
-	VPXOR X10, X13, X10; \ // tt2 XOR ROTL(9, tt2)
-	VPSHUFB r08_mask<>(SB), X13, X13; \ // ROTL(17, tt2)
-	VPXOR X10, X13, d
+	AVX_COPY_RESULT(b, d, f, h, X13, X10)
 
 // blockMultBy4(dig **[8]uint32, p *[]byte, buffer *byte, blocks int)
 TEXT ·blockMultBy4(SB),NOSPLIT,$0
@@ -377,7 +404,7 @@ TEXT ·blockMultBy4(SB),NOSPLIT,$0
 	SSE_TRANSPOSE_MATRIX(e, f, g, h, tmp1, tmp2)
 
 	// store state to temporary buffer
-	storeState
+	storeState(BX)
 
 	MOVQ $·_K+0(SB), AX
 	MOVQ (SI), R8
@@ -479,7 +506,7 @@ loop:
 	DECQ DX
 	JZ end
 	
-	storeState
+	storeState(BX)
 	LEAQ 64(R8), R8
 	LEAQ 64(R9), R9
 	LEAQ 64(R10), R10
@@ -525,14 +552,7 @@ avx:
 	TRANSPOSE_MATRIX(a, b, c, d, tmp1, tmp2)
 	TRANSPOSE_MATRIX(e, f, g, h, tmp1, tmp2)
 
-	VMOVDQU a, (BX)
-	VMOVDQU b, 16(BX)
-	VMOVDQU c, 32(BX)
-	VMOVDQU d, 48(BX)
-	VMOVDQU e, 64(BX)
-	VMOVDQU f, 80(BX)
-	VMOVDQU g, 96(BX)
-	VMOVDQU h, 112(BX)
+	avxStoreState(BX)
 
 	MOVQ $·_K+0(SB), AX
 	MOVQ (SI), R8
@@ -627,14 +647,7 @@ avxLoop:
 	JZ avxEnd
 
 	// store current state
-	VMOVDQU a, (0*16)(BX)
-	VMOVDQU b, (1*16)(BX)
-	VMOVDQU c, (2*16)(BX)
-	VMOVDQU d, (3*16)(BX)
-	VMOVDQU e, (4*16)(BX)
-	VMOVDQU f, (5*16)(BX)
-	VMOVDQU g, (6*16)(BX)
-	VMOVDQU h, (7*16)(BX)
+	avxStoreState(BX)
 
 	LEAQ 64(R8), R8
 	LEAQ 64(R9), R9
@@ -680,23 +693,9 @@ TEXT ·copyResultsBy4(SB),NOSPLIT,$0
 	MOVOU (6*16)(DI), g
 	MOVOU (7*16)(DI), h
 	
-	MOVOU flip_mask<>(SB), tmp1
-	PSHUFB tmp1, a
-	PSHUFB tmp1, b
-	PSHUFB tmp1, c
-	PSHUFB tmp1, d
-	PSHUFB tmp1, e
-	PSHUFB tmp1, f
-	PSHUFB tmp1, g
-	PSHUFB tmp1, h
-	MOVOU a, (0*16)(SI)
-	MOVOU b, (1*16)(SI)
-	MOVOU c, (2*16)(SI)
-	MOVOU d, (3*16)(SI)
-	MOVOU e, (4*16)(SI)
-	MOVOU f, (5*16)(SI)
-	MOVOU g, (6*16)(SI)
-	MOVOU h, (7*16)(SI)
+	SSE_REV32(a, b, c, d)
+	SSE_REV32(e, f, g, h)
+	storeState(SI)
 
 	RET
 
@@ -711,22 +710,9 @@ avx:
 	VMOVDQU (6*16)(DI), g
 	VMOVDQU (7*16)(DI), h
 
-	VPSHUFB flip_mask<>(SB), a, a
-	VPSHUFB flip_mask<>(SB), b, b
-	VPSHUFB flip_mask<>(SB), c, c
-	VPSHUFB flip_mask<>(SB), d, d
-	VPSHUFB flip_mask<>(SB), e, e
-	VPSHUFB flip_mask<>(SB), f, f
-	VPSHUFB flip_mask<>(SB), g, g
-	VPSHUFB flip_mask<>(SB), h, h
+	AVX_REV32(a, b, c, d)
+	AVX_REV32(e, f, g, h)
 
-	VMOVDQU a, (0*16)(SI)
-	VMOVDQU b, (1*16)(SI)
-	VMOVDQU c, (2*16)(SI)
-	VMOVDQU d, (3*16)(SI)
-	VMOVDQU e, (4*16)(SI)
-	VMOVDQU f, (5*16)(SI)
-	VMOVDQU g, (6*16)(SI)
-	VMOVDQU h, (7*16)(SI)
+	avxStoreState(SI)
 
 	RET
