@@ -4,16 +4,17 @@ package sm3
 
 import "encoding/binary"
 
-func prepareInitData(baseMD *digest, p []byte, len, t uint64) {
+// prepare data template: remaining data + [ct] + padding + length
+// p will be 1 or 2 blocks according to the length of remaining data
+func prepareInitData(baseMD *digest, p []byte, len, lenStart uint64) {
 	if baseMD.nx > 0 {
 		copy(p, baseMD.x[:baseMD.nx])
 	}
-	// binary.BigEndian.PutUint32(p[baseMD.nx:], ct)
 	// Padding. Add a 1 bit and 0 bits until 56 bytes mod 64.
 	var tmp [64 + 8]byte // padding + length buffer
 	tmp[0] = 0x80
-	padlen := tmp[:t+8]
-	binary.BigEndian.PutUint64(padlen[t:], len)
+	padlen := tmp[:lenStart+8]
+	binary.BigEndian.PutUint64(padlen[lenStart:], len)
 	copy(p[baseMD.nx+4:], padlen)
 }
 
