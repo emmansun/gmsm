@@ -57,7 +57,7 @@ DATA fk_mask<>+0x00(SB)/8, $0x56aa3350a3b1bac6
 DATA fk_mask<>+0x08(SB)/8, $0xb27022dc677d9197
 GLOBL fk_mask<>(SB), 8, $16
 
-// Transpose matrix without PUNPCKHDQ/PUNPCKLDQ/PUNPCKHQDQ/PUNPCKLQDQ instructions, bad performance!
+// Transpose matrix with PUNPCKHDQ/PUNPCKLDQ/PUNPCKHQDQ/PUNPCKLQDQ instructions.
 // input: from high to low
 // r0 = [w3, w2, w1, w0]
 // r1 = [w7, w6, w5, w4]
