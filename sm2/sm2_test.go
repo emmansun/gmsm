@@ -470,6 +470,47 @@ func TestSignVerify(t *testing.T) {
 	}
 }
 
+func TestRecoverSM2PublicKeyFromSig(t *testing.T) {
+	priv, _ := GenerateKey(rand.Reader)
+	tests := []struct {
+		name      string
+		plainText string
+	}{
+		{"less than 32", "encryption standard"},
+		{"equals 32", "encryption standard encryption "},
+		{"long than 32", "encryption standard encryption standard"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hashValue, err := CalculateSM2Hash(&priv.PublicKey, []byte(tt.plainText), nil)
+			if err != nil {
+				t.Fatalf("hash failed %v", err)
+			}
+			sig, err := priv.Sign(rand.Reader, hashValue, nil)
+			if err != nil {
+				t.Fatalf("sign failed %v", err)
+			}
+
+			pubs, err := RecoverPublicKeysFromSM2Signature(hashValue, sig)
+			if err != nil {
+				t.Fatalf("recover failed %v", err)
+			}
+			found := false
+			for _, pub := range pubs {
+				if !VerifyASN1(pub, hashValue, sig) {
+					t.Errorf("failed to verify hash")
+				}
+				if pub.Equal(&priv.PublicKey) {
+					found = true
+				}
+			}
+			if !found {
+				t.Errorf("recover failed, not found public key")
+			}
+		})
+	}
+}
+
 func TestSignVerifyLegacy(t *testing.T) {
 	priv, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	tests := []struct {
