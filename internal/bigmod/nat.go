@@ -155,7 +155,7 @@ func (x *Nat) SetBytes(b []byte, m *Modulus) (*Nat, error) {
 	if err := x.setBytes(b, m); err != nil {
 		return nil, err
 	}
-	if x.cmpGeq(m.nat) == yes {
+	if x.CmpGeq(m.nat) == yes {
 		return nil, errors.New("input overflows the modulus")
 	}
 	return x, nil
@@ -234,10 +234,10 @@ func (x *Nat) IsZero() choice {
 	return zero
 }
 
-// cmpGeq returns 1 if x >= y, and 0 otherwise.
+// CmpGeq returns 1 if x >= y, and 0 otherwise.
 //
 // Both operands must have the same announced length.
-func (x *Nat) cmpGeq(y *Nat) choice {
+func (x *Nat) CmpGeq(y *Nat) choice {
 	// Eliminate bounds checks in the loop.
 	size := len(x.limbs)
 	xLimbs := x.limbs[:size]
