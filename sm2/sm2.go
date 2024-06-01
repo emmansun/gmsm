@@ -747,18 +747,11 @@ func RecoverPublicKeysFromSM2Signature(hash, sig []byte) ([]*ecdsa.PublicKey, er
 	}
 
 	// Rx = r - e
-	if r.CmpGeq(e) == 0 {
-		// If r < e, then Rx = N - e + r
-		n0 := bigmod.NewNat().Set(c.N.Nat())
-		n0.Sub(e, c.P)
-		r.Add(n0, c.P)
-	} else {
-		r.Sub(e, c.P)
-	}
+	r.Sub(e, c.N)
 	if r.IsZero() == 1 {
 		return nil, ErrInvalidSignature
 	}
-	rBytes = r.Bytes(c.P)
+	rBytes = r.Bytes(c.N)
 	tmp := make([]byte, len(rBytes)+1)
 	copy(tmp[1:], rBytes)
 	compressFlags := []byte{compressed02, compressed03}
