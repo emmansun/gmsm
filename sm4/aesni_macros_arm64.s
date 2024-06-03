@@ -28,9 +28,9 @@ GLOBL fk_mask<>(SB), (16+8), $16
 	VDUP R20, NIBBLE_MASK.S4                          \
 	MOVD $m1_2<>(SB), R20                             \
 	VLD1 (R20), [M1L.B16, M1H.B16, M2L.B16, M2H.B16]  \
-	MOVD $inverse_shift_rows<>(SB), R20               \ 
-	VLD1 (R20), [INVERSE_SHIFT_ROWS.B16]              \ 
-	MOVD $r08_mask<>(SB), R20                         \ 
+	MOVD $inverse_shift_rows<>(SB), R20               \
+	VLD1 (R20), [INVERSE_SHIFT_ROWS.B16]              \
+	MOVD $r08_mask<>(SB), R20                         \
 	VLD1 (R20), [R08_MASK.B16]                        \ 
 
 // input: from high to low

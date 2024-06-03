@@ -2,27 +2,27 @@
 
 #include "textflag.h"
 
-#define x V0
-#define y V1
-#define t0 V2
-#define t1 V3
-#define t2 V4
-#define t3 V5
-#define t4 V8
-#define t5 V9
-#define t6 V10
-#define t7 V11
-#define ZERO V16
-#define NIBBLE_MASK V20
-#define INVERSE_SHIFT_ROWS V21
-#define M1L V22
-#define M1H V23 
-#define M2L V24 
-#define M2H V25
-#define R08_MASK V26 
+#define t0 V0
+#define t1 V1
+#define t2 V2
+#define t3 V3
+#define t4 V4
+#define t5 V5
+#define t6 V6
+#define t7 V7
+#define x V8
+#define y V9
+#define XTMP6 V10
+#define XTMP7 V11
+#define M1L V20
+#define M1H V21
+#define M2L V22
+#define M2H V23
+#define R08_MASK V24
+#define INVERSE_SHIFT_ROWS V25
+#define NIBBLE_MASK V26
 #define FK_MASK V27
-#define XTMP6 V6
-#define XTMP7 V7
+#define ZERO V28
 
 #include "aesni_macros_arm64.s"
 
@@ -48,21 +48,15 @@
 	MOVW.P R2, 4(R10);                               \
 	MOVW.P R2, -4(R11)
 
-#define load_global_data_1() \
+#define LOAD_SM4KEY_AESNI_CONSTS() \
 	MOVW $0x0F0F0F0F, R0                              \
-	VMOV R0, NIBBLE_MASK.S4                           \
+	VDUP R0, NIBBLE_MASK.S4                           \
 	MOVD $m1_2<>(SB), R0                              \
 	VLD1 (R0), [M1L.B16, M1H.B16, M2L.B16, M2H.B16]   \
 	MOVD $fk_mask<>(SB), R0                           \
 	VLD1 (R0), [FK_MASK.B16]                          \
 	MOVD $inverse_shift_rows<>(SB), R0                \
 	VLD1 (R0), [INVERSE_SHIFT_ROWS.B16]
-
-
-#define load_global_data_2() \
-	load_global_data_1()         \
-	MOVD $r08_mask<>(SB), R0     \
-	VLD1 (R0), [R08_MASK.B16]    \
 
 #define SM4EKEY_EXPORT_KEYS() \
 	VMOV V9.S[3], V10.S[0]            \
@@ -103,7 +97,7 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
 	CMP $1, R12
 	BEQ sm4ekey
 
-	load_global_data_1()
+	LOAD_SM4KEY_AESNI_CONSTS()
 	
 	VLD1 (R8), [t0.B16]
 	VREV32 t0.B16, t0.B16
@@ -128,9 +122,8 @@ ksLoop:
 	RET 
 
 sm4ekey:
-	LDP fk_mask<>(SB), (R0, R1)
-	VMOV R0, FK_MASK.D[0]             
-	VMOV R1, FK_MASK.D[1]
+	MOVD $fk_mask<>(SB), R0
+	VLD1 (R0), [FK_MASK.B16]
 	VLD1 (R8), [V9.B16]
 	VREV32 V9.B16, V9.B16
 	VEOR FK_MASK.B16, V9.B16, V9.B16
@@ -166,6 +159,8 @@ TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
 	CMP $1, R11
 	BEQ sm4niblocks
 
+	LOAD_SM4_AESNI_CONSTS()
+
 	CMP $128, R12
 	BEQ double_enc
 
@@ -175,8 +170,6 @@ TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
 	VREV32 t2.B16, t2.B16
 	VREV32 t3.B16, t3.B16
 	PRE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y, XTMP6, XTMP7)
-
-	load_global_data_2()
 
 	VEOR ZERO.B16, ZERO.B16, ZERO.B16
 	EOR R0, R0
@@ -213,8 +206,6 @@ double_enc:
 	VREV32 t7.B16, t7.B16
 	PRE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y, XTMP6, XTMP7)
 	PRE_TRANSPOSE_MATRIX(t4, t5, t6, t7, x, y, XTMP6, XTMP7)
-
-	load_global_data_2()
 
 	VEOR ZERO.B16, ZERO.B16, ZERO.B16
 	EOR R0, R0
@@ -271,7 +262,7 @@ TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
 	VMOV t0.S[2], t2.S[0]
 	VMOV t0.S[3], t3.S[0]
 
-	load_global_data_2()
+	LOAD_SM4_AESNI_CONSTS()
 
 	VEOR ZERO.B16, ZERO.B16, ZERO.B16
 	EOR R0, R0
