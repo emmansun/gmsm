@@ -470,7 +470,7 @@ func TestSignVerify(t *testing.T) {
 	}
 }
 
-func TestRecoverSM2PublicKeyFromSig(t *testing.T) {
+func TestRecoverPublicKeysFromSM2Signature(t *testing.T) {
 	priv, _ := GenerateKey(rand.Reader)
 	tests := []struct {
 		name      string
@@ -493,19 +493,19 @@ func TestRecoverSM2PublicKeyFromSig(t *testing.T) {
 
 			pubs, err := RecoverPublicKeysFromSM2Signature(hashValue, sig)
 			if err != nil {
-				t.Fatalf("recover failed %v", err)
+				t.Fatalf("recover sig=%x, priv=%x, failed %v", sig, priv.D.Bytes(), err)
 			}
 			found := false
 			for _, pub := range pubs {
 				if !VerifyASN1(pub, hashValue, sig) {
-					t.Errorf("failed to verify hash")
+					t.Errorf("failed to verify hash for sig=%x, priv=%x", sig, priv.D.Bytes())
 				}
 				if pub.Equal(&priv.PublicKey) {
 					found = true
 				}
 			}
 			if !found {
-				t.Errorf("recover failed, not found public key")
+				t.Errorf("recover failed, not found public key for sig=%x, priv=%x", sig, priv.D.Bytes())
 			}
 		})
 	}

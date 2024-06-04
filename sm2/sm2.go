@@ -707,7 +707,7 @@ func addASN1IntBytes(b *cryptobyte.Builder, bytes []byte) {
 
 var ErrInvalidSignature = errors.New("sm2: invalid signature")
 
-// RecoverPublicKeysFromSM2Signature recovers two SM2 public keys from a given signature and hash.
+// RecoverPublicKeysFromSM2Signature recovers two or four SM2 public keys from a given signature and hash.
 // It takes the hash and signature as input and returns the recovered public keys as []*ecdsa.PublicKey.
 // If the signature or hash is invalid, it returns an error.
 // The function follows the SM2 algorithm to recover the public keys.
@@ -741,38 +741,55 @@ func RecoverPublicKeysFromSM2Signature(hash, sig []byte) ([]*ecdsa.PublicKey, er
 	if s.IsZero() == 1 {
 		return nil, ErrInvalidSignature
 	}
+	// sBytes = (r+s)⁻¹
 	sBytes, err = _sm2ec.P256OrdInverse(s.Bytes(c.N))
 	if err != nil {
 		return nil, err
 	}
 
+	// r = (Rx + e) mod N
 	// Rx = r - e
 	r.Sub(e, c.N)
 	if r.IsZero() == 1 {
 		return nil, ErrInvalidSignature
 	}
-	rBytes = r.Bytes(c.N)
-	tmp := make([]byte, len(rBytes)+1)
-	copy(tmp[1:], rBytes)
-	compressFlags := []byte{compressed02, compressed03}
-	pks := make([]*ecdsa.PublicKey, 0, 2)
-	for _, flag := range compressFlags {
-		tmp[0] = flag
-		p0, err := c.newPoint().SetBytes(tmp)
-		if err != nil {
-			return nil, err
-		}
-		p0.Add(p0, p1)
-		p0.ScalarMult(p0, sBytes)
-		pk := new(ecdsa.PublicKey)
-		pk.Curve = c.curve
-		pk.X, pk.Y, err = c.pointToAffine(p0)
-		if err != nil {
-			return nil, err
-		}
-		pks = append(pks, pk)
+	pointRx := make([]*bigmod.Nat, 0, 2)
+	pointRx = append(pointRx, r)
+	// check if Rx in (N, P), small probability event
+	s.Set(r)
+	s = s.Add(c.N.Nat(), c.P)
+	if s.CmpGeq(c.N.Nat()) == 1 {
+		pointRx = append(pointRx, s)
 	}
-	return pks, nil
+	pubs := make([]*ecdsa.PublicKey, 0, 4)
+	bytes := make([]byte, len(rBytes)+1)
+	compressFlags := []byte{compressed02, compressed03}
+	// Rx has one or two possible values, so point R has two or four possible values
+	for _, x := range pointRx {
+		rBytes = x.Bytes(c.N)
+		copy(bytes[1:], rBytes)
+		for _, flag := range compressFlags {
+			bytes[0] = flag
+			// p0 = R
+			p0, err := c.newPoint().SetBytes(bytes)
+			if err != nil {
+				return nil, err
+			}
+			// p0 = R - [s]G
+			p0.Add(p0, p1)
+			// Pub = [(r + s)⁻¹](R - [s]G)
+			p0.ScalarMult(p0, sBytes)
+			pub := new(ecdsa.PublicKey)
+			pub.Curve = c.curve
+			pub.X, pub.Y, err = c.pointToAffine(p0)
+			if err != nil {
+				return nil, err
+			}
+			pubs = append(pubs, pub)
+		}
+	}
+
+	return pubs, nil
 }
 
 // VerifyASN1 verifies the ASN.1 encoded signature, sig, of hash using the
