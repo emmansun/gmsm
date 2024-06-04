@@ -251,3 +251,35 @@ func calculateSM2Hash(pub *ecdsa.PublicKey, data, uid []byte) ([]byte, error) {
 }
 ```
 公钥加密就没啥特殊，只要确保输出密文的编码格式和KMS一致即可。
+
+## SM2扩展应用
+SM2的一些扩展应用，譬如从签名中恢复公钥、半同态加密、环签名等，大多尚处于POC状态，也无相关标准。其它扩展应用（但凡椭圆曲线公钥密码算法能用到的场合），包括但不限于：
+* [确定性签名](https://datatracker.ietf.org/doc/html/rfc6979)
+* [可验证随机函数ECVRF](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-04)
+* 盲签名
+* 群签名
+* 门限签名
+* [Pederson承诺](https://crypto.stackexchange.com/questions/64437/what-is-a-pedersen-commitment)
+
+### 从签名中恢复公钥
+ECDSA 签名由两个数字（整数）组成：r 和 s。以太坊还引入了额外的变量 v（恢复标识符）。签名可以表示成 {r, s, v}。SM2 签名也由两个数字（整数）组成：r 和 s。签名算法中都只取随机点的X坐标，并对N取模，所以只有签名r和s的情况下，可以恢复出多个公钥。
+```go
+// RecoverPublicKeysFromSM2Signature recovers two or four SM2 public keys from a given signature and hash.
+// It takes the hash and signature as input and returns the recovered public keys as []*ecdsa.PublicKey.
+// If the signature or hash is invalid, it returns an error.
+// The function follows the SM2 algorithm to recover the public keys.
+func RecoverPublicKeysFromSM2Signature(hash, sig []byte) ([]*ecdsa.PublicKey, error)
+```
+返回的结果：  
+* 公钥0 - Rx = (r - e) mod N; Ry是偶数（compressFlag = 2）
+* 公钥1 - Rx = (r - e) mod N; Ry是奇数（compressFlag = 3）
+* 公钥2 - Rx = ((r - e) mod N) + N; Ry是偶数（compressFlag = 2）
+* 公钥3 - Rx = ((r - e) mod N) + N; Ry是奇数（compressFlag = 3）  
+
+Rx, Ry代表随机点R的X,Y坐标值。绝大多数情况下，只会返回两个公钥，后两者只有当(r - e) mod N的值小于P-1-N时才可能。
+
+### 半同态加解密
+EC-ElGamal with SM2的半同态加密（Partially Homomorphic Encryption, PHE）, 支持uint32 或者 int32类型。[Partially Homomorphic Encryption, EC-ElGamal with SM2](https://github.com/emmansun/sm2elgamal).
+
+### 环签名
+[Ring Signature Schemes Based on SM2 Digital Signature Algorithm](https://github.com/emmansun/sm2rsign).
