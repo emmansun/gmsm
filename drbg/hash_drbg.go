@@ -181,7 +181,7 @@ func (hd *HashDrbg) Generate(b, additional []byte) error {
 	}
 	if hd.gm { // leftmost(Hash(V))
 		md.Write(hd.v)
-		md.Sum(b[:0])
+		copy(b, md.Sum(nil))
 		md.Reset()
 	} else {
 		limit := uint64(m+md.Size()-1) / uint64(md.Size())
