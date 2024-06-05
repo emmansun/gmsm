@@ -5,8 +5,6 @@ import (
 	"errors"
 	"hash"
 	"time"
-
-	"github.com/emmansun/gmsm/sm3"
 )
 
 // HmacDrbg hmac DRBG structure, its instance is NOT goroutine safe!!!
@@ -44,11 +42,6 @@ func NewHmacDrbg(newHash func() hash.Hash, securityLevel SecurityLevel, gm bool,
 		return nil, errors.New("drbg: personalization is too long")
 	}
 
-	if hd.hashSize <= sm3.Size {
-		hd.seedLength = HASH_DRBG_SEED_SIZE
-	} else {
-		hd.seedLength = HASH_DRBG_MAX_SEED_SIZE
-	}
 	// HMAC_DRBG_Instantiate_process
 	hd.key = make([]byte, hd.hashSize)
 	hd.v = make([]byte, hd.hashSize)
@@ -119,6 +112,10 @@ func (hd *HmacDrbg) MaxBytesPerRequest() int {
 	return MAX_BYTES_PER_GENERATE
 }
 
+// The HMAC_DRBG_Update function updates the internal state of
+// HMAC_DRBG using the provided_data. Note that for this DRBG mechanism, the
+// HMAC_DRBG_Update function also serves as a derivation function for the
+// instantiate and reseed functions.
 func (hd *HmacDrbg) update(byteSlices ...[]byte) error {
 	// step 1. K = HMAC(K, V || 0x00 || provided_data)
 	md := hmac.New(hd.newHash, hd.key)

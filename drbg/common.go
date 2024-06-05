@@ -62,13 +62,14 @@ func NewCtrDrbgPrng(cipherProvider func(key []byte) (cipher.Block, error), keyLe
 		return nil, err
 	}
 
-	// Get nonce
+	// Get nonce, reference to NIST SP 800-90A, 8.6.7
 	nonce := make([]byte, prng.securityStrength/2)
 	err = prng.getEntropy(nonce)
 	if err != nil {
 		return nil, err
 	}
 
+	// inital working state
 	prng.impl, err = NewCtrDrbg(cipherProvider, keyLen, securityLevel, gm, entropyInput, nonce, personalization)
 	if err != nil {
 		return nil, err
@@ -107,13 +108,14 @@ func NewHashDrbgPrng(newHash func() hash.Hash, entropySource io.Reader, security
 		return nil, err
 	}
 
-	// Get nonce from entropy source here
+	// Get nonce, reference to NIST SP 800-90A, 8.6.7
 	nonce := make([]byte, prng.securityStrength/2)
 	err = prng.getEntropy(nonce)
 	if err != nil {
 		return nil, err
 	}
 
+	// inital working state
 	prng.impl, err = NewHashDrbg(newHash, securityLevel, gm, entropyInput, nonce, personalization)
 	if err != nil {
 		return nil, err
@@ -149,13 +151,14 @@ func NewHmacDrbgPrng(newHash func() hash.Hash, entropySource io.Reader, security
 		return nil, err
 	}
 
-	// Get nonce from entropy source here
+	// Get nonce, reference to NIST SP 800-90A, 8.6.7
 	nonce := make([]byte, prng.securityStrength/2)
 	err = prng.getEntropy(nonce)
 	if err != nil {
 		return nil, err
 	}
 
+	// inital working state
 	prng.impl, err = NewHmacDrbg(newHash, securityLevel, gm, entropyInput, nonce, personalization)
 	if err != nil {
 		return nil, err
@@ -253,6 +256,8 @@ func (hd *BaseDrbg) setSecurityLevel(securityLevel SecurityLevel) {
 	}
 }
 
+// Set security_strength to the lowest security strength greater than or equal to 
+// requested_instantiation_security_strength from the set {112, 128, 192, 256}.
 func selectSecurityStrength(requested int) int {
 	switch {
 	case requested <= 14:
