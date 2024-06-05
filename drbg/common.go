@@ -132,6 +132,43 @@ func NewGmHashDrbgPrng(entropySource io.Reader, securityStrength int, securityLe
 	return NewHashDrbgPrng(sm3.New, entropySource, securityStrength, true, securityLevel, personalization)
 }
 
+// NewHmacDrbgPrng create pseudo random number generator base on hash mac DRBG
+func NewHmacDrbgPrng(newHash func() hash.Hash, entropySource io.Reader, securityStrength int, gm bool, securityLevel SecurityLevel, personalization []byte) (*DrbgPrng, error) {
+	prng := new(DrbgPrng)
+	if entropySource != nil {
+		prng.entropySource = entropySource
+	} else {
+		prng.entropySource = rand.Reader
+	}
+	prng.securityStrength = selectSecurityStrength(securityStrength)
+
+	// Get entropy input
+	entropyInput := make([]byte, prng.securityStrength)
+	err := prng.getEntropy(entropyInput)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get nonce from entropy source here
+	nonce := make([]byte, prng.securityStrength/2)
+	err = prng.getEntropy(nonce)
+	if err != nil {
+		return nil, err
+	}
+
+	prng.impl, err = NewHmacDrbg(newHash, securityLevel, gm, entropyInput, nonce, personalization)
+	if err != nil {
+		return nil, err
+	}
+
+	return prng, nil
+}
+
+// NewNistHmacDrbgPrng create pseudo random number generator base on hash mac DRBG which follows NIST standard
+func NewNistHmacDrbgPrng(newHash func() hash.Hash, entropySource io.Reader, securityStrength int, securityLevel SecurityLevel, personalization []byte) (*DrbgPrng, error) {
+	return NewHmacDrbgPrng(newHash, entropySource, securityStrength, false, securityLevel, personalization)
+}
+
 func (prng *DrbgPrng) getEntropy(entropyInput []byte) error {
 	n, err := prng.entropySource.Read(entropyInput)
 	if err != nil {

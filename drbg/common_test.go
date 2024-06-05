@@ -95,6 +95,22 @@ func TestNistHashDrbgPrng(t *testing.T) {
 	}
 }
 
+
+func TestNistHmacDrbgPrng(t *testing.T) {
+	prng, err := NewNistHmacDrbgPrng(sha256.New, nil, 32, SECURITY_LEVEL_TEST, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := make([]byte, MAX_BYTES_PER_GENERATE+1)
+	n, err := prng.Read(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != MAX_BYTES_PER_GENERATE+1 {
+		t.Errorf("not got enough random bytes")
+	}
+}
+
 func TestGMSecurityStrengthValidation(t *testing.T) {
 	_, err := NewGmHashDrbgPrng(nil, 24, SECURITY_LEVEL_TEST, nil)
 	if err == nil {
