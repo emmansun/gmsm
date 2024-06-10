@@ -26,7 +26,7 @@ func kdfBy8(baseMD *digest, keyLen int, limit int) []byte {
 	len <<= 3
 
 	var ct uint32 = 1
-	k := make([]byte, keyLen)
+	k := make([]byte, limit * Size)
 	ret := k
 
 	// prepare temporary buffer
@@ -89,7 +89,7 @@ func kdfBy8(baseMD *digest, keyLen int, limit int) []byte {
 		ct++
 	}
 
-	return k
+	return k[:keyLen]
 }
 
 //go:noescape

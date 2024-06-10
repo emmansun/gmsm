@@ -65,7 +65,7 @@ func kdfBy4(baseMD *digest, keyLen int, limit int) []byte {
 	}
 
 	var ct uint32 = 1
-	k := make([]byte, keyLen)
+	k := make([]byte, limit*Size)
 	ret := k
 	times := limit / parallelSize4
 	for i := 0; i < times; i++ {
@@ -90,7 +90,7 @@ func kdfBy4(baseMD *digest, keyLen int, limit int) []byte {
 		ct++
 	}
 
-	return k
+	return k[:keyLen]
 }
 
 //go:noescape
