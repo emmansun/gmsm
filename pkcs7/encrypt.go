@@ -61,11 +61,11 @@ var ErrPSKNotProvided = errors.New("pkcs7: cannot encrypt content: PSK not provi
 // Encrypt creates and returns an envelope data PKCS7 structure with encrypted
 // recipient keys for each recipient public key.
 //
-// The algorithm used to perform encryption is determined by the argument cipher
+// # The algorithm used to perform encryption is determined by the argument cipher
 //
 // TODO(fullsailor): Add support for encrypting content with other algorithms
 func Encrypt(cipher pkcs.Cipher, content []byte, recipients []*smx509.Certificate) ([]byte, error) {
-	return encrypt(cipher, content, recipients, false)
+	return encrypt(cipher, content, recipients, false, false)
 }
 
 // EncryptSM creates and returns an envelope data PKCS7 structure with encrypted
@@ -73,12 +73,20 @@ func Encrypt(cipher pkcs.Cipher, content []byte, recipients []*smx509.Certificat
 // The OIDs use GM/T 0010 - 2012 set
 //
 // The algorithm used to perform encryption is determined by the argument cipher
-//
 func EncryptSM(cipher pkcs.Cipher, content []byte, recipients []*smx509.Certificate) ([]byte, error) {
-	return encrypt(cipher, content, recipients, true)
+	return encrypt(cipher, content, recipients, true, false)
 }
 
-func encrypt(cipher pkcs.Cipher, content []byte, recipients []*smx509.Certificate, isSM bool) ([]byte, error) {
+// EncryptCFCA creates and returns an envelope data PKCS7 structure with encrypted
+// recipient keys for each recipient public key.
+// The OIDs use GM/T 0010 - 2012 set and the encrypted key use C1C2C3 format and without 0x4 prefix.
+//
+// The algorithm used to perform encryption is determined by the argument cipher
+func EncryptCFCA(cipher pkcs.Cipher, content []byte, recipients []*smx509.Certificate) ([]byte, error) {
+	return encrypt(cipher, content, recipients, true, true)
+}
+
+func encrypt(cipher pkcs.Cipher, content []byte, recipients []*smx509.Certificate, isSM, isCFCA bool) ([]byte, error) {
 	var key []byte
 	var err error
 
@@ -110,7 +118,7 @@ func encrypt(cipher pkcs.Cipher, content []byte, recipients []*smx509.Certificat
 	// Prepare each recipient's encrypted cipher key
 	recipientInfos := make([]recipientInfo, len(recipients))
 	for i, recipient := range recipients {
-		encrypted, err := encryptKey(key, recipient)
+		encrypted, err := encryptKey(key, recipient, isCFCA)
 		if err != nil {
 			return nil, err
 		}
@@ -217,12 +225,20 @@ func marshalEncryptedContent(content []byte) asn1.RawValue {
 	return asn1.RawValue{Tag: 0, Class: 2, Bytes: asn1Content, IsCompound: true}
 }
 
-func encryptKey(key []byte, recipient *smx509.Certificate) ([]byte, error) {
+func encryptKey(key []byte, recipient *smx509.Certificate, isCFCA bool) ([]byte, error) {
 	if pub, ok := recipient.PublicKey.(*rsa.PublicKey); ok {
 		return rsa.EncryptPKCS1v15(rand.Reader, pub, key)
 	}
 	if pub, ok := recipient.PublicKey.(*ecdsa.PublicKey); ok && pub.Curve == sm2.P256() {
-		return sm2.EncryptASN1(rand.Reader, pub, key)
+		if isCFCA {
+			encryptedKey, err := sm2.Encrypt(rand.Reader, pub, key, sm2.NewPlainEncrypterOpts(sm2.MarshalUncompressed, sm2.C1C2C3))
+			if err != nil {
+				return nil, err
+			}
+			return encryptedKey[1:], nil
+		} else {
+			return sm2.EncryptASN1(rand.Reader, pub, key)
+		}
 	}
 	return nil, errors.New("pkcs7: only supports RSA/SM2 key")
 }

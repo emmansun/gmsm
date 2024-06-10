@@ -254,7 +254,7 @@ func (saed *SignedAndEnvelopedData) AddCertificate(cert *smx509.Certificate) {
 }
 
 func (saed *SignedAndEnvelopedData) AddRecipient(recipient *smx509.Certificate) error {
-	encryptedKey, err := encryptKey(saed.cek, recipient)
+	encryptedKey, err := encryptKey(saed.cek, recipient, false) //TODO: check if CFCA has such function 
 	if err != nil {
 		return err
 	}

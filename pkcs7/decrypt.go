@@ -8,6 +8,7 @@ import (
 	"errors"
 
 	"github.com/emmansun/gmsm/pkcs"
+	"github.com/emmansun/gmsm/sm2"
 	"github.com/emmansun/gmsm/smx509"
 )
 
@@ -24,6 +25,16 @@ type decryptable interface {
 
 // Decrypt decrypts encrypted content info for recipient cert and private key
 func (p7 *PKCS7) Decrypt(cert *smx509.Certificate, pkey crypto.PrivateKey) ([]byte, error) {
+	return p7.decrypt(cert, pkey, false)
+}
+
+// DecryptCFCA decrypts encrypted content info for recipient cert and private key whose SM2 encrypted key is C1C2C3 format
+// and without 0x4 prefix.
+func (p7 *PKCS7) DecryptCFCA(cert *smx509.Certificate, pkey crypto.PrivateKey) ([]byte, error) {
+	return p7.decrypt(cert, pkey, true)
+}
+
+func (p7 *PKCS7) decrypt(cert *smx509.Certificate, pkey crypto.PrivateKey, isCFCA bool) ([]byte, error) {
 	decryptableData, ok := p7.raw.(decryptable)
 	if !ok {
 		return nil, ErrNotEncryptedContent
@@ -36,7 +47,16 @@ func (p7 *PKCS7) Decrypt(cert *smx509.Certificate, pkey crypto.PrivateKey) ([]by
 	switch pkey := pkey.(type) {
 	case crypto.Decrypter:
 		// Generic case to handle anything that provides the crypto.Decrypter interface.
-		contentKey, err := pkey.Decrypt(rand.Reader, recipient.EncryptedKey, nil)
+		encryptedKey := recipient.EncryptedKey
+		var decrypterOpts crypto.DecrypterOpts
+		if _, ok := pkey.(*sm2.PrivateKey); ok && isCFCA {
+			encryptedKey = make([]byte, len(recipient.EncryptedKey)+1)
+			encryptedKey[0] = 0x04
+			copy(encryptedKey[1:], recipient.EncryptedKey)
+			decrypterOpts = sm2.NewPlainDecrypterOpts(sm2.C1C2C3)
+		}
+
+		contentKey, err := pkey.Decrypt(rand.Reader, encryptedKey, decrypterOpts)
 		if err != nil {
 			return nil, err
 		}

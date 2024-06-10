@@ -91,6 +91,41 @@ func TestEncryptSM(t *testing.T) {
 	}
 }
 
+func TestEncryptCFCA(t *testing.T) {
+	ciphers := []pkcs.Cipher{
+		pkcs.SM4CBC,
+		pkcs.SM4GCM,
+	}
+	sigalgs := []x509.SignatureAlgorithm{
+		smx509.SM2WithSM3,
+	}
+	for _, cipher := range ciphers {
+		for _, sigalg := range sigalgs {
+			plaintext := []byte("Hello Secret World!")
+			cert, err := createTestCertificate(sigalg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			encrypted, err := EncryptCFCA(cipher, plaintext, []*smx509.Certificate{cert.Certificate})
+			if err != nil {
+				t.Fatal(err)
+			}
+			pem.Encode(os.Stdout, &pem.Block{Type: "PKCS7", Bytes: encrypted})
+			p7, err := Parse(encrypted)
+			if err != nil {
+				t.Fatalf("cannot Parse encrypted result: %s", err)
+			}
+			result, err := p7.DecryptCFCA(cert.Certificate, *cert.PrivateKey)
+			if err != nil {
+				t.Fatalf("cannot Decrypt encrypted result: %s", err)
+			}
+			if !bytes.Equal(plaintext, result) {
+				t.Errorf("encrypted data does not match plaintext:\n\tExpected: %s\n\tActual: %s", plaintext, result)
+			}
+		}
+	}
+}
+
 func TestEncryptUsingPSK(t *testing.T) {
 	ciphers := []pkcs.Cipher{
 		pkcs.DESCBC,
