@@ -53,3 +53,13 @@ var SM4GCM = &gcmBlockCipher{
 	},
 	nonceSize: 12,
 }
+
+// SM4 is the 128-bit key SM4 cipher in CBC mode, it's just for CFCA.
+var SM4 = &cbcBlockCipher{
+	baseBlockCipher: baseBlockCipher{
+		keySize:  16,
+		newBlock: sm4.NewCipher,
+		oid:      oidSM4,
+	},
+	ivSize: sm4.BlockSize,
+}

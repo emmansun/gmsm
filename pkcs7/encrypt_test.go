@@ -93,6 +93,7 @@ func TestEncryptSM(t *testing.T) {
 
 func TestEncryptCFCA(t *testing.T) {
 	ciphers := []pkcs.Cipher{
+		pkcs.SM4,
 		pkcs.SM4CBC,
 		pkcs.SM4GCM,
 	}
