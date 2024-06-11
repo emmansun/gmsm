@@ -70,7 +70,7 @@ func Encrypt(cipher pkcs.Cipher, content []byte, recipients []*smx509.Certificat
 
 // EncryptSM creates and returns an envelope data PKCS7 structure with encrypted
 // recipient keys for each recipient public key.
-// The OIDs use GM/T 0010 - 2012 set
+// The OIDs use GM/T 0010 - 2012 set and the encrypted key use ASN.1 format.
 //
 // The algorithm used to perform encryption is determined by the argument cipher
 func EncryptSM(cipher pkcs.Cipher, content []byte, recipients []*smx509.Certificate) ([]byte, error) {
