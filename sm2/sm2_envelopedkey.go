@@ -32,6 +32,9 @@ var (
 //
 // This implementation follows GB/T 35276-2017, uses SM4 cipher to encrypt sm2 private key.
 // Please note the standard did NOT clarify if the ECB mode requires padding or not.
+//
+// This function can be used in CSRResponse.encryptedPrivateKey, reference GM/T 0092-2020 
+// Specification of certificate request syntax based on SM2 cryptographic algorithm.
 func MarshalEnvelopedPrivateKey(rand io.Reader, pub *ecdsa.PublicKey, tobeEnveloped *PrivateKey) ([]byte, error) {
 	// encrypt sm2 private key
 	size := (tobeEnveloped.Curve.Params().N.BitLen() + 7) / 8

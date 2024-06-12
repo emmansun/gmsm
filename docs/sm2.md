@@ -89,7 +89,7 @@ func ExampleNewPublicKey() {
 | PKCS#8 | ```smx509.ParsePKCS8PrivateKey```可以处理未加密的；```pkcs8.ParsePKCS8PrivateKeySM2```可以处理未加密的，也可以处理加密的 |
 | PKCS#7 | Cryptographic Message Syntax, 可以参考github.com/emmansun/pkcs7/sign_enveloped_test.go中的```TestParseSignedEvnvelopedData```，测试数据来自 https://www.gmcert.org/ |
 | CFCA自定义封装 | 顾名思义，这个封装是CFCA特定的，修改自PKCS#12，使用```cfca.ParseSM2```方法来解析 |
-|《GB/T 35276-2017 信息安全技术 SM2密码算法使用规范》| 这个规范还比较新，可能实现的系统比较少，而且加密方是使用您已知的SM2公钥加密对称加密密钥的（类似信封加密），而不是基于密码/口令的KDF方法来产生对称加密密钥。使用```sm2.ParseEnvelopedPrivateKey```解析 |
+|《GB/T 35276-2017 信息安全技术 SM2密码算法使用规范》| 这个规范还比较新，使用```sm2.ParseEnvelopedPrivateKey```解析。典型的应用场景是CA机构返回CSRResponse, 里面包含签名证书、CA生成的SM2加密私钥以及相应的SM2加密证书，其中SM2加密私钥就用该规范定义的方式加密封装。请参考《GM/T 0092-2020 基于SM2算法的证书申请语法规范》 |
 
 有些系统可能会直接存储、得到私钥的字节数组，那么您可以使用如下方法来构造私钥：
 ```go
