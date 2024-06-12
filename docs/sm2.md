@@ -230,6 +230,13 @@ func ExamplePrivateKey_Decrypt() {
 
 具体API文档请参考：[API Document](https://godoc.org/github.com/emmansun/gmsm)
 
+### 关于C1C2C3 和 C1C3C2
+目前有据可查的是，国家密码管理局2010版SM2标准还是用C1C2C3格式，到了2012年标准就改用了C1C3C2，并延续至今。
+其实C1C2C3是符合《SEC 1: Elliptic Curve Cryptography》（May 21, 2009 Version 2.0）Elliptic Curve Integrated Encryption Scheme 5.1.3中的密文输出描述：9. Output C = ($\overline{\text{R}}$, EM, D). Optionally, the ciphertext maybe output as C = $\overline{\text{R}}$ || EM || D. 这里 $\overline{\text{R}}$ 相对于C1, EM相对于C2, D相对于C3。
+
+### 关于点到字节串的转换
+我没有找到到哪个文档写有固定64字节转换的。从国家密码管理局2010年版的《SM2椭圆曲线公钥密码算法》，到2012年的GM/T 0003-2012 SM2椭圆曲线公钥密码算法，再到GB/T 32918-2016 信息安全技术 SM2椭圆曲线公钥密码算法，都在第一部分第四章的“点到字节串的转换”有详细说明。这也符合《SEC 1: Elliptic Curve Cryptography》（May 21, 2009 Version 2.0）中2.3.3  Elliptic-Curve-Point-to-Octet-String Conversion的描述。
+
 ### 性能
 从**v0.27.0**开始，对大数据量的加解密做了优化处理，尤其是KDF并行计算。详情请参考[SM2加解密性能](https://github.com/emmansun/gmsm/wiki/SM2%E5%8A%A0%E8%A7%A3%E5%AF%86%E6%80%A7%E8%83%BD)。
 
