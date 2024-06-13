@@ -15,9 +15,9 @@ import (
 
 // CSRResponse represents the response of a certificate signing request.
 type CSRResponse struct {
-	SignCerts           []*Certificate
+	SignCerts         []*Certificate
 	EncryptPrivateKey *sm2.PrivateKey
-	EncryptCerts        []*Certificate
+	EncryptCerts      []*Certificate
 }
 
 type tbsCSRResponse struct {
@@ -31,6 +31,7 @@ type rawCertificates struct {
 }
 
 // ParseCSRResponse parses a CSRResponse from DER format.
+// We do NOT verify the cert chain here, it's the caller's responsibility.
 func ParseCSRResponse(signPrivateKey *sm2.PrivateKey, der []byte) (CSRResponse, error) {
 	result := CSRResponse{}
 	resp := &tbsCSRResponse{}
@@ -43,9 +44,9 @@ func ParseCSRResponse(signPrivateKey *sm2.PrivateKey, der []byte) (CSRResponse, 
 		return result, errors.New("smx509: invalid sign certificates")
 	}
 
-	// further check sign public key against the private key
+	// check sign public key against the private key
 	if !signPrivateKey.PublicKey.Equal(signCerts[0].PublicKey) {
-		return result, errors.New("smx509: sign public key mismatch")
+		return result, errors.New("smx509: sign cert public key mismatch")
 	}
 
 	var encPrivateKey *sm2.PrivateKey
@@ -63,7 +64,7 @@ func ParseCSRResponse(signPrivateKey *sm2.PrivateKey, der []byte) (CSRResponse, 
 		}
 	}
 
-	// further check the public key of the encrypt certificate
+	// check the public key of the encrypt certificate
 	if encPrivateKey != nil && len(encryptCerts) == 0 {
 		return result, errors.New("smx509: missing encrypt certificate")
 	}
@@ -88,7 +89,7 @@ func MarshalCSRResponse(signCerts []*Certificate, encryptPrivateKey *sm2.Private
 		return nil, errors.New("smx509: invalid sign public key")
 	}
 
-	// further check the public key of the encrypt certificate
+	// check the public key of the encrypt certificate
 	if encryptPrivateKey != nil && len(encryptCerts) == 0 {
 		return nil, errors.New("smx509: missing encrypt certificate")
 	}

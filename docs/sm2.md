@@ -237,6 +237,31 @@ func ExamplePrivateKey_Decrypt() {
 ### 关于点到字节串的转换
 我没有找到到哪个文档写有固定64字节转换的。从国家密码管理局2010年版的《SM2椭圆曲线公钥密码算法》，到2012年的GM/T 0003-2012 SM2椭圆曲线公钥密码算法，再到GB/T 32918-2016 信息安全技术 SM2椭圆曲线公钥密码算法，都在第一部分第四章的“点到字节串的转换”有详细说明。这也符合《SEC 1: Elliptic Curve Cryptography》（May 21, 2009 Version 2.0）中2.3.3  Elliptic-Curve-Point-to-Octet-String Conversion的描述。
 
+#### 来自AI的问答
+**问: Why some crypto implementations of EC point to octet string conversion without form indicator?**  
+**答：** In Elliptic Curve Cryptography (ECC), the conversion of an elliptic curve point to an octet string can be done in several ways, typically either in compressed or uncompressed form. The form indicator (also known as the prefix) is used to denote whether the point is represented in its compressed or uncompressed form.
+
+However, some implementations might choose to omit the form indicator for a few reasons:
+
+1. **Simplicity**: Omitting the form indicator simplifies the implementation, as there's no need to handle different forms of point representation.
+
+2. **Assumed Knowledge**: If it's known in advance that all points will be in a certain form (e.g., all points are always uncompressed), the form indicator might be deemed unnecessary.
+
+3. **Compatibility**: Not all systems or libraries support both forms of point representation. To ensure maximum compatibility, an implementation might choose to always use one form and thus omit the form indicator.
+
+4. **Security**: In some cases, to prevent certain types of attacks that rely on the form of the point, the form indicator might be omitted.
+
+Please note that these are general reasons and the specific reason can vary depending on the exact context and the specific cryptographic protocol or system in use.
+
+**问：Won't this cause interoperability issues?**  
+**答：** Yes, you're correct. Omitting the form indicator in the conversion of an elliptic curve point to an octet string can indeed cause interoperability issues.
+
+When systems need to interoperate, they must agree on a common format for data exchange. If one system encodes elliptic curve points without a form indicator and another system expects the form indicator to be present, they won't be able to correctly interpret each other's data.
+
+This is why standards like those defined by the SEC (Standards for Efficient Cryptography) specify the use of a form indicator. For example, the SEC 1 standard specifies that the form indicator should be 0x04 for uncompressed points and 0x02 or 0x03 for compressed points.
+
+So, while omitting the form indicator might simplify the implementation or provide other benefits within a closed system, it can hinder interoperability with other systems. It's generally best to follow established standards when encoding and decoding cryptographic data to ensure maximum compatibility.
+
 ### 性能
 从**v0.27.0**开始，对大数据量的加解密做了优化处理，尤其是KDF并行计算。详情请参考[SM2加解密性能](https://github.com/emmansun/gmsm/wiki/SM2%E5%8A%A0%E8%A7%A3%E5%AF%86%E6%80%A7%E8%83%BD)。
 
