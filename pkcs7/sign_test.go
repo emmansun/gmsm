@@ -67,6 +67,9 @@ func testSign(t *testing.T, isSM bool, content []byte, sigalgs []x509.SignatureA
 						t.Fatalf("test %s/%s/%s: cannot parse signed data: %s", sigalgroot, sigalginter, sigalgsigner, err)
 					}
 					if testDetach {
+						// Detached signature should not contain the content
+						// So we should not be able to find the content in the parsed data
+						// We should suppliment the content to the parsed data before verifying
 						p7.Content = content
 					}
 					if !bytes.Equal(content, p7.Content) {
@@ -219,6 +222,14 @@ func TestSkipCertificates(t *testing.T) {
 	}
 	if len(p7.Certificates) > 0 {
 		t.Errorf("Have certificates: %v", p7.Certificates)
+	}
+	// For skip certificates, we should not be able to verify the signature
+	// because the signer certificate is not in the chain
+	// we should suppliment the signer certificate to the parsed data before verifying
+	p7.Certificates = append(p7.Certificates, cert.Certificate)
+	err = p7.Verify()
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 

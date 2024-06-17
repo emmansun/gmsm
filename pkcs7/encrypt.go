@@ -154,7 +154,7 @@ func encrypt(cipher pkcs.Cipher, content []byte, recipients []*smx509.Certificat
 	// Prepare outer payload structure
 	wrapper := contentInfo{
 		ContentType: OIDEnvelopedData,
-		Content:     asn1.RawValue{Class: 2, Tag: 0, IsCompound: true, Bytes: innerContent},
+		Content:     asn1.RawValue{Class: asn1.ClassContextSpecific, Tag: 0, IsCompound: true, Bytes: innerContent},
 	}
 
 	if isSM {
@@ -214,7 +214,7 @@ func encryptUsingPSK(isSM bool, cipher pkcs.Cipher, content []byte, key []byte) 
 	// Prepare outer payload structure
 	wrapper := contentInfo{
 		ContentType: contentType,
-		Content:     asn1.RawValue{Class: 2, Tag: 0, IsCompound: true, Bytes: innerContent},
+		Content:     asn1.RawValue{Class: asn1.ClassContextSpecific, Tag: 0, IsCompound: true, Bytes: innerContent},
 	}
 
 	return asn1.Marshal(wrapper)
@@ -222,7 +222,7 @@ func encryptUsingPSK(isSM bool, cipher pkcs.Cipher, content []byte, key []byte) 
 
 func marshalEncryptedContent(content []byte) asn1.RawValue {
 	asn1Content, _ := asn1.Marshal(content)
-	return asn1.RawValue{Tag: 0, Class: 2, Bytes: asn1Content, IsCompound: true}
+	return asn1.RawValue{Tag: 0, Class: asn1.ClassContextSpecific, Bytes: asn1Content, IsCompound: true}
 }
 
 func encryptKey(key []byte, recipient *smx509.Certificate, isCFCA bool) ([]byte, error) {

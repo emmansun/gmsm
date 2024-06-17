@@ -64,7 +64,7 @@ func NewSMSignedData(data []byte) (*SignedData, error) {
 type SignerInfoConfig struct {
 	ExtraSignedAttributes   []Attribute
 	ExtraUnsignedAttributes []Attribute
-	SkipCertificates        bool
+	SkipCertificates        bool // Skip adding certificates to the payload
 }
 
 type signedData struct {
@@ -322,7 +322,7 @@ func (sd *SignedData) Finish() ([]byte, error) {
 	}
 	outer := contentInfo{
 		ContentType: OIDSignedData,
-		Content:     asn1.RawValue{Class: 2, Tag: 0, Bytes: inner, IsCompound: true},
+		Content:     asn1.RawValue{Class: asn1.ClassContextSpecific, Tag: 0, Bytes: inner, IsCompound: true},
 	}
 	if sd.isSM {
 		outer.ContentType = SM2OIDSignedData
@@ -410,7 +410,7 @@ func marshalCertificates(certs []*smx509.Certificate) rawCertificates {
 // RawContent, we have to encode it into the RawContent. If its missing,
 // then `asn1.Marshal()` will strip out the certificate wrapper instead.
 func marshalCertificateBytes(certs []byte) (rawCertificates, error) {
-	var val = asn1.RawValue{Bytes: certs, Class: 2, Tag: 0, IsCompound: true}
+	var val = asn1.RawValue{Bytes: certs, Class: asn1.ClassContextSpecific, Tag: 0, IsCompound: true}
 	b, err := asn1.Marshal(val)
 	if err != nil {
 		return rawCertificates{}, err
@@ -438,7 +438,7 @@ func DegenerateCertificate(cert []byte) ([]byte, error) {
 	}
 	signedContent := contentInfo{
 		ContentType: OIDSignedData,
-		Content:     asn1.RawValue{Class: 2, Tag: 0, Bytes: content, IsCompound: true},
+		Content:     asn1.RawValue{Class: asn1.ClassContextSpecific, Tag: 0, Bytes: content, IsCompound: true},
 	}
 	return asn1.Marshal(signedContent)
 }

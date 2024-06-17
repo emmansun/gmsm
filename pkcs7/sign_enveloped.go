@@ -70,7 +70,7 @@ func (p7 *PKCS7) DecryptAndVerifyOnlyOne(pkey crypto.PrivateKey, verifyFunc Veri
 	defer func() {
 		p7.Content = nil
 	}()
-	plaintext, err := decryptSED(p7, &sed, &sed.RecipientInfos[0], pkey)
+	plaintext, err := p7.decryptSED(&sed, &sed.RecipientInfos[0], pkey)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (p7 *PKCS7) DecryptAndVerify(cert *smx509.Certificate, pkey crypto.PrivateK
 	defer func() {
 		p7.Content = nil
 	}()
-	plaintext, err := decryptSED(p7, &sed, recipient, pkey)
+	plaintext, err := p7.decryptSED(&sed, recipient, pkey)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (p7 *PKCS7) DecryptAndVerify(cert *smx509.Certificate, pkey crypto.PrivateK
 	return plaintext, nil
 }
 
-func decryptSED(p7 *PKCS7, sed *signedEnvelopedData, recipient *recipientInfo, pkey crypto.PrivateKey) ([]byte, error) {
+func (p7 *PKCS7) decryptSED(sed *signedEnvelopedData, recipient *recipientInfo, pkey crypto.PrivateKey) ([]byte, error) {
 	switch pkey := pkey.(type) {
 	case crypto.Decrypter:
 		// Generic case to handle anything that provides the crypto.Decrypter interface.
@@ -124,6 +124,7 @@ func decryptSED(p7 *PKCS7, sed *signedEnvelopedData, recipient *recipientInfo, p
 	}
 }
 
+// SignedAndEnvelopedData is an opaque data structure for creating signed and enveloped data payloads
 type SignedAndEnvelopedData struct {
 	sed       signedEnvelopedData
 	certs     []*smx509.Certificate
@@ -132,6 +133,9 @@ type SignedAndEnvelopedData struct {
 	isSM      bool
 }
 
+// NewSignedAndEnvelopedData takes data and cipher and initializes a new PKCS7 SignedAndEnvelopedData structure
+// that is ready to be signed via AddSigner and encrypted via AddRecipient. The digest algorithm is set to SHA1 by default
+// and can be changed by calling SetDigestAlgorithm.
 func NewSignedAndEnvelopedData(data []byte, cipher pkcs.Cipher) (*SignedAndEnvelopedData, error) {
 	var key []byte
 	var err error
@@ -159,6 +163,8 @@ func NewSignedAndEnvelopedData(data []byte, cipher pkcs.Cipher) (*SignedAndEnvel
 	return &SignedAndEnvelopedData{sed: sed, data: data, cek: key, digestOid: OIDDigestAlgorithmSHA1, isSM: false}, nil
 }
 
+// NewSMSignedAndEnvelopedData takes data and cipher and initializes a new PKCS7(SM) SignedAndEnvelopedData structure
+// that is ready to be signed via AddSigner and encrypted via AddRecipient. The digest algorithm is set to SM3 by default.
 func NewSMSignedAndEnvelopedData(data []byte, cipher pkcs.Cipher) (*SignedAndEnvelopedData, error) {
 	sd, err := NewSignedAndEnvelopedData(data, cipher)
 	if err != nil {
@@ -253,6 +259,7 @@ func (saed *SignedAndEnvelopedData) AddCertificate(cert *smx509.Certificate) {
 	saed.certs = append(saed.certs, cert)
 }
 
+// AddRecipient adds a recipient to the payload
 func (saed *SignedAndEnvelopedData) AddRecipient(recipient *smx509.Certificate) error {
 	encryptedKey, err := encryptKey(saed.cek, recipient, false) //TODO: check if CFCA has such function 
 	if err != nil {
@@ -289,7 +296,7 @@ func (saed *SignedAndEnvelopedData) Finish() ([]byte, error) {
 	}
 	outer := contentInfo{
 		ContentType: OIDSignedEnvelopedData,
-		Content:     asn1.RawValue{Class: 2, Tag: 0, Bytes: inner, IsCompound: true},
+		Content:     asn1.RawValue{Class: asn1.ClassContextSpecific, Tag: 0, Bytes: inner, IsCompound: true},
 	}
 	if saed.isSM {
 		outer.ContentType = SM2OIDSignedEnvelopedData
