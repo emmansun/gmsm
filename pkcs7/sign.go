@@ -37,7 +37,7 @@ func NewSignedData(data []byte) (*SignedData, error) {
 	}
 	ci := contentInfo{
 		ContentType: OIDData,
-		Content:     asn1.RawValue{Class: 2, Tag: 0, Bytes: content, IsCompound: true},
+		Content:     asn1.RawValue{Class: asn1.ClassContextSpecific, Tag: 0, Bytes: content, IsCompound: true},
 	}
 	sd := signedData{
 		ContentInfo: ci,

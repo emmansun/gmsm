@@ -113,7 +113,6 @@ func TestMarshalCSRResponse(t *testing.T) {
 
 	// Call the function
 	result, err := smx509.MarshalCSRResponse([]*smx509.Certificate{pairs[0].Certificate, pairs[2].Certificate}, encPrivKey, []*smx509.Certificate{pairs[1].Certificate, pairs[2].Certificate})
-
 	// Check the result
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -154,17 +153,17 @@ func TestMarshalCSRResponse(t *testing.T) {
 	}
 
 	_, err = smx509.MarshalCSRResponse(nil, nil, nil)
-	if err == nil  || err.Error() != "smx509: no sign certificate" {
+	if err == nil || err.Error() != "smx509: no sign certificate" {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	_, err = smx509.MarshalCSRResponse([]*smx509.Certificate{pairs[0].Certificate, pairs[2].Certificate}, encPrivKey, nil)
-	if err == nil  || err.Error() != "smx509: missing encrypt certificate" {
+	if err == nil || err.Error() != "smx509: missing encrypt certificate" {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	_, err = smx509.MarshalCSRResponse([]*smx509.Certificate{pairs[0].Certificate, pairs[2].Certificate}, encPrivKey, []*smx509.Certificate{pairs[2].Certificate})
-	if err == nil  || err.Error() != "smx509: encrypt key pair mismatch" {
+	if err == nil || err.Error() != "smx509: encrypt key pair mismatch" {
 		t.Errorf("Unexpected error: %v", err)
 	}
 }

@@ -55,6 +55,10 @@
 3. 如果签名数据中不包含证书项，则手动设置验签证书（参考```TestSkipCertificates```）；
 4. 调用```Verify```或```VerifyWithChain```方法。
 
+#### 特殊方法
+```DegenerateCertificate```，退化成签名数据中只包含证书，目前没有使用SM2 OID的方法，如果需要可以请求添加。可以参考```TestDegenerateCertificate```和```TestParseSM2CertificateChain```。
+
+
 ### 签名及数字信封数据（Signed and Enveloped Data）
 签名和数字信封数据，使用场景较少，有些实现用它来传输私钥（譬如www.gmcert.org）。具体请参考```sign_enveloped_test.go```。
 

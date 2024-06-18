@@ -20,8 +20,16 @@ type CSRResponse struct {
 	EncryptCerts      []*Certificate
 }
 
+// GM/T 0092-2020 Specification of certificate request syntax based on SM2 cryptographic algorithm.
+// Section 8 and Appendix A
+//
+// CSRResponse ::= SEQUENCE {
+//	 signCertificate CertificateSet,
+//	 encryptedPrivateKey [0] SM2EnvelopedKey OPTIONAL,
+//   encryptCertificate  [1] CertificateSet OPTIONAL
+// }
 type tbsCSRResponse struct {
-	SignCerts           rawCertificates
+	SignCerts           []asn1.RawValue `asn1:"set"` // SignCerts ::= SET OF Certificate
 	EncryptedPrivateKey asn1.RawValue   `asn1:"optional,tag:0"`
 	EncryptCerts        rawCertificates `asn1:"optional,tag:1"`
 }
@@ -39,9 +47,14 @@ func ParseCSRResponse(signPrivateKey *sm2.PrivateKey, der []byte) (CSRResponse, 
 	if err != nil || len(rest) > 0 {
 		return result, errors.New("smx509: invalid CSRResponse asn1 data")
 	}
-	signCerts, err := resp.SignCerts.Parse()
-	if err != nil || len(signCerts) == 0 {
-		return result, errors.New("smx509: invalid sign certificates")
+
+	signCerts := make([]*Certificate, len(resp.SignCerts))
+	for i, rawCert := range resp.SignCerts {
+		signCert, err := ParseCertificate(rawCert.FullBytes)
+		if err != nil {
+			return result, err
+		}
+		signCerts[i] = signCert
 	}
 
 	// check sign public key against the private key
@@ -98,13 +111,16 @@ func MarshalCSRResponse(signCerts []*Certificate, encryptPrivateKey *sm2.Private
 	}
 
 	resp := tbsCSRResponse{}
-	resp.SignCerts = marshalCertificates(signCerts)
+	resp.SignCerts = make([]asn1.RawValue, 0, len(signCerts))
+	for _, cert := range signCerts {
+		resp.SignCerts = append(resp.SignCerts, asn1.RawValue{FullBytes: cert.Raw})
+	}
 	if encryptPrivateKey != nil && len(encryptCerts) > 0 {
 		privateKeyBytes, err := sm2.MarshalEnvelopedPrivateKey(rand.Reader, signPubKey, encryptPrivateKey)
 		if err != nil {
 			return nil, err
 		}
-		resp.EncryptedPrivateKey = asn1.RawValue{Class: 2, Tag: 0, IsCompound: true, Bytes: privateKeyBytes}
+		resp.EncryptedPrivateKey = asn1.RawValue{Class: asn1.ClassContextSpecific, Tag: 0, IsCompound: true, Bytes: privateKeyBytes}
 		resp.EncryptCerts = marshalCertificates(encryptCerts)
 	}
 	return asn1.Marshal(resp)
@@ -124,7 +140,7 @@ func marshalCertificates(certs []*Certificate) rawCertificates {
 // RawContent, we have to encode it into the RawContent. If its missing,
 // then `asn1.Marshal()` will strip out the certificate wrapper instead.
 func marshalCertificateBytes(certs []byte) (rawCertificates, error) {
-	var val = asn1.RawValue{Bytes: certs, Class: 2, Tag: 0, IsCompound: true}
+	var val = asn1.RawValue{Bytes: certs, Class: asn1.ClassContextSpecific, Tag: 0, IsCompound: true}
 	b, err := asn1.Marshal(val)
 	if err != nil {
 		return rawCertificates{}, err
