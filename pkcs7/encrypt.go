@@ -112,6 +112,7 @@ func encrypt(cipher pkcs.Cipher, content []byte, recipients []*smx509.Certificat
 	}
 
 	if isSM {
+		envelope.Version = 1 // follow GB/T 35275-2017 9.1
 		envelope.EncryptedContentInfo.ContentType = SM2OIDData
 	}
 
@@ -140,6 +141,9 @@ func encrypt(cipher pkcs.Cipher, content []byte, recipients []*smx509.Certificat
 				Algorithm: keyEncryptionAlgorithm,
 			},
 			EncryptedKey: encrypted,
+		}
+		if isSM {
+			info.Version = 1 // follow GB/T 35275-2017 9.1
 		}
 		recipientInfos[i] = info
 	}
@@ -199,6 +203,7 @@ func encryptUsingPSK(isSM bool, cipher pkcs.Cipher, content []byte, key []byte) 
 		},
 	}
 	if isSM {
+		ed.Version = 1 // follow GB/T 35275-2017 9.1
 		ed.EncryptedContentInfo.ContentType = SM2OIDData
 	}
 

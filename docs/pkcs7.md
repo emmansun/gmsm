@@ -33,17 +33,22 @@
 关于```EncryptSM / EncryptCFCA```的区别，请参考**CFCA互操作性指南**。  
 带PSK（Pre-shared key）后缀的方法，其对称加密密钥由调用者提供，而非随机生成。
 
+### 加密数据（Encrypted Data）
+加密：对应本项目的```pkcs7.EncryptUsingPSK```和```pkcs7.EncryptSMUsingPSK```方法。  
+解密：对应本项目的```pkcs7.DecryptUsingPSK```方法（当然要先调用```pkcs7.Parse```）。
+
 ### 签名数据（Signed Data）
 签名数据，使用证书对应的私钥进行签名，理论上支持多个签名者，但通常使用场景都是单签。和数字信封数据类似，也分国密和非国密。
 
 #### 创建签名数据
 （是否国密是指OID也使用国密体系）
 
-| 是否国密 | 方法 |  
-| :--- | :--- |
-| 否 | ```NewSignedData``` |
-| 是 | ```NewSMSignedData``` |
+| 是否国密 | 方法 | 默认签名算法 |    
+| :--- | :--- | :--- |
+| 否 | ```NewSignedData``` | SHA1 |  
+| 是 | ```NewSMSignedData``` | SM3 |  
 
+可选步骤：调用```SetDigestAlgorithm```设置想要的签名算法，通常国密不需要修改。    
 接着调用```AddSigner```或```AddSignerChain```方法，进行签名；可以通过```SignerInfoConfig.SkipCertificates```指定忽略证书项（最终签名数据中不包含证书项）；  
 如果进行Detach签名，则调用```Detach```方法；  
 最后调用```Finish```方法，序列化输出结果。  
