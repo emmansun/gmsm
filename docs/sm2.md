@@ -24,6 +24,12 @@ SM2既然是椭圆曲线公钥密码算法，它就和NIST P系列椭圆曲线�
 **注**：最新的阿里KMS支持ECIES，难道客户有这个需求？
 ECIES_DH_SHA_1_XOR_HMAC：遵循[SEC 1: Elliptic Curve Cryptography, Version 2.0](https://www.secg.org/sec1-v2.pdf)标准，密钥协商算法采用ECDH，密钥派生算法采用 KDF2 with SHA-1，MAC算法采用HMAC-SHA-1，对称加密算法采用XOR。
 
+**业界对RSA非对称加密的安全性担忧与日俱增**：  
+* [The Marvin Attack](https://people.redhat.com/~hkario/marvin/)
+* [CVE-2023-45287 Detail](https://nvd.nist.gov/vuln/detail/CVE-2023-45287)
+* [Vulnerability Report: GO-2023-2375](https://pkg.go.dev/vuln/GO-2023-2375)
+* [Seriously, stop using RSA](https://blog.trailofbits.com/2019/07/08/fuck-rsa/)
+
 ## SM2公私钥对
 SM2公私钥对的话，要么是自己产生，要么是别的系统产生后通过某种方式传输给您的。
 

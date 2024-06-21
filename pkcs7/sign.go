@@ -22,9 +22,9 @@ type SignedData struct {
 	sd                  signedData
 	certs               []*smx509.Certificate
 	data, messageDigest []byte
+	contentTypeOid      asn1.ObjectIdentifier
 	digestOid           asn1.ObjectIdentifier
 	encryptionOid       asn1.ObjectIdentifier
-	isSM                bool
 }
 
 // NewSignedData takes data and initializes a PKCS7 SignedData struct that is
@@ -43,7 +43,7 @@ func NewSignedData(data []byte) (*SignedData, error) {
 		ContentInfo: ci,
 		Version:     1,
 	}
-	return &SignedData{sd: sd, data: data, digestOid: OIDDigestAlgorithmSHA1, isSM: false}, nil
+	return &SignedData{sd: sd, data: data, digestOid: OIDDigestAlgorithmSHA1, contentTypeOid: OIDSignedData}, nil
 }
 
 // NewSMSignedData takes data and initializes a PKCS7 SignedData struct that is
@@ -56,7 +56,7 @@ func NewSMSignedData(data []byte) (*SignedData, error) {
 	}
 	sd.sd.ContentInfo.ContentType = SM2OIDData
 	sd.digestOid = OIDDigestAlgorithmSM3
-	sd.isSM = true
+	sd.contentTypeOid = SM2OIDSignedData
 	return sd, nil
 }
 
@@ -300,10 +300,7 @@ func (sd *SignedData) AddCertificate(cert *smx509.Certificate) {
 // Detach removes content from the signed data struct to make it a detached signature.
 // This must be called right before Finish()
 func (sd *SignedData) Detach() {
-	sd.sd.ContentInfo = contentInfo{ContentType: OIDData}
-	if sd.isSM {
-		sd.sd.ContentInfo.ContentType = SM2OIDData
-	}
+	sd.sd.ContentInfo.Content = asn1.RawValue{}
 }
 
 // GetSignedData returns the private Signed Data
@@ -321,11 +318,8 @@ func (sd *SignedData) Finish() ([]byte, error) {
 		return nil, err
 	}
 	outer := contentInfo{
-		ContentType: OIDSignedData,
+		ContentType: sd.contentTypeOid,
 		Content:     asn1.RawValue{Class: asn1.ClassContextSpecific, Tag: 0, Bytes: inner, IsCompound: true},
-	}
-	if sd.isSM {
-		outer.ContentType = SM2OIDSignedData
 	}
 	return asn1.Marshal(outer)
 }

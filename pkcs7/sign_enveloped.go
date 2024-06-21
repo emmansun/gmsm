@@ -126,11 +126,11 @@ func (p7 *PKCS7) decryptSED(sed *signedEnvelopedData, recipient *recipientInfo, 
 
 // SignedAndEnvelopedData is an opaque data structure for creating signed and enveloped data payloads
 type SignedAndEnvelopedData struct {
-	sed       signedEnvelopedData
-	certs     []*smx509.Certificate
-	data, cek []byte
-	digestOid asn1.ObjectIdentifier
-	isSM      bool
+	sed            signedEnvelopedData
+	certs          []*smx509.Certificate
+	data, cek      []byte
+	contentTypeOid asn1.ObjectIdentifier
+	digestOid      asn1.ObjectIdentifier
 }
 
 // NewSignedAndEnvelopedData takes data and cipher and initializes a new PKCS7 SignedAndEnvelopedData structure
@@ -160,7 +160,7 @@ func NewSignedAndEnvelopedData(data []byte, cipher pkcs.Cipher) (*SignedAndEnvel
 			EncryptedContent:           marshalEncryptedContent(ciphertext),
 		},
 	}
-	return &SignedAndEnvelopedData{sed: sed, data: data, cek: key, digestOid: OIDDigestAlgorithmSHA1, isSM: false}, nil
+	return &SignedAndEnvelopedData{sed: sed, data: data, cek: key, digestOid: OIDDigestAlgorithmSHA1, contentTypeOid: OIDSignedEnvelopedData}, nil
 }
 
 // NewSMSignedAndEnvelopedData takes data and cipher and initializes a new PKCS7(SM) SignedAndEnvelopedData structure
@@ -170,8 +170,8 @@ func NewSMSignedAndEnvelopedData(data []byte, cipher pkcs.Cipher) (*SignedAndEnv
 	if err != nil {
 		return nil, err
 	}
+	sd.contentTypeOid = SM2OIDSignedEnvelopedData
 	sd.digestOid = OIDDigestAlgorithmSM3
-	sd.isSM = true
 	sd.sed.EncryptedContentInfo.ContentType = SM2OIDData
 	return sd, nil
 }
@@ -223,10 +223,11 @@ func (saed *SignedAndEnvelopedData) AddSignerChain(ee *smx509.Certificate, pkey 
 	if !ok {
 		return errors.New("pkcs7: private key does not implement crypto.Signer")
 	}
+
 	var signOpt crypto.SignerOpts
 	var tobeSigned []byte
 
-	if saed.isSM {
+	if _, isSM2 := pkey.(sm2.Signer); isSM2 {
 		signOpt = sm2.DefaultSM2SignerOpts
 		tobeSigned = saed.data
 	} else {
@@ -261,7 +262,7 @@ func (saed *SignedAndEnvelopedData) AddCertificate(cert *smx509.Certificate) {
 
 // AddRecipient adds a recipient to the payload
 func (saed *SignedAndEnvelopedData) AddRecipient(recipient *smx509.Certificate) error {
-	encryptedKey, err := encryptKey(saed.cek, recipient, false) //TODO: check if CFCA has such function 
+	encryptedKey, err := encryptKey(saed.cek, recipient, false) //TODO: check if CFCA has such function
 	if err != nil {
 		return err
 	}
@@ -272,8 +273,6 @@ func (saed *SignedAndEnvelopedData) AddRecipient(recipient *smx509.Certificate) 
 	var keyEncryptionAlgorithm asn1.ObjectIdentifier = OIDEncryptionAlgorithmRSA
 	if recipient.SignatureAlgorithm == smx509.SM2WithSM3 {
 		keyEncryptionAlgorithm = OIDKeyEncryptionAlgorithmSM2
-	} else if saed.isSM {
-		return errors.New("pkcs7: Shangmi does not support RSA")
 	}
 	info := recipientInfo{
 		Version:               1,
@@ -295,11 +294,8 @@ func (saed *SignedAndEnvelopedData) Finish() ([]byte, error) {
 		return nil, err
 	}
 	outer := contentInfo{
-		ContentType: OIDSignedEnvelopedData,
+		ContentType: saed.contentTypeOid,
 		Content:     asn1.RawValue{Class: asn1.ClassContextSpecific, Tag: 0, Bytes: inner, IsCompound: true},
-	}
-	if saed.isSM {
-		outer.ContentType = SM2OIDSignedEnvelopedData
 	}
 	return asn1.Marshal(outer)
 }

@@ -115,7 +115,7 @@ func (c *cbcBlockCipher) Encrypt(key, plaintext []byte) (*pkix.AlgorithmIdentifi
 	if err != nil {
 		return nil, nil, err
 	}
-	ciphertext, err := cbcEncrypt(block, key, iv, plaintext)
+	ciphertext, err := cbcEncrypt(block, iv, plaintext)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -144,10 +144,10 @@ func (c *cbcBlockCipher) Decrypt(key []byte, parameters *asn1.RawValue, encrypte
 		return nil, errors.New("pkcs: invalid cipher parameters")
 	}
 
-	return cbcDecrypt(block, key, iv, encryptedKey)
+	return cbcDecrypt(block, iv, encryptedKey)
 }
 
-func cbcEncrypt(block cipher.Block, key, iv, plaintext []byte) ([]byte, error) {
+func cbcEncrypt(block cipher.Block, iv, plaintext []byte) ([]byte, error) {
 	mode := cipher.NewCBCEncrypter(block, iv)
 	pkcs7 := padding.NewPKCS7Padding(uint(block.BlockSize()))
 	plainText := pkcs7.Pad(plaintext)
@@ -156,7 +156,7 @@ func cbcEncrypt(block cipher.Block, key, iv, plaintext []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
-func cbcDecrypt(block cipher.Block, key, iv, ciphertext []byte) ([]byte, error) {
+func cbcDecrypt(block cipher.Block, iv, ciphertext []byte) ([]byte, error) {
 	mode := cipher.NewCBCDecrypter(block, iv)
 	pkcs7 := padding.NewPKCS7Padding(uint(block.BlockSize()))
 	plaintext := make([]byte, len(ciphertext))
