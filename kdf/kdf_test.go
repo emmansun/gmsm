@@ -1,6 +1,7 @@
 package kdf
 
 import (
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"hash"
@@ -58,6 +59,32 @@ func shouldPanic(t *testing.T, f func()) {
 	defer func() { _ = recover() }()
 	f()
 	t.Errorf("should have panicked")
+}
+
+func TestKdfWithSHA256(t *testing.T) {
+	type args struct {
+		z   []byte
+		len int
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{"sha256 case 1", args{[]byte("emmansun"), 16}, "1bca7e7d05a858f5852a6e0ce7e99852"},
+		{"sha256 case 2", args{[]byte("emmansun"), 32}, "1bca7e7d05a858f5852a6e0ce7e9985294ebdc82c7f1c6539f89356d9c0a2856"},
+		{"sha256 case 3", args{[]byte("emmansun"), 48}, "1bca7e7d05a858f5852a6e0ce7e9985294ebdc82c7f1c6539f89356d9c0a28569500417f9b74de4ea18a85813b8968ba"},
+		{"sha256 case 4", args{[]byte("708993ef1388a0ae4245a19bb6c02554c632633e356ddb989beb804fda96cfd47eba4fa460e7b277bc6b4ce4d07ed493708993ef1388a0ae4245a19bb6c02554c632633e356ddb989beb804fda96cfd47eba4fa460e7b277bc6b4ce4d07ed493"), 48}, "61cc5b862a0a6511b3558536112c7ba4f21c9d65025505c0099bbba7196a35ed34d7805e5c4d779fcd0d950f693ec0f8"},
+		{"sha256 case 5", args{[]byte("708993ef1388a0ae4245a19bb6c02554c632633e356ddb989beb804fda96cfd47eba4fa460e7b277bc6b4ce4d07ed493708993ef1388a0ae4245a19bb6c02554c632633e356ddb989beb804fda96cfd47eba4fa460e7b277bc6b4ce4d07ed493"), 128}, "61cc5b862a0a6511b3558536112c7ba4f21c9d65025505c0099bbba7196a35ed34d7805e5c4d779fcd0d950f693ec0f8b1fdc996e97eadb5b7bee7ac44dd1a7954a44dd92c71c465f4ab20479c92748f179bd03bdad1768c65b59d62a0735dcf08837a04f32f53d45b5bdb00f5fd1bee003f6fcc01c003594d33014161862030"},
+	}
+	for _, tt := range tests {
+		wantBytes, _ := hex.DecodeString(tt.want)
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Kdf(sha256.New, tt.args.z, tt.args.len); !reflect.DeepEqual(got, wantBytes) {
+				t.Errorf("Kdf(%v) = %x, want %v", tt.name, got, tt.want)
+			}
+		})
+	}
 }
 
 func BenchmarkKdf(b *testing.B) {
