@@ -11,6 +11,7 @@ import (
 	"github.com/emmansun/gmsm/pkcs8"
 	"github.com/emmansun/gmsm/sm2"
 	"github.com/emmansun/gmsm/sm9"
+	"github.com/emmansun/gmsm/smx509"
 	"golang.org/x/crypto/cryptobyte"
 )
 
@@ -226,6 +227,42 @@ jZHNffmk4ii7NxCfjrzpiFq4clYsNMXeSEnq1tuOEur4kYcjHYSIFc9bPG656a60
 		fmt.Println("fail")
 	}
 	// Output: ok
+}
+
+func ExampleParsePKCS8PrivateKeySM2_removePassword() {
+	const privateKeyPem = `
+-----BEGIN ENCRYPTED PRIVATE KEY-----
+MIH2MGEGCSqGSIb3DQEFDTBUMDQGCSqGSIb3DQEFDDAnBBDa6ckWJNP3QBD7MIF8
+4nVqAgEQAgEQMA0GCSqBHM9VAYMRAgUAMBwGCCqBHM9VAWgCBBDMUgr+5Y/XN2g9
+mPGiISzGBIGQytwK98/ET4WrS0H7AsUri6FTqztrzAvgzFl3+s9AsaYtUlzE3EzE
+x6RWxo8kpKO2yj0a/Jh9WZCD4XAcoZ9aMopiWlOdpXJr/iQlMGdirCYIoF37lHMc
+jZHNffmk4ii7NxCfjrzpiFq4clYsNMXeSEnq1tuOEur4kYcjHYSIFc9bPG656a60
++SIJsJuPFi0f
+-----END ENCRYPTED PRIVATE KEY-----`
+	password := []byte("Password1")
+	block, _ := pem.Decode([]byte(privateKeyPem))
+	if block == nil {
+		fmt.Fprintf(os.Stderr, "Failed to parse PEM block\n")
+		return
+	}
+	pk, err := pkcs8.ParsePKCS8PrivateKeySM2(block.Bytes, password)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error from ParsePKCS8PrivateKeySM2: %s\n", err)
+		return
+	}
+	der, err := smx509.MarshalPKCS8PrivateKey(pk)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error from MarshalPKCS8PrivateKey: %s\n", err)
+		return
+	}
+	block = &pem.Block{Bytes: der, Type: "PRIVATE KEY"}
+	pemContent := string(pem.EncodeToMemory(block))
+	fmt.Printf("%v\n", pemContent)
+	// Output: -----BEGIN PRIVATE KEY-----
+// MIGHAgEAMBMGByqGSM49AgEGCCqBHM9VAYItBG0wawIBAQQgbFoKCy7tPL7D5PEl
+// K/4OKMUEoca/GZnuuwr57w+ObIWhRANCAASDVuZCpA69GNKbo1MvvZ87vujwJ8P2
+// 85pbovhwNp+ZiJgfXv5V0cXN9sDvKwcIR6FPf99CcqjfCcRC8wWK+Uuh
+// -----END PRIVATE KEY-----
 }
 
 func ExampleMarshalPrivateKey_withoutPasswordSM9MasterSignKey() {
