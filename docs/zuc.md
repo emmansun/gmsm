@@ -1,14 +1,22 @@
-package zuc_test
+# 祖冲之序列密码算法应用指南
 
-import (
-	"crypto/rand"
-	"encoding/hex"
-	"fmt"
-	"io"
+## 参考标准
+* 《GB/T 33133.1-2016 信息安全技术 祖冲之序列密码算法 第1部分：算法描述》
+* 《GB/T 33133.2-2021 信息安全技术 祖冲之序列密码算法 第2部分：保密性算法》
+* 《GB/T 33133.3-2021 信息安全技术 祖冲之序列密码算法 第2部分：完整性算法》
+* [《祖冲之算法：ZUC-256算法草案(中文)》](https://github.com/guanzhi/GM-Standards/blob/master/%E5%85%AC%E5%BC%80%E6%96%87%E6%A1%A3/%E7%A5%96%E5%86%B2%E4%B9%8B%E7%AE%97%E6%B3%95%EF%BC%9AZUC-256%E7%AE%97%E6%B3%95%E8%8D%89%E6%A1%88(%E4%B8%AD%E6%96%87).pdf)
 
-	"github.com/emmansun/gmsm/zuc"
-)
+您可以从[国家标准全文公开系统](https://openstd.samr.gov.cn/)在线阅读这些标准。
 
+## 保密性算法
+保密性算法EEA实现了```cipher.Stream```接口，所以和其它流密码算法使用类似，只是创建方法不同而已。
+
+|  | ZUC-128 | ZUC-256 |  
+| :--- | :--- | :--- |
+| Key字节数 | 16 | 32 |
+| IV字节数 | 16 | 23 |  
+
+```go
 func ExampleNewCipher() {
 	// Load your secret key from a safe place and reuse it across multiple
 	// NewCipher calls. (Obviously don't use this example key for anything
@@ -90,7 +98,18 @@ func ExampleNewCipher_zuc256() {
 	fmt.Printf("%s\n", plaintext2)
 	// Output: some plaintext
 }
+```
 
+## 完整性算法
+完整性算法实现了```hash.Hash```接口，所以其使用方法和其它哈希算法类似。
+
+|  | ZUC-128 | ZUC-256 |  
+| :--- | :--- | :--- |
+| Key字节数 | 16 | 32 |
+| IV字节数 | 16 | 23 | 
+| MAC字节数 | 4 | 4/8/16 | 
+
+```go
 func ExampleNewHash() {
 	// Load your secret key from a safe place and reuse it across multiple
 	// NewCipher calls. (Obviously don't use this example key for anything
@@ -166,7 +185,10 @@ func ExampleNewHash256_tagSize16() {
 	fmt.Printf("%x", h.Sum(nil))
 	// Output: fd8d10ea65b6369cccc07d50b4657d84
 }
+```
 
+要支持位为单位的话，可以调用```Finish```方法。
+```go
 func ExampleZUC128Mac_Finish() {
 	key := make([]byte, 16)
 	iv := make([]byte, 16)
@@ -197,3 +219,4 @@ func ExampleZUC128Mac_Finish_mixed() {
 	fmt.Printf("%x", h.Finish([]byte{0}, 1))
 	// Output: fae8ff0b
 }
+```

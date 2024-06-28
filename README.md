@@ -18,6 +18,7 @@ Go语言商用密码软件，简称**GMSM**，一个安全、高性能、易于�
 * [SM3密码杂凑算法应用指南](./docs/sm3.md) 
 * [SM4分组密码算法应用指南](./docs/sm4.md) 
 * [SM9标识密码算法应用指南](./docs/sm9.md)
+* [ZUC祖冲之序列密码算法应用指南](./docs/zuc.md)
 * [CFCA互操作性指南](./docs/cfca.md)
 * [PKCS7应用指南](./docs/pkcs7.md)
 * [PKCS12应用指南](./docs/pkcs12.md)
