@@ -43,11 +43,15 @@ PBES1属于老旧遗留算法，目前版本未实现。
 * AES-CBC-Pad，密钥长度支持16/24/32字节
 * SM4-CBC-Pad，密钥长度支持16字节
 
-#### 数据完整性保护
-这里只支持基于密码的完整性保护：**HMAC**。支持的HASH算法有：
+#### 数据完整性保护(PBMAC)
+这里只支持基于密码的完整性保护：**PKCS12-KDF + HMAC**。支持的HASH算法有：
 * SHA1
 * SHA256
 * SM3
+
+**PBMAC**目前的实现还是基于**PKCS12-KDF**，将来看情况是否要实现**PBMAC1**，主要看**OpenSSL**的支持进度：
+* [Support FIPS-compliant PKCS#12 files and create them by default in FIPS mode](https://github.com/openssl/openssl/issues/24546)
+* [RFC 9579 implementation: add PBMAC1 with PBKDF2 to PKCS#12](https://github.com/openssl/openssl/pull/24577)
 
 ## PKCS#12的生成
 目前只支持下列几种，不支持自由定义：
