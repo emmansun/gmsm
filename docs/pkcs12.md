@@ -1,8 +1,8 @@
 # [go-pkcs12](https://github.com/emmansun/go-pkcs12)应用指南
 [PKCS #12: Personal Information Exchange Syntax v1.1](https://datatracker.ietf.org/doc/html/rfc7292)，PKCS12目前似乎没有相应的国密标准。
 定制PKCS12的目的是：
-1. 可以处理SM2私钥和证书。
-2. 可以替代、使用一些商密算法，主要是SM3和SM4。
+1. 可以处理**SM2**私钥和证书。
+2. 可以替代、使用一些商密算法，主要是**SM3**和**SM4**。
 
 ## PKCS#12的解析
 [go-pkcs12](https://github.com/emmansun/go-pkcs12)提供三个方法：
@@ -16,15 +16,23 @@
 ### 解码能处理的算法
 
 #### 证书及私钥加密算法
-**PKCS12算法**：
+这里主要是**PBES(Password-Based Encryption Scheme)**, 它主要涉及几方面：  
+1. 密码处理  
+2. 从密码派生出加密密钥
+3. 具体对称加密算法
+
+**PBES-PKCS12**
 * pbeWithSHAAnd3-KeyTripleDES-CBC OBJECT IDENTIFIER ::= {pkcs-12PbeIds 3}
 * pbeWithSHAAnd128BitRC2-CBC      OBJECT IDENTIFIER ::= {pkcs-12PbeIds 5}
 * pbewithSHAAnd40BitRC2-CBC       OBJECT IDENTIFIER ::= {pkcs-12PbeIds 6}  
 
-不同于PKCS#5 v1.5中的PBES1，上述这些是PKCS#12的独有算法，特别是它的KDF和密码处理。
+不同于**PKCS#5 v1.5**中的**PBES1**，上述这些是**PKCS#12**的独有算法，特别是它的**KDF**和**密码处理**。
+
+**PBES1**  
+PBES1属于老旧遗留算法，目前版本未实现。
 
 **PBES2**  
-由两部分组成，分别为**KDF**和加密算法。目前KDF只支持KDF2, KDF2中支持的PRF方法有：
+由两部分组成，分别为**KDF**和加密算法。目前KDF只支持**KDF2**, KDF2中支持的**PRF**方法有：
 * id-hmacWithSHA1
 * id-hmacWithSHA256
 * id-hmacWithSM3
@@ -36,7 +44,7 @@
 * SM4-CBC-Pad，密钥长度支持16字节
 
 #### 数据完整性保护
-这里只支持基于密码的完整性保护：HMAC。支持的HASH算法有：
+这里只支持基于密码的完整性保护：**HMAC**。支持的HASH算法有：
 * SHA1
 * SHA256
 * SM3
