@@ -1,6 +1,7 @@
 package pkcs7
 
 import (
+	"crypto/rand"
 	"encoding/asn1"
 	"errors"
 
@@ -36,7 +37,7 @@ func encryptUsingPSK(cipher pkcs.Cipher, content []byte, key []byte, contentType
 		return nil, ErrPSKNotProvided
 	}
 
-	id, ciphertext, err := cipher.Encrypt(key, content)
+	id, ciphertext, err := cipher.Encrypt(rand.Reader, key, content)
 	if err != nil {
 		return nil, err
 	}

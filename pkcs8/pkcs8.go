@@ -5,103 +5,29 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha1"
-	"crypto/sha256"
-	"crypto/sha512"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/pem"
 	"errors"
-	"fmt"
-	"hash"
-	"strconv"
 
 	"github.com/emmansun/gmsm/pkcs"
 	"github.com/emmansun/gmsm/sm2"
-	"github.com/emmansun/gmsm/sm3"
 	"github.com/emmansun/gmsm/sm9"
 	"github.com/emmansun/gmsm/smx509"
 )
 
-// Hash identifies a cryptographic hash function that is implemented in another
-// package.
-type Hash uint
+type Opts = pkcs.PBES2Opts
+type PBKDF2Opts = pkcs.PBKDF2Opts
+type ScryptOpts = pkcs.ScryptOpts
 
-const (
-	SHA1 Hash = 1 + iota
-	SHA224
-	SHA256
-	SHA384
-	SHA512
-	SHA512_224
-	SHA512_256
-	SM3
-)
-
-// New returns a new hash.Hash calculating the given hash function. New panics
-// if the hash function is not linked into the binary.
-func (h Hash) New() hash.Hash {
-	switch h {
-	case SM3:
-		return sm3.New()
-	case SHA1:
-		return sha1.New()
-	case SHA224:
-		return sha256.New224()
-	case SHA256:
-		return sha256.New()
-	case SHA384:
-		return sha512.New384()
-	case SHA512:
-		return sha512.New()
-	case SHA512_224:
-		return sha512.New512_224()
-	case SHA512_256:
-		return sha512.New512_256()
-
-	}
-	panic("pkcs8: requested hash function #" + strconv.Itoa(int(h)) + " is unavailable")
-}
-
-// DefaultOpts are the default options for encrypting a key if none are given.
-// The defaults can be changed by the library user.
-var DefaultOpts = &Opts{
-	Cipher: pkcs.AES256CBC,
-	KDFOpts: PBKDF2Opts{
-		SaltSize:       8,
-		IterationCount: 10000,
-		HMACHash:       SHA256,
-	},
-}
-
-// KDFOpts contains options for a key derivation function.
-// An implementation of this interface must be specified when encrypting a PKCS#8 key.
-type KDFOpts interface {
-	// DeriveKey derives a key of size bytes from the given password and salt.
-	// It returns the key and the ASN.1-encodable parameters used.
-	DeriveKey(password, salt []byte, size int) (key []byte, params KDFParameters, err error)
-	// GetSaltSize returns the salt size specified.
-	GetSaltSize() int
-	// OID returns the OID of the KDF specified.
-	OID() asn1.ObjectIdentifier
-}
-
-// KDFParameters contains parameters (salt, etc.) for a key deriviation function.
-// It must be a ASN.1-decodable structure.
-// An implementation of this interface is created when decoding an encrypted PKCS#8 key.
-type KDFParameters interface {
-	// DeriveKey derives a key of size bytes from the given password.
-	// It uses the salt from the decoded parameters.
-	DeriveKey(password []byte, size int) (key []byte, err error)
-}
-
-var kdfs = make(map[string]func() KDFParameters)
-
-// RegisterKDF registers a function that returns a new instance of the given KDF
-// parameters. This allows the library to support client-provided KDFs.
-func RegisterKDF(oid asn1.ObjectIdentifier, params func() KDFParameters) {
-	kdfs[oid.String()] = params
-}
+var SM3 = pkcs.SM3
+var SHA1 = pkcs.SHA1
+var SHA224 = pkcs.SHA224
+var SHA256 = pkcs.SHA256
+var SHA384 = pkcs.SHA384
+var SHA512 = pkcs.SHA512
+var SHA512_224 = pkcs.SHA512_224
+var SHA512_256 = pkcs.SHA512_256
 
 // for encrypted private-key information
 type encryptedPrivateKeyInfo struct {
@@ -109,40 +35,10 @@ type encryptedPrivateKeyInfo struct {
 	EncryptedData       []byte
 }
 
-// Opts contains options for encrypting a PKCS#8 key.
-type Opts struct {
-	Cipher  pkcs.Cipher
-	KDFOpts KDFOpts
-}
-
-// Unecrypted PKCS8
-var (
-	oidPBES2 = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 5, 13}
-)
-
-type pbes2Params struct {
-	KeyDerivationFunc pkix.AlgorithmIdentifier
-	EncryptionScheme  pkix.AlgorithmIdentifier
-}
-
-func parseKeyDerivationFunc(keyDerivationFunc pkix.AlgorithmIdentifier) (KDFParameters, error) {
-	oid := keyDerivationFunc.Algorithm.String()
-	newParams, ok := kdfs[oid]
-	if !ok {
-		return nil, fmt.Errorf("pkcs8: unsupported KDF (OID: %s)", oid)
-	}
-	params := newParams()
-	_, err := asn1.Unmarshal(keyDerivationFunc.Parameters.FullBytes, params)
-	if err != nil {
-		return nil, errors.New("pkcs8: invalid KDF parameters")
-	}
-	return params, nil
-}
-
 // ParsePrivateKey parses a DER-encoded PKCS#8 private key.
 // Password can be nil.
 // This is equivalent to ParsePKCS8PrivateKey.
-func ParsePrivateKey(der []byte, password []byte) (any, KDFParameters, error) {
+func ParsePrivateKey(der []byte, password []byte) (any, pkcs.KDFParameters, error) {
 	// No password provided, assume the private key is unencrypted
 	if len(password) == 0 {
 		privateKey, err := smx509.ParsePKCS8PrivateKey(der)
@@ -158,33 +54,16 @@ func ParsePrivateKey(der []byte, password []byte) (any, KDFParameters, error) {
 		return nil, nil, errors.New("pkcs8: only PKCS #5 v2.0 supported")
 	}
 
-	if !privKey.EncryptionAlgorithm.Algorithm.Equal(oidPBES2) {
+	if !pkcs.IsPBES2(privKey.EncryptionAlgorithm) {
 		return nil, nil, errors.New("pkcs8: only PBES2 supported")
 	}
 
-	var params pbes2Params
+	var params pkcs.PBES2Params
 	if _, err := asn1.Unmarshal(privKey.EncryptionAlgorithm.Parameters.FullBytes, &params); err != nil {
 		return nil, nil, errors.New("pkcs8: invalid PBES2 parameters")
 	}
 
-	cipher, err := pkcs.GetCipher(params.EncryptionScheme)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	kdfParams, err := parseKeyDerivationFunc(params.KeyDerivationFunc)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	keySize := cipher.KeySize()
-	symkey, err := kdfParams.DeriveKey(password, keySize)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	encryptedKey := privKey.EncryptedData
-	decryptedKey, err := cipher.Decrypt(symkey, &params.EncryptionScheme.Parameters, encryptedKey)
+	decryptedKey, kdfParams, err := params.Decrypt(password, privKey.EncryptedData)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -204,7 +83,7 @@ func MarshalPrivateKey(priv any, password []byte, opts *Opts) ([]byte, error) {
 	}
 
 	if opts == nil {
-		opts = DefaultOpts
+		opts = pkcs.DefaultOpts
 	}
 
 	// Convert private key into PKCS8 format
@@ -213,47 +92,13 @@ func MarshalPrivateKey(priv any, password []byte, opts *Opts) ([]byte, error) {
 		return nil, err
 	}
 
-	encAlg := opts.Cipher
-	salt := make([]byte, opts.KDFOpts.GetSaltSize())
-	_, err = rand.Read(salt)
+	encryptionAlgorithm, encryptedKey, err := opts.Encrypt(rand.Reader, password, pkey)
 	if err != nil {
 		return nil, err
-	}
-
-	key, kdfParams, err := opts.KDFOpts.DeriveKey(password, salt, encAlg.KeySize())
-	if err != nil {
-		return nil, err
-	}
-
-	encryptionScheme, encryptedKey, err := encAlg.Encrypt(key, pkey)
-	if err != nil {
-		return nil, err
-	}
-
-	marshalledParams, err := asn1.Marshal(kdfParams)
-	if err != nil {
-		return nil, err
-	}
-	keyDerivationFunc := pkix.AlgorithmIdentifier{
-		Algorithm:  opts.KDFOpts.OID(),
-		Parameters: asn1.RawValue{FullBytes: marshalledParams},
-	}
-
-	encryptionAlgorithmParams := pbes2Params{
-		EncryptionScheme:  *encryptionScheme,
-		KeyDerivationFunc: keyDerivationFunc,
-	}
-	marshalledEncryptionAlgorithmParams, err := asn1.Marshal(encryptionAlgorithmParams)
-	if err != nil {
-		return nil, err
-	}
-	encryptionAlgorithm := pkix.AlgorithmIdentifier{
-		Algorithm:  oidPBES2,
-		Parameters: asn1.RawValue{FullBytes: marshalledEncryptionAlgorithmParams},
 	}
 
 	encryptedPkey := encryptedPrivateKeyInfo{
-		EncryptionAlgorithm: encryptionAlgorithm,
+		EncryptionAlgorithm: *encryptionAlgorithm,
 		EncryptedData:       encryptedKey,
 	}
 

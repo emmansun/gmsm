@@ -121,7 +121,7 @@ func NewEnvelopedData(cipher pkcs.Cipher, content []byte) (*EnvelopedData, error
 		return nil, err
 	}
 
-	id, ciphertext, err := cipher.Encrypt(key, content)
+	id, ciphertext, err := cipher.Encrypt(rand.Reader, key, content)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +148,7 @@ func NewSM2EnvelopedData(cipher pkcs.Cipher, content []byte) (*EnvelopedData, er
 		return nil, err
 	}
 
-	id, ciphertext, err := cipher.Encrypt(key, content)
+	id, ciphertext, err := cipher.Encrypt(rand.Reader, key, content)
 	if err != nil {
 		return nil, err
 	}

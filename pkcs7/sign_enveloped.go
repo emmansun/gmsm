@@ -147,7 +147,7 @@ func NewSignedAndEnvelopedData(data []byte, cipher pkcs.Cipher) (*SignedAndEnvel
 		return nil, err
 	}
 
-	id, ciphertext, err := cipher.Encrypt(key, data)
+	id, ciphertext, err := cipher.Encrypt(rand.Reader, key, data)
 	if err != nil {
 		return nil, err
 	}

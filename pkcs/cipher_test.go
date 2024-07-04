@@ -2,6 +2,7 @@ package pkcs
 
 import (
 	"bytes"
+	"crypto/rand"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"testing"
@@ -36,7 +37,7 @@ func TestGetCipher(t *testing.T) {
 func TestInvalidKeyLen(t *testing.T) {
 	plaintext := []byte("Hello World")
 	invalidKey := []byte("123456")
-	_, _, err := SM4ECB.Encrypt(invalidKey, plaintext)
+	_, _, err := SM4ECB.Encrypt(rand.Reader, invalidKey, plaintext)
 	if err == nil {
 		t.Errorf("should be error")
 	}
@@ -44,7 +45,7 @@ func TestInvalidKeyLen(t *testing.T) {
 	if err == nil {
 		t.Errorf("should be error")
 	}
-	_, _, err = SM4CBC.Encrypt(invalidKey, plaintext)
+	_, _, err = SM4CBC.Encrypt(rand.Reader, invalidKey, plaintext)
 	if err == nil {
 		t.Errorf("should be error")
 	}
@@ -52,7 +53,7 @@ func TestInvalidKeyLen(t *testing.T) {
 	if err == nil {
 		t.Errorf("should be error")
 	}
-	_, _, err = SM4GCM.Encrypt(invalidKey, plaintext)
+	_, _, err = SM4GCM.Encrypt(rand.Reader, invalidKey, plaintext)
 	if err == nil {
 		t.Errorf("should be error")
 	}
