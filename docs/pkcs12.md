@@ -53,6 +53,8 @@ PBES1属于老旧遗留算法，目前版本未实现。
 * [Support FIPS-compliant PKCS#12 files and create them by default in FIPS mode](https://github.com/openssl/openssl/issues/24546)
 * [RFC 9579 implementation: add PBMAC1 with PBKDF2 to PKCS#12](https://github.com/openssl/openssl/pull/24577)
 
+从**v0.4.1**开始支持**PBMAC1**。
+
 ## PKCS#12的生成
 目前只支持下列几种，不支持自由定义：
 
@@ -162,16 +164,23 @@ var Modern2023 = &Encoder{
 
 // ShangMi2024 encodes PKCS#12 files using algorithms that are all ShangMi.
 // Private keys and certificates are encrypted using PBES2 with	 PBKDF2-HMAC-SM3 and SM4-CBC.
-// The MAC algorithm is HMAC-SM3. 
+// The MAC algorithm is PBMAC1-HMAC-SM3.
 var ShangMi2024 = &Encoder{
-	macAlgorithm:         oidSM3,
+	macAlgorithm:         oidPBMAC1,
 	certAlgorithm:        oidPBES2,
 	keyAlgorithm:         oidPBES2,
 	kdfPrf:               oidHmacWithSM3,
 	encryptionScheme:     oidSM4CBC,
+	messageAuthScheme:    oidHmacWithSM3,
 	macIterations:        2048,
 	encryptionIterations: 2048,
 	saltLen:              16,
 	rand:                 rand.Reader,
 }
 ```
+
+## 解析加密的PKCS#8私钥
+[go-pkcs12](https://github.com/emmansun/go-pkcs12) 也提供了```ParsePKCS8PrivateKey```方法，相比**pkcs8**的类似方法，这里特别支持**PBES-PKCS12**加密算法。
+* PBE-SHA1-RC2-128
+* PBE-SHA1-RC2-40
+* PBE-SHA1-3DES
