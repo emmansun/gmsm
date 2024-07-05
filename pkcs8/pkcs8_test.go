@@ -181,6 +181,38 @@ zOuhMC9Oo3oMYlbEXAT9mq33MkGKMUth2ek/bQIvnCHG
 -----END ENCRYPTED PRIVATE KEY-----
 `
 
+const encryptedPBEWithMD5AndDES = `-----BEGIN ENCRYPTED PRIVATE KEY-----
+MIGwMBsGCSqGSIb3DQEFAzAOBAhsKeK+cnfdjAICCAAEgZAE5GZMjPQCLLifGK0r
+ytlpt23Qas1KI6x7qmIP6oeYflCWT0Iv7AqK2cT8YK7s5Yy3j21YiHEG5FCr8Qb+
+GMlgQsRGkeU5y0I9zLZrhH9qOVJEuDLckCjMKbFXUEwx5YeBhQKTosB/quA5v9Lp
+6SSLtKShYgx/MDJDarcAuj0whmNyTXijDGAMImltuqwsIUg=
+-----END ENCRYPTED PRIVATE KEY-----
+`
+
+const encyptedPBEWithSha1AndDES = `-----BEGIN ENCRYPTED PRIVATE KEY-----
+MIGwMBsGCSqGSIb3DQEFCjAOBAiFq+R6absk/wICCAAEgZB7T7BEaGkyMqw8xN9e
+ldSPFAAXzcsPx83w1jvD8TvM7uwqUu9k0+2FnSMcuhOHjX03AFZ2JJXZZBWxZJ24
+GEWLwQYJIJ16el9n2DVPkp1qqbsXPMCyHR9hW4Qxt/9aXZmTLdqpAhQ9BfTSmpQp
+Yt+/s6eXMOHP2C0sp5aOxnIjkorzfgasO/Y8JtMukVlKzqU=
+-----END ENCRYPTED PRIVATE KEY-----
+`
+
+const encryptedPBEWithSha1AndRC2_64 = `-----BEGIN ENCRYPTED PRIVATE KEY-----
+MIGwMBsGCSqGSIb3DQEFCzAOBAhNHGnZio3lKwICCAAEgZCGUGQ3b6zS/iBlJ6BY
+mpmuPBmGnuwtOtTFshWaZL8kPUROkZVBrKt6a/oM0vsTbyEDeii9ktt2cnd3plwh
+fqnOmJmOBwHVeltjRLYYFzs2JgX4bXSc9eg+/AugvsDPj+dgk0yMsRLjKoZw/w/U
+qZTZq/iFYg4Q80Ew7gJUBaMdA6Af8K/YDc3If7y78L0AD74=
+-----END ENCRYPTED PRIVATE KEY-----
+`
+
+const encryptedPBEWithMD5AndRC2_40 = `-----BEGIN ENCRYPTED PRIVATE KEY-----
+MIGwMBsGCSqGSIb3DQEFBjAOBAiZRjrXPXpYwgICCAAEgZBilgJ9rYtNt7Ih59zF
+jnErhxny2wRPoK1Ng/bLNijlBnppryizyAHuujNmpDRf77pYFmszaaprWZDs2bQw
+tlhqw20XVOBG2PhHXsL9LXfbm7lJOVpMtBYtbduascC1aA5Dref9L3nBNlP5zdMp
+TFgdUgkic4/tuw6b5E3Ysn3ugAlPTAMm7b8Nd0Hs0P/81nA=
+-----END ENCRYPTED PRIVATE KEY-----
+`
+
 func TestParsePKCS8PrivateKeyRSA(t *testing.T) {
 	keyList := []struct {
 		name      string
@@ -711,8 +743,8 @@ func TestParseInvalidPrivateKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = pkcs8.ParsePKCS8PrivateKeyECDSA(data, []byte("password"))
-	if err == nil || err.Error() != "pkcs8: only PBES2 supported" {
-		t.Errorf("should be error: pkcs8: only PBES2 supported")
+	if err == nil || err.Error() != "pkcs8: only part of PBES1/PBES2 supported" {
+		t.Errorf("should be error: only part of PBES1/PBES2 supported")
 	}
 
 	privKey.EncryptionAlgorithm.Algorithm = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 5, 13}
@@ -723,5 +755,36 @@ func TestParseInvalidPrivateKey(t *testing.T) {
 	_, err = pkcs8.ParsePKCS8PrivateKeyECDSA(data, []byte("password"))
 	if err == nil || err.Error() != "pkcs8: invalid PBES2 parameters" {
 		t.Errorf("should be error: pkcs8: invalid PBES2 parameters")
+	}
+}
+
+func TestParseLegacyPBES1PrivateKey(t *testing.T) {
+	block, _ := pem.Decode([]byte(encryptedPBEWithMD5AndDES))
+	_, err := pkcs8.ParsePKCS8PrivateKey(block.Bytes, []byte("12345678"))
+	if err != nil {
+		t.Errorf("ParsePKCS8PrivateKey returned: %s", err)
+	}
+
+	block, _ = pem.Decode([]byte(encyptedPBEWithSha1AndDES))
+	_, err = pkcs8.ParsePKCS8PrivateKey(block.Bytes, []byte("12345678"))
+	if err != nil {
+		t.Errorf("ParsePKCS8PrivateKey returned: %s", err)
+	}
+	
+	block, _ = pem.Decode([]byte(encryptedPBEWithSha1AndRC2_64))
+	_, err = pkcs8.ParsePKCS8PrivateKey(block.Bytes, []byte("12345678"))
+	if err != nil {
+		t.Errorf("ParsePKCS8PrivateKey returned: %s", err)
+	}
+
+	block, _ = pem.Decode([]byte(encryptedPBEWithMD5AndRC2_40))
+	_, err = pkcs8.ParsePKCS8PrivateKey(block.Bytes, []byte("12345678"))
+	if err != nil {
+		t.Errorf("ParsePKCS8PrivateKey returned: %s", err)
+	}
+
+	_, err = pkcs8.ParsePKCS8PrivateKey(block.Bytes, []byte("wrong pwd"))
+	if err == nil {
+		t.Errorf("should have failed")
 	}
 }

@@ -20,6 +20,7 @@ type Opts = pkcs.PBES2Opts
 type PBKDF2Opts = pkcs.PBKDF2Opts
 type ScryptOpts = pkcs.ScryptOpts
 
+var DefaultOpts = pkcs.DefaultOpts
 var SM3 = pkcs.SM3
 var SHA1 = pkcs.SHA1
 var SHA224 = pkcs.SHA224
@@ -54,20 +55,25 @@ func ParsePrivateKey(der []byte, password []byte) (any, pkcs.KDFParameters, erro
 		return nil, nil, errors.New("pkcs8: only PKCS #5 v2.0 supported")
 	}
 
-	if !pkcs.IsPBES2(privKey.EncryptionAlgorithm) {
-		return nil, nil, errors.New("pkcs8: only PBES2 supported")
+	var kdfParams pkcs.KDFParameters
+	var decryptedKey []byte
+	var err error
+	switch {
+	case pkcs.IsPBES2(privKey.EncryptionAlgorithm):
+		var params pkcs.PBES2Params
+		if _, err := asn1.Unmarshal(privKey.EncryptionAlgorithm.Parameters.FullBytes, &params); err != nil {
+			return nil, nil, errors.New("pkcs8: invalid PBES2 parameters")
+		}
+		decryptedKey, kdfParams, err = params.Decrypt(password, privKey.EncryptedData)
+	case pkcs.IsPBES1(privKey.EncryptionAlgorithm):
+		pbes1 := &pkcs.PBES1{Algorithm: privKey.EncryptionAlgorithm}
+		decryptedKey, kdfParams, err = pbes1.Decrypt(password, privKey.EncryptedData)
+	default:
+		return nil, nil, errors.New("pkcs8: only part of PBES1/PBES2 supported")
 	}
-
-	var params pkcs.PBES2Params
-	if _, err := asn1.Unmarshal(privKey.EncryptionAlgorithm.Parameters.FullBytes, &params); err != nil {
-		return nil, nil, errors.New("pkcs8: invalid PBES2 parameters")
-	}
-
-	decryptedKey, kdfParams, err := params.Decrypt(password, privKey.EncryptedData)
 	if err != nil {
 		return nil, nil, err
 	}
-
 	key, err := smx509.ParsePKCS8PrivateKey(decryptedKey)
 	if err != nil {
 		return nil, nil, errors.New("pkcs8: incorrect password? failed to parse private key while ParsePKCS8PrivateKey: " + err.Error())
@@ -77,13 +83,13 @@ func ParsePrivateKey(der []byte, password []byte) (any, pkcs.KDFParameters, erro
 
 // MarshalPrivateKey encodes a private key into DER-encoded PKCS#8 with the given options.
 // Password can be nil.
-func MarshalPrivateKey(priv any, password []byte, opts *Opts) ([]byte, error) {
+func MarshalPrivateKey(priv any, password []byte, encrypter pkcs.PBESEncrypter) ([]byte, error) {
 	if len(password) == 0 {
 		return smx509.MarshalPKCS8PrivateKey(priv)
 	}
 
-	if opts == nil {
-		opts = pkcs.DefaultOpts
+	if encrypter == nil {
+		encrypter = DefaultOpts
 	}
 
 	// Convert private key into PKCS8 format
@@ -92,7 +98,7 @@ func MarshalPrivateKey(priv any, password []byte, opts *Opts) ([]byte, error) {
 		return nil, err
 	}
 
-	encryptionAlgorithm, encryptedKey, err := opts.Encrypt(rand.Reader, password, pkey)
+	encryptionAlgorithm, encryptedKey, err := encrypter.Encrypt(rand.Reader, password, pkey)
 	if err != nil {
 		return nil, err
 	}

@@ -94,6 +94,10 @@ type KDFOpts interface {
 	OID() asn1.ObjectIdentifier
 }
 
+type PBESEncrypter interface {
+	Encrypt(rand io.Reader, password, plaintext []byte) (*pkix.AlgorithmIdentifier, []byte, error)
+}
+
 // KDFParameters contains parameters (salt, etc.) for a key deriviation function.
 // It must be a ASN.1-decodable structure.
 // An implementation of this interface is created when decoding an encrypted PKCS#8 key.
