@@ -737,7 +737,7 @@ func TestParseInvalidPrivateKey(t *testing.T) {
 	}
 
 	var privKey encryptedPrivateKeyInfo
-	privKey.EncryptionAlgorithm.Algorithm = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 5, 1}
+	privKey.EncryptionAlgorithm.Algorithm = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 5, 2}
 	data, err := asn1.Marshal(privKey)
 	if err != nil {
 		t.Fatal(err)
