@@ -84,7 +84,7 @@ func (pbes1 *PBES1) Decrypt(password, ciphertext []byte) ([]byte, KDFParameters,
 	}
 	plaintext, err := cbcDecrypt(block, key[8:16], ciphertext)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, ErrPBEDecryption
 	}
 	return plaintext, nil, nil
 }

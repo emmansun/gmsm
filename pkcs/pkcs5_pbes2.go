@@ -59,6 +59,10 @@ func (h Hash) New() hash.Hash {
 	panic("pkcs5: requested hash function #" + strconv.Itoa(int(h)) + " is unavailable")
 }
 
+var (
+	ErrPBEDecryption = errors.New("pkcs: decryption error, please verify the password and try again")
+)
+
 // PBKDF2Opts contains algorithm identifiers and related parameters for PBKDF2 key derivation function.
 type PBES2Params struct {
 	KeyDerivationFunc pkix.AlgorithmIdentifier
@@ -149,7 +153,7 @@ func (pbes2Params *PBES2Params) Decrypt(password, ciphertext []byte) ([]byte, KD
 
 	plaintext, err := cipher.Decrypt(symkey, &pbes2Params.EncryptionScheme.Parameters, ciphertext)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, ErrPBEDecryption
 	}
 	return plaintext, kdfParams, nil
 }

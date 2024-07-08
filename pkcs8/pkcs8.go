@@ -36,6 +36,11 @@ type encryptedPrivateKeyInfo struct {
 	EncryptedData       []byte
 }
 
+var (
+	ErrUnsupportedPBES = errors.New("pkcs8: only part of PBES1/PBES2 supported")
+	ErrUnexpectedKeyType = errors.New("pkcs8: unexpected key type")
+)
+
 // ParsePrivateKey parses a DER-encoded PKCS#8 private key.
 // Password can be nil.
 // This is equivalent to ParsePKCS8PrivateKey.
@@ -69,14 +74,14 @@ func ParsePrivateKey(der []byte, password []byte) (any, pkcs.KDFParameters, erro
 		pbes1 := &pkcs.PBES1{Algorithm: privKey.EncryptionAlgorithm}
 		decryptedKey, kdfParams, err = pbes1.Decrypt(password, privKey.EncryptedData)
 	default:
-		return nil, nil, errors.New("pkcs8: only part of PBES1/PBES2 supported")
+		return nil, nil, ErrUnsupportedPBES
 	}
 	if err != nil {
 		return nil, nil, err
 	}
 	key, err := smx509.ParsePKCS8PrivateKey(decryptedKey)
 	if err != nil {
-		return nil, nil, errors.New("pkcs8: incorrect password? failed to parse private key while ParsePKCS8PrivateKey: " + err.Error())
+		return nil, nil, err
 	}
 	return key, kdfParams, nil
 }
@@ -131,7 +136,7 @@ func ParsePKCS8PrivateKeyRSA(der []byte, v ...[]byte) (*rsa.PrivateKey, error) {
 	}
 	typedKey, ok := key.(*rsa.PrivateKey)
 	if !ok {
-		return nil, errors.New("pkcs8: key block is not of type RSA")
+		return nil, ErrUnexpectedKeyType
 	}
 	return typedKey, nil
 }
@@ -145,7 +150,7 @@ func ParsePKCS8PrivateKeyECDSA(der []byte, v ...[]byte) (*ecdsa.PrivateKey, erro
 	}
 	typedKey, ok := key.(*ecdsa.PrivateKey)
 	if !ok {
-		return nil, errors.New("pkcs8: key block is not of type ECDSA")
+		return nil, ErrUnexpectedKeyType
 	}
 	return typedKey, nil
 }
@@ -159,7 +164,7 @@ func ParsePKCS8PrivateKeySM2(der []byte, v ...[]byte) (*sm2.PrivateKey, error) {
 	}
 	typedKey, ok := key.(*sm2.PrivateKey)
 	if !ok {
-		return nil, errors.New("pkcs8: key block is not of type SM2")
+		return nil, ErrUnexpectedKeyType
 	}
 	return typedKey, nil
 }
@@ -173,7 +178,7 @@ func ParseSM9SignMasterPrivateKey(der []byte, v ...[]byte) (*sm9.SignMasterPriva
 	}
 	typedKey, ok := key.(*sm9.SignMasterPrivateKey)
 	if !ok {
-		return nil, errors.New("pkcs8: key block is not of type SM9 sign master private key")
+		return nil, ErrUnexpectedKeyType
 	}
 	return typedKey, nil
 }
@@ -187,7 +192,7 @@ func ParseSM9SignPrivateKey(der []byte, v ...[]byte) (*sm9.SignPrivateKey, error
 	}
 	typedKey, ok := key.(*sm9.SignPrivateKey)
 	if !ok {
-		return nil, errors.New("pkcs8: key block is not of type SM9 sign user private key")
+		return nil, ErrUnexpectedKeyType
 	}
 	return typedKey, nil
 }
@@ -201,7 +206,7 @@ func ParseSM9EncryptMasterPrivateKey(der []byte, v ...[]byte) (*sm9.EncryptMaste
 	}
 	typedKey, ok := key.(*sm9.EncryptMasterPrivateKey)
 	if !ok {
-		return nil, errors.New("pkcs8: key block is not of type SM9 encrypt master private key")
+		return nil, ErrUnexpectedKeyType
 	}
 	return typedKey, nil
 }
@@ -215,7 +220,7 @@ func ParseSM9EncryptPrivateKey(der []byte, v ...[]byte) (*sm9.EncryptPrivateKey,
 	}
 	typedKey, ok := key.(*sm9.EncryptPrivateKey)
 	if !ok {
-		return nil, errors.New("pkcs8: key block is not of type SM9 encrypt user private key")
+		return nil, ErrUnexpectedKeyType
 	}
 	return typedKey, nil
 }

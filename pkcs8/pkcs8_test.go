@@ -784,7 +784,7 @@ func TestParseLegacyPBES1PrivateKey(t *testing.T) {
 	}
 
 	_, err = pkcs8.ParsePKCS8PrivateKey(block.Bytes, []byte("wrong pwd"))
-	if err == nil {
+	if err != pkcs.ErrPBEDecryption {
 		t.Errorf("should have failed")
 	}
 }
