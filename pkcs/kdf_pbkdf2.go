@@ -19,6 +19,7 @@ import (
 
 var (
 	oidPKCS5PBKDF2        = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 5, 12}
+	oidSMPBKDF            = asn1.ObjectIdentifier{1, 2, 156, 10197, 6, 4, 1, 5, 1}
 	oidHMACWithSHA1       = asn1.ObjectIdentifier{1, 2, 840, 113549, 2, 7}
 	oidHMACWithSHA224     = asn1.ObjectIdentifier{1, 2, 840, 113549, 2, 8}
 	oidHMACWithSHA256     = asn1.ObjectIdentifier{1, 2, 840, 113549, 2, 9}
@@ -33,11 +34,21 @@ func init() {
 	RegisterKDF(oidPKCS5PBKDF2, func() KDFParameters {
 		return new(pbkdf2Params)
 	})
+	RegisterKDF(oidSMPBKDF, func() KDFParameters {
+		return new(pbkdf2Params)
+	})
 }
 
-func newHashFromPRF(ai pkix.AlgorithmIdentifier) (func() hash.Hash, error) {
+func newHashFromPRF(oidKDF asn1.ObjectIdentifier, ai pkix.AlgorithmIdentifier) (func() hash.Hash, error) {
 	switch {
-	case len(ai.Algorithm) == 0 || ai.Algorithm.Equal(oidHMACWithSHA1):
+	case len(ai.Algorithm) == 0: // handle default case
+		switch {
+		case oidKDF.Equal(oidSMPBKDF):
+			return sm3.New, nil
+		default:
+			return sha1.New, nil
+		}
+	case ai.Algorithm.Equal(oidHMACWithSHA1):
 		return sha1.New, nil
 	case ai.Algorithm.Equal(oidHMACWithSHA224):
 		return sha256.New224, nil
@@ -54,7 +65,7 @@ func newHashFromPRF(ai pkix.AlgorithmIdentifier) (func() hash.Hash, error) {
 	case ai.Algorithm.Equal(oidHMACWithSM3):
 		return sm3.New, nil
 	default:
-		return nil, errors.New("pkcs8: unsupported hash function")
+		return nil, errors.New("pbes/pbkdf2: unsupported hash function")
 	}
 }
 
@@ -94,9 +105,18 @@ func newPRFParamFromHash(h Hash) (pkix.AlgorithmIdentifier, error) {
 			Parameters: asn1.RawValue{Tag: asn1.TagNull}}, nil
 
 	}
-	return pkix.AlgorithmIdentifier{}, errors.New("pkcs8: unsupported hash function")
+	return pkix.AlgorithmIdentifier{}, errors.New("pbes/pbkdf2: unsupported hash function")
 }
 
+// PBKDF2-params ::= SEQUENCE {
+//	salt CHOICE {
+//	  specified OCTET STRING,
+//	  otherSource AlgorithmIdentifier {{PBKDF2-SaltSources}}
+//	},
+//	iterationCount INTEGER (1..MAX),
+//	keyLength INTEGER (1..MAX) OPTIONAL,
+//	prf AlgorithmIdentifier {{PBKDF2-PRFs}} DEFAULT	algid-hmacWithSHA1
+//}
 type pbkdf2Params struct {
 	Salt           []byte
 	IterationCount int
@@ -104,8 +124,8 @@ type pbkdf2Params struct {
 	PRF            pkix.AlgorithmIdentifier `asn1:"optional"`
 }
 
-func (p pbkdf2Params) DeriveKey(password []byte, size int) (key []byte, err error) {
-	h, err := newHashFromPRF(p.PRF)
+func (p pbkdf2Params) DeriveKey(oidKDF asn1.ObjectIdentifier, password []byte, size int) (key []byte, err error) {
+	h, err := newHashFromPRF(oidKDF, p.PRF)
 	if err != nil {
 		return nil, err
 	}
@@ -117,6 +137,27 @@ type PBKDF2Opts struct {
 	SaltSize       int
 	IterationCount int
 	HMACHash       Hash
+	pbkdfOID       asn1.ObjectIdentifier
+}
+
+// NewPBKDF2Opts returns a new PBKDF2Opts with the specified parameters.
+func NewPBKDF2Opts(hash Hash, saltSize, iterationCount int) PBKDF2Opts {
+	return PBKDF2Opts{
+		SaltSize:       saltSize,
+		IterationCount: iterationCount,
+		HMACHash:       hash,
+		pbkdfOID:       oidPKCS5PBKDF2,
+	}
+}
+
+// NewSMPBKDF2Opts returns a new PBKDF2Opts (ShangMi PBKDF) with the specified parameters.
+func NewSMPBKDF2Opts(saltSize, iterationCount int) PBKDF2Opts {
+	return PBKDF2Opts{
+		SaltSize:       saltSize,
+		IterationCount: iterationCount,
+		HMACHash:       SM3,
+		pbkdfOID:       oidSMPBKDF,
+	}
 }
 
 func (p PBKDF2Opts) DeriveKey(password, salt []byte, size int) (
@@ -136,5 +177,9 @@ func (p PBKDF2Opts) GetSaltSize() int {
 }
 
 func (p PBKDF2Opts) OID() asn1.ObjectIdentifier {
-	return oidPKCS5PBKDF2
+	// If the OID is not set, use the default OID for PBKDF2
+	if p.pbkdfOID == nil {
+		return oidPKCS5PBKDF2
+	}
+	return p.pbkdfOID
 }

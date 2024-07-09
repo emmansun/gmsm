@@ -48,7 +48,7 @@ func GetCipher(alg pkix.AlgorithmIdentifier) (Cipher, error) {
 	}
 	newCipher, ok := ciphers[oid]
 	if !ok {
-		return nil, fmt.Errorf("pkcs: unsupported cipher (OID: %s)", oid)
+		return nil, fmt.Errorf("pbes: unsupported cipher (OID: %s)", oid)
 	}
 	return newCipher(), nil
 }
@@ -147,7 +147,7 @@ func (c *cbcBlockCipher) Decrypt(key []byte, parameters *asn1.RawValue, cipherte
 
 	var iv []byte
 	if _, err := asn1.Unmarshal(parameters.FullBytes, &iv); err != nil {
-		return nil, errors.New("pkcs: invalid cipher parameters")
+		return nil, errors.New("pbes: invalid cipher parameters")
 	}
 
 	return cbcDecrypt(block, iv, ciphertext)
@@ -233,7 +233,7 @@ func (c *gcmBlockCipher) Decrypt(key []byte, parameters *asn1.RawValue, cipherte
 		return nil, err
 	}
 	if params.ICVLen != aead.Overhead() {
-		return nil, errors.New("pkcs: we do not support non-standard tag size")
+		return nil, errors.New("pbes: we do not support non-standard tag size")
 	}
 
 	return aead.Open(nil, params.Nonce, ciphertext, nil)

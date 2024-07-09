@@ -64,7 +64,7 @@ func ParsePrivateKey(der []byte, password []byte) (any, pkcs.KDFParameters, erro
 	var decryptedKey []byte
 	var err error
 	switch {
-	case pkcs.IsPBES2(privKey.EncryptionAlgorithm):
+	case pkcs.IsPBES2(privKey.EncryptionAlgorithm) || pkcs.IsSMPBES(privKey.EncryptionAlgorithm):
 		var params pkcs.PBES2Params
 		if _, err := asn1.Unmarshal(privKey.EncryptionAlgorithm.Parameters.FullBytes, &params); err != nil {
 			return nil, nil, errors.New("pkcs8: invalid PBES2 parameters")

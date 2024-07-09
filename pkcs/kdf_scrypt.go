@@ -27,7 +27,7 @@ type scryptParams struct {
 	ParallelizationParameter int
 }
 
-func (p scryptParams) DeriveKey(password []byte, size int) (key []byte, err error) {
+func (p scryptParams) DeriveKey(oidKDF asn1.ObjectIdentifier, password []byte, size int) (key []byte, err error) {
 	return scrypt.Key(password, p.Salt, p.CostParameter, p.BlockSize,
 		p.ParallelizationParameter, size)
 }
@@ -38,6 +38,16 @@ type ScryptOpts struct {
 	CostParameter            int
 	BlockSize                int
 	ParallelizationParameter int
+}
+
+// NewScryptOpts returns a new ScryptOpts with the specified parameters.
+func NewScryptOpts(saltSize, costParameter, blockSize, parallelizationParameter int) ScryptOpts {
+	return ScryptOpts{
+		SaltSize:                 saltSize,
+		CostParameter:            costParameter,
+		BlockSize:                blockSize,
+		ParallelizationParameter: parallelizationParameter,
+	}
 }
 
 func (p ScryptOpts) DeriveKey(password, salt []byte, size int) (

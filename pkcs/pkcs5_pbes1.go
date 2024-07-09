@@ -48,7 +48,7 @@ func (pbes1 *PBES1) Key(password []byte) ([]byte, error) {
 	case pbes1.Algorithm.Algorithm.Equal(pbeWithSHA1AndDESCBC) || pbes1.Algorithm.Algorithm.Equal(pbeWithSHA1AndRC2CBC):
 		hash = sha1.New()
 	default:
-		return nil, errors.New("pkcs5: unsupported pbes1 cipher")
+		return nil, errors.New("pbes: unsupported pbes1 cipher")
 	}
 	hash.Write(password)
 	hash.Write(param.Salt)
@@ -77,7 +77,7 @@ func (pbes1 *PBES1) Decrypt(password, ciphertext []byte) ([]byte, KDFParameters,
 		pbes1.Algorithm.Algorithm.Equal(pbeWithSHA1AndRC2CBC):
 		block, err = rc2.NewCipher(key[:8])
 	default:
-		return nil, nil, errors.New("pkcs5: unsupported pbes1 cipher")
+		return nil, nil, errors.New("pbes: unsupported pbes1 cipher")
 	}
 	if err != nil {
 		return nil, nil, err

@@ -16,7 +16,8 @@ import (
 )
 
 var (
-	oidPBES2 = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 5, 13}
+	oidPBES2  = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 5, 13}
+	oidSMPBES = asn1.ObjectIdentifier{1, 2, 156, 10197, 6, 4, 1, 5, 2}
 )
 
 // Hash identifies a cryptographic hash function that is implemented in another
@@ -56,14 +57,18 @@ func (h Hash) New() hash.Hash {
 		return sha512.New512_256()
 
 	}
-	panic("pkcs5: requested hash function #" + strconv.Itoa(int(h)) + " is unavailable")
+	panic("pbes: requested hash function #" + strconv.Itoa(int(h)) + " is unavailable")
 }
 
 var (
-	ErrPBEDecryption = errors.New("pkcs: decryption error, please verify the password and try again")
+	ErrPBEDecryption = errors.New("pbes: decryption error, please verify the password and try again")
 )
 
 // PBKDF2Opts contains algorithm identifiers and related parameters for PBKDF2 key derivation function.
+// PBES2-params ::= SEQUENCE {
+//	keyDerivationFunc AlgorithmIdentifier {{PBES2-KDFs}},
+//	encryptionScheme AlgorithmIdentifier {{PBES2-Encs}}
+// }
 type PBES2Params struct {
 	KeyDerivationFunc pkix.AlgorithmIdentifier
 	EncryptionScheme  pkix.AlgorithmIdentifier
@@ -73,6 +78,7 @@ type PBES2Params struct {
 type PBES2Opts struct {
 	Cipher
 	KDFOpts
+	pbesOID asn1.ObjectIdentifier
 }
 
 // DefaultOpts are the default options for encrypting a key if none are given.
@@ -83,7 +89,32 @@ var DefaultOpts = &PBES2Opts{
 		SaltSize:       16,
 		IterationCount: 2048,
 		HMACHash:       SHA256,
+		pbkdfOID:       oidPKCS5PBKDF2,
 	},
+	pbesOID: oidPBES2,
+}
+
+// NewPBES2Encrypter returns a new PBES2Encrypter with the given cipher and KDF options.
+func NewPBESEncrypter(cipher Cipher, kdfOpts KDFOpts) PBESEncrypter {
+	return &PBES2Opts{
+		Cipher:  cipher,
+		KDFOpts: kdfOpts,
+		pbesOID: oidPBES2,
+	}
+}
+
+// NewSMPBESEncrypterWithKDF returns a new SMPBESEncrypter (ShangMi PBES Encrypter) with the given KDF options.
+func NewSMPBESEncrypterWithKDF(kdfOpts KDFOpts) PBESEncrypter {
+	return &PBES2Opts{
+		Cipher:  SM4CBC,
+		KDFOpts: kdfOpts,
+		pbesOID: oidSMPBES,
+	}
+}
+
+// NewSMPBESEncrypter returns a new SMPBESEncrypter (ShangMi PBES Encrypter) with the given salt size and iteration count.
+func NewSMPBESEncrypter(saltSize, iterationCount int) PBESEncrypter {
+	return NewSMPBESEncrypterWithKDF(NewSMPBKDF2Opts(saltSize, iterationCount))
 }
 
 // KDFOpts contains options for a key derivation function.
@@ -108,7 +139,7 @@ type PBESEncrypter interface {
 type KDFParameters interface {
 	// DeriveKey derives a key of size bytes from the given password.
 	// It uses the salt from the decoded parameters.
-	DeriveKey(password []byte, size int) (key []byte, err error)
+	DeriveKey(oidKDF asn1.ObjectIdentifier, password []byte, size int) (key []byte, err error)
 }
 
 var kdfs = make(map[string]func() KDFParameters)
@@ -123,12 +154,12 @@ func (pbes2Params *PBES2Params) parseKeyDerivationFunc() (KDFParameters, error) 
 	oid := pbes2Params.KeyDerivationFunc.Algorithm.String()
 	newParams, ok := kdfs[oid]
 	if !ok {
-		return nil, fmt.Errorf("pkcs5: unsupported KDF (OID: %s)", oid)
+		return nil, fmt.Errorf("pbes: unsupported KDF (OID: %s)", oid)
 	}
 	params := newParams()
 	_, err := asn1.Unmarshal(pbes2Params.KeyDerivationFunc.Parameters.FullBytes, params)
 	if err != nil {
-		return nil, errors.New("pkcs5: invalid KDF parameters")
+		return nil, errors.New("pbes: invalid KDF parameters")
 	}
 	return params, nil
 }
@@ -146,7 +177,7 @@ func (pbes2Params *PBES2Params) Decrypt(password, ciphertext []byte) ([]byte, KD
 	}
 
 	keySize := cipher.KeySize()
-	symkey, err := kdfParams.DeriveKey(password, keySize)
+	symkey, err := kdfParams.DeriveKey(pbes2Params.KeyDerivationFunc.Algorithm, password, keySize)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -197,12 +228,22 @@ func (opts *PBES2Opts) Encrypt(rand io.Reader, password, plaintext []byte) (*pki
 		return nil, nil, err
 	}
 	encryptionAlgorithm := pkix.AlgorithmIdentifier{
-		Algorithm:  oidPBES2,
+		Algorithm:  opts.pbesOID,
 		Parameters: asn1.RawValue{FullBytes: marshalledEncryptionAlgorithmParams},
 	}
+
+	// fallback to default
+	if len(encryptionAlgorithm.Algorithm) == 0 {
+		encryptionAlgorithm.Algorithm = oidPBES2
+	}
+
 	return &encryptionAlgorithm, ciphertext, nil
 }
 
 func IsPBES2(algorithm pkix.AlgorithmIdentifier) bool {
 	return oidPBES2.Equal(algorithm.Algorithm)
+}
+
+func IsSMPBES(algorithm pkix.AlgorithmIdentifier) bool {
+	return oidSMPBES.Equal(algorithm.Algorithm)
 }

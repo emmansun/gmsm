@@ -770,7 +770,7 @@ func TestParseLegacyPBES1PrivateKey(t *testing.T) {
 	if err != nil {
 		t.Errorf("ParsePKCS8PrivateKey returned: %s", err)
 	}
-	
+
 	block, _ = pem.Decode([]byte(encryptedPBEWithSha1AndRC2_64))
 	_, err = pkcs8.ParsePKCS8PrivateKey(block.Bytes, []byte("12345678"))
 	if err != nil {
@@ -786,5 +786,22 @@ func TestParseLegacyPBES1PrivateKey(t *testing.T) {
 	_, err = pkcs8.ParsePKCS8PrivateKey(block.Bytes, []byte("wrong pwd"))
 	if err != pkcs.ErrPBEDecryption {
 		t.Errorf("should have failed")
+	}
+}
+
+func TestShangMiPBES(t *testing.T) {
+	block, _ := pem.Decode([]byte(encryptedPBEWithMD5AndDES))
+	priv, err := pkcs8.ParsePKCS8PrivateKey(block.Bytes, []byte("12345678"))
+	if err != nil {
+		t.Errorf("ParsePKCS8PrivateKey returned: %s", err)
+	}
+
+	der, err := pkcs8.MarshalPrivateKey(priv, []byte("12345678"), pkcs.NewSMPBESEncrypter(16, 2048))
+	if err != nil {
+		t.Fatalf("MarshalPrivateKey returned: %s", err)
+	}
+	_, _, err = pkcs8.ParsePrivateKey(der, []byte("12345678"))
+	if err != nil {
+		t.Fatalf("ParsePrivateKey returned: %s", err)
 	}
 }
