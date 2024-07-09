@@ -29,7 +29,7 @@ func TestGetCipher(t *testing.T) {
 	}
 
 	_, err = GetCipher(pkix.AlgorithmIdentifier{Algorithm: asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 401, 2}})
-	if err == nil || err.Error() != "pkcs: unsupported cipher (OID: 1.2.156.10197.1.401.2)" {
+	if err == nil || err.Error() != "pbes: unsupported cipher (OID: 1.2.156.10197.1.401.2)" {
 		t.Fatal(err)
 	}
 }
