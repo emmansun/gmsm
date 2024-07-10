@@ -65,10 +65,11 @@ var (
 )
 
 // PBKDF2Opts contains algorithm identifiers and related parameters for PBKDF2 key derivation function.
-// PBES2-params ::= SEQUENCE {
-//	keyDerivationFunc AlgorithmIdentifier {{PBES2-KDFs}},
-//	encryptionScheme AlgorithmIdentifier {{PBES2-Encs}}
-// }
+//
+//	PBES2-params ::= SEQUENCE {
+//		keyDerivationFunc AlgorithmIdentifier {{PBES2-KDFs}},
+//		encryptionScheme AlgorithmIdentifier {{PBES2-Encs}}
+//	}
 type PBES2Params struct {
 	KeyDerivationFunc pkix.AlgorithmIdentifier
 	EncryptionScheme  pkix.AlgorithmIdentifier
@@ -140,6 +141,8 @@ type KDFParameters interface {
 	// DeriveKey derives a key of size bytes from the given password.
 	// It uses the salt from the decoded parameters.
 	DeriveKey(oidKDF asn1.ObjectIdentifier, password []byte, size int) (key []byte, err error)
+	// KeyLength returns the length of the derived key from the params.
+	KeyLength() int
 }
 
 var kdfs = make(map[string]func() KDFParameters)
@@ -189,39 +192,43 @@ func (pbes2Params *PBES2Params) Decrypt(password, ciphertext []byte) ([]byte, KD
 	return plaintext, kdfParams, nil
 }
 
-// Encrypt encrypts the given plaintext using the given password and the options specified.
-func (opts *PBES2Opts) Encrypt(rand io.Reader, password, plaintext []byte) (*pkix.AlgorithmIdentifier, []byte, error) {
+func deriveKey(kdfOpts KDFOpts, rand io.Reader, password []byte, size int) ([]byte, *pkix.AlgorithmIdentifier, error) {
 	// Generate a random salt
-	salt := make([]byte, opts.KDFOpts.GetSaltSize())
+	salt := make([]byte, kdfOpts.GetSaltSize())
 	if _, err := rand.Read(salt); err != nil {
 		return nil, nil, err
 	}
-
-	// Derive the key
-	encAlg := opts.Cipher
-	key, kdfParams, err := opts.KDFOpts.DeriveKey(password, salt, encAlg.KeySize())
+	key, kdfParams, err := kdfOpts.DeriveKey(password, salt, size)
 	if err != nil {
 		return nil, nil, err
 	}
+	marshalledParams, err := asn1.Marshal(kdfParams)
+	if err != nil {
+		return nil, nil, err
+	}
+	keyDerivationFunc := pkix.AlgorithmIdentifier{
+		Algorithm:  kdfOpts.OID(),
+		Parameters: asn1.RawValue{FullBytes: marshalledParams},
+	}
+	return key, &keyDerivationFunc, nil
+}
 
+// Encrypt encrypts the given plaintext using the given password and the options specified.
+func (opts *PBES2Opts) Encrypt(rand io.Reader, password, plaintext []byte) (*pkix.AlgorithmIdentifier, []byte, error) {
+	encAlg := opts.Cipher
+	key, keyDerivationFunc, err := deriveKey(opts.KDFOpts, rand, password, encAlg.KeySize())
+	if err != nil {
+		return nil, nil, err
+	}
 	// Encrypt the plaintext
 	encryptionScheme, ciphertext, err := encAlg.Encrypt(rand, key, plaintext)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	marshalledParams, err := asn1.Marshal(kdfParams)
-	if err != nil {
-		return nil, nil, err
-	}
-	keyDerivationFunc := pkix.AlgorithmIdentifier{
-		Algorithm:  opts.KDFOpts.OID(),
-		Parameters: asn1.RawValue{FullBytes: marshalledParams},
-	}
-
 	encryptionAlgorithmParams := PBES2Params{
 		EncryptionScheme:  *encryptionScheme,
-		KeyDerivationFunc: keyDerivationFunc,
+		KeyDerivationFunc: *keyDerivationFunc,
 	}
 	marshalledEncryptionAlgorithmParams, err := asn1.Marshal(encryptionAlgorithmParams)
 	if err != nil {

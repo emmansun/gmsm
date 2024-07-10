@@ -108,15 +108,15 @@ func newPRFParamFromHash(h Hash) (pkix.AlgorithmIdentifier, error) {
 	return pkix.AlgorithmIdentifier{}, errors.New("pbes/pbkdf2: unsupported hash function")
 }
 
-// PBKDF2-params ::= SEQUENCE {
-//	salt CHOICE {
-//	  specified OCTET STRING,
-//	  otherSource AlgorithmIdentifier {{PBKDF2-SaltSources}}
-//	},
-//	iterationCount INTEGER (1..MAX),
-//	keyLength INTEGER (1..MAX) OPTIONAL,
-//	prf AlgorithmIdentifier {{PBKDF2-PRFs}} DEFAULT	algid-hmacWithSHA1
-//}
+//	PBKDF2-params ::= SEQUENCE {
+//		salt CHOICE {
+//		  specified OCTET STRING,
+//		  otherSource AlgorithmIdentifier {{PBKDF2-SaltSources}}
+//		},
+//		iterationCount INTEGER (1..MAX),
+//		keyLength INTEGER (1..MAX) OPTIONAL,
+//		prf AlgorithmIdentifier {{PBKDF2-PRFs}} DEFAULT	algid-hmacWithSHA1
+//	}
 type pbkdf2Params struct {
 	Salt           []byte
 	IterationCount int
@@ -130,6 +130,11 @@ func (p pbkdf2Params) DeriveKey(oidKDF asn1.ObjectIdentifier, password []byte, s
 		return nil, err
 	}
 	return pbkdf2.Key(password, p.Salt, p.IterationCount, size, h), nil
+}
+
+// KeyLength returns the length of the derived key.
+func (p pbkdf2Params) KeyLength() int {
+	return p.KeyLen
 }
 
 // PBKDF2Opts contains options for the PBKDF2 key derivation function.

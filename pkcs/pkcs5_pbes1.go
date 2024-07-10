@@ -9,6 +9,7 @@ import (
 	"encoding/asn1"
 	"errors"
 	"hash"
+	"io"
 
 	"github.com/emmansun/gmsm/pkcs/internal/md2"
 	"github.com/emmansun/gmsm/pkcs/internal/rc2"
@@ -33,8 +34,51 @@ type PBES1 struct {
 	Algorithm pkix.AlgorithmIdentifier
 }
 
+// newPBES1 creates a new PBES1 instance.
+func newPBES1(rand io.Reader, oid asn1.ObjectIdentifier, saltLen, iterations int) (*PBES1, error) {
+	salt := make([]byte, saltLen)
+	if _, err := rand.Read(salt); err != nil {
+		return nil, err
+	}
+	param := pbeParameter{Salt: salt, Iteration: iterations}
+	marshalledParams, err := asn1.Marshal(param)
+	if err != nil {
+		return nil, err
+	}
+	return &PBES1{
+		Algorithm: pkix.AlgorithmIdentifier{
+			Algorithm:  oid,
+			Parameters: asn1.RawValue{FullBytes: marshalledParams},
+		},
+	}, nil
+}
+
+func NewPbeWithMD2AndDESCBC(rand io.Reader, saltLen, iterations int) (*PBES1, error) {
+	return newPBES1(rand, pbeWithMD2AndDESCBC, saltLen, iterations)
+}
+
+func NewPbeWithMD2AndRC2CBC(rand io.Reader, saltLen, iterations int) (*PBES1, error) {
+	return newPBES1(rand, pbeWithMD2AndRC2CBC, saltLen, iterations)
+}
+
+func NewPbeWithMD5AndDESCBC(rand io.Reader, saltLen, iterations int) (*PBES1, error) {
+	return newPBES1(rand, pbeWithMD5AndDESCBC, saltLen, iterations)
+}
+
+func NewPbeWithMD5AndRC2CBC(rand io.Reader, saltLen, iterations int) (*PBES1, error) {
+	return newPBES1(rand, pbeWithMD5AndRC2CBC, saltLen, iterations)
+}
+
+func NewPbeWithSHA1AndDESCBC(rand io.Reader, saltLen, iterations int) (*PBES1, error) {
+	return newPBES1(rand, pbeWithSHA1AndDESCBC, saltLen, iterations)
+}
+
+func NewPbeWithSHA1AndRC2CBC(rand io.Reader, saltLen, iterations int) (*PBES1, error) {
+	return newPBES1(rand, pbeWithSHA1AndRC2CBC, saltLen, iterations)
+}
+
 // Key returns the key derived from the password according PBKDF1.
-func (pbes1 *PBES1) Key(password []byte) ([]byte, error) {
+func (pbes1 *PBES1) key(password []byte) ([]byte, error) {
 	param := new(pbeParameter)
 	if _, err := asn1.Unmarshal(pbes1.Algorithm.Parameters.FullBytes, param); err != nil {
 		return nil, err
@@ -61,24 +105,45 @@ func (pbes1 *PBES1) Key(password []byte) ([]byte, error) {
 	return key, nil
 }
 
-func (pbes1 *PBES1) Decrypt(password, ciphertext []byte) ([]byte, KDFParameters, error) {
-	key, err := pbes1.Key(password)
-	if err != nil {
-		return nil, nil, err
-	}
+func (pbes1 *PBES1) newBlock(key []byte) (cipher.Block, error) {
 	var block cipher.Block
 	switch {
 	case pbes1.Algorithm.Algorithm.Equal(pbeWithMD2AndDESCBC) ||
 		pbes1.Algorithm.Algorithm.Equal(pbeWithMD5AndDESCBC) ||
 		pbes1.Algorithm.Algorithm.Equal(pbeWithSHA1AndDESCBC):
-		block, err = des.NewCipher(key[:8])
+		block, _ = des.NewCipher(key[:8])
 	case pbes1.Algorithm.Algorithm.Equal(pbeWithMD2AndRC2CBC) ||
 		pbes1.Algorithm.Algorithm.Equal(pbeWithMD5AndRC2CBC) ||
 		pbes1.Algorithm.Algorithm.Equal(pbeWithSHA1AndRC2CBC):
-		block, err = rc2.NewCipher(key[:8])
+		block, _ = rc2.NewCipher(key[:8])
 	default:
-		return nil, nil, errors.New("pbes: unsupported pbes1 cipher")
+		return nil, errors.New("pbes: unsupported pbes1 cipher")
 	}
+	return block, nil
+}
+
+func (pbes1 *PBES1) Encrypt(rand io.Reader, password, plaintext []byte) (*pkix.AlgorithmIdentifier, []byte, error) {
+	key, err := pbes1.key(password)
+	if err != nil {
+		return nil, nil, err
+	}
+	block, err := pbes1.newBlock(key)
+	if err != nil {
+		return nil, nil, err
+	}
+	ciphertext, err := cbcEncrypt(block, key[8:16], plaintext)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &pbes1.Algorithm, ciphertext, nil
+}
+
+func (pbes1 *PBES1) Decrypt(password, ciphertext []byte) ([]byte, KDFParameters, error) {
+	key, err := pbes1.key(password)
+	if err != nil {
+		return nil, nil, err
+	}
+	block, err := pbes1.newBlock(key)
 	if err != nil {
 		return nil, nil, err
 	}

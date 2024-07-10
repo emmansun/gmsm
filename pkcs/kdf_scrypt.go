@@ -25,11 +25,16 @@ type scryptParams struct {
 	CostParameter            int
 	BlockSize                int
 	ParallelizationParameter int
+	KeyLen                   int `asn1:"optional"`
 }
 
 func (p scryptParams) DeriveKey(oidKDF asn1.ObjectIdentifier, password []byte, size int) (key []byte, err error) {
 	return scrypt.Key(password, p.Salt, p.CostParameter, p.BlockSize,
 		p.ParallelizationParameter, size)
+}
+
+func (p scryptParams) KeyLength() int {
+	return p.KeyLen
 }
 
 // ScryptOpts contains options for the scrypt key derivation function.
@@ -63,6 +68,7 @@ func (p ScryptOpts) DeriveKey(password, salt []byte, size int) (
 		CostParameter:            p.CostParameter,
 		ParallelizationParameter: p.ParallelizationParameter,
 		Salt:                     salt,
+		KeyLen:                   size,
 	}
 	return key, params, nil
 }
