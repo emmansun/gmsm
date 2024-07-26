@@ -1,5 +1,5 @@
 # PKCS7应用指南
-本项目实现 PKCS#7/加密消息语法的子集（rfc2315、rfc5652），以及相应国密支持《GB/T 35275-2017 信息安全技术 SM2密码算法加密签名消息语法规范》。这是 [mozilla-services/pkcs7](https://github.com/mozilla-services/pkcs7) 的一个分支，目前[mozilla-services/pkcs7](https://github.com/mozilla-services/pkcs7)已经是弃用状态，代码仓库也已经进入存档、只读状态。
+本项目实现 PKCS#7/加密消息语法的子集（[RFC2315](https://www.rfc-editor.org/rfc/rfc2315.html)、[RFC5652](https://www.rfc-editor.org/rfc/rfc5652.html)），以及相应国密支持《GB/T 35275-2017 信息安全技术 SM2密码算法加密签名消息语法规范》。这是 [mozilla-services/pkcs7](https://github.com/mozilla-services/pkcs7) 的一个分支，目前[mozilla-services/pkcs7](https://github.com/mozilla-services/pkcs7)已经是弃用状态，代码仓库也已经进入存档、只读状态。
 
 ## 支持的功能
 ### 数字信封数据（Enveloped Data）
@@ -52,6 +52,34 @@
 接着调用```AddSigner```或```AddSignerChain```方法，进行签名；可以通过```SignerInfoConfig.SkipCertificates```指定忽略证书项（最终签名数据中不包含证书项）；  
 如果进行Detach签名，则调用```Detach```方法；  
 最后调用```Finish```方法，序列化输出结果。  
+
+#### Detach签名
+就是外部签名，**被签名数据**不包含在SignedData中（也就是其ContentInfo.Content为空）。
+
+In PKCS#7 SignedData, attached and detached formats are supported… In detached format, data that is signed is not embedded inside the SignedData package instead it is placed at some external location…
+
+可以参考[RFC2315](https://www.rfc-editor.org/rfc/rfc2315.html)的第7章 注3：  
+The optional omission of the content field makes it possible to construct "external signatures," for example, without modification to or replication of the content to which the signatures apply. In the case of external signatures, the content being signed would be omitted from the "inner" encapsulated ContentInfo value included in the signed-data content type.
+
+这种外部签名要验签的话，需要先提供**被签名数据**。以下代码片段来自**sign_test.go**中的**testSign**方法：  
+```golang
+p7, err := Parse(signed)
+if err != nil {
+	t.Fatalf("test %s/%s/%s: cannot parse signed data: %s", sigalgroot, sigalginter, sigalgsigner, err)
+}
+if testDetach {
+  // Detached signature should not contain the content
+  // So we should not be able to find the content in the parsed data
+  // We should suppliment the content to the parsed data before verifying
+	p7.Content = content
+}
+if !bytes.Equal(content, p7.Content) {
+    t.Errorf("test %s/%s/%s: content was not found in the parsed data:\n\tExpected: %s\n\tActual: %s", sigalgroot, sigalginter, sigalgsigner, content, p7.Content)
+}
+if err := p7.VerifyWithChain(truststore); err != nil {
+	t.Errorf("test %s/%s/%s: cannot verify signed data: %s", sigalgroot, sigalginter, sigalgsigner, err)
+}
+```                    
 
 #### 验证签名
 而验证的话，流程如下：
