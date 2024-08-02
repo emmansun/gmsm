@@ -2,6 +2,7 @@ package sm3
 
 import (
 	"bytes"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding"
 	"encoding/base64"
@@ -13,6 +14,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/emmansun/gmsm/internal/cryptotest"
 	"golang.org/x/sys/cpu"
 )
 
@@ -342,7 +344,7 @@ var sm3TestVector = []struct {
 	},
 }
 
-func TestSM3(t *testing.T) {
+func TestSM3Hash(t *testing.T) {
 	for i, tt := range sm3TestVector {
 		input, _ := hex.DecodeString(tt.in)
 		res := Sum(input)
@@ -350,6 +352,9 @@ func TestSM3(t *testing.T) {
 			t.Errorf("case %v failed, in: %v ", i, tt.in)
 		}
 	}
+	t.Run("SM3", func(t *testing.T) {
+		cryptotest.TestHash(t, New)
+	})
 }
 
 func TestSize(t *testing.T) {
@@ -365,6 +370,32 @@ func TestBlockSize(t *testing.T) {
 		t.Errorf("BlockSize = %d want %d", got, BlockSize)
 	}
 	fmt.Printf("ARM64 has sm3 %v, has sm4 %v, has aes %v\n", cpu.ARM64.HasSM3, cpu.ARM64.HasSM4, cpu.ARM64.HasAES)
+}
+
+// Tests that blockGeneric (pure Go) and block (in assembly for some architectures) match.
+func TestBlockGeneric(t *testing.T) {
+	gen, asm := New().(*digest), New().(*digest)
+	buf := make([]byte, BlockSize*20) // arbitrary factor
+	rand.Read(buf)
+	blockGeneric(gen, buf)
+	block(asm, buf)
+	if *gen != *asm {
+		t.Error("block and blockGeneric resulted in different states")
+	}
+}
+
+func TestAllocations(t *testing.T) {
+	in := []byte("hello, world!")
+	out := make([]byte, 0, Size)
+	h := New()
+	n := int(testing.AllocsPerRun(10, func() {
+		h.Reset()
+		h.Write(in)
+		out = h.Sum(out[:0])
+	}))
+	if n > 0 {
+		t.Errorf("allocs = %d, want 0", n)
+	}
 }
 
 var bench = New()
@@ -436,7 +467,7 @@ func TestKdf(t *testing.T) {
 		wantBytes, _ := hex.DecodeString(tt.want)
 		t.Run(tt.name, func(t *testing.T) {
 			if got := Kdf(tt.args.z, tt.args.len); !reflect.DeepEqual(got, wantBytes) {
-				t.Errorf("Kdf(%v,kLen=%v,zLen=%v) = %x, want %v", tt.name, tt.args.len, len(tt.args.z,), got, tt.want)
+				t.Errorf("Kdf(%v,kLen=%v,zLen=%v) = %x, want %v", tt.name, tt.args.len, len(tt.args.z), got, tt.want)
 			}
 		})
 	}
@@ -471,7 +502,7 @@ func BenchmarkKdfWithSM3(b *testing.B) {
 		{64, 256},
 		{64, 512},
 		{64, 1024},
-		{64, 1024*8},
+		{64, 1024 * 8},
 	}
 	z := make([]byte, 512)
 	for _, tt := range tests {

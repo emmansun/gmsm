@@ -10,13 +10,13 @@ import (
 )
 
 // Size the size of a SM3 checksum in bytes.
-const Size int = 32
+const Size = 32
 
 // SizeBitSize the bit size of Size.
 const SizeBitSize = 5
 
 // BlockSize the blocksize of SM3 in bytes.
-const BlockSize int = 64
+const BlockSize = 64
 
 const (
 	chunk = 64
@@ -39,13 +39,16 @@ type digest struct {
 }
 
 const (
-	magic256      = "sm3\x03"
-	marshaledSize = len(magic256) + 8*4 + chunk + 8
+	magic      = "sm3\x03"
+	marshaledSize = len(magic) + 8*4 + chunk + 8
 )
 
 func (d *digest) MarshalBinary() ([]byte, error) {
-	b := make([]byte, 0, marshaledSize)
-	b = append(b, magic256...)
+	return d.AppendBinary(make([]byte, 0, marshaledSize))
+}
+
+func (d *digest) AppendBinary(b []byte) ([]byte, error) {
+	b = append(b, magic...)
 	b = appendUint32(b, d.h[0])
 	b = appendUint32(b, d.h[1])
 	b = appendUint32(b, d.h[2])
@@ -55,19 +58,19 @@ func (d *digest) MarshalBinary() ([]byte, error) {
 	b = appendUint32(b, d.h[6])
 	b = appendUint32(b, d.h[7])
 	b = append(b, d.x[:d.nx]...)
-	b = b[:len(b)+len(d.x)-int(d.nx)] // already zero
+	b = append(b, make([]byte, len(d.x)-d.nx)...)
 	b = appendUint64(b, d.len)
 	return b, nil
 }
 
 func (d *digest) UnmarshalBinary(b []byte) error {
-	if len(b) < len(magic256) || (string(b[:len(magic256)]) != magic256) {
+	if len(b) < len(magic) || (string(b[:len(magic)]) != magic) {
 		return errors.New("sm3: invalid hash state identifier")
 	}
 	if len(b) != marshaledSize {
 		return errors.New("sm3: invalid hash state size")
 	}
-	b = b[len(magic256):]
+	b = b[len(magic):]
 	b, d.h[0] = consumeUint32(b)
 	b, d.h[1] = consumeUint32(b)
 	b, d.h[2] = consumeUint32(b)

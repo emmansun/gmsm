@@ -5,9 +5,12 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"io"
+	mrand "math/rand"
 	"testing"
+	"time"
 
 	"github.com/emmansun/gmsm/cipher"
+	"github.com/emmansun/gmsm/internal/cryptotest"
 	"github.com/emmansun/gmsm/sm4"
 )
 
@@ -71,4 +74,27 @@ func TestSM4BCRandom(t *testing.T) {
 			t.Errorf("test %v blocks failed", i)
 		}
 	}
+}
+
+// Test BC Blockmode against the general cipher.BlockMode interface tester
+func TestBCBlockMode(t *testing.T) {
+	t.Run("SM4", func(t *testing.T) {
+		rng := newRandReader(t)
+
+		key := make([]byte, 16)
+		rng.Read(key)
+
+		block, err := sm4.NewCipher(key)
+		if err != nil {
+			panic(err)
+		}
+
+		cryptotest.TestBlockMode(t, block, cipher.NewBCEncrypter, cipher.NewBCDecrypter)
+	})
+}
+
+func newRandReader(t *testing.T) io.Reader {
+	seed := time.Now().UnixNano()
+	t.Logf("Deterministic RNG seed: 0x%x", seed)
+	return mrand.New(mrand.NewSource(seed))
 }

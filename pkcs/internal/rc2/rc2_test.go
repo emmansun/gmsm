@@ -8,6 +8,8 @@ import (
 	"bytes"
 	"encoding/hex"
 	"testing"
+
+	"github.com/emmansun/gmsm/internal/cryptotest"
 )
 
 func TestEncryptDecrypt(t *testing.T) {
@@ -93,4 +95,10 @@ func TestEncryptDecrypt(t *testing.T) {
 			t.Errorf("decrypt failed: got % 2x wanted % 2x\n", dst, p)
 		}
 	}
+}
+
+func TestRC2Block(t *testing.T) {
+	t.Run("RC2", func(t *testing.T) {
+		cryptotest.TestBlock(t, 8, NewCipher)
+	})
 }

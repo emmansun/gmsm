@@ -3,6 +3,8 @@ package sm4
 import (
 	"reflect"
 	"testing"
+
+	"github.com/emmansun/gmsm/internal/cryptotest"
 )
 
 type CryptTest struct {
@@ -85,6 +87,13 @@ func shouldPanic(t *testing.T, f func()) {
 	defer func() { _ = recover() }()
 	f()
 	t.Errorf("should have panicked")
+}
+
+// Test SM4 against the general cipher.Block interface tester
+func TestSM4Block(t *testing.T) {
+	t.Run("SM4", func(t *testing.T) {
+		cryptotest.TestBlock(t, 16, NewCipher)
+	})
 }
 
 func BenchmarkEncrypt(b *testing.B) {

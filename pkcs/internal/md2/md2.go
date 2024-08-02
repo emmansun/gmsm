@@ -4,16 +4,20 @@
 // applications.
 package md2
 
-import "hash"
+import (
+	"encoding/binary"
+	"errors"
+	"hash"
+)
 
 // Size the size of a MD2 checksum in bytes.
-const Size int = 16
+const Size = 16
 
 // SizeBitSize the bit size of Size.
 const SizeBitSize = 4
 
 // BlockSize the blocksize of MD2 in bytes.
-const BlockSize int = 16
+const BlockSize = 16
 
 var piSubst = [256]byte{
 	0x29, 0x2E, 0x43, 0xC9, 0xA2, 0xD8, 0x7C, 0x01, 0x3D, 0x36, 0x54, 0xA1, 0xEC, 0xF0, 0x06, 0x13,
@@ -52,6 +56,54 @@ func (d *digest) Reset() {
 	}
 	d.nx = 0
 	d.len = 0
+}
+
+const (
+	magic         = "md2\x01"
+	marshaledSize = len(magic) + Size + BlockSize*2 + 8
+)
+
+func (d *digest) MarshalBinary() ([]byte, error) {
+	return d.AppendBinary(make([]byte, 0, marshaledSize))
+}
+
+func (d *digest) AppendBinary(b []byte) ([]byte, error) {
+	b = append(b, magic...)
+	b = append(b, d.s[:]...)
+	b = append(b, d.c[:]...)
+	b = append(b, d.x[:d.nx]...)
+	b = append(b, make([]byte, len(d.x)-d.nx)...)
+	b = appendUint64(b, d.len)
+	return b, nil
+}
+
+func (d *digest) UnmarshalBinary(b []byte) error {
+	if len(b) < len(magic) || (string(b[:len(magic)]) != magic) {
+		return errors.New("md2: invalid hash state identifier")
+	}
+	if len(b) != marshaledSize {
+		return errors.New("md2: invalid hash state size")
+	}
+	b = b[len(magic):]
+	b = b[copy(d.s[:], b[:Size]):]
+	b = b[copy(d.c[:], b[:BlockSize]):]
+	b = b[copy(d.x[:], b):]
+	b, d.len = consumeUint64(b)
+	d.nx = int(d.len % BlockSize)
+	return nil
+}
+
+func appendUint64(b []byte, x uint64) []byte {
+	var a [8]byte
+	binary.BigEndian.PutUint64(a[:], x)
+	return append(b, a[:]...)
+}
+
+func consumeUint64(b []byte) ([]byte, uint64) {
+	_ = b[7]
+	x := uint64(b[7]) | uint64(b[6])<<8 | uint64(b[5])<<16 | uint64(b[4])<<24 |
+		uint64(b[3])<<32 | uint64(b[2])<<40 | uint64(b[1])<<48 | uint64(b[0])<<56
+	return b[8:], x
 }
 
 // New returns a new hash.Hash computing the MD2 checksum.
