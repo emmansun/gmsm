@@ -3,7 +3,10 @@ package zuc
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"hash"
 	"testing"
+
+	"github.com/emmansun/gmsm/internal/cryptotest"
 )
 
 var key [16]byte
@@ -203,4 +206,13 @@ func TestEIA_Sum(t *testing.T) {
 	if hex.EncodeToString(mac) != expected {
 		t.Errorf("expected=%s, result=%s\n", expected, hex.EncodeToString(mac))
 	}
+}
+
+func TestEIAHash(t *testing.T) {
+	t.Run("EIA-128", func(t *testing.T) {
+		cryptotest.TestHash(t, func() hash.Hash {
+			h, _ := NewEIAHash(zucEIATests[0].key, zucEIATests[0].count, zucEIATests[0].bearer, zucEIATests[0].direction)
+			return h
+		})
+	})
 }

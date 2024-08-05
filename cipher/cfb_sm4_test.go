@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/emmansun/gmsm/internal/cryptotest"
 	"github.com/emmansun/gmsm/sm4"
 )
 
@@ -104,4 +105,25 @@ func TestCFBInverse(t *testing.T) {
 	if !bytes.Equal(plaintextCopy, plaintext) {
 		t.Errorf("got: %x, want: %x", plaintextCopy, plaintext)
 	}
+}
+
+func TestCFBStream(t *testing.T) {
+	t.Run("SM4", func(t *testing.T) {
+		rng := newRandReader(t)
+
+		key := make([]byte, 16)
+		rng.Read(key)
+
+		block, err := sm4.NewCipher(key)
+		if err != nil {
+			panic(err)
+		}
+
+		t.Run("Encrypter", func(t *testing.T) {
+			cryptotest.TestStreamFromBlock(t, block, cipher.NewCFBEncrypter)
+		})
+		t.Run("Decrypter", func(t *testing.T) {
+			cryptotest.TestStreamFromBlock(t, block, cipher.NewCFBDecrypter)
+		})
+	})
 }

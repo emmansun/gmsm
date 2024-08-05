@@ -1,8 +1,11 @@
 package zuc
 
 import (
+	"crypto/cipher"
 	"encoding/hex"
 	"testing"
+
+	"github.com/emmansun/gmsm/internal/cryptotest"
 )
 
 var zucEEATests = []struct {
@@ -60,6 +63,14 @@ func Test_EEA(t *testing.T) {
 			t.Errorf("case %d, expected=%s, result=%s\n", i+1, test.out, hex.EncodeToString(out))
 		}
 	}
+}
+
+func TestEEAStream(t *testing.T) {
+	cryptotest.TestStream(t, func() cipher.Stream {
+		key, _ := hex.DecodeString(zucEEATests[0].key)
+		c, _ := NewEEACipher(key, zucEEATests[0].count, zucEEATests[0].bearer, zucEEATests[0].direction)
+		return c
+	})
 }
 
 func benchmarkStream(b *testing.B, buf []byte) {

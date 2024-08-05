@@ -2,7 +2,10 @@ package zuc
 
 import (
 	"encoding/hex"
+	"hash"
 	"testing"
+
+	"github.com/emmansun/gmsm/internal/cryptotest"
 )
 
 var zucEIA256Tests = []struct {
@@ -258,6 +261,27 @@ func TestEIA256_Finish(t *testing.T) {
 			t.Errorf("expected=%s, result=%s\n", exp.expected, hex.EncodeToString(mac))
 		}
 	}
+}
+
+func TestEIA256Hash(t *testing.T) {
+	t.Run("EIA-256-32", func(t *testing.T) {
+		cryptotest.TestHash(t, func() hash.Hash {
+			h, _ := NewHash256(zucEIA256Tests[0].key, zucEIA256Tests[0].iv, 4)
+			return h
+		})
+	})
+	t.Run("EIA-256-64", func(t *testing.T) {
+		cryptotest.TestHash(t, func() hash.Hash {
+			h, _ := NewHash256(zucEIA256Tests[0].key, zucEIA256Tests[0].iv, 8)
+			return h
+		})
+	})
+	t.Run("EIA-256-128", func(t *testing.T) {
+		cryptotest.TestHash(t, func() hash.Hash {
+			h, _ := NewHash256(zucEIA256Tests[0].key, zucEIA256Tests[0].iv, 16)
+			return h
+		})
+	})
 }
 
 func benchmark256Size(b *testing.B, size, tagSize int) {

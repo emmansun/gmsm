@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"testing"
 
+	"github.com/emmansun/gmsm/internal/cryptotest"
 	"github.com/emmansun/gmsm/sm4"
 )
 
@@ -70,4 +71,20 @@ func TestOFB(t *testing.T) {
 			break
 		}
 	}
+}
+
+func TestOFBStream(t *testing.T) {
+	t.Run("SM4", func(t *testing.T) {
+		rng := newRandReader(t)
+
+		key := make([]byte, 16)
+		rng.Read(key)
+
+		block, err := sm4.NewCipher(key)
+		if err != nil {
+			panic(err)
+		}
+
+		cryptotest.TestStreamFromBlock(t, block, cipher.NewOFB)
+	})
 }
