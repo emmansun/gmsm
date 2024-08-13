@@ -470,8 +470,7 @@ func TestSignVerify(t *testing.T) {
 	}
 }
 
-func TestRecoverPublicKeysFromSM2Signature(t *testing.T) {
-	priv, _ := GenerateKey(rand.Reader)
+func testRecoverPublicKeysFromSM2Signature(t *testing.T, priv *PrivateKey) {
 	tests := []struct {
 		name      string
 		plainText string
@@ -508,6 +507,38 @@ func TestRecoverPublicKeysFromSM2Signature(t *testing.T) {
 				t.Errorf("recover failed, not found public key for sig=%x, priv=%x", sig, priv.D.Bytes())
 			}
 		})
+	}
+}
+
+func TestRecoverPublicKeysFromSM2Signature(t *testing.T) {
+	priv, _ := GenerateKey(rand.Reader)
+	testRecoverPublicKeysFromSM2Signature(t, priv)
+	keyInt := bigFromHex("d6833540d019e0438a5dd73b414f26ab43d8064b99671206944e284dbd969093")
+	priv, _ = NewPrivateKeyFromInt(keyInt)
+	testRecoverPublicKeysFromSM2Signature(t, priv)
+
+	// failed case
+	hashValue, _ := CalculateSM2Hash(&priv.PublicKey, []byte("encryption standard encryption "), nil)
+	signature, _ := hex.DecodeString("3045022000cd0b56bf6be810032d28ff27d6f3468f1f1a09bcf8581f30a5de6692c85ea602210096ba29c086134af1be139dd572f2f2908f30e01fd0c28e06a687cbb0ff6e33ce")
+	// verify signature with public key
+	if !VerifyASN1(&priv.PublicKey, hashValue, signature) {
+		t.Errorf("failed to verify hash for sig=%x, priv=%x", signature, priv.D.Bytes())
+	}
+	pubs, err := RecoverPublicKeysFromSM2Signature(hashValue, signature)
+	if err != nil {
+		t.Fatalf("recover failed %v", err)
+	}
+	found := false
+	for _, pub := range pubs {
+		if !VerifyASN1(pub, hashValue, signature) {
+			t.Errorf("failed to verify hash for sig=%x, priv=%x", signature, priv.D.Bytes())
+		}
+		if pub.Equal(&priv.PublicKey) {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("recover failed, not found public key for sig=%x, priv=%x", signature, priv.D.Bytes())
 	}
 }
 
