@@ -762,7 +762,7 @@ func RecoverPublicKeysFromSM2Signature(hash, sig []byte) ([]*ecdsa.PublicKey, er
 		pointRx = append(pointRx, s)
 	}
 	pubs := make([]*ecdsa.PublicKey, 0, 4)
-	bytes := make([]byte, len(32)+1)
+	bytes := make([]byte, 32+1)
 	compressFlags := []byte{compressed02, compressed03}
 	// Rx has one or two possible values, so point R has two or four possible values
 	for _, x := range pointRx {
