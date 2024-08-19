@@ -27,77 +27,136 @@ var RR = &p256OrdElement{0x901192af7c114f20, 0x3464504ade6fa2fa, 0x620fc84c3affe
 // 1111111111111111111111111111111111111111111111111111111111111111
 // 0111001000000011110111110110101100100001110001100000010100101011
 // 0101001110111011111101000000100100111001110101010100000100100001
-//
 func P256OrdInverse(k []byte) ([]byte, error) {
 	if len(k) != 32 {
 		return nil, errors.New("invalid scalar length")
 	}
 	x := new(p256OrdElement)
 	p256OrdBigToLittle(x, (*[32]byte)(k))
-
-	// Inversion is implemented as exponentiation by n - 2, per Fermat's little theorem.
+	// Inversion is implemented as exponentiation with exponent p − 2.
+	// The sequence of 41 multiplications and 253 squarings is derived from the
+	// following addition chain generated with github.com/mmcloughlin/addchain v0.4.0.
 	//
-	// The sequence of 43 multiplications and 254 squarings is derived from
-	// https://briansmith.org/ecc-inversion-addition-chains-01#p256_scalar_inversion
-	_1 := new(p256OrdElement)
-	_11 := new(p256OrdElement)
-	_101 := new(p256OrdElement)
-	_111 := new(p256OrdElement)
-	_1111 := new(p256OrdElement)
-	_10101 := new(p256OrdElement)
-	_101111 := new(p256OrdElement)
-	t := new(p256OrdElement)
-	m := new(p256OrdElement)
+	//	_10      = 2*1
+	//	_11      = 1 + _10
+	//	_100     = 1 + _11
+	//	_101     = 1 + _100
+	//	_111     = _10 + _101
+	//	_1001    = _10 + _111
+	//	_1101    = _100 + _1001
+	//	_1111    = _10 + _1101
+	//	_11110   = 2*_1111
+	//	_11111   = 1 + _11110
+	//	_111110  = 2*_11111
+	//	_111111  = 1 + _111110
+	//	_1111110 = 2*_111111
+	//	i20      = _1111110 << 6 + _1111110
+	//	x18      = i20 << 5 + _111111
+	//	x31      = x18 << 13 + i20 + 1
+	//	i42      = 2*x31
+	//	i44      = i42 << 2
+	//	i140     = ((i44 << 32 + i44) << 29 + i42) << 33
+	//	i150     = ((i44 + i140 + _111) << 4 + _111) << 3
+	//	i170     = ((1 + i150) << 11 + _1111) << 6 + _11111
+	//	i183     = ((i170 << 5 + _1101) << 3 + _11) << 3
+	//	i198     = ((1 + i183) << 7 + _111) << 5 + _11
+	//	i219     = ((i198 << 9 + _101) << 5 + _101) << 5
+	//	i231     = ((_1101 + i219) << 5 + _1001) << 4 + _1101
+	//	i244     = ((i231 << 2 + _11) << 7 + _111111) << 2
+	//	i262     = ((1 + i244) << 10 + _1001) << 5 + _111
+	//	i277     = ((i262 << 5 + _111) << 4 + _101) << 4
+	//	return     ((_101 + i277) << 9 + _1001) << 5 + _11
+	//
+	var z = new(p256OrdElement)
+	var t0 = new(p256OrdElement)
+	var t1 = new(p256OrdElement)
+	var t2 = new(p256OrdElement)
+	var t3 = new(p256OrdElement)
+	var t4 = new(p256OrdElement)
+	var t5 = new(p256OrdElement)
+	var t6 = new(p256OrdElement)
+	var t7 = new(p256OrdElement)
+	var t8 = new(p256OrdElement)
+	var t9 = new(p256OrdElement)
 
-	p256OrdMul(_1, x, RR)      // _1 , 2^0
-	p256OrdSqr(m, _1, 1)       // _10, 2^1
-	p256OrdMul(_11, m, _1)     // _11, 2^1 + 2^0
-	p256OrdMul(_101, m, _11)   // _101, 2^2 + 2^0
-	p256OrdMul(_111, m, _101)  // _111, 2^2 + 2^1 + 2^0
-	p256OrdSqr(x, _101, 1)     // _1010, 2^3 + 2^1
-	p256OrdMul(_1111, _101, x) // _1111, 2^3 + 2^2 + 2^1 + 2^0
-
-	p256OrdSqr(t, x, 1)          // _10100, 2^4 + 2^2
-	p256OrdMul(_10101, t, _1)    // _10101, 2^4 + 2^2 + 2^0
-	p256OrdSqr(x, _10101, 1)     // _101010, 2^5 + 2^3 + 2^1
-	p256OrdMul(_101111, _101, x) // _101111, 2^5 + 2^3 + 2^2 + 2^1 + 2^0
-	p256OrdMul(x, _10101, x)     // _111111 = x6, 2^5 + 2^4 + 2^3 + 2^2 + 2^1 + 2^0
-	p256OrdSqr(t, x, 2)          // _11111100, 2^7 + 2^6 + 2^5 + 2^4 + 2^3 + 2^2
-
-	p256OrdMul(m, t, m)   // _11111110 = x8, , 2^7 + 2^6 + 2^5 + 2^4 + 2^3 + 2^2 + 2^1
-	p256OrdMul(t, t, _11) // _11111111 = x8, , 2^7 + 2^6 + 2^5 + 2^4 + 2^3 + 2^2 + 2^1 + 2^0
-	p256OrdSqr(x, t, 8)   // _ff00, 2^15 + 2^14 + 2^13 + 2^12 + 2^11 + 2^10 + 2^9 + 2^8
-	p256OrdMul(m, x, m)   //  _fffe
-	p256OrdMul(x, x, t)   // _ffff = x16, 2^15 + 2^14 + 2^13 + 2^12 + 2^11 + 2^10 + 2^9 + 2^8 + 2^7 + 2^6 + 2^5 + 2^4 + 2^3 + 2^2 + 2^1 + 2^0
-
-	p256OrdSqr(t, x, 16) // _ffff0000, 2^31 + 2^30 + 2^29 + 2^28 + 2^27 + 2^26 + 2^25 + 2^24 + 2^23 + 2^22 + 2^21 + 2^20 + 2^19 + 2^18 + 2^17 + 2^16
-	p256OrdMul(m, t, m)  // _fffffffe
-	p256OrdMul(t, t, x)  // _ffffffff = x32
-
-	p256OrdSqr(x, m, 32) // _fffffffe00000000
-	p256OrdMul(x, x, t)  // _fffffffeffffffff
-	p256OrdSqr(x, x, 32) // _fffffffeffffffff00000000
-	p256OrdMul(x, x, t)  // _fffffffeffffffffffffffff
-	p256OrdSqr(x, x, 32) // _fffffffeffffffffffffffff00000000
-	p256OrdMul(x, x, t)  // _fffffffeffffffffffffffffffffffff
-
-	sqrs := []uint8{
-		4, 3, 11, 5, 3, 5, 1,
-		3, 7, 5, 9, 7, 5, 5,
-		4, 5, 2, 2, 7, 3, 5,
-		5, 6, 2, 6, 3, 5,
-	}
-	muls := []*p256OrdElement{
-		_111, _1, _1111, _1111, _101, _10101, _1,
-		_1, _111, _11, _101, _10101, _10101, _111,
-		_111, _1111, _11, _1, _1, _1, _111,
-		_111, _10101, _1, _1, _1, _1}
-
-	for i, s := range sqrs {
-		p256OrdSqr(x, x, int(s))
-		p256OrdMul(x, x, muls[i])
-	}
-	return p256OrderFromMont(x), nil
+	p256OrdSqr(t3, x, 1)
+	p256OrdMul(z, x, t3)
+	p256OrdMul(t4, x, z)
+	p256OrdMul(t1, x, t4)
+	p256OrdMul(t2, t3, t1)
+	p256OrdMul(t0, t3, t2)
+	p256OrdMul(t4, t4, t0)
+	p256OrdMul(t6, t3, t4)
+	p256OrdSqr(t3, t6, 1)
+	p256OrdMul(t5, x, t3)
+	p256OrdSqr(t3, t5, 1)
+	p256OrdMul(t3, x, t3)
+	p256OrdSqr(t7, t3, 1)
+	p256OrdSqr(t8, t7, 6)
+	p256OrdMul(t7, t7, t8)
+	p256OrdSqr(t8, t7, 5)
+	p256OrdMul(t8, t3, t8)
+	p256OrdSqr(t8, t8, 13)
+	p256OrdMul(t7, t7, t8)
+	p256OrdMul(t7, x, t7)
+	p256OrdSqr(t8, t7, 1)
+	p256OrdSqr(t7, t8, 2)
+	p256OrdSqr(t9, t7, 32)
+	p256OrdMul(t9, t7, t9)
+	p256OrdSqr(t9, t9, 29)
+	p256OrdMul(t8, t8, t9)
+	p256OrdSqr(t8, t8, 33)
+	p256OrdMul(t7, t7, t8)
+	p256OrdMul(t7, t2, t7)
+	p256OrdSqr(t7, t7, 4)
+	p256OrdMul(t7, t2, t7)
+	p256OrdSqr(t7, t7, 3)
+	p256OrdMul(t7, x, t7)
+	p256OrdSqr(t7, t7, 11)
+	p256OrdMul(t6, t6, t7)
+	p256OrdSqr(t6, t6, 6)
+	p256OrdMul(t5, t5, t6)
+	p256OrdSqr(t5, t5, 5)
+	p256OrdMul(t5, t4, t5)
+	p256OrdSqr(t5, t5, 3)
+	p256OrdMul(t5, z, t5)
+	p256OrdSqr(t5, t5, 3)
+	p256OrdMul(t5, x, t5)
+	p256OrdSqr(t5, t5, 7)
+	p256OrdMul(t5, t2, t5)
+	p256OrdSqr(t5, t5, 5)
+	p256OrdMul(t5, z, t5)
+	p256OrdSqr(t5, t5, 9)
+	p256OrdMul(t5, t1, t5)
+	p256OrdSqr(t5, t5, 5)
+	p256OrdMul(t5, t1, t5)
+	p256OrdSqr(t5, t5, 5)
+	p256OrdMul(t5, t4, t5)
+	p256OrdSqr(t5, t5, 5)
+	p256OrdMul(t5, t0, t5)
+	p256OrdSqr(t5, t5, 4)
+	p256OrdMul(t4, t4, t5)
+	p256OrdSqr(t4, t4, 2)
+	p256OrdMul(t4, z, t4)
+	p256OrdSqr(t4, t4, 7)
+	p256OrdMul(t3, t3, t4)
+	p256OrdSqr(t3, t3, 2)
+	p256OrdMul(t3, x, t3)
+	p256OrdSqr(t3, t3, 10)
+	p256OrdMul(t3, t0, t3)
+	p256OrdSqr(t3, t3, 5)
+	p256OrdMul(t3, t2, t3)
+	p256OrdSqr(t3, t3, 5)
+	p256OrdMul(t2, t2, t3)
+	p256OrdSqr(t2, t2, 4)
+	p256OrdMul(t2, t1, t2)
+	p256OrdSqr(t2, t2, 4)
+	p256OrdMul(t1, t1, t2)
+	p256OrdSqr(t1, t1, 9)
+	p256OrdMul(t0, t0, t1)
+	p256OrdSqr(t0, t0, 5)
+	p256OrdMul(z, z, t0)
+	return p256OrderFromMont(z), nil
 }
 
 // P256OrdMul multiplication modulo org(G).
