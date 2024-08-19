@@ -33,6 +33,7 @@ func P256OrdInverse(k []byte) ([]byte, error) {
 	}
 	x := new(p256OrdElement)
 	p256OrdBigToLittle(x, (*[32]byte)(k))
+	p256OrdMul(x, x, RR)
 	// Inversion is implemented as exponentiation with exponent p − 2.
 	// The sequence of 41 multiplications and 253 squarings is derived from the
 	// following addition chain generated with github.com/mmcloughlin/addchain v0.4.0.
@@ -65,7 +66,7 @@ func P256OrdInverse(k []byte) ([]byte, error) {
 	//	i244     = ((i231 << 2 + _11) << 7 + _111111) << 2
 	//	i262     = ((1 + i244) << 10 + _1001) << 5 + _111
 	//	i277     = ((i262 << 5 + _111) << 4 + _101) << 4
-	//	return     ((_101 + i277) << 9 + _1001) << 5 + _11
+	//	return     ((_101 + i277) << 9 + _1001) << 5 + 1
 	//
 	var z = new(p256OrdElement)
 	var t0 = new(p256OrdElement)
@@ -155,7 +156,7 @@ func P256OrdInverse(k []byte) ([]byte, error) {
 	p256OrdSqr(t1, t1, 9)
 	p256OrdMul(t0, t0, t1)
 	p256OrdSqr(t0, t0, 5)
-	p256OrdMul(z, z, t0)
+	p256OrdMul(z, x, t0)
 	return p256OrderFromMont(z), nil
 }
 
