@@ -1,4 +1,4 @@
-//go:build (amd64 && !purego && !plugin) || (arm64 && !purego)
+//go:build !purego && (amd64 || arm64)
 
 package sm2ec
 
