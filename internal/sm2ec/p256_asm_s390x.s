@@ -936,10 +936,10 @@ TEXT ·p256OrdMul(SB), NOSPLIT, $0
 
 	MOVD  $p256ordK0<>+0x00(SB), R4
 
-	// VLEF    $3, 0(R4), K0
-	WORD $0xE7F40000
-	BYTE $0x38
-	BYTE $0x03
+	VLEF    $3, 0(R4), K0
+	//WORD $0xE7F40000
+	//BYTE $0x38
+	//BYTE $0x03
 	MOVD $p256ord<>+0x00(SB), R4
 	VL   16(R4), M0
 	VL   0(R4), M1
@@ -995,10 +995,10 @@ TEXT ·p256OrdSqr(SB), NOSPLIT, $0
 
 	MOVD  $p256ordK0<>+0x00(SB), R4
 
-	// VLEF    $3, 0(R4), K0
-	WORD $0xE7F40000
-	BYTE $0x38
-	BYTE $0x03
+	VLEF    $3, 0(R4), K0
+	//WORD $0xE7F40000
+	//BYTE $0x38
+	//BYTE $0x03
 	MOVD $p256ord<>+0x00(SB), R4
 	VL   16(R4), M0
 	VL   0(R4), M1
