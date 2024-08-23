@@ -328,7 +328,6 @@ loop_select:
 
 #define ZER   V6
 #define SEL1  V7
-#define SEL2  V8
 #define CAR1  V9
 #define CAR2  V10
 #define RED1  V11
@@ -345,8 +344,7 @@ TEXT ·p256FromMont(SB), NOSPLIT, $0
 	MOVD  $p256<>+0x00(SB), CPOOL
 	VL    16(CPOOL), PL
 	VL    0(CPOOL), PH
-	VL    48(CPOOL), SEL2
-	VL    64(CPOOL), SEL1
+	VL    48(CPOOL), SEL1
 
 	VL   (0*16)(x_ptr), T0
 	VPDI $0x4, T0, T0, T0
@@ -449,7 +447,6 @@ TEXT ·p256FromMont(SB), NOSPLIT, $0
 #undef TT1
 #undef ZER
 #undef SEL1
-#undef SEL2
 #undef CAR1
 #undef CAR2
 #undef RED1
