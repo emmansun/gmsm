@@ -153,3 +153,49 @@ func TestFuzzyP256OrdMul(t *testing.T) {
 		p256OrdMulTest(t, x, y, p, r)
 	}
 }
+
+func p256OrderSqrTest(t *testing.T, x, p, r *big.Int) {
+	x1 := new(big.Int).Mul(x, r)
+	x1 = x1.Mod(x1, p)
+	ax := new(p256OrdElement)
+	res2 := new(p256OrdElement)
+	fromBig((*[4]uint64)(ax), x1)
+	p256OrdSqr(res2, ax, 1)
+	resInt := new(big.Int).SetBytes(p256OrderFromMont(res2))
+
+	expected := new(big.Int).Mul(x, x)
+	expected = expected.Mod(expected, p)
+	if resInt.Cmp(expected) != 0 {
+		t.FailNow()
+	}
+}
+
+func TestP256OrdSqrOrdMinus1(t *testing.T) {
+	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123", 16)
+	r, _ := new(big.Int).SetString("10000000000000000000000000000000000000000000000000000000000000000", 16)
+	pMinus1 := new(big.Int).Sub(p, big.NewInt(1))
+	p256OrderSqrTest(t, pMinus1, p, r)
+}
+
+func TestFuzzyP256OrdSqr(t *testing.T) {
+	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123", 16)
+	r, _ := new(big.Int).SetString("10000000000000000000000000000000000000000000000000000000000000000", 16)
+	var scalar1 [32]byte
+	var timeout *time.Timer
+
+	if testing.Short() {
+		timeout = time.NewTimer(10 * time.Millisecond)
+	} else {
+		timeout = time.NewTimer(2 * time.Second)
+	}
+	for {
+		select {
+		case <-timeout.C:
+			return
+		default:
+		}
+		io.ReadFull(rand.Reader, scalar1[:])
+		x := new(big.Int).SetBytes(scalar1[:])
+		p256OrderSqrTest(t, x, p, r)
+	}
+}

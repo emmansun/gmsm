@@ -546,11 +546,7 @@ loop_select:
 #undef CPOOL
 
 // ---------------------------------------
-
-// func p256OrdMul(res, in1, in2 *p256OrdElement)
-#define res_ptr R1
-#define x_ptr R2
-#define y_ptr R3
+// sm2p256OrdMulInternal
 #define X0    V0
 #define X1    V1
 #define Y0    V2
@@ -575,31 +571,7 @@ loop_select:
 
 #define MK0   V30
 #define K0    V31
-TEXT ·p256OrdMul(SB), NOSPLIT, $0
-	MOVD res+0(FP), res_ptr
-	MOVD in1+8(FP), x_ptr
-	MOVD in2+16(FP), y_ptr
-
-	VZERO T2
-	MOVD  $p256ordK0<>+0x00(SB), R4
-
-	// VLEF    $3, 0(R4), K0
-	WORD $0xE7F40000
-	BYTE $0x38
-	BYTE $0x03
-	MOVD $p256ord<>+0x00(SB), R4
-	VL   16(R4), M0
-	VL   0(R4), M1
-
-	VL   (0*16)(x_ptr), X0
-	VPDI $0x4, X0, X0, X0
-	VL   (1*16)(x_ptr), X1
-	VPDI $0x4, X1, X1, X1
-	VL   (0*16)(y_ptr), Y0
-	VPDI $0x4, Y0, Y0, Y0
-	VL   (1*16)(y_ptr), Y1
-	VPDI $0x4, Y1, Y1, Y1
-
+TEXT sm2p256OrdMulInternal<>(SB), NOSPLIT, $0-0
 	// ---------------------------------------------------------------------------/
 	VREPF $3, Y0, YDIG
 	VMLF  X0, YDIG, ADD1
@@ -615,6 +587,7 @@ TEXT ·p256OrdMul(SB), NOSPLIT, $0
 	VMALF  M1, MK0, ADD2, RED2
 	VMALHF M1, MK0, ADD2, RED2H
 
+	VZERO T2
 	VSLDB $12, RED2, RED1, RED1
 	VSLDB $12, T2, RED2, RED2
 
@@ -897,15 +870,8 @@ TEXT ·p256OrdMul(SB), NOSPLIT, $0
 	VSEL T0, ADD1, T2, T0
 	VSEL T1, ADD2, T2, T1
 
-	VPDI $0x4, T0, T0, T0
-	VST  T0, (0*16)(res_ptr)
-	VPDI $0x4, T1, T1, T1
-	VST  T1, (1*16)(res_ptr)
 	RET
 
-#undef res_ptr
-#undef x_ptr
-#undef y_ptr
 #undef X0
 #undef X1
 #undef Y0
@@ -930,6 +896,143 @@ TEXT ·p256OrdMul(SB), NOSPLIT, $0
 
 #undef MK0
 #undef K0
+
+// ---------------------------------------
+
+// Parameters
+#define X0    V0
+#define X1    V1
+#define Y0    V2
+#define Y1    V3
+
+TEXT sm2p256OrdSqrInternal<>(SB), NOFRAME|NOSPLIT, $0
+	VLR X0, Y0
+	VLR X1, Y1
+	BR  sm2p256OrdMulInternal<>(SB)
+
+#undef X0
+#undef X1
+#undef Y0
+#undef Y1
+
+// ---------------------------------------
+
+// func p256OrdMul(res, in1, in2 *p256OrdElement)
+#define res_ptr R1
+#define x_ptr R2
+#define y_ptr R3
+#define X0    V0
+#define X1    V1
+#define Y0    V2
+#define Y1    V3
+#define M0    V4
+#define M1    V5
+#define T0    V6
+#define T1    V7
+TEXT ·p256OrdMul(SB), NOSPLIT, $0
+	MOVD res+0(FP), res_ptr
+	MOVD in1+8(FP), x_ptr
+	MOVD in2+16(FP), y_ptr
+
+	MOVD  $p256ordK0<>+0x00(SB), R4
+
+	// VLEF    $3, 0(R4), K0
+	WORD $0xE7F40000
+	BYTE $0x38
+	BYTE $0x03
+	MOVD $p256ord<>+0x00(SB), R4
+	VL   16(R4), M0
+	VL   0(R4), M1
+
+	VL   (0*16)(x_ptr), X0
+	VPDI $0x4, X0, X0, X0
+	VL   (1*16)(x_ptr), X1
+	VPDI $0x4, X1, X1, X1
+	VL   (0*16)(y_ptr), Y0
+	VPDI $0x4, Y0, Y0, Y0
+	VL   (1*16)(y_ptr), Y1
+	VPDI $0x4, Y1, Y1, Y1
+
+	CALL sm2p256OrdMulInternal<>(SB)
+
+	VPDI $0x4, T0, T0, T0
+	VST  T0, (0*16)(res_ptr)
+	VPDI $0x4, T1, T1, T1
+	VST  T1, (1*16)(res_ptr)
+
+	RET
+
+#undef res_ptr
+#undef x_ptr
+#undef y_ptr
+#undef X0
+#undef X1
+#undef Y0
+#undef Y1
+#undef M0
+#undef M1
+#undef T0
+#undef T1
+
+// ---------------------------------------
+//  func p256OrdSqr(res, in *p256OrdElement, n int)
+#define res_ptr R1
+#define x_ptr R2
+#define COUNT   R5
+#define N       R6
+#define X0    V0
+#define X1    V1
+#define M0    V4
+#define M1    V5
+#define T0    V6
+#define T1    V7
+TEXT ·p256OrdSqr(SB), NOSPLIT, $0
+	MOVD res+0(FP), res_ptr
+	MOVD in+8(FP), x_ptr
+	MOVD n+16(FP), N
+
+	MOVD $0, COUNT
+
+	MOVD  $p256ordK0<>+0x00(SB), R4
+
+	// VLEF    $3, 0(R4), K0
+	WORD $0xE7F40000
+	BYTE $0x38
+	BYTE $0x03
+	MOVD $p256ord<>+0x00(SB), R4
+	VL   16(R4), M0
+	VL   0(R4), M1
+
+	VL   (0*16)(x_ptr), X0
+	VPDI $0x4, X0, X0, X0
+	VL   (1*16)(x_ptr), X1
+	VPDI $0x4, X1, X1, X1
+
+loop:
+	CALL sm2p256OrdSqrInternal<>(SB)
+	VLR  T0, X0
+	VLR  T1, X1
+	ADDW $1, COUNT
+	CMPW COUNT, N
+	BLT  loop
+
+	VPDI $0x4, T0, T0, T0
+	VST  T0, (0*16)(res_ptr)
+	VPDI $0x4, T1, T1, T1
+	VST  T1, (1*16)(res_ptr)
+	
+	RET
+
+#undef res_ptr
+#undef x_ptr
+#undef COUNT
+#undef N
+#undef X0
+#undef X1
+#undef M0
+#undef M1
+#undef T0
+#undef T1
 
 TEXT ·p256Mul(SB), NOSPLIT, $0
 	RET

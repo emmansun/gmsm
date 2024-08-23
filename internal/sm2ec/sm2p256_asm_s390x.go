@@ -58,3 +58,8 @@ func p256OrdReduce(s *p256OrdElement)
 //
 //go:noescape
 func p256OrdMul(res, in1, in2 *p256OrdElement)
+
+// Montgomery square modulo org(G), repeated n times (n >= 1).
+//
+//go:noescape
+func p256OrdSqr(res, in *p256OrdElement, n int)
