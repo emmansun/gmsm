@@ -344,7 +344,7 @@ TEXT ·p256FromMont(SB), NOSPLIT, $0
 	MOVD  $p256<>+0x00(SB), CPOOL
 	VL    16(CPOOL), PL
 	VL    0(CPOOL), PH
-	VL    48(CPOOL), SEL1
+	VL    32(CPOOL), SEL1
 
 	VL   (0*16)(x_ptr), T0
 	VPDI $0x4, T0, T0, T0
