@@ -42,3 +42,4 @@ jobs:
       env:
         DISABLE_SM4NI: 1
         FORCE_SM4BLOCK_AESNI: 1
+        GOARCH: ${{ matrix.arch }}      

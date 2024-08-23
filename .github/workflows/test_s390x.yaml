@@ -31,9 +31,15 @@ jobs:
 
     - name: Test bigmod
       run: go test -v -short ./internal/bigmod/...
- 
+       env:
+        GOARCH: ${{ matrix.arch }} 
+  
     - name: Test sm2ec
       run: go test -v -short ./internal/sm2ec/...
+      env:
+        GOARCH: ${{ matrix.arch }} 
 
     - name: Test subtle
       run: go test -v -short ./internal/subtle/...
+      env:
+        GOARCH: ${{ matrix.arch }}       
