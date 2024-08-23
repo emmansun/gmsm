@@ -575,7 +575,7 @@ loop_select:
 
 #define MK0   V30
 #define K0    V31
-TEXT ·p256OrdMul<>(SB), NOSPLIT, $0
+TEXT ·p256OrdMul(SB), NOSPLIT, $0
 	MOVD res+0(FP), res_ptr
 	MOVD in1+8(FP), x_ptr
 	MOVD in2+16(FP), y_ptr
