@@ -954,21 +954,25 @@ TEXT ·p256PointDouble6TimesAsm(SB), NOSPLIT, $0
 
 #define res_ptr R1
 #define CPOOL   R4
+
 #define T0   V0
 #define T1   V1
 #define T2   V2
 #define TT0  V3
 #define TT1  V4
-#define CAR1  V5
-#define CAR2  V6
-#define PL    V7
-#define PH    V8
+
+#define ZER   V6
+#define CAR1  V7
+#define CAR2  V8
+#define PL    V9
+#define PH    V10
 
 //func p256OrdReduce(s *p256OrdElement)
 TEXT ·p256OrdReduce(SB),NOSPLIT,$0
 	MOVD res+0(FP), res_ptr
 
 	VZERO T2
+	VZERO ZER
 	MOVD  $p256ord<>+0x00(SB), CPOOL
 	VL    16(CPOOL), PL
 	VL    0(CPOOL), PH
@@ -1001,6 +1005,7 @@ TEXT ·p256OrdReduce(SB),NOSPLIT,$0
 #undef T2
 #undef TT0
 #undef TT1
+#undef ZER
 #undef CAR1
 #undef CAR2
 #undef PL
