@@ -31,7 +31,7 @@ jobs:
 
     - name: Test bigmod
       run: go test -v -short ./internal/bigmod/...
-       env:
+      env:
         GOARCH: ${{ matrix.arch }} 
   
     - name: Test sm2ec
