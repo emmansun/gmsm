@@ -47,7 +47,7 @@ func testP256FromMont(v *big.Int, t *testing.T) {
 	res := new(p256Element)
 	p256FromMont(res, val)
 	if toBigInt(res).Cmp(v) != 0 {
-		t.Fatalf("p256FromMont failed for %x", v.Bytes())
+		t.Errorf("p256FromMont failed for %x", v.Bytes())
 	}
 }
 
@@ -66,10 +66,9 @@ func testP256OrderReduce(v, expected *big.Int, t *testing.T) {
 	fromBig((*[4]uint64)(val), v)
 	p256OrdReduce(val)
 	if ordElmToBigInt(val).Cmp(expected) != 0 {
-		t.Fatalf("p256OrdReduce failed for %x", v.Bytes())
+		t.Errorf("p256OrdReduce failed for %x", v.Bytes())
 	}
 }
-
 
 func TestP256OrderReduce(t *testing.T) {
 	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123", 16)
