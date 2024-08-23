@@ -18,10 +18,10 @@ DATA p256<>+0x00(SB)/8, $0xfffffffeffffffff // P256
 DATA p256<>+0x08(SB)/8, $0xffffffffffffffff // P256
 DATA p256<>+0x10(SB)/8, $0xffffffff00000000 // P256
 DATA p256<>+0x18(SB)/8, $0xffffffffffffffff // P256
-DATA p256<>+0x40(SB)/8, $0x0000000000000000 // SEL 0 0 d1 d0
-DATA p256<>+0x48(SB)/8, $0x18191a1b1c1d1e1f // SEL 0 0 d1 d0
-DATA p256<>+0x50(SB)/8, $0x0706050403020100 // LE2BE permute mask
-DATA p256<>+0x58(SB)/8, $0x0f0e0d0c0b0a0908 // LE2BE permute mask
+DATA p256<>+0x20(SB)/8, $0x0000000000000000 // SEL 0 0 d1 d0
+DATA p256<>+0x28(SB)/8, $0x18191a1b1c1d1e1f // SEL 0 0 d1 d0
+DATA p256<>+0x30(SB)/8, $0x0706050403020100 // LE2BE permute mask
+DATA p256<>+0x38(SB)/8, $0x0f0e0d0c0b0a0908 // LE2BE permute mask
 DATA p256mul<>+0x00(SB)/8, $0xfffffffeffffffff // P256
 DATA p256mul<>+0x08(SB)/8, $0xffffffffffffffff // P256
 DATA p256mul<>+0x10(SB)/8, $0xffffffff00000000 // P256
