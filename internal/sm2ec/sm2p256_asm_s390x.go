@@ -53,3 +53,8 @@ func p256OrdLittleToBig(res *[32]byte, in *p256OrdElement)
 //
 //go:noescape
 func p256OrdReduce(s *p256OrdElement)
+
+// Montgomery multiplication modulo org(G). Sets res = in1 * in2 * R⁻¹.
+//
+//go:noescape
+func p256OrdMul(res, in1, in2 *p256OrdElement)
