@@ -929,6 +929,7 @@ TEXT sm2p256OrdSqrInternal<>(SB), NOFRAME|NOSPLIT, $0
 #define M1    V5
 #define T0    V6
 #define T1    V7
+#define K0    V31
 TEXT ·p256OrdMul(SB), NOSPLIT, $0
 	MOVD res+0(FP), res_ptr
 	MOVD in1+8(FP), x_ptr
@@ -973,6 +974,7 @@ TEXT ·p256OrdMul(SB), NOSPLIT, $0
 #undef M1
 #undef T0
 #undef T1
+#undef K0
 
 // ---------------------------------------
 //  func p256OrdSqr(res, in *p256OrdElement, n int)
@@ -986,6 +988,7 @@ TEXT ·p256OrdMul(SB), NOSPLIT, $0
 #define M1    V5
 #define T0    V6
 #define T1    V7
+#define K0    V31
 TEXT ·p256OrdSqr(SB), NOSPLIT, $0
 	MOVD res+0(FP), res_ptr
 	MOVD in+8(FP), x_ptr
@@ -1033,6 +1036,7 @@ loop:
 #undef M1
 #undef T0
 #undef T1
+#undef K0
 
 TEXT ·p256Mul(SB), NOSPLIT, $0
 	RET
