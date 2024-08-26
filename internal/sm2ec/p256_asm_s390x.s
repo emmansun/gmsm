@@ -165,19 +165,21 @@ TEXT ·p256MovCond(SB), NOSPLIT, $0
 	VZERO  ZER
 	VCEQG  SEL1, ZER, SEL1
 
-	VL 0(P1ptr), X1H
-	VL 16(P1ptr), X1L
-	VL 32(P1ptr), Y1H
-	VL 48(P1ptr), Y1L
-	VL 64(P1ptr), Z1H
-	VL 80(P1ptr), Z1L
+	VLM (P1ptr), X1H, Z1L
+	// VL 0(P1ptr), X1H
+	// VL 16(P1ptr), X1L
+	// VL 32(P1ptr), Y1H
+	// VL 48(P1ptr), Y1L
+	// VL 64(P1ptr), Z1H
+	// VL 80(P1ptr), Z1L
 
-	VL 0(P2ptr), X2H
-	VL 16(P2ptr), X2L
-	VL 32(P2ptr), Y2H
-	VL 48(P2ptr), Y2L
-	VL 64(P2ptr), Z2H
-	VL 80(P2ptr), Z2L
+	VLM (P2ptr), X2H, Z2L
+	// VL 0(P2ptr), X2H
+	// VL 16(P2ptr), X2L
+	// VL 32(P2ptr), Y2H
+	// VL 48(P2ptr), Y2L
+	// VL 64(P2ptr), Z2H
+	// VL 80(P2ptr), Z2L
 
 	VSEL X2L, X1L, SEL1, X1L
 	VSEL X2H, X1H, SEL1, X1H
@@ -186,12 +188,13 @@ TEXT ·p256MovCond(SB), NOSPLIT, $0
 	VSEL Z2L, Z1L, SEL1, Z1L
 	VSEL Z2H, Z1H, SEL1, Z1H
 
-	VST X1H, 0(P3ptr)
-	VST X1L, 16(P3ptr)
-	VST Y1H, 32(P3ptr)
-	VST Y1L, 48(P3ptr)
-	VST Z1H, 64(P3ptr)
-	VST Z1L, 80(P3ptr)
+	VSTM X1H, Z1L, (P3ptr)
+	// VST X1H, 0(P3ptr)
+	// VST X1L, 16(P3ptr)
+	// VST Y1H, 32(P3ptr)
+	// VST Y1L, 48(P3ptr)
+	// VST Z1H, 64(P3ptr)
+	// VST Z1L, 80(P3ptr)
 
 	RET
 
@@ -473,7 +476,6 @@ TEXT ·p256FromMont(SB), NOSPLIT, $0
 #define Y2H    V9
 #define Z2L    V10
 #define Z2H    V11
-#define LE2BE  V12
 
 #define ONE   V18
 #define IDX   V19
@@ -488,7 +490,6 @@ TEXT ·p256SelectAffine(SB), NOSPLIT, $0
 	VREPIB $1, ONE
 	VREPIB $1, SEL2
 	MOVD   $1, COUNT
-	VL     48(CPOOL), LE2BE
 
 	VZERO X1H
 	VZERO X1L
