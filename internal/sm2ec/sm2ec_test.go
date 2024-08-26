@@ -208,8 +208,9 @@ func TestScalarMult(t *testing.T) {
 		fatalIfErr(t, err)
 		p2, err := NewSM2P256Point().ScalarMult(G, scalar)
 		fatalIfErr(t, err)
+		fmt.Printf("scalar: %x, p1: %x\n", scalar, p1.Bytes())
 		if !bytes.Equal(p1.Bytes(), p2.Bytes()) {
-			t.Error("[k]G != ScalarBaseMult(k)")
+			t.Errorf("[k]G != ScalarBaseMult(k), k=%x, p1=%x, p2=%x", scalar, p1.Bytes(), p2.Bytes())
 		}
 
 		d := new(big.Int).SetBytes(scalar)
@@ -219,7 +220,7 @@ func TestScalarMult(t *testing.T) {
 		fatalIfErr(t, err)
 		g1.Add(g1, p1)
 		if !bytes.Equal(g1.Bytes(), NewSM2P256Point().Bytes()) {
-			t.Error("[N - k]G + [k]G != ∞")
+			t.Errorf("[N - k]G + [k]G != ∞, k=%x", scalar)
 		}
 	}
 
