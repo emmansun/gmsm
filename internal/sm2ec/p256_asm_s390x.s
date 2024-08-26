@@ -217,9 +217,10 @@ TEXT ·p256MovCond(SB), NOSPLIT, $0
 // Constant time table access
 // Indexed from 1 to 15, with -1 offset
 // (index 0 is implicitly point at infinity)
-// func p256Select(res *P256Point, table *p256Table, idx int)
+// func p256Select(res *P256Point, table *p256Table, idx int, limit int)
 #define P3ptr   R1
 #define P1ptr   R2
+#define LIMIT   R3
 #define COUNT   R4
 
 #define X1L    V0
@@ -242,6 +243,7 @@ TEXT ·p256MovCond(SB), NOSPLIT, $0
 TEXT ·p256Select(SB), NOSPLIT, $0
 	MOVD   res+0(FP), P3ptr
 	MOVD   table+8(FP), P1ptr
+	MOVD   limit+24(FP), LIMIT
 	VLREPB idx+(16+7)(FP), IDX
 	VREPIB $1, ONE
 	VREPIB $1, SEL2
@@ -272,10 +274,9 @@ loop_select:
 	VSEL Z2H, Z1H, SEL1, Z1H
 
 	VAB  SEL2, ONE, SEL2
-	ADDW $1, COUNT
 	ADD  $96, P1ptr
-	CMPW COUNT, $17
-	BLT  loop_select
+	ADD  $1, COUNT
+	CMPBNE  COUNT, LIMIT, loop_select
 
 	VST X1H, 0(P3ptr)
 	VST X1L, 16(P3ptr)
@@ -288,6 +289,7 @@ loop_select:
 #undef P3ptr
 #undef P1ptr
 #undef COUNT
+#undef LIMIT
 #undef X1L
 #undef X1H
 #undef Y1L
