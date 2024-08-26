@@ -203,7 +203,25 @@ func TestPointDouble(t *testing.T) {
 	if !bytes.Equal(double1.Bytes(), double2.Bytes()) {
 		t.Error("PointDouble6Times is incorrect")
 	}
+
 	if hex.EncodeToString(double1.Bytes()) != "0497662389f36ce643a47dcf644f700651e988794843797b0c4a69c806e78615c2cd4d9449aea5cac5328b8d67d4ae956f5eb06c4515ff01bd17eef58bf866b33f" {
 		t.Errorf("PointDouble6Times is incorrect %x", double1.Bytes())
+	}
+}
+
+func TestPointAdd(t *testing.T) {
+	p := NewSM2P256Point().SetGenerator()
+	var p1, p2, sum1, sum2 SM2P256Point
+	p256PointDoubleAsm(&p1, p)
+	p256PointAddAsm(&sum1, p, &p1)
+
+	p256PointDouble6TimesAsm(&p2, p)
+	p256PointAddAsm(&sum2, p, &p2)
+
+	if hex.EncodeToString(sum1.Bytes()) != "04a97f7cd4b3c993b4be2daa8cdb41e24ca13f6bd945302244e26918f1d0509ebf530b5dd88c688ef5ccc5cec08a72150f7c400ee5cd045292aaacdd037458f6e6" {
+		t.Errorf("G + [2]G is incorrect %x", sum1.Bytes())
+	}
+	if hex.EncodeToString(sum2.Bytes()) != "04403b18162679c05515a8ecd063d726ba7b1eb83b8306ace5cd382e53ed23ae1feb42ebf496a7bd698d61a1c805ef7074df882dfcffcc84bcd0a5d4ebea56f425" {
+		t.Errorf("G + [64]G is incorrect %x", sum2.Bytes())
 	}
 }
