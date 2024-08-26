@@ -15,6 +15,7 @@ import (
 	_ "embed"
 	"errors"
 	"math/bits"
+	"runtime"
 	"unsafe"
 
 	"golang.org/x/sys/cpu"
@@ -384,8 +385,22 @@ var p256Precomputed *[43]p256AffineTable
 //go:embed p256_asm_table.bin
 var p256PrecomputedEmbed string
 
+func leUint64(b []byte) uint64 {
+	_ = b[7] // bounds check hint to compiler; see golang.org/issue/14808
+	return uint64(b[0]) | uint64(b[1])<<8 | uint64(b[2])<<16 | uint64(b[3])<<24 |
+		uint64(b[4])<<32 | uint64(b[5])<<40 | uint64(b[6])<<48 | uint64(b[7])<<56
+}
+
 func init() {
 	p256PrecomputedPtr := (*unsafe.Pointer)(unsafe.Pointer(&p256PrecomputedEmbed))
+	if runtime.GOARCH == "s390x" {
+		var newTable [43 * 32 * 2 * 4]uint64
+		for i, x := range (*[43 * 32 * 2 * 4][8]byte)(*p256PrecomputedPtr) {
+			newTable[i] = leUint64(x[:])
+		}
+		newTablePtr := unsafe.Pointer(&newTable)
+		p256PrecomputedPtr = &newTablePtr
+	}
 	p256Precomputed = (*[43]p256AffineTable)(*p256PrecomputedPtr)
 }
 
