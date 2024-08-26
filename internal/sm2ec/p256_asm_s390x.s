@@ -68,8 +68,8 @@ TEXT ·p256BigToLittle(SB), NOSPLIT, $0
 	VPDI $0x4, T1L, T1L, T1L
 	VPDI $0x4, T1H, T1H, T1H
 
-	VST T1L, 0(res_ptr)
-	VST T1H, 16(res_ptr)
+	VSTM T1L, T1H, (res_ptr)
+
 	RET
 
 #undef res_ptr
@@ -88,8 +88,8 @@ TEXT ·p256BigToLittle(SB), NOSPLIT, $0
 #define T1L   V2
 #define T1H   V3
 
-#define PL    V30
-#define PH    V31
+#define PL    V31
+#define PH    V30
 
 #define ZER   V4
 #define SEL1  V5
@@ -98,8 +98,7 @@ TEXT ·p256NegCond(SB), NOSPLIT, $0
 	MOVD val+0(FP), P1ptr
 
 	MOVD $p256mul<>+0x00(SB), CPOOL
-	VL   16(CPOOL), PL
-	VL   0(CPOOL), PH
+	VLM   (CPOOL), PH, PL
 
 	VL   16(P1ptr), Y1H
 	VPDI $0x4, Y1H, Y1H, Y1H
@@ -296,13 +295,13 @@ loop_select:
 #define TT1  V4
 
 #define ZER   V6
-#define SEL1  V7
 #define CAR1  V9
 #define CAR2  V10
 #define RED1  V11
 #define RED2  V12
+#define PH    V13
 #define PL    V14
-#define PH    V15
+#define SEL1  V15
 
 TEXT ·p256FromMont(SB), NOSPLIT, $0
 	MOVD res+0(FP), res_ptr
@@ -311,13 +310,10 @@ TEXT ·p256FromMont(SB), NOSPLIT, $0
 	VZERO T2
 	VZERO ZER
 	MOVD  $p256<>+0x00(SB), CPOOL
-	VL    16(CPOOL), PL
-	VL    0(CPOOL), PH
-	VL    32(CPOOL), SEL1
+	VLM    (CPOOL), PH, SEL1
 
-	VL   (0*16)(x_ptr), T0
+	VLM (x_ptr), T0, T1
 	VPDI $0x4, T0, T0, T0
-	VL   (1*16)(x_ptr), T1
 	VPDI $0x4, T1, T1, T1
 
 	// First round
@@ -401,9 +397,9 @@ TEXT ·p256FromMont(SB), NOSPLIT, $0
 	VSEL T1, TT1, T2, T1
 
 	VPDI $0x4, T0, T0, TT0
-	VST  TT0, (0*16)(res_ptr)
 	VPDI $0x4, T1, T1, TT1
-	VST  TT1, (1*16)(res_ptr)
+	VSTM  TT0, TT1, (res_ptr)
+
 	RET
 
 #undef res_ptr
