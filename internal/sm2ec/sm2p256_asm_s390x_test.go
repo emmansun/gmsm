@@ -199,3 +199,106 @@ func TestFuzzyP256OrdSqr(t *testing.T) {
 		p256OrderSqrTest(t, x, p, r)
 	}
 }
+
+func p256MulTest(t *testing.T, x, y, p, r *big.Int) {
+	x1 := new(big.Int).Mul(x, r)
+	x1 = x1.Mod(x1, p)
+	y1 := new(big.Int).Mul(y, r)
+	y1 = y1.Mod(y1, p)
+	ax := new(p256Element)
+	ay := new(p256Element)
+	res := new(p256Element)
+	res2 := new(p256Element)
+	fromBig((*[4]uint64)(ax), x1)
+	fromBig((*[4]uint64)(ay), y1)
+	p256Mul(res2, ax, ay)
+	p256FromMont(res, res2)
+	resInt := toBigInt(res)
+
+	expected := new(big.Int).Mul(x, y)
+	expected = expected.Mod(expected, p)
+	if resInt.Cmp(expected) != 0 {
+		t.FailNow()
+	}
+}
+
+func TestP256MulPMinus1(t *testing.T) {
+	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF", 16)
+	r, _ := new(big.Int).SetString("10000000000000000000000000000000000000000000000000000000000000000", 16)
+	pMinus1 := new(big.Int).Sub(p, big.NewInt(1))
+	p256MulTest(t, pMinus1, pMinus1, p, r)
+}
+
+func TestFuzzyP256Mul(t *testing.T) {
+	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF", 16)
+	r, _ := new(big.Int).SetString("10000000000000000000000000000000000000000000000000000000000000000", 16)
+	var scalar1 [32]byte
+	var scalar2 [32]byte
+	var timeout *time.Timer
+
+	if testing.Short() {
+		timeout = time.NewTimer(10 * time.Millisecond)
+	} else {
+		timeout = time.NewTimer(2 * time.Second)
+	}
+	for {
+		select {
+		case <-timeout.C:
+			return
+		default:
+		}
+		io.ReadFull(rand.Reader, scalar1[:])
+		io.ReadFull(rand.Reader, scalar2[:])
+		x := new(big.Int).SetBytes(scalar1[:])
+		y := new(big.Int).SetBytes(scalar2[:])
+		p256MulTest(t, x, y, p, r)
+	}
+}
+
+func p256SqrTest(t *testing.T, x, p, r *big.Int) {
+	x1 := new(big.Int).Mul(x, r)
+	x1 = x1.Mod(x1, p)
+	ax := new(p256Element)
+	res := new(p256Element)
+	res2 := new(p256Element)
+	fromBig((*[4]uint64)(ax), x1)
+	p256Sqr(res2, ax, 1)
+	p256FromMont(res, res2)
+	resInt := toBigInt(res)
+
+	expected := new(big.Int).Mul(x, x)
+	expected = expected.Mod(expected, p)
+	if resInt.Cmp(expected) != 0 {
+		t.FailNow()
+	}
+}
+
+func TestP256SqrPMinus1(t *testing.T) {
+	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF", 16)
+	r, _ := new(big.Int).SetString("10000000000000000000000000000000000000000000000000000000000000000", 16)
+	pMinus1 := new(big.Int).Sub(p, big.NewInt(1))
+	p256SqrTest(t, pMinus1, p, r)
+}
+
+func TestFuzzyP256Sqr(t *testing.T) {
+	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF", 16)
+	r, _ := new(big.Int).SetString("10000000000000000000000000000000000000000000000000000000000000000", 16)
+	var scalar1 [32]byte
+	var timeout *time.Timer
+
+	if testing.Short() {
+		timeout = time.NewTimer(10 * time.Millisecond)
+	} else {
+		timeout = time.NewTimer(2 * time.Second)
+	}
+	for {
+		select {
+		case <-timeout.C:
+			return
+		default:
+		}
+		io.ReadFull(rand.Reader, scalar1[:])
+		x := new(big.Int).SetBytes(scalar1[:])
+		p256SqrTest(t, x, p, r)
+	}
+}
