@@ -3,6 +3,7 @@
 package sm2ec
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"io"
@@ -185,5 +186,21 @@ func BenchmarkP256SelectAffine(b *testing.B) {
 	var t0 p256AffinePoint
 	for i := 0; i < b.N; i++ {
 		p256SelectAffine(&t0, &p256Precomputed[20], 20)
+	}
+}
+
+func TestPointDouble(t *testing.T) {
+	var double1, double2 SM2P256Point
+	p := NewSM2P256Point().SetGenerator()
+	p256PointDoubleAsm(&double1, p)
+	p256PointDoubleAsm(&double1, &double1)
+	p256PointDoubleAsm(&double1, &double1)
+	p256PointDoubleAsm(&double1, &double1)
+	p256PointDoubleAsm(&double1, &double1)
+	p256PointDoubleAsm(&double1, &double1)
+
+	p256PointDouble6TimesAsm(&double2, p)
+	if !bytes.Equal(double1.Bytes(), double2.Bytes()) {
+		t.Error("PointDouble6Times is incorrect")
 	}
 }
