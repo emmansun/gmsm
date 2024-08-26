@@ -511,7 +511,7 @@ loop_select:
 	VAB  SEL2, ONE, SEL2
 	ADDW $1, COUNT
 	ADD  $64, P1ptr
-	CMPW COUNT, $65
+	CMPW COUNT, $33
 	BLT  loop_select
 	VST  X1H, 0(P3ptr)
 	VST  X1L, 16(P3ptr)
