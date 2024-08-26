@@ -7,7 +7,7 @@
 //                          256-bit primes"
 // https://link.springer.com/article/10.1007%2Fs13389-014-0090-x
 // https://eprint.iacr.org/2013/816.pdf
-//go:build (amd64 || arm64) && !purego
+//go:build (amd64 || arm64 || s390x) && !purego
 
 package sm2ec
 
