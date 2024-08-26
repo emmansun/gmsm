@@ -1,4 +1,4 @@
-//go:build !(arm || mips)
+//go:build !(arm || mips || s390x)
 
 package kdf
 
