@@ -142,18 +142,18 @@ TEXT ·p256NegCond(SB), NOSPLIT, $0
 #define P1ptr   R2
 #define P2ptr   R3
 
-#define X1L    V0
-#define X1H    V1
-#define Y1L    V2
-#define Y1H    V3
-#define Z1L    V4
-#define Z1H    V5
-#define X2L    V6
-#define X2H    V7
-#define Y2L    V8
-#define Y2H    V9
-#define Z2L    V10
-#define Z2H    V11
+#define X1L    V1
+#define X1H    V0
+#define Y1L    V3
+#define Y1H    V2
+#define Z1L    V5
+#define Z1H    V4
+#define X2L    V7
+#define X2H    V6
+#define Y2L    V9
+#define Y2H    V8
+#define Z2L    V11
+#define Z2H    V10
 
 #define ZER   V18
 #define SEL1  V19
