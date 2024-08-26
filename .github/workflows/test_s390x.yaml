@@ -29,12 +29,14 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v4
 
+    - name: Test SM2
+      run: go test -v -short ./sm2/...
+      env:
+        GOARCH: ${{ matrix.arch }}   
+  
     - name: Test KDF
       run: go test -v -short ./kdf/...
       env:
         GOARCH: ${{ matrix.arch }}     
-  
-    - name: Test SM2
-      run: go test -v -short ./sm2/...
-      env:
-        GOARCH: ${{ matrix.arch }}       
+ 
+    

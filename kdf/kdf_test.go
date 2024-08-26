@@ -56,9 +56,14 @@ func TestKdfOldCase(t *testing.T) {
 
 func shouldPanic(t *testing.T, f func()) {
 	t.Helper()
-	defer func() { _ = recover() }()
+	defer func() { 
+		t.Helper()
+		err := recover()
+		if err == nil {
+			t.Errorf("should have panicked")
+		}
+	}()
 	f()
-	t.Errorf("should have panicked")
 }
 
 func TestKdfWithSHA256(t *testing.T) {
