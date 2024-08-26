@@ -29,17 +29,7 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v4
 
-    - name: Test bigmod
-      run: go test -v -short ./internal/bigmod/...
-      env:
-        GOARCH: ${{ matrix.arch }} 
-  
-    - name: Test sm2ec
-      run: go test -v -short ./internal/sm2ec/...
-      env:
-        GOARCH: ${{ matrix.arch }} 
-
-    - name: Test subtle
-      run: go test -v -short ./internal/subtle/...
+    - name: Test
+      run: go test -v -short ./...
       env:
         GOARCH: ${{ matrix.arch }}       
