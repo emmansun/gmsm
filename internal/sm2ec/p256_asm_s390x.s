@@ -166,20 +166,7 @@ TEXT ·p256MovCond(SB), NOSPLIT, $0
 	VCEQG  SEL1, ZER, SEL1
 
 	VLM (P1ptr), X1H, Z1L
-	// VL 0(P1ptr), X1H
-	// VL 16(P1ptr), X1L
-	// VL 32(P1ptr), Y1H
-	// VL 48(P1ptr), Y1L
-	// VL 64(P1ptr), Z1H
-	// VL 80(P1ptr), Z1L
-
 	VLM (P2ptr), X2H, Z2L
-	// VL 0(P2ptr), X2H
-	// VL 16(P2ptr), X2L
-	// VL 32(P2ptr), Y2H
-	// VL 48(P2ptr), Y2L
-	// VL 64(P2ptr), Z2H
-	// VL 80(P2ptr), Z2L
 
 	VSEL X2L, X1L, SEL1, X1L
 	VSEL X2H, X1H, SEL1, X1H
@@ -189,12 +176,6 @@ TEXT ·p256MovCond(SB), NOSPLIT, $0
 	VSEL Z2H, Z1H, SEL1, Z1H
 
 	VSTM X1H, Z1L, (P3ptr)
-	// VST X1H, 0(P3ptr)
-	// VST X1L, 16(P3ptr)
-	// VST Y1H, 32(P3ptr)
-	// VST Y1L, 48(P3ptr)
-	// VST Z1H, 64(P3ptr)
-	// VST Z1L, 80(P3ptr)
 
 	RET
 
@@ -226,18 +207,18 @@ TEXT ·p256MovCond(SB), NOSPLIT, $0
 #define LIMIT   R3
 #define COUNT   R4
 
-#define X1L    V0
-#define X1H    V1
-#define Y1L    V2
-#define Y1H    V3
-#define Z1L    V4
-#define Z1H    V5
-#define X2L    V6
-#define X2H    V7
-#define Y2L    V8
-#define Y2H    V9
-#define Z2L    V10
-#define Z2H    V11
+#define X1L    V1
+#define X1H    V0
+#define Y1L    V3
+#define Y1H    V2
+#define Z1L    V5
+#define Z1H    V4
+#define X2L    V7
+#define X2H    V6
+#define Y2L    V9
+#define Y2H    V8
+#define Z2L    V11
+#define Z2H    V10
 
 #define ONE   V18
 #define IDX   V19
@@ -260,12 +241,7 @@ TEXT ·p256Select(SB), NOSPLIT, $0
 	VZERO Z1L
 
 loop_select:
-	VL 0(P1ptr), X2H
-	VL 16(P1ptr), X2L
-	VL 32(P1ptr), Y2H
-	VL 48(P1ptr), Y2L
-	VL 64(P1ptr), Z2H
-	VL 80(P1ptr), Z2L
+	VLM (P1ptr), X2H, Z2L
 
 	VCEQG SEL2, IDX, SEL1
 
@@ -280,15 +256,9 @@ loop_select:
 	ADD  $96, P1ptr
 	ADD  $1, COUNT
 	CMPBLE  COUNT, LIMIT, loop_select
-	//CMPW COUNT, $33
-	//BLT  loop_select
 
-	VST X1H, 0(P3ptr)
-	VST X1L, 16(P3ptr)
-	VST Y1H, 32(P3ptr)
-	VST Y1L, 48(P3ptr)
-	VST Z1H, 64(P3ptr)
-	VST Z1L, 80(P3ptr)
+	VSTM X1H, Z1L, (P3ptr)
+
 	RET
 
 #undef P3ptr
@@ -464,18 +434,14 @@ TEXT ·p256FromMont(SB), NOSPLIT, $0
 #define COUNT   R4
 #define CPOOL   R5
 
-#define X1L    V0
-#define X1H    V1
-#define Y1L    V2
-#define Y1H    V3
-#define Z1L    V4
-#define Z1H    V5
-#define X2L    V6
-#define X2H    V7
-#define Y2L    V8
-#define Y2H    V9
-#define Z2L    V10
-#define Z2H    V11
+#define X1L    V1
+#define X1H    V0
+#define Y1L    V3
+#define Y1H    V2
+#define X2L    V7
+#define X2H    V6
+#define Y2L    V9
+#define Y2H    V8
 
 #define ONE   V18
 #define IDX   V19
@@ -497,10 +463,7 @@ TEXT ·p256SelectAffine(SB), NOSPLIT, $0
 	VZERO Y1L
 
 loop_select:
-	VL 0(P1ptr), X2H
-	VL 16(P1ptr), X2L
-	VL 32(P1ptr), Y2H
-	VL 48(P1ptr), Y2L
+	VLM (P1ptr), X2H, Y2L
 
 	VCEQG SEL2, IDX, SEL1
 
@@ -514,10 +477,8 @@ loop_select:
 	ADD  $64, P1ptr
 	CMPW COUNT, $33
 	BLT  loop_select
-	VST  X1H, 0(P3ptr)
-	VST  X1L, 16(P3ptr)
-	VST  Y1H, 32(P3ptr)
-	VST  Y1L, 48(P3ptr)
+
+	VSTM X1H, Y1L, (P3ptr)
 
 	RET
 
@@ -528,14 +489,10 @@ loop_select:
 #undef X1H
 #undef Y1L
 #undef Y1H
-#undef Z1L
-#undef Z1H
 #undef X2L
 #undef X2H
 #undef Y2L
 #undef Y2H
-#undef Z2L
-#undef Z2H
 #undef ONE
 #undef IDX
 #undef SEL1
