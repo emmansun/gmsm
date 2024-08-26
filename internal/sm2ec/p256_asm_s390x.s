@@ -2069,6 +2069,9 @@ TEXT ·p256PointDoubleAsm(SB), NOSPLIT, $0
 	VST  Y3L, 32(P3ptr)
 	RET
 
+TEXT ·p256PointDouble6TimesAsm(SB), NOSPLIT, $0
+	RET
+
 #undef P3ptr
 #undef P1ptr
 #undef CPOOL
@@ -2417,10 +2420,42 @@ TEXT ·p256PointAddAsm(SB), NOSPLIT, $0
 	VST  T0, 32(P3ptr)
 
 	RET
-	
-TEXT ·p256PointDouble6TimesAsm(SB), NOSPLIT, $0
-	RET
 
+#undef P3ptr
+#undef P1ptr
+#undef P2ptr
+#undef CPOOL
+#undef ISZERO
+#undef TRUE
+#undef T1L
+#undef T1H
+#undef T2L
+#undef T2H
+#undef U1L
+#undef U1H
+#undef S1L
+#undef S1H
+#undef HL
+#undef HH
+#undef RL
+#undef RH
+#undef ZER
+#undef SEL1
+#undef CAR1
+#undef CAR2
+#undef TT0
+#undef TT1
+#undef T2
+#undef X0
+#undef X1
+#undef Y0
+#undef Y1
+#undef T0
+#undef T1
+#undef PL
+#undef PH
+
+//func p256OrdReduce(s *p256OrdElement)
 #define res_ptr R1
 #define CPOOL   R4
 
@@ -2436,7 +2471,6 @@ TEXT ·p256PointDouble6TimesAsm(SB), NOSPLIT, $0
 #define PL    V9
 #define PH    V10
 
-//func p256OrdReduce(s *p256OrdElement)
 TEXT ·p256OrdReduce(SB),NOSPLIT,$0
 	MOVD res+0(FP), res_ptr
 
