@@ -203,4 +203,7 @@ func TestPointDouble(t *testing.T) {
 	if !bytes.Equal(double1.Bytes(), double2.Bytes()) {
 		t.Error("PointDouble6Times is incorrect")
 	}
+	if hex.EncodeToString(double1.Bytes()) != "0497662389f36ce643a47dcf644f700651e988794843797b0c4a69c806e78615c2cd4d9449aea5cac5328b8d67d4ae956f5eb06c4515ff01bd17eef58bf866b33f" {
+		t.Errorf("PointDouble6Times is incorrect %x", double1.Bytes())
+	}
 }

@@ -208,7 +208,6 @@ func TestScalarMult(t *testing.T) {
 		fatalIfErr(t, err)
 		p2, err := NewSM2P256Point().ScalarMult(G, scalar)
 		fatalIfErr(t, err)
-		fmt.Printf("scalar: %x, p2: %x\n", scalar, p2.Bytes())
 		if !bytes.Equal(p1.Bytes(), p2.Bytes()) {
 			t.Errorf("[k]G != ScalarBaseMult(k), k=%x, p1=%x, p2=%x", scalar, p1.Bytes(), p2.Bytes())
 		}
