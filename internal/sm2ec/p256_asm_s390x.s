@@ -894,9 +894,10 @@ TEXT ·p256OrdMul(SB), NOSPLIT, $0
 	MOVD $p256ord<>+0x00(SB), R4
 	VLM (R4), M1, M0
 
-	VLM (x_ptr), X0, Y1
+	VLM (x_ptr), X0, X1
 	VPDI $0x4, X0, X0, X0
 	VPDI $0x4, X1, X1, X1
+	VLM (y_ptr), Y0, Y1
 	VPDI $0x4, Y0, Y0, Y0
 	VPDI $0x4, Y1, Y1, Y1
 
