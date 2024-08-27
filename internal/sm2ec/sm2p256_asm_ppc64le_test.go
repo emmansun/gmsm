@@ -56,8 +56,10 @@ func TestP256FromMont(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		bigVal := big.NewInt(int64(i))
 		testP256FromMont(bigVal, t)
-		bigVal = new(big.Int).Sub(p, big.NewInt(int64(i)))
-		testP256FromMont(bigVal, t)
+		if i != 0 {
+			bigVal = new(big.Int).Sub(p, big.NewInt(int64(i)))
+			testP256FromMont(bigVal, t)
+		}
 	}
 }
 
