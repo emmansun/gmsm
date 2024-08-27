@@ -995,8 +995,8 @@ loop:
 #define Y1    V3 // Not modified
 #define T0    V4
 #define T1    V5
-#define P0    V30 // Not modified
-#define P1    V31 // Not modified
+#define P0    V31 // Not modified
+#define P1    V30 // Not modified
 
 // Temporaries
 #define YDIG  V6 // Overloaded with CAR2, ZER
@@ -1352,32 +1352,28 @@ TEXT sm2p256SqrInternal<>(SB), NOFRAME|NOSPLIT, $0
 #define T1    V5
 
 // Constants
-#define P0    V30
-#define P1    V31
+#define P0    V31
+#define P1    V30
 TEXT ·p256Mul(SB), NOSPLIT, $0
 	MOVD res+0(FP), res_ptr
 	MOVD in1+8(FP), x_ptr
 	MOVD in2+16(FP), y_ptr
 
-	VL   (0*16)(x_ptr), X0
+	VLM   (x_ptr), X0, X1
 	VPDI $0x4, X0, X0, X0
-	VL   (1*16)(x_ptr), X1
 	VPDI $0x4, X1, X1, X1
-	VL   (0*16)(y_ptr), Y0
+	VLM   (y_ptr), Y0, Y1
 	VPDI $0x4, Y0, Y0, Y0
-	VL   (1*16)(y_ptr), Y1
 	VPDI $0x4, Y1, Y1, Y1
 
 	MOVD $p256mul<>+0x00(SB), CPOOL
-	VL   16(CPOOL), P0
-	VL   0(CPOOL), P1
+	VLM   (CPOOL), P1, P0
 
 	CALL sm2p256MulInternal<>(SB)
 
 	VPDI $0x4, T0, T0, T0
-	VST  T0, (0*16)(res_ptr)
 	VPDI $0x4, T1, T1, T1
-	VST  T1, (1*16)(res_ptr)
+	VSTM  T0, T1, (res_ptr)
 	RET
 
 #undef res_ptr
@@ -1410,22 +1406,20 @@ TEXT ·p256Mul(SB), NOSPLIT, $0
 #define T1    V5
 
 // Constants
-#define P0    V30
-#define P1    V31
+#define P0    V31
+#define P1    V30
 TEXT ·p256Sqr(SB), NOSPLIT, $0
 	MOVD res+0(FP), res_ptr
 	MOVD in+8(FP), x_ptr
 
-	VL   (0*16)(x_ptr), X0
+	VLM   (x_ptr), X0, X1
 	VPDI $0x4, X0, X0, X0
-	VL   (1*16)(x_ptr), X1
 	VPDI $0x4, X1, X1, X1
 
 	MOVD $p256mul<>+0x00(SB), CPOOL
 	MOVD $0, COUNT
 	MOVD n+16(FP), N
-	VL   16(CPOOL), P0
-	VL   0(CPOOL), P1
+	VLM   (CPOOL), P1, P0
 
 loop:
 	CALL sm2p256SqrInternal<>(SB)
@@ -1436,9 +1430,8 @@ loop:
 	BLT  loop
 
 	VPDI $0x4, T0, T0, T0
-	VST  T0, (0*16)(res_ptr)
 	VPDI $0x4, T1, T1, T1
-	VST  T1, (1*16)(res_ptr)
+	VSTM  T0, T1, (res_ptr)
 	RET
 
 #undef res_ptr
@@ -1490,8 +1483,8 @@ loop:
 #define T0    V4
 #define T1    V5
 
-#define PL    V30
-#define PH    V31
+#define PL    V31
+#define PH    V30
 
 // Names for zero/sel selects
 #define X1L    V0
@@ -1870,8 +1863,8 @@ TEXT ·p256PointAddAffineAsm(SB), NOSPLIT, $0
 #define T0    V4
 #define T1    V5
 
-#define PL    V30
-#define PH    V31
+#define PL    V31
+#define PH    V30
 
 #define Z3L    V23
 #define Z3H    V24
@@ -1914,18 +1907,16 @@ TEXT ·p256PointAddAffineAsm(SB), NOSPLIT, $0
 
 #define p256PointDoubleRound(P1ptr, P3ptr) \
 	\ // X=Z1; Y=Z1; MUL; T-    // T1 = Z1²
-	VL   80(P1ptr), X1                     \ // Z1H         
+	VLM  64(P1ptr), X0, X1                 \ // Z1L, Z1H
 	VPDI $0x4, X1, X1, X1                  \               
-	VL   64(P1ptr), X0                     \ // Z1L
 	VPDI $0x4, X0, X0, X0                  \
 	VLR  X0, Y0                            \
 	VLR  X1, Y1                            \
 	CALL sm2p256SqrInternal<>(SB)          \
 	\
 	\ // SUB(X<X1-T)            // T2 = X1-T1
-	VL   16(P1ptr), X1H                    \
+	VLM  (P1ptr), X1L, X1H                 \
 	VPDI $0x4, X1H, X1H, X1H               \
-	VL   0(P1ptr), X1L                     \
 	VPDI $0x4, X1L, X1L, X1L               \
 	p256SubInternal(X1,X0,X1H,X1L,T1,T0)   \
 	\
@@ -1940,22 +1931,19 @@ TEXT ·p256PointAddAffineAsm(SB), NOSPLIT, $0
 	p256AddInternal(T2H,T2L,T2H,T2L,T1,T0) \
 	\
 	\// ADD(X<Y1+Y1)           // Y3 = 2*Y1
-	VL   48(P1ptr), Y1H                    \
+	VLM  32(P1ptr), Y1L, Y1H               \
 	VPDI $0x4, Y1H, Y1H, Y1H               \
-	VL   32(P1ptr), Y1L                    \
 	VPDI $0x4, Y1L, Y1L, Y1L               \
 	p256AddInternal(X1,X0,Y1H,Y1L,Y1H,Y1L) \
 	\
 	\// X-  ; Y=Z1; MUL; Z3:=T // Z3 = Y3*Z1
-	VL   80(P1ptr), Y1                     \ // Z1H
+	VLM  64(P1ptr), Y0, Y1                 \ // Z1L, Z1H
 	VPDI $0x4, Y1, Y1, Y1                  \
-	VL   64(P1ptr), Y0                     \ // Z1L
 	VPDI $0x4, Y0, Y0, Y0                  \
 	CALL sm2p256MulInternal<>(SB)          \
 	VPDI $0x4, T1, T1, TT1                 \
-	VST  TT1, 80(P3ptr)                    \
 	VPDI $0x4, T0, T0, TT0                 \
-	VST  TT0, 64(P3ptr)                    \
+	VSTM  TT0, TT1, 64(P3ptr)              \
 	\
 	\ // X-  ; Y=X ; MUL; T-    // Y3 = Y3²
 	VLR  X0, Y0                            \
@@ -1965,9 +1953,8 @@ TEXT ·p256PointAddAffineAsm(SB), NOSPLIT, $0
 	\ // X=T ; Y=X1; MUL; T3=T  // T3 = Y3*X1
 	VLR  T0, X0                            \
 	VLR  T1, X1                            \
-	VL   16(P1ptr), Y1                     \
+	VLM  0(P1ptr), Y0, Y1                  \
 	VPDI $0x4, Y1, Y1, Y1                  \
-	VL   0(P1ptr), Y0                      \
 	VPDI $0x4, Y0, Y0, Y0                  \
 	CALL sm2p256MulInternal<>(SB)          \
 	VLR  T0, T3L                           \
@@ -1994,9 +1981,8 @@ TEXT ·p256PointAddAffineAsm(SB), NOSPLIT, $0
 	\ // SUB(X3<T-T1) X3:=X3    // X3 = X3-T1
 	p256SubInternal(X3H,X3L,T1,T0,T1H,T1L) \
 	VPDI $0x4, X3H, X3H, TT1               \
-	VST  TT1, 16(P3ptr)                    \
 	VPDI $0x4, X3L, X3L, TT0               \
-	VST  TT0, 0(P3ptr)                     \
+	VSTM  TT0, TT1, (P3ptr)                \
 	\
 	\ // SUB(X<T3-X3)           // T1 = T3-X3
 	p256SubInternal(X1,X0,T3H,T3L,X3H,X3L) \
@@ -2008,17 +1994,15 @@ TEXT ·p256PointAddAffineAsm(SB), NOSPLIT, $0
 	p256SubInternal(Y3H,Y3L,T1,T0,Y3H,Y3L) \
 	\
 	VPDI $0x4, Y3H, Y3H, Y3H               \
-	VST  Y3H, 48(P3ptr)                    \
 	VPDI $0x4, Y3L, Y3L, Y3L               \
-	VST  Y3L, 32(P3ptr)                    \
+	VSTM  Y3L, Y3H, 32(P3ptr)              \
 
 TEXT ·p256PointDoubleAsm(SB), NOSPLIT, $0
 	MOVD res+0(FP), P3ptr
 	MOVD in+8(FP), P1ptr
 
 	MOVD $p256mul<>+0x00(SB), CPOOL
-	VL   16(CPOOL), PL
-	VL   0(CPOOL), PH
+	VLM   (CPOOL), PH, PL
 
 	p256PointDoubleRound(P1ptr, P3ptr)
 	RET
@@ -2028,8 +2012,7 @@ TEXT ·p256PointDouble6TimesAsm(SB), NOSPLIT, $0
 	MOVD in+8(FP), P1ptr
 
 	MOVD $p256mul<>+0x00(SB), CPOOL
-	VL   16(CPOOL), PL
-	VL   0(CPOOL), PH
+	VLM   (CPOOL), PH, PL
 
 	p256PointDoubleRound(P1ptr, P3ptr)
 	p256PointDoubleRound(P3ptr, P3ptr)
@@ -2116,8 +2099,8 @@ TEXT ·p256PointDouble6TimesAsm(SB), NOSPLIT, $0
 #define T0    V4
 #define T1    V5
 
-#define PL    V30
-#define PH    V31
+#define PL    V31
+#define PH    V30
 /*
  * https://delta.cs.cinvestav.mx/~francisco/arith/julio.pdf "Software Implementation of the NIST Elliptic Curves Over Prime Fields"
  *
@@ -2190,13 +2173,11 @@ TEXT ·p256PointAddAsm(SB), NOSPLIT, $0
 	MOVD in2+16(FP), P2ptr
 
 	MOVD $p256mul<>+0x00(SB), CPOOL
-	VL   16(CPOOL), PL
-	VL   0(CPOOL), PH
+	VLM   (CPOOL), PH, PL
 
 	// X=Z1; Y=Z1; MUL; T-   // T1 = Z1*Z1
-	VL   80(P1ptr), X1       // Z1H
+	VLM  64(P1ptr), X0, X1   // Z1L, Z1H
 	VPDI $0x4, X1, X1, X1
-	VL   64(P1ptr), X0       // Z1L
 	VPDI $0x4, X0, X0, X0
 	VLR  X0, Y0
 	VLR  X1, Y1
@@ -2210,18 +2191,16 @@ TEXT ·p256PointAddAsm(SB), NOSPLIT, $0
 	VLR  T1, RH
 
 	// X=X2; Y-  ; MUL; H=T  // H  = X2*T1
-	VL   16(P2ptr), X1       // X2H
+	VLM  (P2ptr), X0, X1    // X2L, X2H
 	VPDI $0x4, X1, X1, X1
-	VL   0(P2ptr), X0        // X2L
 	VPDI $0x4, X0, X0, X0
 	CALL sm2p256MulInternal<>(SB)
 	VLR  T0, HL
 	VLR  T1, HH
 
 	// X=Z2; Y=Z2; MUL; T-   // T2 = Z2*Z2
-	VL   80(P2ptr), X1       // Z2H
+	VLM  64(P2ptr), X0, X1  // Z2L, Z2H
 	VPDI $0x4, X1, X1, X1
-	VL   64(P2ptr), X0       // Z2L
 	VPDI $0x4, X0, X0, X0
 	VLR  X0, Y0
 	VLR  X1, Y1
@@ -2235,9 +2214,8 @@ TEXT ·p256PointAddAsm(SB), NOSPLIT, $0
 	VLR  T1, S1H
 
 	// X=X1; Y-  ; MUL; U1=T // U1 = X1*T2
-	VL   16(P1ptr), X1       // X1H
+	VLM  (P1ptr), X0, X1     // X1L, X1H
 	VPDI $0x4, X1, X1, X1
-	VL   0(P1ptr), X0        // X1L
 	VPDI $0x4, X0, X0, X0
 	CALL sm2p256MulInternal<>(SB)
 	VLR  T0, U1L
@@ -2262,13 +2240,11 @@ TEXT ·p256PointAddAsm(SB), NOSPLIT, $0
 	MOVD   ISZERO, ret+24(FP)
 
 	// X=Z1; Y=Z2; MUL; T-   // Z3 = Z1*Z2
-	VL   80(P1ptr), X1       // Z1H
+	VLM  64(P1ptr), X0, X1   // Z1L, Z1H
 	VPDI $0x4, X1, X1, X1
-	VL   64(P1ptr), X0       // Z1L
 	VPDI $0x4, X0, X0, X0
-	VL   80(P2ptr), Y1       // Z2H
+	VLM  64(P2ptr), Y0, Y1   // Z2L, Z2H
 	VPDI $0x4, Y1, Y1, Y1
-	VL   64(P2ptr), Y0       // Z2L
 	VPDI $0x4, Y0, Y0, Y0
 	CALL sm2p256MulInternal<>(SB)
 
@@ -2279,14 +2255,12 @@ TEXT ·p256PointAddAsm(SB), NOSPLIT, $0
 	VLR  HH, Y1
 	CALL sm2p256MulInternal<>(SB)
 	VPDI $0x4, T1, T1, TT1
-	VST  TT1, 80(P3ptr)
 	VPDI $0x4, T0, T0, TT0
-	VST  TT0, 64(P3ptr)
+	VSTM  TT0, TT1, 64(P3ptr)
 
 	// X=Y1; Y=S1; MUL; S1=T // S1 = Y1*S1
-	VL   48(P1ptr), X1
+	VLM  32(P1ptr), X0, X1
 	VPDI $0x4, X1, X1, X1
-	VL   32(P1ptr), X0
 	VPDI $0x4, X0, X0, X0
 	VLR  S1L, Y0
 	VLR  S1H, Y1
@@ -2295,9 +2269,8 @@ TEXT ·p256PointAddAsm(SB), NOSPLIT, $0
 	VLR  T1, S1H
 
 	// X=Y2; Y=R ; MUL; T-   // R  = Y2*R
-	VL   48(P2ptr), X1
+	VLM  32(P2ptr), X0, X1
 	VPDI $0x4, X1, X1, X1
-	VL   32(P2ptr), X0
 	VPDI $0x4, X0, X0, X0
 	VLR  RL, Y0
 	VLR  RH, Y1
@@ -2359,9 +2332,8 @@ TEXT ·p256PointAddAsm(SB), NOSPLIT, $0
 	// SUB(T<T-X) X3:=T      // X3 = X3-T1 << store-out X3 result reg
 	p256SubInternal(T1,T0,T1,T0,X1,X0)
 	VPDI $0x4, T1, T1, TT1
-	VST  TT1, 16(P3ptr)
 	VPDI $0x4, T0, T0, TT0
-	VST  TT0, 0(P3ptr)
+	VSTM  TT0, TT1, (P3ptr)
 
 	// SUB(Y<U1-T)           // Y3 = U1-X3
 	p256SubInternal(Y1,Y0,U1H,U1L,T1,T0)
@@ -2383,9 +2355,8 @@ TEXT ·p256PointAddAsm(SB), NOSPLIT, $0
 	// SUB(T<U1-T); Y3:=T    // Y3 = Y3-T2 << store-out Y3 result reg
 	p256SubInternal(T1,T0,U1H,U1L,T1,T0)
 	VPDI $0x4, T1, T1, T1
-	VST  T1, 48(P3ptr)
 	VPDI $0x4, T0, T0, T0
-	VST  T0, 32(P3ptr)
+	VSTM  T0, T1, 32(P3ptr)
 
 	RET
 
@@ -2436,8 +2407,8 @@ TEXT ·p256PointAddAsm(SB), NOSPLIT, $0
 #define ZER   V6
 #define CAR1  V7
 #define CAR2  V8
-#define PL    V9
-#define PH    V10
+#define PL    V10
+#define PH    V9
 
 TEXT ·p256OrdReduce(SB),NOSPLIT,$0
 	MOVD res+0(FP), res_ptr
@@ -2445,12 +2416,10 @@ TEXT ·p256OrdReduce(SB),NOSPLIT,$0
 	VZERO T2
 	VZERO ZER
 	MOVD  $p256ord<>+0x00(SB), CPOOL
-	VL    16(CPOOL), PL
-	VL    0(CPOOL), PH
+	VLM  (CPOOL), PH, PL
 
-	VL   (0*16)(res_ptr), T0
+	VLM  (res_ptr), T0, T1
 	VPDI $0x4, T0, T0, T0
-	VL   (1*16)(res_ptr), T1
 	VPDI $0x4, T1, T1, T1
 
 	VSCBIQ  PL, T0, CAR1
@@ -2464,9 +2433,8 @@ TEXT ·p256OrdReduce(SB),NOSPLIT,$0
 	VSEL T1, TT1, T2, T1
 
 	VPDI $0x4, T0, T0, TT0
-	VST  TT0, (0*16)(res_ptr)
 	VPDI $0x4, T1, T1, TT1
-	VST  TT1, (1*16)(res_ptr)
+	VSTM  TT0, TT1, (res_ptr)
 
 	RET
 #undef res_ptr
