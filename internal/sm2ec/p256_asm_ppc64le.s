@@ -1675,7 +1675,7 @@ TEXT ·p256PointAddAffineAsm(SB), NOSPLIT, $16-48
 	XXPERMDI X1L, X1L, $2, X1L	\
 	XXPERMDI X1H, X1H, $2, X1H	\
 	\
-	p256SubInternal(X1,X0,X1H,X1L,T1,T0)
+	p256SubInternal(X1,X0,X1H,X1L,T1,T0)	\
 	\
 	\ // ADD(Y<X1+T)            // T1 = X1+T1
 	p256AddInternal(Y1,Y0,X1H,X1L,T1,T0)	\
