@@ -29,11 +29,12 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v4
 
-    - name: Build
-      run: go build -v ./internal/bigmod/...
-      
     - name: Test
       run: go test -v -short ./internal/bigmod/...
       env:
-        GODEBUG: x509sha1=1
+        GOARCH: ${{ matrix.arch }}      
+
+    - name: Test
+      run: go test -v -short ./internal/sm2ec/...
+      env:
         GOARCH: ${{ matrix.arch }}      
