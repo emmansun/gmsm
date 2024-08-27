@@ -875,8 +875,8 @@ TEXT sm2p256OrdSqrInternal<>(SB), NOFRAME|NOSPLIT, $0
 #define X1    V1
 #define Y0    V2
 #define Y1    V3
-#define M0    V4
-#define M1    V5
+#define M0    V5
+#define M1    V4
 #define T0    V6
 #define T1    V7
 #define K0    V31
@@ -892,24 +892,19 @@ TEXT ·p256OrdMul(SB), NOSPLIT, $0
 	//BYTE $0x38
 	//BYTE $0x03
 	MOVD $p256ord<>+0x00(SB), R4
-	VL   16(R4), M0
-	VL   0(R4), M1
+	VLM (R4), M1, M0
 
-	VL   (0*16)(x_ptr), X0
+	VLM (x_ptr), X0, Y1
 	VPDI $0x4, X0, X0, X0
-	VL   (1*16)(x_ptr), X1
 	VPDI $0x4, X1, X1, X1
-	VL   (0*16)(y_ptr), Y0
 	VPDI $0x4, Y0, Y0, Y0
-	VL   (1*16)(y_ptr), Y1
 	VPDI $0x4, Y1, Y1, Y1
 
 	CALL sm2p256OrdMulInternal<>(SB)
 
 	VPDI $0x4, T0, T0, T0
-	VST  T0, (0*16)(res_ptr)
 	VPDI $0x4, T1, T1, T1
-	VST  T1, (1*16)(res_ptr)
+	VSTM T0, T1, (res_ptr)
 
 	RET
 
@@ -934,8 +929,8 @@ TEXT ·p256OrdMul(SB), NOSPLIT, $0
 #define N       R6
 #define X0    V0
 #define X1    V1
-#define M0    V4
-#define M1    V5
+#define M0    V5
+#define M1    V4
 #define T0    V6
 #define T1    V7
 #define K0    V31
@@ -953,12 +948,10 @@ TEXT ·p256OrdSqr(SB), NOSPLIT, $0
 	//BYTE $0x38
 	//BYTE $0x03
 	MOVD $p256ord<>+0x00(SB), R4
-	VL   16(R4), M0
-	VL   0(R4), M1
+	VLM (R4), M1, M0
 
-	VL   (0*16)(x_ptr), X0
+	VLM   (x_ptr), X0, X1
 	VPDI $0x4, X0, X0, X0
-	VL   (1*16)(x_ptr), X1
 	VPDI $0x4, X1, X1, X1
 
 loop:
@@ -970,9 +963,8 @@ loop:
 	BLT  loop
 
 	VPDI $0x4, T0, T0, T0
-	VST  T0, (0*16)(res_ptr)
 	VPDI $0x4, T1, T1, T1
-	VST  T1, (1*16)(res_ptr)
+	VSTM  T0, T1, (res_ptr)
 	
 	RET
 
