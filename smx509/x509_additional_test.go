@@ -129,10 +129,40 @@ BQADSAAwRQIhAIp7/3vva+ZxFePKdqkzdGoVyGsfGHhiLLQeKrCZQ2Q5AiAmMOdf
 0f0b8CilrVWdi8pfZyO6RqYfnpcJ638l7KHfNA==
 -----END CERTIFICATE-----`
 
+const openSSL3Certificate = `
+-----BEGIN CERTIFICATE-----
+MIICGzCCAcCgAwIBAgIUZ2YpsJJVNcwfjCHBEz8otQDEpUEwCgYIKoEcz1UBg3Uw
+YjELMAkGA1UEBhMCSU4xEjAQBgNVBAgMCUJlbmdhbHVydTENMAsGA1UEBwwEQ2l0
+eTEQMA4GA1UECgwHU29tZU9yZzENMAsGA1UECwwEVGVzdDEPMA0GA1UEAwwGUm9v
+dENBMB4XDTI0MDgyNzAyMzQ1NloXDTM0MDgyNTAyMzQ1NlowYjELMAkGA1UEBhMC
+SU4xEjAQBgNVBAgMCUJlbmdhbHVydTENMAsGA1UEBwwEQ2l0eTEQMA4GA1UECgwH
+U29tZU9yZzENMAsGA1UECwwEVGVzdDEPMA0GA1UEAwwGUm9vdENBMFowFAYIKoEc
+z1UBgi0GCCqBHM9VAYItA0IABC8HaH8+WYCtUk06wAFfzR09nnOlQOJ2oORwD25m
+S55CdJv+Svzji0nSeSWtXBzo9y4Q6EKLDpOSQbKYeswVDoejUzBRMB0GA1UdDgQW
+BBRSGm5/62dcOw8vkiG8YGoZMf6UIzAfBgNVHSMEGDAWgBRSGm5/62dcOw8vkiG8
+YGoZMf6UIzAPBgNVHRMBAf8EBTADAQH/MAoGCCqBHM9VAYN1A0kAMEYCIQDC4s3P
+wAKTEz+410/odAO30Wzam895L31T1MQ0EaBYtQIhALbw1l4lcun4RTVWYQN5A2r2
+Cm2A1bCQaLWY1jsQTBpf
+-----END CERTIFICATE-----`
+
 func Test_ParseCertificate(t *testing.T) {
 	cert, err := ParseCertificatePEM([]byte(sm2Certificate))
 	if err != nil {
 		t.Fatal(err)
+	}
+	_, err = json.Marshal(cert)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cert, err = ParseCertificatePEM([]byte(openSSL3Certificate))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cert.PublicKeyAlgorithm != x509.ECDSA {
+		t.Fatal("should be ECDSA")
+	}
+	if cert.SignatureAlgorithm != SM2WithSM3 {
+		t.Fatal("should be SM2WithSM3")
 	}
 	_, err = json.Marshal(cert)
 	if err != nil {
