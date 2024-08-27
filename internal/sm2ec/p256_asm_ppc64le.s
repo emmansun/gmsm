@@ -636,7 +636,7 @@ TEXT ·p256FromMont(SB), NOSPLIT, $0-16
 #undef PH
 
 //func p256OrdReduce(s *p256OrdElement)
-#define res_ptr R1
+#define res_ptr R3
 #define CPOOL   R4
 
 #define T0   V0
