@@ -47,7 +47,7 @@ func testP256FromMont(v *big.Int, t *testing.T) {
 	res := new(p256Element)
 	p256FromMont(res, val)
 	if toBigInt(res).Cmp(v) != 0 {
-		t.Fatalf("p256FromMont failed for %v", v)
+		t.Errorf("p256FromMont failed for %x", v.Bytes())
 	}
 }
 
@@ -61,12 +61,12 @@ func TestP256FromMont(t *testing.T) {
 	}
 }
 
-func testP256OrderReduce(v *big.Int, t *testing.T) {
+func testP256OrderReduce(v, expected *big.Int, t *testing.T) {
 	val := new(p256OrdElement)
-	montFromBig((*[4]uint64)(val), v)
+	fromBig((*[4]uint64)(val), v)
 	p256OrdReduce(val)
-	if ordElmToBigInt(val).Cmp(v) != 0 {
-		t.Fatalf("p256OrdReduce failed for %x, got %x", v.Bytes(), ordElmToBigInt(val).Bytes())
+	if ordElmToBigInt(val).Cmp(expected) != 0 {
+		t.Errorf("p256OrdReduce failed for %x, expected %x", v.Bytes(), expected.Bytes())
 	}
 }
 
@@ -74,8 +74,13 @@ func TestP256OrderReduce(t *testing.T) {
 	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123", 16)
 	for i := 0; i < 20; i++ {
 		bigVal := big.NewInt(int64(i))
-		testP256OrderReduce(bigVal, t)
-		bigVal = new(big.Int).Sub(p, big.NewInt(int64(i)))
-		testP256OrderReduce(bigVal, t)
+		testP256OrderReduce(bigVal, bigVal, t)
+		bigVal = new(big.Int).Add(p, big.NewInt(int64(i)))
+		testP256OrderReduce(bigVal, big.NewInt(int64(i)), t)
+	}
+	testP256OrderReduce(p, big.NewInt(0), t)
+	for i := 1; i < 20; i++ {
+		bigVal := new(big.Int).Sub(p, big.NewInt(int64(i)))
+		testP256OrderReduce(bigVal, bigVal, t)
 	}
 }
