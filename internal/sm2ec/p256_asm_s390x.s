@@ -501,8 +501,8 @@ loop_select:
 #define X1    V1
 #define Y0    V2
 #define Y1    V3
-#define M0    V4
-#define M1    V5
+#define M1    V4
+#define M0    V5
 #define T0    V6
 #define T1    V7
 #define T2    V8
