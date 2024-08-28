@@ -151,8 +151,8 @@ TEXT ·p256NegCond(SB), NOSPLIT, $0-16
 	VSUBUQM  PL, Y1L, T1L       // subtract part2 giving result
 	VSUBEUQM PH, Y1H, CAR1, T1H // subtract part1 using carry from part2
 	
-	VSEL Y1H, T1H, SEL, Y1H
-	VSEL Y1L, T1L, SEL, Y1L
+	VSEL T1H, Y1H, SEL, Y1H
+	VSEL T1L, Y1L, SEL, Y1L
 
 	XXPERMDI Y1H, Y1H, $2, Y1H
 	XXPERMDI Y1L, Y1L, $2, Y1L
