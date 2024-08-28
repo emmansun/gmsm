@@ -1,6 +1,3 @@
-// The original code (non-vector) is ported from Golang 
-// https://github.com/golang/go/blob/master/src/crypto/aes/ctr_s390x.go
-
 //go:build !purego
 
 #include "textflag.h"
@@ -25,6 +22,7 @@ loop16b:
 	CMPBGE	R4, $16, loop16b
 
 tail:
+	CMPBEQ	R4, $0, done
 	CMPBLT	R4, $8, less_than8
 	MOVD	0(R2)(R5*1), R7
 	MOVD	0(R3)(R5*1), R8
