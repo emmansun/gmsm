@@ -43,7 +43,7 @@ func TestXORBytes(t *testing.T) {
 					}
 
 					if subtle.XORBytes(d[alignD:], p, q); !bytes.Equal(d, want) {
-						t.Errorf("n=%d alignP=%d alignQ=%d alignD=%d:\n\tp = %x\n\tq = %x\n\td = %x\n\twant %x\n", n, alignP, alignQ, alignD, p, q, d, want)
+						t.Fatalf("n=%d alignP=%d alignQ=%d alignD=%d:\n\tp = %x\n\tq = %x\n\td = %x\n\twant %x\n", n, alignP, alignQ, alignD, p, q, d, want)
 					}
 				}
 			}

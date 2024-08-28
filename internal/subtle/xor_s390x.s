@@ -1,6 +1,5 @@
-// Copyright 2016 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
+// The original code (non-vector) is ported from Golang 
+// https://github.com/golang/go/blob/master/src/crypto/aes/ctr_s390x.go
 
 //go:build !purego
 
@@ -17,13 +16,13 @@ TEXT ·xorBytes(SB),NOSPLIT,$0-32
 	CMPBLT	R4, $64, less_than64
 
 loop64b:
-	VLM (R2)(R5*1), V0, V3
-	VLM (R3)(R5*1), V4, V7
+	VLM 0(R2)(R5*1), V0, V3
+	VLM 0(R3)(R5*1), V4, V7
 	VX V0, V4, V4
 	VX V1, V5, V5
 	VX V2, V6, V6
 	VX V3, V7, V7
-	VSTM V4, V7, (R1)(R5*1)
+	VSTM V4, V7, 0(R1)(R5*1)
 	LAY	64(R5), R5
 	SUB	$64, R4
 	CMPBGE	R4, $64, loop64b
@@ -31,11 +30,11 @@ loop64b:
 less_than64:
 	CMPBEQ	R4, $0, done // quick end
 	CMPBLT	R4, $32, less_than32
-	VLM (R2)(R5*1), V0, V1
-	VLM (R3)(R5*1), V2, V3
+	VLM 0(R2)(R5*1), V0, V1
+	VLM 0(R3)(R5*1), V2, V3
 	VX V0, V2, V2
 	VX V1, V3, V3
-	VSTM V2, V3, (R1)(R5*1)
+	VSTM V2, V3, 0(R1)(R5*1)
 	LAY	32(R5), R5
 	SUB	$32, R4
 
