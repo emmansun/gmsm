@@ -36,14 +36,14 @@ loop_64:
 tail:
 	CMPBEQ	R4, $0, done
 	CMPBLT	R4, $32, less_than32
-	VLM 0(R2)(R5*1), V0, V1
-	//VL 16(R2)(R5*1), V1
-	VLM 0(R3)(R5*1), V2, V3
-	//VL 16(R3)(R5*1), V3
+	VL 0(R2)(R5*1), V0
+	VL 16(R2)(R5*1), V1
+	VL 0(R3)(R5*1), V2
+	VL 16(R3)(R5*1), V3
 	VX V0, V2, V2
 	VX V1, V3, V3
-	VSTM V2, V3, 0(R1)(R5*1)
-	//VST V3, 16(R1)(R5*1)
+	VST V2, 0(R1)(R5*1)
+	VST V3, 16(R1)(R5*1)
 	LAY	32(R5), R5
 	SUB	$32, R4
 
