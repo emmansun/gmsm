@@ -35,7 +35,7 @@ less_than64:
 	VLM (R3)(R5*1), V2, V3
 	VX V0, V2, V2
 	VX V1, V3, V3
-	VSTM V2, V3, 0(R1)(R5*1)
+	VSTM V2, V3, (R1)(R5*1)
 	LAY	32(R5), R5
 	SUB	$32, R4
 
