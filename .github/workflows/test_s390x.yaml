@@ -29,11 +29,11 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v4
 
-    - name: Test SM2EC
-      run: go test -v ./internal/sm2ec/...
+    - name: Test internal
+      run: go test -v ./internal/...
       env:
         GOARCH: ${{ matrix.arch }}
-  
+
 #    - name: Test
 #      run: go test -v -short ./...
 #      env:
