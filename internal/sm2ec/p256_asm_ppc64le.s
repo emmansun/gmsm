@@ -121,15 +121,20 @@ GLOBL p256mul<>(SB), 8, $96
 #define PL    V30
 #define PH    V31
 
+#define SEL   V4
+#define ZER   V5
 #define CAR1  V6
 // func p256NegCond(val *p256Point, cond int)
 TEXT ·p256NegCond(SB), NOSPLIT, $0-16
 	MOVD val+0(FP), P1ptr
 	MOVD $16, R16
+	MOVD $48, R17
 
-	MOVD cond+8(FP), R6
-	CMP  $0, R6
-	BC   12, 2, LR      // just return if cond == 0
+	// cond is R1 + 16 (cond offset) + 32
+	LXVDSX (R1)(R17), SEL
+	VSPLTISB $0, ZER
+	// SEL controls whether to store a or b
+	VCMPEQUD SEL, ZER, SEL
 
 	MOVD $p256mul<>+0x00(SB), CPOOL
 
@@ -145,12 +150,15 @@ TEXT ·p256NegCond(SB), NOSPLIT, $0-16
 	VSUBCUQ  PL, Y1L, CAR1      // subtract part2 giving carry
 	VSUBUQM  PL, Y1L, T1L       // subtract part2 giving result
 	VSUBEUQM PH, Y1H, CAR1, T1H // subtract part1 using carry from part2
+	
+	VSEL X1H, T1H, SEL, X1H
+	VSEL X1L, T1L, SEL, X1L
 
-	XXPERMDI T1H, T1H, $2, T1H
-	XXPERMDI T1L, T1L, $2, T1L
+	XXPERMDI X1H, X1H, $2, X1H
+	XXPERMDI X1L, X1L, $2, X1L
 
-	STXVD2X T1L, (R0+P1ptr)
-	STXVD2X T1H, (R16+P1ptr)
+	STXVD2X X1L, (R0+P1ptr)
+	STXVD2X X1H, (R16+P1ptr)
 	RET
 
 #undef P1ptr
@@ -161,6 +169,8 @@ TEXT ·p256NegCond(SB), NOSPLIT, $0-16
 #undef T1H
 #undef PL
 #undef PH
+#undef ZER
+#undef SEL
 #undef CAR1
 
 #define P3ptr   R3
