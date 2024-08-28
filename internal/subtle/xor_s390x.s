@@ -13,22 +13,13 @@ TEXT ·xorBytes(SB),NOSPLIT,$0-32
 	CMPBLT	R4, $64, tail
 
 loop_64:
-	VL 0(R2)(R5*1), V0
-	VL 16(R2)(R5*1), V1
-	VL 32(R2)(R5*1), V2
-	VL 48(R2)(R5*1), V3
-	VL 0(R3)(R5*1), V4
-	VL 16(R3)(R5*1), V5
-	VL 32(R3)(R5*1), V6
-	VL 48(R3)(R5*1), V7
+	VLM 0(R2)(R5*1), V0, V3
+	VLM 0(R3)(R5*1), V4, V7
 	VX V0, V4, V4
 	VX V1, V5, V5
 	VX V2, V6, V6
 	VX V3, V7, V7
-	VST V4, 0(R1)(R5*1)
-	VST V5, 16(R1)(R5*1)
-	VST V6, 32(R1)(R5*1)
-	VST V7, 48(R1)(R5*1)
+	VSTM V4, V7, 0(R1)(R5*1)
 	LAY	64(R5), R5
 	SUB	$64, R4
 	CMPBGE	R4, $64, loop_64
