@@ -128,9 +128,9 @@ GLOBL p256mul<>(SB), 8, $96
 TEXT ·p256NegCond(SB), NOSPLIT, $0-16
 	MOVD val+0(FP), P1ptr
 	MOVD $16, R16
-	MOVD $48, R17
+	MOVD $40, R17
 
-	// cond is R1 + 16 (cond offset) + 32
+	// cond is R1 + 8 (cond offset) + 32
 	LXVDSX (R1)(R17), SEL
 	VSPLTISB $0, ZER
 	// SEL controls whether to store a or b
