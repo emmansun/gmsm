@@ -38,8 +38,8 @@ tail:
 	CMPBLT	R4, $32, less_than32
 	VL 0(R2)(R5*1), V0
 	VL 16(R2)(R5*1), V1
-	VL 0(R3)(R5*1), V4
-	VL 16(R3)(R5*1), V5
+	VL 0(R3)(R5*1), V2
+	VL 16(R3)(R5*1), V3
 	VX V0, V2, V2
 	VX V1, V3, V3
 	VST V2, 0(R1)(R5*1)
