@@ -32,7 +32,7 @@ func p256OrderSqrTest(t *testing.T, x, p, r *big.Int) {
 	expected := new(big.Int).Mul(x, x)
 	expected = expected.Mod(expected, p)
 	if resInt.Cmp(expected) != 0 {
-		t.FailNow()
+		t.Fatalf("expected %x, got %x", expected.Bytes(), resInt.Bytes())
 	}
 }
 
@@ -99,7 +99,7 @@ func p256OrdMulTest(t *testing.T, x, y, p, r *big.Int) {
 	expected := new(big.Int).Mul(x, y)
 	expected = expected.Mod(expected, p)
 	if resInt.Cmp(expected) != 0 {
-		t.FailNow()
+		t.Fatalf("expected %x, got %x", expected.Bytes(), resInt.Bytes())
 	}
 }
 
