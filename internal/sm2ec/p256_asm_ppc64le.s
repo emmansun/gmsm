@@ -917,7 +917,7 @@ TEXT sm2p256OrdMulInternal<>(SB), NOSPLIT, $0
 
 	// what output to use, ADD2||ADD1 or T1||T0?
 	VSEL ADD1, T0, T2, T0
-	VSEL ADD2, T0, T2, T1
+	VSEL ADD2, T1, T2, T1
 	RET
 
 #undef X0
