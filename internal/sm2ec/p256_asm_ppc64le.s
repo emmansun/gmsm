@@ -125,7 +125,7 @@ GLOBL p256mul<>(SB), 8, $96
 #define SEL   V4
 #define ZER   V5
 #define CAR1  V6
-// func p256NegCond(val *p256Point, cond int)
+// func p256NegCond(val *p256Element, cond int)
 TEXT ·p256NegCond(SB), NOSPLIT, $0-16
 	MOVD val+0(FP), P1ptr
 	MOVD $16, R16
