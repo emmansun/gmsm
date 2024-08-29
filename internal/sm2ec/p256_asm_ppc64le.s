@@ -1037,6 +1037,12 @@ sqrOrdLoop:
 	VOR	T1, T1, X1
 	BR	sqrOrdLoop
 
+done:
+	XXPERMDI T0, T0, $2, T0
+	XXPERMDI T1, T1, $2, T1
+	STXVD2X T0, (R0)(res_ptr)
+	STXVD2X T1, (R16)(res_ptr)
+
 	RET
 
 #undef res_ptr
