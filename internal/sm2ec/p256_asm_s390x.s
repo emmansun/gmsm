@@ -55,20 +55,20 @@ TEXT ·p256LittleToBig(SB), NOSPLIT, $0
 // func p256BigToLittle(res *p256Element, in *[32]byte)
 #define res_ptr   R1
 #define in_ptr   R2
-#define T1L   V2
-#define T1H   V3
+#define T1L   V3
+#define T1H   V2
+#define T1L2  V1
 
 TEXT ·p256BigToLittle(SB), NOSPLIT, $0
 	MOVD res+0(FP), res_ptr
 	MOVD in+8(FP), in_ptr
 
-	VL 0(in_ptr), T1H
-	VL 16(in_ptr), T1L
+	VLM (in_ptr), T1H, T1L
 
-	VPDI $0x4, T1L, T1L, T1L
+	VPDI $0x4, T1L, T1L, T1L2
 	VPDI $0x4, T1H, T1H, T1H
 
-	VSTM T1L, T1H, (res_ptr)
+	VSTM T1L2, T1H, (res_ptr)
 
 	RET
 
@@ -76,6 +76,7 @@ TEXT ·p256BigToLittle(SB), NOSPLIT, $0
 #undef in_ptr
 #undef T1L
 #undef T1H
+#undef T1L2
 
 // ---------------------------------------
 // iff cond == 1  val <- -val
@@ -100,9 +101,8 @@ TEXT ·p256NegCond(SB), NOSPLIT, $0
 	MOVD $p256mul<>+0x00(SB), CPOOL
 	VLM   (CPOOL), PH, PL
 
-	VL   16(P1ptr), Y1H
+	VLM   (P1ptr), Y1L, Y1H
 	VPDI $0x4, Y1H, Y1H, Y1H
-	VL   0(P1ptr), Y1L
 	VPDI $0x4, Y1L, Y1L, Y1L
 
 	VLREPG cond+8(FP), SEL1
@@ -117,9 +117,9 @@ TEXT ·p256NegCond(SB), NOSPLIT, $0
 	VSEL Y1H, T1H, SEL1, Y1H
 
 	VPDI $0x4, Y1H, Y1H, Y1H
-	VST  Y1H, 16(P1ptr)
 	VPDI $0x4, Y1L, Y1L, Y1L
-	VST  Y1L, 0(P1ptr)
+	VSTM  Y1L, Y1H, (P1ptr)
+
 	RET
 
 #undef P1ptr
