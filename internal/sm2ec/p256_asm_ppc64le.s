@@ -39,8 +39,8 @@
 // The following constants are defined in an order
 // that is correct for use with LXVD2X/STXVD2X
 // on little endian.
-DATA p256ordK0<>+0x00(SB)/8, $0x72350975723509
-DATA p256ordK0<>+0x08(SB)/8, $0x72350975723509
+DATA p256ordK0<>+0x00(SB)/8, $0x7235097572350975
+DATA p256ordK0<>+0x08(SB)/8, $0x7235097572350975
 DATA p256ord<>+0x00(SB)/8, $0xfffffffeffffffff
 DATA p256ord<>+0x08(SB)/8, $0xffffffffffffffff
 DATA p256ord<>+0x10(SB)/8, $0x7203df6b21c6052b
