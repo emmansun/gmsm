@@ -39,12 +39,12 @@
 // The following constants are defined in an order
 // that is correct for use with LXVD2X/STXVD2X
 // on little endian.
-DATA p256ordK0<>+0x00(SB)/8, $0x7235097572350975
-DATA p256ordK0<>+0x08(SB)/8, $0x7235097572350975
 DATA p256ord<>+0x00(SB)/8, $0xfffffffeffffffff
 DATA p256ord<>+0x08(SB)/8, $0xffffffffffffffff
 DATA p256ord<>+0x10(SB)/8, $0x7203df6b21c6052b
 DATA p256ord<>+0x18(SB)/8, $0x53bbf40939d54123
+DATA p256ord<>+0x20(SB)/8, $0x7235097572350975 // p256ord K0
+DATA p256ord<>+0x28(SB)/8, $0x7235097572350975 // p256ord K0
 DATA p256<>+0x00(SB)/8, $0xfffffffeffffffff // P256
 DATA p256<>+0x08(SB)/8, $0xffffffffffffffff // P256
 DATA p256<>+0x10(SB)/8, $0xffffffff00000000 // P256
@@ -65,8 +65,7 @@ DATA p256mul<>+0x50(SB)/8, $0x0000000100000000 // (1*2^256)%P256
 DATA p256mul<>+0x58(SB)/8, $0x0000000000000000 // (1*2^256)%P256
 
 // External declarations for constants
-GLOBL p256ordK0<>(SB), 8, $16
-GLOBL p256ord<>(SB), 8, $32
+GLOBL p256ord<>(SB), 8, $48
 GLOBL p256<>(SB), 8, $48
 GLOBL p256mul<>(SB), 8, $96
 
@@ -955,6 +954,7 @@ TEXT ·p256OrdMul(SB), NOSPLIT, $0-24
 	MOVD in1+8(FP), x_ptr
 	MOVD in2+16(FP), y_ptr
 	MOVD $16, R16
+	MOVD $32, R17
 
 	LXVD2X (R0)(x_ptr), X0
 	LXVD2X (R16)(x_ptr), X1
@@ -971,10 +971,7 @@ TEXT ·p256OrdMul(SB), NOSPLIT, $0-24
 	MOVD $p256ord<>+0x00(SB), CPOOL
 	LXVD2X (R16)(CPOOL), M0
 	LXVD2X (R0)(CPOOL), M1
-
-	// Can use VSPLTISW $0x72350975, K0 instead
-	MOVD $p256ordK0<>+0x00(SB), CPOOL
-	LXVD2X (R0)(CPOOL), K0
+	LXVD2X (R17)(CPOOL), K0  // Can use VSPLTISW $0x72350975, K0 instead
 
 	CALL sm2p256OrdMulInternal<>(SB)
 
@@ -991,6 +988,7 @@ TEXT ·p256OrdSqr(SB), NOSPLIT, $0-24
 	MOVD in+8(FP), x_ptr
 	MOVD n+16(FP), N
 	MOVD $16, R16
+	MOVD $32, R17
 
 	LXVD2X (R0)(x_ptr), X0
 	LXVD2X (R16)(x_ptr), X1
@@ -1001,10 +999,7 @@ TEXT ·p256OrdSqr(SB), NOSPLIT, $0-24
 	MOVD $p256ord<>+0x00(SB), CPOOL
 	LXVD2X (R16)(CPOOL), M0
 	LXVD2X (R0)(CPOOL), M1
-
-	// Can use VSPLTISW $0x72350975, K0 instead
-	MOVD $p256ordK0<>+0x00(SB), CPOOL
-	LXVD2X (R0)(CPOOL), K0
+	LXVD2X (R17)(CPOOL), K0  // Can use VSPLTISW $0x72350975, K0 instead
 
 sqrOrdLoop:
 	// Sqr uses same value for both
