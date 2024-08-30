@@ -5,9 +5,11 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"testing"
 
+	"github.com/emmansun/gmsm/internal/cryptotest"
 	"github.com/emmansun/gmsm/sm4"
 )
 
@@ -398,7 +400,7 @@ func TestSM4GCMRandom(t *testing.T) {
 	key := []byte("0123456789ABCDEF")
 	nonce := []byte("0123456789AB")
 	plaintext := make([]byte, 0x198)
-	
+
 	io.ReadFull(rand.Reader, plaintext)
 	c, err := sm4.NewCipher(key)
 	if err != nil {
@@ -416,5 +418,42 @@ func TestSM4GCMRandom(t *testing.T) {
 	}
 	if !bytes.Equal(result, plaintext) {
 		t.Error("gcm seal/open 408 bytes fail")
+	}
+}
+
+// Test GCM against the general cipher.AEAD interface tester.
+func TestGCMAEAD(t *testing.T) {
+	minTagSize := 12
+
+	for _, keySize := range []int{128} {
+		// Use AES as underlying block cipher at different key sizes for GCM.
+		t.Run(fmt.Sprintf("SM4-%d", keySize), func(t *testing.T) {
+			rng := newRandReader(t)
+
+			key := make([]byte, keySize/8)
+			rng.Read(key)
+
+			block, err := sm4.NewCipher(key)
+			if err != nil {
+				panic(err)
+			}
+
+			// Test GCM with the current AES block with the standard nonce and tag
+			// sizes.
+			cryptotest.TestAEAD(t, func() (cipher.AEAD, error) { return cipher.NewGCM(block) })
+
+			// Test non-standard tag sizes.
+			t.Run("MinTagSize", func(t *testing.T) {
+				cryptotest.TestAEAD(t, func() (cipher.AEAD, error) { return cipher.NewGCMWithTagSize(block, minTagSize) })
+			})
+
+			// Test non-standard nonce sizes.
+			for _, nonceSize := range []int{1, 16, 100} {
+				t.Run(fmt.Sprintf("NonceSize-%d", nonceSize), func(t *testing.T) {
+
+					cryptotest.TestAEAD(t, func() (cipher.AEAD, error) { return cipher.NewGCMWithNonceSize(block, nonceSize) })
+				})
+			}
+		})
 	}
 }
