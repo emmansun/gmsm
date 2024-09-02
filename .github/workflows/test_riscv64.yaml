@@ -14,7 +14,7 @@ jobs:
   test:
     strategy:
       matrix:
-        go-version: [1.18.x]
+        go-version: [1.22.x]
         arch: [riscv64]  
     runs-on: ubuntu-latest
     steps:
@@ -29,11 +29,8 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v4
 
-    - name: Build
-      run: go build -v ./internal/bigmod/...
-      
     - name: Test
-      run: go test -v -short ./internal/bigmod/...
+      run: go test -v -short ./internal/...
       env:
         GODEBUG: x509sha1=1
         GOARCH: ${{ matrix.arch }}      

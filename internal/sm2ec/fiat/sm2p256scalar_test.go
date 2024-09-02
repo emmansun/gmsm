@@ -42,16 +42,6 @@ var testValues = [20]string{
 	"c79886c5cd9de1f2a0deee1c76cd8c38da7dcd401f59ec4bebbaf815006f2f71",
 }
 
-func TestGenerateValues(t *testing.T) {
-	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123", 16)
-	for i := 0; i < 20; i++ {
-		k, _ := rand.Int(rand.Reader, p)
-		if k.Sign() > 0 {
-			fmt.Printf("%v\n", hex.EncodeToString(k.Bytes()))
-		}
-	}
-}
-
 func p256OrderMulTest(t *testing.T, x, y, n *big.Int) {
 	var scalar1 [32]byte
 	var scalar2 [32]byte
