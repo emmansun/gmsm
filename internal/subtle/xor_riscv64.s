@@ -46,7 +46,7 @@ less_than4:
 	MOVHU (X6), X10
 	MOVHU (X7), X11
 	XOR X10, X11, X10
-	MOVHU X10, (X5)
+	MOVH X10, (X5)
 	ADD $2, X5
 	ADD $2, X6
 	ADD $2, X7
@@ -57,7 +57,7 @@ less_than2:
 	MOVBU (X6), X10
 	MOVBU (X7), X11
 	XOR X10, X11, X10
-	MOVBU X10, (X5)
+	MOVB X10, (X5)
 
 done:
 	RET

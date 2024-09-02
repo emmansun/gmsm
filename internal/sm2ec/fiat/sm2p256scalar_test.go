@@ -2,9 +2,7 @@ package fiat_test
 
 import (
 	"bytes"
-	"crypto/rand"
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"testing"
 
