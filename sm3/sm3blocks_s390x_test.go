@@ -9,15 +9,18 @@ import (
 
 func TestTransposeMatrix(t *testing.T) {
 	var m [4][8]uint32
+	var k uint32 = 0
 	for i := 0; i < 4; i++ {
 		for j := 0; j < 8; j++ {
-			m[i][j] = uint32(i*4 + j)
+			m[i][j] = k
+			k++
 			fmt.Printf("%04x ", m[i][j])
 		}
 		fmt.Println()
 	}
 	input := [4]*[8]uint32{&m[0], &m[1], &m[2], &m[3]}
 	transposeMatrix(&input[0])
+	fmt.Println()
 	for i := 0; i < 4; i++ {
 		for j := 0; j < 8; j++ {
 			m[i][j] = uint32(i*4 + j)
