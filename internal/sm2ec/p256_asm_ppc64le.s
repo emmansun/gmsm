@@ -2025,8 +2025,7 @@ TEXT ·p256PointAddAffineAsm(SB), NOSPLIT, $0
 	XXPERMDI Z1H, Z1H, $2, Z1H
 	XXPERMDI Z1L, Z1L, $2, Z1L
 
-	MOVD     $112, R26        // Get offset to sel+32
-	LXVDSX   (R1)(R26), SEL1
+	LXVDSX   (R1)(R21), SEL1    // Get offset to sel+32
 	VSPLTISB $0, ZER
 	VCMPEQUD SEL1, ZER, SEL1
 
@@ -2047,7 +2046,7 @@ TEXT ·p256PointAddAffineAsm(SB), NOSPLIT, $0
 	LXVD2X (R19)(CPOOL), Z2L
 	LXVD2X (R20)(CPOOL), Z2H
 
-	LXVDSX   (R1)(R21), SEL1    // Get the value from zero+40(FP)
+	LXVDSX   (R1)(R22), SEL1    // Get the value from zero+40(FP)
 	VSPLTISB $0, ZER
 	VCMPEQUD SEL1, ZER, SEL1
 
