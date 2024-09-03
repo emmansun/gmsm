@@ -22,10 +22,10 @@ GLOBL mask<>(SB), 8, $64
 	VPERM T2, T3, M0, TMP1; \
 	VPERM T0, T1, M1, TMP2; \
 	VPERM T2, T3, M1, TMP3; \
-	VLR TMP0, T0; \
-	VLR TMP1, T1; \
-	VLR TMP2, T2; \
-	VLR TMP3, T3
+	VPERM TMP0, TMP1, M2, T0; \
+	VPERM TMP0, TMP1, M3, T1; \
+	VPERM TMP2, TMP3, M2, T2; \
+	VPERM TMP2, TMP3, M3, T3
 
 // transposeMatrix(dig **[8]uint32)
 TEXT ·transposeMatrix(SB),NOSPLIT,$0
