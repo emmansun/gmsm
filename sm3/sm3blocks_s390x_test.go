@@ -29,3 +29,26 @@ func TestTransposeMatrix(t *testing.T) {
 		fmt.Println()
 	}
 }
+
+func TestCopyResultsBy4(t *testing.T) {
+	var m [4][8]uint32
+	var k uint32 = 0
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 8; j++ {
+			m[i][j] = k << 24
+			k++
+			fmt.Printf("%04x ", m[i][j])
+		}
+		fmt.Println()
+	}
+	var p [32]byte
+	copyResultsBy4(&m[0][0], &p[0])
+	fmt.Println()
+	fmt.Println()
+	for i := 0; i < 32; i++ {
+		fmt.Printf("%04x ", p[i])
+		if i%8 == 7 {
+			fmt.Println()
+		}
+	}
+}

@@ -56,3 +56,16 @@ TEXT ·transposeMatrix(SB),NOSPLIT,$0
 	VSTM V6, V7, (R2)
 
 	RET
+
+// func copyResultsBy4(dig *uint32, dst *byte)
+TEXT ·copyResultsBy4(SB),NOSPLIT,$0
+#define digPtr R1
+#define dstPtr R2
+	MOVD	dig+0(FP), digPtr
+	MOVD	dst+8(FP), dstPtr
+
+	// load state
+	VLM (digPtr), V0, V7
+	VSTM V0, V7, (dstPtr)
+
+	RET
