@@ -34,6 +34,11 @@ jobs:
       env:
         GOARCH: ${{ matrix.arch }}
 
+    - name: Test sm3
+      run: go test -v ./sm3/...
+      env:
+        GOARCH: ${{ matrix.arch }}
+
 #    - name: Test
 #      run: go test -v -short ./...
 #      env:
