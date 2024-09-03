@@ -1843,14 +1843,10 @@ SUB(X<T3-T)          // T3 = T3-X3         T2   T3   T4
 X- ;  Y- ;  MUL;T3=T // T3 = T3*T2         T2   T3   T4
 X=T4; Y=Y1; MUL;T-   // T4 = T4*Y1              T3   T4
 SUB(T<T3-T) Y3:=T    // Y3 = T3-T4              T3   T4
-
-	*/
-//
-// V27 is clobbered by sm2p256MulInternal so must be
-// saved in a temp.
-//
+*/
+//	
 // func p256PointAddAffineAsm(res, in1 *P256Point, in2 *p256AffinePoint, sign, sel, zero int)
-TEXT ·p256PointAddAffineAsm(SB), NOSPLIT, $16-48
+TEXT ·p256PointAddAffineAsm(SB), NOSPLIT, $0
 	MOVD res+0(FP), P3ptr
 	MOVD in1+8(FP), P1ptr
 	MOVD in2+16(FP), P2ptr
@@ -1867,7 +1863,7 @@ TEXT ·p256PointAddAffineAsm(SB), NOSPLIT, $16-48
 	MOVD $128, R23
 	MOVD $144, R24
 	MOVD $160, R25
-	MOVD $104, R26 // offset of sign+24(FP)
+	MOVD $88, R26 // offset of sign+24(FP): 24 + 64
 
 	LXVD2X (R16)(CPOOL), PH
 	LXVD2X (R0)(CPOOL), PL
@@ -2051,8 +2047,7 @@ TEXT ·p256PointAddAffineAsm(SB), NOSPLIT, $16-48
 	LXVD2X (R19)(CPOOL), Z2L
 	LXVD2X (R20)(CPOOL), Z2H
 
-	MOVD     $120, R26        // Get the value from zero+40(FP)
-	LXVDSX   (R1)(R26), SEL1
+	LXVDSX   (R1)(R21), SEL1    // Get the value from zero+40(FP)
 	VSPLTISB $0, ZER
 	VCMPEQUD SEL1, ZER, SEL1
 
