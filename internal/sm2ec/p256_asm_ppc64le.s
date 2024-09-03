@@ -1693,10 +1693,13 @@ TEXT ·p256Mul(SB), NOSPLIT, $0-24
 TEXT ·p256Sqr(SB), NOSPLIT, $0-24
 	MOVD res+0(FP), res_ptr
 	MOVD in+8(FP), x_ptr
+	MOVD	n+16(FP), N	
 	MOVD $16, R16
 	MOVD $32, R17
 
 	MOVD $p256mul<>+0x00(SB), CPOOL
+	LXVD2X (R16)(CPOOL), P1
+	LXVD2X (R0)(CPOOL), P0
 
 	LXVD2X (R0)(x_ptr), X0
 	LXVD2X (R16)(x_ptr), X1
@@ -1710,23 +1713,16 @@ sqrLoop:
 	VOR	X0, X0, Y0
 	VOR	X1, X1, Y1
 
-	LXVD2X (R16)(CPOOL), P1
-	LXVD2X (R0)(CPOOL), P0
-
 	CALL sm2p256MulInternal<>(SB)
 
-	MOVD	n+16(FP), N
 	ADD	$-1, N
 	CMP	$0, N
 	BEQ	done
-	MOVD	N, n+16(FP)	// Save counter to avoid clobber
 	VOR	T0, T0, X0
 	VOR	T1, T1, X1
 	BR	sqrLoop
 
 done:
-	MOVD $p256mul<>+0x00(SB), CPOOL // What's the purpose of this?
-
 	XXPERMDI T0, T0, $2, T0
 	XXPERMDI T1, T1, $2, T1
 	STXVD2X T0, (R0)(res_ptr)
