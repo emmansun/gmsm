@@ -24,7 +24,6 @@ func TestTransposeMatrix(t *testing.T) {
 	fmt.Println()
 	for i := 0; i < 4; i++ {
 		for j := 0; j < 8; j++ {
-			m[i][j] = uint32(i*4 + j)
 			fmt.Printf("%04x ", m[i][j])
 		}
 		fmt.Println()
