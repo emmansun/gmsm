@@ -31,16 +31,16 @@ GLOBL mask<>(SB), 8, $64
 TEXT ·transposeMatrix(SB),NOSPLIT,$0
 	MOVD	dig+0(FP), R1
 
-	MOVD 	(R1), R2
+	LAY 	0(R1), R2
 	VL (R2), V0
 	VL 16(R2), V1
-	MOVD 	8(R1), R2
+	LAY 	8(R1), R2
 	VL (R2), V2
 	VL 16(R2), V3
-	MOVD 	16(R1), R2
+	LAY 	16(R1), R2
 	VL (R2), V4
 	VL 16(R2), V5
-	MOVD 	24(R1), R2
+	LAY 	24(R1), R2
 	VL (R2), V6
 	VL 16(R2), V7
 
@@ -50,16 +50,16 @@ TEXT ·transposeMatrix(SB),NOSPLIT,$0
 	// TRANSPOSE_MATRIX(V0, V2, V4, V6, V8, V9, V10, V11, V12, V13, V14, V15)
 	// TRANSPOSE_MATRIX(V1, V3, V5, V7, V8, V9, V10, V11, V12, V13, V14, V15)
 
-	MOVD 	(R1), R2
+	LAY 	0(R1), R2
 	VST V0, (R2)
 	VST V1, 16(R2)
-	MOVD 	8(R1), R2
+	LAY 	8(R1), R2
 	VST V2, (R2)
 	VST V3, 16(R2)
-	MOVD 	16(R1), R2
+	LAY 	16(R1), R2
 	VST V4, (R2)
 	VST V5, 16(R2)
-	MOVD 	24(R1), R2
+	LAY 	24(R1), R2
 	VST V6, (R2)
 	VST V7, 16(R2)
 
