@@ -95,14 +95,14 @@ GLOBL p256mul<>(SB), 8, $96
 //	VMALF  x0, x1, y, out_low
 //	VMALHF x0, x1, y, out_hi
 #define VMULT_ADD(x1, x2, y, one, out_low, out_hi) \
-	VMULEUW  y, one, TMP2; \
-	VMULOUW  y, one, TMP1; \
-	VMULEUW  x1, x2, out_low; \
-	VMULOUW  x1, x2, out_hi; \
-	VADDUDM  TMP2, out_low, TMP2; \
+	VMULEUW  y, one, TMP1; \
+	VMULOUW  y, one, TMP2; \
+	VMULEUW  x1, x2, out_hi; \
+	VMULOUW  x1, x2, out_low; \
 	VADDUDM  TMP1, out_hi, TMP1; \
-	VMRGOW   TMP2, TMP1, out_low; \
-	VMRGEW   TMP2, TMP1, out_hi
+	VADDUDM  TMP2, out_low, TMP2; \
+	VMRGEW   TMP1, TMP2, out_hi; \
+	VMRGOW   TMP1, TMP2, out_low
 
 #define res_ptr R3
 #define a_ptr R4
