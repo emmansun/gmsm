@@ -984,7 +984,7 @@ loop:
 // ---------------------------------------
 // sm2p256MulInternal
 // V0-V3,V30,V31 - Not Modified
-// V4-V15 - Volatile
+// V4-V14 - Volatile
 
 #define CPOOL   R4
 

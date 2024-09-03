@@ -1261,7 +1261,7 @@ TEXT ·p256OrdReduce(SB),NOSPLIT,$0
 // ---------------------------------------
 // sm2p256MulInternal
 // V0-V3 V30,V31 - Not Modified
-// V4-V15 V27-V29 - Volatile
+// V4-V15 V28-V29 - Volatile
 
 #define CPOOL   R7
 
@@ -1282,7 +1282,7 @@ TEXT ·p256OrdReduce(SB),NOSPLIT,$0
 #define ADD3  V9 // Overloaded with SEL2,SEL5
 #define ADD4  V10 // Overloaded with SEL3,SEL6
 #define RED1  V11 // Overloaded with CAR2
-#define RED2  V12
+#define RED2  V12 // Overloaded with TMP2
 #define RED3  V13 // Overloaded with SEL1
 #define T2    V14
 // Overloaded temporaries
@@ -1304,7 +1304,7 @@ TEXT ·p256OrdReduce(SB),NOSPLIT,$0
 // TMP1, TMP2 used in
 // VMULT macros
 #define TMP1  V13 // Overloaded with RED3
-#define TMP2  V27
+#define TMP2  V12 // Overloaded with RED2
 #define ONE   V29 // 1s splatted by word
 
 TEXT sm2p256MulInternal<>(SB), NOSPLIT, $0-16
@@ -2508,7 +2508,7 @@ TEXT ·p256PointDouble6TimesAsm(SB), NOSPLIT, $0-16
 	// SUB(T<U1-T); Y3:=T    // Y3 = Y3-T2 << store-out Y3 result reg
 	*/
 // p256PointAddAsm(res, in1, in2 *p256Point)
-TEXT ·p256PointAddAsm(SB), NOSPLIT, $16-32
+TEXT ·p256PointAddAsm(SB), NOSPLIT, $0
 	MOVD res+0(FP), P3ptr
 	MOVD in1+8(FP), P1ptr
 	MOVD $p256mul<>+0x00(SB), CPOOL
@@ -2536,8 +2536,6 @@ TEXT ·p256PointAddAsm(SB), NOSPLIT, $16-32
 	CALL sm2p256MulInternal<>(SB)
 	VOR  T0, T0, RL            // SAVE: RL
 	VOR  T1, T1, RH            // SAVE: RH
-
-	STXVD2X RH, (R1)(R17) // V27 has to be saved
 
 	// X=X2; Y-  ; MUL; H=T  // H  = X2*T1
 	MOVD   in2+16(FP), P2ptr
@@ -2643,14 +2641,11 @@ TEXT ·p256PointAddAsm(SB), NOSPLIT, $16-32
 	XXPERMDI X1, X1, $2, X1
 	VOR    RL, RL, Y0
 
-	// VOR RH, RH, Y1   RH was saved above in D2X format
-	LXVD2X (R1)(R17), Y1
+	VOR RH, RH, Y1
 	CALL   sm2p256MulInternal<>(SB)
 
 	// SUB(R<T-S1)           // R  = T-S1
 	p256SubInternal(RH,RL,T1,T0,S1H,S1L)
-
-	STXVD2X RH, (R1)(R17) // Save RH
 
 	// if R == 0 or R^P == 0 then ret=ret else ret=0
 	// clobbers T1H and T1L
@@ -2697,15 +2692,9 @@ TEXT ·p256PointAddAsm(SB), NOSPLIT, $16-32
 
 	// X=R ; Y=R ; MUL; T-   // X3 = R*R
 	VOR RL, RL, X0
-
-	// VOR  RH, RH, X1
 	VOR RL, RL, Y0
-
-	// RH was saved above using STXVD2X
-	LXVD2X (R1)(R17), X1
-	VOR    X1, X1, Y1
-
-	// VOR  RH, RH, Y1
+	VOR  RH, RH, X1
+	VOR  RH, RH, Y1
 	CALL sm2p256MulInternal<>(SB)
 
 	// SUB(T<T-T2)           // X3 = X3-T2
@@ -2728,8 +2717,7 @@ TEXT ·p256PointAddAsm(SB), NOSPLIT, $16-32
 	// X=R ; Y-  ; MUL; U1=T // Y3 = R*Y3
 	VOR RL, RL, X0
 
-	// VOR  RH, RH, X1
-	LXVD2X (R1)(R17), X1
+	VOR  RH, RH, X1
 	CALL   sm2p256MulInternal<>(SB)
 	VOR    T0, T0, U1L
 	VOR    T1, T1, U1H
