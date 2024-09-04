@@ -1,4 +1,8 @@
-//go:build (amd64 || arm64) && !purego
+// Copyright 2024 Sun Yimin. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
+//go:build (amd64 || arm64 || s390x) && !purego
 
 package sm3
 

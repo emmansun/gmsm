@@ -6,8 +6,10 @@
 
 package sm3
 
-//go:noescape
-func transposeMatrix(dig **[8]uint32)
+func kdf(baseMD *digest, keyLen int, limit int) []byte {
+	if limit < 4 {
+		return kdfGeneric(baseMD, keyLen, limit)
+	}
 
-//go:noescape
-func copyResultsBy4(dig *uint32, p *byte)
+	return kdfBy4(baseMD, keyLen, limit)
+}

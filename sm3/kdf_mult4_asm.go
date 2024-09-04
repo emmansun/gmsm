@@ -1,4 +1,4 @@
-//go:build (amd64 || arm64) && !purego
+//go:build (amd64 || arm64 || s390x) && !purego
 
 package sm3
 
