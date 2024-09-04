@@ -314,6 +314,23 @@ loop:
 	RET
 
 #undef digPtr
+#undef a
+#undef b
+#undef c
+#undef d
+#undef e
+#undef f
+#undef g
+#undef h
+
+#define a V0
+#define b V1
+#define c V2
+#define d V3
+#define e V4
+#define f V5
+#define g V6
+#define h V7
 // func copyResultsBy4(dig *uint32, dst *byte)
 TEXT ·copyResultsBy4(SB),NOSPLIT,$0
 #define digPtr R0
