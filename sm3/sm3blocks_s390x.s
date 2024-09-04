@@ -130,7 +130,7 @@ GLOBL mask<>(SB), 8, $64
 	MESSAGE_SCHEDULE(index)          \ // V11 is Wt+4 now, Pls do not use it
 	PROLD(a, TMP0, 12)               \
 	VLR TMP0, TMP1                   \
-	VREPIF $const, TMP2              \
+	VLREPF (index*4)(R3), TMP2       \
 	VAF TMP2, TMP0, TMP0             \
 	VAF e, TMP0, TMP0                \
 	PROLD(TMP0, TMP2, 7)             \ // TMP2 = SS1
