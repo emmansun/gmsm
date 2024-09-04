@@ -214,7 +214,7 @@ TEXT ·blockMultBy4(SB), NOSPLIT, $0
 	MOVD $0, srcPtrPtr
 
 	MOVD $·_K+0(SB), R3
-
+/*
 loop:
 	// save state
 	VLR a, aSave
@@ -313,7 +313,7 @@ loop:
 
 	SUB $1, blockCount
 	CMPBGT blockCount, $0, loop
-
+*/
 	TRANSPOSE_MATRIX(a, b, c, d, M0, M1, M2, M3, TMP0, TMP1, TMP2, TMP3)
 	TRANSPOSE_MATRIX(e, f, g, h, M0, M1, M2, M3, TMP0, TMP1, TMP2, TMP3)
 
