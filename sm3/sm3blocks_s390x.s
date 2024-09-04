@@ -72,15 +72,10 @@ GLOBL mask<>(SB), 8, $64
 	LAY 16(srcPtrPtr), srcPtrPtr; \
 	ADD $64, wordPtr
 
-// VREPIF $const, T
-#define LOAD_T(const, T) \
-	VLEIF $3, $const, T; \
-	VREPF $3, T, T
-
 #define ROUND_00_11(index, const, a, b, c, d, e, f, g, h) \
 	PROLD(a, TMP0, 12)               \
 	VLR TMP0, TMP1                   \
-	LOAD_T(const, TMP2)              \
+	VLREPF (index*4)(R3), TMP2       \
 	VAF TMP2, TMP1, TMP1             \
 	VAF e, TMP1, TMP1                \
 	PROLD(TMP1, TMP2, 7)             \ // TMP2 = SS1
@@ -135,7 +130,7 @@ GLOBL mask<>(SB), 8, $64
 	MESSAGE_SCHEDULE(index)          \ // V11 is Wt+4 now, Pls do not use it
 	PROLD(a, TMP0, 12)               \
 	VLR TMP0, TMP1                   \
-	LOAD_T(const, TMP2)              \
+	VREPIF $const, TMP2              \
 	VAF TMP2, TMP0, TMP0             \
 	VAF e, TMP0, TMP0                \
 	PROLD(TMP0, TMP2, 7)             \ // TMP2 = SS1
@@ -217,6 +212,8 @@ TEXT ·blockMultBy4(SB), NOSPLIT, $0
 	MOVD 16(srcPtrPtr), srcPtr3
 	MOVD 24(srcPtrPtr), srcPtr4
 	MOVD $0, srcPtrPtr
+
+	MOVD $·_K+0(SB), R3
 
 loop:
 	// save state
