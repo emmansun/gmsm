@@ -58,7 +58,7 @@ GLOBL mask<>(SB), 8, $64
 	VERLLF $n, s, r
 
 #define loadWordByIndex(W, i) \
-	VL (16*i)(statePtr), W
+	VL (16*(i))(statePtr), W
 
 // one word is 16 bytes
 #define prepare4Words \
@@ -325,21 +325,11 @@ loop:
 	MOVD 	24(digPtr), R4
 	VSTM d, h, (R4)
 
-	MOVD 	0(digPtr), R4
-	loadWordByIndex(TMP0, 0)
-	loadWordByIndex(TMP1, 1)
-	VSTM TMP0, TMP1, (R4)
-
-	MOVD 	8(digPtr), R4
-	loadWordByIndex(TMP2, 2)
-	loadWordByIndex(TMP3, 3)
-	VSTM TMP2, TMP3, (R4)
-
 	MOVD 	16(digPtr), R4
 	loadWordByIndex(TMP0, 64)
 	loadWordByIndex(TMP1, 65)
 	VSTM TMP0, TMP1, (R4)
-	
+
 	MOVD 	24(digPtr), R4
 	loadWordByIndex(TMP2, 66)
 	loadWordByIndex(TMP3, 67)
