@@ -326,4 +326,9 @@ loop:
 	MOVD 	24(digPtr), R4
 	VSTM d, h, (R4)
 
+	VLREPF (0)(R3), TMP2
+	VST TMP2, (R4)
+	VERLLF $8, TMP2, TMP2
+	VST TMP2, 16(R4)
+
 	RET
