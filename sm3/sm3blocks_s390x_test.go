@@ -41,13 +41,13 @@ func TestCopyResultsBy4(t *testing.T) {
 		}
 		fmt.Println()
 	}
-	var p [32]byte
+	var p [128]byte
 	copyResultsBy4(&m[0][0], &p[0])
 	fmt.Println()
 	fmt.Println()
-	for i := 0; i < 32; i++ {
-		fmt.Printf("%04x ", p[i])
-		if i%8 == 7 {
+	for i := 0; i < 128; i++ {
+		fmt.Printf("%02x ", p[i])
+		if i%16 == 15 {
 			fmt.Println()
 		}
 	}
