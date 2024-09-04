@@ -78,28 +78,28 @@ GLOBL mask<>(SB), 8, $64
 	VAF TMP2, TMP0, TMP0             \
 	VAF e, TMP0, TMP0                \
 	PROLD(TMP0, TMP2, 7)             \ // TMP2 = SS1
-	VX TMP2, TMP1, TMP0			     \ // TMP0 = SS2
+	VX TMP2, TMP1, TMP0              \ // TMP0 = SS2
 	VX a, b, TMP1                    \
-	VX c, TMP1, TMP1				 \
+	VX c, TMP1, TMP1                 \
 	VAF TMP1, d, TMP1                \ // TMP1 = (a XOR b XOR c) + d
 	loadWordByIndex(TMP3, index)     \
 	loadWordByIndex(TMP4, index+4)   \
 	VX TMP3, TMP4, TMP4              \
 	VAF TMP4, TMP1, TMP1             \ // TMP1 = (a XOR b XOR c) + d + (Wt XOR Wt+4)
-	VAF TMP1, TMP0, TMP1			 \ // TMP1 = TT1
-	VAF h, TMP3, TMP3				 \
-	VAF TMP3, TMP2, TMP3			 \ // Wt + h + SS1
-	VX e, f, TMP4 				     \
-	VX g, TMP4, TMP4				 \
-	VAF TMP4, TMP3, TMP3			 \ // TT2 = (e XOR f XOR g) + Wt + h + SS1
-	VLR b, TMP4 					 \
+	VAF TMP1, TMP0, TMP1             \ // TMP1 = TT1
+	VAF h, TMP3, TMP3                \
+	VAF TMP3, TMP2, TMP3             \ // Wt + h + SS1
+	VX e, f, TMP4                    \
+	VX g, TMP4, TMP4                 \
+	VAF TMP4, TMP3, TMP3             \ // TT2 = (e XOR f XOR g) + Wt + h + SS1
+	VLR b, TMP4                      \
 	PROLD(TMP4, b, 9)                \ // b = b <<< 9
-	VLR TMP1, h					     \ // h = TT1
-	VLR f, TMP4 					 \
+	VLR TMP1, h                      \ // h = TT1
+	VLR f, TMP4                      \
 	PROLD(TMP4, f, 19)               \ // f = f <<< 19
 	PROLD(TMP3, TMP4, 9)             \ // TMP4 = TT2 <<< 9
 	PROLD(TMP4, TMP0, 8)             \ // TMP0 = TT2 <<< 17
-	VX TMP3, TMP4, TMP4 			 \ // TMP4 = TT2 XOR (TT2 <<< 9)
+	VX TMP3, TMP4, TMP4              \ // TMP4 = TT2 XOR (TT2 <<< 9)
 	VX TMP4, TMP0, d                 \ // d = TT2 XOR (TT2 <<< 9) XOR (TT2 <<< 17)
 
 #define MESSAGE_SCHEDULE(index) \
