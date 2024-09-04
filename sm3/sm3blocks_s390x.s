@@ -74,7 +74,7 @@ GLOBL mask<>(SB), 8, $64
 #define ROUND_00_11(index, a, b, c, d, e, f, g, h) \
 	PROLD(a, TMP0, 12)               \
 	VLR TMP0, TMP1                   \
-	VLREPF (index*4)(R3), TMP2       \
+	VLREPF (index*4)(kPtr), TMP2     \ // It seems that the VREPIF instruction is not supported yet.
 	VAF TMP2, TMP0, TMP0             \
 	VAF e, TMP0, TMP0                \
 	PROLD(TMP0, TMP2, 7)             \ // TMP2 = SS1
@@ -122,14 +122,14 @@ GLOBL mask<>(SB), 8, $64
 	ADD $16, wordPtr                  \
 
 #define ROUND_12_15(index, a, b, c, d, e, f, g, h) \
-	MESSAGE_SCHEDULE(index)                               \
+	MESSAGE_SCHEDULE(index)                        \
 	ROUND_00_11(index, a, b, c, d, e, f, g, h)     \
 
 #define ROUND_16_63(index, a, b, c, d, e, f, g, h) \
 	MESSAGE_SCHEDULE(index)          \ // TMP1 is Wt+4 now, Pls do not use it
 	PROLD(a, TMP0, 12)               \
 	VLR TMP0, TMP4                   \
-	VLREPF (index*4)(R3), TMP2       \
+	VLREPF (index*4)(kPtr), TMP2     \ // It seems that the VREPIF instruction is not supported yet.
 	VAF TMP2, TMP0, TMP0             \
 	VAF e, TMP0, TMP0                \
 	PROLD(TMP0, TMP2, 7)             \ // TMP2 = SS1
@@ -166,7 +166,6 @@ TEXT ·copyResultsBy4(SB),NOSPLIT,$0
 	MOVD	dig+0(FP), digPtr
 	MOVD	dst+8(FP), dstPtr
 
-	// load state
 	VLM (digPtr), V0, V7
 	VSTM V0, V7, (dstPtr)
 
@@ -174,11 +173,13 @@ TEXT ·copyResultsBy4(SB),NOSPLIT,$0
 #undef digPtr
 #undef dstPtr
 
+// Used general purpose registers R1-R11.
 // blockMultBy4(dig **[8]uint32, p **byte, buffer *byte, blocks int)
 TEXT ·blockMultBy4(SB), NOSPLIT, $0
 #define digPtr R11
 #define srcPtrPtr R1
 #define statePtr R2
+#define kPtr R3
 #define blockCount R5
 #define srcPtr1 R6
 #define srcPtr2 R7
@@ -212,7 +213,7 @@ TEXT ·blockMultBy4(SB), NOSPLIT, $0
 	MOVD 24(srcPtrPtr), srcPtr4
 	MOVD $0, srcPtrPtr
 
-	MOVD $·_K+0(SB), R3
+	MOVD $·_K+0(SB), kPtr
 
 loop:
 	// save state

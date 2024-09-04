@@ -8,18 +8,27 @@
 #include "sm3_const_asm.s"
 
 #define a V0
-#define b V1
-#define c V2
-#define d V3
-#define e V4
-#define f V5
-#define g V6
+#define e V1
+#define b V2
+#define f V3
+#define c V4
+#define g V5
+#define d V6
 #define h V7
 
 #define tmp1 V8
 #define tmp2 V9
 #define tmp3 V10
 #define tmp4 V11
+
+#define aSave V24
+#define bSave V25
+#define cSave V26
+#define dSave V27
+#define eSave V28
+#define fSave V29
+#define gSave V30
+#define hSave V31
 
 // input: from high to low
 // t0 = t0.S3, t0.S2, t0.S1, t0.S0
@@ -157,7 +166,6 @@
 TEXT ·blockMultBy4(SB), NOSPLIT, $0
 #define digPtr R0
 #define srcPtrPtr R1
-#define statePtr R2
 #define blockCount R3
 #define digSave R4
 #define wordStart R5
@@ -168,32 +176,23 @@ TEXT ·blockMultBy4(SB), NOSPLIT, $0
 #define wordPtr R10
 	MOVD	dig+0(FP), digPtr
 	MOVD	p+8(FP), srcPtrPtr
-	MOVD	buffer+16(FP), statePtr
+	MOVD	buffer+16(FP), wordStart
 	MOVD	blocks+24(FP), blockCount
 
 	// load state
 	MOVD digPtr, digSave
 	MOVD.P 8(digPtr), R20
-	VLD1.P 16(R20), [a.S4]
-	VLD1 (R20), [e.S4]
+	VLD1 (R20), [a.S4, e.S4]
 	MOVD.P 8(digPtr), R20
-	VLD1.P 16(R20), [b.S4]
-	VLD1 (R20), [f.S4]
+	VLD1 (R20), [b.S4, f.S4]
 	MOVD.P 8(digPtr), R20
-	VLD1.P 16(R20), [c.S4]
-	VLD1 (R20), [g.S4]
+	VLD1 (R20), [c.S4, g.S4]
 	MOVD (digPtr), R20
-	VLD1.P 16(R20), [d.S4]
-	VLD1 (R20), [h.S4]
+	VLD1 (R20), [d.S4, h.S4]
 
 	// transpose state
 	TRANSPOSE_MATRIX(a, b, c, d, tmp1, tmp2, tmp3, tmp4)
 	TRANSPOSE_MATRIX(e, f, g, h, tmp1, tmp2, tmp3, tmp4)
-
-	// store state to temporary buffer
-	MOVD statePtr, wordStart
-	VST1.P [a.S4, b.S4, c.S4, d.S4], 64(wordStart)
-	VST1.P [e.S4, f.S4, g.S4, h.S4], 64(wordStart)
 
 	MOVD.P 8(srcPtrPtr), srcPtr1
 	MOVD.P 8(srcPtrPtr), srcPtr2
@@ -201,6 +200,16 @@ TEXT ·blockMultBy4(SB), NOSPLIT, $0
 	MOVD (srcPtrPtr), srcPtr4
 
 loop:
+	// save state
+	VMOV a.B16, aSave.B16
+	VMOV b.B16, bSave.B16
+	VMOV c.B16, cSave.B16
+	VMOV d.B16, dSave.B16
+	VMOV e.B16, eSave.B16
+	VMOV f.B16, fSave.B16
+	VMOV g.B16, gSave.B16
+	VMOV h.B16, hSave.B16
+
 	// reset wordPtr
 	MOVD wordStart, wordPtr
 
@@ -277,20 +286,14 @@ loop:
 	ROUND_16_63(62, T30, c, d, e, f, g, h, a, b)
 	ROUND_16_63(63, T31, b, c, d, e, f, g, h, a)
 
-	MOVD statePtr, R20
-	VLD1.P 64(R20), [V8.S4, V9.S4, V10.S4, V11.S4]
-	VLD1 (R20), [V12.S4, V13.S4, V14.S4, V15.S4]
-	VEOR a.B16, V8.B16, a.B16
-	VEOR b.B16, V9.B16, b.B16
-	VEOR c.B16, V10.B16, c.B16
-	VEOR d.B16, V11.B16, d.B16
-	VEOR e.B16, V12.B16, e.B16
-	VEOR f.B16, V13.B16, f.B16
-	VEOR g.B16, V14.B16, g.B16
-	VEOR h.B16, V15.B16, h.B16
-	MOVD statePtr, R20
-	VST1.P [a.S4, b.S4, c.S4, d.S4], 64(R20)
-	VST1 [e.S4, f.S4, g.S4, h.S4], (R20)
+	VEOR a.B16, aSave.B16, a.B16
+	VEOR b.B16, bSave.B16, b.B16
+	VEOR c.B16, cSave.B16, c.B16
+	VEOR d.B16, dSave.B16, d.B16
+	VEOR e.B16, eSave.B16, e.B16
+	VEOR f.B16, fSave.B16, f.B16
+	VEOR g.B16, gSave.B16, g.B16
+	VEOR h.B16, hSave.B16, h.B16
 
 	SUB $1, blockCount
 	CBNZ blockCount, loop
@@ -300,17 +303,13 @@ loop:
 	TRANSPOSE_MATRIX(e, f, g, h, tmp1, tmp2, tmp3, tmp4)
 
 	MOVD.P 8(digSave), R20
-	VST1.P [a.S4], 16(R20)
-	VST1 [e.S4], (R20)
+	VST1 [a.S4, e.S4], (R20)
 	MOVD.P 8(digSave), R20
-	VST1.P [b.S4], 16(R20)
-	VST1 [f.S4], (R20)
+	VST1 [b.S4, f.S4], (R20)
 	MOVD.P 8(digSave), R20
-	VST1.P [c.S4], 16(R20)
-	VST1 [g.S4], (R20)
+	VST1 [c.S4, g.S4], (R20)
 	MOVD (digSave), R20
-	VST1.P [d.S4], 16(R20)
-	VST1 [h.S4], (R20)
+	VST1 [d.S4, h.S4], (R20)
 
 	RET
 
