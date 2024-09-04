@@ -57,8 +57,8 @@ GLOBL mask<>(SB), 8, $64
 #define PROLD(s, r, n) \
 	VERLLF $n, s, r
 
-#define loadWordByIndex(W, start, i) \
-	VL $(4*i)(start), W
+#define loadWordByIndex(W, i) \
+	VL (4*i)(statePtr), W
 
 // one word is 16 bytes
 #define prepare4Words \
