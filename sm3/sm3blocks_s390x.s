@@ -133,10 +133,10 @@ GLOBL mask<>(SB), 8, $64
 	MESSAGE_SCHEDULE(index)          \ // V11 is Wt+4 now, Pls do not use it
 	PROLD(a, TMP0, 12)               \
 	VLR TMP0, TMP1                   \
-	LOAD_T(const, tmp1)              \
-	VAF tmp1, TMP0, TMP0             \
+	LOAD_T(const, TMP2)              \
+	VAF TMP2, TMP0, TMP0             \
 	VAF e, TMP0, TMP0                \
-	PROLD(TMP0, TMP2, 7)             \ // V14 = SS1
+	PROLD(TMP0, TMP2, 7)             \ // TMP2 = SS1
 	VX TMP2, TMP1, TMP0              \ // TMP0 = SS2
 	VO a, b, TMP3                    \
 	VN a, b, TMP1                    \
