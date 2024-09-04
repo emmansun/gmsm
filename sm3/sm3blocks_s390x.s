@@ -63,17 +63,17 @@ GLOBL mask<>(SB), 8, $64
 
 // one word is 16 bytes
 #define prepare4Words \
-	VL 0(srcPtr1)(srcPtrPtr), V16; \
-	VL 0(srcPtr2)(srcPtrPtr), V17; \
-	VL 0(srcPtr3)(srcPtrPtr), V18; \
-	VL 0(srcPtr4)(srcPtrPtr), V19; \
+	VL (srcPtr1)(srcPtrPtr*1), V16; \
+	VL (srcPtr2)(srcPtrPtr*1), V17; \
+	VL (srcPtr3)(srcPtrPtr*1), V18; \
+	VL (srcPtr4)(srcPtrPtr*1), V19; \
 	TRANSPOSE_MATRIX(V16, V17, V18, V19, M0, M1, M2, M3, TMP0, TMP1, TMP2, TMP3); \
 	VSTM V16, V19, (wordPtr); \
 	LAY 16(srcPtrPtr), srcPtrPtr; \
 	ADD $64, wordPtr
 
 #define LOAD_T(const, T) \
-	VREPIF $const, T
+	VREPIF $32768, T
 
 #define ROUND_00_11(index, const, a, b, c, d, e, f, g, h) \
 	PROLD(a, TMP0, 12)               \
