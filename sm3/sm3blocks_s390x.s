@@ -162,36 +162,6 @@ GLOBL mask<>(SB), 8, $64
 	VX TMP3, TMP4, TMP4              \ // TMP4 = TT2 XOR (TT2 <<< 9)
 	VX TMP4, TMP0, d                 \ // d = TT2 XOR (TT2 <<< 9) XOR (TT2 <<< 17)
 
-// transposeMatrix(dig **[8]uint32)
-TEXT ·transposeMatrix(SB),NOSPLIT,$0
-	MOVD	dig+0(FP), R1
-
-	MOVD 	0(R1), R2
-	VLM (R2), V0, V1
-	MOVD 	8(R1), R2
-	VLM (R2), V2, V3
-	MOVD 	16(R1), R2
-	VLM (R2), V4, V5
-	MOVD 	24(R1), R2
-	VLM (R2), V6, V7
-
-	MOVD $mask<>+0x00(SB), R2
-	VLM (R2), V8, V11
-
-	TRANSPOSE_MATRIX(V0, V2, V4, V6, V8, V9, V10, V11, V12, V13, V14, V15)
-	TRANSPOSE_MATRIX(V1, V3, V5, V7, V8, V9, V10, V11, V12, V13, V14, V15)
-
-	MOVD 	0(R1), R2
-	VSTM V0, V1, (R2)
-	MOVD 	8(R1), R2
-	VSTM V2, V3, (R2)
-	MOVD 	16(R1), R2
-	VSTM V4, V5, (R2)
-	MOVD 	24(R1), R2
-	VSTM V6, V7, (R2)
-
-	RET
-
 // func copyResultsBy4(dig *uint32, dst *byte)
 TEXT ·copyResultsBy4(SB),NOSPLIT,$0
 #define digPtr R1
@@ -204,7 +174,8 @@ TEXT ·copyResultsBy4(SB),NOSPLIT,$0
 	VSTM V0, V7, (dstPtr)
 
 	RET
-
+#undef digPtr
+#undef dstPtr
 
 // blockMultBy4(dig **[8]uint32, p **byte, buffer *byte, blocks int)
 TEXT ·blockMultBy4(SB), NOSPLIT, $0
