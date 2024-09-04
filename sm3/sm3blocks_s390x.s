@@ -6,6 +6,7 @@
 
 #include "textflag.h"
 #include "go_asm.h"
+#include "sm3_const_asm.s"
 
 DATA mask<>+0x00(SB)/8, $0x0001020310111213
 DATA mask<>+0x08(SB)/8, $0x0405060714151617
