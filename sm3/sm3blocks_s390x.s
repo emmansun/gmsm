@@ -6,7 +6,6 @@
 
 #include "textflag.h"
 #include "go_asm.h"
-#include "sm3_const_asm.s"
 
 DATA mask<>+0x00(SB)/8, $0x0001020310111213
 DATA mask<>+0x08(SB)/8, $0x0405060714151617
@@ -72,7 +71,7 @@ GLOBL mask<>(SB), 8, $64
 	LAY 16(srcPtrPtr), srcPtrPtr; \
 	ADD $64, wordPtr
 
-#define ROUND_00_11(index, const, a, b, c, d, e, f, g, h) \
+#define ROUND_00_11(index, a, b, c, d, e, f, g, h) \
 	PROLD(a, TMP0, 12)               \
 	VLR TMP0, TMP1                   \
 	VLREPF (index*4)(R3), TMP2       \
@@ -122,11 +121,11 @@ GLOBL mask<>(SB), 8, $64
 	VST TMP1, (wordPtr)               \
 	ADD $16, wordPtr                  \
 
-#define ROUND_12_15(index, const, a, b, c, d, e, f, g, h) \
+#define ROUND_12_15(index, a, b, c, d, e, f, g, h) \
 	MESSAGE_SCHEDULE(index)                               \
-	ROUND_00_11(index, const, a, b, c, d, e, f, g, h)     \
+	ROUND_00_11(index, a, b, c, d, e, f, g, h)     \
 
-#define ROUND_16_63(index, const, a, b, c, d, e, f, g, h) \
+#define ROUND_16_63(index, a, b, c, d, e, f, g, h) \
 	MESSAGE_SCHEDULE(index)          \ // TMP1 is Wt+4 now, Pls do not use it
 	PROLD(a, TMP0, 12)               \
 	VLR TMP0, TMP4                   \
@@ -235,72 +234,72 @@ loop:
 	prepare4Words
 	prepare4Words
 
-	ROUND_00_11(0, T0, a, b, c, d, e, f, g, h)
-	ROUND_00_11(1, T1, h, a, b, c, d, e, f, g)
-	ROUND_00_11(2, T2, g, h, a, b, c, d, e, f)
-	ROUND_00_11(3, T3, f, g, h, a, b, c, d, e)
-	ROUND_00_11(4, T4, e, f, g, h, a, b, c, d)
-	ROUND_00_11(5, T5, d, e, f, g, h, a, b, c)
-	ROUND_00_11(6, T6, c, d, e, f, g, h, a, b)
-	ROUND_00_11(7, T7, b, c, d, e, f, g, h, a)
-	ROUND_00_11(8, T8, a, b, c, d, e, f, g, h)
-	ROUND_00_11(9, T9, h, a, b, c, d, e, f, g)
-	ROUND_00_11(10, T10, g, h, a, b, c, d, e, f)
-	ROUND_00_11(11, T11, f, g, h, a, b, c, d, e)
+	ROUND_00_11(0, a, b, c, d, e, f, g, h)
+	ROUND_00_11(1, h, a, b, c, d, e, f, g)
+	ROUND_00_11(2, g, h, a, b, c, d, e, f)
+	ROUND_00_11(3, f, g, h, a, b, c, d, e)
+	ROUND_00_11(4, e, f, g, h, a, b, c, d)
+	ROUND_00_11(5, d, e, f, g, h, a, b, c)
+	ROUND_00_11(6, c, d, e, f, g, h, a, b)
+	ROUND_00_11(7, b, c, d, e, f, g, h, a)
+	ROUND_00_11(8, a, b, c, d, e, f, g, h)
+	ROUND_00_11(9, h, a, b, c, d, e, f, g)
+	ROUND_00_11(10, g, h, a, b, c, d, e, f)
+	ROUND_00_11(11, f, g, h, a, b, c, d, e)
 
-	ROUND_12_15(12, T12, e, f, g, h, a, b, c, d)
-	ROUND_12_15(13, T13, d, e, f, g, h, a, b, c)
-	ROUND_12_15(14, T14, c, d, e, f, g, h, a, b)
-	ROUND_12_15(15, T15, b, c, d, e, f, g, h, a)
+	ROUND_12_15(12, e, f, g, h, a, b, c, d)
+	ROUND_12_15(13, d, e, f, g, h, a, b, c)
+	ROUND_12_15(14, c, d, e, f, g, h, a, b)
+	ROUND_12_15(15, b, c, d, e, f, g, h, a)
 
-	ROUND_16_63(16, T16, a, b, c, d, e, f, g, h)
-	ROUND_16_63(17, T17, h, a, b, c, d, e, f, g)
-	ROUND_16_63(18, T18, g, h, a, b, c, d, e, f)
-	ROUND_16_63(19, T19, f, g, h, a, b, c, d, e)
-	ROUND_16_63(20, T20, e, f, g, h, a, b, c, d)
-	ROUND_16_63(21, T21, d, e, f, g, h, a, b, c)
-	ROUND_16_63(22, T22, c, d, e, f, g, h, a, b)
-	ROUND_16_63(23, T23, b, c, d, e, f, g, h, a)
-	ROUND_16_63(24, T24, a, b, c, d, e, f, g, h)
-	ROUND_16_63(25, T25, h, a, b, c, d, e, f, g)
-	ROUND_16_63(26, T26, g, h, a, b, c, d, e, f)
-	ROUND_16_63(27, T27, f, g, h, a, b, c, d, e)
-	ROUND_16_63(28, T28, e, f, g, h, a, b, c, d)
-	ROUND_16_63(29, T29, d, e, f, g, h, a, b, c)
-	ROUND_16_63(30, T30, c, d, e, f, g, h, a, b)
-	ROUND_16_63(31, T31, b, c, d, e, f, g, h, a)
-	ROUND_16_63(32, T32, a, b, c, d, e, f, g, h)
-	ROUND_16_63(33, T33, h, a, b, c, d, e, f, g)
-	ROUND_16_63(34, T34, g, h, a, b, c, d, e, f)
-	ROUND_16_63(35, T35, f, g, h, a, b, c, d, e)
-	ROUND_16_63(36, T36, e, f, g, h, a, b, c, d)
-	ROUND_16_63(37, T37, d, e, f, g, h, a, b, c)
-	ROUND_16_63(38, T38, c, d, e, f, g, h, a, b)
-	ROUND_16_63(39, T39, b, c, d, e, f, g, h, a)
-	ROUND_16_63(40, T40, a, b, c, d, e, f, g, h)
-	ROUND_16_63(41, T41, h, a, b, c, d, e, f, g)
-	ROUND_16_63(42, T42, g, h, a, b, c, d, e, f)
-	ROUND_16_63(43, T43, f, g, h, a, b, c, d, e)
-	ROUND_16_63(44, T44, e, f, g, h, a, b, c, d)
-	ROUND_16_63(45, T45, d, e, f, g, h, a, b, c)
-	ROUND_16_63(46, T46, c, d, e, f, g, h, a, b)
-	ROUND_16_63(47, T47, b, c, d, e, f, g, h, a)
-	ROUND_16_63(48, T16, a, b, c, d, e, f, g, h)
-	ROUND_16_63(49, T17, h, a, b, c, d, e, f, g)
-	ROUND_16_63(50, T18, g, h, a, b, c, d, e, f)
-	ROUND_16_63(51, T19, f, g, h, a, b, c, d, e)
-	ROUND_16_63(52, T20, e, f, g, h, a, b, c, d)
-	ROUND_16_63(53, T21, d, e, f, g, h, a, b, c)
-	ROUND_16_63(54, T22, c, d, e, f, g, h, a, b)
-	ROUND_16_63(55, T23, b, c, d, e, f, g, h, a)
-	ROUND_16_63(56, T24, a, b, c, d, e, f, g, h)
-	ROUND_16_63(57, T25, h, a, b, c, d, e, f, g)
-	ROUND_16_63(58, T26, g, h, a, b, c, d, e, f)
-	ROUND_16_63(59, T27, f, g, h, a, b, c, d, e)
-	ROUND_16_63(60, T28, e, f, g, h, a, b, c, d)
-	ROUND_16_63(61, T29, d, e, f, g, h, a, b, c)
-	ROUND_16_63(62, T30, c, d, e, f, g, h, a, b)
-	ROUND_16_63(63, T31, b, c, d, e, f, g, h, a)
+	ROUND_16_63(16, a, b, c, d, e, f, g, h)
+	ROUND_16_63(17, h, a, b, c, d, e, f, g)
+	ROUND_16_63(18, g, h, a, b, c, d, e, f)
+	ROUND_16_63(19, f, g, h, a, b, c, d, e)
+	ROUND_16_63(20, e, f, g, h, a, b, c, d)
+	ROUND_16_63(21, d, e, f, g, h, a, b, c)
+	ROUND_16_63(22, c, d, e, f, g, h, a, b)
+	ROUND_16_63(23, b, c, d, e, f, g, h, a)
+	ROUND_16_63(24, a, b, c, d, e, f, g, h)
+	ROUND_16_63(25, h, a, b, c, d, e, f, g)
+	ROUND_16_63(26, g, h, a, b, c, d, e, f)
+	ROUND_16_63(27, f, g, h, a, b, c, d, e)
+	ROUND_16_63(28, e, f, g, h, a, b, c, d)
+	ROUND_16_63(29, d, e, f, g, h, a, b, c)
+	ROUND_16_63(30, c, d, e, f, g, h, a, b)
+	ROUND_16_63(31, b, c, d, e, f, g, h, a)
+	ROUND_16_63(32, a, b, c, d, e, f, g, h)
+	ROUND_16_63(33, h, a, b, c, d, e, f, g)
+	ROUND_16_63(34, g, h, a, b, c, d, e, f)
+	ROUND_16_63(35, f, g, h, a, b, c, d, e)
+	ROUND_16_63(36, e, f, g, h, a, b, c, d)
+	ROUND_16_63(37, d, e, f, g, h, a, b, c)
+	ROUND_16_63(38, c, d, e, f, g, h, a, b)
+	ROUND_16_63(39, b, c, d, e, f, g, h, a)
+	ROUND_16_63(40, a, b, c, d, e, f, g, h)
+	ROUND_16_63(41, h, a, b, c, d, e, f, g)
+	ROUND_16_63(42, g, h, a, b, c, d, e, f)
+	ROUND_16_63(43, f, g, h, a, b, c, d, e)
+	ROUND_16_63(44, e, f, g, h, a, b, c, d)
+	ROUND_16_63(45, d, e, f, g, h, a, b, c)
+	ROUND_16_63(46, c, d, e, f, g, h, a, b)
+	ROUND_16_63(47, b, c, d, e, f, g, h, a)
+	ROUND_16_63(48, a, b, c, d, e, f, g, h)
+	ROUND_16_63(49, h, a, b, c, d, e, f, g)
+	ROUND_16_63(50, g, h, a, b, c, d, e, f)
+	ROUND_16_63(51, f, g, h, a, b, c, d, e)
+	ROUND_16_63(52, e, f, g, h, a, b, c, d)
+	ROUND_16_63(53, d, e, f, g, h, a, b, c)
+	ROUND_16_63(54, c, d, e, f, g, h, a, b)
+	ROUND_16_63(55, b, c, d, e, f, g, h, a)
+	ROUND_16_63(56, a, b, c, d, e, f, g, h)
+	ROUND_16_63(57, h, a, b, c, d, e, f, g)
+	ROUND_16_63(58, g, h, a, b, c, d, e, f)
+	ROUND_16_63(59, f, g, h, a, b, c, d, e)
+	ROUND_16_63(60, e, f, g, h, a, b, c, d)
+	ROUND_16_63(61, d, e, f, g, h, a, b, c)
+	ROUND_16_63(62, c, d, e, f, g, h, a, b)
+	ROUND_16_63(63, b, c, d, e, f, g, h, a)
 
 	VX a, aSave, a
 	VX b, bSave, b
@@ -326,9 +325,17 @@ loop:
 	MOVD 	24(digPtr), R4
 	VSTM d, h, (R4)
 
-	VLREPF (0)(R3), TMP2
-	VST TMP2, (R4)
-	VERLLF $8, TMP2, TMP2
-	VST TMP2, 16(R4)
+	MOVD 	0(digPtr), R4
+	loadWordByIndex(TMP0, 0)
+	loadWordByIndex(TMP1, 1)
+	loadWordByIndex(TMP2, 2)
+	loadWordByIndex(TMP3, 3)
+	VSTM TMP0, TMP3, (R4)
+	MOVD 	8(digPtr), R4
+	loadWordByIndex(TMP0, 64)
+	loadWordByIndex(TMP1, 65)
+	loadWordByIndex(TMP2, 66)
+	loadWordByIndex(TMP3, 67)
+	VSTM TMP0, TMP3, (R4)
 
 	RET
