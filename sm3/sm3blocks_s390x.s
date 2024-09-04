@@ -76,9 +76,9 @@ GLOBL mask<>(SB), 8, $64
 	PROLD(a, TMP0, 12)               \
 	VLR TMP0, TMP1                   \
 	VLREPF (index*4)(R3), TMP2       \
-	VAF TMP2, TMP1, TMP1             \
-	VAF e, TMP1, TMP1                \
-	PROLD(TMP1, TMP2, 7)             \ // TMP2 = SS1
+	VAF TMP2, TMP0, TMP0             \
+	VAF e, TMP0, TMP0                \
+	PROLD(TMP0, TMP2, 7)             \ // TMP2 = SS1
 	VX TMP2, TMP1, TMP0			     \ // TMP0 = SS2
 	VX a, b, TMP1                    \
 	VX c, TMP1, TMP1				 \
