@@ -72,8 +72,10 @@ GLOBL mask<>(SB), 8, $64
 	LAY 16(srcPtrPtr), srcPtrPtr; \
 	ADD $64, wordPtr
 
+// VREPIF $const, T
 #define LOAD_T(const, T) \
-	VREPIF $32768, T
+	VLEIF $3, $const, T; \
+	VREPF $3, T, T
 
 #define ROUND_00_11(index, const, a, b, c, d, e, f, g, h) \
 	PROLD(a, TMP0, 12)               \
