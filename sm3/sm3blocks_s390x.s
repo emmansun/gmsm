@@ -328,14 +328,21 @@ loop:
 	MOVD 	0(digPtr), R4
 	loadWordByIndex(TMP0, 0)
 	loadWordByIndex(TMP1, 1)
+	VSTM TMP0, TMP1, (R4)
+
+	MOVD 	8(digPtr), R4
 	loadWordByIndex(TMP2, 2)
 	loadWordByIndex(TMP3, 3)
-	VSTM TMP0, TMP3, (R4)
-	MOVD 	8(digPtr), R4
+	VSTM TMP2, TMP3, (R4)
+
+	MOVD 	16(digPtr), R4
 	loadWordByIndex(TMP0, 64)
 	loadWordByIndex(TMP1, 65)
+	VSTM TMP0, TMP1, (R4)
+	
+	MOVD 	24(digPtr), R4
 	loadWordByIndex(TMP2, 66)
 	loadWordByIndex(TMP3, 67)
-	VSTM TMP0, TMP3, (R4)
+	VSTM TMP2, TMP3, (R4)
 
 	RET
