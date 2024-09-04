@@ -162,8 +162,8 @@ GLOBL mask<>(SB), 8, $64
 
 // func copyResultsBy4(dig *uint32, dst *byte)
 TEXT ·copyResultsBy4(SB),NOSPLIT,$0
-#define digPtr R1
-#define dstPtr R2
+#define digPtr R3
+#define dstPtr R4
 	MOVD	dig+0(FP), digPtr
 	MOVD	dst+8(FP), dstPtr
 
@@ -177,7 +177,7 @@ TEXT ·copyResultsBy4(SB),NOSPLIT,$0
 
 // blockMultBy4(dig **[8]uint32, p **byte, buffer *byte, blocks int)
 TEXT ·blockMultBy4(SB), NOSPLIT, $0
-#define digPtr R0
+#define digPtr R11
 #define srcPtrPtr R1
 #define statePtr R2
 #define blockCount R5
