@@ -325,14 +325,4 @@ loop:
 	MOVD 	24(digPtr), R4
 	VSTM d, h, (R4)
 
-	MOVD 	16(digPtr), R4
-	loadWordByIndex(TMP0, 64)
-	loadWordByIndex(TMP1, 65)
-	VSTM TMP0, TMP1, (R4)
-
-	MOVD 	24(digPtr), R4
-	loadWordByIndex(TMP2, 66)
-	loadWordByIndex(TMP3, 67)
-	VSTM TMP2, TMP3, (R4)
-
 	RET
