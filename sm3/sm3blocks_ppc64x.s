@@ -7,11 +7,11 @@
 #include "textflag.h"
 
 // For P9 instruction emulation
-#define ESPERM  V21  // Endian swapping permute into BE
+#define ESPERMW  V21 // Endian swapping permute into BE
 #define TMP2    V22  // Temporary for P8_STXVB16X/P8_STXVB16X
 
-DATA ·mask+0x00(SB)/8, $0x0f0e0d0c0b0a0908 // Permute for vector doubleword endian swap
-DATA ·mask+0x08(SB)/8, $0x0706050403020100
+DATA ·mask+0x00(SB)/8, $0x0c0d0e0f08090a0b // Permute for vector doubleword endian swap
+DATA ·mask+0x08(SB)/8, $0x0405060700010203
 DATA ·mask+0x10(SB)/8, $0x0001020310111213 // Permute for transpose matrix
 DATA ·mask+0x18(SB)/8, $0x0405060714151617
 DATA ·mask+0x20(SB)/8, $0x08090a0b18191a1b
@@ -23,25 +23,19 @@ DATA ·mask+0x48(SB)/8, $0x18191a1b1c1d1e1f
 GLOBL ·mask(SB), RODATA, $80
 
 #ifdef GOARCH_ppc64le
-#  ifdef GOPPC64_power9
-#define P8_LXVB16X(RA,RB,VT)  LXVB16X	(RA+RB), VT
-#define P8_STXVB16X(VS,RA,RB) STXVB16X	VS, (RA+RB)
-#  else
-// On POWER8/ppc64le, emulate the POWER9 instructions by loading unaligned
-// doublewords and byte-swapping each doubleword to emulate BE load/stores.
 #define NEEDS_ESPERM
-#define P8_LXVB16X(RA,RB,VT) \
-	LXVD2X	(RA+RB), VT \
-	VPERM	VT, VT, ESPERM, VT
 
-#define P8_STXVB16X(VS,RA,RB) \
-	VPERM	VS, VS, ESPERM, TMP2 \
+#define LOADWORDS(RA,RB,VT) \
+	LXVD2X	(RA+RB), VT \
+	VPERM	VT, VT, ESPERMW, VT
+
+#define STOREWORDS(VS,RA,RB) \
+	VPERM	VS, VS, ESPERMW, TMP2 \
 	STXVD2X	TMP2, (RA+RB)
 
-#  endif // defined(GOPPC64_power9)
 #else
-#define P8_LXVB16X(RA,RB,VT)  LXVD2X	(RA+RB), VT
-#define P8_STXVB16X(VS,RA,RB) STXVD2X	VS, (RA+RB)	
+#define LOADWORDS(RA,RB,VT)  LXVD2X	(RA+RB), VT
+#define STOREWORDS(VS,RA,RB) STXVD2X	VS, (RA+RB)	
 #endif // defined(GOARCH_ppc64le)
 
 #define TRANSPOSE_MATRIX(T0, T1, T2, T3, M0, M1, M2, M3, TMP0, TMP1, TMP2, TMP3) \
@@ -65,57 +59,44 @@ TEXT ·transposeMatrix(SB),NOSPLIT,$0
 
 #ifdef NEEDS_ESPERM
 	MOVD	$·mask(SB), R4
-	LVX	(R4), ESPERM
+	LVX	(R4), ESPERMW
 	ADD	$0x10, R4
 #else
 	MOVD	$·mask+0x10(SB), R4
 #endif
-/*
-	LVX 	(R0)(R4), V8
-	LVX 	(R6)(R4), V9
-	LVX 	(R8)(R4), V10
-	LVX 	(R9)(R4), V11
+	LXVD2X 	(R0)(R4), V8
+	LXVD2X 	(R6)(R4), V9
+	LXVD2X 	(R8)(R4), V10
+	LXVD2X 	(R9)(R4), V11
 
 	MOVD 	(R0)(R3), R4
-	P8_LXVB16X(R4, R0, V0)
-	P8_LXVB16X(R4, R6, V4)
+	LOADWORDS(R4, R0, V0)
+	LOADWORDS(R4, R6, V4)
 	MOVD 	(R5)(R3), R4
-	P8_LXVB16X(R4, R0, V1)
-	P8_LXVB16X(R4, R6, V5)
+	LOADWORDS(R4, R0, V1)
+	LOADWORDS(R4, R6, V5)
 	MOVD 	(R6)(R3), R4
-	P8_LXVB16X(R4, R0, V2)
-	P8_LXVB16X(R4, R6, V6)
+	LOADWORDS(R4, R0, V2)
+	LOADWORDS(R4, R6, V6)
 	MOVD 	(R7)(R3), R4
-	P8_LXVB16X(R4, R0, V3)
-	P8_LXVB16X(R4, R6, V7)
+	LOADWORDS(R4, R0, V3)
+	LOADWORDS(R4, R6, V7)
 
 
 	TRANSPOSE_MATRIX(V0, V1, V2, V3, V8, V9, V10, V11, V12, V13, V14, V15)
 	TRANSPOSE_MATRIX(V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15)
 
 	MOVD 	(R0)(R3), R4
-	P8_STXVB16X(V0, R4, R0)
-	P8_STXVB16X(V4, R4, R6)
+	STOREWORDS(V0, R4, R0)
+	STOREWORDS(V4, R4, R6)
 	MOVD 	(R5)(R3), R4
-	P8_STXVB16X(V1, R4, R0)
-	P8_STXVB16X(V5, R4, R6)
+	STOREWORDS(V1, R4, R0)
+	STOREWORDS(V5, R4, R6)
 	MOVD 	(R6)(R3), R4
-	P8_STXVB16X(V2, R4, R0)
-	P8_STXVB16X(V6, R4, R6)
+	STOREWORDS(V2, R4, R0)
+	STOREWORDS(V6, R4, R6)
 	MOVD 	(R7)(R3), R4
-	P8_STXVB16X(V3, R4, R0)
-	P8_STXVB16X(V7, R4, R6)
-*/
-	MOVD 	(R0)(R3), R4
-	VSPLTW $0, ESPERM, V2
-	STXVD2X V2, (R0)(R4)
-	VSPLTW $1, ESPERM, V2
-	STXVD2X V2, (R6)(R4)
-
-	MOVD 	(R5)(R3), R4
-	VSPLTW $2, ESPERM, V2
-	STXVD2X V2, (R0)(R4)
-	VSPLTW $3, ESPERM, V2
-	STXVD2X V2, (R6)(R4)
+	STOREWORDS(V3, R4, R0)
+	STOREWORDS(V7, R4, R6)
 
 	RET
