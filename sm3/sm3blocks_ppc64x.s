@@ -22,12 +22,11 @@ GLOBL mask<>(SB), 8, $64
 #define P8_STXVB16X(VS,RA,RB) STXVB16X	VS, (RA+RB)
 #  else
 #define P8_LXVB16X(RA,RB,VT) \
-	LXVD2X	(RA+RB), VT \
-	XXPERMDI VT, VT, $2, VT
+	LXVD2X	(RA+RB), VT
 
 #define P8_STXVB16X(VS,RA,RB) \
-	XXPERMDI VS, VS, $2, VS \
 	STXVD2X	VS, (RA+RB)
+
 #  endif // defined(GOPPC64_power9)
 #else
 #define P8_LXVB16X(RA,RB,VT)  LXVD2X	(RA+RB), VT
