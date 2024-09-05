@@ -31,13 +31,13 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Test internal
-      run: go test ./internal/...
+      run: go test -v ./internal/...
       env:
         GOARCH: ${{ matrix.arch }}
         GOPPC64: ${{ matrix.ppc64 }}
 
     - name: Test SM3
-      run: go test ./sm3/...
+      run: go test -v ./sm3/...
       env:
         GOARCH: ${{ matrix.arch }}
         GOPPC64: ${{ matrix.ppc64 }}
