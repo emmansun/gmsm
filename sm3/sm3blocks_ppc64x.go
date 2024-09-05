@@ -8,3 +8,6 @@ package sm3
 
 //go:noescape
 func transposeMatrix(dig **[8]uint32)
+
+//go:noescape
+func copyResultsBy4(dig *uint32, p *byte)

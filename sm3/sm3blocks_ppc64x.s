@@ -8,7 +8,7 @@
 
 // For P9 instruction emulation
 #define ESPERMW  V21 // Endian swapping permute into BE
-#define TMP2    V22  // Temporary for P8_STXVB16X/P8_STXVB16X
+#define TMP2    V22  // Temporary for STOREWORDS
 
 DATA ·mask+0x00(SB)/8, $0x0c0d0e0f08090a0b // Permute for vector doubleword endian swap
 DATA ·mask+0x08(SB)/8, $0x0405060700010203
@@ -98,5 +98,43 @@ TEXT ·transposeMatrix(SB),NOSPLIT,$0
 	MOVD 	(R7)(R3), R4
 	STOREWORDS(V3, R4, R0)
 	STOREWORDS(V7, R4, R6)
+
+	RET
+
+// func copyResultsBy4(dig *uint32, dst *byte)
+TEXT ·copyResultsBy4(SB),NOSPLIT,$0
+	MOVD	dig+0(FP), R3
+	MOVD	dst+8(FP), R4
+	
+	LXVD2X 	(R0)(R3), V0
+	STXVD2X 	V0, (R0)(R4)
+
+	MOVD	$16, R5
+	LXVD2X 	(R5)(R3), V0
+	STXVD2X 	V0, (R5)(R4)
+	
+	ADD 	$16, R5
+	LXVD2X 	(R5)(R3), V0
+	STXVD2X 	V0, (R5)(R4)
+
+	ADD 	$16, R5
+	LXVD2X 	(R5)(R3), V0
+	STXVD2X 	V0, (R5)(R4)
+
+	ADD 	$16, R5
+	LXVD2X 	(R5)(R3), V0
+	STXVD2X 	V0, (R5)(R4)
+
+	ADD 	$16, R5
+	LXVD2X 	(R5)(R3), V0
+	STXVD2X 	V0, (R5)(R4)
+
+	ADD 	$16, R5
+	LXVD2X 	(R5)(R3), V0
+	STXVD2X 	V0, (R5)(R4)
+
+	ADD 	$16, R5
+	LXVD2X 	(R5)(R3), V0
+	STXVD2X 	V0, (R5)(R4)	
 
 	RET
