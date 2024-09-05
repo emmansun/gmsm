@@ -17,6 +17,10 @@ DATA mask<>+0x38(SB)/8, $0x18191a1b1c1d1e1f
 GLOBL mask<>(SB), 8, $64
 
 #ifdef GOARCH_ppc64le
+#  ifdef GOPPC64_power9
+#define P8_LXVB16X(RA,RB,VT)  LXVB16X	(RA+RB), VT
+#define P8_STXVB16X(VS,RA,RB) STXVB16X	VS, (RA+RB)
+#  else
 #define P8_LXVB16X(RA,RB,VT) \
 	LXVD2X	(RA+RB), VT \
 	XXPERMDI VT, VT, $2, VT
@@ -24,11 +28,11 @@ GLOBL mask<>(SB), 8, $64
 #define P8_STXVB16X(VS,RA,RB) \
 	XXPERMDI VS, VS, $2, VS \
 	STXVD2X	VS, (RA+RB)
-
+#  endif // defined(GOPPC64_power9)
 #else
 #define P8_LXVB16X(RA,RB,VT)  LXVD2X	(RA+RB), VT
 #define P8_STXVB16X(VS,RA,RB) STXVD2X	VS, (RA+RB)	
-#endif
+#endif // defined(GOARCH_ppc64le)
 
 #define TRANSPOSE_MATRIX(T0, T1, T2, T3, M0, M1, M2, M3, TMP0, TMP1, TMP2, TMP3) \
 	VPERM T0, T1, M0, TMP0; \
