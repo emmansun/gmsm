@@ -70,7 +70,7 @@ TEXT ·transposeMatrix(SB),NOSPLIT,$0
 #else
 	MOVD	$·mask+0x10(SB), R4
 #endif
-
+/*
 	LVX 	(R0)(R4), V8
 	LVX 	(R6)(R4), V9
 	LVX 	(R8)(R4), V10
@@ -105,5 +105,15 @@ TEXT ·transposeMatrix(SB),NOSPLIT,$0
 	MOVD 	(R7)(R3), R4
 	P8_STXVB16X(V3, R4, R0)
 	P8_STXVB16X(V7, R4, R6)
+*/
+	MOVD 	(R0)(R3), R4
+	LXVD2X (R0)(R4), V0
+	VSPLTW $1, V0, V2
+	STXVD2X V2, (R0)(R4)
+
+	LXVD2X (R6)(R4), V1
+	VPERM	V1, V1, ESPERM, V1
+	VSPLTW $1, V1, V2
+	STXVD2X V2, (R6)(R4)
 
 	RET
