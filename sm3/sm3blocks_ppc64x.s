@@ -364,7 +364,7 @@ end:
 	MOVD (R17)(digPtr), R4
 	MOVD $0x79cc4519, R19
 	MTVSRWZ R19, d
-	VSPLTW $3, d, d
+	//VSPLTW $3, d, d
 	STXVW4X d, (R0)(R4)
 	STXVW4X h, (R16)(R4)
 
