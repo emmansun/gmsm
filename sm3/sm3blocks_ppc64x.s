@@ -74,7 +74,7 @@ GLOBL ·mask(SB), RODATA, $80
 	PPC64X_LXVW4X(srcPtr3, srcPtrPtr, V18); \
 	PPC64X_LXVW4X(srcPtr4, srcPtrPtr, V19); \
 	TRANSPOSE_MATRIX(V16, V17, V18, V19); \
-	ADD $16, srcPtrPtr
+	ADD $16, srcPtrPtr; \
 	STXVW4X V16, (wordPtr); \
 	ADD $16, wordPtr; \
 	STXVW4X V17, (wordPtr); \
