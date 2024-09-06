@@ -30,7 +30,7 @@
 #define ESPERMW  V31 // Endian swapping permute into BE
 
 DATA ·mask+0x00(SB)/8, $0x0b0a09080f0e0d0c // byte swap per word
-DATA ·mask+0x18(SB)/8, $0x0302010007060504
+DATA ·mask+0x08(SB)/8, $0x0302010007060504
 DATA ·mask+0x10(SB)/8, $0x0001020310111213 // Permute for transpose matrix
 DATA ·mask+0x18(SB)/8, $0x0405060714151617
 DATA ·mask+0x20(SB)/8, $0x08090a0b18191a1b
