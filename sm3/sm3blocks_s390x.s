@@ -5,7 +5,6 @@
 //go:build !purego
 
 #include "textflag.h"
-#include "go_asm.h"
 
 DATA mask<>+0x00(SB)/8, $0x0001020310111213
 DATA mask<>+0x08(SB)/8, $0x0405060714151617
@@ -15,7 +14,7 @@ DATA mask<>+0x20(SB)/8, $0x0001020304050607
 DATA mask<>+0x28(SB)/8, $0x1011121314151617
 DATA mask<>+0x30(SB)/8, $0x08090a0b0c0d0e0f
 DATA mask<>+0x38(SB)/8, $0x18191a1b1c1d1e1f
-GLOBL mask<>(SB), 8, $64
+GLOBL mask<>(SB), RODATA, $64
 
 #define a V0
 #define e V1

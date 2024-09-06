@@ -29,6 +29,8 @@
 // For instruction emulation
 #define ESPERMW  V31 // Endian swapping permute into BE
 
+#define TEMP	R19
+
 DATA ·mask+0x00(SB)/8, $0x0b0a09080f0e0d0c // byte swap per word
 DATA ·mask+0x08(SB)/8, $0x0302010007060504
 DATA ·mask+0x10(SB)/8, $0x0001020310111213 // Permute for transpose matrix
@@ -59,13 +61,17 @@ GLOBL ·mask(SB), RODATA, $80
 #endif // defined(GOARCH_ppc64le)
 
 // r = s <<< n
+// Due to VSPLTISW's limitation, the n MUST be [0, 15],
+// If n > 15, we have to call it multiple times.
+// VSPLTISW takes a 5-bit immediate value as an operand.
+// I also did NOT find one vector instruction to use immediate value for ROTL.
 #define PROLD(s, r, n) \
 	VSPLTISW $n, TMP5 \
 	VRLW	s, TMP5, r
 
 #define loadWordByIndex(W, i) \
-	MOVD $(16*(i)), R19 \
-	LXVW4X (R19)(statePtr), W
+	MOVD $(16*(i)), TEMP \
+	LXVW4X (TEMP)(statePtr), W
 
 // one word is 16 bytes
 #define prepare4Words \
@@ -95,12 +101,12 @@ GLOBL ·mask(SB), RODATA, $80
 	VPERM TMP2, TMP3, M3, T3
 
 // Load constant T, How to simlify it?
-// Solution 1: big constant table
+// Solution 1: big constant table like sha256block_ppc64x.s
 // Solution 2: 2 constant T, rotate shift left one bit every time
-// Which solution's performance is better?
+// Solution 1's performance is better but it uses more memory.
 #define LOAD_T(index, const, target) \
-	MOVD $const, R19                 \
-	MTVSRWZ R19, target                \
+	MOVD $const, TEMP                \
+	MTVSRWZ TEMP, target             \
 	VSPLTW $1, target, target
 
 #define ROUND_00_11(index, const, a, b, c, d, e, f, g, h) \
@@ -128,7 +134,7 @@ GLOBL ·mask(SB), RODATA, $80
 	PROLD(TMP4, b, 9)                \ // b = b <<< 9
 	VOR TMP1, TMP1, h                \ // h = TT1
 	PROLD(f, TMP4, 10)               \
-	PROLD(TMP4, f, 9)                \ // f = f <<< 19
+	PROLD(TMP4, f, 9)                \ // f = f <<< 19, Here we had to ROTL twice: ROTL 10, then ROTL 9
 	PROLD(TMP3, TMP4, 9)             \ // TMP4 = TT2 <<< 9
 	PROLD(TMP4, TMP0, 8)             \ // TMP0 = TT2 <<< 17
 	VXOR TMP3, TMP4, TMP4            \ // TMP4 = TT2 XOR (TT2 <<< 9)
@@ -185,7 +191,7 @@ GLOBL ·mask(SB), RODATA, $80
 	PROLD(TMP1, b, 9)                \ // b = b <<< 9
 	VOR TMP4, TMP4, h                \ // h = TT1
 	PROLD(f, TMP1, 10)               \
-	PROLD(TMP1, f, 9)                \ // f = f <<< 19
+	PROLD(TMP1, f, 9)                \ // f = f <<< 19, Here we had to ROTL twice: ROTL 10, then ROTL 9
 	PROLD(TMP3, TMP1, 9)             \ // TMP1 = TT2 <<< 9
 	PROLD(TMP1, TMP0, 8)             \ // TMP0 = TT2 <<< 17
 	VXOR TMP3, TMP1, TMP1            \ // TMP1 = TT2 XOR (TT2 <<< 9)
@@ -198,7 +204,7 @@ TEXT ·blockMultBy4(SB), NOSPLIT, $0
 	MOVD 	$16, R16
 	MOVD 	$24, R17
 	MOVD 	$32, R18
-	MOVD 	$48, R19
+	MOVD 	$48, TEMP
 #ifdef NEEDS_PERMW
 	MOVD	$·mask(SB), R4
 	LVX	(R4), ESPERMW
@@ -209,7 +215,7 @@ TEXT ·blockMultBy4(SB), NOSPLIT, $0
 	LXVD2X 	(R0)(R4), M0
 	LXVD2X 	(R16)(R4), M1
 	LXVD2X 	(R18)(R4), M2
-	LXVD2X 	(R19)(R4), M3	
+	LXVD2X 	(TEMP)(R4), M3	
 #define digPtr R11
 #define srcPtrPtr R5
 #define statePtr R4
@@ -225,18 +231,18 @@ TEXT ·blockMultBy4(SB), NOSPLIT, $0
 	MOVD	blocks+24(FP), blockCount
 
 	// load state
-	MOVD (R0)(digPtr), R19
-	LXVW4X (R0)(R19), a
-	LXVW4X (R16)(R19), e
-	MOVD (R15)(digPtr), R19
-	LXVW4X (R0)(R19), b
-	LXVW4X (R16)(R19), f
-	MOVD (R16)(digPtr), R19
-	LXVW4X (R0)(R19), c
-	LXVW4X (R16)(R19), g
-	MOVD (R17)(digPtr), R19
-	LXVW4X (R0)(R19), d
-	LXVW4X (R16)(R19), h
+	MOVD (R0)(digPtr), TEMP
+	LXVW4X (R0)(TEMP), a
+	LXVW4X (R16)(TEMP), e
+	MOVD (R15)(digPtr), TEMP
+	LXVW4X (R0)(TEMP), b
+	LXVW4X (R16)(TEMP), f
+	MOVD (R16)(digPtr), TEMP
+	LXVW4X (R0)(TEMP), c
+	LXVW4X (R16)(TEMP), g
+	MOVD (R17)(digPtr), TEMP
+	LXVW4X (R0)(TEMP), d
+	LXVW4X (R16)(TEMP), h
 
 	TRANSPOSE_MATRIX(a, b, c, d)
 	TRANSPOSE_MATRIX(e, f, g, h)
@@ -352,18 +358,18 @@ end:
 	TRANSPOSE_MATRIX(e, f, g, h)
 
 	// save state
-	MOVD (R0)(digPtr), R19
-	STXVW4X a, (R0)(R19)
-	STXVW4X e, (R16)(R19)
-	MOVD (R15)(digPtr), R19
-	STXVW4X b, (R0)(R19)
-	STXVW4X f, (R16)(R19)
-	MOVD (R16)(digPtr), R19
-	STXVW4X c, (R0)(R19)
-	STXVW4X g, (R16)(R19)
-	MOVD (R17)(digPtr), R19
-	STXVW4X d, (R0)(R19)
-	STXVW4X h, (R16)(R19)
+	MOVD (R0)(digPtr), TEMP
+	STXVW4X a, (R0)(TEMP)
+	STXVW4X e, (R16)(TEMP)
+	MOVD (R15)(digPtr), TEMP
+	STXVW4X b, (R0)(TEMP)
+	STXVW4X f, (R16)(TEMP)
+	MOVD (R16)(digPtr), TEMP
+	STXVW4X c, (R0)(TEMP)
+	STXVW4X g, (R16)(TEMP)
+	MOVD (R17)(digPtr), TEMP
+	STXVW4X d, (R0)(TEMP)
+	STXVW4X h, (R16)(TEMP)
 
 	RET
 
