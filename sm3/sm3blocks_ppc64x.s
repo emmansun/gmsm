@@ -197,7 +197,7 @@ GLOBL ·mask(SB), RODATA, $80
 	VXOR TMP3, TMP1, TMP1            \ // TMP1 = TT2 XOR (TT2 <<< 9)
 	VXOR TMP1, TMP0, d               \ // d = TT2 XOR (TT2 <<< 9) XOR (TT2 <<< 17)
 
-// Used general purpose registers R1-R11.
+// Used general purpose registers R4-R12, R15-R19.
 // blockMultBy4(dig **[8]uint32, p **byte, buffer *byte, blocks int)
 TEXT ·blockMultBy4(SB), NOSPLIT, $0
 	MOVD	$8, R15
@@ -373,6 +373,7 @@ end:
 
 	RET
 
+// Used general purpose registers R4-R6, R8-R9, R16-R19.
 // func copyResultsBy4(dig *uint32, dst *byte)
 TEXT ·copyResultsBy4(SB),NOSPLIT,$0
 	MOVD	dig+0(FP), R6
