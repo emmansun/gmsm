@@ -104,14 +104,14 @@ TEXT ·transposeMatrix(SB),NOSPLIT,$0
 	RET
 
 #ifdef GOARCH_ppc64le
-#define NEEDS_ESPERM
+#define NEEDS_PERMW
 
 #define PPC64X_STXVD2X(VS,RA,RB) \
 	VPERM	VS, VS, ESPERMW, TMP2 \
 	STXVD2X	TMP2, (RA+RB)
 
 #else
-#define STORED2X(VS,RA,RB) STXVD2X	VS, (RA+RB)	
+#define PPC64X_STXVD2X(VS,RA,RB) STXVD2X	VS, (RA+RB)	
 #endif // defined(GOARCH_ppc64le)
 
 // func copyResultsBy4(dig *uint32, dst *byte)
@@ -119,7 +119,7 @@ TEXT ·copyResultsBy4(SB),NOSPLIT,$0
 	MOVD	dig+0(FP), R3
 	MOVD	dst+8(FP), R4
 
-#ifdef NEEDS_ESPERM	
+#ifdef NEEDS_PERMW	
 	MOVD	$·mask+0x80(SB), R5
 	LVX	(R5), ESPERMW
 #endif
