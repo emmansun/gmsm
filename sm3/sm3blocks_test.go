@@ -110,11 +110,9 @@ func TestBlockMultBy4(t *testing.T) {
 func TestCopyResultsBy4(t *testing.T) {
 	var m [4][8]uint32
 	var ret, expected [128]byte
-	var k uint32 = 0
 	for i := 0; i < 4; i++ {
 		for j := 0; j < 8; j++ {
-			m[i][j] = k
-			k++
+			m[i][j] = _K[i*4+j]
 		}
 	}
 	copyResultsBy4(&m[0][0], &ret[0])
