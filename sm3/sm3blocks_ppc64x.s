@@ -101,7 +101,7 @@ GLOBL ·mask(SB), RODATA, $80
 #define LOAD_T(index, const, target) \
 	MOVD $const, R19                 \
 	MTVSRWZ R19, target                \
-	VSPLTW $3, target, target
+	VSPLTW $1, target, target
 
 #define ROUND_00_11(index, const, a, b, c, d, e, f, g, h) \
 	PROLD(a, TMP0, 12)               \
