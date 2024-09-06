@@ -60,7 +60,7 @@ GLOBL ·mask(SB), RODATA, $80
 
 // r = s <<< n
 #define PROLD(s, r, n) \
-	XXSPLTIW $n, TMP5 \
+	VSPLTISW $n, TMP5 \
 	VRLW	s, TMP5, r
 
 #define loadWordByIndex(W, i) \
@@ -362,7 +362,9 @@ end:
 	STXVW4X c, (R0)(R4)
 	STXVW4X g, (R16)(R4)
 	MOVD (R17)(digPtr), R4
+	VSPLTISW $12, d
 	STXVW4X d, (R0)(R4)
+	VSPLTISW $19, h
 	STXVW4X h, (R16)(R4)
 
 	RET
