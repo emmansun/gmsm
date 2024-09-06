@@ -225,18 +225,18 @@ TEXT ·blockMultBy4(SB), NOSPLIT, $0
 	MOVD	blocks+24(FP), blockCount
 
 	// load state
-	MOVD (R0)(digPtr), R4
-	LXVW4X (R0)(R4), a
-	LXVW4X (R16)(R4), e
-	MOVD (R15)(digPtr), R4
-	LXVW4X (R0)(R4), b
-	LXVW4X (R16)(R4), f
-	MOVD (R16)(digPtr), R4
-	LXVW4X (R0)(R4), c
-	LXVW4X (R16)(R4), g
-	MOVD (R17)(digPtr), R4
-	LXVW4X (R0)(R4), d
-	LXVW4X (R16)(R4), h
+	MOVD (R0)(digPtr), R19
+	LXVW4X (R0)(R19), a
+	LXVW4X (R16)(R19), e
+	MOVD (R15)(digPtr), R19
+	LXVW4X (R0)(R19), b
+	LXVW4X (R16)(R19), f
+	MOVD (R16)(digPtr), R19
+	LXVW4X (R0)(R19), c
+	LXVW4X (R16)(R19), g
+	MOVD (R17)(digPtr), R19
+	LXVW4X (R0)(R19), d
+	LXVW4X (R16)(R19), h
 
 	TRANSPOSE_MATRIX(a, b, c, d)
 	TRANSPOSE_MATRIX(e, f, g, h)
@@ -352,18 +352,18 @@ end:
 	TRANSPOSE_MATRIX(e, f, g, h)
 
 	// save state
-	MOVD (R0)(digPtr), R4
-	STXVW4X a, (R0)(R4)
-	STXVW4X e, (R16)(R4)
-	MOVD (R15)(digPtr), R4
-	STXVW4X b, (R0)(R4)
-	STXVW4X f, (R16)(R4)
-	MOVD (R16)(digPtr), R4
-	STXVW4X c, (R0)(R4)
-	STXVW4X g, (R16)(R4)
-	MOVD (R17)(digPtr), R4
-	STXVW4X d, (R0)(R4)
-	STXVW4X h, (R16)(R4)
+	MOVD (R0)(digPtr), R19
+	STXVW4X a, (R0)(R19)
+	STXVW4X e, (R16)(R19)
+	MOVD (R15)(digPtr), R19
+	STXVW4X b, (R0)(R19)
+	STXVW4X f, (R16)(R19)
+	MOVD (R16)(digPtr), R19
+	STXVW4X c, (R0)(R19)
+	STXVW4X g, (R16)(R19)
+	MOVD (R17)(digPtr), R19
+	STXVW4X d, (R0)(R19)
+	STXVW4X h, (R16)(R19)
 
 	RET
 
