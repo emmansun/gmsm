@@ -63,9 +63,9 @@ GLOBL ·mask(SB), RODATA, $80
 	VSPLTISW $n, TMP5 \
 	VRLW	s, TMP5, r
 
-#define loadWordByIndex(W, r, i) \
-	MOVD $(16*(i)), r \
-	LXVW4X (r)(statePtr), W
+#define loadWordByIndex(W, i) \
+	MOVD $(16*(i)), R19 \
+	LXVW4X (R19)(statePtr), W
 
 // one word is 16 bytes
 #define prepare4Words \
