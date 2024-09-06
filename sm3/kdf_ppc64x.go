@@ -2,10 +2,14 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build purego || !(amd64 || arm64 || s390x || ppc64 || ppc64le)
+//go:build (ppc64 || ppc64le) && !purego
 
 package sm3
 
 func kdf(baseMD *digest, keyLen int, limit int) []byte {
-	return kdfGeneric(baseMD, keyLen, limit)
+	if limit < 4 {
+		return kdfGeneric(baseMD, keyLen, limit)
+	}
+
+	return kdfBy4(baseMD, keyLen, limit)
 }
