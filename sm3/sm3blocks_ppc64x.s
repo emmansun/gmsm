@@ -60,7 +60,7 @@ GLOBL ·mask(SB), RODATA, $80
 
 // r = s <<< n
 #define PROLD(s, r, n) \
-	VSPLTISW $n, TMP5 \
+	XXSPLTIW $n, TMP5 \
 	VRLW	s, TMP5, r
 
 #define loadWordByIndex(W, i) \
@@ -94,10 +94,19 @@ GLOBL ·mask(SB), RODATA, $80
 	VPERM TMP2, TMP3, M2, T2; \
 	VPERM TMP2, TMP3, M3, T3
 
+// Load constant T, How to simlify it?
+// Solution 1: big constant table
+// Solution 2: 2 constant T, rotate shift left one bit every time
+// Which solution's performance is better?
+#define LOAD_T(index, const, target) \
+	MOVD $const, R19                 \
+	MTVSRWZ R19, target                \
+	VSPLTW $3, target, target
+
 #define ROUND_00_11(index, const, a, b, c, d, e, f, g, h) \
 	PROLD(a, TMP0, 12)               \
 	VOR TMP0, TMP0, TMP1             \
-	VSPLTISW $const, TMP2			 \
+	LOAD_T(index, const, TMP2)       \
 	VADDUWM TMP2, TMP0, TMP0         \
 	VADDUWM e, TMP0, TMP0            \
 	PROLD(TMP0, TMP2, 7)             \ // TMP2 = SS1
@@ -152,7 +161,7 @@ GLOBL ·mask(SB), RODATA, $80
 	MESSAGE_SCHEDULE(index)          \ // TMP1 is Wt+4 now, Pls do not use it
 	PROLD(a, TMP0, 12)               \
 	VOR TMP0, TMP0, TMP4             \
-	VSPLTISW $const, TMP2            \
+	LOAD_T(index, const, TMP2)       \
 	VADDUWM TMP2, TMP0, TMP0         \
 	VADDUWM e, TMP0, TMP0            \
 	PROLD(TMP0, TMP2, 7)             \ // TMP2 = SS1
