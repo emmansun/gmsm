@@ -85,12 +85,15 @@ GLOBL ·mask(SB), RODATA, $80
 	PPC64X_LXVW4X(srcPtr3, srcPtrPtr, V18); \
 	PPC64X_LXVW4X(srcPtr4, srcPtrPtr, V19); \
 	TRANSPOSE_MATRIX(V16, V17, V18, V19); \
-	ADD $16, srcPtrPtr; \
-	STXVW4X V16, (R0)(wordPtr); \
-	STXVW4X V17, (R_x10)(wordPtr); \
-	STXVW4X V18, (R_x20)(wordPtr); \
-	STXVW4X V19, (R_x30)(wordPtr); \
-	ADD $64, wordPtr
+	ADD $16, srcPtrPtr;     \
+	STXVW4X V16, (wordPtr); \
+	ADD $16, wordPtr;       \
+	STXVW4X V17, (wordPtr); \
+	ADD $16, wordPtr;       \
+	STXVW4X V18, (wordPtr); \
+	ADD $16, wordPtr;       \
+	STXVW4X V19, (wordPtr); \
+	ADD $16, wordPtr
 
 #define TRANSPOSE_MATRIX(T0, T1, T2, T3) \
 	VPERM T0, T1, M0, TMP0; \
