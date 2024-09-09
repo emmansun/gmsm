@@ -86,13 +86,13 @@ GLOBL ·flip_mask(SB), RODATA, $16
 	MOVWZ $(idx*4 + 16)(BUFFER),  dst
 
 // For rounds [0 - 16)
-#define DO_ROUND_N_0(idx, const, a, b, c, d, e, f, g, h) \
+#define DO_ROUND_N_0(addr1, addr2, const, a, b, c, d, e, f, g, h) \
 	;                                            \ // #############################  RND N + 0 ############################//
 	SS12(a, e, const, y2, y0);                   \
-	LOAD_WORD1(idx, y1);                         \
+	MOVWZ addr1, y1;                             \
 	ADD   y1, y2;                                \ // y2 = SS1 + W
 	ADD   h, y2;                                 \ // y2 = h + SS1 + W    
-	LOAD_WORD2(idx, y1);                         \
+	MOVWZ addr2, y1;                             \
 	ADD   y1, y0;                                \ // y0 = SS2 + W'
 	ADD   d, y0;                                 \ // y0 = d + SS2 + W'
 	;                                            \
@@ -110,13 +110,13 @@ GLOBL ·flip_mask(SB), RODATA, $16
 	P0(y2, y0, d)
 
 // For rounds [16 - 64)
-#define DO_ROUND_N_1(idx, const, a, b, c, d, e, f, g, h) \
+#define DO_ROUND_N_1(addr1, addr2, const, a, b, c, d, e, f, g, h) \
 	;                                            \ // #############################  RND N + 0 ############################//
 	SS12(a, e, const, y2, y0);                   \
-	LOAD_WORD1(idx, y1);                         \
+	MOVWZ addr1, y1;                             \
 	ADD     y1, y2;                              \ // y2 = SS1 + W
 	ADD     h, y2;                               \ // y2 = h + SS1 + W    
-	LOAD_WORD2(idx, y1);                         \	
+	MOVWZ addr2, y1;                             \
 	ADD     y1, y0;                              \ // y0 = SS2 + W'
 	ADD     d, y0;                               \ // y0 = d + SS2 + W'
 	;                                            \
@@ -220,156 +220,156 @@ schedule_compress: // for w0 - w47
 	STXVW4X XWORD0, (BUFFER)(R_x000)
 	VXOR XWORD0, XWORD1, XFER
 	STXVW4X XFER, (BUFFER)(R_x010)
-	DO_ROUND_N_0(0, T0, a, b, c, d, e, f, g, h)
-	DO_ROUND_N_0(1, T1, h, a, b, c, d, e, f, g)
+	DO_ROUND_N_0(0(BUFFER), 16(BUFFER), T0, a, b, c, d, e, f, g, h)
+	DO_ROUND_N_0(4(BUFFER), 20(BUFFER), T1, h, a, b, c, d, e, f, g)
 	MESSAGE_SCHEDULE(XWORD0, XWORD1, XWORD2, XWORD3)
-	DO_ROUND_N_0(2, T2, g, h, a, b, c, d, e, f)
-	DO_ROUND_N_0(3, T3, f, g, h, a, b, c, d, e)
+	DO_ROUND_N_0(8(BUFFER), 24(BUFFER), T2, g, h, a, b, c, d, e, f)
+	DO_ROUND_N_0(12(BUFFER), 28(BUFFER), T3, f, g, h, a, b, c, d, e)
 
 	// Do 4 rounds and scheduling
 	STXVW4X XWORD1, (BUFFER)(R_x000)
 	VXOR XWORD1, XWORD2, XFER
 	STXVW4X XFER, (BUFFER)(R_x010)
-	DO_ROUND_N_0(0, T4, e, f, g, h, a, b, c, d)
-	DO_ROUND_N_0(1, T5, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_0(0(BUFFER), 16(BUFFER), T4, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_0(4(BUFFER), 20(BUFFER), T5, d, e, f, g, h, a, b, c)
 	MESSAGE_SCHEDULE(XWORD1, XWORD2, XWORD3, XWORD0)
-	DO_ROUND_N_0(2, T6, c, d, e, f, g, h, a, b)
-	DO_ROUND_N_0(3, T7, b, c, d, e, f, g, h, a)
+	DO_ROUND_N_0(8(BUFFER), 24(BUFFER), T6, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_0(12(BUFFER), 28(BUFFER), T7, b, c, d, e, f, g, h, a)
 
 	// Do 4 rounds and scheduling
 	STXVW4X XWORD2, (BUFFER)(R_x000)
 	VXOR XWORD2, XWORD3, XFER
 	STXVW4X XFER, (BUFFER)(R_x010)
-	DO_ROUND_N_0(0, T8, a, b, c, d, e, f, g, h)
-	DO_ROUND_N_0(1, T9, h, a, b, c, d, e, f, g)
+	DO_ROUND_N_0(0(BUFFER), 16(BUFFER), T8, a, b, c, d, e, f, g, h)
+	DO_ROUND_N_0(4(BUFFER), 20(BUFFER), T9, h, a, b, c, d, e, f, g)
 	MESSAGE_SCHEDULE(XWORD2, XWORD3, XWORD0, XWORD1)
-	DO_ROUND_N_0(2, T10, g, h, a, b, c, d, e, f)
-	DO_ROUND_N_0(3, T11, f, g, h, a, b, c, d, e)
+	DO_ROUND_N_0(8(BUFFER), 24(BUFFER), T10, g, h, a, b, c, d, e, f)
+	DO_ROUND_N_0(12(BUFFER), 28(BUFFER), T11, f, g, h, a, b, c, d, e)
 
 	// Do 4 rounds and scheduling
 	STXVW4X XWORD3, (BUFFER)(R_x000)
 	VXOR XWORD3, XWORD0, XFER
 	STXVW4X XFER, (BUFFER)(R_x010)
-	DO_ROUND_N_0(0, T12, e, f, g, h, a, b, c, d)
-	DO_ROUND_N_0(1, T13, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_0(0(BUFFER), 16(BUFFER), T12, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_0(4(BUFFER), 20(BUFFER), T13, d, e, f, g, h, a, b, c)
 	MESSAGE_SCHEDULE(XWORD3, XWORD0, XWORD1, XWORD2)
-	DO_ROUND_N_0(2, T14, c, d, e, f, g, h, a, b)
-	DO_ROUND_N_0(3, T15, b, c, d, e, f, g, h, a)
+	DO_ROUND_N_0(8(BUFFER), 24(BUFFER), T14, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_0(12(BUFFER), 28(BUFFER), T15, b, c, d, e, f, g, h, a)
 
 	// Do 4 rounds and scheduling
 	STXVW4X XWORD0, (BUFFER)(R_x000)
 	VXOR XWORD0, XWORD1, XFER
 	STXVW4X XFER, (BUFFER)(R_x010)
-	DO_ROUND_N_1(0, T16, a, b, c, d, e, f, g, h)
-	DO_ROUND_N_1(1, T17, h, a, b, c, d, e, f, g)
+	DO_ROUND_N_1(0(BUFFER), 16(BUFFER), T16, a, b, c, d, e, f, g, h)
+	DO_ROUND_N_1(4(BUFFER), 20(BUFFER), T17, h, a, b, c, d, e, f, g)
 	MESSAGE_SCHEDULE(XWORD0, XWORD1, XWORD2, XWORD3)
-	DO_ROUND_N_1(2, T18, g, h, a, b, c, d, e, f)
-	DO_ROUND_N_1(3, T19, f, g, h, a, b, c, d, e)
+	DO_ROUND_N_1(8(BUFFER), 24(BUFFER), T18, g, h, a, b, c, d, e, f)
+	DO_ROUND_N_1(12(BUFFER), 28(BUFFER), T19, f, g, h, a, b, c, d, e)
 
 	// Do 4 rounds and scheduling
 	STXVW4X XWORD1, (BUFFER)(R_x000)
 	VXOR XWORD1, XWORD2, XFER
 	STXVW4X XFER, (BUFFER)(R_x010)
-	DO_ROUND_N_1(0, T20, e, f, g, h, a, b, c, d)
-	DO_ROUND_N_1(1, T21, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_1(0(BUFFER), 16(BUFFER), T20, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_1(4(BUFFER), 20(BUFFER), T21, d, e, f, g, h, a, b, c)
 	MESSAGE_SCHEDULE(XWORD1, XWORD2, XWORD3, XWORD0)
-	DO_ROUND_N_1(2, T22, c, d, e, f, g, h, a, b)
-	DO_ROUND_N_1(3, T23, b, c, d, e, f, g, h, a)
+	DO_ROUND_N_1(8(BUFFER), 24(BUFFER), T22, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_1(12(BUFFER), 28(BUFFER), T23, b, c, d, e, f, g, h, a)
 	
 	// Do 4 rounds and scheduling
 	STXVW4X XWORD2, (BUFFER)(R_x000)
 	VXOR XWORD2, XWORD3, XFER
 	STXVW4X XFER, (BUFFER)(R_x010)
-	DO_ROUND_N_1(0, T24, a, b, c, d, e, f, g, h)
-	DO_ROUND_N_1(1, T25, h, a, b, c, d, e, f, g)
+	DO_ROUND_N_1(0(BUFFER), 16(BUFFER), T24, a, b, c, d, e, f, g, h)
+	DO_ROUND_N_1(4(BUFFER), 20(BUFFER), T25, h, a, b, c, d, e, f, g)
 	MESSAGE_SCHEDULE(XWORD2, XWORD3, XWORD0, XWORD1)
-	DO_ROUND_N_1(2, T26, g, h, a, b, c, d, e, f)
-	DO_ROUND_N_1(3, T27, f, g, h, a, b, c, d, e)
+	DO_ROUND_N_1(8(BUFFER), 24(BUFFER), T26, g, h, a, b, c, d, e, f)
+	DO_ROUND_N_1(12(BUFFER), 28(BUFFER), T27, f, g, h, a, b, c, d, e)
 		
 	// Do 4 rounds and scheduling
 	STXVW4X XWORD3, (BUFFER)(R_x000)
 	VXOR XWORD3, XWORD0, XFER
 	STXVW4X XFER, (BUFFER)(R_x010)
-	DO_ROUND_N_1(0, T28, e, f, g, h, a, b, c, d)
-	DO_ROUND_N_1(1, T29, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_1(0(BUFFER), 16(BUFFER), T28, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_1(4(BUFFER), 20(BUFFER), T29, d, e, f, g, h, a, b, c)
 	MESSAGE_SCHEDULE(XWORD3, XWORD0, XWORD1, XWORD2)
-	DO_ROUND_N_1(2, T30, c, d, e, f, g, h, a, b)
-	DO_ROUND_N_1(3, T31, b, c, d, e, f, g, h, a)
+	DO_ROUND_N_1(8(BUFFER), 24(BUFFER), T30, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_1(12(BUFFER), 28(BUFFER), T31, b, c, d, e, f, g, h, a)
 
 	// Do 4 rounds and scheduling
 	STXVW4X XWORD0, (BUFFER)(R_x000)
 	VXOR XWORD0, XWORD1, XFER
 	STXVW4X XFER, (BUFFER)(R_x010)
-	DO_ROUND_N_1(0, T32, a, b, c, d, e, f, g, h)
-	DO_ROUND_N_1(1, T33, h, a, b, c, d, e, f, g)
+	DO_ROUND_N_1(0(BUFFER), 16(BUFFER), T32, a, b, c, d, e, f, g, h)
+	DO_ROUND_N_1(4(BUFFER), 20(BUFFER), T33, h, a, b, c, d, e, f, g)
 	MESSAGE_SCHEDULE(XWORD0, XWORD1, XWORD2, XWORD3)
-	DO_ROUND_N_1(2, T34, g, h, a, b, c, d, e, f)
-	DO_ROUND_N_1(3, T35, f, g, h, a, b, c, d, e)
+	DO_ROUND_N_1(8(BUFFER), 24(BUFFER), T34, g, h, a, b, c, d, e, f)
+	DO_ROUND_N_1(12(BUFFER), 28(BUFFER), T35, f, g, h, a, b, c, d, e)
 
 	// Do 4 rounds and scheduling
 	STXVW4X XWORD1, (BUFFER)(R_x000)
 	VXOR XWORD1, XWORD2, XFER
 	STXVW4X XFER, (BUFFER)(R_x010)
-	DO_ROUND_N_1(0, T36, e, f, g, h, a, b, c, d)
-	DO_ROUND_N_1(1, T37, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_1(0(BUFFER), 16(BUFFER), T36, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_1(4(BUFFER), 20(BUFFER), T37, d, e, f, g, h, a, b, c)
 	MESSAGE_SCHEDULE(XWORD1, XWORD2, XWORD3, XWORD0)
-	DO_ROUND_N_1(2, T38, c, d, e, f, g, h, a, b)
-	DO_ROUND_N_1(3, T39, b, c, d, e, f, g, h, a)
+	DO_ROUND_N_1(8(BUFFER), 24(BUFFER), T38, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_1(12(BUFFER), 28(BUFFER), T39, b, c, d, e, f, g, h, a)
 
 	// Do 4 rounds and scheduling
 	STXVW4X XWORD2, (BUFFER)(R_x000)
 	VXOR XWORD2, XWORD3, XFER
 	STXVW4X XFER, (BUFFER)(R_x010)
-	DO_ROUND_N_1(0, T40, a, b, c, d, e, f, g, h)
-	DO_ROUND_N_1(1, T41, h, a, b, c, d, e, f, g)
+	DO_ROUND_N_1(0(BUFFER), 16(BUFFER), T40, a, b, c, d, e, f, g, h)
+	DO_ROUND_N_1(4(BUFFER), 20(BUFFER), T41, h, a, b, c, d, e, f, g)
 	MESSAGE_SCHEDULE(XWORD2, XWORD3, XWORD0, XWORD1)
-	DO_ROUND_N_1(2, T42, g, h, a, b, c, d, e, f)
-	DO_ROUND_N_1(3, T43, f, g, h, a, b, c, d, e)
+	DO_ROUND_N_1(8(BUFFER), 24(BUFFER), T42, g, h, a, b, c, d, e, f)
+	DO_ROUND_N_1(12(BUFFER), 28(BUFFER), T43, f, g, h, a, b, c, d, e)
 
 	// Do 4 rounds and scheduling
 	STXVW4X XWORD3, (BUFFER)(R_x000)
 	VXOR XWORD3, XWORD0, XFER
 	STXVW4X XFER, (BUFFER)(R_x010)
-	DO_ROUND_N_1(0, T44, e, f, g, h, a, b, c, d)
-	DO_ROUND_N_1(1, T45, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_1(0(BUFFER), 16(BUFFER), T44, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_1(4(BUFFER), 20(BUFFER), T45, d, e, f, g, h, a, b, c)
 	MESSAGE_SCHEDULE(XWORD3, XWORD0, XWORD1, XWORD2)
-	DO_ROUND_N_1(2, T46, c, d, e, f, g, h, a, b)
-	DO_ROUND_N_1(3, T47, b, c, d, e, f, g, h, a)
+	DO_ROUND_N_1(8(BUFFER), 24(BUFFER), T46, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_1(12(BUFFER), 28(BUFFER), T47, b, c, d, e, f, g, h, a)
 
 	// w48 - w63 processed with only 4 rounds scheduling (last 16 rounds)
 	// Do 4 rounds
 	STXVW4X XWORD0, (BUFFER)(R_x000)
 	VXOR XWORD0, XWORD1, XFER
 	STXVW4X XFER, (BUFFER)(R_x010)
-	DO_ROUND_N_1(0, T48, a, b, c, d, e, f, g, h)
-	DO_ROUND_N_1(1, T49, h, a, b, c, d, e, f, g)
-	DO_ROUND_N_1(2, T50, g, h, a, b, c, d, e, f)
-	DO_ROUND_N_1(3, T51, f, g, h, a, b, c, d, e)
+	DO_ROUND_N_1(0(BUFFER), 16(BUFFER), T48, a, b, c, d, e, f, g, h)
+	DO_ROUND_N_1(4(BUFFER), 20(BUFFER), T49, h, a, b, c, d, e, f, g)
+	DO_ROUND_N_1(8(BUFFER), 24(BUFFER), T50, g, h, a, b, c, d, e, f)
+	DO_ROUND_N_1(12(BUFFER), 28(BUFFER), T51, f, g, h, a, b, c, d, e)
 
 	STXVW4X XWORD1, (BUFFER)(R_x000)
 	VXOR XWORD1, XWORD2, XFER
 	STXVW4X XFER, (BUFFER)(R_x010)
-	DO_ROUND_N_1(0, T52, e, f, g, h, a, b, c, d)
-	DO_ROUND_N_1(1, T53, d, e, f, g, h, a, b, c)
-	DO_ROUND_N_1(2, T54, c, d, e, f, g, h, a, b)
-	DO_ROUND_N_1(3, T55, b, c, d, e, f, g, h, a)
+	DO_ROUND_N_1(0(BUFFER), 16(BUFFER), T52, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_1(4(BUFFER), 20(BUFFER), T53, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_1(8(BUFFER), 24(BUFFER), T54, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_1(12(BUFFER), 28(BUFFER), T55, b, c, d, e, f, g, h, a)
 
 	STXVW4X XWORD2, (BUFFER)(R_x000)
 	VXOR XWORD2, XWORD3, XFER
 	STXVW4X XFER, (BUFFER)(R_x010)
 	MESSAGE_SCHEDULE(XWORD0, XWORD1, XWORD2, XWORD3)
-	DO_ROUND_N_1(0, T56, a, b, c, d, e, f, g, h)
-	DO_ROUND_N_1(1, T57, h, a, b, c, d, e, f, g)
-	DO_ROUND_N_1(2, T58, g, h, a, b, c, d, e, f)
-	DO_ROUND_N_1(3, T59, f, g, h, a, b, c, d, e)
+	DO_ROUND_N_1(0(BUFFER), 16(BUFFER), T56, a, b, c, d, e, f, g, h)
+	DO_ROUND_N_1(4(BUFFER), 20(BUFFER), T57, h, a, b, c, d, e, f, g)
+	DO_ROUND_N_1(8(BUFFER), 24(BUFFER), T58, g, h, a, b, c, d, e, f)
+	DO_ROUND_N_1(12(BUFFER), 28(BUFFER), T59, f, g, h, a, b, c, d, e)
 
 	STXVW4X XWORD3, (BUFFER)(R_x000)
 	VXOR XWORD3, XWORD0, XFER
 	STXVW4X XFER, (BUFFER)(R_x010)
-	DO_ROUND_N_1(0, T60, e, f, g, h, a, b, c, d)
-	DO_ROUND_N_1(1, T61, d, e, f, g, h, a, b, c)
-	DO_ROUND_N_1(2, T62, c, d, e, f, g, h, a, b)
-	DO_ROUND_N_1(3, T63, b, c, d, e, f, g, h, a)
+	DO_ROUND_N_1(0(BUFFER), 16(BUFFER), T60, e, f, g, h, a, b, c, d)
+	DO_ROUND_N_1(4(BUFFER), 20(BUFFER), T61, d, e, f, g, h, a, b, c)
+	DO_ROUND_N_1(8(BUFFER), 24(BUFFER), T62, c, d, e, f, g, h, a, b)
+	DO_ROUND_N_1(12(BUFFER), 28(BUFFER), T63, b, c, d, e, f, g, h, a)
 
 	MOVWZ 0(CTX), TEMP
 	XOR TEMP, a
