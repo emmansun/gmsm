@@ -7,6 +7,11 @@
 #include "textflag.h"
 #include "sm3_const_asm.s"
 
+// We can also use MFVSRWZ to extract the first word from vector register
+// and then use VSLDOI to shift the vector register, thus we can avoid the usage of memory (buffer).
+// But due to we have no real phisical machine to test the performance difference,
+// we'll keep current implementation first.
+
 #ifdef GOARCH_ppc64le
 #define NEEDS_PERMW
 
@@ -77,17 +82,10 @@ GLOBL ·flip_mask(SB), RODATA, $16
 	XOR     tmp, out;                              \
 	XOR     tt2, out
 
-// Load w from buffer
-#define LOAD_WORD1(idx, dst) \
-	MOVWZ $(idx*4)(BUFFER),  dst
-
-// Load w' from buffer
-#define LOAD_WORD2(idx, dst)  \
-	MOVWZ $(idx*4 + 16)(BUFFER),  dst
-
 // For rounds [0 - 16)
+// addr1 for w, addr2 for w'
 #define DO_ROUND_N_0(addr1, addr2, const, a, b, c, d, e, f, g, h) \
-	;                                            \ // #############################  RND N + 0 ############################//
+	;                                            \
 	SS12(a, e, const, y2, y0);                   \
 	MOVWZ addr1, y1;                             \
 	ADD   y1, y2;                                \ // y2 = SS1 + W
@@ -110,8 +108,9 @@ GLOBL ·flip_mask(SB), RODATA, $16
 	P0(y2, y0, d)
 
 // For rounds [16 - 64)
+// addr1 for w, addr2 for w'
 #define DO_ROUND_N_1(addr1, addr2, const, a, b, c, d, e, f, g, h) \
-	;                                            \ // #############################  RND N + 0 ############################//
+	;                                            \
 	SS12(a, e, const, y2, y0);                   \
 	MOVWZ addr1, y1;                             \
 	ADD     y1, y2;                              \ // y2 = SS1 + W
@@ -150,24 +149,24 @@ GLOBL ·flip_mask(SB), RODATA, $16
 	PROLD(XTMP0, XTMP1, 7);            \ // XTMP1 = W[-13] rol 7
 	VSLDOI $8, XWORD2, XWORD3, XTMP0;  \ // XTMP0 = W[-6] = {w10, w11, w12, w13}
 	VXOR XTMP0, XTMP1, XTMP0;          \ // XTMP0 = W[-6] xor (W[-13] rol 7)
-	; \
+	; \ // Prepare P1 parameters
 	VSLDOI $12, XWORD1, XWORD2, XTMP1; \ // XTMP1 = W[-9] = {w7, w8, w9, w10}
 	VXOR XTMP1, XWORD0, XTMP1;         \ // XTMP1 = W[-9] xor W[-16]
 	VSLDOI $4, XWORD3, XWORD2, XTMP3;  \ // XTMP3 = W[-3] = {w13, w14, w15, w8}
 	PROLD(XTMP3, XTMP2, 15);           \ // XTMP2 = W[-3] rol 15
 	VXOR XTMP1, XTMP2, XTMP2;          \ // XTMP2 = W[-9] ^ W[-16] ^ (W[-3] rol 15) {ABxx}
-	; \
+	; \ // P1
 	PROLD(XTMP2, XTMP4, 15);           \ // XTMP4 =  = XTMP2 rol 15 {ABxx}
 	PROLD(XTMP4, XTMP3, 8);            \ // XTMP3 = XTMP2 rol 23 {ABxx}
 	VXOR XTMP2, XTMP4, XTMP4;          \ // XTMP4 = XTMP2 XOR (XTMP2 rol 15 {ABxx})
 	VXOR XTMP4, XTMP3, XTMP4;          \ // XTMP4 = XTMP2 XOR (XTMP2 rol 15 {ABxx}) XOR (XTMP2 rol 23 {ABxx})
 	; \ // First 2 words message schedule result
 	VXOR XTMP4, XTMP0, XTMP2;          \ // XTMP2 = {w[0], w[1], ..., ...}
-	; \
+	; \ // Prepare P1 parameters
 	VSLDOI $4, XWORD3, XTMP2, XTMP3;   \ // XTMP3 = W[-3] = {w13, w14, w15, w0}
 	PROLD(XTMP3, XTMP4, 15);           \ // XTMP4 = W[-3] rol 15
 	VXOR XTMP1, XTMP4, XTMP4;		   \ // XTMP4 = W[-9] ^ W[-16] ^ (W[-3] rol 15) {ABCD}
-	; \
+	; \ // P1
 	PROLD(XTMP4, XTMP3, 15);           \ // XTMP3 =  = XTMP4 rol 15 {ABCD}
 	PROLD(XTMP3, XTMP1, 8);            \ // XTMP1 = XTMP4 rol 23 {ABCD}
 	VXOR XTMP4, XTMP3, XTMP3;          \ // XTMP3 = XTMP4 XOR (XTMP4 rol 15 {ABCD})
@@ -181,7 +180,6 @@ TEXT ·blockASM(SB), NOSPLIT, $0
 #ifdef NEEDS_PERMW
 	MOVD	$·flip_mask(SB), TEMP
 	LVX	(TEMP), ESPERMW
-	ADD	$0x10, TEMP
 #endif
 
 	MOVD	dig+0(FP), CTX
