@@ -62,7 +62,7 @@
 DATA ·flip_mask+0x00(SB)/8, $0x0b0a09080f0e0d0c // byte swap per word
 DATA ·flip_mask+0x08(SB)/8, $0x0302010007060504
 
-GLOBL flip_mask<>(SB), RODATA, $16
+GLOBL ·flip_mask(SB), RODATA, $16
 
 #define SS12(a, e, const, ss1, ss2) \
 	ROTLW     $12, a, ss2;                     \ // y0 = a <<< 12
