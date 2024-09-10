@@ -33,7 +33,7 @@ func TestExpandKey(t *testing.T) {
 		}
 		io.ReadFull(rand.Reader, key)
 		expandKeyGo(key, &encRes1, &decRes1)
-		expandKeyAsm(&key[0], &ck[0], &encRes2[0], &decRes2[0], INST_AES)
+		expandKeyAsm(&key[0], &ck[0], &encRes2[0], &decRes2[0], 0)
 		if !reflect.DeepEqual(encRes1[:], encRes2) {
 			t.Errorf("expected=%x, result=%x\n", encRes1[:], encRes2)
 		}
