@@ -127,9 +127,9 @@ GLOBL ·rcon(SB), RODATA, $192
 	;                                       \ //####################  4 parallel L2 linear transforms ##################//
 	VSPLTISW $13, z;                        \
 	VRLW	x, z, y;                        \ // y = x <<< 13
-	VXOR x, y, y;                           \
+	VXOR x, y, x;                           \
 	VSPLTISW $10, z;                        \
-	VRLW x, z, x;                           \ // x = x <<< 10
+	VRLW y, z, y;                           \ // x = x <<< 10
 	VXOR x, y, x
 
 #define SM4_EXPANDKEY_ROUND(CK, x, y, z, t0, t1, t2, t3, target) \
