@@ -26,7 +26,7 @@ Go语言商用密码软件，简称**GMSM**，一个安全、高性能、易于�
 ## 包结构
 - **SM2** - SM2椭圆曲线公钥密码算法，曲线的具体实现位于[internal/sm2ec](https://github.com/emmansun/gmsm/tree/main/internal/sm2ec) package中。SM2曲线实现性能和Golang SDK中的NIST P256椭圆曲线原生实现（非BoringCrypto）类似，也对**amd64**，**arm64**，**s390x**和**ppc64le**架构做了专门汇编优化实现，您也可以参考[SM2实现细节](https://github.com/emmansun/gmsm/wiki/SM2%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96)及相关Wiki和代码，以获得更多实现细节。SM2包实现了SM2椭圆曲线公钥密码算法的数字签名算法、公钥加密算法、密钥交换算法，以及《GB/T 35276-2017信息安全技术 SM2密码算法使用规范》中的密钥对保护数据格式。
 
-- **SM3** - SM3密码杂凑算法实现。**amd64**下分别针对**AVX2+BMI2、AVX、SSE2+SSSE3**做了消息扩展部分的SIMD实现； **arm64**下使用NEON指令做了消息扩展部分的SIMD实现，同时也提供了基于**A64扩展密码指令**的汇编实现。您也可以参考[SM3性能优化](https://github.com/emmansun/gmsm/wiki/SM3%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96)及相关Wiki和代码，以获得更多实现细节。
+- **SM3** - SM3密码杂凑算法实现。**amd64**下分别针对**AVX2+BMI2、AVX、SSE2+SSSE3**做了消息扩展部分的SIMD实现； **arm64**下使用NEON指令做了消息扩展部分的SIMD实现，同时也提供了基于**A64扩展密码指令**的汇编实现；**s390x**和**ppc64x**通过向量指令做了消息扩展部分的优化实现。您也可以参考[SM3性能优化](https://github.com/emmansun/gmsm/wiki/SM3%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96)及相关Wiki和代码，以获得更多实现细节。
 
 - **SM4** - SM4分组密码算法实现。**amd64**下使用**AES**指令加上**AVX2、AVX、SSE2+SSSE3**实现了比较好的性能。**arm64**下使用**AES**指令加上NEON指令实现了比较好的性能，同时也提供了基于**A64扩展密码指令**的汇编实现。针对**ECB/CBC/GCM/XTS**加密模式，做了和SM4分组密码算法的融合汇编优化实现。您也可以参考[SM4性能优化](https://github.com/emmansun/gmsm/wiki/SM4%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96)及相关Wiki和代码，以获得更多实现细节。
 

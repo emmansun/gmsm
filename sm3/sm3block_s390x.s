@@ -138,6 +138,9 @@
 	; \ // 4 words message schedule result
 	VX XTMP1, XTMP0, XWORD0;           \ // XWORD0 = {w[0], w[1], w[2], w[3]}
 
+// For the usage of tmp-xx(SP), I referred to the code of
+// https://github.com/golang/go/blob/master/src/crypto/md5/md5block_s390x.s
+//
 // func block(dig *digest, p []byte)
 TEXT ·block(SB),NOSPLIT,$72-32
 	MOVD	dig+0(FP), CTX
