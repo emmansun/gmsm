@@ -6,7 +6,7 @@
 
 #include "textflag.h"
 
-#define REVERSE_WORDS V23
+#define REVERSE_WORDS V19
 #define V_FOUR V24
 #define M0 V25
 #define M1 V26
@@ -173,36 +173,33 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
 	ADD $112, R6
 
 	// prepare counter
-//	MOVD $8, R7
-//	MOVD R7, CTR
-
-	VSPLTISB $0, V6 // VZERO  V6
+	MOVD $8, R7
+	MOVD R7, CTR
 
 	// load key
 	PPC64X_LXVW4X(R3, R0, V0)
-	VSLDOI $4, V0, V6, V1
-	VSLDOI $4, V1, V6, V2
-	VSLDOI $4, V2, V6, V3
+	VSLDOI $4, V0, V0, V1
+	VSLDOI $4, V1, V1, V2
+	VSLDOI $4, V2, V2, V3
 
 ksLoop:
-	VSPLTISB $0, V5 // VZERO  V5
 	LXVW4X (R4), V4
 	SM4_EXPANDKEY_ROUND(V4, V7, V8, V9, V0, V1, V2, V3, V5)
-	VSLDOI $4, V4, V6, V4
+	VSLDOI $4, V4, V4, V4
 	SM4_EXPANDKEY_ROUND(V4, V7, V8, V9, V1, V2, V3, V0, V5)
-	VSLDOI $4, V4, V6, V4
+	VSLDOI $4, V4, V4, V4
 	SM4_EXPANDKEY_ROUND(V4, V7, V8, V9, V2, V3, V0, V1, V5)
-	VSLDOI $4, V4, V6, V4
+	VSLDOI $4, V4, V4, V4
 	SM4_EXPANDKEY_ROUND(V4, V7, V8, V9, V3, V0, V1, V2, V5)
 	STXVW4X V5, (R5)
-	VPERM V5, V6, REVERSE_WORDS, V5
-	STXVW4X REVERSE_WORDS, (R6)
-/*	
+	VPERM V5, V5, REVERSE_WORDS, V5
+	STXVW4X V5, (R6)
+
 	ADD $16, R5
 	ADD $16, R4
 	ADD $-16, R6
 	BDNZ	ksLoop
-*/
+
     RET
 
 // func encryptBlocksAsm(xk *uint32, dst, src []byte, inst int)
