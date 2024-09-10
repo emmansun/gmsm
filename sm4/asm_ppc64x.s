@@ -127,8 +127,7 @@ GLOBL ·rcon(SB), RODATA, $192
 	;                                       \ //####################  4 parallel L2 linear transforms ##################//
 	VSPLTISW $13, z;                        \
 	VRLW	x, z, y;                        \ // y = x <<< 13
-	VXOR x, y, y;                           \ 
-	VRLW x, z, x;                           \ // x = x <<< 13
+	VXOR x, y, y;                           \
 	VSPLTISW $10, z;                        \
 	VRLW x, z, x;                           \ // x = x <<< 10
 	VXOR x, y, x
