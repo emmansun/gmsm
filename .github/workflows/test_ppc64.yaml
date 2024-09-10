@@ -41,3 +41,9 @@ jobs:
       env:
         GOARCH: ${{ matrix.arch }}
         GOPPC64: ${{ matrix.ppc64 }}
+
+    - name: Test SM4
+      run: go test -v -short ./sm4/...
+      env:
+        GOARCH: ${{ matrix.arch }}
+        GOPPC64: ${{ matrix.ppc64 }}        
