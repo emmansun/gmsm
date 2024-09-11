@@ -183,6 +183,11 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
 	VSLDOI $4, V1, V1, V2
 	VSLDOI $4, V2, V2, V3
 
+	VCIPHERLAST ESPERMW, ZERO, V5
+	STXVW4X V5, (R5)
+	VCIPHERLAST ZERO, ESPERMW, V5
+	STXVW4X V5, (R6)	
+/*
 ksLoop:
 	LXVW4X (R4), V4
 	SM4_EXPANDKEY_ROUND(V4, V7, V8, V9, V0, V1, V2, V3, V5)
@@ -200,7 +205,7 @@ ksLoop:
 	ADD $16, R4
 	ADD $-16, R6
 	BDNZ	ksLoop
-
+*/
     RET
 
 // func encryptBlocksAsm(xk *uint32, dst, src []byte, inst int)
