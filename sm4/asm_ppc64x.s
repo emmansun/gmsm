@@ -173,26 +173,23 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
 
 	ADD $112, R6
 
+	// load fk
+	MOVD $·fk+0(SB), R7
+	LXVW4X (R7), V4
+
+	// load key
+	PPC64X_LXVW4X(R3, R0, V0)
+
+	// xor key with fk
+	VXOR V0, V4, V0
+	VSLDOI $4, V0, V0, V1
+	VSLDOI $4, V1, V1, V2
+	VSLDOI $4, V2, V2, V3
+
 	// prepare counter
 	MOVD $8, R7
 	MOVD R7, CTR
 
-	// load key
-	PPC64X_LXVW4X(R3, R0, V0)
-	VSLDOI $4, V0, V0, V1
-	VSLDOI $4, V1, V0, V2
-	VSLDOI $4, V2, V0, V3
-
-	STXVW4X V1, (R5)
-	STXVW4X V3, (R6)
-	LXVW4X (R4), V4
-	VSLDOI $4, V4, V4, V4
-	ADD $16, R5
-	STXVW4X V4, (R5)
-	VSLDOI $4, V4, V4, V4
-	ADD $-16, R6
-	STXVW4X V4, (R6)
-/*
 ksLoop:
 	LXVW4X (R4), V4
 	SM4_EXPANDKEY_ROUND(V4, V7, V8, V9, V0, V1, V2, V3, V5)
@@ -210,7 +207,7 @@ ksLoop:
 	ADD $16, R4
 	ADD $-16, R6
 	BDNZ	ksLoop
-*/
+
     RET
 
 // func encryptBlocksAsm(xk *uint32, dst, src []byte, inst int)
