@@ -38,14 +38,14 @@ DATA ·rcon+0x60(SB)/8, $0x0F0F0F0F0F0F0F0F // nibble mask
 DATA ·rcon+0x68(SB)/8, $0x0F0F0F0F0F0F0F0F
 DATA ·rcon+0x70(SB)/8, $0x000D0A0704010E0B // inverse shift rows (VCIPHERLAST ESPERMW, ZERO, V5 test result)
 DATA ·rcon+0x78(SB)/8, $0x0805020F0C090603
-DATA ·rcon+0x80(SB)/8, $0x53269AEF8CF94530 // affine transform matrix m1 low
-DATA ·rcon+0x88(SB)/8, $0x691CA0D5B6C37F0A
-DATA ·rcon+0x90(SB)/8, $0xAB339C04C75FF068 // affine transform matrix m1 high
-DATA ·rcon+0x98(SB)/8, $0x009837AF6CF45BC3
-DATA ·rcon+0xa0(SB)/8, $0xF5FA656A919E010E // affine transform matrix m2 low
-DATA ·rcon+0xa8(SB)/8, $0x616EF1FE050A959A
-DATA ·rcon+0xb0(SB)/8, $0xA50145E168CC882C // affine transform matrix m2 high
-DATA ·rcon+0xb8(SB)/8, $0x00A4E044CD692D89
+DATA ·rcon+0x80(SB)/8, $0x691CA0D5B6C37F0A // affine transform matrix m1 low
+DATA ·rcon+0x88(SB)/8, $0x53269AEF8CF94530
+DATA ·rcon+0x90(SB)/8, $0x009837AF6CF45BC3 // affine transform matrix m1 high
+DATA ·rcon+0x98(SB)/8, $0xAB339C04C75FF068
+DATA ·rcon+0xa0(SB)/8, $0x616EF1FE050A959A // affine transform matrix m2 low
+DATA ·rcon+0xa8(SB)/8, $0xF5FA656A919E010E
+DATA ·rcon+0xb0(SB)/8, $0x00A4E044CD692D89 // affine transform matrix m2 high
+DATA ·rcon+0xb8(SB)/8, $0xA50145E168CC882C
 
 GLOBL ·rcon(SB), RODATA, $192
 
@@ -165,8 +165,6 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
 	MOVD $96, R3
 	LXVD2X (R4)(R3), M2H
 	VSPLTISB $0, ZERO // VZERO  ZERO
-	MOVD	$·rcon+0x40(SB), R4
-	LXVD2X (R4)(R0), M3
 
 	MOVD key+0(FP), R3
 	MOVD ck+8(FP), R4
@@ -185,12 +183,6 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
 	VSLDOI $4, V1, V1, V2
 	VSLDOI $4, V2, V2, V3
 
-	VOR M3, M3, V5
-	VPERM V5, V5, INVERSE_SHIFT_ROWS, V5
-	VCIPHERLAST V5, ZERO, V5
-	STXVW4X V5, (R5)
-
-/*
 ksLoop:
 	LXVW4X (R4), V4
 	SM4_EXPANDKEY_ROUND(V4, V7, V8, V9, V0, V1, V2, V3, V5)
@@ -208,7 +200,7 @@ ksLoop:
 	ADD $16, R4
 	ADD $-16, R6
 	BDNZ	ksLoop
-*/
+
     RET
 
 // func encryptBlocksAsm(xk *uint32, dst, src []byte, inst int)
