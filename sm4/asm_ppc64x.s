@@ -102,7 +102,7 @@ GLOBL ·rcon(SB), RODATA, $192
 // -  y: 128 bits temp register
 // -  z: 128 bits temp register
 #define AFFINE_TRANSFORM_NOTX(L, H, V_FOUR, x, y, z)  \
-	VNOR  x, x, z;                       \
+	VNOR  x, x, z;                       \ // z = NOT(x)
 	VAND  NIBBLE_MASK, z, z;             \	
 	VPERM L, L, z, y;                    \
 	VSRD x, V_FOUR, x;                   \
@@ -116,13 +116,10 @@ GLOBL ·rcon(SB), RODATA, $192
 // -  y: 128 bits temp register
 // -  z: 128 bits temp register
 #define SM4_SBOX(x, y, z) \
-	; \
 	AFFINE_TRANSFORM(M1L, M1H, V_FOUR, x, y, z); \
-	; \
 	VPERM x, x, INVERSE_SHIFT_ROWS, x;           \
-	VCIPHERLAST x, ZERO, x;               \
-	; \
-	AFFINE_TRANSFORM(M2L, M2H, V_FOUR, x, y, z)
+	VCIPHERLAST x, NIBBLE_MASK, x;               \
+	AFFINE_TRANSFORM_NOTX(M2L, M2H, V_FOUR, x, y, z)
 
 #define SM4_TAO_L2(x, y, z)         \
 	SM4_SBOX(x, y, z);                      \
@@ -165,7 +162,6 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
 	LXVD2X (R4)(R3), M2L
 	MOVD $96, R3
 	LXVD2X (R4)(R3), M2H
-	VSPLTISB $0, ZERO // VZERO  ZERO
 
 	MOVD key+0(FP), R3
 	MOVD ck+8(FP), R4
