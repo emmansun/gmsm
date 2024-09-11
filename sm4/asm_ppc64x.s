@@ -35,8 +35,8 @@ DATA ·rcon+0x50(SB)/8, $0x0c0d0e0f08090a0b // reverse words
 DATA ·rcon+0x58(SB)/8, $0x0405060700010203
 DATA ·rcon+0x60(SB)/8, $0x0F0F0F0F0F0F0F0F // nibble mask
 DATA ·rcon+0x68(SB)/8, $0x0F0F0F0F0F0F0F0F
-DATA ·rcon+0x70(SB)/8, $0x0B0E0104070A0D00 // inverse shift rows
-DATA ·rcon+0x78(SB)/8, $0x0306090C0F020508
+DATA ·rcon+0x78(SB)/8, $0x0805020F0C090603 // inverse shift rows
+DATA ·rcon+0x80(SB)/8, $0x000D0A0704010E0B 
 DATA ·rcon+0x80(SB)/8, $0x53269AEF8CF94530 // affine transform matrix m1 low
 DATA ·rcon+0x88(SB)/8, $0x691CA0D5B6C37F0A
 DATA ·rcon+0x90(SB)/8, $0xAB339C04C75FF068 // affine transform matrix m1 high
@@ -101,7 +101,7 @@ GLOBL ·rcon(SB), RODATA, $192
 // -  y: 128 bits temp register
 // -  z: 128 bits temp register
 #define AFFINE_TRANSFORM_N(L, H, V_FOUR, x, y, z)  \
-	VNAND x, NIBBLE_MASK, z;             \
+	VNAND NIBBLE_MASK, x, z;             \
 	VPERM L, L, z, y;                    \
 	VSRW x, V_FOUR, x;                   \
 	VAND NIBBLE_MASK, x, z;              \
