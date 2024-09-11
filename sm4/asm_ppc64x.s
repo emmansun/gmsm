@@ -101,7 +101,7 @@ GLOBL ·rcon(SB), RODATA, $192
 // -  y: 128 bits temp register
 // -  z: 128 bits temp register
 #define AFFINE_TRANSFORM_N(L, H, V_FOUR, x, y, z)  \
-	VNAND x, NIBBLE_MASK, z;             \
+	VNAND NIBBLE_MASK, x, z;             \
 	VPERM L, L, z, y;                    \
 	VSRW x, V_FOUR, x;                   \
 	VAND NIBBLE_MASK, x, z;              \
@@ -118,7 +118,7 @@ GLOBL ·rcon(SB), RODATA, $192
 	AFFINE_TRANSFORM(M1L, M1H, V_FOUR, x, y, z); \
 	; \
 	VPERM x, x, INVERSE_SHIFT_ROWS, x;           \
-	VCIPHERLAST x, NIBBLE_MASK, x;               \
+	VCIPHERLAST NIBBLE_MASK, x, x;               \
 	; \
 	AFFINE_TRANSFORM_N(M2L, M2H, V_FOUR, x, y, z)
 
