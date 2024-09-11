@@ -36,7 +36,7 @@ DATA ·rcon+0x50(SB)/8, $0x0c0d0e0f08090a0b // reverse words
 DATA ·rcon+0x58(SB)/8, $0x0405060700010203
 DATA ·rcon+0x60(SB)/8, $0x0F0F0F0F0F0F0F0F // nibble mask
 DATA ·rcon+0x68(SB)/8, $0x0F0F0F0F0F0F0F0F
-DATA ·rcon+0x70(SB)/8, $0x000D0A0704010E0B // inverse shift rows (VCIPHERLAST ESPERMW, ZERO, V5 test result)
+DATA ·rcon+0x70(SB)/8, $0x000D0A0704010E0B // inverse shift rows
 DATA ·rcon+0x78(SB)/8, $0x0805020F0C090603
 DATA ·rcon+0x80(SB)/8, $0x691CA0D5B6C37F0A // affine transform matrix m1 low
 DATA ·rcon+0x88(SB)/8, $0x53269AEF8CF94530
@@ -130,7 +130,7 @@ GLOBL ·rcon(SB), RODATA, $192
 	VRLW	x, z, y;                        \ // y = x <<< 13
 	VXOR x, y, x;                           \
 	VSPLTISW $10, z;                        \
-	VRLW y, z, y;                           \ // x = x <<< 10
+	VRLW y, z, y;                           \ // y = x <<< 23
 	VXOR x, y, x
 
 #define SM4_EXPANDKEY_ROUND(CK, x, y, z, t0, t1, t2, t3, target) \
@@ -180,18 +180,18 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
 	// load key
 	PPC64X_LXVW4X(R3, R0, V0)
 	VSLDOI $4, V0, V0, V1
-	VSLDOI $4, V1, V1, V2
-	VSLDOI $4, V2, V2, V3
+	VSLDOI $4, V1, V0, V2
+	VSLDOI $4, V2, V0, V3
 
-	VOR ESPERMW, ESPERMW, V5
-	SM4_SBOX(V5, V7, V8)
-	STXVW4X V5, (R5)
-
-	VOR ESPERMW, ESPERMW, V5
-	VSRW V5, V_FOUR, V5
-	VAND NIBBLE_MASK, V5, V5
-	STXVW4X V5, (R6)
-
+	STXVW4X V1, (R5)
+	STXVW4X V3, (R6)
+	LXVW4X (R4), V4
+	VSLDOI $4, V4, V4, V4
+	ADD $16, R5
+	STXVW4X V4, (R5)
+	VSLDOI $4, V4, V4, V4
+	ADD $-16, R6
+	STXVW4X V4, (R6)
 /*
 ksLoop:
 	LXVW4X (R4), V4
