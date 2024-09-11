@@ -89,7 +89,7 @@ GLOBL ·rcon(SB), RODATA, $192
 #define AFFINE_TRANSFORM(L, H, V_FOUR, x, y, z)  \
 	VAND NIBBLE_MASK, x, z;              \
 	VPERM L, L, z, y;                    \
-	VSRW x, V_FOUR, x;                   \
+	VSRD x, V_FOUR, x;                   \
 	VAND NIBBLE_MASK, x, z;              \
 	VPERM H, H, z, x;                    \
 	VXOR y, x, x
@@ -101,10 +101,11 @@ GLOBL ·rcon(SB), RODATA, $192
 // -  x: 128 bits register as sbox input/output data
 // -  y: 128 bits temp register
 // -  z: 128 bits temp register
-#define AFFINE_TRANSFORM_N(L, H, V_FOUR, x, y, z)  \
-	VNAND NIBBLE_MASK, x, z;             \ // VNAND is NOT same as AMD64 PANDN
+#define AFFINE_TRANSFORM_NOTX(L, H, V_FOUR, x, y, z)  \
+	VNOR  x, x, z;                       \
+	VAND  NIBBLE_MASK, z, z;             \	
 	VPERM L, L, z, y;                    \
-	VSRW x, V_FOUR, x;                   \
+	VSRD x, V_FOUR, x;                   \
 	VAND NIBBLE_MASK, x, z;              \
 	VPERM H, H, z, x;                    \
 	VXOR y, x, x
