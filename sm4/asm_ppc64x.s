@@ -37,14 +37,14 @@ DATA ·rcon+0x60(SB)/8, $0x0F0F0F0F0F0F0F0F // nibble mask
 DATA ·rcon+0x68(SB)/8, $0x0F0F0F0F0F0F0F0F
 DATA ·rcon+0x70(SB)/8, $0x0B0E0104070A0D00 // inverse shift rows
 DATA ·rcon+0x78(SB)/8, $0x0306090C0F020508
-DATA ·rcon+0x80(SB)/8, $0x0A7FC3B6D5A01C69 // affine transform matrix m1 low
-DATA ·rcon+0x88(SB)/8, $0x3045F98CEF9A2653
-DATA ·rcon+0x90(SB)/8, $0xC35BF46CAF379800 // affine transform matrix m1 high
-DATA ·rcon+0x98(SB)/8, $0x68F05FC7049C33AB
-DATA ·rcon+0xa0(SB)/8, $0x9A950A05FEF16E61 // affine transform matrix m2 low
-DATA ·rcon+0xa8(SB)/8, $0x0E019E916A65FAF5
-DATA ·rcon+0xb0(SB)/8, $0x892D69CD44E0A400 // affine transform matrix m2 high
-DATA ·rcon+0xb8(SB)/8, $0x2C88CC68E14501A5
+DATA ·rcon+0x80(SB)/8, $0x53269AEF8CF94530 // affine transform matrix m1 low
+DATA ·rcon+0x88(SB)/8, $0x691CA0D5B6C37F0A
+DATA ·rcon+0x90(SB)/8, $0xAB339C04C75FF068 // affine transform matrix m1 high
+DATA ·rcon+0x98(SB)/8, $0x009837AF6CF45BC3
+DATA ·rcon+0xa0(SB)/8, $0xF5FA656A919E010E // affine transform matrix m2 low
+DATA ·rcon+0xa8(SB)/8, $0x616EF1FE050A959A
+DATA ·rcon+0xb0(SB)/8, $0xA50145E168CC882C // affine transform matrix m2 high
+DATA ·rcon+0xb8(SB)/8, $0x00A4E044CD692D89
 
 GLOBL ·rcon(SB), RODATA, $192
 
