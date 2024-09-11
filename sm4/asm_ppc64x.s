@@ -6,16 +6,17 @@
 
 #include "textflag.h"
 
+#define ZERO V18
 #define REVERSE_WORDS V19
+#define M1L V20
+#define M1H V21
+#define M2L V22
+#define M2H V23
 #define V_FOUR V24
 #define M0 V25
 #define M1 V26
 #define M2 V27
 #define M3 V28
-#define M1L V20
-#define M1H V21
-#define M2L V22
-#define M2H V23
 #define NIBBLE_MASK V29
 #define INVERSE_SHIFT_ROWS V30
 // For instruction emulation
@@ -101,7 +102,7 @@ GLOBL ·rcon(SB), RODATA, $192
 // -  y: 128 bits temp register
 // -  z: 128 bits temp register
 #define AFFINE_TRANSFORM_N(L, H, V_FOUR, x, y, z)  \
-	VNAND NIBBLE_MASK, x, z;             \
+	VNAND NIBBLE_MASK, x, z;             \ // VNAND is NOT same as AMD64 PANDN
 	VPERM L, L, z, y;                    \
 	VSRW x, V_FOUR, x;                   \
 	VAND NIBBLE_MASK, x, z;              \
@@ -118,9 +119,9 @@ GLOBL ·rcon(SB), RODATA, $192
 	AFFINE_TRANSFORM(M1L, M1H, V_FOUR, x, y, z); \
 	; \
 	VPERM x, x, INVERSE_SHIFT_ROWS, x;           \
-	VCIPHERLAST x, NIBBLE_MASK, x;               \
+	VCIPHERLAST x, ZERO, x;               \
 	; \
-	AFFINE_TRANSFORM_N(M2L, M2H, V_FOUR, x, y, z)
+	AFFINE_TRANSFORM(M2L, M2H, V_FOUR, x, y, z)
 
 #define SM4_TAO_L2(x, y, z)         \
 	SM4_SBOX(x, y, z);                      \
@@ -163,6 +164,7 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
 	LXVD2X (R4)(R3), M2L
 	MOVD $96, R3
 	LXVD2X (R4)(R3), M2H
+	VSPLTISB $0, ZERO // VZERO  ZERO
 
 	MOVD key+0(FP), R3
 	MOVD ck+8(FP), R4
@@ -181,11 +183,6 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
 	VSLDOI $4, V1, V1, V2
 	VSLDOI $4, V2, V2, V3
 
-	VNAND NIBBLE_MASK, REVERSE_WORDS, V5
-	STXVW4X V5, (R5)
-	VNAND REVERSE_WORDS, NIBBLE_MASK, V5
-	STXVW4X V5, (R6)
-/*
 ksLoop:
 	LXVW4X (R4), V4
 	SM4_EXPANDKEY_ROUND(V4, V7, V8, V9, V0, V1, V2, V3, V5)
@@ -203,7 +200,7 @@ ksLoop:
 	ADD $16, R4
 	ADD $-16, R6
 	BDNZ	ksLoop
-*/
+
     RET
 
 // func encryptBlocksAsm(xk *uint32, dst, src []byte, inst int)
