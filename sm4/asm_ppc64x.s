@@ -36,8 +36,8 @@ DATA ·rcon+0x50(SB)/8, $0x0c0d0e0f08090a0b // reverse words
 DATA ·rcon+0x58(SB)/8, $0x0405060700010203
 DATA ·rcon+0x60(SB)/8, $0x0F0F0F0F0F0F0F0F // nibble mask
 DATA ·rcon+0x68(SB)/8, $0x0F0F0F0F0F0F0F0F
-DATA ·rcon+0x70(SB)/8, $0x0805020F0C090603 // inverse shift rows
-DATA ·rcon+0x78(SB)/8, $0x000D0A0704010E0B 
+DATA ·rcon+0x70(SB)/8, $0x000D0A0704010E0B // inverse shift rows (VCIPHERLAST ESPERMW, ZERO, V5 test result)
+DATA ·rcon+0x78(SB)/8, $0x0805020F0C090603
 DATA ·rcon+0x80(SB)/8, $0x53269AEF8CF94530 // affine transform matrix m1 low
 DATA ·rcon+0x88(SB)/8, $0x691CA0D5B6C37F0A
 DATA ·rcon+0x90(SB)/8, $0xAB339C04C75FF068 // affine transform matrix m1 high
@@ -183,11 +183,6 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
 	VSLDOI $4, V1, V1, V2
 	VSLDOI $4, V2, V2, V3
 
-	VCIPHERLAST ESPERMW, ZERO, V5
-	STXVW4X V5, (R5)
-	VCIPHERLAST ZERO, ESPERMW, V5
-	STXVW4X V5, (R6)	
-/*
 ksLoop:
 	LXVW4X (R4), V4
 	SM4_EXPANDKEY_ROUND(V4, V7, V8, V9, V0, V1, V2, V3, V5)
@@ -205,7 +200,7 @@ ksLoop:
 	ADD $16, R4
 	ADD $-16, R6
 	BDNZ	ksLoop
-*/
+
     RET
 
 // func encryptBlocksAsm(xk *uint32, dst, src []byte, inst int)
