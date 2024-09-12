@@ -299,6 +299,7 @@ encryptBlockLoop:
 	VSLDOI $4, V4, V4, V4
 	SM4_ROUND(V4, V5, V6, V7, V8, V3, V0, V1, V2)
 
+	ADD $16, R3
 	BDNZ	encryptBlockLoop
 
 	VSLDOI $4, V3, V3, V3
