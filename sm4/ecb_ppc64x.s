@@ -48,12 +48,6 @@ TEXT ·encryptSm4Ecb(SB),NOSPLIT,$0
 	MOVD src+32(FP), srcPtr
 	MOVD src_len+40(FP), srcLen
 
-	CMP srcLen, $128
-	BLT block64
-
-preloop128:
-	SRD	$7, srcLen, R7	// Set up loop counter
-	MOVD	R7, CTR
 	MOVD $16, R7
 	MOVD $32, R8
 	MOVD $48, R10
@@ -61,6 +55,13 @@ preloop128:
 	MOVD $80, R12
 	MOVD $96, R14
 	MOVD $112, R15
+
+	CMP srcLen, $128
+	BLT block64
+
+preloop128:
+	SRD	$7, srcLen, R9	// Set up loop counter
+	MOVD	R9, CTR
 	ANDCC	$127, srcLen, R9	// Check for tailing bytes for later
 	PCALIGN $16
 
