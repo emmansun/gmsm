@@ -42,3 +42,20 @@ func TestExpandKey(t *testing.T) {
 		}
 	}
 }
+
+func TestEncryptBlockAsm(t *testing.T) {
+	src := []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
+	expected := []byte{0x68, 0x1e, 0xdf, 0x34, 0xd2, 0x06, 0x96, 0x5e, 0x86, 0xb3, 0xe9, 0x4f, 0x53, 0x6e, 0x42, 0x46}
+	encRes2 := make([]uint32, 32)
+	decRes2 := make([]uint32, 32)
+	expandKeyAsm(&src[0], &ck[0], &encRes2[0], &decRes2[0], 0)
+	dst := make([]byte, 16)
+	encryptBlocksAsm(&encRes2[0], dst, src, 0)
+	if !reflect.DeepEqual(dst, expected) {
+		t.Errorf("expected=%x, result=%x\n", expected, dst)
+	}
+	encryptBlocksAsm(&decRes2[0], dst, expected, 0)
+	if !reflect.DeepEqual(dst, src) {
+		t.Errorf("expected=%x, result=%x\n", src, dst)
+	}
+}

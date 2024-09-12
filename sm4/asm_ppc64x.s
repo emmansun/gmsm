@@ -207,10 +207,65 @@ ksLoop:
 
     RET
 
-// func encryptBlocksAsm(xk *uint32, dst, src []byte, inst int)
-TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
-	RET
-
 // func encryptBlockAsm(xk *uint32, dst, src *byte, inst int)
 TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
+	// prepare/load constants
+	VSPLTISW $4, V_FOUR;
+#ifdef NEEDS_PERMW
+	MOVD	$·rcon(SB), R4
+	LVX	(R4), ESPERMW
+#endif
+	MOVD	$·rcon+0x50(SB), R4
+	LXVD2X (R4)(R0), REVERSE_WORDS
+	MOVD $16, R3
+	LXVD2X (R4)(R3), NIBBLE_MASK
+	MOVD $32, R3
+	LXVD2X (R4)(R3), INVERSE_SHIFT_ROWS
+	MOVD $48, R3
+	LXVD2X (R4)(R3), M1L
+	MOVD $64, R3
+	LXVD2X (R4)(R3), M1H
+	MOVD $80, R3
+	LXVD2X (R4)(R3), M2L
+	MOVD $96, R3
+	LXVD2X (R4)(R3), M2H
+
+	MOVD xk+0(FP), R3
+	MOVD dst+8(FP), R4
+	MOVD src+16(FP), R5
+
+	// load src
+	PPC64X_LXVW4X(R5, R0, V0)
+	VSLDOI $4, V0, V0, V1
+	VSLDOI $4, V1, V1, V2
+	VSLDOI $4, V2, V2, V3
+
+	// prepare counter
+	MOVD $8, R7
+	MOVD R7, CTR
+
+encryptBlockLoop:
+	// load xk
+	LXVW4X (R3), V4
+	SM4_ROUND(V4, V5, V6, V7, V8, V0, V1, V2, V3)
+	VSLDOI $4, V4, V4, V4
+	SM4_ROUND(V4, V5, V6, V7, V8, V1, V2, V3, V0)
+	VSLDOI $4, V4, V4, V4
+	SM4_ROUND(V4, V5, V6, V7, V8, V2, V3, V0, V1)
+	VSLDOI $4, V4, V4, V4
+	SM4_ROUND(V4, V5, V6, V7, V8, V3, V0, V1, V2)
+
+	BDNZ	encryptBlockLoop
+
+	VSLDOI $4, V3, V3, V3
+	VSLDOI $4, V3, V2, V2
+	VSLDOI $4, V2, V1, V1
+	VSLDOI $4, V1, V0, V0
+
+	PPC64X_STXVW4X(V0, R4, R0)
+
+	RET
+
+// func encryptBlocksAsm(xk *uint32, dst, src []byte, inst int)
+TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
 	RET
