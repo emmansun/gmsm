@@ -9,13 +9,6 @@ import (
 	"github.com/emmansun/gmsm/internal/alias"
 )
 
-// sm4CipherGCM implements crypto/cipher.gcmAble so that crypto/cipher.NewGCM
-// will use the optimised implementation in this file when possible. Instances
-// of this type only exist when hasGCMAsm and hasAES returns true.
-type sm4CipherGCM struct {
-	sm4CipherAsm
-}
-
 // Assert that sm4CipherGCM implements the gcmAble interface.
 var _ gcmAble = (*sm4CipherGCM)(nil)
 

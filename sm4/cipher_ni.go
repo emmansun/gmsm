@@ -1,4 +1,4 @@
-//go:build (amd64 || arm64) && !purego
+//go:build (amd64 || arm64 || ppc64 || ppc64le) && !purego
 
 package sm4
 
@@ -10,6 +10,13 @@ import (
 
 type sm4CipherNI struct {
 	sm4Cipher
+}
+
+// sm4CipherNIGCM implements crypto/cipher.gcmAble so that crypto/cipher.NewGCM
+// will use the optimised implementation in this file when possible. Instances
+// of this type only exist when hasGCMAsm and hasSM4 returns true.
+type sm4CipherNIGCM struct {
+	sm4CipherNI
 }
 
 func newCipherNI(key []byte) (cipher.Block, error) {

@@ -1,4 +1,4 @@
-//go:build (amd64 || arm64) && !purego
+//go:build (amd64 || arm64 || ppc64 || ppc64le) && !purego
 
 package sm4
 
@@ -36,6 +36,13 @@ type sm4CipherAsm struct {
 	sm4Cipher
 	batchBlocks int
 	blocksSize  int
+}
+
+// sm4CipherGCM implements crypto/cipher.gcmAble so that crypto/cipher.NewGCM
+// will use the optimised implementation in this file when possible. Instances
+// of this type only exist when hasGCMAsm and hasAES returns true.
+type sm4CipherGCM struct {
+	sm4CipherAsm
 }
 
 func newCipher(key []byte) (cipher.Block, error) {

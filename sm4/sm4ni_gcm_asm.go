@@ -15,13 +15,6 @@ func gcmSm4niEnc(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk 
 //go:noescape
 func gcmSm4niDec(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk []uint32)
 
-// sm4CipherNIGCM implements crypto/cipher.gcmAble so that crypto/cipher.NewGCM
-// will use the optimised implementation in this file when possible. Instances
-// of this type only exist when hasGCMAsm and hasSM4 returns true.
-type sm4CipherNIGCM struct {
-	sm4CipherNI
-}
-
 // Assert that sm4CipherNIGCM implements the gcmAble interface.
 var _ gcmAble = (*sm4CipherNIGCM)(nil)
 
