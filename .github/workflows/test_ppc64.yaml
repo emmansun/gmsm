@@ -42,8 +42,15 @@ jobs:
         GOARCH: ${{ matrix.arch }}
         GOPPC64: ${{ matrix.ppc64 }}
 
+    - name: Test Force SM4 Single Block with AES-NI
+      run: go test -v -short ./sm4/...
+      env:
+        GOARCH: ${{ matrix.arch }}
+        GOPPC64: ${{ matrix.ppc64 }}
+        FORCE_SM4BLOCK_AESNI: 1
+
     - name: Test SM4
       run: go test -v -short ./sm4/...
       env:
         GOARCH: ${{ matrix.arch }}
-        GOPPC64: ${{ matrix.ppc64 }}        
+        GOPPC64: ${{ matrix.ppc64 }}
