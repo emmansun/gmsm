@@ -47,3 +47,9 @@ jobs:
       env:
         GOARCH: ${{ matrix.arch }}
         GOPPC64: ${{ matrix.ppc64 }}
+
+    - name: Test Cipher
+      run: go test -v -short ./cipher/...
+      env:
+        GOARCH: ${{ matrix.arch }}
+        GOPPC64: ${{ matrix.ppc64 }}
