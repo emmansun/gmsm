@@ -59,7 +59,6 @@ TEXT ·encryptSm4Ecb(SB),NOSPLIT,$0
 #define dstPtr R3
 #define srcPtr R4
 #define rk R5
-#define rkSave R6
 
 	// prepare/load constants
 	VSPLTISW $4, V_FOUR;
@@ -79,8 +78,8 @@ TEXT ·encryptSm4Ecb(SB),NOSPLIT,$0
 	BLT block64
 
 preloop128:
-	SRD	$7, srcLen, R7	// Set up loop counter
-	MOVD	R7, CTR
+	SRD	$7, srcLen, R6	// Set up loop counter
+	MOVD	R6, CTR
 	MOVD $16, R7
 	MOVD $32, R8
 	MOVD $48, R10
