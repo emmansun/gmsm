@@ -139,6 +139,25 @@ GLOBL ·rcon(SB), RODATA, $192
 	VXOR x, t0, t0;                      \
 	VSLDOI $4, target, t0, target
 
+// SM4 TAO L1 function
+// parameters:
+// -  x: 128 bits register as TAO_L1 input/output data
+// -  tmp1: 128 bits temp register
+// -  tmp2: 128 bits temp register
+// -  tmp3: 128 bits temp register
+#define SM4_TAO_L1(x, tmp1, tmp2, tmp3)         \
+	SM4_SBOX(x, tmp1, tmp2);                      \
+	;                                       \ //####################  4 parallel L1 linear transforms ##################//
+	VSPLTISW $8, tmp3;                      \
+	VRLW	x, tmp3, tmp1;                  \ // tmp1 = x <<< 8
+	VRLW tmp1, tmp3, tmp2;                  \ // tmp2 = x <<< 16
+	VXOR x, tmp1, tmp1;                     \ // tmp1 = x xor (x <<< 8)
+	VXOR tmp1, tmp2, tmp1;                  \ // tmp1 = x xor (x <<< 8) xor (x <<< 16)
+	VRLW tmp2, tmp3, tmp2;                  \ // tmp2 = x <<< 24
+	VXOR tmp2, x, x;                        \ // x = x xor (x <<< 24)
+	VSPLTISW $2, tmp3;                      \
+	VRLW tmp1, tmp3, tmp1;                  \ // tmp1 = (x xor (x <<< 8) xor (x <<< 16)) <<< 2
+	VXOR tmp1, x, x
 
 // func expandKeyAsm(key *byte, ck, enc, dec *uint32, inst int)
 TEXT ·expandKeyAsm(SB),NOSPLIT,$0
