@@ -164,6 +164,26 @@ GLOBL ·rcon(SB), RODATA, $192
 	VRLW tmp1, tmp3, tmp1;                  \ // tmp1 = (x xor (x <<< 8) xor (x <<< 16)) <<< 2
 	VXOR tmp1, x, x
 
+// SM4 round function
+// t0 ^= tao_l1(t1^t2^t3^xk)
+// parameters:
+// - RK: round key register
+// -  x: 128 bits temp register
+// - tmp1: 128 bits temp register
+// - tmp2: 128 bits temp register
+// - tmp3: 128 bits temp register
+// - t0: 128 bits register for data as result
+// - t1: 128 bits register for data
+// - t2: 128 bits register for data
+// - t3: 128 bits register for data
+#define SM4_ROUND(RK, x, tmp1, tmp2, tmp3, t0, t1, t2, t3) \ 
+	VXOR RK, x, x;					  \
+	VXOR t1, x, x;					  \
+	VXOR t2, x, x;					  \
+	VXOR t3, x, x;					  \
+	SM4_TAO_L1(x, tmp1, tmp2, tmp3);  \
+	VXOR x, t0, t0
+
 // func expandKeyAsm(key *byte, ck, enc, dec *uint32, inst int)
 TEXT ·expandKeyAsm(SB),NOSPLIT,$0
 	// prepare/load constants
