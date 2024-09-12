@@ -50,11 +50,11 @@ func TestEncryptBlockAsm(t *testing.T) {
 	decRes2 := make([]uint32, 32)
 	expandKeyAsm(&src[0], &ck[0], &encRes2[0], &decRes2[0], 0)
 	dst := make([]byte, 16)
-	encryptBlocksAsm(&encRes2[0], dst, src, 0)
+	encryptBlockAsm(&encRes2[0], &dst[0], &src[0], 0)
 	if !reflect.DeepEqual(dst, expected) {
 		t.Errorf("expected=%x, result=%x\n", expected, dst)
 	}
-	encryptBlocksAsm(&decRes2[0], dst, expected, 0)
+	encryptBlockAsm(&decRes2[0], &dst[0], &expected[0], 0)
 	if !reflect.DeepEqual(dst, src) {
 		t.Errorf("expected=%x, result=%x\n", src, dst)
 	}
