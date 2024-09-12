@@ -74,7 +74,17 @@ GLOBL ·rcon(SB), RODATA, $192
 	VSPLTISW $n, tmp \
 	VRLW	s, tmp, r
 
-#define TRANSPOSE_MATRIX(T0, T1, T2, T3) \
+// input: from high to low
+// t0 = t0.S3, t0.S2, t0.S1, t0.S0
+// t1 = t1.S3, t1.S2, t1.S1, t1.S0
+// t2 = t2.S3, t2.S2, t2.S1, t2.S0
+// t3 = t3.S3, t3.S2, t3.S1, t3.S0
+// output: from high to low
+// t0 = t3.S0, t2.S0, t1.S0, t0.S0
+// t1 = t3.S1, t2.S1, t1.S1, t0.S1
+// t2 = t3.S2, t2.S2, t1.S2, t0.S2
+// t3 = t3.S3, t2.S3, t1.S3, t0.S3
+#define PRE_TRANSPOSE_MATRIX(T0, T1, T2, T3) \
 	VPERM T0, T1, M0, TMP0; \
 	VPERM T2, T3, M0, TMP1; \
 	VPERM T0, T1, M1, TMP2; \
@@ -83,6 +93,26 @@ GLOBL ·rcon(SB), RODATA, $192
 	VPERM TMP0, TMP1, M3, T1; \
 	VPERM TMP2, TMP3, M2, T2; \
 	VPERM TMP2, TMP3, M3, T3
+
+// input: from high to low
+// t0 = t0.S3, t0.S2, t0.S1, t0.S0
+// t1 = t1.S3, t1.S2, t1.S1, t1.S0
+// t2 = t2.S3, t2.S2, t2.S1, t2.S0
+// t3 = t3.S3, t3.S2, t3.S1, t3.S0
+// output: from high to low
+// t0 = t0.S0, t1.S0, t2.S0, t3.S0
+// t1 = t0.S1, t1.S1, t2.S1, t3.S1
+// t2 = t0.S2, t1.S2, t2.S2, t3.S2
+// t3 = t0.S3, t1.S3, t2.S3, t3.S3
+#define TRANSPOSE_MATRIX(T0, T1, T2, T3) \
+	VPERM T1, T0, M0, TMP0; \
+	VPERM T1, T0, M1, TMP1; \
+	VPERM T3, T2, M0, TMP2; \
+	VPERM T3, T2, M1, TMP3; \
+	VPERM TMP2, TMP0, M2, T0; \
+	VPERM TMP2, TMP0, M3, T1; \
+	VPERM TMP3, TMP1, M2, T2; \
+	VPERM TMP3, TMP1, M3, T3; \	
 
 // Affine Transform
 // parameters:
@@ -361,7 +391,7 @@ enc4blocks:
 	PPC64X_LXVW4X(R5, R7, V2)
 	MOVD $48, R7
 	PPC64X_LXVW4X(R5, R7, V3)
-	TRANSPOSE_MATRIX(V0, V1, V2, V3)
+	PRE_TRANSPOSE_MATRIX(V0, V1, V2, V3)
 	// prepare counter
 	MOVD $8, R7
 	MOVD R7, CTR
@@ -381,13 +411,13 @@ enc4blocksLoop:
 		BDNZ	enc4blocksLoop
 
 	TRANSPOSE_MATRIX(V0, V1, V2, V3)
-	PPC64X_STXVW4X(V3, R4, R0)
+	PPC64X_STXVW4X(V0, R4, R0)
 	MOVD $16, R7
-	PPC64X_STXVW4X(V2, R4, R7)
-	MOVD $32, R7
 	PPC64X_STXVW4X(V1, R4, R7)
+	MOVD $32, R7
+	PPC64X_STXVW4X(V2, R4, R7)
 	MOVD $48, R7
-	PPC64X_STXVW4X(V0, R4, R7)
+	PPC64X_STXVW4X(V3, R4, R7)
 	RET
 
 enc8blocks:
@@ -406,8 +436,8 @@ enc8blocks:
 	PPC64X_LXVW4X(R5, R7, V6)
 	MOVD $112, R7
 	PPC64X_LXVW4X(R5, R7, V7)
-	TRANSPOSE_MATRIX(V0, V1, V2, V3)
-	TRANSPOSE_MATRIX(V4, V5, V6, V7)
+	PRE_TRANSPOSE_MATRIX(V0, V1, V2, V3)
+	PRE_TRANSPOSE_MATRIX(V4, V5, V6, V7)
 	// prepare counter
 	MOVD $8, R7
 	MOVD R7, CTR
@@ -431,21 +461,21 @@ enc8blocksLoop:
 	
 	TRANSPOSE_MATRIX(V0, V1, V2, V3)
 	TRANSPOSE_MATRIX(V4, V5, V6, V7)
-	PPC64X_STXVW4X(V3, R4, R0)
+	PPC64X_STXVW4X(V0, R4, R0)
 	MOVD $16, R7
-	PPC64X_STXVW4X(V2, R4, R7)
-	MOVD $32, R7
 	PPC64X_STXVW4X(V1, R4, R7)
+	MOVD $32, R7
+	PPC64X_STXVW4X(V2, R4, R7)
 	MOVD $48, R7
-	PPC64X_STXVW4X(V0, R4, R7)
+	PPC64X_STXVW4X(V3, R4, R7)
 	MOVD $64, R7
-	PPC64X_STXVW4X(V7, R4, R7)
-	MOVD $80, R7
-	PPC64X_STXVW4X(V6, R4, R7)
-	MOVD $96, R7
-	PPC64X_STXVW4X(V5, R4, R7)
-	MOVD $112, R7
 	PPC64X_STXVW4X(V4, R4, R7)
+	MOVD $80, R7
+	PPC64X_STXVW4X(V5, R4, R7)
+	MOVD $96, R7
+	PPC64X_STXVW4X(V6, R4, R7)
+	MOVD $112, R7
+	PPC64X_STXVW4X(V7, R4, R7)
 
 	RET
 #undef TMP0
