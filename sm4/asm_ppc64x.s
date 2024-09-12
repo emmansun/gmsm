@@ -177,8 +177,7 @@ GLOBL ·rcon(SB), RODATA, $192
 // - t2: 128 bits register for data
 // - t3: 128 bits register for data
 #define SM4_ROUND(RK, x, tmp1, tmp2, tmp3, t0, t1, t2, t3) \ 
-	VXOR RK, x, x;					  \
-	VXOR t1, x, x;					  \
+	VXOR RK, t1, x;					  \
 	VXOR t2, x, x;					  \
 	VXOR t3, x, x;					  \
 	SM4_TAO_L1(x, tmp1, tmp2, tmp3);  \
