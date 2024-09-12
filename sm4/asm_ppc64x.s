@@ -212,6 +212,10 @@ TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
 	BEQ enc8blocks
 
 enc4blocks:
+	// prepare counter
+	MOVD $8, R7
+	MOVD R7, CTR
+
 	MOVD $16, R7
 	MOVD $32, R8
 	MOVD $48, R9
@@ -220,9 +224,6 @@ enc4blocks:
 	PPC64X_LXVW4X(R5, R8, V2)
 	PPC64X_LXVW4X(R5, R9, V3)
 	PRE_TRANSPOSE_MATRIX(V0, V1, V2, V3)
-	// prepare counter
-	MOVD $8, R7
-	MOVD R7, CTR
 
 enc4blocksLoop:
 		// load xk
@@ -239,6 +240,10 @@ enc4blocksLoop:
 	RET
 
 enc8blocks:
+	// prepare counter
+	MOVD $8, R7
+	MOVD R7, CTR
+
 	MOVD $16, R7
 	MOVD $32, R8
 	MOVD $48, R9
@@ -256,9 +261,6 @@ enc8blocks:
 	PPC64X_LXVW4X(R5, R14, V7)
 	PRE_TRANSPOSE_MATRIX(V0, V1, V2, V3)
 	PRE_TRANSPOSE_MATRIX(V4, V5, V6, V7)
-	// prepare counter
-	MOVD $8, R7
-	MOVD R7, CTR
 
 enc8blocksLoop:
 		LXVW4X (R3), V8
