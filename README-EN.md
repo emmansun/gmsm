@@ -19,7 +19,7 @@ ShangMi (SM) cipher suites for Golang, referred to as **GMSM**, is a secure, hig
 
 - **SM3** - This is also a SM3 implementation whose performance is similar like golang native SHA 256 with SIMD under **amd64**, **arm64**, **s390x**, **ppc64x**, for implementation detail, please refer [SM3性能优化](https://github.com/emmansun/gmsm/wiki/SM3%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96). It also provides A64 cryptographic instructions SM3 tested with QEMU.
 
-- **SM4** - For SM4 implementation, SIMD & AES-NI are used under **amd64** and **arm64**, for detail please refer [SM4性能优化](https://github.com/emmansun/gmsm/wiki/SM4%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96). It is optimized for **ECB/CBC/GCM/XTS** operation modes. It also provides A64 cryptographic instructions SM4 tested with QEMU.
+- **SM4** - For SM4 implementation, SIMD & AES-NI are used under **amd64**, **arm64** and **ppc64x**, for detail please refer [SM4性能优化](https://github.com/emmansun/gmsm/wiki/SM4%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96). It is optimized for **ECB/CBC/GCM/XTS** operation modes. It also provides A64 cryptographic instructions SM4 tested with QEMU.
 
 - **SM9** - For SM9 implementation, please reference [SM9实现及优化](https://github.com/emmansun/gmsm/wiki/SM9%E5%AE%9E%E7%8E%B0%E5%8F%8A%E4%BC%98%E5%8C%96)
 
