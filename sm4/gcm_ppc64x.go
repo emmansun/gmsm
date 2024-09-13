@@ -94,40 +94,53 @@ func (g *gcmAsm) deriveCounter(counter *[gcmBlockSize]byte, nonce []byte) {
 	}
 }
 
-// counterCrypt encrypts in using AES in counter mode and places the result
+const fourBlocksSize = 64
+const eightBlocksSize = fourBlocksSize * 2
+
+// counterCrypt encrypts in using SM4 in counter mode and places the result
 // into out. counter is the initial count value and will be updated with the next
 // count value. The length of out must be greater than or equal to the length
 // of in.
-// counterCryptASM implements counterCrypt which then allows the loop to
-// be unrolled and optimized.
 func (g *gcmAsm) counterCrypt(out, in []byte, counter *[gcmBlockSize]byte) {
-	var mask [gcmBlockSize]byte
+	var mask [eightBlocksSize]byte
+	var counters [eightBlocksSize]byte
 
-	for len(in) >= gcmBlockSize {
-		// Hint to avoid bounds check
-		_, _ = in[15], out[15]
-		g.cipher.Encrypt(mask[:], counter[:])
-		gcmInc32(counter)
+	for len(in) >= eightBlocksSize {
+		for i := 0; i < 8; i++ {
+			copy(counters[i*gcmBlockSize:(i+1)*gcmBlockSize], counter[:])
+			gcmInc32(counter)
+		}
+		g.cipher.EncryptBlocks(mask[:], counters[:])
+		subtle.XORBytes(out, in, mask[:])
+		out = out[eightBlocksSize:]
+		in = in[eightBlocksSize:]
+	}
 
-		// XOR 16 bytes each loop iteration in 8 byte chunks
-		in0 := binary.LittleEndian.Uint64(in[0:])
-		in1 := binary.LittleEndian.Uint64(in[8:])
-		m0 := binary.LittleEndian.Uint64(mask[:8])
-		m1 := binary.LittleEndian.Uint64(mask[8:])
-		binary.LittleEndian.PutUint64(out[:8], in0^m0)
-		binary.LittleEndian.PutUint64(out[8:], in1^m1)
-		out = out[16:]
-		in = in[16:]
+	if len(in) >= fourBlocksSize {
+		for i := 0; i < 4; i++ {
+			copy(counters[i*gcmBlockSize:(i+1)*gcmBlockSize], counter[:])
+			gcmInc32(counter)
+		}
+		g.cipher.EncryptBlocks(mask[:], counters[:])
+		subtle.XORBytes(out, in, mask[:fourBlocksSize])
+		out = out[fourBlocksSize:]
+		in = in[fourBlocksSize:]
 	}
 
 	if len(in) > 0 {
-		g.cipher.Encrypt(mask[:], counter[:])
-		gcmInc32(counter)
-		// XOR leftover bytes
-		for i, inb := range in {
-			out[i] = inb ^ mask[i]
+		blocks := (len(in) + gcmBlockSize - 1) / gcmBlockSize
+		if blocks > 1 {
+			for i := 0; i < blocks; i++ {
+				copy(counters[i*gcmBlockSize:], counter[:])
+				gcmInc32(counter)
+			}
+			g.cipher.EncryptBlocks(mask[:], counters[:])
+		} else {
+			g.cipher.Encrypt(mask[:], counter[:])
+			gcmInc32(counter)
 		}
-	}	
+		subtle.XORBytes(out, in, mask[:blocks*gcmBlockSize])
+	}
 }
 
 // increments the rightmost 32-bits of the count value by 1.
@@ -160,11 +173,7 @@ func (g *gcmAsm) auth(out, ciphertext, aad []byte, tagMask *[gcmTagSize]byte) {
 	g.paddedGHASH(&hash, ciphertext)
 	lens := gcmLengths(uint64(len(aad))*8, uint64(len(ciphertext))*8)
 	g.paddedGHASH(&hash, lens[:])
-
-	copy(out, hash[:])
-	for i := range out {
-		out[i] ^= tagMask[i]
-	}
+	subtle.XORBytes(out, hash[:], tagMask[:])
 }
 
 // Seal encrypts and authenticates plaintext. See the [cipher.AEAD] interface for
@@ -228,7 +237,7 @@ func (g *gcmAsm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 		// clear(out)
 		for i := range out {
 			out[i] = 0
-		}		
+		}
 		return nil, errOpen
 	}
 
