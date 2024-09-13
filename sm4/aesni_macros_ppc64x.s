@@ -32,9 +32,17 @@
 	VPERM	VS, VS, ESPERMW, VS \
 	STXVW4X	VS, (RA+RB)
 
+#define CBC_STXVW4X(VS, VT, RA, RB) \
+	VPERM	VS, VS, ESPERMW, VS \
+	VXOR VS, VT, VS             \
+	STXVW4X	VS, (RA+RB)
+
 #else
 #define PPC64X_LXVW4X(RA,RB,VT)  LXVW4X	(RA+RB), VT
 #define PPC64X_STXVW4X(VS, RA, RB) STXVW4X	VS, (RA+RB)
+#define CBC_STXVW4X(VS, VT, RA, RB) \
+	VXOR VS, VT, VS             \
+	STXVW4X	VS, (RA+RB)
 #endif // defined(GOARCH_ppc64le)
 
 // r = s <<< n
