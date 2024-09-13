@@ -8,12 +8,13 @@ package sm4
 
 import (
 	"crypto/cipher"
-	"crypto/subtle"
+	_subtle "crypto/subtle"
 	"encoding/binary"
 	"errors"
 	"runtime"
 
 	"github.com/emmansun/gmsm/internal/alias"
+	"github.com/emmansun/gmsm/internal/subtle"
 )
 
 // Assert that sm4CipherAsm implements the gcmAble interface.
@@ -233,7 +234,7 @@ func (g *gcmAsm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 		panic("cipher: invalid buffer overlap")
 	}
 
-	if subtle.ConstantTimeCompare(expectedTag[:g.tagSize], tag) != 1 {
+	if _subtle.ConstantTimeCompare(expectedTag[:g.tagSize], tag) != 1 {
 		// clear(out)
 		for i := range out {
 			out[i] = 0
