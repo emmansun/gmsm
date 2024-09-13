@@ -169,7 +169,7 @@ func (g *gcmAsm) paddedGHASH(hash *[16]byte, data []byte) {
 // auth calculates GHASH(ciphertext, additionalData), masks the result with
 // tagMask and writes the result to out.
 func (g *gcmAsm) auth(out, ciphertext, aad []byte, tagMask *[gcmTagSize]byte) {
-	var hash [16]byte
+	var hash [gcmTagSize]byte
 	g.paddedGHASH(&hash, aad)
 	g.paddedGHASH(&hash, ciphertext)
 	lens := gcmLengths(uint64(len(aad))*8, uint64(len(ciphertext))*8)
@@ -199,7 +199,9 @@ func (g *gcmAsm) Seal(dst, nonce, plaintext, data []byte) []byte {
 	gcmInc32(&counter)
 
 	g.counterCrypt(out, plaintext, &counter)
-	g.auth(out[len(plaintext):], out[:len(plaintext)], data, &tagMask)
+	var tag [gcmTagSize]byte
+	g.auth(tag[:], out[:len(plaintext)], data, &tagMask)
+	copy(out[len(plaintext):], tag[:])
 
 	return ret
 }
