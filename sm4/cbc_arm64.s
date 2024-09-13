@@ -170,6 +170,9 @@ cbcSm4Single:
 
 	// 4 blocks
 	VLD1 (srcPtr), [t0.S4, t1.S4, t2.S4, t3.S4]
+	VMOV t0.B16, V6.B16
+	VMOV t1.B16, V7.B16
+	VMOV t2.B16, V8.B16
 	VREV32 t0.B16, t0.B16
 	VREV32 t1.B16, t1.B16
 	VREV32 t2.B16, t2.B16
@@ -192,7 +195,6 @@ cbc4BlocksLoop64:
 	VREV32 t2.B16, t2.B16
 	VREV32 t3.B16, t3.B16
 
-	VLD1 (srcPtr), [V6.S4, V7.S4, V8.S4]
 	VEOR IV.B16, t0.B16, t0.B16
 	VEOR V6.B16, t1.B16, t1.B16
 	VEOR V7.B16, t2.B16, t2.B16
@@ -232,6 +234,7 @@ cbc4BlocksLoop16:
 
 cbcSm4Single32:
 	VLD1 (srcPtr), [t0.S4, t1.S4]
+	VMOV t0.B16, V6.B16
 	VREV32 t0.B16, t0.B16
 	VREV32 t1.B16, t1.B16
 	PRE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y, XTMP6, XTMP7)
@@ -250,7 +253,6 @@ cbc4BlocksLoop32:
 	VREV32 t0.B16, t0.B16
 	VREV32 t1.B16, t1.B16
 
-	VLD1 (srcPtr), [V6.S4]
 	VEOR IV.B16, t0.B16, t0.B16
 	VEOR V6.B16, t1.B16, t1.B16
 
@@ -259,6 +261,8 @@ cbc4BlocksLoop32:
 
 cbcSm4Single48:
 	VLD1 (srcPtr), [t0.S4, t1.S4, t2.S4]
+	VMOV t0.B16, V6.B16
+	VMOV t1.B16, V7.B16
 	VREV32 t0.B16, t0.B16
 	VREV32 t1.B16, t1.B16
 	VREV32 t2.B16, t2.B16
@@ -279,7 +283,6 @@ cbc4BlocksLoop48:
 	VREV32 t1.B16, t1.B16
 	VREV32 t2.B16, t2.B16
 
-	VLD1 (srcPtr), [V6.S4, V7.S4]
 	VEOR IV.B16, t0.B16, t0.B16
 	VEOR V6.B16, t1.B16, t1.B16
 	VEOR V7.B16, t2.B16, t2.B16
