@@ -137,7 +137,7 @@ func (c *sm4CipherAsm) DecryptBlocks(dst, src []byte) {
 func expandKey(key []byte, enc, dec []uint32) {
 	if supportSM4 {
 		expandKeyAsm(&key[0], &ck[0], &enc[0], &dec[0], INST_SM4)
-	} else if supportsAES {
+	} else if supportsAES && useAESNI4SingleBlock {
 		expandKeyAsm(&key[0], &ck[0], &enc[0], &dec[0], INST_AES)
 	} else {
 		expandKeyGo(key, (*[rounds]uint32)(enc), (*[rounds]uint32)(dec))

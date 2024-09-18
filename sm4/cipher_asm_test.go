@@ -130,3 +130,11 @@ func TestEncryptBlocksDoubleWithAESNI(t *testing.T) {
 		t.Errorf("expected=%x, result=%x\n", src, dst)
 	}
 }
+
+func BenchmarkExpand(b *testing.B) {
+	c := &sm4Cipher{}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		expandKey(encryptTests[0].key, c.enc[:], c.dec[:])
+	}
+}
