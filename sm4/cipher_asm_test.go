@@ -131,10 +131,23 @@ func TestEncryptBlocksDoubleWithAESNI(t *testing.T) {
 	}
 }
 
-func BenchmarkExpand(b *testing.B) {
+func BenchmarkExpandAESNI(b *testing.B) {
 	c := &sm4Cipher{}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		expandKey(encryptTests[0].key, c.enc[:], c.dec[:])
+		expandKeyAsm(&encryptTests[0].key[0], &ck[0], &c.enc[0], &c.dec[0], INST_AES)
+	}
+}
+
+func BenchmarkEncryptAsm(b *testing.B) {
+	src := []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
+	encRes2 := make([]uint32, 32)
+	decRes2 := make([]uint32, 32)
+	expandKeyAsm(&src[0], &ck[0], &encRes2[0], &decRes2[0], 0)
+	dst := make([]byte, 16)
+	b.SetBytes(int64(len(src)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		encryptBlockAsm(&encRes2[0], &dst[0], &src[0], 0)
 	}
 }

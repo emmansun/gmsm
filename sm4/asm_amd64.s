@@ -327,7 +327,7 @@ TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
 	MOVQ dst+8(FP), BX
 	MOVQ src+16(FP), DX
   
-	MOVOU (DX), t0
+	MOVUPS (DX), t0
 	PSHUFB flip_mask<>(SB), t0
 	PSHUFD $1, t0, t1
 	PSHUFD $2, t0, t2
@@ -336,21 +336,25 @@ TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
 	XORL CX, CX
 
 loop:
-		SM4_SINGLE_ROUND(0, AX, CX, x, y, XTMP6, t0, t1, t2, t3)
-		SM4_SINGLE_ROUND(1, AX, CX, x, y, XTMP6, t1, t2, t3, t0)
-		SM4_SINGLE_ROUND(2, AX, CX, x, y, XTMP6, t2, t3, t0, t1)
-		SM4_SINGLE_ROUND(3, AX, CX, x, y, XTMP6, t3, t0, t1, t2)
+		MOVUPS (AX)(CX*1), XTMP7
+		MOVOU XTMP7, x
+		SM4_SINGLE_ROUND(x, y, XTMP6, t0, t1, t2, t3)
+		PSHUFD $1, XTMP7, x
+		SM4_SINGLE_ROUND(x, y, XTMP6, t1, t2, t3, t0)
+		PSHUFD $2, XTMP7, x
+		SM4_SINGLE_ROUND(x, y, XTMP6, t2, t3, t0, t1)
+		PSHUFD $3, XTMP7, x
+		SM4_SINGLE_ROUND(x, y, XTMP6, t3, t0, t1, t2)
 
 		ADDL $16, CX
 		CMPL CX, $4*32
 		JB loop
 
-	PALIGNR $4, t3, t3
-	PALIGNR $4, t3, t2
-	PALIGNR $4, t2, t1
-	PALIGNR $4, t1, t0
-	PSHUFB flip_mask<>(SB), t0
-	MOVOU t0, (BX)
+	PUNPCKLLQ t2, t3
+	PUNPCKLLQ t0, t1
+	PUNPCKLQDQ t1, t3
+	PSHUFB flip_mask<>(SB), t3
+	MOVUPS t3, (BX)
 
 done_sm4:
 	RET

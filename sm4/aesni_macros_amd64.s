@@ -158,20 +158,15 @@ GLOBL fk_mask<>(SB), 8, $16
 
 // SM4 single round function, handle 16 bytes data
 // t0 ^= tao_l1(t1^t2^t3^xk)
-// used R19 as temp 32/64 bits register
 // parameters:
-// - index: round key index immediate number
-// - RK: round key register
-// - IND: round key index base register
-// -  x: 128 bits temp register
+// -  x: 128 bits temp register (also as input RK)
 // -  y: 128 bits temp register
 // -  z: 128 bits temp register
 // - t0: 128 bits register for data as result
 // - t1: 128 bits register for data
 // - t2: 128 bits register for data
 // - t3: 128 bits register for data
-#define SM4_SINGLE_ROUND(index, RK, IND, x, y, z, t0, t1, t2, t3)  \ 
-	MOVL (index * 4)(RK)(IND*1), x;                   \
+#define SM4_SINGLE_ROUND(x, y, z, t0, t1, t2, t3)  \ 
 	PXOR t1, x;                                       \
 	PXOR t2, x;                                       \
 	PXOR t3, x;                                       \
