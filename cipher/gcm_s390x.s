@@ -18,7 +18,7 @@ TEXT ·ghash(SB),NOSPLIT,$32-40
 	STMG	R4, R7, (R1)
 	LMG	data+16(FP), R2, R3 // R2=base, R3=len
 loop:
-	WORD    $0xB93E0002 // compute intermediate message digest (KIMD)
+	KIMD	R0, R2      // compute intermediate message digest (KIMD)
 	BVS     loop        // branch back if interrupted
 	MVC     $16, (R1), (R8)
 	MOVD	$0, R0
