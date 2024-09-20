@@ -2,14 +2,13 @@ package cipher_test
 
 import (
 	"bytes"
-	_cipher "crypto/cipher"
+	"crypto/cipher"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"io"
 	"testing"
 
-	"github.com/emmansun/gmsm/cipher"
 	"github.com/emmansun/gmsm/internal/cryptotest"
 	"github.com/emmansun/gmsm/sm4"
 )
@@ -244,7 +243,7 @@ func TestSM4GCM(t *testing.T) {
 		ad, _ := hex.DecodeString(test.ad)
 		tagSize := (len(test.result) - len(test.plaintext)) / 2
 
-		var sm4gcm _cipher.AEAD
+		var sm4gcm cipher.AEAD
 		switch {
 		// Handle non-standard tag sizes
 		case tagSize != 16:
@@ -441,18 +440,18 @@ func TestGCMAEAD(t *testing.T) {
 
 			// Test GCM with the current AES block with the standard nonce and tag
 			// sizes.
-			cryptotest.TestAEAD(t, func() (_cipher.AEAD, error) { return cipher.NewGCM(block) })
+			cryptotest.TestAEAD(t, func() (cipher.AEAD, error) { return cipher.NewGCM(block) })
 
 			// Test non-standard tag sizes.
 			t.Run("MinTagSize", func(t *testing.T) {
-				cryptotest.TestAEAD(t, func() (_cipher.AEAD, error) { return cipher.NewGCMWithTagSize(block, minTagSize) })
+				cryptotest.TestAEAD(t, func() (cipher.AEAD, error) { return cipher.NewGCMWithTagSize(block, minTagSize) })
 			})
 
 			// Test non-standard nonce sizes.
 			for _, nonceSize := range []int{1, 16, 100} {
 				t.Run(fmt.Sprintf("NonceSize-%d", nonceSize), func(t *testing.T) {
 
-					cryptotest.TestAEAD(t, func() (_cipher.AEAD, error) { return cipher.NewGCMWithNonceSize(block, nonceSize) })
+					cryptotest.TestAEAD(t, func() (cipher.AEAD, error) { return cipher.NewGCMWithNonceSize(block, nonceSize) })
 				})
 			}
 		})
