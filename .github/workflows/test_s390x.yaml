@@ -39,6 +39,11 @@ jobs:
       env:
         GOARCH: ${{ matrix.arch }}
 
+    - name: Test Cipher
+      run: go test -v -short ./cipher/...
+      env:
+        GOARCH: ${{ matrix.arch }}
+
 #    - name: Test
 #      run: go test -v -short ./...
 #      env:
