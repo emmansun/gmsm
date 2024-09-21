@@ -58,6 +58,8 @@ TEXT ·mul2(SB),NOSPLIT,$0
 	doubleTweak(B0, BSWAP, POLY, T0, T1)
 	VST B0, 0(R1)
 
+	RET
+
 gb_alg:
 	// Load polynomial for reduction
 	VZERO POLY
