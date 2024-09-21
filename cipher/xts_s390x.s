@@ -21,7 +21,7 @@ GLOBL xtsMask<>(SB), (NOPTR+RODATA), $16
 	VPERM B0, B0, BSWAP, B0  \// BE -> LE
 	\ // Multiply by 2
 	VESRAF $31, B0, T0 \
-	VLREPF $0, T0, T0  \
+	VREPF $0, T0, T0  \
 	VN POLY, T0, T0    \    // T0 for reduction
 	VREPIB $1, T1      \
 	VSL T1, B0, T1     \
@@ -32,7 +32,7 @@ GLOBL xtsMask<>(SB), (NOPTR+RODATA), $16
 #define gbDoubleTweak(B0, POLY, T0, T1) \
 	VESLF $31, B0, T0   \
 	VESRAF $31, T0, T0  \
-	VLREPF $3, T0, T0   \
+	VREPF $3, T0, T0   \
 	VN POLY, T0, T0     \ // T0 for reduction
 	\
 	VREPIB $1, T1       \
