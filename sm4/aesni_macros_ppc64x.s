@@ -10,8 +10,6 @@
 	LXVD2X (baseAddrReg)(offsetReg), REVERSE_WORDS; \
 	MOVD $0x50, offsetReg; \
 	LXVD2X (baseAddrReg)(offsetReg), NIBBLE_MASK; \
-	MOVD $0x60, offsetReg; \
-	LXVD2X (baseAddrReg)(offsetReg), INVERSE_SHIFT_ROWS; \
 	MOVD $0x70, offsetReg; \
 	LXVD2X (baseAddrReg)(offsetReg), M1L; \
 	MOVD $0x80, offsetReg; \
@@ -124,9 +122,8 @@
 // -  z: 128 bits temp register
 #define SM4_SBOX(x, y, z) \
 	AFFINE_TRANSFORM(M1L, M1H, V_FOUR, x, y, z); \
-	VPERM x, x, INVERSE_SHIFT_ROWS, x;           \
-	VCIPHERLAST x, NIBBLE_MASK, x;               \
-	AFFINE_TRANSFORM_NOTX(M2L, M2H, V_FOUR, x, y, z)
+	VSBOX x, x;                                  \
+	AFFINE_TRANSFORM(M2L, M2H, V_FOUR, x, y, z)
 
 // SM4 TAO L1 function
 // parameters:
