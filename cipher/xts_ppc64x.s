@@ -50,7 +50,7 @@ TEXT ·mul2(SB),NOSPLIT,$0
 
 	MOVD $xtsMask<>(SB), CPOOL
 
-	CMPB R4, $1
+	CMPW R4, $1
 	BEQ gb_alg
 	
 	// Load polynomial for reduction
@@ -104,7 +104,7 @@ TEXT ·doubleTweaks(SB),NOSPLIT,$0
 	// Load tweak
 	LXVD2X (R3), B0
 
-	CMPB R6, $1
+	CMPW R6, $1
 	BEQ gb_alg
 
 	SRD	$4, R5
