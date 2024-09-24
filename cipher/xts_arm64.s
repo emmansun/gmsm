@@ -21,9 +21,8 @@
 	\
 	VUSHR	$63, B0.D2, T2.D2             \
 	VEXT	$8, T2.B16, ZERO.B16, T2.B16  \
-	VSHL	$1, B0.D2, B0.D2              \
-	VEOR	T1.B16, B0.B16, B0.B16        \
-	VEOR	T2.B16, B0.B16, B0.B16
+	VSLI	$1, B0.D2, T2.D2              \
+	VEOR	T1.B16, T2.B16, B0.B16
 
 #define gbDoubleTweak(B0, ZERO, POLY, I, T1, T2) \
 	VREV64 B0.B16, B0.B16                 \
@@ -37,9 +36,8 @@
 	\
 	VSHL $63, B0.D2, T2.D2                \
 	VEXT	$8, ZERO.B16, T2.B16, T2.B16  \
-	VUSHR	$1, B0.D2, B0.D2              \
-	VEOR	T1.B16, B0.B16, B0.B16        \
-	VEOR	T2.B16, B0.B16, B0.B16        \
+	VSRI	$1, B0.D2, T2.D2              \
+	VEOR	T1.B16, T2.B16, B0.B16        \
 	\
 	VEXT	$8, B0.B16, B0.B16, B0.B16    \
 	VREV64 B0.B16, B0.B16

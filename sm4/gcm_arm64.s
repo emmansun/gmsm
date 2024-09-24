@@ -174,9 +174,8 @@ sm4InitEncDone:
 	VAND	POLY.B16, T1.B16, T1.B16
 	VUSHR	$63, B0.D2, T2.D2
 	VEXT	$8, ZERO.B16, T2.B16, T2.B16
-	VSHL	$1, B0.D2, B0.D2
-	VEOR	T1.B16, B0.B16, B0.B16
-	VEOR	T2.B16, B0.B16, B0.B16 // Can avoid this when VSLI is available
+	VSLI	$1, B0.D2, T2.D2
+	VEOR	T1.B16, T2.B16, B0.B16
 
 	// Karatsuba pre-computation
 	VEXT	$8, B0.B16, B0.B16, B1.B16

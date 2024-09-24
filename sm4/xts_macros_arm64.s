@@ -6,9 +6,8 @@
 	\
 	VUSHR	$63, TW.D2, K1.D2;              \
 	VEXT	$8, K1.B16, ZERO.B16, K1.B16;   \
-	VSHL	$1, TW.D2, TW.D2;               \
-	VEOR	K0.B16, TW.B16, TW.B16;         \
-	VEOR	K1.B16, TW.B16, TW.B16
+	VSLI	$1, TW.D2, K1.D2;               \
+	VEOR	K0.B16, K1.B16, TW.B16
 
 #define mul2GBInline        \
 	VREV64 TW.B16, TW.B16;                  \
@@ -22,9 +21,8 @@
 	\
 	VSHL $63, TW.D2, K1.D2;                 \
 	VEXT	$8, ZERO.B16, K1.B16, K1.B16;   \
-	VUSHR	$1, TW.D2, TW.D2;               \
-	VEOR	K0.B16, TW.B16, TW.B16;         \
-	VEOR	K1.B16, TW.B16, TW.B16;         \
+	VSRI	$1, TW.D2, K1.D2;               \
+	VEOR	K0.B16, K1.B16, TW.B16;         \
 	\
 	VEXT	$8, TW.B16, TW.B16, TW.B16;     \
 	VREV64 TW.B16, TW.B16
