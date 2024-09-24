@@ -22,6 +22,34 @@ GLOBL gbGcmPoly<>(SB), (NOPTR+RODATA), $16
 #define T0 X3
 #define T1 X4
 
+#define doubleTweak(B0, POLY, T0, T1) \
+	\ // B0 * 2
+	PSHUFD $0xff, B0, T0 \
+	MOVOU B0, T1         \
+	PSRAL $31, T0        \ // T0 for reduction
+	PAND POLY, T0        \
+	PSRLL $31, T1        \
+	PSLLDQ $4, T1        \
+	PSLLL $1, B0         \
+	PXOR T0, B0          \
+	PXOR T1, B0
+
+#define gbDoubleTweak(B0, BSWAP, POLY, T0, T1) \
+	PSHUFB BSWAP, B0      \
+	\ // B0 * 2
+	MOVOU B0, T0          \
+ 	PSHUFD $0, B0, T1     \
+	PSRLQ $1, B0          \
+	PSLLQ $63, T0         \
+	PSRLDQ $8, T0         \
+	POR T0, B0            \
+	\ // reduction
+	PSLLL $31, T1         \
+	PSRAL $31, T1         \
+	PAND POLY, T1         \
+	PXOR T1, B0           \
+	PSHUFB BSWAP, B0
+
 // func mul2(tweak *[blockSize]byte, isGB bool)
 TEXT ·mul2(SB),NOSPLIT,$0
 	MOVQ tweak+0(FP), DI
@@ -34,16 +62,7 @@ TEXT ·mul2(SB),NOSPLIT,$0
 
 	MOVOU gcmPoly<>(SB), POLY
 
-	// B0 * 2
-	PSHUFD $0xff, B0, T0
-	MOVOU B0, T1
-	PSRAL $31, T0 // T0 for reduction
-	PAND POLY, T0
-	PSRLL $31, T1
-	PSLLDQ $4, T1
-	PSLLL $1, B0
-	PXOR T0, B0
-	PXOR T1, B0
+	doubleTweak(B0, POLY, T0, T1)
 
 	MOVOU B0, (0*16)(DI)
 
@@ -53,23 +72,8 @@ gb_alg:
 	MOVOU bswapMask<>(SB), BSWAP
 	MOVOU gbGcmPoly<>(SB), POLY
 
-	PSHUFB BSWAP, B0
+	gbDoubleTweak(B0, BSWAP, POLY, T0, T1)
 
-	// B0 * 2
-	MOVOU B0, T0
- 	PSHUFD $0, B0, T1
-	PSRLQ $1, B0
-	PSLLQ $63, T0
-	PSRLDQ $8, T0
-	POR T0, B0
-
-	// reduction
-	PSLLL $31, T1
-	PSRAL $31, T1
-	PAND POLY, T1
-	PXOR T1, B0
-
-	PSHUFB BSWAP, B0
 	MOVOU B0, (0*16)(DI)
 	RET
 
@@ -94,16 +98,7 @@ loop:
 	MOVOU B0, (0*16)(AX)
 	LEAQ 16(AX), AX
 
-	// B0 * 2
-	PSHUFD $0xff, B0, T0
-	MOVOU B0, T1
-	PSRAL $31, T0 // T0 for reduction
-	PAND POLY, T0
-	PSRLL $31, T1
-	PSLLDQ $4, T1
-	PSLLL $1, B0
-	PXOR T0, B0
-	PXOR T1, B0
+	doubleTweak(B0, POLY, T0, T1)
 
 	ADDQ $1, DX
 	CMPQ DX, BX
@@ -120,23 +115,8 @@ gb_loop:
 	MOVOU B0, (0*16)(AX)
 	LEAQ 16(AX), AX
 
-	PSHUFB BSWAP, B0
+	gbDoubleTweak(B0, BSWAP, POLY, T0, T1)
 
-	// B0 * 2
-	MOVOU B0, T0
- 	PSHUFD $0, B0, T1
-	PSRLQ $1, B0
-	PSLLQ $63, T0
-	PSRLDQ $8, T0
-	POR T0, B0
-
-	// reduction
-	PSLLL $31, T1
-	PSRAL $31, T1
-	PAND POLY, T1
-	PXOR T1, B0
-
-	PSHUFB BSWAP, B0
 	ADDQ $1, DX
 	CMPQ DX, BX
 	JB gb_loop

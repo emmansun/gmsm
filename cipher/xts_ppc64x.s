@@ -149,8 +149,8 @@ gb_alg:
 #endif
 
 gbLoop:
-	STXVD2X B0, (R4)
-	ADD $16, R4
+		STXVD2X B0, (R4)
+		ADD $16, R4
 
 #ifdef GOARCH_ppc64le
 		VPERM B0, B0, ESPERM, B0
