@@ -138,8 +138,7 @@ GLOBL ·mask(SB), RODATA, $80
 	VOR b, b, TMP4                   \
 	PROLD(TMP4, b, 9)                \ // b = b <<< 9
 	VOR TMP1, TMP1, h                \ // h = TT1
-	PROLD(f, TMP4, 10)               \
-	PROLD(TMP4, f, 9)                \ // f = f <<< 19, Here we had to ROTL twice: ROTL 10, then ROTL 9
+	PROLD(f, f, 19)                  \ // f = f <<< 19
 	PROLD(TMP3, TMP4, 9)             \ // TMP4 = TT2 <<< 9
 	PROLD(TMP4, TMP0, 8)             \ // TMP0 = TT2 <<< 17
 	VXOR TMP3, TMP4, TMP4            \ // TMP4 = TT2 XOR (TT2 <<< 9)
@@ -195,7 +194,7 @@ GLOBL ·mask(SB), RODATA, $80
 	VOR b, b, TMP1                   \
 	PROLD(TMP1, b, 9)                \ // b = b <<< 9
 	VOR TMP4, TMP4, h                \ // h = TT1
-	PROLD(f, f, 19)                \ // f = f <<< 19
+	PROLD(f, f, 19)                  \ // f = f <<< 19
 	PROLD(TMP3, TMP1, 9)             \ // TMP1 = TT2 <<< 9
 	PROLD(TMP1, TMP0, 8)             \ // TMP0 = TT2 <<< 17
 	VXOR TMP3, TMP1, TMP1            \ // TMP1 = TT2 XOR (TT2 <<< 9)
