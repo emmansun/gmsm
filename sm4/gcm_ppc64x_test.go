@@ -42,7 +42,7 @@ func TestCmul(t *testing.T) {
 	if runtime.GOARCH == "ppc64le" {
 		for i := 0; i < 16; i++ {
 			if fmt.Sprintf("%x", aead.(*gcmAsm).productTable[i*16:(i+1)*16]) != table[i] {
-				t.Errorf("productTable %v got %x", i, aead.(*gcmAsm).productTable[i])
+				t.Errorf("productTable %v got %x", i, aead.(*gcmAsm).productTable[i*16:(i+1)*16])
 			}
 		}
 	}
