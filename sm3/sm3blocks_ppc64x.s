@@ -66,10 +66,7 @@ GLOBL ·mask(SB), RODATA, $80
 #endif // defined(GOARCH_ppc64le)
 
 // r = s <<< n
-// Due to VSPLTISW's limitation, the n MUST be [0, 15],
-// If n > 15, we have to call it multiple times.
-// VSPLTISW takes a 5-bit immediate value as an operand.
-// I also did NOT find one vector instruction to use immediate value for ROTL.
+// Due to VSPLTISW's limitation, the n MUST be [0, 31]
 #define PROLD(s, r, n) \
 	VSPLTISW $n, TMP5 \
 	VRLW	s, TMP5, r
