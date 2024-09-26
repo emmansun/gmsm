@@ -35,11 +35,34 @@ func TestCmul(t *testing.T) {
 	binary.BigEndian.PutUint64(hle[:8], h1)
 	binary.BigEndian.PutUint64(hle[8:], h2)
 
-	if fmt.Sprintf("%x", hle) != "3811556fff7b1f9fd38f531e0530944d" {
+	if fmt.Sprintf("%x", hle) != "3811556fff7b1f9fd38f531e5330944d" {
 		t.Errorf("2 got %x", hle)
 	}
 	aead, _ := c1.NewGCM(12, 16)
-	for i := 0; i < 256; i += 16 {
-		fmt.Printf("%x\n", aead.(*gcmAsm).productTable[i:i+16])
+	if runtime.GOARCH == "ppc64le" {
+		for i := 0; i < 16; i++ {
+			if fmt.Sprintf("%x", aead.(*gcmAsm).productTable[i*16:(i+1)*16]) != table[i] {
+				t.Errorf("productTable %v got %x", i, aead.(*gcmAsm).productTable[i])
+			}
+		}
 	}
+}
+
+var table = [16]string{
+	"000000000000000000000000000000c2",
+	"0000000000000000a71fa73ca660289b",
+	"a71fa73ca660289b7022aadefef73efc",
+	"7022aadefef73efc0000000000000000",
+	"00000000000000009208acefd693f27f",
+	"9208acefd693f27fc7223dce2c483080",
+	"c7223dce2c4830800000000000000000",
+	"000000000000000095c5b74db0d6c213",
+	"95c5b74db0d6c213c8984b421897287c",
+	"c8984b421897287c0000000000000000",
+	"000000000000000050a174a4b5189613",
+	"50a174a4b518961329a304696d059054",
+	"29a304696d0590540000000000000000",
+	"00000000000000000000000000000000",
+	"00000000000000000000000000000000",
+	"00000000000000000000000000000000",
 }
