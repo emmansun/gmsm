@@ -29,6 +29,26 @@ type PKCS7 struct {
 	raw          any
 }
 
+func (p7 *PKCS7) Raw() any {
+	return p7.raw
+}
+
+func (p7 *PKCS7) EnvelopedData() *envelopedData {
+	ed, ok := p7.raw.(envelopedData)
+	if ok {
+		return &ed
+	}
+	return nil
+}
+
+func (p7 *PKCS7) EncryptedData() *encryptedData {
+	ed, ok := p7.raw.(encryptedData)
+	if ok {
+		return &ed
+	}
+	return nil
+}
+
 type contentInfo struct {
 	ContentType asn1.ObjectIdentifier
 	Content     asn1.RawValue `asn1:"explicit,optional,tag:0"`
