@@ -22,31 +22,16 @@ import (
 
 // PKCS7 Represents a PKCS7 structure
 type PKCS7 struct {
-	Content      []byte
-	Certificates []*smx509.Certificate
-	CRLs         []pkix.CertificateList
-	Signers      []signerInfo
-	raw          any
+	Content        []byte
+	Certificates   []*smx509.Certificate
+	CRLs           []pkix.CertificateList
+	Signers        []signerInfo
+	RecipientInfos []recipientInfo
+	raw            any
 }
 
 func (p7 *PKCS7) Raw() any {
 	return p7.raw
-}
-
-func (p7 *PKCS7) EnvelopedData() *envelopedData {
-	ed, ok := p7.raw.(envelopedData)
-	if ok {
-		return &ed
-	}
-	return nil
-}
-
-func (p7 *PKCS7) EncryptedData() *encryptedData {
-	ed, ok := p7.raw.(encryptedData)
-	if ok {
-		return &ed
-	}
-	return nil
 }
 
 type contentInfo struct {
@@ -254,7 +239,8 @@ func parseEnvelopedData(data []byte) (*PKCS7, error) {
 		return nil, err
 	}
 	return &PKCS7{
-		raw: ed,
+		raw:            ed,
+		RecipientInfos: ed.RecipientInfos,
 	}, nil
 }
 
