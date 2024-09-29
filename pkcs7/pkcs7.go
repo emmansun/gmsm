@@ -30,10 +30,6 @@ type PKCS7 struct {
 	raw            any
 }
 
-func (p7 *PKCS7) Raw() any {
-	return p7.raw
-}
-
 type contentInfo struct {
 	ContentType asn1.ObjectIdentifier
 	Content     asn1.RawValue `asn1:"explicit,optional,tag:0"`
