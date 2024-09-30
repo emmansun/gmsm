@@ -36,6 +36,12 @@ jobs:
         GOARCH: ${{ matrix.arch }}
         GOPPC64: ${{ matrix.ppc64 }}
 
+    - name: Test ZUC
+      run: go test -v ./zuc/...
+      env:
+        GOARCH: ${{ matrix.arch }}
+        GOPPC64: ${{ matrix.ppc64 }}
+
     - name: Test SM3
       run: go test -v ./sm3/...
       env:
