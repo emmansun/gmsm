@@ -10,14 +10,14 @@ const (
 )
 
 type ZUC128Mac struct {
-	zucState32
-	k0        [8]uint32
-	t         uint32
-	x         [chunk]byte
-	nx        int
-	len       uint64
-	tagSize   int
-	initState zucState32
+	zucState32             // current zuc state
+	k0         [8]uint32   // keywords
+	t          uint32      // tag
+	x          [chunk]byte //buffer
+	nx         int         // remaining data in x
+	len        uint64      // total data length
+	tagSize    int         // tag size
+	initState  zucState32  // initial state for reset
 }
 
 // NewHash create hash for zuc-128 eia, with arguments key and iv.
@@ -94,17 +94,22 @@ func (m *ZUC128Mac) Reset() {
 }
 
 func blockGeneric(m *ZUC128Mac, p []byte) {
+	// use 64 bits to shift left 2 keywords
 	var k64, t64 uint64
 	t64 = uint64(m.t) << 32
 	for len(p) >= chunk {
+		// generate next 4 keywords
 		m.genKeywords(m.k0[4:])
 		k64 = uint64(m.k0[0])<<32 | uint64(m.k0[1])
+		// process first 32 bits
 		w := binary.BigEndian.Uint32(p[0:4])
 		for j := 0; j < 32; j++ {
+			// t64 ^= (w >> 31) ? k64 : 0
 			t64 ^= ^(uint64(w>>31) - 1) & k64
 			w <<= 1
 			k64 <<= 1
 		}
+		// process second 32 bits
 		k64 = uint64(m.k0[1])<<32 | uint64(m.k0[2])
 		w = binary.BigEndian.Uint32(p[4:8])
 		for j := 0; j < 32; j++ {
@@ -112,6 +117,7 @@ func blockGeneric(m *ZUC128Mac, p []byte) {
 			w <<= 1
 			k64 <<= 1
 		}
+		// process third 32 bits
 		k64 = uint64(m.k0[2])<<32 | uint64(m.k0[3])
 		w = binary.BigEndian.Uint32(p[8:12])
 		for j := 0; j < 32; j++ {
@@ -119,6 +125,7 @@ func blockGeneric(m *ZUC128Mac, p []byte) {
 			w <<= 1
 			k64 <<= 1
 		}
+		// process fourth 32 bits
 		k64 = uint64(m.k0[3])<<32 | uint64(m.k0[4])
 		w = binary.BigEndian.Uint32(p[12:16])
 		for j := 0; j < 32; j++ {
@@ -126,6 +133,7 @@ func blockGeneric(m *ZUC128Mac, p []byte) {
 			w <<= 1
 			k64 <<= 1
 		}
+		// Move the new keywords to the first 4
 		copy(m.k0[:4], m.k0[4:])
 		p = p[chunk:]
 	}
@@ -164,12 +172,16 @@ func (m *ZUC128Mac) checkSum(additionalBits int, b byte) [4]byte {
 		var k64, t64 uint64
 		t64 = uint64(m.t) << 32
 		m.x[m.nx] = b
+		// total bits to handle
 		nRemainBits := 8*m.nx + additionalBits
 		if nRemainBits > 2*32 {
+			// generate next 2 keywords
 			m.genKeywords(m.k0[4:6])
 		}
-		words := (nRemainBits + 31) / 32
-		for i := 0; i < words-1; i++ {
+		// nwords <= 4
+		nwords := (nRemainBits + 31) / 32
+		// process 32 bits at a time for first complete words
+		for i := 0; i < nwords-1; i++ {
 			k64 = uint64(m.k0[i])<<32 | uint64(m.k0[i+1])
 			w := binary.BigEndian.Uint32(m.x[i*4:])
 			for j := 0; j < 32; j++ {
@@ -178,18 +190,21 @@ func (m *ZUC128Mac) checkSum(additionalBits int, b byte) [4]byte {
 				k64 <<= 1
 			}
 		}
-		nRemainBits -= (words - 1) * 32
-		kIdx = words - 1
+		nRemainBits -= (nwords - 1) * 32
+		// current key word index, 0 <= kIdx <= 3
+		kIdx = nwords - 1
+		// process remaining bits less than 32
 		if nRemainBits > 0 {
 			k64 = uint64(m.k0[kIdx])<<32 | uint64(m.k0[kIdx+1])
-			w := binary.BigEndian.Uint32(m.x[(words-1)*4:])
+			w := binary.BigEndian.Uint32(m.x[(nwords-1)*4:])
 			for j := 0; j < nRemainBits; j++ {
 				t64 ^= ^(uint64(w>>31) - 1) & k64
 				w <<= 1
 				k64 <<= 1
 			}
-			m.k0[kIdx] = uint32(k64 >> 32)
-			m.k0[kIdx+1] = m.k0[kIdx+2]
+			// Reset for fianal computation
+			m.k0[kIdx] = uint32(k64 >> 32) // key[LENGTH]
+			m.k0[kIdx+1] = m.k0[kIdx+2]    // Last key word
 		}
 		m.t = uint32(t64 >> 32)
 	}
@@ -201,8 +216,10 @@ func (m *ZUC128Mac) checkSum(additionalBits int, b byte) [4]byte {
 	return digest
 }
 
-// Finish this function hash nbits data in p and return mac value
+// Finish this function hash nbits data in p and return mac value, after this function call, 
+// the hash state will be reset.
 // In general, we will use byte level function, this is just for test/verify.
+// nbits: number of bits to hash in p.
 func (m *ZUC128Mac) Finish(p []byte, nbits int) []byte {
 	if len(p) < (nbits+7)/8 {
 		panic("invalid p length")
@@ -217,6 +234,7 @@ func (m *ZUC128Mac) Finish(p []byte, nbits int) []byte {
 		b = p[nbytes]
 	}
 	digest := m.checkSum(nRemainBits, b)
+	m.Reset()
 	return digest[:]
 }
 

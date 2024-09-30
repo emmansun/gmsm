@@ -1,4 +1,4 @@
-//go:build (amd64 || arm64) && !purego
+//go:build (amd64 || arm64 || ppc64 || ppc64le) && !purego
 
 package zuc
 
