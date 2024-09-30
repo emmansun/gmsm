@@ -81,9 +81,9 @@ TEXT ·eia3Round16B(SB),NOSPLIT,$0
 	MOVD $8, R8
 	LXVW4X (R8)(R4), KS_M1
 	MOVD $0x40, R8
-	LXVD2X (PTR)(R8), XTMP1
-	VPERM KS_L, KS_L, XTMP1, KS_L
-	VPERM KS_M1, KS_M1, XTMP1, KS_M1
+	LXVD2X (PTR)(R8), XTMP4
+	VPERM KS_L, KS_L, XTMP4, KS_L
+	VPERM KS_M1, KS_M1, XTMP4, KS_M1
 
 	// clmul
 	// xor the results from 4 32-bit words together
