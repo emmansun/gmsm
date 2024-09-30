@@ -30,6 +30,10 @@ func TestEncryptUsingPSK(t *testing.T) {
 		}
 
 		p7, _ := Parse(ciphertext)
+		_, err = p7.GetRecipients()
+		if err != ErrNotEnvelopedData {
+			t.Errorf("expected ErrNotEnvelopedData, got %v", err)
+		}
 		result, err := p7.DecryptUsingPSK(key)
 		if err != nil {
 			t.Fatalf("cannot Decrypt encrypted result: %s", err)

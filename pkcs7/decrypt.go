@@ -6,11 +6,30 @@ import (
 	"crypto/rand"
 	"encoding/asn1"
 	"errors"
+	"math/big"
 
 	"github.com/emmansun/gmsm/pkcs"
 	"github.com/emmansun/gmsm/sm2"
 	"github.com/emmansun/gmsm/smx509"
 )
+
+// IssuerAndSerial is a structure that holds the issuer name and serial number
+type IssuerAndSerial struct {
+	RawIssuer   []byte
+	SerialNumber *big.Int
+}
+
+func newIssuerAndSerial(issuerAndSerial issuerAndSerial) IssuerAndSerial {
+	is := IssuerAndSerial{}
+	if len(issuerAndSerial.IssuerName.FullBytes) > 0 {
+		is.RawIssuer = make([]byte, len(issuerAndSerial.IssuerName.FullBytes))
+		copy(is.RawIssuer, issuerAndSerial.IssuerName.FullBytes)
+	}
+	if issuerAndSerial.SerialNumber != nil {
+		is.SerialNumber = new(big.Int).Set(issuerAndSerial.SerialNumber)
+	}
+	return is
+}
 
 // ErrUnsupportedAlgorithm tells you when our quick dev assumptions have failed
 var ErrUnsupportedAlgorithm = errors.New("pkcs7: cannot decrypt data: only RSA, SM2, DES, DES-EDE3, AES and SM4 supported")
@@ -18,9 +37,22 @@ var ErrUnsupportedAlgorithm = errors.New("pkcs7: cannot decrypt data: only RSA, 
 // ErrNotEncryptedContent is returned when attempting to Decrypt data that is not encrypted data
 var ErrNotEncryptedContent = errors.New("pkcs7: content data is NOT a decryptable data type")
 
+// ErrNotEnvelopedData is returned when attempting to Decrypt data that is not enveloped data
+var ErrNotEnvelopedData = errors.New("pkcs7: content data is NOT an enveloped data type")
+
 type decryptable interface {
 	GetRecipient(cert *smx509.Certificate) *recipientInfo
+	GetRecipients() ([]IssuerAndSerial, error)
 	GetEncryptedContentInfo() *encryptedContentInfo
+}
+
+// GetRecipients returns the list of recipients for the enveloped data
+func (p7 *PKCS7) GetRecipients() ([]IssuerAndSerial, error) {
+	decryptableData, ok := p7.raw.(decryptable)
+	if !ok {
+		return nil, ErrNotEnvelopedData
+	}
+	return decryptableData.GetRecipients()
 }
 
 // Decrypt decrypts encrypted content info for recipient cert and private key

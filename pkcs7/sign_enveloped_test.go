@@ -103,6 +103,14 @@ func TestParseSignedEvnvelopedData(t *testing.T) {
 		t.Fatal("should only one certificate")
 	}
 
+	recipients, err := p7Data.GetRecipients()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(recipients) != 1 {
+		t.Fatal("should only one recipient")
+	}
+
 	block, rest = pem.Decode([]byte(signKey))
 	if len(rest) != 0 {
 		t.Fatal("unexpected remaining PEM block during decode")
@@ -263,6 +271,23 @@ func TestCreateSignedEvnvelopedData(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
+		recipients, err := p7Data.GetRecipients()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(recipients) != 1 {
+			t.Fatal("should only one recipient")
+		}
+
+		if recipients[0].SerialNumber.Cmp(recipient.Certificate.SerialNumber) != 0 {
+			t.Errorf("Recipient serial number does not match.\n\tExpected:%s\n\tActual:%s", recipient.Certificate.SerialNumber, recipients[0].SerialNumber)
+		}
+		
+		if !bytes.Equal(recipients[0].RawIssuer, recipient.Certificate.RawIssuer) {
+			t.Errorf("Recipient issuer name does not match.\n\tExpected:%x\n\tActual:%x", recipient.Certificate.RawIssuer, recipients[0].RawIssuer)
+		}
+
 		encKeyBytes, err := p7Data.DecryptAndVerify(recipient.Certificate, *recipient.PrivateKey, func() error {
 			return p7Data.Verify()
 		})

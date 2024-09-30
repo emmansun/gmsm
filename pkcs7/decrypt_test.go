@@ -11,6 +11,19 @@ func TestDecrypt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	recipents, err := p7.GetRecipients()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(recipents) != 1 {
+		t.Errorf("Expected 1 recipient, got %d", len(recipents))
+	}
+	if recipents[0].SerialNumber.Cmp(fixture.Certificate.SerialNumber) != 0 {
+		t.Errorf("Recipient serial number does not match.\n\tExpected:%s\n\tActual:%s", fixture.Certificate.SerialNumber, recipents[0].SerialNumber)
+	}
+	if !bytes.Equal(recipents[0].RawIssuer, fixture.Certificate.RawIssuer) {
+		t.Errorf("Recipient issuer name does not match.\n\tExpected:%x\n\tActual:%x", fixture.Certificate.RawIssuer, recipents[0].RawIssuer)
+	}
 	content, err := p7.Decrypt(fixture.Certificate, fixture.PrivateKey)
 	if err != nil {
 		t.Errorf("Cannot Decrypt with error: %v", err)
