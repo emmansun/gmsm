@@ -4,3 +4,4 @@ package cpuid
 
 var HasAES = true
 var HasGFMUL = false
+var HasVPMSUMD = true

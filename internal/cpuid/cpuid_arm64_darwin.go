@@ -8,3 +8,4 @@ package cpuid
 // to all Go programs running on darwin/arm64.
 var HasAES = true
 var HasGFMUL = true
+var HasVPMSUMD = false

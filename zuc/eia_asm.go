@@ -8,7 +8,7 @@ import (
 )
 
 var supportsAES = cpuid.HasAES
-var supportsGFMUL = cpuid.HasGFMUL
+var supportsGFMUL = cpuid.HasGFMUL || cpuid.HasVPMSUMD
 var useAVX = cpu.X86.HasAVX
 
 //go:noescape

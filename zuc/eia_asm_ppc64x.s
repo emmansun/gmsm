@@ -93,9 +93,15 @@ TEXT ·eia3Round16B(SB),NOSPLIT,$0
 	VXOR XTMP3, XTMP4, XTMP3
 	VSPLTW $2, XTMP3, XDIGEST
 
+	// Update tag
 	MFVSRWZ XDIGEST, PTR
 	MOVWZ (R3), R6
 	XOR R6, PTR, R6 
 	MOVW R6, (R3)
+
+	// Copy last 16 bytes of KS to the front
+	MOVD $16, PTR
+	LXVD2X (PTR)(R4), XTMP1
+	STXVD2X XTMP1, (R4)(R0)
 
 	RET
