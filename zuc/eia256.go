@@ -224,6 +224,7 @@ func (m *ZUC256Mac) Finish(p []byte, nbits int) []byte {
 		b = p[nbytes]
 	}
 	digest := m.checkSum(nRemainBits, b)
+	m.Reset()
 	return digest[:]
 }
 
