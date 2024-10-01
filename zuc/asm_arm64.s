@@ -170,47 +170,38 @@ GLOBL mask_S01<>(SB), RODATA, $32
 	ADD R8, AX                              \
 	ADD R9, AX                              \
 	\
-	MOVD AX, BX                             \
+	LSR $31, AX, BX                         \
 	AND $0x7FFFFFFF, AX                     \
-	LSR $31, BX                             \
 	ADD BX, AX                              \
 	\
-	SUBS $0x7FFFFFFF, AX, BX                \
-	CSEL	CS, BX, AX, AX                  \
+	LSR $31, AX, BX                         \
+	AND $0x7FFFFFFF, AX                     \
+	ADD BX, AX                              \
 	\
 	MOVW AX, (((0 + idx) % 16)*4)(SI)
 
 #define NONLIN_FUN()                         \
-	MOVW R12, AX                             \
-	EORW R10, AX                             \
+	EORW R10, R12, AX                        \
 	ADDW R11, AX                             \
 	ADDW R13, R10                            \ // W1= F_R1 + BRC_X1
 	EORW R14, R11                            \ // W2= F_R2 ^ BRC_X2
 	\
-	MOVW R10, DX                             \
-	MOVW R11, CX                             \
-	SHLDL(DX, CX, $16)                       \ // P = (W1 << 16) | (W2 >> 16)
+	LSLW $16, R10, DX                        \
+	LSRW $16, R11, CX                        \  
+	ORRW CX, DX                              \ // P = (W1 << 16) | (W2 >> 16)
 	SHLDL(R11, R10, $16)                     \ // Q = (W2 << 16) | (W1 >> 16)
-	MOVW DX, BX                              \  
-	MOVW DX, CX                              \
-	MOVW DX, R8                              \
-	MOVW DX, R9                              \
-	RORW $30, BX                             \
-	RORW $22, CX                             \
-	RORW $14, R8                             \
-	RORW $8, R9                              \
+	RORW $30, DX, BX                         \
+	RORW $22, DX, CX                         \
+	RORW $14, DX, R8                         \
+	RORW $8, DX, R9                          \
 	EORW BX, DX                              \
 	EORW CX, DX                              \
 	EORW R8, DX                              \
 	EORW R9, DX                              \ // U = L1(P) = EDX, hi(RDX)=0
-	MOVW R11, BX                             \  
-	MOVW R11, CX                             \
-	MOVW R11, R8                             \
-	MOVW R11, R9                             \
-	RORW $24, BX                             \
-	RORW $18, CX                             \
-	RORW $10, R8                             \
-	RORW $2, R9                              \
+	RORW $24, R11, BX                        \
+	RORW $18, R11, CX                        \
+	RORW $10, R11, R8                        \
+	RORW $2, R11, R9                         \
 	EORW BX, R11                             \
 	EORW CX, R11                             \
 	EORW R8, R11                             \
