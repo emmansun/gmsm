@@ -32,7 +32,7 @@ Go语言商用密码软件，简称**GMSM**，一个安全、高性能、易于�
 
 - **SM9** - SM9标识密码算法实现。基础的素域、扩域、椭圆曲线运算以及双线性对运算位于[bn256](https://github.com/emmansun/gmsm/tree/main/sm9/bn256)包中，分别对**amd64**、**arm64**架构做了优化实现。您也可以参考[SM9实现及优化](https://github.com/emmansun/gmsm/wiki/SM9%E5%AE%9E%E7%8E%B0%E5%8F%8A%E4%BC%98%E5%8C%96)及相关讨论和代码，以获得更多实现细节。SM9包实现了SM9标识密码算法的密钥生成、数字签名算法、密钥封装机制和公钥加密算法、密钥交换协议。
 
-- **ZUC** - 祖冲之序列密码算法实现。使用SIMD、AES指令以及无进位乘法指令，分别对**amd64**、**arm64**架构做了优化实现, 您也可以参考[ZUC实现及优化](https://github.com/emmansun/gmsm/wiki/Efficient-Software-Implementations-of-ZUC)和相关代码，以获得更多实现细节。ZUC包实现了基于祖冲之序列密码算法的机密性算法、128/256位完整性算法。
+- **ZUC** - 祖冲之序列密码算法实现。使用SIMD、AES指令以及无进位乘法指令，分别对**amd64**、**arm64**和**ppc64x**架构做了优化实现, 您也可以参考[ZUC实现及优化](https://github.com/emmansun/gmsm/wiki/Efficient-Software-Implementations-of-ZUC)和相关代码，以获得更多实现细节。ZUC包实现了基于祖冲之序列密码算法的机密性算法、128/256位完整性算法。
 
 - **CFCA** - CFCA（中金）特定实现，目前实现的是SM2私钥、证书封装处理，对应SADK中的**PKCS12_SM2**。
 

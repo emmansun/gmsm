@@ -23,7 +23,7 @@ ShangMi (SM) cipher suites for Golang, referred to as **GMSM**, is a secure, hig
 
 - **SM9** - For SM9 implementation, please reference [SM9实现及优化](https://github.com/emmansun/gmsm/wiki/SM9%E5%AE%9E%E7%8E%B0%E5%8F%8A%E4%BC%98%E5%8C%96)
 
-- **ZUC** - For ZUC implementation, SIMD, AES-NI and CLMUL are used under **amd64** and **arm64**, for detail please refer [Efficient Software Implementations of ZUC](https://github.com/emmansun/gmsm/wiki/Efficient-Software-Implementations-of-ZUC)
+- **ZUC** - For ZUC implementation, SIMD, AES-NI and CLMUL are used under **amd64**, **arm64** and **ppc64x**, for detail please refer [Efficient Software Implementations of ZUC](https://github.com/emmansun/gmsm/wiki/Efficient-Software-Implementations-of-ZUC)
 
 - **CFCA** - some cfca specific implementations.
 
