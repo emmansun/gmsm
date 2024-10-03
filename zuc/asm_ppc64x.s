@@ -191,10 +191,7 @@ GLOBL rcon<>(SB), RODATA, $160
 	VOR V0, V0, V1                           \
 	S0_comput(V0, V_FOUR, V2, V3)            \
 	S1_comput(V1, V2, V3)                    \
-	VAND S0_MASK, V0, V0                     \
-	VAND S1_MASK, V1, V1                     \
-	VXOR V0, V1, V0                          \
-	MFVSRD V0, DX                            \
+	MFVSRD V1, DX                            \
 	SRD $32, DX, F_R1                        \
 	MOVWZ DX, F_R2
 
