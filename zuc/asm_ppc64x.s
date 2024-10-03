@@ -321,7 +321,7 @@ TEXT ·genKeywordAsm(SB),NOSPLIT,$0
 	XOR W, W                                                 \
 	LFSR_UPDT(idx, addr, W, tmpR1, tmpR2, tmpR3, tmpR4)
 
-#define ONEROUND_REV32(idx, addr, dst, W, tmpR1, tmpR2, tmpR3, tmpR4)      \
+#define ONEROUND_REV32LE(idx, addr, dst, W, tmpR1, tmpR2, tmpR3, tmpR4)      \
 	BITS_REORG(idx, addr, W, tmpR1, tmpR2, tmpR3)            \
 	NONLIN_FUN(W, tmpR1, tmpR2, tmpR3)                       \
 	XOR BRC_X3, W                                            \
@@ -330,11 +330,17 @@ TEXT ·genKeywordAsm(SB),NOSPLIT,$0
 	XOR W, W                                                 \
 	LFSR_UPDT(idx, addr, W, tmpR1, tmpR2, tmpR3, tmpR4)
 
+#ifdef GOARCH_ppc64le
+#define ONEROUND_REV32(idx, addr, dst, W, tmpR1, tmpR2, tmpR3, tmpR4) ONEROUND_REV32LE(idx, addr, dst, W, tmpR1, tmpR2, tmpR3, tmpR4)
+#else
+#define ONEROUND_REV32(idx, addr, dst, W, tmpR1, tmpR2, tmpR3, tmpR4) ONEROUND(idx, addr, dst, W, tmpR1, tmpR2, tmpR3, tmpR4)
+#endif
+
 // func genKeyStreamAsm(keyStream []uint32, pState *zucState32)
 TEXT ·genKeyStreamAsm(SB),NOSPLIT,$0
 	LOAD_CONSTS
 
-	MOVD pState+0(FP), R4
+	MOVD pState+24(FP), R4
 	MOVD ks+0(FP), R3
 	MOVD ks_len+8(FP), R5
 
@@ -420,10 +426,11 @@ zucRet:
 TEXT ·genKeyStreamRev32Asm(SB),NOSPLIT,$0
 	LOAD_CONSTS
 
-	MOVD pState+0(FP), R4
+	MOVD pState+24(FP), R4
 	MOVD ks+0(FP), R3
 	MOVD ks_len+8(FP), R5
 
+	SRD $2, R5, R5
 	LOAD_STATE(R4)
 
 	CMP R5, $16
