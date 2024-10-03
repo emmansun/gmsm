@@ -8,14 +8,14 @@
 
 DATA rcon<>+0x00(SB)/8, $0x0F0F0F0F0F0F0F0F // nibble mask
 DATA rcon<>+0x08(SB)/8, $0x0F0F0F0F0F0F0F0F
-DATA rcon<>+0x10(SB)/8, $0x691CA0D5B6C37F0A // affine transform matrix m1 low
-DATA rcon<>+0x18(SB)/8, $0x53269AEF8CF94530
-DATA rcon<>+0x20(SB)/8, $0x009837AF6CF45BC3 // affine transform matrix m1 high
-DATA rcon<>+0x28(SB)/8, $0xAB339C04C75FF068
-DATA rcon<>+0x30(SB)/8, $0x616EF1FE050A959A // affine transform matrix m2 low
-DATA rcon<>+0x38(SB)/8, $0xF5FA656A919E010E
-DATA rcon<>+0x40(SB)/8, $0x00A4E044CD692D89 // affine transform matrix m2 high
-DATA rcon<>+0x48(SB)/8, $0xA50145E168CC882C
+DATA rcon<>+0x10(SB)/8, $0x000182839E9F1C1D // affine transform matrix m1 low
+DATA rcon<>+0x18(SB)/8, $0x2425A6A7BABB3839
+DATA rcon<>+0x20(SB)/8, $0x00D508DD7CA974A1 // affine transform matrix m1 high
+DATA rcon<>+0x28(SB)/8, $0x9C499441E035E83D
+DATA rcon<>+0x30(SB)/8, $0x6773CDD91602BCA8 // affine transform matrix m2 low
+DATA rcon<>+0x38(SB)/8, $0xD0C47A6EA1B50B1F
+DATA rcon<>+0x40(SB)/8, $0x55BACC2315FA8C63 // affine transform matrix m2 high
+DATA rcon<>+0x48(SB)/8, $0x09E6907F49A6D03F
 DATA rcon<>+0x50(SB)/8, $0x090F000E0F0F020A // P1
 DATA rcon<>+0x58(SB)/8, $0x0004000C07050309 // P1
 DATA rcon<>+0x60(SB)/8, $0x080D060507000C04 // P2
@@ -187,9 +187,16 @@ GLOBL rcon<>(SB), RODATA, $160
 	XOR CX, F_R2                             \ // V = L2(Q) = R11D, hi(R11)=0
 	SLD $32, F_R2                            \ // DX = V || U
 	XOR F_R2, DX                             \
-	MOVD DX, F_R1                            \
-	SRD $32, DX, F_R2
-
+	MTVSRD DX, V0                            \ // save V || U to V0
+	VOR V0, V0, V1                           \
+	S0_comput(V0, V_FOUR, V2, V3)            \
+	S1_comput(V1, V2, V3)                    \
+	VAND S0_MASK, V0, V0                     \
+	VAND S1_MASK, V1, V1                     \
+	VXOR V0, V1, V0                          \
+	MFVSRD V0, DX                            \
+	SRD $32, DX, F_R1                        \
+	MOVWZ DX, F_R2
 
 #define LFSR_UPDT(idx, addr, W, tmpR1, tmpR2, tmpR3, tmpR4 )       \
 	MOVWZ (((0 + idx) % 16)*4)(addr), tmpR1        \
