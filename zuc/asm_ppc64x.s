@@ -130,7 +130,7 @@ GLOBL rcon<>(SB), RODATA, $160
 	MOVWZ (((9 + idx) % 16)*4)(addr), tmpR2        \
 	MOVWZ (((7 + idx) % 16)*4)(addr), BRC_X2       \ 
 	MOVWZ (((5 + idx) % 16)*4)(addr), tmpR3        \
-	MOVWZ (((2 + idx) % 16)*4)(addr), BRC_X4       \
+	MOVWZ (((2 + idx) % 16)*4)(addr), BRC_X3       \
 	MOVWZ (((0 + idx) % 16)*4)(addr), tmpR4        \
 	SRW $15, BRC_X0, BRC_X0                        \
 	SLW $16, tmpR1, tmpR1                          \
@@ -140,7 +140,7 @@ GLOBL rcon<>(SB), RODATA, $160
 	SHLDL(BRC_X0, tmpR1, $16)                      \
 	SHLDL(BRC_X1, tmpR2, $16)                      \
 	SHLDL(BRC_X2, tmpR3, $16)                      \
-	SHLDL(BRC_X4, tmpR4, $16) 
+	SHLDL(BRC_X3, tmpR4, $16) 
 
 #define LOAD_STATE(addr)                       \
 	MOVWZ OFFSET_FR1(addr), F_R1                \
@@ -194,7 +194,7 @@ GLOBL rcon<>(SB), RODATA, $160
 	VAND S0_MASK, V0, V0                     \
 	VAND S1_MASK, V1, V1                     \
 	VXOR V0, V1, V0                          \
-	MFVSRD V0, DX							 \
+	MFVSRD V0, DX                            \
 	SRD $32, DX, F_R1                        \
 	MOVWZ DX, F_R2
 
@@ -272,6 +272,7 @@ TEXT ·genKeywordAsm(SB),NOSPLIT,$0
 
 	MOVD pState+0(FP), R4
 	LOAD_STATE(R4)
+	BITS_REORG(0, R4, R14, R15, R16, R17)
 	NONLIN_FUN(R14, R15, R16, R17)
 	// (BRC_X3 xor W) as result
 	XOR BRC_X3, R14
