@@ -325,7 +325,8 @@ TEXT ·genKeywordAsm(SB),NOSPLIT,$0
 	BITS_REORG(idx, addr, W, tmpR1, tmpR2, tmpR3)            \
 	NONLIN_FUN(W, tmpR1, tmpR2, tmpR3)                       \
 	XOR BRC_X3, W                                            \
-	MOVWBR W, (idx*4)(dst)                                   \
+	MOVD $(idx*4), tmpR1                                     \
+	MOVWBR W, (tmpR1)(dst)                                   \
 	XOR W, W                                                 \
 	LFSR_UPDT(idx, addr, W, tmpR1, tmpR2, tmpR3, tmpR4)
 
