@@ -375,7 +375,7 @@ zucSixteens:
 	ONEROUND(15, R4, R3, R14, R15, R16, R17, R18)
 	ADD $64, R3
 	BDNZ	zucSixteens
-	BC	12,2,LR		// BEQLR, fast return
+	BC	12,2,zucRet		// fast return
 	MOVD	R6, R5
 
 zucOctet:
@@ -462,7 +462,7 @@ zucSixteens:
 	ONEROUND_REV32(15, R4, R3, R14, R15, R16, R17, R18)
 	ADD $64, R3
 	BDNZ	zucSixteens
-	BC	12,2,LR		// BEQLR, fast return
+	BC	12,2,zucRet		// fast return
 	MOVD	R6, R5
 
 zucOctet:
