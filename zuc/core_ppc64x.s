@@ -22,13 +22,11 @@ DATA rcon<>+0x60(SB)/8, $0x080D060507000C04 // P2
 DATA rcon<>+0x68(SB)/8, $0x0B010E0A0F030902 // P2
 DATA rcon<>+0x70(SB)/8, $0x02060A06000D0A0F // P3
 DATA rcon<>+0x78(SB)/8, $0x03030D0500090C0D // P3
-DATA rcon<>+0x80(SB)/8, $0x02060A06000D0A0F // P3
-DATA rcon<>+0x88(SB)/8, $0x03030D0500090C0D // P3
-DATA rcon<>+0x90(SB)/8, $0xff00ff00ff00ff00 // S0
-DATA rcon<>+0x98(SB)/8, $0xff00ff00ff00ff00
-DATA rcon<>+0xa0(SB)/8, $0x00ff00ff00ff00ff // S1
-DATA rcon<>+0xa8(SB)/8, $0x00ff00ff00ff00ff
-GLOBL rcon<>(SB), RODATA, $176
+DATA rcon<>+0x80(SB)/8, $0xff00ff00ff00ff00 // S0
+DATA rcon<>+0x88(SB)/8, $0xff00ff00ff00ff00
+DATA rcon<>+0x90(SB)/8, $0x00ff00ff00ff00ff // S1
+DATA rcon<>+0x98(SB)/8, $0x00ff00ff00ff00ff
+GLOBL rcon<>(SB), RODATA, $160
 
 
 #define M1L V20
@@ -47,23 +45,23 @@ GLOBL rcon<>(SB), RODATA, $176
 	VSPLTISW $4, V_FOUR \
 	MOVD $rcon<>+0x00(SB), R4 \
 	LXVD2X (R4)(R0), NIBBLE_MASK \
-	MOVD $16, R5 \
+	MOVD $0x10, R5 \
 	LXVD2X (R4)(R5), M1L \
-	MOVD $32, R5 \
+	MOVD $0x20, R5 \
 	LXVD2X (R4)(R5), M1H \
-	MOVD $48, R5 \
+	MOVD $0x30, R5 \
 	LXVD2X (R4)(R5), M2L \
-	MOVD $64, R5 \
+	MOVD $0x40, R5 \
 	LXVD2X (R4)(R5), M2H \
-	MOVD $80, R5 \
+	MOVD $0x50, R5 \
 	LXVD2X (R4)(R5), P1 \
-	MOVD $96, R5 \
+	MOVD $0x60, R5 \
 	LXVD2X (R4)(R5), P2 \
-	MOVD $112, R5 \
+	MOVD $0x70, R5 \
 	LXVD2X (R4)(R5), P3 \
-	MOVD $128, R5 \
+	MOVD $0x80, R5 \
 	LXVD2X (R4)(R5), S0_MASK \
-	MOVD $144, R5 \
+	MOVD $0x90, R5 \
 	LXVD2X (R4)(R5), S1_MASK
 
 #define S0_comput(IN_OUT, V_FOUR, XTMP1, XTMP2)    \
