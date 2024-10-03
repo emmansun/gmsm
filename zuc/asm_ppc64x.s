@@ -249,22 +249,49 @@ GLOBL rcon<>(SB), RODATA, $160
 
 #define RESTORE_LFSR_2(addr, tmpR1, tmpR2, tmpR3)       \
 	MOVD (addr), tmpR1                                 \
-	MOVD 8(addr), tmpR2                                \
+	MOVD $8, tmpR2                                     \
 	LXVD2X (tmpR2)(addr), V0                           \
-	MOVD 24(addr), tmpR2                               \
+	MOVD $24, tmpR2                                    \
 	LXVD2X (tmpR2)(addr), V1                           \
-	MOVD 40(addr), tmpR2                               \
+	MOVD $40, tmpR2                                    \
 	LXVD2X (tmpR2)(addr), V2                           \
 	MOVD 56(addr), tmpR3                               \
 	\
 	STXVD2X V0, (addr)                                 \
-	MOVD 16(addr), tmpR2                               \
+	MOVD $16, tmpR2                                    \
 	STXVD2X V1, (tmpR2)(addr)                          \
-	MOVD 32(addr), tmpR2                               \
+	MOVD $32, tmpR2                                    \
 	STXVD2X V2, (tmpR2)(addr)                          \
-	MOVW tmpR3, 48(addr)                               \
-	MOVW tmpR1, 56(addr)
+	MOVD tmpR3, 48(addr)                               \
+	MOVD tmpR1, 56(addr)
 
+#define RESTORE_LFSR_4(addr, tmpR1, tmpR2, tmpR3)                     \
+	LXVD2X (addr), V0                                  \
+	MOVD $16, tmpR1                                    \
+	LXVD2X (tmpR1)(addr), V1                           \
+	MOVD $32, tmpR2                                    \
+	LXVD2X (tmpR2)(addr), V2                           \
+	MOVD $48, tmpR3                                    \
+	LXVD2X (tmpR3)(addr), V3                           \
+	\
+	STXVD2X V1, (addr)                                 \
+	STXVD2X V2, (tmpR1)(addr)                          \
+	STXVD2X V3, (tmpR2)(addr)                          \
+	STXVD2X V0, (tmpR3)(addr)
+
+#define RESTORE_LFSR_8(addr, tmpR1, tmpR2, tmpR3)                     \
+	LXVD2X (addr), V0                                  \
+	MOVD $16, tmpR1                                    \
+	LXVD2X (tmpR1)(addr), V1                           \
+	MOVD $32, tmpR2                                    \
+	LXVD2X (tmpR2)(addr), V2                           \
+	MOVD $48, tmpR3                                    \
+	LXVD2X (tmpR3)(addr), V3                           \
+	\
+	STXVD2X V2, (addr)                                 \
+	STXVD2X V3, (tmpR1)(addr)                          \
+	STXVD2X V0, (tmpR2)(addr)                          \
+	STXVD2X V1, (tmpR3)(addr)
 
 // func genKeywordAsm(s *zucState32) uint32
 TEXT ·genKeywordAsm(SB),NOSPLIT,$0
@@ -286,10 +313,190 @@ TEXT ·genKeywordAsm(SB),NOSPLIT,$0
 
 	RET
 
+#define ONEROUND(idx, addr, dst, W, tmpR1, tmpR2, tmpR3, tmpR4)      \
+	BITS_REORG(idx, addr, W, tmpR1, tmpR2, tmpR3)            \
+	NONLIN_FUN(W, tmpR1, tmpR2, tmpR3)                       \
+	XOR BRC_X3, W                                            \
+	MOVW W, (idx*4)(dst)                                     \
+	XOR W, W                                                 \
+	LFSR_UPDT(idx, addr, W, tmpR1, tmpR2, tmpR3, tmpR4)
+
+#define ONEROUND_REV32(idx, addr, dst, W, tmpR1, tmpR2, tmpR3, tmpR4)      \
+	BITS_REORG(idx, addr, W, tmpR1, tmpR2, tmpR3)            \
+	NONLIN_FUN(W, tmpR1, tmpR2, tmpR3)                       \
+	XOR BRC_X3, W                                            \
+	MOVWBR W, (idx*4)(dst)                                   \
+	XOR W, W                                                 \
+	LFSR_UPDT(idx, addr, W, tmpR1, tmpR2, tmpR3, tmpR4)
+
 // func genKeyStreamAsm(keyStream []uint32, pState *zucState32)
 TEXT ·genKeyStreamAsm(SB),NOSPLIT,$0
+	LOAD_CONSTS
+
+	MOVD pState+0(FP), R4
+	MOVD ks+0(FP), R3
+	MOVD ks_len+8(FP), R5
+
+	LOAD_STATE(R4)
+
+	CMP R5, $16
+	BLT zucOctet
+
+preloop16:
+	SRD	$4, R5, R6	// Set up loop counter
+	MOVD	R6, CTR
+	ANDCC	$15, R5, R6	// Check for tailing bytes for later
+	PCALIGN $16
+
+zucSixteens:
+	ONEROUND(0, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(1, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(2, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(3, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(4, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(5, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(6, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(7, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(8, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(9, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(10, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(11, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(12, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(13, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(14, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(15, R4, R3, R14, R15, R16, R17, R18)
+	ADD $64, R3
+	BDNZ	zucSixteens
+	BC	12,2,LR		// BEQLR, fast return
+	MOVD	R6, R5
+
+zucOctet:
+	CMP R5, $8
+	BLT zucNibble
+	ONEROUND(0, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(1, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(2, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(3, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(4, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(5, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(6, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(7, R4, R3, R14, R15, R16, R17, R18)
+	RESTORE_LFSR_8(R4, R14, R15, R16)
+	ADD $32, R3
+	ADD $-8, R5
+
+zucNibble:
+	CMP R5, $4
+	BLT zucDouble
+	ONEROUND(0, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(1, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(2, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(3, R4, R3, R14, R15, R16, R17, R18)
+	RESTORE_LFSR_4(R4, R14, R15, R16)
+	ADD $16, R3
+	ADD $-4, R5
+
+zucDouble:
+	CMP R5, $2
+	BLT zucSingle
+	ONEROUND(0, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND(1, R4, R3, R14, R15, R16, R17, R18)
+	RESTORE_LFSR_2(R4, R14, R15, R16)
+	ADD $8, R3
+	ADD $-2, R5
+
+zucSingle:
+	CMP R5, $1
+	BLT zucRet
+	ONEROUND(0, R4, R3, R14, R15, R16, R17, R18)
+	RESTORE_LFSR_0(R4, R14, R15, R16, R17)
+
+zucRet:
+	SAVE_STATE(R4)
 	RET
 
 // func genKeyStreamRev32Asm(keyStream []byte, pState *zucState32)
 TEXT ·genKeyStreamRev32Asm(SB),NOSPLIT,$0
+	LOAD_CONSTS
+
+	MOVD pState+0(FP), R4
+	MOVD ks+0(FP), R3
+	MOVD ks_len+8(FP), R5
+
+	LOAD_STATE(R4)
+
+	CMP R5, $16
+	BLT zucOctet
+
+preloop16:
+	SRD	$4, R5, R6	// Set up loop counter
+	MOVD	R6, CTR
+	ANDCC	$15, R5, R6	// Check for tailing bytes for later
+	PCALIGN $16
+
+zucSixteens:
+	ONEROUND_REV32(0, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(1, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(2, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(3, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(4, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(5, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(6, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(7, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(8, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(9, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(10, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(11, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(12, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(13, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(14, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(15, R4, R3, R14, R15, R16, R17, R18)
+	ADD $64, R3
+	BDNZ	zucSixteens
+	BC	12,2,LR		// BEQLR, fast return
+	MOVD	R6, R5
+
+zucOctet:
+	CMP R5, $8
+	BLT zucNibble
+	ONEROUND_REV32(0, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(1, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(2, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(3, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(4, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(5, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(6, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(7, R4, R3, R14, R15, R16, R17, R18)
+	RESTORE_LFSR_8(R4, R14, R15, R16)
+	ADD $32, R3
+	ADD $-8, R5
+
+zucNibble:
+	CMP R5, $4
+	BLT zucDouble
+	ONEROUND_REV32(0, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(1, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(2, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(3, R4, R3, R14, R15, R16, R17, R18)
+	RESTORE_LFSR_4(R4, R14, R15, R16)
+	ADD $16, R3
+	ADD $-4, R5
+
+zucDouble:
+	CMP R5, $2
+	BLT zucSingle
+	ONEROUND_REV32(0, R4, R3, R14, R15, R16, R17, R18)
+	ONEROUND_REV32(1, R4, R3, R14, R15, R16, R17, R18)
+	RESTORE_LFSR_2(R4, R14, R15, R16)
+	ADD $8, R3
+	ADD $-2, R5
+
+zucSingle:
+	CMP R5, $1
+	BLT zucRet
+	ONEROUND_REV32(0, R4, R3, R14, R15, R16, R17, R18)
+	RESTORE_LFSR_0(R4, R14, R15, R16, R17)
+
+zucRet:
+	SAVE_STATE(R4)
 	RET
