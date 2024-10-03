@@ -218,12 +218,13 @@ GLOBL rcon<>(SB), RODATA, $176
 	SLD $15, tmpR4                             \
 	ADD tmpR4, W                               \
 	\ // Reduce it to 31-bit value
+	MOVD $0x7FFFFFFF, tmpR2                    \
 	SRD $31, W, tmpR1                          \
-	AND $0x7FFFFFFF, W                         \
+	AND tmpR2, W                               \
 	ADD tmpR1, W                               \
 	\
 	SRD $31, W, tmpR1                          \
-	AND $0x7FFFFFFF, W                         \
+	AND tmpR2, W                               \
 	ADD tmpR1, W                               \
 	\ // LFSR_S16 = (LFSR_S15++) = W
 	MOVW W, (((0 + idx) % 16)*4)(addr)
