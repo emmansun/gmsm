@@ -187,13 +187,9 @@ GLOBL rcon<>(SB), RODATA, $160
 	XOR CX, F_R2                             \ // V = L2(Q) = R11D, hi(R11)=0
 	SLD $32, F_R2                            \ // DX = V || U
 	XOR F_R2, DX                             \
-	MTVSRD DX, V0                            \ // save V || U to V0
-	VOR V0, V0, V1                           \
-	S0_comput(V0, V_FOUR, V2, V3)            \
-	S1_comput(V1, V2, V3)                    \
-	MFVSRD V1, DX                            \
-	SRD $32, DX, F_R1                        \
-	MOVWZ DX, F_R2
+	MOVD DX, F_R1                            \
+	SRD $32, DX, F_R2
+
 
 #define LFSR_UPDT(idx, addr, W, tmpR1, tmpR2, tmpR3, tmpR4 )       \
 	MOVWZ (((0 + idx) % 16)*4)(addr), tmpR1        \
