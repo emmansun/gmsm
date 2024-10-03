@@ -188,7 +188,8 @@ GLOBL rcon<>(SB), RODATA, $160
 	SLD $32, F_R2                            \ // DX = V || U
 	XOR F_R2, DX                             \
 	MTVSRD DX, V0                            \ // save V || U to V0
-	S0_comput(V0, V_FOUR, V1, V2)            \
+	VOR V0, V0, V1                           \
+	S0_comput(V0, V_FOUR, V2, V3)            \
 	S1_comput(V1, V2, V3)                    \
 	VAND S0_MASK, V0, V0                     \
 	VAND S1_MASK, V1, V1                     \
