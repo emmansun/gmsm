@@ -195,8 +195,8 @@ GLOBL rcon<>(SB), RODATA, $160
 	VAND S1_MASK, V1, V1                     \
 	VXOR V0, V1, V0                          \
 	MFVSRD V0, DX                            \
-	SRD $32, DX, F_R1                        \
-	MOVWZ DX, F_R2
+	SRD $32, DX, F_R2                        \
+	MOVWZ DX, F_R1
 
 #define LFSR_UPDT(idx, addr, W, tmpR1, tmpR2, tmpR3, tmpR4 )       \
 	MOVWZ (((0 + idx) % 16)*4)(addr), tmpR1        \
