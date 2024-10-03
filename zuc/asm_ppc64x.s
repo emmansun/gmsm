@@ -322,18 +322,20 @@ TEXT ·genKeywordAsm(SB),NOSPLIT,$0
 	LFSR_UPDT(idx, addr, W, tmpR1, tmpR2, tmpR3, tmpR4)
 
 #ifdef GOARCH_ppc64le
+	#define PPC64X_MOVWBR(src, dst, idx, tmp) \
+		MOVD $(idx), tmp \
+		MOVWBR src, (tmp)(dst)
+#else
+	#define PPC64X_MOVWBR(src, dst, idx, tmp) MOVW src, (idx)(dst)
+#endif
+
 #define ONEROUND_REV32(idx, addr, dst, W, tmpR1, tmpR2, tmpR3, tmpR4)      \
 	BITS_REORG(idx, addr, W, tmpR1, tmpR2, tmpR3)            \
 	NONLIN_FUN(W, tmpR1, tmpR2, tmpR3)                       \
 	XOR BRC_X3, W                                            \
-	MOVD $(idx*4), tmpR1                                     \
-	MOVWBR W, (tmpR1)(dst)                                   \
+	PPC64X_MOVWBR(W, dst, idx*4, tmpR1)                      \
 	XOR W, W                                                 \
 	LFSR_UPDT(idx, addr, W, tmpR1, tmpR2, tmpR3, tmpR4)
-#else
-#define ONEROUND_REV32(idx, addr, dst, W, tmpR1, tmpR2, tmpR3, tmpR4)      \
-	ONEROUND(idx, addr, dst, W, tmpR1, tmpR2, tmpR3, tmpR4)
-#endif
 
 // func genKeyStreamAsm(keyStream []uint32, pState *zucState32)
 TEXT ·genKeyStreamAsm(SB),NOSPLIT,$0
