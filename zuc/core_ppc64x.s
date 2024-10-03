@@ -22,13 +22,13 @@ DATA rcon<>+0x60(SB)/8, $0x080D060507000C04 // P2
 DATA rcon<>+0x68(SB)/8, $0x0B010E0A0F030902 // P2
 DATA rcon<>+0x70(SB)/8, $0x02060A06000D0A0F // P3
 DATA rcon<>+0x78(SB)/8, $0x03030D0500090C0D // P3
-DATA rcon<>+0x70(SB)/8, $0x02060A06000D0A0F // P3
-DATA rcon<>+0x78(SB)/8, $0x03030D0500090C0D // P3
-DATA rcon<>+0x80(SB)/8, $0xff00ff00ff00ff00 // S0
-DATA rcon<>+0x88(SB)/8, $0xff00ff00ff00ff00
-DATA rcon<>+0x90(SB)/8, $0x00ff00ff00ff00ff // S1
-DATA rcon<>+0x98(SB)/8, $0x00ff00ff00ff00ff
-GLOBL rcon<>(SB), RODATA, $160
+DATA rcon<>+0x80(SB)/8, $0x02060A06000D0A0F // P3
+DATA rcon<>+0x88(SB)/8, $0x03030D0500090C0D // P3
+DATA rcon<>+0x90(SB)/8, $0xff00ff00ff00ff00 // S0
+DATA rcon<>+0x98(SB)/8, $0xff00ff00ff00ff00
+DATA rcon<>+0xa0(SB)/8, $0x00ff00ff00ff00ff // S1
+DATA rcon<>+0xa8(SB)/8, $0x00ff00ff00ff00ff
+GLOBL rcon<>(SB), RODATA, $176
 
 
 #define M1L V20
@@ -270,7 +270,7 @@ GLOBL rcon<>(SB), RODATA, $160
 TEXT ·genKeywordAsm(SB),NOSPLIT,$0
 	LOAD_CONSTS
 
-	MOVQ pState+0(FP), R4
+	MOVD pState+0(FP), R4
 	LOAD_STATE(R4)
 	NONLIN_FUN(R14, R15, R16, R17)
 	// (BRC_X3 xor W) as result
