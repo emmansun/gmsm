@@ -31,3 +31,8 @@ func gfpTripleAsm(c, a *gfP)
 //
 //go:noescape
 func gfpSubAsm(c, a, b *gfP)
+
+// Montgomery multiplication. Sets res = in1 * in2 * R⁻¹ mod p.
+//
+//go:noescape
+func gfpMulAsm(c, a, b *gfP)

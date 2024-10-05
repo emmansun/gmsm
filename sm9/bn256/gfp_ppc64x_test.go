@@ -31,7 +31,7 @@ func TestGfpAsmBasicOperations(t *testing.T) {
 	expectedDouble := fromBigInt(bigFromHex("551de7a0ee24723edcf314ff72f478fac1c7c4e7044238acc3913cfbcdaf7d05"))
 	expectedSub := fromBigInt(bigFromHex("67b381821c52a5624f3304a8149be8461e3bc07adcb872c38aa65051ba53ba97"))
 	expectedNeg := fromBigInt(bigFromHex("7f1d8aad70909be90358f1d02240062433cc3a0248ded72febb879ec33ce6f22"))
-	//expectedMul := fromBigInt(bigFromHex("3d08bbad376584e4f74bd31f78f716372b96ba8c3f939c12b8d54e79b6489e76"))
+	expectedMul := fromBigInt(bigFromHex("3d08bbad376584e4f74bd31f78f716372b96ba8c3f939c12b8d54e79b6489e76"))
 	//expectedMul2 := fromBigInt(bigFromHex("1df94a9e05a559ff38e0ab50cece734dc058d33738ceacaa15986a67cbff1ef6"))
 
 	t.Parallel()
@@ -103,20 +103,20 @@ func TestGfpAsmBasicOperations(t *testing.T) {
 			t.Errorf("neg not same when neg self")
 		}
 	})
-/*
+
 	t.Run("mul", func(t *testing.T) {
 		ret := &gfP{}
-		gfpMul(ret, x, y)
+		gfpMulAsm(ret, x, y)
 		if *expectedMul != *ret {
 			t.Errorf("mul not same")
 		}
 		ret.Set(x)
-		gfpMul(ret, ret, y)
+		gfpMulAsm(ret, ret, y)
 		if *expectedMul != *ret {
 			t.Errorf("mul not same when mul self")
 		}
 	})
-
+/*
 	t.Run("square", func(t *testing.T) {
 		ret, ret1, ret2 := &gfP{}, &gfP{}, &gfP{}
 		gfpMul(ret, x, y)
@@ -137,4 +137,3 @@ func TestGfpAsmBasicOperations(t *testing.T) {
 	})
 */		
 }
-
