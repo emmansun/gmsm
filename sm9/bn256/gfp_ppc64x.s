@@ -14,12 +14,13 @@
 #define T1H   V5
 #define T0    V4
 #define T1    V5
-#define SEL   V6
-#define ZERO  V7
-#define CAR1  V8
-#define CAR2  V9
-#define TT0   V10
-#define TT1   V11
+#define T2    V6
+#define SEL1  V7
+#define ZERO  V8
+#define CAR1  V9
+#define CAR2  V10
+#define TT0   V11
+#define TT1   V12
 
 #define PL    V30
 #define PH    V31
@@ -48,11 +49,11 @@ TEXT ·gfpNegAsm(SB),0,$0-16
 
 	VSUBCUQ Y1L, PL, CAR1
 	VSUBUQM Y1L, PL, Y1L
-	VSUBECUQ Y1H, PH, CAR1, SEL
+	VSUBECUQ Y1H, PH, CAR1, SEL1
 	VSUBEUQM Y1H, PH, CAR1, Y1H
 
-	VSEL T1H, Y1H, SEL, Y1H
-	VSEL T1L, Y1L, SEL, Y1L
+	VSEL T1H, Y1H, SEL1, Y1H
+	VSEL T1L, Y1L, SEL1, Y1L
 
 	XXPERMDI Y1H, Y1H, $2, Y1H
 	XXPERMDI Y1L, Y1L, $2, Y1L
