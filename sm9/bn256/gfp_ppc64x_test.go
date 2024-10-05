@@ -8,7 +8,7 @@ package bn256
 
 import "testing"
 
-func TestGfpNeg(t *testing.T) {
+func TestGfpNegAsm(t *testing.T) {
 	x := fromBigInt(bigFromHex("9093a2b979e6186f43a9b28d41ba644d533377f2ede8c66b19774bf4a9c7a596"))
 	got := &gfP{}
 	gfpSubAsm(got, zero, x)
@@ -24,7 +24,7 @@ func TestGfpNeg(t *testing.T) {
 	}
 }
 
-func TestGfpBasicOperations(t *testing.T) {
+func TestGfpAsmBasicOperations(t *testing.T) {
 	x := fromBigInt(bigFromHex("85AEF3D078640C98597B6027B441A01FF1DD2C190F5E93C454806C11D8806141"))
 	y := fromBigInt(bigFromHex("3722755292130B08D2AAB97FD34EC120EE265948D19C17ABF9B7213BAF82D65B"))
 	expectedAdd := fromBigInt(bigFromHex("0691692307d370af56226e57920199fbbe10f216c67fbc9468c7f225a4b1f21f"))
