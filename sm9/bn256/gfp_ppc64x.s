@@ -90,7 +90,7 @@ TEXT ·gfpSubAsm(SB),0,$0-24
 	XXPERMDI X1L, X1L, $2, X1L
 
 	LXVD2X (R5)(R0), Y1L
-	LXVD2X (R5)(R6), X1H
+	LXVD2X (R5)(R6), Y1H
 	XXPERMDI Y1H, Y1H, $2, Y1H
 	XXPERMDI Y1L, Y1L, $2, Y1L
 
@@ -136,7 +136,7 @@ TEXT ·gfpAddAsm(SB),0,$0-24
 	XXPERMDI X1L, X1L, $2, X1L
 
 	LXVD2X (R5)(R0), Y1L
-	LXVD2X (R5)(R6), X1H
+	LXVD2X (R5)(R6), Y1H
 	XXPERMDI Y1H, Y1H, $2, Y1H
 	XXPERMDI Y1L, Y1L, $2, Y1L
 
@@ -177,10 +177,6 @@ TEXT ·gfpDoubleAsm(SB),0,$0-16
 
 	gfpAddInternal(T1, T0, X1H, X1L, X1H, X1L)
 
-	VOR T1, T1, X1H
-	VOR T0, T0, X1L
-	gfpAddInternal(T1, T0, X1H, X1L, X1H, X1L)
-
 	XXPERMDI T1, T1, $2, T1
 	XXPERMDI T0, T0, $2, T0
 
@@ -206,10 +202,6 @@ TEXT ·gfpTripleAsm(SB),0,$0-16
 
 	VSPLTISB $0, ZERO
 
-	gfpAddInternal(T1, T0, X1H, X1L, X1H, X1L)
-
-	VOR T1, T1, X1H
-	VOR T0, T0, X1L
 	gfpAddInternal(T1, T0, X1H, X1L, X1H, X1L)
 
 	VOR T1, T1, X1H
