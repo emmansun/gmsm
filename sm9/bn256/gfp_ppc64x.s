@@ -25,6 +25,21 @@
 #define PL    V30
 #define PH    V31
 
+#define gfpSubInternal(T1, T0, X1, X0, Y1, Y0) \
+	VSPLTISB $0, ZERO           \ // VZERO
+	VSUBCUQ  X0, Y0, CAR1       \
+	VSUBUQM  X0, Y0, T0         \
+	VSUBECUQ X1, Y1, CAR1, SEL1 \
+	VSUBEUQM X1, Y1, CAR1, T1   \
+	VSUBUQM  ZERO, SEL1, SEL1   \ // VSQ
+	                            \
+	VADDCUQ  T0, PL, CAR1       \ // VACCQ
+	VADDUQM  T0, PL, TT0        \ // VAQ
+	VADDEUQM T1, PH, CAR1, TT1  \ // VACQ
+	                            \
+	VSEL     TT0, T0, SEL1, T0  \
+	VSEL     TT1, T1, SEL1, T1  \
+
 TEXT ·gfpNegAsm(SB),0,$0-16
 	MOVD c+0(FP), R3
 	MOVD a+8(FP), R4
@@ -43,40 +58,15 @@ TEXT ·gfpNegAsm(SB),0,$0-16
 	XXPERMDI PH, PH, $2, PH
 	XXPERMDI PL, PL, $2, PL
 
-	VSUBCUQ  PL, Y1L, CAR1      // subtract part2 giving carry
-	VSUBUQM  PL, Y1L, T1L       // subtract part2 giving result
-	VSUBEUQM PH, Y1H, CAR1, T1H // subtract part1 using carry from part2
+	VSPLTISB $0, X1L
+	gfpSubInternal(T1, T0, X1L, X1L, Y1H, Y1L)
 
-	VSUBCUQ T1L, PL, CAR1
-	VSUBUQM T1L, PL, TT0
-	VSUBECUQ T1H, PH, CAR1, SEL1
-	VSUBEUQM T1H, PH, CAR1, TT1
+	XXPERMDI T1, T1, $2, T1
+	XXPERMDI T0, T0, $2, T0
 
-	VSEL T1H, TT1, SEL1, Y1H
-	VSEL T1L, TT0, SEL1, Y1L
-
-	XXPERMDI Y1H, Y1H, $2, Y1H
-	XXPERMDI Y1L, Y1L, $2, Y1L
-
-	STXVD2X Y1L, (R0+R3)
-	STXVD2X Y1H, (R5+R3)
+	STXVD2X T0, (R0+R3)
+	STXVD2X T1, (R5+R3)
 	RET
-
-
-#define gfpSubInternal(T1, T0, X1, X0, Y1, Y0) \
-	VSPLTISB $0, ZERO           \ // VZERO
-	VSUBCUQ  X0, Y0, CAR1       \
-	VSUBUQM  X0, Y0, T0         \
-	VSUBECUQ X1, Y1, CAR1, SEL1 \
-	VSUBEUQM X1, Y1, CAR1, T1   \
-	VSUBUQM  ZERO, SEL1, SEL1   \ // VSQ
-	                            \
-	VADDCUQ  T0, PL, CAR1       \ // VACCQ
-	VADDUQM  T0, PL, TT0        \ // VAQ
-	VADDEUQM T1, PH, CAR1, TT1  \ // VACQ
-	                            \
-	VSEL     TT0, T0, SEL1, T0  \
-	VSEL     TT1, T1, SEL1, T1  \
 
 TEXT ·gfpSubAsm(SB),0,$0-24
 	MOVD c+0(FP), R3
