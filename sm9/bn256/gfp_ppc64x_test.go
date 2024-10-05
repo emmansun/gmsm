@@ -85,6 +85,10 @@ func TestGfpAsmBasicOperations(t *testing.T) {
 		if *expectedSub != *x1 {
 			t.Errorf("sub not same when sub self")
 		}
+		gfpSubAsm(ret, x, x)
+		if *ret != *zero {
+			t.Errorf("expected zero")
+		}
 	})
 
 	t.Run("neg", func(t *testing.T) {
