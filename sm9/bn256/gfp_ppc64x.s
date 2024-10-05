@@ -47,10 +47,10 @@ TEXT ·gfpNegAsm(SB),0,$0-16
 	VSUBUQM  PL, Y1L, T1L       // subtract part2 giving result
 	VSUBEUQM PH, Y1H, CAR1, T1H // subtract part1 using carry from part2
 
-	VSUBCUQ Y1L, PL, CAR1
-	VSUBUQM Y1L, PL, TT0
-	VSUBECUQ Y1H, PH, CAR1, SEL1
-	VSUBEUQM Y1H, PH, CAR1, TT1
+	VSUBCUQ T1L, PL, CAR1
+	VSUBUQM T1L, PL, TT0
+	VSUBECUQ T1H, PH, CAR1, SEL1
+	VSUBEUQM T1H, PH, CAR1, TT1
 
 	VSEL T1H, TT1, SEL1, Y1H
 	VSEL T1L, TT0, SEL1, Y1L
@@ -203,10 +203,7 @@ TEXT ·gfpTripleAsm(SB),0,$0-16
 	VSPLTISB $0, ZERO
 
 	gfpAddInternal(T1, T0, X1H, X1L, X1H, X1L)
-
-	VOR T1, T1, X1H
-	VOR T0, T0, X1L
-	gfpAddInternal(T1, T0, X1H, X1L, X1H, X1L)
+	gfpAddInternal(T1, T0, T1, T0, X1H, X1L)
 
 	XXPERMDI T1, T1, $2, T1
 	XXPERMDI T0, T0, $2, T0
