@@ -12,6 +12,8 @@
 #define Y1H   V3
 #define T1L   V4
 #define T1H   V5
+#define T0    V4
+#define T1    V5
 #define SEL   V6
 #define ZERO  V7
 #define CAR1  V8
