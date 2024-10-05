@@ -36,3 +36,18 @@ func gfpSubAsm(c, a, b *gfP)
 //
 //go:noescape
 func gfpMulAsm(c, a, b *gfP)
+
+// Montgomery square, repeated n times (n >= 1).
+//
+//go:noescape
+func gfpSqrAsm(res, in *gfP, n int)
+
+// Marshal gfP into big endian form
+//
+//go:noescape
+func gfpMarshalAsm(out *[32]byte, in *gfP)
+
+// Unmarshal the bytes into little endian form
+//
+//go:noescape
+func gfpUnmarshalAsm(out *gfP, in *[32]byte)

@@ -6,6 +6,36 @@
 
 #include "textflag.h"
 
+//func gfpUnmarshal(out *gfP, in *[32]byte)
+TEXT ·gfpUnmarshalAsm(SB), NOSPLIT, $0-16
+	MOVD	res+0(FP), R3
+	MOVD	in+8(FP), R4
+	BR	gfpInternalEndianSwap<>(SB)
+
+// func gfpMarshal(out *[32]byte, in *gfP)
+TEXT ·gfpMarshalAsm(SB), NOSPLIT, $0-16
+	MOVD	res+0(FP), R3
+	MOVD	in+8(FP), R4
+	BR	gfpInternalEndianSwap<>(SB)
+
+TEXT gfpInternalEndianSwap<>(SB), NOSPLIT, $0-0
+	// Index registers needed for BR movs
+	MOVD	$8, R9
+	MOVD	$16, R10
+	MOVD	$24, R14
+
+	MOVDBR	(R0)(R4), R5
+	MOVDBR	(R9)(R4), R6
+	MOVDBR	(R10)(R4), R7
+	MOVDBR	(R14)(R4), R8
+
+	MOVD	R8, 0(R3)
+	MOVD	R7, 8(R3)
+	MOVD	R6, 16(R3)
+	MOVD	R5, 24(R3)
+
+	RET
+
 #define X1L   V0
 #define X1H   V1
 #define Y1L   V2
@@ -734,3 +764,64 @@ TEXT ·gfpMulAsm(SB),NOSPLIT,$0
 	STXVD2X T1, (R16)(res_ptr)
 
 	RET
+
+// func gfpSqr(res, in *gfP, n int)
+TEXT ·gfpSqrAsm(SB),NOSPLIT,$0
+	MOVD res+0(FP), res_ptr
+	MOVD in+8(FP), x_ptr
+	MOVD n+16(FP), N
+	MOVD $16, R16
+
+	LXVD2X (R0)(x_ptr), X0
+	LXVD2X (R16)(x_ptr), X1
+
+	XXPERMDI X0, X0, $2, X0
+	XXPERMDI X1, X1, $2, X1
+
+	MOVD $·p2+0(SB), CPOOL
+	LXVD2X (CPOOL)(R0), M0
+	LXVD2X (CPOOL)(R16), M1
+	
+	XXPERMDI M0, M0, $2, M0
+	XXPERMDI M1, M1, $2, M1
+
+	MOVD $·np+0(SB), CPOOL
+	LXVD2X (CPOOL)(R0), K0
+	VSPLTW $1, K0, K0
+
+sqrLoop:
+	// Sqr uses same value for both
+
+	VOR	X0, X0, Y0
+	VOR	X1, X1, Y1
+	CALL gfpMulInternal<>(SB)
+
+	ADD	$-1, N
+	CMP	$0, N
+	BEQ	done
+
+	VOR	T0, T0, X0
+	VOR	T1, T1, X1
+	BR	sqrLoop
+
+done:
+	XXPERMDI T0, T0, $2, T0
+	XXPERMDI T1, T1, $2, T1
+	STXVD2X T0, (R0)(res_ptr)
+	STXVD2X T1, (R16)(res_ptr)
+	RET
+
+#undef res_ptr
+#undef x_ptr
+#undef y_ptr
+#undef CPOOL
+#undef N
+#undef X0
+#undef X1
+#undef Y0
+#undef Y1
+#undef M0
+#undef M1
+#undef T0
+#undef T1
+#undef K0
