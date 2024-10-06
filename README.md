@@ -30,7 +30,7 @@ Go语言商用密码软件，简称**GMSM**，一个安全、高性能、易于�
 
 - **SM4** - SM4分组密码算法实现。**amd64**下使用**AES**指令加上**AVX2、AVX、SSE2+SSSE3**实现了比较好的性能。**arm64**下使用**AES**指令加上NEON指令实现了比较好的性能，同时也提供了基于**A64扩展密码指令**的汇编实现。**ppc64x**下使用**vsbox**指令加上向量指令进行了并行优化。针对**ECB/CBC/GCM/XTS**加密模式，做了和SM4分组密码算法的融合汇编优化实现。您也可以参考[SM4性能优化](https://github.com/emmansun/gmsm/wiki/SM4%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96)及相关Wiki和代码，以获得更多实现细节。
 
-- **SM9** - SM9标识密码算法实现。基础的素域、扩域、椭圆曲线运算以及双线性对运算位于[bn256](https://github.com/emmansun/gmsm/tree/main/sm9/bn256)包中，分别对**amd64**、**arm64**架构做了优化实现。您也可以参考[SM9实现及优化](https://github.com/emmansun/gmsm/wiki/SM9%E5%AE%9E%E7%8E%B0%E5%8F%8A%E4%BC%98%E5%8C%96)及相关讨论和代码，以获得更多实现细节。SM9包实现了SM9标识密码算法的密钥生成、数字签名算法、密钥封装机制和公钥加密算法、密钥交换协议。
+- **SM9** - SM9标识密码算法实现。基础的素域、扩域、椭圆曲线运算以及双线性对运算位于[bn256](https://github.com/emmansun/gmsm/tree/main/sm9/bn256)包中，分别对**amd64**、**arm64**、**ppc64x**架构做了优化实现。您也可以参考[SM9实现及优化](https://github.com/emmansun/gmsm/wiki/SM9%E5%AE%9E%E7%8E%B0%E5%8F%8A%E4%BC%98%E5%8C%96)及相关讨论和代码，以获得更多实现细节。SM9包实现了SM9标识密码算法的密钥生成、数字签名算法、密钥封装机制和公钥加密算法、密钥交换协议。
 
 - **ZUC** - 祖冲之序列密码算法实现。使用SIMD、AES指令以及无进位乘法指令，分别对**amd64**、**arm64**和**ppc64x**架构做了优化实现, 您也可以参考[ZUC实现及优化](https://github.com/emmansun/gmsm/wiki/Efficient-Software-Implementations-of-ZUC)和相关代码，以获得更多实现细节。ZUC包实现了基于祖冲之序列密码算法的机密性算法、128/256位完整性算法。
 

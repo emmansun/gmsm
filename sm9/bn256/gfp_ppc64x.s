@@ -837,7 +837,6 @@ done:
 #undef T1
 #undef K0
 
-
 /* ---------------------------------------*/
 #define res_ptr R3
 #define x_ptr R4
