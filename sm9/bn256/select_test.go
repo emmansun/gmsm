@@ -56,7 +56,7 @@ func BenchmarkGfP12Set(b *testing.B) {
 func TestCurvePointMovCond(t *testing.T) {
 	curve1 := &curvePoint{}
 	res := &curvePoint{}
-	curvePointMovCond(res, curve1, curveGen, 1)
+	curvePointMovCond(res, curve1, curveGen, 0)
 	if !res.Equal(curveGen) {
 		t.Errorf("not expected")
 	}
