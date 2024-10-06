@@ -148,10 +148,10 @@ TEXT ·gfp12Copy(SB),NOSPLIT,$0
 	LXVD2X (b_ptr)(R6), V5     \
 	LXVD2X (b_ptr)(R7), V6     \
 	LXVD2X (b_ptr)(R8), V7     \
-	VSEL V4, V0, SEL, V0     \
-	VSEL V5, V1, SEL, V1     \
-	VSEL V6, V2, SEL, V2     \
-	VSEL V7, V3, SEL, V3     \
+	VSEL V0, V4, SEL, V0     \
+	VSEL V1, V5, SEL, V1     \
+	VSEL V2, V6, SEL, V2     \
+	VSEL V3, V7, SEL, V3     \
 	STXVD2X V0, (res_ptr)(R0)     \
 	STXVD2X V1, (res_ptr)(R6)     \
 	STXVD2X V2, (res_ptr)(R7)     \
@@ -166,10 +166,10 @@ TEXT ·gfp12Copy(SB),NOSPLIT,$0
 	LXVD2X (b_ptr)(R7), V5     \
 	LXVD2X (b_ptr)(R8), V6     \
 	LXVD2X (b_ptr)(R9), V7     \
-	VSEL V4, V0, SEL, V0     \
-	VSEL V5, V1, SEL, V1     \
-	VSEL V6, V2, SEL, V2     \
-	VSEL V7, V3, SEL, V3     \	
+	VSEL V0, V4, SEL, V0     \
+	VSEL V1, V5, SEL, V1     \
+	VSEL V2, V6, SEL, V2     \
+	VSEL V3, V7, SEL, V3     \	
 	STXVD2X V0, (res_ptr)(R6)     \
 	STXVD2X V1, (res_ptr)(R7)     \
 	STXVD2X V2, (res_ptr)(R8)     \
