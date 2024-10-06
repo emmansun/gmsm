@@ -7,19 +7,20 @@
 #include "textflag.h"
 
 //func gfpUnmarshal(out *gfP, in *[32]byte)
-TEXT ·gfpUnmarshalAsm(SB), NOSPLIT, $0-16
+TEXT ·gfpUnmarshal(SB), NOSPLIT, $0-16
 	MOVD	res+0(FP), R3
 	MOVD	in+8(FP), R4
 	BR	gfpInternalEndianSwap<>(SB)
 
 // func gfpMarshal(out *[32]byte, in *gfP)
-TEXT ·gfpMarshalAsm(SB), NOSPLIT, $0-16
+TEXT ·gfpMarshal(SB), NOSPLIT, $0-16
 	MOVD	res+0(FP), R3
 	MOVD	in+8(FP), R4
 	BR	gfpInternalEndianSwap<>(SB)
 
 TEXT gfpInternalEndianSwap<>(SB), NOSPLIT, $0-0
 	// Index registers needed for BR movs
+#ifdef GOARCH_ppc64le	
 	MOVD	$8, R9
 	MOVD	$16, R10
 	MOVD	$24, R14
@@ -33,7 +34,17 @@ TEXT gfpInternalEndianSwap<>(SB), NOSPLIT, $0-0
 	MOVD	R7, 8(R3)
 	MOVD	R6, 16(R3)
 	MOVD	R5, 24(R3)
+#else
+	MOVD	$16, R10
+	LXVD2X (R4)(R0), V0
+	LXVD2X (R4)(R10), V1
 
+	XXPERMDI V0, V0, $2, V0
+	XXPERMDI V1, V1, $2, V1
+
+	STXVD2X V1, (R0+R3)
+	STXVD2X V0, (R10+R3)	
+#endif
 	RET
 
 #define X1L   V0
@@ -70,7 +81,7 @@ TEXT gfpInternalEndianSwap<>(SB), NOSPLIT, $0-0
 	VSEL     TT0, T0, SEL1, T0  \
 	VSEL     TT1, T1, SEL1, T1  \
 
-TEXT ·gfpNegAsm(SB),0,$0-16
+TEXT ·gfpNeg(SB),0,$0-16
 	MOVD c+0(FP), R3
 	MOVD a+8(FP), R4
 
@@ -98,7 +109,7 @@ TEXT ·gfpNegAsm(SB),0,$0-16
 	STXVD2X T1, (R5+R3)
 	RET
 
-TEXT ·gfpSubAsm(SB),0,$0-24
+TEXT ·gfpSub(SB),0,$0-24
 	MOVD c+0(FP), R3
 	MOVD a+8(FP), R4
 	MOVD b+16(FP), R5
@@ -144,7 +155,7 @@ TEXT ·gfpSubAsm(SB),0,$0-24
 	VSEL     TT0, T0, SEL1, T0    \
 	VSEL     TT1, T1, SEL1, T1
 
-TEXT ·gfpAddAsm(SB),0,$0-24
+TEXT ·gfpAdd(SB),0,$0-24
 	MOVD c+0(FP), R3
 	MOVD a+8(FP), R4
 	MOVD b+16(FP), R5
@@ -177,7 +188,7 @@ TEXT ·gfpAddAsm(SB),0,$0-24
 	STXVD2X T1, (R6+R3)
 	RET
 
-TEXT ·gfpDoubleAsm(SB),0,$0-16
+TEXT ·gfpDouble(SB),0,$0-16
 	MOVD c+0(FP), R3
 	MOVD a+8(FP), R4
 
@@ -204,7 +215,7 @@ TEXT ·gfpDoubleAsm(SB),0,$0-16
 	STXVD2X T1, (R6+R3)
 	RET
 
-TEXT ·gfpTripleAsm(SB),0,$0-16
+TEXT ·gfpTriple(SB),0,$0-16
 	MOVD c+0(FP), R3
 	MOVD a+8(FP), R4
 
@@ -726,7 +737,7 @@ TEXT gfpMulInternal<>(SB), NOSPLIT, $0
 #define T1    V7
 #define K0    V31
 
-TEXT ·gfpMulAsm(SB),NOSPLIT,$0
+TEXT ·gfpMul(SB),NOSPLIT,$0
 	MOVD	c+0(FP), res_ptr
 	MOVD	a+8(FP), x_ptr
 	MOVD	b+16(FP), y_ptr
@@ -766,7 +777,7 @@ TEXT ·gfpMulAsm(SB),NOSPLIT,$0
 	RET
 
 // func gfpSqr(res, in *gfP, n int)
-TEXT ·gfpSqrAsm(SB),NOSPLIT,$0
+TEXT ·gfpSqr(SB),NOSPLIT,$0
 	MOVD res+0(FP), res_ptr
 	MOVD in+8(FP), x_ptr
 	MOVD n+16(FP), N
@@ -825,3 +836,102 @@ done:
 #undef T0
 #undef T1
 #undef K0
+
+
+/* ---------------------------------------*/
+#define res_ptr R3
+#define x_ptr R4
+#define CPOOL R7
+
+#define M0    V5
+#define M1    V4
+#define T0    V6
+#define T1    V7
+#define T2    V8
+
+#define ADD1  V16
+#define ADD1H V17
+#define ADD2  V18
+#define ADD2H V19
+#define RED1  V20
+#define RED1H V21
+#define RED2  V22
+#define RED2H V23
+#define CAR1  V24
+#define CAR1M V25
+
+#define MK0   V30
+#define K0    V31
+
+// TMP1, TMP2 used in
+// VMULT macros
+#define TMP1  V13
+#define TMP2  V27
+#define ONE   V29 // 1s splatted by word
+// func gfpFromMont(res, in *gfP)
+TEXT ·gfpFromMont(SB),NOSPLIT,$0
+	MOVD res+0(FP), res_ptr
+	MOVD in+8(FP), x_ptr
+
+	MOVD $16, R16
+
+	LXVD2X (R0)(x_ptr), T0
+	LXVD2X (R16)(x_ptr), T1
+
+	XXPERMDI T0, T0, $2, T0
+	XXPERMDI T1, T1, $2, T1
+
+	MOVD $·p2+0(SB), CPOOL
+	LXVD2X (CPOOL)(R0), M0
+	LXVD2X (CPOOL)(R16), M1
+	
+	XXPERMDI M0, M0, $2, M0
+	XXPERMDI M1, M1, $2, M1
+
+	MOVD $·np+0(SB), CPOOL
+	LXVD2X (CPOOL)(R0), K0
+	VSPLTW $1, K0, K0
+
+	// ---------------------------------------------------------------------------/
+	VSPLTISW $1, ONE
+	VSPLTISB $0, T2 // VZERO T2
+
+	MOVD $8, R5
+	MOVD R5, CTR
+
+loop:
+	VMULUWM T0, K0, MK0
+	VSPLTW $3, MK0, MK0
+
+	VMULT_ADD(M0, MK0, T0, ONE, RED1, RED1H)
+	VMULT_ADD(M1, MK0, T1, ONE, RED2, RED2H)
+
+	VSLDOI $12, RED2, RED1, RED1 // VSLDB
+	VSLDOI $12, T2, RED2, RED2   // VSLDB
+
+	VADDCUQ RED1H, RED1, CAR1M   // VACCQ
+	VADDUQM RED1H, RED1, T0      // VAQ
+
+	// << ready for next MK0
+
+	VADDECUQ RED2H, RED2, CAR1M, T2    // VACCCQ
+	VADDEUQM RED2H, RED2, CAR1M, T1    // VACQ
+
+	BDNZ loop
+	// ---------------------------------------------------
+	VSPLTISB $0, RED1 // VZERO RED1
+	VSUBCUQ  T0, M0, CAR1         // VSCBIQ
+	VSUBUQM  T0, M0, ADD1         // VSQ
+	VSUBECUQ T1, M1, CAR1, CAR1M  // VSBCBIQ
+	VSUBEUQM T1, M1, CAR1, ADD2   // VSBIQ
+	VSUBEUQM T2, RED1, CAR1M, T2  // VSBIQ
+
+	// what output to use, ADD2||ADD1 or T1||T0?
+	VSEL ADD1, T0, T2, T0
+	VSEL ADD2, T1, T2, T1
+
+	XXPERMDI T0, T0, $2, T0
+	XXPERMDI T1, T1, $2, T1
+	STXVD2X T0, (R0)(res_ptr)
+	STXVD2X T1, (R16)(res_ptr)	
+	RET
