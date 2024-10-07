@@ -272,7 +272,9 @@ func (sd *SignedData) SignWithoutAttr(ee *smx509.Certificate, pkey crypto.Privat
 		Version:                   1,
 	}
 	// create signature of signed attributes
-	sd.certs = append(sd.certs, ee)
+	if !config.SkipCertificates {
+		sd.certs = append(sd.certs, ee)
+	}
 	sd.sd.SignerInfos = append(sd.sd.SignerInfos, signer)
 	return nil
 }
