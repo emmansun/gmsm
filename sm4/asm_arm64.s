@@ -59,16 +59,12 @@
 	VLD1 (R0), [INVERSE_SHIFT_ROWS.B16]
 
 #define SM4EKEY_EXPORT_KEYS() \
-	VMOV V9.S[3], V10.S[0]            \
-	VMOV V9.S[2], V10.S[1]            \
-	VMOV V9.S[1], V10.S[2]            \
-	VMOV V9.S[0], V10.S[3]            \
-	VMOV V8.S[3], V11.S[0]            \
-	VMOV V8.S[2], V11.S[1]            \
-	VMOV V8.S[1], V11.S[2]            \
-	VMOV V8.S[0], V11.S[3]            \
-	VST1.P	[V8.S4, V9.S4], 32(R10)   \
-	VST1	[V10.S4, V11.S4], (R11)   \
+	VREV64	V8.S4, V11.S4                 \ 
+	VEXT $8, V11.B16, V11.B16, V11.B16    \	
+	VREV64	V9.S4, V10.S4                 \ 
+	VEXT $8, V10.B16, V10.B16, V10.B16    \	
+	VST1.P	[V8.S4, V9.S4], 32(R10)       \
+	VST1	[V10.S4, V11.S4], (R11)       \
 	SUB  $32, R11, R11
 
 #define SM4E_ROUND() \
