@@ -2,15 +2,15 @@
 
 #include "textflag.h"
 
-DATA ·eia_const<>+0x00(SB)/8, $0x0e060a020c040800 // bit_reverse_table low
-DATA ·eia_const<>+0x08(SB)/8, $0x0f070b030d050901
-DATA ·eia_const<>+0x10(SB)/8, $0xe060a020c0408000 // bit_reverse_table high
-DATA ·eia_const<>+0x18(SB)/8, $0xf070b030d0509010
-DATA ·eia_const<>+0x20(SB)/8, $0xffffffff03020100 // SHUF_MASK_DW0_DW1
-DATA ·eia_const<>+0x28(SB)/8, $0xffffffff07060504
-DATA ·eia_const<>+0x30(SB)/8, $0xffffffff0b0a0908 // SHUF_MASK_DW2_DW3
-DATA ·eia_const<>+0x38(SB)/8, $0xffffffff0f0e0d0c
-GLOBL ·eia_const<>(SB), RODATA, $64
+DATA ·eia_const+0x00(SB)/8, $0x0e060a020c040800 // bit_reverse_table low
+DATA ·eia_const+0x08(SB)/8, $0x0f070b030d050901
+DATA ·eia_const+0x10(SB)/8, $0xe060a020c0408000 // bit_reverse_table high
+DATA ·eia_const+0x18(SB)/8, $0xf070b030d0509010
+DATA ·eia_const+0x20(SB)/8, $0xffffffff03020100 // SHUF_MASK_DW0_DW1
+DATA ·eia_const+0x28(SB)/8, $0xffffffff07060504
+DATA ·eia_const+0x30(SB)/8, $0xffffffff0b0a0908 // SHUF_MASK_DW2_DW3
+DATA ·eia_const+0x38(SB)/8, $0xffffffff0f0e0d0c
+GLOBL ·eia_const(SB), RODATA, $64
 
 #define AX R2
 #define BX R3
@@ -36,7 +36,7 @@ GLOBL ·eia_const<>(SB), RODATA, $64
 #define SHUF_MASK_DW2_DW3 V24
 
 #define LOAD_GLOBAL_DATA() \
-	MOVD $·eia_const<>(SB), R0                                                                              \
+	MOVD $·eia_const(SB), R0                                                                              \
 	VLD1 (R0), [BIT_REV_TAB_L.B16, BIT_REV_TAB_H.B16, SHUF_MASK_DW0_DW1.B16, SHUF_MASK_DW2_DW3.B16]         \
 	MOVW $0x0F0F0F0F, R0                                                                                    \
 	VDUP R0, BIT_REV_AND_TAB.S4                               
