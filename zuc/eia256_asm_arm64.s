@@ -27,7 +27,7 @@
 
 #define LOAD_GLOBAL_DATA() \
 	MOVD $·eia_const<>(SB), R0                                                                      \
-	VLD1 (R0), [BIT_REV_TAB_L.B16, BIT_REV_TAB_H.B16, HUF_MASK_DW0_DW1.B16, SHUF_MASK_DW2_DW3.B16]         \
+	VLD1 (R0), [BIT_REV_TAB_L.B16, BIT_REV_TAB_H.B16, SHUF_MASK_DW0_DW1.B16, SHUF_MASK_DW2_DW3.B16]         \
 	MOVW $0x0F0F0F0F, R0                                                                                   \
 	VDUP R0, BIT_REV_AND_TAB.S4
 
