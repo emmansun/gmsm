@@ -154,15 +154,15 @@ sm4InitEncLoop:
 sm4InitSM4E:
 	VEOR	B0.B16, B0.B16, B0.B16
 	VLD1.P	64(RK), [T0.S4, T1.S4, T2.S4, T3.S4]
-	WORD $0x6085c0ce          //SM4E V0.4S, V11.4S
-	WORD $0x8085c0ce          //SM4E V0.4S, V12.4S
-	WORD $0xa085c0ce          //SM4E V0.4S, V13.4S
-	WORD $0xc085c0ce          //SM4E V0.4S, V14.4S
+	WORD $0xcec08560          //SM4E V0.4S, V11.4S
+	WORD $0xcec08580          //SM4E V0.4S, V12.4S
+	WORD $0xcec085a0          //SM4E V0.4S, V13.4S
+	WORD $0xcec085c0          //SM4E V0.4S, V14.4S
 	VLD1.P	64(RK), [T0.S4, T1.S4, T2.S4, T3.S4]
-	WORD $0x6085c0ce          //SM4E V0.4S, V11.4S
-	WORD $0x8085c0ce          //SM4E V0.4S, V12.4S
-	WORD $0xa085c0ce          //SM4E V0.4S, V13.4S
-	WORD $0xc085c0ce          //SM4E V0.4S, V14.4S
+	WORD $0xcec08560          //SM4E V0.4S, V11.4S
+	WORD $0xcec08580          //SM4E V0.4S, V12.4S
+	WORD $0xcec085a0          //SM4E V0.4S, V13.4S
+	WORD $0xcec085c0          //SM4E V0.4S, V14.4S
 	VEXT $8, B0.B16, B0.B16, B0.B16
 
 sm4InitEncDone:
