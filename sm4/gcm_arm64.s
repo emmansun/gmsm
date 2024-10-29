@@ -163,7 +163,7 @@ sm4InitSM4E:
 	WORD $0x8085c0ce          //SM4E V0.4S, V12.4S
 	WORD $0xa085c0ce          //SM4E V0.4S, V13.4S
 	WORD $0xc085c0ce          //SM4E V0.4S, V14.4S
-	VEXT	B0.B16, B0.B16, B0.B16
+	VEXT $8, B0.B16, B0.B16, B0.B16
 
 sm4InitEncDone:
 	// Multiply by 2 modulo P
