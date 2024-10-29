@@ -116,7 +116,7 @@ TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 
 	MOVD productTable+0(FP), pTbl
 	MOVD rk+8(FP), RK
-	MOVD inst+16(FP), R5
+	MOVD inst+32(FP), R5
 
 	MOVD	$0xC2, I
 	LSL	$56, I
@@ -163,8 +163,8 @@ sm4InitSM4E:
 	WORD $0x8085c0ce          //SM4E V0.4S, V12.4S
 	WORD $0xa085c0ce          //SM4E V0.4S, V13.4S
 	WORD $0xc085c0ce          //SM4E V0.4S, V14.4S
-	VREV32	B0.B16, B0.B16
-	VREV64	B0.B16, B0.B16		
+	VEXT	B0.B16, B0.B16, B0.B16
+
 sm4InitEncDone:
 	// Multiply by 2 modulo P
 	VMOV	B0.D[0], I
