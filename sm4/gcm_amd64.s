@@ -207,25 +207,29 @@ sm4InitEncLoop:
 	MOVQ $7, AX
 
 initLoop:
+		// B0 * B2, Karatsuba Approach
 		MOVOU B2, T0
 		MOVOU B2, T1
 		MOVOU B3, T2
-		PCLMULQDQ $0x00, B0, T0
-		PCLMULQDQ $0x11, B0, T1
-		PCLMULQDQ $0x00, B1, T2
+		PCLMULQDQ $0x00, B0, T0 // B0[0] * B2[0]
+		PCLMULQDQ $0x11, B0, T1 // B0[1] * B2[1]
+		PCLMULQDQ $0x00, B1, T2 // (B0[0] + B0[1]) * (B2[0] + B2[1])
 
-		PXOR T0, T2
-		PXOR T1, T2
+		PXOR T0, T2             // (B0[0] + B0[1]) * (B2[0] + B2[1]) - B0[0] * B2[0]
+		PXOR T1, T2             // B0[0] * B2[1] + B0[1] * B2[0]
 		MOVOU T2, B4
 		PSLLDQ $8, B4
 		PSRLDQ $8, T2
 		PXOR B4, T0
-		PXOR T2, T1
+		PXOR T2, T1             // [T1, T0] = B0 * B2
 
+		// Fast reduction
+		// 1st reduction
 		MOVOU POLY, B2
-		PCLMULQDQ $0x01, T0, B2
+		PCLMULQDQ $0x01, T0, B2 // B2 = T0[0] * POLY[1]
 		PSHUFD $78, T0, T0
 		PXOR B2, T0
+		// 2nd reduction
 		MOVOU POLY, B2
 		PCLMULQDQ $0x01, T0, B2
 		PSHUFD $78, T0, T0

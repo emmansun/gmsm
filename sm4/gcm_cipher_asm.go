@@ -30,11 +30,16 @@ func (c *sm4CipherAsm) NewGCM(nonceSize, tagSize int) (cipher.AEAD, error) {
 		binary.BigEndian.Uint64(key[:8]),
 		binary.BigEndian.Uint64(key[8:]),
 	}
-	g.productTable[reverseBits(1)] = x
+	g.productTable[8] = x // reverseBits(1) = 8
 
-	for i := 2; i < 16; i += 2 {
-		g.productTable[reverseBits(i)] = gcmDouble(&g.productTable[reverseBits(i/2)])
-		g.productTable[reverseBits(i+1)] = gcmAdd(&g.productTable[reverseBits(i)], &x)
+	for j := 4; j > 0; j /= 2 {
+		g.productTable[j] = gcmDouble(&g.productTable[j*2])
+	}
+
+	for j := 2; j < 16; j *= 2 {
+		for k := 1; k < j; k++ {
+			g.productTable[j+k] = gcmAdd(&g.productTable[j], &g.productTable[k])
+		}
 	}
 
 	return g, nil
