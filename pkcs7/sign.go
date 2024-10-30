@@ -161,7 +161,7 @@ func (sd *SignedData) AddSignerChain(ee *smx509.Certificate, pkey crypto.Private
 		ias.IssuerName = asn1.RawValue{FullBytes: parents[0].RawSubject}
 	}
 	sd.sd.DigestAlgorithmIdentifiers = append(sd.sd.DigestAlgorithmIdentifiers,
-		pkix.AlgorithmIdentifier{Algorithm: sd.digestOid},
+		pkix.AlgorithmIdentifier{Algorithm: sd.digestOid, Parameters: asn1.NullRawValue},
 	)
 	hasher, err := getHashForOID(sd.digestOid)
 	if err != nil {
@@ -192,8 +192,8 @@ func (sd *SignedData) AddSignerChain(ee *smx509.Certificate, pkey crypto.Private
 	}
 	signer := signerInfo{
 		AuthenticatedAttributes:   finalAttrs,
-		DigestAlgorithm:           pkix.AlgorithmIdentifier{Algorithm: sd.digestOid},
-		DigestEncryptionAlgorithm: pkix.AlgorithmIdentifier{Algorithm: encryptionOid},
+		DigestAlgorithm:           pkix.AlgorithmIdentifier{Algorithm: sd.digestOid, Parameters: asn1.NullRawValue},
+		DigestEncryptionAlgorithm: pkix.AlgorithmIdentifier{Algorithm: encryptionOid, Parameters: asn1.NullRawValue},
 		IssuerAndSerialNumber:     ias,
 		EncryptedDigest:           signature,
 		Version:                   1,
@@ -231,7 +231,7 @@ func newHash(hasher crypto.Hash, hashOid asn1.ObjectIdentifier) hash.Hash {
 // applications.
 func (sd *SignedData) SignWithoutAttr(ee *smx509.Certificate, pkey crypto.PrivateKey, config SignerInfoConfig) error {
 	var signature []byte
-	sd.sd.DigestAlgorithmIdentifiers = append(sd.sd.DigestAlgorithmIdentifiers, pkix.AlgorithmIdentifier{Algorithm: sd.digestOid})
+	sd.sd.DigestAlgorithmIdentifiers = append(sd.sd.DigestAlgorithmIdentifiers, pkix.AlgorithmIdentifier{Algorithm: sd.digestOid, Parameters: asn1.NullRawValue})
 	hasher, err := getHashForOID(sd.digestOid)
 	if err != nil {
 		return err
@@ -265,8 +265,8 @@ func (sd *SignedData) SignWithoutAttr(ee *smx509.Certificate, pkey crypto.Privat
 		return err
 	}
 	signer := signerInfo{
-		DigestAlgorithm:           pkix.AlgorithmIdentifier{Algorithm: sd.digestOid},
-		DigestEncryptionAlgorithm: pkix.AlgorithmIdentifier{Algorithm: sd.encryptionOid},
+		DigestAlgorithm:           pkix.AlgorithmIdentifier{Algorithm: sd.digestOid, Parameters: asn1.NullRawValue},
+		DigestEncryptionAlgorithm: pkix.AlgorithmIdentifier{Algorithm: sd.encryptionOid, Parameters: asn1.NullRawValue},
 		IssuerAndSerialNumber:     ias,
 		EncryptedDigest:           signature,
 		Version:                   1,

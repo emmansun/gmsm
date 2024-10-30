@@ -191,7 +191,8 @@ func (ed *EnvelopedData) AddRecipient(cert *smx509.Certificate, version int, enc
 		Version:               version,
 		IssuerAndSerialNumber: ias,
 		KeyEncryptionAlgorithm: pkix.AlgorithmIdentifier{
-			Algorithm: keyEncryptionAlgorithm,
+			Algorithm:  keyEncryptionAlgorithm,
+			Parameters: asn1.NullRawValue,
 		},
 		EncryptedKey: encrypted,
 	}

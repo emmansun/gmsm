@@ -74,35 +74,35 @@ func newPRFParamFromHash(h Hash) (pkix.AlgorithmIdentifier, error) {
 	case SHA1:
 		return pkix.AlgorithmIdentifier{
 			Algorithm:  oidHMACWithSHA1,
-			Parameters: asn1.RawValue{Tag: asn1.TagNull}}, nil
+			Parameters: asn1.NullRawValue}, nil
 	case SHA224:
 		return pkix.AlgorithmIdentifier{
 			Algorithm:  oidHMACWithSHA224,
-			Parameters: asn1.RawValue{Tag: asn1.TagNull}}, nil
+			Parameters: asn1.NullRawValue}, nil
 	case SHA256:
 		return pkix.AlgorithmIdentifier{
 			Algorithm:  oidHMACWithSHA256,
-			Parameters: asn1.RawValue{Tag: asn1.TagNull}}, nil
+			Parameters: asn1.NullRawValue}, nil
 	case SHA384:
 		return pkix.AlgorithmIdentifier{
 			Algorithm:  oidHMACWithSHA384,
-			Parameters: asn1.RawValue{Tag: asn1.TagNull}}, nil
+			Parameters: asn1.NullRawValue}, nil
 	case SHA512:
 		return pkix.AlgorithmIdentifier{
 			Algorithm:  oidHMACWithSHA512,
-			Parameters: asn1.RawValue{Tag: asn1.TagNull}}, nil
+			Parameters: asn1.NullRawValue}, nil
 	case SHA512_224:
 		return pkix.AlgorithmIdentifier{
 			Algorithm:  oidHMACWithSHA512_224,
-			Parameters: asn1.RawValue{Tag: asn1.TagNull}}, nil
+			Parameters: asn1.NullRawValue}, nil
 	case SHA512_256:
 		return pkix.AlgorithmIdentifier{
 			Algorithm:  oidHMACWithSHA512_256,
-			Parameters: asn1.RawValue{Tag: asn1.TagNull}}, nil
+			Parameters: asn1.NullRawValue}, nil
 	case SM3:
 		return pkix.AlgorithmIdentifier{
 			Algorithm:  oidHMACWithSM3,
-			Parameters: asn1.RawValue{Tag: asn1.TagNull}}, nil
+			Parameters: asn1.NullRawValue}, nil
 
 	}
 	return pkix.AlgorithmIdentifier{}, errors.New("pbes/pbkdf2: unsupported hash function")

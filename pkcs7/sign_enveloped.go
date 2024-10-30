@@ -217,7 +217,7 @@ func (saed *SignedAndEnvelopedData) AddSignerChain(ee *smx509.Certificate, pkey 
 		ias.IssuerName = asn1.RawValue{FullBytes: parents[0].RawSubject}
 	}
 	saed.sed.DigestAlgorithmIdentifiers = append(saed.sed.DigestAlgorithmIdentifiers,
-		pkix.AlgorithmIdentifier{Algorithm: saed.digestOid},
+		pkix.AlgorithmIdentifier{Algorithm: saed.digestOid, Parameters: asn1.NullRawValue},
 	)
 	hasher, err := getHashForOID(saed.digestOid)
 	if err != nil {
@@ -250,8 +250,8 @@ func (saed *SignedAndEnvelopedData) AddSignerChain(ee *smx509.Certificate, pkey 
 		return err
 	}
 	signer := signerInfo{
-		DigestAlgorithm:           pkix.AlgorithmIdentifier{Algorithm: saed.digestOid},
-		DigestEncryptionAlgorithm: pkix.AlgorithmIdentifier{Algorithm: signatureOid},
+		DigestAlgorithm:           pkix.AlgorithmIdentifier{Algorithm: saed.digestOid, Parameters: asn1.NullRawValue},
+		DigestEncryptionAlgorithm: pkix.AlgorithmIdentifier{Algorithm: signatureOid, Parameters: asn1.NullRawValue},
 		IssuerAndSerialNumber:     ias,
 		EncryptedDigest:           signature,
 		Version:                   1,
@@ -287,7 +287,8 @@ func (saed *SignedAndEnvelopedData) AddRecipient(recipient *smx509.Certificate) 
 		Version:               1,
 		IssuerAndSerialNumber: ias,
 		KeyEncryptionAlgorithm: pkix.AlgorithmIdentifier{
-			Algorithm: keyEncryptionAlgorithm,
+			Algorithm:  keyEncryptionAlgorithm,
+			Parameters: asn1.NullRawValue,
 		},
 		EncryptedKey: encryptedKey,
 	}

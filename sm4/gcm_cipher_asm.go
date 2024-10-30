@@ -162,13 +162,6 @@ func (g *gcm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 	return ret, nil
 }
 
-// reverseBits reverses the order of the bits of 4-bit number in i.
-func reverseBits(i int) int {
-	i = ((i << 2) & 0xc) | ((i >> 2) & 0x3)
-	i = ((i << 1) & 0xa) | ((i >> 1) & 0x5)
-	return i
-}
-
 // gcmAdd adds two elements of GF(2¹²⁸) and returns the sum.
 func gcmAdd(x, y *gcmFieldElement) gcmFieldElement {
 	// Addition in a characteristic 2 field is just XOR.
