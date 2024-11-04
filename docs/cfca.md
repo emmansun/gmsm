@@ -56,7 +56,7 @@ SADK 3.2之后的版本，支持下列SM2密文格式(encryptedType)：
 ### SM2数字信封加解密
 互操作性问题主要出在：
 1. 数据对称加密所用密钥的SM2密文格式。
-2. 对称加密算法的OID。
+2. 对称加密算法的OID。```public static final ASN1ObjectIdentifier id_sm4_CBC = new ASN1ObjectIdentifier("1.2.156.10197.1.104");```
 
 #### SADK 3.2之前版本
 1. 数据对称加密密钥的密文格式为**C1C2C3 格式，不带0x04这个点非压缩标识**。这个不符合《GM/T 0010-2012 SM2密码算法加密签名消息语法规范》以及《GB/T 35275-2017 信息安全技术 SM2密码算法加密签名消息语法规范》。
@@ -71,6 +71,13 @@ SADK 3.2之后的版本，支持下列SM2密文格式(encryptedType)：
 本软件库的```pkcs7.EncryptSM```方法```Decrypt```方法提供了SADK 3.2+版本的信封加解密兼容性，记得cipher参数选择```pkcs.SM4```。
 
 从SADK 的向下兼容性来看，SADK 3.2+能够解密SADK 3.2之前版本的数字信封加密数据，反之不行。
+
+### SM2 PKCS7签名数据
+```cfca.sadk.util.p7SignMessageAttach / cfca.sadk.util.p7SignMessageDetach```，对应```pkcs7.SignWithoutAttr```，如果要Detach签名，调用```Finish```之前调用```Detach```就行。
+
+```cfca.sadk.util.p7SignFileAttach / cfca.sadk.util.p7SignFileDetach```类似，只是本软件库不提供对应方法，您可以通过```pkcs7.SignWithoutAttr```自己实现。
+
+参考[cfca sadk 3.0.2.0](https://github.com/emmansun/gmsm/issues/260)
 
 ### 解密时自动检测？
 要穷举、尝试所有可能的密文格式不是不可以，但这会或多或少地影响解密的性能。你要和对方集成，还是知己知彼比较好，对于加解密来说，对用户透明不代表是好事。本软件库的SM2解密也实现了一定的自动检测（通过首字节判断，基于首字节只有固定那几个的假设）：
