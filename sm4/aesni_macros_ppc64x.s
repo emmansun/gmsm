@@ -1,22 +1,14 @@
 #define LOAD_CONSTS(baseAddrReg, offsetReg) \
-	LXVD2X (baseAddrReg)(R0), M0; \
+	LXVD2X (baseAddrReg)(R0), REVERSE_WORDS; \
 	MOVD $0x10, offsetReg; \
-	LXVD2X (baseAddrReg)(offsetReg), M1; \
-	MOVD $0x20, offsetReg; \
-	LXVD2X (baseAddrReg)(offsetReg), M2; \
-	MOVD $0x30, offsetReg; \
-	LXVD2X (baseAddrReg)(offsetReg), M3; \
-	MOVD $0x40, offsetReg; \
-	LXVD2X (baseAddrReg)(offsetReg), REVERSE_WORDS; \
-	MOVD $0x50, offsetReg; \
 	LXVD2X (baseAddrReg)(offsetReg), NIBBLE_MASK; \
-	MOVD $0x70, offsetReg; \
+	MOVD $0x20, offsetReg; \
 	LXVD2X (baseAddrReg)(offsetReg), M1L; \
-	MOVD $0x80, offsetReg; \
+	MOVD $0x30, offsetReg; \
 	LXVD2X (baseAddrReg)(offsetReg), M1H; \
-	MOVD $0x90, offsetReg; \
+	MOVD $0x40, offsetReg; \
 	LXVD2X (baseAddrReg)(offsetReg), M2L; \
-	MOVD $0xa0, offsetReg; \
+	MOVD $0x50, offsetReg; \
 	LXVD2X (baseAddrReg)(offsetReg), M2H
 
 #ifdef GOARCH_ppc64le

@@ -8,29 +8,19 @@
 
 DATA ·rcon+0x00(SB)/8, $0x0b0a09080f0e0d0c // byte swap per word
 DATA ·rcon+0x08(SB)/8, $0x0302010007060504
-DATA ·rcon+0x10(SB)/8, $0x0001020310111213 // Permute for transpose matrix
-DATA ·rcon+0x18(SB)/8, $0x0405060714151617
-DATA ·rcon+0x20(SB)/8, $0x08090a0b18191a1b
-DATA ·rcon+0x28(SB)/8, $0x0c0d0e0f1c1d1e1f
-DATA ·rcon+0x30(SB)/8, $0x0001020304050607
-DATA ·rcon+0x38(SB)/8, $0x1011121314151617
-DATA ·rcon+0x40(SB)/8, $0x08090a0b0c0d0e0f
-DATA ·rcon+0x48(SB)/8, $0x18191a1b1c1d1e1f
-DATA ·rcon+0x50(SB)/8, $0x0c0d0e0f08090a0b // reverse words
-DATA ·rcon+0x58(SB)/8, $0x0405060700010203
-DATA ·rcon+0x60(SB)/8, $0x0F0F0F0F0F0F0F0F // nibble mask
-DATA ·rcon+0x68(SB)/8, $0x0F0F0F0F0F0F0F0F
-DATA ·rcon+0x70(SB)/8, $0x000D0A0704010E0B // inverse shift rows
-DATA ·rcon+0x78(SB)/8, $0x0805020F0C090603
-DATA ·rcon+0x80(SB)/8, $0x691CA0D5B6C37F0A // affine transform matrix m1 low
-DATA ·rcon+0x88(SB)/8, $0x53269AEF8CF94530
-DATA ·rcon+0x90(SB)/8, $0x009837AF6CF45BC3 // affine transform matrix m1 high
-DATA ·rcon+0x98(SB)/8, $0xAB339C04C75FF068
-DATA ·rcon+0xa0(SB)/8, $0x616EF1FE050A959A // affine transform matrix m2 low
-DATA ·rcon+0xa8(SB)/8, $0xF5FA656A919E010E
-DATA ·rcon+0xb0(SB)/8, $0x00A4E044CD692D89 // affine transform matrix m2 high
-DATA ·rcon+0xb8(SB)/8, $0xA50145E168CC882C
-GLOBL ·rcon(SB), RODATA, $192
+DATA ·rcon+0x10(SB)/8, $0x0c0d0e0f08090a0b // reverse words
+DATA ·rcon+0x18(SB)/8, $0x0405060700010203
+DATA ·rcon+0x20(SB)/8, $0x0F0F0F0F0F0F0F0F // nibble mask
+DATA ·rcon+0x28(SB)/8, $0x0F0F0F0F0F0F0F0F
+DATA ·rcon+0x30(SB)/8, $0x691CA0D5B6C37F0A // affine transform matrix m1 low
+DATA ·rcon+0x38(SB)/8, $0x53269AEF8CF94530
+DATA ·rcon+0x40(SB)/8, $0x009837AF6CF45BC3 // affine transform matrix m1 high
+DATA ·rcon+0x48(SB)/8, $0xAB339C04C75FF068
+DATA ·rcon+0x50(SB)/8, $0x616EF1FE050A959A // affine transform matrix m2 low
+DATA ·rcon+0x58(SB)/8, $0xF5FA656A919E010E
+DATA ·rcon+0x60(SB)/8, $0x00A4E044CD692D89 // affine transform matrix m2 high
+DATA ·rcon+0x68(SB)/8, $0xA50145E168CC882C
+GLOBL ·rcon(SB), RODATA, $112
 
 #define REVERSE_WORDS V19
 #define M1L V20
@@ -38,12 +28,7 @@ GLOBL ·rcon(SB), RODATA, $192
 #define M2L V22
 #define M2H V23
 #define V_FOUR V24
-#define M0 V25
-#define M1 V26
-#define M2 V27
-#define M3 V28
 #define NIBBLE_MASK V29
-#define INVERSE_SHIFT_ROWS V30
 // For instruction emulation
 #define ESPERMW  V31 // Endian swapping permute into BE
 

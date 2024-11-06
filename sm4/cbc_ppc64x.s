@@ -12,12 +12,7 @@
 #define M2L V22
 #define M2H V23
 #define V_FOUR V24
-#define M0 V25
-#define M1 V26
-#define M2 V27
-#define M3 V28
 #define NIBBLE_MASK V29
-#define INVERSE_SHIFT_ROWS V30
 // For instruction emulation
 #define ESPERMW  V31 // Endian swapping permute into BE
 
