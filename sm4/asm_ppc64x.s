@@ -65,7 +65,7 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
 	MOVD	$·rcon(SB), R4
 	LVX	(R4), ESPERMW
 #endif
-	MOVD	$·rcon+0x50(SB), R4
+	MOVD	$·rcon+0x10(SB), R4
 	LXVD2X (R4)(R0), REVERSE_WORDS
 	MOVD $16, R3
 	LXVD2X (R4)(R3), NIBBLE_MASK
@@ -130,7 +130,7 @@ TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
 	MOVD	$·rcon(SB), R4
 	LVX	(R4), ESPERMW
 #endif
-	MOVD	$·rcon+0x50(SB), R4
+	MOVD	$·rcon+0x10(SB), R4
 	LXVD2X (R4)(R0), REVERSE_WORDS
 	MOVD $16, R3
 	LXVD2X (R4)(R3), NIBBLE_MASK
