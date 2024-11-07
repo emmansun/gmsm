@@ -87,7 +87,7 @@
 	VAND NIBBLE_MASK, x, z;              \
 	VPERM L, L, z, y;                    \
 	VSRB x, V_FOUR, z;                   \
-	VPERMXOR H, z, y, x
+	VPERMXOR y, H, z, x
 
 // Affine Transform
 // parameters:
