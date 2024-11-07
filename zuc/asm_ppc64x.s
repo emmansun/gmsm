@@ -42,7 +42,7 @@ GLOBL rcon<>(SB), RODATA, $160
 #define P3 V30
 
 #define LOAD_CONSTS \
-	VSPLTISW $4, V_FOUR \
+	VSPLTISB $4, V_FOUR \
 	MOVD $rcon<>+0x00(SB), R4 \
 	LXVD2X (R4)(R0), NIBBLE_MASK \
 	MOVD $0x10, R5 \
@@ -89,8 +89,7 @@ GLOBL rcon<>(SB), RODATA, $160
 #define AFFINE_TRANSFORM(L, H, V_FOUR, x, y, z)  \
 	VAND NIBBLE_MASK, x, z;              \
 	VPERM L, L, z, y;                    \
-	VSRD x, V_FOUR, x;                   \
-	VAND NIBBLE_MASK, x, z;              \
+	VSRB x, V_FOUR, z;                   \
 	VPERM H, H, z, x;                    \
 	VXOR y, x, x
 

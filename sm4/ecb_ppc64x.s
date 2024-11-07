@@ -30,7 +30,7 @@ TEXT ·encryptSm4Ecb(SB),NOSPLIT,$0
 #define rk R5
 #define srcLen R6
 	// prepare/load constants
-	VSPLTISW $4, V_FOUR;
+	VSPLTISB $4, V_FOUR;
 #ifdef NEEDS_PERMW
 	MOVD	$·rcon(SB), R4
 	LVX	(R4), ESPERMW

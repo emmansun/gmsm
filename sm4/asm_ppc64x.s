@@ -60,7 +60,7 @@ GLOBL ·rcon(SB), RODATA, $112
 // func expandKeyAsm(key *byte, ck, enc, dec *uint32, inst int)
 TEXT ·expandKeyAsm(SB),NOSPLIT,$0
 	// prepare/load constants
-	VSPLTISW $4, V_FOUR;
+	VSPLTISB $4, V_FOUR;
 #ifdef NEEDS_PERMW
 	MOVD	$·rcon(SB), R4
 	LVX	(R4), ESPERMW
@@ -115,7 +115,7 @@ ksLoop:
 // func encryptBlockAsm(xk *uint32, dst, src *byte, inst int)
 TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
 	// prepare/load constants
-	VSPLTISW $4, V_FOUR;
+	VSPLTISB $4, V_FOUR;
 #ifdef NEEDS_PERMW
 	MOVD	$·rcon(SB), R4
 	LVX	(R4), ESPERMW
@@ -156,7 +156,7 @@ encryptBlockLoop:
 // func encryptBlocksAsm(xk *uint32, dst, src []byte, inst int)
 TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
 	// prepare/load constants
-	VSPLTISW $4, V_FOUR;
+	VSPLTISB $4, V_FOUR;
 #ifdef NEEDS_PERMW
 	MOVD	$·rcon(SB), R4
 	LVX	(R4), ESPERMW
