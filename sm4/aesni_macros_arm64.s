@@ -83,8 +83,7 @@ GLOBL fk_mask<>(SB), (16+8), $16
 #define AFFINE_TRANSFORM(L, H, x, y, z)            \
 	VAND x.B16, NIBBLE_MASK.B16, z.B16;            \
 	VTBL z.B16, [L.B16], y.B16;                    \
-	VUSHR $4, x.D2, x.D2;                          \
-	VAND x.B16, NIBBLE_MASK.B16, z.B16;            \
+	VUSHR $4, x.B16, z.B16;                        \
 	VTBL z.B16, [H.B16], z.B16;                    \
 	VEOR y.B16, z.B16, x.B16
 
