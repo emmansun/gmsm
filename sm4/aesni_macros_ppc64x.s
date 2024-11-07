@@ -84,10 +84,11 @@
 // -  y: 128 bits temp register
 // -  z: 128 bits temp register
 #define AFFINE_TRANSFORM(L, H, V_FOUR, x, y, z)  \
-	VAND NIBBLE_MASK, x, y;              \
+	VAND NIBBLE_MASK, x, z;              \
+	VPERM L, L, z, y;                    \
 	VSRB x, V_FOUR, z;                   \
-	VPERM L, L, y, x;                    \
-	VPERMXOR H, H, z, x
+	VPERM H, H, z, x;                    \
+	VXOR y, x, x
 
 // Affine Transform
 // parameters:
