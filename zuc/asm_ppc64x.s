@@ -90,8 +90,7 @@ GLOBL rcon<>(SB), RODATA, $160
 	VAND NIBBLE_MASK, x, z;              \
 	VPERM L, L, z, y;                    \
 	VSRB x, V_FOUR, z;                   \
-	VPERM H, H, z, x;                    \
-	VXOR y, x, x
+	VPERMXOR H, z, y, x
 
 #define SHLDL(a, b, n) \  // NO SHLDL in GOLANG now
 	SLW n, a, a           \
