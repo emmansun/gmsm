@@ -17,10 +17,6 @@ DATA Low_nibble_mask<>+0x00(SB)/8, $0x0F0F0F0F0F0F0F0F
 DATA Low_nibble_mask<>+0x08(SB)/8, $0x0F0F0F0F0F0F0F0F
 GLOBL Low_nibble_mask<>(SB), RODATA, $16
 
-DATA High_nibble_mask<>+0x00(SB)/8, $0xF0F0F0F0F0F0F0F0
-DATA High_nibble_mask<>+0x08(SB)/8, $0xF0F0F0F0F0F0F0F0
-GLOBL High_nibble_mask<>(SB), RODATA, $16
-
 DATA P1<>+0x00(SB)/8, $0x0A020F0F0E000F09
 DATA P1<>+0x08(SB)/8, $0x090305070C000400
 GLOBL P1<>(SB), RODATA, $16
@@ -99,10 +95,9 @@ GLOBL flip_mask<>(SB), RODATA, $16
 #define S0_comput_SSE(IN_OUT, XTMP1, XTMP2)    \
 	MOVOU IN_OUT, XTMP1                        \
 	\
-	PAND Low_nibble_mask<>(SB), IN_OUT         \  // x2
-	\
-	PAND High_nibble_mask<>(SB), XTMP1         \ 
 	PSRLQ $4, XTMP1                            \  // x1
+	PAND Low_nibble_mask<>(SB), XTMP1          \ 
+	PAND Low_nibble_mask<>(SB), IN_OUT         \  // x2
 	\
 	MOVOU P1<>(SB), XTMP2                      \
 	PSHUFB IN_OUT, XTMP2                       \ // P1[x2]
@@ -124,16 +119,15 @@ GLOBL flip_mask<>(SB), RODATA, $16
 // for high and low nible of each input byte, SSE versiion.
 #define MUL_PSHUFB_SSE(XIN, XLO, XHI_OUT, XTMP)        \
 	\ // Get low nibble of input data
-	MOVOU Low_nibble_mask<>(SB), XTMP                  \
-	PAND XIN, XTMP                                     \
+	MOVOU XIN, XTMP                                    \
+	PAND Low_nibble_mask<>(SB), XTMP                   \
 	\ // Get low nibble of output
 	PSHUFB XTMP, XLO                                   \
 	\ // Get high nibble of input data
-	MOVOU High_nibble_mask<>(SB), XTMP                 \
-	PAND XIN, XTMP                                     \
-	PSRLQ $4, XTMP                                     \
+	PSRLQ $4, XIN                                      \
+	PAND Low_nibble_mask<>(SB), XIN                    \
 	\ // Get high nibble of output
-	PSHUFB XTMP, XHI_OUT                               \
+	PSHUFB XIN, XHI_OUT                                \
 	\ // XOR high and low nibbles to get full bytes
 	PXOR XLO, XHI_OUT
 
@@ -146,8 +140,8 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	PSHUFB Shuf_mask<>(SB), XTMP2                      \
 	AESENCLAST Cancel_aes<>(SB), XTMP2                 \
 	\
-	MOVOU Comb_matrix_mul_low_nibble<>(SB), XTMP1       \
-	MOVOU Comb_matrix_mul_high_nibble<>(SB), XIN_OUT    \
+	MOVOU Comb_matrix_mul_low_nibble<>(SB), XTMP1      \
+	MOVOU Comb_matrix_mul_high_nibble<>(SB), XIN_OUT   \
 	MUL_PSHUFB_SSE(XTMP2, XTMP1, XIN_OUT, XTMP3)
 
 // Rotate left 5 bits in each byte, within an XMM register, AVX version.
@@ -160,9 +154,8 @@ GLOBL flip_mask<>(SB), RODATA, $16
 
 // Compute 16 S0 box values from 16 bytes, AVX version.
 #define S0_comput_AVX(IN_OUT, XTMP1, XTMP2)      \
-	VPAND High_nibble_mask<>(SB), IN_OUT, XTMP1  \
-	VPSRLQ $4, XTMP1, XTMP1                      \ // x1
-	\
+	VPSRLQ $4, IN_OUT, XTMP1                     \ // x1
+	VPAND Low_nibble_mask<>(SB), XTMP1, XTMP1    \
 	VPAND Low_nibble_mask<>(SB), IN_OUT, IN_OUT  \ // x2
 	\
 	VMOVDQU P1<>(SB), XTMP2                      \
@@ -189,8 +182,8 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	\ // Get low nibble of output
 	VPSHUFB XTMP, XLO, XLO                             \
 	\ // Get high nibble of input data
-	VPAND High_nibble_mask<>(SB), XIN, XTMP            \
-	VPSRLQ $4, XTMP, XTMP                              \
+	VPSRLQ $4, XIN, XTMP                               \
+	VPAND Low_nibble_mask<>(SB), XTMP, XTMP            \
 	\ // Get high nibble of output
 	VPSHUFB XTMP, XHI_OUT, XHI_OUT                     \
 	\ // XOR high and low nibbles to get full bytes

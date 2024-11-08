@@ -65,9 +65,8 @@ GLOBL rcon<>(SB), RODATA, $160
 	LXVD2X (R4)(R5), S1_MASK
 
 #define S0_comput(IN_OUT, V_FOUR, XTMP1, XTMP2)    \
-	VSRW IN_OUT, V_FOUR, XTMP1;                    \
-	VAND XTMP1, NIBBLE_MASK, XTMP1;                \
-	VAND IN_OUT, NIBBLE_MASK, IN_OUT;              \
+	VSRB IN_OUT, V_FOUR, XTMP1;                    \ // XTMP1 = hi 4 bits of IN_OUT
+	VAND IN_OUT, NIBBLE_MASK, IN_OUT;              \ // low 4 bits of IN_OUT
 	VPERM P1, P1, IN_OUT, XTMP2;                   \
 	VXOR XTMP1, XTMP2, XTMP2;                      \
 	VPERM P2, P2, XTMP2, XTMP1;                    \
@@ -87,8 +86,6 @@ GLOBL rcon<>(SB), RODATA, $160
 // zuc sbox function
 // parameters:
 // -  x: 128 bits register as sbox input/output data
-// -  y: 128 bits temp register
-// -  z: 128 bits temp register
 #define S1_comput(x, y, z) \
 	VPERMXOR M1H, M1L, x, x;    \
 	VSBOX x, x;                 \
@@ -213,7 +210,7 @@ GLOBL rcon<>(SB), RODATA, $160
 	\ // LFSR_S16 = (LFSR_S15++) = W
 	MOVW W, (((0 + idx) % 16)*4)(addr)
 
-#define RESTORE_LFSR_0(addr, tmpR1, tmpR2, tmpR3, tmpR4)        \
+#define RESTORE_LFSR_0(addr, tmpR1, tmpR2, tmpR3, tmpR4)   \
 	MOVWZ (addr), tmpR1                                 \
 	MOVD $4, tmpR4                                      \
 	LXVD2X (tmpR4)(addr), V0                            \
@@ -232,7 +229,7 @@ GLOBL rcon<>(SB), RODATA, $160
 	MOVW tmpR3, 56(addr)                                \
 	MOVW tmpR1, 60(addr)
 
-#define RESTORE_LFSR_2(addr, tmpR1, tmpR2, tmpR3)       \
+#define RESTORE_LFSR_2(addr, tmpR1, tmpR2, tmpR3)      \
 	MOVD (addr), tmpR1                                 \
 	MOVD $8, tmpR2                                     \
 	LXVD2X (tmpR2)(addr), V0                           \
@@ -250,7 +247,7 @@ GLOBL rcon<>(SB), RODATA, $160
 	MOVD tmpR3, 48(addr)                               \
 	MOVD tmpR1, 56(addr)
 
-#define RESTORE_LFSR_4(addr, tmpR1, tmpR2, tmpR3)                     \
+#define RESTORE_LFSR_4(addr, tmpR1, tmpR2, tmpR3)      \
 	LXVD2X (addr), V0                                  \
 	MOVD $16, tmpR1                                    \
 	LXVD2X (tmpR1)(addr), V1                           \
@@ -264,7 +261,7 @@ GLOBL rcon<>(SB), RODATA, $160
 	STXVD2X V3, (tmpR2)(addr)                          \
 	STXVD2X V0, (tmpR3)(addr)
 
-#define RESTORE_LFSR_8(addr, tmpR1, tmpR2, tmpR3)                     \
+#define RESTORE_LFSR_8(addr, tmpR1, tmpR2, tmpR3)      \
 	LXVD2X (addr), V0                                  \
 	MOVD $16, tmpR1                                    \
 	LXVD2X (tmpR1)(addr), V1                           \

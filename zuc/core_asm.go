@@ -2,6 +2,11 @@
 
 package zuc
 
+import (
+	"github.com/emmansun/gmsm/internal/cpuid"
+	"golang.org/x/sys/cpu"
+)
+
 // Generate single keyword, 4 bytes.
 //
 //go:noescape
@@ -11,6 +16,9 @@ func genKeywordAsm(s *zucState32) uint32
 //
 //go:noescape
 func genKeyStreamAsm(keyStream []uint32, pState *zucState32)
+
+var supportsAES = cpuid.HasAES
+var useAVX = cpu.X86.HasAVX
 
 func genKeyStream(keyStream []uint32, pState *zucState32) {
 	if supportsAES {
