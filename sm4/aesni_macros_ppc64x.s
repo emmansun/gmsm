@@ -1,14 +1,12 @@
 #define LOAD_CONSTS(baseAddrReg, offsetReg) \
 	LXVD2X (baseAddrReg)(R0), REVERSE_WORDS; \
 	MOVD $0x10, offsetReg; \
-	LXVD2X (baseAddrReg)(offsetReg), NIBBLE_MASK; \
-	MOVD $0x20, offsetReg; \
 	LXVD2X (baseAddrReg)(offsetReg), M1L; \
-	MOVD $0x30, offsetReg; \
+	MOVD $0x20, offsetReg; \
 	LXVD2X (baseAddrReg)(offsetReg), M1H; \
-	MOVD $0x40, offsetReg; \
+	MOVD $0x30, offsetReg; \
 	LXVD2X (baseAddrReg)(offsetReg), M2L; \
-	MOVD $0x50, offsetReg; \
+	MOVD $0x40, offsetReg; \
 	LXVD2X (baseAddrReg)(offsetReg), M2H
 
 #ifdef GOARCH_ppc64le
@@ -76,40 +74,13 @@
 	XXPERMDI TMP3, TMP2, $0, T1; \
 	XXPERMDI TMP3, TMP2, $3, T3
 
-// Affine Transform
-// parameters:
-// -  L: table low nibbles
-// -  H: table high nibbles
-// -  x: 128 bits register as sbox input/output data
-// -  y: 128 bits temp register
-// -  z: 128 bits temp register
-#define AFFINE_TRANSFORM(L, H, V_FOUR, x, y, z)  \
-	VPERMXOR H, L, x, x
-
-// Affine Transform
-// parameters:
-// -  L: table low nibbles
-// -  H: table high nibbles
-// -  x: 128 bits register as sbox input/output data
-// -  y: 128 bits temp register
-// -  z: 128 bits temp register
-#define AFFINE_TRANSFORM_NOTX(L, H, V_FOUR, x, y, z)  \
-	VNOR  x, x, z;                       \ // z = NOT(x)
-	VAND  NIBBLE_MASK, z, z;             \	
-	VPERM L, L, z, y;                    \
-	VSRB x, V_FOUR, z;                   \
-	VPERM H, H, z, x;                    \
-	VXOR y, x, x
-
 // SM4 sbox function
 // parameters:
 // -  x: 128 bits register as sbox input/output data
-// -  y: 128 bits temp register
-// -  z: 128 bits temp register
-#define SM4_SBOX(x, y, z) \
-	AFFINE_TRANSFORM(M1L, M1H, V_FOUR, x, y, z); \
-	VSBOX x, x;                                  \
-	AFFINE_TRANSFORM(M2L, M2H, V_FOUR, x, y, z)
+#define SM4_SBOX(x)                    \
+	VPERMXOR M1H, M1L, x, x;           \
+	VSBOX x, x;                        \
+	VPERMXOR M2H, M2L, x, x
 
 // SM4 TAO L1 function
 // parameters:
@@ -117,8 +88,8 @@
 // -  tmp1: 128 bits temp register
 // -  tmp2: 128 bits temp register
 // -  tmp3: 128 bits temp register
-#define SM4_TAO_L1(x, tmp1, tmp2, tmp3)         \
-	SM4_SBOX(x, tmp1, tmp2);                      \
+#define SM4_TAO_L1(x, tmp1, tmp2, tmp3)     \
+	SM4_SBOX(x);                            \
 	;                                       \ //####################  4 parallel L1 linear transforms ##################//
 	VSPLTISW $8, tmp3;                      \
 	VRLW	x, tmp3, tmp1;                  \ // tmp1 = x <<< 8

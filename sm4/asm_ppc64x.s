@@ -10,25 +10,21 @@ DATA ·rcon+0x00(SB)/8, $0x0b0a09080f0e0d0c // byte swap per word
 DATA ·rcon+0x08(SB)/8, $0x0302010007060504
 DATA ·rcon+0x10(SB)/8, $0x0c0d0e0f08090a0b // reverse words
 DATA ·rcon+0x18(SB)/8, $0x0405060700010203
-DATA ·rcon+0x20(SB)/8, $0x0F0F0F0F0F0F0F0F // nibble mask
-DATA ·rcon+0x28(SB)/8, $0x0F0F0F0F0F0F0F0F
-DATA ·rcon+0x30(SB)/8, $0x691CA0D5B6C37F0A // affine transform matrix m1 low
-DATA ·rcon+0x38(SB)/8, $0x53269AEF8CF94530
-DATA ·rcon+0x40(SB)/8, $0x009837AF6CF45BC3 // affine transform matrix m1 high
-DATA ·rcon+0x48(SB)/8, $0xAB339C04C75FF068
-DATA ·rcon+0x50(SB)/8, $0x616EF1FE050A959A // affine transform matrix m2 low
-DATA ·rcon+0x58(SB)/8, $0xF5FA656A919E010E
-DATA ·rcon+0x60(SB)/8, $0x00A4E044CD692D89 // affine transform matrix m2 high
-DATA ·rcon+0x68(SB)/8, $0xA50145E168CC882C
-GLOBL ·rcon(SB), RODATA, $112
+DATA ·rcon+0x20(SB)/8, $0x691CA0D5B6C37F0A // affine transform matrix m1 low
+DATA ·rcon+0x28(SB)/8, $0x53269AEF8CF94530
+DATA ·rcon+0x30(SB)/8, $0x009837AF6CF45BC3 // affine transform matrix m1 high
+DATA ·rcon+0x38(SB)/8, $0xAB339C04C75FF068
+DATA ·rcon+0x40(SB)/8, $0x616EF1FE050A959A // affine transform matrix m2 low
+DATA ·rcon+0x48(SB)/8, $0xF5FA656A919E010E
+DATA ·rcon+0x50(SB)/8, $0x00A4E044CD692D89 // affine transform matrix m2 high
+DATA ·rcon+0x58(SB)/8, $0xA50145E168CC882C
+GLOBL ·rcon(SB), RODATA, $96
 
 #define REVERSE_WORDS V19
 #define M1L V20
 #define M1H V21
 #define M2L V22
 #define M2H V23
-#define V_FOUR V24
-#define NIBBLE_MASK V29
 // For instruction emulation
 #define ESPERMW  V31 // Endian swapping permute into BE
 
@@ -40,7 +36,7 @@ GLOBL ·rcon(SB), RODATA, $112
 #include "aesni_macros_ppc64x.s"
 
 #define SM4_TAO_L2(x, y, z)         \
-	SM4_SBOX(x, y, z);                      \
+	SM4_SBOX(x);                            \
 	;                                       \ //####################  4 parallel L2 linear transforms ##################//
 	VSPLTISW $13, z;                        \
 	VRLW	x, z, y;                        \ // y = x <<< 13
@@ -60,7 +56,6 @@ GLOBL ·rcon(SB), RODATA, $112
 // func expandKeyAsm(key *byte, ck, enc, dec *uint32, inst int)
 TEXT ·expandKeyAsm(SB),NOSPLIT,$0
 	// prepare/load constants
-	VSPLTISB $4, V_FOUR;
 #ifdef NEEDS_PERMW
 	MOVD	$·rcon(SB), R4
 	LVX	(R4), ESPERMW
@@ -115,7 +110,6 @@ ksLoop:
 // func encryptBlockAsm(xk *uint32, dst, src *byte, inst int)
 TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
 	// prepare/load constants
-	VSPLTISB $4, V_FOUR;
 #ifdef NEEDS_PERMW
 	MOVD	$·rcon(SB), R4
 	LVX	(R4), ESPERMW
@@ -156,7 +150,6 @@ encryptBlockLoop:
 // func encryptBlocksAsm(xk *uint32, dst, src []byte, inst int)
 TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
 	// prepare/load constants
-	VSPLTISB $4, V_FOUR;
 #ifdef NEEDS_PERMW
 	MOVD	$·rcon(SB), R4
 	LVX	(R4), ESPERMW

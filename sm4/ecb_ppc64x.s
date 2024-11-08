@@ -11,8 +11,6 @@
 #define M1H V21
 #define M2L V22
 #define M2H V23
-#define V_FOUR V24
-#define NIBBLE_MASK V29
 // For instruction emulation
 #define ESPERMW  V31 // Endian swapping permute into BE
 
@@ -30,7 +28,6 @@ TEXT ·encryptSm4Ecb(SB),NOSPLIT,$0
 #define rk R5
 #define srcLen R6
 	// prepare/load constants
-	VSPLTISB $4, V_FOUR;
 #ifdef NEEDS_PERMW
 	MOVD	$·rcon(SB), R4
 	LVX	(R4), ESPERMW
