@@ -79,20 +79,6 @@ GLOBL rcon<>(SB), RODATA, $160
 	VSPLTISB $5, XTMP1;                            \
 	VRLB IN_OUT, XTMP1, IN_OUT
 
-// Affine Transform
-// parameters:
-// -  L: table low nibbles
-// -  H: table high nibbles
-// -  x: 128 bits register as sbox input/output data
-// -  y: 128 bits temp register
-// -  z: 128 bits temp register
-#define AFFINE_TRANSFORM(L, H, V_FOUR, x, y, z)  \
-	VAND NIBBLE_MASK, x, z;              \
-	VPERM L, L, z, y;                    \
-	VSRB x, V_FOUR, z;                   \
-	VPERM H, H, z, x;                    \
-	VXOR y, x, x
-
 #define SHLDL(a, b, n) \  // NO SHLDL in GOLANG now
 	SLW n, a, a           \
 	SRW n, b, b           \  
@@ -104,9 +90,9 @@ GLOBL rcon<>(SB), RODATA, $160
 // -  y: 128 bits temp register
 // -  z: 128 bits temp register
 #define S1_comput(x, y, z) \
-	AFFINE_TRANSFORM(M1L, M1H, V_FOUR, x, y, z); \
-	VSBOX x, x;                                  \
-	AFFINE_TRANSFORM(M2L, M2H, V_FOUR, x, y, z)
+	VPERMXOR M1H, M1L, x, x;    \
+	VSBOX x, x;                 \
+	VPERMXOR M2H, M2L, x, x
 
 #define OFFSET_FR1      (16*4)
 #define OFFSET_FR2      (17*4)
