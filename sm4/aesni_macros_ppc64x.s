@@ -84,7 +84,7 @@
 // -  y: 128 bits temp register
 // -  z: 128 bits temp register
 #define AFFINE_TRANSFORM(L, H, V_FOUR, x, y, z)  \
-	VPERMXOR L, H, x, x
+	VPERMXOR H, L, x, x
 
 // Affine Transform
 // parameters:
