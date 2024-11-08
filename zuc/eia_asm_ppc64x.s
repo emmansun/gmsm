@@ -8,17 +8,15 @@
 
 DATA ·rcon+0x00(SB)/8, $0x0706050403020100 // Permute for vector doubleword endian swap
 DATA ·rcon+0x08(SB)/8, $0x0f0e0d0c0b0a0908
-DATA ·rcon+0x10(SB)/8, $0x0f0f0f0f0f0f0f0f // bit_reverse_and_table
-DATA ·rcon+0x18(SB)/8, $0x0f0f0f0f0f0f0f0f
-DATA ·rcon+0x20(SB)/8, $0x0008040c020a060e // bit_reverse_table_l
-DATA ·rcon+0x28(SB)/8, $0x0109050d030b070f // bit_reverse_table_l
-DATA ·rcon+0x30(SB)/8, $0x0000000010111213 // data mask
-DATA ·rcon+0x38(SB)/8, $0x0000000014151617 // data mask
-DATA ·rcon+0x40(SB)/8, $0x0000000018191a1b // data mask
-DATA ·rcon+0x48(SB)/8, $0x000000001c1d1e1f // data mask
-DATA ·rcon+0x50(SB)/8, $0x0405060708090a0b // ks mask
-DATA ·rcon+0x58(SB)/8, $0x0001020304050607 // ks mask
-GLOBL ·rcon(SB), RODATA, $96
+DATA ·rcon+0x10(SB)/8, $0x0008040c020a060e // bit_reverse_table_l
+DATA ·rcon+0x18(SB)/8, $0x0109050d030b070f // bit_reverse_table_l
+DATA ·rcon+0x20(SB)/8, $0x0000000010111213 // data mask
+DATA ·rcon+0x28(SB)/8, $0x0000000014151617 // data mask
+DATA ·rcon+0x30(SB)/8, $0x0000000018191a1b // data mask
+DATA ·rcon+0x38(SB)/8, $0x000000001c1d1e1f // data mask
+DATA ·rcon+0x40(SB)/8, $0x0405060708090a0b // ks mask
+DATA ·rcon+0x48(SB)/8, $0x0001020304050607 // ks mask
+GLOBL ·rcon(SB), RODATA, $80
 
 #define XTMP1 V0
 #define XTMP2 V1
@@ -30,7 +28,6 @@ GLOBL ·rcon(SB), RODATA, $96
 #define KS_M1 V9
 #define BIT_REV_TAB_L V12
 #define BIT_REV_TAB_H V13
-#define BIT_REV_AND_TAB V14
 
 #define PTR R7
 
@@ -53,26 +50,18 @@ TEXT ·eia3Round16B(SB),NOSPLIT,$0
 	VPERM XDATA, XDATA, XTMP1, XDATA
 #endif
 
-	LXVD2X (PTR)(R0), BIT_REV_AND_TAB
-	VAND	BIT_REV_AND_TAB, XDATA, XTMP3
 	VSPLTISB $4, XTMP2;
-	VSRW	XDATA, XTMP2, XTMP1
-	VAND	BIT_REV_AND_TAB, XTMP1, XTMP1
-
-	MOVD	$0x10, R8
-	LXVD2X (PTR)(R8), BIT_REV_TAB_L
+	LXVD2X (PTR)(R0), BIT_REV_TAB_L
 	VSLB  BIT_REV_TAB_L, XTMP2, BIT_REV_TAB_H
-	VPERM BIT_REV_TAB_L, BIT_REV_TAB_L, XTMP1, XTMP1
-	VPERM BIT_REV_TAB_H, BIT_REV_TAB_H, XTMP3, XTMP3
-	VXOR XTMP1, XTMP3, XTMP3 // XTMP3 - bit reverse data bytes
+	VPERMXOR BIT_REV_TAB_L, BIT_REV_TAB_H, XDATA, XTMP3 // XTMP3 - bit reverse data bytes
 
 	// ZUC authentication part, 4x32 data bits
 	// setup data
 	VSPLTISB $0, XTMP2
-	MOVD $0x20, R8
+	MOVD $0x10, R8
 	LXVD2X (PTR)(R8), XTMP4
 	VPERM XTMP2, XTMP3, XTMP4, XTMP1
-	MOVD $0x30, R8
+	MOVD $0x20, R8
 	LXVD2X (PTR)(R8), XTMP4
 	VPERM XTMP2, XTMP3, XTMP4, XTMP2
 
@@ -80,7 +69,8 @@ TEXT ·eia3Round16B(SB),NOSPLIT,$0
 	LXVW4X (R4), KS_L
 	MOVD $8, R8
 	LXVW4X (R8)(R4), KS_M1
-	MOVD $0x40, R8
+	// load ks mask
+	MOVD $0x30, R8
 	LXVD2X (PTR)(R8), XTMP4
 	VPERM KS_L, KS_L, XTMP4, KS_L
 	VPERM KS_M1, KS_M1, XTMP4, KS_M1
