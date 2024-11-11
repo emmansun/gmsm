@@ -69,7 +69,7 @@ GLOBL ·rcon(SB), RODATA, $112
 	VDUP R0, NIBBLE_MASK.S4                              \
 	MOVD $·rcon(SB), R0                                  \
 	VLD1.P 64(R0), [M1L.B16, M1H.B16, M2L.B16, M2H.B16]  \
-	VLD1 (R0), [R08_MASK.B16, INVERSE_SHIFT_ROWS.B16, FK.B16]
+	VLD1 (R0), [R08_MASK.B16, INVERSE_SHIFT_ROWS.B16, FK_MASK.B16]
 
 #define SM4EKEY_EXPORT_KEYS() \
 	VREV64	V8.S4, V11.S4                 \ 
