@@ -1,37 +1,9 @@
-// inverse shift rows
-DATA inverse_shift_rows<>+0x00(SB)/8, $0x0B0E0104070A0D00
-DATA inverse_shift_rows<>+0x08(SB)/8, $0x0306090C0F020508 
-GLOBL inverse_shift_rows<>(SB), (16+8), $16
-
-// Affine transform 1 & 2 (low and high nibbles)
-DATA m1_2<>+0x00(SB)/8, $0x0A7FC3B6D5A01C69
-DATA m1_2<>+0x08(SB)/8, $0x3045F98CEF9A2653
-DATA m1_2<>+0x10(SB)/8, $0xC35BF46CAF379800
-DATA m1_2<>+0x18(SB)/8, $0x68F05FC7049C33AB
-DATA m1_2<>+0x20(SB)/8, $0x9A950A05FEF16E61
-DATA m1_2<>+0x28(SB)/8, $0x0E019E916A65FAF5
-DATA m1_2<>+0x30(SB)/8, $0x892D69CD44E0A400
-DATA m1_2<>+0x38(SB)/8, $0x2C88CC68E14501A5
-GLOBL m1_2<>(SB), (16+8), $64
-
-// left rotations of 32-bit words by 8-bit increments
-DATA r08_mask<>+0x00(SB)/8, $0x0605040702010003
-DATA r08_mask<>+0x08(SB)/8, $0x0E0D0C0F0A09080B  
-GLOBL r08_mask<>(SB), (16+8), $16
-
-DATA fk_mask<>+0x00(SB)/8, $0x56aa3350a3b1bac6
-DATA fk_mask<>+0x08(SB)/8, $0xb27022dc677d9197
-GLOBL fk_mask<>(SB), (16+8), $16
-
 #define LOAD_SM4_AESNI_CONSTS() \
-	MOVW $0x0F0F0F0F, R20                             \
-	VDUP R20, NIBBLE_MASK.S4                          \
-	MOVD $m1_2<>(SB), R20                             \
-	VLD1 (R20), [M1L.B16, M1H.B16, M2L.B16, M2H.B16]  \
-	MOVD $inverse_shift_rows<>(SB), R20               \
-	VLD1 (R20), [INVERSE_SHIFT_ROWS.B16]              \
-	MOVD $r08_mask<>(SB), R20                         \
-	VLD1 (R20), [R08_MASK.B16]                        \ 
+	MOVW $0x0F0F0F0F, R20                                 \
+	VDUP R20, NIBBLE_MASK.S4                              \
+	MOVD $·rcon(SB), R20                                  \
+	VLD1.P 64(R20), [M1L.B16, M1H.B16, M2L.B16, M2H.B16]  \
+	VLD1 (R20), [R08_MASK.B16, INVERSE_SHIFT_ROWS.B16]
 
 // input: from high to low
 // t0 = t0.S3, t0.S2, t0.S1, t0.S0

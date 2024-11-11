@@ -329,7 +329,7 @@ GLOBL gbGcmPoly<>(SB), (NOPTR+RODATA), $16
 	VPXOR (32*7)(SP), Y7, Y7
 
 #define avx2LE2BE8Blocks \
-	VBROADCASTI128 flip_mask<>(SB), Y11; \
+	VBROADCASTI128 ·flip_mask(SB), Y11; \
 	VPSHUFB Y11, Y0, Y0; \
 	VPSHUFB Y11, Y1, Y1; \
 	VPSHUFB Y11, Y2, Y2; \
@@ -589,8 +589,8 @@ avxXtsSm4EncDone:
 avx2XtsSm4Enc:
 	VMOVDQU gcmPoly<>(SB), POLY
 	VMOVDQU (0*16)(BX), TW
-	VBROADCASTI128 nibble_mask<>(SB), NIBBLE_MASK
-	VBROADCASTI128 bswap_mask<>(SB), DWBSWAP
+	VBROADCASTI128 ·nibble_mask(SB), NIBBLE_MASK
+	VBROADCASTI128 ·bswap_mask(SB), DWBSWAP
 
 avx2XtsSm4Enc16Blocks:
 	CMPQ DI, $256
@@ -735,7 +735,7 @@ TEXT ·encryptSm4XtsGB(SB),0,$256-64
 	JE   avxXtsSm4Enc
 
 	MOVOU gbGcmPoly<>(SB), POLY
-	MOVOU bswap_mask<>(SB), BSWAP
+	MOVOU ·bswap_mask(SB), BSWAP
 	MOVOU (0*16)(BX), TW
 
 xtsSm4EncOctets:
@@ -834,7 +834,7 @@ xtsSm4EncDone:
 
 avxXtsSm4Enc:
 	VMOVDQU gbGcmPoly<>(SB), POLY
-	VMOVDQU bswap_mask<>(SB), BSWAP
+	VMOVDQU ·bswap_mask(SB), BSWAP
 	VMOVDQU (0*16)(BX), TW
 
 avxXtsSm4EncOctets:
@@ -934,8 +934,8 @@ avxXtsSm4EncDone:
 avx2XtsSm4Enc:
 	VMOVDQU gbGcmPoly<>(SB), POLY
 	VMOVDQU (0*16)(BX), TW
-	VBROADCASTI128 nibble_mask<>(SB), NIBBLE_MASK
-	VBROADCASTI128 bswap_mask<>(SB), DWBSWAP
+	VBROADCASTI128 ·nibble_mask(SB), NIBBLE_MASK
+	VBROADCASTI128 ·bswap_mask(SB), DWBSWAP
 
 avx2XtsSm4Enc16Blocks:
 	CMPQ DI, $256
@@ -1327,8 +1327,8 @@ avxXtsSm4DecDone:
 avx2XtsSm4Dec:
 	VMOVDQU gcmPoly<>(SB), POLY
 	VMOVDQU (0*16)(BX), TW
-	VBROADCASTI128 nibble_mask<>(SB), NIBBLE_MASK
-	VBROADCASTI128 bswap_mask<>(SB), DWBSWAP
+	VBROADCASTI128 ·nibble_mask(SB), NIBBLE_MASK
+	VBROADCASTI128 ·bswap_mask(SB), DWBSWAP
 
 avx2XtsSm4Dec16Blocks:
 	CMPQ DI, $256
@@ -1498,7 +1498,7 @@ TEXT ·decryptSm4XtsGB(SB),0,$256-64
 	JE   avxXtsSm4Dec
 
 	MOVOU gbGcmPoly<>(SB), POLY
-	MOVOU bswap_mask<>(SB), BSWAP
+	MOVOU ·bswap_mask(SB), BSWAP
 	MOVOU (0*16)(BX), TW
 
 xtsSm4DecOctets:
@@ -1622,7 +1622,7 @@ xtsSm4DecDone:
 
 avxXtsSm4Dec:
 	VMOVDQU gbGcmPoly<>(SB), POLY
-	VMOVDQU bswap_mask<>(SB), BSWAP	
+	VMOVDQU ·bswap_mask(SB), BSWAP	
 	VMOVDQU (0*16)(BX), TW
 
 avxXtsSm4DecOctets:
@@ -1747,8 +1747,8 @@ avxXtsSm4DecDone:
 avx2XtsSm4Dec:
 	VMOVDQU gbGcmPoly<>(SB), POLY
 	VMOVDQU (0*16)(BX), TW
-	VBROADCASTI128 nibble_mask<>(SB), NIBBLE_MASK
-	VBROADCASTI128 bswap_mask<>(SB), DWBSWAP
+	VBROADCASTI128 ·nibble_mask(SB), NIBBLE_MASK
+	VBROADCASTI128 ·bswap_mask(SB), DWBSWAP
 
 avx2XtsSm4Dec16Blocks:
 	CMPQ DI, $256

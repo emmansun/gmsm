@@ -95,7 +95,7 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 	MOVOU (tPtr), ACC0
 	MOVOU (tMsk), T2
 
-	MOVOU bswap_mask<>(SB), BSWAP
+	MOVOU ·bswap_mask(SB), BSWAP
 	MOVOU gcmPoly<>(SB), POLY
 
 	SHLQ $3, plen
@@ -279,7 +279,7 @@ TEXT ·gcmSm4Data(SB),NOSPLIT,$0
 
 	PXOR ACC0, ACC0
 	// MOVOU (tPtr), ACC0 // originally we passed in tag initial value
-	MOVOU bswap_mask<>(SB), BSWAP
+	MOVOU ·bswap_mask(SB), BSWAP
 	MOVOU gcmPoly<>(SB), POLY
 
 	TESTQ autLen, autLen
@@ -527,14 +527,14 @@ TEXT ·gcmSm4Enc(SB),0,$256-96
 	CMPB ·useAVX(SB), $1
 	JE   avxGcmSm4Enc
 
-	MOVOU bswap_mask<>(SB), BSWAP
+	MOVOU ·bswap_mask(SB), BSWAP
 	MOVOU gcmPoly<>(SB), POLY
 
 	MOVOU (tPtr), ACC0
 	PXOR ACC1, ACC1
 	PXOR ACCM, ACCM
 	MOVOU (ctrPtr), T0
-	PSHUFB flip_mask<>(SB), T0
+	PSHUFB ·flip_mask(SB), T0
 	PEXTRD $3, T0, aluCTR
 
 	MOVOU T0, (8*16 + 0*16)(SP)
@@ -870,14 +870,14 @@ gcmSm4EncDone:
 	RET
 
 avxGcmSm4Enc:
-	VMOVDQU bswap_mask<>(SB), BSWAP
+	VMOVDQU ·bswap_mask(SB), BSWAP
 	VMOVDQU gcmPoly<>(SB), POLY
 
 	VMOVDQU (tPtr), ACC0
 	VPXOR ACC1, ACC1, ACC1
 	VPXOR ACCM, ACCM, ACCM
 	VMOVDQU (ctrPtr), T0
-	VPSHUFB flip_mask<>(SB), T0, T0
+	VPSHUFB ·flip_mask(SB), T0, T0
 	VPEXTRD $3, T0, aluCTR
 
 	VMOVDQU T0, (8*16 + 0*16)(SP)
@@ -1198,14 +1198,14 @@ avxGcmSm4EncDone:
 	RET
 
 avx2GcmSm4Enc:
-	VMOVDQU bswap_mask<>(SB), BSWAP
+	VMOVDQU ·bswap_mask(SB), BSWAP
 	VMOVDQU gcmPoly<>(SB), POLY
 
 	VMOVDQU (tPtr), ACC0
 	VPXOR ACC1, ACC1, ACC1
 	VPXOR ACCM, ACCM, ACCM
 	VMOVDQU (ctrPtr), T0
-	VPSHUFB flip_mask<>(SB), T0, T0
+	VPSHUFB ·flip_mask(SB), T0, T0
 	VPEXTRD $3, T0, aluCTR
 
 	VINSERTI128 $1, T0, Y11, Y11
@@ -1228,7 +1228,7 @@ avx2GcmSm4Enc:
 	increment(6)
 	increment(7)
 
-	VBROADCASTI128 bswap_mask<>(SB), DWBSWAP
+	VBROADCASTI128 ·bswap_mask(SB), DWBSWAP
 	// load 8 ctrs for encryption
 	VMOVDQU (4*32 + 0*32)(SP), DWB0
 	VMOVDQU (4*32 + 1*32)(SP), DWB1
@@ -1239,7 +1239,7 @@ avx2GcmSm4Enc:
 	// Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWORD, YDWORD)
 	
-	VBROADCASTI128 nibble_mask<>(SB), NIBBLE_MASK
+	VBROADCASTI128 ·nibble_mask(SB), NIBBLE_MASK
 	increment(1)
 	AVX2_SM4_8BLOCKS(rk, XDWORD, YDWORD, X1, X3, XDWTMP0, DWB0, DWB1, DWB2, DWB3)
 	increment(2)
@@ -1613,14 +1613,14 @@ TEXT ·gcmSm4Dec(SB),0,$128-96
 	CMPB ·useAVX(SB), $1
 	JE   avxGcmSm4Dec
 
-	MOVOU bswap_mask<>(SB), BSWAP
+	MOVOU ·bswap_mask(SB), BSWAP
 	MOVOU gcmPoly<>(SB), POLY
 
 	MOVOU (tPtr), ACC0
 	PXOR ACC1, ACC1
 	PXOR ACCM, ACCM
 	MOVOU (ctrPtr), T0
-	PSHUFB flip_mask<>(SB), T0
+	PSHUFB ·flip_mask(SB), T0
 	PEXTRD $3, T0, aluCTR
 
 	MOVOU T0, (0*16)(SP)
@@ -1841,14 +1841,14 @@ gcmSm4DecDone:
 	RET
 
 avxGcmSm4Dec:
-	VMOVDQU bswap_mask<>(SB), BSWAP
+	VMOVDQU ·bswap_mask(SB), BSWAP
 	VMOVDQU gcmPoly<>(SB), POLY
 
 	VMOVDQU (tPtr), ACC0
 	VPXOR ACC1, ACC1, ACC1
 	VPXOR ACCM, ACCM, ACCM
 	VMOVDQU (ctrPtr), T0
-	VPSHUFB flip_mask<>(SB), T0, T0
+	VPSHUFB ·flip_mask(SB), T0, T0
 	VPEXTRD $3, T0, aluCTR
 
 	VMOVDQU T0, (0*16)(SP)
@@ -2065,14 +2065,14 @@ avxGcmSm4DecDone:
 	RET
 
 avx2GcmSm4Dec:
-	VMOVDQU bswap_mask<>(SB), BSWAP
+	VMOVDQU ·bswap_mask(SB), BSWAP
 	VMOVDQU gcmPoly<>(SB), POLY
 
 	VMOVDQU (tPtr), ACC0
 	VPXOR ACC1, ACC1, ACC1
 	VPXOR ACCM, ACCM, ACCM
 	VMOVDQU (ctrPtr), T0
-	VPSHUFB flip_mask<>(SB), T0, T0
+	VPSHUFB ·flip_mask(SB), T0, T0
 	VPEXTRD $3, T0, aluCTR
 
 	VINSERTI128 $1, T0, Y11, Y11
@@ -2094,8 +2094,8 @@ avx2GcmSm4Dec:
 	increment(6)
 	increment(7)
 
-	VBROADCASTI128 bswap_mask<>(SB), DWBSWAP
-	VBROADCASTI128 nibble_mask<>(SB), NIBBLE_MASK
+	VBROADCASTI128 ·bswap_mask(SB), DWBSWAP
+	VBROADCASTI128 ·nibble_mask(SB), NIBBLE_MASK
 
 avx2GcmSm4DecOctetsLoop:
 		CMPQ ptxLen, $128

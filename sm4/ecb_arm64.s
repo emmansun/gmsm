@@ -8,21 +8,21 @@
 #define t1 V3
 #define t2 V4
 #define t3 V5
-#define ZERO V16
-#define NIBBLE_MASK V20
-#define INVERSE_SHIFT_ROWS V21
-#define M1L V22
-#define M1H V23 
-#define M2L V24 
-#define M2H V25
-#define R08_MASK V26 
-#define FK_MASK V27
 #define XTMP6 V6
 #define XTMP7 V7
 #define t4 V10
 #define t5 V11
 #define t6 V12
 #define t7 V13
+
+#define ZERO V16
+#define M1L V20
+#define M1H V21 
+#define M2L V22 
+#define M2H V23
+#define R08_MASK V24
+#define INVERSE_SHIFT_ROWS V25
+#define NIBBLE_MASK V26
 
 #include "aesni_macros_arm64.s"
 

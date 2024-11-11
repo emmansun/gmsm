@@ -28,7 +28,6 @@ DATA rcon<>+0x90(SB)/8, $0x00ff00ff00ff00ff // S1
 DATA rcon<>+0x98(SB)/8, $0x00ff00ff00ff00ff
 GLOBL rcon<>(SB), RODATA, $160
 
-
 #define M1L V20
 #define M1H V21
 #define M2L V22

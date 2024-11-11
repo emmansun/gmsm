@@ -13,6 +13,61 @@
 #define XTMP6 X10
 #define XTMP7 X11
 
+// shuffle byte order from LE to BE
+DATA ·flip_mask+0x00(SB)/8, $0x0405060700010203
+DATA ·flip_mask+0x08(SB)/8, $0x0c0d0e0f08090a0b
+GLOBL ·flip_mask(SB), RODATA, $16
+
+// shuffle byte and word order
+DATA ·bswap_mask+0x00(SB)/8, $0x08090a0b0c0d0e0f
+DATA ·bswap_mask+0x08(SB)/8, $0x0001020304050607
+GLOBL ·bswap_mask(SB), RODATA, $16
+
+//nibble mask
+DATA ·nibble_mask+0x00(SB)/8, $0x0F0F0F0F0F0F0F0F
+DATA ·nibble_mask+0x08(SB)/8, $0x0F0F0F0F0F0F0F0F
+GLOBL ·nibble_mask(SB), RODATA, $16
+
+// inverse shift rows
+DATA ·inverse_shift_rows+0x00(SB)/8, $0x0B0E0104070A0D00
+DATA ·inverse_shift_rows+0x08(SB)/8, $0x0306090C0F020508
+DATA ·inverse_shift_rows+0x10(SB)/8, $0x0B0E0104070A0D00
+DATA ·inverse_shift_rows+0x18(SB)/8, $0x0306090C0F020508
+GLOBL ·inverse_shift_rows(SB), RODATA, $32
+
+// Affine transform 1 (low and high nibbles)
+DATA ·m1_low+0x00(SB)/8, $0x0A7FC3B6D5A01C69
+DATA ·m1_low+0x08(SB)/8, $0x3045F98CEF9A2653
+DATA ·m1_low+0x10(SB)/8, $0x0A7FC3B6D5A01C69
+DATA ·m1_low+0x18(SB)/8, $0x3045F98CEF9A2653
+GLOBL ·m1_low(SB), RODATA, $32
+
+DATA ·m1_high+0x00(SB)/8, $0xC35BF46CAF379800
+DATA ·m1_high+0x08(SB)/8, $0x68F05FC7049C33AB
+DATA ·m1_high+0x10(SB)/8, $0xC35BF46CAF379800
+DATA ·m1_high+0x18(SB)/8, $0x68F05FC7049C33AB
+GLOBL ·m1_high(SB), RODATA, $32
+
+// Affine transform 2 (low and high nibbles)
+DATA ·m2_low+0x00(SB)/8, $0x9A950A05FEF16E61
+DATA ·m2_low+0x08(SB)/8, $0x0E019E916A65FAF5
+DATA ·m2_low+0x10(SB)/8, $0x9A950A05FEF16E61
+DATA ·m2_low+0x18(SB)/8, $0x0E019E916A65FAF5
+GLOBL ·m2_low(SB), RODATA, $32
+
+DATA ·m2_high+0x00(SB)/8, $0x892D69CD44E0A400
+DATA ·m2_high+0x08(SB)/8, $0x2C88CC68E14501A5
+DATA ·m2_high+0x10(SB)/8, $0x892D69CD44E0A400
+DATA ·m2_high+0x18(SB)/8, $0x2C88CC68E14501A5
+GLOBL ·m2_high(SB), RODATA, $32
+
+// left rotations of 32-bit words by 8-bit increments
+DATA ·r08_mask+0x00(SB)/8, $0x0605040702010003
+DATA ·r08_mask+0x08(SB)/8, $0x0E0D0C0F0A09080B
+DATA ·r08_mask+0x10(SB)/8, $0x0605040702010003
+DATA ·r08_mask+0x18(SB)/8, $0x0E0D0C0F0A09080B
+GLOBL ·r08_mask(SB), RODATA, $32
+
 #include "aesni_macros_amd64.s"
 
 // SM4 TAO L2 function, used for key expand
@@ -105,8 +160,8 @@ TEXT ·expandKeyAsm(SB),NOSPLIT,$0
 	MOVQ  dec+24(FP), DI
 
 	MOVUPS 0(AX), t0
-	PSHUFB flip_mask<>(SB), t0
-	PXOR fk_mask<>(SB), t0
+	PSHUFB ·flip_mask(SB), t0
+	PXOR ·fk(SB), t0
 	PSHUFD $1, t0, t1
 	PSHUFD $2, t0, t2
 	PSHUFD $3, t0, t3
@@ -225,7 +280,7 @@ avx_done_sm4:
 	RET
 
 avx2:
-	VBROADCASTI128 nibble_mask<>(SB), NIBBLE_MASK
+	VBROADCASTI128 ·nibble_mask(SB), NIBBLE_MASK
 	
 	CMPQ DI, $256
 	JEQ avx2_16blocks
@@ -235,7 +290,7 @@ avx2_8blocks:
 	VMOVDQU 32(DX), XDWORD1
 	VMOVDQU 64(DX), XDWORD2
 	VMOVDQU 96(DX), XDWORD3
-	VBROADCASTI128 flip_mask<>(SB), BYTE_FLIP_MASK
+	VBROADCASTI128 ·flip_mask(SB), BYTE_FLIP_MASK
 
 	// Apply Byte Flip Mask: LE -> BE
 	VPSHUFB BYTE_FLIP_MASK, XDWORD0, XDWORD0
@@ -251,7 +306,7 @@ avx2_8blocks:
 	// Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(XDWORD0, XDWORD1, XDWORD2, XDWORD3, XDWTMP1, XDWTMP2)
 
-	VBROADCASTI128 bswap_mask<>(SB), BYTE_FLIP_MASK
+	VBROADCASTI128 ·bswap_mask(SB), BYTE_FLIP_MASK
 	VPSHUFB BYTE_FLIP_MASK, XDWORD0, XDWORD0
 	VPSHUFB BYTE_FLIP_MASK, XDWORD1, XDWORD1
 	VPSHUFB BYTE_FLIP_MASK, XDWORD2, XDWORD2
@@ -275,7 +330,7 @@ avx2_16blocks:
 	VMOVDQU 192(DX), XDWORD6
 	VMOVDQU 224(DX), XDWORD7
 
-	VBROADCASTI128 flip_mask<>(SB), BYTE_FLIP_MASK
+	VBROADCASTI128 ·flip_mask(SB), BYTE_FLIP_MASK
 
 	// Apply Byte Flip Mask: LE -> BE
 	VPSHUFB BYTE_FLIP_MASK, XDWORD0, XDWORD0
@@ -297,7 +352,7 @@ avx2_16blocks:
 	TRANSPOSE_MATRIX(XDWORD0, XDWORD1, XDWORD2, XDWORD3, XDWTMP1, XDWTMP2)
 	TRANSPOSE_MATRIX(XDWORD4, XDWORD5, XDWORD6, XDWORD7, XDWTMP1, XDWTMP2)
 
-	VBROADCASTI128 bswap_mask<>(SB), BYTE_FLIP_MASK
+	VBROADCASTI128 ·bswap_mask(SB), BYTE_FLIP_MASK
 	VPSHUFB BYTE_FLIP_MASK, XDWORD0, XDWORD0
 	VPSHUFB BYTE_FLIP_MASK, XDWORD1, XDWORD1
 	VPSHUFB BYTE_FLIP_MASK, XDWORD2, XDWORD2
@@ -328,7 +383,7 @@ TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
 	MOVQ src+16(FP), DX
   
 	MOVUPS (DX), t0
-	PSHUFB flip_mask<>(SB), t0
+	PSHUFB ·flip_mask(SB), t0
 	PSHUFD $1, t0, t1
 	PSHUFD $2, t0, t2
 	PSHUFD $3, t0, t3
@@ -353,7 +408,7 @@ loop:
 	PUNPCKLLQ t2, t3
 	PUNPCKLLQ t0, t1
 	PUNPCKLQDQ t1, t3
-	PSHUFB flip_mask<>(SB), t3
+	PSHUFB ·flip_mask(SB), t3
 	MOVUPS t3, (BX)
 
 done_sm4:

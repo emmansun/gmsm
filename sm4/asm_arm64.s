@@ -20,9 +20,25 @@
 #define M2H V23
 #define R08_MASK V24
 #define INVERSE_SHIFT_ROWS V25
-#define NIBBLE_MASK V26
-#define FK_MASK V27
+#define FK_MASK V26
+#define NIBBLE_MASK V27
 #define ZERO V28
+
+DATA ·rcon+0x00(SB)/8, $0x0A7FC3B6D5A01C69 // m1l
+DATA ·rcon+0x08(SB)/8, $0x3045F98CEF9A2653
+DATA ·rcon+0x10(SB)/8, $0xC35BF46CAF379800 // m1h
+DATA ·rcon+0x18(SB)/8, $0x68F05FC7049C33AB
+DATA ·rcon+0x20(SB)/8, $0x9A950A05FEF16E61 // m2l
+DATA ·rcon+0x28(SB)/8, $0x0E019E916A65FAF5
+DATA ·rcon+0x30(SB)/8, $0x892D69CD44E0A400 // m2h
+DATA ·rcon+0x38(SB)/8, $0x2C88CC68E14501A5
+DATA ·rcon+0x40(SB)/8, $0x0605040702010003 // left rotations of 32-bit words by 8-bit increments
+DATA ·rcon+0x48(SB)/8, $0x0E0D0C0F0A09080B  
+DATA ·rcon+0x50(SB)/8, $0x0B0E0104070A0D00 // inverse shift rows
+DATA ·rcon+0x58(SB)/8, $0x0306090C0F020508 
+DATA ·rcon+0x60(SB)/8, $0x56aa3350a3b1bac6 // fk
+DATA ·rcon+0x68(SB)/8, $0xb27022dc677d9197
+GLOBL ·rcon(SB), RODATA, $112
 
 #include "aesni_macros_arm64.s"
 
@@ -49,14 +65,11 @@
 	MOVW.P R2, -4(R11)
 
 #define LOAD_SM4KEY_AESNI_CONSTS() \
-	MOVW $0x0F0F0F0F, R0                              \
-	VDUP R0, NIBBLE_MASK.S4                           \
-	MOVD $m1_2<>(SB), R0                              \
-	VLD1 (R0), [M1L.B16, M1H.B16, M2L.B16, M2H.B16]   \
-	MOVD $fk_mask<>(SB), R0                           \
-	VLD1 (R0), [FK_MASK.B16]                          \
-	MOVD $inverse_shift_rows<>(SB), R0                \
-	VLD1 (R0), [INVERSE_SHIFT_ROWS.B16]
+	MOVW $0x0F0F0F0F, R0                                 \
+	VDUP R0, NIBBLE_MASK.S4                              \
+	MOVD $·rcon(SB), R0                                  \
+	VLD1.P 64(R0), [M1L.B16, M1H.B16, M2L.B16, M2H.B16]  \
+	VLD1 (R0), [R08_MASK.B16, INVERSE_SHIFT_ROWS.B16, FK.B16]
 
 #define SM4EKEY_EXPORT_KEYS() \
 	VREV64	V8.S4, V11.S4                 \ 

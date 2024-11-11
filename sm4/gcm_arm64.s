@@ -29,13 +29,14 @@
 #define K1 V20
 #define K2 V21
 #define K3 V22
-#define NIBBLE_MASK V23
-#define INVERSE_SHIFT_ROWS V24
-#define M1L V25
-#define M1H V26 
-#define M2L V27 
-#define M2H V28
-#define R08_MASK V29 
+
+#define M1L V23
+#define M1H V24 
+#define M2L V25 
+#define M2H V26
+#define R08_MASK V27
+#define INVERSE_SHIFT_ROWS V28
+#define NIBBLE_MASK V29
 
 #define reduce() \
 	VEOR	ACC0.B16, ACCM.B16, ACCM.B16     \

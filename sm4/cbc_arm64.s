@@ -16,15 +16,15 @@
 #define t7 V13
 #define IV V18
 
+#define LAST_BLOCK V15
 #define ZERO V16
-#define NIBBLE_MASK V20
-#define INVERSE_SHIFT_ROWS V21
-#define M1L V22
-#define M1H V23 
-#define M2L V24 
-#define M2H V25
-#define R08_MASK V26 
-#define FK_MASK V27
+#define M1L V20
+#define M1H V21 
+#define M2L V22 
+#define M2H V23
+#define R08_MASK V24
+#define INVERSE_SHIFT_ROWS V25
+#define NIBBLE_MASK V26
 
 #include "aesni_macros_arm64.s"
 
@@ -49,7 +49,7 @@ TEXT ·decryptBlocksChain(SB),NOSPLIT,$0
 
 	ADD srcPtr, srcPtrLen, R10
 	SUB $16, R10, R10
-	VLD1 (R10), [V15.S4]
+	VLD1 (R10), [LAST_BLOCK.S4]
 
 cbcSm4Octets:
 	CMP	$128, srcPtrLen
@@ -293,5 +293,5 @@ cbc4BlocksLoop48:
 	VST1 [t0.S4, t1.S4, t2.S4], (dstPtr)
 
 cbcSm4Done:
-	VST1 [V15.S4], (R6)
+	VST1 [LAST_BLOCK.S4], (R6)
 	RET

@@ -1,62 +1,3 @@
-// shuffle byte order from LE to BE
-DATA flip_mask<>+0x00(SB)/8, $0x0405060700010203
-DATA flip_mask<>+0x08(SB)/8, $0x0c0d0e0f08090a0b
-GLOBL flip_mask<>(SB), 8, $16
-
-// shuffle byte and word order
-DATA bswap_mask<>+0x00(SB)/8, $0x08090a0b0c0d0e0f
-DATA bswap_mask<>+0x08(SB)/8, $0x0001020304050607
-GLOBL bswap_mask<>(SB), 8, $16
-
-//nibble mask
-DATA nibble_mask<>+0x00(SB)/8, $0x0F0F0F0F0F0F0F0F
-DATA nibble_mask<>+0x08(SB)/8, $0x0F0F0F0F0F0F0F0F
-GLOBL nibble_mask<>(SB), 8, $16
-
-// inverse shift rows
-DATA inverse_shift_rows<>+0x00(SB)/8, $0x0B0E0104070A0D00
-DATA inverse_shift_rows<>+0x08(SB)/8, $0x0306090C0F020508
-DATA inverse_shift_rows<>+0x10(SB)/8, $0x0B0E0104070A0D00
-DATA inverse_shift_rows<>+0x18(SB)/8, $0x0306090C0F020508
-GLOBL inverse_shift_rows<>(SB), 8, $32
-
-// Affine transform 1 (low and high nibbles)
-DATA m1_low<>+0x00(SB)/8, $0x0A7FC3B6D5A01C69
-DATA m1_low<>+0x08(SB)/8, $0x3045F98CEF9A2653
-DATA m1_low<>+0x10(SB)/8, $0x0A7FC3B6D5A01C69
-DATA m1_low<>+0x18(SB)/8, $0x3045F98CEF9A2653
-GLOBL m1_low<>(SB), 8, $32
-
-DATA m1_high<>+0x00(SB)/8, $0xC35BF46CAF379800
-DATA m1_high<>+0x08(SB)/8, $0x68F05FC7049C33AB
-DATA m1_high<>+0x10(SB)/8, $0xC35BF46CAF379800
-DATA m1_high<>+0x18(SB)/8, $0x68F05FC7049C33AB
-GLOBL m1_high<>(SB), 8, $32
-
-// Affine transform 2 (low and high nibbles)
-DATA m2_low<>+0x00(SB)/8, $0x9A950A05FEF16E61
-DATA m2_low<>+0x08(SB)/8, $0x0E019E916A65FAF5
-DATA m2_low<>+0x10(SB)/8, $0x9A950A05FEF16E61
-DATA m2_low<>+0x18(SB)/8, $0x0E019E916A65FAF5
-GLOBL m2_low<>(SB), 8, $32
-
-DATA m2_high<>+0x00(SB)/8, $0x892D69CD44E0A400
-DATA m2_high<>+0x08(SB)/8, $0x2C88CC68E14501A5
-DATA m2_high<>+0x10(SB)/8, $0x892D69CD44E0A400
-DATA m2_high<>+0x18(SB)/8, $0x2C88CC68E14501A5
-GLOBL m2_high<>(SB), 8, $32
-
-// left rotations of 32-bit words by 8-bit increments
-DATA r08_mask<>+0x00(SB)/8, $0x0605040702010003
-DATA r08_mask<>+0x08(SB)/8, $0x0E0D0C0F0A09080B
-DATA r08_mask<>+0x10(SB)/8, $0x0605040702010003
-DATA r08_mask<>+0x18(SB)/8, $0x0E0D0C0F0A09080B
-GLOBL r08_mask<>(SB), 8, $32
-
-DATA fk_mask<>+0x00(SB)/8, $0x56aa3350a3b1bac6
-DATA fk_mask<>+0x08(SB)/8, $0xb27022dc677d9197
-GLOBL fk_mask<>(SB), 8, $16
-
 // Transpose matrix with PUNPCKHDQ/PUNPCKLDQ/PUNPCKHQDQ/PUNPCKLQDQ instructions.
 // input: from high to low
 // r0 = [w3, w2, w1, w0]
@@ -110,26 +51,26 @@ GLOBL fk_mask<>(SB), 8, $16
 #define SM4_SBOX(x, y, z) \
 	;                                   \ //#############################  inner affine ############################//
 	MOVOU x, z;                         \
-	PAND nibble_mask<>(SB), z;          \ //y = _mm_and_si128(x, c0f); 
-	MOVOU m1_low<>(SB), y;              \
+	PAND ·nibble_mask(SB), z;           \ //y = _mm_and_si128(x, c0f); 
+	MOVOU ·m1_low(SB), y;               \
 	PSHUFB z, y;                        \ //y = _mm_shuffle_epi8(m1l, y);
 	PSRLQ $4, x;                        \ //x = _mm_srli_epi64(x, 4); 
-	PAND nibble_mask<>(SB), x;          \ //x = _mm_and_si128(x, c0f);
-	MOVOU m1_high<>(SB), z;             \
+	PAND ·nibble_mask(SB), x;           \ //x = _mm_and_si128(x, c0f);
+	MOVOU ·m1_high(SB), z;              \
 	PSHUFB x, z;                        \ //x = _mm_shuffle_epi8(m1h, x);
 	MOVOU  z, x;                        \ //x = _mm_shuffle_epi8(m1h, x);
 	PXOR y, x;                          \ //x = _mm_shuffle_epi8(m1h, x) ^ y;
 	;                                   \ // inverse ShiftRows
-	PSHUFB inverse_shift_rows<>(SB), x; \ //x = _mm_shuffle_epi8(x, shr); 
-	AESENCLAST nibble_mask<>(SB), x;    \ // AESNI instruction
+	PSHUFB ·inverse_shift_rows(SB), x;  \ //x = _mm_shuffle_epi8(x, shr); 
+	AESENCLAST ·nibble_mask(SB), x;     \ // AESNI instruction
 	;                                   \ //#############################  outer affine ############################//
 	MOVOU  x, z;                        \
-	PANDN nibble_mask<>(SB), z;         \ //z = _mm_andnot_si128(x, c0f);
-	MOVOU m2_low<>(SB), y;              \ 
+	PANDN ·nibble_mask(SB), z;          \ //z = _mm_andnot_si128(x, c0f);
+	MOVOU ·m2_low(SB), y;               \ 
 	PSHUFB z, y;                        \ //y = _mm_shuffle_epi8(m2l, z)
 	PSRLQ $4, x;                        \ //x = _mm_srli_epi64(x, 4);
-	PAND nibble_mask<>(SB), x;          \ //x = _mm_and_si128(x, c0f); 
-	MOVOU m2_high<>(SB), z;             \
+	PAND ·nibble_mask(SB), x;           \ //x = _mm_and_si128(x, c0f); 
+	MOVOU ·m2_high(SB), z;              \
 	PSHUFB x, z;                        \
 	MOVOU  z, x;                        \ //x = _mm_shuffle_epi8(m2h, x)
 	PXOR y, x                             //x = _mm_shuffle_epi8(m2h, x) ^ y; 
@@ -143,12 +84,12 @@ GLOBL fk_mask<>(SB), 8, $16
 	SM4_SBOX(x, y, z);                  \
 	;                                   \ //####################  4 parallel L1 linear transforms ##################//
 	MOVOU x, y;                         \
-	PSHUFB r08_mask<>(SB), y;           \ //y = x <<< 8
+	PSHUFB ·r08_mask(SB), y;            \ //y = x <<< 8
 	MOVOU y, z;                         \
-	PSHUFB r08_mask<>(SB), z;           \ //z = x <<< 16
+	PSHUFB ·r08_mask(SB), z;            \ //z = x <<< 16
 	PXOR x, y;                          \ //y = x ^ (x <<< 8)
 	PXOR z, y;                          \ //y = x ^ (x <<< 8) ^ (x <<< 16)
-	PSHUFB r08_mask<>(SB), z;           \ //z = x <<< 24
+	PSHUFB ·r08_mask(SB), z;            \ //z = x <<< 24
 	PXOR z, x;                          \ //x = x ^ (x <<< 24)
 	MOVOU y, z;                         \
 	PSLLL $2, z;                        \
@@ -214,7 +155,7 @@ GLOBL fk_mask<>(SB), 8, $16
 
 // Requires: SSSE3
 #define SM4_SINGLE_BLOCK(RK, rk128, x, y, z, t0, t1, t2, t3) \
-	PSHUFB flip_mask<>(SB), t0;                            \
+	PSHUFB ·flip_mask(SB), t0;                            \
 	PSHUFD $1, t0, t1;                                     \
 	PSHUFD $2, t0, t2;                                     \
 	PSHUFD $3, t0, t3;                                     \
@@ -238,13 +179,13 @@ GLOBL fk_mask<>(SB), 8, $16
 	PALIGNR $4, t3, t2;                                    \
 	PALIGNR $4, t2, t1;                                    \
 	PALIGNR $4, t1, t0;                                    \
-	PSHUFB flip_mask<>(SB), t0
+	PSHUFB ·flip_mask(SB), t0
 
 #define SM4_4BLOCKS(RK, rk128, x, y, z, t0, t1, t2, t3)  \ 
-	PSHUFB flip_mask<>(SB), t0; \
-	PSHUFB flip_mask<>(SB), t1; \
-	PSHUFB flip_mask<>(SB), t2; \
-	PSHUFB flip_mask<>(SB), t3; \
+	PSHUFB ·flip_mask(SB), t0; \
+	PSHUFB ·flip_mask(SB), t1; \
+	PSHUFB ·flip_mask(SB), t2; \
+	PSHUFB ·flip_mask(SB), t3; \
 	SM4_4BLOCKS_WO_BS(RK, rk128, x, y, z, t0, t1, t2, t3)
 
 #define SM4_4BLOCKS_WO_BS(RK, rk128, x, y, z, t0, t1, t2, t3)  \ 
@@ -266,10 +207,10 @@ GLOBL fk_mask<>(SB), 8, $16
 	MOVOU (7*16)(RK), rk128;                               \
 	SM4_4BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3);   \
 	SSE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y);            \
-	PSHUFB bswap_mask<>(SB), t3;                           \
-	PSHUFB bswap_mask<>(SB), t2;                           \
-	PSHUFB bswap_mask<>(SB), t1;                           \
-	PSHUFB bswap_mask<>(SB), t0
+	PSHUFB ·bswap_mask(SB), t3;                           \
+	PSHUFB ·bswap_mask(SB), t2;                           \
+	PSHUFB ·bswap_mask(SB), t1;                           \
+	PSHUFB ·bswap_mask(SB), t0
 
 #define SM4_8BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7) \
 	PSHUFD $0, rk128, x;                                   \
@@ -290,14 +231,14 @@ GLOBL fk_mask<>(SB), 8, $16
 	SM4_ONE_ROUND_SSE(x, y, z, t7, t4, t5, t6);            \
 
 #define SM4_8BLOCKS(RK, rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7)  \ 
-	PSHUFB flip_mask<>(SB), t0; \
-	PSHUFB flip_mask<>(SB), t1; \
-	PSHUFB flip_mask<>(SB), t2; \
-	PSHUFB flip_mask<>(SB), t3; \
-	PSHUFB flip_mask<>(SB), t4; \
-	PSHUFB flip_mask<>(SB), t5; \
-	PSHUFB flip_mask<>(SB), t6; \
-	PSHUFB flip_mask<>(SB), t7; \	
+	PSHUFB ·flip_mask(SB), t0; \
+	PSHUFB ·flip_mask(SB), t1; \
+	PSHUFB ·flip_mask(SB), t2; \
+	PSHUFB ·flip_mask(SB), t3; \
+	PSHUFB ·flip_mask(SB), t4; \
+	PSHUFB ·flip_mask(SB), t5; \
+	PSHUFB ·flip_mask(SB), t6; \
+	PSHUFB ·flip_mask(SB), t7; \	
 	SM4_8BLOCKS_WO_BS(RK, rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7)
 
 #define SM4_8BLOCKS_WO_BS(RK, rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7)  \ 
@@ -321,14 +262,14 @@ GLOBL fk_mask<>(SB), 8, $16
 	SM4_8BLOCKS_4ROUNDS(rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7);  \
 	SSE_TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y);                           \
 	SSE_TRANSPOSE_MATRIX(t4, t5, t6, t7, x, y);                           \
-	PSHUFB bswap_mask<>(SB), t3;                                          \
-	PSHUFB bswap_mask<>(SB), t2;                                          \
-	PSHUFB bswap_mask<>(SB), t1;                                          \
-	PSHUFB bswap_mask<>(SB), t0;                                          \
-	PSHUFB bswap_mask<>(SB), t7;                                          \
-	PSHUFB bswap_mask<>(SB), t6;                                          \
-	PSHUFB bswap_mask<>(SB), t5;                                          \
-	PSHUFB bswap_mask<>(SB), t4
+	PSHUFB ·bswap_mask(SB), t3;                                          \
+	PSHUFB ·bswap_mask(SB), t2;                                          \
+	PSHUFB ·bswap_mask(SB), t1;                                          \
+	PSHUFB ·bswap_mask(SB), t0;                                          \
+	PSHUFB ·bswap_mask(SB), t7;                                          \
+	PSHUFB ·bswap_mask(SB), t6;                                          \
+	PSHUFB ·bswap_mask(SB), t5;                                          \
+	PSHUFB ·bswap_mask(SB), t4
 
 // SM4 sbox function, AVX version
 // parameters:
@@ -336,22 +277,22 @@ GLOBL fk_mask<>(SB), 8, $16
 // -  y: 128 bits temp register
 // - tmp: 128 bits temp register
 #define AVX_SM4_SBOX(x, y, tmp) \
-	VPAND nibble_mask<>(SB), x, tmp;                   \
-	VMOVDQU m1_low<>(SB), y;                           \
+	VPAND ·nibble_mask(SB), x, tmp;                    \
+	VMOVDQU ·m1_low(SB), y;                            \
 	VPSHUFB tmp, y, y;                                 \
 	VPSRLQ $4, x, x;                                   \
-	VPAND nibble_mask<>(SB), x, x;                     \
-	VMOVDQU m1_high<>(SB), tmp;                        \
+	VPAND ·nibble_mask(SB), x, x;                      \
+	VMOVDQU ·m1_high(SB), tmp;                         \
 	VPSHUFB x, tmp, x;                                 \
 	VPXOR y, x, x;                                     \
-	VPSHUFB inverse_shift_rows<>(SB), x, x;            \
-	VAESENCLAST nibble_mask<>(SB), x, x;               \
-	VPANDN nibble_mask<>(SB), x, tmp;                  \
-	VMOVDQU m2_low<>(SB), y;                           \
+	VPSHUFB ·inverse_shift_rows(SB), x, x;             \
+	VAESENCLAST ·nibble_mask(SB), x, x;                \
+	VPANDN ·nibble_mask(SB), x, tmp;                   \
+	VMOVDQU ·m2_low(SB), y;                            \
 	VPSHUFB tmp, y, y;                                 \
 	VPSRLQ $4, x, x;                                   \
-	VPAND nibble_mask<>(SB), x, x;                     \
-	VMOVDQU m2_high<>(SB), tmp;                        \
+	VPAND ·nibble_mask(SB), x, x;                      \
+	VMOVDQU ·m2_high(SB), tmp;                         \
 	VPSHUFB x, tmp, x;                                 \
 	VPXOR y, x, x
 
@@ -362,11 +303,11 @@ GLOBL fk_mask<>(SB), 8, $16
 // - tmp: 128 bits temp register
 #define AVX_SM4_TAO_L1(x, y, tmp) \
 	AVX_SM4_SBOX(x, y, tmp);                \
-	VPSHUFB r08_mask<>(SB), x, y;           \ // y = x <<< 8
-	VPSHUFB r08_mask<>(SB), y, tmp;         \ // tmp = x <<< 16
+	VPSHUFB ·r08_mask(SB), x, y;            \ // y = x <<< 8
+	VPSHUFB ·r08_mask(SB), y, tmp;          \ // tmp = x <<< 16
 	VPXOR x, y, y;                          \ // y = x ^ (x <<< 8)
 	VPXOR tmp, y, y;                        \ // y = x ^ (x <<< 8) ^ (x <<< 16)
-	VPSHUFB r08_mask<>(SB), tmp, tmp;       \ // tmp = x <<< 24
+	VPSHUFB ·r08_mask(SB), tmp, tmp;        \ // tmp = x <<< 24
 	VPXOR x, tmp, x;                        \ // x = x ^ (x <<< 24)
 	VPSLLD $2, y, tmp;                      \
 	VPSRLD $30, y, y;                       \
@@ -429,10 +370,10 @@ GLOBL fk_mask<>(SB), 8, $16
 	SM4_ONE_ROUND_AVX(x, y, z, t3, t0, t1, t2);             \
 
 #define AVX_SM4_4BLOCKS(RK, rk128, x, y, z, t0, t1, t2, t3) \
-	VPSHUFB flip_mask<>(SB), t0, t0                           \
-	VPSHUFB flip_mask<>(SB), t1, t1                           \  
-	VPSHUFB flip_mask<>(SB), t2, t2                           \
-	VPSHUFB flip_mask<>(SB), t3, t3                           \
+	VPSHUFB ·flip_mask(SB), t0, t0                           \
+	VPSHUFB ·flip_mask(SB), t1, t1                           \  
+	VPSHUFB ·flip_mask(SB), t2, t2                           \
+	VPSHUFB ·flip_mask(SB), t3, t3                           \
 	; \
 	AVX_SM4_4BLOCKS_WO_BS(RK, rk128, x, y, z, t0, t1, t2, t3)
 
@@ -456,10 +397,10 @@ GLOBL fk_mask<>(SB), 8, $16
 	SM4_4BLOCKS_4ROUNDS_AVX(rk128, x, y, z, t0, t1, t2, t3);   \
 	; \ // Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y)                     \
-	VPSHUFB bswap_mask<>(SB), t0, t0                           \
-	VPSHUFB bswap_mask<>(SB), t1, t1                           \
-	VPSHUFB bswap_mask<>(SB), t2, t2                           \
-	VPSHUFB bswap_mask<>(SB), t3, t3                           \
+	VPSHUFB ·bswap_mask(SB), t0, t0                           \
+	VPSHUFB ·bswap_mask(SB), t1, t1                           \
+	VPSHUFB ·bswap_mask(SB), t2, t2                           \
+	VPSHUFB ·bswap_mask(SB), t3, t3                           \
 
 #define SM4_8BLOCKS_4ROUNDS_AVX(rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7) \
 	VPSHUFD $0, rk128, x;                                   \
@@ -480,14 +421,14 @@ GLOBL fk_mask<>(SB), 8, $16
 	SM4_ONE_ROUND_AVX(x, y, z, t7, t4, t5, t6);             \
 
 #define AVX_SM4_8BLOCKS(RK, rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7) \
-	VPSHUFB flip_mask<>(SB), t0, t0                              \
-	VPSHUFB flip_mask<>(SB), t1, t1                              \
-	VPSHUFB flip_mask<>(SB), t2, t2                              \
-	VPSHUFB flip_mask<>(SB), t3, t3                              \
-	VPSHUFB flip_mask<>(SB), t4, t4                              \
-	VPSHUFB flip_mask<>(SB), t5, t5                              \
-	VPSHUFB flip_mask<>(SB), t6, t6                              \
-	VPSHUFB flip_mask<>(SB), t7, t7                              \	
+	VPSHUFB ·flip_mask(SB), t0, t0                              \
+	VPSHUFB ·flip_mask(SB), t1, t1                              \
+	VPSHUFB ·flip_mask(SB), t2, t2                              \
+	VPSHUFB ·flip_mask(SB), t3, t3                              \
+	VPSHUFB ·flip_mask(SB), t4, t4                              \
+	VPSHUFB ·flip_mask(SB), t5, t5                              \
+	VPSHUFB ·flip_mask(SB), t6, t6                              \
+	VPSHUFB ·flip_mask(SB), t7, t7                              \	
 	; \
 	AVX_SM4_8BLOCKS_WO_BS(RK, rk128, x, y, z, t0, t1, t2, t3, t4, t5, t6, t7)
 
@@ -513,14 +454,14 @@ GLOBL fk_mask<>(SB), 8, $16
 	; \ // Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(t0, t1, t2, t3, x, y)                                   \
 	TRANSPOSE_MATRIX(t4, t5, t6, t7, x, y)                                   \
-	VPSHUFB bswap_mask<>(SB), t0, t0                                         \
-	VPSHUFB bswap_mask<>(SB), t1, t1                                         \
-	VPSHUFB bswap_mask<>(SB), t2, t2                                         \
-	VPSHUFB bswap_mask<>(SB), t3, t3                                         \
-	VPSHUFB bswap_mask<>(SB), t4, t4                                         \
-	VPSHUFB bswap_mask<>(SB), t5, t5                                         \
-	VPSHUFB bswap_mask<>(SB), t6, t6                                         \
-	VPSHUFB bswap_mask<>(SB), t7, t7                                         \
+	VPSHUFB ·bswap_mask(SB), t0, t0                                         \
+	VPSHUFB ·bswap_mask(SB), t1, t1                                         \
+	VPSHUFB ·bswap_mask(SB), t2, t2                                         \
+	VPSHUFB ·bswap_mask(SB), t3, t3                                         \
+	VPSHUFB ·bswap_mask(SB), t4, t4                                         \
+	VPSHUFB ·bswap_mask(SB), t5, t5                                         \
+	VPSHUFB ·bswap_mask(SB), t6, t6                                         \
+	VPSHUFB ·bswap_mask(SB), t7, t7                                         \
 
 // SM4 sbox function, AVX2 version
 // parameters:
@@ -533,24 +474,24 @@ GLOBL fk_mask<>(SB), 8, $16
 // - yNibbleMask: 256 bits register stored nibble mask, should be loaded earlier.
 #define AVX2_SM4_SBOX(x, y, z, xw, yw, xNibbleMask, yNibbleMask) \
 	VPAND yNibbleMask, x, z;                       \
-	VMOVDQU m1_low<>(SB), y;                       \
+	VMOVDQU ·m1_low(SB), y;                        \
 	VPSHUFB z, y, y;                               \
 	VPSRLQ $4, x, x;                               \
 	VPAND yNibbleMask, x, x;                       \
-	VMOVDQU m1_high<>(SB), z;                      \
+	VMOVDQU ·m1_high(SB), z;                       \
 	VPSHUFB x, z, x;                               \
 	VPXOR y, x, x;                                 \
-	VPSHUFB inverse_shift_rows<>(SB), x, x;        \
+	VPSHUFB ·inverse_shift_rows(SB), x, x;         \
 	VEXTRACTI128 $1, x, yw                         \
 	VAESENCLAST xNibbleMask, xw, xw;               \
 	VAESENCLAST xNibbleMask, yw, yw;               \
 	VINSERTI128 $1, yw, x, x;                      \
 	VPANDN yNibbleMask, x, z;                      \
-	VMOVDQU m2_low<>(SB), y;                       \
+	VMOVDQU ·m2_low(SB), y;                        \
 	VPSHUFB z, y, y;                               \
 	VPSRLQ $4, x, x;                               \
 	VPAND yNibbleMask, x, x;                       \
-	VMOVDQU m2_high<>(SB), z;                      \
+	VMOVDQU ·m2_high(SB), z;                       \
 	VPSHUFB x, z, x;                               \
 	VPXOR y, x, x
 
@@ -565,11 +506,11 @@ GLOBL fk_mask<>(SB), 8, $16
 // - yNibbleMask: 256 bits register stored nibble mask, should be loaded earlier.
 #define AVX2_SM4_TAO_L1(x, y, z, xw, yw, xNibbleMask, yNibbleMask) \
 	AVX2_SM4_SBOX(x, y, z, xw, yw, xNibbleMask, yNibbleMask);      \
-	VPSHUFB r08_mask<>(SB), x, y;            \ // y = x <<< 8
-	VPSHUFB r08_mask<>(SB), y, z;            \ // z = x <<< 16
+	VPSHUFB ·r08_mask(SB), x, y;             \ // y = x <<< 8
+	VPSHUFB ·r08_mask(SB), y, z;             \ // z = x <<< 16
 	VPXOR x, y, y;                           \ // y = x ^ (x <<< 8)
 	VPXOR z, y, y;                           \ // y = x ^ (x <<< 8) ^ (x <<< 16)
-	VPSHUFB r08_mask<>(SB), z, z;            \ // z = x <<< 24
+	VPSHUFB ·r08_mask(SB), z, z;             \ // z = x <<< 24
 	VPXOR x, z, x;                           \ // x = x ^ (x <<< 24)
 	VPSLLD $2, y, z;                         \
 	VPSRLD $30, y, y;                        \

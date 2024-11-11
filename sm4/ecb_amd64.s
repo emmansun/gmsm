@@ -219,9 +219,9 @@ avxEcbSm4Done:
 	RET
 
 avx2_start:
-	VBROADCASTI128 nibble_mask<>(SB), NIBBLE_MASK
-	VBROADCASTI128 flip_mask<>(SB), BYTE_FLIP_MASK
-	VBROADCASTI128 bswap_mask<>(SB), BSWAP_MASK
+	VBROADCASTI128 ·nibble_mask(SB), NIBBLE_MASK
+	VBROADCASTI128 ·flip_mask(SB), BYTE_FLIP_MASK
+	VBROADCASTI128 ·bswap_mask(SB), BSWAP_MASK
 
 avx2_16blocks:
 	CMPQ DI, $256
