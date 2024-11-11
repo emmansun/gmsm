@@ -18,7 +18,7 @@ func block256(m *ZUC256Mac, p []byte) {
 			case 16:
 				eia256RoundTag16(&m.t[0], &m.k0[0], &p[0])
 			default:
-				eia3Round16B(&m.t[0], &m.k0[0], &p[0], m.tagSize)
+				eiaRoundTag4(&m.t[0], &m.k0[0], &p[0])
 			}
 			p = p[chunk:]
 		}
