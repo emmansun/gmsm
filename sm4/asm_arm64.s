@@ -131,7 +131,7 @@ ksLoop:
 	RET 
 
 sm4ekey:
-	MOVD $fk_mask<>(SB), R0
+	MOVD $·rcon+0x60(SB), R0
 	VLD1 (R0), [FK_MASK.B16]
 	VLD1 (R8), [V9.B16]
 	VREV32 V9.B16, V9.B16
