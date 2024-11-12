@@ -15,10 +15,6 @@
 #define g V5
 #define d V6
 #define h V7
-#define M0 V8
-#define M1 V9
-#define M2 V10
-#define M3 V11
 #define TMP0 V12
 #define TMP1 V13
 #define TMP2 V14
@@ -32,22 +28,11 @@
 #define R_x08 R15
 #define R_x10 R16
 #define R_x18 R17
-#define R_x20 R18
-#define R_x30 R19
 #define R_TMP R19
 
 DATA ·mask+0x00(SB)/8, $0x0b0a09080f0e0d0c // byte swap per word
 DATA ·mask+0x08(SB)/8, $0x0302010007060504
-DATA ·mask+0x10(SB)/8, $0x0001020310111213 // Permute for transpose matrix
-DATA ·mask+0x18(SB)/8, $0x0405060714151617
-DATA ·mask+0x20(SB)/8, $0x08090a0b18191a1b
-DATA ·mask+0x28(SB)/8, $0x0c0d0e0f1c1d1e1f
-DATA ·mask+0x30(SB)/8, $0x0001020304050607
-DATA ·mask+0x38(SB)/8, $0x1011121314151617
-DATA ·mask+0x40(SB)/8, $0x08090a0b0c0d0e0f
-DATA ·mask+0x48(SB)/8, $0x18191a1b1c1d1e1f
-
-GLOBL ·mask(SB), RODATA, $80
+GLOBL ·mask(SB), RODATA, $16
 
 #ifdef GOARCH_ppc64le
 #define NEEDS_PERMW
@@ -93,14 +78,14 @@ GLOBL ·mask(SB), RODATA, $80
 	ADD $16, wordPtr
 
 #define TRANSPOSE_MATRIX(T0, T1, T2, T3) \
-	VPERM T0, T1, M0, TMP0; \
-	VPERM T2, T3, M0, TMP1; \
-	VPERM T0, T1, M1, TMP2; \
-	VPERM T2, T3, M1, TMP3; \
-	VPERM TMP0, TMP1, M2, T0; \
-	VPERM TMP0, TMP1, M3, T1; \
-	VPERM TMP2, TMP3, M2, T2; \
-	VPERM TMP2, TMP3, M3, T3
+	VMRGEW T0, T1, TMP0; \
+	VMRGEW T2, T3, TMP1; \
+	VMRGOW T0, T1, TMP2; \
+	VMRGOW T2, T3, TMP3; \
+	XXPERMDI TMP0, TMP1, $0, T0; \
+	XXPERMDI TMP0, TMP1, $3, T2; \
+	XXPERMDI TMP2, TMP3, $0, T1; \
+	XXPERMDI TMP2, TMP3, $3, T3
 
 // Load constant T, How to simlify it?
 // Solution 1: big constant table like sha256block_ppc64x.s
@@ -203,19 +188,10 @@ TEXT ·blockMultBy4(SB), NOSPLIT, $0
 	MOVD	$8, R_x08
 	MOVD 	$16, R_x10
 	MOVD 	$24, R_x18
-	MOVD 	$32, R_x20
-	MOVD 	$48, R_x30
 #ifdef NEEDS_PERMW
 	MOVD	$·mask(SB), R4
 	LVX	(R4), ESPERMW
-	ADD	$0x10, R4
-#else
-	MOVD	$·mask+0x10(SB), R4
 #endif
-	LXVD2X 	(R0)(R4), M0
-	LXVD2X 	(R_x10)(R4), M1
-	LXVD2X 	(R_x20)(R4), M2
-	LXVD2X 	(R_x30)(R4), M3	
 #define digPtr R11
 #define srcPtrPtr R5
 #define statePtr R4
