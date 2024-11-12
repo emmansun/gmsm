@@ -30,10 +30,6 @@
 #define R_x18 R17
 #define R_TMP R19
 
-DATA ·mask+0x00(SB)/8, $0x0b0a09080f0e0d0c // byte swap per word
-DATA ·mask+0x08(SB)/8, $0x0302010007060504
-GLOBL ·mask(SB), RODATA, $16
-
 #ifdef GOARCH_ppc64le
 #define NEEDS_PERMW
 
@@ -189,7 +185,7 @@ TEXT ·blockMultBy4(SB), NOSPLIT, $0
 	MOVD 	$16, R_x10
 	MOVD 	$24, R_x18
 #ifdef NEEDS_PERMW
-	MOVD	$·mask(SB), R4
+	MOVD	$·flip_mask(SB), R4
 	LVX	(R4), ESPERMW
 #endif
 #define digPtr R11

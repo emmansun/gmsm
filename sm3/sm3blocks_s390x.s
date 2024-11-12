@@ -6,16 +6,6 @@
 
 #include "textflag.h"
 
-DATA mask<>+0x00(SB)/8, $0x0001020310111213
-DATA mask<>+0x08(SB)/8, $0x0405060714151617
-DATA mask<>+0x10(SB)/8, $0x08090a0b18191a1b
-DATA mask<>+0x18(SB)/8, $0x0c0d0e0f1c1d1e1f
-DATA mask<>+0x20(SB)/8, $0x0001020304050607
-DATA mask<>+0x28(SB)/8, $0x1011121314151617
-DATA mask<>+0x30(SB)/8, $0x08090a0b0c0d0e0f
-DATA mask<>+0x38(SB)/8, $0x18191a1b1c1d1e1f
-GLOBL mask<>(SB), RODATA, $64
-
 #define a V0
 #define e V1
 #define b V2
@@ -24,10 +14,6 @@ GLOBL mask<>(SB), RODATA, $64
 #define g V5
 #define d V6
 #define h V7
-#define M0 V8
-#define M1 V9
-#define M2 V10
-#define M3 V11
 #define TMP0 V12
 #define TMP1 V13
 #define TMP2 V14
@@ -42,15 +28,15 @@ GLOBL mask<>(SB), RODATA, $64
 #define gSave V30
 #define hSave V31
 
-#define TRANSPOSE_MATRIX(T0, T1, T2, T3, M0, M1, M2, M3, TMP0, TMP1, TMP2, TMP3) \
-	VPERM T0, T1, M0, TMP0; \
-	VPERM T2, T3, M0, TMP1; \
-	VPERM T0, T1, M1, TMP2; \
-	VPERM T2, T3, M1, TMP3; \
+#define TRANSPOSE_MATRIX(T0, T1, T2, T3, TMP0, TMP1, TMP2, TMP3) \
+	VMRHF T0, T1, TMP0;     \
+	VMRHF T2, T3, TMP1;     \
+	VMRLF T0, T1, TMP2;     \
+	VMRLF T2, T3, TMP3;     \
 	VPDI $0x2, TMP0, TMP1, T0; \
-	VPERM TMP0, TMP1, M3, T1; \
-	VPERM TMP2, TMP3, M2, T2; \
-	VPERM TMP2, TMP3, M3, T3
+	VPDI $0x7, TMP0, TMP1, T1; \
+	VPDI $0x2, TMP2, TMP3, T2; \
+	VPDI $0x7, TMP2, TMP3, T3
 
 // r = s <<< n
 #define PROLD(s, r, n) \
@@ -65,7 +51,7 @@ GLOBL mask<>(SB), RODATA, $64
 	VL (srcPtr2)(srcPtrPtr*1), V17; \
 	VL (srcPtr3)(srcPtrPtr*1), V18; \
 	VL (srcPtr4)(srcPtrPtr*1), V19; \
-	TRANSPOSE_MATRIX(V16, V17, V18, V19, M0, M1, M2, M3, TMP0, TMP1, TMP2, TMP3); \
+	TRANSPOSE_MATRIX(V16, V17, V18, V19, TMP0, TMP1, TMP2, TMP3); \
 	VSTM V16, V19, (wordPtr); \
 	LAY 16(srcPtrPtr), srcPtrPtr; \
 	ADD $64, wordPtr
@@ -200,11 +186,8 @@ TEXT ·blockMultBy4(SB), NOSPLIT, $0
 	MOVD 24(digPtr), R4
 	VLM (R4), d, h
 
-	MOVD $mask<>+0x00(SB), R4
-	VLM (R4), M0, M3
-
-	TRANSPOSE_MATRIX(a, b, c, d, M0, M1, M2, M3, TMP0, TMP1, TMP2, TMP3)
-	TRANSPOSE_MATRIX(e, f, g, h, M0, M1, M2, M3, TMP0, TMP1, TMP2, TMP3)
+	TRANSPOSE_MATRIX(a, b, c, d, TMP0, TMP1, TMP2, TMP3)
+	TRANSPOSE_MATRIX(e, f, g, h, TMP0, TMP1, TMP2, TMP3)
 
 	MOVD (srcPtrPtr), srcPtr1
 	MOVD 8(srcPtrPtr), srcPtr2
@@ -313,8 +296,8 @@ loop:
 	SUB $1, blockCount
 	CMPBGT blockCount, $0, loop
 
-	TRANSPOSE_MATRIX(a, b, c, d, M0, M1, M2, M3, TMP0, TMP1, TMP2, TMP3)
-	TRANSPOSE_MATRIX(e, f, g, h, M0, M1, M2, M3, TMP0, TMP1, TMP2, TMP3)
+	TRANSPOSE_MATRIX(a, b, c, d, TMP0, TMP1, TMP2, TMP3)
+	TRANSPOSE_MATRIX(e, f, g, h, TMP0, TMP1, TMP2, TMP3)
 
 	MOVD 	0(digPtr), R4
 	VSTM a, e, (R4)
