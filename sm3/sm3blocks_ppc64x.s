@@ -352,7 +352,7 @@ TEXT ·copyResultsBy4(SB),NOSPLIT,$0
 	MOVD	dst+8(FP), R4
 
 #ifdef NEEDS_PERMW	
-	MOVD	$·mask+0x00(SB), R5
+	MOVD	$·flip_mask(SB), R5
 	LVX	(R5), ESPERMW
 #endif
 	MOVD	$16, R5
