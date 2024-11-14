@@ -3,12 +3,12 @@
 
 #include "textflag.h"
 
-// func blockSM3NI(h []uint32, p []byte, t []uint32)
+// func blockSM3NI(h []uint32, p []byte, t *uint32)
 TEXT ·blockSM3NI(SB), 0, $0
 	MOVD	h_base+0(FP), R0                           // Hash value first address
 	MOVD	p_base+24(FP), R1                          // message first address
 	MOVD	p_len+32(FP), R3                           // message length
-	MOVD	t_base+48(FP), R2                          // t constants first address
+	MOVD	t+48(FP), R2                               // t constants first address
 
 	VLD1 (R0), [V8.S4, V9.S4]                          // load h(a,b,c,d,e,f,g,h)
 	VREV64  V8.S4, V8.S4
