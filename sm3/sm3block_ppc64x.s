@@ -59,6 +59,9 @@
 #define XTMP4 V8
 
 #define XFER  V9
+#define V_x07 V10
+#define V_x08 V11
+#define V_x0F V12
 
 // For instruction emulation
 #define ESPERMW  V31 // Endian swapping permute into BE
@@ -143,29 +146,29 @@ GLOBL ·flip_mask(SB), RODATA, $16
 
 #define MESSAGE_SCHEDULE(XWORD0, XWORD1, XWORD2, XWORD3) \
 	VSLDOI $12, XWORD0, XWORD1, XTMP0; \ // XTMP0 = W[-13] = {w3, w4, w5, w6}
-	PROLD(XTMP0, XTMP1, 7);            \ // XTMP1 = W[-13] rol 7
+	VRLW XTMP0, V_x07, XTMP1;          \ // XTMP1 = W[-13] rol 7
 	VSLDOI $8, XWORD2, XWORD3, XTMP0;  \ // XTMP0 = W[-6] = {w10, w11, w12, w13}
 	VXOR XTMP0, XTMP1, XTMP0;          \ // XTMP0 = W[-6] xor (W[-13] rol 7)
 	; \ // Prepare P1 parameters
 	VSLDOI $12, XWORD1, XWORD2, XTMP1; \ // XTMP1 = W[-9] = {w7, w8, w9, w10}
 	VXOR XTMP1, XWORD0, XTMP1;         \ // XTMP1 = W[-9] xor W[-16]
 	VSLDOI $4, XWORD3, XWORD2, XTMP3;  \ // XTMP3 = W[-3] = {w13, w14, w15, w8}
-	PROLD(XTMP3, XTMP2, 15);           \ // XTMP2 = W[-3] rol 15
+	VRLW XTMP3, V_x0F, XTMP2;          \ // XTMP2 = W[-3] rol 15
 	VXOR XTMP1, XTMP2, XTMP2;          \ // XTMP2 = W[-9] ^ W[-16] ^ (W[-3] rol 15) {ABxx}
 	; \ // P1
-	PROLD(XTMP2, XTMP4, 15);           \ // XTMP4 =  = XTMP2 rol 15 {ABxx}
-	PROLD(XTMP4, XTMP3, 8);            \ // XTMP3 = XTMP2 rol 23 {ABxx}
+	VRLW XTMP2, V_x0F, XTMP4;          \ // XTMP4 = XTMP2 rol 15 {ABxx}
+	VRLW XTMP4, V_x08, XTMP3;          \ // XTMP3 = XTMP4 rol 8 {ABxx} = XTMP2 rol 23 {ABxx}
 	VXOR XTMP2, XTMP4, XTMP4;          \ // XTMP4 = XTMP2 XOR (XTMP2 rol 15 {ABxx})
 	VXOR XTMP4, XTMP3, XTMP4;          \ // XTMP4 = XTMP2 XOR (XTMP2 rol 15 {ABxx}) XOR (XTMP2 rol 23 {ABxx})
 	; \ // First 2 words message schedule result
 	VXOR XTMP4, XTMP0, XTMP2;          \ // XTMP2 = {w[0], w[1], ..., ...}
 	; \ // Prepare P1 parameters
 	VSLDOI $4, XWORD3, XTMP2, XTMP3;   \ // XTMP3 = W[-3] = {w13, w14, w15, w0}
-	PROLD(XTMP3, XTMP4, 15);           \ // XTMP4 = W[-3] rol 15
+	VRLW XTMP3, V_x0F, XTMP4;          \ // XTMP4 = W[-3] rol 15
 	VXOR XTMP1, XTMP4, XTMP4;		   \ // XTMP4 = W[-9] ^ W[-16] ^ (W[-3] rol 15) {ABCD}
 	; \ // P1
-	PROLD(XTMP4, XTMP3, 15);           \ // XTMP3 =  = XTMP4 rol 15 {ABCD}
-	PROLD(XTMP3, XTMP1, 8);            \ // XTMP1 = XTMP4 rol 23 {ABCD}
+	VRLW XTMP4, V_x0F, XTMP3;          \ // XTMP3 = XTMP4 rol 15 {ABCD}
+	VRLW XTMP3, V_x08, XTMP1;          \ // XTMP1 = XTMP4 rol 8 {ABCD} = XTMP4 rol 23 {ABCD}
 	VXOR XTMP4, XTMP3, XTMP3;          \ // XTMP3 = XTMP4 XOR (XTMP4 rol 15 {ABCD})
 	VXOR XTMP3, XTMP1, XTMP1;          \ // XTMP1 = XTMP4 XOR (XTMP4 rol 15 {ABCD}) XOR (XTMP4 rol 23 {ABCD})
 	; \ // 4 words message schedule result
@@ -201,6 +204,10 @@ TEXT ·blockASM(SB), NOSPLIT, $0
 	MOVWZ 20(CTX), f
 	MOVWZ 24(CTX), g
 	MOVWZ 28(CTX), h
+
+	VSPLTISW $7, V_x07
+	VSPLTISW $8, V_x08
+	VSPLTISW $15, V_x0F
 
 loop:
 	PPC64X_LXVW4X(INP, R_x000, XWORD0)

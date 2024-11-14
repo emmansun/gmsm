@@ -14,16 +14,30 @@
 #define g V5
 #define d V6
 #define h V7
+
 #define T0 V8
 #define T1 V9
 #define T2 V10
 #define ONE V11
+
 #define TMP0 V12
 #define TMP1 V13
 #define TMP2 V14
 #define TMP3 V15
 #define TMP4 V16
 #define TMP5 V17
+
+#define DATA0 V16
+#define DATA1 V17
+#define DATA2 V18
+#define DATA3 V19
+
+#define V_x07 V20
+#define V_x08 V21
+#define V_x09 V22
+#define V_x0C V23
+#define V_x13 V24
+#define V_x0F V25
 
 // For instruction emulation
 #define ESPERMW  V31 // Endian swapping permute into BE
@@ -67,19 +81,19 @@ GLOBL t_const<>(SB), RODATA, $32
 
 // one word is 16 bytes
 #define prepare4Words \
-	PPC64X_LXVW4X(srcPtr1, srcPtrPtr, V16); \
-	PPC64X_LXVW4X(srcPtr2, srcPtrPtr, V17); \
-	PPC64X_LXVW4X(srcPtr3, srcPtrPtr, V18); \
-	PPC64X_LXVW4X(srcPtr4, srcPtrPtr, V19); \
-	TRANSPOSE_MATRIX(V16, V17, V18, V19); \
-	ADD $16, srcPtrPtr;     \
-	STXVW4X V16, (wordPtr); \
-	ADD $16, wordPtr;       \
-	STXVW4X V17, (wordPtr); \
-	ADD $16, wordPtr;       \
-	STXVW4X V18, (wordPtr); \
-	ADD $16, wordPtr;       \
-	STXVW4X V19, (wordPtr); \
+	PPC64X_LXVW4X(srcPtr1, srcPtrPtr, DATA0);    \
+	PPC64X_LXVW4X(srcPtr2, srcPtrPtr, DATA1);    \
+	PPC64X_LXVW4X(srcPtr3, srcPtrPtr, DATA2);    \
+	PPC64X_LXVW4X(srcPtr4, srcPtrPtr, DATA3);    \
+	TRANSPOSE_MATRIX(DATA0, DATA1, DATA2, DATA3);\
+	ADD $16, srcPtrPtr;                          \
+	STXVW4X DATA0, (wordPtr);                    \
+	ADD $16, wordPtr;                            \
+	STXVW4X DATA1, (wordPtr);                    \
+	ADD $16, wordPtr;                            \
+	STXVW4X DATA2, (wordPtr);                    \
+	ADD $16, wordPtr;                            \
+	STXVW4X DATA3, (wordPtr);                    \
 	ADD $16, wordPtr
 
 #define TRANSPOSE_MATRIX(T0, T1, T2, T3) \
@@ -93,12 +107,12 @@ GLOBL t_const<>(SB), RODATA, $32
 	XXPERMDI TMP2, TMP3, $3, T3
 
 #define ROUND_00_11(index, T, a, b, c, d, e, f, g, h) \
-	PROLD(a, TMP0, 12)               \
+	VRLW a, V_x0C, TMP0              \
 	VOR TMP0, TMP0, TMP1             \
 	VADDUWM T, TMP0, TMP0            \
 	VRLW T, ONE, T                   \
 	VADDUWM e, TMP0, TMP0            \
-	PROLD(TMP0, TMP2, 7)             \ // TMP2 = SS1
+	VRLW TMP0, V_x07, TMP2           \ // TMP2 = SS1
 	VXOR TMP2, TMP1, TMP0            \ // TMP0 = SS2
 	VXOR a, b, TMP1                  \
 	VXOR c, TMP1, TMP1               \
@@ -114,27 +128,27 @@ GLOBL t_const<>(SB), RODATA, $32
 	VXOR g, TMP4, TMP4               \
 	VADDUWM TMP4, TMP3, TMP3         \ // TT2 = (e XOR f XOR g) + Wt + h + SS1
 	VOR b, b, TMP4                   \
-	PROLD(TMP4, b, 9)                \ // b = b <<< 9
+	VRLW TMP4, V_x09, b              \ // b = b <<< 9
 	VOR TMP1, TMP1, h                \ // h = TT1
-	PROLD(f, f, 19)                  \ // f = f <<< 19
-	PROLD(TMP3, TMP4, 9)             \ // TMP4 = TT2 <<< 9
-	PROLD(TMP4, TMP0, 8)             \ // TMP0 = TT2 <<< 17
+	VRLW f, V_x13, f                 \ // f = f <<< 19
+	VRLW TMP3, V_x09, TMP4           \ // TMP4 = TT2 <<< 9
+	VRLW TMP4, V_x08, TMP0           \ // TMP0 = TT2 <<< 17
 	VXOR TMP3, TMP4, TMP4            \ // TMP4 = TT2 XOR (TT2 <<< 9)
 	VXOR TMP4, TMP0, d               \ // d = TT2 XOR (TT2 <<< 9) XOR (TT2 <<< 17)
 
 #define MESSAGE_SCHEDULE(index) \
 	loadWordByIndex(TMP0, index+1)    \ // Wj-3
-	PROLD(TMP0, TMP1, 15)             \
+	VRLW TMP0, V_x0F, TMP1            \
 	loadWordByIndex(TMP0, index-12)   \ // Wj-16
 	VXOR TMP0, TMP1, TMP0             \
 	loadWordByIndex(TMP1, index-5)    \ // Wj-9
 	VXOR TMP0, TMP1, TMP0             \
-	PROLD(TMP0, TMP1, 15)             \
-	PROLD(TMP1, TMP2, 8)              \
+	VRLW TMP0, V_x0F, TMP1            \
+	VRLW TMP1, V_x08, TMP2            \
 	VXOR TMP1, TMP0, TMP0             \
 	VXOR TMP2, TMP0, TMP0             \ // P1
 	loadWordByIndex(TMP1, index-9)    \ // Wj-13
-	PROLD(TMP1, TMP2, 7)              \
+	VRLW TMP1, V_x07, TMP2            \
 	VXOR TMP2, TMP0, TMP0             \
 	loadWordByIndex(TMP1, index-2)    \ // Wj-6
 	VXOR TMP1, TMP0, TMP1             \
@@ -147,12 +161,12 @@ GLOBL t_const<>(SB), RODATA, $32
 
 #define ROUND_16_63(index, T, a, b, c, d, e, f, g, h) \
 	MESSAGE_SCHEDULE(index)          \ // TMP1 is Wt+4 now, Pls do not use it
-	PROLD(a, TMP0, 12)               \
+	VRLW a, V_x0C, TMP0              \
 	VOR TMP0, TMP0, TMP4             \
 	VADDUWM T, TMP0, TMP0            \
 	VRLW T, ONE, T                   \
 	VADDUWM e, TMP0, TMP0            \
-	PROLD(TMP0, TMP2, 7)             \ // TMP2 = SS1
+	VRLW TMP0, V_x07, TMP2           \ // TMP2 = SS1
 	VXOR TMP2, TMP4, TMP0            \ // TMP0 = SS2
 	VOR a, b, TMP3                   \
 	VAND a, b, TMP4                  \
@@ -170,11 +184,11 @@ GLOBL t_const<>(SB), RODATA, $32
 	VXOR g, TMP1, TMP1               \ // (f XOR g) AND e XOR g
 	VADDUWM TMP3, TMP1, TMP3         \ // TT2
 	VOR b, b, TMP1                   \
-	PROLD(TMP1, b, 9)                \ // b = b <<< 9
+	VRLW TMP1, V_x09, b              \ // b = b <<< 9
 	VOR TMP4, TMP4, h                \ // h = TT1
-	PROLD(f, f, 19)                  \ // f = f <<< 19
-	PROLD(TMP3, TMP1, 9)             \ // TMP1 = TT2 <<< 9
-	PROLD(TMP1, TMP0, 8)             \ // TMP0 = TT2 <<< 17
+	VRLW f, V_x13, f                 \ // f = f <<< 19
+	VRLW TMP3, V_x09, TMP1           \ // TMP1 = TT2 <<< 9
+	VRLW TMP1, V_x08, TMP0           \ // TMP0 = TT2 <<< 17
 	VXOR TMP3, TMP1, TMP1            \ // TMP1 = TT2 XOR (TT2 <<< 9)
 	VXOR TMP1, TMP0, d               \ // d = TT2 XOR (TT2 <<< 9) XOR (TT2 <<< 17)
 
@@ -189,6 +203,12 @@ TEXT ·blockMultBy4(SB), NOSPLIT, $0
 	LVX	(R4), ESPERMW
 #endif
 	VSPLTISW $1, ONE
+	VSPLTISW $7, V_x07
+	VSPLTISW $8, V_x08
+	VSPLTISW $9, V_x09
+	VSPLTISW $12, V_x0C
+	VSPLTISW $15, V_x0F
+	VSPLTISW $19, V_x13
 	MOVD $t_const<>(SB), R4
 	LXVD2X (R0)(R4), T0
 	LXVD2X (R_x10)(R4), T1
