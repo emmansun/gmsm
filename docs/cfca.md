@@ -56,7 +56,8 @@ SADK 3.2之后的版本，支持下列SM2密文格式(encryptedType)：
 ### SM2数字信封加解密
 互操作性问题主要出在：
 1. 数据对称加密所用密钥的SM2密文格式。
-2. 对称加密算法的OID。```public static final ASN1ObjectIdentifier id_sm4_CBC = new ASN1ObjectIdentifier("1.2.156.10197.1.104");```
+2. 对称加密算法的OID。```public static final ASN1ObjectIdentifier id_sm4_CBC = new ASN1ObjectIdentifier("1.2.156.10197.1.104");```。
+3. 如果需要用本软件库去解密CFCA生成的SM2数字信封，目前会有问题。CFCA实现不符合《GB/T 35275-2017：信息安全技术 SM2密码算法加密签名消息语法规范》，它的**RecipientInfo**默认使用SubjectKeyIdentifier而不是IssuerAndSerialNumber。在SADK 3.7.1.0中，需要指定recipientPolicyType=2（0：从证书扩展中获取SubjectKeyID，找不到抛异常；1：根据公钥数据直接计算SubjectKeyID；2：使用证书的IssuerAndSerialNumber）才会使用IssuerAndSerialNumber。正常情况下，只有CA证书才一定会在证书扩展中有SubjectKeyID信息。
 
 #### SADK 3.2之前版本
 1. 数据对称加密密钥的密文格式为**C1C2C3 格式，不带0x04这个点非压缩标识**。这个不符合《GM/T 0010-2012 SM2密码算法加密签名消息语法规范》以及《GB/T 35275-2017 信息安全技术 SM2密码算法加密签名消息语法规范》。

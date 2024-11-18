@@ -241,6 +241,7 @@ SM4分组密码算法的软件高效实现，不算CPU指令支持的话，已�
 * S盒和L转换预计算，本软件库纯Go语言实现采用该方法
 * SIMD并行处理：并行查表
 * SIMD并行处理：借助CPU的AES指令，本软件库采用该方法
+* SIMD并行处理：借助CPU的GFNI指令，部分新AMD64 CPU架构支持该指令，本软件库尚未实现[SM4 with GFNI](https://github.com/emmansun/gmsm/wiki/SM4-with-GFNI)
 * SIMD并行处理：位切片(bitslicing)，[参考实现](https://github.com/emmansun/sm4bs)
 
 当然，这些与有CPU指令支持的AES算法相比，性能差距依然偏大，要是工作模式不支持并行，差距就更巨大了。
