@@ -262,7 +262,7 @@ func (raw rawCertificates) Parse() ([]*smx509.Certificate, error) {
 }
 
 func isCertMatchForIssuerAndSerial(cert *smx509.Certificate, ias issuerAndSerial) bool {
-	return cert.SerialNumber.Cmp(ias.SerialNumber) == 0 && bytes.Equal(cert.RawIssuer, ias.IssuerName.FullBytes)
+	return ias.SerialNumber != nil && cert.SerialNumber.Cmp(ias.SerialNumber) == 0 && bytes.Equal(cert.RawIssuer, ias.IssuerName.FullBytes)
 }
 
 // Attribute represents a key value pair attribute. Value must be marshalable byte

@@ -112,7 +112,7 @@ func TestSignSM(t *testing.T) {
 
 func ExampleSignedData() {
 	// generate a signing cert or load a key pair
-	cert, err := createTestCertificate(x509.SHA256WithRSA)
+	cert, err := createTestCertificate(x509.SHA256WithRSA, false)
 	if err != nil {
 		fmt.Printf("Cannot create test certificates: %s", err)
 	}
@@ -141,7 +141,7 @@ func ExampleSignedData() {
 }
 
 func TestUnmarshalSignedAttribute(t *testing.T) {
-	cert, err := createTestCertificate(x509.SHA512WithRSA)
+	cert, err := createTestCertificate(x509.SHA512WithRSA, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -180,7 +180,7 @@ func TestUnmarshalSignedAttribute(t *testing.T) {
 }
 
 func TestSkipCertificates(t *testing.T) {
-	cert, err := createTestCertificate(x509.SHA512WithRSA)
+	cert, err := createTestCertificate(x509.SHA512WithRSA, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,7 +234,7 @@ func TestSkipCertificates(t *testing.T) {
 }
 
 func TestDegenerateCertificate(t *testing.T) {
-	cert, err := createTestCertificate(x509.SHA1WithRSA)
+	cert, err := createTestCertificate(x509.SHA1WithRSA, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,7 +298,7 @@ func TestSignWithoutAttr(t *testing.T) {
 		},
 	}
 	for _, sigalg := range sigalgs {
-		cert, err := createTestCertificate(sigalg.sigAlg)
+		cert, err := createTestCertificate(sigalg.sigAlg, false)
 		if err != nil {
 			t.Fatal(err)
 		}

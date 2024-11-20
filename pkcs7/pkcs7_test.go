@@ -86,12 +86,12 @@ type certKeyPair struct {
 	PrivateKey  *crypto.PrivateKey
 }
 
-func createTestCertificate(sigAlg x509.SignatureAlgorithm) (certKeyPair, error) {
+func createTestCertificate(sigAlg x509.SignatureAlgorithm, allCA bool) (certKeyPair, error) {
 	signer, err := createTestCertificateByIssuer("Eddard Stark", nil, sigAlg, true)
 	if err != nil {
 		return certKeyPair{}, err
 	}
-	pair, err := createTestCertificateByIssuer("Jon Snow", signer, sigAlg, false)
+	pair, err := createTestCertificateByIssuer("Jon Snow", signer, sigAlg, allCA)
 	if err != nil {
 		return certKeyPair{}, err
 	}

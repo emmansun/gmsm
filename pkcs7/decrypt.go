@@ -15,8 +15,15 @@ import (
 
 // IssuerAndSerial is a structure that holds the issuer name and serial number
 type IssuerAndSerial struct {
-	RawIssuer   []byte
+	RawIssuer    []byte
 	SerialNumber *big.Int
+}
+
+// RecipientInfo is a structure that holds the recipient information
+// supports IssuerAndSerial and SubjectKeyIdentifier.
+type RecipientInfo struct {
+	IssuerAndSerial
+	SubjectKeyIdentifier []byte
 }
 
 func newIssuerAndSerial(issuerAndSerial issuerAndSerial) IssuerAndSerial {
@@ -31,6 +38,17 @@ func newIssuerAndSerial(issuerAndSerial issuerAndSerial) IssuerAndSerial {
 	return is
 }
 
+func newRecipientInfo(recipientInfo recipientInfo) RecipientInfo {
+	ri := RecipientInfo{
+		IssuerAndSerial: newIssuerAndSerial(recipientInfo.IssuerAndSerialNumber),
+	}
+	if len(recipientInfo.SubjectKeyIdentifier.Bytes) > 0 {
+		ri.SubjectKeyIdentifier = append(ri.SubjectKeyIdentifier, recipientInfo.SubjectKeyIdentifier.Bytes...)
+	}
+
+	return ri
+}
+
 // ErrUnsupportedAlgorithm tells you when our quick dev assumptions have failed
 var ErrUnsupportedAlgorithm = errors.New("pkcs7: cannot decrypt data: only RSA, SM2, DES, DES-EDE3, AES and SM4 supported")
 
@@ -42,12 +60,12 @@ var ErrNotEnvelopedData = errors.New("pkcs7: content data is NOT an enveloped da
 
 type decryptable interface {
 	GetRecipient(cert *smx509.Certificate) *recipientInfo
-	GetRecipients() ([]IssuerAndSerial, error)
+	GetRecipients() ([]RecipientInfo, error)
 	GetEncryptedContentInfo() *encryptedContentInfo
 }
 
 // GetRecipients returns the list of recipients for the enveloped data
-func (p7 *PKCS7) GetRecipients() ([]IssuerAndSerial, error) {
+func (p7 *PKCS7) GetRecipients() ([]RecipientInfo, error) {
 	decryptableData, ok := p7.raw.(decryptable)
 	if !ok {
 		return nil, ErrNotEnvelopedData

@@ -35,10 +35,10 @@ func (data signedEnvelopedData) GetRecipient(cert *smx509.Certificate) *recipien
 }
 
 // GetRecipients returns the list of recipients (READONLY) for the enveloped data
-func (data signedEnvelopedData) GetRecipients() ([]IssuerAndSerial, error) {
-	var recipients []IssuerAndSerial
+func (data signedEnvelopedData) GetRecipients() ([]RecipientInfo, error) {
+	var recipients []RecipientInfo
 	for _, recp := range data.RecipientInfos {
-		recipients = append(recipients, newIssuerAndSerial(recp.IssuerAndSerialNumber))
+		recipients = append(recipients, newRecipientInfo(recp))
 	}
 	return recipients, nil
 }
