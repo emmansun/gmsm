@@ -58,6 +58,14 @@ func TestXorBytesPanic(t *testing.T) {
 	mustPanic(t, "subtle.XORBytes: dst too short", func() {
 		subtle.XORBytes(make([]byte, 1), make([]byte, 2), make([]byte, 3))
 	})
+	mustPanic(t, "subtle.XORBytes: invalid overlap", func() {
+		x := make([]byte, 3)
+		subtle.XORBytes(x, x[1:], make([]byte, 2))
+	})
+	mustPanic(t, "subtle.XORBytes: invalid overlap", func() {
+		x := make([]byte, 3)
+		subtle.XORBytes(x, make([]byte, 2), x[1:])
+	})
 }
 
 func BenchmarkXORBytes(b *testing.B) {
