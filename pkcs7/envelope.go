@@ -272,8 +272,7 @@ func newEncryptedContent(contentType asn1.ObjectIdentifier, alg *pkix.AlgorithmI
 }
 
 func marshalEncryptedContent(content []byte) asn1.RawValue {
-	asn1Content, _ := asn1.Marshal(content)
-	return asn1.RawValue{Tag: 0, Class: asn1.ClassContextSpecific, Bytes: asn1Content, IsCompound: true}
+	return asn1.RawValue{Tag: 0, Class: asn1.ClassContextSpecific, Bytes: content}
 }
 
 func encryptKey(key []byte, recipient *smx509.Certificate, isCFCA bool) ([]byte, error) {
