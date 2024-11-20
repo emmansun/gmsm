@@ -196,8 +196,9 @@ func (x *Nat) SetOverflowedBytes(b []byte, m *Modulus) *Nat {
 	one := NewNat().resetFor(m)
 	one.limbs[0] = 1
 	x.resetToBytes(b)
-	x = NewNat().modNat(x, mMinusOne)
-	return x.Add(one, m)
+	x = NewNat().modNat(x, mMinusOne) // x = x mod (m-1)
+	x.add(one)                        // we can safely add 1, no need to check overflow
+	return x
 }
 
 // bigEndianUint returns the contents of buf interpreted as a
