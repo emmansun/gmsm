@@ -5,6 +5,8 @@
 package bigmod
 
 import (
+	"bytes"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"math/bits"
@@ -70,7 +72,7 @@ func TestMontgomeryRoundtrip(t *testing.T) {
 		one.limbs[0] = 1
 		aPlusOne := new(big.Int).SetBytes(natBytes(a))
 		aPlusOne.Add(aPlusOne, big.NewInt(1))
-		m, _ := NewModulusFromBig(aPlusOne)
+		m, _ := NewModulus(aPlusOne.Bytes())
 		monty := new(Nat).Set(a)
 		monty.montgomeryRepresentation(m)
 		aAgain := new(Nat).Set(monty)
@@ -310,6 +312,19 @@ func TestExpShort(t *testing.T) {
 	}
 }
 
+// setBig assigns x = n, optionally resizing n to the appropriate size.
+//
+// The announced length of x is set based on the actual bit size of the input,
+// ignoring leading zeroes.
+func (x *Nat) setBig(n *big.Int) *Nat {
+	limbs := n.Bits()
+	x.reset(len(limbs))
+	for i := range limbs {
+		x.limbs[i] = uint(limbs[i])
+	}
+	return x
+}
+
 // TestMulReductions tests that Mul reduces results equal or slightly greater
 // than the modulus. Some Montgomery algorithms don't and need extra care to
 // return correct results. See https://go.dev/issue/13907.
@@ -319,19 +334,19 @@ func TestMulReductions(t *testing.T) {
 	b, _ := new(big.Int).SetString("180692823610368451951102211649591374573781973061758082626801", 10)
 	n := new(big.Int).Mul(a, b)
 
-	N, _ := NewModulusFromBig(n)
-	A := NewNat().SetBig(a).ExpandFor(N)
-	B := NewNat().SetBig(b).ExpandFor(N)
+	N, _ := NewModulus(n.Bytes())
+	A := NewNat().setBig(a).ExpandFor(N)
+	B := NewNat().setBig(b).ExpandFor(N)
 
 	if A.Mul(B, N).IsZero() != 1 {
 		t.Error("a * b mod (a * b) != 0")
 	}
 
 	i := new(big.Int).ModInverse(a, b)
-	N, _ = NewModulusFromBig(b)
-	A = NewNat().SetBig(a).ExpandFor(N)
-	I := NewNat().SetBig(i).ExpandFor(N)
-	one := NewNat().SetBig(big.NewInt(1)).ExpandFor(N)
+	N, _ = NewModulus(b.Bytes())
+	A = NewNat().setBig(a).ExpandFor(N)
+	I := NewNat().setBig(i).ExpandFor(N)
+	one := NewNat().setBig(big.NewInt(1)).ExpandFor(N)
 
 	if A.Mul(I, N).Equal(one) != 1 {
 		t.Error("a * inv(a) mod b != 1")
@@ -345,12 +360,12 @@ func natBytes(n *Nat) []byte {
 func natFromBytes(b []byte) *Nat {
 	// Must not use Nat.SetBytes as it's used in TestSetBytes.
 	bb := new(big.Int).SetBytes(b)
-	return NewNat().SetBig(bb)
+	return NewNat().setBig(bb)
 }
 
 func modulusFromBytes(b []byte) *Modulus {
 	bb := new(big.Int).SetBytes(b)
-	m, _ := NewModulusFromBig(bb)
+	m, _ := NewModulus(bb.Bytes())
 	return m
 }
 
@@ -359,7 +374,7 @@ func maxModulus(n uint) *Modulus {
 	b := big.NewInt(1)
 	b.Lsh(b, n*_W)
 	b.Sub(b, big.NewInt(1))
-	m, _ := NewModulusFromBig(b)
+	m, _ := NewModulus(b.Bytes())
 	return m
 }
 
@@ -483,16 +498,56 @@ func BenchmarkExp(b *testing.B) {
 	}
 }
 
-func TestNewModFromBigZero(t *testing.T) {
-	expected := "modulus must be >= 0"
-	_, err := NewModulusFromBig(big.NewInt(0))
+func TestNewModulus(t *testing.T) {
+	expected := "modulus must be > 0 and odd"
+	_, err := NewModulus([]byte{})
 	if err == nil || err.Error() != expected {
-		t.Errorf("NewModulusFromBig(0) got %q, want %q", err, expected)
+		t.Errorf("NewModulus(0) got %q, want %q", err, expected)
 	}
-
-	expected = "modulus must be odd"
-	_, err = NewModulusFromBig(big.NewInt(2))
+	_, err = NewModulus([]byte{0})
 	if err == nil || err.Error() != expected {
-		t.Errorf("NewModulusFromBig(2) got %q, want %q", err, expected)
+		t.Errorf("NewModulus(0) got %q, want %q", err, expected)
+	}
+	_, err = NewModulus([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
+	if err == nil || err.Error() != expected {
+		t.Errorf("NewModulus(0) got %q, want %q", err, expected)
+	}
+	_, err = NewModulus([]byte{1, 1, 1, 1, 2})
+	if err == nil || err.Error() != expected {
+		t.Errorf("NewModulus(2) got %q, want %q", err, expected)
+	}
+}
+
+func TestOverflowedBytes(t *testing.T) {
+	cases := []string{
+		"b640000002a3a6f1d603ab4ff58ec74449f2934b18ea8beee56ee19cd69ecf25",
+		"b640000002a3a6f1d603ab4ff58ec74449f2934b18ea8beee56ee19cd69ecf23",
+		"b640000002a3a6f1d603ab4ff58ec74449f2934b18ea8beee56ee19cd69ecf24",
+		"b640000002a3a6f1d603ab4ff58ec74449f2934b18ea8beee56ee19cd69ecf24b640000002a3a6f1",
+		"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+		"00",
+	}
+	mBytes, _ := hex.DecodeString(cases[0])
+	m, err := NewModulus(mBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bigOne := big.NewInt(1)
+	mBigInt := new(big.Int).SetBytes(mBytes)
+	mMinusOne := new(big.Int).Sub(mBigInt, bigOne)
+
+	for _, c := range cases {
+		d, _ := hex.DecodeString(c)
+		k := new(big.Int).SetBytes(d)
+		k = new(big.Int).Mod(k, mMinusOne)
+		k = new(big.Int).Add(k, bigOne)
+		k = new(big.Int).Mod(k, mBigInt)
+
+		kNat := NewNat().SetOverflowedBytes(d, m)
+		k2 := new(big.Int).SetBytes(kNat.Bytes(m))
+
+		if !bytes.Equal(k2.Bytes(), k.Bytes()) {
+			t.Errorf("%s, expected %x, got %x", c, k.Bytes(), k2.Bytes())
+		}
 	}
 }

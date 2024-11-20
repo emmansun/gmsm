@@ -1062,8 +1062,8 @@ func p256() *sm2Curve {
 func precomputeParams(c *sm2Curve, curve elliptic.Curve) {
 	params := curve.Params()
 	c.curve = curve
-	c.N, _ = bigmod.NewModulusFromBig(params.N)
-	c.P, _ = bigmod.NewModulusFromBig(params.P)
+	c.N, _ = bigmod.NewModulus(params.N.Bytes())
+	c.P, _ = bigmod.NewModulus(params.P.Bytes())
 	c.nMinus2 = new(big.Int).Sub(params.N, big.NewInt(2)).Bytes()
 	c.nMinus1, _ = bigmod.NewNat().SetBytes(new(big.Int).Sub(params.N, big.NewInt(1)).Bytes(), c.N)
 }

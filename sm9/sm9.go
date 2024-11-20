@@ -19,15 +19,14 @@ import (
 )
 
 // SM9 ASN.1 format reference: Information security technology - SM9 cryptographic algorithm application specification
-
-var orderNat, _ = bigmod.NewModulusFromBig(bn256.Order)
-var orderMinus2 = new(big.Int).Sub(bn256.Order, big.NewInt(2)).Bytes()
-var bigOne = big.NewInt(1)
-var bigOneNat *bigmod.Nat
-var orderMinus1 = bigmod.NewNat().SetBig(new(big.Int).Sub(bn256.Order, bigOne))
+var (
+	orderMinus2 []byte
+	orderNat    *bigmod.Modulus
+)
 
 func init() {
-	bigOneNat, _ = bigmod.NewNat().SetBytes(bigOne.Bytes(), orderNat)
+	orderMinus2 = new(big.Int).Sub(bn256.Order, big.NewInt(2)).Bytes()
+	orderNat, _ = bigmod.NewModulus(bn256.Order.Bytes())
 }
 
 type hashMode byte
@@ -70,11 +69,7 @@ func hash(z []byte, h hashMode) *bigmod.Nat {
 	md.Write(countBytes[:])
 	copy(ha[sm3.Size:], md.Sum(nil))
 
-	k := new(big.Int).SetBytes(ha[:40])
-	kNat := bigmod.NewNat().SetBig(k)
-	kNat = bigmod.NewNat().ModNat(kNat, orderMinus1)
-	kNat.Add(bigOneNat, orderNat)
-	return kNat
+	return bigmod.NewNat().SetOverflowedBytes(ha[:40], orderNat)
 }
 
 func hashH1(z []byte) *bigmod.Nat {
