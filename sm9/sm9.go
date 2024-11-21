@@ -4,12 +4,12 @@ package sm9
 import (
 	"crypto"
 	goSubtle "crypto/subtle"
-	"encoding/binary"
 	"errors"
 	"io"
 	"math/big"
 
 	"github.com/emmansun/gmsm/internal/bigmod"
+	"github.com/emmansun/gmsm/internal/byteorder"
 	"github.com/emmansun/gmsm/internal/randutil"
 	"github.com/emmansun/gmsm/internal/subtle"
 	"github.com/emmansun/gmsm/sm3"
@@ -55,7 +55,7 @@ func hash(z []byte, h hashMode) *bigmod.Nat {
 	var countBytes [4]byte
 	var ct uint32 = 1
 
-	binary.BigEndian.PutUint32(countBytes[:], ct)
+	byteorder.BEPutUint32(countBytes[:], ct)
 	md.Write([]byte{byte(h)})
 	md.Write(z)
 	md.Write(countBytes[:])
@@ -63,7 +63,7 @@ func hash(z []byte, h hashMode) *bigmod.Nat {
 	ct++
 	md.Reset()
 
-	binary.BigEndian.PutUint32(countBytes[:], ct)
+	byteorder.BEPutUint32(countBytes[:], ct)
 	md.Write([]byte{byte(h)})
 	md.Write(z)
 	md.Write(countBytes[:])

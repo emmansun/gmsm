@@ -2,10 +2,10 @@ package drbg
 
 import (
 	"crypto/cipher"
-	"encoding/binary"
 	"errors"
 	"time"
 
+	"github.com/emmansun/gmsm/internal/byteorder"
 	"github.com/emmansun/gmsm/internal/subtle"
 	"github.com/emmansun/gmsm/sm4"
 )
@@ -185,8 +185,8 @@ func (cd *CtrDrbg) derive(seedMaterial []byte, returnBytes int) []byte {
 
 	// S = counter || len(seed_material) || len(return_bytes) || seed_material || 0x80
 	// len(S) = ((outlen + 4 + 4 + len(seed_material) + 1 + outlen - 1) / outlen) * outlen
-	binary.BigEndian.PutUint32(S[outlen:], uint32(len(seedMaterial)))
-	binary.BigEndian.PutUint32(S[outlen+4:], uint32(returnBytes))
+	byteorder.BEPutUint32(S[outlen:], uint32(len(seedMaterial)))
+	byteorder.BEPutUint32(S[outlen+4:], uint32(returnBytes))
 	copy(S[outlen+8:], seedMaterial)
 	S[outlen+8+len(seedMaterial)] = 0x80
 
@@ -199,7 +199,7 @@ func (cd *CtrDrbg) derive(seedMaterial []byte, returnBytes int) []byte {
 	block := cd.newBlockCipher(key)
 
 	for i := 0; i < blocks; i++ {
-		binary.BigEndian.PutUint32(S, uint32(i))
+		byteorder.BEPutUint32(S, uint32(i))
 		copy(temp[i*outlen:], cd.bcc(block, S))
 	}
 

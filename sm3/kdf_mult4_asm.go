@@ -6,7 +6,7 @@
 
 package sm3
 
-import "encoding/binary"
+import "github.com/emmansun/gmsm/internal/byteorder"
 
 // prepare data template: remaining data + [ct] + padding + length
 // p will be 1 or 2 blocks according to the length of remaining data
@@ -18,7 +18,7 @@ func prepareInitData(baseMD *digest, p []byte, len, lenStart uint64) {
 	var tmp [64 + 8]byte // padding + length buffer
 	tmp[0] = 0x80
 	padlen := tmp[:lenStart+8]
-	binary.BigEndian.PutUint64(padlen[lenStart:], len)
+	byteorder.BEPutUint64(padlen[lenStart:], len)
 	copy(p[baseMD.nx+4:], padlen)
 }
 
@@ -34,7 +34,7 @@ func kdfBy4(baseMD *digest, keyLen int, limit int) []byte {
 	if limit < 4 {
 		return kdfGeneric(baseMD, keyLen, limit)
 	}
-	
+
 	var t uint64
 	blocks := 1
 	len := baseMD.len + 4
@@ -55,7 +55,7 @@ func kdfBy4(baseMD *digest, keyLen int, limit int) []byte {
 	var data [parallelSize4][]byte
 	var digs [parallelSize4]*[8]uint32
 	var states [parallelSize4][8]uint32
-	
+
 	for j := 0; j < parallelSize4; j++ {
 		digs[j] = &states[j]
 		p := buffer[blocks*BlockSize*j:]
@@ -77,7 +77,7 @@ func kdfBy4(baseMD *digest, keyLen int, limit int) []byte {
 			// prepare states
 			states[j] = baseMD.h
 			// prepare data
-			binary.BigEndian.PutUint32(data[j][baseMD.nx:], ct)
+			byteorder.BEPutUint32(data[j][baseMD.nx:], ct)
 			ct++
 		}
 		blockMultBy4(&digs[0], &dataPtrs[0], &tmp[0], blocks)
@@ -86,7 +86,7 @@ func kdfBy4(baseMD *digest, keyLen int, limit int) []byte {
 	}
 	remain := limit % parallelSize4
 	for i := 0; i < remain; i++ {
-		binary.BigEndian.PutUint32(tmp[:], ct)
+		byteorder.BEPutUint32(tmp[:], ct)
 		md := *baseMD
 		md.Write(tmp[:4])
 		h := md.checkSum()

@@ -1,8 +1,9 @@
 package zuc
 
 import (
-	"encoding/binary"
 	"fmt"
+
+	"github.com/emmansun/gmsm/internal/byteorder"
 )
 
 type ZUC256Mac struct {
@@ -93,7 +94,7 @@ func block256Generic(m *ZUC256Mac, p []byte) {
 	for len(p) >= chunk {
 		m.genKeywords(m.k0[4:])
 		for l := 0; l < 4; l++ {
-			w := binary.BigEndian.Uint32(p[l*4:])
+			w := byteorder.BEUint32(p[l*4:])
 			switch m.tagSize {
 			case 4:
 				k64 = uint64(m.k0[l])<<32 | uint64(m.k0[l+1])
@@ -164,7 +165,7 @@ func (m *ZUC256Mac) checkSum(additionalBits int, b byte) []byte {
 		words := (nRemainBits + 31) / 32
 
 		for l := 0; l < words-1; l++ {
-			w := binary.BigEndian.Uint32(m.x[l*4:])
+			w := byteorder.BEUint32(m.x[l*4:])
 			k1 := m.k0[m.tagSize/4+l]
 			for i := 0; i < 32; i++ {
 				wBit := ^(w>>31 - 1)
@@ -183,7 +184,7 @@ func (m *ZUC256Mac) checkSum(additionalBits int, b byte) []byte {
 		nRemainBits -= (words - 1) * 32
 		kIdx = words - 1
 		if nRemainBits > 0 {
-			w := binary.BigEndian.Uint32(m.x[(words-1)*4:])
+			w := byteorder.BEUint32(m.x[(words-1)*4:])
 			for i := 0; i < nRemainBits; i++ {
 				wBit := ^(w>>31 - 1)
 				for j := 0; j < m.tagSize/4; j++ {
@@ -202,7 +203,7 @@ func (m *ZUC256Mac) checkSum(additionalBits int, b byte) []byte {
 	digest := make([]byte, m.tagSize)
 	for j := 0; j < m.tagSize/4; j++ {
 		m.t[j] ^= m.k0[j+kIdx]
-		binary.BigEndian.PutUint32(digest[j*4:], m.t[j])
+		byteorder.BEPutUint32(digest[j*4:], m.t[j])
 	}
 
 	return digest

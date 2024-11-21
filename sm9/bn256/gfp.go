@@ -1,11 +1,12 @@
 package bn256
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
 	"math/bits"
+
+	"github.com/emmansun/gmsm/internal/byteorder"
 )
 
 type gfP [4]uint64
@@ -44,7 +45,7 @@ func fromBigInt(x *big.Int) (out *gfP) {
 	}
 	for i := 0; i < 4; i++ {
 		start := len(bytes) - 8
-		out[i] = binary.BigEndian.Uint64(bytes[start:])
+		out[i] = byteorder.BEUint64(bytes[start:])
 		bytes = bytes[:start]
 	}
 	if x.Sign() < 0 {

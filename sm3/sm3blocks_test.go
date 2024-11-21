@@ -8,9 +8,10 @@ package sm3
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"testing"
+
+	"github.com/emmansun/gmsm/internal/byteorder"
 )
 
 func initState4() [4]*[8]uint32 {
@@ -119,7 +120,7 @@ func TestCopyResultsBy4(t *testing.T) {
 
 	for i := 0; i < 4; i++ {
 		for j := 0; j < 8; j++ {
-			binary.BigEndian.PutUint32(expected[i*32+j*4:], m[i][j])
+			byteorder.BEPutUint32(expected[i*32+j*4:], m[i][j])
 		}
 	}
 	if !bytes.Equal(ret[:], expected[:]) {

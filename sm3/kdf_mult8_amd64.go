@@ -6,7 +6,7 @@
 
 package sm3
 
-import "encoding/binary"
+import "github.com/emmansun/gmsm/internal/byteorder"
 
 // p || state || words
 // p = 64 * 8 * 2 = 1024
@@ -30,7 +30,7 @@ func kdfBy8(baseMD *digest, keyLen int, limit int) []byte {
 	len <<= 3
 
 	var ct uint32 = 1
-	k := make([]byte, limit * Size)
+	k := make([]byte, limit*Size)
 	ret := k
 
 	// prepare temporary buffer
@@ -42,7 +42,7 @@ func kdfBy8(baseMD *digest, keyLen int, limit int) []byte {
 	var data [parallelSize8][]byte
 	var digs [parallelSize8]*[8]uint32
 	var states [parallelSize8][8]uint32
-	
+
 	for j := 0; j < parallelSize8; j++ {
 		digs[j] = &states[j]
 		p := buffer[blocks*BlockSize*j:]
@@ -54,14 +54,14 @@ func kdfBy8(baseMD *digest, keyLen int, limit int) []byte {
 			copy(p, data[0])
 		}
 	}
-	
+
 	times := limit / parallelSize8
 	for i := 0; i < times; i++ {
 		for j := 0; j < parallelSize8; j++ {
 			// prepare states
 			states[j] = baseMD.h
 			// prepare data
-			binary.BigEndian.PutUint32(data[j][baseMD.nx:], ct)
+			byteorder.BEPutUint32(data[j][baseMD.nx:], ct)
 			ct++
 		}
 		blockMultBy8(&digs[0], &dataPtrs[0], &tmp[0], blocks)
@@ -75,7 +75,7 @@ func kdfBy8(baseMD *digest, keyLen int, limit int) []byte {
 			// prepare states
 			states[j] = baseMD.h
 			// prepare data
-			binary.BigEndian.PutUint32(data[j][baseMD.nx:], ct)
+			byteorder.BEPutUint32(data[j][baseMD.nx:], ct)
 			ct++
 		}
 		blockMultBy4(&digs[0], &dataPtrs[0], &tmp[0], blocks)
@@ -85,7 +85,7 @@ func kdfBy8(baseMD *digest, keyLen int, limit int) []byte {
 	}
 
 	for i := 0; i < remain; i++ {
-		binary.BigEndian.PutUint32(tmp[:], ct)
+		byteorder.BEPutUint32(tmp[:], ct)
 		md := *baseMD
 		md.Write(tmp[:4])
 		h := md.checkSum()

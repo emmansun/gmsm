@@ -2,9 +2,9 @@ package zuc
 
 import (
 	"crypto/cipher"
-	"encoding/binary"
 
 	"github.com/emmansun/gmsm/internal/alias"
+	"github.com/emmansun/gmsm/internal/byteorder"
 	"github.com/emmansun/gmsm/internal/subtle"
 )
 
@@ -30,7 +30,7 @@ func NewCipher(key, iv []byte) (cipher.Stream, error) {
 // NewEEACipher create a stream cipher based on key, count, bearer and direction arguments according specification.
 func NewEEACipher(key []byte, count, bearer, direction uint32) (cipher.Stream, error) {
 	iv := make([]byte, 16)
-	binary.BigEndian.PutUint32(iv, count)
+	byteorder.BEPutUint32(iv, count)
 	copy(iv[8:12], iv[:4])
 	iv[4] = byte(((bearer << 1) | (direction & 1)) << 2)
 	iv[12] = iv[4]
@@ -46,7 +46,7 @@ func NewEEACipher(key []byte, count, bearer, direction uint32) (cipher.Stream, e
 func genKeyStreamRev32Generic(keyStream []byte, pState *zucState32) {
 	for len(keyStream) >= 4 {
 		z := genKeyword(pState)
-		binary.BigEndian.PutUint32(keyStream, z)
+		byteorder.BEPutUint32(keyStream, z)
 		keyStream = keyStream[4:]
 	}
 }

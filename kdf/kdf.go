@@ -3,8 +3,9 @@ package kdf
 
 import (
 	"encoding"
-	"encoding/binary"
 	"hash"
+
+	"github.com/emmansun/gmsm/internal/byteorder"
 )
 
 // KdfInterface is the interface implemented by some specific Hash implementations.
@@ -30,7 +31,7 @@ func Kdf(newHash func() hash.Hash, z []byte, keyLen int) []byte {
 
 	if marshaler, ok := baseMD.(encoding.BinaryMarshaler); limit == 1 || len(z) < baseMD.BlockSize() || !ok {
 		for i := 0; i < int(limit); i++ {
-			binary.BigEndian.PutUint32(countBytes[:], ct)
+			byteorder.BEPutUint32(countBytes[:], ct)
 			baseMD.Write(z)
 			baseMD.Write(countBytes[:])
 			k = baseMD.Sum(k)
@@ -46,11 +47,11 @@ func Kdf(newHash func() hash.Hash, z []byte, keyLen int) []byte {
 			if err != nil {
 				panic(err)
 			}
-			binary.BigEndian.PutUint32(countBytes[:], ct)
+			byteorder.BEPutUint32(countBytes[:], ct)
 			md.Write(countBytes[:])
 			k = md.Sum(k)
 			ct++
-		}		
+		}
 	}
 
 	return k[:keyLen]

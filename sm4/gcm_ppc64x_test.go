@@ -7,10 +7,11 @@
 package sm4
 
 import (
-	"encoding/binary"
 	"fmt"
 	"runtime"
 	"testing"
+
+	"github.com/emmansun/gmsm/internal/byteorder"
 )
 
 func TestCmul(t *testing.T) {
@@ -26,14 +27,14 @@ func TestCmul(t *testing.T) {
 	// Reverse the bytes in each 8 byte chunk
 	// Load little endian, store big endian
 	if runtime.GOARCH == "ppc64le" {
-		h1 = binary.LittleEndian.Uint64(hle[:8])
-		h2 = binary.LittleEndian.Uint64(hle[8:])
+		h1 = byteorder.LEUint64(hle[:8])
+		h2 = byteorder.LEUint64(hle[8:])
 	} else {
-		h1 = binary.BigEndian.Uint64(hle[:8])
-		h2 = binary.BigEndian.Uint64(hle[8:])
+		h1 = byteorder.BEUint64(hle[:8])
+		h2 = byteorder.BEUint64(hle[8:])
 	}
-	binary.BigEndian.PutUint64(hle[:8], h1)
-	binary.BigEndian.PutUint64(hle[8:], h2)
+	byteorder.BEPutUint64(hle[:8], h1)
+	byteorder.BEPutUint64(hle[8:], h2)
 
 	if fmt.Sprintf("%x", hle) != "3811556fff7b1f9fd38f531e5330944d" {
 		t.Errorf("2 got %x", hle)

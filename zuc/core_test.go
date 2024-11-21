@@ -12,7 +12,7 @@ func Test_genKeyword_case1(t *testing.T) {
 		t.Errorf("expected=%x, result=%x\n", 0x27bede74, z1)
 	}
 	if s.r1 != 0xc7ee7f13 {
-		t.Errorf("expected=%x, result=%x\n", 0xc7ee7f13, s.r1)
+		t.Errorf("expected=0xc7ee7f13, result=%x\n", s.r1)
 	}
 	if s.r2 != 0xc0fa817 {
 		t.Errorf("expected=%x, result=%x\n", 0xc0fa817, s.r2)

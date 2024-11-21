@@ -1,8 +1,9 @@
 package zuc
 
 import (
-	"encoding/binary"
 	"fmt"
+
+	"github.com/emmansun/gmsm/internal/byteorder"
 )
 
 const (
@@ -60,7 +61,7 @@ func NewHash(key, iv []byte) (*ZUC128Mac, error) {
 
 func genIV4EIA(count, bearer, direction uint32) []byte {
 	iv := make([]byte, 16)
-	binary.BigEndian.PutUint32(iv, count)
+	byteorder.BEPutUint32(iv, count)
 	copy(iv[9:12], iv[1:4])
 	iv[4] = byte(bearer << 3)
 	iv[12] = iv[4]
@@ -102,7 +103,7 @@ func blockGeneric(m *ZUC128Mac, p []byte) {
 		m.genKeywords(m.k0[4:])
 		k64 = uint64(m.k0[0])<<32 | uint64(m.k0[1])
 		// process first 32 bits
-		w := binary.BigEndian.Uint32(p[0:4])
+		w := byteorder.BEUint32(p[0:4])
 		for j := 0; j < 32; j++ {
 			// t64 ^= (w >> 31) ? k64 : 0
 			t64 ^= ^(uint64(w>>31) - 1) & k64
@@ -111,7 +112,7 @@ func blockGeneric(m *ZUC128Mac, p []byte) {
 		}
 		// process second 32 bits
 		k64 = uint64(m.k0[1])<<32 | uint64(m.k0[2])
-		w = binary.BigEndian.Uint32(p[4:8])
+		w = byteorder.BEUint32(p[4:8])
 		for j := 0; j < 32; j++ {
 			t64 ^= ^(uint64(w>>31) - 1) & k64
 			w <<= 1
@@ -119,7 +120,7 @@ func blockGeneric(m *ZUC128Mac, p []byte) {
 		}
 		// process third 32 bits
 		k64 = uint64(m.k0[2])<<32 | uint64(m.k0[3])
-		w = binary.BigEndian.Uint32(p[8:12])
+		w = byteorder.BEUint32(p[8:12])
 		for j := 0; j < 32; j++ {
 			t64 ^= ^(uint64(w>>31) - 1) & k64
 			w <<= 1
@@ -127,7 +128,7 @@ func blockGeneric(m *ZUC128Mac, p []byte) {
 		}
 		// process fourth 32 bits
 		k64 = uint64(m.k0[3])<<32 | uint64(m.k0[4])
-		w = binary.BigEndian.Uint32(p[12:16])
+		w = byteorder.BEUint32(p[12:16])
 		for j := 0; j < 32; j++ {
 			t64 ^= ^(uint64(w>>31) - 1) & k64
 			w <<= 1
@@ -183,7 +184,7 @@ func (m *ZUC128Mac) checkSum(additionalBits int, b byte) [4]byte {
 		// process 32 bits at a time for first complete words
 		for i := 0; i < nwords-1; i++ {
 			k64 = uint64(m.k0[i])<<32 | uint64(m.k0[i+1])
-			w := binary.BigEndian.Uint32(m.x[i*4:])
+			w := byteorder.BEUint32(m.x[i*4:])
 			for j := 0; j < 32; j++ {
 				t64 ^= ^(uint64(w>>31) - 1) & k64
 				w <<= 1
@@ -196,7 +197,7 @@ func (m *ZUC128Mac) checkSum(additionalBits int, b byte) [4]byte {
 		// process remaining bits less than 32
 		if nRemainBits > 0 {
 			k64 = uint64(m.k0[kIdx])<<32 | uint64(m.k0[kIdx+1])
-			w := binary.BigEndian.Uint32(m.x[(nwords-1)*4:])
+			w := byteorder.BEUint32(m.x[(nwords-1)*4:])
 			for j := 0; j < nRemainBits; j++ {
 				t64 ^= ^(uint64(w>>31) - 1) & k64
 				w <<= 1
@@ -212,11 +213,11 @@ func (m *ZUC128Mac) checkSum(additionalBits int, b byte) [4]byte {
 	m.t ^= m.k0[kIdx+1]
 
 	var digest [4]byte
-	binary.BigEndian.PutUint32(digest[:], m.t)
+	byteorder.BEPutUint32(digest[:], m.t)
 	return digest
 }
 
-// Finish this function hash nbits data in p and return mac value, after this function call, 
+// Finish this function hash nbits data in p and return mac value, after this function call,
 // the hash state will be reset.
 // In general, we will use byte level function, this is just for test/verify.
 // nbits: number of bits to hash in p.

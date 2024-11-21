@@ -5,9 +5,10 @@
 package md2
 
 import (
-	"encoding/binary"
 	"errors"
 	"hash"
+
+	"github.com/emmansun/gmsm/internal/byteorder"
 )
 
 // Size the size of a MD2 checksum in bytes.
@@ -95,7 +96,7 @@ func (d *digest) UnmarshalBinary(b []byte) error {
 
 func appendUint64(b []byte, x uint64) []byte {
 	var a [8]byte
-	binary.BigEndian.PutUint64(a[:], x)
+	byteorder.BEPutUint64(a[:], x)
 	return append(b, a[:]...)
 }
 

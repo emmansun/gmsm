@@ -2,10 +2,10 @@ package cipher
 
 import (
 	_cipher "crypto/cipher"
-	"encoding/binary"
 	"errors"
 
 	"github.com/emmansun/gmsm/internal/alias"
+	"github.com/emmansun/gmsm/internal/byteorder"
 	"github.com/emmansun/gmsm/internal/subtle"
 )
 
@@ -50,7 +50,7 @@ func NewXTSEncrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte) (_ci
 // block cipher (which must have a block size of 16 bytes) with sector number.
 func NewXTSEncrypterWithSector(cipherFunc CipherCreator, key, tweakKey []byte, sectorNum uint64) (_cipher.BlockMode, error) {
 	tweak := make([]byte, blockSize)
-	binary.LittleEndian.PutUint64(tweak[:8], sectorNum)
+	byteorder.LEPutUint64(tweak[:8], sectorNum)
 	return NewXTSEncrypter(cipherFunc, key, tweakKey, tweak)
 }
 
@@ -66,7 +66,7 @@ func NewGBXTSEncrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte) (_
 // It follows GB/T 17964-2021.
 func NewGBXTSEncrypterWithSector(cipherFunc CipherCreator, key, tweakKey []byte, sectorNum uint64) (_cipher.BlockMode, error) {
 	tweak := make([]byte, blockSize)
-	binary.LittleEndian.PutUint64(tweak[:8], sectorNum)
+	byteorder.LEPutUint64(tweak[:8], sectorNum)
 	return NewGBXTSEncrypter(cipherFunc, key, tweakKey, tweak)
 }
 
@@ -122,7 +122,7 @@ func NewXTSDecrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte) (_ci
 // block cipher (which must have a block size of 16 bytes) with sector number for decryption.
 func NewXTSDecrypterWithSector(cipherFunc CipherCreator, key, tweakKey []byte, sectorNum uint64) (_cipher.BlockMode, error) {
 	tweak := make([]byte, blockSize)
-	binary.LittleEndian.PutUint64(tweak[:8], sectorNum)
+	byteorder.LEPutUint64(tweak[:8], sectorNum)
 	return NewXTSDecrypter(cipherFunc, key, tweakKey, tweak)
 }
 
@@ -138,7 +138,7 @@ func NewGBXTSDecrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte) (_
 // It follows GB/T 17964-2021.
 func NewGBXTSDecrypterWithSector(cipherFunc CipherCreator, key, tweakKey []byte, sectorNum uint64) (_cipher.BlockMode, error) {
 	tweak := make([]byte, blockSize)
-	binary.LittleEndian.PutUint64(tweak[:8], sectorNum)
+	byteorder.LEPutUint64(tweak[:8], sectorNum)
 	return NewGBXTSDecrypter(cipherFunc, key, tweakKey, tweak)
 }
 
@@ -336,7 +336,7 @@ func mul2Generic(tweak *[blockSize]byte, isGB bool) {
 			tweak[0] ^= GF128_FDBK // 1<<7 | 1<<2 | 1<<1 | 1
 		}
 	} else {
-		// GB/T 17964-2021, 
+		// GB/T 17964-2021,
 		// the coefficient of x⁰ can be obtained by tweak[0] >> 7
 		// the coefficient of x⁷ can be obtained by tweak[0] & 1
 		// the coefficient of x¹²⁰ can be obtained by tweak[15] >> 7

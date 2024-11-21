@@ -13,10 +13,10 @@ package rc2
 
 import (
 	"crypto/cipher"
-	"encoding/binary"
 	"fmt"
 
 	"github.com/emmansun/gmsm/internal/alias"
+	"github.com/emmansun/gmsm/internal/byteorder"
 )
 
 // The rc2 block size in bytes
@@ -109,10 +109,10 @@ func (c *rc2Cipher) Encrypt(dst, src []byte) {
 		panic("rc2: invalid buffer overlap")
 	}
 
-	r0 := binary.LittleEndian.Uint16(src[0:2])
-	r1 := binary.LittleEndian.Uint16(src[2:4])
-	r2 := binary.LittleEndian.Uint16(src[4:6])
-	r3 := binary.LittleEndian.Uint16(src[6:BlockSize])
+	r0 := byteorder.LEUint16(src[0:2])
+	r1 := byteorder.LEUint16(src[2:4])
+	r2 := byteorder.LEUint16(src[4:6])
+	r3 := byteorder.LEUint16(src[6:BlockSize])
 
 	var j int
 
@@ -197,10 +197,10 @@ func (c *rc2Cipher) Encrypt(dst, src []byte) {
 		j++
 	}
 
-	binary.LittleEndian.PutUint16(dst[0:2], r0)
-	binary.LittleEndian.PutUint16(dst[2:4], r1)
-	binary.LittleEndian.PutUint16(dst[4:6], r2)
-	binary.LittleEndian.PutUint16(dst[6:BlockSize], r3)
+	byteorder.LEPutUint16(dst[0:2], r0)
+	byteorder.LEPutUint16(dst[2:4], r1)
+	byteorder.LEPutUint16(dst[4:6], r2)
+	byteorder.LEPutUint16(dst[6:BlockSize], r3)
 }
 
 func (c *rc2Cipher) Decrypt(dst, src []byte) {
@@ -213,10 +213,10 @@ func (c *rc2Cipher) Decrypt(dst, src []byte) {
 	if alias.InexactOverlap(dst[:BlockSize], src[:BlockSize]) {
 		panic("rc2: invalid buffer overlap")
 	}
-	r0 := binary.LittleEndian.Uint16(src[0:2])
-	r1 := binary.LittleEndian.Uint16(src[2:4])
-	r2 := binary.LittleEndian.Uint16(src[4:6])
-	r3 := binary.LittleEndian.Uint16(src[6:BlockSize])
+	r0 := byteorder.LEUint16(src[0:2])
+	r1 := byteorder.LEUint16(src[2:4])
+	r2 := byteorder.LEUint16(src[4:6])
+	r3 := byteorder.LEUint16(src[6:BlockSize])
 
 	j := 63
 
@@ -301,8 +301,8 @@ func (c *rc2Cipher) Decrypt(dst, src []byte) {
 		j--
 	}
 
-	binary.LittleEndian.PutUint16(dst[0:2], r0)
-	binary.LittleEndian.PutUint16(dst[2:4], r1)
-	binary.LittleEndian.PutUint16(dst[4:6], r2)
-	binary.LittleEndian.PutUint16(dst[6:BlockSize], r3)
+	byteorder.LEPutUint16(dst[0:2], r0)
+	byteorder.LEPutUint16(dst[2:4], r1)
+	byteorder.LEPutUint16(dst[4:6], r2)
+	byteorder.LEPutUint16(dst[6:BlockSize], r3)
 }

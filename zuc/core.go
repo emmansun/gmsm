@@ -2,9 +2,10 @@
 package zuc
 
 import (
-	"encoding/binary"
 	"fmt"
 	"math/bits"
+
+	"github.com/emmansun/gmsm/internal/byteorder"
 )
 
 const (
@@ -108,8 +109,8 @@ func (s *zucState32) f32() uint32 {
 	w2 := s.r2 ^ s.x2
 	u := l1((w1 << 16) | (w2 >> 16))
 	v := l2((w2 << 16) | (w1 >> 16))
-	s.r1 = binary.BigEndian.Uint32([]byte{sbox0[u>>24], sbox1[(u>>16)&0xFF], sbox0[(u>>8)&0xFF], sbox1[u&0xFF]})
-	s.r2 = binary.BigEndian.Uint32([]byte{sbox0[v>>24], sbox1[(v>>16)&0xFF], sbox0[(v>>8)&0xFF], sbox1[v&0xFF]})
+	s.r1 = byteorder.BEUint32([]byte{sbox0[u>>24], sbox1[(u>>16)&0xFF], sbox0[(u>>8)&0xFF], sbox1[u&0xFF]})
+	s.r2 = byteorder.BEUint32([]byte{sbox0[v>>24], sbox1[(v>>16)&0xFF], sbox0[(v>>8)&0xFF], sbox1[v&0xFF]})
 	return w
 }
 

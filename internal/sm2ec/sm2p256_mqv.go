@@ -1,9 +1,10 @@
 package sm2ec
 
 import (
-	"encoding/binary"
 	"errors"
 	"math/bits"
+
+	"github.com/emmansun/gmsm/internal/byteorder"
 )
 
 var p256Order = [4]uint64{0x53bbf40939d54123, 0x7203df6b21c6052b,
@@ -14,20 +15,20 @@ func fromBytes(bytes []byte) (*[4]uint64, error) {
 		return nil, errors.New("invalid scalar length")
 	}
 	var t [4]uint64
-	t[0] = binary.BigEndian.Uint64(bytes[24:])
-	t[1] = binary.BigEndian.Uint64(bytes[16:])
-	t[2] = binary.BigEndian.Uint64(bytes[8:])
-	t[3] = binary.BigEndian.Uint64(bytes)
+	t[0] = byteorder.BEUint64(bytes[24:])
+	t[1] = byteorder.BEUint64(bytes[16:])
+	t[2] = byteorder.BEUint64(bytes[8:])
+	t[3] = byteorder.BEUint64(bytes)
 	return &t, nil
 }
 
 func toBytes(t *[4]uint64) []byte {
 	var bytes [32]byte
 
-	binary.BigEndian.PutUint64(bytes[:], t[3])
-	binary.BigEndian.PutUint64(bytes[8:], t[2])
-	binary.BigEndian.PutUint64(bytes[16:], t[1])
-	binary.BigEndian.PutUint64(bytes[24:], t[0])
+	byteorder.BEPutUint64(bytes[:], t[3])
+	byteorder.BEPutUint64(bytes[8:], t[2])
+	byteorder.BEPutUint64(bytes[16:], t[1])
+	byteorder.BEPutUint64(bytes[24:], t[0])
 
 	return bytes[:]
 }

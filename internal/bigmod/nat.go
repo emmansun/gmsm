@@ -5,9 +5,10 @@
 package bigmod
 
 import (
-	"encoding/binary"
 	"errors"
 	"math/bits"
+
+	"github.com/emmansun/gmsm/internal/byteorder"
 )
 
 const (
@@ -205,9 +206,9 @@ func (x *Nat) SetOverflowedBytes(b []byte, m *Modulus) *Nat {
 // big-endian encoded uint value.
 func bigEndianUint(buf []byte) uint {
 	if _W == 64 {
-		return uint(binary.BigEndian.Uint64(buf))
+		return uint(byteorder.BEUint64(buf))
 	}
-	return uint(binary.BigEndian.Uint32(buf))
+	return uint(byteorder.BEUint32(buf))
 }
 
 func (x *Nat) setBytes(b []byte) error {

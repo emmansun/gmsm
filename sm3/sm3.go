@@ -4,9 +4,10 @@ package sm3
 // [GM/T] SM3 GB/T 32905-2016
 
 import (
-	"encoding/binary"
 	"errors"
 	"hash"
+
+	"github.com/emmansun/gmsm/internal/byteorder"
 )
 
 // Size the size of a SM3 checksum in bytes.
@@ -39,7 +40,7 @@ type digest struct {
 }
 
 const (
-	magic      = "sm3\x03"
+	magic         = "sm3\x03"
 	marshaledSize = len(magic) + 8*4 + chunk + 8
 )
 
@@ -87,13 +88,13 @@ func (d *digest) UnmarshalBinary(b []byte) error {
 
 func appendUint64(b []byte, x uint64) []byte {
 	var a [8]byte
-	binary.BigEndian.PutUint64(a[:], x)
+	byteorder.BEPutUint64(a[:], x)
 	return append(b, a[:]...)
 }
 
 func appendUint32(b []byte, x uint32) []byte {
 	var a [4]byte
-	binary.BigEndian.PutUint32(a[:], x)
+	byteorder.BEPutUint32(a[:], x)
 	return append(b, a[:]...)
 }
 
@@ -143,7 +144,7 @@ func (d *digest) checkSum() [Size]byte {
 	// Length in bits.
 	len <<= 3
 	padlen := tmp[:t+8]
-	binary.BigEndian.PutUint64(padlen[t:], len)
+	byteorder.BEPutUint64(padlen[t:], len)
 	d.Write(padlen)
 
 	if d.nx != 0 {
@@ -152,14 +153,14 @@ func (d *digest) checkSum() [Size]byte {
 
 	var digest [Size]byte
 
-	binary.BigEndian.PutUint32(digest[0:], d.h[0])
-	binary.BigEndian.PutUint32(digest[4:], d.h[1])
-	binary.BigEndian.PutUint32(digest[8:], d.h[2])
-	binary.BigEndian.PutUint32(digest[12:], d.h[3])
-	binary.BigEndian.PutUint32(digest[16:], d.h[4])
-	binary.BigEndian.PutUint32(digest[20:], d.h[5])
-	binary.BigEndian.PutUint32(digest[24:], d.h[6])
-	binary.BigEndian.PutUint32(digest[28:], d.h[7])
+	byteorder.BEPutUint32(digest[0:], d.h[0])
+	byteorder.BEPutUint32(digest[4:], d.h[1])
+	byteorder.BEPutUint32(digest[8:], d.h[2])
+	byteorder.BEPutUint32(digest[12:], d.h[3])
+	byteorder.BEPutUint32(digest[16:], d.h[4])
+	byteorder.BEPutUint32(digest[20:], d.h[5])
+	byteorder.BEPutUint32(digest[24:], d.h[6])
+	byteorder.BEPutUint32(digest[28:], d.h[7])
 
 	return digest
 }
@@ -231,7 +232,7 @@ func kdfGeneric(baseMD *digest, keyLen int, limit int) []byte {
 	var ct uint32 = 1
 	k := make([]byte, keyLen)
 	for i := 0; i < limit; i++ {
-		binary.BigEndian.PutUint32(countBytes[:], ct)
+		byteorder.BEPutUint32(countBytes[:], ct)
 		md := *baseMD
 		md.Write(countBytes[:])
 		h := md.checkSum()

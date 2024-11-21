@@ -3,7 +3,7 @@ package sm4
 // [GM/T] SM4 GB/T 32907-2016
 
 import (
-	"encoding/binary"
+	"github.com/emmansun/gmsm/internal/byteorder"
 )
 
 // Encrypt one block from src into dst, using the expanded key xk.
@@ -11,10 +11,10 @@ func encryptBlockGo(xk *[rounds]uint32, dst, src []byte) {
 	_ = src[15] // early bounds check
 
 	var b0, b1, b2, b3 uint32
-	b0 = binary.BigEndian.Uint32(src[0:4])
-	b1 = binary.BigEndian.Uint32(src[4:8])
-	b2 = binary.BigEndian.Uint32(src[8:12])
-	b3 = binary.BigEndian.Uint32(src[12:16])
+	b0 = byteorder.BEUint32(src[0:4])
+	b1 = byteorder.BEUint32(src[4:8])
+	b2 = byteorder.BEUint32(src[8:12])
+	b3 = byteorder.BEUint32(src[12:16])
 
 	// First round uses s-box directly and T transformation.
 	b0 ^= t(b1 ^ b2 ^ b3 ^ xk[0])
@@ -60,10 +60,10 @@ func encryptBlockGo(xk *[rounds]uint32, dst, src []byte) {
 	b3 ^= t(b0 ^ b1 ^ b2 ^ xk[31])
 
 	_ = dst[15] // early bounds check
-	binary.BigEndian.PutUint32(dst[0:4], b3)
-	binary.BigEndian.PutUint32(dst[4:8], b2)
-	binary.BigEndian.PutUint32(dst[8:12], b1)
-	binary.BigEndian.PutUint32(dst[12:16], b0)
+	byteorder.BEPutUint32(dst[0:4], b3)
+	byteorder.BEPutUint32(dst[4:8], b2)
+	byteorder.BEPutUint32(dst[8:12], b1)
+	byteorder.BEPutUint32(dst[12:16], b0)
 }
 
 // Key expansion algorithm.
@@ -71,10 +71,10 @@ func expandKeyGo(key []byte, enc, dec *[rounds]uint32) {
 	// Encryption key setup.
 	key = key[:KeySize]
 	var b0, b1, b2, b3 uint32
-	b0 = binary.BigEndian.Uint32(key[:4]) ^ fk[0]
-	b1 = binary.BigEndian.Uint32(key[4:8]) ^ fk[1]
-	b2 = binary.BigEndian.Uint32(key[8:12]) ^ fk[2]
-	b3 = binary.BigEndian.Uint32(key[12:16]) ^ fk[3]
+	b0 = byteorder.BEUint32(key[:4]) ^ fk[0]
+	b1 = byteorder.BEUint32(key[4:8]) ^ fk[1]
+	b2 = byteorder.BEUint32(key[8:12]) ^ fk[2]
+	b3 = byteorder.BEUint32(key[12:16]) ^ fk[3]
 
 	b0 = b0 ^ t2(b1^b2^b3^ck[0])
 	enc[0], dec[31] = b0, b0

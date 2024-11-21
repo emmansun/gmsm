@@ -1,11 +1,11 @@
 package zuc
 
 import (
-	"encoding/binary"
 	"encoding/hex"
 	"hash"
 	"testing"
 
+	"github.com/emmansun/gmsm/internal/byteorder"
 	"github.com/emmansun/gmsm/internal/cryptotest"
 )
 
@@ -144,7 +144,7 @@ func TestEIA_Finish(t *testing.T) {
 		}
 		in := make([]byte, len(test.in)*4)
 		for j, v := range test.in {
-			binary.BigEndian.PutUint32(in[j*4:], v)
+			byteorder.BEPutUint32(in[j*4:], v)
 		}
 
 		mac := h.Finish(in, test.nbits)

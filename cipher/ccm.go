@@ -4,12 +4,12 @@ package cipher
 import (
 	goCipher "crypto/cipher"
 	goSubtle "crypto/subtle"
-	"encoding/binary"
 	"math"
 
 	"errors"
 
 	"github.com/emmansun/gmsm/internal/alias"
+	"github.com/emmansun/gmsm/internal/byteorder"
 	"github.com/emmansun/gmsm/internal/subtle"
 )
 
@@ -72,7 +72,6 @@ func NewCCMWithNonceSize(cipher goCipher.Block, size int) (goCipher.AEAD, error)
 // which generates tags with the given length.
 //
 // Tag sizes between 8 and 16 bytes are allowed.
-//
 func NewCCMWithTagSize(cipher goCipher.Block, tagSize int) (goCipher.AEAD, error) {
 	return NewCCMWithNonceAndTagSize(cipher, ccmStandardNonceSize, tagSize)
 }
@@ -133,7 +132,7 @@ func (c *ccm) auth(nonce, plaintext, additionalData []byte, tagMask *[ccmBlockSi
 	}
 	out[0] |= byte(c.tagSize-2) << 2 // M' = ((tagSize - 2) / 2)*8
 	out[0] |= byte(14 - c.nonceSize) // L'
-	binary.BigEndian.PutUint64(out[ccmBlockSize-8:], uint64(len(plaintext)))
+	byteorder.BEPutUint64(out[ccmBlockSize-8:], uint64(len(plaintext)))
 	copy(out[1:], nonce)
 	// B0
 	c.cipher.Encrypt(out[:], out[:])
@@ -143,7 +142,7 @@ func (c *ccm) auth(nonce, plaintext, additionalData []byte, tagMask *[ccmBlockSi
 		// First adata block includes adata length
 		i := 2
 		if n <= 0xfeff { // l(a) < (2^16 - 2^8)
-			binary.BigEndian.PutUint16(block[:i], uint16(n))
+			byteorder.BEPutUint16(block[:i], uint16(n))
 		} else {
 			block[0] = 0xff
 			// If (2^16 - 2^8) <= l(a) < 2^32, then the length field is encoded as
@@ -152,14 +151,14 @@ func (c *ccm) auth(nonce, plaintext, additionalData []byte, tagMask *[ccmBlockSi
 			if n < uint64(1<<32) {
 				block[1] = 0xfe
 				i = 2 + 4
-				binary.BigEndian.PutUint32(block[2:i], uint32(n))
+				byteorder.BEPutUint32(block[2:i], uint32(n))
 			} else {
 				block[1] = 0xff
 				// If 2^32 <= l(a) < 2^64, then the length field is encoded as ten
 				// octets consisting of the octets 0xff, 0xff, and eight octets encoding
 				// l(a) in most-significant-byte-first order.
 				i = 2 + 8
-				binary.BigEndian.PutUint64(block[2:i], uint64(n))
+				byteorder.BEPutUint64(block[2:i], uint64(n))
 			}
 		}
 		i = copy(block[i:], additionalData) // first block start with additional data length

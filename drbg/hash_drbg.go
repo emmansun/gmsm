@@ -1,11 +1,11 @@
 package drbg
 
 import (
-	"encoding/binary"
 	"errors"
 	"hash"
 	"time"
 
+	"github.com/emmansun/gmsm/internal/byteorder"
 	"github.com/emmansun/gmsm/sm3"
 )
 
@@ -15,8 +15,8 @@ const HASH_DRBG_MAX_SEED_SIZE = 111
 // HashDrbg hash DRBG structure, its instance is NOT goroutine safe!!!
 type HashDrbg struct {
 	BaseDrbg
-	newHash func() hash.Hash
-	c       []byte
+	newHash  func() hash.Hash
+	c        []byte
 	hashSize int
 }
 
@@ -146,7 +146,7 @@ func (hd *HashDrbg) addH() {
 
 func (hd *HashDrbg) addReseedCounter() {
 	t := make([]byte, hd.seedLength)
-	binary.BigEndian.PutUint64(t[hd.seedLength-8:], hd.reseedCounter)
+	byteorder.BEPutUint64(t[hd.seedLength-8:], hd.reseedCounter)
 	add(t, hd.v, hd.seedLength)
 }
 
@@ -208,7 +208,7 @@ func (hd *HashDrbg) derive(seedMaterial []byte, len int) []byte {
 	md := hd.newHash()
 	limit := uint64(len+hd.hashSize-1) / uint64(hd.hashSize)
 	var requireBytes [4]byte
-	binary.BigEndian.PutUint32(requireBytes[:], uint32(len<<3))
+	byteorder.BEPutUint32(requireBytes[:], uint32(len<<3))
 	var ct byte = 1
 	k := make([]byte, len)
 	for i := 0; i < int(limit); i++ {

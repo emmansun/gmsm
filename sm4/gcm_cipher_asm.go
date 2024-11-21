@@ -5,10 +5,10 @@ package sm4
 import (
 	"crypto/cipher"
 	goSubtle "crypto/subtle"
-	"encoding/binary"
 	"errors"
 
 	"github.com/emmansun/gmsm/internal/alias"
+	"github.com/emmansun/gmsm/internal/byteorder"
 	"github.com/emmansun/gmsm/internal/subtle"
 )
 
@@ -27,8 +27,8 @@ func (c *sm4CipherAsm) NewGCM(nonceSize, tagSize int) (cipher.AEAD, error) {
 	// would expect, say, 4*key to be in index 4 of the table but due to
 	// this bit ordering it will actually be in index 0010 (base 2) = 2.
 	x := gcmFieldElement{
-		binary.BigEndian.Uint64(key[:8]),
-		binary.BigEndian.Uint64(key[8:]),
+		byteorder.BEUint64(key[:8]),
+		byteorder.BEUint64(key[8:]),
 	}
 	g.productTable[8] = x // reverseBits(1) = 8
 
@@ -48,10 +48,11 @@ func (c *sm4CipherAsm) NewGCM(nonceSize, tagSize int) (cipher.AEAD, error) {
 // gcmFieldElement represents a value in GF(2¹²⁸). In order to reflect the GCM
 // standard and make binary.BigEndian suitable for marshaling these values, the
 // bits are stored in big endian order. For example:
-//   the coefficient of x⁰ can be obtained by v.low >> 63.
-//   the coefficient of x⁶³ can be obtained by v.low & 1.
-//   the coefficient of x⁶⁴ can be obtained by v.high >> 63.
-//   the coefficient of x¹²⁷ can be obtained by v.high & 1.
+//
+//	the coefficient of x⁰ can be obtained by v.low >> 63.
+//	the coefficient of x⁶³ can be obtained by v.low & 1.
+//	the coefficient of x⁶⁴ can be obtained by v.high >> 63.
+//	the coefficient of x¹²⁷ can be obtained by v.high & 1.
 type gcmFieldElement struct {
 	low, high uint64
 }
@@ -233,8 +234,8 @@ func (g *gcm) mul(y *gcmFieldElement) {
 // Horner's rule. There must be a multiple of gcmBlockSize bytes in blocks.
 func (g *gcm) updateBlocks(y *gcmFieldElement, blocks []byte) {
 	for len(blocks) > 0 {
-		y.low ^= binary.BigEndian.Uint64(blocks)
-		y.high ^= binary.BigEndian.Uint64(blocks[8:])
+		y.low ^= byteorder.BEUint64(blocks)
+		y.high ^= byteorder.BEUint64(blocks[8:])
 		g.mul(y)
 		blocks = blocks[gcmBlockSize:]
 	}
@@ -257,7 +258,7 @@ func (g *gcm) update(y *gcmFieldElement, data []byte) {
 // and increments it.
 func gcmInc32(counterBlock *[16]byte) {
 	ctr := counterBlock[len(counterBlock)-4:]
-	binary.BigEndian.PutUint32(ctr, binary.BigEndian.Uint32(ctr)+1)
+	byteorder.BEPutUint32(ctr, byteorder.BEUint32(ctr)+1)
 }
 
 // counterCrypt crypts in to out using g.cipher in counter mode.
@@ -305,8 +306,8 @@ func (g *gcm) deriveCounter(counter *[gcmBlockSize]byte, nonce []byte) {
 		g.update(&y, nonce)
 		y.high ^= uint64(len(nonce)) * 8
 		g.mul(&y)
-		binary.BigEndian.PutUint64(counter[:8], y.low)
-		binary.BigEndian.PutUint64(counter[8:], y.high)
+		byteorder.BEPutUint64(counter[:8], y.low)
+		byteorder.BEPutUint64(counter[8:], y.high)
 	}
 }
 
@@ -322,8 +323,8 @@ func (g *gcm) auth(out, ciphertext, additionalData []byte, tagMask *[gcmTagSize]
 
 	g.mul(&y)
 
-	binary.BigEndian.PutUint64(out, y.low)
-	binary.BigEndian.PutUint64(out[8:], y.high)
+	byteorder.BEPutUint64(out, y.low)
+	byteorder.BEPutUint64(out[8:], y.high)
 
 	subtle.XORBytes(out, out, tagMask[:])
 }

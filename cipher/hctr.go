@@ -2,10 +2,10 @@ package cipher
 
 import (
 	_cipher "crypto/cipher"
-	"encoding/binary"
 	"errors"
 
 	"github.com/emmansun/gmsm/internal/alias"
+	"github.com/emmansun/gmsm/internal/byteorder"
 	"github.com/emmansun/gmsm/internal/subtle"
 )
 
@@ -131,8 +131,8 @@ func NewHCTR(cipher _cipher.Block, tweak, hkey []byte) (LengthPreservingMode, er
 	// would expect, say, 4*key to be in index 4 of the table but due to
 	// this bit ordering it will actually be in index 0010 (base 2) = 2.
 	x := hctrFieldElement{
-		binary.BigEndian.Uint64(hkey[:8]),
-		binary.BigEndian.Uint64(hkey[8:blockSize]),
+		byteorder.BEUint64(hkey[:8]),
+		byteorder.BEUint64(hkey[8:blockSize]),
 	}
 	c.productTable[reverseBits(1)] = x
 
@@ -180,8 +180,8 @@ func (h *hctr) mul(y *hctrFieldElement) {
 }
 
 func (h *hctr) updateBlock(block []byte, y *hctrFieldElement) {
-	y.low ^= binary.BigEndian.Uint64(block)
-	y.high ^= binary.BigEndian.Uint64(block[8:])
+	y.low ^= byteorder.BEUint64(block)
+	y.high ^= byteorder.BEUint64(block[8:])
 	h.mul(y)
 }
 
@@ -214,8 +214,8 @@ func (h *hctr) uhash(m []byte, out *[blockSize]byte) {
 	y.high ^= uint64(len(m)+blockSize) * 8
 	h.mul(&y)
 	// output result
-	binary.BigEndian.PutUint64(out[:], y.low)
-	binary.BigEndian.PutUint64(out[8:], y.high)
+	byteorder.BEPutUint64(out[:], y.low)
+	byteorder.BEPutUint64(out[8:], y.high)
 }
 
 func (h *hctr) EncryptBytes(ciphertext, plaintext []byte) {
@@ -281,7 +281,7 @@ func (h *hctr) ctr(dst, src []byte, baseCtr *[blockSize]byte) {
 			for len(src) >= batchSize {
 				for j := 0; j < concCipher.Concurrency(); j++ {
 					// (i)₂
-					binary.BigEndian.PutUint64(num[blockSize-8:], i)
+					byteorder.BEPutUint64(num[blockSize-8:], i)
 					subtle.XORBytes(ctrs[j*blockSize:], baseCtr[:], num)
 					i++
 				}
@@ -295,7 +295,7 @@ func (h *hctr) ctr(dst, src []byte, baseCtr *[blockSize]byte) {
 
 	for len(src) > 0 {
 		// (i)₂
-		binary.BigEndian.PutUint64(num[blockSize-8:], i)
+		byteorder.BEPutUint64(num[blockSize-8:], i)
 		subtle.XORBytes(ctr, baseCtr[:], num)
 		h.cipher.Encrypt(ctr, ctr)
 		n := subtle.XORBytes(dst, src, ctr)
