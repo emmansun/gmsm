@@ -47,7 +47,7 @@ func (data signedEnvelopedData) GetEncryptedContentInfo() *encryptedContentInfo 
 	return &data.EncryptedContentInfo
 }
 
-func parseSignedEnvelopedData(data []byte) (*PKCS7, error) {
+func parseSignedEnvelopedData(session Session, data []byte) (*PKCS7, error) {
 	var sed signedEnvelopedData
 	if _, err := asn1.Unmarshal(data, &sed); err != nil {
 		return nil, err
@@ -61,7 +61,8 @@ func parseSignedEnvelopedData(data []byte) (*PKCS7, error) {
 		Certificates: certs,
 		CRLs:         sed.CRLs,
 		Signers:      sed.SignerInfos,
-		raw:          sed}, nil
+		raw:          sed,
+		session:      session}, nil
 }
 
 type VerifyFunc func() error
@@ -140,6 +141,7 @@ type SignedAndEnvelopedData struct {
 	data, cek      []byte
 	contentTypeOid asn1.ObjectIdentifier
 	digestOid      asn1.ObjectIdentifier
+	session        Session
 }
 
 // NewSignedAndEnvelopedData takes data and cipher and initializes a new PKCS7 SignedAndEnvelopedData structure
@@ -149,9 +151,11 @@ func NewSignedAndEnvelopedData(data []byte, cipher pkcs.Cipher) (*SignedAndEnvel
 	var key []byte
 	var err error
 
-	// Create key
-	key = make([]byte, cipher.KeySize())
-	_, err = rand.Read(key)
+	result := &SignedAndEnvelopedData{
+		session: DefaultSession{},
+	}
+
+	key, err = result.session.GenerateDataKey(cipher.KeySize())
 	if err != nil {
 		return nil, err
 	}
@@ -160,8 +164,11 @@ func NewSignedAndEnvelopedData(data []byte, cipher pkcs.Cipher) (*SignedAndEnvel
 	if err != nil {
 		return nil, err
 	}
-
-	sed := signedEnvelopedData{
+	result.cek = key
+	result.contentTypeOid = OIDSignedEnvelopedData
+	result.data = data
+	result.digestOid = OIDDigestAlgorithmSHA1
+	result.sed = signedEnvelopedData{
 		Version: 1, // 0 or 1?
 		EncryptedContentInfo: encryptedContentInfo{
 			ContentType:                OIDData,
@@ -169,7 +176,7 @@ func NewSignedAndEnvelopedData(data []byte, cipher pkcs.Cipher) (*SignedAndEnvel
 			EncryptedContent:           marshalEncryptedContent(ciphertext),
 		},
 	}
-	return &SignedAndEnvelopedData{sed: sed, data: data, cek: key, digestOid: OIDDigestAlgorithmSHA1, contentTypeOid: OIDSignedEnvelopedData}, nil
+	return result, nil
 }
 
 // NewSMSignedAndEnvelopedData takes data and cipher and initializes a new PKCS7(SM) SignedAndEnvelopedData structure
@@ -271,7 +278,7 @@ func (saed *SignedAndEnvelopedData) AddCertificate(cert *smx509.Certificate) {
 
 // AddRecipient adds a recipient to the payload
 func (saed *SignedAndEnvelopedData) AddRecipient(recipient *smx509.Certificate) error {
-	encryptedKey, err := encryptKey(saed.cek, recipient, false) //TODO: check if CFCA has such function
+	encryptedKey, err := saed.session.EncryptdDataKey(saed.cek, recipient, nil)
 	if err != nil {
 		return err
 	}

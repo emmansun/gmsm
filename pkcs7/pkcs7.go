@@ -27,6 +27,7 @@ type PKCS7 struct {
 	CRLs         []pkix.CertificateList
 	Signers      []signerInfo
 	raw          any
+	session      Session
 }
 
 type contentInfo struct {
@@ -195,8 +196,13 @@ func getOIDForEncryptionAlgorithm(pkey any, OIDDigestAlg asn1.ObjectIdentifier) 
 
 }
 
-// Parse decodes a DER encoded PKCS7 package
+// Parse decodes a DER encoded PKCS7 package and assign the default session to the PKCS7 object
 func Parse(data []byte) (p7 *PKCS7, err error) {
+	return ParseWithSession(DefaultSession{}, data)
+}
+
+// ParseWithSession decodes a DER encoded PKCS7 package and assign the session to the PKCS7 object
+func ParseWithSession(session Session, data []byte) (p7 *PKCS7, err error) {
 	if len(data) == 0 {
 		return nil, errors.New("pkcs7: input data is empty")
 	}
@@ -218,33 +224,35 @@ func Parse(data []byte) (p7 *PKCS7, err error) {
 	case info.ContentType.Equal(OIDSignedData) || info.ContentType.Equal(SM2OIDSignedData):
 		return parseSignedData(info.Content.Bytes)
 	case info.ContentType.Equal(OIDEnvelopedData) || info.ContentType.Equal(SM2OIDEnvelopedData):
-		return parseEnvelopedData(info.Content.Bytes)
+		return parseEnvelopedData(session, info.Content.Bytes)
 	case info.ContentType.Equal(OIDEncryptedData) || info.ContentType.Equal(SM2OIDEncryptedData):
-		return parseEncryptedData(info.Content.Bytes)
+		return parseEncryptedData(session, info.Content.Bytes)
 	case info.ContentType.Equal(OIDSignedEnvelopedData) || info.ContentType.Equal(SM2OIDSignedEnvelopedData):
-		return parseSignedEnvelopedData(info.Content.Bytes)
+		return parseSignedEnvelopedData(session, info.Content.Bytes)
 	default:
 		return nil, ErrUnsupportedContentType
 	}
 }
 
-func parseEnvelopedData(data []byte) (*PKCS7, error) {
+func parseEnvelopedData(session Session, data []byte) (*PKCS7, error) {
 	var ed envelopedData
 	if _, err := asn1.Unmarshal(data, &ed); err != nil {
 		return nil, err
 	}
 	return &PKCS7{
-		raw: ed,
+		raw:     ed,
+		session: session,
 	}, nil
 }
 
-func parseEncryptedData(data []byte) (*PKCS7, error) {
+func parseEncryptedData(session Session, data []byte) (*PKCS7, error) {
 	var ed encryptedData
 	if _, err := asn1.Unmarshal(data, &ed); err != nil {
 		return nil, err
 	}
 	return &PKCS7{
-		raw: ed,
+		raw:     ed,
+		session: session,
 	}, nil
 }
 

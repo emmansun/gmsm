@@ -2,16 +2,13 @@ package pkcs7
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/sha1"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"errors"
 
 	"github.com/emmansun/gmsm/pkcs"
-	"github.com/emmansun/gmsm/sm2"
 	"github.com/emmansun/gmsm/smx509"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
@@ -22,6 +19,7 @@ type EnvelopedData struct {
 	key                  []byte
 	contentType          asn1.ObjectIdentifier
 	encryptedContentType asn1.ObjectIdentifier
+	session              Session
 }
 
 type envelopedData struct {
@@ -106,7 +104,7 @@ func Encrypt(cipher pkcs.Cipher, content []byte, recipients []*smx509.Certificat
 	}
 	for _, recipient := range recipients {
 		if err := ed.AddRecipient(recipient, 0, func(cert *smx509.Certificate, key []byte) ([]byte, error) {
-			return encryptKey(key, cert, false)
+			return ed.session.EncryptdDataKey(key, cert, nil)
 		}); err != nil {
 			return nil, err
 		}
@@ -136,7 +134,7 @@ func EncryptCFCA(cipher pkcs.Cipher, content []byte, recipients []*smx509.Certif
 // recipient keys for each recipient public key.
 // The OIDs use GM/T 0010 - 2012 set and the encrypted key uses ASN.1 format.
 // This function uses recipient's SubjectKeyIdentifier to identify the recipient.
-// This function is used for CFCA compatibility. 
+// This function is used for CFCA compatibility.
 func EnvelopeMessageCFCA(cipher pkcs.Cipher, content []byte, recipients []*smx509.Certificate) ([]byte, error) {
 	return encryptSM(cipher, content, recipients, 2, false)
 }
@@ -148,7 +146,7 @@ func encryptSM(cipher pkcs.Cipher, content []byte, recipients []*smx509.Certific
 	}
 	for _, recipient := range recipients {
 		if err := ed.AddRecipient(recipient, version, func(cert *smx509.Certificate, key []byte) ([]byte, error) {
-			return encryptKey(key, cert, isLegacyCFCA)
+			return ed.session.EncryptdDataKey(key, cert, isLegacyCFCA)
 		}); err != nil {
 			return nil, err
 		}
@@ -158,22 +156,35 @@ func encryptSM(cipher pkcs.Cipher, content []byte, recipients []*smx509.Certific
 
 // NewEnvelopedData creates a new EnvelopedData structure with the provided cipher and content.
 func NewEnvelopedData(cipher pkcs.Cipher, content []byte) (*EnvelopedData, error) {
-	return newEnvelopedData(cipher, content, OIDEnvelopedData)
+	return newEnvelopedData(cipher, content, OIDEnvelopedData, nil)
 }
 
 // NewSM2EnvelopedData creates a new EnvelopedData structure with the provided cipher and content.
 // The OIDs use GM/T 0010 - 2012 set.
 func NewSM2EnvelopedData(cipher pkcs.Cipher, content []byte) (*EnvelopedData, error) {
-	return newEnvelopedData(cipher, content, SM2OIDEnvelopedData)
+	return newEnvelopedData(cipher, content, SM2OIDEnvelopedData, nil)
 }
 
-func newEnvelopedData(cipher pkcs.Cipher, content []byte, contentType asn1.ObjectIdentifier) (*EnvelopedData, error) {
-	var key []byte
-	var err error
+// NewEnvelopedDataWithSession creates a new EnvelopedData structure with the provided cipher, content and sessionKey.
+func NewEnvelopedDataWithSession(cipher pkcs.Cipher, content []byte, session Session) (*EnvelopedData, error) {
+	return newEnvelopedData(cipher, content, OIDEnvelopedData, session)
+}
 
-	// Create key
-	key = make([]byte, cipher.KeySize())
-	if _, err = rand.Read(key); err != nil {
+// NewSM2EnvelopedDataWithSession creates a new EnvelopedData structure with the provided cipher, content and sessionKey.
+// The OIDs use GM/T 0010 - 2012 set.
+func NewSM2EnvelopedDataWithSession(cipher pkcs.Cipher, content []byte, session Session) (*EnvelopedData, error) {
+	return newEnvelopedData(cipher, content, SM2OIDEnvelopedData, session)
+}
+
+func newEnvelopedData(cipher pkcs.Cipher, content []byte, contentType asn1.ObjectIdentifier, session Session) (*EnvelopedData, error) {
+	ed := &EnvelopedData{}
+	ed.session = session
+	if ed.session == nil {
+		ed.session = DefaultSession{}
+	}
+
+	key, err := ed.session.GenerateDataKey(cipher.KeySize())
+	if err != nil {
 		return nil, err
 	}
 
@@ -181,7 +192,7 @@ func newEnvelopedData(cipher pkcs.Cipher, content []byte, contentType asn1.Objec
 	if err != nil {
 		return nil, err
 	}
-	ed := &EnvelopedData{}
+
 	ed.contentType = contentType
 	ed.encryptedContentType = OIDData
 	version := 0
@@ -273,22 +284,4 @@ func newEncryptedContent(contentType asn1.ObjectIdentifier, alg *pkix.AlgorithmI
 
 func marshalEncryptedContent(content []byte) asn1.RawValue {
 	return asn1.RawValue{Tag: 0, Class: asn1.ClassContextSpecific, Bytes: content}
-}
-
-func encryptKey(key []byte, recipient *smx509.Certificate, isCFCA bool) ([]byte, error) {
-	if pub, ok := recipient.PublicKey.(*rsa.PublicKey); ok {
-		return rsa.EncryptPKCS1v15(rand.Reader, pub, key)
-	}
-	if pub, ok := recipient.PublicKey.(*ecdsa.PublicKey); ok && pub.Curve == sm2.P256() {
-		if isCFCA {
-			encryptedKey, err := sm2.Encrypt(rand.Reader, pub, key, sm2.NewPlainEncrypterOpts(sm2.MarshalUncompressed, sm2.C1C2C3))
-			if err != nil {
-				return nil, err
-			}
-			return encryptedKey[1:], nil
-		} else {
-			return sm2.EncryptASN1(rand.Reader, pub, key)
-		}
-	}
-	return nil, errors.New("pkcs7: only supports RSA/SM2 key")
 }

@@ -3,13 +3,11 @@ package pkcs7
 import (
 	"bytes"
 	"crypto"
-	"crypto/rand"
 	"encoding/asn1"
 	"errors"
 	"math/big"
 
 	"github.com/emmansun/gmsm/pkcs"
-	"github.com/emmansun/gmsm/sm2"
 	"github.com/emmansun/gmsm/smx509"
 )
 
@@ -93,26 +91,11 @@ func (p7 *PKCS7) decrypt(cert *smx509.Certificate, pkey crypto.PrivateKey, isCFC
 	if recipient == nil {
 		return nil, errors.New("pkcs7: no enveloped recipient for provided certificate")
 	}
-
-	switch pkey := pkey.(type) {
-	case crypto.Decrypter:
-		// Generic case to handle anything that provides the crypto.Decrypter interface.
-		encryptedKey := recipient.EncryptedKey
-		var decrypterOpts crypto.DecrypterOpts
-		if _, ok := pkey.(*sm2.PrivateKey); ok && isCFCA {
-			encryptedKey = make([]byte, len(recipient.EncryptedKey)+1)
-			encryptedKey[0] = 0x04
-			copy(encryptedKey[1:], recipient.EncryptedKey)
-			decrypterOpts = sm2.NewPlainDecrypterOpts(sm2.C1C2C3)
-		}
-
-		contentKey, err := pkey.Decrypt(rand.Reader, encryptedKey, decrypterOpts)
-		if err != nil {
-			return nil, err
-		}
-		return decryptableData.GetEncryptedContentInfo().decrypt(contentKey)
+	contentKey, err := p7.session.DecryptDataKey(recipient.EncryptedKey, pkey, cert, isCFCA)
+	if err != nil {
+		return nil, err
 	}
-	return nil, ErrUnsupportedAlgorithm
+	return decryptableData.GetEncryptedContentInfo().decrypt(contentKey)
 }
 
 // DecryptUsingPSK decrypts encrypted data using caller provided
