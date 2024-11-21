@@ -1,3 +1,7 @@
+// Copyright 2024 Sun Yimin. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
 package pkcs7
 
 import (
@@ -11,6 +15,7 @@ import (
 	"github.com/emmansun/gmsm/smx509"
 )
 
+// Session is an interface that provides methods to generate and encrypt/decrypt data keys
 type Session interface {
 	// GenerateDataKey returns the data key to be used for encryption
 	GenerateDataKey(size int) ([]byte, error)
@@ -22,11 +27,11 @@ type Session interface {
 	DecryptDataKey(key []byte, priv crypto.PrivateKey, cert *smx509.Certificate, opts any) ([]byte, error)
 }
 
-// DefaultSession is the default implementation of Session without any special handling
+// DefaultSession is the default implementation of Session without any special handling (stateless).
 // Custom implementations can be provided to handle key reuse, cache, etc.
 type DefaultSession struct{}
 
-func (d DefaultSession) GenerateDataKey(size int) ([]byte, error) {
+func (DefaultSession) GenerateDataKey(size int) ([]byte, error) {
 	key := make([]byte, size)
 	if _, err := rand.Read(key); err != nil {
 		return nil, err
@@ -34,7 +39,7 @@ func (d DefaultSession) GenerateDataKey(size int) ([]byte, error) {
 	return key, nil
 }
 
-func (d DefaultSession) EncryptdDataKey(key []byte, cert *smx509.Certificate, opts any) ([]byte, error) {
+func (DefaultSession) EncryptdDataKey(key []byte, cert *smx509.Certificate, opts any) ([]byte, error) {
 	switch pub := cert.PublicKey.(type) {
 	case *rsa.PublicKey:
 		return rsa.EncryptPKCS1v15(rand.Reader, pub, key)
@@ -54,7 +59,7 @@ func (d DefaultSession) EncryptdDataKey(key []byte, cert *smx509.Certificate, op
 	return nil, errors.New("pkcs7: only supports RSA/SM2 key")
 }
 
-func (d DefaultSession) DecryptDataKey(key []byte, priv crypto.PrivateKey, cert *smx509.Certificate, opts any) ([]byte, error) {
+func (DefaultSession) DecryptDataKey(key []byte, priv crypto.PrivateKey, cert *smx509.Certificate, opts any) ([]byte, error) {
 	switch pkey := priv.(type) {
 	case crypto.Decrypter:
 		// Generic case to handle anything that provides the crypto.Decrypter interface.

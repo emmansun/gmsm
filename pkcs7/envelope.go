@@ -210,7 +210,7 @@ func newEnvelopedData(cipher pkcs.Cipher, content []byte, contentType asn1.Objec
 
 // AddRecipient adds a recipient to the EnvelopedData structure.
 // version 0: IssuerAndSerialNumber
-// version 1: SM2
+// version 1: SM2GB/T 35275-2017
 // version 2: SubjectKeyIdentifier
 func (ed *EnvelopedData) AddRecipient(cert *smx509.Certificate, version int, encryptKeyFunc func(cert *smx509.Certificate, key []byte) ([]byte, error)) error {
 	if version < 0 || version > 2 {
