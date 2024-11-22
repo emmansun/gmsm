@@ -71,6 +71,9 @@ func genIV4EIA(count, bearer, direction uint32) []byte {
 }
 
 // NewEIAHash create hash for zuc-128 eia, with arguments key, count, bearer and direction
+// The key must be 16 bytes long and iv must be 16 bytes long, otherwise, an error will be returned.
+// The count is the 32-bit counter value, the bearer is the 5-bit bearer identity and the direction is the 1-bit 
+// transmission direction flag.
 func NewEIAHash(key []byte, count, bearer, direction uint32) (*ZUC128Mac, error) {
 	return NewHash(key, genIV4EIA(count, bearer, direction))
 }

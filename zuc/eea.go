@@ -17,6 +17,9 @@ type eea struct {
 }
 
 // NewCipher create a stream cipher based on key and iv aguments.
+// The key must be 16 bytes long and iv must be 16 bytes long for zuc 128;
+// or the key must be 32 bytes long and iv must be 23 bytes long for zuc 256;
+// otherwise, an error will be returned.
 func NewCipher(key, iv []byte) (cipher.Stream, error) {
 	s, err := newZUCState(key, iv)
 	if err != nil {
@@ -28,6 +31,9 @@ func NewCipher(key, iv []byte) (cipher.Stream, error) {
 }
 
 // NewEEACipher create a stream cipher based on key, count, bearer and direction arguments according specification.
+// The key must be 16 bytes long and iv must be 16 bytes long, otherwise, an error will be returned.
+// The count is the 32-bit counter value, the bearer is the 5-bit bearer identity and the direction is the 1-bit 
+// transmission direction flag.
 func NewEEACipher(key []byte, count, bearer, direction uint32) (cipher.Stream, error) {
 	iv := make([]byte, 16)
 	byteorder.BEPutUint32(iv, count)
