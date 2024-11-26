@@ -174,7 +174,7 @@ func (c *sm2Curve) sm2za(md hash.Hash, pub *PublicKey, uid []byte) ([]byte, erro
 	return md.Sum(nil), nil
 }
 
-// P256 returns a Curve which implements SM2, also known as sm2p256v1
+// P256 returns a [Curve] which implements SM2, also known as sm2p256v1
 //
 // Multiple invocations of this function will return the same value, so it can
 // be used for equality checks and switch statements.
