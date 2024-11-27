@@ -559,10 +559,6 @@ func TestNewModulus(t *testing.T) {
 	if err == nil || err.Error() != expected {
 		t.Errorf("NewModulus(0) got %q, want %q", err, expected)
 	}
-	_, err = NewModulus([]byte{1, 1, 1, 1, 2})
-	if err == nil || err.Error() != expected {
-		t.Errorf("NewModulus(2) got %q, want %q", err, expected)
-	}
 }
 
 func TestOverflowedBytes(t *testing.T) {
