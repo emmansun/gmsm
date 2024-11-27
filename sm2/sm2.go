@@ -309,6 +309,8 @@ func encodingCiphertextASN1(C1 *_sm2ec.SM2P256Point, c2, c3 []byte) ([]byte, err
 // Most applications should use [crypto/rand.Reader] as rand. Note that the
 // returned key does not depend deterministically on the bytes read from rand,
 // and may change between calls and/or between versions.
+//
+// According GB/T 32918.1-2016, the private key must be in [1, n-2].
 func GenerateKey(rand io.Reader) (*PrivateKey, error) {
 	randutil.MaybeReadByte(rand)
 
@@ -331,6 +333,8 @@ func GenerateKey(rand io.Reader) (*PrivateKey, error) {
 // NewPrivateKey checks that key is valid and returns a SM2 PrivateKey.
 //
 // key - the private key byte slice, the length must be 32 for SM2.
+//
+// According GB/T 32918.1-2016, the private key must be in [1, n-2].
 func NewPrivateKey(key []byte) (*PrivateKey, error) {
 	c := p256()
 	if len(key) != c.N.Size() {
@@ -364,6 +368,8 @@ func NewPrivateKeyFromInt(key *big.Int) (*PrivateKey, error) {
 }
 
 // NewPublicKey checks that key is valid and returns a PublicKey.
+//
+// According GB/T 32918.1-2016, the private key must be in [1, n-2].
 func NewPublicKey(key []byte) (*ecdsa.PublicKey, error) {
 	c := p256()
 	// Reject the point at infinity and compressed encodings.
@@ -598,7 +604,7 @@ func (priv *PrivateKey) inverseOfPrivateKeyPlus1(c *sm2Curve) (*bigmod.Nat, erro
 		dp1Bytes       []byte
 	)
 	priv.inverseOfKeyPlus1Once.Do(func() {
-		oneNat, _ = bigmod.NewNat().SetBytes(one.Bytes(), c.N)
+		oneNat, _ = bigmod.NewNat().SetUint(1, c.N)
 		dp1Inv, err = bigmod.NewNat().SetBytes(priv.D.Bytes(), c.N)
 		if err == nil {
 			dp1Inv.Add(oneNat, c.N)

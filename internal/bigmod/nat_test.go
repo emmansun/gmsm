@@ -6,6 +6,7 @@ package bigmod
 
 import (
 	"bytes"
+	cryptorand "crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -16,6 +17,19 @@ import (
 	"testing"
 	"testing/quick"
 )
+
+// setBig assigns x = n, optionally resizing n to the appropriate size.
+//
+// The announced length of x is set based on the actual bit size of the input,
+// ignoring leading zeroes.
+func (x *Nat) setBig(n *big.Int) *Nat {
+	limbs := n.Bits()
+	x.reset(len(limbs))
+	for i := range limbs {
+		x.limbs[i] = uint(limbs[i])
+	}
+	return x
+}
 
 func (n *Nat) String() string {
 	var limbs []string
@@ -312,19 +326,6 @@ func TestExpShort(t *testing.T) {
 	}
 }
 
-// setBig assigns x = n, optionally resizing n to the appropriate size.
-//
-// The announced length of x is set based on the actual bit size of the input,
-// ignoring leading zeroes.
-func (x *Nat) setBig(n *big.Int) *Nat {
-	limbs := n.Bits()
-	x.reset(len(limbs))
-	for i := range limbs {
-		x.limbs[i] = uint(limbs[i])
-	}
-	return x
-}
-
 // TestMulReductions tests that Mul reduces results equal or slightly greater
 // than the modulus. Some Montgomery algorithms don't and need extra care to
 // return correct results. See https://go.dev/issue/13907.
@@ -350,6 +351,52 @@ func TestMulReductions(t *testing.T) {
 
 	if A.Mul(I, N).Equal(one) != 1 {
 		t.Error("a * inv(a) mod b != 1")
+	}
+}
+
+func TestMul(t *testing.T) {
+	t.Run("760", func(t *testing.T) { testMul(t, 760/8) })
+	t.Run("256", func(t *testing.T) { testMul(t, 256/8) })
+	t.Run("1024", func(t *testing.T) { testMul(t, 1024/8) })
+	t.Run("1536", func(t *testing.T) { testMul(t, 1536/8) })
+	t.Run("2048", func(t *testing.T) { testMul(t, 2048/8) })
+}
+
+func testMul(t *testing.T, n int) {
+	a, b, m := make([]byte, n), make([]byte, n), make([]byte, n)
+	cryptorand.Read(a)
+	cryptorand.Read(b)
+	cryptorand.Read(m)
+	// Pick the highest as the modulus.
+	if bytes.Compare(a, m) > 0 {
+		a, m = m, a
+	}
+	if bytes.Compare(b, m) > 0 {
+		b, m = m, b
+	}
+	M, err := NewModulus(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	A, err := NewNat().SetBytes(a, M)
+	if err != nil {
+		t.Fatal(err)
+	}
+	B, err := NewNat().SetBytes(b, M)
+	if err != nil {
+		t.Fatal(err)
+	}
+	A.Mul(B, M)
+	ABytes := A.Bytes(M)
+	mBig := new(big.Int).SetBytes(m)
+	aBig := new(big.Int).SetBytes(a)
+	bBig := new(big.Int).SetBytes(b)
+	nBig := new(big.Int).Mul(aBig, bBig)
+	nBig.Mod(nBig, mBig)
+	nBigBytes := make([]byte, len(ABytes))
+	nBig.FillBytes(nBigBytes)
+	if !bytes.Equal(ABytes, nBigBytes) {
+		t.Errorf("got %x, want %x", ABytes, nBigBytes)
 	}
 }
 
