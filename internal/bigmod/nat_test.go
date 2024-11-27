@@ -546,7 +546,7 @@ func BenchmarkExp(b *testing.B) {
 }
 
 func TestNewModulus(t *testing.T) {
-	expected := "modulus must be > 0 and odd"
+	expected := "modulus must be > 0"
 	_, err := NewModulus([]byte{})
 	if err == nil || err.Error() != expected {
 		t.Errorf("NewModulus(0) got %q, want %q", err, expected)
