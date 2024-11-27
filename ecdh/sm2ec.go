@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/bits"
 
+	"github.com/emmansun/gmsm/internal/bigmod"
 	"github.com/emmansun/gmsm/internal/randutil"
 	sm2ec "github.com/emmansun/gmsm/internal/sm2ec"
 	"github.com/emmansun/gmsm/internal/subtle"
@@ -83,6 +84,21 @@ func (c *sm2Curve) privateKeyToPublicKey(key *PrivateKey) *PublicKey {
 	}
 }
 
+func (c *sm2Curve) GenerateKeyFromScalar(scalar []byte) (*PrivateKey, error) {
+	if size := len(c.scalarOrderMinus1); len(scalar) > size {
+		scalar = scalar[:size]
+	}
+	m, err := bigmod.NewModulus(c.scalarOrderMinus1)
+	if err != nil {
+		return nil, err
+	}
+	p, err := bigmod.NewNat().SetOverflowingBytes(scalar, m)
+	if err != nil {
+		return nil, err
+	}
+	return c.NewPrivateKey(p.Bytes(m))
+}
+
 func (c *sm2Curve) NewPublicKey(key []byte) (*PublicKey, error) {
 	// Reject the point at infinity and compressed encodings.
 	if len(key) == 0 || key[0] != 4 {
@@ -109,6 +125,47 @@ func (c *sm2Curve) ecdh(local *PrivateKey, remote *PublicKey) ([]byte, error) {
 	}
 	// BytesX will return an error if p is the point at infinity.
 	return p.BytesX()
+}
+
+func (c *sm2Curve) addPublicKeys(a, b *PublicKey) (*PublicKey, error) {
+	p1, err := c.newPoint().SetBytes(a.publicKey)
+	if err != nil {
+		return nil, err
+	}
+	p2, err := c.newPoint().SetBytes(b.publicKey)
+	if err != nil {
+		return nil, err
+	}
+	p1.Add(p1, p2)
+	return c.NewPublicKey(p1.Bytes())
+}
+
+func (c *sm2Curve) addPrivateKeys(a, b *PrivateKey) (*PrivateKey, error) {
+	m, err := bigmod.NewModulus(c.scalarOrderMinus1)
+	if err != nil {
+		return nil, err
+	}
+	aNat, err := bigmod.NewNat().SetBytes(a.privateKey, m)
+	if err != nil {
+		return nil, err
+	}
+	bNat, err := bigmod.NewNat().SetBytes(b.privateKey, m)
+	if err != nil {
+		return nil, err
+	}
+	aNat = aNat.Add(bNat, m)
+	return c.NewPrivateKey(aNat.Bytes(m))
+}
+
+func (c *sm2Curve) secretKey(local *PrivateKey, remote *PublicKey) ([]byte, error) {
+	p, err := c.newPoint().SetBytes(remote.publicKey)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := p.ScalarMult(p, local.privateKey); err != nil {
+		return nil, err
+	}
+	return p.Bytes(), nil
 }
 
 func (c *sm2Curve) sm2avf(secret *PublicKey) []byte {

@@ -33,6 +33,10 @@ type Curve interface {
 	// private keys can cause ECDH to return an error.
 	NewPrivateKey(key []byte) (*PrivateKey, error)
 
+	// GenerateKeyFromScalar generates a PrivateKey from a scalar.
+	// This is used for testing only now.
+	GenerateKeyFromScalar(scalar []byte) (*PrivateKey, error)
+
 	// NewPublicKey checks that key is valid and returns a PublicKey.
 	//
 	// For NIST curves, this decodes an uncompressed point according to SEC 1,
@@ -49,6 +53,20 @@ type Curve interface {
 	// The private method also allow us to expand the ECDH interface with more
 	// methods in the future without breaking backwards compatibility.
 	ecdh(local *PrivateKey, remote *PublicKey) ([]byte, error)
+
+	// addPublicKeys adds two public keys and returns the resulting public key. It's exposed
+	// as the PublicKey.Add method.
+	addPublicKeys(a, b *PublicKey) (*PublicKey, error)
+
+	// addPrivateKeys adds two private keys and returns the resulting private key. It's exposed
+	// as the PrivateKey.Add method.
+	addPrivateKeys(a, b *PrivateKey) (*PrivateKey, error)
+
+	// secretKey generates a shared secret key from a local ephemeral private key and a
+	// remote public key. It's exposed as the PrivateKey.SecretKey method.
+	//
+	// This method is similar to ECDH, but it returns the raw shared secret instead
+	secretKey(local *PrivateKey, remote *PublicKey) ([]byte, error)
 
 	// sm2mqv performs a SM2 specific style ECMQV exchange and return the shared secret.
 	sm2mqv(sLocal, eLocal *PrivateKey, sRemote, eRemote *PublicKey) (*PublicKey, error)
@@ -136,6 +154,15 @@ func (uv *PublicKey) SM2SharedKey(isResponder bool, kenLen int, sPub, sRemote *P
 	return sm3.Kdf(buffer[:], kenLen), nil
 }
 
+// Add adds two public keys and returns the resulting public key.
+// k is NOT changed.
+func (k *PublicKey) Add(x *PublicKey) (*PublicKey, error) {
+	if k.curve != x.curve {
+		return nil, errors.New("ecdh: public keys do not have the same curve")
+	}
+	return k.curve.addPublicKeys(k, x)
+}
+
 // PrivateKey is an ECDH private key, usually kept secret.
 //
 // These keys can be parsed with [smx509.ParsePKCS8PrivateKey] and encoded
@@ -163,6 +190,18 @@ func (k *PrivateKey) ECDH(remote *PublicKey) ([]byte, error) {
 		return nil, errors.New("ecdh: private key and public key curves do not match")
 	}
 	return k.curve.ecdh(k, remote)
+}
+
+// SecretKey generates a shared secret key from a local ephemeral private key and a
+// remote public key.
+//
+// This method is similar to [ECDH], but it returns the raw shared secret instead
+// of the x-coordinate of the shared point.
+func (k *PrivateKey) SecretKey(remote *PublicKey) ([]byte, error) {
+	if k.curve != remote.curve {
+		return nil, errors.New("ecdh: private key and public key curves do not match")
+	}
+	return k.curve.secretKey(k, remote)
 }
 
 // SM2MQV performs a SM2 specific style ECMQV exchange and return the shared secret.
@@ -212,4 +251,13 @@ func (k *PrivateKey) PublicKey() *PublicKey {
 // keys. See the docs of [crypto.PrivateKey].
 func (k *PrivateKey) Public() crypto.PublicKey {
 	return k.PublicKey()
+}
+
+// Add adds two private keys and returns the resulting private key.
+// k is NOT changed.
+func (k *PrivateKey) Add(x *PrivateKey) (*PrivateKey, error) {
+	if k.curve != x.curve {
+		return nil, errors.New("ecdh: private keys do not have the same curve")
+	}
+	return k.curve.addPrivateKeys(k, x)
 }
