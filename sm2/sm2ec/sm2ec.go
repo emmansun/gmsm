@@ -1,4 +1,4 @@
-// Package sm2ec defines/implements SM2 curve structure.
+// Package sm2ec defines/implements SM2 elliptic curve structure.
 package sm2ec
 
 import (
@@ -6,18 +6,26 @@ import (
 	"errors"
 	"math/big"
 
-	_sm2ec "github.com/emmansun/gmsm/internal/sm2ec"
+	"github.com/emmansun/gmsm/internal/sm2ec"
 )
 
-type sm2Curve struct {
-	newPoint func() *_sm2ec.SM2P256Point
-	params   *elliptic.CurveParams
-}
-
-var sm2p256 = &sm2Curve{newPoint: _sm2ec.NewSM2P256Point}
+var sm2p256 = &sm2Curve{newPoint: sm2ec.NewSM2P256Point}
 
 func initSM2P256() {
-	sm2p256.params = sm2Params
+	sm2p256.params = &elliptic.CurveParams{
+		Name:    "sm2p256v1",
+		BitSize: 256,
+		P:       bigFromHex("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF"),
+		N:       bigFromHex("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123"),
+		B:       bigFromHex("28E9FA9E9D9F5E344D5A9E4BCF6509A7F39789F515AB8F92DDBCBD414D940E93"),
+		Gx:      bigFromHex("32C4AE2C1F1981195F9904466A39C9948FE30BBFF2660BE1715A4589334C74C7"),
+		Gy:      bigFromHex("BC3736A2F4F6779C59BDCEE36B692153D0A9877CC62A474002DF32E52139F0A0"),
+	}
+}
+
+type sm2Curve struct {
+	newPoint func() *sm2ec.SM2P256Point
+	params   *elliptic.CurveParams
 }
 
 func (curve *sm2Curve) Params() *elliptic.CurveParams {
@@ -34,7 +42,7 @@ func (curve *sm2Curve) IsOnCurve(x, y *big.Int) bool {
 	return err == nil
 }
 
-func (curve *sm2Curve) pointFromAffine(x, y *big.Int) (p *_sm2ec.SM2P256Point, err error) {
+func (curve *sm2Curve) pointFromAffine(x, y *big.Int) (p *sm2ec.SM2P256Point, err error) {
 	// (0, 0) is by convention the point at infinity, which can't be represented
 	// in affine coordinates. See Issue 37294.
 	if x.Sign() == 0 && y.Sign() == 0 {
@@ -56,7 +64,7 @@ func (curve *sm2Curve) pointFromAffine(x, y *big.Int) (p *_sm2ec.SM2P256Point, e
 	return curve.newPoint().SetBytes(buf)
 }
 
-func (curve *sm2Curve) pointToAffine(p *_sm2ec.SM2P256Point) (x, y *big.Int) {
+func (curve *sm2Curve) pointToAffine(p *sm2ec.SM2P256Point) (x, y *big.Int) {
 	out := p.Bytes()
 	if len(out) == 1 && out[0] == 0 {
 		// This is the encoding of the point at infinity, which the affine
@@ -186,9 +194,17 @@ func (curve *sm2Curve) Inverse(k *big.Int) *big.Int {
 		k = new(big.Int).Mod(k, curve.params.N)
 	}
 	scalar := k.FillBytes(make([]byte, 32))
-	inverse, err := _sm2ec.P256OrdInverse(scalar)
+	inverse, err := sm2ec.P256OrdInverse(scalar)
 	if err != nil {
 		panic("sm2/elliptic: sm2 rejected normalized scalar")
 	}
 	return new(big.Int).SetBytes(inverse)
+}
+
+func bigFromHex(s string) *big.Int {
+	b, ok := new(big.Int).SetString(s, 16)
+	if !ok {
+		panic("sm2/elliptic: internal error: invalid encoding")
+	}
+	return b
 }

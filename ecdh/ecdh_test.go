@@ -40,7 +40,7 @@ func TestNewPrivateKeyWithOrderMinus1(t *testing.T) {
 		0x53, 0xbb, 0xf4, 0x09, 0x39, 0xd5, 0x41, 0x22})
 	if err == nil || err.Error() != "ecdh: invalid private key" {
 		t.Errorf("expected invalid private key")
-	} 
+	}
 }
 
 func TestECDH(t *testing.T) {
