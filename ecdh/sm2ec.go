@@ -16,6 +16,7 @@ import (
 type sm2Curve struct {
 	name              string
 	newPoint          func() *sm2ec.SM2P256Point
+	scalarOrder       []byte
 	scalarOrderMinus1 []byte
 	constantA         []byte
 	constantB         []byte
@@ -49,10 +50,14 @@ func (c *sm2Curve) GenerateKey(rand io.Reader) (*PrivateKey, error) {
 }
 
 func (c *sm2Curve) NewPrivateKey(key []byte) (*PrivateKey, error) {
-	if len(key) != len(c.scalarOrderMinus1) {
+	return c.newPrivateKey(key, true)
+}
+
+func (c *sm2Curve) newPrivateKey(key []byte, checkOrderMinus1 bool) (*PrivateKey, error) {
+	if len(key) != len(c.scalarOrder) {
 		return nil, errors.New("ecdh: invalid private key size")
 	}
-	if subtle.ConstantTimeAllZero(key) == 1 || !isLess(key, c.scalarOrderMinus1) {
+	if subtle.ConstantTimeAllZero(key) == 1 || (checkOrderMinus1 && !isLess(key, c.scalarOrderMinus1)) {
 		return nil, errInvalidPrivateKey
 	}
 	return &PrivateKey{
@@ -84,11 +89,13 @@ func (c *sm2Curve) privateKeyToPublicKey(key *PrivateKey) *PublicKey {
 	}
 }
 
+// GenerateKeyFromScalar generates a private key from a scalar. The scalar will
+// be reduced to the range [0, Order).
 func (c *sm2Curve) GenerateKeyFromScalar(scalar []byte) (*PrivateKey, error) {
-	if size := len(c.scalarOrderMinus1); len(scalar) > size {
+	if size := len(c.scalarOrder); len(scalar) > size {
 		scalar = scalar[:size]
 	}
-	m, err := bigmod.NewModulus(c.scalarOrderMinus1)
+	m, err := bigmod.NewModulus(c.scalarOrder)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +103,7 @@ func (c *sm2Curve) GenerateKeyFromScalar(scalar []byte) (*PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	return c.NewPrivateKey(p.Bytes(m))
+	return c.newPrivateKey(p.Bytes(m), false)
 }
 
 func (c *sm2Curve) NewPublicKey(key []byte) (*PublicKey, error) {
@@ -141,7 +148,7 @@ func (c *sm2Curve) addPublicKeys(a, b *PublicKey) (*PublicKey, error) {
 }
 
 func (c *sm2Curve) addPrivateKeys(a, b *PrivateKey) (*PrivateKey, error) {
-	m, err := bigmod.NewModulus(c.scalarOrderMinus1)
+	m, err := bigmod.NewModulus(c.scalarOrder)
 	if err != nil {
 		return nil, err
 	}
@@ -240,12 +247,18 @@ func P256() Curve { return sm2P256 }
 var sm2P256 = &sm2Curve{
 	name:              "sm2p256v1",
 	newPoint:          sm2ec.NewSM2P256Point,
+	scalarOrder:       sm2P256Order,
 	scalarOrderMinus1: sm2P256OrderMinus1,
 	generator:         sm2Generator,
 	constantA:         sm2ConstantA,
 	constantB:         sm2ConstantB,
 }
 
+var sm2P256Order = []byte{
+	0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0x72, 0x03, 0xdf, 0x6b, 0x21, 0xc6, 0x05, 0x2b,
+	0x53, 0xbb, 0xf4, 0x09, 0x39, 0xd5, 0x41, 0x23}
 var sm2P256OrderMinus1 = []byte{
 	0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xff, 0xff,
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
