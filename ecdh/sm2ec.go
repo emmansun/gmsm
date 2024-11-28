@@ -57,7 +57,7 @@ func (c *sm2Curve) newPrivateKey(key []byte, checkOrderMinus1 bool) (*PrivateKey
 	if len(key) != len(c.scalarOrder) {
 		return nil, errors.New("ecdh: invalid private key size")
 	}
-	if subtle.ConstantTimeAllZero(key) == 1 || (checkOrderMinus1 && !isLess(key, c.scalarOrderMinus1)) {
+	if subtle.ConstantTimeAllZero(key) == 1 || !isLess(key, c.scalarOrder) || (checkOrderMinus1 && !isLess(key, c.scalarOrderMinus1)) {
 		return nil, errInvalidPrivateKey
 	}
 	return &PrivateKey{
@@ -161,7 +161,7 @@ func (c *sm2Curve) addPrivateKeys(a, b *PrivateKey) (*PrivateKey, error) {
 		return nil, err
 	}
 	aNat = aNat.Add(bNat, m)
-	return c.NewPrivateKey(aNat.Bytes(m))
+	return c.newPrivateKey(aNat.Bytes(m), false)
 }
 
 func (c *sm2Curve) secretKey(local *PrivateKey, remote *PublicKey) ([]byte, error) {
