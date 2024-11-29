@@ -103,6 +103,15 @@ func TestXORStreamAt(t *testing.T) {
 		t.Errorf("expected=%x, result=%x\n", dst1[:32], dst2[:32])
 	}
 
+	// test jump forward
+	for i := 0; i < 4; i++ {
+		c.XORKeyStreamAt(dst2[i:16], src2[i:16], uint64(i))
+		c.XORKeyStreamAt(dst2[32:64], src2[32:64], 32)
+		if !bytes.Equal(dst2[32:64], dst1[32:64]) {
+			t.Errorf("expected=%x, result=%x\n", dst1[32:64], dst2[32:64])
+		}
+	}
+
 	// test offset - used > 128 bytes case
 	c.XORKeyStreamAt(dst2[:16], src2[:16], 0)
 	offset := 700

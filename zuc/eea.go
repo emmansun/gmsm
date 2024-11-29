@@ -7,12 +7,16 @@ import (
 	"github.com/emmansun/gmsm/internal/subtle"
 )
 
-const RoundWords = 32
+const (
+	RoundWords = 32
+	WordSize   = 4
+	RoundBytes = RoundWords * WordSize
+)
 
 type eea struct {
 	zucState32
-	x         [4]byte // remaining bytes buffer
-	xLen      int     // number of remaining bytes
+	x         [WordSize]byte // remaining bytes buffer
+	xLen      int            // number of remaining bytes
 	initState zucState32
 	used      uint64
 }
@@ -47,10 +51,10 @@ func NewEEACipher(key []byte, count, bearer, direction uint32) (cipher.SeekableS
 }
 
 func genKeyStreamRev32Generic(keyStream []byte, pState *zucState32) {
-	for len(keyStream) >= 4 {
+	for len(keyStream) >= WordSize {
 		z := genKeyword(pState)
 		byteorder.BEPutUint32(keyStream, z)
-		keyStream = keyStream[4:]
+		keyStream = keyStream[WordSize:]
 	}
 }
 
@@ -74,17 +78,17 @@ func (c *eea) XORKeyStream(dst, src []byte) {
 			return
 		}
 	}
-	words := (len(src) + 3) / 4
+	words := (len(src) + WordSize - 1) / WordSize
 	rounds := words / RoundWords
-	var keyBytes [RoundWords * 4]byte
+	var keyBytes [RoundBytes]byte
 	for i := 0; i < rounds; i++ {
 		genKeyStreamRev32(keyBytes[:], &c.zucState32)
 		subtle.XORBytes(dst, src, keyBytes[:])
-		dst = dst[RoundWords*4:]
-		src = src[RoundWords*4:]
+		dst = dst[RoundBytes:]
+		src = src[RoundBytes:]
 	}
-	if rounds*RoundWords < words {
-		byteLen := 4 * (words - rounds*RoundWords)
+	if processedWords := rounds * RoundWords; processedWords < words {
+		byteLen := WordSize * (words - processedWords)
 		genKeyStreamRev32(keyBytes[:byteLen], &c.zucState32)
 		n := subtle.XORBytes(dst, src, keyBytes[:])
 		// save remaining key bytes
@@ -110,6 +114,7 @@ func (c *eea) XORKeyStreamAt(dst, src []byte, offset uint64) {
 		panic("zuc: invalid buffer overlap")
 	}
 	if offset < c.used {
+		// reset the state to the initial state
 		c.reset()
 	} else if offset == c.used {
 		c.XORKeyStream(dst, src)
@@ -126,27 +131,24 @@ func (c *eea) XORKeyStreamAt(dst, src []byte, offset uint64) {
 
 	// forward the state to the offset
 	// this part can be optimized by a little bit
-	stepLen := uint64(RoundWords * 4)
+	stepLen := uint64(RoundBytes)
 	var keys [RoundWords]uint32
 	for ; diff >= uint64(stepLen); diff -= stepLen {
 		genKeyStream(keys[:], &c.zucState32)
 		c.used += stepLen
 	}
 
-	// handle remaining key bytes
 	if diff > 0 {
-		limit := (diff + 3) / 4
-		remaining := int(diff % 4)
+		limit := (diff + WordSize - 1) / WordSize
 		genKeyStream(keys[:limit], &c.zucState32)
-		c.used += limit * 4
-		if remaining > 0 {
-			var keyBytes [4]byte
-			c.used -= 4
-			c.xLen = 4 - remaining
-			if c.xLen > 0 {
-				byteorder.BEPutUint32(keyBytes[:], keys[limit-1])
-				copy(c.x[:], keyBytes[remaining:])
-			}
+		partiallyUsed := int(diff % WordSize)
+		c.used += limit * WordSize
+		if partiallyUsed > 0 {
+			// save remaining key bytes (less than 4 bytes)
+			c.xLen = WordSize - partiallyUsed
+			c.used -= uint64(c.xLen)
+			byteorder.BEPutUint32(c.x[:], keys[limit-1])
+			copy(c.x[:], c.x[partiallyUsed:])
 		}
 	}
 	c.XORKeyStream(dst, src)
