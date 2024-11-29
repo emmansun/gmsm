@@ -139,15 +139,15 @@ func (c *eea) XORKeyStreamAt(dst, src []byte, offset uint64) {
 	}
 
 	if diff > 0 {
-		limit := (diff + WordSize - 1) / WordSize
-		genKeyStream(keys[:limit], &c.zucState32)
+		words := (diff + WordSize - 1) / WordSize
+		genKeyStream(keys[:words], &c.zucState32)
 		partiallyUsed := int(diff % WordSize)
-		c.used += limit * WordSize
+		c.used += words * WordSize
 		if partiallyUsed > 0 {
 			// save remaining key bytes (less than 4 bytes)
 			c.xLen = WordSize - partiallyUsed
 			c.used -= uint64(c.xLen)
-			byteorder.BEPutUint32(c.x[:], keys[limit-1])
+			byteorder.BEPutUint32(c.x[:], keys[words-1])
 			copy(c.x[:], c.x[partiallyUsed:])
 		}
 	}

@@ -83,51 +83,96 @@ func TestXORStreamAt(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	src1 := make([]byte, 1000)
-	dst1 := make([]byte, 1000)
-	src2 := make([]byte, 1000)
-	dst2 := make([]byte, 1000)
+	src := make([]byte, 1000)
+	expected := make([]byte, 1000)
+	dst := make([]byte, 1000)
+	c.XORKeyStream(expected, src)
 
-	c.XORKeyStream(dst1, src1)
-	for i := 0; i < 65; i++ {
-		c.XORKeyStreamAt(dst2[i:], src2[i:], uint64(i))
-		if !bytes.Equal(dst1[i:], dst2[i:]) {
-			t.Errorf("At %d, expected=%x, result=%x\n", i, dst1[i:], dst2[i:])
+	t.Run("Reset and forward to offset", func(t *testing.T) {
+		for i := 0; i < 65; i++ {
+			c.XORKeyStreamAt(dst[i:], src[i:], uint64(i))
+			if !bytes.Equal(expected[i:], dst[i:]) {
+				t.Errorf("At %d, expected=%x, result=%x\n", i, expected[i:], dst[i:])
+			}
 		}
-	}
+	})
 
-	// test used == offset case
-	c.XORKeyStreamAt(dst2[:16], src2[:16], 0)
-	c.XORKeyStreamAt(dst2[16:32], src2[16:32], 16)
-	if !bytes.Equal(dst2[:32], dst1[:32]) {
-		t.Errorf("expected=%x, result=%x\n", dst1[:32], dst2[:32])
-	}
-
-	// test jump forward
-	for i := 0; i < 4; i++ {
-		c.XORKeyStreamAt(dst2[i:16], src2[i:16], uint64(i))
-		c.XORKeyStreamAt(dst2[32:64], src2[32:64], 32)
-		if !bytes.Equal(dst2[32:64], dst1[32:64]) {
-			t.Errorf("expected=%x, result=%x\n", dst1[32:64], dst2[32:64])
+	t.Run("Offset equals to the current position", func(t *testing.T) {
+		c.XORKeyStreamAt(dst[:16], src[:16], 0)
+		c.XORKeyStreamAt(dst[16:32], src[16:32], 16)
+		if !bytes.Equal(dst[:32], expected[:32]) {
+			t.Errorf("expected=%x, result=%x\n", expected[:32], dst[:32])
 		}
-	}
+	})
 
-	// test offset - used > 128 bytes case
-	c.XORKeyStreamAt(dst2[:16], src2[:16], 0)
-	offset := 700
-	c.XORKeyStreamAt(dst2[offset:], src2[offset:], uint64(offset))
-	if !bytes.Equal(dst2[offset:], dst1[offset:]) {
-		t.Errorf("expected=%x, result=%x\n", dst1[offset:], dst2[offset:])
-	}
+	t.Run("Jump and forward (incomplete word)", func(t *testing.T) {
+		for i := 0; i < 4; i++ {
+			c.XORKeyStreamAt(dst[i:16], src[i:16], uint64(i))
+			c.XORKeyStreamAt(dst[32:64], src[32:64], 32)
+			if !bytes.Equal(dst[32:64], expected[32:64]) {
+				t.Errorf("expected=%x, result=%x\n", expected[32:64], dst[32:64])
+			}
+		}
+	})
 
-	// XORKeyStreamAt with XORKeyStream
-	c.XORKeyStreamAt(dst2[:16], src2[:16], 0)
-	c.XORKeyStream(dst2[16:32], src2[16:32])
-	c.XORKeyStreamAt(dst2[32:64], src2[32:64], 32)
-	c.XORKeyStream(dst2[64:128], src2[64:128])
-	if !bytes.Equal(dst2[:128], dst1[:128]) {
-		t.Errorf("expected=%x, result=%x\n", dst1[:128], dst2[:128])
-	}
+	t.Run("Jump and forward (skipped keys more than 128)", func(t *testing.T) {
+		// test offset - used > 128 bytes case
+		c.XORKeyStreamAt(dst[:16], src[:16], 0)
+		offset := 700
+		c.XORKeyStreamAt(dst[offset:], src[offset:], uint64(offset))
+		if !bytes.Equal(dst[offset:], expected[offset:]) {
+			t.Errorf("expected=%x, result=%x\n", expected[offset:], dst[offset:])
+		}
+	})
+
+	t.Run("Mixed XORKeyStreamAt with XORKeyStream", func(t *testing.T) {
+		// XORKeyStreamAt with XORKeyStream
+		c.XORKeyStreamAt(dst[:16], src[:16], 0)
+		c.XORKeyStream(dst[16:31], src[16:31])
+		c.XORKeyStreamAt(dst[31:64], src[31:64], 31)
+		c.XORKeyStream(dst[64:128], src[64:128])
+		if !bytes.Equal(dst[:128], expected[:128]) {
+			t.Errorf("expected=%x, result=%x\n", expected[:128], dst[:128])
+		}
+	})
+
+	t.Run("BufferOverlap", func(t *testing.T) {
+		buff := make([]byte, 100)
+		// Make src and dst slices point to same array with inexact overlap
+		src := buff[:32]
+		dst := buff[1 : 32+1]
+		mustPanic(t, "invalid buffer overlap", func() { c.XORKeyStreamAt(dst, src, 0) })
+
+		// Only overlap on one byte
+		src = buff[:32]
+		dst = buff[32-1 : 2*32-1]
+		mustPanic(t, "invalid buffer overlap", func() { c.XORKeyStreamAt(dst, src, 0) })
+
+		// src comes after dst with one byte overlap
+		src = buff[32-1 : 2*32-1]
+		dst = buff[:32]
+		mustPanic(t, "invalid buffer overlap", func() { c.XORKeyStreamAt(dst, src, 0) })
+
+		// length of dst is less than src
+		src = buff[:32]
+		dst = buff[32:63]
+		mustPanic(t, "output smaller than input", func() { c.XORKeyStreamAt(dst, src, 0) })
+	})
+}
+
+func mustPanic(t *testing.T, msg string, f func()) {
+	t.Helper()
+
+	defer func() {
+		t.Helper()
+
+		err := recover()
+
+		if err == nil {
+			t.Errorf("function did not panic for %q", msg)
+		}
+	}()
+	f()
 }
 
 func benchmarkStream(b *testing.B, buf []byte) {
