@@ -1,6 +1,7 @@
 package zuc
 
 import (
+	"bytes"
 	"crypto/cipher"
 	"encoding/hex"
 	"testing"
@@ -71,6 +72,53 @@ func TestEEAStream(t *testing.T) {
 		c, _ := NewEEACipher(key, zucEEATests[0].count, zucEEATests[0].bearer, zucEEATests[0].direction)
 		return c
 	})
+}
+
+func TestXORStreamAt(t *testing.T) {
+	key, err := hex.DecodeString(zucEEATests[0].key)
+	if err != nil {
+		t.Error(err)
+	}
+	c, err := NewEEACipher(key, zucEEATests[0].count, zucEEATests[0].bearer, zucEEATests[0].direction)
+	if err != nil {
+		t.Error(err)
+	}
+	src1 := make([]byte, 1000)
+	dst1 := make([]byte, 1000)
+	src2 := make([]byte, 1000)
+	dst2 := make([]byte, 1000)
+
+	c.XORKeyStream(dst1, src1)
+	for i := 0; i < 65; i++ {
+		c.XORKeyStreamAt(dst2[i:], src2[i:], uint64(i))
+		if !bytes.Equal(dst1[i:], dst2[i:]) {
+			t.Errorf("At %d, expected=%x, result=%x\n", i, dst1[i:], dst2[i:])
+		}
+	}
+
+	// test used == offset case
+	c.XORKeyStreamAt(dst2[:16], src2[:16], 0)
+	c.XORKeyStreamAt(dst2[16:32], src2[16:32], 16)
+	if !bytes.Equal(dst2[:32], dst1[:32]) {
+		t.Errorf("expected=%x, result=%x\n", dst1[:32], dst2[:32])
+	}
+
+	// test offset - used > 128 bytes case
+	c.XORKeyStreamAt(dst2[:16], src2[:16], 0)
+	offset := 700
+	c.XORKeyStreamAt(dst2[offset:], src2[offset:], uint64(offset))
+	if !bytes.Equal(dst2[offset:], dst1[offset:]) {
+		t.Errorf("expected=%x, result=%x\n", dst1[offset:], dst2[offset:])
+	}
+
+	// XORKeyStreamAt with XORKeyStream
+	c.XORKeyStreamAt(dst2[:16], src2[:16], 0)
+	c.XORKeyStream(dst2[16:32], src2[16:32])
+	c.XORKeyStreamAt(dst2[32:64], src2[32:64], 32)
+	c.XORKeyStream(dst2[64:128], src2[64:128])
+	if !bytes.Equal(dst2[:128], dst1[:128]) {
+		t.Errorf("expected=%x, result=%x\n", dst1[:128], dst2[:128])
+	}
 }
 
 func benchmarkStream(b *testing.B, buf []byte) {
