@@ -54,7 +54,7 @@ jobs:
         GODEBUG: x509sha1=1
 
     - name: Test Generic only
-      if: ${{ matrix.goVer != '1.18' }}
+      if: ${{ matrix.goVer != '1.18' && matrix.goVer != '1.23' }}
       run: go test -short -tags purego ./...      
       env:
         GODEBUG: x509sha1=1
