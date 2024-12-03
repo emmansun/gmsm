@@ -604,7 +604,7 @@ func (priv *PrivateKey) inverseOfPrivateKeyPlus1(c *sm2Curve) (*bigmod.Nat, erro
 		dp1Bytes       []byte
 	)
 	priv.inverseOfKeyPlus1Once.Do(func() {
-		oneNat, _ = bigmod.NewNat().SetUint(1, c.N)
+		oneNat = bigmod.NewNat().SetUint(1, c.N)
 		dp1Inv, err = bigmod.NewNat().SetBytes(priv.D.Bytes(), c.N)
 		if err == nil {
 			dp1Inv.Add(oneNat, c.N)
@@ -1070,8 +1070,8 @@ func precomputeParams(c *sm2Curve, curve elliptic.Curve) {
 	c.curve = curve
 	c.N, _ = bigmod.NewModulus(params.N.Bytes())
 	c.P, _ = bigmod.NewModulus(params.P.Bytes())
-	c.nMinus2 = new(big.Int).Sub(params.N, big.NewInt(2)).Bytes()
-	c.nMinus1, _ = bigmod.NewNat().SetBytes(new(big.Int).Sub(params.N, big.NewInt(1)).Bytes(), c.N)
+	c.nMinus1 = c.N.Nat().SubOne(c.N)
+	c.nMinus2 = new(bigmod.Nat).Set(c.nMinus1).SubOne(c.N).Bytes(c.N)
 }
 
 var errInvalidPrivateKey = errors.New("sm2: invalid private key")

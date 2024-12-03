@@ -114,6 +114,11 @@ func (x *Nat) resetToBytes(b []byte) *Nat {
 	if err := x.setBytes(b); err != nil {
 		panic("bigmod: internal error: bad arithmetic")
 	}
+	return x.trim()
+}
+
+// trim reduces the size of x to match its value.
+func (x *Nat) trim() *Nat {
 	// Trim most significant (trailing in little-endian) zero limbs.
 	// We assume comparison with zero (but not the branch) is constant time.
 	for i := len(x.limbs) - 1; i >= 0; i-- {
@@ -135,7 +140,7 @@ func (x *Nat) Set(y *Nat) *Nat {
 // Bytes returns x as a zero-extended big-endian byte slice. The size of the
 // slice will match the size of m.
 //
-// x must have the same size as m and it must be reduced modulo m.
+// x must have the same size as m and it must be less than or equal to m.
 func (x *Nat) Bytes(m *Modulus) []byte {
 	i := m.Size()
 	bytes := make([]byte, i)
@@ -180,8 +185,10 @@ func (x *Nat) SetOverflowingBytes(b []byte, m *Modulus) (*Nat, error) {
 	if err := x.setBytes(b); err != nil {
 		return nil, err
 	}
-	leading := _W - bitLen(x.limbs[len(x.limbs)-1])
-	if leading < m.leading {
+	// setBytes would have returned an error if the input overflowed the limb
+	// size of the modulus, so now we only need to check if the most significant
+	// limb of x has more bits than the most significant limb of the modulus.
+	if bitLen(x.limbs[len(x.limbs)-1]) > bitLen(m.nat.limbs[len(m.nat.limbs)-1]) {
 		return nil, errors.New("input overflows the modulus size")
 	}
 	x.maybeSubtractModulus(no, m)
@@ -228,17 +235,13 @@ func (x *Nat) setBytes(b []byte) error {
 	return nil
 }
 
-// SetUint assigns x = y, and returns an error if y >= m.
+// SetUint assigns x = y.
 //
 // The output will be resized to the size of m and overwritten.
-func (x *Nat) SetUint(y uint, m *Modulus) (*Nat, error) {
+func (x *Nat) SetUint(y uint, m *Modulus) *Nat {
 	x.resetFor(m)
-	// Modulus is never zero, so always at least one limb.
 	x.limbs[0] = y
-	if x.CmpGeq(m.nat) == yes {
-		return nil, errors.New("input overflows the modulus")
-	}
-	return x, nil
+	return x
 }
 
 // Equal returns 1 if x == y, and 0 otherwise.
@@ -268,6 +271,56 @@ func (x *Nat) IsZero() choice {
 		zero &= ctEq(xLimbs[i], 0)
 	}
 	return zero
+}
+
+// IsOne returns 1 if x == 1, and 0 otherwise.
+func (x *Nat) IsOne() choice {
+	// Eliminate bounds checks in the loop.
+	size := len(x.limbs)
+	xLimbs := x.limbs[:size]
+
+	if len(xLimbs) == 0 {
+		return no
+	}
+
+	one := ctEq(xLimbs[0], 1)
+	for i := 1; i < size; i++ {
+		one &= ctEq(xLimbs[i], 0)
+	}
+	return one
+}
+
+// IsMinusOne returns 1 if x == -1 mod m, and 0 otherwise.
+//
+// The length of x must be the same as the modulus. x must already be reduced
+// modulo m.
+func (x *Nat) IsMinusOne(m *Modulus) choice {
+	minusOne := m.Nat()
+	minusOne.SubOne(m)
+	return x.Equal(minusOne)
+}
+
+// IsOdd returns 1 if x is odd, and 0 otherwise.
+func (x *Nat) IsOdd() choice {
+	if len(x.limbs) == 0 {
+		return no
+	}
+	return choice(x.limbs[0] & 1)
+}
+
+// TrailingZeroBitsVarTime returns the number of trailing zero bits in x.
+func (x *Nat) TrailingZeroBitsVarTime() uint {
+	var t uint
+	limbs := x.limbs
+	for _, l := range limbs {
+		if l == 0 {
+			t += _W
+			continue
+		}
+		t += uint(bits.TrailingZeros(l))
+		break
+	}
+	return t
 }
 
 // CmpGeq returns 1 if x >= y, and 0 otherwise.
@@ -334,6 +387,68 @@ func (x *Nat) sub(y *Nat) (c uint) {
 	return
 }
 
+// ShiftRightVarTime sets x = x >> n.
+//
+// The announced length of x is unchanged.
+func (x *Nat) ShiftRightVarTime(n uint) *Nat {
+	// Eliminate bounds checks in the loop.
+	size := len(x.limbs)
+	xLimbs := x.limbs[:size]
+
+	shift := int(n % _W)
+	shiftLimbs := int(n / _W)
+
+	var shiftedLimbs []uint
+	if shiftLimbs < size {
+		shiftedLimbs = xLimbs[shiftLimbs:]
+	}
+
+	for i := range xLimbs {
+		if i >= len(shiftedLimbs) {
+			xLimbs[i] = 0
+			continue
+		}
+
+		xLimbs[i] = shiftedLimbs[i] >> shift
+		if i+1 < len(shiftedLimbs) {
+			xLimbs[i] |= shiftedLimbs[i+1] << (_W - shift)
+		}
+	}
+
+	return x
+}
+
+// BitLenVarTime returns the actual size of x in bits.
+//
+// The actual size of x (but nothing more) leaks through timing side-channels.
+// Note that this is ordinarily secret, as opposed to the announced size of x.
+func (x *Nat) BitLenVarTime() int {
+	// Eliminate bounds checks in the loop.
+	size := len(x.limbs)
+	xLimbs := x.limbs[:size]
+
+	for i := size - 1; i >= 0; i-- {
+		if xLimbs[i] != 0 {
+			return i*_W + bitLen(xLimbs[i])
+		}
+	}
+	return 0
+}
+
+// bitLen is a version of bits.Len that only leaks the bit length of n, but not
+// its value. bits.Len and bits.LeadingZeros use a lookup table for the
+// low-order bits on some architectures.
+func bitLen(n uint) int {
+	len := 0
+	// We assume, here and elsewhere, that comparison to zero is constant time
+	// with respect to different non-zero values.
+	for n != 0 {
+		len++
+		n >>= 1
+	}
+	return len
+}
+
 // Modulus is used for modular arithmetic, precomputing relevant constants.
 //
 // A Modulus can leak the exact number of bits needed to store its value
@@ -343,8 +458,7 @@ type Modulus struct {
 	//
 	// This will be stored without any padding, and shouldn't alias with any
 	// other natural number being used.
-	nat     *Nat
-	leading int // number of leading zeros in the modulus
+	nat *Nat
 
 	// If m is even, the following fields are not set.
 	odd   bool
@@ -418,37 +532,39 @@ func minusInverseModW(x uint) uint {
 	return -y
 }
 
-// NewModulus creates a new Modulus from a slice of big-endian bytes.
+// NewModulus creates a new Modulus from a slice of big-endian bytes. The
+// modulus must be greater than one.
 //
 // The number of significant bits and whether the modulus is even is leaked
 // through timing side-channels.
 func NewModulus(b []byte) (*Modulus, error) {
-	m := &Modulus{}
-	m.nat = NewNat().resetToBytes(b)
-	if len(m.nat.limbs) == 0 {
-		return nil, errors.New("modulus must be > 0")
+	n := NewNat().resetToBytes(b)
+	return newModulus(n)
+}
+
+// NewModulusProduct creates a new Modulus from the product of two numbers
+// represented as big-endian byte slices. The result must be greater than one.
+func NewModulusProduct(a, b []byte) (*Modulus, error) {
+	x := NewNat().resetToBytes(a)
+	y := NewNat().resetToBytes(b)
+	n := NewNat().reset(len(x.limbs) + len(y.limbs))
+	for i := range y.limbs {
+		n.limbs[i+len(x.limbs)] = addMulVVW(n.limbs[i:i+len(x.limbs)], x.limbs, y.limbs[i])
 	}
-	m.leading = _W - bitLen(m.nat.limbs[len(m.nat.limbs)-1])
-	if m.nat.limbs[0]&1 == 1 {
+	return newModulus(n.trim())
+}
+
+func newModulus(n *Nat) (*Modulus, error) {
+	m := &Modulus{nat: n}
+	if m.nat.IsZero() == yes || m.nat.IsOne() == yes {
+		return nil, errors.New("modulus must be > 1")
+	}
+	if m.nat.IsOdd() == 1 {
 		m.odd = true
 		m.m0inv = minusInverseModW(m.nat.limbs[0])
 		m.rr = rr(m)
 	}
 	return m, nil
-}
-
-// bitLen is a version of bits.Len that only leaks the bit length of n, but not
-// its value. bits.Len and bits.LeadingZeros use a lookup table for the
-// low-order bits on some architectures.
-func bitLen(n uint) int {
-	var len int
-	// We assume, here and elsewhere, that comparison to zero is constant time
-	// with respect to different non-zero values.
-	for n != 0 {
-		len++
-		n >>= 1
-	}
-	return len
 }
 
 // Size returns the size of m in bytes.
@@ -458,12 +574,16 @@ func (m *Modulus) Size() int {
 
 // BitLen returns the size of m in bits.
 func (m *Modulus) BitLen() int {
-	return len(m.nat.limbs)*_W - int(m.leading)
+	return m.nat.BitLenVarTime()
 }
 
-// Nat returns m as a Nat. The return value must not be written to.
+// Nat returns m as a Nat.
 func (m *Modulus) Nat() *Nat {
-	return m.nat
+	// Make a copy so that the caller can't modify m.nat or alias it with
+	// another Nat in a modulus operation.
+	n := NewNat()
+	n.Set(m.nat)
+	return n
 }
 
 // shiftIn calculates x = x << _W + y mod m.
@@ -593,6 +713,17 @@ func (x *Nat) Sub(y *Nat, m *Modulus) *Nat {
 	t.add(m.nat)
 	x.assign(choice(underflow), t)
 	return x
+}
+
+// SubOne computes x = x - 1 mod m.
+//
+// The length of x must be the same as the modulus.
+func (x *Nat) SubOne(m *Modulus) *Nat {
+	one := NewNat().ExpandFor(m)
+	one.limbs[0] = 1
+	// Sub asks for x to be reduced modulo m, while SubOne doesn't, but when
+	// y = 1, it works, and this is an internal use.
+	return x.Sub(one, m)
 }
 
 // Add computes x = x + y mod m.
@@ -912,17 +1043,143 @@ func (out *Nat) Exp(x *Nat, e []byte, m *Modulus) *Nat {
 func (out *Nat) ExpShortVarTime(x *Nat, e uint, m *Modulus) *Nat {
 	if !m.odd {
 		panic("bigmod: modulus for ExpShortVarTime must be odd")
-	}	
+	}
 	// For short exponents, precomputing a table and using a window like in Exp
 	// doesn't pay off. Instead, we do a simple conditional square-and-multiply
 	// chain, skipping the initial run of zeroes.
 	xR := NewNat().Set(x).montgomeryRepresentation(m)
 	out.Set(xR)
-	for i := bits.UintSize - bitLen(e) + 1; i < bits.UintSize; i++ {
+	for i := bits.UintSize - bits.Len(e) + 1; i < bits.UintSize; i++ {
 		out.montgomeryMul(out, out, m)
 		if k := (e >> (bits.UintSize - i - 1)) & 1; k != 0 {
 			out.montgomeryMul(out, xR, m)
 		}
 	}
 	return out.montgomeryReduction(m)
+}
+
+// InverseVarTime calculates x = a⁻¹ mod m and returns (x, true) if a is
+// invertible. Otherwise, InverseVarTime returns (x, false) and x is not
+// modified.
+//
+// a must be reduced modulo m, but doesn't need to have the same size. The
+// output will be resized to the size of m and overwritten.
+func (x *Nat) InverseVarTime(a *Nat, m *Modulus) (*Nat, bool) {
+	// This is the extended binary GCD algorithm described in the Handbook of
+	// Applied Cryptography, Algorithm 14.61, adapted by BoringSSL to bound
+	// coefficients and avoid negative numbers. For more details and proof of
+	// correctness, see https://github.com/mit-plv/fiat-crypto/pull/333/files.
+	//
+	// Following the proof linked in the PR above, the changes are:
+	//
+	// 1. Negate [B] and [C] so they are positive. The invariant now involves a
+	//    subtraction.
+	// 2. If step 2 (both [x] and [y] are even) runs, abort immediately. This
+	//    algorithm only cares about [x] and [y] relatively prime.
+	// 3. Subtract copies of [x] and [y] as needed in step 6 (both [u] and [v]
+	//    are odd) so coefficients stay in bounds.
+	// 4. Replace the [u >= v] check with [u > v]. This changes the end
+	//    condition to [v = 0] rather than [u = 0]. This saves an extra
+	//    subtraction due to which coefficients were negated.
+	// 5. Rename x and y to a and n, to capture that one is a modulus.
+	// 6. Rearrange steps 4 through 6 slightly. Merge the loops in steps 4 and
+	//    5 into the main loop (step 7's goto), and move step 6 to the start of
+	//    the loop iteration, ensuring each loop iteration halves at least one
+	//    value.
+	//
+	// Note this algorithm does not handle either input being zero.
+
+	if a.IsZero() == yes {
+		return x, false
+	}
+	if a.IsOdd() == no && !m.odd {
+		// a and m are not coprime, as they are both even.
+		return x, false
+	}
+
+	u := NewNat().Set(a).ExpandFor(m)
+	v := m.Nat()
+
+	A := NewNat().reset(len(m.nat.limbs))
+	A.limbs[0] = 1
+	B := NewNat().reset(len(a.limbs))
+	C := NewNat().reset(len(m.nat.limbs))
+	D := NewNat().reset(len(a.limbs))
+	D.limbs[0] = 1
+
+	// Before and after each loop iteration, the following hold:
+	//
+	//   u = A*a - B*m
+	//   v = D*m - C*a
+	//   0 < u <= a
+	//   0 <= v <= m
+	//   0 <= A < m
+	//   0 <= B <= a
+	//   0 <= C < m
+	//   0 <= D <= a
+	//
+	// After each loop iteration, u and v only get smaller, and at least one of
+	// them shrinks by at least a factor of two.
+	for {
+		// If both u and v are odd, subtract the smaller from the larger.
+		// If u = v, we need to subtract from v to hit the modified exit condition.
+		if u.IsOdd() == yes && v.IsOdd() == yes {
+			if v.CmpGeq(u) == no {
+				u.sub(v)
+				A.Add(C, m)
+				B.Add(D, &Modulus{nat: a})
+			} else {
+				v.sub(u)
+				C.Add(A, m)
+				D.Add(B, &Modulus{nat: a})
+			}
+		}
+
+		// Exactly one of u and v is now even.
+		if u.IsOdd() == v.IsOdd() {
+			panic("bigmod: internal error: u and v are not in the expected state")
+		}
+
+		// Halve the even one and adjust the corresponding coefficient.
+		if u.IsOdd() == no {
+			rshift1(u, 0)
+			if A.IsOdd() == yes || B.IsOdd() == yes {
+				rshift1(A, A.add(m.nat))
+				rshift1(B, B.add(a))
+			} else {
+				rshift1(A, 0)
+				rshift1(B, 0)
+			}
+		} else { // v.IsOdd() == no
+			rshift1(v, 0)
+			if C.IsOdd() == yes || D.IsOdd() == yes {
+				rshift1(C, C.add(m.nat))
+				rshift1(D, D.add(a))
+			} else {
+				rshift1(C, 0)
+				rshift1(D, 0)
+			}
+		}
+
+		if v.IsZero() == yes {
+			if u.IsOne() == no {
+				return x, false
+			}
+			return x.Set(A), true
+		}
+	}
+}
+
+func rshift1(a *Nat, carry uint) {
+	size := len(a.limbs)
+	aLimbs := a.limbs[:size]
+
+	for i := 0; i < size; i++ {
+		aLimbs[i] >>= 1
+		if i+1 < size {
+			aLimbs[i] |= aLimbs[i+1] << (_W - 1)
+		} else {
+			aLimbs[i] |= carry << (_W - 1)
+		}
+	}
 }

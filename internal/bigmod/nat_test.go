@@ -5,6 +5,7 @@
 package bigmod
 
 import (
+	"bufio"
 	"bytes"
 	cryptorand "crypto/rand"
 	"encoding/hex"
@@ -12,6 +13,7 @@ import (
 	"math/big"
 	"math/bits"
 	"math/rand"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -29,6 +31,14 @@ func (x *Nat) setBig(n *big.Int) *Nat {
 		x.limbs[i] = uint(limbs[i])
 	}
 	return x
+}
+
+func (n *Nat) asBig() *big.Int {
+	bits := make([]big.Word, len(n.limbs))
+	for i := range n.limbs {
+		bits[i] = big.Word(n.limbs[i])
+	}
+	return new(big.Int).SetBits(bits)
 }
 
 func (n *Nat) String() string {
@@ -400,6 +410,98 @@ func testMul(t *testing.T, n int) {
 	}
 }
 
+func TestIs(t *testing.T) {
+	checkYes := func(c choice, err string) {
+		t.Helper()
+		if c != yes {
+			t.Error(err)
+		}
+	}
+	checkNot := func(c choice, err string) {
+		t.Helper()
+		if c != no {
+			t.Error(err)
+		}
+	}
+
+	mFour := modulusFromBytes([]byte{4})
+	n, err := NewNat().SetBytes([]byte{3}, mFour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkYes(n.IsMinusOne(mFour), "3 is not -1 mod 4")
+	checkNot(n.IsZero(), "3 is zero")
+	checkNot(n.IsOne(), "3 is one")
+	checkYes(n.IsOdd(), "3 is not odd")
+	n.SubOne(mFour)
+	checkNot(n.IsMinusOne(mFour), "2 is -1 mod 4")
+	checkNot(n.IsZero(), "2 is zero")
+	checkNot(n.IsOne(), "2 is one")
+	checkNot(n.IsOdd(), "2 is odd")
+	n.SubOne(mFour)
+	checkNot(n.IsMinusOne(mFour), "1 is -1 mod 4")
+	checkNot(n.IsZero(), "1 is zero")
+	checkYes(n.IsOne(), "1 is not one")
+	checkYes(n.IsOdd(), "1 is not odd")
+	n.SubOne(mFour)
+	checkNot(n.IsMinusOne(mFour), "0 is -1 mod 4")
+	checkYes(n.IsZero(), "0 is not zero")
+	checkNot(n.IsOne(), "0 is one")
+	checkNot(n.IsOdd(), "0 is odd")
+	n.SubOne(mFour)
+	checkYes(n.IsMinusOne(mFour), "-1 is not -1 mod 4")
+	checkNot(n.IsZero(), "-1 is zero")
+	checkNot(n.IsOne(), "-1 is one")
+	checkYes(n.IsOdd(), "-1 mod 4 is not odd")
+
+	mTwoLimbs := maxModulus(2)
+	n, err = NewNat().SetBytes([]byte{0x01}, mTwoLimbs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n.IsOne() != 1 {
+		t.Errorf("1 is not one")
+	}
+}
+
+func TestTrailingZeroBits(t *testing.T) {
+	nb := new(big.Int).SetBytes([]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7e})
+	nb.Lsh(nb, 128)
+	expected := 129
+	for expected >= 0 {
+		n := NewNat().setBig(nb)
+		if n.TrailingZeroBitsVarTime() != uint(expected) {
+			t.Errorf("%d != %d", n.TrailingZeroBitsVarTime(), expected)
+		}
+		nb.Rsh(nb, 1)
+		expected--
+	}
+}
+
+func TestRightShift(t *testing.T) {
+	nb, err := cryptorand.Int(cryptorand.Reader, new(big.Int).Lsh(big.NewInt(1), 1024))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, shift := range []uint{1, 32, 64, 128, 1024 - 128, 1024 - 64, 1024 - 32, 1024 - 1} {
+		testShift := func(t *testing.T, shift uint) {
+			n := NewNat().setBig(nb)
+			oldLen := len(n.limbs)
+			n.ShiftRightVarTime(shift)
+			if len(n.limbs) != oldLen {
+				t.Errorf("len(n.limbs) = %d, want %d", len(n.limbs), oldLen)
+			}
+			exp := new(big.Int).Rsh(nb, shift)
+			if n.asBig().Cmp(exp) != 0 {
+				t.Errorf("%v != %v", n.asBig(), exp)
+			}
+		}
+		t.Run(fmt.Sprint(shift-1), func(t *testing.T) { testShift(t, shift-1) })
+		t.Run(fmt.Sprint(shift), func(t *testing.T) { testShift(t, shift) })
+		t.Run(fmt.Sprint(shift+1), func(t *testing.T) { testShift(t, shift+1) })
+	}
+}
+
 func natBytes(n *Nat) []byte {
 	return n.Bytes(maxModulus(uint(len(n.limbs))))
 }
@@ -546,7 +648,7 @@ func BenchmarkExp(b *testing.B) {
 }
 
 func TestNewModulus(t *testing.T) {
-	expected := "modulus must be > 0"
+	expected := "modulus must be > 1"
 	_, err := NewModulus([]byte{})
 	if err == nil || err.Error() != expected {
 		t.Errorf("NewModulus(0) got %q, want %q", err, expected)
@@ -558,6 +660,14 @@ func TestNewModulus(t *testing.T) {
 	_, err = NewModulus([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
 	if err == nil || err.Error() != expected {
 		t.Errorf("NewModulus(0) got %q, want %q", err, expected)
+	}
+	_, err = NewModulus([]byte{1})
+	if err == nil || err.Error() != expected {
+		t.Errorf("NewModulus(1) got %q, want %q", err, expected)
+	}
+	_, err = NewModulus([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
+	if err == nil || err.Error() != expected {
+		t.Errorf("NewModulus(1) got %q, want %q", err, expected)
 	}
 }
 
@@ -593,4 +703,122 @@ func TestOverflowedBytes(t *testing.T) {
 			t.Errorf("%s, expected %x, got %x", c, k.Bytes(), k2.Bytes())
 		}
 	}
+}
+
+func makeTestValue(nbits int) []uint {
+	n := nbits / _W
+	x := make([]uint, n)
+	for i := 0; i < n; i++ {
+		x[i]--
+	}
+	return x
+}
+
+func slicesEqual(a, b []uint) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func TestAddMulVVWSized(t *testing.T) {
+	// Sized addMulVVW have architecture-specific implementations on
+	// a number of architectures. Test that they match the generic
+	// implementation.
+	tests := []struct {
+		n int
+		f func(z, x *uint, y uint) uint
+	}{
+		{256, addMulVVW256},
+		{1024, addMulVVW1024},
+		{1536, addMulVVW1536},
+		{2048, addMulVVW2048},
+	}
+	for _, test := range tests {
+		t.Run(fmt.Sprint(test.n), func(t *testing.T) {
+			x := makeTestValue(test.n)
+			z := makeTestValue(test.n)
+			z2 := makeTestValue(test.n)
+			var y uint
+			y--
+			c := addMulVVW(z, x, y)
+			c2 := test.f(&z2[0], &x[0], y)
+			if !slicesEqual(z, z2) || c != c2 {
+				t.Errorf("%016X, %016X != %016X, %016X", z, c, z2, c2)
+			}
+		})
+	}
+}
+
+func TestInverse(t *testing.T) {
+	f, err := os.Open("testdata/mod_inv_tests.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var ModInv, A, M string
+	var lineNum int
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		lineNum++
+		line := scanner.Text()
+		if len(line) == 0 || line[0] == '#' {
+			continue
+		}
+
+		k, v, _ := strings.Cut(line, " = ")
+		switch k {
+		case "ModInv":
+			ModInv = v
+		case "A":
+			A = v
+		case "M":
+			M = v
+
+			t.Run(fmt.Sprintf("line %d", lineNum), func(t *testing.T) {
+				m, err := NewModulus(decodeHex(t, M))
+				if err != nil {
+					t.Skip("modulus <= 1")
+				}
+				a, err := NewNat().SetBytes(decodeHex(t, A), m)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				got, ok := NewNat().InverseVarTime(a, m)
+				if !ok {
+					t.Fatal("not invertible")
+				}
+				exp, err := NewNat().SetBytes(decodeHex(t, ModInv), m)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if got.Equal(exp) != 1 {
+					t.Errorf("%v != %v", got, exp)
+				}
+			})
+		default:
+			t.Fatalf("unknown key %q on line %d", k, lineNum)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func decodeHex(t *testing.T, s string) []byte {
+	t.Helper()
+	if len(s)%2 != 0 {
+		s = "0" + s
+	}
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		t.Fatalf("failed to decode hex %q: %v", s, err)
+	}
+	return b
 }
