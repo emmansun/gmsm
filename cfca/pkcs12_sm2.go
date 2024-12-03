@@ -10,6 +10,7 @@ import (
 
 	"github.com/emmansun/gmsm/padding"
 	"github.com/emmansun/gmsm/pkcs"
+	"github.com/emmansun/gmsm/pkcs7"
 	"github.com/emmansun/gmsm/sm2"
 	"github.com/emmansun/gmsm/sm3"
 	"github.com/emmansun/gmsm/sm4"
@@ -38,9 +39,9 @@ type certData struct {
 }
 
 var (
-	oidSM2Data = asn1.ObjectIdentifier{1, 2, 156, 10197, 6, 1, 4, 2, 1}
-	oidSM4     = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 104} // SADK中认为这就是SM4_CBC，不知道是不是历史原因
-	oidSM4CBC  = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 104, 2}
+	oidSM2Data = pkcs7.SM2OIDData
+	oidSM4     = pkcs.SM4.OID()
+	oidSM4CBC  = pkcs.SM4CBC.OID()
 )
 
 // ParseSM2 parses the der data, returns private key and related certificate, it's CFCA private structure.
