@@ -205,17 +205,17 @@ func testCipher(t *testing.T, cipher func(dst, src []byte), blockSize int) {
 		// Make src and dst slices point to same array with inexact overlap
 		src := buff[:blockSize]
 		dst := buff[1 : blockSize+1]
-		mustPanic(t, "invalid buffer overlap", func() { cipher(dst, src) })
+		MustPanic(t, "invalid buffer overlap", func() { cipher(dst, src) })
 
 		// Only overlap on one byte
 		src = buff[:blockSize]
 		dst = buff[blockSize-1 : 2*blockSize-1]
-		mustPanic(t, "invalid buffer overlap", func() { cipher(dst, src) })
+		MustPanic(t, "invalid buffer overlap", func() { cipher(dst, src) })
 
 		// src comes after dst with one byte overlap
 		src = buff[blockSize-1 : 2*blockSize-1]
 		dst = buff[:blockSize]
-		mustPanic(t, "invalid buffer overlap", func() { cipher(dst, src) })
+		MustPanic(t, "invalid buffer overlap", func() { cipher(dst, src) })
 	})
 
 	// Test short input/output.
@@ -228,17 +228,17 @@ func testCipher(t *testing.T, cipher func(dst, src []byte), blockSize int) {
 		byteSlice := func(n int) []byte { return make([]byte, n+1)[0:n] }
 
 		// Off by one byte
-		mustPanic(t, "input not full block", func() { cipher(byteSlice(blockSize), byteSlice(blockSize-1)) })
-		mustPanic(t, "output not full block", func() { cipher(byteSlice(blockSize-1), byteSlice(blockSize)) })
+		MustPanic(t, "input not full block", func() { cipher(byteSlice(blockSize), byteSlice(blockSize-1)) })
+		MustPanic(t, "output not full block", func() { cipher(byteSlice(blockSize-1), byteSlice(blockSize)) })
 
 		// Small slices
-		mustPanic(t, "input not full block", func() { cipher(byteSlice(1), byteSlice(1)) })
-		mustPanic(t, "input not full block", func() { cipher(byteSlice(100), byteSlice(1)) })
-		mustPanic(t, "output not full block", func() { cipher(byteSlice(1), byteSlice(100)) })
+		MustPanic(t, "input not full block", func() { cipher(byteSlice(1), byteSlice(1)) })
+		MustPanic(t, "input not full block", func() { cipher(byteSlice(100), byteSlice(1)) })
+		MustPanic(t, "output not full block", func() { cipher(byteSlice(1), byteSlice(100)) })
 	})
 }
 
-func mustPanic(t *testing.T, msg string, f func()) {
+func MustPanic(t *testing.T, msg string, f func()) {
 	t.Helper()
 
 	defer func() {

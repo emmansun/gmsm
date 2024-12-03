@@ -131,12 +131,12 @@ func TestAEAD(t *testing.T, mAEAD MakeAEAD) {
 						// Make plaintext and dst slices point to same array with inexact overlap.
 						plaintext := buff[:ptLen]
 						dst := buff[1:1] // Shift dst to not start at start of plaintext.
-						mustPanic(t, "invalid buffer overlap", func() { sealMsg(t, aead, dst, nonce, plaintext, addData) })
+						MustPanic(t, "invalid buffer overlap", func() { sealMsg(t, aead, dst, nonce, plaintext, addData) })
 
 						// Only overlap on one byte
 						plaintext = buff[:ptLen]
 						dst = buff[ptLen-1 : ptLen-1]
-						mustPanic(t, "invalid buffer overlap", func() { sealMsg(t, aead, dst, nonce, plaintext, addData) })
+						MustPanic(t, "invalid buffer overlap", func() { sealMsg(t, aead, dst, nonce, plaintext, addData) })
 					})
 
 					t.Run("Open", func(t *testing.T) {
@@ -160,7 +160,7 @@ func TestAEAD(t *testing.T, mAEAD MakeAEAD) {
 						ciphertext := buff[:len(validCT)]
 						copy(ciphertext, validCT)
 						dst := buff[1:1] // Shift dst to not start at start of ciphertext.
-						mustPanic(t, "invalid buffer overlap", func() { aead.Open(dst, nonce, ciphertext, addData) })
+						MustPanic(t, "invalid buffer overlap", func() { aead.Open(dst, nonce, ciphertext, addData) })
 
 						// Only overlap on one byte.
 						ciphertext = buff[:len(validCT)]
@@ -171,7 +171,7 @@ func TestAEAD(t *testing.T, mAEAD MakeAEAD) {
 						// the ciphertext.
 						beforeTag := len(validCT) - aead.Overhead()
 						dst = buff[beforeTag-1 : beforeTag-1]
-						mustPanic(t, "invalid buffer overlap", func() { aead.Open(dst, nonce, ciphertext, addData) })
+						MustPanic(t, "invalid buffer overlap", func() { aead.Open(dst, nonce, ciphertext, addData) })
 					})
 				})
 			}

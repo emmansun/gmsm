@@ -57,7 +57,7 @@ func testBlockMode(t *testing.T, bm MakeBlockMode, b cipher.Block, iv []byte) {
 
 	t.Run("WrongIVLen", func(t *testing.T) {
 		iv := make([]byte, b.BlockSize()+1)
-		mustPanic(t, "IV length must equal block size", func() { bm(b, iv) })
+		MustPanic(t, "IV length must equal block size", func() { bm(b, iv) })
 	})
 
 	t.Run("AlterInput", func(t *testing.T) {
@@ -135,7 +135,7 @@ func testBlockMode(t *testing.T, bm MakeBlockMode, b cipher.Block, iv []byte) {
 		src = make([]byte, blockSize*3)
 		rng.Read(src)
 
-		mustPanic(t, "output smaller than input", func() {
+		MustPanic(t, "output smaller than input", func() {
 			bm(b, iv).CryptBlocks(dst, src)
 		})
 
@@ -182,17 +182,17 @@ func testBlockMode(t *testing.T, bm MakeBlockMode, b cipher.Block, iv []byte) {
 		// Make src and dst slices point to same array with inexact overlap
 		src := buff[:blockSize]
 		dst := buff[1 : blockSize+1]
-		mustPanic(t, "invalid buffer overlap", func() { bm(b, iv).CryptBlocks(dst, src) })
+		MustPanic(t, "invalid buffer overlap", func() { bm(b, iv).CryptBlocks(dst, src) })
 
 		// Only overlap on one byte
 		src = buff[:blockSize]
 		dst = buff[blockSize-1 : 2*blockSize-1]
-		mustPanic(t, "invalid buffer overlap", func() { bm(b, iv).CryptBlocks(dst, src) })
+		MustPanic(t, "invalid buffer overlap", func() { bm(b, iv).CryptBlocks(dst, src) })
 
 		// src comes after dst with one byte overlap
 		src = buff[blockSize-1 : 2*blockSize-1]
 		dst = buff[:blockSize]
-		mustPanic(t, "invalid buffer overlap", func() { bm(b, iv).CryptBlocks(dst, src) })
+		MustPanic(t, "invalid buffer overlap", func() { bm(b, iv).CryptBlocks(dst, src) })
 	})
 
 	// Input to CryptBlocks should be a multiple of BlockSize
@@ -201,7 +201,7 @@ func testBlockMode(t *testing.T, bm MakeBlockMode, b cipher.Block, iv []byte) {
 		for _, srcSize := range []int{blockSize - 1, blockSize + 1, 2*blockSize - 1, 2*blockSize + 1} {
 			src := make([]byte, srcSize)
 			dst := make([]byte, 3*blockSize) // Make a dst large enough for all src
-			mustPanic(t, "input not full blocks", func() { bm(b, iv).CryptBlocks(dst, src) })
+			MustPanic(t, "input not full blocks", func() { bm(b, iv).CryptBlocks(dst, src) })
 		}
 	})
 

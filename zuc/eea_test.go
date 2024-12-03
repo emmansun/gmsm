@@ -141,38 +141,23 @@ func TestXORStreamAt(t *testing.T) {
 		// Make src and dst slices point to same array with inexact overlap
 		src := buff[:32]
 		dst := buff[1 : 32+1]
-		mustPanic(t, "invalid buffer overlap", func() { c.XORKeyStreamAt(dst, src, 0) })
+		cryptotest.MustPanic(t, "invalid buffer overlap", func() { c.XORKeyStreamAt(dst, src, 0) })
 
 		// Only overlap on one byte
 		src = buff[:32]
 		dst = buff[32-1 : 2*32-1]
-		mustPanic(t, "invalid buffer overlap", func() { c.XORKeyStreamAt(dst, src, 0) })
+		cryptotest.MustPanic(t, "invalid buffer overlap", func() { c.XORKeyStreamAt(dst, src, 0) })
 
 		// src comes after dst with one byte overlap
 		src = buff[32-1 : 2*32-1]
 		dst = buff[:32]
-		mustPanic(t, "invalid buffer overlap", func() { c.XORKeyStreamAt(dst, src, 0) })
+		cryptotest.MustPanic(t, "invalid buffer overlap", func() { c.XORKeyStreamAt(dst, src, 0) })
 
 		// length of dst is less than src
 		src = buff[:32]
 		dst = buff[32:63]
-		mustPanic(t, "output smaller than input", func() { c.XORKeyStreamAt(dst, src, 0) })
+		cryptotest.MustPanic(t, "output smaller than input", func() { c.XORKeyStreamAt(dst, src, 0) })
 	})
-}
-
-func mustPanic(t *testing.T, msg string, f func()) {
-	t.Helper()
-
-	defer func() {
-		t.Helper()
-
-		err := recover()
-
-		if err == nil {
-			t.Errorf("function did not panic for %q", msg)
-		}
-	}()
-	f()
 }
 
 func benchmarkStream(b *testing.B, buf []byte) {

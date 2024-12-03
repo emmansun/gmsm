@@ -135,7 +135,7 @@ func TestStream(t *testing.T, ms MakeStream) {
 			copy(ciphertext, plaintext) // Reset ciphertext buffer
 
 			t.Run(fmt.Sprintf("BuffLength=%d", length), func(t *testing.T) {
-				mustPanic(t, "output smaller than input", func() { ms().XORKeyStream(ciphertext[:length], plaintext) })
+				MustPanic(t, "output smaller than input", func() { ms().XORKeyStream(ciphertext[:length], plaintext) })
 
 				if !bytes.Equal(ciphertext[length:], plaintext[length:]) {
 					t.Errorf("XORKeyStream did out of bounds write; got %s, want %s", truncateHex(ciphertext[length:]), truncateHex(plaintext[length:]))
@@ -159,17 +159,17 @@ func TestStream(t *testing.T, ms MakeStream) {
 				// Make src and dst slices point to same array with inexact overlap
 				src := buff[:length]
 				dst := buff[1 : length+1]
-				mustPanic(t, "invalid buffer overlap", func() { ms().XORKeyStream(dst, src) })
+				MustPanic(t, "invalid buffer overlap", func() { ms().XORKeyStream(dst, src) })
 
 				// Only overlap on one byte
 				src = buff[:length]
 				dst = buff[length-1 : 2*length-1]
-				mustPanic(t, "invalid buffer overlap", func() { ms().XORKeyStream(dst, src) })
+				MustPanic(t, "invalid buffer overlap", func() { ms().XORKeyStream(dst, src) })
 
 				// src comes after dst with one byte overlap
 				src = buff[length-1 : 2*length-1]
 				dst = buff[:length]
-				mustPanic(t, "invalid buffer overlap", func() { ms().XORKeyStream(dst, src) })
+				MustPanic(t, "invalid buffer overlap", func() { ms().XORKeyStream(dst, src) })
 			})
 		}
 	})
@@ -220,7 +220,7 @@ func TestStreamFromBlock(t *testing.T, block cipher.Block, blockMode func(b ciph
 		rng := newRandReader(t)
 		iv := make([]byte, block.BlockSize()+1)
 		rng.Read(iv)
-		mustPanic(t, "IV length must equal block size", func() { blockMode(block, iv) })
+		MustPanic(t, "IV length must equal block size", func() { blockMode(block, iv) })
 	})
 
 	t.Run("BlockModeStream", func(t *testing.T) {
