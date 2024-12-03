@@ -25,6 +25,7 @@ ShangMi (SM) cipher suites for Golang, referred to as **GMSM**, is a secure, hig
 
 - **ZUC** - For ZUC implementation, SIMD, AES-NI and CLMUL are used under **amd64**, **arm64** and **ppc64x**, for detail please refer [Efficient Software Implementations of ZUC](https://github.com/emmansun/gmsm/wiki/Efficient-Software-Implementations-of-ZUC)
 
+- **CBCMAC** - CBC-MAC and its variants (EMAC/ANSI retail MAC/MacDES/CMAC/LMAC/TrCBC/CBCR).
 - **CFCA** - some cfca specific implementations.
 
 - **CIPHER** - ECB/CCM/XTS/HCTR/BC/OFBNLF operation modes, XTS mode also supports **GB/T 17964-2021**. Current XTS mode implementation is **NOT** concurrent safe! **BC** and **OFBNLF** are legacy operation modes, **HCTR** is new operation mode in **GB/T 17964-2021**. **BC** operation mode is similar like **CBC**, there is no room for performance optimization in **OFBNLF** operation mode.

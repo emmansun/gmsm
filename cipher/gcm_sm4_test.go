@@ -23,6 +23,20 @@ var sm4GCMTests = []struct {
 		"",
 		"232f0cfe308b49ea6fc88229b5dc858d",
 	},
+	{ // GB/T 15852.3-2019 A.4 GMAC
+		"feffe9928665731c6d6a8f9467308308",
+		"cafebabefacedbaddecaf888",
+		"",
+		"feedfacedeadbeeffeedfacedeadbeef",
+		"9d632570f93064264a20918e3081b4cd",
+	},
+	{ // GB/T 15852.3-2019 A.4 GMAC
+		"feffe9928665731c6d6a8f9467308308",
+		"cafebabefacedbaddecaf888",
+		"",
+		"feedfacedeadbeeffeedfacedeadbeefabaddad242831ec2217774244b7221b7",
+		"1eeaeb669e96bd059bd9929123030e78",
+	},	
 	{ // GB/T 36624-2018 C.5 2
 		"00000000000000000000000000000000",
 		"000000000000000000000000",

@@ -1,3 +1,7 @@
+// Copyright 2024 Sun Yimin. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
 // Package cbcmac implements the Message Authentication Code with the block chipher mechanisms.
 package cbcmac
 
@@ -8,7 +12,8 @@ import (
 	"github.com/emmansun/gmsm/padding"
 )
 
-// Reference: GB/T 15821.1-2020 Security techniques - Message authentication codes - Part 1: Mechanisms using block ciphers
+// Reference: GB/T 15821.1-2020 Security techniques
+// Message authentication codes - Part 1: Mechanisms using block ciphers
 
 // BockCipherMAC is the interface that wraps the basic MAC method.
 type BockCipherMAC interface {
@@ -38,8 +43,6 @@ func NewCBCMAC(b cipher.Block, size int) BockCipherMAC {
 	return &cbcmac{b: b, pad: padding.NewISO9797M2Padding(uint(b.BlockSize())), size: size}
 }
 
-// Size returns the size of the MAC.
-// The returned value is the same as the block size of the block cipher.
 func (c *cbcmac) Size() int {
 	return c.size
 }
@@ -188,6 +191,8 @@ type cmac struct {
 
 // NewCMAC returns a CMAC instance that implements MAC with the given block cipher.
 // GB/T 15821.1-2020 MAC scheme 5
+//
+// Reference: https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38B.pdf
 func NewCMAC(b cipher.Block, size int) BockCipherMAC {
 	if size <= 0 || size > b.BlockSize() {
 		panic("cbcmac: invalid size")
@@ -307,6 +312,8 @@ type trCBCMAC struct {
 
 // NewTRCBCMAC returns a TR-CBC-MAC instance that implements MAC with the given block cipher.
 // GB/T 15821.1-2020 MAC scheme 7
+//
+// Reference: TrCBC: Another look at CBC-MAC.
 func NewTRCBCMAC(b cipher.Block, size int) BockCipherMAC {
 	if size <= 0 || size > b.BlockSize() {
 		panic("cbcmac: invalid size")
@@ -345,6 +352,8 @@ type cbcrMAC struct {
 
 // NewCBCRMAC returns a CBCRMAC instance that implements MAC with the given block cipher.
 // GB/T 15821.1-2020 MAC scheme 8
+//
+// Reference: CBCR: CBC MAC with rotating transformations.
 func NewCBCRMAC(b cipher.Block, size int) BockCipherMAC {
 	if size <= 0 || size > b.BlockSize() {
 		panic("cbcmac: invalid size")
