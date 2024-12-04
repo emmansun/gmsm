@@ -160,6 +160,28 @@ func TestXORStreamAt(t *testing.T) {
 	})
 }
 
+func TestIssue284(t *testing.T) {
+	key, err := hex.DecodeString(zucEEATests[0].key)
+	if err != nil {
+		t.Error(err)
+	}
+	c, err := NewEEACipher(key, zucEEATests[0].count, zucEEATests[0].bearer, zucEEATests[0].direction)
+	if err != nil {
+		t.Error(err)
+	}
+	src := make([]byte, 200)
+	expected := make([]byte, 200)
+	dst := make([]byte, 200)
+	c.XORKeyStream(expected, src)
+
+	for i := 124; i <= 200; i++ {
+		c.XORKeyStreamAt(dst, src[:i], 0)
+		if !bytes.Equal(expected[:i], dst[:i]) {
+			t.Fatalf("failed for len %v", i)
+		}
+	}
+}
+
 func benchmarkStream(b *testing.B, buf []byte) {
 	b.SetBytes(int64(len(buf)))
 

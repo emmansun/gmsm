@@ -78,17 +78,16 @@ func (c *eea) XORKeyStream(dst, src []byte) {
 			return
 		}
 	}
-	words := (len(src) + WordSize - 1) / WordSize
-	rounds := words / RoundWords
 	var keyBytes [RoundBytes]byte
-	for i := 0; i < rounds; i++ {
+	for len(src) >= RoundBytes {
 		genKeyStreamRev32(keyBytes[:], &c.zucState32)
 		subtle.XORBytes(dst, src, keyBytes[:])
 		dst = dst[RoundBytes:]
 		src = src[RoundBytes:]
 	}
-	if processedWords := rounds * RoundWords; processedWords < words {
-		byteLen := WordSize * (words - processedWords)
+	if len(src) > 0 {
+		words := (len(src) + WordSize - 1) / WordSize
+		byteLen := WordSize * words
 		genKeyStreamRev32(keyBytes[:byteLen], &c.zucState32)
 		n := subtle.XORBytes(dst, src, keyBytes[:])
 		// save remaining key bytes
