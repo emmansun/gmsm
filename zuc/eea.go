@@ -126,6 +126,9 @@ func (c *eea) XORKeyStreamAt(dst, src []byte, offset uint64) {
 	if offsetDiff <= uint64(c.xLen) {
 		c.xLen -= int(offsetDiff)
 		c.used += offsetDiff
+		if c.xLen > 0 {
+			copy(c.x[:], c.x[offsetDiff:])
+		}
 		c.XORKeyStream(dst, src)
 		return
 	}

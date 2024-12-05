@@ -122,6 +122,19 @@ func TestXORStreamAt(t *testing.T) {
 		}
 	})
 
+	t.Run("Jump and forward (incomplete word): offsetDiff <= xLen", func(t *testing.T) {
+		c.XORKeyStreamAt(dst[:1], src[:1], 0)
+		c.XORKeyStreamAt(dst[3:16], src[3:16], 3)
+		if !bytes.Equal(dst[3:16], expected[3:16]) {
+			t.Errorf("expected=%x, result=%x\n", expected[3:16], dst[3:16])
+		}
+		c.XORKeyStreamAt(dst[:1], src[:1], 0)
+		c.XORKeyStreamAt(dst[4:16], src[4:16], 4)
+		if !bytes.Equal(dst[4:16], expected[4:16]) {
+			t.Errorf("expected=%x, result=%x\n", expected[3:16], dst[3:16])
+		}
+	})
+
 	t.Run("Jump and forward (skipped keys more than 128)", func(t *testing.T) {
 		// test offset - used > 128 bytes case
 		c.XORKeyStreamAt(dst[:16], src[:16], 0)
