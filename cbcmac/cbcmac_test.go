@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/aes"
 	"encoding/hex"
+	"hash"
 	"testing"
 
 	"github.com/emmansun/gmsm/internal/cryptotest"
@@ -438,7 +439,7 @@ var testVectors = []struct {
 			"f69f2445df4f9b17ad2b417be66c3710",
 		hash:    "e1992190549f6ed5696a2c056c315410",
 		tagsize: 16,
-	},	
+	},
 	{
 		key: "603deb1015ca71be2b73aef0857d7781" +
 			"1f352c073b6108d72d9810a30914dff4",
@@ -474,4 +475,48 @@ func TestCMACAES(t *testing.T) {
 			t.Errorf("#%d: expect tag %x, got %x", i, hash, tag)
 		}
 	}
+}
+
+func TestCMACHash(t *testing.T) {
+	t.Run("CMAC Hash", func(t *testing.T) {
+		cryptotest.TestHash(t, func() hash.Hash {
+			key := []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
+			block, err := aes.NewCipher(key)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return NewCMAC(block, 16)
+		})
+	})
+}
+
+var buf = make([]byte, 8192)
+
+func benchmarkSize(hash hash.Hash, b *testing.B, size int) {
+	b.SetBytes(int64(size))
+	sum := make([]byte, hash.Size())
+	for i := 0; i < b.N; i++ {
+		hash.Reset()
+		hash.Write(buf[:size])
+		hash.Sum(sum[:0])
+	}
+}
+
+func BenchmarkAESCMAC1K(b *testing.B) {
+	key := []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	benchmarkSize(NewCMAC(block, 16), b, 1024)
+}
+
+func BenchmarkSM4CMAC1K(b *testing.B) {
+	key := []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
+	block, err := sm4.NewCipher(key)
+	if err != nil {
+		b.Fatal(err)
+	}
+	benchmarkSize(NewCMAC(block, 16), b, 1024)
 }

@@ -184,16 +184,21 @@ func (m *macDES) MAC(src []byte) []byte {
 }
 
 type cmac struct {
-	b      cipher.Block
-	k1, k2 []byte
-	size   int
+	b         cipher.Block
+	k1, k2    []byte
+	size      int
+	blockSize int
+	tag       []byte
+	x         []byte
+	nx        int
+	len       uint64
 }
 
 // NewCMAC returns a CMAC instance that implements MAC with the given block cipher.
 // GB/T 15821.1-2020 MAC scheme 5
 //
 // Reference: https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38B.pdf
-func NewCMAC(b cipher.Block, size int) BockCipherMAC {
+func NewCMAC(b cipher.Block, size int) *cmac {
 	if size <= 0 || size > b.BlockSize() {
 		panic("cbcmac: invalid size")
 	}
@@ -208,40 +213,110 @@ func NewCMAC(b cipher.Block, size int) BockCipherMAC {
 	msb = shiftLeft(k2)
 	k2[len(k2)-1] ^= msb * 0b10000111
 
-	return &cmac{b: b, k1: k1, k2: k2, size: size}
+	d := &cmac{b: b, k1: k1, k2: k2, size: size}
+	d.blockSize = blockSize
+	d.tag = make([]byte, blockSize)
+	d.x = make([]byte, blockSize)
+	return d
+}
+
+func (c *cmac) Reset() {
+	for i := range c.tag {
+		c.tag[i] = 0
+	}
+	c.nx = 0
+	c.len = 0
+}
+
+func (c *cmac) BlockSize() int {
+	return c.blockSize
 }
 
 func (c *cmac) Size() int {
 	return c.size
 }
 
-func (c *cmac) MAC(src []byte) []byte {
-	blockSize := c.b.BlockSize()
-	tag := make([]byte, blockSize)
-	if len(src) == 0 {
-		// Special-cased as a single empty partial final block.
-		copy(tag, c.k2)
-		tag[len(src)] ^= 0b10000000
-		c.b.Encrypt(tag, tag)
-		return tag
+func (d *cmac) Write(p []byte) (nn int, err error) {
+	nn = len(p)
+	if nn == 0 {
+		// nothing to do
+		return
 	}
-	for len(src) >= blockSize {
-		subtle.XORBytes(tag, src[:blockSize], tag)
-		if len(src) == blockSize {
-			// Final complete block.
-			subtle.XORBytes(tag, c.k1, tag)
+	d.len += uint64(nn)
+	if d.nx == d.blockSize {
+		// handle remaining full block
+		d.block(d.x)
+		d.nx = 0
+	} else if d.nx > 0 {
+		// handle remaining incomplete block
+		n := copy(d.x[d.nx:], p)
+		d.nx += n
+		p = p[n:]
+		if len(p) > 0 {
+			d.block(d.x)
+			d.nx = 0
 		}
-		c.b.Encrypt(tag, tag)
-		src = src[blockSize:]
 	}
-	if len(src) > 0 {
-		// Final incomplete block.
-		subtle.XORBytes(tag, src, tag)
-		subtle.XORBytes(tag, c.k2, tag)
-		tag[len(src)] ^= 0b10000000
-		c.b.Encrypt(tag, tag)
+	lenP := len(p)
+	if lenP > d.blockSize {
+		n := lenP &^ (d.blockSize - 1)
+		if n == lenP {
+			n -= d.blockSize
+		}
+		d.block(p[:n])
+		p = p[n:]
 	}
-	return tag[:c.size]
+	// save remaining partial/full block
+	if len(p) > 0 {
+		d.nx = copy(d.x[:], p)
+	}
+	return
+}
+
+func (c *cmac) block(p []byte) {
+	for len(p) >= c.blockSize {
+		subtle.XORBytes(c.tag, p[:c.blockSize], c.tag)
+		c.b.Encrypt(c.tag, c.tag)
+		p = p[c.blockSize:]
+	}
+}
+
+// Sum appends the current hash to in and returns the resulting slice.
+// It does not change the underlying hash state.
+func (d *cmac) Sum(in []byte) []byte {
+	// Make a copy of d so that caller can keep writing and summing.
+	// shared block cipher and k1, k2, x
+	d0 := *d
+	// use slices.Clone() later
+	d0.tag = make([]byte, d.blockSize)
+	copy(d0.tag, d.tag)
+	hash := d0.checkSum()
+	return append(in, hash[:]...)
+}
+
+func (c *cmac) checkSum() []byte {
+	tag := make([]byte, c.size)
+	if c.nx == 0 {
+		// Special-cased as a single empty partial final block.
+		copy(c.tag, c.k2)
+		c.tag[0] ^= 0b10000000
+	} else if c.nx == c.blockSize {
+		subtle.XORBytes(c.tag, c.x, c.tag)
+		subtle.XORBytes(c.tag, c.k1, c.tag)
+	} else {
+		subtle.XORBytes(c.tag, c.x, c.tag)
+		c.tag[c.nx] ^= 0b10000000
+		subtle.XORBytes(c.tag, c.k2, c.tag)
+	}
+	c.b.Encrypt(c.tag, c.tag)
+	copy(tag, c.tag[:c.size])
+	return tag
+}
+
+func (c *cmac) MAC(src []byte) []byte {
+	c.Reset()
+	c.Write(src)
+	return c.Sum(nil)
 }
 
 // shiftLeft sets x to x << 1, and returns MSB₁(x).
