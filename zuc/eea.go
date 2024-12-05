@@ -10,6 +10,7 @@ import (
 const (
 	RoundWords = 32
 	WordSize   = 4
+	WordMask   = WordSize - 1
 	RoundBytes = RoundWords * WordSize
 )
 
@@ -86,8 +87,7 @@ func (c *eea) XORKeyStream(dst, src []byte) {
 		src = src[RoundBytes:]
 	}
 	if len(src) > 0 {
-		words := (len(src) + WordSize - 1) / WordSize
-		byteLen := WordSize * words
+		byteLen := (len(src) + WordMask) &^ WordMask
 		genKeyStreamRev32(keyBytes[:byteLen], &c.zucState32)
 		n := subtle.XORBytes(dst, src, keyBytes[:])
 		// save remaining key bytes
@@ -115,38 +115,44 @@ func (c *eea) XORKeyStreamAt(dst, src []byte, offset uint64) {
 	if offset < c.used {
 		// reset the state to the initial state
 		c.reset()
-	} else if offset == c.used {
+	}
+
+	if offset == c.used {
 		c.XORKeyStream(dst, src)
 		return
 	}
 
-	diff := offset - c.used
-	if diff <= uint64(c.xLen) {
-		c.xLen -= int(diff)
-		c.used += diff
+	offsetDiff := offset - c.used
+	if offsetDiff <= uint64(c.xLen) {
+		c.xLen -= int(offsetDiff)
+		c.used += offsetDiff
 		c.XORKeyStream(dst, src)
 		return
 	}
+
+	// consumed all remaining key bytes first
+	c.used += uint64(c.xLen)
+	offsetDiff -= uint64(c.xLen)
+	c.xLen = 0
 
 	// forward the state to the offset
-	// this part can be optimized by a little bit
 	stepLen := uint64(RoundBytes)
-	var keys [RoundWords]uint32
-	for ; diff >= uint64(stepLen); diff -= stepLen {
-		genKeyStream(keys[:], &c.zucState32)
+	var keyStream [RoundWords]uint32
+	for ; offsetDiff >= uint64(stepLen); offsetDiff -= stepLen {
+		genKeyStream(keyStream[:], &c.zucState32)
 		c.used += stepLen
 	}
 
-	if diff > 0 {
-		words := (diff + WordSize - 1) / WordSize
-		genKeyStream(keys[:words], &c.zucState32)
-		partiallyUsed := int(diff % WordSize)
-		c.used += words * WordSize
+	if offsetDiff > 0 {
+		numWords := (offsetDiff + WordMask) / WordSize
+		genKeyStream(keyStream[:numWords], &c.zucState32)
+		partiallyUsed := int(offsetDiff & WordMask)
+		c.used += numWords * WordSize
 		if partiallyUsed > 0 {
 			// save remaining key bytes (less than 4 bytes)
 			c.xLen = WordSize - partiallyUsed
 			c.used -= uint64(c.xLen)
-			byteorder.BEPutUint32(c.x[:], keys[words-1])
+			byteorder.BEPutUint32(c.x[:], keyStream[numWords-1])
 			copy(c.x[:], c.x[partiallyUsed:])
 		}
 	}

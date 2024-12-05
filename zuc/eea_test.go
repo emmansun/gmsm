@@ -113,6 +113,13 @@ func TestXORStreamAt(t *testing.T) {
 				t.Errorf("expected=%x, result=%x\n", expected[32:64], dst[32:64])
 			}
 		}
+		for i := 1; i < 4; i++ {
+			c.XORKeyStreamAt(dst[:i], src[:i], 0)
+			c.XORKeyStreamAt(dst[32:64], src[32:64], 32)
+			if !bytes.Equal(dst[32:64], expected[32:64]) {
+				t.Errorf("expected=%x, result=%x\n", expected[32:64], dst[32:64])
+			}
+		}
 	})
 
 	t.Run("Jump and forward (skipped keys more than 128)", func(t *testing.T) {
