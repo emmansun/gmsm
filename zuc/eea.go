@@ -134,9 +134,11 @@ func (c *eea) XORKeyStreamAt(dst, src []byte, offset uint64) {
 	}
 
 	// consumed all remaining key bytes first
-	c.used += uint64(c.xLen)
-	offsetDiff -= uint64(c.xLen)
-	c.xLen = 0
+	if c.xLen > 0 {
+		c.used += uint64(c.xLen)
+		offsetDiff -= uint64(c.xLen)
+		c.xLen = 0
+	}
 
 	// forward the state to the offset
 	stepLen := uint64(RoundBytes)
