@@ -169,14 +169,15 @@ func TestIssue284(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	src := make([]byte, 200)
-	expected := make([]byte, 200)
-	dst := make([]byte, 200)
+	src := make([]byte, RoundBytes*2)
+	expected := make([]byte, RoundBytes*2)
+	dst := make([]byte, RoundBytes*2)
 	c.XORKeyStream(expected, src)
 
-	for i := 124; i <= 200; i++ {
+	for i := RoundBytes - 3; i < RoundBytes+5; i++ {
 		c.XORKeyStreamAt(dst, src[:i], 0)
-		if !bytes.Equal(expected[:i], dst[:i]) {
+		c.XORKeyStream(dst[i:], src[i:])
+		if !bytes.Equal(expected, dst) {
 			t.Fatalf("failed for len %v", i)
 		}
 	}
