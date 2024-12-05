@@ -247,6 +247,8 @@ func (x *Nat) SetUint(y uint, m *Modulus) *Nat {
 // Equal returns 1 if x == y, and 0 otherwise.
 //
 // Both operands must have the same announced length.
+//
+//go:norace
 func (x *Nat) Equal(y *Nat) choice {
 	// Eliminate bounds checks in the loop.
 	size := len(x.limbs)
@@ -261,6 +263,8 @@ func (x *Nat) Equal(y *Nat) choice {
 }
 
 // IsZero returns 1 if x == 0, and 0 otherwise.
+//
+//go:norace
 func (x *Nat) IsZero() choice {
 	// Eliminate bounds checks in the loop.
 	size := len(x.limbs)
@@ -274,6 +278,8 @@ func (x *Nat) IsZero() choice {
 }
 
 // IsOne returns 1 if x == 1, and 0 otherwise.
+//
+//go:norace
 func (x *Nat) IsOne() choice {
 	// Eliminate bounds checks in the loop.
 	size := len(x.limbs)
@@ -294,6 +300,8 @@ func (x *Nat) IsOne() choice {
 //
 // The length of x must be the same as the modulus. x must already be reduced
 // modulo m.
+//
+//go:norace
 func (x *Nat) IsMinusOne(m *Modulus) choice {
 	minusOne := m.Nat()
 	minusOne.SubOne(m)
@@ -301,6 +309,8 @@ func (x *Nat) IsMinusOne(m *Modulus) choice {
 }
 
 // IsOdd returns 1 if x is odd, and 0 otherwise.
+//
+//go:norace
 func (x *Nat) IsOdd() choice {
 	if len(x.limbs) == 0 {
 		return no
@@ -326,6 +336,8 @@ func (x *Nat) TrailingZeroBitsVarTime() uint {
 // CmpGeq returns 1 if x >= y, and 0 otherwise.
 //
 // Both operands must have the same announced length.
+//
+//go:norace
 func (x *Nat) CmpGeq(y *Nat) choice {
 	// Eliminate bounds checks in the loop.
 	size := len(x.limbs)
@@ -344,6 +356,8 @@ func (x *Nat) CmpGeq(y *Nat) choice {
 // assign sets x <- y if on == 1, and does nothing otherwise.
 //
 // Both operands must have the same announced length.
+//
+//go:norace
 func (x *Nat) assign(on choice, y *Nat) *Nat {
 	// Eliminate bounds checks in the loop.
 	size := len(x.limbs)
@@ -360,6 +374,8 @@ func (x *Nat) assign(on choice, y *Nat) *Nat {
 // add computes x += y and returns the carry.
 //
 // Both operands must have the same announced length.
+//
+//go:norace
 func (x *Nat) add(y *Nat) (c uint) {
 	// Eliminate bounds checks in the loop.
 	size := len(x.limbs)
@@ -375,6 +391,8 @@ func (x *Nat) add(y *Nat) (c uint) {
 // sub computes x -= y. It returns the borrow of the subtraction.
 //
 // Both operands must have the same announced length.
+//
+//go:norace
 func (x *Nat) sub(y *Nat) (c uint) {
 	// Eliminate bounds checks in the loop.
 	size := len(x.limbs)
@@ -390,6 +408,8 @@ func (x *Nat) sub(y *Nat) (c uint) {
 // ShiftRightVarTime sets x = x >> n.
 //
 // The announced length of x is unchanged.
+//
+//go:norace
 func (x *Nat) ShiftRightVarTime(n uint) *Nat {
 	// Eliminate bounds checks in the loop.
 	size := len(x.limbs)
@@ -596,6 +616,8 @@ func (x *Nat) shiftIn(y uint, m *Modulus) *Nat {
 // shiftIn calculates x = x << _W + y mod m.
 //
 // This assumes that x is already reduced mod m, and that y < 2^_W.
+//
+//go:norace
 func (x *Nat) shiftInNat(y uint, m *Nat) *Nat {
 	d := NewNat().reset(len(m.limbs))
 
@@ -902,6 +924,8 @@ func (x *Nat) montgomeryMul(a *Nat, b *Nat, m *Modulus) *Nat {
 // addMulVVW multiplies the multi-word value x by the single-word value y,
 // adding the result to the multi-word value z and returning the final carry.
 // It can be thought of as one row of a pen-and-paper column multiplication.
+//
+//go:norace
 func addMulVVW(z, x []uint, y uint) (carry uint) {
 	_ = x[len(z)-1] // bounds check elimination hint
 	for i := range z {
@@ -1170,6 +1194,7 @@ func (x *Nat) InverseVarTime(a *Nat, m *Modulus) (*Nat, bool) {
 	}
 }
 
+//go:norace
 func rshift1(a *Nat, carry uint) {
 	size := len(a.limbs)
 	aLimbs := a.limbs[:size]
