@@ -8,9 +8,12 @@ import (
 )
 
 const (
+	// number of words in a round
 	RoundWords = 32
-	WordSize   = 4
-	WordMask   = WordSize - 1
+	// number of bytes in a word
+	WordSize = 4
+	WordMask = WordSize - 1
+	// number of bytes in a round
 	RoundBytes = RoundWords * WordSize
 )
 
@@ -18,8 +21,8 @@ type eea struct {
 	zucState32
 	x         [WordSize]byte // remaining bytes buffer
 	xLen      int            // number of remaining bytes
-	initState zucState32
-	used      uint64
+	initState zucState32     // initial state for reset
+	used      uint64         // number of key bytes processed, current offset
 }
 
 // NewCipher create a stream cipher based on key and iv aguments.
@@ -105,61 +108,60 @@ func (c *eea) reset() {
 	c.used = 0
 }
 
-func (c *eea) XORKeyStreamAt(dst, src []byte, offset uint64) {
-	if len(dst) < len(src) {
-		panic("zuc: output smaller than input")
-	}
-	if alias.InexactOverlap(dst[:len(src)], src) {
-		panic("zuc: invalid buffer overlap")
-	}
+// seek sets the offset for the next XORKeyStream operation.
+//
+// If the offset is less than the current offset, the state will be reset to the initial state.
+// If the offset is equal to the current offset, the function behaves the same as XORKeyStream.
+// If the offset is greater than the current offset, the function will forward the state to the offset.
+// Note: This method is not thread-safe.
+func (c *eea) seek(offset uint64) {
 	if offset < c.used {
-		// reset the state to the initial state
 		c.reset()
 	}
-
 	if offset == c.used {
-		c.XORKeyStream(dst, src)
 		return
 	}
-
-	offsetDiff := offset - c.used
-	if offsetDiff <= uint64(c.xLen) {
-		c.xLen -= int(offsetDiff)
-		c.used += offsetDiff
+	gap := offset - c.used
+	if gap <= uint64(c.xLen) {
+		// offset is within the remaining key bytes
+		c.xLen -= int(gap)
+		c.used += gap
 		if c.xLen > 0 {
-			copy(c.x[:], c.x[offsetDiff:])
+			// adjust remaining key bytes
+			copy(c.x[:], c.x[gap:])
 		}
-		c.XORKeyStream(dst, src)
 		return
 	}
-
 	// consumed all remaining key bytes first
 	if c.xLen > 0 {
 		c.used += uint64(c.xLen)
-		offsetDiff -= uint64(c.xLen)
+		gap -= uint64(c.xLen)
 		c.xLen = 0
 	}
 
 	// forward the state to the offset
+	c.used += gap
 	stepLen := uint64(RoundBytes)
 	var keyStream [RoundWords]uint32
-	for ; offsetDiff >= uint64(stepLen); offsetDiff -= stepLen {
+	for gap >= stepLen {
 		genKeyStream(keyStream[:], &c.zucState32)
-		c.used += stepLen
+		gap -= stepLen
 	}
 
-	if offsetDiff > 0 {
-		numWords := (offsetDiff + WordMask) / WordSize
+	if gap > 0 {
+		numWords := (gap + WordMask) / WordSize
 		genKeyStream(keyStream[:numWords], &c.zucState32)
-		partiallyUsed := int(offsetDiff & WordMask)
-		c.used += numWords * WordSize
+		partiallyUsed := int(gap & WordMask)
 		if partiallyUsed > 0 {
 			// save remaining key bytes (less than 4 bytes)
 			c.xLen = WordSize - partiallyUsed
-			c.used -= uint64(c.xLen)
 			byteorder.BEPutUint32(c.x[:], keyStream[numWords-1])
 			copy(c.x[:], c.x[partiallyUsed:])
 		}
 	}
+}
+
+func (c *eea) XORKeyStreamAt(dst, src []byte, offset uint64) {
+	c.seek(offset)
 	c.XORKeyStream(dst, src)
 }

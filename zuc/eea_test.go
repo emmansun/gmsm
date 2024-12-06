@@ -105,7 +105,7 @@ func TestXORStreamAt(t *testing.T) {
 		}
 	})
 
-	t.Run("Jump and forward (incomplete word)", func(t *testing.T) {
+	t.Run("Jump and forward (incomplete word): gap > xLen", func(t *testing.T) {
 		for i := 0; i < 4; i++ {
 			c.XORKeyStreamAt(dst[i:16], src[i:16], uint64(i))
 			c.XORKeyStreamAt(dst[32:64], src[32:64], 32)
@@ -122,7 +122,7 @@ func TestXORStreamAt(t *testing.T) {
 		}
 	})
 
-	t.Run("Jump and forward (incomplete word): offsetDiff <= xLen", func(t *testing.T) {
+	t.Run("Jump and forward (incomplete word): gap <= xLen", func(t *testing.T) {
 		c.XORKeyStreamAt(dst[:1], src[:1], 0)
 		c.XORKeyStreamAt(dst[3:16], src[3:16], 3)
 		if !bytes.Equal(dst[3:16], expected[3:16]) {
@@ -226,4 +226,34 @@ func BenchmarkEncrypt1K(b *testing.B) {
 
 func BenchmarkEncrypt8K(b *testing.B) {
 	benchmarkStream(b, make([]byte, almost8K))
+}
+
+func benchmarkSeek(b *testing.B, offset uint64) {
+	var key [16]byte
+	var iv [16]byte
+
+	stream, _ := NewCipher(key[:], iv[:])
+
+	eea, ok := stream.(*eea)
+	if !ok {
+		b.Fatal("not an eea")
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		eea.reset()
+		eea.seek(offset)
+	}
+}
+
+func BenchmarkSeek1K(b *testing.B) {
+	benchmarkSeek(b, 1024)
+}
+
+func BenchmarkSeek8K(b *testing.B) {
+	benchmarkSeek(b, 8*1024)
+}
+
+func BenchmarkSeek1M(b *testing.B) {
+	benchmarkSeek(b, 1024*1024)
 }
