@@ -143,6 +143,10 @@ func (sd *SignedData) AddSigner(ee *smx509.Certificate, pkey crypto.PrivateKey, 
 // The signature algorithm used to hash the data is the one of the end-entity
 // certificate.
 func (sd *SignedData) AddSignerChain(ee *smx509.Certificate, pkey crypto.PrivateKey, parents []*smx509.Certificate, config SignerInfoConfig) error {
+	if ee == nil {
+		return errors.New("pkcs7: certificate is nil")
+	}
+
 	// Following RFC 2315, 9.2 SignerInfo type, the distinguished name of
 	// the issuer of the end-entity signer is stored in the issuerAndSerialNumber
 	// section of the SignedData.SignerInfo, alongside the serial number of

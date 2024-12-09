@@ -83,7 +83,7 @@ func fromBase10(base10 string) *big.Int {
 
 type certKeyPair struct {
 	Certificate *smx509.Certificate
-	PrivateKey  *crypto.PrivateKey
+	PrivateKey  crypto.PrivateKey
 }
 
 func createTestCertificate(sigAlg x509.SignatureAlgorithm, allCA bool) (certKeyPair, error) {
@@ -125,7 +125,7 @@ func createTestCertificateByIssuer(name string, issuer *certKeyPair, sigAlg x509
 	}
 	if issuer != nil {
 		issuerCert = issuer.Certificate
-		issuerKey = *issuer.PrivateKey
+		issuerKey = issuer.PrivateKey
 	}
 
 	switch sigAlg {

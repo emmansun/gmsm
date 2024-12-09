@@ -527,7 +527,7 @@ but that's not what ships are built for.
 					t.Fatal(err)
 				}
 				var derKey []byte
-				priv := *signerCert.PrivateKey
+				priv := signerCert.PrivateKey
 				switch priv := priv.(type) {
 				case *rsa.PrivateKey:
 					derKey = x509.MarshalPKCS1PrivateKey(priv)

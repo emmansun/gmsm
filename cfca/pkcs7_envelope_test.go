@@ -22,7 +22,7 @@ import (
 
 type certKeyPair struct {
 	Certificate *smx509.Certificate
-	PrivateKey  *crypto.PrivateKey
+	PrivateKey  crypto.PrivateKey
 }
 
 func createTestSM2Certificate(allCA bool) (certKeyPair, error) {
@@ -64,7 +64,7 @@ func createTestSM2CertificateByIssuer(name string, issuer *certKeyPair, sigAlg x
 	}
 	if issuer != nil {
 		issuerCert = issuer.Certificate
-		issuerKey = *issuer.PrivateKey
+		issuerKey = issuer.PrivateKey
 	}
 
 	switch sigAlg {
@@ -106,7 +106,7 @@ func createTestSM2CertificateByIssuer(name string, issuer *certKeyPair, sigAlg x
 	// pem.Encode(os.Stdout, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
 	return &certKeyPair{
 		Certificate: cert,
-		PrivateKey:  &priv,
+		PrivateKey:  priv,
 	}, nil
 }
 
@@ -125,12 +125,12 @@ func TestEnvelopeMessage(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = OpenEnvelopedMessage(encrypted[:len(encrypted)-1], cert.Certificate, *cert.PrivateKey)
+		_, err = OpenEnvelopedMessage(encrypted[:len(encrypted)-1], cert.Certificate, cert.PrivateKey)
 		if err == nil {
 			t.Fatalf("expected error when decrypting with wrong key, got nil")
 		}
 		// pem.Encode(os.Stdout, &pem.Block{Type: "PKCS7", Bytes: encrypted})
-		result, err := OpenEnvelopedMessage(encrypted, cert.Certificate, *cert.PrivateKey)
+		result, err := OpenEnvelopedMessage(encrypted, cert.Certificate, cert.PrivateKey)
 		if err != nil {
 			t.Fatalf("cannot Decrypt encrypted result: %v", err)
 		}
@@ -155,12 +155,12 @@ func TestEnvelopeMessageLegacy(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = OpenEnvelopedMessage(encrypted[:len(encrypted)-1], cert.Certificate, *cert.PrivateKey)
+		_, err = OpenEnvelopedMessage(encrypted[:len(encrypted)-1], cert.Certificate, cert.PrivateKey)
 		if err == nil {
 			t.Fatalf("expected error when decrypting with wrong key, got nil")
 		}
 		// pem.Encode(os.Stdout, &pem.Block{Type: "PKCS7", Bytes: encrypted})
-		result, err := OpenEnvelopedMessageLegacy(encrypted, cert.Certificate, *cert.PrivateKey)
+		result, err := OpenEnvelopedMessageLegacy(encrypted, cert.Certificate, cert.PrivateKey)
 		if err != nil {
 			t.Fatalf("cannot Decrypt encrypted result: %v", err)
 		}
