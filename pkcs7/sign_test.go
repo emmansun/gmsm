@@ -51,7 +51,7 @@ func testSign(t *testing.T, isSM bool, content []byte, sigalgs []x509.SignatureA
 					signerDigest, _ := getDigestOIDForSignatureAlgorithm(sigalgsigner)
 					toBeSigned.SetDigestAlgorithm(signerDigest)
 
-					if err := toBeSigned.AddSignerChain(signerCert.Certificate, signerCert.PrivateKey, parents, SignerInfoConfig{}); err != nil {
+					if err := toBeSigned.AddSignerChain(signerCert.Certificate, *signerCert.PrivateKey, parents, SignerInfoConfig{}); err != nil {
 						t.Fatalf("test %s/%s/%s: cannot add signer: %s", sigalgroot, sigalginter, sigalgsigner, err)
 					}
 					if testDetach {
@@ -152,7 +152,7 @@ func TestUnmarshalSignedAttribute(t *testing.T) {
 	}
 	oidTest := asn1.ObjectIdentifier{2, 3, 4, 5, 6, 7}
 	testValue := "TestValue"
-	if err := toBeSigned.AddSigner(cert.Certificate, cert.PrivateKey, SignerInfoConfig{
+	if err := toBeSigned.AddSigner(cert.Certificate, *cert.PrivateKey, SignerInfoConfig{
 		ExtraSignedAttributes: []Attribute{{Type: oidTest, Value: testValue}},
 	}); err != nil {
 		t.Fatalf("Cannot add signer: %s", err)
@@ -190,7 +190,7 @@ func TestSkipCertificates(t *testing.T) {
 		t.Fatalf("Cannot initialize signed data: %s", err)
 	}
 
-	if err := toBeSigned.AddSigner(cert.Certificate, cert.PrivateKey, SignerInfoConfig{}); err != nil {
+	if err := toBeSigned.AddSigner(cert.Certificate, *cert.PrivateKey, SignerInfoConfig{}); err != nil {
 		t.Fatalf("Cannot add signer: %s", err)
 	}
 	signed, err := toBeSigned.Finish()
@@ -209,7 +209,7 @@ func TestSkipCertificates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Cannot initialize signed data: %s", err)
 	}
-	if err := toBeSigned2.AddSigner(cert.Certificate, cert.PrivateKey, SignerInfoConfig{SkipCertificates: true}); err != nil {
+	if err := toBeSigned2.AddSigner(cert.Certificate, *cert.PrivateKey, SignerInfoConfig{SkipCertificates: true}); err != nil {
 		t.Fatalf("Cannot add signer: %s", err)
 	}
 	signed, err = toBeSigned2.Finish()
@@ -313,7 +313,7 @@ func TestSignWithoutAttr(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Cannot initialize signed data: %s", err)
 		}
-		if err := toBeSigned.SignWithoutAttr(cert.Certificate, cert.PrivateKey, SignerInfoConfig{SkipCertificates: sigalg.skipCert}); err != nil {
+		if err := toBeSigned.SignWithoutAttr(cert.Certificate, *cert.PrivateKey, SignerInfoConfig{SkipCertificates: sigalg.skipCert}); err != nil {
 			t.Fatalf("Cannot add signer: %s", err)
 		}
 		signed, err := toBeSigned.Finish()

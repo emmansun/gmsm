@@ -171,7 +171,7 @@ func TestCreateSignedEvnvelopedDataSM(t *testing.T) {
 		t.Fatal(err)
 	}
 	privKey := make([]byte, 32)
-	sm2Key, ok := (encryptKey.PrivateKey).(*sm2.PrivateKey)
+	sm2Key, ok := (*encryptKey.PrivateKey).(*sm2.PrivateKey)
 	if !ok {
 		t.Fatal("should be sm2 private key")
 	}
@@ -183,7 +183,7 @@ func TestCreateSignedEvnvelopedDataSM(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = saed.AddSigner(rootCert.Certificate, rootCert.PrivateKey)
+		err = saed.AddSigner(rootCert.Certificate, *rootCert.PrivateKey)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -203,7 +203,7 @@ func TestCreateSignedEvnvelopedDataSM(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		encKeyBytes, err := p7Data.DecryptAndVerify(recipient.Certificate, recipient.PrivateKey, func() error {
+		encKeyBytes, err := p7Data.DecryptAndVerify(recipient.Certificate, *recipient.PrivateKey, func() error {
 			return p7Data.Verify()
 		})
 		if err != nil {
@@ -234,7 +234,7 @@ func TestCreateSignedEvnvelopedData(t *testing.T) {
 		t.Fatal(err)
 	}
 	privKey := make([]byte, 32)
-	ecdsaKey, ok := (encryptKey.PrivateKey).(*ecdsa.PrivateKey)
+	ecdsaKey, ok := (*encryptKey.PrivateKey).(*ecdsa.PrivateKey)
 	if !ok {
 		t.Fatal("should be ecdsa private key")
 	}
@@ -247,7 +247,7 @@ func TestCreateSignedEvnvelopedData(t *testing.T) {
 			t.Fatal(err)
 		}
 		saed.SetDigestAlgorithm(OIDDigestAlgorithmSHA256)
-		err = saed.AddSigner(rootCert.Certificate, rootCert.PrivateKey)
+		err = saed.AddSigner(rootCert.Certificate, *rootCert.PrivateKey)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -288,7 +288,7 @@ func TestCreateSignedEvnvelopedData(t *testing.T) {
 			t.Errorf("Recipient issuer name does not match.\n\tExpected:%x\n\tActual:%x", recipient.Certificate.RawIssuer, recipients[0].RawIssuer)
 		}
 
-		encKeyBytes, err := p7Data.DecryptAndVerify(recipient.Certificate, recipient.PrivateKey, func() error {
+		encKeyBytes, err := p7Data.DecryptAndVerify(recipient.Certificate, *recipient.PrivateKey, func() error {
 			return p7Data.Verify()
 		})
 		if err != nil {
