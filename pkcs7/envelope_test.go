@@ -98,7 +98,7 @@ func TestEncrypt(t *testing.T) {
 			if err != nil {
 				t.Fatalf("cannot Parse encrypted result: %s", err)
 			}
-			result, err := p7.Decrypt(cert.Certificate, cert.PrivateKey)
+			result, err := p7.Decrypt(cert.Certificate, *cert.PrivateKey)
 			if err != nil {
 				t.Fatalf("cannot Decrypt encrypted result: %s", err)
 			}
@@ -133,7 +133,7 @@ func TestEncryptSM(t *testing.T) {
 			if err != nil {
 				t.Fatalf("cannot Parse encrypted result: %s", err)
 			}
-			result, err := p7.Decrypt(cert.Certificate, cert.PrivateKey)
+			result, err := p7.Decrypt(cert.Certificate, *cert.PrivateKey)
 			if err != nil {
 				t.Fatalf("cannot Decrypt encrypted result: %s", err)
 			}
@@ -169,7 +169,7 @@ func TestEncryptCFCA(t *testing.T) {
 			if err != nil {
 				t.Fatalf("cannot Parse encrypted result: %s", err)
 			}
-			result, err := p7.DecryptCFCA(cert.Certificate, cert.PrivateKey)
+			result, err := p7.DecryptCFCA(cert.Certificate, *cert.PrivateKey)
 			if err != nil {
 				t.Fatalf("cannot Decrypt encrypted result: %s", err)
 			}
@@ -289,7 +289,7 @@ func TestEnvelopeMessageCFCA(t *testing.T) {
 			if err != nil {
 				t.Fatalf("cannot Parse encrypted result: %s", err)
 			}
-			result, err := p7.Decrypt(cert.Certificate, cert.PrivateKey)
+			result, err := p7.Decrypt(cert.Certificate, *cert.PrivateKey)
 			if err != nil {
 				t.Fatalf("cannot Decrypt encrypted result: %s", err)
 			}
