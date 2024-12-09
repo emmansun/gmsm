@@ -125,7 +125,7 @@ func createTestCertificateByIssuer(name string, issuer *certKeyPair, sigAlg x509
 	}
 	if issuer != nil {
 		issuerCert = issuer.Certificate
-		issuerKey = issuer.PrivateKey
+		issuerKey = *issuer.PrivateKey
 	}
 
 	switch sigAlg {
