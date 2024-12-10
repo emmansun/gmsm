@@ -59,6 +59,12 @@ SADK 3.2之后的版本，支持下列SM2密文格式(encryptedType)：
 2. 对称加密算法的OID。```public static final ASN1ObjectIdentifier id_sm4_CBC = new ASN1ObjectIdentifier("1.2.156.10197.1.104");```。
 3. 如果需要用本软件库去解密CFCA生成的SM2数字信封，目前会有问题（从**v0.29.3**开始可以解密）。CFCA实现不符合《GB/T 35275-2017：信息安全技术 SM2密码算法加密签名消息语法规范》，它的**RecipientInfo**默认使用SubjectKeyIdentifier而不是IssuerAndSerialNumber。在SADK 3.7.1.0中，需要指定recipientPolicyType=2（0：从证书扩展中获取SubjectKeyID，找不到抛异常；1：根据公钥数据直接计算SubjectKeyID；2：使用证书的IssuerAndSerialNumber）才会使用IssuerAndSerialNumber。正常情况下，只有CA证书才一定会在证书扩展中有SubjectKeyID信息。如果要产生和CFCA一样的加密信封，请使用```pkcs7.EnvelopeMessageCFCA```方法。
 
+**v0.29.6**之后，请直接使用
+* `cfca.EnvelopeMessage`
+* `cfca.OpenEnvelopedMessage`
+* `cfca.EnvelopeMessageLegacy`
+* `cfca.OpenEnvelopedMessageLegacy`
+
 #### SADK 3.2之前版本
 1. 数据对称加密密钥的密文格式为**C1C2C3 格式，不带0x04这个点非压缩标识**。这个不符合《GM/T 0010-2012 SM2密码算法加密签名消息语法规范》以及《GB/T 35275-2017 信息安全技术 SM2密码算法加密签名消息语法规范》。
 2. SM4-CBC的OID，使用了["SM4" block cipher](https://oid-rep.orange-labs.fr/get/1.2.156.10197.1.104)，而不是["SMS4-CBC"](https://oid-rep.orange-labs.fr/get/1.2.156.10197.1.104.2)。
@@ -82,6 +88,12 @@ SADK 3.2之后的版本，支持下列SM2密文格式(encryptedType)：
 
 参考[cfca sadk 3.0.2.0](https://github.com/emmansun/gmsm/issues/260)
 
+**v0.29.6**之后，请直接使用
+* `cfca.SignMessageAttach`
+* `cfca.VerifyMessageAttach`
+* `cfca.SignMessageDetach`
+* `cfca.VerifyMessageDetach`
+
 ### 解密时自动检测？
 要穷举、尝试所有可能的密文格式不是不可以，但这会或多或少地影响解密的性能。你要和对方集成，还是知己知彼比较好，对于加解密来说，对用户透明不代表是好事。本软件库的SM2解密也实现了一定的自动检测（通过首字节判断，基于首字节只有固定那几个的假设）：
 * 0x30 - ASN.1格式。
@@ -90,3 +102,6 @@ SADK 3.2之后的版本，支持下列SM2密文格式(encryptedType)：
 
 ### SM2私钥、证书的解析
 这个是CFCA自定义的，未见相关标准，可以通过```cfca.ParseSM2```来解析。
+
+### 生成双密钥CSR
+`cfca.CreateCertificateRequest`，和CFCA SADK不同，调用者需要自行先生成两对密钥对，一对用于签名证书，一对用于加解密CFCA生成的加密用私钥文件（CFCA加密，申请者解密）。
