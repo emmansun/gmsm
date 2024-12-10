@@ -11,10 +11,17 @@ import (
 	"github.com/emmansun/gmsm/smx509"
 )
 
+type CertificateRequest = smx509.CertificateRequestCFCA
+
 // CreateCertificateRequest creates a new certificate request based on a template.
 // The following members of template are used: Subject.
 // The certPriv is the private key for the certificate, and the tmpPriv is the temporary private key for returning encryption key decryption.
 // The challenge password is basically a shared-secret nonce between you and CFCA, embedded in the CSR.
 func CreateCertificateRequest(rand io.Reader, template *x509.CertificateRequest, certPriv, tmpPriv any, challengePassword string) ([]byte, error) {
 	return smx509.CreateCFCACertificateRequest(rand, template, certPriv, tmpPriv, challengePassword)
+}
+
+// ParseCertificateRequest parses a certificate request from the given DER data.
+func ParseCertificateRequest(der []byte) (*CertificateRequest, error) {
+	return smx509.ParseCFCACertificateRequest(der)
 }

@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	"github.com/emmansun/gmsm/sm2"
-	"github.com/emmansun/gmsm/smx509"
 )
 
 func TestCreateCertificateRequest(t *testing.T) {
@@ -57,11 +56,20 @@ func TestCreateCertificateRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	csr, err := smx509.ParseCertificateRequest(csrDer)
+	csr, err := ParseCertificateRequest(csrDer)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if csr.Subject.CommonName != "certRequisition" {
 		t.Fatal("common name not match")
+	}
+	if csr.Subject.CommonName != "certRequisition" {
+		t.Fatal("common name not match")
+	}
+	if csr.ChallengePassword != "111111" {
+		t.Fatal("challenge password not match")
+	}
+	if csr.TmpPublicKey == nil {
+		t.Fatal("tmp public key not match")
 	}
 }

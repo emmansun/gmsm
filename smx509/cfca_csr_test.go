@@ -56,11 +56,17 @@ func TestCreateCFCACertificateRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	csr, err := ParseCertificateRequest(csrDer)
+	csr, err := ParseCFCACertificateRequest(csrDer)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if csr.Subject.CommonName != "certRequisition" {
 		t.Fatal("common name not match")
+	}
+	if csr.ChallengePassword != "111111" {
+		t.Fatal("challenge password not match")
+	}
+	if csr.TmpPublicKey == nil {
+		t.Fatal("tmp public key not match")
 	}
 }

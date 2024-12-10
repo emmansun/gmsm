@@ -5,6 +5,7 @@
 package smx509
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/x509"
@@ -161,4 +162,57 @@ func buildTmpPublicKeyAttr(rawAttributes []asn1.RawValue, tmpPriv any) ([]asn1.R
 	}
 
 	return append(rawAttributes, rawValue), nil
+}
+
+// CertificateRequestCFCA represents a CFCA certificate request.
+type CertificateRequestCFCA struct {
+	CertificateRequest
+	ChallengePassword string
+	TmpPublicKey      any
+}
+
+// ParseCFCACertificateRequest parses a CFCA certificate request from the given DER data.
+func ParseCFCACertificateRequest(asn1Data []byte) (*CertificateRequestCFCA, error) {
+	var csr certificateRequest
+
+	rest, err := asn1.Unmarshal(asn1Data, &csr)
+	if err != nil {
+		return nil, err
+	} else if len(rest) != 0 {
+		return nil, asn1.SyntaxError{Msg: "trailing data"}
+	}
+
+	inner, err := parseCertificateRequest(&csr)
+	if err != nil {
+		return nil, err
+	}
+	out := &CertificateRequestCFCA{
+		CertificateRequest: *inner,
+	}
+	parseCFCAAttributes(out, csr.TBSCSR.RawAttributes)
+	return out, nil
+}
+
+func parseCFCAAttributes(out *CertificateRequestCFCA, rawAttributes []asn1.RawValue) {
+	var value struct {
+		Type  asn1.ObjectIdentifier
+		Value asn1.RawValue
+	}
+	for _, attr := range rawAttributes {
+		if _, err := asn1.Unmarshal(attr.FullBytes, &value); err != nil {
+			continue
+		}
+		switch {
+		case value.Type.Equal(oidChallengePassword):
+			asn1.Unmarshal(value.Value.FullBytes, &out.ChallengePassword)
+		case value.Type.Equal(oidTmpPublicKey):
+			var keyBytes []byte
+			asn1.Unmarshal(value.Value.FullBytes, &keyBytes)
+			if len(keyBytes) == 136 && bytes.Equal(tmpPublicKeyPrefix, keyBytes[:8]) {
+				// parse the public key
+				copy(keyBytes[40:72], keyBytes[72:104])
+				out.TmpPublicKey, _ = sm2.NewPublicKey(keyBytes[8:72])
+			}
+		}
+	}
 }
