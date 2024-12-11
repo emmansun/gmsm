@@ -29,11 +29,11 @@ var (
 //   - SignatureAlgorithm
 //   - Subject
 //
-// The certPriv is the private key for the certificate, and the tmpPriv is the temporary private key for returning encryption key decryption.
+// The certPriv is the private key for the certificate, and the tmpPub is the temporary private key for returning encryption key decryption.
 // The challenge password is basically a shared-secret nonce between you and CFCA, embedded in the CSR,
 // which the issuer may use to authenticate you should that ever be needed.
 // The template is the certificate request template, we just use Subject now.
-func CreateCFCACertificateRequest(rand io.Reader, template *x509.CertificateRequest, priv, tmpPriv any, challengePassword string) ([]byte, error) {
+func CreateCFCACertificateRequest(rand io.Reader, template *x509.CertificateRequest, priv, tmpPub any, challengePassword string) ([]byte, error) {
 	key, ok := priv.(crypto.Signer)
 	if !ok {
 		return nil, errors.New("x509: certificate private key does not implement crypto.Signer")
@@ -52,8 +52,8 @@ func CreateCFCACertificateRequest(rand io.Reader, template *x509.CertificateRequ
 
 	var rawAttributes []asn1.RawValue
 	// Add the temporary public key and challenge password if requested.
-	if tmpPriv != nil {
-		rawAttributes, err = buildTmpPublicKeyAttr(rawAttributes, tmpPriv)
+	if tmpPub != nil {
+		rawAttributes, err = buildTmpPublicKeyAttr(rawAttributes, tmpPub)
 		if err != nil {
 			return nil, err
 		}
@@ -130,18 +130,13 @@ func buildChallengePasswordAttr(rawAttributes []asn1.RawValue, challengePassword
 	return append(rawAttributes, rawValue), nil
 }
 
-func buildTmpPublicKeyAttr(rawAttributes []asn1.RawValue, tmpPriv any) ([]asn1.RawValue, error) {
-	key, ok := tmpPriv.(crypto.Signer)
-	if !ok {
-		return nil, errors.New("x509: tmp private key does not implement crypto.Signer")
-	}
+func buildTmpPublicKeyAttr(rawAttributes []asn1.RawValue, tmpPub crypto.PublicKey) ([]asn1.RawValue, error) {
 	var publicKeyBytes [136]byte
 	copy(publicKeyBytes[:], tmpPublicKeyPrefix)
-	pub := key.Public()
-	if !sm2.IsSM2PublicKey(pub) {
+	if !sm2.IsSM2PublicKey(tmpPub) {
 		return nil, errors.New("x509: only SM2 public key is supported")
 	}
-	ecPub, _ := pub.(*ecdsa.PublicKey)
+	ecPub, _ := tmpPub.(*ecdsa.PublicKey)
 	ecPub.X.FillBytes(publicKeyBytes[8:40])
 	ecPub.Y.FillBytes(publicKeyBytes[72:104])
 	b, _ := asn1.Marshal(publicKeyBytes[:])

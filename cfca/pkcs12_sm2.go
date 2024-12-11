@@ -70,11 +70,10 @@ func ParseSM2(password, data []byte) (*sm2.PrivateKey, *smx509.Certificate, erro
 	}
 	d := new(big.Int).SetBytes(pk) // here we do NOT check if the d is in (0, N) or not
 	// Create private key from *big.Int
-	prvKey := new(sm2.PrivateKey)
-	prvKey.Curve = sm2.P256()
-	prvKey.D = d
-	prvKey.PublicKey.X, prvKey.PublicKey.Y = prvKey.ScalarBaseMult(prvKey.D.Bytes())
-
+	prvKey, err := sm2.NewPrivateKeyFromInt(d)
+	if err != nil {
+		return nil, nil, err
+	}
 	cert, err := smx509.ParseCertificate(keys.Certificate.Content)
 	if err != nil {
 		return nil, nil, err
