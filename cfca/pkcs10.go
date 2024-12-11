@@ -40,10 +40,10 @@ type encryptedPrivateKeyInfo struct {
 	EncryptedKey []byte
 }
 
-// ParseEncryptionPrivateKey parses an encrypted SM2 private key from the given data.
+// ParseEscrowPrivateKey parses an CFCA generated and returned SM2 private key from the given data.
 // The data is expected to be in the format of "0000000000000001000000000000000100000000000000000000000000000000...".
 // If the data is not in this format, it will be treated as base64 encoded data directly.
-func ParseEncryptionPrivateKey(tmpPriv *sm2.PrivateKey, data []byte) (*sm2.PrivateKey, error) {
+func ParseEscrowPrivateKey(tmpPriv *sm2.PrivateKey, data []byte) (*sm2.PrivateKey, error) {
 	if len(data) < 268 {
 		return nil, errors.New("cfca: invalid encrypted private key data")
 	}

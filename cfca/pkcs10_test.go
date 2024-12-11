@@ -75,7 +75,7 @@ func TestCreateCertificateRequest(t *testing.T) {
 	}
 }
 
-func TestParseEncryptionPrivateKey(t *testing.T) {
+func TestParseEscrowPrivateKey(t *testing.T) {
 	cases := []struct {
 		encKeyHex    string
 		tmpKeyHex    string
@@ -139,6 +139,41 @@ func TestParseEncryptionPrivateKey(t *testing.T) {
 			true,
 			"strconv.Atoi: parsing \"0000000000000/73\": invalid syntax",
 		},
+		{
+			"f6e02c941a0dfdac58d8b3b1bc1bd136f179741b7465ebc7b0b25bb381840a3b",
+			"cacece36cac24aab94e52bcd5c0f552c95028f2856053135a1e47510b4c307ba",
+			"MIHLAgEBBIHFBNMWBxk04B00wJQC1fQsida/0ZZEAMh/ggaC006oQUFFQKJp18YgC/9xkkBLa75DxPy85+n21gZaXUs3s628SaQiKejqH7yx3Pr0onRepDED5O/grQoyxdHL3LpuC4jp7MrOeVDqC6PAWIhZanDhdN4617QJeBmKbkZSqo/SNXfh9+QDDwBBNMLV27LR53ShpAUYbJwqQoW2Od4+MGkzUK3jy+T9HbPcaAZMedAuhXhQgRf69x8CNSHjmOVVFQQZe7OHYY8=",
+			true,
+			"cfca: failed to decrypt the private key, possibly due to incorrect key data",
+		},
+		{
+			"f6e02c941a0dfdac58d8b3b1bc1bd136f179741b7465ebc7b0b25bb381840a3b",
+			"cacece36cac24aab94e52bcd5c0f552c95028f2856053135a1e47510b4c307ba",
+			"MIHKAgEBBIHEMEiAGc8dn+9mKnIlaesNqV2h53FxzNm1O4Bl5P16t6QT4JcJvTcTsh9DiHZF1Z0b+z/PrAT2r8aST2aKwRBPLrkWHKKDLZnCtAuz3Al1sV5ZMb5dCVX/Gy3LWMhVNwmzgkV6hfuFokTc2qL7p297XG4nnT11jz7iI1sRJ2E7bn52tF6W6ApICJuDKyFiLVKmMayn3PSsd8+I5IXNNtIer+GYKabAkNHwao4cuK1tuhy1uiSlwfzWq1CSHFD+LIRbXpijQA==",
+			true,
+			"cfca: invalid decrypted private key data",
+		},
+		{
+			"f6e02c941a0dfdac58d8b3b1bc1bd136f179741b7465ebc7b0b25bb381840a3b",
+			"cacece36cac24aab94e52bcd5c0f552c95028f2856053135a1e47510b4c307ba",
+			"MIHGAgEBBIHANZyM9KF7qqyUDzh6wZmLU6czep9FxJfojSpxrAYbNN2j/Jad5cOaNmhO4tL+tfk42O8y9+jUebPWCUOuSXZADJZOEyRo2tehvrT2CxEEA9cJ0pK87uXiRsd9vLyjYeEzbngO8tpFrSrpF8G/KYbJ1QiI3W+QLQnofwtChNVwOjyjLxoFO9gx3jvfVH79ECoYC11UL0o0YASx9niiGkqT/q8tqbr7DwIDu0tbXVfwhjJJ2zNZIdECDkV3o7as9ika",
+			true,
+			"sm2: invalid private key",
+		},
+		{
+			"f6e02c941a0dfdac58d8b3b1bc1bd136f179741b7465ebc7b0b25bb381840a3b",
+			"cacece36cac24aab94e52bcd5c0f552c95028f2856053135a1e47510b4c307ba",
+			"MIHGAgEBBIHAaxudEYQXAT4n+s2fhHJlPVvY2+TNRAS96F7vskiENVLHahIWxtDeU6BeJ5SFTEXTz5vdYp4as66DU69xCWNYl4kDCy3gfT2iIDEp6NcbPHkAp/rKIFXMUZyBq9wGCkeAZwvpK09JMLffvGWTFU7MzepyFtYTsRjwZ5tBX+8GaSDHaCD0CtVtz5k3bFRLPE2ru4XZW787BiEBrxUG9Zn5pnkNLlnVmUNSI01qKXJxK/hAJ+B82DtXdZgSUaspW5ro",
+			true,
+			"point not on SM2 P256 curve",
+		},
+		{
+			"f6e02c941a0dfdac58d8b3b1bc1bd136f179741b7465ebc7b0b25bb381840a3b",
+			"cacece36cac24aab94e52bcd5c0f552c95028f2856053135a1e47510b4c307ba",
+			"MIHGAgEBBIHA7pcowvNdY6kHesm6Ni1rM+iFNSXOXyET+gstbxQ0Vq1+W+YmZUTNQs8CpNuU6fpjZt8azXvKwdrUKEMaadZR4vTBwl+UcvjdpwlBmI8o9UxYkWNSGeI0CWHCgml57xHbhAl3xlRzCi2qOakvEcwTRmzvB73Pt/DgahSPGSmdOy3CrAyMkhcrHiiR9aIWXEKbOnwST+wcRJ65Mr+5ZDOaN8wg6NzLttnWg93CA3k1AsziCGe/sRW6Qd2FrcvMZQc2",
+			true,
+			"cfca: key pair mismatch, possibly due to incorrect key data or corruption",
+		},
 	}
 	for _, c := range cases {
 		encKey, _ := hex.DecodeString(c.encKeyHex)
@@ -151,7 +186,7 @@ func TestParseEncryptionPrivateKey(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		gotKey, err := ParseEncryptionPrivateKey(tmpSM2Key, []byte(c.encryptedKey))
+		gotKey, err := ParseEscrowPrivateKey(tmpSM2Key, []byte(c.encryptedKey))
 		if c.wantError {
 			if err == nil || err.Error() != c.errorMsg {
 				t.Fatalf("expected error %v, got %v", c.errorMsg, err)
