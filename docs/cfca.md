@@ -100,8 +100,9 @@ SADK 3.2之后的版本，支持下列SM2密文格式(encryptedType)：
 * 0x04 - C1为非压缩点格式，具体是C1C3C2还是C1C2C3取决于解密时的选项参数，默认为C1C3C2。
 * 0x02/0x03 - C1为压缩点格式，具体是C1C3C2还是C1C2C3取决于解密时的选项参数，默认为C1C3C2。
 
+### 生成双密钥CSR （v0.29.6+）
+`cfca.CreateCertificateRequest`，和CFCA SADK不同，调用者需要自行先生成两对密钥对，一对用于签名证书，一对用于加解密CFCA生成的加密用私钥文件（CFCA加密，申请者解密）。
+使用`cfca.ParseEscrowPrivateKey`解析CFCA返回的加密用私钥。
+
 ### SM2私钥、证书的解析
 这个是CFCA自定义的，未见相关标准，可以通过```cfca.ParseSM2```来解析。
-
-### 生成双密钥CSR
-`cfca.CreateCertificateRequest`，和CFCA SADK不同，调用者需要自行先生成两对密钥对，一对用于签名证书，一对用于加解密CFCA生成的加密用私钥文件（CFCA加密，申请者解密）。

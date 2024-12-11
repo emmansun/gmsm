@@ -2,18 +2,14 @@
 package cfca
 
 import (
-	"crypto/cipher"
 	"encoding/asn1"
 	"errors"
 	"fmt"
 	"math/big"
 
-	"github.com/emmansun/gmsm/padding"
 	"github.com/emmansun/gmsm/pkcs"
 	"github.com/emmansun/gmsm/pkcs7"
 	"github.com/emmansun/gmsm/sm2"
-	"github.com/emmansun/gmsm/sm3"
-	"github.com/emmansun/gmsm/sm4"
 	"github.com/emmansun/gmsm/smx509"
 )
 
@@ -59,18 +55,11 @@ func ParseSM2(password, data []byte) (*sm2.PrivateKey, *smx509.Certificate, erro
 	if !keys.EncryptedKey.Algorithm.Equal(oidSM4) && !keys.EncryptedKey.Algorithm.Equal(oidSM4CBC) {
 		return nil, nil, fmt.Errorf("cfca: unsupported algorithm <%v>", keys.EncryptedKey.Algorithm)
 	}
-	ivkey := sm3.Kdf(password, 32)
-	marshalledIV, err := asn1.Marshal(ivkey[:16])
+	pk, err := DecryptBySM4CBC(keys.EncryptedKey.EncryptedContent.Bytes, password)
 	if err != nil {
 		return nil, nil, err
 	}
-	pk, err := pkcs.SM4CBC.Decrypt(ivkey[16:], &asn1.RawValue{FullBytes: marshalledIV}, keys.EncryptedKey.EncryptedContent.Bytes)
-	if err != nil {
-		return nil, nil, err
-	}
-	d := new(big.Int).SetBytes(pk) // here we do NOT check if the d is in (0, N) or not
-	// Create private key from *big.Int
-	prvKey, err := sm2.NewPrivateKeyFromInt(d)
+	prvKey, err := sm2.NewPrivateKeyFromInt(new(big.Int).SetBytes(pk))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -87,22 +76,12 @@ func ParseSM2(password, data []byte) (*sm2.PrivateKey, *smx509.Certificate, erro
 
 // MarshalSM2 encodes sm2 private key and related certificate to cfca defined format
 func MarshalSM2(password []byte, key *sm2.PrivateKey, cert *smx509.Certificate) ([]byte, error) {
-	if len(password) == 0 {
-		return nil, errors.New("cfca: invalid password")
-	}
-	ivkey := sm3.Kdf(password, 32)
-	block, err := sm4.NewCipher(ivkey[16:])
-	if err != nil {
+	var err error
+	var ciphertext []byte
+	if ciphertext, err = EncryptBySM4CBC(key.D.Bytes(), password); err != nil {
 		return nil, err
 	}
-	mode := cipher.NewCBCEncrypter(block, ivkey[:16])
-	pkcs7 := padding.NewPKCS7Padding(uint(block.BlockSize()))
-	plainText := pkcs7.Pad(key.D.Bytes())
-	ciphertext := make([]byte, len(plainText))
-	mode.CryptBlocks(ciphertext, plainText)
-
-	ciphertext, err = asn1.Marshal(ciphertext)
-	if err != nil {
+	if ciphertext, err = asn1.Marshal(ciphertext); err != nil {
 		return nil, err
 	}
 
