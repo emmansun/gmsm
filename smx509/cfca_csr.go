@@ -18,9 +18,21 @@ import (
 )
 
 var (
+	// The challengePassword attribute type specifies a password by which an
+	// entity may request certificate revocation.
+	// A challenge-password attribute must have a single attribute value.
+	// It is a PKCS #9 OBJECT IDENTIFIER https://datatracker.ietf.org/doc/html/rfc2986#page-5
+	// https://datatracker.ietf.org/doc/html/rfc2985#page-16
 	oidChallengePassword = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 7}
-	oidTmpPublicKey      = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 63}
-	tmpPublicKeyPrefix   = []byte{0, 0xb4, 0, 0, 0, 1, 0, 0}
+
+	// The tmpPublicKey attribute type specifies a temporary public key for returning encryption key decryption.
+	// A tmpPublicKey attribute must have a single attribute value.
+	// It's NOT a standard OID, but used by CFCA.
+	// cfca.sadk.org.bouncycastle.gmt.GMTPKCSObjectIdentifiers.pkcs_9_at_tempPublicKey
+	oidTmpPublicKey = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 63}
+
+	// tmpPublicKeyPrefix is the fixed prefix of the temporary public key attribute value.
+	tmpPublicKeyPrefix = []byte{0, 0xb4, 0, 0, 0, 1, 0, 0}
 )
 
 // CreateCFCACertificateRequest creates a new CFCA certificate request based on a
@@ -53,11 +65,14 @@ func CreateCFCACertificateRequest(rand io.Reader, template *x509.CertificateRequ
 	var rawAttributes []asn1.RawValue
 	// Add the temporary public key and challenge password if requested.
 	if tmpPub != nil {
-		rawAttributes, err = buildTmpPublicKeyAttr(rawAttributes, tmpPub)
+		if !sm2.IsSM2PublicKey(tmpPub) {
+			return nil, errors.New("x509: only SM2 public key is supported")
+		}
+		rawAttributes, err = buildChallengePasswordAttr(rawAttributes, challengePassword)
 		if err != nil {
 			return nil, err
 		}
-		rawAttributes, err = buildChallengePasswordAttr(rawAttributes, challengePassword)
+		rawAttributes, err = buildTmpPublicKeyAttr(rawAttributes, tmpPub)
 		if err != nil {
 			return nil, err
 		}
@@ -130,24 +145,34 @@ func buildChallengePasswordAttr(rawAttributes []asn1.RawValue, challengePassword
 	return append(rawAttributes, rawValue), nil
 }
 
+type tmpPublicKeyInfo struct {
+	Version   int `asn1:"default:1"`
+	PublicKey []byte
+}
+
 func buildTmpPublicKeyAttr(rawAttributes []asn1.RawValue, tmpPub crypto.PublicKey) ([]asn1.RawValue, error) {
 	var publicKeyBytes [136]byte
+	// Prefix{8} || X{32} || zero{32} || Y{32} || zero{32}
 	copy(publicKeyBytes[:], tmpPublicKeyPrefix)
-	if !sm2.IsSM2PublicKey(tmpPub) {
-		return nil, errors.New("x509: only SM2 public key is supported")
-	}
 	ecPub, _ := tmpPub.(*ecdsa.PublicKey)
 	ecPub.X.FillBytes(publicKeyBytes[8:40])
 	ecPub.Y.FillBytes(publicKeyBytes[72:104])
-	b, _ := asn1.Marshal(publicKeyBytes[:])
+	var tmpPublicKey = tmpPublicKeyInfo{
+		Version:   1,
+		PublicKey: publicKeyBytes[:],
+	}
+	b, err := asn1.Marshal(tmpPublicKey)
+	if err != nil {
+		return nil, err
+	}
 	attrKey := struct {
 		Type  asn1.ObjectIdentifier
-		Value asn1.RawValue
+		Value []byte
 	}{
 		Type:  oidTmpPublicKey,
-		Value: asn1.RawValue{FullBytes: b},
+		Value: b,
 	}
-	b, err := asn1.Marshal(attrKey)
+	b, err = asn1.Marshal(attrKey)
 	if err != nil {
 		return nil, err
 	}
@@ -201,8 +226,11 @@ func parseCFCAAttributes(out *CertificateRequestCFCA, rawAttributes []asn1.RawVa
 		case value.Type.Equal(oidChallengePassword):
 			asn1.Unmarshal(value.Value.FullBytes, &out.ChallengePassword)
 		case value.Type.Equal(oidTmpPublicKey):
-			var keyBytes []byte
-			asn1.Unmarshal(value.Value.FullBytes, &keyBytes)
+			var tmpPub tmpPublicKeyInfo
+			if _, err := asn1.Unmarshal(value.Value.Bytes, &tmpPub); err != nil {
+				continue
+			}
+			keyBytes := tmpPub.PublicKey
 			if len(keyBytes) == 136 && bytes.Equal(tmpPublicKeyPrefix, keyBytes[:8]) {
 				// parse the public key
 				copy(keyBytes[40:72], keyBytes[72:104])
