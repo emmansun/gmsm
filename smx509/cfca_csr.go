@@ -234,7 +234,10 @@ func parseCFCAAttributes(out *CertificateRequestCFCA, rawAttributes []asn1.RawVa
 			if len(keyBytes) == 136 && bytes.Equal(tmpPublicKeyPrefix, keyBytes[:8]) {
 				// parse the public key
 				copy(keyBytes[40:72], keyBytes[72:104])
-				out.TmpPublicKey, _ = sm2.NewPublicKey(keyBytes[8:72])
+				keyBytes[7] = 4
+				if tmpKey, err := sm2.NewPublicKey(keyBytes[7:72]); err == nil {
+					out.TmpPublicKey = tmpKey
+				}
 			}
 		}
 	}

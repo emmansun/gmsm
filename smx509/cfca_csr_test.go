@@ -10,6 +10,7 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
 	"testing"
 
 	"github.com/emmansun/gmsm/sm2"
@@ -66,7 +67,29 @@ func TestCreateCFCACertificateRequest(t *testing.T) {
 	if csr.ChallengePassword != "111111" {
 		t.Fatal("challenge password not match")
 	}
-	if csr.TmpPublicKey == nil {
+	if !tmpKey.PublicKey.Equal(csr.TmpPublicKey) {
 		t.Fatal("tmp public key not match")
+	}
+}
+
+var sadkGeneratedCSR = `MIIBtDCCAVgCAQAwPjEYMBYGA1UEAwwPY2VydFJlcXVpc2l0aW9uMRUwEwYDVQQKDAxDRkNBIFRFU1QgQ0ExCzAJBgNVBAYTAkNOMFkwEwYHKoZIzj0CAQYIKoEcz1UBgi0DQgAEBtbaBT0KiK9mSUPnTOVCMydUWbSr0DkHi6i3GAuE0d1+/7ROMhVvWpz6OFP4T6CeZggKwvxwrCL/rj3vR/R6rqCBtzATBgkqhkiG9w0BCQcTBjExMTExMTCBnwYJKoZIhvcNAQk/BIGRMIGOAgEBBIGIALQAAAABAAAouT7CmwV94vbCwPIwBag6SSoEh+WxOcV6Sp5xjVSdIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAe0nExPMojCs0CdTvzhh7kakxQBQF6mLFeUGJ9IjIH4IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAMBggqgRzPVQGDdQUAA0gAMEUCIFtu6pSUf8yOxgqofpFA45HniI2StqJomsjYqIMH6jEYAiEAuLl7Q42zA8sR7U5nOza88ehpqV0TdzZqXAZJg0bKNMY=`
+
+func TestSADKGeneratedCSR(t *testing.T) {
+	data, err := base64.StdEncoding.DecodeString(sadkGeneratedCSR)
+	if err != nil {
+		t.Fatal(err)
+	}
+	csr, err := ParseCFCACertificateRequest(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if csr.Subject.CommonName != "certRequisition" {
+		t.Fatal("common name not match")
+	}
+	if csr.ChallengePassword != "111111" {
+		t.Fatal("challenge password not match")
+	}
+	if csr.TmpPublicKey == nil {
+		t.Fatal("tmp public key is nil")
 	}
 }

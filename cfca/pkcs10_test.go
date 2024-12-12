@@ -70,7 +70,7 @@ func TestCreateCertificateRequest(t *testing.T) {
 	if csr.ChallengePassword != "111111" {
 		t.Fatal("challenge password not match")
 	}
-	if csr.TmpPublicKey == nil {
+	if !tmpKey.PublicKey.Equal(csr.TmpPublicKey) {
 		t.Fatal("tmp public key not match")
 	}
 }
