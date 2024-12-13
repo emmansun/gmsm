@@ -80,5 +80,5 @@ PKCS8包代码是[youmark/pkcs8](https://github.com/youmark/pkcs8)项目的一�
 
 使用本项目前，请务必仔细阅读[GMSM软件免责声明](DISCLAIMER.md)！
 
-## 关注度
+## 项目星标趋势
 [![Stargazers over time](https://starchart.cc/emmansun/gmsm.svg?variant=adaptive)](https://starchart.cc/emmansun/gmsm)
