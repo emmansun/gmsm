@@ -39,19 +39,19 @@ func TestCreateCertificateRequest(t *testing.T) {
 	}
 	_, err = CreateCertificateRequest(random, template, "", "", "")
 	if err == nil || err.Error() != "x509: certificate private key does not implement crypto.Signer" {
-		t.Fatal("certificate private key does not implement crypto.Signer")
+		t.Fatalf("expect certificate private key does not implement crypto.Signer, got %v", err)
 	}
 	_, err = CreateCertificateRequest(random, template, certKey, "", "")
 	if err == nil || err.Error() != "x509: only SM2 public key is supported" {
-		t.Fatal("only SM2 public key is supported")
+		t.Fatalf("expect only SM2 public key is supported, got %v", err)
 	}
 	_, err = CreateCertificateRequest(random, template, certKey, invalidTmpKey.Public(), "")
 	if err == nil || err.Error() != "x509: only SM2 public key is supported" {
-		t.Fatal("only SM2 public key is supported")
+		t.Fatalf("expect only SM2 public key is supported, got %v", err)
 	}
 	_, err = CreateCertificateRequest(random, template, certKey, tmpKey.Public(), "")
 	if err == nil || err.Error() != "x509: challenge password is required" {
-		t.Fatal("challenge password is required")
+		t.Fatalf("expect challenge password is required, got %v", err)
 	}
 	csrDer, err := CreateCertificateRequest(random, template, certKey, tmpKey.Public(), "111111")
 	if err != nil {
