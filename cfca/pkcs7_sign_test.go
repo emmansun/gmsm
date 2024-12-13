@@ -61,13 +61,12 @@ func TestSignMessageDetach(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lastByte := p7[len(p7)-1]
-	p7[len(p7)-1] = 0
+	p7[0] = 0x20
 	err = VerifyMessageDetach(p7, []byte("test"))
 	if err == nil {
 		t.Fatalf("VerifyMessageAttach() error = %v, wantErr %v", err, true)
 	}
-	p7[len(p7)-1] = lastByte
+	p7[0] = 0x30
 	err = VerifyMessageDetach(p7, []byte("test"))
 	if err != nil {
 		t.Fatal(err)
