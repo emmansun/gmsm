@@ -29,6 +29,7 @@ func CreateCertificateRequest(rand io.Reader, template *x509.CertificateRequest,
 }
 
 // ParseCertificateRequest parses a certificate request from the given DER data.
+// This method corresponds to CFCA SADK's cfca.sadk.asn1.pkcs.PKCS10.load.
 func ParseCertificateRequest(der []byte) (*CertificateRequest, error) {
 	return smx509.ParseCFCACertificateRequest(der)
 }

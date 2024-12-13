@@ -10,7 +10,7 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/base64"
+	"encoding/pem"
 	"testing"
 
 	"github.com/emmansun/gmsm/sm2"
@@ -72,14 +72,24 @@ func TestCreateCFCACertificateRequest(t *testing.T) {
 	}
 }
 
-var sadkGeneratedCSR = `MIIBtDCCAVgCAQAwPjEYMBYGA1UEAwwPY2VydFJlcXVpc2l0aW9uMRUwEwYDVQQKDAxDRkNBIFRFU1QgQ0ExCzAJBgNVBAYTAkNOMFkwEwYHKoZIzj0CAQYIKoEcz1UBgi0DQgAEBtbaBT0KiK9mSUPnTOVCMydUWbSr0DkHi6i3GAuE0d1+/7ROMhVvWpz6OFP4T6CeZggKwvxwrCL/rj3vR/R6rqCBtzATBgkqhkiG9w0BCQcTBjExMTExMTCBnwYJKoZIhvcNAQk/BIGRMIGOAgEBBIGIALQAAAABAAAouT7CmwV94vbCwPIwBag6SSoEh+WxOcV6Sp5xjVSdIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAe0nExPMojCs0CdTvzhh7kakxQBQF6mLFeUGJ9IjIH4IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAMBggqgRzPVQGDdQUAA0gAMEUCIFtu6pSUf8yOxgqofpFA45HniI2StqJomsjYqIMH6jEYAiEAuLl7Q42zA8sR7U5nOza88ehpqV0TdzZqXAZJg0bKNMY=`
+var sadkGeneratedCSR = `
+-----BEGIN CERTIFICATE REQUEST-----
+MIIBtDCCAVgCAQAwPjEYMBYGA1UEAwwPY2VydFJlcXVpc2l0aW9uMRUwEwYDVQQK
+DAxDRkNBIFRFU1QgQ0ExCzAJBgNVBAYTAkNOMFkwEwYHKoZIzj0CAQYIKoEcz1UB
+gi0DQgAEBtbaBT0KiK9mSUPnTOVCMydUWbSr0DkHi6i3GAuE0d1+/7ROMhVvWpz6
+OFP4T6CeZggKwvxwrCL/rj3vR/R6rqCBtzATBgkqhkiG9w0BCQcTBjExMTExMTCB
+nwYJKoZIhvcNAQk/BIGRMIGOAgEBBIGIALQAAAABAAAouT7CmwV94vbCwPIwBag6
+SSoEh+WxOcV6Sp5xjVSdIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+e0nExPMojCs0CdTvzhh7kakxQBQF6mLFeUGJ9IjIH4IAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAADAMBggqgRzPVQGDdQUAA0gAMEUCIFtu6pSUf8yOxgqo
+fpFA45HniI2StqJomsjYqIMH6jEYAiEAuLl7Q42zA8sR7U5nOza88ehpqV0TdzZq
+XAZJg0bKNMY=
+-----END CERTIFICATE REQUEST-----
+`
 
 func TestSADKGeneratedCSR(t *testing.T) {
-	data, err := base64.StdEncoding.DecodeString(sadkGeneratedCSR)
-	if err != nil {
-		t.Fatal(err)
-	}
-	csr, err := ParseCFCACertificateRequest(data)
+	block, _ := pem.Decode([]byte(sadkGeneratedCSR))
+	csr, err := ParseCFCACertificateRequest(block.Bytes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +99,41 @@ func TestSADKGeneratedCSR(t *testing.T) {
 	if csr.ChallengePassword != "111111" {
 		t.Fatal("challenge password not match")
 	}
-	if csr.TmpPublicKey == nil {
+	if pub, ok := csr.TmpPublicKey.(*ecdsa.PublicKey); !ok || pub.X == nil {
+		t.Fatal("tmp public key is nil")
+	}
+}
+
+// https://myssl.com/csr_create.html
+// challenge password is empty
+var trustAsiaCSR = `
+-----BEGIN CERTIFICATE REQUEST-----
+MIIB3DCCAYECAQAwRjELMAkGA1UEBhMCQ04xDzANBgNVBAgTBlpodWhhaTESMBAG
+A1UEBxMJR3Vhbmdkb25nMRIwEAYDVQQDEwlURVNUIENFUlQwWTATBgcqhkjOPQIB
+BggqgRzPVQGCLQNCAARGJcrt6CdYj+keIe3dVUfgFUY4rB9otZg4rneLhtkJbnhX
+/NOH7lBYOifxCUpS77WlAmHqZ4X3IxWcq6QCsMpYoIHYMA0GCSqGSIb3DQEJBxMA
+MIGfBgkqhkiG9w0BCT8EgZEwgY4CAQEEgYgAtAAAAAEAAJLVPiiG5UmFz2/ZPjgE
+E/88SRe2O24QzIC9hpIVDYHyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AACAIx+hRlrU3htrIPZQOxeIyizbX8Y1ZoUQ6sF6l/byRQAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAMCUGCSqGSIb3DQEJDjEYMBYwFAYDVR0RBA0wC4IJ
+VEVTVCBDRVJUMAwGCCqBHM9VAYN1BQADRwAwRAIgdAK3Jgs47/ATROPmvh06F0DG
+8+esUW+7jahyNvKhLRYCIGKjS7FIYI2qG4scPsHZ+qyBNRIfUP7w8c/PQSaXmzqD
+-----END CERTIFICATE REQUEST-----
+`
+
+func TestTrustAsiaGeneratedCSR(t *testing.T) {
+	block, _ := pem.Decode([]byte(trustAsiaCSR))
+	csr, err := ParseCFCACertificateRequest(block.Bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if csr.Subject.CommonName != "TEST CERT" {
+		t.Fatal("common name not match")
+	}
+	if csr.ChallengePassword != "" {
+		t.Fatal("challenge password not match")
+	}
+	if pub, ok := csr.TmpPublicKey.(*ecdsa.PublicKey); !ok || pub.X == nil {
 		t.Fatal("tmp public key is nil")
 	}
 }
