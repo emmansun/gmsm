@@ -58,9 +58,57 @@ func parseTestKeyAndCert() (*sm2.PrivateKey, *smx509.Certificate, error) {
 }
 
 func TestParseSM2(t *testing.T) {
-	_, _, err := parseTestKeyAndCert()
-	if err != nil {
-		t.Fatal(err)
+	cases := []struct {
+		pem      string
+		password []byte
+	}{
+		{
+			v2exKeyPem,
+			[]byte("123456"),
+		},
+		{
+			`-----BEGIN CFCA KEY-----
+MIIDmwIBATBHBgoqgRzPVQYBBAIBBgcqgRzPVQFoBDAjEsMB1LZrH4B5zBJQLh/S3vLTegY5twIU
+lKu80vkB3XLfImABwhYVzFkjfJY1lWEwggNLBgoqgRzPVQYBBAIBBIIDOzCCAzcwggLaoAMCAQIC
+BUQmAVGGMAwGCCqBHM9VAYN1BQAwXDELMAkGA1UEBhMCQ04xMDAuBgNVBAoMJ0NoaW5hIEZpbmFu
+Y2lhbCBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTEbMBkGA1UEAwwSQ0ZDQSBBQ1MgU00yIE9DQTMx
+MB4XDTIxMDcyMTA5NTMxMloXDTIxMDkyMTA5NTMxMlowbDELMAkGA1UEBhMCQ04xEzARBgNVBAoM
+CkNGQ0EgT0NBMzExDzANBgNVBAsMBnlzZXBheTEVMBMGA1UECwwMSW5kaXZpZHVhbC0xMSAwHgYD
+VQQDDBcwNTFAdGVzdF9zbTJAdGVzdF9zbTJAMjBZMBMGByqGSM49AgEGCCqBHM9VAYItA0IABIex
+X8bD+NRAEyP9mKl8/OKHHfogP82NobcifE9zyFlH0MPyMyXnjMT4FBQ1HPGRTExIUvnnS1GnuG0E
+gtF58oCjggF1MIIBcTBsBggrBgEFBQcBAQRgMF4wKAYIKwYBBQUHMAGGHGh0dHA6Ly9vY3NwLmNm
+Y2EuY29tLmNuL29jc3AwMgYIKwYBBQUHMAKGJmh0dHA6Ly9jcmwuY2ZjYS5jb20uY24vb2NhMzEv
+b2NhMzEuY2VyMB8GA1UdIwQYMBaAFAjY0SbESH2c7KyY6fF/YrmAzqlFMAkGA1UdEwQCMAAwSAYD
+VR0gBEEwPzA9BghggRyG7yoBBDAxMC8GCCsGAQUFBwIBFiNodHRwOi8vd3d3LmNmY2EuY29tLmNu
+L3VzL3VzLTE0Lmh0bTA9BgNVHR8ENjA0MDKgMKAuhixodHRwOi8vY3JsLmNmY2EuY29tLmNuL29j
+YTMxL1NNMi9jcmwxNDQwLmNybDAOBgNVHQ8BAf8EBAMCBsAwHQYDVR0OBBYEFJDoMEr89lXvtODi
+obIvu3LOpoiFMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcDBDAMBggqgRzPVQGDdQUAA0kA
+MEYCIQCV2YwNr90ad1E5mZqzmdkU0E1CWie9K0lsml012slavgIhAM/++u/l1x5cCIPZsCOYrIy2
+0N8+aiLInpgEnkw3wQMt
+-----END CFCA KEY-----
+`,
+			[]byte("ys123456"),
+		},
+	}
+
+	for _, c := range cases {
+		block, _ := pem.Decode([]byte(c.pem))
+		if block == nil {
+			t.Fatal("failed to decode PEM block")
+		}
+		priv, cert, err := ParseSM2(c.password, block.Bytes)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if priv == nil {
+			t.Fatal("failed to parse private key")
+		}
+		if cert == nil {
+			t.Fatal("failed to parse certificate")
+		}
+		if !priv.PublicKey.Equal(cert.PublicKey) {
+			t.Fatal("public key mismatch")
+		}
 	}
 }
 

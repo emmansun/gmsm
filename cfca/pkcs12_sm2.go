@@ -1,4 +1,4 @@
-// Package cfca handles cfca issued key and certificate
+// Package cfca supports part of CFCA SADK's functions.
 package cfca
 
 import (
@@ -41,6 +41,7 @@ var (
 )
 
 // ParseSM2 parses the der data, returns private key and related certificate, it's CFCA private structure.
+// This methed is coresponding to CFCA SADK's cfca.sadk.asn1.pkcs.load.
 func ParseSM2(password, data []byte) (*sm2.PrivateKey, *smx509.Certificate, error) {
 	var keys cfcaKeyPairData
 	if _, err := asn1.Unmarshal(data, &keys); err != nil {
@@ -74,7 +75,8 @@ func ParseSM2(password, data []byte) (*sm2.PrivateKey, *smx509.Certificate, erro
 	return prvKey, cert, nil
 }
 
-// MarshalSM2 encodes sm2 private key and related certificate to cfca defined format
+// MarshalSM2 encodes sm2 private key and related certificate to cfca defined format.
+// This methed is coresponding to CFCA SADK's cfca.sadk.asn1.pkcs.CombineSM2Data.
 func MarshalSM2(password []byte, key *sm2.PrivateKey, cert *smx509.Certificate) ([]byte, error) {
 	var err error
 	var ciphertext []byte
