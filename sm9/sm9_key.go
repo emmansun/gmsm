@@ -95,7 +95,7 @@ func (master *SignMasterPrivateKey) UnmarshalASN1(der []byte) error {
 			!inner.ReadASN1Integer(d) {
 			return errors.New("sm9: invalid sign master private key asn1 data")
 		}
-		// Just parse it, did't validate it
+		// Just parse it, didn't validate it
 		if !inner.Empty() && (!inner.ReadASN1BitStringAsBytes(&pubBytes) || !inner.Empty()) {
 			return errors.New("sm9: invalid sign master public key asn1 data")
 		}
@@ -115,8 +115,7 @@ func (master *SignMasterPrivateKey) UnmarshalASN1(der []byte) error {
 // GenerateUserKey generate an user dsa key.
 func (master *SignMasterPrivateKey) GenerateUserKey(uid []byte, hid byte) (*SignPrivateKey, error) {
 	var id []byte
-	id = append(id, uid...)
-	id = append(id, hid)
+	id = append(append(id, uid...), hid)
 
 	t1Nat := hashH1(id)
 
@@ -174,8 +173,7 @@ func (pub *SignMasterPublicKey) ScalarBaseMult(scalar []byte) (*bn256.GT, error)
 // GenerateUserPublicKey generate user sign public key
 func (pub *SignMasterPublicKey) GenerateUserPublicKey(uid []byte, hid byte) *bn256.G2 {
 	var buffer []byte
-	buffer = append(buffer, uid...)
-	buffer = append(buffer, hid)
+	buffer = append(append(buffer, uid...), hid)
 	h1 := hashH1(buffer)
 	p, err := new(bn256.G2).ScalarBaseMult(h1.Bytes(orderNat))
 	if err != nil {
@@ -371,8 +369,7 @@ func GenerateEncryptMasterKey(rand io.Reader) (*EncryptMasterPrivateKey, error) 
 // GenerateUserKey generate an user key for encryption.
 func (master *EncryptMasterPrivateKey) GenerateUserKey(uid []byte, hid byte) (*EncryptPrivateKey, error) {
 	var id []byte
-	id = append(id, uid...)
-	id = append(id, hid)
+	id = append(append(id, uid...), hid)
 
 	t1Nat := hashH1(id)
 
@@ -467,8 +464,7 @@ func (pub *EncryptMasterPublicKey) ScalarBaseMult(scalar []byte) (*bn256.GT, err
 // GenerateUserPublicKey generate user encrypt public key
 func (pub *EncryptMasterPublicKey) GenerateUserPublicKey(uid []byte, hid byte) *bn256.G1 {
 	var buffer []byte
-	buffer = append(buffer, uid...)
-	buffer = append(buffer, hid)
+	buffer = append(append(buffer, uid...), hid)
 	h1 := hashH1(buffer)
 	p, err := new(bn256.G1).ScalarBaseMult(h1.Bytes(orderNat))
 	if err != nil {

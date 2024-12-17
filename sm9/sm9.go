@@ -162,8 +162,7 @@ func SignASN1(rand io.Reader, priv *SignPrivateKey, hash []byte) ([]byte, error)
 		}
 
 		var buffer []byte
-		buffer = append(buffer, hash...)
-		buffer = append(buffer, w.Marshal()...)
+		buffer = append(append(buffer, hash...), w.Marshal()...)
 
 		hNat = hashH2(buffer)
 		r.Sub(hNat, orderNat)
@@ -266,8 +265,7 @@ func VerifyASN1(pub *SignMasterPublicKey, uid []byte, hid byte, hash, sig []byte
 	w := new(bn256.GT).Add(u, t)
 
 	var buffer []byte
-	buffer = append(buffer, hash...)
-	buffer = append(buffer, w.Marshal()...)
+	buffer = append(append(buffer, hash...), w.Marshal()...)
 	h2 := hashH2(buffer)
 
 	return h2.Equal(hNat) == 1
