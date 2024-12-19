@@ -149,34 +149,34 @@ func (ke *KeyExchange) InitKeyExchange(rand io.Reader) (*ecdsa.PublicKey, error)
 func (ke *KeyExchange) sign(isResponder bool, prefix byte) []byte {
 	var buffer []byte
 	hash := sm3.New()
-	hash.Write(toBytes(ke.privateKey, ke.v.X))
+	hash.Write(bigIntToBytes(ke.privateKey, ke.v.X))
 	if isResponder {
 		hash.Write(ke.peerZ)
 		hash.Write(ke.z)
-		hash.Write(toBytes(ke.privateKey, ke.peerSecret.X))
-		hash.Write(toBytes(ke.privateKey, ke.peerSecret.Y))
-		hash.Write(toBytes(ke.privateKey, ke.secret.X))
-		hash.Write(toBytes(ke.privateKey, ke.secret.Y))
+		hash.Write(bigIntToBytes(ke.privateKey, ke.peerSecret.X))
+		hash.Write(bigIntToBytes(ke.privateKey, ke.peerSecret.Y))
+		hash.Write(bigIntToBytes(ke.privateKey, ke.secret.X))
+		hash.Write(bigIntToBytes(ke.privateKey, ke.secret.Y))
 	} else {
 		hash.Write(ke.z)
 		hash.Write(ke.peerZ)
-		hash.Write(toBytes(ke.privateKey, ke.secret.X))
-		hash.Write(toBytes(ke.privateKey, ke.secret.Y))
-		hash.Write(toBytes(ke.privateKey, ke.peerSecret.X))
-		hash.Write(toBytes(ke.privateKey, ke.peerSecret.Y))
+		hash.Write(bigIntToBytes(ke.privateKey, ke.secret.X))
+		hash.Write(bigIntToBytes(ke.privateKey, ke.secret.Y))
+		hash.Write(bigIntToBytes(ke.privateKey, ke.peerSecret.X))
+		hash.Write(bigIntToBytes(ke.privateKey, ke.peerSecret.Y))
 	}
 	buffer = hash.Sum(nil)
 	hash.Reset()
 	hash.Write([]byte{prefix})
-	hash.Write(toBytes(ke.privateKey, ke.v.Y))
+	hash.Write(bigIntToBytes(ke.privateKey, ke.v.Y))
 	hash.Write(buffer)
 	return hash.Sum(nil)
 }
 
 func (ke *KeyExchange) generateSharedKey(isResponder bool) ([]byte, error) {
 	var buffer []byte
-	buffer = append(buffer, toBytes(ke.privateKey, ke.v.X)...)
-	buffer = append(buffer, toBytes(ke.privateKey, ke.v.Y)...)
+	buffer = append(buffer, bigIntToBytes(ke.privateKey, ke.v.X)...)
+	buffer = append(buffer, bigIntToBytes(ke.privateKey, ke.v.Y)...)
 	if isResponder {
 		buffer = append(buffer, ke.peerZ...)
 		buffer = append(buffer, ke.z...)

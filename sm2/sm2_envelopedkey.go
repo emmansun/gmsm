@@ -79,8 +79,26 @@ func MarshalEnvelopedPrivateKey(rand io.Reader, pub *ecdsa.PublicKey, tobeEnvelo
 	return b.Bytes()
 }
 
-// ParseEnvelopedPrivateKey, parses and decrypts the enveloped SM2 private key.
-// This methed just supports SM4 cipher now.
+// ParseEnvelopedPrivateKey parses an enveloped private key using the provided private key.
+// The enveloped key is expected to be in ASN.1 format and encrypted with a symmetric cipher.
+//
+// Parameters:
+// - priv: The private key used to decrypt the symmetric key.
+// - enveloped: The ASN.1 encoded and encrypted enveloped private key.
+//
+// Returns:
+// - A pointer to the decrypted PrivateKey.
+// - An error if the parsing or decryption fails.
+//
+// The function performs the following steps:
+// 1. Unmarshals the ASN.1 data to extract the symmetric algorithm identifier, encrypted symmetric key, public key, and encrypted private key.
+// 2. Verifies that the symmetric algorithm is supported (SM4 or SM4ECB).
+// 3. Parses the public key from the ASN.1 data.
+// 4. Decrypts the symmetric key using the provided private key.
+// 5. Decrypts the SM2 private key using the decrypted symmetric key.
+// 6. Verifies that the decrypted private key matches the public key.
+//
+// Errors are returned if any of the steps fail, including invalid ASN.1 format, unsupported symmetric cipher, decryption failures, or key mismatches.
 func ParseEnvelopedPrivateKey(priv *PrivateKey, enveloped []byte) (*PrivateKey, error) {
 	// unmarshal the asn.1 data
 	var (

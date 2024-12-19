@@ -259,7 +259,7 @@ func encryptLegacy(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Enc
 		x2, y2 := curve.ScalarMult(pub.X, pub.Y, k.Bytes())
 
 		//A5, calculate t=KDF(x2||y2, klen)
-		c2 := sm3.Kdf(append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
+		c2 := sm3.Kdf(append(bigIntToBytes(curve, x2), bigIntToBytes(curve, y2)...), msgLen)
 		if subtle.ConstantTimeAllZero(c2) == 1 {
 			retryCount++
 			if retryCount > maxRetryLimit {
@@ -289,9 +289,9 @@ func encryptLegacy(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Enc
 
 func calculateC3(curve elliptic.Curve, x2, y2 *big.Int, msg []byte) []byte {
 	md := sm3.New()
-	md.Write(toBytes(curve, x2))
+	md.Write(bigIntToBytes(curve, x2))
 	md.Write(msg)
-	md.Write(toBytes(curve, y2))
+	md.Write(bigIntToBytes(curve, y2))
 	return md.Sum(nil)
 }
 
@@ -306,95 +306,6 @@ func mashalASN1Ciphertext(x1, y1 *big.Int, c2, c3 []byte) ([]byte, error) {
 	return b.Bytes()
 }
 
-// ASN1Ciphertext2Plain utility method to convert ASN.1 encoding ciphertext to plain encoding format
-func ASN1Ciphertext2Plain(ciphertext []byte, opts *EncrypterOpts) ([]byte, error) {
-	if opts == nil {
-		opts = defaultEncrypterOpts
-	}
-	x1, y1, c2, c3, err := unmarshalASN1Ciphertext((ciphertext))
-	if err != nil {
-		return nil, err
-	}
-	curve := sm2ec.P256()
-	c1 := opts.pointMarshalMode.mashal(curve, x1, y1)
-	if opts.ciphertextSplicingOrder == C1C3C2 {
-		// c1 || c3 || c2
-		return append(append(c1, c3...), c2...), nil
-	}
-	// c1 || c2 || c3
-	return append(append(c1, c2...), c3...), nil
-}
-
-// PlainCiphertext2ASN1 utility method to convert plain encoding ciphertext to ASN.1 encoding format
-func PlainCiphertext2ASN1(ciphertext []byte, from ciphertextSplicingOrder) ([]byte, error) {
-	if ciphertext[0] == 0x30 {
-		return nil, errors.New("sm2: invalid plain encoding ciphertext")
-	}
-	curve := sm2ec.P256()
-	ciphertextLen := len(ciphertext)
-	if ciphertextLen <= 1+(curve.Params().BitSize/8)+sm3.Size {
-		return nil, errCiphertextTooShort
-	}
-	// get C1, and check C1
-	x1, y1, c3Start, err := bytes2Point(curve, ciphertext)
-	if err != nil {
-		return nil, err
-	}
-
-	var c2, c3 []byte
-
-	if from == C1C3C2 {
-		c2 = ciphertext[c3Start+sm3.Size:]
-		c3 = ciphertext[c3Start : c3Start+sm3.Size]
-	} else {
-		c2 = ciphertext[c3Start : ciphertextLen-sm3.Size]
-		c3 = ciphertext[ciphertextLen-sm3.Size:]
-	}
-	return mashalASN1Ciphertext(x1, y1, c2, c3)
-}
-
-// AdjustCiphertextSplicingOrder utility method to change c2 c3 order
-func AdjustCiphertextSplicingOrder(ciphertext []byte, from, to ciphertextSplicingOrder) ([]byte, error) {
-	curve := sm2ec.P256()
-	if from == to {
-		return ciphertext, nil
-	}
-	ciphertextLen := len(ciphertext)
-	if ciphertextLen <= 1+(curve.Params().BitSize/8)+sm3.Size {
-		return nil, errCiphertextTooShort
-	}
-
-	// get C1, and check C1
-	_, _, c3Start, err := bytes2Point(curve, ciphertext)
-	if err != nil {
-		return nil, err
-	}
-
-	var c1, c2, c3 []byte
-
-	c1 = ciphertext[:c3Start]
-	if from == C1C3C2 {
-		c2 = ciphertext[c3Start+sm3.Size:]
-		c3 = ciphertext[c3Start : c3Start+sm3.Size]
-	} else {
-		c2 = ciphertext[c3Start : ciphertextLen-sm3.Size]
-		c3 = ciphertext[ciphertextLen-sm3.Size:]
-	}
-
-	result := make([]byte, ciphertextLen)
-	copy(result, c1)
-	if to == C1C3C2 {
-		// c1 || c3 || c2
-		copy(result[c3Start:], c3)
-		copy(result[c3Start+sm3.Size:], c2)
-	} else {
-		// c1 || c2 || c3
-		copy(result[c3Start:], c2)
-		copy(result[ciphertextLen-sm3.Size:], c3)
-	}
-	return result, nil
-}
-
 func decryptASN1(priv *PrivateKey, ciphertext []byte) ([]byte, error) {
 	x1, y1, c2, c3, err := unmarshalASN1Ciphertext(ciphertext)
 	if err != nil {
@@ -407,7 +318,7 @@ func rawDecrypt(priv *PrivateKey, x1, y1 *big.Int, c2, c3 []byte) ([]byte, error
 	curve := priv.Curve
 	x2, y2 := curve.ScalarMult(x1, y1, priv.D.Bytes())
 	msgLen := len(c2)
-	msg := sm3.Kdf(append(toBytes(curve, x2), toBytes(curve, y2)...), msgLen)
+	msg := sm3.Kdf(append(bigIntToBytes(curve, x2), bigIntToBytes(curve, y2)...), msgLen)
 	if subtle.ConstantTimeAllZero(c2) == 1 {
 		return nil, ErrDecryption
 	}
@@ -428,7 +339,7 @@ func decryptLegacy(priv *PrivateKey, ciphertext []byte, opts *DecrypterOpts) ([]
 		if opts.ciphertextEncoding == ENCODING_ASN1 {
 			return decryptASN1(priv, ciphertext)
 		}
-		splicingOrder = opts.cipherTextSplicingOrder
+		splicingOrder = opts.ciphertextSplicingOrder
 	}
 	if ciphertext[0] == 0x30 {
 		return decryptASN1(priv, ciphertext)
@@ -436,7 +347,7 @@ func decryptLegacy(priv *PrivateKey, ciphertext []byte, opts *DecrypterOpts) ([]
 	ciphertextLen := len(ciphertext)
 	curve := priv.Curve
 	// B1, get C1, and check C1
-	x1, y1, c3Start, err := bytes2Point(curve, ciphertext)
+	x1, y1, c3Start, err := bytesToPoint(curve, ciphertext)
 	if err != nil {
 		return nil, ErrDecryption
 	}
@@ -454,7 +365,20 @@ func decryptLegacy(priv *PrivateKey, ciphertext []byte, opts *DecrypterOpts) ([]
 	return rawDecrypt(priv, x1, y1, c2, c3)
 }
 
-func bytes2Point(curve elliptic.Curve, bytes []byte) (*big.Int, *big.Int, int, error) {
+func (mode pointMarshalMode) mashal(curve elliptic.Curve, x, y *big.Int) []byte {
+	switch mode {
+	case MarshalCompressed:
+		return elliptic.MarshalCompressed(curve, x, y)
+	case MarshalHybrid:
+		buffer := elliptic.Marshal(curve, x, y)
+		buffer[0] = byte(y.Bit(0)) | hybrid06
+		return buffer
+	default:
+		return elliptic.Marshal(curve, x, y)
+	}
+}
+
+func bytesToPoint(curve elliptic.Curve, bytes []byte) (*big.Int, *big.Int, int, error) {
 	if len(bytes) < 1+(curve.Params().BitSize/8) {
 		return nil, nil, 0, fmt.Errorf("sm2: invalid bytes length %d", len(bytes))
 	}
@@ -486,20 +410,7 @@ func bytes2Point(curve elliptic.Curve, bytes []byte) (*big.Int, *big.Int, int, e
 			}
 			return x, y, 1 + byteLen, nil
 		}
-		return nil, nil, 0, fmt.Errorf("sm2: unsupport point form %d, curve %s", format, curve.Params().Name)
+		return nil, nil, 0, fmt.Errorf("sm2: unsupported point form %d, curve %s", format, curve.Params().Name)
 	}
 	return nil, nil, 0, fmt.Errorf("sm2: unknown point form %d", format)
-}
-
-func (mode pointMarshalMode) mashal(curve elliptic.Curve, x, y *big.Int) []byte {
-	switch mode {
-	case MarshalCompressed:
-		return elliptic.MarshalCompressed(curve, x, y)
-	case MarshalHybrid:
-		buffer := elliptic.Marshal(curve, x, y)
-		buffer[0] = byte(y.Bit(0)) | hybrid06
-		return buffer
-	default:
-		return elliptic.Marshal(curve, x, y)
-	}
 }
