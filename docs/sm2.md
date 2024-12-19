@@ -306,6 +306,24 @@ func calculateSM2Hash(pub *ecdsa.PublicKey, data, uid []byte) ([]byte, error) {
 ```
 公钥加密就没啥特殊，只要确保输出密文的编码格式和KMS一致即可。
 
+## 基于密码硬件，定制SM2私钥
+密码硬件（SDF/SKF）中的私钥通常是无法导出的，但通常提供了签名、解密APIs供调用，为了和本软件库集成，通常需要自定义实现以下接口：
+
+1. `crypto.Signer`，这个接口的实现通常把传入的数据作为哈希值。
+2. `crypto.Decrypter`，这个接口用于解密操作。
+
+通常需要实现四个方法：
+1. `Public() crypto.PublicKey`
+2. `Sign(rand io.Reader, digest []byte, opts SignerOpts) (signature []byte, err error)`
+3. `Decrypt(rand io.Reader, msg []byte, opts DecrypterOpts) (plaintext []byte, err error)`
+
+第一个返回公钥的方法是必须要实现的，后面的方法取决于这个KEY的用途。
+
+**注意**：
+`Sign(rand io.Reader, digest []byte, opts SignerOpts) (signature []byte, err error)`方法通常用于对哈希值作签名，最好遵从以下实现逻辑：检查`opts`是否是`*sm2.SM2SignerOption`类型，如果是，则把传入的`digest`作为原始数据进行处理，具体实现可以参考`sm2.SignASN1`函数。当然，目前不管三七二十一，简单当作原始数据大多数情况下都没有问题。实现者可以根据实际应用情况酌情处理。
+
+如果密码硬件有自己的随机数源，可以忽略传入的`rand`。
+
 ## SM2扩展应用
 SM2的一些扩展应用，譬如从签名中恢复公钥、半同态加密、环签名等，大多尚处于POC状态，也无相关标准。其它扩展应用（但凡椭圆曲线公钥密码算法能用到的场合），包括但不限于：
 * [确定性签名](https://datatracker.ietf.org/doc/html/rfc6979)

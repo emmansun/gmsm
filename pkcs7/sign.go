@@ -19,12 +19,12 @@ import (
 
 // SignedData is an opaque data structure for creating signed data payloads
 type SignedData struct {
-	sd                  signedData
-	certs               []*smx509.Certificate
-	data, messageDigest []byte
-	contentTypeOid      asn1.ObjectIdentifier
-	digestOid           asn1.ObjectIdentifier
-	encryptionOid       asn1.ObjectIdentifier
+	sd             signedData
+	certs          []*smx509.Certificate
+	data           []byte
+	contentTypeOid asn1.ObjectIdentifier
+	digestOid      asn1.ObjectIdentifier
+	encryptionOid  asn1.ObjectIdentifier
 }
 
 // NewSignedData takes data and initializes a PKCS7 SignedData struct that is
@@ -167,30 +167,11 @@ func (sd *SignedData) AddSignerChain(ee *smx509.Certificate, pkey crypto.Private
 	sd.sd.DigestAlgorithmIdentifiers = append(sd.sd.DigestAlgorithmIdentifiers,
 		pkix.AlgorithmIdentifier{Algorithm: sd.digestOid, Parameters: asn1.NullRawValue},
 	)
-	hasher, err := getHashForOID(sd.digestOid)
-	if err != nil {
-		return err
-	}
-	h := newHash(hasher, sd.digestOid)
-	h.Write(sd.data)
-	sd.messageDigest = h.Sum(nil)
 	encryptionOid, err := getOIDForEncryptionAlgorithm(pkey, sd.digestOid)
 	if err != nil {
 		return err
 	}
-	attrs := &attributes{}
-	attrs.Add(OIDAttributeContentType, sd.sd.ContentInfo.ContentType)
-	attrs.Add(OIDAttributeMessageDigest, sd.messageDigest)
-	attrs.Add(OIDAttributeSigningTime, time.Now().UTC())
-	for _, attr := range config.ExtraSignedAttributes {
-		attrs.Add(attr.Type, attr.Value)
-	}
-	finalAttrs, err := attrs.ForMarshalling()
-	if err != nil {
-		return err
-	}
-	// create signature of signed attributes
-	signature, err := signAttributes(finalAttrs, pkey, hasher)
+	finalAttrs, signature, err := sd.signWithAttributes(pkey, config)
 	if err != nil {
 		return err
 	}
@@ -214,6 +195,34 @@ func (sd *SignedData) AddSignerChain(ee *smx509.Certificate, pkey crypto.Private
 	}
 	sd.sd.SignerInfos = append(sd.sd.SignerInfos, signer)
 	return nil
+}
+
+func (sd *SignedData) signWithAttributes(pkey crypto.PrivateKey, config SignerInfoConfig) ([]attribute, []byte, error) {
+	hasher, err := getHashForOID(sd.digestOid)
+	if err != nil {
+		return nil, nil, err
+	}
+	h := newHash(hasher, sd.digestOid)
+	h.Write(sd.data)
+	messageDigest := h.Sum(nil)
+
+	attrs := &attributes{}
+	attrs.Add(OIDAttributeContentType, sd.sd.ContentInfo.ContentType)
+	attrs.Add(OIDAttributeMessageDigest, messageDigest)
+	attrs.Add(OIDAttributeSigningTime, time.Now().UTC())
+	for _, attr := range config.ExtraSignedAttributes {
+		attrs.Add(attr.Type, attr.Value)
+	}
+	finalAttrs, err := attrs.ForMarshalling()
+	if err != nil {
+		return nil, nil, err
+	}
+	// create signature of signed attributes
+	signature, err := signAttributes(finalAttrs, pkey, hasher)
+	if err != nil {
+		return nil, nil, err
+	}
+	return finalAttrs, signature, nil
 }
 
 func newHash(hasher crypto.Hash, hashOid asn1.ObjectIdentifier) hash.Hash {
@@ -240,20 +249,7 @@ func (sd *SignedData) SignWithoutAttr(ee *smx509.Certificate, pkey crypto.Privat
 	if err != nil {
 		return err
 	}
-	key, ok := pkey.(crypto.Signer)
-	if !ok {
-		return errors.New("pkcs7: private key does not implement crypto.Signer")
-	}
-	_, isSM2 := pkey.(sm2.Signer)
-	if isSM2 {
-		signature, err = key.Sign(rand.Reader, sd.data, sm2.DefaultSM2SignerOpts)
-	} else {
-		h := newHash(hasher, sd.digestOid)
-		h.Write(sd.data)
-		sd.messageDigest = h.Sum(nil)
-		signature, err = key.Sign(rand.Reader, sd.messageDigest, hasher)
-	}
-	if err != nil {
+	if signature, err = signData(sd.data, pkey, hasher); err != nil {
 		return err
 	}
 	var ias issuerAndSerial
@@ -380,20 +376,33 @@ func signAttributes(attrs []attribute, pkey crypto.PrivateKey, hasher crypto.Has
 	if err != nil {
 		return nil, err
 	}
+	return signData(attrBytes, pkey, hasher)
+}
 
-	if key, ok := pkey.(sm2.Signer); ok {
-		return key.SignWithSM2(rand.Reader, nil, attrBytes)
-	}
-
-	h := hasher.New()
-	h.Write(attrBytes)
-	hash := h.Sum(nil)
-
+// signData signs the provided data using the given private key and hash function.
+// It returns the signed data or an error if the signing process fails.
+func signData(data []byte, pkey crypto.PrivateKey, hasher crypto.Hash) ([]byte, error) {
 	key, ok := pkey.(crypto.Signer)
 	if !ok {
 		return nil, errors.New("pkcs7: private key does not implement crypto.Signer")
 	}
-	return key.Sign(rand.Reader, hash, hasher)
+	hash := data
+	var opts crypto.SignerOpts = hasher
+
+	if !hasher.Available() {
+		// if you pass a private key with type *ecdsa.PrivateKey and the curve is SM2,
+		// you will get unexpected signature.
+		if sm2.IsSM2PublicKey(key.Public()) {
+			opts = sm2.DefaultSM2SignerOpts
+		} else {
+			return nil, fmt.Errorf("pkcs7: unsupported hash function %s", hasher)
+		}
+	} else {
+		h := hasher.New()
+		h.Write(data)
+		hash = h.Sum(nil)
+	}
+	return key.Sign(rand.Reader, hash, opts)
 }
 
 // concats and wraps the certificates in the RawValue structure

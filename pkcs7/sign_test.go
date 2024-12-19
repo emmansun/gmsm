@@ -87,6 +87,7 @@ func testSign(t *testing.T, isSM bool, content []byte, sigalgs []x509.SignatureA
 		}
 	}
 }
+
 func TestSign(t *testing.T) {
 	content := []byte("Hello World")
 	sigalgs := []x509.SignatureAlgorithm{

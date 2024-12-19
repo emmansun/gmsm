@@ -25,8 +25,17 @@ import (
 // should be performed.
 var directSigning crypto.Hash = 0
 
-// Signer SM2 special signer
+// Signer is an interface for an opaque private key that can be used for
+// signing operations. For example, an SM2 key kept in a hardware module.
+// Deprecated: please use crypto.Signer directly.
 type Signer interface {
+	// Public returns the public key corresponding to the opaque,
+	// private key.
+	Public() crypto.PublicKey
+
+	// SignWithSM2 signs raw message with the private key, possibly using entropy from
+	// rand, and the user ID (UID). If the UID is not provided, a default UID (1234567812345678) is used.
+	// The signature is generated using the SM2 algorithm.
 	SignWithSM2(rand io.Reader, uid, msg []byte) ([]byte, error)
 }
 
@@ -251,8 +260,8 @@ func bigIntToBytes(curve elliptic.Curve, value *big.Int) []byte {
 }
 
 // CalculateSM2Hash calculates the SM2 hash for the given public key, data, and user ID (UID).
-// If the UID is not provided, a default UID (1234567812345678) is used. 
-// The public key must be valid, otherwise will be panic. 
+// If the UID is not provided, a default UID (1234567812345678) is used.
+// The public key must be valid, otherwise will be panic.
 // This function is used to calculate the hash value for SM2 signature.
 func CalculateSM2Hash(pub *ecdsa.PublicKey, data, uid []byte) ([]byte, error) {
 	if len(uid) == 0 {
@@ -649,7 +658,6 @@ func randomPoint(c *sm2Curve, rand io.Reader, checkOrderMinus1 bool) (k *bigmod.
 // testingOnlyRejectionSamplingLooped is called when rejection sampling in
 // randomPoint rejects a candidate for being higher than the modulus.
 var testingOnlyRejectionSamplingLooped func()
-
 
 // RecoverPublicKeysFromSM2Signature attempts to recover the public keys from an SM2 signature.
 // This function takes a hash and a signature as input and returns a slice of possible public keys
