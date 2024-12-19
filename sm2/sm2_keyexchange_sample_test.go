@@ -301,7 +301,10 @@ func calculateSampleZA(pub *ecdsa.PublicKey, a *big.Int, uid []byte) ([]byte, er
 	if uidLen > 0 {
 		md.Write(uid)
 	}
-	writeCurveParams(md, pub.Curve.Params())
+	md.Write(bigIntToBytes(pub.Curve, a))
+	md.Write(bigIntToBytes(pub.Curve, pub.Params().B))
+	md.Write(bigIntToBytes(pub.Curve, pub.Params().Gx))
+	md.Write(bigIntToBytes(pub.Curve, pub.Params().Gy))
 	md.Write(bigIntToBytes(pub.Curve, pub.X))
 	md.Write(bigIntToBytes(pub.Curve, pub.Y))
 	return md.Sum(nil), nil

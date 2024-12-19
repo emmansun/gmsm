@@ -54,8 +54,8 @@ func TestNewPrivateKey(t *testing.T) {
 func TestNewPrivateKeyFromInt(t *testing.T) {
 	// test nil
 	_, err := NewPrivateKeyFromInt(nil)
-	if err == nil || err.Error() != "sm2: invalid private key size" {
-		t.Errorf("should throw sm2: invalid private key size")
+	if err == nil || err.Error() != "sm2: private key is nil" {
+		t.Errorf("should throw sm2: private key is nil")
 	}
 	// test 1
 	_, err = NewPrivateKeyFromInt(big.NewInt(1))
