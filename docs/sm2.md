@@ -307,7 +307,7 @@ func calculateSM2Hash(pub *ecdsa.PublicKey, data, uid []byte) ([]byte, error) {
 公钥加密就没啥特殊，只要确保输出密文的编码格式和KMS一致即可。
 
 ## 基于密码硬件，定制SM2私钥
-密码硬件（SDF/SKF）中的私钥通常是无法导出的，但通常提供了签名、解密APIs供调用，为了和本软件库集成，通常需要自定义实现以下接口：
+密码硬件（SDF/SKF）中的用户密钥（私钥）通常是无法导出的，但都提供了签名、解密APIs供调用，为了和本软件库集成，需要实现以下接口：
 
 1. `crypto.Signer`，这个接口的实现通常把传入的数据作为哈希值。
 2. `crypto.Decrypter`，这个接口用于解密操作。
@@ -320,9 +320,11 @@ func calculateSM2Hash(pub *ecdsa.PublicKey, data, uid []byte) ([]byte, error) {
 第一个返回公钥的方法是必须要实现的，后面的方法取决于这个KEY的用途。
 
 **注意**：
-1. `Sign(rand io.Reader, digest []byte, opts SignerOpts) (signature []byte, err error)`方法通常用于对哈希值作签名，最好遵从以下实现逻辑：检查`opts`是否是`*sm2.SM2SignerOption`类型，如果是，则把传入的`digest`作为原始数据进行处理，具体实现可以参考`sm2.SignASN1`函数。当然，目前不管三七二十一，简单当作原始数据大多数情况下都没有问题。实现者可以根据实际应用情况酌情处理。
+1. `Sign(rand io.Reader, digest []byte, opts SignerOpts) (signature []byte, err error)`方法通常用于对哈希值作签名，最好遵从以下实现逻辑：检查`opts`是否是`*sm2.SM2SignerOption`类型，如果是，则把传入的`digest`作为原始数据进行处理，具体实现可以参考`sm2.SignASN1`函数。当然，在大多数情况下，直接将数据视为原始数据是可行的。实施者可以根据具体的应用场景灵活处理。
 2. 如果密码硬件有自己的随机数源，可以忽略传入的`rand`。
-3. 很多设备签名函数通常只接收哈希值，需要调用```sm2.CalculateSM2Hash```自行计算哈希值。
+3. 很多设备签名函数通常只接收哈希值，需要调用```sm2.CalculateSM2Hash```或者**SDF**提供的哈希函数计算哈希值。
+
+SDF API请参考《GB/T 36322-2018 密码设备应用接口规范》
 
 ## SM2扩展应用
 SM2的一些扩展应用，譬如从签名中恢复公钥、半同态加密、环签名等，大多尚处于POC状态，也无相关标准。其它扩展应用（但凡椭圆曲线公钥密码算法能用到的场合），包括但不限于：
