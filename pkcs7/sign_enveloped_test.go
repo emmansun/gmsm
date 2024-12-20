@@ -2,6 +2,7 @@ package pkcs7
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/ecdsa"
 	"encoding/pem"
 	"math/big"
@@ -177,40 +178,47 @@ func TestCreateSignedEvnvelopedDataSM(t *testing.T) {
 	}
 	sm2Key.D.FillBytes(privKey)
 
+	rootSM2Priv, ok := (*rootCert.PrivateKey).(*sm2.PrivateKey)
+	if !ok {
+		t.Fatal("should be sm2 private key")
+	}
+	signKeys := []crypto.PrivateKey{rootSM2Priv, &rootSM2Priv.PrivateKey}
 	testCipers := []pkcs.Cipher{pkcs.SM4ECB, pkcs.SM4CBC, pkcs.SM4GCM}
-	for _, cipher := range testCipers {
-		saed, err := NewSMSignedAndEnvelopedData(privKey, cipher)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = saed.AddSigner(rootCert.Certificate, *rootCert.PrivateKey)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = saed.AddRecipient(recipient.Certificate)
-		if err != nil {
-			t.Fatal(err)
-		}
-		result, err := saed.Finish()
-		if err != nil {
-			t.Fatal(err)
-		}
+	for _, key := range signKeys {
+		for _, cipher := range testCipers {
+			saed, err := NewSMSignedAndEnvelopedData(privKey, cipher)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = saed.AddSigner(rootCert.Certificate, key)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = saed.AddRecipient(recipient.Certificate)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := saed.Finish()
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		// fmt.Printf("%x\n", result)
+			// fmt.Printf("%x\n", result)
 
-		// parse, decrypt, verify
-		p7Data, err := Parse(result)
-		if err != nil {
-			t.Fatal(err)
-		}
-		encKeyBytes, err := p7Data.DecryptAndVerify(recipient.Certificate, *recipient.PrivateKey, func() error {
-			return p7Data.Verify()
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !bytes.Equal(encKeyBytes, privKey) {
-			t.Fatal("not same private key")
+			// parse, decrypt, verify
+			p7Data, err := Parse(result)
+			if err != nil {
+				t.Fatal(err)
+			}
+			encKeyBytes, err := p7Data.DecryptAndVerify(recipient.Certificate, *recipient.PrivateKey, func() error {
+				return p7Data.Verify()
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(encKeyBytes, privKey) {
+				t.Fatal("not same private key")
+			}
 		}
 	}
 }
@@ -283,7 +291,7 @@ func TestCreateSignedEvnvelopedData(t *testing.T) {
 		if recipients[0].SerialNumber.Cmp(recipient.Certificate.SerialNumber) != 0 {
 			t.Errorf("Recipient serial number does not match.\n\tExpected:%s\n\tActual:%s", recipient.Certificate.SerialNumber, recipients[0].SerialNumber)
 		}
-		
+
 		if !bytes.Equal(recipients[0].RawIssuer, recipient.Certificate.RawIssuer) {
 			t.Errorf("Recipient issuer name does not match.\n\tExpected:%x\n\tActual:%x", recipient.Certificate.RawIssuer, recipients[0].RawIssuer)
 		}

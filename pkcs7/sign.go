@@ -3,6 +3,7 @@ package pkcs7
 import (
 	"bytes"
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -390,10 +391,16 @@ func signData(data []byte, pkey crypto.PrivateKey, hasher crypto.Hash) ([]byte, 
 	var opts crypto.SignerOpts = hasher
 
 	if !hasher.Available() {
-		// if you pass a private key with type *ecdsa.PrivateKey and the curve is SM2,
-		// you will get unexpected signature.
 		if sm2.IsSM2PublicKey(key.Public()) {
 			opts = sm2.DefaultSM2SignerOpts
+			switch realKey := key.(type) {
+			case *ecdsa.PrivateKey:
+				{
+					sm2Key := new(sm2.PrivateKey)
+					sm2Key.PrivateKey = *realKey
+					key = sm2Key
+				}
+			}
 		} else {
 			return nil, fmt.Errorf("pkcs7: unsupported hash function %s", hasher)
 		}

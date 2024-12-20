@@ -8,7 +8,6 @@ import (
 	"errors"
 
 	"github.com/emmansun/gmsm/pkcs"
-	"github.com/emmansun/gmsm/sm2"
 	"github.com/emmansun/gmsm/smx509"
 )
 
@@ -235,24 +234,7 @@ func (saed *SignedAndEnvelopedData) AddSignerChain(ee *smx509.Certificate, pkey 
 	if err != nil {
 		return err
 	}
-	key, ok := pkey.(crypto.Signer)
-	if !ok {
-		return errors.New("pkcs7: private key does not implement crypto.Signer")
-	}
-
-	var signOpt crypto.SignerOpts
-	var tobeSigned []byte
-
-	if _, isSM2 := pkey.(sm2.Signer); isSM2 {
-		signOpt = sm2.DefaultSM2SignerOpts
-		tobeSigned = saed.data
-	} else {
-		signOpt = hasher
-		h := newHash(hasher, saed.digestOid)
-		h.Write(saed.data)
-		tobeSigned = h.Sum(nil)
-	}
-	signature, err := key.Sign(rand.Reader, tobeSigned, signOpt)
+	signature, err := signData(saed.data, pkey, hasher)
 	if err != nil {
 		return err
 	}

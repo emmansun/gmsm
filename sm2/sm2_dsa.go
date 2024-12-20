@@ -214,6 +214,7 @@ var defaultUID = []byte{0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x31, 0x
 // Compliance with GB/T 32918.2-2016 5.5.
 //
 // This function will not use default UID even the uid argument is empty.
+// Reference: GM/T 0009-2023 Chapter 8.1.
 func CalculateZA(pub *ecdsa.PublicKey, uid []byte) ([]byte, error) {
 	uidLen := len(uid)
 	if uidLen > 0x1fff {
@@ -263,6 +264,7 @@ func bigIntToBytes(curve elliptic.Curve, value *big.Int) []byte {
 // If the UID is not provided, a default UID (1234567812345678) is used.
 // The public key must be valid, otherwise will be panic.
 // This function is used to calculate the hash value for SM2 signature.
+// Reference: GM/T 0009-2023 Chapter 8.1 and 8.2.
 func CalculateSM2Hash(pub *ecdsa.PublicKey, data, uid []byte) ([]byte, error) {
 	if len(uid) == 0 {
 		uid = defaultUID
