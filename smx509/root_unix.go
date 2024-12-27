@@ -1,4 +1,4 @@
-//go:build aix || dragonfly || freebsd || (js && wasm) || linux || netbsd || openbsd || solaris
+//go:build aix || dragonfly || freebsd || (js && wasm) || linux || netbsd || openbsd || solaris || wasip1
 
 package smx509
 
