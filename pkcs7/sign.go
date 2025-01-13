@@ -23,6 +23,7 @@ type SignedData struct {
 	sd             signedData
 	certs          []*smx509.Certificate
 	data           []byte
+	isDigest       bool
 	contentTypeOid asn1.ObjectIdentifier
 	digestOid      asn1.ObjectIdentifier
 	encryptionOid  asn1.ObjectIdentifier
@@ -127,6 +128,10 @@ func (sd *SignedData) SetDigestAlgorithm(d asn1.ObjectIdentifier) {
 // This should be called before adding signers
 func (sd *SignedData) SetEncryptionAlgorithm(d asn1.ObjectIdentifier) {
 	sd.encryptionOid = d
+}
+
+func (sd *SignedData) SetIsDigest() {
+	sd.isDigest = true
 }
 
 // AddSigner is a wrapper around AddSignerChain() that adds a signer without any parent.
@@ -250,7 +255,7 @@ func (sd *SignedData) SignWithoutAttr(ee *smx509.Certificate, pkey crypto.Privat
 	if err != nil {
 		return err
 	}
-	if signature, err = signData(sd.data, pkey, hasher); err != nil {
+	if signature, err = signData(sd.data, pkey, hasher, sd.isDigest); err != nil {
 		return err
 	}
 	var ias issuerAndSerial
@@ -377,22 +382,29 @@ func signAttributes(attrs []attribute, pkey crypto.PrivateKey, hasher crypto.Has
 	if err != nil {
 		return nil, err
 	}
-	return signData(attrBytes, pkey, hasher)
+	return signData(attrBytes, pkey, hasher, false)
 }
 
 // signData signs the provided data using the given private key and hash function.
 // It returns the signed data or an error if the signing process fails.
-func signData(data []byte, pkey crypto.PrivateKey, hasher crypto.Hash) ([]byte, error) {
+func signData(data []byte, pkey crypto.PrivateKey, hasher crypto.Hash, isDigest bool) ([]byte, error) {
 	key, ok := pkey.(crypto.Signer)
 	if !ok {
 		return nil, errors.New("pkcs7: private key does not implement crypto.Signer")
 	}
 	hash := data
 	var opts crypto.SignerOpts = hasher
+	if isDigest {
+		opts = crypto.Hash(0)
+	}
 
 	if !hasher.Available() {
 		if sm2.IsSM2PublicKey(key.Public()) {
-			opts = sm2.DefaultSM2SignerOpts
+			if isDigest {
+				opts = sm2.NewSM2SignerOption(false, nil)
+			} else {
+				opts = sm2.DefaultSM2SignerOpts
+			}
 			switch realKey := key.(type) {
 			case *ecdsa.PrivateKey:
 				{
@@ -405,9 +417,11 @@ func signData(data []byte, pkey crypto.PrivateKey, hasher crypto.Hash) ([]byte, 
 			return nil, fmt.Errorf("pkcs7: unsupported hash function %s", hasher)
 		}
 	} else {
-		h := hasher.New()
-		h.Write(data)
-		hash = h.Sum(nil)
+		if !isDigest {
+			h := hasher.New()
+			h.Write(data)
+			hash = h.Sum(nil)
+		}
 	}
 	return key.Sign(rand.Reader, hash, opts)
 }

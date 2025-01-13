@@ -1,6 +1,10 @@
 package pkcs7
 
 import (
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/rsa"
 	"crypto/subtle"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -9,6 +13,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/emmansun/gmsm/sm2"
 	"github.com/emmansun/gmsm/smx509"
 )
 
@@ -17,6 +22,10 @@ import (
 // a signature.
 func (p7 *PKCS7) Verify() (err error) {
 	return p7.VerifyWithChain(nil)
+}
+
+func (p7 *PKCS7) SetIsDigest() {
+	p7.isDigest = true
 }
 
 // VerifyWithChain checks the signatures of a PKCS7 object.
@@ -111,7 +120,39 @@ func verifySignature(p7 *PKCS7, signer signerInfo, truststore *smx509.CertPool, 
 	if err != nil {
 		return err
 	}
-	return ee.CheckSignature(sigalg, signedData, signer.EncryptedDigest)
+
+	if len(signer.AuthenticatedAttributes) == 0 && p7.isDigest {
+		return checkSignature(sigalg, signedData, signer.EncryptedDigest, ee.PublicKey)
+	} else {
+		return ee.CheckSignature(sigalg, signedData, signer.EncryptedDigest)
+	}
+}
+
+func checkSignature(algo smx509.SignatureAlgorithm, signed, signature []byte, publicKey crypto.PublicKey) (err error) {
+	isSM2 := (algo == smx509.SM2WithSM3)
+	switch pub := publicKey.(type) {
+	case *rsa.PublicKey:
+		if algo == smx509.SHA256WithRSAPSS || algo == smx509.SHA384WithRSAPSS || algo == smx509.SHA512WithRSAPSS {
+			return rsa.VerifyPSS(pub, 0, signed, signature, &rsa.PSSOptions{SaltLength: rsa.PSSSaltLengthEqualsHash})
+		} else {
+			return rsa.VerifyPKCS1v15(pub, 0, signed, signature)
+		}
+	case *ecdsa.PublicKey:
+		if isSM2 {
+			if !sm2.VerifyASN1(pub, signed, signature) {
+				return errors.New("x509: SM2 verification failure")
+			}
+		} else if !ecdsa.VerifyASN1(pub, signed, signature) {
+			return errors.New("x509: ECDSA verification failure")
+		}
+		return
+	case ed25519.PublicKey:
+		if !ed25519.Verify(pub, signed, signature) {
+			return errors.New("x509: Ed25519 verification failure")
+		}
+		return
+	}
+	return x509.ErrUnsupportedAlgorithm
 }
 
 // GetOnlySigner returns an x509.Certificate for the first signer of the signed

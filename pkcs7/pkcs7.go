@@ -26,6 +26,7 @@ type PKCS7 struct {
 	Certificates []*smx509.Certificate
 	CRLs         []pkix.CertificateList
 	Signers      []signerInfo
+	isDigest     bool
 	raw          any
 	session      Session
 }
