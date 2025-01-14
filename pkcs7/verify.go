@@ -36,7 +36,6 @@ func (p7 *PKCS7) VerifyWithChain(truststore *smx509.CertPool) (err error) {
 	return p7.verifyWithChain(truststore, false)
 }
 
-
 // VerifyAsDigestWithChain verifies the PKCS7 signature using the provided truststore
 // and treats the content as a precomputed digest. It returns an error if the verification fails.
 func (p7 *PKCS7) VerifyAsDigestWithChain(truststore *smx509.CertPool) (err error) {
@@ -84,15 +83,6 @@ func verifySignature(p7 *PKCS7, signer signerInfo, truststore *smx509.CertPool, 
 		return errors.New("pkcs7: No certificate for signer")
 	}
 	signingTime := time.Now().UTC()
-	if truststore != nil {
-		if currentTime != nil {
-			signingTime = *currentTime
-		}
-		_, err = verifyCertChain(ee, p7.Certificates, truststore, signingTime)
-		if err != nil {
-			return err
-		}
-	}
 	sigalg, err := getSignatureAlgorithm(signer.DigestEncryptionAlgorithm, signer.DigestAlgorithm)
 	if err != nil {
 		return err
@@ -134,9 +124,17 @@ func verifySignature(p7 *PKCS7, signer signerInfo, truststore *smx509.CertPool, 
 					ee.NotAfter.Format(time.RFC3339))
 			}
 		}
-		return ee.CheckSignature(sigalg, signedData, signer.EncryptedDigest)
-	} 
-	if isDigest {
+	}
+	if truststore != nil {
+		if currentTime != nil {
+			signingTime = *currentTime
+		}
+		_, err = verifyCertChain(ee, p7.Certificates, truststore, signingTime)
+		if err != nil {
+			return err
+		}
+	}
+	if isDigest && len(signer.AuthenticatedAttributes) == 0 {
 		return ee.CheckSignatureWithDigest(sigalg, signedData, signer.EncryptedDigest)
 	}
 	return ee.CheckSignature(sigalg, signedData, signer.EncryptedDigest)
