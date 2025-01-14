@@ -499,7 +499,7 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm 
 	case oid.Equal(oidPublicKeyECDSA):
 		return ECDSA
 	case oid.Equal(oidPublicKeySM2):
-		return ECDSA		
+		return ECDSA
 	case oid.Equal(oidPublicKeyEd25519):
 		return Ed25519
 	}
@@ -730,6 +730,70 @@ func (c *Certificate) CheckSignatureFrom(parent *Certificate) error {
 // signatures are currently accepted.
 func (c *Certificate) CheckSignature(algo SignatureAlgorithm, signed, signature []byte) error {
 	return checkSignature(algo, signed, signature, c.PublicKey, true)
+}
+
+// CheckSignatureWithDigest verifies the signature of a certificate using the specified
+// signature algorithm and digest. It supports RSA, ECDSA, and SM2 public keys.
+//
+// This is a low-level API that performs no validity checks on the certificate.
+func (c *Certificate) CheckSignatureWithDigest(algo SignatureAlgorithm, digest, signature []byte) (err error) {
+	var hashType crypto.Hash
+	var pubKeyAlgo PublicKeyAlgorithm
+
+	publicKey := c.PublicKey
+
+	isSM2 := (algo == SM2WithSM3)
+	for _, details := range signatureAlgorithmDetails {
+		if details.algo == algo {
+			hashType = details.hash
+			pubKeyAlgo = details.pubKeyAlgo
+			break
+		}
+	}
+
+	switch hashType {
+	case crypto.Hash(0):
+		if !isSM2 {
+			return x509.ErrUnsupportedAlgorithm
+		}
+		if len(digest) != 32 { // SM3 hash size
+			return errors.New("x509: inconsistent digest and signature algorithm")
+		}
+	case crypto.MD5:
+		return x509.InsecureAlgorithmError(algo)
+	default:
+		if !hashType.Available() {
+			return x509.ErrUnsupportedAlgorithm
+		}
+		if len(digest) != hashType.Size() {
+			return errors.New("x509: inconsistent digest and signature algorithm")
+		}
+	}
+
+	switch pub := publicKey.(type) {
+	case *rsa.PublicKey:
+		if pubKeyAlgo != RSA {
+			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
+		}
+		if isRSAPSS(algo) {
+			return rsa.VerifyPSS(pub, hashType, digest, signature, &rsa.PSSOptions{SaltLength: rsa.PSSSaltLengthEqualsHash})
+		} else {
+			return rsa.VerifyPKCS1v15(pub, hashType, digest, signature)
+		}
+	case *ecdsa.PublicKey:
+		if pubKeyAlgo != ECDSA {
+			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
+		}
+		if isSM2 {
+			if !sm2.VerifyASN1(pub, digest, signature) {
+				return errors.New("x509: SM2 verification failure")
+			}
+		} else if !ecdsa.VerifyASN1(pub, digest, signature) {
+			return errors.New("x509: ECDSA verification failure")
+		}
+		return
+	}
+	return x509.ErrUnsupportedAlgorithm
 }
 
 func (c *Certificate) hasNameConstraints() bool {
@@ -1426,7 +1490,6 @@ var emptyASN1Subject = []byte{0x30, 0}
 //
 // If template.SerialNumber is nil, a serial number will be generated which
 // conforms to RFC 5280, Section 4.1.2.2 using entropy from rand.
-//
 func CreateCertificate(rand io.Reader, template, parent, pub, priv any) ([]byte, error) {
 	realTemplate, err := toCertificate(template)
 	if err != nil {

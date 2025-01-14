@@ -19,6 +19,12 @@ func (p7 *PKCS7) Verify() (err error) {
 	return p7.VerifyWithChain(nil)
 }
 
+// VerifyAsDigest verifies the PKCS7 signature, treats the content as a digest.
+// It returns an error if the verification fails.
+func (p7 *PKCS7) VerifyAsDigest() (err error) {
+	return p7.verifyWithChain(nil, true)
+}
+
 // VerifyWithChain checks the signatures of a PKCS7 object.
 //
 // If truststore is not nil, it also verifies the chain of trust of
@@ -27,11 +33,22 @@ func (p7 *PKCS7) Verify() (err error) {
 // authenticated attr verifies the chain at that time and UTC now
 // otherwise.
 func (p7 *PKCS7) VerifyWithChain(truststore *smx509.CertPool) (err error) {
+	return p7.verifyWithChain(truststore, false)
+}
+
+
+// VerifyAsDigestWithChain verifies the PKCS7 signature using the provided truststore
+// and treats the content as a precomputed digest. It returns an error if the verification fails.
+func (p7 *PKCS7) VerifyAsDigestWithChain(truststore *smx509.CertPool) (err error) {
+	return p7.verifyWithChain(truststore, true)
+}
+
+func (p7 *PKCS7) verifyWithChain(truststore *smx509.CertPool, isDigest bool) (err error) {
 	if len(p7.Signers) == 0 {
 		return errors.New("pkcs7: Message has no signers")
 	}
 	for _, signer := range p7.Signers {
-		if err := verifySignature(p7, signer, truststore, nil); err != nil {
+		if err := verifySignature(p7, signer, truststore, nil, isDigest); err != nil {
 			return err
 		}
 	}
@@ -45,24 +62,41 @@ func (p7 *PKCS7) VerifyWithChain(truststore *smx509.CertPool) (err error) {
 // currentTime. It does not use the signing time authenticated
 // attribute.
 func (p7 *PKCS7) VerifyWithChainAtTime(truststore *smx509.CertPool, currentTime *time.Time) (err error) {
+	return p7.verifyWithChainAtTime(truststore, currentTime, false)
+}
+
+func (p7 *PKCS7) verifyWithChainAtTime(truststore *smx509.CertPool, currentTime *time.Time, isDigest bool) (err error) {
 	if len(p7.Signers) == 0 {
 		return errors.New("pkcs7: Message has no signers")
 	}
 	for _, signer := range p7.Signers {
-		if err := verifySignature(p7, signer, truststore, currentTime); err != nil {
+		if err := verifySignature(p7, signer, truststore, currentTime, isDigest); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func verifySignature(p7 *PKCS7, signer signerInfo, truststore *smx509.CertPool, currentTime *time.Time) (err error) {
+func verifySignature(p7 *PKCS7, signer signerInfo, truststore *smx509.CertPool, currentTime *time.Time, isDigest bool) (err error) {
 	signedData := p7.Content
 	ee := getCertFromCertsByIssuerAndSerial(p7.Certificates, signer.IssuerAndSerialNumber)
 	if ee == nil {
 		return errors.New("pkcs7: No certificate for signer")
 	}
 	signingTime := time.Now().UTC()
+	if truststore != nil {
+		if currentTime != nil {
+			signingTime = *currentTime
+		}
+		_, err = verifyCertChain(ee, p7.Certificates, truststore, signingTime)
+		if err != nil {
+			return err
+		}
+	}
+	sigalg, err := getSignatureAlgorithm(signer.DigestEncryptionAlgorithm, signer.DigestAlgorithm)
+	if err != nil {
+		return err
+	}
 	if len(signer.AuthenticatedAttributes) > 0 {
 		// TODO(fullsailor): First check the content type match
 		var digest []byte
@@ -74,9 +108,12 @@ func verifySignature(p7 *PKCS7, signer signerInfo, truststore *smx509.CertPool, 
 		if err != nil {
 			return err
 		}
-		h := newHash(hasher, signer.DigestAlgorithm.Algorithm)
-		h.Write(p7.Content)
-		computed := h.Sum(nil)
+		computed := signedData
+		if !isDigest {
+			h := newHash(hasher, signer.DigestAlgorithm.Algorithm)
+			h.Write(p7.Content)
+			computed = h.Sum(nil)
+		}
 		if subtle.ConstantTimeCompare(digest, computed) != 1 {
 			return &MessageDigestMismatchError{
 				ExpectedDigest: digest,
@@ -97,19 +134,10 @@ func verifySignature(p7 *PKCS7, signer signerInfo, truststore *smx509.CertPool, 
 					ee.NotAfter.Format(time.RFC3339))
 			}
 		}
-	}
-	if truststore != nil {
-		if currentTime != nil {
-			signingTime = *currentTime
-		}
-		_, err = verifyCertChain(ee, p7.Certificates, truststore, signingTime)
-		if err != nil {
-			return err
-		}
-	}
-	sigalg, err := getSignatureAlgorithm(signer.DigestEncryptionAlgorithm, signer.DigestAlgorithm)
-	if err != nil {
-		return err
+		return ee.CheckSignature(sigalg, signedData, signer.EncryptedDigest)
+	} 
+	if isDigest {
+		return ee.CheckSignatureWithDigest(sigalg, signedData, signer.EncryptedDigest)
 	}
 	return ee.CheckSignature(sigalg, signedData, signer.EncryptedDigest)
 }

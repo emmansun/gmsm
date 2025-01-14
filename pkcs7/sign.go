@@ -23,6 +23,7 @@ type SignedData struct {
 	sd             signedData
 	certs          []*smx509.Certificate
 	data           []byte
+	isDigest       bool
 	contentTypeOid asn1.ObjectIdentifier
 	digestOid      asn1.ObjectIdentifier
 	encryptionOid  asn1.ObjectIdentifier
@@ -47,11 +48,41 @@ func NewSignedData(data []byte) (*SignedData, error) {
 	return &SignedData{sd: sd, data: data, digestOid: OIDDigestAlgorithmSHA1, contentTypeOid: OIDSignedData}, nil
 }
 
+// NewSignedDataWithDegist creates a new SignedData instance using the provided digest.
+// It sets the isDigest field to true, indicating that the input is already a digest.
+// Returns the SignedData instance or an error if the creation fails.
+func NewSignedDataWithDegist(digest []byte) (*SignedData, error) {
+	ci := contentInfo{
+		ContentType: OIDData,
+		Content:     asn1.RawValue{}, // for sign digest, content is empty
+	}
+	sd := signedData{
+		ContentInfo: ci,
+		Version:     1,
+	}
+
+	return &SignedData{sd: sd, data: digest, digestOid: OIDDigestAlgorithmSHA1, contentTypeOid: OIDSignedData, isDigest: true}, nil
+}
+
 // NewSMSignedData takes data and initializes a PKCS7 SignedData struct that is
 // ready to be signed via AddSigner. The digest algorithm is set to SM3 by default
 // and can be changed by calling SetDigestAlgorithm.
 func NewSMSignedData(data []byte) (*SignedData, error) {
 	sd, err := NewSignedData(data)
+	if err != nil {
+		return nil, err
+	}
+	sd.sd.ContentInfo.ContentType = SM2OIDData
+	sd.digestOid = OIDDigestAlgorithmSM3
+	sd.contentTypeOid = SM2OIDSignedData
+	return sd, nil
+}
+
+// NewSMSignedDataWithDegist creates a new SignedData object using the provided digest.
+// It calls the NewSMSignedData function with the given digest and sets the isDigest flag to true.
+// If there is an error during the creation of the SignedData object, it returns the error.
+func NewSMSignedDataWithDegist(digest []byte) (*SignedData, error) {
+	sd, err := NewSignedDataWithDegist(digest)
 	if err != nil {
 		return nil, err
 	}
@@ -203,9 +234,12 @@ func (sd *SignedData) signWithAttributes(pkey crypto.PrivateKey, config SignerIn
 	if err != nil {
 		return nil, nil, err
 	}
-	h := newHash(hasher, sd.digestOid)
-	h.Write(sd.data)
-	messageDigest := h.Sum(nil)
+	messageDigest := sd.data
+	if !sd.isDigest {
+		h := newHash(hasher, sd.digestOid)
+		h.Write(sd.data)
+		messageDigest = h.Sum(nil)
+	}
 
 	attrs := &attributes{}
 	attrs.Add(OIDAttributeContentType, sd.sd.ContentInfo.ContentType)
@@ -250,9 +284,10 @@ func (sd *SignedData) SignWithoutAttr(ee *smx509.Certificate, pkey crypto.Privat
 	if err != nil {
 		return err
 	}
-	if signature, err = signData(sd.data, pkey, hasher); err != nil {
+	if signature, err = signData(sd.data, pkey, hasher, sd.isDigest); err != nil {
 		return err
 	}
+
 	var ias issuerAndSerial
 	ias.SerialNumber = ee.SerialNumber
 	// no parent, the issue is the end-entity cert itself
@@ -377,12 +412,12 @@ func signAttributes(attrs []attribute, pkey crypto.PrivateKey, hasher crypto.Has
 	if err != nil {
 		return nil, err
 	}
-	return signData(attrBytes, pkey, hasher)
+	return signData(attrBytes, pkey, hasher, false)
 }
 
 // signData signs the provided data using the given private key and hash function.
 // It returns the signed data or an error if the signing process fails.
-func signData(data []byte, pkey crypto.PrivateKey, hasher crypto.Hash) ([]byte, error) {
+func signData(data []byte, pkey crypto.PrivateKey, hasher crypto.Hash, isDigest bool) ([]byte, error) {
 	key, ok := pkey.(crypto.Signer)
 	if !ok {
 		return nil, errors.New("pkcs7: private key does not implement crypto.Signer")
@@ -392,7 +427,11 @@ func signData(data []byte, pkey crypto.PrivateKey, hasher crypto.Hash) ([]byte, 
 
 	if !hasher.Available() {
 		if sm2.IsSM2PublicKey(key.Public()) {
-			opts = sm2.DefaultSM2SignerOpts
+			if !isDigest {
+				opts = sm2.DefaultSM2SignerOpts
+			} else if len(hash) != sm3.Size {
+				return nil, fmt.Errorf("pkcs7: invalid hash value fo SM2 signature")
+			}
 			switch realKey := key.(type) {
 			case *ecdsa.PrivateKey:
 				{
@@ -404,10 +443,12 @@ func signData(data []byte, pkey crypto.PrivateKey, hasher crypto.Hash) ([]byte, 
 		} else {
 			return nil, fmt.Errorf("pkcs7: unsupported hash function %s", hasher)
 		}
-	} else {
+	} else if !isDigest {
 		h := hasher.New()
 		h.Write(data)
 		hash = h.Sum(nil)
+	} else if len(hash) != hasher.Size() {
+		return nil, fmt.Errorf("pkcs7: invalid hash for %s", hasher)
 	}
 	return key.Sign(rand.Reader, hash, opts)
 }

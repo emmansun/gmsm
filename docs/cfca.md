@@ -10,6 +10,7 @@ SADK（Security Application Development Kit）是CFCA推出的一套支持全平
 其JAVA版本(其它语言版本未知)基本上是一个基于[Bouncy Castle](https://www.bouncycastle.org/)的实现（当然它看起来也支持JNI接入OpenSSL、U盾？）。
 
 ## 为什么会有互操作性问题
+* CFCA有一些实现没有相关标准。
 * SADK存在较早，可能有些实现早于标准发布。
 * SADK版本较多，不同版本也会有互操作性兼容问题。
 * 其它未知原因。

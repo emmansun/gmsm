@@ -234,7 +234,7 @@ func (saed *SignedAndEnvelopedData) AddSignerChain(ee *smx509.Certificate, pkey 
 	if err != nil {
 		return err
 	}
-	signature, err := signData(saed.data, pkey, hasher)
+	signature, err := signData(saed.data, pkey, hasher, false)
 	if err != nil {
 		return err
 	}

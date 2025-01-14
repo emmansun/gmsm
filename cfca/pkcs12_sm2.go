@@ -1,4 +1,4 @@
-// Package cfca supports part of CFCA SADK's functions.
+// Package cfca supports part of CFCA SADK's functions, provides interoperability with CFCA SADK.
 package cfca
 
 import (

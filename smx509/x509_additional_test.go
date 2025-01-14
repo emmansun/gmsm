@@ -1,14 +1,23 @@
 package smx509
 
 import (
+	"crypto"
 	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/elliptic"
+	"crypto/md5"
 	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha1"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"math/big"
 	"strings"
 	"testing"
 
@@ -291,4 +300,226 @@ func TestInvalidParentTemplate(t *testing.T) {
 	if err.Error() != "x509: unsupported parent parameter type: <nil>" {
 		t.Fatalf("unexpected error message: %v", err.Error())
 	}
+}
+
+func TestCheckSignatureWithDigest(t *testing.T) {
+	rawMessage := []byte("test message")
+	rsaPrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("failed to generate RSA key: %s", err)
+	}
+	ecdsaPrivateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate ECDSA key: %s", err)
+	}
+	ecdsaPrivateKey2, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate ECDSA key: %s", err)
+	}
+	sm2PrivateKey, err := sm2.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate SM2 key: %s", err)
+	}
+	sm2PrivateKey2, err := sm2.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate SM2 key: %s", err)
+	}
+	ed25519Pub, ed25519Priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate Ed25519 key: %s", err)
+	}
+
+	tests := []struct {
+		name          string
+		cert          *Certificate
+		algo          SignatureAlgorithm
+		digest        []byte
+		signature     []byte
+		expectedError error
+	}{
+		{
+			name: "Valid RSA PKCS1v15 signature",
+			cert: &Certificate{
+				PublicKey: &rsaPrivateKey.PublicKey,
+			},
+			algo: SHA256WithRSA,
+			digest: func() []byte {
+				hash := sha256.Sum256(rawMessage)
+				return hash[:]
+			}(),
+			signature: func() []byte {
+				hash := sha256.Sum256(rawMessage)
+				return mustSignPKCS1v15(t, rsaPrivateKey, crypto.SHA256, hash[:])
+			}(),
+			expectedError: nil,
+		},
+		{
+			name: "Valid ECDSA signature",
+			cert: &Certificate{
+				PublicKey: &ecdsaPrivateKey.PublicKey,
+			},
+			algo: ECDSAWithSHA256,
+			digest: func() []byte {
+				hash := sha256.Sum256(rawMessage)
+				return hash[:]
+			}(),
+			signature: func() []byte {
+				hash := sha256.Sum256(rawMessage)
+				return mustSignECDSA(t, ecdsaPrivateKey, hash[:])
+			}(),
+			expectedError: nil,
+		},
+		{
+			name: "Invalid ECDSA signature",
+			cert: &Certificate{
+				PublicKey: &ecdsaPrivateKey.PublicKey,
+			},
+			algo: ECDSAWithSHA256,
+			digest: func() []byte {
+				hash := sha256.Sum256(rawMessage)
+				return hash[:]
+			}(),
+			signature: func() []byte {
+				hash := sha256.Sum256(rawMessage)
+				return mustSignECDSA(t, ecdsaPrivateKey2, hash[:])
+			}(),
+			expectedError: errors.New("x509: ECDSA verification failure"),
+		},
+		{
+			name: "Valid SM2 signature",
+			cert: &Certificate{
+				PublicKey: &sm2PrivateKey.PublicKey,
+			},
+			algo: SM2WithSM3,
+			digest: func() []byte {
+				hash, _ := sm2.CalculateSM2Hash(&sm2PrivateKey.PublicKey, rawMessage, nil)
+				return hash[:]
+			}(),
+			signature: func() []byte {
+				hash, _ := sm2.CalculateSM2Hash(&sm2PrivateKey.PublicKey, rawMessage, nil)
+				return mustSignSM2(t, sm2PrivateKey, hash[:])
+			}(),
+			expectedError: nil,
+		},
+		{
+			name: "Invalid SM2 signature",
+			cert: &Certificate{
+				PublicKey: &sm2PrivateKey.PublicKey,
+			},
+			algo: SM2WithSM3,
+			digest: func() []byte {
+				hash, _ := sm2.CalculateSM2Hash(&sm2PrivateKey.PublicKey, rawMessage, nil)
+				return hash[:]
+			}(),
+			signature: func() []byte {
+				hash, _ := sm2.CalculateSM2Hash(&sm2PrivateKey2.PublicKey, rawMessage, nil)
+				return mustSignSM2(t, sm2PrivateKey2, hash[:])
+			}(),
+			expectedError: errors.New("x509: SM2 verification failure"),
+		},
+		{
+			name: "Insecure algorithm",
+			cert: &Certificate{
+				PublicKey: &rsaPrivateKey.PublicKey,
+			},
+			algo: MD5WithRSA,
+			digest: func() []byte {
+				hash := md5.Sum(rawMessage)
+				return hash[:]
+			}(),
+			signature: func() []byte {
+				hash := md5.Sum(rawMessage)
+				return mustSignPKCS1v15(t, rsaPrivateKey, crypto.MD5, hash[:])
+			}(),
+			expectedError: x509.InsecureAlgorithmError(MD5WithRSA),
+		},
+		{
+			name: "Unsupported algorithm",
+			cert: &Certificate{
+				PublicKey: ed25519Pub,
+			},
+			algo: PureEd25519,
+			digest: func() []byte {
+				hash := sha256.Sum256(rawMessage)
+				return hash[:]
+			}(),
+			signature: func() []byte {
+				hash := sha256.Sum256(rawMessage)
+				return ed25519.Sign(ed25519Priv, hash[:])
+			}(),
+			expectedError: x509.ErrUnsupportedAlgorithm,
+		},
+		{
+			name: "Inconsistent digest and signature algorithm",
+			cert: &Certificate{
+				PublicKey: &rsaPrivateKey.PublicKey,
+			},
+			algo: SHA256WithRSA,
+			digest: func() []byte {
+				hash := sha1.Sum(rawMessage)
+				return hash[:]
+			}(),
+			signature: func() []byte {
+				hash := sha256.Sum256(rawMessage)
+				return mustSignPKCS1v15(t, rsaPrivateKey, crypto.SHA256, hash[:])
+			}(),
+			expectedError: errors.New("x509: inconsistent digest and signature algorithm"),
+		},
+		{
+			name: "Inconsistent digest and signature algorithm (SM2)",
+			cert: &Certificate{
+				PublicKey: &sm2PrivateKey.PublicKey,
+			},
+			algo: SM2WithSM3,
+			digest: func() []byte {
+				hash, _ := sm2.CalculateSM2Hash(&sm2PrivateKey.PublicKey, rawMessage, nil)
+				return hash[:20]
+			}(),
+			signature: func() []byte {
+				hash, _ := sm2.CalculateSM2Hash(&sm2PrivateKey.PublicKey, rawMessage, nil)
+				return mustSignSM2(t, sm2PrivateKey, hash[:])
+			}(),
+			expectedError: errors.New("x509: inconsistent digest and signature algorithm"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.cert.CheckSignatureWithDigest(tt.algo, tt.digest, tt.signature)
+			if (err == nil || tt.expectedError == nil) && err != tt.expectedError {
+				t.Errorf("Case <%v>: expected error %v, got %v", tt.name, tt.expectedError, err)
+			}
+			if err != nil && tt.expectedError != nil && err.Error() != tt.expectedError.Error() {
+				t.Errorf("Case <%v>: expected error %v, got %v", tt.name, tt.expectedError, err)
+			}
+		})
+	}
+}
+
+func mustSignPKCS1v15(t *testing.T, priv *rsa.PrivateKey, hash crypto.Hash, digest []byte) []byte {
+	signature, err := rsa.SignPKCS1v15(rand.Reader, priv, hash, digest)
+	if err != nil {
+		t.Fatalf("failed to sign: %s", err)
+	}
+	return signature
+}
+
+func mustSignECDSA(t *testing.T, priv *ecdsa.PrivateKey, digest []byte) []byte {
+	r, s, err := ecdsa.Sign(rand.Reader, priv, digest)
+	if err != nil {
+		t.Fatalf("failed to sign: %s", err)
+	}
+	signature, err := asn1.Marshal(struct{ R, S *big.Int }{r, s})
+	if err != nil {
+		t.Fatalf("failed to marshal signature: %s", err)
+	}
+	return signature
+}
+
+func mustSignSM2(t *testing.T, priv *sm2.PrivateKey, digest []byte) []byte {
+	signature, err := sm2.SignASN1(rand.Reader, priv, digest, nil)
+	if err != nil {
+		t.Fatalf("failed to sign: %s", err)
+	}
+	return signature
 }

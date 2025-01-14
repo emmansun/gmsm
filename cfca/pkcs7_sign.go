@@ -56,3 +56,28 @@ func VerifyMessageDetach(p7Der, sourceData []byte) error {
 	p7.Content = sourceData
 	return p7.Verify()
 }
+
+// SignDigestDetach signs a given digest using the provided certificate and private key,
+// and returns the detached PKCS7 signature.
+//
+// This method corresponds to CFCA SADK's cfca.sadk.util.p7SignByHash.
+func SignDigestDetach(digest []byte, cert *smx509.Certificate, key crypto.PrivateKey) ([]byte, error) {
+	signData, _ := pkcs7.NewSMSignedDataWithDegist(digest)
+	if err := signData.SignWithoutAttr(cert, key, pkcs7.SignerInfoConfig{}); err != nil {
+		return nil, err
+	}
+	return signData.Finish()
+}
+
+// VerifyDigestDetach verifies a detached PKCS7 signature against a given digest.
+// It parses the p7Der, assigns the provided digest to the parsed PKCS7 content, and then verifies it.
+//
+// This method corresponds to CFCA SADK's cfca.sadk.util.p7VerifyByHash.
+func VerifyDigestDetach(p7Der, digest []byte) error {
+	p7, err := pkcs7.Parse(p7Der)
+	if err != nil {
+		return err
+	}
+	p7.Content = digest
+	return p7.VerifyAsDigest()
+}
