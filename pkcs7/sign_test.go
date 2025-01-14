@@ -421,6 +421,7 @@ func testSignDigest(t *testing.T, isSM bool, content []byte, sigalgs []x509.Sign
 				if len(p7.Content) > 0 {
 					t.Errorf("Content should be empty")
 				}
+				p7.Content = digest
 				if err := p7.VerifyAsDigestWithChain(truststore); err != nil {
 					t.Errorf("test %s/%s/%s: cannot verify signed data: %s", sigalgroot, sigalginter, sigalgsigner, err)
 				}
