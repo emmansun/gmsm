@@ -430,7 +430,7 @@ func signData(data []byte, pkey crypto.PrivateKey, hasher crypto.Hash, isDigestP
 			if !isDigestProvided {
 				opts = sm2.DefaultSM2SignerOpts
 			} else if len(hash) != sm3.Size {
-				return nil, fmt.Errorf("pkcs7: invalid hash value fo SM2 signature")
+				return nil, fmt.Errorf("pkcs7: invalid hash value for SM2 signature")
 			}
 			switch realKey := key.(type) {
 			case *ecdsa.PrivateKey:
@@ -441,14 +441,14 @@ func signData(data []byte, pkey crypto.PrivateKey, hasher crypto.Hash, isDigestP
 				}
 			}
 		} else {
-			return nil, fmt.Errorf("pkcs7: unsupported hash function %s", hasher)
+			return nil, fmt.Errorf("pkcs7: unsupported hash function %v", hasher)
 		}
 	} else if !isDigestProvided {
 		h := hasher.New()
 		h.Write(data)
 		hash = h.Sum(nil)
 	} else if len(hash) != hasher.Size() {
-		return nil, fmt.Errorf("pkcs7: invalid hash for %s", hasher)
+		return nil, fmt.Errorf("pkcs7: invalid hash value for %v", hasher)
 	}
 	return key.Sign(rand.Reader, hash, opts)
 }
