@@ -394,9 +394,9 @@ func testSignDigest(t *testing.T, isSM bool, content []byte, sigalgs []x509.Sign
 
 				var toBeSigned *SignedData
 				if isSM {
-					toBeSigned, err = NewSMSignedDataWithDegist(digest)
+					toBeSigned, err = NewSMSignedDataWithDigest(digest)
 				} else {
-					toBeSigned, err = NewSignedDataWithDegist(digest)
+					toBeSigned, err = NewSignedDataWithDigest(digest)
 				}
 				if err != nil {
 					t.Fatalf("test %s/%s/%s: cannot initialize signed data: %s", sigalgroot, sigalginter, sigalgsigner, err)
@@ -516,9 +516,9 @@ func TestSignWithoutAttrWithDigest(t *testing.T) {
 
 		var toBeSigned *SignedData
 		if sigalg.isSM {
-			toBeSigned, err = NewSMSignedDataWithDegist(digest)
+			toBeSigned, err = NewSMSignedDataWithDigest(digest)
 		} else {
-			toBeSigned, err = NewSignedDataWithDegist(digest)
+			toBeSigned, err = NewSignedDataWithDigest(digest)
 			toBeSigned.SetDigestAlgorithm(hashOID)
 		}
 		if err != nil {

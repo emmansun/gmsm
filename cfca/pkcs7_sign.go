@@ -62,7 +62,7 @@ func VerifyMessageDetach(p7Der, sourceData []byte) error {
 //
 // This method corresponds to CFCA SADK's cfca.sadk.util.p7SignByHash.
 func SignDigestDetach(digest []byte, cert *smx509.Certificate, key crypto.PrivateKey) ([]byte, error) {
-	signData, _ := pkcs7.NewSMSignedDataWithDegist(digest)
+	signData, _ := pkcs7.NewSMSignedDataWithDigest(digest)
 	if err := signData.SignWithoutAttr(cert, key, pkcs7.SignerInfoConfig{}); err != nil {
 		return nil, err
 	}

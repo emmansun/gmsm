@@ -20,13 +20,13 @@ import (
 
 // SignedData is an opaque data structure for creating signed data payloads
 type SignedData struct {
-	sd             signedData
-	certs          []*smx509.Certificate
-	data           []byte
-	isDigest       bool
-	contentTypeOid asn1.ObjectIdentifier
-	digestOid      asn1.ObjectIdentifier
-	encryptionOid  asn1.ObjectIdentifier
+	sd               signedData
+	certs            []*smx509.Certificate
+	data             []byte
+	isDigestProvided bool
+	contentTypeOid   asn1.ObjectIdentifier
+	digestOid        asn1.ObjectIdentifier
+	encryptionOid    asn1.ObjectIdentifier
 }
 
 // NewSignedData takes data and initializes a PKCS7 SignedData struct that is
@@ -48,10 +48,10 @@ func NewSignedData(data []byte) (*SignedData, error) {
 	return &SignedData{sd: sd, data: data, digestOid: OIDDigestAlgorithmSHA1, contentTypeOid: OIDSignedData}, nil
 }
 
-// NewSignedDataWithDegist creates a new SignedData instance using the provided digest.
+// NewSignedDataWithDigest creates a new SignedData instance using the provided digest.
 // It sets the isDigest field to true, indicating that the input is already a digest.
 // Returns the SignedData instance or an error if the creation fails.
-func NewSignedDataWithDegist(digest []byte) (*SignedData, error) {
+func NewSignedDataWithDigest(digest []byte) (*SignedData, error) {
 	ci := contentInfo{
 		ContentType: OIDData,
 		Content:     asn1.RawValue{}, // for sign digest, content is empty
@@ -61,7 +61,7 @@ func NewSignedDataWithDegist(digest []byte) (*SignedData, error) {
 		Version:     1,
 	}
 
-	return &SignedData{sd: sd, data: digest, digestOid: OIDDigestAlgorithmSHA1, contentTypeOid: OIDSignedData, isDigest: true}, nil
+	return &SignedData{sd: sd, data: digest, digestOid: OIDDigestAlgorithmSHA1, contentTypeOid: OIDSignedData, isDigestProvided: true}, nil
 }
 
 // NewSMSignedData takes data and initializes a PKCS7 SignedData struct that is
@@ -78,11 +78,11 @@ func NewSMSignedData(data []byte) (*SignedData, error) {
 	return sd, nil
 }
 
-// NewSMSignedDataWithDegist creates a new SignedData object using the provided digest.
+// NewSMSignedDataWithDigest creates a new SignedData object using the provided digest.
 // It calls the NewSMSignedData function with the given digest and sets the isDigest flag to true.
 // If there is an error during the creation of the SignedData object, it returns the error.
-func NewSMSignedDataWithDegist(digest []byte) (*SignedData, error) {
-	sd, err := NewSignedDataWithDegist(digest)
+func NewSMSignedDataWithDigest(digest []byte) (*SignedData, error) {
+	sd, err := NewSignedDataWithDigest(digest)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +235,7 @@ func (sd *SignedData) signWithAttributes(pkey crypto.PrivateKey, config SignerIn
 		return nil, nil, err
 	}
 	messageDigest := sd.data
-	if !sd.isDigest {
+	if !sd.isDigestProvided {
 		h := newHash(hasher, sd.digestOid)
 		h.Write(sd.data)
 		messageDigest = h.Sum(nil)
@@ -284,7 +284,7 @@ func (sd *SignedData) SignWithoutAttr(ee *smx509.Certificate, pkey crypto.Privat
 	if err != nil {
 		return err
 	}
-	if signature, err = signData(sd.data, pkey, hasher, sd.isDigest); err != nil {
+	if signature, err = signData(sd.data, pkey, hasher, sd.isDigestProvided); err != nil {
 		return err
 	}
 
@@ -417,7 +417,7 @@ func signAttributes(attrs []attribute, pkey crypto.PrivateKey, hasher crypto.Has
 
 // signData signs the provided data using the given private key and hash function.
 // It returns the signed data or an error if the signing process fails.
-func signData(data []byte, pkey crypto.PrivateKey, hasher crypto.Hash, isDigest bool) ([]byte, error) {
+func signData(data []byte, pkey crypto.PrivateKey, hasher crypto.Hash, isDigestProvided bool) ([]byte, error) {
 	key, ok := pkey.(crypto.Signer)
 	if !ok {
 		return nil, errors.New("pkcs7: private key does not implement crypto.Signer")
@@ -427,7 +427,7 @@ func signData(data []byte, pkey crypto.PrivateKey, hasher crypto.Hash, isDigest 
 
 	if !hasher.Available() {
 		if sm2.IsSM2PublicKey(key.Public()) {
-			if !isDigest {
+			if !isDigestProvided {
 				opts = sm2.DefaultSM2SignerOpts
 			} else if len(hash) != sm3.Size {
 				return nil, fmt.Errorf("pkcs7: invalid hash value fo SM2 signature")
@@ -443,7 +443,7 @@ func signData(data []byte, pkey crypto.PrivateKey, hasher crypto.Hash, isDigest 
 		} else {
 			return nil, fmt.Errorf("pkcs7: unsupported hash function %s", hasher)
 		}
-	} else if !isDigest {
+	} else if !isDigestProvided {
 		h := hasher.New()
 		h.Write(data)
 		hash = h.Sum(nil)
