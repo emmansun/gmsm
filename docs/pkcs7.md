@@ -40,18 +40,25 @@
 ### 签名数据（Signed Data）
 签名数据，使用证书对应的私钥进行签名，理论上支持多个签名者，但通常使用场景都是单签。和数字信封数据类似，也分国密和非国密。
 
-#### 创建签名数据
+#### 签名流程
+1. 创建SignedData
 （是否国密是指OID也使用国密体系）
 
-| 是否国密 | 方法 | 默认签名算法 |    
-| :--- | :--- | :--- |
-| 否 | ```NewSignedData``` | SHA1 |  
-| 是 | ```NewSMSignedData``` | SM3 |  
+| 是否国密 | 数据是否是哈希值 | 方法 | 默认签名算法 |    
+| :--- | :--- | :--- | :--- |
+| 否 | 否 | ```NewSignedData``` | SHA1 |  
+| 否 | 是 | ```NewSignedDataWithDigest``` | SHA1 |  
+| 是 | 否 | ```NewSMSignedData``` | SM3 |  
+| 是 | 是 | ```NewSMSignedDataWithDigest``` | SM3 |  
 
-可选步骤：调用```SetDigestAlgorithm```设置想要的签名算法，通常国密不需要修改。    
-接着调用```AddSigner```或```AddSignerChain```方法，进行签名；可以通过```SignerInfoConfig.SkipCertificates```指定忽略证书项（最终签名数据中不包含证书项）；  
-如果进行Detach签名，则调用```Detach```方法；  
-最后调用```Finish```方法，序列化输出结果。  
+2. 可选步骤：调用```SetDigestAlgorithm```设置想要的签名算法，通常国密**不需要**修改。    
+3. 接着调用```AddSigner```或```AddSignerChain```方法，进行签名；可以通过```SignerInfoConfig.SkipCertificates```指定忽略证书项（最终签名数据中不包含证书项）；  
+4. 如果进行Detach签名，则调用```Detach```方法；  
+5. 最后调用```Finish```方法，序列化输出结果。  
+
+**注意**：
+1. 如果是直接对哈希值签名，一定是Detach签名。
+2. 国密签名如果要传入哈希值，在有Attribute的情况下，则哈希值只是标准的SM3哈希值；否则必须是符合SM2签名标准的哈希值（含SM2公钥信息）。
 
 #### Detach签名
 就是外部签名，**被签名数据**不包含在SignedData中（也就是其ContentInfo.Content为空）。
@@ -86,7 +93,7 @@ if err := p7.VerifyWithChain(truststore); err != nil {
 1. 调用```Parse```方法；
 2. 如果是Detach签名数据，则手动设置原始数据（参考```testSign```方法）；
 3. 如果签名数据中不包含证书项，则手动设置验签证书（参考```TestSkipCertificates```）；
-4. 调用```Verify```或```VerifyWithChain```方法。
+4. 如果Content是原始数据，调用```Verify```或```VerifyWithChain```方法；如果Content是哈希值，调用```VerifyAsDigest```或```VerifyAsDigestWithChain```方法。
 
 #### 特殊方法
 ```DegenerateCertificate```，退化成签名数据中只包含证书，目前没有使用SM2 OID的方法，如果需要可以请求添加。可以参考```TestDegenerateCertificate```和```TestParseSM2CertificateChain```。

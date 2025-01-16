@@ -48,9 +48,9 @@ func NewSignedData(data []byte) (*SignedData, error) {
 	return &SignedData{sd: sd, data: data, digestOid: OIDDigestAlgorithmSHA1, contentTypeOid: OIDSignedData}, nil
 }
 
-// NewSignedDataWithDigest creates a new SignedData instance using the provided digest.
-// It sets the isDigest field to true, indicating that the input is already a digest.
-// Returns the SignedData instance or an error if the creation fails.
+// NewSignedDataWithDigest creates a new SignedData structure with the provided digest.
+// The digest is used to initialize the SignedData object, and the content is set to an empty ASN.1 RawValue.
+// The function returns a pointer to the SignedData object and an error if any occurs.
 func NewSignedDataWithDigest(digest []byte) (*SignedData, error) {
 	ci := contentInfo{
 		ContentType: OIDData,
@@ -64,9 +64,10 @@ func NewSignedDataWithDigest(digest []byte) (*SignedData, error) {
 	return &SignedData{sd: sd, data: digest, digestOid: OIDDigestAlgorithmSHA1, contentTypeOid: OIDSignedData, isDigestProvided: true}, nil
 }
 
-// NewSMSignedData takes data and initializes a PKCS7 SignedData struct that is
-// ready to be signed via AddSigner. The digest algorithm is set to SM3 by default
-// and can be changed by calling SetDigestAlgorithm.
+// NewSMSignedData creates a new SignedData object using the provided data
+// and sets the appropriate OIDs for SM2 and SM3 algorithms.
+// It returns a pointer to the SignedData object and an error if any occurs
+// during the creation of the SignedData object.
 func NewSMSignedData(data []byte) (*SignedData, error) {
 	sd, err := NewSignedData(data)
 	if err != nil {
@@ -78,25 +79,28 @@ func NewSMSignedData(data []byte) (*SignedData, error) {
 	return sd, nil
 }
 
-// NewSMSignedDataWithDigest creates a new SignedData object using the provided digest.
-// It calls the NewSMSignedData function with the given digest and sets the isDigest flag to true.
-// If there is an error during the creation of the SignedData object, it returns the error.
+// NewSMSignedDataWithDigest creates a new SignedData structure with the provided digest.
+// The digest is expected to be a precomputed hash of the content to be signed.
+// This function initializes the SignedData with the necessary OIDs for SM3 and SM2 algorithms.
 func NewSMSignedDataWithDigest(digest []byte) (*SignedData, error) {
-	sd, err := NewSignedDataWithDigest(digest)
-	if err != nil {
-		return nil, err
+	ci := contentInfo{
+		ContentType: SM2OIDData,
+		Content:     asn1.RawValue{}, // for sign digest, content is empty
 	}
-	sd.sd.ContentInfo.ContentType = SM2OIDData
-	sd.digestOid = OIDDigestAlgorithmSM3
-	sd.contentTypeOid = SM2OIDSignedData
-	return sd, nil
+	sd := signedData{
+		ContentInfo: ci,
+		Version:     1,
+	}
+	return &SignedData{sd: sd, data: digest, digestOid: OIDDigestAlgorithmSM3, contentTypeOid: SM2OIDSignedData, isDigestProvided: true}, nil
 }
 
-// SignerInfoConfig are optional values to include when adding a signer
+// SignerInfoConfig contains configuration options for the signer information.
+// It allows specifying additional signed and unsigned attributes, as well as
+// an option to skip adding certificates to the payload.
 type SignerInfoConfig struct {
-	ExtraSignedAttributes   []Attribute
-	ExtraUnsignedAttributes []Attribute
-	SkipCertificates        bool // Skip adding certificates to the payload
+	ExtraSignedAttributes   []Attribute // Additional attributes to be included in the signed attributes.
+	ExtraUnsignedAttributes []Attribute // Additional attributes to be included in the unsigned attributes.
+	SkipCertificates        bool        // Skip adding certificates to the payload
 }
 
 type signedData struct {
