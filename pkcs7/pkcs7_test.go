@@ -11,7 +11,6 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
-	"log"
 	"math/big"
 	"os"
 	"time"
@@ -262,7 +261,6 @@ func createTestCertificateByIssuer(name string, issuer *certKeyPair, sigAlg x509
 		issuerKey = priv
 	}
 
-	log.Println("creating cert", name, "issued by", issuerCert.Subject.CommonName, "with sigalg", sigAlg)
 	switch pkey := priv.(type) {
 	case *rsa.PrivateKey:
 		derCert, err = smx509.CreateCertificate(rand.Reader, &template, (*x509.Certificate)(issuerCert), pkey.Public(), issuerKey)
