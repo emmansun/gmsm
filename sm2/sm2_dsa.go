@@ -213,7 +213,7 @@ var defaultUID = []byte{0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x31, 0x
 // CalculateZA ZA = H256(ENTLA || IDA || a || b || xG || yG || xA || yA).
 // Compliance with GB/T 32918.2-2016 5.5.
 //
-// This function will not use default UID even the uid argument is empty.
+// This function will NOT use default UID even the uid argument is empty.
 // Reference: GM/T 0009-2023 Chapter 8.1.
 func CalculateZA(pub *ecdsa.PublicKey, uid []byte) ([]byte, error) {
 	uidLen := len(uid)
@@ -451,7 +451,7 @@ var ErrInvalidSignature = errors.New("sm2: invalid signature")
 //
 // Compliance with GB/T 32918.2-2016 regardless it's SM2 curve or not.
 // Caller should make sure the hash's correctness, in other words,
-// the caller must pre-calculate the hash value.
+// the caller must pre-compute the hash value.
 func VerifyASN1(pub *ecdsa.PublicKey, hash, sig []byte) bool {
 	switch pub.Curve.Params() {
 	case P256().Params():
