@@ -454,6 +454,74 @@ func TestSignVerify(t *testing.T) {
 	}
 }
 
+func TestSM2Hasher(t *testing.T) {
+	tobeHashed := []byte("hello world")
+	keypoints, _ := hex.DecodeString("048356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1")
+	pub, err := NewPublicKey(keypoints)
+	if err != nil {
+		t.Fatal(err)
+	}
+	md := sm3.New()
+	hasher1, err := NewHash(pub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hasher1.BlockSize() != md.BlockSize() {
+		t.Errorf("expected %d, got %d", md.BlockSize(), hasher1.BlockSize())
+	}
+	if hasher1.Size() != md.Size() {
+		t.Errorf("expected %d, got %d", md.Size(), hasher1.Size())
+	}
+	hasher1.Write(tobeHashed)
+	hash1 := hasher1.Sum(nil)
+	expected, err := CalculateSM2Hash(pub, tobeHashed, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(hash1, expected) {
+		t.Errorf("expected %x, got %x", expected, hash1)
+	}
+
+	hasher2, err := NewHashWithUserID(pub, []byte("john snow"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	hasher2.Write(tobeHashed)
+	hash2 := hasher2.Sum(nil)
+	expected, err = CalculateSM2Hash(pub, tobeHashed, []byte("john snow"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(hash2, expected) {
+		t.Errorf("expected %x, got %x", expected, hash2)
+	}
+}
+
+func TestSM2HasherReset(t *testing.T) {
+	tobeHashed := []byte("hello world")
+	keypoints, _ := hex.DecodeString("048356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1")
+	pub, err := NewPublicKey(keypoints)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hasher, err := NewHash(pub)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hasher.Write(tobeHashed)
+	hashBeforeReset := hasher.Sum(nil)
+
+	hasher.Reset()
+	hasher.Write(tobeHashed)
+	hashAfterReset := hasher.Sum(nil)
+
+	if !bytes.Equal(hashBeforeReset, hashAfterReset) {
+		t.Errorf("expected %x, got %x", hashBeforeReset, hashAfterReset)
+	}
+}
+
 func BenchmarkGenerateKey_SM2(b *testing.B) {
 	r := bufio.NewReaderSize(rand.Reader, 1<<15)
 	b.ReportAllocs()

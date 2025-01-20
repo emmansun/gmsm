@@ -112,6 +112,33 @@ func ExamplePrivateKey_Sign_forceSM2() {
 	fmt.Printf("%x\n", sig)
 }
 
+func ExamplePrivateKey_Sign_withHash() {
+	toSign := []byte("ShangMi SM2 Sign Standard")
+	// real private key should be from secret storage
+	privKey, _ := hex.DecodeString("6c5a0a0b2eed3cbec3e4f1252bfe0e28c504a1c6bf1999eebb0af9ef0f8e6c85")
+	testkey, err := sm2.NewPrivateKey(privKey)
+	if err != nil {
+		log.Fatalf("fail to new private key %v", err)
+	}
+
+	// caluclate hash value
+	h, err := sm2.NewHash(&testkey.PublicKey)
+	if err != nil {
+		log.Fatalf("fail to new hash %v", err)
+	}
+	h.Write(toSign)
+	hashed := h.Sum(nil)
+
+	sig, err := testkey.Sign(rand.Reader, hashed, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error from sign: %s\n", err)
+		return
+	}
+	// Since sign is a randomized function, signature will be
+	// different each time.
+	fmt.Printf("%x\n", sig)
+}
+
 func ExampleVerifyASN1WithSM2() {
 	// real public key should be from cert or public key pem file
 	keypoints, _ := hex.DecodeString("048356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1")
@@ -120,10 +147,35 @@ func ExampleVerifyASN1WithSM2() {
 		log.Fatalf("fail to new public key %v", err)
 	}
 
-	toSign := []byte("ShangMi SM2 Sign Standard")
+	data := []byte("ShangMi SM2 Sign Standard")
 	signature, _ := hex.DecodeString("304402205b3a799bd94c9063120d7286769220af6b0fa127009af3e873c0e8742edc5f890220097968a4c8b040fd548d1456b33f470cabd8456bfea53e8a828f92f6d4bdcd77")
 
-	ok := sm2.VerifyASN1WithSM2(testkey, nil, toSign, signature)
+	ok := sm2.VerifyASN1WithSM2(testkey, nil, data, signature)
+
+	fmt.Printf("%v\n", ok)
+	// Output: true
+}
+
+func ExampleVerifyASN1() {
+	// real public key should be from cert or public key pem file
+	keypoints, _ := hex.DecodeString("048356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1")
+	testkey, err := sm2.NewPublicKey(keypoints)
+	if err != nil {
+		log.Fatalf("fail to new public key %v", err)
+	}
+
+	// caluclate hash value
+	data := []byte("ShangMi SM2 Sign Standard")
+	h, err := sm2.NewHash(testkey)
+	if err != nil {
+		log.Fatalf("fail to new hash %v", err)
+	}
+	h.Write(data)
+	hashed := h.Sum(nil)
+
+	signature, _ := hex.DecodeString("304402205b3a799bd94c9063120d7286769220af6b0fa127009af3e873c0e8742edc5f890220097968a4c8b040fd548d1456b33f470cabd8456bfea53e8a828f92f6d4bdcd77")
+
+	ok := sm2.VerifyASN1(testkey, hashed, signature)
 
 	fmt.Printf("%v\n", ok)
 	// Output: true

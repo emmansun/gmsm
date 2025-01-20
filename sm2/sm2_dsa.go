@@ -826,3 +826,67 @@ func precomputeParams(c *sm2Curve, curve elliptic.Curve) {
 	c.nMinus1 = c.N.Nat().SubOne(c.N)
 	c.nMinus2 = new(bigmod.Nat).Set(c.nMinus1).SubOne(c.N).Bytes(c.N)
 }
+
+// sm2Hasher is a wrapper around a hash.Hash that includes the ZA value for SM2 hashing.
+// It is used to perform SM2-specific hashing operations with the provided public key and user ID.
+type sm2Hasher struct {
+	inner hash.Hash
+	za    []byte
+}
+
+// NewHash creates a new hash.Hash instance using the provided SM2 public key.
+// It uses the default SM3 hash function and default user ID.
+func NewHash(pub *ecdsa.PublicKey) (hash.Hash, error) {
+	return NewHashWithUserID(pub, defaultUID)
+}
+
+// NewHashWithUserID creates a new hash.Hash instance using the provided SM2 public key and user ID.
+// It internally uses the SM3 hash function.
+func NewHashWithUserID(pub *ecdsa.PublicKey, userID []byte) (hash.Hash, error) {
+	return NewHashWithHashAndUserID(pub, sm3.New, userID)
+}
+
+// NewHashWithHashAndUserID creates a new hash.Hash instance that incorporates SM2-specific
+// hashing with the provided public key, inner hash and user ID.
+// The returned hasher is reset before being returned.
+func NewHashWithHashAndUserID(pub *ecdsa.PublicKey, h func() hash.Hash, userID []byte) (hash.Hash, error) {
+	inner := h()
+	za, err := CalculateZA(pub, userID)
+	if err != nil {
+		return nil, err
+	}
+	hasher := &sm2Hasher{inner: inner, za: za}
+	hasher.Write(za)
+	return hasher, nil
+}
+
+// Write writes the contents of p into the underlying hash function.
+// It returns the number of bytes written from p (n) and any error encountered (err).
+// This method satisfies the io.Writer interface.
+func (s *sm2Hasher) Write(p []byte) (n int, err error) {
+	return s.inner.Write(p)
+}
+
+// Sum appends the current hash to b and returns the resulting slice.
+// It does not change the underlying hash state.
+func (s *sm2Hasher) Sum(b []byte) []byte {
+	return s.inner.Sum(b)
+}
+
+// Reset clears the current state of the sm2Hasher and reinitializes it.
+// It first resets the inner hash state and then writes the ZA value to it.
+func (s *sm2Hasher) Reset() {
+	s.inner.Reset()
+	s.inner.Write(s.za)
+}
+
+// Size returns the size of the hash in bytes.
+func (s *sm2Hasher) Size() int {
+	return s.inner.Size()
+}
+
+// BlockSize returns the block size of the hash function in bytes.
+// It delegates the call to the inner hash function's BlockSize method.
+func (s *sm2Hasher) BlockSize() int {
+	return s.inner.BlockSize()
+}
