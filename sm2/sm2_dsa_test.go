@@ -210,6 +210,31 @@ func TestSignVerifyLegacy(t *testing.T) {
 	}
 }
 
+func TestSignVerifyWithSM2Legacy(t *testing.T) {
+	priv, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	tests := []struct {
+		name      string
+		plainText string
+	}{
+		// TODO: Add test cases.
+		{"less than 32", "encryption standard"},
+		{"equals 32", "encryption standard encryption "},
+		{"long than 32", "encryption standard encryption standard"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, s, err := SignWithSM2(rand.Reader, priv, nil, []byte(tt.plainText))
+			if err != nil {
+				t.Fatalf("sign failed %v", err)
+			}
+			result := VerifyWithSM2(&priv.PublicKey, nil, []byte(tt.plainText), r, s)
+			if !result {
+				t.Fatal("verify failed")
+			}
+		})
+	}
+}
+
 // Check that signatures remain non-deterministic with a functional entropy source.
 func TestINDCCA(t *testing.T) {
 	priv, err := GenerateKey(rand.Reader)

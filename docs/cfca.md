@@ -94,6 +94,8 @@ SADK 3.2之后的版本，支持下列SM2密文格式(encryptedType)：
 * `cfca.VerifyMessageAttach`
 * `cfca.SignMessageDetach`
 * `cfca.VerifyMessageDetach`
+* `cfca.SignDigestDetach`
+* `cfca.VerifyDigestDetach`
 
 ### 解密时自动检测？
 要穷举、尝试所有可能的密文格式不是不可以，但这会或多或少地影响解密的性能。你要和对方集成，还是知己知彼比较好，对于加解密来说，对用户透明不代表是好事。本软件库的SM2解密也实现了一定的自动检测（通过首字节判断，基于首字节只有固定那几个的假设）：

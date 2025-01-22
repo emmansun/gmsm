@@ -32,14 +32,43 @@ func hexDecode(t *testing.T, s string) []byte {
 	return b
 }
 
-func TestNewPrivateKeyWithOrderMinus1(t *testing.T) {
-	_, err := ecdh.P256().NewPrivateKey([]byte{
+func TestNewPrivateKey(t *testing.T) {
+	_, err := ecdh.P256().NewPrivateKey(nil)
+	if err == nil || err.Error() != "ecdh: invalid private key size" {
+		t.Errorf("ecdh: invalid private key size")
+	}
+	_, err = ecdh.P256().NewPrivateKey([]byte{
+		0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xff, 0xff,
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+		0x72, 0x03, 0xdf, 0x6b, 0x21, 0xc6, 0x05, 0x2b,
+		0x53, 0xbb, 0xf4, 0x09, 0x39, 0xd5, 0x41})
+	if err == nil || err.Error() != "ecdh: invalid private key size" {
+		t.Errorf("ecdh: invalid private key size")
+	}
+	allzero := make([]byte, 32)
+	_, err = ecdh.P256().NewPrivateKey(allzero)
+	if err == nil || err.Error() != "ecdh: invalid private key" {
+		t.Errorf("expected invalid private key")
+	}
+	_, err = ecdh.P256().NewPrivateKey([]byte{
 		0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xff, 0xff,
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 		0x72, 0x03, 0xdf, 0x6b, 0x21, 0xc6, 0x05, 0x2b,
 		0x53, 0xbb, 0xf4, 0x09, 0x39, 0xd5, 0x41, 0x22})
 	if err == nil || err.Error() != "ecdh: invalid private key" {
 		t.Errorf("expected invalid private key")
+	}
+}
+
+func TestNewPublicKey(t *testing.T) {
+	_, err := ecdh.P256().NewPublicKey(nil)
+	if err == nil || err.Error() != "ecdh: invalid public key" {
+		t.Errorf("ecdh: invalid public key")
+	}
+	keydata := make([]byte, 65)
+	_, err = ecdh.P256().NewPublicKey(keydata)
+	if err == nil || err.Error() != "ecdh: invalid public key" {
+		t.Errorf("ecdh: invalid public key")
 	}
 }
 

@@ -9,7 +9,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"hash"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -254,7 +253,7 @@ func TestDegenerateCertificate(t *testing.T) {
 
 // writes the cert to a temporary file and tests that openssl can read it.
 func testOpenSSLParse(t *testing.T, certBytes []byte) {
-	tmpCertFile, err := ioutil.TempFile("", "testCertificate")
+	tmpCertFile, err := os.CreateTemp("", "testCertificate")
 	if err != nil {
 		t.Fatal(err)
 	}

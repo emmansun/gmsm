@@ -60,6 +60,9 @@ func p256OrdAdd(res, x, y *[4]uint64) {
 	res[3] = (t1[3] & ^t2Mask) | (t2[3] & t2Mask)
 }
 
+// ImplicitSig generates an implicit signature using the provided static private key (sPriv),
+// ephemeral private key (ePriv), and a third byte slice (t).
+// The result is ePriv * t + sPriv.
 func ImplicitSig(sPriv, ePriv, t []byte) ([]byte, error) {
 	mulRes, err := P256OrdMul(ePriv, t)
 	if err != nil {
