@@ -76,7 +76,7 @@ SADK 3.2之后的版本，支持下列SM2密文格式(encryptedType)：
 1. 数据对称加密密钥的密文格式为**ASN.1编码格式**，这个符合《GB/T 35275-2017 信息安全技术 SM2密码算法加密签名消息语法规范》。
 2. SM4-CBC的OID，使用了["SM4" block cipher](https://oid-rep.orange-labs.fr/get/1.2.156.10197.1.104)，而不是["SMS4-CBC"](https://oid-rep.orange-labs.fr/get/1.2.156.10197.1.104.2)。
 
-本软件库的```pkcs7.EncryptSM```方法```Decrypt```方法提供了SADK 3.2+版本的信封加解密兼容性，记得cipher参数选择```pkcs.SM4```。```pkcs7.EncryptSM```方法符合GB/T 35275-2017 信息安全技术 SM2密码算法加密签名消息语法规范》，CFCA的SADK能解密。
+本软件库的```pkcs7.EncryptSM```方法```Decrypt```方法提供了SADK 3.2+版本的信封加解密兼容性。使用时，请确保`cipher`参数选择```pkcs.SM4```。```pkcs7.EncryptSM```方法符合《GB/T 35275-2017 信息安全技术 SM2密码算法加密签名消息语法规范》，CFCA的SADK可实现相应数据的解密。
 
 本软件库的```pkcs7.EnvelopeMessageCFCA```方法提供了CFCA SADK更兼容的实现，也就是recipientPolicyType=0。
 

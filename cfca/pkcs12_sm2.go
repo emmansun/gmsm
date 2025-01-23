@@ -13,22 +13,23 @@ import (
 	"github.com/emmansun/gmsm/smx509"
 )
 
-// CFCA私有格式，在SADK中把它定义为PKCS12_SM2
-
+// cfcaKeyPairData represents a key pair data structure used
+// in CFCA (China Financial Certification Authority)
+// for both parsing and marshaling SM2 keys and certificates.
 type cfcaKeyPairData struct {
 	Version      int `asn1:"default:1"`
 	EncryptedKey keyData
 	Certificate  certData
 }
 
-// 被加密的私钥数据
+// Encrypted private key data
 type keyData struct {
 	ContentType      asn1.ObjectIdentifier
 	Algorithm        asn1.ObjectIdentifier
 	EncryptedContent asn1.RawValue
 }
 
-// 对应的证书
+// Corresponding certificate
 type certData struct {
 	ContentType asn1.ObjectIdentifier
 	Content     asn1.RawContent
@@ -41,7 +42,7 @@ var (
 )
 
 // ParseSM2 parses the der data, returns private key and related certificate, it's CFCA private structure.
-// This methed is coresponding to CFCA SADK's cfca.sadk.asn1.pkcs.load.
+// This method is corresponding to CFCA SADK's cfca.sadk.asn1.pkcs.load.
 func ParseSM2(password, data []byte) (*sm2.PrivateKey, *smx509.Certificate, error) {
 	var keys cfcaKeyPairData
 	if _, err := asn1.Unmarshal(data, &keys); err != nil {
@@ -58,7 +59,7 @@ func ParseSM2(password, data []byte) (*sm2.PrivateKey, *smx509.Certificate, erro
 	}
 	pk, err := DecryptBySM4CBC(keys.EncryptedKey.EncryptedContent.Bytes, password)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cfca: failed to decrypt by SM4-CBC, please ensure the password is correct")
+		return nil, nil, fmt.Errorf("cfca: failed to decrypt by SM4-CBC, please ensure the password is correct: %v", err)
 	}
 	prvKey, err := sm2.NewPrivateKeyFromInt(new(big.Int).SetBytes(pk))
 	if err != nil {
@@ -76,7 +77,7 @@ func ParseSM2(password, data []byte) (*sm2.PrivateKey, *smx509.Certificate, erro
 }
 
 // MarshalSM2 encodes sm2 private key and related certificate to cfca defined format.
-// This methed is coresponding to CFCA SADK's cfca.sadk.asn1.pkcs.CombineSM2Data.
+// This method is corresponding to CFCA SADK's cfca.sadk.asn1.pkcs.CombineSM2Data.
 func MarshalSM2(password []byte, key *sm2.PrivateKey, cert *smx509.Certificate) ([]byte, error) {
 	var err error
 	var ciphertext []byte
