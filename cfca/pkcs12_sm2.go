@@ -58,7 +58,7 @@ func ParseSM2(password, data []byte) (*sm2.PrivateKey, *smx509.Certificate, erro
 	}
 	pk, err := DecryptBySM4CBC(keys.EncryptedKey.EncryptedContent.Bytes, password)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("cfca: failed to decrypt by SM4-CBC, please ensure the password is correct")
 	}
 	prvKey, err := sm2.NewPrivateKeyFromInt(new(big.Int).SetBytes(pk))
 	if err != nil {

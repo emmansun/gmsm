@@ -108,4 +108,4 @@ SADK 3.2之后的版本，支持下列SM2密文格式(encryptedType)：
 使用`cfca.ParseEscrowPrivateKey`解析CFCA返回的加密用私钥。
 
 ### SM2私钥、证书的解析
-这个是CFCA自定义的，未见相关标准，可以通过```cfca.ParseSM2```来解析。
+这个是CFCA自定义的，未见相关标准，可以通过```cfca.ParseSM2```来解析。```cfca.ParseSM2```函数只接受**DER**编码的二进制数据，如果你的数据是**base64**编码的，请先自行解码。
