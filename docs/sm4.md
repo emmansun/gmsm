@@ -6,15 +6,15 @@
 您可以从[国家标准全文公开系统](https://openstd.samr.gov.cn/)在线阅读这些标准。
 
 ## 概述
-SM4分组密码算法，其地位类似NIST中的AES分组密码算法，密钥长度128位（16字节），分组大小也是128位（16字节）。在本软件库中，SM4的实现与Go语言中的AES实现一致，也实现了```cipher.Block```接口，所以，所有Go语言中实现的工作模式（CBC/GCM/CFB/OFB/CTR），都能与SM4组合使用。
+SM4分组密码算法，其地位类似NIST中的AES分组密码算法，密钥长度128位（16字节），分组大小也是128位（16字节）。在本软件库中，SM4的实现与Go语言中的AES实现一致，也实现了`cipher.Block`接口，所以，所有Go语言中实现的工作模式（CBC/GCM/CFB/OFB/CTR），都能与SM4组合使用。
 
 ## [工作模式](https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation)
 Go语言实现的工作模式，主要有三类：
-* 基于分组的工作模式 ```cipher.BlockMode```，譬如CBC。
-* 带有关联数据的认证加密工作模式```cipher.AEAD```，譬如GCM。
-* 流加密工作模式```cipher.Stream```，譬如CTR、CFB、OFB。
+* 基于分组的工作模式 `cipher.BlockMode`，譬如CBC。
+* 带有关联数据的认证加密工作模式`cipher.AEAD`，譬如GCM。
+* 流加密工作模式`cipher.Stream`，譬如CTR、CFB、OFB。
 
-在实际加解密操作中，我们一般不会直接使用```cipher.Block```，必须结合分组密码算法的工作模式使用。除了Go语言自带的工作模式（CBC/GCM/CFB/OFB/CTR），本软件库也实现了下列工作模式：
+在实际加解密操作中，我们一般不会直接使用`cipher.Block`，必须结合分组密码算法的工作模式使用。除了Go语言自带的工作模式（CBC/GCM/CFB/OFB/CTR），本软件库也实现了下列工作模式：
 * ECB - 电码本模式
 * BC - 分组链接模式
 * HCTR - 带泛杂凑函数的计数器模式
@@ -34,14 +34,14 @@ Go语言实现的工作模式，主要有三类：
 
 
 ## 填充（padding）
-有些分组密码算法的工作模式（譬如实现了```cipher.BlockMode```接口的模式）的输入要求是其长度必须是分组大小的整数倍。《GB/T 17964-2021 信息安全技术 分组密码算法的工作模式》附录C中列出了以下几种填充模式：
-* 填充方式 1，对应本软件库的```padding.NewPKCS7Padding```
-* 填充方式 2，对应本软件库的```padding.NewISO9797M2Padding```
+有些分组密码算法的工作模式（譬如实现了`cipher.BlockMode`接口的模式）的输入要求是其长度必须是分组大小的整数倍。《GB/T 17964-2021 信息安全技术 分组密码算法的工作模式》附录C中列出了以下几种填充模式：
+* 填充方式 1，对应本软件库的`padding.NewPKCS7Padding`
+* 填充方式 2，对应本软件库的`padding.NewISO9797M2Padding`
 * 填充方式 3，目前没有实现，它对应ISO/IEC_9797-1 padding method 3
 
-本软件库也实现了ANSI X9.23标准中定义的填充方式```padding.NewANSIX923Padding```，**用的最广的还是填充方式 1：PKCS7填充**。
+本软件库也实现了ANSI X9.23标准中定义的填充方式`padding.NewANSIX923Padding`，**用的最广的还是填充方式 1：PKCS7填充**。
 
-您如果使用实现了```cipher.BlockMode```接口的分组加密工作模式，那您也必须与相关方协调好填充模式。JAVA库的对称加密算法字符串名就包含了所有信息，譬如**AES/CBC/PKCS7Padding**。
+您如果使用实现了`cipher.BlockMode`接口的分组加密工作模式，那您也必须与相关方协调好填充模式。JAVA库的对称加密算法字符串名就包含了所有信息，譬如**AES/CBC/PKCS7Padding**。
 
 ## 密文及其相关参数的传输和存储
 如果是自描述的，那肯定有相关标准，定义相关ASN.1结构，并且给分组密码算法、工作模式、填充方式都赋予一个OID。或者如hashicorp vault，一个对称密钥确定了分组密码算法、工作模式、填充方式，最终输出密文是密钥ID和原始密文的组合。
@@ -195,9 +195,9 @@ func Example_decryptCBC() {
 }
 ```
 
-需要注意一下，```cipher.AEAD```对```dst```参数的要求：
+需要注意一下，`cipher.AEAD`对`dst`参数的要求：
 
-```cipher.AEAD```是**追加**结果，所以如果要重用切片，要注意一下。而且```Seal```的结果要比plaintext长（加上tag），所以只有```cap(plaintext)>=len(plaintext)+tagSize```时才会重用，否则还是会新建一个切片。
+`cipher.AEAD`是**追加**结果，所以如果要重用切片，要注意一下。而且`Seal`的结果要比plaintext长（加上tag），所以只有`cap(plaintext)>=len(plaintext)+tagSize`时才会重用，否则还是会新建一个切片。
 ```go
 // AEAD is a cipher mode providing authenticated encryption with associated
 // data. For a description of the methodology, see
@@ -234,7 +234,7 @@ type AEAD interface {
 	Open(dst, nonce, ciphertext, additionalData []byte) ([]byte, error)
 }
 ```
-而```cipher.BlockMode```和```cipher.Stream```的话，则是直接覆盖。
+而`cipher.BlockMode`和`cipher.Stream`的话，则是直接覆盖。
 
 ## 性能
 SM4分组密码算法的软件高效实现，不算CPU指令支持的话，已知有如下几种方法：
@@ -247,7 +247,7 @@ SM4分组密码算法的软件高效实现，不算CPU指令支持的话，已�
 当然，这些与有CPU指令支持的AES算法相比，性能差距依然偏大，要是工作模式不支持并行，差距就更巨大了。
 
 ### 混合方式
-从**v0.25.0**开始，AMD64/ARM64 支持AES-NI的CPU架构下，**默认会使用混合方式**，即```cipher.Block```的方法会用纯Go语言实现，而对于可以并行的加解密模式，则还是会尽量采用AES-NI和SIMD并行处理。您可以通过环境变量```FORCE_SM4BLOCK_AESNI=1```来强制都使用AES-NI实现（和v0.25.0之前版本的行为一样）。请参考[SM4: 单block的性能问题](https://github.com/emmansun/gmsm/discussions/172)。
+从**v0.25.0**开始，AMD64/ARM64 支持AES-NI的CPU架构下，**默认会使用混合方式**，即`cipher.Block`的方法会用纯Go语言实现，而对于可以并行的加解密模式，则还是会尽量采用AES-NI和SIMD并行处理。您可以通过环境变量`FORCE_SM4BLOCK_AESNI=1`来强制都使用AES-NI实现（和v0.25.0之前版本的行为一样）。请参考[SM4: 单block的性能问题](https://github.com/emmansun/gmsm/discussions/172)。
 
 **注意**：目前的纯Golang SM4实现（查表实现）是以可变时间运行的！
 

@@ -22,7 +22,7 @@
 #### 主要方法
 （是否国密是指OID也使用国密体系）
 
-| 是否国密 | 加密 | 解密（先调用```Parse```） |  
+| 是否国密 | 加密 | 解密（先调用`Parse`） |  
 | :--- | :--- | :--- |  
 | 否 | Encrypt | Decrypt |  
 | 否 | EncryptUsingPSK | DecryptUsingPSK |  
@@ -30,12 +30,12 @@
 | 是 | EncryptCFCA | DecryptCFCA |  
 | 是 | EncryptSMUsingPSK | DecryptUsingPSK |  
 
-关于```EncryptSM / EncryptCFCA```的区别，请参考**CFCA互操作性指南**。  
+关于`EncryptSM / EncryptCFCA`的区别，请参考**CFCA互操作性指南**。  
 带PSK（Pre-shared key）后缀的方法，其对称加密密钥由调用者提供，而非随机生成。
 
 ### 加密数据（Encrypted Data）
-加密：对应本项目的```pkcs7.EncryptUsingPSK```和```pkcs7.EncryptSMUsingPSK```方法。  
-解密：对应本项目的```pkcs7.DecryptUsingPSK```方法（当然要先调用```pkcs7.Parse```）。
+加密：对应本项目的`pkcs7.EncryptUsingPSK`和`pkcs7.EncryptSMUsingPSK`方法。  
+解密：对应本项目的`pkcs7.DecryptUsingPSK`方法（当然要先调用`pkcs7.Parse`）。
 
 ### 签名数据（Signed Data）
 签名数据，使用证书对应的私钥进行签名，理论上支持多个签名者，但通常使用场景都是单签。和数字信封数据类似，也分国密和非国密。
@@ -46,15 +46,15 @@
 
 | 是否国密 | 数据是否是哈希值 | 方法 | 默认签名算法 |    
 | :--- | :--- | :--- | :--- |
-| 否 | 否 | ```NewSignedData``` | SHA1 |  
-| 否 | 是 | ```NewSignedDataWithDigest``` | SHA1 |  
-| 是 | 否 | ```NewSMSignedData``` | SM3 |  
-| 是 | 是 | ```NewSMSignedDataWithDigest``` | SM3 |  
+| 否 | 否 | `NewSignedData` | SHA1 |  
+| 否 | 是 | `NewSignedDataWithDigest` | SHA1 |  
+| 是 | 否 | `NewSMSignedData` | SM3 |  
+| 是 | 是 | `NewSMSignedDataWithDigest` | SM3 |  
 
-2. 可选步骤：调用```SetDigestAlgorithm```设置想要的签名算法，通常国密**不需要**修改。    
-3. 接着调用```AddSigner```或```AddSignerChain```方法，进行签名；可以通过```SignerInfoConfig.SkipCertificates```指定忽略证书项（最终签名数据中不包含证书项）；  
-4. 如果进行Detach签名，则调用```Detach```方法；  
-5. 最后调用```Finish```方法，序列化输出结果。  
+2. 可选步骤：调用`SetDigestAlgorithm`设置想要的签名算法，通常国密**不需要**修改。    
+3. 接着调用`AddSigner`或`AddSignerChain`方法，进行签名；可以通过`SignerInfoConfig.SkipCertificates`指定忽略证书项（最终签名数据中不包含证书项）；  
+4. 如果进行Detach签名，则调用`Detach`方法；  
+5. 最后调用`Finish`方法，序列化输出结果。  
 
 **注意**：
 1. 如果是直接对哈希值签名，一定是Detach签名。
@@ -90,17 +90,17 @@ if err := p7.VerifyWithChain(truststore); err != nil {
 
 #### 验证签名
 而验证的话，流程如下：
-1. 调用```Parse```方法；
-2. 如果是Detach签名数据，则手动设置原始数据（参考```testSign```方法）；
-3. 如果签名数据中不包含证书项，则手动设置验签证书（参考```TestSkipCertificates```）；
-4. 如果Content是原始数据，调用```Verify```或```VerifyWithChain```方法；如果Content是哈希值，调用```VerifyAsDigest```或```VerifyAsDigestWithChain```方法。
+1. 调用`Parse`方法；
+2. 如果是Detach签名数据，则手动设置原始数据（参考`testSign`方法）；
+3. 如果签名数据中不包含证书项，则手动设置验签证书（参考`TestSkipCertificates`）；
+4. 如果Content是原始数据，调用`Verify`或`VerifyWithChain`方法；如果Content是哈希值，调用`VerifyAsDigest`或`VerifyAsDigestWithChain`方法。
 
 #### 特殊方法
-```DegenerateCertificate```，退化成签名数据中只包含证书，目前没有使用SM2 OID的方法，如果需要可以请求添加。可以参考```TestDegenerateCertificate```和```TestParseSM2CertificateChain```。
+`DegenerateCertificate`，退化成签名数据中只包含证书，目前没有使用SM2 OID的方法，如果需要可以请求添加。可以参考`TestDegenerateCertificate`和`TestParseSM2CertificateChain`。
 
 
 ### 签名及数字信封数据（Signed and Enveloped Data）
-签名和数字信封数据，使用场景较少，有些实现用它来传输私钥（譬如www.gmcert.org）。具体请参考```sign_enveloped_test.go```。
+签名和数字信封数据，使用场景较少，有些实现用它来传输私钥（譬如www.gmcert.org）。具体请参考`sign_enveloped_test.go`。
 
 The "signed and enveloped data" content type is a part of the Cryptographic Message Syntax (CMS), which is used in various Internet Standards. However, it's not recommended for use due to several reasons:
 
@@ -113,11 +113,11 @@ The "signed and enveloped data" content type is a part of the Cryptographic Mess
 Instead of using the "signed and enveloped data" content type, it's generally recommended to use separate "signed data" and "enveloped data" content types. This allows the operations to be performed in the order that best suits the application's needs, and also simplifies the implementation.
 
 #### 加密签名流程
-1. 调用```NewSignedAndEnvelopedData```或者```NewSMSignedAndEnvelopedData```创建```SignedAndEnvelopedData```数据结构，此过程包含了数据加密过程；
-2. 调用```AddSigner```或```AddSignerChain```方法，进行签名；
-3. 调用```AddRecipient```方法，用Recipient的公钥加密数据密钥；
-4. 最后调用```Finish```方法，序列化输出结果。  
+1. 调用`NewSignedAndEnvelopedData`或者`NewSMSignedAndEnvelopedData`创建`SignedAndEnvelopedData`数据结构，此过程包含了数据加密过程；
+2. 调用`AddSigner`或`AddSignerChain`方法，进行签名；
+3. 调用`AddRecipient`方法，用Recipient的公钥加密数据密钥；
+4. 最后调用`Finish`方法，序列化输出结果。  
 
 #### 解密验签流程
-1. 调用```Parse```方法；
-2. 调用```DecryptAndVerify```或者```DecryptAndVerifyOnlyOne```进行解密和验签。
+1. 调用`Parse`方法；
+2. 调用`DecryptAndVerify`或者`DecryptAndVerifyOnlyOne`进行解密和验签。
