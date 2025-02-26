@@ -17,9 +17,7 @@ func (pad ansiX923Padding) Pad(src []byte) []byte {
 	overhead := pad.BlockSize() - len(src)%pad.BlockSize()
 	ret, out := alias.SliceForAppend(src, overhead)
 	out[overhead-1] = byte(overhead)
-	for i := 0; i < overhead-1; i++ {
-		out[i] = 0
-	}
+	clear(out[:overhead-1])
 	return ret
 }
 

@@ -21,9 +21,7 @@ func (pad iso9797M2Padding) Pad(src []byte) []byte {
 	overhead := pad.BlockSize() - len(src)%pad.BlockSize()
 	ret, out := alias.SliceForAppend(src, overhead)
 	out[0] = 0x80
-	for i := 1; i < overhead; i++ {
-		out[i] = 0
-	}
+	clear(out[1:overhead])
 	return ret
 }
 
