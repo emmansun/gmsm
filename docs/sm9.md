@@ -324,3 +324,6 @@ SM9公钥加密算法支持多种对称加密算法，不像SM2公钥加密算�
 
 ## 密钥交换
 在这里不详细介绍使用方法，一般只有tls/tlcp才会用到，普通应用通常不会涉及这一块，请参考[API Document](https://godoc.org/github.com/emmansun/gmsm)。
+
+## 性能
+参考[SM9实现及优化](https://github.com/emmansun/gmsm/wiki/SM9%E5%AE%9E%E7%8E%B0%E5%8F%8A%E4%BC%98%E5%8C%96)。

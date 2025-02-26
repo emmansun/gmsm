@@ -4,6 +4,8 @@ package cpuid
 
 import "golang.org/x/sys/cpu"
 
-var HasAES = cpu.ARM64.HasAES
-var HasGFMUL = cpu.ARM64.HasPMULL
-var HasVPMSUMD = false
+var (
+	HasAES = cpu.ARM64.HasAES
+	HasGFMUL = cpu.ARM64.HasPMULL
+	HasVPMSUMD = false
+)

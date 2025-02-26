@@ -6,6 +6,8 @@ package cpuid
 // to detect their supported state dynamically. Assume the CPU features that
 // Apple Silicon M1 supports to be available as a minimal set of features
 // to all Go programs running on darwin/arm64.
-var HasAES = true
-var HasGFMUL = true
-var HasVPMSUMD = false
+var (
+	HasAES = true
+	HasGFMUL = true
+	HasVPMSUMD = false
+)

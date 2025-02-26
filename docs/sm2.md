@@ -272,29 +272,26 @@ func ExamplePrivateKey_Decrypt() {
 我没有找到到哪个文档写有固定64字节转换的。从国家密码管理局2010年版的《SM2椭圆曲线公钥密码算法》，到2012年的GM/T 0003-2012 SM2椭圆曲线公钥密码算法，再到GB/T 32918-2016 信息安全技术 SM2椭圆曲线公钥密码算法，都在第一部分第四章的“点到字节串的转换”有详细说明。这也符合《SEC 1: Elliptic Curve Cryptography》（May 21, 2009 Version 2.0）中2.3.3  Elliptic-Curve-Point-to-Octet-String Conversion的描述。
 
 #### 来自AI的问答
-**问: Why some crypto implementations of EC point to octet string conversion without form indicator?**  
-**答：** In Elliptic Curve Cryptography (ECC), the conversion of an elliptic curve point to an octet string can be done in several ways, typically either in compressed or uncompressed form. The form indicator (also known as the prefix) is used to denote whether the point is represented in its compressed or uncompressed form.
+**问: 为什么一些crypto实现中，椭圆曲线点转换为八位字节串时没有使用格式指示符？**  
+**答：** 在椭圆曲线密码学（ECC）中，椭圆曲线点转换为八位字节串的方法有多种，通常可以是压缩形式或未压缩形式。格式指示符（也称为前缀）用于表示该点是以压缩形式还是未压缩形式表示。
 
-However, some implementations might choose to omit the form indicator for a few reasons:
+然而，一些实现可能会出于几个原因选择省略格式指示符：
 
-1. **Simplicity**: Omitting the form indicator simplifies the implementation, as there's no need to handle different forms of point representation.
+1. **简洁性**：省略格式指示符可以简化实现过程，因为不需要处理不同形式的点表示。
+2. **预设知识**：如果事先知道所有点都将处于某种特定形式（例如，所有点总是未压缩的），则可能会认为格式指示符是不必要的。
+3. **兼容性**：并非所有系统或库都支持两种形式的点表示。为了确保最大兼容性，实现可能会选择始终使用一种形式，从而省略格式指示符。
+4. **安全性**：在某些情况下，为了防止依赖于点形式的某些类型的攻击，可能会省略格式指示符。
 
-2. **Assumed Knowledge**: If it's known in advance that all points will be in a certain form (e.g., all points are always uncompressed), the form indicator might be deemed unnecessary.
+请注意，这些是通用原因，具体原因可能会根据确切的上下文以及使用的特定密码协议或系统而有所不同。
 
-3. **Compatibility**: Not all systems or libraries support both forms of point representation. To ensure maximum compatibility, an implementation might choose to always use one form and thus omit the form indicator.
+**问：这不会引起互操作性问题吗？**  
+**答：** 是的，你说得对。在将椭圆曲线点转换为八位字节串时省略格式指示符，确实可能导致互操作性问题。
 
-4. **Security**: In some cases, to prevent certain types of attacks that rely on the form of the point, the form indicator might be omitted.
+当系统需要互操作时，它们必须就数据交换的通用格式达成一致。如果一个系统在编码椭圆曲线点时没有使用格式指示符，而另一个系统期望格式指示符存在，它们将无法正确解释彼此的数据。
 
-Please note that these are general reasons and the specific reason can vary depending on the exact context and the specific cryptographic protocol or system in use.
+这就是为什么像SEC（高效密码学标准）这样的标准会指定使用格式指示符。例如，SEC 1标准指定未压缩点的格式指示符应为0x04，压缩点的格式指示符应为0x02或0x03。
 
-**问：Won't this cause interoperability issues?**  
-**答：** Yes, you're correct. Omitting the form indicator in the conversion of an elliptic curve point to an octet string can indeed cause interoperability issues.
-
-When systems need to interoperate, they must agree on a common format for data exchange. If one system encodes elliptic curve points without a form indicator and another system expects the form indicator to be present, they won't be able to correctly interpret each other's data.
-
-This is why standards like those defined by the SEC (Standards for Efficient Cryptography) specify the use of a form indicator. For example, the SEC 1 standard specifies that the form indicator should be 0x04 for uncompressed points and 0x02 or 0x03 for compressed points.
-
-So, while omitting the form indicator might simplify the implementation or provide other benefits within a closed system, it can hinder interoperability with other systems. It's generally best to follow established standards when encoding and decoding cryptographic data to ensure maximum compatibility.
+因此，虽然在封闭系统中省略格式指示符可能会简化实现或提供其他好处，但它可能会阻碍与其他系统的互操作性。在编码和解码密码数据时，通常最好遵循已建立的标准，以确保最大的兼容性。
 
 ### 性能
 从**v0.27.0**开始，对大数据量的加解密做了优化处理，尤其是KDF并行计算。详情请参考[SM2加解密性能](https://github.com/emmansun/gmsm/wiki/SM2%E5%8A%A0%E8%A7%A3%E5%AF%86%E6%80%A7%E8%83%BD)。

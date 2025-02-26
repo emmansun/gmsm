@@ -2,6 +2,8 @@
 
 package cpuid
 
-var HasAES = true
-var HasGFMUL = false
-var HasVPMSUMD = true
+var (
+	HasAES = true
+	HasGFMUL = false
+	HasVPMSUMD = true
+)
