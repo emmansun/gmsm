@@ -33,17 +33,11 @@ func (x *ecb) validate(dst, src []byte) {
 }
 
 func (b *sm4CipherAsm) NewECBEncrypter() cipher.BlockMode {
-	var c ecb
-	c.b = b
-	c.enc = ecbEncrypt
-	return &c
+	return &ecb{b: b, enc: ecbEncrypt}
 }
 
 func (b *sm4CipherAsm) NewECBDecrypter() cipher.BlockMode {
-	var c ecb
-	c.b = b
-	c.enc = ecbDecrypt
-	return &c
+	return &ecb{b: b, enc: ecbDecrypt}
 }
 
 func (x *ecb) BlockSize() int { return BlockSize }

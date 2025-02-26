@@ -3,6 +3,7 @@
 package sm4
 
 import (
+	"bytes"
 	"crypto/cipher"
 
 	"github.com/emmansun/gmsm/internal/alias"
@@ -33,11 +34,10 @@ func (c *sm4CipherAsm) NewCTR(iv []byte) cipher.Stream {
 	}
 	s := &ctr{
 		b:       c,
-		ctr:     make([]byte, c.blocksSize),
+		ctr:     bytes.Clone(iv),
 		out:     make([]byte, 0, bufSize),
 		outUsed: 0,
 	}
-	copy(s.ctr, iv)
 	for i := 1; i < c.batchBlocks; i++ {
 		s.genCtr(i * BlockSize)
 	}

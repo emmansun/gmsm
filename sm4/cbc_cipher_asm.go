@@ -3,6 +3,7 @@
 package sm4
 
 import (
+	"bytes"
 	"crypto/cipher"
 
 	"github.com/emmansun/gmsm/internal/alias"
@@ -23,21 +24,19 @@ type cbc struct {
 }
 
 func (b *sm4CipherAsm) NewCBCEncrypter(iv []byte) cipher.BlockMode {
-	var c cbc
-	c.b = b
-	c.enc = cbcEncrypt
-	c.iv = make([]byte, BlockSize)
-	copy(c.iv, iv)
-	return &c
+	return &cbc{
+		b:   b,
+		iv:  bytes.Clone(iv),
+		enc: cbcEncrypt,
+	}
 }
 
 func (b *sm4CipherAsm) NewCBCDecrypter(iv []byte) cipher.BlockMode {
-	var c cbc
-	c.b = b
-	c.enc = cbcDecrypt
-	c.iv = make([]byte, BlockSize)
-	copy(c.iv, iv)
-	return &c
+	return &cbc{
+		b:   b,
+		iv:  bytes.Clone(iv),
+		enc: cbcDecrypt,
+	}
 }
 
 func (x *cbc) BlockSize() int { return BlockSize }

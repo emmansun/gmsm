@@ -135,9 +135,7 @@ func (g *gcmNI) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 	gcmSm4Finish(&g.bytesProductTable, &tagMask, &expectedTag, uint64(len(ciphertext)), uint64(len(data)))
 
 	if subtle.ConstantTimeCompare(expectedTag[:g.tagSize], tag) != 1 {
-		for i := range out {
-			out[i] = 0
-		}
+		clear(out)
 		return nil, errOpen
 	}
 	return ret, nil

@@ -237,10 +237,7 @@ func (g *gcmAsm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 	}
 
 	if _subtle.ConstantTimeCompare(expectedTag[:g.tagSize], tag) != 1 {
-		// clear(out)
-		for i := range out {
-			out[i] = 0
-		}
+		clear(out)
 		return nil, errOpen
 	}
 
