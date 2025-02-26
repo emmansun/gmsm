@@ -34,16 +34,17 @@ func (c *sm4CipherAsm) NewCTR(iv []byte) cipher.Stream {
 	}
 	s := &ctr{
 		b:       c,
-		ctr:     bytes.Clone(iv),
+		ctr:     make([]byte, c.blocksSize),
 		out:     make([]byte, 0, bufSize),
 		outUsed: 0,
 	}
+	copy(s.ctr, iv)
 	for i := 1; i < c.batchBlocks; i++ {
 		s.genCtr(i * BlockSize)
 	}
 	return s
-
 }
+
 
 func (x *ctr) genCtr(start int) {
 	if start >= BlockSize {
