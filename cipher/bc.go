@@ -3,6 +3,7 @@
 package cipher
 
 import (
+	"bytes"
 	_cipher "crypto/cipher"
 
 	"github.com/emmansun/gmsm/internal/subtle"
@@ -15,13 +16,11 @@ type bc struct {
 }
 
 func newBC(b _cipher.Block, iv []byte) *bc {
-	c := &bc{
+	return &bc{
 		b:         b,
 		blockSize: b.BlockSize(),
-		iv:        make([]byte, b.BlockSize()),
+		iv:        bytes.Clone(iv),
 	}
-	copy(c.iv, iv)
-	return c
 }
 
 type bcEncrypter bc

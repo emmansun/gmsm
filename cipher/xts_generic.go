@@ -8,7 +8,7 @@ func mul2(tweak *[blockSize]byte, isGB bool) {
 
 func doubleTweaks(tweak *[blockSize]byte, tweaks []byte, isGB bool) {
 	count := len(tweaks) >> 4
-	for i := 0; i < count; i++ {
+	for i := range count {
 		copy(tweaks[blockSize*i:], tweak[:])
 		mul2(tweak, isGB)
 	}

@@ -239,9 +239,7 @@ func (c *ccm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 		// so overwrites dst in the event of a tag mismatch. That
 		// behavior is mimicked here in order to be consistent across
 		// platforms.
-		for i := range out {
-			out[i] = 0
-		}
+		clear(out)
 		return nil, errOpen
 	}
 	return ret, nil

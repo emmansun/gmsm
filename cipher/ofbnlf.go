@@ -4,6 +4,7 @@
 package cipher
 
 import (
+	"bytes"
 	_cipher "crypto/cipher"
 	"errors"
 )
@@ -28,8 +29,8 @@ func newOFBNLF(cipherFunc CipherCreator, key, iv []byte) (*ofbnlf, error) {
 	if len(iv) != c.blockSize {
 		return nil, errors.New("cipher: IV length must equal block size")
 	}
-	c.iv = make([]byte, c.blockSize)
-	copy(c.iv, iv)
+	c.iv = bytes.Clone(iv)
+	
 	return c, nil
 }
 
