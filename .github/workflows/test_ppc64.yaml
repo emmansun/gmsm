@@ -14,7 +14,7 @@ jobs:
   test:
     strategy:
       matrix:
-        go-version: [1.19.x]
+        go-version: [1.23.x]
         arch: [ppc64le]
         ppc64: [power8]
     runs-on: ubuntu-latest
