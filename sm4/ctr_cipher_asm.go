@@ -3,7 +3,6 @@
 package sm4
 
 import (
-	"bytes"
 	"crypto/cipher"
 
 	"github.com/emmansun/gmsm/internal/alias"
