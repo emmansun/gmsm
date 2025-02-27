@@ -7,6 +7,7 @@ import (
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rsa"
+	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/pem"
@@ -160,6 +161,23 @@ func parseAI(der cryptobyte.String) (pkix.AlgorithmIdentifier, error) {
 	ai.Parameters.Tag = int(tag)
 	ai.Parameters.FullBytes = params
 	return ai, nil
+}
+
+func parseTime(der *cryptobyte.String) (time.Time, error) {
+	var t time.Time
+	switch {
+	case der.PeekASN1Tag(cryptobyte_asn1.UTCTime):
+		if !der.ReadASN1UTCTime(&t) {
+			return t, errors.New("x509: malformed UTCTime")
+		}
+	case der.PeekASN1Tag(cryptobyte_asn1.GeneralizedTime):
+		if !der.ReadASN1GeneralizedTime(&t) {
+			return t, errors.New("x509: malformed GeneralizedTime")
+		}
+	default:
+		return t, errors.New("x509: unsupported time format")
+	}
+	return t, nil
 }
 
 func parseValidity(der cryptobyte.String) (time.Time, time.Time, error) {
@@ -455,6 +473,26 @@ func parseSANExtension(der cryptobyte.String) (dnsNames, emailAddresses []string
 	})
 
 	return
+}
+
+func parseAuthorityKeyIdentifier(e pkix.Extension) ([]byte, error) {
+	// RFC 5280, Section 4.2.1.1
+	if e.Critical {
+		// Conforming CAs MUST mark this extension as non-critical
+		return nil, errors.New("x509: authority key identifier incorrectly marked critical")
+	}
+	val := cryptobyte.String(e.Value)
+	var akid cryptobyte.String
+	if !val.ReadASN1(&akid, cryptobyte_asn1.SEQUENCE) {
+		return nil, errors.New("x509: invalid authority key identifier")
+	}
+	if akid.PeekASN1Tag(cryptobyte_asn1.Tag(0).ContextSpecific()) {
+		if !akid.ReadASN1(&akid, cryptobyte_asn1.Tag(0).ContextSpecific()) {
+			return nil, errors.New("x509: invalid authority key identifier")
+		}
+		return akid, nil
+	}
+	return nil, nil
 }
 
 func parseExtKeyUsageExtension(der cryptobyte.String) ([]ExtKeyUsage, []asn1.ObjectIdentifier, error) {
@@ -768,7 +806,7 @@ func processExtensions(out *Certificate) error {
 				if e.Critical {
 					// Conforming CAs MUST mark this extension as non-critical
 					return errors.New("x509: authority key identifier incorrectly marked critical")
-				}				
+				}
 				val := cryptobyte.String(e.Value)
 				var akid cryptobyte.String
 				if !val.ReadASN1(&akid, cryptobyte_asn1.SEQUENCE) {
@@ -790,7 +828,7 @@ func processExtensions(out *Certificate) error {
 				if e.Critical {
 					// Conforming CAs MUST mark this extension as non-critical
 					return errors.New("x509: subject key identifier incorrectly marked critical")
-				}				
+				}
 				val := cryptobyte.String(e.Value)
 				var skid cryptobyte.String
 				if !val.ReadASN1(&skid, cryptobyte_asn1.OCTET_STRING) {
@@ -811,7 +849,7 @@ func processExtensions(out *Certificate) error {
 			if e.Critical {
 				// Conforming CAs MUST mark this extension as non-critical
 				return errors.New("x509: authority info access incorrectly marked critical")
-			}			
+			}
 			val := cryptobyte.String(e.Value)
 			if !val.ReadASN1(&val, cryptobyte_asn1.SEQUENCE) {
 				return errors.New("x509: invalid authority info access")
@@ -1067,4 +1105,192 @@ func ParseCertificatePEM(data []byte) (*Certificate, error) {
 		return nil, errors.New("x509: failed to decode PEM block containing certificate")
 	}
 	return ParseCertificate(block.Bytes)
+}
+
+// The X.509 standards confusingly 1-indexed the version names, but 0-indexed
+// the actual encoded version, so the version for X.509v2 is 1.
+const x509v2Version = 1
+
+// ParseRevocationList parses a X509 v2 [Certificate] Revocation List from the given
+// ASN.1 DER data.
+func ParseRevocationList(der []byte) (*RevocationList, error) {
+	rl := &RevocationList{}
+
+	input := cryptobyte.String(der)
+	// we read the SEQUENCE including length and tag bytes so that
+	// we can populate RevocationList.Raw, before unwrapping the
+	// SEQUENCE so it can be operated on
+	if !input.ReadASN1Element(&input, cryptobyte_asn1.SEQUENCE) {
+		return nil, errors.New("x509: malformed crl")
+	}
+	rl.Raw = input
+	if !input.ReadASN1(&input, cryptobyte_asn1.SEQUENCE) {
+		return nil, errors.New("x509: malformed crl")
+	}
+
+	var tbs cryptobyte.String
+	// do the same trick again as above to extract the raw
+	// bytes for Certificate.RawTBSCertificate
+	if !input.ReadASN1Element(&tbs, cryptobyte_asn1.SEQUENCE) {
+		return nil, errors.New("x509: malformed tbs crl")
+	}
+	rl.RawTBSRevocationList = tbs
+	if !tbs.ReadASN1(&tbs, cryptobyte_asn1.SEQUENCE) {
+		return nil, errors.New("x509: malformed tbs crl")
+	}
+
+	var version int
+	if !tbs.PeekASN1Tag(cryptobyte_asn1.INTEGER) {
+		return nil, errors.New("x509: unsupported crl version")
+	}
+	if !tbs.ReadASN1Integer(&version) {
+		return nil, errors.New("x509: malformed crl")
+	}
+	if version != x509v2Version {
+		return nil, fmt.Errorf("x509: unsupported crl version: %d", version)
+	}
+
+	var sigAISeq cryptobyte.String
+	if !tbs.ReadASN1(&sigAISeq, cryptobyte_asn1.SEQUENCE) {
+		return nil, errors.New("x509: malformed signature algorithm identifier")
+	}
+	// Before parsing the inner algorithm identifier, extract
+	// the outer algorithm identifier and make sure that they
+	// match.
+	var outerSigAISeq cryptobyte.String
+	if !input.ReadASN1(&outerSigAISeq, cryptobyte_asn1.SEQUENCE) {
+		return nil, errors.New("x509: malformed algorithm identifier")
+	}
+	if !bytes.Equal(outerSigAISeq, sigAISeq) {
+		return nil, errors.New("x509: inner and outer signature algorithm identifiers don't match")
+	}
+	sigAI, err := parseAI(sigAISeq)
+	if err != nil {
+		return nil, err
+	}
+	rl.SignatureAlgorithm = getSignatureAlgorithmFromAI(sigAI)
+
+	var signature asn1.BitString
+	if !input.ReadASN1BitString(&signature) {
+		return nil, errors.New("x509: malformed signature")
+	}
+	rl.Signature = signature.RightAlign()
+
+	var issuerSeq cryptobyte.String
+	if !tbs.ReadASN1Element(&issuerSeq, cryptobyte_asn1.SEQUENCE) {
+		return nil, errors.New("x509: malformed issuer")
+	}
+	rl.RawIssuer = issuerSeq
+	issuerRDNs, err := ParseName(issuerSeq)
+	if err != nil {
+		return nil, err
+	}
+	rl.Issuer.FillFromRDNSequence(issuerRDNs)
+
+	rl.ThisUpdate, err = parseTime(&tbs)
+	if err != nil {
+		return nil, err
+	}
+	if tbs.PeekASN1Tag(cryptobyte_asn1.GeneralizedTime) || tbs.PeekASN1Tag(cryptobyte_asn1.UTCTime) {
+		rl.NextUpdate, err = parseTime(&tbs)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if tbs.PeekASN1Tag(cryptobyte_asn1.SEQUENCE) {
+		var revokedSeq cryptobyte.String
+		if !tbs.ReadASN1(&revokedSeq, cryptobyte_asn1.SEQUENCE) {
+			return nil, errors.New("x509: malformed crl")
+		}
+		for !revokedSeq.Empty() {
+			rce := x509.RevocationListEntry{}
+
+			var certSeq cryptobyte.String
+			if !revokedSeq.ReadASN1Element(&certSeq, cryptobyte_asn1.SEQUENCE) {
+				return nil, errors.New("x509: malformed crl")
+			}
+			rce.Raw = certSeq
+			if !certSeq.ReadASN1(&certSeq, cryptobyte_asn1.SEQUENCE) {
+				return nil, errors.New("x509: malformed crl")
+			}
+
+			rce.SerialNumber = new(big.Int)
+			if !certSeq.ReadASN1Integer(rce.SerialNumber) {
+				return nil, errors.New("x509: malformed serial number")
+			}
+			rce.RevocationTime, err = parseTime(&certSeq)
+			if err != nil {
+				return nil, err
+			}
+			var extensions cryptobyte.String
+			var present bool
+			if !certSeq.ReadOptionalASN1(&extensions, &present, cryptobyte_asn1.SEQUENCE) {
+				return nil, errors.New("x509: malformed extensions")
+			}
+			if present {
+				for !extensions.Empty() {
+					var extension cryptobyte.String
+					if !extensions.ReadASN1(&extension, cryptobyte_asn1.SEQUENCE) {
+						return nil, errors.New("x509: malformed extension")
+					}
+					ext, err := parseExtension(extension)
+					if err != nil {
+						return nil, err
+					}
+					if ext.Id.Equal(oidExtensionReasonCode) {
+						val := cryptobyte.String(ext.Value)
+						if !val.ReadASN1Enum(&rce.ReasonCode) {
+							return nil, fmt.Errorf("x509: malformed reasonCode extension")
+						}
+					}
+					rce.Extensions = append(rce.Extensions, ext)
+				}
+			}
+
+			rl.RevokedCertificateEntries = append(rl.RevokedCertificateEntries, rce)
+			rcDeprecated := pkix.RevokedCertificate{
+				SerialNumber:   rce.SerialNumber,
+				RevocationTime: rce.RevocationTime,
+				Extensions:     rce.Extensions,
+			}
+			rl.RevokedCertificates = append(rl.RevokedCertificates, rcDeprecated)
+		}
+	}
+
+	var extensions cryptobyte.String
+	var present bool
+	if !tbs.ReadOptionalASN1(&extensions, &present, cryptobyte_asn1.Tag(0).Constructed().ContextSpecific()) {
+		return nil, errors.New("x509: malformed extensions")
+	}
+	if present {
+		if !extensions.ReadASN1(&extensions, cryptobyte_asn1.SEQUENCE) {
+			return nil, errors.New("x509: malformed extensions")
+		}
+		for !extensions.Empty() {
+			var extension cryptobyte.String
+			if !extensions.ReadASN1(&extension, cryptobyte_asn1.SEQUENCE) {
+				return nil, errors.New("x509: malformed extension")
+			}
+			ext, err := parseExtension(extension)
+			if err != nil {
+				return nil, err
+			}
+			if ext.Id.Equal(oidExtensionAuthorityKeyId) {
+				rl.AuthorityKeyId, err = parseAuthorityKeyIdentifier(ext)
+				if err != nil {
+					return nil, err
+				}
+			} else if ext.Id.Equal(oidExtensionCRLNumber) {
+				value := cryptobyte.String(ext.Value)
+				rl.Number = new(big.Int)
+				if !value.ReadASN1Integer(rl.Number) {
+					return nil, errors.New("x509: malformed crl number")
+				}
+			}
+			rl.Extensions = append(rl.Extensions, ext)
+		}
+	}
+
+	return rl, nil
 }

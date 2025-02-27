@@ -885,6 +885,7 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 }
 
 // CheckCRLSignature checks that the signature in crl is from c.
+// Deprecated: Use RevocationList.CheckSignatureFrom instead.
 func (c *Certificate) CheckCRLSignature(crl *pkix.CertificateList) error {
 	algo := getSignatureAlgorithmFromAI(crl.SignatureAlgorithm)
 	return c.CheckSignature(algo, crl.TBSCertList.Raw, crl.SignatureValue.RightAlign())
@@ -1641,11 +1642,15 @@ func toCertificate(in any) (*x509.Certificate, error) {
 // encoded CRLs will appear where they should be DER encoded, so this function
 // will transparently handle PEM encoding as long as there isn't any leading
 // garbage.
+//
+// Deprecated: Use [ParseRevocationList] instead.
 func ParseCRL(crlBytes []byte) (*pkix.CertificateList, error) {
 	return x509.ParseCRL(crlBytes)
 }
 
 // ParseDERCRL parses a DER encoded CRL from the given bytes.
+//
+// Deprecated: Use [ParseRevocationList] instead.
 func ParseDERCRL(derBytes []byte) (*pkix.CertificateList, error) {
 	return x509.ParseDERCRL(derBytes)
 }
@@ -1653,8 +1658,8 @@ func ParseDERCRL(derBytes []byte) (*pkix.CertificateList, error) {
 // CreateCRL returns a DER encoded CRL, signed by this Certificate, that
 // contains the given list of revoked certificates.
 //
-// Note: this method does not generate an RFC 5280 conformant X.509 v2 CRL.
-// To generate a standards compliant CRL, use CreateRevocationList instead.
+// Deprecated: this method does not generate an RFC 5280 conformant X.509 v2 CRL.
+// To generate a standards compliant CRL, use [CreateRevocationList] instead.
 func (c *Certificate) CreateCRL(rand io.Reader, priv any, revokedCerts []pkix.RevokedCertificate, now, expiry time.Time) (crlBytes []byte, err error) {
 	key, ok := priv.(crypto.Signer)
 	if !ok {
@@ -2064,6 +2069,16 @@ func (c *CertificateRequest) CheckSignature() error {
 	return checkSignature(c.SignatureAlgorithm, c.RawTBSCertificateRequest, c.Signature, c.PublicKey, true)
 }
 
+type RevocationList x509.RevocationList
+
+func (c *RevocationList) asX509() *x509.RevocationList {
+	return (*x509.RevocationList)(c)
+}
+
+func (c *RevocationList) ToX509() *x509.RevocationList {
+	return c.asX509()
+}
+
 // These structures reflect the ASN.1 structure of X.509 CRLs better than
 // the existing crypto/x509/pkix variants do. These mirror the existing
 // certificate structs in this file.
@@ -2125,69 +2140,62 @@ func CreateRevocationList(rand io.Reader, template *x509.RevocationList, issuer 
 	}
 
 	var revokedCerts []pkix.RevokedCertificate
-	revokedCerts = make([]pkix.RevokedCertificate, len(template.RevokedCertificates))
-	for i, rc := range template.RevokedCertificates {
-		rc.RevocationTime = rc.RevocationTime.UTC()
-		revokedCerts[i] = rc
-	}
-	/*
-		// Only process the deprecated RevokedCertificates field if it is populated
-		// and the new RevokedCertificateEntries field is not populated.
-		if len(template.RevokedCertificates) > 0 && len(template.RevokedCertificateEntries) == 0 {
-			// Force revocation times to UTC per RFC 5280.
-			revokedCerts = make([]pkix.RevokedCertificate, len(template.RevokedCertificates))
-			for i, rc := range template.RevokedCertificates {
-				rc.RevocationTime = rc.RevocationTime.UTC()
-				revokedCerts[i] = rc
-			}
-		} else {
-			// Convert the ReasonCode field to a proper extension, and force revocation
-			// times to UTC per RFC 5280.
-			revokedCerts = make([]pkix.RevokedCertificate, len(template.RevokedCertificateEntries))
-			for i, rce := range template.RevokedCertificateEntries {
-				if rce.SerialNumber == nil {
-					return nil, errors.New("x509: template contains entry with nil SerialNumber field")
-				}
-				if rce.RevocationTime.IsZero() {
-					return nil, errors.New("x509: template contains entry with zero RevocationTime field")
-				}
-
-				rc := pkix.RevokedCertificate{
-					SerialNumber:   rce.SerialNumber,
-					RevocationTime: rce.RevocationTime.UTC(),
-				}
-
-				// Copy over any extra extensions, except for a Reason Code extension,
-				// because we'll synthesize that ourselves to ensure it is correct.
-				exts := make([]pkix.Extension, 0, len(rce.ExtraExtensions))
-				for _, ext := range rce.ExtraExtensions {
-					if ext.Id.Equal(oidExtensionReasonCode) {
-						return nil, errors.New("x509: template contains entry with ReasonCode ExtraExtension; use ReasonCode field instead")
-					}
-					exts = append(exts, ext)
-				}
-
-				// Only add a reasonCode extension if the reason is non-zero, as per
-				// RFC 5280 Section 5.3.1.
-				if rce.ReasonCode != 0 {
-					reasonBytes, err := asn1.Marshal(asn1.Enumerated(rce.ReasonCode))
-					if err != nil {
-						return nil, err
-					}
-
-					exts = append(exts, pkix.Extension{
-						Id:    oidExtensionReasonCode,
-						Value: reasonBytes,
-					})
-				}
-
-				if len(exts) > 0 {
-					rc.Extensions = exts
-				}
-				revokedCerts[i] = rc
-			}
+	// Only process the deprecated RevokedCertificates field if it is populated
+	// and the new RevokedCertificateEntries field is not populated.
+	if len(template.RevokedCertificates) > 0 && len(template.RevokedCertificateEntries) == 0 {
+		// Force revocation times to UTC per RFC 5280.
+		revokedCerts = make([]pkix.RevokedCertificate, len(template.RevokedCertificates))
+		for i, rc := range template.RevokedCertificates {
+			rc.RevocationTime = rc.RevocationTime.UTC()
+			revokedCerts[i] = rc
 		}
-	*/
+	} else {
+		// Convert the ReasonCode field to a proper extension, and force revocation
+		// times to UTC per RFC 5280.
+		revokedCerts = make([]pkix.RevokedCertificate, len(template.RevokedCertificateEntries))
+		for i, rce := range template.RevokedCertificateEntries {
+			if rce.SerialNumber == nil {
+				return nil, errors.New("x509: template contains entry with nil SerialNumber field")
+			}
+			if rce.RevocationTime.IsZero() {
+				return nil, errors.New("x509: template contains entry with zero RevocationTime field")
+			}
+
+			rc := pkix.RevokedCertificate{
+				SerialNumber:   rce.SerialNumber,
+				RevocationTime: rce.RevocationTime.UTC(),
+			}
+
+			// Copy over any extra extensions, except for a Reason Code extension,
+			// because we'll synthesize that ourselves to ensure it is correct.
+			exts := make([]pkix.Extension, 0, len(rce.ExtraExtensions))
+			for _, ext := range rce.ExtraExtensions {
+				if ext.Id.Equal(oidExtensionReasonCode) {
+					return nil, errors.New("x509: template contains entry with ReasonCode ExtraExtension; use ReasonCode field instead")
+				}
+				exts = append(exts, ext)
+			}
+
+			// Only add a reasonCode extension if the reason is non-zero, as per
+			// RFC 5280 Section 5.3.1.
+			if rce.ReasonCode != 0 {
+				reasonBytes, err := asn1.Marshal(asn1.Enumerated(rce.ReasonCode))
+				if err != nil {
+					return nil, err
+				}
+
+				exts = append(exts, pkix.Extension{
+					Id:    oidExtensionReasonCode,
+					Value: reasonBytes,
+				})
+			}
+
+			if len(exts) > 0 {
+				rc.Extensions = exts
+			}
+			revokedCerts[i] = rc
+		}
+	}
 
 	aki, err := asn1.Marshal(authKeyId{Id: issuer.SubjectKeyId})
 	if err != nil {
@@ -2251,4 +2259,23 @@ func CreateRevocationList(rand io.Reader, template *x509.RevocationList, issuer 
 		SignatureAlgorithm: algorithmIdentifier,
 		SignatureValue:     asn1.BitString{Bytes: signature, BitLength: len(signature) * 8},
 	})
+}
+
+// CheckSignatureFrom verifies that the signature on rl is a valid signature
+// from issuer.
+func (rl *RevocationList) CheckSignatureFrom(parent *Certificate) error {
+	if parent.Version == 3 && !parent.BasicConstraintsValid ||
+		parent.BasicConstraintsValid && !parent.IsCA {
+		return x509.ConstraintViolationError{}
+	}
+
+	if parent.KeyUsage != 0 && parent.KeyUsage&KeyUsageCRLSign == 0 {
+		return x509.ConstraintViolationError{}
+	}
+
+	if parent.PublicKeyAlgorithm == UnknownPublicKeyAlgorithm {
+		return x509.ErrUnsupportedAlgorithm
+	}
+
+	return parent.CheckSignature(rl.SignatureAlgorithm, rl.RawTBSRevocationList, rl.Signature)
 }
