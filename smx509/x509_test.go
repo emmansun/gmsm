@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/dsa"
+	sdkecdh "crypto/ecdh"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
@@ -75,6 +76,13 @@ func TestParsePKIXPublicKey(t *testing.T) {
 			t.Errorf("Value returned from ParsePKIXPublicKey was not an Ed25519 public key")
 		}
 	})
+	t.Run("X25519", func(t *testing.T) {
+		pub := testParsePKIXPublicKey(t, pemX25519Key)
+		k, ok := pub.(*sdkecdh.PublicKey)
+		if !ok || k.Curve() != sdkecdh.X25519() {
+			t.Errorf("Value returned from ParsePKIXPublicKey was not an X25519 public key")
+		}
+	})
 }
 
 var pemPublicKey = `-----BEGIN PUBLIC KEY-----
@@ -110,6 +118,13 @@ wg/HcAJWY60xZTJDFN+Qfx8ZQvBEin6c2/h+zZi5IVY=
 var pemEd25519Key = `
 -----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=
+-----END PUBLIC KEY-----
+`
+
+// pemX25519Key was generated from pemX25519Key with "openssl pkey -pubout".
+var pemX25519Key = `
+-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VuAyEA5yGXrH/6OzxuWEhEWS01/f4OP+Of3Yrddy6/J1kDTVM=
 -----END PUBLIC KEY-----
 `
 
@@ -2464,7 +2479,7 @@ func TestCreateRevocationList(t *testing.T) {
 				ThisUpdate: time.Time{}.Add(time.Hour * 24),
 				NextUpdate: time.Time{}.Add(time.Hour * 48),
 			},
-		},		
+		},
 		{
 			name: "valid, Ed25519 key",
 			key:  ed25519Priv,
@@ -2676,7 +2691,7 @@ func TestCreateRevocationList(t *testing.T) {
 				t.Fatalf("Unexpected second extension: got %v, want %v",
 					parsedCRL.Extensions[1], crlExt)
 			}
-						// With Go 1.19's updated RevocationList, we can now directly compare
+			// With Go 1.19's updated RevocationList, we can now directly compare
 			// the RawSubject of the certificate to RawIssuer on the parsed CRL.
 			// However, this doesn't work with our hacked issuers above (that
 			// aren't parsed from a proper DER bundle but are instead manually

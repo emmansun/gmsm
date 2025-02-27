@@ -61,8 +61,10 @@ func ParsePKCS8PrivateKey(der []byte) (key any, err error) {
 			return nil, errors.New("x509: unsupported SM2 curve")
 		}
 		return new(sm2.PrivateKey).FromECPrivateKey(ecKey)
+
 	case privKey.Algo.Algorithm.Equal(oidSM9), privKey.Algo.Algorithm.Equal(oidSM9Sign), privKey.Algo.Algorithm.Equal(oidSM9Enc):
 		return parseSM9PrivateKey(privKey)
+
 	case privKey.Algo.Algorithm.Equal(oidPublicKeyECDSA):
 		bytes := privKey.Algo.Parameters.FullBytes
 		namedCurveOID := new(asn1.ObjectIdentifier)
@@ -78,6 +80,7 @@ func ParsePKCS8PrivateKey(der []byte) (key any, err error) {
 			return new(sm2.PrivateKey).FromECPrivateKey(ecKey)
 		}
 		return ecKey, err
+
 	default:
 		// fallback to golang sdk
 		return x509.ParsePKCS8PrivateKey(der)

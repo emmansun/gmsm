@@ -22,6 +22,7 @@ package smx509
 import (
 	"bytes"
 	"crypto"
+	sdkecdh "crypto/ecdh"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
@@ -66,8 +67,9 @@ type pkixPublicKey struct {
 // The encoded public key is a SubjectPublicKeyInfo structure
 // (see RFC 5280, Section 4.1).
 //
-// It returns a *rsa.PublicKey, *dsa.PublicKey, *ecdsa.PublicKey, or
-// ed25519.PublicKey. More types might be supported in the future.
+// It returns a *[rsa.PublicKey], *[dsa.PublicKey], *[ecdsa.PublicKey],
+// [ed25519.PublicKey] (not a pointer), or *[ecdh.PublicKey] (for X25519).
+// More types might be supported in the future.
 //
 // This kind of key is commonly encoded in PEM blocks of type "PUBLIC KEY".
 func ParsePKIXPublicKey(derBytes []byte) (any, error) {
@@ -116,9 +118,25 @@ func marshalPublicKey(pub any) (publicKeyBytes []byte, publicKeyAlgorithm pkix.A
 	case ed25519.PublicKey:
 		publicKeyBytes = pub
 		publicKeyAlgorithm.Algorithm = oidPublicKeyEd25519
-	case *ecdh.PublicKey: //TODO:will add SDK ECDH public key support from golang 1.19 later.
+	case  *sdkecdh.PublicKey:
 		publicKeyBytes = pub.Bytes()
-
+		if pub.Curve() == sdkecdh.X25519() {
+			publicKeyAlgorithm.Algorithm = oidPublicKeyX25519
+		} else {
+			oid, ok := oidFromSDKECDHCurve(pub.Curve())
+			if !ok {
+				return nil, pkix.AlgorithmIdentifier{}, errors.New("x509: unsupported elliptic curve")
+			}
+			publicKeyAlgorithm.Algorithm = oidPublicKeyECDSA
+			var paramBytes []byte
+			paramBytes, err = asn1.Marshal(oid)
+			if err != nil {
+				return
+			}
+			publicKeyAlgorithm.Parameters.FullBytes = paramBytes
+		}
+	case *ecdh.PublicKey:
+		publicKeyBytes = pub.Bytes()
 		oid, ok := oidFromECDHCurve(pub.Curve())
 		if !ok {
 			return nil, pkix.AlgorithmIdentifier{}, errors.New("x509: unsupported elliptic curve")
@@ -557,6 +575,21 @@ func oidFromECDHCurve(curve ecdh.Curve) (asn1.ObjectIdentifier, bool) {
 	switch curve {
 	case ecdh.P256():
 		return oidNamedCurveP256SM2, true
+	}
+
+	return nil, false
+}
+
+func oidFromSDKECDHCurve(curve sdkecdh.Curve) (asn1.ObjectIdentifier, bool) {
+	switch curve {
+	case sdkecdh.X25519():
+		return oidPublicKeyX25519, true
+	case sdkecdh.P256():
+		return oidNamedCurveP256, true
+	case sdkecdh.P384():
+		return oidNamedCurveP384, true
+	case sdkecdh.P521():
+		return oidNamedCurveP521, true
 	}
 
 	return nil, false
