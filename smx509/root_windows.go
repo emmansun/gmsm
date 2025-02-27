@@ -1,6 +1,7 @@
 package smx509
 
 import (
+	"bytes"
 	"crypto/x509"
 	"errors"
 	"syscall"
@@ -73,8 +74,7 @@ func extractSimpleChain(simpleChain **syscall.CertSimpleChain, count int) (chain
 		// Copy the buf, since ParseCertificate does not create its own copy.
 		cert := elements[i].CertContext
 		encodedCert := (*[1 << 20]byte)(unsafe.Pointer(cert.EncodedCert))[:cert.Length:cert.Length]
-		buf := make([]byte, cert.Length)
-		copy(buf, encodedCert)
+		buf := bytes.Clone(encodedCert)
 		parsedCert, err := ParseCertificate(buf)
 		if err != nil {
 			return nil, err

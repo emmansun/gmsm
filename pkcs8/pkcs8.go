@@ -20,15 +20,17 @@ type Opts = pkcs.PBES2Opts
 type PBKDF2Opts = pkcs.PBKDF2Opts
 type ScryptOpts = pkcs.ScryptOpts
 
-var DefaultOpts = pkcs.DefaultOpts
-var SM3 = pkcs.SM3
-var SHA1 = pkcs.SHA1
-var SHA224 = pkcs.SHA224
-var SHA256 = pkcs.SHA256
-var SHA384 = pkcs.SHA384
-var SHA512 = pkcs.SHA512
-var SHA512_224 = pkcs.SHA512_224
-var SHA512_256 = pkcs.SHA512_256
+var (
+	DefaultOpts = pkcs.DefaultOpts
+	SM3 = pkcs.SM3
+	SHA1 = pkcs.SHA1
+	SHA224 = pkcs.SHA224
+	SHA256 = pkcs.SHA256
+	SHA384 = pkcs.SHA384
+	SHA512 = pkcs.SHA512
+	SHA512_224 = pkcs.SHA512_224
+	SHA512_256 = pkcs.SHA512_256
+)
 
 // for encrypted private-key information
 type encryptedPrivateKeyInfo struct {
