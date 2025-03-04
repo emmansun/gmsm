@@ -2,13 +2,18 @@ package subtle
 
 import (
 	"bytes"
-	"crypto/rand"
 	"fmt"
+	"math/rand/v2"
 	"testing"
+	"time"
+
+	"github.com/emmansun/gmsm/internal/byteorder"
 )
 
 func TestConstantTimeLessOrEqBytes(t *testing.T) {
-	r := rand.Reader
+	seed := make([]byte, 32)
+	byteorder.BEPutUint64(seed, uint64(time.Now().UnixNano()))
+	r := rand.NewChaCha8([32]byte(seed))
 	for l := 0; l < 20; l++ {
 		a := make([]byte, l)
 		b := make([]byte, l)
