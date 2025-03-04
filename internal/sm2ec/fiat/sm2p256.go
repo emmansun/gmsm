@@ -9,6 +9,8 @@ package fiat
 import (
 	"crypto/subtle"
 	"errors"
+
+	_subtle "github.com/emmansun/gmsm/internal/subtle"
 )
 
 // SM2P256Element is an integer modulo 2^256 - 2^224 - 2^96 + 2^64 - 1.
@@ -78,13 +80,8 @@ func (e *SM2P256Element) SetBytes(v []byte) (*SM2P256Element, error) {
 	// the encoding of -1 mod p, so p - 1, the highest canonical encoding.
 	var minusOneEncoding = new(SM2P256Element).Sub(
 		new(SM2P256Element), new(SM2P256Element).One()).Bytes()
-	for i := range v {
-		if v[i] < minusOneEncoding[i] {
-			break
-		}
-		if v[i] > minusOneEncoding[i] {
-			return nil, errors.New("invalid SM2P256Element encoding")
-		}
+	if _subtle.ConstantTimeLessOrEqBytes(v, minusOneEncoding) == 0 {
+		return nil, errors.New("invalid {{ .Element }} encoding")
 	}
 
 	var in [sm2p256ElementLen]byte

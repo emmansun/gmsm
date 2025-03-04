@@ -134,6 +134,8 @@ package fiat
 import (
 	"crypto/subtle"
 	"errors"
+
+	_subtle "github.com/emmansun/gmsm/internal/subtle"
 )
 
 // {{ .Element }} is an integer modulo {{ .Prime }}.
@@ -202,13 +204,8 @@ func (e *{{ .Element }}) SetBytes(v []byte) (*{{ .Element }}, error) {
 	// the encoding of -1 mod p, so p - 1, the highest canonical encoding.
 	var minusOneEncoding = new({{ .Element }}).Sub(
 		new({{ .Element }}), new({{ .Element }}).One()).Bytes()
-	for i := range v {
-		if v[i] < minusOneEncoding[i] {
-			break
-		}
-		if v[i] > minusOneEncoding[i] {
-			return nil, errors.New("invalid {{ .Element }} encoding")
-		}
+	if _subtle.ConstantTimeLessOrEqBytes(v, minusOneEncoding) == 0 {
+		return nil, errors.New("invalid {{ .Element }} encoding")
 	}
 	var in [{{ .Prefix }}ElementLen]byte
 	copy(in[:], v)
