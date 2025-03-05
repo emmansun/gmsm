@@ -3,13 +3,19 @@ package sm4
 
 import (
 	"crypto/cipher"
-	"fmt"
+	"strconv"
 
 	"github.com/emmansun/gmsm/internal/alias"
 )
 
 // BlockSize the sm4 block size in bytes.
 const BlockSize = 16
+
+type KeySizeError int
+
+func (k KeySizeError) Error() string {
+	return "sm4: invalid key size " + strconv.Itoa(int(k))
+}
 
 const rounds = 32
 
@@ -19,13 +25,13 @@ type sm4Cipher struct {
 	dec [rounds]uint32
 }
 
-// NewCipher creates and returns a new cipher.Block.
-// The key argument should be the SM4 key,
+// NewCipher creates and returns a new [cipher.Block] implementation.
+// The key argument should be the SM4 key, must be 16 bytes long.
 func NewCipher(key []byte) (cipher.Block, error) {
 	k := len(key)
 	switch k {
 	default:
-		return nil, fmt.Errorf("sm4: invalid key size %d", k)
+		return nil, KeySizeError(k)
 	case 16:
 		break
 	}
