@@ -8,7 +8,7 @@ import (
 	"testing"
 	"unsafe"
 
-	"golang.org/x/sys/cpu"
+	"github.com/emmansun/gmsm/internal/cpu"
 )
 
 func TestIsBigEndian(t *testing.T) {
