@@ -2,7 +2,7 @@
 
 package bn256
 
-import "golang.org/x/sys/cpu"
+import "github.com/emmansun/gmsm/internal/cpu"
 
 var supportAVX2 = cpu.X86.HasAVX2
 

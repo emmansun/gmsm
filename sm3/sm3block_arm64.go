@@ -4,7 +4,7 @@ package sm3
 
 import (
 	"os"
-	"golang.org/x/sys/cpu"
+	"github.com/emmansun/gmsm/internal/cpu"
 )
 
 var useSM3NI = cpu.ARM64.HasSM3 && os.Getenv("DISABLE_SM3NI") != "1"

@@ -15,7 +15,7 @@ import (
 	"testing"
 
 	"github.com/emmansun/gmsm/internal/cryptotest"
-	"golang.org/x/sys/cpu"
+	"github.com/emmansun/gmsm/internal/cpu"
 )
 
 type sm3Test struct {

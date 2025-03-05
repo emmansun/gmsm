@@ -3,8 +3,8 @@
 package zuc
 
 import (
+	"github.com/emmansun/gmsm/internal/cpu"
 	"github.com/emmansun/gmsm/internal/cpuid"
-	"golang.org/x/sys/cpu"
 )
 
 // Generate single keyword, 4 bytes.

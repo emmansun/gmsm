@@ -1,6 +1,6 @@
 package cpuid
 
-import "golang.org/x/sys/cpu"
+import "github.com/emmansun/gmsm/internal/cpu"
 
 var (
 	HasAES = cpu.X86.HasAES

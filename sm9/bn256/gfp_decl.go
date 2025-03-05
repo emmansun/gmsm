@@ -6,7 +6,7 @@ package bn256
 // assembly implementations of these functions, provided that they exist.
 
 import (
-	"golang.org/x/sys/cpu"
+	"github.com/emmansun/gmsm/internal/cpu"
 )
 
 // amd64 assembly uses ADCX/ADOX/MULX if ADX is available to run two carry

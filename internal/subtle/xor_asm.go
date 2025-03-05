@@ -6,7 +6,7 @@
 
 package subtle
 
-import "golang.org/x/sys/cpu"
+import "github.com/emmansun/gmsm/internal/cpu"
 
 var useAVX2 = cpu.X86.HasAVX2
 
