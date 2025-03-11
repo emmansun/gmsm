@@ -15,7 +15,6 @@ const (
 	RoundWords = 32
 	// number of bytes in a word
 	WordSize = 4
-	WordMask = WordSize - 1
 	// number of bytes in a round
 	RoundBytes = RoundWords * WordSize
 )
