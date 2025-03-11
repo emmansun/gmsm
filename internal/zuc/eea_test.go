@@ -227,3 +227,33 @@ func BenchmarkEncrypt1K(b *testing.B) {
 func BenchmarkEncrypt8K(b *testing.B) {
 	benchmarkStream(b, make([]byte, almost8K))
 }
+
+func benchmarkSeek(b *testing.B, offset uint64) {
+	var key [16]byte
+	var iv [16]byte
+
+	stream, _ := NewCipher(key[:], iv[:])
+
+	eea, ok := stream.(*eea)
+	if !ok {
+		b.Fatal("not an eea")
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		eea.reset()
+		eea.seek(offset)
+	}
+}
+
+func BenchmarkSeek1K(b *testing.B) {
+	benchmarkSeek(b, 1024)
+}
+
+func BenchmarkSeek8K(b *testing.B) {
+	benchmarkSeek(b, 8*1024)
+}
+
+func BenchmarkSeek1M(b *testing.B) {
+	benchmarkSeek(b, 1024*1024)
+}

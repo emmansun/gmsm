@@ -167,7 +167,7 @@ func ExampleNewHash256_tagSize16() {
 	// Output: fd8d10ea65b6369cccc07d50b4657d84
 }
 
-func ExampleZUC128Mac_Finish() {
+func ExampleEIA_Finish() {
 	key := make([]byte, 16)
 	iv := make([]byte, 16)
 	h, err := zuc.NewHash(key, iv)
@@ -178,7 +178,7 @@ func ExampleZUC128Mac_Finish() {
 	// Output: c8a9595e
 }
 
-func ExampleZUC128Mac_Finish_mixed() {
+func ExampleEIA_Finish_mixed() {
 	key := []byte{
 		0xc9, 0xe6, 0xce, 0xc4, 0x60, 0x7c, 0x72, 0xdb,
 		0x00, 0x0a, 0xef, 0xa8, 0x83, 0x85, 0xab, 0x0a,

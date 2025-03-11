@@ -2,8 +2,8 @@
 package zuc
 
 import (
-	"fmt"
 	"math/bits"
+	"strconv"
 
 	"github.com/emmansun/gmsm/internal/byteorder"
 )
@@ -195,21 +195,33 @@ func (s *zucState32) loadKeyIV32(key, iv, d []byte) {
 	s.lfsr[14] = makeFieldValue4(uint32(key[14]), uint32(d[14]|(key[31]>>4)), uint32(iv[16]), uint32(iv[9]))
 }
 
+type KeySizeError int
+
+func (k KeySizeError) Error() string {
+	return "zuc: invalid key size " + strconv.Itoa(int(k))
+}
+
+type IVSizeError int
+
+func (k IVSizeError) Error() string {
+	return "zuc: invalid IV size " + strconv.Itoa(int(k))
+}
+
 func newZUCState(key, iv []byte) (*zucState32, error) {
 	k := len(key)
 	ivLen := len(iv)
 	state := &zucState32{}
 	switch k {
 	default:
-		return nil, fmt.Errorf("zuc: invalid key size %d, we support 16/32 now", k)
+		return nil, KeySizeError(k)
 	case 16: // ZUC-128
 		if ivLen != IVSize128 {
-			return nil, fmt.Errorf("zuc: invalid iv size %d, expect %d in bytes", ivLen, IVSize128)
+			return nil, IVSizeError(ivLen)
 		}
 		state.loadKeyIV16(key, iv)
 	case 32: // ZUC-256
 		if ivLen != IVSize256 {
-			return nil, fmt.Errorf("zuc: invalid iv size %d, expect %d in bytes", ivLen, IVSize256)
+			return nil, IVSizeError(ivLen)
 		}
 		state.loadKeyIV32(key, iv, zuc256_d0[:])
 	}
