@@ -232,12 +232,7 @@ func benchmarkSeek(b *testing.B, offset uint64) {
 	var key [16]byte
 	var iv [16]byte
 
-	stream, _ := NewCipher(key[:], iv[:])
-
-	eea, ok := stream.(*eea)
-	if !ok {
-		b.Fatal("not an eea")
-	}
+	eea, _ := NewCipher(key[:], iv[:])
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
