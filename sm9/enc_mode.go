@@ -2,10 +2,10 @@ package sm9
 
 import (
 	"crypto/cipher"
+	"crypto/subtle"
 	"io"
 
 	_cipher "github.com/emmansun/gmsm/cipher"
-	"github.com/emmansun/gmsm/internal/subtle"
 	"github.com/emmansun/gmsm/padding"
 	"github.com/emmansun/gmsm/sm4"
 )

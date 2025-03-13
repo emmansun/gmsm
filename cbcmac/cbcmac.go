@@ -7,8 +7,8 @@ package cbcmac
 
 import (
 	"crypto/cipher"
+	"crypto/subtle"
 
-	"github.com/emmansun/gmsm/internal/subtle"
 	"github.com/emmansun/gmsm/padding"
 )
 

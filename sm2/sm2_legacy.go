@@ -3,16 +3,16 @@ package sm2
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
-	_subtle "crypto/subtle"
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"io"
 	"math/big"
 	"strings"
 
-	"github.com/emmansun/gmsm/internal/subtle"
 	"github.com/emmansun/gmsm/sm2/sm2ec"
 	"github.com/emmansun/gmsm/sm3"
+	_subtle "github.com/emmansun/gmsm/internal/subtle"
 	"golang.org/x/crypto/cryptobyte"
 	"golang.org/x/crypto/cryptobyte/asn1"
 )
@@ -260,7 +260,7 @@ func encryptLegacy(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Enc
 
 		//A5, calculate t=KDF(x2||y2, klen)
 		c2 := sm3.Kdf(append(bigIntToBytes(curve, x2), bigIntToBytes(curve, y2)...), msgLen)
-		if subtle.ConstantTimeAllZero(c2) == 1 {
+		if _subtle.ConstantTimeAllZero(c2) == 1 {
 			retryCount++
 			if retryCount > maxRetryLimit {
 				return nil, fmt.Errorf("sm2: A5, failed to calculate valid t, tried %v times", retryCount)
@@ -319,7 +319,7 @@ func rawDecrypt(priv *PrivateKey, x1, y1 *big.Int, c2, c3 []byte) ([]byte, error
 	x2, y2 := curve.ScalarMult(x1, y1, priv.D.Bytes())
 	msgLen := len(c2)
 	msg := sm3.Kdf(append(bigIntToBytes(curve, x2), bigIntToBytes(curve, y2)...), msgLen)
-	if subtle.ConstantTimeAllZero(c2) == 1 {
+	if _subtle.ConstantTimeAllZero(c2) == 1 {
 		return nil, ErrDecryption
 	}
 
@@ -327,7 +327,7 @@ func rawDecrypt(priv *PrivateKey, x1, y1 *big.Int, c2, c3 []byte) ([]byte, error
 	subtle.XORBytes(msg, c2, msg)
 
 	u := calculateC3(curve, x2, y2, msg)
-	if _subtle.ConstantTimeCompare(u, c3) == 1 {
+	if subtle.ConstantTimeCompare(u, c3) == 1 {
 		return msg, nil
 	}
 	return nil, ErrDecryption

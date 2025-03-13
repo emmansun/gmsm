@@ -4,18 +4,17 @@ package cipher
 
 import (
 	"bytes"
-	_cipher "crypto/cipher"
-
-	"github.com/emmansun/gmsm/internal/subtle"
+	"crypto/cipher"
+	"crypto/subtle"
 )
 
 type bc struct {
-	b         _cipher.Block
+	b         cipher.Block
 	blockSize int
 	iv        []byte
 }
 
-func newBC(b _cipher.Block, iv []byte) *bc {
+func newBC(b cipher.Block, iv []byte) *bc {
 	return &bc{
 		b:         b,
 		blockSize: b.BlockSize(),
@@ -30,13 +29,13 @@ type bcEncrypter bc
 // NewBCEncrypter will check for this interface and return the specific
 // BlockMode if found.
 type bcEncAble interface {
-	NewBCEncrypter(iv []byte) _cipher.BlockMode
+	NewBCEncrypter(iv []byte) cipher.BlockMode
 }
 
 // NewBCEncrypter returns a BlockMode which encrypts in block chaining
 // mode, using the given Block. The length of iv must be the same as the
 // Block's block size.
-func NewBCEncrypter(b _cipher.Block, iv []byte) _cipher.BlockMode {
+func NewBCEncrypter(b cipher.Block, iv []byte) cipher.BlockMode {
 	if len(iv) != b.BlockSize() {
 		panic("cipher.NewBCEncrypter: IV length must equal block size")
 	}
@@ -81,13 +80,13 @@ type bcDecrypter bc
 // NewBCDecrypter will check for this interface and return the specific
 // BlockMode if found.
 type bcDecAble interface {
-	NewBCDecrypter(iv []byte) _cipher.BlockMode
+	NewBCDecrypter(iv []byte) cipher.BlockMode
 }
 
 // NewBCDecrypter returns a BlockMode which decrypts in block chaining
 // mode, using the given Block. The length of iv must be the same as the
 // Block's block size and must match the iv used to encrypt the data.
-func NewBCDecrypter(b _cipher.Block, iv []byte) _cipher.BlockMode {
+func NewBCDecrypter(b cipher.Block, iv []byte) cipher.BlockMode {
 	if len(iv) != b.BlockSize() {
 		panic("cipher.NewBCDecrypter: IV length must equal block size")
 	}

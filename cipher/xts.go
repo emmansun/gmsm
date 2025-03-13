@@ -1,17 +1,18 @@
 package cipher
 
 import (
-	_cipher "crypto/cipher"
+	"crypto/cipher"
+	"crypto/subtle"
+
 	"errors"
 
 	"github.com/emmansun/gmsm/internal/alias"
 	"github.com/emmansun/gmsm/internal/byteorder"
-	"github.com/emmansun/gmsm/internal/subtle"
 )
 
 const GF128_FDBK byte = 0x87
 
-type CipherCreator func([]byte) (_cipher.Block, error)
+type CipherCreator func([]byte) (cipher.Block, error)
 
 type concurrentBlocks interface {
 	Concurrency() int
@@ -21,7 +22,7 @@ type concurrentBlocks interface {
 
 // Cipher contains an expanded key structure. It is unsafe for concurrent use.
 type xts struct {
-	b     _cipher.Block
+	b     cipher.Block
 	tweak [blockSize]byte
 	isGB  bool // if true, follows GB/T 17964-2021
 }
@@ -37,18 +38,18 @@ type xtsEncrypter xts
 // NewXTSEncrypter will check for this interface and return the specific
 // BlockMode if found.
 type xtsEncAble interface {
-	NewXTSEncrypter(encryptedTweak *[blockSize]byte, isGB bool) _cipher.BlockMode
+	NewXTSEncrypter(encryptedTweak *[blockSize]byte, isGB bool) cipher.BlockMode
 }
 
 // NewXTSEncrypter creates a Cipher given a function for creating the underlying
 // block cipher (which must have a block size of 16 bytes).
-func NewXTSEncrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte) (_cipher.BlockMode, error) {
+func NewXTSEncrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte) (cipher.BlockMode, error) {
 	return newXTSEncrypter(cipherFunc, key, tweakKey, tweak, false)
 }
 
 // NewXTSEncrypterWithSector creates a Cipher given a function for creating the underlying
 // block cipher (which must have a block size of 16 bytes) with sector number.
-func NewXTSEncrypterWithSector(cipherFunc CipherCreator, key, tweakKey []byte, sectorNum uint64) (_cipher.BlockMode, error) {
+func NewXTSEncrypterWithSector(cipherFunc CipherCreator, key, tweakKey []byte, sectorNum uint64) (cipher.BlockMode, error) {
 	tweak := make([]byte, blockSize)
 	byteorder.LEPutUint64(tweak[:8], sectorNum)
 	return NewXTSEncrypter(cipherFunc, key, tweakKey, tweak)
@@ -57,20 +58,20 @@ func NewXTSEncrypterWithSector(cipherFunc CipherCreator, key, tweakKey []byte, s
 // NewGBXTSEncrypter creates a Cipher given a function for creating the underlying
 // block cipher (which must have a block size of 16 bytes).
 // It follows GB/T 17964-2021.
-func NewGBXTSEncrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte) (_cipher.BlockMode, error) {
+func NewGBXTSEncrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte) (cipher.BlockMode, error) {
 	return newXTSEncrypter(cipherFunc, key, tweakKey, tweak, true)
 }
 
 // NewGBXTSEncrypterWithSector creates a Cipher given a function for creating the underlying
 // block cipher (which must have a block size of 16 bytes) with sector number.
 // It follows GB/T 17964-2021.
-func NewGBXTSEncrypterWithSector(cipherFunc CipherCreator, key, tweakKey []byte, sectorNum uint64) (_cipher.BlockMode, error) {
+func NewGBXTSEncrypterWithSector(cipherFunc CipherCreator, key, tweakKey []byte, sectorNum uint64) (cipher.BlockMode, error) {
 	tweak := make([]byte, blockSize)
 	byteorder.LEPutUint64(tweak[:8], sectorNum)
 	return NewGBXTSEncrypter(cipherFunc, key, tweakKey, tweak)
 }
 
-func newXTSEncrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte, isGB bool) (_cipher.BlockMode, error) {
+func newXTSEncrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte, isGB bool) (cipher.BlockMode, error) {
 	if len(tweak) != blockSize {
 		return nil, errors.New("cipher: invalid tweak length")
 	}
@@ -109,18 +110,18 @@ type xtsDecrypter xts
 // NewXTSDecrypter will check for this interface and return the specific
 // BlockMode if found.
 type xtsDecAble interface {
-	NewXTSDecrypter(encryptedTweak *[blockSize]byte, isGB bool) _cipher.BlockMode
+	NewXTSDecrypter(encryptedTweak *[blockSize]byte, isGB bool) cipher.BlockMode
 }
 
 // NewXTSDecrypter creates a Cipher given a function for creating the underlying
 // block cipher (which must have a block size of 16 bytes) for decryption.
-func NewXTSDecrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte) (_cipher.BlockMode, error) {
+func NewXTSDecrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte) (cipher.BlockMode, error) {
 	return newXTSDecrypter(cipherFunc, key, tweakKey, tweak, false)
 }
 
 // NewXTSDecrypterWithSector creates a Cipher given a function for creating the underlying
 // block cipher (which must have a block size of 16 bytes) with sector number for decryption.
-func NewXTSDecrypterWithSector(cipherFunc CipherCreator, key, tweakKey []byte, sectorNum uint64) (_cipher.BlockMode, error) {
+func NewXTSDecrypterWithSector(cipherFunc CipherCreator, key, tweakKey []byte, sectorNum uint64) (cipher.BlockMode, error) {
 	tweak := make([]byte, blockSize)
 	byteorder.LEPutUint64(tweak[:8], sectorNum)
 	return NewXTSDecrypter(cipherFunc, key, tweakKey, tweak)
@@ -129,20 +130,20 @@ func NewXTSDecrypterWithSector(cipherFunc CipherCreator, key, tweakKey []byte, s
 // NewGBXTSDecrypter creates a Cipher given a function for creating the underlying
 // block cipher (which must have a block size of 16 bytes) for decryption.
 // It follows GB/T 17964-2021.
-func NewGBXTSDecrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte) (_cipher.BlockMode, error) {
+func NewGBXTSDecrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte) (cipher.BlockMode, error) {
 	return newXTSDecrypter(cipherFunc, key, tweakKey, tweak, true)
 }
 
 // NewGBXTSDecrypterWithSector creates a Cipher given a function for creating the underlying
 // block cipher (which must have a block size of 16 bytes) with sector number for decryption.
 // It follows GB/T 17964-2021.
-func NewGBXTSDecrypterWithSector(cipherFunc CipherCreator, key, tweakKey []byte, sectorNum uint64) (_cipher.BlockMode, error) {
+func NewGBXTSDecrypterWithSector(cipherFunc CipherCreator, key, tweakKey []byte, sectorNum uint64) (cipher.BlockMode, error) {
 	tweak := make([]byte, blockSize)
 	byteorder.LEPutUint64(tweak[:8], sectorNum)
 	return NewGBXTSDecrypter(cipherFunc, key, tweakKey, tweak)
 }
 
-func newXTSDecrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte, isGB bool) (_cipher.BlockMode, error) {
+func newXTSDecrypter(cipherFunc CipherCreator, key, tweakKey, tweak []byte, isGB bool) (cipher.BlockMode, error) {
 	if len(tweak) != blockSize {
 		return nil, errors.New("cipher: invalid tweak length")
 	}

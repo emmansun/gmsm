@@ -1,9 +1,10 @@
 package zuc
 
 import (
+	"crypto/subtle"
+
 	"github.com/emmansun/gmsm/internal/alias"
 	"github.com/emmansun/gmsm/internal/byteorder"
-	"github.com/emmansun/gmsm/internal/subtle"
 )
 
 const (

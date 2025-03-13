@@ -4,9 +4,9 @@ package sm4
 
 import (
 	"crypto/cipher"
+	"crypto/subtle"
 
 	"github.com/emmansun/gmsm/internal/alias"
-	"github.com/emmansun/gmsm/internal/subtle"
 )
 
 // Assert that sm4CipherAsm implements the ctrAble interface.

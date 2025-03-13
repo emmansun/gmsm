@@ -5,9 +5,9 @@ package sm4
 import (
 	"bytes"
 	"crypto/cipher"
+	"crypto/subtle"
 
 	"github.com/emmansun/gmsm/internal/alias"
-	"github.com/emmansun/gmsm/internal/subtle"
 )
 
 // Assert that sm4CipherAsm implements the cbcEncAble and cbcDecAble interfaces.

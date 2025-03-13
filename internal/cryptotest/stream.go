@@ -7,11 +7,10 @@ package cryptotest
 import (
 	"bytes"
 	"crypto/cipher"
+	"crypto/subtle"
 	"fmt"
 	"strings"
 	"testing"
-
-	"github.com/emmansun/gmsm/internal/subtle"
 )
 
 // Each test is executed with each of the buffer lengths in bufLens.

@@ -12,7 +12,7 @@ package sm2
 import (
 	"crypto"
 	"crypto/ecdsa"
-	_subtle "crypto/subtle"
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"io"
@@ -20,7 +20,7 @@ import (
 
 	"github.com/emmansun/gmsm/internal/bigmod"
 	_sm2ec "github.com/emmansun/gmsm/internal/sm2ec"
-	"github.com/emmansun/gmsm/internal/subtle"
+	_subtle "github.com/emmansun/gmsm/internal/subtle"
 	"github.com/emmansun/gmsm/sm3"
 	"golang.org/x/crypto/cryptobyte"
 	"golang.org/x/crypto/cryptobyte/asn1"
@@ -175,7 +175,7 @@ func encryptSM2EC(c *sm2Curve, pub *ecdsa.PublicKey, random io.Reader, msg []byt
 		}
 		C2Bytes := C2.Bytes()[1:]
 		c2 := sm3.Kdf(C2Bytes, len(msg))
-		if subtle.ConstantTimeAllZero(c2) == 1 {
+		if _subtle.ConstantTimeAllZero(c2) == 1 {
 			retryCount++
 			if retryCount > maxRetryLimit {
 				return nil, fmt.Errorf("sm2: A5, failed to calculate valid t, tried %v times", retryCount)
@@ -271,7 +271,7 @@ func decryptSM2EC(c *sm2Curve, priv *PrivateKey, ciphertext []byte, opts *Decryp
 	C2Bytes := C2.Bytes()[1:]
 	msgLen := len(c2)
 	msg := sm3.Kdf(C2Bytes, msgLen)
-	if subtle.ConstantTimeAllZero(c2) == 1 {
+	if _subtle.ConstantTimeAllZero(c2) == 1 {
 		return nil, ErrDecryption
 	}
 
@@ -284,7 +284,7 @@ func decryptSM2EC(c *sm2Curve, priv *PrivateKey, ciphertext []byte, opts *Decryp
 	md.Write(C2Bytes[len(C2Bytes)/2:])
 	u := md.Sum(nil)
 
-	if _subtle.ConstantTimeCompare(u, c3) == 1 {
+	if subtle.ConstantTimeCompare(u, c3) == 1 {
 		return msg, nil
 	}
 	return nil, ErrDecryption

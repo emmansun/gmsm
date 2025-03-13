@@ -4,12 +4,11 @@ package sm4
 
 import (
 	"crypto/cipher"
-	goSubtle "crypto/subtle"
+	"crypto/subtle"
 	"errors"
 
 	"github.com/emmansun/gmsm/internal/alias"
 	"github.com/emmansun/gmsm/internal/byteorder"
-	"github.com/emmansun/gmsm/internal/subtle"
 )
 
 // Assert that sm4CipherAsm implements the gcmAble interface.
@@ -147,7 +146,7 @@ func (g *gcm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 		panic("cipher: invalid buffer overlap")
 	}
 
-	if goSubtle.ConstantTimeCompare(expectedTag[:g.tagSize], tag) != 1 {
+	if subtle.ConstantTimeCompare(expectedTag[:g.tagSize], tag) != 1 {
 		// The AESNI code decrypts and authenticates concurrently, and
 		// so overwrites dst in the event of a tag mismatch. That
 		// behavior is mimicked here in order to be consistent across

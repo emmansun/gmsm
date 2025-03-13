@@ -2,11 +2,11 @@ package drbg
 
 import (
 	"crypto/cipher"
+	"crypto/subtle"
 	"errors"
 	"time"
 
 	"github.com/emmansun/gmsm/internal/byteorder"
-	"github.com/emmansun/gmsm/internal/subtle"
 	"github.com/emmansun/gmsm/sm4"
 )
 
