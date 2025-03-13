@@ -271,9 +271,6 @@ func TestParseSM9SignMasterPublicKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if key == nil {
-		t.Errorf("not expected nil")
-	}
 
 	// create sign master public key PEM with cryptobyte
 	var b cryptobyte.Builder
@@ -304,9 +301,6 @@ func TestParseSM9EncryptMasterPublicKey(t *testing.T) {
 	err := key.ParseFromPEM([]byte(sm9EncMasterPublicKeyFromGMSSL))
 	if err != nil {
 		t.Fatal(err)
-	}
-	if key == nil {
-		t.Errorf("not expected nil")
 	}
 
 	// create encrypt master public key PEM with asn1

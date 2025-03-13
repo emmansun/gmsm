@@ -91,9 +91,10 @@ func GenerateSignMasterKey(rand io.Reader) (*SignMasterPrivateKey, error) {
 //   - *SignMasterPrivateKey: A pointer to the newly created SignMasterPrivateKey.
 //   - error: An error if the key is invalid or if there is an issue during key generation.
 func NewSignMasterPrivateKey(key []byte) (*SignMasterPrivateKey, error) {
-	if len(key) != len(bn256.OrderMinus1Bytes) {
-		return nil, errors.New("sm9: invalid master sign private key size")
+	if len(key) > len(bn256.OrderMinus1Bytes) {
+		return nil, errInvalidPrivateKey
 	}
+	key = bn256.NormalizeScalar(key)
 	if subtle.ConstantTimeAllZero(key) == 1 || !isLess(key, bn256.OrderMinus1Bytes) {
 		return nil, errInvalidPrivateKey
 	}
@@ -102,7 +103,7 @@ func NewSignMasterPrivateKey(key []byte) (*SignMasterPrivateKey, error) {
 		return nil, err
 	}
 	priv := new(SignMasterPrivateKey)
-	priv.privateKey = append([]byte{}, key...)
+	priv.privateKey = slices.Clone(key)
 	priv.SignMasterPublicKey = new(SignMasterPublicKey)
 	priv.MasterPublicKey = p
 	return priv, nil
@@ -112,7 +113,7 @@ func NewSignMasterPrivateKey(key []byte) (*SignMasterPrivateKey, error) {
 // It returns true if both the MasterPublicKey and privateKey fields are equal, using
 // constant time comparison for the privateKey to prevent timing attacks.
 func (master *SignMasterPrivateKey) Equal(x *SignMasterPrivateKey) bool {
-	return master.MasterPublicKey.Equal(x.MasterPublicKey) && _subtle.ConstantTimeCompare(master.privateKey, x.privateKey) == 1
+	return master.SignMasterPublicKey.Equal(x.SignMasterPublicKey) && _subtle.ConstantTimeCompare(master.privateKey, x.privateKey) == 1
 }
 
 // Bytes returns the byte representation of the SignMasterPrivateKey.
@@ -161,7 +162,9 @@ func (master *SignMasterPrivateKey) Public() *SignMasterPublicKey {
 // Equal compares the receiver SignMasterPublicKey with another SignMasterPublicKey
 // and returns true if they are equal, otherwise it returns false.
 func (pub *SignMasterPublicKey) Equal(x *SignMasterPublicKey) bool {
-	return pub.MasterPublicKey.Equal(x.MasterPublicKey)
+	pubBytes := pub.MasterPublicKey.MarshalUncompressed()
+	xBytes := x.MasterPublicKey.MarshalUncompressed()
+	return _subtle.ConstantTimeCompare(pubBytes, xBytes) == 1
 }
 
 // Bytes returns the byte representation of the SignMasterPublicKey
@@ -321,9 +324,10 @@ func GenerateEncryptMasterKey(rand io.Reader) (*EncryptMasterPrivateKey, error) 
 //   - *EncryptMasterPrivateKey: A pointer to the newly created EncryptMasterPrivateKey.
 //   - error: An error if the key is invalid or if there is an issue during key generation.
 func NewEncryptMasterPrivateKey(key []byte) (*EncryptMasterPrivateKey, error) {
-	if len(key) != len(bn256.OrderMinus1Bytes) {
-		return nil, errors.New("sm9: invalid master encrypt private key size")
+	if len(key) > len(bn256.OrderMinus1Bytes) {
+		return nil, errInvalidPrivateKey
 	}
+	key = bn256.NormalizeScalar(key)
 	if subtle.ConstantTimeAllZero(key) == 1 || !isLess(key, bn256.OrderMinus1Bytes) {
 		return nil, errInvalidPrivateKey
 	}
@@ -332,7 +336,7 @@ func NewEncryptMasterPrivateKey(key []byte) (*EncryptMasterPrivateKey, error) {
 		return nil, err
 	}
 	priv := new(EncryptMasterPrivateKey)
-	priv.privateKey = append([]byte{}, key...)
+	priv.privateKey = slices.Clone(key)
 	priv.EncryptMasterPublicKey = new(EncryptMasterPublicKey)
 	priv.MasterPublicKey = p
 	return priv, nil
@@ -342,7 +346,7 @@ func NewEncryptMasterPrivateKey(key []byte) (*EncryptMasterPrivateKey, error) {
 // This method ensures that the original private key data is not modified by
 // returning a new slice containing the same data.
 func (master *EncryptMasterPrivateKey) Bytes() []byte {
-	return append([]byte{}, master.privateKey...)
+	return slices.Clone(master.privateKey)
 }
 
 // Equal compares the receiver EncryptMasterPrivateKey with another EncryptMasterPrivateKey x.
@@ -391,7 +395,9 @@ func (master *EncryptMasterPrivateKey) Public() *EncryptMasterPublicKey {
 // Equal compares the receiver EncryptMasterPublicKey with another EncryptMasterPublicKey
 // and returns true if they are equal, otherwise false.
 func (pub *EncryptMasterPublicKey) Equal(x *EncryptMasterPublicKey) bool {
-	return pub.MasterPublicKey.Equal(x.MasterPublicKey)
+	pubBytes := pub.MasterPublicKey.MarshalUncompressed()
+	xBytes := x.MasterPublicKey.MarshalUncompressed()
+	return _subtle.ConstantTimeCompare(pubBytes, xBytes) == 1
 }
 
 func (pub *EncryptMasterPublicKey) Bytes() []byte {
