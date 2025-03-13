@@ -72,8 +72,8 @@ func (master *SignMasterPrivateKey) MarshalASN1() ([]byte, error) {
 	return b.Bytes()
 }
 
-// UnmarshalASN1 unmarsal der data to sign master private key
-func (master *SignMasterPrivateKey) UnmarshalASN1(der []byte) error {
+// UnmarshalSignMasterPrivateKeyASN1 unmarsal der data to sign master private key
+func UnmarshalSignMasterPrivateKeyASN1(der []byte) (*SignMasterPrivateKey, error) {
 	input := cryptobyte.String(der)
 	d := &big.Int{}
 	var inner cryptobyte.String
@@ -83,20 +83,21 @@ func (master *SignMasterPrivateKey) UnmarshalASN1(der []byte) error {
 		if !input.ReadASN1(&inner, cryptobyte_asn1.SEQUENCE) ||
 			!input.Empty() ||
 			!inner.ReadASN1Integer(d) {
-			return errors.New("sm9: invalid sign master private key asn1 data")
+			return nil, errors.New("sm9: invalid sign master private key asn1 data")
 		}
 		// Just parse it, didn't validate it
 		if !inner.Empty() && (!inner.ReadASN1BitStringAsBytes(&pubBytes) || !inner.Empty()) {
-			return errors.New("sm9: invalid sign master public key asn1 data")
+			return nil, errors.New("sm9: invalid sign master public key asn1 data")
 		}
 	} else if !input.ReadASN1Integer(d) || !input.Empty() {
-		return errors.New("sm9: invalid sign master private key asn1 data")
+		return nil, errors.New("sm9: invalid sign master private key asn1 data")
 	}
-	master.privateKey, err = sm9.NewSignMasterPrivateKey(d.Bytes())
+	
+	privateKey, err := sm9.NewSignMasterPrivateKey(d.Bytes())
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return &SignMasterPrivateKey{privateKey: privateKey}, nil
 }
 
 // GenerateUserKey generate an user dsa key.
@@ -141,16 +142,16 @@ func (pub *SignMasterPublicKey) MarshalCompressedASN1() ([]byte, error) {
 	return b.Bytes()
 }
 
-// UnmarshalRaw unmarsal raw bytes data to sign master public key
-func (pub *SignMasterPublicKey) UnmarshalRaw(bytes []byte) error {
-	if pub.publicKey == nil {
-		pub.publicKey = new(sm9.SignMasterPublicKey)
-	}
-	return pub.publicKey.UnmarshalRaw(bytes)
+// UnmarshalSignMasterPublicKeyRaw unmarsal raw bytes data to sign master public key
+func UnmarshalSignMasterPublicKeyRaw(bytes []byte) (pub *SignMasterPublicKey, err error) {
+	pub = new(SignMasterPublicKey)
+	pub.publicKey = new(sm9.SignMasterPublicKey)
+	err = pub.publicKey.UnmarshalRaw(bytes)
+	return
 }
 
-// UnmarshalASN1 unmarsal der data to sign master public key
-func (pub *SignMasterPublicKey) UnmarshalASN1(der []byte) error {
+// UnmarshalSignMasterPublicKeyASN1 unmarsal der data to sign master public key
+func UnmarshalSignMasterPublicKeyASN1(der []byte) (*SignMasterPublicKey, error) {
 	var bytes []byte
 	var inner cryptobyte.String
 	input := cryptobyte.String(der)
@@ -159,21 +160,21 @@ func (pub *SignMasterPublicKey) UnmarshalASN1(der []byte) error {
 			!input.Empty() ||
 			!inner.ReadASN1BitStringAsBytes(&bytes) ||
 			!inner.Empty() {
-			return errors.New("sm9: invalid sign master public key asn1 data")
+			return nil, errors.New("sm9: invalid sign master public key asn1 data")
 		}
 	} else if !input.ReadASN1BitStringAsBytes(&bytes) || !input.Empty() {
-		return errors.New("sm9: invalid sign master public key asn1 data")
+		return nil, errors.New("sm9: invalid sign master public key asn1 data")
 	}
-	return pub.UnmarshalRaw(bytes)
+	return UnmarshalSignMasterPublicKeyRaw(bytes)
 }
 
-// ParseFromPEM just for GMSSL, there are no Algorithm pkix.AlgorithmIdentifier
-func (pub *SignMasterPublicKey) ParseFromPEM(data []byte) error {
+// ParseSignMasterPublicKeyPEM just for GMSSL, there are no Algorithm pkix.AlgorithmIdentifier
+func ParseSignMasterPublicKeyPEM(data []byte) (*SignMasterPublicKey, error) {
 	block, _ := pem.Decode([]byte(data))
 	if block == nil {
-		return errors.New("sm9: failed to parse PEM block")
+		return nil, errors.New("sm9: failed to parse PEM block")
 	}
-	return pub.UnmarshalASN1(block.Bytes)
+	return UnmarshalSignMasterPublicKeyASN1(block.Bytes)
 }
 
 func (priv *SignPrivateKey) Equal(x *SignPrivateKey) bool {
@@ -189,8 +190,8 @@ func (priv *SignPrivateKey) MasterPublic() *SignMasterPublicKey {
 	return &SignMasterPublicKey{priv.privateKey.MasterPublic()}
 }
 
-// SetMasterPublicKey bind the sign master public key to it.
-func (priv *SignPrivateKey) SetMasterPublicKey(pub *SignMasterPublicKey) {
+// setMasterPublicKey bind the sign master public key to it.
+func (priv *SignPrivateKey) setMasterPublicKey(pub *SignMasterPublicKey) {
 	priv.privateKey.SetMasterPublicKey(pub.publicKey)
 }
 
@@ -210,18 +211,21 @@ func (priv *SignPrivateKey) MarshalCompressedASN1() ([]byte, error) {
 	return b.Bytes()
 }
 
-// UnmarshalRaw unmarsal raw bytes data to sign user private key
+// UnmarshalSignPrivateKeyRaw unmarsal raw bytes data to sign user private key
 // Note, priv's SignMasterPublicKey should be handled separately.
-func (priv *SignPrivateKey) UnmarshalRaw(bytes []byte) error {
-	if priv.privateKey == nil {
-		priv.privateKey = new(sm9.SignPrivateKey)
+func UnmarshalSignPrivateKeyRaw(bytes []byte) (*SignPrivateKey, error) {
+	priv := new(SignPrivateKey)
+	priv.privateKey = new(sm9.SignPrivateKey)
+	err := priv.privateKey.UnmarshalRaw(bytes)
+	if err != nil {
+		return nil, err
 	}
-	return priv.privateKey.UnmarshalRaw(bytes)
+	return priv, nil
 }
 
-// UnmarshalASN1 unmarsal der data to sign user private key
+// UnmarshalSignPrivateKeyASN1 unmarsal der data to sign user private key
 // Note, priv's SignMasterPublicKey should be handled separately.
-func (priv *SignPrivateKey) UnmarshalASN1(der []byte) error {
+func UnmarshalSignPrivateKeyASN1(der []byte) (*SignPrivateKey, error) {
 	var bytes []byte
 	var pubBytes []byte
 	var inner cryptobyte.String
@@ -230,27 +234,27 @@ func (priv *SignPrivateKey) UnmarshalASN1(der []byte) error {
 		if !input.ReadASN1(&inner, cryptobyte_asn1.SEQUENCE) ||
 			!input.Empty() ||
 			!inner.ReadASN1BitStringAsBytes(&bytes) {
-			return errors.New("sm9: invalid sign user private key asn1 data")
+			return nil, errors.New("sm9: invalid sign user private key asn1 data")
 		}
 		if !inner.Empty() && (!inner.ReadASN1BitStringAsBytes(&pubBytes) || !inner.Empty()) {
-			return errors.New("sm9: invalid sign master public key asn1 data")
+			return nil,errors.New("sm9: invalid sign master public key asn1 data")
 		}
 	} else if !input.ReadASN1BitStringAsBytes(&bytes) || !input.Empty() {
-		return errors.New("sm9: invalid sign user private key asn1 data")
+		return nil, errors.New("sm9: invalid sign user private key asn1 data")
 	}
-	err := priv.UnmarshalRaw(bytes)
+
+	priv, err := UnmarshalSignPrivateKeyRaw(bytes)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if len(pubBytes) > 0 {
-		masterPK := new(SignMasterPublicKey)
-		err = masterPK.UnmarshalRaw(pubBytes)
+		masterPK, err := UnmarshalSignMasterPublicKeyRaw(pubBytes)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		priv.SetMasterPublicKey(masterPK)
+		priv.setMasterPublicKey(masterPK)
 	}
-	return nil
+	return priv, nil
 }
 
 // GenerateEncryptMasterKey generates a master public and private key pair for encryption usage.
@@ -297,8 +301,8 @@ func (master *EncryptMasterPrivateKey) MarshalASN1() ([]byte, error) {
 	return b.Bytes()
 }
 
-// UnmarshalASN1 unmarsal der data to encrypt master private key
-func (master *EncryptMasterPrivateKey) UnmarshalASN1(der []byte) error {
+// UnmarshalEncryptMasterPrivateKeyASN1 unmarsal der data to encrypt master private key
+func UnmarshalEncryptMasterPrivateKeyASN1(der []byte) (*EncryptMasterPrivateKey, error) {
 	input := cryptobyte.String(der)
 	d := &big.Int{}
 	var inner cryptobyte.String
@@ -307,21 +311,20 @@ func (master *EncryptMasterPrivateKey) UnmarshalASN1(der []byte) error {
 		if !input.ReadASN1(&inner, cryptobyte_asn1.SEQUENCE) ||
 			!input.Empty() ||
 			!inner.ReadASN1Integer(d) {
-			return errors.New("sm9: invalid encrypt master private key asn1 data")
+			return nil, errors.New("sm9: invalid encrypt master private key asn1 data")
 		}
 		// Just parse it, did't validate it
 		if !inner.Empty() && (!inner.ReadASN1BitStringAsBytes(&pubBytes) || !inner.Empty()) {
-			return errors.New("sm9: invalid encrypt master public key asn1 data")
+			return nil, errors.New("sm9: invalid encrypt master public key asn1 data")
 		}
 	} else if !input.ReadASN1Integer(d) || !input.Empty() {
-		return errors.New("sm9: invalid encrypt master private key asn1 data")
+		return nil, errors.New("sm9: invalid encrypt master private key asn1 data")
 	}
-	var err error
-	master.privateKey, err = sm9.NewEncryptMasterPrivateKey(d.Bytes())
+	privateKey, err := sm9.NewEncryptMasterPrivateKey(d.Bytes())
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return &EncryptMasterPrivateKey{privateKey: privateKey}, nil
 }
 
 // Equal compares the receiver EncryptMasterPublicKey with another EncryptMasterPublicKey
@@ -352,25 +355,28 @@ func (pub *EncryptMasterPublicKey) MarshalCompressedASN1() ([]byte, error) {
 	return b.Bytes()
 }
 
-// UnmarshalRaw unmarsal raw bytes data to encrypt master public key
-func (pub *EncryptMasterPublicKey) UnmarshalRaw(bytes []byte) error {
-	if pub.publicKey == nil {
-		pub.publicKey = new(sm9.EncryptMasterPublicKey)
+// UnmarshalEncryptMasterPublicKeyRaw unmarsal raw bytes data to encrypt master public key
+func UnmarshalEncryptMasterPublicKeyRaw(bytes []byte) (*EncryptMasterPublicKey, error) {
+	pub := new(EncryptMasterPublicKey)
+	pub.publicKey = new(sm9.EncryptMasterPublicKey)
+	err := pub.publicKey.UnmarshalRaw(bytes)
+	if err != nil {
+		return nil, err
 	}
-	return pub.publicKey.UnmarshalRaw(bytes)
+	return pub, nil
 }
 
-// ParseFromPEM just for GMSSL, there are no Algorithm pkix.AlgorithmIdentifier
-func (pub *EncryptMasterPublicKey) ParseFromPEM(data []byte) error {
+// ParseEncryptMasterPublicKeyPEM just for GMSSL, there are no Algorithm pkix.AlgorithmIdentifier
+func ParseEncryptMasterPublicKeyPEM(data []byte) (*EncryptMasterPublicKey, error) {
 	block, _ := pem.Decode([]byte(data))
 	if block == nil {
-		return errors.New("sm9: failed to parse PEM block")
+		return nil, errors.New("sm9: failed to parse PEM block")
 	}
-	return pub.UnmarshalASN1(block.Bytes)
+	return UnmarshalEncryptMasterPublicKeyASN1(block.Bytes)
 }
 
-// UnmarshalASN1 unmarsal der data to encrypt master public key
-func (pub *EncryptMasterPublicKey) UnmarshalASN1(der []byte) error {
+// UnmarshalEncryptMasterPublicKeyASN1 unmarsal der data to encrypt master public key
+func UnmarshalEncryptMasterPublicKeyASN1(der []byte) (*EncryptMasterPublicKey, error) {
 	var bytes []byte
 	var inner cryptobyte.String
 	input := cryptobyte.String(der)
@@ -379,12 +385,12 @@ func (pub *EncryptMasterPublicKey) UnmarshalASN1(der []byte) error {
 			!input.Empty() ||
 			!inner.ReadASN1BitStringAsBytes(&bytes) ||
 			!inner.Empty() {
-			return errors.New("sm9: invalid encrypt master public key asn1 data")
+			return nil, errors.New("sm9: invalid encrypt master public key asn1 data")
 		}
 	} else if !input.ReadASN1BitStringAsBytes(&bytes) || !input.Empty() {
-		return errors.New("sm9: invalid encrypt master public key asn1 data")
+		return nil, errors.New("sm9: invalid encrypt master public key asn1 data")
 	}
-	return pub.UnmarshalRaw(bytes)
+	return UnmarshalEncryptMasterPublicKeyRaw(bytes)
 }
 
 // MasterPublic returns the master public key corresponding to priv.
@@ -392,8 +398,8 @@ func (priv *EncryptPrivateKey) MasterPublic() *EncryptMasterPublicKey {
 	return &EncryptMasterPublicKey{priv.privateKey.MasterPublic()}
 }
 
-// SetMasterPublicKey bind the encrypt master public key to it.
-func (priv *EncryptPrivateKey) SetMasterPublicKey(pub *EncryptMasterPublicKey) {
+// setMasterPublicKey bind the encrypt master public key to it.
+func (priv *EncryptPrivateKey) setMasterPublicKey(pub *EncryptMasterPublicKey) {
 	priv.privateKey.SetMasterPublicKey(pub.publicKey)
 }
 
@@ -413,18 +419,21 @@ func (priv *EncryptPrivateKey) MarshalCompressedASN1() ([]byte, error) {
 	return b.Bytes()
 }
 
-// UnmarshalRaw unmarsal raw bytes data to encrypt user private key
+// UnmarshalEncryptPrivateKeyRaw unmarsal raw bytes data to encrypt user private key
 // Note, priv's EncryptMasterPublicKey should be handled separately.
-func (priv *EncryptPrivateKey) UnmarshalRaw(bytes []byte) error {
-	if priv.privateKey == nil {
-		priv.privateKey = new(sm9.EncryptPrivateKey)
+func UnmarshalEncryptPrivateKeyRaw(bytes []byte) (*EncryptPrivateKey, error) {
+	priv := new(EncryptPrivateKey)
+	priv.privateKey = new(sm9.EncryptPrivateKey)
+	err := priv.privateKey.UnmarshalRaw(bytes)
+	if err != nil {
+		return nil, err
 	}
-	return priv.privateKey.UnmarshalRaw(bytes)
+	return priv, nil
 }
 
-// UnmarshalASN1 unmarsal der data to encrypt user private key
+// UnmarshalEncryptPrivateKeyASN1 unmarsal der data to encrypt user private key
 // Note, priv's EncryptMasterPublicKey should be handled separately.
-func (priv *EncryptPrivateKey) UnmarshalASN1(der []byte) error {
+func UnmarshalEncryptPrivateKeyASN1(der []byte) (*EncryptPrivateKey, error) {
 	var bytes []byte
 	var pubBytes []byte
 	var inner cryptobyte.String
@@ -433,27 +442,26 @@ func (priv *EncryptPrivateKey) UnmarshalASN1(der []byte) error {
 		if !input.ReadASN1(&inner, cryptobyte_asn1.SEQUENCE) ||
 			!input.Empty() ||
 			!inner.ReadASN1BitStringAsBytes(&bytes) {
-			return errors.New("sm9: invalid encrypt user private key asn1 data")
+			return nil, errors.New("sm9: invalid encrypt user private key asn1 data")
 		}
 		if !inner.Empty() && (!inner.ReadASN1BitStringAsBytes(&pubBytes) || !inner.Empty()) {
-			return errors.New("sm9: invalid encrypt master public key asn1 data")
+			return nil, errors.New("sm9: invalid encrypt master public key asn1 data")
 		}
 	} else if !input.ReadASN1BitStringAsBytes(&bytes) || !input.Empty() {
-		return errors.New("sm9: invalid encrypt user private key asn1 data")
+		return nil, errors.New("sm9: invalid encrypt user private key asn1 data")
 	}
-	err := priv.UnmarshalRaw(bytes)
+	priv, err := UnmarshalEncryptPrivateKeyRaw(bytes)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if len(pubBytes) > 0 {
-		masterPK := new(EncryptMasterPublicKey)
-		err = masterPK.UnmarshalRaw(pubBytes)
+		masterPK, err := UnmarshalEncryptMasterPublicKeyRaw(pubBytes)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		priv.SetMasterPublicKey(masterPK)
+		priv.setMasterPublicKey(masterPK)
 	}
-	return nil
+	return priv, nil
 }
 
 // Equal compares the receiver EncryptPrivateKey with another EncryptPrivateKey x

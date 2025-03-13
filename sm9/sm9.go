@@ -349,37 +349,82 @@ func (priv *EncryptPrivateKey) DecryptASN1(uid, ciphertext []byte) ([]byte, erro
 	return DecryptASN1(priv, uid, ciphertext)
 }
 
-// KeyExchange represents key exchange struct, include internal stat in whole key exchange flow.
+// KeyExchange defines an interface for key exchange protocols.
+// It provides methods for initializing, responding, and confirming key exchanges.
+//
+// InitKeyExchange initializes the key exchange process.
+// It takes a random number generator and a byte identifier as input, and returns
+// the initial data for the key exchange and an error, if any.
+//
+// RespondKeyExchange responds to an initiated key exchange.
+// It takes a random number generator, a byte identifier, and the peer's initial data
+// as input, and returns the response data, additional data for confirmation, and an error, if any.
+//
+// ConfirmResponder confirms the key exchange from the responder's side.
+// It takes the responder's response data and additional data as input, and returns
+// the confirmation data and an error, if any.
+//
+// ConfirmInitiator confirms the key exchange from the initiator's side.
+// It takes the peer's confirmation data as input, and returns the final confirmation data
+// and an error, if any.
+// KeyExchange defines an interface for key exchange operations.
+// It provides methods to initialize, respond, and confirm key exchanges,
+// as well as a method to destroy the key exchange instance.
+type KeyExchange interface {
+	// Destroy cleans up any resources associated with the key exchange instance.
+	Destroy()
+
+	// InitKeyExchange initializes the key exchange process.
+	// It takes a random number generator and a byte identifier as input,
+	// and returns the initial data for the key exchange or an error.
+	InitKeyExchange(rand io.Reader, hid byte) ([]byte, error)
+
+	// RespondKeyExchange responds to an initiated key exchange.
+	// It takes a random number generator, a byte identifier, and the peer's initial data as input,
+	// and returns the response data, additional data, or an error.
+	RespondKeyExchange(rand io.Reader, hid byte, peerData []byte) ([]byte, []byte, error)
+
+	// ConfirmResponder confirms the responder's part of the key exchange.
+	// It takes the responder's response data and additional data as input,
+	// and returns the confirmation data or an error.
+	ConfirmResponder(rB, sB []byte) ([]byte, []byte, error)
+
+	// ConfirmInitiator confirms the initiator's part of the key exchange.
+	// It takes the peer's data as input and returns the confirmation data or an error.
+	ConfirmInitiator(peerData []byte) ([]byte, error)
+}
+
+// keyExchange represents key exchange struct, include internal stat in whole key exchange flow.
 // Initiator's flow will be: NewKeyExchange -> InitKeyExchange -> transmission -> ConfirmResponder
 // Responder's flow will be: NewKeyExchange -> waiting ... -> RepondKeyExchange -> transmission -> ConfirmInitiator
-type KeyExchange struct {
+type keyExchange struct {
 	ke *sm9.KeyExchange
 }
 
-func (priv *EncryptPrivateKey) NewKeyExchange(uid, peerUID []byte, keyLen int, genSignature bool) *KeyExchange {
-	return &KeyExchange{ke: priv.privateKey.NewKeyExchange(uid, peerUID, keyLen, genSignature)}
+func (priv *EncryptPrivateKey) NewKeyExchange(uid, peerUID []byte, keyLen int, genSignature bool) *keyExchange {
+	return &keyExchange{ke: priv.privateKey.NewKeyExchange(uid, peerUID, keyLen, genSignature)}
 }
 
-func (ke *KeyExchange) Destroy() {
+func (ke *keyExchange) Destroy() {
 	ke.ke.Destroy()
 }
 
 // InitKeyExchange generates random with responder uid, for initiator's step A1-A4
-func (ke *KeyExchange) InitKeyExchange(rand io.Reader, hid byte) ([]byte, error) {
+func (ke *keyExchange) InitKeyExchange(rand io.Reader, hid byte) ([]byte, error) {
 	return ke.ke.InitKeyExchange(rand, hid)
 }
 
 // RespondKeyExchange when responder receive rA, for responder's step B1-B7
-func (ke *KeyExchange) RespondKeyExchange(rand io.Reader, hid byte, peerData []byte) ([]byte, []byte, error) {
+func (ke *keyExchange) RespondKeyExchange(rand io.Reader, hid byte, peerData []byte) ([]byte, []byte, error) {
 	return ke.ke.RespondKeyExchange(rand, hid, peerData)
 }
 
 // ConfirmResponder for initiator's step A5-A7
-func (ke *KeyExchange) ConfirmResponder(rB, sB []byte) ([]byte, []byte, error) {
+func (ke *keyExchange) ConfirmResponder(rB, sB []byte) ([]byte, []byte, error) {
 	return ke.ke.ConfirmResponder(rB, sB)
 }
 
 // ConfirmInitiator for responder's step B8
-func (ke *KeyExchange) ConfirmInitiator(peerData []byte) ([]byte, error) {
+func (ke *keyExchange) ConfirmInitiator(peerData []byte) ([]byte, error) {
 	return ke.ke.ConfirmInitiator(peerData)
 }

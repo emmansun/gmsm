@@ -271,8 +271,7 @@ func ExampleMarshalPrivateKey_withoutPasswordSM9MasterSignKey() {
 	var b cryptobyte.Builder
 	b.AddASN1BigInt(new(big.Int).SetBytes(kb))
 	kb, _ = b.Bytes()
-	testkey := new(sm9.SignMasterPrivateKey)
-	err := testkey.UnmarshalASN1(kb)
+	testkey, err := sm9.UnmarshalSignMasterPrivateKeyASN1(kb)
 	if err != nil {
 		panic(err)
 	}

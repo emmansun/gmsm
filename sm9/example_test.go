@@ -17,10 +17,9 @@ func ExampleSignPrivateKey_Sign() {
 	var b cryptobyte.Builder
 	b.AddASN1BigInt(new(big.Int).SetBytes(kb))
 	kb, _ = b.Bytes()
-	masterkey := new(sm9.SignMasterPrivateKey)
-	err := masterkey.UnmarshalASN1(kb)
+	masterkey, err := sm9.UnmarshalSignMasterPrivateKeyASN1(kb)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error from UnmarshalASN1: %s\n", err)
+		fmt.Fprintf(os.Stderr, "Error from UnmarshalSignMasterPrivateKeyASN1: %s\n", err)
 		return
 	}
 	hid := byte(0x01)
@@ -46,9 +45,8 @@ func ExampleSignPrivateKey_Sign() {
 
 func ExampleVerifyASN1() {
 	// get master public key, can be from pem
-	masterPubKey := new(sm9.SignMasterPublicKey)
 	keyBytes, _ := hex.DecodeString("03818200049f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d")
-	err := masterPubKey.UnmarshalASN1(keyBytes)
+	masterPubKey, err := sm9.UnmarshalSignMasterPublicKeyASN1(keyBytes)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error from UnmarshalASN1: %s\n", err)
 		return
@@ -67,7 +65,7 @@ func ExampleSignMasterPublicKey_Verify() {
 	// get master public key, can be from pem
 	masterPubKey := new(sm9.SignMasterPublicKey)
 	keyBytes, _ := hex.DecodeString("03818200049f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d")
-	err := masterPubKey.UnmarshalASN1(keyBytes)
+	masterPubKey, err := sm9.UnmarshalSignMasterPublicKeyASN1(keyBytes)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error from UnmarshalASN1: %s\n", err)
 		return
@@ -85,8 +83,7 @@ func ExampleSignMasterPublicKey_Verify() {
 func ExampleEncryptPrivateKey_UnwrapKey() {
 	// real user encrypt private key should be from secret storage, e.g. password protected pkcs8 file
 	kb, _ := hex.DecodeString("038182000494736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b1587aa5e47570da7600cd760a0cf7beaf71c447f3844753fe74fa7ba92ca7d3b55f27538a62e7f7bfb51dce08704796d94c9d56734f119ea44732b50e31cdeb75c1")
-	userKey := new(sm9.EncryptPrivateKey)
-	err := userKey.UnmarshalASN1(kb)
+	userKey, err := sm9.UnmarshalEncryptPrivateKeyASN1(kb)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error from UnmarshalASN1: %s\n", err)
 		return
@@ -104,9 +101,8 @@ func ExampleEncryptPrivateKey_UnwrapKey() {
 
 func ExampleEncryptMasterPublicKey_WrapKey() {
 	// get master public key, can be from pem
-	masterPubKey := new(sm9.EncryptMasterPublicKey)
 	keyBytes, _ := hex.DecodeString("03420004787ed7b8a51f3ab84e0a66003f32da5c720b17eca7137d39abc66e3c80a892ff769de61791e5adc4b9ff85a31354900b202871279a8c49dc3f220f644c57a7b1")
-	err := masterPubKey.UnmarshalASN1(keyBytes)
+	masterPubKey, err := sm9.UnmarshalEncryptMasterPublicKeyASN1(keyBytes)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error from UnmarshalASN1: %s\n", err)
 		return
@@ -127,8 +123,7 @@ func ExampleEncryptMasterPublicKey_WrapKey() {
 func ExampleEncryptPrivateKey_Decrypt() {
 	// real user encrypt private key should be from secret storage, e.g. password protected pkcs8 file
 	kb, _ := hex.DecodeString("038182000494736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b1587aa5e47570da7600cd760a0cf7beaf71c447f3844753fe74fa7ba92ca7d3b55f27538a62e7f7bfb51dce08704796d94c9d56734f119ea44732b50e31cdeb75c1")
-	userKey := new(sm9.EncryptPrivateKey)
-	err := userKey.UnmarshalASN1(kb)
+	userKey, err := sm9.UnmarshalEncryptPrivateKeyASN1(kb)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error from UnmarshalASN1: %s\n", err)
 		return
@@ -146,9 +141,8 @@ func ExampleEncryptPrivateKey_Decrypt() {
 
 func ExampleEncryptMasterPublicKey_Encrypt() {
 	// get master public key, can be from pem
-	masterPubKey := new(sm9.EncryptMasterPublicKey)
 	keyBytes, _ := hex.DecodeString("03420004787ed7b8a51f3ab84e0a66003f32da5c720b17eca7137d39abc66e3c80a892ff769de61791e5adc4b9ff85a31354900b202871279a8c49dc3f220f644c57a7b1")
-	err := masterPubKey.UnmarshalASN1(keyBytes)
+	masterPubKey, err := sm9.UnmarshalEncryptMasterPublicKeyASN1(keyBytes)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error from UnmarshalASN1: %s\n", err)
 		return

@@ -19,8 +19,8 @@ func TestSignMasterPrivateKeyMarshalASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	masterKey2 := new(SignMasterPrivateKey)
-	err = masterKey2.UnmarshalASN1(der)
+	
+	masterKey2, err := UnmarshalSignMasterPrivateKeyASN1(der)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,8 +38,7 @@ func TestSignMasterPublicKeyMarshalASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pub2 := new(SignMasterPublicKey)
-	err = pub2.UnmarshalASN1(der)
+	pub2, err := UnmarshalSignMasterPublicKeyASN1(der)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,8 +56,7 @@ func TestSignMasterPublicKeyMarshalCompressedASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pub2 := new(SignMasterPublicKey)
-	err = pub2.UnmarshalASN1(der)
+	pub2, err := UnmarshalSignMasterPublicKeyASN1(der)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,8 +80,7 @@ func TestSignUserPrivateKeyMarshalASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	userKey2 := new(SignPrivateKey)
-	err = userKey2.UnmarshalASN1(der)
+	userKey2, err := UnmarshalSignPrivateKeyASN1(der)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,8 +104,7 @@ func TestSignUserPrivateKeyMarshalCompressedASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	userKey2 := new(SignPrivateKey)
-	err = userKey2.UnmarshalASN1(der)
+	userKey2, err := UnmarshalSignPrivateKeyASN1(der)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,8 +122,7 @@ func TestEncryptMasterPrivateKeyMarshalASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	masterKey2 := new(EncryptMasterPrivateKey)
-	err = masterKey2.UnmarshalASN1(der)
+	masterKey2, err := UnmarshalEncryptMasterPrivateKeyASN1(der)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,8 +140,7 @@ func TestEncryptMasterPublicKeyMarshalASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pub2 := new(EncryptMasterPublicKey)
-	err = pub2.UnmarshalASN1(der)
+	pub2, err := UnmarshalEncryptMasterPublicKeyASN1(der)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,8 +158,7 @@ func TestEncryptMasterPublicKeyMarshalCompressedASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pub2 := new(EncryptMasterPublicKey)
-	err = pub2.UnmarshalASN1(der)
+	pub2, err := UnmarshalEncryptMasterPublicKeyASN1(der)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,8 +182,7 @@ func TestEncryptUserPrivateKeyMarshalASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	userKey2 := new(EncryptPrivateKey)
-	err = userKey2.UnmarshalASN1(der)
+	userKey2, err := UnmarshalEncryptPrivateKeyASN1(der)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,8 +206,7 @@ func TestEncryptUserPrivateKeyMarshalCompressedASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	userKey2 := new(EncryptPrivateKey)
-	err = userKey2.UnmarshalASN1(der)
+	userKey2, err := UnmarshalEncryptPrivateKeyASN1(der)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -266,8 +257,7 @@ Ri1gDhueE6gkoeZ4HHUu1wfhRbKRF8okwSO933f/ZSpLlYu1P7/ckw==
 `
 
 func TestParseSM9SignMasterPublicKey(t *testing.T) {
-	key := new(SignMasterPublicKey)
-	err := key.ParseFromPEM([]byte(sm9SignMasterPublicKeyFromGMSSL))
+	key, err := ParseSignMasterPublicKeyPEM([]byte(sm9SignMasterPublicKeyFromGMSSL))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -297,8 +287,7 @@ tYwoUdCETdYJwxiKXlI1jytVTuuT2Q==
 `
 
 func TestParseSM9EncryptMasterPublicKey(t *testing.T) {
-	key := new(EncryptMasterPublicKey)
-	err := key.ParseFromPEM([]byte(sm9EncMasterPublicKeyFromGMSSL))
+	key, err := ParseEncryptMasterPublicKeyPEM([]byte(sm9EncMasterPublicKeyFromGMSSL))
 	if err != nil {
 		t.Fatal(err)
 	}

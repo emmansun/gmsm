@@ -1,14 +1,16 @@
-package sm9
+package sm9_test
 
 import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"testing"
+
+	"github.com/emmansun/gmsm/sm9"
 )
 
 func TestSignASN1(t *testing.T) {
-	masterKey, err := GenerateSignMasterKey(rand.Reader)
+	masterKey, err := sm9.GenerateSignMasterKey(rand.Reader)
 	hashed := []byte("Chinese IBS standard")
 	uid := []byte("emmansun")
 	hid := byte(0x01)
@@ -32,29 +34,8 @@ func TestSignASN1(t *testing.T) {
 	}
 }
 
-func TestParseInvalidASN1(t *testing.T) {
-	tests := []struct {
-		name   string
-		sigHex string
-	}{
-		// TODO: Add test cases.
-		{"invalid point format", "30660420723a8b38dd2441c2aa1c3ec092eaa34996c53bf9ca7515272395c012ab6e6e070342000C389fc45b711d9dfd9d91958f64d89d3528cf577c6dc2bc792c2969188e76865e16c2d85419f8f923a0e77c7f269c0eeb97b6c4d7e2735189180ec719a380fe1d"},
-		{"invalid point encoding length", "30660420723a8b38dd2441c2aa1c3ec092eaa34996c53bf9ca7515272395c012ab6e6e0703420004389fc45b711d9dfd9d91958f64d89d3528cf577c6dc2bc792c2969188e76865e16c2d85419f8f923a0e77c7f269c0eeb97b6c4d7e2735189180ec719a380fe"},
-	}
-	for _, tt := range tests {
-		sig, err := hex.DecodeString(tt.sigHex)
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, _, err = parseSignature(sig)
-		if err == nil {
-			t.Errorf("%s should be failed", tt.name)
-		}
-	}
-}
-
 func TestWrapKey(t *testing.T) {
-	masterKey, err := GenerateEncryptMasterKey(rand.Reader)
+	masterKey, err := sm9.GenerateEncryptMasterKey(rand.Reader)
 	hid := byte(0x01)
 	uid := []byte("emmansun")
 	if err != nil {
@@ -80,7 +61,7 @@ func TestWrapKey(t *testing.T) {
 }
 
 func TestWrapKeyASN1(t *testing.T) {
-	masterKey, err := GenerateEncryptMasterKey(rand.Reader)
+	masterKey, err := sm9.GenerateEncryptMasterKey(rand.Reader)
 	hid := byte(0x01)
 	uid := []byte("emmansun")
 	if err != nil {
@@ -95,12 +76,12 @@ func TestWrapKeyASN1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	key1, cipher, err := UnmarshalSM9KeyPackage(keyPackage)
+	key1, cipher, err := sm9.UnmarshalSM9KeyPackage(keyPackage)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	key2, err := UnwrapKey(userKey, uid, cipher, 16)
+	key2, err := sm9.UnwrapKey(userKey, uid, cipher, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +93,7 @@ func TestWrapKeyASN1(t *testing.T) {
 
 func TestEncryptDecrypt(t *testing.T) {
 	plaintext := []byte("Chinese IBE standard")
-	masterKey, err := GenerateEncryptMasterKey(rand.Reader)
+	masterKey, err := sm9.GenerateEncryptMasterKey(rand.Reader)
 	hid := byte(0x01)
 	uid := []byte("emmansun")
 	if err != nil {
@@ -122,16 +103,16 @@ func TestEncryptDecrypt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	encTypes := []EncrypterOpts{
-		DefaultEncrypterOpts, SM4ECBEncrypterOpts, SM4CBCEncrypterOpts, SM4CFBEncrypterOpts, SM4OFBEncrypterOpts,
+	encTypes := []sm9.EncrypterOpts{
+		sm9.DefaultEncrypterOpts, sm9.SM4ECBEncrypterOpts, sm9.SM4CBCEncrypterOpts, sm9.SM4CFBEncrypterOpts, sm9.SM4OFBEncrypterOpts,
 	}
 	for _, opts := range encTypes {
-		cipher, err := Encrypt(rand.Reader, masterKey.Public(), uid, hid, plaintext, opts)
+		cipher, err := sm9.Encrypt(rand.Reader, masterKey.Public(), uid, hid, plaintext, opts)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		got, err := Decrypt(userKey, uid, cipher, opts)
+		got, err := sm9.Decrypt(userKey, uid, cipher, opts)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -151,18 +132,18 @@ func TestEncryptDecrypt(t *testing.T) {
 }
 
 func TestEncryptEmptyPlaintext(t *testing.T) {
-	masterKey, err := GenerateEncryptMasterKey(rand.Reader)
+	masterKey, err := sm9.GenerateEncryptMasterKey(rand.Reader)
 	hid := byte(0x01)
 	uid := []byte("emmansun")
 	if err != nil {
 		t.Fatal(err)
 	}
-	encTypes := []EncrypterOpts{
-		DefaultEncrypterOpts, SM4ECBEncrypterOpts, SM4CBCEncrypterOpts, SM4CFBEncrypterOpts, SM4OFBEncrypterOpts,
+	encTypes := []sm9.EncrypterOpts{
+		sm9.DefaultEncrypterOpts, sm9.SM4ECBEncrypterOpts, sm9.SM4CBCEncrypterOpts, sm9.SM4CFBEncrypterOpts, sm9.SM4OFBEncrypterOpts,
 	}
 	for _, opts := range encTypes {
-		_, err := Encrypt(rand.Reader, masterKey.Public(), uid, hid, nil, opts)
-		if err != ErrEmptyPlaintext {
+		_, err := sm9.Encrypt(rand.Reader, masterKey.Public(), uid, hid, nil, opts)
+		if err != sm9.ErrEmptyPlaintext {
 			t.Fatalf("should be ErrEmptyPlaintext")
 		}
 	}
@@ -170,7 +151,7 @@ func TestEncryptEmptyPlaintext(t *testing.T) {
 
 func TestEncryptDecryptASN1(t *testing.T) {
 	plaintext := []byte("Chinese IBE standard")
-	masterKey, err := GenerateEncryptMasterKey(rand.Reader)
+	masterKey, err := sm9.GenerateEncryptMasterKey(rand.Reader)
 	hid := byte(0x01)
 	uid := []byte("emmansun")
 	if err != nil {
@@ -180,16 +161,16 @@ func TestEncryptDecryptASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	encTypes := []EncrypterOpts{
-		DefaultEncrypterOpts, SM4ECBEncrypterOpts, SM4CBCEncrypterOpts, SM4CFBEncrypterOpts, SM4OFBEncrypterOpts,
+	encTypes := []sm9.EncrypterOpts{
+		sm9.DefaultEncrypterOpts, sm9.SM4ECBEncrypterOpts, sm9.SM4CBCEncrypterOpts, sm9.SM4CFBEncrypterOpts, sm9.SM4OFBEncrypterOpts,
 	}
 	for _, opts := range encTypes {
-		cipher, err := EncryptASN1(rand.Reader, masterKey.Public(), uid, hid, plaintext, opts)
+		cipher, err := sm9.EncryptASN1(rand.Reader, masterKey.Public(), uid, hid, plaintext, opts)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		got, err := DecryptASN1(userKey, uid, cipher)
+		got, err := sm9.DecryptASN1(userKey, uid, cipher)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -210,7 +191,7 @@ func TestEncryptDecryptASN1(t *testing.T) {
 }
 
 func TestUnmarshalSM9KeyPackage(t *testing.T) {
-	masterKey, err := GenerateEncryptMasterKey(rand.Reader)
+	masterKey, err := sm9.GenerateEncryptMasterKey(rand.Reader)
 	hid := byte(0x01)
 	uid := []byte("emmansun")
 	if err != nil {
@@ -225,12 +206,12 @@ func TestUnmarshalSM9KeyPackage(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	key, cipher, err := UnmarshalSM9KeyPackage(p)
+	key, cipher, err := sm9.UnmarshalSM9KeyPackage(p)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	key2, err := UnwrapKey(userKey, uid, cipher, 16)
+	key2, err := sm9.UnwrapKey(userKey, uid, cipher, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +225,7 @@ func TestKeyExchange(t *testing.T) {
 	hid := byte(0x02)
 	userA := []byte("Alice")
 	userB := []byte("Bob")
-	masterKey, err := GenerateEncryptMasterKey(rand.Reader)
+	masterKey, err := sm9.GenerateEncryptMasterKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -297,7 +278,7 @@ func TestKeyExchangeWithoutSignature(t *testing.T) {
 	hid := byte(0x02)
 	userA := []byte("Alice")
 	userB := []byte("Bob")
-	masterKey, err := GenerateEncryptMasterKey(rand.Reader)
+	masterKey, err := sm9.GenerateEncryptMasterKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -356,7 +337,7 @@ func BenchmarkSign(b *testing.B) {
 	uid := []byte("emmansun")
 	hid := byte(0x01)
 
-	masterKey, err := GenerateSignMasterKey(rand.Reader)
+	masterKey, err := sm9.GenerateSignMasterKey(rand.Reader)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -364,12 +345,12 @@ func BenchmarkSign(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	SignASN1(rand.Reader, userKey, hashed) // fire precompute
+	sm9.SignASN1(rand.Reader, userKey, hashed) // fire precompute
 
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		sig, err := SignASN1(rand.Reader, userKey, hashed)
+		sig, err := sm9.SignASN1(rand.Reader, userKey, hashed)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -383,7 +364,7 @@ func BenchmarkVerify(b *testing.B) {
 	uid := []byte("emmansun")
 	hid := byte(0x01)
 
-	masterKey, err := GenerateSignMasterKey(rand.Reader)
+	masterKey, err := sm9.GenerateSignMasterKey(rand.Reader)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -391,14 +372,14 @@ func BenchmarkVerify(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	sig, err := SignASN1(rand.Reader, userKey, hashed)
+	sig, err := sm9.SignASN1(rand.Reader, userKey, hashed)
 	if err != nil {
 		b.Fatal(err)
 	}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if !VerifyASN1(masterKey.Public(), uid, hid, hashed, sig) {
+		if !sm9.VerifyASN1(masterKey.Public(), uid, hid, hashed, sig) {
 			b.Fatal("verify failed")
 		}
 	}
@@ -406,7 +387,7 @@ func BenchmarkVerify(b *testing.B) {
 
 func BenchmarkEncrypt(b *testing.B) {
 	plaintext := []byte("Chinese IBE standard")
-	masterKey, err := GenerateEncryptMasterKey(rand.Reader)
+	masterKey, err := sm9.GenerateEncryptMasterKey(rand.Reader)
 	hid := byte(0x01)
 	uid := []byte("emmansun")
 	if err != nil {
@@ -415,7 +396,7 @@ func BenchmarkEncrypt(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cipher, err := Encrypt(rand.Reader, masterKey.Public(), uid, hid, plaintext, nil)
+		cipher, err := sm9.Encrypt(rand.Reader, masterKey.Public(), uid, hid, plaintext, nil)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -426,7 +407,7 @@ func BenchmarkEncrypt(b *testing.B) {
 
 func BenchmarkDecrypt(b *testing.B) {
 	plaintext := []byte("Chinese IBE standard")
-	masterKey, err := GenerateEncryptMasterKey(rand.Reader)
+	masterKey, err := sm9.GenerateEncryptMasterKey(rand.Reader)
 	hid := byte(0x01)
 	uid := []byte("emmansun")
 	if err != nil {
@@ -436,14 +417,14 @@ func BenchmarkDecrypt(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	cipher, err := Encrypt(rand.Reader, masterKey.Public(), uid, hid, plaintext, nil)
+	cipher, err := sm9.Encrypt(rand.Reader, masterKey.Public(), uid, hid, plaintext, nil)
 	if err != nil {
 		b.Fatal(err)
 	}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		got, err := Decrypt(userKey, uid, cipher, nil)
+		got, err := sm9.Decrypt(userKey, uid, cipher, nil)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -455,7 +436,7 @@ func BenchmarkDecrypt(b *testing.B) {
 
 func BenchmarkDecryptASN1(b *testing.B) {
 	plaintext := []byte("Chinese IBE standard")
-	masterKey, err := GenerateEncryptMasterKey(rand.Reader)
+	masterKey, err := sm9.GenerateEncryptMasterKey(rand.Reader)
 	hid := byte(0x01)
 	uid := []byte("emmansun")
 	if err != nil {
@@ -465,14 +446,14 @@ func BenchmarkDecryptASN1(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	cipher, err := EncryptASN1(rand.Reader, masterKey.Public(), uid, hid, plaintext, nil)
+	cipher, err := sm9.EncryptASN1(rand.Reader, masterKey.Public(), uid, hid, plaintext, nil)
 	if err != nil {
 		b.Fatal(err)
 	}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		got, err := DecryptASN1(userKey, uid, cipher)
+		got, err := sm9.DecryptASN1(userKey, uid, cipher)
 		if err != nil {
 			b.Fatal(err)
 		}

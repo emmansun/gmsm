@@ -90,20 +90,10 @@ func ParsePKCS8PrivateKey(der []byte) (key any, err error) {
 func parseSM9PrivateKey(privKey pkcs8) (key any, err error) {
 	switch {
 	case privKey.Algo.Algorithm.Equal(oidSM9Sign):
-		sm9SignKey := new(sm9.SignPrivateKey)
-		err = sm9SignKey.UnmarshalASN1(privKey.PrivateKey)
-		if err != nil {
-			return
-		}
-		key = sm9SignKey
+		key, err = sm9.UnmarshalSignPrivateKeyASN1(privKey.PrivateKey)
 		return
 	case privKey.Algo.Algorithm.Equal(oidSM9Enc):
-		sm9EncKey := new(sm9.EncryptPrivateKey)
-		err = sm9EncKey.UnmarshalASN1(privKey.PrivateKey)
-		if err != nil {
-			return
-		}
-		key = sm9EncKey
+		key, err = sm9.UnmarshalEncryptPrivateKeyASN1(privKey.PrivateKey)
 		return
 	default:
 		bytes := privKey.Algo.Parameters.FullBytes
@@ -114,20 +104,10 @@ func parseSM9PrivateKey(privKey pkcs8) (key any, err error) {
 		}
 		switch {
 		case oidSM9Sign.Equal(*detailOID):
-			sm9SignMasterKey := new(sm9.SignMasterPrivateKey)
-			err = sm9SignMasterKey.UnmarshalASN1(privKey.PrivateKey)
-			if err != nil {
-				return
-			}
-			key = sm9SignMasterKey
+			key, err = sm9.UnmarshalSignMasterPrivateKeyASN1(privKey.PrivateKey)
 			return
 		case oidSM9Enc.Equal(*detailOID):
-			sm9EncMasterKey := new(sm9.EncryptMasterPrivateKey)
-			err = sm9EncMasterKey.UnmarshalASN1(privKey.PrivateKey)
-			if err != nil {
-				return
-			}
-			key = sm9EncMasterKey
+			key, err = sm9.UnmarshalEncryptMasterPrivateKeyASN1(privKey.PrivateKey)
 			return
 		}
 		return nil, errors.New("not support yet")
