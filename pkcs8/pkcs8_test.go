@@ -622,7 +622,7 @@ func TestMarshalPrivateKey(t *testing.T) {
 			t.Fatalf("%d: ParseSM9SignPrivateKey should return error", i)
 		}
 
-		if sm9SignMasterPrivateKey.D.Cmp(decodedSM9SignMasterPrivateKey.D) != 0 {
+		if !sm9SignMasterPrivateKey.Equal(decodedSM9SignMasterPrivateKey) {
 			t.Fatalf("%d: Decoded key does not match original key", i)
 		}
 
@@ -642,7 +642,7 @@ func TestMarshalPrivateKey(t *testing.T) {
 		if err == nil {
 			t.Fatalf("%d: ParseSM9SignMasterPrivateKey should return error", i)
 		}
-		if !sm9SignPrivateKey.PrivateKey.Equal(decodedSM9SignPrivateKey.PrivateKey) {
+		if !sm9SignPrivateKey.Equal(decodedSM9SignPrivateKey) {
 			t.Fatalf("%d: Decoded key does not match original key", i)
 		}
 
@@ -663,7 +663,7 @@ func TestMarshalPrivateKey(t *testing.T) {
 		if err == nil {
 			t.Fatalf("%d: ParseSM9EncryptPrivateKey should return error", i)
 		}
-		if sm9EncMasterPrivateKey.D.Cmp(decodedSM9EncMasterPrivateKey.D) != 0 {
+		if !sm9EncMasterPrivateKey.Equal(decodedSM9EncMasterPrivateKey) {
 			t.Fatalf("%d: Decoded key does not match original key", i)
 		}
 
@@ -683,7 +683,7 @@ func TestMarshalPrivateKey(t *testing.T) {
 		if err == nil {
 			t.Fatalf("%d: ParseSM9EncryptMasterPrivateKey should return error", i)
 		}
-		if !sm9EncPrivateKey.PrivateKey.Equal(decodedSM9EncPrivateKey.PrivateKey) {
+		if !sm9EncPrivateKey.Equal(decodedSM9EncPrivateKey) {
 			t.Fatalf("%d: Decoded key does not match original key", i)
 		}
 

@@ -219,8 +219,7 @@ func TestMarshalPKCS8SM9SignPrivateKey(t *testing.T) {
 	if !ok {
 		t.Fatalf("not expected key")
 	}
-	if !privateKey.PrivateKey.Equal(privateKey2.PrivateKey) ||
-		!privateKey.MasterPublicKey.Equal(privateKey2.MasterPublicKey) {
+	if !privateKey.Equal(privateKey2) {
 		t.Fatalf("not same key")
 	}
 }
@@ -246,8 +245,7 @@ func TestMarshalPKCS8SM9EncPrivateKey(t *testing.T) {
 	if !ok {
 		t.Fatalf("not expected key")
 	}
-	if !privateKey.PrivateKey.Equal(privateKey2.PrivateKey) ||
-		!privateKey.MasterPublicKey.Equal(privateKey2.MasterPublicKey) {
+	if !privateKey.Equal(privateKey2) {
 		t.Fatalf("not same key")
 	}
 }
@@ -269,8 +267,8 @@ func TestMarshalPKCS8SM9SignMasterPrivateKey(t *testing.T) {
 	if !ok {
 		t.Fatalf("not expected key")
 	}
-	masterKey2.MasterPublicKey.Marshal()
-	if !(masterKey.D.Cmp(masterKey2.D) == 0 && masterKey.MasterPublicKey.Equal(masterKey2.MasterPublicKey)) {
+	
+	if !masterKey.Equal(masterKey2) {
 		t.Fatalf("not same key")
 	}
 }
@@ -292,8 +290,7 @@ func TestMarshalPKCS8SM9EncMasterPrivateKey(t *testing.T) {
 	if !ok {
 		t.Fatalf("not expected key")
 	}
-	masterKey2.MasterPublicKey.Marshal()
-	if !(masterKey.D.Cmp(masterKey2.D) == 0 && masterKey.MasterPublicKey.Equal(masterKey2.MasterPublicKey)) {
+	if !masterKey.Equal(masterKey2) {
 		t.Fatalf("not same key")
 	}
 }
