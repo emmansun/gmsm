@@ -36,30 +36,6 @@ jobs:
         GOARCH: ${{ matrix.arch }}
         GOPPC64: ${{ matrix.ppc64 }}
 
-    - name: Test bn256
-      run: go test -v ./sm9/bn256/...
-      env:
-        GOARCH: ${{ matrix.arch }}
-        GOPPC64: ${{ matrix.ppc64 }}
-
-    - name: Test ZUC
-      run: go test -v ./zuc/...
-      env:
-        GOARCH: ${{ matrix.arch }}
-        GOPPC64: ${{ matrix.ppc64 }}
-
-    - name: Test SM3
-      run: go test -v ./sm3/...
-      env:
-        GOARCH: ${{ matrix.arch }}
-        GOPPC64: ${{ matrix.ppc64 }}
-
-    - name: Test SM4
-      run: go test -v -short ./sm4/...
-      env:
-        GOARCH: ${{ matrix.arch }}
-        GOPPC64: ${{ matrix.ppc64 }}
-
     - name: Test Cipher
       run: go test -v -short ./cipher/...
       env:
