@@ -103,7 +103,7 @@ func randomScalar(rand io.Reader) (k *bigmod.Nat, err error) {
 // The signature is randomized. Most applications should use [crypto/rand.Reader]
 // as rand. Note that the returned signature does not depend deterministically on
 // the bytes read from rand, and may change between calls and/or between versions.
-func (priv *SignPrivateKey) Sign(rand io.Reader, hash []byte, opts crypto.SignerOpts) ([]byte, []byte, error) {
+func (priv *SignPrivateKey) Sign(rand io.Reader, hash []byte, opts crypto.SignerOpts) (h []byte, S []byte, err error) {
 	var (
 		hNat *bigmod.Nat
 		s    *bn256.G1
@@ -120,13 +120,12 @@ func (priv *SignPrivateKey) Sign(rand io.Reader, hash []byte, opts crypto.Signer
 			return nil, nil, err
 		}
 
-		var buffer []byte
-		buffer = append(append(buffer, hash...), w.Marshal()...)
+		buffer := append(append([]byte{}, hash...), w.Marshal()...)
 
 		hNat = hashH2(buffer)
 		r.Sub(hNat, orderNat)
 
-		if r.IsZero() == 0 {
+		if r.IsZero() == 0 { // r != 0
 			s, err = new(bn256.G1).ScalarMult(priv.PrivateKey, r.Bytes(orderNat))
 			if err != nil {
 				return nil, nil, err
@@ -134,13 +133,18 @@ func (priv *SignPrivateKey) Sign(rand io.Reader, hash []byte, opts crypto.Signer
 			break
 		}
 	}
-	return hNat.Bytes(orderNat), s.MarshalUncompressed(), nil
+	h = hNat.Bytes(orderNat)
+	S = s.MarshalUncompressed()
+	return
 }
 
 // Verify checks the validity of a signature using the provided parameters.
-func (pub *SignMasterPublicKey) Verify(uid []byte, hid byte, hash, h, s []byte) bool {
+func (pub *SignMasterPublicKey) Verify(uid []byte, hid byte, hash, h, S []byte) bool {
 	sPoint := new(bn256.G1)
-	_, err := sPoint.Unmarshal(s[1:])
+	if len(S) == len(bn256.OrderMinus1Bytes)+1 && S[0] != 0x04 {
+		return false
+	}
+	_, err := sPoint.Unmarshal(S[1:])
 	if err != nil || !sPoint.IsOnCurve() {
 		return false
 	}
@@ -178,14 +182,12 @@ func (pub *SignMasterPublicKey) Verify(uid []byte, hid byte, hash, h, s []byte) 
 // - A byte slice containing the generated key.
 // - A byte slice containing the uncompressed ciphertext.
 // - An error if any occurs during the key wrapping process.
-func (pub *EncryptMasterPublicKey) WrapKey(rand io.Reader, uid []byte, hid byte, kLen int) ([]byte, []byte, error) {
+func (pub *EncryptMasterPublicKey) WrapKey(rand io.Reader, uid []byte, hid byte, kLen int) (key []byte, cipher []byte, err error) {
 	q := pub.GenerateUserPublicKey(uid, hid)
 	var (
-		err    error
-		r      *bigmod.Nat
-		w      *bn256.GT
-		cipher *bn256.G1
-		key    []byte
+		r *bigmod.Nat
+		w *bn256.GT
+		c *bn256.G1
 	)
 	for {
 		r, err = randomScalar(rand)
@@ -194,7 +196,7 @@ func (pub *EncryptMasterPublicKey) WrapKey(rand io.Reader, uid []byte, hid byte,
 		}
 
 		rBytes := r.Bytes(orderNat)
-		cipher, err = new(bn256.G1).ScalarMult(q, rBytes)
+		c, err = new(bn256.G1).ScalarMult(q, rBytes)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -204,7 +206,7 @@ func (pub *EncryptMasterPublicKey) WrapKey(rand io.Reader, uid []byte, hid byte,
 			return nil, nil, err
 		}
 		var buffer []byte
-		buffer = append(buffer, cipher.Marshal()...)
+		buffer = append(buffer, c.Marshal()...)
 		buffer = append(buffer, w.Marshal()...)
 		buffer = append(buffer, uid...)
 
@@ -213,21 +215,25 @@ func (pub *EncryptMasterPublicKey) WrapKey(rand io.Reader, uid []byte, hid byte,
 			break
 		}
 	}
-	return key, cipher.MarshalUncompressed(), nil
+	cipher = c.MarshalUncompressed()
+	return
 }
-
 
 // UnwrapKey decrypts the given cipher text using the private key and user ID (uid).
 // It returns the decrypted key of the specified length (kLen) or an error if decryption fails.
-func (priv *EncryptPrivateKey) UnwrapKey(uid, cipher []byte, kLen int) ([]byte, error) {
-	if len(cipher) == 65 && cipher[0] != 0x04 {
-		return nil, ErrDecryption
-	}
-	if len(cipher) == 65 {
+func (priv *EncryptPrivateKey) UnwrapKey(uid, cipher []byte, kLen int) (key []byte, err error) {
+	numBytes := 2 * len(bn256.OrderBytes)
+	if len(cipher) == numBytes+1 {
+		if cipher[0] != 0x04 {
+			return nil, ErrDecryption
+		}
 		cipher = cipher[1:]
 	}
+	if len(cipher) != numBytes {
+		return nil, ErrDecryption
+	}
 	p := new(bn256.G1)
-	_, err := p.Unmarshal(cipher)
+	_, err = p.Unmarshal(cipher)
 	if err != nil || !p.IsOnCurve() {
 		return nil, ErrDecryption
 	}
@@ -239,11 +245,11 @@ func (priv *EncryptPrivateKey) UnwrapKey(uid, cipher []byte, kLen int) ([]byte, 
 	buffer = append(buffer, w.Marshal()...)
 	buffer = append(buffer, uid...)
 
-	key := sm3.Kdf(buffer, kLen)
+	key = sm3.Kdf(buffer, kLen)
 	if subtle.ConstantTimeAllZero(key) == 1 {
 		return nil, ErrDecryption
 	}
-	return key, nil
+	return
 }
 
 // ErrDecryption represents a failure to decrypt a message.
@@ -359,6 +365,10 @@ func (ke *KeyExchange) generateSharedKey(isResponder bool) ([]byte, error) {
 }
 
 func respondKeyExchange(ke *KeyExchange, hid byte, r *bigmod.Nat, rA []byte) ([]byte, []byte, error) {
+	numBytes := 2 * len(bn256.OrderBytes)
+	if len(rA) != numBytes+1 || rA[0] != 0x04 {
+		return nil, nil, errors.New("sm9: invalid initiator's ephemeral public key")
+	}
 	rP := new(bn256.G1)
 	_, err := rP.Unmarshal(rA[1:])
 	if err != nil || !rP.IsOnCurve() {
@@ -406,6 +416,10 @@ func (ke *KeyExchange) RespondKeyExchange(rand io.Reader, hid byte, rA []byte) (
 
 // ConfirmResponder for initiator's step A5-A7
 func (ke *KeyExchange) ConfirmResponder(rB, sB []byte) ([]byte, []byte, error) {
+	numBytes := 2 * len(bn256.OrderBytes)
+	if len(rB) != numBytes+1 || rB[0] != 0x04 {
+		return nil, nil, errors.New("sm9: invalid responder's ephemeral public key")
+	}
 	pB := new(bn256.G1)
 	_, err := pB.Unmarshal(rB[1:])
 	if err != nil || !pB.IsOnCurve() {

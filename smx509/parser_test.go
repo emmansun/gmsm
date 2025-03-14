@@ -81,7 +81,7 @@ func TestParseASN1String(t *testing.T) {
 			tag:         cryptobyte_asn1.Tag(asn1.TagBMPString),
 			value:       []byte{80, 81, 255, 254},
 			expectedErr: "invalid BMPString",
-		},		
+		},
 		{
 			name:     "IA5String",
 			tag:      cryptobyte_asn1.IA5String,

@@ -175,6 +175,25 @@ func TestWrapKey(t *testing.T) {
 	if !bytes.Equal(key, key2) {
 		t.Errorf("expected %x, got %x", key, key2)
 	}
+
+	key2, err = userKey.UnwrapKey(uid, cipher[1:], 16)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(key, key2) {
+		t.Errorf("expected %x, got %x", key, key2)
+	}
+
+	cipher[0] = 0
+	_, err = userKey.UnwrapKey(uid, cipher, 16)
+	if err != ErrDecryption {
+		t.Errorf("expected ErrDecryption, got %v", err)
+	}
+	_, err = userKey.UnwrapKey(uid, nil, 16)
+	if err != ErrDecryption {
+		t.Errorf("expected ErrDecryption, got %v", err)
+	}
 }
 
 // SM9 Appendix C
@@ -431,12 +450,35 @@ func TestKeyExchange(t *testing.T) {
 	}
 
 	// B1 - B7
+	if _, _, err = responder.RespondKeyExchange(rand.Reader, hid, nil); err == nil {
+		t.Errorf("should fail")
+	}
+	if _, _, err = responder.RespondKeyExchange(rand.Reader, hid, rA[1:]); err == nil {
+		t.Errorf("should fail")
+	}
+	rA[0] = 0
+	if _, _, err = responder.RespondKeyExchange(rand.Reader, hid, rA); err == nil {
+		t.Errorf("should fail")
+	}
+	rA[0] = 0x4
+
 	rB, sigB, err := responder.RespondKeyExchange(rand.Reader, hid, rA)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// A5 -A8
+	if _, _, err = initiator.ConfirmResponder(nil, sigB); err == nil {
+		t.Errorf("should fail")
+	}
+	if _, _, err = initiator.ConfirmResponder(rB[1:], sigB); err == nil {
+		t.Errorf("should fail")
+	}
+	rB[0] = 0
+	if _, _, err = initiator.ConfirmResponder(rB, sigB); err == nil {
+		t.Errorf("should fail")
+	}
+	rB[0] = 0x4
 	key1, sigA, err := initiator.ConfirmResponder(rB, sigB)
 	if err != nil {
 		t.Fatal(err)
