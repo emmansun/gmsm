@@ -75,17 +75,17 @@ func archInit() {
 	_, _, ecx1, edx1 := cpuid(1, 0)
 	X86.HasSSE2 = isSet(26, edx1)
 
-	X86.HasSSE3 = isSet(0, ecx1)
-	X86.HasPCLMULQDQ = isSet(1, ecx1)
-	X86.HasSSSE3 = isSet(9, ecx1)
-	X86.HasFMA = isSet(12, ecx1)
-	X86.HasCX16 = isSet(13, ecx1)
-	X86.HasSSE41 = isSet(19, ecx1)
-	X86.HasSSE42 = isSet(20, ecx1)
-	X86.HasPOPCNT = isSet(23, ecx1)
-	X86.HasAES = isSet(25, ecx1)
-	X86.HasOSXSAVE = isSet(27, ecx1)
-	X86.HasRDRAND = isSet(30, ecx1)
+	X86.HasSSE3 = isSet(0, ecx1)      // Check presence of SSE3 - bit 0 of ECX
+	X86.HasPCLMULQDQ = isSet(1, ecx1) // Check presence of PCLMULQDQ - bit 1 of ECX
+	X86.HasSSSE3 = isSet(9, ecx1)     // Check presence of SSSE3 - bit 9 of ECX
+	X86.HasFMA = isSet(12, ecx1)      // Check presence of FMA - bit 12 of ECX
+	X86.HasCX16 = isSet(13, ecx1)     // Check presence of CX16 - bit 13 of ECX
+	X86.HasSSE41 = isSet(19, ecx1)    // Check presence of SSE4.1 - bit 19 of ECX
+	X86.HasSSE42 = isSet(20, ecx1)    // Check presence of SSE4.2 - bit 20 of ECX
+	X86.HasPOPCNT = isSet(23, ecx1)   // Check presence of POPCNT - bit 23 of ECX
+	X86.HasAES = isSet(25, ecx1)      // Check presence of AESNI - bit 25 of ECX
+	X86.HasOSXSAVE = isSet(27, ecx1)  // Check presence of OSXSAVE - bit 27 of ECX
+	X86.HasRDRAND = isSet(30, ecx1)   // Check presence of RDRAND - bit 30 of ECX
 
 	var osSupportsAVX, osSupportsAVX512 bool
 	// For XGETBV, OSXSAVE bit is required and sufficient.
@@ -110,9 +110,9 @@ func archInit() {
 	}
 
 	eax7, ebx7, ecx7, edx7 := cpuid(7, 0)
-	X86.HasBMI1 = isSet(3, ebx7)
-	X86.HasAVX2 = isSet(5, ebx7) && osSupportsAVX
-	X86.HasBMI2 = isSet(8, ebx7)
+	X86.HasBMI1 = isSet(3, ebx7)                  // Check presence of BMI1 - bit 3 of EBX
+	X86.HasAVX2 = isSet(5, ebx7) && osSupportsAVX // Check presence of AVX2 - bit 5 of EBX
+	X86.HasBMI2 = isSet(8, ebx7)                  // Check presence of BMI2 - bit 8 of EBX
 	X86.HasERMS = isSet(9, ebx7)
 	X86.HasRDSEED = isSet(18, ebx7)
 	X86.HasADX = isSet(19, ebx7)
@@ -120,23 +120,23 @@ func archInit() {
 	X86.HasAVX512 = isSet(16, ebx7) && osSupportsAVX512 // Because avx-512 foundation is the core required extension
 	if X86.HasAVX512 {
 		X86.HasAVX512F = true
-		X86.HasAVX512CD = isSet(28, ebx7)
-		X86.HasAVX512ER = isSet(27, ebx7)
-		X86.HasAVX512PF = isSet(26, ebx7)
-		X86.HasAVX512VL = isSet(31, ebx7)
-		X86.HasAVX512BW = isSet(30, ebx7)
-		X86.HasAVX512DQ = isSet(17, ebx7)
-		X86.HasAVX512IFMA = isSet(21, ebx7)
-		X86.HasAVX512VBMI = isSet(1, ecx7)
-		X86.HasAVX5124VNNIW = isSet(2, edx7)
-		X86.HasAVX5124FMAPS = isSet(3, edx7)
-		X86.HasAVX512VPOPCNTDQ = isSet(14, ecx7)
-		X86.HasAVX512VPCLMULQDQ = isSet(10, ecx7)
-		X86.HasAVX512VNNI = isSet(11, ecx7)
-		X86.HasAVX512GFNI = isSet(8, ecx7)
-		X86.HasAVX512VAES = isSet(9, ecx7)
-		X86.HasAVX512VBMI2 = isSet(6, ecx7)
-		X86.HasAVX512BITALG = isSet(12, ecx7)
+		X86.HasAVX512CD = isSet(28, ebx7)         // Check presence of AVX512CD - bit 28 of EBX
+		X86.HasAVX512ER = isSet(27, ebx7)         // Check presence of AVX512ER - bit 27 of EBX
+		X86.HasAVX512PF = isSet(26, ebx7)         // Check presence of AVX512PF - bit 26 of EBX
+		X86.HasAVX512VL = isSet(31, ebx7)         // Check presence of AVX512VL - bit 31 of EBX
+		X86.HasAVX512BW = isSet(30, ebx7)         // Check presence of AVX512BW - bit 30 of EBX
+		X86.HasAVX512DQ = isSet(17, ebx7)         // Check presence of AVX512F - bit 16 of EBX
+		X86.HasAVX512IFMA = isSet(21, ebx7)       // Check presence of AVX512IFMA - bit 21 of EBX
+		X86.HasAVX512VBMI = isSet(1, ecx7)        // Check presence of AVX512VBMI - bit 1 of ECX
+		X86.HasAVX5124VNNIW = isSet(2, edx7)      // Check presence of AVX5124VNNIW - bit 2 of EDX
+		X86.HasAVX5124FMAPS = isSet(3, edx7)      // Check presence of AVX5124FMAPS - bit 3 of EDX
+		X86.HasAVX512VPOPCNTDQ = isSet(14, ecx7)  // Check presence of AVX512VPOPCNTDQ - bit 14 of ECX
+		X86.HasAVX512VPCLMULQDQ = isSet(10, ecx7) // Check presence of VPCLMULQDQ - bit 10 of ECX
+		X86.HasAVX512VNNI = isSet(11, ecx7)       // Check presence of AVX512VNNI - bit 11 of ECX
+		X86.HasAVX512GFNI = isSet(8, ecx7)        // Check presence of AVX512GFNI - bit 8 of ECX
+		X86.HasAVX512VAES = isSet(9, ecx7)        // Check presence of AVX512VAES - bit 9 of ECX
+		X86.HasAVX512VBMI2 = isSet(6, ecx7)       // Check presence of AVX512VBMI2 - bit 6 of ECX
+		X86.HasAVX512BITALG = isSet(12, ecx7)     // Check presence of AVX512BITALG - bit 12 of ECX
 	}
 
 	X86.HasAMXTile = isSet(24, edx7)
@@ -150,7 +150,7 @@ func archInit() {
 			X86.HasAVX512BF16 = isSet(5, eax71)
 		}
 		if X86.HasAVX {
-			X86.HasAVXIFMA = isSet(23, eax71)
+			X86.HasAVXIFMA = isSet(23, eax71) // Check presence of AVXIFMA - bit 23 of EAX
 			X86.HasAVXVNNI = isSet(4, eax71)
 			X86.HasAVXVNNIInt8 = isSet(4, edx71)
 		}

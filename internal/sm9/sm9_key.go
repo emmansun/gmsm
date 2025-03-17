@@ -275,7 +275,7 @@ func unmarshalG1(bytes []byte) (*bn256.G1, error) {
 			return nil, err
 		}
 	default:
-		return nil, errors.New("sm9: invalid point identity byte")
+		return nil, errors.New("sm9: invalid point encoding")
 	}
 	return g, nil
 }
@@ -426,7 +426,7 @@ func (pub *EncryptMasterPublicKey) ScalarBaseMult(scalar []byte) (*bn256.GT, err
 	return bn256.ScalarBaseMultGT(tables, scalar)
 }
 
-// GenerateUserPublicKey generate an encrypt public key for the given user.
+// GenerateUserPublicKey generate an encryption public key for the given user.
 func (pub *EncryptMasterPublicKey) GenerateUserPublicKey(uid []byte, hid byte) *bn256.G1 {
 	var buffer []byte
 	buffer = append(append(buffer, uid...), hid)
@@ -456,7 +456,7 @@ func (priv *EncryptPrivateKey) MasterPublic() *EncryptMasterPublicKey {
 	return priv.EncryptMasterPublicKey
 }
 
-// SetMasterPublicKey bind the encrypt master public key to it.
+// SetMasterPublicKey bind the encryption master public key to it.
 func (priv *EncryptPrivateKey) SetMasterPublicKey(pub *EncryptMasterPublicKey) {
 	if priv.EncryptMasterPublicKey == nil || priv.EncryptMasterPublicKey.MasterPublicKey == nil {
 		priv.EncryptMasterPublicKey = pub

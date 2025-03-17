@@ -126,8 +126,7 @@ func (priv *SignPrivateKey) Sign(rand io.Reader, hash []byte, opts crypto.Signer
 		r.Sub(hNat, orderNat)
 
 		if r.IsZero() == 0 { // r != 0
-			s, err = new(bn256.G1).ScalarMult(priv.PrivateKey, r.Bytes(orderNat))
-			if err != nil {
+			if s, err = new(bn256.G1).ScalarMult(priv.PrivateKey, r.Bytes(orderNat)); err != nil {
 				return nil, nil, err
 			}
 			break
@@ -141,7 +140,8 @@ func (priv *SignPrivateKey) Sign(rand io.Reader, hash []byte, opts crypto.Signer
 // Verify checks the validity of a signature using the provided parameters.
 func (pub *SignMasterPublicKey) Verify(uid []byte, hid byte, hash, h, S []byte) bool {
 	sPoint := new(bn256.G1)
-	if len(S) == len(bn256.OrderMinus1Bytes)+1 && S[0] != 0x04 {
+	numBytes := 2 * len(bn256.OrderBytes)
+	if len(S) != numBytes+1 || S[0] != 4 {
 		return false
 	}
 	_, err := sPoint.Unmarshal(S[1:])
@@ -223,18 +223,14 @@ func (pub *EncryptMasterPublicKey) WrapKey(rand io.Reader, uid []byte, hid byte,
 // It returns the decrypted key of the specified length (kLen) or an error if decryption fails.
 func (priv *EncryptPrivateKey) UnwrapKey(uid, cipher []byte, kLen int) (key []byte, err error) {
 	numBytes := 2 * len(bn256.OrderBytes)
-	if len(cipher) == numBytes+1 {
-		if cipher[0] != 0x04 {
-			return nil, ErrDecryption
-		}
+	if len(cipher) == numBytes+1 && cipher[0] == 4 {
 		cipher = cipher[1:]
 	}
 	if len(cipher) != numBytes {
 		return nil, ErrDecryption
 	}
 	p := new(bn256.G1)
-	_, err = p.Unmarshal(cipher)
-	if err != nil || !p.IsOnCurve() {
+	if _, err = p.Unmarshal(cipher); err != nil || !p.IsOnCurve() {
 		return nil, ErrDecryption
 	}
 
@@ -366,7 +362,7 @@ func (ke *KeyExchange) generateSharedKey(isResponder bool) ([]byte, error) {
 
 func respondKeyExchange(ke *KeyExchange, hid byte, r *bigmod.Nat, rA []byte) ([]byte, []byte, error) {
 	numBytes := 2 * len(bn256.OrderBytes)
-	if len(rA) != numBytes+1 || rA[0] != 0x04 {
+	if len(rA) != numBytes+1 || rA[0] != 4 {
 		return nil, nil, errors.New("sm9: invalid initiator's ephemeral public key")
 	}
 	rP := new(bn256.G1)
@@ -417,7 +413,7 @@ func (ke *KeyExchange) RespondKeyExchange(rand io.Reader, hid byte, rA []byte) (
 // ConfirmResponder for initiator's step A5-A7
 func (ke *KeyExchange) ConfirmResponder(rB, sB []byte) ([]byte, []byte, error) {
 	numBytes := 2 * len(bn256.OrderBytes)
-	if len(rB) != numBytes+1 || rB[0] != 0x04 {
+	if len(rB) != numBytes+1 || rB[0] != 4 {
 		return nil, nil, errors.New("sm9: invalid responder's ephemeral public key")
 	}
 	pB := new(bn256.G1)
