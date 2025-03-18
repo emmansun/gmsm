@@ -8,6 +8,8 @@ type Padding interface {
 	Unpad(src []byte) ([]byte, error)
 }
 
+type PaddingFunc func(blockSize uint) Padding
+
 func NewPKCS7Padding(blockSize uint) Padding {
 	if blockSize == 0 || blockSize > 255 {
 		panic("padding: invalid block size")
