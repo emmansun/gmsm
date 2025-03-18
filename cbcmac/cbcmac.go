@@ -37,10 +37,27 @@ type cbcmac struct {
 // The padding scheme is ISO/IEC 9797-1 method 2.
 // GB/T 15821.1-2020 MAC scheme 1
 func NewCBCMAC(b cipher.Block, size int) BockCipherMAC {
+	return NewCBCMACWithPadding(b, size, padding.NewISO9797M2Padding)
+}
+
+
+// NewCBCMACWithPadding creates a new CBC-MAC (Cipher Block Chaining Message Authentication Code) 
+// with the specified block cipher, MAC size, and padding function. The MAC size must be greater 
+// than 0 and less than or equal to the block size of the cipher. If the size is invalid, the 
+// function will panic. The padding function is used to pad the input to the block size of the cipher.
+//
+// Parameters:
+// - b: The block cipher to use for CBC-MAC.
+// - size: The size of the MAC in bytes. Must be greater than 0 and less than or equal to the block size of the cipher.
+// - paddingFunc: The padding function to use for padding the input to the block size of the cipher.
+//
+// Returns:
+// - A BockCipherMAC instance that can be used to compute the CBC-MAC.
+func NewCBCMACWithPadding(b cipher.Block, size int, paddingFunc padding.PaddingFunc) BockCipherMAC {
 	if size <= 0 || size > b.BlockSize() {
 		panic("cbcmac: invalid size")
 	}
-	return &cbcmac{b: b, pad: padding.NewISO9797M2Padding(uint(b.BlockSize())), size: size}
+	return &cbcmac{b: b, pad: paddingFunc(uint(b.BlockSize())), size: size}
 }
 
 func (c *cbcmac) Size() int {
