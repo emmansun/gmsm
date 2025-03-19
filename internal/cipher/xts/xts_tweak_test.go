@@ -1,4 +1,4 @@
-package cipher
+package xts
 
 import (
 	"crypto/aes"

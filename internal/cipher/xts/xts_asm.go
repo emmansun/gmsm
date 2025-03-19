@@ -1,6 +1,6 @@
 //go:build (amd64 || arm64 || s390x || ppc64 || ppc64le) && !purego
 
-package cipher
+package xts
 
 //go:noescape
 func mul2(tweak *[blockSize]byte, isGB bool)

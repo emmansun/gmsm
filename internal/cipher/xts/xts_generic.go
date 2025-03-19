@@ -1,6 +1,6 @@
 //go:build purego || !(amd64 || arm64 || s390x || ppc64 || ppc64le)
 
-package cipher
+package xts
 
 func mul2(tweak *[blockSize]byte, isGB bool) {
 	mul2Generic(tweak, isGB)
