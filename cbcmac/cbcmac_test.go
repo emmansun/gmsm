@@ -52,10 +52,10 @@ func TestCBCMAC(t *testing.T) {
 func TestCBCMACWithPadding(t *testing.T) {
 	// Test vectors from GB/T 15821.1-2020 Appendix B.
 	cases := []struct {
-		key         []byte
-		src         []byte
-		tag         []byte
-		paddingFunc padding.PaddingFunc
+		key            []byte
+		src            []byte
+		tag            []byte
+		newPaddingFunc padding.NewPaddingFunc
 	}{
 		{
 			[]byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10},
@@ -94,7 +94,7 @@ func TestCBCMACWithPadding(t *testing.T) {
 		if err != nil {
 			t.Errorf("#%d: failed to create cipher: %v", i, err)
 		}
-		mac := NewCBCMACWithPadding(block, len(c.tag), c.paddingFunc)
+		mac := NewCBCMACWithPadding(block, len(c.tag), c.newPaddingFunc)
 		tag := mac.MAC(c.src)
 		if !bytes.Equal(tag, c.tag) {
 			t.Errorf("#%d: expect tag %x, got %x", i, c.tag, tag)
@@ -105,11 +105,11 @@ func TestCBCMACWithPadding(t *testing.T) {
 func TestEMACWithPadding(t *testing.T) {
 	// Test vectors from GB/T 15821.1-2020 Appendix B.
 	cases := []struct {
-		key1 []byte
-		key2 []byte
-		src  []byte
-		tag  []byte
-		paddingFunc padding.PaddingFunc
+		key1           []byte
+		key2           []byte
+		src            []byte
+		tag            []byte
+		newPaddingFunc padding.NewPaddingFunc
 	}{
 		{
 			[]byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10},
@@ -149,7 +149,7 @@ func TestEMACWithPadding(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		mac := NewEMACWithPadding(sm4.NewCipher, c.key1, c.key2, len(c.tag), c.paddingFunc)
+		mac := NewEMACWithPadding(sm4.NewCipher, c.key1, c.key2, len(c.tag), c.newPaddingFunc)
 		tag := mac.MAC(c.src)
 		if !bytes.Equal(tag, c.tag) {
 			t.Errorf("#%d: expect tag %x, got %x", i, c.tag, tag)
@@ -234,11 +234,11 @@ func TestANSIRetailMAC(t *testing.T) {
 func TestANSIRetailMACWithPadding(t *testing.T) {
 	// Test vectors from GB/T 15821.1-2020 Appendix B.
 	cases := []struct {
-		key1 []byte
-		key2 []byte
-		src  []byte
-		tag  []byte
-		paddingFunc padding.PaddingFunc
+		key1           []byte
+		key2           []byte
+		src            []byte
+		tag            []byte
+		newPaddingFunc padding.NewPaddingFunc
 	}{
 		{
 			[]byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10},
@@ -278,7 +278,7 @@ func TestANSIRetailMACWithPadding(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		mac := NewANSIRetailMACWithPadding(sm4.NewCipher, c.key1, c.key2, len(c.tag), c.paddingFunc)
+		mac := NewANSIRetailMACWithPadding(sm4.NewCipher, c.key1, c.key2, len(c.tag), c.newPaddingFunc)
 		tag := mac.MAC(c.src)
 		if !bytes.Equal(tag, c.tag) {
 			t.Errorf("#%d: expect tag %x, got %x", i, c.tag, tag)
@@ -326,11 +326,11 @@ func TestMACDES(t *testing.T) {
 func TestMACDESWithPadding(t *testing.T) {
 	// Test vectors from GB/T 15821.1-2020 Appendix B.
 	cases := []struct {
-		key1 []byte
-		key2 []byte
-		src  []byte
-		tag  []byte
-		paddingFunc padding.PaddingFunc
+		key1           []byte
+		key2           []byte
+		src            []byte
+		tag            []byte
+		newPaddingFunc padding.NewPaddingFunc
 	}{
 		{
 			[]byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10},
@@ -370,7 +370,7 @@ func TestMACDESWithPadding(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		mac := NewMACDESWithPadding(sm4.NewCipher, c.key1, c.key2, 16, c.paddingFunc)
+		mac := NewMACDESWithPadding(sm4.NewCipher, c.key1, c.key2, 16, c.newPaddingFunc)
 		tag := mac.MAC(c.src)
 		if !bytes.Equal(tag, c.tag) {
 			t.Errorf("#%d: expect tag %x, got %x", i, c.tag, tag)
@@ -451,10 +451,10 @@ func TestLMAC(t *testing.T) {
 func TestLMACWithPadding(t *testing.T) {
 	// Test vectors from GB/T 15821.1-2020 Appendix B.
 	cases := []struct {
-		key []byte
-		src []byte
-		tag []byte
-		paddingFunc padding.PaddingFunc
+		key            []byte
+		src            []byte
+		tag            []byte
+		newPaddingFunc padding.NewPaddingFunc
 	}{
 		{
 			[]byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10},
@@ -489,7 +489,7 @@ func TestLMACWithPadding(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		mac := NewLMACWithPadding(sm4.NewCipher, c.key, 16, c.paddingFunc)
+		mac := NewLMACWithPadding(sm4.NewCipher, c.key, 16, c.newPaddingFunc)
 		tag := mac.MAC(c.src)
 		if !bytes.Equal(tag, c.tag) {
 			t.Errorf("#%d: expect tag %x, got %x", i, c.tag, tag)

@@ -33,9 +33,8 @@ type cbcmac struct {
 	size int
 }
 
-// NewCBCMAC returns a CBC-MAC instance that implements the MAC with the given block cipher.
-// The padding scheme is ISO/IEC 9797-1 method 2.
-// GB/T 15821.1-2020 MAC scheme 1
+// NewCBCMAC returns a CBC-MAC (GB/T 15821.1-2020 MAC scheme 1) instance that 
+// implements the MAC with the given block cipher. The padding scheme is ISO/IEC 9797-1 method 2.
 func NewCBCMAC(b cipher.Block, size int) BockCipherMAC {
 	return NewCBCMACWithPadding(b, size, padding.NewISO9797M2Padding)
 }
@@ -45,19 +44,11 @@ func NewCBCMAC(b cipher.Block, size int) BockCipherMAC {
 // with the specified block cipher, MAC size, and padding function. The MAC size must be greater 
 // than 0 and less than or equal to the block size of the cipher. If the size is invalid, the 
 // function will panic. The padding function is used to pad the input to the block size of the cipher.
-//
-// Parameters:
-// - b: The block cipher to use for CBC-MAC.
-// - size: The size of the MAC in bytes. Must be greater than 0 and less than or equal to the block size of the cipher.
-// - paddingFunc: The padding function to use for padding the input to the block size of the cipher.
-//
-// Returns:
-// - A BockCipherMAC instance that can be used to compute the CBC-MAC.
-func NewCBCMACWithPadding(b cipher.Block, size int, paddingFunc padding.PaddingFunc) BockCipherMAC {
+func NewCBCMACWithPadding(b cipher.Block, size int, newPaddingFunc padding.NewPaddingFunc) BockCipherMAC {
 	if size <= 0 || size > b.BlockSize() {
 		panic("cbcmac: invalid size")
 	}
-	return &cbcmac{b: b, pad: paddingFunc(uint(b.BlockSize())), size: size}
+	return &cbcmac{b: b, pad: newPaddingFunc(uint(b.BlockSize())), size: size}
 }
 
 func (c *cbcmac) Size() int {
@@ -85,23 +76,14 @@ type emac struct {
 	size   int
 }
 
-// NewEMAC returns an EMAC instance that implements MAC with the given block cipher.
-// The padding scheme is ISO/IEC 9797-1 method 2.
-// GB/T 15821.1-2020 MAC scheme 2
+// NewEMAC returns an EMAC (GB/T 15821.1-2020 MAC scheme 2) instance that 
+// implements MAC with the given block cipher. The padding scheme is ISO/IEC 9797-1 method 2.
 func NewEMAC(creator func(key []byte) (cipher.Block, error), key1, key2 []byte, size int) BockCipherMAC {
 	return NewEMACWithPadding(creator, key1, key2, size, padding.NewISO9797M2Padding)
 }
 
 // NewEMACWithPadding creates a new instance of EMAC (Encrypted Message Authentication Code) with padding.
-// It takes the following parameters:
-// - creator: a function that takes a key and returns a cipher.Block and an error.
-// - key1: the first key used to create the first cipher.Block.
-// - key2: the second key used to create the second cipher.Block.
-// - size: the size of the MAC. It must be greater than 0 and less than or equal to the block size of the cipher.
-// - paddingFunc: a function that returns the padding to be used.
-//
-// The function returns a BockCipherMAC instance. It panics if there is an error creating the cipher.Blocks or if the size is invalid.
-func NewEMACWithPadding(creator func(key []byte) (cipher.Block, error), key1, key2 []byte, size int, paddingFunc padding.PaddingFunc) BockCipherMAC {
+func NewEMACWithPadding(creator func(key []byte) (cipher.Block, error), key1, key2 []byte, size int, newPaddingFunc padding.NewPaddingFunc) BockCipherMAC {
 	var b1, b2 cipher.Block
 	var err error
 	if b1, err = creator(key1); err != nil {
@@ -113,7 +95,7 @@ func NewEMACWithPadding(creator func(key []byte) (cipher.Block, error), key1, ke
 	if b2, err = creator(key2); err != nil {
 		panic(err)
 	}
-	return &emac{pad: paddingFunc(uint(b1.BlockSize())), b1: b1, b2: b2, size: size}
+	return &emac{pad: newPaddingFunc(uint(b1.BlockSize())), b1: b1, b2: b2, size: size}
 }
 
 func (e *emac) Size() int {
@@ -135,24 +117,15 @@ func (e *emac) MAC(src []byte) []byte {
 
 type ansiRetailMAC emac
 
-// NewANSIRetailMAC returns an ANSI Retail MAC instance that implements MAC with the given block cipher.
-// The padding scheme is ISO/IEC 9797-1 method 2.
-// GB/T 15821.1-2020 MAC scheme 3
+// NewANSIRetailMAC returns an ANSI Retail MAC (GB/T 15821.1-2020 MAC scheme 3) instance that 
+// implements MAC with the given block cipher. The padding scheme is ISO/IEC 9797-1 method 2.
 func NewANSIRetailMAC(creator func(key []byte) (cipher.Block, error), key1, key2 []byte, size int) BockCipherMAC {
 	return NewANSIRetailMACWithPadding(creator, key1, key2, size, padding.NewISO9797M2Padding)
 }
 
 // NewANSIRetailMACWithPadding creates a new ANSI Retail MAC with padding.
-// It takes the following parameters:
-// - creator: a function that takes a key and returns a cipher.Block and an error.
-// - key1: the first key used for the MAC.
-// - key2: the second key used for the MAC.
-// - size: the size of the MAC.
-// - paddingFunc: a function used to pad the input data.
-//
-// It returns a BockCipherMAC which is an instance of ansiRetailMAC.
-func NewANSIRetailMACWithPadding(creator func(key []byte) (cipher.Block, error), key1, key2 []byte, size int, paddingFunc padding.PaddingFunc) BockCipherMAC {
-	return (*ansiRetailMAC)(NewEMACWithPadding(creator, key1, key2, size, paddingFunc).(*emac))
+func NewANSIRetailMACWithPadding(creator func(key []byte) (cipher.Block, error), key1, key2 []byte, size int, newPaddingFunc padding.NewPaddingFunc) BockCipherMAC {
+	return (*ansiRetailMAC)(NewEMACWithPadding(creator, key1, key2, size, newPaddingFunc).(*emac))
 }
 
 func (e *ansiRetailMAC) Size() int {
@@ -179,14 +152,13 @@ type macDES struct {
 	size       int
 }
 
-// NewMACDES returns a MAC-DES instance that implements MAC with the given block cipher.
-// The padding scheme is ISO/IEC 9797-1 method 2.
-// GB/T 15821.1-2020 MAC scheme 4
+// NewMACDES returns a MAC-DES (GB/T 15821.1-2020 MAC scheme 4) instance that 
+// implements MAC with the given block cipher. The padding scheme is ISO/IEC 9797-1 method 2.
 func NewMACDES(creator func(key []byte) (cipher.Block, error), key1, key2 []byte, size int) BockCipherMAC {
 	return NewMACDESWithPadding(creator, key1, key2, size, padding.NewISO9797M2Padding)
 }
 
-func NewMACDESWithPadding(creator func(key []byte) (cipher.Block, error), key1, key2 []byte, size int, paddingFunc padding.PaddingFunc) BockCipherMAC {
+func NewMACDESWithPadding(creator func(key []byte) (cipher.Block, error), key1, key2 []byte, size int, newPaddingFunc padding.NewPaddingFunc) BockCipherMAC {
 	var b1, b2, b3 cipher.Block
 	var err error
 	if b1, err = creator(key1); err != nil {
@@ -206,7 +178,7 @@ func NewMACDESWithPadding(creator func(key []byte) (cipher.Block, error), key1, 
 	if b3, err = creator(key3); err != nil {
 		panic(err)
 	}
-	return &macDES{pad: paddingFunc(uint(b1.BlockSize())), b1: b1, b2: b2, b3: b3, size: size}
+	return &macDES{pad: newPaddingFunc(uint(b1.BlockSize())), b1: b1, b2: b2, b3: b3, size: size}
 }
 
 func (m *macDES) Size() int {
@@ -241,8 +213,7 @@ type cmac struct {
 	len       uint64
 }
 
-// NewCMAC returns a CMAC instance that implements MAC with the given block cipher.
-// GB/T 15821.1-2020 MAC scheme 5
+// NewCMAC returns a CMAC (GB/T 15821.1-2020 MAC scheme 5) instance that implements MAC with the given block cipher.
 //
 // Reference: https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38B.pdf
 func NewCMAC(b cipher.Block, size int) *cmac {
@@ -381,22 +352,14 @@ type lmac struct {
 	size   int
 }
 
-// NewLMAC returns an LMAC instance that implements MAC with the given block cipher.
-// GB/T 15821.1-2020 MAC scheme 6
+// NewLMAC returns an LMAC (GB/T 15821.1-2020 MAC scheme 6) instance that 
+// implements MAC with the given block cipher. The padding scheme is ISO/IEC 9797-1 method 2.
 func NewLMAC(creator func(key []byte) (cipher.Block, error), key []byte, size int) BockCipherMAC {
 	return NewLMACWithPadding(creator, key, size, padding.NewISO9797M2Padding)
 }
 
 // NewLMACWithPadding creates a new LMAC (Length-based Message Authentication Code) with padding.
-// It takes the following parameters:
-// - creator: a function that takes a key and returns a cipher.Block and an error.
-// - key: the key used for the MAC.
-// - size: the size of the MAC output. It must be greater than 0 and less than or equal to the block size of the cipher.
-// - paddingFunc: a function that returns a padding function for the given block size.
-//
-// The function initializes two cipher blocks using derived keys and returns an instance of BockCipherMAC.
-// It panics if the key creation fails or if the size is invalid.
-func NewLMACWithPadding(creator func(key []byte) (cipher.Block, error), key []byte, size int, paddingFunc padding.PaddingFunc) BockCipherMAC {
+func NewLMACWithPadding(creator func(key []byte) (cipher.Block, error), key []byte, size int, newPaddingFunc padding.NewPaddingFunc) BockCipherMAC {
 	var b, b1, b2 cipher.Block
 	var err error
 	if b, err = creator(key); err != nil {
@@ -419,7 +382,7 @@ func NewLMACWithPadding(creator func(key []byte) (cipher.Block, error), key []by
 		panic(err)
 	}
 
-	return &lmac{b1: b1, b2: b2, pad: paddingFunc(uint(blockSize)), size: size}
+	return &lmac{b1: b1, b2: b2, pad: newPaddingFunc(uint(blockSize)), size: size}
 }
 
 func (l *lmac) Size() int {
@@ -445,8 +408,8 @@ type trCBCMAC struct {
 	size int
 }
 
-// NewTRCBCMAC returns a TR-CBC-MAC instance that implements MAC with the given block cipher.
-// GB/T 15821.1-2020 MAC scheme 7
+// NewTRCBCMAC returns a TR-CBC-MAC (GB/T 15821.1-2020 MAC scheme 7) instance that 
+// implements MAC with the given block cipher.
 //
 // Reference: TrCBC: Another look at CBC-MAC.
 func NewTRCBCMAC(b cipher.Block, size int) BockCipherMAC {
@@ -485,8 +448,7 @@ type cbcrMAC struct {
 	size int
 }
 
-// NewCBCRMAC returns a CBCRMAC instance that implements MAC with the given block cipher.
-// GB/T 15821.1-2020 MAC scheme 8
+// NewCBCRMAC returns a CBCRMAC (GB/T 15821.1-2020 MAC scheme 8) instance that implements MAC with the given block cipher.
 //
 // Reference: CBCR: CBC MAC with rotating transformations.
 func NewCBCRMAC(b cipher.Block, size int) BockCipherMAC {
