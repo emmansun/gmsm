@@ -6,7 +6,7 @@
 
 package bigmod
 
-import "github.com/emmansun/gmsm/internal/cpu"
+import "github.com/emmansun/gmsm/internal/deps/cpu"
 
 // amd64 assembly uses ADCX/ADOX/MULX if ADX is available to run two carry
 // chains in the flags in parallel across the whole operation, and aggressively

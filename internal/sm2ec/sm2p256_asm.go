@@ -19,7 +19,7 @@ import (
 	"unsafe"
 
 	"github.com/emmansun/gmsm/internal/byteorder"
-	"github.com/emmansun/gmsm/internal/cpu"
+	"github.com/emmansun/gmsm/internal/deps/cpu"
 )
 
 // p256Element is a P-256 base field element in [0, P-1] in the Montgomery

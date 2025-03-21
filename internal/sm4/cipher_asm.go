@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/emmansun/gmsm/internal/alias"
-	"github.com/emmansun/gmsm/internal/cpu"
 	"github.com/emmansun/gmsm/internal/cpuid"
+	"github.com/emmansun/gmsm/internal/deps/cpu"
 )
 
 var supportSM4 = cpu.ARM64.HasSM4 && os.Getenv("DISABLE_SM4NI") != "1"

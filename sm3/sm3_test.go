@@ -13,7 +13,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/emmansun/gmsm/internal/cpu"
+	"github.com/emmansun/gmsm/internal/deps/cpu"
 	"github.com/emmansun/gmsm/internal/cryptotest"
 )
 
