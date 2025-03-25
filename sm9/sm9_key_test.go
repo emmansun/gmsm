@@ -34,7 +34,7 @@ func TestSignMasterPublicKeyMarshalASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	der, err := masterKey.Public().MarshalASN1()
+	der, err := masterKey.PublicKey().MarshalASN1()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +42,7 @@ func TestSignMasterPublicKeyMarshalASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !masterKey.Public().Equal(pub2) {
+	if !pub2.Equal(masterKey.Public()) {
 		t.Errorf("not same")
 	}
 }
@@ -52,7 +52,7 @@ func TestSignMasterPublicKeyMarshalCompressedASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	der, err := masterKey.Public().MarshalCompressedASN1()
+	der, err := masterKey.PublicKey().MarshalCompressedASN1()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +60,7 @@ func TestSignMasterPublicKeyMarshalCompressedASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !masterKey.Public().Equal(pub2) {
+	if !pub2.Equal(masterKey.Public()) {
 		t.Errorf("not same")
 	}
 }
@@ -136,7 +136,7 @@ func TestEncryptMasterPublicKeyMarshalASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	der, err := masterKey.Public().MarshalASN1()
+	der, err := masterKey.PublicKey().MarshalASN1()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +144,7 @@ func TestEncryptMasterPublicKeyMarshalASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !masterKey.Public().Equal(pub2) {
+	if !pub2.Equal(masterKey.Public()) {
 		t.Errorf("not same")
 	}
 }
@@ -154,7 +154,7 @@ func TestEncryptMasterPublicKeyMarshalCompressedASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	der, err := masterKey.Public().MarshalCompressedASN1()
+	der, err := masterKey.PublicKey().MarshalCompressedASN1()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +162,7 @@ func TestEncryptMasterPublicKeyMarshalCompressedASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !masterKey.Public().Equal(pub2) {
+	if !pub2.Equal(masterKey.Public()) {
 		t.Errorf("not same")
 	}
 }

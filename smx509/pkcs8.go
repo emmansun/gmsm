@@ -212,7 +212,7 @@ func marshalPKCS8SM9SignMasterPrivateKey(k *sm9.SignMasterPrivateKey) ([]byte, e
 	if err != nil {
 		return nil, err
 	}
-	pubasn1, err := k.Public().MarshalASN1()
+	pubasn1, err := k.PublicKey().MarshalASN1()
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +244,7 @@ func marshalPKCS8SM9EncMasterPrivateKey(k *sm9.EncryptMasterPrivateKey) ([]byte,
 	if err != nil {
 		return nil, err
 	}
-	pubasn1, err := k.Public().MarshalASN1()
+	pubasn1, err := k.PublicKey().MarshalASN1()
 	if err != nil {
 		return nil, err
 	}

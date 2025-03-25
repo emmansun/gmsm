@@ -33,7 +33,7 @@ const (
 // as rand. Note that the returned signature does not depend deterministically on
 // the bytes read from rand, and may change between calls and/or between versions.
 func Sign(rand io.Reader, priv *SignPrivateKey, hash []byte) (*big.Int, []byte, error) {
-	h, s, err := priv.privateKey.Sign(rand, hash, nil)
+	h, s, err := priv.internal.Sign(rand, hash, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -49,7 +49,7 @@ func Sign(rand io.Reader, priv *SignPrivateKey, hash []byte) (*big.Int, []byte, 
 // as rand. Note that the returned signature does not depend deterministically on
 // the bytes read from rand, and may change between calls and/or between versions.
 func (priv *SignPrivateKey) Sign(rand io.Reader, hash []byte, opts crypto.SignerOpts) ([]byte, error) {
-	h, s, err := priv.privateKey.Sign(rand, hash, opts)
+	h, s, err := priv.internal.Sign(rand, hash, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func Verify(pub *SignMasterPublicKey, uid []byte, hid byte, hash []byte, h *big.
 	if h.Sign() <= 0 {
 		return false
 	}
-	return pub.publicKey.Verify(uid, hid, hash, h.Bytes(), s)
+	return pub.internal.Verify(uid, hid, hash, h.Bytes(), s)
 }
 
 func encodeSignature(h, s []byte) ([]byte, error) {
@@ -111,7 +111,7 @@ func VerifyASN1(pub *SignMasterPublicKey, uid []byte, hid byte, hash, sig []byte
 	if err != nil {
 		return false
 	}
-	return pub.publicKey.Verify(uid, hid, hash, h, s)
+	return pub.internal.Verify(uid, hid, hash, h, s)
 }
 
 // Verify verifies the ASN.1 encoded signature, sig, of hash using the
@@ -126,7 +126,7 @@ func (pub *SignMasterPublicKey) Verify(uid []byte, hid byte, hash, sig []byte) b
 // calls this function twice doesn't result in the same key.
 // Most applications should use [crypto/rand.Reader] as random.
 func WrapKey(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, kLen int) ([]byte, []byte, error) {
-	return pub.publicKey.WrapKey(rand, uid, hid, kLen)
+	return pub.internal.WrapKey(rand, uid, hid, kLen)
 }
 
 // WrapKey wraps key and converts the cipher as ASN1 format, SM9PublicKey1 definition.
@@ -190,7 +190,7 @@ var ErrEmptyPlaintext = errors.New("sm9: empty plaintext")
 
 // UnwrapKey unwraps key from cipher, user id and aligned key length
 func UnwrapKey(priv *EncryptPrivateKey, uid, cipher []byte, kLen int) ([]byte, error) {
-	return priv.privateKey.UnwrapKey(uid, cipher, kLen)
+	return priv.internal.UnwrapKey(uid, cipher, kLen)
 }
 
 // UnwrapKey unwraps key from cipherDer, user id and aligned key length.
@@ -402,7 +402,7 @@ type keyExchange struct {
 }
 
 func (priv *EncryptPrivateKey) NewKeyExchange(uid, peerUID []byte, keyLen int, genSignature bool) *keyExchange {
-	return &keyExchange{ke: priv.privateKey.NewKeyExchange(uid, peerUID, keyLen, genSignature)}
+	return &keyExchange{ke: priv.internal.NewKeyExchange(uid, peerUID, keyLen, genSignature)}
 }
 
 func (ke *keyExchange) Destroy() {

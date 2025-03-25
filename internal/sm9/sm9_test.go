@@ -52,17 +52,17 @@ func TestSign(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !masterKey.Public().Verify(uid, hid, hashed, h, s) {
+	if !masterKey.PublicKey().Verify(uid, hid, hashed, h, s) {
 		t.Errorf("Verify failed")
 	}
 	sNeg := new(bn256.G1)
 	sNeg.Unmarshal(s[1:])
 	sNeg.Neg(sNeg)
-	if masterKey.Public().Verify(uid, hid, hashed, h, sNeg.MarshalUncompressed()) {
+	if masterKey.PublicKey().Verify(uid, hid, hashed, h, sNeg.MarshalUncompressed()) {
 		t.Errorf("Verify with s=-s succeeded")
 	}
 	hashed[0] ^= 0xff
-	if masterKey.Public().Verify(uid, hid, hashed, h, s) {
+	if masterKey.PublicKey().Verify(uid, hid, hashed, h, s) {
 		t.Errorf("Verify always works!")
 	}
 }
@@ -78,7 +78,7 @@ func TestNegativeInputs(t *testing.T) {
 	h := new(big.Int).SetInt64(1)
 	h.Lsh(h, 550 /* larger than any supported curve */)
 	h.Neg(h)
-	if masterKey.Public().Verify(uid, hid, hashed, h.Bytes(), bn256.Gen1.MarshalUncompressed()) {
+	if masterKey.PublicKey().Verify(uid, hid, hashed, h.Bytes(), bn256.Gen1.MarshalUncompressed()) {
 		t.Errorf("bogus signature accepted")
 	}
 }
@@ -91,10 +91,10 @@ func TestZeroSignature(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if masterKey.Public().Verify(uid, hid, hashed, big.NewInt(0).Bytes(), bn256.Gen1.MarshalUncompressed()) {
+	if masterKey.PublicKey().Verify(uid, hid, hashed, big.NewInt(0).Bytes(), bn256.Gen1.MarshalUncompressed()) {
 		t.Error("Verify with h=0 succeeded")
 	}
-	if masterKey.Public().Verify(uid, hid, hashed, bn256.OrderBytes, bn256.Gen1.MarshalUncompressed()) {
+	if masterKey.PublicKey().Verify(uid, hid, hashed, bn256.OrderBytes, bn256.Gen1.MarshalUncompressed()) {
 		t.Error("Verify with h=order succeeded")
 	}
 }
@@ -162,7 +162,7 @@ func TestWrapKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	key, cipher, err := masterKey.Public().WrapKey(rand.Reader, uid, hid, 16)
+	key, cipher, err := masterKey.PublicKey().WrapKey(rand.Reader, uid, hid, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,7 +224,7 @@ func TestWrapKeySM9Sample(t *testing.T) {
 		t.Errorf("not expected user private key")
 	}
 
-	q := masterKey.Public().GenerateUserPublicKey(uid, hid)
+	q := masterKey.PublicKey().GenerateUserPublicKey(uid, hid)
 	if hex.EncodeToString(q.Marshal()) != expectedUserPublicKey {
 		t.Errorf("not expected user public key")
 	}
@@ -239,7 +239,7 @@ func TestWrapKeySM9Sample(t *testing.T) {
 		t.Errorf("not expected cipher")
 	}
 
-	g := bn256.Pair(masterKey.Public().MasterPublicKey, bn256.Gen2)
+	g := bn256.Pair(masterKey.PublicKey().MasterPublicKey, bn256.Gen2)
 	w := new(bn256.GT).ScalarMult(g, r)
 
 	var buffer []byte
@@ -292,7 +292,7 @@ func TestEncryptSM9Sample(t *testing.T) {
 		t.Errorf("not expected user private key")
 	}
 
-	q := masterKey.Public().GenerateUserPublicKey(uid, hid)
+	q := masterKey.PublicKey().GenerateUserPublicKey(uid, hid)
 	if hex.EncodeToString(q.Marshal()) != expectedUserPublicKey {
 		t.Errorf("not expected user public key")
 	}
@@ -307,7 +307,7 @@ func TestEncryptSM9Sample(t *testing.T) {
 		t.Errorf("not expected cipher")
 	}
 
-	g := bn256.Pair(masterKey.Public().MasterPublicKey, bn256.Gen2)
+	g := bn256.Pair(masterKey.PublicKey().MasterPublicKey, bn256.Gen2)
 	w := new(bn256.GT).ScalarMult(g, r)
 
 	var buffer []byte
@@ -362,7 +362,7 @@ func TestEncryptSM9SampleBlockMode(t *testing.T) {
 		t.Errorf("not expected user private key")
 	}
 
-	q := masterKey.Public().GenerateUserPublicKey(uid, hid)
+	q := masterKey.PublicKey().GenerateUserPublicKey(uid, hid)
 	if hex.EncodeToString(q.Marshal()) != expectedUserPublicKey {
 		t.Errorf("not expected user public key")
 	}
@@ -377,7 +377,7 @@ func TestEncryptSM9SampleBlockMode(t *testing.T) {
 		t.Errorf("not expected cipher")
 	}
 
-	g := bn256.Pair(masterKey.Public().MasterPublicKey, bn256.Gen2)
+	g := bn256.Pair(masterKey.PublicKey().MasterPublicKey, bn256.Gen2)
 	w := new(bn256.GT).ScalarMult(g, r)
 
 	var buffer []byte

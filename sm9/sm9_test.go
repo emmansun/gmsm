@@ -25,11 +25,11 @@ func TestSignASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !masterKey.Public().Verify(uid, hid, hashed, sig) {
+	if !masterKey.PublicKey().Verify(uid, hid, hashed, sig) {
 		t.Errorf("Verify failed")
 	}
 	sig[0] = 0xff
-	if masterKey.Public().Verify(uid, hid, hashed, sig) {
+	if masterKey.PublicKey().Verify(uid, hid, hashed, sig) {
 		t.Errorf("Verify with invalid asn1 format successed")
 	}
 }
@@ -45,7 +45,7 @@ func TestWrapKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	key, cipher, err := masterKey.Public().WrapKey(rand.Reader, uid, hid, 16)
+	key, cipher, err := masterKey.PublicKey().WrapKey(rand.Reader, uid, hid, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestWrapKeyASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	keyPackage, err := masterKey.Public().WrapKeyASN1(rand.Reader, uid, hid, 16)
+	keyPackage, err := masterKey.PublicKey().WrapKeyASN1(rand.Reader, uid, hid, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +107,7 @@ func TestEncryptDecrypt(t *testing.T) {
 		sm9.DefaultEncrypterOpts, sm9.SM4ECBEncrypterOpts, sm9.SM4CBCEncrypterOpts, sm9.SM4CFBEncrypterOpts, sm9.SM4OFBEncrypterOpts,
 	}
 	for _, opts := range encTypes {
-		cipher, err := sm9.Encrypt(rand.Reader, masterKey.Public(), uid, hid, plaintext, opts)
+		cipher, err := sm9.Encrypt(rand.Reader, masterKey.PublicKey(), uid, hid, plaintext, opts)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -142,7 +142,7 @@ func TestEncryptEmptyPlaintext(t *testing.T) {
 		sm9.DefaultEncrypterOpts, sm9.SM4ECBEncrypterOpts, sm9.SM4CBCEncrypterOpts, sm9.SM4CFBEncrypterOpts, sm9.SM4OFBEncrypterOpts,
 	}
 	for _, opts := range encTypes {
-		_, err := sm9.Encrypt(rand.Reader, masterKey.Public(), uid, hid, nil, opts)
+		_, err := sm9.Encrypt(rand.Reader, masterKey.PublicKey(), uid, hid, nil, opts)
 		if err != sm9.ErrEmptyPlaintext {
 			t.Fatalf("should be ErrEmptyPlaintext")
 		}
@@ -165,7 +165,7 @@ func TestEncryptDecryptASN1(t *testing.T) {
 		sm9.DefaultEncrypterOpts, sm9.SM4ECBEncrypterOpts, sm9.SM4CBCEncrypterOpts, sm9.SM4CFBEncrypterOpts, sm9.SM4OFBEncrypterOpts,
 	}
 	for _, opts := range encTypes {
-		cipher, err := sm9.EncryptASN1(rand.Reader, masterKey.Public(), uid, hid, plaintext, opts)
+		cipher, err := sm9.EncryptASN1(rand.Reader, masterKey.PublicKey(), uid, hid, plaintext, opts)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -201,7 +201,7 @@ func TestUnmarshalSM9KeyPackage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := masterKey.Public().WrapKeyASN1(rand.Reader, uid, hid, 16)
+	p, err := masterKey.PublicKey().WrapKeyASN1(rand.Reader, uid, hid, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -379,7 +379,7 @@ func BenchmarkVerify(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if !sm9.VerifyASN1(masterKey.Public(), uid, hid, hashed, sig) {
+		if !sm9.VerifyASN1(masterKey.PublicKey(), uid, hid, hashed, sig) {
 			b.Fatal("verify failed")
 		}
 	}
@@ -396,7 +396,7 @@ func BenchmarkEncrypt(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cipher, err := sm9.Encrypt(rand.Reader, masterKey.Public(), uid, hid, plaintext, nil)
+		cipher, err := sm9.Encrypt(rand.Reader, masterKey.PublicKey(), uid, hid, plaintext, nil)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -417,7 +417,7 @@ func BenchmarkDecrypt(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	cipher, err := sm9.Encrypt(rand.Reader, masterKey.Public(), uid, hid, plaintext, nil)
+	cipher, err := sm9.Encrypt(rand.Reader, masterKey.PublicKey(), uid, hid, plaintext, nil)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -446,7 +446,7 @@ func BenchmarkDecryptASN1(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	cipher, err := sm9.EncryptASN1(rand.Reader, masterKey.Public(), uid, hid, plaintext, nil)
+	cipher, err := sm9.EncryptASN1(rand.Reader, masterKey.PublicKey(), uid, hid, plaintext, nil)
 	if err != nil {
 		b.Fatal(err)
 	}
