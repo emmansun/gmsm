@@ -407,8 +407,11 @@ func (g1 *G1Curve) pointFromAffine(x, y *big.Int) (a *G1, err error) {
 	if x.BitLen() > g1.params.BitSize || y.BitLen() > g1.params.BitSize {
 		return a, errors.New("overflowing coordinate")
 	}
-	a.p.x = *fromBigInt(x)
-	a.p.y = *fromBigInt(y)
+	var buf [32]byte
+	x.FillBytes(buf[:])
+	a.p.x = *newGFpFromBytes(buf[:])
+	y.FillBytes(buf[:])
+	a.p.y = *newGFpFromBytes(buf[:])
 	a.p.z = *newGFp(1)
 	a.p.t = *newGFp(1)
 

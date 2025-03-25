@@ -7,12 +7,12 @@ import (
 
 var testdataP4 = gfP4{
 	gfP2{
-		*fromBigInt(bigFromHex("85AEF3D078640C98597B6027B441A01FF1DD2C190F5E93C454806C11D8806141")),
-		*fromBigInt(bigFromHex("3722755292130B08D2AAB97FD34EC120EE265948D19C17ABF9B7213BAF82D65B")),
+		*newGFpFromHex("85AEF3D078640C98597B6027B441A01FF1DD2C190F5E93C454806C11D8806141"),
+		*newGFpFromHex("3722755292130B08D2AAB97FD34EC120EE265948D19C17ABF9B7213BAF82D65B"),
 	},
 	gfP2{
-		*fromBigInt(bigFromHex("17509B092E845C1266BA0D262CBEE6ED0736A96FA347C8BD856DC76B84EBEB96")),
-		*fromBigInt(bigFromHex("A7CF28D519BE3DA65F3170153D278FF247EFBA98A71A08116215BBA5C999A7C7")),
+		*newGFpFromHex("17509B092E845C1266BA0D262CBEE6ED0736A96FA347C8BD856DC76B84EBEB96"),
+		*newGFpFromHex("A7CF28D519BE3DA65F3170153D278FF247EFBA98A71A08116215BBA5C999A7C7"),
 	},
 }
 
@@ -243,7 +243,7 @@ func Test_gfP12Frobenius_Case1(t *testing.T) {
 	i = gfP12Decode(i)
 	expected.z.x.SetZero()
 	expected.z.y.x.Set(zero)
-	expected.z.y.y.Set(fromBigInt(bigFromHex("3f23ea58e5720bdb843c6cfa9c08674947c5c86e0ddd04eda91d8354377b698b")))
+	expected.z.y.y.Set(newGFpFromHex("3f23ea58e5720bdb843c6cfa9c08674947c5c86e0ddd04eda91d8354377b698b"))
 	expected.x.SetZero()
 	expected.y.SetZero()
 	expected = gfP12Decode(expected)
@@ -262,7 +262,7 @@ func Test_gfP12Frobenius_Case2(t *testing.T) {
 	i = gfP12Decode(i)
 	expected.z.x.SetZero()
 	expected.z.y.x.Set(zero)
-	expected.z.y.y.Set(fromBigInt(bigFromHex("0000000000000000f300000002a3a6f2780272354f8b78f4d5fc11967be65334")))
+	expected.z.y.y.Set(newGFpFromHex("0000000000000000f300000002a3a6f2780272354f8b78f4d5fc11967be65334"))
 	expected.x.SetZero()
 	expected.y.SetZero()
 	expected = gfP12Decode(expected)
@@ -282,7 +282,7 @@ func Test_gfP12FrobeniusP2_Case1(t *testing.T) {
 	i = gfP12Decode(i)
 	expected.z.x.SetZero()
 	expected.z.y.x.Set(zero)
-	expected.z.y.y.Set(fromBigInt(bigFromHex("0000000000000000f300000002a3a6f2780272354f8b78f4d5fc11967be65334")))
+	expected.z.y.y.Set(newGFpFromHex("0000000000000000f300000002a3a6f2780272354f8b78f4d5fc11967be65334"))
 	expected.x.SetZero()
 	expected.y.SetZero()
 	expected = gfP12Decode(expected)
@@ -302,7 +302,7 @@ func Test_gfP12FrobeniusP2_Case2(t *testing.T) {
 	i = gfP12Decode(i)
 	expected.z.x.SetZero()
 	expected.z.y.x.Set(zero)
-	expected.z.y.y.Set(fromBigInt(bigFromHex("0000000000000000f300000002a3a6f2780272354f8b78f4d5fc11967be65333")))
+	expected.z.y.y.Set(newGFpFromHex("0000000000000000f300000002a3a6f2780272354f8b78f4d5fc11967be65333"))
 	expected.x.SetZero()
 	expected.y.SetZero()
 	expected = gfP12Decode(expected)
@@ -323,7 +323,7 @@ func Test_gfP12FrobeniusP3_Case1(t *testing.T) {
 	i = gfP12Decode(i)
 	expected.z.x.SetZero()
 	expected.z.y.x.Set(zero)
-	expected.z.y.y.Set(fromBigInt(bigFromHex("6c648de5dc0a3f2cf55acc93ee0baf159f9d411806dc5177f5b21fd3da24d011")))
+	expected.z.y.y.Set(newGFpFromHex("6c648de5dc0a3f2cf55acc93ee0baf159f9d411806dc5177f5b21fd3da24d011"))
 	expected.x.SetZero()
 	expected.y.SetZero()
 	expected = gfP12Decode(expected)
@@ -344,7 +344,7 @@ func Test_gfP12FrobeniusP3_Case2(t *testing.T) {
 	i = gfP12Decode(i)
 	expected.z.x.SetZero()
 	expected.z.y.x.Set(zero)
-	expected.z.y.y.Set(fromBigInt(bigFromHex("b640000002a3a6f1d603ab4ff58ec74521f2934b1a7aeedbe56f9b27e351457c"))) // -1
+	expected.z.y.y.Set(newGFpFromHex("b640000002a3a6f1d603ab4ff58ec74521f2934b1a7aeedbe56f9b27e351457c")) // -1
 	expected.x.SetZero()
 	expected.y.SetZero()
 	expected = gfP12Decode(expected)

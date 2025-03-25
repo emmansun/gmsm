@@ -3,10 +3,7 @@ package bn256
 import (
 	"errors"
 	"fmt"
-	"math/big"
 	"math/bits"
-
-	"github.com/emmansun/gmsm/internal/byteorder"
 )
 
 type gfP [4]uint64
@@ -27,33 +24,10 @@ func newGFp(x int64) (out *gfP) {
 	return out
 }
 
-func fromBigInt(x *big.Int) (out *gfP) {
+func newGFpFromBytes(in []byte) (out *gfP) {
 	out = &gfP{}
-	var a *big.Int
-	if x.Sign() >= 0 {
-		a = x
-	} else {
-		a = new(big.Int).Neg(x)
-	}
-	bytes := a.Bytes()
-	if len(bytes) > 32 {
-		panic("sm9: invalid byte length")
-	} else if len(bytes) < 32 {
-		fixedBytes := make([]byte, 32)
-		copy(fixedBytes[32-len(bytes):], bytes)
-		bytes = fixedBytes
-	}
-	for i := 0; i < 4; i++ {
-		start := len(bytes) - 8
-		out[i] = byteorder.BEUint64(bytes[start:])
-		bytes = bytes[:start]
-	}
-	if x.Sign() < 0 {
-		gfpNeg(out, out)
-	}
-	if x.Sign() != 0 {
-		montEncode(out, out)
-	}
+	gfpUnmarshal(out, (*[32]byte)(in))
+	montEncode(out, out)
 	return out
 }
 
@@ -71,7 +45,7 @@ func (e *gfP) exp(f *gfP, bits [4]uint64) {
 	sum.Set(rN1)
 	power.Set(f)
 
-	for word := 0; word < 4; word++ {
+	for word := range 4 {
 		for bit := uint(0); bit < 64; bit++ {
 			if (bits[word]>>bit)&1 == 1 {
 				gfpMul(sum, sum, power)
