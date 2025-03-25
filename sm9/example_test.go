@@ -130,7 +130,7 @@ func ExampleEncryptPrivateKey_Decrypt() {
 	}
 	uid := []byte("Bob")
 	cipherDer, _ := hex.DecodeString("307f020100034200042cb3e90b0977211597652f26ee4abbe275ccb18dd7f431876ab5d40cc2fc563d9417791c75bc8909336a4e6562450836cc863f51002e31ecf0c4aae8d98641070420638ca5bfb35d25cff7cbd684f3ed75f2d919da86a921a2e3e2e2f4cbcf583f240414b7e776811774722a8720752fb1355ce45dc3d0df")
-	plaintext, err := userKey.DecryptASN1(uid, cipherDer)
+	plaintext, err := userKey.Decrypt(rand.Reader, cipherDer, uid)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error from Decrypt: %s\n", err)
 		return

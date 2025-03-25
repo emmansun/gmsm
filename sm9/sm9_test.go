@@ -120,13 +120,23 @@ func TestEncryptDecrypt(t *testing.T) {
 			t.Errorf("expected %v, got %v\n", string(plaintext), string(got))
 		}
 
-		got, err = userKey.Decrypt(uid, cipher, opts)
+		opts1, err := sm9.NewDecrypterOptsWithUID(opts, uid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err = userKey.Decrypt(rand.Reader, cipher, opts1)
 		if err != nil {
 			t.Fatalf("encType %v, first byte %x, %v", opts.GetEncryptType(), cipher[0], err)
 		}
 
 		if string(got) != string(plaintext) {
 			t.Errorf("expected %v, got %v\n", string(plaintext), string(got))
+		}
+
+		opts1.EncrypterOpts = nil
+		_, err = userKey.Decrypt(rand.Reader, cipher, opts1)
+		if err == nil || err.Error() != "sm9: invalid ciphertext asn.1 data" {
+			t.Fatalf("sm9: invalid ciphertext asn.1 data")
 		}
 	}
 }
@@ -184,6 +194,26 @@ func TestEncryptDecryptASN1(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		if string(got) != string(plaintext) {
+			t.Errorf("expected %v, got %v\n", string(plaintext), string(got))
+		}
+
+		got, err = userKey.Decrypt(rand.Reader, cipher, uid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(got) != string(plaintext) {
+			t.Errorf("expected %v, got %v\n", string(plaintext), string(got))
+		}
+
+		opts, err := sm9.NewDecrypterOptsWithUID(nil, uid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err = userKey.Decrypt(rand.Reader, cipher, opts)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if string(got) != string(plaintext) {
 			t.Errorf("expected %v, got %v\n", string(plaintext), string(got))
 		}

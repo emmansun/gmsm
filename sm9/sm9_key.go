@@ -212,6 +212,12 @@ func (priv *SignPrivateKey) Equal(x crypto.PrivateKey) bool {
 	return subtle.ConstantTimeCompare(priv.privateKey, xx.privateKey) == 1
 }
 
+// Public returns the public key corresponding to the private key.
+// Just to satisfy [crypto.Signer] interface.
+func (priv *SignPrivateKey) Public() crypto.PublicKey {
+	return nil
+}
+
 func (priv *SignPrivateKey) Bytes() []byte {
 	var buf [65]byte
 	return append(buf[:0], priv.privateKey...)
@@ -515,6 +521,12 @@ func (priv *EncryptPrivateKey) Equal(x crypto.PrivateKey) bool {
 		return false
 	}
 	return subtle.ConstantTimeCompare(priv.privateKey, xx.privateKey) == 1
+}
+
+// Public returns the public key corresponding to the private key.
+// Just to satisfy [crypto.Decrypter] interface.
+func (priv *EncryptPrivateKey) Public() crypto.PublicKey {
+	return nil
 }
 
 // Bytes returns the byte representation of the EncryptPrivateKey.
