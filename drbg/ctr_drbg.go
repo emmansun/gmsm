@@ -120,12 +120,12 @@ func (hd *CtrDrbg) MaxBytesPerRequest() int {
 }
 
 // Generate CTR DRBG pseudorandom bits generate process.
-func (hd *CtrDrbg) Generate(b, additional []byte) error {
+func (hd *CtrDrbg) Generate(out, additional []byte) error {
 	if hd.NeedReseed() {
 		return ErrReseedRequired
 	}
 	outlen := len(hd.v)
-	if (hd.gm && len(b) > outlen) || (!hd.gm && len(b) > MAX_BYTES_PER_GENERATE) {
+	if (hd.gm && len(out) > outlen) || (!hd.gm && len(out) > MAX_BYTES_PER_GENERATE) {
 		return errors.New("drbg: too many bytes requested")
 	}
 
@@ -140,14 +140,14 @@ func (hd *CtrDrbg) Generate(b, additional []byte) error {
 	block := hd.newBlockCipher(hd.key)
 	temp := make([]byte, outlen)
 
-	m := len(b)
+	m := len(out)
 	limit := uint64(m+outlen-1) / uint64(outlen)
-	for i := 0; i < int(limit); i++ {
+	for i := range int(limit) {
 		// V = (V + 1) mod 2^outlen)
 		addOne(hd.v, outlen)
 		// output_block = Encrypt(Key, V)
 		block.Encrypt(temp, hd.v)
-		copy(b[i*outlen:], temp)
+		copy(out[i*outlen:], temp)
 	}
 	hd.update(additional)
 	hd.reseedCounter++
@@ -162,7 +162,7 @@ func (cd *CtrDrbg) update(seedMaterial []byte) {
 	v := make([]byte, outlen)
 	output := make([]byte, outlen)
 	copy(v, cd.v)
-	for i := 0; i < (cd.seedLength+outlen-1)/outlen; i++ {
+	for i := range (cd.seedLength+outlen-1)/outlen {
 		// V = (V + 1) mod 2^outlen
 		addOne(v, outlen)
 		// output_block = Encrypt(Key, V)
@@ -191,7 +191,7 @@ func (cd *CtrDrbg) derive(seedMaterial []byte, returnBytes int) []byte {
 	S[outlen+8+len(seedMaterial)] = 0x80
 
 	key := make([]byte, cd.keyLen)
-	for i := 0; i < cd.keyLen; i++ {
+	for i := range cd.keyLen {
 		key[i] = byte(i)
 	}
 	blocks := (cd.seedLength + outlen - 1) / outlen

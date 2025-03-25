@@ -45,7 +45,7 @@ func NewHmacDrbg(newHash func() hash.Hash, securityLevel SecurityLevel, gm bool,
 	// HMAC_DRBG_Instantiate_process
 	hd.key = make([]byte, hd.hashSize)
 	hd.v = make([]byte, hd.hashSize)
-	for i := 0; i < hd.hashSize; i++ {
+	for i := range hd.hashSize {
 		hd.key[i] = 0x00
 		hd.v[i] = 0x01
 	}

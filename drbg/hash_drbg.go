@@ -187,7 +187,7 @@ func (hd *HashDrbg) Generate(b, additional []byte) error {
 		limit := uint64(m+md.Size()-1) / uint64(md.Size())
 		data := make([]byte, hd.seedLength)
 		copy(data, hd.v)
-		for i := 0; i < int(limit); i++ {
+		for i := range int(limit) {
 			md.Write(data)
 			copy(b[i*md.Size():], md.Sum(nil))
 			addOne(data, hd.seedLength)
@@ -211,7 +211,7 @@ func (hd *HashDrbg) derive(seedMaterial []byte, len int) []byte {
 	byteorder.BEPutUint32(requireBytes[:], uint32(len<<3))
 	var ct byte = 1
 	k := make([]byte, len)
-	for i := 0; i < int(limit); i++ {
+	for i := range int(limit) {
 		// Hash( counter_byte || return_bits || seed_material )
 		md.Write([]byte{ct})
 		md.Write(requireBytes[:])
