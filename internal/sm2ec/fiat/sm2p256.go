@@ -81,7 +81,7 @@ func (e *SM2P256Element) SetBytes(v []byte) (*SM2P256Element, error) {
 	var minusOneEncoding = new(SM2P256Element).Sub(
 		new(SM2P256Element), new(SM2P256Element).One()).Bytes()
 	if _subtle.ConstantTimeLessOrEqBytes(v, minusOneEncoding) == 0 {
-		return nil, errors.New("invalid {{ .Element }} encoding")
+		return nil, errors.New("invalid SM2P256Element encoding")
 	}
 
 	var in [sm2p256ElementLen]byte
