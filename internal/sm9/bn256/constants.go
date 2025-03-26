@@ -2,6 +2,14 @@ package bn256
 
 import "math/big"
 
+func bigFromHex(s string) *big.Int {
+	b, ok := new(big.Int).SetString(s, 16)
+	if !ok {
+		panic("sm9: internal error: invalid encoding")
+	}
+	return b
+}
+
 // u is the BN parameter that determines the prime: 600000000058f98a.
 var u = bigFromHex("600000000058f98a")
 
