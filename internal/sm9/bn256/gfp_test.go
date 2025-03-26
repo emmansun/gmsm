@@ -1,6 +1,7 @@
 package bn256
 
 import (
+	"bytes"
 	"encoding/hex"
 	"math/big"
 	"testing"
@@ -274,6 +275,43 @@ func TestGfpNeg(t *testing.T) {
 	if *expected != *got {
 		t.Errorf("got %v, expected %v", got, expected)
 	}
+}
+
+func TestGfpUnmarshal(t *testing.T) {
+	validHex := "85AEF3D078640C98597B6027B441A01FF1DD2C190F5E93C454806C11D8806141"
+	invalidHex := "b640000002a3a6f1d603ab4ff58ec74521f2934b1a7aeedbe56f9b27e351457d"
+
+	t.Run("valid input", func(t *testing.T) {
+		x, _ := hex.DecodeString(validHex)
+		var out [32]byte
+		ret := &gfP{}
+		err := ret.Unmarshal(x[:])
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		ret.Marshal(out[:])
+		if !bytes.Equal(out[:], x) {
+			t.Errorf("got %x, expected %x", out, x)
+		}
+	})
+
+	t.Run("invalid length", func(t *testing.T) {
+		x, _ := hex.DecodeString(validHex)
+		ret := &gfP{}
+		err := ret.Unmarshal(x[1:])
+		if err == nil || err.Error() != "sm9: invalid input length" {
+			t.Errorf("expected error, got %v", err)
+		}
+	})
+
+	t.Run("invalid value", func(t *testing.T) {
+		x, _ := hex.DecodeString(invalidHex)
+		ret := &gfP{}
+		err := ret.Unmarshal(x[:])
+		if err == nil || err.Error() != "sm9: invalid gfP encoding" {
+			t.Errorf("expected error, got %v", err)
+		}
+	})
 }
 
 func BenchmarkGfPUnmarshal(b *testing.B) {
