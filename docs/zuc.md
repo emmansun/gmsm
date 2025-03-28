@@ -99,6 +99,10 @@ func ExampleNewCipher_zuc256() {
 	// Output: some plaintext
 }
 ```
+### Seekable Stream
+完整性算法支持Seekable Stream，也就是随机定位到某点进行处理，内部实现了分桶缓存状态，每个状态的大小大概是88字节，`bucketSize`的大小可以结合要处理的流大小以及内存占用来平衡考虑。同时，`bucketSize`内部会被处理成128字节的倍数，以利于实现。
+
+如果您没有对同一个流反复进行**前进**、**后退**加解密的需求，可以使用`NewCipher`或者`NewEEACipher`方法，避免内部状态缓存。
 
 ## 完整性算法
 完整性算法实现了```hash.Hash```接口，所以其使用方法和其它哈希算法类似。
