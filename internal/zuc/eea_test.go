@@ -203,6 +203,96 @@ func TestIssue284(t *testing.T) {
 	}
 }
 
+func TestEEAXORKeyStreamAtWithBucketSize(t *testing.T) {
+	key, err := hex.DecodeString(zucEEATests[0].key)
+	if err != nil {
+		t.Error(err)
+	}
+	noBucketCipher, err := NewEEACipher(key, zucEEATests[0].count, zucEEATests[0].bearer, zucEEATests[0].direction)
+	if err != nil {
+		t.Error(err)
+	}
+	src := make([]byte, 10000)
+	expected := make([]byte, 10000)
+	dst := make([]byte, 10000)
+	stateCount := 1 + (10000 + RoundBytes -1) / RoundBytes
+	noBucketCipher.XORKeyStream(expected, src)
+
+	t.Run("Make sure the cached states are used once backward", func(t *testing.T) {
+		bucketCipher, err := NewEEACipherWithBucketSize(key, zucEEATests[0].count, zucEEATests[0].bearer, zucEEATests[0].direction, 128)
+		if err != nil {
+			t.Error(err)
+		}
+		bucketCipher.XORKeyStream(dst, src)
+		if !bytes.Equal(expected, dst) {
+			t.Fatalf("expected=%x, result=%x\n", expected, dst)
+		}
+		clear(dst)
+		if len(bucketCipher.states) != stateCount {
+			t.Fatalf("expected=%d, result=%d\n", stateCount, len(bucketCipher.states))
+		}
+		// go backward to offset 128
+		bucketCipher.XORKeyStreamAt(dst[128:256], src[128:256], 128)
+		if bucketCipher.stateIndex != 1 {
+			t.Fatalf("expected=%d, result=%d\n", 1, bucketCipher.stateIndex)
+		}
+		if !bytes.Equal(expected[128:256], dst[128:256]) {
+			t.Fatalf("expected=%x, result=%x\n", expected, dst[128:256])
+		}
+		// go backward to offset 130
+		bucketCipher.XORKeyStreamAt(dst[130:258], src[130:258], 130)
+		if bucketCipher.stateIndex != 1 {
+			t.Fatalf("expected=%d, result=%d\n", 1, bucketCipher.stateIndex)
+		}
+		if !bytes.Equal(expected[130:258], dst[130:258]) {
+			t.Fatalf("expected=%x, result=%x\n", expected[130:258], dst[130:258])
+		}
+		if len(bucketCipher.states) != stateCount {
+			t.Fatalf("expected=%d, result=%d\n", stateCount, len(bucketCipher.states))
+		}
+	})
+
+	t.Run("Forward to offset", func(t *testing.T) {
+		bucketCipher, err := NewEEACipherWithBucketSize(key, zucEEATests[0].count, zucEEATests[0].bearer, zucEEATests[0].direction, 128)
+		if err != nil {
+			t.Error(err)
+		}
+		clear(dst)
+		bucketCipher.XORKeyStreamAt(dst[256:512], src[256:512], 256)
+		if bucketCipher.stateIndex != 0 {
+			t.Fatalf("expected=%d, result=%d\n", 0, bucketCipher.stateIndex)
+		}
+		if len(bucketCipher.states) != 5 {
+			t.Fatalf("expected=%d, result=%d\n", 5, len(bucketCipher.states))
+		}
+		if !bytes.Equal(expected[256:512], dst[256:512]) {
+			t.Fatalf("expected=%x, result=%x\n", expected[256:512], dst[256:512])
+		}
+		clear(dst)
+		bucketCipher.XORKeyStreamAt(dst[513:768], src[513:768], 513)
+		if bucketCipher.stateIndex != 0 {
+			t.Fatalf("expected=%d, result=%d\n", 0, bucketCipher.stateIndex)
+		}
+		if len(bucketCipher.states) != 7 {
+			t.Fatalf("expected=%d, result=%d\n", 7, len(bucketCipher.states))
+		}
+		if !bytes.Equal(expected[513:768], dst[513:768]) {
+			t.Fatalf("expected=%x, result=%x\n", expected[513:768], dst[513:768])
+		}
+		clear(dst)
+		bucketCipher.XORKeyStreamAt(dst[512:768], src[512:768], 512)
+		if bucketCipher.stateIndex != 4 {
+			t.Fatalf("expected=%d, result=%d\n", 0, bucketCipher.stateIndex)
+		}
+		if len(bucketCipher.states) != 7 {
+			t.Fatalf("expected=%d, result=%d\n", 7, len(bucketCipher.states))
+		}
+		if !bytes.Equal(expected[512:768], dst[512:768]) {
+			t.Fatalf("expected=%x, result=%x\n", expected[512:768], dst[512:768])
+		}
+	})
+}
+
 func benchmarkStream(b *testing.B, buf []byte) {
 	b.SetBytes(int64(len(buf)))
 
@@ -236,7 +326,7 @@ func benchmarkSeek(b *testing.B, offset uint64) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		eea.reset()
+		eea.reset(0)
 		eea.seek(offset)
 	}
 }

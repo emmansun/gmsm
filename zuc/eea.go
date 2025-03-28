@@ -8,15 +8,15 @@ import (
 
 const (
 	// IV size in bytes for zuc 128
-	IVSize128 = 16
+	IVSize128 = zuc.IVSize128
 	// IV size in bytes for zuc 256
-	IVSize256 = 23
+	IVSize256 = zuc.IVSize256
 	// number of words in a round
-	RoundWords = 32
+	RoundWords = zuc.RoundWords
 	// number of bytes in a word
-	WordSize = 4
+	WordSize = zuc.WordSize
 	// number of bytes in a round
-	RoundBytes = RoundWords * WordSize
+	RoundBytes = zuc.RoundBytes
 )
 
 // NewCipher create a stream cipher based on key and iv aguments.
@@ -33,4 +33,23 @@ func NewCipher(key, iv []byte) (cipher.SeekableStream, error) {
 // transmission direction flag.
 func NewEEACipher(key []byte, count, bearer, direction uint32) (cipher.SeekableStream, error) {
 	return zuc.NewEEACipher(key, count, bearer, direction)
+}
+
+// NewCipherWithBucketSize create a new instance of the eea cipher with the specified
+// bucket size. The bucket size is rounded up to the nearest multiple of RoundBytes.
+//
+// The implementation of this function is used for XORKeyStreamAt function optimization, which will keep states
+// for seekable stream cipher once the bucketSize is greater than 0.
+func NewCipherWithBucketSize(key, iv []byte, bucketSize int) (cipher.SeekableStream, error) {
+	return zuc.NewCipherWithBucketSize(key, iv, bucketSize)
+}
+
+// NewEEACipherWithBucketSize creates a new instance of a seekable stream cipher
+// for the EEA encryption algorithm with a specified bucket size. This function
+// is typically used in mobile communication systems for secure data encryption.
+//
+// The implementation of this function is used for XORKeyStreamAt function optimization, which will keep states
+// for seekable stream cipher once the bucketSize is greater than 0.
+func NewEEACipherWithBucketSize(key []byte, count, bearer, direction uint32, bucketSize int) (cipher.SeekableStream, error) {
+	return zuc.NewEEACipherWithBucketSize(key, count, bearer, direction, bucketSize)
 }
