@@ -8,6 +8,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/hex"
@@ -22,14 +23,24 @@ func TestCreateCertificateRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	certRSAKey, err := rsa.GenerateKey(random, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
 	tmpKey, err := sm2.GenerateKey(random)
 	if err != nil {
 		t.Fatal(err)
 	}
-	invalidTmpKey, err := ecdsa.GenerateKey(elliptic.P256(), random)
+	p256Key, err := ecdsa.GenerateKey(elliptic.P256(), random)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	rsaKey, err := rsa.GenerateKey(random, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	template := &x509.CertificateRequest{
 		Subject: pkix.Name{
 			CommonName:   "certRequisition",
@@ -37,41 +48,110 @@ func TestCreateCertificateRequest(t *testing.T) {
 			Country:      []string{"CN"},
 		},
 	}
-	_, err = CreateCertificateRequest(random, template, "", "", "")
-	if err == nil || err.Error() != "x509: certificate private key does not implement crypto.Signer" {
-		t.Fatalf("expect certificate private key does not implement crypto.Signer, got %v", err)
+
+	testCases := []struct {
+		template          *x509.CertificateRequest
+		priv              interface{}
+		tmpPub            interface{}
+		challengePassword string
+		wantErr           bool
+		errormsg          string
+	}{
+		{
+			template:          template,
+			priv:              certKey,
+			tmpPub:            tmpKey.Public(),
+			challengePassword: "111111",
+			wantErr:           false,
+			errormsg:          "",
+		},
+		{
+			template:          template,
+			priv:              certRSAKey,
+			tmpPub:            rsaKey.Public(),
+			challengePassword: "111111",
+			wantErr:           false,
+			errormsg:          "",
+		},
+		{
+			template:          template,
+			priv:              p256Key,
+			tmpPub:            nil,
+			challengePassword: "",
+			wantErr:           false,
+			errormsg:          "",
+		},
+		{
+			template:          template,
+			priv:              "",
+			tmpPub:            "",
+			challengePassword: "",
+			wantErr:           true,
+			errormsg:          "x509: certificate private key does not implement crypto.Signer",
+		},
+		{
+			template:          template,
+			priv:              certKey,
+			tmpPub:            "",
+			challengePassword: "",
+			wantErr:           true,
+			errormsg:          "x509: SM2 temp public key is required",
+		},
+		{
+			template:          template,
+			priv:              certKey,
+			tmpPub:            rsaKey.Public(),
+			challengePassword: "",
+			wantErr:           true,
+			errormsg:          "x509: SM2 temp public key is required",
+		},
+		{
+			template:          template,
+			priv:              certRSAKey,
+			tmpPub:            tmpKey.Public(),
+			challengePassword: "",
+			wantErr:           true,
+			errormsg:          "x509: RSA temp public key is required",
+		},
+		{
+			template:          template,
+			priv:              certKey,
+			tmpPub:            p256Key.Public(),
+			challengePassword: "",
+			wantErr:           true,
+			errormsg:          "x509: SM2 temp public key is required",
+		},
+		{
+			template:          template,
+			priv:              p256Key,
+			tmpPub:            certKey.Public(),
+			challengePassword: "111111",
+			wantErr:           true,
+			errormsg:          "x509: only RSA or SM2 key is supported",
+		},
+		{
+			template:          template,
+			priv:              certKey,
+			tmpPub:            tmpKey.Public(),
+			challengePassword: "",
+			wantErr:           true,
+			errormsg:          "x509: challenge password is required",
+		},
 	}
-	_, err = CreateCertificateRequest(random, template, certKey, "", "")
-	if err == nil || err.Error() != "x509: only SM2 public key is supported" {
-		t.Fatalf("expect only SM2 public key is supported, got %v", err)
-	}
-	_, err = CreateCertificateRequest(random, template, certKey, invalidTmpKey.Public(), "")
-	if err == nil || err.Error() != "x509: only SM2 public key is supported" {
-		t.Fatalf("expect only SM2 public key is supported, got %v", err)
-	}
-	_, err = CreateCertificateRequest(random, template, certKey, tmpKey.Public(), "")
-	if err == nil || err.Error() != "x509: challenge password is required" {
-		t.Fatalf("expect challenge password is required, got %v", err)
-	}
-	csrDer, err := CreateCertificateRequest(random, template, certKey, tmpKey.Public(), "111111")
-	if err != nil {
-		t.Fatal(err)
-	}
-	csr, err := ParseCertificateRequest(csrDer)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if csr.Subject.CommonName != "certRequisition" {
-		t.Fatal("common name not match")
-	}
-	if csr.Subject.CommonName != "certRequisition" {
-		t.Fatal("common name not match")
-	}
-	if csr.ChallengePassword != "111111" {
-		t.Fatal("challenge password not match")
-	}
-	if !tmpKey.PublicKey.Equal(csr.TmpPublicKey) {
-		t.Fatal("tmp public key not match")
+	for _, tc := range testCases {
+		_, err := CreateCertificateRequest(random, tc.template, tc.priv, tc.tmpPub, tc.challengePassword)
+		if tc.wantErr {
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if err.Error() != tc.errormsg {
+				t.Fatalf("expected error %s, got %s", tc.errormsg, err.Error())
+			}
+		} else {
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
 }
 
