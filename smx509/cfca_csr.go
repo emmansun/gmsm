@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -65,14 +66,12 @@ func CreateCFCACertificateRequest(rand io.Reader, template *x509.CertificateRequ
 	var rawAttributes []asn1.RawValue
 	// Add the temporary public key and challenge password if requested.
 	if tmpPub != nil {
-		if !sm2.IsSM2PublicKey(tmpPub) {
-			return nil, errors.New("x509: only SM2 public key is supported")
-		}
-		rawAttributes, err = buildChallengePasswordAttr(rawAttributes, challengePassword)
+		rawAttributes, err = buildTmpPublicKeyAttr(key, rawAttributes, tmpPub)
 		if err != nil {
 			return nil, err
 		}
-		rawAttributes, err = buildTmpPublicKeyAttr(rawAttributes, tmpPub)
+
+		rawAttributes, err = buildChallengePasswordAttr(rawAttributes, challengePassword)
 		if err != nil {
 			return nil, err
 		}
@@ -150,13 +149,30 @@ type tmpPublicKeyInfo struct {
 	PublicKey []byte
 }
 
-func buildTmpPublicKeyAttr(rawAttributes []asn1.RawValue, tmpPub crypto.PublicKey) ([]asn1.RawValue, error) {
-	var publicKeyBytes [136]byte
-	// Prefix{8} || X{32} || zero{32} || Y{32} || zero{32}
-	copy(publicKeyBytes[:], tmpPublicKeyPrefix)
-	ecPub, _ := tmpPub.(*ecdsa.PublicKey)
-	ecPub.X.FillBytes(publicKeyBytes[8:40])
-	ecPub.Y.FillBytes(publicKeyBytes[72:104])
+func buildTmpPublicKeyAttr(key crypto.Signer, rawAttributes []asn1.RawValue, tmpPub crypto.PublicKey) ([]asn1.RawValue, error) {
+	var publicKeyBytes []byte
+	var err error
+	switch key.(type) {
+	case *sm2.PrivateKey:
+		if !sm2.IsSM2PublicKey(tmpPub) {
+			return nil, errors.New("x509: SM2 temp public key is required")
+		}
+		publicKeyBytes = make([]byte, 136)
+		// Prefix{8} || X{32} || zero{32} || Y{32} || zero{32}
+		copy(publicKeyBytes[:], tmpPublicKeyPrefix)
+		ecPub, _ := tmpPub.(*ecdsa.PublicKey)
+		ecPub.X.FillBytes(publicKeyBytes[8:40])
+		ecPub.Y.FillBytes(publicKeyBytes[72:104])
+	case *rsa.PrivateKey:
+		pub, ok := tmpPub.(*rsa.PublicKey)
+		if !ok {
+			return nil, errors.New("x509: RSA temp public key is required")
+		}
+		publicKeyBytes = x509.MarshalPKCS1PublicKey(pub)
+	default:
+		return nil, errors.New("x509: only RSA or SM2 key is supported")
+
+	}
 	var tmpPublicKey = tmpPublicKeyInfo{
 		Version:   1,
 		PublicKey: publicKeyBytes[:],
@@ -231,12 +247,19 @@ func parseCFCAAttributes(out *CertificateRequestCFCA, rawAttributes []asn1.RawVa
 				continue
 			}
 			keyBytes := tmpPub.PublicKey
-			if len(keyBytes) == 136 && bytes.Equal(tmpPublicKeyPrefix, keyBytes[:8]) {
-				// parse the public key
-				copy(keyBytes[40:72], keyBytes[72:104])
-				keyBytes[7] = 4
-				if tmpKey, err := sm2.NewPublicKey(keyBytes[7:72]); err == nil {
+			switch out.PublicKeyAlgorithm {
+			case RSA:
+				if tmpKey, err := x509.ParsePKCS1PublicKey(keyBytes); err == nil {
 					out.TmpPublicKey = tmpKey
+				}
+			case ECDSA:
+				if len(keyBytes) == 136 && bytes.Equal(tmpPublicKeyPrefix, keyBytes[:8]) {
+					// parse the public key
+					copy(keyBytes[40:72], keyBytes[72:104])
+					keyBytes[7] = 4
+					if tmpKey, err := sm2.NewPublicKey(keyBytes[7:72]); err == nil {
+						out.TmpPublicKey = tmpKey
+					}
 				}
 			}
 		}

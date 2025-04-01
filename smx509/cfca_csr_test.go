@@ -8,6 +8,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -22,14 +23,24 @@ func TestCreateCFCACertificateRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	certRSAKey, err := rsa.GenerateKey(random, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
 	tmpKey, err := sm2.GenerateKey(random)
 	if err != nil {
 		t.Fatal(err)
 	}
-	invalidTmpKey, err := ecdsa.GenerateKey(elliptic.P256(), random)
+	p256Key, err := ecdsa.GenerateKey(elliptic.P256(), random)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	rsaKey, err := rsa.GenerateKey(random, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	template := &x509.CertificateRequest{
 		Subject: pkix.Name{
 			CommonName:   "certRequisition",
@@ -37,38 +48,110 @@ func TestCreateCFCACertificateRequest(t *testing.T) {
 			Country:      []string{"CN"},
 		},
 	}
-	_, err = CreateCFCACertificateRequest(random, template, "", "", "")
-	if err == nil || err.Error() != "x509: certificate private key does not implement crypto.Signer" {
-		t.Fatalf("expect certificate private key does not implement crypto.Signer, got %v", err)
+
+	testCases := []struct {
+		template          *x509.CertificateRequest
+		priv              interface{}
+		tmpPub            interface{}
+		challengePassword string
+		wantErr           bool
+		errormsg          string
+	}{
+		{
+			template:          template,
+			priv:              certKey,
+			tmpPub:            tmpKey.Public(),
+			challengePassword: "111111",
+			wantErr:           false,
+			errormsg:          "",
+		},
+		{
+			template:          template,
+			priv:              certRSAKey,
+			tmpPub:            rsaKey.Public(),
+			challengePassword: "111111",
+			wantErr:           false,
+			errormsg:          "",
+		},
+		{
+			template:          template,
+			priv:              p256Key,
+			tmpPub:            nil,
+			challengePassword: "",
+			wantErr:           false,
+			errormsg:          "",
+		},
+		{
+			template:          template,
+			priv:              "",
+			tmpPub:            "",
+			challengePassword: "",
+			wantErr:           true,
+			errormsg:          "x509: certificate private key does not implement crypto.Signer",
+		},
+		{
+			template:          template,
+			priv:              certKey,
+			tmpPub:            "",
+			challengePassword: "",
+			wantErr:           true,
+			errormsg:          "x509: SM2 temp public key is required",
+		},
+		{
+			template:          template,
+			priv:              certKey,
+			tmpPub:            rsaKey.Public(),
+			challengePassword: "",
+			wantErr:           true,
+			errormsg:          "x509: SM2 temp public key is required",
+		},
+		{
+			template:          template,
+			priv:              certRSAKey,
+			tmpPub:            tmpKey.Public(),
+			challengePassword: "",
+			wantErr:           true,
+			errormsg:          "x509: RSA temp public key is required",
+		},
+		{
+			template:          template,
+			priv:              certKey,
+			tmpPub:            p256Key.Public(),
+			challengePassword: "",
+			wantErr:           true,
+			errormsg:          "x509: SM2 temp public key is required",
+		},
+		{
+			template:          template,
+			priv:              p256Key,
+			tmpPub:            certKey.Public(),
+			challengePassword: "111111",
+			wantErr:           true,
+			errormsg:          "x509: only RSA or SM2 key is supported",
+		},
+		{
+			template:          template,
+			priv:              certKey,
+			tmpPub:            tmpKey.Public(),
+			challengePassword: "",
+			wantErr:           true,
+			errormsg:          "x509: challenge password is required",
+		},
 	}
-	_, err = CreateCFCACertificateRequest(random, template, certKey, "", "")
-	if err == nil || err.Error() != "x509: only SM2 public key is supported" {
-		t.Fatalf("expected only SM2 public key is supported, got %v", err)
-	}
-	_, err = CreateCFCACertificateRequest(random, template, certKey, invalidTmpKey.Public(), "")
-	if err == nil || err.Error() != "x509: only SM2 public key is supported" {
-		t.Fatalf("expect only SM2 public key is supported, got %v", err)
-	}
-	_, err = CreateCFCACertificateRequest(random, template, certKey, tmpKey.Public(), "")
-	if err == nil || err.Error() != "x509: challenge password is required" {
-		t.Fatalf("expect challenge password is required, got %v", err)
-	}
-	csrDer, err := CreateCFCACertificateRequest(random, template, certKey, tmpKey.Public(), "111111")
-	if err != nil {
-		t.Fatal(err)
-	}
-	csr, err := ParseCFCACertificateRequest(csrDer)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if csr.Subject.CommonName != "certRequisition" {
-		t.Fatal("common name not match")
-	}
-	if csr.ChallengePassword != "111111" {
-		t.Fatal("challenge password not match")
-	}
-	if !tmpKey.PublicKey.Equal(csr.TmpPublicKey) {
-		t.Fatal("tmp public key not match")
+	for _, tc := range testCases {
+		_, err := CreateCFCACertificateRequest(random, tc.template, tc.priv, tc.tmpPub, tc.challengePassword)
+		if tc.wantErr {
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if err.Error() != tc.errormsg {
+				t.Fatalf("expected error %s, got %s", tc.errormsg, err.Error())
+			}
+		} else {
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
 }
 
@@ -100,6 +183,21 @@ func TestSADKGeneratedCSR(t *testing.T) {
 		t.Fatal("challenge password not match")
 	}
 	if pub, ok := csr.TmpPublicKey.(*ecdsa.PublicKey); !ok || pub.X == nil {
+		t.Fatal("tmp public key is nil")
+	}
+
+	block, _ = pem.Decode([]byte(rsaSignedCSR))
+	csr, err = ParseCFCACertificateRequest(block.Bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if csr.Subject.CommonName != "certRequisition" {
+		t.Fatal("common name not match")
+	}
+	if csr.ChallengePassword != "111111" {
+		t.Fatal("challenge password not match")
+	}
+	if pub, ok := csr.TmpPublicKey.(*rsa.PublicKey); !ok || pub.N == nil {
 		t.Fatal("tmp public key is nil")
 	}
 }
@@ -137,3 +235,29 @@ func TestTrustAsiaGeneratedCSR(t *testing.T) {
 		t.Fatal("tmp public key is nil")
 	}
 }
+
+var rsaSignedCSR = `
+-----BEGIN CERTIFICATE REQUEST-----
+MIIDxjCCAq4CAQAwPjEYMBYGA1UEAwwPY2VydFJlcXVpc2l0aW9uMRUwEwYDVQQK
+DAxDRkNBIFRFU1QgQ0ExCzAJBgNVBAYTAkNOMIIBIjANBgkqhkiG9w0BAQEFAAOC
+AQ8AMIIBCgKCAQEAzKukdxeh3wJXNtwbYEnfFnYXHSCTOP4/CO1C5vU+OMNx9yML
+WEBrPZ4UufaM6l0xKRiWKLvwgjrkSb8tz3V/6ff8cDrKx4OzZZWs2xuUH4vL3Wrt
+Pi6D2Mb0PBRwImSg4rxoQHoR+CQb+wfXsGwE5GaFhfStoNX1pWapGDM0+cpbIozN
+4zG6b7sRuvCOIl/32p69Dl7eZ8AgCHV9pLLqB7wAHTKHatIs46XKaCDeVXTO6oDt
+hi8yUShjLh94h8ILm8a/zSXT1q8lBXOPm9sRkwUMr5zPjnt+UpmfMsTQAP8DW3GF
+PLaCiEUpK/muGy4ndMzsokrnRn+3cQFSewIyLQIDAQABoIIBQTATBgkqhkiG9w0B
+CQcTBjExMTExMTCCASgGCSqGSIb3DQEJPwSCARkwggEVAgEBBIIBDjCCAQoCggEB
+AJjSdzS6Y2tSaisHfgnLMDhugWZly7ros/Le8jKKI+tJKzjR4iHMD/B+kvdn8rCL
+eaRu8Zqhr2vYqhNNs5NaGfoiSBx+yONWJrtTLFCo4uSD/BASAMtXYSHPh5nVb3vk
+ssWqKVcMHfHy6IqSIahxi1tqyhWikaB86VFQyOpt6mCdg0W9cJvGNhjX5bbsMKHg
+qbnrHpUQ1fgHqsBqeBxvPhUxcX89PeeBYH+x1Uz5m8pd1wnzSGJeIE+YyPRnQpRX
+cBy2my6WLgGjO157raQZX8Kz0HfuIJekQUWTuB33J7RMvgY7neHKvlJher9zFEoA
+Rfjt+krxvdLReRhTx7DghPsCAwEAATANBgkqhkiG9w0BAQsFAAOCAQEAHzJVPBHc
+WoThQICR9TbX4+UBS1ToVsl9GedMRSiE373PqoWygax3bPoy1M3ySDBwj5zfyThb
+KiWf972CDkKVDeUZq++oTlEr4+BVmOzWQXlbTfuUdpLx14ygFyg7wpAViBF4aR+y
+LFKfGhdBvkaU/yFYn3bGjgpc0m+Wecl5XWSTOK1zj3jf0ZVr9e8lsTcvLI7Clq9T
+7Wh6UhRoPGgZ5+giRqATkSA61UlhKwk2qdbg7RTUSy/OVQuT2v4TKoE5ArBHo15z
+7FVX3QQDEP65oJ7WS7c+L9Pkcj+n271uwlsZUzzHAJSEZkdWZIunDRqB/KzCLoBD
+zwV8qP5llIORug==
+-----END CERTIFICATE REQUEST-----
+`
