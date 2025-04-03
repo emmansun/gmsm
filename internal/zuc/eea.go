@@ -23,7 +23,7 @@ type eea struct {
 	used       uint64           // number of key bytes processed, current offset
 	states     []*zucState32    // internal states for seek
 	stateIndex int              // current state index, for test usage
-	bucketSize int
+	bucketSize int              // size of the state bucket, 0 means no bucket
 }
 
 // NewCipher creates a stream cipher based on key and iv aguments.
@@ -57,6 +57,7 @@ func NewCipherWithBucketSize(key, iv []byte, bucketSize int) (*eea, error) {
 	return c, nil
 }
 
+// reference GB/T 33133.2-2021 A.2
 func construcIV4EEA(count, bearer, direction uint32) []byte {
 	iv := make([]byte, 16)
 	byteorder.BEPutUint32(iv, count)
