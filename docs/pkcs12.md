@@ -9,9 +9,9 @@
 
 | 方法 | 适用 | 具体说明 |  
 | :--- | :--- | :--- |  
-| ```DecodeChain``` | 抽取出一个私钥、一个相应证书以及证书链 | 私钥和相应证书必须存在，否则报错 |  
-| ```Decode``` | 抽取出一个私钥、一个相应证书 | 私钥和相应证书必须存在，否则报错；并且**不能有证书链存在**。 |  
-| ```DecodeTrustStore``` | 抽取出证书链 | 只支持java的TrustStore, [Difference Between a Java Keystore and a Truststore](https://www.baeldung.com/java-keystore-truststore-difference) |  
+| `DecodeChain` | 抽取出一个私钥、一个相应证书以及证书链 | 私钥和相应证书必须存在，否则报错 |  
+| `Decode` | 抽取出一个私钥、一个相应证书 | 私钥和相应证书必须存在，否则报错；并且**不能有证书链存在**。 |  
+| `DecodeTrustStore` | 抽取出证书链 | 只支持java的TrustStore, [Difference Between a Java Keystore and a Truststore](https://www.baeldung.com/java-keystore-truststore-difference) |  
 
 ### 解码能处理的算法
 
@@ -58,13 +58,13 @@ PBES1属于老旧遗留算法，目前版本未实现。
 ## PKCS#12的生成
 目前只支持下列几种，不支持自由定义：
 
-* ```LegacyRC2```，加密使用PKCS12特有算法；对证书使用RC2加密，对私钥使用3DES加密，一致性保证使用HMAC-SHA1。
-* ```LegacyDES```，加密使用PKCS12特有算法；对证书和私钥都是用3DES加密，一致性保证使用HMAC-SHA1。
-* ```Passwordless```，无加密、一致性保证模式。
-* ```Modern2023```，对应OpenSSL 3+ 默认，加密使用AES-256-CBC with PBKDF2，一致性保证使用HMAC-SHA256。
-* ```ShangMi2024```，这个估计目前没什么互操作性。
+* `LegacyRC2`，加密使用PKCS12特有算法；对证书使用RC2加密，对私钥使用3DES加密，一致性保证使用HMAC-SHA1。
+* `LegacyDES`，加密使用PKCS12特有算法；对证书和私钥都是用3DES加密，一致性保证使用HMAC-SHA1。
+* `Passwordless`，无加密、一致性保证模式。
+* `Modern2023`，对应OpenSSL 3+ 默认，加密使用AES-256-CBC with PBKDF2，一致性保证使用HMAC-SHA256。
+* `ShangMi2024`，这个估计目前没什么互操作性。
 
-目前的全局函数```Encode``` / ```EncodeTrustStore```使用**LegacyRC2**编码器。
+目前的全局函数`Encode` / `EncodeTrustStore`使用**LegacyRC2**编码器。
 
 ```go
 // LegacyRC2 encodes PKCS#12 files using weak algorithms that were
@@ -180,7 +180,7 @@ var ShangMi2024 = &Encoder{
 ```
 
 ## 解析加密的PKCS#8私钥
-[go-pkcs12](https://github.com/emmansun/go-pkcs12) 也提供了```ParsePKCS8PrivateKey```方法，相比**pkcs8**的类似方法，这里特别支持**PBES-PKCS12**加密算法。
+[go-pkcs12](https://github.com/emmansun/go-pkcs12) 也提供了`ParsePKCS8PrivateKey`方法，相比**pkcs8**的类似方法，这里特别支持**PBES-PKCS12**加密算法。
 * PBE-SHA1-RC2-128
 * PBE-SHA1-RC2-40
 * PBE-SHA1-3DES
