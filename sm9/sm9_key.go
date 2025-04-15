@@ -114,7 +114,13 @@ func UnmarshalSignMasterPrivateKeyASN1(der []byte) (*SignMasterPrivateKey, error
 	if err != nil {
 		return nil, err
 	}
-	return &SignMasterPrivateKey{privateKey: priv.Bytes(), internal: priv}, nil
+
+	master := &SignMasterPrivateKey{privateKey: priv.Bytes(), internal: priv}
+	master.publicKey = &SignMasterPublicKey{
+		publicKey: priv.PublicKey().Bytes(),
+		internal:  priv.PublicKey(),
+	}
+	return master, nil
 }
 
 // GenerateUserKey generate a signature private key for the given user.
@@ -370,7 +376,13 @@ func UnmarshalEncryptMasterPrivateKeyASN1(der []byte) (*EncryptMasterPrivateKey,
 	if err != nil {
 		return nil, err
 	}
-	return &EncryptMasterPrivateKey{privateKey: privateKey.Bytes(), internal: privateKey}, nil
+
+	master := &EncryptMasterPrivateKey{privateKey: privateKey.Bytes(), internal: privateKey}
+	master.publicKey = &EncryptMasterPublicKey{
+		publicKey: privateKey.PublicKey().Bytes(),
+		internal:  privateKey.PublicKey(),
+	}
+	return master, nil
 }
 
 // Equal compares the receiver EncryptMasterPublicKey with another EncryptMasterPublicKey

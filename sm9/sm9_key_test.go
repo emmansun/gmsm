@@ -27,6 +27,11 @@ func TestSignMasterPrivateKeyMarshalASN1(t *testing.T) {
 	if !masterKey.Equal(masterKey2) {
 		t.Errorf("expected %v, got %v", hex.EncodeToString(masterKey.Bytes()), hex.EncodeToString(masterKey2.Bytes()))
 	}
+
+	masterPubKey := masterKey2.PublicKey()
+	if masterPubKey == nil {
+		t.Fatal("cannot export public key")
+	}
 }
 
 func TestSignMasterPublicKeyMarshalASN1(t *testing.T) {
@@ -128,6 +133,11 @@ func TestEncryptMasterPrivateKeyMarshalASN1(t *testing.T) {
 	}
 	if !masterKey.Equal(masterKey2) {
 		t.Errorf("expected %v, got %v", hex.EncodeToString(masterKey.Bytes()), hex.EncodeToString(masterKey2.Bytes()))
+	}
+
+	masterPubKey := masterKey2.PublicKey()
+	if masterPubKey == nil {
+		t.Fatal("cannot export public key")
 	}
 }
 
