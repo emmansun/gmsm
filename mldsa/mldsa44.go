@@ -7,17 +7,18 @@
 // Package mldsa implements the quantum-resistant digital signature algorithm
 // ML-DSA (Module-Lattice-Based Digital Signature Standard) as specified in [NIST FIPS 204].
 //
-// [NIST FIPS 204]: https://doi.org/10.6028/NIST.FIPS.204
-//
 // This implementations referenced OpenSSL's implementation of ML-DSA and part of Golang ML-KEM
 // [OpenSSL ML-DSA]: https://github.com/openssl/openssl/blob/master/crypto/ml_dsa
 // [Golang ML-KEM]: https://github.com/golang/go/blob/master/src/crypto/internal/fips140/mlkem
+//
+// [NIST FIPS 204]: https://doi.org/10.6028/NIST.FIPS.204
 package mldsa
 
 import (
 	"crypto"
 	"crypto/sha3"
 	"crypto/subtle"
+	"encoding/asn1"
 	"errors"
 	"io"
 )
@@ -403,6 +404,35 @@ func (sk *PrivateKey44) Sign(rand io.Reader, message, context []byte) ([]byte, e
 	return sk.signInternal(seed[:], mu[:])
 }
 
+func (sk *PrivateKey44) SignPreHash(rand io.Reader, message, context []byte, oid asn1.ObjectIdentifier) ([]byte, error) {
+	if len(message) == 0 {
+		return nil, errors.New("mldsa: empty message")
+	}
+	if len(context) > 255 {
+		return nil, errors.New("mldsa: context too long")
+	}
+	preHashValue, err := preHash(oid, message)
+	if err != nil {
+		return nil, err
+	}
+	var seed [SeedSize]byte
+	if _, err := io.ReadFull(rand, seed[:]); err != nil {
+		return nil, err
+	}
+
+	H := sha3.NewSHAKE256()
+	H.Write(sk.tr[:])
+	H.Write([]byte{1, byte(len(context))})
+	if len(context) > 0 {
+		H.Write(context)
+	}
+	H.Write(preHashValue)
+	var mu [64]byte
+	H.Read(mu[:])
+
+	return sk.signInternal(seed[:], mu[:])
+}
+
 func (sk *PrivateKey44) signInternal(seed, mu []byte) ([]byte, error) {
 	var s1NTT [l44]nttElement
 	var s2NTT [k44]nttElement
@@ -524,6 +554,33 @@ func (pk *PublicKey44) Verify(sig []byte, message, context []byte) bool {
 		H.Write(context)
 	}
 	H.Write(message)
+	var mu [64]byte
+	H.Read(mu[:])
+
+	return pk.verifyInternal(sig, mu[:])
+}
+
+func (pk *PublicKey44) VerifyPreHash(sig []byte, message, context []byte, oid asn1.ObjectIdentifier) bool {
+	if len(message) == 0 {
+		return false
+	}
+	if len(context) > 255 {
+		return false
+	}
+	if len(sig) != sigEncodedLen44 {
+		return false
+	}
+	preHashValue, err := preHash(oid, message)
+	if err != nil {
+		return false
+	}
+	H := sha3.NewSHAKE256()
+	H.Write(pk.tr[:])
+	H.Write([]byte{1, byte(len(context))})
+	if len(context) > 0 {
+		H.Write(context)
+	}
+	H.Write(preHashValue)
 	var mu [64]byte
 	H.Read(mu[:])
 

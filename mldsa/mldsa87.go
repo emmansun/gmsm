@@ -10,6 +10,7 @@ import (
 	"crypto"
 	"crypto/sha3"
 	"crypto/subtle"
+	"encoding/asn1"
 	"errors"
 	"io"
 )
@@ -318,6 +319,35 @@ func (sk *PrivateKey87) Sign(rand io.Reader, message, context []byte) ([]byte, e
 	return sk.signInternal(seed[:], mu[:])
 }
 
+func (sk *PrivateKey87) SignPreHash(rand io.Reader, message, context []byte, oid asn1.ObjectIdentifier) ([]byte, error) {
+	if len(message) == 0 {
+		return nil, errors.New("mldsa: empty message")
+	}
+	if len(context) > 255 {
+		return nil, errors.New("mldsa: context too long")
+	}
+	preHashValue, err := preHash(oid, message)
+	if err != nil {
+		return nil, err
+	}
+	var seed [SeedSize]byte
+	if _, err := io.ReadFull(rand, seed[:]); err != nil {
+		return nil, err
+	}
+
+	H := sha3.NewSHAKE256()
+	H.Write(sk.tr[:])
+	H.Write([]byte{1, byte(len(context))})
+	if len(context) > 0 {
+		H.Write(context)
+	}
+	H.Write(preHashValue)
+	var mu [64]byte
+	H.Read(mu[:])
+
+	return sk.signInternal(seed[:], mu[:])
+}
+
 func (sk *PrivateKey87) signInternal(seed, mu []byte) ([]byte, error) {
 	var s1NTT [l87]nttElement
 	var s2NTT [k87]nttElement
@@ -439,6 +469,33 @@ func (pk *PublicKey87) Verify(sig []byte, message, context []byte) bool {
 		H.Write(context)
 	}
 	H.Write(message)
+	var mu [64]byte
+	H.Read(mu[:])
+
+	return pk.verifyInternal(sig, mu[:])
+}
+
+func (pk *PublicKey87) VerifyPreHash(sig []byte, message, context []byte, oid asn1.ObjectIdentifier) bool {
+	if len(message) == 0 {
+		return false
+	}
+	if len(context) > 255 {
+		return false
+	}
+	if len(sig) != sigEncodedLen87 {
+		return false
+	}
+	preHashValue, err := preHash(oid, message)
+	if err != nil {
+		return false
+	}
+	H := sha3.NewSHAKE256()
+	H.Write(pk.tr[:])
+	H.Write([]byte{1, byte(len(context))})
+	if len(context) > 0 {
+		H.Write(context)
+	}
+	H.Write(preHashValue)
 	var mu [64]byte
 	H.Read(mu[:])
 
