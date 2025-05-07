@@ -53,6 +53,8 @@ Go语言商用密码软件，简称**GMSM**，一个安全、高性能、易于�
 
 - **DRBG** - 《GM/T 0105-2021软件随机数发生器设计指南》实现。本实现同时支持**NIST Special Publication 800-90A**（部分） 和 **GM/T 0105-2021**，NIST相关实现使用了NIST提供的测试数据进行测试。本实现**不支持并发使用**。
 
+- **MLDSA** - NIST FIPS 204 Module-Lattice-Based Digital Signature Standard实现。
+
 ## 相关项目
 - **[Trisia/TLCP](https://github.com/Trisia/gotlcp)** - 一个《GB/T 38636-2020 信息安全技术 传输层密码协议》Go语言实现项目。 
 - **[Trisia/Randomness](https://github.com/Trisia/randomness)** - 一个Go语言随机性检测规范实现。
