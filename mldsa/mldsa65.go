@@ -1,0 +1,498 @@
+// Copyright 2025 Sun Yimin. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
+//go:build go1.24
+
+package mldsa
+
+import (
+	"crypto"
+	"crypto/sha3"
+	"crypto/subtle"
+	"errors"
+	"io"
+)
+
+// A PrivateKey65 is the private key for the ML-DSA-65 signature scheme.
+type PrivateKey65 struct {
+	rho [32]byte              // public random seed
+	k   [32]byte              // private random seed for signing
+	tr  [64]byte              // pre-cached public key Hash, H(pk, 64)
+	s1  [l65]ringElement      // private secret of size L with short coefficients (-4..4) or (-2..2)
+	s2  [k65]ringElement      // private secret of size K with short coefficients (-4..4) or (-2..2)
+	t0  [k65]ringElement      // the Polynomial encoding of the 13 LSB of each coefficient of the uncompressed public key polynomial t. This is saved as part of the private key.
+	a   [k65 * l65]nttElement // a is generated and stored in NTT representation
+}
+
+// A Key65 is the key pair for the ML-DSA-65 signature scheme.
+type Key65 struct {
+	PrivateKey65
+	xi [32]byte         // input seed
+	t1 [k65]ringElement // the Polynomial encoding of the 10 MSB of each coefficient of the uncompressed public key polynomial t. This is saved as part of the public key.
+}
+
+// A PublicKey65 is the public key for the ML-DSA-65 signature scheme.
+type PublicKey65 struct {
+	rho [32]byte
+	t1  [k65]ringElement
+	tr  [64]byte              // H(pk, 64), need to further check if public key requires it
+	a   [k65 * l65]nttElement // a is generated and stored in NTT representation
+}
+
+// PublicKey generates and returns the corresponding public key for the given
+// Key65 instance.
+func (sk *Key65) PublicKey() *PublicKey65 {
+	return &PublicKey65{
+		rho: sk.rho,
+		t1:  sk.t1,
+		tr:  sk.tr,
+		a:   sk.a,
+	}
+}
+
+func (pk *PublicKey65) Equal(x crypto.PublicKey) bool {
+	xx, ok := x.(*PublicKey65)
+	if !ok {
+		return false
+	}
+	return pk.rho == xx.rho && pk.t1 == xx.t1
+}
+
+// Bytes converts the PublicKey65 instance into a byte slice.
+// See FIPS 204, Algorithm 22, pkEncode()
+func (pk *PublicKey65) Bytes() []byte {
+	// The actual logic is in a separate function to outline this allocation.
+	b := make([]byte, 0, PublicKeySize65)
+	return pk.bytes(b)
+}
+
+func (pk *PublicKey65) bytes(b []byte) []byte {
+	b = append(b, pk.rho[:]...)
+	for _, f := range pk.t1 {
+		b = simpleBitPack10Bits(b, f)
+	}
+	return b
+}
+
+// Bytes returns the byte representation of the PrivateKey65.
+// It copies the internal seed (xi) into a fixed-size byte array
+// and returns it as a slice.
+func (sk *Key65) Bytes() []byte {
+	var b [SeedSize]byte
+	copy(b[:], sk.xi[:])
+	return b[:]
+}
+
+// Bytes converts the PrivateKey65 instance into a byte slice.
+// See FIPS 204, Algorithm 24, skEncode()
+func (sk *PrivateKey65) Bytes() []byte {
+	b := make([]byte, 0, PrivateKeySize65)
+	return sk.bytes(b)
+}
+
+func (sk *PrivateKey65) bytes(b []byte) []byte {
+	b = append(b, sk.rho[:]...)
+	b = append(b, sk.k[:]...)
+	b = append(b, sk.tr[:]...)
+	for _, f := range sk.s1 {
+		b = bitPackSigned4(b, f)
+	}
+	for _, f := range sk.s2 {
+		b = bitPackSigned4(b, f)
+	}
+	for _, f := range sk.t0 {
+		b = bitPackSigned4096(b, f)
+	}
+	return b
+}
+
+func (sk *PrivateKey65) Equal(x any) bool {
+	xx, ok := x.(*PrivateKey65)
+	if !ok {
+		return false
+	}
+	return sk.rho == xx.rho && sk.k == xx.k && sk.tr == xx.tr &&
+		sk.s1 == xx.s1 && sk.s2 == xx.s2 && sk.t0 == xx.t0
+}
+
+// GenerateKey65 generates a new Key65 (ML-DSA-65) using the provided random source.
+func GenerateKey65(rand io.Reader) (*Key65, error) {
+	// The actual logic is in a separate function to outline this allocation.
+	sk := &Key65{}
+	return generateKey65(sk, rand)
+}
+
+func generateKey65(sk *Key65, rand io.Reader) (*Key65, error) {
+	// Generate a random seed.
+	var seed [SeedSize]byte
+	if _, err := io.ReadFull(rand, seed[:]); err != nil {
+		return nil, err
+	}
+	dsaKeyGen65(sk, &seed)
+	return sk, nil
+}
+
+// NewKey65 creates a new instance of Key65 using the provided seed.
+func NewKey65(seed []byte) (*Key65, error) {
+	// The actual logic is in a separate function to outline this allocation.
+	sk := &Key65{}
+	return newPrivateKey65FromSeed(sk, seed)
+}
+
+func newPrivateKey65FromSeed(sk *Key65, seed []byte) (*Key65, error) {
+	if len(seed) != SeedSize {
+		return nil, errors.New("mldsa: invalid seed length")
+	}
+	xi := (*[32]byte)(seed)
+	dsaKeyGen65(sk, xi)
+	return sk, nil
+}
+
+func dsaKeyGen65(sk *Key65, xi *[32]byte) {
+	sk.xi = *xi
+	H := sha3.NewSHAKE256()
+	H.Write(xi[:])
+	H.Write([]byte{k65})
+	H.Write([]byte{l65})
+	K := make([]byte, 128)
+	H.Read(K)
+	rho, rho1 := K[:32], K[32:96]
+	K = K[96:]
+
+	sk.rho = [32]byte(rho)
+	sk.k = [32]byte(K)
+
+	s1 := &sk.s1
+	s2 := &sk.s2
+	// Algorithm 33, ExpandS
+	for s := byte(0); s < l65; s++ {
+		s1[s] = rejBoundedPoly(rho1, eta4, 0, s)
+	}
+	for r := byte(0); r < k65; r++ {
+		s2[r] = rejBoundedPoly(rho1, eta4, 0, r+l65)
+	}
+
+	// Using rho generate A' = A in NTT form
+	A := &sk.a
+	// Algorithm 32, ExpandA
+	for r := byte(0); r < k65; r++ {
+		for s := byte(0); s < l65; s++ {
+			A[r*l65+s] = rejNTTPoly(rho, s, r)
+		}
+	}
+
+	// t = NTT_inv(A' * NTT(s1)) + s2
+	var s1NTT [l65]nttElement
+	var nttT [k65]nttElement
+	for i := range s1 {
+		s1NTT[i] = ntt(s1[i])
+	}
+	for i := range nttT {
+		for j := range s1NTT {
+			nttT[i] = polyAdd(nttT[i], nttMul(s1NTT[j], A[i*l65+j]))
+		}
+	}
+	var t [k65]ringElement
+	t0 := &sk.t0
+	t1 := &sk.t1
+	for i := range nttT {
+		t[i] = polyAdd(inverseNTT(nttT[i]), s2[i])
+		// compress t
+		for j := range n {
+			t1[i][j], t0[i][j] = power2Round(t[i][j])
+		}
+	}
+	H.Reset()
+	ek := sk.PublicKey().Bytes()
+	H.Write(ek)
+	H.Read(sk.tr[:])
+}
+
+// NewPublicKey65 decode an public key from its encoded form.
+// See FIPS 204, Algorithm 23 pkDecode()
+func NewPublicKey65(b []byte) (*PublicKey65, error) {
+	// The actual logic is in a separate function to outline this allocation.
+	pk := &PublicKey65{}
+	return parsePublicKey65(pk, b)
+}
+
+// See FIPS 204, Algorithm 23 pkDecode()
+func parsePublicKey65(pk *PublicKey65, b []byte) (*PublicKey65, error) {
+	if len(b) != PublicKeySize65 {
+		return nil, errors.New("mldsa: invalid public key length")
+	}
+
+	H := sha3.NewSHAKE256()
+	H.Write(b)
+	H.Read(pk.tr[:])
+
+	copy(pk.rho[:], b[:32])
+	b = b[32:]
+	for i := range k65 {
+		simpleBitUnpack10Bits(b, &pk.t1[i])
+		b = b[encodingSize10:]
+	}
+
+	A := &pk.a
+	rho := pk.rho[:]
+	// Algorithm 32, ExpandA
+	for r := byte(0); r < k65; r++ {
+		for s := byte(0); s < l65; s++ {
+			A[r*l65+s] = rejNTTPoly(rho, s, r)
+		}
+	}
+	return pk, nil
+}
+
+// NewPrivateKey65 decode an private key from its encoded form.
+// See FIPS 204, Algorithm 25 skDecode()
+func NewPrivateKey65(b []byte) (*PrivateKey65, error) {
+	// The actual logic is in a separate function to outline this allocation.
+	sk := &PrivateKey65{}
+	return parsePrivateKey65(sk, b)
+}
+
+// See FIPS 204, Algorithm 25 skDecode()
+// Decode a private key from its encoded form.
+func parsePrivateKey65(sk *PrivateKey65, b []byte) (*PrivateKey65, error) {
+	if len(b) != PrivateKeySize65 {
+		return nil, errors.New("mldsa: invalid private key length")
+	}
+	copy(sk.rho[:], b[:32])
+	copy(sk.k[:], b[32:64])
+	copy(sk.tr[:], b[64:128])
+	b = b[128:]
+	for i := range l65 {
+		f, err := bitUnpackSigned4(b)
+		if err != nil {
+			return nil, err
+		}
+		sk.s1[i] = f
+		b = b[encodingSize4:]
+	}
+	for i := range k65 {
+		f, err := bitUnpackSigned4(b)
+		if err != nil {
+			return nil, err
+		}
+		sk.s2[i] = f
+		b = b[encodingSize4:]
+	}
+	for i := range k65 {
+		bitUnpackSigned4096(b, &sk.t0[i])
+		b = b[encodingSize13:]
+	}
+	A := &sk.a
+	rho := sk.rho[:]
+	// Algorithm 32, ExpandA
+	for r := byte(0); r < k65; r++ {
+		for s := byte(0); s < l65; s++ {
+			A[r*l65+s] = rejNTTPoly(rho, s, r)
+		}
+	}
+	return sk, nil
+}
+
+func (sk *PrivateKey65) Sign(rand io.Reader, message, context []byte) ([]byte, error) {
+	if len(message) == 0 {
+		return nil, errors.New("mldsa: empty message")
+	}
+	if len(context) > 255 {
+		return nil, errors.New("mldsa: context too long")
+	}
+	var seed [SeedSize]byte
+	if _, err := io.ReadFull(rand, seed[:]); err != nil {
+		return nil, err
+	}
+	H := sha3.NewSHAKE256()
+	H.Write(sk.tr[:])
+	H.Write([]byte{0, byte(len(context))})
+	if len(context) > 0 {
+		H.Write(context)
+	}
+	H.Write(message)
+	var mu [64]byte
+	H.Read(mu[:])
+
+	return sk.signInternal(seed[:], mu[:])
+}
+
+func (sk *PrivateKey65) signInternal(seed, mu []byte) ([]byte, error) {
+	var s1NTT [l65]nttElement
+	var s2NTT [k65]nttElement
+	var t0NTT [k65]nttElement
+	for i := range s1NTT {
+		s1NTT[i] = ntt(sk.s1[i])
+	}
+	for i := range s2NTT {
+		s2NTT[i] = ntt(sk.s2[i])
+	}
+	for i := range t0NTT {
+		t0NTT[i] = ntt(sk.t0[i])
+	}
+	var rho2 [64 + 2]byte
+	H := sha3.NewSHAKE256()
+	H.Write(sk.k[:])
+	H.Write(seed[:])
+	H.Write(mu[:])
+	H.Read(rho2[:64])
+	A := &sk.a
+
+	// rejection sampling loop
+	for kappa := 0; ; kappa = kappa + l65 {
+		// expand mask
+		var y [l65]ringElement
+		for i := range l65 {
+			index := kappa + i
+			rho2[64] = byte(index)
+			rho2[65] = byte(index >> 8)
+			y[i] = expandMask(rho2[:], gamma1TwoPower19)
+		}
+		// compute w and w1
+		var w, w1 [k65]ringElement
+		var wNTT [k65]nttElement
+		for i := range w {
+			for j := range y {
+				wNTT[i] = polyAdd(wNTT[i], nttMul(ntt(y[j]), A[i*l65+j]))
+			}
+			w[i] = inverseNTT(wNTT[i])
+			// high bits
+			for j := range w[i] {
+				w1[i][j] = fieldElement(compressHighBits(w[i][j], gamma2QMinus1Div32))
+			}
+		}
+		// commitment hash
+		var cTilde [lambda192 / 4]byte
+		var w1Encoded [encodingSize4]byte
+		H.Reset()
+		H.Write(mu[:])
+		for i := range k65 {
+			simpleBitPack4Bits(w1Encoded[:0], w1[i])
+			H.Write(w1Encoded[:])
+		}
+		H.Read(cTilde[:])
+		// verifier's challenge
+		cNTT := ntt(sampleInBall(cTilde[:], tau49))
+
+		var cs1 [l65]ringElement
+		var cs2 [k65]ringElement
+		var z [l65]ringElement
+		var r0 [k65][n]int32
+		// compute <<cs1>> and z = <<cs1>> + y
+		for i := range l65 {
+			cs1[i] = inverseNTT(nttMul(cNTT, s1NTT[i]))
+			z[i] = polyAdd(cs1[i], y[i])
+		}
+		// compute <<cs2>> and r0 = LowBits(w - <<cs2>>)
+		for i := range k65 {
+			cs2[i] = inverseNTT(nttMul(cNTT, s2NTT[i]))
+			for j := range cs2[i] {
+				_, r0[i][j] = decompose(fieldSub(w[i][j], cs2[i][j]), gamma2QMinus1Div32)
+			}
+		}
+		zNorm := vectorInfinityNorm(z[:], 0)
+		r0Norm := vectorInfinityNormSigned(r0[:], 0)
+
+		// if zNorm >= gamma1 - beta || r0Norm >= gamma2 - beta, then continue
+		if subtle.ConstantTimeLessOrEq(int(gamma1TwoPower19-beta65), zNorm)|subtle.ConstantTimeLessOrEq(int(gamma2QMinus1Div32-beta65), r0Norm) == 1 {
+			continue
+		}
+		// compute <<ct0>>
+		var ct0 [k65]ringElement
+		for i := range k65 {
+			ct0[i] = inverseNTT(nttMul(cNTT, t0NTT[i]))
+		}
+		// compute infinity norm of <<ct0>>
+		ct0Norm := vectorInfinityNorm(ct0[:], 0)
+		// make hint
+		var hints [k65]ringElement
+		vectorMakeHint(ct0[:], cs2[:], w[:], hints[:], gamma2QMinus1Div32)
+		// if the number of 1 in the hint is greater than omega or the infinity norm of <<ct0>> >= gamma2, then continue
+		if (subtle.ConstantTimeLessOrEq(int(omega55+1), vectorCountOnes(hints[:])) | subtle.ConstantTimeLessOrEq(gamma2QMinus1Div32, ct0Norm)) == 1 {
+			continue
+		}
+		// signature encoding
+		sig := make([]byte, 0, sigEncodedLen65)
+		sig = append(sig, cTilde[:]...)
+		for i := range l65 {
+			sig = bitPackSignedTwoPower19(sig, z[i])
+		}
+		return hintBitPack(sig, hints[:], omega55), nil
+	}
+}
+
+func (pk *PublicKey65) Verify(sig []byte, message, context []byte) bool {
+	if len(message) == 0 {
+		return false
+	}
+	if len(context) > 255 {
+		return false
+	}
+	if len(sig) != sigEncodedLen65 {
+		return false
+	}
+	H := sha3.NewSHAKE256()
+	H.Write(pk.tr[:])
+	H.Write([]byte{0, byte(len(context))})
+	H.Write(context)
+	H.Write(message)
+	var mu [64]byte
+	H.Read(mu[:])
+
+	return pk.verifyInternal(sig, mu[:])
+}
+
+func (pk *PublicKey65) verifyInternal(sig, mu []byte) bool {
+	// Decode the signature
+	cTilde := sig[:lambda192/4]
+	sig = sig[lambda192/4:]
+	var z [l65]ringElement
+	for i := range l65 {
+		bitUnpackSignedTwoPower19(sig, &z[i])
+		sig = sig[encodingSize20:]
+	}
+	zNorm := vectorInfinityNorm(z[:], 0)
+	var hints [k65]ringElement
+	if !hintBitUnpack(sig, hints[:], omega55) {
+		return false
+	}
+	// verifier's challenge
+	cNTT := ntt(sampleInBall(cTilde[:], tau49))
+
+	// t = t1 * 2^d
+	// tNTT = NTT(t)*cNTT
+	var tNTT [k65]nttElement
+	t := pk.t1
+	for i := range k65 {
+		for j := range t[i] {
+			t[i][j] <<= d
+		}
+		tNTT[i] = nttMul(ntt(t[i]), cNTT)
+	}
+
+	var w1, wApprox [k65]ringElement
+	var zNTT [k65]nttElement
+	for i := range k65 {
+		for j := 0; j < l65; j++ {
+			zNTT[i] = polyAdd(zNTT[i], nttMul(ntt(z[j]), pk.a[i*l65+j]))
+		}
+		zNTT[i] = polySub(zNTT[i], tNTT[i])
+		wApprox[i] = inverseNTT(zNTT[i])
+	}
+
+	H := sha3.NewSHAKE256()
+	H.Write(mu[:])
+	var w1Encoded [encodingSize4]byte
+	for i := range k65 {
+		for j := range wApprox[i] {
+			w1[i][j] = useHint(hints[i][j], wApprox[i][j], gamma2QMinus1Div32)
+		}
+		simpleBitPack4Bits(w1Encoded[:0], w1[i])
+		H.Write(w1Encoded[:])
+	}
+	var cTilde1 [lambda192 / 4]byte
+	H.Read(cTilde1[:])
+	return subtle.ConstantTimeLessOrEq(int(gamma1TwoPower19-beta65), zNorm) == 0 &&
+		subtle.ConstantTimeCompare(cTilde[:], cTilde1[:]) == 1
+}
