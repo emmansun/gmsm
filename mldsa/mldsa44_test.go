@@ -220,7 +220,7 @@ var sigGenPreHash44InternalProjectionCases = []struct {
 	},
 }
 
-func TestSignPreHash44(t *testing.T) {
+func TestSignWithPreHash44(t *testing.T) {
 	for _, c := range sigGenPreHash44InternalProjectionCases {
 		sk, _ := hex.DecodeString(c.sk)
 		pk, _ := hex.DecodeString(c.pk)
@@ -231,7 +231,7 @@ func TestSignPreHash44(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewPrivateKey44 failed: %v", err)
 		}
-		sig2, err := priv.SignPreHash(zeroReader, msg, context, c.oid)
+		sig2, err := priv.SignWithPreHash(zeroReader, msg, context, c.oid)
 		if err != nil {
 			t.Fatalf("failed to sign: %v", err)
 		}
@@ -248,7 +248,7 @@ func TestSignPreHash44(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewPublicKey44 failed: %v", err)
 		}
-		if !pub.VerifyPreHash(sig, msg, context, c.oid) {
+		if !pub.VerifyWithPreHash(sig, msg, context, c.oid) {
 			t.Error("signature verification failed")
 		}
 	}

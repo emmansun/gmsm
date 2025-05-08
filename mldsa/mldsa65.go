@@ -295,6 +295,23 @@ func parsePrivateKey65(sk *PrivateKey65, b []byte) (*PrivateKey65, error) {
 	return sk, nil
 }
 
+// Sign generates a digital signature for the given message and context using the private key.
+// It uses a random seed generated from the provided random source.
+//
+// Parameters:
+//   - rand: An io.Reader used to generate a random seed for signing.
+//   - message: The message to be signed. Must not be empty.
+//   - context: An optional context for domain separation. Must not exceed 255 bytes.
+//
+// Returns:
+//   - A byte slice containing the generated signature.
+//   - An error if the message is empty, the context is too long, or if there is an issue
+//     reading from the random source.
+//
+// Note:
+//   - The function uses SHAKE256 from the SHA-3 family for hashing.
+//   - The signing process involves generating a unique seed and a hash-based
+//     message digest (mu) before delegating to the internal signing function.
 func (sk *PrivateKey65) Sign(rand io.Reader, message, context []byte) ([]byte, error) {
 	if len(message) == 0 {
 		return nil, errors.New("mldsa: empty message")
@@ -319,7 +336,11 @@ func (sk *PrivateKey65) Sign(rand io.Reader, message, context []byte) ([]byte, e
 	return sk.signInternal(seed[:], mu[:])
 }
 
-func (sk *PrivateKey65) SignPreHash(rand io.Reader, message, context []byte, oid asn1.ObjectIdentifier) ([]byte, error) {
+// SignWithPreHash generates a digital signature for the given message
+// using the private key and additional context. It uses a given hashing algorithm
+// from the OID to pre-hash the message before signing.
+// It is similar to Sign but allows for pre-hashing the message.
+func (sk *PrivateKey65) SignWithPreHash(rand io.Reader, message, context []byte, oid asn1.ObjectIdentifier) ([]byte, error) {
 	if len(message) == 0 {
 		return nil, errors.New("mldsa: empty message")
 	}
@@ -348,6 +369,7 @@ func (sk *PrivateKey65) SignPreHash(rand io.Reader, message, context []byte, oid
 	return sk.signInternal(seed[:], mu[:])
 }
 
+// See FIPS 204, Algorithm 7 ML-DSA.Sign_internal()
 func (sk *PrivateKey65) signInternal(seed, mu []byte) ([]byte, error) {
 	var s1NTT [l65]nttElement
 	var s2NTT [k65]nttElement
@@ -452,6 +474,8 @@ func (sk *PrivateKey65) signInternal(seed, mu []byte) ([]byte, error) {
 	}
 }
 
+// Verify checks the validity of a given signature for a message and context
+// using the public key.
 func (pk *PublicKey65) Verify(sig []byte, message, context []byte) bool {
 	if len(message) == 0 {
 		return false
@@ -473,7 +497,9 @@ func (pk *PublicKey65) Verify(sig []byte, message, context []byte) bool {
 	return pk.verifyInternal(sig, mu[:])
 }
 
-func (pk *PublicKey65) VerifyPreHash(sig []byte, message, context []byte, oid asn1.ObjectIdentifier) bool {
+// VerifyWithPreHash verifies a signature using a message and additional context.
+// It uses a given hashing algorithm from the OID to pre-hash the message before verifying.
+func (pk *PublicKey65) VerifyWithPreHash(sig []byte, message, context []byte, oid asn1.ObjectIdentifier) bool {
 	if len(message) == 0 {
 		return false
 	}
@@ -500,6 +526,7 @@ func (pk *PublicKey65) VerifyPreHash(sig []byte, message, context []byte, oid as
 	return pk.verifyInternal(sig, mu[:])
 }
 
+// See FIPS 204, Algorithm 8 ML-DSA.Verify_internal()
 func (pk *PublicKey65) verifyInternal(sig, mu []byte) bool {
 	// Decode the signature
 	cTilde := sig[:lambda192/4]
