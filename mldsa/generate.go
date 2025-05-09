@@ -1,0 +1,178 @@
+// Copyright 2025 Sun Yimin. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
+//go:build ignore
+
+package main
+
+import (
+	"flag"
+	"go/ast"
+	"go/format"
+	"go/parser"
+	"go/token"
+	"log"
+	"os"
+	"strings"
+)
+
+var replacements65 = map[string]string{
+	"ML-DSA-44": "ML-DSA-65",
+	"k44":       "k65",
+	"l44":       "l65",
+
+	"eta2":               "eta4",
+	"bitLenOfETA2":       "bitLenOfETA4",
+	"tau39":              "tau49",
+	"beta44":             "beta65",
+	"gamma1TwoPower17":   "gamma1TwoPower19",
+	"gamma2QMinus1Div88": "gamma2QMinus1Div32",
+	"lambda128":          "lambda192",
+	"omega80":            "omega55",
+
+	"PublicKeySize44":  "PublicKeySize65",
+	"PrivateKeySize44": "PrivateKeySize65",
+	"sigEncodedLen44":  "sigEncodedLen65",
+
+	"Key44":                   "Key65",
+	"PublicKey44":             "PublicKey65",
+	"PrivateKey44":            "PrivateKey65",
+	"GenerateKey44":           "GenerateKey65",
+	"generateKey44":           "generateKey65",
+	"NewKey44":                "NewKey65",
+	"newPrivateKey44FromSeed": "newPrivateKey65FromSeed",
+	"dsaKeyGen44":             "dsaKeyGen65",
+	"NewPublicKey44":          "NewPublicKey65",
+	"parsePublicKey44":        "parsePublicKey65",
+	"NewPrivateKey44":         "NewPrivateKey65",
+	"parsePrivateKey44":       "parsePrivateKey65",
+	"bitPackSigned2":          "bitPackSigned4",   // marshal priate key
+	"bitUnpackSigned2":        "bitUnpackSigned4", // parse private key
+	"encodingSize3":           "encodingSize4",    // parse private key
+
+	"encodingSize6":             "encodingSize4",             // w1Encoded
+	"simpleBitPack6Bits":        "simpleBitPack4Bits",        // w1Encoded
+	"bitPackSignedTwoPower17":   "bitPackSignedTwoPower19",   // signature encoding
+	"encodingSize18":            "encodingSize20",            // signature decoding
+	"bitUnpackSignedTwoPower17": "bitUnpackSignedTwoPower19", // signature decoding
+}
+
+var replacements87 = map[string]string{
+	"ML-DSA-44": "ML-DSA-87",
+	"k44":       "k87",
+	"l44":       "l87",
+
+	"tau39":              "tau60",
+	"beta44":             "beta87",
+	"gamma1TwoPower17":   "gamma1TwoPower19",
+	"gamma2QMinus1Div88": "gamma2QMinus1Div32",
+	"lambda128":          "lambda256",
+	"omega80":            "omega75",
+
+	"PublicKeySize44":  "PublicKeySize87",
+	"PrivateKeySize44": "PrivateKeySize87",
+	"sigEncodedLen44":  "sigEncodedLen87",
+
+	"Key44":                   "Key87",
+	"PublicKey44":             "PublicKey87",
+	"PrivateKey44":            "PrivateKey87",
+	"GenerateKey44":           "GenerateKey87",
+	"generateKey44":           "generateKey87",
+	"NewKey44":                "NewKey87",
+	"newPrivateKey44FromSeed": "newPrivateKey87FromSeed",
+	"dsaKeyGen44":             "dsaKeyGen87",
+	"NewPublicKey44":          "NewPublicKey87",
+	"parsePublicKey44":        "parsePublicKey87",
+	"NewPrivateKey44":         "NewPrivateKey87",
+	"parsePrivateKey44":       "parsePrivateKey87",
+
+	"encodingSize6":             "encodingSize4",             // w1Encoded
+	"simpleBitPack6Bits":        "simpleBitPack4Bits",        // w1Encoded
+	"bitPackSignedTwoPower17":   "bitPackSignedTwoPower19",   // signature encoding
+	"encodingSize18":            "encodingSize20",            // signature decoding
+	"bitUnpackSignedTwoPower17": "bitUnpackSignedTwoPower19", // signature decoding
+}
+
+func replaceIdentifiers(inputFile, outputFile *string, replacements map[string]string) {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, *inputFile, nil, parser.SkipObjectResolution|parser.ParseComments)
+	if err != nil {
+		log.Fatal(err)
+	}
+	cmap := ast.NewCommentMap(fset, f, f.Comments)
+
+	// Drop header comments.
+	cmap[ast.Node(f)] = nil
+
+	// Remove top-level consts used across the main and generated files.
+	var newDecls []ast.Decl
+	for _, decl := range f.Decls {
+		switch d := decl.(type) {
+		case *ast.GenDecl:
+			if d.Tok == token.CONST {
+				continue // Skip const declarations
+			}
+			if d.Tok == token.IMPORT {
+				cmap[decl] = nil // Drop pre-import comments.
+			}
+		}
+		newDecls = append(newDecls, decl)
+	}
+	f.Decls = newDecls
+
+	// Replace identifiers.
+	ast.Inspect(f, func(n ast.Node) bool {
+		switch x := n.(type) {
+		case *ast.Ident:
+			if replacement, ok := replacements[x.Name]; ok {
+				x.Name = replacement
+			}
+		}
+		return true
+	})
+
+	// Replace identifiers in comments.
+	for _, c := range f.Comments {
+		for _, l := range c.List {
+			for k, v := range replacements {
+				if k == "k" || k == "l" {
+					continue
+				}
+				l.Text = strings.ReplaceAll(l.Text, k, v)
+			}
+		}
+	}
+
+	out, err := os.Create(*outputFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer out.Close()
+
+	out.WriteString(`// Copyright 2025 Sun Yimin. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+// Code generated by generate.go. DO NOT EDIT.
+
+//go:build go1.24
+
+`)
+
+	f.Comments = cmap.Filter(f).Comments()
+	err = format.Node(out, fset, f)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+}
+
+func main() {
+	inputFile := flag.String("mldsa44", "", "")
+	outputFile65 := flag.String("mldsa65", "", "")
+	outputFile87 := flag.String("mldsa87", "", "")
+	flag.Parse()
+
+	replaceIdentifiers(inputFile, outputFile65, replacements65)
+	replaceIdentifiers(inputFile, outputFile87, replacements87)
+}
