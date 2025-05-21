@@ -42,6 +42,8 @@ ShangMi (SM) cipher suites for Golang, referred to as **GMSM**, is a secure, hig
 
 - **MLDSA** - NIST FIPS 204 Module-Lattice-Based Digital Signature Standard.
 
+- **SLHDSA** - NIST FIPS 205 Stateless Hash-Based Digital Signature Standard
+
 ## Some Related Projects
 - **[TLCP](https://github.com/Trisia/gotlcp)** - An implementation of **GB/T 38636-2020 Information security technology Transport Layer Cryptography Protocol (TLCP)**. 
 - **[Trisia/Randomness](https://github.com/Trisia/randomness)** - An implementation of **GM/T 0005-2021 Randomness test specification**.

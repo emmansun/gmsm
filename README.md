@@ -55,6 +55,8 @@ Go语言商用密码软件，简称**GMSM**，一个安全、高性能、易于�
 
 - **MLDSA** - NIST FIPS 204 Module-Lattice-Based Digital Signature Standard实现。
 
+- **SLHDSA** - NIST FIPS 205 Stateless Hash-Based Digital Signature Standard实现。
+
 ## 相关项目
 - **[Trisia/TLCP](https://github.com/Trisia/gotlcp)** - 一个《GB/T 38636-2020 信息安全技术 传输层密码协议》Go语言实现项目。 
 - **[Trisia/Randomness](https://github.com/Trisia/randomness)** - 一个Go语言随机性检测规范实现。
