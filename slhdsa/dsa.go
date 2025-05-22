@@ -38,17 +38,16 @@ func (sk *PrivateKey) Sign(message, context, addRand []byte) ([]byte, error) {
 
 // See FIPS 205 Algorithm 19 slh_sign_internal
 func (sk *PrivateKey) signInternal(msgPrefix, message, addRand []byte) ([]byte, error) {
-	signatureStart := make([]byte, sk.params.sigLen)
-	adrs := sk.addressCreator()
+	signatureHead := make([]byte, sk.params.sigLen)
 
 	// generate randomizer
 	if len(addRand) == 0 {
 		// substitute addRand with sk.PublicKey.seed for the deterministic variant
 		addRand = sk.PublicKey.seed[:sk.params.n]
 	}
-	sk.h.prfMsg(sk, addRand, msgPrefix, message, signatureStart)
-	R := signatureStart[:sk.params.n]
-	signature := signatureStart[sk.params.n:]
+	sk.h.prfMsg(sk, addRand, msgPrefix, message, signatureHead)
+	R := signatureHead[:sk.params.n]
+	signature := signatureHead[sk.params.n:]
 
 	// compute message digest
 	var digest [MAX_M]byte
@@ -65,6 +64,9 @@ func (sk *PrivateKey) signInternal(msgPrefix, message, addRand []byte) ([]byte, 
 	remaining = remaining[treeIdxLen:]
 	leafIdx := uint32(toInt(remaining[:leafIdxLen]) & sk.params.leafIdxMask())
 
+	// The address adrs must have the layer address set to zero (since the XMSS tree that signs a FORS key is always at layer 0),
+	// the tree address set to the index of the WOTS+ key within the XMSS tree that signs the FORS key.
+	adrs := sk.addressCreator()
 	adrs.setTreeAddress(treeIdx)
 	adrs.setTypeAndClear(AddressTypeFORSTree)
 	adrs.setKeyPairAddress(leafIdx)
@@ -77,7 +79,7 @@ func (sk *PrivateKey) signInternal(msgPrefix, message, addRand []byte) ([]byte, 
 	// generate ht signature and append to the SLH-DSA signature
 	sk.htSign(pkFors[:sk.params.n], treeIdx, leafIdx, signature)
 
-	return signatureStart, nil
+	return signatureHead, nil
 }
 
 // Verify verifies a pure SLH-DSA signature for the given message.

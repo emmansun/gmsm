@@ -9,6 +9,7 @@ package slhdsa
 import "crypto/subtle"
 
 // htSign generates a hypertree signature.
+//
 // See FIPS 205 Algorithm 12 ht_sign
 func (sk *PrivateKey) htSign(pkFors []byte, treeIdx uint64, leafIdx uint32, signature []byte) {
 	adrs := sk.addressCreator()
@@ -19,13 +20,14 @@ func (sk *PrivateKey) htSign(pkFors []byte, treeIdx uint64, leafIdx uint32, sign
 	var rootBuf [MAX_N]byte
 	root := rootBuf[:sk.params.n]
 	copy(root, pkFors)
+	tmpBuf := make([]byte, sk.params.n*sk.params.len)
 	for j := range sk.params.d {
 		adrs.setLayerAddress(j)
 		adrs.setTreeAddress(treeIdx)
-		sk.xmssSign(root, leafIdx, adrs, signature)
+		sk.xmssSign(root, tmpBuf, leafIdx, adrs, signature)
 
 		if j < sk.params.d-1 {
-			sk.xmssPkFromSig(leafIdx, signature, root, adrs, root)
+			sk.xmssPkFromSig(leafIdx, signature, root, tmpBuf, adrs, root)
 			// hm least significant bits of treeIdx
 			leafIdx = uint32(treeIdx & mask)
 			// remove least significant hm bits from treeIdx
@@ -36,6 +38,7 @@ func (sk *PrivateKey) htSign(pkFors []byte, treeIdx uint64, leafIdx uint32, sign
 }
 
 // htVerify verifies a hypertree signature.
+//
 // See FIPS 205 Algorithm 13 ht_verify
 func (pk *PublicKey) htVerify(pkFors []byte, signature []byte, treeIdx uint64, leafIdx uint32) bool {
 	adrs := pk.addressCreator()
@@ -46,10 +49,11 @@ func (pk *PublicKey) htVerify(pkFors []byte, signature []byte, treeIdx uint64, l
 	var rootBuf [MAX_N]byte
 	root := rootBuf[:pk.params.n]
 	copy(root, pkFors)
+	tmpBuf := make([]byte, pk.params.n*pk.params.len)
 	for j := range pk.params.d {
 		adrs.setLayerAddress(j)
 		adrs.setTreeAddress(treeIdx)
-		pk.xmssPkFromSig(leafIdx, signature, root, adrs, root)
+		pk.xmssPkFromSig(leafIdx, signature, root, tmpBuf, adrs, root)
 		// hm least significant bits of treeIdx
 		leafIdx = uint32(treeIdx & mask)
 		// remove least significant hm bits from treeIdx

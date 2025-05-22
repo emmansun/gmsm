@@ -101,10 +101,7 @@ func GenerateKey(rand io.Reader, params *params) (*PrivateKey, error) {
 	if _, err := io.ReadFull(rand, priv.PublicKey.seed[:params.n]); err != nil {
 		return nil, err
 	}
-	adrs := priv.addressCreator()
-	adrs.setLayerAddress(params.d - 1)
-	priv.xmssNode(priv.root[:], 0, params.hm, adrs)
-	return priv, nil
+	return generateKeyInernal(priv.seed[:], priv.prf[:], priv.PublicKey.seed[:], params)
 }
 
 // NewPrivateKey creates a new PrivateKey instance from the provided priv.seed||priv.prf||pub.seed||pub.root and parameters.
@@ -115,17 +112,10 @@ func NewPrivateKey(bytes []byte, params *params) (*PrivateKey, error) {
 	if len(bytes) != 4*int(params.n) {
 		return nil, errors.New("slhdsa: invalid key length")
 	}
-	priv := &PrivateKey{}
-	if err := initKey(params, &priv.PublicKey); err != nil {
+	priv, err := generateKeyInernal(bytes[:params.n], bytes[params.n:2*params.n], bytes[2*params.n:3*params.n], params)
+	if err != nil {
 		return nil, err
 	}
-	copy(priv.seed[:], bytes[:params.n])
-	copy(priv.prf[:], bytes[params.n:2*params.n])
-	copy(priv.PublicKey.seed[:], bytes[2*params.n:3*params.n])
-
-	adrs := priv.addressCreator()
-	adrs.setLayerAddress(params.d - 1)
-	priv.xmssNode(priv.root[:], 0, params.hm, adrs)
 	if subtle.ConstantTimeCompare(priv.root[:params.n], bytes[3*params.n:]) != 1 {
 		return nil, errors.New("slhdsa: invalid key")
 	}
@@ -160,7 +150,8 @@ func generateKeyInernal(skSeed, skPRF, pkSeed []byte, params *params) (*PrivateK
 	copy(priv.PublicKey.seed[:], pkSeed)
 	adrs := priv.addressCreator()
 	adrs.setLayerAddress(params.d - 1)
-	priv.xmssNode(priv.root[:], 0, params.hm, adrs)
+	tmpBuf := make([]byte, params.n*params.len)
+	priv.xmssNode(priv.root[:], tmpBuf, 0, params.hm, adrs)
 	return priv, nil
 }
 

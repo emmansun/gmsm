@@ -6,11 +6,14 @@
 
 package slhdsa
 
-// forsSign generates a FORS signature.
+// forsSign generates a FORS signature. It signs a k*a-bits message digest md.
+// In addition, it takes PrivateKey.seed and PublicKey.seed from the sk and and an address as input.
+// The sigFors is a FORS signature of size n*k*(a+1) as result.
+//
 // See FIPS 205 Algorithm 16 fors_sign
 func (sk *PrivateKey) forsSign(md []byte, adrs adrsOperations, sigFors []byte) {
 	var indices [MAX_K]uint32
-	// split md into k a-bits values
+	// split md into k a-bits values, eatch of which is interpreted as an integer between 0 and 2^a-1.
 	base2b(md, sk.params.a, indices[:sk.params.k])
 
 	twoPowerA := uint32(1 << sk.params.a)
@@ -21,20 +24,22 @@ func (sk *PrivateKey) forsSign(md []byte, adrs adrsOperations, sigFors []byte) {
 		sk.forsGenPrivateKey(nodeID+treeIDTimeTwoPowerA, adrs, sigFors)
 		sigFors = sigFors[sk.params.n:]
 
+		// compute auth path
 		treeOffset := treeIDTimeTwoPowerA
-		for layer := range sk.params.a {
+		for j := range sk.params.a {
 			s := nodeID ^ 1
-			sk.forsNode(s+treeOffset, layer, adrs, sigFors)
+			sk.forsNode(s+treeOffset, j, adrs, sigFors)
 
 			nodeID >>= 1
 			treeOffset >>= 1
 			sigFors = sigFors[sk.params.n:]
 		}
-		treeIDTimeTwoPowerA += twoPowerA
+		treeIDTimeTwoPowerA += twoPowerA // same as treeIDTimeTwoPowerA = treeID*twoPowerA
 	}
 }
 
 // forsPkFromSig computes a FORS public key from a FORS signature.
+//
 // See FIPS 205 Algorithm 17 fors_pkFromSig
 func (pk *PublicKey) forsPkFromSig(md, signature []byte, adrs adrsOperations, out []byte) []byte {
 	var indices [MAX_K]uint32
@@ -43,7 +48,6 @@ func (pk *PublicKey) forsPkFromSig(md, signature []byte, adrs adrsOperations, ou
 	twoPowerA := uint32(1 << pk.params.a)
 
 	var treeIDTimeTwoPowerA uint32
-	// TODO: use array to avoid heap allocation?
 	root := make([]byte, pk.params.n*pk.params.k)
 	rootPt := root
 	for treeID := range pk.params.k {
@@ -78,20 +82,25 @@ func (pk *PublicKey) forsPkFromSig(md, signature []byte, adrs adrsOperations, ou
 	forspkADRS.clone(adrs)
 	forspkADRS.setTypeAndClear(AddressTypeFORSRoots)
 	forspkADRS.copyKeyPairAddress(adrs)
+	// compute FORS public key
 	pk.h.t(pk, forspkADRS, root, out)
-	clear(root)
 	return signature
 }
 
 // forsNode computes the root of a Merkle subtree of FORS public values.
+//
 // See FIPS 205 Algorithm 15 fors_node
 func (sk *PrivateKey) forsNode(nodeID, layer uint32, adrs adrsOperations, out []byte) {
 	if layer == 0 {
+		// If the subtree consists of a signle leaf node, then it simply returns a hash of the node's
+		// private n-byte string.
 		sk.forsGenPrivateKey(nodeID, adrs, out)
 		adrs.setTreeHeight(0)
 		adrs.setTreeIndex(nodeID)
 		sk.h.f(&sk.PublicKey, adrs, out, out)
 	} else {
+		// otherwise, it computes the roots of the left subtree and right subtree
+		// and hashs them togeter.
 		var lnode, rnode [MAX_N]byte
 		sk.forsNode(nodeID*2, layer-1, adrs, lnode[:])
 		sk.forsNode(nodeID*2+1, layer-1, adrs, rnode[:])
@@ -102,17 +111,19 @@ func (sk *PrivateKey) forsNode(nodeID, layer uint32, adrs adrsOperations, out []
 }
 
 // forsGenPrivateKey generates a FORS private key value.
+//
 // See FIPS 205 Algorithm 14 fors_skGen
-func (sk *PrivateKey) forsGenPrivateKey(i uint32, adrs adrsOperations, out []byte) {
+func (sk *PrivateKey) forsGenPrivateKey(idx uint32, adrs adrsOperations, out []byte) {
 	skADRS := sk.addressCreator()
 	skADRS.clone(adrs)
 	skADRS.setTypeAndClear(AddressTypeFORSPRF)
 	skADRS.copyKeyPairAddress(adrs)
-	skADRS.setTreeIndex(i)
+	skADRS.setTreeIndex(idx)
 	sk.h.prf(sk, skADRS, out)
 }
 
 // base2b computes the base-2^b representation of the input byte array.
+//
 // See FIPS 205 Algorithm 4 base_2^b
 func base2b(in []byte, base uint32, out []uint32) {
 	var (

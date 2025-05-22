@@ -6,7 +6,9 @@
 
 package slhdsa
 
-// Chaining function used in WOTS
+// Chaining function used in WOTS, it takes an n-byte inout and integer start and steps as input
+// and returns the result of iterating a hash function F on the inout steps times, starting from start.
+//
 // See FIPS 205 Algorithm 5 wots_chain
 func (pk *PublicKey) wotsChain(inout []byte, start, steps byte, addr adrsOperations) {
 	for i := start; i < start+steps; i++ {
@@ -16,18 +18,20 @@ func (pk *PublicKey) wotsChain(inout []byte, start, steps byte, addr adrsOperati
 }
 
 // wotsPkGen generates a WOTS public key.
+//
 // See FIPS 205 Algorithm 6 wots_pkGen
-func (sk *PrivateKey) wotsPkGen(out []byte, addr adrsOperations) {
+func (sk *PrivateKey) wotsPkGen(out, tmpBuf []byte, addr adrsOperations) {
 	skADRS := sk.addressCreator()
 	skADRS.clone(addr)
 	skADRS.setTypeAndClear(AddressTypeWOTSPRF)
 	skADRS.copyKeyPairAddress(addr)
-	// TODO: use array to avoid heap allocation?
-	tmpBuf := make([]byte, sk.params.n*sk.params.len)
 	tmp := tmpBuf
-	for i := uint32(0); i < sk.params.len; i++ {
+	// compute [len] public values
+	for i := range sk.params.len {
+		// compute secret value for chain i
 		skADRS.setChainAddress(i)
 		sk.h.prf(sk, skADRS, tmp)
+		// compute public value for chain i
 		addr.setChainAddress(i)
 		sk.wotsChain(tmp, 0, 15, addr) // w = 16
 		tmp = tmp[sk.params.n:]
@@ -36,11 +40,12 @@ func (sk *PrivateKey) wotsPkGen(out []byte, addr adrsOperations) {
 	wotspkADRS.clone(addr)
 	wotspkADRS.setTypeAndClear(AddressTypeWOTSPK)
 	wotspkADRS.copyKeyPairAddress(addr)
+	// compress public key
 	sk.h.t(&sk.PublicKey, wotspkADRS, tmpBuf, out)
-	clear(tmpBuf)
 }
 
 // wotsSign generates a WOTS signature on an n-byte message.
+//
 // See FIPS 205 Algorithm 10 wots_sign
 func (sk *PrivateKey) wotsSign(m []byte, adrs adrsOperations, sigWots []byte) {
 	var msgAndCsum [MAX_WOTS_LEN]byte
@@ -58,6 +63,7 @@ func (sk *PrivateKey) wotsSign(m []byte, adrs adrsOperations, sigWots []byte) {
 	msgAndCsum[len1+1] = byte(csum>>4) & 0x0F
 	msgAndCsum[len1+2] = byte(csum) & 0x0F
 
+	// copy address to create key generation key address
 	skADRS := sk.addressCreator()
 	skADRS.clone(adrs)
 	skADRS.setTypeAndClear(AddressTypeWOTSPRF)
@@ -65,16 +71,19 @@ func (sk *PrivateKey) wotsSign(m []byte, adrs adrsOperations, sigWots []byte) {
 
 	for i := range sk.params.len {
 		skADRS.setChainAddress(i)
+		// compute chain i secret value
 		sk.h.prf(sk, skADRS, sigWots)
 		adrs.setChainAddress(i)
+		// compute chain i signature value
 		sk.wotsChain(sigWots, 0, msgAndCsum[i], adrs)
 		sigWots = sigWots[sk.params.n:]
 	}
 }
 
 // wotsPkFromSig computes a WOTS public key from a message and its signature
+//
 // See FIPS 205 Algorithm 8 wots_pkFromSig
-func (pk *PublicKey) wotsPkFromSig(signature, m []byte, adrs adrsOperations, out []byte) {
+func (pk *PublicKey) wotsPkFromSig(signature, m, tmpBuf []byte, adrs adrsOperations, out []byte) {
 	var msgAndCsum [MAX_WOTS_LEN]byte
 	// convert message to base w=16
 	bytes2nibbles(m, msgAndCsum[:])
@@ -91,7 +100,6 @@ func (pk *PublicKey) wotsPkFromSig(signature, m []byte, adrs adrsOperations, out
 	msgAndCsum[len1+1] = byte(csum>>4) & 0x0F
 	msgAndCsum[len1+2] = byte(csum) & 0x0F
 
-	tmpBuf := make([]byte, pk.params.n*pk.params.len)
 	copy(tmpBuf, signature)
 	tmp := tmpBuf
 	for i := range pk.params.len {
@@ -99,12 +107,13 @@ func (pk *PublicKey) wotsPkFromSig(signature, m []byte, adrs adrsOperations, out
 		pk.wotsChain(tmp, msgAndCsum[i], 15-msgAndCsum[i], adrs)
 		tmp = tmp[pk.params.n:]
 	}
+	// copy address to create WOTS+ public key address
 	wotspkADRS := pk.addressCreator()
 	wotspkADRS.clone(adrs)
 	wotspkADRS.setTypeAndClear(AddressTypeWOTSPK)
 	wotspkADRS.copyKeyPairAddress(adrs)
+	// compress public key
 	pk.h.t(pk, wotspkADRS, tmpBuf, out)
-	clear(tmpBuf)
 }
 
 func bytes2nibbles(in, out []byte) {
