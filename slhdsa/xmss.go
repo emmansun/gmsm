@@ -27,11 +27,11 @@ func (sk *PrivateKey) xmssNode(out, tmpBuf []byte, i, z uint32, adrs adrsOperati
 	}
 }
 
-// xmssSign generates an XMSS signature on an n-byte message pkFors by
-// creating an authentication path and signing pkFors with the appropriate WORTS+ key.
+// xmssSign generates an XMSS signature on an n-byte message by
+// creating an authentication path and signing message with the appropriate WORTS+ key.
 //
 // See FIPS 205 Algorithm 10 xmss_sign
-func (sk *PrivateKey) xmssSign(pkFors, tmpBuf []byte, leafIdx uint32, adrs adrsOperations, signature []byte) {
+func (sk *PrivateKey) xmssSign(msg, tmpBuf []byte, leafIdx uint32, adrs adrsOperations, signature []byte) {
 	// build auth path, the auth path consists of the sibling nodes of each node that is on the path from the WOTS+ key used to the root
 	authStart := sk.params.n * sk.params.len
 	authPath := signature[authStart:]
@@ -44,17 +44,17 @@ func (sk *PrivateKey) xmssSign(pkFors, tmpBuf []byte, leafIdx uint32, adrs adrsO
 	// compute WOTS+ signature
 	adrs.setTypeAndClear(AddressTypeWOTSHash)
 	adrs.setKeyPairAddress(leafIdxCopy)
-	sk.wotsSign(pkFors, adrs, signature)
+	sk.wotsSign(msg, adrs, signature)
 }
 
 // xmssPkFromSig computes an XMSS public key from an XMSS signature.
 //
 // See FIPS 205 Algorithm 11 xmss_pkFromSig
-func (pk *PublicKey) xmssPkFromSig(leafIdx uint32, signature, m, tmpBuf []byte, adrs adrsOperations, out []byte) {
+func (pk *PublicKey) xmssPkFromSig(leafIdx uint32, signature, msg, tmpBuf []byte, adrs adrsOperations, out []byte) {
 	// compute WOTS pk from WOTS signature
 	adrs.setTypeAndClear(AddressTypeWOTSHash)
 	adrs.setKeyPairAddress(leafIdx)
-	pk.wotsPkFromSig(signature, m, tmpBuf, adrs, out)
+	pk.wotsPkFromSig(signature, msg, tmpBuf, adrs, out)
 
 	// compute root from WOTS pk and AUTH path
 	adrs.setTypeAndClear(AddressTypeTree)

@@ -47,10 +47,10 @@ func (sk *PrivateKey) wotsPkGen(out, tmpBuf []byte, addr adrsOperations) {
 // wotsSign generates a WOTS signature on an n-byte message.
 //
 // See FIPS 205 Algorithm 10 wots_sign
-func (sk *PrivateKey) wotsSign(m []byte, adrs adrsOperations, sigWots []byte) {
+func (sk *PrivateKey) wotsSign(msg []byte, adrs adrsOperations, sigWots []byte) {
 	var msgAndCsum [MAX_WOTS_LEN]byte
 	// convert message to base w=16
-	bytes2nibbles(m, msgAndCsum[:])
+	bytes2nibbles(msg, msgAndCsum[:])
 	// compute checksum
 	// checksum = 15 * len1 - sum(msgAndCsum)
 	var csum uint16
@@ -83,10 +83,10 @@ func (sk *PrivateKey) wotsSign(m []byte, adrs adrsOperations, sigWots []byte) {
 // wotsPkFromSig computes a WOTS public key from a message and its signature
 //
 // See FIPS 205 Algorithm 8 wots_pkFromSig
-func (pk *PublicKey) wotsPkFromSig(signature, m, tmpBuf []byte, adrs adrsOperations, out []byte) {
+func (pk *PublicKey) wotsPkFromSig(signature, msg, tmpBuf []byte, adrs adrsOperations, out []byte) {
 	var msgAndCsum [MAX_WOTS_LEN]byte
 	// convert message to base w=16
-	bytes2nibbles(m, msgAndCsum[:])
+	bytes2nibbles(msg, msgAndCsum[:])
 	// compute checksum
 	// checksum = 15 * len1 - sum(msgAndCsum)
 	var csum uint16
