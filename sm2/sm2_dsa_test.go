@@ -424,6 +424,39 @@ func TestSignVerify(t *testing.T) {
 	}
 }
 
+func TestSignMessage(t *testing.T) {
+	priv, _ := GenerateKey(rand.Reader)
+	tests := []struct {
+		name      string
+		plainText string
+	}{
+		// TODO: Add test cases.
+		{"less than 32", "encryption standard"},
+		{"equals 32", "encryption standard encryption "},
+		{"long than 32", "encryption standard encryption standard"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			signature, err := priv.SignMessage(rand.Reader, []byte(tt.plainText), nil)
+			if err != nil {
+				t.Fatalf("SignMessage failed %v", err)
+			}
+			result := VerifyASN1WithSM2(&priv.PublicKey, nil, []byte(tt.plainText), signature)
+			if !result {
+				t.Fatal("verify failed")
+			}
+			signature, err = priv.SignMessage(rand.Reader, []byte(tt.plainText), NewSM2SignerOption(true, []byte("testid")))
+			if err != nil {
+				t.Fatalf("SignMessage failed %v", err)
+			}
+			result = VerifyASN1WithSM2(&priv.PublicKey, []byte("testid"), []byte(tt.plainText), signature)
+			if !result {
+				t.Fatal("verify failed")
+			}
+		})
+	}
+}
+
 func TestSM2Hasher(t *testing.T) {
 	tobeHashed := []byte("hello world")
 	keypoints, _ := hex.DecodeString("048356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1")

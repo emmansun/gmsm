@@ -118,6 +118,17 @@ func (priv *PrivateKey) SignWithSM2(rand io.Reader, uid, msg []byte) ([]byte, er
 	return priv.Sign(rand, msg, NewSM2SignerOption(true, uid))
 }
 
+// SignMessage signs a message with the private key, reading randomness from rand.
+// If opts is an instance of SM2SignerOption, it will use the UID from opts.
+// This method is used to comply with the [crypto.MessageSigner] interface.
+func (priv *PrivateKey) SignMessage(rand io.Reader, msg []byte, opts crypto.SignerOpts) ([]byte, error) {
+	var uid []byte
+	if sm2Opts, ok := opts.(*SM2SignerOption); ok {
+		uid = sm2Opts.uid
+	}
+	return priv.SignWithSM2(rand, uid, msg)
+}
+
 // GenerateKey generates a new SM2 private key.
 //
 // Most applications should use [crypto/rand.Reader] as rand. Note that the
