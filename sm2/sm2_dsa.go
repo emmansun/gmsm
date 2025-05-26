@@ -172,6 +172,18 @@ func NewPrivateKey(key []byte) (*PrivateKey, error) {
 	return priv, nil
 }
 
+// ParseRawPrivateKey parses a private key encoded as a fixed-length big-endian
+// integer, according to SEC 1, Version 2.0, Section 2.3.6 (sometimes referred
+// to as the raw format). It returns an error if the value is not reduced modulo
+// the curve's order minus one, or if it's zero.
+//
+// Note that private keys are more commonly encoded in ASN.1 or PKCS#8 format,
+// which can be parsed with [smx509.ParseECPrivateKey] or
+// [smx509.ParsePKCS8PrivateKey] (and [encoding/pem]).
+func ParseRawPrivateKey(data []byte) (*PrivateKey, error) {
+	return NewPrivateKey(data)
+}
+
 // NewPrivateKeyFromInt creates a new SM2 private key from a given big integer.
 // It returns an error if the provided key is nil.
 func NewPrivateKeyFromInt(key *big.Int) (*PrivateKey, error) {
@@ -206,6 +218,17 @@ func NewPublicKey(key []byte) (*ecdsa.PublicKey, error) {
 		return nil, err
 	}
 	return k, nil
+}
+
+// ParseUncompressedPublicKey parses a public key encoded as an uncompressed
+// point according to SEC 1, Version 2.0, Section 2.3.3 (also known as the X9.62
+// uncompressed format). It returns an error if the point is not in uncompressed
+// form, is not on the curve, or is the point at infinity.
+//
+// Note that public keys are more commonly encoded in DER (or PEM) format, which
+// can be parsed with [smx509.ParsePKIXPublicKey] (and [encoding/pem]).
+func ParseUncompressedPublicKey(data []byte) (*ecdsa.PublicKey, error) {
+	return NewPublicKey(data)
 }
 
 var defaultUID = []byte{0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38}

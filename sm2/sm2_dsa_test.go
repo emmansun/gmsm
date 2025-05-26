@@ -15,37 +15,37 @@ import (
 	"github.com/emmansun/gmsm/sm3"
 )
 
-func TestNewPrivateKey(t *testing.T) {
+func TestParseRawPrivateKey(t *testing.T) {
 	c := p256()
 	// test nil
-	_, err := NewPrivateKey(nil)
+	_, err := ParseRawPrivateKey(nil)
 	if err == nil || err.Error() != "sm2: invalid private key size" {
 		t.Errorf("should throw sm2: invalid private key size")
 	}
 	// test all zero
 	key := make([]byte, c.N.Size())
-	_, err = NewPrivateKey(key)
+	_, err = ParseRawPrivateKey(key)
 	if err == nil || err != errInvalidPrivateKey {
 		t.Errorf("should throw errInvalidPrivateKey")
 	}
 	// test N-1
-	_, err = NewPrivateKey(c.nMinus1.Bytes(c.N))
+	_, err = ParseRawPrivateKey(c.nMinus1.Bytes(c.N))
 	if err == nil || err != errInvalidPrivateKey {
 		t.Errorf("should throw errInvalidPrivateKey")
 	}
 	// test N
-	_, err = NewPrivateKey(P256().Params().N.Bytes())
+	_, err = ParseRawPrivateKey(P256().Params().N.Bytes())
 	if err == nil || err != errInvalidPrivateKey {
 		t.Errorf("should throw errInvalidPrivateKey")
 	}
 	// test 1
 	key[31] = 1
-	_, err = NewPrivateKey(key)
+	_, err = ParseRawPrivateKey(key)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// test N-2
-	_, err = NewPrivateKey(c.nMinus2)
+	_, err = ParseRawPrivateKey(c.nMinus2)
 	if err != nil {
 		t.Error(err)
 	}
@@ -82,27 +82,27 @@ func TestNewPrivateKeyFromInt(t *testing.T) {
 	}
 }
 
-func TestNewPublicKey(t *testing.T) {
+func TestParseUncompressedPublicKey(t *testing.T) {
 	// test nil
-	_, err := NewPublicKey(nil)
+	_, err := ParseUncompressedPublicKey(nil)
 	if err == nil || err.Error() != "sm2: invalid public key" {
 		t.Errorf("should throw sm2: invalid public key")
 	}
 	// test without point format prefix byte
 	keypoints, _ := hex.DecodeString("8356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1")
-	_, err = NewPublicKey(keypoints)
+	_, err = ParseUncompressedPublicKey(keypoints)
 	if err == nil || err.Error() != "sm2: invalid public key" {
 		t.Errorf("should throw sm2: invalid public key")
 	}
 	// test correct point
 	keypoints, _ = hex.DecodeString("048356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1")
-	_, err = NewPublicKey(keypoints)
+	_, err = ParseUncompressedPublicKey(keypoints)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// test point not on curve
 	keypoints, _ = hex.DecodeString("048356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba2")
-	_, err = NewPublicKey(keypoints)
+	_, err = ParseUncompressedPublicKey(keypoints)
 	if err == nil || err.Error() != "point not on SM2 P256 curve" {
 		t.Errorf("should throw point not on SM2 P256 curve, got %v", err)
 	}
