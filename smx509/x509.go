@@ -1565,6 +1565,10 @@ func CreateCertificate(rand io.Reader, template, parent, pub, priv any) ([]byte,
 		return nil, errors.New("x509: serial number must be positive")
 	}
 
+	if realTemplate.BasicConstraintsValid && realTemplate.MaxPathLen < -1 {
+		return nil, errors.New("x509: invalid MaxPathLen, must be greater or equal to -1")
+	}
+
 	if realTemplate.BasicConstraintsValid && !realTemplate.IsCA && realTemplate.MaxPathLen != -1 && (realTemplate.MaxPathLen != 0 || realTemplate.MaxPathLenZero) {
 		return nil, errors.New("x509: only CAs are allowed to specify MaxPathLen")
 	}

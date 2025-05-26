@@ -14,6 +14,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"net"
 	"net/url"
@@ -93,7 +94,7 @@ func parseASN1String(tag cryptobyte_asn1.Tag, value []byte) (string, error) {
 		// treat a UCS-2 encoded string as a UTF-16 encoded string, as long as
 		// we reject out the UTF-16 specific code points. This matches the
 		// BoringSSL behavior.
-			
+
 		if len(value)%2 != 0 {
 			return "", errors.New("invalid BMPString")
 		}
@@ -434,9 +435,11 @@ func parseBasicConstraintsExtension(der cryptobyte.String) (bool, int, error) {
 	}
 	maxPathLen := -1
 	if der.PeekASN1Tag(cryptobyte_asn1.INTEGER) {
-		if !der.ReadASN1Integer(&maxPathLen) {
+		var mpl uint
+		if !der.ReadASN1Integer(&mpl) || mpl > math.MaxInt {
 			return false, 0, errors.New("x509: invalid basic constraints")
 		}
+		maxPathLen = int(mpl)
 	}
 
 	// TODO: map out.MaxPathLen to 0 if it has the -1 default value? (Issue 19285)
