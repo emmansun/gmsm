@@ -27,7 +27,7 @@ import (
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rsa"
-	"crypto/sha1"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -1604,12 +1604,12 @@ func CreateCertificate(rand io.Reader, template, parent, pub, priv any) ([]byte,
 
 	subjectKeyId := realTemplate.SubjectKeyId
 	if len(subjectKeyId) == 0 && realTemplate.IsCA {
-		// SubjectKeyId generated using method 1 in RFC 5280, Section 4.2.1.2:
-		//   (1) The keyIdentifier is composed of the 160-bit SHA-1 hash of the
-		//   value of the BIT STRING subjectPublicKey (excluding the tag,
-		//   length, and number of unused bits).
-		h := sha1.Sum(publicKeyBytes)
-		subjectKeyId = h[:]
+		// SubjectKeyId generated using method 1 in RFC 7093, Section 2:
+		//    1) The keyIdentifier is composed of the leftmost 160-bits of the
+		//    SHA-256 hash of the value of the BIT STRING subjectPublicKey
+		//    (excluding the tag, length, and number of unused bits).
+		h := sha256.Sum256(publicKeyBytes)
+		subjectKeyId = h[:20]
 	}
 
 	// Check that the signer's public key matches the private key, if available.
