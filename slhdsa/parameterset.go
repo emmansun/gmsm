@@ -1,5 +1,7 @@
 package slhdsa
 
+import "io"
+
 const (
 	MAX_N         = 32
 	MAX_M         = 49
@@ -120,4 +122,20 @@ func (p *params) leafIdxMask() uint64 {
 
 func (p *params) String() string {
 	return p.alg
+}
+
+// GenerateKey generates a new private key using the provided random source and the parameters
+// specified by the receiver.
+func (p *params) GenerateKey(rand io.Reader) (*PrivateKey, error) {
+	return GenerateKey(rand, p)
+}
+
+// NewPublicKey creates a new PublicKey instance from the provided byte slice using the current parameter set.
+func (p *params) NewPublicKey(bytes []byte) (*PublicKey, error) {
+	return NewPublicKey(bytes, p)
+}
+
+// NewPrivateKey creates a new PrivateKey instance using the provided byte slice and the current parameter set.
+func (p *params) NewPrivateKey(bytes []byte) (*PrivateKey, error) {
+	return NewPrivateKey(bytes, p)
 }

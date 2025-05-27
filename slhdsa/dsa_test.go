@@ -71,7 +71,7 @@ func testData(t *testing.T, filename string, tc *slhtest) {
 	context, _ := hex.DecodeString(tc.Context)
 	sig, _ := hex.DecodeString(tc.Signature)
 	sigOriginal := sig
-	privKey, err := NewPrivateKey(skBytes, params)
+	privKey, err := params.NewPrivateKey(skBytes)
 	if err != nil {
 		t.Fatalf("%v NewPrivateKey(%x) = %v", filename, skBytes, err)
 	}
@@ -100,7 +100,7 @@ func testData(t *testing.T, filename string, tc *slhtest) {
 		sig = sig[privKey.params.n*(privKey.params.len+privKey.params.hm):]
 	}
 	// test verify
-	pub, err := NewPublicKey(pkBytes, params)
+	pub, err := params.NewPublicKey(pkBytes)
 	if err != nil {
 		t.Fatalf("%v NewPublicKey(%x) = %v", filename, pkBytes, err)
 	}
