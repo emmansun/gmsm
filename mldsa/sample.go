@@ -17,26 +17,26 @@ func rejNTTPoly(rho []byte, s, r byte) nttElement {
 	G.Write(rho)
 	G.Write([]byte{s, r})
 
-	//TODO: optimize to read a block once
-	var buf [3]byte
+	const blockSize = 168 // SHAKE128 block size in bytes
+	var buf [blockSize]byte
 
 	var a nttElement
 	var j int
 
 	for {
 		G.Read(buf[:])
-		// Algorithm 14, CoeffFromThreeBytes()
-		d := uint32(buf[0]) | uint32(buf[1])<<8 | ((uint32(buf[2]) & 0x7f) << 16)
-		if d < q {
-			a[j] = fieldElement(d)
-			j++
-		}
-		if j >= len(a) {
-			break
+		for i := 0; i < blockSize; i += 3 {
+			// Algorithm 14, CoeffFromThreeBytes()
+			d := uint32(buf[i]) | uint32(buf[i+1])<<8 | ((uint32(buf[i+2]) & 0x7f) << 16)
+			if d < q {
+				a[j] = fieldElement(d)
+				j++
+			}
+			if j >= len(a) {
+				return a
+			}
 		}
 	}
-
-	return a
 }
 
 // This is a constant time version of n % 5
@@ -57,15 +57,17 @@ func rejBoundedPoly(rho []byte, eta int, highByte, lowByte byte) ringElement {
 	H.Write(rho)
 	H.Write([]byte{lowByte, highByte})
 
-	//TODO: optimize to read a block once
-	var buf [1]byte
+	const blockSize = 136 // SHAKE256 block size in bytes
+	var buf [blockSize]byte
 	var a ringElement
-	var j int
+	var offset, j int
+
+	H.Read(buf[:])
 
 	for {
-		H.Read(buf[:])
-		z0 := buf[0] & 0xf
-		z1 := buf[0] >> 4
+		z0 := buf[offset] & 0xf
+		z1 := buf[offset] >> 4
+		offset++
 
 		if eta == 2 {
 			if subtle.ConstantTimeByteEq(z0, 15) == 0 {
@@ -97,6 +99,10 @@ func rejBoundedPoly(rho []byte, eta int, highByte, lowByte byte) ringElement {
 					break
 				}
 			}
+		}
+		if offset >= blockSize {
+			H.Read(buf[:])
+			offset = 0
 		}
 	}
 	return a
