@@ -8,6 +8,7 @@ package mldsa
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/asn1"
 	"encoding/hex"
 	"testing"
@@ -308,3 +309,33 @@ func (zr) Read(dst []byte) (n int, err error) {
 }
 
 var zeroReader = zr{}
+
+func BenchmarkKeyGen44(b *testing.B) {
+	var d [32]byte
+	rand.Read(d[:])
+	b.ResetTimer()
+	for b.Loop() {
+		if _, err := NewKey44(d[:]); err != nil {
+			b.Fatalf("NewKey44 failed: %v", err)
+		}
+	}
+}
+
+func BenchmarkSign44(b *testing.B) {
+	var seed [32]byte
+	c := sigGen44InternalProjectionCases[0]
+	sk, _ := hex.DecodeString(c.sk)
+	mu, _ := hex.DecodeString(c.mu)
+	priv, err := NewPrivateKey44(sk)
+	if err != nil {
+		b.Fatalf("NewPrivateKey44 failed: %v", err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		_, err := priv.signInternal(seed[:], mu)
+		if err != nil {
+			b.Fatalf("signInternal failed: %v", err)
+		}
+	}
+}

@@ -8,6 +8,7 @@ package mldsa
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/asn1"
 	"encoding/hex"
 	"testing"
@@ -255,6 +256,36 @@ func TestVerify87(t *testing.T) {
 		}
 		if pub.Verify(sig, msg, ctx) != c.passed {
 			t.Errorf("Verify failed")
+		}
+	}
+}
+
+func BenchmarkKeyGen87(b *testing.B) {
+	var d [32]byte
+	rand.Read(d[:])
+	b.ResetTimer()
+	for b.Loop() {
+		if _, err := NewKey87(d[:]); err != nil {
+			b.Fatalf("NewKey44 failed: %v", err)
+		}
+	}
+}
+
+func BenchmarkSign87(b *testing.B) {
+	var seed [32]byte
+	c := sigGen87InternalProjectionCases[0]
+	sk, _ := hex.DecodeString(c.sk)
+	mu, _ := hex.DecodeString(c.mu)
+	priv, err := NewPrivateKey87(sk)
+	if err != nil {
+		b.Fatalf("NewPrivateKey87 failed: %v", err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		_, err := priv.signInternal(seed[:], mu)
+		if err != nil {
+			b.Fatalf("signInternal failed: %v", err)
 		}
 	}
 }
