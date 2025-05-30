@@ -339,3 +339,23 @@ func BenchmarkSign44(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkVerify44(b *testing.B) {
+	c := sigVer44InternalProjectionCases[0]
+	pk, _ := hex.DecodeString(c.pk)
+	sig, _ := hex.DecodeString(c.sig)
+	msg, _ := hex.DecodeString(c.message)
+	ctx, _ := hex.DecodeString(c.context)
+
+	pub, err := NewPublicKey44(pk)
+	if err != nil {
+		b.Fatalf("NewPublicKey44 failed: %v", err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		if !pub.Verify(sig, msg, ctx) {
+			b.Errorf("Verify failed")
+		}
+	}
+}

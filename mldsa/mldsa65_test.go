@@ -329,3 +329,23 @@ func BenchmarkSign65(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkVerify65(b *testing.B) {
+	c := sigVer65InternalProjectionCases[1]
+	pk, _ := hex.DecodeString(c.pk)
+	sig, _ := hex.DecodeString(c.sig)
+	msg, _ := hex.DecodeString(c.message)
+	ctx, _ := hex.DecodeString(c.context)
+
+	pub, err := NewPublicKey65(pk)
+	if err != nil {
+		b.Fatalf("NewPublicKey65 failed: %v", err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		if !pub.Verify(sig, msg, ctx) {
+			b.Errorf("Verify failed")
+		}
+	}
+}
