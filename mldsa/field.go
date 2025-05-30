@@ -40,9 +40,9 @@ func fieldSub(a, b fieldElement) fieldElement {
 }
 
 const (
-	qInv    = 58728449
-	qNegInv = 4236238847
-	r       = 4193792 // 2^32 mod q
+	qInv    = 58728449   // q^-1 satisfies: q^-1 * q = 1 mod 2^32
+	qNegInv = 4236238847 // inverse of -q modulo 2^32
+	r       = 4193792    // 2^32 mod q
 )
 
 func fieldReduce(a uint64) fieldElement {
@@ -90,7 +90,7 @@ type nttElement [n]fieldElement
 // As this implementation uses montgomery form with a multiplier of 2^32.
 // The values need to be transformed i.e.
 //
-// zetasMontgomery[k] = fieldReduce(zeta[k] * (2^32 * 2^32 mod(q)))
+// zetasMontgomery[k] = fieldReduce(zeta[k] * (2^32 * 2^32 mod(q))) = (zeta[k] * r^2) mod q
 var zetasMontgomery = [n]fieldElement{
 	4193792, 25847, 5771523, 7861508, 237124, 7602457, 7504169, 466468,
 	1826347, 2353451, 8021166, 6288512, 3119733, 5495562, 3111497, 2680103,
@@ -134,7 +134,7 @@ func ntt(f ringElement) nttElement {
 	// len: 128, 64, 32, ..., 1
 	for len := 128; len >= 1; len /= 2 {
 		// start
-		for start := 0; start < 256; start += 2 * len {
+		for start := 0; start < n; start += 2 * len {
 			zeta := zetasMontgomery[k]
 			k++
 			// Bounds check elimination hint.
@@ -154,8 +154,8 @@ func ntt(f ringElement) nttElement {
 // It implements NTT⁻¹, according to FIPS 204, Algorithm 42.
 func inverseNTT(f nttElement) ringElement {
 	k := 255
-	for len := 1; len < 256; len *= 2 {
-		for start := 0; start < 256; start += 2 * len {
+	for len := 1; len < n; len *= 2 {
+		for start := 0; start < n; start += 2 * len {
 			zeta := q - zetasMontgomery[k]
 			k--
 			// Bounds check elimination hint.
@@ -240,17 +240,3 @@ func vectorCountOnes(a []ringElement) int {
 	return oneCount
 }
 
-func vectorMakeHint(ct0, cs2, w, hint []ringElement, gamma2 uint32) {
-	for i := range ct0 {
-		for j := range ct0[i] {
-			hint[i][j] = makeHint(ct0[i][j], cs2[i][j], w[i][j], gamma2)
-		}
-	}
-}
-
-func makeHint(ct0, cs2, w fieldElement, gamma2 uint32) fieldElement {
-	rPulusZ := fieldSub(w, cs2)
-	r := fieldAdd(rPulusZ, ct0)
-
-	return fieldElement(1 ^ uint32(subtle.ConstantTimeEq(int32(compressHighBits(r, gamma2)), int32(compressHighBits(rPulusZ, gamma2)))))
-}

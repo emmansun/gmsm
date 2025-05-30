@@ -105,10 +105,10 @@ func inverseBarrettNTT(f nttElement) ringElement {
 	return ringElement(f)
 }
 
-//func nttBarrettMul(f, g nttElement) nttElement {
-//	var ret nttElement
-//	for i, v := range f {
-//		ret[i] = fieldBarrettMul(v, g[i])
-//	}
-//	return ret
-//}
+func nttBarrettMul(f, g nttElement) nttElement {
+	var ret nttElement
+	for i, v := range f {
+		ret[i] = fieldBarrettMul(v, g[i])
+	}
+	return ret
+}

@@ -97,3 +97,18 @@ func useHint(h, r fieldElement, gamma2 uint32) fieldElement {
 		return fieldElement(r1 - 1)
 	}
 }
+
+func vectorMakeHint(ct0, cs2, w, hint []ringElement, gamma2 uint32) {
+	for i := range ct0 {
+		for j := range ct0[i] {
+			hint[i][j] = makeHint(ct0[i][j], cs2[i][j], w[i][j], gamma2)
+		}
+	}
+}
+
+func makeHint(ct0, cs2, w fieldElement, gamma2 uint32) fieldElement {
+	rPlusZ := fieldSub(w, cs2)
+	r := fieldAdd(rPlusZ, ct0)
+
+	return fieldElement(1 ^ uint32(subtle.ConstantTimeEq(int32(compressHighBits(r, gamma2)), int32(compressHighBits(rPlusZ, gamma2)))))
+}

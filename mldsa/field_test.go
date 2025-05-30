@@ -8,9 +8,73 @@ package mldsa
 
 import (
 	"fmt"
+	"math/big"
 	mathrand "math/rand/v2"
 	"testing"
 )
+
+func bitreverse(x byte) byte {
+	var y byte
+	for i := range 8 {
+		y |= (x & 1) << (7 - i)
+		x >>= 1
+	}
+	return y
+}
+
+func TestConstants(t *testing.T) {
+	q1 := big.NewInt(q)
+	a := big.NewInt(1 << 32)
+
+	q1Inv := new(big.Int)
+	q1Inv.ModInverse(q1, a)
+	if q1Inv.Cmp(big.NewInt(int64(qInv))) != 0 {
+		t.Fatalf("q^-1 mod 2^32 = %d, expected %d", q1, qInv)
+	}
+
+	q1Neg := new(big.Int)
+	q1Neg.Sub(a, q1)
+	q1NegInv := new(big.Int)
+	q1NegInv.ModInverse(q1Neg, a)
+	if q1NegInv.Cmp(big.NewInt(int64(qNegInv))) != 0 {
+		t.Fatalf("-q^-1 mod 2^32 = %d, expected %d", q1Neg, qNegInv)
+	}
+
+	r1 := new(big.Int)
+	r1.Mod(a, q1)
+	if r1.Cmp(big.NewInt(int64(r))) != 0 {
+		t.Fatalf("r = 2^32 mod q = %d, expected %d", r1, r)
+	}
+
+	dgreeInv := new(big.Int)
+	dgreeInv.ModInverse(big.NewInt(int64(256)), q1)
+	dgreeInv.Mul(dgreeInv, r1)
+	dgreeInv.Mul(dgreeInv, r1)
+	dgreeInv.Mod(dgreeInv, q1)
+	if dgreeInv.Int64() != 41978 {
+		t.Fatalf("dgreeInv = ((256^(-1) mod q) * r^2) mod q  = %d, expected 41978", dgreeInv)
+	}
+
+	// test zetas
+	zeta := big.NewInt(1753)
+	for i := 1; i < 256; i++ {
+		bitRev := bitreverse(byte(i))
+		zetaV := new(big.Int).Exp(zeta, big.NewInt(int64(bitRev)), q1)
+		if uint32(zetaV.Int64()) != uint32(zetas[i]) {
+			t.Fatalf("zetas[%d] = %d, expected %d", i, uint32(zetaV.Int64()), zetas[i])
+		}
+	}
+
+	// test zetasMontgomery
+	for i, z := range zetas {
+		zMont := big.NewInt(int64(z))
+		zMont.Mul(zMont, r1)
+		zMont.Mod(zMont, q1)
+		if zMont.Cmp(big.NewInt(int64(zetasMontgomery[i]))) != 0 {
+			t.Fatalf("zetasMontgomery[%d] = %d, expected %d", i, zMont, zetasMontgomery[i])
+		}
+	}
+}
 
 func TestFieldAdd(t *testing.T) {
 	for a := fieldElement(q - 1000); a < q; a++ {
@@ -104,6 +168,37 @@ func TestInverseBarrettNTT(t *testing.T) {
 	for i, v := range r {
 		if v != r3[i] {
 			t.Errorf("expected %v, got %v", v, r3[i])
+		}
+	}
+}
+
+// this is the real use case for NTT:
+//
+//  - convert to NTT
+//  - multiply in NTT
+//  - inverse NTT
+func TestInverseNTTWithMultiply(t *testing.T) {
+	r1 := randomRingElement()
+	r2 := randomRingElement()
+
+	// Montgomery Method
+	r11 := r1
+	r111 := ntt(r11)
+	r22 := r2
+	r222 := ntt(r22)
+	r31 := nttMul(r111, r222)
+	r32 := inverseNTT(r31)
+
+	// Barrett Method
+	b11 := barrettNTT(r1)
+	b22 := barrettNTT(r2)
+	r33 := nttBarrettMul(b11, b22)
+	r34 := inverseBarrettNTT(r33)
+
+	// Check if the results are equal
+	for i := range r32 {
+		if r32[i] != r34[i] {
+			t.Errorf("expected %v, got %v", r34[i], r32[i])
 		}
 	}
 }

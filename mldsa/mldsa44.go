@@ -25,7 +25,7 @@ import (
 
 const (
 	// ML-DSA global constants.
-	n           = 256
+	n           = 256     // # of coefficients in the polynomials
 	q           = 8380417 // 2^23 - 2^13 + 1
 	qMinus1Div2 = (q - 1) / 2
 	d           = 13 // # of dropped bits from t
