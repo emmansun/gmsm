@@ -14,17 +14,36 @@ import (
 	"encoding/asn1"
 	"errors"
 	"io"
+	"sync"
 )
 
 // A PrivateKey65 is the private key for the ML-DSA-65 signature scheme.
 type PrivateKey65 struct {
-	rho [32]byte              // public random seed
-	k   [32]byte              // private random seed for signing
-	tr  [64]byte              // pre-cached public key Hash, H(pk, 64)
-	s1  [l65]ringElement      // private secret of size L with short coefficients (-4..4) or (-2..2)
-	s2  [k65]ringElement      // private secret of size K with short coefficients (-4..4) or (-2..2)
-	t0  [k65]ringElement      // the Polynomial encoding of the 13 LSB of each coefficient of the uncompressed public key polynomial t. This is saved as part of the private key.
-	a   [k65 * l65]nttElement // a is generated and stored in NTT representation
+	rho        [32]byte         // public random seed
+	k          [32]byte         // private random seed for signing
+	tr         [64]byte         // pre-cached public key Hash, H(pk, 64)
+	s1         [l65]ringElement // private secret of size L with short coefficients (-4..4) or (-2..2)
+	s2         [k65]ringElement // private secret of size K with short coefficients (-4..4) or (-2..2)
+	t0         [k65]ringElement // the Polynomial encoding of the 13 LSB of each coefficient of the uncompressed public key polynomial t. This is saved as part of the private key.
+	s1NTTCache [l65]nttElement
+	s2NTTCache [k65]nttElement
+	t0NTTCache [k65]nttElement
+	a          [k65 * l65]nttElement // a is generated and stored in NTT representation
+	nttOnce    sync.Once
+}
+
+func (sk *PrivateKey65) ensureNTT() {
+	sk.nttOnce.Do(func() {
+		for i := range sk.s1NTTCache {
+			sk.s1NTTCache[i] = ntt(sk.s1[i])
+		}
+		for i := range sk.s2NTTCache {
+			sk.s2NTTCache[i] = ntt(sk.s2[i])
+		}
+		for i := range sk.t0NTTCache {
+			sk.t0NTTCache[i] = ntt(sk.t0[i])
+		}
+	})
 }
 
 // A Key65 is the key pair for the ML-DSA-65 signature scheme.
@@ -36,10 +55,12 @@ type Key65 struct {
 
 // A PublicKey65 is the public key for the ML-DSA-65 signature scheme.
 type PublicKey65 struct {
-	rho [32]byte
-	t1  [k65]ringElement
-	tr  [64]byte              // H(pk, 64), need to further check if public key requires it
-	a   [k65 * l65]nttElement // a is generated and stored in NTT representation
+	rho       [32]byte
+	t1        [k65]ringElement
+	tr        [64]byte // H(pk, 64), need to further check if public key requires it
+	tNTTCache [k65]nttElement
+	a         [k65 * l65]nttElement // a is generated and stored in NTT representation
+	nttOnce   sync.Once
 }
 
 // PublicKey generates and returns the corresponding public key for the given
@@ -75,6 +96,18 @@ func (pk *PublicKey65) bytes(b []byte) []byte {
 		b = simpleBitPack10Bits(b, f)
 	}
 	return b
+}
+
+func (pk *PublicKey65) ensureNTT() {
+	pk.nttOnce.Do(func() {
+		t := pk.t1
+		for i := range k65 {
+			for j := range t[i] {
+				t[i][j] <<= d
+			}
+			pk.tNTTCache[i] = ntt(t[i])
+		}
+	})
 }
 
 // Bytes returns the byte representation of the PrivateKey65.
@@ -372,18 +405,6 @@ func (sk *PrivateKey65) SignWithPreHash(rand io.Reader, message, context []byte,
 
 // See FIPS 204, Algorithm 7 ML-DSA.Sign_internal()
 func (sk *PrivateKey65) signInternal(seed, mu []byte) ([]byte, error) {
-	var s1NTT [l65]nttElement
-	var s2NTT [k65]nttElement
-	var t0NTT [k65]nttElement
-	for i := range s1NTT {
-		s1NTT[i] = ntt(sk.s1[i])
-	}
-	for i := range s2NTT {
-		s2NTT[i] = ntt(sk.s2[i])
-	}
-	for i := range t0NTT {
-		t0NTT[i] = ntt(sk.t0[i])
-	}
 	var rho2 [64 + 2]byte
 	H := sha3.NewSHAKE256()
 	H.Write(sk.k[:])
@@ -392,22 +413,35 @@ func (sk *PrivateKey65) signInternal(seed, mu []byte) ([]byte, error) {
 	H.Read(rho2[:64])
 	A := &sk.a
 
+	sk.ensureNTT()
+	zNormThreshold := int(gamma1TwoPower19 - beta65)
+	r0NormThreshold := int(gamma2QMinus1Div32 - beta65)
+
 	// rejection sampling loop
 	for kappa := 0; ; kappa = kappa + l65 {
 		// expand mask
-		var y [l65]ringElement
+		var (
+			y    [l65]ringElement
+			yNTT [l65]nttElement
+		)
 		for i := range l65 {
 			index := kappa + i
 			rho2[64] = byte(index)
 			rho2[65] = byte(index >> 8)
 			y[i] = expandMask(rho2[:], gamma1TwoPower19)
 		}
+		// compute y in NTT form
+		for i := range l65 {
+			yNTT[i] = ntt(y[i])
+		}
 		// compute w and w1
-		var w, w1 [k65]ringElement
-		var wNTT [k65]nttElement
+		var (
+			w, w1 [k65]ringElement
+			wNTT  [k65]nttElement
+		)
 		for i := range w {
-			for j := range y {
-				wNTT[i] = polyAdd(wNTT[i], nttMul(ntt(y[j]), A[i*l65+j]))
+			for j := range yNTT {
+				wNTT[i] = polyAdd(wNTT[i], nttMul(yNTT[j], A[i*l65+j]))
 			}
 			w[i] = inverseNTT(wNTT[i])
 			// high bits
@@ -416,8 +450,10 @@ func (sk *PrivateKey65) signInternal(seed, mu []byte) ([]byte, error) {
 			}
 		}
 		// commitment hash
-		var cTilde [lambda192 / 4]byte
-		var w1Encoded [encodingSize4]byte
+		var (
+			cTilde    [lambda192 / 4]byte
+			w1Encoded [encodingSize4]byte
+		)
 		H.Reset()
 		H.Write(mu[:])
 		for i := range k65 {
@@ -428,18 +464,20 @@ func (sk *PrivateKey65) signInternal(seed, mu []byte) ([]byte, error) {
 		// verifier's challenge
 		cNTT := ntt(sampleInBall(cTilde[:], tau49))
 
-		var cs1 [l65]ringElement
-		var cs2 [k65]ringElement
-		var z [l65]ringElement
-		var r0 [k65][n]int32
+		var (
+			cs1 [l65]ringElement
+			cs2 [k65]ringElement
+			z   [l65]ringElement
+			r0  [k65][n]int32
+		)
 		// compute <<cs1>> and z = <<cs1>> + y
 		for i := range l65 {
-			cs1[i] = inverseNTT(nttMul(cNTT, s1NTT[i]))
+			cs1[i] = inverseNTT(nttMul(cNTT, sk.s1NTTCache[i]))
 			z[i] = polyAdd(cs1[i], y[i])
 		}
 		// compute <<cs2>> and r0 = LowBits(w - <<cs2>>)
 		for i := range k65 {
-			cs2[i] = inverseNTT(nttMul(cNTT, s2NTT[i]))
+			cs2[i] = inverseNTT(nttMul(cNTT, sk.s2NTTCache[i]))
 			for j := range cs2[i] {
 				_, r0[i][j] = decompose(fieldSub(w[i][j], cs2[i][j]), gamma2QMinus1Div32)
 			}
@@ -448,13 +486,13 @@ func (sk *PrivateKey65) signInternal(seed, mu []byte) ([]byte, error) {
 		r0Norm := vectorInfinityNormSigned(r0[:], 0)
 
 		// if zNorm >= gamma1 - beta || r0Norm >= gamma2 - beta, then continue
-		if subtle.ConstantTimeLessOrEq(int(gamma1TwoPower19-beta65), zNorm)|subtle.ConstantTimeLessOrEq(int(gamma2QMinus1Div32-beta65), r0Norm) == 1 {
+		if subtle.ConstantTimeLessOrEq(zNormThreshold, zNorm)|subtle.ConstantTimeLessOrEq(r0NormThreshold, r0Norm) == 1 {
 			continue
 		}
 		// compute <<ct0>>
 		var ct0 [k65]ringElement
 		for i := range k65 {
-			ct0[i] = inverseNTT(nttMul(cNTT, t0NTT[i]))
+			ct0[i] = inverseNTT(nttMul(cNTT, sk.t0NTTCache[i]))
 		}
 		// compute infinity norm of <<ct0>>
 		ct0Norm := vectorInfinityNorm(ct0[:], 0)
@@ -534,9 +572,14 @@ func (pk *PublicKey65) verifyInternal(sig, mu []byte) bool {
 	// Decode the signature
 	cTilde := sig[:lambda192/4]
 	sig = sig[lambda192/4:]
-	var z [l65]ringElement
+
+	var (
+		z    [l65]ringElement
+		zNTT [l65]nttElement
+	)
 	for i := range l65 {
 		bitUnpackSignedTwoPower19(sig, &z[i])
+		zNTT[i] = ntt(z[i])
 		sig = sig[encodingSize20:]
 	}
 	zNorm := vectorInfinityNorm(z[:], 0)
@@ -547,25 +590,23 @@ func (pk *PublicKey65) verifyInternal(sig, mu []byte) bool {
 	// verifier's challenge
 	cNTT := ntt(sampleInBall(cTilde[:], tau49))
 
-	// t = t1 * 2^d
-	// tNTT = NTT(t)*cNTT
+	pk.ensureNTT()
+	// tNTT = tNTTCache*cNTT
 	var tNTT [k65]nttElement
-	t := pk.t1
 	for i := range k65 {
-		for j := range t[i] {
-			t[i][j] <<= d
-		}
-		tNTT[i] = nttMul(ntt(t[i]), cNTT)
+		tNTT[i] = nttMul(pk.tNTTCache[i], cNTT)
 	}
 
-	var w1, wApprox [k65]ringElement
-	var zNTT [k65]nttElement
+	var (
+		w1, wApprox [k65]ringElement
+		zNTTMulA    [k65]nttElement
+	)
 	for i := range k65 {
-		for j := 0; j < l65; j++ {
-			zNTT[i] = polyAdd(zNTT[i], nttMul(ntt(z[j]), pk.a[i*l65+j]))
+		for j := range l65 {
+			zNTTMulA[i] = polyAdd(zNTTMulA[i], nttMul(zNTT[j], pk.a[i*l65+j]))
 		}
-		zNTT[i] = polySub(zNTT[i], tNTT[i])
-		wApprox[i] = inverseNTT(zNTT[i])
+		zNTTMulA[i] = polySub(zNTTMulA[i], tNTT[i])
+		wApprox[i] = inverseNTT(zNTTMulA[i])
 	}
 
 	H := sha3.NewSHAKE256()
