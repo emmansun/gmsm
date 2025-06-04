@@ -32,7 +32,7 @@ func rejNTTPoly(rho []byte, s, r byte) nttElement {
 				a[j] = fieldElement(d)
 				j++
 			}
-			if j >= len(a) {
+			if j >= n {
 				return a
 			}
 		}
@@ -73,14 +73,14 @@ func rejBoundedPoly(rho []byte, eta int, highByte, lowByte byte) ringElement {
 			if subtle.ConstantTimeByteEq(z0, 15) == 0 {
 				a[j] = fieldSub(2, fieldElement(constantMod5(uint32(z0))))
 				j++
-				if j >= len(a) {
+				if j >= n {
 					break
 				}
 			}
 			if subtle.ConstantTimeByteEq(z1, 15) == 0 {
 				a[j] = fieldSub(2, fieldElement(constantMod5(uint32(z1))))
 				j++
-				if j >= len(a) {
+				if j >= n {
 					break
 				}
 			}
@@ -88,14 +88,14 @@ func rejBoundedPoly(rho []byte, eta int, highByte, lowByte byte) ringElement {
 			if subtle.ConstantTimeLessOrEq(int(z0), 8) == 1 {
 				a[j] = fieldSub(4, fieldElement(z0))
 				j++
-				if j >= len(a) {
+				if j >= n {
 					break
 				}
 			}
 			if subtle.ConstantTimeLessOrEq(int(z1), 8) == 1 {
 				a[j] = fieldSub(4, fieldElement(z1))
 				j++
-				if j >= len(a) {
+				if j >= n {
 					break
 				}
 			}

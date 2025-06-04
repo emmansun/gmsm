@@ -99,8 +99,11 @@ func useHint(h, r fieldElement, gamma2 uint32) fieldElement {
 }
 
 func vectorMakeHint(ct0, cs2, w, hint []ringElement, gamma2 uint32) {
+	_ = hint[len(ct0)-1] // Bounds check elimination hint.
+	_ = cs2[len(ct0)-1]  // Bounds check elimination hint.
+	_ = w[len(ct0)-1]    // Bounds check elimination hint.
 	for i := range ct0 {
-		for j := range ct0[i] {
+		for j := range n {
 			hint[i][j] = makeHint(ct0[i][j], cs2[i][j], w[i][j], gamma2)
 		}
 	}

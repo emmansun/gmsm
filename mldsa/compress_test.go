@@ -44,20 +44,20 @@ func TestPower2Round(t *testing.T) {
 		r1, r0 := power2Round(fieldElement(i))
 		expectedR1, expectedR0 := _power2Round(uint32(i))
 		if r1 != fieldElement(expectedR1) {
-			t.Errorf("power2Round(%d) = %d, want %d", i, r1, expectedR1)
+			t.Errorf("power2Round(%d) r1= %d, want %d", i, r1, expectedR1)
 		}
 		if r0 != fieldElement(expectedR0) {
-			t.Errorf("power2Round(%d) = %d, want %d", i, r0, expectedR0)
+			t.Errorf("power2Round(%d) r0= %d, want %d", i, r0, expectedR0)
 		}
 	}
 	for i := q - 1001; i < q; i++ {
 		r1, r0 := power2Round(fieldElement(i))
 		expectedR1, expectedR0 := _power2Round(uint32(i))
 		if r1 != fieldElement(expectedR1) {
-			t.Errorf("power2Round(%d) = %d, want %d", i, r1, expectedR1)
+			t.Errorf("power2Round(%d) r1= %d, want %d", i, r1, expectedR1)
 		}
 		if r0 != fieldElement(expectedR0) {
-			t.Errorf("power2Round(%d) = %d, want %d", i, r0, expectedR0)
+			t.Errorf("power2Round(%d) r0= %d, want %d", i, r0, expectedR0)
 		}
 	}
 }

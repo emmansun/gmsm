@@ -45,6 +45,7 @@ const (
 	r       = 4193792    // 2^32 mod q
 )
 
+// See FIPS 204, Algorithm 49, MontgomeryReduce() 
 func fieldReduce(a uint64) fieldElement {
 	t := uint32(a) * qNegInv
 	return fieldReduceOnce(uint32((a + uint64(t)*q) >> 32))
