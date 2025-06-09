@@ -1078,3 +1078,11 @@ NextCert:
 
 	return true
 }
+
+func mustNewOIDFromInts(ints []uint64) x509.OID {
+	oid, err := x509.OIDFromInts(ints)
+	if err != nil {
+		panic(fmt.Sprintf("OIDFromInts(%v) unexpected error: %v", ints, err))
+	}
+	return oid
+}

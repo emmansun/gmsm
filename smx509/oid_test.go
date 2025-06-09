@@ -97,11 +97,3 @@ func TestOID(t *testing.T) {
 		}
 	}
 }
-
-func mustNewOIDFromInts(t *testing.T, ints []uint64) x509.OID {
-	oid, err := x509.OIDFromInts(ints)
-	if err != nil {
-		t.Fatalf("OIDFromInts(%v) unexpected error: %v", ints, err)
-	}
-	return oid
-}

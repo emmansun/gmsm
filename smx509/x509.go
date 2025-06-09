@@ -1147,7 +1147,8 @@ func buildCertExtensions(template *x509.Certificate, subjectIsEmpty bool, author
 		n++
 	}
 
-	if len(template.PolicyIdentifiers) > 0 &&
+	var usePolicies = godebug.Get("x509usepolicies") != "0"
+	if ((!usePolicies && len(template.PolicyIdentifiers) > 0) || (usePolicies && len(template.Policies) > 0)) &&
 		!oidInExtensions(oidExtensionCertificatePolicies, template.ExtraExtensions) {
 		ret[n], err = marshalCertificatePolicies(template.Policies, template.PolicyIdentifiers)
 		if err != nil {
@@ -1337,19 +1338,23 @@ func marshalBasicConstraints(isCA bool, maxPathLen int, maxPathLenZero bool) (pk
 func marshalCertificatePolicies(policies []x509.OID, policyIdentifiers []asn1.ObjectIdentifier) (pkix.Extension, error) {
 	ext := pkix.Extension{Id: oidExtensionCertificatePolicies}
 
+	var usePolicies = godebug.Get("x509usepolicies") != "0"
 	b := cryptobyte.NewBuilder(make([]byte, 0, 128))
 	b.AddASN1(cryptobyte_asn1.SEQUENCE, func(child *cryptobyte.Builder) {
-		for _, v := range policies {
-			child.AddASN1(cryptobyte_asn1.SEQUENCE, func(child *cryptobyte.Builder) {
-				child.AddASN1(cryptobyte_asn1.OBJECT_IDENTIFIER, func(child *cryptobyte.Builder) {
-					child.AddBytes(getDer(&v))
+		if usePolicies {
+			for _, v := range policies {
+				child.AddASN1(cryptobyte_asn1.SEQUENCE, func(child *cryptobyte.Builder) {
+					child.AddASN1(cryptobyte_asn1.OBJECT_IDENTIFIER, func(child *cryptobyte.Builder) {
+						child.AddBytes(getDer(&v))
+					})
 				})
-			})
-		}
-		for _, v := range policyIdentifiers {
-			child.AddASN1(cryptobyte_asn1.SEQUENCE, func(child *cryptobyte.Builder) {
-				child.AddASN1ObjectIdentifier(v)
-			})
+			}
+		} else {
+			for _, v := range policyIdentifiers {
+				child.AddASN1(cryptobyte_asn1.SEQUENCE, func(child *cryptobyte.Builder) {
+					child.AddASN1ObjectIdentifier(v)
+				})
+			}
 		}
 	})
 

@@ -28,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/emmansun/gmsm/internal/godebug"
 	"github.com/emmansun/gmsm/sm2"
 )
 
@@ -491,8 +492,7 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
 			IPAddresses:    []net.IP{net.IPv4(127, 0, 0, 1).To4(), net.ParseIP("2001:4860:0:2001::68")},
 			URIs:           []*url.URL{parseURI("https://foo.com/wibble#foo")},
 
-			PolicyIdentifiers:       []asn1.ObjectIdentifier{[]int{1, 2, 3}},
-			Policies:                []x509.OID{mustNewOIDFromInts(t, []uint64{1, 2, 3, math.MaxUint32, math.MaxUint64})},
+			Policies:                []x509.OID{mustNewOIDFromInts([]uint64{1, 2, 3, math.MaxUint32, math.MaxUint64})},
 			PermittedDNSDomains:     []string{".example.com", "example.com"},
 			ExcludedDNSDomains:      []string{"bar.example.com"},
 			PermittedIPRanges:       []*net.IPNet{parseCIDR("192.168.1.1/16"), parseCIDR("1.2.3.4/8")},
@@ -530,8 +530,8 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
 			continue
 		}
 
-		if len(cert.PolicyIdentifiers) != 1 || !cert.PolicyIdentifiers[0].Equal(template.PolicyIdentifiers[0]) {
-			t.Errorf("%s: failed to parse policy identifiers: got:%#v want:%#v", test.name, cert.PolicyIdentifiers, template.PolicyIdentifiers)
+		if len(cert.Policies) != 1 || !cert.Policies[0].Equal(template.Policies[0]) {
+			t.Errorf("%s: failed to parse policy identifiers: got:%#v want:%#v", test.name, cert.Policies, template.Policies)
 		}
 
 		if len(cert.PermittedDNSDomains) != 2 || cert.PermittedDNSDomains[0] != ".example.com" || cert.PermittedDNSDomains[1] != "example.com" {
@@ -3683,31 +3683,23 @@ func TestCreateCertificateNegativeMaxPathLength(t *testing.T) {
 	}
 }
 
-func TestCertificateOIDPolicies(t *testing.T) {
+func TestCertificateOIDPoliciesGODEBUG(t *testing.T) {
+	t.Setenv("GODEBUG", "x509usepolicies=0")
+
 	template := Certificate{
 		SerialNumber:      big.NewInt(1),
 		Subject:           pkix.Name{CommonName: "Cert"},
 		NotBefore:         time.Unix(1000, 0),
 		NotAfter:          time.Unix(100000, 0),
 		PolicyIdentifiers: []asn1.ObjectIdentifier{[]int{1, 2, 3}},
-		Policies: []x509.OID{
-			mustNewOIDFromInts(t, []uint64{1, 2, 3, 4, 5}),
-			mustNewOIDFromInts(t, []uint64{1, 2, 3, math.MaxInt32}),
-			mustNewOIDFromInts(t, []uint64{1, 2, 3, math.MaxUint32, math.MaxUint64}),
-		},
 	}
 
 	var expectPolicyIdentifiers = []asn1.ObjectIdentifier{
-		[]int{1, 2, 3, 4, 5},
-		[]int{1, 2, 3, math.MaxInt32},
 		[]int{1, 2, 3},
 	}
 
 	var expectPolicies = []x509.OID{
-		mustNewOIDFromInts(t, []uint64{1, 2, 3, 4, 5}),
-		mustNewOIDFromInts(t, []uint64{1, 2, 3, math.MaxInt32}),
-		mustNewOIDFromInts(t, []uint64{1, 2, 3, math.MaxUint32, math.MaxUint64}),
-		mustNewOIDFromInts(t, []uint64{1, 2, 3}),
+		mustNewOIDFromInts([]uint64{1, 2, 3}),
 	}
 
 	certDER, err := CreateCertificate(rand.Reader, &template, &template, rsaPrivateKey.Public(), rsaPrivateKey)
@@ -3722,6 +3714,54 @@ func TestCertificateOIDPolicies(t *testing.T) {
 
 	if !slices.EqualFunc(cert.PolicyIdentifiers, expectPolicyIdentifiers, slices.Equal) {
 		t.Errorf("cert.PolicyIdentifiers = %v, want: %v", cert.PolicyIdentifiers, expectPolicyIdentifiers)
+	}
+
+	if !slices.EqualFunc(cert.Policies, expectPolicies, x509.OID.Equal) {
+		t.Errorf("cert.Policies = %v, want: %v", cert.Policies, expectPolicies)
+	}
+}
+
+func TestCertificatePolicies(t *testing.T) {
+	var usePolicies = godebug.Get("x509usepolicies") != "0"
+	if !usePolicies {
+		t.Skip("test relies on default x509usepolicies GODEBUG")
+	}
+
+	template := Certificate{
+		SerialNumber:      big.NewInt(1),
+		Subject:           pkix.Name{CommonName: "Cert"},
+		NotBefore:         time.Unix(1000, 0),
+		NotAfter:          time.Unix(100000, 0),
+		PolicyIdentifiers: []asn1.ObjectIdentifier{[]int{1, 2, 3}},
+		Policies:          []x509.OID{mustNewOIDFromInts([]uint64{1, 2, math.MaxUint32 + 1})},
+	}
+
+	expectPolicies := []x509.OID{mustNewOIDFromInts([]uint64{1, 2, math.MaxUint32 + 1})}
+	certDER, err := CreateCertificate(rand.Reader, &template, &template, rsaPrivateKey.Public(), rsaPrivateKey)
+	if err != nil {
+		t.Fatalf("CreateCertificate() unexpected error: %v", err)
+	}
+
+	cert, err := ParseCertificate(certDER)
+	if err != nil {
+		t.Fatalf("ParseCertificate() unexpected error: %v", err)
+	}
+
+	if !slices.EqualFunc(cert.Policies, expectPolicies, x509.OID.Equal) {
+		t.Errorf("cert.Policies = %v, want: %v", cert.Policies, expectPolicies)
+	}
+
+	t.Setenv("GODEBUG", "x509usepolicies=1")
+	expectPolicies = []x509.OID{mustNewOIDFromInts([]uint64{1, 2, math.MaxUint32 + 1})}
+
+	certDER, err = CreateCertificate(rand.Reader, &template, &template, rsaPrivateKey.Public(), rsaPrivateKey)
+	if err != nil {
+		t.Fatalf("CreateCertificate() unexpected error: %v", err)
+	}
+
+	cert, err = ParseCertificate(certDER)
+	if err != nil {
+		t.Fatalf("ParseCertificate() unexpected error: %v", err)
 	}
 
 	if !slices.EqualFunc(cert.Policies, expectPolicies, x509.OID.Equal) {
