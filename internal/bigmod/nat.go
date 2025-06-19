@@ -530,8 +530,8 @@ func minusInverseModW(x uint) uint {
 	//
 	// See https://crypto.stackexchange.com/a/47496.
 	y := x
-	for i := 0; i < 5; i++ {
-		y = y * (2 - x*y)
+	for range 5 {
+		y *= (2 - x*y)
 	}
 	return -y
 }

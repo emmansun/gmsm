@@ -272,8 +272,7 @@ func dsaKeyGen44(sk *Key44, xi *[32]byte) {
 	sk.xi = *xi
 	H := sha3.NewSHAKE256()
 	H.Write(xi[:])
-	H.Write([]byte{k44})
-	H.Write([]byte{l44})
+	H.Write([]byte{k44, l44})
 	K := make([]byte, 128)
 	H.Read(K)
 	rho, rho1 := K[:32], K[32:96]

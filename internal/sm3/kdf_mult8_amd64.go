@@ -84,8 +84,8 @@ func kdfBy8(baseMD *digest, keyLen int, limit int) []byte {
 		remain -= parallelSize4
 	}
 
-	for i := 0; i < remain; i++ {
-		byteorder.BEPutUint32(tmp[:], ct)
+	for i := range remain {
+		byteorder.BEPutUint32(tmp, ct)
 		md := *baseMD
 		md.Write(tmp[:4])
 		h := md.checkSum()

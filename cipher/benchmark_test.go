@@ -131,9 +131,7 @@ func BenchmarkSM4CBCDecrypt1K(b *testing.B) {
 func benchmarkStream(b *testing.B, block cipher.Block, mode func(cipher.Block, []byte) cipher.Stream, buf []byte) {
 	b.SetBytes(int64(len(buf)))
 
-	//var key [16]byte
 	var iv [16]byte
-	//c, _ := sm4.NewCipher(key[:])
 	stream := mode(block, iv[:])
 
 	b.ResetTimer()
@@ -449,15 +447,13 @@ func benchmarkXTS(b *testing.B, isGB bool, cipherFunc func([]byte) (cipher.Block
 		c, err = smcipher.NewGBXTSEncrypterWithSector(cipherFunc, make([]byte, keylen), make([]byte, keylen), 0)
 		if err != nil {
 			b.Fatalf("NewCipher failed: %s", err)
-		}		
+		}
 	}
 
-	//decrypted := make([]byte, length)
 	b.SetBytes(int64(len(plaintext)))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		c.CryptBlocks(encrypted, plaintext)
-	//c.Decrypt(decrypted, encrypted[:len(plaintext)], 0)
 	}
 }
 
@@ -523,7 +519,7 @@ func benchmarkXTS_Decrypt(b *testing.B, isGB bool, cipherFunc func([]byte) (ciph
 		c, err = smcipher.NewGBXTSDecrypterWithSector(cipherFunc, make([]byte, keylen), make([]byte, keylen), 0)
 		if err != nil {
 			b.Fatalf("NewCipher failed: %s", err)
-		}		
+		}
 	}
 
 	b.SetBytes(int64(len(plaintext)))

@@ -22,14 +22,14 @@ type ScryptOpts = pkcs.ScryptOpts
 
 var (
 	DefaultOpts = pkcs.DefaultOpts
-	SM3 = pkcs.SM3
-	SHA1 = pkcs.SHA1
-	SHA224 = pkcs.SHA224
-	SHA256 = pkcs.SHA256
-	SHA384 = pkcs.SHA384
-	SHA512 = pkcs.SHA512
-	SHA512_224 = pkcs.SHA512_224
-	SHA512_256 = pkcs.SHA512_256
+	SM3         = pkcs.SM3
+	SHA1        = pkcs.SHA1
+	SHA224      = pkcs.SHA224
+	SHA256      = pkcs.SHA256
+	SHA384      = pkcs.SHA384
+	SHA512      = pkcs.SHA512
+	SHA512_224  = pkcs.SHA512_224
+	SHA512_256  = pkcs.SHA512_256
 )
 
 // for encrypted private-key information
@@ -39,7 +39,7 @@ type encryptedPrivateKeyInfo struct {
 }
 
 var (
-	ErrUnsupportedPBES = errors.New("pkcs8: only part of PBES1/PBES2 supported")
+	ErrUnsupportedPBES   = errors.New("pkcs8: only part of PBES1/PBES2 supported")
 	ErrUnexpectedKeyType = errors.New("pkcs8: unexpected key type")
 )
 

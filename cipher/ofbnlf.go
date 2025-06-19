@@ -30,7 +30,7 @@ func newOFBNLF(cipherFunc CipherCreator, key, iv []byte) (*ofbnlf, error) {
 		return nil, errors.New("cipher: IV length must equal block size")
 	}
 	c.iv = bytes.Clone(iv)
-	
+
 	return c, nil
 }
 

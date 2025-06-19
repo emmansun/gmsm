@@ -812,13 +812,14 @@ func (p *SM2P256Point) p256BaseMult(scalar *p256OrdElement) {
 	zero := sel
 
 	for i := 1; i < 43; i++ {
-		if index >= 192 {
+		switch {
+		case index >= 192:
 			wvalue = (scalar[3] >> (index & 63)) & 0x7f
-		} else if index >= 128 {
+		case index >= 128:
 			wvalue = ((scalar[2] >> (index & 63)) + (scalar[3] << (64 - (index & 63)))) & 0x7f
-		} else if index >= 64 {
+		case index >= 64:
 			wvalue = ((scalar[1] >> (index & 63)) + (scalar[2] << (64 - (index & 63)))) & 0x7f
-		} else {
+		default:
 			wvalue = ((scalar[0] >> (index & 63)) + (scalar[1] << (64 - (index & 63)))) & 0x7f
 		}
 		index += 6

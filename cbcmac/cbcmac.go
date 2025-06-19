@@ -286,7 +286,7 @@ func (d *cmac) Write(p []byte) (nn int, err error) {
 	}
 	// save remaining partial/full block
 	if len(p) > 0 {
-		d.nx = copy(d.x[:], p)
+		d.nx = copy(d.x, p)
 	}
 	return
 }
@@ -309,19 +309,20 @@ func (d *cmac) Sum(in []byte) []byte {
 	d0.tag = make([]byte, d.blockSize)
 	copy(d0.tag, d.tag)
 	hash := d0.checkSum()
-	return append(in, hash[:]...)
+	return append(in, hash...)
 }
 
 func (c *cmac) checkSum() []byte {
 	tag := make([]byte, c.size)
-	if c.nx == 0 {
+	switch c.nx {
+	case 0:
 		// Special-cased as a single empty partial final block.
 		copy(c.tag, c.k2)
 		c.tag[0] ^= 0b10000000
-	} else if c.nx == c.blockSize {
+	case c.blockSize:
 		subtle.XORBytes(c.tag, c.x, c.tag)
 		subtle.XORBytes(c.tag, c.k1, c.tag)
-	} else {
+	default:
 		subtle.XORBytes(c.tag, c.x, c.tag)
 		c.tag[c.nx] ^= 0b10000000
 		subtle.XORBytes(c.tag, c.k2, c.tag)

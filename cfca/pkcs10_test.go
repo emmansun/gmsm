@@ -147,10 +147,8 @@ func TestCreateCertificateRequest(t *testing.T) {
 			if err.Error() != tc.errormsg {
 				t.Fatalf("expected error %s, got %s", tc.errormsg, err.Error())
 			}
-		} else {
-			if err != nil {
-				t.Fatal(err)
-			}
+		} else if err != nil {
+			t.Fatal(err)
 		}
 	}
 }

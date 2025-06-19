@@ -76,76 +76,76 @@ func expandKeyGo(key []byte, enc, dec *[rounds]uint32) {
 	b2 = byteorder.BEUint32(key[8:12]) ^ fk[2]
 	b3 = byteorder.BEUint32(key[12:16]) ^ fk[3]
 
-	b0 = b0 ^ t2(b1^b2^b3^ck[0])
+	b0 ^= t2(b1 ^ b2 ^ b3 ^ ck[0])
 	enc[0], dec[31] = b0, b0
-	b1 = b1 ^ t2(b2^b3^b0^ck[1])
+	b1 ^= t2(b2 ^ b3 ^ b0 ^ ck[1])
 	enc[1], dec[30] = b1, b1
-	b2 = b2 ^ t2(b3^b0^b1^ck[2])
+	b2 ^= t2(b3 ^ b0 ^ b1 ^ ck[2])
 	enc[2], dec[29] = b2, b2
-	b3 = b3 ^ t2(b0^b1^b2^ck[3])
+	b3 ^= t2(b0 ^ b1 ^ b2 ^ ck[3])
 	enc[3], dec[28] = b3, b3
 
-	b0 = b0 ^ t2(b1^b2^b3^ck[4])
+	b0 ^= t2(b1 ^ b2 ^ b3 ^ ck[4])
 	enc[4], dec[27] = b0, b0
-	b1 = b1 ^ t2(b2^b3^b0^ck[5])
+	b1 ^= t2(b2 ^ b3 ^ b0 ^ ck[5])
 	enc[5], dec[26] = b1, b1
-	b2 = b2 ^ t2(b3^b0^b1^ck[6])
+	b2 ^= t2(b3 ^ b0 ^ b1 ^ ck[6])
 	enc[6], dec[25] = b2, b2
-	b3 = b3 ^ t2(b0^b1^b2^ck[7])
+	b3 ^= t2(b0 ^ b1 ^ b2 ^ ck[7])
 	enc[7], dec[24] = b3, b3
 
-	b0 = b0 ^ t2(b1^b2^b3^ck[8])
+	b0 ^= t2(b1 ^ b2 ^ b3 ^ ck[8])
 	enc[8], dec[23] = b0, b0
-	b1 = b1 ^ t2(b2^b3^b0^ck[9])
+	b1 ^= t2(b2 ^ b3 ^ b0 ^ ck[9])
 	enc[9], dec[22] = b1, b1
-	b2 = b2 ^ t2(b3^b0^b1^ck[10])
+	b2 ^= t2(b3 ^ b0 ^ b1 ^ ck[10])
 	enc[10], dec[21] = b2, b2
-	b3 = b3 ^ t2(b0^b1^b2^ck[11])
+	b3 ^= t2(b0 ^ b1 ^ b2 ^ ck[11])
 	enc[11], dec[20] = b3, b3
 
-	b0 = b0 ^ t2(b1^b2^b3^ck[12])
+	b0 ^= t2(b1 ^ b2 ^ b3 ^ ck[12])
 	enc[12], dec[19] = b0, b0
-	b1 = b1 ^ t2(b2^b3^b0^ck[13])
+	b1 ^= t2(b2 ^ b3 ^ b0 ^ ck[13])
 	enc[13], dec[18] = b1, b1
-	b2 = b2 ^ t2(b3^b0^b1^ck[14])
+	b2 ^= t2(b3 ^ b0 ^ b1 ^ ck[14])
 	enc[14], dec[17] = b2, b2
-	b3 = b3 ^ t2(b0^b1^b2^ck[15])
+	b3 ^= t2(b0 ^ b1 ^ b2 ^ ck[15])
 	enc[15], dec[16] = b3, b3
 
-	b0 = b0 ^ t2(b1^b2^b3^ck[16])
+	b0 ^= t2(b1 ^ b2 ^ b3 ^ ck[16])
 	enc[16], dec[15] = b0, b0
-	b1 = b1 ^ t2(b2^b3^b0^ck[17])
+	b1 ^= t2(b2 ^ b3 ^ b0 ^ ck[17])
 	enc[17], dec[14] = b1, b1
-	b2 = b2 ^ t2(b3^b0^b1^ck[18])
+	b2 ^= t2(b3 ^ b0 ^ b1 ^ ck[18])
 	enc[18], dec[13] = b2, b2
-	b3 = b3 ^ t2(b0^b1^b2^ck[19])
+	b3 ^= t2(b0 ^ b1 ^ b2 ^ ck[19])
 	enc[19], dec[12] = b3, b3
 
-	b0 = b0 ^ t2(b1^b2^b3^ck[20])
+	b0 ^= t2(b1 ^ b2 ^ b3 ^ ck[20])
 	enc[20], dec[11] = b0, b0
-	b1 = b1 ^ t2(b2^b3^b0^ck[21])
+	b1 ^= t2(b2 ^ b3 ^ b0 ^ ck[21])
 	enc[21], dec[10] = b1, b1
-	b2 = b2 ^ t2(b3^b0^b1^ck[22])
+	b2 ^= t2(b3 ^ b0 ^ b1 ^ ck[22])
 	enc[22], dec[9] = b2, b2
-	b3 = b3 ^ t2(b0^b1^b2^ck[23])
+	b3 ^= t2(b0 ^ b1 ^ b2 ^ ck[23])
 	enc[23], dec[8] = b3, b3
 
-	b0 = b0 ^ t2(b1^b2^b3^ck[24])
+	b0 ^= t2(b1 ^ b2 ^ b3 ^ ck[24])
 	enc[24], dec[7] = b0, b0
-	b1 = b1 ^ t2(b2^b3^b0^ck[25])
+	b1 ^= t2(b2 ^ b3 ^ b0 ^ ck[25])
 	enc[25], dec[6] = b1, b1
-	b2 = b2 ^ t2(b3^b0^b1^ck[26])
+	b2 ^= t2(b3 ^ b0 ^ b1 ^ ck[26])
 	enc[26], dec[5] = b2, b2
-	b3 = b3 ^ t2(b0^b1^b2^ck[27])
+	b3 ^= t2(b0 ^ b1 ^ b2 ^ ck[27])
 	enc[27], dec[4] = b3, b3
 
-	b0 = b0 ^ t2(b1^b2^b3^ck[28])
+	b0 ^= t2(b1 ^ b2 ^ b3 ^ ck[28])
 	enc[28], dec[3] = b0, b0
-	b1 = b1 ^ t2(b2^b3^b0^ck[29])
+	b1 ^= t2(b2 ^ b3 ^ b0 ^ ck[29])
 	enc[29], dec[2] = b1, b1
-	b2 = b2 ^ t2(b3^b0^b1^ck[30])
+	b2 ^= t2(b3 ^ b0 ^ b1 ^ ck[30])
 	enc[30], dec[1] = b2, b2
-	b3 = b3 ^ t2(b0^b1^b2^ck[31])
+	b3 ^= t2(b0 ^ b1 ^ b2 ^ ck[31])
 	enc[31], dec[0] = b3, b3
 }
 

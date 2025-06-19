@@ -22,6 +22,7 @@ type fieldElement uint32
 //}
 
 // fieldReduceOnce reduces a value a < 2q.
+// Also refer "A note on the implementation of the Number Theoretic Transform": https://eprint.iacr.org/2017/727.pdf .
 func fieldReduceOnce(a uint32) fieldElement {
 	x := a - q
 	// If x underflowed, then x >= 2^32 - q > 2^31, so the top bit is set.
@@ -130,6 +131,7 @@ var zetasMontgomery = [n]fieldElement{
 // ntt maps a ringElement to its nttElement representation.
 //
 // It implements NTT, according to FIPS 204, Algorithm 41.
+// Also refer "A note on the implementation of the Number Theoretic Transform": https://eprint.iacr.org/2017/727.pdf .
 func ntt(f ringElement) nttElement {
 	k := 1
 	// len: 128, 64, 32, ..., 1
@@ -153,6 +155,7 @@ func ntt(f ringElement) nttElement {
 // inverseNTT maps a nttElement back to the ringElement it represents.
 //
 // It implements NTT⁻¹, according to FIPS 204, Algorithm 42.
+// Also refer "A note on the implementation of the Number Theoretic Transform": https://eprint.iacr.org/2017/727.pdf .
 func inverseNTT(f nttElement) ringElement {
 	k := 255
 	for len := 1; len < n; len *= 2 {

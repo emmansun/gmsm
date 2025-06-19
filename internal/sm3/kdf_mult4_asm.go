@@ -85,8 +85,8 @@ func kdfBy4(baseMD *digest, keyLen int, limit int) []byte {
 		ret = ret[Size*parallelSize4:]
 	}
 	remain := limit % parallelSize4
-	for i := 0; i < remain; i++ {
-		byteorder.BEPutUint32(tmp[:], ct)
+	for i := range remain {
+		byteorder.BEPutUint32(tmp, ct)
 		md := *baseMD
 		md.Write(tmp[:4])
 		h := md.checkSum()

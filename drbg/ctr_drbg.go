@@ -77,7 +77,7 @@ func NewGMCtrDrbg(securityLevel SecurityLevel, entropy, nonce, personalization [
 
 func (hd *CtrDrbg) Reseed(entropy, additional []byte) error {
 	// here for the min length, we just check <=0 now
-	if len(entropy) <= 0 || (hd.gm && len(entropy) < 32) || len(entropy) >= MAX_BYTES {
+	if len(entropy) == 0 || (hd.gm && len(entropy) < 32) || len(entropy) >= MAX_BYTES {
 		return errors.New("drbg: invalid entropy length")
 	}
 
