@@ -21,7 +21,7 @@ func p256OrdSqr(res, in *p256OrdElement, n int)
 // into the Montgomery domain.
 var RR = &p256OrdElement{0x901192af7c114f20, 0x3464504ade6fa2fa, 0x620fc84c3affe0d4, 0x1eb5e412a22b3d3b}
 
-// P256OrdInverse, sets out to in⁻¹ mod org(G). If in is zero, out will be zero.
+// P256OrdInverse sets out to in⁻¹ mod org(G). If in is zero, out will be zero.
 // n-2 =
 // 1111111111111111111111111111111011111111111111111111111111111111
 // 1111111111111111111111111111111111111111111111111111111111111111

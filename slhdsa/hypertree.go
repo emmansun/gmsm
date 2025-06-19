@@ -17,7 +17,7 @@ func (sk *PrivateKey) htSign(pkFors []byte, treeIdx uint64, leafIdx uint32, sign
 	sigLenPerLayer := (sk.params.hm + sk.params.len) * sk.params.n
 	mask := sk.params.leafIdxMask()
 
-	var rootBuf [MAX_N]byte
+	var rootBuf [maxN]byte
 	root := rootBuf[:sk.params.n]
 	copy(root, pkFors)
 	tmpBuf := make([]byte, sk.params.n*sk.params.len)
@@ -46,7 +46,7 @@ func (pk *PublicKey) htVerify(pkFors []byte, signature []byte, treeIdx uint64, l
 	sigLenPerLayer := (pk.params.hm + pk.params.len) * pk.params.n
 	mask := pk.params.leafIdxMask()
 
-	var rootBuf [MAX_N]byte
+	var rootBuf [maxN]byte
 	root := rootBuf[:pk.params.n]
 	copy(root, pkFors)
 	tmpBuf := make([]byte, pk.params.n*pk.params.len)

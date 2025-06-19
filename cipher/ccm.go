@@ -75,7 +75,8 @@ func NewCCMWithTagSize(cipher cipher.Block, tagSize int) (cipher.AEAD, error) {
 	return NewCCMWithNonceAndTagSize(cipher, ccmStandardNonceSize, tagSize)
 }
 
-// https://tools.ietf.org/html/rfc3610
+// NewCCMWithNonceAndTagSize creates a new Counter with CBC-MAC (CCM) mode AEAD
+// with the given nonce size and tag size.
 func NewCCMWithNonceAndTagSize(cipher cipher.Block, nonceSize, tagSize int) (cipher.AEAD, error) {
 	if tagSize < ccmMinimumTagSize || tagSize > ccmBlockSize || tagSize&1 != 0 {
 		return nil, errors.New("cipher: incorrect tag size given to CCM")

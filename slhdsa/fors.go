@@ -12,7 +12,7 @@ package slhdsa
 //
 // See FIPS 205 Algorithm 16 fors_sign
 func (sk *PrivateKey) forsSign(md []byte, adrs adrsOperations, sigFors []byte) {
-	var indices [MAX_K]uint32
+	var indices [maxK]uint32
 	// split md into k a-bits values, eatch of which is interpreted as an integer between 0 and 2^a-1.
 	base2b(md, sk.params.a, indices[:sk.params.k])
 
@@ -42,7 +42,7 @@ func (sk *PrivateKey) forsSign(md []byte, adrs adrsOperations, sigFors []byte) {
 //
 // See FIPS 205 Algorithm 17 fors_pkFromSig
 func (pk *PublicKey) forsPkFromSig(md, signature []byte, adrs adrsOperations, out []byte) []byte {
-	var indices [MAX_K]uint32
+	var indices [maxK]uint32
 	base2b(md, pk.params.a, indices[:pk.params.k])
 
 	twoPowerA := uint32(1 << pk.params.a)
@@ -101,7 +101,7 @@ func (sk *PrivateKey) forsNode(nodeID, layer uint32, adrs adrsOperations, out []
 	} else {
 		// otherwise, it computes the roots of the left subtree and right subtree
 		// and hashs them togeter.
-		var lnode, rnode [MAX_N]byte
+		var lnode, rnode [maxN]byte
 		sk.forsNode(nodeID*2, layer-1, adrs, lnode[:])
 		sk.forsNode(nodeID*2+1, layer-1, adrs, rnode[:])
 		adrs.setTreeHeight(layer)

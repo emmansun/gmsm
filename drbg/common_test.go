@@ -13,7 +13,7 @@ func TestGmCtrDrbgPrng(t *testing.T) {
 		t.Fatal(err)
 	}
 	data := make([]byte, 33)
-	for i := 0; i < int(DRBG_RESEED_COUNTER_INTERVAL_LEVEL_TEST+1); i++ {
+	for i := 0; i < int(reseedCounterIntervalLevelTest+1); i++ {
 		n, err := prng.Read(data)
 		if err != nil {
 			t.Fatal(err)
@@ -31,7 +31,7 @@ func TestGmCtrDrbgPrngReseedCase(t *testing.T) {
 	}
 
 	data := make([]byte, 64)
-	for i := 0; i < int(DRBG_RESEED_COUNTER_INTERVAL_LEVEL_TEST+1); i++ {
+	for i := 0; i < int(reseedCounterIntervalLevelTest+1); i++ {
 		for j := 0; j < 64; j++ {
 			data[j] = 0
 		}
@@ -53,12 +53,12 @@ func TestNistCtrDrbgPrng(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data := make([]byte, MAX_BYTES_PER_GENERATE+1)
+	data := make([]byte, maxBytesPerGenerate+1)
 	n, err := prng.Read(data)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n != MAX_BYTES_PER_GENERATE+1 {
+	if n != maxBytesPerGenerate+1 {
 		t.Errorf("not got enough random bytes")
 	}
 }
@@ -69,7 +69,7 @@ func TestGmHashDrbgPrng(t *testing.T) {
 		t.Fatal(err)
 	}
 	data := make([]byte, 33)
-	for i := 0; i < int(DRBG_RESEED_COUNTER_INTERVAL_LEVEL_TEST+1); i++ {
+	for i := 0; i < int(reseedCounterIntervalLevelTest+1); i++ {
 		n, err := prng.Read(data)
 		if err != nil {
 			t.Fatal(err)
@@ -85,12 +85,12 @@ func TestNistHashDrbgPrng(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data := make([]byte, MAX_BYTES_PER_GENERATE+1)
+	data := make([]byte, maxBytesPerGenerate+1)
 	n, err := prng.Read(data)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n != MAX_BYTES_PER_GENERATE+1 {
+	if n != maxBytesPerGenerate+1 {
 		t.Errorf("not got enough random bytes")
 	}
 }
@@ -101,12 +101,12 @@ func TestNistHmacDrbgPrng(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data := make([]byte, MAX_BYTES_PER_GENERATE+1)
+	data := make([]byte, maxBytesPerGenerate+1)
 	n, err := prng.Read(data)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n != MAX_BYTES_PER_GENERATE+1 {
+	if n != maxBytesPerGenerate+1 {
 		t.Errorf("not got enough random bytes")
 	}
 }

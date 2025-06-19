@@ -277,7 +277,7 @@ func (h *hctr) ctr(dst, src []byte, baseCtr *[blockSize]byte) {
 	if concCipher, ok := h.cipher.(concurrentBlocks); ok {
 		batchSize := concCipher.Concurrency() * blockSize
 		if len(src) >= batchSize {
-			var ctrs []byte = make([]byte, batchSize)
+			var ctrs = make([]byte, batchSize)
 			for len(src) >= batchSize {
 				for j := 0; j < concCipher.Concurrency(); j++ {
 					// (i)₂

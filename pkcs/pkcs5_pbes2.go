@@ -64,7 +64,7 @@ var (
 	ErrPBEDecryption = errors.New("pbes: decryption error, please verify the password and try again")
 )
 
-// PBKDF2Opts contains algorithm identifiers and related parameters for PBKDF2 key derivation function.
+// PBES2Params contains algorithm identifiers and related parameters for PBKDF2 key derivation function.
 //
 //	PBES2-params ::= SEQUENCE {
 //		keyDerivationFunc AlgorithmIdentifier {{PBES2-KDFs}},
@@ -95,7 +95,7 @@ var DefaultOpts = &PBES2Opts{
 	pbesOID: oidPBES2,
 }
 
-// NewPBES2Encrypter returns a new PBES2Encrypter with the given cipher and KDF options.
+// NewPBESEncrypter returns a new PBESEncrypter with the given cipher and KDF options.
 func NewPBESEncrypter(cipher Cipher, kdfOpts KDFOpts) PBESEncrypter {
 	return &PBES2Opts{
 		Cipher:  cipher,

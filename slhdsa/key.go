@@ -19,8 +19,8 @@ import (
 )
 
 type PublicKey struct {
-	seed           [MAX_N]byte
-	root           [MAX_N]byte
+	seed           [maxN]byte
+	root           [maxN]byte
 	params         *params
 	md             hash.Hash
 	mdBig          hash.Hash
@@ -32,14 +32,14 @@ type PublicKey struct {
 
 type PrivateKey struct {
 	PublicKey
-	seed [MAX_N]byte
-	prf  [MAX_N]byte
+	seed [maxN]byte
+	prf  [maxN]byte
 }
 
 // Bytes returns the byte representation of the PublicKey.
 // It combines the seed and root fields of the PublicKey.
 func (pk *PublicKey) Bytes() []byte {
-	var key [2 * MAX_N]byte
+	var key [2 * maxN]byte
 	copy(key[:], pk.seed[:pk.params.n])
 	copy(key[pk.params.n:], pk.root[:pk.params.n])
 	return key[:2*pk.params.n]
@@ -56,7 +56,7 @@ func (pk *PublicKey) Equal(x any) bool {
 
 // Bytes serializes the PrivateKey into a byte slice.
 func (sk *PrivateKey) Bytes() []byte {
-	var key [4 * MAX_N]byte
+	var key [4 * maxN]byte
 	keySlice := key[:]
 	copy(keySlice, sk.seed[:sk.params.n])
 	keySlice = keySlice[sk.params.n:]
@@ -68,7 +68,7 @@ func (sk *PrivateKey) Bytes() []byte {
 	return key[:4*sk.params.n]
 }
 
-// PublicKey returns the public key of the private key.
+// Public returns the public key of the private key.
 func (sk *PrivateKey) Public() *PublicKey {
 	return &sk.PublicKey
 }

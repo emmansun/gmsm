@@ -135,7 +135,7 @@ func (c *xtsEncrypter) CryptBlocks(ciphertext, plaintext []byte) {
 
 	if concCipher, ok := c.b.(concurrentBlocks); ok {
 		batchSize := concCipher.Concurrency() * blockSize
-		var tweaks []byte = make([]byte, batchSize)
+		var tweaks = make([]byte, batchSize)
 		for len(plaintext) >= batchSize {
 			doubleTweaks(&c.tweak, tweaks, c.isGB)
 			subtle.XORBytes(ciphertext, plaintext, tweaks)
@@ -194,7 +194,7 @@ func (c *xtsDecrypter) CryptBlocks(plaintext, ciphertext []byte) {
 
 	if concCipher, ok := c.b.(concurrentBlocks); ok {
 		batchSize := concCipher.Concurrency() * blockSize
-		var tweaks []byte = make([]byte, batchSize)
+		var tweaks = make([]byte, batchSize)
 
 		for len(ciphertext) >= batchSize {
 			doubleTweaks(&c.tweak, tweaks, c.isGB)

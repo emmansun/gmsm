@@ -13,16 +13,18 @@ import (
 	"github.com/emmansun/gmsm/sm4"
 )
 
-const DRBG_RESEED_COUNTER_INTERVAL_LEVEL_TEST uint64 = 8
-const DRBG_RESEED_COUNTER_INTERVAL_LEVEL2 uint64 = 1 << 10
-const DRBG_RESEED_COUNTER_INTERVAL_LEVEL1 uint64 = 1 << 20
+const (
+	reseedCounterIntervalLevelTest = uint64(8)
+	reseedCounterIntervalLevel2    = 1 << 10
+	reseedCounterIntervalLevel1    = 1 << 20
 
-const DRBG_RESEED_TIME_INTERVAL_LEVEL_TEST = time.Duration(6) * time.Second
-const DRBG_RESEED_TIME_INTERVAL_LEVEL2 = time.Duration(60) * time.Second
-const DRBG_RESEED_TIME_INTERVAL_LEVEL1 = time.Duration(600) * time.Second
+	reseedTimeIntervalLevelTest = time.Duration(6) * time.Second
+	reseedTimeIntervalLevel2    = time.Duration(60) * time.Second
+	reseedTimeIntervalLevel1    = time.Duration(600) * time.Second
 
-const MAX_BYTES = 1 << 27
-const MAX_BYTES_PER_GENERATE = 1 << 11
+	maxBytes            = 1 << 27
+	maxBytesPerGenerate = 1 << 11
+)
 
 var ErrReseedRequired = errors.New("drbg: reseed reuqired")
 
@@ -245,18 +247,18 @@ func (hd *BaseDrbg) setSecurityLevel(securityLevel SecurityLevel) {
 	hd.securityLevel = securityLevel
 	switch securityLevel {
 	case SECURITY_LEVEL_TWO:
-		hd.reseedIntervalInCounter = DRBG_RESEED_COUNTER_INTERVAL_LEVEL2
-		hd.reseedIntervalInTime = DRBG_RESEED_TIME_INTERVAL_LEVEL2
+		hd.reseedIntervalInCounter = reseedCounterIntervalLevel2
+		hd.reseedIntervalInTime = reseedTimeIntervalLevel2
 	case SECURITY_LEVEL_TEST:
-		hd.reseedIntervalInCounter = DRBG_RESEED_COUNTER_INTERVAL_LEVEL_TEST
-		hd.reseedIntervalInTime = DRBG_RESEED_TIME_INTERVAL_LEVEL_TEST
+		hd.reseedIntervalInCounter = reseedCounterIntervalLevelTest
+		hd.reseedIntervalInTime = reseedTimeIntervalLevelTest
 	default:
-		hd.reseedIntervalInCounter = DRBG_RESEED_COUNTER_INTERVAL_LEVEL1
-		hd.reseedIntervalInTime = DRBG_RESEED_TIME_INTERVAL_LEVEL1
+		hd.reseedIntervalInCounter = reseedCounterIntervalLevel1
+		hd.reseedIntervalInTime = reseedTimeIntervalLevel1
 	}
 }
 
-// Set security_strength to the lowest security strength greater than or equal to 
+// Set security_strength to the lowest security strength greater than or equal to
 // requested_instantiation_security_strength from the set {112, 128, 192, 256}.
 func selectSecurityStrength(requested int) int {
 	switch {

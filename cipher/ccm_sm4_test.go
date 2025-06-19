@@ -41,7 +41,6 @@ func TestCCM(t *testing.T) {
 			continue
 		}
 
-		//func (c *ccm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error)
 		pt, err := sm4ccm.Open(nil, nonce, ct, ad)
 		if err != nil {
 			t.Fatal(err)

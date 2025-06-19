@@ -35,7 +35,7 @@ var p256Zero = p256Element{}
 var p256P = p256Element{0xffffffffffffffff, 0xffffffff00000000,
 	0xffffffffffffffff, 0xfffffffeffffffff}
 
-// P256Point is a P-256 point. The zero value should not be assumed to be valid
+// SM2P256Point is a SM2 P-256 point. The zero value should not be assumed to be valid
 // (although it is in this implementation).
 type SM2P256Point struct {
 	// (X:Y:Z) are Jacobian coordinates where x = X/Z² and y = Y/Z³. The point

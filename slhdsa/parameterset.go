@@ -9,14 +9,14 @@ package slhdsa
 import "io"
 
 const (
-	MAX_N         = 32
-	MAX_M         = 49
-	MAX_K         = 35
-	MAX_A         = 9
-	MAX_K_TIMES_A = MAX_K * MAX_A
-	MAX_WOTS_LEN  = 2*MAX_N + 3
+	maxN         = 32
+	maxM         = 49
+	maxK         = 35
+	maxA         = 9
+	maxKTimesA   = maxK * maxA
+	maxWotsLen   = 2*maxN + 3
 
-	MAX_CONTEXT_LEN = 255
+	maxContextLen = 255
 )
 
 type params struct {

@@ -32,16 +32,16 @@ func NewHashDrbg(newHash func() hash.Hash, securityLevel SecurityLevel, gm bool,
 	hd.hashSize = md.Size()
 
 	// here for the min length, we just check <=0 now
-	if len(entropy) == 0 || (hd.gm && len(entropy) < hd.hashSize) || len(entropy) >= MAX_BYTES {
+	if len(entropy) == 0 || (hd.gm && len(entropy) < hd.hashSize) || len(entropy) >= maxBytes {
 		return nil, errors.New("drbg: invalid entropy length")
 	}
 
 	// here for the min length, we just check <=0 now
-	if len(nonce) == 0 || (hd.gm && len(nonce) < hd.hashSize/2) || len(nonce) >= MAX_BYTES>>1 {
+	if len(nonce) == 0 || (hd.gm && len(nonce) < hd.hashSize/2) || len(nonce) >= maxBytes>>1 {
 		return nil, errors.New("drbg: invalid nonce length")
 	}
 
-	if len(personalization) >= MAX_BYTES {
+	if len(personalization) >= maxBytes {
 		return nil, errors.New("drbg: personalization is too long")
 	}
 
@@ -91,11 +91,11 @@ func NewGMHashDrbg(securityLevel SecurityLevel, entropy, nonce, personalization 
 // Reseed hash DRBG reseed process. GM/T 0105-2021 has a little different with NIST.
 func (hd *HashDrbg) Reseed(entropy, additional []byte) error {
 	// here for the min length, we just check <=0 now
-	if len(entropy) == 0 || (hd.gm && len(entropy) < hd.hashSize) || len(entropy) >= MAX_BYTES {
+	if len(entropy) == 0 || (hd.gm && len(entropy) < hd.hashSize) || len(entropy) >= maxBytes {
 		return errors.New("drbg: invalid entropy length")
 	}
 
-	if len(additional) >= MAX_BYTES {
+	if len(additional) >= maxBytes {
 		return errors.New("drbg: additional input too long")
 	}
 	seedMaterial := make([]byte, len(entropy)+hd.seedLength+len(additional)+1)
@@ -154,7 +154,7 @@ func (hd *HashDrbg) MaxBytesPerRequest() int {
 	if hd.gm {
 		return hd.hashSize
 	}
-	return MAX_BYTES_PER_GENERATE
+	return maxBytesPerGenerate
 }
 
 // Generate hash DRBG pseudorandom bits process. GM/T 0105-2021 has a little different with NIST.
@@ -163,7 +163,7 @@ func (hd *HashDrbg) Generate(b, additional []byte) error {
 	if hd.NeedReseed() {
 		return ErrReseedRequired
 	}
-	if (hd.gm && len(b) > hd.hashSize) || (!hd.gm && len(b) > MAX_BYTES_PER_GENERATE) {
+	if (hd.gm && len(b) > hd.hashSize) || (!hd.gm && len(b) > maxBytesPerGenerate) {
 		return errors.New("drbg: too many bytes requested")
 	}
 	md := hd.newHash()

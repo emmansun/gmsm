@@ -17,7 +17,7 @@ func (sk *PrivateKey) xmssNode(out, tmpBuf []byte, i, z uint32, adrs adrsOperati
 		sk.wotsPkGen(out, tmpBuf, adrs)
 	} else {
 		// otherwise, it computes the root of the subtree by hashing the two child nodes
-		var lnode, rnode [MAX_N]byte
+		var lnode, rnode [maxN]byte
 		sk.xmssNode(lnode[:], tmpBuf, 2*i, z-1, adrs)
 		sk.xmssNode(rnode[:], tmpBuf, 2*i+1, z-1, adrs)
 		adrs.setTypeAndClear(AddressTypeTree)

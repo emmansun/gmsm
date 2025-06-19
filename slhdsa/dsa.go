@@ -23,11 +23,11 @@ func (sk *PrivateKey) Sign(message, context, addRand []byte) ([]byte, error) {
 		return nil, errors.New("slhdsa: addrnd should be nil (deterministic variant) or of length n")
 	}
 	ctxLen := len(context)
-	if ctxLen > MAX_CONTEXT_LEN {
+	if ctxLen > maxContextLen {
 		return nil, errors.New("slhdsa: context too long")
 	}
 
-	var mPrefix [MAX_CONTEXT_LEN + 2]byte
+	var mPrefix [maxContextLen + 2]byte
 
 	mPrefix[1] = byte(ctxLen)
 	if ctxLen > 0 {
@@ -50,7 +50,7 @@ func (sk *PrivateKey) signInternal(msgPrefix, message, addRand []byte) ([]byte, 
 	signature := signatureHead[sk.params.n:]
 
 	// compute message digest
-	var digest [MAX_M]byte
+	var digest [maxM]byte
 	sk.h.hMsg(&sk.PublicKey, R, msgPrefix, message, digest[:])
 	// Grab the first mdLen() bytes of digest to use in fors_sign()
 	mdLen := sk.params.mdLen()
@@ -73,7 +73,7 @@ func (sk *PrivateKey) signInternal(msgPrefix, message, addRand []byte) ([]byte, 
 	// generate the FORS signature and append it to the SLH-DSA signature
 	sk.forsSign(md, adrs, signature)
 
-	var pkFors [MAX_N]byte
+	var pkFors [maxN]byte
 	// calculate the FORS public key using the generated FORS signature
 	signature = sk.forsPkFromSig(md, signature, adrs, pkFors[:])
 	// generate ht signature and append to the SLH-DSA signature
@@ -89,12 +89,12 @@ func (pk *PublicKey) Verify(signature, message, context []byte) bool {
 	if len(message) == 0 {
 		return false
 	}
-	if len(context) > MAX_CONTEXT_LEN {
+	if len(context) > maxContextLen {
 		return false
 	}
 
 	ctxLen := len(context)
-	var msgPrefix [MAX_CONTEXT_LEN + 2]byte
+	var msgPrefix [maxContextLen + 2]byte
 	msgPrefix[1] = byte(ctxLen)
 	if ctxLen > 0 {
 		copy(msgPrefix[2:], context)
@@ -112,7 +112,7 @@ func (pk *PublicKey) verifyInternal(signature []byte, msgPrefix []byte, message 
 	signature = signature[pk.params.n:]
 
 	// compute message digest
-	var digest [MAX_M]byte
+	var digest [maxM]byte
 	pk.h.hMsg(pk, R, msgPrefix, message, digest[:])
 	// Grab the first mdLen() bytes of digest to use in fors_sign()
 	mdLen := pk.params.mdLen()
@@ -130,7 +130,7 @@ func (pk *PublicKey) verifyInternal(signature []byte, msgPrefix []byte, message 
 	adrs.setTypeAndClear(AddressTypeFORSTree)
 	adrs.setKeyPairAddress(leafIdx)
 
-	var pkFors [MAX_N]byte
+	var pkFors [maxN]byte
 	// calculate the FORS public key using the given FORS signature
 	signature = pk.forsPkFromSig(md, signature, adrs, pkFors[:])
 

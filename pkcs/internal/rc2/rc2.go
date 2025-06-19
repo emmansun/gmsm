@@ -19,7 +19,7 @@ import (
 	"github.com/emmansun/gmsm/internal/byteorder"
 )
 
-// The rc2 block size in bytes
+// BlockSize is the rc2 block size in bytes
 const BlockSize = 8
 
 type rc2Cipher struct {

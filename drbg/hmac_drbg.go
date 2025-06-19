@@ -29,16 +29,16 @@ func NewHmacDrbg(newHash func() hash.Hash, securityLevel SecurityLevel, gm bool,
 	hd.hashSize = md.Size()
 
 	// here for the min length, we just check <=0 now
-	if len(entropy) == 0 || len(entropy) >= MAX_BYTES {
+	if len(entropy) == 0 || len(entropy) >= maxBytes {
 		return nil, errors.New("drbg: invalid entropy length")
 	}
 
 	// here for the min length, we just check <=0 now
-	if len(nonce) == 0 || len(nonce) >= MAX_BYTES>>1 {
+	if len(nonce) == 0 || len(nonce) >= maxBytes>>1 {
 		return nil, errors.New("drbg: invalid nonce length")
 	}
 
-	if len(personalization) >= MAX_BYTES {
+	if len(personalization) >= maxBytes {
 		return nil, errors.New("drbg: personalization is too long")
 	}
 
@@ -95,11 +95,11 @@ func (hd *HmacDrbg) Generate(output, additional []byte) error {
 // reference to NIST.SP.800-90Ar1.pdf section 10.1.2.4
 func (hd *HmacDrbg) Reseed(entropy, additional []byte) error {
 	// here for the min length, we just check <=0 now
-	if len(entropy) == 0 || (hd.gm && len(entropy) < hd.hashSize) || len(entropy) >= MAX_BYTES {
+	if len(entropy) == 0 || (hd.gm && len(entropy) < hd.hashSize) || len(entropy) >= maxBytes {
 		return errors.New("drbg: invalid entropy length")
 	}
 
-	if len(additional) >= MAX_BYTES {
+	if len(additional) >= maxBytes {
 		return errors.New("drbg: additional input too long")
 	}
 	hd.update(entropy, additional)
@@ -109,7 +109,7 @@ func (hd *HmacDrbg) Reseed(entropy, additional []byte) error {
 }
 
 func (hd *HmacDrbg) MaxBytesPerRequest() int {
-	return MAX_BYTES_PER_GENERATE
+	return maxBytesPerGenerate
 }
 
 // The HMAC_DRBG_Update function updates the internal state of
