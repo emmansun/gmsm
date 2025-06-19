@@ -100,7 +100,7 @@ var hctrReductionTable = []uint16{
 	0xe100, 0xfd20, 0xd940, 0xc560, 0x9180, 0x8da0, 0xa9c0, 0xb5e0,
 }
 
-// hctr represents a Varaible-Input-Length enciphering mode with a specific block cipher,
+// hctr represents a Variable-Input-Length enciphering mode with a specific block cipher,
 // and specific tweak and a hash key. See
 // https://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.470.5288
 // GB/T 17964-2021 第11章 带泛杂凑函数的计数器工作模式
@@ -116,8 +116,8 @@ func (h *hctr) BlockSize() int {
 	return blockSize
 }
 
-// NewHCTR returns a [LengthPreservingMode] which encrypts/decrypts useing the given [Block]
-// in HCTR mode. The lenght of tweak and hash key must be the same as the [Block]'s block size.
+// NewHCTR returns a [LengthPreservingMode] which encrypts/decrypts using the given [Block]
+// in HCTR mode. The length of tweak and hash key must be the same as the [Block]'s block size.
 func NewHCTR(cipher cipher.Block, tweak, hkey []byte) (LengthPreservingMode, error) {
 	if len(tweak) != blockSize || len(hkey) != blockSize {
 		return nil, errors.New("cipher: invalid tweak and/or hash key length")

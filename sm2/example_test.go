@@ -121,7 +121,7 @@ func ExamplePrivateKey_Sign_withHash() {
 		log.Fatalf("fail to new private key %v", err)
 	}
 
-	// caluclate hash value
+	// calculate hash value
 	h, err := sm2.NewHash(&testkey.PublicKey)
 	if err != nil {
 		log.Fatalf("fail to new hash %v", err)
@@ -164,7 +164,7 @@ func ExampleVerifyASN1() {
 		log.Fatalf("fail to new public key %v", err)
 	}
 
-	// caluclate hash value
+	// calculate hash value
 	data := []byte("ShangMi SM2 Sign Standard")
 	h, err := sm2.NewHash(testkey)
 	if err != nil {

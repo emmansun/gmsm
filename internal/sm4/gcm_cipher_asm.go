@@ -269,7 +269,7 @@ func (g *gcm) counterCrypt(out, in []byte, counter *[gcmBlockSize]byte) {
 			gcmInc32(counter)
 		}
 		g.cipher.EncryptBlocks(mask, counters)
-		subtle.XORBytes(out, in, mask[:])
+		subtle.XORBytes(out, in, mask)
 		out = out[g.cipher.blocksSize:]
 		in = in[g.cipher.blocksSize:]
 	}

@@ -52,7 +52,7 @@ const (
 	eta4         = 4 // private key range for ML-DSA-65
 	bitLenOfETA4 = 4
 
-	lambda128 = 128 // collision strengh of c tilde for ML-DSA-44
+	lambda128 = 128 // collision strength of c tilde for ML-DSA-44
 	lambda192 = 192 // collision strength of c tilde for ML-DSA-65
 	lambda256 = 256 // collision strength of c tilde for ML-DSA-87
 
@@ -501,7 +501,7 @@ func (sk *PrivateKey44) signInternal(seed, mu []byte) ([]byte, error) {
 	r0NormThreshold := int(gamma2QMinus1Div88 - beta44)
 
 	// rejection sampling loop
-	for kappa := 0; ; kappa = kappa + l44 {
+	for kappa := 0; ; kappa += l44 {
 		// expand mask
 		var (
 			y    [l44]ringElement
@@ -705,5 +705,5 @@ func (pk *PublicKey44) verifyInternal(sig, mu []byte) bool {
 	var cTilde1 [lambda128 / 4]byte
 	H.Read(cTilde1[:])
 	return subtle.ConstantTimeLessOrEq(int(gamma1TwoPower17-beta44), zNorm) == 0 &&
-		subtle.ConstantTimeCompare(cTilde[:], cTilde1[:]) == 1
+		subtle.ConstantTimeCompare(cTilde, cTilde1[:]) == 1
 }

@@ -69,7 +69,7 @@ func NewCtrDrbgPrng(cipherProvider func(key []byte) (cipher.Block, error), keyLe
 		return nil, err
 	}
 
-	// inital working state
+	// initial working state
 	prng.impl, err = NewCtrDrbg(cipherProvider, keyLen, securityLevel, gm, entropyInput, nonce, personalization)
 	if err != nil {
 		return nil, err
@@ -115,7 +115,7 @@ func NewHashDrbgPrng(newHash func() hash.Hash, entropySource io.Reader, security
 		return nil, err
 	}
 
-	// inital working state
+	// initial working state
 	prng.impl, err = NewHashDrbg(newHash, securityLevel, gm, entropyInput, nonce, personalization)
 	if err != nil {
 		return nil, err
@@ -158,7 +158,7 @@ func NewHmacDrbgPrng(newHash func() hash.Hash, entropySource io.Reader, security
 		return nil, err
 	}
 
-	// inital working state
+	// initial working state
 	prng.impl, err = NewHmacDrbg(newHash, securityLevel, gm, entropyInput, nonce, personalization)
 	if err != nil {
 		return nil, err

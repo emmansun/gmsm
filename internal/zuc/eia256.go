@@ -226,7 +226,7 @@ func (m *ZUC256Mac) Finish(p []byte, nbits int) []byte {
 	}
 	digest := m.checkSum(nRemainBits, b)
 	m.Reset()
-	return digest[:]
+	return digest
 }
 
 // Sum appends the current hash to in and returns the resulting slice.
@@ -237,5 +237,5 @@ func (m *ZUC256Mac) Sum(in []byte) []byte {
 	d0.t = make([]uint32, len(m.t))
 	copy(d0.t, m.t)
 	hash := d0.checkSum(0, 0)
-	return append(in, hash[:]...)
+	return append(in, hash...)
 }

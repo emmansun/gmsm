@@ -18,11 +18,12 @@ func blockSIMD(dig *digest, p []byte)
 func blockAVX2(dig *digest, p []byte)
 
 func block(dig *digest, p []byte) {
-	if useAVX2 {
+	switch {
+	case useAVX2:
 		blockAVX2(dig, p)
-	} else if useSSSE3 || useAVX {
+	case useSSSE3, useAVX: // useSSSE3 or useAVX
 		blockSIMD(dig, p)
-	} else {
+	default:
 		blockAMD64(dig, p)
 	}
 }

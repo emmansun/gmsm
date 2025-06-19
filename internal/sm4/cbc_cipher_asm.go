@@ -83,5 +83,5 @@ func (x *cbc) SetIV(iv []byte) {
 	if len(iv) != BlockSize {
 		panic("cipher: incorrect length IV")
 	}
-	copy(x.iv[:], iv)
+	copy(x.iv, iv)
 }

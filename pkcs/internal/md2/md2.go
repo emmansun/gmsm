@@ -187,7 +187,7 @@ func block(dig *digest, p []byte) {
 				X[k] ^= piSubst[t]
 				t = X[k]
 			}
-			t = t + byte(j)
+			t += byte(j)
 		}
 
 		// Save state

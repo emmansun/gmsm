@@ -140,10 +140,10 @@ func (c *rc2Cipher) Encrypt(dst, src []byte) {
 	}
 
 	// perform 1 mashing round
-	r0 = r0 + c.k[r3&63]
-	r1 = r1 + c.k[r0&63]
-	r2 = r2 + c.k[r1&63]
-	r3 = r3 + c.k[r2&63]
+	r0 += c.k[r3&63]
+	r1 += c.k[r0&63]
+	r2 += c.k[r1&63]
+	r3 += c.k[r2&63]
 
 	// perform 6 mixing rounds
 	for j <= 40 {
@@ -169,10 +169,10 @@ func (c *rc2Cipher) Encrypt(dst, src []byte) {
 	}
 
 	// perform 1 mashing round
-	r0 = r0 + c.k[r3&63]
-	r1 = r1 + c.k[r0&63]
-	r2 = r2 + c.k[r1&63]
-	r3 = r3 + c.k[r2&63]
+	r0 += c.k[r3&63]
+	r1 += c.k[r0&63]
+	r2 += c.k[r1&63]
+	r3 += c.k[r2&63]
 
 	// perform 5 mixing rounds
 	for j <= 60 {
@@ -244,10 +244,10 @@ func (c *rc2Cipher) Decrypt(dst, src []byte) {
 	}
 
 	// perform 1 r-mashing round
-	r3 = r3 - c.k[r2&63]
-	r2 = r2 - c.k[r1&63]
-	r1 = r1 - c.k[r0&63]
-	r0 = r0 - c.k[r3&63]
+	r3 -= c.k[r2&63]
+	r2 -= c.k[r1&63]
+	r1 -= c.k[r0&63]
+	r0 -= c.k[r3&63]
 
 	// perform 6 r-mixing rounds
 	for j >= 20 {
@@ -273,10 +273,10 @@ func (c *rc2Cipher) Decrypt(dst, src []byte) {
 	}
 
 	// perform 1 r-mashing round
-	r3 = r3 - c.k[r2&63]
-	r2 = r2 - c.k[r1&63]
-	r1 = r1 - c.k[r0&63]
-	r0 = r0 - c.k[r3&63]
+	r3 -= c.k[r2&63]
+	r2 -= c.k[r1&63]
+	r1 -= c.k[r0&63]
+	r0 -= c.k[r3&63]
 
 	// perform 5 r-mixing rounds
 	for j >= 3 {

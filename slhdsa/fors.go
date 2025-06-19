@@ -63,7 +63,7 @@ func (pk *PublicKey) forsPkFromSig(md, signature []byte, adrs adrsOperations, ou
 		for layer := range pk.params.a {
 			adrs.setTreeHeight(layer + 1)
 			if nodeID&1 == 0 {
-				treeIdx = treeIdx >> 1
+				treeIdx >>= 1
 				adrs.setTreeIndex(treeIdx)
 				pk.h.h(pk, adrs, rootPt, signature, rootPt)
 			} else {

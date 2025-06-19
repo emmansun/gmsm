@@ -60,12 +60,12 @@ func (DefaultSession) EncryptdDataKey(key []byte, cert *smx509.Certificate, opts
 }
 
 func (DefaultSession) DecryptDataKey(key []byte, priv crypto.PrivateKey, cert *smx509.Certificate, opts any) ([]byte, error) {
-	switch pkey := priv.(type) {
-	case crypto.Decrypter:
+	if decrypter, ok := priv.(crypto.Decrypter); ok {
 		// Generic case to handle anything that provides the crypto.Decrypter interface.
 		encryptedKey := key
 		var decrypterOpts crypto.DecrypterOpts
-		if _, ok := pkey.(*sm2.PrivateKey); ok {
+
+		if _, isSM2Key := priv.(*sm2.PrivateKey); isSM2Key {
 			if isLegacyCFCA, ok := opts.(bool); ok && isLegacyCFCA {
 				encryptedKey = make([]byte, len(key)+1)
 				encryptedKey[0] = 0x04
@@ -73,7 +73,8 @@ func (DefaultSession) DecryptDataKey(key []byte, priv crypto.PrivateKey, cert *s
 				decrypterOpts = sm2.NewPlainDecrypterOpts(sm2.C1C2C3)
 			}
 		}
-		contentKey, err := pkey.Decrypt(rand.Reader, encryptedKey, decrypterOpts)
+
+		contentKey, err := decrypter.Decrypt(rand.Reader, encryptedKey, decrypterOpts)
 		if err != nil {
 			return nil, err
 		}

@@ -436,13 +436,10 @@ func signData(data []byte, pkey crypto.PrivateKey, hasher crypto.Hash, isDigestP
 			} else if len(hash) != sm3.Size {
 				return nil, fmt.Errorf("pkcs7: invalid hash value for SM2 signature")
 			}
-			switch realKey := key.(type) {
-			case *ecdsa.PrivateKey:
-				{
-					sm2Key := new(sm2.PrivateKey)
-					sm2Key.PrivateKey = *realKey
-					key = sm2Key
-				}
+			if ecdsaKey, ok := key.(*ecdsa.PrivateKey); ok {
+				sm2Key := new(sm2.PrivateKey)
+				sm2Key.PrivateKey = *ecdsaKey
+				key = sm2Key
 			}
 		} else {
 			return nil, fmt.Errorf("pkcs7: unsupported hash function %v", hasher)
