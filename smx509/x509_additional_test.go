@@ -393,11 +393,11 @@ func TestCheckSignatureWithDigest(t *testing.T) {
 			algo: SM2WithSM3,
 			digest: func() []byte {
 				hash, _ := sm2.CalculateSM2Hash(&sm2PrivateKey.PublicKey, rawMessage, nil)
-				return hash[:]
+				return hash
 			}(),
 			signature: func() []byte {
 				hash, _ := sm2.CalculateSM2Hash(&sm2PrivateKey.PublicKey, rawMessage, nil)
-				return mustSignSM2(t, sm2PrivateKey, hash[:])
+				return mustSignSM2(t, sm2PrivateKey, hash)
 			}(),
 			expectedError: nil,
 		},
@@ -409,7 +409,7 @@ func TestCheckSignatureWithDigest(t *testing.T) {
 			algo: SM2WithSM3,
 			digest: func() []byte {
 				hash, _ := sm2.CalculateSM2Hash(&sm2PrivateKey.PublicKey, rawMessage, nil)
-				return hash[:]
+				return hash
 			}(),
 			signature: func() []byte {
 				hash, _ := sm2.CalculateSM2Hash(&sm2PrivateKey2.PublicKey, rawMessage, nil)

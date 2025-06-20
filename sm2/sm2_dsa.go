@@ -845,7 +845,7 @@ var _p256 *sm2Curve
 func p256() *sm2Curve {
 	p256Once.Do(func() {
 		_p256 = &sm2Curve{
-			newPoint: func() *_sm2ec.SM2P256Point { return _sm2ec.NewSM2P256Point() },
+			newPoint: _sm2ec.NewSM2P256Point,
 		}
 		precomputeParams(_p256, P256())
 	})

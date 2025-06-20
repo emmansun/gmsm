@@ -46,8 +46,8 @@ const (
 	r       = 4193792    // 2^32 mod q
 )
 
-// See FIPS 204, Algorithm 49, MontgomeryReduce() 
 func fieldReduce(a uint64) fieldElement {
+	// See FIPS 204, Algorithm 49, MontgomeryReduce()
 	t := uint32(a) * qNegInv
 	return fieldReduceOnce(uint32((a + uint64(t)*q) >> 32))
 }
@@ -243,4 +243,3 @@ func vectorCountOnes(a []ringElement) int {
 	}
 	return oneCount
 }
-

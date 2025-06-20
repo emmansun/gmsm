@@ -371,7 +371,7 @@ func bitPackSignedTwoPower19(s []byte, f ringElement) []byte {
 		b[5] = uint8(x1 >> 40)
 		b[6] = uint8(x1 >> 48)
 		b[7] = uint8(x1 >> 56)
-		
+
 		b = b[10:]
 	}
 	return s
@@ -387,7 +387,7 @@ func bitUnpackSignedTwoPower19(b []byte, f *ringElement) {
 	for i := 0; i < n; i += 4 {
 		x2 := (uint64(b[9]) << 8) | uint64(b[8])
 		x1 := uint64(b[0]) | (uint64(b[1]) << 8) | (uint64(b[2]) << 16) | (uint64(b[3]) << 24) | (uint64(b[4]) << 32) | (uint64(b[5]) << 40) | (uint64(b[6]) << 48) | (uint64(b[7]) << 56)
-		
+
 		b = b[10:]
 		f[i] = fieldSub(r, fieldElement(x1&bitsMask))
 		f[i+1] = fieldSub(r, fieldElement((x1>>20)&bitsMask))

@@ -159,7 +159,7 @@ func buildTmpPublicKeyAttr(key crypto.Signer, rawAttributes []asn1.RawValue, tmp
 		}
 		publicKeyBytes = make([]byte, 136)
 		// Prefix{8} || X{32} || zero{32} || Y{32} || zero{32}
-		copy(publicKeyBytes[:], tmpPublicKeyPrefix)
+		copy(publicKeyBytes, tmpPublicKeyPrefix)
 		ecPub, _ := tmpPub.(*ecdsa.PublicKey)
 		ecPub.X.FillBytes(publicKeyBytes[8:40])
 		ecPub.Y.FillBytes(publicKeyBytes[72:104])
@@ -175,7 +175,7 @@ func buildTmpPublicKeyAttr(key crypto.Signer, rawAttributes []asn1.RawValue, tmp
 	}
 	var tmpPublicKey = tmpPublicKeyInfo{
 		Version:   1,
-		PublicKey: publicKeyBytes[:],
+		PublicKey: publicKeyBytes,
 	}
 	b, err := asn1.Marshal(tmpPublicKey)
 	if err != nil {
