@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-FROM coqorg/coq:8.13.2
+FROM coqorg/coq:8.20.1
 
 RUN git clone https://github.com/mit-plv/fiat-crypto && cd fiat-crypto && \
     git checkout 23d2dbc4ab897d14bde4404f70cd6991635f9c01 && \
