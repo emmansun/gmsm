@@ -28,12 +28,12 @@ func (pad iso9797M3Padding) Pad(src []byte) []byte {
 		overhead = 0
 	}
 
-	var head, tail []byte
-	total := srcLen + overhead + pad.BlockSize()
-
-	if total <= 0 {
+	if srcLen > (int(^uint(0) >> 1) - overhead - pad.BlockSize()) {
 		panic("padding: total length overflow")
 	}
+
+	var head, tail []byte
+	total := srcLen + overhead + pad.BlockSize()
 
 	if cap(src) >= total {
 		head = src[:total]
