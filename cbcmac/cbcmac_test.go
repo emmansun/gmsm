@@ -1,4 +1,4 @@
-package cbcmac
+package cbcmac_test
 
 import (
 	"bytes"
@@ -7,6 +7,7 @@ import (
 	"hash"
 	"testing"
 
+	"github.com/emmansun/gmsm/cbcmac"
 	"github.com/emmansun/gmsm/internal/cryptotest"
 	"github.com/emmansun/gmsm/padding"
 	"github.com/emmansun/gmsm/sm4"
@@ -41,7 +42,7 @@ func TestCBCMAC(t *testing.T) {
 		if err != nil {
 			t.Errorf("#%d: failed to create cipher: %v", i, err)
 		}
-		mac := NewCBCMAC(block, len(c.tag))
+		mac := cbcmac.NewCBCMAC(block, len(c.tag))
 		tag := mac.MAC(c.src)
 		if !bytes.Equal(tag, c.tag) {
 			t.Errorf("#%d: expect tag %x, got %x", i, c.tag, tag)
@@ -94,7 +95,7 @@ func TestCBCMACWithPadding(t *testing.T) {
 		if err != nil {
 			t.Errorf("#%d: failed to create cipher: %v", i, err)
 		}
-		mac := NewCBCMACWithPadding(block, len(c.tag), c.newPaddingFunc)
+		mac := cbcmac.NewCBCMACWithPadding(block, len(c.tag), c.newPaddingFunc)
 		tag := mac.MAC(c.src)
 		if !bytes.Equal(tag, c.tag) {
 			t.Errorf("#%d: expect tag %x, got %x", i, c.tag, tag)
@@ -149,7 +150,7 @@ func TestEMACWithPadding(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		mac := NewEMACWithPadding(sm4.NewCipher, c.key1, c.key2, len(c.tag), c.newPaddingFunc)
+		mac := cbcmac.NewEMACWithPadding(sm4.NewCipher, c.key1, c.key2, len(c.tag), c.newPaddingFunc)
 		tag := mac.MAC(c.src)
 		if !bytes.Equal(tag, c.tag) {
 			t.Errorf("#%d: expect tag %x, got %x", i, c.tag, tag)
@@ -186,7 +187,7 @@ func TestEMAC(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		mac := NewEMAC(sm4.NewCipher, c.key1, c.key2, len(c.tag))
+		mac := cbcmac.NewEMAC(sm4.NewCipher, c.key1, c.key2, len(c.tag))
 		tag := mac.MAC(c.src)
 		if !bytes.Equal(tag, c.tag) {
 			t.Errorf("#%d: expect tag %x, got %x", i, c.tag, tag)
@@ -223,7 +224,7 @@ func TestANSIRetailMAC(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		mac := NewANSIRetailMAC(sm4.NewCipher, c.key1, c.key2, len(c.tag))
+		mac := cbcmac.NewANSIRetailMAC(sm4.NewCipher, c.key1, c.key2, len(c.tag))
 		tag := mac.MAC(c.src)
 		if !bytes.Equal(tag, c.tag) {
 			t.Errorf("#%d: expect tag %x, got %x", i, c.tag, tag)
@@ -278,7 +279,7 @@ func TestANSIRetailMACWithPadding(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		mac := NewANSIRetailMACWithPadding(sm4.NewCipher, c.key1, c.key2, len(c.tag), c.newPaddingFunc)
+		mac := cbcmac.NewANSIRetailMACWithPadding(sm4.NewCipher, c.key1, c.key2, len(c.tag), c.newPaddingFunc)
 		tag := mac.MAC(c.src)
 		if !bytes.Equal(tag, c.tag) {
 			t.Errorf("#%d: expect tag %x, got %x", i, c.tag, tag)
@@ -315,7 +316,7 @@ func TestMACDES(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		mac := NewMACDES(sm4.NewCipher, c.key1, c.key2, 16)
+		mac := cbcmac.NewMACDES(sm4.NewCipher, c.key1, c.key2, 16)
 		tag := mac.MAC(c.src)
 		if !bytes.Equal(tag, c.tag) {
 			t.Errorf("#%d: expect tag %x, got %x", i, c.tag, tag)
@@ -370,7 +371,7 @@ func TestMACDESWithPadding(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		mac := NewMACDESWithPadding(sm4.NewCipher, c.key1, c.key2, 16, c.newPaddingFunc)
+		mac := cbcmac.NewMACDESWithPadding(sm4.NewCipher, c.key1, c.key2, 16, c.newPaddingFunc)
 		tag := mac.MAC(c.src)
 		if !bytes.Equal(tag, c.tag) {
 			t.Errorf("#%d: expect tag %x, got %x", i, c.tag, tag)
@@ -406,7 +407,7 @@ func TestCMAC(t *testing.T) {
 		if err != nil {
 			t.Errorf("#%d: failed to create cipher: %v", i, err)
 		}
-		mac := NewCMAC(block, 16)
+		mac := cbcmac.NewCMAC(block, 16)
 		tag := mac.MAC(c.src)
 		if !bytes.Equal(tag, c.tag) {
 			t.Errorf("#%d: expect tag %x, got %x", i, c.tag, tag)
@@ -440,7 +441,7 @@ func TestLMAC(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		mac := NewLMAC(sm4.NewCipher, c.key, 16)
+		mac := cbcmac.NewLMAC(sm4.NewCipher, c.key, 16)
 		tag := mac.MAC(c.src)
 		if !bytes.Equal(tag, c.tag) {
 			t.Errorf("#%d: expect tag %x, got %x", i, c.tag, tag)
@@ -489,7 +490,7 @@ func TestLMACWithPadding(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		mac := NewLMACWithPadding(sm4.NewCipher, c.key, 16, c.newPaddingFunc)
+		mac := cbcmac.NewLMACWithPadding(sm4.NewCipher, c.key, 16, c.newPaddingFunc)
 		tag := mac.MAC(c.src)
 		if !bytes.Equal(tag, c.tag) {
 			t.Errorf("#%d: expect tag %x, got %x", i, c.tag, tag)
@@ -526,7 +527,7 @@ func TestTRCBCMAC(t *testing.T) {
 		if err != nil {
 			t.Errorf("#%d: failed to create cipher: %v", i, err)
 		}
-		mac := NewTRCBCMAC(block, len(c.tag))
+		mac := cbcmac.NewTRCBCMAC(block, len(c.tag))
 		tag := mac.MAC(c.src)
 		if !bytes.Equal(tag, c.tag) {
 			t.Errorf("#%d: expect tag %x, got %x", i, c.tag, tag)
@@ -563,7 +564,7 @@ func TestCBCRMAC(t *testing.T) {
 		if err != nil {
 			t.Errorf("#%d: failed to create cipher: %v", i, err)
 		}
-		mac := NewCBCRMAC(block, 16)
+		mac := cbcmac.NewCBCRMAC(block, 16)
 		tag := mac.MAC(c.src)
 		if !bytes.Equal(tag, c.tag) {
 			t.Errorf("#%d: expect tag %x, got %x", i, c.tag, tag)
@@ -576,34 +577,34 @@ func TestMustPanic(t *testing.T) {
 		key := make([]byte, 16)
 		block, _ := sm4.NewCipher(key)
 		cryptotest.MustPanic(t, "cbcmac: invalid size", func() {
-			NewCBCMAC(block, 0)
-			NewCBCMAC(block, 17)
-			NewEMAC(sm4.NewCipher, key, key, 0)
-			NewEMAC(sm4.NewCipher, key, key, 17)
-			NewANSIRetailMAC(sm4.NewCipher, key, key, 0)
-			NewANSIRetailMAC(sm4.NewCipher, key, key, 17)
-			NewMACDES(sm4.NewCipher, key, key, 0)
-			NewMACDES(sm4.NewCipher, key, key, 17)
-			NewCMAC(block, 0)
-			NewCMAC(block, 17)
-			NewLMAC(sm4.NewCipher, key, 0)
-			NewLMAC(sm4.NewCipher, key, 17)
-			NewTRCBCMAC(block, 0)
-			NewTRCBCMAC(block, 17)
-			NewCBCRMAC(block, 0)
-			NewCBCRMAC(block, 17)
+			cbcmac.NewCBCMAC(block, 0)
+			cbcmac.NewCBCMAC(block, 17)
+			cbcmac.NewEMAC(sm4.NewCipher, key, key, 0)
+			cbcmac.NewEMAC(sm4.NewCipher, key, key, 17)
+			cbcmac.NewANSIRetailMAC(sm4.NewCipher, key, key, 0)
+			cbcmac.NewANSIRetailMAC(sm4.NewCipher, key, key, 17)
+			cbcmac.NewMACDES(sm4.NewCipher, key, key, 0)
+			cbcmac.NewMACDES(sm4.NewCipher, key, key, 17)
+			cbcmac.NewCMAC(block, 0)
+			cbcmac.NewCMAC(block, 17)
+			cbcmac.NewLMAC(sm4.NewCipher, key, 0)
+			cbcmac.NewLMAC(sm4.NewCipher, key, 17)
+			cbcmac.NewTRCBCMAC(block, 0)
+			cbcmac.NewTRCBCMAC(block, 17)
+			cbcmac.NewCBCRMAC(block, 0)
+			cbcmac.NewCBCRMAC(block, 17)
 		})
 	})
 	t.Run("invalid key size", func(t *testing.T) {
 		key := make([]byte, 16)
 		cryptotest.MustPanic(t, "cbcmac: invalid size", func() {
-			NewEMAC(sm4.NewCipher, key[:15], key, 8)
-			NewEMAC(sm4.NewCipher, key, key[:15], 8)
-			NewANSIRetailMAC(sm4.NewCipher, key[:15], key, 8)
-			NewANSIRetailMAC(sm4.NewCipher, key, key[:15], 8)
-			NewMACDES(sm4.NewCipher, key[:15], key, 8)
-			NewMACDES(sm4.NewCipher, key, key[:15], 8)
-			NewLMAC(sm4.NewCipher, key[:15], 8)
+			cbcmac.NewEMAC(sm4.NewCipher, key[:15], key, 8)
+			cbcmac.NewEMAC(sm4.NewCipher, key, key[:15], 8)
+			cbcmac.NewANSIRetailMAC(sm4.NewCipher, key[:15], key, 8)
+			cbcmac.NewANSIRetailMAC(sm4.NewCipher, key, key[:15], 8)
+			cbcmac.NewMACDES(sm4.NewCipher, key[:15], key, 8)
+			cbcmac.NewMACDES(sm4.NewCipher, key, key[:15], 8)
+			cbcmac.NewLMAC(sm4.NewCipher, key[:15], 8)
 		})
 	})
 
@@ -737,7 +738,7 @@ func TestCMACAES(t *testing.T) {
 		if err != nil {
 			t.Errorf("#%d: failed to create cipher: %v", i, err)
 		}
-		mac := NewCMAC(block, v.tagsize)
+		mac := cbcmac.NewCMAC(block, v.tagsize)
 		tag := mac.MAC(msg)
 		if !bytes.Equal(tag, hash) {
 			t.Errorf("#%d: expect tag %x, got %x", i, hash, tag)
@@ -753,7 +754,7 @@ func TestCMACHash(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			return NewCMAC(block, 16)
+			return cbcmac.NewCMAC(block, 16)
 		})
 	})
 }
@@ -777,7 +778,7 @@ func BenchmarkAESCMAC1K(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	benchmarkSize(NewCMAC(block, 16), b, 1024)
+	benchmarkSize(cbcmac.NewCMAC(block, 16), b, 1024)
 }
 
 func BenchmarkSM4CMAC1K(b *testing.B) {
@@ -786,5 +787,5 @@ func BenchmarkSM4CMAC1K(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	benchmarkSize(NewCMAC(block, 16), b, 1024)
+	benchmarkSize(cbcmac.NewCMAC(block, 16), b, 1024)
 }
