@@ -1,0 +1,32 @@
+name: Pre-Release Sync
+
+on:
+  workflow_dispatch: # Manual trigger
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  develop-to-main-sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: main
+
+      - name: Reset develop branch
+        run: |
+          git fetch origin develop:develop
+          git reset --hard develop
+
+      - name: Create PR from develop to main
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: "Merge develop into main"
+          body: "This PR merges changes from develop into main."
+          branch: sync-develop-to-main
+          delete-branch: true
