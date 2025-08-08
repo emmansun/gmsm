@@ -9,13 +9,16 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    target-branch: develop      
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: daily
+    target-branch: develop      
 
   - package-ecosystem: docker
     directory: /internal/sm2ec/fiat
     schedule:
       interval: daily
+    target-branch: develop      
