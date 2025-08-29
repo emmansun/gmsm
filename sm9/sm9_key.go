@@ -235,6 +235,13 @@ func (priv *SignPrivateKey) MasterPublic() *SignMasterPublicKey {
 	return &SignMasterPublicKey{internal: masterKey, publicKey: masterKey.Bytes()}
 }
 
+// SetMasterPublic sets the master public key for the SignPrivateKey.
+// The caller should ensure that the provided master public key is valid and corresponds
+// to the SignPrivateKey. This method is NOT safe for concurrent use.
+func (priv *SignPrivateKey) SetMasterPublic(master *SignMasterPublicKey) {
+	priv.internal.SetMasterPublicKey(master.internal)
+}
+
 // MarshalASN1 marshal signature private key to asn.1 format data according
 // SM9 cryptographic algorithm application specification
 func (priv *SignPrivateKey) MarshalASN1() ([]byte, error) {
@@ -461,6 +468,13 @@ func UnmarshalEncryptMasterPublicKeyASN1(der []byte) (*EncryptMasterPublicKey, e
 func (priv *EncryptPrivateKey) MasterPublic() *EncryptMasterPublicKey {
 	master := priv.internal.MasterPublic()
 	return &EncryptMasterPublicKey{publicKey: master.Bytes(), internal: master}
+}
+
+// SetMasterPublic sets the master public key for the EncryptPrivateKey.
+// The caller should ensure that the provided master public key is valid and corresponds
+// to the EncryptPrivateKey. This method is NOT safe for concurrent use.
+func (priv *EncryptPrivateKey) SetMasterPublic(master *EncryptMasterPublicKey) {
+	priv.internal.SetMasterPublicKey(master.internal)
 }
 
 // MarshalASN1 marshal encryption private key to asn.1 format data according
