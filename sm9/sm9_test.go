@@ -21,6 +21,13 @@ func TestSignASN1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Test Marshal and Unmarshal
+	userKeyBytes := userKey.Bytes()
+	userKey, err = sm9.UnmarshalSignPrivateKeyRaw(userKeyBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	userKey.SetMasterPublic(masterKey.PublicKey())
 	sig, err := userKey.Sign(rand.Reader, hashed, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -103,6 +110,13 @@ func TestEncryptDecrypt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Test Marshal and Unmarshal
+	userKeyBytes := userKey.Bytes()
+	userKey, err = sm9.UnmarshalEncryptPrivateKeyRaw(userKeyBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	userKey.SetMasterPublic(masterKey.PublicKey())
 	encTypes := []sm9.EncrypterOpts{
 		sm9.DefaultEncrypterOpts, sm9.SM4ECBEncrypterOpts, sm9.SM4CBCEncrypterOpts, sm9.SM4CFBEncrypterOpts, sm9.SM4OFBEncrypterOpts,
 	}
