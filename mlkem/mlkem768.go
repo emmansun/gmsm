@@ -37,6 +37,7 @@ const (
 	// ML-KEM global constants.
 	n = 256
 	q = 3329
+	maxBytesOf64Mulη = 192
 
 	// encodingSizeX is the byte size of a ringElement or nttElement encoded
 	// by ByteEncode_X (FIPS 203, Algorithm 5).

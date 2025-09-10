@@ -307,7 +307,7 @@ func ringDecodeAndDecompress10(bb *[encodingSize10]byte) ringElement {
 func ringCompressAndEncode(s []byte, f ringElement, d uint8) []byte {
 	var b byte
 	var bIdx uint8
-	for i := 0; i < n; i++ {
+	for i := range n {
 		c := compress(f[i], d)
 		var cIdx uint8
 		for cIdx < d {
@@ -401,8 +401,8 @@ func samplePolyCBD(s []byte, b, η byte) ringElement {
 	prf := sha3.NewSHAKE256()
 	prf.Write(s)
 	prf.Write([]byte{b})
-	B := make([]byte, 64*η)
-	prf.Read(B)
+	var B [maxBytesOf64Mulη]byte
+	prf.Read(B[:64*η])
 
 	// SamplePolyCBD simply draws four (2η) bits for each coefficient, and adds
 	// the first two and subtracts the last two.
@@ -419,20 +419,15 @@ func samplePolyCBD(s []byte, b, η byte) ringElement {
 		}
 	case 3:
 		for i := 0; i < n; i += 4 {
-			j := (i / 4) * 3
-			b := B[j]
-			b_7, b_6, b_5, b_4 := b>>7, b>>6&1, b>>5&1, b>>4&1
-			b_3, b_2, b_1, b_0 := b>>3&1, b>>2&1, b>>1&1, b&1
-			b = B[j+1]
-			b_15, b_14, b_13, b_12 := b>>7, b>>6&1, b>>5&1, b>>4&1
-			b_11, b_10, b_9, b_8 := b>>3&1, b>>2&1, b>>1&1, b&1
-			b = B[j+2]
-			b_23, b_22, b_21, b_20 := b>>7, b>>6&1, b>>5&1, b>>4&1
-			b_19, b_18, b_17, b_16 := b>>3&1, b>>2&1, b>>1&1, b&1
-			f[i] = fieldSub(fieldElement(b_0+b_1+b_2), fieldElement(b_3+b_4+b_5))
-			f[i+1] = fieldSub(fieldElement(b_6+b_7+b_8), fieldElement(b_9+b_10+b_11))
-			f[i+2] = fieldSub(fieldElement(b_12+b_13+b_14), fieldElement(b_15+b_16+b_17))
-			f[i+3] = fieldSub(fieldElement(b_18+b_19+b_20), fieldElement(b_21+b_22+b_23))
+			j := (i >> 2) * 3
+
+			bits := uint32(B[j]) | uint32(B[j+1])<<8 | uint32(B[j+2])<<16
+			for k := range 4 {
+				off := 6 * k
+				sum := ((bits >> off) & 1) + ((bits >> (off + 1)) & 1) + ((bits >> (off + 2)) & 1)
+				sub := ((bits >> (off + 3)) & 1) + ((bits >> (off + 4)) & 1) + ((bits >> (off + 5)) & 1)
+				f[i+k] = fieldSub(fieldElement(sum), fieldElement(sub))
+			}
 		}
 	}
 	return f
