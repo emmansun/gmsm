@@ -40,6 +40,8 @@ ShangMi (SM) cipher suites for Golang, referred to as **GMSM**, is a secure, hig
 
 - **DRBG** - Random Number Generation Using Deterministic Random Bit Generators, for detail, please reference **NIST Special Publication 800-90A** and **GM/T 0105-2021**: CTR-DRBG using derivation function and HASH-DRBG. NIST related implementations are tested with part of NIST provided test vectors. It's **NOT** concurrent safe! You can also use [randomness](https://github.com/Trisia/randomness) tool to check the generated random bits.
 
+- **MLKEM** - NIST FIPS 203 Module-Lattice-Based Key-Encapsulation Mechanism Standard.
+  
 - **MLDSA** - NIST FIPS 204 Module-Lattice-Based Digital Signature Standard.
 
 - **SLHDSA** - NIST FIPS 205 Stateless Hash-Based Digital Signature Standard

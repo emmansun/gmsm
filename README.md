@@ -53,6 +53,8 @@ Go语言商用密码软件，简称**GMSM**，一个安全、高性能、易于�
 
 - **DRBG** - 《GM/T 0105-2021软件随机数发生器设计指南》实现。本实现同时支持**NIST Special Publication 800-90A**（部分） 和 **GM/T 0105-2021**，NIST相关实现使用了NIST提供的测试数据进行测试。本实现**不支持并发使用**。
 
+- **MLKEM** - NIST FIPS 203  Module-Lattice-Based Key-Encapsulation Mechanism Standard实现，基于Golang标准库，支持所有三组参数集（ML-KEM-512/ML-KEM-768/ML-KEM-1024）。
+  
 - **MLDSA** - NIST FIPS 204 Module-Lattice-Based Digital Signature Standard实现。
 
 - **SLHDSA** - NIST FIPS 205 Stateless Hash-Based Digital Signature Standard实现。
