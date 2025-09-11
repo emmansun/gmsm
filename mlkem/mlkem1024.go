@@ -21,7 +21,7 @@ type DecapsulationKey1024 struct {
 	d [32]byte // decapsulation key seed
 	z [32]byte // implicit rejection sampling seed
 
-	ρ [32]byte // sampleNTT seed for A, stored for the encapsulation key
+	ρ [32]byte // rho, sampleNTT seed for A, stored for the encapsulation key
 	h [32]byte // H(ek), stored for ML-KEM.Decaps_internal
 
 	encryptionKey1024
@@ -193,7 +193,7 @@ func kemKeyGen1024(dk *DecapsulationKey1024, d, z *[32]byte) {
 	g.Write(d[:])
 	g.Write([]byte{k1024}) // Module dimension as a domain separator.
 	G := g.Sum(make([]byte, 0, 64))
-	ρ, σ := G[:32], G[32:]
+	ρ, σ := G[:32], G[32:] // rho, sigma
 	dk.ρ = [32]byte(ρ)
 
 	A := &dk.a

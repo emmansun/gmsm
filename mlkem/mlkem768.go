@@ -35,8 +35,8 @@ import (
 
 const (
 	// ML-KEM global constants.
-	n = 256
-	q = 3329
+	n                = 256
+	q                = 3329
 	maxBytesOf64Mulη = 192
 
 	// encodingSizeX is the byte size of a ringElement or nttElement encoded
@@ -56,9 +56,9 @@ const (
 
 // ML-KEM-768 parameters.
 const (
-	k = 3
-	η1 = 2
-	η2 = 2
+	k  = 3
+	η1 = 2 // eta1
+	η2 = 2 // eta2
 
 	CiphertextSize768       = k*encodingSize10 + encodingSize4
 	EncapsulationKeySize768 = k*encodingSize12 + 32
@@ -67,7 +67,7 @@ const (
 
 // ML-KEM-512 parameters.
 const (
-	k512 = 2
+	k512   = 2
 	η1_512 = 3
 	η2_512 = 2
 
@@ -78,7 +78,7 @@ const (
 
 // ML-KEM-1024 parameters.
 const (
-	k1024 = 4
+	k1024   = 4
 	η1_1024 = 2
 	η2_1024 = 2
 
@@ -93,7 +93,7 @@ type DecapsulationKey768 struct {
 	d [32]byte // decapsulation key seed
 	z [32]byte // implicit rejection sampling seed
 
-	ρ [32]byte // sampleNTT seed for A, stored for the encapsulation key
+	ρ [32]byte // rho, sampleNTT seed for A, stored for the encapsulation key
 	h [32]byte // H(ek), stored for ML-KEM.Decaps_internal
 
 	encryptionKey
@@ -265,7 +265,7 @@ func kemKeyGen(dk *DecapsulationKey768, d, z *[32]byte) {
 	g.Write(d[:])
 	g.Write([]byte{k}) // Module dimension as a domain separator.
 	G := g.Sum(make([]byte, 0, 64))
-	ρ, σ := G[:32], G[32:]
+	ρ, σ := G[:32], G[32:] // rho, sigma
 	dk.ρ = [32]byte(ρ)
 
 	A := &dk.a
