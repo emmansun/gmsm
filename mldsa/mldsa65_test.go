@@ -70,6 +70,10 @@ func TestKeyGen65(t *testing.T) {
 		if !priv.Equal(priv2) {
 			t.Errorf("Private key not equal: got %x, want %x", privBytes, priv2.Bytes())
 		}
+		pub3 := priv2.PublicKey()
+		if !pub.Equal(pub3) {
+			t.Errorf("Public key from private key not equal")
+		}
 	}
 }
 
@@ -232,7 +236,7 @@ func TestSignWithPreHash65(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewPrivateKey65 failed: %v", err)
 		}
-		sig2, err := priv.SignWithPreHash(zeroReader, msg, context, c.oid)
+		sig2, err := priv.Sign(zeroReader, msg, &Options{context, c.oid})
 		if err != nil {
 			t.Fatalf("failed to sign: %v", err)
 		}
@@ -249,7 +253,7 @@ func TestSignWithPreHash65(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewPublicKey65 failed: %v", err)
 		}
-		if !pub.VerifyWithPreHash(sig, msg, context, c.oid) {
+		if !pub.VerifyWithOptions(sig, msg, &Options{context, c.oid}) {
 			t.Error("signature verification failed")
 		}
 	}
@@ -294,7 +298,7 @@ func TestVerify65(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewPublicKey65 failed: %v", err)
 		}
-		if pub.Verify(sig, msg, ctx) != c.passed {
+		if pub.VerifyWithOptions(sig, msg, &Options{Context: ctx}) != c.passed {
 			t.Errorf("Verify failed")
 		}
 	}
@@ -341,10 +345,11 @@ func BenchmarkVerify65(b *testing.B) {
 	if err != nil {
 		b.Fatalf("NewPublicKey65 failed: %v", err)
 	}
+	opts := &Options{Context: ctx}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		if !pub.Verify(sig, msg, ctx) {
+		if !pub.VerifyWithOptions(sig, msg, opts) {
 			b.Errorf("Verify failed")
 		}
 	}

@@ -7,6 +7,7 @@
 package mldsa
 
 import (
+	"crypto"
 	"crypto/sha256"
 	"crypto/sha3"
 	"crypto/sha512"
@@ -89,4 +90,13 @@ func preHash(oid asn1.ObjectIdentifier, data []byte) ([]byte, error) {
 	h.Write(data)
 	oidBytes, _ := asn1.Marshal(oid)
 	return h.Sum(oidBytes), nil
+}
+
+type Options struct {
+	Context    []byte
+	PrehashOID asn1.ObjectIdentifier
+}
+
+func (opts *Options) HashFunc() crypto.Hash {
+	return crypto.Hash(0)
 }

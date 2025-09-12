@@ -109,11 +109,26 @@ type PrivateKey44 struct {
 	s1         [l44]ringElement // private secret of size L with short coefficients (-4..4) or (-2..2)
 	s2         [k44]ringElement // private secret of size K with short coefficients (-4..4) or (-2..2)
 	t0         [k44]ringElement // the Polynomial encoding of the 13 LSB of each coefficient of the uncompressed public key polynomial t. This is saved as part of the private key.
+	t1         [k44]ringElement // the Polynomial encoding of the 10 MSB of each coefficient of the uncompressed public key polynomial t. This is saved as part of the public key.
 	s1NTTCache [l44]nttElement
 	s2NTTCache [k44]nttElement
 	t0NTTCache [k44]nttElement
 	a          [k44 * l44]nttElement // a is generated and stored in NTT representation
 	nttOnce    sync.Once
+	t1Once     sync.Once
+}
+
+// PublicKey returns the public key corresponding to the private key.
+// Although we can derive the public key from the private key,
+// but we do NOT need to derive it at most of the time.
+func (sk *PrivateKey44) PublicKey() crypto.PublicKey {
+	sk.ensureT1()
+	return &PublicKey44{
+		rho: sk.rho,
+		t1:  sk.t1,
+		tr:  sk.tr,
+		a:   sk.a,
+	}
 }
 
 func (sk *PrivateKey44) ensureNTT() {
@@ -130,11 +145,36 @@ func (sk *PrivateKey44) ensureNTT() {
 	})
 }
 
+func (sk *PrivateKey44) ensureT1() {
+	sk.ensureNTT()
+	sk.t1Once.Do(func() {
+		// t = NTT_inv(A' * NTT(s1)) + s2
+		s1NTT := sk.s1NTTCache
+		A := sk.a
+		s2 := sk.s2
+		var nttT [k44]nttElement
+
+		for i := range nttT {
+			for j := range s1NTT {
+				nttT[i] = polyAdd(nttT[i], nttMul(s1NTT[j], A[i*l44+j]))
+			}
+		}
+		var t [k44]ringElement
+		t1 := &sk.t1
+		for i := range nttT {
+			t[i] = polyAdd(inverseNTT(nttT[i]), s2[i])
+			// compress t
+			for j := range n {
+				t1[i][j], _ = power2Round(t[i][j])
+			}
+		}
+	})
+}
+
 // A Key44 is the key pair for the ML-DSA-44 signature scheme.
 type Key44 struct {
 	PrivateKey44
-	xi [32]byte         // input seed
-	t1 [k44]ringElement // the Polynomial encoding of the 10 MSB of each coefficient of the uncompressed public key polynomial t. This is saved as part of the public key.
+	xi [32]byte // input seed
 }
 
 // A PublicKey44 is the public key for the ML-DSA-44 signature scheme.
@@ -158,12 +198,21 @@ func (sk *Key44) PublicKey() *PublicKey44 {
 	}
 }
 
+// Seed returns a byte slice of the secret key's seed value.
+func (sk *Key44) Seed() []byte {
+	var b [SeedSize]byte
+	copy(b[:], sk.xi[:])
+	return b[:]
+}
+
 func (pk *PublicKey44) Equal(x crypto.PublicKey) bool {
 	xx, ok := x.(*PublicKey44)
 	if !ok {
 		return false
 	}
-	return pk.rho == xx.rho && pk.t1 == xx.t1
+	b1 := pk.Bytes()
+	b2 := xx.Bytes()
+	return subtle.ConstantTimeCompare(b1, b2) == 1
 }
 
 // Bytes converts the PublicKey44 instance into a byte slice.
@@ -194,15 +243,6 @@ func (pk *PublicKey44) ensureNTT() {
 	})
 }
 
-// Bytes returns the byte representation of the PrivateKey44.
-// It copies the internal seed (xi) into a fixed-size byte array
-// and returns it as a slice.
-func (sk *Key44) Bytes() []byte {
-	var b [SeedSize]byte
-	copy(b[:], sk.xi[:])
-	return b[:]
-}
-
 // Bytes converts the PrivateKey44 instance into a byte slice.
 // See FIPS 204, Algorithm 24, skEncode()
 func (sk *PrivateKey44) Bytes() []byte {
@@ -231,8 +271,9 @@ func (sk *PrivateKey44) Equal(x any) bool {
 	if !ok {
 		return false
 	}
-	return sk.rho == xx.rho && sk.k == xx.k && sk.tr == xx.tr &&
-		sk.s1 == xx.s1 && sk.s2 == xx.s2 && sk.t0 == xx.t0
+	b1 := sk.Bytes()
+	b2 := xx.Bytes()
+	return subtle.ConstantTimeCompare(b1, b2) == 1
 }
 
 // GenerateKey44 generates a new Key44 (ML-DSA-44) using the provided random source.
@@ -284,17 +325,17 @@ func dsaKeyGen44(sk *Key44, xi *[32]byte) {
 	s1 := &sk.s1
 	s2 := &sk.s2
 	// Algorithm 33, ExpandS
-	for s := byte(0); s < l44; s++ {
+	for s := range byte(l44) {
 		s1[s] = rejBoundedPoly(rho1, eta2, 0, s)
 	}
-	for r := byte(0); r < k44; r++ {
+	for r := range byte(k44) {
 		s2[r] = rejBoundedPoly(rho1, eta2, 0, r+l44)
 	}
 
 	// Using rho generate A' = A in NTT form
 	A := &sk.a
 	// Algorithm 32, ExpandA
-	for r := byte(0); r < k44; r++ {
+	for r := range byte(k44) {
 		for s := byte(0); s < l44; s++ {
 			A[r*l44+s] = rejNTTPoly(rho, s, r)
 		}
@@ -355,8 +396,8 @@ func parsePublicKey44(pk *PublicKey44, b []byte) (*PublicKey44, error) {
 	A := &pk.a
 	rho := pk.rho[:]
 	// Algorithm 32, ExpandA
-	for r := byte(0); r < k44; r++ {
-		for s := byte(0); s < l44; s++ {
+	for r := range byte(k44) {
+		for s := range byte(l44) {
 			A[r*l44+s] = rejNTTPoly(rho, s, r)
 		}
 	}
@@ -404,32 +445,42 @@ func parsePrivateKey44(sk *PrivateKey44, b []byte) (*PrivateKey44, error) {
 	A := &sk.a
 	rho := sk.rho[:]
 	// Algorithm 32, ExpandA
-	for r := byte(0); r < k44; r++ {
-		for s := byte(0); s < l44; s++ {
+	for r := range byte(k44) {
+		for s := range byte(l44) {
 			A[r*l44+s] = rejNTTPoly(rho, s, r)
 		}
 	}
 	return sk, nil
 }
 
-// Sign generates a digital signature for the given message and context using the private key.
-// It uses a random seed generated from the provided random source.
+// Sign signs the provided digest using the private key. It is a wrapper around SignMessage.
+// It satisfies the crypto.Signer interface.
+func (sk *PrivateKey44) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
+	return sk.SignMessage(rand, digest, opts)
+}
+
+// SignMessage signs a message with the private key.
+// It satisfies the crypto.MessageSigner interface.
 //
-// Parameters:
-//   - rand: An io.Reader used to generate a random seed for signing.
-//   - message: The message to be signed. Must not be empty.
-//   - context: An optional context for domain separation. Must not exceed 255 bytes.
-//
-// Returns:
-//   - A byte slice containing the generated signature.
-//   - An error if the message is empty, the context is too long, or if there is an issue
-//     reading from the random source.
-//
-// Note:
-//   - The function uses SHAKE256 from the SHA-3 family for hashing.
-//   - The signing process involves generating a unique seed and a hash-based
-//     message digest (mu) before delegating to the internal signing function.
-func (sk *PrivateKey44) Sign(rand io.Reader, message, context []byte) ([]byte, error) {
+// The function supports pre-hashing the message by providing a hash OID in the options.
+// Context data can also be provided, but is limited to 255 bytes.
+func (sk *PrivateKey44) SignMessage(rand io.Reader, message []byte, opts crypto.SignerOpts) ([]byte, error) {
+	var (
+		context   []byte
+		hashOID   asn1.ObjectIdentifier
+		indicator byte = 0
+	)
+	if opts, ok := opts.(*Options); ok {
+		context = opts.Context
+		hashOID = opts.PrehashOID
+	}
+	if len(hashOID) != 0 {
+		var err error
+		if message, err = preHash(hashOID, message); err != nil {
+			return nil, err
+		}
+		indicator = 1
+	}
 	if len(message) == 0 {
 		return nil, errors.New("mldsa: empty message")
 	}
@@ -442,44 +493,11 @@ func (sk *PrivateKey44) Sign(rand io.Reader, message, context []byte) ([]byte, e
 	}
 	H := sha3.NewSHAKE256()
 	H.Write(sk.tr[:])
-	H.Write([]byte{0, byte(len(context))})
+	H.Write([]byte{indicator, byte(len(context))})
 	if len(context) > 0 {
 		H.Write(context)
 	}
 	H.Write(message)
-	var mu [64]byte
-	H.Read(mu[:])
-
-	return sk.signInternal(seed[:], mu[:])
-}
-
-// SignWithPreHash generates a digital signature for the given message
-// using the private key and additional context. It uses a given hashing algorithm
-// from the OID to pre-hash the message before signing.
-// It is similar to Sign but allows for pre-hashing the message.
-func (sk *PrivateKey44) SignWithPreHash(rand io.Reader, message, context []byte, oid asn1.ObjectIdentifier) ([]byte, error) {
-	if len(message) == 0 {
-		return nil, errors.New("mldsa: empty message")
-	}
-	if len(context) > 255 {
-		return nil, errors.New("mldsa: context too long")
-	}
-	preHashValue, err := preHash(oid, message)
-	if err != nil {
-		return nil, err
-	}
-	var seed [SeedSize]byte
-	if _, err := io.ReadFull(rand, seed[:]); err != nil {
-		return nil, err
-	}
-
-	H := sha3.NewSHAKE256()
-	H.Write(sk.tr[:])
-	H.Write([]byte{1, byte(len(context))})
-	if len(context) > 0 {
-		H.Write(context)
-	}
-	H.Write(preHashValue)
 	var mu [64]byte
 	H.Read(mu[:])
 
@@ -596,9 +614,25 @@ func (sk *PrivateKey44) signInternal(seed, mu []byte) ([]byte, error) {
 	}
 }
 
-// Verify checks the validity of a given signature for a message and context
-// using the public key.
-func (pk *PublicKey44) Verify(sig []byte, message, context []byte) bool {
+// VerifyWithOptions verifies a signature against a message using the public key with additional options.
+func (pk *PublicKey44) VerifyWithOptions(sig []byte, message []byte, opts crypto.SignerOpts) bool {
+	var (
+		context   []byte
+		hashOID   asn1.ObjectIdentifier
+		indicator byte = 0
+	)
+	if opts, ok := opts.(*Options); ok {
+		context = opts.Context
+		hashOID = opts.PrehashOID
+	}
+	if len(hashOID) != 0 {
+		var err error
+		if message, err = preHash(hashOID, message); err != nil {
+			return false
+		}
+		indicator = 1
+	}
+
 	if len(message) == 0 {
 		return false
 	}
@@ -610,40 +644,11 @@ func (pk *PublicKey44) Verify(sig []byte, message, context []byte) bool {
 	}
 	H := sha3.NewSHAKE256()
 	H.Write(pk.tr[:])
-	H.Write([]byte{0, byte(len(context))})
+	H.Write([]byte{indicator, byte(len(context))})
 	if len(context) > 0 {
 		H.Write(context)
 	}
 	H.Write(message)
-	var mu [64]byte
-	H.Read(mu[:])
-
-	return pk.verifyInternal(sig, mu[:])
-}
-
-// VerifyWithPreHash verifies a signature using a message and additional context.
-// It uses a given hashing algorithm from the OID to pre-hash the message before verifying.
-func (pk *PublicKey44) VerifyWithPreHash(sig []byte, message, context []byte, oid asn1.ObjectIdentifier) bool {
-	if len(message) == 0 {
-		return false
-	}
-	if len(context) > 255 {
-		return false
-	}
-	if len(sig) != sigEncodedLen44 {
-		return false
-	}
-	preHashValue, err := preHash(oid, message)
-	if err != nil {
-		return false
-	}
-	H := sha3.NewSHAKE256()
-	H.Write(pk.tr[:])
-	H.Write([]byte{1, byte(len(context))})
-	if len(context) > 0 {
-		H.Write(context)
-	}
-	H.Write(preHashValue)
 	var mu [64]byte
 	H.Read(mu[:])
 
