@@ -17,6 +17,9 @@ import (
 	"sync"
 )
 
+var _ crypto.Signer = (*PrivateKey65)(nil)
+var _ crypto.Signer = (*Key65)(nil)
+
 // A PrivateKey65 is the private key for the ML-DSA-65 signature scheme.
 type PrivateKey65 struct {
 	rho        [32]byte         // public random seed
@@ -34,10 +37,10 @@ type PrivateKey65 struct {
 	t1Once     sync.Once
 }
 
-// PublicKey returns the public key corresponding to the private key.
+// Public returns the public key corresponding to the private key.
 // Although we can derive the public key from the private key,
 // but we do NOT need to derive it at most of the time.
-func (sk *PrivateKey65) PublicKey() crypto.PublicKey {
+func (sk *PrivateKey65) Public() crypto.PublicKey {
 	sk.ensureT1()
 	return &PublicKey65{
 		rho: sk.rho,
@@ -103,9 +106,9 @@ type PublicKey65 struct {
 	nttOnce   sync.Once
 }
 
-// PublicKey generates and returns the corresponding public key for the given
+// Public generates and returns the corresponding public key for the given
 // Key65 instance.
-func (sk *Key65) PublicKey() *PublicKey65 {
+func (sk *Key65) Public() crypto.PublicKey {
 	return &PublicKey65{
 		rho: sk.rho,
 		t1:  sk.t1,
@@ -126,9 +129,9 @@ func (pk *PublicKey65) Equal(x crypto.PublicKey) bool {
 	if !ok {
 		return false
 	}
-	b1 := pk.Bytes()
-	b2 := xx.Bytes()
-	return subtle.ConstantTimeCompare(b1, b2) == 1
+	eq := subtle.ConstantTimeCompare(pk.rho[:], xx.rho[:]) &
+		constantTimeEqualRingElementArray(pk.t1[:], xx.t1[:])
+	return eq == 1
 }
 
 // Bytes converts the PublicKey65 instance into a byte slice.
@@ -187,9 +190,13 @@ func (sk *PrivateKey65) Equal(x any) bool {
 	if !ok {
 		return false
 	}
-	b1 := sk.Bytes()
-	b2 := xx.Bytes()
-	return subtle.ConstantTimeCompare(b1, b2) == 1
+	eq := subtle.ConstantTimeCompare(sk.rho[:], xx.rho[:]) &
+		subtle.ConstantTimeCompare(sk.k[:], xx.k[:]) &
+		subtle.ConstantTimeCompare(sk.tr[:], xx.tr[:]) &
+		constantTimeEqualRingElementArray(sk.s1[:], xx.s1[:]) &
+		constantTimeEqualRingElementArray(sk.s2[:], xx.s2[:]) &
+		constantTimeEqualRingElementArray(sk.t0[:], xx.t0[:])
+	return eq == 1
 }
 
 // GenerateKey65 generates a new Key65 (ML-DSA-65) using the provided random source.
@@ -279,7 +286,7 @@ func dsaKeyGen65(sk *Key65, xi *[32]byte) {
 		}
 	}
 	H.Reset()
-	ek := sk.PublicKey().Bytes()
+	ek := sk.Public().(*PublicKey65).Bytes()
 	H.Write(ek)
 	H.Read(sk.tr[:])
 }

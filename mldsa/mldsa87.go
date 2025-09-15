@@ -17,6 +17,9 @@ import (
 	"sync"
 )
 
+var _ crypto.Signer = (*PrivateKey87)(nil)
+var _ crypto.Signer = (*Key87)(nil)
+
 // A PrivateKey87 is the private key for the ML-DSA-87 signature scheme.
 type PrivateKey87 struct {
 	rho        [32]byte         // public random seed
@@ -34,10 +37,10 @@ type PrivateKey87 struct {
 	t1Once     sync.Once
 }
 
-// PublicKey returns the public key corresponding to the private key.
+// Public returns the public key corresponding to the private key.
 // Although we can derive the public key from the private key,
 // but we do NOT need to derive it at most of the time.
-func (sk *PrivateKey87) PublicKey() crypto.PublicKey {
+func (sk *PrivateKey87) Public() crypto.PublicKey {
 	sk.ensureT1()
 	return &PublicKey87{
 		rho: sk.rho,
@@ -103,9 +106,9 @@ type PublicKey87 struct {
 	nttOnce   sync.Once
 }
 
-// PublicKey generates and returns the corresponding public key for the given
+// Public generates and returns the corresponding public key for the given
 // Key87 instance.
-func (sk *Key87) PublicKey() *PublicKey87 {
+func (sk *Key87) Public() crypto.PublicKey {
 	return &PublicKey87{
 		rho: sk.rho,
 		t1:  sk.t1,
@@ -126,9 +129,9 @@ func (pk *PublicKey87) Equal(x crypto.PublicKey) bool {
 	if !ok {
 		return false
 	}
-	b1 := pk.Bytes()
-	b2 := xx.Bytes()
-	return subtle.ConstantTimeCompare(b1, b2) == 1
+	eq := subtle.ConstantTimeCompare(pk.rho[:], xx.rho[:]) &
+		constantTimeEqualRingElementArray(pk.t1[:], xx.t1[:])
+	return eq == 1
 }
 
 // Bytes converts the PublicKey87 instance into a byte slice.
@@ -187,9 +190,13 @@ func (sk *PrivateKey87) Equal(x any) bool {
 	if !ok {
 		return false
 	}
-	b1 := sk.Bytes()
-	b2 := xx.Bytes()
-	return subtle.ConstantTimeCompare(b1, b2) == 1
+	eq := subtle.ConstantTimeCompare(sk.rho[:], xx.rho[:]) &
+		subtle.ConstantTimeCompare(sk.k[:], xx.k[:]) &
+		subtle.ConstantTimeCompare(sk.tr[:], xx.tr[:]) &
+		constantTimeEqualRingElementArray(sk.s1[:], xx.s1[:]) &
+		constantTimeEqualRingElementArray(sk.s2[:], xx.s2[:]) &
+		constantTimeEqualRingElementArray(sk.t0[:], xx.t0[:])
+	return eq == 1
 }
 
 // GenerateKey87 generates a new Key87 (ML-DSA-87) using the provided random source.
@@ -279,7 +286,7 @@ func dsaKeyGen87(sk *Key87, xi *[32]byte) {
 		}
 	}
 	H.Reset()
-	ek := sk.PublicKey().Bytes()
+	ek := sk.Public().(*PublicKey87).Bytes()
 	H.Write(ek)
 	H.Read(sk.tr[:])
 }

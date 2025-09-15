@@ -101,6 +101,9 @@ const (
 	sigEncodedLen87 = lambda256/4 + encodingSize20*l87 + omega75 + k87
 )
 
+var _ crypto.Signer = (*PrivateKey44)(nil)
+var _ crypto.Signer = (*Key44)(nil)
+
 // A PrivateKey44 is the private key for the ML-DSA-44 signature scheme.
 type PrivateKey44 struct {
 	rho        [32]byte         // public random seed
@@ -118,10 +121,10 @@ type PrivateKey44 struct {
 	t1Once     sync.Once
 }
 
-// PublicKey returns the public key corresponding to the private key.
+// Public returns the public key corresponding to the private key.
 // Although we can derive the public key from the private key,
 // but we do NOT need to derive it at most of the time.
-func (sk *PrivateKey44) PublicKey() crypto.PublicKey {
+func (sk *PrivateKey44) Public() crypto.PublicKey {
 	sk.ensureT1()
 	return &PublicKey44{
 		rho: sk.rho,
@@ -187,9 +190,9 @@ type PublicKey44 struct {
 	nttOnce   sync.Once
 }
 
-// PublicKey generates and returns the corresponding public key for the given
+// Public generates and returns the corresponding public key for the given
 // Key44 instance.
-func (sk *Key44) PublicKey() *PublicKey44 {
+func (sk *Key44) Public() crypto.PublicKey {
 	return &PublicKey44{
 		rho: sk.rho,
 		t1:  sk.t1,
@@ -210,9 +213,9 @@ func (pk *PublicKey44) Equal(x crypto.PublicKey) bool {
 	if !ok {
 		return false
 	}
-	b1 := pk.Bytes()
-	b2 := xx.Bytes()
-	return subtle.ConstantTimeCompare(b1, b2) == 1
+	eq := subtle.ConstantTimeCompare(pk.rho[:], xx.rho[:]) &
+		constantTimeEqualRingElementArray(pk.t1[:], xx.t1[:])
+	return eq == 1
 }
 
 // Bytes converts the PublicKey44 instance into a byte slice.
@@ -271,9 +274,13 @@ func (sk *PrivateKey44) Equal(x any) bool {
 	if !ok {
 		return false
 	}
-	b1 := sk.Bytes()
-	b2 := xx.Bytes()
-	return subtle.ConstantTimeCompare(b1, b2) == 1
+	eq := subtle.ConstantTimeCompare(sk.rho[:], xx.rho[:]) &
+		subtle.ConstantTimeCompare(sk.k[:], xx.k[:]) &
+		subtle.ConstantTimeCompare(sk.tr[:], xx.tr[:]) &
+		constantTimeEqualRingElementArray(sk.s1[:], xx.s1[:]) &
+		constantTimeEqualRingElementArray(sk.s2[:], xx.s2[:]) &
+		constantTimeEqualRingElementArray(sk.t0[:], xx.t0[:])
+	return eq == 1
 }
 
 // GenerateKey44 generates a new Key44 (ML-DSA-44) using the provided random source.
@@ -363,7 +370,7 @@ func dsaKeyGen44(sk *Key44, xi *[32]byte) {
 		}
 	}
 	H.Reset()
-	ek := sk.PublicKey().Bytes()
+	ek := sk.Public().(*PublicKey44).Bytes()
 	H.Write(ek)
 	H.Read(sk.tr[:])
 }

@@ -7,17 +7,41 @@
 package slhdsa
 
 import (
+	"crypto"
 	"errors"
+	"io"
 )
+
+var _ crypto.Signer = (*PrivateKey)(nil)
+
+type Options struct {
+	Context []byte
+	AddRand []byte // optional randomness to be added to the signature. If nil, the signature is deterministic.
+}
+
+func (opts *Options) HashFunc() crypto.Hash {
+	return crypto.Hash(0)
+}
+
+// Sign produces a signature of the message using the private key.
+// It is a wrapper around the SignMessage method, implementing the crypto.Signer interface.
+func (sk *PrivateKey) Sign(rand io.Reader, message []byte, opts crypto.SignerOpts) ([]byte, error) {
+	return sk.SignMessage(rand, message, opts)
+}
 
 // Sign generates a pure SLH-DSA signature for the given message.
 // The signature is deterministic if the addRand parameter is nil.
 // If addRand is not nil, it must be of the same length as n.
 //
 // See FIPS 205 Algorithm 22 slh_sign
-func (sk *PrivateKey) Sign(message, context, addRand []byte) ([]byte, error) {
+func (sk *PrivateKey) SignMessage(rand io.Reader, message []byte, opts crypto.SignerOpts) ([]byte, error) {
 	if len(message) == 0 {
 		return nil, errors.New("slhdsa: empty message")
+	}
+	var context, addRand []byte
+	if opts, ok := opts.(*Options); ok {
+		context = opts.Context
+		addRand = opts.AddRand
 	}
 	if len(addRand) > 0 && len(addRand) != int(sk.params.n) {
 		return nil, errors.New("slhdsa: addrnd should be nil (deterministic variant) or of length n")
@@ -85,9 +109,13 @@ func (sk *PrivateKey) signInternal(msgPrefix, message, addRand []byte) ([]byte, 
 // Verify verifies a pure SLH-DSA signature for the given message.
 //
 // See FIPS 205 Algorithm 24 slh_verify
-func (pk *PublicKey) Verify(signature, message, context []byte) bool {
+func (pk *PublicKey) VerifyWithOptions(signature, message []byte, opts crypto.SignerOpts) bool {
 	if len(message) == 0 {
 		return false
+	}
+	var context []byte
+	if opts, ok := opts.(*Options); ok {
+		context = opts.Context
 	}
 	if len(context) > maxContextLen {
 		return false

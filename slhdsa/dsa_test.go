@@ -75,7 +75,7 @@ func testData(t *testing.T, filename string, tc *slhtest) {
 	if err != nil {
 		t.Fatalf("%v NewPrivateKey(%x) = %v", filename, skBytes, err)
 	}
-	sig2, err := privKey.Sign(message, context, addRand)
+	sig2, err := privKey.Sign(nil, message, &Options{context, addRand})
 	if err != nil {
 		t.Fatalf("%v Sign(%x,%x) = %v", filename, message, context, err)
 	}
@@ -104,7 +104,7 @@ func testData(t *testing.T, filename string, tc *slhtest) {
 	if err != nil {
 		t.Fatalf("%v NewPublicKey(%x) = %v", filename, pkBytes, err)
 	}
-	if !pub.Verify(sigOriginal, message, context) {
+	if !pub.VerifyWithOptions(sigOriginal, message, &Options{Context: context}) {
 		t.Errorf("%v Verify() = false, want true", filename)
 	}
 }

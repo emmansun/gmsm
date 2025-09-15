@@ -46,7 +46,7 @@ func TestKeyGen44(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewPrivateKey44 failed: %v", err)
 		}
-		pub := priv.PublicKey()
+		pub := priv.Public().(*PublicKey44)
 		pubBytes := pub.Bytes()
 		if !bytes.Equal(pubBytes, pk) {
 			t.Errorf("Public key mismatch: got %x, want %x", pubBytes, pk)
@@ -70,7 +70,7 @@ func TestKeyGen44(t *testing.T) {
 		if !priv.Equal(priv2) {
 			t.Errorf("Private key not equal: got %x, want %x", privBytes, priv2.Bytes())
 		}
-		pub3 := priv2.PublicKey()
+		pub3 := priv2.Public()
 		if !pub.Equal(pub3) {
 			t.Errorf("Public key from private key not equal")
 		}
@@ -127,6 +127,7 @@ func TestSign44(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewPrivateKey44 failed: %v", err)
 		}
+
 		sig2, err := priv.signInternal(seed[:], mu)
 		if err != nil {
 			t.Fatalf("failed to sign: %v", err)

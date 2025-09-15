@@ -46,7 +46,7 @@ func TestKeyGen87(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewPrivateKey65 failed: %v", err)
 		}
-		pub := priv.PublicKey()
+		pub := priv.Public().(*PublicKey87)
 		pubBytes := pub.Bytes()
 		if !bytes.Equal(pubBytes, pk) {
 			t.Errorf("Public key mismatch: got %x, want %x", pubBytes, pk)
@@ -70,7 +70,7 @@ func TestKeyGen87(t *testing.T) {
 		if !priv.Equal(priv2) {
 			t.Errorf("Private key not equal: got %x, want %x", privBytes, priv2.Bytes())
 		}
-		pub3 := priv2.PublicKey()
+		pub3 := priv2.Public()
 		if !pub.Equal(pub3) {
 			t.Errorf("Public key from private key not equal")
 		}

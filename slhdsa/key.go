@@ -7,6 +7,7 @@
 package slhdsa
 
 import (
+	"crypto"
 	"crypto/sha256"
 	"crypto/sha3"
 	"crypto/sha512"
@@ -69,7 +70,7 @@ func (sk *PrivateKey) Bytes() []byte {
 }
 
 // Public returns the public key of the private key.
-func (sk *PrivateKey) Public() *PublicKey {
+func (sk *PrivateKey) Public() crypto.PublicKey {
 	return &sk.PublicKey
 }
 
