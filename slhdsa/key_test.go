@@ -8,6 +8,7 @@ package slhdsa
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/hex"
 	"testing"
 )
