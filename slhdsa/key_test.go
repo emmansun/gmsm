@@ -137,3 +137,13 @@ func TestGenerateKeyInternal(t *testing.T) {
 		}
 	}
 }
+
+func TestGenerateKey(t *testing.T) {
+	for _, tc := range keyCases {
+		_, err := tc.params.GenerateKey(rand.Reader)
+		if err != nil {
+			t.Errorf("params.GenerateKey() = %v", err)
+			continue
+		}
+	}
+}
