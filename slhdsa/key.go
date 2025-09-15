@@ -7,6 +7,7 @@
 package slhdsa
 
 import (
+	"crypto"
 	"crypto/sha256"
 	"crypto/sha3"
 	"crypto/sha512"
@@ -69,7 +70,7 @@ func (sk *PrivateKey) Bytes() []byte {
 }
 
 // Public returns the public key of the private key.
-func (sk *PrivateKey) Public() *PublicKey {
+func (sk *PrivateKey) Public() crypto.PublicKey {
 	return &sk.PublicKey
 }
 
@@ -101,7 +102,7 @@ func GenerateKey(rand io.Reader, params *params) (*PrivateKey, error) {
 	if _, err := io.ReadFull(rand, priv.PublicKey.seed[:params.n]); err != nil {
 		return nil, err
 	}
-	return generateKeyInernal(priv.seed[:], priv.prf[:], priv.PublicKey.seed[:], params)
+	return generateKeyInernal(priv.seed[:params.n], priv.prf[:params.n], priv.PublicKey.seed[:params.n], params)
 }
 
 // NewPrivateKey creates a new PrivateKey instance from the provided priv.seed||priv.prf||pub.seed||pub.root and parameters.

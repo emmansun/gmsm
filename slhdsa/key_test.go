@@ -8,6 +8,7 @@ package slhdsa
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/hex"
 	"testing"
 )
@@ -134,6 +135,16 @@ func TestGenerateKeyInternal(t *testing.T) {
 
 		if !bytes.Equal(privKey.PublicKey.root[:tc.params.n], pkRoot) {
 			t.Errorf("generateKeyInernal(%x,%x,%x) = %x, expected=%x", skSeed, skPRF, pkSeed, privKey.PublicKey.root[:tc.params.n], pkRoot)
+		}
+	}
+}
+
+func TestGenerateKey(t *testing.T) {
+	for _, tc := range keyCases {
+		_, err := tc.params.GenerateKey(rand.Reader)
+		if err != nil {
+			t.Errorf("params.GenerateKey() = %v", err)
+			continue
 		}
 	}
 }

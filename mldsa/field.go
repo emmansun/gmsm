@@ -243,3 +243,19 @@ func vectorCountOnes(a []ringElement) int {
 	}
 	return oneCount
 }
+
+func constantTimeEqualRingElement(a, b ringElement) int {
+    var res int32
+    for i := range a {
+        res |= int32(a[i] ^ b[i])
+    }
+    return subtle.ConstantTimeByteEq(byte(res|(-res)>>31), 0)
+}
+
+func constantTimeEqualRingElementArray(a, b []ringElement) int {
+    eq := 1
+    for i := range a {
+        eq &= constantTimeEqualRingElement(a[i], b[i])
+    }
+    return eq
+}
