@@ -2,6 +2,7 @@ package zuc
 
 import (
 	"crypto/subtle"
+	"errors"
 
 	"github.com/emmansun/gmsm/internal/alias"
 	"github.com/emmansun/gmsm/internal/byteorder"
@@ -24,6 +25,20 @@ type eea struct {
 	states     []*zucState32    // internal states for seek
 	stateIndex int              // current state index, for test usage
 	bucketSize int              // size of the state bucket, 0 means no bucket
+}
+
+const (
+	magic         = "zuceea"
+	stateSize     = (16 + 6) * 4 // zucState32 size in bytes
+	minMarshaledSize = len(magic) + stateSize + 8 + 4*3
+)
+
+// NewEmptyCipher creates and returns a new empty ZUC-EEA cipher instance.
+// This function initializes an empty eea struct that can be used for
+// unmarshaling a previously saved state using the UnmarshalBinary method.
+// The returned cipher instance is not ready for encryption or decryption.
+func NewEmptyCipher() *eea {
+	return new(eea)
 }
 
 // NewCipher creates a stream cipher based on key and iv aguments.
@@ -55,6 +70,114 @@ func NewCipherWithBucketSize(key, iv []byte, bucketSize int) (*eea, error) {
 		c.bucketSize = ((bucketSize + RoundBytes - 1) / RoundBytes) * RoundBytes
 	}
 	return c, nil
+}
+
+func appendState(b []byte, e *zucState32) []byte {
+	for i := range 16 {
+		b = byteorder.BEAppendUint32(b, e.lfsr[i])
+	}
+	b = byteorder.BEAppendUint32(b, e.r1)
+	b = byteorder.BEAppendUint32(b, e.r2)
+	b = byteorder.BEAppendUint32(b, e.x0)
+	b = byteorder.BEAppendUint32(b, e.x1)
+	b = byteorder.BEAppendUint32(b, e.x2)
+	b = byteorder.BEAppendUint32(b, e.x3)
+
+	return b
+}
+
+func (e *eea) MarshalBinary() ([]byte, error) {
+	return e.AppendBinary(make([]byte, 0, minMarshaledSize))
+}
+
+func (e *eea) AppendBinary(b []byte) ([]byte, error) {
+	b = append(b, magic...)
+	b = appendState(b, &e.zucState32)
+	b = byteorder.BEAppendUint32(b, uint32(e.xLen))
+	b = byteorder.BEAppendUint64(b, e.used)
+	b = byteorder.BEAppendUint32(b, uint32(e.stateIndex))
+	b = byteorder.BEAppendUint32(b, uint32(e.bucketSize))
+	if e.xLen > 0 {
+		b = append(b, e.x[:e.xLen]...)
+	}
+	for _, state := range e.states {
+		b = appendState(b, state)
+	}
+	return b, nil
+}
+
+func unmarshalState(b []byte, e *zucState32) []byte {
+	for i := range 16 {
+		b, e.lfsr[i] = consumeUint32(b)
+	}
+	b, e.r1 = consumeUint32(b)
+	b, e.r2 = consumeUint32(b)
+	b, e.x0 = consumeUint32(b)
+	b, e.x1 = consumeUint32(b)
+	b, e.x2 = consumeUint32(b)
+	b, e.x3 = consumeUint32(b)
+	return b
+}
+
+func UnmarshalCipher(b []byte) (*eea, error) {
+	var e eea
+	if err := e.UnmarshalBinary(b); err != nil {
+		return nil, err
+	}
+	return &e, nil
+}
+
+func (e *eea) UnmarshalBinary(b []byte) error {
+	if len(b) < len(magic) || (string(b[:len(magic)]) != magic) {
+		return errors.New("zuc: invalid eea state identifier")
+	}
+	if len(b) < minMarshaledSize {
+		return errors.New("zuc: invalid eea state size")
+	}
+	b = b[len(magic):]
+	b = unmarshalState(b, &e.zucState32)
+	var tmpUint32 uint32
+	b, tmpUint32 = consumeUint32(b)
+	e.xLen = int(tmpUint32)
+	b, e.used = consumeUint64(b)
+	b, tmpUint32 = consumeUint32(b)
+	e.stateIndex = int(tmpUint32)
+	b, tmpUint32 = consumeUint32(b)
+	e.bucketSize = int(tmpUint32)
+	if e.xLen < 0 || e.xLen > RoundBytes {
+		return errors.New("zuc: invalid eea remaining bytes length")
+	}
+	if e.xLen > 0 {
+		if len(b) < e.xLen {
+			return errors.New("zuc: invalid eea remaining bytes")
+		}
+		copy(e.x[:e.xLen], b[:e.xLen])
+		b = b[e.xLen:]
+	}
+	statesCount := len(b) / stateSize
+	if len(b)%stateSize != 0 {
+		return errors.New("zuc: invalid eea states size")
+	}
+
+	for range statesCount {
+		var state zucState32
+		b = unmarshalState(b, &state)
+		e.states = append(e.states, &state)
+	}
+
+	if e.stateIndex >= len(e.states) {
+		return errors.New("zuc: invalid eea state index")
+	}
+
+	return nil
+}
+
+func consumeUint64(b []byte) ([]byte, uint64) {
+	return b[8:], byteorder.BEUint64(b)
+}
+
+func consumeUint32(b []byte) ([]byte, uint32) {
+	return b[4:], byteorder.BEUint32(b)
 }
 
 // reference GB/T 33133.2-2021 A.2
