@@ -1,3 +1,7 @@
+// Copyright 2025 Sun Yimin. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
 package cipher
 
 import (
@@ -70,13 +74,12 @@ func (g *mur) Overhead() int {
 
 // Seal encrypts and authenticates plaintext, authenticates the
 // additional data and appends the result to dst, returning the updated
-// slice. The nonce must be NonceSize() bytes long and unique for all
-// time, for a given key.
+// slice. 
 //
 // To reuse plaintext's storage for the encrypted output, use plaintext[:0]
 // as dst. Otherwise, the remaining capacity of dst must not overlap plaintext.
 // dst and additionalData may not overlap.
-func (g *mur) Seal(iv, key1, key2, dst, plaintext, additionalData []byte) ([]byte, error) {
+func (g *mur) Seal(iv, dataKey, tagKey, dst, plaintext, additionalData []byte) ([]byte, error) {
 	ret, out := alias.SliceForAppend(dst, len(plaintext)+g.tagSize)
 	if alias.InexactOverlap(out, plaintext) {
 		panic("cipher: invalid buffer overlap")
@@ -95,7 +98,7 @@ func (g *mur) Seal(iv, key1, key2, dst, plaintext, additionalData []byte) ([]byt
 	copy(tmpIV[:], iv)
 	g.murAuth(tmpIV[:], plaintext, additionalData)
 	subtle.XORBytes(tmpIV[:], tmpIV[:], iv)
-	tagStream, err := g.streamCipherCreator(key2, tmpIV[:ivLen])
+	tagStream, err := g.streamCipherCreator(tagKey, tmpIV[:ivLen])
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +106,7 @@ func (g *mur) Seal(iv, key1, key2, dst, plaintext, additionalData []byte) ([]byt
 
 	clear(tmpIV[:])
 	subtle.XORBytes(tmpIV[:], iv, tag[:])
-	dataStream, err := g.streamCipherCreator(key1, tmpIV[:ivLen])
+	dataStream, err := g.streamCipherCreator(dataKey, tmpIV[:ivLen])
 	if err != nil {
 		return nil, err
 	}
@@ -114,9 +117,8 @@ func (g *mur) Seal(iv, key1, key2, dst, plaintext, additionalData []byte) ([]byt
 
 // Open decrypts and authenticates ciphertext, authenticates the
 // additional data and, if successful, appends the resulting plaintext
-// to dst, returning the updated slice. The nonce must be NonceSize()
-// bytes long and both it and the additional data must match the
-// value passed to Seal.
+// to dst, returning the updated slice. The iv, dataKey, tagKey
+// and the additional data must match the value passed to Seal.
 //
 // To reuse ciphertext's storage for the decrypted output, use ciphertext[:0]
 // as dst. Otherwise, the remaining capacity of dst must not overlap ciphertext.
@@ -124,7 +126,7 @@ func (g *mur) Seal(iv, key1, key2, dst, plaintext, additionalData []byte) ([]byt
 //
 // Even if the function fails, the contents of dst, up to its capacity,
 // may be overwritten.
-func (g *mur) Open(iv, key1, key2, dst, ciphertext, additionalData []byte) ([]byte, error) {
+func (g *mur) Open(iv, dataKey, tagKey, dst, ciphertext, additionalData []byte) ([]byte, error) {
 	if len(ciphertext) < g.tagSize {
 		return nil, errOpen
 	}
@@ -148,7 +150,7 @@ func (g *mur) Open(iv, key1, key2, dst, ciphertext, additionalData []byte) ([]by
 	}
 	copy(tmpIV[:], tag)
 	subtle.XORBytes(tmpIV[:], iv, tmpIV[:])
-	dataStream, err := g.streamCipherCreator(key1, tmpIV[:ivLen])
+	dataStream, err := g.streamCipherCreator(dataKey, tmpIV[:ivLen])
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +159,7 @@ func (g *mur) Open(iv, key1, key2, dst, ciphertext, additionalData []byte) ([]by
 	clear(tmpIV[:])
 	g.murAuth(tmpIV[:], out, additionalData)
 	subtle.XORBytes(tmpIV[:], tmpIV[:], iv)
-	tagStream, err := g.streamCipherCreator(key2, tmpIV[:ivLen])
+	tagStream, err := g.streamCipherCreator(tagKey, tmpIV[:ivLen])
 	if err != nil {
 		return nil, err
 	}

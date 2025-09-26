@@ -1,3 +1,7 @@
+// Copyright 2025 Sun Yimin. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
 package cipher
 
 import (
@@ -19,12 +23,16 @@ type gxm struct {
 }
 
 // NewGXM creates a new GXM instance using the provided cipher stream and hash key.
-// It uses the default tag size of 16 bytes.
+// It uses the default tag size of 16 bytes. 
+//
+// Due to the nature of GXM, the same stream cipher instance should not be reused.
 func NewGXM(stream cipher.Stream, hkey []byte) (*gxm, error) {
 	return NewGXMWithTagSize(stream, hkey, 16)
 }
 
 // NewGXMWithTagSize creates a new instance of GXM (Galois XOR Mode) with a specified tag size.
+//
+// Due to the nature of GXM, the same stream cipher instance should not be reused.
 func NewGXMWithTagSize(stream cipher.Stream, hkey []byte, tagSize int) (*gxm, error) {
 	if len(hkey) != ghashBlockSize {
 		return nil, errors.New("cipher: invalid hash key length")
@@ -65,8 +73,7 @@ func (g *gxm) Overhead() int {
 
 // Seal encrypts and authenticates plaintext, authenticates the
 // additional data and appends the result to dst, returning the updated
-// slice. The nonce must be NonceSize() bytes long and unique for all
-// time, for a given key.
+// slice. 
 //
 // To reuse plaintext's storage for the encrypted output, use plaintext[:0]
 // as dst. Otherwise, the remaining capacity of dst must not overlap plaintext.
@@ -87,8 +94,7 @@ func (g *gxm) Seal(dst, plaintext, additionalData []byte) []byte {
 
 // Open decrypts and authenticates ciphertext, authenticates the
 // additional data and, if successful, appends the resulting plaintext
-// to dst, returning the updated slice. The nonce must be NonceSize()
-// bytes long and both it and the additional data must match the
+// to dst, returning the updated slice. The additional data must match the
 // value passed to Seal.
 //
 // To reuse ciphertext's storage for the decrypted output, use ciphertext[:0]
