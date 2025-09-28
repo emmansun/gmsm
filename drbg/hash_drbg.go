@@ -222,3 +222,10 @@ func (hd *HashDrbg) derive(seedMaterial []byte, len int) []byte {
 	}
 	return k
 }
+
+// Destroy 根据 GM/T 0105-2021 B.2 对内部状态进行清零处理
+// 内部状态组成为 {V,C, reseed_counter, last_reseed_time,reseed_interval_in_counter, reseed_interval_in_time}
+func (hd *HashDrbg) Destroy() {
+	hd.BaseDrbg.Destroy()
+	setZero(hd.c)
+}

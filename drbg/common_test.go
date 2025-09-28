@@ -95,7 +95,6 @@ func TestNistHashDrbgPrng(t *testing.T) {
 	}
 }
 
-
 func TestNistHmacDrbgPrng(t *testing.T) {
 	prng, err := NewNistHmacDrbgPrng(sha256.New, nil, 32, SECURITY_LEVEL_TEST, nil)
 	if err != nil {
@@ -119,5 +118,26 @@ func TestGMSecurityStrengthValidation(t *testing.T) {
 	_, err = NewGmCtrDrbgPrng(nil, 24, SECURITY_LEVEL_TEST, nil)
 	if err == nil {
 		t.Fatalf("expected error here")
+	}
+}
+
+func Test_setZero(t *testing.T) {
+
+	cases := []struct {
+		name string
+		args []byte
+	}{
+		{"nil", nil},
+		{"empty", []byte{}},
+		{"normal", []byte{1, 2, 3, 4, 5}},
+		{"large", bytes.Repeat([]byte{1, 2, 3, 4, 5}, 100)},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			setZero(tt.args)
+			if !bytes.Equal(tt.args, make([]byte, len(tt.args))) {
+				t.Errorf("setZero() = %v, want %v", tt.args, make([]byte, len(tt.args)))
+			}
+		})
 	}
 }

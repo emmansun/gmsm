@@ -2,6 +2,7 @@ package drbg
 
 import (
 	"bytes"
+	"crypto/rand"
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
@@ -247,5 +248,21 @@ func TestGmHashDRBG_Validation(t *testing.T) {
 	err = hd.Reseed(entropyInput[:16], nil)
 	if err == nil {
 		t.Fatalf("expected error here")
+	}
+}
+
+func TestHashDrbg_Destroy(t *testing.T) {
+	entropyInput := make([]byte, 64)
+	_, _ = rand.Reader.Read(entropyInput)
+	hd, err := NewHashDrbg(sm3.New, SECURITY_LEVEL_ONE, true, entropyInput[:32], entropyInput[32:48], nil)
+	if err != nil {
+		t.Errorf("NewHashDrbg failed: %v", err)
+	}
+	hd.Destroy()
+	if !bytes.Equal(hd.c, make([]byte, len(hd.c))) {
+		t.Errorf("Destroy failed: v not zeroed")
+	}
+	if !bytes.Equal(hd.v, make([]byte, len(hd.v))) {
+		t.Errorf("Destroy failed: key not zeroed")
 	}
 }
