@@ -53,3 +53,18 @@ func NewCipherWithBucketSize(key, iv []byte, bucketSize int) (cipher.SeekableStr
 func NewEEACipherWithBucketSize(key []byte, count, bearer, direction uint32, bucketSize int) (cipher.SeekableStream, error) {
 	return zuc.NewEEACipherWithBucketSize(key, count, bearer, direction, bucketSize)
 }
+
+// NewEmptyEEACipher creates and returns a new empty ZUC-EEA cipher instance.
+// This function initializes an empty eea struct that can be used for
+// unmarshaling a previously saved state using the UnmarshalBinary method.
+// The returned cipher instance is not ready for encryption or decryption.
+func NewEmptyEEACipher() cipher.SeekableStream {
+	return zuc.NewEmptyCipher()
+}
+
+// UnmarshalEEACipher reconstructs a ZUC cipher instance from a serialized byte slice.
+// It attempts to deserialize the provided data into a seekable stream cipher
+// that can be used for encryption/decryption operations.
+func UnmarshalEEACipher(data []byte) (cipher.SeekableStream, error) {
+	return zuc.UnmarshalCipher(data)
+}

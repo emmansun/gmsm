@@ -3,6 +3,7 @@ package zuc
 import (
 	"bytes"
 	"crypto/cipher"
+	"encoding"
 	"encoding/hex"
 	"testing"
 
@@ -113,9 +114,12 @@ func TestXORStreamAt(t *testing.T) {
 				t.Errorf("expected=%x, result=%x\n", expected[32:64], dst[32:64])
 			}
 		}
+		data, _ := c.(encoding.BinaryMarshaler).MarshalBinary()
+		c2 := NewEmptyEEACipher()
+		c2.(encoding.BinaryUnmarshaler).UnmarshalBinary(data)
 		for i := 1; i < 4; i++ {
 			c.XORKeyStreamAt(dst[:i], src[:i], 0)
-			c.XORKeyStreamAt(dst[32:64], src[32:64], 32)
+			c2.XORKeyStreamAt(dst[32:64], src[32:64], 32)
 			if !bytes.Equal(dst[32:64], expected[32:64]) {
 				t.Errorf("expected=%x, result=%x\n", expected[32:64], dst[32:64])
 			}
@@ -128,8 +132,10 @@ func TestXORStreamAt(t *testing.T) {
 		if !bytes.Equal(dst[3:16], expected[3:16]) {
 			t.Errorf("expected=%x, result=%x\n", expected[3:16], dst[3:16])
 		}
+		data, _ := c.(encoding.BinaryMarshaler).MarshalBinary()
+		c2, _ := UnmarshalEEACipher(data)
 		c.XORKeyStreamAt(dst[:1], src[:1], 0)
-		c.XORKeyStreamAt(dst[4:16], src[4:16], 4)
+		c2.XORKeyStreamAt(dst[4:16], src[4:16], 4)
 		if !bytes.Equal(dst[4:16], expected[4:16]) {
 			t.Errorf("expected=%x, result=%x\n", expected[3:16], dst[3:16])
 		}
