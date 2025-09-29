@@ -7,9 +7,10 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
-	"github.com/emmansun/gmsm/sm3"
 	"hash"
 	"testing"
+
+	"github.com/emmansun/gmsm/sm3"
 )
 
 var hmactests = []struct {

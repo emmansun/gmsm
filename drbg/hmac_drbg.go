@@ -154,8 +154,8 @@ func (hd *HmacDrbg) update(byteSlices ...[]byte) error {
 	return nil
 }
 
-// Destroy 根据 GM/T 0105-2021 E.2 对内部状态进行清零处理
-// 内部状态组成为 {V,Key, reseed_counter, last_reseed_time,reseed_interval_in_counter, reseed_interval_in_time}
+// Destroy destroys the internal state of HMAC DRBG instance
+// HMAC的RNG内部状态组成为 {V,Key, reseed_counter, last_reseed_time,reseed_interval_in_counter, reseed_interval_in_time}
 func (hd *HmacDrbg) Destroy() {
 	hd.BaseDrbg.Destroy()
 	setZero(hd.key)
