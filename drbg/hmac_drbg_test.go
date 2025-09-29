@@ -2,12 +2,15 @@ package drbg
 
 import (
 	"bytes"
+	"crypto/rand"
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
 	"hash"
 	"testing"
+
+	"github.com/emmansun/gmsm/sm3"
 )
 
 var hmactests = []struct {
@@ -800,5 +803,21 @@ func TestHmacDRBG(t *testing.T) {
 		if !bytes.Equal(hd.key, hexDecode(tt.k3)) {
 			t.Errorf("Generate case %v failed: k3 does not match", i)
 		}
+	}
+}
+
+func TestHmacDrbg_Destroy(t *testing.T) {
+	entropyInput := make([]byte, 64)
+	_, _ = rand.Reader.Read(entropyInput)
+	hd, err := NewHmacDrbg(sm3.New, SECURITY_LEVEL_ONE, true, entropyInput[:32], entropyInput[32:48], nil)
+	if err != nil {
+		t.Errorf("NewHmacDrbg failed: %v", err)
+	}
+	hd.Destroy()
+	if !bytes.Equal(hd.key, make([]byte, len(hd.key))) {
+		t.Errorf("Destroy failed: v not zeroed")
+	}
+	if !bytes.Equal(hd.v, make([]byte, len(hd.v))) {
+		t.Errorf("Destroy failed: key not zeroed")
 	}
 }

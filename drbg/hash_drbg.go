@@ -222,3 +222,10 @@ func (hd *HashDrbg) derive(seedMaterial []byte, len int) []byte {
 	}
 	return k
 }
+
+// Destroy destroys the internal state of DRBG instance
+// HASH 内部状态组成为 {V,C, reseed_counter, last_reseed_time,reseed_interval_in_counter, reseed_interval_in_time}
+func (hd *HashDrbg) Destroy() {
+	hd.BaseDrbg.Destroy()
+	setZero(hd.c)
+}
