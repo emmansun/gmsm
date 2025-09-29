@@ -265,20 +265,20 @@ func (hd *BaseDrbg) setSecurityLevel(securityLevel SecurityLevel) {
 // Destroy 对 GM/T 0105-2021 B.2、E.2 对内部状态进行清零处理
 // 内部状态组成为 {V,C, reseed_counter, last_reseed_time,reseed_interval_in_counter, reseed_interval_in_time}
 // 内部状态组成为 {V,Key, reseed_counter, last_reseed_time,reseed_interval_in_counter, reseed_interval_in_time}
-func (cd *BaseDrbg) Destroy() {
-	setZero(cd.v)
-	cd.seedLength = 0
+func (hd *BaseDrbg) Destroy() {
+	setZero(hd.v)
+	hd.seedLength = 0
 	for i := 0; i < 3; i++ {
 		// 使用原子操作防止编译器优化
-		atomic.StoreUint64(&cd.reseedCounter, 0xFFFFFFFFFFFFFFFF)
-		atomic.StoreUint64(&cd.reseedCounter, 0x00)
-		atomic.StoreUint64(&cd.reseedIntervalInCounter, 0xFFFFFFFFFFFFFFFF)
-		atomic.StoreUint64(&cd.reseedIntervalInCounter, 0x00)
+		atomic.StoreUint64(&hd.reseedCounter, 0xFFFFFFFFFFFFFFFF)
+		atomic.StoreUint64(&hd.reseedCounter, 0x00)
+		atomic.StoreUint64(&hd.reseedIntervalInCounter, 0xFFFFFFFFFFFFFFFF)
+		atomic.StoreUint64(&hd.reseedIntervalInCounter, 0x00)
 		// 将 reseedIntervalInTime 设置内存屏障，防止编译器优化
-		cd.reseedIntervalInTime = time.Duration(1<<63 - 1)
-		runtime.KeepAlive(&cd.reseedIntervalInTime)
-		cd.reseedIntervalInTime = time.Duration(0)
-		cd.reseedTime = time.Now()
+		hd.reseedIntervalInTime = time.Duration(1<<63 - 1)
+		runtime.KeepAlive(&hd.reseedIntervalInTime)
+		hd.reseedIntervalInTime = time.Duration(0)
+		hd.reseedTime = time.Now()
 	}
 }
 
