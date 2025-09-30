@@ -162,7 +162,7 @@ func (cd *CtrDrbg) update(seedMaterial []byte) {
 	v := make([]byte, outlen)
 	output := make([]byte, outlen)
 	copy(v, cd.v)
-	for i := range (cd.seedLength+outlen-1)/outlen {
+	for i := range (cd.seedLength + outlen - 1) / outlen {
 		// V = (V + 1) mod 2^outlen
 		addOne(v, outlen)
 		// output_block = Encrypt(Key, V)
@@ -221,4 +221,11 @@ func (cd *CtrDrbg) bcc(block cipher.Block, data []byte) []byte {
 		block.Encrypt(chainingValue, chainingValue)
 	}
 	return chainingValue
+}
+
+// Destroy destroys the internal state of DRBG instance
+// working_state = {V, Key, reseed_counter, last_reseed_time,reseed_interval_in_counter, reseed_interval_in_time}
+func (cd *CtrDrbg) Destroy() {
+	cd.BaseDrbg.Destroy()
+	setZero(cd.key)
 }

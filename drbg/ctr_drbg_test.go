@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/rand"
 	"encoding/hex"
 	"testing"
 
@@ -301,5 +302,21 @@ func TestGmCtrDRBG_Validation(t *testing.T) {
 	err = hd.Reseed(entropyInput[:16], nil)
 	if err == nil {
 		t.Fatalf("expected error here")
+	}
+}
+
+func TestCtrDrbg_Destroy(t *testing.T) {
+	entropyInput := make([]byte, 64)
+	_, _ = rand.Reader.Read(entropyInput)
+	cd, err := NewCtrDrbg(sm4.NewCipher, 16, SECURITY_LEVEL_ONE, true, entropyInput[:32], entropyInput[32:64], nil)
+	if err != nil {
+		t.Fatalf("NewCtrDrbg failed: %v", err)
+	}
+	cd.Destroy()
+	if !bytes.Equal(cd.key, make([]byte, len(cd.key))) {
+		t.Errorf("Destroy failed: v not zeroed")
+	}
+	if !bytes.Equal(cd.v, make([]byte, len(cd.v))) {
+		t.Errorf("Destroy failed: key not zeroed")
 	}
 }

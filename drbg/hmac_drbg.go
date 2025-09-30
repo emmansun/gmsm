@@ -153,3 +153,10 @@ func (hd *HmacDrbg) update(byteSlices ...[]byte) error {
 	hd.v = md.Sum(hd.v[:0])
 	return nil
 }
+
+// Destroy destroys the internal state of DRBG instance
+// working_state = {V, Key, reseed_counter, last_reseed_time,reseed_interval_in_counter, reseed_interval_in_time}
+func (hd *HmacDrbg) Destroy() {
+	hd.BaseDrbg.Destroy()
+	setZero(hd.key)
+}

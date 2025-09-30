@@ -2,6 +2,7 @@ package zuc
 
 import (
 	"crypto/subtle"
+	"errors"
 
 	"github.com/emmansun/gmsm/internal/alias"
 	"github.com/emmansun/gmsm/internal/byteorder"
@@ -24,6 +25,20 @@ type eea struct {
 	states     []*zucState32    // internal states for seek
 	stateIndex int              // current state index, for test usage
 	bucketSize int              // size of the state bucket, 0 means no bucket
+}
+
+const (
+	magic            = "zuceea"
+	stateSize        = (16 + 6) * 4 // zucState32 size in bytes
+	minMarshaledSize = len(magic) + stateSize + 8 + 4*3
+)
+
+// NewEmptyCipher creates and returns a new empty ZUC-EEA cipher instance.
+// This function initializes an empty eea struct that can be used for
+// unmarshaling a previously saved state using the UnmarshalBinary method.
+// The returned cipher instance is not ready for encryption or decryption.
+func NewEmptyCipher() *eea {
+	return new(eea)
 }
 
 // NewCipher creates a stream cipher based on key and iv aguments.
@@ -55,6 +70,114 @@ func NewCipherWithBucketSize(key, iv []byte, bucketSize int) (*eea, error) {
 		c.bucketSize = ((bucketSize + RoundBytes - 1) / RoundBytes) * RoundBytes
 	}
 	return c, nil
+}
+
+func appendState(b []byte, e *zucState32) []byte {
+	for i := range 16 {
+		b = byteorder.BEAppendUint32(b, e.lfsr[i])
+	}
+	b = byteorder.BEAppendUint32(b, e.r1)
+	b = byteorder.BEAppendUint32(b, e.r2)
+	b = byteorder.BEAppendUint32(b, e.x0)
+	b = byteorder.BEAppendUint32(b, e.x1)
+	b = byteorder.BEAppendUint32(b, e.x2)
+	b = byteorder.BEAppendUint32(b, e.x3)
+
+	return b
+}
+
+func (e *eea) MarshalBinary() ([]byte, error) {
+	return e.AppendBinary(make([]byte, 0, minMarshaledSize))
+}
+
+func (e *eea) AppendBinary(b []byte) ([]byte, error) {
+	b = append(b, magic...)
+	b = appendState(b, &e.zucState32)
+	b = byteorder.BEAppendUint32(b, uint32(e.xLen))
+	b = byteorder.BEAppendUint64(b, e.used)
+	b = byteorder.BEAppendUint32(b, uint32(e.stateIndex))
+	b = byteorder.BEAppendUint32(b, uint32(e.bucketSize))
+	if e.xLen > 0 {
+		b = append(b, e.x[:e.xLen]...)
+	}
+	for _, state := range e.states {
+		b = appendState(b, state)
+	}
+	return b, nil
+}
+
+func unmarshalState(b []byte, e *zucState32) []byte {
+	for i := range 16 {
+		b, e.lfsr[i] = consumeUint32(b)
+	}
+	b, e.r1 = consumeUint32(b)
+	b, e.r2 = consumeUint32(b)
+	b, e.x0 = consumeUint32(b)
+	b, e.x1 = consumeUint32(b)
+	b, e.x2 = consumeUint32(b)
+	b, e.x3 = consumeUint32(b)
+	return b
+}
+
+func UnmarshalCipher(b []byte) (*eea, error) {
+	var e eea
+	if err := e.UnmarshalBinary(b); err != nil {
+		return nil, err
+	}
+	return &e, nil
+}
+
+func (e *eea) UnmarshalBinary(b []byte) error {
+	if len(b) < len(magic) || (string(b[:len(magic)]) != magic) {
+		return errors.New("zuc: invalid eea state identifier")
+	}
+	if len(b) < minMarshaledSize {
+		return errors.New("zuc: invalid eea state size")
+	}
+	b = b[len(magic):]
+	b = unmarshalState(b, &e.zucState32)
+	var tmpUint32 uint32
+	b, tmpUint32 = consumeUint32(b)
+	e.xLen = int(tmpUint32)
+	b, e.used = consumeUint64(b)
+	b, tmpUint32 = consumeUint32(b)
+	e.stateIndex = int(tmpUint32)
+	b, tmpUint32 = consumeUint32(b)
+	e.bucketSize = int(tmpUint32)
+	if e.xLen < 0 || e.xLen > RoundBytes {
+		return errors.New("zuc: invalid eea remaining bytes length")
+	}
+	if e.xLen > 0 {
+		if len(b) < e.xLen {
+			return errors.New("zuc: invalid eea remaining bytes")
+		}
+		copy(e.x[:e.xLen], b[:e.xLen])
+		b = b[e.xLen:]
+	}
+	statesCount := len(b) / stateSize
+	if len(b)%stateSize != 0 {
+		return errors.New("zuc: invalid eea states size")
+	}
+
+	for range statesCount {
+		var state zucState32
+		b = unmarshalState(b, &state)
+		e.states = append(e.states, &state)
+	}
+
+	if e.stateIndex >= len(e.states) {
+		return errors.New("zuc: invalid eea state index")
+	}
+
+	return nil
+}
+
+func consumeUint64(b []byte) ([]byte, uint64) {
+	return b[8:], byteorder.BEUint64(b)
+}
+
+func consumeUint32(b []byte) ([]byte, uint32) {
+	return b[4:], byteorder.BEUint32(b)
 }
 
 // reference GB/T 33133.2-2021 A.2
@@ -153,20 +276,46 @@ func (c *eea) reset(offset uint64) {
 	c.used = n * uint64(c.bucketSize)
 }
 
-// seek sets the offset for the next XORKeyStream operation.
-//
-// If the offset is less than the current offset, the state will be reset to the initial state.
-// If the offset is equal to the current offset, the function behaves the same as XORKeyStream.
-// If the offset is greater than the current offset, the function will forward the state to the offset.
-// Note: This method is not thread-safe.
+// fastForward advances the ZUC cipher state to handle a given offset
+// without having to process each intermediate byte. This optimization
+// leverages precomputed states stored in buckets to move the cipher
+// state forward efficiently.
+func (c *eea) fastForward(offset uint64) {
+	// fast forward, check and adjust state if needed
+	var n uint64
+	if c.bucketSize > 0 {
+		n = offset / uint64(c.bucketSize)
+		expectedStateIndex := int(n)
+		if expectedStateIndex > c.stateIndex && expectedStateIndex < len(c.states) {
+			c.stateIndex = int(n)
+			c.zucState32 = *c.states[n]
+			c.xLen = 0
+			c.used = n * uint64(c.bucketSize)
+		}
+	}
+}
+
+// seek advances the internal state of the ZUC stream cipher to a given offset in the
+// key stream. It efficiently positions the cipher state to allow encryption or decryption
+// starting from the specified byte offset.
 func (c *eea) seek(offset uint64) {
+	// 1. fast forward to the nearest precomputed state
+	c.fastForward(offset)
+
+	// 2. check if need to reset and backward, regardless of bucketSize
 	if offset < c.used {
 		c.reset(offset)
 	}
+
+	// 3. if offset equals to c.used, nothing to do
 	if offset == c.used {
 		return
 	}
+
+	// 4. offset > used, need to forward
 	gap := offset - c.used
+
+	// 5. gap <= c.xLen, consume remaining key bytes, adjust buffer and return
 	if gap <= uint64(c.xLen) {
 		// offset is within the remaining key bytes
 		c.xLen -= int(gap)
@@ -177,14 +326,15 @@ func (c *eea) seek(offset uint64) {
 		}
 		return
 	}
-	// consumed all remaining key bytes first
+
+	// 6. gap > c.xLen, consume remaining key bytes first
 	if c.xLen > 0 {
 		c.used += uint64(c.xLen)
 		gap -= uint64(c.xLen)
 		c.xLen = 0
 	}
 
-	// forward the state to the offset
+	// 7. for the remaining gap, generate and discard key bytes in chunks
 	nextBucketOffset := c.bucketSize * len(c.states)
 	stepLen := uint64(RoundBytes)
 	var keyStream [RoundWords]uint32
@@ -198,6 +348,8 @@ func (c *eea) seek(offset uint64) {
 		}
 	}
 
+	// 8. finally consume remaining gap < RoundBytes
+	//    and save remaining key bytes if any
 	if gap > 0 {
 		var keyBytes [RoundBytes]byte
 		genKeyStreamRev32(keyBytes[:], &c.zucState32)

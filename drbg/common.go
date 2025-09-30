@@ -7,6 +7,8 @@ import (
 	"errors"
 	"hash"
 	"io"
+	"runtime"
+	"sync/atomic"
 	"time"
 
 	"github.com/emmansun/gmsm/sm3"
@@ -226,6 +228,8 @@ type DRBG interface {
 	Generate(b, additional []byte) error
 	// MaxBytesPerRequest return max bytes per request
 	MaxBytesPerRequest() int
+	// Destroy internal state
+	Destroy()
 }
 
 type BaseDrbg struct {
@@ -256,6 +260,26 @@ func (hd *BaseDrbg) setSecurityLevel(securityLevel SecurityLevel) {
 		hd.reseedIntervalInCounter = reseedCounterIntervalLevel1
 		hd.reseedIntervalInTime = reseedTimeIntervalLevel1
 	}
+}
+
+// Destroy securely clears all internal state data of the DRBG instance.
+//
+// This method should be called when the DRBG instance is no longer needed to
+// ensure sensitive data is removed from memory.
+//
+// References:
+// - GM/T 0105-2021 B.2, E.2: Specifies that internal states must be cleared when no longer needed.
+// - NIST SP 800-90A Rev.1: Recommends securely erasing sensitive data to prevent leakage.
+func (hd *BaseDrbg) Destroy() {
+	setZero(hd.v)
+	hd.seedLength = 0
+	atomic.StoreUint64(&hd.reseedCounter, 0xFFFFFFFFFFFFFFFF)
+	atomic.StoreUint64(&hd.reseedCounter, 0x00)
+	atomic.StoreUint64(&hd.reseedIntervalInCounter, 0xFFFFFFFFFFFFFFFF)
+	atomic.StoreUint64(&hd.reseedIntervalInCounter, 0x00)
+	hd.reseedTime = time.Time{}
+	atomic.StoreInt64((*int64)(&hd.reseedIntervalInTime), int64(1<<63-1))
+	atomic.StoreInt64((*int64)(&hd.reseedIntervalInTime), int64(0))
 }
 
 // Set security_strength to the lowest security strength greater than or equal to
@@ -290,5 +314,34 @@ func addOne(data []byte, len int) {
 		temp += uint16(data[i])
 		data[i] = byte(temp & 0xff)
 		temp >>= 8
+	}
+}
+
+// setZero securely erases the content of a byte slice by overwriting it multiple times.
+// It follows a secure erasure pattern by first writing 0xFF and then 0x00 to each byte
+// three times in succession. Memory barriers (via runtime.KeepAlive) are used between
+// operations to ensure write completion and prevent compiler optimizations from eliminating
+// the seemingly redundant writes.
+//
+// This function is used to clear sensitive data (like cryptographic keys or passwords)
+// from memory to minimize the risk of data exposure in memory dumps or through
+// side-channel attacks.
+//
+// If the provided slice is nil, the function returns immediately without action.
+func setZero(data []byte) {
+	if data == nil {
+		return
+	}
+	for range 3 {
+		for i := range data {
+			data[i] = 0xFF
+		}
+		runtime.KeepAlive(data)
+
+		clear(data)
+		// This should keep buf's backing array live and thus prevent dead store
+		// elimination, according to discussion at
+		// https://github.com/golang/go/issues/33325 .
+		runtime.KeepAlive(data)
 	}
 }

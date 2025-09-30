@@ -3,6 +3,7 @@ package zuc
 import (
 	"bytes"
 	"crypto/cipher"
+	"encoding"
 	"encoding/hex"
 	"testing"
 
@@ -113,9 +114,11 @@ func TestXORStreamAt(t *testing.T) {
 				t.Errorf("expected=%x, result=%x\n", expected[32:64], dst[32:64])
 			}
 		}
+		data, _ := c.MarshalBinary()
+		c2, _ := UnmarshalCipher(data)
 		for i := 1; i < 4; i++ {
 			c.XORKeyStreamAt(dst[:i], src[:i], 0)
-			c.XORKeyStreamAt(dst[32:64], src[32:64], 32)
+			c2.XORKeyStreamAt(dst[32:64], src[32:64], 32)
 			if !bytes.Equal(dst[32:64], expected[32:64]) {
 				t.Errorf("expected=%x, result=%x\n", expected[32:64], dst[32:64])
 			}
@@ -128,8 +131,10 @@ func TestXORStreamAt(t *testing.T) {
 		if !bytes.Equal(dst[3:16], expected[3:16]) {
 			t.Errorf("expected=%x, result=%x\n", expected[3:16], dst[3:16])
 		}
+		data, _ := c.MarshalBinary()
+		c2, _ := UnmarshalCipher(data)
 		c.XORKeyStreamAt(dst[:1], src[:1], 0)
-		c.XORKeyStreamAt(dst[4:16], src[4:16], 4)
+		c2.XORKeyStreamAt(dst[4:16], src[4:16], 4)
 		if !bytes.Equal(dst[4:16], expected[4:16]) {
 			t.Errorf("expected=%x, result=%x\n", expected[3:16], dst[3:16])
 		}
@@ -215,7 +220,7 @@ func TestEEAXORKeyStreamAtWithBucketSize(t *testing.T) {
 	src := make([]byte, 10000)
 	expected := make([]byte, 10000)
 	dst := make([]byte, 10000)
-	stateCount := 1 + (10000 + RoundBytes -1) / RoundBytes
+	stateCount := 1 + (10000+RoundBytes-1)/RoundBytes
 	noBucketCipher.XORKeyStream(expected, src)
 
 	t.Run("Make sure the cached states are used once backward", func(t *testing.T) {
@@ -270,7 +275,7 @@ func TestEEAXORKeyStreamAtWithBucketSize(t *testing.T) {
 		}
 		clear(dst)
 		bucketCipher.XORKeyStreamAt(dst[513:768], src[513:768], 513)
-		if bucketCipher.stateIndex != 0 {
+		if bucketCipher.stateIndex != 4 {
 			t.Fatalf("expected=%d, result=%d\n", 0, bucketCipher.stateIndex)
 		}
 		if len(bucketCipher.states) != 7 {
@@ -291,6 +296,134 @@ func TestEEAXORKeyStreamAtWithBucketSize(t *testing.T) {
 			t.Fatalf("expected=%x, result=%x\n", expected[512:768], dst[512:768])
 		}
 	})
+
+	t.Run("Rotate end to start, end to start", func(t *testing.T) {
+		bucketCipher, err := NewEEACipherWithBucketSize(key, zucEEATests[0].count, zucEEATests[0].bearer, zucEEATests[0].direction, 128)
+		if err != nil {
+			t.Error(err)
+		}
+		clear(dst)
+		for i := len(src) - RoundBytes; i >= 0; i -= RoundBytes {
+			offset := i
+			bucketCipher.XORKeyStreamAt(dst[offset:offset+RoundBytes], src[offset:offset+RoundBytes], uint64(offset))
+			if !bytes.Equal(expected[offset:offset+RoundBytes], dst[offset:offset+RoundBytes]) {
+				t.Fatalf("at %d, expected=%x, result=%x\n", offset, expected[offset:offset+RoundBytes], dst[offset:offset+RoundBytes])
+			}
+		}
+		clear(dst)
+		for i := len(src) - RoundBytes; i >= 0; i -= RoundBytes {
+			offset := i
+			bucketCipher.XORKeyStreamAt(dst[offset:offset+RoundBytes], src[offset:offset+RoundBytes], uint64(offset))
+			if !bytes.Equal(expected[offset:offset+RoundBytes], dst[offset:offset+RoundBytes]) {
+				t.Fatalf("at %d, expected=%x, result=%x\n", offset, expected[offset:offset+RoundBytes], dst[offset:offset+RoundBytes])
+			}
+		}
+	})
+}
+
+func TestMarshalUnmarshalBinary(t *testing.T) {
+	key := bytes.Repeat([]byte{0x11}, 16)
+	iv := bytes.Repeat([]byte{0x22}, 16)
+	c, err := NewCipher(key, iv)
+	if err != nil {
+		t.Fatalf("NewCipher failed: %v", err)
+	}
+
+	// Marshal and Unmarshal should round-trip
+	data, err := c.MarshalBinary()
+	if err != nil {
+		t.Fatalf("MarshalBinary failed: %v", err)
+	}
+
+	var c2 encoding.BinaryMarshaler
+	if c2, err = UnmarshalCipher(data); err != nil {
+		t.Fatalf("UnmarshalBinary failed: %v", err)
+	}
+
+	// Marshal again and compare
+	data2, err := c2.MarshalBinary()
+	if err != nil {
+		t.Fatalf("MarshalBinary (after unmarshal) failed: %v", err)
+	}
+	if !bytes.Equal(data, data2) {
+		t.Errorf("MarshalBinary output mismatch after round-trip")
+	}
+}
+
+func TestUnmarshalBinary_InvalidMagic(t *testing.T) {
+	key := bytes.Repeat([]byte{0x11}, 16)
+	iv := bytes.Repeat([]byte{0x22}, 16)
+	c, _ := NewCipher(key, iv)
+	data, _ := c.MarshalBinary()
+	data[0] ^= 0xFF // corrupt magic
+
+	_, err := UnmarshalCipher(data)
+	if err == nil || err.Error() != "zuc: invalid eea state identifier" {
+		t.Errorf("expected invalid eea state identifier error, got %v", err)
+	}
+}
+
+func TestUnmarshalBinary_ShortData(t *testing.T) {
+	_, err := UnmarshalCipher([]byte("zuceea"))
+	if err == nil || err.Error() != "zuc: invalid eea state size" {
+		t.Errorf("expected invalid eea state size error, got %v", err)
+	}
+}
+
+func TestUnmarshalBinary_InvalidXLen(t *testing.T) {
+	key := bytes.Repeat([]byte{0x11}, 16)
+	iv := bytes.Repeat([]byte{0x22}, 16)
+	c, _ := NewCipher(key, iv)
+	data, _ := c.MarshalBinary()
+	// corrupt xLen to an invalid value (e.g. 9999)
+	xLenOffset := len(magic) + stateSize
+	copy(data[xLenOffset:], bytes.Repeat([]byte{0xFF}, 4))
+	_, err := UnmarshalCipher(data)
+	if err == nil || err.Error() != "zuc: invalid eea remaining bytes length" {
+		t.Errorf("expected invalid eea remaining bytes length error, got %v", err)
+	}
+}
+
+func TestUnmarshalBinary_InvalidStatesSize(t *testing.T) {
+	key := bytes.Repeat([]byte{0x11}, 16)
+	iv := bytes.Repeat([]byte{0x22}, 16)
+	c, _ := NewCipher(key, iv)
+	data, _ := c.MarshalBinary()
+	// Truncate data to make states size not a multiple of stateSize
+	data = append(data, 0x00)
+	_, err := UnmarshalCipher(data)
+	if err == nil || err.Error() != "zuc: invalid eea states size" {
+		t.Errorf("expected invalid eea states size error, got %v", err)
+	}
+}
+
+func TestUnmarshalBinary_InvalidRemainingBytes(t *testing.T) {
+	key := bytes.Repeat([]byte{0x11}, 16)
+	iv := bytes.Repeat([]byte{0x22}, 16)
+	c, err := NewCipher(key, iv)
+	if err != nil {
+		t.Fatalf("NewCipher failed: %v", err)
+	}
+	data, err := c.MarshalBinary()
+	if err != nil {
+		t.Fatalf("MarshalBinary failed: %v", err)
+	}
+
+	// Modify xLen to a valid value > 0
+	xLenOffset := len(magic) + stateSize
+	data[xLenOffset+0] = 0
+	data[xLenOffset+1] = 0
+	data[xLenOffset+2] = 0
+	data[xLenOffset+3] = 8 // xLen = 8
+
+	// Truncate data so remaining bytes < xLen
+	truncated := data[:minMarshaledSize+4]
+
+	c2 := NewEmptyCipher()
+	err = c2.UnmarshalBinary(truncated)
+	if err == nil || err.Error() != "zuc: invalid eea remaining bytes" {
+		t.Errorf("expected error 'zuc: invalid eea remaining bytes', got %v", err)
+	}
 }
 
 func benchmarkStream(b *testing.B, buf []byte) {
