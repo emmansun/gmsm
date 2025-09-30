@@ -256,7 +256,7 @@ func TestHashDrbg_Destroy(t *testing.T) {
 	_, _ = rand.Reader.Read(entropyInput)
 	hd, err := NewHashDrbg(sm3.New, SECURITY_LEVEL_ONE, true, entropyInput[:32], entropyInput[32:48], nil)
 	if err != nil {
-		t.Errorf("NewHashDrbg failed: %v", err)
+		t.Fatalf("NewHashDrbg failed: %v", err)
 	}
 	hd.Destroy()
 	if !bytes.Equal(hd.c, make([]byte, len(hd.c))) {

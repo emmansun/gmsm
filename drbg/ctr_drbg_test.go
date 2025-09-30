@@ -310,7 +310,7 @@ func TestCtrDrbg_Destroy(t *testing.T) {
 	_, _ = rand.Reader.Read(entropyInput)
 	cd, err := NewCtrDrbg(sm4.NewCipher, 16, SECURITY_LEVEL_ONE, true, entropyInput[:32], entropyInput[32:64], nil)
 	if err != nil {
-		t.Errorf("NewCtrDrbg failed: %v", err)
+		t.Fatalf("NewCtrDrbg failed: %v", err)
 	}
 	cd.Destroy()
 	if !bytes.Equal(cd.key, make([]byte, len(cd.key))) {

@@ -262,24 +262,24 @@ func (hd *BaseDrbg) setSecurityLevel(securityLevel SecurityLevel) {
 	}
 }
 
-// Destroy 对 GM/T 0105-2021 B.2、E.2 对内部状态进行清零处理
-// HASH RNG 内部状态组成为 {V,C, reseed_counter, last_reseed_time,reseed_interval_in_counter, reseed_interval_in_time}
-// HMAC/对称加密 RNG 内部状态组成为 {V,Key, reseed_counter, last_reseed_time,reseed_interval_in_counter, reseed_interval_in_time}
+// Destroy securely clears all internal state data of the DRBG instance.
+//
+// This method should be called when the DRBG instance is no longer needed to
+// ensure sensitive data is removed from memory.
+//
+// References:
+// - GM/T 0105-2021 B.2, E.2: Specifies that internal states must be cleared when no longer needed.
+// - NIST SP 800-90A Rev.1: Recommends securely erasing sensitive data to prevent leakage.
 func (hd *BaseDrbg) Destroy() {
 	setZero(hd.v)
 	hd.seedLength = 0
-	for i := 0; i < 3; i++ {
-		// 使用原子操作防止编译器优化
-		atomic.StoreUint64(&hd.reseedCounter, 0xFFFFFFFFFFFFFFFF)
-		atomic.StoreUint64(&hd.reseedCounter, 0x00)
-		atomic.StoreUint64(&hd.reseedIntervalInCounter, 0xFFFFFFFFFFFFFFFF)
-		atomic.StoreUint64(&hd.reseedIntervalInCounter, 0x00)
-		// 将 reseedIntervalInTime 设置内存屏障，防止编译器优化
-		hd.reseedIntervalInTime = time.Duration(1<<63 - 1)
-		runtime.KeepAlive(&hd.reseedIntervalInTime)
-		hd.reseedIntervalInTime = time.Duration(0)
-		hd.reseedTime = time.Now()
-	}
+	atomic.StoreUint64(&hd.reseedCounter, 0xFFFFFFFFFFFFFFFF)
+	atomic.StoreUint64(&hd.reseedCounter, 0x00)
+	atomic.StoreUint64(&hd.reseedIntervalInCounter, 0xFFFFFFFFFFFFFFFF)
+	atomic.StoreUint64(&hd.reseedIntervalInCounter, 0x00)
+	hd.reseedTime = time.Time{}
+	atomic.StoreInt64((*int64)(&hd.reseedIntervalInTime), int64(1<<63-1))
+	atomic.StoreInt64((*int64)(&hd.reseedIntervalInTime), int64(0))
 }
 
 // Set security_strength to the lowest security strength greater than or equal to
@@ -317,25 +317,31 @@ func addOne(data []byte, len int) {
 	}
 }
 
-// setZero tries best to clear the sensitive data in memory by overwriting it with 0xFF and 0 for 3 times.
-// - data: the byte slice to be cleared.
+// setZero securely erases the content of a byte slice by overwriting it multiple times.
+// It follows a secure erasure pattern by first writing 0xFF and then 0x00 to each byte
+// three times in succession. Memory barriers (via runtime.KeepAlive) are used between
+// operations to ensure write completion and prevent compiler optimizations from eliminating
+// the seemingly redundant writes.
+//
+// This function is used to clear sensitive data (like cryptographic keys or passwords)
+// from memory to minimize the risk of data exposure in memory dumps or through
+// side-channel attacks.
+//
+// If the provided slice is nil, the function returns immediately without action.
 func setZero(data []byte) {
 	if data == nil {
 		return
 	}
-	for j := 0; j < 3; j++ {
-		// 先写入0xFF
+	for range 3 {
 		for i := range data {
 			data[i] = 0xFF
 		}
-		// 内存屏障，确保写入0xFF完成
 		runtime.KeepAlive(data)
 
-		// 再写入0
-		for i := range data {
-			data[i] = 0
-		}
-		// 再次内存屏障，确保写入0完成
+		clear(data)
+		// This should keep buf's backing array live and thus prevent dead store
+		// elimination, according to discussion at
+		// https://github.com/golang/go/issues/33325 .
 		runtime.KeepAlive(data)
 	}
 }

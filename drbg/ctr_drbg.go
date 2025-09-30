@@ -224,7 +224,7 @@ func (cd *CtrDrbg) bcc(block cipher.Block, data []byte) []byte {
 }
 
 // Destroy destroys the internal state of DRBG instance
-// 对称加密的RNG内部状态组成为 {V,Key, reseed_counter, last_reseed_time,reseed_interval_in_counter, reseed_interval_in_time}
+// working_state = {V, Key, reseed_counter, last_reseed_time,reseed_interval_in_counter, reseed_interval_in_time}
 func (cd *CtrDrbg) Destroy() {
 	cd.BaseDrbg.Destroy()
 	setZero(cd.key)

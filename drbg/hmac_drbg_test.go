@@ -811,7 +811,7 @@ func TestHmacDrbg_Destroy(t *testing.T) {
 	_, _ = rand.Reader.Read(entropyInput)
 	hd, err := NewHmacDrbg(sm3.New, SECURITY_LEVEL_ONE, true, entropyInput[:32], entropyInput[32:48], nil)
 	if err != nil {
-		t.Errorf("NewHmacDrbg failed: %v", err)
+		t.Fatalf("NewHmacDrbg failed: %v", err)
 	}
 	hd.Destroy()
 	if !bytes.Equal(hd.key, make([]byte, len(hd.key))) {
