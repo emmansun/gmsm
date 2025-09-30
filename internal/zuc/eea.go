@@ -276,6 +276,10 @@ func (c *eea) reset(offset uint64) {
 	c.used = n * uint64(c.bucketSize)
 }
 
+// fastForward advances the ZUC cipher state to handle a given offset
+// without having to process each intermediate byte. This optimization
+// leverages precomputed states stored in buckets to move the cipher
+// state forward efficiently.
 func (c *eea) fastForward(offset uint64) {
 	// fast forward, check and adjust state if needed
 	var n uint64
@@ -291,21 +295,27 @@ func (c *eea) fastForward(offset uint64) {
 	}
 }
 
-// seek sets the offset for the next XORKeyStream operation.
-//
-// If the offset is less than the current offset, the state will be reset to the initial state.
-// If the offset is equal to the current offset, the function behaves the same as XORKeyStream.
-// If the offset is greater than the current offset, the function will forward the state to the offset.
-// Note: This method is not thread-safe.
+// seek advances the internal state of the ZUC stream cipher to a given offset in the
+// key stream. It efficiently positions the cipher state to allow encryption or decryption
+// starting from the specified byte offset.
 func (c *eea) seek(offset uint64) {
+	// 1. fast forward to the nearest precomputed state
 	c.fastForward(offset)
+
+	// 2. check if need to reset and backward, regardless of bucketSize
 	if offset < c.used {
 		c.reset(offset)
 	}
+
+	// 3. if offset equals to c.used, nothing to do
 	if offset == c.used {
 		return
 	}
+
+	// 4. offset > used, need to forward
 	gap := offset - c.used
+
+	// 5. gap <= c.xLen, consume remaining key bytes, adjust buffer and return
 	if gap <= uint64(c.xLen) {
 		// offset is within the remaining key bytes
 		c.xLen -= int(gap)
@@ -316,14 +326,15 @@ func (c *eea) seek(offset uint64) {
 		}
 		return
 	}
-	// consumed all remaining key bytes first
+
+	// 6. gap > c.xLen, consume remaining key bytes first
 	if c.xLen > 0 {
 		c.used += uint64(c.xLen)
 		gap -= uint64(c.xLen)
 		c.xLen = 0
 	}
 
-	// forward the state to the offset
+	// 7. for the remaining gap, generate and discard key bytes in chunks
 	nextBucketOffset := c.bucketSize * len(c.states)
 	stepLen := uint64(RoundBytes)
 	var keyStream [RoundWords]uint32
@@ -337,6 +348,8 @@ func (c *eea) seek(offset uint64) {
 		}
 	}
 
+	// 8. finally consume remaining gap < RoundBytes
+	//    and save remaining key bytes if any
 	if gap > 0 {
 		var keyBytes [RoundBytes]byte
 		genKeyStreamRev32(keyBytes[:], &c.zucState32)
