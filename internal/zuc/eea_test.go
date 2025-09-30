@@ -275,7 +275,7 @@ func TestEEAXORKeyStreamAtWithBucketSize(t *testing.T) {
 		}
 		clear(dst)
 		bucketCipher.XORKeyStreamAt(dst[513:768], src[513:768], 513)
-		if bucketCipher.stateIndex != 0 {
+		if bucketCipher.stateIndex != 4 {
 			t.Fatalf("expected=%d, result=%d\n", 0, bucketCipher.stateIndex)
 		}
 		if len(bucketCipher.states) != 7 {
@@ -294,6 +294,29 @@ func TestEEAXORKeyStreamAtWithBucketSize(t *testing.T) {
 		}
 		if !bytes.Equal(expected[512:768], dst[512:768]) {
 			t.Fatalf("expected=%x, result=%x\n", expected[512:768], dst[512:768])
+		}
+	})
+
+	t.Run("Rotate end to start, end to start", func(t *testing.T) {
+		bucketCipher, err := NewEEACipherWithBucketSize(key, zucEEATests[0].count, zucEEATests[0].bearer, zucEEATests[0].direction, 128)
+		if err != nil {
+			t.Error(err)
+		}
+		clear(dst)
+		for i := len(src) - RoundBytes; i >= 0; i -= RoundBytes {
+			offset := i
+			bucketCipher.XORKeyStreamAt(dst[offset:offset+RoundBytes], src[offset:offset+RoundBytes], uint64(offset))
+			if !bytes.Equal(expected[offset:offset+RoundBytes], dst[offset:offset+RoundBytes]) {
+				t.Fatalf("at %d, expected=%x, result=%x\n", offset, expected[offset:offset+RoundBytes], dst[offset:offset+RoundBytes])
+			}
+		}
+		clear(dst)
+		for i := len(src) - RoundBytes; i >= 0; i -= RoundBytes {
+			offset := i
+			bucketCipher.XORKeyStreamAt(dst[offset:offset+RoundBytes], src[offset:offset+RoundBytes], uint64(offset))
+			if !bytes.Equal(expected[offset:offset+RoundBytes], dst[offset:offset+RoundBytes]) {
+				t.Fatalf("at %d, expected=%x, result=%x\n", offset, expected[offset:offset+RoundBytes], dst[offset:offset+RoundBytes])
+			}
 		}
 	})
 }
@@ -394,7 +417,7 @@ func TestUnmarshalBinary_InvalidRemainingBytes(t *testing.T) {
 	data[xLenOffset+3] = 8 // xLen = 8
 
 	// Truncate data so remaining bytes < xLen
-	truncated := data[:minMarshaledSize + 4]
+	truncated := data[:minMarshaledSize+4]
 
 	c2 := NewEmptyCipher()
 	err = c2.UnmarshalBinary(truncated)

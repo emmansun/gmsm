@@ -28,8 +28,8 @@ type eea struct {
 }
 
 const (
-	magic         = "zuceea"
-	stateSize     = (16 + 6) * 4 // zucState32 size in bytes
+	magic            = "zuceea"
+	stateSize        = (16 + 6) * 4 // zucState32 size in bytes
 	minMarshaledSize = len(magic) + stateSize + 8 + 4*3
 )
 
@@ -276,6 +276,21 @@ func (c *eea) reset(offset uint64) {
 	c.used = n * uint64(c.bucketSize)
 }
 
+func (c *eea) fastForward(offset uint64) {
+	// fast forward, check and adjust state if needed
+	var n uint64
+	if c.bucketSize > 0 {
+		n = offset / uint64(c.bucketSize)
+		expectedStateIndex := int(n)
+		if expectedStateIndex > c.stateIndex && expectedStateIndex < len(c.states) {
+			c.stateIndex = int(n)
+			c.zucState32 = *c.states[n]
+			c.xLen = 0
+			c.used = n * uint64(c.bucketSize)
+		}
+	}
+}
+
 // seek sets the offset for the next XORKeyStream operation.
 //
 // If the offset is less than the current offset, the state will be reset to the initial state.
@@ -283,6 +298,7 @@ func (c *eea) reset(offset uint64) {
 // If the offset is greater than the current offset, the function will forward the state to the offset.
 // Note: This method is not thread-safe.
 func (c *eea) seek(offset uint64) {
+	c.fastForward(offset)
 	if offset < c.used {
 		c.reset(offset)
 	}
