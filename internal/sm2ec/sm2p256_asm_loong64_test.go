@@ -21,8 +21,9 @@ func TestP256BigToLittle(t *testing.T) {
 	// 检查每个 limb 是否为小端解包
 	for i := 0; i < 4; i++ {
 		expected := binary.BigEndian.Uint64(in[i*8 : (i+1)*8])
-		if out[i] != expected {
-			t.Errorf("limb %d: got 0x%x, want 0x%x", i, out[i], expected)
+		k := 3 - i // 逆序存储
+		if out[k] != expected {
+			t.Errorf("limb %d: got 0x%x, want 0x%x", k, out[k], expected)
 		}
 	}
 
