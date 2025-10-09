@@ -20,6 +20,7 @@
 #define t1 R15
 #define t2 R16
 #define t3 R17
+#define t4 R18
 
 DATA p256p<>+0x00(SB)/8, $0xffffffffffffffff
 DATA p256p<>+0x08(SB)/8, $0xffffffff00000000
@@ -72,6 +73,120 @@ TEXT ·p256BigToLittle(SB),NOSPLIT,$0
 	MOVV acc1, (8*2)(res_ptr)
 	MOVV acc0, (8*3)(res_ptr)
 
+	RET
+
+/* ---------------------------------------*/
+// func p256MovCond(res, a, b *SM2P256Point, cond int)
+TEXT ·p256MovCond(SB),NOSPLIT,$0
+	MOVV res+0(FP), res_ptr
+	MOVV a+8(FP), x_ptr
+	MOVV b+16(FP), y_ptr
+	MOVV cond+24(FP), t0
+
+	// Load a.x
+	MOVV (8*0)(x_ptr), acc0
+	MOVV (8*1)(x_ptr), acc1
+	MOVV (8*2)(x_ptr), acc2
+	MOVV (8*3)(x_ptr), acc3
+
+	// Load b.x
+	MOVV (8*0)(y_ptr), t1
+	MOVV (8*1)(y_ptr), t2
+	MOVV (8*2)(y_ptr), t3
+	MOVV (8*3)(y_ptr), t4
+
+	// Conditional move
+	MASKNEZ t0, t1, t1
+	MASKEQZ t0, acc0, acc0
+	OR t1, acc0
+
+	MASKNEZ t0, t2, t2
+	MASKEQZ t0, acc1, acc1
+	OR t2, acc1
+
+	MASKNEZ t0, t3, t3
+	MASKEQZ t0, acc2, acc2
+	OR t3, acc2
+
+	MASKNEZ t0, t4, t4
+	MASKEQZ t0, acc3, acc3
+	OR t4, acc3
+
+	// Store result
+	MOVV acc0, (8*0)(res_ptr)
+	MOVV acc1, (8*1)(res_ptr)
+	MOVV acc2, (8*2)(res_ptr)
+	MOVV acc3, (8*3)(res_ptr)
+
+	// Load a.y
+	MOVV (8*4)(x_ptr), acc0
+	MOVV (8*5)(x_ptr), acc1
+	MOVV (8*6)(x_ptr), acc2
+	MOVV (8*7)(x_ptr), acc3
+
+	// Load b.y
+	MOVV (8*4)(y_ptr), t1
+	MOVV (8*5)(y_ptr), t2
+	MOVV (8*6)(y_ptr), t3
+	MOVV (8*7)(y_ptr), t4
+
+	// Conditional move
+	MASKNEZ t0, t1, t1
+	MASKEQZ t0, acc0, acc0
+	OR t1, acc0
+
+	MASKNEZ t0, t2, t2
+	MASKEQZ t0, acc1, acc1
+	OR t2, acc1
+
+	MASKNEZ t0, t3, t3
+	MASKEQZ t0, acc2, acc2
+	OR t3, acc2
+
+	MASKNEZ t0, t4, t4
+	MASKEQZ t0, acc3, acc3
+	OR t4, acc3
+
+	// Store result
+	MOVV acc0, (8*4)(res_ptr)
+	MOVV acc1, (8*5)(res_ptr)
+	MOVV acc2, (8*6)(res_ptr)
+	MOVV acc3, (8*7)(res_ptr)
+
+	// Load a.z
+	MOVV (8*8)(x_ptr), acc0
+	MOVV (8*9)(x_ptr), acc1
+	MOVV (8*10)(x_ptr), acc2
+	MOVV (8*11)(x_ptr), acc3
+
+	// Load b.z
+	MOVV (8*8)(y_ptr), t1
+	MOVV (8*9)(y_ptr), t2
+	MOVV (8*10)(y_ptr), t3
+	MOVV (8*11)(y_ptr), t4
+
+	// Conditional move
+	MASKNEZ t0, t1, t1
+	MASKEQZ t0, acc0, acc0
+	OR t1, acc0
+
+	MASKNEZ t0, t2, t2
+	MASKEQZ t0, acc1, acc1
+	OR t2, acc1
+
+	MASKNEZ t0, t3, t3
+	MASKEQZ t0, acc2, acc2
+	OR t3, acc2
+
+	MASKNEZ t0, t4, t4
+	MASKEQZ t0, acc3, acc3
+	OR t4, acc3
+
+	// Store result
+	MOVV acc0, (8*8)(res_ptr)
+	MOVV acc1, (8*9)(res_ptr)
+	MOVV acc2, (8*10)(res_ptr)
+	MOVV acc3, (8*11)(res_ptr)
 	RET
 
 /* ---------------------------------------*/
