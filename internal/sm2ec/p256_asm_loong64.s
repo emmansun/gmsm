@@ -40,10 +40,10 @@ TEXT ·p256BigToLittle(SB),NOSPLIT,$0
 	MOVV (8*2)(x_ptr), acc2
 	MOVV (8*3)(x_ptr), acc3
 
-	REVBV acc0
-	REVBV acc1
-	REVBV acc2
-	REVBV acc3
+	REVBV acc0, acc0
+	REVBV acc1, acc1
+	REVBV acc2, acc2
+	REVBV acc3, acc3
 
 	MOVV acc3, (8*0)(res_ptr)
 	MOVV acc2, (8*1)(res_ptr)
