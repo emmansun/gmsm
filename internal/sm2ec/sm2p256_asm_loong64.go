@@ -9,3 +9,8 @@ func p256BigToLittle(res *p256Element, in *[32]byte)
 
 //go:noescape
 func p256LittleToBig(res *[32]byte, in *p256Element)
+
+// If cond is not 0, sets val = -val mod p.
+//
+//go:noescape
+func p256NegCond(val *p256Element, cond int)

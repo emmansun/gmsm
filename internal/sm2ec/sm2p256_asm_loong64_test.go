@@ -34,3 +34,36 @@ func TestP256BigToLittle(t *testing.T) {
 		t.Errorf("p256LittleToBig(p256BigToLittle(...)) mismatch\nin:   %x\nback: %x", in, back)
 	}
 }
+
+func TestP256NegCond(t *testing.T) {
+	var tests = []struct {
+		input    p256Element
+		cond     int
+		expected p256Element
+	}{
+		{
+			input:    p256Element{1, 0, 0, 0},
+			cond:     1,
+			expected: p256Element{0xfffffffffffffffe, 0xffffffff00000000, 0xffffffffffffffff, 0xfffffffeffffffff},
+		},
+		{
+			input:    p256Element{1, 0, 0, 0},
+			cond:     0,
+			expected: p256Element{1, 0, 0, 0},
+		},
+		{
+			input:    p256Element{0x1, 0xffffffff00000001, 0xfffffffffffffffe, 0xfffffffeffffffff},
+			cond:     1,
+			expected: p256Element{0xfffffffffffffffe, 0xffffffffffffffff, 0, 0},
+		},
+	}
+
+	for i, test := range tests {
+		var result p256Element
+		copy(result[:], test.input[:])
+		p256NegCond(&result, test.cond)
+		if result != test.expected {
+			t.Errorf("test %d: got %x, want %x", i, result, test.expected)
+		}
+	}
+}
