@@ -6,21 +6,22 @@
 
 #include "textflag.h"
 
-#define res_ptr R29
-#define x_ptr R30
-#define y_ptr R31
+#define ZERO R0
+#define res_ptr R4
+#define x_ptr R5
+#define y_ptr R6
 
-#define acc0 R8
-#define acc1 R9
-#define acc2 R10
-#define acc3 R11
-#define acc4 R12
-#define acc5 R13
-#define t0 R14
-#define t1 R15
-#define t2 R16
-#define t3 R17
-#define t4 R18
+#define acc0 R7
+#define acc1 R8
+#define acc2 R9
+#define acc3 R10
+#define acc4 R11
+#define acc5 R12
+#define t0 R13
+#define t1 R14
+#define t2 R15
+#define t3 R16
+#define t4 R17
 
 DATA p256p<>+0x00(SB)/8, $0xffffffffffffffff
 DATA p256p<>+0x08(SB)/8, $0xffffffff00000000
@@ -83,6 +84,56 @@ TEXT ·p256MovCond(SB),NOSPLIT,$0
 	MOVV b+16(FP), y_ptr
 	MOVV cond+24(FP), t0
 
+	MOVV ·supportLSX+0(SB), t1
+	BEQ  t1, ZERO, basic_path
+
+	VMOVQ t0, V0.V2
+	VXORV V1, V1, V1
+	VSEQV V0, V1, V0
+
+	VMOVQ (16*0)(x_ptr), V1
+	VMOVQ (16*1)(x_ptr), V2
+	VMOVQ (16*2)(x_ptr), V3
+	VMOVQ (16*3)(x_ptr), V4
+	VMOVQ (16*4)(x_ptr), V5
+	VMOVQ (16*5)(x_ptr), V6
+	VANDVN V1, V0, V1
+	VANDVN V2, V0, V2
+	VANDVN V3, V0, V3
+	VANDVN V4, V0, V4
+	VANDVN V5, V0, V5
+	VANDVN V6, V0, V6
+
+	VMOVQ (16*0)(y_ptr), V7
+	VMOVQ (16*1)(y_ptr), V8
+	VMOVQ (16*2)(y_ptr), V9
+	VMOVQ (16*3)(y_ptr), V10
+	VMOVQ (16*4)(y_ptr), V11
+	VMOVQ (16*5)(y_ptr), V12
+	VANDV V7, V0, V7
+	VANDV V8, V0, V8
+	VANDV V9, V0, V9
+	VANDV V10, V0, V10
+	VANDV V11, V0, V11
+	VANDV V12, V0, V12
+
+	VORV V1, V7, V1
+	VORV V2, V8, V2
+	VORV V3, V9, V3
+	VORV V4, V10, V4
+	VORV V5, V11, V5
+	VORV V6, V12, V6
+
+	VMOVQ V1, (16*0)(res_ptr)
+	VMOVQ V2, (16*1)(res_ptr)
+	VMOVQ V3, (16*2)(res_ptr)
+	VMOVQ V4, (16*3)(res_ptr)
+	VMOVQ V5, (16*4)(res_ptr)
+	VMOVQ V6, (16*5)(res_ptr)
+
+	RET
+
+basic_path:
 	// Load a.x
 	MOVV (8*0)(x_ptr), acc0
 	MOVV (8*1)(x_ptr), acc1

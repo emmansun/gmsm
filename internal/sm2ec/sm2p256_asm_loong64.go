@@ -1,5 +1,9 @@
 package sm2ec
 
+import (
+	"github.com/emmansun/gmsm/internal/deps/cpu"
+)
+
 // p256Element is a P-256 base field element in [0, P-1] in the Montgomery
 // domain (with R 2²⁵⁶) as four limbs in little-endian order value.
 type p256Element [4]uint64
@@ -9,6 +13,8 @@ type SM2P256Point1 struct {
 	// at infinity can be represented by any set of coordinates with Z = 0.
 	x, y, z p256Element
 }
+
+var supportLSX = cpu.Loong64.HasLSX
 
 //go:noescape
 func p256BigToLittle(res *p256Element, in *[32]byte)
