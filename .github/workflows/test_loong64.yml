@@ -5,9 +5,9 @@ name: loong64-qemu
 
 on:
   push:
-    branches: [ "develop", "main" ]
+    branches: [ "loong64"]
   pull_request:
-    branches: [ "develop", "main" ]
+    branches: [ "loong64"]
 
 permissions:
   contents: read
