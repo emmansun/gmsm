@@ -5,6 +5,7 @@ package sm2ec
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -78,6 +79,7 @@ func newPoint(x, y, z uint64) *SM2P256Point1 {
 }
 
 func TestP256MovCond(t *testing.T) {
+	fmt.Printf("supportLSX=%v, supportLASX=%v\n", supportLSX, supportLASX)
 	a := newPoint(10, 20, 30)
 	b := newPoint(100, 200, 300)
 	var res SM2P256Point1
