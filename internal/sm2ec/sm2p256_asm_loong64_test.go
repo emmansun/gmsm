@@ -1,4 +1,4 @@
-//go:build loong64 && !purego
+//go:build loong64 && go1.25 && !purego
 
 package sm2ec
 

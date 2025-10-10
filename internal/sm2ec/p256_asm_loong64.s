@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build !purego
+//go:build go1.25 && !purego
 
 #include "textflag.h"
 
@@ -87,6 +87,40 @@ TEXT ·p256MovCond(SB),NOSPLIT,$0
 	MOVV ·supportLSX+0(SB), t1
 	BEQ  t1, ZERO, basic_path
 
+	MOVV ·supportLASX+0(SB), t1
+	BEQ  t1, ZERO, lsx_path
+
+	XVMOVQ t0, X0.V4
+	XVXORV X1, X1, X1
+	XVSEQV X0, X1, X0
+
+	XVMOVQ (32*0)(x_ptr), X1
+	XVMOVQ (32*1)(x_ptr), X2
+	XVMOVQ (32*2)(x_ptr), X3
+
+	XVANDNV X1, X0, X1
+	XVANDNV X2, X0, X2
+	XVANDNV X3, X0, X3
+
+	XVMOVQ (32*0)(y_ptr), X4
+	XVMOVQ (32*1)(y_ptr), X5
+	XVMOVQ (32*2)(y_ptr), X6
+
+	XVANDV X4, X0, X4
+	XVANDV X5, X0, X5
+	XVANDV X6, X0, X6
+
+	XVORV X1, X4, X1
+	XVORV X2, X5, X2
+	XVORV X3, X6, X3
+
+	XVMOVQ X1, (32*0)(res_ptr)
+	XVMOVQ X2, (32*1)(res_ptr)
+	XVMOVQ X3, (32*2)(res_ptr)
+
+	RET
+
+lsx_path:
 	VMOVQ t0, V0.V2
 	VXORV V1, V1, V1
 	VSEQV V0, V1, V0

@@ -1,3 +1,5 @@
+//go:build go1.25
+
 package sm2ec
 
 import (
@@ -15,6 +17,7 @@ type SM2P256Point1 struct {
 }
 
 var supportLSX = cpu.Loong64.HasLSX
+var supportLASX = cpu.Loong64.HasLASX
 
 //go:noescape
 func p256BigToLittle(res *p256Element, in *[32]byte)
