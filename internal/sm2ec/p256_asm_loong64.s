@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build go1.25 && !purego
+//go:build !purego
 
 #include "textflag.h"
 
@@ -17,11 +17,22 @@
 #define acc3 R10
 #define acc4 R11
 #define acc5 R12
-#define t0 R13
-#define t1 R14
-#define t2 R15
-#define t3 R16
-#define t4 R17
+#define acc6 R13
+#define acc7 R14
+
+#define t0 R15
+#define t1 R16
+#define t2 R17
+#define t3 R18
+
+#define x0 R19
+#define x1 R20
+#define x2 R21
+#define x3 R22
+#define y0 R23
+#define y1 R24
+#define y2 R25
+#define y3 R26
 
 DATA p256p<>+0x00(SB)/8, $0xffffffffffffffff
 DATA p256p<>+0x08(SB)/8, $0xffffffff00000000
@@ -320,5 +331,391 @@ TEXT ·p256NegCond(SB),NOSPLIT,$0
 	MOVV acc1, (8*1)(res_ptr)
 	MOVV acc2, (8*2)(res_ptr)
 	MOVV acc3, (8*3)(res_ptr)
+
+	RET
+
+// (y3, y2, y1, y0) = (x3, x2, x1, x0) * (y3, y2, y1, y0)
+TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
+	// y[0] * x
+	MULV y0, x0, acc0
+	MULHVU	y0, x0, acc4
+	MULV y0, x1, acc1
+	MULHVU y0, x1, acc5
+	MULV y0, x2, acc2
+	MULHVU y0, x2, acc6
+	MULV y0, x3, acc3
+	MULHVU y0, x3, acc7
+
+	// ADDS acc4, acc1
+	ADDV acc1, acc4, acc1
+	SGTU acc4, acc1, t0
+	// ADCS acc5, acc2
+	ADDV t0, acc5, acc5    // no carry
+	ADDV acc2, acc5, acc2
+	SGTU acc5, acc2, t0
+	// ADCS acc6, acc3
+	ADDV t0, acc6, acc6    // no carry
+	ADDV acc3, acc6, acc3
+	SGTU acc6, acc3, t0
+	// ADC $0, acc7, acc4
+	ADDV t0, acc7, acc4    // no carry
+	// First reduction step
+	SLLV $32, acc0, t0
+	SRLV $32, acc0, t1
+
+	// SUBS t0, acc1
+	SGTU t0, acc1, t2
+	SUBV t0, acc1
+	// SUBCS t1, acc2
+	ADDV t2, t1, t3        // no carry
+	SGTU t3, acc2, t2
+	SUBV t3, acc2
+	// SUBCS t0, acc3
+	ADDV t2, t0, t2        // no carry
+	SGTU t2, acc3, t3
+	SUBV t2, acc3, acc3
+	// SUBC t1, acc0, t2
+	SUBV t1, acc0, t2      // no borrow
+	SUBV t3, t2, t2        // no borrow
+
+	// ADDS acc0, acc1
+	ADDV acc0, acc1, acc1
+	SGTU acc0, acc1, t0
+	// ADCS $0, acc2
+	ADDV t0, acc2, acc2
+	SGTU t0, acc2, t1
+	// ADCS $0, acc3
+	ADDV t1, acc3, acc3
+	SGTU t1, acc3, t0
+	// ADC $0, t2, acc0
+	ADDV t0, t2, acc0      // (acc1, acc2, acc3, acc0) is the result
+
+	// y[1] * x
+	MULV y1, x0, t0
+	// ADDS t0, acc1
+	ADDV t0, acc1, acc1
+	SGTU t0, acc1, t2
+	MULHVU y1, x0, t1
+
+	MULV y1, x1, t0
+	// ADCS t0, acc2
+	ADDV t0, acc2, acc2
+	SGTU t0, acc2, t3
+	ADDV t2, acc2, acc2
+	SGTU t2, acc2, t4
+	OR t3, t4, t2
+	MULHVU y1, x1, y0
+
+	MULV y1, x2, t0
+	// ADCS t0, acc3
+	ADDV t0, acc3, acc3
+	SGTU t0, acc3, t3
+	ADDV t2, acc3, acc3
+	SGTU t2, acc3, t4
+	OR t3, t4, t2
+	MULHVU y1, x2, acc6
+
+	MULV y1, x3, t0
+	// ADCS t0, acc4
+	ADDV t0, acc4, acc4
+	SGTU t0, acc4, t3
+	ADDV t2, acc4, acc4
+	SGTU t2, acc4, t4
+	OR t3, t4, acc5
+	MULHVU y1, x3, acc7
+
+	// ADDS	t1, acc2
+	ADDV t1, acc2, acc2
+	SGTU t1, acc2, t2
+	// ADCS	y0, acc3
+	ADDV y0, acc3, acc3
+	SGTU y0, acc3, t3
+	ADDV t2, acc3, acc3
+	SGTU t2, acc3, t4
+	OR t3, t4, t2
+	// ADCS	acc6, acc4
+	ADDV acc6, acc4, acc4
+	SGTU acc6, acc4, t3
+	ADDV t2, acc4, acc4
+	SGTU t2, acc4, t4
+	OR t3, t4, t2
+	// ADC	acc7, acc5
+	ADDV t2, acc5, acc5
+	ADDV acc7, acc5, acc5
+
+	// Second reduction step
+	SLLV $32, acc1, t0
+	SRLV $32, acc1, t1
+
+	// SUBS t0, acc2
+	SGTU t0, acc2, t2
+	SUBV t0, acc2
+	// SUBCS t1, acc3
+	ADDV t2, t1, t3        // no carry
+	SGTU t3, acc3, t2
+	SUBV t3, acc3
+	// SUBCS t0, acc0
+	ADDV t2, t0, t2        // no carry
+	SGTU t2, acc0, t3
+	SUBV t2, acc0, acc0
+	// SUBC t1, acc1, t2
+	SUBV t1, acc1, t2      // no borrow
+	SUBV t3, t2, t2        // no borrow
+
+	// ADDS acc1, acc2
+	ADDV acc1, acc2, acc2
+	SGTU acc1, acc2, t0
+	// ADCS $0, acc3
+	ADDV t0, acc3, acc3
+	SGTU t0, acc3, t1
+	// ADCS $0, acc0
+	ADDV t1, acc0, acc0
+	SGTU t1, acc0, t0
+	// ADC $0, t2, acc1
+	ADDV t0, t2, acc1      // (acc2, acc3, acc0, acc1) is the result
+
+	// y[2] * x
+	MULV y2, x0, t0
+	// ADDS t0, acc2
+	ADDV t0, acc2, acc2
+	SGTU t0, acc2, t2
+	MULHVU y2, x0, t1
+
+	MULV y2, x1, t0
+	// ADCS t0, acc3
+	ADDV t0, acc3, acc3
+	SGTU t0, acc3, t3
+	ADDV t2, acc3, acc3
+	SGTU t2, acc3, t4
+	OR t3, t4, t2
+	MULHVU y2, x1, y0
+
+	MULV y2, x2, t0
+	// ADCS t0, acc0
+	ADDV t0, acc0, acc0
+	SGTU t0, acc0, t3
+	ADDV t2, acc0, acc0
+	SGTU t2, acc0, t4
+	OR t3, t4, t2
+	MULHVU y2, x2, y1
+
+	MULV y2, x3, t0
+	// ADCS t0, acc1
+	ADDV t0, acc1, acc1
+	SGTU t0, acc1, t3
+	ADDV t2, acc1, acc1
+	SGTU t2, acc1, t4
+	OR t3, t4, acc6
+	MULHVU y2, x3, acc7
+
+	// ADDS	t1, acc3
+	ADDV t1, acc3, acc3
+	SGTU t1, acc3, t2
+	// ADCS	y0, acc4
+	ADDV y0, acc4, acc4
+	SGTU y0, acc4, t3
+	ADDV t2, acc4, acc4
+	SGTU t2, acc4, t4
+	OR t3, t4, t2
+	// ADCS	y1, acc5
+	ADDV y1, acc5, acc5
+	SGTU y1, acc5, t3
+	ADDV t2, acc5, acc5
+	SGTU t2, acc5, t4
+	OR t3, t4, t2
+	// ADC	acc7, acc6
+	ADDV t2, acc6, acc6
+	ADDV acc7, acc6, acc6
+
+	// Third reduction step
+	SLLV $32, acc2, t0
+	SRLV $32, acc2, t1
+
+	// SUBS t0, acc3
+	SGTU t0, acc3, t2
+	SUBV t0, acc3
+	// SUBCS t1, acc0
+	ADDV t2, t1, t3        // no carry
+	SGTU t3, acc0, t2
+	SUBV t3, acc0
+	// SUBCS t0, acc1
+	ADDV t2, t0, t2        // no carry
+	SGTU t2, acc1, t3
+	SUBV t2, acc1, acc1	
+	// SUBC t1, acc2, t2
+	SUBV t1, acc2, t2      // no borrow
+	SUBV t3, t2, t2        // no borrow
+
+	// ADDS acc2, acc3
+	ADDV acc2, acc3, acc3
+	SGTU acc2, acc3, t0
+	// ADCS $0, acc0
+	ADDV t0, acc0, acc0
+	SGTU t0, acc0, t1
+	// ADCS $0, acc1
+	ADDV t1, acc1, acc1
+	SGTU t1, acc1, t0
+	// ADC $0, t2, acc2
+	ADDV t0, t2, acc2      // (acc3, acc0, acc1, acc2) is the result
+
+	// y[2] * x
+	MULV y3, x0, t0
+	// ADDS t0, acc3
+	ADDV t0, acc3, acc3
+	SGTU t0, acc3, t2
+	MULHVU y3, x0, t1
+
+	MULV y3, x1, t0
+	// ADCS t0, acc4
+	ADDV t0, acc4, acc4
+	SGTU t0, acc4, t3
+	ADDV t2, acc4, acc4
+	SGTU t2, acc4, t4
+	OR t3, t4, t2
+	MULHVU y3, x1, y0
+
+	MULV y3, x2, t0
+	// ADCS t0, acc5
+	ADDV t0, acc5, acc5
+	SGTU t0, acc5, t3
+	ADDV t2, acc5, acc5	
+	SGTU t2, acc5, t4
+	OR t3, t4, t2
+	MULHVU y3, x2, y1
+
+	MULV y3, x3, t0
+	// ADCS t0, acc6
+	ADDV t0, acc6, acc6
+	SGTU t0, acc6, t3
+	ADDV t2, acc6, acc6
+	SGTU t2, acc6, t4
+	OR t3, t4, acc7
+	MULHVU y3, x3, t0
+
+	// ADDS	t1, acc4
+	ADDV t1, acc4, acc4
+	SGTU t1, acc4, t2
+	// ADCS	y0, acc5
+	ADDV y0, acc5, acc5
+	SGTU y0, acc5, t3
+	ADDV t2, acc5, acc5
+	SGTU t2, acc5, t4
+	OR t3, t4, t2
+	// ADCS	y1, acc6
+	ADDV y1, acc6, acc6
+	SGTU y1, acc6, t3
+	ADDV t2, acc6, acc6
+	SGTU t2, acc6, t4
+	OR t3, t4, t2
+	// ADC	t0, acc7
+	ADDV t2, acc7, acc7
+	ADDV t0, acc7, acc7
+
+	// Fourth reduction step
+	SLLV $32, acc3, t0
+	SRLV $32, acc3, t1
+
+	// SUBS t0, acc0
+	SGTU t0, acc0, t2
+	SUBV t0, acc0
+	// SUBCS t1, acc1
+	ADDV t2, t1, t3        // no carry
+	SGTU t3, acc1, t2
+	SUBV t3, acc1
+	// SUBCS t0, acc2
+	ADDV t2, t0, t2        // no carry
+	SGTU t2, acc2, t3
+	SUBV t2, acc2, acc2
+	// SUBC t1, acc3, t2
+	SUBV t1, acc3, t2      // no borrow
+	SUBV t3, t2, t2        // no borrow
+
+	// ADDS acc3, acc0
+	ADDV acc3, acc0, acc0
+	SGTU acc3, acc0, t0
+	// ADCS $0, acc1
+	ADDV t0, acc1, acc1
+	SGTU t0, acc1, t1
+	// ADCS $0, acc2
+	ADDV t1, acc2, acc2
+	SGTU t1, acc2, t0
+	// ADC $0, t2, acc3
+	ADDV t0, t2, acc3      // (acc0, acc1, acc2, acc3) is the result
+
+	// Add bits [511:256] of the mul result
+	ADDV acc4, acc0, y0
+	SGTU acc4, y0, t0
+	ADDV acc5, acc1, y1
+	SGTU acc5, y1, t1
+	ADDV t0, y1, y1
+	SGTU t0, y1, t2
+	OR t1, t2, t0
+	ADDV acc6, acc2, y2
+	SGTU acc6, y2, t1
+	ADDV t0, y2, acc2
+	SGTU t0, y2, t2
+	OR t1, t2, t0
+	ADDV acc7, acc3, y3
+	SGTU acc7, y3, t1
+	ADDV t0, y3, y3
+	SGTU t0, y3, t2
+	OR t1, t2, t0
+
+	// Final reduction
+	ADDV $1, y0, acc4
+	SGTU y0, acc4, t1
+	MOVV p256one<>+0X08(SB), t2
+	ADDV t2, t1, t1             // no carry
+	ADDV y1, t1, acc5
+	SGTU y1, acc5, t3
+	ADDV t3, y2, acc6
+	SGTU y2, acc6, t4
+	ADDV $1, t2, t2
+	ADDV t4, t2, t2         // no carry
+	ADDV y3, t2, acc7
+	SGTU y3, acc7, t4
+	OR t0, t4, t0
+
+	MASKNEZ t0, y0, y0
+	MASKEQZ t0, acc4, acc4
+	OR acc4, y0
+
+	MASKNEZ t0, y1, y1
+	MASKEQZ t0, acc5, acc5
+	OR acc5, y1
+
+	MASKNEZ t0, y2, y2
+	MASKEQZ t0, acc6, acc6
+	OR acc6, y2
+
+	MASKNEZ t0, y3, y3
+	MASKEQZ t0, acc7, acc7
+	OR acc7, y3
+
+	RET
+
+/* ---------------------------------------*/
+// func p256Mul(res, in1, in2 *p256Element)
+TEXT ·p256Mul(SB),NOSPLIT,$0
+	MOVV res+0(FP), res_ptr
+	MOVV in1+8(FP), x_ptr
+	MOVV in2+16(FP), y_ptr
+
+	MOVV (8*0)(x_ptr), x0
+	MOVV (8*1)(x_ptr), x1
+	MOVV (8*2)(x_ptr), x2
+	MOVV (8*3)(x_ptr), x3
+
+	MOVV (8*0)(y_ptr), y0
+	MOVV (8*1)(y_ptr), y1
+	MOVV (8*2)(y_ptr), y2
+	MOVV (8*3)(y_ptr), y3
+
+	CALL sm2P256MulInternal<>(SB)
+
+	MOVV y0, (8*0)(res_ptr)
+	MOVV y1, (8*1)(res_ptr)
+	MOVV y2, (8*2)(res_ptr)
+	MOVV y3, (8*3)(res_ptr)
 
 	RET

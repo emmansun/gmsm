@@ -1,5 +1,3 @@
-//go:build go1.25
-
 package sm2ec
 
 import (
@@ -34,3 +32,8 @@ func p256MovCond(res, a, b *SM2P256Point1, cond int)
 //
 //go:noescape
 func p256NegCond(val *p256Element, cond int)
+
+// Montgomery multiplication. Sets res = in1 * in2 * R⁻¹ mod p.
+//
+//go:noescape
+func p256Mul(res, in1, in2 *p256Element)
