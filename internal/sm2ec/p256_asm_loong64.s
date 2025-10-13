@@ -24,15 +24,16 @@
 #define t1 R16
 #define t2 R17
 #define t3 R18
+#define t4 R19
 
-#define x0 R19
-#define x1 R20
-#define x2 R21
-#define x3 R22
-#define y0 R23
-#define y1 R24
-#define y2 R25
-#define y3 R26
+#define x0 R20
+#define x1 R21
+#define x2 R23
+#define x3 R24
+#define y0 R25
+#define y1 R26
+#define y2 R27
+#define y3 R31
 
 DATA p256p<>+0x00(SB)/8, $0xffffffffffffffff
 DATA p256p<>+0x08(SB)/8, $0xffffffff00000000
