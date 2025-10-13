@@ -653,7 +653,7 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	OR t1, t2, t0
 	ADDV acc6, acc2, y2
 	SGTU acc6, y2, t1
-	ADDV t0, y2, acc2
+	ADDV t0, y2, y2
 	SGTU t0, y2, t2
 	OR t1, t2, t0
 	ADDV acc7, acc3, y3
