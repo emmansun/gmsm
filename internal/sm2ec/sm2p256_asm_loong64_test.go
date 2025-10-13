@@ -197,7 +197,7 @@ func p256SqrTest(t *testing.T, x, p, r *big.Int) {
 	expected := new(big.Int).Mul(x, x)
 	expected = expected.Mod(expected, p)
 	if resInt.Cmp(expected) != 0 {
-		t.FailNow()
+		t.Fatalf("p256Sqr(%x) = %x, want %x", x, resInt, expected)
 	}
 }
 
