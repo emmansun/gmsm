@@ -144,7 +144,7 @@ func p256MulTest(t *testing.T, x, y, p, r *big.Int) {
 	expected := new(big.Int).Mul(x, y)
 	expected = expected.Mod(expected, p)
 	if resInt.Cmp(expected) != 0 {
-		t.FailNow()
+		t.Fatalf("p256Mul(%x, %x) = %x, want %x", x, y, resInt, expected)
 	}
 }
 
