@@ -2,6 +2,10 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
+// References:
+// GM/T 0001.4-2024 ZUC stream cipher algorithm - Part 4: Aunthenticated encryption mechanisms
+//   Chapter 6: ZUC-GXM
+
 package cipher
 
 import (

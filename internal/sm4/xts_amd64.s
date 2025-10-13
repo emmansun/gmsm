@@ -1831,7 +1831,7 @@ avx2XtsSm4DecSingles:
 	SM4_SINGLE_BLOCK(AX, B4, T0, T1, T2, B0, B1, B2, B3)
 	VPXOR TW, B0, B0
 	VMOVDQU B0, (16*0)(CX)
-	avxMul2Inline
+	avxMul2GBInline
 
 	LEAQ 16(DX), DX
 	LEAQ 16(CX), CX
