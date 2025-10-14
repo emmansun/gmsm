@@ -1419,3 +1419,95 @@ TEXT ·p256MulBy2(SB),NOSPLIT,$0
 	MOVV x2, (8*2)(res_ptr)
 	MOVV x3, (8*3)(res_ptr)
 	RET
+
+/* ---------------------------------------*/
+// func p256PointAddAffineAsm(res, in1 *SM2P256Point, in2 *p256AffinePoint, sign, sel, zero int)
+TEXT ·p256PointAddAffineAsm(SB),0,$264-48
+	RET
+
+// (x3, x2, x1, x0) = (x3, x2, x1, x0) + (y3, y2, y1, y0)
+#define p256AddInline          \
+	ADDV x0, y0, x0;  \
+	SGTU y0, x0, t0;  \
+	ADDV x1, y1, x1;  \
+	SGTU y1, x1, t1;  \
+	ADDV t0, x1, x1;  \
+	SGTU t0, x1, t2;  \
+	OR t1, t2, t0;  \
+	ADDV x2, y2, x2;  \
+	SGTU y2, x2, t1;  \
+	ADDV t0, x2, x2;  \
+	SGTU t0, x2, t2;  \
+	OR t1, t2, t0;  \
+	ADDV x3, y3, x3;  \
+	SGTU y3, x3, t1;  \
+	ADDV t0, x3, x3;  \
+	SGTU t0, x3, t2;  \
+	OR t1, t2, t2;  \
+	;\
+	ADDV $1, x0, acc4;  \
+	SGTU x0, acc4, t0;  \
+	ADDV const0, t0, t0;  \
+	ADDV x1, t0, acc5;  \
+	SGTU x1, acc5, t0;  \
+	ADDV t0, x2, acc6;  \
+	SGTU x2, acc6, t0;  \
+	ADDV const1, t0, t0;  \
+	ADDV x3, t0, acc7;  \
+	SGTU x3, acc7, t0;  \
+	OR t0, t2, t0;  \
+	MASKNEZ t0, x0, x0;  \
+	MASKEQZ t0, acc4, acc4;  \
+	OR acc4, x0;  \
+	MASKNEZ t0, x1, x1;  \
+	MASKEQZ t0, acc5, acc5;  \
+	OR acc5, x1;  \
+	MASKNEZ t0, x2, x2;  \
+	MASKEQZ t0, acc6, acc6;  \
+	OR acc6, x2;  \
+	MASKNEZ t0, x3, x3;  \
+	MASKEQZ t0, acc7, acc7;  \
+	OR acc7, x3
+
+
+/* ---------------------------------------*/
+// func p256Add(res, in1, in2 *p256Element)
+TEXT ·p256Add(SB),NOSPLIT,$0
+	MOVV res+0(FP), res_ptr
+	MOVV in1+8(FP), x_ptr
+	MOVV in2+16(FP), y_ptr
+	MOVV (8*0)(x_ptr), y0
+	MOVV (8*1)(x_ptr), y1
+	MOVV (8*2)(x_ptr), y2
+	MOVV (8*3)(x_ptr), y3
+
+	MOVV (8*0)(y_ptr), x0
+	MOVV (8*1)(y_ptr), x1
+	MOVV (8*2)(y_ptr), x2
+	MOVV (8*3)(y_ptr), x3
+
+	MOVV p256one<>+0x08(SB), const0
+	ADDV $1, const0, const1
+
+	p256AddInline
+
+	MOVV x0, (8*0)(res_ptr)
+	MOVV x1, (8*1)(res_ptr)
+	MOVV x2, (8*2)(res_ptr)
+	MOVV x3, (8*3)(res_ptr)
+	RET
+
+/* ---------------------------------------*/
+//func p256PointDoubleAsm(res, in *SM2P256Point)
+TEXT ·p256PointDoubleAsm(SB),NOSPLIT,$136-16
+	RET
+
+/* ---------------------------------------*/
+//func p256PointDouble6TimesAsm(res, in *SM2P256Point)
+TEXT ·p256PointDouble6TimesAsm(SB),NOSPLIT,$136-16
+	RET
+
+/* ---------------------------------------*/
+// func p256PointAddAsm(res, in1, in2 *SM2P256Point) int
+TEXT ·p256PointAddAsm(SB),0,$392-32
+	RET
