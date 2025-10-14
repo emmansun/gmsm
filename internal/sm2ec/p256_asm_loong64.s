@@ -1364,24 +1364,6 @@ TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
 	RET
 
 /* ---------------------------------------*/
-// func p256MulBy2(res, in *p256Element)
-TEXT ·p256MulBy2(SB),NOSPLIT,$0
-	MOVV res+0(FP), res_ptr
-	MOVV in+8(FP), x_ptr
-	MOVV (8*0)(x_ptr), y0
-	MOVV (8*1)(x_ptr), y1
-	MOVV (8*2)(x_ptr), y2
-	MOVV (8*3)(x_ptr), y3
-	MOVV p256one<>+0x08(SB), const0
-	ADDV $1, const0, const1
-	p256MulBy2Inline
-	MOVV x0, (8*0)(res_ptr)
-	MOVV x1, (8*1)(res_ptr)
-	MOVV x2, (8*2)(res_ptr)
-	MOVV x3, (8*3)(res_ptr)
-	RET
-
-/* ---------------------------------------*/
 // (x3, x2, x1, x0) = 2(y3, y2, y1, y0)
 #define p256MulBy2Inline       \
 	SRLV $63, y0, t0;  \
@@ -1419,3 +1401,21 @@ TEXT ·p256MulBy2(SB),NOSPLIT,$0
 	MASKNEZ t0, x3, x3;  \
 	MASKEQZ t0, acc7, acc7;  \
 	OR acc7, x3
+
+/* ---------------------------------------*/
+// func p256MulBy2(res, in *p256Element)
+TEXT ·p256MulBy2(SB),NOSPLIT,$0
+	MOVV res+0(FP), res_ptr
+	MOVV in+8(FP), x_ptr
+	MOVV (8*0)(x_ptr), y0
+	MOVV (8*1)(x_ptr), y1
+	MOVV (8*2)(x_ptr), y2
+	MOVV (8*3)(x_ptr), y3
+	MOVV p256one<>+0x08(SB), const0
+	ADDV $1, const0, const1
+	p256MulBy2Inline
+	MOVV x0, (8*0)(res_ptr)
+	MOVV x1, (8*1)(res_ptr)
+	MOVV x2, (8*2)(res_ptr)
+	MOVV x3, (8*3)(res_ptr)
+	RET
