@@ -229,32 +229,64 @@ func TestFuzzyP256Sqr(t *testing.T) {
 
 func TestP256OrdReduce(t *testing.T) {
 	p256Ord := &p256OrdElement{0x53bbf40939d54123, 0x7203df6b21c6052b, 0xffffffffffffffff, 0xfffffffeffffffff}
-    // s < p256Ord
-    var s1 p256OrdElement
-    copy(s1[:], p256Ord[:])
-    s1[0] -= 1 // s1 = p256Ord - 1
-    s1Orig := s1
-    p256OrdReduce(&s1)
-    if s1 != s1Orig {
-        t.Errorf("p256OrdReduce changed s when s < p256Ord: got %x, want %x", s1, s1Orig)
-    }
+	// s < p256Ord
+	var s1 p256OrdElement
+	copy(s1[:], p256Ord[:])
+	s1[0] -= 1 // s1 = p256Ord - 1
+	s1Orig := s1
+	p256OrdReduce(&s1)
+	if s1 != s1Orig {
+		t.Errorf("p256OrdReduce changed s when s < p256Ord: got %x, want %x", s1, s1Orig)
+	}
 
-    // s >= p256Ord
-    var s2 p256OrdElement
-    copy(s2[:], p256Ord[:])
-    // s2 = p256Ord
-    p256OrdReduce(&s2)
-    zero := p256OrdElement{}
-    if s2 != zero {
-        t.Errorf("p256OrdReduce failed for s == p256Ord: got %x, want 0", s2)
-    }
+	// s >= p256Ord
+	var s2 p256OrdElement
+	copy(s2[:], p256Ord[:])
+	// s2 = p256Ord
+	p256OrdReduce(&s2)
+	zero := p256OrdElement{}
+	if s2 != zero {
+		t.Errorf("p256OrdReduce failed for s == p256Ord: got %x, want 0", s2)
+	}
 
-    // s2 = p256Ord + 1
-    copy(s2[:], p256Ord[:])
-    s2[0] += 1
-    p256OrdReduce(&s2)
-    one := p256OrdElement{1, 0, 0, 0}
-    if s2 != one {
-        t.Errorf("p256OrdReduce failed for s == p256Ord+1: got %x, want %x", s2, one)
-    }
+	// s2 = p256Ord + 1
+	copy(s2[:], p256Ord[:])
+	s2[0] += 1
+	p256OrdReduce(&s2)
+	one := p256OrdElement{1, 0, 0, 0}
+	if s2 != one {
+		t.Errorf("p256OrdReduce failed for s == p256Ord+1: got %x, want %x", s2, one)
+	}
+}
+
+func TestP256Sub(t *testing.T) {
+	// in1 > in2
+	in1 := p256Element{5, 0, 0, 0}
+	in2 := p256Element{3, 0, 0, 0}
+	var res p256Element
+	p256Sub(&res, &in1, &in2)
+	want := p256Element{2, 0, 0, 0}
+	if !reflect.DeepEqual(res, want) {
+		t.Errorf("in1 > in2: got %v, want %v", res, want)
+	}
+
+	// in1 == in2
+	in1 = p256Element{7, 8, 9, 10}
+	in2 = p256Element{7, 8, 9, 10}
+	p256Sub(&res, &in1, &in2)
+	want = p256Element{0, 0, 0, 0}
+	if !reflect.DeepEqual(res, want) {
+		t.Errorf("in1 == in2: got %v, want %v", res, want)
+	}
+
+	// in1 < in2
+	in1 = p256Element{1, 0, 0, 0}
+	in2 = p256Element{2, 0, 0, 0}
+	p256Sub(&res, &in1, &in2)
+	// 1 - 2 mod 2^64 = 0xFFFFFFFFFFFFFFFF
+	want = p256Element{0xfffffffffffffffe, 0xffffffff00000000,
+		0xffffffffffffffff, 0xfffffffeffffffff}
+	if !reflect.DeepEqual(res, want) {
+		t.Errorf("in1 < in2: got %v, want %v", res, want)
+	}
 }

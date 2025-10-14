@@ -1288,6 +1288,68 @@ TEXT ·p256SelectAffine(SB),NOSPLIT,$0
 	RET
 
 /* ---------------------------------------*/
+// func p256Mul(res, in1, in2 *p256Element)
+TEXT ·p256Mul(SB),NOSPLIT,$0
+	MOVV res+0(FP), res_ptr
+	MOVV in1+8(FP), x_ptr
+	MOVV in2+16(FP), y_ptr
+	MOVV (8*0)(x_ptr), y0
+	MOVV (8*1)(x_ptr), y1
+	MOVV (8*2)(x_ptr), y2
+	MOVV (8*3)(x_ptr), y3
+
+	MOVV (8*0)(y_ptr), x0
+	MOVV (8*1)(y_ptr), x1
+	MOVV (8*2)(y_ptr), x2
+	MOVV (8*3)(y_ptr), x3
+
+	CALL sm2P256MulInternal<>(SB)
+
+	MOVV x0, (8*0)(res_ptr)
+	MOVV x1, (8*1)(res_ptr)
+	MOVV x2, (8*2)(res_ptr)
+	MOVV x3, (8*3)(res_ptr)
+	RET
+
+/* ---------------------------------------*/
 // (x3, x2, x1, x0) = (y3, y2, y1, y0) - (x3, x2, x1, x0)	
 TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
+	SGTU x0, y0, t0
+	SUBV x0, y0, acc0
+	// SBCS x1, y1
+	SGTU x1, y1, t1
+	SUBV x1, y1, acc1
+	SGTU t0, acc1, t2
+	SUBV t0, acc1, acc1
+	OR t1, t2, t0
+	// SBCS x2, y2
+	SGTU x2, y2, t1
+	SUBV x2, y2, acc2
+	SGTU t0, acc2, t2
+	SUBV t0, acc2, acc2
+	OR t1, t2, t0
+	// SBCS x3, y3
+	SGTU x3, y3, t1
+	SUBV x3, y3, acc3
+	SGTU t0, acc3, t2
+	SUBV t0, acc3, acc3
+	OR t1, t2, t0
+
+	MOVV $1, t1
+	MASKEQZ t0, t1, t1
+	MOVV p256one<>+0x08(SB), t2
+	MASKEQZ t0, t2, t3
+	ADDV $1, t2, t2
+	MASKEQZ t0, t2, t2
+
+	SGTU t1, acc0, t4
+	SUBV t1, acc0, x0
+	ADDV t1, t3, t3       // no carry
+	SGTU t3, acc1, t1
+	SUBV t3, acc1, x1
+	SGTU t1, acc2, t4
+	SUBV t1, acc2, x2
+	ADDV t4, t2, t1       // no carry
+	SUBV t1, acc3, x3
+
 	RET
