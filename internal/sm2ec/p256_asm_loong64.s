@@ -1288,8 +1288,8 @@ TEXT ·p256SelectAffine(SB),NOSPLIT,$0
 	RET
 
 /* ---------------------------------------*/
-// func p256Mul(res, in1, in2 *p256Element)
-TEXT ·p256Mul(SB),NOSPLIT,$0
+// func p256Sub(res, in1, in2 *p256Element)
+TEXT ·p256Sub(SB),NOSPLIT,$0
 	MOVV res+0(FP), res_ptr
 	MOVV in1+8(FP), x_ptr
 	MOVV in2+16(FP), y_ptr
@@ -1303,7 +1303,7 @@ TEXT ·p256Mul(SB),NOSPLIT,$0
 	MOVV (8*2)(y_ptr), x2
 	MOVV (8*3)(y_ptr), x3
 
-	CALL sm2P256MulInternal<>(SB)
+	CALL sm2P256Subinternal<>(SB)
 
 	MOVV x0, (8*0)(res_ptr)
 	MOVV x1, (8*1)(res_ptr)
