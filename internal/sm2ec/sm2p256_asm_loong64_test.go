@@ -129,8 +129,6 @@ func p256MulTest(t *testing.T, x, y, p, r *big.Int) {
 	x1 = x1.Mod(x1, p)
 	y1 := new(big.Int).Mul(y, r)
 	y1 = y1.Mod(y1, p)
-	one := new(p256Element)
-	one[0] = 1
 	ax := new(p256Element)
 	ay := new(p256Element)
 	res := new(p256Element)
@@ -138,7 +136,7 @@ func p256MulTest(t *testing.T, x, y, p, r *big.Int) {
 	fromBig(ax, x1)
 	fromBig(ay, y1)
 	p256Mul(res2, ax, ay)
-	p256Mul(res, res2, one)
+	p256FromMont(res, res2)
 	resInt := toBigInt(res)
 
 	expected := new(big.Int).Mul(x, y)
@@ -187,11 +185,9 @@ func p256SqrTest(t *testing.T, x, p, r *big.Int) {
 	ax := new(p256Element)
 	res := new(p256Element)
 	res2 := new(p256Element)
-	one := new(p256Element)
-	one[0] = 1
 	fromBig(ax, x1)
 	p256Sqr(res2, ax, 1)
-	p256Mul(res, res2, one)
+	p256FromMont(res, res2)
 	resInt := toBigInt(res)
 
 	expected := new(big.Int).Mul(x, x)

@@ -42,3 +42,9 @@ func p256Mul(res, in1, in2 *p256Element)
 //
 //go:noescape
 func p256Sqr(res, in *p256Element, n int)
+
+// Montgomery multiplication by R⁻¹, or 1 outside the domain.
+// Sets res = in * R⁻¹, bringing res out of the Montgomery domain.
+//
+//go:noescape
+func p256FromMont(res, in *p256Element)

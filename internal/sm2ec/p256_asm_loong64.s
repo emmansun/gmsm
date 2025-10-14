@@ -336,6 +336,177 @@ TEXT ·p256NegCond(SB),NOSPLIT,$0
 	RET
 
 /* ---------------------------------------*/
+// func p256FromMont(res, in *p256Element)
+TEXT ·p256FromMont(SB),NOSPLIT,$0
+	MOVV res+0(FP), res_ptr
+	MOVV in+8(FP), x_ptr
+
+	MOVV (8*0)(x_ptr), acc0
+	MOVV (8*1)(x_ptr), acc1
+	MOVV (8*2)(x_ptr), acc2
+	MOVV (8*3)(x_ptr), acc3
+	// Only reduce, no multiplications are needed
+	// First reduction step
+	SLLV $32, acc0, t0
+	SRLV $32, acc0, t1
+
+	// SUBS t0, acc1
+	SGTU t0, acc1, t2
+	SUBV t0, acc1, acc1
+	// SBCS t1, acc2
+	ADDV t2, t1, t2       // no carry
+	SGTU t2, acc2, t3
+	SUBV t2, acc2, acc2
+	// SBCS t0, acc3
+	ADDV t3, t0, t3       // no carry
+	SGTU t3, acc3, t2
+	SUBV t3, acc3, acc3
+	// SBC t1, acc0
+	ADDV t2, t1, t2       // no carry
+	SUBV t2, acc0, y0     // no borrow
+
+	// ADDS acc0, acc1, acc1
+	ADDV acc0, acc1, acc1
+	SGTU acc0, acc1, t0
+	// ADCS $0, acc2
+	ADDV t0, acc2, acc2
+	SGTU t0, acc2, t1
+	// ADCS $0, acc3
+	ADDV t1, acc3, acc3
+	SGTU t1, acc3, t0
+	// ADC $0, y0, acc0
+	ADDV t0, y0, acc0
+
+	// Second reduction step
+	SLLV $32, acc1, t0
+	SRLV $32, acc1, t1
+
+	// SUBS t0, acc2
+	SGTU t0, acc2, t2
+	SUBV t0, acc2, acc2
+	// SBCS t1, acc3
+	ADDV t2, t1, t3       // no carry
+	SGTU t3, acc3, t2
+	SUBV t3, acc3, acc3
+	// SBCS t0, acc0
+	ADDV t2, t0, t2       // no carry
+	SGTU t2, acc0, t3
+	SUBV t2, acc0, acc0
+	// SBC t1, acc1
+	ADDV t3, t1, t2       // no carry
+	SUBV t2, acc1, y0     // no borrow
+
+	// ADDS acc1, acc2
+	ADDV acc1, acc2, acc2
+	SGTU acc1, acc2, t0
+	// ADCS $0, acc3
+	ADDV t0, acc3, acc3
+	SGTU t0, acc3, t1
+	// ADCS $0, acc0
+	ADDV t1, acc0, acc0
+	SGTU t1, acc0, t0
+	// ADC $0, y0, acc1
+	ADDV t0, y0, acc1
+
+	// Third reduction step
+	SLLV $32, acc2, t0
+	SRLV $32, acc2, t1
+
+	// SUBS t0, acc3
+	SGTU t0, acc3, t2
+	SUBV t0, acc3, acc3
+	// SBCS t1, acc0
+	ADDV t2, t1, t3       // no carry
+	SGTU t3, acc0, t2
+	SUBV t3, acc0, acc0
+	// SBCS t0, acc1
+	ADDV t2, t0, t2       // no carry
+	SGTU t2, acc1, t3
+	SUBV t2, acc1, acc1
+	// SBC t1, acc2
+	ADDV t3, t1, t2       // no carry
+	SUBV t2, acc2, y0     // no borrow
+
+	// ADDS acc2, acc3
+	ADDV acc2, acc3, acc3
+	SGTU acc2, acc3, t0
+	// ADCS $0, acc0
+	ADDV t0, acc0, acc0
+	SGTU t0, acc0, t1
+	// ADCS $0, acc1
+	ADDV t1, acc1, acc1
+	SGTU t1, acc1, t0
+	// ADC $0, y0, acc2
+	ADDV t0, y0, acc2
+
+	// Last reduction step
+	SLLV $32, acc3, t0
+	SRLV $32, acc3, t1
+
+	// SUBS t0, acc0
+	SGTU t0, acc0, t2
+	SUBV t0, acc0, acc0
+	// SBCS t1, acc1
+	ADDV t2, t1, t3       // no carry
+	SGTU t3, acc1, t2
+	SUBV t3, acc1, acc1
+	// SBCS t0, acc2
+	ADDV t2, t0, t2       // no carry
+	SGTU t2, acc2, t3
+	SUBV t2, acc2, acc2
+	// SBC t1, acc3
+	ADDV t3, t1, t2       // no carry
+	SUBV t2, acc3, y0     // no borrow
+
+	// ADDS acc3, acc0
+	ADDV acc3, acc0, acc0
+	SGTU acc3, acc0, t0
+	// ADCS $0, acc1
+	ADDV t0, acc1, acc1
+	SGTU t0, acc1, t1
+	// ADCS $0, acc2
+	ADDV t1, acc2, acc2
+	SGTU t1, acc2, t0
+	// ADC $0, y0, acc3
+	ADDV t0, y0, acc3
+
+	// Final reduction
+	ADDV $1, acc0, acc4
+	SGTU acc0, acc4, t1
+	MOVV p256one<>+0X08(SB), t2
+	ADDV t2, t1, t1         // no carry
+	ADDV acc1, t1, acc5
+	SGTU acc1, acc5, t3
+	ADDV t3, acc2, acc6
+	SGTU acc2, acc6, t4
+	ADDV $1, t2, t2
+	ADDV t4, t2, t2         // no carry
+	ADDV acc3, t2, acc7
+	SGTU acc3, acc7, t0
+
+	MASKNEZ t0, acc0, acc0
+	MASKEQZ t0, acc4, acc4
+	OR acc4, acc0
+
+	MASKNEZ t0, acc1, acc1
+	MASKEQZ t0, acc5, acc5
+	OR acc5, acc1
+
+	MASKNEZ t0, acc2, acc2
+	MASKEQZ t0, acc6, acc6
+	OR acc6, acc2
+
+	MASKNEZ t0, acc3, acc3
+	MASKEQZ t0, acc7, acc7
+	OR acc7, acc3
+
+	MOVV acc0, (8*0)(res_ptr)
+	MOVV acc1, (8*1)(res_ptr)
+	MOVV acc2, (8*2)(res_ptr)
+	MOVV acc3, (8*3)(res_ptr)
+	RET
+
+/* ---------------------------------------*/
 // func p256Sqr(res, in *p256Element, n int)
 TEXT ·p256Sqr(SB),NOSPLIT,$0
 	MOVV res+0(FP), res_ptr
