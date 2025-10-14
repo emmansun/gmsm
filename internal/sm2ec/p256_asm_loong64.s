@@ -394,6 +394,7 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	SGTU t1, acc4, t3
 	ADDV t2, acc4, acc4
 	SGTU t2, acc4, t4
+	// ADC $0, acc5
 	OR t3, t4, acc5
 
 	MULV x1, x3, t0
@@ -402,16 +403,17 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	SGTU t0, acc4, t2
 	MULHVU x1, x3, t1
 	// ADC	t1, acc5
-	ADDV t1, acc5, acc5   // no carry
+	ADDV t1, t2, t2       // no carry
+	ADDV t2, acc5, acc5   // no carry
 
 	// x[3] * x[2]
 	MULV x2, x3, t0
 	// ADDS t0, acc5
 	ADDV t0, acc5, acc5
-	SGTU t0, acc5, t2
-	MULHVU x2, x3, t1
-	// ADC	t1, acc6
-	ADDV t1, t2, acc6   // no carry
+	SGTU t0, acc5, t1
+	MULHVU x2, x3, acc6
+	// ADC	$0, acc6
+	ADDV t1, acc6, acc6   // no carry
 
 	// *2
 	// ALSLV is NOT supported in go 1.25
