@@ -1344,7 +1344,7 @@ TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
 
 	SGTU t1, acc0, t4
 	SUBV t1, acc0, x0
-	ADDV t1, t3, t3       // no carry
+	ADDV t4, t3, t3       // no carry
 	SGTU t3, acc1, t1
 	SUBV t3, acc1, x1
 	SGTU t1, acc2, t4
