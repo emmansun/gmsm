@@ -473,7 +473,7 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	// Final reduction
 	ADDV $1, acc0, acc4
 	SGTU acc0, acc4, t1
-	MOVV p256one<>+0X08(SB), t2
+	MOVV p256one<>+0x08(SB), t2
 	ADDV t2, t1, t1         // no carry
 	ADDV acc1, t1, acc5
 	SGTU acc1, acc5, t3
@@ -793,7 +793,7 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	// Final reduction
 	ADDV $1, y0, acc4
 	SGTU y0, acc4, t1
-	MOVV p256one<>+0X08(SB), t2
+	MOVV p256one<>+0x08(SB), t2
 	ADDV t2, t1, t1             // no carry
 	ADDV y1, t1, acc5
 	SGTU y1, acc5, t3
@@ -1154,7 +1154,7 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	// Final reduction
 	ADDV $1, y0, acc4
 	SGTU y0, acc4, t1
-	MOVV p256one<>+0X08(SB), t2
+	MOVV p256one<>+0x08(SB), t2
 	ADDV t2, t1, t1             // no carry
 	ADDV y1, t1, acc5
 	SGTU y1, acc5, t3
@@ -1208,4 +1208,86 @@ TEXT ·p256Mul(SB),NOSPLIT,$0
 	MOVV y2, (8*2)(res_ptr)
 	MOVV y3, (8*3)(res_ptr)
 
+	RET
+
+/* ---------------------------------------*/
+// func p256OrdSqr(res, in *p256OrdElement, n int)
+TEXT ·p256OrdSqr(SB),NOSPLIT,$0
+	RET
+
+/* ---------------------------------------*/
+// func p256OrdMul(res, in1, in2 *p256OrdElement)
+TEXT ·p256OrdMul(SB),NOSPLIT,$0
+	RET
+
+/* ---------------------------------------*/
+//func p256OrdReduce(s *p256OrdElement)
+TEXT ·p256OrdReduce(SB),NOSPLIT,$0
+	MOVV s+0(FP), res_ptr
+
+	MOVV (8*0)(res_ptr), acc0
+	MOVV (8*1)(res_ptr), acc1
+	MOVV (8*2)(res_ptr), acc2
+	MOVV (8*3)(res_ptr), acc3
+
+	MOVV p256ord<>+0x00(SB), x0
+	MOVV p256ord<>+0x08(SB), x1
+	MOVV p256ord<>+0x10(SB), x2
+	MOVV p256ord<>+0x18(SB), x3
+
+	SGTU x0, acc0, t0
+	SUBV x0, acc0, y0
+	// SBCS x1, acc1
+	ADDV t0, x1, t1        // no carry
+	SGTU t1, acc1, t2
+	SUBV t1, acc1, y1
+	// SBCS x2, acc2
+	SGTU x2, acc2, t3
+	SUBV x2, acc2, y2
+	SGTU t2, y2, t4
+	SUBV t2, y2, y2
+	OR t3, t4, t2
+	// SBCS x3, acc3
+	SGTU x3, acc3, t3
+	SUBV x3, acc3, y3
+	SGTU t2, y3, t4
+	SUBV t2, y3, y3
+	OR t3, t4, t0
+
+	MASKNEZ t0, y0, y0
+	MASKEQZ t0, acc0, acc0
+	OR acc0, y0
+
+	MASKNEZ t0, y1, y1
+	MASKEQZ t0, acc1, acc1
+	OR acc1, y1
+
+	MASKNEZ t0, y2, y2
+	MASKEQZ t0, acc2, acc2
+	OR acc2, y2
+
+	MASKNEZ t0, y3, y3
+	MASKEQZ t0, acc3, acc3
+	OR acc3, y3
+
+	MOVV y0, (8*0)(res_ptr)
+	MOVV y1, (8*1)(res_ptr)
+	MOVV y2, (8*2)(res_ptr)
+	MOVV y3, (8*3)(res_ptr)
+
+	RET
+
+/* ---------------------------------------*/
+// func p256Select(res *SM2P256Point, table *p256Table, idx, limit int)
+TEXT ·p256Select(SB),NOSPLIT,$0
+	RET
+
+/* ---------------------------------------*/
+// func p256SelectAffine(res *p256AffinePoint, table *p256AffineTable, idx int)
+TEXT ·p256SelectAffine(SB),NOSPLIT,$0
+	RET
+
+/* ---------------------------------------*/
+// (x3, x2, x1, x0) = (y3, y2, y1, y0) - (x3, x2, x1, x0)	
+TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
 	RET
