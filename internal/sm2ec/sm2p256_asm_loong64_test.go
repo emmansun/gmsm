@@ -290,3 +290,32 @@ func TestP256Sub(t *testing.T) {
 		t.Errorf("in1 < in2: got %v, want %v", res, want)
 	}
 }
+
+func p256MulBy2Test(t *testing.T, x, p, r *big.Int) {
+	x1 := new(big.Int).Mul(x, r)
+	x1 = x1.Mod(x1, p)
+	y1 := new(big.Int).Mul(big.NewInt(2), r)
+	y1 = y1.Mod(y1, p)
+	ax := new(p256Element)
+	res := new(p256Element)
+	res2 := new(p256Element)
+	fromBig(ax, x1)
+	p256MulBy2(res2, ax)
+	p256FromMont(res, res2)
+	resInt := toBigInt(res)
+
+	expected := new(big.Int).Mul(x, big.NewInt(2))
+	expected = expected.Mod(expected, p)
+	if resInt.Cmp(expected) != 0 {
+		t.Fatalf("p256MulBy2(%x) = %x, want %x", x, resInt, expected)
+	}
+}
+
+func TestP256MulBy2(t *testing.T) {
+	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF", 16)
+	r, _ := new(big.Int).SetString("10000000000000000000000000000000000000000000000000000000000000000", 16)
+	pMinus1 := new(big.Int).Sub(p, big.NewInt(1))
+	p256MulBy2Test(t, pMinus1, p, r)
+	p256MulBy2Test(t, big.NewInt(0), p, r)
+	p256MulBy2Test(t, big.NewInt(1), p, r)
+}

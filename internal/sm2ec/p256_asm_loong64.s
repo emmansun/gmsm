@@ -15,6 +15,7 @@
 #define acc1 R8
 #define acc2 R9
 #define acc3 R10
+
 #define acc4 R11
 #define acc5 R12
 #define acc6 R13
@@ -24,7 +25,9 @@
 #define t1 R16
 #define t2 R17
 #define t3 R18
-#define t4 R19
+
+#define hlp0 R19
+#define hlp1 R30
 
 #define x0 R20
 #define x1 R21
@@ -34,6 +37,9 @@
 #define y1 R26
 #define y2 R27
 #define y3 R31
+
+#define const0 R28
+#define const1 R29
 
 DATA p256p<>+0x00(SB)/8, $0xffffffffffffffff
 DATA p256p<>+0x08(SB)/8, $0xffffffff00000000
@@ -190,7 +196,7 @@ basic_path:
 	MOVV (8*0)(y_ptr), t1
 	MOVV (8*1)(y_ptr), t2
 	MOVV (8*2)(y_ptr), t3
-	MOVV (8*3)(y_ptr), t4
+	MOVV (8*3)(y_ptr), hlp0
 
 	// Conditional move
 	MASKNEZ t0, t1, t1
@@ -205,9 +211,9 @@ basic_path:
 	MASKEQZ t0, acc2, acc2
 	OR t3, acc2
 
-	MASKNEZ t0, t4, t4
+	MASKNEZ t0, hlp0, hlp0
 	MASKEQZ t0, acc3, acc3
-	OR t4, acc3
+	OR hlp0, acc3
 
 	// Store result
 	MOVV acc0, (8*0)(res_ptr)
@@ -225,7 +231,7 @@ basic_path:
 	MOVV (8*4)(y_ptr), t1
 	MOVV (8*5)(y_ptr), t2
 	MOVV (8*6)(y_ptr), t3
-	MOVV (8*7)(y_ptr), t4
+	MOVV (8*7)(y_ptr), hlp0
 
 	// Conditional move
 	MASKNEZ t0, t1, t1
@@ -240,9 +246,9 @@ basic_path:
 	MASKEQZ t0, acc2, acc2
 	OR t3, acc2
 
-	MASKNEZ t0, t4, t4
+	MASKNEZ t0, hlp0, hlp0
 	MASKEQZ t0, acc3, acc3
-	OR t4, acc3
+	OR hlp0, acc3
 
 	// Store result
 	MOVV acc0, (8*4)(res_ptr)
@@ -260,7 +266,7 @@ basic_path:
 	MOVV (8*8)(y_ptr), t1
 	MOVV (8*9)(y_ptr), t2
 	MOVV (8*10)(y_ptr), t3
-	MOVV (8*11)(y_ptr), t4
+	MOVV (8*11)(y_ptr), hlp0
 
 	// Conditional move
 	MASKNEZ t0, t1, t1
@@ -275,9 +281,9 @@ basic_path:
 	MASKEQZ t0, acc2, acc2
 	OR t3, acc2
 
-	MASKNEZ t0, t4, t4
+	MASKNEZ t0, hlp0, hlp0
 	MASKEQZ t0, acc3, acc3
-	OR t4, acc3
+	OR hlp0, acc3
 
 	// Store result
 	MOVV acc0, (8*8)(res_ptr)
@@ -478,9 +484,9 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	ADDV acc1, t1, acc5
 	SGTU acc1, acc5, t3
 	ADDV t3, acc2, acc6
-	SGTU acc2, acc6, t4
+	SGTU acc2, acc6, hlp0
 	ADDV $1, t2, t2
-	ADDV t4, t2, t2         // no carry
+	ADDV hlp0, t2, t2         // no carry
 	ADDV acc3, t2, acc7
 	SGTU acc3, acc7, t0
 
@@ -517,6 +523,9 @@ TEXT ·p256Sqr(SB),NOSPLIT,$0
 	MOVV (8*1)(x_ptr), x1
 	MOVV (8*2)(x_ptr), x2
 	MOVV (8*3)(x_ptr), x3
+
+	MOVV p256one<>+0x08(SB), const0
+	ADDV $1, const0, const1
 	
 sqrLoop:
 	SUBV $1, y_ptr
@@ -564,9 +573,9 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	ADDV t1, acc4, acc4
 	SGTU t1, acc4, t3
 	ADDV t2, acc4, acc4
-	SGTU t2, acc4, t4
+	SGTU t2, acc4, hlp0
 	// ADC $0, acc5
-	OR t3, t4, acc5
+	OR t3, hlp0, acc5
 
 	MULV x1, x3, t0
 	// ADCS t0, acc4
@@ -602,14 +611,14 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	// ALSLV $1, t2, acc4, acc4
 	SLLV $1, acc4, acc4
 	ADDV t2, acc4, acc4
-	SRLV $63, acc5, t4
+	SRLV $63, acc5, hlp0
 	// ALSLV $1, t3, acc5, acc5
 	SLLV $1, acc5, acc5
 	ADDV t3, acc5, acc5
 	SRLV $63, acc6, acc7
-	// ALSLV $1, t4, acc6, acc6
+	// ALSLV $1, hlp0, acc6, acc6
 	SLLV $1, acc6, acc6
-	ADDV t4, acc6, acc6
+	ADDV hlp0, acc6, acc6
 
 	// Missing products
 	MULV x0, x0, acc0
@@ -793,17 +802,15 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	// Final reduction
 	ADDV $1, y0, acc4
 	SGTU y0, acc4, t1
-	MOVV p256one<>+0x08(SB), t2
-	ADDV t2, t1, t1             // no carry
+	ADDV const0, t1, t1             // no carry
 	ADDV y1, t1, acc5
 	SGTU y1, acc5, t3
 	ADDV t3, y2, acc6
-	SGTU y2, acc6, t4
-	ADDV $1, t2, t2
-	ADDV t4, t2, t2         // no carry
+	SGTU y2, acc6, hlp0
+	ADDV hlp0, const1, t2         // no carry
 	ADDV y3, t2, acc7
-	SGTU y3, acc7, t4
-	OR t0, t4, t0
+	SGTU y3, acc7, hlp0
+	OR t0, hlp0, t0
 
 	MASKNEZ t0, y0, y0
 	MASKEQZ t0, acc4, acc4
@@ -892,8 +899,8 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	ADDV t0, acc2, acc2
 	SGTU t0, acc2, t3
 	ADDV t2, acc2, acc2
-	SGTU t2, acc2, t4
-	OR t3, t4, t2
+	SGTU t2, acc2, hlp0
+	OR t3, hlp0, t2
 	MULHVU y1, x1, y0
 
 	MULV y1, x2, t0
@@ -901,8 +908,8 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	ADDV t0, acc3, acc3
 	SGTU t0, acc3, t3
 	ADDV t2, acc3, acc3
-	SGTU t2, acc3, t4
-	OR t3, t4, t2
+	SGTU t2, acc3, hlp0
+	OR t3, hlp0, t2
 	MULHVU y1, x2, acc6
 
 	MULV y1, x3, t0
@@ -910,8 +917,8 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	ADDV t0, acc4, acc4
 	SGTU t0, acc4, t3
 	ADDV t2, acc4, acc4
-	SGTU t2, acc4, t4
-	OR t3, t4, acc5
+	SGTU t2, acc4, hlp0
+	OR t3, hlp0, acc5
 	MULHVU y1, x3, acc7
 
 	// ADDS	t1, acc2
@@ -921,14 +928,14 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	ADDV y0, acc3, acc3
 	SGTU y0, acc3, t3
 	ADDV t2, acc3, acc3
-	SGTU t2, acc3, t4
-	OR t3, t4, t2
+	SGTU t2, acc3, hlp0
+	OR t3, hlp0, t2
 	// ADCS	acc6, acc4
 	ADDV acc6, acc4, acc4
 	SGTU acc6, acc4, t3
 	ADDV t2, acc4, acc4
-	SGTU t2, acc4, t4
-	OR t3, t4, t2
+	SGTU t2, acc4, hlp0
+	OR t3, hlp0, t2
 	// ADC	acc7, acc5
 	ADDV t2, acc5, acc5
 	ADDV acc7, acc5, acc5
@@ -976,8 +983,8 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	ADDV t0, acc3, acc3
 	SGTU t0, acc3, t3
 	ADDV t2, acc3, acc3
-	SGTU t2, acc3, t4
-	OR t3, t4, t2
+	SGTU t2, acc3, hlp0
+	OR t3, hlp0, t2
 	MULHVU y2, x1, y0
 
 	MULV y2, x2, t0
@@ -985,8 +992,8 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	ADDV t0, acc0, acc0
 	SGTU t0, acc0, t3
 	ADDV t2, acc0, acc0
-	SGTU t2, acc0, t4
-	OR t3, t4, t2
+	SGTU t2, acc0, hlp0
+	OR t3, hlp0, t2
 	MULHVU y2, x2, y1
 
 	MULV y2, x3, t0
@@ -994,8 +1001,8 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	ADDV t0, acc1, acc1
 	SGTU t0, acc1, t3
 	ADDV t2, acc1, acc1
-	SGTU t2, acc1, t4
-	OR t3, t4, acc6
+	SGTU t2, acc1, hlp0
+	OR t3, hlp0, acc6
 	MULHVU y2, x3, acc7
 
 	// ADDS	t1, acc3
@@ -1005,14 +1012,14 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	ADDV y0, acc4, acc4
 	SGTU y0, acc4, t3
 	ADDV t2, acc4, acc4
-	SGTU t2, acc4, t4
-	OR t3, t4, t2
+	SGTU t2, acc4, hlp0
+	OR t3, hlp0, t2
 	// ADCS	y1, acc5
 	ADDV y1, acc5, acc5
 	SGTU y1, acc5, t3
 	ADDV t2, acc5, acc5
-	SGTU t2, acc5, t4
-	OR t3, t4, t2
+	SGTU t2, acc5, hlp0
+	OR t3, hlp0, t2
 	// ADC	acc7, acc6
 	ADDV t2, acc6, acc6
 	ADDV acc7, acc6, acc6
@@ -1060,8 +1067,8 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	ADDV t0, acc4, acc4
 	SGTU t0, acc4, t3
 	ADDV t2, acc4, acc4
-	SGTU t2, acc4, t4
-	OR t3, t4, t2
+	SGTU t2, acc4, hlp0
+	OR t3, hlp0, t2
 	MULHVU y3, x1, y0
 
 	MULV y3, x2, t0
@@ -1069,8 +1076,8 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	ADDV t0, acc5, acc5
 	SGTU t0, acc5, t3
 	ADDV t2, acc5, acc5	
-	SGTU t2, acc5, t4
-	OR t3, t4, t2
+	SGTU t2, acc5, hlp0
+	OR t3, hlp0, t2
 	MULHVU y3, x2, y1
 
 	MULV y3, x3, t0
@@ -1078,8 +1085,8 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	ADDV t0, acc6, acc6
 	SGTU t0, acc6, t3
 	ADDV t2, acc6, acc6
-	SGTU t2, acc6, t4
-	OR t3, t4, acc7
+	SGTU t2, acc6, hlp0
+	OR t3, hlp0, acc7
 	MULHVU y3, x3, t0
 
 	// ADDS	t1, acc4
@@ -1089,14 +1096,14 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	ADDV y0, acc5, acc5
 	SGTU y0, acc5, t3
 	ADDV t2, acc5, acc5
-	SGTU t2, acc5, t4
-	OR t3, t4, t2
+	SGTU t2, acc5, hlp0
+	OR t3, hlp0, t2
 	// ADCS	y1, acc6
 	ADDV y1, acc6, acc6
 	SGTU y1, acc6, t3
 	ADDV t2, acc6, acc6
-	SGTU t2, acc6, t4
-	OR t3, t4, t2
+	SGTU t2, acc6, hlp0
+	OR t3, hlp0, t2
 	// ADC	t0, acc7
 	ADDV t2, acc7, acc7
 	ADDV t0, acc7, acc7
@@ -1154,17 +1161,15 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	// Final reduction
 	ADDV $1, y0, acc4
 	SGTU y0, acc4, t1
-	MOVV p256one<>+0x08(SB), t2
-	ADDV t2, t1, t1             // no carry
+	ADDV const0, t1, t1             // no carry
 	ADDV y1, t1, acc5
 	SGTU y1, acc5, t3
 	ADDV t3, y2, acc6
-	SGTU y2, acc6, t4
-	ADDV $1, t2, t2
-	ADDV t4, t2, t2         // no carry
+	SGTU y2, acc6, hlp0
+	ADDV hlp0, const1, t2         // no carry
 	ADDV y3, t2, acc7
-	SGTU y3, acc7, t4
-	OR t0, t4, t0
+	SGTU y3, acc7, hlp0
+	OR t0, hlp0, t0
 
 	MASKNEZ t0, y0, y0
 	MASKEQZ t0, acc4, acc4
@@ -1190,6 +1195,9 @@ TEXT ·p256Mul(SB),NOSPLIT,$0
 	MOVV res+0(FP), res_ptr
 	MOVV in1+8(FP), x_ptr
 	MOVV in2+16(FP), y_ptr
+
+	MOVV p256one<>+0x08(SB), const0
+	ADDV $1, const0, const1
 
 	MOVV (8*0)(x_ptr), x0
 	MOVV (8*1)(x_ptr), x1
@@ -1244,15 +1252,15 @@ TEXT ·p256OrdReduce(SB),NOSPLIT,$0
 	// SBCS x2, acc2
 	SGTU x2, acc2, t3
 	SUBV x2, acc2, y2
-	SGTU t2, y2, t4
+	SGTU t2, y2, t0
 	SUBV t2, y2, y2
-	OR t3, t4, t2
+	OR t3, t0, t2
 	// SBCS x3, acc3
 	SGTU x3, acc3, t3
 	SUBV x3, acc3, y3
-	SGTU t2, y3, t4
+	SGTU t2, y3, t0
 	SUBV t2, y3, y3
-	OR t3, t4, t0
+	OR t3, t0, t0
 
 	MASKNEZ t0, y0, y0
 	MASKEQZ t0, acc0, acc0
@@ -1303,6 +1311,9 @@ TEXT ·p256Sub(SB),NOSPLIT,$0
 	MOVV (8*2)(y_ptr), x2
 	MOVV (8*3)(y_ptr), x3
 
+	MOVV p256one<>+0x08(SB), const0
+	ADDV $1, const0, const1
+
 	CALL sm2P256Subinternal<>(SB)
 
 	MOVV x0, (8*0)(res_ptr)
@@ -1337,19 +1348,74 @@ TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
 
 	MOVV $1, t1
 	MASKEQZ t0, t1, t1
-	MOVV p256one<>+0x08(SB), t2
-	MASKEQZ t0, t2, t3
-	ADDV $1, t2, t2
-	MASKEQZ t0, t2, t2
+	MASKEQZ t0, const0, t3
+	MASKEQZ t0, const1, t2
 
-	SGTU t1, acc0, t4
+	SGTU t1, acc0, hlp0
 	SUBV t1, acc0, x0
-	ADDV t4, t3, t3       // no carry
+	ADDV hlp0, t3, t3       // no carry
 	SGTU t3, acc1, t1
 	SUBV t3, acc1, x1
-	SGTU t1, acc2, t4
+	SGTU t1, acc2, hlp0
 	SUBV t1, acc2, x2
-	ADDV t4, t2, t1       // no carry
+	ADDV hlp0, t2, t1       // no carry
 	SUBV t1, acc3, x3
 
 	RET
+
+/* ---------------------------------------*/
+// func p256MulBy2(res, in *p256Element)
+TEXT ·p256MulBy2(SB),NOSPLIT,$0
+	MOVV res+0(FP), res_ptr
+	MOVV in+8(FP), x_ptr
+	MOVV (8*0)(x_ptr), y0
+	MOVV (8*1)(x_ptr), y1
+	MOVV (8*2)(x_ptr), y2
+	MOVV (8*3)(x_ptr), y3
+	MOVV p256one<>+0x08(SB), const0
+	ADDV $1, const0, const1
+	p256MulBy2Inline
+	MOVV x0, (8*0)(res_ptr)
+	MOVV x1, (8*1)(res_ptr)
+	MOVV x2, (8*2)(res_ptr)
+	MOVV x3, (8*3)(res_ptr)
+	RET
+
+/* ---------------------------------------*/
+// (x3, x2, x1, x0) = 2(y3, y2, y1, y0)
+#define p256MulBy2Inline       \
+	SRLV $63, y0, t0;  \
+	SLLV $1, y0, x0;  \
+	SRLV $63, y1, t1;  \
+	SLLV $1, y1, x1;  \
+	ADDV t0, x1, x1;  \
+	SRLV $63, y2, t2;  \
+	SLLV $1, y2, x2;  \
+	ADDV t1, x2, x2;  \
+	SRLV $63, y3, t3;  \
+	SLLV $1, y3, x3;  \
+	ADDV t2, x3, x3;  \
+	;\
+	ADDV $1, x0, acc4;  \
+	SGTU x0, acc4, t0;  \
+	ADDV const0, t0, t0;  \
+	ADDV x1, t0, acc5;  \
+	SGTU x1, acc5, t0;  \
+	ADDV t0, x2, acc6;  \
+	SGTU x2, acc6, t0;  \
+	ADDV const1, t0, t0;  \
+	ADDV x3, t0, acc7;  \
+	SGTU x3, acc7, t0;  \
+	OR t0, t3, t0;  \
+	MASKNEZ t0, x0, x0;  \
+	MASKEQZ t0, acc4, acc4;  \
+	OR acc4, x0;  \
+	MASKNEZ t0, x1, x1;  \
+	MASKEQZ t0, acc5, acc5;  \
+	OR acc5, x1;  \
+	MASKNEZ t0, x2, x2;  \
+	MASKEQZ t0, acc6, acc6;  \
+	OR acc6, x2;  \
+	MASKNEZ t0, x3, x3;  \
+	MASKEQZ t0, acc7, acc7;  \
+	OR acc7, x3

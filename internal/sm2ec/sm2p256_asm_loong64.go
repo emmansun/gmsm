@@ -56,3 +56,6 @@ func p256OrdReduce(s *p256OrdElement)
 
 //go:noescape
 func p256Sub(res, in1, in2 *p256Element)
+
+//go:noescape
+func p256MulBy2(res, in *p256Element)
