@@ -1355,6 +1355,7 @@ loop_select:
 		OR   acc1, t1, t1
 		OR   acc2, t2, t2
 		OR   acc3, t3, t3
+		ADDVU $32, y_ptr, y_ptr
 
 		BNE const1, x_ptr, loop_select
 
@@ -1422,6 +1423,7 @@ loop_select:
 		OR   acc1, y1, y1
 		OR   acc2, y2, y2
 		OR   acc3, y3, y3
+		ADDVU $32, t1, t1
 
 		BNE t2, const0, loop_select
 	MOVV    x0, (8*0)(res_ptr)
