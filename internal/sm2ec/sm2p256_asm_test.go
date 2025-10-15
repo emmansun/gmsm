@@ -210,7 +210,7 @@ func TestPointDouble(t *testing.T) {
 	}
 	p256PointDoubleAsm(&double1, &double1)
 	if hex.EncodeToString(double1.Bytes()) != "0425d3debd0950d180a6d5c2b5817f2329791734cd03e5565ca32641e56024666c92d99a70679d61efb938c406dd5cb0e10458895120e208b4d39e100303fa10a2" {
-		t.Errorf("Double file is incorrect %x", double1.Bytes())
+		t.Errorf("Double five is incorrect %x", double1.Bytes())
 	}
 	p256PointDoubleAsm(&double1, &double1)
 
@@ -246,5 +246,56 @@ func TestPointAdd(t *testing.T) {
 	}
 	if hex.EncodeToString(sum2.Bytes()) != "04403b18162679c05515a8ecd063d726ba7b1eb83b8306ace5cd382e53ed23ae1feb42ebf496a7bd698d61a1c805ef7074df882dfcffcc84bcd0a5d4ebea56f425" {
 		t.Errorf("G + [64]G is incorrect %x", sum2.Bytes())
+	}
+}
+
+func TestSelect(t *testing.T) {
+	p := NewSM2P256Point().SetGenerator()
+	// precomp is a table of precomputed points that stores powers of p
+	// from p^1 to p^32.
+	var precomp p256Table
+	var t0 SM2P256Point
+
+	// Prepare the table
+	precomp[0] = *p // 1
+
+	p256PointDoubleAsm(&precomp[1], p)             //2
+	p256PointAddAsm(&precomp[2], &precomp[1], p)   //3
+	p256PointDoubleAsm(&precomp[3], &precomp[1])   //4
+	p256PointAddAsm(&precomp[4], &precomp[3], p)   //5
+	p256PointDoubleAsm(&precomp[5], &precomp[2])   //6
+	p256PointAddAsm(&precomp[6], &precomp[5], p)   //7
+	p256PointDoubleAsm(&precomp[7], &precomp[3])   //8
+	p256PointAddAsm(&precomp[8], &precomp[7], p)   //9
+	p256PointDoubleAsm(&precomp[9], &precomp[4])   //10
+	p256PointAddAsm(&precomp[10], &precomp[9], p)  //11
+	p256PointDoubleAsm(&precomp[11], &precomp[5])  //12
+	p256PointAddAsm(&precomp[12], &precomp[11], p) //13
+	p256PointDoubleAsm(&precomp[13], &precomp[6])  //14
+	p256PointAddAsm(&precomp[14], &precomp[13], p) //15
+	p256PointDoubleAsm(&precomp[15], &precomp[7])  //16
+
+	p256PointAddAsm(&precomp[16], &precomp[15], p) //17
+	p256PointDoubleAsm(&precomp[17], &precomp[8])  //18
+	p256PointAddAsm(&precomp[18], &precomp[17], p) //19
+	p256PointDoubleAsm(&precomp[19], &precomp[9])  //20
+	p256PointAddAsm(&precomp[20], &precomp[19], p) //21
+	p256PointDoubleAsm(&precomp[21], &precomp[10]) //22
+	p256PointAddAsm(&precomp[22], &precomp[21], p) //23
+	p256PointDoubleAsm(&precomp[23], &precomp[11]) //24
+	p256PointAddAsm(&precomp[24], &precomp[23], p) //25
+	p256PointDoubleAsm(&precomp[25], &precomp[12]) //26
+	p256PointAddAsm(&precomp[26], &precomp[25], p) //27
+	p256PointDoubleAsm(&precomp[27], &precomp[13]) //28
+	p256PointAddAsm(&precomp[28], &precomp[27], p) //29
+	p256PointDoubleAsm(&precomp[29], &precomp[14]) //30
+	p256PointAddAsm(&precomp[30], &precomp[29], p) //31
+	p256PointDoubleAsm(&precomp[31], &precomp[15]) //32
+
+	for i := 1; i <= 32; i++ {
+		p256Select(&t0, &precomp, i, 32)
+		if !bytes.Equal(t0.Bytes(), precomp[i-1].Bytes()) {
+			t.Errorf("Select %d failed %x, %x", i, t0.Bytes(), precomp[i-1].Bytes())
+		}
 	}
 }
