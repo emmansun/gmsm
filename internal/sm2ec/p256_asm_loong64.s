@@ -1376,9 +1376,9 @@ loop_select:
 /* ---------------------------------------*/
 // func p256SelectAffine(res *p256AffinePoint, table *p256AffineTable, idx int)
 TEXT ·p256SelectAffine(SB),NOSPLIT,$0
-	MOVD	idx+16(FP), t0
-	MOVD	table+8(FP), t1
-	MOVD	res+0(FP), res_ptr
+	MOVV	idx+16(FP), t0
+	MOVV	table+8(FP), t1
+	MOVV	res+0(FP), res_ptr
 
 	XOR	x0, x0, x0
 	XOR	x1, x1, x1
