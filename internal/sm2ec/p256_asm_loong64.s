@@ -1523,8 +1523,8 @@ TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
 #define x3out(off) (off)(res_ptr)
 #define y3out(off) (off + 32)(res_ptr)
 #define z3out(off) (off + 64)(res_ptr)
-#define LDx(src) MOVV src(0), x0; MOVV src(8) x1; MOVV src(16), x2; MOVV src(24), x3
-#define LDy(src) MOVV src(0), y0; MOVV src(8) y1; MOVV src(16), y2; MOVV src(24), y3
+#define LDx(src) MOVV src(0), x0; MOVV src(8), x1; MOVV src(16), x2; MOVV src(24), x3
+#define LDy(src) MOVV src(0), y0; MOVV src(8), y1; MOVV src(16), y2; MOVV src(24), y3
 #define STx(src) MOVV x0, src(0); MOVV x1, src(8); MOVV x2, src(16); MOVV x3, src(24)
 #define STy(src) MOVV y0, src(0); MOVV y1, src(8); MOVV y2, src(16); MOVV y3, src(24)
 /* ---------------------------------------*/
@@ -1562,21 +1562,21 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	// (acc0, acc1, acc2, acc3) = - (y3, y2, y1, y0)
 	SGTU y0, ZERO, t3
 	SUBV y0, ZERO, acc0
-	SGTU y1, ZERO, t4
+	SGTU y1, ZERO, t2
 	SUBV y1, ZERO, acc1
 	SGTU t3, acc1, t1
 	SUBV t3, acc1, acc1
-	OR t4, t1, t3
-	SGTU y2, ZERO, t4
+	OR t2, t1, t3
+	SGTU y2, ZERO, t2
 	SUBV y2, ZERO, acc2
 	SGTU t3, acc2, t1
 	SUBV t3, acc2, acc2
-	OR t4, t1, t3
-	SGTU y3, ZERO, t4
+	OR t2, t1, t3
+	SGTU y3, ZERO, t2
 	SUBV y3, ZERO, acc3
 	SGTU t3, acc3, t1
 	SUBV t3, acc3, acc3
-	OR t4, t1, t3
+	OR t2, t1, t3
 
 	MOVV $1, acc4
 	MASKEQZ t3, acc4, acc4
