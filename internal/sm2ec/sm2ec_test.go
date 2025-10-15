@@ -185,7 +185,7 @@ func TestEquivalents(t *testing.T) {
 	fatalIfErr(t, err)
 
 	if !bytes.Equal(p1.Bytes(), p2.Bytes()) {
-		t.Error("P+P != 2*P")
+		t.Errorf("P+P %x != 2*P %x", p1.Bytes(), p2.Bytes())
 	}
 	if !bytes.Equal(p1.Bytes(), p3.Bytes()) {
 		t.Error("P+P != [2]P")
