@@ -2178,10 +2178,11 @@ TEXT ·p256PointAddAsm(SB),0,$392-32
 	STx(r)
 
 	// Check if zero mod p256
+	MOVV $1, hlp0
 	OR x0, x1, acc0
 	OR x2, x3, acc1
 	OR acc0, acc1, acc1
-	SGTU acc1, ZERO, hlp0
+	MASKNEZ acc1, hlp0, hlp0
 
 	MOVV $-1, acc0
 	MOVV p256p<>+0x08(SB), acc1
@@ -2194,7 +2195,8 @@ TEXT ·p256PointAddAsm(SB),0,$392-32
 	OR acc4, acc5, acc4
 	OR acc6, acc7, acc7
 	OR acc4, acc7, acc7
-	SGTU acc7, ZERO, res_ptr
+	MOVV $1, res_ptr
+	MASKNEZ acc7, res_ptr, res_ptr
 	OR hlp0, res_ptr, res_ptr
 
 	LDx(z2sqr)
@@ -2212,10 +2214,11 @@ TEXT ·p256PointAddAsm(SB),0,$392-32
 	STx(h)
 
 	// Check if zero mod p256
+	MOVV $1, hlp0
 	OR x0, x1, acc0
 	OR x2, x3, acc1
 	OR acc0, acc1, acc1
-	SGTU acc1, ZERO, hlp0
+	MASKNEZ acc1, hlp0, hlp0
 
 	MOVV $-1, acc0
 	MOVV p256p<>+0x08(SB), acc1
@@ -2228,7 +2231,8 @@ TEXT ·p256PointAddAsm(SB),0,$392-32
 	OR acc4, acc5, acc4
 	OR acc6, acc7, acc7
 	OR acc4, acc7, acc7
-	SGTU acc7, ZERO, t0
+	MOVV $1, t0
+	MASKNEZ acc7, t0, t0
 	OR hlp0, t0, hlp0
 
 	AND hlp0, res_ptr, res_ptr
