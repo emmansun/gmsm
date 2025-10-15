@@ -1621,7 +1621,7 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	STx(h)
 
 	LDy(z1in)
-	CALL	p256MulInternal<>(SB)    // z3 = h * z1
+	CALL	sm2P256MulInternal<>(SB)    // z3 = h * z1
 
 	// iff select == 0, z3 = z1
 	MOVV (8*8)(a_ptr), acc0
@@ -1666,35 +1666,35 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	MOVV y3, (8*11)(t0)
 
 	LDy(z1sqr)
-	CALL	p256MulInternal<>(SB)    // z1 ^ 3
+	CALL	sm2P256MulInternal<>(SB)    // z1 ^ 3
 
 	LDx(y2in)
-	CALL	p256MulInternal<>(SB)    // s2 = y2 * z1ˆ3
+	CALL	sm2P256MulInternal<>(SB)    // s2 = y2 * z1ˆ3
 	STy(s2)
 
 	LDx(y1in)
-	CALL	p256SubInternal<>(SB)    // r = s2 - s1
+	CALL	sm2P256Subinternal<>(SB)    // r = s2 - s1
 	STx(r)
 
-	CALL	p256SqrInternal<>(SB)    // rsqr = rˆ2
+	CALL	sm2P256SqrInternal<>(SB)    // rsqr = rˆ2
 	STy	(rsqr)
 
 	LDx(h)
-	CALL	p256SqrInternal<>(SB)    // hsqr = hˆ2
+	CALL	sm2P256SqrInternal<>(SB)    // hsqr = hˆ2
 	STy(hsqr)
 
-	CALL	p256MulInternal<>(SB)    // hcub = hˆ3
+	CALL	sm2P256MulInternal<>(SB)    // hcub = hˆ3
 	STy(hcub)
 
 	LDx(y1in)
-	CALL	p256MulInternal<>(SB)    // y1 * hˆ3
+	CALL	sm2P256MulInternal<>(SB)    // y1 * hˆ3
 	STy(s2)
 
 	MOVV hsqr(0*8), x0
 	MOVV hsqr(1*8), x1
 	MOVV hsqr(2*8), x2
 	MOVV hsqr(3*8), x3
-	CALL	p256MulInternal<>(SB)    // hsqr * u1
+	CALL	sm2P256MulInternal<>(SB)    // hsqr * u1
 	MOVV y0, h(0*8)
 	MOVV y1, h(1*8)
 	MOVV y2, h(2*8)
@@ -1703,14 +1703,14 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	p256MulBy2Inline               // u1 * hˆ2 * 2, inline
 
 	LDy(rsqr)
-	CALL	p256SubInternal<>(SB)    // rˆ2 - u1 * hˆ2 * 2
+	CALL	sm2P256Subinternal<>(SB)    // rˆ2 - u1 * hˆ2 * 2
 
 	MOVV x0, y0 
 	MOVV x1, y1
 	MOVV x2, y2
 	MOVV x3, y3
 	LDy(hcub)
-	CALL	p256SubInternal<>(SB)
+	CALL	sm2P256Subinternal<>(SB)
 
 	MOVV (8*0)(a_ptr), acc0
 	MOVV (8*1)(a_ptr), acc1
@@ -1757,19 +1757,19 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	MOVV h(1*8), y1
 	MOVV h(2*8), y2
 	MOVV h(3*8), y3
-	CALL	p256SubInternal<>(SB)
+	CALL	sm2P256Subinternal<>(SB)
 
 	MOVV r(0*8), y0 
 	MOVV r(1*8), y1
 	MOVV r(2*8), y2
 	MOVV r(3*8), y3
-	CALL	p256MulInternal<>(SB)
+	CALL	sm2P256MulInternal<>(SB)
 
 	MOVV s2(0*8), x0 
 	MOVV s2(1*8), x1
 	MOVV s2(2*8), x2
 	MOVV s2(3*8), x3
-	CALL	p256SubInternal<>(SB)
+	CALL	sm2P256Subinternal<>(SB)
 
 	MOVV (8*4)(a_ptr), acc0
 	MOVV (8*5)(a_ptr), acc1
