@@ -1935,7 +1935,7 @@ TEXT ·p256Add(SB),NOSPLIT,$0
 #define p256DivideBy2 \
 	MOVV $1, acc1;  \
 	AND t1, y0, t0;  \
-	MASKEQZ t0, acc1, acc1
+	MASKEQZ t0, acc1, acc1; \
 	MASKEQZ t0, const0, acc2;  \
 	MASKEQZ t0, const1, acc3;  \
 	SGTU acc1, y0, t1;  \
