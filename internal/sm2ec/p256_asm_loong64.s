@@ -1861,7 +1861,7 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 // (y3, y2, y1, y0) = (y3, y2, y1, y0) / 2
 #define p256DivideBy2 \
 	MOVV $1, acc1;  \
-	AND t1, y0, t0;  \
+	AND acc1, y0, t0;  \
 	MASKEQZ t0, acc1, acc1; \
 	MASKEQZ t0, const0, acc2;  \
 	MASKEQZ t0, const1, acc3;  \
@@ -1899,7 +1899,7 @@ TEXT ·p256PointDoubleAsm(SB),NOSPLIT,$136-16
 	ADDV $1, const0, const1
 
 	// Begin point double
-	MOVV (8*8)(a_ptr), x0 
+	MOVV (8*8)(a_ptr), x0              // load z 
 	MOVV (8*9)(a_ptr), x1
 	MOVV (8*10)(a_ptr), x2
 	MOVV (8*11)(a_ptr), x3
