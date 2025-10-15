@@ -193,10 +193,25 @@ func TestPointDouble(t *testing.T) {
 	var double1, double2 SM2P256Point
 	p := NewSM2P256Point().SetGenerator()
 	p256PointDoubleAsm(&double1, p)
+	if hex.EncodeToString(double1.Bytes()) != "0456cefd60d7c87c000d58ef57fa73ba4d9c0dfa08c08a7331495c2e1da3f2bd5231b7e7e6cc8189f668535ce0f8eaf1bd6de84c182f6c8e716f780d3a970a23c3" {
+		t.Errorf("Double one is incorrect %x", double1.Bytes())
+	}
 	p256PointDoubleAsm(&double1, &double1)
+	if hex.EncodeToString(double1.Bytes()) != "04c239507105c683242a81052ff641ed69009a084ad5cc937db21646cd34a0ced5b1bf7ec4080f3c8735f1294ac0db19686bee2e96ab8c71fb7a253666cb66e009" {
+		t.Errorf("Double two is incorrect %x", double1.Bytes())
+	}
 	p256PointDoubleAsm(&double1, &double1)
+	if hex.EncodeToString(double1.Bytes()) != "04b9c3faeb4b1610713db4333d4e860e64d4ea35d60c1c29bb675d822ded0bb916c519b309ecf7269c2491d2de9accf2be0366a8a03024b3e03c286da2cfd31a3e" {
+		t.Errorf("Double three is incorrect %x", double1.Bytes())
+	}
 	p256PointDoubleAsm(&double1, &double1)
+	if hex.EncodeToString(double1.Bytes()) != "0435648233f554ae51bbce44ef5db3e419ea133cd248a93e2555645bbc8704fb6804d7ac60f6d975ef6117bca9ce885dd6154b1870a6a651664411a9a30eca2046" {
+		t.Errorf("Double four is incorrect %x", double1.Bytes())
+	}
 	p256PointDoubleAsm(&double1, &double1)
+	if hex.EncodeToString(double1.Bytes()) != "0425d3debd0950d180a6d5c2b5817f2329791734cd03e5565ca32641e56024666c92d99a70679d61efb938c406dd5cb0e10458895120e208b4d39e100303fa10a2" {
+		t.Errorf("Double file is incorrect %x", double1.Bytes())
+	}
 	p256PointDoubleAsm(&double1, &double1)
 
 	p256PointDouble6TimesAsm(&double2, p)
