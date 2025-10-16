@@ -1472,7 +1472,7 @@ loop_select_lsx:
 		VADDV V0, V1
 		ADDVU $64, t1, t1
 
-		BNE t2, const0, loop_select
+		BNE t2, const0, loop_select_lsx
 	VMOVQ V3, (16*0)(res_ptr)
 	VMOVQ V4, (16*1)(res_ptr)
 	VMOVQ V5, (16*2)(res_ptr)
