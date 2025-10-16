@@ -299,3 +299,31 @@ func TestSelect(t *testing.T) {
 		}
 	}
 }
+
+func TestP256PointAddAffineAsm(t *testing.T) {
+	var t0 p256AffinePoint
+	p := NewSM2P256Point().SetGenerator()
+
+	p256SelectAffine(&t0, &p256Precomputed[0], 3)
+	p.x, p.y, p.z = t0.x, t0.y, p256One
+	p256SelectAffine(&t0, &p256Precomputed[32], 3)
+	p256PointAddAffineAsm(p, p, &t0, 0, 3, 1)
+	if hex.EncodeToString(p.Bytes()) != "04f1dd662afa8046798bb6dcf34c4b1e1e9d7e88aff4ba8b43de4acf7e8f62a60f16a9cb1bbd2eacb000382c13303ef83b7a0b7a821390db3887c96683af0e7bd6" {
+		t.Errorf("PointAddAffine is incorrect %x", p.Bytes())
+	}
+
+	p256PointAddAffineAsm(p, p, &t0, 1, 3, 1)
+	if hex.EncodeToString(p.Bytes()) != "04a97f7cd4b3c993b4be2daa8cdb41e24ca13f6bd945302244e26918f1d0509ebf530b5dd88c688ef5ccc5cec08a72150f7c400ee5cd045292aaacdd037458f6e6" {
+		t.Errorf("PointAddAffine is incorrect %x", p.Bytes())
+	}
+
+	p256PointAddAffineAsm(p, p, &t0, 0, 0, 1)
+	if hex.EncodeToString(p.Bytes()) != "04a97f7cd4b3c993b4be2daa8cdb41e24ca13f6bd945302244e26918f1d0509ebf530b5dd88c688ef5ccc5cec08a72150f7c400ee5cd045292aaacdd037458f6e6" {
+		t.Errorf("PointAddAffine is incorrect %x", p.Bytes())
+	}
+
+	p256PointAddAffineAsm(p, p, &t0, 0, 3, 0)
+	if hex.EncodeToString(p.Bytes()) != "04ccc69dcd48c3cdd56e164408eb8f345ff512ce57673bcb32c5b0fd8fe13eb9128fe410fe8bc0792948ad23d074346f66e842857399981e91f0c920e6e0afa3cc" {
+		t.Errorf("PointAddAffine is incorrect %x", p.Bytes())
+	}
+}
