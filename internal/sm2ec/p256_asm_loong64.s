@@ -1328,11 +1328,10 @@ loop_select:
 		OR   acc2, x2, x2
 		OR   acc3, x3, x3
 
-		ADDVU $32, y_ptr, y_ptr
-		MOVV    (8*0)(y_ptr), acc0
-		MOVV    (8*1)(y_ptr), acc1
-		MOVV    (8*2)(y_ptr), acc2
-		MOVV    (8*3)(y_ptr), acc3
+		MOVV    (8*4)(y_ptr), acc0
+		MOVV    (8*5)(y_ptr), acc1
+		MOVV    (8*6)(y_ptr), acc2
+		MOVV    (8*7)(y_ptr), acc3
 		MASKNEZ hlp0, acc0, acc0
 		MASKNEZ hlp0, acc1, acc1
 		MASKNEZ hlp0, acc2, acc2
@@ -1342,11 +1341,10 @@ loop_select:
 		OR   acc2, y2, y2
 		OR   acc3, y3, y3
 
-		ADDVU $32, y_ptr, y_ptr
-		MOVV    (8*0)(y_ptr), acc0
-		MOVV    (8*1)(y_ptr), acc1
-		MOVV    (8*2)(y_ptr), acc2
-		MOVV    (8*3)(y_ptr), acc3
+		MOVV    (8*8)(y_ptr), acc0
+		MOVV    (8*9)(y_ptr), acc1
+		MOVV    (8*10)(y_ptr), acc2
+		MOVV    (8*11)(y_ptr), acc3
 		MASKNEZ hlp0, acc0, acc0
 		MASKNEZ hlp0, acc1, acc1
 		MASKNEZ hlp0, acc2, acc2
@@ -1355,7 +1353,7 @@ loop_select:
 		OR   acc1, t1, t1
 		OR   acc2, t2, t2
 		OR   acc3, t3, t3
-		ADDVU $32, y_ptr, y_ptr
+		ADDVU $96, y_ptr, y_ptr
 
 		BNE const1, x_ptr, loop_select
 
@@ -1410,11 +1408,10 @@ loop_select:
 		OR   acc2, x2, x2
 		OR   acc3, x3, x3
 
-		ADDVU $32, t1, t1
-		MOVV    (8*0)(t1), acc0
-		MOVV    (8*1)(t1), acc1
-		MOVV    (8*2)(t1), acc2
-		MOVV    (8*3)(t1), acc3
+		MOVV    (8*4)(t1), acc0
+		MOVV    (8*5)(t1), acc1
+		MOVV    (8*6)(t1), acc2
+		MOVV    (8*7)(t1), acc3
 		MASKNEZ hlp0, acc0, acc0
 		MASKNEZ hlp0, acc1, acc1
 		MASKNEZ hlp0, acc2, acc2
@@ -1423,7 +1420,7 @@ loop_select:
 		OR   acc1, y1, y1
 		OR   acc2, y2, y2
 		OR   acc3, y3, y3
-		ADDVU $32, t1, t1
+		ADDVU $64, t1, t1
 
 		BNE t2, const0, loop_select
 	MOVV    x0, (8*0)(res_ptr)
@@ -1557,10 +1554,10 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	ADDV $1, const0, const1
 
 	// Negate y2in based on sign
-	MOVV (8*0)(b_ptr), y0
-	MOVV (8*1)(b_ptr), y1
-	MOVV (8*2)(b_ptr), y2
-	MOVV (8*3)(b_ptr), y3
+	MOVV (8*4)(b_ptr), y0
+	MOVV (8*5)(b_ptr), y1
+	MOVV (8*6)(b_ptr), y2
+	MOVV (8*7)(b_ptr), y3
 	// (acc0, acc1, acc2, acc3) = - (y3, y2, y1, y0)
 	SGTU y0, ZERO, t3
 	SUBV y0, ZERO, acc0
