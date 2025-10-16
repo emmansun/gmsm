@@ -1693,6 +1693,10 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	MOVV hsqr(1*8), x1
 	MOVV hsqr(2*8), x2
 	MOVV hsqr(3*8), x3
+	MOVV (8*0)(a_ptr), y0
+	MOVV (8*1)(a_ptr), y1
+	MOVV (8*2)(a_ptr), y2
+	MOVV (8*3)(a_ptr), y3
 	CALL	sm2P256MulInternal<>(SB)    // hsqr * u1
 	MOVV y0, h(0*8)
 	MOVV y1, h(1*8)
@@ -1711,7 +1715,7 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	LDy(hcub)
 	CALL	sm2P256Subinternal<>(SB)
 
-	MOVV (8*0)(a_ptr), acc0
+	MOVV (8*0)(a_ptr), acc0             // load x1
 	MOVV (8*1)(a_ptr), acc1
 	MOVV (8*2)(a_ptr), acc2
 	MOVV (8*3)(a_ptr), acc3
@@ -1728,7 +1732,7 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	OR acc1, x1
 	OR acc2, x2
 	OR acc3, x3
-	MOVV (8*0)(b_ptr), acc0
+	MOVV (8*0)(b_ptr), acc0            // load x2
 	MOVV (8*1)(b_ptr), acc1
 	MOVV (8*2)(b_ptr), acc2
 	MOVV (8*3)(b_ptr), acc3
@@ -1770,7 +1774,7 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	MOVV s2(3*8), x3
 	CALL	sm2P256Subinternal<>(SB)
 
-	MOVV (8*4)(a_ptr), acc0
+	MOVV (8*4)(a_ptr), acc0            // load y1
 	MOVV (8*5)(a_ptr), acc1
 	MOVV (8*6)(a_ptr), acc2
 	MOVV (8*7)(a_ptr), acc3
@@ -1787,7 +1791,7 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	OR acc1, x1
 	OR acc2, x2
 	OR acc3, x3
-	MOVV y2in(0*8), acc0
+	MOVV y2in(0*8), acc0                // load y2
 	MOVV y2in(1*8), acc1
 	MOVV y2in(2*8), acc2
 	MOVV y2in(3*8), acc3
