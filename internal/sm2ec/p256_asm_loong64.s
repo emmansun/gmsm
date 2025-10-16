@@ -30,7 +30,7 @@
 #define t3 R18
 
 #define hlp0 R19
-#define hlp1 R30
+#define hlp1 res_ptr
 
 #define x0 R20
 #define x1 R21
@@ -1548,7 +1548,12 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	MOVV	in2+16(FP), b_ptr
 	MOVV	sign+24(FP), hlp0
 	MOVV	sel+32(FP), hlp1
-	MOVV	zero+40(FP), res_ptr
+	MOVV	zero+40(FP), t2
+
+	SGTU hlp1, ZERO, hlp1
+	SGTU t2, ZERO, t2
+	SLLV $1, t2, t2
+	OR t2, hlp1, hlp1
 
 	MOVV p256one<>+0x08(SB), const0
 	ADDV $1, const0, const1
@@ -1627,14 +1632,15 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	MOVV (8*9)(a_ptr), acc1
 	MOVV (8*10)(a_ptr), acc2
 	MOVV (8*11)(a_ptr), acc3
-	MASKEQZ hlp1, y0, y0
-	MASKNEZ hlp1, acc0, acc0
-	MASKEQZ hlp1, y1, y1
-	MASKNEZ hlp1, acc1, acc1
-	MASKEQZ hlp1, y2, y2
-	MASKNEZ hlp1, acc2, acc2
-	MASKEQZ hlp1, y3, y3
-	MASKNEZ hlp1, acc3, acc3
+	AND $1, hlp1, t0
+	MASKEQZ t0, y0, y0
+	MASKNEZ t0, acc0, acc0
+	MASKEQZ t0, y1, y1
+	MASKNEZ t0, acc1, acc1
+	MASKEQZ t0, y2, y2
+	MASKNEZ t0, acc2, acc2
+	MASKEQZ t0, y3, y3
+	MASKNEZ t0, acc3, acc3
 	OR acc0, y0
 	OR acc1, y1
 	OR acc2, y2
@@ -1644,14 +1650,15 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	MOVV const0, acc1
 	MOVV $0, acc2
 	MOVV const1, acc3
-	MASKEQZ res_ptr, y0, y0
-	MASKNEZ res_ptr, acc0, acc0
-	MASKEQZ res_ptr, y1, y1
-	MASKNEZ res_ptr, acc1, acc1
-	MASKEQZ res_ptr, y2, y2
-	MASKNEZ res_ptr, acc2, acc2
-	MASKEQZ res_ptr, y3, y3
-	MASKNEZ res_ptr, acc3, acc3
+	AND $2, hlp1, t0
+	MASKEQZ t0, y0, y0
+	MASKNEZ t0, acc0, acc0
+	MASKEQZ t0, y1, y1
+	MASKNEZ t0, acc1, acc1
+	MASKEQZ t0, y2, y2
+	MASKNEZ t0, acc2, acc2
+	MASKEQZ t0, y3, y3
+	MASKNEZ t0, acc3, acc3
 	OR acc0, y0
 	OR acc1, y1
 	OR acc2, y2
@@ -1720,14 +1727,15 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	MOVV (8*2)(a_ptr), acc2
 	MOVV (8*3)(a_ptr), acc3
 	// iff select == 0, x3 = x1
-	MASKEQZ hlp1, x0, x0 
-	MASKNEZ hlp1, acc0, acc0
-	MASKEQZ hlp1, x1, x1
-	MASKNEZ hlp1, acc1, acc1
-	MASKEQZ hlp1, x2, x2
-	MASKNEZ hlp1, acc2, acc2
-	MASKEQZ hlp1, x3, x3
-	MASKNEZ hlp1, acc3, acc3
+	AND $1, hlp1, t0
+	MASKEQZ t0, x0, x0 
+	MASKNEZ t0, acc0, acc0
+	MASKEQZ t0, x1, x1
+	MASKNEZ t0, acc1, acc1
+	MASKEQZ t0, x2, x2
+	MASKNEZ t0, acc2, acc2
+	MASKEQZ t0, x3, x3
+	MASKNEZ t0, acc3, acc3
 	OR acc0, x0
 	OR acc1, x1
 	OR acc2, x2
@@ -1737,14 +1745,15 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	MOVV (8*2)(b_ptr), acc2
 	MOVV (8*3)(b_ptr), acc3
 	// iff zero == 0, x3 = x2
-	MASKEQZ res_ptr, x0, x0
-	MASKNEZ res_ptr, acc0, acc0
-	MASKEQZ res_ptr, x1, x1
-	MASKNEZ res_ptr, acc1, acc1
-	MASKEQZ res_ptr, x2, x2
-	MASKNEZ res_ptr, acc2, acc2
-	MASKEQZ res_ptr, x3, x3
-	MASKNEZ res_ptr, acc3, acc3
+	AND $2, hlp1, t0
+	MASKEQZ t0, x0, x0
+	MASKNEZ t0, acc0, acc0
+	MASKEQZ t0, x1, x1
+	MASKNEZ t0, acc1, acc1
+	MASKEQZ t0, x2, x2
+	MASKNEZ t0, acc2, acc2
+	MASKEQZ t0, x3, x3
+	MASKNEZ t0, acc3, acc3
 	OR acc0, x0
 	OR acc1, x1
 	OR acc2, x2
@@ -1779,14 +1788,15 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	MOVV (8*6)(a_ptr), acc2
 	MOVV (8*7)(a_ptr), acc3
 	// iff select == 0, y3 = y1
-	MASKEQZ hlp1, x0, x0
-	MASKNEZ hlp1, acc0, acc0
-	MASKEQZ hlp1, x1, x1
-	MASKNEZ hlp1, acc1, acc1
-	MASKEQZ hlp1, x2, x2
-	MASKNEZ hlp1, acc2, acc2
-	MASKEQZ hlp1, x3, x3
-	MASKNEZ hlp1, acc3, acc3
+	AND $1, hlp1, t0
+	MASKEQZ t0, x0, x0
+	MASKNEZ t0, acc0, acc0
+	MASKEQZ t0, x1, x1
+	MASKNEZ t0, acc1, acc1
+	MASKEQZ t0, x2, x2
+	MASKNEZ t0, acc2, acc2
+	MASKEQZ t0, x3, x3
+	MASKNEZ t0, acc3, acc3
 	OR acc0, x0
 	OR acc1, x1
 	OR acc2, x2
@@ -1796,14 +1806,15 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	MOVV y2in(2*8), acc2
 	MOVV y2in(3*8), acc3
 	// iff zero == 0, y3 = y2
-	MASKEQZ res_ptr, x0, x0
-	MASKNEZ res_ptr, acc0, acc0
-	MASKEQZ res_ptr, x1, x1
-	MASKNEZ res_ptr, acc1, acc1
-	MASKEQZ res_ptr, x2, x2
-	MASKNEZ res_ptr, acc2, acc2
-	MASKEQZ res_ptr, x3, x3
-	MASKNEZ res_ptr, acc3, acc3
+	AND $2, hlp1, t0
+	MASKEQZ t0, x0, x0
+	MASKNEZ t0, acc0, acc0
+	MASKEQZ t0, x1, x1
+	MASKNEZ t0, acc1, acc1
+	MASKEQZ t0, x2, x2
+	MASKNEZ t0, acc2, acc2
+	MASKEQZ t0, x3, x3
+	MASKNEZ t0, acc3, acc3
 	OR acc0, x0
 	OR acc1, x1
 	OR acc2, x2
