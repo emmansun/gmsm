@@ -1296,6 +1296,61 @@ TEXT ·p256Select(SB),NOSPLIT,$0
 	MOVV	table+8(FP), y_ptr
 	MOVV	res+0(FP), res_ptr
 
+	MOVV ·supportLSX+0(SB), t1
+	BEQ  t1, ZERO, basic_path
+
+	MOVV $1, t0
+	VMOVQ t0, V0.V2   // broadcast 1 to all lanes
+	VMOVQ V0, V1      
+	VMOVQ const0, V2.V2  // broadcast idx to all lanes
+
+	VXORV V3, V3, V3   // zero
+	VXORV V4, V4, V4
+	VXORV V5, V5, V5
+	VXORV V6, V6, V6
+	VXORV V7, V7, V7
+	VXORV V8, V8, V8
+
+	MOVV	$0, const1
+
+loop_select_lsx:
+		ADDV $1, const1, const1
+		VSEQV V1, V2, V9
+
+		VMOVQ (16*0)(y_ptr), V10
+		VMOVQ (16*1)(y_ptr), V11
+		VMOVQ (16*2)(y_ptr), V12
+		VMOVQ (16*3)(y_ptr), V13
+		VMOVQ (16*4)(y_ptr), V14
+		VMOVQ (16*5)(y_ptr), V15
+
+		VANDNV V10, V9, V10
+		VANDNV V11, V9, V11
+		VANDNV V12, V9, V12
+		VANDNV V13, V9, V13
+		VANDNV V14, V9, V14
+		VANDNV V15, V9, V15
+
+		VORV V10, V3, V3
+		VORV V11, V4, V4
+		VORV V12, V5, V5
+		VORV V13, V6, V6
+		VORV V14, V7, V7
+		VORV V15, V8, V8
+
+		VADDV V0, V1
+		ADDVU $96, y_ptr, y_ptr
+
+		BNE const1, x_ptr, loop_select_lsx
+	VMOVQ V3, (16*0)(res_ptr)
+	VMOVQ V4, (16*1)(res_ptr)
+	VMOVQ V5, (16*2)(res_ptr)
+	VMOVQ V6, (16*3)(res_ptr)
+	VMOVQ V7, (16*4)(res_ptr)
+	VMOVQ V8, (16*5)(res_ptr)
+	RET
+
+basic_path:
 	MOVV    $0, x0
 	MOVV    $0, x1
 	MOVV    $0, x2
@@ -1379,6 +1434,52 @@ TEXT ·p256SelectAffine(SB),NOSPLIT,$0
 	MOVV	table+8(FP), t1
 	MOVV	res+0(FP), res_ptr
 
+	MOVV ·supportLSX+0(SB), t2
+	BEQ  t2, ZERO, basic_path
+
+	MOVV $1, t2
+	VMOVQ t2, V0.V2   // broadcast 1 to all lanes
+	VMOVQ V0, V1      
+	VMOVQ t0, V2.V2  // broadcast idx to all lanes
+
+	VXORV V3, V3, V3   // zero
+	VXORV V4, V4, V4
+	VXORV V5, V5, V5
+	VXORV V6, V6, V6
+
+	MOVV	$0, t2
+	MOVV	$32, const0
+
+loop_select_lsx:
+		ADDV $1, t2, t2
+		VSEQV V1, V2, V9
+
+		VMOVQ (16*0)(t1), V10
+		VMOVQ (16*1)(t1), V11
+		VMOVQ (16*2)(t1), V12
+		VMOVQ (16*3)(t1), V13
+
+		VANDNV V10, V9, V10
+		VANDNV V11, V9, V11
+		VANDNV V12, V9, V12
+		VANDNV V13, V9, V13
+
+		VORV V10, V3, V3
+		VORV V11, V4, V4
+		VORV V12, V5, V5
+		VORV V13, V6, V6
+
+		VADDV V0, V1
+		ADDVU $64, t1, t1
+
+		BNE t2, const0, loop_select
+	VMOVQ V3, (16*0)(res_ptr)
+	VMOVQ V4, (16*1)(res_ptr)
+	VMOVQ V5, (16*2)(res_ptr)
+	VMOVQ V6, (16*3)(res_ptr)
+	RET
+
+basic_path:
 	XOR	x0, x0, x0
 	XOR	x1, x1, x1
 	XOR	x2, x2, x2
