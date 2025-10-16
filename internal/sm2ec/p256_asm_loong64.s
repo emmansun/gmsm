@@ -1299,6 +1299,45 @@ TEXT ·p256Select(SB),NOSPLIT,$0
 	MOVV ·supportLSX+0(SB), t1
 	BEQ  t1, ZERO, basic_path
 
+	MOVV ·supportLASX+0(SB), t1
+	BEQ  t1, ZERO, lsx_path
+
+	MOVV $1, t0
+	XVMOVQ t0, X0.V4  // broadcast 1 to all lanes
+	XVMOVQ t0, X1.V4
+	XVMOVQ const0, X2.V4  // broadcast idx to all lanes
+
+	XVXORV X3, X3, X3   // zero
+	XVXORV X4, X4, X4
+	XVXORV X5, X5, X5
+
+	MOVV $0, const1
+loop_select_lasx:
+		ADDV $1, const1, const1
+		XVSEQV X1, X2, X9
+
+		XVMOVQ (32*0)(y_ptr), X10
+		XVMOVQ (32*1)(y_ptr), X11
+		XVMOVQ (32*2)(y_ptr), X12
+
+		XVANDV X10, X9, X10
+		XVANDV X11, X9, X11
+		XVANDV X12, X9, X12
+
+		XVORV X10, X3, X3
+		XVORV X11, X4, X4
+		XVORV X12, X5, X5
+
+		XVADDV X0, X1
+		ADDVU $96, y_ptr, y_ptr
+
+		BNE const1, x_ptr, loop_select_lasx	
+	XVMOVQ X3, (32*0)(res_ptr)
+	XVMOVQ X4, (32*1)(res_ptr)
+	XVMOVQ X5, (32*2)(res_ptr)
+	RET
+
+lsx_path:	
 	MOVV $1, t0
 	VMOVQ t0, V0.V2   // broadcast 1 to all lanes
 	VMOVQ t0, V1.V2      
@@ -1437,6 +1476,42 @@ TEXT ·p256SelectAffine(SB),NOSPLIT,$0
 	MOVV ·supportLSX+0(SB), t2
 	BEQ  t2, ZERO, basic_path
 
+	MOVV ·supportLASX+0(SB), t2
+	BEQ  t2, ZERO, lsx_path
+
+	MOVV $1, t2
+	XVMOVQ t2, X0.V4  // broadcast 1 to all lanes
+	XVMOVQ t2, X1.V4
+	XVMOVQ t0, X2.V4  // broadcast idx to all lanes
+
+	XVXORV X3, X3, X3   // zero
+	XVXORV X4, X4, X4
+
+	MOVV $0, t2
+	MOVV $32, const0
+
+loop_select_lasx:
+		ADDV $1, t2, t2
+		XVSEQV X1, X2, X9
+
+		XVMOVQ (32*0)(t1), X10
+		XVMOVQ (32*1)(t1), X11
+
+		XVANDV X10, X9, X10
+		XVANDV X11, X9, X11
+
+		XVORV X10, X3, X3
+		XVORV X11, X4, X4
+
+		XVADDV X0, X1
+		ADDVU $64, t1, t1
+
+		BNE t2, const0, loop_select_lasx
+	XVMOVQ X3, (32*0)(res_ptr)
+	XVMOVQ X4, (32*1)(res_ptr)
+	RET
+
+lsx_path:
 	MOVV $1, t2
 	VMOVQ t2, V0.V2   // broadcast 1 to all lanes
 	VMOVQ t2, V1.V2   
