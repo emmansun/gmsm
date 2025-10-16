@@ -1301,7 +1301,7 @@ TEXT ·p256Select(SB),NOSPLIT,$0
 
 	MOVV $1, t0
 	VMOVQ t0, V0.V2   // broadcast 1 to all lanes
-	VMOVQ V0, V1      
+	VMOVQ t0, V1.V2      
 	VMOVQ const0, V2.V2  // broadcast idx to all lanes
 
 	VXORV V3, V3, V3   // zero
@@ -1439,7 +1439,7 @@ TEXT ·p256SelectAffine(SB),NOSPLIT,$0
 
 	MOVV $1, t2
 	VMOVQ t2, V0.V2   // broadcast 1 to all lanes
-	VMOVQ V0, V1      
+	VMOVQ t2, V1.V2   
 	VMOVQ t0, V2.V2  // broadcast idx to all lanes
 
 	VXORV V3, V3, V3   // zero
