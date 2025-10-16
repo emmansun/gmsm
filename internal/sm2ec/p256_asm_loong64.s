@@ -1712,7 +1712,7 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	MOVV x1, y1
 	MOVV x2, y2
 	MOVV x3, y3
-	LDy(hcub)
+	LDx(hcub)
 	CALL	sm2P256Subinternal<>(SB)
 
 	MOVV (8*0)(a_ptr), acc0             // load x1
