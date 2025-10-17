@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build purego || !(amd64 || arm64 || loong64 || s390x || ppc64le)
+//go:build purego || !(amd64 || arm64 || loong64 || riscv64 || s390x || ppc64le)
 
 package sm2ec
 

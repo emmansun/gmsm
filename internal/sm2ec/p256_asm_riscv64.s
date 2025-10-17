@@ -1520,70 +1520,737 @@ TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
 	OR  t2, y3
 
 /* ---------------------------------------*/
-// func p256MulBy2(res, in *p256Element)
-TEXT ·p256MulBy2(SB),NOSPLIT,$0
-	MOV res+0(FP), res_ptr
-	MOV in+8(FP), x_ptr
-	MOV (8*0)(x_ptr), y0
-	MOV (8*1)(x_ptr), y1
-	MOV (8*2)(x_ptr), y2
-	MOV (8*3)(x_ptr), y3
-	MOV p256one<>+0x08(SB), const0
-	p256MulBy2Inline
-	MOV x0, (8*0)(res_ptr)
-	MOV x1, (8*1)(res_ptr)
-	MOV x2, (8*2)(res_ptr)
-	MOV x3, (8*3)(res_ptr)
-	RET
+#define x1in(off) (off)(a_ptr)
+#define y1in(off) (off + 32)(a_ptr)
+#define z1in(off) (off + 64)(a_ptr)
+#define x2in(off) (off)(b_ptr)
+#define z2in(off) (off + 64)(b_ptr)
+#define x3out(off) (off)(res_ptr)
+#define y3out(off) (off + 32)(res_ptr)
+#define z3out(off) (off + 64)(res_ptr)
+#define LDx(src) MOV src(0), x0; MOV src(8), x1; MOV src(16), x2; MOV src(24), x3
+#define LDy(src) MOV src(0), y0; MOV src(8), y1; MOV src(16), y2; MOV src(24), y3
+#define STx(src) MOV x0, src(0); MOV x1, src(8); MOV x2, src(16); MOV x3, src(24)
+#define STy(src) MOV y0, src(0); MOV y1, src(8); MOV y2, src(16); MOV y3, src(24)
+/* ---------------------------------------*/
+#define y2in(off)  (32*0 + 8 + off)(RSP)
+#define s2(off)    (32*1 + 8 + off)(RSP)
+#define z1sqr(off) (32*2 + 8 + off)(RSP)
+#define h(off)	   (32*3 + 8 + off)(RSP)
+#define r(off)	   (32*4 + 8 + off)(RSP)
+#define hsqr(off)  (32*5 + 8 + off)(RSP)
+#define rsqr(off)  (32*6 + 8 + off)(RSP)
+#define hcub(off)  (32*7 + 8 + off)(RSP)
+
+#define z2sqr(off) (32*8 + 8 + off)(RSP)
+#define s1(off) (32*9 + 8 + off)(RSP)
+#define u1(off) (32*10 + 8 + off)(RSP)
+#define u2(off) (32*11 + 8 + off)(RSP)
 
 /* ---------------------------------------*/
-// func p256Sub(res, in1, in2 *p256Element)
-TEXT ·p256Sub(SB),NOSPLIT,$0
-	MOV res+0(FP), res_ptr
-	MOV in1+8(FP), x_ptr
-	MOV in2+16(FP), y_ptr
-	MOV (8*0)(x_ptr), y0
-	MOV (8*1)(x_ptr), y1
-	MOV (8*2)(x_ptr), y2
-	MOV (8*3)(x_ptr), y3
+// func p256PointAddAffineAsm(res, in1 *SM2P256Point, in2 *p256AffinePoint, sign, sel, zero int)
+TEXT ·p256PointAddAffineAsm(SB),0,$264-48
+	MOV	in1+8(FP), a_ptr
+	MOV	in2+16(FP), b_ptr
+	MOV	sign+24(FP), hlp0
+	MOV	sel+32(FP), hlp1
+	MOV	zero+40(FP), t2
 
-	MOV (8*0)(y_ptr), x0
-	MOV (8*1)(y_ptr), x1
-	MOV (8*2)(y_ptr), x2
-	MOV (8*3)(y_ptr), x3
+	SLTU hlp0, ZERO, hlp0
+	SLTU hlp1, ZERO, hlp1
+	SLTU t2, ZERO, t2
+	SLL $1, t2, t2
+	OR t2, hlp1, hlp1
 
 	MOV p256one<>+0x08(SB), const0
 
-	CALL sm2P256Subinternal<>(SB)
+	// Negate y2in based on sign
+	MOV (8*4)(b_ptr), y0
+	MOV (8*5)(b_ptr), y1
+	MOV (8*6)(b_ptr), y2
+	MOV (8*7)(b_ptr), y3
+	// (acc0, acc1, acc2, acc3) = - (y3, y2, y1, y0)
+	SLTU y0, ZERO, t3
+	SUB y0, ZERO, acc0
+	SLTU y1, ZERO, t2
+	SUB y1, ZERO, acc1
+	SLTU t3, acc1, t1
+	SUB t3, acc1, acc1
+	OR t2, t1, t3
+	SLTU y2, ZERO, t2
+	SUB y2, ZERO, acc2
+	SLTU t3, acc2, t1
+	SUB t3, acc2, acc2
+	OR t2, t1, t3
+	SLTU y3, ZERO, t2
+	SUB y3, ZERO, acc3
+	SLTU t3, acc3, t1
+	SUB t3, acc3, acc3
+	OR t2, t1, t3
 
-	MOV x0, (8*0)(res_ptr)
-	MOV x1, (8*1)(res_ptr)
-	MOV x2, (8*2)(res_ptr)
-	MOV x3, (8*3)(res_ptr)
+	SLL $63, t3, t3
+	SRA $63, t3, t3    // mask = -cond
+	AND $1, t3, acc4
+	AND const0, t3, acc5
+	ADD $1, const0, acc6
+	AND t3, acc6, acc7
+
+	SLTU acc4, acc0, t3
+	SUB acc4, acc0, acc0
+	ADD t3, acc5, acc5       // no carry
+	SLTU acc5, acc1, t3
+	SUB acc5, acc1, acc1
+	SLTU t3, acc2, t1
+	SUB t3, acc2, acc2
+	ADD t1, acc7, t3       // no carry
+	SUB t3, acc3, acc3
+	// If condition is 0, keep original value
+	SUB $1, hlp0, hlp0    // mask = -cond
+	XOR $-1, hlp0, t0    // t0 = ~mask
+	AND hlp0, y0, y0
+	AND t0, acc0, acc0
+	AND hlp0, y1, y1
+	AND t0, acc1, acc1
+	AND hlp0, y2, y2
+	AND t0, acc2, acc2
+	AND hlp0, y3, y3
+	AND t0, acc3, acc3
+	OR acc0, y0
+	OR acc1, y1
+	OR acc2, y2
+	OR acc3, y3
+	// Store result
+	STy(y2in)
+
+	// Begin point add
+	LDx(z1in)
+	CALL	sm2P256SqrInternal<>(SB)    // z1ˆ2
+	STy(z1sqr)
+
+	LDx(x2in)
+	CALL	sm2P256MulInternal<>(SB)    // x2 * z1ˆ2
+
+	LDx(x1in)
+	CALL	sm2P256Subinternal<>(SB)    // h = u2 - u1
+	STx(h)
+
+	LDy(z1in)
+	CALL	sm2P256MulInternal<>(SB)    // z3 = h * z1
+
+	// iff select == 0, z3 = z1
+	MOV (8*8)(a_ptr), acc0
+	MOV (8*9)(a_ptr), acc1
+	MOV (8*10)(a_ptr), acc2
+	MOV (8*11)(a_ptr), acc3
+	AND $1, hlp1, t0
+	SUB $1, t0, t0    // mask = -cond
+	XOR $-1, t0, t1        // t1 = ~mask
+	AND t0, acc0, acc0
+	AND t1, y0, y0
+	OR acc0, y0
+	AND t0, acc1, acc1
+	AND t1, y1, y1
+	OR acc1, y1
+	AND t0, acc2, acc2
+	AND t1, y2, y2
+	OR acc2, y2
+	AND t0, acc3, acc3
+	AND t1, y3, y3
+	OR acc3, y3
+	// iff zero == 0, z3 = 1
+	MOV $1, acc0
+	MOV const0, acc1
+	MOV $0, acc2
+	MOV const0, acc3
+	ADD acc0, acc3, acc3
+	SRL $1, hlp1, t0
+	SUB $1, t0, t0
+	XOR $-1, t0, t1
+	AND t0, acc0, acc0
+	AND t1, y0, y0
+	OR acc0, y0
+	AND t0, acc1, acc1
+	AND t1, y1, y1
+	OR acc1, y1
+	AND t0, acc2, acc2
+	AND t1, y2, y2
+	OR acc2, y2
+	AND t0, acc3, acc3
+	AND t1, y3, y3
+	OR acc3, y3
+	LDx(z1in)
+	// store z3
+	MOV res+0(FP), t0
+	MOV y0, (8*8)(t0)
+	MOV y1, (8*9)(t0)
+	MOV y2, (8*10)(t0)
+	MOV y3, (8*11)(t0)
+
+	LDy(z1sqr)
+	CALL	sm2P256MulInternal<>(SB)    // z1 ^ 3
+
+	LDx(y2in)
+	CALL	sm2P256MulInternal<>(SB)    // s2 = y2 * z1ˆ3
+	STy(s2)
+
+	LDx(y1in)
+	CALL	sm2P256Subinternal<>(SB)    // r = s2 - s1
+	STx(r)
+
+	CALL	sm2P256SqrInternal<>(SB)    // rsqr = rˆ2
+	STy	(rsqr)
+
+	LDx(h)
+	CALL	sm2P256SqrInternal<>(SB)    // hsqr = hˆ2
+	STy(hsqr)
+
+	CALL	sm2P256MulInternal<>(SB)    // hcub = hˆ3
+	STy(hcub)
+
+	LDx(y1in)
+	CALL	sm2P256MulInternal<>(SB)    // y1 * hˆ3
+	STy(s2)
+
+	MOV hsqr(0*8), x0
+	MOV hsqr(1*8), x1
+	MOV hsqr(2*8), x2
+	MOV hsqr(3*8), x3
+	MOV (8*0)(a_ptr), y0
+	MOV (8*1)(a_ptr), y1
+	MOV (8*2)(a_ptr), y2
+	MOV (8*3)(a_ptr), y3
+	CALL	sm2P256MulInternal<>(SB)    // hsqr * u1
+	MOV y0, h(0*8)
+	MOV y1, h(1*8)
+	MOV y2, h(2*8)
+	MOV y3, h(3*8)
+
+	p256MulBy2Inline               // u1 * hˆ2 * 2, inline
+
+	LDy(rsqr)
+	CALL	sm2P256Subinternal<>(SB)    // rˆ2 - u1 * hˆ2 * 2
+
+	MOV x0, y0 
+	MOV x1, y1
+	MOV x2, y2
+	MOV x3, y3
+	LDx(hcub)
+	CALL	sm2P256Subinternal<>(SB)
+
+	MOV (8*0)(a_ptr), acc0             // load x1
+	MOV (8*1)(a_ptr), acc1
+	MOV (8*2)(a_ptr), acc2
+	MOV (8*3)(a_ptr), acc3
+	// iff select == 0, x3 = x1
+	AND $1, hlp1, t0
+	SUB $1, t0, t0
+	XOR $-1, t0, t1        // t1 = ~mask
+	AND t0, acc0, acc0
+	AND t1, x0, x0
+	AND t0, acc1, acc1
+	AND t1, x1, x1
+	AND t0, acc2, acc2
+	AND t1, x2, x2
+	AND t0, acc3, acc3
+	AND t1, x3, x3
+	OR acc0, x0
+	OR acc1, x1
+	OR acc2, x2
+	OR acc3, x3
+	MOV (8*0)(b_ptr), acc0            // load x2
+	MOV (8*1)(b_ptr), acc1
+	MOV (8*2)(b_ptr), acc2
+	MOV (8*3)(b_ptr), acc3
+	// iff zero == 0, x3 = x2
+	SRL $1, hlp1, t0
+	SUB $1, t0, t0
+	XOR $-1, t0, t1        // t1 = ~mask
+	AND t0, acc0, acc0
+	AND t1, x0, x0
+	AND t0, acc1, acc1
+	AND t1, x1, x1
+	AND t0, acc2, acc2
+	AND t1, x2, x2
+	AND t0, acc3, acc3
+	AND t1, x3, x3
+	OR acc0, x0
+	OR acc1, x1
+	OR acc2, x2
+	OR acc3, x3
+	// store x3
+	MOV res+0(FP), t0
+	MOV x0, (8*0)(t0)
+	MOV x1, (8*1)(t0)
+	MOV x2, (8*2)(t0)
+	MOV x3, (8*3)(t0)
+
+	MOV h(0*8), y0 
+	MOV h(1*8), y1
+	MOV h(2*8), y2
+	MOV h(3*8), y3
+	CALL	sm2P256Subinternal<>(SB)
+
+	MOV r(0*8), y0 
+	MOV r(1*8), y1
+	MOV r(2*8), y2
+	MOV r(3*8), y3
+	CALL	sm2P256MulInternal<>(SB)
+
+	MOV s2(0*8), x0 
+	MOV s2(1*8), x1
+	MOV s2(2*8), x2
+	MOV s2(3*8), x3
+	CALL	sm2P256Subinternal<>(SB)
+
+	MOV (8*4)(a_ptr), acc0            // load y1
+	MOV (8*5)(a_ptr), acc1
+	MOV (8*6)(a_ptr), acc2
+	MOV (8*7)(a_ptr), acc3
+	// iff select == 0, y3 = y1
+	AND $1, hlp1, t0
+	SUB $1, t0, t0
+	XOR $-1, t0, t1        // t1 = ~mask
+	AND t0, acc0, acc0
+	AND t1, x0, x0
+	AND t0, acc1, acc1
+	AND t1, x1, x1
+	AND t0, acc2, acc2
+	AND t1, x2, x2
+	AND t0, acc3, acc3
+	AND t1, x3, x3
+	OR acc0, x0
+	OR acc1, x1
+	OR acc2, x2
+	OR acc3, x3
+	MOV y2in(0*8), acc0                // load y2
+	MOV y2in(1*8), acc1
+	MOV y2in(2*8), acc2
+	MOV y2in(3*8), acc3
+	// iff zero == 0, y3 = y2
+	SRL $1, hlp1, t0
+	SUB $1, t0, t0
+	XOR $-1, t0, t1        // t1 = ~mask
+	AND t0, acc0, acc0
+	AND t1, x0, x0
+	AND t0, acc1, acc1
+	AND t1, x1, x1
+	AND t0, acc2, acc2
+	AND t1, x2, x2
+	AND t0, acc3, acc3
+	AND t1, x3, x3
+	OR acc0, x0
+	OR acc1, x1
+	OR acc2, x2
+	OR acc3, x3
+	// store y3
+	MOV res+0(FP), t0
+	MOV x0, (8*4)(t0)
+	MOV x1, (8*5)(t0)
+	MOV x2, (8*6)(t0)
+	MOV x3, (8*7)(t0)
+
 	RET
 
-/* ---------------------------------------*/
-// func p256Add(res, in1, in2 *p256Element)
-TEXT ·p256Add(SB),NOSPLIT,$0
-	MOV res+0(FP), res_ptr
-	MOV in1+8(FP), x_ptr
-	MOV in2+16(FP), y_ptr
-	MOV (8*0)(x_ptr), y0
-	MOV (8*1)(x_ptr), y1
-	MOV (8*2)(x_ptr), y2
-	MOV (8*3)(x_ptr), y3
+#define s(off)	(32*0 + 8 + off)(RSP)
+#define m(off)	(32*1 + 8 + off)(RSP)
+#define zsqr(off) (32*2 + 8 + off)(RSP)
+#define tmp(off)  (32*3 + 8 + off)(RSP)
 
-	MOV (8*0)(y_ptr), x0
-	MOV (8*1)(y_ptr), x1
-	MOV (8*2)(y_ptr), x2
-	MOV (8*3)(y_ptr), x3
+//func p256PointDoubleAsm(res, in *SM2P256Point)
+TEXT ·p256PointDoubleAsm(SB),NOSPLIT,$136-16
+	MOV	res+0(FP), res_ptr
+	MOV	in+8(FP), a_ptr
 
 	MOV p256one<>+0x08(SB), const0
 
+	// Begin point double
+	MOV (8*8)(a_ptr), x0              // load z 
+	MOV (8*9)(a_ptr), x1
+	MOV (8*10)(a_ptr), x2
+	MOV (8*11)(a_ptr), x3
+	CALL	sm2P256SqrInternal<>(SB)    // z1ˆ2
+	MOV y0, zsqr(0*8)                  // store z^2
+	MOV y1, zsqr(1*8)
+	MOV y2, zsqr(2*8)
+	MOV y3, zsqr(3*8)
+
+	MOV (8*0)(a_ptr), x0               // load x
+	MOV (8*1)(a_ptr), x1
+	MOV (8*2)(a_ptr), x2
+	MOV (8*3)(a_ptr), x3
 	p256AddInline
+	STx(m)
 
-	MOV x0, (8*0)(res_ptr)
-	MOV x1, (8*1)(res_ptr)
-	MOV x2, (8*2)(res_ptr)
-	MOV x3, (8*3)(res_ptr)
+	LDx(z1in)
+	LDy(y1in)
+	CALL	sm2P256MulInternal<>(SB)
+	p256MulBy2Inline
+	STx(z3out)
+
+	LDy(x1in)
+	LDx(zsqr)
+	CALL	sm2P256Subinternal<>(SB)
+	LDy(m)
+	CALL	sm2P256MulInternal<>(SB)
+
+	// Multiply by 3
+	p256MulBy2Inline
+	p256AddInline
+	STx(m)
+
+	LDy(y1in)
+	p256MulBy2Inline
+	CALL	sm2P256SqrInternal<>(SB)
+	STy(s)
+	MOV	y0, x0
+	MOV	y1, x1
+	MOV	y2, x2
+	MOV	y3, x3
+	CALL	sm2P256SqrInternal<>(SB)
+
+	// Divide by 2
+	p256DivideBy2
+
+	STy(y3out)
+
+	LDx(x1in)
+	LDy(s)
+	CALL	sm2P256MulInternal<>(SB)
+	STy(s)
+	p256MulBy2Inline
+	STx(tmp)
+
+	LDx(m)
+	CALL	sm2P256SqrInternal<>(SB)
+	LDx(tmp)
+	CALL	sm2P256Subinternal<>(SB)
+
+	STx(x3out)
+
+	LDy(s)
+	CALL	sm2P256Subinternal<>(SB)
+
+	LDy(m)
+	CALL	sm2P256MulInternal<>(SB)
+
+	LDx(y3out)
+	CALL	sm2P256Subinternal<>(SB)
+	STx(y3out)
+
+	RET
+
+#define p256PointDoubleRound() \
+	LDx(z3out)                       \ // load z
+	CALL	sm2P256SqrInternal<>(SB) \
+	MOV y0, zsqr(0*8)          \ // store z^2
+	MOV y1, zsqr(1*8)          \
+	MOV y2, zsqr(2*8)          \
+	MOV y3, zsqr(3*8)          \
+	\
+	LDx(x3out)                       \// load x
+	p256AddInline                    \
+	STx(m)                           \
+	\
+	LDx(z3out)                       \ // load z
+	LDy(y3out)                       \ // load y
+	CALL	sm2P256MulInternal<>(SB) \
+	p256MulBy2Inline                 \
+	STx(z3out)                       \ // store result z
+	\
+	LDy(x3out)                       \ // load x
+	LDx(zsqr)                        \
+	CALL	sm2P256Subinternal<>(SB) \
+	LDy(m)                           \
+	CALL	sm2P256MulInternal<>(SB) \
+	\
+	\// Multiply by 3
+	p256MulBy2Inline                 \
+	p256AddInline                    \
+	STx(m)                           \
+	\
+	LDy(y3out)                       \  // load y
+	p256MulBy2Inline                 \
+	CALL	sm2P256SqrInternal<>(SB) \
+	STy(s)                           \
+	MOV	y0, x0                   \
+	MOV	y1, x1                   \
+	MOV	y2, x2                   \
+	MOV	y3, x3                   \
+	CALL	sm2P256SqrInternal<>(SB) \
+	\
+	\// Divide by 2
+	p256DivideBy2                    \
+	STy(y3out)                       \                
+	\
+	LDx(x3out)                       \  // load x
+	LDy(s)                           \
+	CALL	sm2P256MulInternal<>(SB) \
+	STy(s)                           \
+	p256MulBy2Inline                 \
+	STx(tmp)                         \
+	\
+	LDx(m)                           \
+	CALL	sm2P256SqrInternal<>(SB) \
+	LDx(tmp)                         \
+	CALL	sm2P256Subinternal<>(SB) \
+	\
+	STx(x3out)                       \
+	\
+	LDy(s)                           \
+	CALL	sm2P256Subinternal<>(SB) \
+	\
+	LDy(m)                           \
+	CALL	sm2P256MulInternal<>(SB) \
+	\
+	LDx(y3out)                       \
+	CALL	sm2P256Subinternal<>(SB) \
+	STx(y3out)                       \
+
+
+/* ---------------------------------------*/
+//func p256PointDouble6TimesAsm(res, in *SM2P256Point)
+TEXT ·p256PointDouble6TimesAsm(SB),NOSPLIT,$136-16
+	MOV	res+0(FP), res_ptr
+	MOV	in+8(FP), a_ptr
+
+	MOV p256one<>+0x08(SB), const0
+
+	// Begin point double
+	MOV (8*8)(a_ptr), x0 
+	MOV (8*9)(a_ptr), x1
+	MOV (8*10)(a_ptr), x2
+	MOV (8*11)(a_ptr), x3
+	CALL	sm2P256SqrInternal<>(SB)    // z1ˆ2
+	MOV y0, zsqr(0*8)                  // store z^2
+	MOV y1, zsqr(1*8)
+	MOV y2, zsqr(2*8)
+	MOV y3, zsqr(3*8)
+
+	MOV (8*0)(a_ptr), x0               // load x
+	MOV (8*1)(a_ptr), x1
+	MOV (8*2)(a_ptr), x2
+	MOV (8*3)(a_ptr), x3
+	p256AddInline
+	STx(m)
+
+	LDx(z1in)
+	LDy(y1in)
+	CALL	sm2P256MulInternal<>(SB)
+	p256MulBy2Inline
+	STx(z3out)
+
+	LDy(x1in)
+	LDx(zsqr)
+	CALL	sm2P256Subinternal<>(SB)
+	LDy(m)
+	CALL	sm2P256MulInternal<>(SB)
+
+	// Multiply by 3
+	p256MulBy2Inline
+	p256AddInline
+	STx(m)
+
+	LDy(y1in)
+	p256MulBy2Inline
+	CALL	sm2P256SqrInternal<>(SB)
+	STy(s)
+	MOV	y0, x0
+	MOV	y1, x1
+	MOV	y2, x2
+	MOV	y3, x3
+	CALL	sm2P256SqrInternal<>(SB)
+
+	// Divide by 2
+	p256DivideBy2
+
+	STy(y3out)
+
+	LDx(x1in)
+	LDy(s)
+	CALL	sm2P256MulInternal<>(SB)
+	STy(s)
+	p256MulBy2Inline
+	STx(tmp)
+
+	LDx(m)
+	CALL	sm2P256SqrInternal<>(SB)
+	LDx(tmp)
+	CALL	sm2P256Subinternal<>(SB)
+
+	STx(x3out)
+
+	LDy(s)
+	CALL	sm2P256Subinternal<>(SB)
+
+	LDy(m)
+	CALL	sm2P256MulInternal<>(SB)
+
+	LDx(y3out)
+	CALL	sm2P256Subinternal<>(SB)
+	STx(y3out)
+
+	// Begin point double rounds 2 - 6
+	p256PointDoubleRound()
+	p256PointDoubleRound()
+	p256PointDoubleRound()
+	p256PointDoubleRound()
+	p256PointDoubleRound()
+
+	RET
+
+/* ---------------------------------------*/
+#undef y2in
+#undef x3out
+#undef y3out
+#undef z3out
+#define y2in(off) (off + 32)(b_ptr)
+#define x3out(off) (off)(b_ptr)
+#define y3out(off) (off + 32)(b_ptr)
+#define z3out(off) (off + 64)(b_ptr)
+// func p256PointAddAsm(res, in1, in2 *SM2P256Point) int
+TEXT ·p256PointAddAsm(SB),0,$392-32
+	// See https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#addition-add-2007-bl
+	// Move input to stack in order to free registers
+	MOV	in1+8(FP), a_ptr
+	MOV	in2+16(FP), b_ptr
+
+	MOV p256one<>+0x08(SB), const0
+
+	// Begin point add
+	LDx(z2in)
+	CALL	sm2P256SqrInternal<>(SB)    // z2^2
+	STy(z2sqr)
+
+	CALL	sm2P256MulInternal<>(SB)    // z2^3
+
+	LDx(y1in)
+	CALL	sm2P256MulInternal<>(SB)    // s1 = z2ˆ3*y1
+	STy(s1)
+
+	LDx(z1in)
+	CALL	sm2P256SqrInternal<>(SB)    // z1^2
+	STy(z1sqr)
+
+	CALL	sm2P256MulInternal<>(SB)    // z1^3
+
+	LDx(y2in)
+	CALL	sm2P256MulInternal<>(SB)    // s2 = z1ˆ3*y2
+
+	LDx(s1)
+	CALL	sm2P256Subinternal<>(SB)    // r = s2 - s1
+	STx(r)
+
+	// Check if zero mod p256
+	OR x0, x1, acc0
+	OR x2, x3, acc1
+	OR acc0, acc1, acc1
+	SLTU acc1, ZERO, acc1
+	XOR $1, acct1, hlp0   // hlp0 = (if zero then 1 else 0)
+
+	MOV $-1, acc0
+	MOV p256p<>+0x08(SB), acc1
+	MOV p256p<>+0x18(SB), acc3
+
+	XOR acc0, x0, acc4
+	XOR acc1, x1, acc5
+	XOR acc0, x2, acc6
+	XOR acc3, x3, acc7
+	OR acc4, acc5, acc4
+	OR acc6, acc7, acc7
+	OR acc4, acc7, acc7
+	SLTU acc7, ZERO, acc7
+	XOR $1, acc7, res_ptr    // res_ptr = (if zero then 1 else 0)
+	OR hlp0, res_ptr, res_ptr
+
+	LDx(z2sqr)
+	LDy(x1in)
+	CALL	sm2P256MulInternal<>(SB)    // u1 = x1 * z2ˆ2
+	STy(u1)
+
+	LDx(z1sqr)
+	LDy(x2in)
+	CALL	sm2P256MulInternal<>(SB)    // u2 = x2 * z1ˆ2
+	STy(u2)
+
+	LDx(u1)
+	CALL	sm2P256Subinternal<>(SB)    // h = u2 - u1
+	STx(h)
+
+	// Check if zero mod p256
+	OR x0, x1, acc0
+	OR x2, x3, acc1
+	OR acc0, acc1, acc1
+	SLTU acc1, ZERO, acc1
+	XOR $1, acc1, hlp0   // hlp0 = (if zero then 1 else 0)
+
+	MOV $-1, acc0
+	MOV p256p<>+0x08(SB), acc1
+	MOV p256p<>+0x18(SB), acc3
+
+	XOR acc0, x0, acc4
+	XOR acc1, x1, acc5
+	XOR acc0, x2, acc6
+	XOR acc3, x3, acc7
+	OR acc4, acc5, acc4
+	OR acc6, acc7, acc7
+	OR acc4, acc7, acc7
+	SLTU acc7, ZERO, acc7
+	XOR $1, acc7, t0    // t0 = (if zero then 1 else 0)
+	OR hlp0, t0, hlp0
+
+	AND hlp0, res_ptr, res_ptr
+
+	LDx(r)
+	CALL	sm2P256SqrInternal<>(SB)    // rsqr = rˆ2
+	STy(rsqr)
+
+	LDx(h)
+	CALL	sm2P256SqrInternal<>(SB)    // hsqr = hˆ2
+	STy(hsqr)
+
+	LDx(h)
+	CALL	sm2P256MulInternal<>(SB)    // hcub = hˆ3
+	STy(hcub)
+
+	LDx(s1)
+	CALL	sm2P256MulInternal<>(SB)
+	STy(s2)
+
+	LDx(z1in)
+	LDy(z2in)
+	CALL	sm2P256MulInternal<>(SB)    // z1 * z2
+	LDx(h)
+	CALL	sm2P256MulInternal<>(SB)    // z1 * z2 * h
+	MOV	res+0(FP), b_ptr
+	STy(z3out)
+
+	LDx(hsqr)
+	LDy(u1)
+	CALL	sm2P256MulInternal<>(SB)    // hˆ2 * u1
+	STy(u2)
+
+	p256MulBy2Inline               // u1 * hˆ2 * 2, inline
+	LDy(rsqr)
+	CALL	sm2P256Subinternal<>(SB)    // rˆ2 - u1 * hˆ2 * 2
+
+	MOV	x0, y0
+	MOV	x1, y1
+	MOV	x2, y2
+	MOV	x3, y3
+	LDx(hcub)
+	CALL	sm2P256Subinternal<>(SB)
+	STx(x3out)
+
+	LDy(u2)
+	CALL	sm2P256Subinternal<>(SB)
+
+	LDy(r)
+	CALL	sm2P256MulInternal<>(SB)
+
+	LDx(s2)
+	CALL	sm2P256Subinternal<>(SB)
+	STx(y3out)
+
+	MOV	res_ptr, ret+24(FP)
+
 	RET
