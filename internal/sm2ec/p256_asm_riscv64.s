@@ -100,8 +100,8 @@ TEXT ·p256BigToLittle(SB),NOSPLIT,$0
 /* ---------------------------------------*/
 // func p256NegCond(val *p256Element, cond int)
 TEXT ·p256NegCond(SB),NOSPLIT,$0
-	MOVV val+0(FP), res_ptr
-	MOVV cond+8(FP), t0
+	MOV val+0(FP), res_ptr
+	MOV cond+8(FP), t0
 
 	// acc = poly
 	MOV $-1, acc0
