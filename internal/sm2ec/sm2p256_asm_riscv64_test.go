@@ -4,9 +4,13 @@ package sm2ec
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/binary"
+	"io"
+	"math/big"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestP256BigToLittle(t *testing.T) {
@@ -98,5 +102,78 @@ func TestP256MovCond(t *testing.T) {
 	p256MovCond(&res, a, b, -123)
 	if !reflect.DeepEqual(res, *a) {
 		t.Errorf("cond=-123: got %+v, want %+v", res, *a)
+	}
+}
+
+// fromBig converts a *big.Int into a format used by this code.
+func fromBig(out *p256Element, big *big.Int) {
+	for i := range out {
+		out[i] = 0
+	}
+
+	for i, v := range big.Bits() {
+		out[i] = uint64(v)
+	}
+}
+
+func toBigInt(in *p256Element) *big.Int {
+	var valBytes [32]byte
+	p256LittleToBig(&valBytes, in)
+	return new(big.Int).SetBytes(valBytes[:])
+}
+
+func p256MulTest(t *testing.T, x, y, p, r *big.Int) {
+	x1 := new(big.Int).Mul(x, r)
+	x1 = x1.Mod(x1, p)
+	y1 := new(big.Int).Mul(y, r)
+	y1 = y1.Mod(y1, p)
+	ax := new(p256Element)
+	ay := new(p256Element)
+	res := new(p256Element)
+	res2 := new(p256Element)
+	one := p256Element{1, 0, 0, 0}
+	fromBig(ax, x1)
+	fromBig(ay, y1)
+	p256Mul(res2, ax, ay)
+	p256Mul(res, res2, &one)
+	resInt := toBigInt(res)
+
+	expected := new(big.Int).Mul(x, y)
+	expected = expected.Mod(expected, p)
+	if resInt.Cmp(expected) != 0 {
+		t.FailNow()
+	}
+}
+
+func TestP256MulPMinus1(t *testing.T) {
+	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF", 16)
+	r, _ := new(big.Int).SetString("10000000000000000000000000000000000000000000000000000000000000000", 16)
+	pMinus1 := new(big.Int).Sub(p, big.NewInt(1))
+	p256MulTest(t, pMinus1, pMinus1, p, r)
+}
+
+func TestFuzzyP256Mul(t *testing.T) {
+	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF", 16)
+	r, _ := new(big.Int).SetString("10000000000000000000000000000000000000000000000000000000000000000", 16)
+	var scalar1 [32]byte
+	var scalar2 [32]byte
+	var timeout *time.Timer
+
+	if testing.Short() {
+		timeout = time.NewTimer(10 * time.Millisecond)
+	} else {
+		timeout = time.NewTimer(2 * time.Second)
+	}
+	for {
+		select {
+		case <-timeout.C:
+			return
+		default:
+		}
+		io.ReadFull(rand.Reader, scalar1[:])
+		io.ReadFull(rand.Reader, scalar2[:])
+		x := new(big.Int).SetBytes(scalar1[:])
+		y := new(big.Int).SetBytes(scalar2[:])
+		p256MulTest(t, x, y, p, r)
 	}
 }
