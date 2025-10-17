@@ -2145,7 +2145,7 @@ TEXT ·p256PointAddAsm(SB),0,$392-32
 	OR x2, x3, acc1
 	OR acc0, acc1, acc1
 	SLTU acc1, ZERO, acc1
-	XOR $1, acct1, hlp0   // hlp0 = (if zero then 1 else 0)
+	XOR $1, acc1, hlp0   // hlp0 = (if zero then 1 else 0)
 
 	MOV $-1, acc0
 	MOV p256p<>+0x08(SB), acc1
