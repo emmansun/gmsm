@@ -1413,7 +1413,8 @@ TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
 	SLTU x1, acc5, t0;  \
 	ADD t0, x2, acc6;  \
 	SLTU x2, acc6, t0;  \
-	ADD const1, t0, t0;  \
+	ADD $1, const0, t1; \
+	ADD t1, t0, t0;  \
 	ADD x3, t0, acc7;  \
 	SLTU x3, acc7, t0;  \
 	OR t0, t3, t0;  \
@@ -1460,7 +1461,8 @@ TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
 	SLTU x1, acc5, t0;  \
 	ADD t0, x2, acc6;  \
 	SLTU x2, acc6, t0;  \
-	ADD const1, t0, t0;  \
+	ADD $1, const0, t1; \
+	ADD t1, t0, t0;  \
 	ADD x3, t0, acc7;  \
 	SLTU x3, acc7, t0;  \
 	OR t0, t2, t0;  \
