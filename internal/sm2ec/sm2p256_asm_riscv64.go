@@ -30,6 +30,12 @@ func p256NegCond(val *p256Element, cond int)
 //go:noescape
 func p256MovCond(res, a, b *SM2P256Point1, cond int)
 
+// Montgomery multiplication by R⁻¹, or 1 outside the domain.
+// Sets res = in * R⁻¹, bringing res out of the Montgomery domain.
+//
+//go:noescape
+func p256FromMont(res, in *p256Element)
+
 // Montgomery multiplication. Sets res = in1 * in2 * R⁻¹ mod p.
 //
 //go:noescape

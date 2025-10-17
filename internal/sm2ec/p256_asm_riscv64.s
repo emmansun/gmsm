@@ -962,3 +962,177 @@ sqrLoop:
 	MOV y3, (8*3)(res_ptr)
 
 	RET
+
+/* ---------------------------------------*/
+// func p256FromMont(res, in *p256Element)
+TEXT ·p256FromMont(SB),NOSPLIT,$0
+	MOV res+0(FP), res_ptr
+	MOV in+8(FP), x_ptr
+
+	MOV (8*0)(x_ptr), acc0
+	MOV (8*1)(x_ptr), acc1
+	MOV (8*2)(x_ptr), acc2
+	MOV (8*3)(x_ptr), acc3
+	// Only reduce, no multiplications are needed
+	// First reduction step
+	SLL $32, acc0, t0
+	SRL $32, acc0, t1
+
+	// SUBS t0, acc1
+	SLTU t0, acc1, t2
+	SUB t0, acc1, acc1
+	// SBCS t1, acc2
+	ADD t2, t1, t2       // no carry
+	SLTU t2, acc2, t3
+	SUB t2, acc2, acc2
+	// SBCS t0, acc3
+	ADD t3, t0, t3       // no carry
+	SLTU t3, acc3, t2
+	SUB t3, acc3, acc3
+	// SBC t1, acc0
+	ADD t2, t1, t2       // no carry
+	SUB t2, acc0, y0     // no borrow
+
+	// ADDS acc0, acc1, acc1
+	ADD acc0, acc1, acc1
+	SLTU acc0, acc1, t0
+	// ADCS $0, acc2
+	ADD t0, acc2, acc2
+	SLTU t0, acc2, t1
+	// ADCS $0, acc3
+	ADD t1, acc3, acc3
+	SLTU t1, acc3, t0
+	// ADC $0, y0, acc0
+	ADD t0, y0, acc0
+
+	// Second reduction step
+	SLL $32, acc1, t0
+	SRL $32, acc1, t1
+
+	// SUBS t0, acc2
+	SLTU t0, acc2, t2
+	SUB t0, acc2, acc2
+	// SBCS t1, acc3
+	ADD t2, t1, t3       // no carry
+	SLTU t3, acc3, t2
+	SUB t3, acc3, acc3
+	// SBCS t0, acc0
+	ADD t2, t0, t2       // no carry
+	SLTU t2, acc0, t3
+	SUB t2, acc0, acc0
+	// SBC t1, acc1
+	ADD t3, t1, t2       // no carry
+	SUB t2, acc1, y0     // no borrow
+
+	// ADDS acc1, acc2
+	ADD acc1, acc2, acc2
+	SLTU acc1, acc2, t0
+	// ADCS $0, acc3
+	ADD t0, acc3, acc3
+	SLTU t0, acc3, t1
+	// ADCS $0, acc0
+	ADD t1, acc0, acc0
+	SLTU t1, acc0, t0
+	// ADC $0, y0, acc1
+	ADD t0, y0, acc1
+
+	// Third reduction step
+	SLL $32, acc2, t0
+	SRL $32, acc2, t1
+
+	// SUBS t0, acc3
+	SLTU t0, acc3, t2
+	SUB t0, acc3, acc3
+	// SBCS t1, acc0
+	ADD t2, t1, t3       // no carry
+	SLTU t3, acc0, t2
+	SUB t3, acc0, acc0
+	// SBCS t0, acc1
+	ADD t2, t0, t2       // no carry
+	SLTU t2, acc1, t3
+	SUB t2, acc1, acc1
+	// SBC t1, acc2
+	ADD t3, t1, t2       // no carry
+	SUB t2, acc2, y0     // no borrow
+
+	// ADDS acc2, acc3
+	ADD acc2, acc3, acc3
+	SLTU acc2, acc3, t0
+	// ADCS $0, acc0
+	ADD t0, acc0, acc0
+	SLTU t0, acc0, t1
+	// ADCS $0, acc1
+	ADD t1, acc1, acc1
+	SLTU t1, acc1, t0
+	// ADC $0, y0, acc2
+	ADD t0, y0, acc2
+
+	// Last reduction step
+	SLL $32, acc3, t0
+	SRL $32, acc3, t1
+
+	// SUBS t0, acc0
+	SLTU t0, acc0, t2
+	SUB t0, acc0, acc0
+	// SBCS t1, acc1
+	ADD t2, t1, t3       // no carry
+	SLTU t3, acc1, t2
+	SUB t3, acc1, acc1
+	// SBCS t0, acc2
+	ADD t2, t0, t2       // no carry
+	SLTU t2, acc2, t3
+	SUB t2, acc2, acc2
+	// SBC t1, acc3
+	ADD t3, t1, t2       // no carry
+	SUB t2, acc3, y0     // no borrow
+
+	// ADDS acc3, acc0
+	ADD acc3, acc0, acc0
+	SLTU acc3, acc0, t0
+	// ADCS $0, acc1
+	ADD t0, acc1, acc1
+	SLTU t0, acc1, t1
+	// ADCS $0, acc2
+	ADD t1, acc2, acc2
+	SLTU t1, acc2, t0
+	// ADC $0, y0, acc3
+	ADD t0, y0, acc3
+
+	// Final reduction
+	ADD $1, acc0, acc4
+	SLTU acc0, acc4, t1
+	MOV p256one<>+0x08(SB), t2
+	ADD t2, t1, t1         // no carry
+	ADD acc1, t1, acc5
+	SLTU acc1, acc5, t3
+	ADD t3, acc2, acc6
+	SLTU acc2, acc6, hlp0
+	ADD $1, t2, t2
+	ADD hlp0, t2, t2         // no carry
+	ADD acc3, t2, acc7
+	SLTU acc3, acc7, t0
+
+	SUB $1, t0, t0        // mask = -cond
+	XOR $-1, t0, t1        // t1 = ~mask
+
+	AND t0, acc0, acc0
+	AND t1, acc4, acc4
+	OR acc4, acc0
+
+	AND t0, acc1, acc1
+	AND t1, acc5, acc5
+	OR acc5, acc1
+
+	AND t0, acc2, acc2
+	AND t1, acc6, acc6
+	OR acc6, acc2
+
+	AND t0, acc3, acc3
+	AND t1, acc7, acc7
+	OR acc7, acc3
+
+	MOV acc0, (8*0)(res_ptr)
+	MOV acc1, (8*1)(res_ptr)
+	MOV acc2, (8*2)(res_ptr)
+	MOV acc3, (8*3)(res_ptr)
+	RET
