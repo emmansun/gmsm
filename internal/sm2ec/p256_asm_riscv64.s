@@ -96,3 +96,162 @@ TEXT ·p256BigToLittle(SB),NOSPLIT,$0
 	MOV acc0, (8*3)(res_ptr)
 
 	RET
+
+/* ---------------------------------------*/
+// func p256NegCond(val *p256Element, cond int)
+TEXT ·p256NegCond(SB),NOSPLIT,$0
+	MOVV val+0(FP), res_ptr
+	MOVV cond+8(FP), t0
+
+	// acc = poly
+	MOV $-1, acc0
+	MOV p256p<>+0x08(SB), acc1
+	MOV $-1, acc2
+	MOV p256p<>+0x18(SB), acc3
+	// Load the original value
+	MOV (8*0)(res_ptr), acc4
+	MOV (8*1)(res_ptr), x_ptr
+	MOV (8*2)(res_ptr), y_ptr
+	MOV (8*3)(res_ptr), acc5
+
+	// Speculatively subtract
+	SUB acc4, acc0
+	SLTU x_ptr, acc1, t1
+	SUB x_ptr, acc1
+	SUB y_ptr, acc2
+	SLTU t1, acc2, t2
+	SUB t1, acc2
+	SUB acc5, acc3
+	SUB t2, acc3
+
+	SLTU t0, ZERO, t0
+	SUB $1, t0, t0        // mask = -cond
+	XOR $-1, t0, t1        // t1 = ~mask
+
+	AND acc4, t0, acc4
+	AND acc0, t1, acc0
+	OR acc4, acc0, acc0
+	AND x_ptr, t0, x_ptr
+	AND acc1, t1, acc1
+	OR x_ptr, acc1, acc1
+	AND y_ptr, t0, y_ptr
+	AND acc2, t1, acc2
+	OR y_ptr, acc2, acc2
+	AND acc5, t0, acc5
+	AND acc3, t1, acc3
+	OR acc5, acc3, acc3
+
+	MOV acc0, (8*0)(res_ptr)
+	MOV acc1, (8*1)(res_ptr)
+	MOV acc2, (8*2)(res_ptr)
+	MOV acc3, (8*3)(res_ptr)
+
+	RET
+
+/* ---------------------------------------*/
+// func p256MovCond(res, a, b *SM2P256Point, cond int)
+TEXT ·p256MovCond(SB),NOSPLIT,$0
+	MOV res+0(FP), res_ptr
+	MOV a+8(FP), x_ptr
+	MOV b+16(FP), y_ptr
+	MOV cond+24(FP), t0
+
+	SLTU t0, ZERO, t0
+	SUB $1, t0, t0        // mask = -cond
+	XOR $-1, t0, t1        // t1 = ~mask
+
+	// Load a.x
+	MOV (8*0)(x_ptr), acc0
+	MOV (8*1)(x_ptr), acc1
+	MOV (8*2)(x_ptr), acc2
+	MOV (8*3)(x_ptr), acc3
+
+	// Load b.x
+	MOV (8*0)(y_ptr), acc4
+	MOV (8*1)(y_ptr), acc5
+	MOV (8*2)(y_ptr), acc6
+	MOV (8*3)(y_ptr), acc7
+
+	// Conditional move
+	AND acc4, t0, acc4
+	AND acc0, t1, acc0
+	OR acc4, acc0, acc0
+	AND acc5, t0, acc5
+	AND acc1, t1, acc1
+	OR acc5, acc1, acc1
+	AND acc6, t0, acc6
+	AND acc2, t1, acc2
+	OR acc6, acc2, acc2
+	AND acc7, t0, acc7
+	AND acc3, t1, acc3
+	OR acc7, acc3, acc3
+	
+	// Store res.x
+	MOV acc0, (8*0)(res_ptr)
+	MOV acc1, (8*1)(res_ptr)
+	MOV acc2, (8*2)(res_ptr)
+	MOV acc3, (8*3)(res_ptr)
+
+	// Load a.y
+	MOV (8*4)(x_ptr), acc0
+	MOV (8*5)(x_ptr), acc1
+	MOV (8*6)(x_ptr), acc2
+	MOV (8*7)(x_ptr), acc3
+
+	// Load b.y
+	MOV (8*4)(y_ptr), acc4
+	MOV (8*5)(y_ptr), acc5
+	MOV (8*6)(y_ptr), acc6
+	MOV (8*7)(y_ptr), acc7
+
+	// Conditional move
+	AND acc4, t0, acc4
+	AND acc0, t1, acc0
+	OR acc4, acc0, acc0
+	AND acc5, t0, acc5
+	AND acc1, t1, acc1
+	OR acc5, acc1, acc1
+	AND acc6, t0, acc6
+	AND acc2, t1, acc2
+	OR acc6, acc2, acc2
+	AND acc7, t0, acc7
+	AND acc3, t1, acc3
+	OR acc7, acc3, acc3
+
+	// Store res.y
+	MOV acc0, (8*4)(res_ptr)
+	MOV acc1, (8*5)(res_ptr)
+	MOV acc2, (8*6)(res_ptr)
+	MOV acc3, (8*7)(res_ptr)
+
+	MOV (8*8)(x_ptr), acc0
+	MOV (8*9)(x_ptr), acc1
+	MOV (8*10)(x_ptr), acc2
+	MOV (8*11)(x_ptr), acc3
+
+	MOV (8*8)(y_ptr), acc4
+	MOV (8*9)(y_ptr), acc5
+	MOV (8*10)(y_ptr), acc6
+	MOV (8*11)(y_ptr), acc7
+
+	// Conditional move
+	AND acc4, t0, acc4
+	AND acc0, t1, acc0
+	OR acc4, acc0, acc0
+	AND acc5, t0, acc5
+	AND acc1, t1, acc1
+	OR acc5, acc1, acc1
+	AND acc6, t0, acc6
+	AND acc2, t1, acc2
+	OR acc6, acc2, acc2
+	AND acc7, t0, acc7
+	AND acc3, t1, acc3
+	OR acc7, acc3, acc3
+
+	// Store res.z
+	MOV acc0, (8*8)(res_ptr)
+	MOV acc1, (8*9)(res_ptr)
+	MOV acc2, (8*10)(res_ptr)
+	MOV acc3, (8*11)(res_ptr)
+
+	RET
