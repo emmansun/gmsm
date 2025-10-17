@@ -1136,3 +1136,63 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	MOV acc2, (8*2)(res_ptr)
 	MOV acc3, (8*3)(res_ptr)
 	RET
+
+/* ---------------------------------------*/
+//func p256OrdReduce(s *p256OrdElement)
+TEXT ·p256OrdReduce(SB),NOSPLIT,$0
+	MOV s+0(FP), res_ptr
+
+	MOV (8*0)(res_ptr), acc0
+	MOV (8*1)(res_ptr), acc1
+	MOV (8*2)(res_ptr), acc2
+	MOV (8*3)(res_ptr), acc3
+
+	MOV p256ord<>+0x00(SB), x0
+	MOV p256ord<>+0x08(SB), x1
+	MOV p256ord<>+0x10(SB), x2
+	MOV p256ord<>+0x18(SB), x3
+
+	SLTU x0, acc0, t0
+	SUB x0, acc0, y0
+	// SBCS x1, acc1
+	ADD t0, x1, t1        // no carry
+	SLTU t1, acc1, t2
+	SUB t1, acc1, y1
+	// SBCS x2, acc2
+	SLTU x2, acc2, t3
+	SUB x2, acc2, y2
+	SLTU t2, y2, t0
+	SUB t2, y2, y2
+	OR t3, t0, t2
+	// SBCS x3, acc3
+	SLTU x3, acc3, t3
+	SUB x3, acc3, y3
+	SLTU t2, y3, t0
+	SUB t2, y3, y3
+	OR t3, t0, t0
+
+	SUB $1, t0, t0        // mask = -cond
+	XOR $-1, t0, t1        // t1 = ~mask
+
+	AND t0, y0, y0
+	AND t1, acc0, acc0
+	OR acc0, y0
+
+	AND t0, y1, y1
+	AND t1, acc1, acc1
+	OR acc1, y1
+
+	AND t0, y2, y2
+	AND t1, acc2, acc2
+	OR acc2, y2
+
+	AND t0, y3, y3
+	AND t1, acc3, acc3
+	OR acc3, y3
+
+	MOV y0, (8*0)(res_ptr)
+	MOV y1, (8*1)(res_ptr)
+	MOV y2, (8*2)(res_ptr)
+	MOV y3, (8*3)(res_ptr)
+
+	RET

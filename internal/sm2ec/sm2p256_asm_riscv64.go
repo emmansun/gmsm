@@ -45,3 +45,8 @@ func p256Mul(res, in1, in2 *p256Element)
 //
 //go:noescape
 func p256Sqr(res, in *p256Element, n int)
+
+// p256OrdReduce ensures s is in the range [0, ord(G)-1].
+//
+//go:noescape
+func p256OrdReduce(s *p256OrdElement)
