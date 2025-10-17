@@ -325,6 +325,6 @@ func TestP256PointAddAffineAsm(t *testing.T) {
 
 	p256PointAddAffineAsm(p1, p, &t0, 0, 3, 0)
 	if hex.EncodeToString(p1.Bytes()) != "04ccc69dcd48c3cdd56e164408eb8f345ff512ce57673bcb32c5b0fd8fe13eb9128fe410fe8bc0792948ad23d074346f66e842857399981e91f0c920e6e0afa3cc" {
-		t.Errorf("PointAddAffine is incorrect %x", p1.Bytes())
+		t.Errorf("PointAddAffine is incorrect %x.%x.%x.%x %x.%x.%x.%x %x.%x.%x.%x - %x.%x.%x.%x %x.%x.%x.%x", p1.x[0], p1.x[1], p1.x[2], p1.x[3], p1.y[0], p1.y[1], p1.y[2], p1.y[3], p1.z[0], p1.z[1], p1.z[2], p1.z[3], t0.x[0], t0.x[1], t0.x[2], t0.x[3], t0.y[0], t0.y[1], t0.y[2], t0.y[3])
 	}
 }
