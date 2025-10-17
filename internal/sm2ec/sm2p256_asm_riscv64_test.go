@@ -258,3 +258,119 @@ func TestP256OrdReduce(t *testing.T) {
         t.Errorf("p256OrdReduce failed for s == p256Ord+1: got %x, want %x", s2, one)
     }
 }
+
+func TestP256Sub(t *testing.T) {
+	// in1 > in2
+	in1 := p256Element{5, 0, 0, 0}
+	in2 := p256Element{3, 0, 0, 0}
+	var res p256Element
+	p256Sub(&res, &in1, &in2)
+	want := p256Element{2, 0, 0, 0}
+	if !reflect.DeepEqual(res, want) {
+		t.Errorf("in1 > in2: got %v, want %v", res, want)
+	}
+
+	// in1 == in2
+	in1 = p256Element{7, 8, 9, 10}
+	in2 = p256Element{7, 8, 9, 10}
+	p256Sub(&res, &in1, &in2)
+	want = p256Element{0, 0, 0, 0}
+	if !reflect.DeepEqual(res, want) {
+		t.Errorf("in1 == in2: got %v, want %v", res, want)
+	}
+
+	// in1 < in2
+	in1 = p256Element{1, 0, 0, 0}
+	in2 = p256Element{2, 0, 0, 0}
+	p256Sub(&res, &in1, &in2)
+	// 1 - 2 mod 2^64 = 0xFFFFFFFFFFFFFFFF
+	want = p256Element{0xfffffffffffffffe, 0xffffffff00000000,
+		0xffffffffffffffff, 0xfffffffeffffffff}
+	if !reflect.DeepEqual(res, want) {
+		t.Errorf("in1 < in2: got %v, want %v", res, want)
+	}
+}
+
+func p256MulBy2Test(t *testing.T, x, p, r *big.Int) {
+	x1 := new(big.Int).Mul(x, r)
+	x1 = x1.Mod(x1, p)
+	y1 := new(big.Int).Mul(big.NewInt(2), r)
+	y1 = y1.Mod(y1, p)
+	ax := new(p256Element)
+	res := new(p256Element)
+	res2 := new(p256Element)
+	fromBig(ax, x1)
+	p256MulBy2(res2, ax)
+	p256FromMont(res, res2)
+	resInt := toBigInt(res)
+
+	expected := new(big.Int).Mul(x, big.NewInt(2))
+	expected = expected.Mod(expected, p)
+	if resInt.Cmp(expected) != 0 {
+		t.Fatalf("p256MulBy2(%x) = %x, want %x", x, resInt, expected)
+	}
+}
+
+func TestP256MulBy2(t *testing.T) {
+	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF", 16)
+	r, _ := new(big.Int).SetString("10000000000000000000000000000000000000000000000000000000000000000", 16)
+	pMinus1 := new(big.Int).Sub(p, big.NewInt(1))
+	p256MulBy2Test(t, pMinus1, p, r)
+	p256MulBy2Test(t, big.NewInt(0), p, r)
+	p256MulBy2Test(t, big.NewInt(1), p, r)
+}
+
+func p256AddTest(t *testing.T, x, y, p, r *big.Int) {
+	x1 := new(big.Int).Mul(x, r)
+	x1 = x1.Mod(x1, p)
+	y1 := new(big.Int).Mul(y, r)
+	y1 = y1.Mod(y1, p)
+	ax := new(p256Element)
+	ay := new(p256Element)
+	res := new(p256Element)
+	res2 := new(p256Element)
+	fromBig(ax, x1)
+	fromBig(ay, y1)
+	p256Add(res2, ax, ay)
+	p256FromMont(res, res2)
+	resInt := toBigInt(res)
+
+	expected := new(big.Int).Add(x, y)
+	expected = expected.Mod(expected, p)
+	if resInt.Cmp(expected) != 0 {
+		t.Fatalf("p256Add(%x, %x) = %x, want %x", x, y, resInt, expected)
+	}
+}
+
+func TestP256AddPMinus1(t *testing.T) {
+	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF", 16)
+	r, _ := new(big.Int).SetString("10000000000000000000000000000000000000000000000000000000000000000", 16)
+	pMinus1 := new(big.Int).Sub(p, big.NewInt(1))
+	p256AddTest(t, pMinus1, pMinus1, p, r)
+}
+
+func TestFuzzyP256Add(t *testing.T) {
+	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000FFFFFFFFFFFFFFFF", 16)
+	r, _ := new(big.Int).SetString("10000000000000000000000000000000000000000000000000000000000000000", 16)
+	var scalar1 [32]byte
+	var scalar2 [32]byte
+	var timeout *time.Timer
+
+	if testing.Short() {
+		timeout = time.NewTimer(10 * time.Millisecond)
+	} else {
+		timeout = time.NewTimer(2 * time.Second)
+	}
+	for {
+		select {
+		case <-timeout.C:
+			return
+		default:
+		}
+		io.ReadFull(rand.Reader, scalar1[:])
+		io.ReadFull(rand.Reader, scalar2[:])
+		x := new(big.Int).SetBytes(scalar1[:])
+		y := new(big.Int).SetBytes(scalar2[:])
+		p256AddTest(t, x, y, p, r)
+	}
+}
