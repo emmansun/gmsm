@@ -1,7 +1,7 @@
 // Copyright 2025 Sun Yimin. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
-
+// Required riscv64 architecture extensions: Zbb (Bitmanip), M (Multiply/Divide)
 //go:build !purego
 
 #include "textflag.h"
@@ -85,7 +85,7 @@ TEXT ·p256BigToLittle(SB),NOSPLIT,$0
 	MOV (8*2)(x_ptr), acc2
 	MOV (8*3)(x_ptr), acc3
 
-	REV8 acc0, acc0
+	REV8 acc0, acc0  // 28.4.2: Bitwise Rotation (Zbb)
 	REV8 acc1, acc1
 	REV8 acc2, acc2
 	REV8 acc3, acc3
