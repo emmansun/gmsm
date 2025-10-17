@@ -646,3 +646,319 @@ TEXT ·p256Mul(SB),NOSPLIT,$0
 	MOV y3, (8*3)(res_ptr)
 
 	RET
+
+/* ---------------------------------------*/
+// (y3, y2, y1, y0) = (x3, x2, x1, x0) ^ 2
+TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
+	// x[1:] * x[0]
+	MUL x0, x1, acc1
+	MULHU x0, x1, acc2
+
+	MUL x0, x2, t0
+	// ADDS t0, acc2
+	ADD t0, acc2, acc2
+	SLTU t0, acc2, t1
+	MULHU x0, x2, acc3
+
+	MUL x0, x3, t0
+	// ADCS t0, acc3
+	ADD t1, acc3, acc3  // no carry
+	ADD t0, acc3, acc3
+	SLTU t0, acc3, t1
+	MULHU x0, x3, acc4
+	ADD t1, acc4, acc4  // no carry
+
+	// x[2:] * x[1]
+	MUL x1, x2, t0
+	// ADDS t0, acc3
+	ADD t0, acc3, acc3
+	SLTU t0, acc3, t2
+	MULHU x1, x2, t1
+	// ADCS t1, acc4
+	ADD t1, acc4, acc4
+	SLTU t1, acc4, t3
+	ADD t2, acc4, acc4
+	SLTU t2, acc4, hlp0
+	// ADC $0, acc5
+	OR t3, hlp0, acc5
+
+	MUL x1, x3, t0
+	// ADCS t0, acc4
+	ADD t0, acc4, acc4
+	SLTU t0, acc4, t2
+	MULHU x1, x3, t1
+	// ADC	t1, acc5
+	ADD t1, t2, t2       // no carry
+	ADD t2, acc5, acc5   // no carry
+
+	// x[3] * x[2]
+	MUL x2, x3, t0
+	// ADDS t0, acc5
+	ADD t0, acc5, acc5
+	SLTU t0, acc5, t1
+	MULHU x2, x3, acc6
+	// ADC	$0, acc6
+	ADD t1, acc6, acc6   // no carry
+
+	// *2
+	SRL $63, acc1, t0
+	SLL $1, acc1, acc1
+	SRL $63, acc2, t1
+	SLL $1, acc2, acc2
+	ADD t0, acc2, acc2
+	SRL $63, acc3, t2
+	SLL $1, acc3, acc3
+	ADD t1, acc3, acc3
+	SRL $63, acc4, t3
+	SLL $1, acc4, acc4
+	ADD t2, acc4, acc4
+	SRL $63, acc5, hlp0
+	SLL $1, acc5, acc5
+	ADD t3, acc5, acc5
+	SRL $63, acc6, acc7
+	SLL $1, acc6, acc6
+	ADD hlp0, acc6, acc6
+
+	// Missing products
+	MUL x0, x0, acc0
+	MULHU x0, x0, t0
+	// ADDS t0, acc1
+	ADD t0, acc1, acc1
+	SLTU t0, acc1, t1
+	MUL x1, x1, t0
+	// ADCS t0, acc2
+	ADD t0, t1, t1       // no carry
+	ADD t1, acc2, acc2
+	SLTU t1, acc2, t2
+	MULHU x1, x1, t0
+	// ADCS t0, acc3
+	ADD t0, t2, t2	      // no carry
+	ADD t2, acc3, acc3
+	SLTU t2, acc3, t1
+	MUL x2, x2, t0
+	// ADCS t0, acc4
+	ADD t0, t1, t1       // no carry
+	ADD t1, acc4, acc4
+	SLTU t1, acc4, t2
+	MULHU x2, x2, t0
+	// ADCS t0, acc5
+	ADD t0, t2, t2       // no carry
+	ADD t2, acc5, acc5
+	SLTU t2, acc5, t1
+	MUL x3, x3, t0
+	// ADCS t0, acc6
+	ADD t0, t1, t1       // no carry
+	ADD t1, acc6, acc6
+	SLTU t1, acc6, t2
+	MULHU x3, x3, t0
+	// ADC	t0, acc7
+	ADD t0, t2, t2       // no carry
+	ADD t2, acc7, acc7   // (acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7) is the result
+	
+	// First reduction step
+	SLL $32, acc0, t0
+	SRL $32, acc0, t1
+
+	// SUBS t0, acc1
+	SLTU t0, acc1, t2
+	SUB t0, acc1, acc1
+	// SBCS t1, acc2
+	ADD t2, t1, t2       // no carry
+	SLTU t2, acc2, t3
+	SUB t2, acc2, acc2
+	// SBCS t0, acc3
+	ADD t3, t0, t3       // no carry
+	SLTU t3, acc3, t2
+	SUB t3, acc3, acc3
+	// SBC t1, acc0
+	ADD t2, t1, t2       // no carry
+	SUB t2, acc0, y0     // no borrow
+
+	// ADDS acc0, acc1, acc1
+	ADD acc0, acc1, acc1
+	SLTU acc0, acc1, t0
+	// ADCS $0, acc2
+	ADD t0, acc2, acc2
+	SLTU t0, acc2, t1
+	// ADCS $0, acc3
+	ADD t1, acc3, acc3
+	SLTU t1, acc3, t0
+	// ADC $0, y0, acc0
+	ADD t0, y0, acc0
+
+	// Second reduction step
+	SLL $32, acc1, t0
+	SRL $32, acc1, t1
+
+	// SUBS t0, acc2
+	SLTU t0, acc2, t2
+	SUB t0, acc2, acc2
+	// SBCS t1, acc3
+	ADD t2, t1, t3       // no carry
+	SLTU t3, acc3, t2
+	SUB t3, acc3, acc3
+	// SBCS t0, acc0
+	ADD t2, t0, t2       // no carry
+	SLTU t2, acc0, t3
+	SUB t2, acc0, acc0
+	// SBC t1, acc1
+	ADD t3, t1, t2       // no carry
+	SUB t2, acc1, y0     // no borrow
+
+	// ADDS acc1, acc2
+	ADD acc1, acc2, acc2
+	SLTU acc1, acc2, t0
+	// ADCS $0, acc3
+	ADD t0, acc3, acc3
+	SLTU t0, acc3, t1
+	// ADCS $0, acc0
+	ADD t1, acc0, acc0
+	SLTU t1, acc0, t0
+	// ADC $0, y0, acc1
+	ADD t0, y0, acc1
+
+	// Third reduction step
+	SLL $32, acc2, t0
+	SRL $32, acc2, t1
+
+	// SUBS t0, acc3
+	SLTU t0, acc3, t2
+	SUB t0, acc3, acc3
+	// SBCS t1, acc0
+	ADD t2, t1, t3       // no carry
+	SLTU t3, acc0, t2
+	SUB t3, acc0, acc0
+	// SBCS t0, acc1
+	ADD t2, t0, t2       // no carry
+	SLTU t2, acc1, t3
+	SUB t2, acc1, acc1
+	// SBC t1, acc2
+	ADD t3, t1, t2       // no carry
+	SUB t2, acc2, y0     // no borrow
+
+	// ADDS acc2, acc3
+	ADD acc2, acc3, acc3
+	SLTU acc2, acc3, t0
+	// ADCS $0, acc0
+	ADD t0, acc0, acc0
+	SLTU t0, acc0, t1
+	// ADCS $0, acc1
+	ADD t1, acc1, acc1
+	SLTU t1, acc1, t0
+	// ADC $0, y0, acc2
+	ADD t0, y0, acc2
+
+	// Last reduction step
+	SLL $32, acc3, t0
+	SRL $32, acc3, t1
+
+	// SUBS t0, acc0
+	SLTU t0, acc0, t2
+	SUB t0, acc0, acc0
+	// SBCS t1, acc1
+	ADD t2, t1, t3       // no carry
+	SLTU t3, acc1, t2
+	SUB t3, acc1, acc1
+	// SBCS t0, acc2
+	ADD t2, t0, t2       // no carry
+	SLTU t2, acc2, t3
+	SUB t2, acc2, acc2
+	// SBC t1, acc3
+	ADD t3, t1, t2       // no carry
+	SUB t2, acc3, y0     // no borrow
+
+	// ADDS acc3, acc0
+	ADD acc3, acc0, acc0
+	SLTU acc3, acc0, t0
+	// ADCS $0, acc1
+	ADD t0, acc1, acc1
+	SLTU t0, acc1, t1
+	// ADCS $0, acc2
+	ADD t1, acc2, acc2
+	SLTU t1, acc2, t0
+	// ADC $0, y0, acc3
+	ADD t0, y0, acc3
+
+	// Add bits [511:256] of the sqr result
+	ADD acc4, acc0, y0
+	SLTU acc4, y0, t0
+	ADD acc5, acc1, y1
+	SLTU acc5, y1, t1
+	ADD t0, y1, y1
+	SLTU t0, y1, t2
+	OR t1, t2, t0
+	ADD acc6, acc2, y2
+	SLTU acc6, y2, t1
+	ADD t0, y2, y2
+	SLTU t0, y2, t2
+	OR t1, t2, t0
+	ADD acc7, acc3, y3
+	SLTU acc7, y3, t1
+	ADD t0, y3, y3
+	SLTU t0, y3, t2
+	OR t1, t2, t0
+
+	// Final reduction
+	ADD $1, y0, acc4
+	SLTU y0, acc4, t1
+	ADD const0, t1, t1             // no carry
+	ADD y1, t1, acc5
+	SLTU y1, acc5, t3
+	ADD t3, y2, acc6
+	SLTU y2, acc6, hlp0
+	ADD $1, hlp0, hlp0           // no carry
+	ADD hlp0, const0, t2         // no carry
+	ADD y3, t2, acc7
+	SLTU y3, acc7, hlp0
+	OR t0, hlp0, t0
+
+	SUB $1, t0, t0        // mask = -cond
+	XOR $-1, t0, t1        // t1 = ~mask
+
+	AND t0, y0, y0
+	AND t1, acc4, acc4
+	OR acc4, y0
+
+	AND t0, y1, y1
+	AND t1, acc5, acc5
+	OR acc5, y1
+
+	AND t0, y2, y2
+	AND t1, acc6, acc6
+	OR acc6, y2
+
+	AND t0, y3, y3
+	AND t1, acc7, acc7
+	OR acc7, y3
+
+	RET
+
+/* ---------------------------------------*/
+// func p256Sqr(res, in *p256Element, n int)
+TEXT ·p256Sqr(SB),NOSPLIT,$0
+	MOV res+0(FP), res_ptr
+	MOV in+8(FP), x_ptr
+	MOV n+16(FP), y_ptr
+
+	MOV (8*0)(x_ptr), x0
+	MOV (8*1)(x_ptr), x1
+	MOV (8*2)(x_ptr), x2
+	MOV (8*3)(x_ptr), x3
+
+	MOV p256one<>+0x08(SB), const0
+	
+sqrLoop:
+		SUB $1, y_ptr
+		CALL	sm2P256SqrInternal<>(SB)
+		MOV y0, x0
+		MOV y1, x1
+		MOV y2, x2
+		MOV y3, x3
+		BNE y_ptr, ZERO, sqrLoop
+
+	MOV y0, (8*0)(res_ptr)
+	MOV y1, (8*1)(res_ptr)
+	MOV y2, (8*2)(res_ptr)
+	MOV y3, (8*3)(res_ptr)
+
+	RET
