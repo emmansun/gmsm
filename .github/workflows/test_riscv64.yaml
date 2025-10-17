@@ -5,9 +5,9 @@ name: riscv64-qemu
 
 on:
   push:
-    branches: [ "develop", "main" ]
+    branches: [ "develop", "main", "loong64" ]
   pull_request:
-    branches: [ "develop", "main" ]
+    branches: [ "develop", "main", "loong64" ]
 
 permissions:
   contents: read
