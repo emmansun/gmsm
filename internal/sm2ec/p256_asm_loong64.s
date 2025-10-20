@@ -1380,9 +1380,11 @@ ordSqrLoop:
 		// MUL const2, hlp0, t0
 		MULV hlp0, const2, t0
 		// ADCS t0, acc2
-		ADDV t0, t1, t1         // no carry
+		ADDV t0, acc2, acc2
+		SGTU t0, acc2, t0
 		ADDV t1, acc2, acc2
 		SGTU t1, acc2, t1
+		OR t0, t1, t1
 		MULHVU hlp0, const2, y2
 
 		// MUL const3, hlp0, t0
@@ -1428,9 +1430,11 @@ ordSqrLoop:
 		// MUL const2, hlp0, t0
 		MULV hlp0, const2, t0
 		// ADCS t0, acc3
-		ADDV t0, t1, t1         // no carry
+		ADDV t0, acc3, acc3
+		SGTU t0, acc3, t0
 		ADDV t1, acc3, acc3
 		SGTU t1, acc3, t1
+		OR t0, t1, t1
 		MULHVU hlp0, const2, y2
 
 		// MUL const3, hlp0, t0
@@ -1476,9 +1480,11 @@ ordSqrLoop:
 		// MUL const2, hlp0, t0
 		MULV hlp0, const2, t0
 		// ADCS t0, acc0
-		ADDV t0, t1, t1         // no carry
+		ADDV t0, acc0, acc0
+		SGTU t0, acc0, t0
 		ADDV t1, acc0, acc0
 		SGTU t1, acc0, t1
+		OR t0, t1, t1
 		MULHVU hlp0, const2, y2
 
 		// MUL const3, hlp0, t0
@@ -1524,9 +1530,11 @@ ordSqrLoop:
 		// MUL const2, hlp0, t0
 		MULV hlp0, const2, t0
 		// ADCS t0, acc1
-		ADDV t0, t1, t1         // no carry
+		ADDV t0, acc1, acc1
+		SGTU t0, acc1, t0
 		ADDV t1, acc1, acc1
 		SGTU t1, acc1, t1
+		OR t0, t1, t1
 		MULHVU hlp0, const2, y2
 
 		// MUL const3, hlp0, t0
