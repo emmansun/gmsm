@@ -4,6 +4,7 @@ package sm2ec
 
 import (
 	"crypto/rand"
+	"fmt"
 	"io"
 	"math/big"
 	"testing"
@@ -94,9 +95,20 @@ func p256OrdMulTest(t *testing.T, x, y, p, r *big.Int) {
 	ordFromBig(ax, x1)
 	ordFromBig(ay, y1)
 	p256OrdMul(res2, ax, ay)
-	resInt := new(big.Int).SetBytes(p256OrderFromMont(res2))
-
 	expected := new(big.Int).Mul(x, y)
+	expected = expected.Mod(expected, p)
+	expected = expected.Mul(expected, r)
+	expected = expected.Mod(expected, p)
+	var xOut [32]byte
+	p256OrdLittleToBig(&xOut, res2)
+	resInt := new(big.Int).SetBytes(xOut[:])
+	if resInt.Cmp(expected) != 0 {
+		t.Fatalf("expected %x, got %x", expected.Bytes(), resInt.Bytes())
+	}
+
+	resInt = new(big.Int).SetBytes(p256OrderFromMont(res2))
+
+	expected = new(big.Int).Mul(x, y)
 	expected = expected.Mod(expected, p)
 	if resInt.Cmp(expected) != 0 {
 		t.Fatalf("expected %x, got %x", expected.Bytes(), resInt.Bytes())
@@ -151,4 +163,11 @@ func BenchmarkP25OrdMul(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		p256OrdMul(res, ax, ax)
 	}
+}
+
+func TestP256OrderMinusOne(t *testing.T) {
+	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123", 16)
+	r, _ := new(big.Int).SetString("10000000000000000000000000000000000000000000000000000000000000000", 16)
+	pMinus1 := new(big.Int).Sub(r, p)
+	fmt.Printf("p256 order: %x\n", pMinus1.Bytes())
 }
