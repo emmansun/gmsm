@@ -1243,8 +1243,8 @@ TEXT ·p256OrdSqr(SB),NOSPLIT,$0
 	MOVV (8*2)(a_ptr), x2
 	MOVV (8*3)(a_ptr), x3
 
-	MOVV p256ordone<>+0x00(SB), a_ptr
-	MOVV p256ordone<>+0x08(SB), y3
+	MOVV p256orderone<>+0x00(SB), a_ptr
+	MOVV p256orderone<>+0x08(SB), y3
 
 ordSqrLoop:
 		SUBV	$1, b_ptr
@@ -2041,8 +2041,8 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	OR t1, acc4, acc4
 
 	// Final reduction
-	MOVV p256ord<>+0x00(SB), b_ptr
-	MOVV p256ord<>+0x08(SB), y3
+	MOVV p256orderone<>+0x00(SB), b_ptr
+	MOVV p256orderone<>+0x08(SB), y3
 	ADDV b_ptr, acc0, x0
 	SGTU b_ptr, acc0, t0
 	ADDV y3, t0, t0         // no carry
