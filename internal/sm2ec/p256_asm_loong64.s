@@ -1579,8 +1579,8 @@ ordSqrLoop:
 		OR t1, acc4, acc4
 
 		// Final reduction
-		ADDV b_ptr, acc0, x0
-		SGTU b_ptr, x0, t0
+		ADDV a_ptr, acc0, x0
+		SGTU a_ptr, x0, t0
 		ADDV y3, t0, t0         // no carry
 		ADDV acc1, t0, x1
 		SGTU acc1, x1, t1
