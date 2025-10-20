@@ -1275,11 +1275,11 @@ ordSqrLoop:
 		MULHVU x1, x2, t1
 		// ADCS t1, acc4
 		ADDV t1, acc4, acc4
-		SGTU t1, acc4, t0
+		SGTU t1, acc4, t1
 		ADDV t0, acc4, acc4
-		SGTU t0, acc4, hlp0
+		SGTU t0, acc4, t0
 		// ADC $0, acc5
-		OR t0, hlp0, acc5
+		OR t0, t1, acc5
 
 		MULV x1, x3, t0
 		// ADCS t0, acc4
@@ -1334,31 +1334,31 @@ ordSqrLoop:
 		// ADCS t0, acc2
 		ADDV t0, t1, t1         // no carry
 		ADDV t1, acc2, acc2
-		SGTU t1, acc2, hlp0
+		SGTU t1, acc2, t1
 		MULHVU x1, x1, t0
 		// ADCS t0, acc3
-		ADDV t0, hlp0, hlp0	    // no carry
-		ADDV hlp0, acc3, acc3
-		SGTU hlp0, acc3, t1
+		ADDV t0, t1, t0	    // no carry
+		ADDV t0, acc3, acc3
+		SGTU t0, acc3, t1
 		MULV x2, x2, t0
 		// ADCS t0, acc4
-		ADDV t0, t1, t1         // no carry
-		ADDV t1, acc4, acc4
-		SGTU t1, acc4, hlp0
+		ADDV t0, t1, t0         // no carry
+		ADDV t0, acc4, acc4
+		SGTU t0, acc4, t1
 		MULHVU x2, x2, t0
 		// ADCS t0, acc5
-		ADDV t0, hlp0, hlp0     // no carry
-		ADDV hlp0, acc5, acc5
-		SGTU hlp0, acc5, t1
+		ADDV t0, t1, t0     // no carry
+		ADDV t0, acc5, acc5
+		SGTU t0, acc5, t1
 		MULV x3, x3, t0
 		// ADCS t0, acc6
-		ADDV t0, t1, t1         // no carry
-		ADDV t1, acc6, acc6
-		SGTU t1, acc6, hlp0
+		ADDV t0, t1, t0         // no carry
+		ADDV t0, acc6, acc6
+		SGTU t0, acc6, t1
 		MULHVU x3, x3, t0
 		// ADC	t0, acc7
-		ADDV t0, hlp0, hlp0     // no carry
-		ADDV hlp0, acc7, acc7   // (acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7) is the result
+		ADDV t0, t1, t0     // no carry
+		ADDV t0, acc7, acc7   // (acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7) is the result
 
 		// First reduction step
 		MULV acc0, hlp1, hlp0
