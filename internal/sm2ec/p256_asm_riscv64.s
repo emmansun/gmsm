@@ -42,7 +42,10 @@
 #define y2 X28
 #define y3 X29
 
-#define const0 X31
+#define const0 X30
+#define const1 X31
+#define const2 t2
+#define const3 t3
 
 DATA p256p<>+0x00(SB)/8, $0xffffffffffffffff
 DATA p256p<>+0x08(SB)/8, $0xffffffff00000000
@@ -57,10 +60,13 @@ DATA p256one<>+0x00(SB)/8, $0x0000000000000001
 DATA p256one<>+0x08(SB)/8, $0x00000000ffffffff
 DATA p256one<>+0x10(SB)/8, $0x0000000000000000
 DATA p256one<>+0x18(SB)/8, $0x0000000100000000
+DATA p256orderone<>+0x00(SB)/8, $0xac440bf6c62abedd
+DATA p256orderone<>+0x08(SB)/8, $0x8dfc2094de39fad4
 GLOBL p256p<>(SB), RODATA, $32
 GLOBL p256ordK0<>(SB), RODATA, $8
 GLOBL p256ord<>(SB), RODATA, $32
 GLOBL p256one<>(SB), RODATA, $32
+GLOBL p256orderone<>(SB), RODATA, $16
 
 /* ---------------------------------------*/
 // func p256OrdLittleToBig(res *[32]byte, in *p256OrdElement)
@@ -592,8 +598,7 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	SLTU y1, acc5, t3
 	ADD t3, y2, acc6
 	SLTU y2, acc6, hlp0
-	ADD $1, hlp0, hlp0           // no carry
-	ADD hlp0, const0, t2         // no carry
+	ADD hlp0, const1, t2         // no carry
 	ADD y3, t2, acc7
 	SLTU y3, acc7, hlp0
 	OR t0, hlp0, t0
@@ -627,6 +632,7 @@ TEXT ·p256Mul(SB),NOSPLIT,$0
 	MOV in2+16(FP), y_ptr
 
 	MOV p256one<>+0x08(SB), const0
+	ADD $1, const0, const1
 
 	MOV (8*0)(x_ptr), x0
 	MOV (8*1)(x_ptr), x1
@@ -906,8 +912,7 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	SLTU y1, acc5, t3
 	ADD t3, y2, acc6
 	SLTU y2, acc6, hlp0
-	ADD $1, hlp0, hlp0           // no carry
-	ADD hlp0, const0, t2         // no carry
+	ADD hlp0, const1, t2         // no carry
 	ADD y3, t2, acc7
 	SLTU y3, acc7, hlp0
 	OR t0, hlp0, t0
@@ -946,6 +951,7 @@ TEXT ·p256Sqr(SB),NOSPLIT,$0
 	MOV (8*3)(x_ptr), x3
 
 	MOV p256one<>+0x08(SB), const0
+	ADD $1, const0, const1
 	
 sqrLoop:
 		SUB $1, y_ptr
@@ -1375,9 +1381,8 @@ TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
 	SRA $63, t0, t0    // mask = -cond
 
 	AND $1, t0, t1
-	AND  t0, const0, t3
-	ADD $1, const0, hlp0
-	AND t0, hlp0, t2
+	AND t0, const0, t3
+	AND t0, const1, t2
 
 	SLTU t1, acc0, hlp0
 	SUB t1, acc0, x0
@@ -1413,8 +1418,7 @@ TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
 	SLTU x1, acc5, t0;  \
 	ADD t0, x2, acc6;  \
 	SLTU x2, acc6, t0;  \
-	ADD $1, const0, t1; \
-	ADD t1, t0, t0;  \
+	ADD const1, t0, t0;  \
 	ADD x3, t0, acc7;  \
 	SLTU x3, acc7, t0;  \
 	OR t0, t3, t0;  \
@@ -1461,8 +1465,7 @@ TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
 	SLTU x1, acc5, t0;  \
 	ADD t0, x2, acc6;  \
 	SLTU x2, acc6, t0;  \
-	ADD $1, const0, t1; \
-	ADD t1, t0, t0;  \
+	ADD const1, t0, t0;  \
 	ADD x3, t0, acc7;  \
 	SLTU x3, acc7, t0;  \
 	OR t0, t2, t0;  \
@@ -1492,8 +1495,7 @@ TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
 	SRA $63, t0, t0;  \
 	AND $1, t0, acc1;  \
 	AND const0, t0, acc2;  \
-	ADD $1, const0, t1;  \
-	AND t0, t1, acc3;  \
+	AND const1, t0, acc3;  \
 	;\
 	SLTU acc1, y0, t1;  \
 	SUB acc1, y0, y0;  \
@@ -1563,6 +1565,7 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	OR t2, hlp1, hlp1
 
 	MOV p256one<>+0x08(SB), const0
+	ADD $1, const0, const1
 
 	// Negate y2in based on sign
 	MOV (8*4)(b_ptr), y0
@@ -1592,8 +1595,7 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	SRA $63, t3, t3    // mask = -cond
 	AND $1, t3, acc4
 	AND const0, t3, acc5
-	ADD $1, const0, acc6
-	AND t3, acc6, acc7
+	AND const1, t3, acc7
 
 	SLTU acc4, acc0, t3
 	SUB acc4, acc0, acc0
@@ -1661,8 +1663,7 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	MOV $1, acc0
 	MOV const0, acc1
 	MOV $0, acc2
-	MOV const0, acc3
-	ADD acc0, acc3, acc3
+	MOV const1, acc3
 	SRL $1, hlp1, t0
 	SUB $1, t0, t0
 	XOR $-1, t0, t1
@@ -1862,6 +1863,7 @@ TEXT ·p256PointDoubleAsm(SB),NOSPLIT,$136-16
 	MOV	in+8(FP), a_ptr
 
 	MOV p256one<>+0x08(SB), const0
+	ADD $1, const0, const1
 
 	// Begin point double
 	MOV (8*8)(a_ptr), x0              // load z 
@@ -2014,6 +2016,7 @@ TEXT ·p256PointDouble6TimesAsm(SB),NOSPLIT,$136-16
 	MOV	in+8(FP), a_ptr
 
 	MOV p256one<>+0x08(SB), const0
+	ADD $1, const0, const1
 
 	// Begin point double
 	MOV (8*8)(a_ptr), x0 
@@ -2115,6 +2118,7 @@ TEXT ·p256PointAddAsm(SB),0,$392-32
 	MOV	in2+16(FP), b_ptr
 
 	MOV p256one<>+0x08(SB), const0
+	ADD $1, const0, const1
 
 	// Begin point add
 	LDx(z2in)
