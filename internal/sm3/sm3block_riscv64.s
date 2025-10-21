@@ -49,17 +49,17 @@
 // for 12 <= t <= 63
 #define MSGSCHEDULE1(index) \
 	MOVWU ((index+1)*4)(RSP), AX; \    // Wt+1
-	ROLW $15, AX; \                    // AX = ROTL(15, Wt+1)
+	RORW $(32-15), AX; \                    // AX = ROTL(15, Wt+1)
 	MOVWU ((index-12)*4)(RSP), BX; \   // Wt-12
 	XOR BX, AX, AX; \                  // AX = Wt-12 XOR ROTL(15, Wt+1)
 	MOVWU ((index-5)*4)(RSP), BX; \    // Wt-5 
 	XOR BX, AX, AX; \                  // AX = x
-	ROLW $15, AX, BX; \                // BX = ROTL(15, x)
-	ROLW $23, AX, CX; \                // CX = ROTL(23, x)
+	RORW $(32-15), AX, BX; \                // BX = ROTL(15, x)
+	RORW $(32-23), AX, CX; \                // CX = ROTL(23, x)
 	XOR BX, AX, AX; \                  // AX = x XOR ROTL(15, x)
 	XOR CX, AX, AX; \                  // AX = p1(x)
 	MOVWU ((index-9)*4)(RSP), BX; \
-	ROLW $7, BX, BX; \                 // BX = ROTL(7, Wt-9)
+	RORW $(32-7), BX, BX; \                 // BX = ROTL(7, Wt-9)
 	MOVWU ((index-2)*4)(RSP), CX; \
 	XOR BX, AX, AX; \                  // AX = p1(x) XOR ROTL(7, Wt-9)
 	XOR CX, AX, AX; \
@@ -69,11 +69,11 @@
 // x = ROTL(12, a) + e + ROTL(index, const)
 // ret = ROTL(7, x)
 #define SM3SS1(index, a, e) \
-	ROLW $12, a, BX; \
+	RORW $(32-12), a, BX; \
 	ADD e, BX; \
 	MOVWU	(index*4)(REG_KT), hlp0; \
 	ADD hlp0, BX; \
-	ROLW $7, BX
+	RORW $(32-7), BX, BX
 
 // Calculate tt1 in CX
 // ret = (a XOR b XOR c) + d + (ROTL(12, a) XOR ss1) + (Wt XOR Wt+4)
@@ -84,7 +84,7 @@
 	MOVWU	(index*4)(RSP), hlp0; \   // Wt
 	XOR hlp0, AX; \                   // AX = Wt XOR Wt+4
 	ADD AX, DX; \
-	ROLW $12, a, CX; \
+	RORW $(32-12), a, CX; \
 	XOR BX, CX, CX; \           // SS2
 	ADD DX, CX
 
@@ -105,7 +105,7 @@
 	AND c, DX; \
 	OR hlp0, DX; \                    // DX = (a AND b) OR (a AND c) OR (b AND c)
 	ADD d, DX; \
-	ROLW $12, a, CX; \
+	RORW $(32-12), a, CX; \
 	XOR BX, CX, CX; \
 	ADD DX, CX; \
 	MOVWU	(index*4)(RSP), hlp0; \
@@ -123,12 +123,12 @@
 	ADD hlp0, BX
 
 #define COPYRESULT(b, d, f, h) \
-	ROLW $9, b; \
+	RORW $(32-9), b, b; \
 	MOVW CX, h; \
-	ROLW $19, f; \
-	ROLW $9, BX, CX; \        // CX = ROTL(9, tt2)
+	RORW $(32-19), f, f; \
+	RORW $(32-9), BX, CX; \        // CX = ROTL(9, tt2)
 	XOR BX, CX; \             // CX = tt2 XOR ROTL(9, tt2)
-	ROLW $17, BX; \           // BX = ROTL(17, tt2)
+	RORW $(32-17), BX; \           // BX = ROTL(17, tt2)
 	XOR BX, CX, d             // d = tt2 XOR ROTL(9, tt2) XOR ROTL(17, tt2) 
 
 #define SM3ROUND0(index, a, b, c, d, e, f, g, h) \
