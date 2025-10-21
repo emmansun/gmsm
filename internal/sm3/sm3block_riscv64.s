@@ -36,7 +36,7 @@
 #define hlp0 X31
 #define REG_KT X30
 
-#define stackaddress(index) ((index)*4)(RSP)
+#define stackaddress(index) (8+(index)*4)(RSP)
 
 // Wt = Mt; for 0 <= t <= 3
 #define MSGSCHEDULE0(index) \
@@ -166,7 +166,7 @@
 // (4 bytes * 68 entries).
 //
 // func block(dig *digest, p []byte)
-TEXT ·block(SB), 0, $272-32
+TEXT ·block(SB), 0, $280-32
 	MOV	dig+0(FP), X5
 	MOV	p_base+8(FP), X6
 	MOV	p_len+16(FP), X7
