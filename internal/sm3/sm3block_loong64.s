@@ -38,7 +38,7 @@
 
 // Wt+4 = Mt+4; for 0 <= t <= 11
 #define MSGSCHEDULE01(index) \
-	MOVW	(index*4)(R5), AX; \
+	MOVW	((index+4)*4)(R5), AX; \
 	REVB2W	AX, AX; \
 	MOVW	AX, ((index+4)*4)(RSP)
 
@@ -47,11 +47,11 @@
 // Wt+4 = p1(x) XOR ROTL(7, Wt-9) XOR Wt-2
 // for 12 <= t <= 63
 #define MSGSCHEDULE1(index) \
-	MOVW ((index+1)*4)(RSP), AX; \
-	ROTR $(32-15), AX, AX; \
-	MOVW ((index-12)*4)(RSP), BX; \
-	XOR BX, AX, AX; \
-	MOVW ((index-5)*4)(RSP), BX; \
+	MOVW ((index+1)*4)(RSP), AX; \     // Wt+1
+	ROTR $(32-15), AX, AX; \           // AX = ROTL(15, Wt+1)
+	MOVW ((index-12)*4)(RSP), BX; \    // Wt-12
+	XOR BX, AX, AX; \                  // AX = Wt-12 XOR ROTL(15, Wt+1)
+	MOVW ((index-5)*4)(RSP), BX; \     // Wt-5 
 	XOR BX, AX, AX; \                  // AX = x
 	ROTR $(32-15), AX, BX; \           // BX = ROTL(15, x)
 	ROTR $(32-23), AX, CX; \           // CX = ROTL(23, x)
@@ -79,12 +79,12 @@
 #define SM3TT10(index, a, b, c, d) \  
 	XOR a, b, DX; \
 	XOR c, DX; \
-	ADD d, DX; \
-	MOVW	(index*4)(RSP), hlp0; \
-	XOR hlp0, AX; \
+	ADD d, DX; \                      // DX = (a XOR b XOR c) + d
+	MOVW	(index*4)(RSP), hlp0; \   // Wt
+	XOR hlp0, AX; \                   // AX = Wt XOR Wt+4
 	ADD AX, DX; \
 	ROTR $(32-12), a, CX; \
-	XOR BX, CX, CX; \
+	XOR BX, CX, CX; \           // SS2
 	ADD DX, CX
 
 // Calculate tt2 in BX
@@ -102,7 +102,7 @@
 	OR a, b, DX; \
 	AND a, b, hlp0; \
 	AND c, DX; \
-	OR hlp0, DX; \
+	OR hlp0, DX; \                    // DX = (a AND b) OR (a AND c) OR (b AND c)
 	ADD d, DX; \
 	ROTR $(32-12), a, CX; \
 	XOR BX, CX, CX; \
@@ -125,11 +125,10 @@
 	ROTR $(32-9), b; \
 	MOVW CX, h; \
 	ROTR $(32-19), f; \
-	ROTR $(32-9), BX, CX; \
-	XOR BX, CX; \
-	ROTR $(32-17), BX; \
-	XOR BX, CX; \
-	MOVW CX, d
+	ROTR $(32-9), BX, CX; \   // CX = ROTL(9, tt2)
+	XOR BX, CX; \             // CX = tt2 XOR ROTL(9, tt2)
+	ROTR $(32-17), BX; \      // BX = ROTL(17, tt2)
+	XOR BX, CX, d             // d = tt2 XOR ROTL(9, tt2) XOR ROTL(17, tt2) 
 
 #define SM3ROUND0(index, a, b, c, d, e, f, g, h) \
 	MSGSCHEDULE01(index); \
