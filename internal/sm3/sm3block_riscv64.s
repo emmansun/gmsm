@@ -40,7 +40,7 @@
 
 // Wt = Mt; for 0 <= t <= 3
 #define MSGSCHEDULE0(index) \
-	MOVWU	((index)*4)(X6), AX; \
+	MOVWU	(index*4)(X6), AX; \
 	REV8	AX, AX; \
 	SRL 	$32, AX; \
 	MOVW	AX, stackaddress(index)
@@ -58,17 +58,17 @@
 // for 12 <= t <= 63
 #define MSGSCHEDULE1(index) \
 	MOVWU stackaddress(index+1), AX; \    // Wt+1
-	RORW $(32-15), AX; \                    // AX = ROTL(15, Wt+1)
+	//RORW $(32-15), AX; \                    // AX = ROTL(15, Wt+1)
 	MOVWU stackaddress(index-12), BX; \   // Wt-12
 	XOR BX, AX, AX; \                  // AX = Wt-12 XOR ROTL(15, Wt+1)
 	MOVWU stackaddress(index-5), BX; \    // Wt-5 
 	XOR BX, AX, AX; \                  // AX = x
-	RORW $(32-15), AX, BX; \                // BX = ROTL(15, x)
-	RORW $(32-23), AX, CX; \                // CX = ROTL(23, x)
+	//RORW $(32-15), AX, BX; \                // BX = ROTL(15, x)
+	//RORW $(32-23), AX, CX; \                // CX = ROTL(23, x)
 	XOR BX, AX, AX; \                  // AX = x XOR ROTL(15, x)
 	XOR CX, AX, AX; \                  // AX = p1(x)
 	MOVWU stackaddress(index-9), BX; \
-	RORW $(32-7), BX, BX; \                 // BX = ROTL(7, Wt-9)
+	//RORW $(32-7), BX, BX; \                 // BX = ROTL(7, Wt-9)
 	MOVWU stackaddress(index-2), CX; \
 	XOR BX, AX, AX; \                  // AX = p1(x) XOR ROTL(7, Wt-9)
 	XOR CX, AX, AX; \
@@ -78,11 +78,11 @@
 // x = ROTL(12, a) + e + ROTL(index, const)
 // ret = ROTL(7, x)
 #define SM3SS1(index, a, e) \
-	RORW $(32-12), a, BX; \
+	//RORW $(32-12), a, BX; \
 	ADD e, BX; \
 	MOVWU	(index*4)(REG_KT), hlp0; \
 	ADD hlp0, BX; \
-	RORW $(32-7), BX, BX
+	//RORW $(32-7), BX, BX
 
 // Calculate tt1 in CX
 // ret = (a XOR b XOR c) + d + (ROTL(12, a) XOR ss1) + (Wt XOR Wt+4)
@@ -93,7 +93,7 @@
 	MOVWU	stackaddress(index), hlp0; \   // Wt
 	XOR hlp0, AX; \                   // AX = Wt XOR Wt+4
 	ADD AX, DX; \
-	RORW $(32-12), a, CX; \
+	//RORW $(32-12), a, CX; \
 	XOR BX, CX, CX; \           // SS2
 	ADD DX, CX
 
@@ -114,7 +114,7 @@
 	AND c, DX; \
 	OR hlp0, DX; \                    // DX = (a AND b) OR (a AND c) OR (b AND c)
 	ADD d, DX; \
-	RORW $(32-12), a, CX; \
+	//RORW $(32-12), a, CX; \
 	XOR BX, CX, CX; \
 	ADD DX, CX; \
 	MOVWU	stackaddress(index), hlp0; \
@@ -132,12 +132,12 @@
 	ADD hlp0, BX
 
 #define COPYRESULT(b, d, f, h) \
-	RORW $(32-9), b, b; \
+	//RORW $(32-9), b, b; \
 	MOVW CX, h; \
-	RORW $(32-19), f, f; \
-	RORW $(32-9), BX, CX; \        // CX = ROTL(9, tt2)
+	//RORW $(32-19), f, f; \
+	//RORW $(32-9), BX, CX; \        // CX = ROTL(9, tt2)
 	XOR BX, CX; \             // CX = tt2 XOR ROTL(9, tt2)
-	RORW $(32-17), BX; \           // BX = ROTL(17, tt2)
+	//RORW $(32-17), BX; \           // BX = ROTL(17, tt2)
 	XOR BX, CX, d             // d = tt2 XOR ROTL(9, tt2) XOR ROTL(17, tt2) 
 
 #define SM3ROUND0(index, a, b, c, d, e, f, g, h) \
