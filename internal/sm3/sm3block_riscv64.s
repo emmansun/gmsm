@@ -43,6 +43,13 @@
 	SRL 	$32, AX; \
 	MOVW	AX, ((index)*4)(RSP)
 
+// Wt+4 = Mt+4; for 0 <= t <= 11
+#define MSGSCHEDULE01(index) \
+	MOVWU	((index+4)*4)(X6), AX; \
+	REV8	AX, AX; \
+	SRL 	$32, AX; \
+	MOVW	AX, ((index+4)*4)(RSP)
+
 // x = Wt-12 XOR Wt-5 XOR ROTL(15, Wt+1)
 // p1(x) = x XOR ROTL(15, x) XOR ROTL(23, x)
 // Wt+4 = p1(x) XOR ROTL(7, Wt-9) XOR Wt-2
@@ -132,7 +139,7 @@
 	XOR BX, CX, d             // d = tt2 XOR ROTL(9, tt2) XOR ROTL(17, tt2) 
 
 #define SM3ROUND0(index, a, b, c, d, e, f, g, h) \
-	MSGSCHEDULE0(index+4); \
+	MSGSCHEDULE01(index); \
 	SM3SS1(index, a, e); \
 	SM3TT10(index, a, b, c, d); \
 	SM3TT20(e, f, g, h); \
