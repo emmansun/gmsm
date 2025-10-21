@@ -34,7 +34,7 @@
 #define CX R27
 #define DX R28
 #define hlp0 R29
-#define hlp1 R31
+#define REG_KT R31
 
 // Wt+4 = Mt+4; for 0 <= t <= 11
 #define MSGSCHEDULE01(index) \
