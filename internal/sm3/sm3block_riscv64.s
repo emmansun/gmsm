@@ -36,41 +36,43 @@
 #define hlp0 X31
 #define REG_KT X30
 
+#define stackaddress(index) (8+(index)*4)(RSP)
+
 // Wt = Mt; for 0 <= t <= 3
 #define MSGSCHEDULE0(index) \
 	MOVWU	((index)*4)(X6), AX; \
 	REV8	AX, AX; \
 	SRL 	$32, AX; \
-	MOVW	AX, ((index)*4)(RSP)
+	MOVW	AX, stackaddress(index)
 
 // Wt+4 = Mt+4; for 0 <= t <= 11
 #define MSGSCHEDULE01(index) \
 	MOVWU	((index+4)*4)(X6), AX; \
 	REV8	AX, AX; \
 	SRL 	$32, AX; \
-	MOVW	AX, ((index+4)*4)(RSP)
+	MOVW	AX, stackaddress(index+4)
 
 // x = Wt-12 XOR Wt-5 XOR ROTL(15, Wt+1)
 // p1(x) = x XOR ROTL(15, x) XOR ROTL(23, x)
 // Wt+4 = p1(x) XOR ROTL(7, Wt-9) XOR Wt-2
 // for 12 <= t <= 63
 #define MSGSCHEDULE1(index) \
-	MOVWU ((index+1)*4)(RSP), AX; \    // Wt+1
+	MOVWU stackaddress(index+1), AX; \    // Wt+1
 	RORW $(32-15), AX; \                    // AX = ROTL(15, Wt+1)
-	MOVWU ((index-12)*4)(RSP), BX; \   // Wt-12
+	MOVWU stackaddress(index-12), BX; \   // Wt-12
 	XOR BX, AX, AX; \                  // AX = Wt-12 XOR ROTL(15, Wt+1)
-	MOVWU ((index-5)*4)(RSP), BX; \    // Wt-5 
+	MOVWU stackaddress(index-5), BX; \    // Wt-5 
 	XOR BX, AX, AX; \                  // AX = x
 	RORW $(32-15), AX, BX; \                // BX = ROTL(15, x)
 	RORW $(32-23), AX, CX; \                // CX = ROTL(23, x)
 	XOR BX, AX, AX; \                  // AX = x XOR ROTL(15, x)
 	XOR CX, AX, AX; \                  // AX = p1(x)
-	MOVWU ((index-9)*4)(RSP), BX; \
+	MOVWU stackaddress(index-9), BX; \
 	RORW $(32-7), BX, BX; \                 // BX = ROTL(7, Wt-9)
-	MOVWU ((index-2)*4)(RSP), CX; \
+	MOVWU stackaddress(index-2), CX; \
 	XOR BX, AX, AX; \                  // AX = p1(x) XOR ROTL(7, Wt-9)
 	XOR CX, AX, AX; \
-	MOVW AX, ((index+4)*4)(RSP)
+	MOVW AX, stackaddress(index+4)
 
 // Calculate ss1 in BX
 // x = ROTL(12, a) + e + ROTL(index, const)
@@ -88,7 +90,7 @@
 	XOR a, b, DX; \
 	XOR c, DX; \
 	ADD d, DX; \                      // DX = (a XOR b XOR c) + d
-	MOVWU	(index*4)(RSP), hlp0; \   // Wt
+	MOVWU	stackaddress(index), hlp0; \   // Wt
 	XOR hlp0, AX; \                   // AX = Wt XOR Wt+4
 	ADD AX, DX; \
 	RORW $(32-12), a, CX; \
@@ -115,7 +117,7 @@
 	RORW $(32-12), a, CX; \
 	XOR BX, CX, CX; \
 	ADD DX, CX; \
-	MOVWU	(index*4)(RSP), hlp0; \
+	MOVWU	stackaddress(index), hlp0; \
 	XOR hlp0, AX; \
 	ADD AX, CX
 
@@ -164,7 +166,7 @@
 // (4 bytes * 68 entries).
 //
 // func block(dig *digest, p []byte)
-TEXT ·block(SB), 0, $272-32
+TEXT ·block(SB), 0, $280-32
 	MOV	dig+0(FP), X5
 	MOV	p_base+8(FP), X6
 	MOV	p_len+16(FP), X7
