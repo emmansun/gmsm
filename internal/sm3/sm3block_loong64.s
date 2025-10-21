@@ -38,7 +38,7 @@
 
 // Wt+4 = Mt+4; for 0 <= t <= 11
 #define MSGSCHEDULE01(index) \
-	MOVWU	(index*4)(R5), AX; \
+	MOVW	(index*4)(R5), AX; \
 	REVB2W	AX, AX; \
 	MOVW	AX, ((index+4)*4)(RSP)
 
@@ -47,19 +47,19 @@
 // Wt+4 = p1(x) XOR ROTL(7, Wt-9) XOR Wt-2
 // for 12 <= t <= 63
 #define MSGSCHEDULE1(index) \
-	MOVWU ((index+1)*4)(RSP), AX; \
+	MOVW ((index+1)*4)(RSP), AX; \
 	ROTR $(32-15), AX, AX; \
-	MOVWU ((index-12)*4)(RSP), BX; \
+	MOVW ((index-12)*4)(RSP), BX; \
 	XOR BX, AX, AX; \
-	MOVWU ((index-5)*4)(RSP), BX; \
+	MOVW ((index-5)*4)(RSP), BX; \
 	XOR BX, AX, AX; \                  // AX = x
 	ROTR $(32-15), AX, BX; \           // BX = ROTL(15, x)
 	ROTR $(32-23), AX, CX; \           // CX = ROTL(23, x)
 	XOR BX, AX, AX; \                  // AX = x XOR ROTL(15, x)
 	XOR CX, AX, AX; \                  // AX = p1(x)
-	MOVWU ((index-9)*4)(RSP), BX; \
+	MOVW ((index-9)*4)(RSP), BX; \
 	ROTR $(32-7), BX, BX; \            // BX = ROTL(7, Wt-9)
-	MOVWU ((index-2)*4)(RSP), CX; \
+	MOVW ((index-2)*4)(RSP), CX; \
 	XOR BX, AX, AX; \                  // AX = p1(x) XOR ROTL(7, Wt-9)
 	XOR CX, AX, AX; \
 	MOVW AX, ((index+4)*4)(RSP)
@@ -70,7 +70,7 @@
 #define SM3SS1(index, a, e) \
 	ROTR $(32-12), a, BX; \
 	ADD e, BX; \
-	MOVWU	(index*4)(REG_KT), hlp0; \
+	MOVW	(index*4)(REG_KT), hlp0; \
 	ADD hlp0, BX; \
 	ROTR $(32-7), BX, BX
 
@@ -80,7 +80,7 @@
 	XOR a, b, DX; \
 	XOR c, DX; \
 	ADD d, DX; \
-	MOVWU	(index*4)(RSP), hlp0; \
+	MOVW	(index*4)(RSP), hlp0; \
 	XOR hlp0, AX; \
 	ADD AX, DX; \
 	ROTR $(32-12), a, CX; \
@@ -107,7 +107,7 @@
 	ROTR $(32-12), a, CX; \
 	XOR BX, CX, CX; \
 	ADD DX, CX; \
-	MOVWU	(index*4)(RSP), hlp0; \
+	MOVW	(index*4)(RSP), hlp0; \
 	XOR hlp0, AX; \
 	ADD AX, CX
 
@@ -132,25 +132,25 @@
 	MOVW CX, d
 
 #define SM3ROUND0(index, a, b, c, d, e, f, g, h) \
-  MSGSCHEDULE01(index); \
-  SM3SS1(index, a, e); \
-  SM3TT10(index, a, b, c, d); \
-  SM3TT20(e, f, g, h); \
-  COPYRESULT(b, d, f, h)
+	MSGSCHEDULE01(index); \
+	SM3SS1(index, a, e); \
+	SM3TT10(index, a, b, c, d); \
+	SM3TT20(e, f, g, h); \
+	COPYRESULT(b, d, f, h)
 
 #define SM3ROUND1(index, a, b, c, d, e, f, g, h) \
-  MSGSCHEDULE1(index); \
-  SM3SS1(index, a, e); \
-  SM3TT10(index, a, b, c, d); \
-  SM3TT20(e, f, g, h); \
-  COPYRESULT(b, d, f, h)
+	MSGSCHEDULE1(index); \
+	SM3SS1(index, a, e); \
+	SM3TT10(index, a, b, c, d); \
+	SM3TT20(e, f, g, h); \
+	COPYRESULT(b, d, f, h)
 
 #define SM3ROUND2(index, a, b, c, d, e, f, g, h) \
-  MSGSCHEDULE1(index); \
-  SM3SS1(index, a, e); \
-  SM3TT11(index, a, b, c, d); \
-  SM3TT21(e, f, g, h); \
-  COPYRESULT(b, d, f, h)
+	MSGSCHEDULE1(index); \
+	SM3SS1(index, a, e); \
+	SM3TT11(index, a, b, c, d); \
+	SM3TT21(e, f, g, h); \
+	COPYRESULT(b, d, f, h)
 
 // A stack frame size of 272 bytes is required here, because
 // the frame size used for data expansion is 272 bytes.
@@ -169,14 +169,14 @@ TEXT ·block(SB), 0, $272-32
 
 	ADDV R5, R6, REG_END_ADDR
 
-	MOVWU	(0*4)(R4), REG_A
-	MOVWU	(1*4)(R4), REG_B
-	MOVWU	(2*4)(R4), REG_C
-	MOVWU	(3*4)(R4), REG_D
-	MOVWU	(4*4)(R4), REG_E
-	MOVWU	(5*4)(R4), REG_F
-	MOVWU	(6*4)(R4), REG_G
-	MOVWU	(7*4)(R4), REG_H
+	MOVW	(0*4)(R4), REG_A
+	MOVW	(1*4)(R4), REG_B
+	MOVW	(2*4)(R4), REG_C
+	MOVW	(3*4)(R4), REG_D
+	MOVW	(4*4)(R4), REG_E
+	MOVW	(5*4)(R4), REG_F
+	MOVW	(6*4)(R4), REG_G
+	MOVW	(7*4)(R4), REG_H
 
 loop:
 	MOVW REG_A, REG_A1
@@ -188,19 +188,19 @@ loop:
 	MOVW REG_G, REG_G1
 	MOVW REG_H, REG_H1
 
-	MOVWU (0*4)(R5), R25
+	MOVW (0*4)(R5), R25
 	REVB2W	R25, R25
 	MOVW R25, (0*4)(RSP)
 	
-	MOVWU (1*4)(R5), R25
+	MOVW (1*4)(R5), R25
 	REVB2W	R25, R25
 	MOVW R25, (1*4)(RSP)
 
-	MOVWU (2*4)(R5), R25
+	MOVW (2*4)(R5), R25
 	REVB2W	R25, R25
 	MOVW R25, (2*4)(RSP)
 
-	MOVWU (3*4)(R5), R25
+	MOVW (3*4)(R5), R25
 	REVB2W	R25, R25
 	MOVW R25, (3*4)(RSP)
 
