@@ -4,6 +4,8 @@
 
 //go:build riscv64 && !purego
 
+package sm3
+
 import (
 	"fmt"
 	"testing"
