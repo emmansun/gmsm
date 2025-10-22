@@ -295,18 +295,18 @@ end:
 	MOVW stackaddress(60), AX
 	MOVW AX, (0*4)(X5)
 	MOVW stackaddress(61), AX
-	MOVW AX, (0*4)(X5)
+	MOVW AX, (1*4)(X5)
 	MOVW stackaddress(62), AX
-	MOVW AX, (0*4)(X5)
+	MOVW AX, (2*4)(X5)
 	MOVW stackaddress(63), AX
-	MOVW AX, (0*4)(X5)
+	MOVW AX, (3*4)(X5)
 	MOVW stackaddress(64), AX
-	MOVW AX, (0*4)(X5)
+	MOVW AX, (4*4)(X5)
 	MOVW stackaddress(65), AX
-	MOVW AX, (0*4)(X5)
+	MOVW AX, (5*4)(X5)
 	MOVW stackaddress(66), AX
-	MOVW AX, (0*4)(X5)
+	MOVW AX, (6*4)(X5)
 	MOVW stackaddress(67), AX
-	MOVW AX, (0*4)(X5)
+	MOVW AX, (7*4)(X5)
 
 	RET
