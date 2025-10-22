@@ -33,8 +33,8 @@
 #define BX X26
 #define CX X28
 #define DX X29
-#define hlp0 X31 // it seems we can't use X31 here, so we reused X7
-#define REG_KT X30
+#define hlp0 X30 // it seems we can't use X31 here, so we reused X7
+#define REG_KT X31
 
 #define stackaddress(index) ((index)*4+8)(RSP) // for RISCV64 stack usage, we CAN NOT overwrite the first 8 bytes space!
 
