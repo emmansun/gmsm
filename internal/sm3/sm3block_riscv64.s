@@ -36,7 +36,7 @@
 #define hlp0 X7 // it seems we can't use X31 here, so we reused X7
 #define REG_KT X30
 
-#define stackaddress(index) ((index)*4)(RSP)
+#define stackaddress(index) ((index)*4+8)(RSP) // for RISCV64 stack usage, we CAN NOT overwrite the first 8 bytes space!
 
 // Wt = Mt; for 0 <= t <= 3
 #define MSGSCHEDULE0(index) \
