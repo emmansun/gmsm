@@ -33,7 +33,7 @@
 #define BX X26
 #define CX X28
 #define DX X29
-#define hlp0 X31
+#define hlp0 X7
 #define REG_KT X30
 
 #define stackaddress(index) ((index)*4 + 8)(RSP)
@@ -92,17 +92,19 @@
 	ADDW d, DX; \                      // DX = (a XOR b XOR c) + d
 	MOVW	stackaddress(index), hlp0; \   // Wt
 	XOR hlp0, AX; \                   // AX = Wt XOR Wt+4
-	MOVW	stackaddress(index), hlp0; \   // Wt
 	ADDW AX, DX; \
 	RORW $(32-12), a, CX; \
 	XOR BX, CX, CX; \           // SS2
-	MOVW	stackaddress(index), BX; \   // Wt
 	ADDW DX, CX
 
 // Calculate tt2 in BX
 // ret = (e XOR f XOR g) + h + ss1 + Wt
 #define SM3TT20(e, f, g, h) \  
-	MOV hlp0, BX
+	ADDW h, hlp0; \
+	ADDW BX, hlp0; \
+	XOR e, f, BX; \
+	XOR g, BX; \
+	ADDW hlp0, BX
 
 // Calculate tt1 in CX, used DX, hlp0
 // ret = ((a AND b) OR (a AND c) OR (b AND c)) + d + (ROTL(12, a) XOR ss1) + (Wt XOR Wt+4)
@@ -139,6 +141,7 @@
 	MSGSCHEDULE01(index); \
 	SM3SS1(index, a, e); \
 	SM3TT10(index, a, b, c, d); \
+	SM3TT20(e, f, g, h); \
 	COPYRESULT(b, d, f, h)
 
 #define SM3ROUND1(index, a, b, c, d, e, f, g, h) \
