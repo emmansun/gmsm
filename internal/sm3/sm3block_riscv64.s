@@ -135,7 +135,10 @@
 	RORW $(32-9), b; \
 	MOVW CX, h; \
 	RORW $(32-19), f; \
-	MOV BX, d
+	RORW $(32-9), BX, CX; \        // CX = ROTL(9, tt2)
+	XOR BX, CX; \             // CX = tt2 XOR ROTL(9, tt2)
+	RORW $(32-17), BX; \           // BX = ROTL(17, tt2)
+	XOR BX, CX, d             // d = tt2 XOR ROTL(9, tt2) XOR ROTL(17, tt2) 	
 
 #define SM3ROUND0(index, a, b, c, d, e, f, g, h) \
 	MSGSCHEDULE01(index); \
