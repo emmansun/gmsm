@@ -79,9 +79,9 @@
 // ret = ROTL(7, x)
 #define SM3SS1(index, a, e) \
 	RORW $(32-12), a, BX; \
-	ADD e, BX; \
+	ADDW e, BX; \
 	MOVWU	(index*4)(REG_KT), hlp0; \
-	ADD hlp0, BX; \
+	ADDW hlp0, BX; \
 	RORW $(32-7), BX
 
 // Calculate tt1 in CX
@@ -89,47 +89,47 @@
 #define SM3TT10(index, a, b, c, d) \  
 	XOR a, b, DX; \
 	XOR c, DX; \
-	ADD d, DX; \                      // DX = (a XOR b XOR c) + d
+	ADDW d, DX; \                      // DX = (a XOR b XOR c) + d
 	MOVWU	stackaddress(index), hlp0; \   // Wt
 	XOR hlp0, AX; \                   // AX = Wt XOR Wt+4
-	ADD AX, DX; \
+	ADDW AX, DX; \
 	RORW $(32-12), a, CX; \
 	XOR BX, CX, CX; \           // SS2
-	ADD DX, CX
+	ADDW DX, CX
 
 // Calculate tt2 in BX
 // ret = (e XOR f XOR g) + h + ss1 + Wt
 #define SM3TT20(e, f, g, h) \  
-	ADD h, hlp0; \
-	ADD BX, hlp0; \
+	ADDW h, hlp0; \
+	ADDW BX, hlp0; \
 	XOR e, f, BX; \
 	XOR g, BX; \
-	ADD hlp0, BX
+	ADDW hlp0, BX
 
 // Calculate tt1 in CX, used DX, hlp0
 // ret = ((a AND b) OR (a AND c) OR (b AND c)) + d + (ROTL(12, a) XOR ss1) + (Wt XOR Wt+4)
 #define SM3TT11(index, a, b, c, d) \  
 	OR a, b, DX; \
-	AND a, b, hlp0; \
-	AND c, DX; \
+	ADDW a, b, hlp0; \
+	ADDW c, DX; \
 	OR hlp0, DX; \                    // DX = (a AND b) OR (a AND c) OR (b AND c)
-	ADD d, DX; \
+	ADDW d, DX; \
 	RORW $(32-12), a, CX; \
 	XOR BX, CX, CX; \
-	ADD DX, CX; \
+	ADDW DX, CX; \
 	MOVWU	stackaddress(index), hlp0; \
 	XOR hlp0, AX; \
-	ADD AX, CX
+	ADDW AX, CX
 
 // Calculate tt2 in BX
 // ret = ((e AND f) OR (NOT(e) AND g)) + h + ss1 + Wt
 #define SM3TT21(e, f, g, h) \  
-	ADD h, hlp0; \
-	ADD BX, hlp0; \
+	ADDW h, hlp0; \
+	ADDW BX, hlp0; \
 	XOR f, g, BX; \
 	AND e, BX; \
 	XOR g, BX; \
-	ADD hlp0, BX
+	ADDW hlp0, BX
 
 #define COPYRESULT(b, d, f, h) \
 	RORW $(32-9), b; \
@@ -292,17 +292,4 @@ loop:
 	MOVW REG_H, (7*4)(X5)
 
 end:
-	RET
-
-
-TEXT ·blocktest(SB), 0, $280-24
-	MOV	p_base+0(FP), X6
-	MOV	p_len+8(FP), X7
-
-	MSGSCHEDULE01(0)
-	MOVWU stackaddress(4), AX
-	MOVW AX, (0*4)(X6)
-	RORW $8, AX
-	MOVW AX, (1*4)(X6)
-
 	RET

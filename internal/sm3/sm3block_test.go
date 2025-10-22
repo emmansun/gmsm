@@ -2,8 +2,6 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build riscv64 && !purego
-
 package sm3
 
 import (
@@ -15,13 +13,6 @@ import (
 
 func TestBlocktest(t *testing.T) {
 	data := make([]byte, 64)
-	for i := range data {
-		data[i] = byte(i)
-	}
-	blocktest(data)
-	fmt.Printf("%x", data)
-
-	clear(data)
 	data[0] = 'a'
 	data[1] = 'b'
 	data[2] = 'c'
@@ -41,5 +32,7 @@ func TestBlocktest(t *testing.T) {
 	byteorder.BEPutUint32(digest[20:], d1.h[5])
 	byteorder.BEPutUint32(digest[24:], d1.h[6])
 	byteorder.BEPutUint32(digest[28:], d1.h[7])
-	fmt.Printf("\n%x", digest)
+	if fmt.Sprintf("%x", digest) != "66c7f0f462eeedd9d1f2d46bdc10e4e24167c4875cf2f7a2297da02b8f4ba8e0" {
+		t.Fatalf("sm3 block failed, got %x", digest)
+	}
 }

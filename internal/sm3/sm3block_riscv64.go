@@ -8,6 +8,3 @@ package sm3
 
 //go:noescape
 func block(dig *digest, p []byte)
-
-//go:noescape
-func blocktest(p []byte)
