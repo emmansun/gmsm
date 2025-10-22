@@ -92,6 +92,7 @@
 	ADDW d, DX; \                      // DX = (a XOR b XOR c) + d
 	MOVW	stackaddress(index), hlp0; \   // Wt
 	XOR hlp0, AX; \                   // AX = Wt XOR Wt+4
+	MOVW	stackaddress(index), hlp0; \   // Wt
 	ADDW AX, DX; \
 	RORW $(32-12), a, CX; \
 	XOR BX, CX, CX; \           // SS2
