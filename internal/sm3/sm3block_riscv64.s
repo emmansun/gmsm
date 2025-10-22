@@ -100,12 +100,7 @@
 // Calculate tt2 in BX
 // ret = (e XOR f XOR g) + h + ss1 + Wt
 #define SM3TT20(e, f, g, h) \  
-	MOVW	stackaddress(index), hlp0; \   // Wt
-	ADDW h, hlp0; \
-	ADDW BX, hlp0; \
-	XOR e, f, BX; \
-	XOR g, BX; \
-	ADDW hlp0, BX
+	MOV hlp0, BX
 
 // Calculate tt1 in CX, used DX, hlp0
 // ret = ((a AND b) OR (a AND c) OR (b AND c)) + d + (ROTL(12, a) XOR ss1) + (Wt XOR Wt+4)
