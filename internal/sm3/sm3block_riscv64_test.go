@@ -12,7 +12,10 @@ import (
 )
 
 func TestBlocktest(t *testing.T) {
-	data := []byte{1,2,3,4}
+	data := make([]byte, 64)
+	for i := range data {
+		data[i] = byte(i)
+	}
 	blocktest(data)
 	fmt.Printf("%x", data)
 }

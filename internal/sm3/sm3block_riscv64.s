@@ -299,8 +299,10 @@ TEXT ·blocktest(SB), 0, $280-24
 	MOV	p_base+0(FP), X6
 	MOV	p_len+8(FP), X7
 
-	MSGSCHEDULE0(0)
-	MOVWU stackaddress(0), AX
+	MSGSCHEDULE01(0)
+	MOVWU stackaddress(4), AX
 	MOVW AX, (0*4)(X6)
+	RORW $8, AX
+	MOVW AX, (1*4)(X6)
 
 	RET
