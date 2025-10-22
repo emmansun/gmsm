@@ -36,18 +36,18 @@
 #define hlp0 X31
 #define REG_KT X30
 
-#define stackaddress(index) (8+(index)*4)(RSP)
+#define stackaddress(index) ((index)*4 + 8)(RSP)
 
 // Wt = Mt; for 0 <= t <= 3
 #define MSGSCHEDULE0(index) \
-	MOVWU	(index*4)(X6), AX; \
+	MOVW	(index*4)(X6), AX; \
 	REV8	AX, AX; \
 	SRL 	$32, AX; \
 	MOVW	AX, stackaddress(index)
 
 // Wt+4 = Mt+4; for 0 <= t <= 11
 #define MSGSCHEDULE01(index) \
-	MOVWU	((index+4)*4)(X6), AX; \
+	MOVW	((index+4)*4)(X6), AX; \
 	REV8	AX, AX; \
 	SRL 	$32, AX; \
 	MOVW	AX, stackaddress(index+4)
@@ -57,19 +57,19 @@
 // Wt+4 = p1(x) XOR ROTL(7, Wt-9) XOR Wt-2
 // for 12 <= t <= 63
 #define MSGSCHEDULE1(index) \
-	MOVWU stackaddress(index+1), AX; \    // Wt+1
+	MOVW stackaddress(index+1), AX; \    // Wt+1
 	RORW $(32-15), AX; \                    // AX = ROTL(15, Wt+1)
-	MOVWU stackaddress(index-12), BX; \   // Wt-12
+	MOVW stackaddress(index-12), BX; \   // Wt-12
 	XOR BX, AX, AX; \                  // AX = Wt-12 XOR ROTL(15, Wt+1)
-	MOVWU stackaddress(index-5), BX; \    // Wt-5 
+	MOVW stackaddress(index-5), BX; \    // Wt-5 
 	XOR BX, AX, AX; \                  // AX = x
 	RORW $(32-15), AX, BX; \                // BX = ROTL(15, x)
 	RORW $(32-23), AX, CX; \                // CX = ROTL(23, x)
 	XOR BX, AX, AX; \                  // AX = x XOR ROTL(15, x)
 	XOR CX, AX, AX; \                  // AX = p1(x)
-	MOVWU stackaddress(index-9), BX; \
+	MOVW stackaddress(index-9), BX; \
 	RORW $(32-7), BX; \                 // BX = ROTL(7, Wt-9)
-	MOVWU stackaddress(index-2), CX; \
+	MOVW stackaddress(index-2), CX; \
 	XOR BX, AX, AX; \                  // AX = p1(x) XOR ROTL(7, Wt-9)
 	XOR CX, AX, AX; \
 	MOVW AX, stackaddress(index+4)
@@ -80,7 +80,7 @@
 #define SM3SS1(index, a, e) \
 	RORW $(32-12), a, BX; \
 	ADDW e, BX; \
-	MOVWU	(index*4)(REG_KT), hlp0; \
+	MOVW	(index*4)(REG_KT), hlp0; \
 	ADDW hlp0, BX; \
 	RORW $(32-7), BX
 
@@ -90,7 +90,7 @@
 	XOR a, b, DX; \
 	XOR c, DX; \
 	ADDW d, DX; \                      // DX = (a XOR b XOR c) + d
-	MOVWU	stackaddress(index), hlp0; \   // Wt
+	MOVW	stackaddress(index), hlp0; \   // Wt
 	XOR hlp0, AX; \                   // AX = Wt XOR Wt+4
 	ADDW AX, DX; \
 	RORW $(32-12), a, CX; \
@@ -117,7 +117,7 @@
 	RORW $(32-12), a, CX; \
 	XOR BX, CX, CX; \
 	ADDW DX, CX; \
-	MOVWU	stackaddress(index), hlp0; \
+	MOVW	stackaddress(index), hlp0; \
 	XOR hlp0, AX; \
 	ADDW AX, CX
 
@@ -179,14 +179,14 @@ TEXT ·block(SB), 0, $280-32
 
 	ADD X6, X7, REG_END_ADDR
 
-	MOVWU	(0*4)(X5), REG_A
-	MOVWU	(1*4)(X5), REG_B
-	MOVWU	(2*4)(X5), REG_C
-	MOVWU	(3*4)(X5), REG_D
-	MOVWU	(4*4)(X5), REG_E
-	MOVWU	(5*4)(X5), REG_F
-	MOVWU	(6*4)(X5), REG_G
-	MOVWU	(7*4)(X5), REG_H
+	MOVW	(0*4)(X5), REG_A
+	MOVW	(1*4)(X5), REG_B
+	MOVW	(2*4)(X5), REG_C
+	MOVW	(3*4)(X5), REG_D
+	MOVW	(4*4)(X5), REG_E
+	MOVW	(5*4)(X5), REG_F
+	MOVW	(6*4)(X5), REG_G
+	MOVW	(7*4)(X5), REG_H
 
 loop:
 	MOVW REG_A, REG_A1
