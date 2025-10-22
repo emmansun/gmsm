@@ -80,8 +80,8 @@
 #define SM3SS1(index, a, e) \
 	RORW $(32-12), a, BX; \
 	ADDW e, BX; \
-	MOVW	(index*4)(REG_KT), hlp0; \
-	ADDW hlp0, BX; \
+	MOVW (index*4)(REG_KT), CX; \
+	ADDW CX, BX; \
 	RORW $(32-7), BX
 
 // Calculate tt1 in CX
@@ -90,7 +90,7 @@
 	XOR a, b, DX; \
 	XOR c, DX; \
 	ADDW d, DX; \                      // DX = (a XOR b XOR c) + d
-	MOVW	stackaddress(index), hlp0; \   // Wt
+	MOVW stackaddress(index), hlp0; \   // Wt
 	XOR hlp0, AX; \                   // AX = Wt XOR Wt+4
 	ADDW AX, DX; \
 	RORW $(32-12), a, CX; \
@@ -100,19 +100,19 @@
 // Calculate tt2 in BX
 // ret = (e XOR f XOR g) + h + ss1 + Wt
 #define SM3TT20(e, f, g, h) \  
-	ADDW h, hlp0; \
-	ADDW BX, hlp0; \
+	ADDW h, hlp0, DX; \
+	ADDW BX, DX; \
 	XOR e, f, BX; \
 	XOR g, BX; \
-	ADDW hlp0, BX
+	ADDW DX, BX
 
 // Calculate tt1 in CX, used DX, hlp0
 // ret = ((a AND b) OR (a AND c) OR (b AND c)) + d + (ROTL(12, a) XOR ss1) + (Wt XOR Wt+4)
 #define SM3TT11(index, a, b, c, d) \  
 	OR a, b, DX; \
-	AND a, b, hlp0; \
+	AND a, b, CX; \
 	AND c, DX; \
-	OR hlp0, DX; \                    // DX = (a AND b) OR (a AND c) OR (b AND c)
+	OR CX, DX; \                    // DX = (a AND b) OR (a AND c) OR (b AND c)
 	ADDW d, DX; \
 	RORW $(32-12), a, CX; \
 	XOR BX, CX, CX; \
@@ -124,12 +124,12 @@
 // Calculate tt2 in BX
 // ret = ((e AND f) OR (NOT(e) AND g)) + h + ss1 + Wt
 #define SM3TT21(e, f, g, h) \  
-	ADDW h, hlp0; \
-	ADDW BX, hlp0; \
+	ADDW h, hlp0, DX; \
+	ADDW BX, DX; \
 	XOR f, g, BX; \
 	AND e, BX; \
 	XOR g, BX; \
-	ADDW hlp0, BX
+	ADDW DX, BX
 
 #define COPYRESULT(b, d, f, h) \
 	RORW $(32-9), b; \
