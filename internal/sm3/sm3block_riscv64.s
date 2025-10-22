@@ -299,9 +299,9 @@ TEXT ·blocktest(SB),NOSPLIT,$0
 	MOV	p_base+0(FP), X6
 	MOV	p_len+8(FP), X7
 
-	MOVWU	(0*4)(X6), AX; \
-	REV8	AX, AX; \
-	SRL 	$32, AX; \
+	MOVWU	(0*4)(X6), AX
+	REV8	AX, AX
+	SRL 	$32, AX
 	MOVW	AX, (0*4)(X6)
 
 	RET
