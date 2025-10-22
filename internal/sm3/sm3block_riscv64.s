@@ -110,8 +110,8 @@
 // ret = ((a AND b) OR (a AND c) OR (b AND c)) + d + (ROTL(12, a) XOR ss1) + (Wt XOR Wt+4)
 #define SM3TT11(index, a, b, c, d) \  
 	OR a, b, DX; \
-	ADDW a, b, hlp0; \
-	ADDW c, DX; \
+	AND a, b, hlp0; \
+	AND c, DX; \
 	OR hlp0, DX; \                    // DX = (a AND b) OR (a AND c) OR (b AND c)
 	ADDW d, DX; \
 	RORW $(32-12), a, CX; \
