@@ -96,6 +96,7 @@
 	ADDW AX, DX; \
 	RORW $(32-12), a, CX; \
 	XOR BX, CX, CX; \           // SS2
+	MOVW	stackaddress(index), BX; \   // Wt
 	ADDW DX, CX
 
 // Calculate tt2 in BX
@@ -138,7 +139,6 @@
 	MSGSCHEDULE01(index); \
 	SM3SS1(index, a, e); \
 	SM3TT10(index, a, b, c, d); \
-	SM3TT20(e, f, g, h); \
 	COPYRESULT(b, d, f, h)
 
 #define SM3ROUND1(index, a, b, c, d, e, f, g, h) \
