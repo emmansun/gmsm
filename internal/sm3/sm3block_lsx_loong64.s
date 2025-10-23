@@ -114,7 +114,7 @@
 	ROTR $(32-19), f;                  \
 	; \ // P(tt2)
 	ROTR $(32-9), CX, AX; 		       \
-	ROTR $(32-15), CX, d;              \
+	ROTR $(32-17), CX, d;              \
 	XOR AX, d;					       \
 	XOR CX, d
 
@@ -147,7 +147,7 @@
 	ROTR $(32-19), f;                  \
 	; \ // P(tt2)
 	ROTR $(32-9), CX, AX; 		       \
-	ROTR $(32-15), CX, d;              \
+	ROTR $(32-17), CX, d;              \
 	XOR AX, d;					       \
 	XOR CX, d
 
@@ -279,6 +279,7 @@ schedule_compress: // for w0 - w47
 	DO_ROUND_N_1(47, 3, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, XWORD3, Wt)
 	MESSAGE_SCHEDULE(XWORD3, XWORD0, XWORD1, XWORD2)
 
+	// w48 - w63 processed with only 4 rounds scheduling (last 16 rounds)
 	VXORV XWORD1, XWORD0, Wt
 	DO_ROUND_N_1(48, 0, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, XWORD0, Wt)
 	DO_ROUND_N_1(49, 1, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, XWORD0, Wt)
