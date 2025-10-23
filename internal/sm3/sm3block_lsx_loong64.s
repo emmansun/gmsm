@@ -90,7 +90,7 @@
 
 #define DO_ROUND_N_0(kIdx, wIdx, a, b, c, d, e, f, g, h, W, Wt) \
 	ROTR $(32-12), a, AX;              \ // AX = a <<< 12
-	MOVVV (kIdx*4)(REG_KT), hlp0;      \
+	MOVV (kIdx*4)(REG_KT), hlp0;       \
 	ADD hlp0, e, BX;                   \
 	ADD AX, BX;                        \ // BX = a <<< 12 + e + T
 	ROTR $(32-7), BX, CX;              \ // CX = ss1
@@ -120,7 +120,7 @@
 
 #define DO_ROUND_N_1(kIdx, wIdx, a, b, c, d, e, f, g, h, W, Wt) \
 	ROTR $(32-12), a, AX;              \ // AX = a <<< 12
-	MOVVV (kIdx*4)(REG_KT), hlp0;      \
+	MOVV  (kIdx*4)(REG_KT), hlp0;      \
 	ADD hlp0, e, BX;                   \
 	ADD AX, BX;                        \ // BX = a <<< 12 + e + T
 	ROTR $(32-7), BX, CX;              \ // CX = ss1
