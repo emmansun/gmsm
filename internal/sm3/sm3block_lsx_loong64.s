@@ -208,7 +208,7 @@ schedule_compress: // for w0 - w47
 	DO_ROUND_N_0(6, 2, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, XWORD1, Wt)
 	DO_ROUND_N_0(7, 3, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, XWORD1, Wt)
 	MESSAGE_SCHEDULE(XWORD1, XWORD2, XWORD3, XWORD0)
-/*
+
 	VXORV XWORD3, XWORD2, Wt
 	DO_ROUND_N_0(8, 0, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, XWORD2, Wt)
 	DO_ROUND_N_0(9, 1, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, XWORD2, Wt)
@@ -313,14 +313,7 @@ schedule_compress: // for w0 - w47
 	XOR REG_F1, REG_F
 	XOR REG_G1, REG_G
 	XOR REG_H1, REG_H
-*/
-	ADDV	$64, R5
-	BNE	R5, REG_END_ADDR, loop
 
-	VMOVQ XWORD0, (0*16)(R4)
-	VMOVQ XWORD1, (1*16)(R4)
-
-/*
 	MOVW REG_A, (0*4)(R4)
 	MOVW REG_B, (1*4)(R4)
 	MOVW REG_C, (2*4)(R4)
@@ -329,6 +322,6 @@ schedule_compress: // for w0 - w47
 	MOVW REG_F, (5*4)(R4)
 	MOVW REG_G, (6*4)(R4)
 	MOVW REG_H, (7*4)(R4)
-*/
+
 end:
     RET
