@@ -155,8 +155,8 @@
 // the frame size used for data expansion is 272 bytes.
 // (4 bytes * 68 entries).
 //
-// func block(dig *digest, p []byte)
-TEXT ·block(SB), 0, $272-32
+// func blockAsm(dig *digest, p []byte)
+TEXT ·blockAsm(SB), 0, $272-32
 	MOVV	dig+0(FP), R4
 	MOVV	p_base+8(FP), R5
 	MOVV	p_len+16(FP), R6
