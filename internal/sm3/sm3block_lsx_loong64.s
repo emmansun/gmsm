@@ -125,10 +125,10 @@
 	ADD AX, BX;                        \ // BX = a <<< 12 + e + T
 	ROTR $(32-7), BX, CX;              \ // CX = ss1
 	XOR CX, AX;                        \ // AX = ss2
-	VMOVQ W.W[wIdx], BX;               \ // BX = W
+	VMOVQ W.W[0], BX;               \ // BX = W
 	ADD BX, CX;                        \ // CX = ss1 + W
 	ADD h, CX;					       \ // CX = h + ss1 + W (part of tt2)
-	VMOVQ Wt.W[wIdx], BX;              \ // BX = Wt
+	VMOVQ Wt.W[0], BX;              \ // BX = Wt
 	ADD BX, AX;				           \ // AX = ss2 + Wt
 	ADD d, AX;                         \ // AX = d + ss2 + Wt (part of tt1)
 	; \ //FF
