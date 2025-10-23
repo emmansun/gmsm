@@ -197,7 +197,6 @@ schedule_compress: // for w0 - w47
     // Do 4 rounds and scheduling
     VXORV XWORD0, XWORD1, Wt        // Wt = Wt XOR Wt+4
     DO_ROUND_N_0(0, 0, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, XWORD0, Wt)
-/*	
 	DO_ROUND_N_0(1, 1, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, XWORD0, Wt)
 	DO_ROUND_N_0(2, 2, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, XWORD0, Wt)
 	DO_ROUND_N_0(3, 3, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, XWORD0, Wt)
@@ -304,7 +303,7 @@ schedule_compress: // for w0 - w47
 	DO_ROUND_N_1(61, 1, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, XWORD3, Wt)
 	DO_ROUND_N_1(62, 2, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, XWORD3, Wt)
 	DO_ROUND_N_1(63, 3, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, XWORD3, Wt)
-*/
+
 	XOR REG_A1, REG_A
 	XOR REG_B1, REG_B
 	XOR REG_C1, REG_C
