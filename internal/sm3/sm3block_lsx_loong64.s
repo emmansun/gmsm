@@ -51,17 +51,17 @@
 
 // For rounds [0 - 16)
 #define ROUND_AND_SCHED_N_0_0(disp, idx, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3, Wt) \
-    VSHUF4IW 0x90, XWORD1, XTMP0    \
+    VSHUF4IW $0x90, XWORD1, XTMP0    \
     VMOVQ XWORD0.W[3], XTMP0.W[0]   \ // XTMP0 = W[-13] = {w6,w5,w4,w3}
     VROTRW $(32-7), XTMP0, XTMP1    \ // XTMP1 = W[-13] rol 7
     VSHUF4IW 0xB0, XWORD3, XTMP0    \
     VMOVQ XWORD2.V[0], XTMP0.V[1]   \ // XTMP0 = W[-6] = {w13,w12,w11,w10}
     VXORV XTMP1, XTMP0, XTMP0       \ // XTMP0 = W[-6] ^ (W[-13] rol 7)
     \ // Prepare P1 parameters
-    VSHUF4IW 0x90, XWORD2, XTMP1    \
+    VSHUF4IW $0x90, XWORD2, XTMP1    \
     VMOVQ XWORD1.W[3], XTMP1.W[0]   \ // XTMP1 =  W[-9] = {w10,w9,w8,w7}
     VXORV XWORD0, XTMP1, XTMP1      \ // XTMP1 = W[-9] ^ W[-16]
-    VSHUF4IW 0x39, XWORD3, XTMP3    \ // XTMP3 = W[-3] {w12,w15,w14,w13}
+    VSHUF4IW $0x39, XWORD3, XTMP3    \ // XTMP3 = W[-3] {w12,w15,w14,w13}
     VROTRW $(32-15), XTMP3, XTMP2   \ // XTMP2 = W[-3] rol 15 {xxBA}
     VXORV XTMP1, XTMP2, XTMP2       \ // XTMP2 = x = W[-9] ^ W[-16] ^ (W[-3] rol 15)
     \ // P1
@@ -72,7 +72,7 @@
     \ // First 2 words message schedule result
     VXORV XTMP4, XTMP0, XTMP2       \ // XTMP2 = p1(x) ^ (W[-6] ^ (W[-13] rol 7))
     \ // // Prepare P1 parameters
-    VSHUF4IW 0x39, XWORD3, XTMP3    \
+    VSHUF4IW $0x39, XWORD3, XTMP3    \
     VMOVQ XTMP2.W[0], XTMP3.W[3]    \ // XTMP3 = W[-3] {W[0],w15, w14, w13}
     VROTRW $(32-15), XTMP3, XTMP4   \ // XTMP4 = W[-3] rol 15 {DCBA}
     VXORV XTMP1, XTMP4, XTMP4       \ // XTMP4 = x = W[-9] ^ W[-16] ^ (W[-3] rol 15)
