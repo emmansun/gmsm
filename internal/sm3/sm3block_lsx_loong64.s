@@ -50,20 +50,20 @@
 
 #define Wt V10
 
-// For rounds [0 - 16)
-#define ROUND_AND_SCHED_N_0_0(disp, idx, a, b, c, d, e, f, g, h, XWORD0, XWORD1, XWORD2, XWORD3, Wt) \
+#define MESSAGE_SCHEDULE(XWORD0, XWORD1, XWORD2, XWORD3) \
+	\ // Message schedule for next 4 words
 	VSHUF4IW $0x90, XWORD1, XTMP0    \
-	VMOVQ XWORD0.W[3], AX            \
-	VMOVQ AX, XTMP0.W[0]             \ // XTMP0 = W[-13] = {w6,w5,w4,w3}
+	VMOVQ XWORD0.W[3], hlp0          \
+	VMOVQ hlp0, XTMP0.W[0]           \ // XTMP0 = W[-13] = {w6,w5,w4,w3}
 	VROTRW $(32-7), XTMP0, XTMP1     \ // XTMP1 = W[-13] rol 7
 	VSHUF4IW $0xB0, XWORD3, XTMP0    \
-	VMOVQ XWORD2.V[0], AX            \
-	VMOVQ AX, XTMP0.V[1]             \ // XTMP0 = W[-6] = {w13,w12,w11,w10}
+	VMOVQ XWORD2.V[0], hlp0          \
+	VMOVQ hlp0, XTMP0.V[1]           \ // XTMP0 = W[-6] = {w13,w12,w11,w10}
 	VXORV XTMP1, XTMP0, XTMP0        \ // XTMP0 = W[-6] ^ (W[-13] rol 7)
 	\ // Prepare P1 parameters
 	VSHUF4IW $0x90, XWORD2, XTMP1    \
-	VMOVQ XWORD1.W[3], AX            \
-	VMOVQ AX, XTMP1.W[0]             \ // XTMP1 =  W[-9] = {w10,w9,w8,w7}
+	VMOVQ XWORD1.W[3], hlp0          \
+	VMOVQ hlp0, XTMP1.W[0]           \ // XTMP1 =  W[-9] = {w10,w9,w8,w7}
 	VXORV XWORD0, XTMP1, XTMP1       \ // XTMP1 = W[-9] ^ W[-16]
 	VSHUF4IW $0x39, XWORD3, XTMP5    \ // XTMP5 = W[-3] {w12,w15,w14,w13}
 	VROTRW $(32-15), XTMP5, XTMP2    \ // XTMP2 = W[-3] rol 15 {xxBA}
@@ -76,8 +76,8 @@
 	\ // First 2 words message schedule result
 	VXORV XTMP4, XTMP0, XTMP2       \ // XTMP2 = p1(x) ^ (W[-6] ^ (W[-13] rol 7))
 	\ // // Prepare P1 parameters
-	VMOVQ XTMP2.W[0], AX            \
-	VMOVQ AX, XTMP5.W[3]            \ // XTMP3 = W[-3] {W[0],w15, w14, w13}
+	VMOVQ XTMP2.W[0], hlp0          \
+	VMOVQ hlp0, XTMP5.W[3]          \ // XTMP5 = W[-3] {W[0],w15, w14, w13}
 	VROTRW $(32-15), XTMP5, XTMP4   \ // XTMP4 = W[-3] rol 15 {DCBA}
 	VXORV XTMP1, XTMP4, XTMP4       \ // XTMP4 = x = W[-9] ^ W[-16] ^ (W[-3] rol 15)
 	\ // P1
@@ -86,8 +86,70 @@
 	VXORV XTMP4, XTMP3, XTMP3       \
 	VXORV XTMP3, XTMP1, XTMP1       \
 	\ // 4 words message schedule result
-	VXORV XTMP1, XTMP0, XTMP1
+	VXORV XTMP1, XTMP0, XWORD0
 
+#define DO_ROUND_N_0(kIdx, wIdx, a, b, c, d, e, f, g, h, W, Wt) \
+	ROTR $(32-12), a, AX;              \ // AX = a <<< 12
+	MOVVV (kIdx*4)(REG_KT), hlp0;      \
+	ADD hlp0, e, BX;                   \
+	ADD AX, BX;                        \ // BX = a <<< 12 + e + T
+	ROTR $(32-7), BX, CX;              \ // CX = ss1
+	XOR CX, AX;                        \ // AX = ss2
+	VMOVQ W.W[wIdx], BX;               \ // BX = W
+	ADD BX, CX;                        \ // CX = ss1 + W
+	ADD h, CX;					       \ // CX = h + ss1 + W (part of tt2)
+	VMOVQ Wt.W[wIdx], BX;              \ // BX = Wt
+	ADD BX, AX;				           \ // AX = ss2 + Wt
+	ADD d, AX;                         \ // AX = d + ss2 + Wt (part of tt1)
+	; \ //FF
+	XOR a, b, h;					   \
+	XOR c, h;						   \
+	ADD AX, h;                         \ // h = tt1
+	; \ //GG
+	XOR e, f, BX; 					   \
+	XOR g, BX;					       \
+	ADD BX, CX;					       \ // CX = tt2
+	; \
+	ROTR $(32-9), b;                   \
+	ROTR $(32-19), f;                  \
+	; \ // P(tt2)
+	ROTR $(32-9), CX, AX; 		       \
+	ROTR $(32-15), CX, d;              \
+	XOR AX, d;					       \
+	XOR CX, d
+
+#define DO_ROUND_N_1(kIdx, wIdx, a, b, c, d, e, f, g, h, W, Wt) \
+	ROTR $(32-12), a, AX;              \ // AX = a <<< 12
+	MOVVV (kIdx*4)(REG_KT), hlp0;      \
+	ADD hlp0, e, BX;                   \
+	ADD AX, BX;                        \ // BX = a <<< 12 + e + T
+	ROTR $(32-7), BX, CX;              \ // CX = ss1
+	XOR CX, AX;                        \ // AX = ss2
+	VMOVQ W.W[wIdx], BX;               \ // BX = W
+	ADD BX, CX;                        \ // CX = ss1 + W
+	ADD h, CX;					       \ // CX = h + ss1 + W (part of tt2)
+	VMOVQ Wt.W[wIdx], BX;              \ // BX = Wt
+	ADD BX, AX;				           \ // AX = ss2 + Wt
+	ADD d, AX;                         \ // AX = d + ss2 + Wt (part of tt1)
+	; \ //FF
+	OR a, b, BX;                       \
+	AND a, b, h;					   \
+	AND c, BX;                         \
+	OR BX, h;                          \ // h = (a AND b) OR (a AND c) OR (b AND c)
+	ADD AX, h;                         \ // h = tt1
+	; \ //GG
+	XOR f, g, BX;                      \
+	AND e, BX;				           \
+	XOR g, BX;					       \
+	ADD BX, CX;					       \ // CX = tt2
+	; \
+	ROTR $(32-9), b;                   \
+	ROTR $(32-19), f;                  \
+	; \ // P(tt2)
+	ROTR $(32-9), CX, AX; 		       \
+	ROTR $(32-15), CX, d;              \
+	XOR AX, d;					       \
+	XOR CX, d
 
 // func blockLsx(dig *digest, p []byte)
 TEXT ·blockLsx(SB), NOSPLIT, $0
@@ -134,8 +196,106 @@ loop:
 schedule_compress: // for w0 - w47
     // Do 4 rounds and scheduling
     VXORV XWORD0, XWORD1, Wt        // Wt = Wt XOR Wt+4
-    ROUND_AND_SCHED_N_0_0(0*16, 0, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, XWORD0, XWORD1, XWORD2, XWORD3, Wt)
+    DO_ROUND_N_0(0, 0, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, XWORD0, Wt)
+	DO_ROUND_N_0(1, 1, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, XWORD0, Wt)
+	DO_ROUND_N_0(2, 2, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, XWORD0, Wt)
+	DO_ROUND_N_0(3, 3, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, XWORD0, Wt)
+	MESSAGE_SCHEDULE(XWORD0, XWORD1, XWORD2, XWORD3)
+	
+	VXORV XWORD2, XWORD1, Wt
+	DO_ROUND_N_0(4, 0, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, XWORD1, Wt)
+	DO_ROUND_N_0(5, 1, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, XWORD1, Wt)
+	DO_ROUND_N_0(6, 2, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, XWORD1, Wt)
+	DO_ROUND_N_0(7, 3, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, XWORD1, Wt)
+	MESSAGE_SCHEDULE(XWORD1, XWORD2, XWORD3, XWORD0)
 
+	VXORV XWORD3, XWORD2, Wt
+	DO_ROUND_N_0(8, 0, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, XWORD2, Wt)
+	DO_ROUND_N_0(9, 1, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, XWORD2, Wt)
+	DO_ROUND_N_0(10, 2, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, XWORD2, Wt)
+	DO_ROUND_N_0(11, 3, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, XWORD2, Wt)
+	MESSAGE_SCHEDULE(XWORD2, XWORD3, XWORD0, XWORD1)
+
+	VXORV XWORD0, XWORD3, Wt
+	DO_ROUND_N_0(12, 0, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, XWORD3, Wt)
+	DO_ROUND_N_0(13, 1, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, XWORD3, Wt)
+	DO_ROUND_N_0(14, 2, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, XWORD3, Wt)
+	DO_ROUND_N_0(15, 3, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, XWORD3, Wt)
+	MESSAGE_SCHEDULE(XWORD3, XWORD0, XWORD1, XWORD2)
+
+	VXORV XWORD1, XWORD0, Wt
+	DO_ROUND_N_1(16, 0, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, XWORD0, Wt)
+	DO_ROUND_N_1(17, 1, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, XWORD0, Wt)
+	DO_ROUND_N_1(18, 2, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, XWORD0, Wt)
+	DO_ROUND_N_1(19, 3, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, XWORD0, Wt)
+	MESSAGE_SCHEDULE(XWORD0, XWORD1, XWORD2, XWORD3)
+
+	VXORV XWORD2, XWORD1, Wt
+	DO_ROUND_N_1(20, 0, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, XWORD1, Wt)
+	DO_ROUND_N_1(21, 1, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, XWORD1, Wt)
+	DO_ROUND_N_1(22, 2, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, XWORD1, Wt)
+	DO_ROUND_N_1(23, 3, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, XWORD1, Wt)
+	MESSAGE_SCHEDULE(XWORD1, XWORD2, XWORD3, XWORD0)
+
+	VXORV XWORD3, XWORD2, Wt
+	DO_ROUND_N_1(24, 0, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, XWORD2, Wt)
+	DO_ROUND_N_1(25, 1, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, XWORD2, Wt)
+	DO_ROUND_N_1(26, 2, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, XWORD2, Wt)
+	DO_ROUND_N_1(27, 3, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, XWORD2, Wt)
+	MESSAGE_SCHEDULE(XWORD2, XWORD3, XWORD0, XWORD1)
+
+	VXORV XWORD0, XWORD3, Wt
+	DO_ROUND_N_1(28, 0, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, XWORD3, Wt)
+	DO_ROUND_N_1(29, 1, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, XWORD3, Wt)
+	DO_ROUND_N_1(30, 2, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, XWORD3, Wt)
+	DO_ROUND_N_1(31, 3, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, XWORD3, Wt)
+	MESSAGE_SCHEDULE(XWORD3, XWORD0, XWORD1, XWORD2)
+
+	VXORV XWORD1, XWORD0, Wt
+	DO_ROUND_N_1(32, 0, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, XWORD0, Wt)
+	DO_ROUND_N_1(33, 1, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, XWORD0, Wt)
+	DO_ROUND_N_1(34, 2, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, XWORD0, Wt)
+	DO_ROUND_N_1(35, 3, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, XWORD0, Wt)
+	MESSAGE_SCHEDULE(XWORD0, XWORD1, XWORD2, XWORD3)
+
+	VXORV XWORD2, XWORD1, Wt
+	DO_ROUND_N_1(36, 0, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, XWORD1, Wt)
+	DO_ROUND_N_1(37, 1, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, XWORD1, Wt)
+	DO_ROUND_N_1(38, 2, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, XWORD1, Wt)
+	DO_ROUND_N_1(39, 3, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, XWORD1, Wt)
+	MESSAGE_SCHEDULE(XWORD1, XWORD2, XWORD3, XWORD0)
+
+	VXORV XWORD3, XWORD2, Wt
+	DO_ROUND_N_1(40, 0, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, XWORD2, Wt)
+	DO_ROUND_N_1(41, 1, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, XWORD2, Wt)
+	DO_ROUND_N_1(42, 2, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, XWORD2, Wt)
+	DO_ROUND_N_1(43, 3, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, XWORD2, Wt)
+	MESSAGE_SCHEDULE(XWORD2, XWORD3, XWORD0, XWORD1)
+
+	VXORV XWORD0, XWORD3, Wt
+	DO_ROUND_N_1(44, 0, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, XWORD3, Wt)
+	DO_ROUND_N_1(45, 1, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, XWORD3, Wt)
+	DO_ROUND_N_1(46, 2, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, XWORD3, Wt)
+	DO_ROUND_N_1(47, 3, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, XWORD3, Wt)
+	MESSAGE_SCHEDULE(XWORD3, XWORD0, XWORD1, XWORD2)
+
+	VXORV XWORD1, XWORD0, Wt
+	DO_ROUND_N_1(48, 0, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, XWORD0, Wt)
+	DO_ROUND_N_1(49, 1, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, XWORD0, Wt)
+	DO_ROUND_N_1(50, 2, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, XWORD0, Wt)
+	DO_ROUND_N_1(51, 3, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, XWORD0, Wt)
+	DO_ROUND_N_1(52, 0, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, XWORD1, Wt)
+	DO_ROUND_N_1(53, 1, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, XWORD1, Wt)
+	DO_ROUND_N_1(54, 2, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, XWORD1, Wt)
+	DO_ROUND_N_1(55, 3, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, XWORD1, Wt)
+	DO_ROUND_N_1(56, 0, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, XWORD2, Wt)
+	DO_ROUND_N_1(57, 1, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, XWORD2, Wt)
+	DO_ROUND_N_1(58, 2, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, XWORD2, Wt)
+	DO_ROUND_N_1(59, 3, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, REG_E, XWORD2, Wt)
+	DO_ROUND_N_1(60, 0, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, REG_D, XWORD3, Wt)
+	DO_ROUND_N_1(61, 1, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, REG_C, XWORD3, Wt)
+	DO_ROUND_N_1(62, 2, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, REG_B, XWORD3, Wt)
+	DO_ROUND_N_1(63, 3, REG_B, REG_C, REG_D, REG_E, REG_F, REG_G, REG_H, REG_A, XWORD3, Wt)
 
 	XOR REG_A1, REG_A
 	XOR REG_B1, REG_B
@@ -148,7 +308,7 @@ schedule_compress: // for w0 - w47
 
 	ADDV	$64, R5
 	BNE	R5, REG_END_ADDR, loop
-/*
+
 	MOVW REG_A, (0*4)(R4)
 	MOVW REG_B, (1*4)(R4)
 	MOVW REG_C, (2*4)(R4)
@@ -157,7 +317,6 @@ schedule_compress: // for w0 - w47
 	MOVW REG_F, (5*4)(R4)
 	MOVW REG_G, (6*4)(R4)
 	MOVW REG_H, (7*4)(R4)
-*/
-    VMOVQ XTMP1, (0*16)(R4)        // store 16 words    
+
 end:
     RET
