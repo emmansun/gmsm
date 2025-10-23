@@ -314,6 +314,9 @@ schedule_compress: // for w0 - w47
 	XOR REG_G1, REG_G
 	XOR REG_H1, REG_H
 
+	ADDV	$64, R5
+	BNE	R5, REG_END_ADDR, loop
+
 	MOVW REG_A, (0*4)(R4)
 	MOVW REG_B, (1*4)(R4)
 	MOVW REG_C, (2*4)(R4)
