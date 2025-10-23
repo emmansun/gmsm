@@ -317,8 +317,8 @@ schedule_compress: // for w0 - w47
 	ADDV	$64, R5
 	BNE	R5, REG_END_ADDR, loop
 
-	VMOVQ XWORD3, (0*16)(R5)
-	VMOVQ XWORD0, (1*16)(R5)
+	VMOVQ XWORD3, (0*16)(R4)
+	VMOVQ XWORD0, (1*16)(R4)
 
 /*
 	MOVW REG_A, (0*4)(R4)
