@@ -88,14 +88,14 @@
 	\ // 4 words message schedule result
 	VXORV XTMP1, XTMP0, XWORD0
 
-#define DO_ROUND_N_0(kIdx, wIdx, a, b, c, d, e, f, g, h, W, Wt) \
+#define DO_ROUND_N_0(kIdx, wIdx, a, b, c, d, e, f, g, h, W1, Wt) \
 	ROTR $(32-12), a, AX;              \ // AX = a <<< 12
 	MOVV (kIdx*4)(REG_KT), hlp0;       \
 	ADD hlp0, e, BX;                   \
 	ADD AX, BX;                        \ // BX = a <<< 12 + e + T
 	ROTR $(32-7), BX, CX;              \ // CX = ss1
 	XOR CX, AX;                        \ // AX = ss2
-	VMOVQ W.W[wIdx], BX;               \ // BX = W
+	VMOVQ W1.W[wIdx], BX;               \ // BX = W
 	ADD BX, CX;                        \ // CX = ss1 + W
 	ADD h, CX;					       \ // CX = h + ss1 + W (part of tt2)
 	VMOVQ Wt.W[wIdx], BX;              \ // BX = Wt
