@@ -50,22 +50,22 @@
 
 #define Wt V10
 
-#define MESSAGE_SCHEDULE(T0, T1, T2, T3) \
+#define MESSAGE_SCHEDULE(XWORD0, XWORD1, XWORD2, XWORD3) \
 	\ // Message schedule for next 4 words
-	VSHUF4IW $0x90, T1, XTMP0    \
-	VMOVQ T0.W[3], hlp0          \
+	VSHUF4IW $0x90, XWORD1, XTMP0    \
+	VMOVQ XWORD0.W[3], hlp0          \
 	VMOVQ hlp0, XTMP0.W[0]           \ // XTMP0 = W[-13] = {w6,w5,w4,w3}
 	VROTRW $(32-7), XTMP0, XTMP1     \ // XTMP1 = W[-13] rol 7
-	VSHUF4IW $0x40, T3, XTMP0    \
-	VMOVQ T2.V[1], hlp0          \
+	VSHUF4IW $0x40, XWORD3, XTMP0    \
+	VMOVQ XWORD2.V[1], hlp0          \
 	VMOVQ hlp0, XTMP0.V[0]           \ // XTMP0 = W[-6] = {w13,w12,w11,w10}
 	VXORV XTMP1, XTMP0, XTMP0        \ // XTMP0 = W[-6] ^ (W[-13] rol 7)
 	\ // Prepare P1 parameters
-	VSHUF4IW $0x90, T2, XTMP1    \
-	VMOVQ T1.W[3], hlp0          \
+	VSHUF4IW $0x90, XWORD2, XTMP1    \
+	VMOVQ XWORD1.W[3], hlp0          \
 	VMOVQ hlp0, XTMP1.W[0]           \ // XTMP1 =  W[-9] = {w10,w9,w8,w7}
-	VXORV T0, XTMP1, XTMP1       \ // XTMP1 = W[-9] ^ W[-16]
-	VSHUF4IW $0x39, T3, XTMP5    \ // XTMP5 = W[-3] {w12,w15,w14,w13}
+	VXORV XWORD0, XTMP1, XTMP1       \ // XTMP1 = W[-9] ^ W[-16]
+	VSHUF4IW $0x39, XWORD3, XTMP5    \ // XTMP5 = W[-3] {w12,w15,w14,w13}
 	VROTRW $(32-15), XTMP5, XTMP2    \ // XTMP2 = W[-3] rol 15 {xxBA}
 	VXORV XTMP1, XTMP2, XTMP2        \ // XTMP2 = x = W[-9] ^ W[-16] ^ (W[-3] rol 15)
 	\ // P1
@@ -86,7 +86,7 @@
 	VXORV XTMP4, XTMP3, XTMP3       \
 	VXORV XTMP3, XTMP1, XTMP1       \
 	\ // 4 words message schedule result
-	VXORV XTMP1, XTMP0, T0
+	VXORV XTMP1, XTMP0, XWORD0
 
 #define DO_ROUND_N_0(kIdx, wIdx, a, b, c, d, e, f, g, h, W1, Wt) \
 	ROTR $(32-12), a, AX;              \ // AX = a <<< 12
