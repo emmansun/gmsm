@@ -95,7 +95,7 @@
 	VADDW V14, tmp3, tmp3; \
 	VXORV e, f, tmp4; \
 	VXORV g, tmp4, tmp4; \
-	VADDW tmp4, tmp3, tmp3;      // tt2
+	VADDW tmp4, tmp3, tmp3; \      // tt2
 	VROTRW $(32-9), b, b; \
 	VROTRW $(32-19), f, f; \
 	; \ // P0(tt2)
@@ -149,7 +149,7 @@
 	VXORV f, g, tmp4; \
 	VANDV e, tmp4, tmp4; \
 	VXORV g, tmp4, tmp4; \   // gg2
-	VADDW tmp4, tmp3, tmp3;   // tt2
+	VADDW tmp4, tmp3, tmp3; \  // tt2
 	VROTRW $(32-9), b, b; \
 	VROTRW $(32-19), f, f; \
 	; \ // P0(tt2)
