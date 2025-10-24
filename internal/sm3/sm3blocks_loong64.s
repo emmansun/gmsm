@@ -21,10 +21,10 @@
     VILVLW t3, t2, RTMP1; /* RTMP0 = {t3.S2, t2.S2, t3.S0, t2.S0} */ \
     VILVHW t1, t0, RTMP2; /* RTMP2 = {t1.S3, t0.S3, t1.S1, t0.S1} */ \
     VILVHW t3, t2, RTMP3; /* RTMP3 = {t3.S3, t2.S3, t3.S1, t2.S1} */ \
-    VILVLD RTMP1, RTMP0, t0; /* t0 = {t3.S0, t2.S0, t1.S0, t0.S0} */ \
-    VILVLD RTMP3, RTMP2, t1; /* t1 = {t3.S1, t2.S1, t1.S1, t0.S1} */ \
-    VILVHD RTMP1, RTMP0, t2; /* t2 = {t3.S2, t2.S2, t1.S2, t0.S2} */ \
-    VILVHD RTMP3, RTMP2, t3; /* t3 = {t3.S3, t2.S3, t1.S3, t0.S3} */
+    VILVLV RTMP1, RTMP0, t0; /* t0 = {t3.S0, t2.S0, t1.S0, t0.S0} */ \
+    VILVLV RTMP3, RTMP2, t1; /* t1 = {t3.S1, t2.S1, t1.S1, t0.S1} */ \
+    VILVHV RTMP1, RTMP0, t2; /* t2 = {t3.S2, t2.S2, t1.S2, t0.S2} */ \
+    VILVHV RTMP3, RTMP2, t3; /* t3 = {t3.S3, t2.S3, t1.S3, t0.S3} */
 
 
 // transposeMatrix8x8(dig **[8]uint32)
