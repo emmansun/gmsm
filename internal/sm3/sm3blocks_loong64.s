@@ -17,13 +17,13 @@
 // t2 = t3.S2, t2.S2, t1.S2, t0.S2
 // t3 = t3.S3, t2.S3, t1.S3, t0.S3
 #define TRANSPOSE_MATRIX(t0, t1, t2, t3, RTMP0, RTMP1, RTMP2, RTMP3) \
-    VILVLW t0, t1, RTMP0; /* RTMP0 = {t1.S2, t0.S2, t1.S0, t0.S0} */ \
-    VILVLW t2, t3, RTMP1; /* RTMP0 = {t3.S2, t2.S2, t3.S0, t2.S0} */ \
-    VILVHW t0, t1, RTMP2; /* RTMP2 = {t1.S3, t0.S3, t1.S1, t0.S1} */ \
-    VILVHW t2, t3, RTMP3; /* RTMP3 = {t3.S3, t2.S3, t3.S1, t2.S1} */ \
+    VILVLW t0, t1, RTMP0; /* RTMP0 = {t1.S1, t0.S1, t1.S0, t0.S0} */ \
+    VILVLW t2, t3, RTMP1; /* RTMP0 = {t3.S1, t2.S1, t3.S0, t2.S0} */ \
+    VILVHW t0, t1, RTMP2; /* RTMP2 = {t1.S3, t0.S3, t1.S2, t0.S2} */ \
+    VILVHW t2, t3, RTMP3; /* RTMP3 = {t3.S3, t2.S3, t3.S2, t2.S2} */ \
     VILVLV RTMP0, RTMP1, t0; /* t0 = {t3.S0, t2.S0, t1.S0, t0.S0} */ \
-    VILVLV RTMP2, RTMP3, t1; /* t1 = {t3.S1, t2.S1, t1.S1, t0.S1} */ \
-    VILVHV RTMP0, RTMP1, t2; /* t2 = {t3.S2, t2.S2, t1.S2, t0.S2} */ \
+    VILVLV RTMP0, RTMP1, t1; /* t1 = {t3.S1, t2.S1, t1.S1, t0.S1} */ \
+    VILVHV RTMP2, RTMP3, t2; /* t2 = {t3.S2, t2.S2, t1.S2, t0.S2} */ \
     VILVHV RTMP2, RTMP3, t3; /* t3 = {t3.S3, t2.S3, t1.S3, t0.S3} */
 
 
