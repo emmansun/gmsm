@@ -74,7 +74,8 @@
     VMOVQ (16*(i))(wordStart), W \
 
 #define LOAD_T(index, T) \
-    VMOVQ (index*4)(REG_KT), T.W4
+	MOVW (index*4)(REG_KT), R20 \
+    VMOVQ R20, T.W4
 
 #define ROUND_00_11(index, a, b, c, d, e, f, g, h) \
 	VROTRW $(32-12), a, V12; \
