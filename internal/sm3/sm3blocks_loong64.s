@@ -84,6 +84,7 @@
 	VADDW e, V13, V13; \
 	VROTRW $(32-7), V13, V14; \  // ss1
 	VXORV V12, V14, V12; \       // ss2
+	;\ // FF1
 	VXORV a, b, V13; \
 	VXORV c, V13, V13; \
 	VADDW d, V13, V13; \     // tt1 part1
@@ -94,6 +95,7 @@
 	VADDW tmp4, V13, V13; \ 
 	VADDW V12, V13, h; \      // tt1
 	VADDW V14, tmp3, tmp3; \
+	; \ // GG1
 	VXORV e, f, tmp4; \
 	VXORV g, tmp4, tmp4; \
 	VADDW tmp4, tmp3, tmp3; \      // tt2
@@ -112,8 +114,8 @@
 	VXORV tmp3, tmp4, tmp4; \        // x part1
 	loadWordByIndex(tmp3, index-5)    \ // Wj-9
 	VXORV tmp3, tmp4, tmp4; \        // x
-	VROTRW $(32-15), tmp4, tmp3; \     // ROT
-	VXORV tmp3, tmp4, tmp3; \      // p1(x) part1
+	VROTRW $(32-15), tmp4, tmp3; \     // ROTL(15, x)
+	VXORV tmp3, tmp4, tmp3; \      // x XOR ROTL(15, x)
 	VROTRW $(32-23), tmp4, tmp4; \    // ROTL23(x)
 	VXORV tmp4, tmp3, tmp3; \      // p1(x)
 	loadWordByIndex(tmp4, index-9)    \ // Wj-13
@@ -136,10 +138,11 @@
 	VADDW e, V13, V13; \
 	VROTRW $(32-7), V13, V14; \  // ss1
 	VXORV V12, V14, V12; \       // ss2
+	;\ // FF2
 	VORV a, b, tmp3; \
 	VANDV a, b, V13; \
 	VANDV tmp3, c, tmp3; \
-	VXORV V13, tmp3, V13; \   // ff2
+	VORV V13, tmp3, V13; \   // ff2
 	VADDW d, V13, V13; \     // tt1 part1
 	loadWordByIndex(tmp3, index); \
 	VXORV tmp3, tmp4, tmp4; \   // Wt XOR Wt+4
