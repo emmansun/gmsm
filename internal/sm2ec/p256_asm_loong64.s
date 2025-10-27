@@ -109,7 +109,7 @@ TEXT ·p256MovCond(SB),NOSPLIT,$0
 	MOVV a+8(FP), x_ptr
 	MOVV b+16(FP), y_ptr
 	MOVV cond+24(FP), t0
-/*
+
 	MOVV ·supportLSX+0(SB), t1
 	BEQ  t1, ZERO, basic_path
 
@@ -192,7 +192,7 @@ lsx_path:
 	VMOVQ V6, (16*5)(res_ptr)
 
 	RET
-*/
+
 basic_path:
 	// Load a.x
 	MOVV (8*0)(x_ptr), acc0
@@ -2160,7 +2160,7 @@ TEXT ·p256Select(SB),NOSPLIT,$0
 	MOVV	idx+16(FP), const0
 	MOVV	table+8(FP), y_ptr
 	MOVV	res+0(FP), res_ptr
-/*
+
 	MOVV ·supportLSX+0(SB), t1
 	BEQ  t1, ZERO, basic_path
 
@@ -2253,7 +2253,7 @@ loop_select_lsx:
 	VMOVQ V7, (16*4)(res_ptr)
 	VMOVQ V8, (16*5)(res_ptr)
 	RET
-*/
+
 basic_path:
 	MOVV    $0, x0
 	MOVV    $0, x1
@@ -2337,7 +2337,7 @@ TEXT ·p256SelectAffine(SB),NOSPLIT,$0
 	MOVV	idx+16(FP), t0
 	MOVV	table+8(FP), t1
 	MOVV	res+0(FP), res_ptr
-/*
+
 	MOVV ·supportLSX+0(SB), t2
 	BEQ  t2, ZERO, basic_path
 
@@ -2418,7 +2418,7 @@ loop_select_lsx:
 	VMOVQ V5, (16*2)(res_ptr)
 	VMOVQ V6, (16*3)(res_ptr)
 	RET
-*/
+
 basic_path:
 	XOR	x0, x0, x0
 	XOR	x1, x1, x1
