@@ -221,7 +221,7 @@
 	XVANDV tmp3, c, tmp3; \
 	XVORV X13, tmp3, X13; \   // ff2
 	XVADDW d, X13, X13; \     // tt1 part1
-	loadWordBackward(tmp3, 4); \
+	loadWordBackward(tmp3, 5); \
 	XVXORV tmp3, tmp4, tmp4; \   // Wt XOR Wt+4
 	XVADDW h, tmp3, tmp3; \      // tt2 part1: h + Wt
 	XVADDW tmp4, X13, X13; \ 
