@@ -147,8 +147,8 @@
 #define loadWordByIndex(W, i) \
 	XVMOVQ (32*(i))(wordStart), W \
 
-#define loadCurrentWord(W) \
-	XVMOVQ (-4*32)(wordPtr), W \
+#define loadWordBackward(W, i) \
+	XVMOVQ (-32*(i))(wordPtr), W \
 
 #define LOAD_T(index, T) \
 	MOVW (index*4)(REG_KT), R20 \
@@ -185,20 +185,20 @@
 	XVXORV tmp3, tmp4, d
 
 #define MESSAGE_SCHEDULE(index) \
-	loadWordByIndex(tmp3, index+1)    \ // Wj-3
+	loadWordBackward(tmp3, 3)    \ // Wj-3
 	XVROTRW $(32-15), tmp3, tmp4; \    // ROTL15(Wj-3)
-	loadWordByIndex(tmp3, index-12)   \ // Wj-16
+	loadWordBackward(tmp3, 16)   \ // Wj-16
 	XVXORV tmp3, tmp4, tmp4; \        // x part1
-	loadWordByIndex(tmp3, index-5)    \ // Wj-9
+	loadWordBackward(tmp3, 9)    \ // Wj-9
 	XVXORV tmp3, tmp4, tmp4; \        // x
 	XVROTRW $(32-15), tmp4, tmp3; \     // ROTL(15, x)
 	XVXORV tmp3, tmp4, tmp3; \      // x XOR ROTL(15, x)
 	XVROTRW $(32-23), tmp4, tmp4; \    // ROTL23(x)
 	XVXORV tmp4, tmp3, tmp3; \      // p1(x)
-	loadWordByIndex(tmp4, index-9)    \ // Wj-13
+	loadWordBackward(tmp4, 13)    \ // Wj-13
 	XVROTRW $(32-7), tmp4, tmp4; \     // ROTL7(Wj-13)
 	XVXORV tmp4, tmp3, tmp3; \      // p1(x) XOR ROTL7(Wj-13)
-	loadWordByIndex(tmp4, index-2)    \ // Wj-6
+	loadWordBackward(tmp4, 6)    \ // Wj-6
 	XVXORV tmp3, tmp4, tmp4; \      // Wj
 	XVMOVQ tmp4, (wordPtr); \
 	ADDV $32, wordPtr, wordPtr
@@ -221,7 +221,7 @@
 	XVANDV tmp3, c, tmp3; \
 	XVORV X13, tmp3, X13; \   // ff2
 	XVADDW d, X13, X13; \     // tt1 part1
-	loadWordByIndex(tmp3, index); \
+	loadWordBackward(tmp3, 4); \
 	XVXORV tmp3, tmp4, tmp4; \   // Wt XOR Wt+4
 	XVADDW h, tmp3, tmp3; \      // tt2 part1: h + Wt
 	XVADDW tmp4, X13, X13; \ 
