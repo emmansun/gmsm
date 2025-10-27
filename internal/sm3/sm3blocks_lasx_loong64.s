@@ -24,6 +24,16 @@
 #define tmp3 X10
 #define tmp4 X11
 
+#define ZERO_VECTOR X23
+#define aSave X24
+#define bSave X25
+#define cSave X26
+#define dSave X27
+#define eSave X28
+#define fSave X29
+#define gSave X30
+#define hSave X31
+
 // input: from high to low
 // t0 = t0.W7, t0.W6, t0.W5, t0.W4 t0.W3, t0.W2, t0.W1, t0.W0
 // t1 = t1.W7, t1.W6, t1.W5, t1.W4 t1.W3, t1.W2, t1.W1, t1.W0
@@ -106,6 +116,126 @@
 	XVMOVQ R20, t7.V[0]; \
 	XVMOVQ R21, t7.V[1]
 
+#define prepare8Words(index) \
+	XVMOVQ (index*32)(srcPtr1), X12; \
+	XVMOVQ (index*32)(srcPtr2), X13; \
+	XVMOVQ (index*32)(srcPtr3), X14; \
+	XVMOVQ (index*32)(srcPtr4), X15; \
+	XVMOVQ (index*32)(srcPtr5), X16; \
+	XVMOVQ (index*32)(srcPtr6), X17; \
+	XVMOVQ (index*32)(srcPtr7), X18; \
+	XVMOVQ (index*32)(srcPtr8), X19; \
+	TRANSPOSE_MATRIX(X12, X13, X14, X15, X16, X17, X18, X19, tmp1, tmp2, tmp3, tmp4); \
+	XVSHUF4IB $0x1B, X12, X12; \
+	XVSHUF4IB $0x1B, X13, X13; \
+	XVSHUF4IB $0x1B, X14, X14; \
+	XVSHUF4IB $0x1B, X15, X15; \
+	XVSHUF4IB $0x1B, X16, X16; \
+	XVSHUF4IB $0x1B, X17, X17; \
+	XVSHUF4IB $0x1B, X18, X18; \
+	XVSHUF4IB $0x1B, X19, X19; \	
+	XVMOVQ X12, (0*32)(wordPtr); \
+	XVMOVQ X13, (1*32)(wordPtr); \
+	XVMOVQ X14, (2*32)(wordPtr); \
+	XVMOVQ X15, (3*32)(wordPtr); \
+	XVMOVQ X16, (4*32)(wordPtr); \
+	XVMOVQ X17, (5*32)(wordPtr); \
+	XVMOVQ X18, (6*32)(wordPtr); \
+	XVMOVQ X19, (7*32)(wordPtr); \	
+	ADDV $256, wordPtr, wordPtr
+
+#define loadWordByIndex(W, i) \
+	XVMOVQ (32*(i))(wordStart), W \
+
+#define LOAD_T(index, T) \
+	MOVW (index*4)(REG_KT), R20 \
+	XVMOVQ R20, T.W8
+
+#define ROUND_00_11(index, a, b, c, d, e, f, g, h) \
+	XVROTRW $(32-12), a, X12; \
+	LOAD_T(index, tmp1); \
+	XVADDW tmp1, X12, X13; \
+	XVADDW e, X13, X13; \
+	XVROTRW $(32-7), X13, X14; \  // ss1
+	XVXORV X12, X14, X12; \       // ss2
+	;\ // FF1
+	XVXORV a, b, X13; \
+	XVXORV c, X13, X13; \
+	XVADDW d, X13, X13; \     // tt1 part1
+	loadWordByIndex(tmp3, index); \
+	loadWordByIndex(tmp4, index+4)    \
+	XVXORV tmp3, tmp4, tmp4; \   // Wt XOR Wt+4
+	XVADDW h, tmp3, tmp3; \      // tt2 part1: h + Wt
+	XVADDW tmp4, X13, X13; \ 
+	XVADDW X12, X13, h; \      // tt1
+	XVADDW X14, tmp3, tmp3; \
+	; \ // GG1
+	XVXORV e, f, tmp4; \
+	XVXORV g, tmp4, tmp4; \
+	XVADDW tmp4, tmp3, tmp3; \      // tt2
+	XVROTRW $(32-9), b, b; \
+	XVROTRW $(32-19), f, f; \
+	; \ // P0(tt2)
+	XVROTRW $(32-9), tmp3, tmp4; \
+	XVXORV tmp3, tmp4, tmp4; \
+	XVROTRW $(32-17), tmp3, tmp3; \
+	XVXORV tmp3, tmp4, d
+
+#define MESSAGE_SCHEDULE(index) \
+	loadWordByIndex(tmp3, index+1)    \ // Wj-3
+	XVROTRW $(32-15), tmp3, tmp4; \    // ROTL15(Wj-3)
+	loadWordByIndex(tmp3, index-12)   \ // Wj-16
+	XVXORV tmp3, tmp4, tmp4; \        // x part1
+	loadWordByIndex(tmp3, index-5)    \ // Wj-9
+	XVXORV tmp3, tmp4, tmp4; \        // x
+	XVROTRW $(32-15), tmp4, tmp3; \     // ROTL(15, x)
+	XVXORV tmp3, tmp4, tmp3; \      // x XOR ROTL(15, x)
+	XVROTRW $(32-23), tmp4, tmp4; \    // ROTL23(x)
+	XVXORV tmp4, tmp3, tmp3; \      // p1(x)
+	loadWordByIndex(tmp4, index-9)    \ // Wj-13
+	XVROTRW $(32-7), tmp4, tmp4; \     // ROTL7(Wj-13)
+	XVXORV tmp4, tmp3, tmp3; \      // p1(x) XOR ROTL7(Wj-13)
+	loadWordByIndex(tmp4, index-2)    \ // Wj-6
+	XVXORV tmp3, tmp4, tmp4; \      // Wj
+	XVMOVQ tmp4, (wordPtr); \
+	ADDV $32, wordPtr, wordPtr
+
+#define ROUND_12_15(index, a, b, c, d, e, f, g, h) \
+	MESSAGE_SCHEDULE(index)                               \
+	ROUND_00_11(index, a, b, c, d, e, f, g, h)     \
+
+#define ROUND_16_63(index, a, b, c, d, e, f, g, h) \
+	MESSAGE_SCHEDULE(index)          \ // tmp4 is Wt+4 now, Pls do not use it
+	XVROTRW $(32-12), a, X12; \
+	LOAD_T(index, tmp1); \
+	XVADDW tmp1, X12, X13; \
+	XVADDW e, X13, X13; \
+	XVROTRW $(32-7), X13, X14; \  // ss1
+	XVXORV X12, X14, X12; \       // ss2
+	;\ // FF2
+	XVORV a, b, tmp3; \
+	XVANDV a, b, X13; \
+	XVANDV tmp3, c, tmp3; \
+	XVORV X13, tmp3, X13; \   // ff2
+	XVADDW d, X13, X13; \     // tt1 part1
+	loadWordByIndex(tmp3, index); \
+	XVXORV tmp3, tmp4, tmp4; \   // Wt XOR Wt+4
+	XVADDW h, tmp3, tmp3; \      // tt2 part1: h + Wt
+	XVADDW tmp4, X13, X13; \ 
+	XVADDW X12, X13, h; \      // tt1
+	XVADDW X14, tmp3, tmp3; \  // ss1 + h + Wt
+	XVXORV f, g, tmp4; \
+	XVANDV e, tmp4, tmp4; \
+	XVXORV g, tmp4, tmp4; \   // gg2
+	XVADDW tmp4, tmp3, tmp3; \  // tt2
+	XVROTRW $(32-9), b, b; \
+	XVROTRW $(32-19), f, f; \
+	; \ // P0(tt2)
+	XVROTRW $(32-9), tmp3, tmp4; \
+	XVXORV tmp3, tmp4, tmp4; \
+	XVROTRW $(32-17), tmp3, tmp3; \
+	XVXORV tmp3, tmp4, d
+
 // transposeMatrix8x8(dig **[8]uint32)
 TEXT ·transposeMatrix8x8(SB),NOSPLIT,$0
 	MOVV dig+0(FP), R5
@@ -150,8 +280,205 @@ TEXT ·transposeMatrix8x8(SB),NOSPLIT,$0
 
 // blockMultBy8(dig **[8]uint32, p *[]byte, buffer *byte, blocks int)
 TEXT ·blockMultBy8(SB),NOSPLIT,$0
+#define digPtr R5
+#define srcPtrPtr R6
+#define blockCount R7
+#define wordStart R8
+#define srcPtr1 R9
+#define srcPtr2 R10
+#define srcPtr3 R11
+#define srcPtr4 R12
+#define srcPtr5 R13
+#define srcPtr6 R14
+#define srcPtr7 R15
+#define srcPtr8 R16
+#define wordPtr R17
+
+	MOVV	dig+0(FP), digPtr
+	MOVV	p+8(FP), srcPtrPtr
+	MOVV	buffer+16(FP), wordStart
+	MOVV	blocks+24(FP), blockCount
+
+	// load state
+	MOVV (0*8)(digPtr), R20
+	XVMOVQ (0*32)(R20), a
+	MOVV (1*8)(digPtr), R20
+	XVMOVQ (0*32)(R20), b
+	MOVV (2*8)(digPtr), R20
+	XVMOVQ (0*32)(R20), c
+	MOVV (3*8)(digPtr), R20
+	XVMOVQ (0*32)(R20), d
+	MOVV (4*8)(digPtr), R20
+	XVMOVQ (0*32)(R20), e
+	MOVV (5*8)(digPtr), R20
+	XVMOVQ (0*32)(R20), f
+	MOVV (6*8)(digPtr), R20
+	XVMOVQ (0*32)(R20), g
+	MOVV (7*8)(digPtr), R20
+	XVMOVQ (0*32)(R20), h
+
+	// transpose state
+	TRANSPOSE_MATRIX(a, b, c, d, e, f, g, h, tmp1, tmp2, tmp3, tmp4)
+
+	MOVV	(0*8)(srcPtrPtr), srcPtr1
+	MOVV	(1*8)(srcPtrPtr), srcPtr2
+	MOVV	(2*8)(srcPtrPtr), srcPtr3
+	MOVV	(3*8)(srcPtrPtr), srcPtr4
+	MOVV	(4*8)(srcPtrPtr), srcPtr5
+	MOVV	(5*8)(srcPtrPtr), srcPtr6
+	MOVV	(6*8)(srcPtrPtr), srcPtr7
+	MOVV	(7*8)(srcPtrPtr), srcPtr8
+
+	XVXORV ZERO_VECTOR, ZERO_VECTOR, ZERO_VECTOR
+	MOVV	$·_K(SB), REG_KT		// const table
+
+loop:
+	// loong64 can't move from vector register to vector register directly now.
+	XVXORV a, ZERO_VECTOR, aSave
+	XVXORV b, ZERO_VECTOR, bSave
+	XVXORV c, ZERO_VECTOR, cSave
+	XVXORV d, ZERO_VECTOR, dSave
+	XVXORV e, ZERO_VECTOR, eSave
+	XVXORV f, ZERO_VECTOR, fSave
+	XVXORV g, ZERO_VECTOR, gSave
+	XVXORV h, ZERO_VECTOR, hSave
+
+	// reset wordPtr
+	MOVV wordStart, wordPtr
+
+	// load message block
+	prepare8Words(0)
+	prepare8Words(1)
+
+	ROUND_00_11(0, a, b, c, d, e, f, g, h)
+	ROUND_00_11(1, h, a, b, c, d, e, f, g)
+	ROUND_00_11(2, g, h, a, b, c, d, e, f)
+	ROUND_00_11(3, f, g, h, a, b, c, d, e)
+	ROUND_00_11(4, e, f, g, h, a, b, c, d)
+	ROUND_00_11(5, d, e, f, g, h, a, b, c)
+	ROUND_00_11(6, c, d, e, f, g, h, a, b)
+	ROUND_00_11(7, b, c, d, e, f, g, h, a)
+	ROUND_00_11(8, a, b, c, d, e, f, g, h)
+	ROUND_00_11(9, h, a, b, c, d, e, f, g)
+	ROUND_00_11(10, g, h, a, b, c, d, e, f)
+	ROUND_00_11(11, f, g, h, a, b, c, d, e)
+
+	ROUND_12_15(12, e, f, g, h, a, b, c, d)
+	ROUND_12_15(13, d, e, f, g, h, a, b, c)
+	ROUND_12_15(14, c, d, e, f, g, h, a, b)
+	ROUND_12_15(15, b, c, d, e, f, g, h, a)
+
+	ROUND_16_63(16, a, b, c, d, e, f, g, h)
+	ROUND_16_63(17, h, a, b, c, d, e, f, g)
+	ROUND_16_63(18, g, h, a, b, c, d, e, f)
+	ROUND_16_63(19, f, g, h, a, b, c, d, e)
+	ROUND_16_63(20, e, f, g, h, a, b, c, d)
+	ROUND_16_63(21, d, e, f, g, h, a, b, c)
+	ROUND_16_63(22, c, d, e, f, g, h, a, b)
+	ROUND_16_63(23, b, c, d, e, f, g, h, a)
+	ROUND_16_63(24, a, b, c, d, e, f, g, h)
+	ROUND_16_63(25, h, a, b, c, d, e, f, g)
+	ROUND_16_63(26, g, h, a, b, c, d, e, f)
+	ROUND_16_63(27, f, g, h, a, b, c, d, e)
+	ROUND_16_63(28, e, f, g, h, a, b, c, d)
+	ROUND_16_63(29, d, e, f, g, h, a, b, c)
+	ROUND_16_63(30, c, d, e, f, g, h, a, b)
+	ROUND_16_63(31, b, c, d, e, f, g, h, a)
+	ROUND_16_63(32, a, b, c, d, e, f, g, h)
+	ROUND_16_63(33, h, a, b, c, d, e, f, g)
+	ROUND_16_63(34, g, h, a, b, c, d, e, f)
+	ROUND_16_63(35, f, g, h, a, b, c, d, e)
+	ROUND_16_63(36, e, f, g, h, a, b, c, d)
+	ROUND_16_63(37, d, e, f, g, h, a, b, c)
+	ROUND_16_63(38, c, d, e, f, g, h, a, b)
+	ROUND_16_63(39, b, c, d, e, f, g, h, a)
+	ROUND_16_63(40, a, b, c, d, e, f, g, h)
+	ROUND_16_63(41, h, a, b, c, d, e, f, g)
+	ROUND_16_63(42, g, h, a, b, c, d, e, f)
+	ROUND_16_63(43, f, g, h, a, b, c, d, e)
+	ROUND_16_63(44, e, f, g, h, a, b, c, d)
+	ROUND_16_63(45, d, e, f, g, h, a, b, c)
+	ROUND_16_63(46, c, d, e, f, g, h, a, b)
+	ROUND_16_63(47, b, c, d, e, f, g, h, a)
+	ROUND_16_63(48, a, b, c, d, e, f, g, h)
+	ROUND_16_63(49, h, a, b, c, d, e, f, g)
+	ROUND_16_63(50, g, h, a, b, c, d, e, f)
+	ROUND_16_63(51, f, g, h, a, b, c, d, e)
+	ROUND_16_63(52, e, f, g, h, a, b, c, d)
+	ROUND_16_63(53, d, e, f, g, h, a, b, c)
+	ROUND_16_63(54, c, d, e, f, g, h, a, b)
+	ROUND_16_63(55, b, c, d, e, f, g, h, a)
+	ROUND_16_63(56, a, b, c, d, e, f, g, h)
+	ROUND_16_63(57, h, a, b, c, d, e, f, g)
+	ROUND_16_63(58, g, h, a, b, c, d, e, f)
+	ROUND_16_63(59, f, g, h, a, b, c, d, e)
+	ROUND_16_63(60, e, f, g, h, a, b, c, d)
+	ROUND_16_63(61, d, e, f, g, h, a, b, c)
+	ROUND_16_63(62, c, d, e, f, g, h, a, b)
+	ROUND_16_63(63, b, c, d, e, f, g, h, a)
+
+	XVXORV aSave, a, a
+	XVXORV bSave, b, b
+	XVXORV cSave, c, c
+	XVXORV dSave, d, d
+	XVXORV eSave, e, e
+	XVXORV fSave, f, f
+	XVXORV gSave, g, g
+	XVXORV hSave, h, h
+
+	ADDV $64, srcPtr1, srcPtr1
+	ADDV $64, srcPtr2, srcPtr2
+	ADDV $64, srcPtr3, srcPtr3
+	ADDV $64, srcPtr4, srcPtr4
+	ADDV $64, srcPtr5, srcPtr5
+	ADDV $64, srcPtr6, srcPtr6
+	ADDV $64, srcPtr7, srcPtr7
+	ADDV $64, srcPtr8, srcPtr8
+
+	SUBV $1, blockCount, blockCount
+	BNE blockCount, loop
+
+	// transpose state
+	TRANSPOSE_MATRIX(a, b, c, d, e, f, g, h, tmp1, tmp2, tmp3, tmp4)
+
+	// store state
+	MOVV	(0*8)(digPtr), R20
+	XVMOVQ a, (0*32)(R20)
+	MOVV	(1*8)(digPtr), R20
+	XVMOVQ b, (0*32)(R20)
+	MOVV	(2*8)(digPtr), R20
+	XVMOVQ c, (0*32)(R20)
+	MOVV	(3*8)(digPtr), R20
+	XVMOVQ d, (0*32)(R20)
+	MOVV	(4*8)(digPtr), R20
+	XVMOVQ e, (0*32)(R20)
+	MOVV	(5*8)(digPtr), R20
+	XVMOVQ f, (0*32)(R20)
+	MOVV	(6*8)(digPtr), R20
+	XVMOVQ g, (0*32)(R20)
+	MOVV	(7*8)(digPtr), R20
+	XVMOVQ h, (0*32)(R20)
+
 	RET
 
+#undef digPtr
+#undef a
+#undef b
+#undef c
+#undef d
+#undef e
+#undef f
+#undef g
+#undef h
+
+#define a X0
+#define b X1
+#define c X2
+#define d X3
+#define e X4
+#define f X5
+#define g X6
+#define h X7
 // func copyResultsBy8(dig *uint32, dst *byte)
 TEXT ·copyResultsBy8(SB),NOSPLIT,$0
 #define digPtr R4
