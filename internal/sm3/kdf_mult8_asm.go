@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build amd64 && !purego
+//go:build (amd64 || loong64) && !purego
 
 package sm3
 

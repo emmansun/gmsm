@@ -6,6 +6,8 @@
 
 package sm3
 
+var supportMult8 = useAVX2
+
 func kdf(baseMD *digest, keyLen int, limit int) []byte {
 	if limit < 4 {
 		return kdfGeneric(baseMD, keyLen, limit)
