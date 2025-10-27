@@ -147,6 +147,9 @@
 #define loadWordByIndex(W, i) \
 	XVMOVQ (32*(i))(wordStart), W \
 
+#define loadCurrentWord(W) \
+	XVMOVQ (-4*32)(wordPtr), W \
+
 #define LOAD_T(index, T) \
 	MOVW (index*4)(REG_KT), R20 \
 	XVMOVQ R20, T.W8
