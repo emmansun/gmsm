@@ -6,7 +6,7 @@ import "github.com/emmansun/gmsm/internal/deps/cpu"
 
 var (
 	supportAVX2 = cpu.X86.HasAVX2
-	supportLSX  = cpu.Loong64.HasLSX
+	supportLSX  = false
 	supportLASX = false
 )
 
