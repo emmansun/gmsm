@@ -640,10 +640,10 @@ basic_path_loop:
 		MASKEQZ R31, R9, R9
 		MASKEQZ R31, R10, R10
 		MASKEQZ R31, R11, R11
-		ORR R12, R8
-		ORR R13, R9
-		ORR R14, R10
-		ORR R15, R11
+		OR R12, R8
+		OR R13, R9
+		OR R14, R10
+		OR R15, R11
 		MOVV R8, (0*8)(res_ptr)
 		MOVV R9, (1*8)(res_ptr)
 		MOVV R10, (2*8)(res_ptr)
@@ -787,10 +787,10 @@ basic_path_loop:
 		MASKEQZ R31, R9, R9
 		MASKEQZ R31, R10, R10
 		MASKEQZ R31, R11, R11
-		ORR R12, R8
-		ORR R13, R9
-		ORR R14, R10
-		ORR R15, R11
+		OR R12, R8
+		OR R13, R9
+		OR R14, R10
+		OR R15, R11
 		MOVV R8, (0*8)(res_ptr)
 		MOVV R9, (1*8)(res_ptr)
 		MOVV R10, (2*8)(res_ptr)
@@ -1012,10 +1012,10 @@ basic_path_loop:
 		MASKEQZ R31, R9, R9
 		MASKEQZ R31, R10, R10
 		MASKEQZ R31, R11, R11
-		ORR R12, R8
-		ORR R13, R9
-		ORR R14, R10
-		ORR R15, R11
+		OR R12, R8
+		OR R13, R9
+		OR R14, R10
+		OR R15, R11
 		MOVV R8, (0*8)(res_ptr)
 		MOVV R9, (1*8)(res_ptr)
 		MOVV R10, (2*8)(res_ptr)
