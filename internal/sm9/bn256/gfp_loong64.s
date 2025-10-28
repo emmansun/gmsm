@@ -1281,6 +1281,9 @@ TEXT ·gfpFromMont(SB), NOSPLIT, $0
 
 	gfpCarry(x0, x1, x2, x3, ZERO, const0, const1, const2, const3)
 
+	MOVV out+0(FP), res_ptr
+	storeBlock(x0, x1, x2, x3, 0(res_ptr))
+
 	RET
 
 /* ---------------------------------------*/
