@@ -112,18 +112,18 @@ TEXT ·gfpNeg(SB), NOSPLIT, $0-16
 	SUBV const0, x0, acc0              \
 	SGTU const1, x1, t1                \
 	SUBV const1, x1, acc1              \ 
-	SGTU t0, x1, hlp0                  \
-	SUBV t0, x1, acc1                  \
+	SGTU t0, acc1, hlp0                \
+	SUBV t0, acc1, acc1                \
 	OR hlp0, t1, t0                    \
 	SGTU const2, x2, t1                \
 	SUBV const2, x2, acc2              \
-	SGTU t0, x2, hlp0                  \
-	SUBV t0, x2, acc2                  \ 
+	SGTU t0, acc2, hlp0                \
+	SUBV t0, acc2, acc2                \ 
 	OR hlp0, t1, t0                    \ 
 	SGTU const3, x3, t1                \
 	SUBV const3, x3, acc3              \
-	SGTU t0, x3, hlp0                  \
-	SUBV t0, x3, acc3                  \
+	SGTU t0, acc3, hlp0                \
+	SUBV t0, acc3, acc3                \
 	OR hlp0, t1, t0                    \
 	\ // check if there are borrows or not
 	SGTU t0, carry, t0                 \
