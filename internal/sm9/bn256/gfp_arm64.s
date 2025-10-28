@@ -55,7 +55,7 @@
 	MOVD ·p2+16(SB), p2 \
 	MOVD ·p2+24(SB), p3
 
-TEXT ·gfpNeg(SB),0,$0-16
+TEXT ·gfpNeg(SB), NOSPLIT, $0-16
 	MOVD a+8(FP), R0
 	loadBlock(0(R0), R1,R2,R3,R4)
 	loadModulus(R5,R6,R7,R8)
@@ -79,7 +79,7 @@ TEXT ·gfpNeg(SB),0,$0-16
 	storeBlock(R1,R2,R3,R4, 0(R0))
 	RET
 
-TEXT ·gfpAdd(SB),0,$0-24
+TEXT ·gfpAdd(SB), NOSPLIT, $0-24
 	MOVD a+8(FP), R0
 	loadBlock(0(R0), R1,R2,R3,R4)
 	MOVD b+16(FP), R0
@@ -108,7 +108,7 @@ TEXT ·gfpAdd(SB),0,$0-24
 	storeBlock(R1,R2,R3,R4, 0(R0))
 	RET
 
-TEXT ·gfpDouble(SB),0,$0-16
+TEXT ·gfpDouble(SB), NOSPLIT, $0-16
 	MOVD a+8(FP), R0
 	loadBlock(0(R0), R1,R2,R3,R4)
 	loadModulus(R9,R10,R11,R12)
@@ -135,7 +135,7 @@ TEXT ·gfpDouble(SB),0,$0-16
 	storeBlock(R1,R2,R3,R4, 0(R0))
 	RET
 
-TEXT ·gfpTriple(SB),0,$0-16
+TEXT ·gfpTriple(SB), NOSPLIT, $0-16
 	MOVD a+8(FP), R0
 	loadBlock(0(R0), R1,R2,R3,R4)
 	MOVD R1, R19
@@ -185,7 +185,7 @@ TEXT ·gfpTriple(SB),0,$0-16
 	storeBlock(R1,R2,R3,R4, 0(R0))
 	RET
 
-TEXT ·gfpSub(SB),0,$0-24
+TEXT ·gfpSub(SB), NOSPLIT, $0-24
 	MOVD a+8(FP), R0
 	loadBlock(0(R0), R1,R2,R3,R4)
 	MOVD b+16(FP), R0
@@ -211,7 +211,7 @@ TEXT ·gfpSub(SB),0,$0-24
 	storeBlock(R1,R2,R3,R4, 0(R0))
 	RET
 
-TEXT ·gfpMul(SB),NOSPLIT,$0
+TEXT ·gfpMul(SB), NOSPLIT, $0
 	MOVD	in1+8(FP), a_ptr
 	MOVD	in2+16(FP), b_ptr
 

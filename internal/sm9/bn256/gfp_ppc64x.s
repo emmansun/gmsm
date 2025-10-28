@@ -81,7 +81,7 @@ TEXT gfpInternalEndianSwap<>(SB), NOSPLIT, $0-0
 	VSEL     TT0, T0, SEL1, T0  \
 	VSEL     TT1, T1, SEL1, T1  \
 
-TEXT ·gfpNeg(SB),0,$0-16
+TEXT ·gfpNeg(SB), NOSPLIT, $0-16
 	MOVD c+0(FP), R3
 	MOVD a+8(FP), R4
 
@@ -109,7 +109,7 @@ TEXT ·gfpNeg(SB),0,$0-16
 	STXVD2X T1, (R5+R3)
 	RET
 
-TEXT ·gfpSub(SB),0,$0-24
+TEXT ·gfpSub(SB), NOSPLIT, $0-24
 	MOVD c+0(FP), R3
 	MOVD a+8(FP), R4
 	MOVD b+16(FP), R5
@@ -155,7 +155,7 @@ TEXT ·gfpSub(SB),0,$0-24
 	VSEL     TT0, T0, SEL1, T0    \
 	VSEL     TT1, T1, SEL1, T1
 
-TEXT ·gfpAdd(SB),0,$0-24
+TEXT ·gfpAdd(SB), NOSPLIT, $0-24
 	MOVD c+0(FP), R3
 	MOVD a+8(FP), R4
 	MOVD b+16(FP), R5
@@ -188,7 +188,7 @@ TEXT ·gfpAdd(SB),0,$0-24
 	STXVD2X T1, (R6+R3)
 	RET
 
-TEXT ·gfpDouble(SB),0,$0-16
+TEXT ·gfpDouble(SB), NOSPLIT, $0-16
 	MOVD c+0(FP), R3
 	MOVD a+8(FP), R4
 
@@ -215,7 +215,7 @@ TEXT ·gfpDouble(SB),0,$0-16
 	STXVD2X T1, (R6+R3)
 	RET
 
-TEXT ·gfpTriple(SB),0,$0-16
+TEXT ·gfpTriple(SB), NOSPLIT, $0-16
 	MOVD c+0(FP), R3
 	MOVD a+8(FP), R4
 
