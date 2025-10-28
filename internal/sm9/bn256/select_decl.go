@@ -1,10 +1,14 @@
-//go:build (amd64 || arm64 || ppc64 || ppc64le) && !purego
+//go:build (amd64 || arm64 || ppc64 || ppc64le || loong64) && !purego
 
 package bn256
 
 import "github.com/emmansun/gmsm/internal/deps/cpu"
 
-var supportAVX2 = cpu.X86.HasAVX2
+var (
+	supportAVX2 = cpu.X86.HasAVX2
+	supportLSX  = cpu.Loong64.HasLSX
+	supportLASX = cpu.Loong64.HasLASX
+)
 
 // If cond is 0, sets res = b, otherwise sets res = a.
 //

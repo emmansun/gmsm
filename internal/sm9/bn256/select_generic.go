@@ -1,4 +1,4 @@
-//go:build purego || !(amd64 || arm64 || ppc64 || ppc64le)
+//go:build purego || !(amd64 || arm64 || ppc64 || ppc64le || loong64)
 
 package bn256
 
