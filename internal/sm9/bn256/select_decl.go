@@ -7,7 +7,7 @@ import "github.com/emmansun/gmsm/internal/deps/cpu"
 var (
 	supportAVX2 = cpu.X86.HasAVX2
 	supportLSX  = cpu.Loong64.HasLSX
-	supportLASX = cpu.Loong64.HasLASX
+	supportLASX = false
 )
 
 // If cond is 0, sets res = b, otherwise sets res = a.
