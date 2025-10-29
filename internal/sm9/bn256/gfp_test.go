@@ -153,7 +153,8 @@ func TestGfpSqr(t *testing.T) {
 }
 
 func TestFromMont(t *testing.T) {
-	x := newGFpFromHex("85AEF3D078640C98597B6027B441A01FF1DD2C190F5E93C454806C11D8806141")
+	//x := newGFpFromHex("85AEF3D078640C98597B6027B441A01FF1DD2C190F5E93C454806C11D8806141")
+	x := &gfP{0xdb6db4822750a8a6, 0x84c6135a5121f134, 0x1874032f88791d41, 0x905112f2b85f3a37}
 	ret1, ret2 := &gfP{}, &gfP{}
 	gfpFromMont(ret1, x)
 	gfpMul(ret2, x, &gfP{1})
