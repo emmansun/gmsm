@@ -70,37 +70,6 @@ TEXT ·gfpNeg(SB), NOSPLIT, $0-16
 	loadBlock(0(a_ptr), x0, x1, x2, x3)
 	loadModulus(const0, const1, const2, const3)
 
-	SGTU x0, const0, t0
-	SUBV x0, const0, x0
-	// SUBCS x1, const1, x1
-	SGTU x1, const1, t1
-	SUBV x1, const1, x1
-	SGTU t0, x1, hlp0
-	SUBV t0, x1, x1
-	OR hlp0, t1, t0
-	// SUBCS x2, const2, x2
-	SGTU x2, const2, t1
-	SUBV x2, const2, x2
-	SGTU t0, x2, hlp0
-	SUBV t0, x2, x2
-	OR hlp0, t1, t0
-	// SUBCS x3, const3, x3
-	ADDV t0, x3, x3
-	SUBV x3, const3, x3 // last one no need to check carry
-
-	XOR const0, x0, t0
-	XOR const1, x1, t1
-	OR t1, t0
-	XOR const2, x2, t1
-	OR t1, t0
-	XOR const3, x3, t1
-	OR t1, t0
-
-	MASKEQZ t0, x0, x0
-	MASKEQZ t0, x1, x1
-	MASKEQZ t0, x2, x2
-	MASKEQZ t0, x3, x3
-	
 	MOVV c+0(FP), res_ptr
 	storeBlock(x0, x1, x2, x3, 0(res_ptr))
 
