@@ -32,7 +32,7 @@ func TestGfpBasicOperations(t *testing.T) {
 		ret := &gfP{}
 		gfpAdd(ret, x, y)
 		if *expectedAdd != *ret {
-			t.Errorf("add not same")
+			t.Errorf("add not same, got %v, expected %v", ret, expectedAdd)
 		}
 		x1 := &gfP{}
 		x1.Set(x)
@@ -70,13 +70,13 @@ func TestGfpBasicOperations(t *testing.T) {
 		ret := &gfP{}
 		gfpSub(ret, y, x)
 		if *expectedSub != *ret {
-			t.Errorf("sub not same")
+			t.Errorf("sub not same, got %v, expected %v", ret, expectedSub)
 		}
 		x1 := &gfP{}
 		x1.Set(x)
 		gfpSub(x1, y, x1)
 		if *expectedSub != *x1 {
-			t.Errorf("sub not same when sub self")
+			t.Errorf("sub not same when sub self, got %v, expected %v", x1, expectedSub)
 		}
 	})
 
@@ -84,7 +84,7 @@ func TestGfpBasicOperations(t *testing.T) {
 		ret := &gfP{}
 		gfpNeg(ret, y)
 		if *expectedNeg != *ret {
-			t.Errorf("neg not same")
+			t.Errorf("neg not same, got %v, expected %v", ret, expectedNeg)
 		}
 		ret.Set(y)
 		gfpNeg(ret, ret)
