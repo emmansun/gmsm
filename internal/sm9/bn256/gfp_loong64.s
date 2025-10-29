@@ -126,7 +126,7 @@ TEXT ·gfpNeg(SB), NOSPLIT, $0-16
 	SUBV t0, acc3, acc3                \
 	OR hlp0, t1, t0                    \
 	\
-	OR t0, carry, t0                   \
+	SGTU t0, carry, t0                 \
 	\
 	MASKEQZ t0, x0, x0                 \
 	MASKNEZ t0, acc0, acc0             \
