@@ -111,7 +111,7 @@ TEXT ·gfpNeg(SB), NOSPLIT, $0-16
 	
 	MOVV out+0(FP), res_ptr
 	//storeBlock(x0, x1, x2, x3, 0(res_ptr))
-	MOVV acc0,  0(res_ptr)
+	MOVV x0,  0(res_ptr)
 	MOVV x1,  8(res_ptr)
 	MOVV x2, 16(res_ptr)
 	MOVV x3, 24(res_ptr)
