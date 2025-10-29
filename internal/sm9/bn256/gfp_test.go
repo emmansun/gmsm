@@ -18,14 +18,22 @@ func newGFpFromHex(x string) (out *gfP) {
 }
 
 func TestGfpBasicOperations(t *testing.T) {
-	x := newGFpFromHex("85AEF3D078640C98597B6027B441A01FF1DD2C190F5E93C454806C11D8806141")
-	y := newGFpFromHex("3722755292130B08D2AAB97FD34EC120EE265948D19C17ABF9B7213BAF82D65B")
-	expectedAdd := newGFpFromHex("0691692307d370af56226e57920199fbbe10f216c67fbc9468c7f225a4b1f21f")
-	expectedDouble := newGFpFromHex("551de7a0ee24723edcf314ff72f478fac1c7c4e7044238acc3913cfbcdaf7d05")
-	expectedSub := newGFpFromHex("67b381821c52a5624f3304a8149be8461e3bc07adcb872c38aa65051ba53ba97")
-	expectedNeg := newGFpFromHex("7f1d8aad70909be90358f1d02240062433cc3a0248ded72febb879ec33ce6f22")
-	expectedMul := newGFpFromHex("3d08bbad376584e4f74bd31f78f716372b96ba8c3f939c12b8d54e79b6489e76")
-	expectedMul2 := newGFpFromHex("1df94a9e05a559ff38e0ab50cece734dc058d33738ceacaa15986a67cbff1ef6")
+	//x := newGFpFromHex("85AEF3D078640C98597B6027B441A01FF1DD2C190F5E93C454806C11D8806141")
+	x := &gfP{0xdb6db4822750a8a6, 0x84c6135a5121f134, 0x1874032f88791d41, 0x905112f2b85f3a37}
+	//y := newGFpFromHex("3722755292130B08D2AAB97FD34EC120EE265948D19C17ABF9B7213BAF82D65B")
+	y := &gfP{0x260226a68ce2da8f, 0x7ee5645edbf6c06b, 0xf8f57c82b1495444, 0x61fcf018bc47c4d1}
+	//expectedAdd := newGFpFromHex("0691692307d370af56226e57920199fbbe10f216c67fbc9468c7f225a4b1f21f")
+	expectedAdd := &gfP{0x1c004000d0e23db8, 0xe1b8e46e129dc2c4, 0x3b65d4624433aa40, 0x3c0e030b72035817}
+	//expectedDouble := newGFpFromHex("551de7a0ee24723edcf314ff72f478fac1c7c4e7044238acc3913cfbcdaf7d05")
+	expectedDouble := &gfP{0xd16bcddc6b500bcf, 0xe799936987c8f38d, 0x5ae45b0f1b63733d, 0x6a6225e56e1acd7c}
+	//expectedSub := newGFpFromHex("67b381821c52a5624f3304a8149be8461e3bc07adcb872c38aa65051ba53ba97")
+	expectedSub := &gfP{0x30040d4c48e37766, 0x1c11e44fa54fbe12, 0xb68524a31e5efe48, 0x87ebdd26068c318c}
+	//expectedNeg := newGFpFromHex("7f1d8aad70909be90358f1d02240062433cc3a0248ded72febb879ec33ce6f22")
+	expectedNeg := &gfP{0xbf6d7481566e6aee, 0xa30d2eec3e842e70, 0xdd0e2ecd44457300, 0x54430fe7465be21f}
+	//expectedMul := newGFpFromHex("3d08bbad376584e4f74bd31f78f716372b96ba8c3f939c12b8d54e79b6489e76")
+	expectedMul := &gfP{0x3f6d0af5b236a05a, 0xd5dc6968e27dd5aa, 0x6f26d5050cf628c2, 0x78ef5c13f390787a}
+	//expectedMul2 := newGFpFromHex("1df94a9e05a559ff38e0ab50cece734dc058d33738ceacaa15986a67cbff1ef6")
+	expectedMul2 := &gfP{0x3476b30ae9e54c3e, 0xb89d3d169a2b89d4, 0x5d2367ce84f5f23f, 0xb2b54255b1ef0de7}
 
 	t.Parallel()
 	t.Run("add", func(t *testing.T) {
