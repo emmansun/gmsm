@@ -357,7 +357,7 @@ TEXT ·gfpMul(SB), NOSPLIT, $0
 	OR t0, t1
 	MULHVU const1, hlp0, acc0
 
-	// MUL const2, hlop, t0
+	// MUL const2, hlp0, t0
 	MULV const2, hlp0, t0
 	// ADCS t0, acc2
 	ADDV t0, acc2, acc2
@@ -367,7 +367,7 @@ TEXT ·gfpMul(SB), NOSPLIT, $0
 	OR t0, t1
 	MULHVU const2, hlp0, a_ptr
 
-	// MUL const3, hlop, t0
+	// MUL const3, hlp0, t0
 	MULV const3, hlp0, t0
 	// ADCS t0, acc3
 	ADDV t0, acc3, acc3
@@ -375,7 +375,7 @@ TEXT ·gfpMul(SB), NOSPLIT, $0
 	ADDV t1, acc3, acc3
 	SGTU t1, acc3, t1
 	OR t0, t1
-	MULHVU const2, hlp0, hlp0
+	MULHVU const3, hlp0, hlp0
 	ADDV t1, acc4, acc4
 
 	// ADDS y0, acc1
@@ -451,14 +451,14 @@ TEXT ·gfpMul(SB), NOSPLIT, $0
 
 	// Second reduction step
 	MULV acc1, hlp1, hlp0
-	// MUL const0, hlop, t0
+	// MUL const0, hlp0, t0
 	MULV const0, hlp0, t0
 	// ADDS t0, acc1
 	ADDV t0, acc1, acc1 // acc1 is free now
 	SGTU t0, acc1, t1
 	MULHVU const0, hlp0, y0
 
-	// MUL const1, hlop, t0
+	// MUL const1, hlp0, t0
 	MULV const1, hlp0, t0
 	// ADCS t0, acc2
 	ADDV t0, acc2, acc2
@@ -468,7 +468,7 @@ TEXT ·gfpMul(SB), NOSPLIT, $0
 	OR t0, t1
 	MULHVU const1, hlp0, y1
 
-	// MUL const2, hlop, t0
+	// MUL const2, hlp0, t0
 	MULV const2, hlp0, t0
 	// ADCS t0, acc3
 	ADDV t0, acc3, acc3
@@ -478,7 +478,7 @@ TEXT ·gfpMul(SB), NOSPLIT, $0
 	OR t0, t1
 	MULHVU const2, hlp0, acc1
 
-	// MUL const3, hlop, t0
+	// MUL const3, hlp0, t0
 	MULV const3, hlp0, t0
 	// ADCS t0, acc0
 	ADDV t0, acc0, acc0
