@@ -67,11 +67,19 @@
 // func gfpNeg(c, a *gfP)
 TEXT ·gfpNeg(SB), NOSPLIT, $0-16
 	MOVV a+8(FP), a_ptr
-	loadBlock(0(a_ptr), x0, x1, x2, x3)
+	//loadBlock(0(a_ptr), x0, x1, x2, x3)
 	loadModulus(const0, const1, const2, const3)
+	MOVV (0*8)(a_ptr), x0
+	MOVV (1*8)(a_ptr), x1
+	MOVV (2*8)(a_ptr), x2
+	MOVV (3*8)(a_ptr), x3
 
 	MOVV c+0(FP), res_ptr
-	storeBlock(x0, x1, x2, x3, 0(res_ptr))
+	//storeBlock(x0, x1, x2, x3, 0(res_ptr))
+	MOVV x0, (0*8)(res_ptr)
+	MOVV x1, (1*8)(res_ptr)
+	MOVV x2, (2*8)(res_ptr)
+	MOVV x3, (3*8)(res_ptr)
 
 	RET
 
@@ -219,8 +227,8 @@ TEXT ·gfpTriple(SB), NOSPLIT, $0-16
 
 // func gfpSub(c, a, b *gfP)
 TEXT ·gfpSub(SB), NOSPLIT, $0-24
-	MOVV in+8(FP), a_ptr
-	MOVV in+16(FP), b_ptr
+	MOVV a+8(FP), a_ptr
+	MOVV b+16(FP), b_ptr
 	MOVV c+0(FP), res_ptr
 
 	loadBlock(0(b_ptr), x0, x1, x2, x3)
@@ -1265,10 +1273,7 @@ TEXT ·gfpUnmarshal(SB), NOSPLIT, $0
 
 /* ---------------------------------------*/
 // func gfpMarshal(res *[32]byte, in *gfP)
-TEXT ·gfpMarshal(SB),NOSPLIT,$0
-	MOVV	res+0(FP), res_ptr
-	MOVV	in+8(FP), a_ptr
-
+TEXT ·gfpMarshal(SB), NOSPLIT, $0
 	MOVV res+0(FP), res_ptr
 	MOVV in+8(FP), x_ptr
 
