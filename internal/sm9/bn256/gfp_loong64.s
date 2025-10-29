@@ -244,7 +244,7 @@ TEXT ·gfpTriple(SB), NOSPLIT, $0-16
 	ADDV t0, x3, x3
 	SGTU t0, x3, hlp0
 	OR hlp0, t1, acc5
-	gfpCarry(y0, y1, y2, y3, acc5, const0, const1, const2, const3)
+	gfpCarry(x0, x1, x2, x3, acc5, const0, const1, const2, const3)
 	storeBlock(x0, x1, x2, x3, 0(res_ptr))
 	RET
 
