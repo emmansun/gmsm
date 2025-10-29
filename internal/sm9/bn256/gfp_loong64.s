@@ -65,7 +65,7 @@
 	MOVV ·p2+24(SB), p3
 
 // func gfpNeg(c, a *gfP)
-TEXT ·gfpNeg(SB), NOSPLIT, $0-16
+TEXT ·gfpNeg(SB), NOSPLIT, $0
 	MOVV a+8(FP), a_ptr
 	//loadBlock(0(a_ptr), x0, x1, x2, x3)
 	loadModulus(const0, const1, const2, const3)
@@ -119,7 +119,7 @@ TEXT ·gfpNeg(SB), NOSPLIT, $0-16
 	OR acc3, x3, x3
 
 // func gfpAdd(c, a, b *gfP)
-TEXT ·gfpAdd(SB), NOSPLIT, $0-24
+TEXT ·gfpAdd(SB), NOSPLIT, $0
 	MOVV a+8(FP), a_ptr
 	MOVV b+16(FP), b_ptr
 	MOVV c+0(FP), res_ptr
@@ -156,7 +156,7 @@ TEXT ·gfpAdd(SB), NOSPLIT, $0-24
 	RET
 
 // func gfpDouble(c, a *gfP)
-TEXT ·gfpDouble(SB), NOSPLIT, $0-16
+TEXT ·gfpDouble(SB), NOSPLIT, $0
 	MOVV a+8(FP), a_ptr
 	MOVV c+0(FP), res_ptr
 
@@ -181,7 +181,7 @@ TEXT ·gfpDouble(SB), NOSPLIT, $0-16
 	RET
 
 // func gfpTriple(c, a *gfP)
-TEXT ·gfpTriple(SB), NOSPLIT, $0-16
+TEXT ·gfpTriple(SB), NOSPLIT, $0
 	MOVV a+8(FP), a_ptr
 	MOVV c+0(FP), res_ptr
 
@@ -226,7 +226,7 @@ TEXT ·gfpTriple(SB), NOSPLIT, $0-16
 	RET
 
 // func gfpSub(c, a, b *gfP)
-TEXT ·gfpSub(SB), NOSPLIT, $0-24
+TEXT ·gfpSub(SB), NOSPLIT, $0
 	MOVV a+8(FP), a_ptr
 	MOVV b+16(FP), b_ptr
 	MOVV c+0(FP), res_ptr
