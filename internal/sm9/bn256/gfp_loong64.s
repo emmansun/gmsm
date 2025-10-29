@@ -104,17 +104,17 @@ TEXT ·gfpNeg(SB), NOSPLIT, $0-16
 	XOR const3, x3, t1
 	OR t1, t0
 
-	MASKEQZ t0, x0, x0
-	MASKEQZ t0, x1, x1
-	MASKEQZ t0, x2, x2
-	MASKEQZ t0, x3, x3
+	//MASKEQZ t0, x0, x0
+	//MASKEQZ t0, x1, x1
+	//MASKEQZ t0, x2, x2
+	//MASKEQZ t0, x3, x3
 	
 	MOVV out+0(FP), res_ptr
 	//storeBlock(x0, x1, x2, x3, 0(res_ptr))
-	MOVV const0,  0(res_ptr)
-	MOVV const1,  8(res_ptr)
-	MOVV const2, 16(res_ptr)
-	MOVV const3, 24(res_ptr)
+	MOVV x0,  0(res_ptr)
+	MOVV x1,  8(res_ptr)
+	MOVV x2, 16(res_ptr)
+	MOVV x3, 24(res_ptr)
 
 	RET
 
