@@ -122,6 +122,50 @@ func TestP256OrdMulOrdMinus1(t *testing.T) {
 	p256OrdMulTest(t, pMinus1, pMinus1, p, r)
 }
 
+/*
+func main() {
+	mod := new(big.Int).Lsh(big.NewInt(1), 64) // 2^64
+	p2 := []*big.Int{
+		new(big.Int).SetUint64(0x53bbf40939d54123),
+		new(big.Int).SetUint64(0x7203df6b21c6052b),
+		new(big.Int).SetUint64(0xffffffffffffffff),
+		new(big.Int).SetUint64(0xfffffffeffffffff),
+	}
+	mult := new(big.Int).SetUint64(0x327f9e8872350975)
+
+	for i, v := range p2 {
+		// y = (-1) * modinv(p2[i], 2^64) mod 2^64
+		y := new(big.Int).ModInverse(v, mod)
+		y.Neg(y)
+		y.Mod(y, mod)
+
+		// x = y * modinv(mult, 2^64) mod 2^64
+		x := new(big.Int).ModInverse(mult, mod)
+		x.Mul(x, y)
+		x.Mod(x, mod)
+
+		// Verify
+		y2 := new(big.Int).Mul(x, mult)
+		y2.Mod(y2, mod)
+
+		result := new(big.Int).Mul(y2, v)
+		result.Mod(result, mod)
+
+		fmt.Printf("p2[%d]: 0x%x\n", i, v.Uint64())
+		fmt.Printf("  x: 0x%x\n", x.Uint64())
+		fmt.Printf("  (x * mult) %% 2^64 = 0x%x\n", y2.Uint64())
+		fmt.Printf("  ((x * mult) * p2[i]) %% 2^64 = 0x%x\n", result.Uint64())
+		fmt.Printf("  Is all 1? %v\n\n", result.Uint64() == ^uint64(0))
+	}
+}
+*/
+func TestP256OrdMulWithCarry(t *testing.T) {
+	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123", 16)
+	r, _ := new(big.Int).SetString("10000000000000000000000000000000000000000000000000000000000000000", 16)
+	data := bigFromHex("E6194D19C62ABEDDAC440BF6C62ABEDD7203DF6B21C6052B0000000000000001")
+	p256OrdMulTest(t, data, big.NewInt(1), p, r)
+}
+
 func TestFuzzyP256OrdMul(t *testing.T) {
 	p, _ := new(big.Int).SetString("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123", 16)
 	r, _ := new(big.Int).SetString("10000000000000000000000000000000000000000000000000000000000000000", 16)
