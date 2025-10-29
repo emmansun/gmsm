@@ -125,8 +125,8 @@ TEXT ·gfpNeg(SB), NOSPLIT, $0-16
 	SGTU t0, acc3, hlp0                \
 	SUBV t0, acc3, acc3                \
 	OR hlp0, t1, t0                    \
-	\ // check if there are borrows or not
-	SGTU t0, carry, t0                 \
+	\
+	OR t0, carry, t0                   \
 	\
 	MASKNEZ t0, x0, x0                 \
 	MASKEQZ t0, acc0, acc0             \
