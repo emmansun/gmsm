@@ -283,19 +283,19 @@ TEXT ·gfpSub(SB), NOSPLIT, $0-24
 	MASKEQZ t0, const3, const3
 
 	ADDV const0, acc0, x0
-	SGTU const0, acc0, t0
+	SGTU const0, x0, t0
 	ADDV const1, acc1, x1
-	SGTU const1, acc1, t1
+	SGTU const1, x1, t1
 	ADDV t0, x1, x1
 	SGTU t0, x1, hlp0
 	OR hlp0, t1, t0
 	ADDV const2, acc2, x2
-	SGTU const2, acc2, t1
+	SGTU const2, x2, t1
 	ADDV t0, x2, x2
 	SGTU t0, x2, hlp0
 	OR hlp0, t1, t0
 	ADDV const3, acc3, x3
-	SGTU const3, acc3, t1
+	SGTU const3, x3, t1
 	ADDV t0, x3, x3
 
 	storeBlock(x0, x1, x2, x3, 0(res_ptr))
