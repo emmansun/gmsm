@@ -158,7 +158,7 @@ func TestFromMont(t *testing.T) {
 	gfpFromMont(ret1, x)
 	gfpMul(ret2, x, &gfP{1})
 	if *ret1 != *ret2 {
-		t.Errorf("mul/fromMont not same")
+		t.Errorf("mul/fromMont not same, got %v, expected %v", ret2, ret1)
 	}
 }
 
