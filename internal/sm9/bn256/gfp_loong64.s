@@ -66,20 +66,12 @@
 
 // func gfpNeg(c, a *gfP)
 TEXT ·gfpNeg(SB), NOSPLIT, $0-16
-	MOVV in+8(FP), a_ptr
-	//loadBlock(0(a_ptr), x0, x1, x2, x3)
-	//loadModulus(const0, const1, const2, const3)
-	MOVV ·p2+0(SB), const0
-	MOVV ·p2+8(SB), const1
-	MOVV ·p2+16(SB), const2
-	MOVV ·p2+24(SB), const3
-	MOVV 0(a_ptr), x0
-	MOVV 8(a_ptr), x1
-	MOVV 16(a_ptr), x2
-	MOVV 24(a_ptr), x3
+	MOVV a+8(FP), a_ptr
+	loadBlock(0(a_ptr), x0, x1, x2, x3)
+	loadModulus(const0, const1, const2, const3)
 
 	SGTU x0, const0, t0
-	SUBV x0, const0, acc0
+	SUBV x0, const0, x0
 	// SUBCS x1, const1, x1
 	SGTU x1, const1, t1
 	SUBV x1, const1, x1
@@ -104,17 +96,13 @@ TEXT ·gfpNeg(SB), NOSPLIT, $0-16
 	XOR const3, x3, t1
 	OR t1, t0
 
-	//MASKEQZ t0, x0, x0
-	//MASKEQZ t0, x1, x1
-	//MASKEQZ t0, x2, x2
-	//MASKEQZ t0, x3, x3
+	MASKEQZ t0, x0, x0
+	MASKEQZ t0, x1, x1
+	MASKEQZ t0, x2, x2
+	MASKEQZ t0, x3, x3
 	
-	MOVV out+0(FP), res_ptr
-	//storeBlock(x0, x1, x2, x3, 0(res_ptr))
-	MOVV x0,  0(res_ptr)
-	MOVV x1,  8(res_ptr)
-	MOVV x2, 16(res_ptr)
-	MOVV x3, 24(res_ptr)
+	MOVV c+0(FP), res_ptr
+	storeBlock(x0, x1, x2, x3, 0(res_ptr))
 
 	RET
 
@@ -155,9 +143,9 @@ TEXT ·gfpNeg(SB), NOSPLIT, $0-16
 
 // func gfpAdd(c, a, b *gfP)
 TEXT ·gfpAdd(SB), NOSPLIT, $0-24
-	MOVV in+8(FP), a_ptr
-	MOVV in+16(FP), b_ptr
-	MOVV out+0(FP), res_ptr
+	MOVV a+8(FP), a_ptr
+	MOVV b+16(FP), b_ptr
+	MOVV c+0(FP), res_ptr
 
 	loadBlock(0(a_ptr), x0, x1, x2, x3)
 	loadBlock(0(b_ptr), y0, y1, y2, y3)
@@ -192,8 +180,8 @@ TEXT ·gfpAdd(SB), NOSPLIT, $0-24
 
 // func gfpDouble(c, a *gfP)
 TEXT ·gfpDouble(SB), NOSPLIT, $0-16
-	MOVV in+8(FP), a_ptr
-	MOVV out+0(FP), res_ptr
+	MOVV a+8(FP), a_ptr
+	MOVV c+0(FP), res_ptr
 
 	loadBlock(0(a_ptr), x0, x1, x2, x3)
 	SRLV $63, x0, t0
@@ -217,8 +205,8 @@ TEXT ·gfpDouble(SB), NOSPLIT, $0-16
 
 // func gfpTriple(c, a *gfP)
 TEXT ·gfpTriple(SB), NOSPLIT, $0-16
-	MOVV in+8(FP), a_ptr
-	MOVV out+0(FP), res_ptr
+	MOVV a+8(FP), a_ptr
+	MOVV c+0(FP), res_ptr
 
 	loadBlock(0(a_ptr), x0, x1, x2, x3)
 	// double first
@@ -264,7 +252,7 @@ TEXT ·gfpTriple(SB), NOSPLIT, $0-16
 TEXT ·gfpSub(SB), NOSPLIT, $0-24
 	MOVV in+8(FP), a_ptr
 	MOVV in+16(FP), b_ptr
-	MOVV out+0(FP), res_ptr
+	MOVV c+0(FP), res_ptr
 
 	loadBlock(0(b_ptr), x0, x1, x2, x3)
 	loadBlock(0(a_ptr), y0, y1, y2, y3)
@@ -318,8 +306,8 @@ TEXT ·gfpSub(SB), NOSPLIT, $0-24
 
 // func gfpMul(c, a, b *gfP)
 TEXT ·gfpMul(SB), NOSPLIT, $0
-	MOVV in+8(FP), a_ptr
-	MOVV in+16(FP), b_ptr
+	MOVV a+8(FP), a_ptr
+	MOVV b+16(FP), b_ptr
 	MOVV ·np+0x00(SB), hlp1
 
 	loadBlock(0(a_ptr), x0, x1, x2, x3)
@@ -738,7 +726,7 @@ TEXT ·gfpMul(SB), NOSPLIT, $0
 	// final reduction
 	gfpCarry(x0, x1, x2, x3, acc5, const0, const1, const2, const3)
 
-	MOVV out+0(FP), res_ptr
+	MOVV c+0(FP), res_ptr
 	storeBlock(x0, x1, x2, x3, 0(res_ptr))
 
 	RET
@@ -746,7 +734,7 @@ TEXT ·gfpMul(SB), NOSPLIT, $0
 // func gfpSqr(res, in *gfP, n int)
 TEXT ·gfpSqr(SB), NOSPLIT, $0
 	MOVV in+8(FP), a_ptr
-	MOVV in+16(FP), b_ptr
+	MOVV n+16(FP), b_ptr
 	MOVV ·np+0x00(SB), hlp1
 
 	loadBlock(0(a_ptr), x0, x1, x2, x3)
@@ -1088,7 +1076,7 @@ sqrLoop:
 		gfpCarry(x0, x1, x2, x3, acc5, const0, const1, const2, const3)
 		BNE b_ptr, sqrLoop
 
-	MOVV out+0(FP), res_ptr
+	MOVV res+0(FP), res_ptr
 	storeBlock(x0, x1, x2, x3, 0(res_ptr))
 	RET
 
@@ -1296,7 +1284,7 @@ TEXT ·gfpFromMont(SB), NOSPLIT, $0
 
 	gfpCarry(x0, x1, x2, x3, ZERO, const0, const1, const2, const3)
 
-	MOVV out+0(FP), res_ptr
+	MOVV res+0(FP), res_ptr
 	storeBlock(x0, x1, x2, x3, 0(res_ptr))
 
 	RET
