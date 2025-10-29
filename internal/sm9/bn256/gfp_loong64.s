@@ -67,24 +67,32 @@
 // func gfpNeg(c, a *gfP)
 TEXT ·gfpNeg(SB), NOSPLIT, $0-16
 	MOVV in+8(FP), a_ptr
-	loadBlock(0(a_ptr), x0, x1, x2, x3)
-	loadModulus(const0, const1, const2, const3)
+	//loadBlock(0(a_ptr), x0, x1, x2, x3)
+	//loadModulus(const0, const1, const2, const3)
+	MOVV ·p2+0(SB), const0
+	MOVV ·p2+8(SB), const1
+	MOVV ·p2+16(SB), const2
+	MOVV ·p2+24(SB), const3
+	MOVV 0(a_ptr), x0
+	MOVV 8(a_ptr), x1
+	MOVV 16(a_ptr), x2
+	MOVV 24(a_ptr), x3
 
 	SGTU x0, const0, t0
 	SUBV x0, const0, x0
-	// SUBCS const1, x1
+	// SUBCS x1, const1, x1
 	SGTU x1, const1, t1
 	SUBV x1, const1, x1
 	SGTU t0, x1, hlp0
 	SUBV t0, x1, x1
 	OR hlp0, t1, t0
-	// SUBCS const2, x2
+	// SUBCS x2, const2, x2
 	SGTU x2, const2, t1
 	SUBV x2, const2, x2
 	SGTU t0, x2, hlp0
 	SUBV t0, x2, x2
 	OR hlp0, t1, t0
-	// SUBCS const3, x3
+	// SUBCS x3, const3, x3
 	ADDV t0, x3, x3
 	SUBV x3, const3, x3 // last one no need to check carry
 
@@ -102,7 +110,11 @@ TEXT ·gfpNeg(SB), NOSPLIT, $0-16
 	MASKEQZ t0, x3, x3
 	
 	MOVV out+0(FP), res_ptr
-	storeBlock(x0, x1, x2, x3, 0(res_ptr))
+	//storeBlock(x0, x1, x2, x3, 0(res_ptr))
+	MOVV x0,  0(res_ptr)
+	MOVV x1,  8(res_ptr)
+	MOVV x2, 16(res_ptr)
+	MOVV x3, 24(res_ptr)
 
 	RET
 
@@ -152,16 +164,19 @@ TEXT ·gfpAdd(SB), NOSPLIT, $0-24
 
 	ADDV x0, y0, x0
 	SGTU y0, x0, t0
+
 	ADDV x1, y1, x1
 	SGTU y1, x1, t1
 	ADDV t0, x1, x1
 	SGTU t0, x1, hlp0
 	OR hlp0, t1, t0
+
 	ADDV x2, y2, x2
 	SGTU y2, x2, t1
 	ADDV t0, x2, x2
 	SGTU t0, x2, hlp0
 	OR hlp0, t1, t0
+
 	ADDV x3, y3, x3
 	SGTU y3, x3, t1
 	ADDV t0, x3, x3
