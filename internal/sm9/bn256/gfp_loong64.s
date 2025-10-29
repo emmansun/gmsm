@@ -128,17 +128,17 @@ TEXT ·gfpNeg(SB), NOSPLIT, $0-16
 	\
 	OR t0, carry, t0                   \
 	\
-	MASKNEZ t0, x0, x0                 \
-	MASKEQZ t0, acc0, acc0             \
+	MASKEQZ t0, x0, x0                 \
+	MASKNEZ t0, acc0, acc0             \
 	OR acc0, x0, x0                    \
-	MASKNEZ t0, x1, x1                 \
-	MASKEQZ t0, acc1, acc1             \
+	MASKEQZ t0, x1, x1                 \
+	MASKNEZ t0, acc1, acc1             \
 	OR acc1, x1, x1                    \
-	MASKNEZ t0, x2, x2                 \
-	MASKEQZ t0, acc2, acc2             \
+	MASKEQZ t0, x2, x2                 \
+	MASKNEZ t0, acc2, acc2             \
 	OR acc2, x2, x2                    \
-	MASKNEZ t0, x3, x3                 \
-	MASKEQZ t0, acc3, acc3             \
+	MASKEQZ t0, x3, x3                 \
+	MASKNEZ t0, acc3, acc3             \
 	OR acc3, x3, x3
 
 // func gfpAdd(c, a, b *gfP)
