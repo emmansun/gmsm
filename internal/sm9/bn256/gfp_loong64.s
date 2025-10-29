@@ -65,21 +65,44 @@
 	MOVV ·p2+24(SB), p3
 
 // func gfpNeg(c, a *gfP)
-TEXT ·gfpNeg(SB), NOSPLIT, $0
+TEXT ·gfpNeg(SB), NOSPLIT, $0-16
 	MOVV a+8(FP), a_ptr
-	//loadBlock(0(a_ptr), x0, x1, x2, x3)
+	loadBlock(0(a_ptr), x0, x1, x2, x3)
 	loadModulus(const0, const1, const2, const3)
-	MOVV (0*8)(a_ptr), x0
-	MOVV (1*8)(a_ptr), x1
-	MOVV (2*8)(a_ptr), x2
-	MOVV (3*8)(a_ptr), x3
 
+	SGTU x0, const0, t0
+	SUBV x0, const0, x0
+	// SUBCS x1, const1, x1
+	SGTU x1, const1, t1
+	SUBV x1, const1, x1
+	SGTU t0, x1, hlp0
+	SUBV t0, x1, x1
+	OR hlp0, t1, t0
+	// SUBCS x2, const2, x2
+	SGTU x2, const2, t1
+	SUBV x2, const2, x2
+	SGTU t0, x2, hlp0
+	SUBV t0, x2, x2
+	OR hlp0, t1, t0
+	// SUBCS x3, const3, x3
+	ADDV t0, x3, x3
+	SUBV x3, const3, x3 // last one no need to check carry
+
+	XOR const0, x0, t0
+	XOR const1, x1, t1
+	OR t1, t0
+	XOR const2, x2, t1
+	OR t1, t0
+	XOR const3, x3, t1
+	OR t1, t0
+
+	MASKEQZ t0, x0, x0
+	MASKEQZ t0, x1, x1
+	MASKEQZ t0, x2, x2
+	MASKEQZ t0, x3, x3
+	
 	MOVV c+0(FP), res_ptr
-	//storeBlock(x0, x1, x2, x3, 0(res_ptr))
-	MOVV x0, (0*8)(res_ptr)
-	MOVV x1, (1*8)(res_ptr)
-	MOVV x2, (2*8)(res_ptr)
-	MOVV x3, (3*8)(res_ptr)
+	storeBlock(x0, x1, x2, x3, 0(res_ptr))
 
 	RET
 
@@ -119,7 +142,7 @@ TEXT ·gfpNeg(SB), NOSPLIT, $0
 	OR acc3, x3, x3
 
 // func gfpAdd(c, a, b *gfP)
-TEXT ·gfpAdd(SB), NOSPLIT, $0
+TEXT ·gfpAdd(SB), NOSPLIT, $0-24
 	MOVV a+8(FP), a_ptr
 	MOVV b+16(FP), b_ptr
 	MOVV c+0(FP), res_ptr
@@ -156,7 +179,7 @@ TEXT ·gfpAdd(SB), NOSPLIT, $0
 	RET
 
 // func gfpDouble(c, a *gfP)
-TEXT ·gfpDouble(SB), NOSPLIT, $0
+TEXT ·gfpDouble(SB), NOSPLIT, $0-16
 	MOVV a+8(FP), a_ptr
 	MOVV c+0(FP), res_ptr
 
@@ -181,7 +204,7 @@ TEXT ·gfpDouble(SB), NOSPLIT, $0
 	RET
 
 // func gfpTriple(c, a *gfP)
-TEXT ·gfpTriple(SB), NOSPLIT, $0
+TEXT ·gfpTriple(SB), NOSPLIT, $0-16
 	MOVV a+8(FP), a_ptr
 	MOVV c+0(FP), res_ptr
 
@@ -226,7 +249,7 @@ TEXT ·gfpTriple(SB), NOSPLIT, $0
 	RET
 
 // func gfpSub(c, a, b *gfP)
-TEXT ·gfpSub(SB), NOSPLIT, $0
+TEXT ·gfpSub(SB), NOSPLIT, $0-24
 	MOVV a+8(FP), a_ptr
 	MOVV b+16(FP), b_ptr
 	MOVV c+0(FP), res_ptr
@@ -1079,25 +1102,31 @@ TEXT ·gfpFromMont(SB), NOSPLIT, $0
 	// MUL const1, hlp0, t0
 	MULV hlp0, const1, t0
 	// ADCS t0, acc1
-	ADDV t1, t0, t1         // no carry
+	ADDV t0, acc1, acc1
+	SGTU t0, acc1, t0
 	ADDV t1, acc1, acc1
 	SGTU t1, acc1, t1
+	OR t0, t1, t1
 	MULHVU hlp0, const1, y1
 
 	// MUL const2, hlp0, t0
 	MULV hlp0, const2, t0
 	// ADCS t0, acc2
-	ADDV t1, t0, t1         // no carry
+	ADDV t0, acc2, acc2
+	SGTU t0, acc2, t0
 	ADDV t1, acc2, acc2
 	SGTU t1, acc2, t1
+	OR t0, t1, t1
 	MULHVU hlp0, const2, y2
 
 	// MUL const3, hlp0, t0
 	MULV hlp0, const3, t0
 	// ADCS t0, acc3
-	ADDV t1, t0, t1         // no carry
+	ADDV t0, acc3, acc3
+	SGTU t0, acc3, t0
 	ADDV t1, acc3, acc3
 	SGTU t1, acc3, t1
+	OR t0, t1, t1
 	MULHVU hlp0, const3, acc0
 	ADDV t1, acc0, acc0       // no carry
 
@@ -1127,25 +1156,31 @@ TEXT ·gfpFromMont(SB), NOSPLIT, $0
 	// MUL const1, hlp0, t0
 	MULV hlp0, const1, t0
 	// ADCS t0, acc2
-	ADDV t1, t0, t1         // no carry
+	ADDV t0, acc2, acc2
+	SGTU t0, acc2, t0
 	ADDV t1, acc2, acc2
 	SGTU t1, acc2, t1
+	OR t0, t1, t1
 	MULHVU hlp0, const1, y1
 
 	// MUL const2, hlp0, t0
 	MULV hlp0, const2, t0
 	// ADCS t0, acc3
-	ADDV t1, t0, t1         // no carry
+	ADDV t0, acc3, acc3
+	SGTU t0, acc3, t0
 	ADDV t1, acc3, acc3
 	SGTU t1, acc3, t1
+	OR t0, t1, t1
 	MULHVU hlp0, const2, y2
 
 	// MUL const3, hlp0, t0
 	MULV hlp0, const3, t0
 	// ADCS t0, acc0
-	ADDV t0, t1, t1         // no carry
+	ADDV t0, acc0, acc0
+	SGTU t0, acc0, t0
 	ADDV t1, acc0, acc0
 	SGTU t1, acc0, t1
+	OR t0, t1, t1
 	MULHVU hlp0, const3, acc1
 	ADDV t1, acc1, acc1       // no carry
 
@@ -1175,25 +1210,31 @@ TEXT ·gfpFromMont(SB), NOSPLIT, $0
 	// MUL const1, hlp0, t0
 	MULV hlp0, const1, t0
 	// ADCS t0, acc3
-	ADDV t1, t0, t1         // no carry
+	ADDV t0, acc3, acc3
+	SGTU t0, acc3, t0
 	ADDV t1, acc3, acc3
 	SGTU t1, acc3, t1
+	OR t0, t1, t1
 	MULHVU hlp0, const1, y1
 
 	// MUL const2, hlp0, t0
 	MULV hlp0, const2, t0
 	// ADCS t0, acc0
-	ADDV t1, t0, t1         // no carry
+	ADDV t0, acc0, acc0
+	SGTU t0, acc0, t0
 	ADDV t1, acc0, acc0
 	SGTU t1, acc0, t1
+	OR t0, t1, t1
 	MULHVU hlp0, const2, y2
 
 	// MUL const3, hlp0, t0
 	MULV hlp0, const3, t0
 	// ADCS t0, acc1
-	ADDV t0, t1, t1         // no carry
+	ADDV t0, acc1, acc1
+	SGTU t0, acc1, t0
 	ADDV t1, acc1, acc1
 	SGTU t1, acc1, t1
+	OR t0, t1, t1
 	MULHVU hlp0, const3, acc2
 	ADDV t1, acc2, acc2       // no carry
 
@@ -1223,25 +1264,31 @@ TEXT ·gfpFromMont(SB), NOSPLIT, $0
 	// MUL const1, hlp0, t0
 	MULV hlp0, const1, t0
 	// ADCS t0, acc0
-	ADDV t1, t0, t1         // no carry
+	ADDV t0, acc0, acc0
+	SGTU t0, acc0, t0
 	ADDV t1, acc0, acc0
 	SGTU t1, acc0, t1
+	OR t0, t1, t1
 	MULHVU hlp0, const1, y1
 
 	// MUL const2, hlp0, t0
 	MULV hlp0, const2, t0
 	// ADCS t0, acc1
-	ADDV t1, t0, t1         // no carry
+	ADDV t0, acc1, acc1
+	SGTU t0, acc1, t0
 	ADDV t1, acc1, acc1
 	SGTU t1, acc1, t1
+	OR t0, t1, t1
 	MULHVU hlp0, const2, y2
 
 	// MUL const3, hlp0, t0
 	MULV hlp0, const3, t0
 	// ADCS t0, acc2
-	ADDV t0, t1, t1         // no carry
+	ADDV t0, acc2, acc2
+	SGTU t0, acc2, t0
 	ADDV t1, acc2, acc2
 	SGTU t1, acc2, t1
+	OR t0, t1, t1
 	MULHVU hlp0, const3, acc3
 	ADDV t1, acc3, acc3       // no carry
 
@@ -1273,7 +1320,7 @@ TEXT ·gfpUnmarshal(SB), NOSPLIT, $0
 
 /* ---------------------------------------*/
 // func gfpMarshal(res *[32]byte, in *gfP)
-TEXT ·gfpMarshal(SB), NOSPLIT, $0
+TEXT ·gfpMarshal(SB),NOSPLIT,$0
 	MOVV res+0(FP), res_ptr
 	MOVV in+8(FP), x_ptr
 
