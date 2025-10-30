@@ -20,7 +20,7 @@
 #define GB R6
 #define I R20
 
-#define doubleTweak \
+#define doubleTweak           \
 	VSRLV $63, B0, T2         \
 	VILVLV ZERO_V, T2, T2     \
 	VSLLV $1, B0, T1          \
@@ -31,7 +31,7 @@
 	VANDV POLY, T1, T1        \
 	VXORV T1, T2, B0
 
-#define gbDoubleTweak
+#define gbDoubleTweak         \
 	VSLLV $63, B0, T2         \
 	VILVHV ZERO_V, T2, T2     \
 	VSRLV $1, B0, T1          \
