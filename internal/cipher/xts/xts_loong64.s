@@ -33,7 +33,7 @@
 
 #define gbDoubleTweak         \
 	VSLLV $63, B0, T2         \
-	VILVHV ZERO_V, T2, T2     \
+	VILVHV T2, ZERO_V, T2     \
 	VSRLV $1, B0, T1          \
 	VXORV T1, T2, T2          \
 	\
