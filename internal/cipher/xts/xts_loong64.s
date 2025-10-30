@@ -14,7 +14,7 @@
 #define T2 V2
 
 #define POLY V3
-#define ZERO V4
+#define ZERO_V V4
 
 #define TW R5
 #define GB R6
@@ -22,7 +22,7 @@
 
 #define doubleTweak \
 	VSRLV $63, B0, T2         \
-	VILVLV ZERO, T2, T2       \
+	VILVLV ZERO_V, T2, T2     \
 	VSLLV $1, B0, T1          \
 	VXORV T1, T2, T2          \
 	\
@@ -33,7 +33,7 @@
 
 #define gbDoubleTweak
 	VSLLV $63, B0, T2         \
-	VILVHV ZERO, T2, T2       \
+	VILVHV ZERO_V, T2, T2     \
 	VSRLV $1, B0, T1          \
 	VXORV T1, T2, T2          \
 	\
@@ -53,7 +53,7 @@ TEXT ·mul2Lsx(SB),NOSPLIT,$0
 	VMOVQ (TW), B0
 
 	VXORV	POLY, POLY, POLY
-	VXORV	ZERO, ZERO, ZERO
+	VXORV	ZERO_V, ZERO_V, ZERO_V
 
 	BNE GB, ZERO, gb_alg
 
