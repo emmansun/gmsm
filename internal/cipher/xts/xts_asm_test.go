@@ -1,4 +1,4 @@
-//go:build (amd64 || arm64 || s390x || ppc64 || ppc64le) && !purego
+//go:build (amd64 || arm64 || s390x || ppc64 || ppc64le || loong64) && !purego
 
 package xts
 
