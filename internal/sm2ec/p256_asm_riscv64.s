@@ -1289,9 +1289,11 @@ ordSqrLoop:
 		// MUL const1, hlp0, t0
 		MUL hlp0, const1, t0
 		// ADCS t0, acc1
-		ADD t1, t0, t1         // no carry
+		ADD t0, acc1, acc1
+		SLTU t0, acc1, t0
 		ADD t1, acc1, acc1
 		SLTU t1, acc1, t1
+		OR t0, t1, t1
 		MULHU hlp0, const1, y1
 
 		// MUL const2, hlp0, t0
@@ -1307,9 +1309,11 @@ ordSqrLoop:
 		// MUL const3, hlp0, t0
 		MUL hlp0, const3, t0
 		// ADCS t0, acc3
-		ADD t0, t1, t1         // no carry
+		ADD t0, acc3, acc3
+		SLTU t0, acc3, t0
 		ADD t1, acc3, acc3
 		SLTU t1, acc3, t1
+		OR t0, t1, t1
 		MULHU hlp0, const3, acc0
 		ADD t1, acc0, acc0         // no carry
 
@@ -1339,9 +1343,11 @@ ordSqrLoop:
 		// MUL const1, hlp0, t0
 		MUL hlp0, const1, t0
 		// ADCS t0, acc2
-		ADD t1, t0, t1         // no carry
+		ADD t0, acc2, acc2
+		SLTU t0, acc2, t0
 		ADD t1, acc2, acc2
 		SLTU t1, acc2, t1
+		OR t0, t1, t1
 		MULHU hlp0, const1, y1
 
 		// MUL const2, hlp0, t0
@@ -1357,9 +1363,11 @@ ordSqrLoop:
 		// MUL const3, hlp0, t0
 		MUL hlp0, const3, t0
 		// ADCS t0, acc0
-		ADD t0, t1, t1         // no carry
+		ADD t0, acc0, acc0
+		SLTU t0, acc0, t0
 		ADD t1, acc0, acc0
 		SLTU t1, acc0, t1
+		OR t0, t1, t1
 		MULHU hlp0, const3, acc1
 		ADD t1, acc1, acc1       // no carry
 
@@ -1389,9 +1397,11 @@ ordSqrLoop:
 		// MUL const1, hlp0, t0
 		MUL hlp0, const1, t0
 		// ADCS t0, acc3
-		ADD t1, t0, t1         // no carry
+		ADD t0, acc3, acc3
+		SLTU t0, acc3, t0
 		ADD t1, acc3, acc3
 		SLTU t1, acc3, t1
+		OR t0, t1, t1
 		MULHU hlp0, const1, y1
 
 		// MUL const2, hlp0, t0
@@ -1407,9 +1417,11 @@ ordSqrLoop:
 		// MUL const3, hlp0, t0
 		MUL hlp0, const3, t0
 		// ADCS t0, acc1
-		ADD t0, t1, t1         // no carry
+		ADD t0, acc1, acc1
+		SLTU t0, acc1, t0
 		ADD t1, acc1, acc1
 		SLTU t1, acc1, t1
+		OR t0, t1, t1
 		MULHU hlp0, const3, acc2
 		ADD t1, acc2, acc2       // no carry
 
@@ -1439,9 +1451,11 @@ ordSqrLoop:
 		// MUL const1, hlp0, t0
 		MUL hlp0, const1, t0
 		// ADCS t0, acc0
-		ADD t1, t0, t1         // no carry
+		ADD t0, acc0, acc0
+		SLTU t0, acc0, t0
 		ADD t1, acc0, acc0
 		SLTU t1, acc0, t1
+		OR t0, t1, t1
 		MULHU hlp0, const1, y1
 
 		// MUL const2, hlp0, t0
@@ -1457,9 +1471,11 @@ ordSqrLoop:
 		// MUL const3, hlp0, t0
 		MUL hlp0, const3, t0
 		// ADCS t0, acc2
-		ADD t0, t1, t1         // no carry
+		ADD t0, acc2, acc2
+		SLTU t0, acc2, t0
 		ADD t1, acc2, acc2
 		SLTU t1, acc2, t1
+		OR t0, t1, t1
 		MULHU hlp0, const3, acc3
 		ADD t1, acc3, acc3       // no carry
 
@@ -1595,9 +1611,11 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	// MUL const1, hlp0, t0
 	MUL hlp0, const1, t0
 	// ADCS t0, acc1
-	ADD t1, t0, t1         // no carry
+	ADD t0, acc1, acc1
+	SLTU t0, acc1, t0
 	ADD t1, acc1, acc1
 	SLTU t1, acc1, t1
+	OR t0, t1, t1
 	MULHU hlp0, const1, acc0
 
 	// MUL const2, hlp0, t0
@@ -1613,9 +1631,11 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	// MUL const3, hlp0, t0
 	MUL hlp0, const3, t0
 	// ADCS t0, acc3
-	ADD t0, t1, t1         // no carry
+	ADD t0, acc3, acc3
+	SLTU t0, acc3, t0
 	ADD t1, acc3, acc3
 	SLTU t1, acc3, t1
+	OR t0, t1, t1
 	MULHU hlp0, const3, hlp0
 	ADD t1, acc4, acc4       // no carry
 
@@ -1702,9 +1722,11 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	// MUL const1, hlp0, t0
 	MUL hlp0, const1, t0
 	// ADCS t0, acc2
-	ADD t1, t0, t1         // no carry
+	ADD t0, acc2, acc2
+	SLTU t0, acc2, t0
 	ADD t1, acc2, acc2
 	SLTU t1, acc2, t1
+	OR t0, t1, t1
 	MULHU hlp0, const1, y1
 
 	// MUL const2, hlp0, t0
@@ -1720,9 +1742,11 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	// MUL const3, hlp0, t0
 	MUL hlp0, const3, t0
 	// ADCS t0, acc0
-	ADD t0, t1, t1         // no carry
+	ADD t0, acc0, acc0
+	SLTU t0, acc0, t0
 	ADD t1, acc0, acc0
 	SLTU t1, acc0, t1
+	OR t0, t1, t1
 	MULHU hlp0, const3, hlp0
 	ADD t1, acc5, acc5       // no carry
 
@@ -1809,9 +1833,11 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	// MUL const1, hlp0, t0
 	MUL hlp0, const1, t0
 	// ADCS t0, acc3
-	ADD t1, t0, t1         // no carry
+	ADD t0, acc3, acc3
+	SLTU t0, acc3, t0
 	ADD t1, acc3, acc3
 	SLTU t1, acc3, t1
+	OR t0, t1, t1
 	MULHU hlp0, const1, y1
 
 	// MUL const2, hlp0, t0
@@ -1827,9 +1853,11 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	// MUL const3, hlp0, t0
 	MUL hlp0, const3, t0
 	// ADCS t0, acc1
-	ADD t0, t1, t1         // no carry
+	ADD t0, acc1, acc1
+	SLTU t0, acc1, t0
 	ADD t1, acc1, acc1
 	SLTU t1, acc1, t1
+	OR t0, t1, t1
 	MULHU hlp0, const3, hlp0
 	ADD t1, acc6, acc6       // no carry
 
@@ -1916,9 +1944,11 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	// MUL const1, hlp0, t0
 	MUL hlp0, const1, t0
 	// ADCS t0, acc0
-	ADD t1, t0, t1         // no carry
+	ADD t0, acc0, acc0
+	SLTU t0, acc0, t0
 	ADD t1, acc0, acc0
 	SLTU t1, acc0, t1
+	OR t0, t1, t1
 	MULHU hlp0, const1, y1
 
 	// MUL const2, hlp0, t0
@@ -1934,9 +1964,11 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	// MUL const3, hlp0, t0
 	MUL hlp0, const3, t0
 	// ADCS t0, acc2
-	ADD t0, t1, t1         // no carry
+	ADD t0, acc2, acc2
+	SLTU t0, acc2, t0
 	ADD t1, acc2, acc2
 	SLTU t1, acc2, t1
+	OR t0, t1, t1
 	MULHU hlp0, const3, hlp0
 	ADD t1, acc7, acc7       // no carry
 
