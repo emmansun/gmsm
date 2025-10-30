@@ -134,17 +134,17 @@ TEXT ·gfpNeg(SB), NOSPLIT, $0-16
 	SUB $1, t0, t0                     \ // mask = -cond
 	XOR $-1, t0, t1                    \ // if there are borrowings, t0 = 0 and t1 = -1 else t0 = -1 and t1 = 0	
 	\
-	AND t0, x0, x0                     \
-	AND t1, acc0, acc0                 \
+	AND t1, x0, x0                     \
+	AND t0, acc0, acc0                 \
 	OR acc0, x0, x0                    \
-	AND t0, x1, x1                     \
-	AND t1, acc1, acc1                 \
+	AND t1, x1, x1                     \
+	AND t0, acc1, acc1                 \
 	OR acc1, x1, x1                    \
-	AND t0, x2, x2                     \
-	AND t1, acc2, acc2                 \
+	AND t1, x2, x2                     \
+	AND t0, acc2, acc2                 \
 	OR acc2, x2, x2                    \
-	AND t0, x3, x3                     \
-	AND t1, acc3, acc3                 \
+	AND t1, x3, x3                     \
+	AND t0, acc3, acc3                 \
 	OR acc3, x3, x3
 
 // func gfpAdd(c, a, b *gfP)
