@@ -227,9 +227,9 @@ TEXT ·gfpTriple(SB), NOSPLIT, $0-16
 
 	// add once more
 	ADDS(y0, x0, x0, t0)
-	ADCS(t0, x1, y1, x1, t0, t1)
-	ADCS(t0, x2, y2, x2, t0, t1)
-	ADCS(t0, x3, y3, x3, acc5, t1)
+	ADCS(t0, y1, x1, x1, t0, t1)
+	ADCS(t0, y2, x2, x2, t0, t1)
+	ADCS(t0, y3, x3, x3, acc5, t1)
 	gfpCarry(x0, x1, x2, x3, acc5, const0, const1, const2, const3)
 	storeBlock(x0, x1, x2, x3, 0(res_ptr))
 	RET
