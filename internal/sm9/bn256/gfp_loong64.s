@@ -168,7 +168,7 @@ TEXT ·gfpAdd(SB), NOSPLIT, $0-24
 	ADDS(y0, x0, x0, t0)
 	ADCS(t0, y1, x1, x1, t0, t1)
 	ADCS(t0, y2, x2, x2, t0, t1)
-	ADCS(t0, y2, x2, x2, acc5, t1)
+	ADCS(t0, y3, x3, x3, acc5, t1)
 
 	// reducation
 	loadModulus(const0, const1, const2, const3)
