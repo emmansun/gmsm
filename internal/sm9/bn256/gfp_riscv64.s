@@ -47,6 +47,43 @@
 #define const2 t2
 #define const3 t3
 
+// res = a + b + carryIn
+// carryOut = 0 or 1
+// a and res CAN'T be the same register
+// carryIn and carryOut CAN be the same register
+#define ADCS(carryIn, a, b, res, carryOut, carryTmp) \
+	ADD a, b, res                       \
+	SLTU a, res, carryTmp                \
+	ADDV carryIn, res, res               \
+	SLTU carryIn, res, carryOut          \
+	OR carryTmp, carryOut, carryOut
+
+// res = a + b
+// carryOut = 0 or 1
+// a and res CAN'T be the same register
+#define ADDS(a, b, res, carryOut) \
+	ADD a, b, res                       \
+	SLTU a, res, carryOut
+
+// res = a + b + carryIn
+#define ADC(carryIn, a, b, res) \
+	ADD a, b, res                       \
+	ADD carryIn, res, res
+
+// res = b - a - borrowIn
+// borrowOut = 0 or 1
+// borrowIn and borrowOut CAN be the same register
+#define SBCS(borrowIn, a, b, res, borrowOut, borrowTmp1, borrowTmp2) \
+	SLTU a, b, borrowTmp1                 \
+	SUB a, b, res                        \
+	SLTU borrowIn, res, borrowTmp2        \
+	SUB borrowIn, res, res               \
+	OR borrowTmp1, borrowTmp2, borrowOut
+
+#define SUBS(a, b, res, borrowOut) \
+	SLTU a, b, borrowOut                 \
+	SUB a, b, res
+
 #define storeBlock(a0,a1,a2,a3, r) \
 	MOV a0,  0+r \
 	MOV a1,  8+r \
@@ -71,20 +108,11 @@ TEXT ·gfpNeg(SB), NOSPLIT, $0-16
 	loadBlock(0(a_ptr), x0, x1, x2, x3)
 	loadModulus(const0, const1, const2, const3)
 
-	SLTU x0, const0, t0
-	SUB x0, const0, x0
-	// SUBCS x1, const1, x1
-	SLTU x1, const1, t1
-	SUB x1, const1, x1
-	SLTU t0, x1, hlp0
-	SUB t0, x1, x1
-	OR hlp0, t1, t0
-	// SUBCS x2, const2, x2
-	SLTU x2, const2, t1
-	SUB x2, const2, x2
-	SLTU t0, x2, hlp0
-	SUB t0, x2, x2
-	OR hlp0, t1, t0
+	SUBS(x0, const0, x0, t0)
+	// SBCS x1, const1, x1
+	SBCS(t0, x1, const1, x1, t0, t1, hlp0)
+	// SBCS x2, const2, x2
+	SBCS(t0, x2, const2, x2, t0, t1, hlp0)
 	// SUBCS x3, const3, x3
 	ADD t0, x3, x3
 	SUB x3, const3, x3 // last one no need to check carry
@@ -112,23 +140,10 @@ TEXT ·gfpNeg(SB), NOSPLIT, $0-16
 
 #define gfpCarry(x0, x1, x2, x3, carry, const0, const1, const2, const3) \
 	\ // (acc3, acc2, acc1, acc0) = (x3, x2, x1, x0) - p
-	SLTU const0, x0, t0                \
-	SUB const0, x0, acc0               \
-	SLTU const1, x1, t1                \
-	SUB const1, x1, acc1               \ 
-	SLTU t0, acc1, hlp0                \
-	SUB t0, acc1, acc1                 \
-	OR hlp0, t1, t0                    \
-	SLTU const2, x2, t1                \
-	SUB const2, x2, acc2               \
-	SLTU t0, acc2, hlp0                \
-	SUB t0, acc2, acc2                 \ 
-	OR hlp0, t1, t0                    \ 
-	SLTU const3, x3, t1                \
-	SUB const3, x3, acc3               \
-	SLTU t0, acc3, hlp0                \
-	SUB t0, acc3, acc3                 \
-	OR hlp0, t1, t0                    \
+	SUBS(const0, x0, acc0, t0)               \
+	SBCS(t0, const1, x1, acc1, t0, t1, hlp0) \
+	SBCS(t0, const2, x2, acc2, t0, t1, hlp0) \
+	SBCS(t0, const3, x3, acc3, t0, t1, hlp0) \
 	\
 	SLTU t0, carry, t0                 \ // if there are borrowings, t0 = 1 else 0
 	SUB $1, t0, t0                     \ // mask = -cond
@@ -155,26 +170,10 @@ TEXT ·gfpAdd(SB), NOSPLIT, $0-24
 	loadBlock(0(a_ptr), x0, x1, x2, x3)
 	loadBlock(0(b_ptr), y0, y1, y2, y3)
 
-	ADD x0, y0, x0
-	SLTU y0, x0, t0
-
-	ADD x1, y1, x1
-	SLTU y1, x1, t1
-	ADD t0, x1, x1
-	SLTU t0, x1, hlp0
-	OR hlp0, t1, t0
-
-	ADD x2, y2, x2
-	SLTU y2, x2, t1
-	ADD t0, x2, x2
-	SLTU t0, x2, hlp0
-	OR hlp0, t1, t0
-
-	ADD x3, y3, x3
-	SLTU y3, x3, t1
-	ADD t0, x3, x3
-	SLTU t0, x3, hlp0
-	OR hlp0, t1, acc5
+	ADDS(y0, x0, x0, t0)
+	ADCS(t0, y1, x1, x1, t0, t1)
+	ADCS(t0, y2, x2, x2, t0, t1)
+	ADCS(t0, y3, x3, x3, acc5, t1)
 
 	// reducation
 	loadModulus(const0, const1, const2, const3)
@@ -232,23 +231,10 @@ TEXT ·gfpTriple(SB), NOSPLIT, $0-16
 	gfpCarry(y0, y1, y2, y3, acc5, const0, const1, const2, const3)
 
 	// add once more
-	ADD x0, y0, x0
-	SLTU y0, x0, t0
-	ADD x1, y1, x1
-	SLTU y1, x1, t1
-	ADD t0, x1, x1
-	SLTU t0, x1, hlp0
-	OR hlp0, t1, t0
-	ADD x2, y2, x2
-	SLTU y2, x2, t1
-	ADD t0, x2, x2
-	SLTU t0, x2, hlp0
-	OR hlp0, t1, t0
-	ADD x3, y3, x3
-	SLTU y3, x3, t1
-	ADD t0, x3, x3
-	SLTU t0, x3, hlp0
-	OR hlp0, t1, acc5
+	ADDS(y0, x0, x0, t0)
+	ADCS(t0, y1, x1, x1, t0, t1)
+	ADCS(t0, y2, x2, x2, t0, t1)
+	ADCS(t0, y3, x3, x3, acc5, t1)
 	gfpCarry(x0, x1, x2, x3, acc5, const0, const1, const2, const3)
 
 	MOV c+0(FP), res_ptr
@@ -263,26 +249,13 @@ TEXT ·gfpSub(SB), NOSPLIT, $0-24
 	loadBlock(0(b_ptr), x0, x1, x2, x3)
 	loadBlock(0(a_ptr), y0, y1, y2, y3)
 
-	SLTU x0, y0, t0
-	SUB x0, y0, acc0
+	SUBS(x0, y0, acc0, t0)
 	// SBCS x1, y1
-	SLTU x1, y1, t1
-	SUB x1, y1, acc1
-	SLTU t0, acc1, hlp0
-	SUB t0, acc1, acc1
-	OR t1, hlp0, t0
+	SBCS(t0, x1, y1, acc1, t0, t1, hlp0)
 	// SBCS x2, y2
-	SLTU x2, y2, t1
-	SUB x2, y2, acc2
-	SLTU t0, acc2, hlp0
-	SUB t0, acc2, acc2
-	OR t1, hlp0, t0
+	SBCS(t0, x2, y2, acc2, t0, t1, hlp0)
 	// SBCS x3, y3
-	SLTU x3, y3, t1
-	SUB x3, y3, acc3
-	SLTU t0, acc3, hlp0
-	SUB t0, acc3, acc3
-	OR t1, hlp0, t0
+	SBCS(t0, x3, y3, acc3, t0, t1, hlp0)
 
 	// reduction
 	loadModulus(const0, const1, const2, const3)
