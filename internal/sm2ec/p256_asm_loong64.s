@@ -806,16 +806,13 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	MULHVU y0, x3, acc7
 
 	// ADDS acc4, acc1
-	ADDV acc1, acc4, acc1
-	SGTU acc4, acc1, t0
+	ADDS(acc4, acc1, acc1, t0)
 	// ADCS acc5, acc2
 	ADDV t0, acc5, acc5    // no carry
-	ADDV acc2, acc5, acc2
-	SGTU acc5, acc2, t0
+	ADDS(acc5, acc2, acc2, t0)
 	// ADCS acc6, acc3
 	ADDV t0, acc6, acc6    // no carry
-	ADDV acc3, acc6, acc3
-	SGTU acc6, acc3, t0
+	ADDS(acc6, acc3, acc3, t0)
 	// ADC $0, acc7, acc4
 	ADDV t0, acc7, acc4    // no carry
 	// First reduction step
@@ -823,314 +820,201 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	SRLV $32, acc0, t1
 
 	// SUBS t0, acc1
-	SGTU t0, acc1, t2
-	SUBV t0, acc1
+	SUBS(t0, acc1, acc1, t2)
 	// SUBCS t1, acc2
 	ADDV t2, t1, t3        // no carry
-	SGTU t3, acc2, t2
-	SUBV t3, acc2
+	SUBS(t3, acc2, acc2, t2)
 	// SUBCS t0, acc3
 	ADDV t2, t0, t2        // no carry
-	SGTU t2, acc3, t3
-	SUBV t2, acc3, acc3
+	SUBS(t2, acc3, acc3, t3)
 	// SUBC t1, acc0, t2
-	SUBV t1, acc0, t2      // no borrow
-	SUBV t3, t2, t2        // no borrow
+	SBC(t3, t1, acc0, t2)
 
 	// ADDS acc0, acc1
-	ADDV acc0, acc1, acc1
-	SGTU acc0, acc1, t0
+	ADDS(acc0, acc1, acc1, t0)
 	// ADCS $0, acc2
-	ADDV t0, acc2, acc2
-	SGTU t0, acc2, t1
+	ADDS(t0, acc2, acc2, t1)
 	// ADCS $0, acc3
-	ADDV t1, acc3, acc3
-	SGTU t1, acc3, t0
+	ADDS(t1, acc3, acc3, t0)
 	// ADC $0, t2, acc0
 	ADDV t0, t2, acc0      // (acc1, acc2, acc3, acc0) is the result
 
 	// y[1] * x
 	MULV y1, x0, t0
 	// ADDS t0, acc1
-	ADDV t0, acc1, acc1
-	SGTU t0, acc1, t2
+	ADDS(t0, acc1, acc1, t2)
 	MULHVU y1, x0, t1
 
 	MULV y1, x1, t0
 	// ADCS t0, acc2
-	ADDV t0, acc2, acc2
-	SGTU t0, acc2, t3
-	ADDV t2, acc2, acc2
-	SGTU t2, acc2, hlp0
-	OR t3, hlp0, t2
+	ADCS(t2, t0, acc2, acc2, t2, hlp0)
 	MULHVU y1, x1, y0
 
 	MULV y1, x2, t0
 	// ADCS t0, acc3
-	ADDV t0, acc3, acc3
-	SGTU t0, acc3, t3
-	ADDV t2, acc3, acc3
-	SGTU t2, acc3, hlp0
-	OR t3, hlp0, t2
+	ADCS(t2, t0, acc3, acc3, t2, hlp0)
 	MULHVU y1, x2, acc6
 
 	MULV y1, x3, t0
 	// ADCS t0, acc4
-	ADDV t0, acc4, acc4
-	SGTU t0, acc4, t3
-	ADDV t2, acc4, acc4
-	SGTU t2, acc4, hlp0
-	OR t3, hlp0, acc5
+	ADCS(t2, t0, acc4, acc4, acc5, hlp0)
 	MULHVU y1, x3, acc7
 
 	// ADDS	t1, acc2
-	ADDV t1, acc2, acc2
-	SGTU t1, acc2, t2
+	ADDS(t1, acc2, acc2, t2)
 	// ADCS	y0, acc3
-	ADDV y0, acc3, acc3
-	SGTU y0, acc3, t3
-	ADDV t2, acc3, acc3
-	SGTU t2, acc3, hlp0
-	OR t3, hlp0, t2
+	ADCS(t2, y0, acc3, acc3, t2, hlp0)
 	// ADCS	acc6, acc4
-	ADDV acc6, acc4, acc4
-	SGTU acc6, acc4, t3
-	ADDV t2, acc4, acc4
-	SGTU t2, acc4, hlp0
-	OR t3, hlp0, t2
+	ADCS(t2, acc6, acc4, acc4, t2, hlp0)
 	// ADC	acc7, acc5
-	ADDV t2, acc5, acc5
-	ADDV acc7, acc5, acc5
+	ADC(t2, acc7, acc5, acc5)
 
 	// Second reduction step
 	SLLV $32, acc1, t0
 	SRLV $32, acc1, t1
 
 	// SUBS t0, acc2
-	SGTU t0, acc2, t2
-	SUBV t0, acc2
+	SUBS(t0, acc2, acc2, t2)
 	// SUBCS t1, acc3
 	ADDV t2, t1, t3        // no carry
-	SGTU t3, acc3, t2
-	SUBV t3, acc3
+	SUBS(t3, acc3, acc3, t2)
 	// SUBCS t0, acc0
 	ADDV t2, t0, t2        // no carry
-	SGTU t2, acc0, t3
-	SUBV t2, acc0, acc0
+	SUBS(t2, acc0, acc0, t3)
 	// SUBC t1, acc1, t2
-	SUBV t1, acc1, t2      // no borrow
-	SUBV t3, t2, t2        // no borrow
+	SBC(t3, t1, acc1, t2)
 
 	// ADDS acc1, acc2
-	ADDV acc1, acc2, acc2
-	SGTU acc1, acc2, t0
+	ADDS(acc1, acc2, acc2, t0)
 	// ADCS $0, acc3
-	ADDV t0, acc3, acc3
-	SGTU t0, acc3, t1
+	ADDS(t0, acc3, acc3, t1)
 	// ADCS $0, acc0
-	ADDV t1, acc0, acc0
-	SGTU t1, acc0, t0
+	ADDS(t1, acc0, acc0, t0)
 	// ADC $0, t2, acc1
 	ADDV t0, t2, acc1      // (acc2, acc3, acc0, acc1) is the result
 
 	// y[2] * x
 	MULV y2, x0, t0
 	// ADDS t0, acc2
-	ADDV t0, acc2, acc2
-	SGTU t0, acc2, t2
+	ADDS(t0, acc2, acc2, t2)
 	MULHVU y2, x0, t1
 
 	MULV y2, x1, t0
 	// ADCS t0, acc3
-	ADDV t0, acc3, acc3
-	SGTU t0, acc3, t3
-	ADDV t2, acc3, acc3
-	SGTU t2, acc3, hlp0
-	OR t3, hlp0, t2
+	ADCS(t2, t0, acc3, acc3, t2, hlp0)
 	MULHVU y2, x1, y0
 
 	MULV y2, x2, t0
 	// ADCS t0, acc0
-	ADDV t0, acc0, acc0
-	SGTU t0, acc0, t3
-	ADDV t2, acc0, acc0
-	SGTU t2, acc0, hlp0
-	OR t3, hlp0, t2
+	ADCS(t2, t0, acc0, acc0, t2, hlp0)
 	MULHVU y2, x2, y1
 
 	MULV y2, x3, t0
 	// ADCS t0, acc1
-	ADDV t0, acc1, acc1
-	SGTU t0, acc1, t3
-	ADDV t2, acc1, acc1
-	SGTU t2, acc1, hlp0
-	OR t3, hlp0, acc6
+	ADCS(t2, t0, acc1, acc1, acc6, hlp0)
 	MULHVU y2, x3, acc7
 
 	// ADDS	t1, acc3
-	ADDV t1, acc3, acc3
-	SGTU t1, acc3, t2
+	ADDS(t1, acc3, acc3, t2)
 	// ADCS	y0, acc4
-	ADDV y0, acc4, acc4
-	SGTU y0, acc4, t3
-	ADDV t2, acc4, acc4
-	SGTU t2, acc4, hlp0
-	OR t3, hlp0, t2
+	ADCS(t2, y0, acc4, acc4, t2, hlp0)
 	// ADCS	y1, acc5
-	ADDV y1, acc5, acc5
-	SGTU y1, acc5, t3
-	ADDV t2, acc5, acc5
-	SGTU t2, acc5, hlp0
-	OR t3, hlp0, t2
+	ADCS(t2, y1, acc5, acc5, t2, hlp0)
 	// ADC	acc7, acc6
-	ADDV t2, acc6, acc6
-	ADDV acc7, acc6, acc6
+	ADC(t2, acc7, acc6, acc6)
 
 	// Third reduction step
 	SLLV $32, acc2, t0
 	SRLV $32, acc2, t1
 
 	// SUBS t0, acc3
-	SGTU t0, acc3, t2
-	SUBV t0, acc3
+	SUBS(t0, acc3, acc3, t2)
 	// SUBCS t1, acc0
 	ADDV t2, t1, t3        // no carry
-	SGTU t3, acc0, t2
-	SUBV t3, acc0
+	SUBS(t3, acc0, acc0, t2)
 	// SUBCS t0, acc1
 	ADDV t2, t0, t2        // no carry
-	SGTU t2, acc1, t3
-	SUBV t2, acc1, acc1	
-	// SUBC t1, acc2, t2
-	SUBV t1, acc2, t2      // no borrow
-	SUBV t3, t2, t2        // no borrow
+	SUBS(t2, acc1, acc1, t3)
+	// SBC t1, acc2, t2
+	SBC(t3, t1, acc2, t2)
 
 	// ADDS acc2, acc3
-	ADDV acc2, acc3, acc3
-	SGTU acc2, acc3, t0
+	ADDS(acc2, acc3, acc3, t0)
 	// ADCS $0, acc0
-	ADDV t0, acc0, acc0
-	SGTU t0, acc0, t1
+	ADDS(t0, acc0, acc0, t1)
 	// ADCS $0, acc1
-	ADDV t1, acc1, acc1
-	SGTU t1, acc1, t0
+	ADDS(t1, acc1, acc1, t0)
 	// ADC $0, t2, acc2
 	ADDV t0, t2, acc2      // (acc3, acc0, acc1, acc2) is the result
 
 	// y[2] * x
 	MULV y3, x0, t0
 	// ADDS t0, acc3
-	ADDV t0, acc3, acc3
-	SGTU t0, acc3, t2
+	ADDS(t0, acc3, acc3, t2)
 	MULHVU y3, x0, t1
 
 	MULV y3, x1, t0
 	// ADCS t0, acc4
-	ADDV t0, acc4, acc4
-	SGTU t0, acc4, t3
-	ADDV t2, acc4, acc4
-	SGTU t2, acc4, hlp0
-	OR t3, hlp0, t2
+	ADCS(t2, t0, acc4, acc4, t2, hlp0)
 	MULHVU y3, x1, y0
 
 	MULV y3, x2, t0
 	// ADCS t0, acc5
-	ADDV t0, acc5, acc5
-	SGTU t0, acc5, t3
-	ADDV t2, acc5, acc5	
-	SGTU t2, acc5, hlp0
-	OR t3, hlp0, t2
+	ADCS(t2, t0, acc5, acc5, t2, hlp0)
 	MULHVU y3, x2, y1
 
 	MULV y3, x3, t0
 	// ADCS t0, acc6
-	ADDV t0, acc6, acc6
-	SGTU t0, acc6, t3
-	ADDV t2, acc6, acc6
-	SGTU t2, acc6, hlp0
-	OR t3, hlp0, acc7
+	ADCS(t2, t0, acc6, acc6, acc7, hlp0)
 	MULHVU y3, x3, t0
 
 	// ADDS	t1, acc4
-	ADDV t1, acc4, acc4
-	SGTU t1, acc4, t2
+	ADDS(t1, acc4, acc4, t2)
 	// ADCS	y0, acc5
-	ADDV y0, acc5, acc5
-	SGTU y0, acc5, t3
-	ADDV t2, acc5, acc5
-	SGTU t2, acc5, hlp0
-	OR t3, hlp0, t2
+	ADCS(t2, y0, acc5, acc5, t2, hlp0)
 	// ADCS	y1, acc6
-	ADDV y1, acc6, acc6
-	SGTU y1, acc6, t3
-	ADDV t2, acc6, acc6
-	SGTU t2, acc6, hlp0
-	OR t3, hlp0, t2
+	ADCS(t2, y1, acc6, acc6, t2, hlp0)
 	// ADC	t0, acc7
-	ADDV t2, acc7, acc7
-	ADDV t0, acc7, acc7
+	ADC(t2, t0, acc7, acc7)
 
 	// Fourth reduction step
 	SLLV $32, acc3, t0
 	SRLV $32, acc3, t1
 
 	// SUBS t0, acc0
-	SGTU t0, acc0, t2
-	SUBV t0, acc0
+	SUBS(t0, acc0, acc0, t2)
 	// SUBCS t1, acc1
 	ADDV t2, t1, t3        // no carry
-	SGTU t3, acc1, t2
-	SUBV t3, acc1
+	SUBS(t3, acc1, acc1, t2)
 	// SUBCS t0, acc2
 	ADDV t2, t0, t2        // no carry
-	SGTU t2, acc2, t3
-	SUBV t2, acc2, acc2
-	// SUBC t1, acc3, t2
-	SUBV t1, acc3, t2      // no borrow
-	SUBV t3, t2, t2        // no borrow
+	SUBS(t2, acc2, acc2, t3)
+	// SBC t1, acc3, t2
+	SBC(t3, t1, acc3, t2)
 
 	// ADDS acc3, acc0
-	ADDV acc3, acc0, acc0
-	SGTU acc3, acc0, t0
+	ADDS(acc3, acc0, acc0, t0)
 	// ADCS $0, acc1
-	ADDV t0, acc1, acc1
-	SGTU t0, acc1, t1
+	ADDS(t0, acc1, acc1, t1)
 	// ADCS $0, acc2
-	ADDV t1, acc2, acc2
-	SGTU t1, acc2, t0
+	ADDS(t1, acc2, acc2, t0)
 	// ADC $0, t2, acc3
 	ADDV t0, t2, acc3      // (acc0, acc1, acc2, acc3) is the result
 
 	// Add bits [511:256] of the mul result
-	ADDV acc4, acc0, y0
-	SGTU acc4, y0, t0
-	ADDV acc5, acc1, y1
-	SGTU acc5, y1, t1
-	ADDV t0, y1, y1
-	SGTU t0, y1, t2
-	OR t1, t2, t0
-	ADDV acc6, acc2, y2
-	SGTU acc6, y2, t1
-	ADDV t0, y2, y2
-	SGTU t0, y2, t2
-	OR t1, t2, t0
-	ADDV acc7, acc3, y3
-	SGTU acc7, y3, t1
-	ADDV t0, y3, y3
-	SGTU t0, y3, t2
-	OR t1, t2, t0
+	ADDS(acc4, acc0, y0, t0)
+	ADCS(t0, acc5, acc1, y1, t0, t1)
+	ADCS(t0, acc6, acc2, y2, t0, t1)
+	ADCS(t0, acc7, acc3, y3, t0, t1)
 
 	// Final reduction
 	ADDV $1, y0, acc4
 	SGTU y0, acc4, t1
 	ADDV const0, t1, t1             // no carry
-	ADDV y1, t1, acc5
-	SGTU y1, acc5, t3
-	ADDV t3, y2, acc6
-	SGTU y2, acc6, hlp0
+	ADDS(y1, t1, acc5, t3)
+	ADDS(t3, y2, acc6, hlp0)
 	ADDV hlp0, const1, t2         // no carry
-	ADDV y3, t2, acc7
-	SGTU y3, acc7, hlp0
+	ADDS(t2, y3, acc7, hlp0)
 	OR t0, hlp0, t0
 
 	MASKNEZ t0, y0, y0
