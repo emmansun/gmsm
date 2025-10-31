@@ -25,10 +25,10 @@ func mul2(tweak *[blockSize]byte, isGB bool) {
 }
 
 func doubleTweaks(tweak *[blockSize]byte, tweaks []byte, isGB bool) {
-	//if supportLSX {
-	//	doubleTweaksLsx(tweak, tweaks, isGB)
-	//	return
-	//}
+	if supportLSX {
+		doubleTweaksLsx(tweak, tweaks, isGB)
+		return
+	}
 	count := len(tweaks) >> 4
 	for i := range count {
 		copy(tweaks[blockSize*i:], tweak[:])

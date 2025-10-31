@@ -81,5 +81,43 @@ gb_alg:
 
 // func doubleTweaksLsx(tweak *[blockSize]byte, tweaks []byte, isGB bool)
 TEXT ·doubleTweaksLsx(SB),NOSPLIT,$0
+	MOVV tweak+0(FP), TW
+	MOVV tweaks+8(FP), R7
+	MOVV tweaks_len+16(FP), R8
+	MOVB isGB+32(FP), GB
+
+	SRLV $4, R8, R8  // R8 = len / 16
+
+	VMOVQ (TW), B0
+
+	VXORV	POLY, POLY, POLY
+	VXORV	ZERO_V, ZERO_V, ZERO_V
+
+	BNE GB, ZERO, gb_alg
+
+	MOVV	$0x87, I
+	VMOVQ	I, POLY.V[0]
+
+loop:
+		VMOVQ B0, (R7)
+		ADDV $16, R7, R7
+		SUBV $1, R8, R8
+		doubleTweak
+		BNE R8, ZERO, loop
+	VMOVQ B0, (TW)	
+	RET
+
+gb_alg:	
+	MOVV	$0xE1, I
+	SLLV	$56, I
+	VMOVQ	I, POLY.V[1]
+
+gb_alg_loop:	
+		VMOVQ B0, (R7)
+		ADDV $16, R7, R7
+		SUBV $1, R8, R8
+		gbDoubleTweak
+		BNE R8, ZERO, gb_alg_loop
+	VMOVQ B0, (TW)	
 	RET
 	
