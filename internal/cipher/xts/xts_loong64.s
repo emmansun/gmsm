@@ -116,8 +116,11 @@ gb_alg_loop:
 		VMOVQ B0, (R7)
 		ADDV $16, R7, R7
 		SUBV $1, R8, R8
+		VSHUF4IB $0x1B, B0, B0
+		VSHUF4IW $0x1B, B0, B0
 		gbDoubleTweak
+		VSHUF4IW $0x1B, B0, B0
+		VSHUF4IB $0x1B, B0, B0
 		BNE R8, ZERO, gb_alg_loop
 	VMOVQ B0, (TW)	
 	RET
-	
