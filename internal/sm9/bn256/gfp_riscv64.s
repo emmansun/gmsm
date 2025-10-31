@@ -54,7 +54,7 @@
 #define ADCS(carryIn, a, b, res, carryOut, carryTmp) \
 	ADD a, b, res                       \
 	SLTU a, res, carryTmp                \
-	ADDV carryIn, res, res               \
+	ADD carryIn, res, res               \
 	SLTU carryIn, res, carryOut          \
 	OR carryTmp, carryOut, carryOut
 
@@ -267,21 +267,10 @@ TEXT ·gfpSub(SB), NOSPLIT, $0-24
 	AND t0, const2, const2
 	AND t0, const3, const3
 
-	ADD const0, acc0, x0
-	SLTU const0, x0, t0
-	ADD const1, acc1, x1
-	SLTU const1, x1, t1
-	ADD t0, x1, x1
-	SLTU t0, x1, hlp0
-	OR hlp0, t1, t0
-	ADD const2, acc2, x2
-	SLTU const2, x2, t1
-	ADD t0, x2, x2
-	SLTU t0, x2, hlp0
-	OR hlp0, t1, t0
-	ADD const3, acc3, x3
-	SLTU const3, x3, t1
-	ADD t0, x3, x3
+	ADDS(const0, acc0, x0, t0)
+	ADCS(t0, const1, acc1, x1, t0, t1)
+	ADCS(t0, const2, acc2, x2, t0, t1)
+	ADC(t0, const3, acc3, x3)
 
 	MOV c+0(FP), res_ptr
 	storeBlock(x0, x1, x2, x3, 0(res_ptr))
