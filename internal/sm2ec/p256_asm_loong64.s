@@ -46,6 +46,47 @@
 #define const2 t2
 #define const3 t3
 
+// res = a + b + carryIn
+// carryOut = 0 or 1
+// a and res CAN'T be the same register
+// carryIn and carryOut CAN be the same register
+#define ADCS(carryIn, a, b, res, carryOut, carryTmp) \
+	ADDV a, b, res                       \
+	SGTU a, res, carryTmp                \
+	ADDV carryIn, res, res               \
+	SGTU carryIn, res, carryOut          \
+	OR carryTmp, carryOut, carryOut
+
+// res = a + b
+// carryOut = 0 or 1
+// a and res CAN'T be the same register
+#define ADDS(a, b, res, carryOut) \
+	ADDV a, b, res                       \
+	SGTU a, res, carryOut
+
+// res = a + b + carryIn
+#define ADC(carryIn, a, b, res) \
+	ADDV a, b, res                       \
+	ADDV carryIn, res, res
+
+// res = b - a - borrowIn
+// borrowOut = 0 or 1
+// borrowIn and borrowOut CAN be the same register
+#define SBCS(borrowIn, a, b, res, borrowOut, borrowTmp1, borrowTmp2) \
+	SGTU a, b, borrowTmp1                 \
+	SUBV a, b, res                        \
+	SGTU borrowIn, res, borrowTmp2        \
+	SUBV borrowIn, res, res               \
+	OR borrowTmp1, borrowTmp2, borrowOut
+
+#define SUBS(a, b, res, borrowOut) \
+	SGTU a, b, borrowOut                 \
+	SUBV a, b, res
+
+#define SBC(borrowIn, a, b, res) \
+	SUBV a, b, res                      \
+	SUBV borrowIn, res, res
+
 DATA p256p<>+0x00(SB)/8, $0xffffffffffffffff
 DATA p256p<>+0x08(SB)/8, $0xffffffff00000000
 DATA p256p<>+0x10(SB)/8, $0xffffffffffffffff
@@ -318,13 +359,10 @@ TEXT ·p256NegCond(SB),NOSPLIT,$0
 
 	// Speculatively subtract
 	SUBV acc4, acc0
-	SGTU x_ptr, acc1, t1
-	SUBV x_ptr, acc1
+	SUBS(x_ptr, acc1, acc1, t1)
 	SUBV y_ptr, acc2
-	SGTU t1, acc2, t2
-	SUBV t1, acc2
-	SUBV acc5, acc3
-	SUBV t2, acc3
+	SUBS(t1, acc2, acc2, t2)
+	SBC(t2, acc5, acc3, acc3)
 
 	MASKNEZ t0, acc4, acc4
 	MASKEQZ t0, acc0, acc0
@@ -365,26 +403,21 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	SRLV $32, acc0, t1
 
 	// SUBS t0, acc1
-	SGTU t0, acc1, t2
-	SUBV t0, acc1, acc1
+	SUBS(t0, acc1, acc1, t2)
 	// SBCS t1, acc2
 	ADDV t2, t1, t2       // no carry
-	SGTU t2, acc2, t3
-	SUBV t2, acc2, acc2
+	SUBS(t2, acc2, acc2, t3)
 	// SBCS t0, acc3
 	ADDV t3, t0, t3       // no carry
-	SGTU t3, acc3, t2
-	SUBV t3, acc3, acc3
+	SUBS(t3, acc3, acc3, t2)
 	// SBC t1, acc0
 	ADDV t2, t1, t2       // no carry
 	SUBV t2, acc0, y0     // no borrow
 
 	// ADDS acc0, acc1, acc1
-	ADDV acc0, acc1, acc1
-	SGTU acc0, acc1, t0
+	ADDS(acc0, acc1, acc1, t0)
 	// ADCS $0, acc2
-	ADDV t0, acc2, acc2
-	SGTU t0, acc2, t1
+	ADDS(t0, acc2, acc2, t1)
 	// ADCS $0, acc3
 	ADDV t1, acc3, acc3
 	SGTU t1, acc3, t0
@@ -396,29 +429,23 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	SRLV $32, acc1, t1
 
 	// SUBS t0, acc2
-	SGTU t0, acc2, t2
-	SUBV t0, acc2, acc2
+	SUBS(t0, acc2, acc2, t2)
 	// SBCS t1, acc3
 	ADDV t2, t1, t3       // no carry
-	SGTU t3, acc3, t2
-	SUBV t3, acc3, acc3
+	SUBS(t3, acc3, acc3, t2)
 	// SBCS t0, acc0
 	ADDV t2, t0, t2       // no carry
-	SGTU t2, acc0, t3
-	SUBV t2, acc0, acc0
+	SUBS(t2, acc0, acc0, t3)
 	// SBC t1, acc1
 	ADDV t3, t1, t2       // no carry
 	SUBV t2, acc1, y0     // no borrow
 
 	// ADDS acc1, acc2
-	ADDV acc1, acc2, acc2
-	SGTU acc1, acc2, t0
+	ADDS(acc1, acc2, acc2, t0)
 	// ADCS $0, acc3
-	ADDV t0, acc3, acc3
-	SGTU t0, acc3, t1
+	ADDS(t0, acc3, acc3, t1)
 	// ADCS $0, acc0
-	ADDV t1, acc0, acc0
-	SGTU t1, acc0, t0
+	ADDS(t1, acc0, acc0, t0)
 	// ADC $0, y0, acc1
 	ADDV t0, y0, acc1
 
@@ -427,29 +454,23 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	SRLV $32, acc2, t1
 
 	// SUBS t0, acc3
-	SGTU t0, acc3, t2
-	SUBV t0, acc3, acc3
+	SUBS(t0, acc3, acc3, t2)
 	// SBCS t1, acc0
 	ADDV t2, t1, t3       // no carry
-	SGTU t3, acc0, t2
-	SUBV t3, acc0, acc0
+	SUBS(t3, acc0, acc0, t2)
 	// SBCS t0, acc1
 	ADDV t2, t0, t2       // no carry
-	SGTU t2, acc1, t3
-	SUBV t2, acc1, acc1
+	SUBS(t2, acc1, acc1, t3)
 	// SBC t1, acc2
 	ADDV t3, t1, t2       // no carry
 	SUBV t2, acc2, y0     // no borrow
 
 	// ADDS acc2, acc3
-	ADDV acc2, acc3, acc3
-	SGTU acc2, acc3, t0
+	ADDS(acc2, acc3, acc3, t0)
 	// ADCS $0, acc0
-	ADDV t0, acc0, acc0
-	SGTU t0, acc0, t1
+	ADDS(t0, acc0, acc0, t1)
 	// ADCS $0, acc1
-	ADDV t1, acc1, acc1
-	SGTU t1, acc1, t0
+	ADDS(t1, acc1, acc1, t0)
 	// ADC $0, y0, acc2
 	ADDV t0, y0, acc2
 
@@ -458,29 +479,23 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	SRLV $32, acc3, t1
 
 	// SUBS t0, acc0
-	SGTU t0, acc0, t2
-	SUBV t0, acc0, acc0
+	SUBS(t0, acc0, acc0, t2)
 	// SBCS t1, acc1
 	ADDV t2, t1, t3       // no carry
-	SGTU t3, acc1, t2
-	SUBV t3, acc1, acc1
+	SUBS(t3, acc1, acc1, t2)
 	// SBCS t0, acc2
 	ADDV t2, t0, t2       // no carry
-	SGTU t2, acc2, t3
-	SUBV t2, acc2, acc2
+	SUBS(t2, acc2, acc2, t3)
 	// SBC t1, acc3
 	ADDV t3, t1, t2       // no carry
 	SUBV t2, acc3, y0     // no borrow
 
 	// ADDS acc3, acc0
-	ADDV acc3, acc0, acc0
-	SGTU acc3, acc0, t0
+	ADDS(acc3, acc0, acc0, t0)
 	// ADCS $0, acc1
-	ADDV t0, acc1, acc1
-	SGTU t0, acc1, t1
+	ADDS(t0, acc1, acc1, t1)
 	// ADCS $0, acc2
-	ADDV t1, acc2, acc2
-	SGTU t1, acc2, t0
+	ADDS(t1, acc2, acc2, t0)
 	// ADC $0, y0, acc3
 	ADDV t0, y0, acc3
 
@@ -489,14 +504,11 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	SGTU acc0, acc4, t1
 	MOVV p256one<>+0x08(SB), t2
 	ADDV t2, t1, t1         // no carry
-	ADDV acc1, t1, acc5
-	SGTU acc1, acc5, t3
-	ADDV t3, acc2, acc6
-	SGTU acc2, acc6, hlp0
+	ADDS(acc1, t1, acc5, t3)
+	ADDS(t3, acc2, acc6, hlp0)
 	ADDV $1, t2, t2
 	ADDV hlp0, t2, t2         // no carry
-	ADDV acc3, t2, acc7
-	SGTU acc3, acc7, t0
+	ADDS(t2, acc3, acc7, t0)
 
 	MASKNEZ t0, acc0, acc0
 	MASKEQZ t0, acc4, acc4
@@ -559,46 +571,35 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 
 	MULV x0, x2, t0
 	// ADDS t0, acc2
-	ADDV t0, acc2, acc2
-	SGTU t0, acc2, t1
+	ADDS(t0, acc2, acc2, t1)
 	MULHVU x0, x2, acc3
 
 	MULV x0, x3, t0
 	// ADCS t0, acc3
 	ADDV t1, acc3, acc3  // no carry
-	ADDV t0, acc3, acc3
-	SGTU t0, acc3, t1
+	ADDS(t0, acc3, acc3, t1)
 	MULHVU x0, x3, acc4
 	ADDV t1, acc4, acc4  // no carry
 
 	// x[2:] * x[1]
 	MULV x1, x2, t0
 	// ADDS t0, acc3
-	ADDV t0, acc3, acc3
-	SGTU t0, acc3, t2
+	ADDS(t0, acc3, acc3, t2)
 	MULHVU x1, x2, t1
 	// ADCS t1, acc4
-	ADDV t1, acc4, acc4
-	SGTU t1, acc4, t3
-	ADDV t2, acc4, acc4
-	SGTU t2, acc4, hlp0
-	// ADC $0, acc5
-	OR t3, hlp0, acc5
+	ADCS(t2, t1, acc4, acc4, acc5, hlp0)
 
 	MULV x1, x3, t0
-	// ADCS t0, acc4
-	ADDV t0, acc4, acc4
-	SGTU t0, acc4, t2
+	// ADDS t0, acc4
+	ADDS(t0, acc4, acc4, t2)
 	MULHVU x1, x3, t1
 	// ADC	t1, acc5
-	ADDV t1, t2, t2       // no carry
-	ADDV t2, acc5, acc5   // no carry
+	ADC(t2, t1, acc5, acc5)
 
 	// x[3] * x[2]
 	MULV x2, x3, t0
 	// ADDS t0, acc5
-	ADDV t0, acc5, acc5
-	SGTU t0, acc5, t1
+	ADDS(t0, acc5, acc5, t1)
 	MULHVU x2, x3, acc6
 	// ADC	$0, acc6
 	ADDV t1, acc6, acc6   // no carry
@@ -632,66 +633,53 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	MULV x0, x0, acc0
 	MULHVU x0, x0, t0
 	// ADDS t0, acc1
-	ADDV t0, acc1, acc1
-	SGTU t0, acc1, t1
+	ADDS(t0, acc1, acc1, t1)
 	MULV x1, x1, t0
 	// ADCS t0, acc2
 	ADDV t0, t1, t1       // no carry
-	ADDV t1, acc2, acc2
-	SGTU t1, acc2, t2
+	ADDS(t1, acc2, acc2, t2)
 	MULHVU x1, x1, t0
 	// ADCS t0, acc3
 	ADDV t0, t2, t2	      // no carry
-	ADDV t2, acc3, acc3
-	SGTU t2, acc3, t1
+	ADDS(t2, acc3, acc3, t1)
 	MULV x2, x2, t0
 	// ADCS t0, acc4
 	ADDV t0, t1, t1       // no carry
-	ADDV t1, acc4, acc4
-	SGTU t1, acc4, t2
+	ADDS(t1, acc4, acc4, t2)
 	MULHVU x2, x2, t0
 	// ADCS t0, acc5
 	ADDV t0, t2, t2       // no carry
-	ADDV t2, acc5, acc5
-	SGTU t2, acc5, t1
+	ADDS(t2, acc5, acc5, t1)
 	MULV x3, x3, t0
 	// ADCS t0, acc6
 	ADDV t0, t1, t1       // no carry
-	ADDV t1, acc6, acc6
-	SGTU t1, acc6, t2
+	ADDS(t1, acc6, acc6, t2)
 	MULHVU x3, x3, t0
 	// ADC	t0, acc7
-	ADDV t0, t2, t2       // no carry
-	ADDV t2, acc7, acc7   // (acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7) is the result
+	ADC(t2, t0, acc7, acc7) // (acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7) is the result
 	
 	// First reduction step
 	SLLV $32, acc0, t0
 	SRLV $32, acc0, t1
 
 	// SUBS t0, acc1
-	SGTU t0, acc1, t2
-	SUBV t0, acc1, acc1
+	SUBS(t0, acc1, acc1, t2)
 	// SBCS t1, acc2
 	ADDV t2, t1, t2       // no carry
-	SGTU t2, acc2, t3
-	SUBV t2, acc2, acc2
+	SUBS(t2, acc2, acc2, t3)
 	// SBCS t0, acc3
 	ADDV t3, t0, t3       // no carry
-	SGTU t3, acc3, t2
-	SUBV t3, acc3, acc3
+	SUBS(t3, acc3, acc3, t2)	
 	// SBC t1, acc0
 	ADDV t2, t1, t2       // no carry
 	SUBV t2, acc0, y0     // no borrow
 
 	// ADDS acc0, acc1, acc1
-	ADDV acc0, acc1, acc1
-	SGTU acc0, acc1, t0
+	ADDS(acc0, acc1, acc1, t0)
 	// ADCS $0, acc2
-	ADDV t0, acc2, acc2
-	SGTU t0, acc2, t1
+	ADDS(t0, acc2, acc2, t1)
 	// ADCS $0, acc3
-	ADDV t1, acc3, acc3
-	SGTU t1, acc3, t0
+	ADDS(t1, acc3, acc3, t0)
 	// ADC $0, y0, acc0
 	ADDV t0, y0, acc0
 
@@ -700,29 +688,23 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	SRLV $32, acc1, t1
 
 	// SUBS t0, acc2
-	SGTU t0, acc2, t2
-	SUBV t0, acc2, acc2
+	SUBS(t0, acc2, acc2, t2)
 	// SBCS t1, acc3
 	ADDV t2, t1, t3       // no carry
-	SGTU t3, acc3, t2
-	SUBV t3, acc3, acc3
+	SUBS(t3, acc3, acc3, t2)
 	// SBCS t0, acc0
 	ADDV t2, t0, t2       // no carry
-	SGTU t2, acc0, t3
-	SUBV t2, acc0, acc0
+	SUBS(t2, acc0, acc0, t3)
 	// SBC t1, acc1
 	ADDV t3, t1, t2       // no carry
 	SUBV t2, acc1, y0     // no borrow
 
 	// ADDS acc1, acc2
-	ADDV acc1, acc2, acc2
-	SGTU acc1, acc2, t0
+	ADDS(acc1, acc2, acc2, t0)
 	// ADCS $0, acc3
-	ADDV t0, acc3, acc3
-	SGTU t0, acc3, t1
+	ADDS(t0, acc3, acc3, t1)
 	// ADCS $0, acc0
-	ADDV t1, acc0, acc0
-	SGTU t1, acc0, t0
+	ADDS(t1, acc0, acc0, t0)
 	// ADC $0, y0, acc1
 	ADDV t0, y0, acc1
 
@@ -731,29 +713,23 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	SRLV $32, acc2, t1
 
 	// SUBS t0, acc3
-	SGTU t0, acc3, t2
-	SUBV t0, acc3, acc3
+	SUBS(t0, acc3, acc3, t2)
 	// SBCS t1, acc0
 	ADDV t2, t1, t3       // no carry
-	SGTU t3, acc0, t2
-	SUBV t3, acc0, acc0
+	SUBS(t3, acc0, acc0, t2)
 	// SBCS t0, acc1
 	ADDV t2, t0, t2       // no carry
-	SGTU t2, acc1, t3
-	SUBV t2, acc1, acc1
+	SUBS(t2, acc1, acc1, t3)
 	// SBC t1, acc2
 	ADDV t3, t1, t2       // no carry
 	SUBV t2, acc2, y0     // no borrow
 
 	// ADDS acc2, acc3
-	ADDV acc2, acc3, acc3
-	SGTU acc2, acc3, t0
+	ADDS(acc2, acc3, acc3, t0)
 	// ADCS $0, acc0
-	ADDV t0, acc0, acc0
-	SGTU t0, acc0, t1
+	ADDS(t0, acc0, acc0, t1)
 	// ADCS $0, acc1
-	ADDV t1, acc1, acc1
-	SGTU t1, acc1, t0
+	ADDS(t1, acc1, acc1, t0)
 	// ADC $0, y0, acc2
 	ADDV t0, y0, acc2
 
@@ -762,62 +738,40 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	SRLV $32, acc3, t1
 
 	// SUBS t0, acc0
-	SGTU t0, acc0, t2
-	SUBV t0, acc0, acc0
+	SUBS(t0, acc0, acc0, t2)
 	// SBCS t1, acc1
 	ADDV t2, t1, t3       // no carry
-	SGTU t3, acc1, t2
-	SUBV t3, acc1, acc1
+	SUBS(t3, acc1, acc1, t2)
 	// SBCS t0, acc2
 	ADDV t2, t0, t2       // no carry
-	SGTU t2, acc2, t3
-	SUBV t2, acc2, acc2
+	SUBS(t2, acc2, acc2, t3)
 	// SBC t1, acc3
 	ADDV t3, t1, t2       // no carry
 	SUBV t2, acc3, y0     // no borrow
 
 	// ADDS acc3, acc0
-	ADDV acc3, acc0, acc0
-	SGTU acc3, acc0, t0
+	ADDS(acc3, acc0, acc0, t0)
 	// ADCS $0, acc1
-	ADDV t0, acc1, acc1
-	SGTU t0, acc1, t1
+	ADDS(t0, acc1, acc1, t1)
 	// ADCS $0, acc2
-	ADDV t1, acc2, acc2
-	SGTU t1, acc2, t0
+	ADDS(t1, acc2, acc2, t0)
 	// ADC $0, y0, acc3
 	ADDV t0, y0, acc3
 
 	// Add bits [511:256] of the sqr result
-	ADDV acc4, acc0, y0
-	SGTU acc4, y0, t0
-	ADDV acc5, acc1, y1
-	SGTU acc5, y1, t1
-	ADDV t0, y1, y1
-	SGTU t0, y1, t2
-	OR t1, t2, t0
-	ADDV acc6, acc2, y2
-	SGTU acc6, y2, t1
-	ADDV t0, y2, y2
-	SGTU t0, y2, t2
-	OR t1, t2, t0
-	ADDV acc7, acc3, y3
-	SGTU acc7, y3, t1
-	ADDV t0, y3, y3
-	SGTU t0, y3, t2
-	OR t1, t2, t0
+	ADDS(acc4, acc0, y0, t0)
+	ADCS(t0, acc5, acc1, y1, t0, t1)
+	ADCS(t0, acc6, acc2, y2, t0, t1)
+	ADCS(t0, acc7, acc3, y3, t0, t1)
 
 	// Final reduction
 	ADDV $1, y0, acc4
 	SGTU y0, acc4, t1
 	ADDV const0, t1, t1             // no carry
-	ADDV y1, t1, acc5
-	SGTU y1, acc5, t3
-	ADDV t3, y2, acc6
-	SGTU y2, acc6, hlp0
+	ADDS(y1, t1, acc5, t2)
+	ADDS(t2, y2, acc6, hlp0)
 	ADDV hlp0, const1, t2         // no carry
-	ADDV y3, t2, acc7
-	SGTU y3, acc7, hlp0
+	ADDS(t2, y3, acc7, hlp0)
 	OR t0, hlp0, t0
 
 	MASKNEZ t0, y0, y0
