@@ -46,6 +46,43 @@
 #define const2 t2
 #define const3 t3
 
+// res = a + b + carryIn
+// carryOut = 0 or 1
+// a and res CAN'T be the same register
+// carryIn and carryOut CAN be the same register
+#define ADCS(carryIn, a, b, res, carryOut, carryTmp) \
+	ADDV a, b, res                       \
+	SGTU a, res, carryTmp                \
+	ADDV carryIn, res, res               \
+	SGTU carryIn, res, carryOut          \
+	OR carryTmp, carryOut, carryOut
+
+// res = a + b
+// carryOut = 0 or 1
+// a and res CAN'T be the same register
+#define ADDS(a, b, res, carryOut) \
+	ADDV a, b, res                       \
+	SGTU a, res, carryOut
+
+// res = a + b + carryIn
+#define ADC(carryIn, a, b, res) \
+	ADDV a, b, res                       \
+	ADDV carryIn, res, res
+
+// res = b - a - borrowIn
+// borrowOut = 0 or 1
+// borrowIn and borrowOut CAN be the same register
+#define SBCS(borrowIn, a, b, res, borrowOut, borrowTmp1, borrowTmp2) \
+	SGTU a, b, borrowTmp1                 \
+	SUBV a, b, res                        \
+	SGTU borrowIn, res, borrowTmp2        \
+	SUBV borrowIn, res, res               \
+	OR borrowTmp1, borrowTmp2, borrowOut
+
+#define SUBS(a, b, res, borrowOut) \
+	SGTU a, b, borrowOut                 \
+	SUBV a, b, res
+
 #define storeBlock(a0,a1,a2,a3, r) \
 	MOVV a0,  0+r \
 	MOVV a1,  8+r \
@@ -70,21 +107,12 @@ TEXT ·gfpNeg(SB), NOSPLIT, $0-16
 	loadBlock(0(a_ptr), x0, x1, x2, x3)
 	loadModulus(const0, const1, const2, const3)
 
-	SGTU x0, const0, t0
-	SUBV x0, const0, x0
-	// SUBCS x1, const1, x1
-	SGTU x1, const1, t1
-	SUBV x1, const1, x1
-	SGTU t0, x1, hlp0
-	SUBV t0, x1, x1
-	OR hlp0, t1, t0
-	// SUBCS x2, const2, x2
-	SGTU x2, const2, t1
-	SUBV x2, const2, x2
-	SGTU t0, x2, hlp0
-	SUBV t0, x2, x2
-	OR hlp0, t1, t0
-	// SUBCS x3, const3, x3
+	SUBS(x0, const0, x0, t0)
+	// SBCS x1, const1, x1
+	SBCS(t0, x1, const1, x1, t0, t1, hlp0)
+	// SBCS x2, const2, x2
+	SBCS(t0, x2, const2, x2, t0, t1, hlp0)
+	// SBCS x3, const3, x3
 	ADDV t0, x3, x3
 	SUBV x3, const3, x3 // last one no need to check carry
 
@@ -108,23 +136,10 @@ TEXT ·gfpNeg(SB), NOSPLIT, $0-16
 
 #define gfpCarry(x0, x1, x2, x3, carry, const0, const1, const2, const3) \
 	\ // (acc3, acc2, acc1, acc0) = (x3, x2, x1, x0) - p
-	SGTU const0, x0, t0                \
-	SUBV const0, x0, acc0              \
-	SGTU const1, x1, t1                \
-	SUBV const1, x1, acc1              \ 
-	SGTU t0, acc1, hlp0                \
-	SUBV t0, acc1, acc1                \
-	OR hlp0, t1, t0                    \
-	SGTU const2, x2, t1                \
-	SUBV const2, x2, acc2              \
-	SGTU t0, acc2, hlp0                \
-	SUBV t0, acc2, acc2                \ 
-	OR hlp0, t1, t0                    \ 
-	SGTU const3, x3, t1                \
-	SUBV const3, x3, acc3              \
-	SGTU t0, acc3, hlp0                \
-	SUBV t0, acc3, acc3                \
-	OR hlp0, t1, t0                    \
+	SUBS(const0, x0, acc0, t0)               \
+	SBCS(t0, const1, x1, acc1, t0, t1, hlp0) \
+	SBCS(t0, const2, x2, acc2, t0, t1, hlp0) \
+	SBCS(t0, const3, x3, acc3, t0, t1, hlp0) \
 	\
 	SGTU t0, carry, t0                 \
 	\
@@ -150,26 +165,10 @@ TEXT ·gfpAdd(SB), NOSPLIT, $0-24
 	loadBlock(0(a_ptr), x0, x1, x2, x3)
 	loadBlock(0(b_ptr), y0, y1, y2, y3)
 
-	ADDV x0, y0, x0
-	SGTU y0, x0, t0
-
-	ADDV x1, y1, x1
-	SGTU y1, x1, t1
-	ADDV t0, x1, x1
-	SGTU t0, x1, hlp0
-	OR hlp0, t1, t0
-
-	ADDV x2, y2, x2
-	SGTU y2, x2, t1
-	ADDV t0, x2, x2
-	SGTU t0, x2, hlp0
-	OR hlp0, t1, t0
-
-	ADDV x3, y3, x3
-	SGTU y3, x3, t1
-	ADDV t0, x3, x3
-	SGTU t0, x3, hlp0
-	OR hlp0, t1, acc5
+	ADDS(y0, x0, x0, t0)
+	ADCS(t0, y1, x1, x1, t0, t1)
+	ADCS(t0, y2, x2, x2, t0, t1)
+	ADCS(t0, y3, x3, x3, acc5, t1)
 
 	// reducation
 	loadModulus(const0, const1, const2, const3)
@@ -227,23 +226,10 @@ TEXT ·gfpTriple(SB), NOSPLIT, $0-16
 	gfpCarry(y0, y1, y2, y3, acc5, const0, const1, const2, const3)
 
 	// add once more
-	ADDV x0, y0, x0
-	SGTU y0, x0, t0
-	ADDV x1, y1, x1
-	SGTU y1, x1, t1
-	ADDV t0, x1, x1
-	SGTU t0, x1, hlp0
-	OR hlp0, t1, t0
-	ADDV x2, y2, x2
-	SGTU y2, x2, t1
-	ADDV t0, x2, x2
-	SGTU t0, x2, hlp0
-	OR hlp0, t1, t0
-	ADDV x3, y3, x3
-	SGTU y3, x3, t1
-	ADDV t0, x3, x3
-	SGTU t0, x3, hlp0
-	OR hlp0, t1, acc5
+	ADDS(y0, x0, x0, t0)
+	ADCS(t0, y1, x1, x1, t0, t1)
+	ADCS(t0, y2, x2, x2, t0, t1)
+	ADCS(t0, y3, x3, x3, acc5, t1)
 	gfpCarry(x0, x1, x2, x3, acc5, const0, const1, const2, const3)
 	storeBlock(x0, x1, x2, x3, 0(res_ptr))
 	RET
@@ -257,26 +243,13 @@ TEXT ·gfpSub(SB), NOSPLIT, $0-24
 	loadBlock(0(b_ptr), x0, x1, x2, x3)
 	loadBlock(0(a_ptr), y0, y1, y2, y3)
 
-	SGTU x0, y0, t0
-	SUBV x0, y0, acc0
+	SUBS(x0, y0, acc0, t0)
 	// SBCS x1, y1
-	SGTU x1, y1, t1
-	SUBV x1, y1, acc1
-	SGTU t0, acc1, hlp0
-	SUBV t0, acc1, acc1
-	OR t1, hlp0, t0
+	SBCS(t0, x1, y1, acc1, t0, t1, hlp0)
 	// SBCS x2, y2
-	SGTU x2, y2, t1
-	SUBV x2, y2, acc2
-	SGTU t0, acc2, hlp0
-	SUBV t0, acc2, acc2
-	OR t1, hlp0, t0
+	SBCS(t0, x2, y2, acc2, t0, t1, hlp0)
 	// SBCS x3, y3
-	SGTU x3, y3, t1
-	SUBV x3, y3, acc3
-	SGTU t0, acc3, hlp0
-	SUBV t0, acc3, acc3
-	OR t1, hlp0, t0
+	SBCS(t0, x3, y3, acc3, t0, t1, hlp0)
 
 	// reduction
 	loadModulus(const0, const1, const2, const3)
@@ -285,21 +258,10 @@ TEXT ·gfpSub(SB), NOSPLIT, $0-24
 	MASKEQZ t0, const2, const2
 	MASKEQZ t0, const3, const3
 
-	ADDV const0, acc0, x0
-	SGTU const0, x0, t0
-	ADDV const1, acc1, x1
-	SGTU const1, x1, t1
-	ADDV t0, x1, x1
-	SGTU t0, x1, hlp0
-	OR hlp0, t1, t0
-	ADDV const2, acc2, x2
-	SGTU const2, x2, t1
-	ADDV t0, x2, x2
-	SGTU t0, x2, hlp0
-	OR hlp0, t1, t0
-	ADDV const3, acc3, x3
-	SGTU const3, x3, t1
-	ADDV t0, x3, x3
+	ADDS(const0, acc0, x0, t0)
+	ADCS(t0, const1, acc1, x1, t0, t1)
+	ADCS(t0, const2, acc2, x2, t0, t1)
+	ADC(t0, const3, acc3, x3)
 
 	storeBlock(x0, x1, x2, x3, 0(res_ptr))
 	RET
@@ -325,16 +287,13 @@ TEXT ·gfpMul(SB), NOSPLIT, $0
 	MULHVU y0, x3, acc7
 
 	// ADDS acc4, acc1
-	ADDV acc4, acc1, acc1
-	SGTU acc4, acc1, t0
+	ADDS(acc4, acc1, acc1, t0)
 	// ADCS acc5, acc2
 	ADDV t0, acc5, acc5 // no carry
-	ADDV acc5, acc2, acc2
-	SGTU acc5, acc2, t0
+	ADDS(acc5, acc2, acc2, t0)
 	// ADCS acc6, acc3
 	ADDV t0, acc6, acc6 // no carry
-	ADDV acc6, acc3, acc3
-	SGTU acc6, acc3, t0
+	ADDS(acc6, acc3, acc3, t0)
 	// ADCS acc7, 0
 	ADDV t0, acc7, acc4 // no carry
 
@@ -343,409 +302,239 @@ TEXT ·gfpMul(SB), NOSPLIT, $0
 	// MUL const0, hlp0, t0
 	MULV const0, hlp0, t0
 	// ADDS t0, acc0
-	ADDV t0, acc0, acc0 // acc0 is free now
-	SGTU t0, acc0, t1
+	ADDS(t0, acc0, acc0, t1)
 	MULHVU const0, hlp0, y0
 	
 	// MUL const1, hlp0, t0
 	MULV const1, hlp0, t0
 	// ADCS t0, acc1
-	ADDV t0, acc1, acc1
-	SGTU t0, acc1, t0
-	ADDV t1, acc1, acc1
-	SGTU t1, acc1, t1
-	OR t0, t1
+	ADCS(t1, t0, acc1, acc1, t1, t0)
 	MULHVU const1, hlp0, acc0
 
 	// MUL const2, hlp0, t0
 	MULV const2, hlp0, t0
 	// ADCS t0, acc2
-	ADDV t0, acc2, acc2
-	SGTU t0, acc2, t0
-	ADDV t1, acc2, acc2
-	SGTU t1, acc2, t1
-	OR t0, t1
+	ADCS(t1, t0, acc2, acc2, t1, t0)
 	MULHVU const2, hlp0, a_ptr
 
 	// MUL const3, hlp0, t0
 	MULV const3, hlp0, t0
 	// ADCS t0, acc3
-	ADDV t0, acc3, acc3
-	SGTU t0, acc3, t0
-	ADDV t1, acc3, acc3
-	SGTU t1, acc3, t1
-	OR t0, t1
+	ADCS(t1, t0, acc3, acc3, t1, t0)
 	MULHVU const3, hlp0, hlp0
 	ADDV t1, acc4, acc4
 
 	// ADDS y0, acc1
-	ADDV y0, acc1, acc1
-	SGTU y0, acc1, t0
+	ADDS(y0, acc1, acc1, t0)
 	// ADCS acc0, acc2
-	ADDV acc0, acc2, acc2
-	SGTU acc0, acc2, t1
-	ADDV t0, acc2, acc2
-	SGTU t0, acc2, t0
-	OR t1, t0
+	ADCS(t0, acc0, acc2, acc2, t0, t1)
 	// ADCS a_ptr, acc3
-	ADDV a_ptr, acc3, acc3
-	SGTU a_ptr, acc3, t1
-	ADDV t0, acc3, acc3
-	SGTU t0, acc3, t0
-	OR t1, t0
+	ADCS(t0, a_ptr, acc3, acc3, t0, t1)
 	// ADCS hlp0, ZERO, acc0
 	ADDV t0, hlp0, acc0
 
 	// y[1] * x
 	MULV y1, x0, t0
 	// ADDS t0, acc1
-	ADDV t0, acc1, acc1
-	SGTU t0, acc1, t0
+	ADDS(t0, acc1, acc1, t0)
 	MULHVU y1, x0, y0
 
 	MULV y1, x1, t1
 	// ADCS t1, acc2
-	ADDV t1, acc2, acc2
-	SGTU t1, acc2, hlp0
-	ADDV t0, acc2, acc2
-	SGTU t0, acc2, t0
-	OR hlp0, t0, t0
+	ADCS(t0, t1, acc2, acc2, t0, hlp0)
 	MULHVU y1, x1, acc6
 
 	MULV y1, x2, t1
 	// ADCS t1, acc3
-	ADDV t1, acc3, acc3
-	SGTU t1, acc3, hlp0
-	ADDV t0, acc3, acc3
-	SGTU t0, acc3, t0
-	OR hlp0, t0, t0
+	ADCS(t0, t1, acc3, acc3, t0, hlp0)
 	MULHVU y1, x2, acc7
 
 	MULV y1, x3, t1
 	// ADCS t1, acc0
-	ADDV t1, acc0, acc0
-	SGTU t1, acc0, hlp0
-	ADDV t0, acc0, acc0
-	SGTU t0, acc0, t0
-	OR hlp0, t0, acc5
+	ADCS(t0, t1, acc0, acc0, acc5, hlp0)
 	MULHVU y1, x3, y1
 
 	// ADDS y0, acc2
-	ADDV y0, acc2, acc2
-	SGTU y0, acc2, t0
+	ADDS(y0, acc2, acc2, t0)
 	// ADCS acc6, acc3
-	ADDV acc6, acc3, acc3
-	SGTU acc6, acc3, t1
-	ADDV t0, acc3, acc3
-	SGTU t0, acc3, t0
-	OR t1, t0, t0
+	ADCS(t0, acc6, acc3, acc3, t0, t1)
 	// ADCS acc7, acc4
-	ADDV acc7, acc4, acc4
-	SGTU acc7, acc4, t1
-	ADDV t0, acc4, acc4
-	SGTU t0, acc4, t0
-	OR t1, t0, t0
+	ADCS(t0, acc7, acc4, acc4, t0, t1)
 	// ADCS y1, acc5
-	ADDV y1, acc5, acc5
-	ADDV t0, acc5, acc5
+	ADC(t0, y1, acc5, acc5)
 
 	// Second reduction step
 	MULV acc1, hlp1, hlp0
 	// MUL const0, hlp0, t0
 	MULV const0, hlp0, t0
 	// ADDS t0, acc1
-	ADDV t0, acc1, acc1 // acc1 is free now
-	SGTU t0, acc1, t1
+	ADDS(t0, acc1, acc1, t1)
 	MULHVU const0, hlp0, y0
 
 	// MUL const1, hlp0, t0
 	MULV const1, hlp0, t0
 	// ADCS t0, acc2
-	ADDV t0, acc2, acc2
-	SGTU t0, acc2, t0
-	ADDV t1, acc2, acc2
-	SGTU t1, acc2, t1
-	OR t0, t1
+	ADCS(t1, t0, acc2, acc2, t1, t0)
 	MULHVU const1, hlp0, y1
 
 	// MUL const2, hlp0, t0
 	MULV const2, hlp0, t0
 	// ADCS t0, acc3
-	ADDV t0, acc3, acc3
-	SGTU t0, acc3, t0
-	ADDV t1, acc3, acc3
-	SGTU t1, acc3, t1
-	OR t0, t1
+	ADCS(t1, t0, acc3, acc3, t1, t0)
 	MULHVU const2, hlp0, acc1
 
 	// MUL const3, hlp0, t0
 	MULV const3, hlp0, t0
 	// ADCS t0, acc0
-	ADDV t0, acc0, acc0
-	SGTU t0, acc0, t0
-	ADDV t1, acc0, acc0
-	SGTU t1, acc0, t1
-	OR t0, t1
+	ADCS(t1, t0, acc0, acc0, t1, t0)
 	MULHVU const3, hlp0, hlp0
 	ADDV t1, acc5, acc5
 
 	// ADDS y0, acc2
-	ADDV y0, acc2, acc2
-	SGTU y0, acc2, t0
+	ADDS(y0, acc2, acc2, t0)
 	// ADCS y1, acc3
-	ADDV y1, acc3, acc3
-	SGTU y1, acc3, t1
-	ADDV t0, acc3, acc3
-	SGTU t0, acc3, t0
-	OR t1, t0
+	ADCS(t0, y1, acc3, acc3, t0, t1)
 	// ADCS acc1, acc0
-	ADDV acc1, acc0, acc0
-	SGTU acc1, acc0, t1
-	ADDV t0, acc0, acc0
-	SGTU t0, acc0, t0
-	OR t1, t0
+	ADCS(t0, acc1, acc0, acc0, t0, t1)
 	// ADCS hlp0, ZERO, acc1
 	ADDV t0, hlp0, acc1
 
 	// y[2] * x
 	MULV y2, x0, t0
 	// ADDS t0, acc2
-	ADDV t0, acc2, acc2
-	SGTU t0, acc2, t0
+	ADDS(t0, acc2, acc2, t0)
 	MULHVU y2, x0, y0
 
 	MULV y2, x1, t1
 	// ADCS t1, acc3
-	ADDV t1, acc3, acc3
-	SGTU t1, acc3, hlp0
-	ADDV t0, acc3, acc3
-	SGTU t0, acc3, t0
-	OR hlp0, t0, t0
+	ADCS(t0, t1, acc3, acc3, t0, hlp0)
 	MULHVU y2, x1, y1
 
 	MULV y2, x2, t1
 	// ADCS t1, acc4
-	ADDV t1, acc4, acc4
-	SGTU t1, acc4, hlp0
-	ADDV t0, acc4, acc4
-	SGTU t0, acc4, t0
-	OR hlp0, t0, t0
+	ADCS(t0, t1, acc4, acc4, t0, hlp0)
 	MULHVU y2, x2, acc7
 
 	MULV y2, x3, t1
 	// ADCS t1, acc5
-	ADDV t1, acc5, acc5
-	SGTU t1, acc5, hlp0
-	ADDV t0, acc5, acc5
-	SGTU t0, acc5, t0
-	OR hlp0, t0, acc6
+	ADCS(t0, t1, acc5, acc5, acc6, hlp0)
 	MULHVU y2, x3, y2
 
 	// ADDS y0, acc3
-	ADDV y0, acc3, acc3
-	SGTU y0, acc3, t0
+	ADDS(y0, acc3, acc3, t0)
 	// ADCS y1, acc4
-	ADDV y1, acc4, acc4
-	SGTU y1, acc4, t1
-	ADDV t0, acc4, acc4
-	SGTU t0, acc4, t0
-	OR t1, t0, t0
+	ADCS(t0, y1, acc4, acc4, t0, t1)
 	// ADCS acc7, acc5
-	ADDV acc7, acc5, acc5
-	SGTU acc7, acc5, t1
-	ADDV t0, acc5, acc5
-	SGTU t0, acc5, t0
-	OR t1, t0, t0
+	ADCS(t0, acc7, acc5, acc5, t0, t1)
 	// ADCS y2, acc6
-	ADDV y2, acc6, acc6
-	ADDV t0, acc6, acc6
+	ADC(t0, y2, acc6, acc6)
 
 	// Third reduction step
 	MULV acc2, hlp1, hlp0
 	// MUL const0, hlp0, t0
 	MULV const0, hlp0, t0
 	// ADDS t0, acc2
-	ADDV t0, acc2, acc2 // acc2 is free now
-	SGTU t0, acc2, t1
+	ADDS(t0, acc2, acc2, t1)
 	MULHVU const0, hlp0, y0
 
 	// MUL const1, hlp0, t0
 	MULV const1, hlp0, t0
 	// ADCS t0, acc3
-	ADDV t0, acc3, acc3
-	SGTU t0, acc3, t0
-	ADDV t1, acc3, acc3
-	SGTU t1, acc3, t1
-	OR t0, t1
+	ADCS(t1, t0, acc3, acc3, t1, t0)
 	MULHVU const1, hlp0, y1
 
 	// MUL const2, hlp0, t0
 	MULV const2, hlp0, t0
 	// ADCS t0, acc0
-	ADDV t0, acc0, acc0
-	SGTU t0, acc0, t0
-	ADDV t1, acc0, acc0
-	SGTU t1, acc0, t1
-	OR t0, t1
+	ADCS(t1, t0, acc0, acc0, t1, t0)
 	MULHVU const2, hlp0, y2
 
 	// MUL const3, hlp0, t0
 	MULV const3, hlp0, t0
 	// ADCS t0, acc1
-	ADDV t0, acc1, acc1
-	SGTU t0, acc1, t0
-	ADDV t1, acc1, acc1
-	SGTU t1, acc1, t1
-	OR t0, t1
+	ADCS(t1, t0, acc1, acc1, t1, t0)
 	MULHVU const3, hlp0, hlp0
 	ADDV t1, acc6, acc6
 
 	// ADDS y0, acc3
-	ADDV y0, acc3, acc3
-	SGTU y0, acc3, t0
+	ADDS(y0, acc3, acc3, t0)
 	// ADCS y1, acc0
-	ADDV y1, acc0, acc0
-	SGTU y1, acc0, t1
-	ADDV t0, acc0, acc0
-	SGTU t0, acc0, t0
-	OR t1, t0
+	ADCS(t0, y1, acc0, acc0, t0, t1)
 	// ADCS y2, acc1
-	ADDV y2, acc1, acc1
-	SGTU y2, acc1, t1
-	ADDV t0, acc1, acc1
-	SGTU t0, acc1, t0
-	OR t1, t0
+	ADCS(t0, y2, acc1, acc1, t0, t1)
 	// ADC hlp0, ZERO, acc2
 	ADDV t0, hlp0, acc2
 
 	// y[3] * x
 	MULV y3, x0, t0
 	// ADDS t0, acc3
-	ADDV t0, acc3, acc3
-	SGTU t0, acc3, t0
+	ADDS(t0, acc3, acc3, t0)
 	MULHVU y3, x0, y0
 
 	MULV y3, x1, t1
 	// ADCS t1, acc4
-	ADDV t1, acc4, acc4
-	SGTU t1, acc4, hlp0
-	ADDV t0, acc4, acc4
-	SGTU t0, acc4, t0
-	OR hlp0, t0, t0
+	ADCS(t0, t1, acc4, acc4, t0, hlp0)
 	MULHVU y3, x1, y1
 
 	MULV y3, x2, t1
 	// ADCS t1, acc5
-	ADDV t1, acc5, acc5
-	SGTU t1, acc5, hlp0
-	ADDV t0, acc5, acc5
-	SGTU t0, acc5, t0
-	OR hlp0, t0, t0
+	ADCS(t0, t1, acc5, acc5, t0, hlp0)
 	MULHVU y3, x2, y2
 
 	MULV y3, x3, t1
 	// ADCS t1, acc6
-	ADDV t1, acc6, acc6
-	SGTU t1, acc6, hlp0
-	ADDV t0, acc6, acc6
-	SGTU t0, acc6, t0
-	OR hlp0, t0, acc7
+	ADCS(t0, t1, acc6, acc6, acc7, hlp0)
 	MULHVU y3, x3, y3
 
 	// ADDS y0, acc4
-	ADDV y0, acc4, acc4
-	SGTU y0, acc4, t0
+	ADDS(y0, acc4, acc4, t0)
 	// ADCS y1, acc5
-	ADDV y1, acc5, acc5
-	SGTU y1, acc5, t1
-	ADDV t0, acc5, acc5
-	SGTU t0, acc5, t0
-	OR t1, t0, t0
+	ADCS(t0, y1, acc5, acc5, t0, t1)
 	// ADCS y2, acc6
-	ADDV y2, acc6, acc6
-	SGTU y2, acc6, t1
-	ADDV t0, acc6, acc6
-	SGTU t0, acc6, t0
-	OR t1, t0, t0
+	ADCS(t0, y2, acc6, acc6, t0, t1)
 	// ADCS y3, acc7
-	ADDV y3, acc7, acc7
-	ADDV t0, acc7, acc7
+	ADC(t0, y3, acc7, acc7)
 
 	// Last reduction step
 	MULV acc3, hlp1, hlp0
 	// MUL const0, hlp0, t0
 	MULV const0, hlp0, t0
 	// ADDS t0, acc3
-	ADDV t0, acc3, acc3 // acc3 is free now
-	SGTU t0, acc3, t1
+	ADDS(t0, acc3, acc3, t1)
 	MULHVU const0, hlp0, y0
 
 	// MUL const1, hlp0, t0
 	MULV const1, hlp0, t0
 	// ADCS t0, acc0
-	ADDV t0, acc0, acc0
-	SGTU t0, acc0, t0
-	ADDV t1, acc0, acc0
-	SGTU t1, acc0, t1
-	OR t0, t1
+	ADCS(t1, t0, acc0, acc0, t1, t0)
 	MULHVU const1, hlp0, y1
 
 	// MUL const2, hlp0, t0
 	MULV const2, hlp0, t0
 	// ADCS t0, acc1
-	ADDV t0, acc1, acc1
-	SGTU t0, acc1, t0
-	ADDV t1, acc1, acc1
-	SGTU t1, acc1, t1
-	OR t0, t1
+	ADCS(t1, t0, acc1, acc1, t1, t0)
 	MULHVU const2, hlp0, y2
 
 	// MUL const3, hlp0, t0
 	MULV const3, hlp0, t0
 	// ADCS t0, acc2
-	ADDV t0, acc2, acc2
-	SGTU t0, acc2, t0
-	ADDV t1, acc2, acc2
-	SGTU t1, acc2, t1
-	OR t0, t1
+	ADCS(t1, t0, acc2, acc2, t1, t0)
 	MULHVU const3, hlp0, hlp0
 	ADDV t1, acc7, acc7
 
 	// ADDS y0, acc0
-	ADDV y0, acc0, acc0
-	SGTU y0, acc0, t0
+	ADDS(y0, acc0, acc0, t0)
 	// ADCS y1, acc1
-	ADDV y1, acc1, acc1
-	SGTU y1, acc1, t1
-	ADDV t0, acc1, acc1
-	SGTU t0, acc1, t0
-	OR t1, t0
+	ADCS(t0, y1, acc1, acc1, t0, t1)
 	// ADCS y2, acc2
-	ADDV y2, acc2, acc2
-	SGTU y2, acc2, t1
-	ADDV t0, acc2, acc2
-	SGTU t0, acc2, t0
-	OR t1, t0
+	ADCS(t0, y2, acc2, acc2, t0, t1)
 	// ADC hlp0, ZERO, acc3
 	ADDV t0, hlp0, acc3
 
-	ADDV acc4, acc0, x0
-	SGTU acc4, x0, t0
-	ADDV acc5, acc1, x1
-	SGTU acc5, x1, t1
-	ADDV t0, x1, x1
-	SGTU t0, x1, t0
-	OR t1, t0, t0
-	ADDV acc6, acc2, x2
-	SGTU acc6, x2, t1
-	ADDV t0, x2, x2
-	SGTU t0, x2, t0
-	OR t1, t0, t0
-	ADDV acc7, acc3, x3
-	SGTU acc7, x3, t1
-	ADDV t0, x3, x3
-	SGTU t0, x3, acc5
-	OR t1, acc5, acc5
+	ADDS(acc0, acc4, x0, t0)
+	ADCS(t0, acc1, acc5, x1, t0, t1)
+	ADCS(t0, acc2, acc6, x2, t0, t1)
+	ADCS(t0, acc3, acc7, x3, acc5, t1)
 
 	// final reduction
 	gfpCarry(x0, x1, x2, x3, acc5, const0, const1, const2, const3)
@@ -773,46 +562,35 @@ sqrLoop:
 
 		MULV x0, x2, t0
 		// ADDS t0, acc2
-		ADDV t0, acc2, acc2
-		SGTU t0, acc2, t1
+		ADDS(t0, acc2, acc2, t1)
 		MULHVU x0, x2, acc3
 
 		MULV x0, x3, t0
 		// ADCS t0, acc3
 		ADDV t1, acc3, acc3  // no carry
-		ADDV t0, acc3, acc3
-		SGTU t0, acc3, t1
+		ADDS(t0, acc3, acc3, t1)
 		MULHVU x0, x3, acc4
 		ADDV t1, acc4, acc4  // no carry
 
 		// x[2:] * x[1]
 		MULV x1, x2, t0
 		// ADDS t0, acc3
-		ADDV t0, acc3, acc3
-		SGTU t0, acc3, t0
+		ADDS(t0, acc3, acc3, t0)
 		MULHVU x1, x2, t1
 		// ADCS t1, acc4
-		ADDV t1, acc4, acc4
-		SGTU t1, acc4, t1
-		ADDV t0, acc4, acc4
-		SGTU t0, acc4, t0
-		// ADC $0, acc5
-		OR t0, t1, acc5
+		ADCS(t0, t1, acc4, acc4, acc5, t1)
 
 		MULV x1, x3, t0
-		// ADCS t0, acc4
-		ADDV t0, acc4, acc4
-		SGTU t0, acc4, t0
+		// ADDS t0, acc4
+		ADDS(t0, acc4, acc4, t0)
 		MULHVU x1, x3, t1
 		// ADC	t1, acc5
-		ADDV t1, t0, t0       // no carry
-		ADDV t0, acc5, acc5   // no carry
+		ADC(t0, t1, acc5, acc5)
 
 		// x[3] * x[2]
 		MULV x2, x3, t0
 		// ADDS t0, acc5
-		ADDV t0, acc5, acc5
-		SGTU t0, acc5, t1
+		ADDS(t0, acc5, acc5, t1)
 		MULHVU x2, x3, acc6
 		// ADC	$0, acc6
 		ADDV t1, acc6, acc6   // no carry
@@ -846,90 +624,61 @@ sqrLoop:
 		MULV x0, x0, acc0
 		MULHVU x0, x0, t0
 		// ADDS t0, acc1
-		ADDV t0, acc1, acc1
-		SGTU t0, acc1, t1
+		ADDS(t0, acc1, acc1, t1)
 		MULV x1, x1, t0
 		// ADCS t0, acc2
 		ADDV t0, t1, t1         // no carry
-		ADDV t1, acc2, acc2
-		SGTU t1, acc2, t1
+		ADDS(t1, acc2, acc2, t1)
 		MULHVU x1, x1, t0
 		// ADCS t0, acc3
 		ADDV t0, t1, t0	    // no carry
-		ADDV t0, acc3, acc3
-		SGTU t0, acc3, t1
+		ADDS(t0, acc3, acc3, t1)
 		MULV x2, x2, t0
 		// ADCS t0, acc4
 		ADDV t0, t1, t0         // no carry
-		ADDV t0, acc4, acc4
-		SGTU t0, acc4, t1
+		ADDS(t0, acc4, acc4, t1)
 		MULHVU x2, x2, t0
 		// ADCS t0, acc5
 		ADDV t0, t1, t0     // no carry
-		ADDV t0, acc5, acc5
-		SGTU t0, acc5, t1
+		ADDS(t0, acc5, acc5, t1)
 		MULV x3, x3, t0
 		// ADCS t0, acc6
 		ADDV t0, t1, t0         // no carry
-		ADDV t0, acc6, acc6
-		SGTU t0, acc6, t1
+		ADDS(t0, acc6, acc6, t1)
 		MULHVU x3, x3, t0
 		// ADC	t0, acc7
-		ADDV t0, t1, t0     // no carry
-		ADDV t0, acc7, acc7   // (acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7) is the result
+		ADC(t1, t0, acc7, acc7) // (acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7) is the result
 
 		// First reduction step
 		MULV acc0, hlp1, hlp0
 		// MUL	const0, hlp0, t0
 		MULV hlp0, const0, t0
 		// ADDS t0, acc0
-		ADDV t0, acc0, acc0
-		SGTU t0, acc0, t1
+		ADDS(t0, acc0, acc0, t1)
 		MULHVU hlp0, const0, y0
 
 		// MUL const1, hlp0, t0
 		MULV hlp0, const1, t0
 		// ADCS t0, acc1
-		ADDV t0, acc1, acc1
-		SGTU t0, acc1, t0
-		ADDV t1, acc1, acc1
-		SGTU t1, acc1, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc1, acc1, t1, t0)
 		MULHVU hlp0, const1, y1
 
 		// MUL const2, hlp0, t0
 		MULV hlp0, const2, t0
 		// ADCS t0, acc2
-		ADDV t0, acc2, acc2
-		SGTU t0, acc2, t0
-		ADDV t1, acc2, acc2
-		SGTU t1, acc2, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc2, acc2, t1, t0)
 		MULHVU hlp0, const2, y2
 
 		// MUL const3, hlp0, t0
 		MULV hlp0, const3, t0
 		// ADCS t0, acc3
-		ADDV t0, acc3, acc3
-		SGTU t0, acc3, t0
-		ADDV t1, acc3, acc3
-		SGTU t1, acc3, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc3, acc3, t1, t0)
 		MULHVU hlp0, const3, acc0
 		ADDV t1, acc0, acc0         // no carry
 
-		ADDV y0, acc1, acc1
-		SGTU y0, acc1, t0
-		ADDV y1, acc2, acc2
-		SGTU y1, acc2, t1
-		ADDV t0, acc2, acc2
-		SGTU t0, acc2, t0
-		OR t1, t0, t0
-		ADDV y2, acc3, acc3
-		SGTU y2, acc3, t1
-		ADDV t0, acc3, acc3
-		SGTU t0, acc3, t0
-		OR t1, t0, t0
+		ADDS(y0, acc1, acc1, t0)
+		ADCS(t0, y1, acc2, acc2, t0, t1)
+		ADCS(t0, y2, acc3, acc3, t0, t1)
 		ADDV t0, acc0, acc0
 
 		// Second reduction step
@@ -937,53 +686,31 @@ sqrLoop:
 		// MUL	const0, hlp0, t0
 		MULV hlp0, const0, t0
 		// ADDS t0, acc1
-		ADDV t0, acc1, acc1
-		SGTU t0, acc1, t1
+		ADDS(t0, acc1, acc1, t1)
 		MULHVU hlp0, const0, y0
 
 		// MUL const1, hlp0, t0
 		MULV hlp0, const1, t0
 		// ADCS t0, acc2
-		ADDV t0, acc2, acc2
-		SGTU t0, acc2, t0
-		ADDV t1, acc2, acc2
-		SGTU t1, acc2, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc2, acc2, t1, t0)
 		MULHVU hlp0, const1, y1
 
 		// MUL const2, hlp0, t0
 		MULV hlp0, const2, t0
 		// ADCS t0, acc3
-		ADDV t0, acc3, acc3
-		SGTU t0, acc3, t0
-		ADDV t1, acc3, acc3
-		SGTU t1, acc3, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc3, acc3, t1, t0)
 		MULHVU hlp0, const2, y2
 
 		// MUL const3, hlp0, t0
 		MULV hlp0, const3, t0
 		// ADCS t0, acc0
-		ADDV t0, acc0, acc0
-		SGTU t0, acc0, t0
-		ADDV t1, acc0, acc0
-		SGTU t1, acc0, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc0, acc0, t1, t0)
 		MULHVU hlp0, const3, acc1
 		ADDV t1, acc1, acc1       // no carry
 
-		ADDV y0, acc2, acc2
-		SGTU y0, acc2, t0
-		ADDV y1, acc3, acc3
-		SGTU y1, acc3, t1
-		ADDV t0, acc3, acc3
-		SGTU t0, acc3, t0
-		OR t1, t0, t0
-		ADDV y2, acc0, acc0
-		SGTU y2, acc0, t1
-		ADDV t0, acc0, acc0
-		SGTU t0, acc0, t0
-		OR t1, t0, t0
+		ADDS(y0, acc2, acc2, t0)
+		ADCS(t0, y1, acc3, acc3, t0, t1)
+		ADCS(t0, y2, acc0, acc0, t0, t1)
 		ADDV t0, acc1, acc1
 
 		// Third reduction step
@@ -991,53 +718,31 @@ sqrLoop:
 		// MUL	const0, hlp0, t0
 		MULV hlp0, const0, t0
 		// ADDS t0, acc2
-		ADDV t0, acc2, acc2
-		SGTU t0, acc2, t1
+		ADDS(t0, acc2, acc2, t1)
 		MULHVU hlp0, const0, y0
 
 		// MUL const1, hlp0, t0
 		MULV hlp0, const1, t0
 		// ADCS t0, acc3
-		ADDV t0, acc3, acc3
-		SGTU t0, acc3, t0
-		ADDV t1, acc3, acc3
-		SGTU t1, acc3, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc3, acc3, t1, t0)
 		MULHVU hlp0, const1, y1
 
 		// MUL const2, hlp0, t0
 		MULV hlp0, const2, t0
 		// ADCS t0, acc0
-		ADDV t0, acc0, acc0
-		SGTU t0, acc0, t0
-		ADDV t1, acc0, acc0
-		SGTU t1, acc0, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc0, acc0, t1, t0)
 		MULHVU hlp0, const2, y2
 
 		// MUL const3, hlp0, t0
 		MULV hlp0, const3, t0
 		// ADCS t0, acc1
-		ADDV t0, acc1, acc1
-		SGTU t0, acc1, t0
-		ADDV t1, acc1, acc1
-		SGTU t1, acc1, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc1, acc1, t1, t0)
 		MULHVU hlp0, const3, acc2
 		ADDV t1, acc2, acc2       // no carry
 
-		ADDV y0, acc3, acc3
-		SGTU y0, acc3, t0
-		ADDV y1, acc0, acc0
-		SGTU y1, acc0, t1
-		ADDV t0, acc0, acc0
-		SGTU t0, acc0, t0
-		OR t1, t0, t0
-		ADDV y2, acc1, acc1
-		SGTU y2, acc1, t1
-		ADDV t0, acc1, acc1
-		SGTU t0, acc1, t0
-		OR t1, t0, t0
+		ADDS(y0, acc3, acc3, t0)
+		ADCS(t0, y1, acc0, acc0, t0, t1)
+		ADCS(t0, y2, acc1, acc1, t0, t1)
 		ADDV t0, acc2, acc2
 
 		// Last reduction step
@@ -1045,72 +750,37 @@ sqrLoop:
 		// MUL	const0, hlp0, t0
 		MULV hlp0, const0, t0
 		// ADDS t0, acc3
-		ADDV t0, acc3, acc3
-		SGTU t0, acc3, t1
+		ADDS(t0, acc3, acc3, t1)
 		MULHVU hlp0, const0, y0
 
 		// MUL const1, hlp0, t0
 		MULV hlp0, const1, t0
 		// ADCS t0, acc0
-		ADDV t0, acc0, acc0
-		SGTU t0, acc0, t0
-		ADDV t1, acc0, acc0
-		SGTU t1, acc0, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc0, acc0, t1, t0)
 		MULHVU hlp0, const1, y1
 
 		// MUL const2, hlp0, t0
 		MULV hlp0, const2, t0
 		// ADCS t0, acc1
-		ADDV t0, acc1, acc1
-		SGTU t0, acc1, t0
-		ADDV t1, acc1, acc1
-		SGTU t1, acc1, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc1, acc1, t1, t0)
 		MULHVU hlp0, const2, y2
 
 		// MUL const3, hlp0, t0
 		MULV hlp0, const3, t0
 		// ADCS t0, acc2
-		ADDV t0, acc2, acc2
-		SGTU t0, acc2, t0
-		ADDV t1, acc2, acc2
-		SGTU t1, acc2, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc2, acc2, t1, t0)
 		MULHVU hlp0, const3, acc3
 		ADDV t1, acc3, acc3       // no carry
 
-		ADDV y0, acc0, acc0
-		SGTU y0, acc0, t0
-		ADDV y1, acc1, acc1
-		SGTU y1, acc1, t1
-		ADDV t0, acc1, acc1
-		SGTU t0, acc1, t0
-		OR t1, t0, t0
-		ADDV y2, acc2, acc2
-		SGTU y2, acc2, t1
-		ADDV t0, acc2, acc2
-		SGTU t0, acc2, t0
-		OR t1, t0, t0
+		ADDS(y0, acc0, acc0, t0)
+		ADCS(t0, y1, acc1, acc1, t0, t1)
+		ADCS(t0, y2, acc2, acc2, t0, t1)
 		ADDV t0, acc3, acc3
 
-		ADDV acc4, acc0, x0
-		SGTU acc4, x0, t0
-		ADDV acc5, acc1, x1
-		SGTU acc5, x1, t1
-		ADDV t0, x1, x1
-		SGTU t0, x1, t0
-		OR t1, t0, t0
-		ADDV acc6, acc2, x2
-		SGTU acc6, x2, t1
-		ADDV t0, x2, x2
-		SGTU t0, x2, t0
-		OR t1, t0, t0
-		ADDV acc7, acc3, x3
-		SGTU acc7, x3, t1
-		ADDV t0, x3, x3
-		SGTU t0, x3, acc5
-		OR t1, acc5, acc5
+		ADDS(acc0, acc4, x0, t0)
+		ADCS(t0, acc1, acc5, x1, t0, t1)
+		ADCS(t0, acc2, acc6, x2, t0, t1)
+		ADCS(t0, acc3, acc7, x3, acc5, t1)
 
 		// final reduction
 		gfpCarry(x0, x1, x2, x3, acc5, const0, const1, const2, const3)
@@ -1135,53 +805,31 @@ TEXT ·gfpFromMont(SB), NOSPLIT, $0
 	// MUL	const0, hlp0, t0
 	MULV hlp0, const0, t0
 	// ADDS t0, acc0
-	ADDV t0, acc0, acc0
-	SGTU t0, acc0, t1
+	ADDS(t0, acc0, acc0, t1)
 	MULHVU hlp0, const0, y0
 
 	// MUL const1, hlp0, t0
 	MULV hlp0, const1, t0
 	// ADCS t0, acc1
-	ADDV t0, acc1, acc1
-	SGTU t0, acc1, t0
-	ADDV t1, acc1, acc1
-	SGTU t1, acc1, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc1, acc1, t1, t0)
 	MULHVU hlp0, const1, y1
 
 	// MUL const2, hlp0, t0
 	MULV hlp0, const2, t0
 	// ADCS t0, acc2
-	ADDV t0, acc2, acc2
-	SGTU t0, acc2, t0
-	ADDV t1, acc2, acc2
-	SGTU t1, acc2, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc2, acc2, t1, t0)
 	MULHVU hlp0, const2, y2
 
 	// MUL const3, hlp0, t0
 	MULV hlp0, const3, t0
 	// ADCS t0, acc3
-	ADDV t0, acc3, acc3
-	SGTU t0, acc3, t0
-	ADDV t1, acc3, acc3
-	SGTU t1, acc3, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc3, acc3, t1, t0)
 	MULHVU hlp0, const3, acc0
 	ADDV t1, acc0, acc0       // no carry
 
-	ADDV y0, acc1, acc1
-	SGTU y0, acc1, t0
-	ADDV y1, acc2, acc2
-	SGTU y1, acc2, t1
-	ADDV t0, acc2, acc2
-	SGTU t0, acc2, t0
-	OR t1, t0, t0
-	ADDV y2, acc3, acc3
-	SGTU y2, acc3, t1
-	ADDV t0, acc3, acc3
-	SGTU t0, acc3, t0
-	OR t1, t0, t0
+	ADDS(y0, acc1, acc1, t0)
+	ADCS(t0, y1, acc2, acc2, t0, t1)
+	ADCS(t0, y2, acc3, acc3, t0, t1)
 	ADDV t0, acc0, acc0
 
 	// Second reduction step
@@ -1189,53 +837,31 @@ TEXT ·gfpFromMont(SB), NOSPLIT, $0
 	// MUL	const0, hlp0, t0
 	MULV hlp0, const0, t0
 	// ADDS t0, acc1
-	ADDV t0, acc1, acc1
-	SGTU t0, acc1, t1
+	ADDS(t0, acc1, acc1, t1)
 	MULHVU hlp0, const0, y0
 
 	// MUL const1, hlp0, t0
 	MULV hlp0, const1, t0
 	// ADCS t0, acc2
-	ADDV t0, acc2, acc2
-	SGTU t0, acc2, t0
-	ADDV t1, acc2, acc2
-	SGTU t1, acc2, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc2, acc2, t1, t0)
 	MULHVU hlp0, const1, y1
 
 	// MUL const2, hlp0, t0
 	MULV hlp0, const2, t0
 	// ADCS t0, acc3
-	ADDV t0, acc3, acc3
-	SGTU t0, acc3, t0
-	ADDV t1, acc3, acc3
-	SGTU t1, acc3, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc3, acc3, t1, t0)
 	MULHVU hlp0, const2, y2
 
 	// MUL const3, hlp0, t0
 	MULV hlp0, const3, t0
 	// ADCS t0, acc0
-	ADDV t0, acc0, acc0
-	SGTU t0, acc0, t0
-	ADDV t1, acc0, acc0
-	SGTU t1, acc0, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc0, acc0, t1, t0)
 	MULHVU hlp0, const3, acc1
 	ADDV t1, acc1, acc1       // no carry
 
-	ADDV y0, acc2, acc2
-	SGTU y0, acc2, t0
-	ADDV y1, acc3, acc3
-	SGTU y1, acc3, t1
-	ADDV t0, acc3, acc3
-	SGTU t0, acc3, t0
-	OR t1, t0, t0
-	ADDV y2, acc0, acc0
-	SGTU y2, acc0, t1
-	ADDV t0, acc0, acc0
-	SGTU t0, acc0, t0
-	OR t1, t0, t0
+	ADDS(y0, acc2, acc2, t0)
+	ADCS(t0, y1, acc3, acc3, t0, t1)
+	ADCS(t0, y2, acc0, acc0, t0, t1)
 	ADDV t0, acc1, acc1
 
 	// Third reduction step
@@ -1243,53 +869,31 @@ TEXT ·gfpFromMont(SB), NOSPLIT, $0
 	// MUL	const0, hlp0, t0
 	MULV hlp0, const0, t0
 	// ADDS t0, acc2
-	ADDV t0, acc2, acc2
-	SGTU t0, acc2, t1
+	ADDS(t0, acc2, acc2, t1)
 	MULHVU hlp0, const0, y0
 
 	// MUL const1, hlp0, t0
 	MULV hlp0, const1, t0
 	// ADCS t0, acc3
-	ADDV t0, acc3, acc3
-	SGTU t0, acc3, t0
-	ADDV t1, acc3, acc3
-	SGTU t1, acc3, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc3, acc3, t1, t0)
 	MULHVU hlp0, const1, y1
 
 	// MUL const2, hlp0, t0
 	MULV hlp0, const2, t0
 	// ADCS t0, acc0
-	ADDV t0, acc0, acc0
-	SGTU t0, acc0, t0
-	ADDV t1, acc0, acc0
-	SGTU t1, acc0, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc0, acc0, t1, t0)
 	MULHVU hlp0, const2, y2
 
 	// MUL const3, hlp0, t0
 	MULV hlp0, const3, t0
 	// ADCS t0, acc1
-	ADDV t0, acc1, acc1
-	SGTU t0, acc1, t0
-	ADDV t1, acc1, acc1
-	SGTU t1, acc1, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc1, acc1, t1, t0)
 	MULHVU hlp0, const3, acc2
 	ADDV t1, acc2, acc2       // no carry
 
-	ADDV y0, acc3, acc3
-	SGTU y0, acc3, t0
-	ADDV y1, acc0, acc0
-	SGTU y1, acc0, t1
-	ADDV t0, acc0, acc0
-	SGTU t0, acc0, t0
-	OR t1, t0, t0
-	ADDV y2, acc1, acc1
-	SGTU y2, acc1, t1
-	ADDV t0, acc1, acc1
-	SGTU t0, acc1, t0
-	OR t1, t0, t0
+	ADDS(y0, acc3, acc3, t0)
+	ADCS(t0, y1, acc0, acc0, t0, t1)
+	ADCS(t0, y2, acc1, acc1, t0, t1)
 	ADDV t0, acc2, acc2
 
 	// Last reduction step
@@ -1297,53 +901,31 @@ TEXT ·gfpFromMont(SB), NOSPLIT, $0
 	// MUL	const0, hlp0, t0
 	MULV hlp0, const0, t0
 	// ADDS t0, acc3
-	ADDV t0, acc3, acc3
-	SGTU t0, acc3, t1
+	ADDS(t0, acc3, acc3, t1)
 	MULHVU hlp0, const0, y0
 
 	// MUL const1, hlp0, t0
 	MULV hlp0, const1, t0
 	// ADCS t0, acc0
-	ADDV t0, acc0, acc0
-	SGTU t0, acc0, t0
-	ADDV t1, acc0, acc0
-	SGTU t1, acc0, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc0, acc0, t1, t0)
 	MULHVU hlp0, const1, y1
 
 	// MUL const2, hlp0, t0
 	MULV hlp0, const2, t0
 	// ADCS t0, acc1
-	ADDV t0, acc1, acc1
-	SGTU t0, acc1, t0
-	ADDV t1, acc1, acc1
-	SGTU t1, acc1, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc1, acc1, t1, t0)
 	MULHVU hlp0, const2, y2
 
 	// MUL const3, hlp0, t0
 	MULV hlp0, const3, t0
 	// ADCS t0, acc2
-	ADDV t0, acc2, acc2
-	SGTU t0, acc2, t0
-	ADDV t1, acc2, acc2
-	SGTU t1, acc2, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc2, acc2, t1, t0)
 	MULHVU hlp0, const3, acc3
 	ADDV t1, acc3, acc3       // no carry
 
-	ADDV y0, acc0, x0
-	SGTU y0, x0, t0
-	ADDV y1, acc1, x1
-	SGTU y1, x1, t1
-	ADDV t0, x1, x1
-	SGTU t0, x1, t0
-	OR t1, t0, t0
-	ADDV y2, acc2, x2
-	SGTU y2, x2, t1
-	ADDV t0, x2, x2
-	SGTU t0, x2, t0
-	OR t1, t0, t0
+	ADDS(y0, acc0, x0, t0)
+	ADCS(t0, y1, acc1, x1, t0, t1)
+	ADCS(t0, y2, acc2, x2, t0, t1)
 	ADDV t0, acc3, x3
 
 	gfpCarry(x0, x1, x2, x3, ZERO, const0, const1, const2, const3)
