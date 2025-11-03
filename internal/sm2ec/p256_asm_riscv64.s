@@ -1343,8 +1343,6 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	MUL y1, x0, t0
 	// ADDS t0, acc1
 	ADDS(t0, acc1, acc1, t0)
-	ADD t0, acc1, acc1
-	SLTU t0, acc1, t0
 	MULHU y1, x0, y0
 
 	MUL y1, x1, t1
