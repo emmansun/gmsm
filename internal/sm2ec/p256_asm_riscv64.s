@@ -1896,9 +1896,9 @@ TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
 	SUBS(acc2, y1, y1, t1);  \
 	SUBS(t1, y2, y2, t2);  \
 	ADD t2, acc3, acc3;  \
-	SUB acc3, y3, t1;  \
-	SLTU y3, acc3, t2;  \
-	AND t0, t2, t2;  \ // if even, t2 = 0, else t2 depends if y3 > acc3
+	SUB acc3, y3, acc0;  \
+	SLTU y3, acc3, acc1;  \
+	AND t0, acc1, acc1;  \ // if even, acc1 = 0, else acc1 depends if y3 > acc3
 	;\
 	SRL $1, y0, y0;  \
 	SLL $63, y1, t1;  \
@@ -1907,11 +1907,11 @@ TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
 	SLL $63, y2, t2;  \
 	OR  t2, y1; \
 	SRL $1, y2, y2;  \
-	SLL $63, t1, t2;  \
+	SLL $63, acc0, t2;  \
 	OR  t2, y2; \
-	SLL $63, t2, t2;  \
-	SRL $1, t1, y3;  \
-	OR  t2, y3
+	SLL $63, acc1, acc1;  \
+	SRL $1, acc0, y3;  \
+	OR  acc1, y3
 
 /* ---------------------------------------*/
 #define x1in(off) (off)(a_ptr)
