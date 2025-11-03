@@ -302,8 +302,7 @@ TEXT ·gfpMul(SB), NOSPLIT, $0
 	// MUL const0, hlp0, t0
 	MULV const0, hlp0, t0
 	// ADDS t0, acc0
-	ADDV t0, acc0, acc0 // acc0 is free now
-	SGTU t0, acc0, t1
+	ADDS(t0, acc0, acc0, t1)
 	MULHVU const0, hlp0, y0
 	
 	// MUL const1, hlp0, t0
@@ -369,8 +368,7 @@ TEXT ·gfpMul(SB), NOSPLIT, $0
 	// MUL const0, hlp0, t0
 	MULV const0, hlp0, t0
 	// ADDS t0, acc1
-	ADDV t0, acc1, acc1 // acc1 is free now
-	SGTU t0, acc1, t1
+	ADDS(t0, acc1, acc1, t1)
 	MULHVU const0, hlp0, y0
 
 	// MUL const1, hlp0, t0

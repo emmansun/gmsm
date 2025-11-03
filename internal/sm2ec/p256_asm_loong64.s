@@ -1180,8 +1180,7 @@ ordSqrLoop:
 		// MUL	const0, hlp0, t0
 		MULV hlp0, const0, t0
 		// ADDS t0, acc0
-		ADDV t0, acc0, acc0
-		SGTU t0, acc0, t1
+		ADDS(t0, acc0, acc0, t1)
 		MULHVU hlp0, const0, y0
 
 		// MUL const1, hlp0, t0

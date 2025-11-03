@@ -1222,8 +1222,7 @@ ordSqrLoop:
 		ADCS(t0, acc7, acc3, acc3, acc4, t1)
 
 		// Final reduction
-		ADD a_ptr, acc0, x0
-		SLTU a_ptr, x0, t0
+		ADDS(a_ptr, acc0, x0, t0)
 		ADD y3, t0, t0         // no carry
 		ADDS(acc1, t0, x1, t1)
 		ADDS(t1, acc2, x2, t1)
@@ -1545,8 +1544,7 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	// Final reduction
 	MOV p256orderone<>+0x00(SB), b_ptr
 	MOV p256orderone<>+0x08(SB), y3
-	ADD b_ptr, acc0, x0
-	SLTU b_ptr, x0, t0
+	ADDS(b_ptr, acc0, x0, t0)
 	ADD y3, t0, t0         // no carry
 	ADDS(acc1, t0, x1, t1)
 	ADDS(t1, acc2, x2, t1)
