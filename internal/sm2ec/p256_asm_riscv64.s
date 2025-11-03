@@ -1785,26 +1785,13 @@ loop_select:
 /* ---------------------------------------*/
 // (x3, x2, x1, x0) = (y3, y2, y1, y0) - (x3, x2, x1, x0)	
 TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
-	SLTU x0, y0, t0
-	SUB x0, y0, acc0
+	SUBS(x0, y0, acc0, t0)
 	// SBCS x1, y1
-	SLTU x1, y1, t1
-	SUB x1, y1, acc1
-	SLTU t0, acc1, t2
-	SUB t0, acc1, acc1
-	OR t1, t2, t0
+	SBCS(t0, x1, y1, acc1, t0, t1, t2)
 	// SBCS x2, y2
-	SLTU x2, y2, t1
-	SUB x2, y2, acc2
-	SLTU t0, acc2, t2
-	SUB t0, acc2, acc2
-	OR t1, t2, t0
+	SBCS(t0, x2, y2, acc2, t0, t1, t2)
 	// SBCS x3, y3
-	SLTU x3, y3, t1
-	SUB x3, y3, acc3
-	SLTU t0, acc3, t2
-	SUB t0, acc3, acc3
-	OR t1, t2, t0
+	SBCS(t0, x3, y3, acc3, t0, t1, t2)
 
 	SLL $63, t0, t0
 	SRA $63, t0, t0    // mask = -cond
@@ -1813,13 +1800,10 @@ TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
 	AND t0, const0, t3
 	AND t0, const1, t2
 
-	SLTU t1, acc0, hlp0
-	SUB t1, acc0, x0
+	SUBS(t1, acc0, x0, hlp0)
 	ADD hlp0, t3, t3       // no carry
-	SLTU t3, acc1, t1
-	SUB t3, acc1, x1
-	SLTU t1, acc2, hlp0
-	SUB t1, acc2, x2
+	SUBS(t3, acc1, x1, t1)
+	SUBS(t1, acc2, x2, hlp0)
 	ADD hlp0, t2, t1       // no carry
 	SUB t1, acc3, x3
 
@@ -1843,13 +1827,10 @@ TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
 	ADD $1, x0, acc4;  \
 	SLTU x0, acc4, t0;  \
 	ADD const0, t0, t0;  \
-	ADD x1, t0, acc5;  \
-	SLTU x1, acc5, t0;  \
-	ADD t0, x2, acc6;  \
-	SLTU x2, acc6, t0;  \
+	ADDS(t0, x1, acc5, t0);  \
+	ADDS(t0, x2, acc6, t0);  \
 	ADD const1, t0, t0;  \
-	ADD x3, t0, acc7;  \
-	SLTU x3, acc7, t0;  \
+	ADDS(t0, x3, acc7, t0);  \
 	OR t0, t3, t0;  \
 	;\
 	SUB $1, t0, t0;  \
@@ -1869,34 +1850,18 @@ TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
 
 // (x3, x2, x1, x0) = (x3, x2, x1, x0) + (y3, y2, y1, y0)
 #define p256AddInline          \
-	ADD x0, y0, x0;  \
-	SLTU y0, x0, t0;  \
-	ADD x1, y1, x1;  \
-	SLTU y1, x1, t1;  \
-	ADD t0, x1, x1;  \
-	SLTU t0, x1, t2;  \
-	OR t1, t2, t0;  \
-	ADD x2, y2, x2;  \
-	SLTU y2, x2, t1;  \
-	ADD t0, x2, x2;  \
-	SLTU t0, x2, t2;  \
-	OR t1, t2, t0;  \
-	ADD x3, y3, x3;  \
-	SLTU y3, x3, t1;  \
-	ADD t0, x3, x3;  \
-	SLTU t0, x3, t2;  \
-	OR t1, t2, t2;  \
+	ADDS(y0, x0, x0, t0);  \
+	ADCS(t0, y1, x1, x1, t0, t1); \
+	ADCS(t0, y2, x2, x2, t0, t1);  \
+	ADCS(t0, y3, x3, x3, t2, t1);  \
 	;\
 	ADD $1, x0, acc4;  \
 	SLTU x0, acc4, t0;  \
 	ADD const0, t0, t0;  \
-	ADD x1, t0, acc5;  \
-	SLTU x1, acc5, t0;  \
-	ADD t0, x2, acc6;  \
-	SLTU x2, acc6, t0;  \
+	ADDS(t0, x1, acc5, t0);  \
+	ADDS(t0, x2, acc6, t0);  \
 	ADD const1, t0, t0;  \
-	ADD x3, t0, acc7;  \
-	SLTU x3, acc7, t0;  \
+	ADDS(t0, x3, acc7, t0);  \
 	OR t0, t2, t0;  \
 	;\
 	SUB $1, t0, t0;  \
@@ -1926,26 +1891,24 @@ TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
 	AND const0, t0, acc2;  \
 	AND const1, t0, acc3;  \
 	;\
-	SLTU acc1, y0, t1;  \
-	SUB acc1, y0, y0;  \
+	SUBS(acc1, y0, y0, t1);  \
 	ADD t1, acc2, acc2;  \
+	SUBS(acc2, y1, y1, t1);  \
+	SUBS(t1, y2, y2, t2);  \
+	ADD t2, acc3, acc3;  \
+	SUB acc3, y3, t1;  \
+	SLTU y3, acc3, t2;  \
+	AND t0, t2, t2;  \ // if even, t2 = 0, else t2 depends if y3 > acc3
+	;\
 	SRL $1, y0, y0;  \
-	SLTU acc2, y1, t1;  \
-	SUB acc2, y1, y1;  \
-	SLTU t1, y2, t2;  \
-	SUB t1, y2, y2;  \
 	SLL $63, y1, t1;  \
 	OR  t1, y0; \
 	SRL $1, y1, y1;  \
-	ADD t2, acc3, acc3;  \
 	SLL $63, y2, t2;  \
 	OR  t2, y1; \
 	SRL $1, y2, y2;  \
-	SUB acc3, y3, t1;  \
 	SLL $63, t1, t2;  \
 	OR  t2, y2; \
-	SLTU y3, acc3, t2;  \
-	AND t0, t2, t2;  \
 	SLL $63, t2, t2;  \
 	SRL $1, t1, y3;  \
 	OR  t2, y3
@@ -2002,23 +1965,10 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	MOV (8*6)(b_ptr), y2
 	MOV (8*7)(b_ptr), y3
 	// (acc0, acc1, acc2, acc3) = - (y3, y2, y1, y0)
-	SLTU y0, ZERO, t3
-	SUB y0, ZERO, acc0
-	SLTU y1, ZERO, t2
-	SUB y1, ZERO, acc1
-	SLTU t3, acc1, t1
-	SUB t3, acc1, acc1
-	OR t2, t1, t3
-	SLTU y2, ZERO, t2
-	SUB y2, ZERO, acc2
-	SLTU t3, acc2, t1
-	SUB t3, acc2, acc2
-	OR t2, t1, t3
-	SLTU y3, ZERO, t2
-	SUB y3, ZERO, acc3
-	SLTU t3, acc3, t1
-	SUB t3, acc3, acc3
-	OR t2, t1, t3
+	SUBS(y0, ZERO, acc0, t3)
+	SBCS(t3, y1, ZERO, acc1, t3, t1, t2)
+	SBCS(t3, y2, ZERO, acc2, t3, t1, t2)
+	SBCS(t3, y3, ZERO, acc3, t3, t1, t2)
 
 	SLL $63, t3, t3
 	SRA $63, t3, t3    // mask = -cond
@@ -2026,13 +1976,10 @@ TEXT ·p256PointAddAffineAsm(SB),0,$264-48
 	AND const0, t3, acc5
 	AND const1, t3, acc7
 
-	SLTU acc4, acc0, t3
-	SUB acc4, acc0, acc0
+	SUBS(acc4, acc0, acc0, t3)
 	ADD t3, acc5, acc5       // no carry
-	SLTU acc5, acc1, t3
-	SUB acc5, acc1, acc1
-	SLTU t3, acc2, t1
-	SUB t3, acc2, acc2
+	SUBS(acc5, acc1, acc1, t3)
+	SUBS(t3, acc2, acc2, t1)
 	ADD t1, acc7, t3       // no carry
 	SUB t3, acc3, acc3
 	// If condition is 0, keep original value
