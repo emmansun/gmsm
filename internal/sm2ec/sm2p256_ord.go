@@ -1,4 +1,4 @@
-//go:build purego || !(amd64 || arm64 || s390x || ppc64le)
+//go:build purego || !(amd64 || arm64 || s390x || ppc64le || loong64 || riscv64)
 
 package sm2ec
 

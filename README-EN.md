@@ -4,6 +4,10 @@
 [![Github CI](https://github.com/emmansun/gmsm/actions/workflows/ci.yml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/ci.yml)
 [![arm64-qemu](https://github.com/emmansun/gmsm/actions/workflows/test_qemu.yml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_qemu.yml)
 [![sm3-sm4-ni-qemu](https://github.com/emmansun/gmsm/actions/workflows/test_sm_ni.yml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_sm_ni.yml)
+[![riscv64](https://github.com/emmansun/gmsm/actions/workflows/test_riscv64.yaml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_riscv64.yaml)
+[![loong64](https://github.com/emmansun/gmsm/actions/workflows/test_loong64.yml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_loong64.yml)
+[![ppc64le](https://github.com/emmansun/gmsm/actions/workflows/test_ppc64.yaml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_ppc64.yaml)
+[![s390x](https://github.com/emmansun/gmsm/actions/workflows/test_s390x.yaml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_s390x.yaml)
 [![codecov](https://codecov.io/gh/emmansun/gmsm/branch/main/graph/badge.svg?token=Otdi8m8sFj)](https://codecov.io/gh/emmansun/gmsm)
 [![Go Report Card](https://goreportcard.com/badge/github.com/emmansun/gmsm)](https://goreportcard.com/report/github.com/emmansun/gmsm)
 [![Documentation](https://godoc.org/github.com/emmansun/gmsm?status.svg)](https://godoc.org/github.com/emmansun/gmsm)
@@ -15,7 +19,7 @@ English | [简体中文](README.md)
 ShangMi (SM) cipher suites for Golang, referred to as **GMSM**, is a secure, high-performance, easy-to-use Golang ShangMi (SM) cipher suites library, covering public algorithms SM2/SM3/SM4/SM9/ZUC.
 
 ## Packages
-- **SM2** - This is a SM2 sm2p256v1 implementation whose performance is similar like golang native NIST P256 under **amd64**, **arm64**, **s390x** and **ppc64le**, for implementation detail, please refer [SM2实现细节](https://github.com/emmansun/gmsm/wiki/SM2%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96). It supports ShangMi sm2 digital signature, public key encryption algorithm and also key exchange.
+- **SM2** - This is a SM2 sm2p256v1 implementation whose performance is similar like golang native NIST P256 under **amd64**, **arm64**, **s390x**, **ppc64le**, **riscv64** and **loong64**, for implementation detail, please refer [SM2实现细节](https://github.com/emmansun/gmsm/wiki/SM2%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96). It supports ShangMi sm2 digital signature, public key encryption algorithm and also key exchange.
 
 - **SM3** - This is also a SM3 implementation whose performance is similar like golang native SHA 256 with SIMD under **amd64**, **arm64**, **s390x**, **ppc64x**, for implementation detail, please refer [SM3性能优化](https://github.com/emmansun/gmsm/wiki/SM3%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96). It also provides A64 cryptographic instructions SM3 tested with QEMU.
 
