@@ -411,16 +411,14 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	ADDV t3, t0, t3       // no carry
 	SUBS(t3, acc3, acc3, t2)
 	// SBC t1, acc0
-	ADDV t2, t1, t2       // no carry
-	SUBV t2, acc0, y0     // no borrow
+	SBC(t2, t1, acc0, y0)
 
 	// ADDS acc0, acc1, acc1
 	ADDS(acc0, acc1, acc1, t0)
 	// ADCS $0, acc2
 	ADDS(t0, acc2, acc2, t1)
 	// ADCS $0, acc3
-	ADDV t1, acc3, acc3
-	SGTU t1, acc3, t0
+	ADDS(t1, acc3, acc3, t0)
 	// ADC $0, y0, acc0
 	ADDV t0, y0, acc0
 
@@ -437,8 +435,7 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	ADDV t2, t0, t2       // no carry
 	SUBS(t2, acc0, acc0, t3)
 	// SBC t1, acc1
-	ADDV t3, t1, t2       // no carry
-	SUBV t2, acc1, y0     // no borrow
+	SBC(t3, t1, acc1, y0)
 
 	// ADDS acc1, acc2
 	ADDS(acc1, acc2, acc2, t0)
@@ -462,8 +459,7 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	ADDV t2, t0, t2       // no carry
 	SUBS(t2, acc1, acc1, t3)
 	// SBC t1, acc2
-	ADDV t3, t1, t2       // no carry
-	SUBV t2, acc2, y0     // no borrow
+	SBC(t3, t1, acc2, y0)
 
 	// ADDS acc2, acc3
 	ADDS(acc2, acc3, acc3, t0)
@@ -487,8 +483,7 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	ADDV t2, t0, t2       // no carry
 	SUBS(t2, acc2, acc2, t3)
 	// SBC t1, acc3
-	ADDV t3, t1, t2       // no carry
-	SUBV t2, acc3, y0     // no borrow
+	SBC(t3, t1, acc3, y0)
 
 	// ADDS acc3, acc0
 	ADDS(acc3, acc0, acc0, t0)
@@ -827,7 +822,7 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	// SUBCS t0, acc3
 	ADDV t2, t0, t2        // no carry
 	SUBS(t2, acc3, acc3, t3)
-	// SUBC t1, acc0, t2
+	// SBC t1, acc0, t2
 	SBC(t3, t1, acc0, t2)
 
 	// ADDS acc0, acc1
@@ -881,7 +876,7 @@ TEXT sm2P256MulInternal<>(SB),NOSPLIT,$0
 	// SUBCS t0, acc0
 	ADDV t2, t0, t2        // no carry
 	SUBS(t2, acc0, acc0, t3)
-	// SUBC t1, acc1, t2
+	// SBC t1, acc1, t2
 	SBC(t3, t1, acc1, t2)
 
 	// ADDS acc1, acc2

@@ -853,8 +853,7 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	ADD t3, t0, t3       // no carry
 	SUBS(t3, acc3, acc3, t2)
 	// SBC t1, acc0
-	ADD t2, t1, t2       // no carry
-	SUB t2, acc0, y0     // no borrow
+	SBC(t2, t1, acc0, y0)
 
 	// ADDS acc0, acc1, acc1
 	ADDS(acc0, acc1, acc1, t0)
@@ -878,8 +877,7 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	ADD t2, t0, t2       // no carry
 	SUBS(t2, acc0, acc0, t3)
 	// SBC t1, acc1
-	ADD t3, t1, t2       // no carry
-	SUB t2, acc1, y0     // no borrow
+	SBC(t3, t1, acc1, y0)
 
 	// ADDS acc1, acc2
 	ADDS(acc1, acc2, acc2, t0)
@@ -903,8 +901,7 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	ADD t2, t0, t2       // no carry
 	SUBS(t2, acc1, acc1, t3)
 	// SBC t1, acc2
-	ADD t3, t1, t2       // no carry
-	SUB t2, acc2, y0     // no borrow
+	SBC(t3, t1, acc2, y0)
 
 	// ADDS acc2, acc3
 	ADDS(acc2, acc3, acc3, t0)
@@ -928,8 +925,7 @@ TEXT ·p256FromMont(SB),NOSPLIT,$0
 	ADD t2, t0, t2       // no carry
 	SUBS(t2, acc2, acc2, t3)
 	// SBC t1, acc3
-	ADD t3, t1, t2       // no carry
-	SUB t2, acc3, y0     // no borrow
+	SBC(t3, t1, acc3, y0)
 
 	// ADDS acc3, acc0
 	ADDS(acc3, acc0, acc0, t0)
@@ -1005,46 +1001,35 @@ ordSqrLoop:
 
 		MUL x0, x2, t0
 		// ADDS t0, acc2
-		ADD t0, acc2, acc2
-		SLTU t0, acc2, t1
+		ADDS(t0, acc2, acc2, t1)
 		MULHU x0, x2, acc3
 
 		MUL x0, x3, t0
 		// ADCS t0, acc3
 		ADD t1, acc3, acc3  // no carry
-		ADD t0, acc3, acc3
-		SLTU t0, acc3, t1
+		ADDS(t0, acc3, acc3, t1)
 		MULHU x0, x3, acc4
 		ADD t1, acc4, acc4  // no carry
 
 		// x[2:] * x[1]
 		MUL x1, x2, t0
 		// ADDS t0, acc3
-		ADD t0, acc3, acc3
-		SLTU t0, acc3, t0
+		ADDS(t0, acc3, acc3, t0)
 		MULHU x1, x2, t1
 		// ADCS t1, acc4
-		ADD t1, acc4, acc4
-		SLTU t1, acc4, t1
-		ADD t0, acc4, acc4
-		SLTU t0, acc4, t0
-		// ADC $0, acc5
-		OR t0, t1, acc5
+		ADCS(t0, t1, acc4, acc4, acc5, t1)
 
 		MUL x1, x3, t0
 		// ADCS t0, acc4
-		ADD t0, acc4, acc4
-		SLTU t0, acc4, t0
+		ADDS(t0, acc4, acc4, t0)
 		MULHU x1, x3, t1
 		// ADC	t1, acc5
-		ADD t1, t0, t0       // no carry
-		ADD t0, acc5, acc5   // no carry
+		ADC(t0, t1, acc5, acc5)
 
 		// x[3] * x[2]
 		MUL x2, x3, t0
 		// ADDS t0, acc5
-		ADD t0, acc5, acc5
-		SLTU t0, acc5, t1
+		ADDS(t0, acc5, acc5, t1)
 		MULHU x2, x3, acc6
 		// ADC	$0, acc6
 		ADD t1, acc6, acc6   // no carry
@@ -1078,90 +1063,61 @@ ordSqrLoop:
 		MUL x0, x0, acc0
 		MULHU x0, x0, t0
 		// ADDS t0, acc1
-		ADD t0, acc1, acc1
-		SLTU t0, acc1, t1
+		ADDS(t0, acc1, acc1, t1)
 		MUL x1, x1, t0
 		// ADCS t0, acc2
 		ADD t0, t1, t1         // no carry
-		ADD t1, acc2, acc2
-		SLTU t1, acc2, t1
+		ADDS(t1, acc2, acc2, t1)
 		MULHU x1, x1, t0
 		// ADCS t0, acc3
-		ADD t0, t1, t0	    // no carry
-		ADD t0, acc3, acc3
-		SLTU t0, acc3, t1
+		ADD t0, t1, t0	       // no carry
+		ADDS(t0, acc3, acc3, t1)
 		MUL x2, x2, t0
 		// ADCS t0, acc4
 		ADD t0, t1, t0         // no carry
-		ADD t0, acc4, acc4
-		SLTU t0, acc4, t1
+		ADDS(t0, acc4, acc4, t1)
 		MULHU x2, x2, t0
 		// ADCS t0, acc5
-		ADD t0, t1, t0     // no carry
-		ADD t0, acc5, acc5
-		SLTU t0, acc5, t1
+		ADD t0, t1, t0         // no carry
+		ADDS(t0, acc5, acc5, t1)
 		MUL x3, x3, t0
 		// ADCS t0, acc6
 		ADD t0, t1, t0         // no carry
-		ADD t0, acc6, acc6
-		SLTU t0, acc6, t1
+		ADDS(t0, acc6, acc6, t1)
 		MULHU x3, x3, t0
 		// ADC	t0, acc7
-		ADD t0, t1, t0     // no carry
-		ADD t0, acc7, acc7   // (acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7) is the result
+		ADC(t1, t0, acc7, acc7) // (acc0, acc1, acc2, acc3, acc4, acc5, acc6, acc7) is the result
 
 		// First reduction step
 		MUL acc0, hlp1, hlp0
 		// MUL	const0, hlp0, t0
 		MUL hlp0, const0, t0
 		// ADDS t0, acc0
-		ADD t0, acc0, acc0
-		SLTU t0, acc0, t1
+		ADDS(t0, acc0, acc0, t1)
 		MULHU hlp0, const0, y0
 
 		// MUL const1, hlp0, t0
 		MUL hlp0, const1, t0
 		// ADCS t0, acc1
-		ADD t0, acc1, acc1
-		SLTU t0, acc1, t0
-		ADD t1, acc1, acc1
-		SLTU t1, acc1, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc1, acc1, t1, t0)
 		MULHU hlp0, const1, y1
 
 		// MUL const2, hlp0, t0
 		MUL hlp0, const2, t0
 		// ADCS t0, acc2
-		ADD t0, acc2, acc2
-		SLTU t0, acc2, t0
-		ADD t1, acc2, acc2
-		SLTU t1, acc2, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc2, acc2, t1, t0)
 		MULHU hlp0, const2, y2
 
 		// MUL const3, hlp0, t0
 		MUL hlp0, const3, t0
 		// ADCS t0, acc3
-		ADD t0, acc3, acc3
-		SLTU t0, acc3, t0
-		ADD t1, acc3, acc3
-		SLTU t1, acc3, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc3, acc3, t1, t0)
 		MULHU hlp0, const3, acc0
 		ADD t1, acc0, acc0         // no carry
 
-		ADD y0, acc1, acc1
-		SLTU y0, acc1, t0
-		ADD y1, acc2, acc2
-		SLTU y1, acc2, t1
-		ADD t0, acc2, acc2
-		SLTU t0, acc2, t0
-		OR t1, t0, t0
-		ADD y2, acc3, acc3
-		SLTU y2, acc3, t1
-		ADD t0, acc3, acc3
-		SLTU t0, acc3, t0
-		OR t1, t0, t0
+		ADDS(y0, acc1, acc1, t0)
+		ADCS(t0, y1, acc2, acc2, t0, t1)
+		ADCS(t0, y2, acc3, acc3, t0, t1)
 		ADD t0, acc0, acc0
 
 		// Second reduction step
@@ -1169,53 +1125,31 @@ ordSqrLoop:
 		// MUL	const0, hlp0, t0
 		MUL hlp0, const0, t0
 		// ADDS t0, acc1
-		ADD t0, acc1, acc1
-		SLTU t0, acc1, t1
+		ADDS(t0, acc1, acc1, t1)
 		MULHU hlp0, const0, y0
 
 		// MUL const1, hlp0, t0
 		MUL hlp0, const1, t0
 		// ADCS t0, acc2
-		ADD t0, acc2, acc2
-		SLTU t0, acc2, t0
-		ADD t1, acc2, acc2
-		SLTU t1, acc2, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc2, acc2, t1, t0)
 		MULHU hlp0, const1, y1
 
 		// MUL const2, hlp0, t0
 		MUL hlp0, const2, t0
 		// ADCS t0, acc3
-		ADD t0, acc3, acc3
-		SLTU t0, acc3, t0
-		ADD t1, acc3, acc3
-		SLTU t1, acc3, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc3, acc3, t1, t0)
 		MULHU hlp0, const2, y2
 
 		// MUL const3, hlp0, t0
 		MUL hlp0, const3, t0
 		// ADCS t0, acc0
-		ADD t0, acc0, acc0
-		SLTU t0, acc0, t0
-		ADD t1, acc0, acc0
-		SLTU t1, acc0, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc0, acc0, t1, t0)
 		MULHU hlp0, const3, acc1
 		ADD t1, acc1, acc1       // no carry
 
-		ADD y0, acc2, acc2
-		SLTU y0, acc2, t0
-		ADD y1, acc3, acc3
-		SLTU y1, acc3, t1
-		ADD t0, acc3, acc3
-		SLTU t0, acc3, t0
-		OR t1, t0, t0
-		ADD y2, acc0, acc0
-		SLTU y2, acc0, t1
-		ADD t0, acc0, acc0
-		SLTU t0, acc0, t0
-		OR t1, t0, t0
+		ADDS(y0, acc2, acc2, t0)
+		ADCS(t0, y1, acc3, acc3, t0, t1)
+		ADCS(t0, y2, acc0, acc0, t0, t1)
 		ADD t0, acc1, acc1
 
 		// Third reduction step
@@ -1223,53 +1157,31 @@ ordSqrLoop:
 		// MUL	const0, hlp0, t0
 		MUL hlp0, const0, t0
 		// ADDS t0, acc2
-		ADD t0, acc2, acc2
-		SLTU t0, acc2, t1
+		ADDS(t0, acc2, acc2, t1)
 		MULHU hlp0, const0, y0
 
 		// MUL const1, hlp0, t0
 		MUL hlp0, const1, t0
 		// ADCS t0, acc3
-		ADD t0, acc3, acc3
-		SLTU t0, acc3, t0
-		ADD t1, acc3, acc3
-		SLTU t1, acc3, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc3, acc3, t1, t0)
 		MULHU hlp0, const1, y1
 
 		// MUL const2, hlp0, t0
 		MUL hlp0, const2, t0
 		// ADCS t0, acc0
-		ADD t0, acc0, acc0
-		SLTU t0, acc0, t0
-		ADD t1, acc0, acc0
-		SLTU t1, acc0, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc0, acc0, t1, t0)
 		MULHU hlp0, const2, y2
 
 		// MUL const3, hlp0, t0
 		MUL hlp0, const3, t0
 		// ADCS t0, acc1
-		ADD t0, acc1, acc1
-		SLTU t0, acc1, t0
-		ADD t1, acc1, acc1
-		SLTU t1, acc1, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc1, acc1, t1, t0)
 		MULHU hlp0, const3, acc2
 		ADD t1, acc2, acc2       // no carry
 
-		ADD y0, acc3, acc3
-		SLTU y0, acc3, t0
-		ADD y1, acc0, acc0
-		SLTU y1, acc0, t1
-		ADD t0, acc0, acc0
-		SLTU t0, acc0, t0
-		OR t1, t0, t0
-		ADD y2, acc1, acc1
-		SLTU y2, acc1, t1
-		ADD t0, acc1, acc1
-		SLTU t0, acc1, t0
-		OR t1, t0, t0
+		ADDS(y0, acc3, acc3, t0)
+		ADCS(t0, y1, acc0, acc0, t0, t1)
+		ADCS(t0, y2, acc1, acc1, t0, t1)
 		ADD t0, acc2, acc2
 
 		// Last reduction step
@@ -1277,85 +1189,47 @@ ordSqrLoop:
 		// MUL	const0, hlp0, t0
 		MUL hlp0, const0, t0
 		// ADDS t0, acc3
-		ADD t0, acc3, acc3
-		SLTU t0, acc3, t1
+		ADDS(t0, acc3, acc3, t1)
 		MULHU hlp0, const0, y0
 
 		// MUL const1, hlp0, t0
 		MUL hlp0, const1, t0
 		// ADCS t0, acc0
-		ADD t0, acc0, acc0
-		SLTU t0, acc0, t0
-		ADD t1, acc0, acc0
-		SLTU t1, acc0, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc0, acc0, t1, t0)
 		MULHU hlp0, const1, y1
 
 		// MUL const2, hlp0, t0
 		MUL hlp0, const2, t0
 		// ADCS t0, acc1
-		ADD t0, acc1, acc1
-		SLTU t0, acc1, t0
-		ADD t1, acc1, acc1
-		SLTU t1, acc1, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc1, acc1, t1, t0)
 		MULHU hlp0, const2, y2
 
 		// MUL const3, hlp0, t0
 		MUL hlp0, const3, t0
 		// ADCS t0, acc2
-		ADD t0, acc2, acc2
-		SLTU t0, acc2, t0
-		ADD t1, acc2, acc2
-		SLTU t1, acc2, t1
-		OR t0, t1, t1
+		ADCS(t1, t0, acc2, acc2, t1, t0)
 		MULHU hlp0, const3, acc3
 		ADD t1, acc3, acc3       // no carry
 
-		ADD y0, acc0, acc0
-		SLTU y0, acc0, t0
-		ADD y1, acc1, acc1
-		SLTU y1, acc1, t1
-		ADD t0, acc1, acc1
-		SLTU t0, acc1, t0
-		OR t1, t0, t0
-		ADD y2, acc2, acc2
-		SLTU y2, acc2, t1
-		ADD t0, acc2, acc2
-		SLTU t0, acc2, t0
-		OR t1, t0, t0
+		ADDS(y0, acc0, acc0, t0)
+		ADCS(t0, y1, acc1, acc1, t0, t1)
+		ADCS(t0, y2, acc2, acc2, t0, t1)
 		ADD t0, acc3, acc3
 
-		ADD acc4, acc0, acc0
-		SLTU acc4, acc0, t0
-		ADD acc5, acc1, acc1
-		SLTU acc5, acc1, t1
-		ADD t0, acc1, acc1
-		SLTU t0, acc1, t0
-		OR t1, t0, t0
-		ADD acc6, acc2, acc2
-		SLTU acc6, acc2, t1
-		ADD t0, acc2, acc2
-		SLTU t0, acc2, t0
-		OR t1, t0, t0
-		ADD acc7, acc3, acc3
-		SLTU acc7, acc3, t1
-		ADD t0, acc3, acc3
-		SLTU t0, acc3, acc4
-		OR t1, acc4, acc4
+		ADDS(acc4, acc0, acc0, t0)
+		ADCS(t0, acc5, acc1, acc1, t0, t1)
+		ADCS(t0, acc6, acc2, acc2, t0, t1)
+		ADCS(t0, acc7, acc3, acc3, acc4, t1)
 
 		// Final reduction
 		ADD a_ptr, acc0, x0
 		SLTU a_ptr, x0, t0
 		ADD y3, t0, t0         // no carry
-		ADD acc1, t0, x1
-		SLTU acc1, x1, t1
-		ADD acc2, t1, x2
-		SLTU acc2, x2, t1
+		ADDS(acc1, t0, x1, t1)
+		ADDS(t1, acc2, x2, t1)
 		MOV p256one<>+0x18(SB), t0
 		ADD t1, t0, t0		 // no carry
-		ADD t0, acc3, x3
-		SLTU acc3, x3, t1
+		ADDS(t0, acc3, x3, t1)
 		OR t1, acc4, acc4
 		
 		SUB $1, acc4, t0        // mask = -cond
@@ -1419,16 +1293,13 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	MULHU y0, x3, acc7
 
 	// ADDS acc4, acc1
-	ADD acc1, acc4, acc1
-	SLTU acc4, acc1, t0
+	ADDS(acc4, acc1, acc1, t0)
 	// ADCS acc5, acc2
 	ADD t0, acc5, acc5    // no carry
-	ADD acc2, acc5, acc2
-	SLTU acc5, acc2, t0
+	ADDS(acc5, acc2, acc2, t0)
 	// ADCS acc6, acc3
 	ADD t0, acc6, acc6    // no carry
-	ADD acc3, acc6, acc3
-	SLTU acc6, acc3, t0
+	ADDS(acc6, acc3, acc3, t0)
 	// ADC $0, acc7, acc4
 	ADD t0, acc7, acc4    // no carry
 
@@ -1437,409 +1308,241 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	// MUL	const0, hlp0, t0
 	MUL hlp0, const0, t0
 	// ADDS t0, acc0
-	ADD t0, acc0, acc0
-	SLTU t0, acc0, t1
+	ADDS(t0, acc0, acc0, t1)
 	MULHU hlp0, const0, y0
 
 	// MUL const1, hlp0, t0
 	MUL hlp0, const1, t0
 	// ADCS t0, acc1
-	ADD t0, acc1, acc1
-	SLTU t0, acc1, t0
-	ADD t1, acc1, acc1
-	SLTU t1, acc1, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc1, acc1, t1, t0)
 	MULHU hlp0, const1, acc0
 
 	// MUL const2, hlp0, t0
 	MUL hlp0, const2, t0
 	// ADCS t0, acc2
-	ADD t0, acc2, acc2
-	SLTU t0, acc2, t0
-	ADD t1, acc2, acc2
-	SLTU t1, acc2, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc2, acc2, t1, t0)
 	MULHU hlp0, const2, a_ptr
 
 	// MUL const3, hlp0, t0
 	MUL hlp0, const3, t0
 	// ADCS t0, acc3
-	ADD t0, acc3, acc3
-	SLTU t0, acc3, t0
-	ADD t1, acc3, acc3
-	SLTU t1, acc3, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc3, acc3, t1, t0)
 	MULHU hlp0, const3, hlp0
 	ADD t1, acc4, acc4       // no carry
 
 	// ADDS y0, acc1
-	ADD y0, acc1, acc1
-	SLTU y0, acc1, t0
+	ADDS(y0, acc1, acc1, t0)
 	// ADCS acc0, acc2
-	ADD acc0, acc2, acc2
-	SLTU acc0, acc2, t1
-	ADD t0, acc2, acc2
-	SLTU t0, acc2, t0
-	OR t1, t0, t0
+	ADCS(t0, acc0, acc2, acc2, t0, t1)
 	// ADCS a_ptr, acc3
-	ADD a_ptr, acc3, acc3
-	SLTU a_ptr, acc3, t1
-	ADD t0, acc3, acc3
-	SLTU t0, acc3, t0
-	OR t1, t0, t0
+	ADCS(t0, a_ptr, acc3, acc3, t0, t1)
 	// ADC hlp0, ZERO, acc0
 	ADD hlp0, t0, acc0   // no carry
 
 	// y[1] * x
 	MUL y1, x0, t0
 	// ADDS t0, acc1
+	ADDS(t0, acc1, acc1, t0)
 	ADD t0, acc1, acc1
 	SLTU t0, acc1, t0
 	MULHU y1, x0, y0
 
 	MUL y1, x1, t1
 	// ADCS t1, acc2
-	ADD t1, acc2, acc2
-	SLTU t1, acc2, hlp0
-	ADD t0, acc2, acc2
-	SLTU t0, acc2, t0
-	OR hlp0, t0, t0
+	ADCS(t0, t1, acc2, acc2, t0, hlp0)
 	MULHU y1, x1, acc6
 
 	MUL y1, x2, t1
 	// ADCS t1, acc3
-	ADD t1, acc3, acc3
-	SLTU t1, acc3, hlp0
-	ADD t0, acc3, acc3
-	SLTU t0, acc3, t0
-	OR hlp0, t0, t0
+	ADCS(t0, t1, acc3, acc3, t0, hlp0)
 	MULHU y1, x2, acc7
 
 	MUL y1, x3, t1
 	// ADCS t1, acc0
-	ADD t1, acc0, acc0
-	SLTU t1, acc0, hlp0
-	ADD t0, acc0, acc0
-	SLTU t0, acc0, t0
-	OR hlp0, t0, acc5
+	ADCS(t0, t1, acc0, acc0, acc5, hlp0)
 	MULHU y1, x3, y1
 
 	// ADDS y0, acc2
-	ADD y0, acc2, acc2
-	SLTU y0, acc2, t0
+	ADDS(y0, acc2, acc2, t0)
 	// ADCS acc6, acc3
-	ADD acc6, acc3, acc3
-	SLTU acc6, acc3, t1
-	ADD t0, acc3, acc3
-	SLTU t0, acc3, t0
-	OR t1, t0, t0
+	ADCS(t0, acc6, acc3, acc3, t0, t1)
 	// ADCS acc7, acc4
-	ADD acc7, acc4, acc4
-	SLTU acc7, acc4, t1
-	ADD t0, acc4, acc4
-	SLTU t0, acc4, t0
-	OR t1, t0, t0
+	ADCS(t0, acc7, acc4, acc4, t0, t1)
 	// ADC y1, acc5
-	ADD t0, acc5, acc5
-	ADD y1, acc5, acc5
+	ADC(t0, y1, acc5, acc5)
 
 	// Second reduction step
 	MUL acc1, hlp1, hlp0
 	// MUL	const0, hlp0, t0
 	MUL hlp0, const0, t0
 	// ADDS t0, acc1
-	ADD t0, acc1, acc1
-	SLTU t0, acc1, t1
+	ADDS(t0, acc1, acc1, t1)
 	MULHU hlp0, const0, y0
 
 	// MUL const1, hlp0, t0
 	MUL hlp0, const1, t0
 	// ADCS t0, acc2
-	ADD t0, acc2, acc2
-	SLTU t0, acc2, t0
-	ADD t1, acc2, acc2
-	SLTU t1, acc2, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc2, acc2, t1, t0)
 	MULHU hlp0, const1, y1
 
 	// MUL const2, hlp0, t0
 	MUL hlp0, const2, t0
 	// ADCS t0, acc3
-	ADD t0, acc3, acc3
-	SLTU t0, acc3, t0
-	ADD t1, acc3, acc3
-	SLTU t1, acc3, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc3, acc3, t1, t0)
 	MULHU hlp0, const2, acc1
 
 	// MUL const3, hlp0, t0
 	MUL hlp0, const3, t0
 	// ADCS t0, acc0
-	ADD t0, acc0, acc0
-	SLTU t0, acc0, t0
-	ADD t1, acc0, acc0
-	SLTU t1, acc0, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc0, acc0, t1, t0)
 	MULHU hlp0, const3, hlp0
 	ADD t1, acc5, acc5       // no carry
 
 	// ADDS y0, acc2
-	ADD y0, acc2, acc2
-	SLTU y0, acc2, t0
+	ADDS(y0, acc2, acc2, t0)
 	// ADCS y1, acc3
-	ADD y1, acc3, acc3
-	SLTU y1, acc3, t1
-	ADD t0, acc3, acc3
-	SLTU t0, acc3, t0
-	OR t1, t0, t0
+	ADCS(t0, y1, acc3, acc3, t0, t1)
 	// ADCS acc1, acc0
-	ADD acc1, acc0, acc0
-	SLTU acc1, acc0, t1
-	ADD t0, acc0, acc0
-	SLTU t0, acc0, t0
-	OR t1, t0, t0
+	ADCS(t0, acc1, acc0, acc0, t0, t1)
 	// ADC hlp0, ZERO, acc1
 	ADD hlp0, t0, acc1   // no carry
 
 	// y[2] * x
 	MUL y2, x0, t0
 	// ADDS t0, acc2
-	ADD t0, acc2, acc2
-	SLTU t0, acc2, t0
+	ADDS(t0, acc2, acc2, t0)
 	MULHU y2, x0, y0
 
 	MUL y2, x1, t1
 	// ADCS t1, acc3
-	ADD t1, acc3, acc3
-	SLTU t1, acc3, hlp0
-	ADD t0, acc3, acc3
-	SLTU t0, acc3, t0
-	OR hlp0, t0, t0
+	ADCS(t0, t1, acc3, acc3, t0, hlp0)
 	MULHU y2, x1, y1
 
 	MUL y2, x2, t1
 	// ADCS t1, acc4
-	ADD t1, acc4, acc4
-	SLTU t1, acc4, hlp0
-	ADD t0, acc4, acc4
-	SLTU t0, acc4, t0
-	OR hlp0, t0, t0
+	ADCS(t0, t1, acc4, acc4, t0, hlp0)
 	MULHU y2, x2, acc7
 
 	MUL y2, x3, t1
 	// ADCS t1, acc5
-	ADD t1, acc5, acc5
-	SLTU t1, acc5, hlp0
-	ADD t0, acc5, acc5
-	SLTU t0, acc5, t0
-	OR hlp0, t0, acc6
+	ADCS(t0, t1, acc5, acc5, acc6, hlp0)
 	MULHU y2, x3, y2
 
 	// ADDS y0, acc3
-	ADD y0, acc3, acc3
-	SLTU y0, acc3, t0
+	ADDS(y0, acc3, acc3, t0)
 	// ADCS y1, acc4
-	ADD y1, acc4, acc4
-	SLTU y1, acc4, t1
-	ADD t0, acc4, acc4
-	SLTU t0, acc4, t0
-	OR t1, t0, t0
+	ADCS(t0, y1, acc4, acc4, t0, t1)
 	// ADCS acc7, acc5
-	ADD acc7, acc5, acc5
-	SLTU acc7, acc5, t1
-	ADD t0, acc5, acc5
-	SLTU t0, acc5, t0
-	OR t1, t0, t0
+	ADCS(t0, acc7, acc5, acc5, t0, t1)
 	// ADC y2, acc6
-	ADD t0, acc6, acc6
-	ADD y2, acc6, acc6
+	ADC(t0, y2, acc6, acc6)
 
 	// Third reduction step
 	MUL acc2, hlp1, hlp0
 	// MUL	const0, hlp0, t0
 	MUL hlp0, const0, t0
 	// ADDS t0, acc2
-	ADD t0, acc2, acc2
-	SLTU t0, acc2, t1
+	ADDS(t0, acc2, acc2, t1)
 	MULHU hlp0, const0, y0
 
 	// MUL const1, hlp0, t0
 	MUL hlp0, const1, t0
 	// ADCS t0, acc3
-	ADD t0, acc3, acc3
-	SLTU t0, acc3, t0
-	ADD t1, acc3, acc3
-	SLTU t1, acc3, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc3, acc3, t1, t0)
 	MULHU hlp0, const1, y1
 
 	// MUL const2, hlp0, t0
 	MUL hlp0, const2, t0
 	// ADCS t0, acc0
-	ADD t0, acc0, acc0
-	SLTU t0, acc0, t0
-	ADD t1, acc0, acc0
-	SLTU t1, acc0, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc0, acc0, t1, t0)
 	MULHU hlp0, const2, y2
 
 	// MUL const3, hlp0, t0
 	MUL hlp0, const3, t0
 	// ADCS t0, acc1
-	ADD t0, acc1, acc1
-	SLTU t0, acc1, t0
-	ADD t1, acc1, acc1
-	SLTU t1, acc1, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc1, acc1, t1, t0)
 	MULHU hlp0, const3, hlp0
 	ADD t1, acc6, acc6       // no carry
 
 	// ADDS y0, acc3
-	ADD y0, acc3, acc3
-	SLTU y0, acc3, t0
+	ADDS(y0, acc3, acc3, t0)
 	// ADCS y1, acc0
-	ADD y1, acc0, acc0
-	SLTU y1, acc0, t1
-	ADD t0, acc0, acc0
-	SLTU t0, acc0, t0
-	OR t1, t0, t0
+	ADCS(t0, y1, acc0, acc0, t0, t1)
 	// ADCS y2, acc1
-	ADD y2, acc1, acc1
-	SLTU y2, acc1, t1
-	ADD t0, acc1, acc1
-	SLTU t0, acc1, t0
-	OR t1, t0, t0
+	ADCS(t0, y2, acc1, acc1, t0, t1)
 	// ADC hlp0, ZERO, acc2
 	ADD hlp0, t0, acc2   // no carry
 
 	// y[3] * x
 	MUL y3, x0, t0
 	// ADDS t0, acc3
-	ADD t0, acc3, acc3
-	SLTU t0, acc3, t0
+	ADDS(t0, acc3, acc3, t0)
 	MULHU y3, x0, y0
 
 	MUL y3, x1, t1
 	// ADCS t1, acc4
-	ADD t1, acc4, acc4
-	SLTU t1, acc4, hlp0
-	ADD t0, acc4, acc4
-	SLTU t0, acc4, t0
-	OR hlp0, t0, t0
+	ADCS(t0, t1, acc4, acc4, t0, hlp0)
 	MULHU y3, x1, y1
 
 	MUL y3, x2, t1
 	// ADCS t1, acc5
-	ADD t1, acc5, acc5
-	SLTU t1, acc5, hlp0
-	ADD t0, acc5, acc5
-	SLTU t0, acc5, t0
-	OR hlp0, t0, t0
+	ADCS(t0, t1, acc5, acc5, t0, hlp0)
 	MULHU y3, x2, y2
 
 	MUL y3, x3, t1
 	// ADCS t1, acc6
-	ADD t1, acc6, acc6
-	SLTU t1, acc6, hlp0
-	ADD t0, acc6, acc6
-	SLTU t0, acc6, t0
-	OR hlp0, t0, acc7
+	ADCS(t0, t1, acc6, acc6, acc7, hlp0)
 	MULHU y3, x3, y3
 
 	// ADDS y0, acc4
-	ADD y0, acc4, acc4
-	SLTU y0, acc4, t0
+	ADDS(y0, acc4, acc4, t0)
 	// ADCS y1, acc5
-	ADD y1, acc5, acc5
-	SLTU y1, acc5, t1
-	ADD t0, acc5, acc5
-	SLTU t0, acc5, t0
-	OR t1, t0, t0
+	ADCS(t0, y1, acc5, acc5, t0, t1)
 	// ADCS y2, acc6
-	ADD y2, acc6, acc6
-	SLTU y2, acc6, t1
-	ADD t0, acc6, acc6
-	SLTU t0, acc6, t0
-	OR t1, t0, t0
+	ADCS(t0, y2, acc6, acc6, t0, t1)
 	// ADC y3, acc7
-	ADD t0, acc7, acc7
-	ADD y3, acc7, acc7
+	ADC(t0, y3, acc7, acc7)
 
 	// Last reduction step
 	MUL acc3, hlp1, hlp0
 	// MUL	const0, hlp0, t0
 	MUL hlp0, const0, t0
 	// ADDS t0, acc3
-	ADD t0, acc3, acc3
-	SLTU t0, acc3, t1
+	ADDS(t0, acc3, acc3, t1)
 	MULHU hlp0, const0, y0
 
 	// MUL const1, hlp0, t0
 	MUL hlp0, const1, t0
 	// ADCS t0, acc0
-	ADD t0, acc0, acc0
-	SLTU t0, acc0, t0
-	ADD t1, acc0, acc0
-	SLTU t1, acc0, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc0, acc0, t1, t0)
 	MULHU hlp0, const1, y1
 
 	// MUL const2, hlp0, t0
 	MUL hlp0, const2, t0
 	// ADCS t0, acc1
-	ADD t0, acc1, acc1
-	SLTU t0, acc1, t0
-	ADD t1, acc1, acc1
-	SLTU t1, acc1, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc1, acc1, t1, t0)
 	MULHU hlp0, const2, y2
 
 	// MUL const3, hlp0, t0
 	MUL hlp0, const3, t0
 	// ADCS t0, acc2
-	ADD t0, acc2, acc2
-	SLTU t0, acc2, t0
-	ADD t1, acc2, acc2
-	SLTU t1, acc2, t1
-	OR t0, t1, t1
+	ADCS(t1, t0, acc2, acc2, t1, t0)
 	MULHU hlp0, const3, hlp0
 	ADD t1, acc7, acc7       // no carry
 
 	// ADDS y0, acc0
-	ADD y0, acc0, acc0
-	SLTU y0, acc0, t0
+	ADDS(y0, acc0, acc0, t0)
 	// ADCS y1, acc1
-	ADD y1, acc1, acc1
-	SLTU y1, acc1, t1
-	ADD t0, acc1, acc1
-	SLTU t0, acc1, t0
-	OR t1, t0, t0
+	ADCS(t0, y1, acc1, acc1, t0, t1)
 	// ADCS y2, acc2
-	ADD y2, acc2, acc2
-	SLTU y2, acc2, t1
-	ADD t0, acc2, acc2
-	SLTU t0, acc2, t0
-	OR t1, t0, t0
+	ADCS(t0, y2, acc2, acc2, t0, t1)
 	// ADC hlp0, ZERO, acc3
 	ADD hlp0, t0, acc3   // no carry
 
-	ADD acc4, acc0, acc0
-	SLTU acc4, acc0, t0
-	ADD acc5, acc1, acc1
-	SLTU acc5, acc1, t1
-	ADD t0, acc1, acc1
-	SLTU t0, acc1, t0
-	OR t1, t0, t0
-	ADD acc6, acc2, acc2
-	SLTU acc6, acc2, t1
-	ADD t0, acc2, acc2
-	SLTU t0, acc2, t0
-	OR t1, t0, t0
-	ADD acc7, acc3, acc3
-	SLTU acc7, acc3, t1
-	ADD t0, acc3, acc3
-	SLTU t0, acc3, acc4
-	OR t1, acc4, acc4
+	ADDS(acc4, acc0, acc0, t0)
+	ADCS(t0, acc5, acc1, acc1, t0, t1)
+	ADCS(t0, acc6, acc2, acc2, t0, t1)
+	ADCS(t0, acc7, acc3, acc3, acc4, t1)
 
 	// Final reduction
 	MOV p256orderone<>+0x00(SB), b_ptr
@@ -1847,14 +1550,11 @@ TEXT ·p256OrdMul(SB),NOSPLIT,$0
 	ADD b_ptr, acc0, x0
 	SLTU b_ptr, x0, t0
 	ADD y3, t0, t0         // no carry
-	ADD acc1, t0, x1
-	SLTU acc1, x1, t1
-	ADD acc2, t1, x2
-	SLTU acc2, x2, t1
+	ADDS(acc1, t0, x1, t1)
+	ADDS(t1, acc2, x2, t1)
 	MOV p256one<>+0x18(SB), t0
 	ADD t1, t0, t0		 // no carry
-	ADD t0, acc3, x3
-	SLTU acc3, x3, t1
+	ADDS(t0, acc3, x3, t1)
 	OR t1, acc4, acc4
 
 	SUB $1, acc4, t0        // mask = -cond
@@ -1899,24 +1599,14 @@ TEXT ·p256OrdReduce(SB),NOSPLIT,$0
 	MOV p256ord<>+0x10(SB), x2
 	MOV p256ord<>+0x18(SB), x3
 
-	SLTU x0, acc0, t0
-	SUB x0, acc0, y0
+	SUBS(x0, acc0, y0, t0)
 	// SBCS x1, acc1
 	ADD t0, x1, t1        // no carry
-	SLTU t1, acc1, t2
-	SUB t1, acc1, y1
+	SUBS(t1, acc1, y1, t0)
 	// SBCS x2, acc2
-	SLTU x2, acc2, t3
-	SUB x2, acc2, y2
-	SLTU t2, y2, t0
-	SUB t2, y2, y2
-	OR t3, t0, t2
+	SBCS(t0, x2, acc2, y2, t0, t1, t2)
 	// SBCS x3, acc3
-	SLTU x3, acc3, t3
-	SUB x3, acc3, y3
-	SLTU t2, y3, t0
-	SUB t2, y3, y3
-	OR t3, t0, t0
+	SBCS(t0, x3, acc3, y3, t0, t1, t2)
 
 	SUB $1, t0, t0        // mask = -cond
 	XOR $-1, t0, t1        // t1 = ~mask
