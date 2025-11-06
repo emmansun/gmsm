@@ -608,12 +608,11 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	// *2
 	// ALSLV is NOT supported in go 1.25
 	SRLV $63, acc1, t0
+	SLLV $1, acc1, acc1
+	SRLV $63, acc2, t1
 	WORD $0x2c3d29       // ALSLV $1, t0, acc2, acc2
-	//SLLV $1, acc1, acc1
-	//SRLV $63, acc2, t1
-	// ALSLV $1, t0, acc2, acc2
-	SLLV $1, acc2, acc2
-	ADDV t0, acc2, acc2
+	//SLLV $1, acc2, acc2
+	//ADDV t0, acc2, acc2
 	SRLV $63, acc3, t2
 	// ALSLV $1, t1, acc3, acc3
 	SLLV $1, acc3, acc3
