@@ -140,7 +140,7 @@
 	WORD $0x77ecc567   \ // XVPERMIQ $0x31, tmp4, h
 
 #define TRANSPOSE_MATRIX_DATA \
-	TRANSPOSE_MATRIX_STEP1(X12, X13, X14, X15, X16, X17, X18, X19, tmp1, tmp2, tmp3, tmp4)) \
+	TRANSPOSE_MATRIX_STEP1(X12, X13, X14, X15, X16, X17, X18, X19, tmp1, tmp2, tmp3, tmp4) \
 	; \
 	XVMOVQ tmp1, X12.Q2; \
 	WORD $0x77ec0a0c   \ // XVPERMIQ $0x2, X16, X12
