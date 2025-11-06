@@ -59,12 +59,13 @@
 
 // res = a + b
 // carryOut = 0 or 1
-// a and res CAN'T be the same register
+// a and res can NOT be the same register
 #define ADDS(a, b, res, carryOut) \
 	ADDV a, b, res                       \
 	SGTU a, res, carryOut
 
 // res = a + b + carryIn
+// carryIn and res can NOT be the same register
 #define ADC(carryIn, a, b, res) \
 	ADDV a, b, res                       \
 	ADDV carryIn, res, res
@@ -72,6 +73,7 @@
 // res = b - a - borrowIn
 // borrowOut = 0 or 1
 // borrowIn and borrowOut CAN be the same register
+// borrowTmp1 and borrowTmp2 can NOT be the same register
 #define SBCS(borrowIn, a, b, res, borrowOut, borrowTmp1, borrowTmp2) \
 	SGTU a, b, borrowTmp1                 \
 	SUBV a, b, res                        \
@@ -79,10 +81,14 @@
 	SUBV borrowIn, res, res               \
 	OR borrowTmp1, borrowTmp2, borrowOut
 
+// res = b - a
+// borrowOut = 0 or 1
+// borrowOut and res can NOT be the same register
 #define SUBS(a, b, res, borrowOut) \
 	SGTU a, b, borrowOut                 \
 	SUBV a, b, res
 
+// res = b - a - borrowIn
 #define SBC(borrowIn, a, b, res) \
 	SUBV a, b, res                      \
 	SUBV borrowIn, res, res
@@ -602,8 +608,9 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	// *2
 	// ALSLV is NOT supported in go 1.25
 	SRLV $63, acc1, t0
-	SLLV $1, acc1, acc1
-	SRLV $63, acc2, t1
+	WORD $0x2c3d29       // ALSLV $1, t0, acc2, acc2
+	//SLLV $1, acc1, acc1
+	//SRLV $63, acc2, t1
 	// ALSLV $1, t0, acc2, acc2
 	SLLV $1, acc2, acc2
 	ADDV t0, acc2, acc2
