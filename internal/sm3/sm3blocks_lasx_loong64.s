@@ -74,46 +74,46 @@
 // This is a temp solution for transpose 8x8 matrix
 #define TRANSPOSE_MATRIX(t0, t1, t2, t3, t4, t5, t6, t7, RTMP0, RTMP1, RTMP2, RTMP3) \
 	TRANSPOSE_MATRIX_STEP1(t0, t1, t2, t3, t4, t5, t6, t7, RTMP0, RTMP1, RTMP2, RTMP3) \
-	; \ // below are temp solution to move data back to t0~t7, we need instruction like VPERM2I128
+	; \ // below are temp solution to move data back to t0~t7, we will use XVPERMIQ from go 1.26+
 	XVMOVQ RTMP0, t0.Q2; \
-	XVMOVQ t4.V[0], R20; \
+	XVMOVQ t4.V[0], R20; \ // XVPERMIQ $0x2, t4, t0
 	XVMOVQ t4.V[1], R21; \
 	XVMOVQ R20, t0.V[2]; \
 	XVMOVQ R21, t0.V[3]; \
 	; \
 	XVMOVQ RTMP1, t1.Q2; \
-	XVMOVQ t5.V[0], R20; \
+	XVMOVQ t5.V[0], R20; \ // XVPERMIQ $0x2, t5, t1
 	XVMOVQ t5.V[1], R21; \
 	XVMOVQ R20, t1.V[2]; \
 	XVMOVQ R21, t1.V[3]; \
 	; \
 	XVMOVQ RTMP2, t2.Q2; \
-	XVMOVQ t6.V[0], R20; \
+	XVMOVQ t6.V[0], R20; \ // XVPERMIQ $0x2, t6, t2
 	XVMOVQ t6.V[1], R21; \
 	XVMOVQ R20, t2.V[2]; \
 	XVMOVQ R21, t2.V[3]; \
 	; \
 	XVMOVQ RTMP3, t3.Q2; \
-	XVMOVQ t7.V[0], R20; \
+	XVMOVQ t7.V[0], R20; \ // XVPERMIQ $0x2, t7, t3
 	XVMOVQ t7.V[1], R21; \
 	XVMOVQ R20, t3.V[2]; \
 	XVMOVQ R21, t3.V[3]; \
-	; \
+	; \ // XVPERMIQ $0x31, RTMP0, t4
 	XVMOVQ RTMP0.V[2], R20; \
 	XVMOVQ RTMP0.V[3], R21; \
 	XVMOVQ R20, t4.V[0]; \
 	XVMOVQ R21, t4.V[1]; \
-	; \
+	; \ // XVPERMIQ $0x31, RTMP1, t5
 	XVMOVQ RTMP1.V[2], R20; \
 	XVMOVQ RTMP1.V[3], R21; \
 	XVMOVQ R20, t5.V[0]; \
 	XVMOVQ R21, t5.V[1]; \
-	; \
+	; \ // XVPERMIQ $0x31, RTMP2, t6
 	XVMOVQ RTMP2.V[2], R20; \
 	XVMOVQ RTMP2.V[3], R21; \
 	XVMOVQ R20, t6.V[0]; \
 	XVMOVQ R21, t6.V[1]; \
-	; \
+	; \ // XVPERMIQ $0x31, RTMP3, t7
 	XVMOVQ RTMP3.V[2], R20; \
 	XVMOVQ RTMP3.V[3], R21; \
 	XVMOVQ R20, t7.V[0]; \

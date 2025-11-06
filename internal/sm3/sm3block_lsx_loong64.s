@@ -53,7 +53,8 @@
 #define MESSAGE_SCHEDULE(XWORD0, XWORD1, XWORD2, XWORD3) \
 	\ // Message schedule for next 4 words
 	VSHUF4IW $0x90, XWORD1, XTMP0    \
-	WORD $0x73840c04                 \ // VEXTRINSW	$0x3, XWORD0, XTMP0  XTMP0 = W[-13] = {w6,w5,w4,w3}
+	VMOVQ XWORD0.W[3], hlp0          \
+	VMOVQ hlp0, XTMP0.W[0]           \ // VEXTRINSW	$0x3, XWORD0, XTMP0  XTMP0 = W[-13] = {w6,w5,w4,w3}
 	VROTRW $(32-7), XTMP0, XTMP1     \ // XTMP1 = W[-13] rol 7
 	VSHUF4IW $0x44, XWORD3, XTMP0    \
 	VILVHV XWORD2, XTMP0, XTMP0      \ // XTMP0 = W[-6] = {w13,w12,w11,w10}
