@@ -1122,25 +1122,15 @@ ordSqrLoop:
 		SRLV $63, acc1, t0
 		SLLV $1, acc1, acc1
 		SRLV $63, acc2, t1
-		// ALSLV $1, t0, acc2, acc2
-		SLLV $1, acc2, acc2
-		ADDV t0, acc2, acc2
+		WORD $0x2c3d29       // ALSLV $1, t0, acc2, acc2
 		SRLV $63, acc3, t0
-		// ALSLV $1, t1, acc3, acc3
-		SLLV $1, acc3, acc3
-		ADDV t1, acc3, acc3
+		WORD $0x2c414a	     // ALSLV $1, t1, acc3, acc3
 		SRLV $63, acc4, t1
-		// ALSLV $1, t0, acc4, acc4
-		SLLV $1, acc4, acc4
-		ADDV t0, acc4, acc4
+		WORD $0x2c3d6b       // ALSLV $1, t0, acc4, acc4
 		SRLV $63, acc5, t0
-		// ALSLV $1, t1, acc5, acc5
-		SLLV $1, acc5, acc5
-		ADDV t1, acc5, acc5
+		WORD $0x2c418c       // ALSLV $1, t1, acc5, acc5
 		SRLV $63, acc6, acc7
-		// ALSLV $1, t0, acc6, acc6
-		SLLV $1, acc6, acc6
-		ADDV t0, acc6, acc6
+		WORD $0x2c3dad       // ALSLV $1, t0, acc6, acc6
 
 		// Missing products
 		MULV x0, x0, acc0
