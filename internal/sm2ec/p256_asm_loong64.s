@@ -2046,14 +2046,11 @@ TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
 	SRLV $63, y0, t0;  \
 	SLLV $1, y0, x0;  \
 	SRLV $63, y1, t1;  \
-	SLLV $1, y1, x1;  \
-	ADDV t0, x1, x1;  \
+	WORD $0x2c3f55; \     // ALSLV $1, t0, y1, x1
 	SRLV $63, y2, t2;  \
-	SLLV $1, y2, x2;  \
-	ADDV t1, x2, x2;  \
+	WORD $0x2c4377; \     // ALSLV $1, t1, y2, x2
 	SRLV $63, y3, t3;  \
-	SLLV $1, y3, x3;  \
-	ADDV t2, x3, x3;  \
+	WORD 0x2c47f8; \      // ALSLV $1, t2, y3, x3
 	;\
 	ADDV $1, x0, acc4;  \
 	SGTU x0, acc4, t0;  \
