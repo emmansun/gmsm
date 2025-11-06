@@ -2050,7 +2050,7 @@ TEXT sm2P256Subinternal<>(SB),NOSPLIT,$0
 	SRLV $63, y2, t2;  \
 	WORD $0x2c4377; \     // ALSLV $1, t1, y2, x2
 	SRLV $63, y3, t3;  \
-	WORD 0x2c47f8; \      // ALSLV $1, t2, y3, x3
+	WORD $0x2c47f8; \      // ALSLV $1, t2, y3, x3
 	;\
 	ADDV $1, x0, acc4;  \
 	SGTU x0, acc4, t0;  \
