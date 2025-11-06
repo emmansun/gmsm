@@ -116,6 +116,42 @@
 	XVMOVQ R20, t7.V[0]; \
 	XVMOVQ R21, t7.V[1]
 
+#define TRANSPOSE_MATRIX1 \
+	XVILVHW a, b, tmp4; /* tmp4 = {b.S7, a.S7, b.S6, a.S6, b.S3, a.S3, b.S2, a.S2} */ \
+	XVILVLW a, b, a;    /* a    = {b.S5, a.S5, b.S4, a.S4, b.S1, a.S1, b.S0, a.S0} */ \
+	XVILVLW c, d, tmp3; /* tmp3 = {d.S5, c.S4, d.S5, c.S4, d.S1, c.S1, d.S0, c.S0} */ \
+	XVILVHW c, d, c;    /* c    = {d.S7, c.S7, d.S6, c.S6, d.S3, c.S3, d.S2, c.S2} */ \
+	XVILVLV a, tmp3, tmp1; /* tmp1 = {d.S4, c.S4, b.S4, a.S4, d.S0, c.S0, b.S0, a.S0} */ \
+	XVILVHV a, tmp3, tmp2; /* tmp2 = {d.S5, c.S5, b.S5, a.S5, d.S1, c.S1, b.S1, a.S1} */ \
+	XVILVLV tmp4, c, tmp3; /* tmp3 = {d.S6, c.S6, b.S6, a.S6, d.S2, c.S2, b.S2, a.S2} */ \
+	XVILVHV tmp4, c, tmp4; /* tmp4 = {d.S7, c.S7, b.S7, a.S7, d.S3, c.S3, b.S3, a.S3} */ \
+	; \
+	XVILVHW e, f, a; /* a = {f.S7, e.S7, f.S6, e.S6, f.S3, e.S3, f.S2, e.S2} */ \
+	XVILVLW e, f, e; /* e = {f.S5, e.S4, f.S5, e.S4, f.S1, e.S1, f.S0, e.S0} */ \
+	XVILVLW g, h, b; /* b = {h.S5, g.S4, h.S5, g.S4, h.S1, g.S1, h.S0, g.S0} */ \
+	XVILVHW g, h, g; /* g = {h.S7, g.S7, h.S6, g.S6, h.S3, g.S3, h.S2, g.S2} */ \
+	XVILVHV e, b, f; /* f = {h.S5, g.S5, f.S5, e.S5, h.S1, g.S1, f.S1, e.S1} */ \
+	XVILVLV e, b, e; /* e = {h.S4, g.S4, f.S4, e.S4, h.S0, g.S0, f.S0, e.S0} */ \
+	XVILVHV a, g, h; /* h = {h.S7, g.S7, f.S7, e.S7, h.S3, g.S3, f.S3, e.S3} */ \
+	XVILVLV a, g, g; /* g = {h.S6, g.S6, f.S6, e.S6, h.S2, g.S2, f.S2, e.S2} */ \
+	; \ // below are temp solution to move data back to a~h
+	XVMOVQ tmp1, a.Q2; \
+	WORD $0x77ec0820   \ // XVPERMIQ $0x2, e, a
+	; \
+	XVMOVQ tmp2, b.Q2; \
+	WORD $0x77ec0862   \ // XVPERMIQ $0x2, f, b
+	; \
+	XVMOVQ tmp3, c.Q2; \
+	WORD $0x77ec08a4   \ // XVPERMIQ $0x2, g, c
+	; \
+	XVMOVQ tmp4, d.Q2; \
+	WORD $0x77ec08e6   \ // XVPERMIQ $0x2, h, d
+	; \
+	WORD $0x77ecc501   \ // XVPERMIQ $0x31, tmp1, e
+	WORD $0x77ecc523   \ // XVPERMIQ $0x31, tmp2, f
+	WORD $0x77ecc545   \ // XVPERMIQ $0x31, tmp3, g
+	WORD $0x77ecc567   \ // XVPERMIQ $0x31, tmp4, h
+
 #define prepare8Words(index) \
 	XVMOVQ (index*32)(srcPtr1), X12; \
 	XVMOVQ (index*32)(srcPtr2), X13; \
@@ -260,7 +296,7 @@ TEXT ·transposeMatrix8x8(SB),NOSPLIT,$0
 	MOVV (7*8)(R5), R6
 	XVMOVQ (0*32)(R6), h
 
-	TRANSPOSE_MATRIX(a, b, c, d, e, f, g, h, tmp1, tmp2, tmp3, tmp4)
+	TRANSPOSE_MATRIX1
 
 	// store state
 	MOVV (0*8)(R5), R6
