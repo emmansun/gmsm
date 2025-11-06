@@ -72,6 +72,7 @@
 // res = b - a - borrowIn
 // borrowOut = 0 or 1
 // borrowIn and borrowOut CAN be the same register
+// borrowTmp1 and borrowTmp2 can NOT be the same register
 #define SBCS(borrowIn, a, b, res, borrowOut, borrowTmp1, borrowTmp2) \
 	SGTU a, b, borrowTmp1                 \
 	SUBV a, b, res                        \
@@ -79,6 +80,9 @@
 	SUBV borrowIn, res, res               \
 	OR borrowTmp1, borrowTmp2, borrowOut
 
+// res = b - a
+// borrowOut = 0 or 1
+// borrowOut and res can NOT be the same register
 #define SUBS(a, b, res, borrowOut) \
 	SGTU a, b, borrowOut                 \
 	SUBV a, b, res
