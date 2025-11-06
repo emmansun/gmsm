@@ -611,24 +611,14 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	SLLV $1, acc1, acc1
 	SRLV $63, acc2, t1
 	WORD $0x2c3d29       // ALSLV $1, t0, acc2, acc2
-	//SLLV $1, acc2, acc2
-	//ADDV t0, acc2, acc2
 	SRLV $63, acc3, t2
-	// ALSLV $1, t1, acc3, acc3
-	SLLV $1, acc3, acc3
-	ADDV t1, acc3, acc3
+	WORD $0x2c414a	     // ALSLV $1, t1, acc3, acc3
 	SRLV $63, acc4, t3
-	// ALSLV $1, t2, acc4, acc4
-	SLLV $1, acc4, acc4
-	ADDV t2, acc4, acc4
+	WORD $0x2c456b       // ALSLV $1, t2, acc4, acc4
 	SRLV $63, acc5, hlp0
-	// ALSLV $1, t3, acc5, acc5
-	SLLV $1, acc5, acc5
-	ADDV t3, acc5, acc5
+	WORD $0x2c498c       // ALSLV $1, t3, acc5, acc5
 	SRLV $63, acc6, acc7
-	// ALSLV $1, hlp0, acc6, acc6
-	SLLV $1, acc6, acc6
-	ADDV hlp0, acc6, acc6
+	WORD $0x2c4dad       // ALSLV $1, hlp0, acc6, acc6
 
 	// Missing products
 	MULV x0, x0, acc0
