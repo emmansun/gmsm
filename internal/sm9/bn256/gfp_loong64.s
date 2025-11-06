@@ -608,11 +608,11 @@ sqrLoop:
 		SRLV $63, acc3, t0
 		WORD $0x2c414a	     // ALSLV $1, t1, acc3, acc3
 		SRLV $63, acc4, t1
-		WORD $0x2c456b       // ALSLV $1, t2, acc4, acc4
+		WORD $0x2c3d6b       // ALSLV $1, t0, acc4, acc4
 		SRLV $63, acc5, t0
-		WORD $0x2c498c       // ALSLV $1, t3, acc5, acc5
+		WORD $0x2c418c       // ALSLV $1, t1, acc5, acc5
 		SRLV $63, acc6, acc7
-		WORD $0x2c4dad       // ALSLV $1, hlp0, acc6, acc6
+		WORD $0x2c3dad       // ALSLV $1, t0, acc6, acc6
 
 		// Missing products
 		MULV x0, x0, acc0
