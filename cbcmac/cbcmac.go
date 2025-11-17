@@ -50,12 +50,15 @@ func NewCBCMACWithPadding(b cipher.Block, size int, newPaddingFunc padding.NewPa
 	return &cbcmac{b: b, pad: newPaddingFunc(uint(b.BlockSize())), size: size}
 }
 
+// Size returns the MAC value's number of bytes.
+// See [github.com/emmansun/gmsm/cbcmac.BlockCipherMAC.Size].
 func (c *cbcmac) Size() int {
 	return c.size
 }
 
 // MAC calculates the MAC of the given data.
 // The data is padded with the padding scheme of the block cipher before processing.
+// See [github.com/emmansun/gmsm/cbcmac.BlockCipherMAC.MAC].
 func (c *cbcmac) MAC(src []byte) []byte {
 	src = c.pad.Pad(src)
 	blockSize := c.b.BlockSize()
@@ -97,10 +100,15 @@ func NewEMACWithPadding(creator func(key []byte) (cipher.Block, error), key1, ke
 	return &emac{pad: newPaddingFunc(uint(b1.BlockSize())), b1: b1, b2: b2, size: size}
 }
 
+// Size returns the MAC value's number of bytes.
+// See [github.com/emmansun/gmsm/cbcmac.BlockCipherMAC.Size].
 func (e *emac) Size() int {
 	return e.size
 }
 
+// MAC calculates the MAC of the given data.
+// The data is padded with the padding scheme of the block cipher before processing.
+// See [github.com/emmansun/gmsm/cbcmac.BlockCipherMAC.MAC].
 func (e *emac) MAC(src []byte) []byte {
 	src = e.pad.Pad(src)
 	blockSize := e.b1.BlockSize()
@@ -127,10 +135,15 @@ func NewANSIRetailMACWithPadding(creator func(key []byte) (cipher.Block, error),
 	return (*ansiRetailMAC)(NewEMACWithPadding(creator, key1, key2, size, newPaddingFunc).(*emac))
 }
 
+// Size returns the MAC value's number of bytes.
+// See [github.com/emmansun/gmsm/cbcmac.BlockCipherMAC.Size].
 func (e *ansiRetailMAC) Size() int {
 	return e.size
 }
 
+// MAC calculates the MAC of the given data.
+// The data is padded with the padding scheme of the block cipher before processing.
+// See [github.com/emmansun/gmsm/cbcmac.BlockCipherMAC.MAC].
 func (e *ansiRetailMAC) MAC(src []byte) []byte {
 	src = e.pad.Pad(src)
 	blockSize := e.b1.BlockSize()
@@ -181,10 +194,15 @@ func NewMACDESWithPadding(creator func(key []byte) (cipher.Block, error), key1, 
 	return &macDES{pad: newPaddingFunc(uint(b1.BlockSize())), b1: b1, b2: b2, b3: b3, size: size}
 }
 
+// Size returns the MAC value's number of bytes.
+// See [github.com/emmansun/gmsm/cbcmac.BlockCipherMAC.Size].
 func (m *macDES) Size() int {
 	return m.size
 }
 
+// MAC calculates the MAC of the given data.
+// The data is padded with the padding scheme of the block cipher before processing.
+// See [github.com/emmansun/gmsm/cbcmac.BlockCipherMAC.MAC].
 func (m *macDES) MAC(src []byte) []byte {
 	src = m.pad.Pad(src)
 	blockSize := m.b1.BlockSize()
@@ -238,6 +256,8 @@ func NewCMAC(b cipher.Block, size int) *cmac {
 	return d
 }
 
+// Reset resets the CMAC to its initial state.
+// See [crypto.Hash.Reset].
 func (c *cmac) Reset() {
 	for i := range c.tag {
 		c.tag[i] = 0
@@ -246,14 +266,20 @@ func (c *cmac) Reset() {
 	c.len = 0
 }
 
+// BlockSize returns the block size of the underlying block cipher.
+// See [crypto.Hash.BlockSize].
 func (c *cmac) BlockSize() int {
 	return c.blockSize
 }
 
+// Size returns the MAC value's number of bytes.
+// See [crypto.Hash.Size].
 func (c *cmac) Size() int {
 	return c.size
 }
 
+// Write adds more data to the running CMAC.
+// See [crypto.Hash.Write].
 func (d *cmac) Write(p []byte) (nn int, err error) {
 	nn = len(p)
 	if nn == 0 {
@@ -332,6 +358,8 @@ func (c *cmac) checkSum() []byte {
 	return tag
 }
 
+// MAC calculates the MAC of the given data.
+// See [github.com/emmansun/gmsm/cbcmac.BlockCipherMAC.MAC].
 func (c *cmac) MAC(src []byte) []byte {
 	c.Reset()
 	c.Write(src)
@@ -386,10 +414,15 @@ func NewLMACWithPadding(creator func(key []byte) (cipher.Block, error), key []by
 	return &lmac{b1: b1, b2: b2, pad: newPaddingFunc(uint(blockSize)), size: size}
 }
 
+// Size returns the MAC value's number of bytes.
+// // See [github.com/emmansun/gmsm/cbcmac.BlockCipherMAC.Size].
 func (l *lmac) Size() int {
 	return l.b1.BlockSize()
 }
 
+// MAC calculates the MAC of the given data.
+// The data is padded with the padding scheme of the block cipher before processing.
+// // See [github.com/emmansun/gmsm/cbcmac.BlockCipherMAC.MAC].
 func (l *lmac) MAC(src []byte) []byte {
 	src = l.pad.Pad(src)
 	blockSize := l.b1.BlockSize()
@@ -420,10 +453,14 @@ func NewTRCBCMAC(b cipher.Block, size int) BlockCipherMAC {
 	return &trCBCMAC{b: b, size: size}
 }
 
+// Size returns the MAC value's number of bytes.
+// // See [github.com/emmansun/gmsm/cbcmac.BlockCipherMAC.Size].
 func (t *trCBCMAC) Size() int {
 	return t.size
 }
 
+// MAC calculates the MAC of the given data.
+// // See [github.com/emmansun/gmsm/cbcmac.BlockCipherMAC.MAC].
 func (t *trCBCMAC) MAC(src []byte) []byte {
 	blockSize := t.b.BlockSize()
 	tag := make([]byte, blockSize)
@@ -459,10 +496,14 @@ func NewCBCRMAC(b cipher.Block, size int) BlockCipherMAC {
 	return &cbcrMAC{b: b, size: size}
 }
 
+// Size returns the MAC value's number of bytes.
+// See [github.com/emmansun/gmsm/cbcmac.BlockCipherMAC.Size].
 func (c *cbcrMAC) Size() int {
 	return c.size
 }
 
+// MAC calculates the MAC of the given data.
+// See [github.com/emmansun/gmsm/cbcmac.BlockCipherMAC.MAC].
 func (c *cbcrMAC) MAC(src []byte) []byte {
 	blockSize := c.b.BlockSize()
 	tag := make([]byte, blockSize)
