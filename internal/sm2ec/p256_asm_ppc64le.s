@@ -1307,7 +1307,7 @@ TEXT ·p256OrdReduce(SB),NOSPLIT,$0
 #define TMP2  V12 // Overloaded with RED2
 #define ONE   V29 // 1s splatted by word
 
-TEXT sm2p256MulInternal<>(SB), NOSPLIT, $0-16
+TEXT sm2p256MulInternal<>(SB), NOSPLIT, $0
 	// CPOOL loaded from caller
 	MOVD $16, R16
 	MOVD $32, R17
