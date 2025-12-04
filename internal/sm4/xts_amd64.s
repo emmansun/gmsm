@@ -387,9 +387,6 @@ TEXT ·encryptSm4Xts(SB),0,$256-64
 	CMPB ·useAVX2(SB), $1
 	JE   avx2XtsSm4Enc
 
-	CMPB ·useAVX(SB), $1
-	JE   avxXtsSm4Enc
-
 	MOVOU gcmPoly<>(SB), POLY
 
 	MOVOU (0*16)(BX), TW
@@ -486,104 +483,6 @@ xtsSm4EncTailEnc:
 
 xtsSm4EncDone:
 	MOVOU TW, (16*0)(BX)
-	RET
-
-avxXtsSm4Enc:
-	VMOVDQU gcmPoly<>(SB), POLY
-	VMOVDQU (0*16)(BX), TW
-
-avxXtsSm4EncOctets:
-	CMPQ DI, $128
-	JB avxXtsSm4EncNibbles
-	SUBQ $128, DI
-
-	// prepare tweaks
-	avxPrepare8Tweaks
-	// load 8 blocks for encryption
-	avxLoad8Blocks
-
-	AVX_SM4_8BLOCKS(AX, X8, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
-
-	avxStore8Blocks
-
-	LEAQ 128(DX), DX
-	LEAQ 128(CX), CX
-
-	JMP avxXtsSm4EncOctets
-
-avxXtsSm4EncNibbles:
-	CMPQ DI, $64
-	JB avxXtsSm4EncSingles
-	SUBQ $64, DI
-
-	// prepare tweaks
-	avxPrepare4Tweaks
-	// load 4 blocks for encryption
-	avxLoad4Blocks
-
-	AVX_SM4_4BLOCKS(AX, B4, T0, T1, T2, B0, B1, B2, B3)
-
-	avxStore4Blocks
-
-	LEAQ 64(DX), DX
-	LEAQ 64(CX), CX
-
-avxXtsSm4EncSingles:
-	CMPQ DI, $16
-	JB avxXtsSm4EncTail
-	SUBQ $16, DI
-
-	// load 1 block for encryption
-	VMOVDQU (16*0)(DX), B0
-	
-	VPXOR TW, B0, B0
-	SM4_SINGLE_BLOCK(AX, B4, T0, T1, T2, B0, B1, B2, B3)
-	VPXOR TW, B0, B0
-	VMOVDQU B0, (16*0)(CX)
-	avxMul2Inline
-
-	LEAQ 16(DX), DX
-	LEAQ 16(CX), CX
-
-	JMP avxXtsSm4EncSingles
-
-avxXtsSm4EncTail:
-	TESTQ DI, DI
-	JE avxXtsSm4EncDone
-
-	LEAQ -16(CX), R8
-	VMOVDQU (16*0)(R8), B0
-	VMOVDQU B0, (16*0)(SP)
-
-	CMPQ DI, $8
-	JB   avx_loop_1b
-	SUBQ  $8, DI
-	MOVQ (DX)(DI*1), R9
-	MOVQ (SP)(DI*1), R10
-	MOVQ R9, (SP)(DI*1)
-	MOVQ R10, (CX)(DI*1)
-
-	TESTQ DI, DI
-	JE avxXtsSm4EncTailEnc
-
-avx_loop_1b:
-	SUBQ  $1, DI
-	MOVB (DX)(DI*1), R9
-	MOVB (SP)(DI*1), R10
-	MOVB R9, (SP)(DI*1)
-	MOVB R10, (CX)(DI*1)
-	TESTQ DI, DI
-	JNE   avx_loop_1b
-
-avxXtsSm4EncTailEnc:
-	VMOVDQU (16*0)(SP), B0
-	VPXOR TW, B0, B0
-	SM4_SINGLE_BLOCK(AX, B4, T0, T1, T2, B0, B1, B2, B3)
-	VPXOR TW, B0, B0
-	VMOVDQU B0, (16*0)(R8)
-
-avxXtsSm4EncDone:
-	VMOVDQU TW, (16*0)(BX)
 	RET
 
 avx2XtsSm4Enc:
@@ -731,9 +630,6 @@ TEXT ·encryptSm4XtsGB(SB),0,$256-64
 	CMPB ·useAVX2(SB), $1
 	JE   avx2XtsSm4Enc
 
-	CMPB ·useAVX(SB), $1
-	JE   avxXtsSm4Enc
-
 	MOVOU gbGcmPoly<>(SB), POLY
 	MOVOU ·bswap_mask(SB), BSWAP
 	MOVOU (0*16)(BX), TW
@@ -830,105 +726,6 @@ xtsSm4EncTailEnc:
 
 xtsSm4EncDone:
 	MOVOU TW, (16*0)(BX)
-	RET
-
-avxXtsSm4Enc:
-	VMOVDQU gbGcmPoly<>(SB), POLY
-	VMOVDQU ·bswap_mask(SB), BSWAP
-	VMOVDQU (0*16)(BX), TW
-
-avxXtsSm4EncOctets:
-	CMPQ DI, $128
-	JB avxXtsSm4EncNibbles
-	SUBQ $128, DI
-
-	// prepare tweaks
-	avxPrepareGB8Tweaks
-	// load 8 blocks for encryption
-	avxLoad8Blocks
-
-	AVX_SM4_8BLOCKS(AX, X8, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
-
-	avxStore8Blocks
-
-	LEAQ 128(DX), DX
-	LEAQ 128(CX), CX
-
-	JMP avxXtsSm4EncOctets
-
-avxXtsSm4EncNibbles:
-	CMPQ DI, $64
-	JB avxXtsSm4EncSingles
-	SUBQ $64, DI
-
-	// prepare tweaks
-	avxPrepareGB4Tweaks
-	// load 4 blocks for encryption
-	avxLoad4Blocks
-
-	AVX_SM4_4BLOCKS(AX, B4, T0, T1, T2, B0, B1, B2, B3)
-
-	avxStore4Blocks
-
-	LEAQ 64(DX), DX
-	LEAQ 64(CX), CX
-
-avxXtsSm4EncSingles:
-	CMPQ DI, $16
-	JB avxXtsSm4EncTail
-	SUBQ $16, DI
-
-	// load 1 block for encryption
-	VMOVDQU (16*0)(DX), B0
-	
-	VPXOR TW, B0, B0
-	SM4_SINGLE_BLOCK(AX, B4, T0, T1, T2, B0, B1, B2, B3)
-	VPXOR TW, B0, B0
-	VMOVDQU B0, (16*0)(CX)
-	avxMul2GBInline
-
-	LEAQ 16(DX), DX
-	LEAQ 16(CX), CX
-
-	JMP avxXtsSm4EncSingles
-
-avxXtsSm4EncTail:
-	TESTQ DI, DI
-	JE avxXtsSm4EncDone
-
-	LEAQ -16(CX), R8
-	VMOVDQU (16*0)(R8), B0
-	VMOVDQU B0, (16*0)(SP)
-
-	CMPQ DI, $8
-	JB   avx_loop_1b
-	SUBQ  $8, DI
-	MOVQ (DX)(DI*1), R9
-	MOVQ (SP)(DI*1), R10
-	MOVQ R9, (SP)(DI*1)
-	MOVQ R10, (CX)(DI*1)
-
-	TESTQ DI, DI
-	JE avxXtsSm4EncTailEnc
-
-avx_loop_1b:
-	SUBQ  $1, DI
-	MOVB (DX)(DI*1), R9
-	MOVB (SP)(DI*1), R10
-	MOVB R9, (SP)(DI*1)
-	MOVB R10, (CX)(DI*1)
-	TESTQ DI, DI
-	JNE   avx_loop_1b
-
-avxXtsSm4EncTailEnc:
-	VMOVDQU (16*0)(SP), B0
-	VPXOR TW, B0, B0
-	SM4_SINGLE_BLOCK(AX, B4, T0, T1, T2, B0, B1, B2, B3)
-	VPXOR TW, B0, B0
-	VMOVDQU B0, (16*0)(R8)
-
-avxXtsSm4EncDone:
-	VMOVDQU TW, (16*0)(BX)
 	RET
 
 avx2XtsSm4Enc:
@@ -1075,9 +872,6 @@ TEXT ·decryptSm4Xts(SB),0,$256-64
 	CMPB ·useAVX2(SB), $1
 	JE   avx2XtsSm4Dec
 
-	CMPB ·useAVX(SB), $1
-	JE   avxXtsSm4Dec
-
 	MOVOU gcmPoly<>(SB), POLY
 	MOVOU (0*16)(BX), TW
 
@@ -1200,130 +994,6 @@ xtsSm4DecDone:
 	MOVOU TW, (16*0)(BX)
 	RET
 
-avxXtsSm4Dec:
-	VMOVDQU gcmPoly<>(SB), POLY
-	VMOVDQU (0*16)(BX), TW
-
-avxXtsSm4DecOctets:
-	CMPQ DI, $128
-	JB avxXtsSm4DecNibbles
-	SUBQ $128, DI
-
-	// prepare tweaks
-	avxPrepare8Tweaks
-
-	// load 8 blocks for decryption
-	avxLoad8Blocks
-
-	AVX_SM4_8BLOCKS(AX, X8, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
-
-	avxStore8Blocks
-
-	LEAQ 128(DX), DX
-	LEAQ 128(CX), CX
-
-	JMP avxXtsSm4DecOctets
-
-avxXtsSm4DecNibbles:
-	CMPQ DI, $64
-	JB avxXtsSm4DecSingles
-	SUBQ $64, DI
-
-	// prepare tweaks
-	avxPrepare4Tweaks
-	// load 4 blocks for decryption
-	avxLoad4Blocks
-
-	AVX_SM4_4BLOCKS(AX, B4, T0, T1, T2, B0, B1, B2, B3)
-
-	avxStore4Blocks
-
-	LEAQ 64(DX), DX
-	LEAQ 64(CX), CX
-
-avxXtsSm4DecSingles:
-	CMPQ DI, $32
-	JB avxXtsSm4DecTail
-	SUBQ $16, DI
-
-	// load 1 block for decryption
-	VMOVDQU (16*0)(DX), B0
-	
-	VPXOR TW, B0, B0
-	SM4_SINGLE_BLOCK(AX, B4, T0, T1, T2, B0, B1, B2, B3)
-	VPXOR TW, B0, B0
-	VMOVDQU B0, (16*0)(CX)
-	avxMul2Inline
-
-	LEAQ 16(DX), DX
-	LEAQ 16(CX), CX
-
-	JMP avxXtsSm4DecSingles
-
-avxXtsSm4DecTail:
-	TESTQ DI, DI
-	JE avxXtsSm4DecDone
-
-	CMPQ DI, $16
-	JE avxXtsSm4DecLastBlock
-
-	// length > 16
-	// load 1 block for decryption
-	VMOVDQU (16*0)(DX), B0
-	VMOVDQU TW, B5
-	avxMul2Inline
-	VPXOR TW, B0, B0
-	SM4_SINGLE_BLOCK(AX, B4, T0, T1, T2, B0, B1, B2, B3)
-	VPXOR TW, B0, B0
-	VMOVDQU B0, (16*0)(CX)
-	VMOVDQU B5, TW
-
-	SUBQ $16, DI
-	LEAQ 16(DX), DX
-	LEAQ 16(CX), CX
-	LEAQ -16(CX), R8
-	VMOVDQU B0, (16*0)(SP)
-
-	CMPQ DI, $8
-	JB   avx_loop_1b
-	SUBQ  $8, DI
-	MOVQ (DX)(DI*1), R9
-	MOVQ (SP)(DI*1), R10
-	MOVQ R9, (SP)(DI*1)
-	MOVQ R10, (CX)(DI*1)
-
-	TESTQ DI, DI
-	JE avxXtsSm4DecTailDec
-
-avx_loop_1b:
-	SUBQ  $1, DI
-	MOVB (DX)(DI*1), R9
-	MOVB (SP)(DI*1), R10
-	MOVB R9, (SP)(DI*1)
-	MOVB R10, (CX)(DI*1)
-	TESTQ DI, DI
-	JNE   avx_loop_1b
-
-avxXtsSm4DecTailDec:
-	VMOVDQU (16*0)(SP), B0
-	VPXOR TW, B0, B0
-	SM4_SINGLE_BLOCK(AX, B4, T0, T1, T2, B0, B1, B2, B3)
-	VPXOR TW, B0, B0
-	VMOVDQU B0, (16*0)(R8)
-	JMP avxXtsSm4DecDone
-
-avxXtsSm4DecLastBlock:
-	VMOVDQU (16*0)(DX), B0
-	VPXOR TW, B0, B0
-	SM4_SINGLE_BLOCK(AX, B4, T0, T1, T2, B0, B1, B2, B3)
-	VPXOR TW, B0, B0
-	VMOVDQU B0, (16*0)(CX)
-	avxMul2Inline
-
-avxXtsSm4DecDone:
-	VMOVDQU TW, (16*0)(BX)
-	RET
-
 avx2XtsSm4Dec:
 	VMOVDQU gcmPoly<>(SB), POLY
 	VMOVDQU (0*16)(BX), TW
@@ -1384,7 +1054,7 @@ avx2XtsSm4DecOctets:
 
 avx2XtsSm4DecNibbles:
 	CMPQ DI, $64
-	JB avxXtsSm4DecSingles
+	JB avx2XtsSm4DecSingles
 	SUBQ $64, DI
 
 	// prepare tweaks
@@ -1493,9 +1163,6 @@ TEXT ·decryptSm4XtsGB(SB),0,$256-64
 
 	CMPB ·useAVX2(SB), $1
 	JE   avx2XtsSm4Dec
-
-	CMPB ·useAVX(SB), $1
-	JE   avxXtsSm4Dec
 
 	MOVOU gbGcmPoly<>(SB), POLY
 	MOVOU ·bswap_mask(SB), BSWAP
@@ -1620,130 +1287,6 @@ xtsSm4DecDone:
 	MOVOU TW, (16*0)(BX)
 	RET
 
-avxXtsSm4Dec:
-	VMOVDQU gbGcmPoly<>(SB), POLY
-	VMOVDQU ·bswap_mask(SB), BSWAP	
-	VMOVDQU (0*16)(BX), TW
-
-avxXtsSm4DecOctets:
-	CMPQ DI, $128
-	JB avxXtsSm4DecNibbles
-	SUBQ $128, DI
-
-	// prepare tweaks
-	avxPrepareGB8Tweaks
-	// load 8 blocks for decryption
-	avxLoad8Blocks
-
-	AVX_SM4_8BLOCKS(AX, X8, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
-
-	avxStore8Blocks
-
-	LEAQ 128(DX), DX
-	LEAQ 128(CX), CX
-
-	JMP avxXtsSm4DecOctets
-
-avxXtsSm4DecNibbles:
-	CMPQ DI, $64
-	JB avxXtsSm4DecSingles
-	SUBQ $64, DI
-
-	// prepare tweaks
-	avxPrepareGB4Tweaks
-	// load 4 blocks for decryption
-	avxLoad4Blocks
-
-	AVX_SM4_4BLOCKS(AX, B4, T0, T1, T2, B0, B1, B2, B3)
-
-	avxStore4Blocks
-
-	LEAQ 64(DX), DX
-	LEAQ 64(CX), CX
-
-avxXtsSm4DecSingles:
-	CMPQ DI, $32
-	JB avxXtsSm4DecTail
-	SUBQ $16, DI
-
-	// load 1 block for decryption
-	VMOVDQU (16*0)(DX), B0
-	
-	VPXOR TW, B0, B0
-	SM4_SINGLE_BLOCK(AX, B4, T0, T1, T2, B0, B1, B2, B3)
-	VPXOR TW, B0, B0
-	VMOVDQU B0, (16*0)(CX)
-	avxMul2GBInline
-
-	LEAQ 16(DX), DX
-	LEAQ 16(CX), CX
-
-	JMP avxXtsSm4DecSingles
-
-avxXtsSm4DecTail:
-	TESTQ DI, DI
-	JE avxXtsSm4DecDone
-
-	CMPQ DI, $16
-	JE avxXtsSm4DecLastBlock
-
-	// length > 16
-	// load 1 block for decryption
-	VMOVDQU (16*0)(DX), B0
-	VMOVDQU TW, B5
-	avxMul2GBInline
-	VPXOR TW, B0, B0
-	SM4_SINGLE_BLOCK(AX, B4, T0, T1, T2, B0, B1, B2, B3)
-	VPXOR TW, B0, B0
-	VMOVDQU B0, (16*0)(CX)
-	VMOVDQU B5, TW
-
-	SUBQ $16, DI
-	LEAQ 16(DX), DX
-	LEAQ 16(CX), CX
-	LEAQ -16(CX), R8
-	VMOVDQU B0, (16*0)(SP)
-
-	CMPQ DI, $8
-	JB   avx_loop_1b
-	SUBQ  $8, DI
-	MOVQ (DX)(DI*1), R9
-	MOVQ (SP)(DI*1), R10
-	MOVQ R9, (SP)(DI*1)
-	MOVQ R10, (CX)(DI*1)
-
-	TESTQ DI, DI
-	JE avxXtsSm4DecTailDec
-
-avx_loop_1b:
-	SUBQ  $1, DI
-	MOVB (DX)(DI*1), R9
-	MOVB (SP)(DI*1), R10
-	MOVB R9, (SP)(DI*1)
-	MOVB R10, (CX)(DI*1)
-	TESTQ DI, DI
-	JNE   avx_loop_1b
-
-avxXtsSm4DecTailDec:
-	VMOVDQU (16*0)(SP), B0
-	VPXOR TW, B0, B0
-	SM4_SINGLE_BLOCK(AX, B4, T0, T1, T2, B0, B1, B2, B3)
-	VPXOR TW, B0, B0
-	VMOVDQU B0, (16*0)(R8)
-	JMP avxXtsSm4DecDone
-
-avxXtsSm4DecLastBlock:
-	VMOVDQU (16*0)(DX), B0
-	VPXOR TW, B0, B0
-	SM4_SINGLE_BLOCK(AX, B4, T0, T1, T2, B0, B1, B2, B3)
-	VPXOR TW, B0, B0
-	VMOVDQU B0, (16*0)(CX)
-	avxMul2GBInline
-
-avxXtsSm4DecDone:
-	VMOVDQU TW, (16*0)(BX)
-	RET
-
 avx2XtsSm4Dec:
 	VMOVDQU gbGcmPoly<>(SB), POLY
 	VMOVDQU (0*16)(BX), TW
@@ -1804,7 +1347,7 @@ avx2XtsSm4DecOctets:
 
 avx2XtsSm4DecNibbles:
 	CMPQ DI, $64
-	JB avxXtsSm4DecSingles
+	JB avx2XtsSm4DecSingles
 	SUBQ $64, DI
 
 	// prepare tweaks
