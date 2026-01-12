@@ -3,6 +3,7 @@ package smx509
 import (
 	"crypto/x509"
 	"encoding/asn1"
+	"fmt"
 	"reflect"
 	"unsafe"
 )
@@ -21,6 +22,12 @@ func getDer(oid *x509.OID) []byte {
 
 	derPointer := (*[]byte)(unsafe.Pointer(derField.UnsafeAddr()))
 	return *derPointer
+}
+
+func newOID(der []byte) x509.OID {
+	oid := x509.OID{}
+	setDer(&oid, der)
+	return oid
 }
 
 func newOIDFromDER(der []byte) (x509.OID, bool) {
@@ -84,4 +91,12 @@ func toASN1OID(oid x509.OID) (asn1.ObjectIdentifier, bool) {
 	}
 
 	return out, true
+}
+
+func mustNewOIDFromInts(ints []uint64) x509.OID {
+	oid, err := x509.OIDFromInts(ints)
+	if err != nil {
+		panic(fmt.Sprintf("OIDFromInts(%v) unexpected error: %v", ints, err))
+	}
+	return oid
 }

@@ -2688,7 +2688,7 @@ func TestEKUEnforcement(t *testing.T) {
 			if err == nil && tc.err != "" {
 				t.Errorf("expected error")
 			} else if err != nil && err.Error() != tc.err {
-				t.Errorf("unexpected error: want %q, got %q", err.Error(), tc.err)
+				t.Errorf("unexpected error: got %q, want %q", err.Error(), tc.err)
 			}
 		})
 	}

@@ -40,6 +40,9 @@ func TestOID(t *testing.T) {
 		{[]byte{0x83, 255, 255, 255, 255, 255, 255, 255, 255, 127}, true, "2.36893488147419103151", nil},
 		{[]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 127}, true, "2.1180591620717411303343", nil},
 		{[]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 127}, true, "2.19342813113834066795298735", nil},
+
+		{[]byte{41, 0x80 | 66, 0x80 | 44, 0x80 | 11, 33}, true, "1.1.139134369", []uint64{1, 1, 139134369}},
+		{[]byte{0x80 | 66, 0x80 | 44, 0x80 | 11, 33}, true, "2.139134289", []uint64{2, 139134289}},
 	}
 
 	for _, v := range tests {
@@ -94,6 +97,50 @@ func TestOID(t *testing.T) {
 			if !oid2.Equal(oid) {
 				t.Errorf("%v: %#v.Equal(%#v) = false, want: true", v.raw, oid2, oid)
 			}
+		}
+	}
+}
+
+func TestOIDEqualASN1OID(t *testing.T) {
+	maxInt32PlusOne := int64(math.MaxInt32) + 1
+	var cases = []struct {
+		oid  x509.OID
+		oid2 asn1.ObjectIdentifier
+		eq   bool
+	}{
+		{oid: mustNewOIDFromInts([]uint64{1, 2, 3}), oid2: asn1.ObjectIdentifier{1, 2, 3}, eq: true},
+		{oid: mustNewOIDFromInts([]uint64{1, 2, 3}), oid2: asn1.ObjectIdentifier{1, 2, 4}, eq: false},
+		{oid: mustNewOIDFromInts([]uint64{1, 2, 3}), oid2: asn1.ObjectIdentifier{1, 2, 3, 4}, eq: false},
+		{oid: mustNewOIDFromInts([]uint64{1, 33, 22}), oid2: asn1.ObjectIdentifier{1, 33, 23}, eq: false},
+		{oid: mustNewOIDFromInts([]uint64{1, 33, 23}), oid2: asn1.ObjectIdentifier{1, 33, 22}, eq: false},
+		{oid: mustNewOIDFromInts([]uint64{1, 33, 127}), oid2: asn1.ObjectIdentifier{1, 33, 127}, eq: true},
+		{oid: mustNewOIDFromInts([]uint64{1, 33, 128}), oid2: asn1.ObjectIdentifier{1, 33, 127}, eq: false},
+		{oid: mustNewOIDFromInts([]uint64{1, 33, 128}), oid2: asn1.ObjectIdentifier{1, 33, 128}, eq: true},
+		{oid: mustNewOIDFromInts([]uint64{1, 33, 129}), oid2: asn1.ObjectIdentifier{1, 33, 129}, eq: true},
+		{oid: mustNewOIDFromInts([]uint64{1, 33, 128}), oid2: asn1.ObjectIdentifier{1, 33, 129}, eq: false},
+		{oid: mustNewOIDFromInts([]uint64{1, 33, 129}), oid2: asn1.ObjectIdentifier{1, 33, 128}, eq: false},
+		{oid: mustNewOIDFromInts([]uint64{1, 33, 255}), oid2: asn1.ObjectIdentifier{1, 33, 255}, eq: true},
+		{oid: mustNewOIDFromInts([]uint64{1, 33, 256}), oid2: asn1.ObjectIdentifier{1, 33, 256}, eq: true},
+		{oid: mustNewOIDFromInts([]uint64{2, 33, 257}), oid2: asn1.ObjectIdentifier{2, 33, 256}, eq: false},
+		{oid: mustNewOIDFromInts([]uint64{2, 33, 256}), oid2: asn1.ObjectIdentifier{2, 33, 257}, eq: false},
+
+		{oid: mustNewOIDFromInts([]uint64{1, 33}), oid2: asn1.ObjectIdentifier{1, 33, math.MaxInt32}, eq: false},
+		{oid: mustNewOIDFromInts([]uint64{1, 33, math.MaxInt32}), oid2: asn1.ObjectIdentifier{1, 33}, eq: false},
+		{oid: mustNewOIDFromInts([]uint64{1, 33, math.MaxInt32}), oid2: asn1.ObjectIdentifier{1, 33, math.MaxInt32}, eq: true},
+		{
+			oid:  mustNewOIDFromInts([]uint64{1, 33, math.MaxInt32 + 1}),
+			oid2: asn1.ObjectIdentifier{1, 33 /*convert to int, so that it compiles on 32bit*/, int(maxInt32PlusOne)},
+			eq:   false,
+		},
+
+		{oid: mustNewOIDFromInts([]uint64{1, 33, 256}), oid2: asn1.ObjectIdentifier{}, eq: false},
+		{oid: x509.OID{}, oid2: asn1.ObjectIdentifier{1, 33, 256}, eq: false},
+		{oid: x509.OID{}, oid2: asn1.ObjectIdentifier{}, eq: false},
+	}
+
+	for _, tt := range cases {
+		if eq := tt.oid.EqualASN1OID(tt.oid2); eq != tt.eq {
+			t.Errorf("(%v).EqualASN1OID(%v) = %v, want %v", tt.oid, tt.oid2, eq, tt.eq)
 		}
 	}
 }

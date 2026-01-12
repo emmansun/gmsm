@@ -1307,7 +1307,7 @@ TEXT ·p256OrdReduce(SB),NOSPLIT,$0
 #define TMP2  V12 // Overloaded with RED2
 #define ONE   V29 // 1s splatted by word
 
-TEXT sm2p256MulInternal<>(SB), NOSPLIT, $0-16
+TEXT sm2p256MulInternal<>(SB), NOSPLIT, $0
 	// CPOOL loaded from caller
 	MOVD $16, R16
 	MOVD $32, R17
@@ -1854,12 +1854,9 @@ TEXT ·p256PointAddAffineAsm(SB), NOSPLIT, $0
 	MOVD $48, R18
 	MOVD $64, R19
 	MOVD $80, R20
-	MOVD $96, R21
-	MOVD $104, R22
-	MOVD $128, R23
-	MOVD $144, R24
-	MOVD $160, R25
-	MOVD $88, R26 // offset of sign+24(FP): 24 + 64
+	MOVD $88, R21  // offset of sign+24(FP): 24 + 64
+	MOVD $96, R22  // offset of sel+32(FP): 32 + 64
+	MOVD $104, R23 // offset of zero+48(FP): 48 + 64
 
 	LXVD2X (R16)(CPOOL), PH
 	LXVD2X (R0)(CPOOL), PL
@@ -1870,7 +1867,7 @@ TEXT ·p256PointAddAffineAsm(SB), NOSPLIT, $0
 	XXPERMDI Y2L, Y2L, $2, Y2L
 
 	// Equivalent of VLREPG sign+24(FP), SEL1
-	LXVDSX   (R1)(R26), SEL1
+	LXVDSX   (R1)(R21), SEL1
 	VSPLTISB $0, ZER
 	VCMPEQUD SEL1, ZER, SEL1
 
@@ -2021,7 +2018,7 @@ TEXT ·p256PointAddAffineAsm(SB), NOSPLIT, $0
 	XXPERMDI Z1H, Z1H, $2, Z1H
 	XXPERMDI Z1L, Z1L, $2, Z1L
 
-	LXVDSX   (R1)(R21), SEL1    // Get offset to sel+32
+	LXVDSX   (R1)(R22), SEL1    // Get offset to sel+32
 	VSPLTISB $0, ZER
 	VCMPEQUD SEL1, ZER, SEL1
 
@@ -2042,7 +2039,7 @@ TEXT ·p256PointAddAffineAsm(SB), NOSPLIT, $0
 	LXVD2X (R19)(CPOOL), Z2L
 	LXVD2X (R20)(CPOOL), Z2H
 
-	LXVDSX   (R1)(R22), SEL1    // Get the value from zero+40(FP)
+	LXVDSX   (R1)(R23), SEL1    // Get the value from zero+40(FP)
 	VSPLTISB $0, ZER
 	VCMPEQUD SEL1, ZER, SEL1
 

@@ -103,6 +103,56 @@ func TestGoldenMarshal(t *testing.T) {
 	}
 }
 
+func TestLarge(t *testing.T) {
+	const N = 10000
+	const offsets = 4
+	ok := "9f9fe6c28c2d2e26eacef372e62b83e50d14c2ba89727772b9168dfc26fa7eb0" // sm3sum of "0123456789" * 1000
+	block := make([]byte, N+offsets)
+	c := New()
+	for offset := range offsets {
+		for i := range N {
+			block[offset+i] = '0' + byte(i%10)
+		}
+		for blockSize := 10; blockSize <= N; blockSize *= 10 {
+			blocks := N / blockSize
+			b := block[offset : offset+blockSize]
+			c.Reset()
+			for range blocks {
+				c.Write(b)
+			}
+			s := fmt.Sprintf("%x", c.Sum(nil))
+			if s != ok {
+				t.Fatalf("sm3 TestLarge offset=%d, blockSize=%d = %s want %s", offset, blockSize, s, ok)
+			}
+		}
+	}
+}
+
+func TestExtraLarge(t *testing.T) {
+	const N = 100000
+	const offsets = 4
+	ok := "01248796b2440c2eccdf06d82227eda6b483fad0687c8e2a620fdfe7dc0384a5" // sm3sum of "0123456789" * 10000
+	block := make([]byte, N+offsets)
+	c := New()
+	for offset := range offsets {
+		for i := range N {
+			block[offset+i] = '0' + byte(i%10)
+		}
+		for blockSize := 10; blockSize <= N; blockSize *= 10 {
+			blocks := N / blockSize
+			b := block[offset : offset+blockSize]
+			c.Reset()
+			for range blocks {
+				c.Write(b)
+			}
+			s := fmt.Sprintf("%x", c.Sum(nil))
+			if s != ok {
+				t.Fatalf("sm3 TestExtraLarge offset=%d, blockSize=%d = %s want %s", offset, blockSize, s, ok)
+			}
+		}
+	}
+}
+
 var sm3TestVector = []struct {
 	out string
 	in  string
