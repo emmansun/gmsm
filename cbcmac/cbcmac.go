@@ -34,8 +34,6 @@ type StreamingMAC interface {
 	BlockCipherMAC
 }
 
-// Reset resets the MAC to its initial state.
-
 // cbcmac implements the basic CBC-MAC mode of operation for block ciphers.
 type cbcmac struct {
 	b    cipher.Block
