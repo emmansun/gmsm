@@ -29,39 +29,184 @@ Go语言商用密码软件，简称**GMSM**，一个安全、高性能、易于�
 
 如果你想提问题，建议你阅读[提问的智慧](https://github.com/ryanhanwu/How-To-Ask-Questions-The-Smart-Way/blob/main/README-zh_CN.md)。
 
-## 包结构
-- **SM2** - SM2椭圆曲线公钥密码算法，曲线的具体实现位于[internal/sm2ec](https://github.com/emmansun/gmsm/tree/main/internal/sm2ec) package中。SM2曲线实现性能和Golang标准库中的NIST P256椭圆曲线原生实现（非BoringCrypto）类似，也对**amd64**，**arm64**，**s390x**，**ppc64le**，**riscv64**和**loong64**架构做了专门汇编优化实现，您也可以参考[SM2实现细节](https://github.com/emmansun/gmsm/wiki/SM2%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96)及相关Wiki和代码，以获得更多实现细节。SM2包实现了SM2椭圆曲线公钥密码算法的数字签名算法、公钥加密算法、密钥交换算法，以及《GB/T 35276-2017信息安全技术 SM2密码算法使用规范》中的密钥对保护数据格式。
+## 核心模块
 
-- **SM3** - SM3密码杂凑算法实现。**amd64**下分别针对**AVX2+BMI2、AVX、SSE2+SSSE3**做了消息扩展部分的SIMD实现； **arm64**下使用NEON指令做了消息扩展部分的SIMD实现，同时也提供了基于**A64扩展密码指令**的汇编实现；**s390x**和**ppc64x**通过向量指令做了消息扩展部分的优化实现。您也可以参考[SM3性能优化](https://github.com/emmansun/gmsm/wiki/SM3%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96)及相关Wiki和代码，以获得更多实现细节。
+### 公钥密码算法
 
-- **SM4** - SM4分组密码算法实现。**amd64**下使用**AES**指令加上**AVX2、AVX、SSE2+SSSE3**实现了比较好的性能。**arm64**下使用**AES**指令加上NEON指令实现了比较好的性能，同时也提供了基于**A64扩展密码指令**的汇编实现。**ppc64x**下使用**vsbox**指令加上向量指令进行了并行优化。针对**ECB/CBC/GCM/XTS**加密模式，做了和SM4分组密码算法的融合汇编优化实现。您也可以参考[SM4性能优化](https://github.com/emmansun/gmsm/wiki/SM4%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96)及相关Wiki和代码，以获得更多实现细节。
+#### SM2 - 椭圆曲线公钥密码算法
+SM2 椭圆曲线公钥密码算法的核心实现位于 [internal/sm2ec](https://github.com/emmansun/gmsm/tree/main/internal/sm2ec) 包中。本实现在性能上与 Go 标准库中 NIST P-256 曲线的原生实现（非 BoringCrypto）相当，并针对 **amd64**、**arm64**、**s390x**、**ppc64le**、**riscv64** 和 **loong64** 架构进行了汇编优化。
 
-- **SM9** - SM9标识密码算法实现。基础的素域、扩域、椭圆曲线运算以及双线性对运算位于[bn256](https://github.com/emmansun/gmsm/tree/main/sm9/bn256)包中，分别对**amd64**、**arm64**、**ppc64x**、**riscv64**和**loong64**架构做了优化实现。您也可以参考[SM9实现及优化](https://github.com/emmansun/gmsm/wiki/SM9%E5%AE%9E%E7%8E%B0%E5%8F%8A%E4%BC%98%E5%8C%96)及相关讨论和代码，以获得更多实现细节。SM9包实现了SM9标识密码算法的密钥生成、数字签名算法、密钥封装机制和公钥加密算法、密钥交换协议。
+**功能特性：**
+- 数字签名算法（GB/T 32918.2-2016）
+- 公钥加密算法（GB/T 32918.4-2016）
+- 密钥交换协议（GB/T 32918.3-2016）
+- 密钥对保护数据格式（GB/T 35276-2017）
 
-- **ZUC** - 祖冲之序列密码算法实现。使用SIMD、AES指令以及无进位乘法指令，分别对**amd64**、**arm64**和**ppc64x**架构做了优化实现, 您也可以参考[ZUC实现及优化](https://github.com/emmansun/gmsm/wiki/Efficient-Software-Implementations-of-ZUC)和相关代码，以获得更多实现细节。ZUC包实现了基于祖冲之序列密码算法的机密性算法、128/256位完整性算法。
+详细的性能优化分析和实现细节请参阅 [SM2 性能优化 Wiki](https://github.com/emmansun/gmsm/wiki/SM2%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96)。
 
-- **CBCMAC** - 符合《GB/T 15852.1-2020 采用分组密码的机制》的消息鉴别码。 
-- **CFCA** - CFCA（中金）特定实现，目前实现的是SM2私钥、证书封装处理，对应SADK中的**PKCS12_SM2**；信封加密、签名；CSR生成及返回私钥解密、解析等功能。
+#### SM9 - 标识密码算法
+SM9 标识密码算法的底层数学运算（素域、扩域、椭圆曲线及双线性对）实现于 [bn256](https://github.com/emmansun/gmsm/tree/main/sm9/bn256) 包中，支持 **amd64**、**arm64**、**ppc64x**、**riscv64** 和 **loong64** 架构的优化实现。
 
-- **CIPHER** - ECB/CCM/XTS/HCTR/BC/OFBNLF加密模式实现。XTS模式同时支持NIST规范和国标 **GB/T 17964-2021**。当前的XTS模式由于实现了BlockMode，其结构包含一个tweak数组，所以其**不支持并发使用**。**分组链接（BC）模式**和**带非线性函数的输出反馈（OFBNLF）模式**为分组密码算法的工作模式标准**GB/T 17964**的遗留模式，**带泛杂凑函数的计数器（HCTR）模式**是**GB/T 17964-2021**中的新增模式。分组链接（BC）模式和CBC模式类似；而带非线性函数的输出反馈（OFBNLF）模式的话，从软件实现的角度来看，基本没有性能优化的空间。
+**功能特性：**
+- 密钥生成算法（GM/T 0044-2016）
+- 数字签名算法
+- 密钥封装机制（KEM）
+- 公钥加密算法
+- 密钥交换协议
 
-- **SMX509** - Go语言X509包的分支，加入了商用密码支持。
+实现细节和优化策略请参阅 [SM9 实现及优化 Wiki](https://github.com/emmansun/gmsm/wiki/SM9%E5%AE%9E%E7%8E%B0%E5%8F%8A%E4%BC%98%E5%8C%96)。
 
-- **PADDING** - 一些填充方法实现（非常量时间运行）：**pkcs7**，这是当前主要使用的填充方式，对应**GB/T 17964-2021**的附录C.2 填充方法 1；**iso9797m2**，对应**GB/T 17964-2021**的附录C.3 填充方法 2；**ansix923**，对应ANSI X9.23标准。**GB/T 17964-2021**的附录C.4 填充方法 3，对应ISO/IEC_9797-1 padding method 3。
+---
 
-- **PKCS7** - [mozilla-services/pkcs7](https://github.com/mozilla-services/pkcs7) 项目（该项目已于2024年2月10日被归档）的分支，加入了商用密码支持。
+### 对称密码算法
 
-- **PKCS8** - [youmark/pkcs8](https://github.com/youmark/pkcs8)项目的分支，加入了商用密码支持。
+#### SM3 - 密码杂凑算法
+SM3 密码杂凑算法（GM/T 0004-2012）实现了高效的 SIMD 优化：
 
-- **ECDH** - 一个类似Go语言中ECDH包的实现，支持SM2椭圆曲线密码算法的ECDH & SM2MQV协议，该实现没有使用 **big.Int**，也是一个SM2包中密钥交换协议实现的替换实现（推荐使用）。
+**架构优化：**
+- **amd64**：针对 AVX2+BMI2、AVX、SSE2+SSSE3 指令集优化消息扩展
+- **arm64**：使用 NEON 指令优化消息扩展，并提供基于 A64 扩展密码指令的实现
+- **s390x/ppc64x**：通过向量指令优化消息扩展
 
-- **DRBG** - 《GM/T 0105-2021软件随机数发生器设计指南》实现。本实现同时支持**NIST Special Publication 800-90A**（部分） 和 **GM/T 0105-2021**，NIST相关实现使用了NIST提供的测试数据进行测试。本实现**不支持并发使用**。
+详细实现分析请参阅 [SM3 性能优化 Wiki](https://github.com/emmansun/gmsm/wiki/SM3%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96)。
 
-- **MLKEM** - NIST FIPS 203  Module-Lattice-Based Key-Encapsulation Mechanism Standard实现，基于Golang标准库，支持所有三组参数集（ML-KEM-512/ML-KEM-768/ML-KEM-1024）。
-  
-- **MLDSA** - NIST FIPS 204 Module-Lattice-Based Digital Signature Standard实现。
+#### SM4 - 分组密码算法
+SM4 分组密码算法（GM/T 0002-2012）实现了多架构汇编优化，并针对常用工作模式进行了融合优化：
 
-- **SLHDSA** - NIST FIPS 205 Stateless Hash-Based Digital Signature Standard实现。
+**架构优化：**
+- **amd64**：使用 AES-NI 指令结合 AVX2/AVX/SSE2+SSSE3
+- **arm64**：使用 AES 指令结合 NEON，并提供基于 A64 扩展密码指令的实现
+- **ppc64x**：使用 vsbox 指令结合向量指令
+
+**工作模式优化：**
+- ECB（电子密码本）
+- CBC（密码块链接）
+- GCM（伽罗瓦/计数器模式）
+- XTS（可调整密文分组链接，支持 GB/T 17964-2021 和 NIST SP 800-38E）
+
+详细实现分析请参阅 [SM4 性能优化 Wiki](https://github.com/emmansun/gmsm/wiki/SM4%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96)。
+
+#### ZUC - 祖冲之序列密码算法
+祖冲之序列密码算法（GM/T 0001-2012）实现了基于 SIMD、AES 指令和无进位乘法指令的优化，支持 **amd64**、**arm64** 和 **ppc64x** 架构。
+
+**功能特性：**
+- 机密性算法（128-EEA3 / 256-EEA3）
+- 完整性算法（128-EIA3 / 256-EIA3）
+
+详细实现分析请参阅 [ZUC 实现及优化 Wiki](https://github.com/emmansun/gmsm/wiki/Efficient-Software-Implementations-of-ZUC)。
+
+---
+
+### 消息认证码
+
+#### CBCMAC - 基于分组密码的消息认证码
+符合《GB/T 15852.1-2020 信息安全技术 消息鉴别码算法 第1部分：采用分组密码的机制》标准，实现了多种 MAC 算法：
+
+**支持的 MAC 模式：**
+- CBC-MAC（方案 1）
+- EMAC（方案 2）
+- ANSI Retail MAC（方案 3）
+- MAC-DES（方案 4）
+- CMAC（方案 5，RFC 4493）
+- LMAC（方案 6）
+- TR-CBC-MAC（方案 7）
+- CBCR-MAC（方案 8）
+
+---
+
+### 工作模式与填充
+
+#### CIPHER - 分组密码工作模式
+实现了《GB/T 17964-2021 信息安全技术 分组密码算法的工作模式》标准中定义的多种工作模式：
+
+**支持的工作模式：**
+- **ECB**：电子密码本模式
+- **CCM**：计数器模式与 CBC-MAC 模式（RFC 3610）
+- **XTS**：可调整密文分组链接模式（GB/T 17964-2021 / NIST SP 800-38E）
+- **HCTR**：带泛杂凑函数的计数器模式（GB/T 17964-2021 新增）
+- **BC**：分组链接模式（GB/T 17964 遗留模式）
+- **OFBNLF**：带非线性函数的输出反馈模式（GB/T 17964 遗留模式）
+
+**注意事项：**
+- XTS 模式实现了 `cipher.BlockMode` 接口，内部包含 tweak 状态，**不支持并发使用**
+- BC 模式与 CBC 模式功能相似
+- OFBNLF 模式从软件实现角度性能优化空间有限
+
+#### PADDING - 填充方案
+实现了多种符合标准的填充方案（非常量时间实现）：
+
+| 填充方案 | 对应标准 |
+|---------|---------|
+| **PKCS#7** | GB/T 17964-2021 附录 C.2 填充方法 1 / RFC 5652 |
+| **ISO/IEC 9797-1 方法 2** | GB/T 17964-2021 附录 C.3 填充方法 2 |
+| **ANSI X9.23** | ANSI X9.23 标准 |
+| **ISO/IEC 9797-1 方法 3** | GB/T 17964-2021 附录 C.4 填充方法 3 |
+
+---
+
+### PKI 与证书
+
+#### SMX509 - 国密证书扩展
+基于 Go 标准库 `crypto/x509` 包扩展，增加了国密算法支持，实现符合《GM/T 0015-2012 基于 SM2 密码算法的数字证书格式规范》。
+
+#### PKCS#7 - 加密消息语法
+基于 [mozilla-services/pkcs7](https://github.com/mozilla-services/pkcs7) 项目（已于 2024 年 2 月归档）扩展，增加了国密算法支持，符合 RFC 2315 标准。
+
+#### PKCS#8 - 私钥信息语法
+基于 [youmark/pkcs8](https://github.com/youmark/pkcs8) 项目扩展，增加了国密算法支持，符合 RFC 5208 / RFC 5958 标准。
+
+---
+
+### 密钥协商与随机数
+
+#### ECDH - 椭圆曲线 Diffie-Hellman
+提供类似 Go 标准库 `crypto/ecdh` 的接口设计，支持 SM2 曲线的密钥协商协议：
+
+**支持协议：**
+- ECDH 密钥协商
+- SM2MQV 密钥协商（推荐）
+
+**特性：**
+- 无 `big.Int` 依赖，性能更优
+- 可作为 `sm2` 包密钥交换协议的替代实现
+
+#### DRBG - 确定性随机位生成器
+符合《GM/T 0105-2021 软件随机数发生器设计指南》标准，同时兼容 NIST SP 800-90A 部分要求。
+
+**特性：**
+- 使用 NIST 官方测试向量验证
+- **不支持并发使用**
+
+---
+
+### CFCA 互操作性
+
+#### CFCA - 中国金融认证中心扩展
+提供与 CFCA SADK 的互操作性支持：
+
+**功能特性：**
+- SM2 私钥和证书封装（PKCS#12_SM2 格式）
+- 信封加密与数字签名
+- CSR 生成与解析
+- 私钥解密
+
+---
+
+### 后量子密码学
+
+#### MLKEM - 基于模格的密钥封装机制
+符合 NIST FIPS 203 标准，基于 Go 标准库实现。
+
+**支持参数集：**
+- ML-KEM-512
+- ML-KEM-768
+- ML-KEM-1024
+
+#### MLDSA - 基于模格的数字签名
+符合 NIST FIPS 204 标准。
+
+#### SLHDSA - 无状态哈希数字签名
+符合 NIST FIPS 205 标准。
 
 ## 相关项目
 - **[Trisia/TLCP](https://github.com/Trisia/gotlcp)** - 一个《GB/T 38636-2020 信息安全技术 传输层密码协议》Go语言实现项目。 
