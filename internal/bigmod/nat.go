@@ -1075,6 +1075,22 @@ func (out *Nat) ExpShortVarTime(x *Nat, e uint, m *Modulus) *Nat {
 //
 //go:norace
 func (x *Nat) InverseVarTime(a *Nat, m *Modulus) (*Nat, bool) {
+	u, A, err := extendedGCD(a, m.nat)
+	if err != nil {
+		return x, false
+	}
+	if u.IsOne() == no {
+		return x, false
+	}
+	return x.set(A), true
+}
+
+// extendedGCD computes u and A such that u = GCD(a, m) = A*a - B*m.
+//
+// u will have the size of the larger of a and m, and A will have the size of m.
+//
+// It is an error if either a or m is zero, or if they are both even.
+func extendedGCD(a, m *Nat) (u, A *Nat, err error) {
 	// This is the extended binary GCD algorithm described in the Handbook of
 	// Applied Cryptography, Algorithm 14.61, adapted by BoringSSL to bound
 	// coefficients and avoid negative numbers. For more details and proof of
@@ -1085,7 +1101,7 @@ func (x *Nat) InverseVarTime(a *Nat, m *Modulus) (*Nat, bool) {
 	// 1. Negate [B] and [C] so they are positive. The invariant now involves a
 	//    subtraction.
 	// 2. If step 2 (both [x] and [y] are even) runs, abort immediately. This
-	//    algorithm only cares about [x] and [y] relatively prime.
+	//    case needs to be handled by the caller.
 	// 3. Subtract copies of [x] and [y] as needed in step 6 (both [u] and [v]
 	//    are odd) so coefficients stay in bounds.
 	// 4. Replace the [u >= v] check with [u > v]. This changes the end
@@ -1099,21 +1115,21 @@ func (x *Nat) InverseVarTime(a *Nat, m *Modulus) (*Nat, bool) {
 	//
 	// Note this algorithm does not handle either input being zero.
 
-	if a.IsZero() == yes {
-		return x, false
+	if a.IsZero() == yes || m.IsZero() == yes {
+		return nil, nil, errors.New("extendedGCD: a or m is zero")
 	}
-	if a.IsOdd() == no && !m.odd {
-		// a and m are not coprime, as they are both even.
-		return x, false
+	if a.IsOdd() == no && m.IsOdd() == no {
+		return nil, nil, errors.New("extendedGCD: both a and m are even")
 	}
 
-	u := NewNat().set(a).ExpandFor(m)
-	v := m.Nat()
+	size := max(len(a.limbs), len(m.limbs))
+	u = NewNat().set(a).expand(size)
+	v := NewNat().set(m).expand(size)
 
-	A := NewNat().reset(len(m.nat.limbs))
+	A = NewNat().reset(len(m.limbs))
 	A.limbs[0] = 1
 	B := NewNat().reset(len(a.limbs))
-	C := NewNat().reset(len(m.nat.limbs))
+	C := NewNat().reset(len(m.limbs))
 	D := NewNat().reset(len(a.limbs))
 	D.limbs[0] = 1
 
@@ -1136,11 +1152,11 @@ func (x *Nat) InverseVarTime(a *Nat, m *Modulus) (*Nat, bool) {
 		if u.IsOdd() == yes && v.IsOdd() == yes {
 			if v.cmpGeq(u) == no {
 				u.sub(v)
-				A.Add(C, m)
+				A.Add(C, &Modulus{nat: m})
 				B.Add(D, &Modulus{nat: a})
 			} else {
 				v.sub(u)
-				C.Add(A, m)
+				C.Add(A, &Modulus{nat: m})
 				D.Add(B, &Modulus{nat: a})
 			}
 		}
@@ -1154,7 +1170,7 @@ func (x *Nat) InverseVarTime(a *Nat, m *Modulus) (*Nat, bool) {
 		if u.IsOdd() == no {
 			rshift1(u, 0)
 			if A.IsOdd() == yes || B.IsOdd() == yes {
-				rshift1(A, A.add(m.nat))
+				rshift1(A, A.add(m))
 				rshift1(B, B.add(a))
 			} else {
 				rshift1(A, 0)
@@ -1163,7 +1179,7 @@ func (x *Nat) InverseVarTime(a *Nat, m *Modulus) (*Nat, bool) {
 		} else { // v.IsOdd() == no
 			rshift1(v, 0)
 			if C.IsOdd() == yes || D.IsOdd() == yes {
-				rshift1(C, C.add(m.nat))
+				rshift1(C, C.add(m))
 				rshift1(D, D.add(a))
 			} else {
 				rshift1(C, 0)
@@ -1172,10 +1188,7 @@ func (x *Nat) InverseVarTime(a *Nat, m *Modulus) (*Nat, bool) {
 		}
 
 		if v.IsZero() == yes {
-			if u.IsOne() == no {
-				return x, false
-			}
-			return x.set(A), true
+			return u, A, nil
 		}
 	}
 }
@@ -1185,7 +1198,7 @@ func rshift1(a *Nat, carry uint) {
 	size := len(a.limbs)
 	aLimbs := a.limbs[:size]
 
-	for i := 0; i < size; i++ {
+	for i := range size {
 		aLimbs[i] >>= 1
 		if i+1 < size {
 			aLimbs[i] |= aLimbs[i+1] << (_W - 1)
