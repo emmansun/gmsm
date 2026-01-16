@@ -204,21 +204,23 @@ func polyInfinityNorm[T ~[n]fieldElement](a T, norm int) int {
 
 func vectorInfinityNorm[T ~[n]fieldElement](a []T, norm int) int {
 	for i := range a {
-		left := int(polyInfinityNorm(a[i], norm))
+		left := polyInfinityNorm(a[i], norm)
 		right := int(norm)
 		norm = subtle.ConstantTimeSelect(subtle.ConstantTimeLessOrEq(left, right), right, left)
 	}
 	return norm
 }
 
+// infinityNormSigned returns the absolute value in constant time
+//
+// i.e return a < 0 ? -a : a;
 func infinityNormSigned(a int32) int {
-	ret := subtle.ConstantTimeLessOrEq(0x80000000, int(a))
-	return subtle.ConstantTimeSelect(ret, int(-a), int(a))
+	return subtle.ConstantTimeSelect(subtle.ConstantTimeLessOrEq(int(a), 0), int(-a), int(a))
 }
 
 func polyInfinityNormSigned(a []int32, norm int) int {
 	for i := range a {
-		left := int(infinityNormSigned(a[i]))
+		left := infinityNormSigned(a[i])
 		right := norm
 		norm = subtle.ConstantTimeSelect(subtle.ConstantTimeLessOrEq(left, right), right, left)
 	}
@@ -227,7 +229,7 @@ func polyInfinityNormSigned(a []int32, norm int) int {
 
 func vectorInfinityNormSigned(a [][n]int32, norm int) int {
 	for i := range a {
-		left := int(polyInfinityNormSigned(a[i][:], norm))
+		left := polyInfinityNormSigned(a[i][:], norm)
 		right := norm
 		norm = subtle.ConstantTimeSelect(subtle.ConstantTimeLessOrEq(left, right), right, left)
 	}
@@ -245,11 +247,11 @@ func vectorCountOnes(a []ringElement) int {
 }
 
 func constantTimeEqualRingElement(a, b ringElement) int {
-    var res int32
+    eq := 1
     for i := range a {
-        res |= int32(a[i] ^ b[i])
+        eq &= subtle.ConstantTimeEq(int32(a[i]), int32(b[i]))
     }
-    return subtle.ConstantTimeByteEq(byte(res|(-res)>>31), 0)
+    return eq
 }
 
 func constantTimeEqualRingElementArray(a, b []ringElement) int {
