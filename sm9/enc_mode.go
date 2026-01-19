@@ -109,7 +109,7 @@ func (opts *CBCEncrypterOpts) Decrypt(key, ciphertext []byte) ([]byte, error) {
 	plaintext := make([]byte, len(ciphertext))
 	mode := cipher.NewCBCDecrypter(block, iv)
 	mode.CryptBlocks(plaintext, ciphertext)
-	return opts.padding.Unpad(plaintext)
+	return opts.padding.ConstantTimeUnpad(plaintext)
 }
 
 // ECBEncrypterOpts represents ECB (Electronic Code Book) mode.
@@ -150,7 +150,7 @@ func (opts *ECBEncrypterOpts) Decrypt(key, ciphertext []byte) ([]byte, error) {
 	plaintext := make([]byte, len(ciphertext))
 	mode := _cipher.NewECBDecrypter(block)
 	mode.CryptBlocks(plaintext, ciphertext)
-	return opts.padding.Unpad(plaintext)
+	return opts.padding.ConstantTimeUnpad(plaintext)
 }
 
 // CFBEncrypterOpts represents CFB (Cipher Feedback) mode.

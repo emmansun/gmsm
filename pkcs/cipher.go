@@ -98,7 +98,7 @@ func (ecb *ecbBlockCipher) Decrypt(key []byte, parameters *asn1.RawValue, cipher
 	plaintext := make([]byte, len(ciphertext))
 	mode.CryptBlocks(plaintext, ciphertext)
 	pkcs7 := padding.NewPKCS7Padding(uint(block.BlockSize()))
-	unpadded, err := pkcs7.Unpad(plaintext)
+	unpadded, err := pkcs7.ConstantTimeUnpad(plaintext)
 	if err != nil { // In order to be compatible with some implementations without padding
 		return plaintext, nil
 	}
@@ -167,7 +167,7 @@ func cbcDecrypt(block cipher.Block, iv, ciphertext []byte) ([]byte, error) {
 	pkcs7 := padding.NewPKCS7Padding(uint(block.BlockSize()))
 	plaintext := make([]byte, len(ciphertext))
 	mode.CryptBlocks(plaintext, ciphertext)
-	return pkcs7.Unpad(plaintext)
+	return pkcs7.ConstantTimeUnpad(plaintext)
 }
 
 type gcmBlockCipher struct {
