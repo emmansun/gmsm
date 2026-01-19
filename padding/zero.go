@@ -50,17 +50,47 @@ func (pad zeroPadding) Pad(src []byte) []byte {
 	return ret
 }
 
-// Unpad removes trailing zero bytes in constant time.
+// Unpad removes trailing zero bytes.
+//
+// This is a variable-time implementation that may be faster than ConstantTimeUnpad
+// but is vulnerable to timing attacks. Use this only when:
+//   - Timing attacks are not a concern for your use case
+//   - Performance is critical and the data is not security-sensitive
+//   - You are working with public data or in a trusted environment
+//
+// For security-critical applications, use ConstantTimeUnpad instead.
 //
 // WARNING: This method CANNOT distinguish between original trailing 0x00 bytes
-// and padding bytes. Use ConstantTimeUnpad for better security guarantees, or
-// consider using a standard padding scheme like PKCS#7 for general use.
+// and padding bytes.
 //
 // Returns an error if:
 //   - The input length is not a multiple of the block size
 //   - The input is empty
 func (pad zeroPadding) Unpad(src []byte) ([]byte, error) {
-	return pad.ConstantTimeUnpad(src)
+	srcLen := len(src)
+
+	// Basic length validation
+	if srcLen == 0 || srcLen%pad.BlockSize() != 0 {
+		return nil, errors.New("padding: invalid padding size")
+	}
+
+	// Fast path: traverse from end until we find a non-zero byte
+	// This is variable-time and may leak information through timing
+	count := 0
+	for i := srcLen - 1; i >= 0; i-- {
+		if src[i] != 0x00 {
+			break // Early exit - not constant time!
+		}
+		count++
+	}
+
+	// Handle edge case: all bytes are 0x00
+	if count == srcLen {
+		return []byte{}, nil
+	}
+
+	// WARNING: This cannot distinguish original trailing 0x00 from padding
+	return src[:srcLen-count], nil
 }
 
 // ConstantTimeUnpad removes Zero Padding in constant time to prevent timing attacks.
@@ -104,9 +134,9 @@ func (pad zeroPadding) ConstantTimeUnpad(src []byte) ([]byte, error) {
 
 		// Check if current byte is 0x00 using constant-time comparison
 		// Mathematical trick:
-		//   If next == 0x00: (0 ^ 0x00) - 1 = -1, then -1 >> 31 = -1 (0xFFFFFFFF)
-		//   If next != 0x00: (next ^ 0x00) - 1 >= 0, then result >> 31 = 0
-		match00Mask := ((next ^ 0x00) - 1) >> 31
+		//   If next == 0x00: 0 - 1 = -1, then -1 >> 31 = -1 (0xFFFFFFFF)
+		//   If next != 0x00: next - 1 >= 0, then result >> 31 = 0
+		match00Mask := (next - 1) >> 31
 
 		// Update still00Mask: becomes 0 once we encounter a non-0x00 byte
 		// This effectively "locks" the count when we find the first non-zero byte
