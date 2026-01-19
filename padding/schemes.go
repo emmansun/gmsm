@@ -48,3 +48,19 @@ func NewISO9797M3Padding(blockSize uint) Padding {
 	}
 	return iso9797M3Padding(blockSize)
 }
+
+// NewZeroPadding creates a Zero Padding scheme with the specified block size.
+//
+// WARNING: Zero Padding is NOT a standard padding scheme and has limitations.
+// See the documentation of zeroPadding for details on suitable use cases.
+//
+// The block size must be between 1 and 255, inclusive. If the block size is 0
+// or greater than 255, the function will panic with an "invalid block size" error.
+//
+// For general-purpose encryption, prefer NewPKCS7Padding or NewISO9797M2Padding.
+func NewZeroPadding(blockSize uint) Padding {
+    if blockSize == 0 || blockSize > 255 {
+        panic("padding: invalid block size")
+    }
+    return zeroPadding(blockSize)
+}
