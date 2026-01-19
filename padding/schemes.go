@@ -6,6 +6,7 @@ type Padding interface {
 	BlockSize() int
 	Pad(src []byte) []byte
 	Unpad(src []byte) ([]byte, error)
+	ConstantTimeUnpad(src []byte) ([]byte, error)
 }
 
 type NewPaddingFunc func(blockSize uint) Padding

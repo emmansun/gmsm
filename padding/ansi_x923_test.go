@@ -78,6 +78,15 @@ func Test_ansiX923Padding_Unpad(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ansiX923Padding.Unpad() = %v, want %v", got, tt.want)
 			}
+
+			got, err = x923.ConstantTimeUnpad(tt.src)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ansiX923Padding.ConstantTimeUnpad() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ansiX923Padding.ConstantTimeUnpad() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

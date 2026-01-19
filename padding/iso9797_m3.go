@@ -1,6 +1,7 @@
 package padding
 
 import (
+	"crypto/subtle"
 	"errors"
 
 	"github.com/emmansun/gmsm/internal/byteorder"
@@ -28,7 +29,7 @@ func (pad iso9797M3Padding) Pad(src []byte) []byte {
 		overhead = 0
 	}
 
-	if srcLen > (int(^uint(0) >> 1) - overhead - pad.BlockSize()) {
+	if srcLen > (int(^uint(0)>>1) - overhead - pad.BlockSize()) {
 		panic("padding: total length overflow")
 	}
 
@@ -62,7 +63,7 @@ func (pad iso9797M3Padding) Unpad(src []byte) ([]byte, error) {
 			return nil, errors.New("padding: invalid padding header")
 		}
 	}
-	dstLen := int(byteorder.BEUint64(src[8:pad.BlockSize()])/8)
+	dstLen := int(byteorder.BEUint64(src[8:pad.BlockSize()]) / 8)
 	if dstLen < 0 || dstLen > srcLen-pad.BlockSize() {
 		return nil, errors.New("padding: invalid padding header")
 	}
@@ -72,5 +73,54 @@ func (pad iso9797M3Padding) Unpad(src []byte) ([]byte, error) {
 			return nil, errors.New("padding: invalid padding bytes")
 		}
 	}
+	return src[pad.BlockSize() : pad.BlockSize()+dstLen], nil
+}
+
+// ConstantTimeUnpad removes ISO/IEC 9797-1 Method 3 padding in constant time.
+func (pad iso9797M3Padding) ConstantTimeUnpad(src []byte) ([]byte, error) {
+	srcLen := len(src)
+
+	// Basic length validation (can be non-constant-time as it's a structural check)
+	if srcLen < 2*pad.BlockSize() || srcLen%pad.BlockSize() != 0 {
+		return nil, errors.New("padding: invalid src length")
+	}
+
+	// Constant-time check: first 8 bytes must be 0x00
+	headerOk := 1
+	for i := range 8 {
+		headerOk &= subtle.ConstantTimeByteEq(src[i], 0x00)
+	}
+
+	// Read data length from bytes 8-15 (big-endian, in bits)
+	dstLenBits := byteorder.BEUint64(src[8:pad.BlockSize()])
+	dstLen := int(dstLenBits / 8)
+
+	// Constant-time validation: 0 <= dstLen <= srcLen - blockSize
+	validLen := subtle.ConstantTimeLessOrEq(0, dstLen) &
+		subtle.ConstantTimeLessOrEq(dstLen, srcLen-pad.BlockSize())
+
+	// Constant-time check: all padding bytes (after data) must be 0x00
+	// We must check all possible padding positions to maintain constant time
+	paddingOk := 1
+	maxPaddingLen := srcLen - pad.BlockSize()
+
+	for i := range maxPaddingLen {
+		pos := pad.BlockSize() + i
+
+		// Check if this position is in the padding range (i >= dstLen)
+		inPadding := subtle.ConstantTimeLessOrEq(dstLen, i)
+
+		// Verify the byte is 0x00
+		isZero := subtle.ConstantTimeByteEq(src[pos], 0x00)
+
+		// Update paddingOk only if this position should be padding
+		paddingOk &= subtle.ConstantTimeSelect(inPadding, isZero, 1)
+	}
+
+	// Combine all validation checks
+	if (headerOk & validLen & paddingOk) == 0 {
+		return nil, errors.New("padding: invalid padding")
+	}
+
 	return src[pad.BlockSize() : pad.BlockSize()+dstLen], nil
 }
