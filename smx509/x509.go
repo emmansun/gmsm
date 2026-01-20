@@ -52,6 +52,7 @@ import (
 
 	"github.com/emmansun/gmsm/ecdh"
 	"github.com/emmansun/gmsm/internal/godebug"
+	"github.com/emmansun/gmsm/mldsa"
 	"github.com/emmansun/gmsm/sm2"
 )
 
@@ -147,6 +148,15 @@ func marshalPublicKey(pub any) (publicKeyBytes []byte, publicKeyAlgorithm pkix.A
 			return
 		}
 		publicKeyAlgorithm.Parameters.FullBytes = paramBytes
+	case *mldsa.PublicKey44:
+		publicKeyBytes = pub.Bytes()
+		publicKeyAlgorithm.Algorithm = oidPublicKeyMLDSA44
+	case *mldsa.PublicKey65:
+		publicKeyBytes = pub.Bytes()
+		publicKeyAlgorithm.Algorithm = oidPublicKeyMLDSA65
+	case *mldsa.PublicKey87:
+		publicKeyBytes = pub.Bytes()
+		publicKeyAlgorithm.Algorithm = oidPublicKeyMLDSA87
 	default:
 		return nil, pkix.AlgorithmIdentifier{}, fmt.Errorf("x509: unsupported public key type: %T", pub)
 	}
@@ -247,6 +257,9 @@ const (
 	PureEd25519      = x509.PureEd25519
 
 	SM2WithSM3 SignatureAlgorithm = 99 // Make sure the vaule is not conflict with x509.SignatureAlgorithm
+	MLDSA44    SignatureAlgorithm = 100
+	MLDSA65    SignatureAlgorithm = 101
+	MLDSA87    SignatureAlgorithm = 102
 )
 
 func isRSAPSS(algo SignatureAlgorithm) bool {
@@ -272,10 +285,13 @@ type PublicKeyAlgorithm = x509.PublicKeyAlgorithm
 const (
 	UnknownPublicKeyAlgorithm = x509.UnknownPublicKeyAlgorithm
 
-	RSA     = x509.RSA
-	DSA     = x509.DSA // Only supported for parsing.
-	ECDSA   = x509.ECDSA
-	Ed25519 = x509.Ed25519
+	RSA                          = x509.RSA
+	DSA                          = x509.DSA // Only supported for parsing.
+	ECDSA                        = x509.ECDSA
+	Ed25519                      = x509.Ed25519
+	PKMLDSA44 PublicKeyAlgorithm = 200
+	PKMLDSA65 PublicKeyAlgorithm = 201
+	PKMLDSA87 PublicKeyAlgorithm = 202
 )
 
 // OIDs for signature algorithms
@@ -362,6 +378,15 @@ var (
 	oidSignatureSM2WithSM3 = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 501}
 	//oidSignatureSM2WithSHA1   = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 502}
 	//oidSignatureSM2WithSHA256 = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 503}
+
+	// Module-Lattice-based Digital Signature Algorithm (ML-DSA) "ML-DSA-44" for "pure" ML-DSA public keys and signatures, category 2 (128 bit collision strength)
+	oidSignatrureMLDSA44 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 17}
+
+	// "Pure" Module-Lattice-based Digital Signature Algorithm (ML-DSA) that uses a 192 bit lattice
+	oidSignatrureMLDSA65 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 18}
+
+	// "Pure" Module-Lattice-based Digital Signature Algorithm (ML-DSA) that uses a 256 bit lattice
+	oidSignatrureMLDSA87 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 19}
 )
 
 var signatureAlgorithmDetails = []struct {
@@ -391,6 +416,9 @@ var signatureAlgorithmDetails = []struct {
 	{ECDSAWithSHA512, "ECDSA-SHA512", oidSignatureECDSAWithSHA512, emptyRawValue, ECDSA, crypto.SHA512, false},
 	{PureEd25519, "Ed25519", oidSignatureEd25519, emptyRawValue, Ed25519, crypto.Hash(0) /* no pre-hashing */, false},
 	{SM2WithSM3, "SM2-SM3", oidSignatureSM2WithSM3, emptyRawValue, ECDSA, crypto.Hash(0) /* no pre-hashing */, false},
+	{MLDSA44, "ML-DSA-44", oidSignatrureMLDSA44, emptyRawValue, PKMLDSA44, crypto.Hash(0) /* no pre-hashing */, false},
+	{MLDSA65, "ML-DSA-65", oidSignatrureMLDSA65, emptyRawValue, PKMLDSA65, crypto.Hash(0) /* no pre-hashing */, false},
+	{MLDSA87, "ML-DSA-87", oidSignatrureMLDSA87, emptyRawValue, PKMLDSA87, crypto.Hash(0) /* no pre-hashing */, false},
 }
 
 var emptyRawValue = asn1.RawValue{}
@@ -502,6 +530,10 @@ var (
 	//	id-Ed25519   OBJECT IDENTIFIER ::= { 1 3 101 112 }
 	oidPublicKeyX25519  = asn1.ObjectIdentifier{1, 3, 101, 110}
 	oidPublicKeyEd25519 = asn1.ObjectIdentifier{1, 3, 101, 112}
+
+	oidPublicKeyMLDSA44 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 17}
+	oidPublicKeyMLDSA65 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 18}
+	oidPublicKeyMLDSA87 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 19}
 )
 
 // getPublicKeyAlgorithmFromOID returns the exposed PublicKeyAlgorithm
@@ -519,6 +551,12 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm 
 		return ECDSA
 	case oid.Equal(oidPublicKeyEd25519):
 		return Ed25519
+	case oid.Equal(oidPublicKeyMLDSA44):
+		return PKMLDSA44
+	case oid.Equal(oidPublicKeyMLDSA65):
+		return PKMLDSA65
+	case oid.Equal(oidPublicKeyMLDSA87):
+		return PKMLDSA87
 	}
 	return UnknownPublicKeyAlgorithm
 }
@@ -862,7 +900,7 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 
 	switch hashType {
 	case crypto.Hash(0):
-		if !isSM2 && pubKeyAlgo != Ed25519 {
+		if !isSM2 && pubKeyAlgo != Ed25519 && pubKeyAlgo != PKMLDSA44 && pubKeyAlgo != PKMLDSA65 && pubKeyAlgo != PKMLDSA87 {
 			return x509.ErrUnsupportedAlgorithm
 		}
 	case crypto.MD5:
@@ -910,6 +948,30 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 		}
 		if !ed25519.Verify(pub, signed, signature) {
 			return errors.New("x509: Ed25519 verification failure")
+		}
+		return
+	case *mldsa.PublicKey44:
+		if pubKeyAlgo != PKMLDSA44 {
+			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
+		}
+		if !pub.VerifyWithOptions(signature, signed, nil) {
+			return errors.New("x509: ML-DSA-44 verification failure")
+		}
+		return
+	case *mldsa.PublicKey65:
+		if pubKeyAlgo != PKMLDSA65 {
+			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
+		}
+		if !pub.VerifyWithOptions(signature, signed, nil) {
+			return errors.New("x509: ML-DSA-65 verification failure")
+		}
+		return
+	case *mldsa.PublicKey87:
+		if pubKeyAlgo != PKMLDSA87 {
+			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
+		}
+		if !pub.VerifyWithOptions(signature, signed, nil) {
+			return errors.New("x509: ML-DSA-87 verification failure")
 		}
 		return
 	}
@@ -1422,8 +1484,20 @@ func signingParamsForKey(key crypto.Signer, sigAlgo SignatureAlgorithm) (Signatu
 		pubType = Ed25519
 		defaultAlgo = PureEd25519
 
+	case *mldsa.PublicKey44:
+		pubType = PKMLDSA44
+		defaultAlgo = MLDSA44
+
+	case *mldsa.PublicKey65:
+		pubType = PKMLDSA65
+		defaultAlgo = MLDSA65
+
+	case *mldsa.PublicKey87:
+		pubType = PKMLDSA87
+		defaultAlgo = MLDSA87
+
 	default:
-		return 0, ai, errors.New("x509: only RSA, ECDSA and Ed25519 keys supported")
+		return 0, ai, errors.New("x509: only RSA, ECDSA, Ed25519 and ML-DSA keys supported")
 	}
 
 	if sigAlgo == 0 {

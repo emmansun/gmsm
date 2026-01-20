@@ -24,6 +24,7 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
+	"github.com/emmansun/gmsm/mldsa"
 	"github.com/emmansun/gmsm/sm2"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
@@ -403,6 +404,21 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
 			return nil, errors.New("x509: zero or negative DSA parameter")
 		}
 		return pub, nil
+	case oid.Equal(oidPublicKeyMLDSA44):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: MLDSA44 key encoded with illegal parameters")
+		}
+		return mldsa.NewPublicKey44(der)
+	case oid.Equal(oidPublicKeyMLDSA65):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: MLDSA65 key encoded with illegal parameters")
+		}
+		return mldsa.NewPublicKey65(der)
+	case oid.Equal(oidPublicKeyMLDSA87):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: MLDSA87 key encoded with illegal parameters")
+		}
+		return mldsa.NewPublicKey87(der)
 	default:
 		return nil, errors.New("x509: unknown public key algorithm")
 	}
@@ -887,7 +903,7 @@ func processExtensions(out *Certificate) error {
 						return errors.New("x509: policy constraints inhibitPolicyMapping field overflows int")
 					}
 					out.InhibitPolicyMappingZero = out.InhibitPolicyMapping == 0
-				}				
+				}
 			case 37:
 				out.ExtKeyUsage, out.UnknownExtKeyUsage, err = parseExtKeyUsageExtension(e.Value)
 				if err != nil {

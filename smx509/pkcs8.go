@@ -1,6 +1,7 @@
 package smx509
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -8,6 +9,7 @@ import (
 	"errors"
 
 	"github.com/emmansun/gmsm/ecdh"
+	"github.com/emmansun/gmsm/mldsa"
 	"github.com/emmansun/gmsm/sm2"
 	"github.com/emmansun/gmsm/sm9"
 )
@@ -81,9 +83,112 @@ func ParsePKCS8PrivateKey(der []byte) (key any, err error) {
 		}
 		return ecKey, err
 
+	case privKey.Algo.Algorithm.Equal(oidPublicKeyMLDSA44), privKey.Algo.Algorithm.Equal(oidPublicKeyMLDSA65), privKey.Algo.Algorithm.Equal(oidPublicKeyMLDSA87):
+		if len(privKey.Algo.Parameters.FullBytes) != 0 {
+			return nil, errors.New("x509: MLDSA key encoded with illegal parameters")
+		}
+		return paseMLDSAPrivateKey(privKey)
+
 	default:
 		// fallback to golang sdk
 		return x509.ParsePKCS8PrivateKey(der)
+	}
+}
+
+func paseMLDSAPrivateKey(privKey pkcs8) (any, error) {
+	var raw asn1.RawValue
+	rest, err := asn1.Unmarshal(privKey.PrivateKey, &raw)
+	if err != nil {
+		return nil, errors.New("x509: failed to parse MLDSA private key: " + err.Error())
+	}
+	if len(rest) != 0 {
+		return nil, errors.New("x509: trailing data after MLDSA private key")
+	}
+
+	oid := privKey.Algo.Algorithm
+
+	// tag checking
+	switch {
+	case raw.Class == asn1.ClassContextSpecific && raw.Tag == 0:
+		// [0] tag - seed
+		seed := raw.Bytes
+		if len(seed) != 32 {
+			return nil, errors.New("x509: invalid MLDSA seed size")
+		}
+
+		switch {
+		case oid.Equal(oidPublicKeyMLDSA44):
+			return mldsa.NewKey44(seed)
+		case oid.Equal(oidPublicKeyMLDSA65):
+			return mldsa.NewKey65(seed)
+		case oid.Equal(oidPublicKeyMLDSA87):
+			return mldsa.NewKey87(seed)
+		default:
+			return nil, errors.New("x509: unsupported MLDSA algorithm")
+		}
+
+	case raw.Class == asn1.ClassUniversal && raw.Tag == asn1.TagOctetString:
+		// OCTET STRING - expandedKey
+		expandedKey := raw.Bytes
+
+		switch {
+		case oid.Equal(oidPublicKeyMLDSA44):
+			return mldsa.NewPrivateKey44(expandedKey)
+		case oid.Equal(oidPublicKeyMLDSA65):
+			return mldsa.NewPrivateKey65(expandedKey)
+		case oid.Equal(oidPublicKeyMLDSA87):
+			return mldsa.NewPrivateKey87(expandedKey)
+		default:
+			return nil, errors.New("x509: unsupported MLDSA algorithm")
+		}
+
+	case raw.Class == asn1.ClassUniversal && raw.Tag == asn1.TagSequence:
+		// SEQUENCE - both
+		var both struct {
+			Seed        []byte
+			ExpandedKey []byte
+		}
+		if _, err := asn1.Unmarshal(raw.FullBytes, &both); err != nil {
+			return nil, errors.New("x509: failed to parse MLDSA both: " + err.Error())
+		}
+
+		// RFC 9881 Section 8.2: Private Key Consistency Testing
+		// When receiving a private key that contains both the seed and the expandedKey,
+		// perform a seed consistency check to ensure that the sender properly generated
+		// the private key. The seed consistency check consists of regenerating the
+		// expanded form from the seed via ML-DSA.KeyGen_internal, and ensuring it is
+		// bytewise equal to the value presented in the private key.
+		var generatedKey any
+		switch {
+		case oid.Equal(oidPublicKeyMLDSA44):
+			generatedKey, err = mldsa.NewKey44(both.Seed)
+		case oid.Equal(oidPublicKeyMLDSA65):
+			generatedKey, err = mldsa.NewKey65(both.Seed)
+		case oid.Equal(oidPublicKeyMLDSA87):
+			generatedKey, err = mldsa.NewKey87(both.Seed)
+		default:
+			return nil, errors.New("x509: unsupported MLDSA algorithm")
+		}
+		if err != nil {
+			return nil, errors.New("x509: failed to generate key from seed: " + err.Error())
+		}
+
+		// Perform consistency check by comparing the generated expanded key with the provided one
+		// All ML-DSA key types implement Bytes() method
+		type bytesGetter interface {
+			Bytes() []byte
+		}
+		generatedExpandedKey := generatedKey.(bytesGetter).Bytes()
+
+		// The seed consistency check: ensure bytewise equality
+		if !bytes.Equal(generatedExpandedKey, both.ExpandedKey) {
+			return nil, errors.New("x509: MLDSA private key consistency check failed: seed and expandedKey are not consistent")
+		}
+
+		return generatedKey, nil
+
+	default:
+		return nil, errors.New("x509: unknown MLDSA private key format")
 	}
 }
 
@@ -127,6 +232,8 @@ func MarshalPKCS8PrivateKey(key any) ([]byte, error) {
 		return marshalPKCS8ECPrivateKey(&k.PrivateKey)
 	case *ecdh.PrivateKey:
 		return marshalPKCS8ECDHPrivateKey(k)
+	case *mldsa.Key44, *mldsa.Key65, *mldsa.Key87, *mldsa.PrivateKey44, *mldsa.PrivateKey65, *mldsa.PrivateKey87:
+		return marshalPKCS8MLDSAPrivateKey(k)
 	case *sm9.SignPrivateKey:
 		return marshalPKCS8SM9SignPrivateKey(k)
 	case *sm9.EncryptPrivateKey:
@@ -137,6 +244,36 @@ func MarshalPKCS8PrivateKey(key any) ([]byte, error) {
 		return marshalPKCS8SM9EncMasterPrivateKey(k)
 	}
 	return x509.MarshalPKCS8PrivateKey(key)
+}
+
+func marshalPKCS8MLDSAPrivateKey(k any) ([]byte, error) {
+	var privKey pkcs8
+
+	privKey.Algo = pkix.AlgorithmIdentifier{}
+	switch key := k.(type) {
+	case *mldsa.PrivateKey44:
+		privKey.Algo.Algorithm = oidPublicKeyMLDSA44
+		privKey.PrivateKey, _ = asn1.Marshal(key.Bytes())
+	case *mldsa.PrivateKey65:
+		privKey.Algo.Algorithm = oidPublicKeyMLDSA65
+		privKey.PrivateKey, _ = asn1.Marshal(key.Bytes())
+	case *mldsa.PrivateKey87:
+		privKey.Algo.Algorithm = oidPublicKeyMLDSA87
+		privKey.PrivateKey, _ = asn1.Marshal(key.Bytes())
+	case *mldsa.Key44:
+		privKey.Algo.Algorithm = oidPublicKeyMLDSA44
+		privKey.PrivateKey = append([]byte{0x80, 0x20}, key.Seed()...)
+	case *mldsa.Key65:
+		privKey.Algo.Algorithm = oidPublicKeyMLDSA65
+		privKey.PrivateKey = append([]byte{0x80, 0x20}, key.Seed()...)
+	case *mldsa.Key87:
+		privKey.Algo.Algorithm = oidPublicKeyMLDSA87
+		privKey.PrivateKey = append([]byte{0x80, 0x20}, key.Seed()...)
+	default:
+		return nil, errors.New("x509: unsupported MLDSA private key type while marshaling to PKCS#8")
+	}
+
+	return asn1.Marshal(privKey)
 }
 
 type sm9PrivateKey struct {
