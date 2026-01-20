@@ -53,6 +53,7 @@ import (
 	"github.com/emmansun/gmsm/ecdh"
 	"github.com/emmansun/gmsm/internal/godebug"
 	"github.com/emmansun/gmsm/mldsa"
+	"github.com/emmansun/gmsm/slhdsa"
 	"github.com/emmansun/gmsm/sm2"
 )
 
@@ -157,6 +158,15 @@ func marshalPublicKey(pub any) (publicKeyBytes []byte, publicKeyAlgorithm pkix.A
 	case *mldsa.PublicKey87:
 		publicKeyBytes = pub.Bytes()
 		publicKeyAlgorithm.Algorithm = oidPublicKeyMLDSA87
+	case *slhdsa.PublicKey:
+		publicKeyBytes = pub.Bytes()
+		// Determine OID based on parameter set name
+		paramSet := pub.ParameterSet()
+		oid, ok := slhdsaParameterSetToOID[paramSet]
+		if !ok {
+			return nil, pkix.AlgorithmIdentifier{}, fmt.Errorf("x509: unsupported SLH-DSA parameter set: %s", paramSet)
+		}
+		publicKeyAlgorithm.Algorithm = oid
 	default:
 		return nil, pkix.AlgorithmIdentifier{}, fmt.Errorf("x509: unsupported public key type: %T", pub)
 	}
@@ -260,6 +270,19 @@ const (
 	MLDSA44    SignatureAlgorithm = 100
 	MLDSA65    SignatureAlgorithm = 101
 	MLDSA87    SignatureAlgorithm = 102
+	// SLH-DSA signature algorithms per RFC 9909
+	SLHDSASHA2128s  SignatureAlgorithm = 110
+	SLHDSASHA2128f  SignatureAlgorithm = 111
+	SLHDSASHA2192s  SignatureAlgorithm = 112
+	SLHDSASHA2192f  SignatureAlgorithm = 113
+	SLHDSASHA2256s  SignatureAlgorithm = 114
+	SLHDSASHA2256f  SignatureAlgorithm = 115
+	SLHDSASHAKE128s SignatureAlgorithm = 116
+	SLHDSASHAKE128f SignatureAlgorithm = 117
+	SLHDSASHAKE192s SignatureAlgorithm = 118
+	SLHDSASHAKE192f SignatureAlgorithm = 119
+	SLHDSASHAKE256s SignatureAlgorithm = 120
+	SLHDSASHAKE256f SignatureAlgorithm = 121
 )
 
 func isRSAPSS(algo SignatureAlgorithm) bool {
@@ -292,6 +315,19 @@ const (
 	PKMLDSA44 PublicKeyAlgorithm = 200
 	PKMLDSA65 PublicKeyAlgorithm = 201
 	PKMLDSA87 PublicKeyAlgorithm = 202
+	// SLH-DSA public key algorithms per RFC 9909
+	PKSLHDSASHA2128s  PublicKeyAlgorithm = 210
+	PKSLHDSASHA2128f  PublicKeyAlgorithm = 211
+	PKSLHDSASHA2192s  PublicKeyAlgorithm = 212
+	PKSLHDSASHA2192f  PublicKeyAlgorithm = 213
+	PKSLHDSASHA2256s  PublicKeyAlgorithm = 214
+	PKSLHDSASHA2256f  PublicKeyAlgorithm = 215
+	PKSLHDSASHAKE128s PublicKeyAlgorithm = 216
+	PKSLHDSASHAKE128f PublicKeyAlgorithm = 217
+	PKSLHDSASHAKE192s PublicKeyAlgorithm = 218
+	PKSLHDSASHAKE192f PublicKeyAlgorithm = 219
+	PKSLHDSASHAKE256s PublicKeyAlgorithm = 220
+	PKSLHDSASHAKE256f PublicKeyAlgorithm = 221
 )
 
 // OIDs for signature algorithms
@@ -387,6 +423,20 @@ var (
 
 	// "Pure" Module-Lattice-based Digital Signature Algorithm (ML-DSA) that uses a 256 bit lattice
 	oidSignatrureMLDSA87 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 19}
+
+	// RFC 9909 - SLH-DSA signature algorithm OIDs
+	oidSignatureSLHDSASHA2128s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 20}
+	oidSignatureSLHDSASHA2128f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 21}
+	oidSignatureSLHDSASHA2192s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 22}
+	oidSignatureSLHDSASHA2192f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 23}
+	oidSignatureSLHDSASHA2256s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 24}
+	oidSignatureSLHDSASHA2256f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 25}
+	oidSignatureSLHDSASHAKE128s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 26}
+	oidSignatureSLHDSASHAKE128f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 27}
+	oidSignatureSLHDSASHAKE192s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 28}
+	oidSignatureSLHDSASHAKE192f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 29}
+	oidSignatureSLHDSASHAKE256s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 30}
+	oidSignatureSLHDSASHAKE256f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 31}
 )
 
 var signatureAlgorithmDetails = []struct {
@@ -419,6 +469,19 @@ var signatureAlgorithmDetails = []struct {
 	{MLDSA44, "ML-DSA-44", oidSignatrureMLDSA44, emptyRawValue, PKMLDSA44, crypto.Hash(0) /* no pre-hashing */, false},
 	{MLDSA65, "ML-DSA-65", oidSignatrureMLDSA65, emptyRawValue, PKMLDSA65, crypto.Hash(0) /* no pre-hashing */, false},
 	{MLDSA87, "ML-DSA-87", oidSignatrureMLDSA87, emptyRawValue, PKMLDSA87, crypto.Hash(0) /* no pre-hashing */, false},
+	// SLH-DSA signature algorithms per RFC 9909
+	{SLHDSASHA2128s, "SLH-DSA-SHA2-128s", oidSignatureSLHDSASHA2128s, emptyRawValue, PKSLHDSASHA2128s, crypto.Hash(0) /* no pre-hashing */, false},
+	{SLHDSASHA2128f, "SLH-DSA-SHA2-128f", oidSignatureSLHDSASHA2128f, emptyRawValue, PKSLHDSASHA2128f, crypto.Hash(0) /* no pre-hashing */, false},
+	{SLHDSASHA2192s, "SLH-DSA-SHA2-192s", oidSignatureSLHDSASHA2192s, emptyRawValue, PKSLHDSASHA2192s, crypto.Hash(0) /* no pre-hashing */, false},
+	{SLHDSASHA2192f, "SLH-DSA-SHA2-192f", oidSignatureSLHDSASHA2192f, emptyRawValue, PKSLHDSASHA2192f, crypto.Hash(0) /* no pre-hashing */, false},
+	{SLHDSASHA2256s, "SLH-DSA-SHA2-256s", oidSignatureSLHDSASHA2256s, emptyRawValue, PKSLHDSASHA2256s, crypto.Hash(0) /* no pre-hashing */, false},
+	{SLHDSASHA2256f, "SLH-DSA-SHA2-256f", oidSignatureSLHDSASHA2256f, emptyRawValue, PKSLHDSASHA2256f, crypto.Hash(0) /* no pre-hashing */, false},
+	{SLHDSASHAKE128s, "SLH-DSA-SHAKE-128s", oidSignatureSLHDSASHAKE128s, emptyRawValue, PKSLHDSASHAKE128s, crypto.Hash(0) /* no pre-hashing */, false},
+	{SLHDSASHAKE128f, "SLH-DSA-SHAKE-128f", oidSignatureSLHDSASHAKE128f, emptyRawValue, PKSLHDSASHAKE128f, crypto.Hash(0) /* no pre-hashing */, false},
+	{SLHDSASHAKE192s, "SLH-DSA-SHAKE-192s", oidSignatureSLHDSASHAKE192s, emptyRawValue, PKSLHDSASHAKE192s, crypto.Hash(0) /* no pre-hashing */, false},
+	{SLHDSASHAKE192f, "SLH-DSA-SHAKE-192f", oidSignatureSLHDSASHAKE192f, emptyRawValue, PKSLHDSASHAKE192f, crypto.Hash(0) /* no pre-hashing */, false},
+	{SLHDSASHAKE256s, "SLH-DSA-SHAKE-256s", oidSignatureSLHDSASHAKE256s, emptyRawValue, PKSLHDSASHAKE256s, crypto.Hash(0) /* no pre-hashing */, false},
+	{SLHDSASHAKE256f, "SLH-DSA-SHAKE-256f", oidSignatureSLHDSASHAKE256f, emptyRawValue, PKSLHDSASHAKE256f, crypto.Hash(0) /* no pre-hashing */, false},
 }
 
 var emptyRawValue = asn1.RawValue{}
@@ -534,29 +597,108 @@ var (
 	oidPublicKeyMLDSA44 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 17}
 	oidPublicKeyMLDSA65 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 18}
 	oidPublicKeyMLDSA87 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 19}
+
+	// RFC 9909 - SLH-DSA public key OIDs (same as signature OIDs)
+	oidPublicKeySLHDSASHA2128s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 20}
+	oidPublicKeySLHDSASHA2128f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 21}
+	oidPublicKeySLHDSASHA2192s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 22}
+	oidPublicKeySLHDSASHA2192f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 23}
+	oidPublicKeySLHDSASHA2256s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 24}
+	oidPublicKeySLHDSASHA2256f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 25}
+	oidPublicKeySLHDSASHAKE128s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 26}
+	oidPublicKeySLHDSASHAKE128f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 27}
+	oidPublicKeySLHDSASHAKE192s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 28}
+	oidPublicKeySLHDSASHAKE192f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 29}
+	oidPublicKeySLHDSASHAKE256s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 30}
+	oidPublicKeySLHDSASHAKE256f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 31}
 )
+
+// slhdsaParameterSetToOID maps SLH-DSA parameter set names to their corresponding OIDs per RFC 9909
+var slhdsaParameterSetToOID = map[string]asn1.ObjectIdentifier{
+	"SLH-DSA-SHA2-128s":  oidPublicKeySLHDSASHA2128s,
+	"SLH-DSA-SHA2-128f":  oidPublicKeySLHDSASHA2128f,
+	"SLH-DSA-SHA2-192s":  oidPublicKeySLHDSASHA2192s,
+	"SLH-DSA-SHA2-192f":  oidPublicKeySLHDSASHA2192f,
+	"SLH-DSA-SHA2-256s":  oidPublicKeySLHDSASHA2256s,
+	"SLH-DSA-SHA2-256f":  oidPublicKeySLHDSASHA2256f,
+	"SLH-DSA-SHAKE-128s": oidPublicKeySLHDSASHAKE128s,
+	"SLH-DSA-SHAKE-128f": oidPublicKeySLHDSASHAKE128f,
+	"SLH-DSA-SHAKE-192s": oidPublicKeySLHDSASHAKE192s,
+	"SLH-DSA-SHAKE-192f": oidPublicKeySLHDSASHAKE192f,
+	"SLH-DSA-SHAKE-256s": oidPublicKeySLHDSASHAKE256s,
+	"SLH-DSA-SHAKE-256f": oidPublicKeySLHDSASHAKE256f,
+}
+
+// oidToSLHDSAParams maps OIDs to their corresponding SLH-DSA parameter set names
+// The actual parameter set objects are accessed via slhdsa package exported variables
+var oidToSLHDSAParams = map[string]string{
+	oidPublicKeySLHDSASHA2128s.String():  "SLH-DSA-SHA2-128s",
+	oidPublicKeySLHDSASHA2128f.String():  "SLH-DSA-SHA2-128f",
+	oidPublicKeySLHDSASHA2192s.String():  "SLH-DSA-SHA2-192s",
+	oidPublicKeySLHDSASHA2192f.String():  "SLH-DSA-SHA2-192f",
+	oidPublicKeySLHDSASHA2256s.String():  "SLH-DSA-SHA2-256s",
+	oidPublicKeySLHDSASHA2256f.String():  "SLH-DSA-SHA2-256f",
+	oidPublicKeySLHDSASHAKE128s.String(): "SLH-DSA-SHAKE-128s",
+	oidPublicKeySLHDSASHAKE128f.String(): "SLH-DSA-SHAKE-128f",
+	oidPublicKeySLHDSASHAKE192s.String(): "SLH-DSA-SHAKE-192s",
+	oidPublicKeySLHDSASHAKE192f.String(): "SLH-DSA-SHAKE-192f",
+	oidPublicKeySLHDSASHAKE256s.String(): "SLH-DSA-SHAKE-256s",
+	oidPublicKeySLHDSASHAKE256f.String(): "SLH-DSA-SHAKE-256f",
+}
+
+// oidToPublicKeyAlgorithm maps OIDs to their corresponding PublicKeyAlgorithm
+var oidToPublicKeyAlgorithm = map[string]PublicKeyAlgorithm{
+	oidPublicKeyRSA.String():             RSA,
+	oidPublicKeyDSA.String():             DSA,
+	oidPublicKeyECDSA.String():           ECDSA,
+	oidPublicKeySM2.String():             ECDSA,
+	oidPublicKeyEd25519.String():         Ed25519,
+	oidPublicKeyMLDSA44.String():         PKMLDSA44,
+	oidPublicKeyMLDSA65.String():         PKMLDSA65,
+	oidPublicKeyMLDSA87.String():         PKMLDSA87,
+	oidPublicKeySLHDSASHA2128s.String():  PKSLHDSASHA2128s,
+	oidPublicKeySLHDSASHA2128f.String():  PKSLHDSASHA2128f,
+	oidPublicKeySLHDSASHA2192s.String():  PKSLHDSASHA2192s,
+	oidPublicKeySLHDSASHA2192f.String():  PKSLHDSASHA2192f,
+	oidPublicKeySLHDSASHA2256s.String():  PKSLHDSASHA2256s,
+	oidPublicKeySLHDSASHA2256f.String():  PKSLHDSASHA2256f,
+	oidPublicKeySLHDSASHAKE128s.String(): PKSLHDSASHAKE128s,
+	oidPublicKeySLHDSASHAKE128f.String(): PKSLHDSASHAKE128f,
+	oidPublicKeySLHDSASHAKE192s.String(): PKSLHDSASHAKE192s,
+	oidPublicKeySLHDSASHAKE192f.String(): PKSLHDSASHAKE192f,
+	oidPublicKeySLHDSASHAKE256s.String(): PKSLHDSASHAKE256s,
+	oidPublicKeySLHDSASHAKE256f.String(): PKSLHDSASHAKE256f,
+}
+
+// publicKeyAlgorithmToOID maps PublicKeyAlgorithm to their corresponding OIDs (reverse mapping)
+var publicKeyAlgorithmToOID = map[PublicKeyAlgorithm]asn1.ObjectIdentifier{
+	RSA:               oidPublicKeyRSA,
+	DSA:               oidPublicKeyDSA,
+	ECDSA:             oidPublicKeyECDSA,
+	Ed25519:           oidPublicKeyEd25519,
+	PKMLDSA44:         oidPublicKeyMLDSA44,
+	PKMLDSA65:         oidPublicKeyMLDSA65,
+	PKMLDSA87:         oidPublicKeyMLDSA87,
+	PKSLHDSASHA2128s:  oidPublicKeySLHDSASHA2128s,
+	PKSLHDSASHA2128f:  oidPublicKeySLHDSASHA2128f,
+	PKSLHDSASHA2192s:  oidPublicKeySLHDSASHA2192s,
+	PKSLHDSASHA2192f:  oidPublicKeySLHDSASHA2192f,
+	PKSLHDSASHA2256s:  oidPublicKeySLHDSASHA2256s,
+	PKSLHDSASHA2256f:  oidPublicKeySLHDSASHA2256f,
+	PKSLHDSASHAKE128s: oidPublicKeySLHDSASHAKE128s,
+	PKSLHDSASHAKE128f: oidPublicKeySLHDSASHAKE128f,
+	PKSLHDSASHAKE192s: oidPublicKeySLHDSASHAKE192s,
+	PKSLHDSASHAKE192f: oidPublicKeySLHDSASHAKE192f,
+	PKSLHDSASHAKE256s: oidPublicKeySLHDSASHAKE256s,
+	PKSLHDSASHAKE256f: oidPublicKeySLHDSASHAKE256f,
+}
 
 // getPublicKeyAlgorithmFromOID returns the exposed PublicKeyAlgorithm
 // identifier for public key types supported in certificates and CSRs. Marshal
 // and Parse functions may support a different set of public key types.
 func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm {
-	switch {
-	case oid.Equal(oidPublicKeyRSA):
-		return RSA
-	case oid.Equal(oidPublicKeyDSA):
-		return DSA
-	case oid.Equal(oidPublicKeyECDSA):
-		return ECDSA
-	case oid.Equal(oidPublicKeySM2):
-		return ECDSA
-	case oid.Equal(oidPublicKeyEd25519):
-		return Ed25519
-	case oid.Equal(oidPublicKeyMLDSA44):
-		return PKMLDSA44
-	case oid.Equal(oidPublicKeyMLDSA65):
-		return PKMLDSA65
-	case oid.Equal(oidPublicKeyMLDSA87):
-		return PKMLDSA87
+	if algo, ok := oidToPublicKeyAlgorithm[oid.String()]; ok {
+		return algo
 	}
 	return UnknownPublicKeyAlgorithm
 }
@@ -883,6 +1025,16 @@ func signaturePublicKeyAlgoMismatchError(expectedPubKeyAlgo PublicKeyAlgorithm, 
 	return fmt.Errorf("x509: signature algorithm specifies an %s public key, but have public key of type %T", expectedPubKeyAlgo.String(), pubKey)
 }
 
+// isMLDSAPublicKeyAlgorithm returns true if the algorithm is an ML-DSA variant.
+func isMLDSAPublicKeyAlgorithm(algo PublicKeyAlgorithm) bool {
+	return algo == PKMLDSA44 || algo == PKMLDSA65 || algo == PKMLDSA87
+}
+
+// isSLHDSAPublicKeyAlgorithm returns true if the algorithm is an SLH-DSA variant.
+func isSLHDSAPublicKeyAlgorithm(algo PublicKeyAlgorithm) bool {
+	return algo >= PKSLHDSASHA2128s && algo <= PKSLHDSASHAKE256f
+}
+
 // checkSignature verifies that signature is a valid signature over signed from
 // a crypto.PublicKey.
 func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey crypto.PublicKey, allowSHA1 bool) (err error) {
@@ -900,7 +1052,7 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 
 	switch hashType {
 	case crypto.Hash(0):
-		if !isSM2 && pubKeyAlgo != Ed25519 && pubKeyAlgo != PKMLDSA44 && pubKeyAlgo != PKMLDSA65 && pubKeyAlgo != PKMLDSA87 {
+		if !isSM2 && pubKeyAlgo != Ed25519 && !isMLDSAPublicKeyAlgorithm(pubKeyAlgo) && !isSLHDSAPublicKeyAlgorithm(pubKeyAlgo) {
 			return x509.ErrUnsupportedAlgorithm
 		}
 	case crypto.MD5:
@@ -972,6 +1124,15 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 		}
 		if !pub.VerifyWithOptions(signature, signed, nil) {
 			return errors.New("x509: ML-DSA-87 verification failure")
+		}
+		return
+	case *slhdsa.PublicKey:
+		// Verify the public key algorithm matches one of the SLH-DSA variants
+		if !isSLHDSAPublicKeyAlgorithm(pubKeyAlgo) {
+			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
+		}
+		if !pub.VerifyWithOptions(signature, signed, nil) {
+			return errors.New("x509: SLH-DSA verification failure")
 		}
 		return
 	}
@@ -1496,8 +1657,52 @@ func signingParamsForKey(key crypto.Signer, sigAlgo SignatureAlgorithm) (Signatu
 		pubType = PKMLDSA87
 		defaultAlgo = MLDSA87
 
+	case *slhdsa.PublicKey:
+		// Determine which SLH-DSA algorithm based on parameter set
+		paramSet := pub.ParameterSet()
+		switch paramSet {
+		case "SLH-DSA-SHA2-128s":
+			pubType = PKSLHDSASHA2128s
+			defaultAlgo = SLHDSASHA2128s
+		case "SLH-DSA-SHA2-128f":
+			pubType = PKSLHDSASHA2128f
+			defaultAlgo = SLHDSASHA2128f
+		case "SLH-DSA-SHA2-192s":
+			pubType = PKSLHDSASHA2192s
+			defaultAlgo = SLHDSASHA2192s
+		case "SLH-DSA-SHA2-192f":
+			pubType = PKSLHDSASHA2192f
+			defaultAlgo = SLHDSASHA2192f
+		case "SLH-DSA-SHA2-256s":
+			pubType = PKSLHDSASHA2256s
+			defaultAlgo = SLHDSASHA2256s
+		case "SLH-DSA-SHA2-256f":
+			pubType = PKSLHDSASHA2256f
+			defaultAlgo = SLHDSASHA2256f
+		case "SLH-DSA-SHAKE-128s":
+			pubType = PKSLHDSASHAKE128s
+			defaultAlgo = SLHDSASHAKE128s
+		case "SLH-DSA-SHAKE-128f":
+			pubType = PKSLHDSASHAKE128f
+			defaultAlgo = SLHDSASHAKE128f
+		case "SLH-DSA-SHAKE-192s":
+			pubType = PKSLHDSASHAKE192s
+			defaultAlgo = SLHDSASHAKE192s
+		case "SLH-DSA-SHAKE-192f":
+			pubType = PKSLHDSASHAKE192f
+			defaultAlgo = SLHDSASHAKE192f
+		case "SLH-DSA-SHAKE-256s":
+			pubType = PKSLHDSASHAKE256s
+			defaultAlgo = SLHDSASHAKE256s
+		case "SLH-DSA-SHAKE-256f":
+			pubType = PKSLHDSASHAKE256f
+			defaultAlgo = SLHDSASHAKE256f
+		default:
+			return 0, ai, fmt.Errorf("x509: unsupported SLH-DSA parameter set: %s", paramSet)
+		}
+
 	default:
-		return 0, ai, errors.New("x509: only RSA, ECDSA, Ed25519 and ML-DSA keys supported")
+		return 0, ai, errors.New("x509: only RSA, ECDSA, Ed25519, ML-DSA and SLH-DSA keys supported")
 	}
 
 	if sigAlgo == 0 {

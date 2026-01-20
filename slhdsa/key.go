@@ -46,13 +46,24 @@ func (pk *PublicKey) Bytes() []byte {
 	return key[:2*pk.params.n]
 }
 
-func (pk *PublicKey) Equal(x any) bool {
+func (pk *PublicKey) Equal(x crypto.PublicKey) bool {
 	xx, ok := x.(*PublicKey)
 	if !ok {
 		return false
 	}
 	return pk.params == xx.params && subtle.ConstantTimeCompare(pk.seed[:pk.params.n], xx.seed[:pk.params.n]) == 1 &&
 		subtle.ConstantTimeCompare(pk.root[:pk.params.n], xx.root[:pk.params.n]) == 1
+}
+
+// ParameterSet returns the parameter set name of the public key.
+// For example: "SLH-DSA-SHA2-128s", "SLH-DSA-SHAKE-256f", etc.
+func (pk *PublicKey) ParameterSet() string {
+	return pk.params.alg
+}
+
+// String returns a string representation of the public key's parameter set.
+func (pk *PublicKey) String() string {
+	return pk.params.alg
 }
 
 // Bytes serializes the PrivateKey into a byte slice.
@@ -74,7 +85,7 @@ func (sk *PrivateKey) Public() crypto.PublicKey {
 	return &sk.PublicKey
 }
 
-func (sk *PrivateKey) Equal(x any) bool {
+func (sk *PrivateKey) Equal(x crypto.PublicKey) bool {
 	xx, ok := x.(*PrivateKey)
 	if !ok {
 		return false
@@ -83,6 +94,17 @@ func (sk *PrivateKey) Equal(x any) bool {
 		subtle.ConstantTimeCompare(sk.prf[:sk.params.n], xx.prf[:sk.params.n]) == 1 &&
 		subtle.ConstantTimeCompare(sk.PublicKey.seed[:sk.params.n], xx.PublicKey.seed[:sk.params.n]) == 1 &&
 		subtle.ConstantTimeCompare(sk.root[:sk.params.n], xx.root[:sk.params.n]) == 1
+}
+
+// ParameterSet returns the parameter set name of the private key.
+// For example: "SLH-DSA-SHA2-128s", "SLH-DSA-SHAKE-256f", etc.
+func (sk *PrivateKey) ParameterSet() string {
+	return sk.params.alg
+}
+
+// String returns a string representation of the private key's parameter set.
+func (sk *PrivateKey) String() string {
+	return sk.params.alg
 }
 
 // GenerateKey generates a new private key based on the provided parameters.

@@ -30,6 +30,7 @@ import (
 
 	"github.com/emmansun/gmsm/internal/godebug"
 	"github.com/emmansun/gmsm/mldsa"
+	"github.com/emmansun/gmsm/slhdsa"
 	"github.com/emmansun/gmsm/sm2"
 )
 
@@ -107,6 +108,14 @@ func TestParsePKIXPublicKey(t *testing.T) {
 		_, ok := pub.(*mldsa.PublicKey87)
 		if !ok {
 			t.Errorf("Value returned from ParsePKIXPublicKey was not an MLDSA87 public key")
+		}
+	})
+
+	t.Run("SLHDSASHA2128s", func(t *testing.T) {
+		pub := testParsePKIXPublicKey(t, pemSLHDSASHA2128sKey)
+		_, ok := pub.(*slhdsa.PublicKey)
+		if !ok {
+			t.Errorf("Value returned from ParsePKIXPublicKey was not an SLHDSASHA2128s public key")
 		}
 	})
 }
@@ -292,6 +301,13 @@ r4nly0qI3rxTpZUQOszk8c/xis/wev4etXFqoeQLYxNMOjrpV5+of1Fb4JPC0p22
 1rZck2YeAGNrWScE0JPMZxbCNC6xhT1IyFxjrIooVEYse3fn470erFvKKP+qALXT
 SfilR62HW5aowrKRDJMBMJo/kTilaTER9Vs8AJypR8Od/ILZjrHKpKnL6IX3hvqG
 5VvgYiIvi6kKl0BzMmsxISrs4KNKYA==
+-----END PUBLIC KEY-----
+`
+
+var pemSLHDSASHA2128sKey = `
+-----BEGIN PUBLIC KEY-----
+MDAwCwYJYIZIAWUDBAMUAyEAK4EJ7Hd8qk4fAkzPz5SX2ZGAUJKA9CVq8rB6+AKJ
+tJQ=
 -----END PUBLIC KEY-----
 `
 

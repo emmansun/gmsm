@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/emmansun/gmsm/mldsa"
+	"github.com/emmansun/gmsm/slhdsa"
 	"github.com/emmansun/gmsm/sm2"
 	"github.com/emmansun/gmsm/sm9"
 )
@@ -837,6 +838,13 @@ WWVn6UNk36ptnVpuuZrk3fQk
 -----END PRIVATE KEY-----
 `
 
+var pemSLHDSASHA2128sPrivKey = `
+-----BEGIN PRIVATE KEY-----
+MFICAQAwCwYJYIZIAWUDBAMUBECiJjvKRYYINlIxYASVI9YhZ3+tkNUetgZ6Mn4N
+HmSlASuBCex3fKpOHwJMz8+Ul9mRgFCSgPQlavKwevgCibSU
+-----END PRIVATE KEY-----
+`
+
 func TestPKCS8MLDSAKey(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -897,6 +905,12 @@ func TestPKCS8MLDSAKey(t *testing.T) {
 			keyPem:  pemMLDSA87PrivKeyWithBoth,
 			marshal: false,
 			keyType: reflect.TypeOf(&mldsa.Key87{}),
+		},
+		{
+			name:    "slh-dsa-sha2-128s",
+			keyPem:  pemSLHDSASHA2128sPrivKey,
+			marshal: true,
+			keyType: reflect.TypeOf(&slhdsa.PrivateKey{}),
 		},
 	}
 	for _, test := range tests {

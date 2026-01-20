@@ -25,6 +25,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/emmansun/gmsm/mldsa"
+	"github.com/emmansun/gmsm/slhdsa"
 	"github.com/emmansun/gmsm/sm2"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
@@ -419,6 +420,67 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
 			return nil, errors.New("x509: MLDSA87 key encoded with illegal parameters")
 		}
 		return mldsa.NewPublicKey87(der)
+	// SLH-DSA public key parsing per RFC 9909
+	case oid.Equal(oidPublicKeySLHDSASHA2128s):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHA2128s key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA128SmallSHA2)
+	case oid.Equal(oidPublicKeySLHDSASHA2128f):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHA2128f key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA128FastSHA2)
+	case oid.Equal(oidPublicKeySLHDSASHA2192s):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHA2192s key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA192SmallSHA2)
+	case oid.Equal(oidPublicKeySLHDSASHA2192f):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHA2192f key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA192FastSHA2)
+	case oid.Equal(oidPublicKeySLHDSASHA2256s):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHA2256s key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA256SmallSHA2)
+	case oid.Equal(oidPublicKeySLHDSASHA2256f):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHA2256f key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA256FastSHA2)
+	case oid.Equal(oidPublicKeySLHDSASHAKE128s):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHAKE128s key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA128SmallSHAKE)
+	case oid.Equal(oidPublicKeySLHDSASHAKE128f):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHAKE128f key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA128FastSHAKE)
+	case oid.Equal(oidPublicKeySLHDSASHAKE192s):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHAKE192s key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA192SmallSHAKE)
+	case oid.Equal(oidPublicKeySLHDSASHAKE192f):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHAKE192f key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA192FastSHAKE)
+	case oid.Equal(oidPublicKeySLHDSASHAKE256s):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHAKE256s key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA256SmallSHAKE)
+	case oid.Equal(oidPublicKeySLHDSASHAKE256f):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHAKE256f key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA256FastSHAKE)
 	default:
 		return nil, errors.New("x509: unknown public key algorithm")
 	}

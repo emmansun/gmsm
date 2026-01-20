@@ -10,6 +10,7 @@ import (
 
 	"github.com/emmansun/gmsm/ecdh"
 	"github.com/emmansun/gmsm/mldsa"
+	"github.com/emmansun/gmsm/slhdsa"
 	"github.com/emmansun/gmsm/sm2"
 	"github.com/emmansun/gmsm/sm9"
 )
@@ -88,7 +89,11 @@ func ParsePKCS8PrivateKey(der []byte) (key any, err error) {
 			return nil, errors.New("x509: MLDSA key encoded with illegal parameters")
 		}
 		return paseMLDSAPrivateKey(privKey)
-
+	case isSLHDSAPublicKeyAlgorithm(oidToPublicKeyAlgorithm[privKey.Algo.Algorithm.String()]):
+		if len(privKey.Algo.Parameters.FullBytes) != 0 {
+			return nil, errors.New("x509: SLH-DSA key encoded with illegal parameters")
+		}
+		return parseSLHDSAPrivateKey(privKey)
 	default:
 		// fallback to golang sdk
 		return x509.ParsePKCS8PrivateKey(der)
@@ -192,6 +197,26 @@ func paseMLDSAPrivateKey(privKey pkcs8) (any, error) {
 	}
 }
 
+func parseSLHDSAPrivateKey(privKey pkcs8) (any, error) {
+	// For SLH-DSA, the PrivateKey field in PKCS#8 is already the OCTET STRING-encoded private key
+	// We don't need to unmarshal it again as an ASN.1 structure
+	oid := privKey.Algo.Algorithm
+
+	// Get parameter set name from OID
+	paramSetName, ok := oidToSLHDSAParams[oid.String()]
+	if !ok {
+		return nil, errors.New("x509: unsupported SLH-DSA algorithm")
+	}
+
+	// Use slhdsa.GetParameterSet to get the parameter set and create the private key
+	param, ok := slhdsa.GetParameterSet(paramSetName)
+	if !ok {
+		return nil, errors.New("x509: unsupported SLH-DSA parameter set")
+	}
+
+	return param.NewPrivateKey(privKey.PrivateKey)
+}
+
 func parseSM9PrivateKey(privKey pkcs8) (key any, err error) {
 	switch {
 	case privKey.Algo.Algorithm.Equal(oidSM9Sign):
@@ -234,6 +259,8 @@ func MarshalPKCS8PrivateKey(key any) ([]byte, error) {
 		return marshalPKCS8ECDHPrivateKey(k)
 	case *mldsa.Key44, *mldsa.Key65, *mldsa.Key87, *mldsa.PrivateKey44, *mldsa.PrivateKey65, *mldsa.PrivateKey87:
 		return marshalPKCS8MLDSAPrivateKey(k)
+	case *slhdsa.PrivateKey:
+		return marshalPKCS8SLHDSAPrivateKey(k)
 	case *sm9.SignPrivateKey:
 		return marshalPKCS8SM9SignPrivateKey(k)
 	case *sm9.EncryptPrivateKey:
@@ -244,6 +271,17 @@ func MarshalPKCS8PrivateKey(key any) ([]byte, error) {
 		return marshalPKCS8SM9EncMasterPrivateKey(k)
 	}
 	return x509.MarshalPKCS8PrivateKey(key)
+}
+
+func marshalPKCS8SLHDSAPrivateKey(k *slhdsa.PrivateKey) ([]byte, error) {
+	var privKey pkcs8
+	privKey.Algo = pkix.AlgorithmIdentifier{
+		Algorithm: slhdsaParameterSetToOID[k.ParameterSet()],
+	}
+	// SLH-DSA private key is encoded as OCTET STRING per RFC 9909
+	// The pkcs8.PrivateKey field will be marshaled as OCTET STRING automatically
+	privKey.PrivateKey = k.Bytes()
+	return asn1.Marshal(privKey)
 }
 
 func marshalPKCS8MLDSAPrivateKey(k any) ([]byte, error) {
