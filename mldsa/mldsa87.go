@@ -443,7 +443,7 @@ func (sk *PrivateKey87) signInternal(seed, mu []byte) ([]byte, error) {
 
 	// rejection sampling loop
 	for kappa := 0; ; kappa += l87 {
-		// expand mask
+		// expand mask and compute y in NTT form
 		var (
 			y    [l87]ringElement
 			yNTT [l87]nttElement
@@ -453,9 +453,6 @@ func (sk *PrivateKey87) signInternal(seed, mu []byte) ([]byte, error) {
 			rho2[64] = byte(index)
 			rho2[65] = byte(index >> 8)
 			y[i] = expandMask(rho2[:], gamma1TwoPower19)
-		}
-		// compute y in NTT form
-		for i := range l87 {
 			yNTT[i] = ntt(y[i])
 		}
 		// compute w and w1
@@ -463,12 +460,12 @@ func (sk *PrivateKey87) signInternal(seed, mu []byte) ([]byte, error) {
 			w, w1 [k87]ringElement
 			wNTT  [k87]nttElement
 		)
-		for i := range w {
-			for j := range yNTT {
+		for i := range k87 {
+			for j := range l87 {
 				wNTT[i] = polyAdd(wNTT[i], nttMul(yNTT[j], A[i*l87+j]))
 			}
 			w[i] = inverseNTT(wNTT[i])
-			// high bits
+			// compute high bits
 			for j := range w[i] {
 				w1[i][j] = fieldElement(compressHighBits(w[i][j], gamma2QMinus1Div32))
 			}
@@ -489,42 +486,43 @@ func (sk *PrivateKey87) signInternal(seed, mu []byte) ([]byte, error) {
 		cNTT := ntt(sampleInBall(cTilde[:], tau60))
 
 		var (
-			cs1 [l87]ringElement
-			cs2 [k87]ringElement
-			z   [l87]ringElement
-			r0  [k87][n]int32
+			z  [l87]ringElement
+			r0 [k87][n]int32
 		)
-		// compute <<cs1>> and z = <<cs1>> + y
+		// compute z = <<cs1>> + y
 		for i := range l87 {
-			cs1[i] = inverseNTT(nttMul(cNTT, sk.s1NTTCache[i]))
-			z[i] = polyAdd(cs1[i], y[i])
+			z[i] = polyAdd(inverseNTT(nttMul(cNTT, sk.s1NTTCache[i])), y[i])
 		}
-		// compute <<cs2>> and r0 = LowBits(w - <<cs2>>)
+
+		var (
+			ct0     [k87]ringElement
+			cs2     [k87]ringElement
+			ct0Norm int
+		)
+		// compute cs2, r0 = LowBits(w - <<cs2>>), <<ct0>>, and ct0Norm
 		for i := range k87 {
 			cs2[i] = inverseNTT(nttMul(cNTT, sk.s2NTTCache[i]))
 			for j := range cs2[i] {
 				_, r0[i][j] = decompose(fieldSub(w[i][j], cs2[i][j]), gamma2QMinus1Div32)
 			}
+			// compute <<ct0>> and its norm
+			ct0[i] = inverseNTT(nttMul(cNTT, sk.t0NTTCache[i]))
+			ct0Norm = polyInfinityNorm(ct0[i], ct0Norm)
 		}
 		zNorm := vectorInfinityNorm(z[:], 0)
 		r0Norm := vectorInfinityNormSigned(r0[:], 0)
 
-		// if zNorm >= gamma1 - beta || r0Norm >= gamma2 - beta, then continue
-		if subtle.ConstantTimeLessOrEq(zNormThreshold, zNorm)|subtle.ConstantTimeLessOrEq(r0NormThreshold, r0Norm) == 1 {
+		// if zNorm >= gamma1 - beta || r0Norm >= gamma2 - beta || ct0Norm >= gamma2, then continue
+		if subtle.ConstantTimeLessOrEq(zNormThreshold, zNorm)|
+			subtle.ConstantTimeLessOrEq(r0NormThreshold, r0Norm)|
+			subtle.ConstantTimeLessOrEq(gamma2QMinus1Div32, ct0Norm) == 1 {
 			continue
 		}
-		// compute <<ct0>>
-		var ct0 [k87]ringElement
-		for i := range k87 {
-			ct0[i] = inverseNTT(nttMul(cNTT, sk.t0NTTCache[i]))
-		}
-		// compute infinity norm of <<ct0>>
-		ct0Norm := vectorInfinityNorm(ct0[:], 0)
 		// make hint
 		var hints [k87]ringElement
 		vectorMakeHint(ct0[:], cs2[:], w[:], hints[:], gamma2QMinus1Div32)
-		// if the number of 1 in the hint is greater than omega or the infinity norm of <<ct0>> >= gamma2, then continue
-		if (subtle.ConstantTimeLessOrEq(int(omega75+1), vectorCountOnes(hints[:])) | subtle.ConstantTimeLessOrEq(gamma2QMinus1Div32, ct0Norm)) == 1 {
+		// if the number of 1 in the hint is greater than omega, then continue
+		if subtle.ConstantTimeLessOrEq(int(omega75+1), vectorCountOnes(hints[:])) == 1 {
 			continue
 		}
 		// signature encoding
@@ -588,12 +586,18 @@ func (pk *PublicKey87) verifyInternal(sig, mu []byte) bool {
 		z    [l87]ringElement
 		zNTT [l87]nttElement
 	)
+	zNorm := 0
 	for i := range l87 {
 		bitUnpackSignedTwoPower19(sig, &z[i])
 		zNTT[i] = ntt(z[i])
+		zNorm = polyInfinityNorm(z[i], zNorm)
 		sig = sig[encodingSize20:]
 	}
-	zNorm := vectorInfinityNorm(z[:], 0)
+	// Early check: if zNorm >= gamma1 - beta, reject
+	if subtle.ConstantTimeLessOrEq(int(gamma1TwoPower19-beta87), zNorm) == 1 {
+		return false
+	}
+
 	var hints [k87]ringElement
 	if !hintBitUnpack(sig, hints[:], omega75) {
 		return false
@@ -608,30 +612,29 @@ func (pk *PublicKey87) verifyInternal(sig, mu []byte) bool {
 		tNTT[i] = nttMul(pk.tNTTCache[i], cNTT)
 	}
 
-	var (
-		w1, wApprox [k87]ringElement
-		zNTTMulA    [k87]nttElement
-	)
+	var zNTTMulA [k87]nttElement
 	for i := range k87 {
 		for j := range l87 {
 			zNTTMulA[i] = polyAdd(zNTTMulA[i], nttMul(zNTT[j], pk.a[i*l87+j]))
 		}
 		zNTTMulA[i] = polySub(zNTTMulA[i], tNTT[i])
-		wApprox[i] = inverseNTT(zNTTMulA[i])
 	}
 
 	H := sha3.NewSHAKE256()
 	H.Write(mu[:])
-	var w1Encoded [encodingSize4]byte
+	var (
+		w1        ringElement
+		w1Encoded [encodingSize4]byte
+	)
 	for i := range k87 {
-		for j := range wApprox[i] {
-			w1[i][j] = useHint(hints[i][j], wApprox[i][j], gamma2QMinus1Div32)
+		wApprox := inverseNTT(zNTTMulA[i])
+		for j := range wApprox {
+			w1[j] = useHint(hints[i][j], wApprox[j], gamma2QMinus1Div32)
 		}
-		simpleBitPack4Bits(w1Encoded[:0], w1[i])
+		simpleBitPack4Bits(w1Encoded[:0], w1)
 		H.Write(w1Encoded[:])
 	}
 	var cTilde1 [lambda256 / 4]byte
 	H.Read(cTilde1[:])
-	return subtle.ConstantTimeLessOrEq(int(gamma1TwoPower19-beta87), zNorm) == 0 &&
-		subtle.ConstantTimeCompare(cTilde, cTilde1[:]) == 1
+	return subtle.ConstantTimeCompare(cTilde, cTilde1[:]) == 1
 }
