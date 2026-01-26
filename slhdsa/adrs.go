@@ -72,14 +72,14 @@ func (a *adrs) setLayerAddress(l uint32) {
 
 // setTreeAddress sets the tree address (8 bytes at offset 4)
 func (a *adrs) setTreeAddress(t uint64) {
-	a[adrsTreeOffset] = byte(t >> 56)
-	a[adrsTreeOffset+1] = byte(t >> 48)
-	a[adrsTreeOffset+2] = byte(t >> 40)
-	a[adrsTreeOffset+3] = byte(t >> 32)
-	a[adrsTreeOffset+4] = byte(t >> 24)
-	a[adrsTreeOffset+5] = byte(t >> 16)
-	a[adrsTreeOffset+6] = byte(t >> 8)
-	a[adrsTreeOffset+7] = byte(t)
+	a[adrsTreeOffset+4] = byte(t >> 56)
+	a[adrsTreeOffset+5] = byte(t >> 48)
+	a[adrsTreeOffset+6] = byte(t >> 40)
+	a[adrsTreeOffset+7] = byte(t >> 32)
+	a[adrsTreeOffset+8] = byte(t >> 24)
+	a[adrsTreeOffset+9] = byte(t >> 16)
+	a[adrsTreeOffset+10] = byte(t >> 8)
+	a[adrsTreeOffset+11] = byte(t)
 }
 
 // setTypeAndClear sets the address type and clears all subsequent fields
