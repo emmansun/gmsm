@@ -13,7 +13,7 @@ package slhdsa
 // See FIPS 205 Algorithm 16 fors_sign
 func (sk *PrivateKey) forsSign(md []byte, adrs adrsOperations, sigFors []byte) {
 	var indices [maxK]uint32
-	// split md into k a-bits values, eatch of which is interpreted as an integer between 0 and 2^a-1.
+	// split md into k a-bits values, each of which is interpreted as an integer between 0 and 2^a-1.
 	base2b(md, sk.params.a, indices[:sk.params.k])
 
 	twoPowerA := uint32(1 << sk.params.a)

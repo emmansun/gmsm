@@ -11,15 +11,25 @@ import (
 	"hash"
 )
 
+// hashOperations defines the interface for hash function operations used in SLH-DSA.
+// It provides different implementations for SHAKE-based and traditional hash-based variants.
 type hashOperations interface {
+	// f computes the tweakable hash function F used in WOTS+ chain computation
 	f(pk *PublicKey, address adrsOperations, m1, out []byte)
+	// h computes the tweakable hash function H used in tree node hashing
 	h(pk *PublicKey, address adrsOperations, m1, m2, out []byte)
+	// t computes the tweakable hash function T used in WOTS+ public key compression
 	t(pk *PublicKey, address adrsOperations, ml, out []byte)
+	// hMsg computes the message digest for signature generation and verification
 	hMsg(pk *PublicKey, R, mPrefix, M, out []byte)
+	// prf computes the pseudorandom function for generating secret values
 	prf(sk *PrivateKey, address adrsOperations, out []byte)
+	// prfMsg computes the pseudorandom function for message randomization
 	prfMsg(sk *PrivateKey, optRand, mPrefix, m, out []byte)
 }
 
+// shakeOperations implements hashOperations using SHAKE256 extendable-output function.
+// This is used for SLH-DSA-SHAKE variants.
 type shakeOperations struct{}
 
 func (shakeOperations) f(pk *PublicKey, address adrsOperations, m1, out []byte) {
@@ -74,9 +84,11 @@ func (shakeOperations) prfMsg(sk *PrivateKey, optRand, mPrefix, m, out []byte) {
 	sk.shake.Read(out[:sk.params.n])
 }
 
-type sha2Operations struct{}
+// traditionalHashOperations implements hashOperations using traditional hash functions
+// (SHA-2 or SM3). This is used for SLH-DSA-SHA2 and SLH-DSA-SM3 variants.
+type traditionalHashOperations struct{}
 
-func (sha2Operations) f(pk *PublicKey, address adrsOperations, m1, out []byte) {
+func (traditionalHashOperations) f(pk *PublicKey, address adrsOperations, m1, out []byte) {
 	var zeros [64]byte
 	pk.md.Reset()
 	pk.md.Write(pk.seed[:pk.params.n])
@@ -87,7 +99,7 @@ func (sha2Operations) f(pk *PublicKey, address adrsOperations, m1, out []byte) {
 	copy(out, zeros[:pk.params.n])
 }
 
-func (sha2Operations) h(pk *PublicKey, address adrsOperations, m1, m2, out []byte) {
+func (traditionalHashOperations) h(pk *PublicKey, address adrsOperations, m1, m2, out []byte) {
 	var zeros [128]byte
 	pk.mdBig.Reset()
 	pk.mdBig.Write(pk.seed[:pk.params.n])
@@ -99,7 +111,7 @@ func (sha2Operations) h(pk *PublicKey, address adrsOperations, m1, m2, out []byt
 	copy(out, zeros[:pk.params.n])
 }
 
-func (sha2Operations) t(pk *PublicKey, address adrsOperations, ml, out []byte) {
+func (traditionalHashOperations) t(pk *PublicKey, address adrsOperations, ml, out []byte) {
 	var zeros [128]byte
 	pk.mdBig.Reset()
 	pk.mdBig.Write(pk.seed[:pk.params.n])
@@ -110,7 +122,7 @@ func (sha2Operations) t(pk *PublicKey, address adrsOperations, ml, out []byte) {
 	copy(out, zeros[:pk.params.n])
 }
 
-func (sha2Operations) prfMsg(sk *PrivateKey, optRand, mPrefix, m, out []byte) {
+func (traditionalHashOperations) prfMsg(sk *PrivateKey, optRand, mPrefix, m, out []byte) {
 	var buf [128]byte
 	mac := hmac.New(sk.mdBigFactory, sk.prf[:sk.params.n])
 	mac.Write(optRand)
@@ -120,7 +132,7 @@ func (sha2Operations) prfMsg(sk *PrivateKey, optRand, mPrefix, m, out []byte) {
 	copy(out, buf[:sk.params.n])
 }
 
-func (sha2Operations) prf(sk *PrivateKey, address adrsOperations, out []byte) {
+func (traditionalHashOperations) prf(sk *PrivateKey, address adrsOperations, out []byte) {
 	var zeros [128]byte
 	sk.md.Reset()
 	sk.md.Write(sk.PublicKey.seed[:sk.params.n])
@@ -131,7 +143,7 @@ func (sha2Operations) prf(sk *PrivateKey, address adrsOperations, out []byte) {
 	copy(out, zeros[:sk.params.n])
 }
 
-func (sha2Operations) hMsg(pk *PublicKey, R, mPrefix, M, out []byte) {
+func (traditionalHashOperations) hMsg(pk *PublicKey, R, mPrefix, M, out []byte) {
 	var buf [128]byte
 	pk.mdBig.Reset()
 	pk.mdBig.Write(R[:pk.params.n])

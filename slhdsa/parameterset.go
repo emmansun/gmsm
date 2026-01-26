@@ -6,23 +6,29 @@
 
 package slhdsa
 
-import "io"
+import (
+	"crypto/sha256"
+	"crypto/sha512"
+	"hash"
+	"io"
+
+	"github.com/emmansun/gmsm/sm3"
+)
 
 const (
-	maxN         = 32
-	maxM         = 49
-	maxK         = 35
-	maxA         = 9
-	maxKTimesA   = maxK * maxA
-	maxWotsLen   = 2*maxN + 3
+	maxN       = 32
+	maxM       = 49
+	maxK       = 35
+	maxA       = 9
+	maxKTimesA = maxK * maxA
+	maxWotsLen = 2*maxN + 3
 
 	maxContextLen = 255
 )
 
 type params struct {
 	alg              string
-	isShake          int
-	isSM3            int
+	isShake          bool
 	n                uint32 // Security parameter (Hash output size in bytes) (16, 24, 32)
 	len              uint32 // 2*n + 3
 	h                uint32 // The total height of the tree (63, 64, 66, 68). #keypairs = 2^h
@@ -34,38 +40,158 @@ type params struct {
 	securityCategory uint32
 	sigLen           int
 	pkLen            int
+	mdBigFactory     func() hash.Hash
+	mdFactory        func() hash.Hash
+}
+
+// paramsBuilder is a builder for creating params instances
+type paramsBuilder struct {
+	p params
+}
+
+// NewParamsBuilder creates a new paramsBuilder
+func NewParamsBuilder() *paramsBuilder {
+	return &paramsBuilder{
+		p: params{},
+	}
+}
+
+// withAlgorithm sets the algorithm name
+func (b *paramsBuilder) withAlgorithm(alg string) *paramsBuilder {
+	b.p.alg = alg
+	return b
+}
+
+// withShake sets whether SHAKE is used
+func (b *paramsBuilder) withShake(isShake bool) *paramsBuilder {
+	b.p.isShake = isShake
+	return b
+}
+
+// withMdFactory sets the hash factory
+func (b *paramsBuilder) withMdFactory(factory, bigFactory func() hash.Hash) *paramsBuilder {
+	b.p.mdFactory = factory
+	b.p.mdBigFactory = bigFactory
+	b.p.isShake = false
+	return b
+}
+
+// withN sets the security parameter
+func (b *paramsBuilder) withN(n uint32) *paramsBuilder {
+	b.p.n = n
+	b.p.len = 2*n + 3
+	return b
+}
+
+// withH sets the total height of the tree
+func (b *paramsBuilder) withH(h uint32) *paramsBuilder {
+	b.p.h = h
+	return b
+}
+
+// withD sets the number of tree layers
+func (b *paramsBuilder) withD(d uint32) *paramsBuilder {
+	b.p.d = d
+	return b
+}
+
+// withHm sets the height of each merkle tree
+func (b *paramsBuilder) withHm(hm uint32) *paramsBuilder {
+	b.p.hm = hm
+	return b
+}
+
+// withA sets the height of a FORS tree
+func (b *paramsBuilder) withA(a uint32) *paramsBuilder {
+	b.p.a = a
+	return b
+}
+
+// withK sets the number of FORS trees
+func (b *paramsBuilder) withK(k uint32) *paramsBuilder {
+	b.p.k = k
+	return b
+}
+
+// withM sets the size of H_MSG() output
+func (b *paramsBuilder) withM(m uint32) *paramsBuilder {
+	b.p.m = m
+	return b
+}
+
+// withSecurityCategory sets the security category
+func (b *paramsBuilder) withSecurityCategory(cat uint32) *paramsBuilder {
+	b.p.securityCategory = cat
+	return b
+}
+
+// build creates the final params instance and calculates derived values
+func (b *paramsBuilder) build() params {
+	// Calculate sigLen: (1+k*(1+a)+d*(hm+len))*n
+	b.p.sigLen = int((1 + b.p.k*(1+b.p.a) + b.p.d*(b.p.hm+b.p.len)) * b.p.n)
+	// Calculate pkLen: 2*n
+	b.p.pkLen = int(2 * b.p.n)
+	return b.p
 }
 
 // sigLen = (1+k*(1+a)+d*(hm+len))*n
 var (
-	SLHDSA128SmallSHA2 = params{alg: "SLH-DSA-SHA2-128s", isShake: 0, isSM3: 0, n: 16, len: 35, h: 63, d: 7, hm: 9, a: 12, k: 14, m: 30,
-		securityCategory: 1, sigLen: 7856, pkLen: 32}
-	SLHDSA128SmallSM3 = params{alg: "SLH-DSA-SM3-128s", isShake: 0, isSM3: 1, n: 16, len: 35, h: 63, d: 7, hm: 9, a: 12, k: 14, m: 30,
-		securityCategory: 1, sigLen: 7856, pkLen: 32}
-	SLHDSA128SmallSHAKE = params{alg: "SLH-DSA-SHAKE-128s", isShake: 1, isSM3: 0, n: 16, len: 35, h: 63, d: 7, hm: 9, a: 12, k: 14, m: 30,
-		securityCategory: 1, sigLen: 7856, pkLen: 32}
-	SLHDSA128FastSHA2 = params{alg: "SLH-DSA-SHA2-128f", isShake: 0, isSM3: 0, n: 16, len: 35, h: 66, d: 22, hm: 3, a: 6, k: 33, m: 34,
-		securityCategory: 1, sigLen: 17088, pkLen: 32}
-	SLHDSA128FastSM3 = params{alg: "SLH-DSA-SM3-128f", isShake: 0, isSM3: 10, n: 16, len: 35, h: 66, d: 22, hm: 3, a: 6, k: 33, m: 34,
-		securityCategory: 1, sigLen: 17088, pkLen: 32}
-	SLHDSA128FastSHAKE = params{alg: "SLH-DSA-SHAKE-128f", isShake: 1, isSM3: 0, n: 16, len: 35, h: 66, d: 22, hm: 3, a: 6, k: 33, m: 34,
-		securityCategory: 1, sigLen: 17088, pkLen: 32}
-	SLHDSA192SmallSHA2 = params{alg: "SLH-DSA-SHA2-192s", isShake: 0, isSM3: 0, n: 24, len: 51, h: 63, d: 7, hm: 9, a: 14, k: 17, m: 39,
-		securityCategory: 3, sigLen: 16224, pkLen: 48}
-	SLHDSA192SmallSHAKE = params{alg: "SLH-DSA-SHAKE-192s", isShake: 1, isSM3: 0, n: 24, len: 51, h: 63, d: 7, hm: 9, a: 14, k: 17, m: 39,
-		securityCategory: 3, sigLen: 16224, pkLen: 48}
-	SLHDSA192FastSHA2 = params{alg: "SLH-DSA-SHA2-192f", isShake: 0, isSM3: 0, n: 24, len: 51, h: 66, d: 22, hm: 3, a: 8, k: 33, m: 42,
-		securityCategory: 3, sigLen: 35664, pkLen: 48}
-	SLHDSA192FastSHAKE = params{alg: "SLH-DSA-SHAKE-192f", isShake: 1, isSM3: 0, n: 24, len: 51, h: 66, d: 22, hm: 3, a: 8, k: 33, m: 42,
-		securityCategory: 3, sigLen: 35664, pkLen: 48}
-	SLHDSA256SmallSHA2 = params{alg: "SLH-DSA-SHA2-256s", isShake: 0, isSM3: 0, n: 32, len: 67, h: 64, d: 8, hm: 8, a: 14, k: 22, m: 47,
-		securityCategory: 5, sigLen: 29792, pkLen: 64}
-	SLHDSA256SmallSHAKE = params{alg: "SLH-DSA-SHAKE-256s", isShake: 1, isSM3: 0, n: 32, len: 67, h: 64, d: 8, hm: 8, a: 14, k: 22, m: 47,
-		securityCategory: 5, sigLen: 29792, pkLen: 64}
-	SLHDSA256FastSHA2 = params{alg: "SLH-DSA-SHA2-256f", isShake: 0, isSM3: 0, n: 32, len: 67, h: 68, d: 17, hm: 4, a: 9, k: 35, m: 49,
-		securityCategory: 5, sigLen: 49856, pkLen: 64}
-	SLHDSA256FastSHAKE = params{alg: "SLH-DSA-SHAKE-256f", isShake: 1, isSM3: 0, n: 32, len: 67, h: 68, d: 17, hm: 4, a: 9, k: 35, m: 49,
-		securityCategory: 5, sigLen: 49856, pkLen: 64}
+	SLHDSA128SmallSHA2 = NewParamsBuilder().
+				withAlgorithm("SLH-DSA-SHA2-128s").withMdFactory(sha256.New, sha256.New).
+				withN(16).withH(63).withD(7).withHm(9).withA(12).withK(14).withM(30).
+				withSecurityCategory(1).build()
+	SLHDSA128SmallSM3 = NewParamsBuilder().
+				withAlgorithm("SLH-DSA-SM3-128s").withMdFactory(sm3.New, sm3.New).
+				withN(16).withH(63).withD(7).withHm(9).withA(12).withK(14).withM(30).
+				withSecurityCategory(1).build()
+	SLHDSA128SmallSHAKE = NewParamsBuilder().
+				withAlgorithm("SLH-DSA-SHAKE-128s").withShake(true).
+				withN(16).withH(63).withD(7).withHm(9).withA(12).withK(14).withM(30).
+				withSecurityCategory(1).build()
+	SLHDSA128FastSHA2 = NewParamsBuilder().
+				withAlgorithm("SLH-DSA-SHA2-128f").withMdFactory(sha256.New, sha256.New).
+				withN(16).withH(66).withD(22).withHm(3).withA(6).withK(33).withM(34).
+				withSecurityCategory(1).build()
+	SLHDSA128FastSM3 = NewParamsBuilder().
+				withAlgorithm("SLH-DSA-SM3-128f").withMdFactory(sm3.New, sm3.New).
+				withN(16).withH(66).withD(22).withHm(3).withA(6).withK(33).withM(34).
+				withSecurityCategory(1).build()
+	SLHDSA128FastSHAKE = NewParamsBuilder().
+				withAlgorithm("SLH-DSA-SHAKE-128f").withShake(true).
+				withN(16).withH(66).withD(22).withHm(3).withA(6).withK(33).withM(34).
+				withSecurityCategory(1).build()
+	SLHDSA192SmallSHA2 = NewParamsBuilder().
+				withAlgorithm("SLH-DSA-SHA2-192s").withMdFactory(sha256.New, sha512.New).
+				withN(24).withH(63).withD(7).withHm(9).withA(14).withK(17).withM(39).
+				withSecurityCategory(3).build()
+	SLHDSA192SmallSHAKE = NewParamsBuilder().
+				withAlgorithm("SLH-DSA-SHAKE-192s").withShake(true).
+				withN(24).withH(63).withD(7).withHm(9).withA(14).withK(17).withM(39).
+				withSecurityCategory(3).build()
+	SLHDSA192FastSHA2 = NewParamsBuilder().
+				withAlgorithm("SLH-DSA-SHA2-192f").withMdFactory(sha256.New, sha512.New).
+				withN(24).withH(66).withD(22).withHm(3).withA(8).withK(33).withM(42).
+				withSecurityCategory(3).build()
+	SLHDSA192FastSHAKE = NewParamsBuilder().
+				withAlgorithm("SLH-DSA-SHAKE-192f").withShake(true).
+				withN(24).withH(66).withD(22).withHm(3).withA(8).withK(33).withM(42).
+				withSecurityCategory(3).build()
+	SLHDSA256SmallSHA2 = NewParamsBuilder().
+				withAlgorithm("SLH-DSA-SHA2-256s").withMdFactory(sha256.New, sha512.New).
+				withN(32).withH(64).withD(8).withHm(8).withA(14).withK(22).withM(47).
+				withSecurityCategory(5).build()
+	SLHDSA256SmallSHAKE = NewParamsBuilder().
+				withAlgorithm("SLH-DSA-SHAKE-256s").withShake(true).
+				withN(32).withH(64).withD(8).withHm(8).withA(14).withK(22).withM(47).
+				withSecurityCategory(5).build()
+	SLHDSA256FastSHA2 = NewParamsBuilder().
+				withAlgorithm("SLH-DSA-SHA2-256f").withMdFactory(sha256.New, sha512.New).
+				withN(32).withH(68).withD(17).withHm(4).withA(9).withK(35).withM(49).
+				withSecurityCategory(5).build()
+	SLHDSA256FastSHAKE = NewParamsBuilder().
+				withAlgorithm("SLH-DSA-SHAKE-256f").withShake(true).
+				withN(32).withH(68).withD(17).withHm(4).withA(9).withK(35).withM(49).
+				withSecurityCategory(5).build()
 )
 
 var parameterSets = map[string]*params{
@@ -97,7 +223,7 @@ func (p *params) Equal(x any) bool {
 		return false
 	}
 	if p2, ok := x.(*params); ok {
-		return p.alg == p2.alg && p.isShake == p2.isShake && p.isSM3 == p2.isSM3 &&
+		return p.alg == p2.alg && p.isShake == p2.isShake &&
 			p.n == p2.n && p.h == p2.h && p.d == p2.d && p.hm == p2.hm &&
 			p.a == p2.a && p.k == p2.k && p.m == p2.m &&
 			p.securityCategory == p2.securityCategory &&
