@@ -325,43 +325,91 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
 	case oid.Equal(oidPublicKeyECDSA):
 		paramsDer := cryptobyte.String(params.FullBytes)
 		namedCurveOID := new(asn1.ObjectIdentifier)
-		if !paramsDer.ReadASN1ObjectIdentifier(namedCurveOID) {
-			return nil, errors.New("x509: invalid ECDSA parameters")
+
+		// Try approach 1: Named curve OID (RFC 5480 - modern standard)
+		if paramsDer.ReadASN1ObjectIdentifier(namedCurveOID) {
+			namedCurve := namedCurveFromOID(*namedCurveOID)
+			if namedCurve != nil {
+				x, y := elliptic.Unmarshal(namedCurve, der)
+				if x == nil {
+					return nil, errors.New("x509: failed to unmarshal elliptic curve point")
+				}
+				pub := &ecdsa.PublicKey{
+					Curve: namedCurve,
+					X:     x,
+					Y:     y,
+				}
+				return pub, nil
+			}
 		}
-		namedCurve := namedCurveFromOID(*namedCurveOID)
-		if namedCurve == nil {
-			return nil, errors.New("x509: unsupported elliptic curve")
+		// Try approach 2: Explicit curve parameters (RFC 3279 - legacy format)
+		paramsDer = cryptobyte.String(params.FullBytes) // Reset
+		var explicitParams cryptobyte.String
+		if paramsDer.ReadASN1(&explicitParams, cryptobyte_asn1.SEQUENCE) {
+			curve, err := parseExplicitECParameters(explicitParams)
+			if err == nil {
+				x, y := elliptic.Unmarshal(curve, der)
+				if x == nil {
+					return nil, errors.New("x509: failed to unmarshal elliptic curve point")
+				}
+				pub := &ecdsa.PublicKey{
+					Curve: curve,
+					X:     x,
+					Y:     y,
+				}
+				return pub, nil
+			}
 		}
-		x, y := elliptic.Unmarshal(namedCurve, der)
-		if x == nil {
-			return nil, errors.New("x509: failed to unmarshal elliptic curve point")
-		}
-		pub := &ecdsa.PublicKey{
-			Curve: namedCurve,
-			X:     x,
-			Y:     y,
-		}
-		return pub, nil
+
+		return nil, errors.New("x509: invalid ECDSA parameters")
 	case oid.Equal(oidPublicKeySM2):
 		paramsDer := cryptobyte.String(params.FullBytes)
 		namedCurveOID := new(asn1.ObjectIdentifier)
-		if !paramsDer.ReadASN1ObjectIdentifier(namedCurveOID) {
-			return nil, errors.New("x509: invalid SM2 parameters")
+
+		// Try approach 1: Named curve OID (modern standard)
+		if paramsDer.ReadASN1ObjectIdentifier(namedCurveOID) {
+			namedCurve := namedCurveFromOID(*namedCurveOID)
+			if namedCurve != nil {
+				if namedCurve == sm2.P256() {
+					x, y := elliptic.Unmarshal(namedCurve, der)
+					if x == nil {
+						return nil, errors.New("x509: failed to unmarshal SM2 curve point")
+					}
+					pub := &ecdsa.PublicKey{
+						Curve: namedCurve,
+						X:     x,
+						Y:     y,
+					}
+					return pub, nil
+				}
+				// Named curve OID is recognized but it's not the SM2 curve
+				return nil, errors.New("x509: unsupported SM2 curve")
+			}
 		}
-		namedCurve := namedCurveFromOID(*namedCurveOID)
-		if namedCurve != sm2.P256() {
-			return nil, errors.New("x509: unsupported SM2 curve")
+		// Try approach 2: Explicit curve parameters (RFC 3279 - legacy format)
+		paramsDer = cryptobyte.String(params.FullBytes) // Reset
+		var explicitParams cryptobyte.String
+		if paramsDer.ReadASN1(&explicitParams, cryptobyte_asn1.SEQUENCE) {
+			curve, err := parseExplicitECParameters(explicitParams)
+			if err == nil {
+				if curve == sm2.P256() {
+					x, y := elliptic.Unmarshal(curve, der)
+					if x == nil {
+						return nil, errors.New("x509: failed to unmarshal SM2 curve point")
+					}
+					pub := &ecdsa.PublicKey{
+						Curve: curve,
+						X:     x,
+						Y:     y,
+					}
+					return pub, nil
+				}
+				// Successfully parsed explicit curve parameters, but it's not the SM2 curve
+				return nil, errors.New("x509: unsupported SM2 curve")
+			}
 		}
-		x, y := elliptic.Unmarshal(namedCurve, der)
-		if x == nil {
-			return nil, errors.New("x509: failed to unmarshal SM2 curve point")
-		}
-		pub := &ecdsa.PublicKey{
-			Curve: namedCurve,
-			X:     x,
-			Y:     y,
-		}
-		return pub, nil
+
+		return nil, errors.New("x509: invalid SM2 parameters")
 
 	case oid.Equal(oidPublicKeyEd25519):
 		// RFC 8410, Section 3
