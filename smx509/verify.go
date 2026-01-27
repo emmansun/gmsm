@@ -751,14 +751,14 @@ func (c *Certificate) Verify(opts VerifyOptions) (chains [][]*Certificate, err e
 		var details []string
 		if incompatibleKeyUsageChains > 0 {
 			if invalidPoliciesChains == 0 {
-				return nil, CertificateInvalidError{c.asX509(), IncompatibleUsage, ""}
+				return nil, CertificateInvalidError{Cert: c.asX509(), Reason: IncompatibleUsage, Detail: ""}
 			}
 			details = append(details, fmt.Sprintf("%d chains with incompatible key usage", incompatibleKeyUsageChains))
 		}
 		if invalidPoliciesChains > 0 {
 			details = append(details, fmt.Sprintf("%d chains with invalid policies", invalidPoliciesChains))
 		}
-		err = CertificateInvalidError{c.asX509(), NoValidChains, strings.Join(details, ", ")}
+		err = CertificateInvalidError{Cert: c.asX509(), Reason: NoValidChains, Detail: strings.Join(details, ", ")}
 		return nil, err
 	}
 

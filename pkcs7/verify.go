@@ -304,6 +304,36 @@ func getSignatureAlgorithm(digestEncryption, digest pkix.AlgorithmIdentifier) (x
 		}
 	case digestEncryption.Algorithm.Equal(OIDDigestEncryptionAlgorithmSM2):
 		return smx509.SM2WithSM3, nil
+	case digestEncryption.Algorithm.Equal(OIDSignatureMLDSA44):
+		return smx509.MLDSA44, nil
+	case digestEncryption.Algorithm.Equal(OIDSignatureMLDSA65):
+		return smx509.MLDSA65, nil
+	case digestEncryption.Algorithm.Equal(OIDSignatureMLDSA87):
+		return smx509.MLDSA87, nil
+	case digestEncryption.Algorithm.Equal(OIDSignatureSLHDSASHA2128s):
+		return smx509.SLHDSASHA2128s, nil
+	case digestEncryption.Algorithm.Equal(OIDSignatureSLHDSASHA2128f):
+		return smx509.SLHDSASHA2128f, nil
+	case digestEncryption.Algorithm.Equal(OIDSignatureSLHDSASHA2192s):
+		return smx509.SLHDSASHA2192s, nil
+	case digestEncryption.Algorithm.Equal(OIDSignatureSLHDSASHA2192f):
+		return smx509.SLHDSASHA2192f, nil
+	case digestEncryption.Algorithm.Equal(OIDSignatureSLHDSASHA2256s):
+		return smx509.SLHDSASHA2256s, nil
+	case digestEncryption.Algorithm.Equal(OIDSignatureSLHDSASHA2256f):
+		return smx509.SLHDSASHA2256f, nil
+	case digestEncryption.Algorithm.Equal(OIDSignatureSLHDSASHAKE128s):
+		return smx509.SLHDSASHAKE128s, nil
+	case digestEncryption.Algorithm.Equal(OIDSignatureSLHDSASHAKE128f):
+		return smx509.SLHDSASHAKE128f, nil
+	case digestEncryption.Algorithm.Equal(OIDSignatureSLHDSASHAKE192s):
+		return smx509.SLHDSASHAKE192s, nil
+	case digestEncryption.Algorithm.Equal(OIDSignatureSLHDSASHAKE192f):
+		return smx509.SLHDSASHAKE192f, nil
+	case digestEncryption.Algorithm.Equal(OIDSignatureSLHDSASHAKE256s):
+		return smx509.SLHDSASHAKE256s, nil
+	case digestEncryption.Algorithm.Equal(OIDSignatureSLHDSASHAKE256f):
+		return smx509.SLHDSASHAKE256f, nil
 	default:
 		return -1, fmt.Errorf("pkcs7: unsupported algorithm %q",
 			digestEncryption.Algorithm.String())

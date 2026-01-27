@@ -1008,7 +1008,7 @@ func processExtensions(out *Certificate) error {
 						!s.ReadASN1(&subject, cryptobyte_asn1.OBJECT_IDENTIFIER) {
 						return errors.New("x509: invalid policy mappings extension")
 					}
-					out.PolicyMappings = append(out.PolicyMappings, x509.PolicyMapping{newOID(issuer), newOID(subject)})
+					out.PolicyMappings = append(out.PolicyMappings, x509.PolicyMapping{IssuerDomainPolicy: newOID(issuer), SubjectDomainPolicy: newOID(subject)})
 				}
 			case 54:
 				val := cryptobyte.String(e.Value)
