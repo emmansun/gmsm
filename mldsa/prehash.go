@@ -15,6 +15,7 @@ import (
 	"errors"
 	"hash"
 
+	"github.com/emmansun/gmsm/shake"
 	"github.com/emmansun/gmsm/sm3"
 )
 
@@ -32,33 +33,6 @@ var (
 
 var ErrUnsupportedDigestAlgorithm = errors.New("mldsa: unsupported digest algorithm")
 
-type xofHashAdapter struct {
-	*sha3.SHAKE
-	size int
-}
-
-func (h *xofHashAdapter) Write(p []byte) (n int, err error) {
-	return h.SHAKE.Write(p)
-}
-
-func (h *xofHashAdapter) Reset() {
-	h.SHAKE.Reset()
-}
-
-func (h *xofHashAdapter) Size() int {
-	return h.size
-}
-
-func (x *xofHashAdapter) BlockSize() int {
-	return x.SHAKE.BlockSize()
-}
-
-func (x *xofHashAdapter) Sum(b []byte) []byte {
-	buf := make([]byte, x.size)
-	x.Read(buf)
-	return append(b, buf...)
-}
-
 func getHashByOID(oid asn1.ObjectIdentifier) (hash.Hash, error) {
 	switch {
 	case oid.Equal(OIDDigestAlgorithmSHA256):
@@ -72,9 +46,9 @@ func getHashByOID(oid asn1.ObjectIdentifier) (hash.Hash, error) {
 	case oid.Equal(OIDDigestAlgorithmSHA3_512):
 		return sha3.New512(), nil
 	case oid.Equal(OIDDigestAlgorithmSHAKE128):
-		return &xofHashAdapter{sha3.NewSHAKE128(), 32}, nil
+		return shake.NewSHAKE128(32), nil
 	case oid.Equal(OIDDigestAlgorithmSHAKE256):
-		return &xofHashAdapter{sha3.NewSHAKE256(), 64}, nil
+		return shake.NewSHAKE256(64), nil
 	case oid.Equal(OIDDigestAlgorithmSM3):
 		return sm3.New(), nil
 	default:
