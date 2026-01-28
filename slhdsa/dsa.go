@@ -1,14 +1,12 @@
 // Copyright 2025 Sun Yimin. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
+//go:build go1.24
 
 // Package slhdsa implements the quantum-resistant stateless hash-based digital signature standard 
 // SLH-DSA (based on SPHINCS+), as specified in [NIST FIPS 205].
 //
 // [NIST FIPS 205]: https://doi.org/10.6028/NIST.FIPS.205
-//
-//go:build go1.24
-
 package slhdsa
 
 import (
