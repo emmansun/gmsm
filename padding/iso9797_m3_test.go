@@ -79,6 +79,15 @@ func Test_iso9797M3Padding_Unpad(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("case %v: iso9797M2Padding.Unpad() = %v, want %v", tt.name, got, tt.want)
 			}
+
+			gotCT, err := iso9797.ConstantTimeUnpad(tt.src)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("case %v: iso9797M2Padding.ConstantTimeUnpad() error = %v, wantErr %v", tt.name, err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(gotCT, tt.want) {
+				t.Errorf("case %v: iso9797M2Padding.ConstantTimeUnpad() = %v, want %v", tt.name, gotCT, tt.want)
+			}
 		})
 	}
 }

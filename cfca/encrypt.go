@@ -53,5 +53,5 @@ func DecryptBySM4CBC(ciphertext, password []byte) ([]byte, error) {
 	plaintext := make([]byte, len(ciphertext))
 	mode.CryptBlocks(plaintext, ciphertext)
 	pkcs7 := padding.NewPKCS7Padding(uint(mode.BlockSize()))
-	return pkcs7.Unpad(plaintext)
+	return pkcs7.ConstantTimeUnpad(plaintext)
 }

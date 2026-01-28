@@ -24,6 +24,8 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
+	"github.com/emmansun/gmsm/mldsa"
+	"github.com/emmansun/gmsm/slhdsa"
 	"github.com/emmansun/gmsm/sm2"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
@@ -403,6 +405,82 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
 			return nil, errors.New("x509: zero or negative DSA parameter")
 		}
 		return pub, nil
+	case oid.Equal(oidPublicKeyMLDSA44):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: MLDSA44 key encoded with illegal parameters")
+		}
+		return mldsa.NewPublicKey44(der)
+	case oid.Equal(oidPublicKeyMLDSA65):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: MLDSA65 key encoded with illegal parameters")
+		}
+		return mldsa.NewPublicKey65(der)
+	case oid.Equal(oidPublicKeyMLDSA87):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: MLDSA87 key encoded with illegal parameters")
+		}
+		return mldsa.NewPublicKey87(der)
+	// SLH-DSA public key parsing per RFC 9909
+	case oid.Equal(oidPublicKeySLHDSASHA2128s):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHA2128s key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA128SmallSHA2)
+	case oid.Equal(oidPublicKeySLHDSASHA2128f):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHA2128f key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA128FastSHA2)
+	case oid.Equal(oidPublicKeySLHDSASHA2192s):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHA2192s key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA192SmallSHA2)
+	case oid.Equal(oidPublicKeySLHDSASHA2192f):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHA2192f key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA192FastSHA2)
+	case oid.Equal(oidPublicKeySLHDSASHA2256s):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHA2256s key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA256SmallSHA2)
+	case oid.Equal(oidPublicKeySLHDSASHA2256f):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHA2256f key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA256FastSHA2)
+	case oid.Equal(oidPublicKeySLHDSASHAKE128s):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHAKE128s key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA128SmallSHAKE)
+	case oid.Equal(oidPublicKeySLHDSASHAKE128f):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHAKE128f key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA128FastSHAKE)
+	case oid.Equal(oidPublicKeySLHDSASHAKE192s):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHAKE192s key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA192SmallSHAKE)
+	case oid.Equal(oidPublicKeySLHDSASHAKE192f):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHAKE192f key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA192FastSHAKE)
+	case oid.Equal(oidPublicKeySLHDSASHAKE256s):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHAKE256s key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA256SmallSHAKE)
+	case oid.Equal(oidPublicKeySLHDSASHAKE256f):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: SLHDSASHAKE256f key encoded with illegal parameters")
+		}
+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA256FastSHAKE)
 	default:
 		return nil, errors.New("x509: unknown public key algorithm")
 	}
@@ -887,7 +965,7 @@ func processExtensions(out *Certificate) error {
 						return errors.New("x509: policy constraints inhibitPolicyMapping field overflows int")
 					}
 					out.InhibitPolicyMappingZero = out.InhibitPolicyMapping == 0
-				}				
+				}
 			case 37:
 				out.ExtKeyUsage, out.UnknownExtKeyUsage, err = parseExtKeyUsageExtension(e.Value)
 				if err != nil {
@@ -930,7 +1008,7 @@ func processExtensions(out *Certificate) error {
 						!s.ReadASN1(&subject, cryptobyte_asn1.OBJECT_IDENTIFIER) {
 						return errors.New("x509: invalid policy mappings extension")
 					}
-					out.PolicyMappings = append(out.PolicyMappings, x509.PolicyMapping{newOID(issuer), newOID(subject)})
+					out.PolicyMappings = append(out.PolicyMappings, x509.PolicyMapping{IssuerDomainPolicy: newOID(issuer), SubjectDomainPolicy: newOID(subject)})
 				}
 			case 54:
 				val := cryptobyte.String(e.Value)

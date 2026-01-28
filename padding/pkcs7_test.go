@@ -79,6 +79,15 @@ func Test_pkcs7Padding_Unpad(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("pkcs7Padding.Unpad() = %v, want %v", got, tt.want)
 			}
+
+			got, err = pkcs7.ConstantTimeUnpad(tt.src)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("pkcs7Padding.ConstantTimeUnpad() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("pkcs7Padding.ConstantTimeUnpad() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

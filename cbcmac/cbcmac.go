@@ -8,6 +8,7 @@ package cbcmac
 import (
 	"crypto/cipher"
 	"crypto/subtle"
+	"hash"
 
 	"github.com/emmansun/gmsm/padding"
 )
@@ -24,6 +25,13 @@ type BlockCipherMAC interface {
 	// The MAC value's number of bytes is returned by Size.
 	// Intercept message authentication code as needed.
 	MAC(src []byte) []byte
+}
+
+// StreamingMAC is the interface that groups the basic MAC methods and
+// also implements the hash.Hash interface for streaming MAC calculation.
+type StreamingMAC interface {
+	hash.Hash
+	BlockCipherMAC
 }
 
 // cbcmac implements the basic CBC-MAC mode of operation for block ciphers.
@@ -234,7 +242,7 @@ type cmac struct {
 // NewCMAC returns a CMAC (GB/T 15821.1-2020 MAC scheme 5) instance that implements MAC with the given block cipher.
 //
 // Reference: https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-38B.pdf
-func NewCMAC(b cipher.Block, size int) *cmac {
+func NewCMAC(b cipher.Block, size int) StreamingMAC {
 	if size <= 0 || size > b.BlockSize() {
 		panic("cbcmac: invalid size")
 	}

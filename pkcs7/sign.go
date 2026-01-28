@@ -13,6 +13,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/emmansun/gmsm/mldsa"
+	"github.com/emmansun/gmsm/slhdsa"
 	"github.com/emmansun/gmsm/sm2"
 	"github.com/emmansun/gmsm/sm3"
 	"github.com/emmansun/gmsm/smx509"
@@ -257,7 +259,16 @@ func (sd *SignedData) signWithAttributes(pkey crypto.PrivateKey, config SignerIn
 		return nil, nil, err
 	}
 	// create signature of signed attributes
-	signature, err := signAttributes(finalAttrs, pkey, hasher)
+	// For ML-DSA, use crypto.Hash(0) to indicate no hashing of attributes
+	sigHasher := hasher
+	if isMLDSAKey(pkey) {
+		sigHasher = crypto.Hash(0)
+	}
+	// For SLH-DSA, use crypto.Hash(0) to indicate no hashing of attributes
+	if isSLHDSAKey(pkey) {
+		sigHasher = crypto.Hash(0)
+	}
+	signature, err := signAttributes(finalAttrs, pkey, sigHasher)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -268,6 +279,19 @@ func newHash(hasher crypto.Hash, hashOid asn1.ObjectIdentifier) hash.Hash {
 	var h hash.Hash
 	if hashOid.Equal(OIDDigestAlgorithmSM3) || hashOid.Equal(OIDDigestAlgorithmSM2SM3) {
 		h = sm3.New()
+	} else if hashOid.Equal(OIDSignatureMLDSA44) || hashOid.Equal(OIDSignatureMLDSA65) || hashOid.Equal(OIDSignatureMLDSA87) {
+		// ML-DSA is a pure signature scheme, no hashing needed here
+		// This function should not be called for ML-DSA, but if it is, return nil
+		return nil
+	} else if hashOid.Equal(OIDSignatureSLHDSASHA2128s) || hashOid.Equal(OIDSignatureSLHDSASHA2128f) ||
+		hashOid.Equal(OIDSignatureSLHDSASHA2192s) || hashOid.Equal(OIDSignatureSLHDSASHA2192f) ||
+		hashOid.Equal(OIDSignatureSLHDSASHA2256s) || hashOid.Equal(OIDSignatureSLHDSASHA2256f) ||
+		hashOid.Equal(OIDSignatureSLHDSASHAKE128s) || hashOid.Equal(OIDSignatureSLHDSASHAKE128f) ||
+		hashOid.Equal(OIDSignatureSLHDSASHAKE192s) || hashOid.Equal(OIDSignatureSLHDSASHAKE192f) ||
+		hashOid.Equal(OIDSignatureSLHDSASHAKE256s) || hashOid.Equal(OIDSignatureSLHDSASHAKE256f) {
+		// SLH-DSA is a pure signature scheme, no hashing needed here
+		// This function should not be called for SLH-DSA, but if it is, return nil
+		return nil
 	} else {
 		h = hasher.New()
 	}
@@ -281,7 +305,18 @@ func newHash(hasher crypto.Hash, hashOid asn1.ObjectIdentifier) hash.Hash {
 // This function is needed to sign old Android APKs, something you probably
 // shouldn't do unless you're maintaining backward compatibility for old
 // applications.
+//
+// Note: ML-DSA and SLH-DSA signature algorithms are not supported in SignWithoutAttr mode.
+// Use AddSigner or AddSignerChain instead for ML-DSA or SLH-DSA signatures.
 func (sd *SignedData) SignWithoutAttr(ee *smx509.Certificate, pkey crypto.PrivateKey, config SignerInfoConfig) error {
+	// ML-DSA is not supported in SignWithoutAttr mode
+	if isMLDSAKey(pkey) {
+		return errors.New("pkcs7: ML-DSA does not support SignWithoutAttr mode, use AddSigner or AddSignerChain instead")
+	}
+	// SLH-DSA is not supported in SignWithoutAttr mode
+	if isSLHDSAKey(pkey) {
+		return errors.New("pkcs7: SLH-DSA does not support SignWithoutAttr mode, use AddSigner or AddSignerChain instead")
+	}
 	var signature []byte
 	sd.sd.DigestAlgorithmIdentifiers = append(sd.sd.DigestAlgorithmIdentifiers, pkix.AlgorithmIdentifier{Algorithm: sd.digestOid, Parameters: asn1.NullRawValue})
 	hasher, err := getHashForOID(sd.digestOid)
@@ -419,6 +454,22 @@ func signAttributes(attrs []attribute, pkey crypto.PrivateKey, hasher crypto.Has
 	return signData(attrBytes, pkey, hasher, false)
 }
 
+// isMLDSAKey checks if the provided key is an ML-DSA private key
+func isMLDSAKey(pkey crypto.PrivateKey) bool {
+	switch pkey.(type) {
+	case *mldsa.Key44, *mldsa.Key65, *mldsa.Key87, *mldsa.PrivateKey44, *mldsa.PrivateKey65, *mldsa.PrivateKey87:
+		return true
+	default:
+		return false
+	}
+}
+
+// isSLHDSAKey checks if the provided key is an SLH-DSA private key
+func isSLHDSAKey(pkey crypto.PrivateKey) bool {
+	_, ok := pkey.(*slhdsa.PrivateKey)
+	return ok
+}
+
 // signData signs the provided data using the given private key and hash function.
 // It returns the signed data or an error if the signing process fails.
 func signData(data []byte, pkey crypto.PrivateKey, hasher crypto.Hash, isDigestProvided bool) ([]byte, error) {
@@ -441,6 +492,22 @@ func signData(data []byte, pkey crypto.PrivateKey, hasher crypto.Hash, isDigestP
 				sm2Key.PrivateKey = *ecdsaKey
 				key = sm2Key
 			}
+		} else if isMLDSAKey(pkey) {
+			// ML-DSA is a pure signature scheme that signs messages directly
+			if isDigestProvided {
+				return nil, errors.New("pkcs7: ML-DSA does not support digest signing, use message signing instead")
+			}
+			// data is the message (or DER-encoded attributes), sign it directly
+			// ML-DSA implements crypto.Signer, so we can call Sign with nil opts
+			opts = nil
+		} else if isSLHDSAKey(pkey) {
+			// SLH-DSA is a pure signature scheme that signs messages directly
+			if isDigestProvided {
+				return nil, errors.New("pkcs7: SLH-DSA does not support digest signing, use message signing instead")
+			}
+			// data is the message (or DER-encoded attributes), sign it directly
+			// SLH-DSA implements crypto.Signer, so we can call Sign with nil opts
+			opts = nil
 		} else {
 			return nil, fmt.Errorf("pkcs7: unsupported hash function %v", hasher)
 		}

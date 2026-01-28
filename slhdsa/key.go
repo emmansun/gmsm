@@ -8,33 +8,35 @@ package slhdsa
 
 import (
 	"crypto"
-	"crypto/sha256"
 	"crypto/sha3"
-	"crypto/sha512"
 	"crypto/subtle"
+	"encoding/asn1"
 	"errors"
 	"hash"
 	"io"
-
-	"github.com/emmansun/gmsm/sm3"
 )
 
+// PublicKey represents an SLH-DSA public key.
+// It contains the public seed and root value along with the parameter set
+// and cryptographic operations needed for signature verification.
 type PublicKey struct {
-	seed           [maxN]byte
-	root           [maxN]byte
-	params         *params
-	md             hash.Hash
-	mdBig          hash.Hash
-	mdBigFactory   func() hash.Hash
-	shake          *sha3.SHAKE
-	addressCreator func() adrsOperations
-	h              hashOperations
+	seed           [maxN]byte            // Public seed used in hash operations
+	root           [maxN]byte            // Root of the XMSS hypertree
+	params         *params               // Parameter set (algorithm variant and security level)
+	md             hash.Hash             // Hash function for normal operations
+	mdBig          hash.Hash             // Hash function for operations requiring larger output
+	mdBigFactory   func() hash.Hash      // Factory function to create new mdBig instances, also used in prfMsg
+	shake          *sha3.SHAKE           // SHAKE instance for SHAKE-based variants
+	addressCreator func() adrsOperations // Factory function to create address objects
+	h              hashOperations        // Hash operations interface for the specific variant
 }
 
+// PrivateKey represents an SLH-DSA private key.
+// It contains the secret seed and PRF value, along with the corresponding public key.
 type PrivateKey struct {
 	PublicKey
-	seed [maxN]byte
-	prf  [maxN]byte
+	seed [maxN]byte // Secret seed used to generate WOTS+ and FORS secret values
+	prf  [maxN]byte // PRF key used in randomized signing
 }
 
 // Bytes returns the byte representation of the PublicKey.
@@ -46,13 +48,29 @@ func (pk *PublicKey) Bytes() []byte {
 	return key[:2*pk.params.n]
 }
 
-func (pk *PublicKey) Equal(x any) bool {
+func (pk *PublicKey) Equal(x crypto.PublicKey) bool {
 	xx, ok := x.(*PublicKey)
 	if !ok {
 		return false
 	}
 	return pk.params == xx.params && subtle.ConstantTimeCompare(pk.seed[:pk.params.n], xx.seed[:pk.params.n]) == 1 &&
 		subtle.ConstantTimeCompare(pk.root[:pk.params.n], xx.root[:pk.params.n]) == 1
+}
+
+// ParameterSet returns the parameter set name of the public key.
+// For example: "SLH-DSA-SHA2-128s", "SLH-DSA-SHAKE-256f", etc.
+func (pk *PublicKey) ParameterSet() string {
+	return pk.params.alg
+}
+
+// OID returns the ASN.1 Object Identifier for this key's parameter set per RFC 9909.
+func (pk *PublicKey) OID() asn1.ObjectIdentifier {
+	return pk.params.OID()
+}
+
+// String returns a string representation of the public key's parameter set.
+func (pk *PublicKey) String() string {
+	return pk.params.alg
 }
 
 // Bytes serializes the PrivateKey into a byte slice.
@@ -74,7 +92,7 @@ func (sk *PrivateKey) Public() crypto.PublicKey {
 	return &sk.PublicKey
 }
 
-func (sk *PrivateKey) Equal(x any) bool {
+func (sk *PrivateKey) Equal(x crypto.PublicKey) bool {
 	xx, ok := x.(*PrivateKey)
 	if !ok {
 		return false
@@ -83,6 +101,17 @@ func (sk *PrivateKey) Equal(x any) bool {
 		subtle.ConstantTimeCompare(sk.prf[:sk.params.n], xx.prf[:sk.params.n]) == 1 &&
 		subtle.ConstantTimeCompare(sk.PublicKey.seed[:sk.params.n], xx.PublicKey.seed[:sk.params.n]) == 1 &&
 		subtle.ConstantTimeCompare(sk.root[:sk.params.n], xx.root[:sk.params.n]) == 1
+}
+
+// ParameterSet returns the parameter set name of the private key.
+// For example: "SLH-DSA-SHA2-128s", "SLH-DSA-SHAKE-256f", etc.
+func (sk *PrivateKey) ParameterSet() string {
+	return sk.params.alg
+}
+
+// String returns a string representation of the private key's parameter set.
+func (sk *PrivateKey) String() string {
+	return sk.params.alg
 }
 
 // GenerateKey generates a new private key based on the provided parameters.
@@ -157,32 +186,21 @@ func generateKeyInernal(skSeed, skPRF, pkSeed []byte, params *params) (*PrivateK
 }
 
 func initKey(params *params, key *PublicKey) error {
-	switch params {
-	case &SLHDSA128SmallSHA2, &SLHDSA128FastSHA2:
-		key.md = sha256.New()
-		key.mdBig = key.md
-		key.mdBigFactory = sha256.New
-		key.h = sha2Operations{}
-		key.addressCreator = newAdrsC
-	case &SLHDSA128SmallSM3, &SLHDSA128FastSM3:
-		key.md = sm3.New()
-		key.mdBig = key.md
-		key.mdBigFactory = sm3.New
-		key.h = sha2Operations{}
-		key.addressCreator = newAdrsC
-	case &SLHDSA192SmallSHA2, &SLHDSA192FastSHA2, &SLHDSA256SmallSHA2, &SLHDSA256FastSHA2:
-		key.md = sha256.New()
-		key.mdBig = sha512.New()
-		key.mdBigFactory = sha512.New
-		key.h = sha2Operations{}
-		key.addressCreator = newAdrsC
-	case &SLHDSA128SmallSHAKE, &SLHDSA128FastSHAKE, &SLHDSA192SmallSHAKE, &SLHDSA192FastSHAKE, &SLHDSA256SmallSHAKE, &SLHDSA256FastSHAKE:
+	key.params = params
+
+	if params.isShake {
+		// SHAKE-based variants
 		key.shake = sha3.NewSHAKE256()
 		key.h = shakeOperations{}
 		key.addressCreator = newAdrs
-	default:
-		return errors.New("slhdsa: unsupported parameters")
+		return nil
 	}
-	key.params = params
+
+	// Traditional hash-based variants (SHA2 or SM3)
+	key.addressCreator = newAdrsC
+	key.h = traditionalHashOperations{}
+	key.md = params.mdFactory()
+	key.mdBig = params.mdBigFactory()
+	key.mdBigFactory = params.mdBigFactory
 	return nil
 }
