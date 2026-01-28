@@ -10,6 +10,7 @@ import (
 	"crypto"
 	"crypto/sha3"
 	"crypto/subtle"
+	"encoding/asn1"
 	"errors"
 	"hash"
 	"io"
@@ -60,6 +61,11 @@ func (pk *PublicKey) Equal(x crypto.PublicKey) bool {
 // For example: "SLH-DSA-SHA2-128s", "SLH-DSA-SHAKE-256f", etc.
 func (pk *PublicKey) ParameterSet() string {
 	return pk.params.alg
+}
+
+// OID returns the ASN.1 Object Identifier for this key's parameter set per RFC 9909.
+func (pk *PublicKey) OID() asn1.ObjectIdentifier {
+	return pk.params.OID()
 }
 
 // String returns a string representation of the public key's parameter set.

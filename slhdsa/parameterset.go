@@ -9,6 +9,7 @@ package slhdsa
 import (
 	"crypto/sha256"
 	"crypto/sha512"
+	"encoding/asn1"
 	"hash"
 	"io"
 
@@ -28,6 +29,7 @@ const (
 
 type params struct {
 	alg              string
+	oid              asn1.ObjectIdentifier
 	isShake          bool
 	n                uint32 // Security parameter (Hash output size in bytes) (16, 24, 32)
 	len              uint32 // 2*n + 3
@@ -59,6 +61,12 @@ func NewParamsBuilder() *paramsBuilder {
 // withAlgorithm sets the algorithm name
 func (b *paramsBuilder) withAlgorithm(alg string) *paramsBuilder {
 	b.p.alg = alg
+	return b
+}
+
+// withOID sets the OID for the parameter set
+func (b *paramsBuilder) withOID(oid asn1.ObjectIdentifier) *paramsBuilder {
+	b.p.oid = oid
 	return b
 }
 
@@ -137,7 +145,7 @@ func (b *paramsBuilder) build() params {
 // sigLen = (1+k*(1+a)+d*(hm+len))*n
 var (
 	SLHDSA128SmallSHA2 = NewParamsBuilder().
-				withAlgorithm("SLH-DSA-SHA2-128s").withMdFactory(sha256.New, sha256.New).
+				withAlgorithm("SLH-DSA-SHA2-128s").withOID(asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 20}).withMdFactory(sha256.New, sha256.New).
 				withN(16).withH(63).withD(7).withHm(9).withA(12).withK(14).withM(30).
 				withSecurityCategory(1).build()
 	SLHDSA128SmallSM3 = NewParamsBuilder().
@@ -145,11 +153,11 @@ var (
 				withN(16).withH(63).withD(7).withHm(9).withA(12).withK(14).withM(30).
 				withSecurityCategory(1).build()
 	SLHDSA128SmallSHAKE = NewParamsBuilder().
-				withAlgorithm("SLH-DSA-SHAKE-128s").withShake(true).
+				withAlgorithm("SLH-DSA-SHAKE-128s").withOID(asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 26}).withShake(true).
 				withN(16).withH(63).withD(7).withHm(9).withA(12).withK(14).withM(30).
 				withSecurityCategory(1).build()
 	SLHDSA128FastSHA2 = NewParamsBuilder().
-				withAlgorithm("SLH-DSA-SHA2-128f").withMdFactory(sha256.New, sha256.New).
+				withAlgorithm("SLH-DSA-SHA2-128f").withOID(asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 21}).withMdFactory(sha256.New, sha256.New).
 				withN(16).withH(66).withD(22).withHm(3).withA(6).withK(33).withM(34).
 				withSecurityCategory(1).build()
 	SLHDSA128FastSM3 = NewParamsBuilder().
@@ -157,63 +165,72 @@ var (
 				withN(16).withH(66).withD(22).withHm(3).withA(6).withK(33).withM(34).
 				withSecurityCategory(1).build()
 	SLHDSA128FastSHAKE = NewParamsBuilder().
-				withAlgorithm("SLH-DSA-SHAKE-128f").withShake(true).
+				withAlgorithm("SLH-DSA-SHAKE-128f").withOID(asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 27}).withShake(true).
 				withN(16).withH(66).withD(22).withHm(3).withA(6).withK(33).withM(34).
 				withSecurityCategory(1).build()
 	SLHDSA192SmallSHA2 = NewParamsBuilder().
-				withAlgorithm("SLH-DSA-SHA2-192s").withMdFactory(sha256.New, sha512.New).
+				withAlgorithm("SLH-DSA-SHA2-192s").withOID(asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 22}).withMdFactory(sha256.New, sha512.New).
 				withN(24).withH(63).withD(7).withHm(9).withA(14).withK(17).withM(39).
 				withSecurityCategory(3).build()
 	SLHDSA192SmallSHAKE = NewParamsBuilder().
-				withAlgorithm("SLH-DSA-SHAKE-192s").withShake(true).
+				withAlgorithm("SLH-DSA-SHAKE-192s").withOID(asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 28}).withShake(true).
 				withN(24).withH(63).withD(7).withHm(9).withA(14).withK(17).withM(39).
 				withSecurityCategory(3).build()
 	SLHDSA192FastSHA2 = NewParamsBuilder().
-				withAlgorithm("SLH-DSA-SHA2-192f").withMdFactory(sha256.New, sha512.New).
+				withAlgorithm("SLH-DSA-SHA2-192f").withOID(asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 23}).withMdFactory(sha256.New, sha512.New).
 				withN(24).withH(66).withD(22).withHm(3).withA(8).withK(33).withM(42).
 				withSecurityCategory(3).build()
 	SLHDSA192FastSHAKE = NewParamsBuilder().
-				withAlgorithm("SLH-DSA-SHAKE-192f").withShake(true).
+				withAlgorithm("SLH-DSA-SHAKE-192f").withOID(asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 29}).withShake(true).
 				withN(24).withH(66).withD(22).withHm(3).withA(8).withK(33).withM(42).
 				withSecurityCategory(3).build()
 	SLHDSA256SmallSHA2 = NewParamsBuilder().
-				withAlgorithm("SLH-DSA-SHA2-256s").withMdFactory(sha256.New, sha512.New).
+				withAlgorithm("SLH-DSA-SHA2-256s").withOID(asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 24}).withMdFactory(sha256.New, sha512.New).
 				withN(32).withH(64).withD(8).withHm(8).withA(14).withK(22).withM(47).
 				withSecurityCategory(5).build()
 	SLHDSA256SmallSHAKE = NewParamsBuilder().
-				withAlgorithm("SLH-DSA-SHAKE-256s").withShake(true).
+				withAlgorithm("SLH-DSA-SHAKE-256s").withOID(asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 30}).withShake(true).
 				withN(32).withH(64).withD(8).withHm(8).withA(14).withK(22).withM(47).
 				withSecurityCategory(5).build()
 	SLHDSA256FastSHA2 = NewParamsBuilder().
-				withAlgorithm("SLH-DSA-SHA2-256f").withMdFactory(sha256.New, sha512.New).
+				withAlgorithm("SLH-DSA-SHA2-256f").withOID(asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 25}).withMdFactory(sha256.New, sha512.New).
 				withN(32).withH(68).withD(17).withHm(4).withA(9).withK(35).withM(49).
 				withSecurityCategory(5).build()
 	SLHDSA256FastSHAKE = NewParamsBuilder().
-				withAlgorithm("SLH-DSA-SHAKE-256f").withShake(true).
+				withAlgorithm("SLH-DSA-SHAKE-256f").withOID(asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 31}).withShake(true).
 				withN(32).withH(68).withD(17).withHm(4).withA(9).withK(35).withM(49).
 				withSecurityCategory(5).build()
 )
 
 var parameterSets = map[string]*params{
-	"SLH-DSA-SHA2-128s":  &SLHDSA128SmallSHA2,
-	"SLH-DSA-SHA2-128f":  &SLHDSA128FastSHA2,
-	"SLH-DSA-SHA2-192s":  &SLHDSA192SmallSHA2,
-	"SLH-DSA-SHA2-192f":  &SLHDSA192FastSHA2,
-	"SLH-DSA-SHA2-256s":  &SLHDSA256SmallSHA2,
-	"SLH-DSA-SHA2-256f":  &SLHDSA256FastSHA2,
-	"SLH-DSA-SM3-128s":   &SLHDSA128SmallSM3,
-	"SLH-DSA-SM3-128f":   &SLHDSA128FastSM3,
-	"SLH-DSA-SHAKE-128s": &SLHDSA128SmallSHAKE,
-	"SLH-DSA-SHAKE-128f": &SLHDSA128FastSHAKE,
-	"SLH-DSA-SHAKE-192s": &SLHDSA192SmallSHAKE,
-	"SLH-DSA-SHAKE-192f": &SLHDSA192FastSHAKE,
-	"SLH-DSA-SHAKE-256s": &SLHDSA256SmallSHAKE,
-	"SLH-DSA-SHAKE-256f": &SLHDSA256FastSHAKE,
+	SLHDSA128SmallSHA2.alg:  &SLHDSA128SmallSHA2,
+	SLHDSA128FastSHA2.alg:   &SLHDSA128FastSHA2,
+	SLHDSA192SmallSHA2.alg:  &SLHDSA192SmallSHA2,
+	SLHDSA192FastSHA2.alg:   &SLHDSA192FastSHA2,
+	SLHDSA256SmallSHA2.alg:  &SLHDSA256SmallSHA2,
+	SLHDSA256FastSHA2.alg:   &SLHDSA256FastSHA2,
+	SLHDSA128SmallSM3.alg:   &SLHDSA128SmallSM3,
+	SLHDSA128FastSM3.alg:    &SLHDSA128FastSM3,
+	SLHDSA128SmallSHAKE.alg: &SLHDSA128SmallSHAKE,
+	SLHDSA128FastSHAKE.alg:  &SLHDSA128FastSHAKE,
+	SLHDSA192SmallSHAKE.alg: &SLHDSA192SmallSHAKE,
+	SLHDSA192FastSHAKE.alg:  &SLHDSA192FastSHAKE,
+	SLHDSA256SmallSHAKE.alg: &SLHDSA256SmallSHAKE,
+	SLHDSA256FastSHAKE.alg:  &SLHDSA256FastSHAKE,
 }
 
 func GetParameterSet(name string) (*params, bool) {
 	if p, ok := parameterSets[name]; ok {
 		return p, true
+	}
+	return nil, false
+}
+
+func GetParameterSetByOID(oid asn1.ObjectIdentifier) (*params, bool) {
+	for _, p := range parameterSets {
+		if p.oid.Equal(oid) {
+			return p, true
+		}
 	}
 	return nil, false
 }
@@ -254,6 +271,11 @@ func (p *params) leafIdxMask() uint64 {
 
 func (p *params) String() string {
 	return p.alg
+}
+
+// OID returns the ASN.1 Object Identifier for this parameter set per RFC 9909.
+func (p *params) OID() asn1.ObjectIdentifier {
+	return p.oid
 }
 
 // GenerateKey generates a new private key using the provided random source and the parameters

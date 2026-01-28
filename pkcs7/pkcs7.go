@@ -95,18 +95,18 @@ var (
 
 	// SLH-DSA Signature Algorithm OIDs (RFC 9814)
 	// These OIDs are used for both signature algorithm and public key algorithm
-	OIDSignatureSLHDSASHA2128s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 20}
-	OIDSignatureSLHDSASHA2128f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 21}
-	OIDSignatureSLHDSASHA2192s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 22}
-	OIDSignatureSLHDSASHA2192f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 23}
-	OIDSignatureSLHDSASHA2256s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 24}
-	OIDSignatureSLHDSASHA2256f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 25}
-	OIDSignatureSLHDSASHAKE128s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 26}
-	OIDSignatureSLHDSASHAKE128f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 27}
-	OIDSignatureSLHDSASHAKE192s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 28}
-	OIDSignatureSLHDSASHAKE192f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 29}
-	OIDSignatureSLHDSASHAKE256s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 30}
-	OIDSignatureSLHDSASHAKE256f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 31}
+	OIDSignatureSLHDSASHA2128s  = slhdsa.SLHDSA128SmallSHA2.OID()
+	OIDSignatureSLHDSASHA2128f  = slhdsa.SLHDSA128FastSHA2.OID()
+	OIDSignatureSLHDSASHA2192s  = slhdsa.SLHDSA192SmallSHA2.OID()
+	OIDSignatureSLHDSASHA2192f  = slhdsa.SLHDSA192FastSHA2.OID()
+	OIDSignatureSLHDSASHA2256s  = slhdsa.SLHDSA256SmallSHA2.OID()
+	OIDSignatureSLHDSASHA2256f  = slhdsa.SLHDSA256FastSHA2.OID()
+	OIDSignatureSLHDSASHAKE128s = slhdsa.SLHDSA128SmallSHAKE.OID()
+	OIDSignatureSLHDSASHAKE128f = slhdsa.SLHDSA128FastSHAKE.OID()
+	OIDSignatureSLHDSASHAKE192s = slhdsa.SLHDSA192SmallSHAKE.OID()
+	OIDSignatureSLHDSASHAKE192f = slhdsa.SLHDSA192FastSHAKE.OID()
+	OIDSignatureSLHDSASHAKE256s = slhdsa.SLHDSA256SmallSHAKE.OID()
+	OIDSignatureSLHDSASHAKE256f = slhdsa.SLHDSA256FastSHAKE.OID()
 )
 
 var (
@@ -271,37 +271,11 @@ func getOIDForEncryptionAlgorithm(pkey any, OIDDigestAlg asn1.ObjectIdentifier) 
 		return OIDSignatureMLDSA87, nil
 	case *slhdsa.PublicKey:
 		// Determine OID based on parameter set
-		paramSet := k.ParameterSet()
-		switch paramSet {
-		case "SLH-DSA-SHA2-128s":
-			return OIDSignatureSLHDSASHA2128s, nil
-		case "SLH-DSA-SHA2-128f":
-			return OIDSignatureSLHDSASHA2128f, nil
-		case "SLH-DSA-SHA2-192s":
-			return OIDSignatureSLHDSASHA2192s, nil
-		case "SLH-DSA-SHA2-192f":
-			return OIDSignatureSLHDSASHA2192f, nil
-		case "SLH-DSA-SHA2-256s":
-			return OIDSignatureSLHDSASHA2256s, nil
-		case "SLH-DSA-SHA2-256f":
-			return OIDSignatureSLHDSASHA2256f, nil
-		case "SLH-DSA-SHAKE-128s":
-			return OIDSignatureSLHDSASHAKE128s, nil
-		case "SLH-DSA-SHAKE-128f":
-			return OIDSignatureSLHDSASHAKE128f, nil
-		case "SLH-DSA-SHAKE-192s":
-			return OIDSignatureSLHDSASHAKE192s, nil
-		case "SLH-DSA-SHAKE-192f":
-			return OIDSignatureSLHDSASHAKE192f, nil
-		case "SLH-DSA-SHAKE-256s":
-			return OIDSignatureSLHDSASHAKE256s, nil
-		case "SLH-DSA-SHAKE-256f":
-			return OIDSignatureSLHDSASHAKE256f, nil
-		default:
-			return nil, fmt.Errorf("pkcs7: unsupported SLH-DSA parameter set: %s", paramSet)
+		oid := k.OID()
+		if len(oid) == 0 {
+			return nil, fmt.Errorf("pkcs7: unsupported SLH-DSA parameter set: %s", k.ParameterSet())
 		}
-	case *slhdsa.PrivateKey:
-		return getOIDForEncryptionAlgorithm(k.Public(), OIDDigestAlg)
+		return oid, nil
 	case *dsa.PrivateKey, *dsa.PublicKey:
 		return OIDDigestAlgorithmDSA, nil
 	case crypto.Signer:

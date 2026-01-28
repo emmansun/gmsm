@@ -160,11 +160,9 @@ func marshalPublicKey(pub any) (publicKeyBytes []byte, publicKeyAlgorithm pkix.A
 		publicKeyAlgorithm.Algorithm = oidPublicKeyMLDSA87
 	case *slhdsa.PublicKey:
 		publicKeyBytes = pub.Bytes()
-		// Determine OID based on parameter set name
-		paramSet := pub.ParameterSet()
-		oid, ok := slhdsaParameterSetToOID[paramSet]
-		if !ok {
-			return nil, pkix.AlgorithmIdentifier{}, fmt.Errorf("x509: unsupported SLH-DSA parameter set: %s", paramSet)
+		oid := pub.OID()
+		if len(oid) == 0 {
+			return nil, pkix.AlgorithmIdentifier{}, fmt.Errorf("x509: unsupported SLH-DSA parameter set: %s", pub.ParameterSet())
 		}
 		publicKeyAlgorithm.Algorithm = oid
 	default:
@@ -425,18 +423,18 @@ var (
 	oidSignatrureMLDSA87 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 19}
 
 	// RFC 9909 - SLH-DSA signature algorithm OIDs
-	oidSignatureSLHDSASHA2128s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 20}
-	oidSignatureSLHDSASHA2128f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 21}
-	oidSignatureSLHDSASHA2192s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 22}
-	oidSignatureSLHDSASHA2192f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 23}
-	oidSignatureSLHDSASHA2256s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 24}
-	oidSignatureSLHDSASHA2256f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 25}
-	oidSignatureSLHDSASHAKE128s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 26}
-	oidSignatureSLHDSASHAKE128f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 27}
-	oidSignatureSLHDSASHAKE192s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 28}
-	oidSignatureSLHDSASHAKE192f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 29}
-	oidSignatureSLHDSASHAKE256s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 30}
-	oidSignatureSLHDSASHAKE256f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 31}
+	oidSignatureSLHDSASHA2128s  = oidPublicKeySLHDSASHA2128s
+	oidSignatureSLHDSASHA2128f  = oidPublicKeySLHDSASHA2128f
+	oidSignatureSLHDSASHA2192s  = oidPublicKeySLHDSASHA2192s
+	oidSignatureSLHDSASHA2192f  = oidPublicKeySLHDSASHA2192f
+	oidSignatureSLHDSASHA2256s  = oidPublicKeySLHDSASHA2256s
+	oidSignatureSLHDSASHA2256f  = oidPublicKeySLHDSASHA2256f
+	oidSignatureSLHDSASHAKE128s = oidPublicKeySLHDSASHAKE128s
+	oidSignatureSLHDSASHAKE128f = oidPublicKeySLHDSASHAKE128f
+	oidSignatureSLHDSASHAKE192s = oidPublicKeySLHDSASHAKE192s
+	oidSignatureSLHDSASHAKE192f = oidPublicKeySLHDSASHAKE192f
+	oidSignatureSLHDSASHAKE256s = oidPublicKeySLHDSASHAKE256s
+	oidSignatureSLHDSASHAKE256f = oidPublicKeySLHDSASHAKE256f
 )
 
 var signatureAlgorithmDetails = []struct {
@@ -599,52 +597,19 @@ var (
 	oidPublicKeyMLDSA87 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 19}
 
 	// RFC 9909 - SLH-DSA public key OIDs (same as signature OIDs)
-	oidPublicKeySLHDSASHA2128s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 20}
-	oidPublicKeySLHDSASHA2128f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 21}
-	oidPublicKeySLHDSASHA2192s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 22}
-	oidPublicKeySLHDSASHA2192f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 23}
-	oidPublicKeySLHDSASHA2256s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 24}
-	oidPublicKeySLHDSASHA2256f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 25}
-	oidPublicKeySLHDSASHAKE128s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 26}
-	oidPublicKeySLHDSASHAKE128f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 27}
-	oidPublicKeySLHDSASHAKE192s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 28}
-	oidPublicKeySLHDSASHAKE192f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 29}
-	oidPublicKeySLHDSASHAKE256s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 30}
-	oidPublicKeySLHDSASHAKE256f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 31}
+	oidPublicKeySLHDSASHA2128s  = slhdsa.SLHDSA128SmallSHA2.OID()
+	oidPublicKeySLHDSASHA2128f  = slhdsa.SLHDSA128FastSHA2.OID()
+	oidPublicKeySLHDSASHA2192s  = slhdsa.SLHDSA192SmallSHA2.OID()
+	oidPublicKeySLHDSASHA2192f  = slhdsa.SLHDSA192FastSHA2.OID()
+	oidPublicKeySLHDSASHA2256s  = slhdsa.SLHDSA256SmallSHA2.OID()
+	oidPublicKeySLHDSASHA2256f  = slhdsa.SLHDSA256FastSHA2.OID()
+	oidPublicKeySLHDSASHAKE128s = slhdsa.SLHDSA128SmallSHAKE.OID()
+	oidPublicKeySLHDSASHAKE128f = slhdsa.SLHDSA128FastSHAKE.OID()
+	oidPublicKeySLHDSASHAKE192s = slhdsa.SLHDSA192SmallSHAKE.OID()
+	oidPublicKeySLHDSASHAKE192f = slhdsa.SLHDSA192FastSHAKE.OID()
+	oidPublicKeySLHDSASHAKE256s = slhdsa.SLHDSA256SmallSHAKE.OID()
+	oidPublicKeySLHDSASHAKE256f = slhdsa.SLHDSA256FastSHAKE.OID()
 )
-
-// slhdsaParameterSetToOID maps SLH-DSA parameter set names to their corresponding OIDs per RFC 9909
-var slhdsaParameterSetToOID = map[string]asn1.ObjectIdentifier{
-	"SLH-DSA-SHA2-128s":  oidPublicKeySLHDSASHA2128s,
-	"SLH-DSA-SHA2-128f":  oidPublicKeySLHDSASHA2128f,
-	"SLH-DSA-SHA2-192s":  oidPublicKeySLHDSASHA2192s,
-	"SLH-DSA-SHA2-192f":  oidPublicKeySLHDSASHA2192f,
-	"SLH-DSA-SHA2-256s":  oidPublicKeySLHDSASHA2256s,
-	"SLH-DSA-SHA2-256f":  oidPublicKeySLHDSASHA2256f,
-	"SLH-DSA-SHAKE-128s": oidPublicKeySLHDSASHAKE128s,
-	"SLH-DSA-SHAKE-128f": oidPublicKeySLHDSASHAKE128f,
-	"SLH-DSA-SHAKE-192s": oidPublicKeySLHDSASHAKE192s,
-	"SLH-DSA-SHAKE-192f": oidPublicKeySLHDSASHAKE192f,
-	"SLH-DSA-SHAKE-256s": oidPublicKeySLHDSASHAKE256s,
-	"SLH-DSA-SHAKE-256f": oidPublicKeySLHDSASHAKE256f,
-}
-
-// oidToSLHDSAParams maps OIDs to their corresponding SLH-DSA parameter set names
-// The actual parameter set objects are accessed via slhdsa package exported variables
-var oidToSLHDSAParams = map[string]string{
-	oidPublicKeySLHDSASHA2128s.String():  "SLH-DSA-SHA2-128s",
-	oidPublicKeySLHDSASHA2128f.String():  "SLH-DSA-SHA2-128f",
-	oidPublicKeySLHDSASHA2192s.String():  "SLH-DSA-SHA2-192s",
-	oidPublicKeySLHDSASHA2192f.String():  "SLH-DSA-SHA2-192f",
-	oidPublicKeySLHDSASHA2256s.String():  "SLH-DSA-SHA2-256s",
-	oidPublicKeySLHDSASHA2256f.String():  "SLH-DSA-SHA2-256f",
-	oidPublicKeySLHDSASHAKE128s.String(): "SLH-DSA-SHAKE-128s",
-	oidPublicKeySLHDSASHAKE128f.String(): "SLH-DSA-SHAKE-128f",
-	oidPublicKeySLHDSASHAKE192s.String(): "SLH-DSA-SHAKE-192s",
-	oidPublicKeySLHDSASHAKE192f.String(): "SLH-DSA-SHAKE-192f",
-	oidPublicKeySLHDSASHAKE256s.String(): "SLH-DSA-SHAKE-256s",
-	oidPublicKeySLHDSASHAKE256f.String(): "SLH-DSA-SHAKE-256f",
-}
 
 // oidToPublicKeyAlgorithm maps OIDs to their corresponding PublicKeyAlgorithm
 var oidToPublicKeyAlgorithm = map[string]PublicKeyAlgorithm{

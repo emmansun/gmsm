@@ -203,15 +203,9 @@ func parseSLHDSAPrivateKey(privKey pkcs8) (any, error) {
 	oid := privKey.Algo.Algorithm
 
 	// Get parameter set name from OID
-	paramSetName, ok := oidToSLHDSAParams[oid.String()]
+	param, ok := slhdsa.GetParameterSetByOID(oid)
 	if !ok {
-		return nil, errors.New("x509: unsupported SLH-DSA algorithm")
-	}
-
-	// Use slhdsa.GetParameterSet to get the parameter set and create the private key
-	param, ok := slhdsa.GetParameterSet(paramSetName)
-	if !ok {
-		return nil, errors.New("x509: unsupported SLH-DSA parameter set")
+		return nil, errors.New("x509: unsupported SLH-DSA algorithm with OID: " + oid.String())
 	}
 
 	return param.NewPrivateKey(privKey.PrivateKey)
@@ -275,8 +269,12 @@ func MarshalPKCS8PrivateKey(key any) ([]byte, error) {
 
 func marshalPKCS8SLHDSAPrivateKey(k *slhdsa.PrivateKey) ([]byte, error) {
 	var privKey pkcs8
+	oid := k.OID()
+	if len(oid) == 0 {
+		return nil, errors.New("x509: unsupported SLH-DSA parameter set: " + k.ParameterSet())
+	}
 	privKey.Algo = pkix.AlgorithmIdentifier{
-		Algorithm: slhdsaParameterSetToOID[k.ParameterSet()],
+		Algorithm: oid,
 	}
 	// SLH-DSA private key is encoded as OCTET STRING per RFC 9909
 	// The pkcs8.PrivateKey field will be marshaled as OCTET STRING automatically
