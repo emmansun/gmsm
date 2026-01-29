@@ -2,8 +2,6 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build go1.24
-
 package slhdsa
 
 // forsSign generates a FORS signature. It signs a k*a-bits message digest md.

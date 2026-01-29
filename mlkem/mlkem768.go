@@ -1,7 +1,6 @@
 // Copyright 2023 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
-//go:build go1.24
 
 // Package mlkem implements the quantum-resistant key encapsulation method
 // ML-KEM (formerly known as Kyber), as specified in [NIST FIPS 203].
