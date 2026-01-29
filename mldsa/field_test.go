@@ -2,8 +2,6 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build go1.24
-
 package mldsa
 
 import (
@@ -11,6 +9,8 @@ import (
 	mathrand "math/rand/v2"
 	"testing"
 )
+
+const qInv = 58728449 // q⁻¹ satisfies: q⁻¹ * q = 1 mod 2³²
 
 func bitreverse(x byte) byte {
 	var y byte

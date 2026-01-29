@@ -2,20 +2,15 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build go1.24
-
 package mldsa
 
 import (
 	"crypto/subtle"
 )
 
-// power2Round decomposes r into (r1, r0) such that r == r1 * 2^13 + r0 mod q, See FIPS 204, Algorithm 35, Power2Round()
+// power2Round decomposes r into (r1, r0) such that r == r1 * 2¹³ + r0 mod q, See FIPS 204, Algorithm 35, Power2Round()
 //
-// Note: that this code is more complex than the FIPS 204 spec since it keeps
-// r0 as a positive number
-//
-// r mod +- 2^13 is defined as having a range of -4095..4096
+// r mod +- 2¹³ is defined as having a range of -4095..4096
 //
 // i.e for r = 0..4096 r1 = 0 and r0 = 0..4096
 // at r = 4097..8191 r1 = 1 and r0 = -4095..-1
@@ -23,21 +18,10 @@ import (
 // Similarly for the range r = 8192..8192+4096 r1=1 and r0=0..4096
 // & 12289..16383 r1=2 and r0=-4095..-1
 func power2Round(r fieldElement) (r1, r0 fieldElement) {
-	r1 = r >> d
-	r0 = r - r1<<d
-
-	const (
-		dv     = 1 << d
-		halfDV = dv >> 1
-	)
-
-	r0Adjusted := fieldSub(r0, dv)
-	r1Adjusted := r1 + 1
-
-	// mask is set iff r0 <= (2^(dropped_bits))/2
-	mask := subtle.ConstantTimeLessOrEq(int(r0), halfDV)
-	r0 = fieldElement(subtle.ConstantTimeSelect(mask, int(r0), int(r0Adjusted)))
-	r1 = fieldElement(subtle.ConstantTimeSelect(mask, int(r1), int(r1Adjusted)))
+	// Add 2¹² - 1 to round up r1 by one if r0 > 2¹².
+	// r is at most 2²³ - 2¹³ + 1, so rr + (2¹² - 1) won't overflow 23 bits.
+	r1 = (r + 1<<(d-1) - 1) >> d
+	r0 = fieldSub(r, r1<<d)
 	return
 }
 
