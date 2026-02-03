@@ -18,7 +18,7 @@ English | [简体中文](README.md)
 Go ShangMi (Commercial Cryptography) Library, abbreviated as **GMSM**, is a secure, high-performance, and easy-to-use Go cryptographic library that covers the Chinese commercial cryptographic public algorithms SM2/SM3/SM4/SM9/ZUC.
 
 ## User Documentation
-- [SM2 Elliptic Curve Public Key Cryptography Algorithm Application Guide](./docs/sm2.md)
+- [SM2 Elliptic Curve Public Key Cryptography Algorithm Application Guide](./docs/sm2-en.md)
 - [SM3 Cryptographic Hash Algorithm Application Guide](./docs/sm3.md)
 - [SM4 Block Cipher Algorithm Application Guide](./docs/sm4.md)
 - [SM9 Identity-Based Cryptography Algorithm Application Guide](./docs/sm9.md)
