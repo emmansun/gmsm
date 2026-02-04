@@ -22,17 +22,17 @@ SM9算法是一种基于双线性对的标识密码算法（简称“IBC”）�
 
 ## 主公私钥对
 SM9标识密码算法用于签名和加密的主公私钥对是分开的，需要各自独立生成：
-* ```sm9.GenerateSignMasterKey```用于生成签名主密钥对。
-* ```sm9.GenerateEncryptMasterKey```用于生成加密主密钥对。
+* `sm9.GenerateSignMasterKey`用于生成签名主密钥对。
+* `sm9.GenerateEncryptMasterKey`用于生成加密主密钥对。
 
 其中签名主公钥是G2上的点，加密主公钥是G1上的点，而签名、加密主私钥都是一个随机大整数。
 
 主公私钥的ASN.1数据格式定义请参考《GB/T 41389-2022 信息安全技术 SM9密码算法使用规范》，和椭圆曲线的公私钥ASN.1数据格式类似。本软件实现了相应的Marshal/Unmarshal方法。
 
 ## 用户私钥
-用户的签名私钥由签名主私钥、用户标识生成：```(master *SignMasterPrivateKey) GenerateUserKey(uid []byte, hid byte) (*SignPrivateKey, error)```，它是G1上的点。
+用户的签名私钥由签名主私钥、用户标识生成：`(master *SignMasterPrivateKey) GenerateUserKey(uid []byte, hid byte) (*SignPrivateKey, error)`，它是G1上的点。
 
-用户的加密私钥由加密主私钥、用户标识生成：```func (master *EncryptMasterPrivateKey) GenerateUserKey(uid []byte, hid byte) (*EncryptPrivateKey, error)```，它是G2上的点。
+用户的加密私钥由加密主私钥、用户标识生成：`func (master *EncryptMasterPrivateKey) GenerateUserKey(uid []byte, hid byte) (*EncryptPrivateKey, error)`，它是G2上的点。
 
 《GB/T 41389-2022 信息安全技术 SM9密码算法使用规范》中 hid 定义如下：
 * hid = 1，签名
@@ -42,7 +42,7 @@ SM9标识密码算法用于签名和加密的主公私钥对是分开的，需�
 
 用户签名、加密私钥的ASN.1数据格式定义请参考《GB/T 41389-2022 信息安全技术 SM9密码算法使用规范》，和椭圆曲线点的ASN.1数据格式类似。本软件实现了相应的Marshal/Unmarshal方法。
 
-目前```smx509```中实现的```MarshalPKCS8PrivateKey/ParsePKCS8PrivateKey```没有相关标准，只是为了和[gmssl](https://github.com/guanzhi/GmSSL)互操作验证，请参考[sm9:【feature】是否考虑支持 pem 格式的公私钥输出](https://github.com/emmansun/gmsm/issues/86)。
+目前`smx509`中实现的`MarshalPKCS8PrivateKey/ParsePKCS8PrivateKey`没有相关标准，只是为了和[gmssl](https://github.com/guanzhi/GmSSL)互操作验证，请参考[sm9:【feature】是否考虑支持 pem 格式的公私钥输出](https://github.com/emmansun/gmsm/issues/86)。
 ```go
 func TestMarshalPKCS8SM9SignPrivateKey(t *testing.T) {
 	masterKey, err := sm9.GenerateSignMasterKey(rand.Reader)

@@ -9,7 +9,7 @@
 您可以从[国家标准全文公开系统](https://openstd.samr.gov.cn/)在线阅读这些标准。
 
 ## 保密性算法
-保密性算法EEA实现了```cipher.Stream```接口，所以和其它流密码算法使用类似，只是创建方法不同而已。
+保密性算法EEA实现了`cipher.Stream`接口，所以和其它流密码算法使用类似，只是创建方法不同而已。
 
 |  | ZUC-128 | ZUC-256 |  
 | :--- | :--- | :--- |
@@ -105,7 +105,7 @@ func ExampleNewCipher_zuc256() {
 如果您没有对同一个流反复进行**前进**、**后退**加解密的需求，可以使用`NewCipher`或者`NewEEACipher`方法，避免内部状态缓存。
 
 ## 完整性算法
-完整性算法实现了```hash.Hash```接口，所以其使用方法和其它哈希算法类似。
+完整性算法实现了`hash.Hash`接口，所以其使用方法和其它哈希算法类似。
 
 |  | ZUC-128 | ZUC-256 |  
 | :--- | :--- | :--- |
@@ -191,7 +191,7 @@ func ExampleNewHash256_tagSize16() {
 }
 ```
 
-要支持位为单位的话，可以调用```Finish```方法。
+要支持位为单位的话，可以调用`Finish`方法。
 ```go
 func ExampleZUC128Mac_Finish() {
 	key := make([]byte, 16)
