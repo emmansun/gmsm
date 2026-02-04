@@ -1,5 +1,6 @@
-// Copyright 2024 The gmsm Authors. All rights reserved.
-// SPDX-License-Identifier: BSD-3-Clause
+// Copyright 2026 The gmsm Authors. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
 
 package smx509
 
@@ -48,6 +49,9 @@ func parseExplicitECParameters(params cryptobyte.String) (elliptic.Curve, error)
 	var fieldType asn1.ObjectIdentifier
 	if !fieldID.ReadASN1ObjectIdentifier(&fieldType) {
 		return nil, errors.New("smx509: invalid fieldType OID")
+	}
+	if !fieldType.Equal(oidPrimeField) {
+		return nil, errors.New("smx509: unsupported field type OID")
 	}
 
 	// Read prime p (field modulus)
@@ -127,3 +131,5 @@ func matchKnownCurve(p, n *big.Int) (elliptic.Curve, error) {
 	// No known curve matched the explicit parameters
 	return nil, errors.New("smx509: explicit curve parameters do not match any known curve")
 }
+
+var oidPrimeField = asn1.ObjectIdentifier{1, 2, 840, 10045, 1, 1}

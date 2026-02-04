@@ -1,16 +1,20 @@
-// Copyright 2024 The gmsm Authors. All rights reserved.
-// SPDX-License-Identifier: BSD-3-Clause
+// Copyright 2026 The gmsm Authors. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
 
 package smx509
 
 import (
 	"crypto/ecdsa"
+	"crypto/elliptic"
+	"encoding/asn1"
 	"math/big"
 	"os"
 	"testing"
 
 	"github.com/emmansun/gmsm/sm2"
 	"golang.org/x/crypto/cryptobyte"
+	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
 
 func TestParseExplicitCurveCertificate(t *testing.T) {
@@ -217,7 +221,6 @@ func TestParseECDSAExplicitFallback(t *testing.T) {
 func TestParseExplicitECParameters(t *testing.T) {
 	t.Run("invalid version", func(t *testing.T) {
 		data := []byte{
-			0x30, 0x0a,
 			0x02, 0x01, 0x02, // version = 2
 			0x30, 0x05, 0x06, 0x03, 0x2a, 0x03, 0x04,
 		}
@@ -229,7 +232,7 @@ func TestParseExplicitECParameters(t *testing.T) {
 	})
 
 	t.Run("truncated data", func(t *testing.T) {
-		data := []byte{0x30, 0x03, 0x02, 0x01}
+		data := []byte{0x02, 0x01}
 		params := cryptobyte.String(data)
 		_, err := parseExplicitECParameters(params)
 		if err == nil {
@@ -239,7 +242,6 @@ func TestParseExplicitECParameters(t *testing.T) {
 
 	t.Run("missing fieldID", func(t *testing.T) {
 		data := []byte{
-			0x30, 0x03,
 			0x02, 0x01, 0x01,
 		}
 		params := cryptobyte.String(data)
@@ -251,7 +253,6 @@ func TestParseExplicitECParameters(t *testing.T) {
 
 	t.Run("invalid fieldType OID", func(t *testing.T) {
 		data := []byte{
-			0x30, 0x0c,
 			0x02, 0x01, 0x01, // version = 1
 			0x30, 0x07,
 			0x06, 0x02, 0xff, 0xff, // invalid OID
@@ -266,7 +267,6 @@ func TestParseExplicitECParameters(t *testing.T) {
 
 	t.Run("invalid prime", func(t *testing.T) {
 		data := []byte{
-			0x30, 0x10,
 			0x02, 0x01, 0x01, // version = 1
 			0x30, 0x0b,
 			0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x01, 0x01, // prime-field OID
@@ -281,7 +281,6 @@ func TestParseExplicitECParameters(t *testing.T) {
 
 	t.Run("invalid curve coefficients", func(t *testing.T) {
 		data := []byte{
-			0x30, 0x1a,
 			0x02, 0x01, 0x01, // version = 1
 			0x30, 0x0d,
 			0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x01, 0x01, // prime-field OID
@@ -299,7 +298,6 @@ func TestParseExplicitECParameters(t *testing.T) {
 
 	t.Run("invalid base point", func(t *testing.T) {
 		data := []byte{
-			0x30, 0x20,
 			0x02, 0x01, 0x01, // version = 1
 			0x30, 0x0d,
 			0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x01, 0x01,
@@ -318,7 +316,6 @@ func TestParseExplicitECParameters(t *testing.T) {
 
 	t.Run("invalid order", func(t *testing.T) {
 		data := []byte{
-			0x30, 0x25,
 			0x02, 0x01, 0x01, // version = 1
 			0x30, 0x0d,
 			0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x01, 0x01,
@@ -342,4 +339,113 @@ func hexToBigInt(t *testing.T, s string) *big.Int {
 	i := new(big.Int)
 	i.SetString(s, 16)
 	return i
+}
+
+func TestParseExplicitECParameters_P256(t *testing.T) {
+	der := buildExplicitParams(elliptic.P256(), oidPrimeField, 1, nil)
+	got, err := parseExplicitECParameters(explicitParamsInner(t, der))
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	assertSameCurve(t, got, elliptic.P256())
+}
+
+func TestParseExplicitECParameters_SM2(t *testing.T) {
+	der := buildExplicitParams(sm2.P256(), oidPrimeField, 1, nil)
+	got, err := parseExplicitECParameters(explicitParamsInner(t, der))
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	assertSameCurve(t, got, sm2.P256())
+}
+
+func TestParseExplicitECParameters_UnsupportedVersion(t *testing.T) {
+	der := buildExplicitParams(elliptic.P256(), oidPrimeField, 2, nil)
+	if _, err := parseExplicitECParameters(explicitParamsInner(t, der)); err == nil {
+		t.Fatalf("expected error for unsupported version")
+	}
+}
+
+func TestParseExplicitECParameters_FieldTypeMismatch(t *testing.T) {
+	badOID := asn1.ObjectIdentifier{1, 2, 3, 4}
+	der := buildExplicitParams(elliptic.P256(), badOID, 1, nil)
+	if _, err := parseExplicitECParameters(explicitParamsInner(t, der)); err == nil {
+		t.Fatalf("expected error for unsupported field type")
+	}
+}
+
+func TestParseExplicitECParameters_UnknownCurve(t *testing.T) {
+	nPlusOne := new(big.Int).Add(elliptic.P256().Params().N, big.NewInt(1))
+	der := buildExplicitParams(elliptic.P256(), oidPrimeField, 1, nPlusOne)
+	if _, err := parseExplicitECParameters(explicitParamsInner(t, der)); err == nil {
+		t.Fatalf("expected error for unknown curve")
+	}
+}
+
+func explicitParamsInner(t *testing.T, der []byte) cryptobyte.String {
+	t.Helper()
+	params := cryptobyte.String(der)
+	var inner cryptobyte.String
+	if !params.ReadASN1(&inner, cryptobyte_asn1.SEQUENCE) || !params.Empty() {
+		t.Fatalf("failed to read explicit params sequence")
+	}
+	return inner
+}
+
+func assertSameCurve(t *testing.T, got, want elliptic.Curve) {
+	t.Helper()
+	gp := got.Params()
+	wp := want.Params()
+	if gp.P.Cmp(wp.P) != 0 || gp.N.Cmp(wp.N) != 0 {
+		t.Fatalf("curve mismatch")
+	}
+}
+
+func buildExplicitParams(curve elliptic.Curve, fieldOID asn1.ObjectIdentifier, version int, orderOverride *big.Int) []byte {
+	params := curve.Params()
+	size := (params.P.BitLen() + 7) / 8
+
+	a := new(big.Int).Sub(params.P, big.NewInt(3))
+	b := params.B
+	p := params.P
+	n := params.N
+	if orderOverride != nil {
+		n = orderOverride
+	}
+
+	aBytes := paddedBytes(a, size)
+	bBytes := paddedBytes(b, size)
+
+	base := make([]byte, 1+2*size)
+	base[0] = 0x04
+	copy(base[1+size-len(params.Gx.Bytes()):1+size], params.Gx.Bytes())
+	copy(base[1+2*size-len(params.Gy.Bytes()):], params.Gy.Bytes())
+
+	var bld cryptobyte.Builder
+	bld.AddASN1(cryptobyte_asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+		b.AddASN1Int64(int64(version))
+		b.AddASN1(cryptobyte_asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+			b.AddASN1ObjectIdentifier(fieldOID)
+			b.AddASN1BigInt(p)
+		})
+		b.AddASN1(cryptobyte_asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+			b.AddASN1OctetString(aBytes)
+			b.AddASN1OctetString(bBytes)
+		})
+		b.AddASN1OctetString(base)
+		b.AddASN1BigInt(n)
+	})
+
+	out, _ := bld.Bytes()
+	return out
+}
+
+func paddedBytes(v *big.Int, size int) []byte {
+	in := v.Bytes()
+	if len(in) >= size {
+		return in
+	}
+	out := make([]byte, size)
+	copy(out[size-len(in):], in)
+	return out
 }
