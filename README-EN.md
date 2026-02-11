@@ -244,4 +244,5 @@ The PKCS8 package code is a fork of the [youmark/pkcs8](https://github.com/youma
 Before using this project, please be sure to carefully read the [GMSM Software Disclaimer](DISCLAIMER.md)!
 
 ## Stargazers Over Time
+If this project is useful to you, please consider giving it a Star.
 [![Stargazers over time](https://starchart.cc/emmansun/gmsm.svg?variant=adaptive)](https://starchart.cc/emmansun/gmsm)
