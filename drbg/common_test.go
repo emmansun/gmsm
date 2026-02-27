@@ -110,6 +110,45 @@ func TestNistHmacDrbgPrng(t *testing.T) {
 	}
 }
 
+func TestHmacDrbgPrngGmRejected(t *testing.T) {
+	_, err := NewHmacDrbgPrng(sha256.New, nil, 32, true, SECURITY_LEVEL_TEST, nil)
+	if err == nil {
+		t.Fatalf("expected error here")
+	}
+}
+
+func TestGenerateAdditionalInputTooLong(t *testing.T) {
+	tooLongAdditional := make([]byte, maxBytes)
+	out := make([]byte, 16)
+
+	ctr, err := NewCtrDrbg(aes.NewCipher, 16, SECURITY_LEVEL_ONE, false, make([]byte, 16), make([]byte, 8), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = ctr.Generate(out, tooLongAdditional)
+	if err == nil {
+		t.Fatalf("expected error here")
+	}
+
+	hashDrbg, err := NewHashDrbg(sha256.New, SECURITY_LEVEL_ONE, false, make([]byte, 32), make([]byte, 16), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = hashDrbg.Generate(out, tooLongAdditional)
+	if err == nil {
+		t.Fatalf("expected error here")
+	}
+
+	hmacDrbg, err := NewHmacDrbg(sha256.New, SECURITY_LEVEL_ONE, false, make([]byte, 32), make([]byte, 16), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = hmacDrbg.Generate(out, tooLongAdditional)
+	if err == nil {
+		t.Fatalf("expected error here")
+	}
+}
+
 func TestGMSecurityStrengthValidation(t *testing.T) {
 	_, err := NewGmHashDrbgPrng(nil, 24, SECURITY_LEVEL_TEST, nil)
 	if err == nil {
