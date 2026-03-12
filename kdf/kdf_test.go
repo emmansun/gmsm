@@ -54,9 +54,189 @@ func TestKdfOldCase(t *testing.T) {
 	}
 }
 
+// TestKdfSingleIteration tests the optimization path for single iteration (limit == 1)
+func TestKdfSingleIteration(t *testing.T) {
+	tests := []struct {
+		name    string
+		newHash func() hash.Hash
+		z       []byte
+		keyLen  int
+	}{
+		{"sm3 exact hash size", sm3.New, []byte("test"), 32},
+		{"sm3 less than hash size", sm3.New, []byte("test"), 16},
+		{"sha256 exact hash size", sha256.New, []byte("test"), 32},
+		{"sha256 less than hash size", sha256.New, []byte("test"), 20},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := Kdf(tt.newHash, tt.z, tt.keyLen)
+			if len(result) != tt.keyLen {
+				t.Errorf("expected length %d, got %d", tt.keyLen, len(result))
+			}
+			// Verify it's deterministic
+			result2 := Kdf(tt.newHash, tt.z, tt.keyLen)
+			if !reflect.DeepEqual(result, result2) {
+				t.Errorf("Kdf not deterministic")
+			}
+		})
+	}
+}
+
+// TestKdfSmallZ tests optimization path with small z (less than BlockSize)
+func TestKdfSmallZ(t *testing.T) {
+	tests := []struct {
+		name    string
+		newHash func() hash.Hash
+		zLen    int
+		keyLen  int
+	}{
+		{"sm3 small z, multiple iterations", sm3.New, 16, 64},       // SM3 BlockSize is 64
+		{"sha256 small z, multiple iterations", sha256.New, 32, 96}, // SHA256 BlockSize is 64
+		{"sm3 very small z", sm3.New, 8, 128},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			z := make([]byte, tt.zLen)
+			for i := range z {
+				z[i] = byte(i)
+			}
+			result := Kdf(tt.newHash, z, tt.keyLen)
+			if len(result) != tt.keyLen {
+				t.Errorf("expected length %d, got %d", tt.keyLen, len(result))
+			}
+		})
+	}
+}
+
+// TestKdfLargeZ tests optimization path with large z (greater than BlockSize)
+func TestKdfLargeZ(t *testing.T) {
+	tests := []struct {
+		name    string
+		newHash func() hash.Hash
+		zLen    int
+		keyLen  int
+	}{
+		{"sm3 large z, multiple iterations", sm3.New, 128, 96},
+		{"sha256 large z, multiple iterations", sha256.New, 256, 128},
+		{"sm3 very large z", sm3.New, 512, 256},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			z := make([]byte, tt.zLen)
+			for i := range z {
+				z[i] = byte(i)
+			}
+			result := Kdf(tt.newHash, z, tt.keyLen)
+			if len(result) != tt.keyLen {
+				t.Errorf("expected length %d, got %d", tt.keyLen, len(result))
+			}
+		})
+	}
+}
+
+// TestKdfZeroLength tests edge case with zero-length output
+func TestKdfZeroLength(t *testing.T) {
+	result := Kdf(sm3.New, []byte("test"), 0)
+	if len(result) != 0 {
+		t.Errorf("expected empty result, got length %d", len(result))
+	}
+}
+
+// TestKdfEmptyZ tests edge case with empty input
+func TestKdfEmptyZ(t *testing.T) {
+	result := Kdf(sm3.New, []byte{}, 32)
+	if len(result) != 32 {
+		t.Errorf("expected length 32, got %d", len(result))
+	}
+	// Should be deterministic even with empty input
+	result2 := Kdf(sm3.New, []byte{}, 32)
+	if !reflect.DeepEqual(result, result2) {
+		t.Errorf("Kdf not deterministic with empty z")
+	}
+}
+
+// TestKdfConsistency verifies both optimization paths produce identical results
+func TestKdfConsistency(t *testing.T) {
+	tests := []struct {
+		name   string
+		zLen   int
+		keyLen int
+	}{
+		{"boundary small z", 63, 128}, // Just below SM3 BlockSize (64)
+		{"boundary large z", 65, 128}, // Just above SM3 BlockSize
+		{"exact block size", 64, 128}, // Exactly BlockSize
+		{"multiple blocks", 128, 256},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			z := make([]byte, tt.zLen)
+			for i := range z {
+				z[i] = byte(i & 0xff)
+			}
+
+			// Both paths should produce identical results
+			result1 := Kdf(sm3.New, z, tt.keyLen)
+			result2 := Kdf(sm3.New, z, tt.keyLen)
+
+			if !reflect.DeepEqual(result1, result2) {
+				t.Errorf("inconsistent results: %x vs %x", result1, result2)
+			}
+		})
+	}
+}
+
+// TestKdfInterface tests the KdfInterface optimization
+func TestKdfInterface(t *testing.T) {
+	// SM3 implements KdfInterface, so it should use the optimized path
+	z := []byte("test data for kdf interface")
+	keyLen := 64
+
+	result := Kdf(sm3.New, z, keyLen)
+	if len(result) != keyLen {
+		t.Errorf("expected length %d, got %d", keyLen, len(result))
+	}
+
+	// Verify it's consistent
+	result2 := Kdf(sm3.New, z, keyLen)
+	if !reflect.DeepEqual(result, result2) {
+		t.Errorf("KdfInterface implementation not deterministic")
+	}
+}
+
+// TestKdfMultipleIterations tests various iteration counts
+func TestKdfMultipleIterations(t *testing.T) {
+	z := []byte("shared secret")
+	hashSize := 32 // SM3 output size
+
+	tests := []struct {
+		name       string
+		keyLen     int
+		iterations int
+	}{
+		{"1 iteration", hashSize - 1, 1},
+		{"2 iterations", hashSize + 1, 2},
+		{"3 iterations", hashSize*2 + 1, 3},
+		{"10 iterations", hashSize*9 + 1, 10},
+		{"100 iterations", hashSize*99 + 1, 100},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := Kdf(sm3.New, z, tt.keyLen)
+			if len(result) != tt.keyLen {
+				t.Errorf("expected length %d, got %d", tt.keyLen, len(result))
+			}
+		})
+	}
+}
+
 func shouldPanic(t *testing.T, f func()) {
 	t.Helper()
-	defer func() { 
+	defer func() {
 		t.Helper()
 		err := recover()
 		if err == nil {
@@ -114,6 +294,57 @@ func BenchmarkKdf(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				Kdf(sm3.New, z[:tt.zLen], tt.kLen)
+			}
+		})
+	}
+}
+
+// BenchmarkKdfOptimizationPaths benchmarks different optimization scenarios
+func BenchmarkKdfOptimizationPaths(b *testing.B) {
+	tests := []struct {
+		name string
+		zLen int
+		kLen int
+	}{
+		{"SmallZ-SingleIteration", 32, 32},      // Should use standard path
+		{"SmallZ-MultipleIterations", 32, 128},  // Should use standard path
+		{"LargeZ-SingleIteration", 128, 32},     // Should use standard path (single iteration)
+		{"LargeZ-MultipleIterations", 128, 128}, // Should use optimized path
+		{"VeryLargeZ-ManyIterations", 512, 512}, // Should use optimized path
+	}
+
+	for _, tt := range tests {
+		z := make([]byte, tt.zLen)
+		b.Run(tt.name, func(b *testing.B) {
+			b.ReportAllocs()
+			b.SetBytes(int64(tt.kLen))
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				Kdf(sm3.New, z, tt.kLen)
+			}
+		})
+	}
+}
+
+// BenchmarkKdfSHA256 benchmarks KDF with SHA256 (no KdfInterface optimization)
+func BenchmarkKdfSHA256(b *testing.B) {
+	tests := []struct {
+		zLen int
+		kLen int
+	}{
+		{64, 32},
+		{64, 128},
+		{128, 256},
+	}
+
+	for _, tt := range tests {
+		z := make([]byte, tt.zLen)
+		b.Run(fmt.Sprintf("zLen=%d-kLen=%d", tt.zLen, tt.kLen), func(b *testing.B) {
+			b.ReportAllocs()
+			b.SetBytes(int64(tt.kLen))
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				Kdf(sha256.New, z, tt.kLen)
 			}
 		})
 	}

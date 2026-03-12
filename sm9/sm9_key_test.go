@@ -312,9 +312,6 @@ func TestParseSM9EncryptMasterPublicKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatal(err)
-	}
 	block := &pem.Block{Bytes: data, Type: "SM9 ENC MASTER PUBLIC KEY"}
 	pemContent := string(pem.EncodeToMemory(block))
 

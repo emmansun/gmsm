@@ -116,7 +116,7 @@ func (hd *HashDrbg) Reseed(entropy, additional []byte) error {
 	copy(hd.v, seed)
 	temp := make([]byte, hd.seedLength+1)
 
-	// C = Hash_df(0x01 || V, seed_length)
+	// C = Hash_df(0x00 || V, seed_length)
 	temp[0] = 0
 	copy(temp[1:], seed)
 	seed = hd.derive(temp, hd.seedLength)
@@ -162,6 +162,9 @@ func (hd *HashDrbg) MaxBytesPerRequest() int {
 func (hd *HashDrbg) Generate(b, additional []byte) error {
 	if hd.NeedReseed() {
 		return ErrReseedRequired
+	}
+	if len(additional) >= maxBytes {
+		return errors.New("drbg: additional input too long")
 	}
 	if (hd.gm && len(b) > hd.hashSize) || (!hd.gm && len(b) > maxBytesPerGenerate) {
 		return errors.New("drbg: too many bytes requested")

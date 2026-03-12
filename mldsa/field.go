@@ -2,8 +2,6 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build go1.24
-
 package mldsa
 
 import (
@@ -12,14 +10,6 @@ import (
 
 // fieldElement is an integer modulo q, an element of ℤ_q. It is always reduced.
 type fieldElement uint32
-
-// fieldCheckReduced checks that a value a is < q.
-//func fieldCheckReduced(a uint32) (fieldElement, error) {
-//	if a >= q {
-//		return 0, errors.New("unreduced field element")
-//	}
-//	return fieldElement(a), nil
-//}
 
 // fieldReduceOnce reduces a value a < 2q.
 // Also refer "A note on the implementation of the Number Theoretic Transform": https://eprint.iacr.org/2017/727.pdf .
@@ -41,9 +31,8 @@ func fieldSub(a, b fieldElement) fieldElement {
 }
 
 const (
-	qInv    = 58728449   // q^-1 satisfies: q^-1 * q = 1 mod 2^32
-	qNegInv = 4236238847 // inverse of -q modulo 2^32
-	r       = 4193792    // 2^32 mod q
+	r       = 4193792    // 2³² mod q
+	qNegInv = 4236238847 // -q⁻¹ mod r (q * qNegInv ≡ -1 mod r)
 )
 
 func fieldReduce(a uint64) fieldElement {
@@ -87,12 +76,12 @@ func polySub[T ~[n]fieldElement](a, b T) (s T) {
 type nttElement [n]fieldElement
 
 // The table in FIPS 204 Appendix B uses the following formula
-// zeta[k]= 1753^bitrev(k) mod q for (k = 1..255) (The first value is not used).
+// zeta[k]= 1753^BitRev₈(k) mod q for (k = 1..255) (The first value is not used).
 //
-// As this implementation uses montgomery form with a multiplier of 2^32.
+// As this implementation uses montgomery form with a multiplier of 2³²,
 // The values need to be transformed i.e.
 //
-// zetasMontgomery[k] = fieldReduce(zeta[k] * (2^32 * 2^32 mod(q))) = (zeta[k] * r^2) mod q
+// zetasMontgomery[k] = fieldReduce(zeta[k] * (2³² * 2³² mod(q))) = (zeta[k] * r) mod q
 var zetasMontgomery = [n]fieldElement{
 	4193792, 25847, 5771523, 7861508, 237124, 7602457, 7504169, 466468,
 	1826347, 2353451, 8021166, 6288512, 3119733, 5495562, 3111497, 2680103,
@@ -172,7 +161,7 @@ func inverseNTT(f nttElement) ringElement {
 		}
 	}
 	for i := range f {
-		f[i] = fieldMul(f[i], 41978) // 41978 = ((256⁻¹ mod q) * (2^64 mode q)) mode q
+		f[i] = fieldMul(f[i], 41978) // 41978 = ((256⁻¹ mod q) * (2³² * 2³² mod q)) mod q
 	}
 	return ringElement(f)
 }
@@ -247,17 +236,17 @@ func vectorCountOnes(a []ringElement) int {
 }
 
 func constantTimeEqualRingElement(a, b ringElement) int {
-    eq := 1
-    for i := range a {
-        eq &= subtle.ConstantTimeEq(int32(a[i]), int32(b[i]))
-    }
-    return eq
+	eq := 1
+	for i := range a {
+		eq &= subtle.ConstantTimeEq(int32(a[i]), int32(b[i]))
+	}
+	return eq
 }
 
 func constantTimeEqualRingElementArray(a, b []ringElement) int {
-    eq := 1
-    for i := range a {
-        eq &= constantTimeEqualRingElement(a[i], b[i])
-    }
-    return eq
+	eq := 1
+	for i := range a {
+		eq &= constantTimeEqualRingElement(a[i], b[i])
+	}
+	return eq
 }

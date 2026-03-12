@@ -47,12 +47,14 @@ type rfc1423Algo struct {
 // rfc1423Algos holds a slice of the possible ways to encrypt a PEM
 // block. The ivSize numbers were taken from the OpenSSL source.
 var rfc1423Algos = []rfc1423Algo{{
+	// Warning: DES-CBC is not secure enough and not recommended. It's only provided for backward compatibility.
 	cipher:     PEMCipherDES,
 	name:       "DES-CBC",
 	cipherFunc: des.NewCipher,
 	keySize:    8,
 	blockSize:  des.BlockSize,
 }, {
+	// Warning: DES-EDE3-CBC (3DES) is not secure enough and not recommended. It's only provided for backward compatibility.
 	cipher:     PEMCipher3DES,
 	name:       "DES-EDE3-CBC",
 	cipherFunc: des.NewTripleDESCipher,

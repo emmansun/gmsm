@@ -6,9 +6,6 @@
 // SLH-DSA (based on SPHINCS+), as specified in [NIST FIPS 205].
 //
 // [NIST FIPS 205]: https://doi.org/10.6028/NIST.FIPS.205
-//
-//go:build go1.24
-
 package slhdsa
 
 import (

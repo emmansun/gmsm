@@ -2,8 +2,6 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build go1.24
-
 // Package mldsa implements the quantum-resistant digital signature algorithm
 // ML-DSA (Module-Lattice-Based Digital Signature Standard) as specified in [NIST FIPS 204].
 //
@@ -12,6 +10,7 @@
 // [Golang ML-KEM]: https://github.com/golang/go/blob/master/src/crypto/internal/fips140/mlkem
 //
 // [NIST FIPS 204]: https://doi.org/10.6028/NIST.FIPS.204
+
 package mldsa
 
 import (
@@ -27,7 +26,7 @@ import (
 const (
 	// ML-DSA global constants.
 	n           = 256     // # of coefficients in the polynomials
-	q           = 8380417 // 2^23 - 2^13 + 1
+	q           = 8380417 // 2²³ - 2¹³ + 1
 	qMinus1Div2 = (q - 1) / 2
 	d           = 13 // # of dropped bits from t
 

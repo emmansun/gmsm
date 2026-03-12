@@ -6,9 +6,6 @@
 // ML-KEM (formerly known as Kyber), as specified in [NIST FIPS 203].
 //
 // [NIST FIPS 203]: https://doi.org/10.6028/NIST.FIPS.203
-//
-//go:build go1.24
-
 package mlkem
 
 import (

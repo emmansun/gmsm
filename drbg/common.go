@@ -28,7 +28,7 @@ const (
 	maxBytesPerGenerate = 1 << 11
 )
 
-var ErrReseedRequired = errors.New("drbg: reseed reuqired")
+var ErrReseedRequired = errors.New("drbg: reseed required")
 
 type SecurityLevel byte
 
@@ -140,6 +140,10 @@ func NewGmHashDrbgPrng(entropySource io.Reader, securityStrength int, securityLe
 
 // NewHmacDrbgPrng create pseudo random number generator base on hash mac DRBG
 func NewHmacDrbgPrng(newHash func() hash.Hash, entropySource io.Reader, securityStrength int, gm bool, securityLevel SecurityLevel, personalization []byte) (*DrbgPrng, error) {
+	if gm {
+		return nil, errors.New("drbg: gm mode is not supported for hmac drbg")
+	}
+
 	prng := new(DrbgPrng)
 	if entropySource != nil {
 		prng.entropySource = entropySource

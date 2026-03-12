@@ -6,6 +6,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"testing"
 
 	"github.com/emmansun/gmsm/sm4"
@@ -318,5 +319,27 @@ func TestCtrDrbg_Destroy(t *testing.T) {
 	}
 	if !bytes.Equal(cd.v, make([]byte, len(cd.v))) {
 		t.Errorf("Destroy failed: key not zeroed")
+	}
+}
+
+func TestCtrDRBG_GenerateProviderError(t *testing.T) {
+	failErr := errors.New("provider failure")
+	callCount := 0
+	provider := func(key []byte) (cipher.Block, error) {
+		callCount++
+		if callCount == 5 {
+			return nil, failErr
+		}
+		return aes.NewCipher(key)
+	}
+
+	hd, err := NewCtrDrbg(provider, 16, SECURITY_LEVEL_ONE, false, make([]byte, 16), make([]byte, 8), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = hd.Generate(make([]byte, 16), nil)
+	if !errors.Is(err, failErr) {
+		t.Fatalf("expected provider failure, got %v", err)
 	}
 }

@@ -19,6 +19,10 @@ type HmacDrbg struct {
 
 // NewHmacDrbg create one hmac DRBG instance
 func NewHmacDrbg(newHash func() hash.Hash, securityLevel SecurityLevel, gm bool, entropy, nonce, personalization []byte) (*HmacDrbg, error) {
+	if gm {
+		return nil, errors.New("drbg: gm mode is not supported for hmac drbg")
+	}
+
 	hd := &HmacDrbg{}
 
 	hd.gm = gm
@@ -66,6 +70,12 @@ func (hd *HmacDrbg) Generate(output, additional []byte) error {
 	// Step 1. If reseed_counter > reseed_interval, then return [ErrReseedRequired] that a reseed is required
 	if hd.NeedReseed() {
 		return ErrReseedRequired
+	}
+	if len(additional) >= maxBytes {
+		return errors.New("drbg: additional input too long")
+	}
+	if len(output) > maxBytesPerGenerate {
+		return errors.New("drbg: too many bytes requested")
 	}
 	// Step 2. If additional_input is provided, then do update
 	if len(additional) > 0 {

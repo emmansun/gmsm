@@ -145,7 +145,7 @@ func (pub *SignMasterPublicKey) Verify(uid []byte, hid byte, hash, h, S []byte) 
 		return false
 	}
 	_, err := sPoint.Unmarshal(S[1:])
-	if err != nil || !sPoint.IsOnCurve() {
+	if err != nil || !sPoint.IsOnCurve() || sPoint.IsInfinity() {
 		return false
 	}
 	hNat, err := bigmod.NewNat().SetBytes(h, orderNat)
@@ -230,7 +230,7 @@ func (priv *EncryptPrivateKey) UnwrapKey(uid, cipher []byte, kLen int) (key []by
 		return nil, ErrDecryption
 	}
 	p := new(bn256.G1)
-	if _, err = p.Unmarshal(cipher); err != nil || !p.IsOnCurve() {
+	if _, err = p.Unmarshal(cipher); err != nil || !p.IsOnCurve() || p.IsInfinity() {
 		return nil, ErrDecryption
 	}
 
@@ -367,7 +367,7 @@ func respondKeyExchange(ke *KeyExchange, hid byte, r *bigmod.Nat, rA []byte) ([]
 	}
 	rP := new(bn256.G1)
 	_, err := rP.Unmarshal(rA[1:])
-	if err != nil || !rP.IsOnCurve() {
+	if err != nil || !rP.IsOnCurve() || rP.IsInfinity() {
 		return nil, nil, errors.New("sm9: invalid initiator's ephemeral public key")
 	}
 	ke.peerSecret = rA
@@ -418,7 +418,7 @@ func (ke *KeyExchange) ConfirmResponder(rB, sB []byte) ([]byte, []byte, error) {
 	}
 	pB := new(bn256.G1)
 	_, err := pB.Unmarshal(rB[1:])
-	if err != nil || !pB.IsOnCurve() {
+	if err != nil || !pB.IsOnCurve() || pB.IsInfinity() {
 		return nil, nil, errors.New("sm9: invalid responder's ephemeral public key")
 	}
 	// step 5

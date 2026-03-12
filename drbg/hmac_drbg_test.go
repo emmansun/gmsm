@@ -809,7 +809,7 @@ func TestHmacDRBG(t *testing.T) {
 func TestHmacDrbg_Destroy(t *testing.T) {
 	entropyInput := make([]byte, 64)
 	_, _ = rand.Reader.Read(entropyInput)
-	hd, err := NewHmacDrbg(sm3.New, SECURITY_LEVEL_ONE, true, entropyInput[:32], entropyInput[32:48], nil)
+	hd, err := NewHmacDrbg(sm3.New, SECURITY_LEVEL_ONE, false, entropyInput[:32], entropyInput[32:48], nil)
 	if err != nil {
 		t.Fatalf("NewHmacDrbg failed: %v", err)
 	}
@@ -819,5 +819,24 @@ func TestHmacDrbg_Destroy(t *testing.T) {
 	}
 	if !bytes.Equal(hd.v, make([]byte, len(hd.v))) {
 		t.Errorf("Destroy failed: key not zeroed")
+	}
+}
+
+func TestHmacDRBG_GmRejected(t *testing.T) {
+	_, err := NewHmacDrbg(sm3.New, SECURITY_LEVEL_ONE, true, make([]byte, 32), make([]byte, 16), nil)
+	if err == nil {
+		t.Fatalf("expected error here")
+	}
+}
+
+func TestHmacDRBG_GenerateTooManyBytes(t *testing.T) {
+	hd, err := NewHmacDrbg(sm3.New, SECURITY_LEVEL_ONE, false, make([]byte, 32), make([]byte, 16), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = hd.Generate(make([]byte, maxBytesPerGenerate+1), nil)
+	if err == nil {
+		t.Fatalf("expected error here")
 	}
 }

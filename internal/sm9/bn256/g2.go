@@ -364,3 +364,11 @@ func (e *G2) Equal(other *G2) bool {
 func (e *G2) IsOnCurve() bool {
 	return e.p.IsOnCurve()
 }
+
+// IsInfinity returns true if e is the point at infinity.
+func (e *G2) IsInfinity() bool {
+	if e.p == nil {
+		return true
+	}
+	return e.p.IsInfinity()
+}
