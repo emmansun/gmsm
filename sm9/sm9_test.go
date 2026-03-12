@@ -6,8 +6,30 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/emmansun/gmsm/internal/sm9/bn256"
+	"github.com/emmansun/gmsm/sm3"
 	"github.com/emmansun/gmsm/sm9"
+	"golang.org/x/crypto/cryptobyte"
+	"golang.org/x/crypto/cryptobyte/asn1"
 )
+
+func infinityG1Bytes() []byte {
+	return append([]byte{4}, make([]byte, 64)...)
+}
+
+func mustEncodeSignature(t *testing.T, h []byte, s []byte) []byte {
+	t.Helper()
+	var b cryptobyte.Builder
+	b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+		b.AddASN1OctetString(h)
+		b.AddASN1BitString(s)
+	})
+	sig, err := b.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return sig
+}
 
 func TestSignASN1(t *testing.T) {
 	masterKey, err := sm9.GenerateSignMasterKey(rand.Reader)
@@ -373,6 +395,153 @@ func TestKeyExchangeWithoutSignature(t *testing.T) {
 
 	if hex.EncodeToString(key1) != hex.EncodeToString(key2) {
 		t.Errorf("got different key")
+	}
+}
+
+func TestInfinityPointCiphertextForgeryPublicAPI(t *testing.T) {
+	masterKey, err := sm9.GenerateEncryptMasterKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hid := byte(0x01)
+	uid := []byte("victim@example.com")
+
+	userKey, err := masterKey.GenerateUserKey(uid, hid)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	plaintext := []byte("forged-without-public-encryption")
+
+	c1 := make([]byte, 64)
+	gtIdentity := new(bn256.GT).SetOne()
+
+	var kdfInput []byte
+	kdfInput = append(kdfInput, c1...)
+	kdfInput = append(kdfInput, gtIdentity.Marshal()...)
+	kdfInput = append(kdfInput, uid...)
+
+	key1Len := len(plaintext)
+	forgeKey := sm3.Kdf(kdfInput, key1Len+sm3.Size)
+
+	c2 := make([]byte, key1Len)
+	for i := range c2 {
+		c2[i] = plaintext[i] ^ forgeKey[i]
+	}
+
+	hash := sm3.New()
+	hash.Write(c2)
+	hash.Write(forgeKey[key1Len:])
+	c3 := hash.Sum(nil)
+
+	forgedCiphertext := make([]byte, 0, 64+32+key1Len)
+	forgedCiphertext = append(forgedCiphertext, c1...)
+	forgedCiphertext = append(forgedCiphertext, c3...)
+	forgedCiphertext = append(forgedCiphertext, c2...)
+
+	_, err = sm9.Decrypt(userKey, uid, forgedCiphertext, sm9.DefaultEncrypterOpts)
+	if err == nil {
+		t.Fatal("sm9.Decrypt accepted forged ciphertext with infinity point C1")
+	}
+}
+
+func TestInfinityPointUnwrapKeyRejected(t *testing.T) {
+	masterKey, err := sm9.GenerateEncryptMasterKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	uid := []byte("victim@example.com")
+	hid := byte(0x01)
+
+	userKey, err := masterKey.GenerateUserKey(uid, hid)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	gtIdentity := new(bn256.GT).SetOne()
+	c1 := make([]byte, 64)
+	var kdfInput []byte
+	kdfInput = append(kdfInput, c1...)
+	kdfInput = append(kdfInput, gtIdentity.Marshal()...)
+	kdfInput = append(kdfInput, uid...)
+
+	forgedKey := sm3.Kdf(kdfInput, 32)
+	key, err := sm9.UnwrapKey(userKey, uid, c1, 32)
+	if err == nil {
+		t.Fatalf("sm9.UnwrapKey accepted forged infinity point ciphertext, key=%x expected rejection", key)
+	}
+	if bytes.Equal(key, forgedKey) {
+		t.Fatal("sm9.UnwrapKey returned attacker-computable key material")
+	}
+}
+
+func TestVerifyRejectsInfinityPointSignature(t *testing.T) {
+	masterKey, err := sm9.GenerateSignMasterKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	uid := []byte("emmansun")
+	hid := byte(0x01)
+	hash := []byte("Chinese IBS standard")
+
+	userKey, err := masterKey.GenerateUserKey(uid, hid)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	h, _, err := sm9.Sign(rand.Reader, userKey, hash)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if sm9.Verify(masterKey.PublicKey(), uid, hid, hash, h, infinityG1Bytes()) {
+		t.Fatal("sm9.Verify accepted infinity point signature")
+	}
+
+	forgedSig := mustEncodeSignature(t, h.Bytes(), infinityG1Bytes())
+	if sm9.VerifyASN1(masterKey.PublicKey(), uid, hid, hash, forgedSig) {
+		t.Fatal("sm9.VerifyASN1 accepted infinity point signature")
+	}
+}
+
+func TestKeyExchangeRejectsInfinityPointPeerKeys(t *testing.T) {
+	hid := byte(0x02)
+	userA := []byte("Alice")
+	userB := []byte("Bob")
+	masterKey, err := sm9.GenerateEncryptMasterKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	userKey, err := masterKey.GenerateUserKey(userA, hid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	initiator := userKey.NewKeyExchange(userA, userB, 16, true)
+	defer initiator.Destroy()
+
+	userKey, err = masterKey.GenerateUserKey(userB, hid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	responder := userKey.NewKeyExchange(userB, userA, 16, true)
+	defer responder.Destroy()
+
+	if _, _, err = responder.RespondKeyExchange(rand.Reader, hid, infinityG1Bytes()); err == nil {
+		t.Fatal("RespondKeyExchange accepted infinity point initiator key")
+	}
+
+	rA, err := initiator.InitKeyExchange(rand.Reader, hid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = responder.RespondKeyExchange(rand.Reader, hid, rA)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, _, err = initiator.ConfirmResponder(infinityG1Bytes(), nil); err == nil {
+		t.Fatal("ConfirmResponder accepted infinity point responder key")
 	}
 }
 

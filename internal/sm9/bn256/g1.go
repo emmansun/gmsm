@@ -375,3 +375,11 @@ func (e *G1) Equal(other *G1) bool {
 func (e *G1) IsOnCurve() bool {
 	return e.p.IsOnCurve()
 }
+
+// IsInfinity returns true if e is the point at infinity.
+func (e *G1) IsInfinity() bool {
+	if e.p == nil {
+		return true
+	}
+	return e.p.IsInfinity()
+}

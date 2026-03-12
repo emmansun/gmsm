@@ -137,8 +137,8 @@ func (master *SignMasterPrivateKey) GenerateUserKey(uid []byte, hid byte) (*Sign
 		return nil, errors.New("sm9: need to re-generate signature master private key")
 	}
 
-	t1Nat = bigmod.NewNat().Exp(t1Nat, bn256.OrderMinus2Bytes, orderNat)
-	t1Nat.Mul(d, orderNat)
+	t1Nat = bigmod.NewNat().Exp(t1Nat, bn256.OrderMinus2Bytes, orderNat) // t2 = 1/(t1+d)
+	t1Nat.Mul(d, orderNat)                                               // t2 = d/(t1+d)
 
 	priv := new(SignPrivateKey)
 	priv.SignMasterPublicKey = master.SignMasterPublicKey
