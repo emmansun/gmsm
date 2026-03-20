@@ -10,7 +10,6 @@
 // [Golang ML-KEM]: https://github.com/golang/go/blob/master/src/crypto/internal/fips140/mlkem
 //
 // [NIST FIPS 204]: https://doi.org/10.6028/NIST.FIPS.204
-
 package mldsa
 
 import (
@@ -157,8 +156,10 @@ func (sk *PrivateKey44) ensureT1() {
 		var nttT [k44]nttElement
 
 		for i := range nttT {
+			var product nttElement
 			for j := range s1NTT {
-				nttT[i] = polyAdd(nttT[i], nttMul(s1NTT[j], A[i*l44+j]))
+				nttMul(&product, &s1NTT[j], &A[i*l44+j])
+				nttT[i] = polyAdd(nttT[i], product)
 			}
 		}
 		var t [k44]ringElement
@@ -354,8 +355,10 @@ func dsaKeyGen44(sk *Key44, xi *[32]byte) {
 		s1NTT[i] = ntt(s1[i])
 	}
 	for i := range nttT {
+		var product nttElement
 		for j := range s1NTT {
-			nttT[i] = polyAdd(nttT[i], nttMul(s1NTT[j], A[i*l44+j]))
+			nttMul(&product, &s1NTT[j], &A[i*l44+j])
+			nttT[i] = polyAdd(nttT[i], product)
 		}
 	}
 	var t [k44]ringElement
@@ -544,8 +547,10 @@ func (sk *PrivateKey44) signInternal(seed, mu []byte) ([]byte, error) {
 			wNTT  [k44]nttElement
 		)
 		for i := range k44 {
+			var product nttElement
 			for j := range l44 {
-				wNTT[i] = polyAdd(wNTT[i], nttMul(yNTT[j], A[i*l44+j]))
+				nttMul(&product, &yNTT[j], &A[i*l44+j])
+				wNTT[i] = polyAdd(wNTT[i], product)
 			}
 			w[i] = inverseNTT(wNTT[i])
 			// compute high bits
@@ -574,7 +579,9 @@ func (sk *PrivateKey44) signInternal(seed, mu []byte) ([]byte, error) {
 		)
 		// compute z = <<cs1>> + y
 		for i := range l44 {
-			z[i] = polyAdd(inverseNTT(nttMul(cNTT, sk.s1NTTCache[i])), y[i])
+			var product nttElement
+			nttMul(&product, &cNTT, &sk.s1NTTCache[i])
+			z[i] = polyAdd(inverseNTT(product), y[i])
 		}
 
 		var (
@@ -584,12 +591,15 @@ func (sk *PrivateKey44) signInternal(seed, mu []byte) ([]byte, error) {
 		)
 		// compute cs2, r0 = LowBits(w - <<cs2>>), <<ct0>>, and ct0Norm
 		for i := range k44 {
-			cs2[i] = inverseNTT(nttMul(cNTT, sk.s2NTTCache[i]))
+			var product nttElement
+			nttMul(&product, &cNTT, &sk.s2NTTCache[i])
+			cs2[i] = inverseNTT(product)
 			for j := range cs2[i] {
 				_, r0[i][j] = decompose(fieldSub(w[i][j], cs2[i][j]), gamma2QMinus1Div88)
 			}
 			// compute <<ct0>> and its norm
-			ct0[i] = inverseNTT(nttMul(cNTT, sk.t0NTTCache[i]))
+			nttMul(&product, &cNTT, &sk.t0NTTCache[i])
+			ct0[i] = inverseNTT(product)
 			ct0Norm = polyInfinityNorm(ct0[i], ct0Norm)
 		}
 		zNorm := vectorInfinityNorm(z[:], 0)
@@ -692,13 +702,15 @@ func (pk *PublicKey44) verifyInternal(sig, mu []byte) bool {
 	// tNTT = tNTTCache*cNTT
 	var tNTT [k44]nttElement
 	for i := range k44 {
-		tNTT[i] = nttMul(pk.tNTTCache[i], cNTT)
+		nttMul(&tNTT[i], &pk.tNTTCache[i], &cNTT)
 	}
 
 	var zNTTMulA [k44]nttElement
 	for i := range k44 {
+		var product nttElement
 		for j := range l44 {
-			zNTTMulA[i] = polyAdd(zNTTMulA[i], nttMul(zNTT[j], pk.a[i*l44+j]))
+			nttMul(&product, &zNTT[j], &pk.a[i*l44+j])
+			zNTTMulA[i] = polyAdd(zNTTMulA[i], product)
 		}
 		zNTTMulA[i] = polySub(zNTTMulA[i], tNTT[i])
 	}

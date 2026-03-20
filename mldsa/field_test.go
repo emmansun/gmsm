@@ -172,7 +172,11 @@ func TestInverseNTTWithMultiply(t *testing.T) {
 	r2 := randomRingElement()
 
 	// Montgomery Method
-	ret1 := inverseNTT(nttMul(ntt(r1), ntt(r2)))
+	r1NTT := ntt(r1)
+	r2NTT := ntt(r2)
+	var product nttElement
+	nttMul(&product, &r1NTT, &r2NTT)
+	ret1 := inverseNTT(product)
 
 	// Barrett Method
 	ret2 := inverseBarrettNTT(nttBarrettMul(barrettNTT(r1), barrettNTT(r2)))

@@ -72,8 +72,10 @@ func (sk *PrivateKey65) ensureT1() {
 		var nttT [k65]nttElement
 
 		for i := range nttT {
+			var product nttElement
 			for j := range s1NTT {
-				nttT[i] = polyAdd(nttT[i], nttMul(s1NTT[j], A[i*l65+j]))
+				nttMul(&product, &s1NTT[j], &A[i*l65+j])
+				nttT[i] = polyAdd(nttT[i], product)
 			}
 		}
 		var t [k65]ringElement
@@ -269,8 +271,10 @@ func dsaKeyGen65(sk *Key65, xi *[32]byte) {
 		s1NTT[i] = ntt(s1[i])
 	}
 	for i := range nttT {
+		var product nttElement
 		for j := range s1NTT {
-			nttT[i] = polyAdd(nttT[i], nttMul(s1NTT[j], A[i*l65+j]))
+			nttMul(&product, &s1NTT[j], &A[i*l65+j])
+			nttT[i] = polyAdd(nttT[i], product)
 		}
 	}
 	var t [k65]ringElement
@@ -459,8 +463,10 @@ func (sk *PrivateKey65) signInternal(seed, mu []byte) ([]byte, error) {
 			wNTT  [k65]nttElement
 		)
 		for i := range k65 {
+			var product nttElement
 			for j := range l65 {
-				wNTT[i] = polyAdd(wNTT[i], nttMul(yNTT[j], A[i*l65+j]))
+				nttMul(&product, &yNTT[j], &A[i*l65+j])
+				wNTT[i] = polyAdd(wNTT[i], product)
 			}
 			w[i] = inverseNTT(wNTT[i])
 			// compute high bits
@@ -489,7 +495,9 @@ func (sk *PrivateKey65) signInternal(seed, mu []byte) ([]byte, error) {
 		)
 		// compute z = <<cs1>> + y
 		for i := range l65 {
-			z[i] = polyAdd(inverseNTT(nttMul(cNTT, sk.s1NTTCache[i])), y[i])
+			var product nttElement
+			nttMul(&product, &cNTT, &sk.s1NTTCache[i])
+			z[i] = polyAdd(inverseNTT(product), y[i])
 		}
 
 		var (
@@ -499,12 +507,15 @@ func (sk *PrivateKey65) signInternal(seed, mu []byte) ([]byte, error) {
 		)
 		// compute cs2, r0 = LowBits(w - <<cs2>>), <<ct0>>, and ct0Norm
 		for i := range k65 {
-			cs2[i] = inverseNTT(nttMul(cNTT, sk.s2NTTCache[i]))
+			var product nttElement
+			nttMul(&product, &cNTT, &sk.s2NTTCache[i])
+			cs2[i] = inverseNTT(product)
 			for j := range cs2[i] {
 				_, r0[i][j] = decompose(fieldSub(w[i][j], cs2[i][j]), gamma2QMinus1Div32)
 			}
 			// compute <<ct0>> and its norm
-			ct0[i] = inverseNTT(nttMul(cNTT, sk.t0NTTCache[i]))
+			nttMul(&product, &cNTT, &sk.t0NTTCache[i])
+			ct0[i] = inverseNTT(product)
 			ct0Norm = polyInfinityNorm(ct0[i], ct0Norm)
 		}
 		zNorm := vectorInfinityNorm(z[:], 0)
@@ -607,13 +618,15 @@ func (pk *PublicKey65) verifyInternal(sig, mu []byte) bool {
 	// tNTT = tNTTCache*cNTT
 	var tNTT [k65]nttElement
 	for i := range k65 {
-		tNTT[i] = nttMul(pk.tNTTCache[i], cNTT)
+		nttMul(&tNTT[i], &pk.tNTTCache[i], &cNTT)
 	}
 
 	var zNTTMulA [k65]nttElement
 	for i := range k65 {
+		var product nttElement
 		for j := range l65 {
-			zNTTMulA[i] = polyAdd(zNTTMulA[i], nttMul(zNTT[j], pk.a[i*l65+j]))
+			nttMul(&product, &zNTT[j], &pk.a[i*l65+j])
+			zNTTMulA[i] = polyAdd(zNTTMulA[i], product)
 		}
 		zNTTMulA[i] = polySub(zNTTMulA[i], tNTT[i])
 	}

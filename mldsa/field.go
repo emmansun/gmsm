@@ -122,6 +122,11 @@ var zetasMontgomery = [n]fieldElement{
 // It implements NTT, according to FIPS 204, Algorithm 41.
 // Also refer "A note on the implementation of the Number Theoretic Transform": https://eprint.iacr.org/2017/727.pdf .
 func ntt(f ringElement) nttElement {
+	internalNTT(&f)
+	return nttElement(f)
+}
+
+func internalNTTGeneric(f *ringElement) {
 	k := 1
 	// len: 128, 64, 32, ..., 1
 	for len := 128; len >= 1; len /= 2 {
@@ -138,7 +143,6 @@ func ntt(f ringElement) nttElement {
 			}
 		}
 	}
-	return nttElement(f)
 }
 
 // inverseNTT maps a nttElement back to the ringElement it represents.
@@ -166,12 +170,10 @@ func inverseNTT(f nttElement) ringElement {
 	return ringElement(f)
 }
 
-func nttMul(f, g nttElement) nttElement {
-	var ret nttElement
-	for i, v := range f {
-		ret[i] = fieldMul(v, g[i])
+func nttMulGeneric(out, lhs, rhs *nttElement) {
+	for i, v := range lhs {
+		out[i] = fieldMul(v, rhs[i])
 	}
-	return ret
 }
 
 // infinityNorm returns the absolute value modulo q in constant time
