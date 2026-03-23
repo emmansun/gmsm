@@ -6,35 +6,33 @@
 
 #include "textflag.h"
 
-DATA qNegInvYMM<>+0x00(SB)/4, $4236238847
-DATA qNegInvYMM<>+0x04(SB)/4, $4236238847
-DATA qNegInvYMM<>+0x08(SB)/4, $4236238847
-DATA qNegInvYMM<>+0x0c(SB)/4, $4236238847
-DATA qNegInvYMM<>+0x10(SB)/4, $4236238847
-DATA qNegInvYMM<>+0x14(SB)/4, $4236238847
-DATA qNegInvYMM<>+0x18(SB)/4, $4236238847
-DATA qNegInvYMM<>+0x1c(SB)/4, $4236238847
-GLOBL qNegInvYMM<>(SB), RODATA, $32
+// All scalar constants packed into a single 56-byte table; use VPBROADCASTD to load.
+DATA fieldConsts<>+0x00(SB)/4, $4236238847  // qNegInv
+DATA fieldConsts<>+0x04(SB)/4, $8380417     // q
+DATA fieldConsts<>+0x08(SB)/4, $4190208     // qMinus1Div2
+DATA fieldConsts<>+0x0c(SB)/4, $127         // plus127
+DATA fieldConsts<>+0x10(SB)/4, $1025        // decomposeMul1025
+DATA fieldConsts<>+0x14(SB)/4, $15          // decomposeMask15
+DATA fieldConsts<>+0x18(SB)/4, $523776      // decompose2Gamma32
+DATA fieldConsts<>+0x1c(SB)/4, $11275       // decomposeMul11275
+DATA fieldConsts<>+0x20(SB)/4, $43          // decomposeConst43
+DATA fieldConsts<>+0x24(SB)/4, $1           // one
+DATA fieldConsts<>+0x28(SB)/4, $190464      // decompose2Gamma88
+DATA fieldConsts<>+0x2c(SB)/4, $41978       // invDegreeMontgomery
+GLOBL fieldConsts<>(SB), RODATA, $48
 
-DATA qYMM<>+0x00(SB)/4, $8380417
-DATA qYMM<>+0x04(SB)/4, $8380417
-DATA qYMM<>+0x08(SB)/4, $8380417
-DATA qYMM<>+0x0c(SB)/4, $8380417
-DATA qYMM<>+0x10(SB)/4, $8380417
-DATA qYMM<>+0x14(SB)/4, $8380417
-DATA qYMM<>+0x18(SB)/4, $8380417
-DATA qYMM<>+0x1c(SB)/4, $8380417
-GLOBL qYMM<>(SB), RODATA, $32
-
-DATA invDegreeMontgomery<>+0x00(SB)/4, $41978
-DATA invDegreeMontgomery<>+0x04(SB)/4, $41978
-DATA invDegreeMontgomery<>+0x08(SB)/4, $41978
-DATA invDegreeMontgomery<>+0x0c(SB)/4, $41978
-DATA invDegreeMontgomery<>+0x10(SB)/4, $41978
-DATA invDegreeMontgomery<>+0x14(SB)/4, $41978
-DATA invDegreeMontgomery<>+0x18(SB)/4, $41978
-DATA invDegreeMontgomery<>+0x1c(SB)/4, $41978
-GLOBL invDegreeMontgomery<>(SB), RODATA, $32
+#define qNegInvConst fieldConsts<>+0x00(SB)
+#define qConst fieldConsts<>+0x04(SB)
+#define qMinus1Div2Const fieldConsts<>+0x08(SB)
+#define plus127Const fieldConsts<>+0x0c(SB)
+#define decomposeMul1025Const fieldConsts<>+0x10(SB)
+#define decomposeMask15Const fieldConsts<>+0x14(SB)
+#define decompose2Gamma32Const fieldConsts<>+0x18(SB)
+#define decomposeMul11275Const fieldConsts<>+0x1c(SB)
+#define decomposeConst43Const fieldConsts<>+0x20(SB)
+#define oneConst fieldConsts<>+0x24(SB)
+#define decompose2Gamma88Const fieldConsts<>+0x28(SB)
+#define invDegreeMontgomeryConst fieldConsts<>+0x2c(SB)
 
 #define Q Y15
 #define QNegInv Y14
@@ -50,8 +48,8 @@ TEXT ·nttMulAVX2(SB), NOSPLIT, $0-24
 	MOVQ out+16(FP), CX
 	MOVL $32, DX
 
-	VMOVDQU qNegInvYMM<>(SB), QNegInv
-	VMOVDQU qYMM<>(SB), Q
+	VPBROADCASTD qNegInvConst, QNegInv
+	VPBROADCASTD qConst, Q
 
 loop:
 	VMOVDQU (AX), Y0
@@ -97,8 +95,8 @@ TEXT ·nttMulAccAVX2(SB), NOSPLIT, $0-24
 	MOVQ acc+16(FP), CX
 	MOVL $32, DX
 
-	VMOVDQU qNegInvYMM<>(SB), QNegInv
-	VMOVDQU qYMM<>(SB), Q
+	VPBROADCASTD qNegInvConst, QNegInv
+	VPBROADCASTD qConst, Q
 
 loopAcc:
 	VMOVDQU (AX), Y0
@@ -147,7 +145,7 @@ TEXT ·polyAddAssignAVX2(SB), NOSPLIT, $0-16
 	MOVQ src+8(FP), BX
 	MOVL $32, CX
 
-	VMOVDQU qYMM<>(SB), Q
+	VPBROADCASTD qConst, Q
 
 polyAddAssignLoop:
 	VMOVDQU (AX), Y0
@@ -173,7 +171,7 @@ TEXT ·polySubAssignAVX2(SB), NOSPLIT, $0-16
 	MOVQ src+8(FP), BX
 	MOVL $32, CX
 
-	VMOVDQU qYMM<>(SB), Q
+	VPBROADCASTD qConst, Q
 
 polySubAssignLoop:
 	VMOVDQU (AX), Y0
@@ -191,6 +189,266 @@ polySubAssignLoop:
 	ADDQ $32, BX
 	DECQ CX
 	JNZ polySubAssignLoop
+
+	VZEROUPPER
+	RET
+
+TEXT ·decomposeSubToR0Gamma32AVX2(SB), NOSPLIT, $0-24
+	MOVQ w+0(FP), AX
+	MOVQ cs2+8(FP), BX
+	MOVQ out+16(FP), CX
+	MOVL $32, DX
+
+	VPBROADCASTD qConst, Q
+	VPBROADCASTD qMinus1Div2Const, Y8
+	VPBROADCASTD plus127Const, Y9
+	VPBROADCASTD decomposeMul1025Const, Y10
+	VPBROADCASTD oneConst, Y11
+	VPSLLD $21, Y11, Y11
+	VPBROADCASTD decomposeMask15Const, Y12
+	VPBROADCASTD decompose2Gamma32Const, Y13
+
+decompose32Loop:
+	// x = fieldSub(w, cs2)
+	VMOVDQU (AX), Y0
+	VMOVDQU (BX), Y1
+	VPADDD Q, Y0, Y2
+	VPSUBD Y1, Y2, Y2
+	VPCMPGTD Y2, Q, Y3
+	VPANDN Q, Y3, Y3
+	VPSUBD Y3, Y2, Y2
+
+	// r1 = (((x + 127) >> 7) * 1025 + 2^21) >> 22; r1 &= 15
+	VPADDD Y9, Y2, Y4
+	VPSRLD $7, Y4, Y4
+	VPMULLD Y10, Y4, Y5
+	VPADDD Y11, Y5, Y5
+	VPSRAD $22, Y5, Y5
+	VPAND Y12, Y5, Y5
+
+	// r0 = x - r1*(2*gamma2)
+	VPMULLD Y13, Y5, Y6
+	VPSUBD Y6, Y2, Y7
+
+	// r0 -= ((qMinus1Div2 - r0) >> 31) & q
+	VPSUBD Y7, Y8, Y3
+	VPSRAD $31, Y3, Y3
+	VPAND Q, Y3, Y3
+	VPSUBD Y3, Y7, Y7
+
+	VMOVDQU Y7, (CX)
+
+	ADDQ $32, AX
+	ADDQ $32, BX
+	ADDQ $32, CX
+	DECQ DX
+	JNZ decompose32Loop
+
+	VZEROUPPER
+	RET
+
+TEXT ·decomposeSubToR0Gamma88AVX2(SB), NOSPLIT, $0-24
+	MOVQ w+0(FP), AX
+	MOVQ cs2+8(FP), BX
+	MOVQ out+16(FP), CX
+	MOVL $32, DX
+
+	VPBROADCASTD qConst, Q
+	VPBROADCASTD qMinus1Div2Const, Y8
+	VPBROADCASTD plus127Const, Y9
+	VPBROADCASTD decomposeMul11275Const, Y10
+	VPBROADCASTD oneConst, Y11
+	VPSLLD $23, Y11, Y11
+	VPBROADCASTD decomposeConst43Const, Y12
+	VPBROADCASTD decompose2Gamma88Const, Y13
+
+decompose88Loop:
+	// x = fieldSub(w, cs2)
+	VMOVDQU (AX), Y0
+	VMOVDQU (BX), Y1
+	VPADDD Q, Y0, Y2
+	VPSUBD Y1, Y2, Y2
+	VPCMPGTD Y2, Q, Y3
+	VPANDN Q, Y3, Y3
+	VPSUBD Y3, Y2, Y2
+
+	// r1 = (((x + 127) >> 7) * 11275 + 2^23) >> 24
+	VPADDD Y9, Y2, Y4
+	VPSRLD $7, Y4, Y4
+	VPMULLD Y10, Y4, Y5
+	VPADDD Y11, Y5, Y5
+	VPSRAD $24, Y5, Y5
+
+	// r1 ^= ((43 - r1) >> 31) & r1
+	VPSUBD Y5, Y12, Y6
+	VPSRAD $31, Y6, Y6
+	VPAND Y5, Y6, Y6
+	VPXOR Y6, Y5, Y5
+
+	// r0 = x - r1*(2*gamma2)
+	VPMULLD Y13, Y5, Y7
+	VPSUBD Y7, Y2, Y7
+
+	// r0 -= ((qMinus1Div2 - r0) >> 31) & q
+	VPSUBD Y7, Y8, Y3
+	VPSRAD $31, Y3, Y3
+	VPAND Q, Y3, Y3
+	VPSUBD Y3, Y7, Y7
+
+	VMOVDQU Y7, (CX)
+
+	ADDQ $32, AX
+	ADDQ $32, BX
+	ADDQ $32, CX
+	DECQ DX
+	JNZ decompose88Loop
+
+	VZEROUPPER
+	RET
+
+TEXT ·useHintPolyGamma32AVX2(SB), NOSPLIT, $0-24
+	MOVQ h+0(FP), AX
+	MOVQ r+8(FP), BX
+	MOVQ out+16(FP), CX
+	MOVL $32, DX
+
+	VPBROADCASTD qConst, Q
+	VPBROADCASTD plus127Const, Y8
+	VPBROADCASTD decomposeMul1025Const, Y9
+	VPBROADCASTD decomposeMask15Const, Y11
+	VPBROADCASTD decompose2Gamma32Const, Y12
+	VPBROADCASTD qMinus1Div2Const, Y13
+	VPBROADCASTD oneConst, Y14
+	VPSLLD $21, Y14, Y10
+
+	VPXOR Y0, Y0, Y0
+
+useHint32Loop:
+	VMOVDQU (BX), Y1 // r
+	VMOVDQU (AX), Y2 // h
+
+	// r1 = (((r + 127) >> 7) * 1025 + 2^21) >> 22; r1 &= 15
+	VPADDD Y8, Y1, Y3
+	VPSRLD $7, Y3, Y3
+	VPMULLD Y9, Y3, Y4
+	VPADDD Y10, Y4, Y4
+	VPSRAD $22, Y4, Y4
+	VPAND Y11, Y4, Y4 // r1
+
+	// r0 = r - r1*(2*gamma2); r0 -= ((qMinus1Div2-r0)>>31)&q
+	VPMULLD Y12, Y4, Y5
+	VPSUBD Y5, Y1, Y6
+	VPSUBD Y6, Y13, Y7
+	VPSRAD $31, Y7, Y7
+	VPAND Q, Y7, Y7
+	VPSUBD Y7, Y6, Y6 // r0
+
+	// posMask = (r0 > 0)
+	VPCMPGTD Y0, Y6, Y7
+
+	// alt = (r0>0) ? (r1+1)&15 : (r1-1)&15
+	VPADDD Y14, Y4, Y3  // inc
+	VPSUBD Y14, Y4, Y1  // dec
+	VPAND Y11, Y3, Y3
+	VPAND Y11, Y1, Y1
+	VPAND Y7, Y3, Y3
+	VPANDN Y1, Y7, Y1 // (~posMask) & dec
+	VPOR Y1, Y3, Y3 // alt
+
+	// hMask = -h for h in {0,1}
+	VPSUBD Y2, Y0, Y7
+	// out = h ? alt : r1
+	VPAND Y7, Y3, Y3
+	VPANDN Y4, Y7, Y4 // (~hMask) & r1
+	VPOR Y4, Y3, Y3
+
+	VMOVDQU Y3, (CX)
+
+	ADDQ $32, AX
+	ADDQ $32, BX
+	ADDQ $32, CX
+	DECQ DX
+	JNZ useHint32Loop
+
+	VZEROUPPER
+	RET
+
+TEXT ·useHintPolyGamma88AVX2(SB), NOSPLIT, $0-24
+	MOVQ h+0(FP), AX
+	MOVQ r+8(FP), BX
+	MOVQ out+16(FP), CX
+	MOVL $32, DX
+
+	VPBROADCASTD qConst, Q
+	VPBROADCASTD plus127Const, Y8
+	VPBROADCASTD decomposeMul11275Const, Y9
+	VPBROADCASTD decomposeConst43Const, Y11
+	VPBROADCASTD decompose2Gamma88Const, Y12
+	VPBROADCASTD qMinus1Div2Const, Y13
+	VPBROADCASTD oneConst, Y14
+	VPSLLD $23, Y14, Y10
+
+	VPXOR Y0, Y0, Y0
+
+useHint88Loop:
+	VMOVDQU (BX), Y1 // r
+	VMOVDQU (AX), Y2 // h
+
+	// r1 = (((r + 127) >> 7) * 11275 + 2^23) >> 24
+	VPADDD Y8, Y1, Y3
+	VPSRLD $7, Y3, Y3
+	VPMULLD Y9, Y3, Y4
+	VPADDD Y10, Y4, Y4
+	VPSRAD $24, Y4, Y4 // r1
+
+	// Clamp r1 from 44 to 0: r1 ^= ((43 - r1) >> 31) & r1
+	VPSUBD Y4, Y11, Y3  // 43 - r1; negative iff r1 > 43
+	VPSRAD $31, Y3, Y3  // sign mask: 0xffffffff if r1==44, else 0
+	VPAND Y4, Y3, Y3    // mask & r1
+	VPXOR Y3, Y4, Y4    // r1 ^= mask&r1  (sets r1=0 when r1==44)
+
+	// r0 = r - r1*(2*gamma2); r0 -= ((qMinus1Div2-r0)>>31)&q
+	VPMULLD Y12, Y4, Y5
+	VPSUBD Y5, Y1, Y6
+	VPSUBD Y6, Y13, Y7
+	VPSRAD $31, Y7, Y7
+	VPAND Q, Y7, Y7
+	VPSUBD Y7, Y6, Y6 // r0
+
+	// posMask = (r0 > 0)
+	VPCMPGTD Y0, Y6, Y7
+
+	// altPos = (r1==43) ? 0 : (r1+1)
+	VPADDD Y14, Y4, Y1
+	VPCMPEQD Y11, Y4, Y3 // eq43
+	VPANDN Y1, Y3, Y1    // (~eq43) & (r1+1)
+
+	// altNeg = (r1==0) ? 43 : (r1-1)
+	VPSUBD Y14, Y4, Y5
+	VPCMPEQD Y0, Y4, Y6  // eq0
+	VPANDN Y5, Y6, Y5    // (~eq0) & (r1-1)
+	VPAND Y6, Y11, Y3
+	VPOR Y3, Y5, Y5 // altNeg
+
+	// alt = pos ? altPos : altNeg
+	VPAND Y7, Y1, Y1
+	VPANDN Y5, Y7, Y5 // (~posMask) & altNeg
+	VPOR Y5, Y1, Y1 // alt
+
+	// hMask = -h for h in {0,1}
+	VPSUBD Y2, Y0, Y7
+	// out = h ? alt : r1
+	VPAND Y7, Y1, Y1
+	VPANDN Y4, Y7, Y4 // (~hMask) & r1
+	VPOR Y4, Y1, Y1
+
+	VMOVDQU Y1, (CX)
+
+	ADDQ $32, AX
+	ADDQ $32, BX
+	ADDQ $32, CX
+	DECQ DX
+	JNZ useHint88Loop
 
 	VZEROUPPER
 	RET
@@ -677,8 +935,8 @@ TEXT ·internalNTTAVX2(SB), NOSPLIT, $0-8
 	MOVQ f+0(FP), AX
 	MOVQ $·zetasMontgomeryAVX2(SB), BX
 
-	VMOVDQU qNegInvYMM<>(SB), QNegInv
-	VMOVDQU qYMM<>(SB), Q
+	VPBROADCASTD qNegInvConst, QNegInv
+	VPBROADCASTD qConst, Q
 
 	nttLevel0to1(0(AX), 0(BX), 0)
 	nttLevel0to1(0(AX), 0(BX), 1)
@@ -697,15 +955,15 @@ TEXT ·internalInverseNTTAVX2(SB), NOSPLIT, $0-8
 	MOVQ f+0(FP), AX
 	MOVQ $·qMinusZetasMontgomeryAVX2(SB), BX
 
-	VMOVDQU qNegInvYMM<>(SB), QNegInv
-	VMOVDQU qYMM<>(SB), Q
+	VPBROADCASTD qNegInvConst, QNegInv
+	VPBROADCASTD qConst, Q
 
 	inttLevel0to5(0(AX), 0(BX), 0)
 	inttLevel0to5(0(AX), 0(BX), 1)
 	inttLevel0to5(0(AX), 0(BX), 2)
 	inttLevel0to5(0(AX), 0(BX), 3)
 
-	VMOVDQU invDegreeMontgomery<>(SB), ZETAH
+	VPBROADCASTD invDegreeMontgomeryConst, ZETAH
 	inttLevel6to7(0(AX), 0(BX), 0)
 	inttLevel6to7(0(AX), 0(BX), 1)
 	inttLevel6to7(0(AX), 0(BX), 2)

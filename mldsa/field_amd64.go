@@ -103,6 +103,18 @@ func polyAddAssignAVX2(dst, src *fieldElement)
 func polySubAssignAVX2(dst, src *fieldElement)
 
 //go:noescape
+func decomposeSubToR0Gamma32AVX2(w, cs2 *fieldElement, out *int32)
+
+//go:noescape
+func decomposeSubToR0Gamma88AVX2(w, cs2 *fieldElement, out *int32)
+
+//go:noescape
+func useHintPolyGamma32AVX2(h, r, out *fieldElement)
+
+//go:noescape
+func useHintPolyGamma88AVX2(h, r, out *fieldElement)
+
+//go:noescape
 func internalNTTAVX2(f *ringElement)
 
 // polyAddAssign updates dst as dst += src with platform-dependent dispatch.
@@ -121,6 +133,38 @@ func polySubAssign[T ~[n]fieldElement](dst, src *T) {
 		return
 	}
 	polySubAssignAVX2(&(*dst)[0], &(*src)[0])
+}
+
+func decomposeSubToR0(dst *[n]int32, w, cs2 *ringElement, gamma2 uint32) {
+	if !useAVX2 {
+		decomposeSubToR0Generic(dst, w, cs2, gamma2)
+		return
+	}
+
+	switch gamma2 {
+	case gamma2QMinus1Div32:
+		decomposeSubToR0Gamma32AVX2(&(*w)[0], &(*cs2)[0], &(*dst)[0])
+	case gamma2QMinus1Div88:
+		decomposeSubToR0Gamma88AVX2(&(*w)[0], &(*cs2)[0], &(*dst)[0])
+	default:
+		decomposeSubToR0Generic(dst, w, cs2, gamma2)
+	}
+}
+
+func useHintPoly(dst, h, r *ringElement, gamma2 uint32) {
+	if !useAVX2 {
+		useHintPolyGeneric(dst, h, r, gamma2)
+		return
+	}
+
+	switch gamma2 {
+	case gamma2QMinus1Div32:
+		useHintPolyGamma32AVX2(&(*h)[0], &(*r)[0], &(*dst)[0])
+	case gamma2QMinus1Div88:
+		useHintPolyGamma88AVX2(&(*h)[0], &(*r)[0], &(*dst)[0])
+	default:
+		useHintPolyGeneric(dst, h, r, gamma2)
+	}
 }
 
 //go:noescape

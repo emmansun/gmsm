@@ -24,6 +24,14 @@ func polySubAssign[T ~[n]fieldElement](dst, src *T) {
 	polySubGeneric(dst, src)
 }
 
+func decomposeSubToR0(dst *[n]int32, w, cs2 *ringElement, gamma2 uint32) {
+	decomposeSubToR0Generic(dst, w, cs2, gamma2)
+}
+
+func useHintPoly(dst, h, r *ringElement, gamma2 uint32) {
+	useHintPolyGeneric(dst, h, r, gamma2)
+}
+
 func internalNTT(f *ringElement) {
 	internalNTTGeneric(f)
 }

@@ -56,6 +56,14 @@ func decompose(r fieldElement, gamma2 uint32) (r1 uint32, r0 int32) {
 	return
 }
 
+// decomposeSubToR0Generic computes r0 for decompose(fieldSub(w, cs2), gamma2)
+// for all coefficients in one polynomial.
+func decomposeSubToR0Generic(dst *[n]int32, w, cs2 *ringElement, gamma2 uint32) {
+	for i := range *dst {
+		_, (*dst)[i] = decompose(fieldSub((*w)[i], (*cs2)[i]), gamma2)
+	}
+}
+
 // See FIPS 204, Algorithm 40, UseHint(h, r)
 func useHint(h, r fieldElement, gamma2 uint32) fieldElement {
 	r1, r0 := decompose(r, gamma2)
@@ -79,6 +87,13 @@ func useHint(h, r fieldElement, gamma2 uint32) fieldElement {
 			return 43
 		}
 		return fieldElement(r1 - 1)
+	}
+}
+
+// useHintPolyGeneric applies useHint coefficient-wise for one polynomial.
+func useHintPolyGeneric(dst, h, r *ringElement, gamma2 uint32) {
+	for i := range *dst {
+		(*dst)[i] = useHint((*h)[i], (*r)[i], gamma2)
 	}
 }
 

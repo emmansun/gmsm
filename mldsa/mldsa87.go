@@ -507,9 +507,7 @@ func (sk *PrivateKey87) signInternal(seed, mu []byte) ([]byte, error) {
 			var product nttElement
 			nttMul(&product, &cNTT, &sk.s2NTTCache[i])
 			cs2[i] = inverseNTT(product)
-			for j := range cs2[i] {
-				_, r0[i][j] = decompose(fieldSub(w[i][j], cs2[i][j]), gamma2QMinus1Div32)
-			}
+			decomposeSubToR0(&r0[i], &w[i], &cs2[i], gamma2QMinus1Div32)
 			// compute <<ct0>> and its norm
 			nttMul(&product, &cNTT, &sk.t0NTTCache[i])
 			ct0[i] = inverseNTT(product)
@@ -634,9 +632,7 @@ func (pk *PublicKey87) verifyInternal(sig, mu []byte) bool {
 	)
 	for i := range k87 {
 		wApprox := inverseNTT(zNTTMulA[i])
-		for j := range wApprox {
-			w1[j] = useHint(hints[i][j], wApprox[j], gamma2QMinus1Div32)
-		}
+		useHintPoly(&w1, &hints[i], &wApprox, gamma2QMinus1Div32)
 		simpleBitPack4Bits(w1Encoded[:0], w1)
 		H.Write(w1Encoded[:])
 	}
