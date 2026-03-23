@@ -91,6 +91,110 @@ loop:
 	VZEROUPPER
 	RET
 
+TEXT ·nttMulAccAVX2(SB), NOSPLIT, $0-24
+	MOVQ lhs+0(FP), AX
+	MOVQ rhs+8(FP), BX
+	MOVQ acc+16(FP), CX
+	MOVL $32, DX
+
+	VMOVDQU qNegInvYMM<>(SB), QNegInv
+	VMOVDQU qYMM<>(SB), Q
+
+loopAcc:
+	VMOVDQU (AX), Y0
+	VMOVDQU (BX), Y1
+
+	VPMULUDQ Y1, Y0, Y2 // multiply even indexes of a and b
+	VPSRLQ $32, Y0, Y3
+	VPSRLQ $32, Y1, Y4
+	VPMULUDQ Y4, Y3, Y3 // multiply odd indexes of a and b
+
+	// Montgomery reduction: t1 = a * b * qNegInv mod r
+	VPMULUDQ QNegInv, Y2, Y5
+	VPMULUDQ QNegInv, Y3, Y6
+
+	VPMULUDQ Q, Y5, Y5
+	VPMULUDQ Q, Y6, Y6
+
+	VPADDQ Y2, Y5, Y5
+	VPADDQ Y3, Y6, Y6
+
+	VPSRLQ $32, Y5, Y5
+	VPBLENDD $0xAA, Y6, Y5, Y7
+
+	// acc += reduced(lhs*rhs)
+	VMOVDQU (CX), Y8
+	VPADDD Y7, Y8, Y7
+
+	// Final reduction: if out >= q, subtract q
+	VPCMPGTD Y7, Q, Y2
+	VPANDN Q, Y2, Y2
+	VPSUBD Y2, Y7, Y7
+
+	VMOVDQU Y7, (CX)
+
+	ADDQ $32, AX
+	ADDQ $32, BX
+	ADDQ $32, CX
+	DECQ DX
+	JNZ loopAcc
+
+	VZEROUPPER
+	RET
+
+TEXT ·polyAddAssignAVX2(SB), NOSPLIT, $0-16
+	MOVQ dst+0(FP), AX
+	MOVQ src+8(FP), BX
+	MOVL $32, CX
+
+	VMOVDQU qYMM<>(SB), Q
+
+polyAddAssignLoop:
+	VMOVDQU (AX), Y0
+	VMOVDQU (BX), Y1
+	VPADDD Y1, Y0, Y2
+
+	VPCMPGTD Y2, Q, Y3
+	VPANDN Q, Y3, Y3
+	VPSUBD Y3, Y2, Y2
+
+	VMOVDQU Y2, (AX)
+
+	ADDQ $32, AX
+	ADDQ $32, BX
+	DECQ CX
+	JNZ polyAddAssignLoop
+
+	VZEROUPPER
+	RET
+
+TEXT ·polySubAssignAVX2(SB), NOSPLIT, $0-16
+	MOVQ dst+0(FP), AX
+	MOVQ src+8(FP), BX
+	MOVL $32, CX
+
+	VMOVDQU qYMM<>(SB), Q
+
+polySubAssignLoop:
+	VMOVDQU (AX), Y0
+	VMOVDQU (BX), Y1
+	VPADDD Q, Y0, Y2
+	VPSUBD Y1, Y2, Y2
+
+	VPCMPGTD Y2, Q, Y3
+	VPANDN Q, Y3, Y3
+	VPSUBD Y3, Y2, Y2
+
+	VMOVDQU Y2, (AX)
+
+	ADDQ $32, AX
+	ADDQ $32, BX
+	DECQ CX
+	JNZ polySubAssignLoop
+
+	VZEROUPPER
+	RET
+
 // out0 can't be the same register as in0 or in1
 // in0 = [a0, a1, a2, a3 | a4, a5, a6, a7]
 // in1 = [b0, b1, b2, b3 | b4, b5, b6, b7]

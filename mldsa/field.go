@@ -56,20 +56,18 @@ func fieldMulSub(a, b, c fieldElement) fieldElement {
 // ringElement is a polynomial, an element of R_q, represented as an array.
 type ringElement [n]fieldElement
 
-// polyAdd adds two ringElements or nttElements.
-func polyAdd[T ~[n]fieldElement](a, b T) (s T) {
-	for i := range s {
-		s[i] = fieldAdd(a[i], b[i])
+// polyAddGeneric updates dst as dst += src (generic implementation).
+func polyAddGeneric[T ~[n]fieldElement](dst, src *T) {
+	for i := range *dst {
+		(*dst)[i] = fieldAdd((*dst)[i], (*src)[i])
 	}
-	return s
 }
 
-// polySub subtracts two ringElements or nttElements.
-func polySub[T ~[n]fieldElement](a, b T) (s T) {
-	for i := range s {
-		s[i] = fieldSub(a[i], b[i])
+// polySubGeneric updates dst as dst -= src (generic implementation).
+func polySubGeneric[T ~[n]fieldElement](dst, src *T) {
+	for i := range *dst {
+		(*dst)[i] = fieldSub((*dst)[i], (*src)[i])
 	}
-	return s
 }
 
 // nttElement is an NTT representation, an element of T_q, represented as an array.
@@ -177,6 +175,12 @@ func internalInverseNTTGeneric(f *nttElement) {
 func nttMulGeneric(out, lhs, rhs *nttElement) {
 	for i, v := range lhs {
 		out[i] = fieldMul(v, rhs[i])
+	}
+}
+
+func nttMulAccGeneric(acc, lhs, rhs *nttElement) {
+	for i, v := range lhs {
+		acc[i] = fieldAdd(acc[i], fieldMul(v, rhs[i]))
 	}
 }
 

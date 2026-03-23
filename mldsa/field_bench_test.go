@@ -11,6 +11,8 @@ import "testing"
 var benchmarkNTTMulSink nttElement
 var benchmarkNTTSink ringElement
 var benchmarkInverseNTTSink nttElement
+var benchmarkPolyRingSink ringElement
+var benchmarkPolyNTTSink nttElement
 
 func BenchmarkNTT(b *testing.B) {
 	r := randomRingElement()
@@ -104,5 +106,77 @@ func BenchmarkInverseNTT(b *testing.B) {
 			internalInverseNTTAVX2(&got)
 			benchmarkInverseNTTSink = got
 		}
+	})
+}
+
+func BenchmarkPolyAdd(b *testing.B) {
+	left := randomRingElement()
+	right := randomRingElement()
+	var out ringElement
+
+	b.ReportAllocs()
+
+	b.Run("generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			out = left
+			polyAddGeneric(&out, &right)
+		}
+		benchmarkPolyRingSink = out
+	})
+
+	b.Run("dispatch", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			out = left
+			polyAddAssign(&out, &right)
+		}
+		benchmarkPolyRingSink = out
+	})
+
+	b.Run("avx2", func(b *testing.B) {
+		if !useAVX2 {
+			b.Skip("AVX2 is not available")
+		}
+
+		for i := 0; i < b.N; i++ {
+			out = left
+			polyAddAssignAVX2(&out[0], &right[0])
+		}
+		benchmarkPolyRingSink = out
+	})
+}
+
+func BenchmarkPolySub(b *testing.B) {
+	left := ntt(randomRingElement())
+	right := ntt(randomRingElement())
+	var out nttElement
+
+	b.ReportAllocs()
+
+	b.Run("generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			out = left
+			polySubGeneric(&out, &right)
+		}
+		benchmarkPolyNTTSink = out
+	})
+
+	b.Run("dispatch", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			out = left
+			polySubAssign(&out, &right)
+		}
+		benchmarkPolyNTTSink = out
+	})
+
+	b.Run("avx2", func(b *testing.B) {
+		if !useAVX2 {
+			b.Skip("AVX2 is not available")
+		}
+
+		for i := 0; i < b.N; i++ {
+			out = left
+			polySubAssignAVX2(&out[0], &right[0])
+		}
+		benchmarkPolyNTTSink = out
 	})
 }

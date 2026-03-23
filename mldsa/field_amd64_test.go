@@ -93,3 +93,75 @@ func TestNTTMul(t *testing.T) {
 		}
 	}
 }
+
+func TestPolyAddAssignAVX2(t *testing.T) {
+	if !useAVX2 {
+		t.Skip("AVX2 is not available")
+	}
+
+	for i := 0; i < 16; i++ {
+		left := randomRingElement()
+		right := randomRingElement()
+
+		got := left
+		polyAddAssignAVX2(&got[0], &right[0])
+
+		want := left
+		polyAddGeneric(&want, &right)
+		if got != want {
+			t.Fatalf("polyAddAssignAVX2 mismatch on iteration %d", i)
+		}
+	}
+}
+
+func TestPolySubAssignAVX2(t *testing.T) {
+	if !useAVX2 {
+		t.Skip("AVX2 is not available")
+	}
+
+	for i := 0; i < 16; i++ {
+		left := ntt(randomRingElement())
+		right := ntt(randomRingElement())
+
+		got := left
+		polySubAssignAVX2(&got[0], &right[0])
+
+		want := left
+		polySubGeneric(&want, &right)
+		if got != want {
+			t.Fatalf("polySubAssignAVX2 mismatch on iteration %d", i)
+		}
+	}
+}
+
+func TestPolyAddAssign(t *testing.T) {
+	for i := 0; i < 16; i++ {
+		left := randomRingElement()
+		right := randomRingElement()
+
+		got := left
+		polyAddAssign(&got, &right)
+
+		want := left
+		polyAddGeneric(&want, &right)
+		if got != want {
+			t.Fatalf("polyAddAssign mismatch on iteration %d", i)
+		}
+	}
+}
+
+func TestPolySubAssign(t *testing.T) {
+	for i := 0; i < 16; i++ {
+		left := ntt(randomRingElement())
+		right := ntt(randomRingElement())
+
+		got := left
+		polySubAssign(&got, &right)
+
+		want := left
+		polySubGeneric(&want, &right)
+		if got != want {
+			t.Fatalf("polySubAssign mismatch on iteration %d", i)
+		}
+	}
+}

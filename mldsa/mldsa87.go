@@ -72,16 +72,15 @@ func (sk *PrivateKey87) ensureT1() {
 		var nttT [k87]nttElement
 
 		for i := range nttT {
-			var product nttElement
 			for j := range s1NTT {
-				nttMul(&product, &s1NTT[j], &A[i*l87+j])
-				nttT[i] = polyAdd(nttT[i], product)
+				nttMulAcc(&nttT[i], &s1NTT[j], &A[i*l87+j])
 			}
 		}
 		var t [k87]ringElement
 		t1 := &sk.t1
 		for i := range nttT {
-			t[i] = polyAdd(inverseNTT(nttT[i]), s2[i])
+			t[i] = inverseNTT(nttT[i])
+			polyAddAssign(&t[i], &s2[i])
 			// compress t
 			for j := range n {
 				t1[i][j], _ = power2Round(t[i][j])
@@ -271,17 +270,16 @@ func dsaKeyGen87(sk *Key87, xi *[32]byte) {
 		s1NTT[i] = ntt(s1[i])
 	}
 	for i := range nttT {
-		var product nttElement
 		for j := range s1NTT {
-			nttMul(&product, &s1NTT[j], &A[i*l87+j])
-			nttT[i] = polyAdd(nttT[i], product)
+			nttMulAcc(&nttT[i], &s1NTT[j], &A[i*l87+j])
 		}
 	}
 	var t [k87]ringElement
 	t0 := &sk.t0
 	t1 := &sk.t1
 	for i := range nttT {
-		t[i] = polyAdd(inverseNTT(nttT[i]), s2[i])
+		t[i] = inverseNTT(nttT[i])
+		polyAddAssign(&t[i], &s2[i])
 		// compress t
 		for j := range n {
 			t1[i][j], t0[i][j] = power2Round(t[i][j])
@@ -463,10 +461,8 @@ func (sk *PrivateKey87) signInternal(seed, mu []byte) ([]byte, error) {
 			wNTT  [k87]nttElement
 		)
 		for i := range k87 {
-			var product nttElement
 			for j := range l87 {
-				nttMul(&product, &yNTT[j], &A[i*l87+j])
-				wNTT[i] = polyAdd(wNTT[i], product)
+				nttMulAcc(&wNTT[i], &yNTT[j], &A[i*l87+j])
 			}
 			w[i] = inverseNTT(wNTT[i])
 			// compute high bits
@@ -497,7 +493,8 @@ func (sk *PrivateKey87) signInternal(seed, mu []byte) ([]byte, error) {
 		for i := range l87 {
 			var product nttElement
 			nttMul(&product, &cNTT, &sk.s1NTTCache[i])
-			z[i] = polyAdd(inverseNTT(product), y[i])
+			z[i] = inverseNTT(product)
+			polyAddAssign(&z[i], &y[i])
 		}
 
 		var (
@@ -623,12 +620,10 @@ func (pk *PublicKey87) verifyInternal(sig, mu []byte) bool {
 
 	var zNTTMulA [k87]nttElement
 	for i := range k87 {
-		var product nttElement
 		for j := range l87 {
-			nttMul(&product, &zNTT[j], &pk.a[i*l87+j])
-			zNTTMulA[i] = polyAdd(zNTTMulA[i], product)
+			nttMulAcc(&zNTTMulA[i], &zNTT[j], &pk.a[i*l87+j])
 		}
-		zNTTMulA[i] = polySub(zNTTMulA[i], tNTT[i])
+		polySubAssign(&zNTTMulA[i], &tNTT[i])
 	}
 
 	H := sha3.NewSHAKE256()
