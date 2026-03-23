@@ -1,3 +1,7 @@
+// Copyright 2026 Sun Yimin. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
 //go:build amd64 && !purego
 
 package mldsa
@@ -6,6 +10,7 @@ import "testing"
 
 var benchmarkNTTMulSink nttElement
 var benchmarkNTTSink ringElement
+var benchmarkInverseNTTSink nttElement
 
 func BenchmarkNTT(b *testing.B) {
 	r := randomRingElement()
@@ -63,5 +68,41 @@ func BenchmarkNTTMul(b *testing.B) {
 			nttMulAVX2(&left, &right, &out)
 		}
 		benchmarkNTTMulSink = out
+	})
+}
+
+func BenchmarkInverseNTT(b *testing.B) {
+	r := randomRingElement()
+	input := nttElement(r)
+	internalNTTGeneric((*ringElement)(&input))
+
+	b.ReportAllocs()
+
+	b.Run("generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			got := input
+			internalInverseNTTGeneric(&got)
+			benchmarkInverseNTTSink = got
+		}
+	})
+
+	b.Run("dispatch", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			got := input
+			internalInverseNTT(&got)
+			benchmarkInverseNTTSink = got
+		}
+	})
+
+	b.Run("avx2", func(b *testing.B) {
+		if !useAVX2 {
+			b.Skip("AVX2 is not available")
+		}
+
+		for i := 0; i < b.N; i++ {
+			got := input
+			internalInverseNTTAVX2(&got)
+			benchmarkInverseNTTSink = got
+		}
 	})
 }

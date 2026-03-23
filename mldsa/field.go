@@ -150,6 +150,11 @@ func internalNTTGeneric(f *ringElement) {
 // It implements NTT⁻¹, according to FIPS 204, Algorithm 42.
 // Also refer "A note on the implementation of the Number Theoretic Transform": https://eprint.iacr.org/2017/727.pdf .
 func inverseNTT(f nttElement) ringElement {
+	internalInverseNTT(&f)
+	return ringElement(f)
+}
+
+func internalInverseNTTGeneric(f *nttElement) {
 	k := 255
 	for len := 1; len < n; len *= 2 {
 		for start := 0; start < n; start += 2 * len {
@@ -167,7 +172,6 @@ func inverseNTT(f nttElement) ringElement {
 	for i := range f {
 		f[i] = fieldMul(f[i], 41978) // 41978 = ((256⁻¹ mod q) * (2³² * 2³² mod q)) mod q
 	}
-	return ringElement(f)
 }
 
 func nttMulGeneric(out, lhs, rhs *nttElement) {
