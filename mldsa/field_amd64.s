@@ -193,6 +193,65 @@ polySubAssignLoop:
 	VZEROUPPER
 	RET
 
+TEXT ·polyInfinityNormAVX2(SB), NOSPLIT, $0-12
+	MOVQ a+0(FP), AX
+	MOVL $32, CX
+
+	VPXOR Y7, Y7, Y7
+	VPBROADCASTD qConst, Y8
+	VPBROADCASTD qMinus1Div2Const, Y9
+
+polyInfinityNormLoop:
+	VMOVDQU (AX), Y0
+	VPSUBD Y0, Y8, Y1  // Q - a[i]
+	VPSUBD Y0, Y9, Y2  // (q-1)/2 - a[i]
+	VPSRAD $31, Y2, Y2 // sign mask: 0xffffffff if a[i] > (q-1)/2, else 0
+	VPXOR Y1, Y0, Y3
+	VPAND Y2, Y3, Y3
+	VPXOR Y3, Y0, Y3
+	VPMAXSD Y3, Y7, Y7
+
+	ADDQ $32, AX
+	DECQ CX
+	JNZ polyInfinityNormLoop
+
+	VEXTRACTI128 $1, Y7, X0
+	VPMAXSD X0, X7, X7
+	VPSHUFD $0x4E, X7, X0
+	VPMAXSD X0, X7, X7
+	VPSHUFD $0xB1, X7, X0
+	VPMAXSD X0, X7, X7
+	VMOVD X7, ret+8(FP)
+
+	VZEROUPPER
+	RET
+
+TEXT ·polyInfinityNormSignedAVX2(SB), NOSPLIT, $0-12
+	MOVQ a+0(FP), AX
+	MOVL $32, CX
+
+	VPXOR Y7, Y7, Y7
+
+polyInfinityNormSignedLoop:
+	VMOVDQU (AX), Y0
+	VPABSD Y0, Y1
+	VPMAXSD Y1, Y7, Y7
+
+	ADDQ $32, AX
+	DECQ CX
+	JNZ polyInfinityNormSignedLoop
+
+	VEXTRACTI128 $1, Y7, X0
+	VPMAXSD X0, X7, X7
+	VPSHUFD $0x4E, X7, X0
+	VPMAXSD X0, X7, X7
+	VPSHUFD $0xB1, X7, X0
+	VPMAXSD X0, X7, X7
+	VMOVD X7, ret+8(FP)
+
+	VZEROUPPER
+	RET
+
 TEXT ·decomposeSubToR0Gamma32AVX2(SB), NOSPLIT, $0-24
 	MOVQ w+0(FP), AX
 	MOVQ cs2+8(FP), BX

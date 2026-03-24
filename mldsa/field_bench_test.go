@@ -15,6 +15,7 @@ var benchmarkPolyRingSink ringElement
 var benchmarkPolyNTTSink nttElement
 var benchmarkR0Sink [n]int32
 var benchmarkHintSink ringElement
+var benchmarkNormSink uint32
 
 func BenchmarkNTT(b *testing.B) {
 	r := randomRingElement()
@@ -180,6 +181,60 @@ func BenchmarkPolySub(b *testing.B) {
 			polySubAssignAVX2(&out[0], &right[0])
 		}
 		benchmarkPolyNTTSink = out
+	})
+}
+
+func BenchmarkPolyInfinityNorm(b *testing.B) {
+	r := randomRingElement()
+
+	b.ReportAllocs()
+
+	b.Run("generic", func(b *testing.B) {
+		var out int
+		for i := 0; i < b.N; i++ {
+			out = polyInfinityNormGeneric(&r, 0)
+		}
+		benchmarkNormSink = uint32(out)
+	})
+
+	b.Run("avx2", func(b *testing.B) {
+		if !useAVX2 {
+			b.Skip("AVX2 is not available")
+		}
+		var out uint32
+		for i := 0; i < b.N; i++ {
+			out = polyInfinityNormAVX2(&r[0])
+		}
+		benchmarkNormSink = out
+	})
+}
+
+func BenchmarkPolyInfinityNormSigned(b *testing.B) {
+	var a [n]int32
+	r := randomRingElement()
+	for i := range a {
+		a[i] = int32(r[i]) - int32(qMinus1Div2)
+	}
+
+	b.ReportAllocs()
+
+	b.Run("generic", func(b *testing.B) {
+		var out int
+		for i := 0; i < b.N; i++ {
+			out = polyInfinityNormSignedGeneric(&a, 0)
+		}
+		benchmarkNormSink = uint32(out)
+	})
+
+	b.Run("avx2", func(b *testing.B) {
+		if !useAVX2 {
+			b.Skip("AVX2 is not available")
+		}
+		var out uint32
+		for i := 0; i < b.N; i++ {
+			out = polyInfinityNormSignedAVX2(&a[0])
+		}
+		benchmarkNormSink = out
 	})
 }
 

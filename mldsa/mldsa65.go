@@ -455,32 +455,24 @@ func (sk *PrivateKey65) signInternal(seed, mu []byte) ([]byte, error) {
 			y[i] = expandMask(rho2[:], gamma1TwoPower19)
 			yNTT[i] = ntt(y[i])
 		}
-		// compute w and w1
+		// compute w and absorb packed HighBits(w) into the commitment hash input
 		var (
-			w, w1 [k65]ringElement
-			wNTT  [k65]nttElement
+			cTilde    [lambda192 / 4]byte
+			w         [k65]ringElement
+			w1Encoded [encodingSize4]byte
+			wNTT      [k65]nttElement
 		)
+		H.Reset()
+		H.Write(mu[:])
 		for i := range k65 {
 			for j := range l65 {
 				nttMulAcc(&wNTT[i], &yNTT[j], &A[i*l65+j])
 			}
 			w[i] = inverseNTT(wNTT[i])
-			// compute high bits
-			for j := range w[i] {
-				w1[i][j] = fieldElement(compressHighBits(w[i][j], gamma2QMinus1Div32))
-			}
-		}
-		// commitment hash
-		var (
-			cTilde    [lambda192 / 4]byte
-			w1Encoded [encodingSize4]byte
-		)
-		H.Reset()
-		H.Write(mu[:])
-		for i := range k65 {
-			simpleBitPack4Bits(w1Encoded[:0], w1[i])
+			simpleBitPack4BitsHighBits(w1Encoded[:], &w[i], gamma2QMinus1Div32)
 			H.Write(w1Encoded[:])
 		}
+		// commitment hash
 		H.Read(cTilde[:])
 		// verifier's challenge
 		cNTT := ntt(sampleInBall(cTilde[:], tau49))
@@ -511,7 +503,7 @@ func (sk *PrivateKey65) signInternal(seed, mu []byte) ([]byte, error) {
 			// compute <<ct0>> and its norm
 			nttMul(&product, &cNTT, &sk.t0NTTCache[i])
 			ct0[i] = inverseNTT(product)
-			ct0Norm = polyInfinityNorm(ct0[i], ct0Norm)
+			ct0Norm = polyInfinityNorm(&ct0[i], ct0Norm)
 		}
 		zNorm := vectorInfinityNorm(z[:], 0)
 		r0Norm := vectorInfinityNormSigned(r0[:], 0)
@@ -594,7 +586,7 @@ func (pk *PublicKey65) verifyInternal(sig, mu []byte) bool {
 	for i := range l65 {
 		bitUnpackSignedTwoPower19(sig, &z[i])
 		zNTT[i] = ntt(z[i])
-		zNorm = polyInfinityNorm(z[i], zNorm)
+		zNorm = polyInfinityNorm(&z[i], zNorm)
 		sig = sig[encodingSize20:]
 	}
 	// Early check: if zNorm >= gamma1 - beta, reject
@@ -633,7 +625,7 @@ func (pk *PublicKey65) verifyInternal(sig, mu []byte) bool {
 	for i := range k65 {
 		wApprox := inverseNTT(zNTTMulA[i])
 		useHintPoly(&w1, &hints[i], &wApprox, gamma2QMinus1Div32)
-		simpleBitPack4Bits(w1Encoded[:0], w1)
+		simpleBitPack4Bits(w1Encoded[:0], &w1)
 		H.Write(w1Encoded[:])
 	}
 	var cTilde1 [lambda192 / 4]byte

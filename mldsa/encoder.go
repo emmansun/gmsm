@@ -61,7 +61,7 @@ func simpleBitUnpack10Bits(b []byte, f *ringElement) {
 // So every 2 coefficients fit into 1 byte.
 //
 // This is used to encode w1 when signing with ML-DSA-65 and ML-DSA-87
-func simpleBitPack4Bits(s []byte, f ringElement) []byte {
+func simpleBitPack4Bits(s []byte, f *ringElement) []byte {
 	s, b := alias.SliceForAppend(s, encodingSize4)
 	for i := 0; i < n; i += 2 {
 		b[0] = uint8(f[i]) | (uint8(f[i+1]) << 4)
@@ -83,7 +83,7 @@ func simpleBitPack4Bits(s []byte, f ringElement) []byte {
 //	|6 2|4 4|2 6|
 //
 // This is used to encode w1 when signing with ML-DSA-44
-func simpleBitPack6Bits(s []byte, f ringElement) []byte {
+func simpleBitPack6Bits(s []byte, f *ringElement) []byte {
 	s, b := alias.SliceForAppend(s, encodingSize6)
 	for i := 0; i < n; i += 4 {
 		var x uint64
@@ -98,6 +98,31 @@ func simpleBitPack6Bits(s []byte, f ringElement) []byte {
 		b = b[3:]
 	}
 	return s
+}
+
+// simpleBitPack4BitsHighBits packs HighBits(f, gamma2) directly into dst.
+// dst must be exactly encodingSize4 bytes.
+func simpleBitPack4BitsHighBits(dst []byte, f *ringElement, gamma2 uint32) {
+	for i := 0; i < n; i += 2 {
+		dst[0] = uint8(compressHighBits(f[i], gamma2)) | (uint8(compressHighBits(f[i+1], gamma2)) << 4)
+		dst = dst[1:]
+	}
+}
+
+// simpleBitPack6BitsHighBits packs HighBits(f, gamma2) directly into dst.
+// dst must be exactly encodingSize6 bytes.
+func simpleBitPack6BitsHighBits(dst []byte, f *ringElement, gamma2 uint32) {
+	for i := 0; i < n; i += 4 {
+		var x uint64
+		x = uint64(compressHighBits(f[i], gamma2))
+		x |= uint64(compressHighBits(f[i+1], gamma2)) << 6
+		x |= uint64(compressHighBits(f[i+2], gamma2)) << 12
+		x |= uint64(compressHighBits(f[i+3], gamma2)) << 18
+		dst[2] = uint8(x >> 16)
+		dst[0] = uint8(x)
+		dst[1] = uint8(x >> 8)
+		dst = dst[3:]
+	}
 }
 
 // bitPackSigned2 encodes a polynomial f into a byte slice, assuming that all

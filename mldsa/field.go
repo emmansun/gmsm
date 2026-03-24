@@ -184,28 +184,37 @@ func nttMulAccGeneric(acc, lhs, rhs *nttElement) {
 	}
 }
 
+func maxUint32(a, b uint32) uint32 {
+	mask := uint32(int32(a-b) >> 31)
+	return a ^ ((a ^ b) & mask)
+}
+
+func absInt32(a int32) uint32 {
+	mask := a >> 31
+	return uint32((a ^ mask) - mask)
+}
+
 // infinityNorm returns the absolute value modulo q in constant time
 //
 //	i.e return x > (q - 1) / 2 ? q - x : x;
 func infinityNorm(a fieldElement) uint32 {
-	ret := subtle.ConstantTimeLessOrEq(int(a), qMinus1Div2)
-	return uint32(subtle.ConstantTimeSelect(ret, int(a), int(q-a)))
+	x := uint32(a)
+	y := q - x
+	mask := uint32((int32(qMinus1Div2) - int32(x)) >> 31)
+	return x ^ ((x ^ y) & mask)
 }
 
-func polyInfinityNorm[T ~[n]fieldElement](a T, norm int) int {
-	for i := range a {
-		left := int(infinityNorm(a[i]))
-		right := int(norm)
-		norm = subtle.ConstantTimeSelect(subtle.ConstantTimeLessOrEq(left, right), right, left)
+func polyInfinityNormGeneric[T ~[n]fieldElement](a *T, norm int) int {
+	current := uint32(norm)
+	for i := range *a {
+		current = maxUint32(current, infinityNorm((*a)[i]))
 	}
-	return norm
+	return int(current)
 }
 
 func vectorInfinityNorm[T ~[n]fieldElement](a []T, norm int) int {
 	for i := range a {
-		left := polyInfinityNorm(a[i], norm)
-		right := int(norm)
-		norm = subtle.ConstantTimeSelect(subtle.ConstantTimeLessOrEq(left, right), right, left)
+		norm = polyInfinityNorm(&a[i], norm)
 	}
 	return norm
 }
@@ -213,24 +222,17 @@ func vectorInfinityNorm[T ~[n]fieldElement](a []T, norm int) int {
 // infinityNormSigned returns the absolute value in constant time
 //
 // i.e return a < 0 ? -a : a;
-func infinityNormSigned(a int32) int {
-	return subtle.ConstantTimeSelect(subtle.ConstantTimeLessOrEq(int(a), 0), int(-a), int(a))
-}
-
-func polyInfinityNormSigned(a []int32, norm int) int {
-	for i := range a {
-		left := infinityNormSigned(a[i])
-		right := norm
-		norm = subtle.ConstantTimeSelect(subtle.ConstantTimeLessOrEq(left, right), right, left)
+func polyInfinityNormSignedGeneric(a *[n]int32, norm int) int {
+	current := uint32(norm)
+	for i := range *a {
+		current = maxUint32(current, absInt32((*a)[i]))
 	}
-	return norm
+	return int(current)
 }
 
 func vectorInfinityNormSigned(a [][n]int32, norm int) int {
 	for i := range a {
-		left := polyInfinityNormSigned(a[i][:], norm)
-		right := norm
-		norm = subtle.ConstantTimeSelect(subtle.ConstantTimeLessOrEq(left, right), right, left)
+		norm = polyInfinityNormSigned(&a[i], norm)
 	}
 	return norm
 }

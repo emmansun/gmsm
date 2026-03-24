@@ -6,6 +6,14 @@
 
 package mldsa
 
+func polyInfinityNorm[T ~[n]fieldElement](a *T, norm int) int {
+	return polyInfinityNormGeneric(a, norm)
+}
+
+func polyInfinityNormSigned(a *[n]int32, norm int) int {
+	return polyInfinityNormSignedGeneric(a, norm)
+}
+
 func nttMul(out, lhs, rhs *nttElement) {
 	nttMulGeneric(out, lhs, rhs)
 }

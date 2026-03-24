@@ -103,6 +103,12 @@ func polyAddAssignAVX2(dst, src *fieldElement)
 func polySubAssignAVX2(dst, src *fieldElement)
 
 //go:noescape
+func polyInfinityNormAVX2(a *fieldElement) uint32
+
+//go:noescape
+func polyInfinityNormSignedAVX2(a *int32) uint32
+
+//go:noescape
 func decomposeSubToR0Gamma32AVX2(w, cs2 *fieldElement, out *int32)
 
 //go:noescape
@@ -202,4 +208,20 @@ func internalInverseNTT(f *nttElement) {
 		return
 	}
 	internalInverseNTTAVX2(f)
+}
+
+func polyInfinityNorm[T ~[n]fieldElement](a *T, norm int) int {
+	current := uint32(norm)
+	if useAVX2 {
+		return int(maxUint32(current, polyInfinityNormAVX2(&(*a)[0])))
+	}
+	return polyInfinityNormGeneric(a, norm)
+}
+
+func polyInfinityNormSigned(a *[n]int32, norm int) int {
+	current := uint32(norm)
+	if useAVX2 {
+		return int(maxUint32(current, polyInfinityNormSignedAVX2(&(*a)[0])))
+	}
+	return polyInfinityNormSignedGeneric(a, norm)
 }

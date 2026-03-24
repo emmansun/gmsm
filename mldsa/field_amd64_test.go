@@ -166,6 +166,40 @@ func TestPolySubAssign(t *testing.T) {
 	}
 }
 
+func TestPolyInfinityNormAVX2(t *testing.T) {
+	if !useAVX2 {
+		t.Skip("AVX2 is not available")
+	}
+
+	for i := 0; i < 16; i++ {
+		r := randomRingElement()
+		got := int(polyInfinityNormAVX2(&r[0]))
+		want := polyInfinityNormGeneric(&r, 0)
+		if got != want {
+			t.Fatalf("polyInfinityNormAVX2 mismatch on iteration %d: got %d want %d", i, got, want)
+		}
+	}
+}
+
+func TestPolyInfinityNormSignedAVX2(t *testing.T) {
+	if !useAVX2 {
+		t.Skip("AVX2 is not available")
+	}
+
+	for i := 0; i < 16; i++ {
+		var a [n]int32
+		r := randomRingElement()
+		for j := range a {
+			a[j] = int32(r[j]) - int32(qMinus1Div2)
+		}
+		got := int(polyInfinityNormSignedAVX2(&a[0]))
+		want := polyInfinityNormSignedGeneric(&a, 0)
+		if got != want {
+			t.Fatalf("polyInfinityNormSignedAVX2 mismatch on iteration %d: got %d want %d", i, got, want)
+		}
+	}
+}
+
 func TestDecomposeSubToR0Gamma32AVX2(t *testing.T) {
 	if !useAVX2 {
 		t.Skip("AVX2 is not available")

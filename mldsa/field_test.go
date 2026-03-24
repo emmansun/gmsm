@@ -210,7 +210,7 @@ func TestInfinityNorm(t *testing.T) {
 
 func TestPolyInfinityNorm(t *testing.T) {
 	r := randomRingElement()
-	got := polyInfinityNorm(r, 0)
+	got := polyInfinityNorm(&r, 0)
 	var expected int
 
 	for _, v := range r {
@@ -226,37 +226,146 @@ func TestPolyInfinityNorm(t *testing.T) {
 	}
 }
 
-func TestInfinityNormSigned(t *testing.T) {
-	cases := []struct {
-		input    int32
-		expected int
-	}{
-		{0, 0},
-		{1, 1},
-		{-1, 1},
-		{-2, 2},
-	}
-	for _, c := range cases {
-		got := infinityNormSigned(c.input)
-		if got != c.expected {
-			t.Fatalf("infinityNormSigned(%d) = %d, expected %d", c.input, got, c.expected)
+func TestPolyInfinityNormGeneric(t *testing.T) {
+	// Fixed cases: all zeros, single max positive, single max negative, mixed.
+	t.Run("zero", func(t *testing.T) {
+		var a ringElement
+		if got := polyInfinityNormGeneric(&a, 0); got != 0 {
+			t.Fatalf("got %d, want 0", got)
 		}
-	}
+	})
+
+	t.Run("norm_is_1_at_q_minus_1", func(t *testing.T) {
+		// q-1 maps to infinityNorm = 1 (since q-(q-1) = 1)
+		var a ringElement
+		a[0] = q - 1
+		if got := polyInfinityNormGeneric(&a, 0); got != 1 {
+			t.Fatalf("got %d, want 1", got)
+		}
+	})
+
+	t.Run("norm_is_qMinus1Div2_at_boundary", func(t *testing.T) {
+		var a ringElement
+		a[0] = qMinus1Div2
+		if got := polyInfinityNormGeneric(&a, 0); got != qMinus1Div2 {
+			t.Fatalf("got %d, want %d", got, qMinus1Div2)
+		}
+	})
+
+	t.Run("initial_norm_dominates", func(t *testing.T) {
+		var a ringElement // all zero coefficients
+		const initNorm = 12345
+		if got := polyInfinityNormGeneric(&a, initNorm); got != initNorm {
+			t.Fatalf("got %d, want %d", got, initNorm)
+		}
+	})
+
+	// Randomised: result must equal naive reference.
+	t.Run("random_matches_reference", func(t *testing.T) {
+		for range 64 {
+			r := randomRingElement()
+			got := polyInfinityNormGeneric(&r, 0)
+
+			var want int
+			for _, v := range r {
+				norm := int(infinityNorm(v))
+				if norm > want {
+					want = norm
+				}
+			}
+			if got != want {
+				t.Fatalf("polyInfinityNormGeneric mismatch: got %d, want %d", got, want)
+			}
+		}
+	})
+
+	// Generic and dispatch must agree.
+	t.Run("generic_matches_dispatch", func(t *testing.T) {
+		for range 64 {
+			r := randomRingElement()
+			if polyInfinityNormGeneric(&r, 0) != polyInfinityNorm(&r, 0) {
+				t.Fatal("polyInfinityNormGeneric and polyInfinityNorm disagree")
+			}
+		}
+	})
 }
 
-func TestPolyInfinityNormSigned(t *testing.T) {
-	cases := []struct {
-		input    []int32
-		expected int
-	}{
-		{[]int32{0, 0, 0}, 0},
-		{[]int32{1, 2, 3}, 3},
-		{[]int32{0, -1, -2, -3, 2}, 3},
-	}
-	for _, c := range cases {
-		got := polyInfinityNormSigned(c.input, 0)
-		if got != c.expected {
-			t.Fatalf("polyInfinityNormSigned(%v) = %d, expected %d", c.input, got, c.expected)
+func TestPolyInfinityNormSignedGeneric(t *testing.T) {
+	t.Run("zero", func(t *testing.T) {
+		var a [n]int32
+		if got := polyInfinityNormSignedGeneric(&a, 0); got != 0 {
+			t.Fatalf("got %d, want 0", got)
 		}
-	}
+	})
+
+	t.Run("positive_values", func(t *testing.T) {
+		var a [n]int32
+		a[0] = 100
+		a[100] = 200
+		if got := polyInfinityNormSignedGeneric(&a, 0); got != 200 {
+			t.Fatalf("got %d, want 200", got)
+		}
+	})
+
+	t.Run("negative_values", func(t *testing.T) {
+		var a [n]int32
+		a[0] = -300
+		a[1] = 50
+		if got := polyInfinityNormSignedGeneric(&a, 0); got != 300 {
+			t.Fatalf("got %d, want 300", got)
+		}
+	})
+
+	t.Run("min_int32_boundary", func(t *testing.T) {
+		// absInt32(-1) == 1
+		var a [n]int32
+		a[0] = -1
+		if got := polyInfinityNormSignedGeneric(&a, 0); got != 1 {
+			t.Fatalf("got %d, want 1", got)
+		}
+	})
+
+	t.Run("initial_norm_dominates", func(t *testing.T) {
+		var a [n]int32 // all zeros
+		const initNorm = 9999
+		if got := polyInfinityNormSignedGeneric(&a, initNorm); got != initNorm {
+			t.Fatalf("got %d, want %d", got, initNorm)
+		}
+	})
+
+	// Randomised: result must equal naive |max|.
+	t.Run("random_matches_reference", func(t *testing.T) {
+		for range 64 {
+			var a [n]int32
+			r := randomRingElement()
+			for i := range a {
+				a[i] = int32(r[i]) - int32(qMinus1Div2)
+			}
+			got := polyInfinityNormSignedGeneric(&a, 0)
+
+			var want int
+			for _, v := range a {
+				if abs := int(absInt32(v)); abs > want {
+					want = abs
+				}
+			}
+			if got != want {
+				t.Fatalf("polyInfinityNormSignedGeneric mismatch: got %d, want %d", got, want)
+			}
+		}
+	})
+
+	// Generic and dispatch must agree.
+	t.Run("generic_matches_dispatch", func(t *testing.T) {
+		for range 64 {
+			var a [n]int32
+			r := randomRingElement()
+			for i := range a {
+				a[i] = int32(r[i]) - int32(qMinus1Div2)
+			}
+			if polyInfinityNormSignedGeneric(&a, 0) != polyInfinityNormSigned(&a, 0) {
+				t.Fatal("polyInfinityNormSignedGeneric and polyInfinityNormSigned disagree")
+			}
+		}
+	})
 }
