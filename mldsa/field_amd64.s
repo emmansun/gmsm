@@ -6,6 +6,10 @@
 
 #include "textflag.h"
 
+// Attribution: The AVX2 vectorization approach used by
+// internalNTTAVX2/internalInverseNTTAVX2 in this file is inspired by
+// the CRYSTALS-Dilithium project: https://github.com/pq-crystals/dilithium
+
 // All scalar constants packed into a single 56-byte table; use VPBROADCASTD to load.
 DATA fieldConsts<>+0x00(SB)/4, $4236238847  // qNegInv
 DATA fieldConsts<>+0x04(SB)/4, $8380417     // q
