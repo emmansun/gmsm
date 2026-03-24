@@ -545,6 +545,35 @@ useHint88Loop:
 	VPSRLQ $32, in0, in0; \
 	VPBLENDD $0xAA, in1, in0, out1
 
+#define TRANSPOSE_MATRIX(r0, r1, r2, r3, r4, r5, r6, r7, tmp1, tmp2, tmp3, tmp4) \
+	; \ // [r0, r1, r2, r3] => [tmp3, tmp4, tmp2, tmp1]
+	VPUNPCKHDQ r1, r0, tmp4;                  \ // tmp4 =  [w15, w7, w14, w6, w11, w3, w10, w2]
+	VPUNPCKLDQ r1, r0, r0;                    \ // r0 =    [w13, w5, w12, w4, w9, w1, w8, w0]
+	VPUNPCKLDQ r3, r2, tmp3;                  \ // tmp3 =  [w29, w21, w28, w20, w25, w17, w24, w16]
+	VPUNPCKHDQ r3, r2, r2;                    \ // r2 =    [w31, w27, w30, w22, w27, w19, w26, w18]
+	VPUNPCKHQDQ tmp3, r0, tmp2;               \ // tmp2 =  [w29, w21, w13, w5, w25, w17, w9, w1]
+	VPUNPCKLQDQ tmp3, r0, tmp1;               \ // tmp1 =  [w28, w20, w12, w4, w24, w16, w8, w0]
+	VPUNPCKHQDQ r2, tmp4, tmp3;               \ // tmp3 =  [w31, w23, w15, w7, w27, w19, w11, w3]
+	VPUNPCKLQDQ r2, tmp4, tmp4;               \ // tmp4 =  [w30, w22, w14, w6, w26, w18, w10, w2]
+	; \ // [r4, r5, r6, r7] => [r4, r5, r6, r7]
+	VPUNPCKHDQ r5, r4, r1;                    \ // r1 =    [w47, w39, w46, w38, w43, w35, w42, w34]
+	VPUNPCKLDQ r5, r4, r4;                    \ // r4 =    [w45, w37, w44, w36, w41, w33, w40, w32]
+	VPUNPCKLDQ r7, r6, r0;                    \ // r0 =    [w61, w53, w60, w52, w57, w49, w56, w48]
+	VPUNPCKHDQ r7, r6, r6;                    \ // r6 =    [w63, w55, w62, w54, w59, w51, w58, w50]
+	VPUNPCKHQDQ r0, r4, r5;                   \ // r5 =    [w61, w53, w45, w37, w57, w49, w41, w33]
+	VPUNPCKLQDQ r0, r4, r4;                   \ // r4 =    [w60, w52, w44, w36, w56, w48, w40, w32]
+	VPUNPCKHQDQ r6, r1, r7;                   \ // r7 =    [w63, w55, w47, w39, w59, w51, w43, w35]
+	VPUNPCKLQDQ r6, r1, r6;                   \ // r6 =    [w62, w54, w46, w38, w58, w50, w42, w34]
+	; \ // [tmp3, tmp4, tmp2, tmp1], [r4, r5, r6, r7] => [r0, r1, r2, r3, r4, r5, r6, r7]
+	VPERM2I128 $0x20, r4, tmp1, r0;           \ // r0 =    [w56, w48, w40, w32, w24, w16, w8, w0]
+	VPERM2I128 $0x20, r5, tmp2, r1;           \ // r1 =    [w57, w49, w41, w33, w25, w17, w9, w1]
+	VPERM2I128 $0x20, r6, tmp4, r2;           \ // r2 =    [w58, w50, w42, w34, w26, w18, w10, w2]
+	VPERM2I128 $0x20, r7, tmp3, r3;           \ // r3 =    [w59, w51, w43, w35, w27, w19, w11, w3]
+	VPERM2I128 $0x31, r4, tmp1, r4;           \ // r4 =    [w60, w52, w44, w36, w28, w20, w12, w4]
+	VPERM2I128 $0x31, r5, tmp2, r5;           \ // r5 =    [w61, w53, w45, w37, w29, w21, w13, w5]
+	VPERM2I128 $0x31, r6, tmp4, r6;           \ // r6 =    [w62, w54, w46, w38, w30, w22, w14, w6]
+	VPERM2I128 $0x31, r7, tmp3, r7;           \ // r7 =    [w63, w55, w47, w39, w31, w23, w15, w7]
+
 #define fieldsMulEvenOdd(in, even, odd, out) \
 	\ // // Multiply in and [even | odd]
 	VPMULUDQ even, in, TMP0; \
@@ -735,28 +764,15 @@ useHint88Loop:
 	VPSRLQ $32, ZETAL, ZETAH; \
 	nttButterfly(Y8, Y7, Y6, ZETAL, ZETAH, Y8, Y7); \
 	\ // matrix transpose
-	SHUFFLE8(Y5, Y1, Y6, Y1); \
-	SHUFFLE8(Y4, Y0, Y5, Y0); \
-	SHUFFLE8(Y3, Y8, Y4, Y8); \
-	SHUFFLE8(Y2, Y7, Y3, Y7); \
-	\
-	SHUFFLE4(Y6, Y4, Y2, Y4); \
-	SHUFFLE4(Y1, Y8, Y6, Y8); \
-	SHUFFLE4(Y5, Y3, Y1, Y3); \
-	SHUFFLE4(Y0, Y7, Y5, Y7); \
-	\
-	SHUFFLE2(Y2, Y1, Y0, Y1); \
-	SHUFFLE2(Y4, Y3, Y2, Y3); \
-	SHUFFLE2(Y6, Y5, Y4, Y5); \
-	SHUFFLE2(Y8, Y7, Y6, Y7); \	
+	TRANSPOSE_MATRIX(Y5, Y4, Y3, Y2, Y1, Y0, Y8, Y7, TMP0, TMP1, TMP2, Y6); \
 	\ // store back
-	VMOVDQU Y0, ((offset)*256)+dataAddr; \
-	VMOVDQU Y1, ((offset)*256+1*32)+dataAddr; \
-	VMOVDQU Y2, ((offset)*256+2*32)+dataAddr; \
-	VMOVDQU Y3, ((offset)*256+3*32)+dataAddr; \
-	VMOVDQU Y4, ((offset)*256+4*32)+dataAddr; \
-	VMOVDQU Y5, ((offset)*256+5*32)+dataAddr; \
-	VMOVDQU Y6, ((offset)*256+6*32)+dataAddr; \
+	VMOVDQU Y5, ((offset)*256)+dataAddr; \
+	VMOVDQU Y4, ((offset)*256+1*32)+dataAddr; \
+	VMOVDQU Y3, ((offset)*256+2*32)+dataAddr; \
+	VMOVDQU Y2, ((offset)*256+3*32)+dataAddr; \
+	VMOVDQU Y1, ((offset)*256+4*32)+dataAddr; \
+	VMOVDQU Y0, ((offset)*256+5*32)+dataAddr; \
+	VMOVDQU Y8, ((offset)*256+6*32)+dataAddr; \
 	VMOVDQU Y7, ((offset)*256+7*32)+dataAddr; \
 
 #define inttButterfly(even, odd, tmp, zetasL, zetasH, outEven, outOdd) \
@@ -774,23 +790,23 @@ useHint88Loop:
 	fieldsMulEvenOdd(tmp, zetasL, zetasH, outOdd)
 
 #define inttLevel0to5(dataAddr, zetasAddr, offset) \
-	VMOVDQU ((offset)*256)+dataAddr, Y0; \
-	VMOVDQU ((offset)*256+1*32)+dataAddr, Y1; \
-	VMOVDQU ((offset)*256+2*32)+dataAddr, Y2; \
-	VMOVDQU ((offset)*256+3*32)+dataAddr, Y3; \
-	VMOVDQU ((offset)*256+4*32)+dataAddr, Y4; \
-	VMOVDQU ((offset)*256+5*32)+dataAddr, Y5; \
-	VMOVDQU ((offset)*256+6*32)+dataAddr, Y6; \
+	VMOVDQU ((offset)*256)+dataAddr, Y5; \
+	VMOVDQU ((offset)*256+1*32)+dataAddr, Y4; \
+	VMOVDQU ((offset)*256+2*32)+dataAddr, Y3; \
+	VMOVDQU ((offset)*256+3*32)+dataAddr, Y2; \
+	VMOVDQU ((offset)*256+4*32)+dataAddr, Y1; \
+	VMOVDQU ((offset)*256+5*32)+dataAddr, Y0; \
+	VMOVDQU ((offset)*256+6*32)+dataAddr, Y8; \
 	VMOVDQU ((offset)*256+7*32)+dataAddr, Y7; \
 	\ // matrix transpose first, to rearrange the input data for better locality in the butterfly operations.
 	\ // Input dword layout:
-	\ //   ymm0 = [0 1 2 3 | 4 5 6 7]
-	\ //   ymm1 = [8 9 10 11 | 12 13 14 15]
-	\ //   ymm2 = [16 17 18 19 | 20 21 22 23]
-	\ //   ymm3 = [24 25 26 27 | 28 29 30 31]
-	\ //   ymm4 = [32 33 34 35 | 36 37 38 39]
-	\ //   ymm5 = [40 41 42 43 | 44 45 46 47]
-	\ //   ymm6 = [48 49 50 51 | 52 53 54 55]
+	\ //   ymm5 = [0 1 2 3 | 4 5 6 7]
+	\ //   ymm4 = [8 9 10 11 | 12 13 14 15]
+	\ //   ymm3 = [16 17 18 19 | 20 21 22 23]
+	\ //   ymm2 = [24 25 26 27 | 28 29 30 31]
+	\ //   ymm1 = [32 33 34 35 | 36 37 38 39]
+	\ //   ymm0 = [40 41 42 43 | 44 45 46 47]
+	\ //   ymm8 = [48 49 50 51 | 52 53 54 55]
 	\ //   ymm7 = [56 57 58 59 | 60 61 62 63]
 	\ // Required dword layout:
 	\ //   ymm5 = [0 8 16 24 | 32 40 48 56]
@@ -801,20 +817,7 @@ useHint88Loop:
 	\ //   ymm0 = [5 13 21 29 | 37 45 53 61]
 	\ //   ymm8 = [6 14 22 30 | 38 46 54 62]
 	\ //   ymm7 = [7 15 23 31 | 39 47 55 63]
-	SHUFFLE8(Y0, Y4, Y8, Y4); \
-	SHUFFLE8(Y1, Y5, Y0, Y5); \
-	SHUFFLE8(Y2, Y6, Y1, Y6); \
-	SHUFFLE8(Y3, Y7, Y2, Y7); \
-	\
-	SHUFFLE4(Y8, Y1, Y3, Y1); \
-	SHUFFLE4(Y4, Y6, Y8, Y6); \
-	SHUFFLE4(Y0, Y2, Y4, Y2); \
-	SHUFFLE4(Y5, Y7, Y0, Y7); \
-	\
-	SHUFFLE2(Y3, Y4, Y5, Y4); \
-	SHUFFLE2(Y1, Y2, Y3, Y2); \
-	SHUFFLE2(Y8, Y0, Y1, Y0); \
-	SHUFFLE2(Y6, Y7, Y8, Y7); \
+	TRANSPOSE_MATRIX(Y5, Y4, Y3, Y2, Y1, Y0, Y8, Y7, TMP0, TMP1, TMP2, Y6); \
 	\ // level 0: offset = 1, step = 128
 	VMOVDQU (296-8-8*offset)*4+zetasAddr, ZETAH; \
 	VPERMQ $0x1B, ZETAH, ZETAH; \
