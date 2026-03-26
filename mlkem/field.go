@@ -440,16 +440,24 @@ var gammas = [128]fieldElement{17, 3312, 2761, 568, 583, 2746, 2649, 680, 1637, 
 // nttMul multiplies two nttElements.
 //
 // It implements MultiplyNTTs, according to FIPS 203, Algorithm 11.
-func nttMul(f, g nttElement) nttElement {
-	var h nttElement
+func nttMul(out, lhs, rhs *nttElement) {
 	// We use i += 2 for bounds check elimination. See https://go.dev/issue/66826.
 	for i := 0; i < 256; i += 2 {
-		a0, a1 := f[i], f[i+1]
-		b0, b1 := g[i], g[i+1]
-		h[i] = fieldAddMul(a0, b0, fieldMul(a1, b1), gammas[i/2])
-		h[i+1] = fieldAddMul(a0, b1, a1, b0)
+		a0, a1 := lhs[i], lhs[i+1]
+		b0, b1 := rhs[i], rhs[i+1]
+		out[i] = fieldAddMul(a0, b0, fieldMul(a1, b1), gammas[i/2])
+		out[i+1] = fieldAddMul(a0, b1, a1, b0)
 	}
-	return h
+}
+
+func nttMulAccGeneric(acc, lhs, rhs *nttElement) {
+	// We use i += 2 for bounds check elimination. See https://go.dev/issue/66826.
+	for i := 0; i < 256; i += 2 {
+		a0, a1 := lhs[i], lhs[i+1]
+		b0, b1 := rhs[i], rhs[i+1]
+		acc[i] = fieldAdd(acc[i], fieldAddMul(a0, b0, fieldMul(a1, b1), gammas[i/2]))
+		acc[i+1] = fieldAdd(acc[i+1], fieldAddMul(a0, b1, a1, b0))
+	}
 }
 
 // zetas are the values ζ^BitRev7(k) mod q for each index k, according to FIPS
@@ -460,6 +468,11 @@ var zetas = [128]fieldElement{1, 1729, 2580, 3289, 2642, 630, 1897, 848, 1062, 1
 //
 // It implements NTT, according to FIPS 203, Algorithm 9.
 func ntt(f ringElement) nttElement {
+	internalNTT(&f)
+	return nttElement(f)
+}
+
+func internalNTTGeneric(f *ringElement) {
 	k := 1
 	for len := 128; len >= 2; len /= 2 {
 		for start := 0; start < 256; start += 2 * len {
@@ -474,13 +487,17 @@ func ntt(f ringElement) nttElement {
 			}
 		}
 	}
-	return nttElement(f)
 }
 
 // inverseNTT maps a nttElement back to the ringElement it represents.
 //
 // It implements NTT⁻¹, according to FIPS 203, Algorithm 10.
 func inverseNTT(f nttElement) ringElement {
+	internalInverseNTT(&f)
+	return ringElement(f)
+}
+
+func internalInverseNTTGeneric(f *nttElement) {
 	k := 127
 	for len := 2; len <= 128; len *= 2 {
 		for start := 0; start < 256; start += 2 * len {
@@ -498,7 +515,6 @@ func inverseNTT(f nttElement) ringElement {
 	for i := range f {
 		f[i] = fieldMul(f[i], 3303) // 3303 = 128⁻¹ mod q
 	}
-	return ringElement(f)
 }
 
 // sampleNTT draws a uniformly random nttElement from a stream of uniformly

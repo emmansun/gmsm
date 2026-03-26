@@ -14,7 +14,7 @@ import (
 )
 
 func TestFieldReduce(t *testing.T) {
-	for a := range uint32(2*q*q) {
+	for a := range uint32(2 * q * q) {
 		got := fieldReduce(a)
 		exp := fieldElement(a % q)
 		if got != exp {
