@@ -6,1034 +6,840 @@
 
 #include "textflag.h"
 
-// Attribution: The AVX2 vectorization approach used by
-// internalNTTAVX2/internalInverseNTTAVX2 in this file is inspired by
-// the CRYSTALS-Dilithium project: https://github.com/pq-crystals/dilithium
-
-// All scalar constants packed into a single 56-byte table; use VPBROADCASTD to load.
-DATA fieldConsts<>+0x00(SB)/4, $4236238847  // qNegInv
-DATA fieldConsts<>+0x04(SB)/4, $8380417     // q
-DATA fieldConsts<>+0x08(SB)/4, $4190208     // qMinus1Div2
-DATA fieldConsts<>+0x0c(SB)/4, $127         // plus127
-DATA fieldConsts<>+0x10(SB)/4, $1025        // decomposeMul1025
-DATA fieldConsts<>+0x14(SB)/4, $15          // decomposeMask15
-DATA fieldConsts<>+0x18(SB)/4, $523776      // decompose2Gamma32
-DATA fieldConsts<>+0x1c(SB)/4, $11275       // decomposeMul11275
-DATA fieldConsts<>+0x20(SB)/4, $43          // decomposeConst43
-DATA fieldConsts<>+0x24(SB)/4, $1           // one
-DATA fieldConsts<>+0x28(SB)/4, $190464      // decompose2Gamma88
-DATA fieldConsts<>+0x2c(SB)/4, $41978       // invDegreeMontgomery
-GLOBL fieldConsts<>(SB), RODATA, $48
-
-#define qNegInvConst fieldConsts<>+0x00(SB)
-#define qConst fieldConsts<>+0x04(SB)
-#define qMinus1Div2Const fieldConsts<>+0x08(SB)
-#define plus127Const fieldConsts<>+0x0c(SB)
-#define decomposeMul1025Const fieldConsts<>+0x10(SB)
-#define decomposeMask15Const fieldConsts<>+0x14(SB)
-#define decompose2Gamma32Const fieldConsts<>+0x18(SB)
-#define decomposeMul11275Const fieldConsts<>+0x1c(SB)
-#define decomposeConst43Const fieldConsts<>+0x20(SB)
-#define oneConst fieldConsts<>+0x24(SB)
-#define decompose2Gamma88Const fieldConsts<>+0x28(SB)
-#define invDegreeMontgomeryConst fieldConsts<>+0x2c(SB)
-
-#define Q Y15
-#define QNegInv Y14
-#define ZETAL Y13
-#define ZETAH Y12
-#define TMP0 Y11
-#define TMP1 Y10
-#define TMP2 Y9
-
-TEXT ·nttMulAVX2(SB), NOSPLIT, $0-24
-	MOVQ lhs+0(FP), AX
-	MOVQ rhs+8(FP), BX
-	MOVQ out+16(FP), CX
-	MOVL $32, DX
-
-	VPBROADCASTD qNegInvConst, QNegInv
-	VPBROADCASTD qConst, Q
-
-loop:
-	VMOVDQU (AX), Y0
-	VMOVDQU (BX), Y1
-
-	VPMULUDQ Y1, Y0, Y2 // multiply even indexes of a and b
-	VPSRLQ $32, Y0, Y3
-	VPSRLQ $32, Y1, Y4
-	VPMULUDQ Y4, Y3, Y3 // multiply odd indexes of a and b
-
-	// Montgomery reduction: t1 = a * b * qNegInv mod r
-	VPMULUDQ QNegInv, Y2, Y5
-	VPMULUDQ QNegInv, Y3, Y6
-
-	VPMULUDQ Q, Y5, Y5
-	VPMULUDQ Q, Y6, Y6
-
-	VPADDQ Y2, Y5, Y5
-	VPADDQ Y3, Y6, Y6
-
-	VPSRLQ $32, Y5, Y5
-	VPBLENDD $0xAA, Y6, Y5, Y7
-
-	// Final reduction: if out >= q, subtract q
-	VPCMPGTD Y7, Q, Y2
-	VPANDN Q, Y2, Y2
-	VPSUBD Y2, Y7, Y7
-
-	VMOVDQU Y7, (CX)
-
-	ADDQ $32, AX
-	ADDQ $32, BX
-	ADDQ $32, CX
-	DECQ DX
-	JNZ loop
-
-	VZEROUPPER
-	RET
-
-TEXT ·nttMulAccAVX2(SB), NOSPLIT, $0-24
-	MOVQ lhs+0(FP), AX
-	MOVQ rhs+8(FP), BX
-	MOVQ acc+16(FP), CX
-	MOVL $32, DX
-
-	VPBROADCASTD qNegInvConst, QNegInv
-	VPBROADCASTD qConst, Q
-
-loopAcc:
-	VMOVDQU (AX), Y0
-	VMOVDQU (BX), Y1
-
-	VPMULUDQ Y1, Y0, Y2 // multiply even indexes of a and b
-	VPSRLQ $32, Y0, Y3
-	VPSRLQ $32, Y1, Y4
-	VPMULUDQ Y4, Y3, Y3 // multiply odd indexes of a and b
-
-	// Montgomery reduction: t1 = a * b * qNegInv mod r
-	VPMULUDQ QNegInv, Y2, Y5
-	VPMULUDQ QNegInv, Y3, Y6
-
-	VPMULUDQ Q, Y5, Y5
-	VPMULUDQ Q, Y6, Y6
-
-	VPADDQ Y2, Y5, Y5
-	VPADDQ Y3, Y6, Y6
-
-	VPSRLQ $32, Y5, Y5
-	VPBLENDD $0xAA, Y6, Y5, Y7
-
-	// acc += reduced(lhs*rhs)
-	VMOVDQU (CX), Y8
-	VPADDD Y7, Y8, Y7
-
-	// Final reduction: if out >= q, subtract q
-	VPCMPGTD Y7, Q, Y2
-	VPANDN Q, Y2, Y2
-	VPSUBD Y2, Y7, Y7
-
-	VMOVDQU Y7, (CX)
-
-	ADDQ $32, AX
-	ADDQ $32, BX
-	ADDQ $32, CX
-	DECQ DX
-	JNZ loopAcc
-
-	VZEROUPPER
-	RET
-
-TEXT ·polyAddAssignAVX2(SB), NOSPLIT, $0-16
-	MOVQ dst+0(FP), AX
-	MOVQ src+8(FP), BX
-	MOVL $32, CX
-
-	VPBROADCASTD qConst, Q
-
-polyAddAssignLoop:
-	VMOVDQU (AX), Y0
-	VMOVDQU (BX), Y1
-	VPADDD Y1, Y0, Y2
-
-	VPCMPGTD Y2, Q, Y3
-	VPANDN Q, Y3, Y3
-	VPSUBD Y3, Y2, Y2
-
-	VMOVDQU Y2, (AX)
-
-	ADDQ $32, AX
-	ADDQ $32, BX
-	DECQ CX
-	JNZ polyAddAssignLoop
-
-	VZEROUPPER
-	RET
-
-TEXT ·polySubAssignAVX2(SB), NOSPLIT, $0-16
-	MOVQ dst+0(FP), AX
-	MOVQ src+8(FP), BX
-	MOVL $32, CX
-
-	VPBROADCASTD qConst, Q
-
-polySubAssignLoop:
-	VMOVDQU (AX), Y0
-	VMOVDQU (BX), Y1
-	VPADDD Q, Y0, Y2
-	VPSUBD Y1, Y2, Y2
-
-	VPCMPGTD Y2, Q, Y3
-	VPANDN Q, Y3, Y3
-	VPSUBD Y3, Y2, Y2
-
-	VMOVDQU Y2, (AX)
-
-	ADDQ $32, AX
-	ADDQ $32, BX
-	DECQ CX
-	JNZ polySubAssignLoop
-
-	VZEROUPPER
-	RET
-
-TEXT ·polyInfinityNormAVX2(SB), NOSPLIT, $0-12
-	MOVQ a+0(FP), AX
-	MOVL $32, CX
-
-	VPXOR Y7, Y7, Y7
-	VPBROADCASTD qConst, Y8
-	VPBROADCASTD qMinus1Div2Const, Y9
-
-polyInfinityNormLoop:
-	VMOVDQU (AX), Y0
-	VPSUBD Y0, Y8, Y1  // Q - a[i]
-	VPSUBD Y0, Y9, Y2  // (q-1)/2 - a[i]
-	VPSRAD $31, Y2, Y2 // sign mask: 0xffffffff if a[i] > (q-1)/2, else 0
-	VPXOR Y1, Y0, Y3
-	VPAND Y2, Y3, Y3
-	VPXOR Y3, Y0, Y3
-	VPMAXSD Y3, Y7, Y7
-
-	ADDQ $32, AX
-	DECQ CX
-	JNZ polyInfinityNormLoop
-
-	VEXTRACTI128 $1, Y7, X0
-	VPMAXSD X0, X7, X7
-	VPSHUFD $0x4E, X7, X0
-	VPMAXSD X0, X7, X7
-	VPSHUFD $0xB1, X7, X0
-	VPMAXSD X0, X7, X7
-	VMOVD X7, ret+8(FP)
-
-	VZEROUPPER
-	RET
-
-TEXT ·polyInfinityNormSignedAVX2(SB), NOSPLIT, $0-12
-	MOVQ a+0(FP), AX
-	MOVL $32, CX
-
-	VPXOR Y7, Y7, Y7
-
-polyInfinityNormSignedLoop:
-	VMOVDQU (AX), Y0
-	VPABSD Y0, Y1
-	VPMAXSD Y1, Y7, Y7
-
-	ADDQ $32, AX
-	DECQ CX
-	JNZ polyInfinityNormSignedLoop
-
-	VEXTRACTI128 $1, Y7, X0
-	VPMAXSD X0, X7, X7
-	VPSHUFD $0x4E, X7, X0
-	VPMAXSD X0, X7, X7
-	VPSHUFD $0xB1, X7, X0
-	VPMAXSD X0, X7, X7
-	VMOVD X7, ret+8(FP)
-
-	VZEROUPPER
-	RET
-
-TEXT ·decomposeSubToR0Gamma32AVX2(SB), NOSPLIT, $0-24
-	MOVQ w+0(FP), AX
-	MOVQ cs2+8(FP), BX
-	MOVQ out+16(FP), CX
-	MOVL $32, DX
-
-	VPBROADCASTD qConst, Q
-	VPBROADCASTD qMinus1Div2Const, Y8
-	VPBROADCASTD plus127Const, Y9
-	VPBROADCASTD decomposeMul1025Const, Y10
-	VPBROADCASTD oneConst, Y11
-	VPSLLD $21, Y11, Y11
-	VPBROADCASTD decomposeMask15Const, Y12
-	VPBROADCASTD decompose2Gamma32Const, Y13
-
-decompose32Loop:
-	// x = fieldSub(w, cs2)
-	VMOVDQU (AX), Y0
-	VMOVDQU (BX), Y1
-	VPADDD Q, Y0, Y2
-	VPSUBD Y1, Y2, Y2
-	VPCMPGTD Y2, Q, Y3
-	VPANDN Q, Y3, Y3
-	VPSUBD Y3, Y2, Y2
-
-	// r1 = (((x + 127) >> 7) * 1025 + 2^21) >> 22; r1 &= 15
-	VPADDD Y9, Y2, Y4
-	VPSRLD $7, Y4, Y4
-	VPMULLD Y10, Y4, Y5
-	VPADDD Y11, Y5, Y5
-	VPSRAD $22, Y5, Y5
-	VPAND Y12, Y5, Y5
-
-	// r0 = x - r1*(2*gamma2)
-	VPMULLD Y13, Y5, Y6
-	VPSUBD Y6, Y2, Y7
-
-	// r0 -= ((qMinus1Div2 - r0) >> 31) & q
-	VPSUBD Y7, Y8, Y3
-	VPSRAD $31, Y3, Y3
-	VPAND Q, Y3, Y3
-	VPSUBD Y3, Y7, Y7
-
-	VMOVDQU Y7, (CX)
-
-	ADDQ $32, AX
-	ADDQ $32, BX
-	ADDQ $32, CX
-	DECQ DX
-	JNZ decompose32Loop
-
-	VZEROUPPER
-	RET
-
-TEXT ·decomposeSubToR0Gamma88AVX2(SB), NOSPLIT, $0-24
-	MOVQ w+0(FP), AX
-	MOVQ cs2+8(FP), BX
-	MOVQ out+16(FP), CX
-	MOVL $32, DX
-
-	VPBROADCASTD qConst, Q
-	VPBROADCASTD qMinus1Div2Const, Y8
-	VPBROADCASTD plus127Const, Y9
-	VPBROADCASTD decomposeMul11275Const, Y10
-	VPBROADCASTD oneConst, Y11
-	VPSLLD $23, Y11, Y11
-	VPBROADCASTD decomposeConst43Const, Y12
-	VPBROADCASTD decompose2Gamma88Const, Y13
-
-decompose88Loop:
-	// x = fieldSub(w, cs2)
-	VMOVDQU (AX), Y0
-	VMOVDQU (BX), Y1
-	VPADDD Q, Y0, Y2
-	VPSUBD Y1, Y2, Y2
-	VPCMPGTD Y2, Q, Y3
-	VPANDN Q, Y3, Y3
-	VPSUBD Y3, Y2, Y2
-
-	// r1 = (((x + 127) >> 7) * 11275 + 2^23) >> 24
-	VPADDD Y9, Y2, Y4
-	VPSRLD $7, Y4, Y4
-	VPMULLD Y10, Y4, Y5
-	VPADDD Y11, Y5, Y5
-	VPSRAD $24, Y5, Y5
-
-	// r1 ^= ((43 - r1) >> 31) & r1
-	VPSUBD Y5, Y12, Y6
-	VPSRAD $31, Y6, Y6
-	VPAND Y5, Y6, Y6
-	VPXOR Y6, Y5, Y5
-
-	// r0 = x - r1*(2*gamma2)
-	VPMULLD Y13, Y5, Y7
-	VPSUBD Y7, Y2, Y7
-
-	// r0 -= ((qMinus1Div2 - r0) >> 31) & q
-	VPSUBD Y7, Y8, Y3
-	VPSRAD $31, Y3, Y3
-	VPAND Q, Y3, Y3
-	VPSUBD Y3, Y7, Y7
-
-	VMOVDQU Y7, (CX)
-
-	ADDQ $32, AX
-	ADDQ $32, BX
-	ADDQ $32, CX
-	DECQ DX
-	JNZ decompose88Loop
-
-	VZEROUPPER
-	RET
-
-TEXT ·useHintPolyGamma32AVX2(SB), NOSPLIT, $0-24
-	MOVQ h+0(FP), AX
-	MOVQ r+8(FP), BX
-	MOVQ out+16(FP), CX
-	MOVL $32, DX
-
-	VPBROADCASTD qConst, Q
-	VPBROADCASTD plus127Const, Y8
-	VPBROADCASTD decomposeMul1025Const, Y9
-	VPBROADCASTD decomposeMask15Const, Y11
-	VPBROADCASTD decompose2Gamma32Const, Y12
-	VPBROADCASTD qMinus1Div2Const, Y13
-	VPBROADCASTD oneConst, Y14
-	VPSLLD $21, Y14, Y10
-
-	VPXOR Y0, Y0, Y0
-
-useHint32Loop:
-	VMOVDQU (BX), Y1 // r
-	VMOVDQU (AX), Y2 // h
-
-	// r1 = (((r + 127) >> 7) * 1025 + 2^21) >> 22; r1 &= 15
-	VPADDD Y8, Y1, Y3
-	VPSRLD $7, Y3, Y3
-	VPMULLD Y9, Y3, Y4
-	VPADDD Y10, Y4, Y4
-	VPSRAD $22, Y4, Y4
-	VPAND Y11, Y4, Y4 // r1
-
-	// r0 = r - r1*(2*gamma2); r0 -= ((qMinus1Div2-r0)>>31)&q
-	VPMULLD Y12, Y4, Y5
-	VPSUBD Y5, Y1, Y6
-	VPSUBD Y6, Y13, Y7
-	VPSRAD $31, Y7, Y7
-	VPAND Q, Y7, Y7
-	VPSUBD Y7, Y6, Y6 // r0
-
-	// posMask = (r0 > 0)
-	VPCMPGTD Y0, Y6, Y7
-
-	// alt = (r0>0) ? (r1+1)&15 : (r1-1)&15
-	VPADDD Y14, Y4, Y3  // inc
-	VPSUBD Y14, Y4, Y1  // dec
-	VPAND Y11, Y3, Y3
-	VPAND Y11, Y1, Y1
-	VPAND Y7, Y3, Y3
-	VPANDN Y1, Y7, Y1 // (~posMask) & dec
-	VPOR Y1, Y3, Y3 // alt
-
-	// hMask = -h for h in {0,1}
-	VPSUBD Y2, Y0, Y7
-	// out = h ? alt : r1
-	VPAND Y7, Y3, Y3
-	VPANDN Y4, Y7, Y4 // (~hMask) & r1
-	VPOR Y4, Y3, Y3
-
-	VMOVDQU Y3, (CX)
-
-	ADDQ $32, AX
-	ADDQ $32, BX
-	ADDQ $32, CX
-	DECQ DX
-	JNZ useHint32Loop
-
-	VZEROUPPER
-	RET
-
-TEXT ·useHintPolyGamma88AVX2(SB), NOSPLIT, $0-24
-	MOVQ h+0(FP), AX
-	MOVQ r+8(FP), BX
-	MOVQ out+16(FP), CX
-	MOVL $32, DX
-
-	VPBROADCASTD qConst, Q
-	VPBROADCASTD plus127Const, Y8
-	VPBROADCASTD decomposeMul11275Const, Y9
-	VPBROADCASTD decomposeConst43Const, Y11
-	VPBROADCASTD decompose2Gamma88Const, Y12
-	VPBROADCASTD qMinus1Div2Const, Y13
-	VPBROADCASTD oneConst, Y14
-	VPSLLD $23, Y14, Y10
-
-	VPXOR Y0, Y0, Y0
-
-useHint88Loop:
-	VMOVDQU (BX), Y1 // r
-	VMOVDQU (AX), Y2 // h
-
-	// r1 = (((r + 127) >> 7) * 11275 + 2^23) >> 24
-	VPADDD Y8, Y1, Y3
-	VPSRLD $7, Y3, Y3
-	VPMULLD Y9, Y3, Y4
-	VPADDD Y10, Y4, Y4
-	VPSRAD $24, Y4, Y4 // r1
-
-	// Clamp r1 from 44 to 0: r1 ^= ((43 - r1) >> 31) & r1
-	VPSUBD Y4, Y11, Y3  // 43 - r1; negative iff r1 > 43
-	VPSRAD $31, Y3, Y3  // sign mask: 0xffffffff if r1==44, else 0
-	VPAND Y4, Y3, Y3    // mask & r1
-	VPXOR Y3, Y4, Y4    // r1 ^= mask&r1  (sets r1=0 when r1==44)
-
-	// r0 = r - r1*(2*gamma2); r0 -= ((qMinus1Div2-r0)>>31)&q
-	VPMULLD Y12, Y4, Y5
-	VPSUBD Y5, Y1, Y6
-	VPSUBD Y6, Y13, Y7
-	VPSRAD $31, Y7, Y7
-	VPAND Q, Y7, Y7
-	VPSUBD Y7, Y6, Y6 // r0
-
-	// posMask = (r0 > 0)
-	VPCMPGTD Y0, Y6, Y7
-
-	// altPos = (r1==43) ? 0 : (r1+1)
-	VPADDD Y14, Y4, Y1
-	VPCMPEQD Y11, Y4, Y3 // eq43
-	VPANDN Y1, Y3, Y1    // (~eq43) & (r1+1)
-
-	// altNeg = (r1==0) ? 43 : (r1-1)
-	VPSUBD Y14, Y4, Y5
-	VPCMPEQD Y0, Y4, Y6  // eq0
-	VPANDN Y5, Y6, Y5    // (~eq0) & (r1-1)
-	VPAND Y6, Y11, Y3
-	VPOR Y3, Y5, Y5 // altNeg
-
-	// alt = pos ? altPos : altNeg
-	VPAND Y7, Y1, Y1
-	VPANDN Y5, Y7, Y5 // (~posMask) & altNeg
-	VPOR Y5, Y1, Y1 // alt
-
-	// hMask = -h for h in {0,1}
-	VPSUBD Y2, Y0, Y7
-	// out = h ? alt : r1
-	VPAND Y7, Y1, Y1
-	VPANDN Y4, Y7, Y4 // (~hMask) & r1
-	VPOR Y4, Y1, Y1
-
-	VMOVDQU Y1, (CX)
-
-	ADDQ $32, AX
-	ADDQ $32, BX
-	ADDQ $32, CX
-	DECQ DX
-	JNZ useHint88Loop
-
-	VZEROUPPER
-	RET
-
-// out0 can't be the same register as in0 or in1
-// in0 = [a0, a1, a2, a3 | a4, a5, a6, a7]
-// in1 = [b0, b1, b2, b3 | b4, b5, b6, b7]
-// out0 = [a0, a1, a2, a3 | b0, b1, b2, b3]
-// out1 = [a4, a5, a6, a7 | b4, b5, b6, b7]
-#define SHUFFLE8(in0, in1, out0, out1) \
-	VPERM2I128 $0x20, in1, in0, out0; \
-	VPERM2I128 $0x31, in1, in0, out1
-
-// out0 can't be the same register as in0 or in1
-// in0 = [a0, a1, a2, a3 | a4, a5, a6, a7]
-// in1 = [b0, b1, b2, b3 | b4, b5, b6, b7]
-// out0 = [a0, a1, b0, b1 | a4, a5, b4, b5]
-// out1 = [a2, a3, b2, b3 | a6, a7, b6, b7]
-#define SHUFFLE4(in0, in1, out0, out1) \
-	VPUNPCKLQDQ in1, in0, out0; \
-	VPUNPCKHQDQ in1, in0, out1
-
-// out0 can't be the same register as in0 or in1
-// in0 = [a0, a1, a2, a3 | a4, a5, a6, a7]
-// in1 = [b0, b1, b2, b3 | b4, b5, b6, b7]
-// out0 = [a0, b0, a2, b2 | a4, b4, a6, b6]
-// out1 = [a1, b1, a3, b3 | a5, b5, a7, b7]
-#define SHUFFLE2(in0, in1, out0, out1) \
-	VPSLLQ $32, in1, out0; \
-	VPBLENDD $0xAA, out0, in0, out0; \
-	VPSRLQ $32, in0, in0; \
-	VPBLENDD $0xAA, in1, in0, out1
-
-#define TRANSPOSE_MATRIX(r0, r1, r2, r3, r4, r5, r6, r7, tmp1, tmp2, tmp3, tmp4) \
-	; \ // [r0, r1, r2, r3] => [tmp3, tmp4, tmp2, tmp1]
-	VPUNPCKHDQ r1, r0, tmp4;                  \ // tmp4 =  [w15, w7, w14, w6, w11, w3, w10, w2]
-	VPUNPCKLDQ r1, r0, r0;                    \ // r0 =    [w13, w5, w12, w4, w9, w1, w8, w0]
-	VPUNPCKLDQ r3, r2, tmp3;                  \ // tmp3 =  [w29, w21, w28, w20, w25, w17, w24, w16]
-	VPUNPCKHDQ r3, r2, r2;                    \ // r2 =    [w31, w27, w30, w22, w27, w19, w26, w18]
-	VPUNPCKHQDQ tmp3, r0, tmp2;               \ // tmp2 =  [w29, w21, w13, w5, w25, w17, w9, w1]
-	VPUNPCKLQDQ tmp3, r0, tmp1;               \ // tmp1 =  [w28, w20, w12, w4, w24, w16, w8, w0]
-	VPUNPCKHQDQ r2, tmp4, tmp3;               \ // tmp3 =  [w31, w23, w15, w7, w27, w19, w11, w3]
-	VPUNPCKLQDQ r2, tmp4, tmp4;               \ // tmp4 =  [w30, w22, w14, w6, w26, w18, w10, w2]
-	; \ // [r4, r5, r6, r7] => [r4, r5, r6, r7]
-	VPUNPCKHDQ r5, r4, r1;                    \ // r1 =    [w47, w39, w46, w38, w43, w35, w42, w34]
-	VPUNPCKLDQ r5, r4, r4;                    \ // r4 =    [w45, w37, w44, w36, w41, w33, w40, w32]
-	VPUNPCKLDQ r7, r6, r0;                    \ // r0 =    [w61, w53, w60, w52, w57, w49, w56, w48]
-	VPUNPCKHDQ r7, r6, r6;                    \ // r6 =    [w63, w55, w62, w54, w59, w51, w58, w50]
-	VPUNPCKHQDQ r0, r4, r5;                   \ // r5 =    [w61, w53, w45, w37, w57, w49, w41, w33]
-	VPUNPCKLQDQ r0, r4, r4;                   \ // r4 =    [w60, w52, w44, w36, w56, w48, w40, w32]
-	VPUNPCKHQDQ r6, r1, r7;                   \ // r7 =    [w63, w55, w47, w39, w59, w51, w43, w35]
-	VPUNPCKLQDQ r6, r1, r6;                   \ // r6 =    [w62, w54, w46, w38, w58, w50, w42, w34]
-	; \ // [tmp3, tmp4, tmp2, tmp1], [r4, r5, r6, r7] => [r0, r1, r2, r3, r4, r5, r6, r7]
-	VPERM2I128 $0x20, r4, tmp1, r0;           \ // r0 =    [w56, w48, w40, w32, w24, w16, w8, w0]
-	VPERM2I128 $0x20, r5, tmp2, r1;           \ // r1 =    [w57, w49, w41, w33, w25, w17, w9, w1]
-	VPERM2I128 $0x20, r6, tmp4, r2;           \ // r2 =    [w58, w50, w42, w34, w26, w18, w10, w2]
-	VPERM2I128 $0x20, r7, tmp3, r3;           \ // r3 =    [w59, w51, w43, w35, w27, w19, w11, w3]
-	VPERM2I128 $0x31, r4, tmp1, r4;           \ // r4 =    [w60, w52, w44, w36, w28, w20, w12, w4]
-	VPERM2I128 $0x31, r5, tmp2, r5;           \ // r5 =    [w61, w53, w45, w37, w29, w21, w13, w5]
-	VPERM2I128 $0x31, r6, tmp4, r6;           \ // r6 =    [w62, w54, w46, w38, w30, w22, w14, w6]
-	VPERM2I128 $0x31, r7, tmp3, r7;           \ // r7 =    [w63, w55, w47, w39, w31, w23, w15, w7]
-
-#define fieldsMulEvenOdd(in, even, odd, out) \
-	\ // // Multiply in and [even | odd]
-	VPMULUDQ even, in, TMP0; \
-	VPSRLQ $32, in, TMP1; \
-	VPMULUDQ TMP1, odd, TMP1; \
-	\ // Montgomery reduction: t1 = in * [even | odd] * QNegInv mod r
-	VPMULUDQ QNegInv, TMP0, out; \
-	VPMULUDQ QNegInv, TMP1, TMP2; \
-	VPMULUDQ Q, out, out; \
-	VPMULUDQ Q, TMP2, TMP2; \
-	VPADDQ TMP0, out, out; \
-	VPADDQ TMP1, TMP2, TMP1; \
-	VPSRLQ $32, out, out; \
-	VPBLENDD $0xAA, TMP1, out, out; \
-	\ // Final reduction: if out >= q, subtract q
-	VPCMPGTD out, Q, TMP0; \
-	VPANDN Q, TMP0, TMP0; \
-	VPSUBD TMP0, out, out
-
-#define nttButterfly(even, odd, tmp, zetasL, zetasH, outEven, outOdd) \
-	fieldsMulEvenOdd(odd, zetasL, zetasH, tmp); \
-	VPADDD even, Q, TMP1; \
-	VPSUBD tmp, TMP1, outOdd; \
-	\
-	VPADDD tmp, even, outEven; \
-	\ // Final reduction: if outOdd >= q, subtract q
-	VPCMPGTD outOdd, Q, TMP0; \
-	VPANDN Q, TMP0, TMP0; \
-	VPSUBD TMP0, outOdd, outOdd; \
-	\ // Final reduction: if outEven >= q, subtract q
-	VPCMPGTD outEven, Q, TMP0; \
-	VPANDN Q, TMP0, TMP0; \
-	VPSUBD TMP0, outEven, outEven
-
-#define nttLevel0to1(dataAddr, zetasAddr, offset) \
-	VMOVDQU ((offset)*32)+dataAddr, Y0; \
-	VMOVDQU ((offset)*32+1*128)+dataAddr, Y1; \
-	VMOVDQU ((offset)*32+2*128)+dataAddr, Y2; \
-	VMOVDQU ((offset)*32+3*128)+dataAddr, Y3; \
-	VMOVDQU ((offset)*32+4*128)+dataAddr, Y4; \
-	VMOVDQU ((offset)*32+5*128)+dataAddr, Y5; \
-	VMOVDQU ((offset)*32+6*128)+dataAddr, Y6; \
-	VMOVDQU ((offset)*32+7*128)+dataAddr, Y7; \
-	\ // level 0
-	VPBROADCASTD 4+zetasAddr, ZETAL; \
-	nttButterfly(Y0, Y4, Y8, ZETAL, ZETAL, Y0, Y4); \
-	nttButterfly(Y1, Y5, Y8, ZETAL, ZETAL, Y1, Y5); \
-	nttButterfly(Y2, Y6, Y8, ZETAL, ZETAL, Y2, Y6); \
-	nttButterfly(Y3, Y7, Y8, ZETAL, ZETAL, Y3, Y7); \
-	\ // level 1: offset = 64, step = 2
-	VPBROADCASTD (4*2)+zetasAddr, ZETAL; \
-	nttButterfly(Y0, Y2, Y8, ZETAL, ZETAL, Y0, Y2); \
-	nttButterfly(Y1, Y3, Y8, ZETAL, ZETAL, Y1, Y3); \
-	\
-	VPBROADCASTD (4*3)+zetasAddr, ZETAL; \
-	nttButterfly(Y4, Y6, Y8, ZETAL, ZETAL, Y4, Y6); \
-	nttButterfly(Y5, Y7, Y8, ZETAL, ZETAL, Y5, Y7); \
-	\
-	VMOVDQU Y0, ((offset)*32)+dataAddr; \
-	VMOVDQU Y1, ((offset)*32+1*128)+dataAddr; \
-	VMOVDQU Y2, ((offset)*32+2*128)+dataAddr; \
-	VMOVDQU Y3, ((offset)*32+3*128)+dataAddr; \
-	VMOVDQU Y4, ((offset)*32+4*128)+dataAddr; \
-	VMOVDQU Y5, ((offset)*32+5*128)+dataAddr; \
-	VMOVDQU Y6, ((offset)*32+6*128)+dataAddr; \
-	VMOVDQU Y7, ((offset)*32+7*128)+dataAddr
-
-#define nttLevel2to7(dataAddr, zetasAddr, offset) \
-	VMOVDQU ((offset)*256)+dataAddr, Y0; \
-	VMOVDQU ((offset)*256+1*32)+dataAddr, Y1; \
-	VMOVDQU ((offset)*256+2*32)+dataAddr, Y2; \
-	VMOVDQU ((offset)*256+3*32)+dataAddr, Y3; \
-	VMOVDQU ((offset)*256+4*32)+dataAddr, Y4; \
-	VMOVDQU ((offset)*256+5*32)+dataAddr, Y5; \
-	VMOVDQU ((offset)*256+6*32)+dataAddr, Y6; \
-	VMOVDQU ((offset)*256+7*32)+dataAddr, Y7; \
-	\ // level 2: offset = 32, step = 4
-	VPBROADCASTD (16+(offset)*4)+zetasAddr, ZETAL; \
-	nttButterfly(Y0, Y4, Y8, ZETAL, ZETAL, Y0, Y4); \
-	nttButterfly(Y1, Y5, Y8, ZETAL, ZETAL, Y1, Y5); \
-	nttButterfly(Y2, Y6, Y8, ZETAL, ZETAL, Y2, Y6); \
-	nttButterfly(Y3, Y7, Y8, ZETAL, ZETAL, Y3, Y7); \
-	\ // level 3: offset = 16, step = 8
-	\ // input:
-	\ // Y0 = [ 0  1  2  3 |  4  5  6  7]
-	\ // Y1 = [ 8  9 10 11 | 12 13 14 15]
-	\ // Y2 = [16 17 18 19 | 20 21 22 23]
-	\ // Y3 = [24 25 26 27 | 28 29 30 31]
-	\ // Y4 = [32 33 34 35 | 36 37 38 39]
-	\ // Y5 = [40 41 42 43 | 44 45 46 47]
-	\ // Y6 = [48 49 50 51 | 52 53 54 55]
-	\ // Y7 = [56 57 58 59 | 60 61 62 63]
-	\ // after SHUFFLE8:
-	\ // Y8 = [ 0  1  2  3 | 32 33 34 35]
-	\ // Y4 = [ 4  5  6  7 | 36 37 38 39]
-	\ // Y0 = [ 8  9 10 11 | 40 41 42 43]
-	\ // Y5 = [12 13 14 15 | 44 45 46 47]
-	\ // Y1 = [16 17 18 19 | 48 49 50 51]
-	\ // Y6 = [20 21 22 23 | 52 53 54 55]
-	\ // Y2 = [24 25 26 27 | 56 57 58 59]
-	\ // Y7 = [28 29 30 31 | 60 61 62 63]	
-	SHUFFLE8(Y0, Y4, Y8, Y4); \
-	SHUFFLE8(Y1, Y5, Y0, Y5); \
-	SHUFFLE8(Y2, Y6, Y1, Y6); \
-	SHUFFLE8(Y3, Y7, Y2, Y7); \
-	VMOVDQU (32+(offset)*32)+zetasAddr, ZETAL; \
-	nttButterfly(Y8, Y1, Y3, ZETAL, ZETAL, Y8, Y1); \
-	nttButterfly(Y4, Y6, Y3, ZETAL, ZETAL, Y4, Y6); \
-	nttButterfly(Y0, Y2, Y3, ZETAL, ZETAL, Y0, Y2); \
-	nttButterfly(Y5, Y7, Y3, ZETAL, ZETAL, Y5, Y7); \	
-	\ // level 4: offset = 8, step = 16
-	\ // input:
-	\ // Y8 = [ 0  1  2  3 | 32 33 34 35]
-	\ // Y4 = [ 4  5  6  7 | 36 37 38 39]
-	\ // Y0 = [ 8  9 10 11 | 40 41 42 43]
-	\ // Y5 = [12 13 14 15 | 44 45 46 47]
-	\ // Y1 = [16 17 18 19 | 48 49 50 51]
-	\ // Y6 = [20 21 22 23 | 52 53 54 55]
-	\ // Y2 = [24 25 26 27 | 56 57 58 59]
-	\ // Y7 = [28 29 30 31 | 60 61 62 63]	
-	\ // after SHUFFLE8:
-	\ // Y3 = [0 1 16 17 | 32 33 48 49]
-	\ // Y1 = [2 3 18 19 | 34 35 50 51]
-	\ // Y8 = [4 5 20 21 | 36 37 52 53]
-	\ // Y6 = [6 7 22 23 | 38 39 54 55]
-	\ // Y4 = [8 9 24 25 | 40 41 56 57]
-	\ // Y2 = [10 11 26 27 | 42 43 58 59]
-	\ // Y0 = [12 13 28 29 | 44 45 60 61]
-	\ // Y7 = [14 15 30 31 | 46 47 62 63]	
-	SHUFFLE4(Y8, Y1, Y3, Y1); \
-	SHUFFLE4(Y4, Y6, Y8, Y6); \
-	SHUFFLE4(Y0, Y2, Y4, Y2); \
-	SHUFFLE4(Y5, Y7, Y0, Y7); \
-	VMOVDQU (160+(offset)*32)+zetasAddr, ZETAL; \
-	nttButterfly(Y3, Y4, Y5, ZETAL, ZETAL, Y3, Y4); \
-	nttButterfly(Y1, Y2, Y5, ZETAL, ZETAL, Y1, Y2); \
-	nttButterfly(Y8, Y0, Y5, ZETAL, ZETAL, Y8, Y0); \
-	nttButterfly(Y6, Y7, Y5, ZETAL, ZETAL, Y6, Y7); \
-	\ // level 5: offset = 4, step = 32
-	\ // input:
-	\ // Y3 = [0 1 16 17 | 32 33 48 49]
-	\ // Y1 = [2 3 18 19 | 34 35 50 51]
-	\ // Y8 = [4 5 20 21 | 36 37 52 53]
-	\ // Y6 = [6 7 22 23 | 38 39 54 55]
-	\ // Y4 = [8 9 24 25 | 40 41 56 57]
-	\ // Y2 = [10 11 26 27 | 42 43 58 59]
-	\ // Y0 = [12 13 28 29 | 44 45 60 61]
-	\ // Y7 = [14 15 30 31 | 46 47 62 63]
-	\ // after SHUFFLE8:
-	\ // Y5 = [0 8 16 24 | 32 40 48 56]
-	\ // Y4 = [1 9 17 25 | 33 41 49 57]
-	\ // Y3 = [2 10 18 26 | 34 42 50 58]
-	\ // Y2 = [3 11 19 27 | 35 43 51 59]
-	\ // Y1 = [4 12 20 28 | 36 44 52 60]
-	\ // Y0 = [5 13 21 29 | 37 45 53 61]
-	\ // Y8 = [6 14 22 30 | 38 46 54 62]
-	\ // Y7 = [7 15 23 31 | 39 47 55 63]	
-	SHUFFLE2(Y3, Y4, Y5, Y4); \
-	SHUFFLE2(Y1, Y2, Y3, Y2); \
-	SHUFFLE2(Y8, Y0, Y1, Y0); \
-	SHUFFLE2(Y6, Y7, Y8, Y7); \
-	VMOVDQU (288+(offset)*32)+zetasAddr, ZETAL; \
-	VPSRLQ $32, ZETAL, ZETAH; \
-	nttButterfly(Y5, Y1, Y6, ZETAL, ZETAH, Y5, Y1); \
-	nttButterfly(Y4, Y0, Y6, ZETAL, ZETAH, Y4, Y0); \
-	nttButterfly(Y3, Y8, Y6, ZETAL, ZETAH, Y3, Y8); \
-	nttButterfly(Y2, Y7, Y6, ZETAL, ZETAH, Y2, Y7); \
-	\ // level 6: offset = 2, step = 64
-	VMOVDQU (416+(offset)*32)+zetasAddr, ZETAL; \
-	VPSRLQ $32, ZETAL, ZETAH; \
-	nttButterfly(Y5, Y3, Y6, ZETAL, ZETAH, Y5, Y3); \
-	nttButterfly(Y4, Y2, Y6, ZETAL, ZETAH, Y4, Y2); \
-	VMOVDQU (544+(offset)*32)+zetasAddr, ZETAL; \
-	VPSRLQ $32, ZETAL, ZETAH; \
-	nttButterfly(Y1, Y8, Y6, ZETAL, ZETAH, Y1, Y8); \
-	nttButterfly(Y0, Y7, Y6, ZETAL, ZETAH, Y0, Y7); \
-	\ // level 7: offset = 1, step = 128
-	VMOVDQU (672+(offset)*32)+zetasAddr, ZETAL; \
-	VPSRLQ $32, ZETAL, ZETAH; \
-	nttButterfly(Y5, Y4, Y6, ZETAL, ZETAH, Y5, Y4); \
-	VMOVDQU (800+(offset)*32)+zetasAddr, ZETAL; \
-	VPSRLQ $32, ZETAL, ZETAH; \
-	nttButterfly(Y3, Y2, Y6, ZETAL, ZETAH, Y3, Y2); \
-	VMOVDQU (928+(offset)*32)+zetasAddr, ZETAL; \
-	VPSRLQ $32, ZETAL, ZETAH; \
-	nttButterfly(Y1, Y0, Y6, ZETAL, ZETAH, Y1, Y0); \
-	VMOVDQU (1056+(offset)*32)+zetasAddr, ZETAL; \
-	VPSRLQ $32, ZETAL, ZETAH; \
-	nttButterfly(Y8, Y7, Y6, ZETAL, ZETAH, Y8, Y7); \
-	\ // matrix transpose
-	TRANSPOSE_MATRIX(Y5, Y4, Y3, Y2, Y1, Y0, Y8, Y7, TMP0, TMP1, TMP2, Y6); \
-	\ // store back
-	VMOVDQU Y5, ((offset)*256)+dataAddr; \
-	VMOVDQU Y4, ((offset)*256+1*32)+dataAddr; \
-	VMOVDQU Y3, ((offset)*256+2*32)+dataAddr; \
-	VMOVDQU Y2, ((offset)*256+3*32)+dataAddr; \
-	VMOVDQU Y1, ((offset)*256+4*32)+dataAddr; \
-	VMOVDQU Y0, ((offset)*256+5*32)+dataAddr; \
-	VMOVDQU Y8, ((offset)*256+6*32)+dataAddr; \
-	VMOVDQU Y7, ((offset)*256+7*32)+dataAddr; \
-
-#define inttButterfly(even, odd, tmp, zetasL, zetasH, outEven, outOdd) \
-	\ // outOdd = (Q + even - odd) * zeta
-	\ // Compute this first because outEven can alias even in callers.
-	VPSUBD odd, Q, tmp; \
-	VPADDD even, tmp, tmp; \
-	\ // outEven = even + odd
-	VPADDD even, odd, outEven; \
-	\ // Final reduction: if outEven >= q, subtract q
-	VPCMPGTD outEven, Q, TMP1; \
-	VPANDN Q, TMP1, TMP1; \
-	VPSUBD TMP1, outEven, outEven; \
-	\ // outOdd = (Q + even - odd) * zeta
-	fieldsMulEvenOdd(tmp, zetasL, zetasH, outOdd)
-
-#define inttLevel0to5(dataAddr, zetasAddr, offset) \
-	VMOVDQU ((offset)*256)+dataAddr, Y5; \
-	VMOVDQU ((offset)*256+1*32)+dataAddr, Y4; \
-	VMOVDQU ((offset)*256+2*32)+dataAddr, Y3; \
-	VMOVDQU ((offset)*256+3*32)+dataAddr, Y2; \
-	VMOVDQU ((offset)*256+4*32)+dataAddr, Y1; \
-	VMOVDQU ((offset)*256+5*32)+dataAddr, Y0; \
-	VMOVDQU ((offset)*256+6*32)+dataAddr, Y8; \
-	VMOVDQU ((offset)*256+7*32)+dataAddr, Y7; \
-	\ // matrix transpose first, to rearrange the input data for better locality in the butterfly operations.
-	\ // Input dword layout:
-	\ //   ymm5 = [0 1 2 3 | 4 5 6 7]
-	\ //   ymm4 = [8 9 10 11 | 12 13 14 15]
-	\ //   ymm3 = [16 17 18 19 | 20 21 22 23]
-	\ //   ymm2 = [24 25 26 27 | 28 29 30 31]
-	\ //   ymm1 = [32 33 34 35 | 36 37 38 39]
-	\ //   ymm0 = [40 41 42 43 | 44 45 46 47]
-	\ //   ymm8 = [48 49 50 51 | 52 53 54 55]
-	\ //   ymm7 = [56 57 58 59 | 60 61 62 63]
-	\ // Required dword layout:
-	\ //   ymm5 = [0 8 16 24 | 32 40 48 56]
-	\ //   ymm4 = [1 9 17 25 | 33 41 49 57]
-	\ //   ymm3 = [2 10 18 26 | 34 42 50 58]
-	\ //   ymm2 = [3 11 19 27 | 35 43 51 59]
-	\ //   ymm1 = [4 12 20 28 | 36 44 52 60]
-	\ //   ymm0 = [5 13 21 29 | 37 45 53 61]
-	\ //   ymm8 = [6 14 22 30 | 38 46 54 62]
-	\ //   ymm7 = [7 15 23 31 | 39 47 55 63]
-	TRANSPOSE_MATRIX(Y5, Y4, Y3, Y2, Y1, Y0, Y8, Y7, TMP0, TMP1, TMP2, Y6); \
-	\ // level 0: offset = 1, step = 128
-	VMOVDQU (296-8-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
-	VPSRLQ $32, ZETAH, ZETAL; \
-	inttButterfly(Y5, Y4, Y6, ZETAL, ZETAH, Y5, Y4); \
-	\
-	VMOVDQU (296-40-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
-	VPSRLQ $32, ZETAH, ZETAL; \
-	inttButterfly(Y3, Y2, Y6, ZETAL, ZETAH, Y3, Y2); \
-	\
-	VMOVDQU (296-72-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
-	VPSRLQ $32, ZETAH, ZETAL; \
-	inttButterfly(Y1, Y0, Y6, ZETAL, ZETAH, Y1, Y0); \
-	\ 
-	VMOVDQU (296-104-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
-	VPSRLQ $32, ZETAH, ZETAL; \
-	inttButterfly(Y8, Y7, Y6, ZETAL, ZETAH, Y8, Y7); \
-	\ // level 1: offset = 2, step = 64
-	VMOVDQU (168-8-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
-	VPSRLQ $32, ZETAH, ZETAL; \
-	inttButterfly(Y5, Y3, Y6, ZETAL, ZETAH, Y5, Y3); \
-	inttButterfly(Y4, Y2, Y6, ZETAL, ZETAH, Y4, Y2); \
-	\
-	VMOVDQU (168-40-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
-	VPSRLQ $32, ZETAH, ZETAL; \
-	inttButterfly(Y1, Y8, Y6, ZETAL, ZETAH, Y1, Y8); \
-	inttButterfly(Y0, Y7, Y6, ZETAL, ZETAH, Y0, Y7); \
-	\ // level 2: offset = 4, step = 32
-	VMOVDQU (104-8-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
-	VPSRLQ $32, ZETAH, ZETAL; \
-	inttButterfly(Y5, Y1, Y6, ZETAL, ZETAH, Y5, Y1); \
-	inttButterfly(Y4, Y0, Y6, ZETAL, ZETAH, Y4, Y0); \
-	inttButterfly(Y3, Y8, Y6, ZETAL, ZETAH, Y3, Y8); \
-	inttButterfly(Y2, Y7, Y6, ZETAL, ZETAH, Y2, Y7); \
-	\ // level 3: offset = 8, step = 16
-	\ // Input dword layout:
-	\ //   ymm5 = [0 8 16 24 | 32 40 48 56]
-	\ //   ymm4 = [1 9 17 25 | 33 41 49 57]
-	\ //   ymm3 = [2 10 18 26 | 34 42 50 58]
-	\ //   ymm2 = [3 11 19 27 | 35 43 51 59]
-	\ //   ymm1 = [4 12 20 28 | 36 44 52 60]
-	\ //   ymm0 = [5 13 21 29 | 37 45 53 61]
-	\ //   ymm8 = [6 14 22 30 | 38 46 54 62]
-	\ //   ymm7 = [7 15 23 31 | 39 47 55 63]
-	\ // Required dword layout:
-	\ //   ymm6 = [0 1 16 17 | 32 33 48 49]
-	\ //   ymm4 = [8 9 24 25 | 40 41 56 57]
-	\ //   ymm5 = [2 3 18 19 | 34 35 50 51]
-	\ //   ymm2 = [10 11 26 27 | 42 43 58 59]
-	\ //   ymm3 = [4 5 20 21 | 36 37 52 53]
-	\ //   ymm0 = [12 13 28 29 | 44 45 60 61]
-	\ //   ymm1 = [6 7 22 23 | 38 39 54 55]
-	\ //   ymm7 = [14 15 30 31 | 46 47 62 63]
-	SHUFFLE2(Y5, Y4, Y6, Y4); \
-	SHUFFLE2(Y3, Y2, Y5, Y2); \
-	SHUFFLE2(Y1, Y0, Y3, Y0); \
-	SHUFFLE2(Y8, Y7, Y1, Y7); \
-	VMOVDQU (72-8-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
-	VPSRLQ $32, ZETAH, ZETAL; \
-	inttButterfly(Y6, Y4, Y8, ZETAL, ZETAH, Y6, Y4); \
-	inttButterfly(Y5, Y2, Y8, ZETAL, ZETAH, Y5, Y2); \
-	inttButterfly(Y3, Y0, Y8, ZETAL, ZETAH, Y3, Y0); \
-	inttButterfly(Y1, Y7, Y8, ZETAL, ZETAH, Y1, Y7); \
-	\ // level 4: offset = 16, step = 8
-	\ // Input dword layout:
-	\ //   ymm6 = [0 1 16 17 | 32 33 48 49]
-	\ //   ymm4 = [8 9 24 25 | 40 41 56 57]
-	\ //   ymm5 = [2 3 18 19 | 34 35 50 51]
-	\ //   ymm2 = [10 11 26 27 | 42 43 58 59]
-	\ //   ymm3 = [4 5 20 21 | 36 37 52 53]
-	\ //   ymm0 = [12 13 28 29 | 44 45 60 61]
-	\ //   ymm1 = [6 7 22 23 | 38 39 54 55]
-	\ //   ymm7 = [14 15 30 31 | 46 47 62 63]
-	\ // Required dword layout:
-	\ //   ymm8 = [0 1 2 3 | 32 33 34 35]
-	\ //   ymm5 = [16 17 18 19 | 48 49 50 51]
-	\ //   ymm6 = [4 5 6 7 | 36 37 38 39]
-	\ //   ymm1 = [20 21 22 23 | 52 53 54 55]
-	\ //   ymm3 = [8 9 10 11 | 40 41 42 43]
-	\ //   ymm2 = [24 25 26 27 | 56 57 58 59]
-	\ //   ymm4 = [12 13 14 15 | 44 45 46 47]
-	\ //   ymm7 = [28 29 30 31 | 60 61 62 63]
-	SHUFFLE4(Y6, Y5, Y8, Y5); \
-	SHUFFLE4(Y3, Y1, Y6, Y1); \
-	SHUFFLE4(Y4, Y2, Y3, Y2); \
-	SHUFFLE4(Y0, Y7, Y4, Y7); \
-	VMOVDQU (40-8-8*offset)*4+zetasAddr, ZETAL; \
-	VPERMQ $0x1B, ZETAL, ZETAL; \
-	inttButterfly(Y8, Y5, Y0, ZETAL, ZETAL, Y8, Y5); \
-	inttButterfly(Y6, Y1, Y0, ZETAL, ZETAL, Y6, Y1); \
-	inttButterfly(Y3, Y2, Y0, ZETAL, ZETAL, Y3, Y2); \
-	inttButterfly(Y4, Y7, Y0, ZETAL, ZETAL, Y4, Y7); \
-	\ // level 5: offset = 32, step = 4
-	\ // Input dword layout:
-	\ //   ymm8 = [0 1 2 3 | 32 33 34 35]
-	\ //   ymm5 = [16 17 18 19 | 48 49 50 51]
-	\ //   ymm6 = [4 5 6 7 | 36 37 38 39]
-	\ //   ymm1 = [20 21 22 23 | 52 53 54 55]
-	\ //   ymm3 = [8 9 10 11 | 40 41 42 43]
-	\ //   ymm2 = [24 25 26 27 | 56 57 58 59]
-	\ //   ymm4 = [12 13 14 15 | 44 45 46 47]
-	\ //   ymm7 = [28 29 30 31 | 60 61 62 63]
-	\ // Required dword layout:
-	\ //   ymm0 = [0 1 2 3 | 4 5 6 7]
-	\ //   ymm6 = [32 33 34 35 | 36 37 38 39]
-	\ //   ymm8 = [8 9 10 11 | 12 13 14 15]
-	\ //   ymm4 = [40 41 42 43 | 44 45 46 47]
-	\ //   ymm3 = [16 17 18 19 | 20 21 22 23]
-	\ //   ymm1 = [48 49 50 51 | 52 53 54 55]
-	\ //   ymm5 = [24 25 26 27 | 28 29 30 31]
-	\ //   ymm7 = [56 57 58 59 | 60 61 62 63]
-	SHUFFLE8(Y8, Y6, Y0, Y6); \
-	SHUFFLE8(Y3, Y4, Y8, Y4); \
-	SHUFFLE8(Y5, Y1, Y3, Y1); \
-	SHUFFLE8(Y2, Y7, Y5, Y7); \
-	VPBROADCASTD (7-offset)*4+zetasAddr, ZETAL; \
-	inttButterfly(Y0, Y6, Y2, ZETAL, ZETAL, Y0, Y6); \
-	inttButterfly(Y8, Y4, Y2, ZETAL, ZETAL, Y8, Y4); \
-	inttButterfly(Y3, Y1, Y2, ZETAL, ZETAL, Y3, Y1); \
-	inttButterfly(Y5, Y7, Y2, ZETAL, ZETAL, Y5, Y7); \
-	\ // store back
-	VMOVDQU Y0, ((offset)*256)+dataAddr; \
-	VMOVDQU Y8, ((offset)*256+1*32)+dataAddr; \
-	VMOVDQU Y3, ((offset)*256+2*32)+dataAddr; \
-	VMOVDQU Y5, ((offset)*256+3*32)+dataAddr; \
-	VMOVDQU Y6, ((offset)*256+4*32)+dataAddr; \
-	VMOVDQU Y4, ((offset)*256+5*32)+dataAddr; \
-	VMOVDQU Y1, ((offset)*256+6*32)+dataAddr; \
-	VMOVDQU Y7, ((offset)*256+7*32)+dataAddr
-
-#define inttLevel6to7(dataAddr, zetasAddr, offset) \
-	VMOVDQU ((offset)*32)+dataAddr, Y0; \
-	VMOVDQU ((offset)*32+1*128)+dataAddr, Y1; \
-	VMOVDQU ((offset)*32+2*128)+dataAddr, Y2; \
-	VMOVDQU ((offset)*32+3*128)+dataAddr, Y3; \
-	VMOVDQU ((offset)*32+4*128)+dataAddr, Y4; \
-	VMOVDQU ((offset)*32+5*128)+dataAddr, Y5; \
-	VMOVDQU ((offset)*32+6*128)+dataAddr, Y6; \
-	VMOVDQU ((offset)*32+7*128)+dataAddr, Y7; \
-	\ // level 6: offset = 64, step = 2
-	VPBROADCASTD (3*4)+zetasAddr, ZETAL; \
-	inttButterfly(Y0, Y2, Y8, ZETAL, ZETAL, Y0, Y2); \
-	inttButterfly(Y1, Y3, Y8, ZETAL, ZETAL, Y1, Y3); \
-	\
-	VPBROADCASTD (2*4)+zetasAddr, ZETAL; \
-	inttButterfly(Y4, Y6, Y8, ZETAL, ZETAL, Y4, Y6); \
-	inttButterfly(Y5, Y7, Y8, ZETAL, ZETAL, Y5, Y7); \
-	\ // level 7: offset = 128, step = 1
-	VPBROADCASTD (1*4)+zetasAddr, ZETAL; \
-	inttButterfly(Y0, Y4, Y8, ZETAL, ZETAL, Y0, Y4); \
-	inttButterfly(Y1, Y5, Y8, ZETAL, ZETAL, Y1, Y5); \
-	inttButterfly(Y2, Y6, Y8, ZETAL, ZETAL, Y2, Y6); \
-	inttButterfly(Y3, Y7, Y8, ZETAL, ZETAL, Y3, Y7); \
-	\ // multiply by 41978, 41978 = ((256⁻¹ mod q) * (2³² * 2³² mod q)) mod q
-	fieldsMulEvenOdd(Y0, ZETAH, ZETAH, Y8); \
-	fieldsMulEvenOdd(Y1, ZETAH, ZETAH, Y0); \
-	fieldsMulEvenOdd(Y2, ZETAH, ZETAH, Y1); \
-	fieldsMulEvenOdd(Y3, ZETAH, ZETAH, Y2); \
-	fieldsMulEvenOdd(Y4, ZETAH, ZETAH, Y3); \
-	fieldsMulEvenOdd(Y5, ZETAH, ZETAH, Y4); \
-	fieldsMulEvenOdd(Y6, ZETAH, ZETAH, Y5); \
-	fieldsMulEvenOdd(Y7, ZETAH, ZETAH, Y6); \
-	\ // store back
-	VMOVDQU Y8, ((offset)*32)+dataAddr; \
-	VMOVDQU Y0, ((offset)*32+1*128)+dataAddr; \
-	VMOVDQU Y1, ((offset)*32+2*128)+dataAddr; \
-	VMOVDQU Y2, ((offset)*32+3*128)+dataAddr; \
-	VMOVDQU Y3, ((offset)*32+4*128)+dataAddr; \
-	VMOVDQU Y4, ((offset)*32+5*128)+dataAddr; \
-	VMOVDQU Y5, ((offset)*32+6*128)+dataAddr; \
-	VMOVDQU Y6, ((offset)*32+7*128)+dataAddr
-
+DATA nttConsts<>+0x00(SB)/2, $3329 // q
+DATA nttConsts<>+0x02(SB)/2, $3327 // qNegInv
+DATA nttConsts<>+0x04(SB)/2, $1    // one
+DATA nttConsts<>+0x06(SB)/2, $1353 // rr = r^2 mod q (fromMont: MontMul(x, rr) = x*r)
+DATA nttConsts<>+0x08(SB)/2, $1441 // inverse NTT final scale for Montgomery acc path: 128⁻¹*r² mod q
+GLOBL nttConsts<>(SB), RODATA, $16
+
+#define qConst nttConsts<>+0x00(SB)
+#define qNegInvConst nttConsts<>+0x02(SB)
+#define oneConst nttConsts<>+0x04(SB)
+#define rrConst nttConsts<>+0x06(SB)
+#define scale1441Const nttConsts<>+0x08(SB)
+
+// gammaMulTable<>: 256 × int16 interleaved as [r, γ[0], r, γ[1], ..., r, γ[127]]
+// where r=2285 (Montgomery form of 1) and γ[i]=gammasMontgomery[i].
+// Used by internalNTTMulAccAVX2: MontMul(t_ab[even], r) = t_ab[even],
+// MontMul(t_ab[odd], γ[i]) = γ[i]·a1·b1 for the even-index accumulation.
+DATA gammaMulTable<>+0x000(SB)/4, $0x08B208ED
+DATA gammaMulTable<>+0x004(SB)/4, $0x044F08ED
+DATA gammaMulTable<>+0x008(SB)/4, $0x01AE08ED
+DATA gammaMulTable<>+0x00C(SB)/4, $0x0B5308ED
+DATA gammaMulTable<>+0x010(SB)/4, $0x022B08ED
+DATA gammaMulTable<>+0x014(SB)/4, $0x0AD608ED
+DATA gammaMulTable<>+0x018(SB)/4, $0x034B08ED
+DATA gammaMulTable<>+0x01C(SB)/4, $0x09B608ED
+DATA gammaMulTable<>+0x020(SB)/4, $0x081E08ED
+DATA gammaMulTable<>+0x024(SB)/4, $0x04E308ED
+DATA gammaMulTable<>+0x028(SB)/4, $0x036708ED
+DATA gammaMulTable<>+0x02C(SB)/4, $0x099A08ED
+DATA gammaMulTable<>+0x030(SB)/4, $0x060E08ED
+DATA gammaMulTable<>+0x034(SB)/4, $0x06F308ED
+DATA gammaMulTable<>+0x038(SB)/4, $0x006908ED
+DATA gammaMulTable<>+0x03C(SB)/4, $0x0C9808ED
+DATA gammaMulTable<>+0x040(SB)/4, $0x01A608ED
+DATA gammaMulTable<>+0x044(SB)/4, $0x0B5B08ED
+DATA gammaMulTable<>+0x048(SB)/4, $0x024B08ED
+DATA gammaMulTable<>+0x04C(SB)/4, $0x0AB608ED
+DATA gammaMulTable<>+0x050(SB)/4, $0x00B108ED
+DATA gammaMulTable<>+0x054(SB)/4, $0x0C5008ED
+DATA gammaMulTable<>+0x058(SB)/4, $0x0C1608ED
+DATA gammaMulTable<>+0x05C(SB)/4, $0x00EB08ED
+DATA gammaMulTable<>+0x060(SB)/4, $0x0BDE08ED
+DATA gammaMulTable<>+0x064(SB)/4, $0x012308ED
+DATA gammaMulTable<>+0x068(SB)/4, $0x0B3508ED
+DATA gammaMulTable<>+0x06C(SB)/4, $0x01CC08ED
+DATA gammaMulTable<>+0x070(SB)/4, $0x062608ED
+DATA gammaMulTable<>+0x074(SB)/4, $0x06DB08ED
+DATA gammaMulTable<>+0x078(SB)/4, $0x067508ED
+DATA gammaMulTable<>+0x07C(SB)/4, $0x068C08ED
+DATA gammaMulTable<>+0x080(SB)/4, $0x0C0B08ED
+DATA gammaMulTable<>+0x084(SB)/4, $0x00F608ED
+DATA gammaMulTable<>+0x088(SB)/4, $0x030A08ED
+DATA gammaMulTable<>+0x08C(SB)/4, $0x09F708ED
+DATA gammaMulTable<>+0x090(SB)/4, $0x048708ED
+DATA gammaMulTable<>+0x094(SB)/4, $0x087A08ED
+DATA gammaMulTable<>+0x098(SB)/4, $0x0C6E08ED
+DATA gammaMulTable<>+0x09C(SB)/4, $0x009308ED
+DATA gammaMulTable<>+0x0A0(SB)/4, $0x09F808ED
+DATA gammaMulTable<>+0x0A4(SB)/4, $0x030908ED
+DATA gammaMulTable<>+0x0A8(SB)/4, $0x05CB08ED
+DATA gammaMulTable<>+0x0AC(SB)/4, $0x073608ED
+DATA gammaMulTable<>+0x0B0(SB)/4, $0x0AA708ED
+DATA gammaMulTable<>+0x0B4(SB)/4, $0x025A08ED
+DATA gammaMulTable<>+0x0B8(SB)/4, $0x045F08ED
+DATA gammaMulTable<>+0x0BC(SB)/4, $0x08A208ED
+DATA gammaMulTable<>+0x0C0(SB)/4, $0x06CB08ED
+DATA gammaMulTable<>+0x0C4(SB)/4, $0x063608ED
+DATA gammaMulTable<>+0x0C8(SB)/4, $0x028408ED
+DATA gammaMulTable<>+0x0CC(SB)/4, $0x0A7D08ED
+DATA gammaMulTable<>+0x0D0(SB)/4, $0x099908ED
+DATA gammaMulTable<>+0x0D4(SB)/4, $0x036808ED
+DATA gammaMulTable<>+0x0D8(SB)/4, $0x015D08ED
+DATA gammaMulTable<>+0x0DC(SB)/4, $0x0BA408ED
+DATA gammaMulTable<>+0x0E0(SB)/4, $0x01A208ED
+DATA gammaMulTable<>+0x0E4(SB)/4, $0x0B5F08ED
+DATA gammaMulTable<>+0x0E8(SB)/4, $0x014908ED
+DATA gammaMulTable<>+0x0EC(SB)/4, $0x0BB808ED
+DATA gammaMulTable<>+0x0F0(SB)/4, $0x0C6508ED
+DATA gammaMulTable<>+0x0F4(SB)/4, $0x009C08ED
+DATA gammaMulTable<>+0x0F8(SB)/4, $0x0CB608ED
+DATA gammaMulTable<>+0x0FC(SB)/4, $0x004B08ED
+DATA gammaMulTable<>+0x100(SB)/4, $0x033108ED
+DATA gammaMulTable<>+0x104(SB)/4, $0x09D008ED
+DATA gammaMulTable<>+0x108(SB)/4, $0x044908ED
+DATA gammaMulTable<>+0x10C(SB)/4, $0x08B808ED
+DATA gammaMulTable<>+0x110(SB)/4, $0x025B08ED
+DATA gammaMulTable<>+0x114(SB)/4, $0x0AA608ED
+DATA gammaMulTable<>+0x118(SB)/4, $0x026208ED
+DATA gammaMulTable<>+0x11C(SB)/4, $0x0A9F08ED
+DATA gammaMulTable<>+0x120(SB)/4, $0x052A08ED
+DATA gammaMulTable<>+0x124(SB)/4, $0x07D708ED
+DATA gammaMulTable<>+0x128(SB)/4, $0x07FC08ED
+DATA gammaMulTable<>+0x12C(SB)/4, $0x050508ED
+DATA gammaMulTable<>+0x130(SB)/4, $0x074808ED
+DATA gammaMulTable<>+0x134(SB)/4, $0x05B908ED
+DATA gammaMulTable<>+0x138(SB)/4, $0x018008ED
+DATA gammaMulTable<>+0x13C(SB)/4, $0x0B8108ED
+DATA gammaMulTable<>+0x140(SB)/4, $0x084208ED
+DATA gammaMulTable<>+0x144(SB)/4, $0x04BF08ED
+DATA gammaMulTable<>+0x148(SB)/4, $0x0C7908ED
+DATA gammaMulTable<>+0x14C(SB)/4, $0x008808ED
+DATA gammaMulTable<>+0x150(SB)/4, $0x04C208ED
+DATA gammaMulTable<>+0x154(SB)/4, $0x083F08ED
+DATA gammaMulTable<>+0x158(SB)/4, $0x07CA08ED
+DATA gammaMulTable<>+0x15C(SB)/4, $0x053708ED
+DATA gammaMulTable<>+0x160(SB)/4, $0x099708ED
+DATA gammaMulTable<>+0x164(SB)/4, $0x036A08ED
+DATA gammaMulTable<>+0x168(SB)/4, $0x00DC08ED
+DATA gammaMulTable<>+0x16C(SB)/4, $0x0C2508ED
+DATA gammaMulTable<>+0x170(SB)/4, $0x085E08ED
+DATA gammaMulTable<>+0x174(SB)/4, $0x04A308ED
+DATA gammaMulTable<>+0x178(SB)/4, $0x068608ED
+DATA gammaMulTable<>+0x17C(SB)/4, $0x067B08ED
+DATA gammaMulTable<>+0x180(SB)/4, $0x086008ED
+DATA gammaMulTable<>+0x184(SB)/4, $0x04A108ED
+DATA gammaMulTable<>+0x188(SB)/4, $0x070708ED
+DATA gammaMulTable<>+0x18C(SB)/4, $0x05FA08ED
+DATA gammaMulTable<>+0x190(SB)/4, $0x080308ED
+DATA gammaMulTable<>+0x194(SB)/4, $0x04FE08ED
+DATA gammaMulTable<>+0x198(SB)/4, $0x031A08ED
+DATA gammaMulTable<>+0x19C(SB)/4, $0x09E708ED
+DATA gammaMulTable<>+0x1A0(SB)/4, $0x071B08ED
+DATA gammaMulTable<>+0x1A4(SB)/4, $0x05E608ED
+DATA gammaMulTable<>+0x1A8(SB)/4, $0x09AB08ED
+DATA gammaMulTable<>+0x1AC(SB)/4, $0x035608ED
+DATA gammaMulTable<>+0x1B0(SB)/4, $0x099B08ED
+DATA gammaMulTable<>+0x1B4(SB)/4, $0x036608ED
+DATA gammaMulTable<>+0x1B8(SB)/4, $0x01DE08ED
+DATA gammaMulTable<>+0x1BC(SB)/4, $0x0B2308ED
+DATA gammaMulTable<>+0x1C0(SB)/4, $0x0C9508ED
+DATA gammaMulTable<>+0x1C4(SB)/4, $0x006C08ED
+DATA gammaMulTable<>+0x1C8(SB)/4, $0x0BCD08ED
+DATA gammaMulTable<>+0x1CC(SB)/4, $0x013408ED
+DATA gammaMulTable<>+0x1D0(SB)/4, $0x03E408ED
+DATA gammaMulTable<>+0x1D4(SB)/4, $0x091D08ED
+DATA gammaMulTable<>+0x1D8(SB)/4, $0x03DF08ED
+DATA gammaMulTable<>+0x1DC(SB)/4, $0x092208ED
+DATA gammaMulTable<>+0x1E0(SB)/4, $0x03BE08ED
+DATA gammaMulTable<>+0x1E4(SB)/4, $0x094308ED
+DATA gammaMulTable<>+0x1E8(SB)/4, $0x074D08ED
+DATA gammaMulTable<>+0x1EC(SB)/4, $0x05B408ED
+DATA gammaMulTable<>+0x1F0(SB)/4, $0x05F208ED
+DATA gammaMulTable<>+0x1F4(SB)/4, $0x070F08ED
+DATA gammaMulTable<>+0x1F8(SB)/4, $0x065C08ED
+DATA gammaMulTable<>+0x1FC(SB)/4, $0x06A508ED
+GLOBL gammaMulTable<>(SB), RODATA, $512
+
+// MONT_MUL_VEC computes lane-wise Montgomery multiplication YOUT = MontMul(YA, YZ).
+// Inputs: YA=value, YZ=multiplier-broadcast.
+// Constants: Y15=q, Y14=qNegInv, Y10=one, Y8=zero.
+// Clobbers: Y11, Y12, Y13.
+#define MONT_MUL_VEC(YA, YZ, YOUT) \
+	\ // mul YA by YZ, producing 32-bit products in Y11 (low) and Y12 (high)
+	VPMULLW YZ, YA, Y11 \    // lo = (YA * YZ) mod 2^16
+	VPMULHUW YZ, YA, Y12 \   // hi = (YA * YZ) >> 16  [unsigned]
+	\ // montgomery reduction: m = (t_ab[even] * qNegInv) mod r, t = (t_ab + m*q) / r
+	VPMULLW Y14, Y11, Y13 \  // t  = lo * qNegInv mod 2^16
+	VPMULHUW Y15, Y13, Y13 \ // correction = (t * q) >> 16
+	VPADDW Y13, Y12, Y12 \   // result = hi + correction
+	\ // lo==0 edge-case correction (adds 1 when lo != 0):
+	VPCMPEQW Y8, Y11, Y13 \  // Y13 = 0xFFFF if lo==0 else 0
+	VPADDW Y10, Y13, Y13 \   // Y13 = 0 if lo==0 else 1  (1+0xFFFF=0, 1+0=1)
+	VPADDW Y13, Y12, Y12 \   // result += Y13  (adds 1 when lo != 0)
+	\ // final conditional subtraction to reduce mod q: if t >= q, subtract q; else keep t
+	VPCMPGTW Y12, Y15, Y13 \ // Y13 = 0xFFFF if result < q else 0
+	VPANDN Y15, Y13, Y13 \   // Y13 = q if result >= q else 0
+	VPSUBW Y13, Y12, YOUT
+
+// MONT_MUL_VECX computes lane-wise Montgomery multiplication YOUT = MontMul(XA, XZ).
+// Inputs: XA=value, XZ=multiplier-broadcast.
+// Constants: X15=q, X14=qNegInv, X10=one, X8=zero.
+// Clobbers: X11, X12, X13.
+#define MONT_MUL_VECX(XA, XZ, XOUT) \
+	\ // mul XA by XZ, producing 32-bit products in X11 (low) and X12 (high)
+	VPMULLW XZ, XA, X11 \    // lo = (XA * XZ) mod 2^16
+	VPMULHUW XZ, XA, X12 \   // hi = (XA * XZ) >> 16  [unsigned]
+	\ // montgomery reduction: m = (t_ab[even] * qNegInv) mod r, t = (t_ab + m*q) / r
+	VPMULLW X14, X11, X13 \  // t  = lo * qNegInv mod 2^16
+	VPMULHUW X15, X13, X13 \ // correction = (t * q) >> 16
+	VPADDW X13, X12, X12 \   // result = hi + correction
+	\ // lo==0 edge-case correction (adds 1 when lo != 0):
+	VPCMPEQW X8, X11, X13 \  // X13 = 0xFFFF if lo==0 else 0
+	VPADDW X10, X13, X13 \   // X13 = 0 if lo==0 else 1  (1+0xFFFF=0, 1+0=1)
+	VPADDW X13, X12, X12 \   // result += X13  (adds 1 when lo != 0)
+	\ // final conditional subtraction to reduce mod q: if t >= q, subtract q; else keep t
+	VPCMPGTW X12, X15, X13 \ // X13 = 0xFFFF if result < q else 0
+	VPANDN X15, X13, X13 \   // X13 = q if result >= q else 0
+	VPSUBW X13, X12, XOUT
+
+// BUTTERFLY performs one Cooley-Tukey butterfly on 16 lanes.
+// Inputs: YA=a, YB=b, YZ=zeta-broadcast.
+// Constants: Y15=q, Y14=qNegInv, Y10=one, Y8=zero.
+// Clobbers: Y11, Y12, Y13.
+#define BUTTERFLY(YA, YB, YZ) \
+	\ // compute t = YZ * YB = Y12
+	MONT_MUL_VEC(YB, YZ, Y12) \
+	\ // new YB = YA - t
+	VPSUBW Y12, YA, YB \
+	VPSRAW $15, YB, Y11 \
+	VPAND Y15, Y11, Y11 \
+	VPADDW Y11, YB, YB \
+	\ // new YA = YA + t
+	VPADDW Y12, YA, Y12 \
+	VPCMPGTW Y12, Y15, Y13 \
+	VPANDN Y15, Y13, Y13 \
+	VPSUBW Y13, Y12, YA
+
+// BUTTERFLYX performs the same butterfly as BUTTERFLY on XMM vectors.
+// Inputs: XA, XB, XZ. Constants: X15=q, X14=qNegInv, X10=one, X8=zero.
+// Clobbers: X11, X12, X13.
+#define BUTTERFLYX(XA, XB, XZ) \
+	\ // compute t = MontMul(XZ, XB) → X12
+	MONT_MUL_VECX(XB, XZ, X12) \
+	\ // new XB = XA - t
+	VPSUBW X12, XA, XB \
+	VPSRAW $15, XB, X11 \
+	VPAND X15, X11, X11 \
+	VPADDW X11, XB, XB \
+	\ // new XA = XA + t
+	VPADDW X12, XA, X12 \
+	VPCMPGTW X12, X15, X13 \
+	VPANDN X15, X13, X13 \
+	VPSUBW X13, X12, XA
+
+// INTT_BUTTERFLY performs one Gentleman-Sande (decimation-in-frequency) butterfly on 16 int16 lanes.
+// Operation: a' = a + b  (with fieldReduceOnce)
+//            b' = zeta * (b - a)  (Montgomery multiply of the difference)
+// Inputs:  YA=a, YB=b, YZ=zeta-broadcast (consumed; caller must re-broadcast if reused).
+// Constants: Y15=q, Y14=qNegInv, Y10=one, Y8=zero.
+// Clobbers: Y9, Y11, Y12, Y13.
+// INTT_BUTTERFLY: Gentleman-Sande butterfly.
+//   YA' = fieldReduceOnce(YA + YB)
+//   YB' = MontMul(YZ, fieldSub(YB, YA_old))
+// Constants: Y15=q, Y14=qNegInv, Y10=1, Y8=0.
+// Clobbers: Y9, Y11, Y12, Y13.
+#define INTT_BUTTERFLY(YA, YB, YZ) \
+	VMOVDQA YA, Y9 \
+	\ // new YA = YA + YB (mod q, with at most one reduction needed)
+	VPADDW YB, YA, YA \
+	VPSUBW Y15, YA, Y11 \
+	VPSRAW $15, Y11, Y13 \
+	VPAND Y15, Y13, Y13 \
+	VPADDW Y13, Y11, YA \
+	\ // new YB = YZ * (YB - Y9)
+	\ // step 1: YB - Y9
+	VPSUBW Y9, YB, YB \
+	VPSRAW $15, YB, Y12 \
+	VPAND Y15, Y12, Y12 \
+	VPADDW Y12, YB, YB \
+	\ // step 2: MontMul(YZ, YB)
+	MONT_MUL_VEC(YB, YZ, YB)
+
+// INTT_BUTTERFLYX is the same as INTT_BUTTERFLY but operates on XMM vectors.
+// Inputs:  XA=a, XB=b, XZ=zeta. Constants: X15=q, X14=qNegInv, X10=one, X8=zero.
+// Clobbers: X9, X11, X12, X13.
+// INTT_BUTTERFLYX: same as INTT_BUTTERFLY but uses XMM registers.
+// Clobbers: X9, X11, X12, X13.
+#define INTT_BUTTERFLYX(XA, XB, XZ) \
+	VMOVDQA XA, X9 \
+	\ // new XA = XA + XB (mod q, with at most one reduction needed)
+	VPADDW XB, XA, XA \
+	VPSUBW X15, XA, X11 \
+	VPSRAW $15, X11, X13 \
+	VPAND X15, X13, X13 \
+	VPADDW X13, X11, XA \
+	\ // new XB = XZ * (XB - X9)
+	\ // step 1: XB - X9
+	VPSUBW X9, XB, XB \
+	VPSRAW $15, XB, X12 \
+	VPAND X15, X12, X12 \
+	VPADDW X12, XB, XB \
+	\ // step 2: MontMul(XZ, XB)
+	MONT_MUL_VECX(XB, XZ, XB)
+
+#define nttLevel0(dataAddr, zeta, offset) \
+	VMOVDQU (offset*32)(dataAddr), Y0 \
+	VMOVDQU (offset*32+256)(dataAddr), Y1 \
+	BUTTERFLY(Y0, Y1, zeta) \
+	VMOVDQU Y0, (offset*32)(dataAddr) \
+	VMOVDQU Y1, (offset*32+256)(dataAddr)
+
+#define nttLevel1(dataAddr, zeta, groupIdx, offset) \
+	VMOVDQU (groupIdx*256+32*offset)(dataAddr), Y0 \
+	VMOVDQU (groupIdx*256+32*offset+128)(dataAddr), Y1 \
+	BUTTERFLY(Y0, Y1, zeta) \
+	VMOVDQU Y0, (groupIdx*256+32*offset)(dataAddr) \
+	VMOVDQU Y1, (groupIdx*256+32*offset+128)(dataAddr)
+
+#define nttLevel2(dataAddr, zeta, groupIdx, offset) \
+	VMOVDQU (groupIdx*128+32*offset)(dataAddr), Y0 \
+	VMOVDQU (groupIdx*128+32*offset+64)(dataAddr), Y1 \
+	BUTTERFLY(Y0, Y1, zeta) \
+	VMOVDQU Y0, (groupIdx*128+32*offset)(dataAddr) \
+	VMOVDQU Y1, (groupIdx*128+32*offset+64)(dataAddr)
+
+#define nttLevel3(dataAddr, zeta, groupIdx) \
+	VMOVDQU (groupIdx*64)(dataAddr), Y0 \
+	VMOVDQU (groupIdx*64+32)(dataAddr), Y1 \
+	BUTTERFLY(Y0, Y1, zeta) \
+	VMOVDQU Y0, (groupIdx*64)(dataAddr) \
+	VMOVDQU Y1, (groupIdx*64+32)(dataAddr)
+
+// internalNTTAVX2 computes full forward NTT layers len=128..2.
 TEXT ·internalNTTAVX2(SB), NOSPLIT, $0-8
 	MOVQ f+0(FP), AX
-	MOVQ $·zetasMontgomeryAVX2(SB), BX
+	MOVQ $·zetasMontgomery(SB), BX
 
-	VPBROADCASTD qNegInvConst, QNegInv
-	VPBROADCASTD qConst, Q
+	VPBROADCASTW qConst, Y15
+	VPBROADCASTW qNegInvConst, Y14
+	VPBROADCASTW oneConst, Y10
+	VPXOR Y8, Y8, Y8
 
-	nttLevel0to1(0(AX), 0(BX), 0)
-	nttLevel0to1(0(AX), 0(BX), 1)
-	nttLevel0to1(0(AX), 0(BX), 2)
-	nttLevel0to1(0(AX), 0(BX), 3)
+	// Layer len=128, zeta = zetasMontgomery[1], chunk pairs (0,8)..(7,15)
+	VPBROADCASTW 2(BX), Y7
+	nttLevel0(AX, Y7, 0)
+	nttLevel0(AX, Y7, 1)
+	nttLevel0(AX, Y7, 2)
+	nttLevel0(AX, Y7, 3)
+	nttLevel0(AX, Y7, 4)
+	nttLevel0(AX, Y7, 5)
+	nttLevel0(AX, Y7, 6)
+	nttLevel0(AX, Y7, 7)
 
-	nttLevel2to7(0(AX), 0(BX), 0)
-	nttLevel2to7(0(AX), 0(BX), 1)
-	nttLevel2to7(0(AX), 0(BX), 2)
-	nttLevel2to7(0(AX), 0(BX), 3)
+	// Layer len=64
+	// Group 0: zeta=zetasMontgomery[2], chunk pairs (0,4)..(3,7)
+	VPBROADCASTW 4(BX), Y7
+	nttLevel1(AX, Y7, 0, 0)
+	nttLevel1(AX, Y7, 0, 1)
+	nttLevel1(AX, Y7, 0, 2)
+	nttLevel1(AX, Y7, 0, 3)
+
+	// Group 1: zeta=zetasMontgomery[3], chunk pairs (8,12)..(11,15)
+	VPBROADCASTW 6(BX), Y7
+	nttLevel1(AX, Y7, 1, 0)
+	nttLevel1(AX, Y7, 1, 1)
+	nttLevel1(AX, Y7, 1, 2)
+	nttLevel1(AX, Y7, 1, 3)
+
+	// Layer len=32
+	// Group 0: zeta=zetasMontgomery[4], pairs (chunk0,2) and (chunk1,3)
+	VPBROADCASTW 8(BX), Y7
+	nttLevel2(AX, Y7, 0, 0)
+	nttLevel2(AX, Y7, 0, 1)
+
+	// Group 1: zeta=zetasMontgomery[5], pairs (chunk4,6) and (chunk5,7)
+	VPBROADCASTW 10(BX), Y7
+	nttLevel2(AX, Y7, 1, 0)
+	nttLevel2(AX, Y7, 1, 1)
+
+	// Group 2: zeta=zetasMontgomery[6], pairs (chunk8,10) and (chunk9,11)
+	VPBROADCASTW 12(BX), Y7
+	nttLevel2(AX, Y7, 2, 0)
+	nttLevel2(AX, Y7, 2, 1)
+
+	// Group 3: zeta=zetasMontgomery[7], pairs (chunk12,14) and (chunk13,15)
+	VPBROADCASTW 14(BX), Y7
+	nttLevel2(AX, Y7, 3, 0)
+	nttLevel2(AX, Y7, 3, 1)
+
+	// Layer len=16
+	// Group g uses zetasMontgomery[8+g], chunk pairs (2g, 2g+1)
+	VPBROADCASTW 16(BX), Y7
+	nttLevel3(AX, Y7, 0)
+
+	VPBROADCASTW 18(BX), Y7
+	nttLevel3(AX, Y7, 1)
+
+	VPBROADCASTW 20(BX), Y7
+	nttLevel3(AX, Y7, 2)
+
+	VPBROADCASTW 22(BX), Y7
+	nttLevel3(AX, Y7, 3)
+
+	VPBROADCASTW 24(BX), Y7
+	nttLevel3(AX, Y7, 4)
+
+	VPBROADCASTW 26(BX), Y7
+	nttLevel3(AX, Y7, 5)
+
+	VPBROADCASTW 28(BX), Y7
+	nttLevel3(AX, Y7, 6)
+
+	VPBROADCASTW 30(BX), Y7
+	nttLevel3(AX, Y7, 7)
+
+	// Continue with layers len=8, len=4, len=2
+	VPBROADCASTW qConst, X15
+	VPBROADCASTW qNegInvConst, X14
+	VPBROADCASTW oneConst, X10
+	VPXOR X8, X8, X8
+
+	// Layer len=8, groups g=0..15, zeta index = 16+g
+	XORQ CX, CX
+len8_loop:
+	CMPQ CX, $16
+	JGE len4_start
+	MOVQ CX, SI
+	ADDQ $16, SI
+	SHLQ $1, SI
+	VPBROADCASTW (BX)(SI*1), X7
+
+	MOVQ CX, DI
+	SHLQ $5, DI
+	VMOVDQU (AX)(DI*1), X0
+	VMOVDQU 16(AX)(DI*1), X1
+	BUTTERFLYX(X0, X1, X7)
+	VMOVDQU X0, (AX)(DI*1)
+	VMOVDQU X1, 16(AX)(DI*1)
+
+	INCQ CX
+	JMP len8_loop
+
+	// Layer len=4, groups g=0..31, zeta index = 32+g
+len4_start:
+	XORQ CX, CX
+len4_loop:
+	CMPQ CX, $32
+	JGE len2_start
+	MOVQ CX, SI
+	ADDQ $32, SI
+	SHLQ $1, SI
+	VPBROADCASTW (BX)(SI*1), X7
+
+	MOVQ CX, DI
+	SHLQ $4, DI
+	VMOVQ (AX)(DI*1), X0
+	VMOVQ 8(AX)(DI*1), X1
+	BUTTERFLYX(X0, X1, X7)
+	VMOVQ X0, (AX)(DI*1)
+	VMOVQ X1, 8(AX)(DI*1)
+
+	INCQ CX
+	JMP len4_loop
+
+	// Layer len=2, groups g=0..63, zeta index = 64+g
+len2_start:
+	XORQ CX, CX
+len2_loop:
+	CMPQ CX, $64
+	JGE len2_done
+	MOVQ CX, SI
+	ADDQ $64, SI
+	SHLQ $1, SI
+	VPBROADCASTW (BX)(SI*1), X7
+
+	MOVQ CX, DI
+	SHLQ $3, DI
+	VMOVD (AX)(DI*1), X0
+	VMOVD 4(AX)(DI*1), X1
+	BUTTERFLYX(X0, X1, X7)
+	VMOVD X0, (AX)(DI*1)
+	VMOVD X1, 4(AX)(DI*1)
+
+	INCQ CX
+	JMP len2_loop
+
+len2_done:
+	VZEROUPPER
+	RET
+
+#define inttLevel0(dataAddr, zeta, scale, offset) \
+	VMOVDQU (offset*32)(dataAddr), Y0 \
+	VMOVDQU (offset*32+256)(dataAddr), Y1 \
+	INTT_BUTTERFLY(Y0, Y1, zeta) \
+	MONT_MUL_VEC(Y0, scale, Y0) \
+	VMOVDQU Y0, (offset*32)(dataAddr) \
+	MONT_MUL_VEC(Y1, scale, Y1) \
+	VMOVDQU Y1, (offset*32+256)(dataAddr)
+
+#define inttLevel1(dataAddr, zeta, groupIdx, offset) \
+	VMOVDQU (groupIdx*256+32*offset)(dataAddr), Y0 \
+	VMOVDQU (groupIdx*256+32*offset+128)(dataAddr), Y1 \
+	INTT_BUTTERFLY(Y0, Y1, zeta) \
+	VMOVDQU Y0, (groupIdx*256+32*offset)(dataAddr) \
+	VMOVDQU Y1, (groupIdx*256+32*offset+128)(dataAddr)
+
+#define inttLevel2(dataAddr, zeta, groupIdx, offset) \
+	VMOVDQU (groupIdx*128+32*offset)(dataAddr), Y0 \
+	VMOVDQU (groupIdx*128+32*offset+64)(dataAddr), Y1 \
+	INTT_BUTTERFLY(Y0, Y1, zeta) \
+	VMOVDQU Y0, (groupIdx*128+32*offset)(dataAddr) \
+	VMOVDQU Y1, (groupIdx*128+32*offset+64)(dataAddr)
+
+#define inttLevel3(dataAddr, zeta, groupIdx) \
+	VMOVDQU (groupIdx*64)(dataAddr), Y0 \
+	VMOVDQU (groupIdx*64+32)(dataAddr), Y1 \
+	INTT_BUTTERFLY(Y0, Y1, zeta) \
+	VMOVDQU Y0, (groupIdx*64)(dataAddr) \
+	VMOVDQU Y1, (groupIdx*64+32)(dataAddr)
+
+// internalInverseNTTAVX2 computes the full inverse NTT (all 7 layers) 
+// in Gentleman-Sande (decimation-in-frequency) order: len=2→4→8→16→32→64→128 and
+// then applies the final scale-by-1441 for the Montgomery accumulator path.
+// 1441 = 128⁻¹ * r² mod q.
+// AX = f pointer, BX = zetasMontgomery pointer
+TEXT ·internalInverseNTTAVX2(SB), NOSPLIT, $0-8
+	MOVQ f+0(FP), AX
+	MOVQ $·zetasMontgomery(SB), BX
+
+	// ── Setup XMM constants for small layers (len=2,4,8) ──────────────────
+	VPBROADCASTW qConst, X15
+	VPBROADCASTW qNegInvConst, X14
+	VPBROADCASTW oneConst, X10
+	VPXOR X8, X8, X8
+
+	// ── L6: len=2, 64 groups, zeta = zetasMontgomery[127..64] ───────────
+	// group g: start=g*4 bytes, fl=[start..start+4), fr=[start+4..start+8)
+	// twiddle at BX + (127-g)*2  (k counts down from 127)
+	XORQ CX, CX
+intt_len2_loop:
+	CMPQ CX, $64
+	JGE intt_len4_start
+
+	// twiddle index = 127 - CX  → byte offset = (127-CX)*2 = 254-CX*2
+	MOVQ $254, SI
+	MOVQ CX, DI
+	SHLQ $1, DI
+	SUBQ DI, SI
+	VPBROADCASTW (BX)(SI*1), X7
+
+	// byte offset of this group in f: CX * 8  (group g: start = g*2*len*sizeof(uint16) = g*2*2*2 = g*8)
+	MOVQ CX, DI
+	SHLQ $3, DI
+	VMOVD (AX)(DI*1), X0     // fl = f[start..start+2]  (2 × int16 = 4 bytes)
+	VMOVD 4(AX)(DI*1), X1    // fr = f[start+2..start+4]
+	INTT_BUTTERFLYX(X0, X1, X7)
+	VMOVD X0, (AX)(DI*1)
+	VMOVD X1, 4(AX)(DI*1)
+
+	INCQ CX
+	JMP intt_len2_loop
+
+	// ── L5: len=4, 32 groups, zeta = zetasMontgomery[63..32] ────────────
+	// group g: start=g*8 bytes, fl=[start..start+8), fr=[start+8..start+16)
+intt_len4_start:
+	XORQ CX, CX
+intt_len4_loop:
+	CMPQ CX, $32
+	JGE intt_len8_start
+
+	// twiddle index = 63 - CX  → byte offset = (63-CX)*2 = 126-CX*2
+	MOVQ $126, SI
+	MOVQ CX, DI
+	SHLQ $1, DI
+	SUBQ DI, SI
+	VPBROADCASTW (BX)(SI*1), X7
+
+	// byte offset: CX * 16  (group g: start = g*2*len*sizeof(uint16) = g*2*4*2 = g*16)
+	MOVQ CX, DI
+	SHLQ $4, DI
+	VMOVQ (AX)(DI*1), X0     // fl = 4 × int16 = 8 bytes
+	VMOVQ 8(AX)(DI*1), X1    // fr
+	INTT_BUTTERFLYX(X0, X1, X7)
+	VMOVQ X0, (AX)(DI*1)
+	VMOVQ X1, 8(AX)(DI*1)
+
+	INCQ CX
+	JMP intt_len4_loop
+
+	// ── L4: len=8, 16 groups, zeta = zetasMontgomery[31..16] ────────────
+	// group g: start=g*16 bytes (= g*32 once you include both halves),
+	//          fl=[start..start+16), fr=[start+16..start+32)
+intt_len8_start:
+	XORQ CX, CX
+intt_len8_loop:
+	CMPQ CX, $16
+	JGE intt_len16_start
+
+	// twiddle index = 31 - CX → byte offset = (31-CX)*2 = 62-CX*2
+	MOVQ $62, SI
+	MOVQ CX, DI
+	SHLQ $1, DI
+	SUBQ DI, SI
+	VPBROADCASTW (BX)(SI*1), X7
+
+	// byte offset: CX * 32
+	MOVQ CX, DI
+	SHLQ $5, DI
+	VMOVDQU (AX)(DI*1), X0    // fl = 8 × int16 = 16 bytes
+	VMOVDQU 16(AX)(DI*1), X1  // fr
+	INTT_BUTTERFLYX(X0, X1, X7)
+	VMOVDQU X0, (AX)(DI*1)
+	VMOVDQU X1, 16(AX)(DI*1)
+
+	INCQ CX
+	JMP intt_len8_loop
+
+	// ── Switch to YMM for len≥16 ──────────────────────────────────────────
+intt_len16_start:
+	VPBROADCASTW qConst, Y15
+	VPBROADCASTW qNegInvConst, Y14
+	VPBROADCASTW oneConst, Y10
+	VPXOR Y8, Y8, Y8
+
+	// ── L3: len=16, 8 groups, zeta = zetasMontgomery[15..8] ─────────────
+	// group g: fl at g*64 bytes, fr at g*64+32 bytes
+	// twiddle index = 15-g → byte offset = (15-g)*2 = 30-g*2
+	VPBROADCASTW 30(BX), Y7
+	inttLevel3(AX, Y7, 0)
+
+	VPBROADCASTW 28(BX), Y7
+	inttLevel3(AX, Y7, 1)
+
+	VPBROADCASTW 26(BX), Y7
+	inttLevel3(AX, Y7, 2)
+
+	VPBROADCASTW 24(BX), Y7
+	inttLevel3(AX, Y7, 3)
+
+	VPBROADCASTW 22(BX), Y7
+	inttLevel3(AX, Y7, 4)
+
+	VPBROADCASTW 20(BX), Y7
+	inttLevel3(AX, Y7, 5)
+
+	VPBROADCASTW 18(BX), Y7
+	inttLevel3(AX, Y7, 6)
+
+	VPBROADCASTW 16(BX), Y7
+	inttLevel3(AX, Y7, 7)
+
+	// ── L2: len=32, 4 groups, zeta = zetasMontgomery[7..4] ──────────────
+	// group g: fl at g*128 bytes, fr at g*128+64 bytes
+	// twiddle index = 7-g → byte offset = (7-g)*2 = 14-g*2
+	VPBROADCASTW 14(BX), Y7
+	inttLevel2(AX, Y7, 0, 0)
+	inttLevel2(AX, Y7, 0, 1)
+
+	VPBROADCASTW 12(BX), Y7
+	inttLevel2(AX, Y7, 1, 0)
+	inttLevel2(AX, Y7, 1, 1)
+
+	VPBROADCASTW 10(BX), Y7
+	inttLevel2(AX, Y7, 2, 0)
+	inttLevel2(AX, Y7, 2, 1)
+
+	VPBROADCASTW 8(BX), Y7
+	inttLevel2(AX, Y7, 3, 0)
+	inttLevel2(AX, Y7, 3, 1)
+
+	// ── L1: len=64, 2 groups, zeta = zetasMontgomery[3..2] ──────────────
+	// group 0: fl at 0, fr at 128 bytes; group 1: fl at 256, fr at 384
+	VPBROADCASTW 6(BX), Y7
+	inttLevel1(AX, Y7, 0, 0)
+	inttLevel1(AX, Y7, 0, 1)
+	inttLevel1(AX, Y7, 0, 2)
+	inttLevel1(AX, Y7, 0, 3)
+
+	VPBROADCASTW 4(BX), Y7
+	inttLevel1(AX, Y7, 1, 0)
+	inttLevel1(AX, Y7, 1, 1)
+	inttLevel1(AX, Y7, 1, 2)
+	inttLevel1(AX, Y7, 1, 3)
+
+	// ── L0: len=128, 1 group, zeta = zetasMontgomery[1] ─────────────────
+	// fl at 0..255 bytes (128 × int16), fr at 256..511 bytes
+	VPBROADCASTW 2(BX), Y7
+	VPBROADCASTW scale1441Const, Y2
+	inttLevel0(AX, Y7, Y2, 0)
+	inttLevel0(AX, Y7, Y2, 1)
+	inttLevel0(AX, Y7, Y2, 2)
+	inttLevel0(AX, Y7, Y2, 3)
+	inttLevel0(AX, Y7, Y2, 4)
+	inttLevel0(AX, Y7, Y2, 5)
+	inttLevel0(AX, Y7, Y2, 6)
+	inttLevel0(AX, Y7, Y2, 7)
 
 	VZEROUPPER
 	RET
 
-TEXT ·internalInverseNTTAVX2(SB), NOSPLIT, $0-8
-	MOVQ f+0(FP), AX
-	MOVQ $·qMinusZetasMontgomeryAVX2(SB), BX
+// internalNTTMulAccAVX2 computes acc[i] += NTT_MulAcc(lhs, rhs)[i] for all 256 coefficients,
+// using Montgomery multiplication. Implements nttMontMulAcc in AVX2.
+//
+// For each pair (i, i+1):
+//   acc[i]   += MontMul(a0,b0) + MontMul(MontMul(a1,b1), gamma[i/2])
+//   acc[i+1] += MontMul(a0,b1) + MontMul(a1,b0)
+//
+// Strategy: process 8 pairs (16 elements) per YMM iteration using VPHADDW
+// to combine pair results and VPUNPCKLWD to re-interleave even/odd updates.
+//
+// gammaMulTable<> contains [r, γ[0], r, γ[1], ...] (r=2285=Montgomery 1).
+// MontMul(x, r) = x, so even entries act as identity for MontMul.
+//
+// func internalNTTMulAccAVX2(acc, lhs, rhs *nttElement)
+TEXT ·internalNTTMulAccAVX2(SB), NOSPLIT, $0-24
+	MOVQ acc+0(FP), AX
+	MOVQ lhs+8(FP), BX
+	MOVQ rhs+16(FP), DX
 
-	VPBROADCASTD qNegInvConst, QNegInv
-	VPBROADCASTD qConst, Q
+	VPBROADCASTW qConst, Y15
+	VPBROADCASTW qNegInvConst, Y14
+	VPBROADCASTW oneConst, Y10
+	VPXOR Y8, Y8, Y8
 
-	inttLevel0to5(0(AX), 0(BX), 0)
-	inttLevel0to5(0(AX), 0(BX), 1)
-	inttLevel0to5(0(AX), 0(BX), 2)
-	inttLevel0to5(0(AX), 0(BX), 3)
+	LEAQ gammaMulTable<>(SB), SI
+	XORQ DI, DI           // DI = block byte offset (0..480 step 32)
 
-	VPBROADCASTD invDegreeMontgomeryConst, ZETAH
-	inttLevel6to7(0(AX), 0(BX), 0)
-	inttLevel6to7(0(AX), 0(BX), 1)
-	inttLevel6to7(0(AX), 0(BX), 2)
-	inttLevel6to7(0(AX), 0(BX), 3)
+nttmlacc_loop:
+	CMPQ DI, $512
+	JGE nttmlacc_done
 
+	// Load 8 pairs (16 × int16) from lhs, rhs, acc, and gammaMulTable
+	VMOVDQU (BX)(DI*1), Y0    // Y0 = lhs[DI/2 .. DI/2+15]
+	VMOVDQU (DX)(DI*1), Y1    // Y1 = rhs
+	VMOVDQU (AX)(DI*1), Y2    // Y2 = acc
+	VMOVDQU (SI)(DI*1), Y3    // Y3 = [r,γ[k], r,γ[k+1], ...] 8 entries
+
+	// Y4 = rhs with adjacent pairs swapped: [b1,b0, b3,b2, ...]
+	VPSHUFLW $0xB1, Y1, Y4
+	VPSHUFHW $0xB1, Y4, Y4
+
+	// Y5 = t_ab = MontMul(lhs, rhs) = [a0*b0, a1*b1, a2*b2, ...]
+	MONT_MUL_VEC(Y0, Y1, Y5)
+
+	// Y6 = t_cross = MontMul(lhs, rhs_swapped) = [a0*b1, a1*b0, a2*b3, ...]
+	MONT_MUL_VEC(Y0, Y4, Y6)
+
+	// Y7 = t_scaled = MontMul(t_ab, gamma):
+	//   even positions: MontMul(a0*b0, r) = a0*b0
+	//   odd positions:  MontMul(a1*b1, γ[k]) = γ[k]*a1*b1
+	MONT_MUL_VEC(Y5, Y3, Y7)
+
+	// Horizontal add pairs to combine even/odd contributions:
+	//   Y7 → [a0*b0 + γ[k]*a1*b1, ...] (4 values per 128-bit lane, doubled)
+	//   Y6 → [a0*b1 + a1*b0, ...]       (4 values per 128-bit lane, doubled)
+	VPHADDW Y7, Y7, Y7
+	VPHADDW Y6, Y6, Y6
+
+	// fieldReduceOnce on both hadd results (values in [0, 2q))
+	VPCMPGTW Y7, Y15, Y11
+	VPANDN Y15, Y11, Y11
+	VPSUBW Y11, Y7, Y7
+
+	VPCMPGTW Y6, Y15, Y11
+	VPANDN Y15, Y11, Y11
+	VPSUBW Y11, Y6, Y6
+
+	// Re-interleave even (Y7) and odd (Y6) sums:
+	//   VPUNPCKLWD takes low 4 words per lane from each src
+	//   Result: [Y7[0],Y6[0], Y7[1],Y6[1], Y7[2],Y6[2], Y7[3],Y6[3] | ...]
+	//         = [acc[0]_delta, acc[1]_delta, acc[2]_delta, ...]
+	VPUNPCKLWD Y6, Y7, Y5
+
+	// Add update to acc, then fieldReduceOnce (sum in [0, 2q))
+	VPADDW Y5, Y2, Y2
+	VPCMPGTW Y2, Y15, Y11
+	VPANDN Y15, Y11, Y11
+	VPSUBW Y11, Y2, Y2
+
+	VMOVDQU Y2, (AX)(DI*1)
+
+	ADDQ $32, DI
+	JMP nttmlacc_loop
+
+nttmlacc_done:
+	VZEROUPPER
+	RET
+
+// internalNTTMulAccKeyGenAVX2 computes acc[i] += MulAcc(lhs, rhs)[i] for all 256 coefficients
+// using standard (Barrett) domain arithmetic — matching nttMulAccGeneric.
+//
+// Identical to internalNTTMulAccAVX2 except the Montgomery-domain delta is converted back
+// to the standard domain via MontMul(delta, rr) = delta * r, before accumulating into acc.
+// rr = r^2 mod q = 1353; MontMul(x, rr) = x * r^2 * r^{-1} = x * r = toStandard(x).
+//
+// func internalNTTMulAccKeyGenAVX2(acc, lhs, rhs *nttElement)
+TEXT ·internalNTTMulAccKeyGenAVX2(SB), NOSPLIT, $0-24
+	MOVQ acc+0(FP), AX
+	MOVQ lhs+8(FP), BX
+	MOVQ rhs+16(FP), DX
+
+	VPBROADCASTW qConst, Y15
+	VPBROADCASTW qNegInvConst, Y14
+	VPBROADCASTW oneConst, Y10
+	VPXOR Y8, Y8, Y8
+	VPBROADCASTW rrConst, Y9       // Y9 = rr = 1353; MontMul(x, Y9) converts Mont -> standard
+
+	LEAQ gammaMulTable<>(SB), SI
+	XORQ DI, DI           // DI = block byte offset (0..480 step 32)
+
+nttmlacc_kg_loop:
+	CMPQ DI, $512
+	JGE nttmlacc_kg_done
+
+	// Load 8 pairs (16 × int16) from lhs, rhs, acc, and gammaMulTable
+	VMOVDQU (BX)(DI*1), Y0    // Y0 = lhs[DI/2 .. DI/2+15]
+	VMOVDQU (DX)(DI*1), Y1    // Y1 = rhs
+	VMOVDQU (AX)(DI*1), Y2    // Y2 = acc
+	VMOVDQU (SI)(DI*1), Y3    // Y3 = [r,γ[k], r,γ[k+1], ...] 8 entries
+
+	// Y4 = rhs with adjacent pairs swapped: [b1,b0, b3,b2, ...]
+	VPSHUFLW $0xB1, Y1, Y4
+	VPSHUFHW $0xB1, Y4, Y4
+
+	// Y5 = t_ab = MontMul(lhs, rhs) = [a0*b0, a1*b1, ...]
+	MONT_MUL_VEC(Y0, Y1, Y5)
+
+	// Y6 = t_cross = MontMul(lhs, rhs_swapped) = [a0*b1, a1*b0, ...]
+	MONT_MUL_VEC(Y0, Y4, Y6)
+
+	// Y7 = MontMul(t_ab, gamma): even=a0*b0, odd=γ[k]*a1*b1 (all Montgomery domain)
+	MONT_MUL_VEC(Y5, Y3, Y7)
+
+	// Horizontal add pairs to combine even/odd contributions
+	VPHADDW Y7, Y7, Y7
+	VPHADDW Y6, Y6, Y6
+
+	// fieldReduceOnce on both hadd results (values in [0, 2q))
+	VPCMPGTW Y7, Y15, Y11
+	VPANDN Y15, Y11, Y11
+	VPSUBW Y11, Y7, Y7
+
+	VPCMPGTW Y6, Y15, Y11
+	VPANDN Y15, Y11, Y11
+	VPSUBW Y11, Y6, Y6
+
+	// Re-interleave even (Y7) and odd (Y6) sums -> Y5 (Montgomery-domain delta)
+	VPUNPCKLWD Y6, Y7, Y5
+
+	// Convert delta from Montgomery domain to standard domain:
+	//   MontMul(Y5, rr) = Y5 * rr * r^{-1} = Y5 * r^2 * r^{-1} = Y5 * r
+	MONT_MUL_VEC(Y5, Y9, Y5)
+
+	// Add standard-domain delta to acc, then fieldReduceOnce
+	VPADDW Y5, Y2, Y2
+	VPCMPGTW Y2, Y15, Y11
+	VPANDN Y15, Y11, Y11
+	VPSUBW Y11, Y2, Y2
+
+	VMOVDQU Y2, (AX)(DI*1)
+
+	ADDQ $32, DI
+	JMP nttmlacc_kg_loop
+
+nttmlacc_kg_done:
 	VZEROUPPER
 	RET
