@@ -280,6 +280,34 @@ GLOBL gammaMulTable<>(SB), RODATA, $512
 	\ // step 2: MontMul(XZ, XB)
 	MONT_MUL_VECX(XB, XZ, XB)
 
+#define nttLevel0(dataAddr, zeta, offset) \
+	VMOVDQU (offset*32)(dataAddr), Y0 \
+	VMOVDQU (offset*32+256)(dataAddr), Y1 \
+	BUTTERFLY(Y0, Y1, zeta) \
+	VMOVDQU Y0, (offset*32)(dataAddr) \
+	VMOVDQU Y1, (offset*32+256)(dataAddr)
+
+#define nttLevel1(dataAddr, zeta, groupIdx, offset) \
+	VMOVDQU (groupIdx*256+32*offset)(dataAddr), Y0 \
+	VMOVDQU (groupIdx*256+32*offset+128)(dataAddr), Y1 \
+	BUTTERFLY(Y0, Y1, zeta) \
+	VMOVDQU Y0, (groupIdx*256+32*offset)(dataAddr) \
+	VMOVDQU Y1, (groupIdx*256+32*offset+128)(dataAddr)
+
+#define nttLevel2(dataAddr, zeta, groupIdx, offset) \
+	VMOVDQU (groupIdx*128+32*offset)(dataAddr), Y0 \
+	VMOVDQU (groupIdx*128+32*offset+64)(dataAddr), Y1 \
+	BUTTERFLY(Y0, Y1, zeta) \
+	VMOVDQU Y0, (groupIdx*128+32*offset)(dataAddr) \
+	VMOVDQU Y1, (groupIdx*128+32*offset+64)(dataAddr)
+
+#define nttLevel3(dataAddr, zeta, groupIdx) \
+	VMOVDQU (groupIdx*64)(dataAddr), Y0 \
+	VMOVDQU (groupIdx*64+32)(dataAddr), Y1 \
+	BUTTERFLY(Y0, Y1, zeta) \
+	VMOVDQU Y0, (groupIdx*64)(dataAddr) \
+	VMOVDQU Y1, (groupIdx*64+32)(dataAddr)
+
 // internalNTTAVX2 computes full forward NTT layers len=128..2.
 TEXT ·internalNTTAVX2(SB), NOSPLIT, $0-8
 	MOVQ f+0(FP), AX
@@ -292,222 +320,76 @@ TEXT ·internalNTTAVX2(SB), NOSPLIT, $0-8
 
 	// Layer len=128, zeta = zetasMontgomery[1], chunk pairs (0,8)..(7,15)
 	VPBROADCASTW 2(BX), Y7
-
-	VMOVDQU 0(AX), Y0
-	VMOVDQU 256(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 0(AX)
-	VMOVDQU Y1, 256(AX)
-
-	VMOVDQU 32(AX), Y0
-	VMOVDQU 288(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 32(AX)
-	VMOVDQU Y1, 288(AX)
-
-	VMOVDQU 64(AX), Y0
-	VMOVDQU 320(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 64(AX)
-	VMOVDQU Y1, 320(AX)
-
-	VMOVDQU 96(AX), Y0
-	VMOVDQU 352(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 96(AX)
-	VMOVDQU Y1, 352(AX)
-
-	VMOVDQU 128(AX), Y0
-	VMOVDQU 384(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 128(AX)
-	VMOVDQU Y1, 384(AX)
-
-	VMOVDQU 160(AX), Y0
-	VMOVDQU 416(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 160(AX)
-	VMOVDQU Y1, 416(AX)
-
-	VMOVDQU 192(AX), Y0
-	VMOVDQU 448(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 192(AX)
-	VMOVDQU Y1, 448(AX)
-
-	VMOVDQU 224(AX), Y0
-	VMOVDQU 480(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 224(AX)
-	VMOVDQU Y1, 480(AX)
+	nttLevel0(AX, Y7, 0)
+	nttLevel0(AX, Y7, 1)
+	nttLevel0(AX, Y7, 2)
+	nttLevel0(AX, Y7, 3)
+	nttLevel0(AX, Y7, 4)
+	nttLevel0(AX, Y7, 5)
+	nttLevel0(AX, Y7, 6)
+	nttLevel0(AX, Y7, 7)
 
 	// Layer len=64
 	// Group 0: zeta=zetasMontgomery[2], chunk pairs (0,4)..(3,7)
 	VPBROADCASTW 4(BX), Y7
-	VMOVDQU 0(AX), Y0
-	VMOVDQU 128(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 0(AX)
-	VMOVDQU Y1, 128(AX)
-
-	VMOVDQU 32(AX), Y0
-	VMOVDQU 160(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 32(AX)
-	VMOVDQU Y1, 160(AX)
-
-	VMOVDQU 64(AX), Y0
-	VMOVDQU 192(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 64(AX)
-	VMOVDQU Y1, 192(AX)
-
-	VMOVDQU 96(AX), Y0
-	VMOVDQU 224(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 96(AX)
-	VMOVDQU Y1, 224(AX)
+	nttLevel1(AX, Y7, 0, 0)
+	nttLevel1(AX, Y7, 0, 1)
+	nttLevel1(AX, Y7, 0, 2)
+	nttLevel1(AX, Y7, 0, 3)
 
 	// Group 1: zeta=zetasMontgomery[3], chunk pairs (8,12)..(11,15)
 	VPBROADCASTW 6(BX), Y7
-	VMOVDQU 256(AX), Y0
-	VMOVDQU 384(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 256(AX)
-	VMOVDQU Y1, 384(AX)
-
-	VMOVDQU 288(AX), Y0
-	VMOVDQU 416(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 288(AX)
-	VMOVDQU Y1, 416(AX)
-
-	VMOVDQU 320(AX), Y0
-	VMOVDQU 448(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 320(AX)
-	VMOVDQU Y1, 448(AX)
-
-	VMOVDQU 352(AX), Y0
-	VMOVDQU 480(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 352(AX)
-	VMOVDQU Y1, 480(AX)
+	nttLevel1(AX, Y7, 1, 0)
+	nttLevel1(AX, Y7, 1, 1)
+	nttLevel1(AX, Y7, 1, 2)
+	nttLevel1(AX, Y7, 1, 3)
 
 	// Layer len=32
 	// Group 0: zeta=zetasMontgomery[4], pairs (chunk0,2) and (chunk1,3)
 	VPBROADCASTW 8(BX), Y7
-	VMOVDQU 0(AX), Y0
-	VMOVDQU 64(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 0(AX)
-	VMOVDQU Y1, 64(AX)
-
-	VMOVDQU 32(AX), Y0
-	VMOVDQU 96(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 32(AX)
-	VMOVDQU Y1, 96(AX)
+	nttLevel2(AX, Y7, 0, 0)
+	nttLevel2(AX, Y7, 0, 1)
 
 	// Group 1: zeta=zetasMontgomery[5], pairs (chunk4,6) and (chunk5,7)
 	VPBROADCASTW 10(BX), Y7
-	VMOVDQU 128(AX), Y0
-	VMOVDQU 192(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 128(AX)
-	VMOVDQU Y1, 192(AX)
-
-	VMOVDQU 160(AX), Y0
-	VMOVDQU 224(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 160(AX)
-	VMOVDQU Y1, 224(AX)
+	nttLevel2(AX, Y7, 1, 0)
+	nttLevel2(AX, Y7, 1, 1)
 
 	// Group 2: zeta=zetasMontgomery[6], pairs (chunk8,10) and (chunk9,11)
 	VPBROADCASTW 12(BX), Y7
-	VMOVDQU 256(AX), Y0
-	VMOVDQU 320(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 256(AX)
-	VMOVDQU Y1, 320(AX)
-
-	VMOVDQU 288(AX), Y0
-	VMOVDQU 352(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 288(AX)
-	VMOVDQU Y1, 352(AX)
+	nttLevel2(AX, Y7, 2, 0)
+	nttLevel2(AX, Y7, 2, 1)
 
 	// Group 3: zeta=zetasMontgomery[7], pairs (chunk12,14) and (chunk13,15)
 	VPBROADCASTW 14(BX), Y7
-	VMOVDQU 384(AX), Y0
-	VMOVDQU 448(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 384(AX)
-	VMOVDQU Y1, 448(AX)
-
-	VMOVDQU 416(AX), Y0
-	VMOVDQU 480(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 416(AX)
-	VMOVDQU Y1, 480(AX)
+	nttLevel2(AX, Y7, 3, 0)
+	nttLevel2(AX, Y7, 3, 1)
 
 	// Layer len=16
 	// Group g uses zetasMontgomery[8+g], chunk pairs (2g, 2g+1)
 	VPBROADCASTW 16(BX), Y7
-	VMOVDQU 0(AX), Y0
-	VMOVDQU 32(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 0(AX)
-	VMOVDQU Y1, 32(AX)
+	nttLevel3(AX, Y7, 0)
 
 	VPBROADCASTW 18(BX), Y7
-	VMOVDQU 64(AX), Y0
-	VMOVDQU 96(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 64(AX)
-	VMOVDQU Y1, 96(AX)
+	nttLevel3(AX, Y7, 1)
 
 	VPBROADCASTW 20(BX), Y7
-	VMOVDQU 128(AX), Y0
-	VMOVDQU 160(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 128(AX)
-	VMOVDQU Y1, 160(AX)
+	nttLevel3(AX, Y7, 2)
 
 	VPBROADCASTW 22(BX), Y7
-	VMOVDQU 192(AX), Y0
-	VMOVDQU 224(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 192(AX)
-	VMOVDQU Y1, 224(AX)
+	nttLevel3(AX, Y7, 3)
 
 	VPBROADCASTW 24(BX), Y7
-	VMOVDQU 256(AX), Y0
-	VMOVDQU 288(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 256(AX)
-	VMOVDQU Y1, 288(AX)
+	nttLevel3(AX, Y7, 4)
 
 	VPBROADCASTW 26(BX), Y7
-	VMOVDQU 320(AX), Y0
-	VMOVDQU 352(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 320(AX)
-	VMOVDQU Y1, 352(AX)
+	nttLevel3(AX, Y7, 5)
 
 	VPBROADCASTW 28(BX), Y7
-	VMOVDQU 384(AX), Y0
-	VMOVDQU 416(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 384(AX)
-	VMOVDQU Y1, 416(AX)
+	nttLevel3(AX, Y7, 6)
 
 	VPBROADCASTW 30(BX), Y7
-	VMOVDQU 448(AX), Y0
-	VMOVDQU 480(AX), Y1
-	BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 448(AX)
-	VMOVDQU Y1, 480(AX)
+	nttLevel3(AX, Y7, 7)
 
 	// Continue with layers len=8, len=4, len=2
 	VPBROADCASTW qConst, X15
@@ -583,6 +465,36 @@ len2_loop:
 len2_done:
 	VZEROUPPER
 	RET
+
+#define inttLevel0(dataAddr, zeta, scale, offset) \
+	VMOVDQU (offset*32)(dataAddr), Y0 \
+	VMOVDQU (offset*32+256)(dataAddr), Y1 \
+	INTT_BUTTERFLY(Y0, Y1, zeta) \
+	MONT_MUL_VEC(Y0, scale, Y0) \
+	VMOVDQU Y0, (offset*32)(dataAddr) \
+	MONT_MUL_VEC(Y1, scale, Y1) \
+	VMOVDQU Y1, (offset*32+256)(dataAddr)
+
+#define inttLevel1(dataAddr, zeta, groupIdx, offset) \
+	VMOVDQU (groupIdx*256+32*offset)(dataAddr), Y0 \
+	VMOVDQU (groupIdx*256+32*offset+128)(dataAddr), Y1 \
+	INTT_BUTTERFLY(Y0, Y1, zeta) \
+	VMOVDQU Y0, (groupIdx*256+32*offset)(dataAddr) \
+	VMOVDQU Y1, (groupIdx*256+32*offset+128)(dataAddr)
+
+#define inttLevel2(dataAddr, zeta, groupIdx, offset) \
+	VMOVDQU (groupIdx*128+32*offset)(dataAddr), Y0 \
+	VMOVDQU (groupIdx*128+32*offset+64)(dataAddr), Y1 \
+	INTT_BUTTERFLY(Y0, Y1, zeta) \
+	VMOVDQU Y0, (groupIdx*128+32*offset)(dataAddr) \
+	VMOVDQU Y1, (groupIdx*128+32*offset+64)(dataAddr)
+
+#define inttLevel3(dataAddr, zeta, groupIdx) \
+	VMOVDQU (groupIdx*64)(dataAddr), Y0 \
+	VMOVDQU (groupIdx*64+32)(dataAddr), Y1 \
+	INTT_BUTTERFLY(Y0, Y1, zeta) \
+	VMOVDQU Y0, (groupIdx*64)(dataAddr) \
+	VMOVDQU Y1, (groupIdx*64+32)(dataAddr)
 
 // internalInverseNTTAVX2 computes the full inverse NTT (all 7 layers) 
 // in Gentleman-Sande (decimation-in-frequency) order: len=2→4→8→16→32→64→128 and
@@ -692,236 +604,74 @@ intt_len16_start:
 	// group g: fl at g*64 bytes, fr at g*64+32 bytes
 	// twiddle index = 15-g → byte offset = (15-g)*2 = 30-g*2
 	VPBROADCASTW 30(BX), Y7
-	VMOVDQU 0(AX), Y0
-	VMOVDQU 32(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 0(AX)
-	VMOVDQU Y1, 32(AX)
+	inttLevel3(AX, Y7, 0)
 
 	VPBROADCASTW 28(BX), Y7
-	VMOVDQU 64(AX), Y0
-	VMOVDQU 96(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 64(AX)
-	VMOVDQU Y1, 96(AX)
+	inttLevel3(AX, Y7, 1)
 
 	VPBROADCASTW 26(BX), Y7
-	VMOVDQU 128(AX), Y0
-	VMOVDQU 160(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 128(AX)
-	VMOVDQU Y1, 160(AX)
+	inttLevel3(AX, Y7, 2)
 
 	VPBROADCASTW 24(BX), Y7
-	VMOVDQU 192(AX), Y0
-	VMOVDQU 224(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 192(AX)
-	VMOVDQU Y1, 224(AX)
+	inttLevel3(AX, Y7, 3)
 
 	VPBROADCASTW 22(BX), Y7
-	VMOVDQU 256(AX), Y0
-	VMOVDQU 288(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 256(AX)
-	VMOVDQU Y1, 288(AX)
+	inttLevel3(AX, Y7, 4)
 
 	VPBROADCASTW 20(BX), Y7
-	VMOVDQU 320(AX), Y0
-	VMOVDQU 352(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 320(AX)
-	VMOVDQU Y1, 352(AX)
+	inttLevel3(AX, Y7, 5)
 
 	VPBROADCASTW 18(BX), Y7
-	VMOVDQU 384(AX), Y0
-	VMOVDQU 416(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 384(AX)
-	VMOVDQU Y1, 416(AX)
+	inttLevel3(AX, Y7, 6)
 
 	VPBROADCASTW 16(BX), Y7
-	VMOVDQU 448(AX), Y0
-	VMOVDQU 480(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 448(AX)
-	VMOVDQU Y1, 480(AX)
+	inttLevel3(AX, Y7, 7)
 
 	// ── L2: len=32, 4 groups, zeta = zetasMontgomery[7..4] ──────────────
 	// group g: fl at g*128 bytes, fr at g*128+64 bytes
 	// twiddle index = 7-g → byte offset = (7-g)*2 = 14-g*2
 	VPBROADCASTW 14(BX), Y7
-	VMOVDQU 0(AX), Y0
-	VMOVDQU 64(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 0(AX)
-	VMOVDQU Y1, 64(AX)
-
-	VMOVDQU 32(AX), Y0
-	VMOVDQU 96(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 32(AX)
-	VMOVDQU Y1, 96(AX)
+	inttLevel2(AX, Y7, 0, 0)
+	inttLevel2(AX, Y7, 0, 1)
 
 	VPBROADCASTW 12(BX), Y7
-	VMOVDQU 128(AX), Y0
-	VMOVDQU 192(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 128(AX)
-	VMOVDQU Y1, 192(AX)
-
-	VMOVDQU 160(AX), Y0
-	VMOVDQU 224(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 160(AX)
-	VMOVDQU Y1, 224(AX)
+	inttLevel2(AX, Y7, 1, 0)
+	inttLevel2(AX, Y7, 1, 1)
 
 	VPBROADCASTW 10(BX), Y7
-	VMOVDQU 256(AX), Y0
-	VMOVDQU 320(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 256(AX)
-	VMOVDQU Y1, 320(AX)
-
-	VMOVDQU 288(AX), Y0
-	VMOVDQU 352(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 288(AX)
-	VMOVDQU Y1, 352(AX)
+	inttLevel2(AX, Y7, 2, 0)
+	inttLevel2(AX, Y7, 2, 1)
 
 	VPBROADCASTW 8(BX), Y7
-	VMOVDQU 384(AX), Y0
-	VMOVDQU 448(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 384(AX)
-	VMOVDQU Y1, 448(AX)
-
-	VMOVDQU 416(AX), Y0
-	VMOVDQU 480(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 416(AX)
-	VMOVDQU Y1, 480(AX)
+	inttLevel2(AX, Y7, 3, 0)
+	inttLevel2(AX, Y7, 3, 1)
 
 	// ── L1: len=64, 2 groups, zeta = zetasMontgomery[3..2] ──────────────
 	// group 0: fl at 0, fr at 128 bytes; group 1: fl at 256, fr at 384
 	VPBROADCASTW 6(BX), Y7
-	VMOVDQU 0(AX), Y0
-	VMOVDQU 128(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 0(AX)
-	VMOVDQU Y1, 128(AX)
-
-	VMOVDQU 32(AX), Y0
-	VMOVDQU 160(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 32(AX)
-	VMOVDQU Y1, 160(AX)
-
-	VMOVDQU 64(AX), Y0
-	VMOVDQU 192(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 64(AX)
-	VMOVDQU Y1, 192(AX)
-
-	VMOVDQU 96(AX), Y0
-	VMOVDQU 224(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 96(AX)
-	VMOVDQU Y1, 224(AX)
+	inttLevel1(AX, Y7, 0, 0)
+	inttLevel1(AX, Y7, 0, 1)
+	inttLevel1(AX, Y7, 0, 2)
+	inttLevel1(AX, Y7, 0, 3)
 
 	VPBROADCASTW 4(BX), Y7
-	VMOVDQU 256(AX), Y0
-	VMOVDQU 384(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 256(AX)
-	VMOVDQU Y1, 384(AX)
-
-	VMOVDQU 288(AX), Y0
-	VMOVDQU 416(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 288(AX)
-	VMOVDQU Y1, 416(AX)
-
-	VMOVDQU 320(AX), Y0
-	VMOVDQU 448(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 320(AX)
-	VMOVDQU Y1, 448(AX)
-
-	VMOVDQU 352(AX), Y0
-	VMOVDQU 480(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	VMOVDQU Y0, 352(AX)
-	VMOVDQU Y1, 480(AX)
+	inttLevel1(AX, Y7, 1, 0)
+	inttLevel1(AX, Y7, 1, 1)
+	inttLevel1(AX, Y7, 1, 2)
+	inttLevel1(AX, Y7, 1, 3)
 
 	// ── L0: len=128, 1 group, zeta = zetasMontgomery[1] ─────────────────
 	// fl at 0..255 bytes (128 × int16), fr at 256..511 bytes
 	VPBROADCASTW 2(BX), Y7
 	VPBROADCASTW scale1441Const, Y2
-
-	VMOVDQU 0(AX), Y0
-	VMOVDQU 256(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	MONT_MUL_VEC(Y0, Y2, Y0)
-	VMOVDQU Y0, 0(AX)
-	MONT_MUL_VEC(Y1, Y2, Y1)
-	VMOVDQU Y1, 256(AX)
-
-	VMOVDQU 32(AX), Y0
-	VMOVDQU 288(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	MONT_MUL_VEC(Y0, Y2, Y0)
-	VMOVDQU Y0, 32(AX)
-	MONT_MUL_VEC(Y1, Y2, Y1)
-	VMOVDQU Y1, 288(AX)
-
-	VMOVDQU 64(AX), Y0
-	VMOVDQU 320(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	MONT_MUL_VEC(Y0, Y2, Y0)
-	VMOVDQU Y0, 64(AX)
-	MONT_MUL_VEC(Y1, Y2, Y1)
-	VMOVDQU Y1, 320(AX)
-
-	VMOVDQU 96(AX), Y0
-	VMOVDQU 352(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	MONT_MUL_VEC(Y0, Y2, Y0)
-	VMOVDQU Y0, 96(AX)
-	MONT_MUL_VEC(Y1, Y2, Y1)
-	VMOVDQU Y1, 352(AX)
-
-	VMOVDQU 128(AX), Y0
-	VMOVDQU 384(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	MONT_MUL_VEC(Y0, Y2, Y0)
-	VMOVDQU Y0, 128(AX)
-	MONT_MUL_VEC(Y1, Y2, Y1)
-	VMOVDQU Y1, 384(AX)
-
-	VMOVDQU 160(AX), Y0
-	VMOVDQU 416(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	MONT_MUL_VEC(Y0, Y2, Y0)
-	VMOVDQU Y0, 160(AX)
-	MONT_MUL_VEC(Y1, Y2, Y1)
-	VMOVDQU Y1, 416(AX)
-
-	VMOVDQU 192(AX), Y0
-	VMOVDQU 448(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	MONT_MUL_VEC(Y0, Y2, Y0)
-	VMOVDQU Y0, 192(AX)
-	MONT_MUL_VEC(Y1, Y2, Y1)
-	VMOVDQU Y1, 448(AX)
-
-	VMOVDQU 224(AX), Y0
-	VMOVDQU 480(AX), Y1
-	INTT_BUTTERFLY(Y0, Y1, Y7)
-	MONT_MUL_VEC(Y0, Y2, Y0)
-	VMOVDQU Y0, 224(AX)
-	MONT_MUL_VEC(Y1, Y2, Y1)
-	VMOVDQU Y1, 480(AX)
+	inttLevel0(AX, Y7, Y2, 0)
+	inttLevel0(AX, Y7, Y2, 1)
+	inttLevel0(AX, Y7, Y2, 2)
+	inttLevel0(AX, Y7, Y2, 3)
+	inttLevel0(AX, Y7, Y2, 4)
+	inttLevel0(AX, Y7, Y2, 5)
+	inttLevel0(AX, Y7, Y2, 6)
+	inttLevel0(AX, Y7, Y2, 7)
 
 	VZEROUPPER
 	RET
