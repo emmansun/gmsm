@@ -28,7 +28,7 @@ func TestConstants(t *testing.T) {
 	q1Inv := new(big.Int)
 	q1Inv.ModInverse(q1, a)
 	if q1Inv.Cmp(big.NewInt(int64(qInv))) != 0 {
-		t.Fatalf("q^-1 mod 2^32 = %d, expected %d", q1, qInv)
+		t.Fatalf("q^-1 mod 2^32 = %d, expected %d", q1Inv, qInv)
 	}
 
 	q1Neg := new(big.Int)
@@ -36,7 +36,7 @@ func TestConstants(t *testing.T) {
 	q1NegInv := new(big.Int)
 	q1NegInv.ModInverse(q1Neg, a)
 	if q1NegInv.Cmp(big.NewInt(int64(qNegInv))) != 0 {
-		t.Fatalf("-q^-1 mod 2^32 = %d, expected %d", q1Neg, int64(qNegInv))
+		t.Fatalf("-q^-1 mod 2^32 = %d, expected %d", q1NegInv, qNegInv)
 	}
 
 	r1 := new(big.Int)

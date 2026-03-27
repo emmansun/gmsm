@@ -32,7 +32,7 @@ func fieldSub(a, b fieldElement) fieldElement {
 
 const (
 	r       = 4193792    // 2³² mod q
-	qNegInv = 4236238847 // -q⁻¹ mod r (q * qNegInv ≡ -1 mod r)
+	qNegInv = 4236238847 // -q⁻¹ mod 2³² (q * qNegInv ≡ -1 mod 2³²)
 )
 
 func fieldReduce(a uint64) fieldElement {
