@@ -584,11 +584,12 @@ len2_done:
 	VZEROUPPER
 	RET
 
-// internalInverseNTTAVX2L6543210 computes the full inverse NTT (all 7 layers)
-// in Gentleman-Sande (decimation-in-frequency) order: len=2→4→8→16→32→64→128.
-// The result is NOT scaled; the caller must apply the final scale factor (512 or 1441).
+// internalInverseNTTAVX2 computes the full inverse NTT (all 7 layers) 
+// in Gentleman-Sande (decimation-in-frequency) order: len=2→4→8→16→32→64→128 and
+// then applies the final scale-by-1441 for the Montgomery accumulator path.
+// 1441 = 128⁻¹ * r² mod q.
 // AX = f pointer, BX = zetasMontgomery pointer
-TEXT ·internalInverseNTTAVX2L6543210<>(SB), NOSPLIT, $0-8
+TEXT ·internalInverseNTTAVX2(SB), NOSPLIT, $0-8
 	MOVQ f+0(FP), AX
 	MOVQ $·zetasMontgomery(SB), BX
 
@@ -856,97 +857,73 @@ intt_len16_start:
 	// ── L0: len=128, 1 group, zeta = zetasMontgomery[1] ─────────────────
 	// fl at 0..255 bytes (128 × int16), fr at 256..511 bytes
 	VPBROADCASTW 2(BX), Y7
+	VPBROADCASTW scale1441Const, Y2
 
 	VMOVDQU 0(AX), Y0
 	VMOVDQU 256(AX), Y1
 	INTT_BUTTERFLY(Y0, Y1, Y7)
+	MONT_MUL_VEC(Y0, Y2, Y0)
 	VMOVDQU Y0, 0(AX)
+	MONT_MUL_VEC(Y1, Y2, Y1)
 	VMOVDQU Y1, 256(AX)
 
 	VMOVDQU 32(AX), Y0
 	VMOVDQU 288(AX), Y1
 	INTT_BUTTERFLY(Y0, Y1, Y7)
+	MONT_MUL_VEC(Y0, Y2, Y0)
 	VMOVDQU Y0, 32(AX)
+	MONT_MUL_VEC(Y1, Y2, Y1)
 	VMOVDQU Y1, 288(AX)
 
 	VMOVDQU 64(AX), Y0
 	VMOVDQU 320(AX), Y1
 	INTT_BUTTERFLY(Y0, Y1, Y7)
+	MONT_MUL_VEC(Y0, Y2, Y0)
 	VMOVDQU Y0, 64(AX)
+	MONT_MUL_VEC(Y1, Y2, Y1)
 	VMOVDQU Y1, 320(AX)
 
 	VMOVDQU 96(AX), Y0
 	VMOVDQU 352(AX), Y1
 	INTT_BUTTERFLY(Y0, Y1, Y7)
+	MONT_MUL_VEC(Y0, Y2, Y0)
 	VMOVDQU Y0, 96(AX)
+	MONT_MUL_VEC(Y1, Y2, Y1)
 	VMOVDQU Y1, 352(AX)
 
 	VMOVDQU 128(AX), Y0
 	VMOVDQU 384(AX), Y1
 	INTT_BUTTERFLY(Y0, Y1, Y7)
+	MONT_MUL_VEC(Y0, Y2, Y0)
 	VMOVDQU Y0, 128(AX)
+	MONT_MUL_VEC(Y1, Y2, Y1)
 	VMOVDQU Y1, 384(AX)
 
 	VMOVDQU 160(AX), Y0
 	VMOVDQU 416(AX), Y1
 	INTT_BUTTERFLY(Y0, Y1, Y7)
+	MONT_MUL_VEC(Y0, Y2, Y0)
 	VMOVDQU Y0, 160(AX)
+	MONT_MUL_VEC(Y1, Y2, Y1)
 	VMOVDQU Y1, 416(AX)
 
 	VMOVDQU 192(AX), Y0
 	VMOVDQU 448(AX), Y1
 	INTT_BUTTERFLY(Y0, Y1, Y7)
+	MONT_MUL_VEC(Y0, Y2, Y0)
 	VMOVDQU Y0, 192(AX)
+	MONT_MUL_VEC(Y1, Y2, Y1)
 	VMOVDQU Y1, 448(AX)
 
 	VMOVDQU 224(AX), Y0
 	VMOVDQU 480(AX), Y1
 	INTT_BUTTERFLY(Y0, Y1, Y7)
+	MONT_MUL_VEC(Y0, Y2, Y0)
 	VMOVDQU Y0, 224(AX)
+	MONT_MUL_VEC(Y1, Y2, Y1)
 	VMOVDQU Y1, 480(AX)
 
 	VZEROUPPER
-	RET
-
-// internalScaleBy1441AVX2 applies f[i] = fieldMontMul(f[i], 1441) for all 256 coefficients.
-// 1441 = 128⁻¹ * r² mod q — used after internalInverseNTT when acc is in Montgomery domain.
-TEXT ·internalScaleBy1441AVX2<>(SB), NOSPLIT, $0-8
-	MOVQ f+0(FP), AX
-
-	VPBROADCASTW qConst, Y15
-	VPBROADCASTW qNegInvConst, Y14
-	VPBROADCASTW oneConst, Y10
-	VPXOR Y8, Y8, Y8
-	VPBROADCASTW scale1441Const, Y7
-
-	XORQ CX, CX
-scale1441_loop:
-	CMPQ CX, $16
-	JGE scale1441_done
-
-	MOVQ CX, DX
-	SHLQ $5, DX
-	VMOVDQU (AX)(DX*1), Y0
-	MONT_MUL_VEC(Y0, Y7, Y0)
-	VMOVDQU Y0, (AX)(DX*1)
-
-	INCQ CX
-	JMP scale1441_loop
-
-scale1441_done:
-	VZEROUPPER
-	RET
-
-// internalInverseNTTAVX2L6543210Scale1441 runs full inverse NTT layers and then
-// applies the final scale-by-1441 for the Montgomery accumulator path.
-// 1441 = 128⁻¹ * r² mod q.
-TEXT ·internalInverseNTTAVX2(SB), NOSPLIT, $8-8
-	MOVQ f+0(FP), AX
-	MOVQ AX, 0(SP)
-	CALL ·internalInverseNTTAVX2L6543210<>(SB)
-	MOVQ f+0(FP), AX
-	MOVQ AX, 0(SP)
-	CALL ·internalScaleBy1441AVX2<>(SB)
 	RET
 
 // internalNTTMulAccAVX2 computes acc[i] += NTT_MulAcc(lhs, rhs)[i] for all 256 coefficients,
@@ -1008,15 +985,13 @@ nttmlacc_loop:
 	VPHADDW Y6, Y6, Y6
 
 	// fieldReduceOnce on both hadd results (values in [0, 2q))
-	VPSUBW Y15, Y7, Y11
-	VPSRAW $15, Y11, Y13
-	VPAND Y15, Y13, Y13
-	VPADDW Y13, Y11, Y7
+	VPCMPGTW Y7, Y15, Y11
+	VPANDN Y15, Y11, Y11
+	VPSUBW Y11, Y7, Y7
 
-	VPSUBW Y15, Y6, Y11
-	VPSRAW $15, Y11, Y13
-	VPAND Y15, Y13, Y13
-	VPADDW Y13, Y11, Y6
+	VPCMPGTW Y6, Y15, Y11
+	VPANDN Y15, Y11, Y11
+	VPSUBW Y11, Y6, Y6
 
 	// Re-interleave even (Y7) and odd (Y6) sums:
 	//   VPUNPCKLWD takes low 4 words per lane from each src
@@ -1026,10 +1001,9 @@ nttmlacc_loop:
 
 	// Add update to acc, then fieldReduceOnce (sum in [0, 2q))
 	VPADDW Y5, Y2, Y2
-	VPSUBW Y15, Y2, Y11
-	VPSRAW $15, Y11, Y13
-	VPAND Y15, Y13, Y13
-	VPADDW Y13, Y11, Y2
+	VPCMPGTW Y2, Y15, Y11
+	VPANDN Y15, Y11, Y11
+	VPSUBW Y11, Y2, Y2
 
 	VMOVDQU Y2, (AX)(DI*1)
 
@@ -1090,15 +1064,13 @@ nttmlacc_kg_loop:
 	VPHADDW Y6, Y6, Y6
 
 	// fieldReduceOnce on both hadd results (values in [0, 2q))
-	VPSUBW Y15, Y7, Y11
-	VPSRAW $15, Y11, Y13
-	VPAND Y15, Y13, Y13
-	VPADDW Y13, Y11, Y7
+	VPCMPGTW Y7, Y15, Y11
+	VPANDN Y15, Y11, Y11
+	VPSUBW Y11, Y7, Y7
 
-	VPSUBW Y15, Y6, Y11
-	VPSRAW $15, Y11, Y13
-	VPAND Y15, Y13, Y13
-	VPADDW Y13, Y11, Y6
+	VPCMPGTW Y6, Y15, Y11
+	VPANDN Y15, Y11, Y11
+	VPSUBW Y11, Y6, Y6
 
 	// Re-interleave even (Y7) and odd (Y6) sums -> Y5 (Montgomery-domain delta)
 	VPUNPCKLWD Y6, Y7, Y5
@@ -1109,10 +1081,9 @@ nttmlacc_kg_loop:
 
 	// Add standard-domain delta to acc, then fieldReduceOnce
 	VPADDW Y5, Y2, Y2
-	VPSUBW Y15, Y2, Y11
-	VPSRAW $15, Y11, Y13
-	VPAND Y15, Y13, Y13
-	VPADDW Y13, Y11, Y2
+	VPCMPGTW Y2, Y15, Y11
+	VPANDN Y15, Y11, Y11
+	VPSUBW Y11, Y2, Y2
 
 	VMOVDQU Y2, (AX)(DI*1)
 
