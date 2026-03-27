@@ -158,78 +158,77 @@ GLOBL gammaMulTable<>(SB), RODATA, $512
 // Constants: Y15=q, Y14=qNegInv, Y10=one, Y8=zero.
 // Clobbers: Y11, Y12, Y13.
 #define MONT_MUL_VEC(YA, YZ, YOUT) \
-	VPMULLW YZ, YA, Y11 \
-	VPMULHUW YZ, YA, Y12 \
-	VPMULLW Y14, Y11, Y13 \
-	VPMULHUW Y15, Y13, Y13 \
-	VPADDW Y13, Y12, Y12 \
-	VPCMPEQW Y8, Y11, Y13 \
-	VPAND Y10, Y13, Y13 \
-	VPSUBW Y13, Y10, Y13 \
-	VPADDW Y13, Y12, Y12 \
-	VPSUBW Y15, Y12, Y11 \
-	VPSRAW $15, Y11, Y13 \
-	VPAND Y15, Y13, Y13 \
-	VPADDW Y13, Y11, YOUT
+	\ // mul YA by YZ, producing 32-bit products in Y11 (low) and Y12 (high)
+	VPMULLW YZ, YA, Y11 \    // lo = (YA * YZ) mod 2^16
+	VPMULHUW YZ, YA, Y12 \   // hi = (YA * YZ) >> 16  [unsigned]
+	\ // montgomery reduction: m = (t_ab[even] * qNegInv) mod r, t = (t_ab + m*q) / r
+	VPMULLW Y14, Y11, Y13 \  // t  = lo * qNegInv mod 2^16
+	VPMULHUW Y15, Y13, Y13 \ // correction = (t * q) >> 16
+	VPADDW Y13, Y12, Y12 \   // result = hi + correction
+	\ // lo==0 edge-case correction (adds 1 when lo != 0):
+	VPCMPEQW Y8, Y11, Y13 \  // Y13 = 0xFFFF if lo==0 else 0
+	VPADDW Y10, Y13, Y13 \   // Y13 = 0 if lo==0 else 1  (1+0xFFFF=0, 1+0=1)
+	VPADDW Y13, Y12, Y12 \   // result += Y13  (adds 1 when lo != 0)
+	\ // final conditional subtraction to reduce mod q: if t >= q, subtract q; else keep t
+	VPCMPGTW Y12, Y15, Y13 \ // Y13 = 0xFFFF if result < q else 0
+	VPANDN Y15, Y13, Y13 \   // Y13 = q if result >= q else 0
+	VPSUBW Y13, Y12, YOUT
+
+// MONT_MUL_VECX computes lane-wise Montgomery multiplication YOUT = MontMul(XA, XZ).
+// Inputs: XA=value, XZ=multiplier-broadcast.
+// Constants: X15=q, X14=qNegInv, X10=one, X8=zero.
+// Clobbers: X11, X12, X13.
+#define MONT_MUL_VECX(XA, XZ, XOUT) \
+	\ // mul XA by XZ, producing 32-bit products in X11 (low) and X12 (high)
+	VPMULLW XZ, XA, X11 \    // lo = (XA * XZ) mod 2^16
+	VPMULHUW XZ, XA, X12 \   // hi = (XA * XZ) >> 16  [unsigned]
+	\ // montgomery reduction: m = (t_ab[even] * qNegInv) mod r, t = (t_ab + m*q) / r
+	VPMULLW X14, X11, X13 \  // t  = lo * qNegInv mod 2^16
+	VPMULHUW X15, X13, X13 \ // correction = (t * q) >> 16
+	VPADDW X13, X12, X12 \   // result = hi + correction
+	\ // lo==0 edge-case correction (adds 1 when lo != 0):
+	VPCMPEQW X8, X11, X13 \  // X13 = 0xFFFF if lo==0 else 0
+	VPADDW X10, X13, X13 \   // X13 = 0 if lo==0 else 1  (1+0xFFFF=0, 1+0=1)
+	VPADDW X13, X12, X12 \   // result += X13  (adds 1 when lo != 0)
+	\ // final conditional subtraction to reduce mod q: if t >= q, subtract q; else keep t
+	VPCMPGTW X12, X15, X13 \ // X13 = 0xFFFF if result < q else 0
+	VPANDN X15, X13, X13 \   // X13 = q if result >= q else 0
+	VPSUBW X13, X12, XOUT
 
 // BUTTERFLY performs one Cooley-Tukey butterfly on 16 lanes.
 // Inputs: YA=a, YB=b, YZ=zeta-broadcast.
 // Constants: Y15=q, Y14=qNegInv, Y10=one, Y8=zero.
-// Clobbers: Y9, Y11, Y12, Y13.
+// Clobbers: Y11, Y12, Y13.
 #define BUTTERFLY(YA, YB, YZ) \
-	VMOVDQA YA, Y9 \
-	VPMULLW YZ, YB, Y11 \
-	VPMULHUW YZ, YB, Y12 \
-	VPMULLW Y14, Y11, Y13 \
-	VPMULHUW Y15, Y13, Y13 \
-	VPADDW Y13, Y12, Y12 \
-	VPCMPEQW Y8, Y11, Y13 \
-	VPAND Y10, Y13, Y13 \
-	VPSUBW Y13, Y10, Y13 \
-	VPADDW Y13, Y12, Y12 \
-	VPSUBW Y15, Y12, Y11 \
-	VPSRAW $15, Y11, Y13 \
-	VPAND Y15, Y13, Y13 \
-	VPADDW Y13, Y11, Y12 \
-	VMOVDQA Y12, Y11 \
-	VPADDW Y12, Y9, Y13 \
-	VPSUBW Y15, Y13, Y12 \
-	VPSRAW $15, Y12, Y13 \
-	VPAND Y15, Y13, Y13 \
-	VPADDW Y13, Y12, YA \
-	VPSUBW Y11, Y9, YB \
-	VPSRAW $15, YB, Y12 \
-	VPAND Y15, Y12, Y12 \
-	VPADDW Y12, YB, YB
+	\ // compute t = YZ * YB = Y12
+	MONT_MUL_VEC(YB, YZ, Y12) \
+	\ // new YB = YA - t
+	VPSUBW Y12, YA, YB \
+	VPSRAW $15, YB, Y11 \
+	VPAND Y15, Y11, Y11 \
+	VPADDW Y11, YB, YB \
+	\ // new YA = YA + t
+	VPADDW Y12, YA, Y12 \
+	VPCMPGTW Y12, Y15, Y13 \
+	VPANDN Y15, Y13, Y13 \
+	VPSUBW Y13, Y12, YA
 
 // BUTTERFLYX performs the same butterfly as BUTTERFLY on XMM vectors.
 // Inputs: XA, XB, XZ. Constants: X15=q, X14=qNegInv, X10=one, X8=zero.
-// Clobbers: X9, X11, X12, X13.
+// Clobbers: X11, X12, X13.
 #define BUTTERFLYX(XA, XB, XZ) \
-	VMOVDQA XA, X9 \
-	VPMULLW XZ, XB, X11 \
-	VPMULHUW XZ, XB, X12 \
-	VPMULLW X14, X11, X13 \
-	VPMULHUW X15, X13, X13 \
-	VPADDW X13, X12, X12 \
-	VPCMPEQW X8, X11, X13 \
-	VPAND X10, X13, X13 \
-	VPSUBW X13, X10, X13 \
-	VPADDW X13, X12, X12 \
-	VPSUBW X15, X12, X11 \
-	VPSRAW $15, X11, X13 \
-	VPAND X15, X13, X13 \
-	VPADDW X13, X11, X12 \
-	VMOVDQA X12, X11 \
-	VPADDW X12, X9, X13 \
-	VPSUBW X15, X13, X12 \
-	VPSRAW $15, X12, X13 \
-	VPAND X15, X13, X13 \
-	VPADDW X13, X12, XA \
-	VPSUBW X11, X9, XB \
-	VPSRAW $15, XB, X12 \
-	VPAND X15, X12, X12 \
-	VPADDW X12, XB, XB
+	\ // compute t = MontMul(XZ, XB) → X12
+	MONT_MUL_VECX(XB, XZ, X12) \
+	\ // new XB = XA - t
+	VPSUBW X12, XA, XB \
+	VPSRAW $15, XB, X11 \
+	VPAND X15, X11, X11 \
+	VPADDW X11, XB, XB \
+	\ // new XA = XA + t
+	VPADDW X12, XA, X12 \
+	VPCMPGTW X12, X15, X13 \
+	VPANDN X15, X13, X13 \
+	VPSUBW X13, X12, XA
 
 // INTT_BUTTERFLY performs one Gentleman-Sande (decimation-in-frequency) butterfly on 16 int16 lanes.
 // Operation: a' = a + b  (with fieldReduceOnce)
@@ -244,28 +243,20 @@ GLOBL gammaMulTable<>(SB), RODATA, $512
 // Clobbers: Y9, Y11, Y12, Y13.
 #define INTT_BUTTERFLY(YA, YB, YZ) \
 	VMOVDQA YA, Y9 \
+	\ // new YA = YA + YB (mod q, with at most one reduction needed)
 	VPADDW YB, YA, YA \
 	VPSUBW Y15, YA, Y11 \
 	VPSRAW $15, Y11, Y13 \
 	VPAND Y15, Y13, Y13 \
 	VPADDW Y13, Y11, YA \
+	\ // new YB = YZ * (YB - Y9)
+	\ // step 1: YB - Y9
 	VPSUBW Y9, YB, YB \
 	VPSRAW $15, YB, Y12 \
 	VPAND Y15, Y12, Y12 \
 	VPADDW Y12, YB, YB \
-	VPMULLW YZ, YB, Y11 \
-	VPMULHUW YZ, YB, Y12 \
-	VPMULLW Y14, Y11, Y13 \
-	VPMULHUW Y15, Y13, Y13 \
-	VPADDW Y13, Y12, Y12 \
-	VPCMPEQW Y8, Y11, Y13 \
-	VPAND Y10, Y13, Y13 \
-	VPSUBW Y13, Y10, Y13 \
-	VPADDW Y13, Y12, Y12 \
-	VPSUBW Y15, Y12, Y13 \
-	VPSRAW $15, Y13, Y11 \
-	VPAND Y15, Y11, Y11 \
-	VPADDW Y11, Y13, YB
+	\ // step 2: MontMul(YZ, YB)
+	MONT_MUL_VEC(YB, YZ, YB)
 
 // INTT_BUTTERFLYX is the same as INTT_BUTTERFLY but operates on XMM vectors.
 // Inputs:  XA=a, XB=b, XZ=zeta. Constants: X15=q, X14=qNegInv, X10=one, X8=zero.
@@ -274,28 +265,20 @@ GLOBL gammaMulTable<>(SB), RODATA, $512
 // Clobbers: X9, X11, X12, X13.
 #define INTT_BUTTERFLYX(XA, XB, XZ) \
 	VMOVDQA XA, X9 \
+	\ // new XA = XA + XB (mod q, with at most one reduction needed)
 	VPADDW XB, XA, XA \
 	VPSUBW X15, XA, X11 \
 	VPSRAW $15, X11, X13 \
 	VPAND X15, X13, X13 \
 	VPADDW X13, X11, XA \
+	\ // new XB = XZ * (XB - X9)
+	\ // step 1: XB - X9
 	VPSUBW X9, XB, XB \
 	VPSRAW $15, XB, X12 \
 	VPAND X15, X12, X12 \
 	VPADDW X12, XB, XB \
-	VPMULLW XZ, XB, X11 \
-	VPMULHUW XZ, XB, X12 \
-	VPMULLW X14, X11, X13 \
-	VPMULHUW X15, X13, X13 \
-	VPADDW X13, X12, X12 \
-	VPCMPEQW X8, X11, X13 \
-	VPAND X10, X13, X13 \
-	VPSUBW X13, X10, X13 \
-	VPADDW X13, X12, X12 \
-	VPSUBW X15, X12, X13 \
-	VPSRAW $15, X13, X11 \
-	VPAND X15, X11, X11 \
-	VPADDW X11, X13, XB
+	\ // step 2: MontMul(XZ, XB)
+	MONT_MUL_VECX(XB, XZ, XB)
 
 // internalNTTAVX2 computes full forward NTT layers len=128..2.
 TEXT ·internalNTTAVX2(SB), NOSPLIT, $0-8
