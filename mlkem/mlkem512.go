@@ -393,10 +393,7 @@ func kemDecaps512(dk *DecapsulationKey512, c *[CiphertextSize512]byte) (K []byte
 // although s is retained from kemKeyGen512.
 func pkeDecrypt512(dx *decryptionKey512, c *[CiphertextSize512]byte) []byte {
 	u := make([]ringElement, k512)
-	for i := range u {
-		b := (*[encodingSize10]byte)(c[encodingSize10*i : encodingSize10*(i+1)])
-		u[i] = ringDecodeAndDecompress10(b)
-	}
+	decodeAndDecompressU10(u[:], c[:encodingSize10*k512])
 
 	b := (*[encodingSize4]byte)(c[encodingSize10*k512:])
 	v := ringDecodeAndDecompress4(b)

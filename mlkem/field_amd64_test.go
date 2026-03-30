@@ -12,6 +12,25 @@ import (
 	"github.com/emmansun/gmsm/internal/deps/cpu"
 )
 
+var benchDecodeSink fieldElement
+var benchCBDSink ringElement
+
+func benchCiphertextBytes(n int) []byte {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = byte(i*131 + 17)
+	}
+	return b
+}
+
+func benchCBDBytes(n int) []byte {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = byte(i*73 + 29)
+	}
+	return b
+}
+
 func requireAVX2(t *testing.T) {
 	t.Helper()
 	if !cpu.X86.HasAVX2 {
@@ -257,5 +276,173 @@ func BenchmarkNTTMulAccDispatch(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		acc2 := nacc
 		nttMulAcc(&acc2, &nlhs, &nrhs)
+	}
+}
+
+func BenchmarkDecodeAndDecompressU10Generic(b *testing.B) {
+	dst := make([]ringElement, k)
+	c := benchCiphertextBytes(encodingSize10 * len(dst))
+	b.ReportAllocs()
+	b.SetBytes(int64(len(c)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		decodeAndDecompressU10Generic(dst, c)
+	}
+	benchDecodeSink = dst[0][0]
+}
+
+func BenchmarkDecodeAndDecompressU10Dispatch(b *testing.B) {
+	old := useAVX2
+	useAVX2 = cpu.X86.HasAVX2
+	b.Cleanup(func() { useAVX2 = old })
+
+	dst := make([]ringElement, k)
+	c := benchCiphertextBytes(encodingSize10 * len(dst))
+	b.ReportAllocs()
+	b.SetBytes(int64(len(c)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		decodeAndDecompressU10(dst, c)
+	}
+	benchDecodeSink = dst[0][0]
+}
+
+func BenchmarkDecodeAndDecompressU10AVX2(b *testing.B) {
+	if !cpu.X86.HasAVX2 {
+		b.Skip("AVX2 not available on this machine")
+	}
+
+	dst := make([]ringElement, k)
+	c := benchCiphertextBytes(encodingSize10 * len(dst))
+	b.ReportAllocs()
+	b.SetBytes(int64(len(c)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		decodeAndDecompressU10AVX2(dst, c)
+	}
+	benchDecodeSink = dst[0][0]
+}
+
+func BenchmarkDecodeAndDecompressU11Generic(b *testing.B) {
+	dst := make([]ringElement, k1024)
+	c := benchCiphertextBytes(encodingSize11 * len(dst))
+	b.ReportAllocs()
+	b.SetBytes(int64(len(c)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		decodeAndDecompressU11Generic(dst, c)
+	}
+	benchDecodeSink = dst[0][0]
+}
+
+func BenchmarkDecodeAndDecompressU11Dispatch(b *testing.B) {
+	old := useAVX2
+	useAVX2 = cpu.X86.HasAVX2
+	b.Cleanup(func() { useAVX2 = old })
+
+	dst := make([]ringElement, k1024)
+	c := benchCiphertextBytes(encodingSize11 * len(dst))
+	b.ReportAllocs()
+	b.SetBytes(int64(len(c)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		decodeAndDecompressU11(dst, c)
+	}
+	benchDecodeSink = dst[0][0]
+}
+
+func BenchmarkDecodeAndDecompressU11AVX2(b *testing.B) {
+	if !cpu.X86.HasAVX2 {
+		b.Skip("AVX2 not available on this machine")
+	}
+
+	dst := make([]ringElement, k1024)
+	c := benchCiphertextBytes(encodingSize11 * len(dst))
+	b.ReportAllocs()
+	b.SetBytes(int64(len(c)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		decodeAndDecompressU11AVX2(dst, c)
+	}
+	benchDecodeSink = dst[0][0]
+}
+
+func BenchmarkSamplePolyCBD2Generic(b *testing.B) {
+	B := benchCBDBytes(128)
+	b.ReportAllocs()
+	b.SetBytes(128)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchCBDSink = samplePolyCBDGeneric(B, 2)
+	}
+}
+
+func BenchmarkSamplePolyCBD3Generic(b *testing.B) {
+	B := benchCBDBytes(192)
+	b.ReportAllocs()
+	b.SetBytes(192)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchCBDSink = samplePolyCBDGeneric(B, 3)
+	}
+}
+
+func BenchmarkSamplePolyCBD2AVX2(b *testing.B) {
+	if !cpu.X86.HasAVX2 {
+		b.Skip("AVX2 not available on this machine")
+	}
+
+	var B [128]byte
+	copy(B[:], benchCBDBytes(len(B)))
+	var f ringElement
+	b.ReportAllocs()
+	b.SetBytes(128)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		samplePolyCBD2AVX2(&f, &B)
+	}
+	benchCBDSink = f
+}
+
+func BenchmarkSamplePolyCBD3AVX2(b *testing.B) {
+	if !cpu.X86.HasAVX2 {
+		b.Skip("AVX2 not available on this machine")
+	}
+
+	var B [192]byte
+	copy(B[:], benchCBDBytes(len(B)))
+	var f ringElement
+	b.ReportAllocs()
+	b.SetBytes(192)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		samplePolyCBD3AVX2(&f, &B)
+	}
+	benchCBDSink = f
+}
+
+func BenchmarkSamplePolyCBD2Dispatch(b *testing.B) {
+	old := useAVX2
+	useAVX2 = cpu.X86.HasAVX2
+	b.Cleanup(func() { useAVX2 = old })
+
+	seed := []byte("mlkem-cbd-bench-seed-eta2")
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchCBDSink = samplePolyCBD(seed, byte(i), 2)
+	}
+}
+
+func BenchmarkSamplePolyCBD3Dispatch(b *testing.B) {
+	old := useAVX2
+	useAVX2 = cpu.X86.HasAVX2
+	b.Cleanup(func() { useAVX2 = old })
+
+	seed := []byte("mlkem-cbd-bench-seed-eta3")
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchCBDSink = samplePolyCBD(seed, byte(i), 3)
 	}
 }

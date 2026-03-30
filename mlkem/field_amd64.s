@@ -6,12 +6,16 @@
 
 #include "textflag.h"
 
+// Attribution: The AVX2 vectorization approach used by
+// samplePolyCBD2AVX2/samplePolyCBD3AVX2/decodeAndDecompressU11AVX2/decodeAndDecompressU10AVX2
+// in this file is inspired by the CRYSTALS-Kyber project: https://github.com/pq-crystals/kyber
+
 DATA nttConsts<>+0x00(SB)/2, $3329 // q
 DATA nttConsts<>+0x02(SB)/2, $3327 // qNegInv
 DATA nttConsts<>+0x04(SB)/2, $1    // one
 DATA nttConsts<>+0x06(SB)/2, $1353 // rr = r^2 mod q (fromMont: MontMul(x, rr) = x*r)
 DATA nttConsts<>+0x08(SB)/2, $1441 // inverse NTT final scale for Montgomery acc path: 128⁻¹*r² mod q
-GLOBL nttConsts<>(SB), RODATA, $16
+GLOBL nttConsts<>(SB), RODATA, $10
 
 #define qConst nttConsts<>+0x00(SB)
 #define qNegInvConst nttConsts<>+0x02(SB)
@@ -152,6 +156,97 @@ DATA gammaMulTable<>+0x1F4(SB)/4, $0x070F08ED
 DATA gammaMulTable<>+0x1F8(SB)/4, $0x065C08ED
 DATA gammaMulTable<>+0x1FC(SB)/4, $0x06A508ED
 GLOBL gammaMulTable<>(SB), RODATA, $512
+
+// ── CBD sampling constants ────────────────────────────────────────────────────
+
+DATA decodeU11ShufIdx<>+0x00(SB)/8, $0x0504030202010100
+DATA decodeU11ShufIdx<>+0x08(SB)/8, $0x0A09090807060605
+DATA decodeU11ShufIdx<>+0x10(SB)/8, $0x0807060505040403
+DATA decodeU11ShufIdx<>+0x18(SB)/8, $0x0D0C0C0B0A090908
+GLOBL decodeU11ShufIdx<>(SB), RODATA, $32
+
+DATA decodeU11SrlvD<>+0x00(SB)/8, $0x0000000100000000
+DATA decodeU11SrlvD<>+0x08(SB)/8, $0x0000000000000000
+DATA decodeU11SrlvD<>+0x10(SB)/8, $0x0000000100000000
+DATA decodeU11SrlvD<>+0x18(SB)/8, $0x0000000000000000
+GLOBL decodeU11SrlvD<>(SB), RODATA, $32
+
+DATA decodeU11SrlvQ<>+0x00(SB)/8, $0x0000000000000000
+DATA decodeU11SrlvQ<>+0x08(SB)/8, $0x0000000000000002
+DATA decodeU11SrlvQ<>+0x10(SB)/8, $0x0000000000000000
+DATA decodeU11SrlvQ<>+0x18(SB)/8, $0x0000000000000002
+GLOBL decodeU11SrlvQ<>(SB), RODATA, $32
+
+DATA decodeU11Shift<>+0x00(SB)/8, $0x0020000100040020
+DATA decodeU11Shift<>+0x08(SB)/8, $0x0004002000010008
+DATA decodeU11Shift<>+0x10(SB)/8, $0x0020000100040020
+DATA decodeU11Shift<>+0x18(SB)/8, $0x0004002000010008
+GLOBL decodeU11Shift<>(SB), RODATA, $32
+
+DATA decodeU11Mask<>+0x00(SB)/2, $32752 // mask for extracting 11-bit values: 0b0111111111110000
+GLOBL decodeU11Mask<>(SB), RODATA, $2
+
+DATA decodeU10ShufIdx<>+0x00(SB)/8, $0x0403030202010100
+DATA decodeU10ShufIdx<>+0x08(SB)/8, $0x0908080707060605
+DATA decodeU10ShufIdx<>+0x10(SB)/8, $0x0605050404030302
+DATA decodeU10ShufIdx<>+0x18(SB)/8, $0x0B0A0A0909080807
+GLOBL decodeU10ShufIdx<>(SB), RODATA, $32
+
+DATA decodeU10SllvD<>+0x00(SB)/8, $0x0000000000000004
+GLOBL decodeU10SllvD<>(SB), RODATA, $8
+
+DATA decodeU10Q1Const<>+0x00(SB)/4, $0x0D013404 // 4*q + q*2^16 
+GLOBL decodeU10Q1Const<>(SB), RODATA, $4
+
+DATA decodeU10MaskConst<>+0x00(SB)/4, $0x7FE01FF8 // mask for extracting 10-bit values: 0b01111111111000000001111111111000
+GLOBL decodeU10MaskConst<>(SB), RODATA, $4
+
+// ── CBD sampling constants ────────────────────────────────────────────────────
+
+// cbd2 broadcast masks (32-bit)
+DATA cbd2Mask55<>+0x00(SB)/4, $0x55555555
+GLOBL cbd2Mask55<>(SB), RODATA, $4
+
+DATA cbd2Mask33<>+0x00(SB)/4, $0x33333333
+GLOBL cbd2Mask33<>(SB), RODATA, $4
+
+DATA cbd2Mask03<>+0x00(SB)/4, $0x03030303
+GLOBL cbd2Mask03<>(SB), RODATA, $4
+
+DATA cbd2Mask0F<>+0x00(SB)/4, $0x0F0F0F0F
+GLOBL cbd2Mask0F<>(SB), RODATA, $4
+
+// cbd3 broadcast masks (32-bit unless noted)
+// mask249 = 0x00249249  (selects bits 0,3,6,9,12,15,18,21 of each 32-bit word — one bit per 3-bit group)
+DATA cbd3Mask249<>+0x00(SB)/4, $0x00249249
+GLOBL cbd3Mask249<>(SB), RODATA, $4
+
+// mask6DB = 0x006DB6DB  (sum of 0x00249249<<1 and 0x00249249; used as "add 3 per group" offset)
+DATA cbd3Mask6DB<>+0x00(SB)/4, $0x006DB6DB
+GLOBL cbd3Mask6DB<>(SB), RODATA, $4
+
+// mask07 = 0x00000007  (isolate low 3-bit group = a value)
+DATA cbd3Mask07<>+0x00(SB)/4, $0x00000007
+GLOBL cbd3Mask07<>(SB), RODATA, $4
+
+// mask70 = 0x00070000  (isolate upper 3-bit group shifted to int16 high word = b value)
+DATA cbd3Mask70<>+0x00(SB)/4, $0x00070000
+GLOBL cbd3Mask70<>(SB), RODATA, $4
+
+// mask3  = 0x0003 (int16 constant 3; subtract to get a-b from (a, 7-b+3-3) representation)
+DATA cbd3Mask3<>+0x00(SB)/2, $3
+GLOBL cbd3Mask3<>(SB), RODATA, $2
+
+// cbd3ShufIdx: VPSHUFB table that extracts 3-byte groups from 24-byte input.
+// Equivalent to C: _mm256_set_epi8(-1,15,14,13,-1,12,11,10,-1, 9, 8, 7,-1, 6, 5, 4,
+//                                  -1,11,10, 9,-1, 8, 7, 6,-1, 5, 4, 3,-1, 2, 1, 0)
+// Low  lane (bytes  0..15): groups from buf bytes  0..11
+// High lane (bytes 16..31): groups from buf bytes  4..15
+DATA cbd3ShufIdx<>+0x00(SB)/8, $0xFF050403FF020100
+DATA cbd3ShufIdx<>+0x08(SB)/8, $0xFF0B0A09FF080706
+DATA cbd3ShufIdx<>+0x10(SB)/8, $0xFF090807FF060504
+DATA cbd3ShufIdx<>+0x18(SB)/8, $0xFF0F0E0DFF0C0B0A
+GLOBL cbd3ShufIdx<>(SB), RODATA, $32
 
 // MONT_MUL_VEC computes lane-wise Montgomery multiplication YOUT = MontMul(YA, YZ).
 // Inputs: YA=value, YZ=multiplier-broadcast.
@@ -827,5 +922,317 @@ nttmlacc_kg_loop:
 	JMP nttmlacc_kg_loop
 
 nttmlacc_kg_done:
+	VZEROUPPER
+	RET
+
+// decodeAndDecompressU10AVX2 decodes and decompresses d=10 ciphertext chunks
+// into ring elements. It processes 16 coefficients per AVX2 iteration.
+// func decodeAndDecompressU10AVX2(dst []ringElement, c []byte)
+TEXT ·decodeAndDecompressU10AVX2(SB), NOSPLIT, $32-48
+	MOVQ dst_base+0(FP), AX
+	MOVQ dst_len+8(FP), BX
+	MOVQ c_base+24(FP), CX
+
+	TESTQ BX, BX
+	JLE decode_u10_done
+
+	VMOVDQU decodeU10ShufIdx<>(SB), Y9
+	VPBROADCASTQ decodeU10SllvD<>(SB), Y10
+	VPBROADCASTD decodeU10MaskConst<>(SB), Y11
+	VPBROADCASTD decodeU10Q1Const<>(SB), Y12
+
+decode_u10_ring_loop:
+	MOVQ CX, SI // input pointer for this ring
+	MOVQ AX, DI // output pointer for this ring
+	MOVQ $15, DX
+
+decode_u10_block_loop:
+	VMOVDQU (SI), Y0
+	VPERMQ $0x94, Y0, Y0
+	VPSHUFB Y9, Y0, Y0
+	VPSLLVD Y10, Y0, Y0
+	VPSRLW $1, Y0, Y0
+	VPAND Y11, Y0, Y0
+	VPMULHRSW Y12, Y0, Y0
+	VMOVDQU Y0, (DI)
+
+	ADDQ $20, SI
+	ADDQ $32, DI
+	DECQ DX
+	JNZ decode_u10_block_loop
+
+	// Tail: copy the final 20 bytes to a zero-padded 32-byte local buffer.
+	VPXOR Y1, Y1, Y1
+	VMOVDQU Y1, 0(SP)
+	MOVOU 300(CX), X2
+	MOVOU X2, 0(SP)
+	MOVL 316(CX), R8
+	MOVL R8, 16(SP)
+
+	VMOVDQU 0(SP), Y0
+	VPERMQ $0x94, Y0, Y0
+	VPSHUFB Y9, Y0, Y0
+	VPSLLVD Y10, Y0, Y0
+	VPSRLW $1, Y0, Y0
+	VPAND Y11, Y0, Y0
+	VPMULHRSW Y12, Y0, Y0
+	VMOVDQU Y0, 480(AX)
+
+	ADDQ $512, AX
+	ADDQ $320, CX
+	DECQ BX
+	JNZ decode_u10_ring_loop
+
+decode_u10_done:
+	VZEROUPPER
+	RET
+
+// decodeAndDecompressU11AVX2 decodes and decompresses d=11 ciphertext chunks
+// into ring elements. It processes 16 coefficients per AVX2 iteration.
+// func decodeAndDecompressU11AVX2(dst []ringElement, c []byte)
+TEXT ·decodeAndDecompressU11AVX2(SB), NOSPLIT, $32-48
+	MOVQ dst_base+0(FP), AX
+	MOVQ dst_len+8(FP), BX
+	MOVQ c_base+24(FP), CX
+
+	TESTQ BX, BX
+	JLE decode_u11_done
+
+	VMOVDQU decodeU11ShufIdx<>(SB), Y9
+	VMOVDQU decodeU11SrlvD<>(SB), Y10
+	VMOVDQU decodeU11SrlvQ<>(SB), Y11
+	VMOVDQU decodeU11Shift<>(SB), Y12
+	VPBROADCASTW decodeU11Mask<>(SB), Y13
+	VPBROADCASTW qConst, Y14
+
+decode_u11_ring_loop:
+	MOVQ CX, SI // input pointer for this ring
+	MOVQ AX, DI // output pointer for this ring
+	MOVQ $15, DX
+
+decode_u11_block_loop:
+	VMOVDQU (SI), Y0
+	VPERMQ $0x94, Y0, Y0
+	VPSHUFB Y9, Y0, Y0
+	VPSRLVD Y10, Y0, Y0
+	VPSRLVQ Y11, Y0, Y0
+	VPMULLW Y12, Y0, Y0
+	VPSRLW $1, Y0, Y0
+	VPAND Y13, Y0, Y0
+	VPMULHRSW Y14, Y0, Y0
+	VMOVDQU Y0, (DI)
+
+	ADDQ $22, SI
+	ADDQ $32, DI
+	DECQ DX
+	JNZ decode_u11_block_loop
+
+	// Tail: copy the final 22 bytes to a zero-padded 32-byte local buffer.
+	VPXOR Y1, Y1, Y1
+	VMOVDQU Y1, 0(SP)
+	MOVOU 330(CX), X2
+	MOVOU X2, 0(SP)
+	MOVL 346(CX), R8
+	MOVL R8, 16(SP)
+	MOVWLZX 350(CX), R8
+	MOVW R8, 20(SP)
+
+	VMOVDQU 0(SP), Y0
+	VPERMQ $0x94, Y0, Y0
+	VPSHUFB Y9, Y0, Y0
+	VPSRLVD Y10, Y0, Y0
+	VPSRLVQ Y11, Y0, Y0
+	VPMULLW Y12, Y0, Y0
+	VPSRLW $1, Y0, Y0
+	VPAND Y13, Y0, Y0
+	VPMULHRSW Y14, Y0, Y0
+	VMOVDQU Y0, 480(AX)
+
+	ADDQ $512, AX
+	ADDQ $352, CX
+	DECQ BX
+	JNZ decode_u11_ring_loop
+
+decode_u11_done:
+	VZEROUPPER
+	RET
+
+// samplePolyCBD2AVX2 computes 256 coefficients of the Dη=2 distribution from
+// 128 pre-computed PRF bytes. It processes N/64=4 iterations, each consuming
+// one 32-byte AVX2 register and producing 64 int16 coefficients.
+//
+// Per 32-byte chunk → 64 int16 coefficients:
+//   f1 = f0>>1; f0 &= mask55; f1 &= mask55; f0 = f0+f1
+//   f1 = f0>>2; f0 &= mask33; f1 &= mask33; f0 = f0+mask33-f1
+//   f1 = f0>>4; f0 &= mask0F; f1 &= mask0F; f0 = f0-mask03; f1 = f1-mask03
+//   // each byte now holds a signed coeff in [-2,2]
+//   f2 = unpacklo_epi8(f0,f1); f3 = unpackhi_epi8(f0,f1)
+//   // sign-extend int8→int16 for all 4 output quadrants
+//   store VPMOVSXBW(lo128 of f2), VPMOVSXBW(lo128 of f3)
+//   store VPMOVSXBW(hi128 of f2), VPMOVSXBW(hi128 of f3)
+//   // coefficients are in [q-2 .. 2] after fieldSub semantics; VPMOVSXBW gives
+//   // negative values as 2's-complement int16, which fieldReduceOnce corrects.
+//   // However: Go fieldElement is uint16 and uses fieldSub(a,b)=a-b+q; the
+//   // values here are stored directly as uint16 in [q-2, q-1, 0, 1, 2].
+//   // To match: after sign-extend, add q to negative values.
+//
+// func samplePolyCBD2AVX2(f *ringElement, buf *[128]byte)
+TEXT ·samplePolyCBD2AVX2(SB), NOSPLIT, $0-16
+	MOVQ f+0(FP), AX
+	MOVQ buf+8(FP), BX
+
+	VPBROADCASTD cbd2Mask55<>(SB), Y8    // Y8  = 0x55555555
+	VPBROADCASTD cbd2Mask33<>(SB), Y9    // Y9  = 0x33333333
+	VPBROADCASTD cbd2Mask03<>(SB), Y10   // Y10 = 0x03030303
+	VPBROADCASTD cbd2Mask0F<>(SB), Y11   // Y11 = 0x0F0F0F0F
+	VPBROADCASTW qConst, Y12             // Y12 = q
+
+	MOVQ $4, CX
+	XORQ DI, DI
+
+cbd2_loop:
+	VMOVDQU (BX), Y0
+
+	// Step 1: bit-pair popcounts
+	VPSRLW  $1, Y0, Y1
+	VPAND   Y8, Y0, Y0
+	VPAND   Y8, Y1, Y1
+	VPADDUSB Y1, Y0, Y0
+
+	// Step 2: sum adjacent pairs, biased by mask33
+	VPSRLW  $2, Y0, Y1
+	VPAND   Y9, Y0, Y0
+	VPAND   Y9, Y1, Y1
+	VPADDUSB Y9, Y0, Y0
+	VPSUBB  Y1, Y0, Y0
+
+	// Step 3: isolate nibble pairs as signed bytes
+	VPSRLW  $4, Y0, Y1
+	VPAND   Y11, Y0, Y0
+	VPAND   Y11, Y1, Y1
+	VPSUBB  Y10, Y0, Y0
+	VPSUBB  Y10, Y1, Y1
+
+	// Interleave even/odd coefficient bytes
+	VPUNPCKLBW Y1, Y0, Y2
+	VPUNPCKHBW Y1, Y0, Y3
+
+	// Sign-extend int8â†’int16 and map negative to [0,q): add q where val<0
+	VPMOVSXBW X2, Y4
+	VPSRAW    $15, Y4, Y5
+	VPAND     Y12, Y5, Y5
+	VPADDW    Y5, Y4, Y4
+	VMOVDQU   Y4, 0(AX)(DI*1)
+
+	VPMOVSXBW X3, Y4
+	VPSRAW    $15, Y4, Y5
+	VPAND     Y12, Y5, Y5
+	VPADDW    Y5, Y4, Y4
+	VMOVDQU   Y4, 32(AX)(DI*1)
+
+	VEXTRACTI128 $1, Y2, X2
+	VPMOVSXBW X2, Y4
+	VPSRAW    $15, Y4, Y5
+	VPAND     Y12, Y5, Y5
+	VPADDW    Y5, Y4, Y4
+	VMOVDQU   Y4, 64(AX)(DI*1)
+
+	VEXTRACTI128 $1, Y3, X3
+	VPMOVSXBW X3, Y4
+	VPSRAW    $15, Y4, Y5
+	VPAND     Y12, Y5, Y5
+	VPADDW    Y5, Y4, Y4
+	VMOVDQU   Y4, 96(AX)(DI*1)
+
+	ADDQ $32, BX
+	ADDQ $128, DI
+	DECQ CX
+	JNZ  cbd2_loop
+
+	VZEROUPPER
+	RET
+
+// samplePolyCBD3AVX2 computes 256 coefficients of the DÎ·=3 distribution from
+// 192 pre-computed PRF bytes. It processes 8 iterations, each consuming 24 bytes
+// and producing 32 int16 coefficients.
+//
+// func samplePolyCBD3AVX2(f *ringElement, buf *[192]byte)
+TEXT ·samplePolyCBD3AVX2(SB), NOSPLIT, $0-16
+	MOVQ f+0(FP), AX
+	MOVQ buf+8(FP), BX
+
+	VMOVDQU  cbd3ShufIdx<>(SB), Y15      // Y15 = shufbidx (invariant across iterations)
+	VPBROADCASTD cbd3Mask249<>(SB), Y8   // Y8  = 0x00249249
+	VPBROADCASTD cbd3Mask6DB<>(SB), Y9   // Y9  = 0x006DB6DB
+	VPBROADCASTD cbd3Mask07<>(SB),  Y10  // Y10 = 0x00000007
+	VPBROADCASTD cbd3Mask70<>(SB),  Y11  // Y11 = 0x00070000
+	VPBROADCASTW cbd3Mask3<>(SB),   Y12  // Y12 = 3 (int16)
+	VPBROADCASTW qConst, Y13             // Y13 = q = 3329
+
+	XORQ SI, SI   // input  byte offset (0, 24, 48, ..., 168)
+	XORQ DI, DI   // output byte offset (0, 64, ..., 448)
+
+cbd3_loop:
+	CMPQ DI, $512
+	JGE  cbd3_done
+
+	// Load 32 bytes overlapping the 24-byte chunk
+	VMOVDQU (BX)(SI*1), Y0
+
+	// Align 3-byte groups across lanes:
+	//   dst[0]=src[0], dst[1]=src[1], dst[2]=src[1], dst[3]=src[2]
+	VPERMQ  $0x94, Y0, Y0
+	VPSHUFB Y15, Y0, Y0          // 4 x zero-padded 3-byte dwords per 128-bit lane
+
+	// 3-bit group sums: f0[bit 3k] = popcount(input bits 3k..3k+2) in [0,3]
+	VPSRLD  $1, Y0, Y1
+	VPSRLD  $2, Y0, Y2
+	VPAND   Y8, Y0, Y0
+	VPAND   Y8, Y1, Y1
+	VPAND   Y8, Y2, Y2
+	VPADDD  Y1, Y0, Y0
+	VPADDD  Y2, Y0, Y0
+
+	// After (f0+mask6DB)-(f0>>3): each 3-bit group k holds (coeff_k+3) in [0,6]
+	VPSRLD  $3, Y0, Y1
+	VPADDD  Y9, Y0, Y0
+	VPSUBD  Y1, Y0, Y0
+
+	// Extract two int16 coefficients per dword via mask07/mask70
+	VPSLLD  $10, Y0, Y1
+	VPSRLD  $12, Y0, Y2
+	VPSRLD  $2,  Y0, Y3
+	VPAND   Y10, Y0, Y4
+	VPAND   Y11, Y1, Y1
+	VPAND   Y10, Y2, Y2
+	VPAND   Y11, Y3, Y3
+	VPADDW  Y1, Y4, Y4
+	VPADDW  Y3, Y2, Y2
+	VPSUBW  Y12, Y4, Y4
+	VPSUBW  Y12, Y2, Y2
+
+	// Interleave dwords then concat 128-bit halves -> 32 contiguous int16s
+	VPUNPCKLDQ Y2, Y4, Y5
+	VPUNPCKHDQ Y2, Y4, Y6
+	VPERM2I128 $0x20, Y6, Y5, Y0
+	VPERM2I128 $0x31, Y6, Y5, Y1
+
+	// Map to fieldElement range [0,q): add q to negative values
+	VPSRAW  $15, Y0, Y6
+	VPAND   Y13, Y6, Y6
+	VPADDW  Y6, Y0, Y0
+
+	VPSRAW  $15, Y1, Y6
+	VPAND   Y13, Y6, Y6
+	VPADDW  Y6, Y1, Y1
+
+	VMOVDQU Y0, 0(AX)(DI*1)
+	VMOVDQU Y1, 32(AX)(DI*1)
+
+	ADDQ $24, SI
+	ADDQ $64, DI
+	JMP  cbd3_loop
+
+cbd3_done:
 	VZEROUPPER
 	RET
