@@ -398,17 +398,14 @@ TEXT ·internalNTTAVX2(SB), NOSPLIT, $0-8
 	VPXOR X8, X8, X8
 
 	// Layer len=8, groups g=0..15, zeta index = 16+g
+	MOVQ $32, SI
 	XORQ CX, CX
+	XORQ DI, DI
 len8_loop:
 	CMPQ CX, $16
 	JGE len4_start
-	MOVQ CX, SI
-	ADDQ $16, SI
-	SHLQ $1, SI
 	VPBROADCASTW (BX)(SI*1), X7
 
-	MOVQ CX, DI
-	SHLQ $5, DI
 	VMOVDQU (AX)(DI*1), X0
 	VMOVDQU 16(AX)(DI*1), X1
 	BUTTERFLYX(X0, X1, X7)
@@ -416,21 +413,20 @@ len8_loop:
 	VMOVDQU X1, 16(AX)(DI*1)
 
 	INCQ CX
+	ADDQ $2, SI
+	ADDQ $32, DI
 	JMP len8_loop
 
 	// Layer len=4, groups g=0..31, zeta index = 32+g
 len4_start:
 	XORQ CX, CX
+	XORQ DI, DI
 len4_loop:
 	CMPQ CX, $32
 	JGE len2_start
-	MOVQ CX, SI
-	ADDQ $32, SI
-	SHLQ $1, SI
+
 	VPBROADCASTW (BX)(SI*1), X7
 
-	MOVQ CX, DI
-	SHLQ $4, DI
 	VMOVQ (AX)(DI*1), X0
 	VMOVQ 8(AX)(DI*1), X1
 	BUTTERFLYX(X0, X1, X7)
@@ -438,21 +434,20 @@ len4_loop:
 	VMOVQ X1, 8(AX)(DI*1)
 
 	INCQ CX
+	ADDQ $2, SI
+	ADDQ $16, DI
 	JMP len4_loop
 
 	// Layer len=2, groups g=0..63, zeta index = 64+g
 len2_start:
 	XORQ CX, CX
+	XORQ DI, DI
 len2_loop:
 	CMPQ CX, $64
 	JGE len2_done
-	MOVQ CX, SI
-	ADDQ $64, SI
-	SHLQ $1, SI
+
 	VPBROADCASTW (BX)(SI*1), X7
 
-	MOVQ CX, DI
-	SHLQ $3, DI
 	VMOVD (AX)(DI*1), X0
 	VMOVD 4(AX)(DI*1), X1
 	BUTTERFLYX(X0, X1, X7)
@@ -460,6 +455,8 @@ len2_loop:
 	VMOVD X1, 4(AX)(DI*1)
 
 	INCQ CX
+	ADDQ $2, SI
+	ADDQ $8, DI
 	JMP len2_loop
 
 len2_done:
@@ -514,21 +511,16 @@ TEXT ·internalInverseNTTAVX2(SB), NOSPLIT, $0-8
 	// ── L6: len=2, 64 groups, zeta = zetasMontgomery[127..64] ───────────
 	// group g: start=g*4 bytes, fl=[start..start+4), fr=[start+4..start+8)
 	// twiddle at BX + (127-g)*2  (k counts down from 127)
+	MOVQ $254, SI
 	XORQ CX, CX
+	XORQ DI, DI
 intt_len2_loop:
 	CMPQ CX, $64
 	JGE intt_len4_start
 
-	// twiddle index = 127 - CX  → byte offset = (127-CX)*2 = 254-CX*2
-	MOVQ $254, SI
-	MOVQ CX, DI
-	SHLQ $1, DI
-	SUBQ DI, SI
 	VPBROADCASTW (BX)(SI*1), X7
 
 	// byte offset of this group in f: CX * 8  (group g: start = g*2*len*sizeof(uint16) = g*2*2*2 = g*8)
-	MOVQ CX, DI
-	SHLQ $3, DI
 	VMOVD (AX)(DI*1), X0     // fl = f[start..start+2]  (2 × int16 = 4 bytes)
 	VMOVD 4(AX)(DI*1), X1    // fr = f[start+2..start+4]
 	INTT_BUTTERFLYX(X0, X1, X7)
@@ -536,26 +528,22 @@ intt_len2_loop:
 	VMOVD X1, 4(AX)(DI*1)
 
 	INCQ CX
+	SUBQ $2, SI  // pre-decrement SI for next twiddle
+	ADDQ $8, DI  // next group offset
 	JMP intt_len2_loop
 
 	// ── L5: len=4, 32 groups, zeta = zetasMontgomery[63..32] ────────────
 	// group g: start=g*8 bytes, fl=[start..start+8), fr=[start+8..start+16)
 intt_len4_start:
 	XORQ CX, CX
+	XORQ DI, DI
 intt_len4_loop:
 	CMPQ CX, $32
 	JGE intt_len8_start
 
-	// twiddle index = 63 - CX  → byte offset = (63-CX)*2 = 126-CX*2
-	MOVQ $126, SI
-	MOVQ CX, DI
-	SHLQ $1, DI
-	SUBQ DI, SI
 	VPBROADCASTW (BX)(SI*1), X7
 
 	// byte offset: CX * 16  (group g: start = g*2*len*sizeof(uint16) = g*2*4*2 = g*16)
-	MOVQ CX, DI
-	SHLQ $4, DI
 	VMOVQ (AX)(DI*1), X0     // fl = 4 × int16 = 8 bytes
 	VMOVQ 8(AX)(DI*1), X1    // fr
 	INTT_BUTTERFLYX(X0, X1, X7)
@@ -563,6 +551,8 @@ intt_len4_loop:
 	VMOVQ X1, 8(AX)(DI*1)
 
 	INCQ CX
+	SUBQ $2, SI  // pre-decrement SI for next twiddle
+	ADDQ $16, DI // next group offset
 	JMP intt_len4_loop
 
 	// ── L4: len=8, 16 groups, zeta = zetasMontgomery[31..16] ────────────
@@ -570,20 +560,14 @@ intt_len4_loop:
 	//          fl=[start..start+16), fr=[start+16..start+32)
 intt_len8_start:
 	XORQ CX, CX
+	XORQ DI, DI
 intt_len8_loop:
 	CMPQ CX, $16
 	JGE intt_len16_start
 
-	// twiddle index = 31 - CX → byte offset = (31-CX)*2 = 62-CX*2
-	MOVQ $62, SI
-	MOVQ CX, DI
-	SHLQ $1, DI
-	SUBQ DI, SI
 	VPBROADCASTW (BX)(SI*1), X7
 
 	// byte offset: CX * 32
-	MOVQ CX, DI
-	SHLQ $5, DI
 	VMOVDQU (AX)(DI*1), X0    // fl = 8 × int16 = 16 bytes
 	VMOVDQU 16(AX)(DI*1), X1  // fr
 	INTT_BUTTERFLYX(X0, X1, X7)
@@ -591,6 +575,8 @@ intt_len8_loop:
 	VMOVDQU X1, 16(AX)(DI*1)
 
 	INCQ CX
+	SUBQ $2, SI  // pre-decrement SI for next twiddle
+	ADDQ $32, DI // next group offset
 	JMP intt_len8_loop
 
 	// ── Switch to YMM for len≥16 ──────────────────────────────────────────
