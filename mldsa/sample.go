@@ -174,7 +174,6 @@ func sampleInBallInto(dst *ringElement, seed []byte, tao int) {
 		dst[index] = fieldSub(1, fieldElement(2*(signs&1)))
 		signs >>= 1
 	}
-	return
 }
 
 func sampleInBall(seed []byte, tao int) (f ringElement) {
