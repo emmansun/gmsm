@@ -107,7 +107,7 @@ func rejBoundedPoly(rho []byte, eta int, highByte, lowByte byte) ringElement {
 }
 
 // See FIPS 204, Algorithm 34, ExpandMask()
-func expandMask(derivedSeed []byte, gamma1 int) (f ringElement) {
+func expandMaskInto(dst *ringElement, derivedSeed []byte, gamma1 int) {
 	var nu [32 * 20]byte
 	l := len(nu)
 	if gamma1 == gamma1TwoPower17 {
@@ -120,12 +120,17 @@ func expandMask(derivedSeed []byte, gamma1 int) (f ringElement) {
 
 	switch gamma1 {
 	case gamma1TwoPower17:
-		bitUnpackSignedTwoPower17(v, &f)
+		bitUnpackSignedTwoPower17(v, dst)
 	case gamma1TwoPower19:
-		bitUnpackSignedTwoPower19(v, &f)
+		bitUnpackSignedTwoPower19(v, dst)
 	default:
 		panic("mldsa: invalid gamma1 value")
 	}
+}
+
+// See FIPS 204, Algorithm 34, ExpandMask()
+func expandMask(derivedSeed []byte, gamma1 int) (f ringElement) {
+	expandMaskInto(&f, derivedSeed, gamma1)
 	return
 }
 
@@ -138,7 +143,8 @@ func expandMask(derivedSeed []byte, gamma1 int) (f ringElement) {
 //
 // Note that the coefficients returned by this implementation are positive
 // i.e one of q-1, 0, or 1.
-func sampleInBall(seed []byte, tao int) (f ringElement) {
+func sampleInBallInto(dst *ringElement, seed []byte, tao int) {
+	*dst = ringElement{}
 	H := sha3.NewSHAKE256()
 	H.Write(seed)
 
@@ -164,9 +170,14 @@ func sampleInBall(seed []byte, tao int) (f ringElement) {
 				break
 			}
 		}
-		f[end] = f[index]
-		f[index] = fieldSub(1, fieldElement(2*(signs&1)))
+		dst[end] = dst[index]
+		dst[index] = fieldSub(1, fieldElement(2*(signs&1)))
 		signs >>= 1
 	}
+	return
+}
+
+func sampleInBall(seed []byte, tao int) (f ringElement) {
+	sampleInBallInto(&f, seed, tao)
 	return
 }

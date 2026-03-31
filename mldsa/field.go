@@ -124,6 +124,11 @@ func ntt(f ringElement) nttElement {
 	return nttElement(f)
 }
 
+func nttAssign(dst *nttElement, src *ringElement) {
+	*(*ringElement)(dst) = *src
+	internalNTT((*ringElement)(dst))
+}
+
 func internalNTTGeneric(f *ringElement) {
 	k := 1
 	// len: 128, 64, 32, ..., 1
@@ -150,6 +155,12 @@ func internalNTTGeneric(f *ringElement) {
 func inverseNTT(f nttElement) ringElement {
 	internalInverseNTT(&f)
 	return ringElement(f)
+}
+
+// inverseNTTAssign updates dst as dst = NTT⁻¹(src) (generic implementation).
+func inverseNTTAssign(dst *ringElement, src *nttElement) {
+	*(*nttElement)(dst) = *src
+	internalInverseNTT((*nttElement)(dst))
 }
 
 func internalInverseNTTGeneric(f *nttElement) {
