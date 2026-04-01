@@ -103,6 +103,7 @@ func TestInternalNTTMulAccNEONOnly(t *testing.T) {
 		nlhs := nttElement(randomRingElement())
 		nrhs := nttElement(randomRingElement())
 		naccNEON := nttElement(randomRingElement())
+		naccInit := naccNEON
 		naccRef := naccNEON
 
 		internalNTTMulAccNEON(&naccNEON, &nlhs, &nrhs)
@@ -113,6 +114,7 @@ func TestInternalNTTMulAccNEONOnly(t *testing.T) {
 				pair := j &^ 1
 				a0, a1 := nlhs[pair], nlhs[pair+1]
 				b0, b1 := nrhs[pair], nrhs[pair+1]
+				accInit0, accInit1 := naccInit[pair], naccInit[pair+1]
 				acc0, acc1 := naccRef[pair], naccRef[pair+1]
 
 				ab00 := fieldMontMul(a0, b0)
@@ -122,8 +124,13 @@ func TestInternalNTTMulAccNEONOnly(t *testing.T) {
 				evenDelta := fieldAdd(ab00, fieldMontMul(ab11, gammasMontgomery[pair/2]))
 				oddDelta := fieldAdd(ab01, ab10)
 
-				t.Fatalf("iter=%d idx=%d: internalNTTMulAccNEON mismatch: got=%d want=%d pair=%d a0=%d a1=%d b0=%d b1=%d refEvenDelta=%d refOddDelta=%d refAB00=%d refAB11=%d refAB01=%d refAB10=%d refAccEven=%d refAccOdd=%d",
-					i, j, naccNEON[j], naccRef[j], pair/2, a0, a1, b0, b1, evenDelta, oddDelta, ab00, ab11, ab01, ab10, acc0, acc1)
+				neonDeltaEvenRaw := uint16(naccNEON[pair] - accInit0)
+				neonDeltaOddRaw := uint16(naccNEON[pair+1] - accInit1)
+				neonDeltaEven := fieldReduceOnce(neonDeltaEvenRaw)
+				neonDeltaOdd := fieldReduceOnce(neonDeltaOddRaw)
+
+				t.Fatalf("iter=%d idx=%d: internalNTTMulAccNEON mismatch: got=%d want=%d pair=%d a0=%d a1=%d b0=%d b1=%d initAccEven=%d initAccOdd=%d refEvenDelta=%d refOddDelta=%d refAB00=%d refAB11=%d refAB01=%d refAB10=%d refAccEven=%d refAccOdd=%d neonDeltaEvenRaw=%d neonDeltaOddRaw=%d neonDeltaEven=%d neonDeltaOdd=%d",
+					i, j, naccNEON[j], naccRef[j], pair/2, a0, a1, b0, b1, accInit0, accInit1, evenDelta, oddDelta, ab00, ab11, ab01, ab10, acc0, acc1, neonDeltaEvenRaw, neonDeltaOddRaw, neonDeltaEven, neonDeltaOdd)
 			}
 		}
 	}
