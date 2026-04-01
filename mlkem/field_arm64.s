@@ -58,13 +58,13 @@
 	WORD $0x4E619C14                        \ // OPCODE: MUL   V20.8H, V0.8H, V1.8H
 	WORD $0x2E61C015                        \ // OPCODE: UMULL V21.4S, V0.4H, V1.4H
 	WORD $0x6E61C016                        \ // OPCODE: UMULL2 V22.4S, V0.8H, V1.8H
-	WORD $0x0F108AB5                        \ // OPCODE: SHRN  V21.4H, V21.4S, #16
-	WORD $0x4F108AD5                        \ // OPCODE: SHRN2 V21.8H, V22.4S, #16
+	WORD $0x0F1086B5                        \ // OPCODE: SHRN  V21.4H, V21.4S, #16
+	WORD $0x4F1086D5                        \ // OPCODE: SHRN2 V21.8H, V22.4S, #16
 	WORD $0x4E7E9E96                        \ // OPCODE: MUL   V22.8H, V20.8H, V30.8H
 	WORD $0x2E7FC2D7                        \ // OPCODE: UMULL V23.4S, V22.4H, V31.4H
 	WORD $0x6E7FC2D8                        \ // OPCODE: UMULL2 V24.4S, V22.8H, V31.8H
-	WORD $0x0F108AF7                        \ // OPCODE: SHRN  V23.4H, V23.4S, #16
-	WORD $0x4F108B17                        \ // OPCODE: SHRN2 V23.8H, V24.4S, #16
+	WORD $0x0F1086F7                        \ // OPCODE: SHRN  V23.4H, V23.4S, #16
+	WORD $0x4F108717                        \ // OPCODE: SHRN2 V23.8H, V24.4S, #16
 	VADD   V21.H8, V23.H8, V2.H8            \ // raw = hi + correction
 	VCMEQ  V20.H8, V28.H8, V24.H8           \ // 0xFFFF where lo==0
 	VADD   V29.H8, V24.H8, V24.H8           \ // 0 where lo==0, else 1
