@@ -191,15 +191,18 @@
 	VST1 [V1.H8], (R12)
 
 // inttL0: INTT final layer len=128, with scale multiply on both outputs.
+// Note: MONT_MUL_FIXED always outputs to V2, so Vscale must NOT be V2.
+//       MONT_MUL(V0,Vscale,V0) expands VMOV Vscale→V1, clobbering VB'; save it first.
 #define inttL0(dataAddr, VZ, Vscale, offset) \
 	ADD  $((offset)*16), dataAddr, R11           \
 	VLD1 (R11), [V0.H8]                           \
 	ADD  $((offset)*16+256), dataAddr, R12       \
 	VLD1 (R12), [V1.H8]                           \
 	INTT_BUTTERFLY(V0, V1, VZ)                   \
+	VMOV V1.B16, V26.B16                         \ // save VB'; MONT_MUL will clobber V1
 	MONT_MUL(V0, Vscale, V0)                     \
 	VST1 [V0.H8], (R11)                           \
-	MONT_MUL(V1, Vscale, V1)                     \
+	MONT_MUL(V26, Vscale, V1)                   \
 	VST1 [V1.H8], (R12)
 
 #define inttL1(dataAddr, VZ, groupIdx, offset) \
@@ -615,25 +618,26 @@ intt_len16_start:
 	inttL1(R0, V7, 1, 7)
 
 	// ── L0: len=128. 1 group. zeta = zetasMontgomery[1]. Scale by 1441 ───
+	// Use V3 for scale (NOT V2: MONT_MUL_FIXED always clobbers V2).
 	LOAD_ZETA(2, V7)
 	MOVD $1441, R8
-	VDUP R8, V2.H8    // V2 = scale = 1441
-	inttL0(R0, V7, V2, 0)
-	inttL0(R0, V7, V2, 1)
-	inttL0(R0, V7, V2, 2)
-	inttL0(R0, V7, V2, 3)
-	inttL0(R0, V7, V2, 4)
-	inttL0(R0, V7, V2, 5)
-	inttL0(R0, V7, V2, 6)
-	inttL0(R0, V7, V2, 7)
-	inttL0(R0, V7, V2, 8)
-	inttL0(R0, V7, V2, 9)
-	inttL0(R0, V7, V2, 10)
-	inttL0(R0, V7, V2, 11)
-	inttL0(R0, V7, V2, 12)
-	inttL0(R0, V7, V2, 13)
-	inttL0(R0, V7, V2, 14)
-	inttL0(R0, V7, V2, 15)
+	VDUP R8, V3.H8    // V3 = scale = 1441
+	inttL0(R0, V7, V3, 0)
+	inttL0(R0, V7, V3, 1)
+	inttL0(R0, V7, V3, 2)
+	inttL0(R0, V7, V3, 3)
+	inttL0(R0, V7, V3, 4)
+	inttL0(R0, V7, V3, 5)
+	inttL0(R0, V7, V3, 6)
+	inttL0(R0, V7, V3, 7)
+	inttL0(R0, V7, V3, 8)
+	inttL0(R0, V7, V3, 9)
+	inttL0(R0, V7, V3, 10)
+	inttL0(R0, V7, V3, 11)
+	inttL0(R0, V7, V3, 12)
+	inttL0(R0, V7, V3, 13)
+	inttL0(R0, V7, V3, 14)
+	inttL0(R0, V7, V3, 15)
 
 	RET
 
