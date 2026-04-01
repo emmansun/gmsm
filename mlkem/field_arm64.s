@@ -128,7 +128,9 @@
 	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if negative
 	VAND   V31.B16, V24.B16, V24.B16  \ // q if negative
 	VADD   VB.H8, V24.H8, VB.H8       \ // fieldSub: add q if negative
-	MONT_MUL(VB, VZ, VB)               // VB = MontMul(VZ, diff)
+	VMOV   VA.B16, V25.B16            \ // save VA' before MONT_MUL clobbers V0
+	MONT_MUL(VB, VZ, VB)              \ // VB = MontMul(VZ, diff) — clobbers VA's reg (V0)
+	VMOV   V25.B16, VA.B16             // restore VA'
 
 // ── Level-load macros (16 bytes = 8 × int16 per NEON vector) ──────────────────
 //
