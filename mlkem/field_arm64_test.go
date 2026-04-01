@@ -110,7 +110,20 @@ func TestInternalNTTMulAccNEONOnly(t *testing.T) {
 
 		for j := range naccNEON {
 			if naccNEON[j] != naccRef[j] {
-				t.Fatalf("iter=%d idx=%d: internalNTTMulAccNEON mismatch: got=%d want=%d", i, j, naccNEON[j], naccRef[j])
+				pair := j &^ 1
+				a0, a1 := nlhs[pair], nlhs[pair+1]
+				b0, b1 := nrhs[pair], nrhs[pair+1]
+				acc0, acc1 := naccRef[pair], naccRef[pair+1]
+
+				ab00 := fieldMontMul(a0, b0)
+				ab11 := fieldMontMul(a1, b1)
+				ab01 := fieldMontMul(a0, b1)
+				ab10 := fieldMontMul(a1, b0)
+				evenDelta := fieldAdd(ab00, fieldMontMul(ab11, gammasMontgomery[pair/2]))
+				oddDelta := fieldAdd(ab01, ab10)
+
+				t.Fatalf("iter=%d idx=%d: internalNTTMulAccNEON mismatch: got=%d want=%d pair=%d a0=%d a1=%d b0=%d b1=%d refEvenDelta=%d refOddDelta=%d refAB00=%d refAB11=%d refAB01=%d refAB10=%d refAccEven=%d refAccOdd=%d",
+					i, j, naccNEON[j], naccRef[j], pair/2, a0, a1, b0, b1, evenDelta, oddDelta, ab00, ab11, ab01, ab10, acc0, acc1)
 			}
 		}
 	}
