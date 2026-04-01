@@ -100,14 +100,14 @@
 	VMOV   VA.B16, V25.B16            \ // save VA
 	MONT_MUL(VB, VZ, V26)             \ // t = MontMul(VZ, VB) → V26
 	VADD   V25.H8, V26.H8, VA.H8      \ // VA = VA_old + t
-	VSUB   VA.H8, V31.H8, V24.H8      \ // try = VA - q
+	VSUB   V31.H8, VA.H8, V24.H8      \ // try = VA - q  (Vd=Vm-Vn → V24=VA-V31)
 	VUSHR  $15, V24.H8, V24.H8        \ // 1 if underflow, else 0
-	VSUB   V28.H8, V24.H8, V24.H8     \ // 0xFFFF if underflow
+	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if underflow (V24=0-V24)
 	VAND   V31.B16, V24.B16, V24.B16  \ // q if negative
-	VADD   VA.H8, V24.H8, VA.H8       \ // reduce: add q back if underflowed? No: add q if VA-q<0
-	VSUB   V25.H8, V26.H8, VB.H8      \ // VB = VA_old - t  (VSUB Vn,Vm,Vd → Vd=Vn-Vm: VB=V25-V26)
+	VADD   VA.H8, V24.H8, VA.H8       \ // reduce: VA = try + q_if_underflow
+	VSUB   V26.H8, V25.H8, VB.H8      \ // VB = VA_old - t  (V25-V26)
 	VUSHR  $15, VB.H8, V24.H8         \ // 1 if negative, else 0
-	VSUB   V28.H8, V24.H8, V24.H8     \ // 0xFFFF if negative
+	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if negative
 	VAND   V31.B16, V24.B16, V24.B16  \ // q if negative
 	VADD   VB.H8, V24.H8, VB.H8        // VB += q if negative
 
@@ -118,14 +118,14 @@
 #define INTT_BUTTERFLY(VA, VB, VZ) \
 	VMOV   VA.B16, V25.B16            \ // save VA_old
 	VADD   VA.H8, VB.H8, VA.H8        \ // VA = VA_old + VB
-	VSUB   VA.H8, V31.H8, V24.H8      \ // try = VA - q
+	VSUB   V31.H8, VA.H8, V24.H8      \ // try = VA - q  (V24=VA-V31)
 	VUSHR  $15, V24.H8, V24.H8        \ // 1 if underflow, else 0
-	VSUB   V28.H8, V24.H8, V24.H8     \ // 0xFFFF if underflow
+	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if underflow (V24=0-V24)
 	VAND   V31.B16, V24.B16, V24.B16  \ // q if negative
 	VADD   VA.H8, V24.H8, VA.H8       \ // reduce
-	VSUB   VB.H8, V25.H8, VB.H8       \ // diff = VB - VA_old  (VSUB Vn,Vm,Vd → Vd=Vn-Vm)
+	VSUB   V25.H8, VB.H8, VB.H8       \ // diff = VB - VA_old  (VB=VB-V25)
 	VUSHR  $15, VB.H8, V24.H8         \ // 1 if negative, else 0
-	VSUB   V28.H8, V24.H8, V24.H8     \ // 0xFFFF if negative
+	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if negative
 	VAND   V31.B16, V24.B16, V24.B16  \ // q if negative
 	VADD   VB.H8, V24.H8, VB.H8       \ // fieldSub: add q if negative
 	MONT_MUL(VB, VZ, VB)               // VB = MontMul(VZ, diff)
