@@ -690,6 +690,7 @@ nttmlacc_neon_loop:
 	VLD1 (R12), [V1.H8]   // rhs
 	ADD R0, R4, R13
 	VLD1 (R13), [V2.H8]   // acc
+	VMOV V2.B16, V25.B16  // preserve acc; MONT_MUL clobbers V2
 	ADD R3, R4, R14
 	VLD1 (R14), [V3.H8]   // gamma table
 
@@ -720,8 +721,8 @@ nttmlacc_neon_loop:
 	// V7 has even sums (replicated in halves), V6 has odd sums
 	VZIP1 V7.H8, V6.H8, V5.H8
 
-	// Add delta to acc
-	VADD V5.H8, V2.H8, V2.H8
+	// Add delta to preserved acc
+	VADD V5.H8, V25.H8, V2.H8
 	REDUCE_ONCE(V2)
 
 	VST1 [V2.H8], (R13)
@@ -767,6 +768,7 @@ nttmlacc_kg_neon_loop:
 	VLD1 (R12), [V1.H8]
 	ADD R0, R4, R13
 	VLD1 (R13), [V2.H8]
+	VMOV V2.B16, V25.B16  // preserve acc; MONT_MUL clobbers V2
 	ADD R3, R4, R14
 	VLD1 (R14), [V3.H8]
 
@@ -787,7 +789,7 @@ nttmlacc_kg_neon_loop:
 	// Convert delta from Montgomery to standard domain
 	MONT_MUL(V5, V27, V5)
 
-	VADD V5.H8, V2.H8, V2.H8
+	VADD V5.H8, V25.H8, V2.H8
 	REDUCE_ONCE(V2)
 
 	VST1 [V2.H8], (R13)
