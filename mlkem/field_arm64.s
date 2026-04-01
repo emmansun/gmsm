@@ -716,10 +716,10 @@ nttmlacc_neon_loop:
 	REDUCE_ONCE(V7)
 	REDUCE_ONCE(V6)
 
-	// Re-interleave: VZIP1 Vn.8H, Vm.8H, Vd.8H → Vd=[Vn[0],Vm[0],Vn[1],Vm[1],...]
+	// Re-interleave: VZIP1 Va.8H, Vb.8H, Vd.8H in Go Plan9 → ARM64 ZIP1 Vd,Vb,Va → Vd=[Vb[0],Va[0],...]
 	// We want [even_sum0, odd_sum0, even_sum1, odd_sum1, ...]
-	// V7 has even sums (replicated in halves), V6 has odd sums
-	VZIP1 V7.H8, V6.H8, V5.H8
+	// V7 has even sums, V6 has odd sums → VZIP1 V6,V7,V5 → V5=[V7[0],V6[0],...]
+	VZIP1 V6.H8, V7.H8, V5.H8
 
 	// Add delta to preserved acc
 	VADD V5.H8, V25.H8, V2.H8
@@ -784,7 +784,7 @@ nttmlacc_kg_neon_loop:
 	REDUCE_ONCE(V7)
 	REDUCE_ONCE(V6)
 
-	VZIP1 V7.H8, V6.H8, V5.H8
+	VZIP1 V6.H8, V7.H8, V5.H8
 
 	// Convert delta from Montgomery to standard domain
 	MONT_MUL(V5, V27, V5)
