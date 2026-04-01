@@ -47,13 +47,13 @@
 //   0x4E619C14: MUL   V20.8H, V0.8H, V1.8H
 //   0x2E61C015: UMULL V21.4S, V0.4H, V1.4H
 //   0x6E61C016: UMULL2 V22.4S, V0.8H, V1.8H
-//   0x0F108AB5: SHRN  V21.4H, V21.4S, #16
-//   0x4F108AD5: SHRN2 V21.8H, V22.4S, #16
+//   0x0F1086B5: SHRN  V21.4H, V21.4S, #16
+//   0x4F1086D5: SHRN2 V21.8H, V22.4S, #16
 //   0x4E7E9E96: MUL   V22.8H, V20.8H, V30.8H
 //   0x2E7FC2D7: UMULL V23.4S, V22.4H, V31.4H
 //   0x6E7FC2D8: UMULL2 V24.4S, V22.8H, V31.8H
-//   0x0F108AF7: SHRN  V23.4H, V23.4S, #16
-//   0x4F108B17: SHRN2 V23.8H, V24.4S, #16
+//   0x0F1086F7: SHRN  V23.4H, V23.4S, #16
+//   0x4F108717: SHRN2 V23.8H, V24.4S, #16
 #define MONT_MUL_FIXED() \
 	WORD $0x4E619C14                        \ // OPCODE: MUL   V20.8H, V0.8H, V1.8H
 	WORD $0x2E61C015                        \ // OPCODE: UMULL V21.4S, V0.4H, V1.4H
@@ -240,6 +240,7 @@
 // Uses only 16-byte (8 × int16) NEON vectors throughout.
 TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
 	MOVD f+0(FP), R0
+
 	MOVD $·zetasMontgomery(SB), R1
 
 	// Setup pinned registers
@@ -391,13 +392,17 @@ ntt_len4_loop:
 	MOVHU (R1)(R2), R10
 	VDUP R10, V7.H8
 	ADD R0, R3, R11
-	VLD1 (R11), [V0.H8]      // loads 16 bytes; we only need 8 but 16 is fine for butterfly
+	MOVD (R11), R6
+	VMOV R6, V0.D[0]
 	ADD $8, R3, R5
 	ADD R0, R5, R12
-	VLD1 (R12), [V1.H8]
+	MOVD (R12), R16
+	VMOV R16, V1.D[0]
 	BUTTERFLY(V0, V1, V7)
-	VST1 [V0.H8], (R11)
-	VST1 [V1.H8], (R12)
+	VMOV V0.D[0], R6
+	MOVD R6, (R11)
+	VMOV V1.D[0], R16
+	MOVD R16, (R12)
 	ADD $2, R2, R2
 	ADD $16, R3, R3
 	ADD $1, R4, R4
@@ -414,13 +419,17 @@ ntt_len2_loop:
 	MOVHU (R1)(R2), R10
 	VDUP R10, V7.H8
 	ADD R0, R3, R11
-	VLD1 (R11), [V0.H8]
+	MOVWU (R11), R6
+	VMOV R6, V0.S[0]
 	ADD $4, R3, R5
 	ADD R0, R5, R12
-	VLD1 (R12), [V1.H8]
+	MOVWU (R12), R16
+	VMOV R16, V1.S[0]
 	BUTTERFLY(V0, V1, V7)
-	VST1 [V0.H8], (R11)
-	VST1 [V1.H8], (R12)
+	VMOV V0.S[0], R6
+	MOVW R6, (R11)
+	VMOV V1.S[0], R16
+	MOVW R16, (R12)
 	ADD $2, R2, R2
 	ADD $8, R3, R3
 	ADD $1, R4, R4
@@ -434,6 +443,7 @@ ntt_len2_done:
 // All 7 inverse NTT layers (Gentleman-Sande, len=2..128) + scale by 1441.
 TEXT ·internalInverseNTTNEON(SB), NOSPLIT, $0-8
 	MOVD f+0(FP), R0
+
 	MOVD $·zetasMontgomery(SB), R1
 
 	// Setup pinned registers
@@ -457,13 +467,17 @@ intt_len2_loop:
 	MOVHU (R1)(R2), R10
 	VDUP R10, V7.H8
 	ADD R0, R3, R11
-	VLD1 (R11), [V0.H8]
+	MOVWU (R11), R6
+	VMOV R6, V0.S[0]
 	ADD $4, R3, R5
 	ADD R0, R5, R12
-	VLD1 (R12), [V1.H8]
+	MOVWU (R12), R16
+	VMOV R16, V1.S[0]
 	INTT_BUTTERFLY(V0, V1, V7)
-	VST1 [V0.H8], (R11)
-	VST1 [V1.H8], (R12)
+	VMOV V0.S[0], R6
+	MOVW R6, (R11)
+	VMOV V1.S[0], R16
+	MOVW R16, (R12)
 	SUB $2, R2, R2
 	ADD $8, R3, R3
 	ADD $1, R4, R4
@@ -479,13 +493,17 @@ intt_len4_loop:
 	MOVHU (R1)(R2), R10
 	VDUP R10, V7.H8
 	ADD R0, R3, R11
-	VLD1 (R11), [V0.H8]
+	MOVD (R11), R6
+	VMOV R6, V0.D[0]
 	ADD $8, R3, R5
 	ADD R0, R5, R12
-	VLD1 (R12), [V1.H8]
+	MOVD (R12), R16
+	VMOV R16, V1.D[0]
 	INTT_BUTTERFLY(V0, V1, V7)
-	VST1 [V0.H8], (R11)
-	VST1 [V1.H8], (R12)
+	VMOV V0.D[0], R6
+	MOVD R6, (R11)
+	VMOV V1.D[0], R16
+	MOVD R16, (R12)
 	SUB $2, R2, R2
 	ADD $16, R3, R3
 	ADD $1, R4, R4
