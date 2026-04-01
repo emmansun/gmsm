@@ -39,7 +39,7 @@
 // Step 7:  reduce once                VSUB / VUSHR / VSUB / VAND / VADD
 //
 // Note on Go arm64 asm operand order for 3-register ops:
-//   INSTRUCTION Vn.type, Vm.type, Vd.type  -> Vd = Vn op Vm
+//   INSTRUCTION Vn.type, Vm.type, Vd.type  -> Vd = Vm op Vn
 // Tmp regs: V20=lo, V21=hi, V22=t, V23=corr, V24=mask
 //
 // Fixed-register montgomery core: V0,V1 -> V2.
@@ -69,9 +69,9 @@
 	VCMEQ  V20.H8, V28.H8, V24.H8           \ // 0xFFFF where lo==0
 	VADD   V29.H8, V24.H8, V24.H8           \ // 0 where lo==0, else 1
 	VADD   V2.H8, V24.H8, V2.H8             \ // raw += (lo!=0)
-	VSUB   V2.H8, V31.H8, V20.H8            \ // try = raw - q
+	VSUB   V31.H8, V2.H8, V20.H8            \ // try = raw - q
 	VUSHR  $15, V20.H8, V24.H8              \ // 1 if underflow, else 0
-	VSUB   V28.H8, V24.H8, V24.H8           \ // 0xFFFF if underflow, else 0
+	VSUB   V24.H8, V28.H8, V24.H8           \ // 0xFFFF if underflow, else 0
 	VAND   V31.B16, V24.B16, V24.B16        \ // q if underflow, else 0
 	VADD   V20.H8, V24.H8, V2.H8             // result in V2
 
@@ -85,9 +85,9 @@
 //   try = Vx - q; if try < 0: Vx stays; else Vx = try
 // Inlined version of the sequence. V24 is clobbered.
 #define REDUCE_ONCE(VX) \
-	VSUB   VX.H8, V31.H8, V20.H8      \ // try = VX - q
+	VSUB   V31.H8, VX.H8, V20.H8      \ // try = VX - q
 	VUSHR  $15, V20.H8, V24.H8        \ // 1 if underflow, else 0
-	VSUB   V28.H8, V24.H8, V24.H8     \ // 0xFFFF if underflow, else 0
+	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if underflow, else 0
 	VAND   V31.B16, V24.B16, V24.B16  \ // q if underflow, else 0
 	VADD   V20.H8, V24.H8, VX.H8       // VX = try + q_if_underflow
 
