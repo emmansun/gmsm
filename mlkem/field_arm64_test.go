@@ -94,6 +94,28 @@ func TestNEONNTTMulAccMatchesMontgomery(t *testing.T) {
 	}
 }
 
+// TestInternalNTTMulAccNEONOnly isolates the mul-acc NEON path so it can be
+// debugged independently from forward/inverse NTT assembly behavior.
+func TestInternalNTTMulAccNEONOnly(t *testing.T) {
+	for i := 0; i < 200; i++ {
+		// Construct direct NTT-domain operands so this test depends only on
+		// internalNTTMulAccNEON and the reference nttMontMulAcc implementation.
+		nlhs := nttElement(randomRingElement())
+		nrhs := nttElement(randomRingElement())
+		naccNEON := nttElement(randomRingElement())
+		naccRef := naccNEON
+
+		internalNTTMulAccNEON(&naccNEON, &nlhs, &nrhs)
+		nttMontMulAcc(&naccRef, &nlhs, &nrhs)
+
+		for j := range naccNEON {
+			if naccNEON[j] != naccRef[j] {
+				t.Fatalf("iter=%d idx=%d: internalNTTMulAccNEON mismatch: got=%d want=%d", i, j, naccNEON[j], naccRef[j])
+			}
+		}
+	}
+}
+
 func TestNEONNTTMulAccKeyGenMatchesMontgomery(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		lhs := randomRingElement()
