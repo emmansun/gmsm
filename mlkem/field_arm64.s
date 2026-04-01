@@ -81,6 +81,17 @@
 	MONT_MUL_FIXED()                         \
 	VMOV   V2.B16, VOUT.B16
 
+// Fast-path when inputs are already in fixed MONT_MUL registers.
+#define MONT_MUL_V0_V1(VOUT) \
+	MONT_MUL_FIXED()                         \
+	VMOV   V2.B16, VOUT.B16
+
+// Fast-path when multiplicand is already in V0; only load the zeta/input into V1.
+#define MONT_MUL_V0_VZ(VZ, VOUT) \
+	VMOV   VZ.B16, V1.B16                    \
+	MONT_MUL_FIXED()                         \
+	VMOV   V2.B16, VOUT.B16
+
 // Corrected fieldReduceOnce (input in [0,2q), output in [0,q)):
 //   try = Vx - q; if try < 0: Vx stays; else Vx = try
 // Inlined version of the sequence. V24 is clobbered.
@@ -704,10 +715,10 @@ nttmlacc_neon_loop:
 	VREV32 V1.H8, V4.H8
 
 	// t_ab = MontMul(V0, V1) → V5  (element-wise: a0b0, a1b1, ...)
-	MONT_MUL(V0, V1, V5)
+	MONT_MUL_V0_V1(V5)
 
 	// t_cross = MontMul(V0, V4) → V6  (element-wise: a0b1, a1b0, ...)
-	MONT_MUL(V0, V4, V6)
+	MONT_MUL_V0_VZ(V4, V6)
 
 	// t_scaled = MontMul(V5, V3) → V7  (even: a0b0*r=a0b0, odd: γ*a1b1)
 	MONT_MUL(V5, V3, V7)
@@ -780,8 +791,8 @@ nttmlacc_kg_neon_loop:
 
 	VREV32 V1.H8, V4.H8
 
-	MONT_MUL(V0, V1, V5)
-	MONT_MUL(V0, V4, V6)
+	MONT_MUL_V0_V1(V5)
+	MONT_MUL_V0_VZ(V4, V6)
 	MONT_MUL(V5, V3, V7)
 
 	VADDP V7.H8, V7.H8, V7.H8
