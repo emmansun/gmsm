@@ -100,11 +100,11 @@
 	VMOV   VA.B16, V25.B16            \ // save VA
 	MONT_MUL(VB, VZ, V26)             \ // t = MontMul(VZ, VB) → V26
 	VADD   V25.H8, V26.H8, VA.H8      \ // VA = VA_old + t
-	VSUB   V31.H8, VA.H8, V24.H8      \ // try = VA - q  (Vd=Vm-Vn → V24=VA-V31)
-	VUSHR  $15, V24.H8, V24.H8        \ // 1 if underflow, else 0
-	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if underflow (V24=0-V24)
-	VAND   V31.B16, V24.B16, V24.B16  \ // q if negative
-	VADD   VA.H8, V24.H8, VA.H8       \ // reduce: VA = try + q_if_underflow
+	VSUB   V31.H8, VA.H8, V20.H8      \ // try = VA - q → V20
+	VUSHR  $15, V20.H8, V24.H8        \ // 1 if underflow, else 0
+	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if underflow
+	VAND   V31.B16, V24.B16, V24.B16  \ // q if underflow
+	VADD   V20.H8, V24.H8, VA.H8      \ // VA = try + correction
 	VSUB   V26.H8, V25.H8, VB.H8      \ // VB = VA_old - t  (V25-V26)
 	VUSHR  $15, VB.H8, V24.H8         \ // 1 if negative, else 0
 	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if negative
@@ -118,11 +118,11 @@
 #define INTT_BUTTERFLY(VA, VB, VZ) \
 	VMOV   VA.B16, V25.B16            \ // save VA_old
 	VADD   VA.H8, VB.H8, VA.H8        \ // VA = VA_old + VB
-	VSUB   V31.H8, VA.H8, V24.H8      \ // try = VA - q  (V24=VA-V31)
-	VUSHR  $15, V24.H8, V24.H8        \ // 1 if underflow, else 0
-	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if underflow (V24=0-V24)
-	VAND   V31.B16, V24.B16, V24.B16  \ // q if negative
-	VADD   VA.H8, V24.H8, VA.H8       \ // reduce
+	VSUB   V31.H8, VA.H8, V20.H8      \ // try = VA - q → V20
+	VUSHR  $15, V20.H8, V24.H8        \ // 1 if underflow, else 0
+	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if underflow
+	VAND   V31.B16, V24.B16, V24.B16  \ // q if underflow
+	VADD   V20.H8, V24.H8, VA.H8      \ // VA = try + correction
 	VSUB   V25.H8, VB.H8, VB.H8       \ // diff = VB - VA_old  (VB=VB-V25)
 	VUSHR  $15, VB.H8, V24.H8         \ // 1 if negative, else 0
 	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if negative
