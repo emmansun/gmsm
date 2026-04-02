@@ -522,13 +522,11 @@ len4_loop:
 	CMPQ CX, $8
 	JGE len2_start
 
-	// Build twiddle vector: [z0*4, z1*4, z2*4, z3*4] for 4 groups.
-	VPBROADCASTW (BX)(SI*1), X7
-	VPBROADCASTW 2(BX)(SI*1), X6
-	VPBROADCASTW 4(BX)(SI*1), X0
-	VPBROADCASTW 6(BX)(SI*1), X1
-	VPUNPCKLQDQ X6, X7, X7
-	VPUNPCKLQDQ X1, X0, X0
+	// Build twiddle vector with one 64-bit load: [z0*4, z1*4, z2*4, z3*4].
+	VMOVQ (BX)(SI*1), X7
+	VPUNPCKLWD X7, X7, X7
+	VPSHUFD $0xFA, X7, X0
+	VPSHUFD $0x50, X7, X7
 	VPERM2I128 $0x20, Y0, Y7, Y7
 
 	// Load 4 contiguous groups (32 coefficients): [g0|g1] and [g2|g3].
@@ -699,13 +697,12 @@ intt_len4_loop:
 	CMPQ CX, $8
 	JGE intt_len8_start
 
-	// Build twiddle vector for 4 groups: [z0*4, z1*4, z2*4, z3*4]
-	VPBROADCASTW (BX)(SI*1), X7
-	VPBROADCASTW -2(BX)(SI*1), X6
-	VPBROADCASTW -4(BX)(SI*1), X0
-	VPBROADCASTW -6(BX)(SI*1), X1
-	VPUNPCKLQDQ X6, X7, X7
-	VPUNPCKLQDQ X1, X0, X0
+	// Build twiddle vector for 4 groups with one 64-bit load: [z0*4, z1*4, z2*4, z3*4].
+	VMOVQ -6(BX)(SI*1), X7
+	VPSHUFLW $0x1B, X7, X7
+	VPUNPCKLWD X7, X7, X7
+	VPSHUFD $0xFA, X7, X0
+	VPSHUFD $0x50, X7, X7
 	VPERM2I128 $0x20, Y0, Y7, Y7
 
 	// Load 4 contiguous groups (32 coefficients): [g0|g1] and [g2|g3].
