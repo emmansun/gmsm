@@ -301,7 +301,7 @@ TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
 	nttL1(R0, V7, 0, 7)
 
 	// Group 1: zeta = zetasMontgomery[3] (byte offset 6)
-	LOADLOAD_ZETA_NTT(V7)
+	LOAD_ZETA_NTT(V7)
 	nttL1(R0, V7, 1, 0)
 	nttL1(R0, V7, 1, 1)
 	nttL1(R0, V7, 1, 2)
