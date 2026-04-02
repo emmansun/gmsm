@@ -392,25 +392,21 @@ ntt_len8_loop:
 	// ── Layer L5: len=4. 32 groups. zeta = zetasMontgomery[32+g] ──────────
 	// group g: left at g*16, right at g*16+8
 ntt_len4_start:
-	MOVD $0, R3
+	MOVD R0, R3
 	MOVD $0, R4
 ntt_len4_loop:
-	CMP $32, R4
+	CMP $16, R4
 	BGE ntt_len2_start
 	LOAD_ZETA_NTT(V7)
-	ADD R0, R3, R11
-	MOVD (R11), R6
-	VMOV R6, V0.D[0]
-	ADD $8, R3, R5
-	ADD R0, R5, R12
-	MOVD (R12), R16
-	VMOV R16, V1.D[0]
+	LOAD_ZETA_NTT(V8)
+	VZIP1 V8.D2, V7.D2, V7.D2
+	VLD1 (R3), [V20.H8, V21.H8]
+	VZIP1 V21.D2, V20.D2, V0.D2
+	VZIP2 V21.D2, V20.D2, V1.D2
 	BUTTERFLY(V0, V1, V7)
-	VMOV V0.D[0], R6
-	MOVD R6, (R11)
-	VMOV V1.D[0], R16
-	MOVD R16, (R12)
-	ADD $16, R3, R3
+	VZIP1 V1.D2, V0.D2, V20.D2
+	VZIP2 V1.D2, V0.D2, V21.D2
+	VST1.P [V20.H8, V21.H8], 32(R3)
 	ADD $1, R4, R4
 	B ntt_len4_loop
 
