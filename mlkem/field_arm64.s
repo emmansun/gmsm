@@ -42,7 +42,7 @@
 //   INSTRUCTION Vn.type, Vm.type, Vd.type  -> Vd = Vm op Vn
 // Tmp regs: V20=lo, V21=hi, V22=t, V23=corr, V24=mask
 //
-// Fixed-register montgomery core: V0,V1 -> V2.
+// Fixed-register montgomery core: V0,V1 -> VOUT (parameter).
 // WORD opcodes (validated from ARM64 encoding):
 //   0x4E619C14: MUL   V20.8H, V0.8H, V1.8H
 //   0x2E61C015: UMULL V21.4S, V0.4H, V1.4H
@@ -54,7 +54,7 @@
 //   0x6E7FC2D8: UMULL2 V24.4S, V22.8H, V31.8H
 //   0x0F1086F7: SHRN  V23.4H, V23.4S, #16
 //   0x4F108717: SHRN2 V23.8H, V24.4S, #16
-#define MONT_MUL_FIXED() \
+#define MONT_MUL_FIXED(VOUT) \
 	WORD $0x4E619C14                        \ // OPCODE: MUL   V20.8H, V0.8H, V1.8H
 	WORD $0x2E61C015                        \ // OPCODE: UMULL V21.4S, V0.4H, V1.4H
 	WORD $0x6E61C016                        \ // OPCODE: UMULL2 V22.4S, V0.8H, V1.8H
@@ -65,32 +65,29 @@
 	WORD $0x6E7FC2D8                        \ // OPCODE: UMULL2 V24.4S, V22.8H, V31.8H
 	WORD $0x0F1086F7                        \ // OPCODE: SHRN  V23.4H, V23.4S, #16
 	WORD $0x4F108717                        \ // OPCODE: SHRN2 V23.8H, V24.4S, #16
-	VADD   V21.H8, V23.H8, V2.H8            \ // raw = hi + correction
+	VADD   V21.H8, V23.H8, VOUT.H8          \ // raw = hi + correction
 	VCMEQ  V20.H8, V28.H8, V24.H8           \ // 0xFFFF where lo==0
 	VADD   V29.H8, V24.H8, V24.H8           \ // 0 where lo==0, else 1
-	VADD   V2.H8, V24.H8, V2.H8             \ // raw += (lo!=0)
-	VSUB   V31.H8, V2.H8, V20.H8            \ // try = raw - q
+	VADD   VOUT.H8, V24.H8, VOUT.H8         \ // raw += (lo!=0)
+	VSUB   V31.H8, VOUT.H8, V20.H8          \ // try = raw - q
 	VUSHR  $15, V20.H8, V24.H8              \ // 1 if underflow, else 0
 	VSUB   V24.H8, V28.H8, V24.H8           \ // 0xFFFF if underflow, else 0
 	VAND   V31.B16, V24.B16, V24.B16        \ // q if underflow, else 0
-	VADD   V20.H8, V24.H8, V2.H8             // result in V2
+	VADD   V20.H8, V24.H8, VOUT.H8           // result in VOUT
 
 #define MONT_MUL(VA, VZ, VOUT) \
 	VMOV   VA.B16, V0.B16                    \
 	VMOV   VZ.B16, V1.B16                    \
-	MONT_MUL_FIXED()                         \
-	VMOV   V2.B16, VOUT.B16
+	MONT_MUL_FIXED(VOUT)
 
 // Fast-path when inputs are already in fixed MONT_MUL registers.
 #define MONT_MUL_V0_V1(VOUT) \
-	MONT_MUL_FIXED()                         \
-	VMOV   V2.B16, VOUT.B16
+	MONT_MUL_FIXED(VOUT)
 
 // Fast-path when multiplicand is already in V0; only load the zeta/input into V1.
 #define MONT_MUL_V0_VZ(VZ, VOUT) \
 	VMOV   VZ.B16, V1.B16                    \
-	MONT_MUL_FIXED()                         \
-	VMOV   V2.B16, VOUT.B16
+	MONT_MUL_FIXED(VOUT)
 
 // Corrected fieldReduceOnce (input in [0,2q), output in [0,q)):
 //   try = Vx - q; if try < 0: Vx stays; else Vx = try
