@@ -247,6 +247,10 @@
 	MOVHU (byteOffset)(R1), R10 \
 	VDUP R10, VZ.H8
 
+#define LOAD_ZETA_NTT(VZ) \	
+	MOVHU.W 2(R1), R10 \
+	VDUP R10, VZ.H8
+
 // ── internalNTTNEON ───────────────────────────────────────────────────────────
 // func internalNTTNEON(f *ringElement)
 // All 7 NTT layers (len=128 down to len=2).
@@ -266,7 +270,7 @@ TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
 	VEOR V28.B16, V28.B16, V28.B16 // V28 = 0
 
 	// ── Layer L0: len=128. zeta = zetasMontgomery[1] (byte offset 2) ──────
-	LOAD_ZETA(2, V7)
+	LOAD_ZETA_NTT(V7)
 	nttL0(R0, V7, 0)
 	nttL0(R0, V7, 1)
 	nttL0(R0, V7, 2)
@@ -286,7 +290,7 @@ TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
 
 	// ── Layer L1: len=64. 2 groups ─────────────────────────────────────────
 	// Group 0: zeta = zetasMontgomery[2] (byte offset 4)
-	LOAD_ZETA(4, V7)
+	LOAD_ZETA_NTT(V7)
 	nttL1(R0, V7, 0, 0)
 	nttL1(R0, V7, 0, 1)
 	nttL1(R0, V7, 0, 2)
@@ -297,7 +301,7 @@ TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
 	nttL1(R0, V7, 0, 7)
 
 	// Group 1: zeta = zetasMontgomery[3] (byte offset 6)
-	LOAD_ZETA(6, V7)
+	LOADLOAD_ZETA_NTT(V7)
 	nttL1(R0, V7, 1, 0)
 	nttL1(R0, V7, 1, 1)
 	nttL1(R0, V7, 1, 2)
@@ -309,28 +313,28 @@ TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
 
 	// ── Layer L2: len=32. 4 groups ─────────────────────────────────────────
 	// Group 0: zeta = zetasMontgomery[4] (byte 8)
-	LOAD_ZETA(8, V7)
+	LOAD_ZETA_NTT(V7)
 	nttL2(R0, V7, 0, 0)
 	nttL2(R0, V7, 0, 1)
 	nttL2(R0, V7, 0, 2)
 	nttL2(R0, V7, 0, 3)
 
 	// Group 1: zeta = zetasMontgomery[5] (byte 10)
-	LOAD_ZETA(10, V7)
+	LOAD_ZETA_NTT(V7)
 	nttL2(R0, V7, 1, 0)
 	nttL2(R0, V7, 1, 1)
 	nttL2(R0, V7, 1, 2)
 	nttL2(R0, V7, 1, 3)
 
 	// Group 2: zeta = zetasMontgomery[6] (byte 12)
-	LOAD_ZETA(12, V7)
+	LOAD_ZETA_NTT(V7)
 	nttL2(R0, V7, 2, 0)
 	nttL2(R0, V7, 2, 1)
 	nttL2(R0, V7, 2, 2)
 	nttL2(R0, V7, 2, 3)
 
 	// Group 3: zeta = zetasMontgomery[7] (byte 14)
-	LOAD_ZETA(14, V7)
+	LOAD_ZETA_NTT(V7)
 	nttL2(R0, V7, 3, 0)
 	nttL2(R0, V7, 3, 1)
 	nttL2(R0, V7, 3, 2)
@@ -338,59 +342,50 @@ TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
 
 	// ── Layer L3: len=16. 8 groups ─────────────────────────────────────────
 	// Group g: zeta = zetasMontgomery[8+g] (byte 16+g*2)
-	LOAD_ZETA(16, V7)
+	LOAD_ZETA_NTT(V7)
 	nttL3(R0, V7, 0, 0)
 	nttL3(R0, V7, 0, 1)
 
-	LOAD_ZETA(18, V7)
+	LOAD_ZETA_NTT(V7)
 	nttL3(R0, V7, 1, 0)
 	nttL3(R0, V7, 1, 1)
 
-	LOAD_ZETA(20, V7)
+	LOAD_ZETA_NTT(V7)
 	nttL3(R0, V7, 2, 0)
 	nttL3(R0, V7, 2, 1)
 
-	LOAD_ZETA(22, V7)
+	LOAD_ZETA_NTT(V7)
 	nttL3(R0, V7, 3, 0)
 	nttL3(R0, V7, 3, 1)
 
-	LOAD_ZETA(24, V7)
+	LOAD_ZETA_NTT(V7)
 	nttL3(R0, V7, 4, 0)
 	nttL3(R0, V7, 4, 1)
 
-	LOAD_ZETA(26, V7)
+	LOAD_ZETA_NTT(V7)
 	nttL3(R0, V7, 5, 0)
 	nttL3(R0, V7, 5, 1)
 
-	LOAD_ZETA(28, V7)
+	LOAD_ZETA_NTT(V7)
 	nttL3(R0, V7, 6, 0)
 	nttL3(R0, V7, 6, 1)
 
-	LOAD_ZETA(30, V7)
+	LOAD_ZETA_NTT(V7)
 	nttL3(R0, V7, 7, 0)
 	nttL3(R0, V7, 7, 1)
 
 	// ── Layer L4: len=8. 16 groups. zeta = zetasMontgomery[16+g] ──────────
 	// group g: left at g*32, right at g*32+16; byte offset = g*32
 	// zeta byte offset in table = (16+g)*2 = 32+g*2
-	MOVD $32, R2        // R2 = zeta byte offset in table (starts at zetasMontgomery[16])
-	MOVD $0, R3         // R3 = data byte offset into f
+	MOVD R0, R3         // R3 = base address of current layer
 	MOVD $0, R4         // R4 = group counter
 ntt_len8_loop:
 	CMP $16, R4
 	BGE ntt_len4_start
-	MOVHU (R1)(R2), R10
-	VDUP R10, V7.H8
-	ADD R0, R3, R11
-	VLD1 (R11), [V0.H8]
-	ADD $16, R3, R5
-	ADD R0, R5, R12
-	VLD1 (R12), [V1.H8]
+	LOAD_ZETA_NTT(V7)
+	VLD1 (R3), [V0.H8, V1.H8]   // load both left and right halves together (16 bytes each)
 	BUTTERFLY(V0, V1, V7)
-	VST1 [V0.H8], (R11)
-	VST1 [V1.H8], (R12)
-	ADD $2, R2, R2
-	ADD $32, R3, R3
+	VST1.P [V0.H8, V1.H8], 32(R3)
 	ADD $1, R4, R4
 	B ntt_len8_loop
 
@@ -402,8 +397,7 @@ ntt_len4_start:
 ntt_len4_loop:
 	CMP $32, R4
 	BGE ntt_len2_start
-	MOVHU (R1)(R2), R10
-	VDUP R10, V7.H8
+	LOAD_ZETA_NTT(V7)
 	ADD R0, R3, R11
 	MOVD (R11), R6
 	VMOV R6, V0.D[0]
@@ -416,7 +410,6 @@ ntt_len4_loop:
 	MOVD R6, (R11)
 	VMOV V1.D[0], R16
 	MOVD R16, (R12)
-	ADD $2, R2, R2
 	ADD $16, R3, R3
 	ADD $1, R4, R4
 	B ntt_len4_loop
@@ -429,8 +422,7 @@ ntt_len2_start:
 ntt_len2_loop:
 	CMP $64, R4
 	BGE ntt_len2_done
-	MOVHU (R1)(R2), R10
-	VDUP R10, V7.H8
+	LOAD_ZETA_NTT(V7)
 	ADD R0, R3, R11
 	MOVWU (R11), R6
 	VMOV R6, V0.S[0]
@@ -443,7 +435,6 @@ ntt_len2_loop:
 	MOVW R6, (R11)
 	VMOV V1.S[0], R16
 	MOVW R16, (R12)
-	ADD $2, R2, R2
 	ADD $8, R3, R3
 	ADD $1, R4, R4
 	B ntt_len2_loop
