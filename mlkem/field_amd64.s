@@ -516,37 +516,58 @@ len8_loop:
 
 	// Layer len=4, groups g=0..31, zeta index = 32+g
 len4_start:
+	XORQ CX, CX
+	XORQ DI, DI
+len4_loop:
+	CMPQ CX, $8
+	JGE len2_start
+
+	// Build twiddle vector: [z0*4, z1*4, z2*4, z3*4] for 4 groups.
+	VPBROADCASTW (BX)(SI*1), X7
+	VPBROADCASTW 2(BX)(SI*1), X6
+	VPBROADCASTW 4(BX)(SI*1), X0
+	VPBROADCASTW 6(BX)(SI*1), X1
+	VPUNPCKLQDQ X6, X7, X7
+	VPUNPCKLQDQ X1, X0, X0
+	VPERM2I128 $0x20, Y0, Y7, Y7
+
+	// Load 4 contiguous groups (32 coefficients): [g0|g1] and [g2|g3].
+	VMOVDQU (AX)(DI*1), Y6
+	VMOVDQU 32(AX)(DI*1), Y1
+
+	// Split each group into low/high halves, then pack lows into Y0 and highs into Y2.
+	VPERM2I128 $0x01, Y6, Y6, Y3
+	VPERM2I128 $0x01, Y1, Y1, Y4
+	VPUNPCKLQDQ Y3, Y6, Y0
+	VPUNPCKHQDQ Y3, Y6, Y2
+	VPUNPCKLQDQ Y4, Y1, Y5
+	VPUNPCKHQDQ Y4, Y1, Y3
+	VPERM2I128 $0x20, Y5, Y0, Y0
+	VPERM2I128 $0x20, Y3, Y2, Y1
+
+	// Butterfly on 4 groups in parallel.
+	BUTTERFLY(Y0, Y1, Y7)
+
+	// Repack back to contiguous [g0|g1] and [g2|g3].
+	VPUNPCKLQDQ Y1, Y0, Y6
+	VPUNPCKHQDQ Y1, Y0, Y1
+	VPERM2I128 $0x20, Y1, Y6, Y0
+	VPERM2I128 $0x31, Y1, Y6, Y1
+	VMOVDQU Y0, (AX)(DI*1)
+	VMOVDQU Y1, 32(AX)(DI*1)
+
+	INCQ CX
+	ADDQ $8, SI
+	ADDQ $64, DI
+	JMP len4_loop
+
+	// Layer len=2, groups g=0..63, zeta index = 64+g
+len2_start:
 	VPBROADCASTW qConst, X15
 	VPBROADCASTW qNegInvConst, X14
 	VPBROADCASTW oneConst, X10
 	VPXOR X8, X8, X8
 
-	XORQ CX, CX
-	XORQ DI, DI
-len4_loop:
-	CMPQ CX, $16
-	JGE len2_start
-
-	VPBROADCASTW (BX)(SI*1), X7
-	VPBROADCASTW 2(BX)(SI*1), X6
-	VPUNPCKLQDQ X6, X7, X7
-	VMOVDQU (AX)(DI*1), X6
-	VMOVDQU 16(AX)(DI*1), X1
-	VPUNPCKLQDQ X1, X6, X0
-	VPUNPCKHQDQ X1, X6, X1
-	BUTTERFLYX(X0, X1, X7)
-	VPUNPCKLQDQ X1, X0, X6
-	VPUNPCKHQDQ X1, X0, X0
-	VMOVDQU X6, (AX)(DI*1)
-	VMOVDQU X0, 16(AX)(DI*1)
-
-	INCQ CX
-	ADDQ $4, SI
-	ADDQ $32, DI
-	JMP len4_loop
-
-	// Layer len=2, groups g=0..63, zeta index = 64+g
-len2_start:
 	XORQ CX, CX
 	XORQ DI, DI
 len2_loop:
@@ -667,40 +688,60 @@ intt_len2_loop:
 	// ── L5: len=4, 32 groups, zeta = zetasMontgomery[63..32] ────────────
 	// group g: start=g*8 bytes, fl=[start..start+8), fr=[start+8..start+16)
 intt_len4_start:
+	// ── Switch to YMM for len≥4 ──────────────────────────────────────────
+	VPBROADCASTW qConst, Y15
+	VPBROADCASTW qNegInvConst, Y14
+	VPBROADCASTW oneConst, Y10
+	VPXOR Y8, Y8, Y8
 	XORQ CX, CX
 	XORQ DI, DI
 intt_len4_loop:
-	CMPQ CX, $16
+	CMPQ CX, $8
 	JGE intt_len8_start
 
+	// Build twiddle vector for 4 groups: [z0*4, z1*4, z2*4, z3*4]
 	VPBROADCASTW (BX)(SI*1), X7
 	VPBROADCASTW -2(BX)(SI*1), X6
+	VPBROADCASTW -4(BX)(SI*1), X0
+	VPBROADCASTW -6(BX)(SI*1), X1
 	VPUNPCKLQDQ X6, X7, X7
+	VPUNPCKLQDQ X1, X0, X0
+	VPERM2I128 $0x20, Y0, Y7, Y7
 
-	VMOVDQU (AX)(DI*1), X6
-	VMOVDQU 16(AX)(DI*1), X1
-	VPUNPCKLQDQ X1, X6, X0
-	VPUNPCKHQDQ X1, X6, X1
-	INTT_BUTTERFLYX(X0, X1, X7)
-	VPUNPCKLQDQ X1, X0, X6
-	VPUNPCKHQDQ X1, X0, X0
-	VMOVDQU X6, (AX)(DI*1)
-	VMOVDQU X0, 16(AX)(DI*1)
+	// Load 4 contiguous groups (32 coefficients): [g0|g1] and [g2|g3].
+	VMOVDQU (AX)(DI*1), Y6
+	VMOVDQU 32(AX)(DI*1), Y1
+
+	// Split each group into low/high halves, then pack lows into Y0 and highs into Y2.
+	VPERM2I128 $0x01, Y6, Y6, Y3
+	VPERM2I128 $0x01, Y1, Y1, Y4
+	VPUNPCKLQDQ Y3, Y6, Y0
+	VPUNPCKHQDQ Y3, Y6, Y2
+	VPUNPCKLQDQ Y4, Y1, Y5
+	VPUNPCKHQDQ Y4, Y1, Y3
+	VPERM2I128 $0x20, Y5, Y0, Y0
+	VPERM2I128 $0x20, Y3, Y2, Y1
+
+	// Inverse butterfly on 4 groups in parallel.
+	INTT_BUTTERFLY(Y0, Y1, Y7)
+
+	// Repack back to contiguous [g0|g1] and [g2|g3].
+	VPUNPCKLQDQ Y1, Y0, Y6
+	VPUNPCKHQDQ Y1, Y0, Y1
+	VPERM2I128 $0x20, Y1, Y6, Y0
+	VPERM2I128 $0x31, Y1, Y6, Y1
+	VMOVDQU Y0, (AX)(DI*1)
+	VMOVDQU Y1, 32(AX)(DI*1)
 
 	INCQ CX
-	SUBQ $4, SI  // pre-decrement SI for next 2 twiddles
-	ADDQ $32, DI // next 2 group offset
+	SUBQ $8, SI  // pre-decrement SI for next 4 twiddles
+	ADDQ $64, DI // next 4 group offset
 	JMP intt_len4_loop
 
 	// ── L4: len=8, 16 groups, zeta = zetasMontgomery[31..16] ────────────
 	// group g: start=g*16 bytes (= g*32 once you include both halves),
 	//          fl=[start..start+16), fr=[start+16..start+32)
 intt_len8_start:
-	// ── Switch to YMM for len≥8 ──────────────────────────────────────────
-	VPBROADCASTW qConst, Y15
-	VPBROADCASTW qNegInvConst, Y14
-	VPBROADCASTW oneConst, Y10
-	VPXOR Y8, Y8, Y8
 	XORQ CX, CX
 	XORQ DI, DI
 intt_len8_loop:
