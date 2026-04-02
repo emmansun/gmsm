@@ -413,25 +413,29 @@ ntt_len4_loop:
 	// ── Layer L6: len=2. 64 groups. zeta = zetasMontgomery[64+g] ──────────
 	// group g: left at g*8, right at g*8+4
 ntt_len2_start:
-	MOVD $0, R3
+	MOVD R0, R3
 	MOVD $0, R4
 ntt_len2_loop:
-	CMP $64, R4
+	CMP $16, R4
 	BGE ntt_len2_done
-	LOAD_ZETA_NTT(V7)
-	ADD R0, R3, R11
-	MOVWU (R11), R6
-	VMOV R6, V0.S[0]
-	ADD $4, R3, R5
-	ADD R0, R5, R12
-	MOVWU (R12), R16
-	VMOV R16, V1.S[0]
+	LOAD_ZETA_NTT(V20)
+	LOAD_ZETA_NTT(V21)
+	LOAD_ZETA_NTT(V22)
+	LOAD_ZETA_NTT(V23)
+	VZIP1 V21.S4, V20.S4, V20.S4
+	VZIP1 V23.S4, V22.S4, V22.S4
+	VZIP1 V22.D2, V20.D2, V7.D2
+	VLD1 (R3), [V20.H8, V21.H8]
+	VZIP1 V21.D2, V20.D2, V22.D2
+	VZIP2 V21.D2, V20.D2, V23.D2
+	VZIP1 V23.S4, V22.S4, V20.S4
+	VZIP2 V23.S4, V22.S4, V21.S4
+	VZIP1 V21.D2, V20.D2, V0.D2
+	VZIP2 V21.D2, V20.D2, V1.D2
 	BUTTERFLY(V0, V1, V7)
-	VMOV V0.S[0], R6
-	MOVW R6, (R11)
-	VMOV V1.S[0], R16
-	MOVW R16, (R12)
-	ADD $8, R3, R3
+	VZIP1 V1.S4, V0.S4, V20.S4
+	VZIP2 V1.S4, V0.S4, V21.S4
+	VST1.P [V20.H8, V21.H8], 32(R3)
 	ADD $1, R4, R4
 	B ntt_len2_loop
 
