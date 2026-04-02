@@ -460,7 +460,7 @@ TEXT ·internalInverseNTTNEON(SB), NOSPLIT, $0-8
 	// ── L6: len=2. 64 groups. zeta = zetasMontgomery[127..64] ────────────
 	// k descends: group g uses zetasMontgomery[127-g], byte offset = (127-g)*2 = 254-g*2
 	// SI = zeta offset (starts at 254, decreases by 2 each group)
-	MOVD $0, R3
+	MOVD R0, R3
 	MOVD $0, R4
 intt_len2_loop:
 	CMP $16, R4
@@ -488,7 +488,7 @@ intt_len2_loop:
 
 	// ── L5: len=4. 32 groups. zeta = zetasMontgomery[63..32] ─────────────
 intt_len4_start:
-	MOVD $R0, R3
+	MOVD R0, R3
 	MOVD $0, R4
 intt_len4_loop:
 	CMP $16, R4
@@ -522,7 +522,6 @@ intt_len8_loop:
 
 	// ── L3: len=16. 8 groups. zeta = zetasMontgomery[15..8] ──────────────
 intt_len16_start:
-	// R2 is currently at byte offset 30 (zetasMontgomery[15])
 	LOAD_ZETA_INTT(V7)
 	inttL3(R0, V7, 0, 0)
 	inttL3(R0, V7, 0, 1)
