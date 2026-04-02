@@ -561,36 +561,44 @@ len4_loop:
 
 	// Layer len=2, groups g=0..63, zeta index = 64+g
 len2_start:
-	VPBROADCASTW qConst, X15
-	VPBROADCASTW qNegInvConst, X14
-	VPBROADCASTW oneConst, X10
-	VPXOR X8, X8, X8
-
 	XORQ CX, CX
 	XORQ DI, DI
 len2_loop:
-	CMPQ CX, $16
+	CMPQ CX, $8
 	JGE len2_done
 
+	// Build twiddle vector for 8 groups with two 64-bit loads.
 	VMOVQ (BX)(SI*1), X7
 	VPUNPCKLWD X7, X7, X7
-	VMOVDQU (AX)(DI*1), X6
-	VMOVDQU 16(AX)(DI*1), X1
-	VPSHUFD $0xD8, X6, X6
-	VPSHUFD $0xD8, X1, X1
-	VPUNPCKLQDQ X1, X6, X0
-	VPUNPCKHQDQ X1, X6, X1
-	BUTTERFLYX(X0, X1, X7)
-	VPUNPCKLQDQ X1, X0, X6
-	VPUNPCKHQDQ X1, X0, X1
-	VPSHUFD $0xD8, X6, X0
-	VPSHUFD $0xD8, X1, X1
-	VMOVDQU X0, (AX)(DI*1)
-	VMOVDQU X1, 16(AX)(DI*1)
+	VMOVQ 8(BX)(SI*1), X6
+	VPUNPCKLWD X6, X6, X6
+	VPUNPCKLQDQ X6, X7, X2
+	VPUNPCKHQDQ X6, X7, X0
+	VPERM2I128 $0x20, Y0, Y2, Y7
+
+	// Load 8 contiguous groups (32 coefficients).
+	VMOVDQU (AX)(DI*1), Y6
+	VMOVDQU 32(AX)(DI*1), Y1
+
+	// Pack low/high halves for each group in twiddle-aligned order.
+	VPSHUFD $0xD8, Y6, Y6
+	VPSHUFD $0xD8, Y1, Y1
+	VPUNPCKLQDQ Y1, Y6, Y0
+	VPUNPCKHQDQ Y1, Y6, Y2
+
+	BUTTERFLY(Y0, Y2, Y7)
+
+	// Repack back to contiguous layout.
+	VPUNPCKLQDQ Y2, Y0, Y6
+	VPUNPCKHQDQ Y2, Y0, Y1
+	VPSHUFD $0xD8, Y6, Y6
+	VPSHUFD $0xD8, Y1, Y1
+	VMOVDQU Y6, (AX)(DI*1)
+	VMOVDQU Y1, 32(AX)(DI*1)
 
 	INCQ CX
-	ADDQ $8, SI
-	ADDQ $32, DI
+	ADDQ $16, SI
+	ADDQ $64, DI
 	JMP len2_loop
 
 len2_done:
@@ -636,11 +644,11 @@ TEXT ·internalInverseNTTAVX2(SB), NOSPLIT, $0-8
 	MOVQ f+0(FP), AX
 	MOVQ $·zetasMontgomery(SB), BX
 
-	// ── Setup XMM constants for small layers (len=2,4,8) ──────────────────
-	VPBROADCASTW qConst, X15
-	VPBROADCASTW qNegInvConst, X14
-	VPBROADCASTW oneConst, X10
-	VPXOR X8, X8, X8
+	// Setup YMM constants.
+	VPBROADCASTW qConst, Y15
+	VPBROADCASTW qNegInvConst, Y14
+	VPBROADCASTW oneConst, Y10
+	VPXOR Y8, Y8, Y8
 
 	// ── L6: len=2, 64 groups, zeta = zetasMontgomery[127..64] ───────────
 	// group g: start=g*4 bytes, fl=[start..start+4), fr=[start+4..start+8)
@@ -649,39 +657,48 @@ TEXT ·internalInverseNTTAVX2(SB), NOSPLIT, $0-8
 	XORQ CX, CX
 	XORQ DI, DI
 intt_len2_loop:
-	CMPQ CX, $16
+	CMPQ CX, $8
 	JGE intt_len4_start
 
+	// Build twiddle vector for 8 groups with two 64-bit loads.
 	VMOVQ -6(BX)(SI*1), X7
 	VPSHUFLW $0x1B, X7, X7
 	VPUNPCKLWD X7, X7, X7
-	VMOVDQU (AX)(DI*1), X6
-	VMOVDQU 16(AX)(DI*1), X1
-	VPSHUFD $0xD8, X6, X6
-	VPSHUFD $0xD8, X1, X1
-	VPUNPCKLQDQ X1, X6, X0
-	VPUNPCKHQDQ X1, X6, X1	
-	INTT_BUTTERFLYX(X0, X1, X7)
-	VPUNPCKLQDQ X1, X0, X6
-	VPUNPCKHQDQ X1, X0, X1
-	VPSHUFD $0xD8, X6, X0
-	VPSHUFD $0xD8, X1, X1
-	VMOVDQU X0, (AX)(DI*1)
-	VMOVDQU X1, 16(AX)(DI*1)
+	VMOVQ -14(BX)(SI*1), X6
+	VPSHUFLW $0x1B, X6, X6
+	VPUNPCKLWD X6, X6, X6
+	VPUNPCKLQDQ X6, X7, X2
+	VPUNPCKHQDQ X6, X7, X0
+	VPERM2I128 $0x20, Y0, Y2, Y7
+
+	// Load 8 contiguous groups (32 coefficients).
+	VMOVDQU (AX)(DI*1), Y6
+	VMOVDQU 32(AX)(DI*1), Y1
+
+	// Pack low/high halves for each group in twiddle-aligned order.
+	VPSHUFD $0xD8, Y6, Y6
+	VPSHUFD $0xD8, Y1, Y1
+	VPUNPCKLQDQ Y1, Y6, Y0
+	VPUNPCKHQDQ Y1, Y6, Y2
+
+	INTT_BUTTERFLY(Y0, Y2, Y7)
+
+	// Repack back to contiguous layout.
+	VPUNPCKLQDQ Y2, Y0, Y6
+	VPUNPCKHQDQ Y2, Y0, Y1
+	VPSHUFD $0xD8, Y6, Y6
+	VPSHUFD $0xD8, Y1, Y1
+	VMOVDQU Y6, (AX)(DI*1)
+	VMOVDQU Y1, 32(AX)(DI*1)
 
 	INCQ CX
-	SUBQ $8, SI  // pre-decrement SI for next 4 twiddles
-	ADDQ $32, DI  // next 4 group offset
+	SUBQ $16, SI // pre-decrement SI for next 8 twiddles
+	ADDQ $64, DI // next 8 group offset
 	JMP intt_len2_loop
 
 	// ── L5: len=4, 32 groups, zeta = zetasMontgomery[63..32] ────────────
 	// group g: start=g*8 bytes, fl=[start..start+8), fr=[start+8..start+16)
 intt_len4_start:
-	// ── Switch to YMM for len≥4 ──────────────────────────────────────────
-	VPBROADCASTW qConst, Y15
-	VPBROADCASTW qNegInvConst, Y14
-	VPBROADCASTW oneConst, Y10
-	VPXOR Y8, Y8, Y8
 	XORQ CX, CX
 	XORQ DI, DI
 intt_len4_loop:
