@@ -701,13 +701,9 @@ nttmlacc_neon_loop:
 	CMP $512, R4
 	BGE nttmlacc_neon_done
 
-	ADD R1, R4, R11
-	VLD1 (R11), [V0.H8]   // lhs
-	ADD R2, R4, R12
-	VLD1 (R12), [V1.H8]   // rhs
-	ADD R0, R4, R13
-	ADD R3, R4, R14
-	VLD1 (R14), [V3.H8]   // gamma table
+	VLD1.P (16)(R1), [V0.H8]   // lhs
+	VLD1.P (16)(R2), [V1.H8]   // rhs
+	VLD1.P (16)(R3), [V3.H8]   // gamma table
 
 	// V4 = rhs with adjacent int16 pairs swapped: VREV32 on H type swaps adjacent H lanes
 	VREV32 V1.H8, V4.H8
@@ -737,11 +733,11 @@ nttmlacc_neon_loop:
 	VZIP1 V6.H8, V7.H8, V5.H8
 
 	// Add delta to acc (load acc late to avoid preserving V2 across MONT_MUL calls)
-	VLD1 (R13), [V2.H8]
+	VLD1 (R0), [V2.H8]
 	VADD V5.H8, V2.H8, V2.H8
 	REDUCE_ONCE(V2)
 
-	VST1 [V2.H8], (R13)
+	VST1.P [V2.H8], (16)(R0)
 
 	ADD $16, R4, R4
 	B nttmlacc_neon_loop
@@ -778,13 +774,9 @@ nttmlacc_kg_neon_loop:
 	CMP $512, R4
 	BGE nttmlacc_kg_neon_done
 
-	ADD R1, R4, R11
-	VLD1 (R11), [V0.H8]
-	ADD R2, R4, R12
-	VLD1 (R12), [V1.H8]
-	ADD R0, R4, R13
-	ADD R3, R4, R14
-	VLD1 (R14), [V3.H8]
+	VLD1.P (16)(R1), [V0.H8]
+	VLD1.P (16)(R2), [V1.H8]
+	VLD1.P (16)(R3), [V3.H8]
 
 	VREV32 V1.H8, V4.H8
 
@@ -803,11 +795,11 @@ nttmlacc_kg_neon_loop:
 	// Convert delta from Montgomery to standard domain
 	MONT_MUL(V5, V27, V5)
 
-	VLD1 (R13), [V2.H8]
+	VLD1 (R0), [V2.H8]
 	VADD V5.H8, V2.H8, V2.H8
 	REDUCE_ONCE(V2)
 
-	VST1 [V2.H8], (R13)
+	VST1.P [V2.H8], (16)(R0)
 
 	ADD $16, R4, R4
 	B nttmlacc_kg_neon_loop
