@@ -240,15 +240,12 @@
 	VST1 [V0.H8], (R11)                                     \
 	VST1 [V1.H8], (R12)
 
-// Broadcast a zeta (int16) from zetasMontgomery[k] to VZ.
-// k is a compile-time constant byte offset into the table at R1.
-// Uses R10 as scratch GPR.
-#define LOAD_ZETA(byteOffset, VZ) \
-	MOVHU (byteOffset)(R1), R10 \
-	VDUP R10, VZ.H8
-
 #define LOAD_ZETA_NTT(VZ) \	
 	MOVHU.W 2(R1), R10 \
+	VDUP R10, VZ.H8
+
+#define LOAD_ZETA_INTT(VZ) \	
+	MOVHU.W -2(R1), R10 \
 	VDUP R10, VZ.H8
 
 // ── internalNTTNEON ───────────────────────────────────────────────────────────
@@ -449,6 +446,7 @@ TEXT ·internalInverseNTTNEON(SB), NOSPLIT, $0-8
 	MOVD f+0(FP), R0
 
 	MOVD $·zetasMontgomery(SB), R1
+	ADD $256, R1, R1         // point R1 to zetasMontgomery[128]
 
 	// Setup pinned registers
 	MOVD $3329, R8
@@ -462,141 +460,128 @@ TEXT ·internalInverseNTTNEON(SB), NOSPLIT, $0-8
 	// ── L6: len=2. 64 groups. zeta = zetasMontgomery[127..64] ────────────
 	// k descends: group g uses zetasMontgomery[127-g], byte offset = (127-g)*2 = 254-g*2
 	// SI = zeta offset (starts at 254, decreases by 2 each group)
-	MOVD $254, R2
 	MOVD $0, R3
 	MOVD $0, R4
 intt_len2_loop:
-	CMP $64, R4
+	CMP $16, R4
 	BGE intt_len4_start
-	MOVHU (R1)(R2), R10
-	VDUP R10, V7.H8
-	ADD R0, R3, R11
-	MOVWU (R11), R6
-	VMOV R6, V0.S[0]
-	ADD $4, R3, R5
-	ADD R0, R5, R12
-	MOVWU (R12), R16
-	VMOV R16, V1.S[0]
+	LOAD_ZETA_INTT(V20)
+	LOAD_ZETA_INTT(V21)
+	LOAD_ZETA_INTT(V22)
+	LOAD_ZETA_INTT(V23)
+	VZIP1 V21.S4, V20.S4, V20.S4
+	VZIP1 V23.S4, V22.S4, V22.S4
+	VZIP1 V22.D2, V20.D2, V7.D2
+	VLD1 (R3), [V20.H8, V21.H8]
+	VZIP1 V21.D2, V20.D2, V22.D2
+	VZIP2 V21.D2, V20.D2, V23.D2
+	VZIP1 V23.S4, V22.S4, V20.S4
+	VZIP2 V23.S4, V22.S4, V21.S4
+	VZIP1 V21.D2, V20.D2, V0.D2
+	VZIP2 V21.D2, V20.D2, V1.D2
 	INTT_BUTTERFLY(V0, V1, V7)
-	VMOV V0.S[0], R6
-	MOVW R6, (R11)
-	VMOV V1.S[0], R16
-	MOVW R16, (R12)
-	SUB $2, R2, R2
-	ADD $8, R3, R3
+	VZIP1 V1.S4, V0.S4, V20.S4
+	VZIP2 V1.S4, V0.S4, V21.S4
+	VST1.P [V20.H8, V21.H8], 32(R3)	
 	ADD $1, R4, R4
 	B intt_len2_loop
 
 	// ── L5: len=4. 32 groups. zeta = zetasMontgomery[63..32] ─────────────
 intt_len4_start:
-	MOVD $0, R3
+	MOVD $R0, R3
 	MOVD $0, R4
 intt_len4_loop:
-	CMP $32, R4
+	CMP $16, R4
 	BGE intt_len8_start
-	MOVHU (R1)(R2), R10
-	VDUP R10, V7.H8
-	ADD R0, R3, R11
-	MOVD (R11), R6
-	VMOV R6, V0.D[0]
-	ADD $8, R3, R5
-	ADD R0, R5, R12
-	MOVD (R12), R16
-	VMOV R16, V1.D[0]
+	LOAD_ZETA_INTT(V7)
+	LOAD_ZETA_INTT(V8)
+	VZIP1 V8.D2, V7.D2, V7.D2
+	VLD1 (R3), [V20.H8, V21.H8]
+	VZIP1 V21.D2, V20.D2, V0.D2
+	VZIP2 V21.D2, V20.D2, V1.D2
 	INTT_BUTTERFLY(V0, V1, V7)
-	VMOV V0.D[0], R6
-	MOVD R6, (R11)
-	VMOV V1.D[0], R16
-	MOVD R16, (R12)
-	SUB $2, R2, R2
-	ADD $16, R3, R3
+	VZIP1 V1.D2, V0.D2, V20.D2
+	VZIP2 V1.D2, V0.D2, V21.D2
+	VST1.P [V20.H8, V21.H8], 32(R3)
 	ADD $1, R4, R4
 	B intt_len4_loop
 
 	// ── L4: len=8. 16 groups. zeta = zetasMontgomery[31..16] ─────────────
 intt_len8_start:
-	MOVD $0, R3
+	MOVD R0, R3
 	MOVD $0, R4
 intt_len8_loop:
 	CMP $16, R4
 	BGE intt_len16_start
-	MOVHU (R1)(R2), R10
-	VDUP R10, V7.H8
-	ADD R0, R3, R11
-	VLD1 (R11), [V0.H8]
-	ADD $16, R3, R5
-	ADD R0, R5, R12
-	VLD1 (R12), [V1.H8]
+	LOAD_ZETA_INTT(V7)
+	VLD1 (R3), [V0.H8, V1.H8]   // load both left and right halves together (16 bytes each)
 	INTT_BUTTERFLY(V0, V1, V7)
-	VST1 [V0.H8], (R11)
-	VST1 [V1.H8], (R12)
-	SUB $2, R2, R2
-	ADD $32, R3, R3
+	VST1.P [V0.H8, V1.H8], 32(R3)
 	ADD $1, R4, R4
 	B intt_len8_loop
 
 	// ── L3: len=16. 8 groups. zeta = zetasMontgomery[15..8] ──────────────
 intt_len16_start:
 	// R2 is currently at byte offset 30 (zetasMontgomery[15])
-	LOAD_ZETA(30, V7)
+	LOAD_ZETA_INTT(V7)
 	inttL3(R0, V7, 0, 0)
 	inttL3(R0, V7, 0, 1)
 
-	LOAD_ZETA(28, V7)
+	LOAD_ZETA_INTT(V7)
 	inttL3(R0, V7, 1, 0)
 	inttL3(R0, V7, 1, 1)
 
-	LOAD_ZETA(26, V7)
+	LOAD_ZETA_INTT(V7)
 	inttL3(R0, V7, 2, 0)
 	inttL3(R0, V7, 2, 1)
 
-	LOAD_ZETA(24, V7)
+	LOAD_ZETA_INTT(V7)
 	inttL3(R0, V7, 3, 0)
 	inttL3(R0, V7, 3, 1)
 
-	LOAD_ZETA(22, V7)
+	LOAD_ZETA_INTT(V7)
 	inttL3(R0, V7, 4, 0)
 	inttL3(R0, V7, 4, 1)
 
-	LOAD_ZETA(20, V7)
+	LOAD_ZETA_INTT(V7)
 	inttL3(R0, V7, 5, 0)
 	inttL3(R0, V7, 5, 1)
 
-	LOAD_ZETA(18, V7)
+	LOAD_ZETA_INTT(V7)
 	inttL3(R0, V7, 6, 0)
 	inttL3(R0, V7, 6, 1)
 
-	LOAD_ZETA(16, V7)
+	LOAD_ZETA_INTT(V7)
 	inttL3(R0, V7, 7, 0)
 	inttL3(R0, V7, 7, 1)
 
 	// ── L2: len=32. 4 groups. zeta = zetasMontgomery[7..4] ───────────────
-	LOAD_ZETA(14, V7)
+	LOAD_ZETA_INTT(V7)
 	inttL2(R0, V7, 0, 0)
 	inttL2(R0, V7, 0, 1)
 	inttL2(R0, V7, 0, 2)
 	inttL2(R0, V7, 0, 3)
 
-	LOAD_ZETA(12, V7)
+	LOAD_ZETA_INTT(V7)
 	inttL2(R0, V7, 1, 0)
 	inttL2(R0, V7, 1, 1)
 	inttL2(R0, V7, 1, 2)
 	inttL2(R0, V7, 1, 3)
 
-	LOAD_ZETA(10, V7)
+	LOAD_ZETA_INTT(V7)
 	inttL2(R0, V7, 2, 0)
 	inttL2(R0, V7, 2, 1)
 	inttL2(R0, V7, 2, 2)
 	inttL2(R0, V7, 2, 3)
 
-	LOAD_ZETA(8, V7)
+	LOAD_ZETA_INTT(V7)
 	inttL2(R0, V7, 3, 0)
 	inttL2(R0, V7, 3, 1)
 	inttL2(R0, V7, 3, 2)
 	inttL2(R0, V7, 3, 3)
 
 	// ── L1: len=64. 2 groups. zeta = zetasMontgomery[3..2] ───────────────
-	LOAD_ZETA(6, V7)
+	LOAD_ZETA_INTT(V7)
 	inttL1(R0, V7, 0, 0)
 	inttL1(R0, V7, 0, 1)
 	inttL1(R0, V7, 0, 2)
@@ -606,7 +591,7 @@ intt_len16_start:
 	inttL1(R0, V7, 0, 6)
 	inttL1(R0, V7, 0, 7)
 
-	LOAD_ZETA(4, V7)
+	LOAD_ZETA_INTT(V7)
 	inttL1(R0, V7, 1, 0)
 	inttL1(R0, V7, 1, 1)
 	inttL1(R0, V7, 1, 2)
@@ -618,7 +603,7 @@ intt_len16_start:
 
 	// ── L0: len=128. 1 group. zeta = zetasMontgomery[1]. Scale by 1441 ───
 	// Use V3 for scale (NOT V2: MONT_MUL_FIXED always clobbers V2).
-	LOAD_ZETA(2, V7)
+	LOAD_ZETA_INTT(V7)
 	MOVD $1441, R8
 	VDUP R8, V3.H8    // V3 = scale = 1441
 	inttL0(R0, V7, V3, 0)
