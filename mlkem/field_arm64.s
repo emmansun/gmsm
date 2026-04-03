@@ -760,22 +760,22 @@ nttmlacc_kg_neon_done:
 	RET
 
 // samplePolyCBD2NEON computes D_eta=2 coefficients from 128 PRF bytes.
-// This version vectorizes bit extraction on 16-byte chunks and performs
-// per-lane final modular mapping/store in scalar GPRs.
-GLOBL ·cbd2DiffMap16(SB), RODATA, $10
-DATA ·cbd2DiffMap16+0(SB)/2, $3327
-DATA ·cbd2DiffMap16+2(SB)/2, $3328
-DATA ·cbd2DiffMap16+4(SB)/2, $0
-DATA ·cbd2DiffMap16+6(SB)/2, $1
-DATA ·cbd2DiffMap16+8(SB)/2, $2
+// This version vectorizes bit extraction and coefficient packing in 16-byte chunks.
+DATA ·cbd2DiffMapLow+0(SB)/4, $0x010000FF
+DATA ·cbd2DiffMapLow+4(SB)/4, $0x00000002
+DATA ·cbd2DiffMapLow+8(SB)/8, $0x0000000000000000
+GLOBL ·cbd2DiffMapLow(SB), RODATA, $16
+
+DATA ·cbd2DiffMapHigh+0(SB)/4, $0x00000D0C
+DATA ·cbd2DiffMapHigh+4(SB)/8, $0x0000000000000000
+DATA ·cbd2DiffMapHigh+12(SB)/4, $0x00000000
+GLOBL ·cbd2DiffMapHigh(SB), RODATA, $16
 
 // func samplePolyCBD2NEON(dst *ringElement, buf *[128]byte)
-TEXT ·samplePolyCBD2NEON(SB), NOSPLIT, $32-16
+TEXT ·samplePolyCBD2NEON(SB), NOSPLIT, $0-16
 	MOVD dst+0(FP), R0
 	MOVD buf+8(FP), R1
 	MOVD $8, R2            // 128 / 16 chunks
-	MOVD $·cbd2DiffMap16(SB), R9
-	MOVD RSP, R14
 
 	MOVD $0x55, R3
 	VDUP R3, V23.B16       // pair-bit mask
@@ -783,6 +783,11 @@ TEXT ·samplePolyCBD2NEON(SB), NOSPLIT, $32-16
 	VDUP R3, V22.B16       // 2-bit mask
 	MOVD $2, R3
 	VDUP R3, V21.B16       // +2 bias for [0..4] encoding
+
+	MOVD $·cbd2DiffMapLow(SB), R9
+	VLD1 (R9), [V16.B16]
+	MOVD $·cbd2DiffMapHigh(SB), R10
+	VLD1 (R10), [V17.B16]
 
 samplecbd2_loop:
 	CBZ R2, samplecbd2_done
@@ -810,33 +815,28 @@ samplecbd2_loop:
 	VADD V21.B16, V5.B16, V5.B16
 	VSUB V6.B16, V5.B16, V5.B16
 
-	// Store t0/t1 into local stack scratch to avoid overlap with output writes.
-	VST1 [V3.B16], (R14)
-	ADD $16, R14, R6
-	VST1 [V5.B16], (R6)
+	// Map [0..4] -> field element bytes via lookup tables.
+	VTBL V3.B16, [V16.B16], V7.B16   // t0 low byte
+	VTBL V3.B16, [V17.B16], V8.B16   // t0 high byte
+	VTBL V5.B16, [V16.B16], V9.B16   // t1 low byte
+	VTBL V5.B16, [V17.B16], V10.B16  // t1 high byte
 
-	MOVD $0, R15
-	MOVD R0, R12
-samplecbd2_lane_loop:
-	MOVBU (R14)(R15), R4
-	ADD $16, R15, R6
-	MOVBU (R14)(R6), R5
+	// Pack little-endian uint16 lanes for t0 and t1.
+	VZIP1 V8.B16, V7.B16, V11.B16
+	VZIP2 V8.B16, V7.B16, V12.B16
+	VZIP1 V10.B16, V9.B16, V13.B16
+	VZIP2 V10.B16, V9.B16, V14.B16
 
-	// Branch-free map u in [0..4] -> diff mod q where diff=u-2.
-	LSL $1, R4, R6
-	MOVHU (R9)(R6), R4
-	LSL $1, R5, R7
-	MOVHU (R9)(R7), R5
+	// Interleave t0/t1 halfwords to coefficient order c0,c1,c2,c3,...
+	VZIP1 V13.H8, V11.H8, V15.H8
+	VZIP2 V13.H8, V11.H8, V4.H8
+	VST1.P [V15.B16], 16(R0)
+	VST1.P [V4.B16], 16(R0)
 
-	MOVH R4, 0(R12)
-	MOVH R5, 2(R12)
-
-	ADD $4, R12, R12
-	ADD $1, R15, R15
-	CMP $16, R15
-	BLT samplecbd2_lane_loop
-
-	ADD $64, R0, R0
+	VZIP1 V14.H8, V12.H8, V15.H8
+	VZIP2 V14.H8, V12.H8, V4.H8
+	VST1.P [V15.B16], 16(R0)
+	VST1.P [V4.B16], 16(R0)
 
 	SUB $1, R2, R2
 	B samplecbd2_loop
