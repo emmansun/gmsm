@@ -758,3 +758,93 @@ nttmlacc_kg_neon_loop:
 
 nttmlacc_kg_neon_done:
 	RET
+
+// samplePolyCBD2NEON computes D_eta=2 coefficients from 128 PRF bytes.
+// It vectorizes bit extraction and coefficient packing in 16-byte chunks.
+// func samplePolyCBD2NEON(dst *ringElement, buf *[128]byte)
+TEXT ·samplePolyCBD2NEON(SB), NOSPLIT, $0-16
+	MOVD dst+0(FP), R0
+	MOVD buf+8(FP), R1
+	MOVD $8, R2 // 128 / 16 chunks
+
+	MOVD $0x55, R3
+	VDUP R3, V23.B16 // pair-bit mask
+	MOVD $0x03, R3
+	VDUP R3, V22.B16 // 2-bit mask
+	MOVD $2, R3
+	VDUP R3, V21.B16 // +2 bias
+
+	MOVD $·cbd2DiffMapLow(SB), R9
+	VLD1 (R9), [V16.B16]
+	MOVD $·cbd2DiffMapHigh(SB), R10
+	VLD1 (R10), [V17.B16]
+
+samplecbd2_loop:
+	CBZ R2, samplecbd2_done
+
+	VLD1.P 16(R1), [V0.B16]
+
+	// d = (b & 0x55) + ((b >> 1) & 0x55)
+	VAND V23.B16, V0.B16, V1.B16
+	VUSHR $1, V0.B16, V2.B16
+	VAND V23.B16, V2.B16, V2.B16
+	VADD V2.B16, V1.B16, V1.B16
+
+	// t0 = ((d & 0x03) + 2) - ((d >> 2) & 0x03) in [0..4]
+	VAND V22.B16, V1.B16, V3.B16
+	VUSHR $2, V1.B16, V4.B16
+	VAND V22.B16, V4.B16, V4.B16
+	VADD V21.B16, V3.B16, V3.B16
+	VSUB V4.B16, V3.B16, V3.B16
+
+	// t1 = (((d >> 4) & 0x03) + 2) - ((d >> 6) & 0x03) in [0..4]
+	VUSHR $4, V1.B16, V5.B16
+	VAND V22.B16, V5.B16, V5.B16
+	VUSHR $6, V1.B16, V6.B16
+	VAND V22.B16, V6.B16, V6.B16
+	VADD V21.B16, V5.B16, V5.B16
+	VSUB V6.B16, V5.B16, V5.B16
+
+	// Map [0..4] -> field element bytes via lookup tables.
+	VTBL V3.B16, [V16.B16], V7.B16  // c0 low byte
+	VTBL V3.B16, [V17.B16], V8.B16  // c0 high byte
+	VTBL V5.B16, [V16.B16], V9.B16  // c1 low byte
+	VTBL V5.B16, [V17.B16], V10.B16 // c1 high byte
+
+	// Pack little-endian uint16s for c0/c1 and interleave as c0,c1,c0,c1...
+	VZIP1 V8.B16, V7.B16, V11.B16
+	VZIP2 V8.B16, V7.B16, V12.B16
+	VZIP1 V10.B16, V9.B16, V13.B16
+	VZIP2 V10.B16, V9.B16, V14.B16
+
+	VZIP1 V13.H8, V11.H8, V15.H8
+	VZIP2 V13.H8, V11.H8, V4.H8
+	VST1.P [V15.B16], 16(R0)
+	VST1.P [V4.B16], 16(R0)
+
+	VZIP1 V14.H8, V12.H8, V15.H8
+	VZIP2 V14.H8, V12.H8, V4.H8
+	VST1.P [V15.B16], 16(R0)
+	VST1.P [V4.B16], 16(R0)
+
+	SUB $1, R2, R2
+	B samplecbd2_loop
+
+samplecbd2_done:
+	RET
+
+// ── CBD2 Lookup Tables ──────────────────────────────────────────────────────
+// cbd2DiffMapLow/High map a centered eta=2 coefficient in [-2,2]
+// encoded as index (value+2) to its field element bytes modulo q.
+// index: 0->q-2, 1->q-1, 2->0, 3->1, 4->2
+GLOBL ·cbd2DiffMapLow(SB), RODATA, $16
+DATA ·cbd2DiffMapLow+0(SB)/4, $0x000000FF
+DATA ·cbd2DiffMapLow+4(SB)/4, $0x01000000
+DATA ·cbd2DiffMapLow+8(SB)/4, $0x02000000
+DATA ·cbd2DiffMapLow+12(SB)/4, $0x00000000
+
+GLOBL ·cbd2DiffMapHigh(SB), RODATA, $16
+DATA ·cbd2DiffMapHigh+0(SB)/4, $0x00000D0C
+DATA ·cbd2DiffMapHigh+4(SB)/4, $0x00000000
+DATA ·cbd2DiffMapHigh+8(SB)/4, $0x00000000
+DATA ·cbd2DiffMapHigh+12(SB)/4, $0x00000000
