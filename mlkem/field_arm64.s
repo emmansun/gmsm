@@ -241,7 +241,7 @@
 	VST1 [V1.H8], (R12)
 
 #define LOAD_ZETA_NTT(VZ) \	
-	MOVHU.W 2(R1), R10 \
+	MOVHU.P 2(R1), R10 \
 	VDUP R10, VZ.H8
 
 #define LOAD_ZETA_INTT(VZ) \	
@@ -256,6 +256,7 @@ TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
 	MOVD f+0(FP), R0
 
 	MOVD $·zetasMontgomery(SB), R1
+	ADD $2, R1, R1 // point to zetasMontgomery[1] for first layer
 
 	// Setup pinned registers
 	MOVD $3329, R8
@@ -287,7 +288,9 @@ TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
 
 	// ── Layer L1: len=64. 2 groups ─────────────────────────────────────────
 	// Group 0: zeta = zetasMontgomery[2] (byte offset 4)
+	// Group 1: zeta = zetasMontgomery[3] (byte offset 6)
 	LOAD_ZETA_NTT(V7)
+	LOAD_ZETA_NTT(V6)
 	nttL1(R0, V7, 0, 0)
 	nttL1(R0, V7, 0, 1)
 	nttL1(R0, V7, 0, 2)
@@ -296,80 +299,71 @@ TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
 	nttL1(R0, V7, 0, 5)
 	nttL1(R0, V7, 0, 6)
 	nttL1(R0, V7, 0, 7)
-
-	// Group 1: zeta = zetasMontgomery[3] (byte offset 6)
-	LOAD_ZETA_NTT(V7)
-	nttL1(R0, V7, 1, 0)
-	nttL1(R0, V7, 1, 1)
-	nttL1(R0, V7, 1, 2)
-	nttL1(R0, V7, 1, 3)
-	nttL1(R0, V7, 1, 4)
-	nttL1(R0, V7, 1, 5)
-	nttL1(R0, V7, 1, 6)
-	nttL1(R0, V7, 1, 7)
+	nttL1(R0, V6, 1, 0)
+	nttL1(R0, V6, 1, 1)
+	nttL1(R0, V6, 1, 2)
+	nttL1(R0, V6, 1, 3)
+	nttL1(R0, V6, 1, 4)
+	nttL1(R0, V6, 1, 5)
+	nttL1(R0, V6, 1, 6)
+	nttL1(R0, V6, 1, 7)
 
 	// ── Layer L2: len=32. 4 groups ─────────────────────────────────────────
 	// Group 0: zeta = zetasMontgomery[4] (byte 8)
+	// Group 1: zeta = zetasMontgomery[5] (byte 10)
 	LOAD_ZETA_NTT(V7)
+	LOAD_ZETA_NTT(V6)
 	nttL2(R0, V7, 0, 0)
 	nttL2(R0, V7, 0, 1)
 	nttL2(R0, V7, 0, 2)
 	nttL2(R0, V7, 0, 3)
-
-	// Group 1: zeta = zetasMontgomery[5] (byte 10)
-	LOAD_ZETA_NTT(V7)
-	nttL2(R0, V7, 1, 0)
-	nttL2(R0, V7, 1, 1)
-	nttL2(R0, V7, 1, 2)
-	nttL2(R0, V7, 1, 3)
+	nttL2(R0, V6, 1, 0)
+	nttL2(R0, V6, 1, 1)
+	nttL2(R0, V6, 1, 2)
+	nttL2(R0, V6, 1, 3)
 
 	// Group 2: zeta = zetasMontgomery[6] (byte 12)
+	// Group 3: zeta = zetasMontgomery[7] (byte 14)
 	LOAD_ZETA_NTT(V7)
+	LOAD_ZETA_NTT(V6)
 	nttL2(R0, V7, 2, 0)
 	nttL2(R0, V7, 2, 1)
 	nttL2(R0, V7, 2, 2)
 	nttL2(R0, V7, 2, 3)
-
-	// Group 3: zeta = zetasMontgomery[7] (byte 14)
-	LOAD_ZETA_NTT(V7)
-	nttL2(R0, V7, 3, 0)
-	nttL2(R0, V7, 3, 1)
-	nttL2(R0, V7, 3, 2)
-	nttL2(R0, V7, 3, 3)
+	nttL2(R0, V6, 3, 0)
+	nttL2(R0, V6, 3, 1)
+	nttL2(R0, V6, 3, 2)
+	nttL2(R0, V6, 3, 3)
 
 	// ── Layer L3: len=16. 8 groups ─────────────────────────────────────────
 	// Group g: zeta = zetasMontgomery[8+g] (byte 16+g*2)
 	LOAD_ZETA_NTT(V7)
+	LOAD_ZETA_NTT(V6)
 	nttL3(R0, V7, 0, 0)
 	nttL3(R0, V7, 0, 1)
+	nttL3(R0, V6, 1, 0)
+	nttL3(R0, V6, 1, 1)
 
 	LOAD_ZETA_NTT(V7)
-	nttL3(R0, V7, 1, 0)
-	nttL3(R0, V7, 1, 1)
-
-	LOAD_ZETA_NTT(V7)
+	LOAD_ZETA_NTT(V6)
 	nttL3(R0, V7, 2, 0)
 	nttL3(R0, V7, 2, 1)
+	nttL3(R0, V6, 3, 0)
+	nttL3(R0, V6, 3, 1)
 
 	LOAD_ZETA_NTT(V7)
-	nttL3(R0, V7, 3, 0)
-	nttL3(R0, V7, 3, 1)
-
-	LOAD_ZETA_NTT(V7)
+	LOAD_ZETA_NTT(V6)
 	nttL3(R0, V7, 4, 0)
 	nttL3(R0, V7, 4, 1)
+	nttL3(R0, V6, 5, 0)
+	nttL3(R0, V6, 5, 1)
 
 	LOAD_ZETA_NTT(V7)
-	nttL3(R0, V7, 5, 0)
-	nttL3(R0, V7, 5, 1)
-
-	LOAD_ZETA_NTT(V7)
+	LOAD_ZETA_NTT(V6)
 	nttL3(R0, V7, 6, 0)
 	nttL3(R0, V7, 6, 1)
-
-	LOAD_ZETA_NTT(V7)
-	nttL3(R0, V7, 7, 0)
-	nttL3(R0, V7, 7, 1)
+	nttL3(R0, V6, 7, 0)
+	nttL3(R0, V6, 7, 1)
 
 	// ── Layer L4: len=8. 16 groups. zeta = zetasMontgomery[16+g] ──────────
 	// group g: left at g*32, right at g*32+16; byte offset = g*32
@@ -415,13 +409,9 @@ ntt_len2_start:
 ntt_len2_loop:
 	CMP $16, R4
 	BGE ntt_len2_done
-	LOAD_ZETA_NTT(V20)
-	LOAD_ZETA_NTT(V21)
-	LOAD_ZETA_NTT(V22)
-	LOAD_ZETA_NTT(V23)
-	VZIP1 V21.S4, V20.S4, V20.S4
-	VZIP1 V23.S4, V22.S4, V22.S4
-	VZIP1 V22.D2, V20.D2, V7.D2
+	MOVD.P 8(R1), R10
+	VDUP R10, V20.D2
+	VZIP1 V20.H8, V20.H8, V7.H8
 	VLD1 (R3), [V20.H8, V21.H8]
 	VZIP1 V21.D2, V20.D2, V22.D2
 	VZIP2 V21.D2, V20.D2, V23.D2
