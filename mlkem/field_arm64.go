@@ -25,6 +25,9 @@ func internalNTTMulAccKeyGenNEON(acc, lhs, rhs *nttElement)
 //go:noescape
 func samplePolyCBD2NEON(dst *ringElement, buf *[128]byte)
 
+//go:noescape
+func samplePolyCBD3NEON(dst *ringElement, buf *[192]byte)
+
 func nttMulAcc(acc, lhs, rhs *nttElement) {
 	internalNTTMulAccNEON(acc, lhs, rhs)
 }
@@ -64,27 +67,11 @@ func samplePolyCBD(s []byte, b, η byte) ringElement {
 		return f
 	case 3:
 		prf.Read(B[:192])
-		return samplePolyCBD3Arm64((*[192]byte)(B[:192]))
+		var f ringElement
+		samplePolyCBD3NEON(&f, (*[192]byte)(B[:192]))
+		return f
 	default:
 		prf.Read(B[:64*η])
 		return samplePolyCBDGeneric(B[:], η)
 	}
-}
-
-// samplePolyCBD3Arm64 computes Dη=3 coefficients from 192 PRF bytes.
-// Kept separate for future replacement by a NEON implementation.
-func samplePolyCBD3Arm64(B *[192]byte) ringElement {
-	var f ringElement
-	for i := 0; i < n; i += 4 {
-		j := (i >> 2) * 3
-		bits := uint32(B[j]) | uint32(B[j+1])<<8 | uint32(B[j+2])<<16
-
-		for k := range 4 {
-			off := 6 * k
-			sum := ((bits >> off) & 1) + ((bits >> (off + 1)) & 1) + ((bits >> (off + 2)) & 1)
-			sub := ((bits >> (off + 3)) & 1) + ((bits >> (off + 4)) & 1) + ((bits >> (off + 5)) & 1)
-			f[i+k] = fieldSub(fieldElement(sum), fieldElement(sub))
-		}
-	}
-	return f
 }

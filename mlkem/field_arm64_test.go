@@ -263,7 +263,7 @@ func TestSamplePolyCBD2NEONMatchesGeneric(t *testing.T) {
 	}
 }
 
-func TestSamplePolyCBD3Arm64MatchesGeneric(t *testing.T) {
+func TestSamplePolyCBD3NEONMatchesGeneric(t *testing.T) {
 	for iter := 0; iter < 100; iter++ {
 		var seed [32]byte
 		for i := range seed {
@@ -276,16 +276,17 @@ func TestSamplePolyCBD3Arm64MatchesGeneric(t *testing.T) {
 			B[i] = byte((seed[i%32] + byte(i)) ^ 0x55)
 		}
 
-		// Compute via Arm64 path
-		gotArm64 := samplePolyCBD3Arm64(&B)
+		// Compute via NEON path
+		gotNEON := ringElement{}
+		samplePolyCBD3NEON(&gotNEON, &B)
 
 		// Compute via generic path
 		wantGeneric := samplePolyCBDGeneric(B[:], 3)
 
 		// Compare all coefficients
-		for i := range gotArm64 {
-			if gotArm64[i] != wantGeneric[i] {
-				t.Fatalf("iter=%d coeff=%d: samplePolyCBD3Arm64 mismatch: got=%d want=%d", iter, i, gotArm64[i], wantGeneric[i])
+		for i := range gotNEON {
+			if gotNEON[i] != wantGeneric[i] {
+				t.Fatalf("iter=%d coeff=%d: samplePolyCBD3NEON mismatch: got=%d want=%d", iter, i, gotNEON[i], wantGeneric[i])
 			}
 		}
 	}
@@ -317,6 +318,32 @@ func TestSamplePolyCBDDispatchEta2(t *testing.T) {
 	}
 }
 
+func TestSamplePolyCBDDispatchEta3(t *testing.T) {
+	for iter := 0; iter < 50; iter++ {
+		var seed [32]byte
+		for i := range seed {
+			seed[i] = byte(iter*256 + i)
+		}
+
+		// Compute via dispatch (should route to NEON for eta=3 on arm64)
+		gotDispatch := samplePolyCBD(seed[:], byte(iter), 3)
+
+		// Compute via generic
+		var B [192]byte
+		prf := sha3.NewSHAKE256()
+		prf.Write(seed[:])
+		prf.Write([]byte{byte(iter)})
+		prf.Read(B[:])
+		wantGeneric := samplePolyCBDGeneric(B[:], 3)
+
+		for i := range gotDispatch {
+			if gotDispatch[i] != wantGeneric[i] {
+				t.Fatalf("iter=%d coeff=%d: dispatch eta=3 mismatch: got=%d want=%d", iter, i, gotDispatch[i], wantGeneric[i])
+			}
+		}
+	}
+}
+
 func BenchmarkSamplePolyCBD2NEON(b *testing.B) {
 	var B [128]byte
 	for i := range B {
@@ -330,14 +357,15 @@ func BenchmarkSamplePolyCBD2NEON(b *testing.B) {
 	}
 }
 
-func BenchmarkSamplePolyCBD3Arm64(b *testing.B) {
+func BenchmarkSamplePolyCBD3NEON(b *testing.B) {
 	var B [192]byte
 	for i := range B {
 		B[i] = byte(i)
 	}
+	var f ringElement
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = samplePolyCBD3Arm64(&B)
+		samplePolyCBD3NEON(&f, &B)
 	}
 }
