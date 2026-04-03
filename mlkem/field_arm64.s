@@ -762,11 +762,20 @@ nttmlacc_kg_neon_done:
 // samplePolyCBD2NEON computes D_eta=2 coefficients from 128 PRF bytes.
 // This version vectorizes bit extraction on 16-byte chunks and performs
 // per-lane final modular mapping/store in scalar GPRs.
+GLOBL ·cbd2DiffMap16(SB), RODATA, $10
+DATA ·cbd2DiffMap16+0(SB)/2, $3327
+DATA ·cbd2DiffMap16+2(SB)/2, $3328
+DATA ·cbd2DiffMap16+4(SB)/2, $0
+DATA ·cbd2DiffMap16+6(SB)/2, $1
+DATA ·cbd2DiffMap16+8(SB)/2, $2
+
 // func samplePolyCBD2NEON(dst *ringElement, buf *[128]byte)
 TEXT ·samplePolyCBD2NEON(SB), NOSPLIT, $32-16
 	MOVD dst+0(FP), R0
 	MOVD buf+8(FP), R1
 	MOVD $8, R2            // 128 / 16 chunks
+	MOVD $·cbd2DiffMap16(SB), R9
+	MOVD RSP, R14
 
 	MOVD $0x55, R3
 	VDUP R3, V23.B16       // pair-bit mask
@@ -801,40 +810,31 @@ samplecbd2_loop:
 	VADD V21.B16, V5.B16, V5.B16
 	VSUB V6.B16, V5.B16, V5.B16
 
-	// Temporarily store t0/t1 into the first 32 bytes of current output block.
-	// Then reconstruct final uint16 coefficients in reverse lane order, so writes
-	// do not clobber unread temp bytes.
-	VST1 [V3.B16], (R0)
-	ADD $16, R0, R6
+	// Store t0/t1 into local stack scratch to avoid overlap with output writes.
+	VST1 [V3.B16], (R14)
+	ADD $16, R14, R6
 	VST1 [V5.B16], (R6)
 
-	MOVD $15, R15
-	ADD $60, R0, R12
+	MOVD $0, R15
+	MOVD R0, R12
 samplecbd2_lane_loop:
-	MOVBU (R0)(R15), R4
+	MOVBU (R14)(R15), R4
 	ADD $16, R15, R6
-	MOVBU (R0)(R6), R5
+	MOVBU (R14)(R6), R5
 
-	// Map u in [0..4] -> diff mod q where diff=u-2.
-	CMP $2, R4
-	BHS 2(PC)
-	ADD $3327, R4, R4
-	B 1(PC)
-	SUB $2, R4, R4
-
-	CMP $2, R5
-	BHS 2(PC)
-	ADD $3327, R5, R5
-	B 1(PC)
-	SUB $2, R5, R5
+	// Branch-free map u in [0..4] -> diff mod q where diff=u-2.
+	LSL $1, R4, R6
+	MOVHU (R9)(R6), R4
+	LSL $1, R5, R7
+	MOVHU (R9)(R7), R5
 
 	MOVH R4, 0(R12)
 	MOVH R5, 2(R12)
 
-	SUB $4, R12, R12
-	SUB $1, R15, R15
-	CMP $0, R15
-	BGE samplecbd2_lane_loop
+	ADD $4, R12, R12
+	ADD $1, R15, R15
+	CMP $16, R15
+	BLT samplecbd2_lane_loop
 
 	ADD $64, R0, R0
 
