@@ -979,7 +979,7 @@ samplecbd3_done:
 // with one 64-bit load plus a 24-bit tail load, then use NEON for the shared
 // 8-lane Decompress_11 arithmetic.
 // func decodeAndDecompressU11NEON(dst []ringElement, c []byte)
-TEXT ·decodeAndDecompressU11NEON(SB), NOSPLIT, $16-48
+TEXT ·decodeAndDecompressU11NEON(SB), NOSPLIT, $0-48
 	MOVD dst_base+0(FP), R0
 	MOVD dst_len+8(FP), R1
 	MOVD c_base+24(FP), R2
@@ -1004,40 +1004,40 @@ decode_u11_neon_block_loop:
 	ORR R9, R7, R7
 
 	AND $0x7FF, R6, R10
-	MOVH R10, tmp-16(SP)
+	MOVH R10, (R0)
 
 	LSR $11, R6, R10
 	AND $0x7FF, R10, R10
-	MOVH R10, tmp-14(SP)
+	MOVH R10, 2(R0)
 
 	LSR $22, R6, R10
 	AND $0x7FF, R10, R10
-	MOVH R10, tmp-12(SP)
+	MOVH R10, 4(R0)
 
 	LSR $33, R6, R10
 	AND $0x7FF, R10, R10
-	MOVH R10, tmp-10(SP)
+	MOVH R10, 6(R0)
 
 	LSR $44, R6, R10
 	AND $0x7FF, R10, R10
-	MOVH R10, tmp-8(SP)
+	MOVH R10, 8(R0)
 
 	LSR $55, R6, R10
 	AND $0x1FF, R10, R10
 	AND $0x3, R7, R11
 	LSL $9, R11, R11
 	ORR R11, R10, R10
-	MOVH R10, tmp-6(SP)
+	MOVH R10, 10(R0)
 
 	LSR $2, R7, R10
 	AND $0x7FF, R10, R10
-	MOVH R10, tmp-4(SP)
+	MOVH R10, 12(R0)
 
 	LSR $13, R7, R10
 	AND $0x7FF, R10, R10
-	MOVH R10, tmp-2(SP)
+	MOVH R10, 14(R0)
 
-	VLD1 (RSP), [V0.H8]
+	VLD1 (R0), [V0.H8]
 
 	WORD $0x2E61C015 // UMULL  V21.4S, V0.4H, V1.4H
 	WORD $0x6E61C016 // UMULL2 V22.4S, V0.8H, V1.8H
