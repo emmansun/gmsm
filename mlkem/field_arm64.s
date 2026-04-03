@@ -760,24 +760,20 @@ nttmlacc_kg_neon_done:
 	RET
 
 // samplePolyCBD2NEON computes D_eta=2 coefficients from 128 PRF bytes.
-// It vectorizes bit extraction and coefficient packing in 16-byte chunks.
+// This version vectorizes bit extraction on 16-byte chunks and performs
+// per-lane final modular mapping/store in scalar GPRs.
 // func samplePolyCBD2NEON(dst *ringElement, buf *[128]byte)
-TEXT ·samplePolyCBD2NEON(SB), NOSPLIT, $0-16
+TEXT ·samplePolyCBD2NEON(SB), NOSPLIT, $32-16
 	MOVD dst+0(FP), R0
 	MOVD buf+8(FP), R1
-	MOVD $8, R2 // 128 / 16 chunks
+	MOVD $8, R2            // 128 / 16 chunks
 
 	MOVD $0x55, R3
-	VDUP R3, V23.B16 // pair-bit mask
+	VDUP R3, V23.B16       // pair-bit mask
 	MOVD $0x03, R3
-	VDUP R3, V22.B16 // 2-bit mask
+	VDUP R3, V22.B16       // 2-bit mask
 	MOVD $2, R3
-	VDUP R3, V21.B16 // +2 bias
-
-	MOVD $·cbd2DiffMapLow(SB), R9
-	VLD1 (R9), [V16.B16]
-	MOVD $·cbd2DiffMapHigh(SB), R10
-	VLD1 (R10), [V17.B16]
+	VDUP R3, V21.B16       // +2 bias for [0..4] encoding
 
 samplecbd2_loop:
 	CBZ R2, samplecbd2_done
@@ -805,27 +801,42 @@ samplecbd2_loop:
 	VADD V21.B16, V5.B16, V5.B16
 	VSUB V6.B16, V5.B16, V5.B16
 
-	// Map [0..4] -> field element bytes via lookup tables.
-	VTBL V3.B16, [V16.B16], V7.B16  // c0 low byte
-	VTBL V3.B16, [V17.B16], V8.B16  // c0 high byte
-	VTBL V5.B16, [V16.B16], V9.B16  // c1 low byte
-	VTBL V5.B16, [V17.B16], V10.B16 // c1 high byte
+	// Temporarily store t0/t1 into the first 32 bytes of current output block.
+	// Then reconstruct final uint16 coefficients in reverse lane order, so writes
+	// do not clobber unread temp bytes.
+	VST1 [V3.B16], (R0)
+	ADD $16, R0, R6
+	VST1 [V5.B16], (R6)
 
-	// Pack little-endian uint16s for c0/c1 and interleave as c0,c1,c0,c1...
-	VZIP1 V8.B16, V7.B16, V11.B16
-	VZIP2 V8.B16, V7.B16, V12.B16
-	VZIP1 V10.B16, V9.B16, V13.B16
-	VZIP2 V10.B16, V9.B16, V14.B16
+	MOVD $15, R15
+	ADD $60, R0, R12
+samplecbd2_lane_loop:
+	MOVBU (R0)(R15), R4
+	ADD $16, R15, R6
+	MOVBU (R0)(R6), R5
 
-	VZIP1 V13.H8, V11.H8, V15.H8
-	VZIP2 V13.H8, V11.H8, V4.H8
-	VST1.P [V15.B16], 16(R0)
-	VST1.P [V4.B16], 16(R0)
+	// Map u in [0..4] -> diff mod q where diff=u-2.
+	CMP $2, R4
+	BHS 2(PC)
+	ADD $3327, R4, R4
+	B 1(PC)
+	SUB $2, R4, R4
 
-	VZIP1 V14.H8, V12.H8, V15.H8
-	VZIP2 V14.H8, V12.H8, V4.H8
-	VST1.P [V15.B16], 16(R0)
-	VST1.P [V4.B16], 16(R0)
+	CMP $2, R5
+	BHS 2(PC)
+	ADD $3327, R5, R5
+	B 1(PC)
+	SUB $2, R5, R5
+
+	MOVH R4, 0(R12)
+	MOVH R5, 2(R12)
+
+	SUB $4, R12, R12
+	SUB $1, R15, R15
+	CMP $0, R15
+	BGE samplecbd2_lane_loop
+
+	ADD $64, R0, R0
 
 	SUB $1, R2, R2
 	B samplecbd2_loop
@@ -833,18 +844,3 @@ samplecbd2_loop:
 samplecbd2_done:
 	RET
 
-// ── CBD2 Lookup Tables ──────────────────────────────────────────────────────
-// cbd2DiffMapLow/High map a centered eta=2 coefficient in [-2,2]
-// encoded as index (value+2) to its field element bytes modulo q.
-// index: 0->q-2, 1->q-1, 2->0, 3->1, 4->2
-GLOBL ·cbd2DiffMapLow(SB), RODATA, $16
-DATA ·cbd2DiffMapLow+0(SB)/4, $0x000000FF
-DATA ·cbd2DiffMapLow+4(SB)/4, $0x01000000
-DATA ·cbd2DiffMapLow+8(SB)/4, $0x02000000
-DATA ·cbd2DiffMapLow+12(SB)/4, $0x00000000
-
-GLOBL ·cbd2DiffMapHigh(SB), RODATA, $16
-DATA ·cbd2DiffMapHigh+0(SB)/4, $0x00000D0C
-DATA ·cbd2DiffMapHigh+4(SB)/4, $0x00000000
-DATA ·cbd2DiffMapHigh+8(SB)/4, $0x00000000
-DATA ·cbd2DiffMapHigh+12(SB)/4, $0x00000000
