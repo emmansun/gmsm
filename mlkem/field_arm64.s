@@ -386,8 +386,10 @@ ntt_len4_start:
 	MOVD R0, R3
 	MOVD $0, R4
 ntt_len4_loop:
-	CMP $16, R4
+	CMP $8, R4
 	BGE ntt_len2_start
+
+	// First pair of groups (2 groups, 32 bytes)
 	LOAD_ZETA_NTT(V7)
 	LOAD_ZETA_NTT(V8)
 	VZIP1 V8.D2, V7.D2, V7.D2
@@ -398,6 +400,19 @@ ntt_len4_loop:
 	VZIP1 V1.D2, V0.D2, V20.D2
 	VZIP2 V1.D2, V0.D2, V21.D2
 	VST1.P [V20.H8, V21.H8], 32(R3)
+
+	// Second pair of groups (next 2 groups, next 32 bytes)
+	LOAD_ZETA_NTT(V7)
+	LOAD_ZETA_NTT(V8)
+	VZIP1 V8.D2, V7.D2, V7.D2
+	VLD1 (R3), [V20.H8, V21.H8]
+	VZIP1 V21.D2, V20.D2, V0.D2
+	VZIP2 V21.D2, V20.D2, V1.D2
+	BUTTERFLY(V0, V1, V7)
+	VZIP1 V1.D2, V0.D2, V20.D2
+	VZIP2 V1.D2, V0.D2, V21.D2
+	VST1.P [V20.H8, V21.H8], 32(R3)
+
 	ADD $1, R4, R4
 	B ntt_len4_loop
 
@@ -407,8 +422,10 @@ ntt_len2_start:
 	MOVD R0, R3
 	MOVD $0, R4
 ntt_len2_loop:
-	CMP $16, R4
+	CMP $8, R4
 	BGE ntt_len2_done
+
+	// First block (4 groups, 32 bytes)
 	MOVD.P 8(R1), R10
 	VDUP R10, V20.D2
 	VZIP1 V20.H8, V20.H8, V7.H8
@@ -423,6 +440,23 @@ ntt_len2_loop:
 	VZIP1 V1.S4, V0.S4, V20.S4
 	VZIP2 V1.S4, V0.S4, V21.S4
 	VST1.P [V20.H8, V21.H8], 32(R3)
+
+	// Second block (next 4 groups, next 32 bytes)
+	MOVD.P 8(R1), R10
+	VDUP R10, V20.D2
+	VZIP1 V20.H8, V20.H8, V7.H8
+	VLD1 (R3), [V20.H8, V21.H8]
+	VZIP1 V21.D2, V20.D2, V22.D2
+	VZIP2 V21.D2, V20.D2, V23.D2
+	VZIP1 V23.S4, V22.S4, V20.S4
+	VZIP2 V23.S4, V22.S4, V21.S4
+	VZIP1 V21.D2, V20.D2, V0.D2
+	VZIP2 V21.D2, V20.D2, V1.D2
+	BUTTERFLY(V0, V1, V7)
+	VZIP1 V1.S4, V0.S4, V20.S4
+	VZIP2 V1.S4, V0.S4, V21.S4
+	VST1.P [V20.H8, V21.H8], 32(R3)
+
 	ADD $1, R4, R4
 	B ntt_len2_loop
 
