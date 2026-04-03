@@ -7,6 +7,7 @@
 package mlkem
 
 import (
+	"crypto/sha3"
 	"testing"
 )
 
@@ -230,5 +231,113 @@ func BenchmarkNTTMulAccKeyGenNEON(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		acc2 := nacc
 		internalNTTMulAccKeyGenNEON(&acc2, &nlhs, &nrhs)
+	}
+}
+
+func TestSamplePolyCBD2NEONMatchesGeneric(t *testing.T) {
+	for iter := 0; iter < 100; iter++ {
+		var seed [32]byte
+		for i := range seed {
+			seed[i] = byte(iter*256 + i)
+		}
+
+		// Build 128-byte input for eta=2
+		var B [128]byte
+		for i := 0; i < 128; i++ {
+			B[i] = byte((seed[i%32] + byte(i)) ^ 0xAA)
+		}
+
+		// Compute via NEON path
+		gotNEON := ringElement{}
+		samplePolyCBD2NEON(&gotNEON, &B)
+
+		// Compute via generic path
+		wantGeneric := samplePolyCBDGeneric(B[:], 2)
+
+		// Compare all coefficients
+		for i := range gotNEON {
+			if gotNEON[i] != wantGeneric[i] {
+				t.Fatalf("iter=%d coeff=%d: samplePolyCBD2NEON mismatch: got=%d want=%d", iter, i, gotNEON[i], wantGeneric[i])
+			}
+		}
+	}
+}
+
+func TestSamplePolyCBD3Arm64MatchesGeneric(t *testing.T) {
+	for iter := 0; iter < 100; iter++ {
+		var seed [32]byte
+		for i := range seed {
+			seed[i] = byte(iter*256 + i)
+		}
+
+		// Build 192-byte input for eta=3
+		var B [192]byte
+		for i := 0; i < 192; i++ {
+			B[i] = byte((seed[i%32] + byte(i)) ^ 0x55)
+		}
+
+		// Compute via Arm64 path
+		gotArm64 := samplePolyCBD3Arm64(&B)
+
+		// Compute via generic path
+		wantGeneric := samplePolyCBDGeneric(B[:], 3)
+
+		// Compare all coefficients
+		for i := range gotArm64 {
+			if gotArm64[i] != wantGeneric[i] {
+				t.Fatalf("iter=%d coeff=%d: samplePolyCBD3Arm64 mismatch: got=%d want=%d", iter, i, gotArm64[i], wantGeneric[i])
+			}
+		}
+	}
+}
+
+func TestSamplePolyCBDDispatchEta2(t *testing.T) {
+	for iter := 0; iter < 50; iter++ {
+		var seed [32]byte
+		for i := range seed {
+			seed[i] = byte(iter*256 + i)
+		}
+
+		// Compute via dispatch (should route to NEON for eta=2 on arm64)
+		gotDispatch := samplePolyCBD(seed[:], byte(iter), 2)
+
+		// Compute via generic
+		var B [128]byte
+		prf := sha3.NewSHAKE256()
+		prf.Write(seed[:])
+		prf.Write([]byte{byte(iter)})
+		prf.Read(B[:])
+		wantGeneric := samplePolyCBDGeneric(B[:], 2)
+
+		for i := range gotDispatch {
+			if gotDispatch[i] != wantGeneric[i] {
+				t.Fatalf("iter=%d coeff=%d: dispatch eta=2 mismatch: got=%d want=%d", iter, i, gotDispatch[i], wantGeneric[i])
+			}
+		}
+	}
+}
+
+func BenchmarkSamplePolyCBD2NEON(b *testing.B) {
+	var B [128]byte
+	for i := range B {
+		B[i] = byte(i)
+	}
+	var f ringElement
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		samplePolyCBD2NEON(&f, &B)
+	}
+}
+
+func BenchmarkSamplePolyCBD3Arm64(b *testing.B) {
+	var B [192]byte
+	for i := range B {
+		B[i] = byte(i)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = samplePolyCBD3Arm64(&B)
 	}
 }
