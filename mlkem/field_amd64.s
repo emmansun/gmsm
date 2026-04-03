@@ -210,9 +210,6 @@ GLOBL cbd2Mask55<>(SB), RODATA, $4
 DATA cbd2Mask33<>+0x00(SB)/4, $0x33333333
 GLOBL cbd2Mask33<>(SB), RODATA, $4
 
-DATA cbd2Mask03<>+0x00(SB)/4, $0x03030303
-GLOBL cbd2Mask03<>(SB), RODATA, $4
-
 DATA cbd2Mask0F<>+0x00(SB)/4, $0x0F0F0F0F
 GLOBL cbd2Mask0F<>(SB), RODATA, $4
 
@@ -228,10 +225,6 @@ GLOBL cbd3Mask6DB<>(SB), RODATA, $4
 // mask07 = 0x00000007  (isolate low 3-bit group = a value)
 DATA cbd3Mask07<>+0x00(SB)/4, $0x00000007
 GLOBL cbd3Mask07<>(SB), RODATA, $4
-
-// mask70 = 0x00070000  (isolate upper 3-bit group shifted to int16 high word = b value)
-DATA cbd3Mask70<>+0x00(SB)/4, $0x00070000
-GLOBL cbd3Mask70<>(SB), RODATA, $4
 
 // mask3  = 0x0003 (int16 constant 3; subtract to get a-b from (a, 7-b+3-3) representation)
 DATA cbd3Mask3<>+0x00(SB)/2, $3
@@ -308,23 +301,6 @@ GLOBL cbd3ShufIdx<>(SB), RODATA, $32
 	VPANDN Y15, Y13, Y13 \
 	VPSUBW Y13, Y12, YA
 
-// BUTTERFLYX performs the same butterfly as BUTTERFLY on XMM vectors.
-// Inputs: XA, XB, XZ. Constants: X15=q, X14=qNegInv, X10=one, X8=zero.
-// Clobbers: X11, X12, X13.
-#define BUTTERFLYX(XA, XB, XZ) \
-	\ // compute t = MontMul(XZ, XB) → X12
-	MONT_MUL_VECX(XB, XZ, X12) \
-	\ // new XB = XA - t
-	VPSUBW X12, XA, XB \
-	VPSRAW $15, XB, X11 \
-	VPAND X15, X11, X11 \
-	VPADDW X11, XB, XB \
-	\ // new XA = XA + t
-	VPADDW X12, XA, X12 \
-	VPCMPGTW X12, X15, X13 \
-	VPANDN X15, X13, X13 \
-	VPSUBW X13, X12, XA
-
 // INTT_BUTTERFLY performs one Gentleman-Sande (decimation-in-frequency) butterfly on 16 int16 lanes.
 // Operation: a' = a + b  (with fieldReduceOnce)
 //            b' = zeta * (b - a)  (Montgomery multiply of the difference)
@@ -352,28 +328,6 @@ GLOBL cbd3ShufIdx<>(SB), RODATA, $32
 	VPADDW Y12, YB, YB \
 	\ // step 2: MontMul(YZ, YB)
 	MONT_MUL_VEC(YB, YZ, YB)
-
-// INTT_BUTTERFLYX is the same as INTT_BUTTERFLY but operates on XMM vectors.
-// Inputs:  XA=a, XB=b, XZ=zeta. Constants: X15=q, X14=qNegInv, X10=one, X8=zero.
-// Clobbers: X9, X11, X12, X13.
-// INTT_BUTTERFLYX: same as INTT_BUTTERFLY but uses XMM registers.
-// Clobbers: X9, X11, X12, X13.
-#define INTT_BUTTERFLYX(XA, XB, XZ) \
-	VMOVDQA XA, X9 \
-	\ // new XA = XA + XB (mod q, with at most one reduction needed)
-	VPADDW XB, XA, XA \
-	VPSUBW X15, XA, X11 \
-	VPSRAW $15, X11, X13 \
-	VPAND X15, X13, X13 \
-	VPADDW X13, X11, XA \
-	\ // new XB = XZ * (XB - X9)
-	\ // step 1: XB - X9
-	VPSUBW X9, XB, XB \
-	VPSRAW $15, XB, X12 \
-	VPAND X15, X12, X12 \
-	VPADDW X12, XB, XB \
-	\ // step 2: MontMul(XZ, XB)
-	MONT_MUL_VECX(XB, XZ, XB)
 
 #define nttLevel0(dataAddr, zeta, offset) \
 	VMOVDQU (offset*32)(dataAddr), Y0 \
@@ -424,67 +378,57 @@ TEXT ·internalNTTAVX2(SB), NOSPLIT, $0-8
 	nttLevel0(AX, Y7, 6)
 	nttLevel0(AX, Y7, 7)
 
-	// Layer len=64
-	// Group 0: zeta=zetasMontgomery[2], chunk pairs (0,4)..(3,7)
+	// Layer len=64 - batch load 2 zetas for ILP
+	// Group 0,1: zeta=zetasMontgomery[2,3]
 	VPBROADCASTW 4(BX), Y7
+	VPBROADCASTW 6(BX), Y6
 	nttLevel1(AX, Y7, 0, 0)
 	nttLevel1(AX, Y7, 0, 1)
 	nttLevel1(AX, Y7, 0, 2)
 	nttLevel1(AX, Y7, 0, 3)
+	nttLevel1(AX, Y6, 1, 0)
+	nttLevel1(AX, Y6, 1, 1)
+	nttLevel1(AX, Y6, 1, 2)
+	nttLevel1(AX, Y6, 1, 3)
 
-	// Group 1: zeta=zetasMontgomery[3], chunk pairs (8,12)..(11,15)
-	VPBROADCASTW 6(BX), Y7
-	nttLevel1(AX, Y7, 1, 0)
-	nttLevel1(AX, Y7, 1, 1)
-	nttLevel1(AX, Y7, 1, 2)
-	nttLevel1(AX, Y7, 1, 3)
-
-	// Layer len=32
-	// Group 0: zeta=zetasMontgomery[4], pairs (chunk0,2) and (chunk1,3)
+	// Layer len=32 - batch load 2 zetas for ILP
+	// Group 0,1: zeta=zetasMontgomery[4,5]
 	VPBROADCASTW 8(BX), Y7
+	VPBROADCASTW 10(BX), Y6
 	nttLevel2(AX, Y7, 0, 0)
 	nttLevel2(AX, Y7, 0, 1)
+	nttLevel2(AX, Y6, 1, 0)
+	nttLevel2(AX, Y6, 1, 1)
 
-	// Group 1: zeta=zetasMontgomery[5], pairs (chunk4,6) and (chunk5,7)
-	VPBROADCASTW 10(BX), Y7
-	nttLevel2(AX, Y7, 1, 0)
-	nttLevel2(AX, Y7, 1, 1)
-
-	// Group 2: zeta=zetasMontgomery[6], pairs (chunk8,10) and (chunk9,11)
+	// Group 2,3: zeta=zetasMontgomery[6,7]
 	VPBROADCASTW 12(BX), Y7
+	VPBROADCASTW 14(BX), Y6
 	nttLevel2(AX, Y7, 2, 0)
 	nttLevel2(AX, Y7, 2, 1)
+	nttLevel2(AX, Y6, 3, 0)
+	nttLevel2(AX, Y6, 3, 1)
 
-	// Group 3: zeta=zetasMontgomery[7], pairs (chunk12,14) and (chunk13,15)
-	VPBROADCASTW 14(BX), Y7
-	nttLevel2(AX, Y7, 3, 0)
-	nttLevel2(AX, Y7, 3, 1)
-
-	// Layer len=16
+	// Layer len=16 - batch load 2 zetas for ILP
 	// Group g uses zetasMontgomery[8+g], chunk pairs (2g, 2g+1)
 	VPBROADCASTW 16(BX), Y7
+	VPBROADCASTW 18(BX), Y6
 	nttLevel3(AX, Y7, 0)
-
-	VPBROADCASTW 18(BX), Y7
-	nttLevel3(AX, Y7, 1)
+	nttLevel3(AX, Y6, 1)
 
 	VPBROADCASTW 20(BX), Y7
+	VPBROADCASTW 22(BX), Y6
 	nttLevel3(AX, Y7, 2)
-
-	VPBROADCASTW 22(BX), Y7
-	nttLevel3(AX, Y7, 3)
+	nttLevel3(AX, Y6, 3)
 
 	VPBROADCASTW 24(BX), Y7
+	VPBROADCASTW 26(BX), Y6
 	nttLevel3(AX, Y7, 4)
-
-	VPBROADCASTW 26(BX), Y7
-	nttLevel3(AX, Y7, 5)
+	nttLevel3(AX, Y6, 5)
 
 	VPBROADCASTW 28(BX), Y7
+	VPBROADCASTW 30(BX), Y6
 	nttLevel3(AX, Y7, 6)
-
-	VPBROADCASTW 30(BX), Y7
-	nttLevel3(AX, Y7, 7)
+	nttLevel3(AX, Y6, 7)
 
 	// Continue with layers len=8, len=4, len=2
 len8_start:
@@ -777,61 +721,54 @@ intt_len16_start:
 	// group g: fl at g*64 bytes, fr at g*64+32 bytes
 	// twiddle index = 15-g → byte offset = (15-g)*2 = 30-g*2
 	VPBROADCASTW 30(BX), Y7
+	VPBROADCASTW 28(BX), Y6
 	inttLevel3(AX, Y7, 0)
-
-	VPBROADCASTW 28(BX), Y7
-	inttLevel3(AX, Y7, 1)
+	inttLevel3(AX, Y6, 1)
 
 	VPBROADCASTW 26(BX), Y7
+	VPBROADCASTW 24(BX), Y6
 	inttLevel3(AX, Y7, 2)
-
-	VPBROADCASTW 24(BX), Y7
-	inttLevel3(AX, Y7, 3)
+	inttLevel3(AX, Y6, 3)
 
 	VPBROADCASTW 22(BX), Y7
+	VPBROADCASTW 20(BX), Y6
 	inttLevel3(AX, Y7, 4)
-
-	VPBROADCASTW 20(BX), Y7
-	inttLevel3(AX, Y7, 5)
+	inttLevel3(AX, Y6, 5)
 
 	VPBROADCASTW 18(BX), Y7
+	VPBROADCASTW 16(BX), Y6
 	inttLevel3(AX, Y7, 6)
+	inttLevel3(AX, Y6, 7)
 
-	VPBROADCASTW 16(BX), Y7
-	inttLevel3(AX, Y7, 7)
-
-	// ── L2: len=32, 4 groups, zeta = zetasMontgomery[7..4] ──────────────
+	// ── L2: len=32, 4 groups, zeta = zetasMontgomery[7..4] - batch load 2 zetas for ILP
 	// group g: fl at g*128 bytes, fr at g*128+64 bytes
 	// twiddle index = 7-g → byte offset = (7-g)*2 = 14-g*2
 	VPBROADCASTW 14(BX), Y7
+	VPBROADCASTW 12(BX), Y6
 	inttLevel2(AX, Y7, 0, 0)
 	inttLevel2(AX, Y7, 0, 1)
-
-	VPBROADCASTW 12(BX), Y7
-	inttLevel2(AX, Y7, 1, 0)
-	inttLevel2(AX, Y7, 1, 1)
+	inttLevel2(AX, Y6, 1, 0)
+	inttLevel2(AX, Y6, 1, 1)
 
 	VPBROADCASTW 10(BX), Y7
+	VPBROADCASTW 8(BX), Y6
 	inttLevel2(AX, Y7, 2, 0)
 	inttLevel2(AX, Y7, 2, 1)
+	inttLevel2(AX, Y6, 3, 0)
+	inttLevel2(AX, Y6, 3, 1)
 
-	VPBROADCASTW 8(BX), Y7
-	inttLevel2(AX, Y7, 3, 0)
-	inttLevel2(AX, Y7, 3, 1)
-
-	// ── L1: len=64, 2 groups, zeta = zetasMontgomery[3..2] ──────────────
+	// ── L1: len=64, 2 groups, zeta = zetasMontgomery[3..2] - batch load 2 zetas for ILP
 	// group 0: fl at 0, fr at 128 bytes; group 1: fl at 256, fr at 384
 	VPBROADCASTW 6(BX), Y7
+	VPBROADCASTW 4(BX), Y6
 	inttLevel1(AX, Y7, 0, 0)
 	inttLevel1(AX, Y7, 0, 1)
 	inttLevel1(AX, Y7, 0, 2)
 	inttLevel1(AX, Y7, 0, 3)
-
-	VPBROADCASTW 4(BX), Y7
-	inttLevel1(AX, Y7, 1, 0)
-	inttLevel1(AX, Y7, 1, 1)
-	inttLevel1(AX, Y7, 1, 2)
-	inttLevel1(AX, Y7, 1, 3)
+	inttLevel1(AX, Y6, 1, 0)
+	inttLevel1(AX, Y6, 1, 1)
+	inttLevel1(AX, Y6, 1, 2)
+	inttLevel1(AX, Y6, 1, 3)
 
 	// ── L0: len=128, 1 group, zeta = zetasMontgomery[1] ─────────────────
 	// fl at 0..255 bytes (128 × int16), fr at 256..511 bytes
@@ -1175,9 +1112,9 @@ TEXT ·samplePolyCBD2AVX2(SB), NOSPLIT, $0-16
 
 	VPBROADCASTD cbd2Mask55<>(SB), Y8    // Y8  = 0x55555555
 	VPBROADCASTD cbd2Mask33<>(SB), Y9    // Y9  = 0x33333333
-	VPBROADCASTD cbd2Mask03<>(SB), Y10   // Y10 = 0x03030303
 	VPBROADCASTD cbd2Mask0F<>(SB), Y11   // Y11 = 0x0F0F0F0F
 	VPBROADCASTW qConst, Y12             // Y12 = q
+	VPAND Y9, Y11, Y10	                 // Y10 = 0x03030303
 
 	MOVQ $4, CX
 	XORQ DI, DI
@@ -1257,9 +1194,9 @@ TEXT ·samplePolyCBD3AVX2(SB), NOSPLIT, $0-16
 	VPBROADCASTD cbd3Mask249<>(SB), Y8   // Y8  = 0x00249249
 	VPBROADCASTD cbd3Mask6DB<>(SB), Y9   // Y9  = 0x006DB6DB
 	VPBROADCASTD cbd3Mask07<>(SB),  Y10  // Y10 = 0x00000007
-	VPBROADCASTD cbd3Mask70<>(SB),  Y11  // Y11 = 0x00070000
 	VPBROADCASTW cbd3Mask3<>(SB),   Y12  // Y12 = 3 (int16)
 	VPBROADCASTW qConst, Y13             // Y13 = q = 3329
+	VPSLLD $16, Y10, Y11                 // Y11 = 0x00070000
 
 	XORQ SI, SI   // input  byte offset (0, 24, 48, ..., 168)
 	XORQ DI, DI   // output byte offset (0, 64, ..., 448)
