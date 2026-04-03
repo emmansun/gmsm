@@ -119,6 +119,25 @@
 	VAND   V31.B16, V24.B16, V24.B16  \ // q if negative
 	VADD   VB.H8, V24.H8, VB.H8        // VB += q if negative
 
+// Specialized forward butterfly for VA=V0, VB=V1.
+// Saves one VMOV compared with BUTTERFLY(V0, V1, VZ) by using
+// commutativity in Montgomery multiply: MontMul(V1, VZ) == MontMul(VZ, V1).
+#define BUTTERFLY01(VZ) \
+	VMOV   V0.B16, V25.B16            \ // save VA_old
+	VMOV   VZ.B16, V0.B16             \ // V0 = zeta, V1 keeps VB
+	MONT_MUL_FIXED(V26)               \ // t = MontMul(V0, V1)
+	VADD   V25.H8, V26.H8, V0.H8      \ // VA = VA_old + t
+	VSUB   V31.H8, V0.H8, V20.H8      \ // try = VA - q
+	VUSHR  $15, V20.H8, V24.H8        \ // 1 if underflow, else 0
+	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if underflow
+	VAND   V31.B16, V24.B16, V24.B16  \ // q if underflow
+	VADD   V20.H8, V24.H8, V0.H8      \ // VA = try + correction
+	VSUB   V26.H8, V25.H8, V1.H8      \ // VB = VA_old - t
+	VUSHR  $15, V1.H8, V24.H8         \ // 1 if negative, else 0
+	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if negative
+	VAND   V31.B16, V24.B16, V24.B16  \ // q if negative
+	VADD   V1.H8, V24.H8, V1.H8        // VB += q if negative
+
 // Gentleman-Sande butterfly:
 //   VA' = fieldReduceOnce(VA + VB)
 //   VB' = MontMul(VZ, fieldSub(VB, VA_old))
@@ -140,6 +159,26 @@
 	MONT_MUL(VB, VZ, VB)              \ // VB = MontMul(VZ, diff) — clobbers VA's reg (V0)
 	VMOV   V25.B16, VA.B16             // restore VA'
 
+// Specialized inverse butterfly for VA=V0, VB=V1.
+// Saves one VMOV vs INTT_BUTTERFLY(V0, V1, VZ).
+#define INTT_BUTTERFLY01(VZ) \
+	VMOV   V0.B16, V25.B16            \ // save VA_old
+	VADD   V0.H8, V1.H8, V0.H8        \ // VA = VA_old + VB
+	VSUB   V31.H8, V0.H8, V20.H8      \ // try = VA - q
+	VUSHR  $15, V20.H8, V24.H8        \ // 1 if underflow, else 0
+	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if underflow
+	VAND   V31.B16, V24.B16, V24.B16  \ // q if underflow
+	VADD   V20.H8, V24.H8, V0.H8      \ // VA = try + correction
+	VSUB   V25.H8, V1.H8, V1.H8       \ // diff = VB - VA_old
+	VUSHR  $15, V1.H8, V24.H8         \ // 1 if negative, else 0
+	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if negative
+	VAND   V31.B16, V24.B16, V24.B16  \ // q if negative
+	VADD   V1.H8, V24.H8, V1.H8       \ // fieldSub: add q if negative
+	VMOV   V0.B16, V25.B16            \ // save VA' before MONT_MUL clobbers V0
+	VMOV   VZ.B16, V0.B16             \ // V0 = zeta, V1 keeps diff
+	MONT_MUL_FIXED(V1)                \ // VB = MontMul(V0, V1)
+	VMOV   V25.B16, V0.B16             // restore VA'
+
 // ── Level-load macros (16 bytes = 8 × int16 per NEON vector) ──────────────────
 //
 // Each AVX2 macro handles 32 bytes (16 × int16).
@@ -155,7 +194,7 @@
 	VLD1 (R11), [V0.H8]                          \
 	ADD  $((offset)*16+256), dataAddr, R12      \
 	VLD1 (R12), [V1.H8]                          \
-	BUTTERFLY(V0, V1, VZ)                        \
+	BUTTERFLY01(VZ)                              \
 	VST1 [V0.H8], (R11)                          \
 	VST1 [V1.H8], (R12)
 
@@ -168,7 +207,7 @@
 	VLD1 (R11), [V0.H8]                                       \
 	ADD  $((groupIdx)*256+(offset)*16+128), dataAddr, R12    \
 	VLD1 (R12), [V1.H8]                                       \
-	BUTTERFLY(V0, V1, VZ)                                     \
+	BUTTERFLY01(VZ)                                            \
 	VST1 [V0.H8], (R11)                                       \
 	VST1 [V1.H8], (R12)
 
@@ -181,7 +220,7 @@
 	VLD1 (R11), [V0.H8]                                      \
 	ADD  $((groupIdx)*128+(offset)*16+64), dataAddr, R12    \
 	VLD1 (R12), [V1.H8]                                      \
-	BUTTERFLY(V0, V1, VZ)                                    \
+	BUTTERFLY01(VZ)                                           \
 	VST1 [V0.H8], (R11)                                      \
 	VST1 [V1.H8], (R12)
 
@@ -194,7 +233,7 @@
 	VLD1 (R11), [V0.H8]                                     \
 	ADD  $((groupIdx)*64+(offset)*16+32), dataAddr, R12    \
 	VLD1 (R12), [V1.H8]                                     \
-	BUTTERFLY(V0, V1, VZ)                                   \
+	BUTTERFLY01(VZ)                                          \
 	VST1 [V0.H8], (R11)                                     \
 	VST1 [V1.H8], (R12)
 
@@ -206,7 +245,7 @@
 	VLD1 (R11), [V0.H8]                           \
 	ADD  $((offset)*16+256), dataAddr, R12       \
 	VLD1 (R12), [V1.H8]                           \
-	INTT_BUTTERFLY(V0, V1, VZ)                   \
+	INTT_BUTTERFLY01(VZ)                         \
 	VMOV V1.B16, V26.B16                         \ // save VB'; MONT_MUL will clobber V1
 	MONT_MUL(V0, Vscale, V0)                     \
 	VST1 [V0.H8], (R11)                           \
@@ -218,7 +257,7 @@
 	VLD1 (R11), [V0.H8]                                       \
 	ADD  $((groupIdx)*256+(offset)*16+128), dataAddr, R12    \
 	VLD1 (R12), [V1.H8]                                       \
-	INTT_BUTTERFLY(V0, V1, VZ)                                \
+	INTT_BUTTERFLY01(VZ)                                      \
 	VST1 [V0.H8], (R11)                                       \
 	VST1 [V1.H8], (R12)
 
@@ -227,7 +266,7 @@
 	VLD1 (R11), [V0.H8]                                      \
 	ADD  $((groupIdx)*128+(offset)*16+64), dataAddr, R12    \
 	VLD1 (R12), [V1.H8]                                      \
-	INTT_BUTTERFLY(V0, V1, VZ)                               \
+	INTT_BUTTERFLY01(VZ)                                     \
 	VST1 [V0.H8], (R11)                                      \
 	VST1 [V1.H8], (R12)
 
@@ -236,7 +275,7 @@
 	VLD1 (R11), [V0.H8]                                     \
 	ADD  $((groupIdx)*64+(offset)*16+32), dataAddr, R12    \
 	VLD1 (R12), [V1.H8]                                     \
-	INTT_BUTTERFLY(V0, V1, VZ)                              \
+	INTT_BUTTERFLY01(VZ)                                    \
 	VST1 [V0.H8], (R11)                                     \
 	VST1 [V1.H8], (R12)
 
@@ -375,7 +414,7 @@ ntt_len8_loop:
 	BGE ntt_len4_start
 	LOAD_ZETA_NTT(V7)
 	VLD1 (R3), [V0.H8, V1.H8]   // load both left and right halves together (16 bytes each)
-	BUTTERFLY(V0, V1, V7)
+	BUTTERFLY01(V7)
 	VST1.P [V0.H8, V1.H8], 32(R3)
 	ADD $1, R4, R4
 	B ntt_len8_loop
@@ -396,7 +435,7 @@ ntt_len4_loop:
 	VLD1 (R3), [V20.H8, V21.H8]
 	VZIP1 V21.D2, V20.D2, V0.D2
 	VZIP2 V21.D2, V20.D2, V1.D2
-	BUTTERFLY(V0, V1, V7)
+	BUTTERFLY01(V7)
 	VZIP1 V1.D2, V0.D2, V20.D2
 	VZIP2 V1.D2, V0.D2, V21.D2
 	VST1.P [V20.H8, V21.H8], 32(R3)
@@ -408,7 +447,7 @@ ntt_len4_loop:
 	VLD1 (R3), [V20.H8, V21.H8]
 	VZIP1 V21.D2, V20.D2, V0.D2
 	VZIP2 V21.D2, V20.D2, V1.D2
-	BUTTERFLY(V0, V1, V7)
+	BUTTERFLY01(V7)
 	VZIP1 V1.D2, V0.D2, V20.D2
 	VZIP2 V1.D2, V0.D2, V21.D2
 	VST1.P [V20.H8, V21.H8], 32(R3)
@@ -436,7 +475,7 @@ ntt_len2_loop:
 	VZIP2 V23.S4, V22.S4, V21.S4
 	VZIP1 V21.D2, V20.D2, V0.D2
 	VZIP2 V21.D2, V20.D2, V1.D2
-	BUTTERFLY(V0, V1, V7)
+	BUTTERFLY01(V7)
 	VZIP1 V1.S4, V0.S4, V20.S4
 	VZIP2 V1.S4, V0.S4, V21.S4
 	VST1.P [V20.H8, V21.H8], 32(R3)
@@ -452,7 +491,7 @@ ntt_len2_loop:
 	VZIP2 V23.S4, V22.S4, V21.S4
 	VZIP1 V21.D2, V20.D2, V0.D2
 	VZIP2 V21.D2, V20.D2, V1.D2
-	BUTTERFLY(V0, V1, V7)
+	BUTTERFLY01(V7)
 	VZIP1 V1.S4, V0.S4, V20.S4
 	VZIP2 V1.S4, V0.S4, V21.S4
 	VST1.P [V20.H8, V21.H8], 32(R3)
@@ -500,7 +539,7 @@ intt_len2_loop:
 	VZIP2 V23.S4, V22.S4, V21.S4
 	VZIP1 V21.D2, V20.D2, V0.D2
 	VZIP2 V21.D2, V20.D2, V1.D2
-	INTT_BUTTERFLY(V0, V1, V7)
+	INTT_BUTTERFLY01(V7)
 	VZIP1 V1.S4, V0.S4, V20.S4
 	VZIP2 V1.S4, V0.S4, V21.S4
 	VST1.P [V20.H8, V21.H8], 32(R3)	
@@ -520,7 +559,7 @@ intt_len4_loop:
 	VLD1 (R3), [V20.H8, V21.H8]
 	VZIP1 V21.D2, V20.D2, V0.D2
 	VZIP2 V21.D2, V20.D2, V1.D2
-	INTT_BUTTERFLY(V0, V1, V7)
+	INTT_BUTTERFLY01(V7)
 	VZIP1 V1.D2, V0.D2, V20.D2
 	VZIP2 V1.D2, V0.D2, V21.D2
 	VST1.P [V20.H8, V21.H8], 32(R3)
@@ -536,7 +575,7 @@ intt_len8_loop:
 	BGE intt_len16_start
 	LOAD_ZETA_INTT(V7)
 	VLD1 (R3), [V0.H8, V1.H8]   // load both left and right halves together (16 bytes each)
-	INTT_BUTTERFLY(V0, V1, V7)
+	INTT_BUTTERFLY01(V7)
 	VST1.P [V0.H8, V1.H8], 32(R3)
 	ADD $1, R4, R4
 	B intt_len8_loop
