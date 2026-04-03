@@ -29,6 +29,22 @@ jobs:
         with:
           go-version: "1.25"
 
+      - name: Get CPU info
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .artifacts
+          {
+            echo "=== CPU Information ==="
+            uname -a
+            echo ""
+            echo "=== Processor Details ==="
+            lscpu || true
+            echo ""
+            echo "=== /proc/cpuinfo ==="
+            cat /proc/cpuinfo || true
+          } | tee .artifacts/cpu-info.txt
+
       - name: Run ML-KEM benchmarks
         shell: bash
         run: |
@@ -36,8 +52,8 @@ jobs:
           mkdir -p .artifacts
           go test -run '^$' -bench . -benchmem -benchtime=300ms ./mlkem | tee .artifacts/mlkem-bench.txt
 
-      - name: Upload benchmark artifact
+      - name: Upload benchmark artifacts
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
           name: mlkem-bench-${{ github.run_id }}
-          path: .artifacts/mlkem-bench.txt
+          path: .artifacts/
