@@ -761,14 +761,12 @@ nttmlacc_kg_neon_done:
 
 // samplePolyCBD2NEON computes D_eta=2 coefficients from 128 PRF bytes.
 // This version vectorizes bit extraction and coefficient packing in 16-byte chunks.
-DATA ·cbd2DiffMapLow+0(SB)/4, $0x010000FF
-DATA ·cbd2DiffMapLow+4(SB)/4, $0x00000002
+DATA ·cbd2DiffMapLow+0(SB)/8, $0x00000002010000FF
 DATA ·cbd2DiffMapLow+8(SB)/8, $0x0000000000000000
 GLOBL ·cbd2DiffMapLow(SB), RODATA, $16
 
-DATA ·cbd2DiffMapHigh+0(SB)/4, $0x00000D0C
-DATA ·cbd2DiffMapHigh+4(SB)/8, $0x0000000000000000
-DATA ·cbd2DiffMapHigh+12(SB)/4, $0x00000000
+DATA ·cbd2DiffMapHigh+0(SB)/8, $0x0000000000000D0C
+DATA ·cbd2DiffMapHigh+12(SB)/8, $0x0000000000000000
 GLOBL ·cbd2DiffMapHigh(SB), RODATA, $16
 
 // func samplePolyCBD2NEON(dst *ringElement, buf *[128]byte)
