@@ -766,7 +766,7 @@ DATA ·cbd2DiffMapLow+8(SB)/8, $0x0000000000000000
 GLOBL ·cbd2DiffMapLow(SB), RODATA, $16
 
 DATA ·cbd2DiffMapHigh+0(SB)/8, $0x0000000000000D0C
-DATA ·cbd2DiffMapHigh+12(SB)/8, $0x0000000000000000
+DATA ·cbd2DiffMapHigh+8(SB)/8, $0x0000000000000000
 GLOBL ·cbd2DiffMapHigh(SB), RODATA, $16
 
 // func samplePolyCBD2NEON(dst *ringElement, buf *[128]byte)
