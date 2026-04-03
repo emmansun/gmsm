@@ -28,6 +28,9 @@ func samplePolyCBD2NEON(dst *ringElement, buf *[128]byte)
 //go:noescape
 func samplePolyCBD3NEON(dst *ringElement, buf *[192]byte)
 
+//go:noescape
+func decodeAndDecompressU11NEON(dst []ringElement, c []byte)
+
 func nttMulAcc(acc, lhs, rhs *nttElement) {
 	internalNTTMulAccNEON(acc, lhs, rhs)
 }
@@ -49,7 +52,7 @@ func decodeAndDecompressU10(dst []ringElement, c []byte) {
 }
 
 func decodeAndDecompressU11(dst []ringElement, c []byte) {
-	decodeAndDecompressU11Generic(dst, c)
+	decodeAndDecompressU11NEON(dst, c)
 }
 
 // samplePolyCBD draws a ringElement from the Dη distribution given a stream of

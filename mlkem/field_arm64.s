@@ -973,3 +973,95 @@ samplecbd3_loop:
 
 samplecbd3_done:
 	RET
+
+// decodeAndDecompressU11NEON decodes d=11 ciphertext chunks into ring elements.
+// Each 11-byte block contains 8 packed coefficients. We unpack those 8 values
+// with one 64-bit load plus a 24-bit tail load, then use NEON for the shared
+// 8-lane Decompress_11 arithmetic.
+// func decodeAndDecompressU11NEON(dst []ringElement, c []byte)
+TEXT ·decodeAndDecompressU11NEON(SB), NOSPLIT, $16-48
+	MOVD dst_base+0(FP), R0
+	MOVD dst_len+8(FP), R1
+	MOVD c_base+24(FP), R2
+
+	CBZ R1, decode_u11_neon_done
+
+	MOVD $3329, R3
+	VDUP R3, V1.H8
+	MOVD $1, R3
+	VDUP R3, V24.S4
+
+decode_u11_neon_ring_loop:
+	MOVD $32, R5
+
+decode_u11_neon_block_loop:
+	MOVD (R2), R6
+	MOVHU 8(R2), R7
+	MOVBU 10(R2), R8
+
+	MOVD R8, R9
+	LSL $16, R9, R9
+	ORR R9, R7, R7
+
+	AND $0x7FF, R6, R10
+	MOVW R10, tmp-16(SP)
+
+	LSR $11, R6, R10
+	AND $0x7FF, R10, R10
+	MOVW R10, tmp-14(SP)
+
+	LSR $22, R6, R10
+	AND $0x7FF, R10, R10
+	MOVW R10, tmp-12(SP)
+
+	LSR $33, R6, R10
+	AND $0x7FF, R10, R10
+	MOVW R10, tmp-10(SP)
+
+	LSR $44, R6, R10
+	AND $0x7FF, R10, R10
+	MOVW R10, tmp-8(SP)
+
+	LSR $55, R6, R10
+	AND $0x1FF, R10, R10
+	AND $0x3, R7, R11
+	LSL $9, R11, R11
+	ORR R11, R10, R10
+	MOVW R10, tmp-6(SP)
+
+	LSR $2, R7, R10
+	AND $0x7FF, R10, R10
+	MOVW R10, tmp-4(SP)
+
+	LSR $13, R7, R10
+	AND $0x7FF, R10, R10
+	MOVW R10, tmp-2(SP)
+
+	VLD1 (RSP), [V0.H8]
+
+	WORD $0x2E61C015 // UMULL  V21.4S, V0.4H, V1.4H
+	WORD $0x6E61C016 // UMULL2 V22.4S, V0.8H, V1.8H
+
+	VUSHR $10, V21.S4, V23.S4
+	VUSHR $10, V22.S4, V25.S4
+	VAND V24.B16, V23.B16, V23.B16
+	VAND V24.B16, V25.B16, V25.B16
+	VUSHR $11, V21.S4, V21.S4
+	VUSHR $11, V22.S4, V22.S4
+	VADD V23.S4, V21.S4, V21.S4
+	VADD V25.S4, V22.S4, V22.S4
+	VSHL $16, V21.S4, V21.S4
+	VSHL $16, V22.S4, V22.S4
+	WORD $0x0F1086B5 // SHRN  V21.4H, V21.4S, #16
+	WORD $0x4F1086D5 // SHRN2 V21.8H, V22.4S, #16
+
+	VST1.P [V21.H8], 16(R0)
+	ADD $11, R2, R2
+	SUB $1, R5, R5
+	CBNZ R5, decode_u11_neon_block_loop
+
+	SUB $1, R1, R1
+	CBNZ R1, decode_u11_neon_ring_loop
+
+decode_u11_neon_done:
+	RET
