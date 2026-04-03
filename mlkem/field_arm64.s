@@ -1004,38 +1004,38 @@ decode_u11_neon_block_loop:
 	ORR R9, R7, R7
 
 	AND $0x7FF, R6, R10
-	MOVW R10, tmp-16(SP)
+	MOVH R10, tmp-16(SP)
 
 	LSR $11, R6, R10
 	AND $0x7FF, R10, R10
-	MOVW R10, tmp-14(SP)
+	MOVH R10, tmp-14(SP)
 
 	LSR $22, R6, R10
 	AND $0x7FF, R10, R10
-	MOVW R10, tmp-12(SP)
+	MOVH R10, tmp-12(SP)
 
 	LSR $33, R6, R10
 	AND $0x7FF, R10, R10
-	MOVW R10, tmp-10(SP)
+	MOVH R10, tmp-10(SP)
 
 	LSR $44, R6, R10
 	AND $0x7FF, R10, R10
-	MOVW R10, tmp-8(SP)
+	MOVH R10, tmp-8(SP)
 
 	LSR $55, R6, R10
 	AND $0x1FF, R10, R10
 	AND $0x3, R7, R11
 	LSL $9, R11, R11
 	ORR R11, R10, R10
-	MOVW R10, tmp-6(SP)
+	MOVH R10, tmp-6(SP)
 
 	LSR $2, R7, R10
 	AND $0x7FF, R10, R10
-	MOVW R10, tmp-4(SP)
+	MOVH R10, tmp-4(SP)
 
 	LSR $13, R7, R10
 	AND $0x7FF, R10, R10
-	MOVW R10, tmp-2(SP)
+	MOVH R10, tmp-2(SP)
 
 	VLD1 (RSP), [V0.H8]
 
