@@ -455,7 +455,7 @@ TEXT ·internalInverseNTTNEON(SB), NOSPLIT, $0-8
 intt_len2_loop:
 	CMP $16, R4
 	BGE intt_len4_start
-	MOVD.W -8(R1), R10 \
+	MOVD.W -8(R1), R10
 	VDUP R10, V20.D2
 	VREV64 V20.8H, V20.8H
 	VZIP1 V20.H8, V20.H8, V7.H8
