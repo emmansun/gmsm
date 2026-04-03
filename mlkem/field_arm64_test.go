@@ -376,6 +376,50 @@ func TestDecodeAndDecompressU11NEONMatchesGeneric(t *testing.T) {
 	}
 }
 
+func TestDecodeAndDecompressU10NEONMatchesGeneric(t *testing.T) {
+	for iter := 0; iter < 64; iter++ {
+		got := make([]ringElement, k)
+		want := make([]ringElement, k)
+		c := benchCiphertextBytes(encodingSize10 * len(got))
+		for i := range c {
+			c[i] ^= byte(iter*23 + i)
+		}
+
+		decodeAndDecompressU10NEON(got, c)
+		decodeAndDecompressU10Generic(want, c)
+
+		for i := range got {
+			for j := range got[i] {
+				if got[i][j] != want[i][j] {
+					t.Fatalf("iter=%d poly=%d coeff=%d: decodeAndDecompressU10NEON mismatch: got=%d want=%d", iter, i, j, got[i][j], want[i][j])
+				}
+			}
+		}
+	}
+}
+
+func TestDecodeAndDecompressU10DispatchMatchesGeneric(t *testing.T) {
+	for iter := 0; iter < 64; iter++ {
+		got := make([]ringElement, k)
+		want := make([]ringElement, k)
+		c := benchCiphertextBytes(encodingSize10 * len(got))
+		for i := range c {
+			c[i] ^= byte(iter*31 + i*5)
+		}
+
+		decodeAndDecompressU10(got, c)
+		decodeAndDecompressU10Generic(want, c)
+
+		for i := range got {
+			for j := range got[i] {
+				if got[i][j] != want[i][j] {
+					t.Fatalf("iter=%d poly=%d coeff=%d: decodeAndDecompressU10 dispatch mismatch: got=%d want=%d", iter, i, j, got[i][j], want[i][j])
+				}
+			}
+		}
+	}
+}
+
 func TestDecodeAndDecompressU11DispatchMatchesGeneric(t *testing.T) {
 	for iter := 0; iter < 64; iter++ {
 		got := make([]ringElement, k1024)
@@ -432,6 +476,42 @@ func BenchmarkDecodeAndDecompressU11Generic(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		decodeAndDecompressU11Generic(dst, c)
+	}
+	benchDecodeSink = dst[0][0]
+}
+
+func BenchmarkDecodeAndDecompressU10Generic(b *testing.B) {
+	dst := make([]ringElement, k)
+	c := benchCiphertextBytes(encodingSize10 * len(dst))
+	b.ReportAllocs()
+	b.SetBytes(int64(len(c)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		decodeAndDecompressU10Generic(dst, c)
+	}
+	benchDecodeSink = dst[0][0]
+}
+
+func BenchmarkDecodeAndDecompressU10Dispatch(b *testing.B) {
+	dst := make([]ringElement, k)
+	c := benchCiphertextBytes(encodingSize10 * len(dst))
+	b.ReportAllocs()
+	b.SetBytes(int64(len(c)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		decodeAndDecompressU10(dst, c)
+	}
+	benchDecodeSink = dst[0][0]
+}
+
+func BenchmarkDecodeAndDecompressU10NEON(b *testing.B) {
+	dst := make([]ringElement, k)
+	c := benchCiphertextBytes(encodingSize10 * len(dst))
+	b.ReportAllocs()
+	b.SetBytes(int64(len(c)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		decodeAndDecompressU10NEON(dst, c)
 	}
 	benchDecodeSink = dst[0][0]
 }

@@ -974,6 +974,119 @@ samplecbd3_loop:
 samplecbd3_done:
 	RET
 
+// decodeAndDecompressU10NEON decodes d=10 ciphertext chunks into ring elements.
+//
+// Layout facts for one 10-byte block:
+//   - 80 payload bits contain 8 coefficients, each 10 bits.
+//   - We unpack those 8 values with scalar shifts/masks into two 64-bit words,
+//     then move them into one NEON vector as 8xuint16.
+//   - The shared Decompress_10 arithmetic is vectorized for all 8 lanes.
+//
+// Decompress_10 per lane y:
+//   dividend = y * q
+//   out      = (dividend >> 10) + ((dividend >> 9) & 1)
+//
+// func decodeAndDecompressU10NEON(dst []ringElement, c []byte)
+TEXT ·decodeAndDecompressU10NEON(SB), NOSPLIT, $0-48
+	MOVD dst_base+0(FP), R0
+	MOVD dst_len+8(FP), R1
+	MOVD c_base+24(FP), R2
+
+	CBZ R1, decode_u10_neon_done
+
+	MOVD $3329, R3
+	VDUP R3, V1.H8
+	MOVD $1, R3
+	VDUP R3, V24.S4
+
+decode_u10_neon_ring_loop:
+	// One ring has 256 coefficients -> 32 blocks of 8 coefficients.
+	MOVD $32, R5
+
+decode_u10_neon_block_loop:
+	// Load packed 80 bits: low 64 bits in R6 and high 16 bits in R7.
+	MOVD (R2), R6
+	MOVHU 8(R2), R7
+
+	// Extract c0..c5 from R6.
+	AND $0x3FF, R6, R10
+
+	LSR $10, R6, R11
+	AND $0x3FF, R11, R11
+
+	LSR $20, R6, R12
+	AND $0x3FF, R12, R12
+
+	LSR $30, R6, R13
+	AND $0x3FF, R13, R13
+
+	LSR $40, R6, R14
+	AND $0x3FF, R14, R14
+
+	LSR $50, R6, R15
+	AND $0x3FF, R15, R15
+
+	// c6 crosses the 64-bit boundary:
+	//   low 4 bits from R6[63:60], high 6 bits from R7[5:0].
+	LSR $60, R6, R16
+	AND $0xF, R16, R16
+	AND $0x3F, R7, R9
+	LSL $4, R9, R9
+	ORR R9, R16, R16
+
+	// c7 comes from R7[15:6].
+	LSR $6, R7, R17
+	AND $0x3FF, R17, R17
+
+	// Pack c0..c3 and c4..c7 into two 64-bit words.
+	LSL $16, R11, R9
+	ORR R9, R10, R10
+	LSL $32, R12, R9
+	ORR R9, R10, R10
+	LSL $48, R13, R9
+	ORR R9, R10, R10
+
+	LSL $16, R15, R9
+	ORR R9, R14, R14
+	LSL $32, R16, R9
+	ORR R9, R14, R14
+	LSL $48, R17, R9
+	ORR R9, R14, R14
+
+	VMOV R10, V0.D[0]
+	VMOV R14, V0.D[1]
+
+	// Vectorized Decompress_10 on 8 lanes:
+	//   dividend = y*q (32-bit lanes via UMULL/UMULL2)
+	//   roundbit = (dividend >> 9) & 1
+	//   out      = (dividend >> 10) + roundbit
+	WORD $0x2E61C015 // UMULL  V21.4S, V0.4H, V1.4H
+	WORD $0x6E61C016 // UMULL2 V22.4S, V0.8H, V1.8H
+
+	VUSHR $9, V21.S4, V23.S4
+	VUSHR $9, V22.S4, V25.S4
+	VAND V24.B16, V23.B16, V23.B16
+	VAND V24.B16, V25.B16, V25.B16
+	VUSHR $10, V21.S4, V21.S4
+	VUSHR $10, V22.S4, V22.S4
+	VADD V23.S4, V21.S4, V21.S4
+	VADD V25.S4, V22.S4, V22.S4
+	VSHL $16, V21.S4, V21.S4
+	VSHL $16, V22.S4, V22.S4
+	WORD $0x0F1086B5 // SHRN  V21.4H, V21.4S, #16
+	WORD $0x4F1086D5 // SHRN2 V21.8H, V22.4S, #16
+
+	VST1.P [V21.H8], 16(R0)
+	ADD $10, R2, R2
+	SUB $1, R5, R5
+	CBNZ R5, decode_u10_neon_block_loop
+
+	SUB $1, R1, R1
+	CBNZ R1, decode_u10_neon_ring_loop
+
+decode_u10_neon_done:
+	RET
+
 // decodeAndDecompressU11NEON decodes d=11 ciphertext chunks into ring elements.
 // Each 11-byte block contains 8 packed coefficients. We unpack those 8 values
 // with one 64-bit load plus a 24-bit tail load, then use NEON for the shared
@@ -992,17 +1105,21 @@ TEXT ·decodeAndDecompressU11NEON(SB), NOSPLIT, $0-48
 	VDUP R3, V24.S4
 
 decode_u11_neon_ring_loop:
+	// One ring has 256 coefficients -> 32 blocks of 8 coefficients.
 	MOVD $32, R5
 
 decode_u11_neon_block_loop:
+	// Load packed 88 bits: low 64 bits in R6 and high 24 bits split as R7|R8.
 	MOVD (R2), R6
 	MOVHU 8(R2), R7
 	MOVBU 10(R2), R8
 
+	// Merge byte10 with bytes8..9 to form a contiguous 24-bit tail in R7.
 	MOVD R8, R9
 	LSL $16, R9, R9
 	ORR R9, R7, R7
 
+	// Extract c0..c4 from R6 (each coefficient is 11 bits).
 	AND $0x7FF, R6, R10
 
 	LSR $11, R6, R11
@@ -1017,18 +1134,22 @@ decode_u11_neon_block_loop:
 	LSR $44, R6, R14
 	AND $0x7FF, R14, R14
 
+	// c5 crosses the 64-bit boundary:
+	//   low 9 bits from R6[63:55], high 2 bits from R7[1:0].
 	LSR $55, R6, R15
 	AND $0x1FF, R15, R15
 	AND $0x3, R7, R9
 	LSL $9, R9, R9
 	ORR R9, R15, R15
 
+	// c6 and c7 are fully in tail bits R7.
 	LSR $2, R7, R16
 	AND $0x7FF, R16, R16
 
 	LSR $13, R7, R17
 	AND $0x7FF, R17, R17
 
+	// Pack c0..c3 and c4..c7 into two 64-bit words, then move to V0 lanes.
 	LSL $16, R11, R9
 	ORR R9, R10, R10
 	LSL $32, R12, R9
@@ -1046,6 +1167,9 @@ decode_u11_neon_block_loop:
 	VMOV R10, V0.D[0]
 	VMOV R14, V0.D[1]
 
+	// Vectorized Decompress_11 on 8 lanes:
+	//   dividend = y*q
+	//   out = (dividend >> 11) + ((dividend >> 10) & 1)
 	WORD $0x2E61C015 // UMULL  V21.4S, V0.4H, V1.4H
 	WORD $0x6E61C016 // UMULL2 V22.4S, V0.8H, V1.8H
 
@@ -1062,6 +1186,7 @@ decode_u11_neon_block_loop:
 	WORD $0x0F1086B5 // SHRN  V21.4H, V21.4S, #16
 	WORD $0x4F1086D5 // SHRN2 V21.8H, V22.4S, #16
 
+	// Store 8 decompressed coefficients (8 * uint16 = 16 bytes).
 	VST1.P [V21.H8], 16(R0)
 	ADD $11, R2, R2
 	SUB $1, R5, R5

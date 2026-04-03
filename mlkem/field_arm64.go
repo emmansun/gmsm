@@ -29,6 +29,9 @@ func samplePolyCBD2NEON(dst *ringElement, buf *[128]byte)
 func samplePolyCBD3NEON(dst *ringElement, buf *[192]byte)
 
 //go:noescape
+func decodeAndDecompressU10NEON(dst []ringElement, c []byte)
+
+//go:noescape
 func decodeAndDecompressU11NEON(dst []ringElement, c []byte)
 
 func nttMulAcc(acc, lhs, rhs *nttElement) {
@@ -48,7 +51,7 @@ func nttMulAccKeyGen(acc, lhs, rhs *nttElement) {
 }
 
 func decodeAndDecompressU10(dst []ringElement, c []byte) {
-	decodeAndDecompressU10Generic(dst, c)
+	decodeAndDecompressU10NEON(dst, c)
 }
 
 func decodeAndDecompressU11(dst []ringElement, c []byte) {
