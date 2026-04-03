@@ -455,13 +455,10 @@ TEXT ·internalInverseNTTNEON(SB), NOSPLIT, $0-8
 intt_len2_loop:
 	CMP $16, R4
 	BGE intt_len4_start
-	LOAD_ZETA_INTT(V20)
-	LOAD_ZETA_INTT(V21)
-	LOAD_ZETA_INTT(V22)
-	LOAD_ZETA_INTT(V23)
-	VZIP1 V21.S4, V20.S4, V20.S4
-	VZIP1 V23.S4, V22.S4, V22.S4
-	VZIP1 V22.D2, V20.D2, V7.D2
+	MOVD.W -8(R1), R10 \
+	VDUP R10, V20.D2
+	VREV64 V20.8H, V20.8H
+	VZIP1 V20.H8, V20.H8, V7.H8
 	VLD1 (R3), [V20.H8, V21.H8]
 	VZIP1 V21.D2, V20.D2, V22.D2
 	VZIP2 V21.D2, V20.D2, V23.D2
@@ -513,64 +510,59 @@ intt_len8_loop:
 	// ── L3: len=16. 8 groups. zeta = zetasMontgomery[15..8] ──────────────
 intt_len16_start:
 	LOAD_ZETA_INTT(V7)
+	LOAD_ZETA_INTT(V6)
 	inttL3(R0, V7, 0, 0)
 	inttL3(R0, V7, 0, 1)
+	inttL3(R0, V6, 1, 0)
+	inttL3(R0, V6, 1, 1)
 
 	LOAD_ZETA_INTT(V7)
-	inttL3(R0, V7, 1, 0)
-	inttL3(R0, V7, 1, 1)
-
-	LOAD_ZETA_INTT(V7)
+	LOAD_ZETA_INTT(V6)
 	inttL3(R0, V7, 2, 0)
 	inttL3(R0, V7, 2, 1)
+	inttL3(R0, V6, 3, 0)
+	inttL3(R0, V6, 3, 1)
 
 	LOAD_ZETA_INTT(V7)
-	inttL3(R0, V7, 3, 0)
-	inttL3(R0, V7, 3, 1)
-
-	LOAD_ZETA_INTT(V7)
+	LOAD_ZETA_INTT(V6)
 	inttL3(R0, V7, 4, 0)
 	inttL3(R0, V7, 4, 1)
+	inttL3(R0, V6, 5, 0)
+	inttL3(R0, V6, 5, 1)
 
 	LOAD_ZETA_INTT(V7)
-	inttL3(R0, V7, 5, 0)
-	inttL3(R0, V7, 5, 1)
-
-	LOAD_ZETA_INTT(V7)
+	LOAD_ZETA_INTT(V6)
 	inttL3(R0, V7, 6, 0)
 	inttL3(R0, V7, 6, 1)
-
-	LOAD_ZETA_INTT(V7)
-	inttL3(R0, V7, 7, 0)
-	inttL3(R0, V7, 7, 1)
+	inttL3(R0, V6, 7, 0)
+	inttL3(R0, V6, 7, 1)
 
 	// ── L2: len=32. 4 groups. zeta = zetasMontgomery[7..4] ───────────────
 	LOAD_ZETA_INTT(V7)
+	LOAD_ZETA_INTT(V6)
 	inttL2(R0, V7, 0, 0)
 	inttL2(R0, V7, 0, 1)
 	inttL2(R0, V7, 0, 2)
 	inttL2(R0, V7, 0, 3)
+	inttL2(R0, V6, 1, 0)
+	inttL2(R0, V6, 1, 1)
+	inttL2(R0, V6, 1, 2)
+	inttL2(R0, V6, 1, 3)
 
 	LOAD_ZETA_INTT(V7)
-	inttL2(R0, V7, 1, 0)
-	inttL2(R0, V7, 1, 1)
-	inttL2(R0, V7, 1, 2)
-	inttL2(R0, V7, 1, 3)
-
-	LOAD_ZETA_INTT(V7)
+	LOAD_ZETA_INTT(V6)
 	inttL2(R0, V7, 2, 0)
 	inttL2(R0, V7, 2, 1)
 	inttL2(R0, V7, 2, 2)
 	inttL2(R0, V7, 2, 3)
-
-	LOAD_ZETA_INTT(V7)
-	inttL2(R0, V7, 3, 0)
-	inttL2(R0, V7, 3, 1)
-	inttL2(R0, V7, 3, 2)
-	inttL2(R0, V7, 3, 3)
+	inttL2(R0, V6, 3, 0)
+	inttL2(R0, V6, 3, 1)
+	inttL2(R0, V6, 3, 2)
+	inttL2(R0, V6, 3, 3)
 
 	// ── L1: len=64. 2 groups. zeta = zetasMontgomery[3..2] ───────────────
 	LOAD_ZETA_INTT(V7)
+	LOAD_ZETA_INTT(V6)
 	inttL1(R0, V7, 0, 0)
 	inttL1(R0, V7, 0, 1)
 	inttL1(R0, V7, 0, 2)
@@ -579,16 +571,14 @@ intt_len16_start:
 	inttL1(R0, V7, 0, 5)
 	inttL1(R0, V7, 0, 6)
 	inttL1(R0, V7, 0, 7)
-
-	LOAD_ZETA_INTT(V7)
-	inttL1(R0, V7, 1, 0)
-	inttL1(R0, V7, 1, 1)
-	inttL1(R0, V7, 1, 2)
-	inttL1(R0, V7, 1, 3)
-	inttL1(R0, V7, 1, 4)
-	inttL1(R0, V7, 1, 5)
-	inttL1(R0, V7, 1, 6)
-	inttL1(R0, V7, 1, 7)
+	inttL1(R0, V6, 1, 0)
+	inttL1(R0, V6, 1, 1)
+	inttL1(R0, V6, 1, 2)
+	inttL1(R0, V6, 1, 3)
+	inttL1(R0, V6, 1, 4)
+	inttL1(R0, V6, 1, 5)
+	inttL1(R0, V6, 1, 6)
+	inttL1(R0, V6, 1, 7)
 
 	// ── L0: len=128. 1 group. zeta = zetasMontgomery[1]. Scale by 1441 ───
 	// Use V3 for scale (NOT V2: MONT_MUL_FIXED always clobbers V2).
