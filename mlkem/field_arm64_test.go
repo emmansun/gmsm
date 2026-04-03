@@ -185,6 +185,16 @@ func BenchmarkNTTForwardNEON(b *testing.B) {
 	}
 }
 
+func BenchmarkNTTForwardGeneric(b *testing.B) {
+	elem := randomRingElement()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		elem2 := elem
+		internalNTTGeneric(&elem2)
+	}
+}
+
 func BenchmarkNTTInverseNEON(b *testing.B) {
 	elem := randomRingElement()
 	internalNTTNEON(&elem)
@@ -197,6 +207,18 @@ func BenchmarkNTTInverseNEON(b *testing.B) {
 	}
 }
 
+func BenchmarkNTTInverseGeneric(b *testing.B) {
+	elem := randomRingElement()
+	internalNTTGeneric(&elem)
+	ntElem := nttElement(elem)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		elem2 := ntElem
+		internalInverseNTTGeneric(&elem2)
+	}
+}
+
 func BenchmarkNTTRoundTripNEON(b *testing.B) {
 	elem := randomRingElement()
 	b.ReportAllocs()
@@ -205,6 +227,17 @@ func BenchmarkNTTRoundTripNEON(b *testing.B) {
 		elem2 := elem
 		internalNTT(&elem2)
 		internalInverseNTT((*nttElement)(&elem2))
+	}
+}
+
+func BenchmarkNTTRoundTripGeneric(b *testing.B) {
+	elem := randomRingElement()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		elem2 := elem
+		internalNTTGeneric(&elem2)
+		internalInverseNTTGeneric((*nttElement)(&elem2))
 	}
 }
 
@@ -226,6 +259,24 @@ func BenchmarkNTTMulAccNEON(b *testing.B) {
 	}
 }
 
+func BenchmarkNTTMulAccGeneric(b *testing.B) {
+	lhs := randomRingElement()
+	rhs := randomRingElement()
+	acc := randomRingElement()
+	internalNTTGeneric(&lhs)
+	internalNTTGeneric(&rhs)
+	internalNTTGeneric(&acc)
+	nlhs := nttElement(lhs)
+	nrhs := nttElement(rhs)
+	nacc := nttElement(acc)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		acc2 := nacc
+		nttMulAccGeneric(&acc2, &nlhs, &nrhs)
+	}
+}
+
 func BenchmarkNTTMulAccKeyGenNEON(b *testing.B) {
 	lhs := randomRingElement()
 	rhs := randomRingElement()
@@ -241,6 +292,24 @@ func BenchmarkNTTMulAccKeyGenNEON(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		acc2 := nacc
 		internalNTTMulAccKeyGenNEON(&acc2, &nlhs, &nrhs)
+	}
+}
+
+func BenchmarkNTTMulAccKeyGenGeneric(b *testing.B) {
+	lhs := randomRingElement()
+	rhs := randomRingElement()
+	acc := randomRingElement()
+	internalNTTGeneric(&lhs)
+	internalNTTGeneric(&rhs)
+	internalNTTGeneric(&acc)
+	nlhs := nttElement(lhs)
+	nrhs := nttElement(rhs)
+	nacc := nttElement(acc)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		acc2 := nacc
+		nttMulAccGeneric(&acc2, &nlhs, &nrhs)
 	}
 }
 
@@ -455,6 +524,19 @@ func BenchmarkSamplePolyCBD2NEON(b *testing.B) {
 	}
 }
 
+func BenchmarkSamplePolyCBD2Generic(b *testing.B) {
+	B := make([]byte, 128)
+	for i := range B {
+		B[i] = byte(i)
+	}
+	b.ReportAllocs()
+	b.SetBytes(128)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		samplePolyCBDGeneric(B, 2)
+	}
+}
+
 func BenchmarkSamplePolyCBD3NEON(b *testing.B) {
 	var B [192]byte
 	for i := range B {
@@ -465,6 +547,19 @@ func BenchmarkSamplePolyCBD3NEON(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		samplePolyCBD3NEON(&f, &B)
+	}
+}
+
+func BenchmarkSamplePolyCBD3Generic(b *testing.B) {
+	B := make([]byte, 192)
+	for i := range B {
+		B[i] = byte(i)
+	}
+	b.ReportAllocs()
+	b.SetBytes(192)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		samplePolyCBDGeneric(B, 3)
 	}
 }
 
