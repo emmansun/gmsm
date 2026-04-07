@@ -14,6 +14,9 @@ import "crypto/sha3"
 func internalNTTNEON(f *ringElement)
 
 //go:noescape
+func internalNTTNEONOpt(f *ringElement)
+
+//go:noescape
 func internalInverseNTTNEON(f *nttElement)
 
 //go:noescape

@@ -259,6 +259,16 @@ func BenchmarkNTTMulAccNEON(b *testing.B) {
 	}
 }
 
+func BenchmarkNTTForwardNEONOpt(b *testing.B) {
+	elem := randomRingElement()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		elem2 := elem
+		internalNTTNEONOpt(&elem2)
+	}
+}
+
 func BenchmarkNTTMulAccGeneric(b *testing.B) {
 	lhs := randomRingElement()
 	rhs := randomRingElement()

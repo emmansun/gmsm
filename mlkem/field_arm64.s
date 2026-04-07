@@ -138,6 +138,25 @@
 	VAND   V31.B16, V24.B16, V24.B16  \ // q if negative
 	VADD   V1.H8, V24.H8, V1.H8        // VB += q if negative
 
+// Lazy butterfly: skip reduce_once, leave result in [0, 2q).
+// Used in middle layers (len ≥ 8) where coefficient bounds allow it.
+// Critical path: MONT_MUL(~6-8 cycles) → single VADD+VSUB = ~12-14c total.
+#define BUTTERFLY01_LAZY(VZ) \
+	VMOV   V0.B16, V25.B16            \ // save VA_old
+	VMOV   VZ.B16, V0.B16             \ // V0 = zeta, V1 keeps VB
+	MONT_MUL_FIXED(V26)               \ // t = MontMul(V0, V1)  [0, q)
+	VADD   V25.H8, V26.H8, V0.H8      \ // VA = VA_old + t,    [0, 2q)
+	VSUB   V26.H8, V25.H8, V1.H8      \ // VB = VA_old - t,    [−q, q) → needs conditional add q
+
+// Corrective subtraction for [−q, q) → [0, q) range on VB.
+// Detect negative (sign bit = bit 15) and conditionally add q.
+// Must follow BUTTERFLY01_LAZY(VZ) immediately.
+#define BUTTERFLY01_LAZY_FIXUP() \
+	VUSHR  $15, V1.H8, V24.H8         \ // 1 if negative, else 0
+	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if negative, else 0
+	VAND   V31.B16, V24.B16, V24.B16  \ // q if negative, else 0
+	VADD   V1.H8, V24.H8, V1.H8        // VB += q if negative
+
 // Gentleman-Sande butterfly:
 //   VA' = fieldReduceOnce(VA + VB)
 //   VB' = MontMul(VZ, fieldSub(VB, VA_old))
@@ -500,6 +519,212 @@ ntt_len2_loop:
 	B ntt_len2_loop
 
 ntt_len2_done:
+	RET
+
+// ── internalNTTNEONOpt: Optimized version with lazy reduction ──────────────────
+// Uses BUTTERFLY01_LAZY in L4-L6 (len ≤ 16) to skip reduce_once per butterfly.
+// Expected speedup: ~10-15% due to reduced instruction count.
+// Invariant: Coefficients remain in [0, 2q) in middle layers, [0, q) in output.
+TEXT ·internalNTTNEONOpt(SB), NOSPLIT, $0-8
+	MOVD f+0(FP), R0
+
+	MOVD $·zetasMontgomery(SB), R1
+	ADD $2, R1, R1 // point to zetasMontgomery[1]
+
+	// Setup pinned registers
+	MOVD $3329, R8
+	VDUP R8, V31.H8
+	MOVD $3327, R8
+	VDUP R8, V30.H8
+	MOVD $1, R8
+	VDUP R8, V29.H8
+	VEOR V28.B16, V28.B16, V28.B16
+
+	// ── L0-L3: identical to internalNTTNEON (full butterfly) ──────────────
+	// Layer L0: len=128
+	LOAD_ZETA_NTT(V7)
+	nttL0(R0, V7, 0)
+	nttL0(R0, V7, 1)
+	nttL0(R0, V7, 2)
+	nttL0(R0, V7, 3)
+	nttL0(R0, V7, 4)
+	nttL0(R0, V7, 5)
+	nttL0(R0, V7, 6)
+	nttL0(R0, V7, 7)
+	nttL0(R0, V7, 8)
+	nttL0(R0, V7, 9)
+	nttL0(R0, V7, 10)
+	nttL0(R0, V7, 11)
+	nttL0(R0, V7, 12)
+	nttL0(R0, V7, 13)
+	nttL0(R0, V7, 14)
+	nttL0(R0, V7, 15)
+
+	// Layer L1: len=64
+	LOAD_ZETA_NTT(V7)
+	LOAD_ZETA_NTT(V6)
+	nttL1(R0, V7, 0, 0)
+	nttL1(R0, V7, 0, 1)
+	nttL1(R0, V7, 0, 2)
+	nttL1(R0, V7, 0, 3)
+	nttL1(R0, V7, 0, 4)
+	nttL1(R0, V7, 0, 5)
+	nttL1(R0, V7, 0, 6)
+	nttL1(R0, V7, 0, 7)
+	nttL1(R0, V6, 1, 0)
+	nttL1(R0, V6, 1, 1)
+	nttL1(R0, V6, 1, 2)
+	nttL1(R0, V6, 1, 3)
+	nttL1(R0, V6, 1, 4)
+	nttL1(R0, V6, 1, 5)
+	nttL1(R0, V6, 1, 6)
+	nttL1(R0, V6, 1, 7)
+
+	// Layer L2: len=32
+	LOAD_ZETA_NTT(V7)
+	LOAD_ZETA_NTT(V6)
+	nttL2(R0, V7, 0, 0)
+	nttL2(R0, V7, 0, 1)
+	nttL2(R0, V7, 0, 2)
+	nttL2(R0, V7, 0, 3)
+	nttL2(R0, V6, 1, 0)
+	nttL2(R0, V6, 1, 1)
+	nttL2(R0, V6, 1, 2)
+	nttL2(R0, V6, 1, 3)
+
+	LOAD_ZETA_NTT(V7)
+	LOAD_ZETA_NTT(V6)
+	nttL2(R0, V7, 2, 0)
+	nttL2(R0, V7, 2, 1)
+	nttL2(R0, V7, 2, 2)
+	nttL2(R0, V7, 2, 3)
+	nttL2(R0, V6, 3, 0)
+	nttL2(R0, V6, 3, 1)
+	nttL2(R0, V6, 3, 2)
+	nttL2(R0, V6, 3, 3)
+
+	// Layer L3: len=16
+	LOAD_ZETA_NTT(V7)
+	LOAD_ZETA_NTT(V6)
+	nttL3(R0, V7, 0, 0)
+	nttL3(R0, V7, 0, 1)
+	nttL3(R0, V6, 1, 0)
+	nttL3(R0, V6, 1, 1)
+
+	LOAD_ZETA_NTT(V7)
+	LOAD_ZETA_NTT(V6)
+	nttL3(R0, V7, 2, 0)
+	nttL3(R0, V7, 2, 1)
+	nttL3(R0, V6, 3, 0)
+	nttL3(R0, V6, 3, 1)
+
+	LOAD_ZETA_NTT(V7)
+	LOAD_ZETA_NTT(V6)
+	nttL3(R0, V7, 4, 0)
+	nttL3(R0, V7, 4, 1)
+	nttL3(R0, V6, 5, 0)
+	nttL3(R0, V6, 5, 1)
+
+	LOAD_ZETA_NTT(V7)
+	LOAD_ZETA_NTT(V6)
+	nttL3(R0, V7, 6, 0)
+	nttL3(R0, V7, 6, 1)
+	nttL3(R0, V6, 7, 0)
+	nttL3(R0, V6, 7, 1)
+
+	// ── L4: len=8. LAZY BUTTERFLY (skip reduce_once) ────────────────────
+	MOVD R0, R3
+	MOVD $0, R4
+ntt_opt_len8_loop:
+	CMP $16, R4
+	BGE ntt_opt_len4_start
+	LOAD_ZETA_NTT(V7)
+	VLD1 (R3), [V0.H8, V1.H8]
+	BUTTERFLY01_LAZY(V7)
+	BUTTERFLY01_LAZY_FIXUP()
+	VST1.P [V0.H8, V1.H8], 32(R3)
+	ADD $1, R4, R4
+	B ntt_opt_len8_loop
+
+	// ── L5: len=4. LAZY BUTTERFLY ──────────────────────────────────────
+ntt_opt_len4_start:
+	MOVD R0, R3
+	MOVD $0, R4
+ntt_opt_len4_loop:
+	CMP $8, R4
+	BGE ntt_opt_len2_start
+
+	LOAD_ZETA_NTT(V7)
+	LOAD_ZETA_NTT(V8)
+	VZIP1 V8.D2, V7.D2, V7.D2
+	VLD1 (R3), [V20.H8, V21.H8]
+	VZIP1 V21.D2, V20.D2, V0.D2
+	VZIP2 V21.D2, V20.D2, V1.D2
+	BUTTERFLY01_LAZY(V7)
+	BUTTERFLY01_LAZY_FIXUP()
+	VZIP1 V1.D2, V0.D2, V20.D2
+	VZIP2 V1.D2, V0.D2, V21.D2
+	VST1.P [V20.H8, V21.H8], 32(R3)
+
+	LOAD_ZETA_NTT(V7)
+	LOAD_ZETA_NTT(V8)
+	VZIP1 V8.D2, V7.D2, V7.D2
+	VLD1 (R3), [V20.H8, V21.H8]
+	VZIP1 V21.D2, V20.D2, V0.D2
+	VZIP2 V21.D2, V20.D2, V1.D2
+	BUTTERFLY01_LAZY(V7)
+	BUTTERFLY01_LAZY_FIXUP()
+	VZIP1 V1.D2, V0.D2, V20.D2
+	VZIP2 V1.D2, V0.D2, V21.D2
+	VST1.P [V20.H8, V21.H8], 32(R3)
+
+	ADD $1, R4, R4
+	B ntt_opt_len4_loop
+
+	// ── L6: len=2. FULL BUTTERFLY (restore reduce for output) ────────────
+ntt_opt_len2_start:
+	MOVD R0, R3
+	MOVD $0, R4
+ntt_opt_len2_loop:
+	CMP $8, R4
+	BGE ntt_opt_len2_done
+
+	// Block 1: full butterfly with reduce_once
+	MOVD.P 8(R1), R10
+	VDUP R10, V20.D2
+	VZIP1 V20.H8, V20.H8, V7.H8
+	VLD1 (R3), [V20.H8, V21.H8]
+	VZIP1 V21.D2, V20.D2, V22.D2
+	VZIP2 V21.D2, V20.D2, V23.D2
+	VZIP1 V23.S4, V22.S4, V20.S4
+	VZIP2 V23.S4, V22.S4, V21.S4
+	VZIP1 V21.D2, V20.D2, V0.D2
+	VZIP2 V21.D2, V20.D2, V1.D2
+	BUTTERFLY01(V7)
+	VZIP1 V1.S4, V0.S4, V20.S4
+	VZIP2 V1.S4, V0.S4, V21.S4
+	VST1.P [V20.H8, V21.H8], 32(R3)
+
+	// Block 2: full butterfly with reduce_once
+	MOVD.P 8(R1), R10
+	VDUP R10, V20.D2
+	VZIP1 V20.H8, V20.H8, V7.H8
+	VLD1 (R3), [V20.H8, V21.H8]
+	VZIP1 V21.D2, V20.D2, V22.D2
+	VZIP2 V21.D2, V20.D2, V23.D2
+	VZIP1 V23.S4, V22.S4, V20.S4
+	VZIP2 V23.S4, V22.S4, V21.S4
+	VZIP1 V21.D2, V20.D2, V0.D2
+	VZIP2 V21.D2, V20.D2, V1.D2
+	BUTTERFLY01(V7)
+	VZIP1 V1.S4, V0.S4, V20.S4
+	VZIP2 V1.S4, V0.S4, V21.S4
+	VST1.P [V20.H8, V21.H8], 32(R3)
+
+	ADD $1, R4, R4
+	B ntt_opt_len2_loop
+
+ntt_opt_len2_done:
 	RET
 
 // ── internalInverseNTTNEON ─────────────────────────────────────────────────────
@@ -1085,13 +1310,9 @@ decode_u10_neon_block_loop:
 	AND $0x3FF, R6, R10
 
 	UBFX $10, R6, $10, R11
-
 	UBFX $20, R6, $10, R12
-
 	UBFX $30, R6, $10, R13
-
 	UBFX $40, R6, $10, R14
-
 	UBFX $50, R6, $10, R15
 
 	// c6 crosses the 64-bit boundary:
@@ -1106,12 +1327,11 @@ decode_u10_neon_block_loop:
 	ORR R11<<16, R10, R10
 	ORR R12<<32, R10, R10
 	ORR R13<<48, R10, R10
+	VMOV R10, V0.D[0]
 
 	ORR R15<<16, R14, R14
 	ORR R16<<32, R14, R14
 	ORR R17<<48, R14, R14
-
-	VMOV R10, V0.D[0]
 	VMOV R14, V0.D[1]
 
 	// Vectorized Decompress_10 on 8 lanes:
@@ -1181,11 +1401,8 @@ decode_u11_neon_block_loop:
 	AND $0x7FF, R6, R10
 
 	UBFX $11, R6, $11, R11
-
 	UBFX $22, R6, $11, R12
-
 	UBFX $33, R6, $11, R13
-
 	UBFX $44, R6, $11, R14
 
 	// c5 crosses the 64-bit boundary:
@@ -1202,12 +1419,11 @@ decode_u11_neon_block_loop:
 	ORR R11<<16, R10, R10
 	ORR R12<<32, R10, R10
 	ORR R13<<48, R10, R10
+	VMOV R10, V0.D[0]
 
 	ORR R15<<16, R14, R14
 	ORR R16<<32, R14, R14
 	ORR R17<<48, R14, R14
-
-	VMOV R10, V0.D[0]
 	VMOV R14, V0.D[1]
 
 	// Vectorized Decompress_11 on 8 lanes:
