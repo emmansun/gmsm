@@ -829,15 +829,20 @@ ntt_opt_len2_loop:
 
 	// Normalize: bring all [0,2q) outputs to [0,q) via REDUCE_ONCE.
 ntt_opt_normalize_start:
+	// 4× unrolled: 8 iterations × 4 vectors = 256 coefficients.
+	// V2 and V3 are free here (V2 was pinned to 2q only during butterflies).
 	MOVD R0, R3
 	MOVD $0, R4
 ntt_opt_normalize_loop:
-	CMP $32, R4
+	CMP $8, R4
 	BGE ntt_opt_len2_done
-	VLD1.P (16)(R3), [V0.H8]
+	VLD1.P (64)(R3), [V0.H8, V1.H8, V2.H8, V3.H8]
 	REDUCE_ONCE(V0)
-	SUB $16, R3, R11
-	VST1 [V0.H8], (R11)
+	REDUCE_ONCE(V1)
+	REDUCE_ONCE(V2)
+	REDUCE_ONCE(V3)
+	SUB $64, R3, R11
+	VST1 [V0.H8, V1.H8, V2.H8, V3.H8], (R11)
 	ADD $1, R4, R4
 	B ntt_opt_normalize_loop
 

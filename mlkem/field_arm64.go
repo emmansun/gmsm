@@ -42,7 +42,7 @@ func nttMulAcc(acc, lhs, rhs *nttElement) {
 }
 
 func internalNTT(f *ringElement) {
-	internalNTTNEON(f)
+	internalNTTNEONOpt(f)
 }
 
 func internalInverseNTT(f *nttElement) {
