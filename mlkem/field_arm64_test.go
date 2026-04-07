@@ -38,6 +38,23 @@ func TestNEONForwardNTTMatchesMontgomery(t *testing.T) {
 	}
 }
 
+func TestNEONOptForwardNTTMatchesMontgomery(t *testing.T) {
+	for i := 0; i < 200; i++ {
+		in := randomRingElement()
+		got := in
+		want := in
+
+		internalNTTNEONOpt(&got)
+		internalMontNTT(&want)
+
+		for j := range got {
+			if got[j] != want[j] {
+				t.Fatalf("iter=%d idx=%d: NEONOpt forward NTT mismatch: got=%d want=%d", i, j, got[j], want[j])
+			}
+		}
+	}
+}
+
 func TestNEONInverseNTTMatchesMontgomery(t *testing.T) {
 	for i := 0; i < 200; i++ {
 		in := randomRingElement()
