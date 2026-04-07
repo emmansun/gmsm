@@ -1101,30 +1101,21 @@ decode_u10_neon_block_loop:
 
 	// c6 crosses the 64-bit boundary:
 	//   low 4 bits from R6[63:60], high 6 bits from R7[5:0].
-	LSR $60, R6, R16
-	AND $0xF, R16, R16
-	AND $0x3F, R7, R9
-	LSL $4, R9, R9
-	ORR R9, R16, R16
+	EXTR $60, R6, R7, R16
+	AND $0x3FF, R16, R16
 
 	// c7 comes from R7[15:6].
 	LSR $6, R7, R17
 	AND $0x3FF, R17, R17
 
 	// Pack c0..c3 and c4..c7 into two 64-bit words.
-	LSL $16, R11, R9
-	ORR R9, R10, R10
-	LSL $32, R12, R9
-	ORR R9, R10, R10
-	LSL $48, R13, R9
-	ORR R9, R10, R10
+	ORR R11<<16, R10, R10
+	ORR R12<<32, R10, R10
+	ORR R13<<48, R10, R10
 
-	LSL $16, R15, R9
-	ORR R9, R14, R14
-	LSL $32, R16, R9
-	ORR R9, R14, R14
-	LSL $48, R17, R9
-	ORR R9, R14, R14
+	ORR R15<<16, R14, R14
+	ORR R16<<32, R14, R14
+	ORR R17<<48, R14, R14
 
 	VMOV R10, V0.D[0]
 	VMOV R14, V0.D[1]
@@ -1209,11 +1200,8 @@ decode_u11_neon_block_loop:
 
 	// c5 crosses the 64-bit boundary:
 	//   low 9 bits from R6[63:55], high 2 bits from R7[1:0].
-	LSR $55, R6, R15
-	AND $0x1FF, R15, R15
-	AND $0x3, R7, R9
-	LSL $9, R9, R9
-	ORR R9, R15, R15
+	EXTR $55, R6, R7, R15
+	AND $0x7FF, R15, R15
 
 	// c6 and c7 are fully in tail bits R7.
 	LSR $2, R7, R16
@@ -1223,19 +1211,13 @@ decode_u11_neon_block_loop:
 	AND $0x7FF, R17, R17
 
 	// Pack c0..c3 and c4..c7 into two 64-bit words, then move to V0 lanes.
-	LSL $16, R11, R9
-	ORR R9, R10, R10
-	LSL $32, R12, R9
-	ORR R9, R10, R10
-	LSL $48, R13, R9
-	ORR R9, R10, R10
+	ORR R11<<16, R10, R10
+	ORR R12<<32, R10, R10
+	ORR R13<<48, R10, R10
 
-	LSL $16, R15, R9
-	ORR R9, R14, R14
-	LSL $32, R16, R9
-	ORR R9, R14, R14
-	LSL $48, R17, R9
-	ORR R9, R14, R14
+	ORR R15<<16, R14, R14
+	ORR R16<<32, R14, R14
+	ORR R17<<48, R14, R14
 
 	VMOV R10, V0.D[0]
 	VMOV R14, V0.D[1]
