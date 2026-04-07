@@ -296,134 +296,42 @@
 //   Left half:  f[0..127]   bytes [0..255]
 //   Right half: f[128..255] bytes [256..511]
 //   offset selects 16-byte chunk within each half (0..15).
-#define nttL0(dataAddr, VZ, offset) \
-	ADD  $((offset)*16), dataAddr, R11          \
-	VLD1 (R11), [V0.H8]                          \
-	ADD  $((offset)*16+256), dataAddr, R12      \
-	VLD1 (R12), [V1.H8]                          \
+#define nttL0to3(evenDataAddr, oddDataAddr, VZ)  \
+	VLD1 (evenDataAddr), [V0.H8]                 \
+	VLD1 (oddDataAddr), [V1.H8]                  \
 	BUTTERFLY01(VZ)                              \
-	VST1 [V0.H8], (R11)                          \
-	VST1 [V1.H8], (R12)
-
-// nttL1: Layer len=64, 2 groups.
-//   group g occupies bytes [g*256 .. g*256+256).
-//   Left: [g*256 + offset*16], Right: [g*256+128 + offset*16]
-//   offset ∈ {0..7}
-#define nttL1(dataAddr, VZ, groupIdx, offset) \
-	ADD  $((groupIdx)*256+(offset)*16), dataAddr, R11        \
-	VLD1 (R11), [V0.H8]                                       \
-	ADD  $((groupIdx)*256+(offset)*16+128), dataAddr, R12    \
-	VLD1 (R12), [V1.H8]                                       \
-	BUTTERFLY01(VZ)                                            \
-	VST1 [V0.H8], (R11)                                       \
-	VST1 [V1.H8], (R12)
-
-// nttL2: Layer len=32, 4 groups.
-//   group g occupies bytes [g*128 .. g*128+128).
-//   Left: [g*128 + offset*16], Right: [g*128+64 + offset*16]
-//   offset ∈ {0..3}
-#define nttL2(dataAddr, VZ, groupIdx, offset) \
-	ADD  $((groupIdx)*128+(offset)*16), dataAddr, R11       \
-	VLD1 (R11), [V0.H8]                                      \
-	ADD  $((groupIdx)*128+(offset)*16+64), dataAddr, R12    \
-	VLD1 (R12), [V1.H8]                                      \
-	BUTTERFLY01(VZ)                                           \
-	VST1 [V0.H8], (R11)                                      \
-	VST1 [V1.H8], (R12)
-
-// nttL3: Layer len=16, 8 groups.
-//   group g: bytes [g*64 .. g*64+64). Left=[g*64], Right=[g*64+32]
-//   Two NEON loads cover 16 bytes each → covers 32 bytes per side.
-//   offset ∈ {0,1}
-#define nttL3(dataAddr, VZ, groupIdx, offset) \
-	ADD  $((groupIdx)*64+(offset)*16), dataAddr, R11       \
-	VLD1 (R11), [V0.H8]                                     \
-	ADD  $((groupIdx)*64+(offset)*16+32), dataAddr, R12    \
-	VLD1 (R12), [V1.H8]                                     \
-	BUTTERFLY01(VZ)                                          \
-	VST1 [V0.H8], (R11)                                     \
-	VST1 [V1.H8], (R12)
+	VST1.P [V0.H8], 16(evenDataAddr)             \
+	VST1.P [V1.H8], 16(oddDataAddr)
 
 // Weak variants: use BUTTERFLY01_WEAK for [0,2q) invariant NTT.
 // Requires caller to have pinned V2 = broadcast(2q = 6658).
-#define nttL0w(dataAddr, VZ, offset) \
-	ADD  $((offset)*16), dataAddr, R11          \
-	VLD1 (R11), [V0.H8]                          \
-	ADD  $((offset)*16+256), dataAddr, R12      \
-	VLD1 (R12), [V1.H8]                          \
+#define nttL0to3w(evenDataAddr, oddDataAddr, VZ) \
+	VLD1 (evenDataAddr), [V0.H8]                 \
+	VLD1 (oddDataAddr), [V1.H8]                  \
 	BUTTERFLY01_WEAK(VZ)                         \
-	VST1 [V0.H8], (R11)                          \
-	VST1 [V1.H8], (R12)
+	VST1.P [V0.H8], 16(evenDataAddr)             \
+	VST1.P [V1.H8], 16(oddDataAddr)
 
-#define nttL1w(dataAddr, VZ, groupIdx, offset) \
-	ADD  $((groupIdx)*256+(offset)*16), dataAddr, R11        \
-	VLD1 (R11), [V0.H8]                                       \
-	ADD  $((groupIdx)*256+(offset)*16+128), dataAddr, R12    \
-	VLD1 (R12), [V1.H8]                                       \
-	BUTTERFLY01_WEAK(VZ)                                       \
-	VST1 [V0.H8], (R11)                                       \
-	VST1 [V1.H8], (R12)
-
-#define nttL2w(dataAddr, VZ, groupIdx, offset) \
-	ADD  $((groupIdx)*128+(offset)*16), dataAddr, R11       \
-	VLD1 (R11), [V0.H8]                                      \
-	ADD  $((groupIdx)*128+(offset)*16+64), dataAddr, R12    \
-	VLD1 (R12), [V1.H8]                                      \
-	BUTTERFLY01_WEAK(VZ)                                      \
-	VST1 [V0.H8], (R11)                                      \
-	VST1 [V1.H8], (R12)
-
-#define nttL3w(dataAddr, VZ, groupIdx, offset) \
-	ADD  $((groupIdx)*64+(offset)*16), dataAddr, R11       \
-	VLD1 (R11), [V0.H8]                                     \
-	ADD  $((groupIdx)*64+(offset)*16+32), dataAddr, R12    \
-	VLD1 (R12), [V1.H8]                                     \
-	BUTTERFLY01_WEAK(VZ)                                     \
-	VST1 [V0.H8], (R11)                                     \
-	VST1 [V1.H8], (R12)
-
-// inttL0: INTT final layer len=128, with scale multiply on both outputs.
+// inttL0w: INTT final layer len=128, with scale multiply on both outputs.
 // Note: MONT_MUL_FIXED always outputs to V2, so Vscale must NOT be V2.
 //       Use MONT_MUL_V0_VZ for VA path to avoid redundant VMOV V0->V0.
 //       MONT_MUL on VA still clobbers V1, so save VB' first.
-#define inttL0(dataAddr, VZ, Vscale, offset) \
-	ADD  $((offset)*16), dataAddr, R11           \
-	VLD1 (R11), [V0.H8]                           \
-	ADD  $((offset)*16+256), dataAddr, R12       \
-	VLD1 (R12), [V1.H8]                           \
-	INTT_BUTTERFLY01_WEAK(VZ)                    \
-	VMOV V1.B16, V26.B16                         \ // save VB'; MONT_MUL will clobber V1
-	MONT_MUL_V0_VZ(Vscale, V0)                   \
-	VST1 [V0.H8], (R11)                           \
-	MONT_MUL(V26, Vscale, V1)                   \
-	VST1 [V1.H8], (R12)
+#define inttL0w(evenDataAddr, oddDataAddr, VZ, Vscale) \
+	VLD1 (evenDataAddr), [V0.H8]                      \
+	VLD1 (oddDataAddr), [V1.H8]                       \
+	INTT_BUTTERFLY01_WEAK(VZ)                         \
+	VMOV V1.B16, V26.B16                              \ // save VB'; MONT_MUL will clobber V1
+	MONT_MUL_V0_VZ(Vscale, V0)                        \
+	VST1.P [V0.H8], 16(evenDataAddr)                  \
+	MONT_MUL(V26, Vscale, V1)                         \
+	VST1.P [V1.H8], 16(oddDataAddr)
 
-#define inttL1(dataAddr, VZ, groupIdx, offset) \
-	ADD  $((groupIdx)*256+(offset)*16), dataAddr, R11        \
-	VLD1 (R11), [V0.H8]                                       \
-	ADD  $((groupIdx)*256+(offset)*16+128), dataAddr, R12    \
-	VLD1 (R12), [V1.H8]                                       \
-	INTT_BUTTERFLY01_WEAK(VZ)                                 \
-	VST1 [V0.H8], (R11)                                       \
-	VST1 [V1.H8], (R12)
-
-#define inttL2(dataAddr, VZ, groupIdx, offset) \
-	ADD  $((groupIdx)*128+(offset)*16), dataAddr, R11       \
-	VLD1 (R11), [V0.H8]                                      \
-	ADD  $((groupIdx)*128+(offset)*16+64), dataAddr, R12    \
-	VLD1 (R12), [V1.H8]                                      \
-	INTT_BUTTERFLY01_WEAK(VZ)                                \
-	VST1 [V0.H8], (R11)                                      \
-	VST1 [V1.H8], (R12)
-
-#define inttL3(dataAddr, VZ, groupIdx, offset) \
-	ADD  $((groupIdx)*64+(offset)*16), dataAddr, R11       \
-	VLD1 (R11), [V0.H8]                                     \
-	ADD  $((groupIdx)*64+(offset)*16+32), dataAddr, R12    \
-	VLD1 (R12), [V1.H8]                                     \
-	INTT_BUTTERFLY01_WEAK(VZ)                               \
-	VST1 [V0.H8], (R11)                                     \
-	VST1 [V1.H8], (R12)
+#define inttL1to3w(evenDataAddr, oddDataAddr, VZ) \
+	VLD1 (evenDataAddr), [V0.H8]                      \
+	VLD1 (oddDataAddr), [V1.H8]                       \
+	INTT_BUTTERFLY01_WEAK(VZ)                         \
+	VST1.P [V0.H8], 16(evenDataAddr)                  \
+	VST1.P [V1.H8], 16(oddDataAddr)
 
 #define LOAD_ZETA_NTT(VZ) \	
 	MOVHU.P 2(R1), R10 \
@@ -457,94 +365,118 @@ TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
 
 	// Layer L0: len=128
 	LOAD_ZETA_NTT(V7)
-	nttL0w(R0, V7, 0)
-	nttL0w(R0, V7, 1)
-	nttL0w(R0, V7, 2)
-	nttL0w(R0, V7, 3)
-	nttL0w(R0, V7, 4)
-	nttL0w(R0, V7, 5)
-	nttL0w(R0, V7, 6)
-	nttL0w(R0, V7, 7)
-	nttL0w(R0, V7, 8)
-	nttL0w(R0, V7, 9)
-	nttL0w(R0, V7, 10)
-	nttL0w(R0, V7, 11)
-	nttL0w(R0, V7, 12)
-	nttL0w(R0, V7, 13)
-	nttL0w(R0, V7, 14)
-	nttL0w(R0, V7, 15)
+	MOVD R0, R11
+	ADD $256, R11, R12
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
 
 	// Layer L1: len=64
 	LOAD_ZETA_NTT(V7)
 	LOAD_ZETA_NTT(V6)
-	nttL1w(R0, V7, 0, 0)
-	nttL1w(R0, V7, 0, 1)
-	nttL1w(R0, V7, 0, 2)
-	nttL1w(R0, V7, 0, 3)
-	nttL1w(R0, V7, 0, 4)
-	nttL1w(R0, V7, 0, 5)
-	nttL1w(R0, V7, 0, 6)
-	nttL1w(R0, V7, 0, 7)
-	nttL1w(R0, V6, 1, 0)
-	nttL1w(R0, V6, 1, 1)
-	nttL1w(R0, V6, 1, 2)
-	nttL1w(R0, V6, 1, 3)
-	nttL1w(R0, V6, 1, 4)
-	nttL1w(R0, V6, 1, 5)
-	nttL1w(R0, V6, 1, 6)
-	nttL1w(R0, V6, 1, 7)
+	MOVD R0, R11
+	ADD $128, R11, R12	
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	ADD $256, R0, R11
+	ADD $128, R11, R12	
+	nttL0to3w(R11, R12, V6)
+	nttL0to3w(R11, R12, V6)
+	nttL0to3w(R11, R12, V6)
+	nttL0to3w(R11, R12, V6)
+	nttL0to3w(R11, R12, V6)
+	nttL0to3w(R11, R12, V6)
+	nttL0to3w(R11, R12, V6)
+	nttL0to3w(R11, R12, V6)
 
 	// Layer L2: len=32
 	LOAD_ZETA_NTT(V7)
 	LOAD_ZETA_NTT(V6)
-	nttL2w(R0, V7, 0, 0)
-	nttL2w(R0, V7, 0, 1)
-	nttL2w(R0, V7, 0, 2)
-	nttL2w(R0, V7, 0, 3)
-	nttL2w(R0, V6, 1, 0)
-	nttL2w(R0, V6, 1, 1)
-	nttL2w(R0, V6, 1, 2)
-	nttL2w(R0, V6, 1, 3)
-
+	MOVD R0, R11
+	ADD $64, R11, R12		
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	ADD $128, R0, R11
+	ADD $64, R11, R12
+	nttL0to3w(R11, R12, V6)
+	nttL0to3w(R11, R12, V6)
+	nttL0to3w(R11, R12, V6)
+	nttL0to3w(R11, R12, V6)
 	LOAD_ZETA_NTT(V7)
 	LOAD_ZETA_NTT(V6)
-	nttL2w(R0, V7, 2, 0)
-	nttL2w(R0, V7, 2, 1)
-	nttL2w(R0, V7, 2, 2)
-	nttL2w(R0, V7, 2, 3)
-	nttL2w(R0, V6, 3, 0)
-	nttL2w(R0, V6, 3, 1)
-	nttL2w(R0, V6, 3, 2)
-	nttL2w(R0, V6, 3, 3)
+	ADD $256, R0, R11
+	ADD $64, R11, R12
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	ADD $384, R0, R11
+	ADD $64, R11, R12
+	nttL0to3w(R11, R12, V6)
+	nttL0to3w(R11, R12, V6)
+	nttL0to3w(R11, R12, V6)
+	nttL0to3w(R11, R12, V6)
 
 	// Layer L3: len=16
 	LOAD_ZETA_NTT(V7)
 	LOAD_ZETA_NTT(V6)
-	nttL3w(R0, V7, 0, 0)
-	nttL3w(R0, V7, 0, 1)
-	nttL3w(R0, V6, 1, 0)
-	nttL3w(R0, V6, 1, 1)
+	MOVD R0, R11
+	ADD $32, R11, R12		
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	ADD $64, R0, R11
+	ADD $32, R11, R12
+	nttL0to3w(R11, R12, V6)
+	nttL0to3w(R11, R12, V6)
 
 	LOAD_ZETA_NTT(V7)
 	LOAD_ZETA_NTT(V6)
-	nttL3w(R0, V7, 2, 0)
-	nttL3w(R0, V7, 2, 1)
-	nttL3w(R0, V6, 3, 0)
-	nttL3w(R0, V6, 3, 1)
+	ADD $128, R0, R11
+	ADD $32, R11, R12
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	ADD $192, R0, R11
+	ADD $32, R11, R12
+	nttL0to3w(R11, R12, V6)
+	nttL0to3w(R11, R12, V6)
+	
+	LOAD_ZETA_NTT(V7)
+	LOAD_ZETA_NTT(V6)
+	ADD $256, R0, R11
+	ADD $32, R11, R12
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	ADD $320, R0, R11
+	ADD $32, R11, R12
+	nttL0to3w(R11, R12, V6)
+	nttL0to3w(R11, R12, V6)
 
 	LOAD_ZETA_NTT(V7)
 	LOAD_ZETA_NTT(V6)
-	nttL3w(R0, V7, 4, 0)
-	nttL3w(R0, V7, 4, 1)
-	nttL3w(R0, V6, 5, 0)
-	nttL3w(R0, V6, 5, 1)
-
-	LOAD_ZETA_NTT(V7)
-	LOAD_ZETA_NTT(V6)
-	nttL3w(R0, V7, 6, 0)
-	nttL3w(R0, V7, 6, 1)
-	nttL3w(R0, V6, 7, 0)
-	nttL3w(R0, V6, 7, 1)
+	ADD $384, R0, R11
+	ADD $32, R11, R12
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	ADD $448, R0, R11
+	ADD $32, R11, R12	
+	nttL0to3w(R11, R12, V6)
+	nttL0to3w(R11, R12, V6)
 
 	// Layer L4: len=8. Weak butterfly (plain adjacent pairs).
 	MOVD R0, R3
@@ -776,96 +708,126 @@ intt_len8_loop:
 intt_len16_start:
 	LOAD_ZETA_INTT(V7)
 	LOAD_ZETA_INTT(V6)
-	inttL3(R0, V7, 0, 0)
-	inttL3(R0, V7, 0, 1)
-	inttL3(R0, V6, 1, 0)
-	inttL3(R0, V6, 1, 1)
+	MOVD R0, R11
+	ADD $32, R11, R12
+	inttL1to3w(R11, R12, V7)
+	inttL1to3w(R11, R12, V7)
+	ADD $64, R0, R11
+	ADD $32, R11, R12
+	inttL1to3w(R11, R12, V6)
+	inttL1to3w(R11, R12, V6)
 
 	LOAD_ZETA_INTT(V7)
 	LOAD_ZETA_INTT(V6)
-	inttL3(R0, V7, 2, 0)
-	inttL3(R0, V7, 2, 1)
-	inttL3(R0, V6, 3, 0)
-	inttL3(R0, V6, 3, 1)
+	ADD $128, R0, R11
+	ADD $32, R11, R12
+	inttL1to3w(R11, R12, V7)
+	inttL1to3w(R11, R12, V7)
+	ADD $192, R0, R11
+	ADD $32, R11, R12
+	inttL1to3w(R11, R12, V6)
+	inttL1to3w(R11, R12, V6)
 
 	LOAD_ZETA_INTT(V7)
 	LOAD_ZETA_INTT(V6)
-	inttL3(R0, V7, 4, 0)
-	inttL3(R0, V7, 4, 1)
-	inttL3(R0, V6, 5, 0)
-	inttL3(R0, V6, 5, 1)
+	ADD $256, R0, R11
+	ADD $32, R11, R12
+	inttL1to3w(R11, R12, V7)
+	inttL1to3w(R11, R12, V7)
+	ADD $320, R0, R11
+	ADD $32, R11, R12
+	inttL1to3w(R11, R12, V6)
+	inttL1to3w(R11, R12, V6)
 
 	LOAD_ZETA_INTT(V7)
 	LOAD_ZETA_INTT(V6)
-	inttL3(R0, V7, 6, 0)
-	inttL3(R0, V7, 6, 1)
-	inttL3(R0, V6, 7, 0)
-	inttL3(R0, V6, 7, 1)
+	ADD $384, R0, R11
+	ADD $32, R11, R12
+	inttL1to3w(R11, R12, V7)
+	inttL1to3w(R11, R12, V7)
+	ADD $448, R0, R11
+	ADD $32, R11, R12
+	inttL1to3w(R11, R12, V6)
+	inttL1to3w(R11, R12, V6)
 
 	// ── L2: len=32. 4 groups. zeta = zetasMontgomery[7..4] ───────────────
 	LOAD_ZETA_INTT(V7)
 	LOAD_ZETA_INTT(V6)
-	inttL2(R0, V7, 0, 0)
-	inttL2(R0, V7, 0, 1)
-	inttL2(R0, V7, 0, 2)
-	inttL2(R0, V7, 0, 3)
-	inttL2(R0, V6, 1, 0)
-	inttL2(R0, V6, 1, 1)
-	inttL2(R0, V6, 1, 2)
-	inttL2(R0, V6, 1, 3)
+	MOVD R0, R11
+	ADD $64, R11, R12
+	inttL1to3w(R11, R12, V7)
+	inttL1to3w(R11, R12, V7)
+	inttL1to3w(R11, R12, V7)
+	inttL1to3w(R11, R12, V7)
+	ADD $128, R0, R11
+	ADD $64, R11, R12
+	inttL1to3w(R11, R12, V6)
+	inttL1to3w(R11, R12, V6)
+	inttL1to3w(R11, R12, V6)
+	inttL1to3w(R11, R12, V6)
 
 	LOAD_ZETA_INTT(V7)
 	LOAD_ZETA_INTT(V6)
-	inttL2(R0, V7, 2, 0)
-	inttL2(R0, V7, 2, 1)
-	inttL2(R0, V7, 2, 2)
-	inttL2(R0, V7, 2, 3)
-	inttL2(R0, V6, 3, 0)
-	inttL2(R0, V6, 3, 1)
-	inttL2(R0, V6, 3, 2)
-	inttL2(R0, V6, 3, 3)
+	ADD $256, R0, R11
+	ADD $64, R11, R12
+	inttL1to3w(R11, R12, V7)
+	inttL1to3w(R11, R12, V7)
+	inttL1to3w(R11, R12, V7)
+	inttL1to3w(R11, R12, V7)
+	ADD $320, R0, R11
+	ADD $64, R11, R12
+	inttL1to3w(R11, R12, V6)
+	inttL1to3w(R11, R12, V6)
+	inttL1to3w(R11, R12, V6)
+	inttL1to3w(R11, R12, V6)
 
 	// ── L1: len=64. 2 groups. zeta = zetasMontgomery[3..2] ───────────────
 	LOAD_ZETA_INTT(V7)
 	LOAD_ZETA_INTT(V6)
-	inttL1(R0, V7, 0, 0)
-	inttL1(R0, V7, 0, 1)
-	inttL1(R0, V7, 0, 2)
-	inttL1(R0, V7, 0, 3)
-	inttL1(R0, V7, 0, 4)
-	inttL1(R0, V7, 0, 5)
-	inttL1(R0, V7, 0, 6)
-	inttL1(R0, V7, 0, 7)
-	inttL1(R0, V6, 1, 0)
-	inttL1(R0, V6, 1, 1)
-	inttL1(R0, V6, 1, 2)
-	inttL1(R0, V6, 1, 3)
-	inttL1(R0, V6, 1, 4)
-	inttL1(R0, V6, 1, 5)
-	inttL1(R0, V6, 1, 6)
-	inttL1(R0, V6, 1, 7)
+	MOVD R0, R11
+	ADD $128, R11, R12
+	inttL1to3w(R11, R12, V7)
+	inttL1to3w(R11, R12, V7)
+	inttL1to3w(R11, R12, V7)
+	inttL1to3w(R11, R12, V7)
+	inttL1to3w(R11, R12, V7)
+	inttL1to3w(R11, R12, V7)
+	inttL1to3w(R11, R12, V7)
+	inttL1to3w(R11, R12, V7)
+	ADD $256, R0, R11
+	ADD $128, R11, R12
+	inttL1to3w(R11, R12, V6)
+	inttL1to3w(R11, R12, V6)
+	inttL1to3w(R11, R12, V6)
+	inttL1to3w(R11, R12, V6)
+	inttL1to3w(R11, R12, V6)
+	inttL1to3w(R11, R12, V6)
+	inttL1to3w(R11, R12, V6)
+	inttL1to3w(R11, R12, V6)
 
 	// ── L0: len=128. 1 group. zeta = zetasMontgomery[1]. Scale by 1441 ───
 	// Use V3 for scale (NOT V2: MONT_MUL_FIXED always clobbers V2).
 	LOAD_ZETA_INTT(V7)
 	MOVD $1441, R8
 	VDUP R8, V3.H8    // V3 = scale = 1441
-	inttL0(R0, V7, V3, 0)
-	inttL0(R0, V7, V3, 1)
-	inttL0(R0, V7, V3, 2)
-	inttL0(R0, V7, V3, 3)
-	inttL0(R0, V7, V3, 4)
-	inttL0(R0, V7, V3, 5)
-	inttL0(R0, V7, V3, 6)
-	inttL0(R0, V7, V3, 7)
-	inttL0(R0, V7, V3, 8)
-	inttL0(R0, V7, V3, 9)
-	inttL0(R0, V7, V3, 10)
-	inttL0(R0, V7, V3, 11)
-	inttL0(R0, V7, V3, 12)
-	inttL0(R0, V7, V3, 13)
-	inttL0(R0, V7, V3, 14)
-	inttL0(R0, V7, V3, 15)
+	MOVD R0, R11
+	ADD $256, R11, R12
+	inttL0w(R11, R12, V7, V3)
+	inttL0w(R11, R12, V7, V3)
+	inttL0w(R11, R12, V7, V3)
+	inttL0w(R11, R12, V7, V3)
+	inttL0w(R11, R12, V7, V3)
+	inttL0w(R11, R12, V7, V3)
+	inttL0w(R11, R12, V7, V3)
+	inttL0w(R11, R12, V7, V3)
+	inttL0w(R11, R12, V7, V3)
+	inttL0w(R11, R12, V7, V3)
+	inttL0w(R11, R12, V7, V3)
+	inttL0w(R11, R12, V7, V3)
+	inttL0w(R11, R12, V7, V3)
+	inttL0w(R11, R12, V7, V3)
+	inttL0w(R11, R12, V7, V3)
+	inttL0w(R11, R12, V7, V3)
 
 	RET
 
