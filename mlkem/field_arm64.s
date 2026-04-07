@@ -99,6 +99,25 @@
 	VAND   V31.B16, V24.B16, V24.B16        \ // q if underflow, else 0
 	VADD   V20.H8, V24.H8, VOUT.H8           // result in VOUT
 
+// Raw fixed-register Montgomery multiply: V0,V1 -> VOUT in [0,2q).
+// Same core as MONT_MUL_FIXED but drops the final reduce_once tail.
+// Clobbers V20..V24; does NOT use V27 (reserved by inverse weak butterfly).
+#define MONT_MUL_FIXED_RAW(VOUT) \
+	WORD $0x4E619C14                        \ // OPCODE: MUL   V20.8H, V0.8H, V1.8H
+	WORD $0x2E61C015                        \ // OPCODE: UMULL V21.4S, V0.4H, V1.4H
+	WORD $0x6E61C016                        \ // OPCODE: UMULL2 V22.4S, V0.8H, V1.8H
+	WORD $0x0F1086B5                        \ // OPCODE: SHRN  V21.4H, V21.4S, #16
+	WORD $0x4F1086D5                        \ // OPCODE: SHRN2 V21.8H, V22.4S, #16
+	WORD $0x4E7E9E96                        \ // OPCODE: MUL   V22.8H, V20.8H, V30.8H
+	WORD $0x2E7FC2D7                        \ // OPCODE: UMULL V23.4S, V22.4H, V31.4H
+	WORD $0x6E7FC2D8                        \ // OPCODE: UMULL2 V24.4S, V22.8H, V31.8H
+	WORD $0x0F1086F7                        \ // OPCODE: SHRN  V23.4H, V23.4S, #16
+	WORD $0x4F108717                        \ // OPCODE: SHRN2 V23.8H, V24.4S, #16
+	VADD   V21.H8, V23.H8, VOUT.H8          \ // raw = hi + correction
+	VCMEQ  V20.H8, V28.H8, V24.H8           \ // 0xFFFF where lo==0
+	VADD   V29.H8, V24.H8, V24.H8           \ // 0 where lo==0, else 1
+	VADD   VOUT.H8, V24.H8, VOUT.H8          // raw += (lo!=0) -> [0,2q)
+
 // Raw scheduled variant: same as MONT_MUL_FIXED_SCHED but drops the
 // final reduce_once tail (last 5 instructions). Output is in [0, 2q).
 // Used by BUTTERFLY01_WEAK to implement the [0,2q) NTT invariant.
@@ -264,6 +283,28 @@
 	MONT_MUL_FIXED(V1)                \ // VB = MontMul(V0, V1)
 	VMOV   V25.B16, V0.B16             // restore VA'
 
+// Weak inverse butterfly preserving [0,2q) invariant.
+// Requires pinned V27 = broadcast(2q = 6658).
+//   VA' = (VA_old + VB) mod 2q
+//   VB' = MontMulRaw(VZ, (VB - VA_old) mod 2q)
+#define INTT_BUTTERFLY01_WEAK(VZ) \
+	VMOV   V0.B16, V25.B16            \ // save VA_old
+	VADD   V0.H8, V1.H8, V0.H8        \ // sum = VA_old + VB      in [0,4q)
+	VSUB   V27.H8, V0.H8, V20.H8      \ // try = sum - 2q
+	VUSHR  $15, V20.H8, V24.H8        \ // 1 if underflow, else 0
+	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if underflow
+	VAND   V27.B16, V24.B16, V24.B16  \ // 2q if underflow, else 0
+	VADD   V20.H8, V24.H8, V0.H8      \ // VA' in [0,2q)
+	VSUB   V25.H8, V1.H8, V1.H8       \ // diff = VB - VA_old in (-2q,2q)
+	VUSHR  $15, V1.H8, V24.H8         \ // 1 if negative, else 0
+	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if negative
+	VAND   V27.B16, V24.B16, V24.B16  \ // 2q if negative, else 0
+	VADD   V1.H8, V24.H8, V1.H8       \ // diff mod 2q in [0,2q)
+	VMOV   V0.B16, V25.B16            \ // save VA' before MONT_MUL clobbers V0
+	VMOV   VZ.B16, V0.B16             \ // V0 = zeta, V1 keeps diff
+	MONT_MUL_FIXED_RAW(V1)            \ // VB' in [0,2q)
+	VMOV   V25.B16, V0.B16             // restore VA'
+
 // ── Level-load macros (16 bytes = 8 × int16 per NEON vector) ──────────────────
 //
 // Each AVX2 macro handles 32 bytes (16 × int16).
@@ -368,7 +409,7 @@
 	VLD1 (R11), [V0.H8]                           \
 	ADD  $((offset)*16+256), dataAddr, R12       \
 	VLD1 (R12), [V1.H8]                           \
-	INTT_BUTTERFLY01(VZ)                         \
+	INTT_BUTTERFLY01_WEAK(VZ)                    \
 	VMOV V1.B16, V26.B16                         \ // save VB'; MONT_MUL will clobber V1
 	MONT_MUL(V0, Vscale, V0)                     \
 	VST1 [V0.H8], (R11)                           \
@@ -380,7 +421,7 @@
 	VLD1 (R11), [V0.H8]                                       \
 	ADD  $((groupIdx)*256+(offset)*16+128), dataAddr, R12    \
 	VLD1 (R12), [V1.H8]                                       \
-	INTT_BUTTERFLY01(VZ)                                      \
+	INTT_BUTTERFLY01_WEAK(VZ)                                 \
 	VST1 [V0.H8], (R11)                                       \
 	VST1 [V1.H8], (R12)
 
@@ -389,7 +430,7 @@
 	VLD1 (R11), [V0.H8]                                      \
 	ADD  $((groupIdx)*128+(offset)*16+64), dataAddr, R12    \
 	VLD1 (R12), [V1.H8]                                      \
-	INTT_BUTTERFLY01(VZ)                                     \
+	INTT_BUTTERFLY01_WEAK(VZ)                                \
 	VST1 [V0.H8], (R11)                                      \
 	VST1 [V1.H8], (R12)
 
@@ -398,7 +439,7 @@
 	VLD1 (R11), [V0.H8]                                     \
 	ADD  $((groupIdx)*64+(offset)*16+32), dataAddr, R12    \
 	VLD1 (R12), [V1.H8]                                     \
-	INTT_BUTTERFLY01(VZ)                                    \
+	INTT_BUTTERFLY01_WEAK(VZ)                               \
 	VST1 [V0.H8], (R11)                                     \
 	VST1 [V1.H8], (R12)
 
@@ -866,6 +907,8 @@ TEXT ·internalInverseNTTNEON(SB), NOSPLIT, $0-8
 	MOVD $1, R8
 	VDUP R8, V29.H8
 	VEOR V28.B16, V28.B16, V28.B16
+	MOVD $6658, R8
+	VDUP R8, V27.H8
 
 	// ── L6: len=2. 64 groups. zeta = zetasMontgomery[127..64] ────────────
 	// k descends: group g uses zetasMontgomery[127-g], byte offset = (127-g)*2 = 254-g*2
@@ -886,7 +929,7 @@ intt_len2_loop:
 	VZIP2 V23.S4, V22.S4, V21.S4
 	VZIP1 V21.D2, V20.D2, V0.D2
 	VZIP2 V21.D2, V20.D2, V1.D2
-	INTT_BUTTERFLY01(V7)
+	INTT_BUTTERFLY01_WEAK(V7)
 	VZIP1 V1.S4, V0.S4, V20.S4
 	VZIP2 V1.S4, V0.S4, V21.S4
 	VST1.P [V20.H8, V21.H8], 32(R3)	
@@ -906,7 +949,7 @@ intt_len4_loop:
 	VLD1 (R3), [V20.H8, V21.H8]
 	VZIP1 V21.D2, V20.D2, V0.D2
 	VZIP2 V21.D2, V20.D2, V1.D2
-	INTT_BUTTERFLY01(V7)
+	INTT_BUTTERFLY01_WEAK(V7)
 	VZIP1 V1.D2, V0.D2, V20.D2
 	VZIP2 V1.D2, V0.D2, V21.D2
 	VST1.P [V20.H8, V21.H8], 32(R3)
@@ -922,7 +965,7 @@ intt_len8_loop:
 	BGE intt_len16_start
 	LOAD_ZETA_INTT(V7)
 	VLD1 (R3), [V0.H8, V1.H8]   // load both left and right halves together (16 bytes each)
-	INTT_BUTTERFLY01(V7)
+	INTT_BUTTERFLY01_WEAK(V7)
 	VST1.P [V0.H8, V1.H8], 32(R3)
 	ADD $1, R4, R4
 	B intt_len8_loop
