@@ -378,6 +378,11 @@ TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
 	nttL0to3w(R11, R12, V7)
 	nttL0to3w(R11, R12, V7)
 	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
+	nttL0to3w(R11, R12, V7)
 
 	// Layer L1: len=64
 	LOAD_ZETA_NTT(V7)
@@ -774,7 +779,7 @@ intt_len16_start:
 	inttL1to3w(R11, R12, V7)
 	inttL1to3w(R11, R12, V7)
 	inttL1to3w(R11, R12, V7)
-	ADD $320, R0, R11
+	ADD $384, R0, R11
 	ADD $64, R11, R12
 	inttL1to3w(R11, R12, V6)
 	inttL1to3w(R11, R12, V6)
