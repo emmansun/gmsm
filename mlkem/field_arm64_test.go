@@ -44,7 +44,7 @@ func TestNEONOptForwardNTTMatchesMontgomery(t *testing.T) {
 		got := in
 		want := in
 
-		internalNTTNEONOpt(&got)
+		internalNTTNEON(&got)
 		internalMontNTT(&want)
 
 		for j := range got {
@@ -273,16 +273,6 @@ func BenchmarkNTTMulAccNEON(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		acc2 := nacc
 		internalNTTMulAccNEON(&acc2, &nlhs, &nrhs)
-	}
-}
-
-func BenchmarkNTTForwardNEONOpt(b *testing.B) {
-	elem := randomRingElement()
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		elem2 := elem
-		internalNTTNEONOpt(&elem2)
 	}
 }
 

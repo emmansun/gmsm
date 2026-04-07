@@ -200,25 +200,6 @@
 	VAND   V31.B16, V24.B16, V24.B16  \ // q if negative
 	VADD   V1.H8, V24.H8, V1.H8        // VB += q if negative
 
-// Lazy butterfly: skip reduce_once, leave result in [0, 2q).
-// Used in middle layers (len ≥ 8) where coefficient bounds allow it.
-// Critical path: MONT_MUL(~6-8 cycles) → single VADD+VSUB = ~12-14c total.
-#define BUTTERFLY01_LAZY(VZ) \
-	VMOV   V0.B16, V25.B16            \ // save VA_old
-	VMOV   VZ.B16, V0.B16             \ // V0 = zeta, V1 keeps VB
-	MONT_MUL_FIXED_SCHED(V26)         \ // t = MontMul(V0, V1)  [0, q)
-	VADD   V25.H8, V26.H8, V0.H8      \ // VA = VA_old + t,    [0, 2q)
-	VSUB   V26.H8, V25.H8, V1.H8      \ // VB = VA_old - t,    [−q, q) → needs conditional add q
-
-// Corrective subtraction for [−q, q) → [0, q) range on VB.
-// Detect negative (sign bit = bit 15) and conditionally add q.
-// Must follow BUTTERFLY01_LAZY(VZ) immediately.
-#define BUTTERFLY01_LAZY_FIXUP() \
-	VUSHR  $15, V1.H8, V24.H8         \ // 1 if negative, else 0
-	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if negative, else 0
-	VAND   V31.B16, V24.B16, V24.B16  \ // q if negative, else 0
-	VADD   V1.H8, V24.H8, V1.H8        // VB += q if negative
-
 // [0,2q) invariant butterfly: uses raw Montgomery output (no reduce_once),
 // and normalises each output to [0,2q) with a conditional add/sub of 2q.
 // Requires pinned V2 = broadcast(2q = 6658).
@@ -403,7 +384,8 @@
 
 // inttL0: INTT final layer len=128, with scale multiply on both outputs.
 // Note: MONT_MUL_FIXED always outputs to V2, so Vscale must NOT be V2.
-//       MONT_MUL(V0,Vscale,V0) expands VMOV Vscale→V1, clobbering VB'; save it first.
+//       Use MONT_MUL_V0_VZ for VA path to avoid redundant VMOV V0->V0.
+//       MONT_MUL on VA still clobbers V1, so save VB' first.
 #define inttL0(dataAddr, VZ, Vscale, offset) \
 	ADD  $((offset)*16), dataAddr, R11           \
 	VLD1 (R11), [V0.H8]                           \
@@ -411,7 +393,7 @@
 	VLD1 (R12), [V1.H8]                           \
 	INTT_BUTTERFLY01_WEAK(VZ)                    \
 	VMOV V1.B16, V26.B16                         \ // save VB'; MONT_MUL will clobber V1
-	MONT_MUL(V0, Vscale, V0)                     \
+	MONT_MUL_V0_VZ(Vscale, V0)                   \
 	VST1 [V0.H8], (R11)                           \
 	MONT_MUL(V26, Vscale, V1)                   \
 	VST1 [V1.H8], (R12)
@@ -451,227 +433,12 @@
 	MOVHU.W -2(R1), R10 \
 	VDUP R10, VZ.H8
 
-// ── internalNTTNEON ───────────────────────────────────────────────────────────
-// func internalNTTNEON(f *ringElement)
-// All 7 NTT layers (len=128 down to len=2).
-// Uses only 16-byte (8 × int16) NEON vectors throughout.
-TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
-	MOVD f+0(FP), R0
-
-	MOVD $·zetasMontgomery(SB), R1
-	ADD $2, R1, R1 // point to zetasMontgomery[1] for first layer
-
-	// Setup pinned registers
-	MOVD $3329, R8
-	VDUP R8, V31.H8       // V31 = q
-	MOVD $3327, R8
-	VDUP R8, V30.H8       // V30 = qNegInv
-	MOVD $1, R8
-	VDUP R8, V29.H8       // V29 = 1
-	VEOR V28.B16, V28.B16, V28.B16 // V28 = 0
-
-	// ── Layer L0: len=128. zeta = zetasMontgomery[1] (byte offset 2) ──────
-	LOAD_ZETA_NTT(V7)
-	nttL0(R0, V7, 0)
-	nttL0(R0, V7, 1)
-	nttL0(R0, V7, 2)
-	nttL0(R0, V7, 3)
-	nttL0(R0, V7, 4)
-	nttL0(R0, V7, 5)
-	nttL0(R0, V7, 6)
-	nttL0(R0, V7, 7)
-	nttL0(R0, V7, 8)
-	nttL0(R0, V7, 9)
-	nttL0(R0, V7, 10)
-	nttL0(R0, V7, 11)
-	nttL0(R0, V7, 12)
-	nttL0(R0, V7, 13)
-	nttL0(R0, V7, 14)
-	nttL0(R0, V7, 15)
-
-	// ── Layer L1: len=64. 2 groups ─────────────────────────────────────────
-	// Group 0: zeta = zetasMontgomery[2] (byte offset 4)
-	// Group 1: zeta = zetasMontgomery[3] (byte offset 6)
-	LOAD_ZETA_NTT(V7)
-	LOAD_ZETA_NTT(V6)
-	nttL1(R0, V7, 0, 0)
-	nttL1(R0, V7, 0, 1)
-	nttL1(R0, V7, 0, 2)
-	nttL1(R0, V7, 0, 3)
-	nttL1(R0, V7, 0, 4)
-	nttL1(R0, V7, 0, 5)
-	nttL1(R0, V7, 0, 6)
-	nttL1(R0, V7, 0, 7)
-	nttL1(R0, V6, 1, 0)
-	nttL1(R0, V6, 1, 1)
-	nttL1(R0, V6, 1, 2)
-	nttL1(R0, V6, 1, 3)
-	nttL1(R0, V6, 1, 4)
-	nttL1(R0, V6, 1, 5)
-	nttL1(R0, V6, 1, 6)
-	nttL1(R0, V6, 1, 7)
-
-	// ── Layer L2: len=32. 4 groups ─────────────────────────────────────────
-	// Group 0: zeta = zetasMontgomery[4] (byte 8)
-	// Group 1: zeta = zetasMontgomery[5] (byte 10)
-	LOAD_ZETA_NTT(V7)
-	LOAD_ZETA_NTT(V6)
-	nttL2(R0, V7, 0, 0)
-	nttL2(R0, V7, 0, 1)
-	nttL2(R0, V7, 0, 2)
-	nttL2(R0, V7, 0, 3)
-	nttL2(R0, V6, 1, 0)
-	nttL2(R0, V6, 1, 1)
-	nttL2(R0, V6, 1, 2)
-	nttL2(R0, V6, 1, 3)
-
-	// Group 2: zeta = zetasMontgomery[6] (byte 12)
-	// Group 3: zeta = zetasMontgomery[7] (byte 14)
-	LOAD_ZETA_NTT(V7)
-	LOAD_ZETA_NTT(V6)
-	nttL2(R0, V7, 2, 0)
-	nttL2(R0, V7, 2, 1)
-	nttL2(R0, V7, 2, 2)
-	nttL2(R0, V7, 2, 3)
-	nttL2(R0, V6, 3, 0)
-	nttL2(R0, V6, 3, 1)
-	nttL2(R0, V6, 3, 2)
-	nttL2(R0, V6, 3, 3)
-
-	// ── Layer L3: len=16. 8 groups ─────────────────────────────────────────
-	// Group g: zeta = zetasMontgomery[8+g] (byte 16+g*2)
-	LOAD_ZETA_NTT(V7)
-	LOAD_ZETA_NTT(V6)
-	nttL3(R0, V7, 0, 0)
-	nttL3(R0, V7, 0, 1)
-	nttL3(R0, V6, 1, 0)
-	nttL3(R0, V6, 1, 1)
-
-	LOAD_ZETA_NTT(V7)
-	LOAD_ZETA_NTT(V6)
-	nttL3(R0, V7, 2, 0)
-	nttL3(R0, V7, 2, 1)
-	nttL3(R0, V6, 3, 0)
-	nttL3(R0, V6, 3, 1)
-
-	LOAD_ZETA_NTT(V7)
-	LOAD_ZETA_NTT(V6)
-	nttL3(R0, V7, 4, 0)
-	nttL3(R0, V7, 4, 1)
-	nttL3(R0, V6, 5, 0)
-	nttL3(R0, V6, 5, 1)
-
-	LOAD_ZETA_NTT(V7)
-	LOAD_ZETA_NTT(V6)
-	nttL3(R0, V7, 6, 0)
-	nttL3(R0, V7, 6, 1)
-	nttL3(R0, V6, 7, 0)
-	nttL3(R0, V6, 7, 1)
-
-	// ── Layer L4: len=8. 16 groups. zeta = zetasMontgomery[16+g] ──────────
-	// group g: left at g*32, right at g*32+16; byte offset = g*32
-	// zeta byte offset in table = (16+g)*2 = 32+g*2
-	MOVD R0, R3         // R3 = base address of current layer
-	MOVD $0, R4         // R4 = group counter
-ntt_len8_loop:
-	CMP $16, R4
-	BGE ntt_len4_start
-	LOAD_ZETA_NTT(V7)
-	VLD1 (R3), [V0.H8, V1.H8]   // load both left and right halves together (16 bytes each)
-	BUTTERFLY01(V7)
-	VST1.P [V0.H8, V1.H8], 32(R3)
-	ADD $1, R4, R4
-	B ntt_len8_loop
-
-	// ── Layer L5: len=4. 32 groups. zeta = zetasMontgomery[32+g] ──────────
-	// group g: left at g*16, right at g*16+8
-ntt_len4_start:
-	MOVD R0, R3
-	MOVD $0, R4
-ntt_len4_loop:
-	CMP $8, R4
-	BGE ntt_len2_start
-
-	// First pair of groups (2 groups, 32 bytes)
-	LOAD_ZETA_NTT(V7)
-	LOAD_ZETA_NTT(V8)
-	VZIP1 V8.D2, V7.D2, V7.D2
-	VLD1 (R3), [V20.H8, V21.H8]
-	VZIP1 V21.D2, V20.D2, V0.D2
-	VZIP2 V21.D2, V20.D2, V1.D2
-	BUTTERFLY01(V7)
-	VZIP1 V1.D2, V0.D2, V20.D2
-	VZIP2 V1.D2, V0.D2, V21.D2
-	VST1.P [V20.H8, V21.H8], 32(R3)
-
-	// Second pair of groups (next 2 groups, next 32 bytes)
-	LOAD_ZETA_NTT(V7)
-	LOAD_ZETA_NTT(V8)
-	VZIP1 V8.D2, V7.D2, V7.D2
-	VLD1 (R3), [V20.H8, V21.H8]
-	VZIP1 V21.D2, V20.D2, V0.D2
-	VZIP2 V21.D2, V20.D2, V1.D2
-	BUTTERFLY01(V7)
-	VZIP1 V1.D2, V0.D2, V20.D2
-	VZIP2 V1.D2, V0.D2, V21.D2
-	VST1.P [V20.H8, V21.H8], 32(R3)
-
-	ADD $1, R4, R4
-	B ntt_len4_loop
-
-	// ── Layer L6: len=2. 64 groups. zeta = zetasMontgomery[64+g] ──────────
-	// group g: left at g*8, right at g*8+4
-ntt_len2_start:
-	MOVD R0, R3
-	MOVD $0, R4
-ntt_len2_loop:
-	CMP $8, R4
-	BGE ntt_len2_done
-
-	// First block (4 groups, 32 bytes)
-	MOVD.P 8(R1), R10
-	VDUP R10, V20.D2
-	VZIP1 V20.H8, V20.H8, V7.H8
-	VLD1 (R3), [V20.H8, V21.H8]
-	VZIP1 V21.D2, V20.D2, V22.D2
-	VZIP2 V21.D2, V20.D2, V23.D2
-	VZIP1 V23.S4, V22.S4, V20.S4
-	VZIP2 V23.S4, V22.S4, V21.S4
-	VZIP1 V21.D2, V20.D2, V0.D2
-	VZIP2 V21.D2, V20.D2, V1.D2
-	BUTTERFLY01(V7)
-	VZIP1 V1.S4, V0.S4, V20.S4
-	VZIP2 V1.S4, V0.S4, V21.S4
-	VST1.P [V20.H8, V21.H8], 32(R3)
-
-	// Second block (next 4 groups, next 32 bytes)
-	MOVD.P 8(R1), R10
-	VDUP R10, V20.D2
-	VZIP1 V20.H8, V20.H8, V7.H8
-	VLD1 (R3), [V20.H8, V21.H8]
-	VZIP1 V21.D2, V20.D2, V22.D2
-	VZIP2 V21.D2, V20.D2, V23.D2
-	VZIP1 V23.S4, V22.S4, V20.S4
-	VZIP2 V23.S4, V22.S4, V21.S4
-	VZIP1 V21.D2, V20.D2, V0.D2
-	VZIP2 V21.D2, V20.D2, V1.D2
-	BUTTERFLY01(V7)
-	VZIP1 V1.S4, V0.S4, V20.S4
-	VZIP2 V1.S4, V0.S4, V21.S4
-	VST1.P [V20.H8, V21.H8], 32(R3)
-
-	ADD $1, R4, R4
-	B ntt_len2_loop
-
-ntt_len2_done:
-	RET
-
-// ── internalNTTNEONOpt: [0,2q) invariant NTT ─────────────────────────────────
+// ── internalNTTNEON: [0,2q) invariant NTT ─────────────────────────────────
 // All 7 forward NTT layers (Cooley-Tukey, len=128..2) using weak butterflies.
 // MontMulRaw outputs t ∈ [0,2q); both butterfly outputs maintained in [0,2q).
 // A single normalize pass at the end maps all coefficients to [0,q).
 // Extra pinned register: V2 = broadcast(2q = 6658).
-TEXT ·internalNTTNEONOpt(SB), NOSPLIT, $0-8
+TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
 	MOVD f+0(FP), R0
 
 	MOVD $·zetasMontgomery(SB), R1
@@ -782,23 +549,23 @@ TEXT ·internalNTTNEONOpt(SB), NOSPLIT, $0-8
 	// Layer L4: len=8. Weak butterfly (plain adjacent pairs).
 	MOVD R0, R3
 	MOVD $0, R4
-ntt_opt_len8_loop:
+ntt_len8_loop:
 	CMP $16, R4
-	BGE ntt_opt_len4_start
+	BGE ntt_len4_start
 	LOAD_ZETA_NTT(V7)
 	VLD1 (R3), [V0.H8, V1.H8]
 	BUTTERFLY01_WEAK(V7)
 	VST1.P [V0.H8, V1.H8], 32(R3)
 	ADD $1, R4, R4
-	B ntt_opt_len8_loop
+	B ntt_len8_loop
 
 	// Layer L5: len=4. Weak butterfly with VZIP.
-ntt_opt_len4_start:
+ntt_len4_start:
 	MOVD R0, R3
 	MOVD $0, R4
-ntt_opt_len4_loop:
+ntt_len4_loop:
 	CMP $8, R4
-	BGE ntt_opt_len2_start
+	BGE ntt_len2_start
 
 	LOAD_ZETA_NTT(V7)
 	LOAD_ZETA_NTT(V8)
@@ -823,15 +590,15 @@ ntt_opt_len4_loop:
 	VST1.P [V20.H8, V21.H8], 32(R3)
 
 	ADD $1, R4, R4
-	B ntt_opt_len4_loop
+	B ntt_len4_loop
 
 	// Layer L6: len=2. Weak butterfly with double VZIP.
-ntt_opt_len2_start:
+ntt_len2_start:
 	MOVD R0, R3
 	MOVD $0, R4
-ntt_opt_len2_loop:
+ntt_len2_loop:
 	CMP $8, R4
-	BGE ntt_opt_normalize_start
+	BGE ntt_normalize_start
 
 	// Block 1
 	MOVD.P 8(R1), R10
@@ -866,17 +633,17 @@ ntt_opt_len2_loop:
 	VST1.P [V20.H8, V21.H8], 32(R3)
 
 	ADD $1, R4, R4
-	B ntt_opt_len2_loop
+	B ntt_len2_loop
 
 	// Normalize: bring all [0,2q) outputs to [0,q) via REDUCE_ONCE.
-ntt_opt_normalize_start:
+ntt_normalize_start:
 	// 4× unrolled: 8 iterations × 4 vectors = 256 coefficients.
 	// V2 and V3 are free here (V2 was pinned to 2q only during butterflies).
 	MOVD R0, R3
 	MOVD $0, R4
-ntt_opt_normalize_loop:
+ntt_normalize_loop:
 	CMP $8, R4
-	BGE ntt_opt_len2_done
+	BGE ntt_len2_done
 	VLD1.P (64)(R3), [V0.H8, V1.H8, V2.H8, V3.H8]
 	REDUCE_ONCE(V0)
 	REDUCE_ONCE(V1)
@@ -885,9 +652,9 @@ ntt_opt_normalize_loop:
 	SUB $64, R3, R11
 	VST1 [V0.H8, V1.H8, V2.H8, V3.H8], (R11)
 	ADD $1, R4, R4
-	B ntt_opt_normalize_loop
+	B ntt_normalize_loop
 
-ntt_opt_len2_done:
+ntt_len2_done:
 	RET
 
 // ── internalInverseNTTNEON ─────────────────────────────────────────────────────
@@ -916,8 +683,10 @@ TEXT ·internalInverseNTTNEON(SB), NOSPLIT, $0-8
 	MOVD R0, R3
 	MOVD $0, R4
 intt_len2_loop:
-	CMP $16, R4
+	CMP $8, R4
 	BGE intt_len4_start
+
+	// Block 1
 	MOVD.W -8(R1), R10
 	VDUP R10, V20.D2
 	VREV64 V20.H8, V20.H8
@@ -932,7 +701,25 @@ intt_len2_loop:
 	INTT_BUTTERFLY01_WEAK(V7)
 	VZIP1 V1.S4, V0.S4, V20.S4
 	VZIP2 V1.S4, V0.S4, V21.S4
-	VST1.P [V20.H8, V21.H8], 32(R3)	
+	VST1.P [V20.H8, V21.H8], 32(R3)
+
+	// Block 2
+	MOVD.W -8(R1), R10
+	VDUP R10, V20.D2
+	VREV64 V20.H8, V20.H8
+	VZIP1 V20.H8, V20.H8, V7.H8
+	VLD1 (R3), [V20.H8, V21.H8]
+	VZIP1 V21.D2, V20.D2, V22.D2
+	VZIP2 V21.D2, V20.D2, V23.D2
+	VZIP1 V23.S4, V22.S4, V20.S4
+	VZIP2 V23.S4, V22.S4, V21.S4
+	VZIP1 V21.D2, V20.D2, V0.D2
+	VZIP2 V21.D2, V20.D2, V1.D2
+	INTT_BUTTERFLY01_WEAK(V7)
+	VZIP1 V1.S4, V0.S4, V20.S4
+	VZIP2 V1.S4, V0.S4, V21.S4
+	VST1.P [V20.H8, V21.H8], 32(R3)
+
 	ADD $1, R4, R4
 	B intt_len2_loop
 
@@ -941,8 +728,10 @@ intt_len4_start:
 	MOVD R0, R3
 	MOVD $0, R4
 intt_len4_loop:
-	CMP $16, R4
+	CMP $8, R4
 	BGE intt_len8_start
+
+	// Block 1
 	LOAD_ZETA_INTT(V7)
 	LOAD_ZETA_INTT(V8)
 	VZIP1 V8.D2, V7.D2, V7.D2
@@ -953,6 +742,19 @@ intt_len4_loop:
 	VZIP1 V1.D2, V0.D2, V20.D2
 	VZIP2 V1.D2, V0.D2, V21.D2
 	VST1.P [V20.H8, V21.H8], 32(R3)
+
+	// Block 2
+	LOAD_ZETA_INTT(V7)
+	LOAD_ZETA_INTT(V8)
+	VZIP1 V8.D2, V7.D2, V7.D2
+	VLD1 (R3), [V20.H8, V21.H8]
+	VZIP1 V21.D2, V20.D2, V0.D2
+	VZIP2 V21.D2, V20.D2, V1.D2
+	INTT_BUTTERFLY01_WEAK(V7)
+	VZIP1 V1.D2, V0.D2, V20.D2
+	VZIP2 V1.D2, V0.D2, V21.D2
+	VST1.P [V20.H8, V21.H8], 32(R3)
+
 	ADD $1, R4, R4
 	B intt_len4_loop
 
