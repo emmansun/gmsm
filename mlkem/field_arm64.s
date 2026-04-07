@@ -1084,20 +1084,15 @@ decode_u10_neon_block_loop:
 	// Extract c0..c5 from R6.
 	AND $0x3FF, R6, R10
 
-	LSR $10, R6, R11
-	AND $0x3FF, R11, R11
+	UBFX $10, R6, $10, R11
 
-	LSR $20, R6, R12
-	AND $0x3FF, R12, R12
+	UBFX $20, R6, $10, R12
 
-	LSR $30, R6, R13
-	AND $0x3FF, R13, R13
+	UBFX $30, R6, $10, R13
 
-	LSR $40, R6, R14
-	AND $0x3FF, R14, R14
+	UBFX $40, R6, $10, R14
 
-	LSR $50, R6, R15
-	AND $0x3FF, R15, R15
+	UBFX $50, R6, $10, R15
 
 	// c6 crosses the 64-bit boundary:
 	//   low 4 bits from R6[63:60], high 6 bits from R7[5:0].
@@ -1105,8 +1100,7 @@ decode_u10_neon_block_loop:
 	AND $0x3FF, R16, R16
 
 	// c7 comes from R7[15:6].
-	LSR $6, R7, R17
-	AND $0x3FF, R17, R17
+	UBFX $6, R7, $10, R17
 
 	// Pack c0..c3 and c4..c7 into two 64-bit words.
 	ORR R11<<16, R10, R10
@@ -1186,17 +1180,13 @@ decode_u11_neon_block_loop:
 	// Extract c0..c4 from R6 (each coefficient is 11 bits).
 	AND $0x7FF, R6, R10
 
-	LSR $11, R6, R11
-	AND $0x7FF, R11, R11
+	UBFX $11, R6, $11, R11
 
-	LSR $22, R6, R12
-	AND $0x7FF, R12, R12
+	UBFX $22, R6, $11, R12
 
-	LSR $33, R6, R13
-	AND $0x7FF, R13, R13
+	UBFX $33, R6, $11, R13
 
-	LSR $44, R6, R14
-	AND $0x7FF, R14, R14
+	UBFX $44, R6, $11, R14
 
 	// c5 crosses the 64-bit boundary:
 	//   low 9 bits from R6[63:55], high 2 bits from R7[1:0].
@@ -1204,11 +1194,9 @@ decode_u11_neon_block_loop:
 	AND $0x7FF, R15, R15
 
 	// c6 and c7 are fully in tail bits R7.
-	LSR $2, R7, R16
-	AND $0x7FF, R16, R16
+	UBFX $2, R7, $11, R16
 
-	LSR $13, R7, R17
-	AND $0x7FF, R17, R17
+	UBFX $13, R7, $11, R17
 
 	// Pack c0..c3 and c4..c7 into two 64-bit words, then move to V0 lanes.
 	ORR R11<<16, R10, R10
