@@ -47,7 +47,7 @@ func internalInverseNTT(f *nttElement) {
 }
 
 func nttMulAccKeyGen(acc, lhs, rhs *nttElement) {
-	nttMulAccGeneric(acc, lhs, rhs)
+	internalNTTMulAccKeyGenNEON(acc, lhs, rhs)
 }
 
 func decodeAndDecompressU10(dst []ringElement, c []byte) {

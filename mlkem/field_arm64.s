@@ -54,6 +54,7 @@
 //   0x6E7FC2D8: UMULL2 V24.4S, V22.8H, V31.8H
 //   0x0F1086F7: SHRN  V23.4H, V23.4S, #16
 //   0x4F108717: SHRN2 V23.8H, V24.4S, #16
+// Deprecated
 #define MONT_MUL_FIXED(VOUT) \
 	WORD $0x4E619C14                        \ // OPCODE: MUL   V20.8H, V0.8H, V1.8H
 	WORD $0x2E61C015                        \ // OPCODE: UMULL V21.4S, V0.4H, V1.4H
@@ -73,8 +74,21 @@
 	VUSHR  $15, V20.H8, V24.H8              \ // 1 if underflow, else 0
 	VSUB   V24.H8, V28.H8, V24.H8           \ // 0xFFFF if underflow, else 0
 	VAND   V31.B16, V24.B16, V24.B16        \ // q if underflow, else 0
-	VADD   V20.H8, V24.H8, VOUT.H8           // result in VOUT
+	VADD   V20.H8, V24.H8, VOUT.H8            // result in VOUT
 
+// reference algorithm 12 in https://eprint.iacr.org/2021/986.pdf
+// ── Constants ────────────────────────────────────────────────────────────────
+//
+// q        = 3329
+// qNegInv  = 3327   (-q⁻¹ mod 2¹⁶)
+// one      = 1
+// rr       = 1353   (r² mod q; MontMul(x, rr) converts Montgomery→standard)
+// scale1441= 1441   (128⁻¹·r² mod q; INTT final scale)
+//
+// Pinned NEON registers throughout every function:
+//   V31.H8 = broadcast(3329)   q
+//   V30.H8 = broadcast(3327)   qNegInv
+// Clobbers: V20,V21,V22,V23,V24
 #define DBL_MONT_MUL_FIXED(VOUT) \
 	WORD $0x4E619C14                        \ // MUL   V20.8H, V0.8H, V1.8H
 	WORD $0x4E7E9E96                        \ // MUL   V22.8H, V20.8H, V30.8H
@@ -83,70 +97,8 @@
 	VADD V21.H8, V23.H8, V20.H8             \ // raw = 2*Result
 	WORD $0x4f1f0694                        \ // VSSHR V20.H8, V20.H8, #1
 	WORD $0x4f110698                        \ // VSSHR V24.H8, V20.H8, #15
-	VAND   V31.B16, V24.B16, V24.B16        \ // q if underflow, else 0
-	VADD   V20.H8, V24.H8, VOUT.H8           // result in VOUT
-
-// Forward-only scheduled variant.
-// Uses V27 for t so lo*qNegInv can start before hi has been narrowed.
-// This shortens the dependency chain in the forward butterfly hot path.
-#define MONT_MUL_FIXED_SCHED(VOUT) \
-	WORD $0x4E619C14                        \ // OPCODE: MUL   V20.8H, V0.8H, V1.8H
-	WORD $0x2E61C015                        \ // OPCODE: UMULL V21.4S, V0.4H, V1.4H
-	WORD $0x6E61C016                        \ // OPCODE: UMULL2 V22.4S, V0.8H, V1.8H
-	WORD $0x4E7E9E9B                        \ // OPCODE: MUL   V27.8H, V20.8H, V30.8H
-	WORD $0x0F1086B5                        \ // OPCODE: SHRN  V21.4H, V21.4S, #16
-	WORD $0x4F1086D5                        \ // OPCODE: SHRN2 V21.8H, V22.4S, #16
-	WORD $0x2E7FC377                        \ // OPCODE: UMULL V23.4S, V27.4H, V31.4H
-	WORD $0x6E7FC378                        \ // OPCODE: UMULL2 V24.4S, V27.8H, V31.8H
-	WORD $0x0F1086F7                        \ // OPCODE: SHRN  V23.4H, V23.4S, #16
-	WORD $0x4F108717                        \ // OPCODE: SHRN2 V23.8H, V24.4S, #16
-	VADD   V21.H8, V23.H8, VOUT.H8          \ // raw = hi + correction
-	VCMEQ  V20.H8, V28.H8, V24.H8           \ // 0xFFFF where lo==0
-	VADD   V29.H8, V24.H8, V24.H8           \ // 0 where lo==0, else 1
-	VADD   VOUT.H8, V24.H8, VOUT.H8         \ // raw += (lo!=0)
-	VSUB   V31.H8, VOUT.H8, V20.H8          \ // try = raw - q
-	VUSHR  $15, V20.H8, V24.H8              \ // 1 if underflow, else 0
-	VSUB   V24.H8, V28.H8, V24.H8           \ // 0xFFFF if underflow, else 0
-	VAND   V31.B16, V24.B16, V24.B16        \ // q if underflow, else 0
-	VADD   V20.H8, V24.H8, VOUT.H8           // result in VOUT
-
-// Raw fixed-register Montgomery multiply: V0,V1 -> VOUT in [0,2q).
-// Same core as MONT_MUL_FIXED but drops the final reduce_once tail.
-// Clobbers V20..V24; does NOT use V27 (reserved by inverse weak butterfly).
-#define MONT_MUL_FIXED_RAW(VOUT) \
-	WORD $0x4E619C14                        \ // OPCODE: MUL   V20.8H, V0.8H, V1.8H
-	WORD $0x2E61C015                        \ // OPCODE: UMULL V21.4S, V0.4H, V1.4H
-	WORD $0x6E61C016                        \ // OPCODE: UMULL2 V22.4S, V0.8H, V1.8H
-	WORD $0x0F1086B5                        \ // OPCODE: SHRN  V21.4H, V21.4S, #16
-	WORD $0x4F1086D5                        \ // OPCODE: SHRN2 V21.8H, V22.4S, #16
-	WORD $0x4E7E9E96                        \ // OPCODE: MUL   V22.8H, V20.8H, V30.8H
-	WORD $0x2E7FC2D7                        \ // OPCODE: UMULL V23.4S, V22.4H, V31.4H
-	WORD $0x6E7FC2D8                        \ // OPCODE: UMULL2 V24.4S, V22.8H, V31.8H
-	WORD $0x0F1086F7                        \ // OPCODE: SHRN  V23.4H, V23.4S, #16
-	WORD $0x4F108717                        \ // OPCODE: SHRN2 V23.8H, V24.4S, #16
-	VADD   V21.H8, V23.H8, VOUT.H8          \ // raw = hi + correction
-	VCMEQ  V20.H8, V28.H8, V24.H8           \ // 0xFFFF where lo==0
-	VADD   V29.H8, V24.H8, V24.H8           \ // 0 where lo==0, else 1
-	VADD   VOUT.H8, V24.H8, VOUT.H8          // raw += (lo!=0) -> [0,2q)
-
-// Raw scheduled variant: same as MONT_MUL_FIXED_SCHED but drops the
-// final reduce_once tail (last 5 instructions). Output is in [0, 2q).
-// Used by BUTTERFLY01_WEAK to implement the [0,2q) NTT invariant.
-#define MONT_MUL_FIXED_RAW_SCHED(VOUT) \
-	WORD $0x4E619C14                        \ // OPCODE: MUL   V20.8H, V0.8H, V1.8H
-	WORD $0x2E61C015                        \ // OPCODE: UMULL V21.4S, V0.4H, V1.4H
-	WORD $0x6E61C016                        \ // OPCODE: UMULL2 V22.4S, V0.8H, V1.8H
-	WORD $0x4E7E9E9B                        \ // OPCODE: MUL   V27.8H, V20.8H, V30.8H
-	WORD $0x0F1086B5                        \ // OPCODE: SHRN  V21.4H, V21.4S, #16
-	WORD $0x4F1086D5                        \ // OPCODE: SHRN2 V21.8H, V22.4S, #16
-	WORD $0x2E7FC377                        \ // OPCODE: UMULL V23.4S, V27.4H, V31.4H
-	WORD $0x6E7FC378                        \ // OPCODE: UMULL2 V24.4S, V27.8H, V31.8H
-	WORD $0x0F1086F7                        \ // OPCODE: SHRN  V23.4H, V23.4S, #16
-	WORD $0x4F108717                        \ // OPCODE: SHRN2 V23.8H, V24.4S, #16
-	VADD   V21.H8, V23.H8, VOUT.H8          \ // raw = hi + correction
-	VCMEQ  V20.H8, V28.H8, V24.H8           \ // 0xFFFF where lo==0
-	VADD   V29.H8, V24.H8, V24.H8           \ // 0 where lo==0, else 1
-	VADD   VOUT.H8, V24.H8, VOUT.H8          // raw += (lo!=0) → output in [0, 2q)
+	VAND V31.B16, V24.B16, V24.B16          \ // q if underflow, else 0
+	VADD V20.H8, V24.H8, VOUT.H8              // result in VOUT
 
 #define MONT_MUL(VA, VZ, VOUT) \
 	VMOV   VA.B16, V0.B16                    \
@@ -164,13 +116,12 @@
 
 // Corrected fieldReduceOnce (input in [0,2q), output in [0,q)):
 //   try = Vx - q; if try < 0: Vx stays; else Vx = try
-// Inlined version of the sequence. V24 is clobbered.
+// Inlined version of the sequence. V20,V24 is clobbered.
 #define REDUCE_ONCE(VX) \
 	VSUB   V31.H8, VX.H8, V20.H8      \ // try = VX - q
-	VUSHR  $15, V20.H8, V24.H8        \ // 1 if underflow, else 0
-	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if underflow, else 0
+	WORD   $0x4f110698                \ // VSSHR V24.H8, V20.H8, #15
 	VAND   V31.B16, V24.B16, V24.B16  \ // q if underflow, else 0
-	VADD   V20.H8, V24.H8, VX.H8       // VX = try + q_if_underflow
+	VADD   V20.H8, V24.H8, VX.H8        // VX = try + q_if_underflow
 
 // Cooley-Tukey butterfly:
 //   VA' = fieldReduceOnce(VA + t)  where t = MontMul(VZ, VB)
@@ -182,15 +133,13 @@
 	MONT_MUL(VB, VZ, V26)             \ // t = MontMul(VZ, VB) → V26
 	VADD   V25.H8, V26.H8, VA.H8      \ // VA = VA_old + t
 	VSUB   V31.H8, VA.H8, V20.H8      \ // try = VA - q → V20
-	VUSHR  $15, V20.H8, V24.H8        \ // 1 if underflow, else 0
-	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if underflow
+	WORD   $0x4f110698                \ // VSSHR V24.H8, V20.H8, #15
 	VAND   V31.B16, V24.B16, V24.B16  \ // q if underflow
 	VADD   V20.H8, V24.H8, VA.H8      \ // VA = try + correction
-	VSUB   V26.H8, V25.H8, VB.H8      \ // VB = VA_old - t  (V25-V26)
-	VUSHR  $15, VB.H8, V24.H8         \ // 1 if negative, else 0
-	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if negative
+	VSUB   V26.H8, V25.H8, V20.H8     \ // V20 = VA_old - t  (V25-V26)
+	WORD   $0x4f110698                \ // VSSHR V24.H8, V20.H8, #15
 	VAND   V31.B16, V24.B16, V24.B16  \ // q if negative
-	VADD   VB.H8, V24.H8, VB.H8        // VB += q if negative
+	VADD   V20.H8, V24.H8, VB.H8        // VB += q if negative
 
 // Specialized forward butterfly for VA=V0, VB=V1.
 // Saves one VMOV compared with BUTTERFLY(V0, V1, VZ) by using
@@ -198,41 +147,16 @@
 #define BUTTERFLY01(VZ) \
 	VMOV   V0.B16, V25.B16            \ // save VA_old
 	VMOV   VZ.B16, V0.B16             \ // V0 = zeta, V1 keeps VB
-	MONT_MUL_FIXED_SCHED(V26)         \ // t = MontMul(V0, V1)
+	DBL_MONT_MUL_FIXED(V26)           \ // t = MontMul(V0, V1)
 	VADD   V25.H8, V26.H8, V0.H8      \ // VA = VA_old + t
 	VSUB   V31.H8, V0.H8, V20.H8      \ // try = VA - q
-	VUSHR  $15, V20.H8, V24.H8        \ // 1 if underflow, else 0
-	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if underflow
+	WORD   $0x4f110698                \ // VSSHR V24.H8, V20.H8, #15
 	VAND   V31.B16, V24.B16, V24.B16  \ // q if underflow
 	VADD   V20.H8, V24.H8, V0.H8      \ // VA = try + correction
-	VSUB   V26.H8, V25.H8, V1.H8      \ // VB = VA_old - t
-	VUSHR  $15, V1.H8, V24.H8         \ // 1 if negative, else 0
-	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if negative
+	VSUB   V26.H8, V25.H8, V20.H8     \ // V20 = VA_old - t
+	WORD   $0x4f110698                \ // VSSHR V24.H8, V20.H8, #15
 	VAND   V31.B16, V24.B16, V24.B16  \ // q if negative
-	VADD   V1.H8, V24.H8, V1.H8        // VB += q if negative
-
-// [0,2q) invariant butterfly: uses raw Montgomery output (no reduce_once),
-// and normalises each output to [0,2q) with a conditional add/sub of 2q.
-// Requires pinned V2 = broadcast(2q = 6658).
-//   t      = MontMulRaw(VZ, VB) ∈ [0,2q)     (via MONT_MUL_FIXED_RAW_SCHED)
-//   VA'    = (VA_old + t) − 2q  if overflow   ∈ [0, 2q)
-//   VB'    = (VA_old − t) + 2q  if negative   ∈ [0, 2q)
-// Clobbers: V20..V27.
-#define BUTTERFLY01_WEAK(VZ) \
-	VMOV   V0.B16, V25.B16            \ // save VA_old
-	VMOV   VZ.B16, V0.B16             \ // V0 = zeta, V1 keeps VB
-	MONT_MUL_FIXED_RAW_SCHED(V26)     \ // t = MontMulRaw(V0,V1) ∈ [0,2q)
-	VADD   V25.H8, V26.H8, V0.H8      \ // sum = VA_old + t      ∈ [0,4q)
-	VSUB   V2.H8, V0.H8, V20.H8       \ // try = sum − 2q  (may underflow)
-	VUSHR  $15, V20.H8, V24.H8        \ // 1 if underflow, else 0
-	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if underflow, else 0
-	VAND   V2.B16, V24.B16, V24.B16   \ // 2q if underflow, else 0
-	VADD   V20.H8, V24.H8, V0.H8      \ // VA = try + addon       ∈ [0,2q)
-	VSUB   V26.H8, V25.H8, V1.H8      \ // VB = VA_old − t       ∈ (−2q, 2q)
-	VUSHR  $15, V1.H8, V24.H8         \ // 1 if negative, else 0
-	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if negative, else 0
-	VAND   V2.B16, V24.B16, V24.B16   \ // 2q if negative, else 0
-	VADD   V1.H8, V24.H8, V1.H8        // VB += 2q if negative    ∈ [0,2q)
+	VADD   V20.H8, V24.H8, V1.H8        // VB += q if negative
 
 // Gentleman-Sande butterfly:
 //   VA' = fieldReduceOnce(VA + VB)
@@ -242,15 +166,13 @@
 	VMOV   VA.B16, V25.B16            \ // save VA_old
 	VADD   VA.H8, VB.H8, VA.H8        \ // VA = VA_old + VB
 	VSUB   V31.H8, VA.H8, V20.H8      \ // try = VA - q → V20
-	VUSHR  $15, V20.H8, V24.H8        \ // 1 if underflow, else 0
-	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if underflow
+	WORD   $0x4f110698                \ // VSSHR V24.H8, V20.H8, #15
 	VAND   V31.B16, V24.B16, V24.B16  \ // q if underflow
 	VADD   V20.H8, V24.H8, VA.H8      \ // VA = try + correction
-	VSUB   V25.H8, VB.H8, VB.H8       \ // diff = VB - VA_old  (VB=VB-V25)
-	VUSHR  $15, VB.H8, V24.H8         \ // 1 if negative, else 0
-	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if negative
+	VSUB   V25.H8, VB.H8, V20.H8      \ // diff = VB - VA_old  (V20=VB-V25)
+	WORD   $0x4f110698                \ // VSSHR V24.H8, V20.H8, #15
 	VAND   V31.B16, V24.B16, V24.B16  \ // q if negative
-	VADD   VB.H8, V24.H8, VB.H8       \ // fieldSub: add q if negative
+	VADD   V20.H8, V24.H8, VB.H8      \ // fieldSub: add q if negative
 	VMOV   VA.B16, V25.B16            \ // save VA' before MONT_MUL clobbers V0
 	MONT_MUL(VB, VZ, VB)              \ // VB = MontMul(VZ, diff) — clobbers VA's reg (V0)
 	VMOV   V25.B16, VA.B16             // restore VA'
@@ -261,40 +183,16 @@
 	VMOV   V0.B16, V25.B16            \ // save VA_old
 	VADD   V0.H8, V1.H8, V0.H8        \ // VA = VA_old + VB
 	VSUB   V31.H8, V0.H8, V20.H8      \ // try = VA - q
-	VUSHR  $15, V20.H8, V24.H8        \ // 1 if underflow, else 0
-	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if underflow
+	WORD   $0x4f110698                \ // VSSHR V24.H8, V20.H8, #15
 	VAND   V31.B16, V24.B16, V24.B16  \ // q if underflow
 	VADD   V20.H8, V24.H8, V0.H8      \ // VA = try + correction
-	VSUB   V25.H8, V1.H8, V1.H8       \ // diff = VB - VA_old
-	VUSHR  $15, V1.H8, V24.H8         \ // 1 if negative, else 0
-	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if negative
+	VSUB   V25.H8, V1.H8, V20.H8      \ // diff = VB - VA_old
+	WORD   $0x4f110698                \ // VSSHR V24.H8, V20.H8, #15
 	VAND   V31.B16, V24.B16, V24.B16  \ // q if negative
-	VADD   V1.H8, V24.H8, V1.H8       \ // fieldSub: add q if negative
+	VADD   V20.H8, V24.H8, V1.H8      \ // fieldSub: add q if negative
 	VMOV   V0.B16, V25.B16            \ // save VA' before MONT_MUL clobbers V0
 	VMOV   VZ.B16, V0.B16             \ // V0 = zeta, V1 keeps diff
-	MONT_MUL_FIXED(V1)                \ // VB = MontMul(V0, V1)
-	VMOV   V25.B16, V0.B16             // restore VA'
-
-// Weak inverse butterfly preserving [0,2q) invariant.
-// Requires pinned V27 = broadcast(2q = 6658).
-//   VA' = (VA_old + VB) mod 2q
-//   VB' = MontMulRaw(VZ, (VB - VA_old) mod 2q)
-#define INTT_BUTTERFLY01_WEAK(VZ) \
-	VMOV   V0.B16, V25.B16            \ // save VA_old
-	VADD   V0.H8, V1.H8, V0.H8        \ // sum = VA_old + VB      in [0,4q)
-	VSUB   V27.H8, V0.H8, V20.H8      \ // try = sum - 2q
-	VUSHR  $15, V20.H8, V24.H8        \ // 1 if underflow, else 0
-	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if underflow
-	VAND   V27.B16, V24.B16, V24.B16  \ // 2q if underflow, else 0
-	VADD   V20.H8, V24.H8, V0.H8      \ // VA' in [0,2q)
-	VSUB   V25.H8, V1.H8, V1.H8       \ // diff = VB - VA_old in (-2q,2q)
-	VUSHR  $15, V1.H8, V24.H8         \ // 1 if negative, else 0
-	VSUB   V24.H8, V28.H8, V24.H8     \ // 0xFFFF if negative
-	VAND   V27.B16, V24.B16, V24.B16  \ // 2q if negative, else 0
-	VADD   V1.H8, V24.H8, V1.H8       \ // diff mod 2q in [0,2q)
-	VMOV   V0.B16, V25.B16            \ // save VA' before MONT_MUL clobbers V0
-	VMOV   VZ.B16, V0.B16             \ // V0 = zeta, V1 keeps diff
-	MONT_MUL_FIXED_RAW(V1)            \ // VB' in [0,2q)
+	MONT_MUL_V0_V1(V1)                \ // VB = MontMul(V0, V1)
 	VMOV   V25.B16, V0.B16             // restore VA'
 
 // ── Level-load macros (16 bytes = 8 × int16 per NEON vector) ──────────────────
@@ -314,33 +212,21 @@
 	VST1.P [V0.H8], 16(evenDataAddr)             \
 	VST1.P [V1.H8], 16(oddDataAddr)
 
-// Weak variants: use BUTTERFLY01_WEAK for [0,2q) invariant NTT.
-// Requires caller to have pinned V2 = broadcast(2q = 6658).
-#define nttL0to3w(evenDataAddr, oddDataAddr, VZ) \
-	VLD1 (evenDataAddr), [V0.H8]                 \
-	VLD1 (oddDataAddr), [V1.H8]                  \
-	BUTTERFLY01_WEAK(VZ)                         \
-	VST1.P [V0.H8], 16(evenDataAddr)             \
-	VST1.P [V1.H8], 16(oddDataAddr)
-
-// inttL0w: INTT final layer len=128, with scale multiply on both outputs.
-// Note: MONT_MUL_FIXED always outputs to V2, so Vscale must NOT be V2.
-//       Use MONT_MUL_V0_VZ for VA path to avoid redundant VMOV V0->V0.
-//       MONT_MUL on VA still clobbers V1, so save VB' first.
-#define inttL0w(evenDataAddr, oddDataAddr, VZ, Vscale) \
+// inttL0: INTT final layer len=128, with scale multiply on both outputs.
+#define inttL0(evenDataAddr, oddDataAddr, VZ, Vscale) \
 	VLD1 (evenDataAddr), [V0.H8]                      \
 	VLD1 (oddDataAddr), [V1.H8]                       \
-	INTT_BUTTERFLY01_WEAK(VZ)                         \
+	INTT_BUTTERFLY01(VZ)                              \
 	VMOV V1.B16, V26.B16                              \ // save VB'; MONT_MUL will clobber V1
 	MONT_MUL_V0_VZ(Vscale, V0)                        \
 	VST1.P [V0.H8], 16(evenDataAddr)                  \
 	MONT_MUL(V26, Vscale, V1)                         \
 	VST1.P [V1.H8], 16(oddDataAddr)
 
-#define inttL1to3w(evenDataAddr, oddDataAddr, VZ) \
+#define inttL1to3(evenDataAddr, oddDataAddr, VZ) \
 	VLD1 (evenDataAddr), [V0.H8]                      \
 	VLD1 (oddDataAddr), [V1.H8]                       \
-	INTT_BUTTERFLY01_WEAK(VZ)                         \
+	INTT_BUTTERFLY01(VZ)                              \
 	VST1.P [V0.H8], 16(evenDataAddr)                  \
 	VST1.P [V1.H8], 16(oddDataAddr)
 
@@ -352,11 +238,6 @@
 	MOVHU.W -2(R1), R10 \
 	VDUP R10, VZ.H8
 
-// ── internalNTTNEON: [0,2q) invariant NTT ─────────────────────────────────
-// All 7 forward NTT layers (Cooley-Tukey, len=128..2) using weak butterflies.
-// MontMulRaw outputs t ∈ [0,2q); both butterfly outputs maintained in [0,2q).
-// A single normalize pass at the end maps all coefficients to [0,q).
-// Extra pinned register: V2 = broadcast(2q = 6658).
 TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
 	MOVD f+0(FP), R0
 
@@ -371,130 +252,128 @@ TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
 	MOVD $1, R8
 	VDUP R8, V29.H8
 	VEOR V28.B16, V28.B16, V28.B16
-	MOVD $6658, R8
-	VDUP R8, V2.H8                             // V2 = 2q (weak butterfly)
 
 	// Layer L0: len=128
 	LOAD_ZETA_NTT(V7)
 	MOVD R0, R11
 	ADD $256, R11, R12
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
 
 	// Layer L1: len=64
 	LOAD_ZETA_NTT(V7)
 	LOAD_ZETA_NTT(V6)
 	MOVD R0, R11
 	ADD $128, R11, R12	
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
 	ADD $256, R0, R11
 	ADD $128, R11, R12	
-	nttL0to3w(R11, R12, V6)
-	nttL0to3w(R11, R12, V6)
-	nttL0to3w(R11, R12, V6)
-	nttL0to3w(R11, R12, V6)
-	nttL0to3w(R11, R12, V6)
-	nttL0to3w(R11, R12, V6)
-	nttL0to3w(R11, R12, V6)
-	nttL0to3w(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
 
 	// Layer L2: len=32
 	LOAD_ZETA_NTT(V7)
 	LOAD_ZETA_NTT(V6)
 	MOVD R0, R11
 	ADD $64, R11, R12		
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
 	ADD $128, R0, R11
 	ADD $64, R11, R12
-	nttL0to3w(R11, R12, V6)
-	nttL0to3w(R11, R12, V6)
-	nttL0to3w(R11, R12, V6)
-	nttL0to3w(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
 	LOAD_ZETA_NTT(V7)
 	LOAD_ZETA_NTT(V6)
 	ADD $256, R0, R11
 	ADD $64, R11, R12
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
 	ADD $384, R0, R11
 	ADD $64, R11, R12
-	nttL0to3w(R11, R12, V6)
-	nttL0to3w(R11, R12, V6)
-	nttL0to3w(R11, R12, V6)
-	nttL0to3w(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
 
 	// Layer L3: len=16
 	LOAD_ZETA_NTT(V7)
 	LOAD_ZETA_NTT(V6)
 	MOVD R0, R11
 	ADD $32, R11, R12		
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
 	ADD $64, R0, R11
 	ADD $32, R11, R12
-	nttL0to3w(R11, R12, V6)
-	nttL0to3w(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
 
 	LOAD_ZETA_NTT(V7)
 	LOAD_ZETA_NTT(V6)
 	ADD $128, R0, R11
 	ADD $32, R11, R12
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
 	ADD $192, R0, R11
 	ADD $32, R11, R12
-	nttL0to3w(R11, R12, V6)
-	nttL0to3w(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
 	
 	LOAD_ZETA_NTT(V7)
 	LOAD_ZETA_NTT(V6)
 	ADD $256, R0, R11
 	ADD $32, R11, R12
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
 	ADD $320, R0, R11
 	ADD $32, R11, R12
-	nttL0to3w(R11, R12, V6)
-	nttL0to3w(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
 
 	LOAD_ZETA_NTT(V7)
 	LOAD_ZETA_NTT(V6)
 	ADD $384, R0, R11
 	ADD $32, R11, R12
-	nttL0to3w(R11, R12, V7)
-	nttL0to3w(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
+	nttL0to3(R11, R12, V7)
 	ADD $448, R0, R11
 	ADD $32, R11, R12	
-	nttL0to3w(R11, R12, V6)
-	nttL0to3w(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
+	nttL0to3(R11, R12, V6)
 
-	// Layer L4: len=8. Weak butterfly (plain adjacent pairs).
+	// Layer L4: len=8. butterfly (plain adjacent pairs).
 	MOVD R0, R3
 	MOVD $0, R4
 ntt_len8_loop:
@@ -502,12 +381,12 @@ ntt_len8_loop:
 	BGE ntt_len4_start
 	LOAD_ZETA_NTT(V7)
 	VLD1 (R3), [V0.H8, V1.H8]
-	BUTTERFLY01_WEAK(V7)
+	BUTTERFLY01(V7)
 	VST1.P [V0.H8, V1.H8], 32(R3)
 	ADD $1, R4, R4
 	B ntt_len8_loop
 
-	// Layer L5: len=4. Weak butterfly with VZIP.
+	// Layer L5: len=4. butterfly with VZIP.
 ntt_len4_start:
 	MOVD R0, R3
 	MOVD $0, R4
@@ -521,7 +400,7 @@ ntt_len4_loop:
 	VLD1 (R3), [V20.H8, V21.H8]
 	VZIP1 V21.D2, V20.D2, V0.D2
 	VZIP2 V21.D2, V20.D2, V1.D2
-	BUTTERFLY01_WEAK(V7)
+	BUTTERFLY01(V7)
 	VZIP1 V1.D2, V0.D2, V20.D2
 	VZIP2 V1.D2, V0.D2, V21.D2
 	VST1.P [V20.H8, V21.H8], 32(R3)
@@ -532,7 +411,7 @@ ntt_len4_loop:
 	VLD1 (R3), [V20.H8, V21.H8]
 	VZIP1 V21.D2, V20.D2, V0.D2
 	VZIP2 V21.D2, V20.D2, V1.D2
-	BUTTERFLY01_WEAK(V7)
+	BUTTERFLY01(V7)
 	VZIP1 V1.D2, V0.D2, V20.D2
 	VZIP2 V1.D2, V0.D2, V21.D2
 	VST1.P [V20.H8, V21.H8], 32(R3)
@@ -540,13 +419,13 @@ ntt_len4_loop:
 	ADD $1, R4, R4
 	B ntt_len4_loop
 
-	// Layer L6: len=2. Weak butterfly with double VZIP.
+	// Layer L6: len=2. butterfly with double VZIP.
 ntt_len2_start:
 	MOVD R0, R3
 	MOVD $0, R4
 ntt_len2_loop:
 	CMP $8, R4
-	BGE ntt_normalize_start
+	BGE ntt_len2_done
 
 	// Block 1
 	MOVD.P 8(R1), R10
@@ -559,7 +438,7 @@ ntt_len2_loop:
 	VZIP2 V23.S4, V22.S4, V21.S4
 	VZIP1 V21.D2, V20.D2, V0.D2
 	VZIP2 V21.D2, V20.D2, V1.D2
-	BUTTERFLY01_WEAK(V7)
+	BUTTERFLY01(V7)
 	VZIP1 V1.S4, V0.S4, V20.S4
 	VZIP2 V1.S4, V0.S4, V21.S4
 	VST1.P [V20.H8, V21.H8], 32(R3)
@@ -575,7 +454,7 @@ ntt_len2_loop:
 	VZIP2 V23.S4, V22.S4, V21.S4
 	VZIP1 V21.D2, V20.D2, V0.D2
 	VZIP2 V21.D2, V20.D2, V1.D2
-	BUTTERFLY01_WEAK(V7)
+	BUTTERFLY01(V7)
 	VZIP1 V1.S4, V0.S4, V20.S4
 	VZIP2 V1.S4, V0.S4, V21.S4
 	VST1.P [V20.H8, V21.H8], 32(R3)
@@ -583,29 +462,9 @@ ntt_len2_loop:
 	ADD $1, R4, R4
 	B ntt_len2_loop
 
-	// Normalize: bring all [0,2q) outputs to [0,q) via REDUCE_ONCE.
-ntt_normalize_start:
-	// 4× unrolled: 8 iterations × 4 vectors = 256 coefficients.
-	// V2 and V3 are free here (V2 was pinned to 2q only during butterflies).
-	MOVD R0, R3
-	MOVD $0, R4
-ntt_normalize_loop:
-	CMP $8, R4
-	BGE ntt_len2_done
-	VLD1.P (64)(R3), [V0.H8, V1.H8, V2.H8, V3.H8]
-	REDUCE_ONCE(V0)
-	REDUCE_ONCE(V1)
-	REDUCE_ONCE(V2)
-	REDUCE_ONCE(V3)
-	SUB $64, R3, R11
-	VST1 [V0.H8, V1.H8, V2.H8, V3.H8], (R11)
-	ADD $1, R4, R4
-	B ntt_normalize_loop
-
 ntt_len2_done:
 	RET
 
-// ── internalInverseNTTNEON ─────────────────────────────────────────────────────
 // func internalInverseNTTNEON(f *nttElement)
 // All 7 inverse NTT layers (Gentleman-Sande, len=2..128) + scale by 1441.
 TEXT ·internalInverseNTTNEON(SB), NOSPLIT, $0-8
@@ -646,7 +505,7 @@ intt_len2_loop:
 	VZIP2 V23.S4, V22.S4, V21.S4
 	VZIP1 V21.D2, V20.D2, V0.D2
 	VZIP2 V21.D2, V20.D2, V1.D2
-	INTT_BUTTERFLY01_WEAK(V7)
+	INTT_BUTTERFLY01(V7)
 	VZIP1 V1.S4, V0.S4, V20.S4
 	VZIP2 V1.S4, V0.S4, V21.S4
 	VST1.P [V20.H8, V21.H8], 32(R3)
@@ -663,7 +522,7 @@ intt_len2_loop:
 	VZIP2 V23.S4, V22.S4, V21.S4
 	VZIP1 V21.D2, V20.D2, V0.D2
 	VZIP2 V21.D2, V20.D2, V1.D2
-	INTT_BUTTERFLY01_WEAK(V7)
+	INTT_BUTTERFLY01(V7)
 	VZIP1 V1.S4, V0.S4, V20.S4
 	VZIP2 V1.S4, V0.S4, V21.S4
 	VST1.P [V20.H8, V21.H8], 32(R3)
@@ -686,7 +545,7 @@ intt_len4_loop:
 	VLD1 (R3), [V20.H8, V21.H8]
 	VZIP1 V21.D2, V20.D2, V0.D2
 	VZIP2 V21.D2, V20.D2, V1.D2
-	INTT_BUTTERFLY01_WEAK(V7)
+	INTT_BUTTERFLY01(V7)
 	VZIP1 V1.D2, V0.D2, V20.D2
 	VZIP2 V1.D2, V0.D2, V21.D2
 	VST1.P [V20.H8, V21.H8], 32(R3)
@@ -698,7 +557,7 @@ intt_len4_loop:
 	VLD1 (R3), [V20.H8, V21.H8]
 	VZIP1 V21.D2, V20.D2, V0.D2
 	VZIP2 V21.D2, V20.D2, V1.D2
-	INTT_BUTTERFLY01_WEAK(V7)
+	INTT_BUTTERFLY01(V7)
 	VZIP1 V1.D2, V0.D2, V20.D2
 	VZIP2 V1.D2, V0.D2, V21.D2
 	VST1.P [V20.H8, V21.H8], 32(R3)
@@ -715,7 +574,7 @@ intt_len8_loop:
 	BGE intt_len16_start
 	LOAD_ZETA_INTT(V7)
 	VLD1 (R3), [V0.H8, V1.H8]   // load both left and right halves together (16 bytes each)
-	INTT_BUTTERFLY01_WEAK(V7)
+	INTT_BUTTERFLY01(V7)
 	VST1.P [V0.H8, V1.H8], 32(R3)
 	ADD $1, R4, R4
 	B intt_len8_loop
@@ -726,100 +585,100 @@ intt_len16_start:
 	LOAD_ZETA_INTT(V6)
 	MOVD R0, R11
 	ADD $32, R11, R12
-	inttL1to3w(R11, R12, V7)
-	inttL1to3w(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
 	ADD $64, R0, R11
 	ADD $32, R11, R12
-	inttL1to3w(R11, R12, V6)
-	inttL1to3w(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
 
 	LOAD_ZETA_INTT(V7)
 	LOAD_ZETA_INTT(V6)
 	ADD $128, R0, R11
 	ADD $32, R11, R12
-	inttL1to3w(R11, R12, V7)
-	inttL1to3w(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
 	ADD $192, R0, R11
 	ADD $32, R11, R12
-	inttL1to3w(R11, R12, V6)
-	inttL1to3w(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
 
 	LOAD_ZETA_INTT(V7)
 	LOAD_ZETA_INTT(V6)
 	ADD $256, R0, R11
 	ADD $32, R11, R12
-	inttL1to3w(R11, R12, V7)
-	inttL1to3w(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
 	ADD $320, R0, R11
 	ADD $32, R11, R12
-	inttL1to3w(R11, R12, V6)
-	inttL1to3w(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
 
 	LOAD_ZETA_INTT(V7)
 	LOAD_ZETA_INTT(V6)
 	ADD $384, R0, R11
 	ADD $32, R11, R12
-	inttL1to3w(R11, R12, V7)
-	inttL1to3w(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
 	ADD $448, R0, R11
 	ADD $32, R11, R12
-	inttL1to3w(R11, R12, V6)
-	inttL1to3w(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
 
 	// ── L2: len=32. 4 groups. zeta = zetasMontgomery[7..4] ───────────────
 	LOAD_ZETA_INTT(V7)
 	LOAD_ZETA_INTT(V6)
 	MOVD R0, R11
 	ADD $64, R11, R12
-	inttL1to3w(R11, R12, V7)
-	inttL1to3w(R11, R12, V7)
-	inttL1to3w(R11, R12, V7)
-	inttL1to3w(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
 	ADD $128, R0, R11
 	ADD $64, R11, R12
-	inttL1to3w(R11, R12, V6)
-	inttL1to3w(R11, R12, V6)
-	inttL1to3w(R11, R12, V6)
-	inttL1to3w(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
 
 	LOAD_ZETA_INTT(V7)
 	LOAD_ZETA_INTT(V6)
 	ADD $256, R0, R11
 	ADD $64, R11, R12
-	inttL1to3w(R11, R12, V7)
-	inttL1to3w(R11, R12, V7)
-	inttL1to3w(R11, R12, V7)
-	inttL1to3w(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
 	ADD $384, R0, R11
 	ADD $64, R11, R12
-	inttL1to3w(R11, R12, V6)
-	inttL1to3w(R11, R12, V6)
-	inttL1to3w(R11, R12, V6)
-	inttL1to3w(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
 
 	// ── L1: len=64. 2 groups. zeta = zetasMontgomery[3..2] ───────────────
 	LOAD_ZETA_INTT(V7)
 	LOAD_ZETA_INTT(V6)
 	MOVD R0, R11
 	ADD $128, R11, R12
-	inttL1to3w(R11, R12, V7)
-	inttL1to3w(R11, R12, V7)
-	inttL1to3w(R11, R12, V7)
-	inttL1to3w(R11, R12, V7)
-	inttL1to3w(R11, R12, V7)
-	inttL1to3w(R11, R12, V7)
-	inttL1to3w(R11, R12, V7)
-	inttL1to3w(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
+	inttL1to3(R11, R12, V7)
 	ADD $256, R0, R11
 	ADD $128, R11, R12
-	inttL1to3w(R11, R12, V6)
-	inttL1to3w(R11, R12, V6)
-	inttL1to3w(R11, R12, V6)
-	inttL1to3w(R11, R12, V6)
-	inttL1to3w(R11, R12, V6)
-	inttL1to3w(R11, R12, V6)
-	inttL1to3w(R11, R12, V6)
-	inttL1to3w(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
+	inttL1to3(R11, R12, V6)
 
 	// ── L0: len=128. 1 group. zeta = zetasMontgomery[1]. Scale by 1441 ───
 	// Use V3 for scale (NOT V2: MONT_MUL_FIXED always clobbers V2).
@@ -828,22 +687,22 @@ intt_len16_start:
 	VDUP R8, V3.H8    // V3 = scale = 1441
 	MOVD R0, R11
 	ADD $256, R11, R12
-	inttL0w(R11, R12, V7, V3)
-	inttL0w(R11, R12, V7, V3)
-	inttL0w(R11, R12, V7, V3)
-	inttL0w(R11, R12, V7, V3)
-	inttL0w(R11, R12, V7, V3)
-	inttL0w(R11, R12, V7, V3)
-	inttL0w(R11, R12, V7, V3)
-	inttL0w(R11, R12, V7, V3)
-	inttL0w(R11, R12, V7, V3)
-	inttL0w(R11, R12, V7, V3)
-	inttL0w(R11, R12, V7, V3)
-	inttL0w(R11, R12, V7, V3)
-	inttL0w(R11, R12, V7, V3)
-	inttL0w(R11, R12, V7, V3)
-	inttL0w(R11, R12, V7, V3)
-	inttL0w(R11, R12, V7, V3)
+	inttL0(R11, R12, V7, V3)
+	inttL0(R11, R12, V7, V3)
+	inttL0(R11, R12, V7, V3)
+	inttL0(R11, R12, V7, V3)
+	inttL0(R11, R12, V7, V3)
+	inttL0(R11, R12, V7, V3)
+	inttL0(R11, R12, V7, V3)
+	inttL0(R11, R12, V7, V3)
+	inttL0(R11, R12, V7, V3)
+	inttL0(R11, R12, V7, V3)
+	inttL0(R11, R12, V7, V3)
+	inttL0(R11, R12, V7, V3)
+	inttL0(R11, R12, V7, V3)
+	inttL0(R11, R12, V7, V3)
+	inttL0(R11, R12, V7, V3)
+	inttL0(R11, R12, V7, V3)
 
 	RET
 
