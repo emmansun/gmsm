@@ -81,7 +81,7 @@
 	WORD $0x6e61b415                        \ // SQRDMULH V21.8H, V0.8H, V1.8H (hi' = Round(2*hi))
 	WORD $0x6e7fb6d7                        \ // SQRDMULH V23.8H, V22.8H, V31.8H (corr' = Round(2*corr))
 	VADD V21.H8, V23.H8, VOUT.H8            \ // raw = 2*Result
-	VSSHR $1, VOUT.H8, V20.H8               \ // [-q/2, q/2]
+	VSRI $1, VOUT.H8, V20.H8                \ // [-q/2, q/2]
 	VUSHR  $15, V20.H8, V24.H8              \ // 1 if underflow, else 0
 	VSUB   V24.H8, V28.H8, V24.H8           \ // 0xFFFF if underflow, else 0
 	VAND   V31.B16, V24.B16, V24.B16        \ // q if underflow, else 0
