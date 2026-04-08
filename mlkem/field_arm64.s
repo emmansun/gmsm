@@ -75,6 +75,14 @@
 	VAND   V31.B16, V24.B16, V24.B16        \ // q if underflow, else 0
 	VADD   V20.H8, V24.H8, VOUT.H8           // result in VOUT
 
+#define DBL_MONT_MUL_FIXED(VOUT) \
+	WORD $0x4E619C14                        \ // MUL   V20.8H, V0.8H, V1.8H
+	WORD $0x4E7E9E96                        \ // MUL   V22.8H, V20.8H, V30.8H
+	WORD $0x6e61b415                        \ // SQRDMULH V21.8H, V0.8H, V1.8H (hi' = Round(2*hi))
+	WORD $0x6e7fb6d7                        \ // SQRDMULH V23.8H, V22.8H, V31.8H (corr' = Round(2*corr))
+	VADD V21.H8, V23.H8, VOUT.H8            \ // raw = 2*Result
+	VUSHR $1, VOUT.H8, VOUT.H8
+
 // Forward-only scheduled variant.
 // Uses V27 for t so lo*qNegInv can start before hi has been narrowed.
 // This shortens the dependency chain in the forward butterfly hot path.
@@ -140,16 +148,16 @@
 #define MONT_MUL(VA, VZ, VOUT) \
 	VMOV   VA.B16, V0.B16                    \
 	VMOV   VZ.B16, V1.B16                    \
-	MONT_MUL_FIXED(VOUT)
+	DBL_MONT_MUL_FIXED(VOUT)
 
 // Fast-path when inputs are already in fixed MONT_MUL registers.
 #define MONT_MUL_V0_V1(VOUT) \
-	MONT_MUL_FIXED(VOUT)
+	DBL_MONT_MUL_FIXED(VOUT)
 
 // Fast-path when multiplicand is already in V0; only load the zeta/input into V1.
 #define MONT_MUL_V0_VZ(VZ, VOUT) \
 	VMOV   VZ.B16, V1.B16                    \
-	MONT_MUL_FIXED(VOUT)
+	DBL_MONT_MUL_FIXED(VOUT)
 
 // Corrected fieldReduceOnce (input in [0,2q), output in [0,q)):
 //   try = Vx - q; if try < 0: Vx stays; else Vx = try
