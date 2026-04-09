@@ -29,3 +29,25 @@ func TestNTTMulNEONMatchesGeneric(t *testing.T) {
 		}
 	}
 }
+
+func TestNTTMulAccNEONMatchesGeneric(t *testing.T) {
+	for range 64 {
+		var lhs, rhs, got, want nttElement
+		for i := range lhs {
+			lhs[i] = fieldElement(mathrand.IntN(q))
+			rhs[i] = fieldElement(mathrand.IntN(q))
+			// pre-populate accumulator with random values
+			got[i] = fieldElement(mathrand.IntN(q))
+			want[i] = got[i]
+		}
+
+		nttMulAccNEON(&lhs, &rhs, &got)
+		nttMulAccGeneric(&want, &lhs, &rhs)
+
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("index %d: got %d, want %d", i, got[i], want[i])
+			}
+		}
+	}
+}

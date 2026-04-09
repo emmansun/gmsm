@@ -12,12 +12,15 @@ package mldsa
 //go:noescape
 func nttMulNEON(lhs, rhs, out *nttElement)
 
+//go:noescape
+func nttMulAccNEON(lhs, rhs, out *nttElement)
+
 func nttMul(out, lhs, rhs *nttElement) {
 	nttMulNEON(lhs, rhs, out)
 }
 
 func nttMulAcc(acc, lhs, rhs *nttElement) {
-	nttMulAccGeneric(acc, lhs, rhs)
+	nttMulAccNEON(acc, lhs, rhs)
 }
 
 func polyAddAssign[T ~[n]fieldElement](dst, src *T) {
