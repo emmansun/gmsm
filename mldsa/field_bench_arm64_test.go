@@ -38,3 +38,36 @@ func BenchmarkNTTMulArm64(b *testing.B) {
 		benchmarkNTTMulArm64Sink = out
 	})
 }
+
+func BenchmarkNTTMulAccArm64(b *testing.B) {
+	left := ntt(randomRingElement())
+	right := ntt(randomRingElement())
+	base := ntt(randomRingElement())
+	var acc nttElement
+
+	b.ReportAllocs()
+
+	b.Run("into/generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			acc = base
+			nttMulAccGeneric(&acc, &left, &right)
+		}
+		benchmarkNTTMulArm64Sink = acc
+	})
+
+	b.Run("into/dispatch", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			acc = base
+			nttMulAcc(&acc, &left, &right)
+		}
+		benchmarkNTTMulArm64Sink = acc
+	})
+
+	b.Run("into/neon", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			acc = base
+			nttMulAccNEON(&left, &right, &acc)
+		}
+		benchmarkNTTMulArm64Sink = acc
+	})
+}
