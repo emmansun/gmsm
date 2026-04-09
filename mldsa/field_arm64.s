@@ -135,6 +135,19 @@ done:
 	VAND V31.B16, V24.B16, V24.B16          \ // q if underflow, else 0
 	VADD V20.S4, V24.S4, VOUT.S4              // result in VOUT
 
+// Second fixed-register Montgomery core for V2/V3 inputs.
+// Clobbers: V25,V26,V27,V28,V29
+#define DBL_MONT_MUL_FIXED_23(VOUT) \
+	WORD $0x4ea39c59                        \ // MUL   V25.4S, V2.4S, V3.4S
+	WORD $0x4ebe9f3b                        \ // MUL   V27.4S, V25.4S, V30.4S
+	WORD $0x6ea3b45a                        \ // SQRDMULH V26.4S, V2.4S, V3.4S
+	WORD $0x6ebfb77c                        \ // SQRDMULH V28.4S, V27.4S, V31.4S
+	VADD V26.S4, V28.S4, V25.S4             \ // raw = 2*Result
+	WORD $0x4f3f0739                        \ // VSSHR V25.S4, V25.S4, #1
+	WORD $0x4f21073d                        \ // VSSHR V29.S4, V25.S4, #31
+	VAND V31.B16, V29.B16, V29.B16          \ // q if underflow, else 0
+	VADD V25.S4, V29.S4, VOUT.S4              // result in VOUT
+
 #define MONT_MUL(VA, VZ, VOUT) \
 	VMOV   VA.B16, V0.B16                    \
 	VMOV   VZ.B16, V1.B16                    \
@@ -175,6 +188,19 @@ done:
 	VAND   V31.B16, V24.B16, V24.B16  \
 	VADD   V20.S4, V24.S4, V1.S4
 
+// Specialized forward butterfly for VA=V2, VB=V3.
+// Uses DBL_MONT_MUL_FIXED_23 so it does not clobber V0/V1.
+#define BUTTERFLY23(VZ) \
+	VMOV   V2.B16, V8.B16             \
+	VMOV   VZ.B16, V2.B16             \
+	DBL_MONT_MUL_FIXED_23(V9)         \
+	VADD   V8.S4, V9.S4, V2.S4        \
+	REDUCE_ONCE(V2)                   \
+	VSUB   V9.S4, V8.S4, V20.S4       \
+	WORD   $0x4f210698                \
+	VAND   V31.B16, V24.B16, V24.B16  \
+	VADD   V20.S4, V24.S4, V3.S4
+
 // internalNTTNEON implements the same algorithm as internalNTTGeneric.
 // L0-L5 use dual-butterfly pipelining; L6-L7 use packed shuffle butterflies.
 TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
@@ -205,7 +231,7 @@ ntt_l0_loop:
 	BUTTERFLY01(V7)
 	VST1.P [V0.S4], (16)(R11)
 	VST1.P [V1.S4], (16)(R12)
-	BUTTERFLY(V2, V3, V7)
+	BUTTERFLY23(V7)
 	VST1.P [V2.S4], (16)(R11)
 	VST1.P [V3.S4], (16)(R12)
 	SUBS $1, R4, R4
@@ -230,7 +256,7 @@ ntt_l1_loop:
 	BUTTERFLY01(V7)
 	VST1.P [V0.S4], (16)(R11)
 	VST1.P [V1.S4], (16)(R12)
-	BUTTERFLY(V2, V3, V7)
+	BUTTERFLY23(V7)
 	VST1.P [V2.S4], (16)(R11)
 	VST1.P [V3.S4], (16)(R12)
 	SUBS $1, R4, R4
@@ -258,7 +284,7 @@ ntt_l2_loop:
 	BUTTERFLY01(V7)
 	VST1.P [V0.S4], (16)(R11)
 	VST1.P [V1.S4], (16)(R12)
-	BUTTERFLY(V2, V3, V7)
+	BUTTERFLY23(V7)
 	VST1.P [V2.S4], (16)(R11)
 	VST1.P [V3.S4], (16)(R12)
 	SUBS $1, R4, R4
@@ -286,7 +312,7 @@ ntt_l3_loop:
 	BUTTERFLY01(V7)
 	VST1.P [V0.S4], (16)(R11)
 	VST1.P [V1.S4], (16)(R12)
-	BUTTERFLY(V2, V3, V7)
+	BUTTERFLY23(V7)
 	VST1.P [V2.S4], (16)(R11)
 	VST1.P [V3.S4], (16)(R12)
 	SUBS $1, R4, R4
@@ -314,7 +340,7 @@ ntt_l4_loop:
 	BUTTERFLY01(V7)
 	VST1.P [V0.S4], (16)(R11)
 	VST1.P [V1.S4], (16)(R12)
-	BUTTERFLY(V2, V3, V7)
+	BUTTERFLY23(V7)
 	VST1.P [V2.S4], (16)(R11)
 	VST1.P [V3.S4], (16)(R12)
 	SUBS $1, R4, R4
@@ -336,7 +362,7 @@ ntt_l5_group:
 	VLD1 (R13), [V2.S4, V3.S4]
 	BUTTERFLY01(V7)
 	VST1.P [V0.S4, V1.S4], 32(R6)
-	BUTTERFLY(V2, V3, V6)
+	BUTTERFLY23(V6)
 	VST1.P [V2.S4, V3.S4], 32(R6)
 	SUBS $1, R5, R5
 	BNE ntt_l5_group
