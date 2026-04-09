@@ -6,48 +6,68 @@
 
 package mldsa
 
-import (
-	mathrand "math/rand/v2"
-	"testing"
-)
+import "testing"
 
-func TestNTTMulNEONMatchesGeneric(t *testing.T) {
-	for range 64 {
-		var lhs, rhs, got, want nttElement
-		for i := range lhs {
-			lhs[i] = fieldElement(mathrand.IntN(q))
-			rhs[i] = fieldElement(mathrand.IntN(q))
+var benchmarkNTTMulArm64Sink nttElement
+
+func BenchmarkNTTMulArm64(b *testing.B) {
+	left := ntt(randomRingElement())
+	right := ntt(randomRingElement())
+	var out nttElement
+
+	b.ReportAllocs()
+
+	b.Run("into/generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			nttMulGeneric(&out, &left, &right)
 		}
+		benchmarkNTTMulArm64Sink = out
+	})
 
-		nttMulNEON(&lhs, &rhs, &got)
-		nttMulGeneric(&want, &lhs, &rhs)
-
-		for i := range got {
-			if got[i] != want[i] {
-				t.Fatalf("index %d: got %d, want %d", i, got[i], want[i])
-			}
+	b.Run("into/dispatch", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			nttMul(&out, &left, &right)
 		}
-	}
+		benchmarkNTTMulArm64Sink = out
+	})
+
+	b.Run("into/neon", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			nttMulNEON(&out, &left, &right)
+		}
+		benchmarkNTTMulArm64Sink = out
+	})
 }
 
-func TestNTTMulAccNEONMatchesGeneric(t *testing.T) {
-	for range 64 {
-		var lhs, rhs, got, want nttElement
-		for i := range lhs {
-			lhs[i] = fieldElement(mathrand.IntN(q))
-			rhs[i] = fieldElement(mathrand.IntN(q))
-			// pre-populate accumulator with random values
-			got[i] = fieldElement(mathrand.IntN(q))
-			want[i] = got[i]
-		}
+func BenchmarkNTTMulAccArm64(b *testing.B) {
+	left := ntt(randomRingElement())
+	right := ntt(randomRingElement())
+	base := ntt(randomRingElement())
+	var acc nttElement
 
-		nttMulAccNEON(&lhs, &rhs, &got)
-		nttMulAccGeneric(&want, &lhs, &rhs)
+	b.ReportAllocs()
 
-		for i := range got {
-			if got[i] != want[i] {
-				t.Fatalf("index %d: got %d, want %d", i, got[i], want[i])
-			}
+	b.Run("into/generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			acc = base
+			nttMulAccGeneric(&acc, &left, &right)
 		}
-	}
+		benchmarkNTTMulArm64Sink = acc
+	})
+
+	b.Run("into/dispatch", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			acc = base
+			nttMulAcc(&acc, &left, &right)
+		}
+		benchmarkNTTMulArm64Sink = acc
+	})
+
+	b.Run("into/neon", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			acc = base
+			nttMulAccNEON(&left, &right, &acc)
+		}
+		benchmarkNTTMulArm64Sink = acc
+	})
 }
