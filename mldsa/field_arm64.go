@@ -2,9 +2,31 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build (!amd64 && !arm64) || purego
+//go:build !purego
 
 package mldsa
+
+// Phase 1 bring-up: route only nttMul to arm64 assembly.
+// Other operations stay on generic implementations until verified.
+
+//go:noescape
+func nttMulNEON(lhs, rhs, out *nttElement)
+
+func nttMul(out, lhs, rhs *nttElement) {
+	nttMulNEON(lhs, rhs, out)
+}
+
+func nttMulAcc(acc, lhs, rhs *nttElement) {
+	nttMulAccGeneric(acc, lhs, rhs)
+}
+
+func polyAddAssign[T ~[n]fieldElement](dst, src *T) {
+	polyAddGeneric(dst, src)
+}
+
+func polySubAssign[T ~[n]fieldElement](dst, src *T) {
+	polySubGeneric(dst, src)
+}
 
 func polyInfinityNorm[T ~[n]fieldElement](a *T, norm int) int {
 	return polyInfinityNormGeneric(a, norm)
@@ -12,24 +34,6 @@ func polyInfinityNorm[T ~[n]fieldElement](a *T, norm int) int {
 
 func polyInfinityNormSigned(a *[n]int32, norm int) int {
 	return polyInfinityNormSignedGeneric(a, norm)
-}
-
-func nttMul(out, lhs, rhs *nttElement) {
-	nttMulGeneric(out, lhs, rhs)
-}
-
-func nttMulAcc(acc, lhs, rhs *nttElement) {
-	nttMulAccGeneric(acc, lhs, rhs)
-}
-
-// polyAddAssign updates dst as dst += src (fallback to generic).
-func polyAddAssign[T ~[n]fieldElement](dst, src *T) {
-	polyAddGeneric(dst, src)
-}
-
-// polySubAssign updates dst as dst -= src (fallback to generic).
-func polySubAssign[T ~[n]fieldElement](dst, src *T) {
-	polySubGeneric(dst, src)
 }
 
 func decomposeSubToR0(dst *[n]int32, w, cs2 *ringElement, gamma2 uint32) {
