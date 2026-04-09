@@ -70,7 +70,7 @@ TEXT ·nttMulAccNEON(SB), NOSPLIT, $0-24
 loop:
 	VLD1.P (32)(R0), [V0.S4, V1.S4]   // lhs
 	VLD1.P (32)(R1), [V2.S4, V3.S4]   // rhs
-	VLD1.P (32)(R2), [V4.S4, V5.S4]   // out (acc)
+	VLD1 (R2), [V4.S4, V5.S4]         // out (acc)
 
 	// step 1: V0 * V2
 	WORD $0x4ea29c14                  // MUL   V20.4S, V0.4S, V2.4S

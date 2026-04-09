@@ -20,7 +20,7 @@ func nttMul(out, lhs, rhs *nttElement) {
 }
 
 func nttMulAcc(acc, lhs, rhs *nttElement) {
-	nttMulAccNEON(acc, lhs, rhs)
+	nttMulAccNEON(lhs, rhs, acc)
 }
 
 func polyAddAssign[T ~[n]fieldElement](dst, src *T) {
