@@ -238,7 +238,7 @@ ntt_l1_group:
 ntt_l1_loop:
 	VLD1 (R11), [V0.S4]
 	VLD1 (R12), [V1.S4]
-	BUTTERFLY01(V7)
+	BUTTERFLY01_Z7
 	VST1.P [V0.S4], (16)(R11)
 	VST1.P [V1.S4], (16)(R12)
 	SUBS $1, R4, R4
@@ -259,7 +259,7 @@ ntt_l2_group:
 ntt_l2_loop:
 	VLD1 (R11), [V0.S4]
 	VLD1 (R12), [V1.S4]
-	BUTTERFLY01(V7)
+	BUTTERFLY01_Z7
 	VST1.P [V0.S4], (16)(R11)
 	VST1.P [V1.S4], (16)(R12)
 	SUBS $1, R4, R4
@@ -280,7 +280,7 @@ ntt_l3_group:
 ntt_l3_loop:
 	VLD1 (R11), [V0.S4]
 	VLD1 (R12), [V1.S4]
-	BUTTERFLY01(V7)
+	BUTTERFLY01_Z7
 	VST1.P [V0.S4], (16)(R11)
 	VST1.P [V1.S4], (16)(R12)
 	SUBS $1, R4, R4
@@ -301,7 +301,7 @@ ntt_l4_group:
 ntt_l4_loop:
 	VLD1 (R11), [V0.S4]
 	VLD1 (R12), [V1.S4]
-	BUTTERFLY01(V7)
+	BUTTERFLY01_Z7
 	VST1.P [V0.S4], (16)(R11)
 	VST1.P [V1.S4], (16)(R12)
 	SUBS $1, R4, R4
@@ -320,7 +320,7 @@ ntt_l5_group:
 	ADD $16, R11, R12
 	VLD1 (R11), [V0.S4]
 	VLD1 (R12), [V1.S4]
-	BUTTERFLY01(V7)
+	BUTTERFLY01_Z7
 	VST1 [V0.S4], (R11)
 	VST1 [V1.S4], (R12)
 	ADD $32, R6, R6
@@ -354,7 +354,7 @@ ntt_l7_group:
 	VLD1 (R6), [V20.S4, V21.S4]      // [e0 o0 e1 o1 | e2 o2 e3 o3]
 	VUZP1 V21.S4, V20.S4, V0.S4      // even: [e0 e1 e2 e3]
 	VUZP2 V21.S4, V20.S4, V1.S4      // odd:  [o0 o1 o2 o3]
-	BUTTERFLY01(V7)
+	BUTTERFLY01_Z7
 	VZIP1 V1.S4, V0.S4, V20.S4
 	VZIP2 V1.S4, V0.S4, V21.S4
 	VST1.P [V20.S4, V21.S4], 32(R6)
