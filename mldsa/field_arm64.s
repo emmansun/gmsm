@@ -195,8 +195,13 @@ TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
 	VDUP R10, V7.S4
 	MOVD R0, R11
 	ADD $512, R11, R12
-	MOVD $32, R4
+	MOVD $16, R4
 ntt_l0_loop:
+	VLD1 (R11), [V0.S4]
+	VLD1 (R12), [V1.S4]
+	BUTTERFLY01(V7)
+	VST1.P [V0.S4], (16)(R11)
+	VST1.P [V1.S4], (16)(R12)
 	VLD1 (R11), [V0.S4]
 	VLD1 (R12), [V1.S4]
 	BUTTERFLY01(V7)
@@ -213,8 +218,13 @@ ntt_l1_group:
 	VDUP R10, V7.S4
 	MOVD R6, R11
 	ADD $256, R11, R12
-	MOVD $16, R4
+	MOVD $8, R4
 ntt_l1_loop:
+	VLD1 (R11), [V0.S4]
+	VLD1 (R12), [V1.S4]
+	BUTTERFLY01(V7)
+	VST1.P [V0.S4], (16)(R11)
+	VST1.P [V1.S4], (16)(R12)
 	VLD1 (R11), [V0.S4]
 	VLD1 (R12), [V1.S4]
 	BUTTERFLY01(V7)
@@ -234,8 +244,13 @@ ntt_l2_group:
 	VDUP R10, V7.S4
 	MOVD R6, R11
 	ADD $128, R11, R12
-	MOVD $8, R4
+	MOVD $4, R4
 ntt_l2_loop:
+	VLD1 (R11), [V0.S4]
+	VLD1 (R12), [V1.S4]
+	BUTTERFLY01(V7)
+	VST1.P [V0.S4], (16)(R11)
+	VST1.P [V1.S4], (16)(R12)
 	VLD1 (R11), [V0.S4]
 	VLD1 (R12), [V1.S4]
 	BUTTERFLY01(V7)
@@ -255,8 +270,13 @@ ntt_l3_group:
 	VDUP R10, V7.S4
 	MOVD R6, R11
 	ADD $64, R11, R12
-	MOVD $4, R4
+	MOVD $2, R4
 ntt_l3_loop:
+	VLD1 (R11), [V0.S4]
+	VLD1 (R12), [V1.S4]
+	BUTTERFLY01(V7)
+	VST1.P [V0.S4], (16)(R11)
+	VST1.P [V1.S4], (16)(R12)
 	VLD1 (R11), [V0.S4]
 	VLD1 (R12), [V1.S4]
 	BUTTERFLY01(V7)
@@ -276,8 +296,13 @@ ntt_l4_group:
 	VDUP R10, V7.S4
 	MOVD R6, R11
 	ADD $32, R11, R12
-	MOVD $2, R4
+	MOVD $1, R4
 ntt_l4_loop:
+	VLD1 (R11), [V0.S4]
+	VLD1 (R12), [V1.S4]
+	BUTTERFLY01(V7)
+	VST1.P [V0.S4], (16)(R11)
+	VST1.P [V1.S4], (16)(R12)
 	VLD1 (R11), [V0.S4]
 	VLD1 (R12), [V1.S4]
 	BUTTERFLY01(V7)
@@ -295,19 +320,14 @@ ntt_l4_loop:
 ntt_l5_group:
 	MOVWU.P 4(R1), R10
 	VDUP R10, V7.S4
-	MOVD R6, R11
-	ADD $16, R11, R12
-	VLD1 (R11), [V0.S4]
-	VLD1 (R12), [V1.S4]
+	VLD1 (R6), [V0.S4, V1.S4]
 	BUTTERFLY01(V7)
-	VST1 [V0.S4], (R11)
-	VST1 [V1.S4], (R12)
-	ADD $32, R6, R6
+	VST1.P [V0.S4, V1.S4], 32(R6)
 	SUBS $1, R5, R5
 	BNE ntt_l5_group
 
 	// L6: len=2. Two groups packed per vector butterfly.
-	MOVD $32, R5
+	MOVD $16, R5
 	MOVD R0, R6
 ntt_l6_group:
 	MOVD.P 8(R1), R10
@@ -322,17 +342,37 @@ ntt_l6_group:
 	VZIP2 V1.D2, V0.D2, V21.D2
 	VST1.P [V20.S4, V21.S4], 32(R6)
 
+	MOVD.P 8(R1), R10
+	VDUP R10, V7.D2
+	VZIP1 V7.S4, V7.S4, V7.S4
+	VLD1 (R6), [V20.S4, V21.S4]
+	VZIP1 V21.D2, V20.D2, V0.D2
+	VZIP2 V21.D2, V20.D2, V1.D2
+	BUTTERFLY01(V7)
+	VZIP1 V1.D2, V0.D2, V20.D2
+	VZIP2 V1.D2, V0.D2, V21.D2
+	VST1.P [V20.S4, V21.S4], 32(R6)
+
 	SUBS $1, R5, R5
 	BNE ntt_l6_group
 
 	// L7: len=1. Four groups packed per vector butterfly.
-	MOVD $32, R5
+	MOVD $16, R5
 	MOVD R0, R6
 ntt_l7_group:
 	VLD1.P (16)(R1), [V7.S4]         // [z0 z1 z2 z3]
 	VLD1 (R6), [V20.S4, V21.S4]      // [e0 o0 e1 o1 | e2 o2 e3 o3]
 	VUZP1 V21.S4, V20.S4, V0.S4      // even: [e0 e1 e2 e3]
 	VUZP2 V21.S4, V20.S4, V1.S4      // odd:  [o0 o1 o2 o3]
+	BUTTERFLY01(V7)
+	VZIP1 V1.S4, V0.S4, V20.S4
+	VZIP2 V1.S4, V0.S4, V21.S4
+	VST1.P [V20.S4, V21.S4], 32(R6)
+
+	VLD1.P (16)(R1), [V7.S4]
+	VLD1 (R6), [V20.S4, V21.S4]
+	VUZP1 V21.S4, V20.S4, V0.S4
+	VUZP2 V21.S4, V20.S4, V1.S4
 	BUTTERFLY01(V7)
 	VZIP1 V1.S4, V0.S4, V20.S4
 	VZIP2 V1.S4, V0.S4, V21.S4
