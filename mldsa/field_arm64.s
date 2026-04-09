@@ -176,7 +176,7 @@ done:
 	VADD   V20.S4, V24.S4, V1.S4
 
 // internalNTTNEON implements the same algorithm as internalNTTGeneric.
-// L0-L5 are vectorized (4 lanes of uint32); L6-L7 are scalar for correctness-first bring-up.
+// L0-L5 use dual-butterfly pipelining; L6-L7 use packed shuffle butterflies.
 TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
 	MOVD f+0(FP), R0
 
@@ -189,8 +189,7 @@ TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
 	MOVD $4236238847, R8
 	VDUP R8, V30.S4
 
-
-	// L0: len=128, one zeta, 32 vector butterflies.
+	// L0: len=128, one zeta, 32 vector butterflies (2 per loop).
 	MOVWU.P 4(R1), R10
 	VDUP R10, V7.S4
 	MOVD R0, R11
@@ -199,18 +198,20 @@ TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
 ntt_l0_loop:
 	VLD1 (R11), [V0.S4]
 	VLD1 (R12), [V1.S4]
+	ADD $16, R11, R13
+	ADD $16, R12, R14
+	VLD1 (R13), [V2.S4]
+	VLD1 (R14), [V3.S4]
 	BUTTERFLY01(V7)
+	BUTTERFLY(V2, V3, V7)
 	VST1.P [V0.S4], (16)(R11)
 	VST1.P [V1.S4], (16)(R12)
-	VLD1 (R11), [V0.S4]
-	VLD1 (R12), [V1.S4]
-	BUTTERFLY01(V7)
-	VST1.P [V0.S4], (16)(R11)
-	VST1.P [V1.S4], (16)(R12)
+	VST1.P [V2.S4], (16)(R11)
+	VST1.P [V3.S4], (16)(R12)
 	SUBS $1, R4, R4
 	BNE ntt_l0_loop
 
-	// L1: len=64, two groups, each 16 vector butterflies.
+	// L1: len=64, two groups, each 16 vector butterflies (2 per loop).
 	MOVD $2, R5
 	MOVD R0, R6
 ntt_l1_group:
@@ -222,21 +223,23 @@ ntt_l1_group:
 ntt_l1_loop:
 	VLD1 (R11), [V0.S4]
 	VLD1 (R12), [V1.S4]
+	ADD $16, R11, R13
+	ADD $16, R12, R14
+	VLD1 (R13), [V2.S4]
+	VLD1 (R14), [V3.S4]
 	BUTTERFLY01(V7)
+	BUTTERFLY(V2, V3, V7)
 	VST1.P [V0.S4], (16)(R11)
 	VST1.P [V1.S4], (16)(R12)
-	VLD1 (R11), [V0.S4]
-	VLD1 (R12), [V1.S4]
-	BUTTERFLY01(V7)
-	VST1.P [V0.S4], (16)(R11)
-	VST1.P [V1.S4], (16)(R12)
+	VST1.P [V2.S4], (16)(R11)
+	VST1.P [V3.S4], (16)(R12)
 	SUBS $1, R4, R4
 	BNE ntt_l1_loop
 	ADD $512, R6, R6
 	SUBS $1, R5, R5
 	BNE ntt_l1_group
 
-	// L2: len=32, four groups, each 8 vector butterflies.
+	// L2: len=32, four groups, each 8 vector butterflies (2 per loop).
 	MOVD $4, R5
 	MOVD R0, R6
 ntt_l2_group:
@@ -248,21 +251,23 @@ ntt_l2_group:
 ntt_l2_loop:
 	VLD1 (R11), [V0.S4]
 	VLD1 (R12), [V1.S4]
+	ADD $16, R11, R13
+	ADD $16, R12, R14
+	VLD1 (R13), [V2.S4]
+	VLD1 (R14), [V3.S4]
 	BUTTERFLY01(V7)
+	BUTTERFLY(V2, V3, V7)
 	VST1.P [V0.S4], (16)(R11)
 	VST1.P [V1.S4], (16)(R12)
-	VLD1 (R11), [V0.S4]
-	VLD1 (R12), [V1.S4]
-	BUTTERFLY01(V7)
-	VST1.P [V0.S4], (16)(R11)
-	VST1.P [V1.S4], (16)(R12)
+	VST1.P [V2.S4], (16)(R11)
+	VST1.P [V3.S4], (16)(R12)
 	SUBS $1, R4, R4
 	BNE ntt_l2_loop
 	ADD $256, R6, R6
 	SUBS $1, R5, R5
 	BNE ntt_l2_group
 
-	// L3: len=16, eight groups, each 4 vector butterflies.
+	// L3: len=16, eight groups, each 4 vector butterflies (2 per loop).
 	MOVD $8, R5
 	MOVD R0, R6
 ntt_l3_group:
@@ -274,21 +279,23 @@ ntt_l3_group:
 ntt_l3_loop:
 	VLD1 (R11), [V0.S4]
 	VLD1 (R12), [V1.S4]
+	ADD $16, R11, R13
+	ADD $16, R12, R14
+	VLD1 (R13), [V2.S4]
+	VLD1 (R14), [V3.S4]
 	BUTTERFLY01(V7)
+	BUTTERFLY(V2, V3, V7)
 	VST1.P [V0.S4], (16)(R11)
 	VST1.P [V1.S4], (16)(R12)
-	VLD1 (R11), [V0.S4]
-	VLD1 (R12), [V1.S4]
-	BUTTERFLY01(V7)
-	VST1.P [V0.S4], (16)(R11)
-	VST1.P [V1.S4], (16)(R12)
+	VST1.P [V2.S4], (16)(R11)
+	VST1.P [V3.S4], (16)(R12)
 	SUBS $1, R4, R4
 	BNE ntt_l3_loop
 	ADD $128, R6, R6
 	SUBS $1, R5, R5
 	BNE ntt_l3_group
 
-	// L4: len=8, 16 groups, each 2 vector butterflies.
+	// L4: len=8, 16 groups, each 2 vector butterflies (single dual-butterfly iteration).
 	MOVD $16, R5
 	MOVD R0, R6
 ntt_l4_group:
@@ -300,29 +307,35 @@ ntt_l4_group:
 ntt_l4_loop:
 	VLD1 (R11), [V0.S4]
 	VLD1 (R12), [V1.S4]
+	ADD $16, R11, R13
+	ADD $16, R12, R14
+	VLD1 (R13), [V2.S4]
+	VLD1 (R14), [V3.S4]
 	BUTTERFLY01(V7)
+	BUTTERFLY(V2, V3, V7)
 	VST1.P [V0.S4], (16)(R11)
 	VST1.P [V1.S4], (16)(R12)
-	VLD1 (R11), [V0.S4]
-	VLD1 (R12), [V1.S4]
-	BUTTERFLY01(V7)
-	VST1.P [V0.S4], (16)(R11)
-	VST1.P [V1.S4], (16)(R12)
+	VST1.P [V2.S4], (16)(R11)
+	VST1.P [V3.S4], (16)(R12)
 	SUBS $1, R4, R4
 	BNE ntt_l4_loop
 	ADD $64, R6, R6
 	SUBS $1, R5, R5
 	BNE ntt_l4_group
 
-	// L5: len=4, 32 groups, each 1 vector butterfly.
-	MOVD $32, R5
+	// L5: len=4, 32 groups, dual-butterfly (2 groups per loop).
+	MOVD $16, R5
 	MOVD R0, R6
 ntt_l5_group:
 	MOVWU.P 4(R1), R10
 	VDUP R10, V7.S4
 	VLD1 (R6), [V0.S4, V1.S4]
+	ADD $32, R6, R13
+	VLD1 (R13), [V2.S4, V3.S4]
 	BUTTERFLY01(V7)
+	BUTTERFLY(V2, V3, V7)
 	VST1.P [V0.S4, V1.S4], 32(R6)
+	VST1.P [V2.S4, V3.S4], 32(R6)
 	SUBS $1, R5, R5
 	BNE ntt_l5_group
 
