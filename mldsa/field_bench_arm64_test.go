@@ -9,6 +9,7 @@ package mldsa
 import "testing"
 
 var benchmarkNTTMulArm64Sink nttElement
+var benchmarkInternalNTTArm64Sink ringElement
 
 func BenchmarkNTTMulArm64(b *testing.B) {
 	left := ntt(randomRingElement())
@@ -69,5 +70,36 @@ func BenchmarkNTTMulAccArm64(b *testing.B) {
 			nttMulAccNEON(&left, &right, &acc)
 		}
 		benchmarkNTTMulArm64Sink = acc
+	})
+}
+
+func BenchmarkInternalNTTArm64(b *testing.B) {
+	base := randomRingElement()
+	var value ringElement
+
+	b.ReportAllocs()
+
+	b.Run("into/generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			value = base
+			internalNTTGeneric(&value)
+		}
+		benchmarkInternalNTTArm64Sink = value
+	})
+
+	b.Run("into/dispatch", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			value = base
+			internalNTT(&value)
+		}
+		benchmarkInternalNTTArm64Sink = value
+	})
+
+	b.Run("into/neon", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			value = base
+			internalNTTNEON(&value)
+		}
+		benchmarkInternalNTTArm64Sink = value
 	})
 }
