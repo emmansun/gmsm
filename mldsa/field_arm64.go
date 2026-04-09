@@ -6,14 +6,14 @@
 
 package mldsa
 
-// Phase 1 bring-up: route only nttMul to arm64 assembly.
-// Other operations stay on generic implementations until verified.
-
 //go:noescape
 func nttMulNEON(lhs, rhs, out *nttElement)
 
 //go:noescape
 func nttMulAccNEON(lhs, rhs, out *nttElement)
+
+//go:noescape
+func internalNTTNEON(f *ringElement)
 
 func nttMul(out, lhs, rhs *nttElement) {
 	nttMulNEON(lhs, rhs, out)
@@ -48,7 +48,7 @@ func useHintPoly(dst, h, r *ringElement, gamma2 uint32) {
 }
 
 func internalNTT(f *ringElement) {
-	internalNTTGeneric(f)
+	internalNTTNEON(f)
 }
 
 func internalInverseNTT(f *nttElement) {

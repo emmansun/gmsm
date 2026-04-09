@@ -51,3 +51,23 @@ func TestNTTMulAccNEONMatchesGeneric(t *testing.T) {
 		}
 	}
 }
+
+func TestInternalNTTNEONMatchesGeneric(t *testing.T) {
+	for range 32 {
+		var got, want ringElement
+		for i := range got {
+			v := fieldElement(mathrand.IntN(q))
+			got[i] = v
+			want[i] = v
+		}
+
+		internalNTTNEON(&got)
+		internalNTTGeneric(&want)
+
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("index %d: got %d, want %d", i, got[i], want[i])
+			}
+		}
+	}
+}
