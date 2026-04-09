@@ -175,6 +175,27 @@ done:
 	VAND   V31.B16, V24.B16, V24.B16  \
 	VADD   V20.S4, V24.S4, V1.S4
 
+// Butterfly with zeta in V7, even in V0, odd in V1. Output in V0 (even) and V1 (odd).
+// Clobbers V20,V21,V22,V23,V24.
+#define BUTTERFLY01_Z7                      \
+	WORD $0x4ea19cf4                        \ // MUL   V20.4S, V7.4S, V1.4S
+	WORD $0x4ebe9e96                        \ // MUL   V22.4S, V20.4S, V30.4S
+	WORD $0x6ea1b4f5                        \ // SQRDMULH V21.4S, V7.4S, V1.4S (hi' = Round(2*hi))
+	WORD $0x6ebfb6d7                        \ // SQRDMULH V23.4S, V22.4S, V31.4S (corr' = Round(2*corr))
+	VADD V21.S4, V23.S4, V20.S4             \ // raw = 2*Result
+	WORD $0x4f3f0694                        \ // VSSHR V20.S4, V20.S4, #1
+	WORD $0x4f210698                        \ // VSSHR V24.S4, V20.S4, #31
+	VAND V31.B16, V24.B16, V24.B16          \ // q if underflow, else 0
+	VADD V20.S4, V24.S4, V21.S4             \ // t in V21
+	\ // odd = even - t
+	VSUB V21.S4, V0.S4, V20.S4              \ // odd in V20
+	WORD $0x4f210698                        \ // VSSHR V24.S4, V20.S4, #31
+	VAND V31.B16, V24.B16, V24.B16          \
+	VADD V20.S4, V24.S4, V1.S4	            \
+	\ // even = even + t
+	VADD V21.S4, V0.S4, V0.S4               \
+	REDUCE_ONCE(V0)
+	
 // internalNTTNEON implements the same algorithm as internalNTTGeneric.
 // L0-L5 are vectorized (4 lanes of uint32); L6-L7 are scalar for correctness-first bring-up.
 TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
@@ -199,7 +220,7 @@ TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
 ntt_l0_loop:
 	VLD1 (R11), [V0.S4]
 	VLD1 (R12), [V1.S4]
-	BUTTERFLY01(V7)
+	BUTTERFLY01_Z7
 	VST1.P [V0.S4], (16)(R11)
 	VST1.P [V1.S4], (16)(R12)
 	SUBS $1, R4, R4
