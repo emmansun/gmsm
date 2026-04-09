@@ -197,8 +197,8 @@ TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
 	ADD $512, R11, R12
 	MOVD $32, R4
 ntt_l0_loop:
-	VLD1.P (16)(R11), [V0.S4]
-	VLD1.P (16)(R12), [V1.S4]
+	VLD1 (16)(R11), [V0.S4]
+	VLD1 (16)(R12), [V1.S4]
 	BUTTERFLY01(V7)
 	VST1.P [V0.S4], (16)(R11)
 	VST1.P [V1.S4], (16)(R12)
@@ -215,8 +215,8 @@ ntt_l1_group:
 	ADD $256, R11, R12
 	MOVD $16, R4
 ntt_l1_loop:
-	VLD1.P (16)(R11), [V0.S4]
-	VLD1.P (16)(R12), [V1.S4]
+	VLD1 (16)(R11), [V0.S4]
+	VLD1 (16)(R12), [V1.S4]
 	BUTTERFLY01(V7)
 	VST1.P [V0.S4], (16)(R11)
 	VST1.P [V1.S4], (16)(R12)
@@ -236,8 +236,8 @@ ntt_l2_group:
 	ADD $128, R11, R12
 	MOVD $8, R4
 ntt_l2_loop:
-	VLD1.P (16)(R11), [V0.S4]
-	VLD1.P (16)(R12), [V1.S4]
+	VLD1 (16)(R11), [V0.S4]
+	VLD1 (16)(R12), [V1.S4]
 	BUTTERFLY01(V7)
 	VST1.P [V0.S4], (16)(R11)
 	VST1.P [V1.S4], (16)(R12)
@@ -257,8 +257,8 @@ ntt_l3_group:
 	ADD $64, R11, R12
 	MOVD $4, R4
 ntt_l3_loop:
-	VLD1.P (16)(R11), [V0.S4]
-	VLD1.P (16)(R12), [V1.S4]
+	VLD1 (16)(R11), [V0.S4]
+	VLD1 (16)(R12), [V1.S4]
 	BUTTERFLY01(V7)
 	VST1.P [V0.S4], (16)(R11)
 	VST1.P [V1.S4], (16)(R12)
@@ -278,8 +278,8 @@ ntt_l4_group:
 	ADD $32, R11, R12
 	MOVD $2, R4
 ntt_l4_loop:
-	VLD1.P (16)(R11), [V0.S4]
-	VLD1.P (16)(R12), [V1.S4]
+	VLD1 (16)(R11), [V0.S4]
+	VLD1 (16)(R12), [V1.S4]
 	BUTTERFLY01(V7)
 	VST1.P [V0.S4], (16)(R11)
 	VST1.P [V1.S4], (16)(R12)
