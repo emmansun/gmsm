@@ -356,6 +356,27 @@ func BenchmarkUseHintPolyArm64(b *testing.B) {
 		benchmarkHintArm64Sink = out
 	})
 
+	b.Run("gamma32-sparse/generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			useHintPolyGeneric(&out, &hSparse, &r, gamma2QMinus1Div32)
+		}
+		benchmarkHintArm64Sink = out
+	})
+
+	b.Run("gamma32-sparse/dispatch", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			useHintPoly(&out, &hSparse, &r, gamma2QMinus1Div32)
+		}
+		benchmarkHintArm64Sink = out
+	})
+
+	b.Run("gamma32-sparse/arm64-asm", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			useHintPolyGamma32ARM64(&hSparse[0], &r[0], &out[0])
+		}
+		benchmarkHintArm64Sink = out
+	})
+
 	b.Run("gamma88/generic", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			useHintPolyGeneric(&out, &h, &r, gamma2QMinus1Div88)

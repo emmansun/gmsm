@@ -817,6 +817,11 @@ decompose_sub_to_r0_gamma88_loop:
 	RET
 
 // useHintPolyGamma32ARM64 applies useHint coefficient-wise with gamma2QMinus1Div32.
+//
+// Security note:
+// This routine is used in verification where h is public input from the signature.
+// The logic is data-dependent on h and r0 sign to implement UseHint semantics.
+// Do not copy this style into secret-dependent signing code paths.
 TEXT ·useHintPolyGamma32ARM64(SB), NOSPLIT, $0-24
 	MOVD h+0(FP), R0
 	MOVD r+8(FP), R1
@@ -852,6 +857,23 @@ use_hint_poly_gamma32_loop:
 	VUSHR $22, V4.S4, V4.S4
 	VAND V25.B16, V4.B16, V4.B16
 
+	// Fast path: if this 4-lane h block is all zero, output r1 directly.
+	// This branch is safe here because h is public in verification.
+	VMOV V0.S[0], R12
+	VMOV V0.S[1], R13
+	ORRW R13, R12, R12
+	VMOV V0.S[2], R13
+	ORRW R13, R12, R12
+	VMOV V0.S[3], R13
+	ORRW R13, R12, R12
+	CBNZ R12, use_hint_poly_gamma32_nonzero
+	VST1.P [V4.S4], (16)(R2)
+	SUBS $1, R3, R3
+	BNE use_hint_poly_gamma32_loop
+	RET
+
+use_hint_poly_gamma32_nonzero:
+
 	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
 	VSUB V5.S4, V1.S4, V5.S4
 	VSUB V5.S4, V26.S4, V20.S4
@@ -879,6 +901,11 @@ use_hint_poly_gamma32_loop:
 	RET
 
 // useHintPolyGamma88ARM64 applies useHint coefficient-wise with gamma2QMinus1Div88.
+//
+// Security note:
+// This routine is used in verification where h is public input from the signature.
+// The sparse-h fast path below is intentionally data-dependent on h to improve
+// throughput for sparse hints. Do not reuse this pattern on secret-dependent paths.
 TEXT ·useHintPolyGamma88ARM64(SB), NOSPLIT, $0-24
 	MOVD h+0(FP), R0
 	MOVD r+8(FP), R1
@@ -918,6 +945,8 @@ use_hint_poly_gamma88_loop:
 	VCMEQ V19.S4, V4.S4, V8.S4
 	VBIT V8.B16, V23.B16, V4.B16
 
+	// Fast path: if this 4-lane h block is all zero, output r1 directly.
+	// This branch is safe here because h is public in verification.
 	VMOV V0.S[0], R12
 	VMOV V0.S[1], R13
 	ORRW R13, R12, R12
@@ -930,6 +959,7 @@ use_hint_poly_gamma88_loop:
 	JMP use_hint_poly_gamma88_blk0_done
 
 use_hint_poly_gamma88_blk0_nonzero:
+	// Slow path for non-zero h lanes: apply full UseHint adjustment rules.
 
 	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
 	VSUB V5.S4, V1.S4, V20.S4
@@ -969,6 +999,7 @@ use_hint_poly_gamma88_blk0_done:
 	VCMEQ V19.S4, V4.S4, V8.S4
 	VBIT V8.B16, V23.B16, V4.B16
 
+	// Fast path: if this 4-lane h block is all zero, output r1 directly.
 	VMOV V0.S[0], R12
 	VMOV V0.S[1], R13
 	ORRW R13, R12, R12
@@ -981,6 +1012,7 @@ use_hint_poly_gamma88_blk0_done:
 	JMP use_hint_poly_gamma88_blk1_done
 
 use_hint_poly_gamma88_blk1_nonzero:
+	// Slow path for non-zero h lanes: apply full UseHint adjustment rules.
 
 	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
 	VSUB V5.S4, V1.S4, V20.S4
@@ -1020,6 +1052,7 @@ use_hint_poly_gamma88_blk1_done:
 	VCMEQ V19.S4, V4.S4, V8.S4
 	VBIT V8.B16, V23.B16, V4.B16
 
+	// Fast path: if this 4-lane h block is all zero, output r1 directly.
 	VMOV V0.S[0], R12
 	VMOV V0.S[1], R13
 	ORRW R13, R12, R12
@@ -1032,6 +1065,7 @@ use_hint_poly_gamma88_blk1_done:
 	JMP use_hint_poly_gamma88_blk2_done
 
 use_hint_poly_gamma88_blk2_nonzero:
+	// Slow path for non-zero h lanes: apply full UseHint adjustment rules.
 
 	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
 	VSUB V5.S4, V1.S4, V20.S4
@@ -1071,6 +1105,7 @@ use_hint_poly_gamma88_blk2_done:
 	VCMEQ V19.S4, V4.S4, V8.S4
 	VBIT V8.B16, V23.B16, V4.B16
 
+	// Fast path: if this 4-lane h block is all zero, output r1 directly.
 	VMOV V0.S[0], R12
 	VMOV V0.S[1], R13
 	ORRW R13, R12, R12
@@ -1083,6 +1118,7 @@ use_hint_poly_gamma88_blk2_done:
 	JMP use_hint_poly_gamma88_blk3_done
 
 use_hint_poly_gamma88_blk3_nonzero:
+	// Slow path for non-zero h lanes: apply full UseHint adjustment rules.
 
 	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
 	VSUB V5.S4, V1.S4, V20.S4
