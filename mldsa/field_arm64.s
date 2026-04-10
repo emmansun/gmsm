@@ -918,6 +918,19 @@ use_hint_poly_gamma88_loop:
 	VCMEQ V19.S4, V4.S4, V8.S4
 	VBIT V8.B16, V23.B16, V4.B16
 
+	VMOV V0.S[0], R12
+	VMOV V0.S[1], R13
+	ORRW R13, R12, R12
+	VMOV V0.S[2], R13
+	ORRW R13, R12, R12
+	VMOV V0.S[3], R13
+	ORRW R13, R12, R12
+	CBNZ R12, use_hint_poly_gamma88_blk0_nonzero
+	VST1.P [V4.S4], (16)(R2)
+	JMP use_hint_poly_gamma88_blk0_done
+
+use_hint_poly_gamma88_blk0_nonzero:
+
 	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
 	VSUB V5.S4, V1.S4, V20.S4
 	VCMEQ V23.S4, V20.S4, V6.S4
@@ -941,6 +954,8 @@ use_hint_poly_gamma88_loop:
 	VBIT V11.B16, V7.B16, V4.B16
 
 	VST1.P [V4.S4], (16)(R2)
+
+use_hint_poly_gamma88_blk0_done:
 
 	VLD1.P (16)(R0), [V0.S4]
 	VLD1.P (16)(R1), [V1.S4]
@@ -954,6 +969,19 @@ use_hint_poly_gamma88_loop:
 	VCMEQ V19.S4, V4.S4, V8.S4
 	VBIT V8.B16, V23.B16, V4.B16
 
+	VMOV V0.S[0], R12
+	VMOV V0.S[1], R13
+	ORRW R13, R12, R12
+	VMOV V0.S[2], R13
+	ORRW R13, R12, R12
+	VMOV V0.S[3], R13
+	ORRW R13, R12, R12
+	CBNZ R12, use_hint_poly_gamma88_blk1_nonzero
+	VST1.P [V4.S4], (16)(R2)
+	JMP use_hint_poly_gamma88_blk1_done
+
+use_hint_poly_gamma88_blk1_nonzero:
+
 	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
 	VSUB V5.S4, V1.S4, V20.S4
 	VCMEQ V23.S4, V20.S4, V6.S4
@@ -977,6 +1005,8 @@ use_hint_poly_gamma88_loop:
 	VBIT V11.B16, V7.B16, V4.B16
 
 	VST1.P [V4.S4], (16)(R2)
+
+use_hint_poly_gamma88_blk1_done:
 
 	VLD1.P (16)(R0), [V0.S4]
 	VLD1.P (16)(R1), [V1.S4]
@@ -990,6 +1020,19 @@ use_hint_poly_gamma88_loop:
 	VCMEQ V19.S4, V4.S4, V8.S4
 	VBIT V8.B16, V23.B16, V4.B16
 
+	VMOV V0.S[0], R12
+	VMOV V0.S[1], R13
+	ORRW R13, R12, R12
+	VMOV V0.S[2], R13
+	ORRW R13, R12, R12
+	VMOV V0.S[3], R13
+	ORRW R13, R12, R12
+	CBNZ R12, use_hint_poly_gamma88_blk2_nonzero
+	VST1.P [V4.S4], (16)(R2)
+	JMP use_hint_poly_gamma88_blk2_done
+
+use_hint_poly_gamma88_blk2_nonzero:
+
 	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
 	VSUB V5.S4, V1.S4, V20.S4
 	VCMEQ V23.S4, V20.S4, V6.S4
@@ -1013,6 +1056,8 @@ use_hint_poly_gamma88_loop:
 	VBIT V11.B16, V7.B16, V4.B16
 
 	VST1.P [V4.S4], (16)(R2)
+
+use_hint_poly_gamma88_blk2_done:
 
 	VLD1.P (16)(R0), [V0.S4]
 	VLD1.P (16)(R1), [V1.S4]
@@ -1026,6 +1071,19 @@ use_hint_poly_gamma88_loop:
 	VCMEQ V19.S4, V4.S4, V8.S4
 	VBIT V8.B16, V23.B16, V4.B16
 
+	VMOV V0.S[0], R12
+	VMOV V0.S[1], R13
+	ORRW R13, R12, R12
+	VMOV V0.S[2], R13
+	ORRW R13, R12, R12
+	VMOV V0.S[3], R13
+	ORRW R13, R12, R12
+	CBNZ R12, use_hint_poly_gamma88_blk3_nonzero
+	VST1.P [V4.S4], (16)(R2)
+	JMP use_hint_poly_gamma88_blk3_done
+
+use_hint_poly_gamma88_blk3_nonzero:
+
 	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
 	VSUB V5.S4, V1.S4, V20.S4
 	VCMEQ V23.S4, V20.S4, V6.S4
@@ -1049,6 +1107,8 @@ use_hint_poly_gamma88_loop:
 	VBIT V11.B16, V7.B16, V4.B16
 
 	VST1.P [V4.S4], (16)(R2)
+
+use_hint_poly_gamma88_blk3_done:
 	SUBS $1, R3, R3
 	BNE use_hint_poly_gamma88_loop
 	RET

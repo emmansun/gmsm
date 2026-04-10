@@ -327,6 +327,10 @@ func BenchmarkUseHintPolyArm64(b *testing.B) {
 	for i := range h {
 		h[i] &= 1
 	}
+	hSparse := ringElement{}
+	for i := 0; i < 9; i++ {
+		hSparse[(i*29)%n] = 1
+	}
 	var out ringElement
 
 	b.ReportAllocs()
@@ -369,6 +373,27 @@ func BenchmarkUseHintPolyArm64(b *testing.B) {
 	b.Run("gamma88/arm64-asm", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			useHintPolyGamma88ARM64(&h[0], &r[0], &out[0])
+		}
+		benchmarkHintArm64Sink = out
+	})
+
+	b.Run("gamma88-sparse/generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			useHintPolyGeneric(&out, &hSparse, &r, gamma2QMinus1Div88)
+		}
+		benchmarkHintArm64Sink = out
+	})
+
+	b.Run("gamma88-sparse/dispatch", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			useHintPoly(&out, &hSparse, &r, gamma2QMinus1Div88)
+		}
+		benchmarkHintArm64Sink = out
+	})
+
+	b.Run("gamma88-sparse/arm64-asm", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			useHintPolyGamma88ARM64(&hSparse[0], &r[0], &out[0])
 		}
 		benchmarkHintArm64Sink = out
 	})
