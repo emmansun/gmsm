@@ -124,6 +124,123 @@ done:
 	VAND V31.B16, V24.B16, V24.B16    \
 	VADD V20.S4, V24.S4, VX.S4        // result in VX
 
+// polyAddAssignNEON updates dst[i] = fieldAdd(dst[i], src[i]) for i in [0, 255].
+TEXT ·polyAddAssignNEON(SB), NOSPLIT, $0-16
+	MOVD dst+0(FP), R0
+	MOVD src+8(FP), R1
+
+	MOVD $8380417, R8
+	VDUP R8, V31.S4
+	MOVD $64, R4
+
+poly_add_assign_loop:
+	VLD1 (R0), [V0.S4]
+	VLD1.P (16)(R1), [V1.S4]
+	VADD V1.S4, V0.S4, V0.S4
+	REDUCE_ONCE(V0)
+	VST1.P [V0.S4], (16)(R0)
+	SUBS $1, R4, R4
+	BNE poly_add_assign_loop
+	RET
+
+// polySubAssignNEON updates dst[i] = fieldSub(dst[i], src[i]) for i in [0, 255].
+TEXT ·polySubAssignNEON(SB), NOSPLIT, $0-16
+	MOVD dst+0(FP), R0
+	MOVD src+8(FP), R1
+
+	MOVD $8380417, R8
+	VDUP R8, V31.S4
+	MOVD $64, R4
+
+poly_sub_assign_loop:
+	VLD1 (R0), [V0.S4]
+	VLD1.P (16)(R1), [V1.S4]
+	VSUB V1.S4, V0.S4, V0.S4
+	VADD V31.S4, V0.S4, V0.S4
+	REDUCE_ONCE(V0)
+	VST1.P [V0.S4], (16)(R0)
+	SUBS $1, R4, R4
+	BNE poly_sub_assign_loop
+	RET
+
+// polyInfinityNormNEON returns max(infinityNorm(a[i])) for i in [0, 255].
+TEXT ·polyInfinityNormNEON(SB), NOSPLIT, $0-16
+	MOVD a+0(FP), R0
+	MOVD $0, R9
+
+	MOVD $8380417, R8
+	VDUP R8, V31.S4
+	MOVD $4190208, R8 // (q-1)/2
+	VDUP R8, V29.S4
+	MOVD $64, R4
+
+poly_inf_norm_loop:
+	VLD1.P (16)(R0), [V0.S4]
+	VSUB V0.S4, V31.S4, V1.S4
+	VSUB V0.S4, V29.S4, V20.S4
+	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	VEOR V1.B16, V0.B16, V21.B16
+	VAND V24.B16, V21.B16, V21.B16
+	VEOR V21.B16, V0.B16, V0.B16
+
+	VMOV V0.S[0], R10
+	CMPW R10, R9
+	BGE 2(PC)
+	MOVW R10, R9
+	VMOV V0.S[1], R10
+	CMPW R10, R9
+	BGE 2(PC)
+	MOVW R10, R9
+	VMOV V0.S[2], R10
+	CMPW R10, R9
+	BGE 2(PC)
+	MOVW R10, R9
+	VMOV V0.S[3], R10
+	CMPW R10, R9
+	BGE 2(PC)
+	MOVW R10, R9
+
+	SUBS $1, R4, R4
+	BNE poly_inf_norm_loop
+
+	MOVW R9, ret+8(FP)
+	RET
+
+// polyInfinityNormSignedNEON returns max(abs(a[i])) for i in [0, 255].
+TEXT ·polyInfinityNormSignedNEON(SB), NOSPLIT, $0-16
+	MOVD a+0(FP), R0
+	MOVD $0, R9
+	MOVD $64, R4
+
+poly_inf_norm_signed_loop:
+	VLD1.P (16)(R0), [V20.S4]
+	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	VEOR V24.B16, V20.B16, V21.B16
+	VSUB V24.S4, V21.S4, V0.S4
+
+	VMOV V0.S[0], R10
+	CMPW R10, R9
+	BGE 2(PC)
+	MOVW R10, R9
+	VMOV V0.S[1], R10
+	CMPW R10, R9
+	BGE 2(PC)
+	MOVW R10, R9
+	VMOV V0.S[2], R10
+	CMPW R10, R9
+	BGE 2(PC)
+	MOVW R10, R9
+	VMOV V0.S[3], R10
+	CMPW R10, R9
+	BGE 2(PC)
+	MOVW R10, R9
+
+	SUBS $1, R4, R4
+	BNE poly_inf_norm_signed_loop
+
+	MOVW R9, ret+8(FP)
+	RET
+
 #define DBL_MONT_MUL_FIXED(VOUT) \
 	WORD $0x4ea19c14                        \ // MUL   V20.4S, V0.4S, V1.4S
 	WORD $0x4ebe9e96                        \ // MUL   V22.4S, V20.4S, V30.4S

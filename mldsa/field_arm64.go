@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build !purego
+//go:build arm64 && !purego
 
 package mldsa
 
@@ -18,6 +18,18 @@ func internalNTTNEON(f *ringElement)
 //go:noescape
 func internalInverseNTTNEON(f *nttElement)
 
+//go:noescape
+func polyAddAssignNEON(dst, src *fieldElement)
+
+//go:noescape
+func polySubAssignNEON(dst, src *fieldElement)
+
+//go:noescape
+func polyInfinityNormNEON(a *fieldElement) uint32
+
+//go:noescape
+func polyInfinityNormSignedNEON(a *int32) uint32
+
 func nttMul(out, lhs, rhs *nttElement) {
 	nttMulNEON(lhs, rhs, out)
 }
@@ -27,19 +39,21 @@ func nttMulAcc(acc, lhs, rhs *nttElement) {
 }
 
 func polyAddAssign[T ~[n]fieldElement](dst, src *T) {
-	polyAddGeneric(dst, src)
+	polyAddAssignNEON(&(*dst)[0], &(*src)[0])
 }
 
 func polySubAssign[T ~[n]fieldElement](dst, src *T) {
-	polySubGeneric(dst, src)
+	polySubAssignNEON(&(*dst)[0], &(*src)[0])
 }
 
 func polyInfinityNorm[T ~[n]fieldElement](a *T, norm int) int {
-	return polyInfinityNormGeneric(a, norm)
+	current := uint32(norm)
+	return int(maxUint32(current, polyInfinityNormNEON(&(*a)[0])))
 }
 
 func polyInfinityNormSigned(a *[n]int32, norm int) int {
-	return polyInfinityNormSignedGeneric(a, norm)
+	current := uint32(norm)
+	return int(maxUint32(current, polyInfinityNormSignedNEON(&(*a)[0])))
 }
 
 func decomposeSubToR0(dst *[n]int32, w, cs2 *ringElement, gamma2 uint32) {

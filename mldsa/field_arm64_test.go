@@ -91,3 +91,75 @@ func TestInternalInverseNTTNEONMatchesGeneric(t *testing.T) {
 		}
 	}
 }
+
+func TestPolyAddAssignNEONMatchesGeneric(t *testing.T) {
+	for range 64 {
+		var dstNEON, dstGeneric, src [n]fieldElement
+		for i := range dstNEON {
+			dstNEON[i] = fieldElement(mathrand.IntN(q))
+			dstGeneric[i] = dstNEON[i]
+			src[i] = fieldElement(mathrand.IntN(q))
+		}
+
+		polyAddAssignNEON(&dstNEON[0], &src[0])
+		polyAddGeneric(&dstGeneric, &src)
+
+		for i := range dstNEON {
+			if dstNEON[i] != dstGeneric[i] {
+				t.Fatalf("index %d: got %d, want %d", i, dstNEON[i], dstGeneric[i])
+			}
+		}
+	}
+}
+
+func TestPolySubAssignNEONMatchesGeneric(t *testing.T) {
+	for range 64 {
+		var dstNEON, dstGeneric, src [n]fieldElement
+		for i := range dstNEON {
+			dstNEON[i] = fieldElement(mathrand.IntN(q))
+			dstGeneric[i] = dstNEON[i]
+			src[i] = fieldElement(mathrand.IntN(q))
+		}
+
+		polySubAssignNEON(&dstNEON[0], &src[0])
+		polySubGeneric(&dstGeneric, &src)
+
+		for i := range dstNEON {
+			if dstNEON[i] != dstGeneric[i] {
+				t.Fatalf("index %d: got %d, want %d", i, dstNEON[i], dstGeneric[i])
+			}
+		}
+	}
+}
+
+func TestPolyInfinityNormNEONMatchesGeneric(t *testing.T) {
+	for range 64 {
+		var a [n]fieldElement
+		for i := range a {
+			a[i] = fieldElement(mathrand.IntN(q))
+		}
+		base := mathrand.IntN(int(qMinus1Div2))
+
+		got := int(maxUint32(uint32(base), polyInfinityNormNEON(&a[0])))
+		want := polyInfinityNormGeneric(&a, base)
+		if got != want {
+			t.Fatalf("got %d, want %d", got, want)
+		}
+	}
+}
+
+func TestPolyInfinityNormSignedNEONMatchesGeneric(t *testing.T) {
+	for range 64 {
+		var a [n]int32
+		for i := range a {
+			a[i] = int32(mathrand.IntN(1<<30)) - int32(mathrand.IntN(1<<30))
+		}
+		base := mathrand.IntN(1 << 29)
+
+		got := int(maxUint32(uint32(base), polyInfinityNormSignedNEON(&a[0])))
+		want := polyInfinityNormSignedGeneric(&a, base)
+		if got != want {
+			t.Fatalf("got %d, want %d", got, want)
+		}
+	}
+}
