@@ -15,6 +15,9 @@ func nttMulAccNEON(lhs, rhs, out *nttElement)
 //go:noescape
 func internalNTTNEON(f *ringElement)
 
+//go:noescape
+func internalInverseNTTNEON(f *nttElement)
+
 func nttMul(out, lhs, rhs *nttElement) {
 	nttMulNEON(lhs, rhs, out)
 }
@@ -52,5 +55,5 @@ func internalNTT(f *ringElement) {
 }
 
 func internalInverseNTT(f *nttElement) {
-	internalInverseNTTGeneric(f)
+	internalInverseNTTNEON(f)
 }
