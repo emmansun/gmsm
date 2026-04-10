@@ -194,22 +194,22 @@ poly_inf_norm_loop:
 	SUBS $1, R4, R4
 	BNE poly_inf_norm_loop
 
-	// Horizontal max reduce in vector domain: [a b c d] -> [m m m m].
-	VMOV V27.B16, V0.B16
-	VEXT $8, V0.B16, V0.B16, V1.B16
-	VSUB V1.S4, V0.S4, V20.S4
-	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
-	VEOR V1.B16, V0.B16, V21.B16
-	VAND V24.B16, V21.B16, V21.B16
-	VEOR V21.B16, V0.B16, V0.B16
-	VEXT $4, V0.B16, V0.B16, V1.B16
-	VSUB V1.S4, V0.S4, V20.S4
-	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
-	VEOR V1.B16, V0.B16, V21.B16
-	VAND V24.B16, V21.B16, V21.B16
-	VEOR V21.B16, V0.B16, V0.B16
-
-	VMOV V0.S[0], R9
+	VMOV V27.S[0], R10
+	CMPW R10, R9
+	BGE 2(PC) // if R10 >= R9, skip next MOVW (jump over 1 instruction)
+	MOVW R10, R9
+	VMOV V27.S[1], R10
+	CMPW R10, R9
+	BGE 2(PC) // if R10 >= R9, skip next MOVW
+	MOVW R10, R9
+	VMOV V27.S[2], R10
+	CMPW R10, R9
+	BGE 2(PC) // if R10 >= R9, skip next MOVW
+	MOVW R10, R9
+	VMOV V27.S[3], R10
+	CMPW R10, R9
+	BGE 2(PC) // if R10 >= R9, skip next MOVW
+	MOVW R10, R9
 
 	MOVW R9, ret+8(FP)
 	RET
@@ -242,23 +242,22 @@ poly_inf_norm_signed_loop:
 	SUBS $1, R4, R4
 	BNE poly_inf_norm_signed_loop
 
-	// Horizontal unsigned max reduce via sign-bit bias transform.
-	VEOR V28.B16, V27.B16, V0.B16
-	VEXT $8, V0.B16, V0.B16, V1.B16
-	VSUB V1.S4, V0.S4, V20.S4
-	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
-	VEOR V1.B16, V0.B16, V21.B16
-	VAND V24.B16, V21.B16, V21.B16
-	VEOR V21.B16, V0.B16, V0.B16
-	VEXT $4, V0.B16, V0.B16, V1.B16
-	VSUB V1.S4, V0.S4, V20.S4
-	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
-	VEOR V1.B16, V0.B16, V21.B16
-	VAND V24.B16, V21.B16, V21.B16
-	VEOR V21.B16, V0.B16, V0.B16
-	VEOR V28.B16, V0.B16, V0.B16
-
-	VMOV V0.S[0], R9
+	VMOV V27.S[0], R10
+	CMPW R10, R9
+	BGE 2(PC) // if R10 >= R9, skip next MOVW (jump over 1 instruction)
+	MOVW R10, R9
+	VMOV V27.S[1], R10
+	CMPW R10, R9
+	BGE 2(PC) // if R10 >= R9, skip next MOVW
+	MOVW R10, R9
+	VMOV V27.S[2], R10
+	CMPW R10, R9
+	BGE 2(PC) // if R10 >= R9, skip next MOVW
+	MOVW R10, R9
+	VMOV V27.S[3], R10
+	CMPW R10, R9
+	BGE 2(PC) // if R10 >= R9, skip next MOVW
+	MOVW R10, R9
 
 	MOVW R9, ret+8(FP)
 	RET
@@ -713,4 +712,238 @@ intt_scale_loop:
 	SUBS $1, R4, R4
 	BNE intt_scale_loop
 
+	RET
+
+// decomposeSubToR0Gamma32ARM64 computes decompose(fieldSub(w, cs2), gamma2QMinus1Div32).r0.
+TEXT ·decomposeSubToR0Gamma32ARM64(SB), NOSPLIT, $0-24
+	MOVD w+0(FP), R0
+	MOVD cs2+8(FP), R1
+	MOVD out+16(FP), R2
+	MOVD $64, R3
+
+	MOVD $8380417, R8
+	VDUP R8, V31.S4
+	MOVD $127, R8
+	VDUP R8, V30.S4
+	MOVD $1025, R8
+	VDUP R8, V29.S4
+	MOVD $2097152, R8
+	VDUP R8, V28.S4
+	MOVD $523776, R8
+	VDUP R8, V27.S4
+	MOVD $4190208, R8
+	VDUP R8, V26.S4
+	MOVD $15, R8
+	VDUP R8, V25.S4
+
+decompose_sub_to_r0_gamma32_loop:
+	VLD1.P (16)(R0), [V0.S4]
+	VLD1.P (16)(R1), [V1.S4]
+
+	VADD V31.S4, V0.S4, V2.S4
+	VSUB V1.S4, V2.S4, V2.S4
+	REDUCE_ONCE(V2)
+
+	VADD V30.S4, V2.S4, V3.S4
+	VUSHR $7, V3.S4, V3.S4
+	WORD $0x4ebd9c64                  // MUL   V4.4S, V3.4S, V29.4S
+	VADD V28.S4, V4.S4, V4.S4
+	VUSHR $22, V4.S4, V4.S4
+	VAND V25.B16, V4.B16, V4.B16
+
+	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
+	VSUB V5.S4, V2.S4, V5.S4
+	VSUB V5.S4, V26.S4, V20.S4
+	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	VAND V31.B16, V24.B16, V24.B16
+	VSUB V24.S4, V5.S4, V5.S4
+
+	VST1.P [V5.S4], (16)(R2)
+	SUBS $1, R3, R3
+	BNE decompose_sub_to_r0_gamma32_loop
+	RET
+
+// decomposeSubToR0Gamma88ARM64 computes decompose(fieldSub(w, cs2), gamma2QMinus1Div88).r0.
+TEXT ·decomposeSubToR0Gamma88ARM64(SB), NOSPLIT, $0-24
+	MOVD w+0(FP), R0
+	MOVD cs2+8(FP), R1
+	MOVD out+16(FP), R2
+	MOVD $64, R3
+
+	MOVD $8380417, R8
+	VDUP R8, V31.S4
+	MOVD $127, R8
+	VDUP R8, V30.S4
+	MOVD $11275, R8
+	VDUP R8, V29.S4
+	MOVD $8388608, R8
+	VDUP R8, V28.S4
+	MOVD $190464, R8
+	VDUP R8, V27.S4
+	MOVD $4190208, R8
+	VDUP R8, V26.S4
+	MOVD $43, R8
+	VDUP R8, V25.S4
+
+decompose_sub_to_r0_gamma88_loop:
+	VLD1.P (16)(R0), [V0.S4]
+	VLD1.P (16)(R1), [V1.S4]
+
+	VADD V31.S4, V0.S4, V2.S4
+	VSUB V1.S4, V2.S4, V2.S4
+	REDUCE_ONCE(V2)
+
+	VADD V30.S4, V2.S4, V3.S4
+	VUSHR $7, V3.S4, V3.S4
+	WORD $0x4ebd9c64                  // MUL   V4.4S, V3.4S, V29.4S
+	VADD V28.S4, V4.S4, V4.S4
+	VUSHR $24, V4.S4, V4.S4
+
+	VSUB V4.S4, V25.S4, V20.S4
+	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	VAND V4.B16, V24.B16, V24.B16
+	VEOR V24.B16, V4.B16, V4.B16
+
+	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
+	VSUB V5.S4, V2.S4, V5.S4
+	VSUB V5.S4, V26.S4, V20.S4
+	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	VAND V31.B16, V24.B16, V24.B16
+	VSUB V24.S4, V5.S4, V5.S4
+
+	VST1.P [V5.S4], (16)(R2)
+	SUBS $1, R3, R3
+	BNE decompose_sub_to_r0_gamma88_loop
+	RET
+
+// useHintPolyGamma32ARM64 applies useHint coefficient-wise with gamma2QMinus1Div32.
+TEXT ·useHintPolyGamma32ARM64(SB), NOSPLIT, $0-24
+	MOVD h+0(FP), R0
+	MOVD r+8(FP), R1
+	MOVD out+16(FP), R2
+	MOVD $64, R3
+
+	MOVD $8380417, R8
+	VDUP R8, V31.S4
+	MOVD $127, R8
+	VDUP R8, V30.S4
+	MOVD $1025, R8
+	VDUP R8, V29.S4
+	MOVD $2097152, R8
+	VDUP R8, V28.S4
+	MOVD $523776, R8
+	VDUP R8, V27.S4
+	MOVD $4190208, R8
+	VDUP R8, V26.S4
+	MOVD $15, R8
+	VDUP R8, V25.S4
+	MOVD $1, R8
+	VDUP R8, V22.S4
+	VEOR V23.B16, V23.B16, V23.B16
+
+use_hint_poly_gamma32_loop:
+	VLD1.P (16)(R0), [V0.S4]
+	VLD1.P (16)(R1), [V1.S4]
+
+	VADD V30.S4, V1.S4, V3.S4
+	VUSHR $7, V3.S4, V3.S4
+	WORD $0x4ebd9c64                  // MUL   V4.4S, V3.4S, V29.4S
+	VADD V28.S4, V4.S4, V4.S4
+	VUSHR $22, V4.S4, V4.S4
+	VAND V25.B16, V4.B16, V4.B16
+
+	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
+	VSUB V5.S4, V1.S4, V5.S4
+	VSUB V5.S4, V26.S4, V20.S4
+	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	VAND V31.B16, V24.B16, V24.B16
+	VSUB V24.S4, V5.S4, V5.S4
+
+	VCMEQ V23.S4, V5.S4, V6.S4
+	VMOV V5.B16, V20.B16
+	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	VORR V24.B16, V6.B16, V6.B16
+
+	VADD V22.S4, V4.S4, V7.S4
+	VAND V25.B16, V7.B16, V7.B16
+	VSUB V22.S4, V4.S4, V8.S4
+	VAND V25.B16, V8.B16, V8.B16
+	VBIT V6.B16, V8.B16, V7.B16
+
+	VSUB V0.S4, V23.S4, V9.S4
+	VBIT V9.B16, V7.B16, V4.B16
+
+	VST1.P [V4.S4], (16)(R2)
+	SUBS $1, R3, R3
+	BNE use_hint_poly_gamma32_loop
+	RET
+
+// useHintPolyGamma88ARM64 applies useHint coefficient-wise with gamma2QMinus1Div88.
+TEXT ·useHintPolyGamma88ARM64(SB), NOSPLIT, $0-24
+	MOVD h+0(FP), R0
+	MOVD r+8(FP), R1
+	MOVD out+16(FP), R2
+	MOVD $64, R3
+
+	MOVD $8380417, R8
+	VDUP R8, V31.S4
+	MOVD $127, R8
+	VDUP R8, V30.S4
+	MOVD $11275, R8
+	VDUP R8, V29.S4
+	MOVD $8388608, R8
+	VDUP R8, V28.S4
+	MOVD $190464, R8
+	VDUP R8, V27.S4
+	MOVD $4190208, R8
+	VDUP R8, V26.S4
+	MOVD $43, R8
+	VDUP R8, V25.S4
+	MOVD $1, R8
+	VDUP R8, V22.S4
+	VEOR V23.B16, V23.B16, V23.B16
+
+use_hint_poly_gamma88_loop:
+	VLD1.P (16)(R0), [V0.S4]
+	VLD1.P (16)(R1), [V1.S4]
+
+	VADD V30.S4, V1.S4, V3.S4
+	VUSHR $7, V3.S4, V3.S4
+	WORD $0x4ebd9c64                  // MUL   V4.4S, V3.4S, V29.4S
+	VADD V28.S4, V4.S4, V4.S4
+	VUSHR $24, V4.S4, V4.S4
+
+	VSUB V4.S4, V25.S4, V20.S4
+	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	VAND V4.B16, V24.B16, V24.B16
+	VEOR V24.B16, V4.B16, V4.B16
+
+	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
+	VSUB V5.S4, V1.S4, V5.S4
+	VSUB V5.S4, V26.S4, V20.S4
+	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	VAND V31.B16, V24.B16, V24.B16
+	VSUB V24.S4, V5.S4, V5.S4
+
+	VCMEQ V23.S4, V5.S4, V6.S4
+	VMOV V5.B16, V20.B16
+	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	VORR V24.B16, V6.B16, V6.B16
+
+	VADD V22.S4, V4.S4, V7.S4
+	VCMEQ V25.S4, V4.S4, V8.S4
+	VBIT V8.B16, V23.B16, V7.B16
+
+	VSUB V22.S4, V4.S4, V9.S4
+	VCMEQ V23.S4, V4.S4, V10.S4
+	VBIT V10.B16, V25.B16, V9.B16
+
+	VBIT V6.B16, V9.B16, V7.B16
+
+	VSUB V0.S4, V23.S4, V11.S4
+	VBIT V11.B16, V7.B16, V4.B16
+
+	VST1.P [V4.S4], (16)(R2)
+	SUBS $1, R3, R3
+	BNE use_hint_poly_gamma88_loop
 	RET

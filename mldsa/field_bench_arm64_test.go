@@ -14,6 +14,8 @@ var benchmarkInverseNTTArm64Sink nttElement
 var benchmarkPolyRingArm64Sink ringElement
 var benchmarkPolyNTTArm64Sink nttElement
 var benchmarkNormArm64Sink uint32
+var benchmarkR0Arm64Sink [n]int32
+var benchmarkHintArm64Sink ringElement
 
 func BenchmarkNTTMulArm64(b *testing.B) {
 	left := ntt(randomRingElement())
@@ -266,5 +268,108 @@ func BenchmarkPolyInfinityNormSignedArm64(b *testing.B) {
 			out = polyInfinityNormSignedNEON(&a[0])
 		}
 		benchmarkNormArm64Sink = out
+	})
+}
+
+func BenchmarkDecomposeSubToR0Arm64(b *testing.B) {
+	w := randomRingElement()
+	cs2 := randomRingElement()
+	var out [n]int32
+
+	b.ReportAllocs()
+
+	b.Run("gamma32/generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			decomposeSubToR0Generic(&out, &w, &cs2, gamma2QMinus1Div32)
+		}
+		benchmarkR0Arm64Sink = out
+	})
+
+	b.Run("gamma32/dispatch", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			decomposeSubToR0(&out, &w, &cs2, gamma2QMinus1Div32)
+		}
+		benchmarkR0Arm64Sink = out
+	})
+
+	b.Run("gamma32/arm64-asm", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			decomposeSubToR0Gamma32ARM64(&w[0], &cs2[0], &out[0])
+		}
+		benchmarkR0Arm64Sink = out
+	})
+
+	b.Run("gamma88/generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			decomposeSubToR0Generic(&out, &w, &cs2, gamma2QMinus1Div88)
+		}
+		benchmarkR0Arm64Sink = out
+	})
+
+	b.Run("gamma88/dispatch", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			decomposeSubToR0(&out, &w, &cs2, gamma2QMinus1Div88)
+		}
+		benchmarkR0Arm64Sink = out
+	})
+
+	b.Run("gamma88/arm64-asm", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			decomposeSubToR0Gamma88ARM64(&w[0], &cs2[0], &out[0])
+		}
+		benchmarkR0Arm64Sink = out
+	})
+}
+
+func BenchmarkUseHintPolyArm64(b *testing.B) {
+	h := randomRingElement()
+	r := randomRingElement()
+	for i := range h {
+		h[i] &= 1
+	}
+	var out ringElement
+
+	b.ReportAllocs()
+
+	b.Run("gamma32/generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			useHintPolyGeneric(&out, &h, &r, gamma2QMinus1Div32)
+		}
+		benchmarkHintArm64Sink = out
+	})
+
+	b.Run("gamma32/dispatch", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			useHintPoly(&out, &h, &r, gamma2QMinus1Div32)
+		}
+		benchmarkHintArm64Sink = out
+	})
+
+	b.Run("gamma32/arm64-asm", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			useHintPolyGamma32ARM64(&h[0], &r[0], &out[0])
+		}
+		benchmarkHintArm64Sink = out
+	})
+
+	b.Run("gamma88/generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			useHintPolyGeneric(&out, &h, &r, gamma2QMinus1Div88)
+		}
+		benchmarkHintArm64Sink = out
+	})
+
+	b.Run("gamma88/dispatch", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			useHintPoly(&out, &h, &r, gamma2QMinus1Div88)
+		}
+		benchmarkHintArm64Sink = out
+	})
+
+	b.Run("gamma88/arm64-asm", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			useHintPolyGamma88ARM64(&h[0], &r[0], &out[0])
+		}
+		benchmarkHintArm64Sink = out
 	})
 }

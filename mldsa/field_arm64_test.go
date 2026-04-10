@@ -152,7 +152,9 @@ func TestPolyInfinityNormSignedNEONMatchesGeneric(t *testing.T) {
 	for range 64 {
 		var a [n]int32
 		for i := range a {
-			a[i] = int32(mathrand.IntN(1<<30)) - int32(mathrand.IntN(1<<30))
+			left := int32(mathrand.IntN(1 << 30))
+			right := int32(mathrand.IntN(1 << 30))
+			a[i] = left - right
 		}
 		base := mathrand.IntN(1 << 29)
 
@@ -160,6 +162,121 @@ func TestPolyInfinityNormSignedNEONMatchesGeneric(t *testing.T) {
 		want := polyInfinityNormSignedGeneric(&a, base)
 		if got != want {
 			t.Fatalf("got %d, want %d", got, want)
+		}
+	}
+}
+
+func TestDecomposeSubToR0Gamma32ARM64(t *testing.T) {
+	for i := 0; i < 16; i++ {
+		w := randomRingElement()
+		cs2 := randomRingElement()
+
+		var got [n]int32
+		decomposeSubToR0Gamma32ARM64(&w[0], &cs2[0], &got[0])
+
+		var want [n]int32
+		decomposeSubToR0Generic(&want, &w, &cs2, gamma2QMinus1Div32)
+
+		if got != want {
+			t.Fatalf("decomposeSubToR0Gamma32ARM64 mismatch on iteration %d", i)
+		}
+	}
+}
+
+func TestDecomposeSubToR0Gamma88ARM64(t *testing.T) {
+	for i := 0; i < 16; i++ {
+		w := randomRingElement()
+		cs2 := randomRingElement()
+
+		var got [n]int32
+		decomposeSubToR0Gamma88ARM64(&w[0], &cs2[0], &got[0])
+
+		var want [n]int32
+		decomposeSubToR0Generic(&want, &w, &cs2, gamma2QMinus1Div88)
+
+		if got != want {
+			t.Fatalf("decomposeSubToR0Gamma88ARM64 mismatch on iteration %d", i)
+		}
+	}
+}
+
+func TestDecomposeSubToR0ARM64Dispatch(t *testing.T) {
+	for i := 0; i < 16; i++ {
+		w := randomRingElement()
+		cs2 := randomRingElement()
+
+		for _, gamma2 := range []uint32{gamma2QMinus1Div32, gamma2QMinus1Div88} {
+			var got [n]int32
+			decomposeSubToR0(&got, &w, &cs2, gamma2)
+
+			var want [n]int32
+			decomposeSubToR0Generic(&want, &w, &cs2, gamma2)
+
+			if got != want {
+				t.Fatalf("decomposeSubToR0 mismatch on iteration %d gamma2=%d", i, gamma2)
+			}
+		}
+	}
+}
+
+func TestUseHintPolyGamma32ARM64(t *testing.T) {
+	for i := 0; i < 16; i++ {
+		h := randomRingElement()
+		r := randomRingElement()
+		for j := range h {
+			h[j] &= 1
+		}
+
+		var got ringElement
+		useHintPolyGamma32ARM64(&h[0], &r[0], &got[0])
+
+		var want ringElement
+		useHintPolyGeneric(&want, &h, &r, gamma2QMinus1Div32)
+
+		if got != want {
+			t.Fatalf("useHintPolyGamma32ARM64 mismatch on iteration %d", i)
+		}
+	}
+}
+
+func TestUseHintPolyGamma88ARM64(t *testing.T) {
+	for i := 0; i < 16; i++ {
+		h := randomRingElement()
+		r := randomRingElement()
+		for j := range h {
+			h[j] &= 1
+		}
+
+		var got ringElement
+		useHintPolyGamma88ARM64(&h[0], &r[0], &got[0])
+
+		var want ringElement
+		useHintPolyGeneric(&want, &h, &r, gamma2QMinus1Div88)
+
+		if got != want {
+			t.Fatalf("useHintPolyGamma88ARM64 mismatch on iteration %d", i)
+		}
+	}
+}
+
+func TestUseHintPolyARM64Dispatch(t *testing.T) {
+	for i := 0; i < 16; i++ {
+		h := randomRingElement()
+		r := randomRingElement()
+		for j := range h {
+			h[j] &= 1
+		}
+
+		for _, gamma2 := range []uint32{gamma2QMinus1Div32, gamma2QMinus1Div88} {
+			var got ringElement
+			useHintPoly(&got, &h, &r, gamma2)
+
+			var want ringElement
+			useHintPolyGeneric(&want, &h, &r, gamma2)
+
+			if got != want {
+				t.Fatalf("useHintPoly mismatch on iteration %d gamma2=%d", i, gamma2)
+			}
 		}
 	}
 }
