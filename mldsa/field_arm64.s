@@ -195,7 +195,7 @@ done:
 	\ // even = even + t
 	VADD V21.S4, V0.S4, V0.S4               \
 	REDUCE_ONCE(V0)
-	
+
 // internalNTTNEON implements the same algorithm as internalNTTGeneric.
 // L0-L5 are vectorized (4 lanes of uint32); L6-L7 are scalar for correctness-first bring-up.
 TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
@@ -322,10 +322,13 @@ ntt_l5_group:
 	SUBS $1, R5, R5
 	BNE ntt_l5_group
 
+	// Merged L6 and L7
 	// L6: len=2. Two groups packed per vector butterfly.
+	// L7: len=1. Four groups packed per vector butterfly.
 	MOVD $32, R5
 	MOVD R0, R6
-ntt_l6_group:
+	ADD $256, R1, R7
+ntt_l6l7_group:
 	MOVD.P 8(R1), R10
 	VDUP R10, V7.D2
 	VZIP1 V7.S4, V7.S4, V7.S4 // [z0 z0 z1 z1]
@@ -334,28 +337,16 @@ ntt_l6_group:
 	VZIP1 V21.D2, V20.D2, V0.D2 // even: [e0 e1 e2 e3]
 	VZIP2 V21.D2, V20.D2, V1.D2 // odd:  [o0 o1 o2 o3]
 	BUTTERFLY01_Z7
+
+	VLD1.P (16)(R7), [V7.S4]         // [z0 z1 z2 z3]
+	BUTTERFLY01_Z7
+
 	VZIP1 V1.D2, V0.D2, V20.D2
 	VZIP2 V1.D2, V0.D2, V21.D2
 	VST1.P [V20.S4, V21.S4], 32(R6)
 
 	SUBS $1, R5, R5
-	BNE ntt_l6_group
-
-	// L7: len=1. Four groups packed per vector butterfly.
-	MOVD $32, R5
-	MOVD R0, R6
-ntt_l7_group:
-	VLD1.P (16)(R1), [V7.S4]         // [z0 z1 z2 z3]
-	VLD1 (R6), [V20.S4, V21.S4]      // [e0 o0 e1 o1 | e2 o2 e3 o3]
-	VUZP1 V21.S4, V20.S4, V0.S4      // even: [e0 e1 e2 e3]
-	VUZP2 V21.S4, V20.S4, V1.S4      // odd:  [o0 o1 o2 o3]
-	BUTTERFLY01_Z7
-	VZIP1 V1.S4, V0.S4, V20.S4
-	VZIP2 V1.S4, V0.S4, V21.S4
-	VST1.P [V20.S4, V21.S4], 32(R6)
-
-	SUBS $1, R5, R5
-	BNE ntt_l7_group
+	BNE ntt_l6l7_group
 
 	RET
 	
