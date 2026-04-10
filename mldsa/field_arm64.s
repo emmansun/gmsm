@@ -173,6 +173,7 @@ TEXT ·polyInfinityNormNEON(SB), NOSPLIT, $0-16
 	MOVD $4190208, R8 // (q-1)/2
 	VDUP R8, V29.S4
 	MOVD $64, R4
+	VEOR V27.B16, V27.B16, V27.B16 // running max
 
 poly_inf_norm_loop:
 	VLD1.P (16)(R0), [V0.S4]
@@ -183,25 +184,32 @@ poly_inf_norm_loop:
 	VAND V24.B16, V21.B16, V21.B16
 	VEOR V21.B16, V0.B16, V0.B16
 
-	VMOV V0.S[0], R10
-	CMPW R10, R9
-	BGE 2(PC)
-	MOVW R10, R9
-	VMOV V0.S[1], R10
-	CMPW R10, R9
-	BGE 2(PC)
-	MOVW R10, R9
-	VMOV V0.S[2], R10
-	CMPW R10, R9
-	BGE 2(PC)
-	MOVW R10, R9
-	VMOV V0.S[3], R10
-	CMPW R10, R9
-	BGE 2(PC)
-	MOVW R10, R9
+	// lane-wise signed max is valid here because infinityNorm(a) <= q < 2^31.
+	VSUB V0.S4, V27.S4, V20.S4
+	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	VEOR V0.B16, V27.B16, V21.B16
+	VAND V24.B16, V21.B16, V21.B16
+	VEOR V21.B16, V27.B16, V27.B16
 
 	SUBS $1, R4, R4
 	BNE poly_inf_norm_loop
+
+	// Horizontal max reduce in vector domain: [a b c d] -> [m m m m].
+	VMOV V27.B16, V0.B16
+	VEXT $8, V0.B16, V0.B16, V1.B16
+	VSUB V1.S4, V0.S4, V20.S4
+	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	VEOR V1.B16, V0.B16, V21.B16
+	VAND V24.B16, V21.B16, V21.B16
+	VEOR V21.B16, V0.B16, V0.B16
+	VEXT $4, V0.B16, V0.B16, V1.B16
+	VSUB V1.S4, V0.S4, V20.S4
+	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	VEOR V1.B16, V0.B16, V21.B16
+	VAND V24.B16, V21.B16, V21.B16
+	VEOR V21.B16, V0.B16, V0.B16
+
+	VMOV V0.S[0], R9
 
 	MOVW R9, ret+8(FP)
 	RET
@@ -211,6 +219,9 @@ TEXT ·polyInfinityNormSignedNEON(SB), NOSPLIT, $0-16
 	MOVD a+0(FP), R0
 	MOVD $0, R9
 	MOVD $64, R4
+	VEOR V27.B16, V27.B16, V27.B16 // running max (unsigned domain)
+	MOVD $0x80000000, R8
+	VDUP R8, V28.S4
 
 poly_inf_norm_signed_loop:
 	VLD1.P (16)(R0), [V20.S4]
@@ -218,25 +229,36 @@ poly_inf_norm_signed_loop:
 	VEOR V24.B16, V20.B16, V21.B16
 	VSUB V24.S4, V21.S4, V0.S4
 
-	VMOV V0.S[0], R10
-	CMPW R10, R9
-	BGE 2(PC)
-	MOVW R10, R9
-	VMOV V0.S[1], R10
-	CMPW R10, R9
-	BGE 2(PC)
-	MOVW R10, R9
-	VMOV V0.S[2], R10
-	CMPW R10, R9
-	BGE 2(PC)
-	MOVW R10, R9
-	VMOV V0.S[3], R10
-	CMPW R10, R9
-	BGE 2(PC)
-	MOVW R10, R9
+	// unsigned lane-wise max via sign-bit bias transform.
+	VEOR V28.B16, V27.B16, V25.B16
+	VEOR V28.B16, V0.B16, V26.B16
+	VSUB V26.S4, V25.S4, V20.S4
+	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	VEOR V26.B16, V25.B16, V21.B16
+	VAND V24.B16, V21.B16, V21.B16
+	VEOR V21.B16, V25.B16, V25.B16
+	VEOR V28.B16, V25.B16, V27.B16
 
 	SUBS $1, R4, R4
 	BNE poly_inf_norm_signed_loop
+
+	// Horizontal unsigned max reduce via sign-bit bias transform.
+	VEOR V28.B16, V27.B16, V0.B16
+	VEXT $8, V0.B16, V0.B16, V1.B16
+	VSUB V1.S4, V0.S4, V20.S4
+	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	VEOR V1.B16, V0.B16, V21.B16
+	VAND V24.B16, V21.B16, V21.B16
+	VEOR V21.B16, V0.B16, V0.B16
+	VEXT $4, V0.B16, V0.B16, V1.B16
+	VSUB V1.S4, V0.S4, V20.S4
+	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	VEOR V1.B16, V0.B16, V21.B16
+	VAND V24.B16, V21.B16, V21.B16
+	VEOR V21.B16, V0.B16, V0.B16
+	VEOR V28.B16, V0.B16, V0.B16
+
+	VMOV V0.S[0], R9
 
 	MOVW R9, ret+8(FP)
 	RET
