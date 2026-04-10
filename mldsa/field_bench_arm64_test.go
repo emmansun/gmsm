@@ -10,6 +10,7 @@ import "testing"
 
 var benchmarkNTTMulArm64Sink nttElement
 var benchmarkInternalNTTArm64Sink ringElement
+var benchmarkInverseNTTArm64Sink nttElement
 
 func BenchmarkNTTMulArm64(b *testing.B) {
 	left := ntt(randomRingElement())
@@ -101,5 +102,38 @@ func BenchmarkInternalNTTArm64(b *testing.B) {
 			internalNTTNEON(&value)
 		}
 		benchmarkInternalNTTArm64Sink = value
+	})
+}
+
+func BenchmarkInverseNTTArm64(b *testing.B) {
+	base := randomRingElement()
+	input := nttElement(base)
+	internalNTTGeneric((*ringElement)(&input))
+	var value nttElement
+
+	b.ReportAllocs()
+
+	b.Run("into/generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			value = input
+			internalInverseNTTGeneric(&value)
+		}
+		benchmarkInverseNTTArm64Sink = value
+	})
+
+	b.Run("into/dispatch", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			value = input
+			internalInverseNTT(&value)
+		}
+		benchmarkInverseNTTArm64Sink = value
+	})
+
+	b.Run("into/neon", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			value = input
+			internalInverseNTTNEON(&value)
+		}
+		benchmarkInverseNTTArm64Sink = value
 	})
 }

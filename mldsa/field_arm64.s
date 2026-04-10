@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build !purego
+//go:build arm64 && !purego
 
 #include "textflag.h"
 
@@ -196,6 +196,22 @@ done:
 	VADD V21.S4, V0.S4, V0.S4               \
 	REDUCE_ONCE(V0)
 
+// Gentleman-Sande butterfly with zeta in V7, even in V0, odd in V1.
+// Output in V0 (even') and V1 (odd').
+//   even' = fieldReduceOnce(even + odd)
+//   odd'  = MontMul(zeta, even - odd + q)
+// Clobbers V20,V21,V22,V23,V24,V25,V26.
+#define INVERSE_BUTTERFLY01_Z7              \
+	VMOV V0.B16, V25.B16                    \
+	VADD V1.S4, V0.S4, V0.S4                \
+	REDUCE_ONCE(V0)                         \
+	VSUB V1.S4, V25.S4, V1.S4               \
+	VADD V31.S4, V1.S4, V1.S4               \
+	VMOV V0.B16, V26.B16                    \
+	VMOV V7.B16, V0.B16                     \
+	MONT_MUL_V0_V1(V1)                      \
+	VMOV V26.B16, V0.B16
+
 // internalNTTNEON implements the same algorithm as internalNTTGeneric.
 // L0-L5 are vectorized (4 lanes of uint32); L6-L7 are scalar for correctness-first bring-up.
 TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
@@ -356,5 +372,206 @@ ntt_l7_group:
 
 	SUBS $1, R5, R5
 	BNE ntt_l7_group
+
+	RET
+
+// internalInverseNTTNEON implements the same algorithm as internalInverseNTTGeneric.
+// L0-L7 are vectorized.
+TEXT ·internalInverseNTTNEON(SB), NOSPLIT, $0-8
+	MOVD f+0(FP), R0
+
+	// k starts at 255 and decrements once per group.
+	MOVD $·zetasMontgomery(SB), R1
+	ADD $1024, R1, R1 // one-past-end: zetasMontgomery[256]
+
+	// pinned constants
+	MOVD $8380417, R8
+	VDUP R8, V31.S4
+	MOVD $4236238847, R9
+	VDUP R9, V30.S4
+
+	// L0: len=1, 128 groups, four groups packed per vector butterfly.
+	MOVD R0, R11
+	MOVD $32, R4
+intt_l0_group:
+	SUB $16, R1, R1
+	VLD1 (R1), [V6.S4]               // [z252 z253 z254 z255]
+	VREV64 V6.S4, V6.S4
+	VEXT $8, V6.B16, V6.B16, V6.B16  // [z255 z254 z253 z252]
+	VSUB V6.S4, V31.S4, V7.S4        // [q-z255 q-z254 q-z253 q-z252]
+
+	VLD1 (R11), [V20.S4, V21.S4]      // [e0 o0 e1 o1 | e2 o2 e3 o3]
+	VUZP1 V21.S4, V20.S4, V0.S4       // even: [e0 e1 e2 e3]
+	VUZP2 V21.S4, V20.S4, V1.S4       // odd:  [o0 o1 o2 o3]
+	INVERSE_BUTTERFLY01_Z7
+	VZIP1 V1.S4, V0.S4, V20.S4
+	VZIP2 V1.S4, V0.S4, V21.S4
+	VST1.P [V20.S4, V21.S4], 32(R11)
+
+	SUBS $1, R4, R4
+	BNE intt_l0_group
+
+	// L1: len=2, 64 groups, two groups packed per vector butterfly.
+	MOVD R0, R6
+	MOVD $32, R5
+intt_l1_group:
+	MOVWU.W -4(R1), R10
+	MOVWU.W -4(R1), R12
+	VDUP R10, V7.S4
+	VDUP R12, V6.S4
+	VUZP1 V6.S4, V7.S4, V7.S4         // [z0 z0 z1 z1]
+	VSUB V7.S4, V31.S4, V7.S4         // [q-z0 q-z0 q-z1 q-z1]
+
+	VLD1 (R6), [V20.S4, V21.S4]       // [a0 a1 b0 b1 | c0 c1 d0 d1]
+	VZIP1 V21.D2, V20.D2, V0.D2       // even: [a0 a1 c0 c1]
+	VZIP2 V21.D2, V20.D2, V1.D2       // odd:  [b0 b1 d0 d1]
+	INVERSE_BUTTERFLY01_Z7
+	VZIP1 V1.D2, V0.D2, V20.D2
+	VZIP2 V1.D2, V0.D2, V21.D2
+	VST1.P [V20.S4, V21.S4], 32(R6)
+
+	SUBS $1, R5, R5
+	BNE intt_l1_group
+
+	// L2: len=4, 32 groups, one vector butterfly each.
+	MOVD $32, R5
+	MOVD R0, R6
+intt_l2_group:
+	MOVWU.W -4(R1), R10
+	VDUP R10, V7.S4
+	VSUB V7.S4, V31.S4, V7.S4
+
+	VLD1 (R6), [V0.S4, V1.S4]
+	INVERSE_BUTTERFLY01_Z7
+	VST1.P [V0.S4, V1.S4], 32(R6)
+
+	SUBS $1, R5, R5
+	BNE intt_l2_group
+
+	// L3: len=8, 16 groups, two vector butterflies each.
+	MOVD $16, R5
+	MOVD R0, R6
+intt_l3_group:
+	MOVWU.W -4(R1), R10
+	VDUP R10, V7.S4
+	VSUB V7.S4, V31.S4, V7.S4
+
+	MOVD R6, R11
+	ADD $32, R11, R12
+	MOVD $2, R4
+intt_l3_loop:
+	VLD1 (R11), [V0.S4]
+	VLD1 (R12), [V1.S4]
+	INVERSE_BUTTERFLY01_Z7
+	VST1.P [V0.S4], (16)(R11)
+	VST1.P [V1.S4], (16)(R12)
+	SUBS $1, R4, R4
+	BNE intt_l3_loop
+
+	ADD $64, R6, R6
+	SUBS $1, R5, R5
+	BNE intt_l3_group
+
+	// L4: len=16, 8 groups, four vector butterflies each.
+	MOVD $8, R5
+	MOVD R0, R6
+intt_l4_group:
+	MOVWU.W -4(R1), R10
+	VDUP R10, V7.S4
+	VSUB V7.S4, V31.S4, V7.S4
+
+	MOVD R6, R11
+	ADD $64, R11, R12
+	MOVD $4, R4
+intt_l4_loop:
+	VLD1 (R11), [V0.S4]
+	VLD1 (R12), [V1.S4]
+	INVERSE_BUTTERFLY01_Z7
+	VST1.P [V0.S4], (16)(R11)
+	VST1.P [V1.S4], (16)(R12)
+	SUBS $1, R4, R4
+	BNE intt_l4_loop
+
+	ADD $128, R6, R6
+	SUBS $1, R5, R5
+	BNE intt_l4_group
+
+	// L5: len=32, 4 groups, eight vector butterflies each.
+	MOVD $4, R5
+	MOVD R0, R6
+intt_l5_group:
+	MOVWU.W -4(R1), R10
+	VDUP R10, V7.S4
+	VSUB V7.S4, V31.S4, V7.S4
+
+	MOVD R6, R11
+	ADD $128, R11, R12
+	MOVD $8, R4
+intt_l5_loop:
+	VLD1 (R11), [V0.S4]
+	VLD1 (R12), [V1.S4]
+	INVERSE_BUTTERFLY01_Z7
+	VST1.P [V0.S4], (16)(R11)
+	VST1.P [V1.S4], (16)(R12)
+	SUBS $1, R4, R4
+	BNE intt_l5_loop
+
+	ADD $256, R6, R6
+	SUBS $1, R5, R5
+	BNE intt_l5_group
+
+	// L6: len=64, 2 groups, sixteen vector butterflies each.
+	MOVD $2, R5
+	MOVD R0, R6
+intt_l6_group:
+	MOVWU.W -4(R1), R10
+	VDUP R10, V7.S4
+	VSUB V7.S4, V31.S4, V7.S4
+
+	MOVD R6, R11
+	ADD $256, R11, R12
+	MOVD $16, R4
+intt_l6_loop:
+	VLD1 (R11), [V0.S4]
+	VLD1 (R12), [V1.S4]
+	INVERSE_BUTTERFLY01_Z7
+	VST1.P [V0.S4], (16)(R11)
+	VST1.P [V1.S4], (16)(R12)
+	SUBS $1, R4, R4
+	BNE intt_l6_loop
+
+	ADD $512, R6, R6
+	SUBS $1, R5, R5
+	BNE intt_l6_group
+
+	// L7: len=128, 1 group, thirty-two vector butterflies.
+	MOVWU.W -4(R1), R10
+	VDUP R10, V7.S4
+	VSUB V7.S4, V31.S4, V7.S4
+
+	MOVD R0, R11
+	ADD $512, R11, R12
+	MOVD $32, R4
+intt_l7_loop:
+	VLD1 (R11), [V0.S4]
+	VLD1 (R12), [V1.S4]
+	INVERSE_BUTTERFLY01_Z7
+	VST1.P [V0.S4], (16)(R11)
+	VST1.P [V1.S4], (16)(R12)
+	SUBS $1, R4, R4
+	BNE intt_l7_loop
+
+	// Final scale by invDegreeMontgomery = 41978.
+	MOVD $41978, R10
+	VDUP R10, V7.S4
+	MOVD R0, R11
+	MOVD $32, R4
+intt_scale_loop:
+	VLD1 (R11), [V2.S4, V3.S4]
+	MONT_MUL(V2, V7, V4)
+	MONT_MUL(V3, V7, V5)
+	VST1.P [V4.S4, V5.S4], 32(R11)
+	SUBS $1, R4, R4
+	BNE intt_scale_loop
 
 	RET
