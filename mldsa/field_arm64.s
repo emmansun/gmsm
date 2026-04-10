@@ -337,10 +337,12 @@ ntt_l6l7_group:
 	VZIP1 V21.D2, V20.D2, V0.D2 // even: [e0 e1 e2 e3]
 	VZIP2 V21.D2, V20.D2, V1.D2 // odd:  [o0 o1 o2 o3]
 	BUTTERFLY01_Z7
-
-	VLD1.P (16)(R7), [V7.S4]         // [z0 z1 z2 z3]
+	VZIP1 V1.D2, V0.D2, V20.D2
+	VZIP2 V1.D2, V0.D2, V21.D2
+	VUZP1 V21.S4, V20.S4, V0.S4
+	VUZP2 V21.S4, V20.S4, V1.S4
+	VLD1.P (16)(R7), [V7.S4]     // [z0 z1 z2 z3]
 	BUTTERFLY01_Z7
-
 	VZIP1 V1.D2, V0.D2, V20.D2
 	VZIP2 V1.D2, V0.D2, V21.D2
 	VST1.P [V20.S4, V21.S4], 32(R6)
@@ -349,4 +351,3 @@ ntt_l6l7_group:
 	BNE ntt_l6l7_group
 
 	RET
-	
