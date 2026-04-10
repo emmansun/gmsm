@@ -311,31 +311,14 @@ ntt_l4_loop:
 	BNE ntt_l4_group
 
 	// L5: len=4, 32 groups, each 1 vector butterfly.
-	MOVD $8, R5
+	MOVD $32, R5
 	MOVD R0, R6
 ntt_l5_group:
-	VLD1.P (16)(R1), [V6.S4]
-	VDUP V6.S[0], V7.S4
-
+	MOVWU.P 4(R1), R10
+	VDUP R10, V7.S4
 	VLD1 (R6), [V0.S4, V1.S4]
 	BUTTERFLY01_Z7
 	VST1.P [V0.S4, V1.S4], 32(R6)
-
-	VDUP V6.S[1], V7.S4
-	VLD1 (R6), [V0.S4, V1.S4]
-	BUTTERFLY01_Z7
-	VST1.P [V0.S4, V1.S4], 32(R6)
-
-	VDUP V6.S[2], V7.S4
-	VLD1 (R6), [V0.S4, V1.S4]
-	BUTTERFLY01_Z7
-	VST1.P [V0.S4, V1.S4], 32(R6)
-
-	VDUP V6.S[3], V7.S4
-	VLD1 (R6), [V0.S4, V1.S4]
-	BUTTERFLY01_Z7
-	VST1.P [V0.S4, V1.S4], 32(R6)
-
 	SUBS $1, R5, R5
 	BNE ntt_l5_group
 
