@@ -782,6 +782,7 @@ TEXT ·decomposeSubToR0Gamma88ARM64(SB), NOSPLIT, $0-24
 	VDUP R8, V26.S4
 	MOVD $44, R8
 	VDUP R8, V25.S4
+	VEOR V23.B16, V23.B16, V23.B16    // constant zero vector for VBIT clear path
 
 decompose_sub_to_r0_gamma88_loop:
 	VLD1.P (16)(R0), [V0.S4]
@@ -799,7 +800,7 @@ decompose_sub_to_r0_gamma88_loop:
 
 	// r1 mod 44 in branchless form: if r1 == 44 then r1 = 0
 	VCMEQ V25.S4, V4.S4, V20.S4       // V20 = 0xFFFFFFFF where r1==44, else 0
-	WORD $0x6e241c84                  // PROBE: candidate VBIC encoding
+	VBIT V20.B16, V23.B16, V4.B16     // V4 = (0 & mask) | (V4 & ~mask)
 
 	// r0 = t - r1*gamma2QMinus1Div88; then center to [-(q-1)/2, (q-1)/2]
 	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
