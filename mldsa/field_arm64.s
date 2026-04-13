@@ -194,12 +194,17 @@ poly_inf_norm_loop:
 	SUBS $1, R4, R4
 	BNE poly_inf_norm_loop
 
-	// Horizontal max across 4 lanes using rotates + lane-wise unsigned max.
-	VEXT $8, V27.B16, V27.B16, V20.B16
-	VUMAX V20.S4, V27.S4, V27.S4
-	VEXT $4, V27.B16, V27.B16, V20.B16
-	VUMAX V20.S4, V27.S4, V27.S4
+	// Extract each lane and compare with running max
 	VMOV V27.S[0], R10
+	CMPW R9, R10
+	CSEL CS, R9, R10, R9
+	VMOV V27.S[1], R10
+	CMPW R9, R10
+	CSEL CS, R9, R10, R9
+	VMOV V27.S[2], R10
+	CMPW R9, R10
+	CSEL CS, R9, R10, R9
+	VMOV V27.S[3], R10
 	CMPW R9, R10
 	CSEL CS, R9, R10, R9
 
@@ -223,12 +228,17 @@ poly_inf_norm_signed_loop:
 	SUBS $1, R4, R4
 	BNE poly_inf_norm_signed_loop
 
-	// Horizontal max across 4 lanes using rotates + lane-wise unsigned max.
-	VEXT $8, V27.B16, V27.B16, V20.B16
-	VUMAX V20.S4, V27.S4, V27.S4
-	VEXT $4, V27.B16, V27.B16, V20.B16
-	VUMAX V20.S4, V27.S4, V27.S4
+	// Extract each lane and compare with running max
 	VMOV V27.S[0], R10
+	CMPW R9, R10
+	CSEL CS, R9, R10, R9
+	VMOV V27.S[1], R10
+	CMPW R9, R10
+	CSEL CS, R9, R10, R9
+	VMOV V27.S[2], R10
+	CMPW R9, R10
+	CSEL CS, R9, R10, R9
+	VMOV V27.S[3], R10
 	CMPW R9, R10
 	CSEL CS, R9, R10, R9
 
