@@ -320,13 +320,13 @@ func dsaKeyGen44(sk *Key44, xi *[32]byte) {
 	H := sha3.NewSHAKE256()
 	H.Write(xi[:])
 	H.Write([]byte{k44, l44})
-	K := make([]byte, 128)
-	H.Read(K)
+	var K [128]byte
+	H.Read(K[:])
 	rho, rho1 := K[:32], K[32:96]
-	K = K[96:]
+	k := K[96:]
 
 	sk.rho = [32]byte(rho)
-	sk.k = [32]byte(K)
+	sk.k = [32]byte(k)
 
 	s1 := &sk.s1
 	s2 := &sk.s2
@@ -370,8 +370,12 @@ func dsaKeyGen44(sk *Key44, xi *[32]byte) {
 		}
 	}
 	H.Reset()
-	ek := sk.Public().(*PublicKey44).Bytes()
-	H.Write(ek)
+	H.Write(sk.rho[:])
+	var ekBuf [encodingSize10]byte
+	for _, f := range sk.t1 {
+		packed := simpleBitPack10Bits(ekBuf[:0], f)
+		H.Write(packed)
+	}
 	H.Read(sk.tr[:])
 }
 
@@ -582,6 +586,7 @@ func (sk *PrivateKey44) signInternal(seed, mu []byte) ([]byte, error) {
 			ct0 [k44]ringElement
 			cs2 [k44]ringElement
 		)
+		r0Norm := 0
 		// compute cs2 and r0 = LowBits(w - <<cs2>>)
 		for i := range k44 {
 			var product nttElement
@@ -589,9 +594,9 @@ func (sk *PrivateKey44) signInternal(seed, mu []byte) ([]byte, error) {
 			internalInverseNTT(&product)
 			cs2[i] = ringElement(product)
 			decomposeSubToR0(&r0[i], &w[i], &cs2[i], gamma2QMinus1Div88)
+			r0Norm = polyInfinityNormSigned(&r0[i], r0Norm)
 		}
 		zNorm := vectorInfinityNorm(z[:], 0)
-		r0Norm := vectorInfinityNormSigned(r0[:], 0)
 
 		// if zNorm >= gamma1 - beta || r0Norm >= gamma2 - beta, then continue
 		if subtle.ConstantTimeLessOrEq(zNormThreshold, zNorm)|
