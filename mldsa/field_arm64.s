@@ -685,6 +685,21 @@ intt_scale_loop:
 	RET
 
 // decomposeSubToR0Gamma32ARM64 computes decompose(fieldSub(w, cs2), gamma2QMinus1Div32).r0.
+//
+// Per lane algorithm (all steps are branchless):
+//   1) t  = fieldSub(w, cs2)
+//        = reduce_once(w + q - cs2)
+//   2) r1 = ((((t + 127) >> 7) * 1025) + 2^21) >> 22
+//      r1 = r1 & 15
+//      Implemented as SQRDMULH(t', 524800) where t' = (t+127)>>7.
+//      Proof: SQRDMULH(t',C) = floor((2*t'*C+2^31)/2^32) = floor((t'*1025+2^21)/2^22)
+//      when C = 1025*2^9 = 524800.  Replaces MUL+VADD(2^21)+VUSHR(22) with one instruction.
+//   3) r0 = t - r1*523776
+//   4) if r0 > (q-1)/2 then r0 -= q
+//
+// Constants used here:
+//   q=8380417, (q-1)/2=4190208, gamma2QMinus1Div32=523776.
+//   V29=524800 (SQRDMULH constant for r1, = 1025*2^9).
 TEXT ·decomposeSubToR0Gamma32ARM64(SB), NOSPLIT, $0-24
 	MOVD w+0(FP), R0
 	MOVD cs2+8(FP), R1
@@ -695,10 +710,8 @@ TEXT ·decomposeSubToR0Gamma32ARM64(SB), NOSPLIT, $0-24
 	VDUP R8, V31.S4
 	MOVD $127, R8
 	VDUP R8, V30.S4
-	MOVD $1025, R8
+	MOVD $524800, R8                  // SQRDMULH constant: 1025*2^9
 	VDUP R8, V29.S4
-	MOVD $2097152, R8
-	VDUP R8, V28.S4
 	MOVD $523776, R8
 	VDUP R8, V27.S4
 	MOVD $4190208, R8
@@ -710,17 +723,18 @@ decompose_sub_to_r0_gamma32_loop:
 	VLD1.P (16)(R0), [V0.S4]
 	VLD1.P (16)(R1), [V1.S4]
 
+	// t = fieldSub(w, cs2) = reduce_once(w + q - cs2)
 	VADD V31.S4, V0.S4, V2.S4
 	VSUB V1.S4, V2.S4, V2.S4
 	REDUCE_ONCE(V2)
 
+	// r1 = SQRDMULH((t+127)>>7, 524800) = ((((t+127)>>7)*1025)+2^21)>>22; r1 &= 15
 	VADD V30.S4, V2.S4, V3.S4
 	VUSHR $7, V3.S4, V3.S4
-	WORD $0x4ebd9c64                  // MUL   V4.4S, V3.4S, V29.4S
-	VADD V28.S4, V4.S4, V4.S4
-	VUSHR $22, V4.S4, V4.S4
+	WORD $0x6ebdb464                  // SQRDMULH V4.4S, V3.4S, V29.4S (round(t'*1025/2^22))
 	VAND V25.B16, V4.B16, V4.B16
 
+	// r0 = t - r1*gamma2QMinus1Div32; then center to [-(q-1)/2, (q-1)/2]
 	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
 	VSUB V5.S4, V2.S4, V5.S4
 	VSUB V5.S4, V26.S4, V20.S4
@@ -734,6 +748,22 @@ decompose_sub_to_r0_gamma32_loop:
 	RET
 
 // decomposeSubToR0Gamma88ARM64 computes decompose(fieldSub(w, cs2), gamma2QMinus1Div88).r0.
+//
+// Per lane algorithm (all steps are branchless):
+//   1) t  = fieldSub(w, cs2)
+//        = reduce_once(w + q - cs2)
+//   2) r1 = ((((t + 127) >> 7) * 11275) + 2^23) >> 24
+//      r1 = r1 mod 44, implemented as: if r1 == 44 then r1 = 0
+//      (the assembly uses mask+xor to keep this branchless)
+//      Implemented as SQRDMULH(t', 1443200) where t' = (t+127)>>7.
+//      Proof: SQRDMULH(t',C) = floor((2*t'*C+2^31)/2^32) = floor((t'*11275+2^23)/2^24)
+//      when C = 11275*2^7 = 1443200.  Replaces MUL+VADD(2^23)+VUSHR(24) with one instruction.
+//   3) r0 = t - r1*190464
+//   4) if r0 > (q-1)/2 then r0 -= q
+//
+// Constants used here:
+//   q=8380417, (q-1)/2=4190208, gamma2QMinus1Div88=190464.
+//   V29=1443200 (SQRDMULH constant for r1, = 11275*2^7).
 TEXT ·decomposeSubToR0Gamma88ARM64(SB), NOSPLIT, $0-24
 	MOVD w+0(FP), R0
 	MOVD cs2+8(FP), R1
@@ -744,10 +774,8 @@ TEXT ·decomposeSubToR0Gamma88ARM64(SB), NOSPLIT, $0-24
 	VDUP R8, V31.S4
 	MOVD $127, R8
 	VDUP R8, V30.S4
-	MOVD $11275, R8
+	MOVD $1443200, R8                 // SQRDMULH constant: 11275*2^7
 	VDUP R8, V29.S4
-	MOVD $8388608, R8
-	VDUP R8, V28.S4
 	MOVD $190464, R8
 	VDUP R8, V27.S4
 	MOVD $4190208, R8
@@ -759,21 +787,23 @@ decompose_sub_to_r0_gamma88_loop:
 	VLD1.P (16)(R0), [V0.S4]
 	VLD1.P (16)(R1), [V1.S4]
 
+	// t = fieldSub(w, cs2) = reduce_once(w + q - cs2)
 	VADD V31.S4, V0.S4, V2.S4
 	VSUB V1.S4, V2.S4, V2.S4
 	REDUCE_ONCE(V2)
 
+	// r1 = SQRDMULH((t+127)>>7, 1443200) = ((((t+127)>>7)*11275)+2^23)>>24
 	VADD V30.S4, V2.S4, V3.S4
 	VUSHR $7, V3.S4, V3.S4
-	WORD $0x4ebd9c64                  // MUL   V4.4S, V3.4S, V29.4S
-	VADD V28.S4, V4.S4, V4.S4
-	VUSHR $24, V4.S4, V4.S4
+	WORD $0x6ebdb464                  // SQRDMULH V4.4S, V3.4S, V29.4S (round(t'*11275/2^24))
 
+	// r1 mod 44 in branchless form: if r1 == 44 then r1 = 0
 	VSUB V4.S4, V25.S4, V20.S4
 	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
 	VAND V4.B16, V24.B16, V24.B16
 	VEOR V24.B16, V4.B16, V4.B16
 
+	// r0 = t - r1*gamma2QMinus1Div88; then center to [-(q-1)/2, (q-1)/2]
 	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
 	VSUB V5.S4, V2.S4, V5.S4
 	VSUB V5.S4, V26.S4, V20.S4
@@ -792,6 +822,14 @@ decompose_sub_to_r0_gamma88_loop:
 // This routine is used in verification where h is public input from the signature.
 // The logic is data-dependent on h and r0 sign to implement UseHint semantics.
 // Do not copy this style into secret-dependent signing code paths.
+//
+// Per lane algorithm:
+//   1) Recover r1 from r using gamma32 decomposition constants.
+//   2) If hint h == 0: output r1.
+//   3) Else compute r0 = decompose(r).r0 and its sign/zero masks.
+//   4) Apply UseHint rule:
+//        r0 > 0  -> r1 = (r1 + 1) mod 16
+//        r0 <= 0 -> r1 = (r1 - 1) mod 16
 TEXT ·useHintPolyGamma32ARM64(SB), NOSPLIT, $0-24
 	MOVD h+0(FP), R0
 	MOVD r+8(FP), R1
@@ -820,6 +858,7 @@ use_hint_poly_gamma32_loop:
 	VLD1.P (16)(R0), [V0.S4]
 	VLD1.P (16)(R1), [V1.S4]
 
+	// Recompute r1 from r with gamma32 constants.
 	VADD V30.S4, V1.S4, V3.S4
 	VUSHR $7, V3.S4, V3.S4
 	WORD $0x4ebd9c64                  // MUL   V4.4S, V3.4S, V29.4S
@@ -843,6 +882,7 @@ use_hint_poly_gamma32_loop:
 	RET
 
 use_hint_poly_gamma32_nonzero:
+	// Non-zero hint path: compute r0 and choose +/-1 adjustment by sign(r0).
 
 	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
 	VSUB V5.S4, V1.S4, V5.S4
@@ -876,6 +916,14 @@ use_hint_poly_gamma32_nonzero:
 // This routine is used in verification where h is public input from the signature.
 // The sparse-h fast path below is intentionally data-dependent on h to improve
 // throughput for sparse hints. Do not reuse this pattern on secret-dependent paths.
+//
+// Per lane algorithm:
+//   1) Recover r1 from r using gamma88 decomposition constants.
+//      Canonicalize r1 so the top bucket maps to 0 (mod 44).
+//   2) If hint h == 0: output r1.
+//   3) Else compute r0 sign/zero masks and apply UseHint rule:
+//        r0 > 0  -> r1 = (r1 + 1) mod 44
+//        r0 <= 0 -> r1 = (r1 - 1) mod 44
 TEXT ·useHintPolyGamma88ARM64(SB), NOSPLIT, $0-24
 	MOVD h+0(FP), R0
 	MOVD r+8(FP), R1
@@ -906,6 +954,7 @@ use_hint_poly_gamma88_loop:
 	VLD1.P (16)(R0), [V0.S4]
 	VLD1.P (16)(R1), [V1.S4]
 
+	// Recompute r1 from r with gamma88 constants.
 	VADD V30.S4, V1.S4, V3.S4
 	VUSHR $7, V3.S4, V3.S4
 	WORD $0x4ebd9c64                  // MUL   V4.4S, V3.4S, V29.4S
