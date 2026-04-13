@@ -172,11 +172,10 @@ TEXT ·polyInfinityNormNEON(SB), NOSPLIT, $0-16
 	VDUP R8, V31.S4
 	MOVD $4190208, R8 // (q-1)/2
 	VDUP R8, V29.S4
-	MOVD $32, R4
+	MOVD $64, R4
 	VEOR V27.B16, V27.B16, V27.B16 // running max
 
 poly_inf_norm_loop:
-	// First vector
 	VLD1.P (16)(R0), [V0.S4]
 	VSUB V0.S4, V31.S4, V1.S4
 	VSUB V0.S4, V29.S4, V20.S4
@@ -185,28 +184,12 @@ poly_inf_norm_loop:
 	VAND V24.B16, V21.B16, V21.B16
 	VEOR V21.B16, V0.B16, V0.B16
 
-	// Second vector (parallel computation)
-	VLD1.P (16)(R0), [V2.S4]
-	VSUB V2.S4, V31.S4, V3.S4
-	VSUB V2.S4, V29.S4, V22.S4
-	WORD $0x4f210a98                  // VSSHR V24.S4, V22.S4, #31
-	VEOR V3.B16, V2.B16, V23.B16
-	VAND V24.B16, V23.B16, V23.B16
-	VEOR V23.B16, V2.B16, V2.B16
-
-	// Update max with first vector
+	// lane-wise signed max is valid here because infinityNorm(a) <= q < 2^31.
 	VSUB V0.S4, V27.S4, V20.S4
 	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
 	VEOR V0.B16, V27.B16, V21.B16
 	VAND V24.B16, V21.B16, V21.B16
 	VEOR V21.B16, V27.B16, V27.B16
-
-	// Update max with second vector
-	VSUB V2.S4, V27.S4, V22.S4
-	WORD $0x4f210a98                  // VSSHR V24.S4, V22.S4, #31
-	VEOR V2.B16, V27.B16, V23.B16
-	VAND V24.B16, V23.B16, V23.B16
-	VEOR V23.B16, V27.B16, V27.B16
 
 	SUBS $1, R4, R4
 	BNE poly_inf_norm_loop
@@ -232,25 +215,15 @@ poly_inf_norm_loop:
 TEXT ·polyInfinityNormSignedNEON(SB), NOSPLIT, $0-16
 	MOVD a+0(FP), R0
 	MOVD $0, R9
-	MOVD $32, R4
+	MOVD $64, R4
 	VEOR V27.B16, V27.B16, V27.B16 // running max
 
 poly_inf_norm_signed_loop:
-	// First vector
-	VLD1.P (16)(R0), [V0.S4]
-	WORD $0x4f210698                  // VSSHR V24.S4, V0.S4, #31
-	VEOR V24.B16, V0.B16, V21.B16
-	VSUB V24.S4, V21.S4, V0.S4       // V0 = abs(V0)
-
-	// Second vector (parallel)
-	VLD1.P (16)(R0), [V1.S4]
-	WORD $0x4f210698                  // VSSHR V24.S4, V1.S4, #31
-	VEOR V24.B16, V1.B16, V22.B16
-	VSUB V24.S4, V22.S4, V1.S4       // V1 = abs(V1)
-
-	// Update max
+	VLD1.P (16)(R0), [V20.S4]
+	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	VEOR V24.B16, V20.B16, V21.B16
+	VSUB V24.S4, V21.S4, V0.S4
 	VUMAX V0.S4, V27.S4, V27.S4
-	VUMAX V1.S4, V27.S4, V27.S4
 
 	SUBS $1, R4, R4
 	BNE poly_inf_norm_signed_loop
