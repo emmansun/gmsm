@@ -6,6 +6,18 @@
 
 package mldsa
 
+var qMinusZetasMontgomeryARM64 [n]fieldElement
+var qMinusZetasMontgomeryL0ReorderedARM64 [128]fieldElement
+
+func init() {
+	for i := 0; i < n; i++ {
+		qMinusZetasMontgomeryARM64[i] = q - zetasMontgomery[i]
+	}
+	for i := 0; i < 128; i++ {
+		qMinusZetasMontgomeryL0ReorderedARM64[i] = qMinusZetasMontgomeryARM64[255-i]
+	}
+}
+
 //go:noescape
 func nttMulNEON(lhs, rhs, out *nttElement)
 

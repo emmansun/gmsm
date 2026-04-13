@@ -523,9 +523,12 @@ ntt_l7_group:
 TEXT ·internalInverseNTTNEON(SB), NOSPLIT, $0-8
 	MOVD f+0(FP), R0
 
-	// k starts at 255 and decrements once per group.
-	MOVD $·zetasMontgomery(SB), R1
-	ADD $1024, R1, R1 // one-past-end: zetasMontgomery[256]
+	// qMinusZetas pointer for L1-L7 starts at one-past qMinusZetasMontgomeryARM64[127].
+	MOVD $·qMinusZetasMontgomeryARM64(SB), R1
+	ADD $512, R1, R1
+
+	// L0 uses pre-reordered qMinusZetas blocks: [q-z255 ... q-z128].
+	MOVD $·qMinusZetasMontgomeryL0ReorderedARM64(SB), R13
 
 	// pinned constants
 	MOVD $8380417, R8
@@ -537,11 +540,7 @@ TEXT ·internalInverseNTTNEON(SB), NOSPLIT, $0-8
 	MOVD R0, R11
 	MOVD $32, R4
 intt_l0_group:
-	SUB $16, R1, R1
-	VLD1 (R1), [V6.S4]               // [z252 z253 z254 z255]
-	VREV64 V6.S4, V6.S4
-	VEXT $8, V6.B16, V6.B16, V6.B16  // [z255 z254 z253 z252]
-	VSUB V6.S4, V31.S4, V7.S4        // [q-z255 q-z254 q-z253 q-z252]
+	VLD1.P (16)(R13), [V7.S4]
 
 	VLD1 (R11), [V20.S4, V21.S4]      // [e0 o0 e1 o1 | e2 o2 e3 o3]
 	VUZP1 V21.S4, V20.S4, V0.S4       // even: [e0 e1 e2 e3]
