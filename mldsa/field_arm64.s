@@ -345,10 +345,15 @@ poly_inf_norm_signed_loop:
 	REDUCE_ONCE(V0)                         \
 	VSUB V1.S4, V25.S4, V1.S4               \
 	VADD V31.S4, V1.S4, V1.S4               \
-	VMOV V0.B16, V26.B16                    \
-	VMOV V7.B16, V0.B16                     \
-	MONT_MUL_V0_V1(V1)                      \
-	VMOV V26.B16, V0.B16
+	WORD $0x4ea19cf4                        \ // MUL   V20.4S, V7.4S, V1.4S
+	WORD $0x4ebe9e96                        \ // MUL   V22.4S, V20.4S, V30.4S
+	WORD $0x6ea1b4f5                        \ // SQRDMULH V21.4S, V7.4S, V1.4S (hi' = Round(2*hi))
+	WORD $0x6ebfb6d7                        \ // SQRDMULH V23.4S, V22.4S, V31.4S (corr' = Round(2*corr))
+	VADD V21.S4, V23.S4, V20.S4             \ // raw = 2*Result
+	WORD $0x4f3f0694                        \ // VSSHR V20.S4, V20.S4, #1
+	WORD $0x4f210698                        \ // VSSHR V24.S4, V20.S4, #31
+	VAND V31.B16, V24.B16, V24.B16          \ // q if underflow, else 0
+	VADD V20.S4, V24.S4, V1.S4
 
 // internalNTTNEON implements the same algorithm as internalNTTGeneric.
 // L0-L5 are vectorized (4 lanes of uint32); L6-L7 are scalar for correctness-first bring-up.
