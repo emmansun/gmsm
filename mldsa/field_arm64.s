@@ -170,6 +170,25 @@ poly_sub_assign_loop:
 	RET
 
 // polyInfinityNormNEON returns max(infinityNorm(a[i])) for i in [0, 255].
+//
+// Algorithm:
+//   Each coefficient a[i] is a field element in [0, q) where q = 8380417.
+//   The infinity norm treats each element as a centered representative:
+//     norm(a) = min(a, q-a)
+//   i.e. the minimum distance to 0 in Z/qZ.
+//
+// Loop structure (2-way unrolled for ILP):
+//   Load two consecutive 4-lane vectors V0, V1 per iteration (32 bytes).
+//   For each vector Vx:
+//     V_tmp = q - Vx              // complement
+//     Vx    = VUMIN(Vx, V_tmp)    // min(a, q-a) -- branchless abs
+//     Vmax  = VUMAX(Vx, Vmax)     // running maximum (unsigned)
+//   V0 accumulates into V27; V1 accumulates into V28.
+//   After the loop: V27 = VUMAX(V27, V28).
+//
+// Horizontal reduction:
+//   Extract each of the 4 lanes from V27 using scalar VMOV.
+//   Track the running scalar max in R9 via CMPW + CSEL CS.
 TEXT ·polyInfinityNormNEON(SB), NOSPLIT, $0-16
 	MOVD a+0(FP), R0
 	MOVD $0, R9
@@ -195,16 +214,8 @@ poly_inf_norm_loop:
 	VUMAX V28.S4, V27.S4, V27.S4
 
 	// Extract each lane and compare with running max
-	VMOV V27.S[0], R10
-	CMPW R9, R10
-	CSEL CS, R10, R9, R9
-	VMOV V27.S[1], R10
-	CMPW R9, R10
-	CSEL CS, R10, R9, R9
-	VMOV V27.S[2], R10
-	CMPW R9, R10
-	CSEL CS, R10, R9, R9
-	VMOV V27.S[3], R10
+	WORD $0x6eb0ab3a            // UMAXV V27.S4, V28
+	VMOV V28.S[0], R10
 	CMPW R9, R10
 	CSEL CS, R10, R9, R9
 
@@ -212,6 +223,30 @@ poly_inf_norm_loop:
 	RET
 
 // polyInfinityNormSignedNEON returns max(abs(a[i])) for i in [0, 255].
+//
+// Algorithm:
+//   Inputs are signed 32-bit integers (centered representatives in (-(q-1)/2, (q-1)/2]).
+//   Absolute value is computed with the standard bit-twiddling identity:
+//     sign = a >> 31          // arithmetic shift: 0x00000000 if a>=0, 0xFFFFFFFF if a<0
+//     abs  = (a ^ sign) - sign // conditional negation without branches
+//   Implemented as:
+//     VSSHR V_sign, V_src, #31   // V_sign = arithmetic shift right by 31
+//     VEOR  V_xor,  V_src, V_sign // flip bits for negatives
+//     VSUB  V_abs,  V_xor, V_sign // add 1 for negatives (two's complement)
+//
+// Loop structure (2-way unrolled for ILP):
+//   Load two consecutive 4-lane vectors V20, V21 per iteration (32 bytes).
+//   Compute abs(V20) -> V0, accumulate into V27.
+//   Compute abs(V21) -> V1, accumulate into V28.
+//   After the loop: V27 = VUMAX(V27, V28).
+//
+// Note on WORD encodings:
+//   VSSHR V24.4S, V20.4S, #31 -> WORD $0x4f210698
+//   VSSHR V25.4S, V21.4S, #31 -> WORD $0x4f2106b9
+//   These are the only non-mnemonic encodings used; all other ops use assembler mnemonics.
+//
+// Horizontal reduction:
+//   Same scalar VMOV + CMPW + CSEL CS sequence as polyInfinityNormNEON.
 TEXT ·polyInfinityNormSignedNEON(SB), NOSPLIT, $0-16
 	MOVD a+0(FP), R0
 	MOVD $0, R9
