@@ -131,14 +131,16 @@ TEXT ·polyAddAssignNEON(SB), NOSPLIT, $0-16
 
 	MOVD $8380417, R8
 	VDUP R8, V31.S4
-	MOVD $64, R4
+	MOVD $32, R4
 
 poly_add_assign_loop:
-	VLD1 (R0), [V0.S4]
-	VLD1.P (16)(R1), [V1.S4]
-	VADD V1.S4, V0.S4, V0.S4
+	VLD1 (R0), [V0.S4, V1.S4]
+	VLD1.P (32)(R1), [V2.S4, V3.S4]
+	VADD V2.S4, V0.S4, V0.S4
 	REDUCE_ONCE(V0)
-	VST1.P [V0.S4], (16)(R0)
+	VADD V3.S4, V1.S4, V1.S4
+	REDUCE_ONCE(V1)
+	VST1.P [V0.S4, V1.S4], (32)(R0)
 	SUBS $1, R4, R4
 	BNE poly_add_assign_loop
 	RET
@@ -150,15 +152,19 @@ TEXT ·polySubAssignNEON(SB), NOSPLIT, $0-16
 
 	MOVD $8380417, R8
 	VDUP R8, V31.S4
-	MOVD $64, R4
+	MOVD $32, R4
 
 poly_sub_assign_loop:
-	VLD1 (R0), [V0.S4]
-	VLD1.P (16)(R1), [V1.S4]
-	VSUB V1.S4, V0.S4, V0.S4
+	VLD1 (R0), [V0.S4, V1.S4]
+	VLD1.P (32)(R1), [V2.S4, V3.S4]
+	VSUB V2.S4, V0.S4, V0.S4
 	VADD V31.S4, V0.S4, V0.S4
 	REDUCE_ONCE(V0)
-	VST1.P [V0.S4], (16)(R0)
+
+	VSUB V3.S4, V1.S4, V1.S4
+	VADD V31.S4, V1.S4, V1.S4
+	REDUCE_ONCE(V1)
+	VST1.P [V0.S4, V1.S4], (32)(R0)
 	SUBS $1, R4, R4
 	BNE poly_sub_assign_loop
 	RET
