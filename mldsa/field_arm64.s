@@ -562,7 +562,6 @@ intt_l1_group:
 	VDUP R10, V7.S4
 	VDUP R12, V6.S4
 	VUZP1 V6.S4, V7.S4, V7.S4         // [z0 z0 z1 z1]
-	VSUB V7.S4, V31.S4, V7.S4         // [q-z0 q-z0 q-z1 q-z1]
 
 	VLD1 (R6), [V20.S4, V21.S4]       // [a0 a1 b0 b1 | c0 c1 d0 d1]
 	VZIP1 V21.D2, V20.D2, V0.D2       // even: [a0 a1 c0 c1]
@@ -581,7 +580,6 @@ intt_l1_group:
 intt_l2_group:
 	MOVWU.W -4(R1), R10
 	VDUP R10, V7.S4
-	VSUB V7.S4, V31.S4, V7.S4
 
 	VLD1 (R6), [V0.S4, V1.S4]
 	INVERSE_BUTTERFLY01_Z7
@@ -596,7 +594,6 @@ intt_l2_group:
 intt_l3_group:
 	MOVWU.W -4(R1), R10
 	VDUP R10, V7.S4
-	VSUB V7.S4, V31.S4, V7.S4
 
 	MOVD R6, R11
 	ADD $32, R11, R12
@@ -620,7 +617,6 @@ intt_l3_loop:
 intt_l4_group:
 	MOVWU.W -4(R1), R10
 	VDUP R10, V7.S4
-	VSUB V7.S4, V31.S4, V7.S4
 
 	MOVD R6, R11
 	ADD $64, R11, R12
@@ -644,7 +640,6 @@ intt_l4_loop:
 intt_l5_group:
 	MOVWU.W -4(R1), R10
 	VDUP R10, V7.S4
-	VSUB V7.S4, V31.S4, V7.S4
 
 	MOVD R6, R11
 	ADD $128, R11, R12
@@ -668,7 +663,6 @@ intt_l5_loop:
 intt_l6_group:
 	MOVWU.W -4(R1), R10
 	VDUP R10, V7.S4
-	VSUB V7.S4, V31.S4, V7.S4
 
 	MOVD R6, R11
 	ADD $256, R11, R12
@@ -689,7 +683,6 @@ intt_l6_loop:
 	// L7: len=128, 1 group, thirty-two vector butterflies.
 	MOVWU.W -4(R1), R10
 	VDUP R10, V7.S4
-	VSUB V7.S4, V31.S4, V7.S4
 
 	MOVD R0, R11
 	ADD $512, R11, R12
