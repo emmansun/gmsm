@@ -176,19 +176,23 @@ TEXT ·polyInfinityNormNEON(SB), NOSPLIT, $0-16
 
 	MOVD $8380417, R8
 	VDUP R8, V31.S4
-	MOVD $4190208, R8 // (q-1)/2
-	VDUP R8, V29.S4
-	MOVD $64, R4
+	MOVD $32, R4
 	VEOR V27.B16, V27.B16, V27.B16 // running max
+	VEOR V28.B16, V28.B16, V28.B16 // second running max
 
 poly_inf_norm_loop:
-	VLD1.P (16)(R0), [V0.S4]
-	VSUB V0.S4, V31.S4, V1.S4
-	VUMIN V1.S4, V0.S4, V0.S4
+	VLD1.P (32)(R0), [V0.S4, V1.S4]
+	VSUB V0.S4, V31.S4, V2.S4
+	VUMIN V2.S4, V0.S4, V0.S4
 	VUMAX V0.S4, V27.S4, V27.S4
+
+	VSUB V1.S4, V31.S4, V3.S4
+	VUMIN V3.S4, V1.S4, V1.S4
+	VUMAX V1.S4, V28.S4, V28.S4
 
 	SUBS $1, R4, R4
 	BNE poly_inf_norm_loop
+	VUMAX V28.S4, V27.S4, V27.S4
 
 	// Extract each lane and compare with running max
 	VMOV V27.S[0], R10
@@ -211,18 +215,25 @@ poly_inf_norm_loop:
 TEXT ·polyInfinityNormSignedNEON(SB), NOSPLIT, $0-16
 	MOVD a+0(FP), R0
 	MOVD $0, R9
-	MOVD $64, R4
+	MOVD $32, R4
 	VEOR V27.B16, V27.B16, V27.B16 // running max
+	VEOR V28.B16, V28.B16, V28.B16 // second running max
 
 poly_inf_norm_signed_loop:
-	VLD1.P (16)(R0), [V20.S4]
+	VLD1.P (32)(R0), [V20.S4, V21.S4]
 	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
-	VEOR V24.B16, V20.B16, V21.B16
-	VSUB V24.S4, V21.S4, V0.S4
+	VEOR V24.B16, V20.B16, V0.B16
+	VSUB V24.S4, V0.S4, V0.S4
 	VUMAX V0.S4, V27.S4, V27.S4
+
+	WORD $0x4f2106b9                  // VSSHR V25.S4, V21.S4, #31
+	VEOR V25.B16, V21.B16, V1.B16
+	VSUB V25.S4, V1.S4, V1.S4
+	VUMAX V1.S4, V28.S4, V28.S4
 
 	SUBS $1, R4, R4
 	BNE poly_inf_norm_signed_loop
+	VUMAX V28.S4, V27.S4, V27.S4
 
 	// Extract each lane and compare with running max
 	VMOV V27.S[0], R10
