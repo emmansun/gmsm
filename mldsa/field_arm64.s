@@ -863,13 +863,9 @@ use_hint_poly_gamma32_loop:
 
 	// Fast path: if this 4-lane h block is all zero, output r1 directly.
 	// This branch is safe here because h is public in verification.
-	VMOV V0.S[0], R12
-	VMOV V0.S[1], R13
-	ORRW R13, R12, R12
-	VMOV V0.S[2], R13
-	ORRW R13, R12, R12
-	VMOV V0.S[3], R13
-	ORRW R13, R12, R12
+	VMOV V0.D[0], R12
+	VMOV V0.D[1], R13
+	ORR R13, R12, R12
 	CBNZ R12, use_hint_poly_gamma32_nonzero
 	VST1.P [V4.S4], (16)(R2)
 	SUBS $1, R3, R3
@@ -957,13 +953,9 @@ use_hint_poly_gamma88_loop:
 
 	// Fast path: if this 4-lane h block is all zero, output r1 directly.
 	// This branch is safe here because h is public in verification.
-	VMOV V0.S[0], R12
-	VMOV V0.S[1], R13
-	ORRW R13, R12, R12
-	VMOV V0.S[2], R13
-	ORRW R13, R12, R12
-	VMOV V0.S[3], R13
-	ORRW R13, R12, R12
+	VMOV V0.D[0], R12
+	VMOV V0.D[1], R13
+	ORR R13, R12, R12
 	CBNZ R12, use_hint_poly_gamma88_blk0_nonzero
 	VST1.P [V4.S4], (16)(R2)
 	JMP use_hint_poly_gamma88_blk0_done
@@ -1008,13 +1000,9 @@ use_hint_poly_gamma88_blk0_done:
 	VBIT V8.B16, V23.B16, V4.B16
 
 	// Fast path: if this 4-lane h block is all zero, output r1 directly.
-	VMOV V0.S[0], R12
-	VMOV V0.S[1], R13
-	ORRW R13, R12, R12
-	VMOV V0.S[2], R13
-	ORRW R13, R12, R12
-	VMOV V0.S[3], R13
-	ORRW R13, R12, R12
+	VMOV V0.D[0], R12
+	VMOV V0.D[1], R13
+	ORR R13, R12, R12
 	CBNZ R12, use_hint_poly_gamma88_blk1_nonzero
 	VST1.P [V4.S4], (16)(R2)
 	JMP use_hint_poly_gamma88_blk1_done
@@ -1059,13 +1047,9 @@ use_hint_poly_gamma88_blk1_done:
 	VBIT V8.B16, V23.B16, V4.B16
 
 	// Fast path: if this 4-lane h block is all zero, output r1 directly.
-	VMOV V0.S[0], R12
-	VMOV V0.S[1], R13
-	ORRW R13, R12, R12
-	VMOV V0.S[2], R13
-	ORRW R13, R12, R12
-	VMOV V0.S[3], R13
-	ORRW R13, R12, R12
+	VMOV V0.D[0], R12
+	VMOV V0.D[1], R13
+	ORR R13, R12, R12
 	CBNZ R12, use_hint_poly_gamma88_blk2_nonzero
 	VST1.P [V4.S4], (16)(R2)
 	JMP use_hint_poly_gamma88_blk2_done
@@ -1110,13 +1094,9 @@ use_hint_poly_gamma88_blk2_done:
 	VBIT V8.B16, V23.B16, V4.B16
 
 	// Fast path: if this 4-lane h block is all zero, output r1 directly.
-	VMOV V0.S[0], R12
-	VMOV V0.S[1], R13
-	ORRW R13, R12, R12
-	VMOV V0.S[2], R13
-	ORRW R13, R12, R12
-	VMOV V0.S[3], R13
-	ORRW R13, R12, R12
+	VMOV V0.D[0], R12
+	VMOV V0.D[1], R13
+	ORR R13, R12, R12
 	CBNZ R12, use_hint_poly_gamma88_blk3_nonzero
 	VST1.P [V4.S4], (16)(R2)
 	JMP use_hint_poly_gamma88_blk3_done
