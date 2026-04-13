@@ -197,16 +197,16 @@ poly_inf_norm_loop:
 	// Extract each lane and compare with running max
 	VMOV V27.S[0], R10
 	CMPW R9, R10
-	CSEL CS, R9, R10, R9
+	CSEL CS, R10, R9, R9
 	VMOV V27.S[1], R10
 	CMPW R9, R10
-	CSEL CS, R9, R10, R9
+	CSEL CS, R10, R9, R9
 	VMOV V27.S[2], R10
 	CMPW R9, R10
-	CSEL CS, R9, R10, R9
+	CSEL CS, R10, R9, R9
 	VMOV V27.S[3], R10
 	CMPW R9, R10
-	CSEL CS, R9, R10, R9
+	CSEL CS, R10, R9, R9
 
 	MOVW R9, ret+8(FP)
 	RET
@@ -231,16 +231,16 @@ poly_inf_norm_signed_loop:
 	// Extract each lane and compare with running max
 	VMOV V27.S[0], R10
 	CMPW R9, R10
-	CSEL CS, R9, R10, R9
+	CSEL CS, R10, R9, R9
 	VMOV V27.S[1], R10
 	CMPW R9, R10
-	CSEL CS, R9, R10, R9
+	CSEL CS, R10, R9, R9
 	VMOV V27.S[2], R10
 	CMPW R9, R10
-	CSEL CS, R9, R10, R9
+	CSEL CS, R10, R9, R9
 	VMOV V27.S[3], R10
 	CMPW R9, R10
-	CSEL CS, R9, R10, R9
+	CSEL CS, R10, R9, R9
 
 	MOVW R9, ret+8(FP)
 	RET
