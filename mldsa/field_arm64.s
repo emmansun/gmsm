@@ -178,8 +178,18 @@ TEXT ·polyInfinityNormNEON(SB), NOSPLIT, $0-16
 poly_inf_norm_loop:
 	VLD1.P (16)(R0), [V0.S4]
 	VSUB V0.S4, V31.S4, V1.S4
-	VUMIN V1.S4, V0.S4, V0.S4
-	VUMAX V0.S4, V27.S4, V27.S4
+	VSUB V0.S4, V29.S4, V20.S4
+	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	VEOR V1.B16, V0.B16, V21.B16
+	VAND V24.B16, V21.B16, V21.B16
+	VEOR V21.B16, V0.B16, V0.B16
+
+	// lane-wise signed max is valid here because infinityNorm(a) <= q < 2^31.
+	VSUB V0.S4, V27.S4, V20.S4
+	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	VEOR V0.B16, V27.B16, V21.B16
+	VAND V24.B16, V21.B16, V21.B16
+	VEOR V21.B16, V27.B16, V27.B16
 
 	SUBS $1, R4, R4
 	BNE poly_inf_norm_loop
@@ -206,11 +216,12 @@ TEXT ·polyInfinityNormSignedNEON(SB), NOSPLIT, $0-16
 	MOVD $0, R9
 	MOVD $64, R4
 	VEOR V27.B16, V27.B16, V27.B16 // running max
-	VEOR V23.B16, V23.B16, V23.B16 // zero vector for abs-diff
 
 poly_inf_norm_signed_loop:
 	VLD1.P (16)(R0), [V20.S4]
-	WORD $0x4eb476e0                  // SABD V0.4S, V23.4S, V20.4S
+	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	VEOR V24.B16, V20.B16, V21.B16
+	VSUB V24.S4, V21.S4, V0.S4
 	VUMAX V0.S4, V27.S4, V27.S4
 
 	SUBS $1, R4, R4
