@@ -799,7 +799,8 @@ decompose_sub_to_r0_gamma88_loop:
 
 	// r1 mod 44 in branchless form: if r1 == 44 then r1 = 0
 	VCMEQ V25.S4, V4.S4, V20.S4       // V20 = 0xFFFFFFFF where r1==44, else 0
-	WORD $0x6e741c84                  // BIC V4.16B, V4.16B, V20.16B (V4 = r1 & ~mask)
+	VAND V4.B16, V20.B16, V24.B16     // V24 = r1 when r1==44, else 0
+	VSUB V24.S4, V4.S4, V4.S4         // V4 = r1 - V24 => 0 when r1==44, else r1
 
 	// r0 = t - r1*gamma2QMinus1Div88; then center to [-(q-1)/2, (q-1)/2]
 	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
