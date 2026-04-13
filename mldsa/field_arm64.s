@@ -839,10 +839,8 @@ TEXT ·useHintPolyGamma32ARM64(SB), NOSPLIT, $0-24
 	VDUP R8, V31.S4
 	MOVD $127, R8
 	VDUP R8, V30.S4
-	MOVD $1025, R8
+	MOVD $524800, R8                  // SQRDMULH constant: 1025*2^9
 	VDUP R8, V29.S4
-	MOVD $2097152, R8
-	VDUP R8, V28.S4
 	MOVD $523776, R8
 	VDUP R8, V27.S4
 	MOVD $4190208, R8
@@ -860,9 +858,7 @@ use_hint_poly_gamma32_loop:
 	// Recompute r1 from r with gamma32 constants.
 	VADD V30.S4, V1.S4, V3.S4
 	VUSHR $7, V3.S4, V3.S4
-	WORD $0x4ebd9c64                  // MUL   V4.4S, V3.4S, V29.4S
-	VADD V28.S4, V4.S4, V4.S4
-	VUSHR $22, V4.S4, V4.S4
+	WORD $0x6ebdb464                  // SQRDMULH V4.4S, V3.4S, V29.4S (round(t'*1025/2^22))
 	VAND V25.B16, V4.B16, V4.B16
 
 	// Fast path: if this 4-lane h block is all zero, output r1 directly.
@@ -933,10 +929,8 @@ TEXT ·useHintPolyGamma88ARM64(SB), NOSPLIT, $0-24
 	VDUP R8, V31.S4
 	MOVD $127, R8
 	VDUP R8, V30.S4
-	MOVD $11275, R8
+	MOVD $1443200, R8                 // SQRDMULH constant: 11275*2^7
 	VDUP R8, V29.S4
-	MOVD $8388608, R8
-	VDUP R8, V28.S4
 	MOVD $190464, R8
 	VDUP R8, V27.S4
 	MOVD $4190208, R8
@@ -956,9 +950,7 @@ use_hint_poly_gamma88_loop:
 	// Recompute r1 from r with gamma88 constants.
 	VADD V30.S4, V1.S4, V3.S4
 	VUSHR $7, V3.S4, V3.S4
-	WORD $0x4ebd9c64                  // MUL   V4.4S, V3.4S, V29.4S
-	VADD V28.S4, V4.S4, V4.S4
-	VUSHR $24, V4.S4, V4.S4
+	WORD $0x6ebdb464                  // SQRDMULH V4.4S, V3.4S, V29.4S (round(t'*11275/2^24))
 
 	VCMEQ V19.S4, V4.S4, V8.S4
 	VBIT V8.B16, V23.B16, V4.B16
@@ -1010,9 +1002,7 @@ use_hint_poly_gamma88_blk0_done:
 
 	VADD V30.S4, V1.S4, V3.S4
 	VUSHR $7, V3.S4, V3.S4
-	WORD $0x4ebd9c64                  // MUL   V4.4S, V3.4S, V29.4S
-	VADD V28.S4, V4.S4, V4.S4
-	VUSHR $24, V4.S4, V4.S4
+	WORD $0x6ebdb464                  // SQRDMULH V4.4S, V3.4S, V29.4S (round(t'*11275/2^24))
 
 	VCMEQ V19.S4, V4.S4, V8.S4
 	VBIT V8.B16, V23.B16, V4.B16
@@ -1063,9 +1053,7 @@ use_hint_poly_gamma88_blk1_done:
 
 	VADD V30.S4, V1.S4, V3.S4
 	VUSHR $7, V3.S4, V3.S4
-	WORD $0x4ebd9c64                  // MUL   V4.4S, V3.4S, V29.4S
-	VADD V28.S4, V4.S4, V4.S4
-	VUSHR $24, V4.S4, V4.S4
+	WORD $0x6ebdb464                  // SQRDMULH V4.4S, V3.4S, V29.4S (round(t'*11275/2^24))
 
 	VCMEQ V19.S4, V4.S4, V8.S4
 	VBIT V8.B16, V23.B16, V4.B16
@@ -1116,9 +1104,7 @@ use_hint_poly_gamma88_blk2_done:
 
 	VADD V30.S4, V1.S4, V3.S4
 	VUSHR $7, V3.S4, V3.S4
-	WORD $0x4ebd9c64                  // MUL   V4.4S, V3.4S, V29.4S
-	VADD V28.S4, V4.S4, V4.S4
-	VUSHR $24, V4.S4, V4.S4
+	WORD $0x6ebdb464                  // SQRDMULH V4.4S, V3.4S, V29.4S (round(t'*11275/2^24))
 
 	VCMEQ V19.S4, V4.S4, V8.S4
 	VBIT V8.B16, V23.B16, V4.B16
