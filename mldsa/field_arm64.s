@@ -214,7 +214,7 @@ poly_inf_norm_loop:
 	VUMAX V28.S4, V27.S4, V27.S4
 
 	// Extract each lane and compare with running max
-	WORD $0x6eb0ab3a            // UMAXV V27.S4, V28
+	WORD $0x6eb0ab7c            // UMAXV V27.S4, V28
 	VMOV V28.S[0], R10
 	CMPW R9, R10
 	CSEL CS, R10, R9, R9
