@@ -185,21 +185,17 @@ poly_inf_norm_loop:
 	BNE poly_inf_norm_loop
 
 	VMOV V27.S[0], R10
-	CMPW R10, R9
-	BGE 2(PC) // if R10 >= R9, skip next MOVW (jump over 1 instruction)
-	MOVW R10, R9
+	CMPW R9, R10
+	CSEL CS, R9, R10, R9
 	VMOV V27.S[1], R10
-	CMPW R10, R9
-	BGE 2(PC) // if R10 >= R9, skip next MOVW
-	MOVW R10, R9
+	CMPW R9, R10
+	CSEL CS, R9, R10, R9
 	VMOV V27.S[2], R10
-	CMPW R10, R9
-	BGE 2(PC) // if R10 >= R9, skip next MOVW
-	MOVW R10, R9
+	CMPW R9, R10
+	CSEL CS, R9, R10, R9
 	VMOV V27.S[3], R10
-	CMPW R10, R9
-	BGE 2(PC) // if R10 >= R9, skip next MOVW
-	MOVW R10, R9
+	CMPW R9, R10
+	CSEL CS, R9, R10, R9
 
 	MOVW R9, ret+8(FP)
 	RET
@@ -221,21 +217,17 @@ poly_inf_norm_signed_loop:
 	BNE poly_inf_norm_signed_loop
 
 	VMOV V27.S[0], R10
-	CMPW R10, R9
-	BGE 2(PC) // if R10 >= R9, skip next MOVW (jump over 1 instruction)
-	MOVW R10, R9
+	CMPW R9, R10
+	CSEL CS, R9, R10, R9
 	VMOV V27.S[1], R10
-	CMPW R10, R9
-	BGE 2(PC) // if R10 >= R9, skip next MOVW
-	MOVW R10, R9
+	CMPW R9, R10
+	CSEL CS, R9, R10, R9
 	VMOV V27.S[2], R10
-	CMPW R10, R9
-	BGE 2(PC) // if R10 >= R9, skip next MOVW
-	MOVW R10, R9
+	CMPW R9, R10
+	CSEL CS, R9, R10, R9
 	VMOV V27.S[3], R10
-	CMPW R10, R9
-	BGE 2(PC) // if R10 >= R9, skip next MOVW
-	MOVW R10, R9
+	CMPW R9, R10
+	CSEL CS, R9, R10, R9
 
 	MOVW R9, ret+8(FP)
 	RET
