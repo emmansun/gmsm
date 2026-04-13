@@ -71,11 +71,13 @@ func polySubAssign[T ~[n]fieldElement](dst, src *T) {
 }
 
 func polyInfinityNorm[T ~[n]fieldElement](a *T, norm int) int {
-	return polyInfinityNormNEON(a, norm)
+	current := uint32(norm)
+	return int(maxUint32(current, polyInfinityNormNEON(&(*a)[0])))
 }
 
 func polyInfinityNormSigned(a *[n]int32, norm int) int {
-	return polyInfinityNormSignedNEON(a, norm)
+	current := uint32(norm)
+	return int(maxUint32(current, polyInfinityNormSignedNEON(&(*a)[0])))
 }
 
 func decomposeSubToR0(dst *[n]int32, w, cs2 *ringElement, gamma2 uint32) {
