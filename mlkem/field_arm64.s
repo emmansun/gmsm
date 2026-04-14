@@ -383,7 +383,10 @@ ntt_len8_loop:
 	ADD $1, R4, R4
 	B ntt_len8_loop
 
-	// Layer L5: len=4. butterfly with VZIP.
+	MOVD $·nttZetasL5L6Packed(SB), R13
+	ADD $256, R13, R14
+
+	// Layer L5: len=4. butterfly with prepacked zetas.
 ntt_len4_start:
 	MOVD R0, R3
 	MOVD $0, R4
@@ -391,9 +394,7 @@ ntt_len4_loop:
 	CMP $8, R4
 	BGE ntt_len2_start
 
-	LOAD_ZETA_NTT(V7)
-	LOAD_ZETA_NTT(V8)
-	VZIP1 V8.D2, V7.D2, V7.D2
+	VLD1.P (16)(R13), [V7.H8]
 	VLD1 (R3), [V20.H8, V21.H8]
 	VZIP1 V21.D2, V20.D2, V0.D2
 	VZIP2 V21.D2, V20.D2, V1.D2
@@ -402,9 +403,7 @@ ntt_len4_loop:
 	VZIP2 V1.D2, V0.D2, V21.D2
 	VST1.P [V20.H8, V21.H8], 32(R3)
 
-	LOAD_ZETA_NTT(V7)
-	LOAD_ZETA_NTT(V8)
-	VZIP1 V8.D2, V7.D2, V7.D2
+	VLD1.P (16)(R13), [V7.H8]
 	VLD1 (R3), [V20.H8, V21.H8]
 	VZIP1 V21.D2, V20.D2, V0.D2
 	VZIP2 V21.D2, V20.D2, V1.D2
@@ -416,7 +415,7 @@ ntt_len4_loop:
 	ADD $1, R4, R4
 	B ntt_len4_loop
 
-	// Layer L6: len=2. butterfly with double VZIP.
+	// Layer L6: len=2. butterfly with prepacked zetas.
 ntt_len2_start:
 	MOVD R0, R3
 	MOVD $0, R4
@@ -425,9 +424,7 @@ ntt_len2_loop:
 	BGE ntt_len2_done
 
 	// Block 1
-	MOVD.P 8(R1), R10
-	VDUP R10, V20.D2
-	VZIP1 V20.H8, V20.H8, V7.H8
+	VLD1.P (16)(R14), [V7.H8]
 	VLD1 (R3), [V20.H8, V21.H8]
 	VZIP1 V21.D2, V20.D2, V22.D2
 	VZIP2 V21.D2, V20.D2, V23.D2
@@ -441,9 +438,7 @@ ntt_len2_loop:
 	VST1.P [V20.H8, V21.H8], 32(R3)
 
 	// Block 2
-	MOVD.P 8(R1), R10
-	VDUP R10, V20.D2
-	VZIP1 V20.H8, V20.H8, V7.H8
+	VLD1.P (16)(R14), [V7.H8]
 	VLD1 (R3), [V20.H8, V21.H8]
 	VZIP1 V21.D2, V20.D2, V22.D2
 	VZIP2 V21.D2, V20.D2, V23.D2
