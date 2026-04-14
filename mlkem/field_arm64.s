@@ -776,11 +776,11 @@ nttmlacc_neon_loop:
 
 	// fieldReduceOnce on both
 	WORD $0x6e7f3cf4  // CMGT.U V20.8H, V7.8H, V31.8H  (V20=0xFFFF where V7>3329, else 0)
-	VAND V20.H8, V31.H8, V20.H8
+	VAND V20.B16, V31.B16, V20.B16
 	VSUB V20.H8, V7.H8, V7.H8
 
 	WORD $0x6e7f3cd5  // CMGT.U V21.8H, V6.8H, V31.8H  (V20=0xFFFF where V6>3329, else 0)
-	VAND V21.H8, V31.H8, V21.H8
+	VAND V21.B16, V31.B16, V21.B16
 	VSUB V21.H8, V6.H8, V6.H8
 
 	// Re-interleave: VZIP1 Va.8H, Vb.8H, Vd.8H in Go Plan9 → ARM64 ZIP1 Vd,Vb,Va → Vd=[Vb[0],Va[0],...]
@@ -792,7 +792,7 @@ nttmlacc_neon_loop:
 	VLD1 (R0), [V2.H8]
 	VADD V5.H8, V2.H8, V2.H8
 	WORD $0x6e7f3c54  // CMGT.U V20.8H, V2.8H, V31.8H  (V20=0xFFFF where V2>3329, else 0)
-	VAND V20.H8, V31.H8, V20.H8
+	VAND V20.B16, V31.B16, V20.B16
 	VSUB V20.H8, V2.H8, V2.H8
 
 	VST1.P [V2.H8], (16)(R0)
