@@ -162,34 +162,32 @@
 //   VB' = MontMul(VZ, fieldSub(VB, VA_old))
 // V25 holds VA_old. Clobbers: V20..V26.
 #define INTT_BUTTERFLY(VA, VB, VZ) \
-	VMOV   VA.B16, V25.B16            \ // save VA_old
-	VADD   VA.H8, VB.H8, VA.H8        \ // VA = VA_old + VB
-	VSUB   V31.H8, VA.H8, V20.H8      \ // try = VA - q → V20
-	WORD   $0x4f110698                \ // VSSHR V24.H8, V20.H8, #15
-	VAND   V31.B16, V24.B16, V24.B16  \ // q if underflow
-	VADD   V20.H8, V24.H8, VA.H8      \ // VA = try + correction
-	VSUB   V25.H8, VB.H8, V20.H8      \ // diff = VB - VA_old  (V20=VB-V25)
-	WORD   $0x4f110698                \ // VSSHR V24.H8, V20.H8, #15
+	VSUB   VA.H8, VB.H8, V22.H8       \ // diff = VB - VA_old  (V22=VB-VA_old)
+	VADD   VA.H8, VB.H8, V20.H8       \ // V20 = VA_old + VB
+	\ // VA reduction
+	WORD   $0x6e7f3e95				  \ // CMGT.U V21.8H, V20.8H, V31.8H (V20 >= q ? 0xFFFF : 0)
+	VAND   V31.B16, V21.B16, V21.B16  \ // q if negative
+	VSUB   V21.H8, V20.H8, V25.H8      \
+	\ // VB reduction
+	WORD   $0x4f1106d8                \ // VSSHR V24.H8, V22.H8, #15
 	VAND   V31.B16, V24.B16, V24.B16  \ // q if negative
-	VADD   V20.H8, V24.H8, VB.H8      \ // fieldSub: add q if negative
-	VMOV   VA.B16, V25.B16            \ // save VA' before MONT_MUL clobbers V0
+	VADD   V22.H8, V24.H8, VB.H8      \ // fieldSub: add q if negative
 	MONT_MUL(VB, VZ, VB)              \ // VB = MontMul(VZ, diff) — clobbers VA's reg (V0)
 	VMOV   V25.B16, VA.B16             // restore VA'
 
 // Specialized inverse butterfly for VA=V0, VB=V1.
 // Saves one VMOV vs INTT_BUTTERFLY(V0, V1, VZ).
 #define INTT_BUTTERFLY01(VZ) \
-	VMOV   V0.B16, V25.B16            \ // save VA_old
-	VADD   V0.H8, V1.H8, V0.H8        \ // VA = VA_old + VB
-	VSUB   V31.H8, V0.H8, V20.H8      \ // try = VA - q
-	WORD   $0x4f110698                \ // VSSHR V24.H8, V20.H8, #15
-	VAND   V31.B16, V24.B16, V24.B16  \ // q if underflow
-	VADD   V20.H8, V24.H8, V0.H8      \ // VA = try + correction
-	VSUB   V25.H8, V1.H8, V20.H8      \ // diff = VB - VA_old
-	WORD   $0x4f110698                \ // VSSHR V24.H8, V20.H8, #15
+	VSUB   V0.H8, V1.H8, V22.H8       \ // diff = VB - VA_old
+	VADD   V0.H8, V1.H8, V20.H8       \ // V20 = VA_old + VB
+	\ // VA reduction
+	WORD   $0x6e7f3e95				  \ // CMGT.U V21.8H, V20.8H, V31.8H (V20 >= q ? 0xFFFF : 0)
+	VAND   V31.B16, V21.B16, V21.B16  \ // q if negative
+	VSUB   V21.H8, V20.H8, V25.H8      \
+	\ // VB reduction
+	WORD   $0x4f1106d8                \ // VSSHR V24.H8, V22.H8, #15
 	VAND   V31.B16, V24.B16, V24.B16  \ // q if negative
-	VADD   V20.H8, V24.H8, V1.H8      \ // fieldSub: add q if negative
-	VMOV   V0.B16, V25.B16            \ // save VA' before MONT_MUL clobbers V0
+	VADD   V22.H8, V24.H8, V1.H8      \ // fieldSub: add q if negative
 	VMOV   VZ.B16, V0.B16             \ // V0 = zeta, V1 keeps diff
 	MONT_MUL_V0_V1(V1)                \ // VB = MontMul(V0, V1)
 	VMOV   V25.B16, V0.B16             // restore VA'
