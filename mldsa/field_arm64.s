@@ -95,7 +95,7 @@ loop:
 
 	VADD V6.S4, V4.S4, V4.S4          // acc + result in V4
 	// final reduction
-	WORD $0x7ebf3c94				  // CMGT.U V31.S4, V4.S4, V20.S4 (V4 >= q ? 0xFFFFFFFF : 0)
+	WORD $0x6ebf3c94				  // CMGT.U V31.S4, V4.S4, V20.S4 (V4 >= q ? 0xFFFFFFFF : 0)
 	VAND V31.B16, V20.B16, V24.B16    // q if underflow, else 0
 	VSUB V24.S4, V4.S4, V4.S4         // result in V4
 	
