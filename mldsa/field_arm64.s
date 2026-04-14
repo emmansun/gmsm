@@ -95,16 +95,15 @@ loop:
 
 	VADD V6.S4, V4.S4, V4.S4          // acc + result in V4
 	// final reduction
-	WORD $0x6ebf3c94				  // CMGT.U V31.S4, V4.S4, V20.S4 (V4 >= q ? 0xFFFFFFFF : 0)
+	WORD $0x6ebf3c94				  // CMGT.U V20.S4, V4.S4, V31.S4 (V4 >= q ? 0xFFFFFFFF : 0)
 	VAND V31.B16, V20.B16, V24.B16    // q if underflow, else 0
 	VSUB V24.S4, V4.S4, V4.S4         // result in V4
 	
 	VADD V7.S4, V5.S4, V5.S4          // acc + result in V5
 	// final reduction
-	VSUB V31.S4, V5.S4, V20.S4
-	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
-	VAND V31.B16, V24.B16, V24.B16    // q if underflow, else 0
-	VADD V20.S4, V24.S4, V5.S4        // result in V5
+	WORD $0x6ebf3cb5				  // CMGT.U V21.S4, V5.S4, V31.S4 (V5 >= q ? 0xFFFFFFFF : 0)
+	VAND V31.B16, V21.B16, V25.B16    // q if underflow, else 0
+	VSUB V25.S4, V5.S4, V5.S4         // result in V5
 
 	VST1.P [V4.S4, V5.S4], (32)(R2)
 	SUBS $1, R4, R4
