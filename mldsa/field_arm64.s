@@ -346,7 +346,9 @@ poly_inf_norm_signed_loop:
 	VADD V20.S4, V24.S4, V1.S4	            \
 	\ // even = even + t
 	VADD V21.S4, V0.S4, V0.S4               \
-	REDUCE_ONCE(V0)
+	WORD $0x6ebf3c14						\ // CMGT.U V20.S4, V0.S4, V31.S4 (even >= q ? 0xFFFFFFFF : 0)
+	VAND V31.B16, V20.B16, V20.B16          \
+	VSUB V20.S4, V0.S4, V0.S4
 
 // Gentleman-Sande butterfly with zeta in V7, even in V0, odd in V1.
 // Output in V0 (even') and V1 (odd').
@@ -356,7 +358,9 @@ poly_inf_norm_signed_loop:
 #define INVERSE_BUTTERFLY01_Z7              \
 	VMOV V0.B16, V25.B16                    \
 	VADD V1.S4, V0.S4, V0.S4                \
-	REDUCE_ONCE(V0)                         \
+	WORD $0x6ebf3c14						\ // CMGT.U V20.S4, V0.S4, V31.S4 (even >= q ? 0xFFFFFFFF : 0)
+	VAND V31.B16, V20.B16, V20.B16          \
+	VSUB V20.S4, V0.S4, V0.S4				\
 	VSUB V1.S4, V25.S4, V1.S4               \
 	VADD V31.S4, V1.S4, V1.S4               \
 	WORD $0x4ea19cf4                        \ // MUL   V20.4S, V7.4S, V1.4S
