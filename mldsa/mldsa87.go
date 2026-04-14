@@ -72,7 +72,8 @@ func (sk *PrivateKey87) ensureT1() {
 		var nttT [k87]nttElement
 
 		for i := range nttT {
-			for j := range s1NTT {
+			nttMul(&nttT[i], &s1NTT[0], &A[i*l87])
+			for j := 1; j < l87; j++ {
 				nttMulAcc(&nttT[i], &s1NTT[j], &A[i*l87+j])
 			}
 		}
@@ -270,7 +271,8 @@ func dsaKeyGen87(sk *Key87, xi *[32]byte) {
 		s1NTT[i] = ntt(s1[i])
 	}
 	for i := range nttT {
-		for j := range s1NTT {
+		nttMul(&nttT[i], &s1NTT[0], &A[i*l87])
+		for j := 1; j < l87; j++ {
 			nttMulAcc(&nttT[i], &s1NTT[j], &A[i*l87+j])
 		}
 	}
@@ -469,7 +471,8 @@ func (sk *PrivateKey87) signInternal(seed, mu []byte) ([]byte, error) {
 		H.Reset()
 		H.Write(mu[:])
 		for i := range k87 {
-			for j := range l87 {
+			nttMul(&wNTT[i], &yNTT[0], &A[i*l87])
+			for j := 1; j < l87; j++ {
 				nttMulAcc(&wNTT[i], &yNTT[j], &A[i*l87+j])
 			}
 			internalInverseNTT(&wNTT[i])
@@ -624,7 +627,8 @@ func (pk *PublicKey87) verifyInternal(sig, mu []byte) bool {
 	pk.ensureNTT()
 	var zNTTMulA [k87]nttElement
 	for i := range k87 {
-		for j := range l87 {
+		nttMul(&zNTTMulA[i], &zNTT[0], &pk.a[i*l87])
+		for j := 1; j < l87; j++ {
 			nttMulAcc(&zNTTMulA[i], &zNTT[j], &pk.a[i*l87+j])
 		}
 		var product nttElement
