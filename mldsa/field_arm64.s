@@ -25,8 +25,8 @@ loop:
 
 	// step 1: V0 * V2
 	WORD $0x4ea29c14                  // MUL   V20.4S, V0.4S, V2.4S
-	WORD $0x4ebe9e96                  // MUL   V22.4S, V20.4S, V30.4S
 	WORD $0x6ea2b415                  // SQRDMULH V21.4S, V0.4S, V2.4S (hi' = Round(2*hi))
+	WORD $0x4ebe9e96                  // MUL   V22.4S, V20.4S, V30.4S
 	WORD $0x6ebfb6d7                  // SQRDMULH V23.4S, V22.4S, V31.4S (corr' = Round(2*corr))
 	VADD V21.S4, V23.S4, V20.S4       // raw = 2*Result
 	WORD $0x4f3f0694                  // VSSHR V20.S4, V20.S4, #1
@@ -36,8 +36,8 @@ loop:
 
 	// step 1: V1 * V3
 	WORD $0x4ea39c34                  // MUL   V20.4S, V1.4S, V3.4S
-	WORD $0x4ebe9e96                  // MUL   V22.4S, V20.4S, V30.4S
 	WORD $0x6ea3b435                  // SQRDMULH V21.4S, V1.4S, V3.4S (hi' = Round(2*hi))
+	WORD $0x4ebe9e96                  // MUL   V22.4S, V20.4S, V30.4S
 	WORD $0x6ebfb6d7                  // SQRDMULH V23.4S, V22.4S, V31.4S (corr' = Round(2*corr))
 	VADD V21.S4, V23.S4, V20.S4       // raw = 2*Result
 	WORD $0x4f3f0694                  // VSSHR V20.S4, V20.S4, #1
@@ -73,8 +73,8 @@ loop:
 
 	// step 1: V0 * V2
 	WORD $0x4ea29c14                  // MUL   V20.4S, V0.4S, V2.4S
-	WORD $0x4ebe9e96                  // MUL   V22.4S, V20.4S, V30.4S
 	WORD $0x6ea2b415                  // SQRDMULH V21.4S, V0.4S, V2.4S (hi' = Round(2*hi))
+	WORD $0x4ebe9e96                  // MUL   V22.4S, V20.4S, V30.4S
 	WORD $0x6ebfb6d7                  // SQRDMULH V23.4S, V22.4S, V31.4S (corr' = Round(2*corr))
 	VADD V21.S4, V23.S4, V20.S4       // raw = 2*Result
 	WORD $0x4f3f0694                  // VSSHR V20.S4, V20.S4, #1
@@ -84,8 +84,8 @@ loop:
 
 	// step 1: V1 * V3
 	WORD $0x4ea39c34                  // MUL   V20.4S, V1.4S, V3.4S
-	WORD $0x4ebe9e96                  // MUL   V22.4S, V20.4S, V30.4S
 	WORD $0x6ea3b435                  // SQRDMULH V21.4S, V1.4S, V3.4S (hi' = Round(2*hi))
+	WORD $0x4ebe9e96                  // MUL   V22.4S, V20.4S, V30.4S
 	WORD $0x6ebfb6d7                  // SQRDMULH V23.4S, V22.4S, V31.4S (corr' = Round(2*corr))
 	VADD V21.S4, V23.S4, V20.S4       // raw = 2*Result
 	WORD $0x4f3f0694                  // VSSHR V20.S4, V20.S4, #1
@@ -281,8 +281,8 @@ poly_inf_norm_signed_loop:
 
 #define DBL_MONT_MUL_FIXED(VOUT) \
 	WORD $0x4ea19c14                        \ // MUL   V20.4S, V0.4S, V1.4S
-	WORD $0x4ebe9e96                        \ // MUL   V22.4S, V20.4S, V30.4S
 	WORD $0x6ea1b415                        \ // SQRDMULH V21.4S, V0.4S, V1.4S (hi' = Round(2*hi))
+	WORD $0x4ebe9e96                        \ // MUL   V22.4S, V20.4S, V30.4S
 	WORD $0x6ebfb6d7                        \ // SQRDMULH V23.4S, V22.4S, V31.4S (corr' = Round(2*corr))
 	VADD V21.S4, V23.S4, V20.S4             \ // raw = 2*Result
 	WORD $0x4f3f0694                        \ // VSSHR V20.S4, V20.S4, #1
@@ -334,8 +334,8 @@ poly_inf_norm_signed_loop:
 // Clobbers V20,V21,V22,V23,V24.
 #define BUTTERFLY01_Z7                      \
 	WORD $0x4ea19cf4                        \ // MUL   V20.4S, V7.4S, V1.4S
-	WORD $0x4ebe9e96                        \ // MUL   V22.4S, V20.4S, V30.4S
 	WORD $0x6ea1b4f5                        \ // SQRDMULH V21.4S, V7.4S, V1.4S (hi' = Round(2*hi))
+	WORD $0x4ebe9e96                        \ // MUL   V22.4S, V20.4S, V30.4S
 	WORD $0x6ebfb6d7                        \ // SQRDMULH V23.4S, V22.4S, V31.4S (corr' = Round(2*corr))
 	VADD V21.S4, V23.S4, V20.S4             \ // raw = 2*Result
 	WORD $0x4f3f0694                        \ // VSSHR V20.S4, V20.S4, #1
@@ -363,8 +363,8 @@ poly_inf_norm_signed_loop:
 	VSUB V1.S4, V25.S4, V1.S4               \
 	VADD V31.S4, V1.S4, V1.S4               \
 	WORD $0x4ea19cf4                        \ // MUL   V20.4S, V7.4S, V1.4S
-	WORD $0x4ebe9e96                        \ // MUL   V22.4S, V20.4S, V30.4S
 	WORD $0x6ea1b4f5                        \ // SQRDMULH V21.4S, V7.4S, V1.4S (hi' = Round(2*hi))
+	WORD $0x4ebe9e96                        \ // MUL   V22.4S, V20.4S, V30.4S
 	WORD $0x6ebfb6d7                        \ // SQRDMULH V23.4S, V22.4S, V31.4S (corr' = Round(2*corr))
 	VADD V21.S4, V23.S4, V20.S4             \ // raw = 2*Result
 	WORD $0x4f3f0694                        \ // VSSHR V20.S4, V20.S4, #1
@@ -506,8 +506,8 @@ ntt_l6_group:
 	VLD1.P (16)(R13), [V7.S4]         // [z0 z0 z1 z1]
 
 	VLD1 (R6), [V20.S4, V21.S4]
-	VZIP1 V21.D2, V20.D2, V0.D2 // even: [e0 e1 e2 e3]
-	VZIP2 V21.D2, V20.D2, V1.D2 // odd:  [o0 o1 o2 o3]
+	VZIP1 V21.D2, V20.D2, V0.D2      // even: [e0 o0 e2 o2]
+	VZIP2 V21.D2, V20.D2, V1.D2      // odd:  [e1 o1 e3 o3]
 	BUTTERFLY01_Z7
 	VZIP1 V1.D2, V0.D2, V20.D2
 	VZIP2 V1.D2, V0.D2, V21.D2
