@@ -460,6 +460,9 @@ ntt_len2_done:
 TEXT ·internalInverseNTTNEON(SB), NOSPLIT, $0-8
 	MOVD f+0(FP), R0
 
+	MOVD $·zetasMontgomery(SB), R1
+	ADD $256, R1, R1         // point R1 to zetasMontgomery[128]
+
 	// Setup pinned registers
 	MOVD $3329, R8
 	VDUP R8, V31.H8
@@ -472,15 +475,19 @@ TEXT ·internalInverseNTTNEON(SB), NOSPLIT, $0-8
 	VDUP R8, V27.H8
 
 	// ── L6: len=2. 64 groups. zeta = zetasMontgomery[127..64] ────────────
+	// k descends: group g uses zetasMontgomery[127-g], byte offset = (127-g)*2 = 254-g*2
+	// SI = zeta offset (starts at 254, decreases by 2 each group)
 	MOVD R0, R3
 	MOVD $0, R4
-	MOVD $·inttZetasL6L5Packed(SB), R13
 intt_len2_loop:
 	CMP $8, R4
 	BGE intt_len4_start
 
 	// Block 1
-	VLD1.P (16)(R13), [V7.H8]
+	MOVD.W -8(R1), R10
+	VDUP R10, V20.D2
+	VREV64 V20.H8, V20.H8
+	VZIP1 V20.H8, V20.H8, V7.H8
 	VLD1 (R3), [V20.H8, V21.H8]
 	VZIP1 V21.D2, V20.D2, V22.D2
 	VZIP2 V21.D2, V20.D2, V23.D2
@@ -494,7 +501,10 @@ intt_len2_loop:
 	VST1.P [V20.H8, V21.H8], 32(R3)
 
 	// Block 2
-	VLD1.P (16)(R13), [V7.H8]
+	MOVD.W -8(R1), R10
+	VDUP R10, V20.D2
+	VREV64 V20.H8, V20.H8
+	VZIP1 V20.H8, V20.H8, V7.H8
 	VLD1 (R3), [V20.H8, V21.H8]
 	VZIP1 V21.D2, V20.D2, V22.D2
 	VZIP2 V21.D2, V20.D2, V23.D2
@@ -519,7 +529,9 @@ intt_len4_loop:
 	BGE intt_len8_start
 
 	// Block 1
-	VLD1.P (16)(R13), [V7.H8]
+	LOAD_ZETA_INTT(V7)
+	LOAD_ZETA_INTT(V8)
+	VZIP1 V8.D2, V7.D2, V7.D2
 	VLD1 (R3), [V20.H8, V21.H8]
 	VZIP1 V21.D2, V20.D2, V0.D2
 	VZIP2 V21.D2, V20.D2, V1.D2
@@ -529,7 +541,9 @@ intt_len4_loop:
 	VST1.P [V20.H8, V21.H8], 32(R3)
 
 	// Block 2
-	VLD1.P (16)(R13), [V7.H8]
+	LOAD_ZETA_INTT(V7)
+	LOAD_ZETA_INTT(V8)
+	VZIP1 V8.D2, V7.D2, V7.D2
 	VLD1 (R3), [V20.H8, V21.H8]
 	VZIP1 V21.D2, V20.D2, V0.D2
 	VZIP2 V21.D2, V20.D2, V1.D2
@@ -543,10 +557,6 @@ intt_len4_loop:
 
 	// ── L4: len=8. 16 groups. zeta = zetasMontgomery[31..16] ─────────────
 intt_len8_start:
-	// L6/L5 now use prepacked tables and no longer consume R1, so rebase R1
-	// to the position expected by LOAD_ZETA_INTT for remaining layers.
-	MOVD $·zetasMontgomery(SB), R1
-	ADD $64, R1, R1 // point R1 to zetasMontgomery[32]
 	MOVD R0, R3
 	MOVD $0, R4
 intt_len8_loop:
