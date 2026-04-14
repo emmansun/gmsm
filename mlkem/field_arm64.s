@@ -388,7 +388,6 @@ ntt_len4_start:
 	MOVD R0, R3
 	MOVD $0, R4
 	MOVD $·nttZetasL5L6Packed(SB), R13
-	ADD $256, R13, R14	
 ntt_len4_loop:
 	CMP $8, R4
 	BGE ntt_len2_start
@@ -423,7 +422,7 @@ ntt_len2_loop:
 	BGE ntt_len2_done
 
 	// Block 1
-	VLD1.P (16)(R14), [V7.H8]
+	VLD1.P (16)(R13), [V7.H8]
 	VLD1 (R3), [V20.H8, V21.H8]
 	VZIP1 V21.D2, V20.D2, V22.D2
 	VZIP2 V21.D2, V20.D2, V23.D2
@@ -437,7 +436,7 @@ ntt_len2_loop:
 	VST1.P [V20.H8, V21.H8], 32(R3)
 
 	// Block 2
-	VLD1.P (16)(R14), [V7.H8]
+	VLD1.P (16)(R13), [V7.H8]
 	VLD1 (R3), [V20.H8, V21.H8]
 	VZIP1 V21.D2, V20.D2, V22.D2
 	VZIP2 V21.D2, V20.D2, V23.D2
