@@ -574,11 +574,10 @@ intt_l0_group:
 	MOVD R0, R6
 	MOVD $32, R5
 intt_l1_group:
-	MOVWU.W -4(R1), R10
-	MOVWU.W -4(R1), R12
-	VDUP R10, V7.S4
-	VDUP R12, V6.S4
-	VUZP1 V6.S4, V7.S4, V7.S4         // [z0 z0 z1 z1]
+	MOVD.W -8(R1), R10
+	VDUP R10, V7.D2
+	VREV64 V7.S4, V7.S4
+	VZIP1 V7.S4, V7.S4, V7.S4         // [z0 z0 z1 z1]
 
 	VLD1 (R6), [V20.S4, V21.S4]       // [a0 a1 b0 b1 | c0 c1 d0 d1]
 	VZIP1 V21.D2, V20.D2, V0.D2       // even: [a0 a1 c0 c1]
