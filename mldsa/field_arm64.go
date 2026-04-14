@@ -8,6 +8,8 @@ package mldsa
 
 var qMinusZetasMontgomeryARM64 [n]fieldElement
 var qMinusZetasMontgomeryL0ReorderedARM64 [128]fieldElement
+var zetasMontgomeryL6ReorderedARM64 [128]fieldElement
+var qMinusZetasMontgomeryL1ReorderedARM64 [128]fieldElement
 
 func init() {
 	for i := 0; i < n; i++ {
@@ -15,6 +17,22 @@ func init() {
 	}
 	for i := 0; i < 128; i++ {
 		qMinusZetasMontgomeryL0ReorderedARM64[i] = qMinusZetasMontgomeryARM64[255-i]
+	}
+	for i := 0; i < 32; i++ {
+		z0 := zetasMontgomery[64+2*i]
+		z1 := zetasMontgomery[64+2*i+1]
+		j := 4 * i
+		zetasMontgomeryL6ReorderedARM64[j+0] = z0
+		zetasMontgomeryL6ReorderedARM64[j+1] = z0
+		zetasMontgomeryL6ReorderedARM64[j+2] = z1
+		zetasMontgomeryL6ReorderedARM64[j+3] = z1
+
+		qz0 := qMinusZetasMontgomeryARM64[127-2*i]
+		qz1 := qMinusZetasMontgomeryARM64[127-(2*i+1)]
+		qMinusZetasMontgomeryL1ReorderedARM64[j+0] = qz0
+		qMinusZetasMontgomeryL1ReorderedARM64[j+1] = qz0
+		qMinusZetasMontgomeryL1ReorderedARM64[j+2] = qz1
+		qMinusZetasMontgomeryL1ReorderedARM64[j+3] = qz1
 	}
 }
 

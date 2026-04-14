@@ -379,6 +379,7 @@ TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
 
 	MOVD $·zetasMontgomery(SB), R1
 	ADD $4, R1, R1 // point to zetasMontgomery[1]
+	MOVD $·zetasMontgomeryL6ReorderedARM64(SB), R13
 
 	// pinned constants
 	MOVD $8380417, R8
@@ -502,9 +503,7 @@ ntt_l5_group:
 	MOVD $32, R5
 	MOVD R0, R6
 ntt_l6_group:
-	MOVD.P 8(R1), R10
-	VDUP R10, V7.D2
-	VZIP1 V7.S4, V7.S4, V7.S4 // [z0 z0 z1 z1]
+	VLD1.P (16)(R13), [V7.S4]         // [z0 z0 z1 z1]
 
 	VLD1 (R6), [V20.S4, V21.S4]
 	VZIP1 V21.D2, V20.D2, V0.D2 // even: [e0 e1 e2 e3]
@@ -516,6 +515,7 @@ ntt_l6_group:
 
 	SUBS $1, R5, R5
 	BNE ntt_l6_group
+	ADD $256, R1, R1
 
 	// L7: len=1. Four groups packed per vector butterfly.
 	MOVD $32, R5
@@ -546,6 +546,8 @@ TEXT ·internalInverseNTTNEON(SB), NOSPLIT, $0-8
 
 	// L0 uses pre-reordered qMinusZetas blocks: [q-z255 ... q-z128].
 	MOVD $·qMinusZetasMontgomeryL0ReorderedARM64(SB), R13
+	// L1 uses pre-reordered qMinusZetas blocks: [q-z127 q-z127 q-z126 q-z126 ...].
+	MOVD $·qMinusZetasMontgomeryL1ReorderedARM64(SB), R14
 
 	// pinned constants
 	MOVD $8380417, R8
@@ -574,10 +576,7 @@ intt_l0_group:
 	MOVD R0, R6
 	MOVD $32, R5
 intt_l1_group:
-	MOVD.W -8(R1), R10
-	VDUP R10, V7.D2
-	VREV64 V7.S4, V7.S4
-	VZIP1 V7.S4, V7.S4, V7.S4         // [z0 z0 z1 z1]
+	VLD1.P (16)(R14), [V7.S4]         // [z0 z0 z1 z1]
 
 	VLD1 (R6), [V20.S4, V21.S4]       // [a0 a1 b0 b1 | c0 c1 d0 d1]
 	VZIP1 V21.D2, V20.D2, V0.D2       // even: [a0 a1 c0 c1]
@@ -589,6 +588,7 @@ intt_l1_group:
 
 	SUBS $1, R5, R5
 	BNE intt_l1_group
+	SUB $256, R1, R1
 
 	// L2: len=4, 32 groups, one vector butterfly each.
 	MOVD $32, R5
