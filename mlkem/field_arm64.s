@@ -383,13 +383,12 @@ ntt_len8_loop:
 	ADD $1, R4, R4
 	B ntt_len8_loop
 
-	MOVD $·nttZetasL5L6Packed(SB), R13
-	ADD $256, R13, R14
-
 	// Layer L5: len=4. butterfly with prepacked zetas.
 ntt_len4_start:
 	MOVD R0, R3
 	MOVD $0, R4
+	MOVD $·nttZetasL5L6Packed(SB), R13
+	ADD $256, R13, R14	
 ntt_len4_loop:
 	CMP $8, R4
 	BGE ntt_len2_start
