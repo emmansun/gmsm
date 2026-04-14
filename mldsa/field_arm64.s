@@ -134,9 +134,15 @@ poly_add_assign_loop:
 	VLD1 (R0), [V0.S4, V1.S4]
 	VLD1.P (32)(R1), [V2.S4, V3.S4]
 	VADD V2.S4, V0.S4, V0.S4
-	REDUCE_ONCE(V0)
+	WORD $0x6ebf3c14				  // CMGT.U V20.S4, V0.S4, V31.S4 (V0 >= q ? 0xFFFFFFFF : 0)
+	VAND V31.B16, V20.B16, V20.B16    // q if underflow, else 0
+	VSUB V20.S4, V0.S4, V0.S4         // result in V0
+
 	VADD V3.S4, V1.S4, V1.S4
-	REDUCE_ONCE(V1)
+	WORD $0x6ebf3c35				  // CMGT.U V21.S4, V1.S4, V31.S4 (V1 >= q ? 0xFFFFFFFF : 0)
+	VAND V31.B16, V21.B16, V21.B16    // q if underflow, else 0
+	VSUB V21.S4, V1.S4, V1.S4         // result in V1
+
 	VST1.P [V0.S4, V1.S4], (32)(R0)
 	SUBS $1, R4, R4
 	BNE poly_add_assign_loop
@@ -155,12 +161,15 @@ poly_sub_assign_loop:
 	VLD1 (R0), [V0.S4, V1.S4]
 	VLD1.P (32)(R1), [V2.S4, V3.S4]
 	VSUB V2.S4, V0.S4, V0.S4
-	VADD V31.S4, V0.S4, V0.S4
-	REDUCE_ONCE(V0)
+	WORD $0x4f210414			      // VSSHR V20.S4, V0.S4, #31 (sign bit: 0x00000000 if positive, 0xFFFFFFFF if negative)
+	VAND V31.B16, V20.B16, V20.B16    // q if negative, else 0
+	VADD V20.S4, V0.S4, V0.S4
 
 	VSUB V3.S4, V1.S4, V1.S4
-	VADD V31.S4, V1.S4, V1.S4
-	REDUCE_ONCE(V1)
+	WORD $0x4f210435			      // VSSHR V21.S4, V1.S4, #31 (sign bit: 0x00000000 if positive, 0xFFFFFFFF if negative)
+	VAND V31.B16, V21.B16, V21.B16    // q if negative, else 0
+	VADD V21.S4, V1.S4, V1.S4
+
 	VST1.P [V0.S4, V1.S4], (32)(R0)
 	SUBS $1, R4, R4
 	BNE poly_sub_assign_loop
@@ -770,7 +779,9 @@ decompose_sub_to_r0_gamma32_loop:
 	// t = fieldSub(w, cs2) = reduce_once(w + q - cs2)
 	VADD V31.S4, V0.S4, V2.S4
 	VSUB V1.S4, V2.S4, V2.S4
-	REDUCE_ONCE(V2)
+	WORD $0x6ebf3c54			      // CMGT.U V20.S4, V2.S4, V31.S4 (V2 >= q ? 0xFFFFFFFF : 0)
+	VAND V31.B16, V20.B16, V20.B16 
+	VSUB V20.S4, V2.S4, V2.S4	
 
 	// r1 = SQRDMULH((t+127)>>7, 524800) = ((((t+127)>>7)*1025)+2^21)>>22; r1 &= 15
 	VADD V30.S4, V2.S4, V3.S4
@@ -835,7 +846,9 @@ decompose_sub_to_r0_gamma88_loop:
 	// t = fieldSub(w, cs2) = reduce_once(w + q - cs2)
 	VADD V31.S4, V0.S4, V2.S4
 	VSUB V1.S4, V2.S4, V2.S4
-	REDUCE_ONCE(V2)
+	WORD $0x6ebf3c54			      // CMGT.U V20.S4, V2.S4, V31.S4 (V2 >= q ? 0xFFFFFFFF : 0)
+	VAND V31.B16, V20.B16, V20.B16 
+	VSUB V20.S4, V2.S4, V2.S4	
 
 	// r1 = SQRDMULH((t+127)>>7, 1443200) = ((((t+127)>>7)*11275)+2^23)>>24
 	VADD V30.S4, V2.S4, V3.S4
