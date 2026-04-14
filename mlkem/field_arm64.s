@@ -149,10 +149,9 @@
 	VMOV   VZ.B16, V0.B16             \ // V0 = zeta, V1 keeps VB
 	DBL_MONT_MUL_FIXED(V26)           \ // t = MontMul(V0, V1)
 	VADD   V25.H8, V26.H8, V0.H8      \ // VA = VA_old + t
-	VSUB   V31.H8, V0.H8, V20.H8      \ // try = VA - q
-	WORD   $0x4f110698                \ // VSSHR V24.H8, V20.H8, #15
-	VAND   V31.B16, V24.B16, V24.B16  \ // q if underflow
-	VADD   V20.H8, V24.H8, V0.H8      \ // VA = try + correction
+	WORD   $0x6e7f3c14				  \ // CMGT.U V20.8H, V0.8H, V31.8H (V0 >= q ? 0xFFFF : 0)
+	VAND   V31.B16, V20.B16, V20.B16  \ // q if underflow
+	VSUB   V20.H8, V0.H8, V0.H8       \ // VA = VA - q if underflow
 	VSUB   V26.H8, V25.H8, V20.H8     \ // V20 = VA_old - t
 	WORD   $0x4f110698                \ // VSSHR V24.H8, V20.H8, #15
 	VAND   V31.B16, V24.B16, V24.B16  \ // q if negative
