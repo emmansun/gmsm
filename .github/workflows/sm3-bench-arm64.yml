@@ -34,7 +34,7 @@ jobs:
         run: |
           set -eu
 
-          OUT="$GITHUB_WORKSPACE/.artifacts"
+          OUT="$GITHUB_WORKSPACE/artifacts"
           mkdir -p "$OUT"
 
           CPU_FILE="$OUT/cpu-info.txt"
@@ -62,7 +62,7 @@ jobs:
         run: |
           set -eu
 
-          OUT="$GITHUB_WORKSPACE/.artifacts"
+          OUT="$GITHUB_WORKSPACE/artifacts"
           mkdir -p "$OUT"
 
           BENCH_FILE="$OUT/sm3-bench.txt"
@@ -75,10 +75,11 @@ jobs:
             > "$BENCH_FILE"
 
           echo "Generated files:"
-          ls -l "$OUT"
+          pwd
+          ls -la "$OUT"
 
       - name: Upload benchmark artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: sm3-bench-${{ github.run_id }}
-          path: .artifacts/
+          path: artifacts/
