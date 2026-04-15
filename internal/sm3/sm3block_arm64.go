@@ -3,15 +3,25 @@
 package sm3
 
 import (
+	"math/bits"
 	"os"
+
 	"github.com/emmansun/gmsm/internal/deps/cpu"
 )
 
 var useSM3NI = cpu.ARM64.HasSM3 && os.Getenv("DISABLE_SM3NI") != "1"
 
-var t = [...]uint32{
-	0x79cc4519,
-	0x9d8a7a87,
+var t = initRoundT()
+
+func initRoundT() [64]uint32 {
+	var roundT [64]uint32
+	for i := 0; i < 16; i++ {
+		roundT[i] = bits.RotateLeft32(0x79cc4519, i)
+	}
+	for i := 16; i < 64; i++ {
+		roundT[i] = bits.RotateLeft32(0x7a879d8a, i&31)
+	}
+	return roundT
 }
 
 //go:noescape
