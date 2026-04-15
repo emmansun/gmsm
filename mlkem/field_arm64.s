@@ -854,7 +854,14 @@ nttmlacc_kg_neon_done:
 	RET
 
 // samplePolyCBD2NEON computes D_eta=2 coefficients from 128 PRF bytes.
-// This version avoids byte lookup tables and maps [0..4] -> field values arithmetically.
+// This version vectorizes bit extraction and coefficient packing in 16-byte chunks.
+DATA ·cbd2DiffMapLow+0(SB)/8, $0x00000002010000FF
+DATA ·cbd2DiffMapLow+8(SB)/8, $0x0000000000000000
+GLOBL ·cbd2DiffMapLow(SB), RODATA, $16
+
+DATA ·cbd2DiffMapHigh+0(SB)/8, $0x0000000000000D0C
+DATA ·cbd2DiffMapHigh+8(SB)/8, $0x0000000000000000
+GLOBL ·cbd2DiffMapHigh(SB), RODATA, $16
 
 // func samplePolyCBD2NEON(dst *ringElement, buf *[128]byte)
 TEXT ·samplePolyCBD2NEON(SB), NOSPLIT, $0-16
@@ -862,18 +869,17 @@ TEXT ·samplePolyCBD2NEON(SB), NOSPLIT, $0-16
 	MOVD buf+8(FP), R1
 	MOVD $8, R2            // 128 / 16 chunks
 
-	VEOR V28.B16, V28.B16, V28.B16
-	MOVD $3329, R3
-	VDUP R3, V19.H8        // q
-	MOVD $2, R3
-	VDUP R3, V20.H8        // bias 2
-
 	MOVD $0x55, R3
 	VDUP R3, V23.B16       // pair-bit mask
 	MOVD $0x03, R3
 	VDUP R3, V22.B16       // 2-bit mask
 	MOVD $2, R3
 	VDUP R3, V21.B16       // +2 bias for [0..4] encoding
+
+	MOVD $·cbd2DiffMapLow(SB), R9
+	VLD1 (R9), [V16.B16]
+	MOVD $·cbd2DiffMapHigh(SB), R10
+	VLD1 (R10), [V17.B16]
 
 samplecbd2_loop:
 	CBZ R2, samplecbd2_done
@@ -901,45 +907,28 @@ samplecbd2_loop:
 	VADD V21.B16, V5.B16, V5.B16
 	VSUB V6.B16, V5.B16, V5.B16
 
-	// Interleave t0/t1 to coefficient order as signed bytes in [-2,2].
-	VZIP1 V5.B16, V3.B16, V11.B16
-	VZIP2 V5.B16, V3.B16, V12.B16
+	// Map [0..4] -> field element bytes via lookup tables.
+	VTBL V3.B16, [V16.B16], V7.B16   // t0 low byte
+	VTBL V3.B16, [V17.B16], V8.B16   // t0 high byte
+	VTBL V5.B16, [V16.B16], V9.B16   // t1 low byte
+	VTBL V5.B16, [V17.B16], V10.B16  // t1 high byte
 
-	// Widen coeff[0..7] and map to fieldElement by: x = x-2; if x<0 add q.
-	VZIP1 V28.B16, V11.B16, V13.B16
-	VSUB V20.H8, V13.H8, V13.H8
-	VUSHR $15, V13.H8, V14.H8
-	VSUB V14.H8, V28.H8, V14.H8
-	VAND V19.B16, V14.B16, V14.B16
-	VADD V14.H8, V13.H8, V13.H8
-	VST1.P [V13.B16], 16(R0)
+	// Pack little-endian uint16 lanes for t0 and t1.
+	VZIP1 V8.B16, V7.B16, V11.B16
+	VZIP2 V8.B16, V7.B16, V12.B16
+	VZIP1 V10.B16, V9.B16, V13.B16
+	VZIP2 V10.B16, V9.B16, V14.B16
 
-	// Widen coeff[8..15].
-	VZIP2 V28.B16, V11.B16, V15.B16
-	VSUB V20.H8, V15.H8, V15.H8
-	VUSHR $15, V15.H8, V14.H8
-	VSUB V14.H8, V28.H8, V14.H8
-	VAND V19.B16, V14.B16, V14.B16
-	VADD V14.H8, V15.H8, V15.H8
+	// Interleave t0/t1 halfwords to coefficient order c0,c1,c2,c3,...
+	VZIP1 V13.H8, V11.H8, V15.H8
+	VZIP2 V13.H8, V11.H8, V4.H8
 	VST1.P [V15.B16], 16(R0)
+	VST1.P [V4.B16], 16(R0)
 
-	// Widen coeff[16..23].
-	VZIP1 V28.B16, V12.B16, V13.B16
-	VSUB V20.H8, V13.H8, V13.H8
-	VUSHR $15, V13.H8, V14.H8
-	VSUB V14.H8, V28.H8, V14.H8
-	VAND V19.B16, V14.B16, V14.B16
-	VADD V14.H8, V13.H8, V13.H8
-	VST1.P [V13.B16], 16(R0)
-
-	// Widen coeff[24..31].
-	VZIP2 V28.B16, V12.B16, V15.B16
-	VSUB V20.H8, V15.H8, V15.H8
-	VUSHR $15, V15.H8, V14.H8
-	VSUB V14.H8, V28.H8, V14.H8
-	VAND V19.B16, V14.B16, V14.B16
-	VADD V14.H8, V15.H8, V15.H8
+	VZIP1 V14.H8, V12.H8, V15.H8
+	VZIP2 V14.H8, V12.H8, V4.H8
 	VST1.P [V15.B16], 16(R0)
+	VST1.P [V4.B16], 16(R0)
 
 	SUB $1, R2, R2
 	B samplecbd2_loop
@@ -987,9 +976,13 @@ samplecbd3_loop:
 	VLD1 (R1), [V0.B16]
 	ADD $12, R1, R12
 	VLD1 (R12), [V1.B16]
+	// Two overlapping 12-byte windows per iteration:
+	// block A uses bytes [0..11] from V0, block B uses bytes [12..23] from V1.
+	// This emits 32 coefficients (64 bytes) per loop.
 
 	// ---- block A: bytes [0..11] ----
 	VTBL V30.B16, [V0.B16], V2.B16
+	// After VTBL, each 32-bit lane packs one 3-byte group for bit-sliced popcount.
 
 	VUSHR $1, V2.S4, V3.S4
 	VUSHR $2, V2.S4, V4.S4
@@ -1002,6 +995,7 @@ samplecbd3_loop:
 	VUSHR $3, V2.S4, V3.S4
 	VADD V27.S4, V2.S4, V2.S4
 	VSUB V3.S4, V2.S4, V2.S4
+	// Lane values now hold (a-b+3) in [0..6] for two coeffs per 6-bit chunk.
 
 	VSHL $10, V2.S4, V4.S4
 	VUSHR $12, V2.S4, V5.S4
@@ -1015,6 +1009,7 @@ samplecbd3_loop:
 
 	VZIP1 V5.S4, V7.S4, V8.S4
 	VZIP2 V5.S4, V7.S4, V9.S4
+	// V8/V9 are int16 coefficients in [-3,3] before field mapping.
 
 	VSUB V24.H8, V8.H8, V8.H8
 	VSUB V24.H8, V9.H8, V9.H8
@@ -1026,6 +1021,7 @@ samplecbd3_loop:
 	VAND V23.B16, V11.B16, V11.B16
 	VADD V10.H8, V8.H8, V8.H8
 	VADD V11.H8, V9.H8, V9.H8
+	// Same signed-to-field mapping as CBD2: add q to negative lanes.
 
 	VST1.P [V8.B16], 16(R0)
 	VST1.P [V9.B16], 16(R0)
