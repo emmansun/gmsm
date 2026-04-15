@@ -45,7 +45,7 @@ jobs:
             cat /proc/cpuinfo || true
           } | tee .artifacts/cpu-info.txt
 
-      - name: Run sm3 benchmarks
+      - name: Run sm2 benchmarks
         shell: bash
         run: |
           set -euo pipefail

@@ -132,16 +132,16 @@ TEXT ·blockSM3NI(SB), 0, $0
 	VEXT $8, V8.B16, V8.B16, V8.B16
 	VREV64  V9.S4, V9.S4
 	VEXT $8, V9.B16, V9.B16, V9.B16
-
-blockloop:
-	MOVD	R8, R2                                      // per-round t constants first address
-	VLD1.P	64(R1), [V0.B16, V1.B16, V2.B16, V3.B16]    // load 64bytes message
-	VMOV	V8.B16, V15.B16                             // backup: V8 h(dcba)
-	VMOV	V9.B16, V16.B16                             // backup: V9 h(hgfe)
-	VREV32	V0.B16, V0.B16                              // prepare for using message in Byte format
+	VLD1.P	64(R1), [V0.B16, V1.B16, V2.B16, V3.B16]    // load first 64bytes message
+	VREV32	V0.B16, V0.B16                              // prepare message bytes for SM3PARTW
 	VREV32	V1.B16, V1.B16
 	VREV32	V2.B16, V2.B16
 	VREV32	V3.B16, V3.B16
+
+blockloop:
+	MOVD	R8, R2                                      // per-round t constants first address
+	VMOV	V8.B16, V15.B16                             // backup: V8 h(dcba)
+	VMOV	V9.B16, V16.B16                             // backup: V9 h(hgfe)
 	LDPW	(0*8)(R2), (R4, R5)
 	VMOV	R4, V11.S[3]
 	VMOV	R5, V12.S[3]
@@ -173,7 +173,13 @@ blockloop:
 	SUB	$64, R3, R3                                  // message length - 64bytes, then compare with 64bytes
 	VEOR	V8.B16, V15.B16, V8.B16
 	VEOR	V9.B16, V16.B16, V9.B16
-	CBNZ	R3, blockloop
+	CBZ	R3, sm3ret
+	VLD1.P	64(R1), [V0.B16, V1.B16, V2.B16, V3.B16]    // load next 64bytes message
+	VREV32	V0.B16, V0.B16                              // prepare message bytes for SM3PARTW
+	VREV32	V1.B16, V1.B16
+	VREV32	V2.B16, V2.B16
+	VREV32	V3.B16, V3.B16
+	B	blockloop
 
 sm3ret:
 	VREV64  V8.S4, V8.S4
