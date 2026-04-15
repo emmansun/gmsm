@@ -32,51 +32,25 @@ jobs:
       - name: Get CPU info
         shell: bash
         run: |
-          set -eu
-
-          OUT="$GITHUB_WORKSPACE/artifacts"
-          mkdir -p "$OUT"
-
-          CPU_FILE="$OUT/cpu-info.txt"
-
-          echo "=== System Information ==="        >  "$CPU_FILE"
-          uname -a                               >> "$CPU_FILE"
-          echo                                   >> "$CPU_FILE"
-
-          echo "=== Processor Details ==="        >> "$CPU_FILE"
-          if command -v lscpu >/dev/null 2>&1; then
-            lscpu                                 >> "$CPU_FILE"
-          else
-            echo "lscpu not available"           >> "$CPU_FILE"
-          fi
-          echo                                   >> "$CPU_FILE"
-
-          echo "=== /proc/cpuinfo ==="            >> "$CPU_FILE"
-          cat /proc/cpuinfo                       >> "$CPU_FILE"
-
-          echo "Generated files:"
-          ls -l "$OUT"
+          set -euo pipefail
+          mkdir -p artifacts
+          {
+            echo "=== CPU Information ==="
+            uname -a
+            echo ""
+            echo "=== Processor Details ==="
+            lscpu || true
+            echo ""
+            echo "=== /proc/cpuinfo ==="
+            cat /proc/cpuinfo || true
+          } | tee artifacts/cpu-info.txt
 
       - name: Run sm3 benchmarks
         shell: bash
         run: |
-          set -eu
-
-          OUT="$GITHUB_WORKSPACE/artifacts"
-          mkdir -p "$OUT"
-
-          BENCH_FILE="$OUT/sm3-bench.txt"
-
-          go test -run '^$' \
-                  -bench . \
-                  -benchmem \
-                  -benchtime=300ms \
-                  ./sm3 \
-            > "$BENCH_FILE"
-
-          echo "Generated files:"
-          pwd
-          ls -la "$OUT"
+          set -euo pipefail
+          mkdir -p artifacts
+          go test -run '^$' -bench . -benchmem -benchtime=300ms ./sm3 | tee artifacts/sm3-bench.txt
 
       - name: Upload benchmark artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

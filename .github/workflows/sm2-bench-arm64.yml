@@ -49,7 +49,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p .artifacts
+          mkdir -p artifacts
           go test -run '^$' -bench . -benchmem -benchtime=300ms ./sm2 | tee artifacts/sm2-bench.txt
 
       - name: Upload benchmark artifacts

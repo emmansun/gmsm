@@ -33,7 +33,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p .artifacts
+          mkdir -p artifacts
           {
             echo "=== CPU Information ==="
             uname -a
@@ -43,17 +43,17 @@ jobs:
             echo ""
             echo "=== /proc/cpuinfo ==="
             cat /proc/cpuinfo || true
-          } | tee .artifacts/cpu-info.txt
+          } | tee artifacts/cpu-info.txt
 
       - name: Run cipher benchmarks
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p .artifacts
-          go test -run '^$' -bench . -benchmem -benchtime=300ms ./cipher | tee .artifacts/cipher-bench.txt
+          mkdir -p artifacts
+          go test -run '^$' -bench . -benchmem -benchtime=300ms ./cipher | tee artifacts/cipher-bench.txt
 
       - name: Upload benchmark artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: cipher-bench-${{ github.run_id }}
-          path: .artifacts/
+          path: artifacts/
