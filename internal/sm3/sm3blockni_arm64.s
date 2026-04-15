@@ -482,7 +482,10 @@ blockloop:
 	SUB	$64, R3, R3                                  // message length - 64bytes, then compare with 64bytes
 	VEOR	V8.B16, V15.B16, V8.B16
 	VEOR	V9.B16, V16.B16, V9.B16
-	CBZ	R3, sm3ret
+	CBNZ	R3, blockload
+	B	sm3ret
+
+blockload:
 	VLD1.P	64(R1), [V0.B16, V1.B16, V2.B16, V3.B16]    // load next 64bytes message
 	VREV32	V0.B16, V0.B16                              // prepare message bytes for SM3PARTW
 	VREV32	V1.B16, V1.B16
