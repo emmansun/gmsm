@@ -78,6 +78,13 @@ func roundB(buf *bytes.Buffer, i, st1, st2, w, wt, tcur, tnext byte) {
 
 // Compress 4 words and generate 4 words, use v6, v7, v10 as temp registers.
 func qroundA(buf *bytes.Buffer, st1, st2, s0, s1, s2, s3, s4 byte) {
+	qroundAInject(buf, st1, st2, s0, s1, s2, s3, s4, nil)
+}
+
+// qroundAInject is like qroundA but calls inject (if non-nil) between rounds 1 and 2.
+// inject receives integer registers only (no vector conflict), used to prefetch
+// T constants for the next phase during compression stall slots.
+func qroundAInject(buf *bytes.Buffer, st1, st2, s0, s1, s2, s3, s4 byte, inject func(*bytes.Buffer)) {
 	fmt.Fprintf(buf, "\t// Extension\n")
 	fmt.Fprintf(buf, "\tVEXT $12, V%d.B16, V%d.B16, V%d.B16\n", s2, s1, s4)
 	fmt.Fprintf(buf, "\tVEXT $12, V%d.B16, V%d.B16, V%d.B16\n", s1, s0, 6)
@@ -88,6 +95,9 @@ func qroundA(buf *bytes.Buffer, st1, st2, s0, s1, s2, s3, s4 byte) {
 	fmt.Fprintf(buf, "\t// Compression\n")
 	roundA(buf, 0, st1, st2, s0, 10, tVec0, tVec1)
 	roundA(buf, 1, st1, st2, s0, 10, tVec1, tVec0)
+	if inject != nil {
+		inject(buf)
+	}
 	roundA(buf, 2, st1, st2, s0, 10, tVec0, tVec1)
 	roundA(buf, 3, st1, st2, s0, 10, tVec1, tVec0)
 	fmt.Fprintf(buf, "\n")
@@ -150,9 +160,14 @@ blockloop:
 	qroundA(buf, 8, 9, 0, 1, 2, 3, 4)
 	qroundA(buf, 8, 9, 1, 2, 3, 4, 0)
 	qroundA(buf, 8, 9, 2, 3, 4, 0, 1)
-	qroundA(buf, 8, 9, 3, 4, 0, 1, 2)
+	// Inject LDPW for second-phase T constants between rounds 1 and 2 of the last
+	// first-phase group.  LDPW only touches integer regs R4/R5 — fully independent
+	// of the concurrent vector compression chain — so this hides the load latency
+	// that would otherwise serialize at the phase boundary.
+	qroundAInject(buf, 8, 9, 3, 4, 0, 1, 2, func(b *bytes.Buffer) {
+		fmt.Fprintf(b, "\tLDPW\t(8*8)(R2), (R4, R5)           // prefetch T[16] constants\n")
+	})
 
-	fmt.Fprintf(buf, "\tLDPW\t(8*8)(R2), (R4, R5)\n")
 	fmt.Fprintf(buf, "\tVMOV\tR4, V11.S[3]\n")
 	fmt.Fprintf(buf, "\tVMOV\tR5, V12.S[3]\n")
 	fmt.Fprintf(buf, "\t// second 48 rounds\n")

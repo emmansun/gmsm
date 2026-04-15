@@ -134,6 +134,7 @@ blockloop:
 	VSRI $31, V12.S4, V11.S4
 	WORD $0xce4a90a8           //SM3TT1A V8d.4S, V5.4S, V10.S, 1
 	WORD $0xce4398a9           //SM3TT2A V9d.4S, V5.4S, V3.S, 1
+	LDPW	(8*8)(R2), (R4, R5)           // prefetch T[16] constants
 	WORD $0xce4b2505           //SM3SS1 V5.4S, V8.4S, V11.4S, V9.4S
 	VSHL $1, V11.S4, V12.S4
 	VSRI $31, V11.S4, V12.S4
@@ -145,7 +146,6 @@ blockloop:
 	WORD $0xce4ab0a8           //SM3TT1A V8d.4S, V5.4S, V10.S, 3
 	WORD $0xce43b8a9           //SM3TT2A V9d.4S, V5.4S, V3.S, 3
 
-	LDPW	(8*8)(R2), (R4, R5)
 	VMOV	R4, V11.S[3]
 	VMOV	R5, V12.S[3]
 	// second 48 rounds
