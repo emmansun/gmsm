@@ -55,7 +55,7 @@ jobs:
           cat /proc/cpuinfo                       >> "$CPU_FILE"
 
           echo "Generated files:"
-          ls -l "$OUT
+          ls -l "$OUT"
 
       - name: Run sm3 benchmarks
         shell: bash
