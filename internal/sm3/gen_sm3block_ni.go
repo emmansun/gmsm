@@ -12,11 +12,6 @@ import (
 )
 
 const (
-	tReg0 = 4
-	tReg1 = 5
-	tReg2 = 6
-	tReg3 = 7
-
 	tVec0 = 11
 	tVec1 = 12
 )
@@ -63,31 +58,26 @@ func sm3tt2b(Vd, Vn, Vm, imm2 byte) uint32 {
 	return inst
 }
 
-func loadT4(buf *bytes.Buffer) {
-	fmt.Fprintf(buf, "\tLDPW\t(0*8)(R2), (R%d, R%d)\n", tReg0, tReg1)
-	fmt.Fprintf(buf, "\tLDPW\t(1*8)(R2), (R%d, R%d)\n", tReg2, tReg3)
-	fmt.Fprintf(buf, "\tADD\t$16, R2, R2\n")
-}
-
 // Used v5 as temp register.
-func roundA(buf *bytes.Buffer, i, st1, st2, w, wt, treg, tvec byte) {
-	fmt.Fprintf(buf, "\tVMOV R%d, V%d.S[3]\n", treg, tvec)
-	fmt.Fprintf(buf, "\tWORD $0x%08x           //SM3SS1 V5.4S, V%d.4S, V%d.4S, V%d.4S\n", sm3ss1(5, st1, tvec, st2), st1, tvec, st2)
+func roundA(buf *bytes.Buffer, i, st1, st2, w, wt, tcur, tnext byte) {
+	fmt.Fprintf(buf, "\tWORD $0x%08x           //SM3SS1 V5.4S, V%d.4S, V%d.4S, V%d.4S\n", sm3ss1(5, st1, tcur, st2), st1, tcur, st2)
+	fmt.Fprintf(buf, "\tVSHL $1, V%d.S4, V%d.S4\n", tcur, tnext)
+	fmt.Fprintf(buf, "\tVSRI $31, V%d.S4, V%d.S4\n", tcur, tnext)
 	fmt.Fprintf(buf, "\tWORD $0x%08x           //SM3TT1A V%dd.4S, V5.4S, V%d.S, %d\n", sm3tt1a(st1, 5, wt, i), st1, wt, i)
 	fmt.Fprintf(buf, "\tWORD $0x%08x           //SM3TT2A V%dd.4S, V5.4S, V%d.S, %d\n", sm3tt2a(st2, 5, w, i), st2, w, i)
 }
 
 // Used v5 as temp register.
-func roundB(buf *bytes.Buffer, i, st1, st2, w, wt, treg, tvec byte) {
-	fmt.Fprintf(buf, "\tVMOV R%d, V%d.S[3]\n", treg, tvec)
-	fmt.Fprintf(buf, "\tWORD $0x%08x           //SM3SS1 V5.4S, V%d.4S, V%d.4S, V%d.4S\n", sm3ss1(5, st1, tvec, st2), st1, tvec, st2)
+func roundB(buf *bytes.Buffer, i, st1, st2, w, wt, tcur, tnext byte) {
+	fmt.Fprintf(buf, "\tWORD $0x%08x           //SM3SS1 V5.4S, V%d.4S, V%d.4S, V%d.4S\n", sm3ss1(5, st1, tcur, st2), st1, tcur, st2)
+	fmt.Fprintf(buf, "\tVSHL $1, V%d.S4, V%d.S4\n", tcur, tnext)
+	fmt.Fprintf(buf, "\tVSRI $31, V%d.S4, V%d.S4\n", tcur, tnext)
 	fmt.Fprintf(buf, "\tWORD $0x%08x           //SM3TT1B V%dd.4S, V5.4S, V%d.S, %d\n", sm3tt1b(st1, 5, wt, i), st1, wt, i)
 	fmt.Fprintf(buf, "\tWORD $0x%08x           //SM3TT2B V%dd.4S, V5.4S, V%d.S, %d\n", sm3tt2b(st2, 5, w, i), st2, w, i)
 }
 
 // Compress 4 words and generate 4 words, use v6, v7, v10 as temp registers.
 func qroundA(buf *bytes.Buffer, st1, st2, s0, s1, s2, s3, s4 byte) {
-	loadT4(buf)
 	fmt.Fprintf(buf, "\t// Extension\n")
 	fmt.Fprintf(buf, "\tVEXT $12, V%d.B16, V%d.B16, V%d.B16\n", s2, s1, s4)
 	fmt.Fprintf(buf, "\tVEXT $12, V%d.B16, V%d.B16, V%d.B16\n", s1, s0, 6)
@@ -96,16 +86,15 @@ func qroundA(buf *bytes.Buffer, st1, st2, s0, s1, s2, s3, s4 byte) {
 	fmt.Fprintf(buf, "\tWORD $0x%08x          //SM3PARTW2 V%d.4S, V%d.4S, V%d.4S\n", sm3partw2(s4, 7, 6), s4, 7, 6)
 	fmt.Fprintf(buf, "\tVEOR V%d.B16, V%d.B16, V10.B16\n", s1, s0)
 	fmt.Fprintf(buf, "\t// Compression\n")
-	roundA(buf, 0, st1, st2, s0, 10, tReg0, tVec0)
-	roundA(buf, 1, st1, st2, s0, 10, tReg1, tVec1)
-	roundA(buf, 2, st1, st2, s0, 10, tReg2, tVec0)
-	roundA(buf, 3, st1, st2, s0, 10, tReg3, tVec1)
+	roundA(buf, 0, st1, st2, s0, 10, tVec0, tVec1)
+	roundA(buf, 1, st1, st2, s0, 10, tVec1, tVec0)
+	roundA(buf, 2, st1, st2, s0, 10, tVec0, tVec1)
+	roundA(buf, 3, st1, st2, s0, 10, tVec1, tVec0)
 	fmt.Fprintf(buf, "\n")
 }
 
 // Compress 4 words and optionally generate 4 words, use v6, v7, v10 as temp registers.
 func qroundB(buf *bytes.Buffer, st1, st2, s0, s1, s2, s3, s4 byte) {
-	loadT4(buf)
 	if s4 != 0xff {
 		fmt.Fprintf(buf, "\t// Extension\n")
 		fmt.Fprintf(buf, "\tVEXT $12, V%d.B16, V%d.B16, V%d.B16\n", s2, s1, s4)
@@ -116,10 +105,10 @@ func qroundB(buf *bytes.Buffer, st1, st2, s0, s1, s2, s3, s4 byte) {
 	}
 	fmt.Fprintf(buf, "\tVEOR V%d.B16, V%d.B16, V10.B16\n", s1, s0)
 	fmt.Fprintf(buf, "\t// Compression\n")
-	roundB(buf, 0, st1, st2, s0, 10, tReg0, tVec0)
-	roundB(buf, 1, st1, st2, s0, 10, tReg1, tVec1)
-	roundB(buf, 2, st1, st2, s0, 10, tReg2, tVec0)
-	roundB(buf, 3, st1, st2, s0, 10, tReg3, tVec1)
+	roundB(buf, 0, st1, st2, s0, 10, tVec0, tVec1)
+	roundB(buf, 1, st1, st2, s0, 10, tVec1, tVec0)
+	roundB(buf, 2, st1, st2, s0, 10, tVec0, tVec1)
+	roundB(buf, 3, st1, st2, s0, 10, tVec1, tVec0)
 	fmt.Fprintf(buf, "\n")
 }
 
@@ -145,7 +134,7 @@ TEXT ·blockSM3NI(SB), 0, $0
 	VEXT $8, V9.B16, V9.B16, V9.B16
 
 blockloop:
-	MOVD	R8, R2                                      // reset per-round t pointer
+	MOVD	R8, R2                                      // per-round t constants first address
 	VLD1.P	64(R1), [V0.B16, V1.B16, V2.B16, V3.B16]    // load 64bytes message
 	VMOV	V8.B16, V15.B16                             // backup: V8 h(dcba)
 	VMOV	V9.B16, V16.B16                             // backup: V9 h(hgfe)
@@ -153,6 +142,9 @@ blockloop:
 	VREV32	V1.B16, V1.B16
 	VREV32	V2.B16, V2.B16
 	VREV32	V3.B16, V3.B16
+	LDPW	(0*8)(R2), (R4, R5)
+	VMOV	R4, V11.S[3]
+	VMOV	R5, V12.S[3]
 	// first 16 rounds
 `[1:])
 	qroundA(buf, 8, 9, 0, 1, 2, 3, 4)
@@ -160,6 +152,9 @@ blockloop:
 	qroundA(buf, 8, 9, 2, 3, 4, 0, 1)
 	qroundA(buf, 8, 9, 3, 4, 0, 1, 2)
 
+	fmt.Fprintf(buf, "\tLDPW\t(8*8)(R2), (R4, R5)\n")
+	fmt.Fprintf(buf, "\tVMOV\tR4, V11.S[3]\n")
+	fmt.Fprintf(buf, "\tVMOV\tR5, V12.S[3]\n")
 	fmt.Fprintf(buf, "\t// second 48 rounds\n")
 	qroundB(buf, 8, 9, 4, 0, 1, 2, 3)
 	qroundB(buf, 8, 9, 0, 1, 2, 3, 4)
