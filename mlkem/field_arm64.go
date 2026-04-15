@@ -99,6 +99,9 @@ func internalNTTNEON(f *ringElement)
 func internalInverseNTTNEON(f *nttElement)
 
 //go:noescape
+func internalNTTMulNEON(out, lhs, rhs *nttElement)
+
+//go:noescape
 func internalNTTMulAccNEON(acc, lhs, rhs *nttElement)
 
 //go:noescape
@@ -116,6 +119,10 @@ func decodeAndDecompressU10NEON(dst []ringElement, c []byte)
 //go:noescape
 func decodeAndDecompressU11NEON(dst []ringElement, c []byte)
 
+func nttMul(out, lhs, rhs *nttElement) {
+	internalNTTMulNEON(out, lhs, rhs)
+}
+
 func nttMulAcc(acc, lhs, rhs *nttElement) {
 	internalNTTMulAccNEON(acc, lhs, rhs)
 }
@@ -124,12 +131,12 @@ func internalNTT(f *ringElement) {
 	internalNTTNEON(f)
 }
 
-func internalInverseNTT(f *nttElement) {
-	internalInverseNTTNEON(f)
-}
-
 func nttMulAccKeyGen(acc, lhs, rhs *nttElement) {
 	internalNTTMulAccKeyGenNEON(acc, lhs, rhs)
+}
+
+func internalInverseNTT(f *nttElement) {
+	internalInverseNTTNEON(f)
 }
 
 func decodeAndDecompressU10(dst []ringElement, c []byte) {

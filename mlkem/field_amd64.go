@@ -21,6 +21,9 @@ func internalNTTAVX2(f *ringElement)
 func internalInverseNTTAVX2(f *nttElement)
 
 //go:noescape
+func internalNTTMulAVX2(acc, lhs, rhs *nttElement)
+
+//go:noescape
 func internalNTTMulAccAVX2(acc, lhs, rhs *nttElement)
 
 //go:noescape
@@ -37,6 +40,14 @@ func samplePolyCBD2AVX2(f *ringElement, buf *[128]byte)
 
 //go:noescape
 func samplePolyCBD3AVX2(f *ringElement, buf *[192]byte)
+
+func nttMul(acc, lhs, rhs *nttElement) {
+	if useAVX2 {
+		internalNTTMulAVX2(acc, lhs, rhs)
+		return
+	}
+	nttMulGeneric(acc, lhs, rhs)
+}
 
 func nttMulAcc(acc, lhs, rhs *nttElement) {
 	if useAVX2 {

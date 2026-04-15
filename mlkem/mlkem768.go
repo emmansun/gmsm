@@ -397,7 +397,8 @@ func pkeEncrypt(cc *[CiphertextSize768]byte, ex *encryptionKey, m *[messageSize]
 	u := make([]ringElement, k) // NTT⁻¹(AT ◦ r) + e1
 	for i := range u {
 		var uHat nttElement
-		for j := range r {
+		nttMul(&uHat, &ex.a[i], &r[0])
+		for j := 1; j < k; j++ {
 			// Note that i and j are inverted, as we need the transposed of A.
 			nttMulAcc(&uHat, &ex.a[j*k+i], &r[j])
 		}
@@ -407,7 +408,8 @@ func pkeEncrypt(cc *[CiphertextSize768]byte, ex *encryptionKey, m *[messageSize]
 	μ := ringDecodeAndDecompress1(m)
 
 	var vNTT nttElement // t⊺ ◦ r
-	for i := range ex.t {
+	nttMul(&vNTT, &ex.t[0], &r[0])
+	for i := 1; i < k; i++ {
 		nttMulAcc(&vNTT, &ex.t[i], &r[i])
 	}
 	v := polyAdd(polyAdd(inverseNTT(vNTT), e2), μ)
@@ -470,7 +472,9 @@ func pkeDecrypt(dx *decryptionKey, c *[CiphertextSize768]byte) []byte {
 	v := ringDecodeAndDecompress4(b)
 
 	var mask nttElement // s⊺ ◦ NTT(u)
-	for i := range dx.s {
+	nttU := ntt(u[0])
+	nttMul(&mask, &dx.s[0], &nttU)
+	for i := 1; i < k; i++ {
 		nttU := ntt(u[i])
 		nttMulAcc(&mask, &dx.s[i], &nttU)
 	}

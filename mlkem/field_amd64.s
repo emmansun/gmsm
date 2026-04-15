@@ -874,6 +874,74 @@ nttmlacc_done:
 	VZEROUPPER
 	RET
 
+TEXT ·internalNTTMulAVX2(SB), NOSPLIT, $0-24
+	MOVQ acc+0(FP), AX
+	MOVQ lhs+8(FP), BX
+	MOVQ rhs+16(FP), DX
+
+	VPBROADCASTW qConst, Y15
+	VPBROADCASTW qNegInvConst, Y14
+	VPBROADCASTW oneConst, Y10
+	VPXOR Y8, Y8, Y8
+
+	LEAQ gammaMulTable<>(SB), SI
+	XORQ DI, DI           // DI = block byte offset (0..480 step 32)
+
+nttml_loop:
+	CMPQ DI, $512
+	JGE nttml_done
+
+	// Load 8 pairs (16 × int16) from lhs, rhs, acc, and gammaMulTable
+	VMOVDQU (BX)(DI*1), Y0    // Y0 = lhs[DI/2 .. DI/2+15]
+	VMOVDQU (DX)(DI*1), Y1    // Y1 = rhs
+	VMOVDQU (AX)(DI*1), Y2    // Y2 = acc
+	VMOVDQU (SI)(DI*1), Y3    // Y3 = [r,γ[k], r,γ[k+1], ...] 8 entries
+
+	// Y4 = rhs with adjacent pairs swapped: [b1,b0, b3,b2, ...]
+	VPSHUFLW $0xB1, Y1, Y4
+	VPSHUFHW $0xB1, Y4, Y4
+
+	// Y5 = t_ab = MontMul(lhs, rhs) = [a0*b0, a1*b1, a2*b2, ...]
+	MONT_MUL_VEC(Y0, Y1, Y5)
+
+	// Y6 = t_cross = MontMul(lhs, rhs_swapped) = [a0*b1, a1*b0, a2*b3, ...]
+	MONT_MUL_VEC(Y0, Y4, Y6)
+
+	// Y7 = t_scaled = MontMul(t_ab, gamma):
+	//   even positions: MontMul(a0*b0, r) = a0*b0
+	//   odd positions:  MontMul(a1*b1, γ[k]) = γ[k]*a1*b1
+	MONT_MUL_VEC(Y5, Y3, Y7)
+
+	// Horizontal add pairs to combine even/odd contributions:
+	//   Y7 → [a0*b0 + γ[k]*a1*b1, ...] (4 values per 128-bit lane, doubled)
+	//   Y6 → [a0*b1 + a1*b0, ...]       (4 values per 128-bit lane, doubled)
+	VPHADDW Y7, Y7, Y7
+	VPHADDW Y6, Y6, Y6
+
+	// fieldReduceOnce on both hadd results (values in [0, 2q))
+	VPCMPGTW Y7, Y15, Y11
+	VPANDN Y15, Y11, Y11
+	VPSUBW Y11, Y7, Y7
+
+	VPCMPGTW Y6, Y15, Y11
+	VPANDN Y15, Y11, Y11
+	VPSUBW Y11, Y6, Y6
+
+	// Re-interleave even (Y7) and odd (Y6) sums:
+	//   VPUNPCKLWD takes low 4 words per lane from each src
+	//   Result: [Y7[0],Y6[0], Y7[1],Y6[1], Y7[2],Y6[2], Y7[3],Y6[3] | ...]
+	//         = [acc[0]_delta, acc[1]_delta, acc[2]_delta, ...]
+	VPUNPCKLWD Y6, Y7, Y5
+
+	VMOVDQU Y5, (AX)(DI*1)
+
+	ADDQ $32, DI
+	JMP nttml_loop
+
+nttml_done:
+	VZEROUPPER
+	RET
+
 // internalNTTMulAccKeyGenAVX2 computes acc[i] += MulAcc(lhs, rhs)[i] for all 256 coefficients
 // using standard (Barrett) domain arithmetic — matching nttMulAccGeneric.
 //

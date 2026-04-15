@@ -9,7 +9,15 @@ package mlkem
 
 import "crypto/sha3"
 
+func nttMul(acc, lhs, rhs *nttElement) {
+	nttMulGeneric(acc, lhs, rhs)
+}
+
 func nttMulAcc(acc, lhs, rhs *nttElement) {
+	nttMulAccGeneric(acc, lhs, rhs)
+}
+
+func nttMulAccKeyGen(acc, lhs, rhs *nttElement) {
 	nttMulAccGeneric(acc, lhs, rhs)
 }
 
@@ -19,10 +27,6 @@ func internalNTT(f *ringElement) {
 
 func internalInverseNTT(f *nttElement) {
 	internalInverseNTTGeneric(f)
-}
-
-func nttMulAccKeyGen(acc, lhs, rhs *nttElement) {
-	nttMulAccGeneric(acc, lhs, rhs)
 }
 
 func decodeAndDecompressU10(dst []ringElement, c []byte) {

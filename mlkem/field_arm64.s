@@ -784,6 +784,71 @@ nttmlacc_neon_loop:
 nttmlacc_neon_done:
 	RET
 
+TEXT ·internalNTTMulNEON(SB), NOSPLIT, $0-24
+	MOVD out+0(FP), R0
+	MOVD lhs+8(FP), R1
+	MOVD rhs+16(FP), R2
+
+	// pinned
+	MOVD $3329, R8
+	VDUP R8, V31.H8
+	MOVD $3327, R8
+	VDUP R8, V30.H8
+	MOVD $1, R8
+	VDUP R8, V29.H8
+	VEOR V28.B16, V28.B16, V28.B16
+
+	MOVD $·gammaMulTableNEON(SB), R3
+	MOVD $0, R4         // byte offset
+
+nttml_neon_loop:
+	CMP $512, R4
+	BGE nttml_neon_done
+
+	VLD1.P (16)(R1), [V0.H8]   // lhs
+	VLD1.P (16)(R2), [V1.H8]   // rhs
+	VLD1.P (16)(R3), [V3.H8]   // gamma table
+
+	// V4 = rhs with adjacent int16 pairs swapped: VREV32 on H type swaps adjacent H lanes
+	VREV32 V1.H8, V4.H8
+
+	// t_ab = MontMul(V0, V1) → V5  (element-wise: a0b0, a1b1, ...)
+	MONT_MUL_V0_V1(V5)
+
+	// t_cross = MontMul(V0, V4) → V6  (element-wise: a0b1, a1b0, ...)
+	MONT_MUL_V0_VZ(V4, V6)
+
+	// t_scaled = MontMul(V5, V3) → V7  (even: a0b0*r=a0b0, odd: γ*a1b1)
+	MONT_MUL(V5, V3, V7)
+
+	// Pairwise add to combine even+odd sums
+	// VADDP Vd.8H, Vn.8H, Vm.8H: Vd[0..3]=pairwise(Vn), Vd[4..7]=pairwise(Vm)
+	// Using same src twice: both halves = pairwise sums of V7
+	VADDP V7.H8, V7.H8, V7.H8
+	VADDP V6.H8, V6.H8, V6.H8
+
+	// fieldReduceOnce on both
+	WORD $0x6e7f3cf4  // CMGT.U V20.8H, V7.8H, V31.8H  (V20=0xFFFF where V7>3329, else 0)
+	VAND V20.B16, V31.B16, V20.B16
+	VSUB V20.H8, V7.H8, V7.H8
+
+	WORD $0x6e7f3cd5  // CMGT.U V21.8H, V6.8H, V31.8H  (V20=0xFFFF where V6>3329, else 0)
+	VAND V21.B16, V31.B16, V21.B16
+	VSUB V21.H8, V6.H8, V6.H8
+
+	// Re-interleave: VZIP1 Va.8H, Vb.8H, Vd.8H in Go Plan9 → ARM64 ZIP1 Vd,Vb,Va → Vd=[Vb[0],Va[0],...]
+	// We want [even_sum0, odd_sum0, even_sum1, odd_sum1, ...]
+	// V7 has even sums, V6 has odd sums → VZIP1 V6,V7,V5 → V5=[V7[0],V6[0],...]
+	VZIP1 V6.H8, V7.H8, V5.H8
+
+	VST1.P [V5.H8], (16)(R0)
+
+	ADD $16, R4, R4
+	B nttml_neon_loop
+
+nttml_neon_done:
+	RET
+
 // ── internalNTTMulAccKeyGenNEON ────────────────────────────────────────────────
 // func internalNTTMulAccKeyGenNEON(acc, lhs, rhs *nttElement)
 //
