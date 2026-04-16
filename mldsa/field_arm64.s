@@ -24,9 +24,9 @@ loop:
 	VLD1.P (32)(R1), [V2.S4, V3.S4]   // rhs
 
 	// step 1: V0 * V2
-	WORD $0x4ea29c14                  // MUL   V20.4S, V0.4S, V2.4S
-	WORD $0x6ea2b415                  // SQRDMULH V21.4S, V0.4S, V2.4S (hi' = Round(2*hi))
-	WORD $0x4ebe9e96                  // MUL   V22.4S, V20.4S, V30.4S
+	WORD $0x4ea29c14                  // MUL   V20.S4, V0.S4, V2.S4
+	WORD $0x6ea2b415                  // SQRDMULH V21.S4, V0.S4, V2.S4 (hi' = Round(2*hi))
+	WORD $0x4ebe9e96                  // MUL   V22.S4, V20.S4, V30.S4
 	WORD $0x6e9f86d5                  // SQRDMALH V21.S4, V22.S4, V31.S4 (raw = Round(2*corr) + hi')
 	WORD $0x4f3f06b5                  // VSSHR V21.S4, V21.S4, #1
 	WORD $0x4f2106b8                  // VSSHR V24.S4, V21.S4, #31
@@ -34,15 +34,14 @@ loop:
 	VADD V21.S4, V24.S4, V4.S4        // result in V4
 
 	// step 1: V1 * V3
-	WORD $0x4ea39c34                  // MUL   V20.4S, V1.4S, V3.4S
-	WORD $0x6ea3b435                  // SQRDMULH V21.4S, V1.4S, V3.4S (hi' = Round(2*hi))
-	WORD $0x4ebe9e96                  // MUL   V22.4S, V20.4S, V30.4S
-	WORD $0x6ebfb6d7                  // SQRDMULH V23.4S, V22.4S, V31.4S (corr' = Round(2*corr))
-	VADD V21.S4, V23.S4, V20.S4       // raw = 2*Result
-	WORD $0x4f3f0694                  // VSSHR V20.S4, V20.S4, #1
-	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	WORD $0x4ea39c34                  // MUL   V20.S4, V1.S4, V3.S4
+	WORD $0x6ea3b435                  // SQRDMULH V21.S4, V1.S4, V3.S4 (hi' = Round(2*hi))
+	WORD $0x4ebe9e96                  // MUL   V22.S4, V20.S4, V30.S4
+	WORD $0x6e9f86d5                  // SQRDMALH V21.S4, V22.S4, V31.S4 (raw = Round(2*corr) + hi')
+	WORD $0x4f3f06b5                  // VSSHR V21.S4, V21.S4, #1
+	WORD $0x4f2106b8                  // VSSHR V24.S4, V21.S4, #31
 	VAND V31.B16, V24.B16, V24.B16    // q if underflow, else 0
-	VADD V20.S4, V24.S4, V5.S4        // result in V5
+	VADD V21.S4, V24.S4, V5.S4        // result in V5
 
 	VST1.P [V4.S4, V5.S4], (32)(R2)
 	SUBS $1, R4, R4
@@ -71,26 +70,24 @@ loop:
 	VLD1 (R2), [V4.S4, V5.S4]         // out (acc)
 
 	// step 1: V0 * V2
-	WORD $0x4ea29c14                  // MUL   V20.4S, V0.4S, V2.4S
-	WORD $0x6ea2b415                  // SQRDMULH V21.4S, V0.4S, V2.4S (hi' = Round(2*hi))
-	WORD $0x4ebe9e96                  // MUL   V22.4S, V20.4S, V30.4S
-	WORD $0x6ebfb6d7                  // SQRDMULH V23.4S, V22.4S, V31.4S (corr' = Round(2*corr))
-	VADD V21.S4, V23.S4, V20.S4       // raw = 2*Result
-	WORD $0x4f3f0694                  // VSSHR V20.S4, V20.S4, #1
-	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	WORD $0x4ea29c14                  // MUL   V20.S4, V0.S4, V2.S4
+	WORD $0x6ea2b415                  // SQRDMULH V21.S4, V0.S4, V2.S4 (hi' = Round(2*hi))
+	WORD $0x4ebe9e96                  // MUL   V22.S4, V20.S4, V30.S4
+	WORD $0x6e9f86d5                  // SQRDMALH V21.S4, V22.S4, V31.S4 (raw = Round(2*corr) + hi')
+	WORD $0x4f3f06b5                  // VSSHR V21.S4, V21.S4, #1
+	WORD $0x4f2106b8                  // VSSHR V24.S4, V21.S4, #31
 	VAND V31.B16, V24.B16, V24.B16    // q if underflow, else 0
-	VADD V20.S4, V24.S4, V6.S4        // result in V6
+	VADD V21.S4, V24.S4, V6.S4        // result in V6
 
 	// step 1: V1 * V3
-	WORD $0x4ea39c34                  // MUL   V20.4S, V1.4S, V3.4S
-	WORD $0x6ea3b435                  // SQRDMULH V21.4S, V1.4S, V3.4S (hi' = Round(2*hi))
-	WORD $0x4ebe9e96                  // MUL   V22.4S, V20.4S, V30.4S
-	WORD $0x6ebfb6d7                  // SQRDMULH V23.4S, V22.4S, V31.4S (corr' = Round(2*corr))
-	VADD V21.S4, V23.S4, V20.S4       // raw = 2*Result
-	WORD $0x4f3f0694                  // VSSHR V20.S4, V20.S4, #1
-	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	WORD $0x4ea39c34                  // MUL   V20.S4, V1.S4, V3.S4
+	WORD $0x6ea3b435                  // SQRDMULH V21.S4, V1.S4, V3.S4 (hi' = Round(2*hi))
+	WORD $0x4ebe9e96                  // MUL   V22.S4, V20.S4, V30.S4
+	WORD $0x6e9f86d5                  // SQRDMALH V21.S4, V22.S4, V31.S4 (raw = Round(2*corr) + hi')
+	WORD $0x4f3f06b5                  // VSSHR V21.S4, V21.S4, #1
+	WORD $0x4f2106b8                  // VSSHR V24.S4, V21.S4, #31
 	VAND V31.B16, V24.B16, V24.B16    // q if underflow, else 0
-	VADD V20.S4, V24.S4, V7.S4        // result in V7
+	VADD V21.S4, V24.S4, V7.S4        // result in V7
 
 	VADD V6.S4, V4.S4, V4.S4          // acc + result in V4
 	// final reduction
@@ -246,8 +243,8 @@ poly_inf_norm_loop:
 //   After the loop: V27 = VUMAX(V27, V28).
 //
 // Note on WORD encodings:
-//   VSSHR V24.4S, V20.4S, #31 -> WORD $0x4f210698
-//   VSSHR V25.4S, V21.4S, #31 -> WORD $0x4f2106b9
+//   VSSHR V24.S4, V20.S4, #31 -> WORD $0x4f210698
+//   VSSHR V25.S4, V21.S4, #31 -> WORD $0x4f2106b9
 //   These are the only non-mnemonic encodings used; all other ops use assembler mnemonics.
 //
 // Horizontal reduction:
@@ -285,15 +282,14 @@ poly_inf_norm_signed_loop:
 	RET
 
 #define DBL_MONT_MUL_FIXED(VOUT) \
-	WORD $0x4ea19c14                        \ // MUL   V20.4S, V0.4S, V1.4S
-	WORD $0x6ea1b415                        \ // SQRDMULH V21.4S, V0.4S, V1.4S (hi' = Round(2*hi))
-	WORD $0x4ebe9e96                        \ // MUL   V22.4S, V20.4S, V30.4S
-	WORD $0x6ebfb6d7                        \ // SQRDMULH V23.4S, V22.4S, V31.4S (corr' = Round(2*corr))
-	VADD V21.S4, V23.S4, V20.S4             \ // raw = 2*Result
-	WORD $0x4f3f0694                        \ // VSSHR V20.S4, V20.S4, #1
-	WORD $0x4f210698                        \ // VSSHR V24.S4, V20.S4, #31
+	WORD $0x4ea19c14                        \ // MUL   V20.S4, V0.S4, V1.S4
+	WORD $0x6ea1b415                        \ // SQRDMULH V21.S4, V0.S4, V1.S4 (hi' = Round(2*hi))
+	WORD $0x4ebe9e96                        \ // MUL   V22.S4, V20.S4, V30.S4
+	WORD $0x6e9f86d5                        \ // SQRDMALH V21.S4, V22.S4, V31.S4 (raw = Round(2*corr) + hi')
+	WORD $0x4f3f06b5                        \ // VSSHR V21.S4, V21.S4, #1
+	WORD $0x4f2106b8                        \ // VSSHR V24.S4, V21.S4, #31
 	VAND V31.B16, V24.B16, V24.B16          \ // q if underflow, else 0
-	VADD V20.S4, V24.S4, VOUT.S4              // result in VOUT
+	VADD V21.S4, V24.S4, VOUT.S4              // result in VOUT
 
 #define MONT_MUL(VA, VZ, VOUT) \
 	VMOV   VA.B16, V0.B16                    \
@@ -338,15 +334,14 @@ poly_inf_norm_signed_loop:
 // Butterfly with zeta in V7, even in V0, odd in V1. Output in V0 (even) and V1 (odd).
 // Clobbers V20,V21,V22,V23,V24.
 #define BUTTERFLY01_Z7                      \
-	WORD $0x4ea19cf4                        \ // MUL   V20.4S, V7.4S, V1.4S
-	WORD $0x6ea1b4f5                        \ // SQRDMULH V21.4S, V7.4S, V1.4S (hi' = Round(2*hi))
-	WORD $0x4ebe9e96                        \ // MUL   V22.4S, V20.4S, V30.4S
-	WORD $0x6ebfb6d7                        \ // SQRDMULH V23.4S, V22.4S, V31.4S (corr' = Round(2*corr))
-	VADD V21.S4, V23.S4, V20.S4             \ // raw = 2*Result
-	WORD $0x4f3f0694                        \ // VSSHR V20.S4, V20.S4, #1
-	WORD $0x4f210698                        \ // VSSHR V24.S4, V20.S4, #31
+	WORD $0x4ea19cf4                        \ // MUL   V20.S4, V7.S4, V1.S4
+	WORD $0x6ea1b4f5                        \ // SQRDMULH V21.S4, V7.S4, V1.S4 (hi' = Round(2*hi))
+	WORD $0x4ebe9e96                        \ // MUL   V22.S4, V20.S4, V30.S4
+	WORD $0x6e9f86d5                        \ // SQRDMALH V21.S4, V22.S4, V31.S4 (raw = Round(2*corr) + hi')
+	WORD $0x4f3f06b5                        \ // VSSHR V21.S4, V21.S4, #1
+	WORD $0x4f2106b8                        \ // VSSHR V24.S4, V21.S4, #31
 	VAND V31.B16, V24.B16, V24.B16          \ // q if underflow, else 0
-	VADD V20.S4, V24.S4, V21.S4             \ // t in V21
+	VADD V24.S4, V21.S4, V21.S4             \ // t in V21
 	\ // odd = even - t
 	VSUB V21.S4, V0.S4, V20.S4              \ // odd in V20
 	WORD $0x4f210698                        \ // VSSHR V24.S4, V20.S4, #31
@@ -371,15 +366,14 @@ poly_inf_norm_signed_loop:
 	VSUB V20.S4, V0.S4, V0.S4				\
 	VSUB V1.S4, V25.S4, V1.S4               \
 	VADD V31.S4, V1.S4, V1.S4               \
-	WORD $0x4ea19cf4                        \ // MUL   V20.4S, V7.4S, V1.4S
-	WORD $0x6ea1b4f5                        \ // SQRDMULH V21.4S, V7.4S, V1.4S (hi' = Round(2*hi))
-	WORD $0x4ebe9e96                        \ // MUL   V22.4S, V20.4S, V30.4S
-	WORD $0x6ebfb6d7                        \ // SQRDMULH V23.4S, V22.4S, V31.4S (corr' = Round(2*corr))
-	VADD V21.S4, V23.S4, V20.S4             \ // raw = 2*Result
-	WORD $0x4f3f0694                        \ // VSSHR V20.S4, V20.S4, #1
-	WORD $0x4f210698                        \ // VSSHR V24.S4, V20.S4, #31
+	WORD $0x4ea19cf4                        \ // MUL   V20.S4, V7.S4, V1.S4
+	WORD $0x6ea1b4f5                        \ // SQRDMULH V21.S4, V7.S4, V1.S4 (hi' = Round(2*hi))
+	WORD $0x4ebe9e96                        \ // MUL   V22.S4, V20.S4, V30.S4
+	WORD $0x6e9f86d5                        \ // SQRDMALH V21.S4, V22.S4, V31.S4 (raw = Round(2*corr) + hi')
+	WORD $0x4f3f06b5                        \ // VSSHR V21.S4, V21.S4, #1
+	WORD $0x4f2106b8                        \ // VSSHR V24.S4, V21.S4, #31
 	VAND V31.B16, V24.B16, V24.B16          \ // q if underflow, else 0
-	VADD V20.S4, V24.S4, V1.S4
+	VADD V21.S4, V24.S4, V1.S4
 
 // internalNTTNEON implements the same algorithm as internalNTTGeneric.
 // L0-L5 are vectorized (4 lanes of uint32); L6-L7 are scalar for correctness-first bring-up.
@@ -785,11 +779,11 @@ decompose_sub_to_r0_gamma32_loop:
 	// r1 = SQRDMULH((t+127)>>7, 524800) = ((((t+127)>>7)*1025)+2^21)>>22; r1 &= 15
 	VADD V30.S4, V2.S4, V3.S4
 	VUSHR $7, V3.S4, V3.S4
-	WORD $0x6ebdb464                  // SQRDMULH V4.4S, V3.4S, V29.4S (round(t'*1025/2^22))
+	WORD $0x6ebdb464                  // SQRDMULH V4.S4, V3.S4, V29.S4 (round(t'*1025/2^22))
 	VAND V25.B16, V4.B16, V4.B16
 
 	// r0 = t - r1*gamma2QMinus1Div32; then center to [-(q-1)/2, (q-1)/2]
-	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
+	WORD $0x4ebb9c85                  // MUL   V5.S4, V4.S4, V27.S4
 	VSUB V5.S4, V2.S4, V5.S4
 	VSUB V5.S4, V26.S4, V20.S4
 	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
@@ -852,14 +846,14 @@ decompose_sub_to_r0_gamma88_loop:
 	// r1 = SQRDMULH((t+127)>>7, 1443200) = ((((t+127)>>7)*11275)+2^23)>>24
 	VADD V30.S4, V2.S4, V3.S4
 	VUSHR $7, V3.S4, V3.S4
-	WORD $0x6ebdb464                  // SQRDMULH V4.4S, V3.4S, V29.4S (round(t'*11275/2^24))
+	WORD $0x6ebdb464                  // SQRDMULH V4.S4, V3.S4, V29.S4 (round(t'*11275/2^24))
 
 	// r1 mod 44 in branchless form: if r1 == 44 then r1 = 0
 	VCMEQ V25.S4, V4.S4, V20.S4       // V20 = 0xFFFFFFFF where r1==44, else 0
 	VBIT V20.B16, V23.B16, V4.B16     // V4 = (0 & mask) | (V4 & ~mask)
 
 	// r0 = t - r1*gamma2QMinus1Div88; then center to [-(q-1)/2, (q-1)/2]
-	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
+	WORD $0x4ebb9c85                  // MUL   V5.S4, V4.S4, V27.S4
 	VSUB V5.S4, V2.S4, V5.S4
 	VSUB V5.S4, V26.S4, V20.S4
 	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
@@ -914,7 +908,7 @@ use_hint_poly_gamma32_loop:
 	// Recompute r1 from r with gamma32 constants.
 	VADD V30.S4, V1.S4, V3.S4
 	VUSHR $7, V3.S4, V3.S4
-	WORD $0x6ebdb464                  // SQRDMULH V4.4S, V3.4S, V29.4S (round(t'*1025/2^22))
+	WORD $0x6ebdb464                  // SQRDMULH V4.S4, V3.S4, V29.S4 (round(t'*1025/2^22))
 	VAND V25.B16, V4.B16, V4.B16
 
 	// Fast path: if this 4-lane h block is all zero, output r1 directly.
@@ -931,7 +925,7 @@ use_hint_poly_gamma32_loop:
 use_hint_poly_gamma32_nonzero:
 	// Non-zero hint path: compute r0 and choose +/-1 adjustment by sign(r0).
 
-	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
+	WORD $0x4ebb9c85                  // MUL   V5.S4, V4.S4, V27.S4
 	VSUB V5.S4, V1.S4, V5.S4
 	VSUB V5.S4, V26.S4, V20.S4
 	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
@@ -1002,7 +996,7 @@ use_hint_poly_gamma88_loop:
 	// Recompute r1 from r with gamma88 constants.
 	VADD V30.S4, V1.S4, V3.S4
 	VUSHR $7, V3.S4, V3.S4
-	WORD $0x6ebdb464                  // SQRDMULH V4.4S, V3.4S, V29.4S (round(t'*11275/2^24))
+	WORD $0x6ebdb464                  // SQRDMULH V4.S4, V3.S4, V29.S4 (round(t'*11275/2^24))
 
 	VCMEQ V19.S4, V4.S4, V8.S4
 	VBIT V8.B16, V23.B16, V4.B16
@@ -1019,7 +1013,7 @@ use_hint_poly_gamma88_loop:
 use_hint_poly_gamma88_blk0_nonzero:
 	// Slow path for non-zero h lanes: apply full UseHint adjustment rules.
 
-	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
+	WORD $0x4ebb9c85                  // MUL   V5.S4, V4.S4, V27.S4
 	VSUB V5.S4, V1.S4, V20.S4
 	VCMEQ V23.S4, V20.S4, V6.S4
 	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
@@ -1050,7 +1044,7 @@ use_hint_poly_gamma88_blk0_done:
 
 	VADD V30.S4, V1.S4, V3.S4
 	VUSHR $7, V3.S4, V3.S4
-	WORD $0x6ebdb464                  // SQRDMULH V4.4S, V3.4S, V29.4S (round(t'*11275/2^24))
+	WORD $0x6ebdb464                  // SQRDMULH V4.S4, V3.S4, V29.S4 (round(t'*11275/2^24))
 
 	VCMEQ V19.S4, V4.S4, V8.S4
 	VBIT V8.B16, V23.B16, V4.B16
@@ -1066,7 +1060,7 @@ use_hint_poly_gamma88_blk0_done:
 use_hint_poly_gamma88_blk1_nonzero:
 	// Slow path for non-zero h lanes: apply full UseHint adjustment rules.
 
-	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
+	WORD $0x4ebb9c85                  // MUL   V5.S4, V4.S4, V27.S4
 	VSUB V5.S4, V1.S4, V20.S4
 	VCMEQ V23.S4, V20.S4, V6.S4
 	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
@@ -1097,7 +1091,7 @@ use_hint_poly_gamma88_blk1_done:
 
 	VADD V30.S4, V1.S4, V3.S4
 	VUSHR $7, V3.S4, V3.S4
-	WORD $0x6ebdb464                  // SQRDMULH V4.4S, V3.4S, V29.4S (round(t'*11275/2^24))
+	WORD $0x6ebdb464                  // SQRDMULH V4.S4, V3.S4, V29.S4 (round(t'*11275/2^24))
 
 	VCMEQ V19.S4, V4.S4, V8.S4
 	VBIT V8.B16, V23.B16, V4.B16
@@ -1113,7 +1107,7 @@ use_hint_poly_gamma88_blk1_done:
 use_hint_poly_gamma88_blk2_nonzero:
 	// Slow path for non-zero h lanes: apply full UseHint adjustment rules.
 
-	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
+	WORD $0x4ebb9c85                  // MUL   V5.S4, V4.S4, V27.S4
 	VSUB V5.S4, V1.S4, V20.S4
 	VCMEQ V23.S4, V20.S4, V6.S4
 	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
@@ -1144,7 +1138,7 @@ use_hint_poly_gamma88_blk2_done:
 
 	VADD V30.S4, V1.S4, V3.S4
 	VUSHR $7, V3.S4, V3.S4
-	WORD $0x6ebdb464                  // SQRDMULH V4.4S, V3.4S, V29.4S (round(t'*11275/2^24))
+	WORD $0x6ebdb464                  // SQRDMULH V4.S4, V3.S4, V29.S4 (round(t'*11275/2^24))
 
 	VCMEQ V19.S4, V4.S4, V8.S4
 	VBIT V8.B16, V23.B16, V4.B16
@@ -1160,7 +1154,7 @@ use_hint_poly_gamma88_blk2_done:
 use_hint_poly_gamma88_blk3_nonzero:
 	// Slow path for non-zero h lanes: apply full UseHint adjustment rules.
 
-	WORD $0x4ebb9c85                  // MUL   V5.4S, V4.4S, V27.4S
+	WORD $0x4ebb9c85                  // MUL   V5.S4, V4.S4, V27.S4
 	VSUB V5.S4, V1.S4, V20.S4
 	VCMEQ V23.S4, V20.S4, V6.S4
 	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
