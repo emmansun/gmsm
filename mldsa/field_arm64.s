@@ -31,7 +31,7 @@ loop:
 	WORD $0x4f3f06b5                  // VSSHR V21.S4, V21.S4, #1
 	WORD $0x4f2106b8                  // VSSHR V24.S4, V21.S4, #31
 	VAND V31.B16, V24.B16, V24.B16    // q if underflow, else 0
-	VADD V20.S4, V24.S4, V4.S4        // result in V4
+	VADD V21.S4, V24.S4, V4.S4        // result in V4
 
 	// step 1: V1 * V3
 	WORD $0x4ea39c34                  // MUL   V20.4S, V1.4S, V3.4S
