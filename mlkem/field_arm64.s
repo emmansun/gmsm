@@ -6,77 +6,7 @@
 
 #include "textflag.h"
 
-// ── Constants ────────────────────────────────────────────────────────────────
-//
-// q        = 3329
-// qNegInv  = 3327   (-q⁻¹ mod 2¹⁶)
-// one      = 1
-// rr       = 1353   (r² mod q; MontMul(x, rr) converts Montgomery→standard)
-// scale1441= 1441   (128⁻¹·r² mod q; INTT final scale)
-//
-// Pinned NEON registers throughout every function:
-//   V31.H8 = broadcast(3329)   q
-//   V30.H8 = broadcast(3327)   qNegInv
-//   V29.H8 = broadcast(1)      one
-//   V28.H8 = zero               (cleared via VEOR)
-//
-// ── NEON Montgomery multiply (8 × int16) ─────────────────────────────────────
-//
-// MONT_MUL uses WORD-encoded instructions for opcodes that Go arm64 asm does
-// not expose (MUL/UMULL/UMULL2/SHRN/SHRN2 for integer vectors).
-//
-// Fixed-register core:
-//   input  : V0.H8 (a), V1.H8 (z)
-//   output : V2.H8
-//   clobber: V20..V24
-//
-// Step 1:  lo = (a * z) mod 2¹⁶    WORD(MUL)
-// Step 2:  hi = (a * z) >> 16      WORD(UMULL/UMULL2/SHRN/SHRN2)
-// Step 3:  t  = lo * qNegInv mod 2¹⁶ WORD(MUL)
-// Step 4:  correction = (t * q) >> 16 WORD(UMULL/UMULL2/SHRN/SHRN2)
-// Step 5:  raw = hi + correction       VADD
-// Step 6:  lo==0 edge: raw += (lo!=0) VCMEQ / VADD / VADD
-// Step 7:  reduce once                VSUB / VUSHR / VSUB / VAND / VADD
-//
-// Note on Go arm64 asm operand order for 3-register ops:
-//   INSTRUCTION Vn.type, Vm.type, Vd.type  -> Vd = Vm op Vn
-// Tmp regs: V20=lo, V21=hi, V22=t, V23=corr, V24=mask
-//
-// Fixed-register montgomery core: V0,V1 -> VOUT (parameter).
-// WORD opcodes (validated from ARM64 encoding):
-//   0x4E619C14: MUL   V20.H8, V0.H8, V1.H8
-//   0x2E61C015: UMULL V21.S4, V0.H4, V1.H4
-//   0x6E61C016: UMULL2 V22.S4, V0.H8, V1.H8
-//   0x0F1086B5: SHRN  V21.H4, V21.S4, #16
-//   0x4F1086D5: SHRN2 V21.H8, V22.S4, #16
-//   0x4E7E9E96: MUL   V22.H8, V20.H8, V30.H8
-//   0x2E7FC2D7: UMULL V23.S4, V22.H4, V31.H4
-//   0x6E7FC2D8: UMULL2 V24.S4, V22.H8, V31.H8
-//   0x0F1086F7: SHRN  V23.H4, V23.S4, #16
-//   0x4F108717: SHRN2 V23.H8, V24.S4, #16
-// Deprecated
-#define MONT_MUL_FIXED(VOUT) \
-	WORD $0x4E619C14                        \ // OPCODE: MUL   V20.H8, V0.H8, V1.H8
-	WORD $0x2E61C015                        \ // OPCODE: UMULL V21.S4, V0.H4, V1.H4
-	WORD $0x6E61C016                        \ // OPCODE: UMULL2 V22.S4, V0.H8, V1.H8
-	WORD $0x0F1086B5                        \ // OPCODE: SHRN  V21.H4, V21.S4, #16
-	WORD $0x4F1086D5                        \ // OPCODE: SHRN2 V21.H8, V22.S4, #16
-	WORD $0x4E7E9E96                        \ // OPCODE: MUL   V22.H8, V20.H8, V30.H8
-	WORD $0x2E7FC2D7                        \ // OPCODE: UMULL V23.S4, V22.H4, V31.H4
-	WORD $0x6E7FC2D8                        \ // OPCODE: UMULL2 V24.S4, V22.H8, V31.H8
-	WORD $0x0F1086F7                        \ // OPCODE: SHRN  V23.H4, V23.S4, #16
-	WORD $0x4F108717                        \ // OPCODE: SHRN2 V23.H8, V24.S4, #16
-	VADD   V21.H8, V23.H8, VOUT.H8          \ // raw = hi + correction
-	VCMEQ  V20.H8, V28.H8, V24.H8           \ // 0xFFFF where lo==0
-	VADD   V29.H8, V24.H8, V24.H8           \ // 0 where lo==0, else 1
-	VADD   VOUT.H8, V24.H8, VOUT.H8         \ // raw += (lo!=0)
-	VSUB   V31.H8, VOUT.H8, V20.H8          \ // try = raw - q
-	VUSHR  $15, V20.H8, V24.H8              \ // 1 if underflow, else 0
-	VSUB   V24.H8, V28.H8, V24.H8           \ // 0xFFFF if underflow, else 0
-	VAND   V31.B16, V24.B16, V24.B16        \ // q if underflow, else 0
-	VADD   V20.H8, V24.H8, VOUT.H8            // result in VOUT
-
-// reference algorithm 12 in https://eprint.iacr.org/2021/986.pdf
+// reference algorithm 13 in https://eprint.iacr.org/2021/986.pdf
 // ── Constants ────────────────────────────────────────────────────────────────
 //
 // q        = 3329
@@ -112,15 +42,6 @@
 #define MONT_MUL_V0_VZ(VZ, VOUT) \
 	VMOV   VZ.B16, V1.B16                    \
 	DBL_MONT_MUL_FIXED(VOUT)
-
-// Corrected fieldReduceOnce (input in [0,2q), output in [0,q)):
-//   try = Vx - q; if try < 0: Vx stays; else Vx = try
-// Inlined version of the sequence. V20,V24 is clobbered.
-#define REDUCE_ONCE(VX) \
-	VSUB   V31.H8, VX.H8, V20.H8      \ // try = VX - q
-	WORD   $0x4f110698                \ // VSSHR V24.H8, V20.H8, #15
-	VAND   V31.B16, V24.B16, V24.B16  \ // q if underflow, else 0
-	VADD   V20.H8, V24.H8, VX.H8        // VX = try + q_if_underflow
 
 // Cooley-Tukey butterfly:
 //   VA' = fieldReduceOnce(VA + t)  where t = MontMul(VZ, VB)
