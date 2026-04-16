@@ -748,6 +748,8 @@ intt_l7_loop:
 	// Final scale by invDegreeMontgomery = 41978.
 	MOVD $41978, R10
 	VDUP R10, V7.S4
+	MOVD $4236238847, R9
+	VDUP R9, V30.S4	
 	MOVD R0, R11
 	MOVD $32, R4
 intt_scale_loop:
