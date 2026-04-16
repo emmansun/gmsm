@@ -334,9 +334,8 @@ poly_inf_norm_signed_loop:
 // Butterfly with zeta in V7, even in V0, odd in V1. Output in V0 (even) and V1 (odd).
 // Clobbers V20,V21,V22,V23,V24.
 #define BUTTERFLY01_Z7                      \
-	WORD $0x4ea19cf4                        \ // MUL   V20.S4, V7.S4, V1.S4
 	WORD $0x6ea1b4f5                        \ // SQRDMULH V21.S4, V7.S4, V1.S4 (hi' = Round(2*hi))
-	WORD $0x4ebe9e96                        \ // MUL   V22.S4, V20.S4, V30.S4
+	WORD $0x4ebe9c36                        \ // MUL   V22.S4, V1.S4, V30.S4
 	WORD $0x6e9f86d5                        \ // SQRDMALH V21.S4, V22.S4, V31.S4 (raw = Round(2*corr) + hi')
 	WORD $0x4f3f06b5                        \ // VSSHR V21.S4, V21.S4, #1
 	WORD $0x4f2106b8                        \ // VSSHR V24.S4, V21.S4, #31
@@ -382,18 +381,21 @@ TEXT ·internalNTTNEON(SB), NOSPLIT, $0-8
 
 	MOVD $·zetasMontgomery(SB), R1
 	ADD $4, R1, R1 // point to zetasMontgomery[1]
+	MOVD $·zetasMontgomeryMulQNegInvLow32ARM64(SB), R2
+	ADD $4, R2, R2 // point to zetasMontgomeryMulQNegInvLow32ARM64[1]
 	MOVD $·zetasMontgomeryL6ReorderedARM64(SB), R13
+	MOVD $·zetasMontgomeryMulQNegInvLow32L6ReorderedARM64(SB), R14
 
 	// pinned constants
 	MOVD $8380417, R8
 	VDUP R8, V31.S4
-	MOVD $4236238847, R8
-	VDUP R8, V30.S4
 
 
 	// L0: len=128, one zeta, 32 vector butterflies.
 	MOVWU.P 4(R1), R10
 	VDUP R10, V7.S4
+	MOVWU.P 4(R2), R9
+	VDUP R9, V30.S4
 	MOVD R0, R11
 	ADD $512, R11, R12
 	MOVD $32, R4
@@ -412,6 +414,8 @@ ntt_l0_loop:
 ntt_l1_group:
 	MOVWU.P 4(R1), R10
 	VDUP R10, V7.S4
+	MOVWU.P 4(R2), R9
+	VDUP R9, V30.S4
 	MOVD R6, R11
 	ADD $256, R11, R12
 	MOVD $16, R4
@@ -433,6 +437,8 @@ ntt_l1_loop:
 ntt_l2_group:
 	MOVWU.P 4(R1), R10
 	VDUP R10, V7.S4
+	MOVWU.P 4(R2), R9
+	VDUP R9, V30.S4
 	MOVD R6, R11
 	ADD $128, R11, R12
 	MOVD $8, R4
@@ -454,6 +460,8 @@ ntt_l2_loop:
 ntt_l3_group:
 	MOVWU.P 4(R1), R10
 	VDUP R10, V7.S4
+	MOVWU.P 4(R2), R9
+	VDUP R9, V30.S4
 	MOVD R6, R11
 	ADD $64, R11, R12
 	MOVD $4, R4
@@ -475,6 +483,8 @@ ntt_l3_loop:
 ntt_l4_group:
 	MOVWU.P 4(R1), R10
 	VDUP R10, V7.S4
+	MOVWU.P 4(R2), R9
+	VDUP R9, V30.S4
 	MOVD R6, R11
 	ADD $32, R11, R12
 	MOVD $2, R4
@@ -496,6 +506,8 @@ ntt_l4_loop:
 ntt_l5_group:
 	MOVWU.P 4(R1), R10
 	VDUP R10, V7.S4
+	MOVWU.P 4(R2), R9
+	VDUP R9, V30.S4
 	VLD1 (R6), [V0.S4, V1.S4]
 	BUTTERFLY01_Z7
 	VST1.P [V0.S4, V1.S4], 32(R6)
@@ -507,6 +519,7 @@ ntt_l5_group:
 	MOVD R0, R6
 ntt_l6_group:
 	VLD1.P (16)(R13), [V7.S4]         // [z0 z0 z1 z1]
+	VLD1.P (16)(R14), [V30.S4]        // [z0*qNegInv z0*qNegInv z1*qNegInv z1*qNegInv] (low32)
 
 	VLD1 (R6), [V20.S4, V21.S4]
 	VZIP1 V21.D2, V20.D2, V0.D2      // even: [e0 o0 e2 o2]
@@ -519,12 +532,14 @@ ntt_l6_group:
 	SUBS $1, R5, R5
 	BNE ntt_l6_group
 	ADD $256, R1, R1
+	ADD $256, R2, R2
 
 	// L7: len=1. Four groups packed per vector butterfly.
 	MOVD $32, R5
 	MOVD R0, R6
 ntt_l7_group:
 	VLD1.P (16)(R1), [V7.S4]         // [z0 z1 z2 z3]
+	VLD1.P (16)(R2), [V30.S4]        // [z0*qNegInv z1*qNegInv z2*qNegInv z3*qNegInv] (low32)
 	VLD1 (R6), [V20.S4, V21.S4]      // [e0 o0 e1 o1 | e2 o2 e3 o3]
 	VUZP1 V21.S4, V20.S4, V0.S4      // even: [e0 e1 e2 e3]
 	VUZP2 V21.S4, V20.S4, V1.S4      // odd:  [o0 o1 o2 o3]
