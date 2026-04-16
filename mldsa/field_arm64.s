@@ -610,6 +610,7 @@ intt_l1_group:
 	SUBS $1, R5, R5
 	BNE intt_l1_group
 	SUB $256, R1, R1
+	SUB $256, R2, R2
 
 	// L2: len=4, 32 groups, one vector butterfly each.
 	MOVD $32, R5
@@ -749,7 +750,7 @@ intt_l7_loop:
 	MOVD $41978, R10
 	VDUP R10, V7.S4
 	MOVD $4236238847, R9
-	VDUP R9, V30.S4	
+	VDUP R9, V30.S4
 	MOVD R0, R11
 	MOVD $32, R4
 intt_scale_loop:
