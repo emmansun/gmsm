@@ -27,10 +27,9 @@ loop:
 	WORD $0x4ea29c14                  // MUL   V20.4S, V0.4S, V2.4S
 	WORD $0x6ea2b415                  // SQRDMULH V21.4S, V0.4S, V2.4S (hi' = Round(2*hi))
 	WORD $0x4ebe9e96                  // MUL   V22.4S, V20.4S, V30.4S
-	WORD $0x6ebfb6d7                  // SQRDMULH V23.4S, V22.4S, V31.4S (corr' = Round(2*corr))
-	VADD V21.S4, V23.S4, V20.S4       // raw = 2*Result
-	WORD $0x4f3f0694                  // VSSHR V20.S4, V20.S4, #1
-	WORD $0x4f210698                  // VSSHR V24.S4, V20.S4, #31
+	WORD $0x6e9f86d5                  // SQRDMALH V21.S4, V22.S4, V31.S4 (raw = Round(2*corr) + hi')
+	WORD $0x4f3f06b5                  // VSSHR V21.S4, V21.S4, #1
+	WORD $0x4f2106b8                  // VSSHR V24.S4, V21.S4, #31
 	VAND V31.B16, V24.B16, V24.B16    // q if underflow, else 0
 	VADD V20.S4, V24.S4, V4.S4        // result in V4
 
