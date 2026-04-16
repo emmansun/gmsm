@@ -26,8 +26,8 @@
 // not expose (MUL/UMULL/UMULL2/SHRN/SHRN2 for integer vectors).
 //
 // Fixed-register core:
-//   input  : V0.8H (a), V1.8H (z)
-//   output : V2.8H
+//   input  : V0.H8 (a), V1.H8 (z)
+//   output : V2.H8
 //   clobber: V20..V24
 //
 // Step 1:  lo = (a * z) mod 2¹⁶    WORD(MUL)
@@ -44,28 +44,28 @@
 //
 // Fixed-register montgomery core: V0,V1 -> VOUT (parameter).
 // WORD opcodes (validated from ARM64 encoding):
-//   0x4E619C14: MUL   V20.8H, V0.8H, V1.8H
-//   0x2E61C015: UMULL V21.4S, V0.4H, V1.4H
-//   0x6E61C016: UMULL2 V22.4S, V0.8H, V1.8H
-//   0x0F1086B5: SHRN  V21.4H, V21.4S, #16
-//   0x4F1086D5: SHRN2 V21.8H, V22.4S, #16
-//   0x4E7E9E96: MUL   V22.8H, V20.8H, V30.8H
-//   0x2E7FC2D7: UMULL V23.4S, V22.4H, V31.4H
-//   0x6E7FC2D8: UMULL2 V24.4S, V22.8H, V31.8H
-//   0x0F1086F7: SHRN  V23.4H, V23.4S, #16
-//   0x4F108717: SHRN2 V23.8H, V24.4S, #16
+//   0x4E619C14: MUL   V20.H8, V0.H8, V1.H8
+//   0x2E61C015: UMULL V21.S4, V0.H4, V1.H4
+//   0x6E61C016: UMULL2 V22.S4, V0.H8, V1.H8
+//   0x0F1086B5: SHRN  V21.H4, V21.S4, #16
+//   0x4F1086D5: SHRN2 V21.H8, V22.S4, #16
+//   0x4E7E9E96: MUL   V22.H8, V20.H8, V30.H8
+//   0x2E7FC2D7: UMULL V23.S4, V22.H4, V31.H4
+//   0x6E7FC2D8: UMULL2 V24.S4, V22.H8, V31.H8
+//   0x0F1086F7: SHRN  V23.H4, V23.S4, #16
+//   0x4F108717: SHRN2 V23.H8, V24.S4, #16
 // Deprecated
 #define MONT_MUL_FIXED(VOUT) \
-	WORD $0x4E619C14                        \ // OPCODE: MUL   V20.8H, V0.8H, V1.8H
-	WORD $0x2E61C015                        \ // OPCODE: UMULL V21.4S, V0.4H, V1.4H
-	WORD $0x6E61C016                        \ // OPCODE: UMULL2 V22.4S, V0.8H, V1.8H
-	WORD $0x0F1086B5                        \ // OPCODE: SHRN  V21.4H, V21.4S, #16
-	WORD $0x4F1086D5                        \ // OPCODE: SHRN2 V21.8H, V22.4S, #16
-	WORD $0x4E7E9E96                        \ // OPCODE: MUL   V22.8H, V20.8H, V30.8H
-	WORD $0x2E7FC2D7                        \ // OPCODE: UMULL V23.4S, V22.4H, V31.4H
-	WORD $0x6E7FC2D8                        \ // OPCODE: UMULL2 V24.4S, V22.8H, V31.8H
-	WORD $0x0F1086F7                        \ // OPCODE: SHRN  V23.4H, V23.4S, #16
-	WORD $0x4F108717                        \ // OPCODE: SHRN2 V23.8H, V24.4S, #16
+	WORD $0x4E619C14                        \ // OPCODE: MUL   V20.H8, V0.H8, V1.H8
+	WORD $0x2E61C015                        \ // OPCODE: UMULL V21.S4, V0.H4, V1.H4
+	WORD $0x6E61C016                        \ // OPCODE: UMULL2 V22.S4, V0.H8, V1.H8
+	WORD $0x0F1086B5                        \ // OPCODE: SHRN  V21.H4, V21.S4, #16
+	WORD $0x4F1086D5                        \ // OPCODE: SHRN2 V21.H8, V22.S4, #16
+	WORD $0x4E7E9E96                        \ // OPCODE: MUL   V22.H8, V20.H8, V30.H8
+	WORD $0x2E7FC2D7                        \ // OPCODE: UMULL V23.S4, V22.H4, V31.H4
+	WORD $0x6E7FC2D8                        \ // OPCODE: UMULL2 V24.S4, V22.H8, V31.H8
+	WORD $0x0F1086F7                        \ // OPCODE: SHRN  V23.H4, V23.S4, #16
+	WORD $0x4F108717                        \ // OPCODE: SHRN2 V23.H8, V24.S4, #16
 	VADD   V21.H8, V23.H8, VOUT.H8          \ // raw = hi + correction
 	VCMEQ  V20.H8, V28.H8, V24.H8           \ // 0xFFFF where lo==0
 	VADD   V29.H8, V24.H8, V24.H8           \ // 0 where lo==0, else 1
@@ -90,15 +90,14 @@
 //   V30.H8 = broadcast(3327)   qNegInv
 // Clobbers: V20,V21,V22,V23,V24
 #define DBL_MONT_MUL_FIXED(VOUT) \
-	WORD $0x4E619C14                        \ // MUL   V20.8H, V0.8H, V1.8H
-	WORD $0x4E7E9E96                        \ // MUL   V22.8H, V20.8H, V30.8H
-	WORD $0x6e61b415                        \ // SQRDMULH V21.8H, V0.8H, V1.8H (hi' = Round(2*hi))
-	WORD $0x6e7fb6d7                        \ // SQRDMULH V23.8H, V22.8H, V31.8H (corr' = Round(2*corr))
-	VADD V21.H8, V23.H8, V20.H8             \ // raw = 2*Result
-	WORD $0x4f1f0694                        \ // VSSHR V20.H8, V20.H8, #1
-	WORD $0x4f110698                        \ // VSSHR V24.H8, V20.H8, #15
+	WORD $0x4E619C14                        \ // MUL   V20.H8, V0.H8, V1.H8
+	WORD $0x4E7E9E96                        \ // MUL   V22.H8, V20.H8, V30.H8
+	WORD $0x6e61b415                        \ // SQRDMULH V21.H8, V0.H8, V1.H8 (hi' = Round(2*hi))
+	WORD $0x6e5f86d5                        \ // SQRDMALH V21.H8, V22.H8, V31.H8 (raw = Round(2*corr) + hi')
+	WORD $0x4f1106b5                        \ // VSSHR V21.H8, V21.H8, #1
+	WORD $0x4f1106b8                        \ // VSSHR V24.H8, V21.H8, #15
 	VAND V31.B16, V24.B16, V24.B16          \ // q if underflow, else 0
-	VADD V20.H8, V24.H8, VOUT.H8              // result in VOUT
+	VADD V21.H8, V24.H8, VOUT.H8              // result in VOUT
 
 #define MONT_MUL(VA, VZ, VOUT) \
 	VMOV   VA.B16, V0.B16                    \
@@ -149,7 +148,7 @@
 	VMOV   VZ.B16, V0.B16             \ // V0 = zeta, V1 keeps VB
 	DBL_MONT_MUL_FIXED(V26)           \ // t = MontMul(V0, V1)
 	VADD   V25.H8, V26.H8, V0.H8      \ // VA = VA_old + t
-	WORD   $0x6e7f3c14				  \ // CMGT.U V20.8H, V0.8H, V31.8H (V0 >= q ? 0xFFFF : 0)
+	WORD   $0x6e7f3c14				  \ // CMGT.U V20.H8, V0.H8, V31.H8 (V0 >= q ? 0xFFFF : 0)
 	VAND   V31.B16, V20.B16, V20.B16  \ // q if underflow
 	VSUB   V20.H8, V0.H8, V0.H8       \ // VA = VA - q if underflow
 	VSUB   V26.H8, V25.H8, V20.H8     \ // V20 = VA_old - t
@@ -165,7 +164,7 @@
 	VSUB   VA.H8, VB.H8, V22.H8       \ // diff = VB - VA_old  (V22=VB-VA_old)
 	VADD   VA.H8, VB.H8, V20.H8       \ // V20 = VA_old + VB
 	\ // VA reduction
-	WORD   $0x6e7f3e95				  \ // CMGT.U V21.8H, V20.8H, V31.8H (V20 >= q ? 0xFFFF : 0)
+	WORD   $0x6e7f3e95				  \ // CMGT.U V21.H8, V20.H8, V31.H8 (V20 >= q ? 0xFFFF : 0)
 	VAND   V31.B16, V21.B16, V21.B16  \ // q if negative
 	VSUB   V21.H8, V20.H8, V25.H8      \
 	\ // VB reduction
@@ -181,7 +180,7 @@
 	VSUB   V0.H8, V1.H8, V22.H8       \ // diff = VB - VA_old
 	VADD   V0.H8, V1.H8, V20.H8       \ // V20 = VA_old + VB
 	\ // VA reduction
-	WORD   $0x6e7f3e95				  \ // CMGT.U V21.8H, V20.8H, V31.8H (V20 >= q ? 0xFFFF : 0)
+	WORD   $0x6e7f3e95				  \ // CMGT.U V21.H8, V20.H8, V31.H8 (V20 >= q ? 0xFFFF : 0)
 	VAND   V31.B16, V21.B16, V21.B16  \ // q if negative
 	VSUB   V21.H8, V20.H8, V25.H8      \
 	\ // VB reduction
@@ -705,11 +704,11 @@ intt_len16_start:
 // After MontMul:
 //   V7 = [a0b0*r, γ*a1b1, a2b2*r, γ*a3b3, ...] (element-wise)
 //   V6 = [a0b1, a1b0, a2b3, a3b2, ...]
-// Pairwise add (VADDP Vd.8H, Vn.8H, Vm.8H: Vd[0..3]=pairs(Vn), Vd[4..7]=pairs(Vm)):
-//   VADDP V7.8H, V7.8H, V7.8H → all 8 lanes = pairwise sums of V7 (4 even-acc deltas, replicated)
-//   VADDP V6.8H, V6.8H, V6.8H → same for V6 (4 odd-acc deltas)
-// Re-interleave: VZIP1 Vd.8H, Vn.8H, Vm.8H: Vm=[Vd[0],Vn[0],Vd[1],Vn[1],Vd[2],Vn[2],Vd[3],Vn[3]]
-//   VZIP1 V7.8H, V6.8H, V5.8H → V5 = interleaved deltas
+// Pairwise add (VADDP Vd.H8, Vn.H8, Vm.H8: Vd[0..3]=pairs(Vn), Vd[4..7]=pairs(Vm)):
+//   VADDP V7.H8, V7.H8, V7.H8 → all 8 lanes = pairwise sums of V7 (4 even-acc deltas, replicated)
+//   VADDP V6.H8, V6.H8, V6.H8 → same for V6 (4 odd-acc deltas)
+// Re-interleave: VZIP1 Vd.H8, Vn.H8, Vm.H8: Vm=[Vd[0],Vn[0],Vd[1],Vn[1],Vd[2],Vn[2],Vd[3],Vn[3]]
+//   VZIP1 V7.H8, V6.H8, V5.H8 → V5 = interleaved deltas
 //
 // R0=acc, R1=lhs, R2=rhs, R3=gamma, R4=byte offset
 TEXT ·internalNTTMulAccNEON(SB), NOSPLIT, $0-24
@@ -750,21 +749,21 @@ nttmlacc_neon_loop:
 	MONT_MUL(V5, V3, V7)
 
 	// Pairwise add to combine even+odd sums
-	// VADDP Vd.8H, Vn.8H, Vm.8H: Vd[0..3]=pairwise(Vn), Vd[4..7]=pairwise(Vm)
+	// VADDP Vd.H8, Vn.H8, Vm.H8: Vd[0..3]=pairwise(Vn), Vd[4..7]=pairwise(Vm)
 	// Using same src twice: both halves = pairwise sums of V7
 	VADDP V7.H8, V7.H8, V7.H8
 	VADDP V6.H8, V6.H8, V6.H8
 
 	// fieldReduceOnce on both
-	WORD $0x6e7f3cf4  // CMGT.U V20.8H, V7.8H, V31.8H  (V20=0xFFFF where V7>3329, else 0)
+	WORD $0x6e7f3cf4  // CMGT.U V20.H8, V7.H8, V31.H8  (V20=0xFFFF where V7>3329, else 0)
 	VAND V20.B16, V31.B16, V20.B16
 	VSUB V20.H8, V7.H8, V7.H8
 
-	WORD $0x6e7f3cd5  // CMGT.U V21.8H, V6.8H, V31.8H  (V20=0xFFFF where V6>3329, else 0)
+	WORD $0x6e7f3cd5  // CMGT.U V21.H8, V6.H8, V31.H8  (V20=0xFFFF where V6>3329, else 0)
 	VAND V21.B16, V31.B16, V21.B16
 	VSUB V21.H8, V6.H8, V6.H8
 
-	// Re-interleave: VZIP1 Va.8H, Vb.8H, Vd.8H in Go Plan9 → ARM64 ZIP1 Vd,Vb,Va → Vd=[Vb[0],Va[0],...]
+	// Re-interleave: VZIP1 Va.H8, Vb.H8, Vd.H8 in Go Plan9 → ARM64 ZIP1 Vd,Vb,Va → Vd=[Vb[0],Va[0],...]
 	// We want [even_sum0, odd_sum0, even_sum1, odd_sum1, ...]
 	// V7 has even sums, V6 has odd sums → VZIP1 V6,V7,V5 → V5=[V7[0],V6[0],...]
 	VZIP1 V6.H8, V7.H8, V5.H8
@@ -772,7 +771,7 @@ nttmlacc_neon_loop:
 	// Add delta to acc (load acc late to avoid preserving V2 across MONT_MUL calls)
 	VLD1 (R0), [V2.H8]
 	VADD V5.H8, V2.H8, V2.H8
-	WORD $0x6e7f3c54  // CMGT.U V20.8H, V2.8H, V31.8H  (V20=0xFFFF where V2>3329, else 0)
+	WORD $0x6e7f3c54  // CMGT.U V20.H8, V2.H8, V31.H8  (V20=0xFFFF where V2>3329, else 0)
 	VAND V20.B16, V31.B16, V20.B16
 	VSUB V20.H8, V2.H8, V2.H8
 
@@ -822,21 +821,21 @@ nttml_neon_loop:
 	MONT_MUL(V5, V3, V7)
 
 	// Pairwise add to combine even+odd sums
-	// VADDP Vd.8H, Vn.8H, Vm.8H: Vd[0..3]=pairwise(Vn), Vd[4..7]=pairwise(Vm)
+	// VADDP Vd.H8, Vn.H8, Vm.H8: Vd[0..3]=pairwise(Vn), Vd[4..7]=pairwise(Vm)
 	// Using same src twice: both halves = pairwise sums of V7
 	VADDP V7.H8, V7.H8, V7.H8
 	VADDP V6.H8, V6.H8, V6.H8
 
 	// fieldReduceOnce on both
-	WORD $0x6e7f3cf4  // CMGT.U V20.8H, V7.8H, V31.8H  (V20=0xFFFF where V7>3329, else 0)
+	WORD $0x6e7f3cf4  // CMGT.U V20.H8, V7.H8, V31.H8  (V20=0xFFFF where V7>3329, else 0)
 	VAND V20.B16, V31.B16, V20.B16
 	VSUB V20.H8, V7.H8, V7.H8
 
-	WORD $0x6e7f3cd5  // CMGT.U V21.8H, V6.8H, V31.8H  (V20=0xFFFF where V6>3329, else 0)
+	WORD $0x6e7f3cd5  // CMGT.U V21.H8, V6.H8, V31.H8  (V20=0xFFFF where V6>3329, else 0)
 	VAND V21.B16, V31.B16, V21.B16
 	VSUB V21.H8, V6.H8, V6.H8
 
-	// Re-interleave: VZIP1 Va.8H, Vb.8H, Vd.8H in Go Plan9 → ARM64 ZIP1 Vd,Vb,Va → Vd=[Vb[0],Va[0],...]
+	// Re-interleave: VZIP1 Va.H8, Vb.H8, Vd.H8 in Go Plan9 → ARM64 ZIP1 Vd,Vb,Va → Vd=[Vb[0],Va[0],...]
 	// We want [even_sum0, odd_sum0, even_sum1, odd_sum1, ...]
 	// V7 has even sums, V6 has odd sums → VZIP1 V6,V7,V5 → V5=[V7[0],V6[0],...]
 	VZIP1 V6.H8, V7.H8, V5.H8
@@ -891,11 +890,11 @@ nttmlacc_kg_neon_loop:
 	VADDP V7.H8, V7.H8, V7.H8
 	VADDP V6.H8, V6.H8, V6.H8
 
-	WORD $0x6e7f3cf4  // CMGT.U V20.8H, V7.8H, V31.8H  (V20=0xFFFF where V7>3329, else 0)
+	WORD $0x6e7f3cf4  // CMGT.U V20.H8, V7.H8, V31.H8  (V20=0xFFFF where V7>3329, else 0)
 	VAND V20.B16, V31.B16, V20.B16
 	VSUB V20.H8, V7.H8, V7.H8
 
-	WORD $0x6e7f3cd5  // CMGT.U V21.8H, V6.8H, V31.8H  (V20=0xFFFF where V6>3329, else 0)
+	WORD $0x6e7f3cd5  // CMGT.U V21.H8, V6.H8, V31.H8  (V20=0xFFFF where V6>3329, else 0)
 	VAND V21.B16, V31.B16, V21.B16
 	VSUB V21.H8, V6.H8, V6.H8
 
@@ -906,7 +905,7 @@ nttmlacc_kg_neon_loop:
 
 	VLD1 (R0), [V2.H8]
 	VADD V5.H8, V2.H8, V2.H8
-	WORD $0x6e7f3c54  // CMGT.U V20.8H, V2.8H, V31.8H  (V20=0xFFFF where V2>3329, else 0)
+	WORD $0x6e7f3c54  // CMGT.U V20.H8, V2.H8, V31.H8  (V20=0xFFFF where V2>3329, else 0)
 	VAND V20.B16, V31.B16, V20.B16
 	VSUB V20.H8, V2.H8, V2.H8
 
@@ -1206,8 +1205,8 @@ decode_u10_neon_block_loop:
 	//   dividend = y*q (32-bit lanes via UMULL/UMULL2)
 	//   roundbit = (dividend >> 9) & 1
 	//   out      = (dividend >> 10) + roundbit
-	WORD $0x2E61C015 // UMULL  V21.4S, V0.4H, V1.4H
-	WORD $0x6E61C016 // UMULL2 V22.4S, V0.8H, V1.8H
+	WORD $0x2E61C015 // UMULL  V21.S4, V0.H4, V1.H4
+	WORD $0x6E61C016 // UMULL2 V22.S4, V0.H8, V1.H8
 
 	VUSHR $9, V21.S4, V23.S4
 	VUSHR $9, V22.S4, V25.S4
@@ -1219,8 +1218,8 @@ decode_u10_neon_block_loop:
 	VADD V25.S4, V22.S4, V22.S4
 	VSHL $16, V21.S4, V21.S4
 	VSHL $16, V22.S4, V22.S4
-	WORD $0x0F1086B5 // SHRN  V21.4H, V21.4S, #16
-	WORD $0x4F1086D5 // SHRN2 V21.8H, V22.4S, #16
+	WORD $0x0F1086B5 // SHRN  V21.H4, V21.S4, #16
+	WORD $0x4F1086D5 // SHRN2 V21.H8, V22.S4, #16
 
 	VST1.P [V21.H8], 16(R0)
 	ADD $10, R2, R2
@@ -1297,8 +1296,8 @@ decode_u11_neon_block_loop:
 	// Vectorized Decompress_11 on 8 lanes:
 	//   dividend = y*q
 	//   out = (dividend >> 11) + ((dividend >> 10) & 1)
-	WORD $0x2E61C015 // UMULL  V21.4S, V0.4H, V1.4H
-	WORD $0x6E61C016 // UMULL2 V22.4S, V0.8H, V1.8H
+	WORD $0x2E61C015 // UMULL  V21.S4, V0.H4, V1.H4
+	WORD $0x6E61C016 // UMULL2 V22.S4, V0.H8, V1.H8
 
 	VUSHR $10, V21.S4, V23.S4
 	VUSHR $10, V22.S4, V25.S4
@@ -1310,8 +1309,8 @@ decode_u11_neon_block_loop:
 	VADD V25.S4, V22.S4, V22.S4
 	VSHL $16, V21.S4, V21.S4
 	VSHL $16, V22.S4, V22.S4
-	WORD $0x0F1086B5 // SHRN  V21.4H, V21.4S, #16
-	WORD $0x4F1086D5 // SHRN2 V21.8H, V22.4S, #16
+	WORD $0x0F1086B5 // SHRN  V21.H4, V21.S4, #16
+	WORD $0x4F1086D5 // SHRN2 V21.H8, V22.S4, #16
 
 	// Store 8 decompressed coefficients (8 * uint16 = 16 bytes).
 	VST1.P [V21.H8], 16(R0)
