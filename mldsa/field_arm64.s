@@ -108,15 +108,6 @@ loop:
 done:
 	RET
 
-// Corrected fieldReduceOnce (input in [0,2q), output in [0,q)):
-//   try = Vx - q; if try < 0: Vx stays; else Vx = try
-// Inlined version of the sequence. V20,V24 is clobbered.
-#define REDUCE_ONCE(VX) \
-	VSUB V31.S4, VX.S4, V20.S4        \
-	WORD $0x4f210698                  \
-	VAND V31.B16, V24.B16, V24.B16    \
-	VADD V20.S4, V24.S4, VX.S4        // result in VX
-
 // polyAddAssignNEON updates dst[i] = fieldAdd(dst[i], src[i]) for i in [0, 255].
 TEXT ·polyAddAssignNEON(SB), NOSPLIT, $0-16
 	MOVD dst+0(FP), R0
@@ -295,41 +286,6 @@ poly_inf_norm_signed_loop:
 	VMOV   VA.B16, V0.B16                    \
 	VMOV   VZ.B16, V1.B16                    \
 	DBL_MONT_MUL_FIXED(VOUT)
-
-// Fast-path when inputs are already in fixed MONT_MUL registers.
-#define MONT_MUL_V0_V1(VOUT) \
-	DBL_MONT_MUL_FIXED(VOUT)
-
-// Fast-path when multiplicand is already in V0; only load the zeta/input into V1.
-#define MONT_MUL_V0_VZ(VZ, VOUT) \
-	VMOV   VZ.B16, V1.B16                    \
-	DBL_MONT_MUL_FIXED(VOUT)
-
-// Cooley-Tukey butterfly:
-//   t  = MontMul(zeta, odd)
-//   odd  = fieldSub(even_old, t)
-//   even = fieldAdd(even_old, t)
-// Clobbers V0,V1,V20,V24,V25,V26.
-#define BUTTERFLY(VA, VB, VZ) \
-	VMOV   VA.B16, V25.B16            \
-	MONT_MUL(VB, VZ, V26)             \
-	VADD   V25.S4, V26.S4, VA.S4      \
-	REDUCE_ONCE(VA)                   \
-	VSUB   V26.S4, V25.S4, V20.S4     \
-	WORD   $0x4f210698                \
-	VAND   V31.B16, V24.B16, V24.B16  \
-	VADD   V20.S4, V24.S4, VB.S4
-
-#define BUTTERFLY01(VZ) \
-	VMOV   V0.B16, V25.B16            \
-	VMOV   VZ.B16, V0.B16             \
-	MONT_MUL_V0_V1(V26)               \
-	VADD   V25.S4, V26.S4, V0.S4      \
-	REDUCE_ONCE(V0)                   \
-	VSUB   V26.S4, V25.S4, V20.S4     \
-	WORD   $0x4f210698                \
-	VAND   V31.B16, V24.B16, V24.B16  \
-	VADD   V20.S4, V24.S4, V1.S4
 
 // Butterfly with zeta in V7, even in V0, odd in V1. Output in V0 (even) and V1 (odd).
 // Clobbers V20,V21,V22,V23,V24.
