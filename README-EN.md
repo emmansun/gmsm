@@ -208,8 +208,16 @@ Compliant with NIST FIPS 203 standard, based on the Go standard library implemen
 - ML-KEM-768
 - ML-KEM-1024
 
+**Architecture Optimizations:**
+- **amd64**: NTT, inverse NTT, and polynomial multiplication are vectorized using AVX2 instructions
+- **arm64**: NTT, inverse NTT, and polynomial multiplication are vectorized using NEON instructions
+
 #### MLDSA - Module-Lattice-Based Digital Signature
 Compliant with NIST FIPS 204 standard.
+
+**Architecture Optimizations:**
+- **amd64**: NTT, inverse NTT, and polynomial multiplication are vectorized using AVX2 instructions
+- **arm64**: NTT, inverse NTT, and polynomial multiplication are vectorized using NEON instructions
 
 #### SLHDSA - Stateless Hash-Based Digital Signature
 Compliant with NIST FIPS 205 standard.
