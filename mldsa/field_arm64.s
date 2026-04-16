@@ -365,9 +365,8 @@ poly_inf_norm_signed_loop:
 	VSUB V20.S4, V0.S4, V0.S4				\
 	VSUB V1.S4, V25.S4, V1.S4               \
 	VADD V31.S4, V1.S4, V1.S4               \
-	WORD $0x4ea19cf4                        \ // MUL   V20.S4, V7.S4, V1.S4
 	WORD $0x6ea1b4f5                        \ // SQRDMULH V21.S4, V7.S4, V1.S4 (hi' = Round(2*hi))
-	WORD $0x4ebe9e96                        \ // MUL   V22.S4, V20.S4, V30.S4
+	WORD $0x4ebe9c36                        \ // MUL   V22.S4, V1.S4, V30.S4
 	WORD $0x6e9f86d5                        \ // SQRDMALH V21.S4, V22.S4, V31.S4 (raw = Round(2*corr) + hi')
 	WORD $0x4f3f06b5                        \ // VSSHR V21.S4, V21.S4, #1
 	WORD $0x4f2106b8                        \ // VSSHR V24.S4, V21.S4, #31
@@ -561,23 +560,26 @@ TEXT ·internalInverseNTTNEON(SB), NOSPLIT, $0-8
 	// qMinusZetas pointer for L1-L7 starts at one-past qMinusZetasMontgomeryARM64[127].
 	MOVD $·qMinusZetasMontgomeryARM64(SB), R1
 	ADD $512, R1, R1
+	MOVD $·qMinusZetasMontgomeryMulQNegInvLow32ARM64(SB), R2
+	ADD $512, R2, R2
 
 	// L0 uses pre-reordered qMinusZetas blocks: [q-z255 ... q-z128].
 	MOVD $·qMinusZetasMontgomeryL0ReorderedARM64(SB), R13
+	MOVD $·qMinusZetasMontgomeryMulQNegInvLow32L0ReorderedARM64(SB), R15
 	// L1 uses pre-reordered qMinusZetas blocks: [q-z127 q-z127 q-z126 q-z126 ...].
 	MOVD $·qMinusZetasMontgomeryL1ReorderedARM64(SB), R14
+	MOVD $·qMinusZetasMontgomeryMulQNegInvLow32L1ReorderedARM64(SB), R16
 
 	// pinned constants
 	MOVD $8380417, R8
 	VDUP R8, V31.S4
-	MOVD $4236238847, R9
-	VDUP R9, V30.S4
 
 	// L0: len=1, 128 groups, four groups packed per vector butterfly.
 	MOVD R0, R11
 	MOVD $32, R4
 intt_l0_group:
 	VLD1.P (16)(R13), [V7.S4]
+	VLD1.P (16)(R15), [V30.S4]
 
 	VLD1 (R11), [V20.S4, V21.S4]      // [e0 o0 e1 o1 | e2 o2 e3 o3]
 	VUZP1 V21.S4, V20.S4, V0.S4       // even: [e0 e1 e2 e3]
@@ -595,6 +597,7 @@ intt_l0_group:
 	MOVD $32, R5
 intt_l1_group:
 	VLD1.P (16)(R14), [V7.S4]         // [z0 z0 z1 z1]
+	VLD1.P (16)(R16), [V30.S4]        // [z0*qNegInv z0*qNegInv z1*qNegInv z1*qNegInv] (low32)
 
 	VLD1 (R6), [V20.S4, V21.S4]       // [a0 a1 b0 b1 | c0 c1 d0 d1]
 	VZIP1 V21.D2, V20.D2, V0.D2       // even: [a0 a1 c0 c1]
@@ -614,6 +617,8 @@ intt_l1_group:
 intt_l2_group:
 	MOVWU.W -4(R1), R10
 	VDUP R10, V7.S4
+	MOVWU.W -4(R2), R9
+	VDUP R9, V30.S4
 
 	VLD1 (R6), [V0.S4, V1.S4]
 	INVERSE_BUTTERFLY01_Z7
@@ -628,6 +633,8 @@ intt_l2_group:
 intt_l3_group:
 	MOVWU.W -4(R1), R10
 	VDUP R10, V7.S4
+	MOVWU.W -4(R2), R9
+	VDUP R9, V30.S4
 
 	MOVD R6, R11
 	ADD $32, R11, R12
@@ -651,6 +658,8 @@ intt_l3_loop:
 intt_l4_group:
 	MOVWU.W -4(R1), R10
 	VDUP R10, V7.S4
+	MOVWU.W -4(R2), R9
+	VDUP R9, V30.S4
 
 	MOVD R6, R11
 	ADD $64, R11, R12
@@ -674,6 +683,8 @@ intt_l4_loop:
 intt_l5_group:
 	MOVWU.W -4(R1), R10
 	VDUP R10, V7.S4
+	MOVWU.W -4(R2), R9
+	VDUP R9, V30.S4
 
 	MOVD R6, R11
 	ADD $128, R11, R12
@@ -697,6 +708,8 @@ intt_l5_loop:
 intt_l6_group:
 	MOVWU.W -4(R1), R10
 	VDUP R10, V7.S4
+	MOVWU.W -4(R2), R9
+	VDUP R9, V30.S4
 
 	MOVD R6, R11
 	ADD $256, R11, R12
@@ -717,6 +730,8 @@ intt_l6_loop:
 	// L7: len=128, 1 group, thirty-two vector butterflies.
 	MOVWU.W -4(R1), R10
 	VDUP R10, V7.S4
+	MOVWU.W -4(R2), R9
+	VDUP R9, V30.S4
 
 	MOVD R0, R11
 	ADD $512, R11, R12

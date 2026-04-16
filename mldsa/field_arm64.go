@@ -8,18 +8,23 @@ package mldsa
 
 var qMinusZetasMontgomeryARM64 [n]fieldElement
 var qMinusZetasMontgomeryL0ReorderedARM64 [128]fieldElement
+var qMinusZetasMontgomeryMulQNegInvLow32ARM64 [n]uint32
+var qMinusZetasMontgomeryMulQNegInvLow32L0ReorderedARM64 [128]uint32
 var zetasMontgomeryL6ReorderedARM64 [128]fieldElement
 var zetasMontgomeryMulQNegInvLow32ARM64 [n]uint32
 var zetasMontgomeryMulQNegInvLow32L6ReorderedARM64 [128]uint32
 var qMinusZetasMontgomeryL1ReorderedARM64 [128]fieldElement
+var qMinusZetasMontgomeryMulQNegInvLow32L1ReorderedARM64 [128]uint32
 
 func init() {
 	for i := 0; i < n; i++ {
 		qMinusZetasMontgomeryARM64[i] = q - zetasMontgomery[i]
 		zetasMontgomeryMulQNegInvLow32ARM64[i] = uint32(uint64(zetasMontgomery[i]) * uint64(qNegInv))
+		qMinusZetasMontgomeryMulQNegInvLow32ARM64[i] = uint32(uint64(qMinusZetasMontgomeryARM64[i]) * uint64(qNegInv))
 	}
 	for i := 0; i < 128; i++ {
 		qMinusZetasMontgomeryL0ReorderedARM64[i] = qMinusZetasMontgomeryARM64[255-i]
+		qMinusZetasMontgomeryMulQNegInvLow32L0ReorderedARM64[i] = qMinusZetasMontgomeryMulQNegInvLow32ARM64[255-i]
 	}
 	for i := 0; i < 32; i++ {
 		z0 := zetasMontgomery[64+2*i]
@@ -38,10 +43,16 @@ func init() {
 
 		qz0 := qMinusZetasMontgomeryARM64[127-2*i]
 		qz1 := qMinusZetasMontgomeryARM64[127-(2*i+1)]
+		qz0MulQNegInvLow32 := qMinusZetasMontgomeryMulQNegInvLow32ARM64[127-2*i]
+		qz1MulQNegInvLow32 := qMinusZetasMontgomeryMulQNegInvLow32ARM64[127-(2*i+1)]
 		qMinusZetasMontgomeryL1ReorderedARM64[j+0] = qz0
 		qMinusZetasMontgomeryL1ReorderedARM64[j+1] = qz0
 		qMinusZetasMontgomeryL1ReorderedARM64[j+2] = qz1
 		qMinusZetasMontgomeryL1ReorderedARM64[j+3] = qz1
+		qMinusZetasMontgomeryMulQNegInvLow32L1ReorderedARM64[j+0] = qz0MulQNegInvLow32
+		qMinusZetasMontgomeryMulQNegInvLow32L1ReorderedARM64[j+1] = qz0MulQNegInvLow32
+		qMinusZetasMontgomeryMulQNegInvLow32L1ReorderedARM64[j+2] = qz1MulQNegInvLow32
+		qMinusZetasMontgomeryMulQNegInvLow32L1ReorderedARM64[j+3] = qz1MulQNegInvLow32
 	}
 }
 
