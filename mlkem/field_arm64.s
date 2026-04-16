@@ -94,7 +94,7 @@
 	WORD $0x4E7E9E96                        \ // MUL   V22.H8, V20.H8, V30.H8
 	WORD $0x6e61b415                        \ // SQRDMULH V21.H8, V0.H8, V1.H8 (hi' = Round(2*hi))
 	WORD $0x6e5f86d5                        \ // SQRDMALH V21.H8, V22.H8, V31.H8 (raw = Round(2*corr) + hi')
-	WORD $0x4f1106b5                        \ // VSSHR V21.H8, V21.H8, #1
+	WORD $0x4f1f06b5                        \ // VSSHR V21.H8, V21.H8, #1
 	WORD $0x4f1106b8                        \ // VSSHR V24.H8, V21.H8, #15
 	VAND V31.B16, V24.B16, V24.B16          \ // q if underflow, else 0
 	VADD V21.H8, V24.H8, VOUT.H8              // result in VOUT
