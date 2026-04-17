@@ -45,12 +45,21 @@ jobs:
             cat /proc/cpuinfo || true
           } | tee artifacts/cpu-info.txt
 
+      - name: Run sm3ni benchmarks
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          go test -run '^$' -bench . -benchmem -benchtime=300ms ./sm3 | tee artifacts/sm3ni-bench.txt
+
       - name: Run sm3 benchmarks
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p artifacts
           go test -run '^$' -bench . -benchmem -benchtime=300ms ./sm3 | tee artifacts/sm3-bench.txt
+        env:
+          DISABLE_SM3NI: 1
 
       - name: Upload benchmark artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
