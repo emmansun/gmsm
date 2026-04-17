@@ -45,12 +45,21 @@ jobs:
             cat /proc/cpuinfo || true
           } | tee artifacts/cpu-info.txt
 
-      - name: Run cipher benchmarks
+      - name: Run cipher with SM4NI benchmarks
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          go test -run '^$' -bench . -benchmem -benchtime=300ms ./cipher | tee artifacts/cipher-sm4ni-bench.txt
+
+      - name: Run cipher without SM4NI benchmarks
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p artifacts
           go test -run '^$' -bench . -benchmem -benchtime=300ms ./cipher | tee artifacts/cipher-bench.txt
+        env:
+          DISABLE_SM4NI: 1
 
       - name: Upload benchmark artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
