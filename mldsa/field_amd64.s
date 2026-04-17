@@ -820,39 +820,32 @@ useHint88Loop:
 	TRANSPOSE_MATRIX(Y5, Y4, Y3, Y2, Y1, Y0, Y8, Y7, TMP0, TMP1, TMP2, Y6); \
 	\ // level 0: offset = 1, step = 128
 	VMOVDQU (296-8-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
 	VPSRLQ $32, ZETAH, ZETAL; \
 	inttButterfly(Y5, Y4, Y6, ZETAL, ZETAH, Y5, Y4); \
 	\
 	VMOVDQU (296-40-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
 	VPSRLQ $32, ZETAH, ZETAL; \
 	inttButterfly(Y3, Y2, Y6, ZETAL, ZETAH, Y3, Y2); \
 	\
 	VMOVDQU (296-72-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
 	VPSRLQ $32, ZETAH, ZETAL; \
 	inttButterfly(Y1, Y0, Y6, ZETAL, ZETAH, Y1, Y0); \
 	\ 
 	VMOVDQU (296-104-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
 	VPSRLQ $32, ZETAH, ZETAL; \
 	inttButterfly(Y8, Y7, Y6, ZETAL, ZETAH, Y8, Y7); \
 	\ // level 1: offset = 2, step = 64
 	VMOVDQU (168-8-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
 	VPSRLQ $32, ZETAH, ZETAL; \
 	inttButterfly(Y5, Y3, Y6, ZETAL, ZETAH, Y5, Y3); \
 	inttButterfly(Y4, Y2, Y6, ZETAL, ZETAH, Y4, Y2); \
 	\
 	VMOVDQU (168-40-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
 	VPSRLQ $32, ZETAH, ZETAL; \
 	inttButterfly(Y1, Y8, Y6, ZETAL, ZETAH, Y1, Y8); \
 	inttButterfly(Y0, Y7, Y6, ZETAL, ZETAH, Y0, Y7); \
 	\ // level 2: offset = 4, step = 32
 	VMOVDQU (104-8-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
 	VPSRLQ $32, ZETAH, ZETAL; \
 	inttButterfly(Y5, Y1, Y6, ZETAL, ZETAH, Y5, Y1); \
 	inttButterfly(Y4, Y0, Y6, ZETAL, ZETAH, Y4, Y0); \
@@ -882,7 +875,6 @@ useHint88Loop:
 	SHUFFLE2(Y1, Y0, Y3, Y0); \
 	SHUFFLE2(Y8, Y7, Y1, Y7); \
 	VMOVDQU (72-8-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
 	VPSRLQ $32, ZETAH, ZETAL; \
 	inttButterfly(Y6, Y4, Y8, ZETAL, ZETAH, Y6, Y4); \
 	inttButterfly(Y5, Y2, Y8, ZETAL, ZETAH, Y5, Y2); \
@@ -912,7 +904,6 @@ useHint88Loop:
 	SHUFFLE4(Y4, Y2, Y3, Y2); \
 	SHUFFLE4(Y0, Y7, Y4, Y7); \
 	VMOVDQU (40-8-8*offset)*4+zetasAddr, ZETAL; \
-	VPERMQ $0x1B, ZETAL, ZETAL; \
 	inttButterfly(Y8, Y5, Y0, ZETAL, ZETAL, Y8, Y5); \
 	inttButterfly(Y6, Y1, Y0, ZETAL, ZETAL, Y6, Y1); \
 	inttButterfly(Y3, Y2, Y0, ZETAL, ZETAL, Y3, Y2); \
