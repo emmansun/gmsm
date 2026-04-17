@@ -23,139 +23,11 @@ GLOBL nttConsts<>(SB), RODATA, $10
 #define rrConst nttConsts<>+0x06(SB)
 #define scale1441Const nttConsts<>+0x08(SB)
 
-// gammaMulTable<>: 256 × int16 interleaved as [r, γ[0], r, γ[1], ..., r, γ[127]]
-// where r=2285 (Montgomery form of 1) and γ[i]=gammasMontgomery[i].
-// Used by internalNTTMulAccAVX2: MontMul(t_ab[even], r) = t_ab[even],
-// MontMul(t_ab[odd], γ[i]) = γ[i]·a1·b1 for the even-index accumulation.
-DATA gammaMulTable<>+0x000(SB)/4, $0x08B208ED
-DATA gammaMulTable<>+0x004(SB)/4, $0x044F08ED
-DATA gammaMulTable<>+0x008(SB)/4, $0x01AE08ED
-DATA gammaMulTable<>+0x00C(SB)/4, $0x0B5308ED
-DATA gammaMulTable<>+0x010(SB)/4, $0x022B08ED
-DATA gammaMulTable<>+0x014(SB)/4, $0x0AD608ED
-DATA gammaMulTable<>+0x018(SB)/4, $0x034B08ED
-DATA gammaMulTable<>+0x01C(SB)/4, $0x09B608ED
-DATA gammaMulTable<>+0x020(SB)/4, $0x081E08ED
-DATA gammaMulTable<>+0x024(SB)/4, $0x04E308ED
-DATA gammaMulTable<>+0x028(SB)/4, $0x036708ED
-DATA gammaMulTable<>+0x02C(SB)/4, $0x099A08ED
-DATA gammaMulTable<>+0x030(SB)/4, $0x060E08ED
-DATA gammaMulTable<>+0x034(SB)/4, $0x06F308ED
-DATA gammaMulTable<>+0x038(SB)/4, $0x006908ED
-DATA gammaMulTable<>+0x03C(SB)/4, $0x0C9808ED
-DATA gammaMulTable<>+0x040(SB)/4, $0x01A608ED
-DATA gammaMulTable<>+0x044(SB)/4, $0x0B5B08ED
-DATA gammaMulTable<>+0x048(SB)/4, $0x024B08ED
-DATA gammaMulTable<>+0x04C(SB)/4, $0x0AB608ED
-DATA gammaMulTable<>+0x050(SB)/4, $0x00B108ED
-DATA gammaMulTable<>+0x054(SB)/4, $0x0C5008ED
-DATA gammaMulTable<>+0x058(SB)/4, $0x0C1608ED
-DATA gammaMulTable<>+0x05C(SB)/4, $0x00EB08ED
-DATA gammaMulTable<>+0x060(SB)/4, $0x0BDE08ED
-DATA gammaMulTable<>+0x064(SB)/4, $0x012308ED
-DATA gammaMulTable<>+0x068(SB)/4, $0x0B3508ED
-DATA gammaMulTable<>+0x06C(SB)/4, $0x01CC08ED
-DATA gammaMulTable<>+0x070(SB)/4, $0x062608ED
-DATA gammaMulTable<>+0x074(SB)/4, $0x06DB08ED
-DATA gammaMulTable<>+0x078(SB)/4, $0x067508ED
-DATA gammaMulTable<>+0x07C(SB)/4, $0x068C08ED
-DATA gammaMulTable<>+0x080(SB)/4, $0x0C0B08ED
-DATA gammaMulTable<>+0x084(SB)/4, $0x00F608ED
-DATA gammaMulTable<>+0x088(SB)/4, $0x030A08ED
-DATA gammaMulTable<>+0x08C(SB)/4, $0x09F708ED
-DATA gammaMulTable<>+0x090(SB)/4, $0x048708ED
-DATA gammaMulTable<>+0x094(SB)/4, $0x087A08ED
-DATA gammaMulTable<>+0x098(SB)/4, $0x0C6E08ED
-DATA gammaMulTable<>+0x09C(SB)/4, $0x009308ED
-DATA gammaMulTable<>+0x0A0(SB)/4, $0x09F808ED
-DATA gammaMulTable<>+0x0A4(SB)/4, $0x030908ED
-DATA gammaMulTable<>+0x0A8(SB)/4, $0x05CB08ED
-DATA gammaMulTable<>+0x0AC(SB)/4, $0x073608ED
-DATA gammaMulTable<>+0x0B0(SB)/4, $0x0AA708ED
-DATA gammaMulTable<>+0x0B4(SB)/4, $0x025A08ED
-DATA gammaMulTable<>+0x0B8(SB)/4, $0x045F08ED
-DATA gammaMulTable<>+0x0BC(SB)/4, $0x08A208ED
-DATA gammaMulTable<>+0x0C0(SB)/4, $0x06CB08ED
-DATA gammaMulTable<>+0x0C4(SB)/4, $0x063608ED
-DATA gammaMulTable<>+0x0C8(SB)/4, $0x028408ED
-DATA gammaMulTable<>+0x0CC(SB)/4, $0x0A7D08ED
-DATA gammaMulTable<>+0x0D0(SB)/4, $0x099908ED
-DATA gammaMulTable<>+0x0D4(SB)/4, $0x036808ED
-DATA gammaMulTable<>+0x0D8(SB)/4, $0x015D08ED
-DATA gammaMulTable<>+0x0DC(SB)/4, $0x0BA408ED
-DATA gammaMulTable<>+0x0E0(SB)/4, $0x01A208ED
-DATA gammaMulTable<>+0x0E4(SB)/4, $0x0B5F08ED
-DATA gammaMulTable<>+0x0E8(SB)/4, $0x014908ED
-DATA gammaMulTable<>+0x0EC(SB)/4, $0x0BB808ED
-DATA gammaMulTable<>+0x0F0(SB)/4, $0x0C6508ED
-DATA gammaMulTable<>+0x0F4(SB)/4, $0x009C08ED
-DATA gammaMulTable<>+0x0F8(SB)/4, $0x0CB608ED
-DATA gammaMulTable<>+0x0FC(SB)/4, $0x004B08ED
-DATA gammaMulTable<>+0x100(SB)/4, $0x033108ED
-DATA gammaMulTable<>+0x104(SB)/4, $0x09D008ED
-DATA gammaMulTable<>+0x108(SB)/4, $0x044908ED
-DATA gammaMulTable<>+0x10C(SB)/4, $0x08B808ED
-DATA gammaMulTable<>+0x110(SB)/4, $0x025B08ED
-DATA gammaMulTable<>+0x114(SB)/4, $0x0AA608ED
-DATA gammaMulTable<>+0x118(SB)/4, $0x026208ED
-DATA gammaMulTable<>+0x11C(SB)/4, $0x0A9F08ED
-DATA gammaMulTable<>+0x120(SB)/4, $0x052A08ED
-DATA gammaMulTable<>+0x124(SB)/4, $0x07D708ED
-DATA gammaMulTable<>+0x128(SB)/4, $0x07FC08ED
-DATA gammaMulTable<>+0x12C(SB)/4, $0x050508ED
-DATA gammaMulTable<>+0x130(SB)/4, $0x074808ED
-DATA gammaMulTable<>+0x134(SB)/4, $0x05B908ED
-DATA gammaMulTable<>+0x138(SB)/4, $0x018008ED
-DATA gammaMulTable<>+0x13C(SB)/4, $0x0B8108ED
-DATA gammaMulTable<>+0x140(SB)/4, $0x084208ED
-DATA gammaMulTable<>+0x144(SB)/4, $0x04BF08ED
-DATA gammaMulTable<>+0x148(SB)/4, $0x0C7908ED
-DATA gammaMulTable<>+0x14C(SB)/4, $0x008808ED
-DATA gammaMulTable<>+0x150(SB)/4, $0x04C208ED
-DATA gammaMulTable<>+0x154(SB)/4, $0x083F08ED
-DATA gammaMulTable<>+0x158(SB)/4, $0x07CA08ED
-DATA gammaMulTable<>+0x15C(SB)/4, $0x053708ED
-DATA gammaMulTable<>+0x160(SB)/4, $0x099708ED
-DATA gammaMulTable<>+0x164(SB)/4, $0x036A08ED
-DATA gammaMulTable<>+0x168(SB)/4, $0x00DC08ED
-DATA gammaMulTable<>+0x16C(SB)/4, $0x0C2508ED
-DATA gammaMulTable<>+0x170(SB)/4, $0x085E08ED
-DATA gammaMulTable<>+0x174(SB)/4, $0x04A308ED
-DATA gammaMulTable<>+0x178(SB)/4, $0x068608ED
-DATA gammaMulTable<>+0x17C(SB)/4, $0x067B08ED
-DATA gammaMulTable<>+0x180(SB)/4, $0x086008ED
-DATA gammaMulTable<>+0x184(SB)/4, $0x04A108ED
-DATA gammaMulTable<>+0x188(SB)/4, $0x070708ED
-DATA gammaMulTable<>+0x18C(SB)/4, $0x05FA08ED
-DATA gammaMulTable<>+0x190(SB)/4, $0x080308ED
-DATA gammaMulTable<>+0x194(SB)/4, $0x04FE08ED
-DATA gammaMulTable<>+0x198(SB)/4, $0x031A08ED
-DATA gammaMulTable<>+0x19C(SB)/4, $0x09E708ED
-DATA gammaMulTable<>+0x1A0(SB)/4, $0x071B08ED
-DATA gammaMulTable<>+0x1A4(SB)/4, $0x05E608ED
-DATA gammaMulTable<>+0x1A8(SB)/4, $0x09AB08ED
-DATA gammaMulTable<>+0x1AC(SB)/4, $0x035608ED
-DATA gammaMulTable<>+0x1B0(SB)/4, $0x099B08ED
-DATA gammaMulTable<>+0x1B4(SB)/4, $0x036608ED
-DATA gammaMulTable<>+0x1B8(SB)/4, $0x01DE08ED
-DATA gammaMulTable<>+0x1BC(SB)/4, $0x0B2308ED
-DATA gammaMulTable<>+0x1C0(SB)/4, $0x0C9508ED
-DATA gammaMulTable<>+0x1C4(SB)/4, $0x006C08ED
-DATA gammaMulTable<>+0x1C8(SB)/4, $0x0BCD08ED
-DATA gammaMulTable<>+0x1CC(SB)/4, $0x013408ED
-DATA gammaMulTable<>+0x1D0(SB)/4, $0x03E408ED
-DATA gammaMulTable<>+0x1D4(SB)/4, $0x091D08ED
-DATA gammaMulTable<>+0x1D8(SB)/4, $0x03DF08ED
-DATA gammaMulTable<>+0x1DC(SB)/4, $0x092208ED
-DATA gammaMulTable<>+0x1E0(SB)/4, $0x03BE08ED
-DATA gammaMulTable<>+0x1E4(SB)/4, $0x094308ED
-DATA gammaMulTable<>+0x1E8(SB)/4, $0x074D08ED
-DATA gammaMulTable<>+0x1EC(SB)/4, $0x05B408ED
-DATA gammaMulTable<>+0x1F0(SB)/4, $0x05F208ED
-DATA gammaMulTable<>+0x1F4(SB)/4, $0x070F08ED
-DATA gammaMulTable<>+0x1F8(SB)/4, $0x065C08ED
-DATA gammaMulTable<>+0x1FC(SB)/4, $0x06A508ED
-GLOBL gammaMulTable<>(SB), RODATA, $512
+// Large AVX2 precomputed tables are declared and initialized in field_amd64.go:
+//   ·gammaMulTable
+//   ·nttTwiddleL8Precomp
+//   ·nttTwiddleL4Precomp
+//   ·nttTwiddleL2Precomp
 
 // ── CBD sampling constants ────────────────────────────────────────────────────
 
@@ -433,15 +305,13 @@ TEXT ·internalNTTAVX2(SB), NOSPLIT, $0-8
 	// Continue with layers len=8, len=4, len=2
 len8_start:
 	// Layer len=8, groups g=0..15, zeta index = 16+g
-	MOVQ $32, SI
+	LEAQ ·nttTwiddleL8Precomp(SB), SI
 	XORQ CX, CX
 	XORQ DI, DI
 len8_loop:
 	CMPQ CX, $8
 	JGE len4_start
-	VPBROADCASTW (BX)(SI*1), X7
-	VPBROADCASTW 2(BX)(SI*1), X6
-	VPERM2I128 $0x20, Y6, Y7, Y7
+	VMOVDQU (SI), Y7
 
 	VMOVDQU (AX)(DI*1), Y6
 	VMOVDQU 32(AX)(DI*1), Y1
@@ -454,24 +324,21 @@ len8_loop:
 	VMOVDQU Y1, 32(AX)(DI*1)
 
 	INCQ CX
-	ADDQ $4, SI
+	ADDQ $32, SI
 	ADDQ $64, DI
 	JMP len8_loop
 
 	// Layer len=4, groups g=0..31, zeta index = 32+g
 len4_start:
+	LEAQ ·nttTwiddleL4Precomp(SB), SI
 	XORQ CX, CX
 	XORQ DI, DI
 len4_loop:
 	CMPQ CX, $8
 	JGE len2_start
 
-	// Build twiddle vector with one 64-bit load: [z0*4, z1*4, z2*4, z3*4].
-	VMOVQ (BX)(SI*1), X7
-	VPUNPCKLWD X7, X7, X7
-	VPSHUFD $0xFA, X7, X0
-	VPSHUFD $0x50, X7, X7
-	VPERM2I128 $0x20, Y0, Y7, Y7
+	// Load precomputed twiddle vector: [z0*4, z1*4, z2*4, z3*4].
+	VMOVDQU (SI), Y7
 
 	// Load 4 contiguous groups (32 coefficients): [g0|g1] and [g2|g3].
 	VMOVDQU (AX)(DI*1), Y6
@@ -499,26 +366,21 @@ len4_loop:
 	VMOVDQU Y1, 32(AX)(DI*1)
 
 	INCQ CX
-	ADDQ $8, SI
+	ADDQ $32, SI
 	ADDQ $64, DI
 	JMP len4_loop
 
 	// Layer len=2, groups g=0..63, zeta index = 64+g
 len2_start:
+	LEAQ ·nttTwiddleL2Precomp(SB), SI
 	XORQ CX, CX
 	XORQ DI, DI
 len2_loop:
 	CMPQ CX, $8
 	JGE len2_done
 
-	// Build twiddle vector for 8 groups with two 64-bit loads.
-	VMOVQ (BX)(SI*1), X7
-	VPUNPCKLWD X7, X7, X7
-	VMOVQ 8(BX)(SI*1), X6
-	VPUNPCKLWD X6, X6, X6
-	VPUNPCKLQDQ X6, X7, X2
-	VPUNPCKHQDQ X6, X7, X0
-	VPERM2I128 $0x20, Y0, Y2, Y7
+	// Load precomputed twiddle vector for 8 groups.
+	VMOVDQU (SI), Y7
 
 	// Load 8 contiguous groups (32 coefficients).
 	VMOVDQU (AX)(DI*1), Y6
@@ -541,7 +403,7 @@ len2_loop:
 	VMOVDQU Y1, 32(AX)(DI*1)
 
 	INCQ CX
-	ADDQ $16, SI
+	ADDQ $32, SI
 	ADDQ $64, DI
 	JMP len2_loop
 
@@ -594,26 +456,16 @@ TEXT ·internalInverseNTTAVX2(SB), NOSPLIT, $0-8
 	VPBROADCASTW oneConst, Y10
 	VPXOR Y8, Y8, Y8
 
-	// ── L6: len=2, 64 groups, zeta = zetasMontgomery[127..64] ───────────
-	// group g: start=g*4 bytes, fl=[start..start+4), fr=[start+4..start+8)
-	// twiddle at BX + (127-g)*2  (k counts down from 127)
-	MOVQ $254, SI
+	// L6: len=2, 64 groups, zeta = zetasMontgomery[127..64]
+	LEAQ ·inttTwiddleL2Precomp(SB), SI
 	XORQ CX, CX
 	XORQ DI, DI
 intt_len2_loop:
 	CMPQ CX, $8
 	JGE intt_len4_start
 
-	// Build twiddle vector for 8 groups with two 64-bit loads.
-	VMOVQ -6(BX)(SI*1), X7
-	VPSHUFLW $0x1B, X7, X7
-	VPUNPCKLWD X7, X7, X7
-	VMOVQ -14(BX)(SI*1), X6
-	VPSHUFLW $0x1B, X6, X6
-	VPUNPCKLWD X6, X6, X6
-	VPUNPCKLQDQ X6, X7, X2
-	VPUNPCKHQDQ X6, X7, X0
-	VPERM2I128 $0x20, Y0, Y2, Y7
+	// Load precomputed twiddle vector for 8 groups.
+	VMOVDQU (SI), Y7
 
 	// Load 8 contiguous groups (32 coefficients).
 	VMOVDQU (AX)(DI*1), Y6
@@ -636,26 +488,21 @@ intt_len2_loop:
 	VMOVDQU Y1, 32(AX)(DI*1)
 
 	INCQ CX
-	SUBQ $16, SI // pre-decrement SI for next 8 twiddles
+	ADDQ $32, SI
 	ADDQ $64, DI // next 8 group offset
 	JMP intt_len2_loop
 
-	// ── L5: len=4, 32 groups, zeta = zetasMontgomery[63..32] ────────────
-	// group g: start=g*8 bytes, fl=[start..start+8), fr=[start+8..start+16)
+	// L5: len=4, 32 groups, zeta = zetasMontgomery[63..32]
 intt_len4_start:
+	LEAQ ·inttTwiddleL4Precomp(SB), SI
 	XORQ CX, CX
 	XORQ DI, DI
 intt_len4_loop:
 	CMPQ CX, $8
 	JGE intt_len8_start
 
-	// Build twiddle vector for 4 groups with one 64-bit load: [z0*4, z1*4, z2*4, z3*4].
-	VMOVQ -6(BX)(SI*1), X7
-	VPSHUFLW $0x1B, X7, X7
-	VPUNPCKLWD X7, X7, X7
-	VPSHUFD $0xFA, X7, X0
-	VPSHUFD $0x50, X7, X7
-	VPERM2I128 $0x20, Y0, Y7, Y7
+	// Load precomputed twiddle vector: [z0*4, z1*4, z2*4, z3*4].
+	VMOVDQU (SI), Y7
 
 	// Load 4 contiguous groups (32 coefficients): [g0|g1] and [g2|g3].
 	VMOVDQU (AX)(DI*1), Y6
@@ -683,23 +530,20 @@ intt_len4_loop:
 	VMOVDQU Y1, 32(AX)(DI*1)
 
 	INCQ CX
-	SUBQ $8, SI  // pre-decrement SI for next 4 twiddles
+	ADDQ $32, SI
 	ADDQ $64, DI // next 4 group offset
 	JMP intt_len4_loop
 
-	// ── L4: len=8, 16 groups, zeta = zetasMontgomery[31..16] ────────────
-	// group g: start=g*16 bytes (= g*32 once you include both halves),
-	//          fl=[start..start+16), fr=[start+16..start+32)
+	// L4: len=8, 16 groups, zeta = zetasMontgomery[31..16]
 intt_len8_start:
+	LEAQ ·inttTwiddleL8Precomp(SB), SI
 	XORQ CX, CX
 	XORQ DI, DI
 intt_len8_loop:
 	CMPQ CX, $8
 	JGE intt_len16_start
 
-	VPBROADCASTW (BX)(SI*1), X7
-	VPBROADCASTW -2(BX)(SI*1), X6
-	VPERM2I128 $0x20, Y6, Y7, Y7
+	VMOVDQU (SI), Y7
 
 	VMOVDQU (AX)(DI*1), Y6
 	VMOVDQU 32(AX)(DI*1), Y1
@@ -712,7 +556,7 @@ intt_len8_loop:
 	VMOVDQU Y1, 32(AX)(DI*1)
 
 	INCQ CX
-	SUBQ $4, SI  // pre-decrement SI for next twiddle
+	ADDQ $32, SI
 	ADDQ $64, DI // next group offset
 	JMP intt_len8_loop
 
@@ -796,7 +640,7 @@ intt_len16_start:
 // Strategy: process 8 pairs (16 elements) per YMM iteration using VPHADDW
 // to combine pair results and VPUNPCKLWD to re-interleave even/odd updates.
 //
-// gammaMulTable<> contains [r, γ[0], r, γ[1], ...] (r=2285=Montgomery 1).
+// gammaMulTable contains [r, γ[0], r, γ[1], ...] (r=2285=Montgomery 1).
 // MontMul(x, r) = x, so even entries act as identity for MontMul.
 //
 // func internalNTTMulAccAVX2(acc, lhs, rhs *nttElement)
@@ -810,14 +654,14 @@ TEXT ·internalNTTMulAccAVX2(SB), NOSPLIT, $0-24
 	VPBROADCASTW oneConst, Y10
 	VPXOR Y8, Y8, Y8
 
-	LEAQ gammaMulTable<>(SB), SI
+	LEAQ ·gammaMulTable(SB), SI
 	XORQ DI, DI           // DI = block byte offset (0..480 step 32)
 
 nttmlacc_loop:
 	CMPQ DI, $512
 	JGE nttmlacc_done
 
-	// Load 8 pairs (16 × int16) from lhs, rhs, acc, and gammaMulTable
+	// Load 8 pairs (16 × int16) from lhs, rhs, acc, and gammaMulTable.
 	VMOVDQU (BX)(DI*1), Y0    // Y0 = lhs[DI/2 .. DI/2+15]
 	VMOVDQU (DX)(DI*1), Y1    // Y1 = rhs
 	VMOVDQU (AX)(DI*1), Y2    // Y2 = acc
@@ -884,14 +728,14 @@ TEXT ·internalNTTMulAVX2(SB), NOSPLIT, $0-24
 	VPBROADCASTW oneConst, Y10
 	VPXOR Y8, Y8, Y8
 
-	LEAQ gammaMulTable<>(SB), SI
+	LEAQ ·gammaMulTable(SB), SI
 	XORQ DI, DI           // DI = block byte offset (0..480 step 32)
 
 nttml_loop:
 	CMPQ DI, $512
 	JGE nttml_done
 
-	// Load 8 pairs (16 × int16) from lhs, rhs, acc, and gammaMulTable
+	// Load 8 pairs (16 × int16) from lhs, rhs, acc, and gammaMulTable.
 	VMOVDQU (BX)(DI*1), Y0    // Y0 = lhs[DI/2 .. DI/2+15]
 	VMOVDQU (DX)(DI*1), Y1    // Y1 = rhs
 	VMOVDQU (AX)(DI*1), Y2    // Y2 = acc
@@ -961,14 +805,14 @@ TEXT ·internalNTTMulAccKeyGenAVX2(SB), NOSPLIT, $0-24
 	VPXOR Y8, Y8, Y8
 	VPBROADCASTW rrConst, Y9       // Y9 = rr = 1353; MontMul(x, Y9) converts Mont -> standard
 
-	LEAQ gammaMulTable<>(SB), SI
+	LEAQ ·gammaMulTable(SB), SI
 	XORQ DI, DI           // DI = block byte offset (0..480 step 32)
 
 nttmlacc_kg_loop:
 	CMPQ DI, $512
 	JGE nttmlacc_kg_done
 
-	// Load 8 pairs (16 × int16) from lhs, rhs, acc, and gammaMulTable
+	// Load 8 pairs (16 × int16) from lhs, rhs, acc, and gammaMulTable.
 	VMOVDQU (BX)(DI*1), Y0    // Y0 = lhs[DI/2 .. DI/2+15]
 	VMOVDQU (DX)(DI*1), Y1    // Y1 = rhs
 	VMOVDQU (AX)(DI*1), Y2    // Y2 = acc
