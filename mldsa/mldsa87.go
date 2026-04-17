@@ -72,14 +72,16 @@ func (sk *PrivateKey87) ensureT1() {
 		var nttT [k87]nttElement
 
 		for i := range nttT {
-			for j := range s1NTT {
-				nttT[i] = polyAdd(nttT[i], nttMul(s1NTT[j], A[i*l87+j]))
+			nttMul(&nttT[i], &s1NTT[0], &A[i*l87])
+			for j := 1; j < l87; j++ {
+				nttMulAcc(&nttT[i], &s1NTT[j], &A[i*l87+j])
 			}
 		}
 		var t [k87]ringElement
 		t1 := &sk.t1
 		for i := range nttT {
-			t[i] = polyAdd(inverseNTT(nttT[i]), s2[i])
+			t[i] = inverseNTT(nttT[i])
+			polyAddAssign(&t[i], &s2[i])
 			// compress t
 			for j := range n {
 				t1[i][j], _ = power2Round(t[i][j])
@@ -235,13 +237,13 @@ func dsaKeyGen87(sk *Key87, xi *[32]byte) {
 	H := sha3.NewSHAKE256()
 	H.Write(xi[:])
 	H.Write([]byte{k87, l87})
-	K := make([]byte, 128)
-	H.Read(K)
+	var K [128]byte
+	H.Read(K[:])
 	rho, rho1 := K[:32], K[32:96]
-	K = K[96:]
+	k := K[96:]
 
 	sk.rho = [32]byte(rho)
-	sk.k = [32]byte(K)
+	sk.k = [32]byte(k)
 
 	s1 := &sk.s1
 	s2 := &sk.s2
@@ -269,23 +271,29 @@ func dsaKeyGen87(sk *Key87, xi *[32]byte) {
 		s1NTT[i] = ntt(s1[i])
 	}
 	for i := range nttT {
-		for j := range s1NTT {
-			nttT[i] = polyAdd(nttT[i], nttMul(s1NTT[j], A[i*l87+j]))
+		nttMul(&nttT[i], &s1NTT[0], &A[i*l87])
+		for j := 1; j < l87; j++ {
+			nttMulAcc(&nttT[i], &s1NTT[j], &A[i*l87+j])
 		}
 	}
 	var t [k87]ringElement
 	t0 := &sk.t0
 	t1 := &sk.t1
 	for i := range nttT {
-		t[i] = polyAdd(inverseNTT(nttT[i]), s2[i])
+		t[i] = inverseNTT(nttT[i])
+		polyAddAssign(&t[i], &s2[i])
 		// compress t
 		for j := range n {
 			t1[i][j], t0[i][j] = power2Round(t[i][j])
 		}
 	}
 	H.Reset()
-	ek := sk.Public().(*PublicKey87).Bytes()
-	H.Write(ek)
+	H.Write(sk.rho[:])
+	var ekBuf [encodingSize10]byte
+	for _, f := range sk.t1 {
+		packed := simpleBitPack10Bits(ekBuf[:0], f)
+		H.Write(packed)
+	}
 	H.Read(sk.tr[:])
 }
 
@@ -450,38 +458,35 @@ func (sk *PrivateKey87) signInternal(seed, mu []byte) ([]byte, error) {
 			index := kappa + i
 			rho2[64] = byte(index)
 			rho2[65] = byte(index >> 8)
-			y[i] = expandMask(rho2[:], gamma1TwoPower19)
-			yNTT[i] = ntt(y[i])
+			expandMaskInto(&y[i], rho2[:], gamma1TwoPower19)
+			nttAssign(&yNTT[i], &y[i])
 		}
-		// compute w and w1
-		var (
-			w, w1 [k87]ringElement
-			wNTT  [k87]nttElement
-		)
-		for i := range k87 {
-			for j := range l87 {
-				wNTT[i] = polyAdd(wNTT[i], nttMul(yNTT[j], A[i*l87+j]))
-			}
-			w[i] = inverseNTT(wNTT[i])
-			// compute high bits
-			for j := range w[i] {
-				w1[i][j] = fieldElement(compressHighBits(w[i][j], gamma2QMinus1Div32))
-			}
-		}
-		// commitment hash
+		// compute w and absorb packed HighBits(w) into the commitment hash input
 		var (
 			cTilde    [lambda256 / 4]byte
+			w         [k87]ringElement
 			w1Encoded [encodingSize4]byte
+			wNTT      [k87]nttElement
 		)
 		H.Reset()
 		H.Write(mu[:])
 		for i := range k87 {
-			simpleBitPack4Bits(w1Encoded[:0], w1[i])
+			nttMul(&wNTT[i], &yNTT[0], &A[i*l87])
+			for j := 1; j < l87; j++ {
+				nttMulAcc(&wNTT[i], &yNTT[j], &A[i*l87+j])
+			}
+			internalInverseNTT(&wNTT[i])
+			w[i] = ringElement(wNTT[i])
+			simpleBitPack4BitsHighBits(w1Encoded[:], &w[i], gamma2QMinus1Div32)
 			H.Write(w1Encoded[:])
 		}
+		// commitment hash
 		H.Read(cTilde[:])
 		// verifier's challenge
-		cNTT := ntt(sampleInBall(cTilde[:], tau60))
+		var c ringElement
+		sampleInBallInto(&c, cTilde[:], tau60)
+		var cNTT nttElement
+		nttAssign(&cNTT, &c)
 
 		var (
 			z  [l87]ringElement
@@ -489,31 +494,46 @@ func (sk *PrivateKey87) signInternal(seed, mu []byte) ([]byte, error) {
 		)
 		// compute z = <<cs1>> + y
 		for i := range l87 {
-			z[i] = polyAdd(inverseNTT(nttMul(cNTT, sk.s1NTTCache[i])), y[i])
+			var product nttElement
+			nttMul(&product, &cNTT, &sk.s1NTTCache[i])
+			internalInverseNTT(&product)
+			z[i] = ringElement(product)
+			polyAddAssign(&z[i], &y[i])
 		}
 
 		var (
-			ct0     [k87]ringElement
-			cs2     [k87]ringElement
-			ct0Norm int
+			ct0 [k87]ringElement
+			cs2 [k87]ringElement
 		)
-		// compute cs2, r0 = LowBits(w - <<cs2>>), <<ct0>>, and ct0Norm
+		r0Norm := 0
+		// compute cs2 and r0 = LowBits(w - <<cs2>>)
 		for i := range k87 {
-			cs2[i] = inverseNTT(nttMul(cNTT, sk.s2NTTCache[i]))
-			for j := range cs2[i] {
-				_, r0[i][j] = decompose(fieldSub(w[i][j], cs2[i][j]), gamma2QMinus1Div32)
-			}
-			// compute <<ct0>> and its norm
-			ct0[i] = inverseNTT(nttMul(cNTT, sk.t0NTTCache[i]))
-			ct0Norm = polyInfinityNorm(ct0[i], ct0Norm)
+			var product nttElement
+			nttMul(&product, &cNTT, &sk.s2NTTCache[i])
+			internalInverseNTT(&product)
+			cs2[i] = ringElement(product)
+			decomposeSubToR0(&r0[i], &w[i], &cs2[i], gamma2QMinus1Div32)
+			r0Norm = polyInfinityNormSigned(&r0[i], r0Norm)
 		}
 		zNorm := vectorInfinityNorm(z[:], 0)
-		r0Norm := vectorInfinityNormSigned(r0[:], 0)
 
-		// if zNorm >= gamma1 - beta || r0Norm >= gamma2 - beta || ct0Norm >= gamma2, then continue
+		// if zNorm >= gamma1 - beta || r0Norm >= gamma2 - beta, then continue
 		if subtle.ConstantTimeLessOrEq(zNormThreshold, zNorm)|
-			subtle.ConstantTimeLessOrEq(r0NormThreshold, r0Norm)|
-			subtle.ConstantTimeLessOrEq(gamma2QMinus1Div32, ct0Norm) == 1 {
+			subtle.ConstantTimeLessOrEq(r0NormThreshold, r0Norm) == 1 {
+			continue
+		}
+
+		ct0Norm := 0
+		for i := range k87 {
+			var product nttElement
+			nttMul(&product, &cNTT, &sk.t0NTTCache[i])
+			internalInverseNTT(&product)
+			ct0[i] = ringElement(product)
+			ct0Norm = polyInfinityNorm(&ct0[i], ct0Norm)
+		}
+
+		// if ct0Norm >= gamma2, then continue
+		if subtle.ConstantTimeLessOrEq(gamma2QMinus1Div32, ct0Norm) == 1 {
 			continue
 		}
 		// make hint
@@ -580,15 +600,13 @@ func (pk *PublicKey87) verifyInternal(sig, mu []byte) bool {
 	cTilde := sig[:lambda256/4]
 	sig = sig[lambda256/4:]
 
-	var (
-		z    [l87]ringElement
-		zNTT [l87]nttElement
-	)
+	var zNTT [l87]nttElement
 	zNorm := 0
 	for i := range l87 {
-		bitUnpackSignedTwoPower19(sig, &z[i])
-		zNTT[i] = ntt(z[i])
-		zNorm = polyInfinityNorm(z[i], zNorm)
+		zPoly := (*ringElement)(&zNTT[i])
+		bitUnpackSignedTwoPower19(sig, zPoly)
+		zNorm = polyInfinityNorm(zPoly, zNorm)
+		internalNTT(zPoly)
 		sig = sig[encodingSize20:]
 	}
 	// Early check: if zNorm >= gamma1 - beta, reject
@@ -601,21 +619,21 @@ func (pk *PublicKey87) verifyInternal(sig, mu []byte) bool {
 		return false
 	}
 	// verifier's challenge
-	cNTT := ntt(sampleInBall(cTilde[:], tau60))
+	var c ringElement
+	sampleInBallInto(&c, cTilde[:], tau60)
+	var cNTT nttElement
+	nttAssign(&cNTT, &c)
 
 	pk.ensureNTT()
-	// tNTT = tNTTCache*cNTT
-	var tNTT [k87]nttElement
-	for i := range k87 {
-		tNTT[i] = nttMul(pk.tNTTCache[i], cNTT)
-	}
-
 	var zNTTMulA [k87]nttElement
 	for i := range k87 {
-		for j := range l87 {
-			zNTTMulA[i] = polyAdd(zNTTMulA[i], nttMul(zNTT[j], pk.a[i*l87+j]))
+		nttMul(&zNTTMulA[i], &zNTT[0], &pk.a[i*l87])
+		for j := 1; j < l87; j++ {
+			nttMulAcc(&zNTTMulA[i], &zNTT[j], &pk.a[i*l87+j])
 		}
-		zNTTMulA[i] = polySub(zNTTMulA[i], tNTT[i])
+		var product nttElement
+		nttMul(&product, &pk.tNTTCache[i], &cNTT)
+		polySubAssign(&zNTTMulA[i], &product)
 	}
 
 	H := sha3.NewSHAKE256()
@@ -625,11 +643,10 @@ func (pk *PublicKey87) verifyInternal(sig, mu []byte) bool {
 		w1Encoded [encodingSize4]byte
 	)
 	for i := range k87 {
-		wApprox := inverseNTT(zNTTMulA[i])
-		for j := range wApprox {
-			w1[j] = useHint(hints[i][j], wApprox[j], gamma2QMinus1Div32)
-		}
-		simpleBitPack4Bits(w1Encoded[:0], w1)
+		var wApprox ringElement
+		inverseNTTAssign(&wApprox, &zNTTMulA[i])
+		useHintPoly(&w1, &hints[i], &wApprox, gamma2QMinus1Div32)
+		simpleBitPack4Bits(w1Encoded[:0], &w1)
 		H.Write(w1Encoded[:])
 	}
 	var cTilde1 [lambda256 / 4]byte

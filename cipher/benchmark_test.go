@@ -57,6 +57,57 @@ func BenchmarkSM4HCTREncrypt1K(b *testing.B) {
 	}
 }
 
+func benchmarkBlockEncrypt(b *testing.B, block cipher.Block) {
+	blockSize := block.BlockSize()
+	b.SetBytes(int64(blockSize))
+
+	src := make([]byte, blockSize)
+	dst := make([]byte, blockSize)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		block.Encrypt(dst, src)
+	}
+}
+
+func benchmarkBlockDecrypt(b *testing.B, block cipher.Block) {
+	blockSize := block.BlockSize()
+	b.SetBytes(int64(blockSize))
+
+	plaintext := make([]byte, blockSize)
+	ciphertext := make([]byte, blockSize)
+	dst := make([]byte, blockSize)
+	block.Encrypt(ciphertext, plaintext)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		block.Decrypt(dst, ciphertext)
+	}
+}
+
+func BenchmarkSM4EncryptBlock(b *testing.B) {
+	var key [16]byte
+	c, _ := sm4.NewCipher(key[:])
+	benchmarkBlockEncrypt(b, c)
+}
+
+func BenchmarkAES128EncryptBlock(b *testing.B) {
+	var key [16]byte
+	c, _ := aes.NewCipher(key[:])
+	benchmarkBlockEncrypt(b, c)
+}
+
+func BenchmarkSM4DecryptBlock(b *testing.B) {
+	var key [16]byte
+	c, _ := sm4.NewCipher(key[:])
+	benchmarkBlockDecrypt(b, c)
+}
+
+func BenchmarkAES128DecryptBlock(b *testing.B) {
+	var key [16]byte
+	c, _ := aes.NewCipher(key[:])
+	benchmarkBlockDecrypt(b, c)
+}
+
 func benchmarkECBEncrypt(b *testing.B, block cipher.Block, buf []byte) {
 	b.SetBytes(int64(len(buf)))
 

@@ -32,7 +32,7 @@ func fieldSub(a, b fieldElement) fieldElement {
 
 const (
 	r       = 4193792    // 2³² mod q
-	qNegInv = 4236238847 // -q⁻¹ mod r (q * qNegInv ≡ -1 mod r)
+	qNegInv = 4236238847 // -q⁻¹ mod 2³² (q * qNegInv ≡ -1 mod 2³²)
 )
 
 func fieldReduce(a uint64) fieldElement {
@@ -56,20 +56,18 @@ func fieldMulSub(a, b, c fieldElement) fieldElement {
 // ringElement is a polynomial, an element of R_q, represented as an array.
 type ringElement [n]fieldElement
 
-// polyAdd adds two ringElements or nttElements.
-func polyAdd[T ~[n]fieldElement](a, b T) (s T) {
-	for i := range s {
-		s[i] = fieldAdd(a[i], b[i])
+// polyAddGeneric updates dst as dst += src (generic implementation).
+func polyAddGeneric[T ~[n]fieldElement](dst, src *T) {
+	for i := range *dst {
+		(*dst)[i] = fieldAdd((*dst)[i], (*src)[i])
 	}
-	return s
 }
 
-// polySub subtracts two ringElements or nttElements.
-func polySub[T ~[n]fieldElement](a, b T) (s T) {
-	for i := range s {
-		s[i] = fieldSub(a[i], b[i])
+// polySubGeneric updates dst as dst -= src (generic implementation).
+func polySubGeneric[T ~[n]fieldElement](dst, src *T) {
+	for i := range *dst {
+		(*dst)[i] = fieldSub((*dst)[i], (*src)[i])
 	}
-	return s
 }
 
 // nttElement is an NTT representation, an element of T_q, represented as an array.
@@ -122,6 +120,16 @@ var zetasMontgomery = [n]fieldElement{
 // It implements NTT, according to FIPS 204, Algorithm 41.
 // Also refer "A note on the implementation of the Number Theoretic Transform": https://eprint.iacr.org/2017/727.pdf .
 func ntt(f ringElement) nttElement {
+	internalNTT(&f)
+	return nttElement(f)
+}
+
+func nttAssign(dst *nttElement, src *ringElement) {
+	*(*ringElement)(dst) = *src
+	internalNTT((*ringElement)(dst))
+}
+
+func internalNTTGeneric(f *ringElement) {
 	k := 1
 	// len: 128, 64, 32, ..., 1
 	for len := 128; len >= 1; len /= 2 {
@@ -138,7 +146,6 @@ func ntt(f ringElement) nttElement {
 			}
 		}
 	}
-	return nttElement(f)
 }
 
 // inverseNTT maps a nttElement back to the ringElement it represents.
@@ -146,6 +153,17 @@ func ntt(f ringElement) nttElement {
 // It implements NTT⁻¹, according to FIPS 204, Algorithm 42.
 // Also refer "A note on the implementation of the Number Theoretic Transform": https://eprint.iacr.org/2017/727.pdf .
 func inverseNTT(f nttElement) ringElement {
+	internalInverseNTT(&f)
+	return ringElement(f)
+}
+
+// inverseNTTAssign updates dst as dst = NTT⁻¹(src) (generic implementation).
+func inverseNTTAssign(dst *ringElement, src *nttElement) {
+	*(*nttElement)(dst) = *src
+	internalInverseNTT((*nttElement)(dst))
+}
+
+func internalInverseNTTGeneric(f *nttElement) {
 	k := 255
 	for len := 1; len < n; len *= 2 {
 		for start := 0; start < n; start += 2 * len {
@@ -163,39 +181,51 @@ func inverseNTT(f nttElement) ringElement {
 	for i := range f {
 		f[i] = fieldMul(f[i], 41978) // 41978 = ((256⁻¹ mod q) * (2³² * 2³² mod q)) mod q
 	}
-	return ringElement(f)
 }
 
-func nttMul(f, g nttElement) nttElement {
-	var ret nttElement
-	for i, v := range f {
-		ret[i] = fieldMul(v, g[i])
+func nttMulGeneric(out, lhs, rhs *nttElement) {
+	for i, v := range lhs {
+		out[i] = fieldMul(v, rhs[i])
 	}
-	return ret
+}
+
+func nttMulAccGeneric(acc, lhs, rhs *nttElement) {
+	for i, v := range lhs {
+		acc[i] = fieldAdd(acc[i], fieldMul(v, rhs[i]))
+	}
+}
+
+func maxUint32(a, b uint32) uint32 {
+	mask := uint32(int32(a-b) >> 31)
+	return a ^ ((a ^ b) & mask)
+}
+
+func absInt32(a int32) uint32 {
+	mask := a >> 31
+	return uint32((a ^ mask) - mask)
 }
 
 // infinityNorm returns the absolute value modulo q in constant time
 //
 //	i.e return x > (q - 1) / 2 ? q - x : x;
 func infinityNorm(a fieldElement) uint32 {
-	ret := subtle.ConstantTimeLessOrEq(int(a), qMinus1Div2)
-	return uint32(subtle.ConstantTimeSelect(ret, int(a), int(q-a)))
+	x := uint32(a)
+	y := q - x
+	mask := uint32((int32(qMinus1Div2) - int32(x)) >> 31)
+	return x ^ ((x ^ y) & mask)
 }
 
-func polyInfinityNorm[T ~[n]fieldElement](a T, norm int) int {
-	for i := range a {
-		left := int(infinityNorm(a[i]))
-		right := int(norm)
-		norm = subtle.ConstantTimeSelect(subtle.ConstantTimeLessOrEq(left, right), right, left)
+func polyInfinityNormGeneric[T ~[n]fieldElement](a *T, norm int) int {
+	current := uint32(norm)
+	for i := range *a {
+		current = maxUint32(current, infinityNorm((*a)[i]))
 	}
-	return norm
+	return int(current)
 }
 
 func vectorInfinityNorm[T ~[n]fieldElement](a []T, norm int) int {
 	for i := range a {
-		left := polyInfinityNorm(a[i], norm)
-		right := int(norm)
-		norm = subtle.ConstantTimeSelect(subtle.ConstantTimeLessOrEq(left, right), right, left)
+		norm = polyInfinityNorm(&a[i], norm)
 	}
 	return norm
 }
@@ -203,24 +233,17 @@ func vectorInfinityNorm[T ~[n]fieldElement](a []T, norm int) int {
 // infinityNormSigned returns the absolute value in constant time
 //
 // i.e return a < 0 ? -a : a;
-func infinityNormSigned(a int32) int {
-	return subtle.ConstantTimeSelect(subtle.ConstantTimeLessOrEq(int(a), 0), int(-a), int(a))
-}
-
-func polyInfinityNormSigned(a []int32, norm int) int {
-	for i := range a {
-		left := infinityNormSigned(a[i])
-		right := norm
-		norm = subtle.ConstantTimeSelect(subtle.ConstantTimeLessOrEq(left, right), right, left)
+func polyInfinityNormSignedGeneric(a *[n]int32, norm int) int {
+	current := uint32(norm)
+	for i := range *a {
+		current = maxUint32(current, absInt32((*a)[i]))
 	}
-	return norm
+	return int(current)
 }
 
 func vectorInfinityNormSigned(a [][n]int32, norm int) int {
 	for i := range a {
-		left := polyInfinityNormSigned(a[i][:], norm)
-		right := norm
-		norm = subtle.ConstantTimeSelect(subtle.ConstantTimeLessOrEq(left, right), right, left)
+		norm = polyInfinityNormSigned(&a[i], norm)
 	}
 	return norm
 }

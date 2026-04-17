@@ -217,7 +217,7 @@ func kemKeyGen1024(dk *DecapsulationKey1024, d, z *[32]byte) {
 	for i := range t { // t = A ◦ s + e
 		t[i] = e[i]
 		for j := range s {
-			t[i] = polyAdd(t[i], nttMul(A[i*k1024+j], s[j]))
+			nttMulAccKeyGen(&t[i], &A[i*k1024+j], &s[j])
 		}
 	}
 
@@ -326,9 +326,10 @@ func pkeEncrypt1024(cc *[CiphertextSize1024]byte, ex *encryptionKey1024, m *[mes
 	u := make([]ringElement, k1024) // NTT⁻¹(AT ◦ r) + e1
 	for i := range u {
 		var uHat nttElement
-		for j := range r {
+		nttMul(&uHat, &ex.a[i], &r[0])
+		for j := 1; j < k1024; j++ {
 			// Note that i and j are inverted, as we need the transposed of A.
-			uHat = polyAdd(uHat, nttMul(ex.a[j*k1024+i], r[j]))
+			nttMulAcc(&uHat, &ex.a[j*k1024+i], &r[j])
 		}
 		u[i] = polyAdd(e1[i], inverseNTT(uHat))
 	}
@@ -336,8 +337,9 @@ func pkeEncrypt1024(cc *[CiphertextSize1024]byte, ex *encryptionKey1024, m *[mes
 	μ := ringDecodeAndDecompress1(m)
 
 	var vNTT nttElement // t⊺ ◦ r
-	for i := range ex.t {
-		vNTT = polyAdd(vNTT, nttMul(ex.t[i], r[i]))
+	nttMul(&vNTT, &ex.t[0], &r[0])
+	for i := 1; i < k1024; i++ {
+		nttMulAcc(&vNTT, &ex.t[i], &r[i])
 	}
 	v := polyAdd(polyAdd(inverseNTT(vNTT), e2), μ)
 
@@ -393,17 +395,17 @@ func kemDecaps1024(dk *DecapsulationKey1024, c *[CiphertextSize1024]byte) (K []b
 // although s is retained from kemKeyGen1024.
 func pkeDecrypt1024(dx *decryptionKey1024, c *[CiphertextSize1024]byte) []byte {
 	u := make([]ringElement, k1024)
-	for i := range u {
-		b := (*[encodingSize11]byte)(c[encodingSize11*i : encodingSize11*(i+1)])
-		u[i] = ringDecodeAndDecompress11(b)
-	}
+	decodeAndDecompressU11(u[:], c[:encodingSize11*k1024])
 
 	b := (*[encodingSize5]byte)(c[encodingSize11*k1024:])
 	v := ringDecodeAndDecompress5(b)
 
 	var mask nttElement // s⊺ ◦ NTT(u)
-	for i := range dx.s {
-		mask = polyAdd(mask, nttMul(dx.s[i], ntt(u[i])))
+	nttU := ntt(u[0])
+	nttMul(&mask, &dx.s[0], &nttU)
+	for i := 1; i < k1024; i++ {
+		nttU := ntt(u[i])
+		nttMulAcc(&mask, &dx.s[i], &nttU)
 	}
 	w := polySub(v, inverseNTT(mask))
 

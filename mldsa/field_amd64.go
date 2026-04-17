@@ -1,0 +1,227 @@
+// Copyright 2026 Sun Yimin. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
+//go:build !purego
+
+package mldsa
+
+import "github.com/emmansun/gmsm/internal/deps/cpu"
+
+var useAVX2 = cpu.X86.HasAVX2
+
+var zetasMontgomeryAVX2 = [296]fieldElement{
+	4193792, 25847, 5771523, 7861508, 237124, 7602457, 7504169, 466468,
+	1826347, 1826347, 1826347, 1826347, 2353451, 2353451, 2353451, 2353451,
+	8021166, 8021166, 8021166, 8021166, 6288512, 6288512, 6288512, 6288512,
+	3119733, 3119733, 3119733, 3119733, 5495562, 5495562, 5495562, 5495562,
+	3111497, 3111497, 3111497, 3111497, 2680103, 2680103, 2680103, 2680103,
+	2725464, 2725464, 1024112, 1024112, 7300517, 7300517, 3585928, 3585928,
+	7830929, 7830929, 7260833, 7260833, 2619752, 2619752, 6271868, 6271868,
+	6262231, 6262231, 4520680, 4520680, 6980856, 6980856, 5102745, 5102745,
+	1757237, 1757237, 8360995, 8360995, 4010497, 4010497, 280005, 280005,
+	2706023, 95776, 3077325, 3530437, 6718724, 4788269, 5842901, 3915439,
+	4519302, 5336701, 3574422, 5512770, 3539968, 8079950, 2348700, 7841118,
+	6681150, 6736599, 3505694, 4558682, 3507263, 6239768, 6779997, 3699596,
+	811944, 531354, 954230, 3881043, 3900724, 5823537, 2071892, 5582638,
+	4450022, 4702672, 6927966, 2176455, 7122806, 4296819, 5190273, 4747489,
+	3412210, 2147896, 5412772, 7969390, 7709315, 8357436, 7998430, 1852771,
+	5037034, 508951, 44288, 904516, 4656075, 1653064, 2389356, 759969,
+	189548, 3159746, 5971092, 1315589, 1285669, 7567685, 5361315, 4751448,
+	6851714, 5339162, 3475950, 6795196, 1939314, 7380215, 5223087, 126922,
+	7396998, 2715295, 4686924, 5903370, 7151892, 7072248, 1349076, 6949987,
+	264944, 3097992, 7280319, 3958618, 8371839, 5130689, 8169440, 7063561,
+	4827145, 6529015, 8202977, 1341330, 6795489, 6940675, 4499357, 3839961,
+	2091667, 5037939, 266997, 4860065, 900702, 495491, 7725090, 4823422,
+	342297, 3437287, 2842341, 4055324, 4613401, 5386378, 7047359, 7929317,
+	7100756, 1500165, 7838005, 5796124, 6366809, 1957272, 5196991, 810149,
+	5341501, 2213111, 7953734, 6712985, 5441381, 183443, 7826001, 3937738,
+	3407706, 2244091, 2434439, 4621053, 1859098, 6767243, 5257975, 7855319,
+	286988, 5038140, 2691481, 1247620, 1250494, 1869119, 1237275, 1312455,
+	1917081, 777191, 5548557, 4656147, 2432395, 3369112, 162844, 1652634,
+	3523897, 7404533, 1723600, 7276084, 6144432, 7403526, 3919660, 1400424,
+	2316500, 5933984, 7144689, 7183191, 909542, 8337157, 2031748, 7611795,
+	5942594, 1735879, 5790267, 2486353, 2635921, 1903435, 5062207, 3306115,
+	5834105, 2235880, 6709241, 594136, 2454455, 185531, 1616392, 4686184,
+	3866901, 1717735, 6577327, 8119771, 7959518, 1612842, 8332111, 7534263,
+	3817976, 4817955, 3513181, 5187039, 819034, 7857917, 3207046, 4784579,
+	4108315, 203044, 1265009, 1595974, 4832145, 7329447, 6950192, 6417775,
+	7005614, 3406031, 6533464, 4603424, 8215696, 7173032, 3014001, 6581310,
+	269760, 472078, 1910376, 4546524, 6094090, 4834730, 7018208, 1976782,
+}
+
+var qMinusZetasMontgomeryAVX2 = [296]fieldElement{
+	q - 4193792, q - 25847, q - 5771523, q - 7861508, q - 237124, q - 7602457, q - 7504169, q - 466468,
+	q - 1826347, q - 1826347, q - 1826347, q - 1826347, q - 2353451, q - 2353451, q - 2353451, q - 2353451,
+	q - 8021166, q - 8021166, q - 8021166, q - 8021166, q - 6288512, q - 6288512, q - 6288512, q - 6288512,
+	q - 3119733, q - 3119733, q - 3119733, q - 3119733, q - 5495562, q - 5495562, q - 5495562, q - 5495562,
+	q - 3111497, q - 3111497, q - 3111497, q - 3111497, q - 2680103, q - 2680103, q - 2680103, q - 2680103,
+	q - 2725464, q - 2725464, q - 1024112, q - 1024112, q - 7300517, q - 7300517, q - 3585928, q - 3585928,
+	q - 7830929, q - 7830929, q - 7260833, q - 7260833, q - 2619752, q - 2619752, q - 6271868, q - 6271868,
+	q - 6262231, q - 6262231, q - 4520680, q - 4520680, q - 6980856, q - 6980856, q - 5102745, q - 5102745,
+	q - 1757237, q - 1757237, q - 8360995, q - 8360995, q - 4010497, q - 4010497, q - 280005, q - 280005,
+	q - 2706023, q - 95776, q - 3077325, q - 3530437, q - 6718724, q - 4788269, q - 5842901, q - 3915439,
+	q - 4519302, q - 5336701, q - 3574422, q - 5512770, q - 3539968, q - 8079950, q - 2348700, q - 7841118,
+	q - 6681150, q - 6736599, q - 3505694, q - 4558682, q - 3507263, q - 6239768, q - 6779997, q - 3699596,
+	q - 811944, q - 531354, q - 954230, q - 3881043, q - 3900724, q - 5823537, q - 2071892, q - 5582638,
+	q - 4450022, q - 4702672, q - 6927966, q - 2176455, q - 7122806, q - 4296819, q - 5190273, q - 4747489,
+	q - 3412210, q - 2147896, q - 5412772, q - 7969390, q - 7709315, q - 8357436, q - 7998430, q - 1852771,
+	q - 5037034, q - 508951, q - 44288, q - 904516, q - 4656075, q - 1653064, q - 2389356, q - 759969,
+	q - 189548, q - 3159746, q - 5971092, q - 1315589, q - 1285669, q - 7567685, q - 5361315, q - 4751448,
+	q - 6851714, q - 5339162, q - 3475950, q - 6795196, q - 1939314, q - 7380215, q - 5223087, q - 126922,
+	q - 7396998, q - 2715295, q - 4686924, q - 5903370, q - 7151892, q - 7072248, q - 1349076, q - 6949987,
+	q - 264944, q - 3097992, q - 7280319, q - 3958618, q - 8371839, q - 5130689, q - 8169440, q - 7063561,
+	q - 4827145, q - 6529015, q - 8202977, q - 1341330, q - 6795489, q - 6940675, q - 4499357, q - 3839961,
+	q - 2091667, q - 5037939, q - 266997, q - 4860065, q - 900702, q - 495491, q - 7725090, q - 4823422,
+	q - 342297, q - 3437287, q - 2842341, q - 4055324, q - 4613401, q - 5386378, q - 7047359, q - 7929317,
+	q - 7100756, q - 1500165, q - 7838005, q - 5796124, q - 6366809, q - 1957272, q - 5196991, q - 810149,
+	q - 5341501, q - 2213111, q - 7953734, q - 6712985, q - 5441381, q - 183443, q - 7826001, q - 3937738,
+	q - 3407706, q - 2244091, q - 2434439, q - 4621053, q - 1859098, q - 6767243, q - 5257975, q - 7855319,
+	q - 286988, q - 5038140, q - 2691481, q - 1247620, q - 1250494, q - 1869119, q - 1237275, q - 1312455,
+	q - 1917081, q - 777191, q - 5548557, q - 4656147, q - 2432395, q - 3369112, q - 162844, q - 1652634,
+	q - 3523897, q - 7404533, q - 1723600, q - 7276084, q - 6144432, q - 7403526, q - 3919660, q - 1400424,
+	q - 2316500, q - 5933984, q - 7144689, q - 7183191, q - 909542, q - 8337157, q - 2031748, q - 7611795,
+	q - 5942594, q - 1735879, q - 5790267, q - 2486353, q - 2635921, q - 1903435, q - 5062207, q - 3306115,
+	q - 5834105, q - 2235880, q - 6709241, q - 594136, q - 2454455, q - 185531, q - 1616392, q - 4686184,
+	q - 3866901, q - 1717735, q - 6577327, q - 8119771, q - 7959518, q - 1612842, q - 8332111, q - 7534263,
+	q - 3817976, q - 4817955, q - 3513181, q - 5187039, q - 819034, q - 7857917, q - 3207046, q - 4784579,
+	q - 4108315, q - 203044, q - 1265009, q - 1595974, q - 4832145, q - 7329447, q - 6950192, q - 6417775,
+	q - 7005614, q - 3406031, q - 6533464, q - 4603424, q - 8215696, q - 7173032, q - 3014001, q - 6581310,
+	q - 269760, q - 472078, q - 1910376, q - 4546524, q - 6094090, q - 4834730, q - 7018208, q - 1976782,
+}
+
+//go:noescape
+func nttMulAVX2(lhs, rhs, out *nttElement)
+
+//go:noescape
+func nttMulAccAVX2(lhs, rhs, acc *nttElement)
+
+//go:noescape
+func polyAddAssignAVX2(dst, src *fieldElement)
+
+//go:noescape
+func polySubAssignAVX2(dst, src *fieldElement)
+
+//go:noescape
+func polyInfinityNormAVX2(a *fieldElement) uint32
+
+//go:noescape
+func polyInfinityNormSignedAVX2(a *int32) uint32
+
+//go:noescape
+func decomposeSubToR0Gamma32AVX2(w, cs2 *fieldElement, out *int32)
+
+//go:noescape
+func decomposeSubToR0Gamma88AVX2(w, cs2 *fieldElement, out *int32)
+
+//go:noescape
+func useHintPolyGamma32AVX2(h, r, out *fieldElement)
+
+//go:noescape
+func useHintPolyGamma88AVX2(h, r, out *fieldElement)
+
+//go:noescape
+func internalNTTAVX2(f *ringElement)
+
+// polyAddAssign updates dst as dst += src with platform-dependent dispatch.
+func polyAddAssign[T ~[n]fieldElement](dst, src *T) {
+	if !useAVX2 {
+		polyAddGeneric(dst, src)
+		return
+	}
+	polyAddAssignAVX2(&(*dst)[0], &(*src)[0])
+}
+
+// polySubAssign updates dst as dst -= src with platform-dependent dispatch.
+func polySubAssign[T ~[n]fieldElement](dst, src *T) {
+	if !useAVX2 {
+		polySubGeneric(dst, src)
+		return
+	}
+	polySubAssignAVX2(&(*dst)[0], &(*src)[0])
+}
+
+func decomposeSubToR0(dst *[n]int32, w, cs2 *ringElement, gamma2 uint32) {
+	if !useAVX2 {
+		decomposeSubToR0Generic(dst, w, cs2, gamma2)
+		return
+	}
+
+	switch gamma2 {
+	case gamma2QMinus1Div32:
+		decomposeSubToR0Gamma32AVX2(&(*w)[0], &(*cs2)[0], &(*dst)[0])
+	case gamma2QMinus1Div88:
+		decomposeSubToR0Gamma88AVX2(&(*w)[0], &(*cs2)[0], &(*dst)[0])
+	default:
+		decomposeSubToR0Generic(dst, w, cs2, gamma2)
+	}
+}
+
+func useHintPoly(dst, h, r *ringElement, gamma2 uint32) {
+	if !useAVX2 {
+		useHintPolyGeneric(dst, h, r, gamma2)
+		return
+	}
+
+	switch gamma2 {
+	case gamma2QMinus1Div32:
+		useHintPolyGamma32AVX2(&(*h)[0], &(*r)[0], &(*dst)[0])
+	case gamma2QMinus1Div88:
+		useHintPolyGamma88AVX2(&(*h)[0], &(*r)[0], &(*dst)[0])
+	default:
+		useHintPolyGeneric(dst, h, r, gamma2)
+	}
+}
+
+//go:noescape
+func internalInverseNTTAVX2(f *nttElement)
+
+func nttMul(out, lhs, rhs *nttElement) {
+	if !useAVX2 {
+		nttMulGeneric(out, lhs, rhs)
+		return
+	}
+
+	nttMulAVX2(lhs, rhs, out)
+}
+
+func nttMulAcc(acc, lhs, rhs *nttElement) {
+	if !useAVX2 {
+		nttMulAccGeneric(acc, lhs, rhs)
+		return
+	}
+
+	nttMulAccAVX2(lhs, rhs, acc)
+}
+
+func internalNTT(f *ringElement) {
+	if !useAVX2 {
+		internalNTTGeneric(f)
+		return
+	}
+	internalNTTAVX2(f)
+}
+
+func internalInverseNTT(f *nttElement) {
+	if !useAVX2 {
+		internalInverseNTTGeneric(f)
+		return
+	}
+	internalInverseNTTAVX2(f)
+}
+
+func polyInfinityNorm[T ~[n]fieldElement](a *T, norm int) int {
+	current := uint32(norm)
+	if useAVX2 {
+		return int(maxUint32(current, polyInfinityNormAVX2(&(*a)[0])))
+	}
+	return polyInfinityNormGeneric(a, norm)
+}
+
+func polyInfinityNormSigned(a *[n]int32, norm int) int {
+	current := uint32(norm)
+	if useAVX2 {
+		return int(maxUint32(current, polyInfinityNormSignedAVX2(&(*a)[0])))
+	}
+	return polyInfinityNormSignedGeneric(a, norm)
+}
