@@ -76,13 +76,18 @@
 // -  x: 128 bits register as TAO_L1 input/output data
 // -  y: 128 bits temp register
 // -  z: 128 bits temp register
+// All three rotations are computed independently from x (no chained VTBL),
+// allowing the OoO processor to issue them in parallel.
 #define SM4_TAO_L1(x, y, z)         \
 	SM4_SBOX(x, y, z);                                   \
-	VTBL R08_MASK.B16, [x.B16], y.B16;                   \ // y = x <<< 8
-	VTBL R08_MASK.B16, [y.B16], z.B16;                   \ // z = x <<< 16
+	VSHL $8, x.S4, y.S4;                                 \ // y = x <<< 8 (partial)
+	VSRI $24, x.S4, y.S4;                                \ // y = x <<< 8
+	VSHL $16, x.S4, z.S4;                                \ // z = x <<< 16 (partial)
+	VSRI $16, x.S4, z.S4;                                \ // z = x <<< 16
 	VEOR x.B16, y.B16, y.B16;                            \ // y = x ^ (x <<< 8)
 	VEOR z.B16, y.B16, y.B16;                            \ // y = x ^ (x <<< 8) ^ (x <<< 16)
-	VTBL R08_MASK.B16, [z.B16], z.B16;                   \ // z = x <<< 24
+	VSHL $24, x.S4, z.S4;                                \ // z = x <<< 24 (partial)
+	VSRI $8, x.S4, z.S4;                                 \ // z = x <<< 24
 	VEOR z.B16, x.B16, x.B16;                            \ // x = x ^ (x <<< 24)
 	VSHL $2, y.S4, z.S4;                                 \
 	VSRI $30, y.S4, z.S4;                                \ // z = (x <<< 2) ^ (x <<< 10) ^ (x <<< 18)
