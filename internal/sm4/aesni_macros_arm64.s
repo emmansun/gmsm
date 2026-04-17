@@ -1,7 +1,7 @@
 #define LOAD_SM4_AESNI_CONSTS() \
 	MOVW $0x0F0F0F0F, R20                                 \
 	VDUP R20, NIBBLE_MASK.S4                              \
-	MOVD $Â·rcon(SB), R20                                  \
+	MOVD $·rcon(SB), R20                                  \
 	VLD1.P 64(R20), [M1L.B16, M1H.B16, M2L.B16, M2H.B16]  \
 	VLD1 (R20), [R08_MASK.B16, R16_MASK.B16, R24_MASK.B16, INVERSE_SHIFT_ROWS.B16]
 
