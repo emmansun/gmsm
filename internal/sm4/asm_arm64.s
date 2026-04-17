@@ -19,10 +19,12 @@
 #define M2L V22
 #define M2H V23
 #define R08_MASK V24
-#define INVERSE_SHIFT_ROWS V25
-#define FK_MASK V26
-#define NIBBLE_MASK V27
-#define ZERO V28
+#define R16_MASK V25
+#define R24_MASK V26
+#define INVERSE_SHIFT_ROWS V27
+#define FK_MASK V28
+#define NIBBLE_MASK V29
+#define ZERO V30
 
 DATA ·rcon+0x00(SB)/8, $0x0A7FC3B6D5A01C69 // m1l
 DATA ·rcon+0x08(SB)/8, $0x3045F98CEF9A2653
@@ -33,12 +35,16 @@ DATA ·rcon+0x28(SB)/8, $0x0E019E916A65FAF5
 DATA ·rcon+0x30(SB)/8, $0x892D69CD44E0A400 // m2h
 DATA ·rcon+0x38(SB)/8, $0x2C88CC68E14501A5
 DATA ·rcon+0x40(SB)/8, $0x0605040702010003 // left rotations of 32-bit words by 8-bit increments
-DATA ·rcon+0x48(SB)/8, $0x0E0D0C0F0A09080B  
-DATA ·rcon+0x50(SB)/8, $0x0B0E0104070A0D00 // inverse shift rows
-DATA ·rcon+0x58(SB)/8, $0x0306090C0F020508 
-DATA ·rcon+0x60(SB)/8, $0x56aa3350a3b1bac6 // fk
-DATA ·rcon+0x68(SB)/8, $0xb27022dc677d9197
-GLOBL ·rcon(SB), RODATA, $112
+DATA ·rcon+0x48(SB)/8, $0x0E0D0C0F0A09080B
+DATA ·rcon+0x50(SB)/8, $0x0504070601000302 // left rotations by 16-bit increments
+DATA ·rcon+0x58(SB)/8, $0x0D0C0F0E09080B0A
+DATA ·rcon+0x60(SB)/8, $0x0407060500030201 // left rotations by 24-bit increments
+DATA ·rcon+0x68(SB)/8, $0x0C0F0E0D080B0A09
+DATA ·rcon+0x70(SB)/8, $0x0B0E0104070A0D00 // inverse shift rows
+DATA ·rcon+0x78(SB)/8, $0x0306090C0F020508
+DATA ·rcon+0x80(SB)/8, $0x56aa3350a3b1bac6 // fk
+DATA ·rcon+0x88(SB)/8, $0xb27022dc677d9197
+GLOBL ·rcon(SB), RODATA, $144
 
 #include "aesni_macros_arm64.s"
 
@@ -69,7 +75,8 @@ GLOBL ·rcon(SB), RODATA, $112
 	VDUP R0, NIBBLE_MASK.S4                              \
 	MOVD $·rcon(SB), R0                                  \
 	VLD1.P 64(R0), [M1L.B16, M1H.B16, M2L.B16, M2H.B16]  \
-	VLD1 (R0), [R08_MASK.B16, INVERSE_SHIFT_ROWS.B16, FK_MASK.B16]
+	VLD1.P 64(R0), [R08_MASK.B16, R16_MASK.B16, R24_MASK.B16, INVERSE_SHIFT_ROWS.B16] \
+	VLD1 (R0), [FK_MASK.B16]
 
 #define SM4EKEY_EXPORT_KEYS() \
 	VREV64	V8.S4, V11.S4                 \ 
@@ -131,7 +138,7 @@ ksLoop:
 	RET 
 
 sm4ekey:
-	MOVD $·rcon+0x60(SB), R0
+	MOVD $·rcon+0x80(SB), R0
 	VLD1 (R0), [FK_MASK.B16]
 	VLD1 (R8), [V9.B16]
 	VREV32 V9.B16, V9.B16

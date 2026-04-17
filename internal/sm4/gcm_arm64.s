@@ -35,8 +35,10 @@
 #define M2L V25 
 #define M2H V26
 #define R08_MASK V27
-#define INVERSE_SHIFT_ROWS V28
-#define NIBBLE_MASK V29
+#define R16_MASK V28
+#define R24_MASK V29
+#define INVERSE_SHIFT_ROWS V30
+#define NIBBLE_MASK V31
 
 #define reduce() \
 	VEOR	ACC0.B16, ACCM.B16, ACCM.B16     \

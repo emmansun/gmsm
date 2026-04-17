@@ -34,8 +34,10 @@
 #define M2L V25 
 #define M2H V26
 #define R08_MASK V27
-#define INVERSE_SHIFT_ROWS V28
-#define NIBBLE_MASK V29
+#define R16_MASK V28
+#define R24_MASK V29
+#define INVERSE_SHIFT_ROWS V30
+#define NIBBLE_MASK V31
 
 #include "aesni_macros_arm64.s"
 #include "xts_macros_arm64.s"
