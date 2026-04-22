@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build !purego
+//go:build amd64 && !purego
 
 package mlkem
 
@@ -148,16 +148,43 @@ func internalNTTMulAccAVX2(acc, lhs, rhs *nttElement)
 func internalNTTMulAccKeyGenAVX2(acc, lhs, rhs *nttElement)
 
 //go:noescape
-func decodeAndDecompressU10AVX2(dst []ringElement, c []byte)
-
-//go:noescape
-func decodeAndDecompressU11AVX2(dst []ringElement, c []byte)
+func rejUniformAMD64(buf []byte, a *nttElement, j int) int
 
 //go:noescape
 func samplePolyCBD2AVX2(f *ringElement, buf *[128]byte)
 
 //go:noescape
 func samplePolyCBD3AVX2(f *ringElement, buf *[192]byte)
+
+//go:noescape
+func polyAddAssignAVX2(dst, src *ringElement)
+
+//go:noescape
+func polySubAssignAVX2(dst, src *ringElement)
+
+//go:noescape
+func ringCompressAndEncode4AVX2(out []byte, f *ringElement)
+
+//go:noescape
+func ringDecodeAndDecompress4AVX2(b *[encodingSize4]byte, f *ringElement)
+
+//go:noescape
+func ringCompressAndEncode5AVX2(out []byte, f *ringElement)
+
+//go:noescape
+func ringDecodeAndDecompress5AVX2(b *[encodingSize5]byte, f *ringElement)
+
+//go:noescape
+func ringCompressAndEncode10AVX2(out []byte, f *ringElement)
+
+//go:noescape
+func decodeAndDecompressU10AVX2(dst []ringElement, c []byte)
+
+//go:noescape
+func ringCompressAndEncode11AVX2(out []byte, f *ringElement)
+
+//go:noescape
+func decodeAndDecompressU11AVX2(dst []ringElement, c []byte)
 
 func nttMul(acc, lhs, rhs *nttElement) {
 	if useAVX2 {
@@ -237,4 +264,126 @@ func samplePolyCBD(s []byte, b, η byte) ringElement {
 		prf.Read(B[:64*η])
 		return samplePolyCBDGeneric(B[:], η)
 	}
+}
+
+func polyAddAssign(dst *ringElement, src *ringElement) {
+	if useAVX2 {
+		polyAddAssignAVX2(dst, src)
+		return
+	}
+	polyAddAssignGeneric(dst, src)
+}
+
+func polySubAssign(dst *ringElement, src *ringElement) {
+	if useAVX2 {
+		polySubAssignAVX2(dst, src)
+		return
+	}
+	polySubAssignGeneric(dst, src)
+}
+
+// ringCompressAndEncode4 appends a 128-byte encoding of a ring element to s,
+// compressing two coefficients per byte.
+//
+// It implements Compress₄, according to FIPS 203, Definition 4.7,
+// followed by ByteEncode₄, according to FIPS 203, Algorithm 5.
+func ringCompressAndEncode4(s []byte, f *ringElement) []byte {
+	s, b := sliceForAppend(s, encodingSize4)
+	if useAVX2 {
+		ringCompressAndEncode4AVX2(b, f)
+		return s
+	}
+	ringCompressAndEncode4Generic(b, f)
+	return s
+}
+
+// ringDecodeAndDecompress4 decodes a 128-byte encoding of a ring element where
+// each four bits are mapped to an equidistant distribution.
+//
+// It implements ByteDecode₄, according to FIPS 203, Algorithm 6,
+// followed by Decompress₄, according to FIPS 203, Definition 4.8.
+func ringDecodeAndDecompress4(b *[encodingSize4]byte, f *ringElement) {
+	if useAVX2 {
+		ringDecodeAndDecompress4AVX2(b, f)
+		return
+	}
+	ringDecodeAndDecompress4Generic(b, f)
+}
+
+// ringCompressAndEncode5 appends a 160-byte encoding of a ring element to s,
+// compressing eight coefficients per five bytes.
+//
+// It implements Compress₅, according to FIPS 203, Definition 4.7,
+// followed by ByteEncode₅, according to FIPS 203, Algorithm 5.
+func ringCompressAndEncode5(s []byte, f *ringElement) []byte {
+	if useAVX2 {
+		s, b := sliceForAppend(s, encodingSize5)
+		ringCompressAndEncode5AVX2(b, f)
+		return s
+	}
+	return ringCompressAndEncode(s, f, 5)
+}
+
+// ringDecodeAndDecompress5 decodes a 160-byte encoding of a ring element where
+// each five bits are mapped to an equidistant distribution.
+//
+// It implements ByteDecode₅, according to FIPS 203, Algorithm 6,
+// followed by Decompress₅, according to FIPS 203, Definition 4.8.
+func ringDecodeAndDecompress5(bb *[encodingSize5]byte) ringElement {
+	if useAVX2 {
+		var f ringElement
+		ringDecodeAndDecompress5AVX2(bb, &f)
+		return f
+	}
+	return ringDecodeAndDecompress(bb[:], 5)
+}
+
+// ringCompressAndEncode10 appends a 320-byte encoding of a ring element to s,
+// compressing four coefficients per five bytes.
+//
+// It implements Compress₁₀, according to FIPS 203, Definition 4.7,
+// followed by ByteEncode₁₀, according to FIPS 203, Algorithm 5.
+func ringCompressAndEncode10(s []byte, f ringElement) []byte {
+	s, b := sliceForAppend(s, encodingSize10)
+	if useAVX2 {
+		ringCompressAndEncode10AVX2(b, &f)
+		return s
+	}
+	ringCompressAndEncode10Generic(b, &f)
+	return s
+}
+
+// ringCompressAndEncode11 appends a 352-byte encoding of a ring element to s,
+// compressing eight coefficients per eleven bytes.
+//
+// It implements Compress₁₁, according to FIPS 203, Definition 4.7,
+// followed by ByteEncode₁₁, according to FIPS 203, Algorithm 5.
+func ringCompressAndEncode11(s []byte, f *ringElement) []byte {
+	if useAVX2 {
+		s, b := sliceForAppend(s, encodingSize11)
+		ringCompressAndEncode11AVX2(b, f)
+		return s
+	}
+	return ringCompressAndEncode(s, f, 11)
+}
+
+// sampleNTT draws a uniformly random nttElement from a stream of uniformly
+// random bytes generated by the XOF function, according to FIPS 203,
+// Algorithm 7.
+func sampleNTT(rho []byte, ii, jj byte) nttElement {
+	B := sha3.NewSHAKE128()
+	B.Write(rho)
+	var domain [2]byte
+	domain[0] = ii
+	domain[1] = jj
+	B.Write(domain[:])
+	var a nttElement
+	var j int        // index into a
+	var buf [24]byte // buffered reads from B
+
+	for j < n {
+		B.Read(buf[:])
+		j += rejUniformAMD64(buf[:], &a, j)
+	}
+	return a
 }

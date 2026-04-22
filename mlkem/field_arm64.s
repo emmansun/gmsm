@@ -1244,3 +1244,100 @@ decode_u11_neon_block_loop:
 
 decode_u11_neon_done:
 	RET
+
+// polyAddAssignNEON computes dst[i] = fieldAdd(dst[i], src[i]) for all i in [0, 256).
+// Uses NEON to process 8 int16 values (16 bytes) per iteration.
+TEXT ·polyAddAssignNEON(SB), NOSPLIT, $0-16
+	MOVD dst+0(FP), R0
+	MOVD src+8(FP), R1
+
+	MOVD $3329, R2
+	VDUP R2, V31.H8
+
+	MOVD $8, R2
+
+poly_add_neon_loop:
+	VLD1 (R0), [V0.H8, V1.H8, V2.H8, V3.H8]  // load 64 bytes = 16 coefficients
+	VLD1.P 64(R1), [V4.H8, V5.H8, V6.H8, V7.H8]
+
+	VADD V4.H8, V0.H8, V0.H8
+	VADD V5.H8, V1.H8, V1.H8
+	VADD V6.H8, V2.H8, V2.H8
+	VADD V7.H8, V3.H8, V3.H8
+
+	// reduction
+	WORD   $0x6e7f3c14				  // CMGT.U V20.H8, V0.H8, V31.H8 (V0 >= q ? 0xFFFF : 0)
+	VAND   V31.B16, V20.B16, V20.B16  // q if underflow
+	VSUB   V20.H8, V0.H8, V0.H8       // VA = VA - q if underflow
+
+	WORD   $0x6e7f3c35				  // CMGT.U V21.H8, V1.H8, V31.H8 (V1 >= q ? 0xFFFF : 0)
+	VAND   V31.B16, V21.B16, V21.B16  // q if underflow
+	VSUB   V21.H8, V1.H8, V1.H8       // VA = VA - q if underflow
+
+	WORD   $0x6e7f3c56				  // CMGT.U V22.H8, V2.H8, V31.H8 (V2 >= q ? 0xFFFF : 0)
+	VAND   V31.B16, V22.B16, V22.B16  // q if underflow
+	VSUB   V22.H8, V2.H8, V2.H8       // VA = VA - q if underflow
+
+	WORD   $0x6e7f3c77				  // CMGT.U V23.H8, V3.H8, V31.H8 (V3 >= q ? 0xFFFF : 0)
+	VAND   V31.B16, V23.B16, V23.B16  // q if underflow
+	VSUB   V23.H8, V3.H8, V3.H8       // VA = VA - q if underflow
+
+	VST1.P [V0.H8, V1.H8, V2.H8, V3.H8], 64(R0)
+
+	SUB $1, R2, R2
+	CBNZ R2, poly_add_neon_loop
+
+poly_add_neon_done:
+	RET
+
+// polySubAssignNEON computes dst[i] = fieldSub(dst[i], src[i]) for all i in [0, 256).
+// fieldSub: x = uint16(a - b + q); return fieldReduceOnce(x)
+TEXT ·polySubAssignNEON(SB), NOSPLIT, $0-16
+	MOVD dst+0(FP), R0
+	MOVD src+8(FP), R1
+
+	MOVD $3329, R2
+	VDUP R2, V31.H8
+
+	MOVD $8, R2
+
+poly_sub_neon_loop:
+	VLD1 (R0), [V0.H8, V1.H8, V2.H8, V3.H8]  // load 64 bytes = 16 coefficients
+	VLD1.P 64(R1), [V4.H8, V5.H8, V6.H8, V7.H8]
+
+	VSUB V4.H8, V0.H8, V0.H8
+	VADD V31.H8, V0.H8, V0.H8
+
+	VSUB V5.H8, V1.H8, V1.H8
+	VADD V31.H8, V1.H8, V1.H8
+
+	VSUB V6.H8, V2.H8, V2.H8
+	VADD V31.H8, V2.H8, V2.H8
+
+	VSUB V7.H8, V3.H8, V3.H8
+	VADD V31.H8, V3.H8, V3.H8
+
+	// reduction
+	WORD   $0x6e7f3c14				  // CMGT.U V20.H8, V0.H8, V31.H8 (V0 >= q ? 0xFFFF : 0)
+	VAND   V31.B16, V20.B16, V20.B16  // q if underflow
+	VSUB   V20.H8, V0.H8, V0.H8       // VA = VA - q if underflow
+
+	WORD   $0x6e7f3c35				  // CMGT.U V21.H8, V1.H8, V31.H8 (V1 >= q ? 0xFFFF : 0)
+	VAND   V31.B16, V21.B16, V21.B16  // q if underflow
+	VSUB   V21.H8, V1.H8, V1.H8       // VA = VA - q if underflow
+
+	WORD   $0x6e7f3c56				  // CMGT.U V22.H8, V2.H8, V31.H8 (V2 >= q ? 0xFFFF : 0)
+	VAND   V31.B16, V22.B16, V22.B16  // q if underflow
+	VSUB   V22.H8, V2.H8, V2.H8       // VA = VA - q if underflow
+
+	WORD   $0x6e7f3c77				  // CMGT.U V23.H8, V3.H8, V31.H8 (V3 >= q ? 0xFFFF : 0)
+	VAND   V31.B16, V23.B16, V23.B16  // q if underflow
+	VSUB   V23.H8, V3.H8, V3.H8       // VA = VA - q if underflow
+
+	VST1.P [V0.H8, V1.H8, V2.H8, V3.H8], 64(R0)
+
+	SUB $1, R2, R2
+	CBNZ R2, poly_sub_neon_loop
+
+poly_sub_neon_done:
+	RET

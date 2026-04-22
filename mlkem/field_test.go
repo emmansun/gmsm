@@ -7,6 +7,7 @@ package mlkem
 import (
 	"bytes"
 	"crypto/rand"
+	"fmt"
 	"math/big"
 	mathrand "math/rand/v2"
 	"strconv"
@@ -168,18 +169,23 @@ func TestEncodeDecode(t *testing.T) {
 	rand.Read(b)
 
 	// Compare ringCompressAndEncode to ringCompressAndEncodeN.
-	e1 := ringCompressAndEncode(nil, f, 10)
+	e1 := ringCompressAndEncode(nil, &f, 10)
 	e2 := ringCompressAndEncode10(nil, f)
 	if !bytes.Equal(e1, e2) {
 		t.Errorf("ringCompressAndEncode = %x, ringCompressAndEncode10 = %x", e1, e2)
 	}
-	e1 = ringCompressAndEncode(nil, f, 4)
-	e2 = ringCompressAndEncode4(nil, f)
+	e1 = ringCompressAndEncode(nil, &f, 5)
+	e2 = ringCompressAndEncode5(nil, &f)
+	if !bytes.Equal(e1, e2) {
+		t.Errorf("ringCompressAndEncode = %x, ringCompressAndEncode5 = %x", e1, e2)
+	}
+	e1 = ringCompressAndEncode(nil, &f, 4)
+	e2 = ringCompressAndEncode4(nil, &f)
 	if !bytes.Equal(e1, e2) {
 		t.Errorf("ringCompressAndEncode = %x, ringCompressAndEncode4 = %x", e1, e2)
 	}
-	e1 = ringCompressAndEncode(nil, f, 1)
-	e2 = ringCompressAndEncode1(nil, f)
+	e1 = ringCompressAndEncode(nil, &f, 1)
+	e2 = ringCompressAndEncode1(nil, &f)
 	if !bytes.Equal(e1, e2) {
 		t.Errorf("ringCompressAndEncode = %x, ringCompressAndEncode1 = %x", e1, e2)
 	}
@@ -191,7 +197,7 @@ func TestEncodeDecode(t *testing.T) {
 		t.Errorf("ringDecodeAndDecompress = %v, ringDecodeAndDecompress10 = %v", g1, g2)
 	}
 	g1 = ringDecodeAndDecompress(b[:encodingSize4], 4)
-	g2 = ringDecodeAndDecompress4((*[encodingSize4]byte)(b))
+	ringDecodeAndDecompress4((*[encodingSize4]byte)(b), &g2)
 	if g1 != g2 {
 		t.Errorf("ringDecodeAndDecompress = %v, ringDecodeAndDecompress4 = %v", g1, g2)
 	}
@@ -205,7 +211,7 @@ func TestEncodeDecode(t *testing.T) {
 	for d := 1; d < 12; d++ {
 		encodingSize := d * n / 8
 		g := ringDecodeAndDecompress(b[:encodingSize], uint8(d))
-		out := ringCompressAndEncode(nil, g, uint8(d))
+		out := ringCompressAndEncode(nil, &g, uint8(d))
 		if !bytes.Equal(out, b[:encodingSize]) {
 			t.Errorf("roundtrip failed for d = %d", d)
 		}
@@ -217,13 +223,13 @@ func TestEncodeDecode(t *testing.T) {
 	if !bytes.Equal(out, b[:encodingSize10]) {
 		t.Errorf("roundtrip failed for specialized 10")
 	}
-	g = ringDecodeAndDecompress4((*[encodingSize4]byte)(b))
-	out = ringCompressAndEncode4(nil, g)
+	ringDecodeAndDecompress4((*[encodingSize4]byte)(b), &g2)
+	out = ringCompressAndEncode4(nil, &g2)
 	if !bytes.Equal(out, b[:encodingSize4]) {
 		t.Errorf("roundtrip failed for specialized 4")
 	}
 	g = ringDecodeAndDecompress1((*[encodingSize1]byte)(b))
-	out = ringCompressAndEncode1(nil, g)
+	out = ringCompressAndEncode1(nil, &g)
 	if !bytes.Equal(out, b[:encodingSize1]) {
 		t.Errorf("roundtrip failed for specialized 1")
 	}
@@ -264,6 +270,70 @@ func TestGammas(t *testing.T) {
 		exp := new(big.Int).Exp(ζ, big.NewInt(int64(BitRev7(uint8(k)))*2+1), q)
 		if big.NewInt(int64(gamma)).Cmp(exp) != 0 {
 			t.Errorf("gammas[%d] = %v, expected %v", k, gamma, exp)
+		}
+	}
+	fmt.Printf("%x\n", (128<<16)+2048)
+}
+
+func BenchmarkRingCompressAndEncode1(b *testing.B) {
+	var out [encodingSize1]byte
+	b.ReportAllocs()
+	b.SetBytes(encodingSize1)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ringDecodeAndDecompress1(&out)
+	}
+}
+
+// BenchmarkSampleNTT measures the performance of sampling a random nttElement
+// from a byte stream using the rejection sampling algorithm (FIPS 203, Algorithm 7).
+func BenchmarkSampleNTT(b *testing.B) {
+	// Create a fixed seed for reproducible benchmarks
+	rho := make([]byte, 32)
+	rand.Read(rho)
+
+	b.ReportAllocs()
+	b.SetBytes(512) // nttElement is [256]fieldElement = 512 bytes
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = sampleNTT(rho, byte(i%256), byte((i/256)%256))
+	}
+}
+
+// BenchmarkSampleNTTVaried measures the performance with varied ii and jj indices
+// to simulate realistic usage patterns during ML-KEM key generation.
+func BenchmarkSampleNTTVaried(b *testing.B) {
+	rho := make([]byte, 32)
+	rand.Read(rho)
+
+	b.ReportAllocs()
+	b.SetBytes(512) // nttElement is [256]fieldElement = 512 bytes
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		// Simulate ML-KEM-768 parameters: k=3, so ii,jj in range [0,3)
+		ii := byte((i / 9) % 3)
+		jj := byte(i % 3)
+		_ = sampleNTT(rho, ii, jj)
+	}
+}
+
+// BenchmarkSampleNTTConsecutive measures the performance when sampling
+// multiple polynomials consecutively with different indices.
+func BenchmarkSampleNTTConsecutive(b *testing.B) {
+	rho := make([]byte, 32)
+	rand.Read(rho)
+
+	b.ReportAllocs()
+	b.SetBytes(512 * 9) // 9 polynomials (k=3, so 3*3=9 total)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		for ii := byte(0); ii < 3; ii++ {
+			for jj := byte(0); jj < 3; jj++ {
+				_ = sampleNTT(rho, ii, jj)
+			}
 		}
 	}
 }
