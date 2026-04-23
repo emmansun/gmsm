@@ -127,6 +127,9 @@ func polyAddAssignNEON(dst, src *ringElement)
 //go:noescape
 func polySubAssignNEON(dst, src *ringElement)
 
+//go:noescape
+func ringCompressAndEncode4NEON(out []byte, f *ringElement)
+
 func nttMul(out, lhs, rhs *nttElement) {
 	internalNTTMulNEON(out, lhs, rhs)
 }
@@ -194,7 +197,7 @@ func polySubAssign(dst *ringElement, src *ringElement) {
 // followed by ByteEncode₄, according to FIPS 203, Algorithm 5.
 func ringCompressAndEncode4(s []byte, f *ringElement) []byte {
 	s, b := sliceForAppend(s, encodingSize4)
-	ringCompressAndEncode4Generic(b, f)
+	ringCompressAndEncode4NEON(b, f)
 	return s
 }
 

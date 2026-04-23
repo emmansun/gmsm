@@ -192,6 +192,47 @@ func TestNEONNTTMulAccKeyGenMatchesMontgomery(t *testing.T) {
 	}
 }
 
+func TestRingCompressAndEncode4NEONMatchesGenericRandom(t *testing.T) {
+	for iter := 0; iter < 1000; iter++ {
+		f := randomRingElement()
+
+		var got [encodingSize4]byte
+		var want [encodingSize4]byte
+		ringCompressAndEncode4NEON(got[:], &f)
+		ringCompressAndEncode4Generic(want[:], &f)
+
+		if got != want {
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatalf("iter=%d byte=%d: mismatch got=%02x want=%02x", iter, i, got[i], want[i])
+				}
+			}
+		}
+	}
+}
+
+func TestRingCompressAndEncode4NEONMatchesGenericExhaustiveSingleValue(t *testing.T) {
+	for x := 0; x < int(q); x++ {
+		var f ringElement
+		for i := range f {
+			f[i] = fieldElement(x)
+		}
+
+		var got [encodingSize4]byte
+		var want [encodingSize4]byte
+		ringCompressAndEncode4NEON(got[:], &f)
+		ringCompressAndEncode4Generic(want[:], &f)
+
+		if got != want {
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatalf("x=%d byte=%d: mismatch got=%02x want=%02x", x, i, got[i], want[i])
+				}
+			}
+		}
+	}
+}
+
 func BenchmarkNTTForward(b *testing.B) {
 	b.Run("Generic", func(b *testing.B) {
 		elem := randomRingElement()

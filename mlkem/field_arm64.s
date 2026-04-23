@@ -1341,3 +1341,77 @@ poly_sub_neon_loop:
 
 poly_sub_neon_done:
 	RET
+
+// ringCompressAndEncode4NEON computes ByteEncode_4(Compress_4(f)).
+//
+// 8-lane vectorized compress, then efficient scalar packing without stack:
+//   - Load 8 coefficients, UMULL by 20159, extract high16, +32, >>6, &0x0f
+//   - Use UMOV to extract each 16-bit lane to scalar regs
+//   - Pack 8 compressed 4-bit values into 4 output bytes using bitfield OR
+//   - Inspired by decodeAndDecompressU10NEON's packing strategy
+//
+// 16 iterations × 8 coefficients = 128 pairs = 256 total coefficients
+// No stack spills - direct register-to-register packing.
+// Expected 2-3x speedup vs scalar loop.
+//
+// func ringCompressAndEncode4NEON(out []byte, f *ringElement)
+TEXT ·ringCompressAndEncode4NEON(SB), NOSPLIT, $0-32
+	MOVD out_base+0(FP), R0
+	MOVD f+24(FP), R1
+
+	// Setup constants
+	MOVD $20159, R2
+	VDUP R2, V1.H8           // V1 = [20159 x 8]
+	MOVD $32, R2
+	VDUP R2, V23.S4          // V23 = [32, 32, 32, 32]
+	MOVD $0x0f, R2
+	VDUP R2, V24.S4          // V24 = [15, 15, 15, 15]
+
+	MOVD $16, R2             // 16 iterations
+
+compress_encode4_neon_loop:
+	// Load 8 coefficients
+	VLD1.P 16(R1), [V0.H8]
+
+	// UMULL and reduce to 4-bit compressed values
+	WORD $0x2E61C015 // UMULL V21.S4, V0.H4, V1.H4   (low 4)
+	WORD $0x6E61C016 // UMULL2 V22.S4, V0.H8, V1.H8  (high 4)
+
+	VUSHR $16, V21.S4, V21.S4
+	VUSHR $16, V22.S4, V22.S4
+	VADD V23.S4, V21.S4, V21.S4
+	VADD V23.S4, V22.S4, V22.S4
+	VUSHR $6, V21.S4, V21.S4
+	VUSHR $6, V22.S4, V22.S4
+	VAND V24.B16, V21.B16, V21.B16
+	VAND V24.B16, V22.B16, V22.B16
+
+	// Narrow to 16-bit
+	VSHL $16, V21.S4, V21.S4
+	VSHL $16, V22.S4, V22.S4
+	WORD $0x0F1086B5 // SHRN  V21.H4, V21.S4, #16
+	WORD $0x4F1086D5 // SHRN2 V21.H8, V22.S4, #16
+	// Now V21.H8 = [c0, c1, c2, c3, c4, c5, c6, c7]
+	
+	// Efficient packing: pair consecutive lanes and combine
+	// Use ZIP1/ZIP2 to extract even/odd lanes into separate registers
+	VZIP1 V21.H8, V21.H8, V25.H8   // V25 = [c0, c2, c4, c6, c0, c2, c4, c6]
+	VZIP2 V21.H8, V21.H8, V26.H8   // V26 = [c1, c3, c5, c7, c1, c3, c5, c7]
+	
+	// Shift odd lanes left and add: byte = even | (odd << 4)
+	VSHL $4, V26.H8, V26.H8
+	VADD V26.H8, V25.H8, V25.H8    // V25 = [c0|(c1<<4), c2|(c3<<4), c4|(c5<<4), c6|(c7<<4), ...]
+	
+
+	// Narrow to bytes
+	VSHL $8, V25.H8, V25.H8
+	WORD $0x0E211B39                // SHRN V25.B8, V25.H8, #8
+	
+	// Write 4 bytes
+	VST1 [V25.B8], (R0)
+	ADD $4, R0
+
+	SUB $1, R2
+	CBNZ R2, compress_encode4_neon_loop
+
+	RET
