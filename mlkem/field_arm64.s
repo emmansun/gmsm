@@ -1476,18 +1476,11 @@ compress_encode5_neon_loop:
 
 	RET
 
-#define COMPRESS_SCALAR(RIN, SHIFT, MASK, ROUT, RTMP1, RTMP2, RTMP3) \
-	LSL $SHIFT, RIN, RTMP1                                      \
-	MUL R24, RTMP1, ROUT                                        \
-	LSR $24, ROUT, ROUT                                         \
-	MUL R25, ROUT, RTMP2                                        \
-	SUB RTMP2, RTMP1, RTMP2                                     \
-	SUB RTMP2, R26, RTMP3                                       \
-	LSR $63, RTMP3, RTMP3                                       \
-	ADD RTMP3, ROUT, ROUT                                       \
-	SUB RTMP2, R27, RTMP3                                       \
-	LSR $63, RTMP3, RTMP3                                       \
-	ADD RTMP3, ROUT, ROUT                                       \
+#define COMPRESS_SCALAR(RIN, SHIFT, MASK, ROUT, RTMP1) \
+	LSL $SHIFT, RIN, RTMP1                               \
+	ADD $1664, RTMP1, RTMP1                              \
+	MUL R24, RTMP1, ROUT                                 \
+	LSR $32, ROUT, ROUT                                  \
 	AND $MASK, ROUT, ROUT
 
 // ringCompressAndEncode10NEON computes ByteEncode_10(Compress_10(f)).
@@ -1497,16 +1490,11 @@ TEXT ·ringCompressAndEncode10NEON(SB), NOSPLIT, $0-32
 	MOVD out_base+0(FP), R0
 	MOVD f+24(FP), R1
 
-	MOVD $5039, R24
-	MOVD $3329, R25
-	MOVD $1664, R26
-	MOVD $4993, R27
+	MOVD $1290168, R24
 	MOVD $32, R2
 
 compress_encode10_neon_loop:
-	VLD1.P 16(R1), [V0.H8]
-	VMOV V0.D[0], R3
-	VMOV V0.D[1], R4
+	LDP.P 16(R1), R3, R4
 
 	UBFX $0, R3, $16, R10
 	UBFX $16, R3, $16, R11
@@ -1517,14 +1505,14 @@ compress_encode10_neon_loop:
 	UBFX $32, R4, $16, R16
 	UBFX $48, R4, $16, R17
 
-	COMPRESS_SCALAR(R10, 10, 0x3FF, R10, R5, R6, R7)
-	COMPRESS_SCALAR(R11, 10, 0x3FF, R11, R5, R6, R7)
-	COMPRESS_SCALAR(R12, 10, 0x3FF, R12, R5, R6, R7)
-	COMPRESS_SCALAR(R13, 10, 0x3FF, R13, R5, R6, R7)
-	COMPRESS_SCALAR(R14, 10, 0x3FF, R14, R5, R6, R7)
-	COMPRESS_SCALAR(R15, 10, 0x3FF, R15, R5, R6, R7)
-	COMPRESS_SCALAR(R16, 10, 0x3FF, R16, R5, R6, R7)
-	COMPRESS_SCALAR(R17, 10, 0x3FF, R17, R5, R6, R7)
+	COMPRESS_SCALAR(R10, 10, 0x3FF, R10, R5)
+	COMPRESS_SCALAR(R11, 10, 0x3FF, R11, R5)
+	COMPRESS_SCALAR(R12, 10, 0x3FF, R12, R5)
+	COMPRESS_SCALAR(R13, 10, 0x3FF, R13, R5)
+	COMPRESS_SCALAR(R14, 10, 0x3FF, R14, R5)
+	COMPRESS_SCALAR(R15, 10, 0x3FF, R15, R5)
+	COMPRESS_SCALAR(R16, 10, 0x3FF, R16, R5)
+	COMPRESS_SCALAR(R17, 10, 0x3FF, R17, R5)
 
 	ORR R11<<10, R10, R21
 	ORR R12<<20, R21, R21
@@ -1553,16 +1541,11 @@ TEXT ·ringCompressAndEncode11NEON(SB), NOSPLIT, $0-32
 	MOVD out_base+0(FP), R0
 	MOVD f+24(FP), R1
 
-	MOVD $5039, R24
-	MOVD $3329, R25
-	MOVD $1664, R26
-	MOVD $4993, R27
+	MOVD $1290168, R24
 	MOVD $32, R2
 
 compress_encode11_neon_loop:
-	VLD1.P 16(R1), [V0.H8]
-	VMOV V0.D[0], R3
-	VMOV V0.D[1], R4
+	LDP.P 16(R1), R3, R4
 
 	UBFX $0, R3, $16, R10
 	UBFX $16, R3, $16, R11
@@ -1573,14 +1556,14 @@ compress_encode11_neon_loop:
 	UBFX $32, R4, $16, R16
 	UBFX $48, R4, $16, R17
 
-	COMPRESS_SCALAR(R10, 11, 0x7FF, R10, R5, R6, R7)
-	COMPRESS_SCALAR(R11, 11, 0x7FF, R11, R5, R6, R7)
-	COMPRESS_SCALAR(R12, 11, 0x7FF, R12, R5, R6, R7)
-	COMPRESS_SCALAR(R13, 11, 0x7FF, R13, R5, R6, R7)
-	COMPRESS_SCALAR(R14, 11, 0x7FF, R14, R5, R6, R7)
-	COMPRESS_SCALAR(R15, 11, 0x7FF, R15, R5, R6, R7)
-	COMPRESS_SCALAR(R16, 11, 0x7FF, R16, R5, R6, R7)
-	COMPRESS_SCALAR(R17, 11, 0x7FF, R17, R5, R6, R7)
+	COMPRESS_SCALAR(R10, 11, 0x7FF, R10, R5)
+	COMPRESS_SCALAR(R11, 11, 0x7FF, R11, R5)
+	COMPRESS_SCALAR(R12, 11, 0x7FF, R12, R5)
+	COMPRESS_SCALAR(R13, 11, 0x7FF, R13, R5)
+	COMPRESS_SCALAR(R14, 11, 0x7FF, R14, R5)
+	COMPRESS_SCALAR(R15, 11, 0x7FF, R15, R5)
+	COMPRESS_SCALAR(R16, 11, 0x7FF, R16, R5)
+	COMPRESS_SCALAR(R17, 11, 0x7FF, R17, R5)
 
 	ORR R11<<11, R10, R21
 	ORR R12<<22, R21, R21
