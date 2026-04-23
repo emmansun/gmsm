@@ -193,25 +193,6 @@ func TestNEONNTTMulAccKeyGenMatchesMontgomery(t *testing.T) {
 	}
 }
 
-func TestRingCompressAndEncode4NEONMatchesGenericRandom(t *testing.T) {
-	for iter := 0; iter < 1000; iter++ {
-		f := randomRingElement()
-
-		var got [encodingSize4]byte
-		var want [encodingSize4]byte
-		ringCompressAndEncode4NEON(got[:], &f)
-		ringCompressAndEncode4Generic(want[:], &f)
-
-		if got != want {
-			for i := range got {
-				if got[i] != want[i] {
-					t.Fatalf("iter=%d byte=%d: mismatch got=%02x want=%02x", iter, i, got[i], want[i])
-				}
-			}
-		}
-	}
-}
-
 func TestRingCompressAndEncode4NEONMatchesGenericExhaustiveSingleValue(t *testing.T) {
 	for x := 0; x < int(q); x++ {
 		var f ringElement
@@ -240,7 +221,7 @@ func TestRingCompressAndEncode4NEONVecMatchesGenericRandom(t *testing.T) {
 
 		var got [encodingSize4]byte
 		var want [encodingSize4]byte
-		ringCompressAndEncode4NEONVec(got[:], &f)
+		ringCompressAndEncode4NEON(got[:], &f)
 		ringCompressAndEncode4Generic(want[:], &f)
 
 		if got != want {
@@ -262,30 +243,6 @@ func BenchmarkRingCompressAndEncode4(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			ringCompressAndEncode4Generic(out[:], &f)
-		}
-		benchEncode4Sink = out[0]
-	})
-
-	b.Run("NEON", func(b *testing.B) {
-		f := randomRingElement()
-		var out [encodingSize4]byte
-		b.ReportAllocs()
-		b.SetBytes(encodingSize4)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringCompressAndEncode4NEON(out[:], &f)
-		}
-		benchEncode4Sink = out[0]
-	})
-
-	b.Run("NEON-Vec", func(b *testing.B) {
-		f := randomRingElement()
-		var out [encodingSize4]byte
-		b.ReportAllocs()
-		b.SetBytes(encodingSize4)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringCompressAndEncode4NEONVec(out[:], &f)
 		}
 		benchEncode4Sink = out[0]
 	})

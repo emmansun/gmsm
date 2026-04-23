@@ -130,9 +130,6 @@ func polySubAssignNEON(dst, src *ringElement)
 //go:noescape
 func ringCompressAndEncode4NEON(out []byte, f *ringElement)
 
-//go:noescape
-func ringCompressAndEncode4NEONVec(out []byte, f *ringElement)
-
 func nttMul(out, lhs, rhs *nttElement) {
 	internalNTTMulNEON(out, lhs, rhs)
 }

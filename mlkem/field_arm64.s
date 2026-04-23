@@ -1342,14 +1342,10 @@ poly_sub_neon_loop:
 poly_sub_neon_done:
 	RET
 
-// ringCompressAndEncode4NEONVec computes ByteEncode_4(Compress_4(f)).
+// ringCompressAndEncode4NEON computes ByteEncode_4(Compress_4(f)).
 // It keeps the same 8-lane compress core and uses vector packing for c0..c7.
-// func ringCompressAndEncode4NEONVec(out []byte, f *ringElement)
-DATA ·ringCompressEncode4StoreIdx+0(SB)/8, $0xFFFFFFFF06040200
-DATA ·ringCompressEncode4StoreIdx+8(SB)/8, $0xFFFFFFFFFFFFFFFF
-GLOBL ·ringCompressEncode4StoreIdx(SB), RODATA, $16
-
-TEXT ·ringCompressAndEncode4NEONVec(SB), NOSPLIT, $0-32
+// func ringCompressAndEncode4NEON(out []byte, f *ringElement)
+TEXT ·ringCompressAndEncode4NEON(SB), NOSPLIT, $0-32
 	MOVD out_base+0(FP), R0
 	MOVD f+24(FP), R1
 
@@ -1360,8 +1356,6 @@ TEXT ·ringCompressAndEncode4NEONVec(SB), NOSPLIT, $0-32
 	VDUP R2, V23.S4
 	MOVD $0x0f, R2
 	VDUP R2, V24.S4
-	MOVD $·ringCompressEncode4StoreIdx(SB), R3
-	VLD1 (R3), [V27.B16]
 
 	MOVD $32, R2
 
@@ -1390,105 +1384,20 @@ compress_encode4_neon_vec_loop:
 	VUZP2 V21.H8, V21.H8, V26.H8
 	VSHL $4, V26.H8, V26.H8
 	VORR V26.B16, V25.B16, V25.B16
-	VTBL V27.B16, [V25.B16], V25.B16
 
-	// V25.D[0] low 4 bytes now are [b0,b1,b2,b3].
+	// Extract packed bytes from low bytes of H lanes and store 4-byte word.
 	VMOV V25.D[0], R11
-	MOVW R11, (R0)
+	UBFX $0, R11, $8, R12
+	UBFX $16, R11, $8, R13
+	UBFX $32, R11, $8, R14
+	UBFX $48, R11, $8, R15
+	ORR R13<<8, R12, R12
+	ORR R15<<8, R14, R14
+	ORR R14<<16, R12, R12
+	MOVW R12, (R0)
 	ADD $4, R0
 
 	SUB $1, R2, R2
 	CBNZ R2, compress_encode4_neon_vec_loop
-
-	RET
-
-// ringCompressAndEncode4NEON computes ByteEncode_4(Compress_4(f)).
-//
-// 8-lane vectorized compress, then efficient scalar packing without stack:
-//   - Load 8 coefficients, UMULL by 20159, extract high16, +32, >>6, &0x0f
-//   - Use UMOV to extract each 16-bit lane to scalar regs
-//   - Pack 8 compressed 4-bit values into 4 output bytes using bitfield OR
-//   - Inspired by decodeAndDecompressU10NEON's packing strategy
-//
-// 32 iterations × 8 coefficients = 256 total coefficients.
-// Keep vectorized compress path; use conservative scalar pack to avoid
-// ISA-encoding risk from hand-written narrow-to-byte opcodes.
-//
-// func ringCompressAndEncode4NEON(out []byte, f *ringElement)
-TEXT ·ringCompressAndEncode4NEON(SB), NOSPLIT, $0-32
-	MOVD out_base+0(FP), R0
-	MOVD f+24(FP), R1
-
-	// Setup constants
-	MOVD $20159, R2
-	VDUP R2, V1.H8           // V1 = [20159 x 8]
-	MOVD $32, R2
-	VDUP R2, V23.S4          // V23 = [32, 32, 32, 32]
-	MOVD $0x0f, R2
-	VDUP R2, V24.S4          // V24 = [15, 15, 15, 15]
-
-	MOVD $32, R2             // 32 iterations
-
-compress_encode4_neon_loop:
-	// Load 8 coefficients
-	VLD1.P 16(R1), [V0.H8]
-
-	// UMULL and reduce to 4-bit compressed values
-	WORD $0x2E61C015 // UMULL V21.S4, V0.H4, V1.H4   (low 4)
-	WORD $0x6E61C016 // UMULL2 V22.S4, V0.H8, V1.H8  (high 4)
-
-	VUSHR $16, V21.S4, V21.S4
-	VUSHR $16, V22.S4, V22.S4
-	VADD V23.S4, V21.S4, V21.S4
-	VADD V23.S4, V22.S4, V22.S4
-	VUSHR $6, V21.S4, V21.S4
-	VUSHR $6, V22.S4, V22.S4
-	VAND V24.B16, V21.B16, V21.B16
-	VAND V24.B16, V22.B16, V22.B16
-
-	// Narrow to 16-bit
-	VSHL $16, V21.S4, V21.S4
-	VSHL $16, V22.S4, V22.S4
-	WORD $0x0F1086B5 // SHRN  V21.H4, V21.S4, #16
-	WORD $0x4F1086D5 // SHRN2 V21.H8, V22.S4, #16
-	// Now V21.H8 = [c0, c1, c2, c3, c4, c5, c6, c7]
-	// Keep SHRN path identical to line 1392/1393, then scalar-pack from
-	// two 64-bit halves to avoid fragile extra SIMD narrowing encodings.
-	VMOV V21.D[0], R11 // [c0|c1|c2|c3] as 4 x uint16
-	VMOV V21.D[1], R12 // [c4|c5|c6|c7] as 4 x uint16
-
-	// byte0 = c0 | (c1 << 4)
-	UBFX $0, R11, $8, R13
-	UBFX $16, R11, $8, R14
-	LSL  $4, R14, R14
-	ORR  R14, R13, R13
-
-	// byte1 = c2 | (c3 << 4)
-	UBFX $32, R11, $8, R15
-	UBFX $48, R11, $8, R16
-	LSL  $4, R16, R16
-	ORR  R16, R15, R15
-
-	// byte2 = c4 | (c5 << 4)
-	UBFX $0, R12, $8, R17
-	UBFX $16, R12, $8, R8
-	LSL  $4, R8, R8
-	ORR  R8, R17, R17
-
-	// byte3 = c6 | (c7 << 4)
-	UBFX $32, R12, $8, R9
-	UBFX $48, R12, $8, R10
-	LSL  $4, R10, R10
-	ORR  R10, R9, R9
-
-	// pack [byte0 byte1 byte2 byte3] to one 32-bit store
-	ORR  R15<<8, R13, R13
-	ORR  R9<<8, R17, R17
-	ORR  R17<<16, R13, R13
-	MOVW R13, (R0)
-	ADD $4, R0
-
-	SUB $1, R2, R2
-	CBNZ R2, compress_encode4_neon_loop
 
 	RET
