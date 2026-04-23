@@ -1342,22 +1342,6 @@ poly_sub_neon_loop:
 poly_sub_neon_done:
 	RET
 
-// Lookup tables used by ringCompressAndEncode4NEONVec packing path.
-// idxLow picks low bytes from uint16 lanes: [0,2,4,6,8,10,12,14].
-DATA ·ringCompressEncode4IdxLow+0(SB)/8, $0x0E0C0A0806040200
-DATA ·ringCompressEncode4IdxLow+8(SB)/8, $0xFFFFFFFFFFFFFFFF
-GLOBL ·ringCompressEncode4IdxLow(SB), RODATA, $16
-
-// idxEven gathers c0,c2,c4,c6 from [c0..c7].
-DATA ·ringCompressEncode4PackIdx+0(SB)/8, $0xFFFFFFFF06040200
-DATA ·ringCompressEncode4PackIdx+8(SB)/8, $0xFFFFFFFFFFFFFFFF
-GLOBL ·ringCompressEncode4PackIdx(SB), RODATA, $16
-
-// idxOdd gathers c1,c3,c5,c7 from [c0..c7].
-DATA ·ringCompressEncode4PackOddIdx+0(SB)/8, $0xFFFFFFFF07050301
-DATA ·ringCompressEncode4PackOddIdx+8(SB)/8, $0xFFFFFFFFFFFFFFFF
-GLOBL ·ringCompressEncode4PackOddIdx(SB), RODATA, $16
-
 // ringCompressAndEncode4NEONVec computes ByteEncode_4(Compress_4(f)).
 // It keeps the same 8-lane compress core and uses vector packing for c0..c7.
 // func ringCompressAndEncode4NEONVec(out []byte, f *ringElement)
@@ -1372,14 +1356,6 @@ TEXT ·ringCompressAndEncode4NEONVec(SB), NOSPLIT, $0-32
 	VDUP R2, V23.S4
 	MOVD $0x0f, R2
 	VDUP R2, V24.S4
-
-	// Setup shuffle/mask vectors used by packing.
-	MOVD $·ringCompressEncode4IdxLow(SB), R3
-	VLD1 (R3), [V16.B16]
-	MOVD $·ringCompressEncode4PackOddIdx(SB), R3
-	VLD1 (R3), [V17.B16]
-	MOVD $·ringCompressEncode4PackIdx(SB), R3
-	VLD1 (R3), [V18.B16]
 
 	MOVD $32, R2
 
@@ -1403,15 +1379,23 @@ compress_encode4_neon_vec_loop:
 	WORD $0x0F1086B5 // SHRN  V21.H4, V21.S4, #16
 	WORD $0x4F1086D5 // SHRN2 V21.H8, V22.S4, #16
 
-	// c0..c7 low bytes -> gather even/odd nibbles -> combine to b0..b3
-	VTBL V16.B16, [V21.B16], V25.B16
-	VTBL V18.B16, [V25.B16], V26.B16
-	VTBL V17.B16, [V25.B16], V27.B16
-	VSHL $4, V27.B16, V27.B16
-	VORR V27.B16, V26.B16, V26.B16
+	// Pair odd/even lanes into packed bytes in H lanes.
+	VUZP1 V21.H8, V21.H8, V25.H8
+	VUZP2 V21.H8, V21.H8, V26.H8
+	VSHL $4, V26.H8, V26.H8
+	VORR V26.B16, V25.B16, V25.B16
 
-	VMOV V26.D[0], R11
-	MOVW R11, (R0)
+	// V25.D[0] bytes now follow [b0,0,b1,0,b2,0,b3,0].
+	VMOV V25.D[0], R11
+	UBFX $0, R11, $8, R12
+	UBFX $16, R11, $8, R13
+	UBFX $32, R11, $8, R14
+	UBFX $48, R11, $8, R15
+	ORR R13<<8, R12, R12
+	ORR R15<<8, R14, R14
+	ORR R14<<16, R12, R12
+
+	MOVW R12, (R0)
 	ADD $4, R0
 
 	SUB $1, R2, R2
