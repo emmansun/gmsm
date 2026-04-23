@@ -1348,19 +1348,15 @@ DATA ·ringCompressEncode4IdxLow+0(SB)/8, $0x0E0C0A0806040200
 DATA ·ringCompressEncode4IdxLow+8(SB)/8, $0xFFFFFFFFFFFFFFFF
 GLOBL ·ringCompressEncode4IdxLow(SB), RODATA, $16
 
-// even/odd lane masks over bytes [c0,c1,c2,c3,c4,c5,c6,c7,...].
-DATA ·ringCompressEncode4EvenMask+0(SB)/8, $0x00FF00FF00FF00FF
-DATA ·ringCompressEncode4EvenMask+8(SB)/8, $0x00FF00FF00FF00FF
-GLOBL ·ringCompressEncode4EvenMask(SB), RODATA, $16
-
-DATA ·ringCompressEncode4OddMask+0(SB)/8, $0xFF00FF00FF00FF00
-DATA ·ringCompressEncode4OddMask+8(SB)/8, $0xFF00FF00FF00FF00
-GLOBL ·ringCompressEncode4OddMask(SB), RODATA, $16
-
-// idxPack gathers bytes at [0,2,4,6] after pair-combine.
+// idxEven gathers c0,c2,c4,c6 from [c0..c7].
 DATA ·ringCompressEncode4PackIdx+0(SB)/8, $0xFFFFFFFF06040200
 DATA ·ringCompressEncode4PackIdx+8(SB)/8, $0xFFFFFFFFFFFFFFFF
 GLOBL ·ringCompressEncode4PackIdx(SB), RODATA, $16
+
+// idxOdd gathers c1,c3,c5,c7 from [c0..c7].
+DATA ·ringCompressEncode4PackOddIdx+0(SB)/8, $0xFFFFFFFF07050301
+DATA ·ringCompressEncode4PackOddIdx+8(SB)/8, $0xFFFFFFFFFFFFFFFF
+GLOBL ·ringCompressEncode4PackOddIdx(SB), RODATA, $16
 
 // ringCompressAndEncode4NEONVec computes ByteEncode_4(Compress_4(f)).
 // It keeps the same 8-lane compress core and uses vector packing for c0..c7.
@@ -1380,12 +1376,10 @@ TEXT ·ringCompressAndEncode4NEONVec(SB), NOSPLIT, $0-32
 	// Setup shuffle/mask vectors used by packing.
 	MOVD $·ringCompressEncode4IdxLow(SB), R3
 	VLD1 (R3), [V16.B16]
-	MOVD $·ringCompressEncode4EvenMask(SB), R3
+	MOVD $·ringCompressEncode4PackOddIdx(SB), R3
 	VLD1 (R3), [V17.B16]
-	MOVD $·ringCompressEncode4OddMask(SB), R3
-	VLD1 (R3), [V18.B16]
 	MOVD $·ringCompressEncode4PackIdx(SB), R3
-	VLD1 (R3), [V19.B16]
+	VLD1 (R3), [V18.B16]
 
 	MOVD $32, R2
 
@@ -1409,13 +1403,12 @@ compress_encode4_neon_vec_loop:
 	WORD $0x0F1086B5 // SHRN  V21.H4, V21.S4, #16
 	WORD $0x4F1086D5 // SHRN2 V21.H8, V22.S4, #16
 
-	// c0..c7 low bytes -> pair-combine -> gather b0..b3
+	// c0..c7 low bytes -> gather even/odd nibbles -> combine to b0..b3
 	VTBL V16.B16, [V21.B16], V25.B16
-	VAND V17.B16, V25.B16, V26.B16
-	VAND V18.B16, V25.B16, V27.B16
+	VTBL V18.B16, [V25.B16], V26.B16
+	VTBL V17.B16, [V25.B16], V27.B16
 	VSHL $4, V27.B16, V27.B16
-	VADD V27.B16, V26.B16, V26.B16
-	VTBL V19.B16, [V26.B16], V26.B16
+	VORR V27.B16, V26.B16, V26.B16
 
 	VMOV V26.D[0], R11
 	MOVW R11, (R0)
