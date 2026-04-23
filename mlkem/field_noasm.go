@@ -129,11 +129,16 @@ func sampleNTT(rho []byte, ii, jj byte) nttElement {
 
 	var a nttElement
 	var j int        // index into a
-	var buf [24]byte // buffered reads from B
+
+	// Keep rejUniformGeneric on its len==24 fast path, but amortize SHAKE.Read
+	// overhead by filling seven 24-byte chunks per squeeze.
+	var batch [168]byte
 
 	for j < n {
-		B.Read(buf[:])
-		j += rejUniformGeneric(buf[:], &a, j)
+		B.Read(batch[:])
+		for off := 0; off < len(batch) && j < n; off += 24 {
+			j += rejUniformGeneric(batch[off:off+24], &a, j)
+		}
 	}
 	return a
 }
