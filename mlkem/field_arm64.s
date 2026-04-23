@@ -1246,9 +1246,8 @@ decode_u11_neon_done:
 	RET
 
 #define STORE_REJ_COEFF(RVAL) \
-	LSL $1, R3, R27            \
-	ADD R2, R27, R27           \
-	MOVH RVAL, (R27)           \
+	MOVH RVAL, (R19)           \
+	ADD $2, R19, R19           \
 	ADD $1, R3, R3
 
 #define BUILD_ACCEPT_MASK_FROM_V0(RMASK) \
@@ -1283,6 +1282,8 @@ TEXT ·rejUniformARM64(SB), NOSPLIT, $0-48
 	MOVD buf_len+8(FP), R1
 	MOVD a+24(FP), R2
 	MOVD j+32(FP), R3
+	LSL $1, R3, R19
+	ADD R2, R19, R19
 	MOVD R3, R4
 
 	CMP $256, R3
@@ -1291,10 +1292,6 @@ TEXT ·rejUniformARM64(SB), NOSPLIT, $0-48
 	BNE rejuniform_arm64_loop_setup
 	CMP $240, R3
 	BGT rejuniform_arm64_loop_setup
-
-	MOVD $3328, R25
-	VDUP R25, V31.H8
-	MOVD $0xFF, R25
 
 	// Fast block 0: bytes [0..11] -> eight 12-bit candidates.
 	MOVD (R0), R6
@@ -1321,47 +1318,37 @@ TEXT ·rejUniformARM64(SB), NOSPLIT, $0-48
 	ORR R17<<48, R27, R27
 	VMOV R27, V0.D[1]
 
-	BUILD_ACCEPT_MASK_FROM_V0(R22)
-
-	TBZ $0, R22, rejuniform_arm64_fast0_skip0
+	CMP $3329, R10
+	BHS rejuniform_arm64_fast0_skip0
 	STORE_REJ_COEFF(R10)
-	CMP $256, R3
-	BGE rejuniform_arm64_done
 rejuniform_arm64_fast0_skip0:
-	TBZ $1, R22, rejuniform_arm64_fast0_skip1
+	CMP $3329, R11
+	BHS rejuniform_arm64_fast0_skip1
 	STORE_REJ_COEFF(R11)
-	CMP $256, R3
-	BGE rejuniform_arm64_done
 rejuniform_arm64_fast0_skip1:
-	TBZ $2, R22, rejuniform_arm64_fast0_skip2
+	CMP $3329, R12
+	BHS rejuniform_arm64_fast0_skip2
 	STORE_REJ_COEFF(R12)
-	CMP $256, R3
-	BGE rejuniform_arm64_done
 rejuniform_arm64_fast0_skip2:
-	TBZ $3, R22, rejuniform_arm64_fast0_skip3
+	CMP $3329, R13
+	BHS rejuniform_arm64_fast0_skip3
 	STORE_REJ_COEFF(R13)
-	CMP $256, R3
-	BGE rejuniform_arm64_done
 rejuniform_arm64_fast0_skip3:
-	TBZ $4, R22, rejuniform_arm64_fast0_skip4
+	CMP $3329, R14
+	BHS rejuniform_arm64_fast0_skip4
 	STORE_REJ_COEFF(R14)
-	CMP $256, R3
-	BGE rejuniform_arm64_done
 rejuniform_arm64_fast0_skip4:
-	TBZ $5, R22, rejuniform_arm64_fast0_skip5
+	CMP $3329, R15
+	BHS rejuniform_arm64_fast0_skip5
 	STORE_REJ_COEFF(R15)
-	CMP $256, R3
-	BGE rejuniform_arm64_done
 rejuniform_arm64_fast0_skip5:
-	TBZ $6, R22, rejuniform_arm64_fast0_skip6
+	CMP $3329, R16
+	BHS rejuniform_arm64_fast0_skip6
 	STORE_REJ_COEFF(R16)
-	CMP $256, R3
-	BGE rejuniform_arm64_done
 rejuniform_arm64_fast0_skip6:
-	TBZ $7, R22, rejuniform_arm64_fast0_skip7
+	CMP $3329, R17
+	BHS rejuniform_arm64_fast0_skip7
 	STORE_REJ_COEFF(R17)
-	CMP $256, R3
-	BGE rejuniform_arm64_done
 rejuniform_arm64_fast0_skip7:
 
 	// Fast block 1: bytes [12..23] -> eight 12-bit candidates.
@@ -1389,47 +1376,37 @@ rejuniform_arm64_fast0_skip7:
 	ORR R17<<48, R27, R27
 	VMOV R27, V0.D[1]
 
-	BUILD_ACCEPT_MASK_FROM_V0(R22)
-
-	TBZ $0, R22, rejuniform_arm64_fast1_skip0
+	CMP $3329, R10
+	BHS rejuniform_arm64_fast1_skip0
 	STORE_REJ_COEFF(R10)
-	CMP $256, R3
-	BGE rejuniform_arm64_done
 rejuniform_arm64_fast1_skip0:
-	TBZ $1, R22, rejuniform_arm64_fast1_skip1
+	CMP $3329, R11
+	BHS rejuniform_arm64_fast1_skip1
 	STORE_REJ_COEFF(R11)
-	CMP $256, R3
-	BGE rejuniform_arm64_done
 rejuniform_arm64_fast1_skip1:
-	TBZ $2, R22, rejuniform_arm64_fast1_skip2
+	CMP $3329, R12
+	BHS rejuniform_arm64_fast1_skip2
 	STORE_REJ_COEFF(R12)
-	CMP $256, R3
-	BGE rejuniform_arm64_done
 rejuniform_arm64_fast1_skip2:
-	TBZ $3, R22, rejuniform_arm64_fast1_skip3
+	CMP $3329, R13
+	BHS rejuniform_arm64_fast1_skip3
 	STORE_REJ_COEFF(R13)
-	CMP $256, R3
-	BGE rejuniform_arm64_done
 rejuniform_arm64_fast1_skip3:
-	TBZ $4, R22, rejuniform_arm64_fast1_skip4
+	CMP $3329, R14
+	BHS rejuniform_arm64_fast1_skip4
 	STORE_REJ_COEFF(R14)
-	CMP $256, R3
-	BGE rejuniform_arm64_done
 rejuniform_arm64_fast1_skip4:
-	TBZ $5, R22, rejuniform_arm64_fast1_skip5
+	CMP $3329, R15
+	BHS rejuniform_arm64_fast1_skip5
 	STORE_REJ_COEFF(R15)
-	CMP $256, R3
-	BGE rejuniform_arm64_done
 rejuniform_arm64_fast1_skip5:
-	TBZ $6, R22, rejuniform_arm64_fast1_skip6
+	CMP $3329, R16
+	BHS rejuniform_arm64_fast1_skip6
 	STORE_REJ_COEFF(R16)
-	CMP $256, R3
-	BGE rejuniform_arm64_done
 rejuniform_arm64_fast1_skip6:
-	TBZ $7, R22, rejuniform_arm64_fast1_skip7
+	CMP $3329, R17
+	BHS rejuniform_arm64_fast1_skip7
 	STORE_REJ_COEFF(R17)
-	CMP $256, R3
-	BGE rejuniform_arm64_done
 rejuniform_arm64_fast1_skip7:
 	B rejuniform_arm64_done
 
