@@ -1342,6 +1342,90 @@ poly_sub_neon_loop:
 poly_sub_neon_done:
 	RET
 
+// Lookup tables used by ringCompressAndEncode4NEONVec packing path.
+// idxLow picks low bytes from uint16 lanes: [0,2,4,6,8,10,12,14].
+DATA ·ringCompressEncode4IdxLow+0(SB)/8, $0x0E0C0A0806040200
+DATA ·ringCompressEncode4IdxLow+8(SB)/8, $0xFFFFFFFFFFFFFFFF
+GLOBL ·ringCompressEncode4IdxLow(SB), RODATA, $16
+
+// even/odd lane masks over bytes [c0,c1,c2,c3,c4,c5,c6,c7,...].
+DATA ·ringCompressEncode4EvenMask+0(SB)/8, $0x00FF00FF00FF00FF
+DATA ·ringCompressEncode4EvenMask+8(SB)/8, $0x00FF00FF00FF00FF
+GLOBL ·ringCompressEncode4EvenMask(SB), RODATA, $16
+
+DATA ·ringCompressEncode4OddMask+0(SB)/8, $0xFF00FF00FF00FF00
+DATA ·ringCompressEncode4OddMask+8(SB)/8, $0xFF00FF00FF00FF00
+GLOBL ·ringCompressEncode4OddMask(SB), RODATA, $16
+
+// idxPack gathers bytes at [0,2,4,6] after pair-combine.
+DATA ·ringCompressEncode4PackIdx+0(SB)/8, $0xFFFFFFFF06040200
+DATA ·ringCompressEncode4PackIdx+8(SB)/8, $0xFFFFFFFFFFFFFFFF
+GLOBL ·ringCompressEncode4PackIdx(SB), RODATA, $16
+
+// ringCompressAndEncode4NEONVec computes ByteEncode_4(Compress_4(f)).
+// It keeps the same 8-lane compress core and uses vector packing for c0..c7.
+// func ringCompressAndEncode4NEONVec(out []byte, f *ringElement)
+TEXT ·ringCompressAndEncode4NEONVec(SB), NOSPLIT, $0-32
+	MOVD out_base+0(FP), R0
+	MOVD f+24(FP), R1
+
+	// Setup constants for compress core.
+	MOVD $20159, R2
+	VDUP R2, V1.H8
+	MOVD $32, R2
+	VDUP R2, V23.S4
+	MOVD $0x0f, R2
+	VDUP R2, V24.S4
+
+	// Setup shuffle/mask vectors used by packing.
+	MOVD $·ringCompressEncode4IdxLow(SB), R3
+	VLD1 (R3), [V16.B16]
+	MOVD $·ringCompressEncode4EvenMask(SB), R3
+	VLD1 (R3), [V17.B16]
+	MOVD $·ringCompressEncode4OddMask(SB), R3
+	VLD1 (R3), [V18.B16]
+	MOVD $·ringCompressEncode4PackIdx(SB), R3
+	VLD1 (R3), [V19.B16]
+
+	MOVD $32, R2
+
+compress_encode4_neon_vec_loop:
+	VLD1.P 16(R1), [V0.H8]
+
+	WORD $0x2E61C015 // UMULL V21.S4, V0.H4, V1.H4
+	WORD $0x6E61C016 // UMULL2 V22.S4, V0.H8, V1.H8
+
+	VUSHR $16, V21.S4, V21.S4
+	VUSHR $16, V22.S4, V22.S4
+	VADD V23.S4, V21.S4, V21.S4
+	VADD V23.S4, V22.S4, V22.S4
+	VUSHR $6, V21.S4, V21.S4
+	VUSHR $6, V22.S4, V22.S4
+	VAND V24.B16, V21.B16, V21.B16
+	VAND V24.B16, V22.B16, V22.B16
+
+	VSHL $16, V21.S4, V21.S4
+	VSHL $16, V22.S4, V22.S4
+	WORD $0x0F1086B5 // SHRN  V21.H4, V21.S4, #16
+	WORD $0x4F1086D5 // SHRN2 V21.H8, V22.S4, #16
+
+	// c0..c7 low bytes -> pair-combine -> gather b0..b3
+	VTBL V16.B16, [V21.B16], V25.B16
+	VAND V17.B16, V25.B16, V26.B16
+	VAND V18.B16, V25.B16, V27.B16
+	VSHL $4, V27.B16, V27.B16
+	VADD V27.B16, V26.B16, V26.B16
+	VTBL V19.B16, [V26.B16], V26.B16
+
+	VMOV V26.D[0], R11
+	MOVW R11, (R0)
+	ADD $4, R0
+
+	SUB $1, R2, R2
+	CBNZ R2, compress_encode4_neon_vec_loop
+
+	RET
+
 // ringCompressAndEncode4NEON computes ByteEncode_4(Compress_4(f)).
 //
 // 8-lane vectorized compress, then efficient scalar packing without stack:
