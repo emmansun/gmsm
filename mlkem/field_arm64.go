@@ -139,6 +139,9 @@ func ringCompressAndEncode10NEON(out []byte, f *ringElement)
 //go:noescape
 func ringCompressAndEncode11NEON(out []byte, f *ringElement)
 
+//go:noescape
+func rejUniformARM64(buf []byte, a *nttElement, j int) int
+
 func nttMul(out, lhs, rhs *nttElement) {
 	internalNTTMulNEON(out, lhs, rhs)
 }
@@ -278,7 +281,7 @@ func sampleNTT(rho []byte, ii, jj byte) nttElement {
 
 	for j < n {
 		B.Read(buf[:])
-		j += rejUniformGeneric(buf[:], &a, j)
+		j += rejUniformARM64(buf[:], &a, j)
 	}
 	return a
 }

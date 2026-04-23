@@ -1245,6 +1245,202 @@ decode_u11_neon_block_loop:
 decode_u11_neon_done:
 	RET
 
+#define STORE_REJ_COEFF(RVAL) \
+	LSL $1, R3, R24            \
+	ADD R2, R24, R24           \
+	MOVH RVAL, (R24)           \
+	ADD $1, R3, R3
+
+#define BUILD_ACCEPT_MASK_FROM_V0(RMASK) \
+	VSUB V0.H8, V31.H8, V1.H8             \
+	VUSHR $15, V1.H8, V1.H8               \
+	VMOV V1.D[0], R20                     \
+	VMOV V1.D[1], R21                     \
+	UBFX $0, R20, $1, RMASK               \
+	UBFX $16, R20, $1, R23                \
+	ORR R23<<1, RMASK, RMASK              \
+	UBFX $32, R20, $1, R23                \
+	ORR R23<<2, RMASK, RMASK              \
+	UBFX $48, R20, $1, R23                \
+	ORR R23<<3, RMASK, RMASK              \
+	UBFX $0, R21, $1, R23                 \
+	ORR R23<<4, RMASK, RMASK              \
+	UBFX $16, R21, $1, R23                \
+	ORR R23<<5, RMASK, RMASK              \
+	UBFX $32, R21, $1, R23                \
+	ORR R23<<6, RMASK, RMASK              \
+	UBFX $48, R21, $1, R23                \
+	ORR R23<<7, RMASK, RMASK              \
+	EOR R25, RMASK, RMASK
+
+// rejUniformARM64 implements the scalar rejection sampler used by sampleNTT.
+// The hot len==24 path uses AArch64 bitfield extracts plus NEON to compare
+// eight 12-bit candidates at a time, while scalar stores keep accepted values
+// tightly packed in the output polynomial.
+// func rejUniformARM64(buf []byte, a *nttElement, j int) int
+TEXT ·rejUniformARM64(SB), NOSPLIT, $0-48
+	MOVD buf_base+0(FP), R0
+	MOVD buf_len+8(FP), R1
+	MOVD a+24(FP), R2
+	MOVD j+32(FP), R3
+	MOVD R3, R4
+
+	CMP $256, R3
+	BGE rejuniform_arm64_done
+	CMP $24, R1
+	BNE rejuniform_arm64_loop_setup
+	CMP $240, R3
+	BGT rejuniform_arm64_loop_setup
+
+	MOVD $3328, R25
+	VDUP R25, V31.H8
+	MOVD $0xFF, R25
+
+	// Fast block 0: bytes [0..11] -> eight 12-bit candidates.
+	MOVD (R0), R6
+	MOVWU 8(R0), R7
+
+	AND $0x0FFF, R6, R10
+	UBFX $12, R6, $12, R11
+	UBFX $24, R6, $12, R12
+	UBFX $36, R6, $12, R13
+	UBFX $48, R6, $12, R14
+	EXTR $60, R6, R7, R15
+	AND $0x0FFF, R15, R15
+	UBFX $8, R7, $12, R16
+	UBFX $20, R7, $12, R17
+
+	MOVD R10, R26
+	ORR R11<<16, R26, R26
+	ORR R12<<32, R26, R26
+	ORR R13<<48, R26, R26
+	VMOV R26, V0.D[0]
+	MOVD R14, R27
+	ORR R15<<16, R27, R27
+	ORR R16<<32, R27, R27
+	ORR R17<<48, R27, R27
+	VMOV R27, V0.D[1]
+
+	BUILD_ACCEPT_MASK_FROM_V0(R22)
+
+	TBZ $0, R22, rejuniform_arm64_fast0_skip0
+	STORE_REJ_COEFF(R10)
+rejuniform_arm64_fast0_skip0:
+	TBZ $1, R22, rejuniform_arm64_fast0_skip1
+	STORE_REJ_COEFF(R11)
+rejuniform_arm64_fast0_skip1:
+	TBZ $2, R22, rejuniform_arm64_fast0_skip2
+	STORE_REJ_COEFF(R12)
+rejuniform_arm64_fast0_skip2:
+	TBZ $3, R22, rejuniform_arm64_fast0_skip3
+	STORE_REJ_COEFF(R13)
+rejuniform_arm64_fast0_skip3:
+	TBZ $4, R22, rejuniform_arm64_fast0_skip4
+	STORE_REJ_COEFF(R14)
+rejuniform_arm64_fast0_skip4:
+	TBZ $5, R22, rejuniform_arm64_fast0_skip5
+	STORE_REJ_COEFF(R15)
+rejuniform_arm64_fast0_skip5:
+	TBZ $6, R22, rejuniform_arm64_fast0_skip6
+	STORE_REJ_COEFF(R16)
+rejuniform_arm64_fast0_skip6:
+	TBZ $7, R22, rejuniform_arm64_fast0_skip7
+	STORE_REJ_COEFF(R17)
+rejuniform_arm64_fast0_skip7:
+
+	// Fast block 1: bytes [12..23] -> eight 12-bit candidates.
+	MOVD 12(R0), R6
+	MOVWU 20(R0), R7
+
+	AND $0x0FFF, R6, R10
+	UBFX $12, R6, $12, R11
+	UBFX $24, R6, $12, R12
+	UBFX $36, R6, $12, R13
+	UBFX $48, R6, $12, R14
+	EXTR $60, R6, R7, R15
+	AND $0x0FFF, R15, R15
+	UBFX $8, R7, $12, R16
+	UBFX $20, R7, $12, R17
+
+	MOVD R10, R26
+	ORR R11<<16, R26, R26
+	ORR R12<<32, R26, R26
+	ORR R13<<48, R26, R26
+	VMOV R26, V0.D[0]
+	MOVD R14, R27
+	ORR R15<<16, R27, R27
+	ORR R16<<32, R27, R27
+	ORR R17<<48, R27, R27
+	VMOV R27, V0.D[1]
+
+	BUILD_ACCEPT_MASK_FROM_V0(R22)
+
+	TBZ $0, R22, rejuniform_arm64_fast1_skip0
+	STORE_REJ_COEFF(R10)
+rejuniform_arm64_fast1_skip0:
+	TBZ $1, R22, rejuniform_arm64_fast1_skip1
+	STORE_REJ_COEFF(R11)
+rejuniform_arm64_fast1_skip1:
+	TBZ $2, R22, rejuniform_arm64_fast1_skip2
+	STORE_REJ_COEFF(R12)
+rejuniform_arm64_fast1_skip2:
+	TBZ $3, R22, rejuniform_arm64_fast1_skip3
+	STORE_REJ_COEFF(R13)
+rejuniform_arm64_fast1_skip3:
+	TBZ $4, R22, rejuniform_arm64_fast1_skip4
+	STORE_REJ_COEFF(R14)
+rejuniform_arm64_fast1_skip4:
+	TBZ $5, R22, rejuniform_arm64_fast1_skip5
+	STORE_REJ_COEFF(R15)
+rejuniform_arm64_fast1_skip5:
+	TBZ $6, R22, rejuniform_arm64_fast1_skip6
+	STORE_REJ_COEFF(R16)
+rejuniform_arm64_fast1_skip6:
+	TBZ $7, R22, rejuniform_arm64_fast1_skip7
+	STORE_REJ_COEFF(R17)
+rejuniform_arm64_fast1_skip7:
+	B rejuniform_arm64_done
+
+rejuniform_arm64_loop_setup:
+	MOVD $0, R5
+
+rejuniform_arm64_loop:
+	CMP R1, R5
+	BGE rejuniform_arm64_done
+
+	ADD R0, R5, R24
+	MOVBU 0(R24), R6
+	MOVBU 1(R24), R7
+	LSL $8, R7, R7
+	ORR R7, R6, R6
+	AND $0x0FFF, R6, R8
+	CMP $3329, R8
+	BGE rejuniform_arm64_skip_d1
+	STORE_REJ_COEFF(R8)
+	CMP $256, R3
+	BGE rejuniform_arm64_done
+
+rejuniform_arm64_skip_d1:
+	MOVBU 1(R24), R6
+	MOVBU 2(R24), R7
+	LSL $8, R7, R7
+	ORR R7, R6, R6
+	LSR $4, R6, R6
+	CMP $3329, R6
+	BGE rejuniform_arm64_next
+	STORE_REJ_COEFF(R6)
+	CMP $256, R3
+	BGE rejuniform_arm64_done
+
+rejuniform_arm64_next:
+	ADD $3, R5, R5
+	B rejuniform_arm64_loop
+
+rejuniform_arm64_done:
+	SUB R4, R3, R3
+	MOVD R3, ret+40(FP)
+	RET
+
 // polyAddAssignNEON computes dst[i] = fieldAdd(dst[i], src[i]) for all i in [0, 256).
 // Uses NEON to process 8 int16 values (16 bytes) per iteration.
 TEXT ·polyAddAssignNEON(SB), NOSPLIT, $0-16
@@ -1500,6 +1696,21 @@ compress_encode5_neon_loop:
 
 // ringCompressAndEncode10NEON computes ByteEncode_10(Compress_10(f)).
 // It processes 8 coefficients per loop and emits two 5-byte groups.
+//
+// Compress_10 lane formula (same as generic path):
+//   c = round((x * 2^10) / q) mod 2^10, q=3329
+// Implemented here as exact reciprocal multiply-high on x in [0,3328]:
+//   n = (x << 10) + 1664
+//   c = (n * 1290168) >> 32
+//   c &= 0x3FF
+//
+// Magic numbers:
+//   1664    = floor(q/2), for round-to-nearest (half-up).
+//   1290168 = ceil(2^32 / q), reciprocal for divide-by-q via mul-high.
+//
+// Packing note:
+//   ByteEncode_10 remains scalar-packed here. A prior partial VZIP reorder did
+//   not reduce scalar/GPR crossings and can regress performance.
 // func ringCompressAndEncode10NEON(out []byte, f *ringElement)
 TEXT ·ringCompressAndEncode10NEON(SB), NOSPLIT, $0-32
 	MOVD out_base+0(FP), R0
@@ -1575,6 +1786,21 @@ compress_encode10_neon_loop:
 
 // ringCompressAndEncode11NEON computes ByteEncode_11(Compress_11(f)).
 // It processes 8 coefficients per loop and emits one 11-byte block.
+//
+// Compress_11 lane formula (same as generic path):
+//   c = round((x * 2^11) / q) mod 2^11, q=3329
+// Implemented here as exact reciprocal multiply-high on x in [0,3328]:
+//   n = (x << 11) + 1664
+//   c = (n * 1290168) >> 32
+//   c &= 0x7FF
+//
+// Magic numbers:
+//   1664    = floor(q/2), for round-to-nearest (half-up).
+//   1290168 = ceil(2^32 / q), reciprocal for divide-by-q via mul-high.
+//
+// Packing note:
+//   ByteEncode_11 remains scalar-packed here. A prior partial VZIP reorder did
+//   not reduce scalar/GPR crossings and can regress performance.
 // func ringCompressAndEncode11NEON(out []byte, f *ringElement)
 TEXT ·ringCompressAndEncode11NEON(SB), NOSPLIT, $0-32
 	MOVD out_base+0(FP), R0
