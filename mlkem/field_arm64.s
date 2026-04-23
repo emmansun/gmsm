@@ -1494,7 +1494,7 @@ TEXT ·ringCompressAndEncode10NEON(SB), NOSPLIT, $0-32
 	MOVD $32, R2
 
 compress_encode10_neon_loop:
-	LDP.P 16(R1), R3, R4
+	LDP.P 16(R1), (R3, R4)
 
 	UBFX $0, R3, $16, R10
 	UBFX $16, R3, $16, R11
@@ -1545,7 +1545,7 @@ TEXT ·ringCompressAndEncode11NEON(SB), NOSPLIT, $0-32
 	MOVD $32, R2
 
 compress_encode11_neon_loop:
-	LDP.P 16(R1), R3, R4
+	LDP.P 16(R1), (R3, R4)
 
 	UBFX $0, R3, $16, R10
 	UBFX $16, R3, $16, R11
