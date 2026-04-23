@@ -1476,6 +1476,21 @@ compress_encode5_neon_loop:
 
 	RET
 
+// COMPRESS_SCALAR computes one lane of Compress_d(x) for d in {10, 11}.
+//
+// Generic definition:
+//   c = round((x * 2^d) / q) mod 2^d, where q = 3329.
+//
+// This implementation uses a multiply-high approximation that is exact for
+// ML-KEM input range x in [0, 3328] when d is 10 or 11:
+//   n = (x << d) + 1664
+//   c = (n * 1290168) >> 32
+//   c &= (1<<d) - 1
+//
+// Magic numbers:
+//   1664    = floor(q/2), for round-to-nearest with half-up behavior.
+//   1290168 = ceil(2^32 / q), reciprocal multiplier for divide-by-q via MULH.
+//   MASK    = (1<<d)-1, i.e. 0x3FF for d=10 and 0x7FF for d=11.
 #define COMPRESS_SCALAR(RIN, SHIFT, MASK, ROUT, RTMP1) \
 	LSL $SHIFT, RIN, RTMP1                               \
 	ADD $1664, RTMP1, RTMP1                              \
@@ -1491,28 +1506,52 @@ TEXT ·ringCompressAndEncode10NEON(SB), NOSPLIT, $0-32
 	MOVD f+24(FP), R1
 
 	MOVD $1290168, R24
+	VDUP R24, V1.S4
+	MOVD $1664, R24
+	VDUP R24, V2.S4
+	MOVD $0xFFFF, R24
+	VDUP R24, V3.S4
+	MOVD $0x3FF, R24
+	VDUP R24, V4.S4
 	MOVD $32, R2
 
 compress_encode10_neon_loop:
-	LDP.P 16(R1), (R3, R4)
+	VLD1.P 16(R1), [V0.H8]
 
-	UBFX $0, R3, $16, R10
-	UBFX $16, R3, $16, R11
-	UBFX $32, R3, $16, R12
-	UBFX $48, R3, $16, R13
-	UBFX $0, R4, $16, R14
-	UBFX $16, R4, $16, R15
-	UBFX $32, R4, $16, R16
-	UBFX $48, R4, $16, R17
+	// Split 8xuint16 coefficients into even/odd 32-bit lanes.
+	VAND V3.B16, V0.B16, V20.B16
+	VUSHR $16, V0.S4, V21.S4
+	VAND V3.B16, V21.B16, V21.B16
 
-	COMPRESS_SCALAR(R10, 10, 0x3FF, R10, R5)
-	COMPRESS_SCALAR(R11, 10, 0x3FF, R11, R5)
-	COMPRESS_SCALAR(R12, 10, 0x3FF, R12, R5)
-	COMPRESS_SCALAR(R13, 10, 0x3FF, R13, R5)
-	COMPRESS_SCALAR(R14, 10, 0x3FF, R14, R5)
-	COMPRESS_SCALAR(R15, 10, 0x3FF, R15, R5)
-	COMPRESS_SCALAR(R16, 10, 0x3FF, R16, R5)
-	COMPRESS_SCALAR(R17, 10, 0x3FF, R17, R5)
+	// even lanes: c0,c2,c4,c6
+	VSHL $10, V20.S4, V20.S4
+	VADD V2.S4, V20.S4, V20.S4
+	WORD $0x2E61C296 // UMULL  V22.D2, V20.S2, V1.S2
+	WORD $0x6E61C297 // UMULL2 V23.D2, V20.S4, V1.S4
+	VUSHR $32, V22.D2, V22.D2
+	VUSHR $32, V23.D2, V23.D2
+
+	// odd lanes: c1,c3,c5,c7
+	VSHL $10, V21.S4, V21.S4
+	VADD V2.S4, V21.S4, V21.S4
+	WORD $0x2E61C2B8 // UMULL  V24.D2, V21.S2, V1.S2
+	WORD $0x6E61C2B9 // UMULL2 V25.D2, V21.S4, V1.S4
+	VUSHR $32, V24.D2, V24.D2
+	VUSHR $32, V25.D2, V25.D2
+	VAND V4.B16, V22.B16, V22.B16
+	VAND V4.B16, V23.B16, V23.B16
+	VAND V4.B16, V24.B16, V24.B16
+	VAND V4.B16, V25.B16, V25.B16
+
+	// Reorder to c0..c7 for ByteEncode_10 packing.
+	VMOV V22.D[0], R10
+	VMOV V24.D[0], R11
+	VMOV V22.D[1], R12
+	VMOV V24.D[1], R13
+	VMOV V23.D[0], R14
+	VMOV V25.D[0], R15
+	VMOV V23.D[1], R16
+	VMOV V25.D[1], R17
 
 	ORR R11<<10, R10, R21
 	ORR R12<<20, R21, R21
@@ -1542,28 +1581,52 @@ TEXT ·ringCompressAndEncode11NEON(SB), NOSPLIT, $0-32
 	MOVD f+24(FP), R1
 
 	MOVD $1290168, R24
+	VDUP R24, V1.S4
+	MOVD $1664, R24
+	VDUP R24, V2.S4
+	MOVD $0xFFFF, R24
+	VDUP R24, V3.S4
+	MOVD $0x7FF, R24
+	VDUP R24, V4.S4
 	MOVD $32, R2
 
 compress_encode11_neon_loop:
-	LDP.P 16(R1), (R3, R4)
+	VLD1.P 16(R1), [V0.H8]
 
-	UBFX $0, R3, $16, R10
-	UBFX $16, R3, $16, R11
-	UBFX $32, R3, $16, R12
-	UBFX $48, R3, $16, R13
-	UBFX $0, R4, $16, R14
-	UBFX $16, R4, $16, R15
-	UBFX $32, R4, $16, R16
-	UBFX $48, R4, $16, R17
+	// Split 8xuint16 coefficients into even/odd 32-bit lanes.
+	VAND V3.B16, V0.B16, V20.B16
+	VUSHR $16, V0.S4, V21.S4
+	VAND V3.B16, V21.B16, V21.B16
 
-	COMPRESS_SCALAR(R10, 11, 0x7FF, R10, R5)
-	COMPRESS_SCALAR(R11, 11, 0x7FF, R11, R5)
-	COMPRESS_SCALAR(R12, 11, 0x7FF, R12, R5)
-	COMPRESS_SCALAR(R13, 11, 0x7FF, R13, R5)
-	COMPRESS_SCALAR(R14, 11, 0x7FF, R14, R5)
-	COMPRESS_SCALAR(R15, 11, 0x7FF, R15, R5)
-	COMPRESS_SCALAR(R16, 11, 0x7FF, R16, R5)
-	COMPRESS_SCALAR(R17, 11, 0x7FF, R17, R5)
+	// even lanes: c0,c2,c4,c6
+	VSHL $11, V20.S4, V20.S4
+	VADD V2.S4, V20.S4, V20.S4
+	WORD $0x2E61C296 // UMULL  V22.D2, V20.S2, V1.S2
+	WORD $0x6E61C297 // UMULL2 V23.D2, V20.S4, V1.S4
+	VUSHR $32, V22.D2, V22.D2
+	VUSHR $32, V23.D2, V23.D2
+
+	// odd lanes: c1,c3,c5,c7
+	VSHL $11, V21.S4, V21.S4
+	VADD V2.S4, V21.S4, V21.S4
+	WORD $0x2E61C2B8 // UMULL  V24.D2, V21.S2, V1.S2
+	WORD $0x6E61C2B9 // UMULL2 V25.D2, V21.S4, V1.S4
+	VUSHR $32, V24.D2, V24.D2
+	VUSHR $32, V25.D2, V25.D2
+	VAND V4.B16, V22.B16, V22.B16
+	VAND V4.B16, V23.B16, V23.B16
+	VAND V4.B16, V24.B16, V24.B16
+	VAND V4.B16, V25.B16, V25.B16
+
+	// Reorder to c0..c7 for ByteEncode_11 packing.
+	VMOV V22.D[0], R10
+	VMOV V24.D[0], R11
+	VMOV V22.D[1], R12
+	VMOV V24.D[1], R13
+	VMOV V23.D[0], R14
+	VMOV V25.D[0], R15
+	VMOV V23.D[1], R16
+	VMOV V25.D[1], R17
 
 	ORR R11<<11, R10, R21
 	ORR R12<<22, R21, R21
