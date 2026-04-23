@@ -1345,6 +1345,10 @@ poly_sub_neon_done:
 // ringCompressAndEncode4NEONVec computes ByteEncode_4(Compress_4(f)).
 // It keeps the same 8-lane compress core and uses vector packing for c0..c7.
 // func ringCompressAndEncode4NEONVec(out []byte, f *ringElement)
+DATA ·ringCompressEncode4StoreIdx+0(SB)/8, $0xFFFFFFFF06040200
+DATA ·ringCompressEncode4StoreIdx+8(SB)/8, $0xFFFFFFFFFFFFFFFF
+GLOBL ·ringCompressEncode4StoreIdx(SB), RODATA, $16
+
 TEXT ·ringCompressAndEncode4NEONVec(SB), NOSPLIT, $0-32
 	MOVD out_base+0(FP), R0
 	MOVD f+24(FP), R1
@@ -1356,6 +1360,8 @@ TEXT ·ringCompressAndEncode4NEONVec(SB), NOSPLIT, $0-32
 	VDUP R2, V23.S4
 	MOVD $0x0f, R2
 	VDUP R2, V24.S4
+	MOVD $·ringCompressEncode4StoreIdx(SB), R3
+	VLD1 (R3), [V27.B16]
 
 	MOVD $32, R2
 
@@ -1384,18 +1390,11 @@ compress_encode4_neon_vec_loop:
 	VUZP2 V21.H8, V21.H8, V26.H8
 	VSHL $4, V26.H8, V26.H8
 	VORR V26.B16, V25.B16, V25.B16
+	VTBL V27.B16, [V25.B16], V25.B16
 
-	// V25.D[0] bytes now follow [b0,0,b1,0,b2,0,b3,0].
+	// V25.D[0] low 4 bytes now are [b0,b1,b2,b3].
 	VMOV V25.D[0], R11
-	UBFX $0, R11, $8, R12
-	UBFX $16, R11, $8, R13
-	UBFX $32, R11, $8, R14
-	UBFX $48, R11, $8, R15
-	ORR R13<<8, R12, R12
-	ORR R15<<8, R14, R14
-	ORR R14<<16, R12, R12
-
-	MOVW R12, (R0)
+	MOVW R11, (R0)
 	ADD $4, R0
 
 	SUB $1, R2, R2
