@@ -1405,7 +1405,7 @@ compress_encode4_neon_loop:
 
 	// Narrow to bytes
 	VSHL $8, V25.H8, V25.H8
-	WORD $0x0E211B39                // SHRN V25.B8, V25.H8, #8
+	WORD $0x0F211B39                // SHRN V25.B8, V25.H8, #8
 	
 	// Write 4 bytes
 	VST1 [V25.B8], (R0)
