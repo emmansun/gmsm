@@ -131,7 +131,13 @@ func polySubAssignNEON(dst, src *ringElement)
 func ringCompressAndEncode4NEON(out []byte, f *ringElement)
 
 //go:noescape
+func ringDecodeAndDecompress4NEON(b *[encodingSize4]byte, f *ringElement)
+
+//go:noescape
 func ringCompressAndEncode5NEON(out []byte, f *ringElement)
+
+//go:noescape
+func ringDecodeAndDecompress5NEON(b *[encodingSize5]byte, f *ringElement)
 
 //go:noescape
 func ringCompressAndEncode10NEON(out []byte, f *ringElement)
@@ -219,7 +225,7 @@ func ringCompressAndEncode4(s []byte, f *ringElement) []byte {
 // It implements ByteDecode₄, according to FIPS 203, Algorithm 6,
 // followed by Decompress₄, according to FIPS 203, Definition 4.8.
 func ringDecodeAndDecompress4(b *[encodingSize4]byte, f *ringElement) {
-	ringDecodeAndDecompress4Generic(b, f)
+	ringDecodeAndDecompress4NEON(b, f)
 }
 
 // ringCompressAndEncode5 appends a 160-byte encoding of a ring element to s,
@@ -239,7 +245,9 @@ func ringCompressAndEncode5(s []byte, f *ringElement) []byte {
 // It implements ByteDecode₅, according to FIPS 203, Algorithm 6,
 // followed by Decompress₅, according to FIPS 203, Definition 4.8.
 func ringDecodeAndDecompress5(bb *[encodingSize5]byte) ringElement {
-	return ringDecodeAndDecompress(bb[:], 5)
+	var f ringElement
+	ringDecodeAndDecompress5NEON(bb, &f)
+	return f
 }
 
 // ringCompressAndEncode10 appends a 320-byte encoding of a ring element to s,

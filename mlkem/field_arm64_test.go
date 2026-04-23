@@ -1096,6 +1096,194 @@ func TestDecodeAndDecompressU11DispatchMatchesGeneric(t *testing.T) {
 	}
 }
 
+func TestRingDecodeAndDecompress4NEONMatchesGenericRandom(t *testing.T) {
+	for iter := 0; iter < 1000; iter++ {
+		var b [encodingSize4]byte
+		for i := range b {
+			b[i] = byte(iter*131+i*17+7) & 0xFF
+		}
+
+		var got, want ringElement
+		ringDecodeAndDecompress4NEON(&b, &got)
+		ringDecodeAndDecompress4Generic(&b, &want)
+
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("iter=%d coeff=%d: mismatch got=%d want=%d", iter, i, got[i], want[i])
+			}
+		}
+	}
+}
+
+func TestRingDecodeAndDecompress4NEONMatchesGenericEdgePatterns(t *testing.T) {
+	patterns := []struct {
+		name string
+		fill func(i int) byte
+	}{
+		{
+			name: "all-zero",
+			fill: func(i int) byte { return 0x00 },
+		},
+		{
+			name: "all-ones",
+			fill: func(i int) byte { return 0xFF },
+		},
+		{
+			name: "alternating-0x00-0xFF",
+			fill: func(i int) byte {
+				if i%2 == 0 {
+					return 0x00
+				}
+				return 0xFF
+			},
+		},
+		{
+			name: "low-nibble-only",
+			fill: func(i int) byte { return 0x0F },
+		},
+		{
+			name: "high-nibble-only",
+			fill: func(i int) byte { return 0xF0 },
+		},
+		{
+			name: "ascending",
+			fill: func(i int) byte { return byte(i) },
+		},
+	}
+
+	for _, tc := range patterns {
+		t.Run(tc.name, func(t *testing.T) {
+			var b [encodingSize4]byte
+			for i := range b {
+				b[i] = tc.fill(i)
+			}
+
+			var got, want ringElement
+			ringDecodeAndDecompress4NEON(&b, &got)
+			ringDecodeAndDecompress4Generic(&b, &want)
+
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatalf("pattern=%s coeff=%d: mismatch got=%d want=%d", tc.name, i, got[i], want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestRingDecodeAndDecompress4NEONMatchesGenericExhaustiveSingleByte(t *testing.T) {
+	for v := 0; v < 256; v++ {
+		var b [encodingSize4]byte
+		for i := range b {
+			b[i] = byte(v)
+		}
+
+		var got, want ringElement
+		ringDecodeAndDecompress4NEON(&b, &got)
+		ringDecodeAndDecompress4Generic(&b, &want)
+
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("byte=0x%02x coeff=%d: mismatch got=%d want=%d", v, i, got[i], want[i])
+			}
+		}
+	}
+}
+
+func TestRingDecodeAndDecompress5NEONMatchesGenericRandom(t *testing.T) {
+	for iter := 0; iter < 1000; iter++ {
+		var b [encodingSize5]byte
+		for i := range b {
+			b[i] = byte(iter*131+i*17+7) & 0xFF
+		}
+
+		var got ringElement
+		ringDecodeAndDecompress5NEON(&b, &got)
+		want := ringDecodeAndDecompress(b[:], 5)
+
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("iter=%d coeff=%d: mismatch got=%d want=%d", iter, i, got[i], want[i])
+			}
+		}
+	}
+}
+
+func TestRingDecodeAndDecompress5NEONMatchesGenericEdgePatterns(t *testing.T) {
+	patterns := []struct {
+		name string
+		fill func(i int) byte
+	}{
+		{
+			name: "all-zero",
+			fill: func(i int) byte { return 0x00 },
+		},
+		{
+			name: "all-ones",
+			fill: func(i int) byte { return 0xFF },
+		},
+		{
+			name: "alternating-0x00-0xFF",
+			fill: func(i int) byte {
+				if i%2 == 0 {
+					return 0x00
+				}
+				return 0xFF
+			},
+		},
+		{
+			name: "low-nibble-only",
+			fill: func(i int) byte { return 0x0F },
+		},
+		{
+			name: "high-nibble-only",
+			fill: func(i int) byte { return 0xF0 },
+		},
+		{
+			name: "ascending",
+			fill: func(i int) byte { return byte(i) },
+		},
+	}
+
+	for _, tc := range patterns {
+		t.Run(tc.name, func(t *testing.T) {
+			var b [encodingSize5]byte
+			for i := range b {
+				b[i] = tc.fill(i)
+			}
+
+			var got ringElement
+			ringDecodeAndDecompress5NEON(&b, &got)
+			want := ringDecodeAndDecompress(b[:], 5)
+
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatalf("pattern=%s coeff=%d: mismatch got=%d want=%d", tc.name, i, got[i], want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestRingDecodeAndDecompress5NEONMatchesGenericExhaustiveSingleByte(t *testing.T) {
+	for v := 0; v < 256; v++ {
+		var b [encodingSize5]byte
+		for i := range b {
+			b[i] = byte(v)
+		}
+
+		var got ringElement
+		ringDecodeAndDecompress5NEON(&b, &got)
+		want := ringDecodeAndDecompress(b[:], 5)
+
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("byte=0x%02x coeff=%d: mismatch got=%d want=%d", v, i, got[i], want[i])
+			}
+		}
+	}
+}
+
 func BenchmarkSamplePolyCBD2(b *testing.B) {
 	b.Run("Generic", func(b *testing.B) {
 		B := make([]byte, 128)

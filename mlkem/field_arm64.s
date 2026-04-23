@@ -1504,6 +1504,140 @@ poly_sub_neon_loop:
 poly_sub_neon_done:
 	RET
 
+// ringDecodeAndDecompress4NEON computes Decompress_4(ByteDecode_4(b)).
+//
+// Each 4-byte block contains 8 packed 4-bit coefficients. We unpack those
+// nibbles with scalar bit extracts into one NEON vector, then apply the shared
+// 8-lane Decompress_4 arithmetic:
+//   dividend = y * q
+//   out      = (dividend >> 4) + ((dividend >> 3) & 1)
+// func ringDecodeAndDecompress4NEON(b *[encodingSize4]byte, f *ringElement)
+TEXT ·ringDecodeAndDecompress4NEON(SB), NOSPLIT, $0-16
+	MOVD b+0(FP), R0
+	MOVD f+8(FP), R1
+
+	MOVD $3329, R2
+	VDUP R2, V1.H8
+	MOVD $1, R2
+	VDUP R2, V24.S4
+
+	// One ring has 256 coefficients -> 32 blocks of 8 coefficients.
+	MOVD $32, R5
+
+decode_ring4_neon_loop:
+	MOVWU (R0), R6
+
+	AND $0xF, R6, R10
+	UBFX $4, R6, $4, R11
+	UBFX $8, R6, $4, R12
+	UBFX $12, R6, $4, R13
+	UBFX $16, R6, $4, R14
+	UBFX $20, R6, $4, R15
+	UBFX $24, R6, $4, R16
+	UBFX $28, R6, $4, R17
+
+	ORR R11<<16, R10, R10
+	ORR R12<<32, R10, R10
+	ORR R13<<48, R10, R10
+	VMOV R10, V0.D[0]
+
+	ORR R15<<16, R14, R14
+	ORR R16<<32, R14, R14
+	ORR R17<<48, R14, R14
+	VMOV R14, V0.D[1]
+
+	WORD $0x2E61C015 // UMULL  V21.S4, V0.H4, V1.H4
+	WORD $0x6E61C016 // UMULL2 V22.S4, V0.H8, V1.H8
+
+	VUSHR $3, V21.S4, V23.S4
+	VUSHR $3, V22.S4, V25.S4
+	VAND V24.B16, V23.B16, V23.B16
+	VAND V24.B16, V25.B16, V25.B16
+	VUSHR $4, V21.S4, V21.S4
+	VUSHR $4, V22.S4, V22.S4
+	VADD V23.S4, V21.S4, V21.S4
+	VADD V25.S4, V22.S4, V22.S4
+	VSHL $16, V21.S4, V21.S4
+	VSHL $16, V22.S4, V22.S4
+	WORD $0x0F1086B5 // SHRN  V21.H4, V21.S4, #16
+	WORD $0x4F1086D5 // SHRN2 V21.H8, V22.S4, #16
+
+	VST1.P [V21.H8], 16(R1)
+	ADD $4, R0, R0
+	SUB $1, R5, R5
+	CBNZ R5, decode_ring4_neon_loop
+
+	RET
+
+// ringDecodeAndDecompress5NEON computes Decompress_5(ByteDecode_5(b)).
+//
+// Each 5-byte block contains 8 packed 5-bit coefficients. We unpack those
+// values with scalar bit extracts into one NEON vector, then apply the shared
+// 8-lane Decompress_5 arithmetic:
+//   dividend = y * q
+//   out      = (dividend >> 5) + ((dividend >> 4) & 1)
+// func ringDecodeAndDecompress5NEON(b *[encodingSize5]byte, f *ringElement)
+TEXT ·ringDecodeAndDecompress5NEON(SB), NOSPLIT, $0-16
+	MOVD b+0(FP), R0
+	MOVD f+8(FP), R1
+
+	MOVD $3329, R2
+	VDUP R2, V1.H8
+	MOVD $1, R2
+	VDUP R2, V24.S4
+
+	// One ring has 256 coefficients -> 32 blocks of 8 coefficients.
+	MOVD $32, R5
+
+decode_ring5_neon_loop:
+	MOVWU (R0), R6
+	MOVBU 4(R0), R7
+	MOVD R7, R8
+	LSL $32, R8, R8
+	ORR R8, R6, R6
+
+	UBFX $0, R6, $5, R10
+	UBFX $5, R6, $5, R11
+	UBFX $10, R6, $5, R12
+	UBFX $15, R6, $5, R13
+	UBFX $20, R6, $5, R14
+	UBFX $25, R6, $5, R15
+	UBFX $30, R6, $5, R16
+	UBFX $35, R6, $5, R17
+
+	ORR R11<<16, R10, R10
+	ORR R12<<32, R10, R10
+	ORR R13<<48, R10, R10
+	VMOV R10, V0.D[0]
+
+	ORR R15<<16, R14, R14
+	ORR R16<<32, R14, R14
+	ORR R17<<48, R14, R14
+	VMOV R14, V0.D[1]
+
+	WORD $0x2E61C015 // UMULL  V21.S4, V0.H4, V1.H4
+	WORD $0x6E61C016 // UMULL2 V22.S4, V0.H8, V1.H8
+
+	VUSHR $4, V21.S4, V23.S4
+	VUSHR $4, V22.S4, V25.S4
+	VAND V24.B16, V23.B16, V23.B16
+	VAND V24.B16, V25.B16, V25.B16
+	VUSHR $5, V21.S4, V21.S4
+	VUSHR $5, V22.S4, V22.S4
+	VADD V23.S4, V21.S4, V21.S4
+	VADD V25.S4, V22.S4, V22.S4
+	VSHL $16, V21.S4, V21.S4
+	VSHL $16, V22.S4, V22.S4
+	WORD $0x0F1086B5 // SHRN  V21.H4, V21.S4, #16
+	WORD $0x4F1086D5 // SHRN2 V21.H8, V22.S4, #16
+
+	VST1.P [V21.H8], 16(R1)
+	ADD $5, R0, R0
+	SUB $1, R5, R5
+	CBNZ R5, decode_ring5_neon_loop
+
+	RET
+
 // ringCompressAndEncode4NEON computes ByteEncode_4(Compress_4(f)).
 // It keeps the same 8-lane compress core and uses vector packing for c0..c7.
 // func ringCompressAndEncode4NEON(out []byte, f *ringElement)
