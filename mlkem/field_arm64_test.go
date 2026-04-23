@@ -12,6 +12,7 @@ import (
 )
 
 var benchDecodeSink fieldElement
+var benchEncode4Sink byte
 
 func benchCiphertextBytes(n int) []byte {
 	b := make([]byte, n)
@@ -231,6 +232,44 @@ func TestRingCompressAndEncode4NEONMatchesGenericExhaustiveSingleValue(t *testin
 			}
 		}
 	}
+}
+
+func BenchmarkRingCompressAndEncode4(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize4]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode4Generic(out[:], &f)
+		}
+		benchEncode4Sink = out[0]
+	})
+
+	b.Run("NEON", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize4]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode4NEON(out[:], &f)
+		}
+		benchEncode4Sink = out[0]
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize4]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode4(out[:0], &f)
+		}
+		benchEncode4Sink = out[0]
+	})
 }
 
 func BenchmarkNTTForward(b *testing.B) {
