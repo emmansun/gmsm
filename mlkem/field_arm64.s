@@ -1246,9 +1246,9 @@ decode_u11_neon_done:
 	RET
 
 #define STORE_REJ_COEFF(RVAL) \
-	LSL $1, R3, R24            \
-	ADD R2, R24, R24           \
-	MOVH RVAL, (R24)           \
+	LSL $1, R3, R27            \
+	ADD R2, R27, R27           \
+	MOVH RVAL, (R27)           \
 	ADD $1, R3, R3
 
 #define BUILD_ACCEPT_MASK_FROM_V0(RMASK) \
