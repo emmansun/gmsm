@@ -343,13 +343,13 @@ func ringDecodeAndDecompress5(bb *[encodingSize5]byte) ringElement {
 //
 // It implements Compress₁₀, according to FIPS 203, Definition 4.7,
 // followed by ByteEncode₁₀, according to FIPS 203, Algorithm 5.
-func ringCompressAndEncode10(s []byte, f ringElement) []byte {
+func ringCompressAndEncode10(s []byte, f *ringElement) []byte {
 	s, b := sliceForAppend(s, encodingSize10)
 	if useAVX2 {
-		ringCompressAndEncode10AVX2(b, &f)
+		ringCompressAndEncode10AVX2(b, f)
 		return s
 	}
-	ringCompressAndEncode10Generic(b, &f)
+	ringCompressAndEncode10Generic(b, f)
 	return s
 }
 

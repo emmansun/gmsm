@@ -419,7 +419,7 @@ func pkeEncrypt(cc *[CiphertextSize768]byte, ex *encryptionKey, m *[messageSize]
 
 	c := cc[:0]
 	for _, f := range u {
-		c = ringCompressAndEncode10(c, f)
+		c = ringCompressAndEncode10(c, &f)
 	}
 	c = ringCompressAndEncode4(c, &v)
 

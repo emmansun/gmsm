@@ -170,7 +170,7 @@ func TestEncodeDecode(t *testing.T) {
 
 	// Compare ringCompressAndEncode to ringCompressAndEncodeN.
 	e1 := ringCompressAndEncode(nil, &f, 10)
-	e2 := ringCompressAndEncode10(nil, f)
+	e2 := ringCompressAndEncode10(nil, &f)
 	if !bytes.Equal(e1, e2) {
 		t.Errorf("ringCompressAndEncode = %x, ringCompressAndEncode10 = %x", e1, e2)
 	}
@@ -219,7 +219,7 @@ func TestEncodeDecode(t *testing.T) {
 
 	// Round-trip ringCompressAndEncodeN and ringDecodeAndDecompressN.
 	g := ringDecodeAndDecompress10((*[encodingSize10]byte)(b))
-	out := ringCompressAndEncode10(nil, g)
+	out := ringCompressAndEncode10(nil, &g)
 	if !bytes.Equal(out, b[:encodingSize10]) {
 		t.Errorf("roundtrip failed for specialized 10")
 	}

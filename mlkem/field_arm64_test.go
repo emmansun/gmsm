@@ -18,6 +18,10 @@ func ringCompressAndEncode5Generic(out []byte, f *ringElement) {
 	ringCompressAndEncode(out[:0], f, 5)
 }
 
+func ringCompressAndEncode11Generic(out []byte, f *ringElement) {
+	ringCompressAndEncode(out[:0], f, 11)
+}
+
 func benchCiphertextBytes(n int) []byte {
 	b := make([]byte, n)
 	for i := range b {
@@ -330,6 +334,172 @@ func TestRingCompressAndEncode5NEONMatchesGenericExhaustiveSingleValue(t *testin
 	}
 }
 
+func TestRingCompressAndEncode10NEONMatchesGenericRandom(t *testing.T) {
+	for iter := 0; iter < 1000; iter++ {
+		f := randomRingElement()
+
+		var got [encodingSize10]byte
+		var want [encodingSize10]byte
+		ringCompressAndEncode10NEON(got[:], &f)
+		ringCompressAndEncode10Generic(want[:], &f)
+
+		if got != want {
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatalf("iter=%d byte=%d: mismatch got=%02x want=%02x", iter, i, got[i], want[i])
+				}
+			}
+		}
+	}
+}
+
+func TestRingCompressAndEncode10NEONMatchesGenericEdgePatterns(t *testing.T) {
+	patterns := []struct {
+		name string
+		fill func(i int) fieldElement
+	}{
+		{name: "all-zero", fill: func(i int) fieldElement { return 0 }},
+		{name: "all-max", fill: func(i int) fieldElement { return q - 1 }},
+		{
+			name: "alternating-zero-max",
+			fill: func(i int) fieldElement {
+				if i%2 == 0 {
+					return 0
+				}
+				return q - 1
+			},
+		},
+		{name: "ascending-mod-q", fill: func(i int) fieldElement { return fieldElement(i % int(q)) }},
+	}
+
+	for _, tc := range patterns {
+		t.Run(tc.name, func(t *testing.T) {
+			var f ringElement
+			for i := range f {
+				f[i] = tc.fill(i)
+			}
+
+			var got [encodingSize10]byte
+			var want [encodingSize10]byte
+			ringCompressAndEncode10NEON(got[:], &f)
+			ringCompressAndEncode10Generic(want[:], &f)
+
+			if got != want {
+				for i := range got {
+					if got[i] != want[i] {
+						t.Fatalf("pattern=%s byte=%d: mismatch got=%02x want=%02x", tc.name, i, got[i], want[i])
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestRingCompressAndEncode10NEONMatchesGenericExhaustiveSingleValue(t *testing.T) {
+	for x := 0; x < int(q); x++ {
+		var f ringElement
+		for i := range f {
+			f[i] = fieldElement(x)
+		}
+
+		var got [encodingSize10]byte
+		var want [encodingSize10]byte
+		ringCompressAndEncode10NEON(got[:], &f)
+		ringCompressAndEncode10Generic(want[:], &f)
+
+		if got != want {
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatalf("x=%d byte=%d: mismatch got=%02x want=%02x", x, i, got[i], want[i])
+				}
+			}
+		}
+	}
+}
+
+func TestRingCompressAndEncode11NEONMatchesGenericRandom(t *testing.T) {
+	for iter := 0; iter < 1000; iter++ {
+		f := randomRingElement()
+
+		var got [encodingSize11]byte
+		var want [encodingSize11]byte
+		ringCompressAndEncode11NEON(got[:], &f)
+		ringCompressAndEncode11Generic(want[:], &f)
+
+		if got != want {
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatalf("iter=%d byte=%d: mismatch got=%02x want=%02x", iter, i, got[i], want[i])
+				}
+			}
+		}
+	}
+}
+
+func TestRingCompressAndEncode11NEONMatchesGenericEdgePatterns(t *testing.T) {
+	patterns := []struct {
+		name string
+		fill func(i int) fieldElement
+	}{
+		{name: "all-zero", fill: func(i int) fieldElement { return 0 }},
+		{name: "all-max", fill: func(i int) fieldElement { return q - 1 }},
+		{
+			name: "alternating-zero-max",
+			fill: func(i int) fieldElement {
+				if i%2 == 0 {
+					return 0
+				}
+				return q - 1
+			},
+		},
+		{name: "ascending-mod-q", fill: func(i int) fieldElement { return fieldElement(i % int(q)) }},
+	}
+
+	for _, tc := range patterns {
+		t.Run(tc.name, func(t *testing.T) {
+			var f ringElement
+			for i := range f {
+				f[i] = tc.fill(i)
+			}
+
+			var got [encodingSize11]byte
+			var want [encodingSize11]byte
+			ringCompressAndEncode11NEON(got[:], &f)
+			ringCompressAndEncode11Generic(want[:], &f)
+
+			if got != want {
+				for i := range got {
+					if got[i] != want[i] {
+						t.Fatalf("pattern=%s byte=%d: mismatch got=%02x want=%02x", tc.name, i, got[i], want[i])
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestRingCompressAndEncode11NEONMatchesGenericExhaustiveSingleValue(t *testing.T) {
+	for x := 0; x < int(q); x++ {
+		var f ringElement
+		for i := range f {
+			f[i] = fieldElement(x)
+		}
+
+		var got [encodingSize11]byte
+		var want [encodingSize11]byte
+		ringCompressAndEncode11NEON(got[:], &f)
+		ringCompressAndEncode11Generic(want[:], &f)
+
+		if got != want {
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatalf("x=%d byte=%d: mismatch got=%02x want=%02x", x, i, got[i], want[i])
+				}
+			}
+		}
+	}
+}
+
 func BenchmarkRingCompressAndEncode4(b *testing.B) {
 	b.Run("Generic", func(b *testing.B) {
 		f := randomRingElement()
@@ -401,6 +571,82 @@ func BenchmarkRingCompressAndEncode5(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			ringCompressAndEncode5(out[:0], &f)
+		}
+		benchEncode4Sink = out[0]
+	})
+}
+
+func BenchmarkRingCompressAndEncode10(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize10]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize10)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode10Generic(out[:], &f)
+		}
+		benchEncode4Sink = out[0]
+	})
+
+	b.Run("NEON", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize10]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize10)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode10NEON(out[:], &f)
+		}
+		benchEncode4Sink = out[0]
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize10]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize10)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode10(out[:0], &f)
+		}
+		benchEncode4Sink = out[0]
+	})
+}
+
+func BenchmarkRingCompressAndEncode11(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize11]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize11)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode11Generic(out[:], &f)
+		}
+		benchEncode4Sink = out[0]
+	})
+
+	b.Run("NEON", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize11]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize11)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode11NEON(out[:], &f)
+		}
+		benchEncode4Sink = out[0]
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize11]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize11)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode11(out[:0], &f)
 		}
 		benchEncode4Sink = out[0]
 	})

@@ -133,6 +133,12 @@ func ringCompressAndEncode4NEON(out []byte, f *ringElement)
 //go:noescape
 func ringCompressAndEncode5NEON(out []byte, f *ringElement)
 
+//go:noescape
+func ringCompressAndEncode10NEON(out []byte, f *ringElement)
+
+//go:noescape
+func ringCompressAndEncode11NEON(out []byte, f *ringElement)
+
 func nttMul(out, lhs, rhs *nttElement) {
 	internalNTTMulNEON(out, lhs, rhs)
 }
@@ -238,9 +244,9 @@ func ringDecodeAndDecompress5(bb *[encodingSize5]byte) ringElement {
 //
 // It implements Compress₁₀, according to FIPS 203, Definition 4.7,
 // followed by ByteEncode₁₀, according to FIPS 203, Algorithm 5.
-func ringCompressAndEncode10(s []byte, f ringElement) []byte {
+func ringCompressAndEncode10(s []byte, f *ringElement) []byte {
 	s, b := sliceForAppend(s, encodingSize10)
-	ringCompressAndEncode10Generic(b, &f)
+	ringCompressAndEncode10NEON(b, f)
 	return s
 }
 
@@ -250,7 +256,9 @@ func ringCompressAndEncode10(s []byte, f ringElement) []byte {
 // It implements Compress₁₁, according to FIPS 203, Definition 4.7,
 // followed by ByteEncode₁₁, according to FIPS 203, Algorithm 5.
 func ringCompressAndEncode11(s []byte, f *ringElement) []byte {
-	return ringCompressAndEncode(s, f, 11)
+	s, b := sliceForAppend(s, encodingSize11)
+	ringCompressAndEncode11NEON(b, f)
+	return s
 }
 
 // sampleNTT draws a uniformly random nttElement from a stream of uniformly

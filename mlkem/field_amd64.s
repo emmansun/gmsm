@@ -215,27 +215,6 @@ GLOBL compressEncode11ShuffleIdx<>(SB), RODATA, $32
 	VPANDN Y15, Y13, Y13 \   // Y13 = q if result >= q else 0
 	VPSUBW Y13, Y12, YOUT
 
-// MONT_MUL_VECX computes lane-wise Montgomery multiplication YOUT = MontMul(XA, XZ).
-// Inputs: XA=value, XZ=multiplier-broadcast.
-// Constants: X15=q, X14=qNegInv, X10=one, X8=zero.
-// Clobbers: X11, X12, X13.
-#define MONT_MUL_VECX(XA, XZ, XOUT) \
-	\ // mul XA by XZ, producing 32-bit products in X11 (low) and X12 (high)
-	VPMULLW XZ, XA, X11 \    // lo = (XA * XZ) mod 2^16
-	VPMULHUW XZ, XA, X12 \   // hi = (XA * XZ) >> 16  [unsigned]
-	\ // montgomery reduction: m = (t_ab[even] * qNegInv) mod r, t = (t_ab + m*q) / r
-	VPMULLW X14, X11, X13 \  // t  = lo * qNegInv mod 2^16
-	VPMULHUW X15, X13, X13 \ // correction = (t * q) >> 16
-	VPADDW X13, X12, X12 \   // result = hi + correction
-	\ // lo==0 edge-case correction (adds 1 when lo != 0):
-	VPCMPEQW X8, X11, X13 \  // X13 = 0xFFFF if lo==0 else 0
-	VPADDW X10, X13, X13 \   // X13 = 0 if lo==0 else 1  (1+0xFFFF=0, 1+0=1)
-	VPADDW X13, X12, X12 \   // result += X13  (adds 1 when lo != 0)
-	\ // final conditional subtraction to reduce mod q: if t >= q, subtract q; else keep t
-	VPCMPGTW X12, X15, X13 \ // X13 = 0xFFFF if result < q else 0
-	VPANDN X15, X13, X13 \   // X13 = q if result >= q else 0
-	VPSUBW X13, X12, XOUT
-
 // BUTTERFLY performs one Cooley-Tukey butterfly on 16 lanes.
 // Inputs: YA=a, YB=b, YZ=zeta-broadcast.
 // Constants: Y15=q, Y14=qNegInv, Y10=one, Y8=zero.
