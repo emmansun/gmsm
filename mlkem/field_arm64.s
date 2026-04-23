@@ -1377,8 +1377,10 @@ rejuniform_arm64_loop:
 	ADD R0, R5, R24
 	MOVBU 0(R24), R6
 	MOVBU 1(R24), R7
-	LSL $8, R7, R7
-	ORR R7, R6, R6
+	MOVBU 2(R24), R9
+
+	LSL $8, R7, R10
+	ORR R10, R6, R6
 	AND $0x0FFF, R6, R8
 	CMP R25, R8
 	BGE rejuniform_arm64_skip_d1
@@ -1387,10 +1389,8 @@ rejuniform_arm64_loop:
 	BGE rejuniform_arm64_done
 
 rejuniform_arm64_skip_d1:
-	MOVBU 1(R24), R6
-	MOVBU 2(R24), R7
-	LSL $8, R7, R7
-	ORR R7, R6, R6
+	LSL $8, R9, R10
+	ORR R10, R7, R6
 	LSR $4, R6, R6
 	CMP R25, R6
 	BGE rejuniform_arm64_next
