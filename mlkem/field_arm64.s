@@ -1447,7 +1447,7 @@ rejuniform_arm64_loop:
 	LSL $8, R7, R7
 	ORR R7, R6, R6
 	AND $0x0FFF, R6, R8
-	CMP R8, R25
+	CMP R25, R8
 	BGE rejuniform_arm64_skip_d1
 	STORE_REJ_COEFF(R8)
 	CMP $256, R3
@@ -1459,7 +1459,7 @@ rejuniform_arm64_skip_d1:
 	LSL $8, R7, R7
 	ORR R7, R6, R6
 	LSR $4, R6, R6
-	CMP R6, R25
+	CMP R25, R6
 	BGE rejuniform_arm64_next
 	STORE_REJ_COEFF(R6)
 	CMP $256, R3
