@@ -1285,8 +1285,7 @@ TEXT ·rejUniformARM64(SB), NOSPLIT, $0-48
 	MOVD j+32(FP), R3
 	MOVD R3, R4
 
-	MOVD $256, R24
-	CMP R3, R24
+	CMP $256, R3
 	BGE rejuniform_arm64_done
 	CMP $24, R1
 	BNE rejuniform_arm64_loop_setup
@@ -1296,7 +1295,6 @@ TEXT ·rejUniformARM64(SB), NOSPLIT, $0-48
 	MOVD $3328, R25
 	VDUP R25, V31.H8
 	MOVD $0xFF, R25
-	MOVD $256, R26
 
 	// Fast block 0: bytes [0..11] -> eight 12-bit candidates.
 	MOVD (R0), R6
@@ -1327,42 +1325,42 @@ TEXT ·rejUniformARM64(SB), NOSPLIT, $0-48
 
 	TBZ $0, R22, rejuniform_arm64_fast0_skip0
 	STORE_REJ_COEFF(R10)
-	CMP R3, R26
+	CMP $256, R3
 	BGE rejuniform_arm64_done
 rejuniform_arm64_fast0_skip0:
 	TBZ $1, R22, rejuniform_arm64_fast0_skip1
 	STORE_REJ_COEFF(R11)
-	CMP R3, R26
+	CMP $256, R3
 	BGE rejuniform_arm64_done
 rejuniform_arm64_fast0_skip1:
 	TBZ $2, R22, rejuniform_arm64_fast0_skip2
 	STORE_REJ_COEFF(R12)
-	CMP R3, R26
+	CMP $256, R3
 	BGE rejuniform_arm64_done
 rejuniform_arm64_fast0_skip2:
 	TBZ $3, R22, rejuniform_arm64_fast0_skip3
 	STORE_REJ_COEFF(R13)
-	CMP R3, R26
+	CMP $256, R3
 	BGE rejuniform_arm64_done
 rejuniform_arm64_fast0_skip3:
 	TBZ $4, R22, rejuniform_arm64_fast0_skip4
 	STORE_REJ_COEFF(R14)
-	CMP R3, R26
+	CMP $256, R3
 	BGE rejuniform_arm64_done
 rejuniform_arm64_fast0_skip4:
 	TBZ $5, R22, rejuniform_arm64_fast0_skip5
 	STORE_REJ_COEFF(R15)
-	CMP R3, R26
+	CMP $256, R3
 	BGE rejuniform_arm64_done
 rejuniform_arm64_fast0_skip5:
 	TBZ $6, R22, rejuniform_arm64_fast0_skip6
 	STORE_REJ_COEFF(R16)
-	CMP R3, R26
+	CMP $256, R3
 	BGE rejuniform_arm64_done
 rejuniform_arm64_fast0_skip6:
 	TBZ $7, R22, rejuniform_arm64_fast0_skip7
 	STORE_REJ_COEFF(R17)
-	CMP R3, R26
+	CMP $256, R3
 	BGE rejuniform_arm64_done
 rejuniform_arm64_fast0_skip7:
 
@@ -1395,42 +1393,42 @@ rejuniform_arm64_fast0_skip7:
 
 	TBZ $0, R22, rejuniform_arm64_fast1_skip0
 	STORE_REJ_COEFF(R10)
-	CMP R3, R26
+	CMP $256, R3
 	BGE rejuniform_arm64_done
 rejuniform_arm64_fast1_skip0:
 	TBZ $1, R22, rejuniform_arm64_fast1_skip1
 	STORE_REJ_COEFF(R11)
-	CMP R3, R26
+	CMP $256, R3
 	BGE rejuniform_arm64_done
 rejuniform_arm64_fast1_skip1:
 	TBZ $2, R22, rejuniform_arm64_fast1_skip2
 	STORE_REJ_COEFF(R12)
-	CMP R3, R26
+	CMP $256, R3
 	BGE rejuniform_arm64_done
 rejuniform_arm64_fast1_skip2:
 	TBZ $3, R22, rejuniform_arm64_fast1_skip3
 	STORE_REJ_COEFF(R13)
-	CMP R3, R26
+	CMP $256, R3
 	BGE rejuniform_arm64_done
 rejuniform_arm64_fast1_skip3:
 	TBZ $4, R22, rejuniform_arm64_fast1_skip4
 	STORE_REJ_COEFF(R14)
-	CMP R3, R26
+	CMP $256, R3
 	BGE rejuniform_arm64_done
 rejuniform_arm64_fast1_skip4:
 	TBZ $5, R22, rejuniform_arm64_fast1_skip5
 	STORE_REJ_COEFF(R15)
-	CMP R3, R26
+	CMP $256, R3
 	BGE rejuniform_arm64_done
 rejuniform_arm64_fast1_skip5:
 	TBZ $6, R22, rejuniform_arm64_fast1_skip6
 	STORE_REJ_COEFF(R16)
-	CMP R3, R26
+	CMP $256, R3
 	BGE rejuniform_arm64_done
 rejuniform_arm64_fast1_skip6:
 	TBZ $7, R22, rejuniform_arm64_fast1_skip7
 	STORE_REJ_COEFF(R17)
-	CMP R3, R26
+	CMP $256, R3
 	BGE rejuniform_arm64_done
 rejuniform_arm64_fast1_skip7:
 	B rejuniform_arm64_done
@@ -1438,7 +1436,6 @@ rejuniform_arm64_fast1_skip7:
 rejuniform_arm64_loop_setup:
 	MOVD $0, R5
 	MOVD $3329, R25
-	MOVD $256, R26
 
 rejuniform_arm64_loop:
 	CMP R1, R5
@@ -1453,7 +1450,7 @@ rejuniform_arm64_loop:
 	CMP R8, R25
 	BGE rejuniform_arm64_skip_d1
 	STORE_REJ_COEFF(R8)
-	CMP R3, R26
+	CMP $256, R3
 	BGE rejuniform_arm64_done
 
 rejuniform_arm64_skip_d1:
@@ -1465,7 +1462,7 @@ rejuniform_arm64_skip_d1:
 	CMP R6, R25
 	BGE rejuniform_arm64_next
 	STORE_REJ_COEFF(R6)
-	CMP R3, R26
+	CMP $256, R3
 	BGE rejuniform_arm64_done
 
 rejuniform_arm64_next:
