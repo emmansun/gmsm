@@ -1250,28 +1250,6 @@ decode_u11_neon_done:
 	ADD $2, R19, R19           \
 	ADD $1, R3, R3
 
-#define BUILD_ACCEPT_MASK_FROM_V0(RMASK) \
-	VSUB V0.H8, V31.H8, V1.H8             \
-	VUSHR $15, V1.H8, V1.H8               \
-	VMOV V1.D[0], R20                     \
-	VMOV V1.D[1], R21                     \
-	UBFX $0, R20, $1, RMASK               \
-	UBFX $16, R20, $1, R23                \
-	ORR R23<<1, RMASK, RMASK              \
-	UBFX $32, R20, $1, R23                \
-	ORR R23<<2, RMASK, RMASK              \
-	UBFX $48, R20, $1, R23                \
-	ORR R23<<3, RMASK, RMASK              \
-	UBFX $0, R21, $1, R23                 \
-	ORR R23<<4, RMASK, RMASK              \
-	UBFX $16, R21, $1, R23                \
-	ORR R23<<5, RMASK, RMASK              \
-	UBFX $32, R21, $1, R23                \
-	ORR R23<<6, RMASK, RMASK              \
-	UBFX $48, R21, $1, R23                \
-	ORR R23<<7, RMASK, RMASK              \
-	EOR R25, RMASK, RMASK
-
 // rejUniformARM64 implements the scalar rejection sampler used by sampleNTT.
 // The hot len==24 path uses AArch64 bitfield extracts plus NEON to compare
 // eight 12-bit candidates at a time, while scalar stores keep accepted values
@@ -1306,17 +1284,6 @@ TEXT ·rejUniformARM64(SB), NOSPLIT, $0-48
 	AND $0x0FFF, R15, R15
 	UBFX $8, R7, $12, R16
 	UBFX $20, R7, $12, R17
-
-	MOVD R10, R26
-	ORR R11<<16, R26, R26
-	ORR R12<<32, R26, R26
-	ORR R13<<48, R26, R26
-	VMOV R26, V0.D[0]
-	MOVD R14, R27
-	ORR R15<<16, R27, R27
-	ORR R16<<32, R27, R27
-	ORR R17<<48, R27, R27
-	VMOV R27, V0.D[1]
 
 	CMP $3329, R10
 	BHS rejuniform_arm64_fast0_skip0
@@ -1364,17 +1331,6 @@ rejuniform_arm64_fast0_skip7:
 	AND $0x0FFF, R15, R15
 	UBFX $8, R7, $12, R16
 	UBFX $20, R7, $12, R17
-
-	MOVD R10, R26
-	ORR R11<<16, R26, R26
-	ORR R12<<32, R26, R26
-	ORR R13<<48, R26, R26
-	VMOV R26, V0.D[0]
-	MOVD R14, R27
-	ORR R15<<16, R27, R27
-	ORR R16<<32, R27, R27
-	ORR R17<<48, R27, R27
-	VMOV R27, V0.D[1]
 
 	CMP $3329, R10
 	BHS rejuniform_arm64_fast1_skip0
