@@ -1350,7 +1350,7 @@ poly_sub_neon_done:
 //   - Pack 8 compressed 4-bit values into 4 output bytes using bitfield OR
 //   - Inspired by decodeAndDecompressU10NEON's packing strategy
 //
-// 16 iterations × 8 coefficients = 128 pairs = 256 total coefficients.
+// 32 iterations × 8 coefficients = 256 total coefficients.
 // Keep vectorized compress path; use conservative scalar pack to avoid
 // ISA-encoding risk from hand-written narrow-to-byte opcodes.
 //
@@ -1367,7 +1367,7 @@ TEXT ·ringCompressAndEncode4NEON(SB), NOSPLIT, $0-32
 	MOVD $0x0f, R2
 	VDUP R2, V24.S4          // V24 = [15, 15, 15, 15]
 
-	MOVD $16, R2             // 16 iterations
+	MOVD $32, R2             // 32 iterations
 
 compress_encode4_neon_loop:
 	// Load 8 coefficients
@@ -1428,8 +1428,7 @@ compress_encode4_neon_loop:
 	MOVW R13, (R0)
 	ADD $4, R0
 
-	SUB $1, R2
+	SUB $1, R2, R2
 	CBNZ R2, compress_encode4_neon_loop
 
 	RET
-
