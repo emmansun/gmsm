@@ -1401,3 +1401,77 @@ compress_encode4_neon_vec_loop:
 	CBNZ R2, compress_encode4_neon_vec_loop
 
 	RET
+
+// ringCompressAndEncode5NEON computes ByteEncode_5(Compress_5(f)).
+// It reuses the same 8-lane compress core and packs each c0..c7 block to 5 bytes.
+// func ringCompressAndEncode5NEON(out []byte, f *ringElement)
+TEXT ·ringCompressAndEncode5NEON(SB), NOSPLIT, $0-32
+	MOVD out_base+0(FP), R0
+	MOVD f+24(FP), R1
+
+	// Setup constants for compress core.
+	MOVD $20159, R2
+	VDUP R2, V1.H8
+	MOVD $1024, R2
+	VDUP R2, V23.S4
+	MOVD $0x1f, R2
+	VDUP R2, V24.S4
+
+	MOVD $32, R2
+
+compress_encode5_neon_loop:
+	VLD1.P 16(R1), [V0.H8]
+
+	WORD $0x2E61C015 // UMULL V21.S4, V0.H4, V1.H4
+	WORD $0x6E61C016 // UMULL2 V22.S4, V0.H8, V1.H8
+
+	VUSHR $16, V21.S4, V21.S4
+	VUSHR $16, V22.S4, V22.S4
+	VADD V23.S4, V21.S4, V21.S4
+	VADD V23.S4, V22.S4, V22.S4
+	VUSHR $11, V21.S4, V21.S4
+	VUSHR $11, V22.S4, V22.S4
+	VAND V24.B16, V21.B16, V21.B16
+	VAND V24.B16, V22.B16, V22.B16
+
+	VSHL $16, V21.S4, V21.S4
+	VSHL $16, V22.S4, V22.S4
+	WORD $0x0F1086B5 // SHRN  V21.H4, V21.S4, #16
+	WORD $0x4F1086D5 // SHRN2 V21.H8, V22.S4, #16
+
+	// Vector-pack adjacent pairs: p0=c0|(c1<<5), ..., p3=c6|(c7<<5).
+	VUZP1 V21.H8, V21.H8, V25.H8
+	VUZP2 V21.H8, V21.H8, V26.H8
+	VSHL $5, V26.H8, V26.H8
+	VORR V26.B16, V25.B16, V25.B16
+
+	// Extract the four 10-bit pairs from low H lanes.
+	VMOV V25.D[0], R11
+	UBFX $0, R11, $10, R12
+	UBFX $16, R11, $10, R13
+	UBFX $32, R11, $10, R14
+	UBFX $48, R11, $10, R15
+
+	// Pack p0..p3 into 5 output bytes in generic ByteEncode_5 order.
+	MOVB R12, (R0)
+
+	UBFX $8, R12, $2, R21
+	ORR R13<<2, R21, R21
+	MOVB R21, 1(R0)
+
+	UBFX $6, R13, $4, R21
+	ORR R14<<4, R21, R21
+	MOVB R21, 2(R0)
+
+	UBFX $4, R14, $6, R21
+	ORR R15<<6, R21, R21
+	MOVB R21, 3(R0)
+
+	LSR $2, R15, R21
+	MOVB R21, 4(R0)
+	ADD $5, R0
+
+	SUB $1, R2, R2
+	CBNZ R2, compress_encode5_neon_loop
+
+	RET
