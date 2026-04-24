@@ -2011,19 +2011,22 @@ compress_encode10_neon_loop:
 	VAND V4.B16, V24.B16, V24.B16
 	VAND V4.B16, V25.B16, V25.B16
 
-	// Reorder to c0..c7 for ByteEncode_10 packing.
+	// Reorder to c0..c3 for ByteEncode_10 packing.
 	VMOV V22.D[0], R10
 	VMOV V24.D[0], R11
 	VMOV V22.D[1], R12
 	VMOV V24.D[1], R13
+
+	ORR R11<<10, R10, R21
+	ORR R12<<20, R21, R21
+	ORR R13<<30, R21, R21
+
+	// Reorder to c4..c7 for ByteEncode_10 packing.
 	VMOV V23.D[0], R14
 	VMOV V25.D[0], R15
 	VMOV V23.D[1], R16
 	VMOV V25.D[1], R17
 
-	ORR R11<<10, R10, R21
-	ORR R12<<20, R21, R21
-	ORR R13<<30, R21, R21
 	MOVW R21, (R0)
 	LSR $32, R21, R22
 	MOVB R22, 4(R0)
@@ -2101,19 +2104,21 @@ compress_encode11_neon_loop:
 	VAND V4.B16, V24.B16, V24.B16
 	VAND V4.B16, V25.B16, V25.B16
 
-	// Reorder to c0..c7 for ByteEncode_11 packing.
+	// Reorder to c0..c3 for ByteEncode_11 packing.
 	VMOV V22.D[0], R10
 	VMOV V24.D[0], R11
 	VMOV V22.D[1], R12
 	VMOV V24.D[1], R13
-	VMOV V23.D[0], R14
-	VMOV V25.D[0], R15
-	VMOV V23.D[1], R16
-	VMOV V25.D[1], R17
 
 	ORR R11<<11, R10, R21
 	ORR R12<<22, R21, R21
 	ORR R13<<33, R21, R21
+
+	// Reorder to c4..c7 for ByteEncode_11 packing.
+	VMOV V23.D[0], R14
+	VMOV V25.D[0], R15
+	VMOV V23.D[1], R16
+	VMOV V25.D[1], R17
 
 	ORR R15<<11, R14, R23
 	ORR R16<<22, R23, R23
