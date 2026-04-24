@@ -529,375 +529,6 @@ func TestRingCompressAndEncode11NEONMatchesGenericExhaustiveSingleValue(t *testi
 	}
 }
 
-func BenchmarkRingCompressAndEncode4(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		f := randomRingElement()
-		var out [encodingSize4]byte
-		b.ReportAllocs()
-		b.SetBytes(encodingSize4)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringCompressAndEncode4Generic(out[:], &f)
-		}
-		benchEncode4Sink = out[0]
-	})
-
-	b.Run("NEON", func(b *testing.B) {
-		f := randomRingElement()
-		var out [encodingSize4]byte
-		b.ReportAllocs()
-		b.SetBytes(encodingSize4)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringCompressAndEncode4NEON(out[:], &f)
-		}
-		benchEncode4Sink = out[0]
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		f := randomRingElement()
-		var out [encodingSize4]byte
-		b.ReportAllocs()
-		b.SetBytes(encodingSize4)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringCompressAndEncode4(out[:0], &f)
-		}
-		benchEncode4Sink = out[0]
-	})
-}
-
-func BenchmarkRingCompressAndEncode5(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		f := randomRingElement()
-		var out [encodingSize5]byte
-		b.ReportAllocs()
-		b.SetBytes(encodingSize5)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringCompressAndEncode5Generic(out[:], &f)
-		}
-		benchEncode4Sink = out[0]
-	})
-
-	b.Run("NEON", func(b *testing.B) {
-		f := randomRingElement()
-		var out [encodingSize5]byte
-		b.ReportAllocs()
-		b.SetBytes(encodingSize5)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringCompressAndEncode5NEON(out[:], &f)
-		}
-		benchEncode4Sink = out[0]
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		f := randomRingElement()
-		var out [encodingSize5]byte
-		b.ReportAllocs()
-		b.SetBytes(encodingSize5)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringCompressAndEncode5(out[:0], &f)
-		}
-		benchEncode4Sink = out[0]
-	})
-}
-
-func BenchmarkRingCompressAndEncode10(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		f := randomRingElement()
-		var out [encodingSize10]byte
-		b.ReportAllocs()
-		b.SetBytes(encodingSize10)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringCompressAndEncode10Generic(out[:], &f)
-		}
-		benchEncode4Sink = out[0]
-	})
-
-	b.Run("NEON", func(b *testing.B) {
-		f := randomRingElement()
-		var out [encodingSize10]byte
-		b.ReportAllocs()
-		b.SetBytes(encodingSize10)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringCompressAndEncode10NEON(out[:], &f)
-		}
-		benchEncode4Sink = out[0]
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		f := randomRingElement()
-		var out [encodingSize10]byte
-		b.ReportAllocs()
-		b.SetBytes(encodingSize10)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringCompressAndEncode10(out[:0], &f)
-		}
-		benchEncode4Sink = out[0]
-	})
-}
-
-func BenchmarkRingCompressAndEncode11(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		f := randomRingElement()
-		var out [encodingSize11]byte
-		b.ReportAllocs()
-		b.SetBytes(encodingSize11)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringCompressAndEncode11Generic(out[:], &f)
-		}
-		benchEncode4Sink = out[0]
-	})
-
-	b.Run("NEON", func(b *testing.B) {
-		f := randomRingElement()
-		var out [encodingSize11]byte
-		b.ReportAllocs()
-		b.SetBytes(encodingSize11)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringCompressAndEncode11NEON(out[:], &f)
-		}
-		benchEncode4Sink = out[0]
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		f := randomRingElement()
-		var out [encodingSize11]byte
-		b.ReportAllocs()
-		b.SetBytes(encodingSize11)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringCompressAndEncode11(out[:0], &f)
-		}
-		benchEncode4Sink = out[0]
-	})
-}
-
-func BenchmarkNTTForward(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		elem := randomRingElement()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			elem2 := elem
-			internalNTTGeneric(&elem2)
-		}
-	})
-
-	b.Run("NEON", func(b *testing.B) {
-		elem := randomRingElement()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			elem2 := elem
-			internalNTTNEON(&elem2)
-		}
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		elem := randomRingElement()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			elem2 := elem
-			internalNTT(&elem2)
-		}
-	})
-}
-
-func BenchmarkNTTInverse(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		elem := randomRingElement()
-		internalNTTGeneric(&elem)
-		ntElem := nttElement(elem)
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			elem2 := ntElem
-			internalInverseNTTGeneric(&elem2)
-		}
-	})
-
-	b.Run("NEON", func(b *testing.B) {
-		elem := randomRingElement()
-		internalNTTNEON(&elem)
-		ntElem := nttElement(elem)
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			elem2 := ntElem
-			internalInverseNTTNEON(&elem2)
-		}
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		elem := randomRingElement()
-		internalNTT(&elem)
-		ntElem := nttElement(elem)
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			elem2 := ntElem
-			internalInverseNTT(&elem2)
-		}
-	})
-}
-
-func BenchmarkNTTRoundTrip(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		elem := randomRingElement()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			elem2 := elem
-			internalNTTGeneric(&elem2)
-			internalInverseNTTGeneric((*nttElement)(&elem2))
-		}
-	})
-
-	b.Run("NEON", func(b *testing.B) {
-		elem := randomRingElement()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			elem2 := elem
-			internalNTTNEON(&elem2)
-			internalInverseNTTNEON((*nttElement)(&elem2))
-		}
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		elem := randomRingElement()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			elem2 := elem
-			internalNTT(&elem2)
-			internalInverseNTT((*nttElement)(&elem2))
-		}
-	})
-}
-
-func BenchmarkNTTMulAcc(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		lhs := randomRingElement()
-		rhs := randomRingElement()
-		acc := randomRingElement()
-		internalNTTGeneric(&lhs)
-		internalNTTGeneric(&rhs)
-		internalNTTGeneric(&acc)
-		nlhs := nttElement(lhs)
-		nrhs := nttElement(rhs)
-		nacc := nttElement(acc)
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			acc2 := nacc
-			nttMulAccGeneric(&acc2, &nlhs, &nrhs)
-		}
-	})
-
-	b.Run("NEON", func(b *testing.B) {
-		lhs := randomRingElement()
-		rhs := randomRingElement()
-		acc := randomRingElement()
-		internalNTTNEON(&lhs)
-		internalNTTNEON(&rhs)
-		internalNTTNEON(&acc)
-		nlhs := nttElement(lhs)
-		nrhs := nttElement(rhs)
-		nacc := nttElement(acc)
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			acc2 := nacc
-			internalNTTMulAccNEON(&acc2, &nlhs, &nrhs)
-		}
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		lhs := randomRingElement()
-		rhs := randomRingElement()
-		acc := randomRingElement()
-		internalNTT(&lhs)
-		internalNTT(&rhs)
-		internalNTT(&acc)
-		nlhs := nttElement(lhs)
-		nrhs := nttElement(rhs)
-		nacc := nttElement(acc)
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			acc2 := nacc
-			nttMulAcc(&acc2, &nlhs, &nrhs)
-		}
-	})
-}
-
-func BenchmarkNTTMulAccKeyGen(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		lhs := randomRingElement()
-		rhs := randomRingElement()
-		acc := randomRingElement()
-		internalNTTGeneric(&lhs)
-		internalNTTGeneric(&rhs)
-		internalNTTGeneric(&acc)
-		nlhs := nttElement(lhs)
-		nrhs := nttElement(rhs)
-		nacc := nttElement(acc)
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			acc2 := nacc
-			nttMulAccGeneric(&acc2, &nlhs, &nrhs)
-		}
-	})
-
-	b.Run("NEON", func(b *testing.B) {
-		lhs := randomRingElement()
-		rhs := randomRingElement()
-		acc := randomRingElement()
-		internalNTTNEON(&lhs)
-		internalNTTNEON(&rhs)
-		internalNTTNEON(&acc)
-		nlhs := nttElement(lhs)
-		nrhs := nttElement(rhs)
-		nacc := nttElement(acc)
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			acc2 := nacc
-			internalNTTMulAccKeyGenNEON(&acc2, &nlhs, &nrhs)
-		}
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		lhs := randomRingElement()
-		rhs := randomRingElement()
-		acc := randomRingElement()
-		internalNTT(&lhs)
-		internalNTT(&rhs)
-		internalNTT(&acc)
-		nlhs := nttElement(lhs)
-		nrhs := nttElement(rhs)
-		nacc := nttElement(acc)
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			acc2 := nacc
-			nttMulAccKeyGen(&acc2, &nlhs, &nrhs)
-		}
-	})
-}
-
 func TestSamplePolyCBD2NEONMatchesGeneric(t *testing.T) {
 	for iter := 0; iter < 100; iter++ {
 		var seed [32]byte
@@ -1284,82 +915,6 @@ func TestRingDecodeAndDecompress5NEONMatchesGenericExhaustiveSingleByte(t *testi
 	}
 }
 
-func BenchmarkSamplePolyCBD2(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		B := make([]byte, 128)
-		for i := range B {
-			B[i] = byte(i)
-		}
-		b.ReportAllocs()
-		b.SetBytes(128)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			samplePolyCBDGeneric(B, 2)
-		}
-	})
-
-	b.Run("NEON", func(b *testing.B) {
-		var B [128]byte
-		for i := range B {
-			B[i] = byte(i)
-		}
-		var f ringElement
-		b.ReportAllocs()
-		b.SetBytes(128)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			samplePolyCBD2NEON(&f, &B)
-		}
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		seed := []byte("mlkem-cbd-bench-seed-eta2")
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			samplePolyCBD(seed, byte(i), 2)
-		}
-	})
-}
-
-func BenchmarkSamplePolyCBD3(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		B := make([]byte, 192)
-		for i := range B {
-			B[i] = byte(i)
-		}
-		b.ReportAllocs()
-		b.SetBytes(192)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			samplePolyCBDGeneric(B, 3)
-		}
-	})
-
-	b.Run("NEON", func(b *testing.B) {
-		var B [192]byte
-		for i := range B {
-			B[i] = byte(i)
-		}
-		var f ringElement
-		b.ReportAllocs()
-		b.SetBytes(192)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			samplePolyCBD3NEON(&f, &B)
-		}
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		seed := []byte("mlkem-cbd-bench-seed-eta3")
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			samplePolyCBD(seed, byte(i), 3)
-		}
-	})
-}
-
 // TestPolyAddAssignNEONCorrectness verifies polyAddAssignNEON matches the generic implementation.
 func TestPolyAddAssignNEONCorrectness(t *testing.T) {
 	for iter := 0; iter < 100; iter++ {
@@ -1669,6 +1224,376 @@ func BenchmarkPolySubAssign(b *testing.B) {
 	})
 }
 
+
+func BenchmarkRingCompressAndEncode4(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize4]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode4Generic(out[:], &f)
+		}
+		benchEncode4Sink = out[0]
+	})
+
+	b.Run("NEON", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize4]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode4NEON(out[:], &f)
+		}
+		benchEncode4Sink = out[0]
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize4]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode4(out[:0], &f)
+		}
+		benchEncode4Sink = out[0]
+	})
+}
+
+func BenchmarkRingCompressAndEncode5(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize5]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize5)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode5Generic(out[:], &f)
+		}
+		benchEncode4Sink = out[0]
+	})
+
+	b.Run("NEON", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize5]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize5)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode5NEON(out[:], &f)
+		}
+		benchEncode4Sink = out[0]
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize5]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize5)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode5(out[:0], &f)
+		}
+		benchEncode4Sink = out[0]
+	})
+}
+
+func BenchmarkRingCompressAndEncode10(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize10]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize10)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode10Generic(out[:], &f)
+		}
+		benchEncode4Sink = out[0]
+	})
+
+	b.Run("NEON", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize10]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize10)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode10NEON(out[:], &f)
+		}
+		benchEncode4Sink = out[0]
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize10]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize10)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode10(out[:0], &f)
+		}
+		benchEncode4Sink = out[0]
+	})
+}
+
+func BenchmarkRingCompressAndEncode11(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize11]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize11)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode11Generic(out[:], &f)
+		}
+		benchEncode4Sink = out[0]
+	})
+
+	b.Run("NEON", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize11]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize11)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode11NEON(out[:], &f)
+		}
+		benchEncode4Sink = out[0]
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize11]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize11)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode11(out[:0], &f)
+		}
+		benchEncode4Sink = out[0]
+	})
+}
+
+func BenchmarkNTTForward(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		elem := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := elem
+			internalNTTGeneric(&elem2)
+		}
+	})
+
+	b.Run("NEON", func(b *testing.B) {
+		elem := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := elem
+			internalNTTNEON(&elem2)
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		elem := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := elem
+			internalNTT(&elem2)
+		}
+	})
+}
+
+func BenchmarkNTTInverse(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		elem := randomRingElement()
+		internalNTTGeneric(&elem)
+		ntElem := nttElement(elem)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := ntElem
+			internalInverseNTTGeneric(&elem2)
+		}
+	})
+
+	b.Run("NEON", func(b *testing.B) {
+		elem := randomRingElement()
+		internalNTTNEON(&elem)
+		ntElem := nttElement(elem)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := ntElem
+			internalInverseNTTNEON(&elem2)
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		elem := randomRingElement()
+		internalNTT(&elem)
+		ntElem := nttElement(elem)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := ntElem
+			internalInverseNTT(&elem2)
+		}
+	})
+}
+
+func BenchmarkNTTRoundTrip(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		elem := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := elem
+			internalNTTGeneric(&elem2)
+			internalInverseNTTGeneric((*nttElement)(&elem2))
+		}
+	})
+
+	b.Run("NEON", func(b *testing.B) {
+		elem := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := elem
+			internalNTTNEON(&elem2)
+			internalInverseNTTNEON((*nttElement)(&elem2))
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		elem := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := elem
+			internalNTT(&elem2)
+			internalInverseNTT((*nttElement)(&elem2))
+		}
+	})
+}
+
+func BenchmarkNTTMulAcc(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		lhs := randomRingElement()
+		rhs := randomRingElement()
+		acc := randomRingElement()
+		internalNTTGeneric(&lhs)
+		internalNTTGeneric(&rhs)
+		internalNTTGeneric(&acc)
+		nlhs := nttElement(lhs)
+		nrhs := nttElement(rhs)
+		nacc := nttElement(acc)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := nacc
+			nttMulAccGeneric(&acc2, &nlhs, &nrhs)
+		}
+	})
+
+	b.Run("NEON", func(b *testing.B) {
+		lhs := randomRingElement()
+		rhs := randomRingElement()
+		acc := randomRingElement()
+		internalNTTNEON(&lhs)
+		internalNTTNEON(&rhs)
+		internalNTTNEON(&acc)
+		nlhs := nttElement(lhs)
+		nrhs := nttElement(rhs)
+		nacc := nttElement(acc)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := nacc
+			internalNTTMulAccNEON(&acc2, &nlhs, &nrhs)
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		lhs := randomRingElement()
+		rhs := randomRingElement()
+		acc := randomRingElement()
+		internalNTT(&lhs)
+		internalNTT(&rhs)
+		internalNTT(&acc)
+		nlhs := nttElement(lhs)
+		nrhs := nttElement(rhs)
+		nacc := nttElement(acc)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := nacc
+			nttMulAcc(&acc2, &nlhs, &nrhs)
+		}
+	})
+}
+
+func BenchmarkNTTMulAccKeyGen(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		lhs := randomRingElement()
+		rhs := randomRingElement()
+		acc := randomRingElement()
+		internalNTTGeneric(&lhs)
+		internalNTTGeneric(&rhs)
+		internalNTTGeneric(&acc)
+		nlhs := nttElement(lhs)
+		nrhs := nttElement(rhs)
+		nacc := nttElement(acc)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := nacc
+			nttMulAccGeneric(&acc2, &nlhs, &nrhs)
+		}
+	})
+
+	b.Run("NEON", func(b *testing.B) {
+		lhs := randomRingElement()
+		rhs := randomRingElement()
+		acc := randomRingElement()
+		internalNTTNEON(&lhs)
+		internalNTTNEON(&rhs)
+		internalNTTNEON(&acc)
+		nlhs := nttElement(lhs)
+		nrhs := nttElement(rhs)
+		nacc := nttElement(acc)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := nacc
+			internalNTTMulAccKeyGenNEON(&acc2, &nlhs, &nrhs)
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		lhs := randomRingElement()
+		rhs := randomRingElement()
+		acc := randomRingElement()
+		internalNTT(&lhs)
+		internalNTT(&rhs)
+		internalNTT(&acc)
+		nlhs := nttElement(lhs)
+		nrhs := nttElement(rhs)
+		nacc := nttElement(acc)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := nacc
+			nttMulAccKeyGen(&acc2, &nlhs, &nrhs)
+		}
+	})
+}
+
 func BenchmarkDecodeAndDecompressU10(b *testing.B) {
 	b.Run("Generic", func(b *testing.B) {
 		dst := make([]ringElement, k)
@@ -1742,5 +1667,160 @@ func BenchmarkDecodeAndDecompressU11(b *testing.B) {
 			decodeAndDecompressU11(dst, c)
 		}
 		benchDecodeSink = dst[0][0]
+	})
+}
+
+func BenchmarkRingDecodeAndDecompress4(b *testing.B) {
+	var input [encodingSize4]byte
+	for i := range input {
+		input[i] = byte(i*131 + 17)
+	}
+
+	b.Run("Generic", func(b *testing.B) {
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringDecodeAndDecompress4Generic(&input, &f)
+		}
+		benchDecodeSink = f[0]
+	})
+
+	b.Run("NEON", func(b *testing.B) {
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringDecodeAndDecompress4NEON(&input, &f)
+		}
+		benchDecodeSink = f[0]
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringDecodeAndDecompress4(&input, &f)
+			benchDecodeSink = f[0]
+		}
+	})
+}
+
+func BenchmarkRingDecodeAndDecompress5(b *testing.B) {
+	var input [encodingSize5]byte
+	for i := range input {
+		input[i] = byte(i*131 + 17)
+	}
+
+	b.Run("Generic", func(b *testing.B) {
+		b.ReportAllocs()
+		b.SetBytes(encodingSize5)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			f := ringDecodeAndDecompress(input[:], 5)
+			benchDecodeSink = f[0]
+		}
+	})
+
+	b.Run("NEON", func(b *testing.B) {
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(encodingSize5)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringDecodeAndDecompress5NEON(&input, &f)
+		}
+		benchDecodeSink = f[0]
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		b.ReportAllocs()
+		b.SetBytes(encodingSize5)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			f := ringDecodeAndDecompress5(&input)
+			benchDecodeSink = f[0]
+		}
+	})
+}
+
+
+func BenchmarkSamplePolyCBD2(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		B := make([]byte, 128)
+		for i := range B {
+			B[i] = byte(i)
+		}
+		b.ReportAllocs()
+		b.SetBytes(128)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			samplePolyCBDGeneric(B, 2)
+		}
+	})
+
+	b.Run("NEON", func(b *testing.B) {
+		var B [128]byte
+		for i := range B {
+			B[i] = byte(i)
+		}
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(128)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			samplePolyCBD2NEON(&f, &B)
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		seed := []byte("mlkem-cbd-bench-seed-eta2")
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			samplePolyCBD(seed, byte(i), 2)
+		}
+	})
+}
+
+func BenchmarkSamplePolyCBD3(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		B := make([]byte, 192)
+		for i := range B {
+			B[i] = byte(i)
+		}
+		b.ReportAllocs()
+		b.SetBytes(192)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			samplePolyCBDGeneric(B, 3)
+		}
+	})
+
+	b.Run("NEON", func(b *testing.B) {
+		var B [192]byte
+		for i := range B {
+			B[i] = byte(i)
+		}
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(192)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			samplePolyCBD3NEON(&f, &B)
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		seed := []byte("mlkem-cbd-bench-seed-eta3")
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			samplePolyCBD(seed, byte(i), 3)
+		}
 	})
 }
