@@ -138,250 +138,6 @@ func TestRejUniformAMD64MatchesGeneric(t *testing.T) {
 	}
 }
 
-func BenchmarkNTTForward(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		elem := randomRingElement()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			elem2 := elem
-			internalNTTGeneric(&elem2)
-		}
-	})
-
-	b.Run("AVX2", func(b *testing.B) {
-		if !cpu.X86.HasAVX2 {
-			b.Skip("AVX2 not available on this machine")
-		}
-
-		elem := randomRingElement()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			elem2 := elem
-			internalNTTAVX2(&elem2)
-		}
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		old := useAVX2
-		useAVX2 = cpu.X86.HasAVX2
-		b.Cleanup(func() { useAVX2 = old })
-
-		elem := randomRingElement()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			elem2 := elem
-			internalNTT(&elem2)
-		}
-	})
-
-	b.Run("Montgomery", func(b *testing.B) {
-		elem := randomRingElement()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			elem2 := elem
-			internalMontNTT(&elem2)
-		}
-	})
-}
-
-func BenchmarkNTTInverse(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		elem := randomRingElement()
-		internalNTTGeneric(&elem)
-		ntElem := nttElement(elem)
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			elem2 := ntElem
-			internalInverseNTTGeneric(&elem2)
-		}
-	})
-
-	b.Run("AVX2", func(b *testing.B) {
-		if !cpu.X86.HasAVX2 {
-			b.Skip("AVX2 not available on this machine")
-		}
-
-		elem := randomRingElement()
-		internalNTTAVX2(&elem)
-		ntElem := nttElement(elem)
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			elem2 := ntElem
-			internalInverseNTTAVX2(&elem2)
-		}
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		old := useAVX2
-		useAVX2 = cpu.X86.HasAVX2
-		b.Cleanup(func() { useAVX2 = old })
-
-		elem := randomRingElement()
-		internalNTT(&elem)
-		ntElem := nttElement(elem)
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			elem2 := ntElem
-			internalInverseNTT(&elem2)
-		}
-	})
-
-	b.Run("Montgomery", func(b *testing.B) {
-		elem := randomRingElement()
-		internalMontNTT(&elem)
-		ntElem := nttElement(elem)
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			elem2 := ntElem
-			internalMontInverseNTT(&elem2)
-		}
-	})
-}
-
-func BenchmarkNTTRoundTrip(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		elem := randomRingElement()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			elem2 := elem
-			internalNTTGeneric(&elem2)
-			internalInverseNTTGeneric((*nttElement)(&elem2))
-		}
-	})
-
-	b.Run("AVX2", func(b *testing.B) {
-		if !cpu.X86.HasAVX2 {
-			b.Skip("AVX2 not available on this machine")
-		}
-
-		elem := randomRingElement()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			elem2 := elem
-			internalNTTAVX2(&elem2)
-			internalInverseNTTAVX2((*nttElement)(&elem2))
-		}
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		old := useAVX2
-		useAVX2 = cpu.X86.HasAVX2
-		b.Cleanup(func() { useAVX2 = old })
-
-		elem := randomRingElement()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			elem2 := elem
-			internalNTT(&elem2)
-			internalInverseNTT((*nttElement)(&elem2))
-		}
-	})
-
-	b.Run("Montgomery", func(b *testing.B) {
-		elem := randomRingElement()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			elem2 := elem
-			internalMontNTT(&elem2)
-			internalMontInverseNTT((*nttElement)(&elem2))
-		}
-	})
-}
-
-func BenchmarkNTTMulAcc(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		lhs := randomRingElement()
-		rhs := randomRingElement()
-		acc := randomRingElement()
-		internalNTTGeneric(&lhs)
-		internalNTTGeneric(&rhs)
-		internalNTTGeneric(&acc)
-		nlhs := nttElement(lhs)
-		nrhs := nttElement(rhs)
-		nacc := nttElement(acc)
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			acc2 := nacc
-			nttMulAccGeneric(&acc2, &nlhs, &nrhs)
-		}
-	})
-
-	b.Run("AVX2", func(b *testing.B) {
-		if !cpu.X86.HasAVX2 {
-			b.Skip("AVX2 not available on this machine")
-		}
-
-		lhs := randomRingElement()
-		rhs := randomRingElement()
-		acc := randomRingElement()
-		internalNTTAVX2(&lhs)
-		internalNTTAVX2(&rhs)
-		internalNTTAVX2(&acc)
-		nlhs := nttElement(lhs)
-		nrhs := nttElement(rhs)
-		nacc := nttElement(acc)
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			acc2 := nacc
-			internalNTTMulAccAVX2(&acc2, &nlhs, &nrhs)
-		}
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		old := useAVX2
-		useAVX2 = cpu.X86.HasAVX2
-		b.Cleanup(func() { useAVX2 = old })
-
-		lhs := randomRingElement()
-		rhs := randomRingElement()
-		acc := randomRingElement()
-		internalNTT(&lhs)
-		internalNTT(&rhs)
-		internalNTT(&acc)
-		nlhs := nttElement(lhs)
-		nrhs := nttElement(rhs)
-		nacc := nttElement(acc)
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			acc2 := nacc
-			nttMulAcc(&acc2, &nlhs, &nrhs)
-		}
-	})
-
-	b.Run("Montgomery", func(b *testing.B) {
-		lhs := randomRingElement()
-		rhs := randomRingElement()
-		acc := randomRingElement()
-		internalMontNTT(&lhs)
-		internalMontNTT(&rhs)
-		internalMontNTT(&acc)
-		nlhs := nttElement(lhs)
-		nrhs := nttElement(rhs)
-		nacc := nttElement(acc)
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			acc2 := nacc
-			nttMontMulAcc(&acc2, &nlhs, &nrhs)
-		}
-	})
-}
-
 func TestDecodeAndDecompressU10AVX2MatchesGeneric(t *testing.T) {
 	requireAVX2(t)
 
@@ -444,182 +200,6 @@ func TestDecodeAndDecompressU10AVX2MatchesGeneric(t *testing.T) {
 			}
 		}
 	}
-}
-
-func BenchmarkDecodeAndDecompressU10(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		dst := make([]ringElement, k)
-		c := benchCiphertextBytes(encodingSize10 * len(dst))
-		b.ReportAllocs()
-		b.SetBytes(int64(len(c)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			decodeAndDecompressU10Generic(dst, c)
-		}
-		benchDecodeSink = dst[0][0]
-	})
-
-	b.Run("AVX2", func(b *testing.B) {
-		if !cpu.X86.HasAVX2 {
-			b.Skip("AVX2 not available on this machine")
-		}
-
-		dst := make([]ringElement, k)
-		c := benchCiphertextBytes(encodingSize10 * len(dst))
-		b.ReportAllocs()
-		b.SetBytes(int64(len(c)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			decodeAndDecompressU10AVX2(dst, c)
-		}
-		benchDecodeSink = dst[0][0]
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		old := useAVX2
-		useAVX2 = cpu.X86.HasAVX2
-		b.Cleanup(func() { useAVX2 = old })
-
-		dst := make([]ringElement, k)
-		c := benchCiphertextBytes(encodingSize10 * len(dst))
-		b.ReportAllocs()
-		b.SetBytes(int64(len(c)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			decodeAndDecompressU10(dst, c)
-		}
-		benchDecodeSink = dst[0][0]
-	})
-}
-
-func BenchmarkDecodeAndDecompressU11(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		dst := make([]ringElement, k1024)
-		c := benchCiphertextBytes(encodingSize11 * len(dst))
-		b.ReportAllocs()
-		b.SetBytes(int64(len(c)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			decodeAndDecompressU11Generic(dst, c)
-		}
-		benchDecodeSink = dst[0][0]
-	})
-
-	b.Run("AVX2", func(b *testing.B) {
-		if !cpu.X86.HasAVX2 {
-			b.Skip("AVX2 not available on this machine")
-		}
-
-		dst := make([]ringElement, k1024)
-		c := benchCiphertextBytes(encodingSize11 * len(dst))
-		b.ReportAllocs()
-		b.SetBytes(int64(len(c)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			decodeAndDecompressU11AVX2(dst, c)
-		}
-		benchDecodeSink = dst[0][0]
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		old := useAVX2
-		useAVX2 = cpu.X86.HasAVX2
-		b.Cleanup(func() { useAVX2 = old })
-
-		dst := make([]ringElement, k1024)
-		c := benchCiphertextBytes(encodingSize11 * len(dst))
-		b.ReportAllocs()
-		b.SetBytes(int64(len(c)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			decodeAndDecompressU11(dst, c)
-		}
-		benchDecodeSink = dst[0][0]
-	})
-}
-
-func BenchmarkSamplePolyCBD2(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		B := benchCBDBytes(128)
-		b.ReportAllocs()
-		b.SetBytes(128)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			benchCBDSink = samplePolyCBDGeneric(B, 2)
-		}
-	})
-
-	b.Run("AVX2", func(b *testing.B) {
-		if !cpu.X86.HasAVX2 {
-			b.Skip("AVX2 not available on this machine")
-		}
-
-		var B [128]byte
-		copy(B[:], benchCBDBytes(len(B)))
-		var f ringElement
-		b.ReportAllocs()
-		b.SetBytes(128)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			samplePolyCBD2AVX2(&f, &B)
-		}
-		benchCBDSink = f
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		old := useAVX2
-		useAVX2 = cpu.X86.HasAVX2
-		b.Cleanup(func() { useAVX2 = old })
-
-		seed := []byte("mlkem-cbd-bench-seed-eta2")
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			benchCBDSink = samplePolyCBD(seed, byte(i), 2)
-		}
-	})
-}
-
-func BenchmarkSamplePolyCBD3(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		B := benchCBDBytes(192)
-		b.ReportAllocs()
-		b.SetBytes(192)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			benchCBDSink = samplePolyCBDGeneric(B, 3)
-		}
-	})
-
-	b.Run("AVX2", func(b *testing.B) {
-		if !cpu.X86.HasAVX2 {
-			b.Skip("AVX2 not available on this machine")
-		}
-
-		var B [192]byte
-		copy(B[:], benchCBDBytes(len(B)))
-		var f ringElement
-		b.ReportAllocs()
-		b.SetBytes(192)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			samplePolyCBD3AVX2(&f, &B)
-		}
-		benchCBDSink = f
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		old := useAVX2
-		useAVX2 = cpu.X86.HasAVX2
-		b.Cleanup(func() { useAVX2 = old })
-
-		seed := []byte("mlkem-cbd-bench-seed-eta3")
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			benchCBDSink = samplePolyCBD(seed, byte(i), 3)
-		}
-	})
 }
 
 // TestPolyAddAssignAVX2Correctness verifies polyAddAssignAVX2 matches the generic implementation.
@@ -883,92 +463,6 @@ func TestPolyAddSubAVX2Consistency(t *testing.T) {
 	}
 }
 
-func BenchmarkPolyAddAssign(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		dst := randomRingElement()
-		src := randomRingElement()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			dst2 := dst
-			polyAddAssignGeneric(&dst2, &src)
-		}
-	})
-
-	b.Run("AVX2", func(b *testing.B) {
-		if !cpu.X86.HasAVX2 {
-			b.Skip("AVX2 not available on this machine")
-		}
-
-		dst := randomRingElement()
-		src := randomRingElement()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			dst2 := dst
-			polyAddAssignAVX2(&dst2, &src)
-		}
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		old := useAVX2
-		useAVX2 = cpu.X86.HasAVX2
-		b.Cleanup(func() { useAVX2 = old })
-
-		dst := randomRingElement()
-		src := randomRingElement()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			dst2 := dst
-			polyAddAssign(&dst2, &src)
-		}
-	})
-}
-
-func BenchmarkPolySubAssign(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		dst := randomRingElement()
-		src := randomRingElement()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			dst2 := dst
-			polySubAssignGeneric(&dst2, &src)
-		}
-	})
-
-	b.Run("AVX2", func(b *testing.B) {
-		if !cpu.X86.HasAVX2 {
-			b.Skip("AVX2 not available on this machine")
-		}
-
-		dst := randomRingElement()
-		src := randomRingElement()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			dst2 := dst
-			polySubAssignAVX2(&dst2, &src)
-		}
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		old := useAVX2
-		useAVX2 = cpu.X86.HasAVX2
-		b.Cleanup(func() { useAVX2 = old })
-
-		dst := randomRingElement()
-		src := randomRingElement()
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			dst2 := dst
-			polySubAssign(&dst2, &src)
-		}
-	})
-}
-
 func TestRingCompressAndEncode4AVX2MatchesGenericRandom(t *testing.T) {
 	requireAVX2(t)
 
@@ -1065,36 +559,6 @@ func TestRingCompressAndEncode4AVX2MatchesGenericExhaustiveSingleValue(t *testin
 			}
 		}
 	}
-}
-
-func BenchmarkRingCompressAndEncode4(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		f := randomRingElement()
-		var out [encodingSize4]byte
-		b.ReportAllocs()
-		b.SetBytes(encodingSize4)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringCompressAndEncode4Generic(out[:], &f)
-		}
-		benchEncodeSink = out[0]
-	})
-
-	b.Run("AVX2", func(b *testing.B) {
-		if !cpu.X86.HasAVX2 {
-			b.Skip("AVX2 not available on this machine")
-		}
-
-		f := randomRingElement()
-		var out [encodingSize4]byte
-		b.ReportAllocs()
-		b.SetBytes(encodingSize4)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringCompressAndEncode4AVX2(out[:], &f)
-		}
-		benchEncodeSink = out[0]
-	})
 }
 
 func ringCompressAndEncode5Generic(out []byte, f *ringElement) {
@@ -1199,36 +663,6 @@ func TestRingCompressAndEncode5AVX2MatchesGenericExhaustiveSingleValue(t *testin
 	}
 }
 
-func BenchmarkRingCompressAndEncode5(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		f := randomRingElement()
-		var out [encodingSize5]byte
-		b.ReportAllocs()
-		b.SetBytes(encodingSize5)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringCompressAndEncode5Generic(out[:], &f)
-		}
-		benchEncodeSink = out[0]
-	})
-
-	b.Run("AVX2", func(b *testing.B) {
-		if !cpu.X86.HasAVX2 {
-			b.Skip("AVX2 not available on this machine")
-		}
-
-		f := randomRingElement()
-		var out [encodingSize5]byte
-		b.ReportAllocs()
-		b.SetBytes(encodingSize5)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringCompressAndEncode5AVX2(out[:], &f)
-		}
-		benchEncodeSink = out[0]
-	})
-}
-
 func TestRingCompressAndEncode10AVX2MatchesGenericRandom(t *testing.T) {
 	requireAVX2(t)
 
@@ -1325,36 +759,6 @@ func TestRingCompressAndEncode10AVX2MatchesGenericExhaustiveSingleValue(t *testi
 			}
 		}
 	}
-}
-
-func BenchmarkRingCompressAndEncode10(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		f := randomRingElement()
-		var out [encodingSize10]byte
-		b.ReportAllocs()
-		b.SetBytes(encodingSize10)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringCompressAndEncode10Generic(out[:], &f)
-		}
-		benchEncodeSink = out[0]
-	})
-
-	b.Run("AVX2", func(b *testing.B) {
-		if !cpu.X86.HasAVX2 {
-			b.Skip("AVX2 not available on this machine")
-		}
-
-		f := randomRingElement()
-		var out [encodingSize10]byte
-		b.ReportAllocs()
-		b.SetBytes(encodingSize10)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringCompressAndEncode10AVX2(out[:], &f)
-		}
-		benchEncodeSink = out[0]
-	})
 }
 
 func ringCompressAndEncode11Generic(out []byte, f *ringElement) {
@@ -1457,36 +861,6 @@ func TestRingCompressAndEncode11AVX2MatchesGenericExhaustiveSingleValue(t *testi
 			}
 		}
 	}
-}
-
-func BenchmarkRingCompressAndEncode11(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		f := randomRingElement()
-		var out [encodingSize11]byte
-		b.ReportAllocs()
-		b.SetBytes(encodingSize11)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringCompressAndEncode11Generic(out[:], &f)
-		}
-		benchEncodeSink = out[0]
-	})
-
-	b.Run("AVX2", func(b *testing.B) {
-		if !cpu.X86.HasAVX2 {
-			b.Skip("AVX2 not available on this machine")
-		}
-
-		f := randomRingElement()
-		var out [encodingSize11]byte
-		b.ReportAllocs()
-		b.SetBytes(encodingSize11)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringCompressAndEncode11AVX2(out[:], &f)
-		}
-		benchEncodeSink = out[0]
-	})
 }
 
 // ---------------------------------------------------------------------------
@@ -1595,54 +969,6 @@ func TestRingDecodeAndDecompress4AVX2MatchesGenericExhaustiveSingleByte(t *testi
 	}
 }
 
-func BenchmarkRingDecodeAndDecompress4(b *testing.B) {
-	var input [encodingSize4]byte
-	for i := range input {
-		input[i] = byte(i*131 + 17)
-	}
-
-	b.Run("Generic", func(b *testing.B) {
-		var f ringElement
-		b.ReportAllocs()
-		b.SetBytes(encodingSize4)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringDecodeAndDecompress4Generic(&input, &f)
-		}
-		benchDecodeSink = f[0]
-	})
-
-	b.Run("AVX2", func(b *testing.B) {
-		if !cpu.X86.HasAVX2 {
-			b.Skip("AVX2 not available on this machine")
-		}
-
-		var f ringElement
-		b.ReportAllocs()
-		b.SetBytes(encodingSize4)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringDecodeAndDecompress4AVX2(&input, &f)
-		}
-		benchDecodeSink = f[0]
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		old := useAVX2
-		useAVX2 = cpu.X86.HasAVX2
-		b.Cleanup(func() { useAVX2 = old })
-
-		var f ringElement
-		b.ReportAllocs()
-		b.SetBytes(encodingSize4)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringDecodeAndDecompress4(&input, &f)
-			benchDecodeSink = f[0]
-		}
-	})
-}
-
 // ---------------------------------------------------------------------------
 // ringDecodeAndDecompress5AVX2 correctness and performance tests
 // ---------------------------------------------------------------------------
@@ -1749,6 +1075,444 @@ func TestRingDecodeAndDecompress5AVX2MatchesGenericExhaustiveSingleByte(t *testi
 	}
 }
 
+func BenchmarkPolyAddAssign(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		dst := randomRingElement()
+		src := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			dst2 := dst
+			polyAddAssignGeneric(&dst2, &src)
+		}
+	})
+
+	b.Run("AVX2", func(b *testing.B) {
+		if !cpu.X86.HasAVX2 {
+			b.Skip("AVX2 not available on this machine")
+		}
+
+		dst := randomRingElement()
+		src := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			dst2 := dst
+			polyAddAssignAVX2(&dst2, &src)
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		old := useAVX2
+		useAVX2 = cpu.X86.HasAVX2
+		b.Cleanup(func() { useAVX2 = old })
+
+		dst := randomRingElement()
+		src := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			dst2 := dst
+			polyAddAssign(&dst2, &src)
+		}
+	})
+}
+
+func BenchmarkPolySubAssign(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		dst := randomRingElement()
+		src := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			dst2 := dst
+			polySubAssignGeneric(&dst2, &src)
+		}
+	})
+
+	b.Run("AVX2", func(b *testing.B) {
+		if !cpu.X86.HasAVX2 {
+			b.Skip("AVX2 not available on this machine")
+		}
+
+		dst := randomRingElement()
+		src := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			dst2 := dst
+			polySubAssignAVX2(&dst2, &src)
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		old := useAVX2
+		useAVX2 = cpu.X86.HasAVX2
+		b.Cleanup(func() { useAVX2 = old })
+
+		dst := randomRingElement()
+		src := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			dst2 := dst
+			polySubAssign(&dst2, &src)
+		}
+	})
+}
+
+func BenchmarkNTTForward(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		elem := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := elem
+			internalNTTGeneric(&elem2)
+		}
+	})
+
+	b.Run("AVX2", func(b *testing.B) {
+		if !cpu.X86.HasAVX2 {
+			b.Skip("AVX2 not available on this machine")
+		}
+
+		elem := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := elem
+			internalNTTAVX2(&elem2)
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		old := useAVX2
+		useAVX2 = cpu.X86.HasAVX2
+		b.Cleanup(func() { useAVX2 = old })
+
+		elem := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := elem
+			internalNTT(&elem2)
+		}
+	})
+
+	b.Run("Montgomery", func(b *testing.B) {
+		elem := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := elem
+			internalMontNTT(&elem2)
+		}
+	})
+}
+
+func BenchmarkNTTInverse(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		elem := randomRingElement()
+		internalNTTGeneric(&elem)
+		ntElem := nttElement(elem)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := ntElem
+			internalInverseNTTGeneric(&elem2)
+		}
+	})
+
+	b.Run("AVX2", func(b *testing.B) {
+		if !cpu.X86.HasAVX2 {
+			b.Skip("AVX2 not available on this machine")
+		}
+
+		elem := randomRingElement()
+		internalNTTAVX2(&elem)
+		ntElem := nttElement(elem)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := ntElem
+			internalInverseNTTAVX2(&elem2)
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		old := useAVX2
+		useAVX2 = cpu.X86.HasAVX2
+		b.Cleanup(func() { useAVX2 = old })
+
+		elem := randomRingElement()
+		internalNTT(&elem)
+		ntElem := nttElement(elem)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := ntElem
+			internalInverseNTT(&elem2)
+		}
+	})
+
+	b.Run("Montgomery", func(b *testing.B) {
+		elem := randomRingElement()
+		internalMontNTT(&elem)
+		ntElem := nttElement(elem)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := ntElem
+			internalMontInverseNTT(&elem2)
+		}
+	})
+}
+
+func BenchmarkNTTRoundTrip(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		elem := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := elem
+			internalNTTGeneric(&elem2)
+			internalInverseNTTGeneric((*nttElement)(&elem2))
+		}
+	})
+
+	b.Run("AVX2", func(b *testing.B) {
+		if !cpu.X86.HasAVX2 {
+			b.Skip("AVX2 not available on this machine")
+		}
+
+		elem := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := elem
+			internalNTTAVX2(&elem2)
+			internalInverseNTTAVX2((*nttElement)(&elem2))
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		old := useAVX2
+		useAVX2 = cpu.X86.HasAVX2
+		b.Cleanup(func() { useAVX2 = old })
+
+		elem := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := elem
+			internalNTT(&elem2)
+			internalInverseNTT((*nttElement)(&elem2))
+		}
+	})
+
+	b.Run("Montgomery", func(b *testing.B) {
+		elem := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := elem
+			internalMontNTT(&elem2)
+			internalMontInverseNTT((*nttElement)(&elem2))
+		}
+	})
+}
+
+func BenchmarkNTTMulAcc(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		lhs := randomRingElement()
+		rhs := randomRingElement()
+		acc := randomRingElement()
+		internalNTTGeneric(&lhs)
+		internalNTTGeneric(&rhs)
+		internalNTTGeneric(&acc)
+		nlhs := nttElement(lhs)
+		nrhs := nttElement(rhs)
+		nacc := nttElement(acc)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := nacc
+			nttMulAccGeneric(&acc2, &nlhs, &nrhs)
+		}
+	})
+
+	b.Run("AVX2", func(b *testing.B) {
+		if !cpu.X86.HasAVX2 {
+			b.Skip("AVX2 not available on this machine")
+		}
+
+		lhs := randomRingElement()
+		rhs := randomRingElement()
+		acc := randomRingElement()
+		internalNTTAVX2(&lhs)
+		internalNTTAVX2(&rhs)
+		internalNTTAVX2(&acc)
+		nlhs := nttElement(lhs)
+		nrhs := nttElement(rhs)
+		nacc := nttElement(acc)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := nacc
+			internalNTTMulAccAVX2(&acc2, &nlhs, &nrhs)
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		old := useAVX2
+		useAVX2 = cpu.X86.HasAVX2
+		b.Cleanup(func() { useAVX2 = old })
+
+		lhs := randomRingElement()
+		rhs := randomRingElement()
+		acc := randomRingElement()
+		internalNTT(&lhs)
+		internalNTT(&rhs)
+		internalNTT(&acc)
+		nlhs := nttElement(lhs)
+		nrhs := nttElement(rhs)
+		nacc := nttElement(acc)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := nacc
+			nttMulAcc(&acc2, &nlhs, &nrhs)
+		}
+	})
+
+	b.Run("Montgomery", func(b *testing.B) {
+		lhs := randomRingElement()
+		rhs := randomRingElement()
+		acc := randomRingElement()
+		internalMontNTT(&lhs)
+		internalMontNTT(&rhs)
+		internalMontNTT(&acc)
+		nlhs := nttElement(lhs)
+		nrhs := nttElement(rhs)
+		nacc := nttElement(acc)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := nacc
+			nttMontMulAcc(&acc2, &nlhs, &nrhs)
+		}
+	})
+}
+
+func BenchmarkRingCompressAndEncode4(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize4]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode4Generic(out[:], &f)
+		}
+		benchEncodeSink = out[0]
+	})
+
+	b.Run("AVX2", func(b *testing.B) {
+		if !cpu.X86.HasAVX2 {
+			b.Skip("AVX2 not available on this machine")
+		}
+
+		f := randomRingElement()
+		var out [encodingSize4]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode4AVX2(out[:], &f)
+		}
+		benchEncodeSink = out[0]
+	})
+}
+
+func BenchmarkRingCompressAndEncode5(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize5]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize5)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode5Generic(out[:], &f)
+		}
+		benchEncodeSink = out[0]
+	})
+
+	b.Run("AVX2", func(b *testing.B) {
+		if !cpu.X86.HasAVX2 {
+			b.Skip("AVX2 not available on this machine")
+		}
+
+		f := randomRingElement()
+		var out [encodingSize5]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize5)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode5AVX2(out[:], &f)
+		}
+		benchEncodeSink = out[0]
+	})
+}
+
+func BenchmarkRingDecodeAndDecompress4(b *testing.B) {
+	var input [encodingSize4]byte
+	for i := range input {
+		input[i] = byte(i*131 + 17)
+	}
+
+	b.Run("Generic", func(b *testing.B) {
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringDecodeAndDecompress4Generic(&input, &f)
+		}
+		benchDecodeSink = f[0]
+	})
+
+	b.Run("AVX2", func(b *testing.B) {
+		if !cpu.X86.HasAVX2 {
+			b.Skip("AVX2 not available on this machine")
+		}
+
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringDecodeAndDecompress4AVX2(&input, &f)
+		}
+		benchDecodeSink = f[0]
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		old := useAVX2
+		useAVX2 = cpu.X86.HasAVX2
+		b.Cleanup(func() { useAVX2 = old })
+
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringDecodeAndDecompress4(&input, &f)
+			benchDecodeSink = f[0]
+		}
+	})
+}
+
 func BenchmarkRingDecodeAndDecompress5(b *testing.B) {
 	var input [encodingSize5]byte
 	for i := range input {
@@ -1791,6 +1555,242 @@ func BenchmarkRingDecodeAndDecompress5(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			f := ringDecodeAndDecompress5(&input)
 			benchDecodeSink = f[0]
+		}
+	})
+}
+
+func BenchmarkRingCompressAndEncode10(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize10]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize10)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode10Generic(out[:], &f)
+		}
+		benchEncodeSink = out[0]
+	})
+
+	b.Run("AVX2", func(b *testing.B) {
+		if !cpu.X86.HasAVX2 {
+			b.Skip("AVX2 not available on this machine")
+		}
+
+		f := randomRingElement()
+		var out [encodingSize10]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize10)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode10AVX2(out[:], &f)
+		}
+		benchEncodeSink = out[0]
+	})
+}
+
+func BenchmarkRingCompressAndEncode11(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize11]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize11)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode11Generic(out[:], &f)
+		}
+		benchEncodeSink = out[0]
+	})
+
+	b.Run("AVX2", func(b *testing.B) {
+		if !cpu.X86.HasAVX2 {
+			b.Skip("AVX2 not available on this machine")
+		}
+
+		f := randomRingElement()
+		var out [encodingSize11]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize11)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode11AVX2(out[:], &f)
+		}
+		benchEncodeSink = out[0]
+	})
+}
+
+func BenchmarkDecodeAndDecompressU10(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		dst := make([]ringElement, k)
+		c := benchCiphertextBytes(encodingSize10 * len(dst))
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU10Generic(dst, c)
+		}
+		benchDecodeSink = dst[0][0]
+	})
+
+	b.Run("AVX2", func(b *testing.B) {
+		if !cpu.X86.HasAVX2 {
+			b.Skip("AVX2 not available on this machine")
+		}
+
+		dst := make([]ringElement, k)
+		c := benchCiphertextBytes(encodingSize10 * len(dst))
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU10AVX2(dst, c)
+		}
+		benchDecodeSink = dst[0][0]
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		old := useAVX2
+		useAVX2 = cpu.X86.HasAVX2
+		b.Cleanup(func() { useAVX2 = old })
+
+		dst := make([]ringElement, k)
+		c := benchCiphertextBytes(encodingSize10 * len(dst))
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU10(dst, c)
+		}
+		benchDecodeSink = dst[0][0]
+	})
+}
+
+func BenchmarkDecodeAndDecompressU11(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		dst := make([]ringElement, k1024)
+		c := benchCiphertextBytes(encodingSize11 * len(dst))
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU11Generic(dst, c)
+		}
+		benchDecodeSink = dst[0][0]
+	})
+
+	b.Run("AVX2", func(b *testing.B) {
+		if !cpu.X86.HasAVX2 {
+			b.Skip("AVX2 not available on this machine")
+		}
+
+		dst := make([]ringElement, k1024)
+		c := benchCiphertextBytes(encodingSize11 * len(dst))
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU11AVX2(dst, c)
+		}
+		benchDecodeSink = dst[0][0]
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		old := useAVX2
+		useAVX2 = cpu.X86.HasAVX2
+		b.Cleanup(func() { useAVX2 = old })
+
+		dst := make([]ringElement, k1024)
+		c := benchCiphertextBytes(encodingSize11 * len(dst))
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU11(dst, c)
+		}
+		benchDecodeSink = dst[0][0]
+	})
+}
+
+func BenchmarkSamplePolyCBD2(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		B := benchCBDBytes(128)
+		b.ReportAllocs()
+		b.SetBytes(128)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			benchCBDSink = samplePolyCBDGeneric(B, 2)
+		}
+	})
+
+	b.Run("AVX2", func(b *testing.B) {
+		if !cpu.X86.HasAVX2 {
+			b.Skip("AVX2 not available on this machine")
+		}
+
+		var B [128]byte
+		copy(B[:], benchCBDBytes(len(B)))
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(128)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			samplePolyCBD2AVX2(&f, &B)
+		}
+		benchCBDSink = f
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		old := useAVX2
+		useAVX2 = cpu.X86.HasAVX2
+		b.Cleanup(func() { useAVX2 = old })
+
+		seed := []byte("mlkem-cbd-bench-seed-eta2")
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			benchCBDSink = samplePolyCBD(seed, byte(i), 2)
+		}
+	})
+}
+
+func BenchmarkSamplePolyCBD3(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		B := benchCBDBytes(192)
+		b.ReportAllocs()
+		b.SetBytes(192)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			benchCBDSink = samplePolyCBDGeneric(B, 3)
+		}
+	})
+
+	b.Run("AVX2", func(b *testing.B) {
+		if !cpu.X86.HasAVX2 {
+			b.Skip("AVX2 not available on this machine")
+		}
+
+		var B [192]byte
+		copy(B[:], benchCBDBytes(len(B)))
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(192)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			samplePolyCBD3AVX2(&f, &B)
+		}
+		benchCBDSink = f
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		old := useAVX2
+		useAVX2 = cpu.X86.HasAVX2
+		b.Cleanup(func() { useAVX2 = old })
+
+		seed := []byte("mlkem-cbd-bench-seed-eta3")
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			benchCBDSink = samplePolyCBD(seed, byte(i), 3)
 		}
 	})
 }

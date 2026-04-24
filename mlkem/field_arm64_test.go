@@ -1224,7 +1224,6 @@ func BenchmarkPolySubAssign(b *testing.B) {
 	})
 }
 
-
 func BenchmarkRingCompressAndEncode4(b *testing.B) {
 	b.Run("Generic", func(b *testing.B) {
 		f := randomRingElement()
@@ -1301,6 +1300,84 @@ func BenchmarkRingCompressAndEncode5(b *testing.B) {
 	})
 }
 
+func BenchmarkRingDecodeAndDecompress4(b *testing.B) {
+	var input [encodingSize4]byte
+	for i := range input {
+		input[i] = byte(i*131 + 17)
+	}
+
+	b.Run("Generic", func(b *testing.B) {
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringDecodeAndDecompress4Generic(&input, &f)
+		}
+		benchDecodeSink = f[0]
+	})
+
+	b.Run("NEON", func(b *testing.B) {
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringDecodeAndDecompress4NEON(&input, &f)
+		}
+		benchDecodeSink = f[0]
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringDecodeAndDecompress4(&input, &f)
+			benchDecodeSink = f[0]
+		}
+	})
+}
+
+func BenchmarkRingDecodeAndDecompress5(b *testing.B) {
+	var input [encodingSize5]byte
+	for i := range input {
+		input[i] = byte(i*131 + 17)
+	}
+
+	b.Run("Generic", func(b *testing.B) {
+		b.ReportAllocs()
+		b.SetBytes(encodingSize5)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			f := ringDecodeAndDecompress(input[:], 5)
+			benchDecodeSink = f[0]
+		}
+	})
+
+	b.Run("NEON", func(b *testing.B) {
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(encodingSize5)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringDecodeAndDecompress5NEON(&input, &f)
+		}
+		benchDecodeSink = f[0]
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		b.ReportAllocs()
+		b.SetBytes(encodingSize5)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			f := ringDecodeAndDecompress5(&input)
+			benchDecodeSink = f[0]
+		}
+	})
+}
+
 func BenchmarkRingCompressAndEncode10(b *testing.B) {
 	b.Run("Generic", func(b *testing.B) {
 		f := randomRingElement()
@@ -1374,6 +1451,82 @@ func BenchmarkRingCompressAndEncode11(b *testing.B) {
 			ringCompressAndEncode11(out[:0], &f)
 		}
 		benchEncode4Sink = out[0]
+	})
+}
+
+func BenchmarkDecodeAndDecompressU10(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		dst := make([]ringElement, k)
+		c := benchCiphertextBytes(encodingSize10 * len(dst))
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU10Generic(dst, c)
+		}
+		benchDecodeSink = dst[0][0]
+	})
+
+	b.Run("NEON", func(b *testing.B) {
+		dst := make([]ringElement, k)
+		c := benchCiphertextBytes(encodingSize10 * len(dst))
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU10NEON(dst, c)
+		}
+		benchDecodeSink = dst[0][0]
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		dst := make([]ringElement, k)
+		c := benchCiphertextBytes(encodingSize10 * len(dst))
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU10(dst, c)
+		}
+		benchDecodeSink = dst[0][0]
+	})
+}
+
+func BenchmarkDecodeAndDecompressU11(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		dst := make([]ringElement, k1024)
+		c := benchCiphertextBytes(encodingSize11 * len(dst))
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU11Generic(dst, c)
+		}
+		benchDecodeSink = dst[0][0]
+	})
+
+	b.Run("NEON", func(b *testing.B) {
+		dst := make([]ringElement, k1024)
+		c := benchCiphertextBytes(encodingSize11 * len(dst))
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU11NEON(dst, c)
+		}
+		benchDecodeSink = dst[0][0]
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		dst := make([]ringElement, k1024)
+		c := benchCiphertextBytes(encodingSize11 * len(dst))
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU11(dst, c)
+		}
+		benchDecodeSink = dst[0][0]
 	})
 }
 
@@ -1593,161 +1746,6 @@ func BenchmarkNTTMulAccKeyGen(b *testing.B) {
 		}
 	})
 }
-
-func BenchmarkDecodeAndDecompressU10(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		dst := make([]ringElement, k)
-		c := benchCiphertextBytes(encodingSize10 * len(dst))
-		b.ReportAllocs()
-		b.SetBytes(int64(len(c)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			decodeAndDecompressU10Generic(dst, c)
-		}
-		benchDecodeSink = dst[0][0]
-	})
-
-	b.Run("NEON", func(b *testing.B) {
-		dst := make([]ringElement, k)
-		c := benchCiphertextBytes(encodingSize10 * len(dst))
-		b.ReportAllocs()
-		b.SetBytes(int64(len(c)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			decodeAndDecompressU10NEON(dst, c)
-		}
-		benchDecodeSink = dst[0][0]
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		dst := make([]ringElement, k)
-		c := benchCiphertextBytes(encodingSize10 * len(dst))
-		b.ReportAllocs()
-		b.SetBytes(int64(len(c)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			decodeAndDecompressU10(dst, c)
-		}
-		benchDecodeSink = dst[0][0]
-	})
-}
-
-func BenchmarkDecodeAndDecompressU11(b *testing.B) {
-	b.Run("Generic", func(b *testing.B) {
-		dst := make([]ringElement, k1024)
-		c := benchCiphertextBytes(encodingSize11 * len(dst))
-		b.ReportAllocs()
-		b.SetBytes(int64(len(c)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			decodeAndDecompressU11Generic(dst, c)
-		}
-		benchDecodeSink = dst[0][0]
-	})
-
-	b.Run("NEON", func(b *testing.B) {
-		dst := make([]ringElement, k1024)
-		c := benchCiphertextBytes(encodingSize11 * len(dst))
-		b.ReportAllocs()
-		b.SetBytes(int64(len(c)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			decodeAndDecompressU11NEON(dst, c)
-		}
-		benchDecodeSink = dst[0][0]
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		dst := make([]ringElement, k1024)
-		c := benchCiphertextBytes(encodingSize11 * len(dst))
-		b.ReportAllocs()
-		b.SetBytes(int64(len(c)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			decodeAndDecompressU11(dst, c)
-		}
-		benchDecodeSink = dst[0][0]
-	})
-}
-
-func BenchmarkRingDecodeAndDecompress4(b *testing.B) {
-	var input [encodingSize4]byte
-	for i := range input {
-		input[i] = byte(i*131 + 17)
-	}
-
-	b.Run("Generic", func(b *testing.B) {
-		var f ringElement
-		b.ReportAllocs()
-		b.SetBytes(encodingSize4)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringDecodeAndDecompress4Generic(&input, &f)
-		}
-		benchDecodeSink = f[0]
-	})
-
-	b.Run("NEON", func(b *testing.B) {
-		var f ringElement
-		b.ReportAllocs()
-		b.SetBytes(encodingSize4)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringDecodeAndDecompress4NEON(&input, &f)
-		}
-		benchDecodeSink = f[0]
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		var f ringElement
-		b.ReportAllocs()
-		b.SetBytes(encodingSize4)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringDecodeAndDecompress4(&input, &f)
-			benchDecodeSink = f[0]
-		}
-	})
-}
-
-func BenchmarkRingDecodeAndDecompress5(b *testing.B) {
-	var input [encodingSize5]byte
-	for i := range input {
-		input[i] = byte(i*131 + 17)
-	}
-
-	b.Run("Generic", func(b *testing.B) {
-		b.ReportAllocs()
-		b.SetBytes(encodingSize5)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			f := ringDecodeAndDecompress(input[:], 5)
-			benchDecodeSink = f[0]
-		}
-	})
-
-	b.Run("NEON", func(b *testing.B) {
-		var f ringElement
-		b.ReportAllocs()
-		b.SetBytes(encodingSize5)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			ringDecodeAndDecompress5NEON(&input, &f)
-		}
-		benchDecodeSink = f[0]
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		b.ReportAllocs()
-		b.SetBytes(encodingSize5)
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			f := ringDecodeAndDecompress5(&input)
-			benchDecodeSink = f[0]
-		}
-	})
-}
-
 
 func BenchmarkSamplePolyCBD2(b *testing.B) {
 	b.Run("Generic", func(b *testing.B) {
