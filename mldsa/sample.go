@@ -10,8 +10,9 @@ import (
 )
 
 // Algorithm 30
-func rejNTTPoly(rho []byte, s, r byte) nttElement {
-	G := sha3.NewSHAKE128()
+// G must be a SHAKE128 instance; it is reset and reused on each call.
+func rejNTTPoly(G *sha3.SHAKE, rho []byte, s, r byte) nttElement {
+	G.Reset()
 	G.Write(rho)
 	G.Write([]byte{s, r})
 
@@ -50,8 +51,9 @@ func constantMod5(n uint32) uint32 {
 // range of ((q-eta)..0..eta) using rejection sampling. eta is either 2 or 4.
 // SHAKE256 is used to absorb the seed, and then samples are squeezed.
 // See FIPS 204, Algorithm 31, RejBoundedPoly()
-func rejBoundedPoly(rho []byte, eta int, highByte, lowByte byte) ringElement {
-	H := sha3.NewSHAKE256()
+// H must be a SHAKE256 instance; it is reset and reused on each call.
+func rejBoundedPoly(H *sha3.SHAKE, rho []byte, eta int, highByte, lowByte byte) ringElement {
+	H.Reset()
 	H.Write(rho)
 	H.Write([]byte{lowByte, highByte})
 

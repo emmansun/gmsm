@@ -333,18 +333,19 @@ func dsaKeyGen44(sk *Key44, xi *[32]byte) {
 	s2 := &sk.s2
 	// Algorithm 33, ExpandS
 	for s := range byte(l44) {
-		s1[s] = rejBoundedPoly(rho1, eta2, 0, s)
+		s1[s] = rejBoundedPoly(H, rho1, eta2, 0, s)
 	}
 	for r := range byte(k44) {
-		s2[r] = rejBoundedPoly(rho1, eta2, 0, r+l44)
+		s2[r] = rejBoundedPoly(H, rho1, eta2, 0, r+l44)
 	}
 
 	// Using rho generate A' = A in NTT form
 	A := &sk.a
+	G128 := sha3.NewSHAKE128()
 	// Algorithm 32, ExpandA
 	for r := range byte(k44) {
 		for s := byte(0); s < l44; s++ {
-			A[r*l44+s] = rejNTTPoly(rho, s, r)
+			A[r*l44+s] = rejNTTPoly(G128, rho, s, r)
 		}
 	}
 
@@ -408,10 +409,11 @@ func parsePublicKey44(pk *PublicKey44, b []byte) (*PublicKey44, error) {
 
 	A := &pk.a
 	rho := pk.rho[:]
+	G128 := sha3.NewSHAKE128()
 	// Algorithm 32, ExpandA
 	for r := range byte(k44) {
 		for s := range byte(l44) {
-			A[r*l44+s] = rejNTTPoly(rho, s, r)
+			A[r*l44+s] = rejNTTPoly(G128, rho, s, r)
 		}
 	}
 	return pk, nil
@@ -457,10 +459,11 @@ func parsePrivateKey44(sk *PrivateKey44, b []byte) (*PrivateKey44, error) {
 	}
 	A := &sk.a
 	rho := sk.rho[:]
+	G128 := sha3.NewSHAKE128()
 	// Algorithm 32, ExpandA
 	for r := range byte(k44) {
 		for s := range byte(l44) {
-			A[r*l44+s] = rejNTTPoly(rho, s, r)
+			A[r*l44+s] = rejNTTPoly(G128, rho, s, r)
 		}
 	}
 	return sk, nil
@@ -631,7 +634,7 @@ func (sk *PrivateKey44) signInternal(seed, mu []byte) ([]byte, error) {
 		sig := make([]byte, 0, sigEncodedLen44)
 		sig = append(sig, cTilde[:]...)
 		for i := range l44 {
-			sig = bitPackSignedTwoPower17(sig, z[i])
+			sig = bitPackSignedTwoPower17(sig, &z[i])
 		}
 		return hintBitPack(sig, hints[:], omega80), nil
 	}
