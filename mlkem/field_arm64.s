@@ -2150,28 +2150,30 @@ compress_encode11_neon_loop:
 //
 // Vector strategy (8 coefficients -> 1 byte per iteration):
 // 1) Load 8 x uint16 coefficients into V0.H8.
-// 2) CMHI twice to identify compress=1 range (833 <= x <= 2496).
-// 3) VMVN + VAND to combine conditions: 0xFFFF per lane where compress=1.
+// 2) CMHS twice (cmgt_u_eq_8h_opcode = unsigned >=) to identify compress=1 range.
+//    Lower: V0 >= 833 -> compress=1 candidate.
+//    Upper: V0 >= 2497 -> compress=0 (excluded).
+// 3) BIC to combine: 0xFFFF where 833 <= x <= 2496.
 // 4) VUSHR $15 to reduce each lane to 0x0001 or 0x0000.
 // 5) MUL by bit-position weights {1,2,4,8,16,32,64,128}.
 // 6) ADDV to sum all 8 weighted bits into one halfword = output byte.
 //
 // Register allocation (setup once, outside loop):
 //   V27.H8 = {1, 2, 4, 8, 16, 32, 64, 128}  bit-position weights
-//   V28.H8 = broadcast(832)   lower threshold
-//   V29.H8 = broadcast(2496)  upper threshold
+//   V28.H8 = broadcast(833)   lower threshold (CMHS: x >= 833)
+//   V29.H8 = broadcast(2497)  upper threshold (CMHS: x >= 2497 means x not in range)
 //
 // func ringCompressAndEncode1NEON(out []byte, f *ringElement)
 TEXT ·ringCompressAndEncode1NEON(SB), NOSPLIT, $0-32
 	MOVD out_base+0(FP), R0
 	MOVD f+24(FP), R1
 
-	// V28 = broadcast(832): compress=1 when x > 832 (x >= 833)
-	MOVD $832, R2
+	// V28 = broadcast(833): compress=1 when x >= 833 (CMHS semantics)
+	MOVD $833, R2
 	VDUP R2, V28.H8
 
-	// V29 = broadcast(2496): compress=0 when x > 2496 (x >= 2497)
-	MOVD $2496, R2
+	// V29 = broadcast(2497): compress=0 when x >= 2497 (CMHS semantics)
+	MOVD $2497, R2
 	VDUP R2, V29.H8
 
 	// V27 = {1, 2, 4, 8, 16, 32, 64, 128}: bit-position weights for packing.
@@ -2187,11 +2189,11 @@ TEXT ·ringCompressAndEncode1NEON(SB), NOSPLIT, $0-32
 compress_encode1_neon_loop:
 	VLD1.P 16(R1), [V0.H8]   // Load 8 coefficients (16 bytes)
 
-	// V20 = 0xFFFF where V0 > 832 (coefficient >= 833)
-	WORD $0x6E7C3C14   // CMHI V20.H8, V0.H8, V28.H8
+	// V20 = 0xFFFF where V0 >= 833 (coefficient in compress=1 range, lower bound)
+	WORD $0x6E7C3C14   // CMHS V20.H8, V0.H8, V28.H8
 
-	// V21 = 0xFFFF where V0 > 2496 (coefficient >= 2497)
-	WORD $0x6E7D3C15   // CMHI V21.H8, V0.H8, V29.H8
+	// V21 = 0xFFFF where V0 >= 2497 (coefficient above compress=1 range, upper bound)
+	WORD $0x6E7D3C15   // CMHS V21.H8, V0.H8, V29.H8
 
 	// V20 = 0xFFFF where 833 <= coefficient <= 2496 (compress=1)
 	// BIC V20.B16, V20.B16, V21.B16  =>  V20 = V20 AND NOT(V21)
