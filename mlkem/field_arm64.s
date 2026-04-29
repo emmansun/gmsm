@@ -2148,20 +2148,19 @@ compress_encode11_neon_loop:
 // For each coefficient x in [0, q):
 //   compress(x, 1) = 1 if 833 <= x <= 2496, else 0.
 //
-// Vector strategy (8 coefficients -> 1 byte per iteration):
-// 1) Load 8 x uint16 coefficients into V0.H8.
-// 2) CMHS twice (cmgt_u_eq_8h_opcode = unsigned >=) to identify compress=1 range.
-//    Lower: V0 >= 833 -> compress=1 candidate.
-//    Upper: V0 >= 2497 -> compress=0 (excluded).
-// 3) BIC to combine: 0xFFFF where 833 <= x <= 2496.
-// 4) VUSHR $15 to reduce each lane to 0x0001 or 0x0000.
+// Vector strategy (32 coefficients -> 4 bytes per iteration, 8 iterations total):
+// 1) Load 4 x 8 coefficients into V0-V3.H8 (64 bytes).
+// 2) CMHS twice per register (cmgt_u_eq_8h_opcode = unsigned >=) to identify range.
+// 3) BIC per register: V20..V23 = 0xFFFF where 833 <= x <= 2496.
+// 4) VUSHR $15: convert to 0x0001/0x0000 per lane.
 // 5) MUL by bit-position weights {1,2,4,8,16,32,64,128}.
-// 6) ADDV to sum all 8 weighted bits into one halfword = output byte.
+// 6) ADDV: sum all 8 lanes into H20..H23 (four output bytes).
+// 7) Extract byte 0 from each, pack into 32-bit word, store 4 bytes.
 //
 // Register allocation (setup once, outside loop):
 //   V27.H8 = {1, 2, 4, 8, 16, 32, 64, 128}  bit-position weights
-//   V28.H8 = broadcast(833)   lower threshold (CMHS: x >= 833)
-//   V29.H8 = broadcast(2497)  upper threshold (CMHS: x >= 2497 means x not in range)
+//   V28.H8 = broadcast(833)  lower threshold (CMHS: x >= 833)
+//   V29.H8 = broadcast(2497) upper threshold (CMHS: x >= 2497 means x out of range)
 //
 // func ringCompressAndEncode1NEON(out []byte, f *ringElement)
 TEXT ·ringCompressAndEncode1NEON(SB), NOSPLIT, $0-32
@@ -2178,41 +2177,68 @@ TEXT ·ringCompressAndEncode1NEON(SB), NOSPLIT, $0-32
 
 	// V27 = {1, 2, 4, 8, 16, 32, 64, 128}: bit-position weights for packing.
 	// Low 64 bits (lanes 0-3): 0x0008_0004_0002_0001 (little-endian halfwords)
-	// High 64 bits (lanes 4-7): 0x0080_0040_0020_0010
+	// High 64 bits (lanes 4-7): low << 4 = 0x0080_0040_0020_0010
 	MOVD $0x0008000400020001, R2
 	VMOV R2, V27.D[0]
-	MOVD $0x0080004000200010, R2
+	LSL  $4, R2, R2
 	VMOV R2, V27.D[1]
 
-	MOVD $32, R2   // 32 iterations: 8 coefficients each -> 256 total -> 32 bytes
+	MOVD $8, R2   // 8 iterations: 32 coefficients each -> 256 total -> 32 bytes
 
 compress_encode1_neon_loop:
-	VLD1.P 16(R1), [V0.H8]   // Load 8 coefficients (16 bytes)
+	// Load 32 coefficients as 4 x 8 halfwords (64 bytes)
+	VLD1.P 64(R1), [V0.H8, V1.H8, V2.H8, V3.H8]
 
-	// V20 = 0xFFFF where V0 >= 833 (coefficient in compress=1 range, lower bound)
-	WORD $0x6E7C3C14   // CMHS V20.H8, V0.H8, V28.H8
+	// V20 = (V0 >= 833) AND NOT (V0 >= 2497) = 0xFFFF where compress(coeff)=1
+	WORD $0x6E7C3C14   // CMHS V20.H8, V0.H8, V28.H8  (vd=20, vn=0,  vm=28)
+	WORD $0x6E7D3C15   // CMHS V21.H8, V0.H8, V29.H8  (vd=21, vn=0,  vm=29)
+	WORD $0x4E751E94   // BIC  V20.B16, V20.B16, V21.B16
 
-	// V21 = 0xFFFF where V0 >= 2497 (coefficient above compress=1 range, upper bound)
-	WORD $0x6E7D3C15   // CMHS V21.H8, V0.H8, V29.H8
+	// V21 = (V1 >= 833) AND NOT (V1 >= 2497)
+	WORD $0x6E7C3C35   // CMHS V21.H8, V1.H8, V28.H8  (vd=21, vn=1,  vm=28)
+	WORD $0x6E7D3C36   // CMHS V22.H8, V1.H8, V29.H8  (vd=22, vn=1,  vm=29)
+	WORD $0x4E761EB5   // BIC  V21.B16, V21.B16, V22.B16
 
-	// V20 = 0xFFFF where 833 <= coefficient <= 2496 (compress=1)
-	// BIC V20.B16, V20.B16, V21.B16  =>  V20 = V20 AND NOT(V21)
-	WORD $0x4E751E94   // BIC V20.B16, V20.B16, V21.B16
+	// V22 = (V2 >= 833) AND NOT (V2 >= 2497)
+	WORD $0x6E7C3C56   // CMHS V22.H8, V2.H8, V28.H8  (vd=22, vn=2,  vm=28)
+	WORD $0x6E7D3C57   // CMHS V23.H8, V2.H8, V29.H8  (vd=23, vn=2,  vm=29)
+	WORD $0x4E771ED6   // BIC  V22.B16, V22.B16, V23.B16
 
-	// V20 = 0x0001 or 0x0000 per lane (1 = compress bit)
+	// V23 = (V3 >= 833) AND NOT (V3 >= 2497)
+	WORD $0x6E7C3C77   // CMHS V23.H8, V3.H8, V28.H8  (vd=23, vn=3,  vm=28)
+	WORD $0x6E7D3C78   // CMHS V24.H8, V3.H8, V29.H8  (vd=24, vn=3,  vm=29)
+	WORD $0x4E781EF7   // BIC  V23.B16, V23.B16, V24.B16
+
+	// Convert 0xFFFF/0x0000 to 0x0001/0x0000 in all four registers
 	VUSHR $15, V20.H8, V20.H8
+	VUSHR $15, V21.H8, V21.H8
+	VUSHR $15, V22.H8, V22.H8
+	VUSHR $15, V23.H8, V23.H8
 
-	// V20 = {weight * bit} per lane, where weights are {1,2,4,8,16,32,64,128}
-	WORD $0x4E7B9E94   // MUL V20.H8, V20.H8, V27.H8
+	// Multiply by bit-position weights {1,2,4,8,16,32,64,128}
+	WORD $0x4E7B9E94   // MUL V20.H8, V20.H8, V27.H8  (vd=20, vn=20, vm=27)
+	WORD $0x4E7B9EB5   // MUL V21.H8, V21.H8, V27.H8  (vd=21, vn=21, vm=27)
+	WORD $0x4E7B9ED6   // MUL V22.H8, V22.H8, V27.H8  (vd=22, vn=22, vm=27)
+	WORD $0x4E7B9EF7   // MUL V23.H8, V23.H8, V27.H8  (vd=23, vn=23, vm=27)
 
-	// H20 = sum of all 8 weighted lanes = packed output byte
-	WORD $0x4E71BA94   // ADDV H20, V20.8H
+	// Sum all 8 weighted lanes: output byte in H20..H23 (= byte[0] of V20..V23)
+	WORD $0x4E71BA94   // ADDV H20, V20.8H  (vd=20, vn=20)
+	WORD $0x4E71BAB5   // ADDV H21, V21.8H  (vd=21, vn=21)
+	WORD $0x4E71BAD6   // ADDV H22, V22.8H  (vd=22, vn=22)
+	WORD $0x4E71BAF7   // ADDV H23, V23.8H  (vd=23, vn=23)
 
-	// Extract the 64-bit value from V20 and store the low byte.
-	// After ADDV, V20[15:0] holds the sum (0-255); V20 upper bits are MUL leftovers.
-	VMOV V20.D[0], R10
-	MOVB R10, (R0)
-	ADD $1, R0
+	// Extract byte 0 from each halfword result (sum <= 255, so byte[0] is the full result)
+	VMOV V20.B[0], R10
+	VMOV V21.B[0], R11
+	VMOV V22.B[0], R12
+	VMOV V23.B[0], R13
+
+	// Pack 4 bytes into a 32-bit word and store
+	ORR R11<<8,  R10, R10
+	ORR R12<<16, R10, R10
+	ORR R13<<24, R10, R10
+	MOVW R10, (R0)
+	ADD $4, R0
 
 	SUB $1, R2, R2
 	CBNZ R2, compress_encode1_neon_loop
