@@ -2011,32 +2011,43 @@ compress_encode10_neon_loop:
 	VAND V4.B16, V24.B16, V24.B16
 	VAND V4.B16, V25.B16, V25.B16
 
-	// Reorder to c0..c3 for ByteEncode_10 packing.
-	VMOV V22.D[0], R10
-	VMOV V24.D[0], R11
-	VMOV V22.D[1], R12
-	VMOV V24.D[1], R13
+	// NEON-only bit-packing for group1 (c0..c3) -> 40-bit value in V26.D[0].
+	//
+	// After compression:
+	//   V22.D2 = {c0, c2}, V24.D2 = {c1, c3} (10-bit values in 64-bit lanes)
+	//
+	// Construct c0 | c1<<10 | c2<<20 | c3<<30 without GPR crossings:
+	//   step a: {c1*1024, c3*1024}
+	//   step b: V26 = {c0|c1<<10, c2|c3<<10}  (20-bit pairs, no overlap)
+	//   step c: V27 = V26<<20 = {(c0|c1<<10)<<20, (c2|c3<<10)<<20}
+	//   step d: EXT V26 = {V27.D[1], V26.D[0]}
+	//          = {c2<<20|c3<<30, c0|c1<<10}
+	//   step e: ADDP V26 -> D[0]+D[1] = 40-bit value
+	VSHL $10, V24.D2, V28.D2                    // a: {c1<<10, c3<<10}
+	VADD V22.D2, V28.D2, V26.D2                 // b: {c0|c1<<10, c2|c3<<10}
+	VSHL $20, V26.D2, V27.D2                    // c: shifted pairs
+	VEXT $8, V26.B16, V27.B16, V26.B16          // d: D[0]=V27.D[1], D[1]=V26.D[0]
+	WORD $0x4EFABF5A   // ADDP V26.2D, V26.2D, V26.2D         (e)
 
-	ORR R11<<10, R10, R21
-	ORR R12<<20, R21, R21
-	ORR R13<<30, R21, R21
+	// Same for group2 (c4..c7) -> 40-bit value in V27.D[0].
+	// V23.D2 = {c4, c6}, V25.D2 = {c5, c7}
+	VSHL $10, V25.D2, V28.D2                    // a: {c5<<10, c7<<10}
+	VADD V23.D2, V28.D2, V27.D2                 // b: {c4|c5<<10, c6|c7<<10}
+	VSHL $20, V27.D2, V28.D2                    // c: shifted pairs
+	VEXT $8, V27.B16, V28.B16, V27.B16          // d: D[0]=V28.D[1], D[1]=V27.D[0]
+	WORD $0x4EFBBF7B   // ADDP V27.2D, V27.2D, V27.2D         (e)
 
-	// Reorder to c4..c7 for ByteEncode_10 packing.
-	VMOV V23.D[0], R14
-	VMOV V25.D[0], R15
-	VMOV V23.D[1], R16
-	VMOV V25.D[1], R17
+	// Store group1: 4 bytes via MOVW + 1 byte via MOVB (1 GPR crossing).
+	VMOV V26.D[0], R10
+	MOVW R10, (R0)
+	LSR $32, R10, R10
+	MOVB R10, 4(R0)
 
-	MOVW R21, (R0)
-	LSR $32, R21, R22
-	MOVB R22, 4(R0)
-
-	ORR R15<<10, R14, R23
-	ORR R16<<20, R23, R23
-	ORR R17<<30, R23, R23
-	MOVW R23, 5(R0)
-	LSR $32, R23, R22
-	MOVB R22, 9(R0)
+	// Store group2: 4 bytes at offset 5, 1 byte at offset 9 (1 GPR crossing).
+	VMOV V27.D[0], R10
+	MOVW R10, 5(R0)
+	LSR $32, R10, R10
+	MOVB R10, 9(R0)
 	ADD $10, R0
 
 	SUB $1, R2, R2
@@ -2104,38 +2115,39 @@ compress_encode11_neon_loop:
 	VAND V4.B16, V24.B16, V24.B16
 	VAND V4.B16, V25.B16, V25.B16
 
-	// Reorder to c0..c3 for ByteEncode_11 packing.
-	VMOV V22.D[0], R10
-	VMOV V24.D[0], R11
-	VMOV V22.D[1], R12
-	VMOV V24.D[1], R13
+	// NEON-only bit-packing for group1 (c0..c3) -> 44-bit in V26.D[0]:
+	//   c0 | c1<<11 | c2<<22 | c3<<33
+	// V22.D2 = {c0, c2}, V24.D2 = {c1, c3}
+	VSHL $11, V24.D2, V28.D2                    // {c1<<11, c3<<11}
+	VADD V22.D2, V28.D2, V26.D2                 // {c0|c1<<11, c2|c3<<11}
+	VSHL $22, V26.D2, V27.D2                    // {*<<22, *<<22}
+	VEXT $8, V26.B16, V27.B16, V26.B16          // D[0]=V27.D[1], D[1]=V26.D[0]
+	WORD $0x4EFABF5A   // ADDP V26.2D, V26.2D, V26.2D
 
-	ORR R11<<11, R10, R21
-	ORR R12<<22, R21, R21
-	ORR R13<<33, R21, R21
+	// Same for group2 (c4..c7) -> 44-bit in V27.D[0]:
+	//   c4 | c5<<11 | c6<<22 | c7<<33
+	// V23.D2 = {c4, c6}, V25.D2 = {c5, c7}
+	VSHL $11, V25.D2, V28.D2                    // {c5<<11, c7<<11}
+	VADD V23.D2, V28.D2, V27.D2                 // {c4|c5<<11, c6|c7<<11}
+	VSHL $22, V27.D2, V28.D2                    // {*<<22, *<<22}
+	VEXT $8, V27.B16, V28.B16, V27.B16          // D[0]=V28.D[1], D[1]=V27.D[0]
+	WORD $0x4EFBBF7B   // ADDP V27.2D, V27.2D, V27.2D
 
-	// Reorder to c4..c7 for ByteEncode_11 packing.
-	VMOV V23.D[0], R14
-	VMOV V25.D[0], R15
-	VMOV V23.D[1], R16
-	VMOV V25.D[1], R17
+	// Store 11 bytes (group1 provides 44 bits, group2 provides 44 bits,
+	// byte 5 = upper nibble from group1 | lower nibble from group2).
+	VMOV V26.D[0], R10
+	MOVW R10, (R0)          // bytes 0-3
+	LSR $32, R10, R10       // bits 43:32 of group1
+	MOVB R10, 4(R0)         // byte 4
+	LSR $8, R10, R10        // bits 43:40 = c3[10:7] in bits 3:0
 
-	ORR R15<<11, R14, R23
-	ORR R16<<22, R23, R23
-	ORR R17<<33, R23, R23
-
-	MOVW R21, (R0)
-	LSR $32, R21, R22
-	MOVB R22, 4(R0)
-
-	LSR $40, R21, R22
-	ORR R23<<4, R22, R22
-	MOVB R22, 5(R0)
-
-	LSR $4, R23, R22
-	MOVW R22, 6(R0)
-	LSR $36, R23, R22
-	MOVB R22, 10(R0)
+	VMOV V27.D[0], R11
+	ORR R11<<4, R10, R10    // bridge byte5: c3[10:7] | c4[3:0]<<4
+	MOVB R10, 5(R0)         // byte 5
+	LSR $4, R11, R11        // group2 >> 4
+	MOVW R11, 6(R0)         // bytes 6-9
+	LSR $32, R11, R11       // bits 43:36 of group2 = c7[10:3] in bits 7:0
+	MOVB R11, 10(R0)        // byte 10
 	ADD $11, R0
 
 	SUB $1, R2, R2
