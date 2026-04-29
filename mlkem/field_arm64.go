@@ -146,6 +146,9 @@ func ringCompressAndEncode10NEON(out []byte, f *ringElement)
 func ringCompressAndEncode11NEON(out []byte, f *ringElement)
 
 //go:noescape
+func ringCompressAndEncode1NEON(out []byte, f *ringElement)
+
+//go:noescape
 func rejUniformARM64(buf []byte, a *nttElement, j int) int
 
 func nttMul(out, lhs, rhs *nttElement) {
@@ -269,6 +272,17 @@ func ringCompressAndEncode10(s []byte, f *ringElement) []byte {
 func ringCompressAndEncode11(s []byte, f *ringElement) []byte {
 	s, b := sliceForAppend(s, encodingSize11)
 	ringCompressAndEncode11NEON(b, f)
+	return s
+}
+
+// ringCompressAndEncode1 appends a 32-byte encoding of a ring element to s,
+// compressing one coefficients per bit.
+//
+// It implements Compress₁, according to FIPS 203, Definition 4.7,
+// followed by ByteEncode₁, according to FIPS 203, Algorithm 5.
+func ringCompressAndEncode1(s []byte, f *ringElement) []byte {
+	s, b := sliceForAppend(s, encodingSize1)
+	ringCompressAndEncode1NEON(b, f)
 	return s
 }
 

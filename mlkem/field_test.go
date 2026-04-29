@@ -275,13 +275,24 @@ func TestGammas(t *testing.T) {
 	fmt.Printf("%x\n", (128<<16)+2048)
 }
 
-func BenchmarkRingCompressAndEncode1(b *testing.B) {
+func BenchmarkRingDecodeAndDecompress1(b *testing.B) {
 	var out [encodingSize1]byte
 	b.ReportAllocs()
 	b.SetBytes(encodingSize1)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ringDecodeAndDecompress1(&out)
+	}
+}
+
+func BenchmarkRingCompressAndEncode1(b *testing.B) {
+	var out [encodingSize1]byte
+	f := randomRingElement()
+	b.ReportAllocs()
+	b.SetBytes(encodingSize1)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ringCompressAndEncode1Generic(out[:], &f)
 	}
 }
 

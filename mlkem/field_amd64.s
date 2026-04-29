@@ -194,6 +194,13 @@ DATA compressEncode11ShuffleIdx<>+0x10(SB)/8, $0xffff0a0908070605
 DATA compressEncode11ShuffleIdx<>+0x18(SB)/8, $0x040302010000ffff
 GLOBL compressEncode11ShuffleIdx<>(SB), RODATA, $32
 
+// compress1 thresholds: compress(x,1)=1 iff 833 <= x <= 2496.
+DATA compressEncode1Lo<>+0x00(SB)/2, $832
+GLOBL compressEncode1Lo<>(SB), RODATA, $2
+
+DATA compressEncode1Hi<>+0x00(SB)/2, $2496
+GLOBL compressEncode1Hi<>(SB), RODATA, $2
+
 // MONT_MUL_VEC computes lane-wise Montgomery multiplication YOUT = MontMul(YA, YZ).
 // Inputs: YA=value, YZ=multiplier-broadcast.
 // Constants: Y15=q, Y14=qNegInv, Y10=one, Y8=zero.
@@ -1872,6 +1879,77 @@ ring_compress_encode_tail:
 	MOVW R8, 20(AX)(CX*1)
 
 	VZEROUPPER	
+	RET
+
+// ringCompressAndEncode1AVX2 computes ByteEncode_1(Compress_1(f)).
+//
+// For each coefficient x in [0, q):
+//   compress(x, 1) = 1 if 833 <= x <= 2496, else 0.
+//
+// Vector strategy (32 coefficients -> 4 bytes per iteration):
+// 1) Load 32 x int16 coefficients into Y0, Y1.
+// 2) VPCMPGTW with 832 and 2496 thresholds identifies the compress=1 range.
+// 3) VPANDN combines conditions: 0xFFFF where compress=1.
+// 4) VPACKSSWB packs 16-bit results to sign-carrying bytes.
+// 5) VPERMQ $0xD8 fixes cross-lane byte ordering from VPACKSSWB.
+// 6) VPMOVMSKB extracts MSB of each byte -> 32-bit mask = 4 bytes of output.
+//
+// The caller pre-zeros the output buffer (required for the generic fallback).
+// This implementation writes every output byte directly, so no pre-zero needed.
+//
+// func ringCompressAndEncode1AVX2(out []byte, f *ringElement)
+TEXT ·ringCompressAndEncode1AVX2(SB), NOSPLIT, $0
+	MOVQ out_base+0(FP), AX
+	MOVQ f_base+24(FP), BX
+
+	VPBROADCASTW compressEncode1Lo<>(SB), Y14  // Y14 = 832  (lower threshold)
+	VPBROADCASTW compressEncode1Hi<>(SB), Y15  // Y15 = 2496 (upper threshold)
+
+	XORQ DI, DI  // byte offset into f
+	XORQ CX, CX  // output byte offset
+
+ring_compress_encode1_loop:
+	CMPQ DI, $512
+	JGE ring_compress_encode1_done
+
+	// Load 32 coefficients (64 bytes = 2 x YMM)
+	VMOVDQU (BX)(DI*1), Y0
+	VMOVDQU 32(BX)(DI*1), Y1
+
+	// Y2 = 0xFFFF where f[i] > 832 (i.e., f[i] >= 833)
+	VPCMPGTW Y14, Y0, Y2
+	VPCMPGTW Y14, Y1, Y3
+
+	// Y4/Y5 = 0xFFFF where f[i] > 2496 (i.e., f[i] >= 2497)
+	VPCMPGTW Y15, Y0, Y4
+	VPCMPGTW Y15, Y1, Y5
+
+	// Y2/Y3 = 0xFFFF where 833 <= f[i] <= 2496 (compress=1)
+	// VPANDN arg1, arg2, dst => dst = arg1 & ~arg2
+	VPANDN Y2, Y4, Y2
+	VPANDN Y3, Y5, Y3
+
+	// Pack 32 x int16 {0xFFFF, 0x0000} to 32 x int8 {0x80, 0x00}.
+	// VPACKSSWB within 128-bit lanes: low lane = {Y2[0..7], Y3[0..7]},
+	// high lane = {Y2[8..15], Y3[8..15]}.
+	VPACKSSWB Y3, Y2, Y4
+
+	// Fix cross-lane order: swap 64-bit chunks 1 and 2 so bytes monotonically
+	// track coefficients 0..7, 8..15, 16..23, 24..31.
+	VPERMQ $0xD8, Y4, Y4
+
+	// Extract the MSB of each byte as a 32-bit bitmask.
+	VPMOVMSKB Y4, R8
+
+	// Store 4 output bytes.
+	MOVL R8, (AX)(CX*1)
+
+	ADDQ $64, DI   // advance by 32 coefficients x 2 bytes
+	ADDQ $4, CX    // 4 output bytes per 32 coefficients
+	JMP ring_compress_encode1_loop
+
+ring_compress_encode1_done:
+	VZEROUPPER
 	RET
 
 // rejUniformAMD64 implements the scalar rejection sampler used by sampleNTT.

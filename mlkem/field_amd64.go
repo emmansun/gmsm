@@ -186,6 +186,9 @@ func ringCompressAndEncode11AVX2(out []byte, f *ringElement)
 //go:noescape
 func decodeAndDecompressU11AVX2(dst []ringElement, c []byte)
 
+//go:noescape
+func ringCompressAndEncode1AVX2(out []byte, f *ringElement)
+
 func nttMul(acc, lhs, rhs *nttElement) {
 	if useAVX2 {
 		internalNTTMulAVX2(acc, lhs, rhs)
@@ -365,6 +368,17 @@ func ringCompressAndEncode11(s []byte, f *ringElement) []byte {
 		return s
 	}
 	return ringCompressAndEncode(s, f, 11)
+}
+
+// ringCompressAndEncode1 appends a 32-byte encoding of a ring element to s,
+// compressing one coefficients per bit.
+//
+// It implements Compress₁, according to FIPS 203, Definition 4.7,
+// followed by ByteEncode₁, according to FIPS 203, Algorithm 5.
+func ringCompressAndEncode1(s []byte, f *ringElement) []byte {
+	s, b := sliceForAppend(s, encodingSize1)
+	ringCompressAndEncode1AVX2(b, f)
+	return s
 }
 
 // sampleNTT draws a uniformly random nttElement from a stream of uniformly

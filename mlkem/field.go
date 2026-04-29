@@ -194,18 +194,10 @@ func sliceForAppend(in []byte, n int) (head, tail []byte) {
 	return
 }
 
-// ringCompressAndEncode1 appends a 32-byte encoding of a ring element to s,
-// compressing one coefficients per bit.
-//
-// It implements Compress₁, according to FIPS 203, Definition 4.7,
-// followed by ByteEncode₁, according to FIPS 203, Algorithm 5.
-func ringCompressAndEncode1(s []byte, f *ringElement) []byte {
-	s, b := sliceForAppend(s, encodingSize1)
-	clear(b)
+func ringCompressAndEncode1Generic(s []byte, f *ringElement) {
 	for i := range f {
-		b[i/8] |= uint8(compress(f[i], 1) << (i % 8))
+		s[i/8] |= uint8(compress(f[i], 1) << (i % 8))
 	}
-	return s
 }
 
 // ringDecodeAndDecompress1 decodes a 32-byte slice to a ring element where each

@@ -864,6 +864,124 @@ func TestRingCompressAndEncode11AVX2MatchesGenericExhaustiveSingleValue(t *testi
 }
 
 // ---------------------------------------------------------------------------
+// ringCompressAndEncode1AVX2 correctness tests
+// ---------------------------------------------------------------------------
+
+func TestRingCompressAndEncode1AVX2MatchesGenericRandom(t *testing.T) {
+	requireAVX2(t)
+
+	for iter := 0; iter < 1000; iter++ {
+		f := randomRingElement()
+
+		var got [encodingSize1]byte
+		var want [encodingSize1]byte
+		ringCompressAndEncode1AVX2(got[:], &f)
+		ringCompressAndEncode1Generic(want[:], &f)
+
+		if got != want {
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatalf("iter=%d byte=%d: mismatch got=%02x want=%02x", iter, i, got[i], want[i])
+				}
+			}
+		}
+	}
+}
+
+func TestRingCompressAndEncode1AVX2MatchesGenericEdgePatterns(t *testing.T) {
+	requireAVX2(t)
+
+	patterns := []struct {
+		name string
+		fill func(i int) fieldElement
+	}{
+		{
+			name: "all-zero",
+			fill: func(i int) fieldElement { return 0 },
+		},
+		{
+			name: "all-max",
+			fill: func(i int) fieldElement { return q - 1 },
+		},
+		{
+			name: "alternating-zero-max",
+			fill: func(i int) fieldElement {
+				if i%2 == 0 {
+					return 0
+				}
+				return q - 1
+			},
+		},
+		{
+			name: "ascending-mod-q",
+			fill: func(i int) fieldElement { return fieldElement(i % int(q)) },
+		},
+		{
+			name: "threshold-833",
+			fill: func(i int) fieldElement { return 833 },
+		},
+		{
+			name: "threshold-832",
+			fill: func(i int) fieldElement { return 832 },
+		},
+		{
+			name: "threshold-2496",
+			fill: func(i int) fieldElement { return 2496 },
+		},
+		{
+			name: "threshold-2497",
+			fill: func(i int) fieldElement { return 2497 },
+		},
+	}
+
+	for _, tc := range patterns {
+		t.Run(tc.name, func(t *testing.T) {
+			var f ringElement
+			for i := range f {
+				f[i] = tc.fill(i)
+			}
+
+			var got [encodingSize1]byte
+			var want [encodingSize1]byte
+			ringCompressAndEncode1AVX2(got[:], &f)
+			ringCompressAndEncode1Generic(want[:], &f)
+
+			if got != want {
+				for i := range got {
+					if got[i] != want[i] {
+						t.Fatalf("pattern=%s byte=%d: mismatch got=%02x want=%02x", tc.name, i, got[i], want[i])
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestRingCompressAndEncode1AVX2MatchesGenericExhaustiveSingleValue(t *testing.T) {
+	requireAVX2(t)
+
+	for x := 0; x < int(q); x++ {
+		var f ringElement
+		for i := range f {
+			f[i] = fieldElement(x)
+		}
+
+		var got [encodingSize1]byte
+		var want [encodingSize1]byte
+		ringCompressAndEncode1AVX2(got[:], &f)
+		ringCompressAndEncode1Generic(want[:], &f)
+
+		if got != want {
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatalf("x=%d byte=%d: mismatch got=%02x want=%02x", x, i, got[i], want[i])
+				}
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
 // ringDecodeAndDecompress4AVX2 correctness and performance tests
 // ---------------------------------------------------------------------------
 
@@ -1460,6 +1578,37 @@ func BenchmarkRingCompressAndEncode5(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			ringCompressAndEncode5AVX2(out[:], &f)
+		}
+		benchEncodeSink = out[0]
+	})
+}
+
+func BenchmarkRingCompressAndEncode1AVX2(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize1]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize1)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			clear(out[:])
+			ringCompressAndEncode1Generic(out[:], &f)
+		}
+		benchEncodeSink = out[0]
+	})
+
+	b.Run("AVX2", func(b *testing.B) {
+		if !cpu.X86.HasAVX2 {
+			b.Skip("AVX2 not available on this machine")
+		}
+
+		f := randomRingElement()
+		var out [encodingSize1]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize1)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode1AVX2(out[:], &f)
 		}
 		benchEncodeSink = out[0]
 	})
