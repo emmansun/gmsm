@@ -2204,7 +2204,7 @@ compress_encode1_neon_loop:
 	WORD $0x4E7B9E94   // MUL V20.H8, V20.H8, V27.H8
 
 	// H20 = sum of all 8 weighted lanes = packed output byte
-	WORD $0x4E70BA94   // ADDV H20, V20.8H
+	WORD $0x4E71BA94   // ADDV H20, V20.8H
 
 	// Extract the 64-bit value from V20 and store the low byte.
 	// After ADDV, V20[15:0] holds the sum (0-255); V20 upper bits are MUL leftovers.
