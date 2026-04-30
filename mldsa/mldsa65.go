@@ -66,9 +66,8 @@ func (sk *PrivateKey65) ensureT1() {
 	sk.ensureNTT()
 	sk.t1Once.Do(func() {
 		// t = NTT_inv(A' * NTT(s1)) + s2
-		s1NTT := sk.s1NTTCache
-		A := sk.a
-		s2 := sk.s2
+		s1NTT := &sk.s1NTTCache
+		A := &sk.a
 		var nttT [k65]nttElement
 
 		for i := range nttT {
@@ -81,7 +80,7 @@ func (sk *PrivateKey65) ensureT1() {
 		t1 := &sk.t1
 		for i := range nttT {
 			t[i] = inverseNTT(nttT[i])
-			polyAddAssign(&t[i], &s2[i])
+			polyAddAssign(&t[i], &sk.s2[i])
 			// compress t
 			for j := range n {
 				t1[i][j], _ = power2Round(t[i][j])
