@@ -1178,6 +1178,164 @@ LUnpack19:
 	VZEROUPPER
 	RET
 
+// makeHintPolyGamma32AVX2 computes MakeHint for all 256 coefficients of a polynomial
+// using gamma2 = (q-1)/32. For each coefficient:
+//   rPlusZ = fieldSub(w, cs2)  [subtract z from r+z to recover r+z, reduce mod q]
+//   r      = fieldAdd(rPlusZ, ct0)
+//   hint   = (HighBitsGamma32(rPlusZ) != HighBitsGamma32(r)) ? 1 : 0
+//
+// Register map:
+//   AX=ct0, BX=cs2, CX=w, DX=hint
+//   Y15(Q)=q, Y9=127, Y10=1025, Y11=2^21, Y12=15, Y7=1, Y8=zero
+TEXT ·makeHintPolyGamma32AVX2(SB), NOSPLIT, $0-32
+	MOVQ ct0+0(FP), AX
+	MOVQ cs2+8(FP), BX
+	MOVQ w+16(FP), CX
+	MOVQ hint+24(FP), DX
+	MOVL $32, SI
+
+	VPBROADCASTD qConst, Q             // Y15 = q
+	VPBROADCASTD plus127Const, Y9      // Y9 = 127
+	VPBROADCASTD decomposeMul1025Const, Y10  // Y10 = 1025
+	VPBROADCASTD oneConst, Y11
+	VPSLLD $21, Y11, Y11               // Y11 = 2^21
+	VPBROADCASTD decomposeMask15Const, Y12   // Y12 = 15
+	VPBROADCASTD oneConst, Y7          // Y7 = 1 (for hint masking)
+	VPXOR Y8, Y8, Y8                   // Y8 = zero
+
+makeHintGamma32Loop:
+	VMOVDQU (AX), Y1                   // ct0[0..7]
+	VMOVDQU (BX), Y2                   // cs2[0..7]
+	VMOVDQU (CX), Y3                   // w[0..7]
+
+	// rPlusZ = fieldSub(w, cs2) = (w + q - cs2) mod q
+	VPADDD Q, Y3, Y4
+	VPSUBD Y2, Y4, Y4
+	VPCMPGTD Y4, Q, Y5                 // Y5 = 0xFFFF where Q > Y4 (i.e. Y4 < q, in range)
+	VPANDN Q, Y5, Y5                   // Y5 = q where Y4 >= q, else 0
+	VPSUBD Y5, Y4, Y4                  // Y4 = rPlusZ in [0, q-1]
+
+	// r = fieldAdd(rPlusZ, ct0) = (rPlusZ + ct0) mod q
+	VPADDD Y1, Y4, Y6
+	VPCMPGTD Y6, Q, Y5
+	VPANDN Q, Y5, Y5
+	VPSUBD Y5, Y6, Y6                  // Y6 = r in [0, q-1]
+
+	// HighBitsGamma32(rPlusZ): r1 = ((rPlusZ+127)>>7 * 1025 + 2^21) >> 22 & 15
+	VPADDD Y9, Y4, Y13
+	VPSRLD $7, Y13, Y13
+	VPMULLD Y10, Y13, Y13
+	VPADDD Y11, Y13, Y13
+	VPSRAD $22, Y13, Y13
+	VPAND Y12, Y13, Y13                // Y13 = HighBits(rPlusZ)
+
+	// HighBitsGamma32(r): r1 = ((r+127)>>7 * 1025 + 2^21) >> 22 & 15
+	VPADDD Y9, Y6, Y14
+	VPSRLD $7, Y14, Y14
+	VPMULLD Y10, Y14, Y14
+	VPADDD Y11, Y14, Y14
+	VPSRAD $22, Y14, Y14
+	VPAND Y12, Y14, Y14                // Y14 = HighBits(r)
+
+	// hint = (Y13 != Y14) ? 1 : 0
+	// VPCMPEQD → 0xFF where equal, 0x00 where different
+	// VPANDN Y7, Ymask, Ydst → (~Ymask) & Y7 = 1 where different, 0 where same
+	VPCMPEQD Y14, Y13, Y5             // Y5 = mask: 0xFF where equal
+	VPANDN Y7, Y5, Y5                 // Y5 = 1 where different, 0 where same
+
+	VMOVDQU Y5, (DX)
+
+	ADDQ $32, AX
+	ADDQ $32, BX
+	ADDQ $32, CX
+	ADDQ $32, DX
+	DECL SI
+	JNZ makeHintGamma32Loop
+
+	VZEROUPPER
+	RET
+
+// makeHintPolyGamma88AVX2 computes MakeHint for all 256 coefficients of a polynomial
+// using gamma2 = (q-1)/88. For each coefficient:
+//   rPlusZ = fieldSub(w, cs2)
+//   r      = fieldAdd(rPlusZ, ct0)
+//   hint   = (HighBitsGamma88(rPlusZ) != HighBitsGamma88(r)) ? 1 : 0
+//
+// Register map:
+//   AX=ct0, BX=cs2, CX=w, DX=hint
+//   Y15(Q)=q, Y9=127, Y10=11275, Y11=2^23, Y12=43, Y7=1, Y0=scratch
+TEXT ·makeHintPolyGamma88AVX2(SB), NOSPLIT, $0-32
+	MOVQ ct0+0(FP), AX
+	MOVQ cs2+8(FP), BX
+	MOVQ w+16(FP), CX
+	MOVQ hint+24(FP), DX
+	MOVL $32, SI
+
+	VPBROADCASTD qConst, Q                  // Y15 = q
+	VPBROADCASTD plus127Const, Y9           // Y9 = 127
+	VPBROADCASTD decomposeMul11275Const, Y10 // Y10 = 11275
+	VPBROADCASTD oneConst, Y11
+	VPSLLD $23, Y11, Y11                    // Y11 = 2^23
+	VPBROADCASTD decomposeConst43Const, Y12  // Y12 = 43
+	VPBROADCASTD oneConst, Y7               // Y7 = 1 (for hint masking)
+
+makeHintGamma88Loop:
+	VMOVDQU (AX), Y1                        // ct0[0..7]
+	VMOVDQU (BX), Y2                        // cs2[0..7]
+	VMOVDQU (CX), Y3                        // w[0..7]
+
+	// rPlusZ = fieldSub(w, cs2)
+	VPADDD Q, Y3, Y4
+	VPSUBD Y2, Y4, Y4
+	VPCMPGTD Y4, Q, Y5
+	VPANDN Q, Y5, Y5
+	VPSUBD Y5, Y4, Y4                       // Y4 = rPlusZ in [0, q-1]
+
+	// r = fieldAdd(rPlusZ, ct0)
+	VPADDD Y1, Y4, Y6
+	VPCMPGTD Y6, Q, Y5
+	VPANDN Q, Y5, Y5
+	VPSUBD Y5, Y6, Y6                       // Y6 = r in [0, q-1]
+
+	// HighBitsGamma88(rPlusZ): r1 = ((rPlusZ+127)>>7 * 11275 + 2^23) >> 24
+	//   then clamp: r1 ^= ((43-r1)>>31) & r1
+	VPADDD Y9, Y4, Y13
+	VPSRLD $7, Y13, Y13
+	VPMULLD Y10, Y13, Y13
+	VPADDD Y11, Y13, Y13
+	VPSRAD $24, Y13, Y13                    // Y13 = raw r1
+	VPSUBD Y13, Y12, Y0                     // Y0 = 43 - r1
+	VPSRAD $31, Y0, Y0                      // Y0 = sign mask (0xFF if r1==44, else 0)
+	VPAND Y13, Y0, Y0
+	VPXOR Y0, Y13, Y13                      // Y13 = HighBits(rPlusZ) clamped
+
+	// HighBitsGamma88(r): same computation
+	VPADDD Y9, Y6, Y14
+	VPSRLD $7, Y14, Y14
+	VPMULLD Y10, Y14, Y14
+	VPADDD Y11, Y14, Y14
+	VPSRAD $24, Y14, Y14                    // Y14 = raw r1
+	VPSUBD Y14, Y12, Y0                     // Y0 = 43 - r1
+	VPSRAD $31, Y0, Y0
+	VPAND Y14, Y0, Y0
+	VPXOR Y0, Y14, Y14                      // Y14 = HighBits(r) clamped
+
+	// hint = (Y13 != Y14) ? 1 : 0
+	VPCMPEQD Y14, Y13, Y5
+	VPANDN Y7, Y5, Y5                       // Y5 = 1 where different, 0 where same
+
+	VMOVDQU Y5, (DX)
+
+	ADDQ $32, AX
+	ADDQ $32, BX
+	ADDQ $32, CX
+	ADDQ $32, DX
+	DECL SI
+	JNZ makeHintGamma88Loop
+
+	VZEROUPPER
+	RET
+
 // out0 can't be the same register as in0 or in1
 // in0 = [a0, a1, a2, a3 | a4, a5, a6, a7]
 // in1 = [b0, b1, b2, b3 | b4, b5, b6, b7]

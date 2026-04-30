@@ -280,3 +280,71 @@ func TestUseHintPolyARM64Dispatch(t *testing.T) {
 		}
 	}
 }
+
+func TestMakeHintPolyGamma32NEON(t *testing.T) {
+	for i := 0; i < 64; i++ {
+		ct0 := randomRingElement()
+		cs2 := randomRingElement()
+		w := randomRingElement()
+
+		var got ringElement
+		makeHintPolyGamma32NEON(&ct0[0], &cs2[0], &w[0], &got[0])
+
+		var want ringElement
+		for j := range n {
+			want[j] = makeHint(ct0[j], cs2[j], w[j], gamma2QMinus1Div32)
+		}
+
+		if got != want {
+			t.Fatalf("makeHintPolyGamma32NEON mismatch on iteration %d", i)
+		}
+	}
+}
+
+func TestMakeHintPolyGamma88NEON(t *testing.T) {
+	for i := 0; i < 64; i++ {
+		ct0 := randomRingElement()
+		cs2 := randomRingElement()
+		w := randomRingElement()
+
+		var got ringElement
+		makeHintPolyGamma88NEON(&ct0[0], &cs2[0], &w[0], &got[0])
+
+		var want ringElement
+		for j := range n {
+			want[j] = makeHint(ct0[j], cs2[j], w[j], gamma2QMinus1Div88)
+		}
+
+		if got != want {
+			t.Fatalf("makeHintPolyGamma88NEON mismatch on iteration %d", i)
+		}
+	}
+}
+
+func TestVectorMakeHintARM64(t *testing.T) {
+	for _, gamma2 := range []uint32{gamma2QMinus1Div32, gamma2QMinus1Div88} {
+		for i := 0; i < 16; i++ {
+			k := 4
+			ct0 := make([]ringElement, k)
+			cs2 := make([]ringElement, k)
+			w := make([]ringElement, k)
+			for j := range k {
+				ct0[j] = randomRingElement()
+				cs2[j] = randomRingElement()
+				w[j] = randomRingElement()
+			}
+
+			got := make([]ringElement, k)
+			vectorMakeHint(ct0, cs2, w, got, gamma2)
+
+			want := make([]ringElement, k)
+			vectorMakeHintGeneric(ct0, cs2, w, want, gamma2)
+
+			for j := range k {
+				if got[j] != want[j] {
+					t.Fatalf("vectorMakeHint mismatch on i=%d j=%d gamma2=%d", i, j, gamma2)
+				}
+			}
+		}
+	}
+}

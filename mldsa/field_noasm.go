@@ -40,6 +40,10 @@ func useHintPoly(dst, h, r *ringElement, gamma2 uint32) {
 	useHintPolyGeneric(dst, h, r, gamma2)
 }
 
+func vectorMakeHint(ct0, cs2, w, hint []ringElement, gamma2 uint32) {
+	vectorMakeHintGeneric(ct0, cs2, w, hint, gamma2)
+}
+
 func internalNTT(f *ringElement) {
 	internalNTTGeneric(f)
 }

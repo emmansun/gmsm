@@ -121,6 +121,12 @@ func useHintPolyGamma32AVX2(h, r, out *fieldElement)
 func useHintPolyGamma88AVX2(h, r, out *fieldElement)
 
 //go:noescape
+func makeHintPolyGamma32AVX2(ct0, cs2, w, hint *fieldElement)
+
+//go:noescape
+func makeHintPolyGamma88AVX2(ct0, cs2, w, hint *fieldElement)
+
+//go:noescape
 func internalNTTAVX2(f *ringElement)
 
 // polyAddAssign updates dst as dst += src with platform-dependent dispatch.
@@ -170,6 +176,25 @@ func useHintPoly(dst, h, r *ringElement, gamma2 uint32) {
 		useHintPolyGamma88AVX2(&h[0], &r[0], &dst[0])
 	default:
 		useHintPolyGeneric(dst, h, r, gamma2)
+	}
+}
+
+func vectorMakeHint(ct0, cs2, w, hint []ringElement, gamma2 uint32) {
+	if !useAVX2 {
+		vectorMakeHintGeneric(ct0, cs2, w, hint, gamma2)
+		return
+	}
+	switch gamma2 {
+	case gamma2QMinus1Div32:
+		for i := range ct0 {
+			makeHintPolyGamma32AVX2(&ct0[i][0], &cs2[i][0], &w[i][0], &hint[i][0])
+		}
+	case gamma2QMinus1Div88:
+		for i := range ct0 {
+			makeHintPolyGamma88AVX2(&ct0[i][0], &cs2[i][0], &w[i][0], &hint[i][0])
+		}
+	default:
+		vectorMakeHintGeneric(ct0, cs2, w, hint, gamma2)
 	}
 }
 

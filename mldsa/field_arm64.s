@@ -1626,3 +1626,175 @@ bpack19_loop:
 	SUBS $1, R2, R2
 	BNE  bpack19_loop
 	RET
+
+// makeHintPolyGamma32NEON computes MakeHint(ct0, cs2, w, gamma2=(q-1)/32)
+// for all 256 coefficients of one polynomial, storing results as int32 (0 or 1).
+//
+// makeHint(ct0, cs2, w) = 1 if HighBits(r) != HighBits(rPlusZ), else 0, where
+//   rPlusZ = fieldSub(w, cs2)   and   r = fieldAdd(rPlusZ, ct0).
+//
+// HighBitsGamma32(x) = SQRDMULH((x+127)>>7, 524800) & 15, implemented as:
+//   t' = (x + 127) >> 7          (VADD+VUSHR)
+//   r1 = SQRDMULH(t', 524800)   (one WORD instruction)
+//   r1 &= 15                     (VAND)
+//
+// fieldSub(w, cs2) = reduce_once(w + q - cs2):
+//   t = w + q - cs2  ∈ [1, 2q-1]
+//   if t > q: t -= q             (CMHI WORD + VAND + VSUB)
+//
+// fieldAdd(rPlusZ, ct0) = reduce_once(rPlusZ + ct0):
+//   t = rPlusZ + ct0  ∈ [0, 2q-2]
+//   if t > q: t -= q
+//
+// Both CMHI and HighBits use the same properties as decomposeSubToR0Gamma32ARM64:
+// when the input is exactly q (instead of 0), HighBits(q) = 0 = HighBits(0),
+// so hint correctness is preserved without a separate >= check.
+//
+// Hint: VCMEQ gives 0xFFFFFFFF where equal; VMOV+VBIT converts to 1 (diff) / 0 (same).
+//
+// WORD encodings:
+//   CMHI V4.S4, V3.S4, V31.S4  = 0x6ebf3c64  (fieldSub reduce)
+//   CMHI V5.S4, V4.S4, V31.S4  = 0x6ebf3c85  (fieldAdd reduce)
+//   SQRDMULH V6.S4, V5.S4, V29.S4 = 0x6EBDB4A6 (HighBits rPlusZ)
+//   SQRDMULH V8.S4, V7.S4, V29.S4 = 0x6EBDB4E8 (HighBits r)
+//
+// Pinned constants: V31=q, V30=127, V29=524800, V28=15, V27={1}, V23={0}
+//
+// func makeHintPolyGamma32NEON(ct0, cs2, w, hint *fieldElement)
+TEXT ·makeHintPolyGamma32NEON(SB), NOSPLIT, $0-32
+	MOVD ct0+0(FP), R0
+	MOVD cs2+8(FP), R1
+	MOVD w+16(FP), R2
+	MOVD hint+24(FP), R3
+	MOVD $64, R4           // 64 iterations × 4 coefficients = 256
+
+	MOVD $8380417, R8
+	VDUP R8, V31.S4
+	MOVD $127, R8
+	VDUP R8, V30.S4
+	MOVD $524800, R8       // SQRDMULH constant: 1025*2^9
+	VDUP R8, V29.S4
+	MOVD $15, R8
+	VDUP R8, V28.S4
+	MOVD $1, R8
+	VDUP R8, V27.S4
+	VEOR V23.B16, V23.B16, V23.B16   // V23 = zero vector
+
+make_hint_gamma32_loop:
+	VLD1.P (16)(R0), [V0.S4]   // ct0[0..3]
+	VLD1.P (16)(R1), [V1.S4]   // cs2[0..3]
+	VLD1.P (16)(R2), [V2.S4]   // w[0..3]
+
+	// rPlusZ = fieldSub(w, cs2) = reduce_once(w + q - cs2)
+	VADD V31.S4, V2.S4, V3.S4           // V3 = w + q
+	VSUB V1.S4, V3.S4, V3.S4            // V3 = w + q - cs2 ∈ [1, 2q-1]
+	WORD $0x6ebf3c64                     // CMHI V4.S4, V3.S4, V31.S4 (V3 > q ?)
+	VAND V31.B16, V4.B16, V4.B16        // V4 = q if > q, else 0
+	VSUB V4.S4, V3.S4, V3.S4            // V3 = rPlusZ ∈ [0, q-1]
+
+	// r = fieldAdd(rPlusZ, ct0) = reduce_once(rPlusZ + ct0)
+	VADD V0.S4, V3.S4, V4.S4            // V4 = rPlusZ + ct0 ∈ [0, 2q-2]
+	WORD $0x6ebf3c85                     // CMHI V5.S4, V4.S4, V31.S4 (V4 > q ?)
+	VAND V31.B16, V5.B16, V5.B16
+	VSUB V5.S4, V4.S4, V4.S4            // V4 = r ∈ [0, q-1]
+
+	// HighBitsGamma32(rPlusZ) → V6
+	VADD V30.S4, V3.S4, V5.S4           // V5 = rPlusZ + 127
+	VUSHR $7, V5.S4, V5.S4              // V5 = (rPlusZ+127)>>7
+	WORD $0x6EBDB4A6                     // SQRDMULH V6.S4, V5.S4, V29.S4
+	VAND V28.B16, V6.B16, V6.B16        // V6 = HighBits(rPlusZ) & 15
+
+	// HighBitsGamma32(r) → V8
+	VADD V30.S4, V4.S4, V7.S4           // V7 = r + 127
+	VUSHR $7, V7.S4, V7.S4              // V7 = (r+127)>>7
+	WORD $0x6EBDB4E8                     // SQRDMULH V8.S4, V7.S4, V29.S4
+	VAND V28.B16, V8.B16, V8.B16        // V8 = HighBits(r) & 15
+
+	// hint = (HighBits(r) != HighBits(rPlusZ)) ? 1 : 0
+	VCMEQ V6.S4, V8.S4, V9.S4          // V9 = 0xFFFFFFFF where equal, 0 where different
+	VMOV  V27.B16, V10.B16              // V10 = 1 per lane (copy constant)
+	VBIT  V9.B16, V23.B16, V10.B16     // V10 = 1 where V9=0 (different), 0 where V9=0xFF (same)
+
+	VST1.P [V10.S4], (16)(R3)
+	SUBS $1, R4, R4
+	BNE  make_hint_gamma32_loop
+	RET
+
+// makeHintPolyGamma88NEON computes MakeHint(ct0, cs2, w, gamma2=(q-1)/88)
+// for all 256 coefficients of one polynomial, storing results as int32 (0 or 1).
+//
+// Same algorithm as makeHintPolyGamma32NEON but with HighBitsGamma88:
+//   r1 = SQRDMULH((x+127)>>7, 1443200)   (C = 11275*2^7)
+//   if r1 == 44: r1 = 0   (branch-free: VCMEQ V28(=44), r1, mask; VBIT mask, V23, r1)
+//
+// No &63 mask needed; SQRDMULH guarantees r1 ∈ [0,44] for valid field elements.
+//
+// WORD encodings:
+//   CMHI V4.S4, V3.S4, V31.S4     = 0x6ebf3c64  (fieldSub reduce)
+//   CMHI V5.S4, V4.S4, V31.S4     = 0x6ebf3c85  (fieldAdd reduce)
+//   SQRDMULH V6.S4, V5.S4, V29.S4 = 0x6EBDB4A6  (HighBits rPlusZ)
+//   SQRDMULH V8.S4, V7.S4, V29.S4 = 0x6EBDB4E8  (HighBits r)
+//
+// Pinned constants: V31=q, V30=127, V29=1443200, V28=44, V27={1}, V23={0}
+//
+// func makeHintPolyGamma88NEON(ct0, cs2, w, hint *fieldElement)
+TEXT ·makeHintPolyGamma88NEON(SB), NOSPLIT, $0-32
+	MOVD ct0+0(FP), R0
+	MOVD cs2+8(FP), R1
+	MOVD w+16(FP), R2
+	MOVD hint+24(FP), R3
+	MOVD $64, R4
+
+	MOVD $8380417, R8
+	VDUP R8, V31.S4
+	MOVD $127, R8
+	VDUP R8, V30.S4
+	MOVD $1443200, R8      // SQRDMULH constant: 11275*2^7
+	VDUP R8, V29.S4
+	MOVD $44, R8
+	VDUP R8, V28.S4
+	MOVD $1, R8
+	VDUP R8, V27.S4
+	VEOR V23.B16, V23.B16, V23.B16
+
+make_hint_gamma88_loop:
+	VLD1.P (16)(R0), [V0.S4]
+	VLD1.P (16)(R1), [V1.S4]
+	VLD1.P (16)(R2), [V2.S4]
+
+	// rPlusZ = fieldSub(w, cs2)
+	VADD V31.S4, V2.S4, V3.S4
+	VSUB V1.S4, V3.S4, V3.S4
+	WORD $0x6ebf3c64                    // CMHI V4.S4, V3.S4, V31.S4
+	VAND V31.B16, V4.B16, V4.B16
+	VSUB V4.S4, V3.S4, V3.S4           // V3 = rPlusZ
+
+	// r = fieldAdd(rPlusZ, ct0)
+	VADD V0.S4, V3.S4, V4.S4
+	WORD $0x6ebf3c85                    // CMHI V5.S4, V4.S4, V31.S4
+	VAND V31.B16, V5.B16, V5.B16
+	VSUB V5.S4, V4.S4, V4.S4           // V4 = r
+
+	// HighBitsGamma88(rPlusZ) → V6
+	VADD V30.S4, V3.S4, V5.S4
+	VUSHR $7, V5.S4, V5.S4
+	WORD $0x6EBDB4A6                    // SQRDMULH V6.S4, V5.S4, V29.S4
+	VCMEQ V28.S4, V6.S4, V11.S4        // V11 = mask where r1==44
+	VBIT  V11.B16, V23.B16, V6.B16     // V6 = 0 where r1==44
+
+	// HighBitsGamma88(r) → V8
+	VADD V30.S4, V4.S4, V7.S4
+	VUSHR $7, V7.S4, V7.S4
+	WORD $0x6EBDB4E8                    // SQRDMULH V8.S4, V7.S4, V29.S4
+	VCMEQ V28.S4, V8.S4, V11.S4        // V11 = mask where r1==44
+	VBIT  V11.B16, V23.B16, V8.B16     // V8 = 0 where r1==44
+
+	// hint = (HighBits(r) != HighBits(rPlusZ)) ? 1 : 0
+	VCMEQ V6.S4, V8.S4, V9.S4
+	VMOV  V27.B16, V10.B16
+	VBIT  V9.B16, V23.B16, V10.B16
+
+	VST1.P [V10.S4], (16)(R3)
+	SUBS $1, R4, R4
+	BNE  make_hint_gamma88_loop
+	RET

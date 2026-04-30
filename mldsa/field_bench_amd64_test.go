@@ -352,3 +352,50 @@ func BenchmarkUseHintPoly(b *testing.B) {
 		benchmarkHintSink = out
 	})
 }
+
+func BenchmarkMakeHintPoly(b *testing.B) {
+	ct0 := randomRingElement()
+	cs2 := randomRingElement()
+	w := randomRingElement()
+	var out ringElement
+
+	b.ReportAllocs()
+
+	b.Run("gamma32/generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for j := range n {
+				out[j] = makeHint(ct0[j], cs2[j], w[j], gamma2QMinus1Div32)
+			}
+		}
+		benchmarkHintSink = out
+	})
+
+	b.Run("gamma32/avx2", func(b *testing.B) {
+		if !useAVX2 {
+			b.Skip("AVX2 is not available")
+		}
+		for i := 0; i < b.N; i++ {
+			makeHintPolyGamma32AVX2(&ct0[0], &cs2[0], &w[0], &out[0])
+		}
+		benchmarkHintSink = out
+	})
+
+	b.Run("gamma88/generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for j := range n {
+				out[j] = makeHint(ct0[j], cs2[j], w[j], gamma2QMinus1Div88)
+			}
+		}
+		benchmarkHintSink = out
+	})
+
+	b.Run("gamma88/avx2", func(b *testing.B) {
+		if !useAVX2 {
+			b.Skip("AVX2 is not available")
+		}
+		for i := 0; i < b.N; i++ {
+			makeHintPolyGamma88AVX2(&ct0[0], &cs2[0], &w[0], &out[0])
+		}
+		benchmarkHintSink = out
+	})
+}
