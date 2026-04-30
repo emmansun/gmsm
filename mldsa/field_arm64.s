@@ -1208,13 +1208,21 @@ bpack4_loop:
 // Per coefficient, HighBitsGamma32 uses:
 //   r1 = (((r + 127) >> 7) * 1025 + 2^21) >> 22  &  0xF
 //
-// NEON computes r1 for 8 coefficients per iteration; scalar packs nibble pairs.
+// Loop is unrolled 2x: 16 coefficients per iteration with 4 independent
+// HighBits chains (V0→V4, V1→V5, V2→V6, V3→V7) to maximise ILP and hide
+// multi-cycle MUL/SSHR latency on pipelined ARM cores.
+// The NEON packing collapses all NEON→GPR crossings to one VMOV.S + MOVW per
+// 8-coefficient group.
 //
-// WORD encodings:
-//   MUL  V2.4S, V2.4S, V9.4S  (* 1025) = 0x4EA99C42
-//   MUL  V3.4S, V3.4S, V9.4S  (* 1025) = 0x4EA99C63
-//   SSHR V2.4S, V2.4S, #22            = 0x4F2A0442
-//   SSHR V3.4S, V3.4S, #22            = 0x4F2A0463
+// WORD encodings for all four chains (MUL ×1025, SSHR #22):
+//   MUL  V4.4S, V4.4S, V9.4S  = 0x4EA99C84
+//   MUL  V5.4S, V5.4S, V9.4S  = 0x4EA99CA5
+//   MUL  V6.4S, V6.4S, V9.4S  = 0x4EA99CC6
+//   MUL  V7.4S, V7.4S, V9.4S  = 0x4EA99CE7
+//   SSHR V4.4S, V4.4S, #22    = 0x4F2A0484
+//   SSHR V5.4S, V5.4S, #22    = 0x4F2A04A5
+//   SSHR V6.4S, V6.4S, #22    = 0x4F2A04C6
+//   SSHR V7.4S, V7.4S, #22    = 0x4F2A04E7
 //
 // Pinned NEON constants: V8=127, V9=1025, V10=2^21, V11=0xF
 //
@@ -1222,7 +1230,7 @@ bpack4_loop:
 TEXT ·simpleBitPack4BitsHighBitsGamma32NEON(SB), NOSPLIT, $0-16
 	MOVD dst+0(FP), R0
 	MOVD f+8(FP), R1
-	MOVD $32, R2
+	MOVD $16, R2           // 16 iterations × 16 coefficients = 256 total
 
 	MOVD $127, R5
 	VDUP R5, V8.S4
@@ -1234,45 +1242,60 @@ TEXT ·simpleBitPack4BitsHighBitsGamma32NEON(SB), NOSPLIT, $0-16
 	VDUP R5, V11.S4
 
 hbpack4_loop:
-	VLD1.P (32)(R1), [V0.S4, V1.S4]
+	VLD1.P 64(R1), [V0.S4, V1.S4, V2.S4, V3.S4]   // load 16 coefficients
 
-	// HighBitsGamma32 for V0 → V2.S4
-	VADD V8.S4, V0.S4, V2.S4
-	VUSHR $7, V2.S4, V2.S4
-	WORD $0x4EA99C42                   // MUL V2.4S, V2.4S, V9.4S
-	VADD V10.S4, V2.S4, V2.S4
-	WORD $0x4F2A0442                   // SSHR V2.4S, V2.4S, #22
-	VAND V11.B16, V2.B16, V2.B16
+	// HighBitsGamma32 for V0,V1,V2,V3 → V4,V5,V6,V7 (4 interleaved chains).
+	// Issuing in this order exposes all four data-independent chains to the
+	// processor's out-of-order window, letting MUL/SSHR latency hide behind
+	// other instructions.
+	VADD V8.S4, V0.S4, V4.S4
+	VADD V8.S4, V1.S4, V5.S4
+	VADD V8.S4, V2.S4, V6.S4
+	VADD V8.S4, V3.S4, V7.S4
+	VUSHR $7, V4.S4, V4.S4
+	VUSHR $7, V5.S4, V5.S4
+	VUSHR $7, V6.S4, V6.S4
+	VUSHR $7, V7.S4, V7.S4
+	WORD $0x4EA99C84                   // MUL V4.4S, V4.4S, V9.4S
+	WORD $0x4EA99CA5                   // MUL V5.4S, V5.4S, V9.4S
+	WORD $0x4EA99CC6                   // MUL V6.4S, V6.4S, V9.4S
+	WORD $0x4EA99CE7                   // MUL V7.4S, V7.4S, V9.4S
+	VADD V10.S4, V4.S4, V4.S4
+	VADD V10.S4, V5.S4, V5.S4
+	VADD V10.S4, V6.S4, V6.S4
+	VADD V10.S4, V7.S4, V7.S4
+	WORD $0x4F2A0484                   // SSHR V4.4S, V4.4S, #22
+	WORD $0x4F2A04A5                   // SSHR V5.4S, V5.4S, #22
+	WORD $0x4F2A04C6                   // SSHR V6.4S, V6.4S, #22
+	WORD $0x4F2A04E7                   // SSHR V7.4S, V7.4S, #22
+	VAND V11.B16, V4.B16, V4.B16
+	VAND V11.B16, V5.B16, V5.B16
+	VAND V11.B16, V6.B16, V6.B16
+	VAND V11.B16, V7.B16, V7.B16
 
-	// HighBitsGamma32 for V1 → V3.S4
-	VADD V8.S4, V1.S4, V3.S4
-	VUSHR $7, V3.S4, V3.S4
-	WORD $0x4EA99C63                   // MUL V3.4S, V3.4S, V9.4S
-	VADD V10.S4, V3.S4, V3.S4
-	WORD $0x4F2A0463                   // SSHR V3.4S, V3.4S, #22
-	VAND V11.B16, V3.B16, V3.B16
+	// Pack V4,V5 → 4 bytes at R0 (NEON narrow+nibble-merge, 1 VMOV crossing).
+	// V0 and V1 are free (consumed by HighBits); V12 used as shift temp.
+	VUZP1 V5.H8, V4.H8, V0.H8       // V0.H8 = [v0..v7]
+	VUZP1 V0.B16, V0.B16, V1.B16    // V1.B16[0..7] = [v0..v7] consecutive
+	VSHL  $4, V1.B16, V12.B16        // V12 = [v0<<4, v1<<4, ...]
+	VUZP1 V1.B16, V1.B16, V1.B16    // V1.B16[0..3] = [v0,v2,v4,v6]
+	VUZP2 V12.B16, V12.B16, V12.B16 // V12.B16[0..3] = [v1<<4,v3<<4,v5<<4,v7<<4]
+	VORR  V1.B16, V12.B16, V1.B16   // packed nibbles
+	VMOV  V1.S[0], R10
+	MOVW  R10, (R0)
 
-	// Pack V2[0..3] and V3[0..3] → 4 bytes using all-NEON narrowing to avoid
-	// 8 NEON→GPR crossings. After HighBits, V0 and V1 are free.
-	//
-	// Step 1: VUZP1 on H8 view extracts the low uint16 of each S4 element,
-	//         gathering 8 4-bit values into V0.H8.
-	// Step 2: VUZP1 on B16 compacts them to 8 consecutive bytes in V1.B16[0..7].
-	// Step 3: VSHL $4 produces the shifted version for the odd ("hi nibble") slot.
-	// Step 4: VUZP1 on B16 (self) picks even elements → [v0,v2,v4,v6,...].
-	// Step 5: VUZP2 on B16 (self) picks odd elements  → [v1<<4,v3<<4,...].
-	// Step 6: VORR combines: V1.B16[0..3] = [v0|v1<<4, v2|v3<<4, v4|v5<<4, v6|v7<<4].
-	// Step 7: VMOV.S[0] extracts the 4 packed bytes; MOVW stores them.
-	VUZP1 V3.H8, V2.H8, V0.H8      // V0.H8 = [v0,v1,v2,v3,v4,v5,v6,v7]
-	VUZP1 V0.B16, V0.B16, V1.B16   // V1.B16[0..7] = [v0,v1,...,v7] consecutive
-	VSHL  $4, V1.B16, V4.B16        // V4.B16 = [v0<<4, v1<<4, ..., v7<<4]
-	VUZP1 V1.B16, V1.B16, V1.B16   // V1.B16[0..3] = [v0, v2, v4, v6]
-	VUZP2 V4.B16, V4.B16, V4.B16   // V4.B16[0..3] = [v1<<4, v3<<4, v5<<4, v7<<4]
-	VORR  V1.B16, V4.B16, V1.B16   // V1.B16[0..3] = [v0|v1<<4, v2|v3<<4, v4|v5<<4, v6|v7<<4]
-	VMOV  V1.S[0], R10              // R10 = 4 packed nibble-pair bytes
-	MOVW  R10, (R0)                 // store 4 bytes
+	// Pack V6,V7 → 4 bytes at R0+4.
+	// V2 and V3 consumed; reuse V0,V1,V12 (V6,V7 not yet clobbered).
+	VUZP1 V7.H8, V6.H8, V0.H8
+	VUZP1 V0.B16, V0.B16, V1.B16
+	VSHL  $4, V1.B16, V12.B16
+	VUZP1 V1.B16, V1.B16, V1.B16
+	VUZP2 V12.B16, V12.B16, V12.B16
+	VORR  V1.B16, V12.B16, V1.B16
+	VMOV  V1.S[0], R10
+	MOVW  R10, 4(R0)
 
-	ADD  $4, R0
+	ADD  $8, R0
 	SUBS $1, R2, R2
 	BNE  hbpack4_loop
 	RET
@@ -1305,10 +1328,8 @@ bpack6_loop:
 	ORR R13<<6, R12, R12
 	ORR R16<<12, R12, R12
 	ORR R17<<18, R12, R12
-	MOVB R12, (R0)
-	LSR $8, R12, R12
-	MOVB R12, 1(R0)
-	LSR $8, R12, R12
+	MOVH R12, (R0)         // store bytes 0+1 together
+	LSR  $16, R12, R12
 	MOVB R12, 2(R0)
 
 	// Group 1: v4 | v5<<6 | v6<<12 | v7<<18 → 3 bytes
@@ -1319,10 +1340,8 @@ bpack6_loop:
 	ORR R13<<6, R12, R12
 	ORR R16<<12, R12, R12
 	ORR R17<<18, R12, R12
-	MOVB R12, 3(R0)
-	LSR $8, R12, R12
-	MOVB R12, 4(R0)
-	LSR $8, R12, R12
+	MOVH R12, 3(R0)        // store bytes 3+4 together
+	LSR  $16, R12, R12
 	MOVB R12, 5(R0)
 
 	ADD  $6, R0
@@ -1337,13 +1356,24 @@ bpack6_loop:
 //   r1 = (((r + 127) >> 7) * 11275 + 2^23) >> 24  &  0x3F
 //   if r1 == 44 { r1 = 0 }   (branch-free via sign-mask)
 //
-// WORD encodings:
-//   MUL  V2.4S, V2.4S, V9.4S  (* 11275) = 0x4EA99C42
-//   MUL  V3.4S, V3.4S, V9.4S  (* 11275) = 0x4EA99C63
-//   SSHR V2.4S, V2.4S, #24             = 0x4F280442
-//   SSHR V3.4S, V3.4S, #24             = 0x4F280463
-//   SSHR V14.4S, V14.4S, #31           = 0x4F2105CE
-//   SSHR V15.4S, V15.4S, #31           = 0x4F2105EF
+// Loop is unrolled 2x: 16 coefficients per iteration with 4 interleaved
+// HighBits chains (V0→V4, V1→V5, V2→V6, V3→V7) to expose ILP.
+// Packing uses NEON pair-merge (VUZP1 H8+VSHL+VUZP+VADD) then a single
+// VMOV.D to bring all four 12-bit pair sums into one GPR for UBFX+MOVH+MOVB.
+//
+// WORD encodings (×11275, SSHR#24, sign SSHR#31 for chains V4–V7/V13–V16):
+//   MUL  V4.4S, V4.4S, V9.4S  = 0x4EA99C84
+//   MUL  V5.4S, V5.4S, V9.4S  = 0x4EA99CA5
+//   MUL  V6.4S, V6.4S, V9.4S  = 0x4EA99CC6
+//   MUL  V7.4S, V7.4S, V9.4S  = 0x4EA99CE7
+//   SSHR V4.4S,  V4.4S,  #24  = 0x4F280484
+//   SSHR V5.4S,  V5.4S,  #24  = 0x4F2804A5
+//   SSHR V6.4S,  V6.4S,  #24  = 0x4F2804C6
+//   SSHR V7.4S,  V7.4S,  #24  = 0x4F2804E7
+//   SSHR V13.4S, V13.4S, #31  = 0x4F2105AD
+//   SSHR V14.4S, V14.4S, #31  = 0x4F2105CE
+//   SSHR V15.4S, V15.4S, #31  = 0x4F2105EF
+//   SSHR V16.4S, V16.4S, #31  = 0x4F210610
 //
 // Pinned NEON constants: V8=127, V9=11275, V10=2^23, V11=43, V12=0x3F
 //
@@ -1351,7 +1381,7 @@ bpack6_loop:
 TEXT ·simpleBitPack6BitsHighBitsGamma88NEON(SB), NOSPLIT, $0-16
 	MOVD dst+0(FP), R0
 	MOVD f+8(FP), R1
-	MOVD $32, R2
+	MOVD $16, R2           // 16 iterations × 16 coefficients = 256 total
 
 	MOVD $127, R5
 	VDUP R5, V8.S4
@@ -1365,78 +1395,94 @@ TEXT ·simpleBitPack6BitsHighBitsGamma88NEON(SB), NOSPLIT, $0-16
 	VDUP R5, V12.S4
 
 hbpack6_loop:
-	VLD1.P (32)(R1), [V0.S4, V1.S4]
+	VLD1.P 64(R1), [V0.S4, V1.S4, V2.S4, V3.S4]   // load 16 coefficients
 
-	// HighBitsGamma88 for V0 → V2.S4
-	VADD V8.S4, V0.S4, V2.S4
-	VUSHR $7, V2.S4, V2.S4
-	WORD $0x4EA99C42                   // MUL V2.4S, V2.4S, V9.4S  (* 11275)
-	VADD V10.S4, V2.S4, V2.S4
-	WORD $0x4F280442                   // SSHR V2.4S, V2.4S, #24
-	VAND V12.B16, V2.B16, V2.B16
-	VSUB V2.S4, V11.S4, V14.S4        // V14 = 43 - r1 (negative iff r1 == 44)
+	// HighBitsGamma88 for V0,V1,V2,V3 → V4,V5,V6,V7 (4 interleaved chains).
+	// Sign-correction temps: V13(ch0), V14(ch1), V15(ch2), V16(ch3).
+	VADD V8.S4, V0.S4, V4.S4
+	VADD V8.S4, V1.S4, V5.S4
+	VADD V8.S4, V2.S4, V6.S4
+	VADD V8.S4, V3.S4, V7.S4
+	VUSHR $7, V4.S4, V4.S4
+	VUSHR $7, V5.S4, V5.S4
+	VUSHR $7, V6.S4, V6.S4
+	VUSHR $7, V7.S4, V7.S4
+	WORD $0x4EA99C84                   // MUL V4.4S, V4.4S, V9.4S
+	WORD $0x4EA99CA5                   // MUL V5.4S, V5.4S, V9.4S
+	WORD $0x4EA99CC6                   // MUL V6.4S, V6.4S, V9.4S
+	WORD $0x4EA99CE7                   // MUL V7.4S, V7.4S, V9.4S
+	VADD V10.S4, V4.S4, V4.S4
+	VADD V10.S4, V5.S4, V5.S4
+	VADD V10.S4, V6.S4, V6.S4
+	VADD V10.S4, V7.S4, V7.S4
+	WORD $0x4F280484                   // SSHR V4.4S, V4.4S, #24
+	WORD $0x4F2804A5                   // SSHR V5.4S, V5.4S, #24
+	WORD $0x4F2804C6                   // SSHR V6.4S, V6.4S, #24
+	WORD $0x4F2804E7                   // SSHR V7.4S, V7.4S, #24
+	VAND V12.B16, V4.B16, V4.B16
+	VAND V12.B16, V5.B16, V5.B16
+	VAND V12.B16, V6.B16, V6.B16
+	VAND V12.B16, V7.B16, V7.B16
+	// Branch-free correction: zero r1 where it equals 44.
+	VSUB V4.S4, V11.S4, V13.S4        // V13 = 43 - r1_v4
+	VSUB V5.S4, V11.S4, V14.S4
+	VSUB V6.S4, V11.S4, V15.S4
+	VSUB V7.S4, V11.S4, V16.S4
+	WORD $0x4F2105AD                   // SSHR V13.4S, V13.4S, #31  (sign mask)
 	WORD $0x4F2105CE                   // SSHR V14.4S, V14.4S, #31
-	VAND V2.B16, V14.B16, V14.B16     // V14 = r1 where r1 == 44
-	VEOR V14.B16, V2.B16, V2.B16      // V2  = 0 where r1 was 44
-
-	// HighBitsGamma88 for V1 → V3.S4
-	VADD V8.S4, V1.S4, V3.S4
-	VUSHR $7, V3.S4, V3.S4
-	WORD $0x4EA99C63                   // MUL V3.4S, V3.4S, V9.4S  (* 11275)
-	VADD V10.S4, V3.S4, V3.S4
-	WORD $0x4F280463                   // SSHR V3.4S, V3.4S, #24
-	VAND V12.B16, V3.B16, V3.B16
-	VSUB V3.S4, V11.S4, V15.S4
 	WORD $0x4F2105EF                   // SSHR V15.4S, V15.4S, #31
-	VAND V3.B16, V15.B16, V15.B16
-	VEOR V15.B16, V3.B16, V3.B16
+	WORD $0x4F210610                   // SSHR V16.4S, V16.4S, #31
+	VAND V4.B16, V13.B16, V13.B16
+	VAND V5.B16, V14.B16, V14.B16
+	VAND V6.B16, V15.B16, V15.B16
+	VAND V7.B16, V16.B16, V16.B16
+	VEOR V13.B16, V4.B16, V4.B16      // V4 = 0 where r1 was 44
+	VEOR V14.B16, V5.B16, V5.B16
+	VEOR V15.B16, V6.B16, V6.B16
+	VEOR V16.B16, V7.B16, V7.B16
 
-	// Pack V2 and V3 → 6 bytes.
-	//
-	// 6-bit packing: 4 values → 3 bytes as x = v0|(v1<<6)|(v2<<12)|(v3<<18).
-	// Instead of 8 individual VMOV.S extractions, we first merge adjacent value
-	// pairs in NEON (reducing the count to 2 pairs A=v0+v1*64, B=v2+v3*64,
-	// C=v4+v5*64, D=v6+v7*64), then extract all four with one VMOV.D, and
-	// finish in the integer pipeline with UBFX+ORR+MOVB.
-	//
-	// VUZP1 V3.H8, V2.H8, V0.H8: extracts even H8 elements (= low uint16 of each
-	// S4 element), gathering all 8 values into one H8 vector.
-	// VSHL $6, V0.H8, V1.H8: precomputes v_i * 64 for the odd positions.
-	// VUZP1 / VUZP2 separate even(V0) and odd(V1×64), VADD merges each pair.
-	// The resulting V4.H8 = [A,B,C,D,A,B,C,D]; viewed as V4.D[0]:
-	//   bits[15:0] = A (v0+v1*64), bits[31:16] = B (v2+v3*64),
-	//   bits[47:32] = C (v4+v5*64), bits[63:48] = D (v6+v7*64).
-	// One VMOV.D yields all four; UBFX extracts each 12-bit field.
-	VUZP1 V3.H8, V2.H8, V0.H8       // V0.H8 = [v0,v1,v2,v3,v4,v5,v6,v7]
-	VSHL  $6, V0.H8, V1.H8           // V1.H8 = [v0<<6, v1<<6, ..., v7<<6]
-	VUZP1 V0.H8, V0.H8, V4.H8       // V4.H8 = [v0,v2,v4,v6,...] (even)
-	VUZP2 V1.H8, V1.H8, V5.H8       // V5.H8 = [v1<<6,v3<<6,v5<<6,v7<<6,...] (odd×64)
-	VADD  V4.H8, V5.H8, V4.H8       // V4.H8 = [A,B,C,D,A,B,C,D]
-
-	// V4.D[0] = A | B<<16 | C<<32 | D<<48  (one NEON→GPR crossing)
-	VMOV  V4.D[0], R10
-
-	// Group 0: A + B<<12 → 3 bytes
-	UBFX $0, R10, $12, R11           // R11 = A (v0+v1*64 ≤ 2795, 12 bits)
-	UBFX $16, R10, $12, R12          // R12 = B (v2+v3*64 ≤ 2795, 12 bits)
-	ORR  R12<<12, R11, R11           // R11 = A | B<<12  (24-bit packed)
-	MOVB R11, (R0)
-	LSR  $8, R11, R11
-	MOVB R11, 1(R0)
-	LSR  $8, R11, R11
+	// Pack V4,V5 → 6 bytes at R0:
+	// NEON pair-merge: V0,V1,V2,V3 are free (consumed as input by HighBits).
+	VUZP1 V5.H8, V4.H8, V0.H8        // V0.H8 = [v0..v7]
+	VSHL  $6, V0.H8, V1.H8            // V1.H8 = [v0<<6..v7<<6]
+	VUZP1 V0.H8, V0.H8, V2.H8        // V2.H8 = [v0,v2,v4,v6,...] (even)
+	VUZP2 V1.H8, V1.H8, V3.H8        // V3.H8 = [v1<<6,v3<<6,...] (odd×64)
+	VADD  V2.H8, V3.H8, V2.H8        // V2.H8 = [A,B,C,D,...] (pairwise sums)
+	VMOV  V2.D[0], R10                // 1 crossing: A|B<<16|C<<32|D<<48
+	UBFX $0,  R10, $12, R11           // A
+	UBFX $16, R10, $12, R12           // B
+	ORR  R12<<12, R11, R11
+	MOVH R11, (R0)
+	LSR  $16, R11, R11
 	MOVB R11, 2(R0)
-
-	// Group 1: C + D<<12 → 3 bytes
-	UBFX $32, R10, $12, R11          // R11 = C (v4+v5*64)
-	UBFX $48, R10, $12, R12          // R12 = D (v6+v7*64)
-	ORR  R12<<12, R11, R11           // R11 = C | D<<12  (24-bit packed)
-	MOVB R11, 3(R0)
-	LSR  $8, R11, R11
-	MOVB R11, 4(R0)
-	LSR  $8, R11, R11
+	UBFX $32, R10, $12, R11           // C
+	UBFX $48, R10, $12, R12           // D
+	ORR  R12<<12, R11, R11
+	MOVH R11, 3(R0)
+	LSR  $16, R11, R11
 	MOVB R11, 5(R0)
 
-	ADD  $6, R0
+	// Pack V6,V7 → 6 bytes at R0+6:
+	VUZP1 V7.H8, V6.H8, V0.H8
+	VSHL  $6, V0.H8, V1.H8
+	VUZP1 V0.H8, V0.H8, V2.H8
+	VUZP2 V1.H8, V1.H8, V3.H8
+	VADD  V2.H8, V3.H8, V2.H8
+	VMOV  V2.D[0], R10
+	UBFX $0,  R10, $12, R11
+	UBFX $16, R10, $12, R12
+	ORR  R12<<12, R11, R11
+	MOVH R11, 6(R0)
+	LSR  $16, R11, R11
+	MOVB R11, 8(R0)
+	UBFX $32, R10, $12, R11
+	UBFX $48, R10, $12, R12
+	ORR  R12<<12, R11, R11
+	MOVH R11, 9(R0)
+	LSR  $16, R11, R11
+	MOVB R11, 11(R0)
+
+	ADD  $12, R0
 	SUBS $1, R2, R2
 	BNE  hbpack6_loop
 	RET
