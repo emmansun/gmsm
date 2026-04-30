@@ -20,6 +20,7 @@ import (
 	"errors"
 	"io"
 	"sync"
+	"unsafe"
 )
 
 const (
@@ -135,13 +136,13 @@ func (sk *PrivateKey44) Public() crypto.PublicKey {
 func (sk *PrivateKey44) ensureNTT() {
 	sk.nttOnce.Do(func() {
 		for i := range sk.s1NTTCache {
-			sk.s1NTTCache[i] = ntt(sk.s1[i])
+			nttAssign(&sk.s1NTTCache[i], &sk.s1[i])
 		}
 		for i := range sk.s2NTTCache {
-			sk.s2NTTCache[i] = ntt(sk.s2[i])
+			nttAssign(&sk.s2NTTCache[i], &sk.s2[i])
 		}
 		for i := range sk.t0NTTCache {
-			sk.t0NTTCache[i] = ntt(sk.t0[i])
+			nttAssign(&sk.t0NTTCache[i], &sk.t0[i])
 		}
 	})
 }
@@ -163,7 +164,7 @@ func (sk *PrivateKey44) ensureT1() {
 		var t [k44]ringElement
 		t1 := &sk.t1
 		for i := range nttT {
-			t[i] = inverseNTT(nttT[i])
+			inverseNTTAssign(&t[i], &nttT[i])
 			polyAddAssign(&t[i], &sk.s2[i])
 			// compress t
 			for j := range n {
@@ -235,12 +236,11 @@ func (pk *PublicKey44) bytes(b []byte) []byte {
 
 func (pk *PublicKey44) ensureNTT() {
 	pk.nttOnce.Do(func() {
-		t := pk.t1
 		for i := range k44 {
-			for j := range t[i] {
-				t[i][j] <<= d
+			for j := range n {
+				pk.tNTTCache[i][j] = pk.t1[i][j] << d
 			}
-			pk.tNTTCache[i] = ntt(t[i])
+			internalNTT((*ringElement)(&pk.tNTTCache[i]))
 		}
 	})
 }
@@ -352,7 +352,7 @@ func dsaKeyGen44(sk *Key44, xi *[32]byte) {
 	var s1NTT [l44]nttElement
 	var nttT [k44]nttElement
 	for i := range s1 {
-		s1NTT[i] = ntt(s1[i])
+		nttAssign(&s1NTT[i], &s1[i])
 	}
 	for i := range nttT {
 		nttMul(&nttT[i], &s1NTT[0], &A[i*l44])
@@ -364,7 +364,7 @@ func dsaKeyGen44(sk *Key44, xi *[32]byte) {
 	t0 := &sk.t0
 	t1 := &sk.t1
 	for i := range nttT {
-		t[i] = inverseNTT(nttT[i])
+		inverseNTTAssign(&t[i], &nttT[i])
 		polyAddAssign(&t[i], &s2[i])
 		// compress t
 		for j := range n {
@@ -550,10 +550,10 @@ func (sk *PrivateKey44) signInternal(seed, mu []byte) ([]byte, error) {
 		// compute w and absorb packed HighBits(w) into the commitment hash input
 		var (
 			cTilde    [lambda128 / 4]byte
-			w         [k44]ringElement
 			w1Encoded [encodingSize6]byte
 			wNTT      [k44]nttElement
 		)
+		w := unsafe.Slice((*ringElement)(unsafe.Pointer(&wNTT[0])), k44)
 		H.Reset()
 		H.Write(mu[:])
 		for i := range k44 {
@@ -562,7 +562,6 @@ func (sk *PrivateKey44) signInternal(seed, mu []byte) ([]byte, error) {
 				nttMulAcc(&wNTT[i], &yNTT[j], &A[i*l44+j])
 			}
 			internalInverseNTT(&wNTT[i])
-			w[i] = ringElement(wNTT[i])
 			simpleBitPack6BitsHighBits(w1Encoded[:], &w[i], gamma2QMinus1Div88)
 			H.Write(w1Encoded[:])
 		}
@@ -580,10 +579,8 @@ func (sk *PrivateKey44) signInternal(seed, mu []byte) ([]byte, error) {
 		)
 		// compute z = <<cs1>> + y
 		for i := range l44 {
-			var product nttElement
-			nttMul(&product, &cNTT, &sk.s1NTTCache[i])
-			internalInverseNTT(&product)
-			z[i] = ringElement(product)
+			nttMul((*nttElement)(&z[i]), &cNTT, &sk.s1NTTCache[i])
+			internalInverseNTT((*nttElement)(&z[i]))
 			polyAddAssign(&z[i], &y[i])
 		}
 
@@ -594,10 +591,8 @@ func (sk *PrivateKey44) signInternal(seed, mu []byte) ([]byte, error) {
 		r0Norm := 0
 		// compute cs2 and r0 = LowBits(w - <<cs2>>)
 		for i := range k44 {
-			var product nttElement
-			nttMul(&product, &cNTT, &sk.s2NTTCache[i])
-			internalInverseNTT(&product)
-			cs2[i] = ringElement(product)
+			nttMul((*nttElement)(&cs2[i]), &cNTT, &sk.s2NTTCache[i])
+			internalInverseNTT((*nttElement)(&cs2[i]))
 			decomposeSubToR0(&r0[i], &w[i], &cs2[i], gamma2QMinus1Div88)
 			r0Norm = polyInfinityNormSigned(&r0[i], r0Norm)
 		}
@@ -611,10 +606,8 @@ func (sk *PrivateKey44) signInternal(seed, mu []byte) ([]byte, error) {
 
 		ct0Norm := 0
 		for i := range k44 {
-			var product nttElement
-			nttMul(&product, &cNTT, &sk.t0NTTCache[i])
-			internalInverseNTT(&product)
-			ct0[i] = ringElement(product)
+			nttMul((*nttElement)(&ct0[i]), &cNTT, &sk.t0NTTCache[i])
+			internalInverseNTT((*nttElement)(&ct0[i]))
 			ct0Norm = polyInfinityNorm(&ct0[i], ct0Norm)
 		}
 
@@ -732,8 +725,7 @@ func (pk *PublicKey44) verifyInternal(sig, mu []byte) bool {
 		var wApprox ringElement
 		inverseNTTAssign(&wApprox, &zNTTMulA[i])
 		useHintPoly(&w1, &hints[i], &wApprox, gamma2QMinus1Div88)
-		simpleBitPack6Bits(w1Encoded[:0], &w1)
-		H.Write(w1Encoded[:])
+		H.Write(simpleBitPack6Bits(w1Encoded[:0], &w1))
 	}
 	var cTilde1 [lambda128 / 4]byte
 	H.Read(cTilde1[:])
