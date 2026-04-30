@@ -347,3 +347,125 @@ func BenchmarkBitPackSignedTwoPower19(b *testing.B) {
 		benchmarkBitPackArm64Sink = out
 	})
 }
+
+func TestBitUnpackSignedTwoPower17NEON(t *testing.T) {
+	for i := 0; i < 16; i++ {
+		r := randomRingElement()
+
+		var packed [encodingSize18]byte
+		bitPackSignedTwoPower17Generic(packed[:], &r)
+
+		var got, want ringElement
+		bitUnpackSignedTwoPower17NEON(&packed[0], &got)
+		bitUnpackSignedTwoPower17Generic(packed[:], &want)
+
+		if got != want {
+			t.Fatalf("bitUnpackSignedTwoPower17NEON mismatch on iteration %d", i)
+		}
+	}
+}
+
+func TestBitUnpackSignedTwoPower17(t *testing.T) {
+	for i := 0; i < 16; i++ {
+		r := randomRingElement()
+
+		var packed [encodingSize18]byte
+		bitPackSignedTwoPower17Generic(packed[:], &r)
+
+		var got, want ringElement
+		bitUnpackSignedTwoPower17(packed[:], &got)
+		bitUnpackSignedTwoPower17Generic(packed[:], &want)
+
+		if got != want {
+			t.Fatalf("bitUnpackSignedTwoPower17 dispatch mismatch on iteration %d", i)
+		}
+	}
+}
+
+func TestBitUnpackSignedTwoPower19NEON(t *testing.T) {
+	for i := 0; i < 16; i++ {
+		r := randomRingElement()
+
+		var packed [encodingSize20]byte
+		bitPackSignedTwoPower19Generic(packed[:], &r)
+
+		var got, want ringElement
+		bitUnpackSignedTwoPower19NEON(&packed[0], &got)
+		bitUnpackSignedTwoPower19Generic(packed[:], &want)
+
+		if got != want {
+			t.Fatalf("bitUnpackSignedTwoPower19NEON mismatch on iteration %d", i)
+		}
+	}
+}
+
+func TestBitUnpackSignedTwoPower19(t *testing.T) {
+	for i := 0; i < 16; i++ {
+		r := randomRingElement()
+
+		var packed [encodingSize20]byte
+		bitPackSignedTwoPower19Generic(packed[:], &r)
+
+		var got, want ringElement
+		bitUnpackSignedTwoPower19(packed[:], &got)
+		bitUnpackSignedTwoPower19Generic(packed[:], &want)
+
+		if got != want {
+			t.Fatalf("bitUnpackSignedTwoPower19 dispatch mismatch on iteration %d", i)
+		}
+	}
+}
+
+var benchmarkBitUnpackArm64Sink ringElement
+
+func BenchmarkBitUnpackSignedTwoPower17(b *testing.B) {
+	r := randomRingElement()
+	var packed [encodingSize18]byte
+	bitPackSignedTwoPower17Generic(packed[:], &r)
+	var out ringElement
+	b.ReportAllocs()
+	b.Run("generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			bitUnpackSignedTwoPower17Generic(packed[:], &out)
+		}
+		benchmarkBitUnpackArm64Sink = out
+	})
+	b.Run("neon", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			bitUnpackSignedTwoPower17NEON(&packed[0], &out)
+		}
+		benchmarkBitUnpackArm64Sink = out
+	})
+	b.Run("dispatch", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			bitUnpackSignedTwoPower17(packed[:], &out)
+		}
+		benchmarkBitUnpackArm64Sink = out
+	})
+}
+
+func BenchmarkBitUnpackSignedTwoPower19(b *testing.B) {
+	r := randomRingElement()
+	var packed [encodingSize20]byte
+	bitPackSignedTwoPower19Generic(packed[:], &r)
+	var out ringElement
+	b.ReportAllocs()
+	b.Run("generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			bitUnpackSignedTwoPower19Generic(packed[:], &out)
+		}
+		benchmarkBitUnpackArm64Sink = out
+	})
+	b.Run("neon", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			bitUnpackSignedTwoPower19NEON(&packed[0], &out)
+		}
+		benchmarkBitUnpackArm64Sink = out
+	})
+	b.Run("dispatch", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			bitUnpackSignedTwoPower19(packed[:], &out)
+		}
+		benchmarkBitUnpackArm64Sink = out
+	})
+}

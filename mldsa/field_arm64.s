@@ -1627,6 +1627,162 @@ bpack19_loop:
 	BNE  bpack19_loop
 	RET
 
+// bitUnpackSignedTwoPower17NEON decodes a 18-bit packed byte stream into a
+// polynomial (256 uint32 coefficients).
+//
+// For each group of 4 coefficients packed in 9 bytes:
+//   x1 = bytes[0..7] (64-bit LE word),  x2 = byte[8]
+//   v0 = x1 & 0x3FFFF
+//   v1 = (x1>>18) & 0x3FFFF
+//   v2 = (x1>>36) & 0x3FFFF
+//   v3 = (x1>>54) | (x2<<10)    [already 18-bit clean]
+//   coeff[i] = fieldSub(2^17, vi) = (8511489 - vi) mod q
+//
+// Two groups of 4 coefficients (18 bytes) are processed per iteration.
+// GPRs extract the 18-bit values; NEON performs fieldSub in parallel via
+// VMOV Rn, V.D[i] (pair-insert).
+//
+// Pinned: V8.S4 = 8511489, V9.S4 = q
+// WORD encodings:
+//   SSHR V4.4S, V3.4S, #31 = 0x4F210464   (group 0)
+//   SSHR V6.4S, V5.4S, #31 = 0x4F2104A6   (group 1)
+//
+// func bitUnpackSignedTwoPower17NEON(b *byte, f *ringElement)
+TEXT ·bitUnpackSignedTwoPower17NEON(SB), NOSPLIT, $0-16
+	MOVD b+0(FP), R0
+	MOVD f+8(FP), R1
+	MOVD $32, R2
+
+	MOVD $8511489, R5
+	VDUP R5, V8.S4        // V8 = 8511489 (2^17 + q)
+	MOVD $8380417, R5
+	VDUP R5, V9.S4        // V9 = q
+
+bunpack17_loop:
+	// Group 0: bytes [0..8] → 4 × 18-bit values inserted into V0.S4
+	MOVD     (R0), R10
+	MOVBU  8(R0), R22
+	UBFX   $0, R10, $18, R11      // v0 = x1[17:0]
+	UBFX  $18, R10, $18, R12      // v1 = x1[35:18]
+	ORR   R12<<32, R11, R11       // R11 = v0 | (v1<<32)
+	VMOV  R11, V0.D[0]            // V0.S[0]=v0, V0.S[1]=v1
+	UBFX  $36, R10, $18, R13      // v2 = x1[53:36]
+	UBFX  $54, R10, $10, R14      // bits[9:0] of v3 from x1[63:54]
+	ORR   R22<<10, R14, R14       // v3 |= x2<<10 → 18-bit clean
+	ORR   R14<<32, R13, R13       // R13 = v2 | (v3<<32)
+	VMOV  R13, V0.D[1]            // V0.S[2]=v2, V0.S[3]=v3
+
+	// Group 1: bytes [9..17] → V1.S4
+	MOVD   9(R0), R10
+	MOVBU 17(R0), R22
+	UBFX   $0, R10, $18, R11
+	UBFX  $18, R10, $18, R12
+	ORR   R12<<32, R11, R11
+	VMOV  R11, V1.D[0]
+	UBFX  $36, R10, $18, R13
+	UBFX  $54, R10, $10, R14
+	ORR   R22<<10, R14, R14
+	ORR   R14<<32, R13, R13
+	VMOV  R13, V1.D[1]
+
+	// Group 0: fieldSub(2^17, V0) = (8511489 - V0) mod q → V2.S4
+	VSUB V0.S4, V8.S4, V2.S4
+	VSUB V9.S4, V2.S4, V3.S4
+	WORD $0x4F210464               // SSHR V4.4S, V3.4S, #31
+	VAND V9.B16, V4.B16, V4.B16
+	VADD V3.S4, V4.S4, V2.S4      // V2 = result; V3 now free
+
+	// Group 1: fieldSub(2^17, V1) → V3.S4 (reuses freed V3)
+	VSUB V1.S4, V8.S4, V3.S4
+	VSUB V9.S4, V3.S4, V5.S4
+	WORD $0x4F2104A6               // SSHR V6.4S, V5.4S, #31
+	VAND V9.B16, V6.B16, V6.B16
+	VADD V5.S4, V6.S4, V3.S4      // V3 = result
+
+	VST1.P [V2.S4, V3.S4], (32)(R1)
+	ADD  $18, R0
+	SUBS $1, R2, R2
+	BNE  bunpack17_loop
+	RET
+
+// bitUnpackSignedTwoPower19NEON decodes a 20-bit packed byte stream into a
+// polynomial (256 uint32 coefficients).
+//
+// For each group of 4 coefficients packed in 10 bytes:
+//   x1 = bytes[0..7] (64-bit LE word)
+//   x2 = bytes[8..9] (unsigned 16-bit LE halfword)
+//   v0 = x1 & 0xFFFFF
+//   v1 = (x1>>20) & 0xFFFFF
+//   v2 = (x1>>40) & 0xFFFFF
+//   v3 = (x1>>60) | (x2<<4)    [already 20-bit clean]
+//   coeff[i] = fieldSub(2^19, vi) = (8904705 - vi) mod q
+//
+// Two groups of 4 coefficients (20 bytes) are processed per iteration.
+// GPRs extract the 20-bit values; NEON performs fieldSub in parallel.
+//
+// Pinned: V8.S4 = 8904705, V9.S4 = q
+// WORD encodings:
+//   SSHR V4.4S, V3.4S, #31 = 0x4F210464   (group 0)
+//   SSHR V6.4S, V5.4S, #31 = 0x4F2104A6   (group 1)
+//
+// func bitUnpackSignedTwoPower19NEON(b *byte, f *ringElement)
+TEXT ·bitUnpackSignedTwoPower19NEON(SB), NOSPLIT, $0-16
+	MOVD b+0(FP), R0
+	MOVD f+8(FP), R1
+	MOVD $32, R2
+
+	MOVD $8904705, R5
+	VDUP R5, V8.S4        // V8 = 8904705 (2^19 + q)
+	MOVD $8380417, R5
+	VDUP R5, V9.S4        // V9 = q
+
+bunpack19_loop:
+	// Group 0: bytes [0..9] → 4 × 20-bit values inserted into V0.S4
+	MOVD     (R0), R10
+	MOVHU  8(R0), R22             // x2 = bytes[8..9] as uint16
+	UBFX   $0, R10, $20, R11      // v0 = x1[19:0]
+	UBFX  $20, R10, $20, R12      // v1 = x1[39:20]
+	ORR   R12<<32, R11, R11       // R11 = v0 | (v1<<32)
+	VMOV  R11, V0.D[0]            // V0.S[0]=v0, V0.S[1]=v1
+	UBFX  $40, R10, $20, R13      // v2 = x1[59:40]
+	UBFX  $60, R10, $4, R14       // bits[3:0] of v3 from x1[63:60]
+	ORR   R22<<4, R14, R14        // v3 |= x2<<4 → 20-bit clean
+	ORR   R14<<32, R13, R13       // R13 = v2 | (v3<<32)
+	VMOV  R13, V0.D[1]            // V0.S[2]=v2, V0.S[3]=v3
+
+	// Group 1: bytes [10..19] → V1.S4
+	MOVD  10(R0), R10
+	MOVHU 18(R0), R22
+	UBFX   $0, R10, $20, R11
+	UBFX  $20, R10, $20, R12
+	ORR   R12<<32, R11, R11
+	VMOV  R11, V1.D[0]
+	UBFX  $40, R10, $20, R13
+	UBFX  $60, R10, $4, R14
+	ORR   R22<<4, R14, R14
+	ORR   R14<<32, R13, R13
+	VMOV  R13, V1.D[1]
+
+	// Group 0: fieldSub(2^19, V0) = (8904705 - V0) mod q → V2.S4
+	VSUB V0.S4, V8.S4, V2.S4
+	VSUB V9.S4, V2.S4, V3.S4
+	WORD $0x4F210464               // SSHR V4.4S, V3.4S, #31
+	VAND V9.B16, V4.B16, V4.B16
+	VADD V3.S4, V4.S4, V2.S4      // V2 = result; V3 now free
+
+	// Group 1: fieldSub(2^19, V1) → V3.S4 (reuses freed V3)
+	VSUB V1.S4, V8.S4, V3.S4
+	VSUB V9.S4, V3.S4, V5.S4
+	WORD $0x4F2104A6               // SSHR V6.4S, V5.4S, #31
+	VAND V9.B16, V6.B16, V6.B16
+	VADD V5.S4, V6.S4, V3.S4      // V3 = result
+
+	VST1.P [V2.S4, V3.S4], (32)(R1)
+	ADD  $20, R0
+	SUBS $1, R2, R2
+	BNE  bunpack19_loop
+	RET
+
 // makeHintPolyGamma32NEON computes MakeHint(ct0, cs2, w, gamma2=(q-1)/32)
 // for all 256 coefficients of one polynomial, storing results as int32 (0 or 1).
 //

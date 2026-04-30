@@ -26,6 +26,12 @@ func bitPackSignedTwoPower17NEON(dst *byte, f *fieldElement)
 //go:noescape
 func bitPackSignedTwoPower19NEON(dst *byte, f *fieldElement)
 
+//go:noescape
+func bitUnpackSignedTwoPower17NEON(b *byte, f *ringElement)
+
+//go:noescape
+func bitUnpackSignedTwoPower19NEON(b *byte, f *ringElement)
+
 // simpleBitPack4Bits encodes a polynomial into a byte string, assuming that all coefficients are
 // in the range 0..15 (4 bits).
 //
@@ -83,9 +89,9 @@ func bitPackSignedTwoPower19(s []byte, f *ringElement) []byte {
 }
 
 func bitUnpackSignedTwoPower17(b []byte, f *ringElement) {
-	bitUnpackSignedTwoPower17Generic(b, f)
+	bitUnpackSignedTwoPower17NEON(&b[0], f)
 }
 
 func bitUnpackSignedTwoPower19(b []byte, f *ringElement) {
-	bitUnpackSignedTwoPower19Generic(b, f)
+	bitUnpackSignedTwoPower19NEON(&b[0], f)
 }
