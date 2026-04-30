@@ -8,7 +8,7 @@ package mldsa
 
 import "testing"
 
-func TestSimpleBitPack4BitsNEON(t *testing.T) {
+func TestSimpleBitPack4BitsARM64(t *testing.T) {
 	for i := 0; i < 16; i++ {
 		r := randomRingElement()
 		for j := range r {
@@ -16,13 +16,13 @@ func TestSimpleBitPack4BitsNEON(t *testing.T) {
 		}
 
 		var got [encodingSize4]byte
-		simpleBitPack4BitsNEON(&got[0], &r[0])
+		simpleBitPack4BitsARM64(&got[0], &r[0])
 
 		var want [encodingSize4]byte
 		simpleBitPack4BitsGeneric(want[:], &r)
 
 		if got != want {
-			t.Fatalf("simpleBitPack4BitsNEON mismatch on iteration %d", i)
+			t.Fatalf("simpleBitPack4BitsARM64 mismatch on iteration %d", i)
 		}
 	}
 }
@@ -79,7 +79,7 @@ func TestSimpleBitPack4BitsHighBits(t *testing.T) {
 	}
 }
 
-func TestSimpleBitPack6BitsNEON(t *testing.T) {
+func TestSimpleBitPack6BitsARM64(t *testing.T) {
 	for i := 0; i < 16; i++ {
 		r := randomRingElement()
 		for j := range r {
@@ -87,7 +87,7 @@ func TestSimpleBitPack6BitsNEON(t *testing.T) {
 		}
 
 		var got [encodingSize6]byte
-		simpleBitPack6BitsNEON(&got[0], &r[0])
+		simpleBitPack6BitsARM64(&got[0], &r[0])
 
 		var want [encodingSize6]byte
 		simpleBitPack6BitsGeneric(want[:], &r)
@@ -215,7 +215,7 @@ func BenchmarkSimpleBitPack4Bits(b *testing.B) {
 	})
 	b.Run("neon", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			simpleBitPack4BitsNEON(&out[0], &r[0])
+			simpleBitPack4BitsARM64(&out[0], &r[0])
 		}
 		benchmarkSimpleBitPack4Arm64Sink = out
 	})
@@ -266,7 +266,7 @@ func BenchmarkSimpleBitPack6Bits(b *testing.B) {
 	})
 	b.Run("neon", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			simpleBitPack6BitsNEON(&out[0], &r[0])
+			simpleBitPack6BitsARM64(&out[0], &r[0])
 		}
 		benchmarkSimpleBitPack6Arm64Sink = out
 	})

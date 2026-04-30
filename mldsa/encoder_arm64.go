@@ -9,13 +9,13 @@ package mldsa
 import "github.com/emmansun/gmsm/internal/alias"
 
 //go:noescape
-func simpleBitPack4BitsNEON(dst *byte, f *fieldElement)
+func simpleBitPack4BitsARM64(dst *byte, f *fieldElement)
 
 //go:noescape
 func simpleBitPack4BitsHighBitsGamma32NEON(dst *byte, f *fieldElement)
 
 //go:noescape
-func simpleBitPack6BitsNEON(dst *byte, f *fieldElement)
+func simpleBitPack6BitsARM64(dst *byte, f *fieldElement)
 
 //go:noescape
 func simpleBitPack6BitsHighBitsGamma88NEON(dst *byte, f *fieldElement)
@@ -32,7 +32,7 @@ func bitPackSignedTwoPower19NEON(dst *byte, f *fieldElement)
 // See FIPS 204, Algorithm 16, SimpleBitPack(w, b) where b = 4 bits
 func simpleBitPack4Bits(s []byte, f *ringElement) []byte {
 	s, dst := alias.SliceForAppend(s, encodingSize4)
-	simpleBitPack4BitsNEON(&dst[0], &f[0])
+	simpleBitPack4BitsARM64(&dst[0], &f[0])
 	return s
 }
 
@@ -52,7 +52,7 @@ func simpleBitPack4BitsHighBits(dst []byte, f *ringElement, gamma2 uint32) {
 // See FIPS 204, Algorithm 16, SimpleBitPack(w, b) where b = 43
 func simpleBitPack6Bits(s []byte, f *ringElement) []byte {
 	s, dst := alias.SliceForAppend(s, encodingSize6)
-	simpleBitPack6BitsNEON(&dst[0], &f[0])
+	simpleBitPack6BitsARM64(&dst[0], &f[0])
 	return s
 }
 

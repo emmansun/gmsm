@@ -1154,11 +1154,7 @@ use_hint_poly_gamma88_blk3_done:
 	BNE use_hint_poly_gamma88_loop
 	RET
 
-// ────────────────────────────────────────────────────────────────────────────
-// Encoder functions (NEON-accelerated)
-// ────────────────────────────────────────────────────────────────────────────
-
-// simpleBitPack4BitsNEON packs 256 4-bit coefficients (values in [0,15]) into
+// simpleBitPack4BitsARM64 packs 256 4-bit coefficients (values in [0,15]) into
 // 128 bytes: byte[i/2] = coeff[i] | (coeff[i+1] << 4).
 //
 // Loads 4 coefficients per LDP as two 32-bit halves in a 64-bit register,
@@ -1167,8 +1163,8 @@ use_hint_poly_gamma88_blk3_done:
 //
 // Processes 8 coefficients per iteration (32 iterations, 2 LDP each → 4 bytes).
 //
-// func simpleBitPack4BitsNEON(dst *byte, f *fieldElement)
-TEXT ·simpleBitPack4BitsNEON(SB), NOSPLIT, $0-16
+// func simpleBitPack4BitsARM64(dst *byte, f *fieldElement)
+TEXT ·simpleBitPack4BitsARM64(SB), NOSPLIT, $0-16
 	MOVD dst+0(FP), R0
 	MOVD f+8(FP), R1
 	MOVD $32, R2
@@ -1256,32 +1252,32 @@ hbpack4_loop:
 	WORD $0x4F2A0463                   // SSHR V3.4S, V3.4S, #22
 	VAND V11.B16, V3.B16, V3.B16
 
-	// Pack V2[0..3] → 2 bytes
-	VMOV V2.S[0], R10
-	VMOV V2.S[1], R11
-	ORR  R11<<4, R10, R10
-	MOVB R10, (R0)
-	VMOV V2.S[2], R10
-	VMOV V2.S[3], R11
-	ORR  R11<<4, R10, R10
-	MOVB R10, 1(R0)
-
-	// Pack V3[0..3] → 2 bytes
-	VMOV V3.S[0], R10
-	VMOV V3.S[1], R11
-	ORR  R11<<4, R10, R10
-	MOVB R10, 2(R0)
-	VMOV V3.S[2], R10
-	VMOV V3.S[3], R11
-	ORR  R11<<4, R10, R10
-	MOVB R10, 3(R0)
+	// Pack V2[0..3] and V3[0..3] → 4 bytes using all-NEON narrowing to avoid
+	// 8 NEON→GPR crossings. After HighBits, V0 and V1 are free.
+	//
+	// Step 1: VUZP1 on H8 view extracts the low uint16 of each S4 element,
+	//         gathering 8 4-bit values into V0.H8.
+	// Step 2: VUZP1 on B16 compacts them to 8 consecutive bytes in V1.B16[0..7].
+	// Step 3: VSHL $4 produces the shifted version for the odd ("hi nibble") slot.
+	// Step 4: VUZP1 on B16 (self) picks even elements → [v0,v2,v4,v6,...].
+	// Step 5: VUZP2 on B16 (self) picks odd elements  → [v1<<4,v3<<4,...].
+	// Step 6: VORR combines: V1.B16[0..3] = [v0|v1<<4, v2|v3<<4, v4|v5<<4, v6|v7<<4].
+	// Step 7: VMOV.S[0] extracts the 4 packed bytes; MOVW stores them.
+	VUZP1 V3.H8, V2.H8, V0.H8      // V0.H8 = [v0,v1,v2,v3,v4,v5,v6,v7]
+	VUZP1 V0.B16, V0.B16, V1.B16   // V1.B16[0..7] = [v0,v1,...,v7] consecutive
+	VSHL  $4, V1.B16, V4.B16        // V4.B16 = [v0<<4, v1<<4, ..., v7<<4]
+	VUZP1 V1.B16, V1.B16, V1.B16   // V1.B16[0..3] = [v0, v2, v4, v6]
+	VUZP2 V4.B16, V4.B16, V4.B16   // V4.B16[0..3] = [v1<<4, v3<<4, v5<<4, v7<<4]
+	VORR  V1.B16, V4.B16, V1.B16   // V1.B16[0..3] = [v0|v1<<4, v2|v3<<4, v4|v5<<4, v6|v7<<4]
+	VMOV  V1.S[0], R10              // R10 = 4 packed nibble-pair bytes
+	MOVW  R10, (R0)                 // store 4 bytes
 
 	ADD  $4, R0
 	SUBS $1, R2, R2
 	BNE  hbpack4_loop
 	RET
 
-// simpleBitPack6BitsNEON packs 256 6-bit coefficients (values in [0,43]) into
+// simpleBitPack6BitsARM64 packs 256 6-bit coefficients (values in [0,43]) into
 // 192 bytes using 3 bytes per group of 4 coefficients:
 //   x = v0 | v1<<6 | v2<<12 | v3<<18    (24-bit value)
 //   byte[0]=x[7:0], byte[1]=x[15:8], byte[2]=x[23:16]
@@ -1291,8 +1287,8 @@ hbpack4_loop:
 //
 // Processes 8 coefficients per iteration (32 iterations) → 6 bytes each.
 //
-// func simpleBitPack6BitsNEON(dst *byte, f *fieldElement)
-TEXT ·simpleBitPack6BitsNEON(SB), NOSPLIT, $0-16
+// func simpleBitPack6BitsARM64(dst *byte, f *fieldElement)
+TEXT ·simpleBitPack6BitsARM64(SB), NOSPLIT, $0-16
 	MOVD dst+0(FP), R0
 	MOVD f+8(FP), R1
 	MOVD $32, R2
@@ -1395,33 +1391,50 @@ hbpack6_loop:
 	VAND V3.B16, V15.B16, V15.B16
 	VEOR V15.B16, V3.B16, V3.B16
 
-	// Pack V2 → 3 bytes
-	VMOV V2.S[0], R10
-	VMOV V2.S[1], R11
-	VMOV V2.S[2], R12
-	VMOV V2.S[3], R13
-	ORR  R11<<6, R10, R10
-	ORR  R12<<12, R10, R10
-	ORR  R13<<18, R10, R10
-	MOVB R10, (R0)
-	LSR  $8, R10, R10
-	MOVB R10, 1(R0)
-	LSR  $8, R10, R10
-	MOVB R10, 2(R0)
+	// Pack V2 and V3 → 6 bytes.
+	//
+	// 6-bit packing: 4 values → 3 bytes as x = v0|(v1<<6)|(v2<<12)|(v3<<18).
+	// Instead of 8 individual VMOV.S extractions, we first merge adjacent value
+	// pairs in NEON (reducing the count to 2 pairs A=v0+v1*64, B=v2+v3*64,
+	// C=v4+v5*64, D=v6+v7*64), then extract all four with one VMOV.D, and
+	// finish in the integer pipeline with UBFX+ORR+MOVB.
+	//
+	// VUZP1 V3.H8, V2.H8, V0.H8: extracts even H8 elements (= low uint16 of each
+	// S4 element), gathering all 8 values into one H8 vector.
+	// VSHL $6, V0.H8, V1.H8: precomputes v_i * 64 for the odd positions.
+	// VUZP1 / VUZP2 separate even(V0) and odd(V1×64), VADD merges each pair.
+	// The resulting V4.H8 = [A,B,C,D,A,B,C,D]; viewed as V4.D[0]:
+	//   bits[15:0] = A (v0+v1*64), bits[31:16] = B (v2+v3*64),
+	//   bits[47:32] = C (v4+v5*64), bits[63:48] = D (v6+v7*64).
+	// One VMOV.D yields all four; UBFX extracts each 12-bit field.
+	VUZP1 V3.H8, V2.H8, V0.H8       // V0.H8 = [v0,v1,v2,v3,v4,v5,v6,v7]
+	VSHL  $6, V0.H8, V1.H8           // V1.H8 = [v0<<6, v1<<6, ..., v7<<6]
+	VUZP1 V0.H8, V0.H8, V4.H8       // V4.H8 = [v0,v2,v4,v6,...] (even)
+	VUZP2 V1.H8, V1.H8, V5.H8       // V5.H8 = [v1<<6,v3<<6,v5<<6,v7<<6,...] (odd×64)
+	VADD  V4.H8, V5.H8, V4.H8       // V4.H8 = [A,B,C,D,A,B,C,D]
 
-	// Pack V3 → 3 bytes
-	VMOV V3.S[0], R10
-	VMOV V3.S[1], R11
-	VMOV V3.S[2], R12
-	VMOV V3.S[3], R13
-	ORR  R11<<6, R10, R10
-	ORR  R12<<12, R10, R10
-	ORR  R13<<18, R10, R10
-	MOVB R10, 3(R0)
-	LSR  $8, R10, R10
-	MOVB R10, 4(R0)
-	LSR  $8, R10, R10
-	MOVB R10, 5(R0)
+	// V4.D[0] = A | B<<16 | C<<32 | D<<48  (one NEON→GPR crossing)
+	VMOV  V4.D[0], R10
+
+	// Group 0: A + B<<12 → 3 bytes
+	UBFX $0, R10, $12, R11           // R11 = A (v0+v1*64 ≤ 2795, 12 bits)
+	UBFX $16, R10, $12, R12          // R12 = B (v2+v3*64 ≤ 2795, 12 bits)
+	ORR  R12<<12, R11, R11           // R11 = A | B<<12  (24-bit packed)
+	MOVB R11, (R0)
+	LSR  $8, R11, R11
+	MOVB R11, 1(R0)
+	LSR  $8, R11, R11
+	MOVB R11, 2(R0)
+
+	// Group 1: C + D<<12 → 3 bytes
+	UBFX $32, R10, $12, R11          // R11 = C (v4+v5*64)
+	UBFX $48, R10, $12, R12          // R12 = D (v6+v7*64)
+	ORR  R12<<12, R11, R11           // R11 = C | D<<12  (24-bit packed)
+	MOVB R11, 3(R0)
+	LSR  $8, R11, R11
+	MOVB R11, 4(R0)
+	LSR  $8, R11, R11
+	MOVB R11, 5(R0)
 
 	ADD  $6, R0
 	SUBS $1, R2, R2
