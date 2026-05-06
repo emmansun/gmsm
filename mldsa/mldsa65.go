@@ -499,6 +499,12 @@ func (sk *PrivateKey65) signInternal(seed, mu []byte) ([]byte, error) {
 			internalInverseNTT((*nttElement)(&z[i]))
 			polyAddAssign(&z[i], &y[i])
 		}
+		zNorm := vectorInfinityNorm(z[:], 0)
+
+		// if zNorm >= gamma1 - beta, then continue
+		if subtle.ConstantTimeLessOrEq(zNormThreshold, zNorm) == 1 {
+			continue
+		}
 
 		var (
 			ct0 [k65]ringElement
@@ -512,11 +518,9 @@ func (sk *PrivateKey65) signInternal(seed, mu []byte) ([]byte, error) {
 			decomposeSubToR0(&r0[i], &w[i], &cs2[i], gamma2QMinus1Div32)
 			r0Norm = polyInfinityNormSigned(&r0[i], r0Norm)
 		}
-		zNorm := vectorInfinityNorm(z[:], 0)
 
-		// if zNorm >= gamma1 - beta || r0Norm >= gamma2 - beta, then continue
-		if subtle.ConstantTimeLessOrEq(zNormThreshold, zNorm)|
-			subtle.ConstantTimeLessOrEq(r0NormThreshold, r0Norm) == 1 {
+		// if r0Norm >= gamma2 - beta, then continue
+		if subtle.ConstantTimeLessOrEq(r0NormThreshold, r0Norm) == 1 {
 			continue
 		}
 
