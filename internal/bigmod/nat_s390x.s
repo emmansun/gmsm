@@ -4,26 +4,33 @@
 
 //go:build !purego
 
+// Register usage (z13 convention):
+// R2 = rp (result pointer)
+// R3 = ap (source pointer)
+// R4 = an / idx (loop counter)
+// R5 = b0 (multiplier limb)
+// R6 = cy (carry)
+
 #include "textflag.h"
 
 // func addMulVVW256(z, x *uint, y uint) (c uint)
 TEXT ·addMulVVW256(SB), $0-32
-	MOVD	$4, R5
+	MOVD	$4, R4
 	JMP		addMulVVWy(SB)
 
 // func addMulVVW1024(z, x *uint, y uint) (c uint)
 TEXT ·addMulVVW1024(SB), $0-32
-	MOVD	$16, R5
+	MOVD	$16, R4
 	JMP		addMulVVWy(SB)
 
 // func addMulVVW1536(z, x *uint, y uint) (c uint)
 TEXT ·addMulVVW1536(SB), $0-32
-	MOVD	$24, R5
+	MOVD	$24, R4
 	JMP		addMulVVWy(SB)
 
 // func addMulVVW2048(z, x *uint, y uint) (c uint)
 TEXT ·addMulVVW2048(SB), $0-32
-	MOVD	$32, R5
+	MOVD	$32, R4
 	JMP		addMulVVWy(SB)
 
 TEXT addMulVVWy(SB), NOFRAME|NOSPLIT, $0
