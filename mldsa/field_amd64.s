@@ -56,13 +56,14 @@ DATA bitPackConsts19<>+0x00(SB)/4, $8904705  // r19 + q = 524288 + 8380417
 GLOBL bitPackConsts19<>(SB), RODATA, $4
 
 // bitUnpack18ShufMask — VPSHUFB control for 18-bit extraction.
-// Per 128-bit lane: maps input bytes into 4 overlapping dwords so that
-// each dword[k] contains the 3-4 bytes spanning coefficient k's 18 bits.
-// Lane bytes: [0,1,2,3, 2,3,4,5, 4,5,6,7, 6,7,8,0x80]
+// With overlapping 16-byte loads, lane 0 holds input bytes [0..15] and lane 1
+// holds input bytes [2..17]. The shuffle maps each lane to 4 overlapping dwords:
+//   lane 0: [0,1,2,3], [2,3,4,5], [4,5,6,7], [6,7,8,0x80]
+//   lane 1: [7,8,9,10], [9,10,11,12], [11,12,13,14], [13,14,15,0x80]
 DATA bitUnpack18ShufMask<>+0x00(SB)/8, $0x0504030203020100
 DATA bitUnpack18ShufMask<>+0x08(SB)/8, $0x8008070607060504
-DATA bitUnpack18ShufMask<>+0x10(SB)/8, $0x0504030203020100
-DATA bitUnpack18ShufMask<>+0x18(SB)/8, $0x8008070607060504
+DATA bitUnpack18ShufMask<>+0x10(SB)/8, $0x0C0B0A090A090807
+DATA bitUnpack18ShufMask<>+0x18(SB)/8, $0x800F0E0D0E0D0C0B
 GLOBL bitUnpack18ShufMask<>(SB), RODATA, $32
 
 // bitUnpack18ShiftVec — VPSRLVD per-dword shift amounts for 18-bit extraction.
@@ -77,11 +78,14 @@ DATA bitUnpack18MaskConst<>+0x00(SB)/4, $0x3FFFF  // 2^18-1
 GLOBL bitUnpack18MaskConst<>(SB), RODATA, $4
 
 // bitUnpack20ShufMask — VPSHUFB control for 20-bit extraction.
-// Lane bytes: [0,1,2,3, 2,3,4,5, 5,6,7,8, 7,8,9,0x80]
+// With overlapping 16-byte loads, lane 0 holds input bytes [0..15] and lane 1
+// holds input bytes [4..19]. The shuffle maps each lane to 4 overlapping dwords:
+//   lane 0: [0,1,2,3], [2,3,4,5], [5,6,7,8], [7,8,9,0x80]
+//   lane 1: [6,7,8,9], [8,9,10,11], [11,12,13,14], [13,14,15,0x80]
 DATA bitUnpack20ShufMask<>+0x00(SB)/8, $0x0504030203020100
 DATA bitUnpack20ShufMask<>+0x08(SB)/8, $0x8009080708070605
-DATA bitUnpack20ShufMask<>+0x10(SB)/8, $0x0504030203020100
-DATA bitUnpack20ShufMask<>+0x18(SB)/8, $0x8009080708070605
+DATA bitUnpack20ShufMask<>+0x10(SB)/8, $0x0B0A090809080706
+DATA bitUnpack20ShufMask<>+0x18(SB)/8, $0x800F0E0D0E0D0C0B
 GLOBL bitUnpack20ShufMask<>(SB), RODATA, $32
 
 // bitUnpack20ShiftVec — VPSRLVD per-dword shift amounts for 20-bit extraction.
@@ -802,21 +806,18 @@ useHint32Loop:
 	// posMask = (r0 > 0)
 	VPCMPGTD Y0, Y6, Y7
 
-	// alt = (r0>0) ? (r1+1)&15 : (r1-1)&15
-	VPADDD Y14, Y4, Y3  // inc
-	VPSUBD Y14, Y4, Y1  // dec
-	VPAND Y11, Y3, Y3
-	VPAND Y11, Y1, Y1
-	VPAND Y7, Y3, Y3
-	VPANDN Y1, Y7, Y1 // (~posMask) & dec
-	VPOR Y1, Y3, Y3 // alt
+	// deltaBase = (r0 > 0) ? 1 : 15
+	VPAND Y7, Y14, Y3
+	VPANDN Y11, Y7, Y1
+	VPOR Y1, Y3, Y3
 
-	// hMask = -h for h in {0,1}
-	VPSUBD Y2, Y0, Y7
-	// out = h ? alt : r1
-	VPAND Y7, Y3, Y3
-	VPANDN Y4, Y7, Y4 // (~hMask) & r1
-	VPOR Y4, Y3, Y3
+	// hMask = -h for h in {0,1}; delta = h ? deltaBase : 0
+	VPSUBD Y2, Y0, Y1
+	VPAND Y1, Y3, Y3
+
+	// out = (r1 + delta) mod 16
+	VPADDD Y3, Y4, Y3
+	VPAND Y11, Y3, Y3
 
 	VMOVDQU Y3, (CX)
 
@@ -874,29 +875,21 @@ useHint88Loop:
 	// posMask = (r0 > 0)
 	VPCMPGTD Y0, Y6, Y7
 
-	// altPos = (r1==43) ? 0 : (r1+1)
-	VPADDD Y14, Y4, Y1
-	VPCMPEQD Y11, Y4, Y3 // eq43
-	VPANDN Y1, Y3, Y1    // (~eq43) & (r1+1)
+	// deltaBase = (r0 > 0) ? 1 : 43
+	VPAND Y7, Y14, Y1
+	VPANDN Y11, Y7, Y3
+	VPOR Y3, Y1, Y1
 
-	// altNeg = (r1==0) ? 43 : (r1-1)
-	VPSUBD Y14, Y4, Y5
-	VPCMPEQD Y0, Y4, Y6  // eq0
-	VPANDN Y5, Y6, Y5    // (~eq0) & (r1-1)
-	VPAND Y6, Y11, Y3
-	VPOR Y3, Y5, Y5 // altNeg
+	// hMask = -h for h in {0,1}; delta = h ? deltaBase : 0
+	VPSUBD Y2, Y0, Y3
+	VPAND Y3, Y1, Y1
 
-	// alt = pos ? altPos : altNeg
-	VPAND Y7, Y1, Y1
-	VPANDN Y5, Y7, Y5 // (~posMask) & altNeg
-	VPOR Y5, Y1, Y1 // alt
-
-	// hMask = -h for h in {0,1}
-	VPSUBD Y2, Y0, Y7
-	// out = h ? alt : r1
-	VPAND Y7, Y1, Y1
-	VPANDN Y4, Y7, Y4 // (~hMask) & r1
-	VPOR Y4, Y1, Y1
+	// out = r1 + delta; if out > 43, subtract 44
+	VPADDD Y1, Y4, Y1
+	VPCMPGTD Y11, Y1, Y3
+	VPADDD Y14, Y11, Y5
+	VPAND Y3, Y5, Y5
+	VPSUBD Y5, Y1, Y1
 
 	VMOVDQU Y1, (CX)
 
@@ -1070,11 +1063,9 @@ bitPackSigned19Loop:
 // bitUnpackSignedTwoPower17AVX2 decodes a packed 18-bit byte stream into a polynomial.
 //
 // For each pair of groups (9 bytes each → 4 coefficients each):
-//   1. Scalar MOVL/MOVBLZX loads bytes into GPRs (no XMM state change).
-//      Three VEX VPINSRD instructions insert [bytes 0..3], [bytes 4..7], [byte 8]
-//      into the three relevant dwords of X0/X1 (dword 3 is don't-care: the
-//      VPSHUFB 0x80 entry will zero that output position).
-//   2. VINSERTI128 merges two group XMMs into one YMM.
+//   1. Two overlapping 16-byte loads provide contiguous bytes [0..15] and
+//      [2..17] across the two 128-bit lanes.
+//   2. VINSERTI128 merges the two XMM loads into one YMM.
 //   3. VPSHUFB rearranges each lane's bytes into 4 overlapping 32-bit dwords so
 //      each dword spans the bytes covering one 18-bit coefficient.
 //   4. VPSRLVD [0,2,4,6] aligns each coefficient at bits [17:0].
@@ -1092,15 +1083,9 @@ TEXT ·bitUnpackSignedTwoPower17AVX2(SB), NOSPLIT, $0-16
 	VPBROADCASTD bitUnpack18MaskConst<>(SB), Y12 // 0x3FFFF
 
 LUnpack17:
-	// Group 0: bytes [0..8] → X0 via all-VEX VPINSRD
-	VMOVQ 0(SI), X0
-	MOVBLZX 8(SI), R8
-	VPINSRD $2, R8, X0, X0         // dword2 = byte8 + zeros (dword3 don't-care)
-
-	// Group 1: bytes [9..17] → X1
-	VMOVQ 9(SI), X1
-	MOVBLZX 17(SI), R8
-	VPINSRD $2, R8, X1, X1         // dword2 = byte17 + zeros (dword3 don't-care)
+	// Lower lane: input bytes [0..15]. Upper lane: overlapping bytes [2..17].
+	VMOVDQU 0(SI), X0
+	VMOVDQU 2(SI), X1
 
 	VINSERTI128 $1, X1, Y0, Y0     // Y0[127:0]=X0, Y0[255:128]=X1
 
@@ -1128,10 +1113,10 @@ LUnpack17:
 // bitUnpackSignedTwoPower19AVX2 decodes a packed 20-bit byte stream into a polynomial.
 //
 // Same strategy as bitUnpackSignedTwoPower17AVX2 but for 10 bytes per group.
-//   Scalar MOVL/MOVWLZX loads bytes into GPRs (no XMM state change).
-//   Three VEX VPINSRD instructions insert [bytes 0..3], [bytes 4..7], [bytes 8..9]
-//   into the three relevant dwords of X0/X1 (dword 3 is don't-care).
-//   VPSHUFB mask: [0..3, 2..5, 5..8, 7..9, 0x80] per 16-byte lane.
+//   Two overlapping 16-byte loads provide contiguous bytes [0..15] and [4..19]
+//   across the two 128-bit lanes, avoiding the scalar byte stitching used before.
+//   VPSHUFB then selects the overlapping byte windows needed for the 4 decoded
+//   coefficients in each lane.
 //   VPSRLVD shifts [0,4,0,4] align each 20-bit coefficient to bits [19:0].
 TEXT ·bitUnpackSignedTwoPower19AVX2(SB), NOSPLIT, $0-16
 	MOVQ b+0(FP), SI
@@ -1145,15 +1130,9 @@ TEXT ·bitUnpackSignedTwoPower19AVX2(SB), NOSPLIT, $0-16
 	VPBROADCASTD bitUnpack20MaskConst<>(SB), Y12 // 0xFFFFF
 
 LUnpack19:
-	// Group 0: bytes [0..9] → X0 via all-VEX VPINSRD
-	VMOVQ 0(SI), X0
-	MOVWLZX 8(SI), R8
-	VPINSRD $2, R8, X0, X0         // dword2 = bytes 8..9 + zeros (dword3 don't-care)
-
-	// Group 1: bytes [10..19] → X1
-	VMOVQ 10(SI), X1
-	MOVWLZX 18(SI), R8
-	VPINSRD $2, R8, X1, X1         // dword2 = bytes 18..19 + zeros (dword3 don't-care)
+	// Lower lane: input bytes [0..15]. Upper lane: overlapping bytes [4..19].
+	VMOVDQU 0(SI), X0
+	VMOVDQU 4(SI), X1
 
 	VINSERTI128 $1, X1, Y0, Y0     // Y0[127:0]=X0, Y0[255:128]=X1
 
