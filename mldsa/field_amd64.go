@@ -97,6 +97,9 @@ func nttMulAVX2(lhs, rhs, out *nttElement)
 func nttMulAccAVX2(lhs, rhs, acc *nttElement)
 
 //go:noescape
+func nttMatRowVecMulAVX2(dst, vec, matRow *nttElement, len int)
+
+//go:noescape
 func polyAddAssignAVX2(dst, src *fieldElement)
 
 //go:noescape
@@ -217,6 +220,14 @@ func nttMulAcc(acc, lhs, rhs *nttElement) {
 	}
 
 	nttMulAccAVX2(lhs, rhs, acc)
+}
+
+func nttMatRowVecMul(dst, vec, matRow *nttElement, len int) {
+	if !useAVX2 {
+		nttMatRowVecMulGeneric(dst, vec, matRow, len)
+		return
+	}
+	nttMatRowVecMulAVX2(dst, vec, matRow, len)
 }
 
 func internalNTT(f *ringElement) {

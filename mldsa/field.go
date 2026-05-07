@@ -6,6 +6,7 @@ package mldsa
 
 import (
 	"crypto/subtle"
+	"unsafe"
 )
 
 // fieldElement is an integer modulo q, an element of ℤ_q. It is always reduced.
@@ -31,7 +32,7 @@ func fieldSub(a, b fieldElement) fieldElement {
 }
 
 const (
-	r       = 4193792    // 2³² mod q
+	r       = 4193792            // 2³² mod q
 	qNegInv = uint32(4236238847) // -q⁻¹ mod 2³² (q * qNegInv ≡ -1 mod 2³²)
 )
 
@@ -192,6 +193,21 @@ func nttMulGeneric(out, lhs, rhs *nttElement) {
 func nttMulAccGeneric(acc, lhs, rhs *nttElement) {
 	for i, v := range lhs {
 		acc[i] = fieldAdd(acc[i], fieldMul(v, rhs[i]))
+	}
+}
+
+// nttMatRowVecMulGeneric computes dst = matRow[0]*vec[0] + matRow[1]*vec[1] + ... + matRow[len-1]*vec[len-1]
+// All operands are in NTT domain (coefficient-wise multiplication in NTT domain).
+func nttMatRowVecMulGeneric(dst, vec, matRow *nttElement, len int) {
+	vecSlice := unsafe.Slice(vec, len)
+	matSlice := unsafe.Slice(matRow, len)
+
+	for i := range n {
+		acc := fieldMul(vecSlice[0][i], matSlice[0][i])
+		for j := 1; j < len; j++ {
+			acc = fieldAdd(acc, fieldMul(vecSlice[j][i], matSlice[j][i]))
+		}
+		dst[i] = acc
 	}
 }
 

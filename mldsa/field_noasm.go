@@ -22,6 +22,10 @@ func nttMulAcc(acc, lhs, rhs *nttElement) {
 	nttMulAccGeneric(acc, lhs, rhs)
 }
 
+func nttMatRowVecMul(dst, vec, matRow *nttElement, len int) {
+	nttMatRowVecMulGeneric(dst, vec, matRow, len)
+}
+
 // polyAddAssign updates dst as dst += src (fallback to generic).
 func polyAddAssign[T ~[n]fieldElement](dst, src *T) {
 	polyAddGeneric(dst, src)

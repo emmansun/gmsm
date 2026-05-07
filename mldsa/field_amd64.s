@@ -541,6 +541,97 @@ loopAcc:
 	VZEROUPPER
 	RET
 
+// nttMatRowVecMulAVX2 computes dst = vec[0]*matRow[0] + vec[1]*matRow[1] + ... + vec[len-1]*matRow[len-1]
+// where each element is a polynomial in NTT domain.
+// For each 32-byte chunk of the polynomial, all len products are accumulated in
+// a register before writing to dst once, eliminating intermediate stores/loads.
+TEXT ·nttMatRowVecMulAVX2(SB), NOSPLIT, $0-32
+	MOVQ dst+0(FP), DI
+	MOVQ vec+8(FP), SI
+	MOVQ matRow+16(FP), DX
+	MOVL len+24(FP), CX
+
+	VPBROADCASTD qNegInvConst, QNegInv
+	VPBROADCASTD qConst, Q
+
+	XORQ R9, R9        // chunk_offset = 0
+	MOVL $32, R8       // 32 chunks of 32 bytes each
+
+mvmChunkLoop:
+	// AX = &vec[0] + chunk_offset, BX = &matRow[0] + chunk_offset
+	MOVQ SI, AX
+	ADDQ R9, AX
+	MOVQ DX, BX
+	ADDQ R9, BX
+
+	// Y7 = fieldMul(vec[0][chunk], matRow[0][chunk])
+	VMOVDQU (AX), Y0
+	VMOVDQU (BX), Y1
+
+	VPMULUDQ Y1, Y0, Y2
+	VPSRLQ $32, Y0, Y3
+	VPSRLQ $32, Y1, Y4
+	VPMULUDQ Y4, Y3, Y3
+
+	VPMULUDQ QNegInv, Y2, Y5
+	VPMULUDQ QNegInv, Y3, Y6
+	VPMULUDQ Q, Y5, Y5
+	VPMULUDQ Q, Y6, Y6
+	VPADDQ Y2, Y5, Y5
+	VPADDQ Y3, Y6, Y6
+	VPSRLQ $32, Y5, Y5
+	VPBLENDD $0xAA, Y6, Y5, Y7
+
+	VPCMPGTD Y7, Q, Y2
+	VPANDN Q, Y2, Y2
+	VPSUBD Y2, Y7, Y7     // Y7 = accumulator for this chunk
+
+	MOVL CX, R11
+	DECL R11
+	JZ mvmWrite           // len == 1: skip accumulate loop
+
+mvmAccumulate:
+	ADDQ $1024, AX        // advance to next element of vec
+	ADDQ $1024, BX        // advance to next element of matRow
+
+	VMOVDQU (AX), Y0
+	VMOVDQU (BX), Y1
+
+	VPMULUDQ Y1, Y0, Y2
+	VPSRLQ $32, Y0, Y3
+	VPSRLQ $32, Y1, Y4
+	VPMULUDQ Y4, Y3, Y3
+
+	VPMULUDQ QNegInv, Y2, Y5
+	VPMULUDQ QNegInv, Y3, Y6
+	VPMULUDQ Q, Y5, Y5
+	VPMULUDQ Q, Y6, Y6
+	VPADDQ Y2, Y5, Y5
+	VPADDQ Y3, Y6, Y6
+	VPSRLQ $32, Y5, Y5
+	VPBLENDD $0xAA, Y6, Y5, Y8  // Y8 = Montgomery product
+
+	VPADDD Y8, Y7, Y7    // accumulate in register (no memory round-trip)
+	VPCMPGTD Y7, Q, Y2
+	VPANDN Q, Y2, Y2
+	VPSUBD Y2, Y7, Y7    // reduce accumulator
+
+	DECL R11
+	JNZ mvmAccumulate
+
+mvmWrite:
+	// Write accumulated result to dst only once per chunk
+	MOVQ DI, R10
+	ADDQ R9, R10
+	VMOVDQU Y7, (R10)
+
+	ADDQ $32, R9
+	DECL R8
+	JNZ mvmChunkLoop
+
+	VZEROUPPER
+	RET
+
 TEXT ·polyAddAssignAVX2(SB), NOSPLIT, $0-16
 	MOVQ dst+0(FP), AX
 	MOVQ src+8(FP), BX
@@ -1095,10 +1186,9 @@ LUnpack17:
 
 	// fieldSub(2^17, v) = (8511489 - v) mod q
 	VPSUBD Y0, Y8, Y1
-	VPSUBD Y9, Y1, Y2
-	VPSRAD $31, Y2, Y3
-	VPAND Y9, Y3, Y3
-	VPADDD Y3, Y2, Y1
+	VPCMPGTD Y1, Y9, Y2
+	VPANDN Y9, Y2, Y2
+	VPSUBD Y2, Y1, Y1
 
 	VMOVDQU Y1, (DI)
 
@@ -1142,10 +1232,9 @@ LUnpack19:
 
 	// fieldSub(2^19, v) = (8904705 - v) mod q
 	VPSUBD Y0, Y8, Y1
-	VPSUBD Y9, Y1, Y2
-	VPSRAD $31, Y2, Y3
-	VPAND Y9, Y3, Y3
-	VPADDD Y3, Y2, Y1
+	VPCMPGTD Y1, Y9, Y2
+	VPANDN Y9, Y2, Y2
+	VPSUBD Y2, Y1, Y1
 
 	VMOVDQU Y1, (DI)
 

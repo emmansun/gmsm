@@ -1954,3 +1954,104 @@ make_hint_gamma88_loop:
 	SUBS $1, R4, R4
 	BNE  make_hint_gamma88_loop
 	RET
+
+// nttMatRowVecMulNEON computes dst = vec[0]*matRow[0] + vec[1]*matRow[1] + ... + vec[len-1]*matRow[len-1]
+// All results for each chunk are accumulated in registers before a single write.
+// Parameters: R0=dst, R1=vec, R2=matRow, R3=len
+TEXT ·nttMatRowVecMulNEON(SB), NOSPLIT, $0-32
+	MOVD dst+0(FP), R0
+	MOVD vec+8(FP), R1
+	MOVD matRow+16(FP), R2
+	MOVD len+24(FP), R3
+
+	// Setup constants
+	MOVD $8380417, R8
+	VDUP R8, V31.S4
+	MOVD $4236238847, R8
+	VDUP R8, V30.S4
+
+	MOVD $0, R5      // chunk_offset = 0
+	MOVD $32, R4     // 32 chunks of 32 bytes (= 1024 bytes per nttElement)
+
+mvmChunkLoop:
+	ADD R5, R1, R9   // R9 = &vec[0] + chunk_offset
+	ADD R5, R2, R10  // R10 = &matRow[0] + chunk_offset
+
+	VLD1 (R9), [V0.S4, V1.S4]
+	VLD1 (R10), [V2.S4, V3.S4]
+
+	// V4 = fieldMul(V0, V2)
+	WORD $0x4ea29c14                   // MUL   V20.S4, V0.S4, V2.S4
+	WORD $0x6ea2b415                   // SQRDMULH V21.S4, V0.S4, V2.S4
+	WORD $0x4ebe9e96                   // MUL   V22.S4, V20.S4, V30.S4
+	WORD $0x6e9f86d5                   // SQRDMALH V21.S4, V22.S4, V31.S4
+	WORD $0x4f3f06b5                   // VSSHR V21.S4, V21.S4, #1
+	WORD $0x4f2106b8                   // VSSHR V24.S4, V21.S4, #31
+	VAND V31.B16, V24.B16, V24.B16
+	VADD V21.S4, V24.S4, V4.S4
+
+	// V5 = fieldMul(V1, V3)
+	WORD $0x4ea39c34                   // MUL   V20.S4, V1.S4, V3.S4
+	WORD $0x6ea3b435                   // SQRDMULH V21.S4, V1.S4, V3.S4
+	WORD $0x4ebe9e96                   // MUL   V22.S4, V20.S4, V30.S4
+	WORD $0x6e9f86d5                   // SQRDMALH V21.S4, V22.S4, V31.S4
+	WORD $0x4f3f06b5                   // VSSHR V21.S4, V21.S4, #1
+	WORD $0x4f2106b8                   // VSSHR V24.S4, V21.S4, #31
+	VAND V31.B16, V24.B16, V24.B16
+	VADD V21.S4, V24.S4, V5.S4
+
+	MOVD R3, R6       // R6 = len
+	SUBS $1, R6, R6
+	BEQ mvmWrite      // len == 1, skip accumulate
+
+mvmAccumulate:
+	ADD $1024, R9     // next element of vec
+	ADD $1024, R10    // next element of matRow
+
+	VLD1 (R9), [V0.S4, V1.S4]
+	VLD1 (R10), [V2.S4, V3.S4]
+
+	// V6 = fieldMul(V0, V2)
+	WORD $0x4ea29c14                   // MUL   V20.S4, V0.S4, V2.S4
+	WORD $0x6ea2b415                   // SQRDMULH V21.S4, V0.S4, V2.S4
+	WORD $0x4ebe9e96                   // MUL   V22.S4, V20.S4, V30.S4
+	WORD $0x6e9f86d5                   // SQRDMALH V21.S4, V22.S4, V31.S4
+	WORD $0x4f3f06b5                   // VSSHR V21.S4, V21.S4, #1
+	WORD $0x4f2106b8                   // VSSHR V24.S4, V21.S4, #31
+	VAND V31.B16, V24.B16, V24.B16
+	VADD V21.S4, V24.S4, V6.S4
+
+	// V7 = fieldMul(V1, V3)
+	WORD $0x4ea39c34                   // MUL   V20.S4, V1.S4, V3.S4
+	WORD $0x6ea3b435                   // SQRDMULH V21.S4, V1.S4, V3.S4
+	WORD $0x4ebe9e96                   // MUL   V22.S4, V20.S4, V30.S4
+	WORD $0x6e9f86d5                   // SQRDMALH V21.S4, V22.S4, V31.S4
+	WORD $0x4f3f06b5                   // VSSHR V21.S4, V21.S4, #1
+	WORD $0x4f2106b8                   // VSSHR V24.S4, V21.S4, #31
+	VAND V31.B16, V24.B16, V24.B16
+	VADD V21.S4, V24.S4, V7.S4
+
+	// V4 += V6, reduce mod q
+	VADD V6.S4, V4.S4, V4.S4
+	WORD $0x6ebf3c94                   // CMGT.U V20.S4, V4.S4, V31.S4
+	VAND V31.B16, V20.B16, V24.B16
+	VSUB V24.S4, V4.S4, V4.S4
+
+	// V5 += V7, reduce mod q
+	VADD V7.S4, V5.S4, V5.S4
+	WORD $0x6ebf3cb5                   // CMGT.U V21.S4, V5.S4, V31.S4
+	VAND V31.B16, V21.B16, V24.B16
+	VSUB V24.S4, V5.S4, V5.S4
+
+	SUBS $1, R6, R6
+	BNE mvmAccumulate
+
+mvmWrite:
+	ADD R5, R0, R11   // R11 = dst + chunk_offset
+	VST1 [V4.S4, V5.S4], (R11)
+
+	ADD $32, R5
+	SUBS $1, R4, R4
+	BNE mvmChunkLoop
+
+	RET

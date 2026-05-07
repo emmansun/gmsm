@@ -52,6 +52,9 @@ func nttMulNEON(lhs, rhs, out *nttElement)
 func nttMulAccNEON(lhs, rhs, out *nttElement)
 
 //go:noescape
+func nttMatRowVecMulNEON(dst, vec, matRow *nttElement, len int)
+
+//go:noescape
 func internalNTTNEON(f *ringElement)
 
 //go:noescape
@@ -93,6 +96,10 @@ func nttMul(out, lhs, rhs *nttElement) {
 
 func nttMulAcc(acc, lhs, rhs *nttElement) {
 	nttMulAccNEON(lhs, rhs, acc)
+}
+
+func nttMatRowVecMul(dst, vec, matRow *nttElement, len int) {
+	nttMatRowVecMulNEON(dst, vec, matRow, len)
 }
 
 func polyAddAssign[T ~[n]fieldElement](dst, src *T) {
