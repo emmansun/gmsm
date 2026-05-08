@@ -154,6 +154,17 @@ func polyByteEncode[T ~[n]fieldElement](b []byte, f T) []byte {
 	return out
 }
 
+func polyByteEncodeTo[T ~[n]fieldElement](out *[encodingSize12]byte, f T) {
+	B := out[:]
+	for i := 0; i < n; i += 2 {
+		x := uint32(f[i]) | uint32(f[i+1])<<12
+		B[0] = uint8(x)
+		B[1] = uint8(x >> 8)
+		B[2] = uint8(x >> 16)
+		B = B[3:]
+	}
+}
+
 // polyByteDecode decodes the 384-byte encoding of a polynomial, checking that
 // all the coefficients are properly reduced. This fulfills the "Modulus check"
 // step of ML-KEM Encapsulation.

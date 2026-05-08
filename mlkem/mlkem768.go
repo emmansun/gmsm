@@ -293,8 +293,12 @@ func kemKeyGen(dk *DecapsulationKey768, d, z *[32]byte) {
 	}
 
 	H := sha3.New256()
-	ek := dk.EncapsulationKey().Bytes()
-	H.Write(ek)
+	var encoded [encodingSize12]byte
+	for i := range dk.t {
+		polyByteEncodeTo(&encoded, dk.t[i])
+		H.Write(encoded[:])
+	}
+	H.Write(dk.ρ[:])
 	H.Sum(dk.h[:0])
 }
 
