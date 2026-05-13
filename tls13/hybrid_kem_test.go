@@ -29,6 +29,14 @@ func (r *failAfterReader) Read(p []byte) (int, error) {
 	return r.delegate.Read(p)
 }
 
+func primaryKeyShareData(t *testing.T, keyShares []tls13.KeyShare) []byte {
+	t.Helper()
+	if len(keyShares) == 0 {
+		t.Fatal("expected at least one key share")
+	}
+	return keyShares[0].Data
+}
+
 func testRoundTrip(t *testing.T, id tls13.CurveID) {
 	t.Helper()
 
@@ -38,10 +46,11 @@ func testRoundTrip(t *testing.T, id tls13.CurveID) {
 	}
 
 	// Client generates key shares
-	clientPriv, clientKeyShare, err := ke.KeyShares(rand.Reader)
+	clientPriv, clientKeyShares, err := ke.KeyShares(rand.Reader)
 	if err != nil {
 		t.Fatalf("KeyShares: %v", err)
 	}
+	clientKeyShare := primaryKeyShareData(t, clientKeyShares)
 
 	// Server processes client key share and produces server key share
 	serverSharedSecret, serverKeyShare, err := ke.ServerSharedSecret(rand.Reader, clientKeyShare)
@@ -50,7 +59,7 @@ func testRoundTrip(t *testing.T, id tls13.CurveID) {
 	}
 
 	// Client processes server key share
-	clientSharedSecret, err := ke.ClientSharedSecret(clientPriv, serverKeyShare)
+	clientSharedSecret, err := ke.ClientSharedSecret(clientPriv, serverKeyShare.Data)
 	if err != nil {
 		t.Fatalf("ClientSharedSecret: %v", err)
 	}
@@ -101,6 +110,46 @@ func TestHybridRoundTrip_SM2MLKEM768(t *testing.T) {
 	testRoundTrip(t, tls13.SM2MLKEM768)
 }
 
+func TestHybridKeySharesIncludeFallback(t *testing.T) {
+	tests := []struct {
+		name     string
+		id       tls13.CurveID
+		fallback tls13.CurveID
+	}{
+		{name: "X25519MLKEM768", id: tls13.X25519MLKEM768, fallback: tls13.CurveX25519},
+		{name: "SecP256r1MLKEM768", id: tls13.SecP256r1MLKEM768, fallback: tls13.CurveP256},
+		{name: "SecP384r1MLKEM1024", id: tls13.SecP384r1MLKEM1024, fallback: tls13.CurveP384},
+		{name: "SM2MLKEM768", id: tls13.SM2MLKEM768, fallback: tls13.CurveSM2},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ke, err := tls13.NewKeyExchange(tc.id)
+			if err != nil {
+				t.Fatalf("NewKeyExchange: %v", err)
+			}
+
+			_, keyShares, err := ke.KeyShares(rand.Reader)
+			if err != nil {
+				t.Fatalf("KeyShares: %v", err)
+			}
+
+			if len(keyShares) != 2 {
+				t.Fatalf("expected 2 key shares for hybrid group, got %d", len(keyShares))
+			}
+			if keyShares[0].Group != tc.id {
+				t.Fatalf("unexpected primary key share group: got %v want %v", keyShares[0].Group, tc.id)
+			}
+			if keyShares[1].Group != tc.fallback {
+				t.Fatalf("unexpected fallback key share group: got %v want %v", keyShares[1].Group, tc.fallback)
+			}
+			if len(keyShares[0].Data) == 0 || len(keyShares[1].Data) == 0 {
+				t.Fatal("key share data is empty")
+			}
+		})
+	}
+}
+
 func TestHybridKeyExchangeUnsupported(t *testing.T) {
 	_, err := tls13.NewKeyExchange(tls13.CurveID(0xFFFF))
 	if err == nil {
@@ -141,10 +190,11 @@ func testErrorPaths(t *testing.T, id tls13.CurveID) {
 	})
 
 	// Produce a valid client key share to use in subsequent tests.
-	clientPriv, clientKeyShare, err := ke.KeyShares(rand.Reader)
+	clientPriv, clientKeyShares, err := ke.KeyShares(rand.Reader)
 	if err != nil {
 		t.Fatalf("KeyShares: %v", err)
 	}
+	clientKeyShare := primaryKeyShareData(t, clientKeyShares)
 
 	// --- ServerSharedSecret error: wrong total length ---
 	t.Run("ServerSharedSecret/WrongLength", func(t *testing.T) {
@@ -199,8 +249,8 @@ func testErrorPaths(t *testing.T, id tls13.CurveID) {
 
 	// --- ClientSharedSecret error: valid length but corrupt ECDH bytes ---
 	t.Run("ClientSharedSecret/CorruptECDH", func(t *testing.T) {
-		corrupt := make([]byte, len(serverKeyShare))
-		copy(corrupt, serverKeyShare)
+		corrupt := make([]byte, len(serverKeyShare.Data))
+		copy(corrupt, serverKeyShare.Data)
 		for i := range corrupt {
 			corrupt[i] = 0x00
 		}
@@ -213,7 +263,7 @@ func testErrorPaths(t *testing.T, id tls13.CurveID) {
 	// --- ClientSharedSecret error: valid ECDH bytes but wrong ML-KEM ciphertext length ---
 	t.Run("ClientSharedSecret/WrongMLKEMCiphertextLength", func(t *testing.T) {
 		// Pass a server key share that is 1 byte longer → triggers length check.
-		_, err := ke.ClientSharedSecret(clientPriv, append(serverKeyShare, 0x00))
+		_, err := ke.ClientSharedSecret(clientPriv, append(serverKeyShare.Data, 0x00))
 		if err == nil {
 			t.Fatal("expected error for wrong server key share length (+1 byte)")
 		}
@@ -255,10 +305,11 @@ func testECDHErrorPaths(t *testing.T, id tls13.CurveID) {
 		}
 	})
 
-	clientPriv, clientKeyShare, err := ke.KeyShares(rand.Reader)
+	clientPriv, clientKeyShares, err := ke.KeyShares(rand.Reader)
 	if err != nil {
 		t.Fatalf("KeyShares: %v", err)
 	}
+	clientKeyShare := primaryKeyShareData(t, clientKeyShares)
 
 	t.Run("ServerSharedSecret/CorruptKey", func(t *testing.T) {
 		corrupt := make([]byte, len(clientKeyShare))
@@ -274,7 +325,7 @@ func testECDHErrorPaths(t *testing.T, id tls13.CurveID) {
 	}
 
 	t.Run("ClientSharedSecret/CorruptKey", func(t *testing.T) {
-		corrupt := make([]byte, len(serverKeyShare))
+		corrupt := make([]byte, len(serverKeyShare.Data))
 		_, err := ke.ClientSharedSecret(clientPriv, corrupt)
 		if err == nil {
 			t.Fatal("expected error for corrupt server key share")
@@ -300,37 +351,40 @@ func TestHybridErrorPaths_SM2MLKEM768(t *testing.T) {
 
 func BenchmarkRoundTrip_X25519(b *testing.B) {
 	ke, _ := tls13.NewKeyExchange(tls13.CurveX25519)
-	
+
 	for b.Loop() {
-		clientPriv, clientKeyShare, _ := ke.KeyShares(rand.Reader)
+		clientPriv, clientKeyShares, _ := ke.KeyShares(rand.Reader)
+		clientKeyShare := clientKeyShares[0].Data
 		_, serverKeyShare, _ := ke.ServerSharedSecret(rand.Reader, clientKeyShare)
-		_, _ = ke.ClientSharedSecret(clientPriv, serverKeyShare)
+		_, _ = ke.ClientSharedSecret(clientPriv, serverKeyShare.Data)
 	}
 }
 
 func BenchmarkRoundTrip_SM2(b *testing.B) {
 	ke, _ := tls13.NewKeyExchange(tls13.CurveSM2)
-	
+
 	for b.Loop() {
-		clientPriv, clientKeyShare, _ := ke.KeyShares(rand.Reader)
+		clientPriv, clientKeyShares, _ := ke.KeyShares(rand.Reader)
+		clientKeyShare := clientKeyShares[0].Data
 		_, serverKeyShare, _ := ke.ServerSharedSecret(rand.Reader, clientKeyShare)
-		_, _ = ke.ClientSharedSecret(clientPriv, serverKeyShare)
+		_, _ = ke.ClientSharedSecret(clientPriv, serverKeyShare.Data)
 	}
 }
 
 func BenchmarkRoundTrip_P521(b *testing.B) {
 	ke, _ := tls13.NewKeyExchange(tls13.CurveP521)
-	
+
 	for b.Loop() {
-		clientPriv, clientKeyShare, _ := ke.KeyShares(rand.Reader)
+		clientPriv, clientKeyShares, _ := ke.KeyShares(rand.Reader)
+		clientKeyShare := clientKeyShares[0].Data
 		_, serverKeyShare, _ := ke.ServerSharedSecret(rand.Reader, clientKeyShare)
-		_, _ = ke.ClientSharedSecret(clientPriv, serverKeyShare)
+		_, _ = ke.ClientSharedSecret(clientPriv, serverKeyShare.Data)
 	}
 }
 
 func BenchmarkHybridKeyShares_X25519MLKEM768(b *testing.B) {
 	ke, _ := tls13.NewKeyExchange(tls13.X25519MLKEM768)
-	
+
 	for b.Loop() {
 		_, _, _ = ke.KeyShares(rand.Reader)
 	}
@@ -338,20 +392,22 @@ func BenchmarkHybridKeyShares_X25519MLKEM768(b *testing.B) {
 
 func BenchmarkHybridRoundTrip_X25519MLKEM768(b *testing.B) {
 	ke, _ := tls13.NewKeyExchange(tls13.X25519MLKEM768)
-	
+
 	for b.Loop() {
-		clientPriv, clientKeyShare, _ := ke.KeyShares(rand.Reader)
+		clientPriv, clientKeyShares, _ := ke.KeyShares(rand.Reader)
+		clientKeyShare := clientKeyShares[0].Data
 		_, serverKeyShare, _ := ke.ServerSharedSecret(rand.Reader, clientKeyShare)
-		_, _ = ke.ClientSharedSecret(clientPriv, serverKeyShare)
+		_, _ = ke.ClientSharedSecret(clientPriv, serverKeyShare.Data)
 	}
 }
 
 func BenchmarkHybridRoundTrip_SM2MLKEM768(b *testing.B) {
 	ke, _ := tls13.NewKeyExchange(tls13.SM2MLKEM768)
-	
+
 	for b.Loop() {
-		clientPriv, clientKeyShare, _ := ke.KeyShares(rand.Reader)
+		clientPriv, clientKeyShares, _ := ke.KeyShares(rand.Reader)
+		clientKeyShare := clientKeyShares[0].Data
 		_, serverKeyShare, _ := ke.ServerSharedSecret(rand.Reader, clientKeyShare)
-		_, _ = ke.ClientSharedSecret(clientPriv, serverKeyShare)
+		_, _ = ke.ClientSharedSecret(clientPriv, serverKeyShare.Data)
 	}
 }

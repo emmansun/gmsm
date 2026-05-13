@@ -35,6 +35,12 @@ const (
 	SM2MLKEM768        CurveID = 0x11ee
 )
 
+// KeyShare represents a TLS key_share entry: group id + opaque key exchange data.
+type KeyShare struct {
+	Group CurveID
+	Data  []byte
+}
+
 // mlkemDecapKey is the internal interface for an ML-KEM decapsulation key.
 type mlkemDecapKey interface {
 	EncapsulationKeyBytes() []byte
@@ -70,12 +76,15 @@ type KeySharePrivateKeys struct {
 
 // KeyExchange implements a TLS 1.3 named-group key exchange (pure ECDH or hybrid).
 type KeyExchange interface {
-	// KeyShares generates key share material for the TLS ClientHello.
-	KeyShares(rand io.Reader) (priv *KeySharePrivateKeys, clientKeyShare []byte, err error)
+	// KeyShares generates one or more key shares for the TLS ClientHello.
+	//
+	// The first key share always matches the requested group. For hybrid
+	// groups, the second key share reuses the classical component.
+	KeyShares(rand io.Reader) (priv *KeySharePrivateKeys, clientKeyShares []KeyShare, err error)
 
 	// ServerSharedSecret computes the shared secret and the server's key share
 	// from the client's key share (ServerHello).
-	ServerSharedSecret(rand io.Reader, clientKeyShare []byte) (sharedSecret, serverKeyShare []byte, err error)
+	ServerSharedSecret(rand io.Reader, clientKeyShare []byte) (sharedSecret []byte, serverKeyShare KeyShare, err error)
 
 	// ClientSharedSecret computes the shared secret from the server's key share.
 	ClientSharedSecret(priv *KeySharePrivateKeys, serverKeyShare []byte) (sharedSecret []byte, err error)
@@ -109,20 +118,21 @@ func NewKeyExchange(id CurveID) (KeyExchange, error) {
 	// X25519 = 32-byte u-coordinate; P-256/P-384/P-521 and SM2 =
 	// uncompressed SEC1 point 0x04||X||Y (65/97/133/65 bytes).
 	case CurveX25519:
-		return &ecdhKEX{classical: &stdlibCurveKEX{curve: ecdh.X25519(), pubKeySize: 32}}, nil
+		return &ecdhKEX{id: CurveX25519, classical: &stdlibCurveKEX{curve: ecdh.X25519(), pubKeySize: 32}}, nil
 	case CurveP256:
-		return &ecdhKEX{classical: &stdlibCurveKEX{curve: ecdh.P256(), pubKeySize: 65}}, nil
+		return &ecdhKEX{id: CurveP256, classical: &stdlibCurveKEX{curve: ecdh.P256(), pubKeySize: 65}}, nil
 	case CurveP384:
-		return &ecdhKEX{classical: &stdlibCurveKEX{curve: ecdh.P384(), pubKeySize: 97}}, nil
+		return &ecdhKEX{id: CurveP384, classical: &stdlibCurveKEX{curve: ecdh.P384(), pubKeySize: 97}}, nil
 	case CurveP521:
-		return &ecdhKEX{classical: &stdlibCurveKEX{curve: ecdh.P521(), pubKeySize: 133}}, nil
+		return &ecdhKEX{id: CurveP521, classical: &stdlibCurveKEX{curve: ecdh.P521(), pubKeySize: 133}}, nil
 	case CurveSM2:
-		return &ecdhKEX{classical: &sm2CurveKEX{curve: gmecdh.P256()}}, nil
+		return &ecdhKEX{id: CurveSM2, classical: &sm2CurveKEX{curve: gmecdh.P256()}}, nil
 
 	// --- hybrid ---
 	case X25519MLKEM768:
 		return &hybridKEX{
-			classical:           &stdlibCurveKEX{curve: ecdh.X25519(), pubKeySize: 32},
+			id:                  X25519MLKEM768,
+			ecdh:                &ecdhKEX{id: CurveX25519, classical: &stdlibCurveKEX{curve: ecdh.X25519(), pubKeySize: 32}},
 			mlkemFirst:          true,
 			mlkemPublicKeySize:  mlkem.EncapsulationKeySize768,
 			mlkemCiphertextSize: mlkem.CiphertextSize768,
@@ -131,7 +141,8 @@ func NewKeyExchange(id CurveID) (KeyExchange, error) {
 		}, nil
 	case SecP256r1MLKEM768:
 		return &hybridKEX{
-			classical:           &stdlibCurveKEX{curve: ecdh.P256(), pubKeySize: 65},
+			id:                  SecP256r1MLKEM768,
+			ecdh:                &ecdhKEX{id: CurveP256, classical: &stdlibCurveKEX{curve: ecdh.P256(), pubKeySize: 65}},
 			mlkemFirst:          false,
 			mlkemPublicKeySize:  mlkem.EncapsulationKeySize768,
 			mlkemCiphertextSize: mlkem.CiphertextSize768,
@@ -140,7 +151,8 @@ func NewKeyExchange(id CurveID) (KeyExchange, error) {
 		}, nil
 	case SecP384r1MLKEM1024:
 		return &hybridKEX{
-			classical:           &stdlibCurveKEX{curve: ecdh.P384(), pubKeySize: 97},
+			id:                  SecP384r1MLKEM1024,
+			ecdh:                &ecdhKEX{id: CurveP384, classical: &stdlibCurveKEX{curve: ecdh.P384(), pubKeySize: 97}},
 			mlkemFirst:          false,
 			mlkemPublicKeySize:  mlkem.EncapsulationKeySize1024,
 			mlkemCiphertextSize: mlkem.CiphertextSize1024,
@@ -161,7 +173,8 @@ func NewKeyExchange(id CurveID) (KeyExchange, error) {
 		}, nil
 	case SM2MLKEM768:
 		return &hybridKEX{
-			classical:           &sm2CurveKEX{curve: gmecdh.P256()},
+			id:                  SM2MLKEM768,
+			ecdh:                &ecdhKEX{id: CurveSM2, classical: &sm2CurveKEX{curve: gmecdh.P256()}},
 			mlkemFirst:          false,
 			mlkemPublicKeySize:  mlkem.EncapsulationKeySize768,
 			mlkemCiphertextSize: mlkem.CiphertextSize768,
@@ -173,31 +186,27 @@ func NewKeyExchange(id CurveID) (KeyExchange, error) {
 	}
 }
 
-// NewHybridKeyExchange returns a [KeyExchange] for the given hybrid named group.
-//
-// Deprecated: use [NewKeyExchange].
-func NewHybridKeyExchange(id CurveID) (KeyExchange, error) {
-	return NewKeyExchange(id)
-}
-
 // --- pure ECDH ---
 
-type ecdhKEX struct{ classical classicalKEX }
+type ecdhKEX struct {
+	id        CurveID
+	classical classicalKEX
+}
 
-func (ke *ecdhKEX) KeyShares(rand io.Reader) (*KeySharePrivateKeys, []byte, error) {
+func (ke *ecdhKEX) KeyShares(rand io.Reader) (*KeySharePrivateKeys, []KeyShare, error) {
 	kp, err := ke.classical.generateKeyPair(rand)
 	if err != nil {
 		return nil, nil, err
 	}
-	return &KeySharePrivateKeys{ECDHE: kp}, kp.PublicKeyBytes(), nil
+	return &KeySharePrivateKeys{ECDHE: kp}, []KeyShare{{Group: ke.id, Data: kp.PublicKeyBytes()}}, nil
 }
 
-func (ke *ecdhKEX) ServerSharedSecret(rand io.Reader, clientKeyShare []byte) ([]byte, []byte, error) {
+func (ke *ecdhKEX) ServerSharedSecret(rand io.Reader, clientKeyShare []byte) ([]byte, KeyShare, error) {
 	shared, serverPub, err := ke.classical.serverECDH(rand, clientKeyShare)
 	if err != nil {
-		return nil, nil, err
+		return nil, KeyShare{}, err
 	}
-	return shared, serverPub, nil
+	return shared, KeyShare{Group: ke.id, Data: serverPub}, nil
 }
 
 func (ke *ecdhKEX) ClientSharedSecret(priv *KeySharePrivateKeys, serverKeyShare []byte) ([]byte, error) {
@@ -208,7 +217,8 @@ func (ke *ecdhKEX) ClientSharedSecret(priv *KeySharePrivateKeys, serverKeyShare 
 
 // hybridKEX implements KeyExchange for a specific ECDH curve + ML-KEM pair.
 type hybridKEX struct {
-	classical classicalKEX
+	id   CurveID
+	ecdh *ecdhKEX
 	// mlkemFirst controls both key share ordering and shared secret ordering:
 	//   true  (X25519MLKEM768):     share = mlkem‖ecdh, secret = mlkem‖ecdh
 	//   false (other hybrid groups): share = ecdh‖mlkem, secret = ecdh‖mlkem
@@ -316,16 +326,19 @@ func (k *sm2KeyPair) ECDH(remotePubBytes []byte) ([]byte, error) {
 }
 
 // KeyShares generates client key share material.
-// The returned clientKeyShare bytes are formatted according to the curve ID:
+//
+// The first returned key share always uses the requested hybrid group and its
+// data is formatted according to the curve ID:
 //   - X25519MLKEM768:     ML-KEM-768 encapsulation key ‖ X25519 public key
 //   - SecP256r1MLKEM768:  P-256 public key ‖ ML-KEM-768 encapsulation key
 //   - SecP384r1MLKEM1024: P-384 public key ‖ ML-KEM-1024 encapsulation key
 //   - SM2MLKEM768:        SM2 public key ‖ ML-KEM-768 encapsulation key
-func (ke *hybridKEX) KeyShares(rand io.Reader) (*KeySharePrivateKeys, []byte, error) {
-	ecdhPriv, err := ke.classical.generateKeyPair(rand)
+func (ke *hybridKEX) KeyShares(rand io.Reader) (*KeySharePrivateKeys, []KeyShare, error) {
+	priv, ecdhShares, err := ke.ecdh.KeyShares(rand)
 	if err != nil {
 		return nil, nil, err
 	}
+	ecdhPub := ecdhShares[0].Data
 
 	seed := make([]byte, mlkem.SeedSize)
 	if _, err := io.ReadFull(rand, seed); err != nil {
@@ -336,12 +349,7 @@ func (ke *hybridKEX) KeyShares(rand io.Reader) (*KeySharePrivateKeys, []byte, er
 		return nil, nil, err
 	}
 
-	priv := &KeySharePrivateKeys{
-		ECDHE: ecdhPriv,
-		MLKEM: mlkemPriv,
-	}
-
-	ecdhPub := ecdhPriv.PublicKeyBytes()
+	priv.MLKEM = mlkemPriv
 	mlkemPub := mlkemPriv.EncapsulationKeyBytes()
 
 	var clientKeyShare []byte
@@ -350,17 +358,21 @@ func (ke *hybridKEX) KeyShares(rand io.Reader) (*KeySharePrivateKeys, []byte, er
 	} else {
 		clientKeyShare = append(ecdhPub, mlkemPub...)
 	}
-	return priv, clientKeyShare, nil
+
+	return priv, []KeyShare{
+		{Group: ke.id, Data: clientKeyShare},
+		ecdhShares[0],
+	}, nil
 }
 
 // ServerSharedSecret computes the shared secret from the client's key share
-// and returns the server's key share bytes.
-// The returned serverKeyShare uses the same ordering as clientKeyShare.
-func (ke *hybridKEX) ServerSharedSecret(rand io.Reader, clientKeyShare []byte) ([]byte, []byte, error) {
-	ecdhSize := ke.classical.publicKeySize()
+// and returns the server's key share.
+// The returned server key share data uses the same ordering as clientKeyShare.
+func (ke *hybridKEX) ServerSharedSecret(rand io.Reader, clientKeyShare []byte) ([]byte, KeyShare, error) {
+	ecdhSize := ke.ecdh.classical.publicKeySize()
 	expectedLen := ecdhSize + ke.mlkemPublicKeySize
 	if len(clientKeyShare) != expectedLen {
-		return nil, nil, errors.New("tls13: invalid client key share length")
+		return nil, KeyShare{}, errors.New("tls13: invalid client key share length")
 	}
 
 	var ecdhShareData, mlkemShareData []byte
@@ -373,19 +385,19 @@ func (ke *hybridKEX) ServerSharedSecret(rand io.Reader, clientKeyShare []byte) (
 	}
 
 	// Classical ECDH server side
-	ecdhSharedSecret, ecdhServerPub, err := ke.classical.serverECDH(rand, ecdhShareData)
+	ecdhSharedSecret, ecdhServerShare, err := ke.ecdh.ServerSharedSecret(rand, ecdhShareData)
 	if err != nil {
-		return nil, nil, err
+		return nil, KeyShare{}, err
 	}
 
 	// ML-KEM server side: encapsulate using the client's encapsulation key
 	mlkemEncapKey, err := ke.newMLKEMEncapKey(mlkemShareData)
 	if err != nil {
-		return nil, nil, err
+		return nil, KeyShare{}, err
 	}
 	mlkemSharedKey, mlkemCiphertext, err := mlkemEncapKey.Encapsulate(rand)
 	if err != nil {
-		return nil, nil, err
+		return nil, KeyShare{}, err
 	}
 
 	// Shared secret ordering mirrors key share ordering (draft-ietf-tls-hybrid-design).
@@ -400,16 +412,16 @@ func (ke *hybridKEX) ServerSharedSecret(rand io.Reader, clientKeyShare []byte) (
 
 	var serverKeyShare []byte
 	if ke.mlkemFirst {
-		serverKeyShare = append(mlkemCiphertext, ecdhServerPub...)
+		serverKeyShare = append(mlkemCiphertext, ecdhServerShare.Data...)
 	} else {
-		serverKeyShare = append(ecdhServerPub, mlkemCiphertext...)
+		serverKeyShare = append(ecdhServerShare.Data, mlkemCiphertext...)
 	}
-	return sharedSecret, serverKeyShare, nil
+	return sharedSecret, KeyShare{Group: ke.id, Data: serverKeyShare}, nil
 }
 
 // ClientSharedSecret computes the shared secret from the server's key share.
 func (ke *hybridKEX) ClientSharedSecret(priv *KeySharePrivateKeys, serverKeyShare []byte) ([]byte, error) {
-	ecdhSize := ke.classical.publicKeySize()
+	ecdhSize := ke.ecdh.classical.publicKeySize()
 	expectedLen := ecdhSize + ke.mlkemCiphertextSize
 	if len(serverKeyShare) != expectedLen {
 		return nil, errors.New("tls13: invalid server key share length")
