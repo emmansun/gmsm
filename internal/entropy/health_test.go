@@ -103,3 +103,47 @@ func TestAdaptiveProportionTest_Empty(t *testing.T) {
 		t.Errorf("AdaptiveProportionTest should pass on empty: %v", err)
 	}
 }
+
+func TestLagPredictorTest_Pass(t *testing.T) {
+	// Cyclic data with period 256 (uniform, no sequential correlation).
+	samples := make([]uint8, 1024)
+	for i := range samples {
+		samples[i] = uint8(i % 256)
+	}
+	if err := LagPredictorTest(samples); err != nil {
+		t.Errorf("LagPredictorTest failed on uniform cyclic data: %v", err)
+	}
+}
+
+func TestLagPredictorTest_Fail_Alternating(t *testing.T) {
+	// Alternating source (v0→v1→v0→v1...) passes RCT and APT but fails LAG.
+	// The lag-1 predictor is correct for ~509 out of 511 pairs per window.
+	samples := make([]uint8, 1024)
+	for i := range samples {
+		if i%2 == 0 {
+			samples[i] = 160
+		} else {
+			samples[i] = 161
+		}
+	}
+	if err := LagPredictorTest(samples); err == nil {
+		t.Error("LagPredictorTest should have failed on alternating source")
+	}
+}
+
+func TestLagPredictorTest_Fail_ShortCycle(t *testing.T) {
+	// 3-cycle source (v0→v1→v2→v0→...) is also highly predictable.
+	samples := make([]uint8, 1024)
+	for i := range samples {
+		samples[i] = uint8(i % 3)
+	}
+	if err := LagPredictorTest(samples); err == nil {
+		t.Error("LagPredictorTest should have failed on 3-cycle source")
+	}
+}
+
+func TestLagPredictorTest_Insufficient(t *testing.T) {
+	if err := LagPredictorTest(make([]uint8, 512)); err == nil {
+		t.Error("LagPredictorTest should fail with fewer than 1024 samples")
+	}
+}

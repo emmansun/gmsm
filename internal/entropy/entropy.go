@@ -18,11 +18,24 @@ import "sync"
 var memory ScratchBuffer
 
 const (
-	osEntropySize  = 32   // bytes from OS source
-	numSamples     = 1024 // samples per non-OS source (minimum for SP 800-90B startup health tests)
-	maxSeedRetries = 100  // max retries before panic
+	osEntropySize = 32   // bytes from OS source
+	numSamples    = 1024 // base samples per non-OS source (minimum for SP 800-90B startup health tests)
 
-	// Conservative entropy estimates (bits) per source.
+	// maxOSR is the maximum over-sampling rate for adaptive collection.
+	// When health tests fail at OSR n, sample count is doubled (n*numSamples)
+	// until OSR reaches maxOSR. Beyond this, Seed panics.
+	// This mirrors jitterentropy's adaptive OSR mechanism.
+	maxOSR = 4
+
+	// retriesPerOSR is the number of collection attempts at each OSR level
+	// before escalating to the next (higher sample count) level.
+	retriesPerOSR = 3
+
+	// Conservative entropy estimates (bits) per source. These values
+	// remain fixed regardless of the OSR — extra samples at higher OSR
+	// compensate for lower per-sample entropy quality in weak environments,
+	// but the credited entropy is always the conservative 1 bit/sample
+	// lower bound applied to the base sample count.
 	//
 	// OS source: 8 bits per byte. The OS random source (crypto/rand.Reader)
 	// produces fully conditioned output from the kernel CSPRNG. It is
@@ -39,10 +52,10 @@ const (
 	// VMs with coarse-grained timer virtualization), entropy per sample
 	// may approach this lower bound.
 	//
-	// Runtime noise source: 1 bit per sample. Similar conservative
-	// estimate. Scheduler jitter and allocation timing depend on system
-	// load and Go runtime internals. On idle single-core systems, entropy
-	// per sample may be lower than on busy multi-core systems.
+	// Hash loop source: 1 bit per sample. Similar conservative estimate.
+	// Timing jitter from SM3 micro-architectural effects (pipeline stalls,
+	// cache state, branch prediction, frequency variation) depends on
+	// system micro-architectural state.
 	osEntropyBits      = osEntropySize * 8 // 256 bits
 	jitterEntropyBits  = numSamples        // 1024 bits (1 bit/sample conservative)
 	runtimeEntropyBits = numSamples        // 1024 bits (1 bit/sample conservative)
@@ -56,8 +69,32 @@ var globalPool struct {
 	pool entropyPool
 }
 
+// collectWithAdaptiveOSR collects entropy samples with an adaptive
+// over-sampling rate (OSR). If health tests fail at the current OSR level,
+// the sample count is doubled and collection is retried up to retriesPerOSR
+// times before escalating. This mirrors the adaptive OSR mechanism in
+// jitterentropy-library (Stephan Müller).
+//
+// Entropy credit for the collected samples is always jitterEntropyBits
+// (base numSamples bits), regardless of OSR — extra samples at higher OSR
+// compensate for weaker per-sample entropy in constrained environments.
+//
+// Panics if all OSR levels are exhausted, indicating the entropy source is
+// unsuitable for this system.
+func collectWithAdaptiveOSR(name string, collect func([]uint8) error) []uint8 {
+	for osr := 1; osr <= maxOSR; osr++ {
+		samples := make([]uint8, numSamples*osr)
+		for range retriesPerOSR {
+			if err := collect(samples); err == nil {
+				return samples
+			}
+		}
+	}
+	panic("entropy: " + name + " entropy source failed health tests at maximum OSR")
+}
+
 // Seed collects entropy from three independent sources (OS randomness,
-// CPU jitter, and runtime noise), feeds them into the entropy pool,
+// CPU jitter, and hash loop noise), feeds them into the entropy pool,
 // runs SP 800-90B health tests on the non-OS sources, and extracts a
 // conditioned seed for DRBG instantiation.
 //
@@ -65,41 +102,24 @@ var globalPool struct {
 // Appendix A.3) for mixing and SM3-based Hash_df for compression.
 // Extraction results are fed back into the pool for forward secrecy.
 //
-// This function may be slow (~1ms) due to entropy collection.
+// This function may be slow (~3-10ms) due to entropy collection. It uses
+// adaptive OSR: if health tests fail, more samples are collected at the
+// expense of increased latency, rather than panicking on transient failures.
 func Seed() [SeedSize]byte {
 	// Collect OS entropy — always succeeds.
 	osEntropy := make([]byte, osEntropySize)
 	readOSEntropy(osEntropy)
 
-	// Collect jitter entropy with health tests and retry on failure.
-	jitterSamples := make([]byte, numSamples)
-	var retries int
-	for {
-		err := collectJitterSamples(jitterSamples, &memory)
-		if err == nil {
-			break
-		}
-		retries++
-		if retries > maxSeedRetries {
-			panic("entropy: failed to collect jitter entropy after maximum retries")
-		}
-	}
+	// Collect jitter entropy with adaptive OSR and health tests.
+	jitterSamples := collectWithAdaptiveOSR("jitter", func(s []uint8) error {
+		return collectJitterSamples(s, &memory)
+	})
 
-	// Collect runtime noise with health tests and retry on failure.
-	runtimeSamples := make([]byte, numSamples)
-	retries = 0
-	for {
-		err := collectRuntimeSamples(runtimeSamples)
-		if err == nil {
-			break
-		}
-		retries++
-		if retries > maxSeedRetries {
-			panic("entropy: failed to collect runtime entropy after maximum retries")
-		}
-	}
+	// Collect hash loop noise with adaptive OSR and health tests.
+	runtimeSamples := collectWithAdaptiveOSR("hash loop", collectRuntimeSamples)
 
 	// Feed all collected entropy into the pool.
+	// Entropy credit uses base numSamples regardless of OSR.
 	globalPool.Lock()
 	globalPool.pool.add(osEntropy, osEntropyBits)
 	globalPool.pool.add(jitterSamples, jitterEntropyBits)

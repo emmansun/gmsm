@@ -5,51 +5,76 @@
 package entropy
 
 import (
+	"hash"
 	"runtime"
 
 	"github.com/emmansun/gmsm/internal/sm3"
 )
 
-// runtimeSource collects entropy from Go runtime scheduling jitter,
-// memory allocation timing, and hash computation timing.
-type runtimeSource struct {
+// hashLoopSource collects entropy from SM3 hash computation timing combined
+// with goroutine scheduling jitter.
+//
+// Each sample does two things independently:
+//  1. SM3 hash loop: runs hashLoopIterations of chained SM3 to expose CPU
+//     micro-architectural timing variation (pipeline stalls, cache state,
+//     branch prediction, frequency scaling).
+//  2. Goroutine yield: a single runtime.Gosched() call introduces scheduling
+//     jitter that is unpredictable and depends on system load, making this
+//     source independent of the memory-access jitter source (source_jitter.go).
+//
+// The goroutine yield ensures reliable timing variation even on systems where
+// the timer resolution exceeds the hash computation time (e.g., Windows with
+// 100ns QPC resolution and fast AVX2 SM3 execution).
+//
+// Inspired by the "hash loop" noise source in jitterentropy-library
+// (Stephan Müller), adapted to use SM3 and augmented with scheduling jitter
+// for cross-platform reliability.
+type hashLoopSource struct {
 	previous int64
-	counter  uint32
+	state    [sm3.Size]byte // chaining state updated each sample
+	h        hash.Hash      // reused SM3 hasher, reset each iteration
 }
 
-func newRuntimeSource() *runtimeSource {
-	return &runtimeSource{
-		previous: highResolutionTime(),
+func newHashLoopSource() *hashLoopSource {
+	t := highResolutionTime()
+	s := &hashLoopSource{
+		previous: t,
+		h:        sm3.New(),
 	}
+	// Seed initial state from the current timer to ensure goroutines started
+	// concurrently have different initial states, computing different hash
+	// chains and accessing different cache lines.
+	s.state[0] = byte(t)
+	s.state[1] = byte(t >> 8)
+	s.state[2] = byte(t >> 16)
+	s.state[3] = byte(t >> 24)
+	return s
 }
 
-// sample measures timing jitter from runtime operations:
-// goroutine scheduling yield, memory allocation, and SM3 computation.
-func (s *runtimeSource) sample() uint8 {
-	s.counter++
+// hashLoopIterations is the number of SM3 computations per sample.
+// 16 iterations create sufficient CPU micro-architectural state perturbation
+// while keeping the computation time moderate.
+const hashLoopIterations = 16
 
-	// Yield to the scheduler — timing depends on system load and
-	// other goroutines competing for CPU time.
+// sample measures timing jitter from SM3 hash computation and goroutine
+// scheduling. The internal state is updated each call so successive inputs
+// differ, preventing CPU caches from hiding genuine timing variation.
+func (s *hashLoopSource) sample() uint8 {
+	h := s.h
+	// state is a 32-byte slice backed by s.state. Each h.Sum(state[:0])
+	// call writes the digest back into s.state in-place (no allocation).
+	state := s.state[:]
+	for range hashLoopIterations {
+		h.Reset()
+		h.Write(state)
+		state = h.Sum(state[:0])
+	}
+
+	// Yield to the scheduler: this introduces timing jitter from goroutine
+	// scheduling unpredictability, ensuring good distribution of time deltas
+	// even on systems where the timer resolution exceeds the hash loop time.
 	runtime.Gosched()
 
-	// Vary allocation size to create different allocator paths.
-	// Different sizes hit different size classes in the allocator.
-	allocSize := 16 + (s.counter%48)*8
-	buf := make([]byte, allocSize)
-
-	// SM3 computation over varying data — timing depends on CPU
-	// pipeline state, cache state, and data content.
-	h := sm3.New()
-	buf[0] = byte(s.counter)
-	h.Write(buf)
-	h.Sum(buf[:0])
-
-	// Multiple goroutine yields to accumulate scheduling noise.
-	for range s.counter % 4 {
-		runtime.Gosched()
-	}
-
-	// Use high-resolution timer for precise monotonic measurement.
 	t := highResolutionTime()
 	sample := t - s.previous
 	s.previous = t
@@ -57,15 +82,16 @@ func (s *runtimeSource) sample() uint8 {
 	return uint8(sample)
 }
 
-// collectRuntimeSamples collects entropy samples from runtime noise,
+// collectRuntimeSamples collects entropy samples from hash loop timing noise,
 // conducts startup health tests, and returns the samples or an error
 // if the health tests fail.
 func collectRuntimeSamples(samples []uint8) error {
 	if len(samples) < 1024 {
 		return errInsufficientSamples
 	}
-	s := newRuntimeSource()
-	// Warm up.
+	s := newHashLoopSource()
+	// Warm up: discard early samples to allow the CPU to reach a
+	// steady micro-architectural state (branch predictors, L1 cache).
 	for range 4 {
 		_ = s.sample()
 	}
@@ -76,6 +102,9 @@ func collectRuntimeSamples(samples []uint8) error {
 		return err
 	}
 	if err := AdaptiveProportionTest(samples); err != nil {
+		return err
+	}
+	if err := LagPredictorTest(samples); err != nil {
 		return err
 	}
 	return nil

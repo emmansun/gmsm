@@ -87,5 +87,8 @@ func collectJitterSamples(samples []uint8, memory *ScratchBuffer) error {
 	if err := AdaptiveProportionTest(samples); err != nil {
 		return err
 	}
+	if err := LagPredictorTest(samples); err != nil {
+		return err
+	}
 	return nil
 }
