@@ -26,6 +26,7 @@ Go ShangMi (Commercial Cryptography) Library, abbreviated as **GMSM**, is a secu
 - [CFCA Interoperability Guide](./docs/cfca.md)
 - [PKCS#7 Application Guide](./docs/pkcs7.md)
 - [PKCS#12 Application Guide](./docs/pkcs12.md)
+- [Deterministic Random Number Generator (DRBG) and Software Random Number Generator Application Guide](./docs/rand.md)
 
 If you want to raise an issue, we recommend reading [How To Ask Questions The Smart Way](https://github.com/ryanhanwu/How-To-Ask-Questions-The-Smart-Way).
 
