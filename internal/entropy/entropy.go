@@ -1,3 +1,7 @@
+// Copyright 2026 Sun Yimin. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
 package entropy
 
 import "sync"
@@ -15,7 +19,7 @@ var memory ScratchBuffer
 
 const (
 	osEntropySize  = 32   // bytes from OS source
-	numSamples     = 1024 // samples per non-OS source
+	numSamples     = 1024 // samples per non-OS source (minimum for SP 800-90B startup health tests)
 	maxSeedRetries = 100  // max retries before panic
 
 	// Conservative entropy estimates (bits) per source.
@@ -40,8 +44,8 @@ const (
 	// load and Go runtime internals. On idle single-core systems, entropy
 	// per sample may be lower than on busy multi-core systems.
 	osEntropyBits      = osEntropySize * 8 // 256 bits
-	jitterEntropyBits  = numSamples        // 1024 bits
-	runtimeEntropyBits = numSamples        // 1024 bits
+	jitterEntropyBits  = numSamples        // 1024 bits (1 bit/sample conservative)
+	runtimeEntropyBits = numSamples        // 1024 bits (1 bit/sample conservative)
 )
 
 // globalPool is the persistent entropy pool per GM/T 0105-2021 Section 5.3.

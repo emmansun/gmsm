@@ -1,3 +1,7 @@
+// Copyright 2026 Sun Yimin. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
 package rand
 
 import (
@@ -7,25 +11,29 @@ import (
 	"github.com/emmansun/gmsm/drbg"
 )
 
+// Self-test vectors for SM3 Hash DRBG, GM mode (from drbg package test suite).
+// Flow: Instantiate → Reseed → Generate (discard) → Generate (verify).
+var (
+	selfTestEntropyInput  = "63363377e41e86468deb0ab4a8ed683f6a134e47e014c700454e81e95358a569"
+	selfTestNonce         = "808aa38f2a72a62359915a9f8a04ca68"
+	selfTestEntropyReseed = "e62b8a8ee8f141b6980566e3bfe3c04903dad4ac2cdf9f2280010a6739bc83d3"
+	selfTestExpected      = "00d98d35a2fab8df23e9e1fb9aad143d62c0759eb79e15c37e8f2bc5064e68da"
+)
+
 // selfTest runs a known-answer test (KAT) for the SM3 Hash DRBG per
 // GM/T 0105-2021 Section 5.6.6. It verifies Instantiate, Reseed, and
 // Generate using a published test vector.
 //
 // Panics if any output does not match the expected value.
 func selfTest() {
-	// Test vector: SM3 Hash DRBG, GM mode (from drbg package test suite).
-	entropyInput := mustHex("63363377e41e86468deb0ab4a8ed683f6a134e47e014c700454e81e95358a569")
-	nonce := mustHex("808aa38f2a72a62359915a9f8a04ca68")
-
 	// 1. Instantiate
-	hd, err := drbg.NewGMHashDrbg(drbg.SECURITY_LEVEL_ONE, entropyInput, nonce, nil)
+	hd, err := drbg.NewGMHashDrbg(drbg.SECURITY_LEVEL_ONE, mustHex(selfTestEntropyInput), mustHex(selfTestNonce), nil)
 	if err != nil {
 		panic("rand: DRBG self-test: instantiate failed: " + err.Error())
 	}
 
 	// 2. Reseed
-	entropyReseed := mustHex("e62b8a8ee8f141b6980566e3bfe3c04903dad4ac2cdf9f2280010a6739bc83d3")
-	if err := hd.Reseed(entropyReseed, nil); err != nil {
+	if err := hd.Reseed(mustHex(selfTestEntropyReseed), nil); err != nil {
 		panic("rand: DRBG self-test: reseed failed: " + err.Error())
 	}
 
@@ -40,8 +48,7 @@ func selfTest() {
 		panic("rand: DRBG self-test: second generate failed: " + err.Error())
 	}
 
-	expected := mustHex("00d98d35a2fab8df23e9e1fb9aad143d62c0759eb79e15c37e8f2bc5064e68da")
-	if !bytes.Equal(output, expected) {
+	if !bytes.Equal(output, mustHex(selfTestExpected)) {
 		panic("rand: DRBG self-test failed: output mismatch")
 	}
 

@@ -1,3 +1,7 @@
+// Copyright 2026 Sun Yimin. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
 // Package rand provides a cryptographically secure random number generator
 // based on SM3 Hash DRBG per GM/T 0105-2021.
 //

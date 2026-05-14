@@ -1,3 +1,7 @@
+// Copyright 2026 Sun Yimin. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
 package entropy
 
 import "github.com/emmansun/gmsm/internal/byteorder"
@@ -48,27 +52,43 @@ var twistTable = [8]uint32{
 //
 // The tap positions {0, 1, 25, 51, 76, 103} are derived from the primitive
 // polynomial x¹²⁸+x¹⁰³+x⁷⁶+x⁵¹+x²⁵+x+1.
+//
+// Since poolWords = 128 = 2^7, all modulo operations are replaced by
+// bitwise AND with the mask (poolWords-1) = 127, which is equivalent and
+// avoids division instructions.
 func (p *entropyPool) addWord(g uint32) {
+	j := p.pos
 	temp := g ^
-		p.data[p.pos] ^
-		p.data[(p.pos+1)%poolWords] ^
-		p.data[(p.pos+25)%poolWords] ^
-		p.data[(p.pos+51)%poolWords] ^
-		p.data[(p.pos+76)%poolWords] ^
-		p.data[(p.pos+103)%poolWords]
+		p.data[j] ^
+		p.data[(j+1)&(poolWords-1)] ^
+		p.data[(j+25)&(poolWords-1)] ^
+		p.data[(j+51)&(poolWords-1)] ^
+		p.data[(j+76)&(poolWords-1)] ^
+		p.data[(j+103)&(poolWords-1)]
 
-	p.data[p.pos] = (temp >> 3) ^ twistTable[temp&7]
-	p.pos = (p.pos + 1) % poolWords
+	p.data[j] = (temp >> 3) ^ twistTable[temp&7]
+	p.pos = (j + 1) & (poolWords - 1)
 }
 
 // add mixes input bytes into the pool. Input is processed in 32-bit big-endian
-// words. Remaining bytes (< 4) are zero-padded into a final word.
+// words four at a time (loop unrolled) to improve instruction-level parallelism.
+// Remaining bytes (< 4) are zero-padded into a final word.
 // entropyBits is the estimated number of entropy bits in the input.
 func (p *entropyPool) add(input []byte, entropyBits int) {
+	// Process four words at a time for better throughput.
+	for len(input) >= 16 {
+		p.addWord(byteorder.BEUint32(input[0:]))
+		p.addWord(byteorder.BEUint32(input[4:]))
+		p.addWord(byteorder.BEUint32(input[8:]))
+		p.addWord(byteorder.BEUint32(input[12:]))
+		input = input[16:]
+	}
+	// Process remaining whole words.
 	for len(input) >= 4 {
 		p.addWord(byteorder.BEUint32(input))
 		input = input[4:]
 	}
+	// Zero-pad and process the final partial word, if any.
 	if len(input) > 0 {
 		var buf [4]byte
 		copy(buf[:], input)
