@@ -29,6 +29,31 @@ func TestSeed_DifferentResults(t *testing.T) {
 	}
 }
 
+func TestSeed_Concurrent(t *testing.T) {
+	const goroutines = 10
+	results := make(chan [SeedSize]byte, goroutines)
+
+	for range goroutines {
+		go func() {
+			results <- Seed()
+		}()
+	}
+
+	seeds := make([][SeedSize]byte, 0, goroutines)
+	for range goroutines {
+		seeds = append(seeds, <-results)
+	}
+
+	// All seeds should be distinct.
+	for i := 0; i < len(seeds); i++ {
+		for j := i + 1; j < len(seeds); j++ {
+			if seeds[i] == seeds[j] {
+				t.Errorf("goroutines %d and %d produced identical seeds", i, j)
+			}
+		}
+	}
+}
+
 func TestHashDf(t *testing.T) {
 	input := []byte("test input for Hash_df")
 

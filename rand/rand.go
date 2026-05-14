@@ -120,7 +120,12 @@ func (r *reader) Read(b []byte) (int, error) {
 }
 
 // Read fills b with cryptographically secure random bytes using an SM3 Hash
-// DRBG per GM/T 0105-2021. It never returns an error under normal operation.
+// DRBG per GM/T 0105-2021. It always returns len(b), nil.
+//
+// If the DRBG encounters an unrecoverable error (reseed failure or generate
+// failure), Read panics rather than returning degraded output. This matches
+// Go 1.24+ crypto/rand.Read semantics and GM/T 0105-2021's requirement that
+// the RNG must stop output on failure.
 //
 // Each call mixes additional OS random bytes into the DRBG output for
 // defense-in-depth (per SP 800-90A Section 8.7.2).
@@ -153,20 +158,17 @@ func Read(b []byte) (int, error) {
 			// Reseed with fresh entropy from all sources.
 			entropyInput, _ := getSeed()
 			if reseedErr := d.Reseed(entropyInput, additional); reseedErr != nil {
-				// Return the DRBG and report the error.
-				if !drbgInstance.CompareAndSwap(nil, d) {
-					drbgPool.Put(d)
-				}
-				return total, reseedErr
+				// Destroy the faulty instance — do not return it to the pool.
+				d.Destroy()
+				panic("rand: DRBG reseed failed: " + reseedErr.Error())
 			}
 			// Clear additional input after reseed (per SP 800-90A Section 9.3.1).
 			additional = nil
 			continue
 		} else if err != nil {
-			if !drbgInstance.CompareAndSwap(nil, d) {
-				drbgPool.Put(d)
-			}
-			return total, err
+			// Destroy the faulty instance — do not return it to the pool.
+			d.Destroy()
+			panic("rand: DRBG generate failed: " + err.Error())
 		}
 
 		total += len(chunk)

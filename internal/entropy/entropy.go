@@ -19,8 +19,26 @@ const (
 	maxSeedRetries = 100  // max retries before panic
 
 	// Conservative entropy estimates (bits) per source.
-	// OS: trusted, 8 bits per byte.
-	// Jitter/Runtime: 1 bit per sample (conservative SP 800-90B estimate).
+	//
+	// OS source: 8 bits per byte. The OS random source (crypto/rand.Reader)
+	// produces fully conditioned output from the kernel CSPRNG. It is
+	// standard practice to credit full entropy (8 bits/byte) to
+	// well-maintained OS random devices (/dev/urandom, CryptGenRandom,
+	// getrandom(2)). 32 bytes × 8 = 256 bits.
+	//
+	// CPU jitter source: 1 bit per sample. This is a conservative lower
+	// bound per SP 800-90B min-entropy estimation. Actual entropy depends
+	// on timer resolution, CPU microarchitecture, and system load. On
+	// bare-metal systems with high-resolution timers, real entropy per
+	// sample is typically higher (2-4 bits). In heavily virtualized or
+	// resource-constrained environments (containers with CPU pinning,
+	// VMs with coarse-grained timer virtualization), entropy per sample
+	// may approach this lower bound.
+	//
+	// Runtime noise source: 1 bit per sample. Similar conservative
+	// estimate. Scheduler jitter and allocation timing depend on system
+	// load and Go runtime internals. On idle single-core systems, entropy
+	// per sample may be lower than on busy multi-core systems.
 	osEntropyBits      = osEntropySize * 8 // 256 bits
 	jitterEntropyBits  = numSamples        // 1024 bits
 	runtimeEntropyBits = numSamples        // 1024 bits

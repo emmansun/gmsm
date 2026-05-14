@@ -5,6 +5,8 @@ import (
 	"io"
 	"sync"
 	"testing"
+
+	"github.com/emmansun/gmsm/drbg"
 )
 
 func TestRead(t *testing.T) {
@@ -116,6 +118,31 @@ func TestRead_Concurrent(t *testing.T) {
 func TestSelfTest(t *testing.T) {
 	// selfTest panics on failure; if we reach here it passed.
 	selfTest()
+}
+
+func TestRead_ReseedTrigger(t *testing.T) {
+	// Use SECURITY_LEVEL_TEST which reseeds every 8 generates.
+	// SM3 Hash DRBG GM mode produces max 32 bytes per Generate.
+	// So reading 32*9 = 288 bytes should trigger at least one reseed.
+	old := securityLevel.Load()
+	securityLevel.Store(int32(drbg.SECURITY_LEVEL_TEST))
+	defer securityLevel.Store(old)
+
+	// Force a new DRBG with test-level security.
+	d := newDRBG()
+	drbgInstance.Store(d)
+
+	buf := make([]byte, 288)
+	n, err := Read(buf)
+	if err != nil {
+		t.Fatalf("Read with reseed failed: %v", err)
+	}
+	if n != 288 {
+		t.Fatalf("Read returned %d bytes, want 288", n)
+	}
+	if bytes.Equal(buf, make([]byte, 288)) {
+		t.Error("Read returned all zeros after reseed")
+	}
 }
 
 func BenchmarkRead32(b *testing.B) {
