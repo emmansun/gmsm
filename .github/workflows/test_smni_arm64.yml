@@ -1,7 +1,7 @@
 # This workflow will build a golang project
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
 
-name: arm64-qemu
+name: sm3-sm4-ni-qemu
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Harden the runner (Audit all outbound calls)
-      uses: step-security/harden-runner@6c3c2f2c1c457b00c10c4848d6f5491db3b629df # v2.18.0
+      uses: step-security/harden-runner@ab7a9404c0f3da075243ca237b5fac12c98deaa5 # v2.19.3
       with:
         egress-policy: audit
 
@@ -38,16 +38,7 @@ jobs:
       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       
     - name: Test
-      run: go test -v -short ./cipher/...
+      run: go test -v -short ./...
       env:
-        DISABLE_SM3NI: 1
-        DISABLE_SM4NI: 1
         GODEBUG: x509sha1=1
-        GOARCH: ${{ matrix.arch }}      
-
-    - name: Test Force SM4 Single Block with AES-NI
-      run: go test -v -short ./sm4/...      
-      env:
-        DISABLE_SM4NI: 1
-        FORCE_SM4BLOCK_AESNI: 1
         GOARCH: ${{ matrix.arch }}      

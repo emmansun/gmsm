@@ -1153,3 +1153,905 @@ use_hint_poly_gamma88_blk3_done:
 	SUBS $1, R3, R3
 	BNE use_hint_poly_gamma88_loop
 	RET
+
+// simpleBitPack4BitsARM64 packs 256 4-bit coefficients (values in [0,15]) into
+// 128 bytes: byte[i/2] = coeff[i] | (coeff[i+1] << 4).
+//
+// Loads 4 coefficients per LDP as two 32-bit halves in a 64-bit register,
+// then combines pairs using AND $15 + LSR $32 + ORR <<4. Stays fully in the
+// integer pipeline (no NEON crossings).
+//
+// Processes 8 coefficients per iteration (32 iterations, 2 LDP each → 4 bytes).
+//
+// func simpleBitPack4BitsARM64(dst *byte, f *fieldElement)
+TEXT ·simpleBitPack4BitsARM64(SB), NOSPLIT, $0-16
+	MOVD dst+0(FP), R0
+	MOVD f+8(FP), R1
+	MOVD $32, R2
+
+bpack4_loop:
+	LDP.P 16(R1), (R10, R11)  // R10={c0,c1}, R11={c2,c3}
+	LDP.P 16(R1), (R14, R15)  // R14={c4,c5}, R15={c6,c7}
+
+	// byte 0: c0 | c1<<4
+	AND $15, R10, R12
+	LSR $32, R10, R13
+	ORR R13<<4, R12, R12
+	MOVB R12, (R0)
+
+	// byte 1: c2 | c3<<4
+	AND $15, R11, R12
+	LSR $32, R11, R13
+	ORR R13<<4, R12, R12
+	MOVB R12, 1(R0)
+
+	// byte 2: c4 | c5<<4
+	AND $15, R14, R12
+	LSR $32, R14, R13
+	ORR R13<<4, R12, R12
+	MOVB R12, 2(R0)
+
+	// byte 3: c6 | c7<<4
+	AND $15, R15, R12
+	LSR $32, R15, R13
+	ORR R13<<4, R12, R12
+	MOVB R12, 3(R0)
+
+	ADD  $4, R0
+	SUBS $1, R2, R2
+	BNE  bpack4_loop
+	RET
+
+// simpleBitPack4BitsHighBitsGamma32NEON computes HighBits(f, gamma2=(q-1)/32)
+// and packs the resulting 4-bit values into 128 bytes.
+//
+// Per coefficient, HighBitsGamma32 uses:
+//   r1 = (((r + 127) >> 7) * 1025 + 2^21) >> 22  &  0xF
+//
+// Loop is unrolled 2x: 16 coefficients per iteration with 4 independent
+// HighBits chains (V0→V4, V1→V5, V2→V6, V3→V7) to maximise ILP and hide
+// multi-cycle MUL/SSHR latency on pipelined ARM cores.
+// The NEON packing collapses all NEON→GPR crossings to one VMOV.S + MOVW per
+// 8-coefficient group.
+//
+// WORD encodings for all four chains (MUL ×1025, SSHR #22):
+//   MUL  V4.4S, V4.4S, V9.4S  = 0x4EA99C84
+//   MUL  V5.4S, V5.4S, V9.4S  = 0x4EA99CA5
+//   MUL  V6.4S, V6.4S, V9.4S  = 0x4EA99CC6
+//   MUL  V7.4S, V7.4S, V9.4S  = 0x4EA99CE7
+//   SSHR V4.4S, V4.4S, #22    = 0x4F2A0484
+//   SSHR V5.4S, V5.4S, #22    = 0x4F2A04A5
+//   SSHR V6.4S, V6.4S, #22    = 0x4F2A04C6
+//   SSHR V7.4S, V7.4S, #22    = 0x4F2A04E7
+//
+// Pinned NEON constants: V8=127, V9=1025, V10=2^21, V11=0xF
+//
+// func simpleBitPack4BitsHighBitsGamma32NEON(dst *byte, f *fieldElement)
+TEXT ·simpleBitPack4BitsHighBitsGamma32NEON(SB), NOSPLIT, $0-16
+	MOVD dst+0(FP), R0
+	MOVD f+8(FP), R1
+	MOVD $16, R2           // 16 iterations × 16 coefficients = 256 total
+
+	MOVD $127, R5
+	VDUP R5, V8.S4
+	MOVD $1025, R5
+	VDUP R5, V9.S4
+	MOVD $2097152, R5
+	VDUP R5, V10.S4
+	MOVD $15, R5
+	VDUP R5, V11.S4
+
+hbpack4_loop:
+	VLD1.P 64(R1), [V0.S4, V1.S4, V2.S4, V3.S4]   // load 16 coefficients
+
+	// HighBitsGamma32 for V0,V1,V2,V3 → V4,V5,V6,V7 (4 interleaved chains).
+	// Issuing in this order exposes all four data-independent chains to the
+	// processor's out-of-order window, letting MUL/SSHR latency hide behind
+	// other instructions.
+	VADD V8.S4, V0.S4, V4.S4
+	VADD V8.S4, V1.S4, V5.S4
+	VADD V8.S4, V2.S4, V6.S4
+	VADD V8.S4, V3.S4, V7.S4
+	VUSHR $7, V4.S4, V4.S4
+	VUSHR $7, V5.S4, V5.S4
+	VUSHR $7, V6.S4, V6.S4
+	VUSHR $7, V7.S4, V7.S4
+	WORD $0x4EA99C84                   // MUL V4.4S, V4.4S, V9.4S
+	WORD $0x4EA99CA5                   // MUL V5.4S, V5.4S, V9.4S
+	WORD $0x4EA99CC6                   // MUL V6.4S, V6.4S, V9.4S
+	WORD $0x4EA99CE7                   // MUL V7.4S, V7.4S, V9.4S
+	VADD V10.S4, V4.S4, V4.S4
+	VADD V10.S4, V5.S4, V5.S4
+	VADD V10.S4, V6.S4, V6.S4
+	VADD V10.S4, V7.S4, V7.S4
+	WORD $0x4F2A0484                   // SSHR V4.4S, V4.4S, #22
+	WORD $0x4F2A04A5                   // SSHR V5.4S, V5.4S, #22
+	WORD $0x4F2A04C6                   // SSHR V6.4S, V6.4S, #22
+	WORD $0x4F2A04E7                   // SSHR V7.4S, V7.4S, #22
+	VAND V11.B16, V4.B16, V4.B16
+	VAND V11.B16, V5.B16, V5.B16
+	VAND V11.B16, V6.B16, V6.B16
+	VAND V11.B16, V7.B16, V7.B16
+
+	// Pack V4,V5 → 4 bytes at R0 (NEON narrow+nibble-merge, 1 VMOV crossing).
+	// V0 and V1 are free (consumed by HighBits); V12 used as shift temp.
+	VUZP1 V5.H8, V4.H8, V0.H8       // V0.H8 = [v0..v7]
+	VUZP1 V0.B16, V0.B16, V1.B16    // V1.B16[0..7] = [v0..v7] consecutive
+	VSHL  $4, V1.B16, V12.B16        // V12 = [v0<<4, v1<<4, ...]
+	VUZP1 V1.B16, V1.B16, V1.B16    // V1.B16[0..3] = [v0,v2,v4,v6]
+	VUZP2 V12.B16, V12.B16, V12.B16 // V12.B16[0..3] = [v1<<4,v3<<4,v5<<4,v7<<4]
+	VORR  V1.B16, V12.B16, V1.B16   // packed nibbles
+	VMOV  V1.S[0], R10
+	MOVW  R10, (R0)
+
+	// Pack V6,V7 → 4 bytes at R0+4.
+	// V2 and V3 consumed; reuse V0,V1,V12 (V6,V7 not yet clobbered).
+	VUZP1 V7.H8, V6.H8, V0.H8
+	VUZP1 V0.B16, V0.B16, V1.B16
+	VSHL  $4, V1.B16, V12.B16
+	VUZP1 V1.B16, V1.B16, V1.B16
+	VUZP2 V12.B16, V12.B16, V12.B16
+	VORR  V1.B16, V12.B16, V1.B16
+	VMOV  V1.S[0], R10
+	MOVW  R10, 4(R0)
+
+	ADD  $8, R0
+	SUBS $1, R2, R2
+	BNE  hbpack4_loop
+	RET
+
+// simpleBitPack6BitsARM64 packs 256 6-bit coefficients (values in [0,43]) into
+// 192 bytes using 3 bytes per group of 4 coefficients:
+//   x = v0 | v1<<6 | v2<<12 | v3<<18    (24-bit value)
+//   byte[0]=x[7:0], byte[1]=x[15:8], byte[2]=x[23:16]
+//
+// Loads 4 coefficients per LDP as two 32-bit halves in a 64-bit register,
+// combining pairs using LSR $32 + ORR. Stays fully in the integer pipeline.
+//
+// Processes 8 coefficients per iteration (32 iterations) → 6 bytes each.
+//
+// func simpleBitPack6BitsARM64(dst *byte, f *fieldElement)
+TEXT ·simpleBitPack6BitsARM64(SB), NOSPLIT, $0-16
+	MOVD dst+0(FP), R0
+	MOVD f+8(FP), R1
+	MOVD $32, R2
+
+bpack6_loop:
+	LDP.P 16(R1), (R10, R11)  // R10={v0,v1}, R11={v2,v3}
+	LDP.P 16(R1), (R14, R15)  // R14={v4,v5}, R15={v6,v7}
+
+	// Group 0: v0 | v1<<6 | v2<<12 | v3<<18 → 3 bytes
+	AND $63, R10, R12      // v0
+	LSR $32, R10, R13      // v1
+	AND $63, R11, R16      // v2
+	LSR $32, R11, R17      // v3
+	ORR R13<<6, R12, R12
+	ORR R16<<12, R12, R12
+	ORR R17<<18, R12, R12
+	MOVH R12, (R0)         // store bytes 0+1 together
+	LSR  $16, R12, R12
+	MOVB R12, 2(R0)
+
+	// Group 1: v4 | v5<<6 | v6<<12 | v7<<18 → 3 bytes
+	AND $63, R14, R12
+	LSR $32, R14, R13
+	AND $63, R15, R16
+	LSR $32, R15, R17
+	ORR R13<<6, R12, R12
+	ORR R16<<12, R12, R12
+	ORR R17<<18, R12, R12
+	MOVH R12, 3(R0)        // store bytes 3+4 together
+	LSR  $16, R12, R12
+	MOVB R12, 5(R0)
+
+	ADD  $6, R0
+	SUBS $1, R2, R2
+	BNE  bpack6_loop
+	RET
+
+// simpleBitPack6BitsHighBitsGamma88NEON computes HighBits(f, gamma2=(q-1)/88)
+// and packs the resulting 6-bit values into 192 bytes.
+//
+// Per coefficient, HighBitsGamma88 uses:
+//   r1 = (((r + 127) >> 7) * 11275 + 2^23) >> 24  &  0x3F
+//   if r1 == 44 { r1 = 0 }   (branch-free via sign-mask)
+//
+// Loop is unrolled 2x: 16 coefficients per iteration with 4 interleaved
+// HighBits chains (V0→V4, V1→V5, V2→V6, V3→V7) to expose ILP.
+// Packing uses NEON pair-merge (VUZP1 H8+VSHL+VUZP+VADD) then a single
+// VMOV.D to bring all four 12-bit pair sums into one GPR for UBFX+MOVH+MOVB.
+//
+// WORD encodings (×11275, SSHR#24, sign SSHR#31 for chains V4–V7/V13–V16):
+//   MUL  V4.4S, V4.4S, V9.4S  = 0x4EA99C84
+//   MUL  V5.4S, V5.4S, V9.4S  = 0x4EA99CA5
+//   MUL  V6.4S, V6.4S, V9.4S  = 0x4EA99CC6
+//   MUL  V7.4S, V7.4S, V9.4S  = 0x4EA99CE7
+//   SSHR V4.4S,  V4.4S,  #24  = 0x4F280484
+//   SSHR V5.4S,  V5.4S,  #24  = 0x4F2804A5
+//   SSHR V6.4S,  V6.4S,  #24  = 0x4F2804C6
+//   SSHR V7.4S,  V7.4S,  #24  = 0x4F2804E7
+//   SSHR V13.4S, V13.4S, #31  = 0x4F2105AD
+//   SSHR V14.4S, V14.4S, #31  = 0x4F2105CE
+//   SSHR V15.4S, V15.4S, #31  = 0x4F2105EF
+//   SSHR V16.4S, V16.4S, #31  = 0x4F210610
+//
+// Pinned NEON constants: V8=127, V9=11275, V10=2^23, V11=43, V12=0x3F
+//
+// func simpleBitPack6BitsHighBitsGamma88NEON(dst *byte, f *fieldElement)
+TEXT ·simpleBitPack6BitsHighBitsGamma88NEON(SB), NOSPLIT, $0-16
+	MOVD dst+0(FP), R0
+	MOVD f+8(FP), R1
+	MOVD $16, R2           // 16 iterations × 16 coefficients = 256 total
+
+	MOVD $127, R5
+	VDUP R5, V8.S4
+	MOVD $11275, R5
+	VDUP R5, V9.S4
+	MOVD $8388608, R5
+	VDUP R5, V10.S4
+	MOVD $43, R5
+	VDUP R5, V11.S4
+	MOVD $63, R5
+	VDUP R5, V12.S4
+
+hbpack6_loop:
+	VLD1.P 64(R1), [V0.S4, V1.S4, V2.S4, V3.S4]   // load 16 coefficients
+
+	// HighBitsGamma88 for V0,V1,V2,V3 → V4,V5,V6,V7 (4 interleaved chains).
+	// Sign-correction temps: V13(ch0), V14(ch1), V15(ch2), V16(ch3).
+	VADD V8.S4, V0.S4, V4.S4
+	VADD V8.S4, V1.S4, V5.S4
+	VADD V8.S4, V2.S4, V6.S4
+	VADD V8.S4, V3.S4, V7.S4
+	VUSHR $7, V4.S4, V4.S4
+	VUSHR $7, V5.S4, V5.S4
+	VUSHR $7, V6.S4, V6.S4
+	VUSHR $7, V7.S4, V7.S4
+	WORD $0x4EA99C84                   // MUL V4.4S, V4.4S, V9.4S
+	WORD $0x4EA99CA5                   // MUL V5.4S, V5.4S, V9.4S
+	WORD $0x4EA99CC6                   // MUL V6.4S, V6.4S, V9.4S
+	WORD $0x4EA99CE7                   // MUL V7.4S, V7.4S, V9.4S
+	VADD V10.S4, V4.S4, V4.S4
+	VADD V10.S4, V5.S4, V5.S4
+	VADD V10.S4, V6.S4, V6.S4
+	VADD V10.S4, V7.S4, V7.S4
+	WORD $0x4F280484                   // SSHR V4.4S, V4.4S, #24
+	WORD $0x4F2804A5                   // SSHR V5.4S, V5.4S, #24
+	WORD $0x4F2804C6                   // SSHR V6.4S, V6.4S, #24
+	WORD $0x4F2804E7                   // SSHR V7.4S, V7.4S, #24
+	VAND V12.B16, V4.B16, V4.B16
+	VAND V12.B16, V5.B16, V5.B16
+	VAND V12.B16, V6.B16, V6.B16
+	VAND V12.B16, V7.B16, V7.B16
+	// Branch-free correction: zero r1 where it equals 44.
+	VSUB V4.S4, V11.S4, V13.S4        // V13 = 43 - r1_v4
+	VSUB V5.S4, V11.S4, V14.S4
+	VSUB V6.S4, V11.S4, V15.S4
+	VSUB V7.S4, V11.S4, V16.S4
+	WORD $0x4F2105AD                   // SSHR V13.4S, V13.4S, #31  (sign mask)
+	WORD $0x4F2105CE                   // SSHR V14.4S, V14.4S, #31
+	WORD $0x4F2105EF                   // SSHR V15.4S, V15.4S, #31
+	WORD $0x4F210610                   // SSHR V16.4S, V16.4S, #31
+	VAND V4.B16, V13.B16, V13.B16
+	VAND V5.B16, V14.B16, V14.B16
+	VAND V6.B16, V15.B16, V15.B16
+	VAND V7.B16, V16.B16, V16.B16
+	VEOR V13.B16, V4.B16, V4.B16      // V4 = 0 where r1 was 44
+	VEOR V14.B16, V5.B16, V5.B16
+	VEOR V15.B16, V6.B16, V6.B16
+	VEOR V16.B16, V7.B16, V7.B16
+
+	// Pack V4,V5 → 6 bytes at R0:
+	// NEON pair-merge: V0,V1,V2,V3 are free (consumed as input by HighBits).
+	VUZP1 V5.H8, V4.H8, V0.H8        // V0.H8 = [v0..v7]
+	VSHL  $6, V0.H8, V1.H8            // V1.H8 = [v0<<6..v7<<6]
+	VUZP1 V0.H8, V0.H8, V2.H8        // V2.H8 = [v0,v2,v4,v6,...] (even)
+	VUZP2 V1.H8, V1.H8, V3.H8        // V3.H8 = [v1<<6,v3<<6,...] (odd×64)
+	VADD  V2.H8, V3.H8, V2.H8        // V2.H8 = [A,B,C,D,...] (pairwise sums)
+	VMOV  V2.D[0], R10                // 1 crossing: A|B<<16|C<<32|D<<48
+	UBFX $0,  R10, $12, R11           // A
+	UBFX $16, R10, $12, R12           // B
+	ORR  R12<<12, R11, R11
+	MOVH R11, (R0)
+	LSR  $16, R11, R11
+	MOVB R11, 2(R0)
+	UBFX $32, R10, $12, R11           // C
+	UBFX $48, R10, $12, R12           // D
+	ORR  R12<<12, R11, R11
+	MOVH R11, 3(R0)
+	LSR  $16, R11, R11
+	MOVB R11, 5(R0)
+
+	// Pack V6,V7 → 6 bytes at R0+6:
+	VUZP1 V7.H8, V6.H8, V0.H8
+	VSHL  $6, V0.H8, V1.H8
+	VUZP1 V0.H8, V0.H8, V2.H8
+	VUZP2 V1.H8, V1.H8, V3.H8
+	VADD  V2.H8, V3.H8, V2.H8
+	VMOV  V2.D[0], R10
+	UBFX $0,  R10, $12, R11
+	UBFX $16, R10, $12, R12
+	ORR  R12<<12, R11, R11
+	MOVH R11, 6(R0)
+	LSR  $16, R11, R11
+	MOVB R11, 8(R0)
+	UBFX $32, R10, $12, R11
+	UBFX $48, R10, $12, R12
+	ORR  R12<<12, R11, R11
+	MOVH R11, 9(R0)
+	LSR  $16, R11, R11
+	MOVB R11, 11(R0)
+
+	ADD  $12, R0
+	SUBS $1, R2, R2
+	BNE  hbpack6_loop
+	RET
+
+// bitPackSignedTwoPower17NEON encodes 256 coefficients into 576 bytes using
+// 18 bits per coefficient (FIPS 204 BitPack with gamma1 = 2^17).
+//
+// v = fieldSub(2^17, c) = (2^17 + q - c) mod q  ∈ [0, 2^18-1]
+// 4 values → 9 bytes:  x = v0 | v1<<18 | v2<<36 | v3<<54
+//   bytes 0..7 = x[63:0],  byte 8 = v3 >> 10
+//
+// WORD encodings (fieldSub borrow mask for SSHR #31):
+//   SSHR V4.4S, V3.4S, #31 = 0x4F210464   (group 0)
+//   SSHR V7.4S, V6.4S, #31 = 0x4F2104C7   (group 1)
+//
+// Pinned: V8.S4 = 8511489 (2^17+q),  V9.S4 = 8380417 (q)
+//
+// func bitPackSignedTwoPower17NEON(dst *byte, f *fieldElement)
+TEXT ·bitPackSignedTwoPower17NEON(SB), NOSPLIT, $0-16
+	MOVD dst+0(FP), R0
+	MOVD f+8(FP), R1
+	MOVD $32, R2
+
+	MOVD $8511489, R5
+	VDUP R5, V8.S4
+	MOVD $8380417, R5
+	VDUP R5, V9.S4
+
+bpack17_loop:
+	VLD1.P (32)(R1), [V0.S4, V1.S4]
+
+	// Group 0: fieldSub(2^17, V0) → V2.S4
+	VSUB V0.S4, V8.S4, V2.S4
+	VSUB V9.S4, V2.S4, V3.S4
+	WORD $0x4F210464                   // SSHR V4.4S, V3.4S, #31
+	VAND V9.B16, V4.B16, V4.B16
+	VADD V3.S4, V4.S4, V2.S4
+
+	// Group 1: fieldSub(2^17, V1) → V5.S4
+	VSUB V1.S4, V8.S4, V5.S4
+	VSUB V9.S4, V5.S4, V6.S4
+	WORD $0x4F2104C7                   // SSHR V7.4S, V6.4S, #31
+	VAND V9.B16, V7.B16, V7.B16
+	VADD V6.S4, V7.S4, V5.S4
+
+	// Pack V2[0..3] → 9 bytes
+	VMOV V2.S[0], R10
+	VMOV V2.S[1], R11
+	VMOV V2.S[2], R12
+	VMOV V2.S[3], R13
+	ORR  R11<<18, R10, R10
+	ORR  R12<<36, R10, R10
+	ORR  R13<<54, R10, R10
+	MOVD R10, (R0)
+	LSR  $10, R13, R22
+	MOVB R22, 8(R0)
+
+	// Pack V5[0..3] → 9 bytes at offset 9
+	VMOV V5.S[0], R10
+	VMOV V5.S[1], R11
+	VMOV V5.S[2], R12
+	VMOV V5.S[3], R13
+	ORR  R11<<18, R10, R10
+	ORR  R12<<36, R10, R10
+	ORR  R13<<54, R10, R10
+	MOVD R10, 9(R0)
+	LSR  $10, R13, R22
+	MOVB R22, 17(R0)
+
+	ADD  $18, R0
+	SUBS $1, R2, R2
+	BNE  bpack17_loop
+	RET
+
+// bitPackSignedTwoPower19NEON encodes 256 coefficients into 640 bytes using
+// 20 bits per coefficient (FIPS 204 BitPack with gamma1 = 2^19).
+//
+// v = fieldSub(2^19, c) = (2^19 + q - c) mod q  ∈ [0, 2^20-1]
+// 4 values → 10 bytes:  x = v0 | v1<<20 | v2<<40 | v3<<60
+//   bytes 0..7 = x[63:0],  bytes 8..9 = v3 >> 4
+//
+// WORD encodings:
+//   SSHR V4.4S, V3.4S, #31 = 0x4F210464   (group 0)
+//   SSHR V7.4S, V6.4S, #31 = 0x4F2104C7   (group 1)
+//
+// Pinned: V8.S4 = 8904705 (2^19+q),  V9.S4 = 8380417 (q)
+//
+// func bitPackSignedTwoPower19NEON(dst *byte, f *fieldElement)
+TEXT ·bitPackSignedTwoPower19NEON(SB), NOSPLIT, $0-16
+	MOVD dst+0(FP), R0
+	MOVD f+8(FP), R1
+	MOVD $32, R2
+
+	MOVD $8904705, R5
+	VDUP R5, V8.S4
+	MOVD $8380417, R5
+	VDUP R5, V9.S4
+
+bpack19_loop:
+	VLD1.P (32)(R1), [V0.S4, V1.S4]
+
+	// Group 0: fieldSub(2^19, V0) → V2.S4
+	VSUB V0.S4, V8.S4, V2.S4
+	VSUB V9.S4, V2.S4, V3.S4
+	WORD $0x4F210464                   // SSHR V4.4S, V3.4S, #31
+	VAND V9.B16, V4.B16, V4.B16
+	VADD V3.S4, V4.S4, V2.S4
+
+	// Group 1: fieldSub(2^19, V1) → V5.S4
+	VSUB V1.S4, V8.S4, V5.S4
+	VSUB V9.S4, V5.S4, V6.S4
+	WORD $0x4F2104C7                   // SSHR V7.4S, V6.4S, #31
+	VAND V9.B16, V7.B16, V7.B16
+	VADD V6.S4, V7.S4, V5.S4
+
+	// Pack V2[0..3] → 10 bytes
+	VMOV V2.S[0], R10
+	VMOV V2.S[1], R11
+	VMOV V2.S[2], R12
+	VMOV V2.S[3], R13
+	ORR  R11<<20, R10, R10
+	ORR  R12<<40, R10, R10
+	ORR  R13<<60, R10, R10
+	MOVD R10, (R0)
+	LSR  $4, R13, R22
+	MOVH R22, 8(R0)
+
+	// Pack V5[0..3] → 10 bytes at offset 10
+	VMOV V5.S[0], R10
+	VMOV V5.S[1], R11
+	VMOV V5.S[2], R12
+	VMOV V5.S[3], R13
+	ORR  R11<<20, R10, R10
+	ORR  R12<<40, R10, R10
+	ORR  R13<<60, R10, R10
+	MOVD R10, 10(R0)
+	LSR  $4, R13, R22
+	MOVH R22, 18(R0)
+
+	ADD  $20, R0
+	SUBS $1, R2, R2
+	BNE  bpack19_loop
+	RET
+
+// bitUnpackSignedTwoPower17NEON decodes a 18-bit packed byte stream into a
+// polynomial (256 uint32 coefficients).
+//
+// For each group of 4 coefficients packed in 9 bytes:
+//   x1 = bytes[0..7] (64-bit LE word),  x2 = byte[8]
+//   v0 = x1 & 0x3FFFF
+//   v1 = (x1>>18) & 0x3FFFF
+//   v2 = (x1>>36) & 0x3FFFF
+//   v3 = (x1>>54) | (x2<<10)    [already 18-bit clean]
+//   coeff[i] = fieldSub(2^17, vi) = (8511489 - vi) mod q
+//
+// Two groups of 4 coefficients (18 bytes) are processed per iteration.
+// GPRs extract the 18-bit values; NEON performs fieldSub in parallel via
+// VMOV Rn, V.D[i] (pair-insert).
+//
+// Pinned: V8.S4 = 8511489, V9.S4 = q
+// WORD encodings:
+//   SSHR V4.4S, V3.4S, #31 = 0x4F210464   (group 0)
+//   SSHR V6.4S, V5.4S, #31 = 0x4F2104A6   (group 1)
+//
+// func bitUnpackSignedTwoPower17NEON(b *byte, f *ringElement)
+TEXT ·bitUnpackSignedTwoPower17NEON(SB), NOSPLIT, $0-16
+	MOVD b+0(FP), R0
+	MOVD f+8(FP), R1
+	MOVD $32, R2
+
+	MOVD $8511489, R5
+	VDUP R5, V8.S4        // V8 = 8511489 (2^17 + q)
+	MOVD $8380417, R5
+	VDUP R5, V9.S4        // V9 = q
+
+bunpack17_loop:
+	// Group 0: bytes [0..8] → 4 × 18-bit values inserted into V0.S4
+	MOVD     (R0), R10
+	MOVBU  8(R0), R22
+	UBFX   $0, R10, $18, R11      // v0 = x1[17:0]
+	UBFX  $18, R10, $18, R12      // v1 = x1[35:18]
+	ORR   R12<<32, R11, R11       // R11 = v0 | (v1<<32)
+	VMOV  R11, V0.D[0]            // V0.S[0]=v0, V0.S[1]=v1
+	UBFX  $36, R10, $18, R13      // v2 = x1[53:36]
+	UBFX  $54, R10, $10, R14      // bits[9:0] of v3 from x1[63:54]
+	ORR   R22<<10, R14, R14       // v3 |= x2<<10 → 18-bit clean
+	ORR   R14<<32, R13, R13       // R13 = v2 | (v3<<32)
+	VMOV  R13, V0.D[1]            // V0.S[2]=v2, V0.S[3]=v3
+
+	// Group 1: bytes [9..17] → V1.S4
+	MOVD   9(R0), R10
+	MOVBU 17(R0), R22
+	UBFX   $0, R10, $18, R11
+	UBFX  $18, R10, $18, R12
+	ORR   R12<<32, R11, R11
+	VMOV  R11, V1.D[0]
+	UBFX  $36, R10, $18, R13
+	UBFX  $54, R10, $10, R14
+	ORR   R22<<10, R14, R14
+	ORR   R14<<32, R13, R13
+	VMOV  R13, V1.D[1]
+
+	// Group 0: fieldSub(2^17, V0) = (8511489 - V0) mod q → V2.S4
+	VSUB V0.S4, V8.S4, V2.S4
+	VSUB V9.S4, V2.S4, V3.S4
+	WORD $0x4F210464               // SSHR V4.4S, V3.4S, #31
+	VAND V9.B16, V4.B16, V4.B16
+	VADD V3.S4, V4.S4, V2.S4      // V2 = result; V3 now free
+
+	// Group 1: fieldSub(2^17, V1) → V3.S4 (reuses freed V3)
+	VSUB V1.S4, V8.S4, V3.S4
+	VSUB V9.S4, V3.S4, V5.S4
+	WORD $0x4F2104A6               // SSHR V6.4S, V5.4S, #31
+	VAND V9.B16, V6.B16, V6.B16
+	VADD V5.S4, V6.S4, V3.S4      // V3 = result
+
+	VST1.P [V2.S4, V3.S4], (32)(R1)
+	ADD  $18, R0
+	SUBS $1, R2, R2
+	BNE  bunpack17_loop
+	RET
+
+// bitUnpackSignedTwoPower19NEON decodes a 20-bit packed byte stream into a
+// polynomial (256 uint32 coefficients).
+//
+// For each group of 4 coefficients packed in 10 bytes:
+//   x1 = bytes[0..7] (64-bit LE word)
+//   x2 = bytes[8..9] (unsigned 16-bit LE halfword)
+//   v0 = x1 & 0xFFFFF
+//   v1 = (x1>>20) & 0xFFFFF
+//   v2 = (x1>>40) & 0xFFFFF
+//   v3 = (x1>>60) | (x2<<4)    [already 20-bit clean]
+//   coeff[i] = fieldSub(2^19, vi) = (8904705 - vi) mod q
+//
+// Two groups of 4 coefficients (20 bytes) are processed per iteration.
+// GPRs extract the 20-bit values; NEON performs fieldSub in parallel.
+//
+// Pinned: V8.S4 = 8904705, V9.S4 = q
+// WORD encodings:
+//   SSHR V4.4S, V3.4S, #31 = 0x4F210464   (group 0)
+//   SSHR V6.4S, V5.4S, #31 = 0x4F2104A6   (group 1)
+//
+// func bitUnpackSignedTwoPower19NEON(b *byte, f *ringElement)
+TEXT ·bitUnpackSignedTwoPower19NEON(SB), NOSPLIT, $0-16
+	MOVD b+0(FP), R0
+	MOVD f+8(FP), R1
+	MOVD $32, R2
+
+	MOVD $8904705, R5
+	VDUP R5, V8.S4        // V8 = 8904705 (2^19 + q)
+	MOVD $8380417, R5
+	VDUP R5, V9.S4        // V9 = q
+
+bunpack19_loop:
+	// Group 0: bytes [0..9] → 4 × 20-bit values inserted into V0.S4
+	MOVD     (R0), R10
+	MOVHU  8(R0), R22             // x2 = bytes[8..9] as uint16
+	UBFX   $0, R10, $20, R11      // v0 = x1[19:0]
+	UBFX  $20, R10, $20, R12      // v1 = x1[39:20]
+	ORR   R12<<32, R11, R11       // R11 = v0 | (v1<<32)
+	VMOV  R11, V0.D[0]            // V0.S[0]=v0, V0.S[1]=v1
+	UBFX  $40, R10, $20, R13      // v2 = x1[59:40]
+	UBFX  $60, R10, $4, R14       // bits[3:0] of v3 from x1[63:60]
+	ORR   R22<<4, R14, R14        // v3 |= x2<<4 → 20-bit clean
+	ORR   R14<<32, R13, R13       // R13 = v2 | (v3<<32)
+	VMOV  R13, V0.D[1]            // V0.S[2]=v2, V0.S[3]=v3
+
+	// Group 1: bytes [10..19] → V1.S4
+	MOVD  10(R0), R10
+	MOVHU 18(R0), R22
+	UBFX   $0, R10, $20, R11
+	UBFX  $20, R10, $20, R12
+	ORR   R12<<32, R11, R11
+	VMOV  R11, V1.D[0]
+	UBFX  $40, R10, $20, R13
+	UBFX  $60, R10, $4, R14
+	ORR   R22<<4, R14, R14
+	ORR   R14<<32, R13, R13
+	VMOV  R13, V1.D[1]
+
+	// Group 0: fieldSub(2^19, V0) = (8904705 - V0) mod q → V2.S4
+	VSUB V0.S4, V8.S4, V2.S4
+	VSUB V9.S4, V2.S4, V3.S4
+	WORD $0x4F210464               // SSHR V4.4S, V3.4S, #31
+	VAND V9.B16, V4.B16, V4.B16
+	VADD V3.S4, V4.S4, V2.S4      // V2 = result; V3 now free
+
+	// Group 1: fieldSub(2^19, V1) → V3.S4 (reuses freed V3)
+	VSUB V1.S4, V8.S4, V3.S4
+	VSUB V9.S4, V3.S4, V5.S4
+	WORD $0x4F2104A6               // SSHR V6.4S, V5.4S, #31
+	VAND V9.B16, V6.B16, V6.B16
+	VADD V5.S4, V6.S4, V3.S4      // V3 = result
+
+	VST1.P [V2.S4, V3.S4], (32)(R1)
+	ADD  $20, R0
+	SUBS $1, R2, R2
+	BNE  bunpack19_loop
+	RET
+
+// makeHintPolyGamma32NEON computes MakeHint(ct0, cs2, w, gamma2=(q-1)/32)
+// for all 256 coefficients of one polynomial, storing results as int32 (0 or 1).
+//
+// makeHint(ct0, cs2, w) = 1 if HighBits(r) != HighBits(rPlusZ), else 0, where
+//   rPlusZ = fieldSub(w, cs2)   and   r = fieldAdd(rPlusZ, ct0).
+//
+// HighBitsGamma32(x) = SQRDMULH((x+127)>>7, 524800) & 15, implemented as:
+//   t' = (x + 127) >> 7          (VADD+VUSHR)
+//   r1 = SQRDMULH(t', 524800)   (one WORD instruction)
+//   r1 &= 15                     (VAND)
+//
+// fieldSub(w, cs2) = reduce_once(w + q - cs2):
+//   t = w + q - cs2  ∈ [1, 2q-1]
+//   if t > q: t -= q             (CMHI WORD + VAND + VSUB)
+//
+// fieldAdd(rPlusZ, ct0) = reduce_once(rPlusZ + ct0):
+//   t = rPlusZ + ct0  ∈ [0, 2q-2]
+//   if t > q: t -= q
+//
+// Both CMHI and HighBits use the same properties as decomposeSubToR0Gamma32ARM64:
+// when the input is exactly q (instead of 0), HighBits(q) = 0 = HighBits(0),
+// so hint correctness is preserved without a separate >= check.
+//
+// Hint: VCMEQ gives 0xFFFFFFFF where equal; VMOV+VBIT converts to 1 (diff) / 0 (same).
+//
+// WORD encodings:
+//   CMHI V4.S4, V3.S4, V31.S4  = 0x6ebf3c64  (fieldSub reduce)
+//   CMHI V5.S4, V4.S4, V31.S4  = 0x6ebf3c85  (fieldAdd reduce)
+//   SQRDMULH V6.S4, V5.S4, V29.S4 = 0x6EBDB4A6 (HighBits rPlusZ)
+//   SQRDMULH V8.S4, V7.S4, V29.S4 = 0x6EBDB4E8 (HighBits r)
+//
+// Pinned constants: V31=q, V30=127, V29=524800, V28=15, V27={1}, V23={0}
+//
+// func makeHintPolyGamma32NEON(ct0, cs2, w, hint *fieldElement)
+TEXT ·makeHintPolyGamma32NEON(SB), NOSPLIT, $0-32
+	MOVD ct0+0(FP), R0
+	MOVD cs2+8(FP), R1
+	MOVD w+16(FP), R2
+	MOVD hint+24(FP), R3
+	MOVD $64, R4           // 64 iterations × 4 coefficients = 256
+
+	MOVD $8380417, R8
+	VDUP R8, V31.S4
+	MOVD $127, R8
+	VDUP R8, V30.S4
+	MOVD $524800, R8       // SQRDMULH constant: 1025*2^9
+	VDUP R8, V29.S4
+	MOVD $15, R8
+	VDUP R8, V28.S4
+	MOVD $1, R8
+	VDUP R8, V27.S4
+	VEOR V23.B16, V23.B16, V23.B16   // V23 = zero vector
+
+make_hint_gamma32_loop:
+	VLD1.P (16)(R0), [V0.S4]   // ct0[0..3]
+	VLD1.P (16)(R1), [V1.S4]   // cs2[0..3]
+	VLD1.P (16)(R2), [V2.S4]   // w[0..3]
+
+	// rPlusZ = fieldSub(w, cs2) = reduce_once(w + q - cs2)
+	VADD V31.S4, V2.S4, V3.S4           // V3 = w + q
+	VSUB V1.S4, V3.S4, V3.S4            // V3 = w + q - cs2 ∈ [1, 2q-1]
+	WORD $0x6ebf3c64                     // CMHI V4.S4, V3.S4, V31.S4 (V3 > q ?)
+	VAND V31.B16, V4.B16, V4.B16        // V4 = q if > q, else 0
+	VSUB V4.S4, V3.S4, V3.S4            // V3 = rPlusZ ∈ [0, q-1]
+
+	// r = fieldAdd(rPlusZ, ct0) = reduce_once(rPlusZ + ct0)
+	VADD V0.S4, V3.S4, V4.S4            // V4 = rPlusZ + ct0 ∈ [0, 2q-2]
+	WORD $0x6ebf3c85                     // CMHI V5.S4, V4.S4, V31.S4 (V4 > q ?)
+	VAND V31.B16, V5.B16, V5.B16
+	VSUB V5.S4, V4.S4, V4.S4            // V4 = r ∈ [0, q-1]
+
+	// HighBitsGamma32(rPlusZ) → V6
+	VADD V30.S4, V3.S4, V5.S4           // V5 = rPlusZ + 127
+	VUSHR $7, V5.S4, V5.S4              // V5 = (rPlusZ+127)>>7
+	WORD $0x6EBDB4A6                     // SQRDMULH V6.S4, V5.S4, V29.S4
+	VAND V28.B16, V6.B16, V6.B16        // V6 = HighBits(rPlusZ) & 15
+
+	// HighBitsGamma32(r) → V8
+	VADD V30.S4, V4.S4, V7.S4           // V7 = r + 127
+	VUSHR $7, V7.S4, V7.S4              // V7 = (r+127)>>7
+	WORD $0x6EBDB4E8                     // SQRDMULH V8.S4, V7.S4, V29.S4
+	VAND V28.B16, V8.B16, V8.B16        // V8 = HighBits(r) & 15
+
+	// hint = (HighBits(r) != HighBits(rPlusZ)) ? 1 : 0
+	VCMEQ V6.S4, V8.S4, V9.S4          // V9 = 0xFFFFFFFF where equal, 0 where different
+	VMOV  V27.B16, V10.B16              // V10 = 1 per lane (copy constant)
+	VBIT  V9.B16, V23.B16, V10.B16     // V10 = 1 where V9=0 (different), 0 where V9=0xFF (same)
+
+	VST1.P [V10.S4], (16)(R3)
+	SUBS $1, R4, R4
+	BNE  make_hint_gamma32_loop
+	RET
+
+// makeHintPolyGamma88NEON computes MakeHint(ct0, cs2, w, gamma2=(q-1)/88)
+// for all 256 coefficients of one polynomial, storing results as int32 (0 or 1).
+//
+// Same algorithm as makeHintPolyGamma32NEON but with HighBitsGamma88:
+//   r1 = SQRDMULH((x+127)>>7, 1443200)   (C = 11275*2^7)
+//   if r1 == 44: r1 = 0   (branch-free: VCMEQ V28(=44), r1, mask; VBIT mask, V23, r1)
+//
+// No &63 mask needed; SQRDMULH guarantees r1 ∈ [0,44] for valid field elements.
+//
+// WORD encodings:
+//   CMHI V4.S4, V3.S4, V31.S4     = 0x6ebf3c64  (fieldSub reduce)
+//   CMHI V5.S4, V4.S4, V31.S4     = 0x6ebf3c85  (fieldAdd reduce)
+//   SQRDMULH V6.S4, V5.S4, V29.S4 = 0x6EBDB4A6  (HighBits rPlusZ)
+//   SQRDMULH V8.S4, V7.S4, V29.S4 = 0x6EBDB4E8  (HighBits r)
+//
+// Pinned constants: V31=q, V30=127, V29=1443200, V28=44, V27={1}, V23={0}
+//
+// func makeHintPolyGamma88NEON(ct0, cs2, w, hint *fieldElement)
+TEXT ·makeHintPolyGamma88NEON(SB), NOSPLIT, $0-32
+	MOVD ct0+0(FP), R0
+	MOVD cs2+8(FP), R1
+	MOVD w+16(FP), R2
+	MOVD hint+24(FP), R3
+	MOVD $64, R4
+
+	MOVD $8380417, R8
+	VDUP R8, V31.S4
+	MOVD $127, R8
+	VDUP R8, V30.S4
+	MOVD $1443200, R8      // SQRDMULH constant: 11275*2^7
+	VDUP R8, V29.S4
+	MOVD $44, R8
+	VDUP R8, V28.S4
+	MOVD $1, R8
+	VDUP R8, V27.S4
+	VEOR V23.B16, V23.B16, V23.B16
+
+make_hint_gamma88_loop:
+	VLD1.P (16)(R0), [V0.S4]
+	VLD1.P (16)(R1), [V1.S4]
+	VLD1.P (16)(R2), [V2.S4]
+
+	// rPlusZ = fieldSub(w, cs2)
+	VADD V31.S4, V2.S4, V3.S4
+	VSUB V1.S4, V3.S4, V3.S4
+	WORD $0x6ebf3c64                    // CMHI V4.S4, V3.S4, V31.S4
+	VAND V31.B16, V4.B16, V4.B16
+	VSUB V4.S4, V3.S4, V3.S4           // V3 = rPlusZ
+
+	// r = fieldAdd(rPlusZ, ct0)
+	VADD V0.S4, V3.S4, V4.S4
+	WORD $0x6ebf3c85                    // CMHI V5.S4, V4.S4, V31.S4
+	VAND V31.B16, V5.B16, V5.B16
+	VSUB V5.S4, V4.S4, V4.S4           // V4 = r
+
+	// HighBitsGamma88(rPlusZ) → V6
+	VADD V30.S4, V3.S4, V5.S4
+	VUSHR $7, V5.S4, V5.S4
+	WORD $0x6EBDB4A6                    // SQRDMULH V6.S4, V5.S4, V29.S4
+	VCMEQ V28.S4, V6.S4, V11.S4        // V11 = mask where r1==44
+	VBIT  V11.B16, V23.B16, V6.B16     // V6 = 0 where r1==44
+
+	// HighBitsGamma88(r) → V8
+	VADD V30.S4, V4.S4, V7.S4
+	VUSHR $7, V7.S4, V7.S4
+	WORD $0x6EBDB4E8                    // SQRDMULH V8.S4, V7.S4, V29.S4
+	VCMEQ V28.S4, V8.S4, V11.S4        // V11 = mask where r1==44
+	VBIT  V11.B16, V23.B16, V8.B16     // V8 = 0 where r1==44
+
+	// hint = (HighBits(r) != HighBits(rPlusZ)) ? 1 : 0
+	VCMEQ V6.S4, V8.S4, V9.S4
+	VMOV  V27.B16, V10.B16
+	VBIT  V9.B16, V23.B16, V10.B16
+
+	VST1.P [V10.S4], (16)(R3)
+	SUBS $1, R4, R4
+	BNE  make_hint_gamma88_loop
+	RET
+
+// nttMatRowVecMulNEON computes dst = vec[0]*matRow[0] + vec[1]*matRow[1] + ... + vec[len-1]*matRow[len-1]
+// All results for each chunk are accumulated in registers before a single write.
+// Parameters: R0=dst, R1=vec, R2=matRow, R3=len
+TEXT ·nttMatRowVecMulNEON(SB), NOSPLIT, $0-32
+	MOVD dst+0(FP), R0
+	MOVD vec+8(FP), R1
+	MOVD matRow+16(FP), R2
+	MOVD len+24(FP), R3
+
+	// Setup constants
+	MOVD $8380417, R8
+	VDUP R8, V31.S4
+	MOVD $4236238847, R8
+	VDUP R8, V30.S4
+
+	MOVD $0, R5      // chunk_offset = 0
+	MOVD $32, R4     // 32 chunks of 32 bytes (= 1024 bytes per nttElement)
+
+mvmChunkLoop:
+	ADD R5, R1, R9   // R9 = &vec[0] + chunk_offset
+	ADD R5, R2, R10  // R10 = &matRow[0] + chunk_offset
+
+	VLD1 (R9), [V0.S4, V1.S4]
+	VLD1 (R10), [V2.S4, V3.S4]
+
+	// V4 = fieldMul(V0, V2)
+	WORD $0x4ea29c14                   // MUL   V20.S4, V0.S4, V2.S4
+	WORD $0x6ea2b415                   // SQRDMULH V21.S4, V0.S4, V2.S4
+	WORD $0x4ebe9e96                   // MUL   V22.S4, V20.S4, V30.S4
+	WORD $0x6e9f86d5                   // SQRDMALH V21.S4, V22.S4, V31.S4
+	WORD $0x4f3f06b5                   // VSSHR V21.S4, V21.S4, #1
+	WORD $0x4f2106b8                   // VSSHR V24.S4, V21.S4, #31
+	VAND V31.B16, V24.B16, V24.B16
+	VADD V21.S4, V24.S4, V4.S4
+
+	// V5 = fieldMul(V1, V3)
+	WORD $0x4ea39c34                   // MUL   V20.S4, V1.S4, V3.S4
+	WORD $0x6ea3b435                   // SQRDMULH V21.S4, V1.S4, V3.S4
+	WORD $0x4ebe9e96                   // MUL   V22.S4, V20.S4, V30.S4
+	WORD $0x6e9f86d5                   // SQRDMALH V21.S4, V22.S4, V31.S4
+	WORD $0x4f3f06b5                   // VSSHR V21.S4, V21.S4, #1
+	WORD $0x4f2106b8                   // VSSHR V24.S4, V21.S4, #31
+	VAND V31.B16, V24.B16, V24.B16
+	VADD V21.S4, V24.S4, V5.S4
+
+	MOVD R3, R6       // R6 = len
+	SUBS $1, R6, R6
+	BEQ mvmWrite      // len == 1, skip accumulate
+
+mvmAccumulate:
+	ADD $1024, R9     // next element of vec
+	ADD $1024, R10    // next element of matRow
+
+	VLD1 (R9), [V0.S4, V1.S4]
+	VLD1 (R10), [V2.S4, V3.S4]
+
+	// V6 = fieldMul(V0, V2)
+	WORD $0x4ea29c14                   // MUL   V20.S4, V0.S4, V2.S4
+	WORD $0x6ea2b415                   // SQRDMULH V21.S4, V0.S4, V2.S4
+	WORD $0x4ebe9e96                   // MUL   V22.S4, V20.S4, V30.S4
+	WORD $0x6e9f86d5                   // SQRDMALH V21.S4, V22.S4, V31.S4
+	WORD $0x4f3f06b5                   // VSSHR V21.S4, V21.S4, #1
+	WORD $0x4f2106b8                   // VSSHR V24.S4, V21.S4, #31
+	VAND V31.B16, V24.B16, V24.B16
+	VADD V21.S4, V24.S4, V6.S4
+
+	// V7 = fieldMul(V1, V3)
+	WORD $0x4ea39c34                   // MUL   V20.S4, V1.S4, V3.S4
+	WORD $0x6ea3b435                   // SQRDMULH V21.S4, V1.S4, V3.S4
+	WORD $0x4ebe9e96                   // MUL   V22.S4, V20.S4, V30.S4
+	WORD $0x6e9f86d5                   // SQRDMALH V21.S4, V22.S4, V31.S4
+	WORD $0x4f3f06b5                   // VSSHR V21.S4, V21.S4, #1
+	WORD $0x4f2106b8                   // VSSHR V24.S4, V21.S4, #31
+	VAND V31.B16, V24.B16, V24.B16
+	VADD V21.S4, V24.S4, V7.S4
+
+	// V4 += V6, reduce mod q
+	VADD V6.S4, V4.S4, V4.S4
+	WORD $0x6ebf3c94                   // CMGT.U V20.S4, V4.S4, V31.S4
+	VAND V31.B16, V20.B16, V24.B16
+	VSUB V24.S4, V4.S4, V4.S4
+
+	// V5 += V7, reduce mod q
+	VADD V7.S4, V5.S4, V5.S4
+	WORD $0x6ebf3cb5                   // CMGT.U V21.S4, V5.S4, V31.S4
+	VAND V31.B16, V21.B16, V24.B16
+	VSUB V24.S4, V5.S4, V5.S4
+
+	SUBS $1, R6, R6
+	BNE mvmAccumulate
+
+mvmWrite:
+	ADD R5, R0, R11   // R11 = dst + chunk_offset
+	VST1 [V4.S4, V5.S4], (R11)
+
+	ADD $32, R5
+	SUBS $1, R4, R4
+	BNE mvmChunkLoop
+
+	RET

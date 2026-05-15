@@ -1083,14 +1083,14 @@ TEXT ·decodeAndDecompressU10NEON(SB), NOSPLIT, $0-48
 	MOVD $3329, R3
 	VDUP R3, V1.H8
 	MOVD $1, R3
-	VDUP R3, V24.S4
+	VDUP R3, V26.S4
 
 decode_u10_neon_ring_loop:
-	// One ring has 256 coefficients -> 32 blocks of 8 coefficients.
-	MOVD $32, R5
+	// One ring has 256 coefficients -> 16 iterations of 2 x 8 coefficients.
+	MOVD $16, R5
 
 decode_u10_neon_block_loop:
-	// Load packed 80 bits: low 64 bits in R6 and high 16 bits in R7.
+	// First 10-byte block: load packed 80 bits as low 64 bits in R6 and high 16 bits in R7.
 	MOVD (R2), R6
 	MOVHU 8(R2), R7
 
@@ -1122,28 +1122,65 @@ decode_u10_neon_block_loop:
 	ORR R17<<48, R14, R14
 	VMOV R14, V0.D[1]
 
-	// Vectorized Decompress_10 on 8 lanes:
-	//   dividend = y*q (32-bit lanes via UMULL/UMULL2)
-	//   roundbit = (dividend >> 9) & 1
-	//   out      = (dividend >> 10) + roundbit
-	WORD $0x2E61C015 // UMULL  V21.S4, V0.H4, V1.H4
-	WORD $0x6E61C016 // UMULL2 V22.S4, V0.H8, V1.H8
+	// Vectorized Decompress_10 on 8 lanes.
+	WORD $0x2E61C016 // UMULL  V22.S4, V0.H4, V1.H4
+	WORD $0x6E61C017 // UMULL2 V23.S4, V0.H8, V1.H8
 
-	VUSHR $9, V21.S4, V23.S4
-	VUSHR $9, V22.S4, V25.S4
-	VAND V24.B16, V23.B16, V23.B16
-	VAND V24.B16, V25.B16, V25.B16
-	VUSHR $10, V21.S4, V21.S4
+	VUSHR $9, V22.S4, V24.S4
+	VUSHR $9, V23.S4, V25.S4
+	VAND V26.B16, V24.B16, V24.B16
+	VAND V26.B16, V25.B16, V25.B16
 	VUSHR $10, V22.S4, V22.S4
-	VADD V23.S4, V21.S4, V21.S4
-	VADD V25.S4, V22.S4, V22.S4
-	VSHL $16, V21.S4, V21.S4
+	VUSHR $10, V23.S4, V23.S4
+	VADD V24.S4, V22.S4, V22.S4
+	VADD V25.S4, V23.S4, V23.S4
 	VSHL $16, V22.S4, V22.S4
-	WORD $0x0F1086B5 // SHRN  V21.H4, V21.S4, #16
-	WORD $0x4F1086D5 // SHRN2 V21.H8, V22.S4, #16
+	VSHL $16, V23.S4, V23.S4
+	WORD $0x0F1086D4 // SHRN  V20.H4, V22.S4, #16
+	WORD $0x4F1086F4 // SHRN2 V20.H8, V23.S4, #16
 
-	VST1.P [V21.H8], 16(R0)
-	ADD $10, R2, R2
+	// Second 10-byte block.
+	MOVD 10(R2), R6
+	MOVHU 18(R2), R7
+
+	AND $0x3FF, R6, R10
+	UBFX $10, R6, $10, R11
+	UBFX $20, R6, $10, R12
+	UBFX $30, R6, $10, R13
+	UBFX $40, R6, $10, R14
+	UBFX $50, R6, $10, R15
+	EXTR $60, R6, R7, R16
+	AND $0x3FF, R16, R16
+	UBFX $6, R7, $10, R17
+
+	ORR R11<<16, R10, R10
+	ORR R12<<32, R10, R10
+	ORR R13<<48, R10, R10
+	VMOV R10, V0.D[0]
+
+	ORR R15<<16, R14, R14
+	ORR R16<<32, R14, R14
+	ORR R17<<48, R14, R14
+	VMOV R14, V0.D[1]
+
+	WORD $0x2E61C016 // UMULL  V22.S4, V0.H4, V1.H4
+	WORD $0x6E61C017 // UMULL2 V23.S4, V0.H8, V1.H8
+
+	VUSHR $9, V22.S4, V24.S4
+	VUSHR $9, V23.S4, V25.S4
+	VAND V26.B16, V24.B16, V24.B16
+	VAND V26.B16, V25.B16, V25.B16
+	VUSHR $10, V22.S4, V22.S4
+	VUSHR $10, V23.S4, V23.S4
+	VADD V24.S4, V22.S4, V22.S4
+	VADD V25.S4, V23.S4, V23.S4
+	VSHL $16, V22.S4, V22.S4
+	VSHL $16, V23.S4, V23.S4
+	WORD $0x0F1086D5 // SHRN  V21.H4, V22.S4, #16
+	WORD $0x4F1086F5 // SHRN2 V21.H8, V23.S4, #16
+
+	VST1.P [V20.H8, V21.H8], 32(R0)
+	ADD $20, R2, R2
 	SUB $1, R5, R5
 	CBNZ R5, decode_u10_neon_block_loop
 
@@ -1168,14 +1205,14 @@ TEXT ·decodeAndDecompressU11NEON(SB), NOSPLIT, $0-48
 	MOVD $3329, R3
 	VDUP R3, V1.H8
 	MOVD $1, R3
-	VDUP R3, V24.S4
+	VDUP R3, V26.S4
 
 decode_u11_neon_ring_loop:
-	// One ring has 256 coefficients -> 32 blocks of 8 coefficients.
-	MOVD $32, R5
+	// One ring has 256 coefficients -> 16 iterations of 2 x 8 coefficients.
+	MOVD $16, R5
 
 decode_u11_neon_block_loop:
-	// Load packed 88 bits: low 64 bits in R6 and high 24 bits split as R7|R8.
+	// First 11-byte block: load packed 88 bits as low 64 bits in R6 and high 24 bits split as R7|R8.
 	MOVD (R2), R6
 	MOVHU 8(R2), R7
 	MOVBU 10(R2), R8
@@ -1214,28 +1251,70 @@ decode_u11_neon_block_loop:
 	ORR R17<<48, R14, R14
 	VMOV R14, V0.D[1]
 
-	// Vectorized Decompress_11 on 8 lanes:
-	//   dividend = y*q
-	//   out = (dividend >> 11) + ((dividend >> 10) & 1)
-	WORD $0x2E61C015 // UMULL  V21.S4, V0.H4, V1.H4
-	WORD $0x6E61C016 // UMULL2 V22.S4, V0.H8, V1.H8
+	// Vectorized Decompress_11 on 8 lanes.
+	WORD $0x2E61C016 // UMULL  V22.S4, V0.H4, V1.H4
+	WORD $0x6E61C017 // UMULL2 V23.S4, V0.H8, V1.H8
 
-	VUSHR $10, V21.S4, V23.S4
-	VUSHR $10, V22.S4, V25.S4
-	VAND V24.B16, V23.B16, V23.B16
-	VAND V24.B16, V25.B16, V25.B16
-	VUSHR $11, V21.S4, V21.S4
+	VUSHR $10, V22.S4, V24.S4
+	VUSHR $10, V23.S4, V25.S4
+	VAND V26.B16, V24.B16, V24.B16
+	VAND V26.B16, V25.B16, V25.B16
 	VUSHR $11, V22.S4, V22.S4
-	VADD V23.S4, V21.S4, V21.S4
-	VADD V25.S4, V22.S4, V22.S4
-	VSHL $16, V21.S4, V21.S4
+	VUSHR $11, V23.S4, V23.S4
+	VADD V24.S4, V22.S4, V22.S4
+	VADD V25.S4, V23.S4, V23.S4
 	VSHL $16, V22.S4, V22.S4
-	WORD $0x0F1086B5 // SHRN  V21.H4, V21.S4, #16
-	WORD $0x4F1086D5 // SHRN2 V21.H8, V22.S4, #16
+	VSHL $16, V23.S4, V23.S4
+	WORD $0x0F1086D4 // SHRN  V20.H4, V22.S4, #16
+	WORD $0x4F1086F4 // SHRN2 V20.H8, V23.S4, #16
 
-	// Store 8 decompressed coefficients (8 * uint16 = 16 bytes).
-	VST1.P [V21.H8], 16(R0)
-	ADD $11, R2, R2
+	// Second 11-byte block.
+	MOVD 11(R2), R6
+	MOVHU 19(R2), R7
+	MOVBU 21(R2), R8
+
+	MOVD R8, R9
+	LSL $16, R9, R9
+	ORR R9, R7, R7
+
+	AND $0x7FF, R6, R10
+	UBFX $11, R6, $11, R11
+	UBFX $22, R6, $11, R12
+	UBFX $33, R6, $11, R13
+	UBFX $44, R6, $11, R14
+	EXTR $55, R6, R7, R15
+	AND $0x7FF, R15, R15
+	UBFX $2, R7, $11, R16
+	UBFX $13, R7, $11, R17
+
+	ORR R11<<16, R10, R10
+	ORR R12<<32, R10, R10
+	ORR R13<<48, R10, R10
+	VMOV R10, V0.D[0]
+
+	ORR R15<<16, R14, R14
+	ORR R16<<32, R14, R14
+	ORR R17<<48, R14, R14
+	VMOV R14, V0.D[1]
+
+	WORD $0x2E61C016 // UMULL  V22.S4, V0.H4, V1.H4
+	WORD $0x6E61C017 // UMULL2 V23.S4, V0.H8, V1.H8
+
+	VUSHR $10, V22.S4, V24.S4
+	VUSHR $10, V23.S4, V25.S4
+	VAND V26.B16, V24.B16, V24.B16
+	VAND V26.B16, V25.B16, V25.B16
+	VUSHR $11, V22.S4, V22.S4
+	VUSHR $11, V23.S4, V23.S4
+	VADD V24.S4, V22.S4, V22.S4
+	VADD V25.S4, V23.S4, V23.S4
+	VSHL $16, V22.S4, V22.S4
+	VSHL $16, V23.S4, V23.S4
+	WORD $0x0F1086D5 // SHRN  V21.H4, V22.S4, #16
+	WORD $0x4F1086F5 // SHRN2 V21.H8, V23.S4, #16
+
+	VST1.P [V20.H8, V21.H8], 32(R0)
+	ADD $22, R2, R2
 	SUB $1, R5, R5
 	CBNZ R5, decode_u11_neon_block_loop
 
@@ -1243,4 +1322,920 @@ decode_u11_neon_block_loop:
 	CBNZ R1, decode_u11_neon_ring_loop
 
 decode_u11_neon_done:
+	RET
+
+#define STORE_REJ_COEFF(RVAL) \
+	MOVH RVAL, (R19)           \
+	ADD $2, R19, R19           \
+	ADD $1, R3, R3
+
+// rejUniformARM64 implements the scalar rejection sampler used by sampleNTT.
+// The hot len==24 path uses AArch64 bitfield extracts plus NEON to compare
+// eight 12-bit candidates at a time, while scalar stores keep accepted values
+// tightly packed in the output polynomial.
+// func rejUniformARM64(buf []byte, a *nttElement, j int) int
+TEXT ·rejUniformARM64(SB), NOSPLIT, $0-48
+	MOVD buf_base+0(FP), R0
+	MOVD buf_len+8(FP), R1
+	MOVD a+24(FP), R2
+	MOVD j+32(FP), R3
+	LSL $1, R3, R19
+	ADD R2, R19, R19
+	MOVD R3, R4
+
+	CMP $256, R3
+	BGE rejuniform_arm64_done
+	CMP $24, R1
+	BNE rejuniform_arm64_loop_setup
+	CMP $240, R3
+	BGT rejuniform_arm64_loop_setup
+
+	// Fast block 0: bytes [0..11] -> eight 12-bit candidates.
+	MOVD (R0), R6
+	MOVWU 8(R0), R7
+
+	AND $0x0FFF, R6, R10
+	UBFX $12, R6, $12, R11
+	UBFX $24, R6, $12, R12
+	UBFX $36, R6, $12, R13
+	UBFX $48, R6, $12, R14
+	EXTR $60, R6, R7, R15
+	AND $0x0FFF, R15, R15
+	UBFX $8, R7, $12, R16
+	UBFX $20, R7, $12, R17
+
+	CMP $3329, R10
+	BHS rejuniform_arm64_fast0_skip0
+	STORE_REJ_COEFF(R10)
+rejuniform_arm64_fast0_skip0:
+	CMP $3329, R11
+	BHS rejuniform_arm64_fast0_skip1
+	STORE_REJ_COEFF(R11)
+rejuniform_arm64_fast0_skip1:
+	CMP $3329, R12
+	BHS rejuniform_arm64_fast0_skip2
+	STORE_REJ_COEFF(R12)
+rejuniform_arm64_fast0_skip2:
+	CMP $3329, R13
+	BHS rejuniform_arm64_fast0_skip3
+	STORE_REJ_COEFF(R13)
+rejuniform_arm64_fast0_skip3:
+	CMP $3329, R14
+	BHS rejuniform_arm64_fast0_skip4
+	STORE_REJ_COEFF(R14)
+rejuniform_arm64_fast0_skip4:
+	CMP $3329, R15
+	BHS rejuniform_arm64_fast0_skip5
+	STORE_REJ_COEFF(R15)
+rejuniform_arm64_fast0_skip5:
+	CMP $3329, R16
+	BHS rejuniform_arm64_fast0_skip6
+	STORE_REJ_COEFF(R16)
+rejuniform_arm64_fast0_skip6:
+	CMP $3329, R17
+	BHS rejuniform_arm64_fast0_skip7
+	STORE_REJ_COEFF(R17)
+rejuniform_arm64_fast0_skip7:
+
+	// Fast block 1: bytes [12..23] -> eight 12-bit candidates.
+	MOVD 12(R0), R6
+	MOVWU 20(R0), R7
+
+	AND $0x0FFF, R6, R10
+	UBFX $12, R6, $12, R11
+	UBFX $24, R6, $12, R12
+	UBFX $36, R6, $12, R13
+	UBFX $48, R6, $12, R14
+	EXTR $60, R6, R7, R15
+	AND $0x0FFF, R15, R15
+	UBFX $8, R7, $12, R16
+	UBFX $20, R7, $12, R17
+
+	CMP $3329, R10
+	BHS rejuniform_arm64_fast1_skip0
+	STORE_REJ_COEFF(R10)
+rejuniform_arm64_fast1_skip0:
+	CMP $3329, R11
+	BHS rejuniform_arm64_fast1_skip1
+	STORE_REJ_COEFF(R11)
+rejuniform_arm64_fast1_skip1:
+	CMP $3329, R12
+	BHS rejuniform_arm64_fast1_skip2
+	STORE_REJ_COEFF(R12)
+rejuniform_arm64_fast1_skip2:
+	CMP $3329, R13
+	BHS rejuniform_arm64_fast1_skip3
+	STORE_REJ_COEFF(R13)
+rejuniform_arm64_fast1_skip3:
+	CMP $3329, R14
+	BHS rejuniform_arm64_fast1_skip4
+	STORE_REJ_COEFF(R14)
+rejuniform_arm64_fast1_skip4:
+	CMP $3329, R15
+	BHS rejuniform_arm64_fast1_skip5
+	STORE_REJ_COEFF(R15)
+rejuniform_arm64_fast1_skip5:
+	CMP $3329, R16
+	BHS rejuniform_arm64_fast1_skip6
+	STORE_REJ_COEFF(R16)
+rejuniform_arm64_fast1_skip6:
+	CMP $3329, R17
+	BHS rejuniform_arm64_fast1_skip7
+	STORE_REJ_COEFF(R17)
+rejuniform_arm64_fast1_skip7:
+	B rejuniform_arm64_done
+
+rejuniform_arm64_loop_setup:
+	MOVD $0, R5
+	MOVD $3329, R25
+
+rejuniform_arm64_loop:
+	CMP R1, R5
+	BGE rejuniform_arm64_done
+
+	ADD R0, R5, R24
+	MOVBU 0(R24), R6
+	MOVBU 1(R24), R7
+	MOVBU 2(R24), R9
+
+	LSL $8, R7, R10
+	ORR R10, R6, R6
+	AND $0x0FFF, R6, R8
+	CMP R25, R8
+	BGE rejuniform_arm64_skip_d1
+	STORE_REJ_COEFF(R8)
+	CMP $256, R3
+	BGE rejuniform_arm64_done
+
+rejuniform_arm64_skip_d1:
+	LSL $8, R9, R10
+	ORR R10, R7, R6
+	LSR $4, R6, R6
+	CMP R25, R6
+	BGE rejuniform_arm64_next
+	STORE_REJ_COEFF(R6)
+	CMP $256, R3
+	BGE rejuniform_arm64_done
+
+rejuniform_arm64_next:
+	ADD $3, R5, R5
+	B rejuniform_arm64_loop
+
+rejuniform_arm64_done:
+	SUB R4, R3, R3
+	MOVD R3, ret+40(FP)
+	RET
+
+// polyAddAssignNEON computes dst[i] = fieldAdd(dst[i], src[i]) for all i in [0, 256).
+// Uses NEON to process 8 int16 values (16 bytes) per iteration.
+TEXT ·polyAddAssignNEON(SB), NOSPLIT, $0-16
+	MOVD dst+0(FP), R0
+	MOVD src+8(FP), R1
+
+	MOVD $3329, R2
+	VDUP R2, V31.H8
+
+	MOVD $8, R2
+
+poly_add_neon_loop:
+	VLD1 (R0), [V0.H8, V1.H8, V2.H8, V3.H8]  // load 64 bytes = 16 coefficients
+	VLD1.P 64(R1), [V4.H8, V5.H8, V6.H8, V7.H8]
+
+	VADD V4.H8, V0.H8, V0.H8
+	VADD V5.H8, V1.H8, V1.H8
+	VADD V6.H8, V2.H8, V2.H8
+	VADD V7.H8, V3.H8, V3.H8
+
+	// reduction
+	WORD   $0x6e7f3c14				  // CMGT.U V20.H8, V0.H8, V31.H8 (V0 >= q ? 0xFFFF : 0)
+	VAND   V31.B16, V20.B16, V20.B16  // q if underflow
+	VSUB   V20.H8, V0.H8, V0.H8       // VA = VA - q if underflow
+
+	WORD   $0x6e7f3c35				  // CMGT.U V21.H8, V1.H8, V31.H8 (V1 >= q ? 0xFFFF : 0)
+	VAND   V31.B16, V21.B16, V21.B16  // q if underflow
+	VSUB   V21.H8, V1.H8, V1.H8       // VA = VA - q if underflow
+
+	WORD   $0x6e7f3c56				  // CMGT.U V22.H8, V2.H8, V31.H8 (V2 >= q ? 0xFFFF : 0)
+	VAND   V31.B16, V22.B16, V22.B16  // q if underflow
+	VSUB   V22.H8, V2.H8, V2.H8       // VA = VA - q if underflow
+
+	WORD   $0x6e7f3c77				  // CMGT.U V23.H8, V3.H8, V31.H8 (V3 >= q ? 0xFFFF : 0)
+	VAND   V31.B16, V23.B16, V23.B16  // q if underflow
+	VSUB   V23.H8, V3.H8, V3.H8       // VA = VA - q if underflow
+
+	VST1.P [V0.H8, V1.H8, V2.H8, V3.H8], 64(R0)
+
+	SUB $1, R2, R2
+	CBNZ R2, poly_add_neon_loop
+
+poly_add_neon_done:
+	RET
+
+// polySubAssignNEON computes dst[i] = fieldSub(dst[i], src[i]) for all i in [0, 256).
+// fieldSub: x = uint16(a - b + q); return fieldReduceOnce(x)
+TEXT ·polySubAssignNEON(SB), NOSPLIT, $0-16
+	MOVD dst+0(FP), R0
+	MOVD src+8(FP), R1
+
+	MOVD $3329, R2
+	VDUP R2, V31.H8
+
+	MOVD $8, R2
+
+poly_sub_neon_loop:
+	VLD1 (R0), [V0.H8, V1.H8, V2.H8, V3.H8]  // load 64 bytes = 16 coefficients
+	VLD1.P 64(R1), [V4.H8, V5.H8, V6.H8, V7.H8]
+
+	VSUB V4.H8, V0.H8, V0.H8
+	VADD V31.H8, V0.H8, V0.H8
+
+	VSUB V5.H8, V1.H8, V1.H8
+	VADD V31.H8, V1.H8, V1.H8
+
+	VSUB V6.H8, V2.H8, V2.H8
+	VADD V31.H8, V2.H8, V2.H8
+
+	VSUB V7.H8, V3.H8, V3.H8
+	VADD V31.H8, V3.H8, V3.H8
+
+	// reduction
+	WORD   $0x6e7f3c14				  // CMGT.U V20.H8, V0.H8, V31.H8 (V0 >= q ? 0xFFFF : 0)
+	VAND   V31.B16, V20.B16, V20.B16  // q if underflow
+	VSUB   V20.H8, V0.H8, V0.H8       // VA = VA - q if underflow
+
+	WORD   $0x6e7f3c35				  // CMGT.U V21.H8, V1.H8, V31.H8 (V1 >= q ? 0xFFFF : 0)
+	VAND   V31.B16, V21.B16, V21.B16  // q if underflow
+	VSUB   V21.H8, V1.H8, V1.H8       // VA = VA - q if underflow
+
+	WORD   $0x6e7f3c56				  // CMGT.U V22.H8, V2.H8, V31.H8 (V2 >= q ? 0xFFFF : 0)
+	VAND   V31.B16, V22.B16, V22.B16  // q if underflow
+	VSUB   V22.H8, V2.H8, V2.H8       // VA = VA - q if underflow
+
+	WORD   $0x6e7f3c77				  // CMGT.U V23.H8, V3.H8, V31.H8 (V3 >= q ? 0xFFFF : 0)
+	VAND   V31.B16, V23.B16, V23.B16  // q if underflow
+	VSUB   V23.H8, V3.H8, V3.H8       // VA = VA - q if underflow
+
+	VST1.P [V0.H8, V1.H8, V2.H8, V3.H8], 64(R0)
+
+	SUB $1, R2, R2
+	CBNZ R2, poly_sub_neon_loop
+
+poly_sub_neon_done:
+	RET
+
+// ringDecodeAndDecompress4NEON computes Decompress_4(ByteDecode_4(b)).
+//
+// Each 4-byte block contains 8 packed 4-bit coefficients. We unpack those
+// nibbles with scalar bit extracts into one NEON vector, then apply the shared
+// 8-lane Decompress_4 arithmetic:
+//   dividend = y * q
+//   out      = (dividend >> 4) + ((dividend >> 3) & 1)
+// func ringDecodeAndDecompress4NEON(b *[encodingSize4]byte, f *ringElement)
+TEXT ·ringDecodeAndDecompress4NEON(SB), NOSPLIT, $0-16
+	MOVD b+0(FP), R0
+	MOVD f+8(FP), R1
+
+	MOVD $3329, R2
+	VDUP R2, V1.H8
+	MOVD $1, R2
+	VDUP R2, V26.S4
+
+	// One ring has 256 coefficients -> 16 iterations of 2 x 8 coefficients.
+	MOVD $16, R5
+
+decode_ring4_neon_loop:
+	MOVWU (R0), R6
+
+	AND $0xF, R6, R10
+	UBFX $4, R6, $4, R11
+	UBFX $8, R6, $4, R12
+	UBFX $12, R6, $4, R13
+	UBFX $16, R6, $4, R14
+	UBFX $20, R6, $4, R15
+	UBFX $24, R6, $4, R16
+	UBFX $28, R6, $4, R17
+
+	ORR R11<<16, R10, R10
+	ORR R12<<32, R10, R10
+	ORR R13<<48, R10, R10
+	VMOV R10, V0.D[0]
+
+	ORR R15<<16, R14, R14
+	ORR R16<<32, R14, R14
+	ORR R17<<48, R14, R14
+	VMOV R14, V0.D[1]
+
+	WORD $0x2E61C016 // UMULL  V22.S4, V0.H4, V1.H4
+	WORD $0x6E61C017 // UMULL2 V23.S4, V0.H8, V1.H8
+
+	VUSHR $3, V22.S4, V24.S4
+	VUSHR $3, V23.S4, V25.S4
+	VAND V26.B16, V24.B16, V24.B16
+	VAND V26.B16, V25.B16, V25.B16
+	VUSHR $4, V22.S4, V22.S4
+	VUSHR $4, V23.S4, V23.S4
+	VADD V24.S4, V22.S4, V22.S4
+	VADD V25.S4, V23.S4, V23.S4
+	VSHL $16, V22.S4, V22.S4
+	VSHL $16, V23.S4, V23.S4
+	WORD $0x0F1086D4 // SHRN  V20.H4, V22.S4, #16
+	WORD $0x4F1086F4 // SHRN2 V20.H8, V23.S4, #16
+
+	MOVWU 4(R0), R6
+
+	AND $0xF, R6, R10
+	UBFX $4, R6, $4, R11
+	UBFX $8, R6, $4, R12
+	UBFX $12, R6, $4, R13
+	UBFX $16, R6, $4, R14
+	UBFX $20, R6, $4, R15
+	UBFX $24, R6, $4, R16
+	UBFX $28, R6, $4, R17
+
+	ORR R11<<16, R10, R10
+	ORR R12<<32, R10, R10
+	ORR R13<<48, R10, R10
+	VMOV R10, V0.D[0]
+
+	ORR R15<<16, R14, R14
+	ORR R16<<32, R14, R14
+	ORR R17<<48, R14, R14
+	VMOV R14, V0.D[1]
+
+	WORD $0x2E61C016 // UMULL  V22.S4, V0.H4, V1.H4
+	WORD $0x6E61C017 // UMULL2 V23.S4, V0.H8, V1.H8
+
+	VUSHR $3, V22.S4, V24.S4
+	VUSHR $3, V23.S4, V25.S4
+	VAND V26.B16, V24.B16, V24.B16
+	VAND V26.B16, V25.B16, V25.B16
+	VUSHR $4, V22.S4, V22.S4
+	VUSHR $4, V23.S4, V23.S4
+	VADD V24.S4, V22.S4, V22.S4
+	VADD V25.S4, V23.S4, V23.S4
+	VSHL $16, V22.S4, V22.S4
+	VSHL $16, V23.S4, V23.S4
+	WORD $0x0F1086D5 // SHRN  V21.H4, V22.S4, #16
+	WORD $0x4F1086F5 // SHRN2 V21.H8, V23.S4, #16
+
+	VST1.P [V20.H8, V21.H8], 32(R1)
+	ADD $8, R0, R0
+	SUB $1, R5, R5
+	CBNZ R5, decode_ring4_neon_loop
+
+	RET
+
+// ringDecodeAndDecompress5NEON computes Decompress_5(ByteDecode_5(b)).
+//
+// Each 5-byte block contains 8 packed 5-bit coefficients. We unpack those
+// values with scalar bit extracts into one NEON vector, then apply the shared
+// 8-lane Decompress_5 arithmetic:
+//   dividend = y * q
+//   out      = (dividend >> 5) + ((dividend >> 4) & 1)
+// func ringDecodeAndDecompress5NEON(b *[encodingSize5]byte, f *ringElement)
+TEXT ·ringDecodeAndDecompress5NEON(SB), NOSPLIT, $0-16
+	MOVD b+0(FP), R0
+	MOVD f+8(FP), R1
+
+	MOVD $3329, R2
+	VDUP R2, V1.H8
+	MOVD $1, R2
+	VDUP R2, V26.S4
+
+	// One ring has 256 coefficients -> 16 iterations of 2 x 8 coefficients.
+	MOVD $16, R5
+
+decode_ring5_neon_loop:
+	MOVWU (R0), R6
+	MOVBU 4(R0), R7
+	MOVD R7, R8
+	LSL $32, R8, R8
+	ORR R8, R6, R6
+
+	UBFX $0, R6, $5, R10
+	UBFX $5, R6, $5, R11
+	UBFX $10, R6, $5, R12
+	UBFX $15, R6, $5, R13
+	UBFX $20, R6, $5, R14
+	UBFX $25, R6, $5, R15
+	UBFX $30, R6, $5, R16
+	UBFX $35, R6, $5, R17
+
+	ORR R11<<16, R10, R10
+	ORR R12<<32, R10, R10
+	ORR R13<<48, R10, R10
+	VMOV R10, V0.D[0]
+
+	ORR R15<<16, R14, R14
+	ORR R16<<32, R14, R14
+	ORR R17<<48, R14, R14
+	VMOV R14, V0.D[1]
+
+	WORD $0x2E61C016 // UMULL  V22.S4, V0.H4, V1.H4
+	WORD $0x6E61C017 // UMULL2 V23.S4, V0.H8, V1.H8
+
+	VUSHR $4, V22.S4, V24.S4
+	VUSHR $4, V23.S4, V25.S4
+	VAND V26.B16, V24.B16, V24.B16
+	VAND V26.B16, V25.B16, V25.B16
+	VUSHR $5, V22.S4, V22.S4
+	VUSHR $5, V23.S4, V23.S4
+	VADD V24.S4, V22.S4, V22.S4
+	VADD V25.S4, V23.S4, V23.S4
+	VSHL $16, V22.S4, V22.S4
+	VSHL $16, V23.S4, V23.S4
+	WORD $0x0F1086D4 // SHRN  V20.H4, V22.S4, #16
+	WORD $0x4F1086F4 // SHRN2 V20.H8, V23.S4, #16
+
+	MOVWU 5(R0), R6
+	MOVBU 9(R0), R7
+	MOVD R7, R8
+	LSL $32, R8, R8
+	ORR R8, R6, R6
+
+	UBFX $0, R6, $5, R10
+	UBFX $5, R6, $5, R11
+	UBFX $10, R6, $5, R12
+	UBFX $15, R6, $5, R13
+	UBFX $20, R6, $5, R14
+	UBFX $25, R6, $5, R15
+	UBFX $30, R6, $5, R16
+	UBFX $35, R6, $5, R17
+
+	ORR R11<<16, R10, R10
+	ORR R12<<32, R10, R10
+	ORR R13<<48, R10, R10
+	VMOV R10, V0.D[0]
+
+	ORR R15<<16, R14, R14
+	ORR R16<<32, R14, R14
+	ORR R17<<48, R14, R14
+	VMOV R14, V0.D[1]
+
+	WORD $0x2E61C016 // UMULL  V22.S4, V0.H4, V1.H4
+	WORD $0x6E61C017 // UMULL2 V23.S4, V0.H8, V1.H8
+
+	VUSHR $4, V22.S4, V24.S4
+	VUSHR $4, V23.S4, V25.S4
+	VAND V26.B16, V24.B16, V24.B16
+	VAND V26.B16, V25.B16, V25.B16
+	VUSHR $5, V22.S4, V22.S4
+	VUSHR $5, V23.S4, V23.S4
+	VADD V24.S4, V22.S4, V22.S4
+	VADD V25.S4, V23.S4, V23.S4
+	VSHL $16, V22.S4, V22.S4
+	VSHL $16, V23.S4, V23.S4
+	WORD $0x0F1086D5 // SHRN  V21.H4, V22.S4, #16
+	WORD $0x4F1086F5 // SHRN2 V21.H8, V23.S4, #16
+
+	VST1.P [V20.H8, V21.H8], 32(R1)
+	ADD $10, R0, R0
+	SUB $1, R5, R5
+	CBNZ R5, decode_ring5_neon_loop
+
+	RET
+
+// ringCompressAndEncode4NEON computes ByteEncode_4(Compress_4(f)).
+// It keeps the same 8-lane compress core and uses vector packing for c0..c7.
+// func ringCompressAndEncode4NEON(out []byte, f *ringElement)
+TEXT ·ringCompressAndEncode4NEON(SB), NOSPLIT, $0-32
+	MOVD out_base+0(FP), R0
+	MOVD f+24(FP), R1
+
+	// Setup constants for compress core.
+	MOVD $20159, R2
+	VDUP R2, V1.H8
+	MOVD $32, R2
+	VDUP R2, V23.S4
+	MOVD $0x0f, R2
+	VDUP R2, V24.S4
+
+	MOVD $32, R2
+
+compress_encode4_neon_vec_loop:
+	VLD1.P 16(R1), [V0.H8]
+
+	WORD $0x2E61C015 // UMULL V21.S4, V0.H4, V1.H4
+	WORD $0x6E61C016 // UMULL2 V22.S4, V0.H8, V1.H8
+
+	VUSHR $16, V21.S4, V21.S4
+	VUSHR $16, V22.S4, V22.S4
+	VADD V23.S4, V21.S4, V21.S4
+	VADD V23.S4, V22.S4, V22.S4
+	VUSHR $6, V21.S4, V21.S4
+	VUSHR $6, V22.S4, V22.S4
+	VAND V24.B16, V21.B16, V21.B16
+	VAND V24.B16, V22.B16, V22.B16
+
+	VSHL $16, V21.S4, V21.S4
+	VSHL $16, V22.S4, V22.S4
+	WORD $0x0F1086B5 // SHRN  V21.H4, V21.S4, #16
+	WORD $0x4F1086D5 // SHRN2 V21.H8, V22.S4, #16
+
+	// Pair odd/even lanes into packed bytes in H lanes.
+	VUZP1 V21.H8, V21.H8, V25.H8
+	VUZP2 V21.H8, V21.H8, V26.H8
+	VSHL $4, V26.H8, V26.H8
+	VORR V26.B16, V25.B16, V25.B16
+
+	// Extract packed bytes from low bytes of H lanes and store 4-byte word.
+	VMOV V25.D[0], R11
+	UBFX $0, R11, $8, R12
+	UBFX $16, R11, $8, R13
+	UBFX $32, R11, $8, R14
+	UBFX $48, R11, $8, R15
+	ORR R13<<8, R12, R12
+	ORR R15<<8, R14, R14
+	ORR R14<<16, R12, R12
+	MOVW R12, (R0)
+	ADD $4, R0
+
+	SUB $1, R2, R2
+	CBNZ R2, compress_encode4_neon_vec_loop
+
+	RET
+
+// ringCompressAndEncode5NEON computes ByteEncode_5(Compress_5(f)).
+// It reuses the same 8-lane compress core and packs each c0..c7 block to 5 bytes.
+// func ringCompressAndEncode5NEON(out []byte, f *ringElement)
+TEXT ·ringCompressAndEncode5NEON(SB), NOSPLIT, $0-32
+	MOVD out_base+0(FP), R0
+	MOVD f+24(FP), R1
+
+	// Setup constants for compress core.
+	MOVD $20159, R2
+	VDUP R2, V1.H8
+	MOVD $16, R2
+	VDUP R2, V23.S4
+	MOVD $0x1f, R2
+	VDUP R2, V24.S4
+
+	MOVD $32, R2
+
+compress_encode5_neon_loop:
+	VLD1.P 16(R1), [V0.H8]
+
+	WORD $0x2E61C015 // UMULL V21.S4, V0.H4, V1.H4
+	WORD $0x6E61C016 // UMULL2 V22.S4, V0.H8, V1.H8
+
+	VUSHR $16, V21.S4, V21.S4
+	VUSHR $16, V22.S4, V22.S4
+	VADD V23.S4, V21.S4, V21.S4
+	VADD V23.S4, V22.S4, V22.S4
+	VUSHR $5, V21.S4, V21.S4
+	VUSHR $5, V22.S4, V22.S4
+	VAND V24.B16, V21.B16, V21.B16
+	VAND V24.B16, V22.B16, V22.B16
+
+	VSHL $16, V21.S4, V21.S4
+	VSHL $16, V22.S4, V22.S4
+	WORD $0x0F1086B5 // SHRN  V21.H4, V21.S4, #16
+	WORD $0x4F1086D5 // SHRN2 V21.H8, V22.S4, #16
+
+	// Vector-pack adjacent pairs: p0=c0|(c1<<5), ..., p3=c6|(c7<<5).
+	VUZP1 V21.H8, V21.H8, V25.H8
+	VUZP2 V21.H8, V21.H8, V26.H8
+	VSHL $5, V26.H8, V26.H8
+	VORR V26.B16, V25.B16, V25.B16
+
+	// Extract the four 10-bit pairs from low H lanes.
+	VMOV V25.D[0], R11
+	UBFX $0, R11, $10, R12
+	UBFX $16, R11, $10, R13
+	UBFX $32, R11, $10, R14
+	UBFX $48, R11, $10, R15
+
+	// Pack p0..p3 into 5 output bytes in generic ByteEncode_5 order.
+	MOVB R12, (R0)
+
+	UBFX $8, R12, $2, R21
+	ORR R13<<2, R21, R21
+	MOVB R21, 1(R0)
+
+	UBFX $6, R13, $4, R21
+	ORR R14<<4, R21, R21
+	MOVB R21, 2(R0)
+
+	UBFX $4, R14, $6, R21
+	ORR R15<<6, R21, R21
+	MOVB R21, 3(R0)
+
+	LSR $2, R15, R21
+	MOVB R21, 4(R0)
+	ADD $5, R0
+
+	SUB $1, R2, R2
+	CBNZ R2, compress_encode5_neon_loop
+
+	RET
+
+// COMPRESS_SCALAR computes one lane of Compress_d(x) for d in {10, 11}.
+//
+// Generic definition:
+//   c = round((x * 2^d) / q) mod 2^d, where q = 3329.
+//
+// This implementation uses a multiply-high approximation that is exact for
+// ML-KEM input range x in [0, 3328] when d is 10 or 11:
+//   n = (x << d) + 1664
+//   c = (n * 1290168) >> 32
+//   c &= (1<<d) - 1
+//
+// Magic numbers:
+//   1664    = floor(q/2), for round-to-nearest with half-up behavior.
+//   1290168 = ceil(2^32 / q), reciprocal multiplier for divide-by-q via MULH.
+//   MASK    = (1<<d)-1, i.e. 0x3FF for d=10 and 0x7FF for d=11.
+#define COMPRESS_SCALAR(RIN, SHIFT, MASK, ROUT, RTMP1) \
+	LSL $SHIFT, RIN, RTMP1                               \
+	ADD $1664, RTMP1, RTMP1                              \
+	MUL R24, RTMP1, ROUT                                 \
+	LSR $32, ROUT, ROUT                                  \
+	AND $MASK, ROUT, ROUT
+
+// ringCompressAndEncode10NEON computes ByteEncode_10(Compress_10(f)).
+// It processes 8 coefficients per loop and emits two 5-byte groups.
+//
+// Compress_10 lane formula (same as generic path):
+//   c = round((x * 2^10) / q) mod 2^10, q=3329
+// Implemented here as exact reciprocal multiply-high on x in [0,3328]:
+//   n = (x << 10) + 1664
+//   c = (n * 1290168) >> 32
+//   c &= 0x3FF
+//
+// Magic numbers:
+//   1664    = floor(q/2), for round-to-nearest (half-up).
+//   1290168 = ceil(2^32 / q), reciprocal for divide-by-q via mul-high.
+//
+// Packing note:
+//   ByteEncode_10 remains scalar-packed here. A prior partial VZIP reorder did
+//   not reduce scalar/GPR crossings and can regress performance.
+// func ringCompressAndEncode10NEON(out []byte, f *ringElement)
+TEXT ·ringCompressAndEncode10NEON(SB), NOSPLIT, $0-32
+	MOVD out_base+0(FP), R0
+	MOVD f+24(FP), R1
+
+	MOVD $1290168, R24
+	VDUP R24, V1.S4
+	MOVD $1664, R24
+	VDUP R24, V2.S4
+	MOVD $0xFFFF, R24
+	VDUP R24, V3.S4
+	MOVD $0x3FF, R24
+	VDUP R24, V4.S4
+	MOVD $32, R2
+
+compress_encode10_neon_loop:
+	VLD1.P 16(R1), [V0.H8]
+
+	// Split 8xuint16 coefficients into even/odd 32-bit lanes.
+	VAND V3.B16, V0.B16, V20.B16
+	VUSHR $16, V0.S4, V21.S4
+	VAND V3.B16, V21.B16, V21.B16
+
+	// even lanes: c0,c2,c4,c6
+	VSHL $10, V20.S4, V20.S4
+	VADD V2.S4, V20.S4, V20.S4
+	WORD $0x2EA1C296 // VUMULL  V1.S2, V20.S2, V22.D2
+	WORD $0x6EA1C297 // VUMULL2 V1.S4, V20.S4, V23.D2
+	VUSHR $32, V22.D2, V22.D2
+	VUSHR $32, V23.D2, V23.D2
+
+	// odd lanes: c1,c3,c5,c7
+	VSHL $10, V21.S4, V21.S4
+	VADD V2.S4, V21.S4, V21.S4
+	WORD $0x2EA1C2B8 // VUMULL  V1.S2, V21.S2, V24.D2
+	WORD $0x6EA1C2B9 // VUMULL2 V1.S4, V21.S4, V25.D2
+	VUSHR $32, V24.D2, V24.D2
+	VUSHR $32, V25.D2, V25.D2
+	VAND V4.B16, V22.B16, V22.B16
+	VAND V4.B16, V23.B16, V23.B16
+	VAND V4.B16, V24.B16, V24.B16
+	VAND V4.B16, V25.B16, V25.B16
+
+	// Reorder to c0..c7 for ByteEncode_10 packing.
+	VMOV V22.D[0], R10
+	VMOV V24.D[0], R11
+	VMOV V22.D[1], R12
+	VMOV V24.D[1], R13
+	VMOV V23.D[0], R14
+	VMOV V25.D[0], R15
+	VMOV V23.D[1], R16
+	VMOV V25.D[1], R17
+
+	ORR R11<<10, R10, R21
+	ORR R12<<20, R21, R21
+	ORR R13<<30, R21, R21
+	MOVW R21, (R0)
+	LSR $32, R21, R22
+	MOVB R22, 4(R0)
+
+	ORR R15<<10, R14, R23
+	ORR R16<<20, R23, R23
+	ORR R17<<30, R23, R23
+	MOVW R23, 5(R0)
+	LSR $32, R23, R22
+	MOVB R22, 9(R0)
+	ADD $10, R0
+
+	SUB $1, R2, R2
+	CBNZ R2, compress_encode10_neon_loop
+
+	RET
+
+// ringCompressAndEncode11NEON computes ByteEncode_11(Compress_11(f)).
+// It processes 8 coefficients per loop and emits one 11-byte block.
+//
+// Compress_11 lane formula (same as generic path):
+//   c = round((x * 2^11) / q) mod 2^11, q=3329
+// Implemented here as exact reciprocal multiply-high on x in [0,3328]:
+//   n = (x << 11) + 1664
+//   c = (n * 1290168) >> 32
+//   c &= 0x7FF
+//
+// Magic numbers:
+//   1664    = floor(q/2), for round-to-nearest (half-up).
+//   1290168 = ceil(2^32 / q), reciprocal for divide-by-q via mul-high.
+//
+// Packing note:
+//   ByteEncode_11 remains scalar-packed here. A prior partial VZIP reorder did
+//   not reduce scalar/GPR crossings and can regress performance.
+// func ringCompressAndEncode11NEON(out []byte, f *ringElement)
+TEXT ·ringCompressAndEncode11NEON(SB), NOSPLIT, $0-32
+	MOVD out_base+0(FP), R0
+	MOVD f+24(FP), R1
+
+	MOVD $1290168, R24
+	VDUP R24, V1.S4
+	MOVD $1664, R24
+	VDUP R24, V2.S4
+	MOVD $0xFFFF, R24
+	VDUP R24, V3.S4
+	MOVD $0x7FF, R24
+	VDUP R24, V4.S4
+	MOVD $32, R2
+
+compress_encode11_neon_loop:
+	VLD1.P 16(R1), [V0.H8]
+
+	// Split 8xuint16 coefficients into even/odd 32-bit lanes.
+	VAND V3.B16, V0.B16, V20.B16
+	VUSHR $16, V0.S4, V21.S4
+	VAND V3.B16, V21.B16, V21.B16
+
+	// even lanes: c0,c2,c4,c6
+	VSHL $11, V20.S4, V20.S4
+	VADD V2.S4, V20.S4, V20.S4
+	WORD $0x2EA1C296 // VUMULL  V1.S2, V20.S2, V22.D2
+	WORD $0x6EA1C297 // VUMULL2 V1.S4, V20.S4, V23.D2
+	VUSHR $32, V22.D2, V22.D2
+	VUSHR $32, V23.D2, V23.D2
+
+	// odd lanes: c1,c3,c5,c7
+	VSHL $11, V21.S4, V21.S4
+	VADD V2.S4, V21.S4, V21.S4
+	WORD $0x2EA1C2B8 // VUMULL  V1.S2, V21.S2, V24.D2
+	WORD $0x6EA1C2B9 // VUMULL2 V1.S4, V21.S4, V25.D2
+	VUSHR $32, V24.D2, V24.D2
+	VUSHR $32, V25.D2, V25.D2
+	VAND V4.B16, V22.B16, V22.B16
+	VAND V4.B16, V23.B16, V23.B16
+	VAND V4.B16, V24.B16, V24.B16
+	VAND V4.B16, V25.B16, V25.B16
+
+	// Reorder to c0..c7 for ByteEncode_11 packing.
+	VMOV V22.D[0], R10
+	VMOV V24.D[0], R11
+	VMOV V22.D[1], R12
+	VMOV V24.D[1], R13
+	VMOV V23.D[0], R14
+	VMOV V25.D[0], R15
+	VMOV V23.D[1], R16
+	VMOV V25.D[1], R17
+
+	ORR R11<<11, R10, R21
+	ORR R12<<22, R21, R21
+	ORR R13<<33, R21, R21
+
+	ORR R15<<11, R14, R23
+	ORR R16<<22, R23, R23
+	ORR R17<<33, R23, R23
+
+	MOVW R21, (R0)
+	LSR $32, R21, R22
+	MOVB R22, 4(R0)
+
+	LSR $40, R21, R22
+	ORR R23<<4, R22, R22
+	MOVB R22, 5(R0)
+
+	LSR $4, R23, R22
+	MOVW R22, 6(R0)
+	LSR $36, R23, R22
+	MOVB R22, 10(R0)
+	ADD $11, R0
+
+	SUB $1, R2, R2
+	CBNZ R2, compress_encode11_neon_loop
+
+	RET
+
+// ringCompressAndEncode1NEON computes ByteEncode_1(Compress_1(f)).
+//
+// For each coefficient x in [0, q):
+//   compress(x, 1) = 1 if 833 <= x <= 2496, else 0.
+//
+// Vector strategy (32 coefficients -> 4 bytes per iteration, 8 iterations total):
+// 1) Load 4 x 8 coefficients into V0-V3.H8 (64 bytes).
+// 2) CMHS twice per register (cmgt_u_eq_8h_opcode = unsigned >=) to identify range.
+// 3) BIC per register: V20..V23 = 0xFFFF where 833 <= x <= 2496.
+// 4) VUSHR $15: convert to 0x0001/0x0000 per lane.
+// 5) MUL by bit-position weights {1,2,4,8,16,32,64,128}.
+// 6) ADDV: sum all 8 lanes into H20..H23 (four output bytes).
+// 7) Extract byte 0 from each, pack into 32-bit word, store 4 bytes.
+//
+// Register allocation (setup once, outside loop):
+//   V27.H8 = {1, 2, 4, 8, 16, 32, 64, 128}  bit-position weights
+//   V28.H8 = broadcast(833)  lower threshold (CMHS: x >= 833)
+//   V29.H8 = broadcast(2497) upper threshold (CMHS: x >= 2497 means x out of range)
+//
+// func ringCompressAndEncode1NEON(out []byte, f *ringElement)
+TEXT ·ringCompressAndEncode1NEON(SB), NOSPLIT, $0-32
+	MOVD out_base+0(FP), R0
+	MOVD f+24(FP), R1
+
+	// V28 = broadcast(833): compress=1 when x >= 833 (CMHS semantics)
+	MOVD $833, R2
+	VDUP R2, V28.H8
+
+	// V29 = broadcast(2497): compress=0 when x >= 2497 (CMHS semantics)
+	MOVD $2497, R2
+	VDUP R2, V29.H8
+
+	// V27 = {1, 2, 4, 8, 16, 32, 64, 128}: bit-position weights for packing.
+	// Low 64 bits (lanes 0-3): 0x0008_0004_0002_0001 (little-endian halfwords)
+	// High 64 bits (lanes 4-7): low << 4 = 0x0080_0040_0020_0010
+	MOVD $0x0008000400020001, R2
+	VMOV R2, V27.D[0]
+	LSL  $4, R2, R2
+	VMOV R2, V27.D[1]
+
+	MOVD $8, R2   // 8 iterations: 32 coefficients each -> 256 total -> 32 bytes
+
+compress_encode1_neon_loop:
+	// Load 32 coefficients as 4 x 8 halfwords (64 bytes)
+	VLD1.P 64(R1), [V0.H8, V1.H8, V2.H8, V3.H8]
+
+	// V20 = (V0 >= 833) AND NOT (V0 >= 2497) = 0xFFFF where compress(coeff)=1
+	WORD $0x6E7C3C14   // CMHS V20.H8, V0.H8, V28.H8  (vd=20, vn=0,  vm=28)
+	WORD $0x6E7D3C15   // CMHS V21.H8, V0.H8, V29.H8  (vd=21, vn=0,  vm=29)
+	WORD $0x4E751E94   // BIC  V20.B16, V20.B16, V21.B16
+
+	// V21 = (V1 >= 833) AND NOT (V1 >= 2497)
+	WORD $0x6E7C3C35   // CMHS V21.H8, V1.H8, V28.H8  (vd=21, vn=1,  vm=28)
+	WORD $0x6E7D3C36   // CMHS V22.H8, V1.H8, V29.H8  (vd=22, vn=1,  vm=29)
+	WORD $0x4E761EB5   // BIC  V21.B16, V21.B16, V22.B16
+
+	// V22 = (V2 >= 833) AND NOT (V2 >= 2497)
+	WORD $0x6E7C3C56   // CMHS V22.H8, V2.H8, V28.H8  (vd=22, vn=2,  vm=28)
+	WORD $0x6E7D3C57   // CMHS V23.H8, V2.H8, V29.H8  (vd=23, vn=2,  vm=29)
+	WORD $0x4E771ED6   // BIC  V22.B16, V22.B16, V23.B16
+
+	// V23 = (V3 >= 833) AND NOT (V3 >= 2497)
+	WORD $0x6E7C3C77   // CMHS V23.H8, V3.H8, V28.H8  (vd=23, vn=3,  vm=28)
+	WORD $0x6E7D3C78   // CMHS V24.H8, V3.H8, V29.H8  (vd=24, vn=3,  vm=29)
+	WORD $0x4E781EF7   // BIC  V23.B16, V23.B16, V24.B16
+
+	// Convert 0xFFFF/0x0000 to 0x0001/0x0000 in all four registers
+	VUSHR $15, V20.H8, V20.H8
+	VUSHR $15, V21.H8, V21.H8
+	VUSHR $15, V22.H8, V22.H8
+	VUSHR $15, V23.H8, V23.H8
+
+	// Multiply by bit-position weights {1,2,4,8,16,32,64,128}
+	WORD $0x4E7B9E94   // MUL V20.H8, V20.H8, V27.H8  (vd=20, vn=20, vm=27)
+	WORD $0x4E7B9EB5   // MUL V21.H8, V21.H8, V27.H8  (vd=21, vn=21, vm=27)
+	WORD $0x4E7B9ED6   // MUL V22.H8, V22.H8, V27.H8  (vd=22, vn=22, vm=27)
+	WORD $0x4E7B9EF7   // MUL V23.H8, V23.H8, V27.H8  (vd=23, vn=23, vm=27)
+
+	// Sum all 8 weighted lanes: output byte in H20..H23 (= byte[0] of V20..V23)
+	WORD $0x4E71BA94   // ADDV H20, V20.8H  (vd=20, vn=20)
+	WORD $0x4E71BAB5   // ADDV H21, V21.8H  (vd=21, vn=21)
+	WORD $0x4E71BAD6   // ADDV H22, V22.8H  (vd=22, vn=22)
+	WORD $0x4E71BAF7   // ADDV H23, V23.8H  (vd=23, vn=23)
+
+	// Extract byte 0 from each halfword result (sum <= 255, so byte[0] is the full result)
+	VMOV V20.B[0], R10
+	VMOV V21.B[0], R11
+	VMOV V22.B[0], R12
+	VMOV V23.B[0], R13
+
+	// Pack 4 bytes into a 32-bit word and store
+	ORR R11<<8,  R10, R10
+	ORR R12<<16, R10, R10
+	ORR R13<<24, R10, R10
+	MOVW R10, (R0)
+	ADD $4, R0
+
+	SUB $1, R2, R2
+	CBNZ R2, compress_encode1_neon_loop
+
 	RET

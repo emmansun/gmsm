@@ -222,8 +222,12 @@ func kemKeyGen1024(dk *DecapsulationKey1024, d, z *[32]byte) {
 	}
 
 	H := sha3.New256()
-	ek := dk.EncapsulationKey().Bytes()
-	H.Write(ek)
+	var encoded [encodingSize12]byte
+	for i := range dk.t {
+		polyByteEncodeTo(&encoded, dk.t[i])
+		H.Write(encoded[:])
+	}
+	H.Write(dk.ρ[:])
 	H.Sum(dk.h[:0])
 }
 
@@ -331,7 +335,8 @@ func pkeEncrypt1024(cc *[CiphertextSize1024]byte, ex *encryptionKey1024, m *[mes
 			// Note that i and j are inverted, as we need the transposed of A.
 			nttMulAcc(&uHat, &ex.a[j*k1024+i], &r[j])
 		}
-		u[i] = polyAdd(e1[i], inverseNTT(uHat))
+		u[i] = inverseNTT(uHat)
+		polyAddAssign(&u[i], &e1[i])
 	}
 
 	μ := ringDecodeAndDecompress1(m)
@@ -341,13 +346,15 @@ func pkeEncrypt1024(cc *[CiphertextSize1024]byte, ex *encryptionKey1024, m *[mes
 	for i := 1; i < k1024; i++ {
 		nttMulAcc(&vNTT, &ex.t[i], &r[i])
 	}
-	v := polyAdd(polyAdd(inverseNTT(vNTT), e2), μ)
+	v := inverseNTT(vNTT)
+	polyAddAssign(&v, &e2)
+	polyAddAssign(&v, &μ)
 
 	c := cc[:0]
 	for _, f := range u {
-		c = ringCompressAndEncode11(c, f)
+		c = ringCompressAndEncode11(c, &f)
 	}
-	c = ringCompressAndEncode5(c, v)
+	c = ringCompressAndEncode5(c, &v)
 
 	return c
 }
@@ -407,7 +414,8 @@ func pkeDecrypt1024(dx *decryptionKey1024, c *[CiphertextSize1024]byte) []byte {
 		nttU := ntt(u[i])
 		nttMulAcc(&mask, &dx.s[i], &nttU)
 	}
-	w := polySub(v, inverseNTT(mask))
+	maskRing := inverseNTT(mask)
+	polySubAssign(&v, &maskRing)
 
-	return ringCompressAndEncode1(nil, w)
+	return ringCompressAndEncode1(nil, &v)
 }

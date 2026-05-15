@@ -419,3 +419,44 @@ func BenchmarkUseHintPolyArm64(b *testing.B) {
 		benchmarkHintArm64Sink = out
 	})
 }
+
+func BenchmarkMakeHintPolyArm64(b *testing.B) {
+	ct0 := randomRingElement()
+	cs2 := randomRingElement()
+	w := randomRingElement()
+	var out ringElement
+
+	b.ReportAllocs()
+
+	b.Run("gamma32/generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for j := range n {
+				out[j] = makeHint(ct0[j], cs2[j], w[j], gamma2QMinus1Div32)
+			}
+		}
+		benchmarkHintArm64Sink = out
+	})
+
+	b.Run("gamma32/arm64-asm", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			makeHintPolyGamma32NEON(&ct0[0], &cs2[0], &w[0], &out[0])
+		}
+		benchmarkHintArm64Sink = out
+	})
+
+	b.Run("gamma88/generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for j := range n {
+				out[j] = makeHint(ct0[j], cs2[j], w[j], gamma2QMinus1Div88)
+			}
+		}
+		benchmarkHintArm64Sink = out
+	})
+
+	b.Run("gamma88/arm64-asm", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			makeHintPolyGamma88NEON(&ct0[0], &cs2[0], &w[0], &out[0])
+		}
+		benchmarkHintArm64Sink = out
+	})
+}

@@ -52,6 +52,9 @@ func nttMulNEON(lhs, rhs, out *nttElement)
 func nttMulAccNEON(lhs, rhs, out *nttElement)
 
 //go:noescape
+func nttMatRowVecMulNEON(dst, vec, matRow *nttElement, len int)
+
+//go:noescape
 func internalNTTNEON(f *ringElement)
 
 //go:noescape
@@ -81,12 +84,22 @@ func useHintPolyGamma32ARM64(h, r, out *fieldElement)
 //go:noescape
 func useHintPolyGamma88ARM64(h, r, out *fieldElement)
 
+//go:noescape
+func makeHintPolyGamma32NEON(ct0, cs2, w, hint *fieldElement)
+
+//go:noescape
+func makeHintPolyGamma88NEON(ct0, cs2, w, hint *fieldElement)
+
 func nttMul(out, lhs, rhs *nttElement) {
 	nttMulNEON(lhs, rhs, out)
 }
 
 func nttMulAcc(acc, lhs, rhs *nttElement) {
 	nttMulAccNEON(lhs, rhs, acc)
+}
+
+func nttMatRowVecMul(dst, vec, matRow *nttElement, len int) {
+	nttMatRowVecMulNEON(dst, vec, matRow, len)
 }
 
 func polyAddAssign[T ~[n]fieldElement](dst, src *T) {
@@ -126,6 +139,21 @@ func useHintPoly(dst, h, r *ringElement, gamma2 uint32) {
 		useHintPolyGamma88ARM64(&(*h)[0], &(*r)[0], &(*dst)[0])
 	default:
 		useHintPolyGeneric(dst, h, r, gamma2)
+	}
+}
+
+func vectorMakeHint(ct0, cs2, w, hint []ringElement, gamma2 uint32) {
+	switch gamma2 {
+	case gamma2QMinus1Div32:
+		for i := range ct0 {
+			makeHintPolyGamma32NEON(&ct0[i][0], &cs2[i][0], &w[i][0], &hint[i][0])
+		}
+	case gamma2QMinus1Div88:
+		for i := range ct0 {
+			makeHintPolyGamma88NEON(&ct0[i][0], &cs2[i][0], &w[i][0], &hint[i][0])
+		}
+	default:
+		vectorMakeHintGeneric(ct0, cs2, w, hint, gamma2)
 	}
 }
 

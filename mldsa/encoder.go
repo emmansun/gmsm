@@ -52,66 +52,36 @@ func simpleBitUnpack10Bits(b []byte, f *ringElement) {
 	}
 }
 
-// simpleBitPack4Bits encodes a polynomial into a byte string, assuming that all coefficients are
-// in the range 0..15 (4 bits).
-//
-// See FIPS 204, Algorithm 16, SimpleBitPack(w, b) where b = 4 bits
-//
-// i.e. Use 4 bits from each coefficient and pack them into bytes
-// So every 2 coefficients fit into 1 byte.
-//
-// This is used to encode w1 when signing with ML-DSA-65 and ML-DSA-87
-func simpleBitPack4Bits(s []byte, f *ringElement) []byte {
-	s, b := alias.SliceForAppend(s, encodingSize4)
+func simpleBitPack4BitsGeneric(dst []byte, f *ringElement) {
 	for i := 0; i < n; i += 2 {
-		b[0] = uint8(f[i]) | (uint8(f[i+1]) << 4)
-		b = b[1:]
+		dst[0] = uint8(f[i]) | (uint8(f[i+1]) << 4)
+		dst = dst[1:]
 	}
-	return s
 }
 
-// simpleBitPack6Bits encodes a polynomial into a byte string, assuming that all coefficients are
-// in the range 0..43 (6 bits).
-//
-// See FIPS 204, Algorithm 16, SimpleBitPack(w, b) where b = 43
-//
-// i.e. Use 6 bits from each coefficient and pack them into bytes
-// So every 4 coefficients fit into 3 bytes.
-//
-//	|c0||c1||c2||c3|
-//	 |  /|  /\  /
-//	|6 2|4 4|2 6|
-//
-// This is used to encode w1 when signing with ML-DSA-44
-func simpleBitPack6Bits(s []byte, f *ringElement) []byte {
-	s, b := alias.SliceForAppend(s, encodingSize6)
+func simpleBitPack6BitsGeneric(dst []byte, f *ringElement) {
 	for i := 0; i < n; i += 4 {
 		var x uint64
 		x = uint64(f[i])
 		x |= uint64(f[i+1]) << 6
 		x |= uint64(f[i+2]) << 12
 		x |= uint64(f[i+3]) << 18
-		b[2] = uint8(x >> 16)
-		b[0] = uint8(x)
-		b[1] = uint8(x >> 8)
+		dst[2] = uint8(x >> 16)
+		dst[0] = uint8(x)
+		dst[1] = uint8(x >> 8)
 
-		b = b[3:]
+		dst = dst[3:]
 	}
-	return s
 }
 
-// simpleBitPack4BitsHighBits packs HighBits(f, gamma2) directly into dst.
-// dst must be exactly encodingSize4 bytes.
-func simpleBitPack4BitsHighBits(dst []byte, f *ringElement, gamma2 uint32) {
+func simpleBitPack4BitsHighBitsGeneric(dst []byte, f *ringElement, gamma2 uint32) {
 	for i := 0; i < n; i += 2 {
 		dst[0] = uint8(compressHighBits(f[i], gamma2)) | (uint8(compressHighBits(f[i+1], gamma2)) << 4)
 		dst = dst[1:]
 	}
 }
 
-// simpleBitPack6BitsHighBits packs HighBits(f, gamma2) directly into dst.
-// dst must be exactly encodingSize6 bytes.
-func simpleBitPack6BitsHighBits(dst []byte, f *ringElement, gamma2 uint32) {
+func simpleBitPack6BitsHighBitsGeneric(dst []byte, f *ringElement, gamma2 uint32) {
 	for i := 0; i < n; i += 4 {
 		var x uint64
 		x = uint64(compressHighBits(f[i], gamma2))
@@ -125,6 +95,86 @@ func simpleBitPack6BitsHighBits(dst []byte, f *ringElement, gamma2 uint32) {
 	}
 }
 
+func bitPackSignedTwoPower17Generic(dst []byte, f *ringElement) {
+	const r = 131072 // 2^17
+	for i := 0; i < n; i += 4 {
+		var x1, x2 uint64
+		x1 = uint64(fieldSub(r, f[i]))
+		x1 |= uint64(fieldSub(r, f[i+1])) << 18
+		x1 |= uint64(fieldSub(r, f[i+2])) << 36
+		x2 = uint64(fieldSub(r, f[i+3]))
+		x1 |= x2 << 54
+		x2 >>= 10
+
+		dst[8] = uint8(x2)
+		dst[0] = uint8(x1)
+		dst[1] = uint8(x1 >> 8)
+		dst[2] = uint8(x1 >> 16)
+		dst[3] = uint8(x1 >> 24)
+		dst[4] = uint8(x1 >> 32)
+		dst[5] = uint8(x1 >> 40)
+		dst[6] = uint8(x1 >> 48)
+		dst[7] = uint8(x1 >> 56)
+		dst = dst[9:]
+	}
+}
+
+func bitPackSignedTwoPower19Generic(dst []byte, f *ringElement) {
+	const r = 524288 // 2^19
+	for i := 0; i < n; i += 4 {
+		var x1, x2 uint64
+		x1 = uint64(fieldSub(r, f[i]))
+		x1 |= uint64(fieldSub(r, f[i+1])) << 20
+		x1 |= uint64(fieldSub(r, f[i+2])) << 40
+		x2 = uint64(fieldSub(r, f[i+3]))
+		x1 |= x2 << 60
+		x2 >>= 4
+
+		dst[9] = uint8(x2 >> 8)
+		dst[8] = uint8(x2)
+		dst[0] = uint8(x1)
+		dst[1] = uint8(x1 >> 8)
+		dst[2] = uint8(x1 >> 16)
+		dst[3] = uint8(x1 >> 24)
+		dst[4] = uint8(x1 >> 32)
+		dst[5] = uint8(x1 >> 40)
+		dst[6] = uint8(x1 >> 48)
+		dst[7] = uint8(x1 >> 56)
+		dst = dst[10:]
+	}
+}
+
+// bitUnpackSignedTwoPower17Generic decodes a byte slice into a polynomial f
+func bitUnpackSignedTwoPower17Generic(b []byte, f *ringElement) {
+	const bitsMask = 0x3FFFF // 2^18-1
+	const r = 131072         // 2^17
+	for i := 0; i < n; i += 4 {
+		x2 := uint64(b[8])
+		x1 := uint64(b[0]) | (uint64(b[1]) << 8) | (uint64(b[2]) << 16) | (uint64(b[3]) << 24) | (uint64(b[4]) << 32) | (uint64(b[5]) << 40) | (uint64(b[6]) << 48) | (uint64(b[7]) << 56)
+		b = b[9:]
+
+		f[i] = fieldSub(r, fieldElement(x1&bitsMask))
+		f[i+1] = fieldSub(r, fieldElement((x1>>18)&bitsMask))
+		f[i+2] = fieldSub(r, fieldElement((x1>>36)&bitsMask))
+		f[i+3] = fieldSub(r, fieldElement((x1>>54 | (x2 << 10 & bitsMask))))
+	}
+}
+
+// bitUnpackSignedTwoPower19Generic decodes a byte slice into a polynomial f
+func bitUnpackSignedTwoPower19Generic(b []byte, f *ringElement) {
+	const bitsMask = 0xFFFFF // 2^20-1
+	const r = 524288         // 2^19
+	for i := 0; i < n; i += 4 {
+		x2 := (uint64(b[9]) << 8) | uint64(b[8])
+		x1 := uint64(b[0]) | (uint64(b[1]) << 8) | (uint64(b[2]) << 16) | (uint64(b[3]) << 24) | (uint64(b[4]) << 32) | (uint64(b[5]) << 40) | (uint64(b[6]) << 48) | (uint64(b[7]) << 56)
+
+		b = b[10:]
+		f[i] = fieldSub(r, fieldElement(x1&bitsMask))
+		f[i+1] = fieldSub(r, fieldElement((x1>>20)&bitsMask))
+		f[i+2] = fieldSub(r, fieldElement((x1>>40)&bitsMask))
+		f[i+3] = fieldSub(r, fieldElement((x1>>60 | (x2 << 4 & bitsMask))))
+	}
+}
 // bitPackSigned2 encodes a polynomial f into a byte slice, assuming that all
 // coefficients are in the range -2..2.
 // See FIPS 204, Algorithm 17, BitPack(w, a, b). where a = b = 2.
@@ -314,49 +364,12 @@ func bitUnpackSigned4096(b []byte, f *ringElement) error {
 //	|   |\  |  | \
 //
 // |18 14|4 18 10| 8
-func bitPackSignedTwoPower17(s []byte, f ringElement) []byte {
-	const r = 131072 // 2^17
-	s, b := alias.SliceForAppend(s, encodingSize18)
-	for i := 0; i < n; i += 4 {
-		var x1, x2 uint64
-		x1 = uint64(fieldSub(r, f[i]))
-		x1 |= uint64(fieldSub(r, f[i+1])) << 18
-		x1 |= uint64(fieldSub(r, f[i+2])) << 36
-		x2 = uint64(fieldSub(r, f[i+3]))
-		x1 |= x2 << 54
-		x2 >>= 10
 
-		b[8] = uint8(x2)
-		b[0] = uint8(x1)
-		b[1] = uint8(x1 >> 8)
-		b[2] = uint8(x1 >> 16)
-		b[3] = uint8(x1 >> 24)
-		b[4] = uint8(x1 >> 32)
-		b[5] = uint8(x1 >> 40)
-		b[6] = uint8(x1 >> 48)
-		b[7] = uint8(x1 >> 56)
+// bitPackSignedTwoPower17 is defined in encoder_amd64.go (amd64 && !purego),
+// encoder_noasm.go (!amd64 || purego).
 
-		b = b[9:]
-	}
-	return s
-}
-
-// bitUnpackSignedTwoPower17 decodes a byte slice into a polynomial f
-// See FIPS 204, Algorithm 19, BitUnpack(w, a, b). where a = 2^17 - 1, b = 2^17.
-func bitUnpackSignedTwoPower17(b []byte, f *ringElement) {
-	const bitsMask = 0x3FFFF // 2^18-1
-	const r = 131072         // 2^17
-	for i := 0; i < n; i += 4 {
-		x2 := uint64(b[8])
-		x1 := uint64(b[0]) | (uint64(b[1]) << 8) | (uint64(b[2]) << 16) | (uint64(b[3]) << 24) | (uint64(b[4]) << 32) | (uint64(b[5]) << 40) | (uint64(b[6]) << 48) | (uint64(b[7]) << 56)
-		b = b[9:]
-
-		f[i] = fieldSub(r, fieldElement(x1&bitsMask))
-		f[i+1] = fieldSub(r, fieldElement((x1>>18)&bitsMask))
-		f[i+2] = fieldSub(r, fieldElement((x1>>36)&bitsMask))
-		f[i+3] = fieldSub(r, fieldElement((x1>>54 | (x2 << 10 & bitsMask))))
-	}
-}
+// bitUnpackSignedTwoPower17 is defined in encoder_amd64.go (amd64 && !purego),
+// encoder_noasm.go (!amd64 || purego).
 
 // bitPackSignedTwoPower19 encodes a polynomial into a byte string, assuming that all
 // coefficients are in the range (-2^19 + 1)..2^19.
@@ -372,52 +385,12 @@ func bitUnpackSignedTwoPower17(b []byte, f *ringElement) {
 //	|   |\  |  | \
 //
 // |20 12|8 20 4|16
-func bitPackSignedTwoPower19(s []byte, f ringElement) []byte {
-	const r = 524288 // 2^19
-	s, b := alias.SliceForAppend(s, encodingSize20)
-	for i := 0; i < n; i += 4 {
-		var x1, x2 uint64
-		x1 = uint64(fieldSub(r, f[i]))
-		x1 |= uint64(fieldSub(r, f[i+1])) << 20
-		x1 |= uint64(fieldSub(r, f[i+2])) << 40
-		x2 = uint64(fieldSub(r, f[i+3]))
-		x1 |= x2 << 60
-		x2 >>= 4
 
-		b[9] = uint8(x2 >> 8)
-		b[8] = uint8(x2)
-		b[0] = uint8(x1)
-		b[1] = uint8(x1 >> 8)
-		b[2] = uint8(x1 >> 16)
-		b[3] = uint8(x1 >> 24)
-		b[4] = uint8(x1 >> 32)
-		b[5] = uint8(x1 >> 40)
-		b[6] = uint8(x1 >> 48)
-		b[7] = uint8(x1 >> 56)
+// bitPackSignedTwoPower19 is defined in encoder_amd64.go (amd64 && !purego),
+// encoder_noasm.go (!amd64 || purego).
 
-		b = b[10:]
-	}
-	return s
-}
-
-// bitUnpackSignedTwoPower19 decodes a byte slice into a polynomial f
-// See FIPS 204, Algorithm 19, BitUnpack(w, a, b). where a = 2^19 - 1, b = 2^19.
-// The coefficients are in the range (-2^19 + 1)..2^19
-// and are represented as 20 bits.
-func bitUnpackSignedTwoPower19(b []byte, f *ringElement) {
-	const bitsMask = 0xFFFFF // 2^20-1
-	const r = 524288         // 2^19
-	for i := 0; i < n; i += 4 {
-		x2 := (uint64(b[9]) << 8) | uint64(b[8])
-		x1 := uint64(b[0]) | (uint64(b[1]) << 8) | (uint64(b[2]) << 16) | (uint64(b[3]) << 24) | (uint64(b[4]) << 32) | (uint64(b[5]) << 40) | (uint64(b[6]) << 48) | (uint64(b[7]) << 56)
-
-		b = b[10:]
-		f[i] = fieldSub(r, fieldElement(x1&bitsMask))
-		f[i+1] = fieldSub(r, fieldElement((x1>>20)&bitsMask))
-		f[i+2] = fieldSub(r, fieldElement((x1>>40)&bitsMask))
-		f[i+3] = fieldSub(r, fieldElement((x1>>60 | (x2 << 4 & bitsMask))))
-	}
-}
+// bitUnpackSignedTwoPower19 is defined in encoder_amd64.go (amd64 && !purego),
+// encoder_noasm.go (!amd64 || purego).
 
 // See FIPS 204, Algorithm 20, HintBitPack().
 func hintBitPack(s []byte, hint []ringElement, omega int) []byte {

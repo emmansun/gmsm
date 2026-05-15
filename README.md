@@ -1,8 +1,8 @@
 # Go语言商用密码软件
 
 [![Github CI](https://github.com/emmansun/gmsm/actions/workflows/ci.yml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/ci.yml)
-[![arm64](https://github.com/emmansun/gmsm/actions/workflows/test_qemu.yml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_qemu.yml)
-[![sm3-sm4-ni](https://github.com/emmansun/gmsm/actions/workflows/test_sm_ni.yml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_sm_ni.yml)
+[![arm64](https://github.com/emmansun/gmsm/actions/workflows/test_arm64.yml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_arm64.yml)
+[![sm3ni-sm4ni-arm64](https://github.com/emmansun/gmsm/actions/workflows/test_smni_arm64.yml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_smni_arm64.yml)
 [![riscv64](https://github.com/emmansun/gmsm/actions/workflows/test_riscv64.yaml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_riscv64.yaml)
 [![loong64](https://github.com/emmansun/gmsm/actions/workflows/test_loong64.yml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_loong64.yml)
 [![ppc64le](https://github.com/emmansun/gmsm/actions/workflows/test_ppc64.yaml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_ppc64.yaml)
@@ -26,6 +26,7 @@ Go语言商用密码软件，简称**GMSM**，一个安全、高性能、易于�
 - [CFCA互操作性指南](./docs/cfca.md)
 - [PKCS7应用指南](./docs/pkcs7.md)
 - [PKCS12应用指南](./docs/pkcs12.md)
+- [确定性随机数发生器（DRBG）与软件随机数发生器应用指南](./docs/rand.md)
 
 如果你想提问题，建议你阅读[提问的智慧](https://github.com/ryanhanwu/How-To-Ask-Questions-The-Smart-Way/blob/main/README-zh_CN.md)。
 

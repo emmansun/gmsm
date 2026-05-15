@@ -25,6 +25,80 @@ DATA fieldConsts<>+0x28(SB)/4, $190464      // decompose2Gamma88
 DATA fieldConsts<>+0x2c(SB)/4, $41978       // invDegreeMontgomery
 GLOBL fieldConsts<>(SB), RODATA, $48
 
+DATA simpleBitPack4WordsPermdIdx<>+0x00(SB)/8, $0x0000000100000000
+DATA simpleBitPack4WordsPermdIdx<>+0x08(SB)/8, $0x0000000500000004
+DATA simpleBitPack4WordsPermdIdx<>+0x10(SB)/8, $0x0000000300000002
+DATA simpleBitPack4WordsPermdIdx<>+0x18(SB)/8, $0x0000000700000006
+GLOBL simpleBitPack4WordsPermdIdx<>(SB), RODATA, $32
+
+DATA simpleBitPack4BytesPermdIdx<>+0x00(SB)/8, $0x0000000400000000
+DATA simpleBitPack4BytesPermdIdx<>+0x08(SB)/8, $0x0000000500000001
+DATA simpleBitPack4BytesPermdIdx<>+0x10(SB)/8, $0x0000000600000002
+DATA simpleBitPack4BytesPermdIdx<>+0x18(SB)/8, $0x0000000700000003
+GLOBL simpleBitPack4BytesPermdIdx<>(SB), RODATA, $32
+
+DATA simpleBitPack6ShuffleIdx<>+0x00(SB)/8, $0x0908060504020100
+DATA simpleBitPack6ShuffleIdx<>+0x08(SB)/8, $0x808080800E0D0C0A
+DATA simpleBitPack6ShuffleIdx<>+0x10(SB)/8, $0x0908060504020100
+DATA simpleBitPack6ShuffleIdx<>+0x18(SB)/8, $0x808080800E0D0C0A
+GLOBL simpleBitPack6ShuffleIdx<>(SB), RODATA, $32
+
+DATA simpleBitPack6MaddubswWord<>+0x00(SB)/2, $0x4001
+GLOBL simpleBitPack6MaddubswWord<>(SB), RODATA, $2
+
+DATA simpleBitPack6MaddwdDword<>+0x00(SB)/4, $0x10000001
+GLOBL simpleBitPack6MaddwdDword<>(SB), RODATA, $4
+
+DATA bitPackConsts17<>+0x00(SB)/4, $8511489  // r17 + q = 131072 + 8380417
+GLOBL bitPackConsts17<>(SB), RODATA, $4
+
+DATA bitPackConsts19<>+0x00(SB)/4, $8904705  // r19 + q = 524288 + 8380417
+GLOBL bitPackConsts19<>(SB), RODATA, $4
+
+// bitUnpack18ShufMask — VPSHUFB control for 18-bit extraction.
+// With overlapping 16-byte loads, lane 0 holds input bytes [0..15] and lane 1
+// holds input bytes [2..17]. The shuffle maps each lane to 4 overlapping dwords:
+//   lane 0: [0,1,2,3], [2,3,4,5], [4,5,6,7], [6,7,8,0x80]
+//   lane 1: [7,8,9,10], [9,10,11,12], [11,12,13,14], [13,14,15,0x80]
+DATA bitUnpack18ShufMask<>+0x00(SB)/8, $0x0504030203020100
+DATA bitUnpack18ShufMask<>+0x08(SB)/8, $0x8008070607060504
+DATA bitUnpack18ShufMask<>+0x10(SB)/8, $0x0C0B0A090A090807
+DATA bitUnpack18ShufMask<>+0x18(SB)/8, $0x800F0E0D0E0D0C0B
+GLOBL bitUnpack18ShufMask<>(SB), RODATA, $32
+
+// bitUnpack18ShiftVec — VPSRLVD per-dword shift amounts for 18-bit extraction.
+// Each group of 4 shifts: dword0>>0, dword1>>2, dword2>>4, dword3>>6.
+DATA bitUnpack18ShiftVec<>+0x00(SB)/8, $0x0000000200000000
+DATA bitUnpack18ShiftVec<>+0x08(SB)/8, $0x0000000600000004
+DATA bitUnpack18ShiftVec<>+0x10(SB)/8, $0x0000000200000000
+DATA bitUnpack18ShiftVec<>+0x18(SB)/8, $0x0000000600000004
+GLOBL bitUnpack18ShiftVec<>(SB), RODATA, $32
+
+DATA bitUnpack18MaskConst<>+0x00(SB)/4, $0x3FFFF  // 2^18-1
+GLOBL bitUnpack18MaskConst<>(SB), RODATA, $4
+
+// bitUnpack20ShufMask — VPSHUFB control for 20-bit extraction.
+// With overlapping 16-byte loads, lane 0 holds input bytes [0..15] and lane 1
+// holds input bytes [4..19]. The shuffle maps each lane to 4 overlapping dwords:
+//   lane 0: [0,1,2,3], [2,3,4,5], [5,6,7,8], [7,8,9,0x80]
+//   lane 1: [6,7,8,9], [8,9,10,11], [11,12,13,14], [13,14,15,0x80]
+DATA bitUnpack20ShufMask<>+0x00(SB)/8, $0x0504030203020100
+DATA bitUnpack20ShufMask<>+0x08(SB)/8, $0x8009080708070605
+DATA bitUnpack20ShufMask<>+0x10(SB)/8, $0x0B0A090809080706
+DATA bitUnpack20ShufMask<>+0x18(SB)/8, $0x800F0E0D0E0D0C0B
+GLOBL bitUnpack20ShufMask<>(SB), RODATA, $32
+
+// bitUnpack20ShiftVec — VPSRLVD per-dword shift amounts for 20-bit extraction.
+// Alternating [0,4,0,4]: dword0>>0, dword1>>4, dword2>>0, dword3>>4.
+DATA bitUnpack20ShiftVec<>+0x00(SB)/8, $0x0000000400000000
+DATA bitUnpack20ShiftVec<>+0x08(SB)/8, $0x0000000400000000
+DATA bitUnpack20ShiftVec<>+0x10(SB)/8, $0x0000000400000000
+DATA bitUnpack20ShiftVec<>+0x18(SB)/8, $0x0000000400000000
+GLOBL bitUnpack20ShiftVec<>(SB), RODATA, $32
+
+DATA bitUnpack20MaskConst<>+0x00(SB)/4, $0xFFFFF   // 2^20-1
+GLOBL bitUnpack20MaskConst<>(SB), RODATA, $4
+
 #define qNegInvConst fieldConsts<>+0x00(SB)
 #define qConst fieldConsts<>+0x04(SB)
 #define qMinus1Div2Const fieldConsts<>+0x08(SB)
@@ -38,6 +112,9 @@ GLOBL fieldConsts<>(SB), RODATA, $48
 #define decompose2Gamma88Const fieldConsts<>+0x28(SB)
 #define invDegreeMontgomeryConst fieldConsts<>+0x2c(SB)
 
+#define bitPackConst17 bitPackConsts17<>(SB)
+#define bitPackConst19 bitPackConsts19<>(SB)
+
 #define Q Y15
 #define QNegInv Y14
 #define ZETAL Y13
@@ -45,6 +122,326 @@ GLOBL fieldConsts<>(SB), RODATA, $48
 #define TMP0 Y11
 #define TMP1 Y10
 #define TMP2 Y9
+
+// simpleBitPack4BitsAVX2 packs 64 already-reduced 4-bit coefficients per loop.
+//
+// Algorithm:
+// 1) Narrow 32-bit coefficients to bytes with VPACKUSDW/VPACKUSWB.
+// 2) Reorder lanes so coefficients become contiguous in coefficient order.
+// 3) Use VPMADDUBSW with 0x1001 (= 1 + (16 << 8)) so each byte pair becomes
+//    lo | (hi << 4), matching FIPS 204 SimpleBitPack for b=4.
+// 4) Pack the 16-bit results back to bytes and store 32 output bytes.
+TEXT ·simpleBitPack4BitsAVX2(SB), NOSPLIT, $0-16
+	MOVQ dst+0(FP), AX
+	MOVQ f+8(FP), BX
+	MOVL $4, DX
+
+	VMOVDQU simpleBitPack4WordsPermdIdx<>(SB), Y12
+	VPBROADCASTW oneConst, Y13
+	VPSLLW $12, Y13, Y15
+	VPADDW Y13, Y15, Y13
+	VMOVDQU simpleBitPack4BytesPermdIdx<>(SB), Y14
+
+simpleBitPack4BitsLoop:
+	VMOVDQU (BX), Y0
+	VMOVDQU 32(BX), Y1
+	VMOVDQU 64(BX), Y2
+	VMOVDQU 96(BX), Y3
+	VMOVDQU 128(BX), Y4
+	VMOVDQU 160(BX), Y5
+	VMOVDQU 192(BX), Y6
+	VMOVDQU 224(BX), Y7
+
+	VPACKUSDW Y1, Y0, Y0
+	VPACKUSDW Y3, Y2, Y2
+	VPACKUSDW Y5, Y4, Y4
+	VPACKUSDW Y7, Y6, Y6
+
+	VPERMD Y0, Y12, Y0
+	VPERMD Y2, Y12, Y2
+	VPERMD Y4, Y12, Y4
+	VPERMD Y6, Y12, Y6
+
+	VPACKUSWB Y2, Y0, Y0
+	VPACKUSWB Y6, Y4, Y4
+	VPMADDUBSW Y13, Y0, Y0
+	VPMADDUBSW Y13, Y4, Y4
+	VPACKUSWB Y4, Y0, Y0
+	VPERMD Y0, Y14, Y0
+
+	VMOVDQU Y0, (AX)
+
+	ADDQ $256, BX
+	ADDQ $32, AX
+	DECQ DX
+	JNZ simpleBitPack4BitsLoop
+
+	VZEROUPPER
+	RET
+
+// simpleBitPack4BitsHighBitsGamma32AVX2 computes HighBits(., gamma2=(q-1)/32)
+// and immediately packs the resulting 4-bit values.
+//
+// Per coefficient, this is the vector form of compressHighBits for gamma32:
+//   r1 = (((r + 127) >> 7) * 1025 + 2^21) >> 22
+//   r1 &= 15
+// followed by the same nibble packing as simpleBitPack4BitsAVX2.
+TEXT ·simpleBitPack4BitsHighBitsGamma32AVX2(SB), NOSPLIT, $0-16
+	MOVQ dst+0(FP), AX
+	MOVQ f+8(FP), BX
+	MOVL $4, DX
+
+	VPBROADCASTD plus127Const, Y8
+	VPBROADCASTD decomposeMul1025Const, Y9
+	VPBROADCASTD oneConst, Y10
+	VPSLLD $21, Y10, Y10
+	VPBROADCASTD decomposeMask15Const, Y11
+	VMOVDQU simpleBitPack4WordsPermdIdx<>(SB), Y12
+	VPBROADCASTW oneConst, Y13
+	VPSLLW $12, Y13, Y15
+	VPADDW Y13, Y15, Y13
+	VMOVDQU simpleBitPack4BytesPermdIdx<>(SB), Y14
+
+simpleBitPack4HighBitsLoop:
+	VMOVDQU (BX), Y0
+	VMOVDQU 32(BX), Y1
+	VMOVDQU 64(BX), Y2
+	VMOVDQU 96(BX), Y3
+	VMOVDQU 128(BX), Y4
+	VMOVDQU 160(BX), Y5
+	VMOVDQU 192(BX), Y6
+	VMOVDQU 224(BX), Y7
+
+	VPADDD Y8, Y0, Y0
+	VPADDD Y8, Y1, Y1
+	VPADDD Y8, Y2, Y2
+	VPADDD Y8, Y3, Y3
+	VPADDD Y8, Y4, Y4
+	VPADDD Y8, Y5, Y5
+	VPADDD Y8, Y6, Y6
+	VPADDD Y8, Y7, Y7
+
+	VPSRLD $7, Y0, Y0
+	VPSRLD $7, Y1, Y1
+	VPSRLD $7, Y2, Y2
+	VPSRLD $7, Y3, Y3
+	VPSRLD $7, Y4, Y4
+	VPSRLD $7, Y5, Y5
+	VPSRLD $7, Y6, Y6
+	VPSRLD $7, Y7, Y7
+
+	VPMULLD Y9, Y0, Y0
+	VPMULLD Y9, Y1, Y1
+	VPMULLD Y9, Y2, Y2
+	VPMULLD Y9, Y3, Y3
+	VPMULLD Y9, Y4, Y4
+	VPMULLD Y9, Y5, Y5
+	VPMULLD Y9, Y6, Y6
+	VPMULLD Y9, Y7, Y7
+
+	VPADDD Y10, Y0, Y0
+	VPADDD Y10, Y1, Y1
+	VPADDD Y10, Y2, Y2
+	VPADDD Y10, Y3, Y3
+	VPADDD Y10, Y4, Y4
+	VPADDD Y10, Y5, Y5
+	VPADDD Y10, Y6, Y6
+	VPADDD Y10, Y7, Y7
+
+	VPSRAD $22, Y0, Y0
+	VPSRAD $22, Y1, Y1
+	VPSRAD $22, Y2, Y2
+	VPSRAD $22, Y3, Y3
+	VPSRAD $22, Y4, Y4
+	VPSRAD $22, Y5, Y5
+	VPSRAD $22, Y6, Y6
+	VPSRAD $22, Y7, Y7
+
+	VPAND Y11, Y0, Y0
+	VPAND Y11, Y1, Y1
+	VPAND Y11, Y2, Y2
+	VPAND Y11, Y3, Y3
+	VPAND Y11, Y4, Y4
+	VPAND Y11, Y5, Y5
+	VPAND Y11, Y6, Y6
+	VPAND Y11, Y7, Y7
+
+	VPACKUSDW Y1, Y0, Y0
+	VPACKUSDW Y3, Y2, Y2
+	VPACKUSDW Y5, Y4, Y4
+	VPACKUSDW Y7, Y6, Y6
+
+	VPERMD Y0, Y12, Y0
+	VPERMD Y2, Y12, Y2
+	VPERMD Y4, Y12, Y4
+	VPERMD Y6, Y12, Y6
+
+	VPACKUSWB Y2, Y0, Y0
+	VPACKUSWB Y6, Y4, Y4
+	VPMADDUBSW Y13, Y0, Y0
+	VPMADDUBSW Y13, Y4, Y4
+	VPACKUSWB Y4, Y0, Y0
+	VPERMD Y0, Y14, Y0
+
+	VMOVDQU Y0, (AX)
+
+	ADDQ $256, BX
+	ADDQ $32, AX
+	DECQ DX
+	JNZ simpleBitPack4HighBitsLoop
+
+	VZEROUPPER
+	RET
+
+// simpleBitPack6BitsAVX2 narrows 32 coefficients to bytes with AVX2, then emits
+// the 6-bit byte layout required by FIPS 204 SimpleBitPack for b=6:
+//   x = c0 | (c1 << 6) | (c2 << 12) | (c3 << 18)
+//   out = [x0, x8, x16] per 4-coefficient group.
+//
+// The AVX2 pack is fully vectorized:
+// 1) VPMADDUBSW with [1,64] forms p=a+64*b and q=c+64*d in 16-bit lanes.
+// 2) VPMADDWD with [1,4096] forms g=p+(q<<12), one 24-bit group per dword.
+// 3) VPSHUFB drops each dword's highest byte and compacts to 24 output bytes.
+TEXT ·simpleBitPack6BitsAVX2(SB), NOSPLIT, $32-16
+	MOVQ dst+0(FP), AX
+	MOVQ f+8(FP), BX
+	MOVL $8, DX
+
+	VMOVDQU simpleBitPack4WordsPermdIdx<>(SB), Y12
+	VPBROADCASTW simpleBitPack6MaddubswWord<>(SB), Y13
+	VPBROADCASTD simpleBitPack6MaddwdDword<>(SB), Y14
+	VMOVDQU simpleBitPack6ShuffleIdx<>(SB), Y15
+
+simpleBitPack6BitsLoop:
+	VMOVDQU (BX), Y0
+	VMOVDQU 32(BX), Y1
+	VMOVDQU 64(BX), Y2
+	VMOVDQU 96(BX), Y3
+
+	VPACKUSDW Y1, Y0, Y0
+	VPACKUSDW Y3, Y2, Y2
+	VPERMD Y0, Y12, Y0
+	VPERMD Y2, Y12, Y2
+	VPACKUSWB Y2, Y0, Y0
+	VPERMD Y0, Y12, Y0
+
+	VPMADDUBSW Y13, Y0, Y1
+	VPMADDWD Y14, Y1, Y1
+	VPSHUFB Y15, Y1, Y1
+	VMOVDQU Y1, 0(SP)
+	MOVQ 0(SP), R8
+	MOVQ R8, 0(AX)
+	MOVL 8(SP), R8
+	MOVL R8, 8(AX)
+	MOVQ 16(SP), R8
+	MOVQ R8, 12(AX)
+	MOVL 24(SP), R8
+	MOVL R8, 20(AX)
+	ADDQ $24, AX
+
+	ADDQ $128, BX
+	DECQ DX
+	JNZ simpleBitPack6BitsLoop
+
+	VZEROUPPER
+	RET
+
+// simpleBitPack6BitsHighBitsGamma88AVX2 computes HighBits(., gamma2=(q-1)/88)
+// and immediately packs the resulting 6-bit values.
+//
+// Per coefficient, this is the vector form of compressHighBits for gamma88:
+//   r1 = (((r + 127) >> 7) * 11275 + 2^23) >> 24
+//   if r1 == 44 { r1 = 0 }
+// which is implemented as the branch-free correction used by compressHighBits.
+// The final 6-bit packing reuses the same vectorized 24-bit grouping pipeline as
+// simpleBitPack6BitsAVX2.
+TEXT ·simpleBitPack6BitsHighBitsGamma88AVX2(SB), NOSPLIT, $32-16
+	MOVQ dst+0(FP), AX
+	MOVQ f+8(FP), BX
+	MOVL $8, DX
+
+	VPBROADCASTD plus127Const, Y8
+	VPBROADCASTD decomposeMul11275Const, Y9
+	VPBROADCASTD oneConst, Y10
+	VPSLLD $23, Y10, Y10
+	VPBROADCASTD decomposeConst43Const, Y11
+	VMOVDQU simpleBitPack4WordsPermdIdx<>(SB), Y12
+	VPBROADCASTW simpleBitPack6MaddubswWord<>(SB), Y5
+	VPBROADCASTD simpleBitPack6MaddwdDword<>(SB), Y6
+	VMOVDQU simpleBitPack6ShuffleIdx<>(SB), Y7
+
+simpleBitPack6HighBitsLoop:
+	VMOVDQU (BX), Y0
+	VMOVDQU 32(BX), Y1
+	VMOVDQU 64(BX), Y2
+	VMOVDQU 96(BX), Y3
+
+	VPADDD Y8, Y0, Y0
+	VPADDD Y8, Y1, Y1
+	VPADDD Y8, Y2, Y2
+	VPADDD Y8, Y3, Y3
+	VPSRLD $7, Y0, Y0
+	VPSRLD $7, Y1, Y1
+	VPSRLD $7, Y2, Y2
+	VPSRLD $7, Y3, Y3
+	VPMULLD Y9, Y0, Y0
+	VPMULLD Y9, Y1, Y1
+	VPMULLD Y9, Y2, Y2
+	VPMULLD Y9, Y3, Y3
+	VPADDD Y10, Y0, Y0
+	VPADDD Y10, Y1, Y1
+	VPADDD Y10, Y2, Y2
+	VPADDD Y10, Y3, Y3
+	VPSRAD $24, Y0, Y0
+	VPSRAD $24, Y1, Y1
+	VPSRAD $24, Y2, Y2
+	VPSRAD $24, Y3, Y3
+
+	VPSUBD Y0, Y11, Y14
+	VPSUBD Y1, Y11, Y15
+	VPSRAD $31, Y14, Y14
+	VPSRAD $31, Y15, Y15
+	VPAND Y0, Y14, Y14
+	VPAND Y1, Y15, Y15
+	VPXOR Y14, Y0, Y0
+	VPXOR Y15, Y1, Y1
+
+	VPSUBD Y2, Y11, Y14
+	VPSUBD Y3, Y11, Y15
+	VPSRAD $31, Y14, Y14
+	VPSRAD $31, Y15, Y15
+	VPAND Y2, Y14, Y14
+	VPAND Y3, Y15, Y15
+	VPXOR Y14, Y2, Y2
+	VPXOR Y15, Y3, Y3
+
+	VPACKUSDW Y1, Y0, Y0
+	VPACKUSDW Y3, Y2, Y2
+	VPERMD Y0, Y12, Y0
+	VPERMD Y2, Y12, Y2
+	VPACKUSWB Y2, Y0, Y0
+	VPERMD Y0, Y12, Y0
+
+	VPMADDUBSW Y5, Y0, Y1
+	VPMADDWD Y6, Y1, Y1
+	VPSHUFB Y7, Y1, Y1
+	VMOVDQU Y1, 0(SP)
+	MOVQ 0(SP), R8
+	MOVQ R8, 0(AX)
+	MOVL 8(SP), R8
+	MOVL R8, 8(AX)
+	MOVQ 16(SP), R8
+	MOVQ R8, 12(AX)
+	MOVL 24(SP), R8
+	MOVL R8, 20(AX)
+	ADDQ $24, AX
+
+	ADDQ $128, BX
+	DECQ DX
+	JNZ simpleBitPack6HighBitsLoop
+
+	VZEROUPPER
+	RET
 
 TEXT ·nttMulAVX2(SB), NOSPLIT, $0-24
 	MOVQ lhs+0(FP), AX
@@ -140,6 +537,97 @@ loopAcc:
 	ADDQ $32, CX
 	DECQ DX
 	JNZ loopAcc
+
+	VZEROUPPER
+	RET
+
+// nttMatRowVecMulAVX2 computes dst = vec[0]*matRow[0] + vec[1]*matRow[1] + ... + vec[len-1]*matRow[len-1]
+// where each element is a polynomial in NTT domain.
+// For each 32-byte chunk of the polynomial, all len products are accumulated in
+// a register before writing to dst once, eliminating intermediate stores/loads.
+TEXT ·nttMatRowVecMulAVX2(SB), NOSPLIT, $0-32
+	MOVQ dst+0(FP), DI
+	MOVQ vec+8(FP), SI
+	MOVQ matRow+16(FP), DX
+	MOVL len+24(FP), CX
+
+	VPBROADCASTD qNegInvConst, QNegInv
+	VPBROADCASTD qConst, Q
+
+	XORQ R9, R9        // chunk_offset = 0
+	MOVL $32, R8       // 32 chunks of 32 bytes each
+
+mvmChunkLoop:
+	// AX = &vec[0] + chunk_offset, BX = &matRow[0] + chunk_offset
+	MOVQ SI, AX
+	ADDQ R9, AX
+	MOVQ DX, BX
+	ADDQ R9, BX
+
+	// Y7 = fieldMul(vec[0][chunk], matRow[0][chunk])
+	VMOVDQU (AX), Y0
+	VMOVDQU (BX), Y1
+
+	VPMULUDQ Y1, Y0, Y2
+	VPSRLQ $32, Y0, Y3
+	VPSRLQ $32, Y1, Y4
+	VPMULUDQ Y4, Y3, Y3
+
+	VPMULUDQ QNegInv, Y2, Y5
+	VPMULUDQ QNegInv, Y3, Y6
+	VPMULUDQ Q, Y5, Y5
+	VPMULUDQ Q, Y6, Y6
+	VPADDQ Y2, Y5, Y5
+	VPADDQ Y3, Y6, Y6
+	VPSRLQ $32, Y5, Y5
+	VPBLENDD $0xAA, Y6, Y5, Y7
+
+	VPCMPGTD Y7, Q, Y2
+	VPANDN Q, Y2, Y2
+	VPSUBD Y2, Y7, Y7     // Y7 = accumulator for this chunk
+
+	MOVL CX, R11
+	DECL R11
+	JZ mvmWrite           // len == 1: skip accumulate loop
+
+mvmAccumulate:
+	ADDQ $1024, AX        // advance to next element of vec
+	ADDQ $1024, BX        // advance to next element of matRow
+
+	VMOVDQU (AX), Y0
+	VMOVDQU (BX), Y1
+
+	VPMULUDQ Y1, Y0, Y2
+	VPSRLQ $32, Y0, Y3
+	VPSRLQ $32, Y1, Y4
+	VPMULUDQ Y4, Y3, Y3
+
+	VPMULUDQ QNegInv, Y2, Y5
+	VPMULUDQ QNegInv, Y3, Y6
+	VPMULUDQ Q, Y5, Y5
+	VPMULUDQ Q, Y6, Y6
+	VPADDQ Y2, Y5, Y5
+	VPADDQ Y3, Y6, Y6
+	VPSRLQ $32, Y5, Y5
+	VPBLENDD $0xAA, Y6, Y5, Y8  // Y8 = Montgomery product
+
+	VPADDD Y8, Y7, Y7    // accumulate in register (no memory round-trip)
+	VPCMPGTD Y7, Q, Y2
+	VPANDN Q, Y2, Y2
+	VPSUBD Y2, Y7, Y7    // reduce accumulator
+
+	DECL R11
+	JNZ mvmAccumulate
+
+mvmWrite:
+	// Write accumulated result to dst only once per chunk
+	MOVQ DI, R10
+	ADDQ R9, R10
+	VMOVDQU Y7, (R10)
+
+	ADDQ $32, R9
+	DECL R8
+	JNZ mvmChunkLoop
 
 	VZEROUPPER
 	RET
@@ -409,21 +897,18 @@ useHint32Loop:
 	// posMask = (r0 > 0)
 	VPCMPGTD Y0, Y6, Y7
 
-	// alt = (r0>0) ? (r1+1)&15 : (r1-1)&15
-	VPADDD Y14, Y4, Y3  // inc
-	VPSUBD Y14, Y4, Y1  // dec
-	VPAND Y11, Y3, Y3
-	VPAND Y11, Y1, Y1
-	VPAND Y7, Y3, Y3
-	VPANDN Y1, Y7, Y1 // (~posMask) & dec
-	VPOR Y1, Y3, Y3 // alt
+	// deltaBase = (r0 > 0) ? 1 : 15
+	VPAND Y7, Y14, Y3
+	VPANDN Y11, Y7, Y1
+	VPOR Y1, Y3, Y3
 
-	// hMask = -h for h in {0,1}
-	VPSUBD Y2, Y0, Y7
-	// out = h ? alt : r1
-	VPAND Y7, Y3, Y3
-	VPANDN Y4, Y7, Y4 // (~hMask) & r1
-	VPOR Y4, Y3, Y3
+	// hMask = -h for h in {0,1}; delta = h ? deltaBase : 0
+	VPSUBD Y2, Y0, Y1
+	VPAND Y1, Y3, Y3
+
+	// out = (r1 + delta) mod 16
+	VPADDD Y3, Y4, Y3
+	VPAND Y11, Y3, Y3
 
 	VMOVDQU Y3, (CX)
 
@@ -481,29 +966,21 @@ useHint88Loop:
 	// posMask = (r0 > 0)
 	VPCMPGTD Y0, Y6, Y7
 
-	// altPos = (r1==43) ? 0 : (r1+1)
-	VPADDD Y14, Y4, Y1
-	VPCMPEQD Y11, Y4, Y3 // eq43
-	VPANDN Y1, Y3, Y1    // (~eq43) & (r1+1)
+	// deltaBase = (r0 > 0) ? 1 : 43
+	VPAND Y7, Y14, Y1
+	VPANDN Y11, Y7, Y3
+	VPOR Y3, Y1, Y1
 
-	// altNeg = (r1==0) ? 43 : (r1-1)
-	VPSUBD Y14, Y4, Y5
-	VPCMPEQD Y0, Y4, Y6  // eq0
-	VPANDN Y5, Y6, Y5    // (~eq0) & (r1-1)
-	VPAND Y6, Y11, Y3
-	VPOR Y3, Y5, Y5 // altNeg
+	// hMask = -h for h in {0,1}; delta = h ? deltaBase : 0
+	VPSUBD Y2, Y0, Y3
+	VPAND Y3, Y1, Y1
 
-	// alt = pos ? altPos : altNeg
-	VPAND Y7, Y1, Y1
-	VPANDN Y5, Y7, Y5 // (~posMask) & altNeg
-	VPOR Y5, Y1, Y1 // alt
-
-	// hMask = -h for h in {0,1}
-	VPSUBD Y2, Y0, Y7
-	// out = h ? alt : r1
-	VPAND Y7, Y1, Y1
-	VPANDN Y4, Y7, Y4 // (~hMask) & r1
-	VPOR Y4, Y1, Y1
+	// out = r1 + delta; if out > 43, subtract 44
+	VPADDD Y1, Y4, Y1
+	VPCMPGTD Y11, Y1, Y3
+	VPADDD Y14, Y11, Y5
+	VPAND Y3, Y5, Y5
+	VPSUBD Y5, Y1, Y1
 
 	VMOVDQU Y1, (CX)
 
@@ -512,6 +989,417 @@ useHint88Loop:
 	ADDQ $32, CX
 	DECQ DX
 	JNZ useHint88Loop
+
+	VZEROUPPER
+	RET
+
+// bitPackSignedTwoPower17AVX2 encodes a polynomial into a byte string using 18 bits
+// per coefficient (FIPS 204 BitPack with eta = 2^17).
+//
+// Strategy: SIMD vectorizes the fieldSub(2^17, f) for 8 values per iteration,
+// scalar bit-packing assembles 9 bytes per group of 4 values.
+//
+// Per group of 4 values v0..v3 (each 18-bit, in [0, 2^18-1]):
+//   x1 = v0 | v1<<18 | v2<<36 | v3<<54   (64-bit, uses lower 64 bits)
+//   x2 = v3 >> 10                          (8-bit overflow)
+//   output: bytes[0..7] = x1 LE, bytes[8] = x2
+TEXT ·bitPackSignedTwoPower17AVX2(SB), NOSPLIT, $32-16
+	MOVQ dst+0(FP), AX
+	MOVQ f+8(FP), BX
+	MOVL $32, DX
+
+	VPBROADCASTD bitPackConst17, Y8    // Y8 = 8511489 (= 2^17 + q)
+	VPBROADCASTD qConst, Y9            // Y9 = q
+
+bitPackSigned17Loop:
+	VMOVDQU (BX), Y0                   // load 8 coefficients (32 bytes)
+
+	// v = fieldSub(2^17, f[i]) = (8511489 - f[i]) mod q
+	VPSUBD Y0, Y8, Y1                  // Y1 = 8511489 - f (may be >= q)
+	VPSUBD Y9, Y1, Y2                  // Y2 = Y1 - q (may underflow)
+	VPSRAD $31, Y2, Y3                 // Y3 = borrow mask (0xFFFFFFFF if underflowed)
+	VPAND Y9, Y3, Y3                   // Y3 = q if underflowed, else 0
+	VPADDD Y3, Y2, Y1                  // Y1 = reduced result in [0, 2^18-1]
+
+	// Store reduced values to stack for scalar extraction
+	VMOVDQU Y1, 0(SP)
+
+	// Pack group 0: coefficients [0..3] → 9 bytes at dst[0..8]
+	MOVL 0(SP), R8                     // v0
+	MOVL 4(SP), R9                     // v1
+	MOVL 8(SP), R10                    // v2
+	MOVL 12(SP), R11                   // v3
+
+	MOVQ R8, R12
+	MOVQ R9, R13
+	SHLQ $18, R13
+	ORQ R13, R12
+	MOVQ R10, R13
+	SHLQ $36, R13
+	ORQ R13, R12
+	MOVQ R11, R13
+	SHLQ $54, R13
+	ORQ R13, R12
+	MOVQ R12, 0(AX)                    // store bytes 0..7
+	SHRQ $10, R11
+	MOVB R11, 8(AX)                    // store byte 8
+
+	// Pack group 1: coefficients [4..7] → 9 bytes at dst[9..17]
+	MOVL 16(SP), R8                    // v4
+	MOVL 20(SP), R9                    // v5
+	MOVL 24(SP), R10                   // v6
+	MOVL 28(SP), R11                   // v7
+
+	MOVQ R8, R12
+	MOVQ R9, R13
+	SHLQ $18, R13
+	ORQ R13, R12
+	MOVQ R10, R13
+	SHLQ $36, R13
+	ORQ R13, R12
+	MOVQ R11, R13
+	SHLQ $54, R13
+	ORQ R13, R12
+	MOVQ R12, 9(AX)                    // store bytes 9..16
+	SHRQ $10, R11
+	MOVB R11, 17(AX)                   // store byte 17
+
+	ADDQ $32, BX
+	ADDQ $18, AX
+	DECL DX
+	JNZ bitPackSigned17Loop
+
+	VZEROUPPER
+	RET
+
+// bitPackSignedTwoPower19AVX2 encodes a polynomial into a byte string using 20 bits
+// per coefficient (FIPS 204 BitPack with eta = 2^19).
+//
+// Strategy: SIMD vectorizes the fieldSub(2^19, f) for 8 values per iteration,
+// scalar bit-packing assembles 10 bytes per group of 4 values.
+//
+// Per group of 4 values v0..v3 (each 20-bit, in [0, 2^20-1]):
+//   x1 = v0 | v1<<20 | v2<<40 | v3<<60   (64-bit)
+//   x2 = v3 >> 4                           (16-bit overflow, 2 bytes)
+//   output: bytes[0..7] = x1 LE, bytes[8..9] = x2 LE
+TEXT ·bitPackSignedTwoPower19AVX2(SB), NOSPLIT, $32-16
+	MOVQ dst+0(FP), AX
+	MOVQ f+8(FP), BX
+	MOVL $32, DX
+
+	VPBROADCASTD bitPackConst19, Y8    // Y8 = 8904705 (= 2^19 + q)
+	VPBROADCASTD qConst, Y9            // Y9 = q
+
+bitPackSigned19Loop:
+	VMOVDQU (BX), Y0                   // load 8 coefficients (32 bytes)
+
+	// v = fieldSub(2^19, f[i]) = (8904705 - f[i]) mod q
+	VPSUBD Y0, Y8, Y1                  // Y1 = 8904705 - f (may be >= q)
+	VPSUBD Y9, Y1, Y2                  // Y2 = Y1 - q (may underflow)
+	VPSRAD $31, Y2, Y3                 // Y3 = borrow mask
+	VPAND Y9, Y3, Y3                   // Y3 = q if underflowed, else 0
+	VPADDD Y3, Y2, Y1                  // Y1 = reduced result in [0, 2^20-1]
+
+	// Store reduced values to stack for scalar extraction
+	VMOVDQU Y1, 0(SP)
+
+	// Pack group 0: coefficients [0..3] → 10 bytes at dst[0..9]
+	MOVL 0(SP), R8                     // v0
+	MOVL 4(SP), R9                     // v1
+	MOVL 8(SP), R10                    // v2
+	MOVL 12(SP), R11                   // v3
+
+	MOVQ R8, R12
+	MOVQ R9, R13
+	SHLQ $20, R13
+	ORQ R13, R12
+	MOVQ R10, R13
+	SHLQ $40, R13
+	ORQ R13, R12
+	MOVQ R11, R13
+	SHLQ $60, R13
+	ORQ R13, R12
+	MOVQ R12, 0(AX)                    // store bytes 0..7
+	SHRQ $4, R11
+	MOVW R11, 8(AX)                    // store bytes 8..9
+
+	// Pack group 1: coefficients [4..7] → 10 bytes at dst[10..19]
+	MOVL 16(SP), R8                    // v4
+	MOVL 20(SP), R9                    // v5
+	MOVL 24(SP), R10                   // v6
+	MOVL 28(SP), R11                   // v7
+
+	MOVQ R8, R12
+	MOVQ R9, R13
+	SHLQ $20, R13
+	ORQ R13, R12
+	MOVQ R10, R13
+	SHLQ $40, R13
+	ORQ R13, R12
+	MOVQ R11, R13
+	SHLQ $60, R13
+	ORQ R13, R12
+	MOVQ R12, 10(AX)                   // store bytes 10..17
+	SHRQ $4, R11
+	MOVW R11, 18(AX)                   // store bytes 18..19
+
+	ADDQ $32, BX
+	ADDQ $20, AX
+	DECL DX
+	JNZ bitPackSigned19Loop
+
+	VZEROUPPER
+	RET
+
+// bitUnpackSignedTwoPower17AVX2 decodes a packed 18-bit byte stream into a polynomial.
+//
+// For each pair of groups (9 bytes each → 4 coefficients each):
+//   1. Two overlapping 16-byte loads provide contiguous bytes [0..15] and
+//      [2..17] across the two 128-bit lanes.
+//   2. VINSERTI128 merges the two XMM loads into one YMM.
+//   3. VPSHUFB rearranges each lane's bytes into 4 overlapping 32-bit dwords so
+//      each dword spans the bytes covering one 18-bit coefficient.
+//   4. VPSRLVD [0,2,4,6] aligns each coefficient at bits [17:0].
+//   5. VPAND 0x3FFFF masks to 18-bit unsigned value.
+//   6. fieldSub(2^17, v) = (8511489 - v) mod q converts to signed coefficient.
+TEXT ·bitUnpackSignedTwoPower17AVX2(SB), NOSPLIT, $0-16
+	MOVQ b+0(FP), SI
+	MOVQ f+8(FP), DI
+	MOVL $32, CX
+
+	VPBROADCASTD bitPackConst17, Y8              // Y8 = 8511489 (2^17 + q)
+	VPBROADCASTD qConst, Y9                      // Y9 = q
+	VMOVDQU bitUnpack18ShufMask<>(SB), Y10       // VPSHUFB mask
+	VMOVDQU bitUnpack18ShiftVec<>(SB), Y11       // VPSRLVD shifts [0,2,4,6,...]
+	VPBROADCASTD bitUnpack18MaskConst<>(SB), Y12 // 0x3FFFF
+
+LUnpack17:
+	// Lower lane: input bytes [0..15]. Upper lane: overlapping bytes [2..17].
+	VMOVDQU 0(SI), X0
+	VMOVDQU 2(SI), X1
+
+	VINSERTI128 $1, X1, Y0, Y0     // Y0[127:0]=X0, Y0[255:128]=X1
+
+	VPSHUFB Y10, Y0, Y0            // per-lane byte rearrangement
+	VPSRLVD Y11, Y0, Y0            // shift right [0,2,4,6]
+	VPAND Y12, Y0, Y0              // mask to 18 bits
+
+	// fieldSub(2^17, v) = (8511489 - v) mod q
+	VPSUBD Y0, Y8, Y1
+	VPCMPGTD Y1, Y9, Y2
+	VPANDN Y9, Y2, Y2
+	VPSUBD Y2, Y1, Y1
+
+	VMOVDQU Y1, (DI)
+
+	ADDQ $18, SI
+	ADDQ $32, DI
+	DECL CX
+	JNZ LUnpack17
+
+	VZEROUPPER
+	RET
+
+// bitUnpackSignedTwoPower19AVX2 decodes a packed 20-bit byte stream into a polynomial.
+//
+// Same strategy as bitUnpackSignedTwoPower17AVX2 but for 10 bytes per group.
+//   Two overlapping 16-byte loads provide contiguous bytes [0..15] and [4..19]
+//   across the two 128-bit lanes, avoiding the scalar byte stitching used before.
+//   VPSHUFB then selects the overlapping byte windows needed for the 4 decoded
+//   coefficients in each lane.
+//   VPSRLVD shifts [0,4,0,4] align each 20-bit coefficient to bits [19:0].
+TEXT ·bitUnpackSignedTwoPower19AVX2(SB), NOSPLIT, $0-16
+	MOVQ b+0(FP), SI
+	MOVQ f+8(FP), DI
+	MOVL $32, CX
+
+	VPBROADCASTD bitPackConst19, Y8              // Y8 = 8904705 (2^19 + q)
+	VPBROADCASTD qConst, Y9                      // Y9 = q
+	VMOVDQU bitUnpack20ShufMask<>(SB), Y10       // VPSHUFB mask
+	VMOVDQU bitUnpack20ShiftVec<>(SB), Y11       // VPSRLVD shifts [0,4,0,4,...]
+	VPBROADCASTD bitUnpack20MaskConst<>(SB), Y12 // 0xFFFFF
+
+LUnpack19:
+	// Lower lane: input bytes [0..15]. Upper lane: overlapping bytes [4..19].
+	VMOVDQU 0(SI), X0
+	VMOVDQU 4(SI), X1
+
+	VINSERTI128 $1, X1, Y0, Y0     // Y0[127:0]=X0, Y0[255:128]=X1
+
+	VPSHUFB Y10, Y0, Y0            // per-lane byte rearrangement
+	VPSRLVD Y11, Y0, Y0            // shift right [0,4,0,4]
+	VPAND Y12, Y0, Y0              // mask to 20 bits
+
+	// fieldSub(2^19, v) = (8904705 - v) mod q
+	VPSUBD Y0, Y8, Y1
+	VPCMPGTD Y1, Y9, Y2
+	VPANDN Y9, Y2, Y2
+	VPSUBD Y2, Y1, Y1
+
+	VMOVDQU Y1, (DI)
+
+	ADDQ $20, SI
+	ADDQ $32, DI
+	DECL CX
+	JNZ LUnpack19
+
+	VZEROUPPER
+	RET
+
+// makeHintPolyGamma32AVX2 computes MakeHint for all 256 coefficients of a polynomial
+// using gamma2 = (q-1)/32. For each coefficient:
+//   rPlusZ = fieldSub(w, cs2)  [subtract z from r+z to recover r+z, reduce mod q]
+//   r      = fieldAdd(rPlusZ, ct0)
+//   hint   = (HighBitsGamma32(rPlusZ) != HighBitsGamma32(r)) ? 1 : 0
+//
+// Register map:
+//   AX=ct0, BX=cs2, CX=w, DX=hint
+//   Y15(Q)=q, Y9=127, Y10=1025, Y11=2^21, Y12=15, Y7=1, Y8=zero
+TEXT ·makeHintPolyGamma32AVX2(SB), NOSPLIT, $0-32
+	MOVQ ct0+0(FP), AX
+	MOVQ cs2+8(FP), BX
+	MOVQ w+16(FP), CX
+	MOVQ hint+24(FP), DX
+	MOVL $32, SI
+
+	VPBROADCASTD qConst, Q             // Y15 = q
+	VPBROADCASTD plus127Const, Y9      // Y9 = 127
+	VPBROADCASTD decomposeMul1025Const, Y10  // Y10 = 1025
+	VPBROADCASTD oneConst, Y11
+	VPSLLD $21, Y11, Y11               // Y11 = 2^21
+	VPBROADCASTD decomposeMask15Const, Y12   // Y12 = 15
+	VPBROADCASTD oneConst, Y7          // Y7 = 1 (for hint masking)
+	VPXOR Y8, Y8, Y8                   // Y8 = zero
+
+makeHintGamma32Loop:
+	VMOVDQU (AX), Y1                   // ct0[0..7]
+	VMOVDQU (BX), Y2                   // cs2[0..7]
+	VMOVDQU (CX), Y3                   // w[0..7]
+
+	// rPlusZ = fieldSub(w, cs2) = (w + q - cs2) mod q
+	VPADDD Q, Y3, Y4
+	VPSUBD Y2, Y4, Y4
+	VPCMPGTD Y4, Q, Y5                 // Y5 = 0xFFFF where Q > Y4 (i.e. Y4 < q, in range)
+	VPANDN Q, Y5, Y5                   // Y5 = q where Y4 >= q, else 0
+	VPSUBD Y5, Y4, Y4                  // Y4 = rPlusZ in [0, q-1]
+
+	// r = fieldAdd(rPlusZ, ct0) = (rPlusZ + ct0) mod q
+	VPADDD Y1, Y4, Y6
+	VPCMPGTD Y6, Q, Y5
+	VPANDN Q, Y5, Y5
+	VPSUBD Y5, Y6, Y6                  // Y6 = r in [0, q-1]
+
+	// HighBitsGamma32(rPlusZ): r1 = ((rPlusZ+127)>>7 * 1025 + 2^21) >> 22 & 15
+	VPADDD Y9, Y4, Y13
+	VPSRLD $7, Y13, Y13
+	VPMULLD Y10, Y13, Y13
+	VPADDD Y11, Y13, Y13
+	VPSRAD $22, Y13, Y13
+	VPAND Y12, Y13, Y13                // Y13 = HighBits(rPlusZ)
+
+	// HighBitsGamma32(r): r1 = ((r+127)>>7 * 1025 + 2^21) >> 22 & 15
+	VPADDD Y9, Y6, Y14
+	VPSRLD $7, Y14, Y14
+	VPMULLD Y10, Y14, Y14
+	VPADDD Y11, Y14, Y14
+	VPSRAD $22, Y14, Y14
+	VPAND Y12, Y14, Y14                // Y14 = HighBits(r)
+
+	// hint = (Y13 != Y14) ? 1 : 0
+	// VPCMPEQD → 0xFF where equal, 0x00 where different
+	// VPANDN Y7, Ymask, Ydst → (~Ymask) & Y7 = 1 where different, 0 where same
+	VPCMPEQD Y14, Y13, Y5             // Y5 = mask: 0xFF where equal
+	VPANDN Y7, Y5, Y5                 // Y5 = 1 where different, 0 where same
+
+	VMOVDQU Y5, (DX)
+
+	ADDQ $32, AX
+	ADDQ $32, BX
+	ADDQ $32, CX
+	ADDQ $32, DX
+	DECL SI
+	JNZ makeHintGamma32Loop
+
+	VZEROUPPER
+	RET
+
+// makeHintPolyGamma88AVX2 computes MakeHint for all 256 coefficients of a polynomial
+// using gamma2 = (q-1)/88. For each coefficient:
+//   rPlusZ = fieldSub(w, cs2)
+//   r      = fieldAdd(rPlusZ, ct0)
+//   hint   = (HighBitsGamma88(rPlusZ) != HighBitsGamma88(r)) ? 1 : 0
+//
+// Register map:
+//   AX=ct0, BX=cs2, CX=w, DX=hint
+//   Y15(Q)=q, Y9=127, Y10=11275, Y11=2^23, Y12=43, Y7=1, Y0=scratch
+TEXT ·makeHintPolyGamma88AVX2(SB), NOSPLIT, $0-32
+	MOVQ ct0+0(FP), AX
+	MOVQ cs2+8(FP), BX
+	MOVQ w+16(FP), CX
+	MOVQ hint+24(FP), DX
+	MOVL $32, SI
+
+	VPBROADCASTD qConst, Q                  // Y15 = q
+	VPBROADCASTD plus127Const, Y9           // Y9 = 127
+	VPBROADCASTD decomposeMul11275Const, Y10 // Y10 = 11275
+	VPBROADCASTD oneConst, Y11
+	VPSLLD $23, Y11, Y11                    // Y11 = 2^23
+	VPBROADCASTD decomposeConst43Const, Y12  // Y12 = 43
+	VPBROADCASTD oneConst, Y7               // Y7 = 1 (for hint masking)
+
+makeHintGamma88Loop:
+	VMOVDQU (AX), Y1                        // ct0[0..7]
+	VMOVDQU (BX), Y2                        // cs2[0..7]
+	VMOVDQU (CX), Y3                        // w[0..7]
+
+	// rPlusZ = fieldSub(w, cs2)
+	VPADDD Q, Y3, Y4
+	VPSUBD Y2, Y4, Y4
+	VPCMPGTD Y4, Q, Y5
+	VPANDN Q, Y5, Y5
+	VPSUBD Y5, Y4, Y4                       // Y4 = rPlusZ in [0, q-1]
+
+	// r = fieldAdd(rPlusZ, ct0)
+	VPADDD Y1, Y4, Y6
+	VPCMPGTD Y6, Q, Y5
+	VPANDN Q, Y5, Y5
+	VPSUBD Y5, Y6, Y6                       // Y6 = r in [0, q-1]
+
+	// HighBitsGamma88(rPlusZ): r1 = ((rPlusZ+127)>>7 * 11275 + 2^23) >> 24
+	//   then clamp: r1 ^= ((43-r1)>>31) & r1
+	VPADDD Y9, Y4, Y13
+	VPSRLD $7, Y13, Y13
+	VPMULLD Y10, Y13, Y13
+	VPADDD Y11, Y13, Y13
+	VPSRAD $24, Y13, Y13                    // Y13 = raw r1
+	VPSUBD Y13, Y12, Y0                     // Y0 = 43 - r1
+	VPSRAD $31, Y0, Y0                      // Y0 = sign mask (0xFF if r1==44, else 0)
+	VPAND Y13, Y0, Y0
+	VPXOR Y0, Y13, Y13                      // Y13 = HighBits(rPlusZ) clamped
+
+	// HighBitsGamma88(r): same computation
+	VPADDD Y9, Y6, Y14
+	VPSRLD $7, Y14, Y14
+	VPMULLD Y10, Y14, Y14
+	VPADDD Y11, Y14, Y14
+	VPSRAD $24, Y14, Y14                    // Y14 = raw r1
+	VPSUBD Y14, Y12, Y0                     // Y0 = 43 - r1
+	VPSRAD $31, Y0, Y0
+	VPAND Y14, Y0, Y0
+	VPXOR Y0, Y14, Y14                      // Y14 = HighBits(r) clamped
+
+	// hint = (Y13 != Y14) ? 1 : 0
+	VPCMPEQD Y14, Y13, Y5
+	VPANDN Y7, Y5, Y5                       // Y5 = 1 where different, 0 where same
+
+	VMOVDQU Y5, (DX)
+
+	ADDQ $32, AX
+	ADDQ $32, BX
+	ADDQ $32, CX
+	ADDQ $32, DX
+	DECL SI
+	JNZ makeHintGamma88Loop
 
 	VZEROUPPER
 	RET
@@ -820,39 +1708,32 @@ useHint88Loop:
 	TRANSPOSE_MATRIX(Y5, Y4, Y3, Y2, Y1, Y0, Y8, Y7, TMP0, TMP1, TMP2, Y6); \
 	\ // level 0: offset = 1, step = 128
 	VMOVDQU (296-8-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
 	VPSRLQ $32, ZETAH, ZETAL; \
 	inttButterfly(Y5, Y4, Y6, ZETAL, ZETAH, Y5, Y4); \
 	\
 	VMOVDQU (296-40-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
 	VPSRLQ $32, ZETAH, ZETAL; \
 	inttButterfly(Y3, Y2, Y6, ZETAL, ZETAH, Y3, Y2); \
 	\
 	VMOVDQU (296-72-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
 	VPSRLQ $32, ZETAH, ZETAL; \
 	inttButterfly(Y1, Y0, Y6, ZETAL, ZETAH, Y1, Y0); \
 	\ 
 	VMOVDQU (296-104-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
 	VPSRLQ $32, ZETAH, ZETAL; \
 	inttButterfly(Y8, Y7, Y6, ZETAL, ZETAH, Y8, Y7); \
 	\ // level 1: offset = 2, step = 64
 	VMOVDQU (168-8-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
 	VPSRLQ $32, ZETAH, ZETAL; \
 	inttButterfly(Y5, Y3, Y6, ZETAL, ZETAH, Y5, Y3); \
 	inttButterfly(Y4, Y2, Y6, ZETAL, ZETAH, Y4, Y2); \
 	\
 	VMOVDQU (168-40-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
 	VPSRLQ $32, ZETAH, ZETAL; \
 	inttButterfly(Y1, Y8, Y6, ZETAL, ZETAH, Y1, Y8); \
 	inttButterfly(Y0, Y7, Y6, ZETAL, ZETAH, Y0, Y7); \
 	\ // level 2: offset = 4, step = 32
 	VMOVDQU (104-8-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
 	VPSRLQ $32, ZETAH, ZETAL; \
 	inttButterfly(Y5, Y1, Y6, ZETAL, ZETAH, Y5, Y1); \
 	inttButterfly(Y4, Y0, Y6, ZETAL, ZETAH, Y4, Y0); \
@@ -882,7 +1763,6 @@ useHint88Loop:
 	SHUFFLE2(Y1, Y0, Y3, Y0); \
 	SHUFFLE2(Y8, Y7, Y1, Y7); \
 	VMOVDQU (72-8-8*offset)*4+zetasAddr, ZETAH; \
-	VPERMQ $0x1B, ZETAH, ZETAH; \
 	VPSRLQ $32, ZETAH, ZETAL; \
 	inttButterfly(Y6, Y4, Y8, ZETAL, ZETAH, Y6, Y4); \
 	inttButterfly(Y5, Y2, Y8, ZETAL, ZETAH, Y5, Y2); \
@@ -912,7 +1792,6 @@ useHint88Loop:
 	SHUFFLE4(Y4, Y2, Y3, Y2); \
 	SHUFFLE4(Y0, Y7, Y4, Y7); \
 	VMOVDQU (40-8-8*offset)*4+zetasAddr, ZETAL; \
-	VPERMQ $0x1B, ZETAL, ZETAL; \
 	inttButterfly(Y8, Y5, Y0, ZETAL, ZETAL, Y8, Y5); \
 	inttButterfly(Y6, Y1, Y0, ZETAL, ZETAL, Y6, Y1); \
 	inttButterfly(Y3, Y2, Y0, ZETAL, ZETAL, Y3, Y2); \

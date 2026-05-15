@@ -25,8 +25,8 @@ func Kdf(newHash func() hash.Hash, z []byte, keyLen int) []byte {
 
 	// Calculate number of hash iterations needed
 	hashSize := md.Size()
-	iterations := (keyLen + hashSize - 1) / hashSize
-	if iterations >= (1<<32)-1 {
+	iterations := uint32((keyLen + hashSize - 1) / hashSize)
+	if iterations >= uint32((1<<32)-1) {
 		panic("kdf: key length too long")
 	}
 
@@ -41,7 +41,7 @@ func Kdf(newHash func() hash.Hash, z []byte, keyLen int) []byte {
 
 // canOptimize determines if we can use the optimized KDF path with hash state reuse.
 // Requirements: hash supports binary marshaling, z is large enough to benefit, and multiple iterations needed.
-func canOptimize(md hash.Hash, z []byte, iterations int) bool {
+func canOptimize(md hash.Hash, z []byte, iterations uint32) bool {
 	if iterations == 1 {
 		return false // Single iteration: no benefit from state reuse
 	}
@@ -53,7 +53,7 @@ func canOptimize(md hash.Hash, z []byte, iterations int) bool {
 }
 
 // kdfOptimized uses hash state reuse to avoid re-hashing z on each iteration.
-func kdfOptimized(newHash func() hash.Hash, baseMD hash.Hash, z []byte, keyLen, iterations int) []byte {
+func kdfOptimized(newHash func() hash.Hash, baseMD hash.Hash, z []byte, keyLen int, iterations uint32) []byte {
 	// Hash z once and save the state
 	baseMD.Write(z)
 	marshaler := baseMD.(encoding.BinaryMarshaler)
@@ -83,11 +83,11 @@ func kdfOptimized(newHash func() hash.Hash, baseMD hash.Hash, z []byte, keyLen, 
 }
 
 // kdfStandard implements the standard KDF without hash state optimization.
-func kdfStandard(md hash.Hash, z []byte, keyLen, iterations int) []byte {
+func kdfStandard(md hash.Hash, z []byte, keyLen int, iterations uint32) []byte {
 	k := make([]byte, 0, keyLen)
 	var countBytes [4]byte
 
-	for counter := uint32(1); counter <= uint32(iterations); counter++ {
+	for counter := uint32(1); counter <= iterations; counter++ {
 		byteorder.BEPutUint32(countBytes[:], counter)
 		md.Write(z)
 		md.Write(countBytes[:])

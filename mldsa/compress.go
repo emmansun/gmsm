@@ -97,7 +97,7 @@ func useHintPolyGeneric(dst, h, r *ringElement, gamma2 uint32) {
 	}
 }
 
-func vectorMakeHint(ct0, cs2, w, hint []ringElement, gamma2 uint32) {
+func vectorMakeHintGeneric(ct0, cs2, w, hint []ringElement, gamma2 uint32) {
 	_ = hint[len(ct0)-1] // Bounds check elimination hint.
 	_ = cs2[len(ct0)-1]  // Bounds check elimination hint.
 	_ = w[len(ct0)-1]    // Bounds check elimination hint.

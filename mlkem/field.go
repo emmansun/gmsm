@@ -5,7 +5,6 @@
 package mlkem
 
 import (
-	"crypto/sha3"
 	"errors"
 
 	"github.com/emmansun/gmsm/internal/byteorder"
@@ -126,20 +125,18 @@ func decompress(y uint16, d uint8) fieldElement {
 // according to FIPS 203, Section 2.4.4.
 type ringElement [n]fieldElement
 
-// polyAdd adds two ringElements or nttElements.
-func polyAdd[T ~[n]fieldElement](a, b T) (s T) {
-	for i := range s {
-		s[i] = fieldAdd(a[i], b[i])
+// polyAddAssignGeneric is the generic implementation of polyAddAssign.
+func polyAddAssignGeneric(dst *ringElement, src *ringElement) {
+	for i := range dst {
+		dst[i] = fieldAdd(dst[i], src[i])
 	}
-	return s
 }
 
-// polySub subtracts two ringElements or nttElements.
-func polySub[T ~[n]fieldElement](a, b T) (s T) {
-	for i := range s {
-		s[i] = fieldSub(a[i], b[i])
+// polySubAssignGeneric is the generic implementation of polySubAssign.
+func polySubAssignGeneric(dst *ringElement, src *ringElement) {
+	for i := range dst {
+		dst[i] = fieldSub(dst[i], src[i])
 	}
-	return s
 }
 
 // polyByteEncode appends the 384-byte encoding of f to b.
@@ -155,6 +152,17 @@ func polyByteEncode[T ~[n]fieldElement](b []byte, f T) []byte {
 		B = B[3:]
 	}
 	return out
+}
+
+func polyByteEncodeTo[T ~[n]fieldElement](out *[encodingSize12]byte, f T) {
+	B := out[:]
+	for i := 0; i < n; i += 2 {
+		x := uint32(f[i]) | uint32(f[i+1])<<12
+		B[0] = uint8(x)
+		B[1] = uint8(x >> 8)
+		B[2] = uint8(x >> 16)
+		B = B[3:]
+	}
 }
 
 // polyByteDecode decodes the 384-byte encoding of a polynomial, checking that
@@ -197,18 +205,10 @@ func sliceForAppend(in []byte, n int) (head, tail []byte) {
 	return
 }
 
-// ringCompressAndEncode1 appends a 32-byte encoding of a ring element to s,
-// compressing one coefficients per bit.
-//
-// It implements Compress₁, according to FIPS 203, Definition 4.7,
-// followed by ByteEncode₁, according to FIPS 203, Algorithm 5.
-func ringCompressAndEncode1(s []byte, f ringElement) []byte {
-	s, b := sliceForAppend(s, encodingSize1)
-	clear(b)
+func ringCompressAndEncode1Generic(s []byte, f *ringElement) {
 	for i := range f {
-		b[i/8] |= uint8(compress(f[i], 1) << (i % 8))
+		s[i/8] |= uint8(compress(f[i], 1) << (i % 8))
 	}
-	return s
 }
 
 // ringDecodeAndDecompress1 decodes a 32-byte slice to a ring element where each
@@ -217,49 +217,37 @@ func ringCompressAndEncode1(s []byte, f ringElement) []byte {
 // It implements ByteDecode₁, according to FIPS 203, Algorithm 6,
 // followed by Decompress₁, according to FIPS 203, Definition 4.8.
 func ringDecodeAndDecompress1(b *[encodingSize1]byte) ringElement {
+	const halfQ = (q + 1) / 2
 	var f ringElement
-	for i := range f {
-		b_i := b[i/8] >> (i % 8) & 1
-		const halfQ = (q + 1) / 2        // ⌈q/2⌋, rounded up per FIPS 203, Section 2.3
-		f[i] = fieldElement(b_i) * halfQ // 0 decompresses to 0, and 1 to ⌈q/2⌋
+	for i := 0; i < encodingSize1; i++ {
+		x := b[i]
+		off := i * 8
+		f[off+0] = fieldElement(x&1) * halfQ
+		f[off+1] = fieldElement((x>>1)&1) * halfQ
+		f[off+2] = fieldElement((x>>2)&1) * halfQ
+		f[off+3] = fieldElement((x>>3)&1) * halfQ
+		f[off+4] = fieldElement((x>>4)&1) * halfQ
+		f[off+5] = fieldElement((x>>5)&1) * halfQ
+		f[off+6] = fieldElement((x>>6)&1) * halfQ
+		f[off+7] = fieldElement((x>>7)&1) * halfQ
 	}
 	return f
 }
 
-// ringCompressAndEncode4 appends a 128-byte encoding of a ring element to s,
-// compressing two coefficients per byte.
-//
-// It implements Compress₄, according to FIPS 203, Definition 4.7,
-// followed by ByteEncode₄, according to FIPS 203, Algorithm 5.
-func ringCompressAndEncode4(s []byte, f ringElement) []byte {
-	s, b := sliceForAppend(s, encodingSize4)
+func ringCompressAndEncode4Generic(out []byte, f *ringElement) {
 	for i := 0; i < n; i += 2 {
-		b[i/2] = uint8(compress(f[i], 4) | compress(f[i+1], 4)<<4)
+		out[i/2] = uint8(compress(f[i], 4) | compress(f[i+1], 4)<<4)
 	}
-	return s
 }
 
-// ringDecodeAndDecompress4 decodes a 128-byte encoding of a ring element where
-// each four bits are mapped to an equidistant distribution.
-//
-// It implements ByteDecode₄, according to FIPS 203, Algorithm 6,
-// followed by Decompress₄, according to FIPS 203, Definition 4.8.
-func ringDecodeAndDecompress4(b *[encodingSize4]byte) ringElement {
-	var f ringElement
+func ringDecodeAndDecompress4Generic(b *[encodingSize4]byte, f *ringElement) {
 	for i := 0; i < n; i += 2 {
 		f[i] = fieldElement(decompress(uint16(b[i/2]&0b1111), 4))
 		f[i+1] = fieldElement(decompress(uint16(b[i/2]>>4), 4))
 	}
-	return f
 }
 
-// ringCompressAndEncode10 appends a 320-byte encoding of a ring element to s,
-// compressing four coefficients per five bytes.
-//
-// It implements Compress₁₀, according to FIPS 203, Definition 4.7,
-// followed by ByteEncode₁₀, according to FIPS 203, Algorithm 5.
-func ringCompressAndEncode10(s []byte, f ringElement) []byte {
-	s, b := sliceForAppend(s, encodingSize10)
+func ringCompressAndEncode10Generic(b []byte, f *ringElement) {
 	for i := 0; i < n; i += 4 {
 		var x uint64
 		x |= uint64(compress(f[i], 10))
@@ -273,7 +261,6 @@ func ringCompressAndEncode10(s []byte, f ringElement) []byte {
 		b[4] = uint8(x >> 32)
 		b = b[5:]
 	}
-	return s
 }
 
 // ringDecodeAndDecompress10 decodes a 320-byte encoding of a ring element where
@@ -300,7 +287,7 @@ func ringDecodeAndDecompress10(bb *[encodingSize10]byte) ringElement {
 //
 // It implements Compress, according to FIPS 203, Definition 4.7,
 // followed by ByteEncode, according to FIPS 203, Algorithm 5.
-func ringCompressAndEncode(s []byte, f ringElement, d uint8) []byte {
+func ringCompressAndEncode(s []byte, f *ringElement, d uint8) []byte {
 	var b byte
 	var bIdx uint8
 	for i := range n {
@@ -352,33 +339,6 @@ func ringDecodeAndDecompress(b []byte, d uint8) ringElement {
 		panic("mlkem: internal error: leftover bytes")
 	}
 	return f
-}
-
-// ringCompressAndEncode5 appends a 160-byte encoding of a ring element to s,
-// compressing eight coefficients per five bytes.
-//
-// It implements Compress₅, according to FIPS 203, Definition 4.7,
-// followed by ByteEncode₅, according to FIPS 203, Algorithm 5.
-func ringCompressAndEncode5(s []byte, f ringElement) []byte {
-	return ringCompressAndEncode(s, f, 5)
-}
-
-// ringDecodeAndDecompress5 decodes a 160-byte encoding of a ring element where
-// each five bits are mapped to an equidistant distribution.
-//
-// It implements ByteDecode₅, according to FIPS 203, Algorithm 6,
-// followed by Decompress₅, according to FIPS 203, Definition 4.8.
-func ringDecodeAndDecompress5(bb *[encodingSize5]byte) ringElement {
-	return ringDecodeAndDecompress(bb[:], 5)
-}
-
-// ringCompressAndEncode11 appends a 352-byte encoding of a ring element to s,
-// compressing eight coefficients per eleven bytes.
-//
-// It implements Compress₁₁, according to FIPS 203, Definition 4.7,
-// followed by ByteEncode₁₁, according to FIPS 203, Algorithm 5.
-func ringCompressAndEncode11(s []byte, f ringElement) []byte {
-	return ringCompressAndEncode(s, f, 11)
 }
 
 // ringDecodeAndDecompress11 decodes a 352-byte encoding of a ring element where
@@ -509,66 +469,24 @@ func internalInverseNTTGeneric(f *nttElement) {
 	}
 }
 
-// sampleNTT draws a uniformly random nttElement from a stream of uniformly
-// random bytes generated by the XOF function, according to FIPS 203,
-// Algorithm 7.
-func sampleNTT(rho []byte, ii, jj byte) nttElement {
-	B := sha3.NewSHAKE128()
-	B.Write(rho)
-	B.Write([]byte{ii, jj})
-
-	// SampleNTT essentially draws 12 bits at a time from r, interprets them in
-	// little-endian, and rejects values higher than q, until it drew 256
-	// values. (The rejection rate is approximately 19%.)
-	//
-	// To do this from a bytes stream, it draws three bytes at a time, and
-	// splits them into two uint16 appropriately masked.
-	//
-	//               r₀              r₁              r₂
-	//       |- - - - - - - -|- - - - - - - -|- - - - - - - -|
-	//
-	//               Uint16(r₀ || r₁)
-	//       |- - - - - - - - - - - - - - - -|
-	//       |- - - - - - - - - - - -|
-	//                   d₁
-	//
-	//                                Uint16(r₁ || r₂)
-	//                       |- - - - - - - - - - - - - - - -|
-	//                               |- - - - - - - - - - - -|
-	//                                           d₂
-	//
-	// Note that in little-endian, the rightmost bits are the most significant
-	// bits (dropped with a mask) and the leftmost bits are the least
-	// significant bits (dropped with a right shift).
-
-	var a nttElement
-	var j int        // index into a
-	var buf [24]byte // buffered reads from B
-	off := len(buf)  // index into buf, starts in a "buffer fully consumed" state
-	for {
-		if off >= len(buf) {
-			B.Read(buf[:])
-			off = 0
-		}
-		d1 := byteorder.LEUint16(buf[off:]) & 0b1111_1111_1111
-		d2 := byteorder.LEUint16(buf[off+1:]) >> 4
-		off += 3
+func rejUniformGeneric(buf []byte, a *nttElement, j int) int {
+	start := j
+	for i := 0; i < len(buf) && start < n; i += 3 {
+		d1 := byteorder.LEUint16(buf[i:]) & 0b1111_1111_1111
+		d2 := byteorder.LEUint16(buf[i+1:]) >> 4
 		if d1 < q {
-			a[j] = fieldElement(d1)
-			j++
+			a[start] = fieldElement(d1)
+			start++
 		}
-		if j >= len(a) {
+		if start >= n {
 			break
 		}
 		if d2 < q {
-			a[j] = fieldElement(d2)
-			j++
-		}
-		if j >= len(a) {
-			break
+			a[start] = fieldElement(d2)
+			start++
 		}
 	}
-	return a
+	return start - j
 }
 
 func decodeAndDecompressU10Generic(dst []ringElement, c []byte) {

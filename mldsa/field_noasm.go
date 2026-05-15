@@ -22,6 +22,10 @@ func nttMulAcc(acc, lhs, rhs *nttElement) {
 	nttMulAccGeneric(acc, lhs, rhs)
 }
 
+func nttMatRowVecMul(dst, vec, matRow *nttElement, len int) {
+	nttMatRowVecMulGeneric(dst, vec, matRow, len)
+}
+
 // polyAddAssign updates dst as dst += src (fallback to generic).
 func polyAddAssign[T ~[n]fieldElement](dst, src *T) {
 	polyAddGeneric(dst, src)
@@ -38,6 +42,10 @@ func decomposeSubToR0(dst *[n]int32, w, cs2 *ringElement, gamma2 uint32) {
 
 func useHintPoly(dst, h, r *ringElement, gamma2 uint32) {
 	useHintPolyGeneric(dst, h, r, gamma2)
+}
+
+func vectorMakeHint(ct0, cs2, w, hint []ringElement, gamma2 uint32) {
+	vectorMakeHintGeneric(ct0, cs2, w, hint, gamma2)
 }
 
 func internalNTT(f *ringElement) {

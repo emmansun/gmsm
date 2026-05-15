@@ -23,142 +23,13 @@ GLOBL nttConsts<>(SB), RODATA, $10
 #define rrConst nttConsts<>+0x06(SB)
 #define scale1441Const nttConsts<>+0x08(SB)
 
-// gammaMulTable<>: 256 × int16 interleaved as [r, γ[0], r, γ[1], ..., r, γ[127]]
-// where r=2285 (Montgomery form of 1) and γ[i]=gammasMontgomery[i].
-// Used by internalNTTMulAccAVX2: MontMul(t_ab[even], r) = t_ab[even],
-// MontMul(t_ab[odd], γ[i]) = γ[i]·a1·b1 for the even-index accumulation.
-DATA gammaMulTable<>+0x000(SB)/4, $0x08B208ED
-DATA gammaMulTable<>+0x004(SB)/4, $0x044F08ED
-DATA gammaMulTable<>+0x008(SB)/4, $0x01AE08ED
-DATA gammaMulTable<>+0x00C(SB)/4, $0x0B5308ED
-DATA gammaMulTable<>+0x010(SB)/4, $0x022B08ED
-DATA gammaMulTable<>+0x014(SB)/4, $0x0AD608ED
-DATA gammaMulTable<>+0x018(SB)/4, $0x034B08ED
-DATA gammaMulTable<>+0x01C(SB)/4, $0x09B608ED
-DATA gammaMulTable<>+0x020(SB)/4, $0x081E08ED
-DATA gammaMulTable<>+0x024(SB)/4, $0x04E308ED
-DATA gammaMulTable<>+0x028(SB)/4, $0x036708ED
-DATA gammaMulTable<>+0x02C(SB)/4, $0x099A08ED
-DATA gammaMulTable<>+0x030(SB)/4, $0x060E08ED
-DATA gammaMulTable<>+0x034(SB)/4, $0x06F308ED
-DATA gammaMulTable<>+0x038(SB)/4, $0x006908ED
-DATA gammaMulTable<>+0x03C(SB)/4, $0x0C9808ED
-DATA gammaMulTable<>+0x040(SB)/4, $0x01A608ED
-DATA gammaMulTable<>+0x044(SB)/4, $0x0B5B08ED
-DATA gammaMulTable<>+0x048(SB)/4, $0x024B08ED
-DATA gammaMulTable<>+0x04C(SB)/4, $0x0AB608ED
-DATA gammaMulTable<>+0x050(SB)/4, $0x00B108ED
-DATA gammaMulTable<>+0x054(SB)/4, $0x0C5008ED
-DATA gammaMulTable<>+0x058(SB)/4, $0x0C1608ED
-DATA gammaMulTable<>+0x05C(SB)/4, $0x00EB08ED
-DATA gammaMulTable<>+0x060(SB)/4, $0x0BDE08ED
-DATA gammaMulTable<>+0x064(SB)/4, $0x012308ED
-DATA gammaMulTable<>+0x068(SB)/4, $0x0B3508ED
-DATA gammaMulTable<>+0x06C(SB)/4, $0x01CC08ED
-DATA gammaMulTable<>+0x070(SB)/4, $0x062608ED
-DATA gammaMulTable<>+0x074(SB)/4, $0x06DB08ED
-DATA gammaMulTable<>+0x078(SB)/4, $0x067508ED
-DATA gammaMulTable<>+0x07C(SB)/4, $0x068C08ED
-DATA gammaMulTable<>+0x080(SB)/4, $0x0C0B08ED
-DATA gammaMulTable<>+0x084(SB)/4, $0x00F608ED
-DATA gammaMulTable<>+0x088(SB)/4, $0x030A08ED
-DATA gammaMulTable<>+0x08C(SB)/4, $0x09F708ED
-DATA gammaMulTable<>+0x090(SB)/4, $0x048708ED
-DATA gammaMulTable<>+0x094(SB)/4, $0x087A08ED
-DATA gammaMulTable<>+0x098(SB)/4, $0x0C6E08ED
-DATA gammaMulTable<>+0x09C(SB)/4, $0x009308ED
-DATA gammaMulTable<>+0x0A0(SB)/4, $0x09F808ED
-DATA gammaMulTable<>+0x0A4(SB)/4, $0x030908ED
-DATA gammaMulTable<>+0x0A8(SB)/4, $0x05CB08ED
-DATA gammaMulTable<>+0x0AC(SB)/4, $0x073608ED
-DATA gammaMulTable<>+0x0B0(SB)/4, $0x0AA708ED
-DATA gammaMulTable<>+0x0B4(SB)/4, $0x025A08ED
-DATA gammaMulTable<>+0x0B8(SB)/4, $0x045F08ED
-DATA gammaMulTable<>+0x0BC(SB)/4, $0x08A208ED
-DATA gammaMulTable<>+0x0C0(SB)/4, $0x06CB08ED
-DATA gammaMulTable<>+0x0C4(SB)/4, $0x063608ED
-DATA gammaMulTable<>+0x0C8(SB)/4, $0x028408ED
-DATA gammaMulTable<>+0x0CC(SB)/4, $0x0A7D08ED
-DATA gammaMulTable<>+0x0D0(SB)/4, $0x099908ED
-DATA gammaMulTable<>+0x0D4(SB)/4, $0x036808ED
-DATA gammaMulTable<>+0x0D8(SB)/4, $0x015D08ED
-DATA gammaMulTable<>+0x0DC(SB)/4, $0x0BA408ED
-DATA gammaMulTable<>+0x0E0(SB)/4, $0x01A208ED
-DATA gammaMulTable<>+0x0E4(SB)/4, $0x0B5F08ED
-DATA gammaMulTable<>+0x0E8(SB)/4, $0x014908ED
-DATA gammaMulTable<>+0x0EC(SB)/4, $0x0BB808ED
-DATA gammaMulTable<>+0x0F0(SB)/4, $0x0C6508ED
-DATA gammaMulTable<>+0x0F4(SB)/4, $0x009C08ED
-DATA gammaMulTable<>+0x0F8(SB)/4, $0x0CB608ED
-DATA gammaMulTable<>+0x0FC(SB)/4, $0x004B08ED
-DATA gammaMulTable<>+0x100(SB)/4, $0x033108ED
-DATA gammaMulTable<>+0x104(SB)/4, $0x09D008ED
-DATA gammaMulTable<>+0x108(SB)/4, $0x044908ED
-DATA gammaMulTable<>+0x10C(SB)/4, $0x08B808ED
-DATA gammaMulTable<>+0x110(SB)/4, $0x025B08ED
-DATA gammaMulTable<>+0x114(SB)/4, $0x0AA608ED
-DATA gammaMulTable<>+0x118(SB)/4, $0x026208ED
-DATA gammaMulTable<>+0x11C(SB)/4, $0x0A9F08ED
-DATA gammaMulTable<>+0x120(SB)/4, $0x052A08ED
-DATA gammaMulTable<>+0x124(SB)/4, $0x07D708ED
-DATA gammaMulTable<>+0x128(SB)/4, $0x07FC08ED
-DATA gammaMulTable<>+0x12C(SB)/4, $0x050508ED
-DATA gammaMulTable<>+0x130(SB)/4, $0x074808ED
-DATA gammaMulTable<>+0x134(SB)/4, $0x05B908ED
-DATA gammaMulTable<>+0x138(SB)/4, $0x018008ED
-DATA gammaMulTable<>+0x13C(SB)/4, $0x0B8108ED
-DATA gammaMulTable<>+0x140(SB)/4, $0x084208ED
-DATA gammaMulTable<>+0x144(SB)/4, $0x04BF08ED
-DATA gammaMulTable<>+0x148(SB)/4, $0x0C7908ED
-DATA gammaMulTable<>+0x14C(SB)/4, $0x008808ED
-DATA gammaMulTable<>+0x150(SB)/4, $0x04C208ED
-DATA gammaMulTable<>+0x154(SB)/4, $0x083F08ED
-DATA gammaMulTable<>+0x158(SB)/4, $0x07CA08ED
-DATA gammaMulTable<>+0x15C(SB)/4, $0x053708ED
-DATA gammaMulTable<>+0x160(SB)/4, $0x099708ED
-DATA gammaMulTable<>+0x164(SB)/4, $0x036A08ED
-DATA gammaMulTable<>+0x168(SB)/4, $0x00DC08ED
-DATA gammaMulTable<>+0x16C(SB)/4, $0x0C2508ED
-DATA gammaMulTable<>+0x170(SB)/4, $0x085E08ED
-DATA gammaMulTable<>+0x174(SB)/4, $0x04A308ED
-DATA gammaMulTable<>+0x178(SB)/4, $0x068608ED
-DATA gammaMulTable<>+0x17C(SB)/4, $0x067B08ED
-DATA gammaMulTable<>+0x180(SB)/4, $0x086008ED
-DATA gammaMulTable<>+0x184(SB)/4, $0x04A108ED
-DATA gammaMulTable<>+0x188(SB)/4, $0x070708ED
-DATA gammaMulTable<>+0x18C(SB)/4, $0x05FA08ED
-DATA gammaMulTable<>+0x190(SB)/4, $0x080308ED
-DATA gammaMulTable<>+0x194(SB)/4, $0x04FE08ED
-DATA gammaMulTable<>+0x198(SB)/4, $0x031A08ED
-DATA gammaMulTable<>+0x19C(SB)/4, $0x09E708ED
-DATA gammaMulTable<>+0x1A0(SB)/4, $0x071B08ED
-DATA gammaMulTable<>+0x1A4(SB)/4, $0x05E608ED
-DATA gammaMulTable<>+0x1A8(SB)/4, $0x09AB08ED
-DATA gammaMulTable<>+0x1AC(SB)/4, $0x035608ED
-DATA gammaMulTable<>+0x1B0(SB)/4, $0x099B08ED
-DATA gammaMulTable<>+0x1B4(SB)/4, $0x036608ED
-DATA gammaMulTable<>+0x1B8(SB)/4, $0x01DE08ED
-DATA gammaMulTable<>+0x1BC(SB)/4, $0x0B2308ED
-DATA gammaMulTable<>+0x1C0(SB)/4, $0x0C9508ED
-DATA gammaMulTable<>+0x1C4(SB)/4, $0x006C08ED
-DATA gammaMulTable<>+0x1C8(SB)/4, $0x0BCD08ED
-DATA gammaMulTable<>+0x1CC(SB)/4, $0x013408ED
-DATA gammaMulTable<>+0x1D0(SB)/4, $0x03E408ED
-DATA gammaMulTable<>+0x1D4(SB)/4, $0x091D08ED
-DATA gammaMulTable<>+0x1D8(SB)/4, $0x03DF08ED
-DATA gammaMulTable<>+0x1DC(SB)/4, $0x092208ED
-DATA gammaMulTable<>+0x1E0(SB)/4, $0x03BE08ED
-DATA gammaMulTable<>+0x1E4(SB)/4, $0x094308ED
-DATA gammaMulTable<>+0x1E8(SB)/4, $0x074D08ED
-DATA gammaMulTable<>+0x1EC(SB)/4, $0x05B408ED
-DATA gammaMulTable<>+0x1F0(SB)/4, $0x05F208ED
-DATA gammaMulTable<>+0x1F4(SB)/4, $0x070F08ED
-DATA gammaMulTable<>+0x1F8(SB)/4, $0x065C08ED
-DATA gammaMulTable<>+0x1FC(SB)/4, $0x06A508ED
-GLOBL gammaMulTable<>(SB), RODATA, $512
+// Large AVX2 precomputed tables are declared and initialized in field_amd64.go:
+//   ·gammaMulTable
+//   ·nttTwiddleL8Precomp
+//   ·nttTwiddleL4Precomp
+//   ·nttTwiddleL2Precomp
 
 // ── CBD sampling constants ────────────────────────────────────────────────────
-
 DATA decodeU11ShufIdx<>+0x00(SB)/8, $0x0504030202010100
 DATA decodeU11ShufIdx<>+0x08(SB)/8, $0x0A09090807060605
 DATA decodeU11ShufIdx<>+0x10(SB)/8, $0x0807060505040403
@@ -241,6 +112,95 @@ DATA cbd3ShufIdx<>+0x10(SB)/8, $0xFF090807FF060504
 DATA cbd3ShufIdx<>+0x18(SB)/8, $0xFF0F0E0DFF0C0B0A
 GLOBL cbd3ShufIdx<>(SB), RODATA, $32
 
+DATA compressEncodeMulV<>+0x00(SB)/2, $20159
+GLOBL compressEncodeMulV<>(SB), RODATA, $2
+
+DATA compressEncode4Mask<>+0x00(SB)/2, $0x000F
+GLOBL compressEncode4Mask<>(SB), RODATA, $2
+
+DATA compressEncode4PermdIdx<>+0x00(SB)/8, $0x0000000400000000
+DATA compressEncode4PermdIdx<>+0x08(SB)/8, $0x0000000500000001
+DATA compressEncode4PermdIdx<>+0x10(SB)/8, $0x0000000600000002
+DATA compressEncode4PermdIdx<>+0x18(SB)/8, $0x0000000700000003
+GLOBL compressEncode4PermdIdx<>(SB), RODATA, $32
+
+DATA decompressDecode4Mask<>+0x00(SB)/4, $0x00F0000F
+GLOBL decompressDecode4Mask<>(SB), RODATA, $4
+
+DATA decompressDecode4Shift<>+0x00(SB)/4, $0x800800
+GLOBL decompressDecode4Shift<>(SB), RODATA, $4
+
+DATA decompressDecode4ShufbIdx<>+0x00(SB)/8, $0x0101010100000000
+DATA decompressDecode4ShufbIdx<>+0x08(SB)/8, $0x0303030302020202
+DATA decompressDecode4ShufbIdx<>+0x10(SB)/8, $0x0505050504040404
+DATA decompressDecode4ShufbIdx<>+0x18(SB)/8, $0x0707070706060606
+GLOBL decompressDecode4ShufbIdx<>(SB), RODATA, $32
+
+DATA compressEncode5Mask<>+0x00(SB)/2, $0x001F
+GLOBL compressEncode5Mask<>(SB), RODATA, $2
+
+DATA compressEncode5Shift3<>+0x00(SB)/4, $67108865    // 0x04000001
+GLOBL compressEncode5Shift3<>(SB), RODATA, $4
+
+DATA compressEncode5SllvdIdx<>+0x00(SB)/8, $0x000000000000000c
+GLOBL compressEncode5SllvdIdx<>(SB), RODATA, $8
+
+DATA compressEncode5ShuffleIdx<>+0x00(SB)/8, $0xffffff0403020100
+DATA compressEncode5ShuffleIdx<>+0x08(SB)/8, $0xff0c0b0a0908ffff
+DATA compressEncode5ShuffleIdx<>+0x10(SB)/8, $0x020100ff0c0b0a09
+DATA compressEncode5ShuffleIdx<>+0x18(SB)/8, $0x08ffffffffff0403
+GLOBL compressEncode5ShuffleIdx<>(SB), RODATA, $32
+
+DATA decompressDecode5Mask<>+0x00(SB)/8, $0x0f80007c03e0001f
+DATA decompressDecode5Mask<>+0x08(SB)/8, $0x00f807c0003e01f0
+DATA decompressDecode5Mask<>+0x10(SB)/8, $0x0f80007c03e0001f
+DATA decompressDecode5Mask<>+0x18(SB)/8, $0x00f807c0003e01f0
+GLOBL decompressDecode5Mask<>(SB), RODATA, $32
+
+DATA decompressDecode5Shift<>+0x00(SB)/8, $0x0008010000200400
+DATA decompressDecode5Shift<>+0x08(SB)/8, $0x0080001002000040
+DATA decompressDecode5Shift<>+0x10(SB)/8, $0x0008010000200400
+DATA decompressDecode5Shift<>+0x18(SB)/8, $0x0080001002000040
+GLOBL decompressDecode5Shift<>(SB), RODATA, $32
+
+DATA decompressDecode5ShufbIdx<>+0x00(SB)/8, $0x0201010101000000
+DATA decompressDecode5ShufbIdx<>+0x08(SB)/8, $0x0404040303030302
+DATA decompressDecode5ShufbIdx<>+0x10(SB)/8, $0x0706060606050505
+DATA decompressDecode5ShufbIdx<>+0x18(SB)/8, $0x0909090808080807
+GLOBL decompressDecode5ShufbIdx<>(SB), RODATA, $32
+
+DATA compressEncode10ShuffleIdx<>+0x00(SB)/8, $0x0a09080403020100
+DATA compressEncode10ShuffleIdx<>+0x08(SB)/8, $0xffffffffffff0c0b
+DATA compressEncode10ShuffleIdx<>+0x10(SB)/8, $0xffffffff0c0b0a09
+DATA compressEncode10ShuffleIdx<>+0x18(SB)/8, $0x080403020100ffff
+GLOBL compressEncode10ShuffleIdx<>(SB), RODATA, $32
+
+DATA compressEncode11Off<>+0x00(SB)/2, $0x0024
+GLOBL compressEncode11Off<>(SB), RODATA, $2
+
+DATA compressEncode11SllvdIdx<>+0x00(SB)/8, $0x000000000000000a
+GLOBL compressEncode11SllvdIdx<>(SB), RODATA, $8
+
+DATA compressEncode11SrlvdIdx<>+0x00(SB)/8, $0x000000000000000a
+DATA compressEncode11SrlvdIdx<>+0x08(SB)/8, $0x000000000000001e
+GLOBL compressEncode11SrlvdIdx<>(SB), RODATA, $16
+
+DATA compressEncode11Shift2<>+0x00(SB)/4, $0x08000001
+GLOBL compressEncode11Shift2<>(SB), RODATA, $4
+
+DATA compressEncode11ShuffleIdx<>+0x00(SB)/8, $0x0706050403020100
+DATA compressEncode11ShuffleIdx<>+0x08(SB)/8, $0xffffffffff0a0908
+DATA compressEncode11ShuffleIdx<>+0x10(SB)/8, $0xffff0a0908070605
+DATA compressEncode11ShuffleIdx<>+0x18(SB)/8, $0x040302010000ffff
+GLOBL compressEncode11ShuffleIdx<>(SB), RODATA, $32
+
+// compress1 thresholds: compress(x,1)=1 iff 833 <= x <= 2496.
+DATA compressEncode1Lo<>+0x00(SB)/2, $832
+GLOBL compressEncode1Lo<>(SB), RODATA, $2
+
+DATA compressEncode1Hi<>+0x00(SB)/2, $2496
+GLOBL compressEncode1Hi<>(SB), RODATA, $2
+
 // MONT_MUL_VEC computes lane-wise Montgomery multiplication YOUT = MontMul(YA, YZ).
 // Inputs: YA=value, YZ=multiplier-broadcast.
 // Constants: Y15=q, Y14=qNegInv, Y10=one, Y8=zero.
@@ -261,27 +221,6 @@ GLOBL cbd3ShufIdx<>(SB), RODATA, $32
 	VPCMPGTW Y12, Y15, Y13 \ // Y13 = 0xFFFF if result < q else 0
 	VPANDN Y15, Y13, Y13 \   // Y13 = q if result >= q else 0
 	VPSUBW Y13, Y12, YOUT
-
-// MONT_MUL_VECX computes lane-wise Montgomery multiplication YOUT = MontMul(XA, XZ).
-// Inputs: XA=value, XZ=multiplier-broadcast.
-// Constants: X15=q, X14=qNegInv, X10=one, X8=zero.
-// Clobbers: X11, X12, X13.
-#define MONT_MUL_VECX(XA, XZ, XOUT) \
-	\ // mul XA by XZ, producing 32-bit products in X11 (low) and X12 (high)
-	VPMULLW XZ, XA, X11 \    // lo = (XA * XZ) mod 2^16
-	VPMULHUW XZ, XA, X12 \   // hi = (XA * XZ) >> 16  [unsigned]
-	\ // montgomery reduction: m = (t_ab[even] * qNegInv) mod r, t = (t_ab + m*q) / r
-	VPMULLW X14, X11, X13 \  // t  = lo * qNegInv mod 2^16
-	VPMULHUW X15, X13, X13 \ // correction = (t * q) >> 16
-	VPADDW X13, X12, X12 \   // result = hi + correction
-	\ // lo==0 edge-case correction (adds 1 when lo != 0):
-	VPCMPEQW X8, X11, X13 \  // X13 = 0xFFFF if lo==0 else 0
-	VPADDW X10, X13, X13 \   // X13 = 0 if lo==0 else 1  (1+0xFFFF=0, 1+0=1)
-	VPADDW X13, X12, X12 \   // result += X13  (adds 1 when lo != 0)
-	\ // final conditional subtraction to reduce mod q: if t >= q, subtract q; else keep t
-	VPCMPGTW X12, X15, X13 \ // X13 = 0xFFFF if result < q else 0
-	VPANDN X15, X13, X13 \   // X13 = q if result >= q else 0
-	VPSUBW X13, X12, XOUT
 
 // BUTTERFLY performs one Cooley-Tukey butterfly on 16 lanes.
 // Inputs: YA=a, YB=b, YZ=zeta-broadcast.
@@ -433,15 +372,13 @@ TEXT ·internalNTTAVX2(SB), NOSPLIT, $0-8
 	// Continue with layers len=8, len=4, len=2
 len8_start:
 	// Layer len=8, groups g=0..15, zeta index = 16+g
-	MOVQ $32, SI
+	LEAQ ·nttTwiddleL8Precomp(SB), SI
 	XORQ CX, CX
 	XORQ DI, DI
 len8_loop:
 	CMPQ CX, $8
 	JGE len4_start
-	VPBROADCASTW (BX)(SI*1), X7
-	VPBROADCASTW 2(BX)(SI*1), X6
-	VPERM2I128 $0x20, Y6, Y7, Y7
+	VMOVDQU (SI), Y7
 
 	VMOVDQU (AX)(DI*1), Y6
 	VMOVDQU 32(AX)(DI*1), Y1
@@ -454,24 +391,21 @@ len8_loop:
 	VMOVDQU Y1, 32(AX)(DI*1)
 
 	INCQ CX
-	ADDQ $4, SI
+	ADDQ $32, SI
 	ADDQ $64, DI
 	JMP len8_loop
 
 	// Layer len=4, groups g=0..31, zeta index = 32+g
 len4_start:
+	LEAQ ·nttTwiddleL4Precomp(SB), SI
 	XORQ CX, CX
 	XORQ DI, DI
 len4_loop:
 	CMPQ CX, $8
 	JGE len2_start
 
-	// Build twiddle vector with one 64-bit load: [z0*4, z1*4, z2*4, z3*4].
-	VMOVQ (BX)(SI*1), X7
-	VPUNPCKLWD X7, X7, X7
-	VPSHUFD $0xFA, X7, X0
-	VPSHUFD $0x50, X7, X7
-	VPERM2I128 $0x20, Y0, Y7, Y7
+	// Load precomputed twiddle vector: [z0*4, z1*4, z2*4, z3*4].
+	VMOVDQU (SI), Y7
 
 	// Load 4 contiguous groups (32 coefficients): [g0|g1] and [g2|g3].
 	VMOVDQU (AX)(DI*1), Y6
@@ -499,26 +433,21 @@ len4_loop:
 	VMOVDQU Y1, 32(AX)(DI*1)
 
 	INCQ CX
-	ADDQ $8, SI
+	ADDQ $32, SI
 	ADDQ $64, DI
 	JMP len4_loop
 
 	// Layer len=2, groups g=0..63, zeta index = 64+g
 len2_start:
+	LEAQ ·nttTwiddleL2Precomp(SB), SI
 	XORQ CX, CX
 	XORQ DI, DI
 len2_loop:
 	CMPQ CX, $8
 	JGE len2_done
 
-	// Build twiddle vector for 8 groups with two 64-bit loads.
-	VMOVQ (BX)(SI*1), X7
-	VPUNPCKLWD X7, X7, X7
-	VMOVQ 8(BX)(SI*1), X6
-	VPUNPCKLWD X6, X6, X6
-	VPUNPCKLQDQ X6, X7, X2
-	VPUNPCKHQDQ X6, X7, X0
-	VPERM2I128 $0x20, Y0, Y2, Y7
+	// Load precomputed twiddle vector for 8 groups.
+	VMOVDQU (SI), Y7
 
 	// Load 8 contiguous groups (32 coefficients).
 	VMOVDQU (AX)(DI*1), Y6
@@ -541,7 +470,7 @@ len2_loop:
 	VMOVDQU Y1, 32(AX)(DI*1)
 
 	INCQ CX
-	ADDQ $16, SI
+	ADDQ $32, SI
 	ADDQ $64, DI
 	JMP len2_loop
 
@@ -594,26 +523,16 @@ TEXT ·internalInverseNTTAVX2(SB), NOSPLIT, $0-8
 	VPBROADCASTW oneConst, Y10
 	VPXOR Y8, Y8, Y8
 
-	// ── L6: len=2, 64 groups, zeta = zetasMontgomery[127..64] ───────────
-	// group g: start=g*4 bytes, fl=[start..start+4), fr=[start+4..start+8)
-	// twiddle at BX + (127-g)*2  (k counts down from 127)
-	MOVQ $254, SI
+	// L6: len=2, 64 groups, zeta = zetasMontgomery[127..64]
+	LEAQ ·inttTwiddleL2Precomp(SB), SI
 	XORQ CX, CX
 	XORQ DI, DI
 intt_len2_loop:
 	CMPQ CX, $8
 	JGE intt_len4_start
 
-	// Build twiddle vector for 8 groups with two 64-bit loads.
-	VMOVQ -6(BX)(SI*1), X7
-	VPSHUFLW $0x1B, X7, X7
-	VPUNPCKLWD X7, X7, X7
-	VMOVQ -14(BX)(SI*1), X6
-	VPSHUFLW $0x1B, X6, X6
-	VPUNPCKLWD X6, X6, X6
-	VPUNPCKLQDQ X6, X7, X2
-	VPUNPCKHQDQ X6, X7, X0
-	VPERM2I128 $0x20, Y0, Y2, Y7
+	// Load precomputed twiddle vector for 8 groups.
+	VMOVDQU (SI), Y7
 
 	// Load 8 contiguous groups (32 coefficients).
 	VMOVDQU (AX)(DI*1), Y6
@@ -636,26 +555,21 @@ intt_len2_loop:
 	VMOVDQU Y1, 32(AX)(DI*1)
 
 	INCQ CX
-	SUBQ $16, SI // pre-decrement SI for next 8 twiddles
+	ADDQ $32, SI
 	ADDQ $64, DI // next 8 group offset
 	JMP intt_len2_loop
 
-	// ── L5: len=4, 32 groups, zeta = zetasMontgomery[63..32] ────────────
-	// group g: start=g*8 bytes, fl=[start..start+8), fr=[start+8..start+16)
+	// L5: len=4, 32 groups, zeta = zetasMontgomery[63..32]
 intt_len4_start:
+	LEAQ ·inttTwiddleL4Precomp(SB), SI
 	XORQ CX, CX
 	XORQ DI, DI
 intt_len4_loop:
 	CMPQ CX, $8
 	JGE intt_len8_start
 
-	// Build twiddle vector for 4 groups with one 64-bit load: [z0*4, z1*4, z2*4, z3*4].
-	VMOVQ -6(BX)(SI*1), X7
-	VPSHUFLW $0x1B, X7, X7
-	VPUNPCKLWD X7, X7, X7
-	VPSHUFD $0xFA, X7, X0
-	VPSHUFD $0x50, X7, X7
-	VPERM2I128 $0x20, Y0, Y7, Y7
+	// Load precomputed twiddle vector: [z0*4, z1*4, z2*4, z3*4].
+	VMOVDQU (SI), Y7
 
 	// Load 4 contiguous groups (32 coefficients): [g0|g1] and [g2|g3].
 	VMOVDQU (AX)(DI*1), Y6
@@ -683,23 +597,20 @@ intt_len4_loop:
 	VMOVDQU Y1, 32(AX)(DI*1)
 
 	INCQ CX
-	SUBQ $8, SI  // pre-decrement SI for next 4 twiddles
+	ADDQ $32, SI
 	ADDQ $64, DI // next 4 group offset
 	JMP intt_len4_loop
 
-	// ── L4: len=8, 16 groups, zeta = zetasMontgomery[31..16] ────────────
-	// group g: start=g*16 bytes (= g*32 once you include both halves),
-	//          fl=[start..start+16), fr=[start+16..start+32)
+	// L4: len=8, 16 groups, zeta = zetasMontgomery[31..16]
 intt_len8_start:
+	LEAQ ·inttTwiddleL8Precomp(SB), SI
 	XORQ CX, CX
 	XORQ DI, DI
 intt_len8_loop:
 	CMPQ CX, $8
 	JGE intt_len16_start
 
-	VPBROADCASTW (BX)(SI*1), X7
-	VPBROADCASTW -2(BX)(SI*1), X6
-	VPERM2I128 $0x20, Y6, Y7, Y7
+	VMOVDQU (SI), Y7
 
 	VMOVDQU (AX)(DI*1), Y6
 	VMOVDQU 32(AX)(DI*1), Y1
@@ -712,7 +623,7 @@ intt_len8_loop:
 	VMOVDQU Y1, 32(AX)(DI*1)
 
 	INCQ CX
-	SUBQ $4, SI  // pre-decrement SI for next twiddle
+	ADDQ $32, SI
 	ADDQ $64, DI // next group offset
 	JMP intt_len8_loop
 
@@ -796,7 +707,7 @@ intt_len16_start:
 // Strategy: process 8 pairs (16 elements) per YMM iteration using VPHADDW
 // to combine pair results and VPUNPCKLWD to re-interleave even/odd updates.
 //
-// gammaMulTable<> contains [r, γ[0], r, γ[1], ...] (r=2285=Montgomery 1).
+// gammaMulTable contains [r, γ[0], r, γ[1], ...] (r=2285=Montgomery 1).
 // MontMul(x, r) = x, so even entries act as identity for MontMul.
 //
 // func internalNTTMulAccAVX2(acc, lhs, rhs *nttElement)
@@ -810,14 +721,14 @@ TEXT ·internalNTTMulAccAVX2(SB), NOSPLIT, $0-24
 	VPBROADCASTW oneConst, Y10
 	VPXOR Y8, Y8, Y8
 
-	LEAQ gammaMulTable<>(SB), SI
+	LEAQ ·gammaMulTable(SB), SI
 	XORQ DI, DI           // DI = block byte offset (0..480 step 32)
 
 nttmlacc_loop:
 	CMPQ DI, $512
 	JGE nttmlacc_done
 
-	// Load 8 pairs (16 × int16) from lhs, rhs, acc, and gammaMulTable
+	// Load 8 pairs (16 × int16) from lhs, rhs, acc, and gammaMulTable.
 	VMOVDQU (BX)(DI*1), Y0    // Y0 = lhs[DI/2 .. DI/2+15]
 	VMOVDQU (DX)(DI*1), Y1    // Y1 = rhs
 	VMOVDQU (AX)(DI*1), Y2    // Y2 = acc
@@ -884,14 +795,14 @@ TEXT ·internalNTTMulAVX2(SB), NOSPLIT, $0-24
 	VPBROADCASTW oneConst, Y10
 	VPXOR Y8, Y8, Y8
 
-	LEAQ gammaMulTable<>(SB), SI
+	LEAQ ·gammaMulTable(SB), SI
 	XORQ DI, DI           // DI = block byte offset (0..480 step 32)
 
 nttml_loop:
 	CMPQ DI, $512
 	JGE nttml_done
 
-	// Load 8 pairs (16 × int16) from lhs, rhs, acc, and gammaMulTable
+	// Load 8 pairs (16 × int16) from lhs, rhs, acc, and gammaMulTable.
 	VMOVDQU (BX)(DI*1), Y0    // Y0 = lhs[DI/2 .. DI/2+15]
 	VMOVDQU (DX)(DI*1), Y1    // Y1 = rhs
 	VMOVDQU (AX)(DI*1), Y2    // Y2 = acc
@@ -961,14 +872,14 @@ TEXT ·internalNTTMulAccKeyGenAVX2(SB), NOSPLIT, $0-24
 	VPXOR Y8, Y8, Y8
 	VPBROADCASTW rrConst, Y9       // Y9 = rr = 1353; MontMul(x, Y9) converts Mont -> standard
 
-	LEAQ gammaMulTable<>(SB), SI
+	LEAQ ·gammaMulTable(SB), SI
 	XORQ DI, DI           // DI = block byte offset (0..480 step 32)
 
 nttmlacc_kg_loop:
 	CMPQ DI, $512
 	JGE nttmlacc_kg_done
 
-	// Load 8 pairs (16 × int16) from lhs, rhs, acc, and gammaMulTable
+	// Load 8 pairs (16 × int16) from lhs, rhs, acc, and gammaMulTable.
 	VMOVDQU (BX)(DI*1), Y0    // Y0 = lhs[DI/2 .. DI/2+15]
 	VMOVDQU (DX)(DI*1), Y1    // Y1 = rhs
 	VMOVDQU (AX)(DI*1), Y2    // Y2 = acc
@@ -1332,4 +1243,1061 @@ cbd3_loop:
 
 cbd3_done:
 	VZEROUPPER
+	RET
+
+// polyAddAssignAVX2 computes dst[i] = fieldAdd(dst[i], src[i]) for all i in [0, 256).
+// Uses AVX2 to process 32 int16 values (64 bytes) per iteration.
+TEXT ·polyAddAssignAVX2(SB), NOSPLIT, $0-16
+	MOVQ dst+0(FP), AX
+	MOVQ src+8(FP), CX
+
+	VPBROADCASTW qConst, Y15
+
+	XORQ DI, DI
+
+poly_add_loop:
+	CMPQ DI, $512
+	JGE poly_add_done
+
+	VMOVDQU (AX)(DI*1), Y0
+	VMOVDQU 32(AX)(DI*1), Y1
+	VMOVDQU (CX)(DI*1), Y2
+	VMOVDQU 32(CX)(DI*1), Y3
+
+	VPADDW Y2, Y0, Y0
+	VPADDW Y3, Y1, Y1
+
+	VPCMPGTW Y0, Y15, Y4  // Y4 = 0xFFFF if result < q else 0
+	VPANDN Y15, Y4, Y4    // Y4 = q if result >= q else 0
+	VPSUBW Y4, Y0, Y0
+
+	VPCMPGTW Y1, Y15, Y5  // Y5 = 0xFFFF if result < q else 0
+	VPANDN Y15, Y5, Y5    // Y5 = q if result >= q else 0
+	VPSUBW Y5, Y1, Y1
+
+	VMOVDQU Y0, (AX)(DI*1)
+	VMOVDQU Y1, 32(AX)(DI*1)
+
+	ADDQ $64, DI
+	JMP poly_add_loop
+
+poly_add_done:
+	VZEROUPPER
+	RET
+
+// polySubAssignAVX2 computes dst[i] = fieldSub(dst[i], src[i]) for all i in [0, 256).
+// fieldSub: x = uint16(a - b + q); return fieldReduceOnce(x)
+TEXT ·polySubAssignAVX2(SB), NOSPLIT, $0-16
+	MOVQ dst+0(FP), AX
+	MOVQ src+8(FP), CX
+
+	VPBROADCASTW qConst, Y15
+
+	XORQ DI, DI
+
+poly_sub_loop:
+	CMPQ DI, $512
+	JGE poly_sub_done
+
+	VMOVDQU (AX)(DI*1), Y0
+	VMOVDQU 32(AX)(DI*1), Y1
+	VMOVDQU (CX)(DI*1), Y2
+	VMOVDQU 32(CX)(DI*1), Y3
+
+	// Compute dst - src + q
+	VPADDW Y15, Y0, Y0      // Y0 = dst + q
+	VPSUBW Y2, Y0, Y0       // Y0 = dst + q - src
+
+	VPADDW Y15, Y1, Y1      // Y1 = dst + q
+	VPSUBW Y3, Y1, Y1       // Y1 = dst + q - src
+
+	// Reduce once: if >= q, subtract q
+	VPCMPGTW Y0, Y15, Y4    // Y4 = 0xFFFF if result >= q else 0
+	VPANDN Y15, Y4, Y4      // Y4 = q if result >= q else 0
+	VPSUBW Y4, Y0, Y0
+
+	VPCMPGTW Y1, Y15, Y5    // Y5 = 0xFFFF if result >= q else 0
+	VPANDN Y15, Y5, Y5      // Y5 = q if result >= q else 0
+	VPSUBW Y5, Y1, Y1
+
+	VMOVDQU Y0, (AX)(DI*1)
+	VMOVDQU Y1, 32(AX)(DI*1)
+
+	ADDQ $64, DI
+	JMP poly_sub_loop
+
+poly_sub_done:
+	VZEROUPPER
+	RET
+
+// ringCompressAndEncode4AVX2 computes ByteEncode_4(Compress_4(f)).
+//
+// For each coefficient x in [0, q):
+//   c = compress(x, 4) = round((16*x)/q) mod 16.
+//
+// Vector math used here:
+//   t1 = high16(x * 20159)
+//   c  = round((t1 * 512) / 2^15)
+//
+// Since 20159/2^22 is a close fixed-point approximation of 16/q,
+// this computes the same 4-bit compressed value as compress(x, 4)
+// for ML-KEM input range x in [0, 3328].
+//
+// Packing layout matches generic implementation:
+//   out[i/2] = c[2*i] | (c[2*i+1] << 4)
+// for i = 0..127.
+//
+// func ringCompressAndEncode4AVX2(out []byte, f *ringElement)
+TEXT ·ringCompressAndEncode4AVX2(SB), NOSPLIT, $0
+	MOVQ out_base+0(FP), AX
+	MOVQ f_base+24(FP), BX
+
+	VPBROADCASTW oneConst, Y0
+	VPSLLW $9, Y0, Y11  // Y11 = 512
+	VPSLLW $12, Y0, Y12 // Y12 = 4096
+	VPADDW Y0, Y12, Y12 // Y12 = 4097
+	VMOVDQU  compressEncode4PermdIdx<>(SB), Y13
+	VPBROADCASTW compressEncodeMulV<>(SB), Y14
+	VPBROADCASTW compressEncode4Mask<>(SB), Y15
+	
+	XORQ DI, DI
+	XORQ CX, CX
+
+compress_encode_loop:
+	CMPQ DI, $512
+	JGE compress_encode_done
+
+	// Load 64 coefficients (4 x YMM, each 16 x int16).
+	VMOVDQU (BX)(DI*1), Y0
+	VMOVDQU 32(BX)(DI*1), Y1
+	VMOVDQU 64(BX)(DI*1), Y2
+	VMOVDQU 96(BX)(DI*1), Y3
+
+	// Per-lane compress to 4 bits:
+	// 1) VPMULHW with 20159 approximates x * (16/q) in fixed-point.
+	// 2) VPMULHRSW with 512 applies round-to-nearest.
+	// 3) mask low nibble.
+	VPMULHW Y14, Y0, Y0
+	VPMULHW Y14, Y1, Y1
+	VPMULHW Y14, Y2, Y2
+	VPMULHW Y14, Y3, Y3
+	VPMULHRSW Y11, Y0, Y0
+	VPMULHRSW Y11, Y1, Y1
+	VPMULHRSW Y11, Y2, Y2
+	VPMULHRSW Y11, Y3, Y3
+	VPAND Y15, Y0, Y0
+	VPAND Y15, Y1, Y1
+	VPAND Y15, Y2, Y2
+	VPAND Y15, Y3, Y3
+
+	// Pack 16-bit nibbles to bytes, then combine byte pairs as lo | (hi<<4).
+	// VPMADDUBSW with 4097 does: b0*1 + b1*16 for each adjacent byte pair.
+	VPACKUSWB Y1, Y0, Y0
+	VPACKUSWB Y3, Y2, Y2
+	VPMADDUBSW Y12, Y0, Y0
+	VPMADDUBSW Y12, Y2, Y2
+
+	// Final byte pack and lane reorder to contiguous 32-byte output block.
+	VPACKUSWB Y2, Y0, Y0
+	VPERMD Y0, Y13, Y0
+
+	VMOVDQU Y0, (AX)(CX*1)
+
+	ADDQ $128, DI
+	ADDQ $32, CX
+	JMP compress_encode_loop
+
+compress_encode_done:
+	VZEROUPPER
+	RET
+
+// ringDecodeAndDecompress4AVX2 computes Decompress_4(ByteDecode_4(b)).
+//
+// Each input byte packs two 4-bit values:
+//   c0 = byte & 0x0f
+//   c1 = byte >> 4
+// and each nibble is expanded with:
+//   decompress(c, 4) = round((c * q) / 16).
+//
+// Vector strategy (32 input bytes -> 64 output coefficients per loop):
+// 1) Load 32 packed bytes and split them into low/high 128-bit lanes.
+// 2) VPSHUFB duplicates byte positions so each nibble lands in its own 16-bit lane.
+// 3) VPAND keeps only the selected low or high nibble bits.
+// 4) VPMULLW applies the fixed-point alignment needed for the decompress scaling.
+// 5) VPMULHRSW with q performs the final rounded map back into [0, q).
+//
+// Four such 16-coefficient vectors are stored per iteration, covering 64
+// coefficients = 32 encoded bytes.
+// func ringDecodeAndDecompress4AVX2(b *[encodingSize4]byte, f *ringElement)
+TEXT ·ringDecodeAndDecompress4AVX2(SB), NOSPLIT, $0
+	MOVQ b_base+0(FP), AX
+	MOVQ f_base+8(FP), BX
+
+	VPBROADCASTW qConst, Y15
+	VPBROADCASTD decompressDecode4Shift<>(SB), Y14
+	VPBROADCASTD decompressDecode4Mask<>(SB), Y13
+	VMOVDQU decompressDecode4ShufbIdx<>(SB), Y12
+	
+	XORQ DI, DI  // coefficient index
+	XORQ CX, CX  // input byte index
+
+decompress_dencode_loop:
+	CMPQ DI, $512
+	JGE decompress_dencode_done
+
+	VMOVDQU (AX)(CX*1), Y3
+	VPERM2I128 $0x00, Y3, Y3, Y0
+	VPERM2I128 $0x11, Y3, Y3, Y3
+
+	VPSHUFB Y12, Y0, Y1
+	VPAND Y13, Y1, Y1
+	VPMULLW Y14, Y1, Y1
+	VPMULHRSW Y15, Y1, Y1
+	VMOVDQU Y1, (BX)(DI*1)
+
+	VPSRLDQ $8, Y0, Y0
+	VPSHUFB Y12, Y0, Y0
+	VPAND Y13, Y0, Y0
+	VPMULLW Y14, Y0, Y0
+	VPMULHRSW Y15, Y0, Y0
+	VMOVDQU Y0, 32(BX)(DI*1)
+
+	VPSHUFB Y12, Y3, Y4
+	VPAND Y13, Y4, Y4
+	VPMULLW Y14, Y4, Y4
+	VPMULHRSW Y15, Y4, Y4
+	VMOVDQU Y4, 64(BX)(DI*1)
+
+	VPSRLDQ $8, Y3, Y3
+	VPSHUFB Y12, Y3, Y3
+	VPAND Y13, Y3, Y3
+	VPMULLW Y14, Y3, Y3
+	VPMULHRSW Y15, Y3, Y3
+	VMOVDQU Y3, 96(BX)(DI*1)	
+
+	ADDQ $32, CX
+	ADDQ $128, DI
+
+	JMP decompress_dencode_loop
+
+decompress_dencode_done:
+	RET
+
+// ringCompressAndEncode5AVX2 computes ByteEncode_5(Compress_5(f)).
+//
+// For each coefficient x in [0, q):
+//   c = compress(x, 5) = round((32*x)/q) mod 32.
+//
+// Vector math used here:
+//   t1 = high16(x * 20159)
+//   c  = round((t1 * 1024) / 2^15)
+//
+// Since 20159/2^21 is a close fixed-point approximation of 32/q,
+// this computes the same 5-bit compressed value as compress(x, 5)
+// for ML-KEM input range x in [0, 3328].
+//
+// Packing strategy (32 coefficients -> 20 bytes per loop):
+// 1) VPACKUSWB: pack 16-bit c values to bytes.
+// 2) VPMADDUBSW with 8193: combine adjacent pairs as c0 + (c1 << 5).
+// 3) VPMADDWD with 0x04000001: merge 10-bit pairs into 20-bit groups.
+// 4) VPSLLVD/VPSRLVQ + VPSHUFB: align and compact bit fields.
+// 5) VPBLENDVB + stores: emit contiguous 20-byte block.
+//
+// Output layout matches generic ByteEncode_5:
+//   every 8 compressed coefficients are serialized into 5 bytes,
+//   little-endian bit order within each byte.
+TEXT ·ringCompressAndEncode5AVX2(SB), NOSPLIT, $0
+	MOVQ out_base+0(FP), AX
+	MOVQ f_base+24(FP), BX
+
+	VPBROADCASTW oneConst, Y0
+	VPBROADCASTW compressEncodeMulV<>(SB), Y9    // Y9 = 20159 (fixed-point approx of 16/q)
+	VPSLLW $10, Y0, Y10  // Y10 = 1024 (shift for rounding)
+	VPSLLW $13, Y0, Y11  // Y11 = 8192
+	VPADDW Y0, Y11, Y11  // Y11 = 8193 = (32<<8)+1 for MADDUBSW
+	VPBROADCASTD compressEncode5Shift3<>(SB), Y12 // Y12 = 0x04000001 for MADDWD
+	VPBROADCASTW compressEncode5Mask<>(SB), Y13  // Y13 = 0x001F (5-bit mask)
+	VPBROADCASTQ compressEncode5SllvdIdx<>(SB), Y14 // Y14 = 12
+	VMOVDQU compressEncode5ShuffleIdx<>(SB), Y15   // Y15 = shuffle indices
+
+	XORQ DI, DI  // coefficient index
+	XORQ CX, CX  // output byte index
+
+ring_compress_encode_loop:
+	CMPQ DI, $512
+	JGE ring_compress_encode_done
+
+	// Load 32 coefficients (2 YMM registers, 16 int16 each)
+	VMOVDQU (BX)(DI*1), Y0
+	VMOVDQU 32(BX)(DI*1), Y1
+
+	// Compress to 5 bits: c = round((32*x)/q) & 0x1F
+	// Step 1: VPMULHW approximates (16*x)/q
+	VPMULHW Y9, Y0, Y0
+	VPMULHW Y9, Y1, Y1
+	
+	// Step 2: VPMULHRSW applies rounding: round((t1*1024)/2^15)
+	VPMULHRSW Y10, Y0, Y0
+	VPMULHRSW Y10, Y1, Y1
+	
+	// Step 3: Mask to 5 bits
+	VPAND Y13, Y0, Y0
+	VPAND Y13, Y1, Y1
+	
+	// Pack 16-bit compressed values to bytes: 16 x int16 -> 16 x uint8
+	VPACKUSWB Y1, Y0, Y0
+	
+	// Packing step: combine byte pairs as (b0 + b1*32) in int16
+	// VPMADDUBSW Y11, Y0, Y0 where Y11 = (32<<8)+1
+	// produces: word = byte[0]*1 + byte[1]*32
+	VPMADDUBSW Y11, Y0, Y0
+	
+	// Now Y0 contains 8 x int16 values with 5-bit nibbles interleaved
+	// Need to multiply with shift3 and do bit manipulations
+	// Key step: VPMADDWD multiplies adjacent 16-bit pairs
+	// According to Intel doc: VPMADDWD reg1, reg2 -> result[i] = reg2[2i]*reg1[2i] + reg2[2i+1]*reg1[2i+1]
+	VPMADDWD Y12, Y0, Y0
+	
+	// Y0 now contains 4 x int32 values
+	// Apply variable shifts: SLL by 12, then SRL by 12 (on 64-bit chunks)
+	VPSLLVD Y14, Y0, Y0
+	VPSRLVQ Y14, Y0, Y0
+	
+	// Now Y0 should contain the bit-packed result
+	// Extract and shuffle: VPSHUFB with lookup table
+	VPSHUFB Y15, Y0, Y0
+	
+	// Split into lower and upper 128-bit halves
+	VEXTRACTI128 $1, Y0, X1
+	
+	// Blend the two 128-bit halves using shufbidx as mask
+	// VPBLENDVB selects bytes from X1 (if mask bit=1) or X0 (if mask bit=0)
+	VPBLENDVB X15, X1, X0, X0
+	
+	// Store 20 bytes: 16 from X0 + 4 from X1
+	VMOVDQU X0, (AX)(CX*1)
+	MOVL X1, 16(AX)(CX*1)
+	
+	ADDQ $64, DI
+	ADDQ $20, CX
+	JMP ring_compress_encode_loop
+
+ring_compress_encode_done:
+	VZEROUPPER
+	RET
+
+// ringDecodeAndDecompress5AVX2 computes Decompress_5(ByteDecode_5(b)).
+//
+// For d=5, every 10 input bytes encode 16 coefficients (5 bits each).
+// The vector path decodes one such 10-byte chunk per iteration:
+// 1) Load 10 bytes into low 128 bits and mirror them to both 128-bit lanes.
+// 2) VPSHUFB expands packed bit fields so each candidate 5-bit value is placed
+//    in a dedicated 16-bit lane position.
+// 3) VPAND applies the per-lane mask to keep only the desired 5-bit payload.
+// 4) VPMULLW applies a fixed shift factor used by the generic decompress map.
+// 5) VPMULHRSW with q performs rounded scaling back to [0, q).
+//
+// Main loop handles 15 chunks (240 coefficients). The final 16 coefficients are
+// decoded by a tail path that builds the last 10-byte chunk from 8+2 bytes.
+//
+// func ringDecodeAndDecompress5AVX2(b *[encodingSize5]byte, f *ringElement)
+TEXT ·ringDecodeAndDecompress5AVX2(SB), NOSPLIT, $0
+	MOVQ b_base+0(FP), AX
+	MOVQ f_base+8(FP), BX
+
+	VPBROADCASTW qConst, Y15
+	VMOVDQU decompressDecode5Mask<>(SB), Y14
+	VMOVDQU decompressDecode5Shift<>(SB), Y13
+	VMOVDQU decompressDecode5ShufbIdx<>(SB), Y12
+	
+	XORQ DI, DI  // coefficient index
+	XORQ CX, CX  // input byte index
+
+decompress_dencode_loop:
+	CMPQ DI, $480
+	JGE decompress_dencode_tail
+
+	// Load 10-byte chunk into low lane, duplicate to 256b for uniform shuffle.
+	VMOVDQU (AX)(CX*1), X0
+	VINSERTI128 $1, X0, Y0, Y0
+	// Decode 16 packed 5-bit values then apply Decompress_5 rounding to q-domain.
+	VPSHUFB Y12, Y0, Y0
+	VPAND Y14, Y0, Y0
+	VPMULLW Y13, Y0, Y0
+	VPMULHRSW Y15, Y0, Y0
+	VMOVDQU Y0, (BX)(DI*1)
+
+	ADDQ $10, CX
+	ADDQ $32, DI
+	JMP decompress_dencode_loop
+
+decompress_dencode_tail:
+	// Tail: assemble final 10-byte chunk from 8-byte load + 2-byte load.
+	MOVQ (AX)(CX*1), X0
+	MOVW 8(AX)(CX*1), R8
+	PINSRW $4, R8, X0
+	VINSERTI128 $1, X0, Y0, Y0
+	VPSHUFB Y12, Y0, Y0
+	VPAND Y14, Y0, Y0
+	VPMULLW Y13, Y0, Y0
+	VPMULHRSW Y15, Y0, Y0
+	VMOVDQU Y0, (BX)(DI*1)
+	VZEROUPPER
+	RET
+
+// ringCompressAndEncode10AVX2 computes ByteEncode_10(Compress_10(f)).
+//
+// For each coefficient x in [0, q):
+//   c = compress(x, 10) = round((1024*x)/q) mod 1024.
+//
+// Vector math used here:
+//   t1 = high16(x * 20159)                          [approximates (16*x)/q]
+//   t2 = x * 161272 = x * (20159 << 3)              [approximates (128*x)/q]
+//   c  = round((t1 * 4096) / 2^15) with correction  [computes compress(x, 10)]
+//
+// Since 20159/2^22 ≈ 16/q in fixed-point, we can compute 1024/q via:
+//   t1 ≈ (16*x)/q  =>  t1 * 64 ≈ (1024*x)/q
+//
+// Correction logic handles rounding and adjustment:
+//   t2 - t1 checks if low bits of x * 128/q exceed threshold
+//   VPANDN extracts sign bit for conditional adjustment
+//
+// Packing layout (4 coefficients → 5 bytes, little-endian bits):
+//   byte[0] = c[0][7:0]
+//   byte[1] = c[1][9:2]
+//   byte[2] = c[2][9:0] (merged as c[1][1:0] | c[2][7:0])
+//   byte[3] = c[3][9:4]
+//   byte[4] = c[3][3:0] (upper nibble)
+//
+// func ringCompressAndEncode10AVX2(out []byte, f *ringElement)
+TEXT ·ringCompressAndEncode10AVX2(SB), NOSPLIT, $0
+	MOVQ out_base+0(FP), AX
+	MOVQ f_base+24(FP), BX
+
+	VPBROADCASTW oneConst, Y0
+	VPBROADCASTW compressEncodeMulV<>(SB), Y8        // Y8 = 20159 (fixed-point approx of 16/q)
+	VPSLLW $3, Y8, Y9                                // Y9 = 20159 << 3 = 161272 (fixed-point approx of 128/q)
+	VPSLLW $12, Y0, Y10                              // Y10 = 4096 (shift for rounding)
+	VPSLLW $10, Y0, Y11                              // Y11 = 1024
+	VPSUBW Y0, Y11, Y11                              // Y11 = 1023 (10-bit mask)
+	VPBROADCASTW compressEncode4Mask<>(SB), Y12      // Y12 = 0x000F (4-bit mask, used for threshold)
+	VPBROADCASTQ compressEncode5SllvdIdx<>(SB), Y13	 // Y13 = 12 (bit shift distance)
+	VPBROADCASTD compressEncode5Shift3<>(SB), Y14    // Y14 = 0x04000001 for MADDWD
+	VMOVDQU compressEncode10ShuffleIdx<>(SB), Y15    // Y15 = shuffle indices for byte packing
+
+	XORQ DI, DI
+	XORQ CX, CX
+
+ring_compress_encode_loop:
+	CMPQ DI, $512
+	JGE ring_compress_encode_done
+
+	// Load 16 coefficients (32 bytes = 2 x int16 lanes)
+	VMOVDQU (BX)(DI*1), Y0
+
+	// Compute t2 = high16(x * 161272) ≈ (128*x)/q
+	VPMULLW Y9, Y0, Y1
+
+	// Load threshold for rounding correction
+	VPADDW Y12, Y0, Y2
+
+	// Compute t1 = high16(x * 20159) ≈ (16*x)/q; also prepare shifted x
+	VPSLLW $3, Y0, Y0
+	VPMULHW Y8, Y0, Y0
+
+	// Rounding correction: detect if t2 - threshold suggests upward rounding
+	VPSUBW Y2, Y1, Y2
+	VPANDN Y2, Y1, Y1    // Extract sign bit
+	VPSRLW $15, Y1, Y1   // Broadcast sign to all bits
+
+	// Apply correction: subtract sign bit if needed
+	VPSUBW Y1, Y0, Y0
+
+	// Round and mask to 10 bits:
+	// c = round((t1 * 4096) / 2^15) = VPMULHRSW(t1, 4096)
+	VPMULHRSW Y10, Y0, Y0
+
+	// Mask to 10 bits: c &= 0x3FF (1023)
+	VPAND Y11, Y0, Y0
+
+	// Pack bits: VPMADDWD multiplies adjacent int16 pairs and sums
+	VPMADDWD Y14, Y0, Y0
+
+	// Shift and repack for byte alignment
+	VPSLLVD Y13, Y0, Y0
+	VPSRLQ $12, Y0, Y0
+
+	// Shuffle to compact 5-byte output
+	VPSHUFB Y15, Y0, Y0
+
+	// Extract high 128-bit lane and blend
+	VEXTRACTI128 $1, Y0, X1
+	VPBLENDW $0xE0, X1, X0, X0
+
+	// Store 20 bytes: 16 from X0 + 4 from X1
+	VMOVDQU X0, (AX)(CX*1)
+	MOVL X1, 16(AX)(CX*1)
+
+	ADDQ $32, DI
+	ADDQ $20, CX
+	JMP ring_compress_encode_loop
+
+ring_compress_encode_done:
+	VZEROUPPER
+	RET
+
+// ringCompressAndEncode11AVX2 computes ByteEncode_11(Compress_11(f)).
+//
+// For each coefficient x in [0, q):
+//   c = compress(x, 11) = round((2048*x)/q) mod 2048.
+//
+// Vector math used here follows the same fixed-point scheme as encode10,
+// but with one extra output bit:
+//   t1 = high16((x << 3) * 20159)                  [approximates (128*x)/q]
+//   c  = round((t1 * 8192) / 2^15) with correction [computes compress(x, 11)]
+//
+// Since 20159/2^22 approximates 16/q, shifting x by 3 first gives an
+// approximation to 128/q; the final VPMULHRSW by 8192 scales that to 2048/q.
+// The VPADDW/VPANDN/VPSRLW sequence applies the same correction used by the
+// generic implementation so rounding matches exactly on x in [0, 3328].
+//
+// Packing layout matches generic ByteEncode_11:
+//   every 2 coefficients (22 bits total) are serialized into 11 bytes,
+//   little-endian bit order within each byte.
+//
+// Logically, the main loop handles 16 coefficients -> 22 output bytes per
+// iteration. The store sequence is wider: VMOVDQU writes 16 bytes and MOVQ
+// writes 8 more, so each main-loop iteration physically stores 24 bytes and
+// over-writes the first 2 bytes of the next iteration's output region. That is
+// safe because CX advances by 22 and the next iteration (or the tail) rewrites
+// those 2 bytes with the correct values.
+//
+// The tail handles the final 16 coefficients -> 22 bytes. It uses the same
+// pipeline, but commits exactly 22 bytes via 16 + 4 + 2 stores, which avoids a
+// final 24-byte over-store past the end of the 352-byte output buffer.
+//
+// func ringCompressAndEncode11AVX2(out []byte, f *ringElement)
+TEXT ·ringCompressAndEncode11AVX2(SB), NOSPLIT, $0
+	MOVQ out_base+0(FP), AX
+	MOVQ f_base+24(FP), BX
+
+	VPBROADCASTW oneConst, Y0
+	VPBROADCASTW compressEncodeMulV<>(SB), Y7           // Y7 = 20159 (fixed-point approx of 16/q)
+	VPSLLW $3, Y7, Y8                                    // Y8 = 20159 << 3 = 161272 (fixed-point approx of 128/q)
+	VPSLLW $13, Y0, Y9                                   // Y9 = 8192 (shift for rounding)
+	VPSLLW $11, Y0, Y10                                  // Y10 = 2048
+	VPSUBW Y0, Y10, Y10                                  // Y10 = 2047 (11-bit mask)
+	VPBROADCASTW compressEncode11Off<>(SB), Y11          // 0x24 
+	VPBROADCASTQ compressEncode11SllvdIdx<>(SB), Y12     // 10
+	VBROADCASTI128 compressEncode11SrlvdIdx<>(SB), Y13
+	VPBROADCASTD compressEncode11Shift2<>(SB), Y14       // 0x08000000 for MADDWD
+	VMOVDQU compressEncode11ShuffleIdx<>(SB), Y15
+
+	XORQ DI, DI
+	XORQ CX, CX
+
+ring_compress_encode_loop:
+	CMPQ DI, $480
+	JGE ring_compress_encode_tail
+
+	// Load 16 coefficients (32 bytes = 16 x int16 lanes).
+	VMOVDQU (BX)(DI*1), Y0
+
+	// Compute t2 = high16(x * 161272) ~= (128*x)/q.
+	VPMULLW Y8, Y0, Y1
+
+	// Load correction threshold (x + 0x24).
+	VPADDW Y11, Y0, Y2
+
+	// Compute t1 = high16((x << 3) * 20159) ~= (128*x)/q.
+	VPSLLW $3, Y0, Y0
+	VPMULHW Y7, Y0, Y0
+
+	// Rounding correction: detect whether t2 crosses threshold.
+	VPSUBW Y2, Y1, Y2
+	VPANDN Y2, Y1, Y1
+	VPSRLW $15, Y1, Y1
+
+	// Apply correction, then round to nearest using 8192 scale.
+	VPSUBW Y1, Y0, Y0
+	VPMULHRSW Y9, Y0, Y0
+
+	// Keep low 11 bits: c &= 0x7FF.
+	VPAND Y10, Y0, Y0
+
+	// Bit-pack stage:
+	// 1) VPMADDWD combines adjacent 11-bit values into 32-bit lanes.
+	// 2) VPSLLVD/VPSRLVQ aligns bit fields.
+	// 3) VPSRLDQ+VPSLLQ carries cross-lane high bits.
+	// 4) VPSHUFB compacts bytes to ByteEncode_11 layout.
+	VPMADDWD Y14, Y0, Y0
+	VPSLLVD Y12, Y0, Y0
+	VPSRLDQ $8, Y0, Y1
+	VPSRLVQ Y13, Y0, Y0
+	VPSLLQ $34, Y1, Y1
+	VPADDQ Y1, Y0, Y0
+	VPSHUFB Y15, Y0, Y0
+
+	// Blend low/high 128-bit halves for contiguous output bytes.
+	VEXTRACTI128 $1, Y0, X1
+	VPBLENDVB X15, X1, X0, X0
+
+	// Physical stores: 16 + 8 bytes (next iteration rewrites overlap).
+	VMOVDQU X0, (AX)(CX*1)
+	MOVQ X1, 16(AX)(CX*1)
+
+	ADDQ $32, DI
+	ADDQ $22, CX
+	JMP ring_compress_encode_loop
+
+ring_compress_encode_tail:
+	// Final 16 coefficients -> 22 bytes. Reuse the same packing pipeline, but
+	// finish with exact-width stores (16 + 4 + 2) to avoid over-store at end.
+	VMOVDQU (BX)(DI*1), Y0
+	VPMULLW Y8, Y0, Y1
+	VPADDW Y11, Y0, Y2
+	VPSLLW $3, Y0, Y0
+	VPMULHW Y7, Y0, Y0
+	VPSUBW Y2, Y1, Y2
+	VPANDN Y2, Y1, Y1
+	VPSRLW $15, Y1, Y1
+	VPSUBW Y1, Y0, Y0
+	VPMULHRSW Y9, Y0, Y0
+	VPAND Y10, Y0, Y0
+	VPMADDWD Y14, Y0, Y0
+	VPSLLVD Y12, Y0, Y0
+	VPSRLDQ $8, Y0, Y1
+	VPSRLVQ Y13, Y0, Y0
+	VPSLLQ $34, Y1, Y1
+	VPADDQ Y1, Y0, Y0
+	VPSHUFB Y15, Y0, Y0
+	VEXTRACTI128 $1, Y0, X1
+	VPBLENDVB X15, X1, X0, X0
+	VMOVDQU X0, (AX)(CX*1)
+	MOVL X1, 16(AX)(CX*1)
+	PEXTRW $2, X1, R8
+	MOVW R8, 20(AX)(CX*1)
+
+	VZEROUPPER	
+	RET
+
+// ringCompressAndEncode1AVX2 computes ByteEncode_1(Compress_1(f)).
+//
+// For each coefficient x in [0, q):
+//   compress(x, 1) = 1 if 833 <= x <= 2496, else 0.
+//
+// Vector strategy (32 coefficients -> 4 bytes per iteration):
+// 1) Load 32 x int16 coefficients into Y0, Y1.
+// 2) VPCMPGTW with 832 and 2496 thresholds identifies the compress=1 range.
+// 3) VPANDN combines conditions: 0xFFFF where compress=1.
+// 4) VPACKSSWB packs 16-bit results to sign-carrying bytes.
+// 5) VPERMQ $0xD8 fixes cross-lane byte ordering from VPACKSSWB.
+// 6) VPMOVMSKB extracts MSB of each byte -> 32-bit mask = 4 bytes of output.
+//
+// The caller pre-zeros the output buffer (required for the generic fallback).
+// This implementation writes every output byte directly, so no pre-zero needed.
+//
+// func ringCompressAndEncode1AVX2(out []byte, f *ringElement)
+TEXT ·ringCompressAndEncode1AVX2(SB), NOSPLIT, $0
+	MOVQ out_base+0(FP), AX
+	MOVQ f_base+24(FP), BX
+
+	VPBROADCASTW compressEncode1Lo<>(SB), Y14  // Y14 = 832  (lower threshold)
+	VPBROADCASTW compressEncode1Hi<>(SB), Y15  // Y15 = 2496 (upper threshold)
+
+	XORQ DI, DI  // byte offset into f
+	XORQ CX, CX  // output byte offset
+
+ring_compress_encode1_loop:
+	CMPQ DI, $512
+	JGE ring_compress_encode1_done
+
+	// Load 32 coefficients (64 bytes = 2 x YMM)
+	VMOVDQU (BX)(DI*1), Y0
+	VMOVDQU 32(BX)(DI*1), Y1
+
+	// Y2 = 0xFFFF where f[i] > 832 (i.e., f[i] >= 833)
+	VPCMPGTW Y14, Y0, Y2
+	VPCMPGTW Y14, Y1, Y3
+
+	// Y4/Y5 = 0xFFFF where f[i] > 2496 (i.e., f[i] >= 2497)
+	VPCMPGTW Y15, Y0, Y4
+	VPCMPGTW Y15, Y1, Y5
+
+	// Y2/Y3 = 0xFFFF where 833 <= f[i] <= 2496 (compress=1)
+	// VPANDN arg1, arg2, dst => dst = arg1 & ~arg2
+	VPANDN Y2, Y4, Y2
+	VPANDN Y3, Y5, Y3
+
+	// Pack 32 x int16 {0xFFFF, 0x0000} to 32 x int8 {0x80, 0x00}.
+	// VPACKSSWB within 128-bit lanes: low lane = {Y2[0..7], Y3[0..7]},
+	// high lane = {Y2[8..15], Y3[8..15]}.
+	VPACKSSWB Y3, Y2, Y4
+
+	// Fix cross-lane order: swap 64-bit chunks 1 and 2 so bytes monotonically
+	// track coefficients 0..7, 8..15, 16..23, 24..31.
+	VPERMQ $0xD8, Y4, Y4
+
+	// Extract the MSB of each byte as a 32-bit bitmask.
+	VPMOVMSKB Y4, R8
+
+	// Store 4 output bytes.
+	MOVL R8, (AX)(CX*1)
+
+	ADDQ $64, DI   // advance by 32 coefficients x 2 bytes
+	ADDQ $4, CX    // 4 output bytes per 32 coefficients
+	JMP ring_compress_encode1_loop
+
+ring_compress_encode1_done:
+	VZEROUPPER
+	RET
+
+// rejUniformAMD64 implements the scalar rejection sampler used by sampleNTT.
+// It consumes 3-byte groups, extracts two 12-bit values, and appends values < q.
+//
+// func rejUniformAMD64(buf []byte, a *nttElement, j int) int
+TEXT ·rejUniformAMD64(SB), NOSPLIT, $0-48
+	MOVQ buf_base+0(FP), BX
+	MOVQ buf_len+8(FP), CX
+	MOVQ a+24(FP), DI
+	MOVQ j+32(FP), SI
+	MOVQ SI, R10
+	XORQ DX, DX
+
+	CMPQ SI, $256
+	JGE  rejuniform_done
+	CMPQ CX, $24
+	JE   rejuniform_len24
+
+rejuniform_loop:
+	CMPQ DX, CX
+	JGE  rejuniform_done
+
+	MOVBLZX 0(BX)(DX*1), AX
+	MOVBLZX 1(BX)(DX*1), R8
+	SHLQ    $8, R8
+	ORQ     R8, AX
+	ANDQ    $0x0FFF, AX
+	CMPQ    AX, $3329
+	JAE     rejuniform_skip_d1
+	MOVW    AX, 0(DI)(SI*2)
+	INCQ    SI
+	CMPQ    SI, $256
+	JGE     rejuniform_done
+
+rejuniform_skip_d1:
+	MOVBLZX 1(BX)(DX*1), AX
+	MOVBLZX 2(BX)(DX*1), R8
+	SHLQ    $8, R8
+	ORQ     R8, AX
+	SHRQ    $4, AX
+	CMPQ    AX, $3329
+	JAE     rejuniform_next
+	MOVW    AX, 0(DI)(SI*2)
+	INCQ    SI
+	CMPQ    SI, $256
+	JGE     rejuniform_done
+
+rejuniform_next:
+	ADDQ $3, DX
+	JMP  rejuniform_loop
+
+rejuniform_len24:
+	CMPQ SI, $240
+	JG   rejuniform_len24_checked
+
+	MOVL 0(BX), AX
+	MOVQ AX, R8
+	ANDQ $0x0FFF, R8
+	CMPQ R8, $3329
+	JAE  rejuniform_fast_g0_d2
+	MOVW R8, 0(DI)(SI*2)
+	INCQ SI
+rejuniform_fast_g0_d2:
+	SHRQ $12, AX
+	ANDQ $0x0FFF, AX
+	CMPQ AX, $3329
+	JAE  rejuniform_fast_g1
+	MOVW AX, 0(DI)(SI*2)
+	INCQ SI
+
+rejuniform_fast_g1:
+	MOVL 3(BX), AX
+	MOVQ AX, R8
+	ANDQ $0x0FFF, R8
+	CMPQ R8, $3329
+	JAE  rejuniform_fast_g1_d2
+	MOVW R8, 0(DI)(SI*2)
+	INCQ SI
+rejuniform_fast_g1_d2:
+	SHRQ $12, AX
+	ANDQ $0x0FFF, AX
+	CMPQ AX, $3329
+	JAE  rejuniform_fast_g2
+	MOVW AX, 0(DI)(SI*2)
+	INCQ SI
+
+rejuniform_fast_g2:
+	MOVL 6(BX), AX
+	MOVQ AX, R8
+	ANDQ $0x0FFF, R8
+	CMPQ R8, $3329
+	JAE  rejuniform_fast_g2_d2
+	MOVW R8, 0(DI)(SI*2)
+	INCQ SI
+rejuniform_fast_g2_d2:
+	SHRQ $12, AX
+	ANDQ $0x0FFF, AX
+	CMPQ AX, $3329
+	JAE  rejuniform_fast_g3
+	MOVW AX, 0(DI)(SI*2)
+	INCQ SI
+
+rejuniform_fast_g3:
+	MOVL 9(BX), AX
+	MOVQ AX, R8
+	ANDQ $0x0FFF, R8
+	CMPQ R8, $3329
+	JAE  rejuniform_fast_g3_d2
+	MOVW R8, 0(DI)(SI*2)
+	INCQ SI
+rejuniform_fast_g3_d2:
+	SHRQ $12, AX
+	ANDQ $0x0FFF, AX
+	CMPQ AX, $3329
+	JAE  rejuniform_fast_g4
+	MOVW AX, 0(DI)(SI*2)
+	INCQ SI
+
+rejuniform_fast_g4:
+	MOVL 12(BX), AX
+	MOVQ AX, R8
+	ANDQ $0x0FFF, R8
+	CMPQ R8, $3329
+	JAE  rejuniform_fast_g4_d2
+	MOVW R8, 0(DI)(SI*2)
+	INCQ SI
+rejuniform_fast_g4_d2:
+	SHRQ $12, AX
+	ANDQ $0x0FFF, AX
+	CMPQ AX, $3329
+	JAE  rejuniform_fast_g5
+	MOVW AX, 0(DI)(SI*2)
+	INCQ SI
+
+rejuniform_fast_g5:
+	MOVL 15(BX), AX
+	MOVQ AX, R8
+	ANDQ $0x0FFF, R8
+	CMPQ R8, $3329
+	JAE  rejuniform_fast_g5_d2
+	MOVW R8, 0(DI)(SI*2)
+	INCQ SI
+rejuniform_fast_g5_d2:
+	SHRQ $12, AX
+	ANDQ $0x0FFF, AX
+	CMPQ AX, $3329
+	JAE  rejuniform_fast_g6
+	MOVW AX, 0(DI)(SI*2)
+	INCQ SI
+
+rejuniform_fast_g6:
+	MOVL 18(BX), AX
+	MOVQ AX, R8
+	ANDQ $0x0FFF, R8
+	CMPQ R8, $3329
+	JAE  rejuniform_fast_g6_d2
+	MOVW R8, 0(DI)(SI*2)
+	INCQ SI
+rejuniform_fast_g6_d2:
+	SHRQ $12, AX
+	ANDQ $0x0FFF, AX
+	CMPQ AX, $3329
+	JAE  rejuniform_fast_g7
+	MOVW AX, 0(DI)(SI*2)
+	INCQ SI
+
+rejuniform_fast_g7:
+	MOVL 20(BX), AX
+	SHRQ $8, AX
+	MOVQ AX, R8
+	ANDQ $0x0FFF, R8
+	CMPQ R8, $3329
+	JAE  rejuniform_fast_g7_d2
+	MOVW R8, 0(DI)(SI*2)
+	INCQ SI
+rejuniform_fast_g7_d2:
+	SHRQ $12, AX
+	ANDQ $0x0FFF, AX
+	CMPQ AX, $3329
+	JAE  rejuniform_done
+	MOVW AX, 0(DI)(SI*2)
+	INCQ SI
+	JMP  rejuniform_done
+
+rejuniform_len24_checked:
+	MOVQ $256, R11
+	SUBQ SI, R11
+
+	MOVL 0(BX), AX
+	MOVQ AX, R8
+	ANDQ $0x0FFF, R8
+	CMPQ R8, $3329
+	JAE  rejuniform_g0_d2
+	MOVW R8, 0(DI)(SI*2)
+	INCQ SI
+	DECQ R11
+	JE   rejuniform_done
+rejuniform_g0_d2:
+	SHRQ $12, AX
+	ANDQ $0x0FFF, AX
+	CMPQ AX, $3329
+	JAE  rejuniform_g1
+	MOVW AX, 0(DI)(SI*2)
+	INCQ SI
+	DECQ R11
+	JE   rejuniform_done
+
+rejuniform_g1:
+	MOVL 3(BX), AX
+	MOVQ AX, R8
+	ANDQ $0x0FFF, R8
+	CMPQ R8, $3329
+	JAE  rejuniform_g1_d2
+	MOVW R8, 0(DI)(SI*2)
+	INCQ SI
+	DECQ R11
+	JE   rejuniform_done
+rejuniform_g1_d2:
+	SHRQ $12, AX
+	ANDQ $0x0FFF, AX
+	CMPQ AX, $3329
+	JAE  rejuniform_g2
+	MOVW AX, 0(DI)(SI*2)
+	INCQ SI
+	DECQ R11
+	JE   rejuniform_done
+
+rejuniform_g2:
+	MOVL 6(BX), AX
+	MOVQ AX, R8
+	ANDQ $0x0FFF, R8
+	CMPQ R8, $3329
+	JAE  rejuniform_g2_d2
+	MOVW R8, 0(DI)(SI*2)
+	INCQ SI
+	DECQ R11
+	JE   rejuniform_done
+rejuniform_g2_d2:
+	SHRQ $12, AX
+	ANDQ $0x0FFF, AX
+	CMPQ AX, $3329
+	JAE  rejuniform_g3
+	MOVW AX, 0(DI)(SI*2)
+	INCQ SI
+	DECQ R11
+	JE   rejuniform_done
+
+rejuniform_g3:
+	MOVL 9(BX), AX
+	MOVQ AX, R8
+	ANDQ $0x0FFF, R8
+	CMPQ R8, $3329
+	JAE  rejuniform_g3_d2
+	MOVW R8, 0(DI)(SI*2)
+	INCQ SI
+	DECQ R11
+	JE   rejuniform_done
+rejuniform_g3_d2:
+	SHRQ $12, AX
+	ANDQ $0x0FFF, AX
+	CMPQ AX, $3329
+	JAE  rejuniform_g4
+	MOVW AX, 0(DI)(SI*2)
+	INCQ SI
+	DECQ R11
+	JE   rejuniform_done
+
+rejuniform_g4:
+	MOVL 12(BX), AX
+	MOVQ AX, R8
+	ANDQ $0x0FFF, R8
+	CMPQ R8, $3329
+	JAE  rejuniform_g4_d2
+	MOVW R8, 0(DI)(SI*2)
+	INCQ SI
+	DECQ R11
+	JE   rejuniform_done
+rejuniform_g4_d2:
+	SHRQ $12, AX
+	ANDQ $0x0FFF, AX
+	CMPQ AX, $3329
+	JAE  rejuniform_g5
+	MOVW AX, 0(DI)(SI*2)
+	INCQ SI
+	DECQ R11
+	JE   rejuniform_done
+
+rejuniform_g5:
+	MOVL 15(BX), AX
+	MOVQ AX, R8
+	ANDQ $0x0FFF, R8
+	CMPQ R8, $3329
+	JAE  rejuniform_g5_d2
+	MOVW R8, 0(DI)(SI*2)
+	INCQ SI
+	DECQ R11
+	JE   rejuniform_done
+rejuniform_g5_d2:
+	SHRQ $12, AX
+	ANDQ $0x0FFF, AX
+	CMPQ AX, $3329
+	JAE  rejuniform_g6
+	MOVW AX, 0(DI)(SI*2)
+	INCQ SI
+	DECQ R11
+	JE   rejuniform_done
+
+rejuniform_g6:
+	MOVL 18(BX), AX
+	MOVQ AX, R8
+	ANDQ $0x0FFF, R8
+	CMPQ R8, $3329
+	JAE  rejuniform_g6_d2
+	MOVW R8, 0(DI)(SI*2)
+	INCQ SI
+	DECQ R11
+	JE   rejuniform_done
+rejuniform_g6_d2:
+	SHRQ $12, AX
+	ANDQ $0x0FFF, AX
+	CMPQ AX, $3329
+	JAE  rejuniform_g7
+	MOVW AX, 0(DI)(SI*2)
+	INCQ SI
+	DECQ R11
+	JE   rejuniform_done
+
+rejuniform_g7:
+	MOVL 20(BX), AX
+	SHRQ $8, AX
+	MOVQ AX, R8
+	ANDQ $0x0FFF, R8
+	CMPQ R8, $3329
+	JAE  rejuniform_g7_d2
+	MOVW R8, 0(DI)(SI*2)
+	INCQ SI
+	DECQ R11
+	JE   rejuniform_done
+rejuniform_g7_d2:
+	SHRQ $12, AX
+	ANDQ $0x0FFF, AX
+	CMPQ AX, $3329
+	JAE  rejuniform_done
+	MOVW AX, 0(DI)(SI*2)
+	INCQ SI
+
+rejuniform_done:
+	SUBQ R10, SI
+	MOVQ SI, ret+40(FP)
 	RET
