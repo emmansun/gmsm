@@ -20,24 +20,26 @@ type HashDrbg struct {
 	hashSize int
 }
 
-// NewHashDrbg create one hash DRBG instance
-func NewHashDrbg(newHash func() hash.Hash, securityLevel SecurityLevel, gm bool, entropy, nonce, personalization []byte) (*HashDrbg, error) {
+// NewHashDrbgWithMode creates a hash DRBG instance using the given DrbgMode.
+// Use GMMode for GM/T 0105-2021 compliance, NISTMode for NIST SP 800-90A compliance,
+// or provide a custom DrbgMode implementation for other standards.
+func NewHashDrbgWithMode(newHash func() hash.Hash, securityLevel SecurityLevel, mode DrbgMode, entropy, nonce, personalization []byte) (*HashDrbg, error) {
 	hd := &HashDrbg{}
 
-	hd.gm = gm
+	hd.mode = mode
 	hd.newHash = newHash
 	hd.setSecurityLevel(securityLevel)
 
 	md := newHash()
 	hd.hashSize = md.Size()
 
-	// here for the min length, we just check <=0 now
-	if len(entropy) == 0 || (hd.gm && len(entropy) < hd.hashSize) || len(entropy) >= maxBytes {
+	minEntropy := mode.MinEntropyLen(hd.hashSize)
+	if len(entropy) == 0 || (minEntropy > 0 && len(entropy) < minEntropy) || len(entropy) >= maxBytes {
 		return nil, errors.New("drbg: invalid entropy length")
 	}
 
-	// here for the min length, we just check <=0 now
-	if len(nonce) == 0 || (hd.gm && len(nonce) < hd.hashSize/2) || len(nonce) >= maxBytes>>1 {
+	minNonce := mode.MinNonceLen(hd.hashSize)
+	if len(nonce) == 0 || (minNonce > 0 && len(nonce) < minNonce) || len(nonce) >= maxBytes>>1 {
 		return nil, errors.New("drbg: invalid nonce length")
 	}
 
@@ -78,20 +80,34 @@ func NewHashDrbg(newHash func() hash.Hash, securityLevel SecurityLevel, gm bool,
 	return hd, nil
 }
 
+// NewHashDrbg create one hash DRBG instance
+func NewHashDrbg(newHash func() hash.Hash, securityLevel SecurityLevel, gm bool, entropy, nonce, personalization []byte) (*HashDrbg, error) {
+	mode := DrbgMode(NISTMode)
+	if gm {
+		mode = GMMode
+	}
+	return NewHashDrbgWithMode(newHash, securityLevel, mode, entropy, nonce, personalization)
+}
+
 // NewNISTHashDrbg return hash DRBG implementation which follows NIST standard
 func NewNISTHashDrbg(newHash func() hash.Hash, securityLevel SecurityLevel, entropy, nonce, personalization []byte) (*HashDrbg, error) {
-	return NewHashDrbg(newHash, securityLevel, false, entropy, nonce, personalization)
+	return NewHashDrbgWithMode(newHash, securityLevel, NISTMode, entropy, nonce, personalization)
 }
 
 // NewGMHashDrbg return hash DRBG implementation which follows GM/T 0105-2021 standard
 func NewGMHashDrbg(securityLevel SecurityLevel, entropy, nonce, personalization []byte) (*HashDrbg, error) {
-	return NewHashDrbg(sm3.New, securityLevel, true, entropy, nonce, personalization)
+	return NewHashDrbgWithMode(sm3.New, securityLevel, GMMode, entropy, nonce, personalization)
 }
 
-// Reseed hash DRBG reseed process. GM/T 0105-2021 has a little different with NIST.
+// Reseed hash DRBG reseed process.
+//
+// GM/T 0105-2021 divergence: seed material ordering differs from NIST SP 800-90A.
+// GM/T 0105-2021 Section 9.2: seed_material = 0x01 || entropy || V || additional
+// NIST SP 800-90A Section 10.1.1.4: seed_material = 0x01 || V || entropy || additional
 func (hd *HashDrbg) Reseed(entropy, additional []byte) error {
 	// here for the min length, we just check <=0 now
-	if len(entropy) == 0 || (hd.gm && len(entropy) < hd.hashSize) || len(entropy) >= maxBytes {
+	minEntropy := hd.mode.MinEntropyLen(hd.hashSize)
+	if len(entropy) == 0 || (minEntropy > 0 && len(entropy) < minEntropy) || len(entropy) >= maxBytes {
 		return errors.New("drbg: invalid entropy length")
 	}
 
@@ -100,7 +116,8 @@ func (hd *HashDrbg) Reseed(entropy, additional []byte) error {
 	}
 	seedMaterial := make([]byte, len(entropy)+hd.seedLength+len(additional)+1)
 	seedMaterial[0] = 1
-	if hd.gm { // seed_material = 0x01 || entropy_input || V || additional_input
+	if hd.mode.IsGM() { // GM/T 0105-2021: seed_material = 0x01 || entropy || V || additional_input
+		// Reference: GM/T 0105-2021 Section 9.2, Table 3
 		copy(seedMaterial[1:], entropy)
 		copy(seedMaterial[len(entropy)+1:], hd.v)
 	} else { // seed_material = 0x01 || V || entropy_input || additional_input
@@ -151,14 +168,22 @@ func (hd *HashDrbg) addReseedCounter() {
 }
 
 func (hd *HashDrbg) MaxBytesPerRequest() int {
-	if hd.gm {
-		return hd.hashSize
-	}
-	return maxBytesPerGenerate
+	// GM/T 0105-2021 divergence: GM mode limits output to hash.Size (32 bytes for SM3).
+	// Reference: GM/T 0105-2021 Section 9.3 — each Generate call produces exactly
+	// one hash output block. NIST SP 800-90A Section 10.1.1.4 allows up to 2^19 bits.
+	return hd.mode.MaxHashOutputBytes(hd.hashSize)
 }
 
-// Generate hash DRBG pseudorandom bits process. GM/T 0105-2021 has a little different with NIST.
-// GM/T 0105-2021 can only generate no more than hash.Size bytes once.
+// Generate hash DRBG pseudorandom bits process.
+//
+// GM/T 0105-2021 divergence: output generation algorithm differs from NIST SP 800-90A.
+// GM mode (GM/T 0105-2021 Section 9.3): output = leftmost(Hash(V), requested_bytes);
+//
+//	maximum output per call = hash.Size (32 bytes for SM3).
+//
+// NIST mode (SP 800-90A Section 10.1.1.4): output uses a counter-based loop over
+//
+//	incrementing copies of V; maximum output per call = 2^19 bits (65536 bytes).
 func (hd *HashDrbg) Generate(b, additional []byte) error {
 	if hd.NeedReseed() {
 		return ErrReseedRequired
@@ -166,7 +191,7 @@ func (hd *HashDrbg) Generate(b, additional []byte) error {
 	if len(additional) >= maxBytes {
 		return errors.New("drbg: additional input too long")
 	}
-	if (hd.gm && len(b) > hd.hashSize) || (!hd.gm && len(b) > maxBytesPerGenerate) {
+	if len(b) > hd.mode.MaxHashOutputBytes(hd.hashSize) {
 		return errors.New("drbg: too many bytes requested")
 	}
 	md := hd.newHash()
@@ -182,11 +207,12 @@ func (hd *HashDrbg) Generate(b, additional []byte) error {
 		md.Reset()
 		hd.addW(w)
 	}
-	if hd.gm { // leftmost(Hash(V))
+	if hd.mode.IsGM() { // GM/T 0105-2021: output = leftmost(Hash(V), len(b))
+		// Reference: GM/T 0105-2021 Section 9.3, Step 4
 		md.Write(hd.v)
 		copy(b, md.Sum(nil))
 		md.Reset()
-	} else {
+	} else { // NIST SP 800-90A: counter-based generation loop
 		limit := uint64(m+md.Size()-1) / uint64(md.Size())
 		data := make([]byte, hd.seedLength)
 		copy(data, hd.v)

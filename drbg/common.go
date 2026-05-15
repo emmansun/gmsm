@@ -55,6 +55,10 @@ func NewCtrDrbgPrng(cipherProvider func(key []byte) (cipher.Block, error), keyLe
 	}
 
 	prng.securityStrength = selectSecurityStrength(securityStrength)
+	mode := DrbgMode(NISTMode)
+	if gm {
+		mode = GMMode
+	}
 	if gm && securityStrength < 32 {
 		return nil, errors.New("drbg: invalid security strength")
 	}
@@ -74,7 +78,7 @@ func NewCtrDrbgPrng(cipherProvider func(key []byte) (cipher.Block, error), keyLe
 	}
 
 	// initial working state
-	prng.impl, err = NewCtrDrbg(cipherProvider, keyLen, securityLevel, gm, entropyInput, nonce, personalization)
+	prng.impl, err = NewCtrDrbgWithMode(cipherProvider, keyLen, securityLevel, mode, entropyInput, nonce, personalization)
 	if err != nil {
 		return nil, err
 	}
@@ -101,6 +105,10 @@ func NewHashDrbgPrng(newHash func() hash.Hash, entropySource io.Reader, security
 		prng.entropySource = rand.Reader
 	}
 	prng.securityStrength = selectSecurityStrength(securityStrength)
+	hashMode := DrbgMode(NISTMode)
+	if gm {
+		hashMode = GMMode
+	}
 	if gm && securityStrength < 32 {
 		return nil, errors.New("drbg: invalid security strength")
 	}
@@ -120,7 +128,7 @@ func NewHashDrbgPrng(newHash func() hash.Hash, entropySource io.Reader, security
 	}
 
 	// initial working state
-	prng.impl, err = NewHashDrbg(newHash, securityLevel, gm, entropyInput, nonce, personalization)
+	prng.impl, err = NewHashDrbgWithMode(newHash, securityLevel, hashMode, entropyInput, nonce, personalization)
 	if err != nil {
 		return nil, err
 	}
@@ -236,6 +244,70 @@ type DRBG interface {
 	Destroy()
 }
 
+// DrbgMode encapsulates the standard-specific behavior differences between
+// GM/T 0105-2021 and NIST SP 800-90A. Implement this interface to add support
+// for a new standard without modifying the core DRBG implementations.
+type DrbgMode interface {
+	// IsGM returns true for GM/T 0105-2021 mode, false for NIST SP 800-90A mode.
+	IsGM() bool
+
+	// MinEntropyLen returns the minimum required entropy length in bytes.
+	// hashOrBlockSize is the underlying hash digest size or cipher block size.
+	// Returns 0 if no additional minimum constraint applies beyond len > 0.
+	MinEntropyLen(hashOrBlockSize int) int
+
+	// MinNonceLen returns the minimum required nonce length in bytes.
+	// Returns 0 if no additional minimum constraint applies beyond len > 0.
+	MinNonceLen(hashOrBlockSize int) int
+
+	// NeedReseedByTime returns true if the time-based reseed condition is met.
+	// NIST SP 800-90A does not mandate time-based reseeding; GM/T 0105-2021 does.
+	NeedReseedByTime(elapsed, interval time.Duration) bool
+
+	// MaxHashOutputBytes returns the maximum bytes allowed per Generate call
+	// for hash/HMAC-based DRBGs.
+	// GM/T 0105-2021 limits output to one hash block; NIST allows up to 2^19 bits.
+	MaxHashOutputBytes(hashSize int) int
+
+	// MaxCtrOutputBytes returns the maximum bytes allowed per Generate call
+	// for counter-based DRBGs.
+	MaxCtrOutputBytes(blockSize int) int
+}
+
+// GMMode is the DrbgMode implementation for GM/T 0105-2021.
+var GMMode DrbgMode = gmMode{}
+
+// NISTMode is the DrbgMode implementation for NIST SP 800-90A.
+var NISTMode DrbgMode = nistMode{}
+
+type gmMode struct{}
+
+func (gmMode) IsGM() bool { return true }
+
+func (gmMode) MinEntropyLen(hashOrBlockSize int) int { return hashOrBlockSize }
+
+func (gmMode) MinNonceLen(hashOrBlockSize int) int { return hashOrBlockSize / 2 }
+
+func (gmMode) NeedReseedByTime(elapsed, interval time.Duration) bool { return elapsed > interval }
+
+func (gmMode) MaxHashOutputBytes(hashSize int) int { return hashSize }
+
+func (gmMode) MaxCtrOutputBytes(blockSize int) int { return blockSize }
+
+type nistMode struct{}
+
+func (nistMode) IsGM() bool { return false }
+
+func (nistMode) MinEntropyLen(int) int { return 0 }
+
+func (nistMode) MinNonceLen(int) int { return 0 }
+
+func (nistMode) NeedReseedByTime(time.Duration, time.Duration) bool { return false }
+
+func (nistMode) MaxHashOutputBytes(int) int { return maxBytesPerGenerate }
+
+func (nistMode) MaxCtrOutputBytes(int) int { return maxBytesPerGenerate }
+
 type BaseDrbg struct {
 	v                       []byte
 	seedLength              int
@@ -244,11 +316,12 @@ type BaseDrbg struct {
 	reseedCounter           uint64
 	reseedIntervalInCounter uint64
 	securityLevel           SecurityLevel
-	gm                      bool
+	mode                    DrbgMode
 }
 
 func (hd *BaseDrbg) NeedReseed() bool {
-	return (hd.reseedCounter > hd.reseedIntervalInCounter) || (hd.gm && time.Since(hd.reseedTime) > hd.reseedIntervalInTime)
+	return (hd.reseedCounter > hd.reseedIntervalInCounter) ||
+		hd.mode.NeedReseedByTime(time.Since(hd.reseedTime), hd.reseedIntervalInTime)
 }
 
 func (hd *BaseDrbg) setSecurityLevel(securityLevel SecurityLevel) {

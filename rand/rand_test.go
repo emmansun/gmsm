@@ -133,7 +133,8 @@ func TestRead_ReseedTrigger(t *testing.T) {
 	defer securityLevel.Store(old)
 
 	// Force a new DRBG with test-level security.
-	d := newDRBG()
+	// newDRBG() returns drbg.DRBG; type-assert to *drbg.HashDrbg for atomic storage.
+	d := newDRBG().(*drbg.HashDrbg)
 	drbgInstance.Store(d)
 
 	buf := make([]byte, 288)

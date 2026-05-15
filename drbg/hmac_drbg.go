@@ -25,7 +25,7 @@ func NewHmacDrbg(newHash func() hash.Hash, securityLevel SecurityLevel, gm bool,
 
 	hd := &HmacDrbg{}
 
-	hd.gm = gm
+	hd.mode = NISTMode
 	hd.newHash = newHash
 	hd.setSecurityLevel(securityLevel)
 
@@ -105,7 +105,7 @@ func (hd *HmacDrbg) Generate(output, additional []byte) error {
 // reference to NIST.SP.800-90Ar1.pdf section 10.1.2.4
 func (hd *HmacDrbg) Reseed(entropy, additional []byte) error {
 	// here for the min length, we just check <=0 now
-	if len(entropy) == 0 || (hd.gm && len(entropy) < hd.hashSize) || len(entropy) >= maxBytes {
+	if len(entropy) == 0 || len(entropy) >= maxBytes {
 		return errors.New("drbg: invalid entropy length")
 	}
 
