@@ -168,8 +168,8 @@ func Read(b []byte) (int, error) {
 			chunk = b[:maxPerRequest]
 		}
 
-		err := d.Generate(chunk, additional)
-		if err == drbg.ErrReseedRequired {
+		reseedRequired, err := d.Generate(chunk, additional)
+		if reseedRequired {
 			// Reseed with fresh entropy from all sources.
 			// GM/T 0105-2021 reseed does not require a nonce; only entropy is fed.
 			entropyInput := getReseedEntropy()

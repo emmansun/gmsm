@@ -66,16 +66,16 @@ func NewNISTHmacDrbg(newHash func() hash.Hash, securityLevel SecurityLevel, entr
 }
 
 // Generate generates pseudo random bytes usging HMAC_DRBG_Generate_process
-func (hd *HmacDrbg) Generate(output, additional []byte) error {
-	// Step 1. If reseed_counter > reseed_interval, then return [ErrReseedRequired] that a reseed is required
+func (hd *HmacDrbg) Generate(output, additional []byte) (bool, error) {
+	// Step 1. If reseed_counter > reseed_interval, then return reseedRequired=true
 	if hd.NeedReseed() {
-		return ErrReseedRequired
+		return true, nil
 	}
 	if len(additional) >= maxBytes {
-		return errors.New("drbg: additional input too long")
+		return false, errors.New("drbg: additional input too long")
 	}
 	if len(output) > maxBytesPerGenerate {
-		return errors.New("drbg: too many bytes requested")
+		return false, errors.New("drbg: too many bytes requested")
 	}
 	// Step 2. If additional_input is provided, then do update
 	if len(additional) > 0 {
@@ -98,7 +98,7 @@ func (hd *HmacDrbg) Generate(output, additional []byte) error {
 	hd.update(additional)
 	// Step 7. reseed_counter = reseed_counter + 1
 	hd.reseedCounter++
-	return nil
+	return false, nil
 }
 
 // Reseed hash DRBG reseed process. GM/T 0105-2021 has a little different with NIST.

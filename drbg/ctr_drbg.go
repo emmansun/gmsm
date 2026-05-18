@@ -142,16 +142,16 @@ func (cd *CtrDrbg) MaxBytesPerRequest() int {
 }
 
 // Generate CTR DRBG pseudorandom bits generate process.
-func (cd *CtrDrbg) Generate(out, additional []byte) error {
+func (cd *CtrDrbg) Generate(out, additional []byte) (bool, error) {
 	if cd.NeedReseed() {
-		return ErrReseedRequired
+		return true, nil
 	}
 	if len(additional) >= maxBytes {
-		return errors.New("drbg: additional input too long")
+		return false, errors.New("drbg: additional input too long")
 	}
 	outlen := len(cd.v)
 	if len(out) > cd.mode.MaxCtrOutputBytes(outlen) {
-		return errors.New("drbg: too many bytes requested")
+		return false, errors.New("drbg: too many bytes requested")
 	}
 
 	// If len(additional_input) > 0, then
@@ -161,17 +161,17 @@ func (cd *CtrDrbg) Generate(out, additional []byte) error {
 		var err error
 		additional, err = cd.derive(additional, cd.seedLength)
 		if err != nil {
-			return err
+			return false, err
 		}
 		err = cd.update(additional)
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
 
 	block, err := cd.newBlockCipher(cd.key)
 	if err != nil {
-		return err
+		return false, err
 	}
 	temp := make([]byte, outlen)
 
@@ -186,10 +186,10 @@ func (cd *CtrDrbg) Generate(out, additional []byte) error {
 	}
 	err = cd.update(additional)
 	if err != nil {
-		return err
+		return false, err
 	}
 	cd.reseedCounter++
-	return nil
+	return false, nil
 }
 
 func (cd *CtrDrbg) update(seedMaterial []byte) error {

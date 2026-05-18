@@ -28,7 +28,10 @@ const (
 	maxBytesPerGenerate = 1 << 11
 )
 
-var ErrReseedRequired = errors.New("drbg: reseed required")
+// ErrReseedRequired is deprecated: Generate now returns (reseedRequired bool, err error).
+// Retained for compatibility; will be removed in a future version.
+//
+// Deprecated: check the bool return value of Generate instead.
 
 type SecurityLevel byte
 
@@ -209,19 +212,18 @@ func (prng *DrbgPrng) Read(data []byte) (int, error) {
 			b = data[:maxBytesPerRequest]
 		}
 
-		err := prng.impl.Generate(b, nil)
-		if err == ErrReseedRequired {
-			entropyInput := make([]byte, prng.securityStrength)
-			err := prng.getEntropy(entropyInput)
-			if err != nil {
-				return 0, err
-			}
-			err = prng.impl.Reseed(entropyInput, nil)
-			if err != nil {
-				return 0, err
-			}
-		} else if err != nil {
+		reseedRequired, err := prng.impl.Generate(b, nil)
+		if err != nil {
 			return 0, err
+		}
+		if reseedRequired {
+			entropyInput := make([]byte, prng.securityStrength)
+			if err := prng.getEntropy(entropyInput); err != nil {
+				return 0, err
+			}
+			if err := prng.impl.Reseed(entropyInput, nil); err != nil {
+				return 0, err
+			}
 		} else {
 			total += len(b)
 			data = data[len(b):]
@@ -236,8 +238,11 @@ type DRBG interface {
 	NeedReseed() bool
 	// reseed process
 	Reseed(entropy, additional []byte) error
-	// generate requrested bytes to b
-	Generate(b, additional []byte) error
+	// Generate generates pseudorandom bytes into b.
+	// Returns (true, nil) if a reseed is required before output was produced;
+	// the caller must reseed and retry. Returns (false, nil) on success.
+	// Returns (false, err) on any real error.
+	Generate(b, additional []byte) (reseedRequired bool, err error)
 	// MaxBytesPerRequest return max bytes per request
 	MaxBytesPerRequest() int
 	// Destroy internal state

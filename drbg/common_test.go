@@ -125,7 +125,7 @@ func TestGenerateAdditionalInputTooLong(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = ctr.Generate(out, tooLongAdditional)
+	_, err = ctr.Generate(out, tooLongAdditional)
 	if err == nil {
 		t.Fatalf("expected error here")
 	}
@@ -134,7 +134,7 @@ func TestGenerateAdditionalInputTooLong(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = hashDrbg.Generate(out, tooLongAdditional)
+	_, err = hashDrbg.Generate(out, tooLongAdditional)
 	if err == nil {
 		t.Fatalf("expected error here")
 	}
@@ -143,7 +143,7 @@ func TestGenerateAdditionalInputTooLong(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = hmacDrbg.Generate(out, tooLongAdditional)
+	_, err = hmacDrbg.Generate(out, tooLongAdditional)
 	if err == nil {
 		t.Fatalf("expected error here")
 	}

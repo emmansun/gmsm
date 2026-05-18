@@ -780,7 +780,7 @@ func TestHmacDRBG(t *testing.T) {
 			t.Errorf("Reseed case %v failed: k1 does not match", i)
 		}
 		output := make([]byte, len(tt.returnbits1)/2)
-		err = hd.Generate(output, hexDecode(tt.additionalInput1))
+		_, err = hd.Generate(output, hexDecode(tt.additionalInput1))
 		if err != nil {
 			t.Errorf("Generate case %v failed: %v", i, err)
 		}
@@ -790,7 +790,7 @@ func TestHmacDRBG(t *testing.T) {
 		if !bytes.Equal(hd.key, hexDecode(tt.k2)) {
 			t.Errorf("Generate case %v failed: k2 does not match", i)
 		}
-		err = hd.Generate(output, hexDecode(tt.additionalInput2))
+		_, err = hd.Generate(output, hexDecode(tt.additionalInput2))
 		if err != nil {
 			t.Errorf("Generate case %v failed: %v", i, err)
 		}
@@ -835,7 +835,7 @@ func TestHmacDRBG_GenerateTooManyBytes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = hd.Generate(make([]byte, maxBytesPerGenerate+1), nil)
+	_, err = hd.Generate(make([]byte, maxBytesPerGenerate+1), nil)
 	if err == nil {
 		t.Fatalf("expected error here")
 	}

@@ -184,15 +184,15 @@ func (hd *HashDrbg) MaxBytesPerRequest() int {
 // NIST mode (SP 800-90A Section 10.1.1.4): output uses a counter-based loop over
 //
 //	incrementing copies of V; maximum output per call = 2^19 bits (65536 bytes).
-func (hd *HashDrbg) Generate(b, additional []byte) error {
+func (hd *HashDrbg) Generate(b, additional []byte) (bool, error) {
 	if hd.NeedReseed() {
-		return ErrReseedRequired
+		return true, nil
 	}
 	if len(additional) >= maxBytes {
-		return errors.New("drbg: additional input too long")
+		return false, errors.New("drbg: additional input too long")
 	}
 	if len(b) > hd.mode.MaxHashOutputBytes(hd.hashSize) {
-		return errors.New("drbg: too many bytes requested")
+		return false, errors.New("drbg: too many bytes requested")
 	}
 	md := hd.newHash()
 	m := len(b)
@@ -229,7 +229,7 @@ func (hd *HashDrbg) Generate(b, additional []byte) error {
 	hd.addReseedCounter()
 
 	hd.reseedCounter++
-	return nil
+	return false, nil
 }
 
 // derive Hash_df

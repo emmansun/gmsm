@@ -39,12 +39,12 @@ func selfTest() {
 
 	// 3. Generate (first call, output discarded per test vector flow)
 	output := make([]byte, 32) // SM3 output = 256 bits
-	if err := hd.Generate(output, nil); err != nil {
+	if _, err := hd.Generate(output, nil); err != nil {
 		panic("rand: DRBG self-test: first generate failed: " + err.Error())
 	}
 
 	// 4. Generate (second call, output must match known answer)
-	if err := hd.Generate(output, nil); err != nil {
+	if _, err := hd.Generate(output, nil); err != nil {
 		panic("rand: DRBG self-test: second generate failed: " + err.Error())
 	}
 
