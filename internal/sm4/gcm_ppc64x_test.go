@@ -25,14 +25,9 @@ func TestCmul(t *testing.T) {
 	}
 	var h1, h2 uint64
 	// Reverse the bytes in each 8 byte chunk
-	// Load little endian, store big endian
-	if runtime.GOARCH == "ppc64le" {
-		h1 = byteorder.LEUint64(hle[:8])
-		h2 = byteorder.LEUint64(hle[8:])
-	} else {
-		h1 = byteorder.BEUint64(hle[:8])
-		h2 = byteorder.BEUint64(hle[8:])
-	}
+	// Reverse the bytes in each 8 byte chunk (required for both ppc64 and ppc64le).
+	h1 = byteorder.LEUint64(hle[:8])
+	h2 = byteorder.LEUint64(hle[8:])
 	byteorder.BEPutUint64(hle[:8], h1)
 	byteorder.BEPutUint64(hle[8:], h2)
 
