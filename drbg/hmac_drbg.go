@@ -168,5 +168,5 @@ func (hd *HmacDrbg) update(byteSlices ...[]byte) error {
 // working_state = {V, Key, reseed_counter, last_reseed_time,reseed_interval_in_counter, reseed_interval_in_time}
 func (hd *HmacDrbg) Destroy() {
 	hd.BaseDrbg.Destroy()
-	setZero(hd.key)
+	zeroize(hd.key)
 }

@@ -275,5 +275,5 @@ func (cd *CtrDrbg) bcc(block cipher.Block, data []byte) []byte {
 // working_state = {V, Key, reseed_counter, last_reseed_time,reseed_interval_in_counter, reseed_interval_in_time}
 func (cd *CtrDrbg) Destroy() {
 	cd.BaseDrbg.Destroy()
-	setZero(cd.key)
+	zeroize(cd.key)
 }

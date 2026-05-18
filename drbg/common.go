@@ -348,7 +348,7 @@ func (hd *BaseDrbg) setSecurityLevel(securityLevel SecurityLevel) {
 // - GM/T 0105-2021 B.2, E.2: Specifies that internal states must be cleared when no longer needed.
 // - NIST SP 800-90A Rev.1: Recommends securely erasing sensitive data to prevent leakage.
 func (hd *BaseDrbg) Destroy() {
-	setZero(hd.v)
+	zeroize(hd.v)
 	hd.seedLength = 0
 	atomic.StoreUint64(&hd.reseedCounter, 0xFFFFFFFFFFFFFFFF)
 	atomic.StoreUint64(&hd.reseedCounter, 0x00)
@@ -394,31 +394,28 @@ func addOne(data []byte, len int) {
 	}
 }
 
-// setZero securely erases the content of a byte slice by overwriting it multiple times.
-// It follows a secure erasure pattern by first writing 0xFF and then 0x00 to each byte
-// three times in succession. Memory barriers (via runtime.KeepAlive) are used between
-// operations to ensure write completion and prevent compiler optimizations from eliminating
-// the seemingly redundant writes.
+// zeroize attempts to erase the content of a byte slice by overwriting it with zeros.
+// runtime.KeepAlive is used to prevent the compiler from eliminating the write as a
+// dead store, as discussed in https://github.com/golang/go/issues/33325.
 //
-// This function is used to clear sensitive data (like cryptographic keys or passwords)
-// from memory to minimize the risk of data exposure in memory dumps or through
-// side-channel attacks.
+// Design notes on the previous multi-pass approach:
+//   - The historical pattern of writing 0xFF followed by 0x00 multiple times originated
+//     from magnetic disk/HDD erasure standards (e.g. DoD 5220.22-M), where multi-pass
+//     overwriting was necessary to recover data from residual magnetic flux. For volatile
+//     RAM, a single reliable zero is the only meaningful operation.
+//   - Adding additional runtime.KeepAlive calls inside a loop (once after 0xFF writes,
+//     once after 0x00) does not provide extra security: the only observable final state
+//     of the backing array is all-zeros regardless, and the 0xFF writes are always
+//     immediately overwritten within the same iteration. Multiple KeepAlive calls inside
+//     a loop give no stronger dead-store-elimination guarantee than a single call after
+//     the final write.
 //
-// If the provided slice is nil, the function returns immediately without action.
-func setZero(data []byte) {
-	if data == nil {
-		return
-	}
-	for range 3 {
-		for i := range data {
-			data[i] = 0xFF
-		}
-		runtime.KeepAlive(data)
-
-		clear(data)
-		// This should keep buf's backing array live and thus prevent dead store
-		// elimination, according to discussion at
-		// https://github.com/golang/go/issues/33325 .
-		runtime.KeepAlive(data)
-	}
+// WARNING: In Go, secure memory erasure has fundamental limitations. The runtime's
+// garbage collector, goroutine stack growth, and escape analysis can all create copies
+// of sensitive data at arbitrary points, and those copies cannot be reliably erased.
+// This function only clears the specific backing array of the provided slice; it does
+// not guarantee that all copies of the data have been removed from memory.
+func zeroize(data []byte) {
+	clear(data)
+	runtime.KeepAlive(data)
 }
