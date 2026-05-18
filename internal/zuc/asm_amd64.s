@@ -329,35 +329,39 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	MOVL X0, F_R1                            \ // F_R1
 	PEXTRD $1, X0, F_R2
 
-// RESTORE_LFSR_0, appends the first 4 bytes to last.
+// RESTORE_LFSR_0, appends the first 4 bytes to last (SSE, PALIGNR).
+// PALIGNR $N, src, dst  =>  src[N..15] || dst[0..N-1]
+// Back-to-front so each src register is still original when read.
 #define RESTORE_LFSR_0                       \
-	MOVL (0*4)(SI), AX                       \ // first 4-bytes
-	MOVUPS (4)(SI), X0                       \ 
-	MOVUPS (20)(SI), X1                      \ 
-	MOVUPS (36)(SI), X2                      \
-	MOVQ (52)(SI), BX                        \
-	MOVL (60)(SI), CX                        \ // last 4-bytes
-	\
-	MOVUPS X0, (SI)                          \  
-	MOVUPS X1, (16)(SI)                      \  
-	MOVUPS X2, (32)(SI)                      \
-	MOVQ BX, (48)(SI)                        \
-	MOVL CX, (56)(SI)                        \
-	MOVL AX, (60)(SI) 
+	MOVUPS (0)(SI), X0                       \ // [s0..s3]
+	MOVUPS (16)(SI), X1                      \ // [s4..s7]
+	MOVUPS (32)(SI), X2                      \ // [s8..s11]
+	MOVUPS (48)(SI), X3                      \ // [s12..s15]
+	MOVAPS X0, X4                            \ // backup [s0..s3]
+	PALIGNR $4, X3, X4                       \ // X4 = [s13,s14,s15,s0]
+	PALIGNR $4, X2, X3                       \ // X3 = [s9,s10,s11,s12]
+	PALIGNR $4, X1, X2                       \ // X2 = [s5,s6,s7,s8]
+	PALIGNR $4, X0, X1                       \ // X1 = [s1,s2,s3,s4]
+	MOVUPS X1, (0)(SI)                       \
+	MOVUPS X2, (16)(SI)                      \
+	MOVUPS X3, (32)(SI)                      \
+	MOVUPS X4, (48)(SI)
 
-// RESTORE_LFSR_2, appends the first 8 bytes to last.
+// RESTORE_LFSR_2, appends the first 8 bytes to last (SSE, PALIGNR).
 #define RESTORE_LFSR_2                       \
-	MOVQ (0)(SI), AX                         \ // first 8-bytes
-	MOVUPS (8)(SI), X0                       \ 
-	MOVUPS (24)(SI), X1                      \ 
-	MOVUPS (40)(SI), X2                      \
-	MOVQ (56)(SI), BX                        \ // last 8-bytes
-	\
-	MOVUPS X0, (SI)                          \  
-	MOVUPS X1, (16)(SI)                      \  
-	MOVUPS X2, (32)(SI)                      \
-	MOVQ BX, (48)(SI)                        \
-	MOVQ AX, (56)(SI)
+	MOVUPS (0)(SI), X0                       \ // [s0..s3]
+	MOVUPS (16)(SI), X1                      \ // [s4..s7]
+	MOVUPS (32)(SI), X2                      \ // [s8..s11]
+	MOVUPS (48)(SI), X3                      \ // [s12..s15]
+	MOVAPS X0, X4                            \ // backup [s0..s3]
+	PALIGNR $8, X3, X4                       \ // X4 = [s14,s15,s0,s1]
+	PALIGNR $8, X2, X3                       \ // X3 = [s10,s11,s12,s13]
+	PALIGNR $8, X1, X2                       \ // X2 = [s6,s7,s8,s9]
+	PALIGNR $8, X0, X1                       \ // X1 = [s2,s3,s4,s5]
+	MOVUPS X1, (0)(SI)                       \
+	MOVUPS X2, (16)(SI)                      \
+	MOVUPS X3, (32)(SI)                      \
+	MOVUPS X4, (48)(SI)
 
 // RESTORE_LFSR_4, appends the first 16 bytes to last.
 #define RESTORE_LFSR_4                       \
@@ -382,6 +386,63 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	MOVUPS X3, (16)(SI)                      \
 	MOVUPS X0, (32)(SI)                      \
 	MOVUPS X1, (48)(SI)
+
+// VPALIGNR $N, src2, src1, dst  =>  src2[N..15] || src1[0..N-1]
+// AVX variants use VEX-encoded moves to avoid AVX-SSE transition penalties.
+
+// RESTORE_LFSR_0_AVX, appends the first 4 bytes to last (AVX, VPALIGNR).
+#define RESTORE_LFSR_0_AVX                   \
+	VMOVDQU (0)(SI), X0                      \ // [s0..s3]
+	VMOVDQU (16)(SI), X1                     \ // [s4..s7]
+	VMOVDQU (32)(SI), X2                     \ // [s8..s11]
+	VMOVDQU (48)(SI), X3                     \ // [s12..s15]
+	VMOVDQA X0, X4                           \ // backup [s0..s3]
+	VPALIGNR $4, X3, X4, X4                  \ // X4 = [s13,s14,s15,s0]
+	VPALIGNR $4, X2, X3, X3                  \ // X3 = [s9,s10,s11,s12]
+	VPALIGNR $4, X1, X2, X2                  \ // X2 = [s5,s6,s7,s8]
+	VPALIGNR $4, X0, X1, X1                  \ // X1 = [s1,s2,s3,s4]
+	VMOVDQU X1, (0)(SI)                      \
+	VMOVDQU X2, (16)(SI)                     \
+	VMOVDQU X3, (32)(SI)                     \
+	VMOVDQU X4, (48)(SI)
+
+// RESTORE_LFSR_2_AVX, appends the first 8 bytes to last (AVX, VPALIGNR).
+#define RESTORE_LFSR_2_AVX                   \
+	VMOVDQU (0)(SI), X0                      \ // [s0..s3]
+	VMOVDQU (16)(SI), X1                     \ // [s4..s7]
+	VMOVDQU (32)(SI), X2                     \ // [s8..s11]
+	VMOVDQU (48)(SI), X3                     \ // [s12..s15]
+	VMOVDQA X0, X4                           \ // backup [s0..s3]
+	VPALIGNR $8, X3, X4, X4                  \ // X4 = [s14,s15,s0,s1]
+	VPALIGNR $8, X2, X3, X3                  \ // X3 = [s10,s11,s12,s13]
+	VPALIGNR $8, X1, X2, X2                  \ // X2 = [s6,s7,s8,s9]
+	VPALIGNR $8, X0, X1, X1                  \ // X1 = [s2,s3,s4,s5]
+	VMOVDQU X1, (0)(SI)                      \
+	VMOVDQU X2, (16)(SI)                     \
+	VMOVDQU X3, (32)(SI)                     \
+	VMOVDQU X4, (48)(SI)
+
+// RESTORE_LFSR_4_AVX, appends the first 16 bytes to last (AVX, VMOVDQU).
+#define RESTORE_LFSR_4_AVX                   \
+	VMOVDQU (0)(SI), X0                      \
+	VMOVDQU (16)(SI), X1                     \
+	VMOVDQU (32)(SI), X2                     \
+	VMOVDQU (48)(SI), X3                     \
+	VMOVDQU X1, (0)(SI)                      \
+	VMOVDQU X2, (16)(SI)                     \
+	VMOVDQU X3, (32)(SI)                     \
+	VMOVDQU X0, (48)(SI)
+
+// RESTORE_LFSR_8_AVX, appends the first 32 bytes to last (AVX, VMOVDQU).
+#define RESTORE_LFSR_8_AVX                   \
+	VMOVDQU (0)(SI), X0                      \
+	VMOVDQU (16)(SI), X1                     \
+	VMOVDQU (32)(SI), X2                     \
+	VMOVDQU (48)(SI), X3                     \
+	VMOVDQU X2, (0)(SI)                      \
+	VMOVDQU X3, (16)(SI)                     \
+	VMOVDQU X0, (32)(SI)                     \
+	VMOVDQU X1, (48)(SI)
 
 // Non-Linear function F, AVX version.
 // uses
@@ -458,7 +519,7 @@ avx:
 	LFSR_UPDT(0)
 
 	SAVE_STATE
-	RESTORE_LFSR_0
+	RESTORE_LFSR_0_AVX
 
 	RET
 
@@ -611,7 +672,7 @@ avxZucOctet:
 	ROUND_AVX(6)
 	ROUND_AVX(7)
 	LEAQ 32(DI), DI
-	RESTORE_LFSR_8
+	RESTORE_LFSR_8_AVX
 
 avxZucNibble:
 	CMPQ BP, $4
@@ -622,7 +683,7 @@ avxZucNibble:
 	ROUND_AVX(2)
 	ROUND_AVX(3)
 	LEAQ 16(DI), DI
-	RESTORE_LFSR_4
+	RESTORE_LFSR_4_AVX
 
 avxZucDouble:
 	CMPQ BP, $2
@@ -631,13 +692,13 @@ avxZucDouble:
 	ROUND_AVX(0)
 	ROUND_AVX(1)
 	LEAQ 8(DI), DI
-	RESTORE_LFSR_2
+	RESTORE_LFSR_2_AVX
 
 avxZucSingle:
 	TESTQ BP, BP
 	JE avxZucRet
 	ROUND_AVX(0)
-	RESTORE_LFSR_0
+	RESTORE_LFSR_0_AVX
 
 avxZucRet:
 	SAVE_STATE
@@ -760,7 +821,7 @@ avxZucOctet:
 	ROUND_REV32_AVX(6)
 	ROUND_REV32_AVX(7)
 	LEAQ 32(DI), DI
-	RESTORE_LFSR_8
+	RESTORE_LFSR_8_AVX
 
 avxZucNibble:
 	CMPQ BP, $4
@@ -771,7 +832,7 @@ avxZucNibble:
 	ROUND_REV32_AVX(2)
 	ROUND_REV32_AVX(3)
 	LEAQ 16(DI), DI
-	RESTORE_LFSR_4
+	RESTORE_LFSR_4_AVX
 
 avxZucDouble:
 	CMPQ BP, $2
@@ -780,13 +841,13 @@ avxZucDouble:
 	ROUND_REV32_AVX(0)
 	ROUND_REV32_AVX(1)
 	LEAQ 8(DI), DI
-	RESTORE_LFSR_2
+	RESTORE_LFSR_2_AVX
 
 avxZucSingle:
 	TESTQ BP, BP
 	JE avxZucRet
 	ROUND_REV32_AVX(0)
-	RESTORE_LFSR_0
+	RESTORE_LFSR_0_AVX
 
 avxZucRet:
 	SAVE_STATE
