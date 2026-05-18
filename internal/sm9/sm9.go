@@ -234,7 +234,7 @@ func (priv *EncryptPrivateKey) UnwrapKey(uid, cipher []byte, kLen int) (key []by
 		return nil, ErrDecryption
 	}
 
-	w := bn256.Pair(p, priv.PrivateKey)
+	w := bn256.PairPrecomp(p, priv.getPrecomp())
 
 	var buffer []byte
 	buffer = append(buffer, cipher...)
@@ -380,7 +380,7 @@ func respondKeyExchange(ke *KeyExchange, hid byte, r *bigmod.Nat, rA []byte) ([]
 	}
 	ke.secret = rB.MarshalUncompressed()
 
-	ke.g1 = bn256.Pair(rP, ke.privateKey.PrivateKey)
+	ke.g1 = bn256.PairPrecomp(rP, ke.privateKey.getPrecomp())
 	ke.g3 = &bn256.GT{}
 	g3, err := bn256.ScalarMultGT(ke.g1, rBytes)
 	if err != nil {
@@ -428,7 +428,7 @@ func (ke *KeyExchange) ConfirmResponder(rB, sB []byte) ([]byte, []byte, error) {
 		return nil, nil, err
 	}
 	ke.g1 = g1
-	ke.g2 = bn256.Pair(pB, ke.privateKey.PrivateKey)
+	ke.g2 = bn256.PairPrecomp(pB, ke.privateKey.getPrecomp())
 	ke.g3 = &bn256.GT{}
 	g3, err := bn256.ScalarMultGT(ke.g2, ke.r.Bytes(orderNat))
 	if err != nil {
