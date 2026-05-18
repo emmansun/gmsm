@@ -11,6 +11,8 @@ import (
 	"crypto/subtle"
 	"errors"
 
+	"runtime"
+
 	"github.com/emmansun/gmsm/internal/alias"
 	"github.com/emmansun/gmsm/internal/byteorder"
 )
@@ -55,12 +57,15 @@ func (c *sm4CipherAsm) NewGCM(nonceSize, tagSize int) (cipher.AEAD, error) {
 
 	c.Encrypt(hle, hle)
 
-	// Reverse the bytes in each 8 byte chunk.
-	// LXVD2X on POWER8 (both ppc64 and ppc64le) requires H to be stored
-	// byte-reversed per 8-byte element regardless of CPU endianness.
-	// This matches Go stdlib crypto/aes/gcm_ppc64x.go behavior.
-	h1 = byteorder.LEUint64(hle[:8])
-	h2 = byteorder.LEUint64(hle[8:])
+	// Reverse the bytes in each 8 byte chunk
+	// Load little endian, store big endian
+	if runtime.GOARCH == "ppc64le" {
+		h1 = byteorder.LEUint64(hle[:8])
+		h2 = byteorder.LEUint64(hle[8:])
+	} else {
+		h1 = byteorder.BEUint64(hle[:8])
+		h2 = byteorder.BEUint64(hle[8:])
+	}
 	byteorder.BEPutUint64(hle[:8], h1)
 	byteorder.BEPutUint64(hle[8:], h2)
 	gcmInit(&g.productTable, hle)
