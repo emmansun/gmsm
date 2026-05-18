@@ -218,26 +218,20 @@ GLOBL mask_S01<>(SB), RODATA, $32
 	VMOV V0.S[1], R11       
 
 #define RESTORE_LFSR_0()                     \
-	MOVW.P 4(SI), AX                         \
-	VLD1 (SI), [V0.B16, V1.B16, V2.B16]      \
-	SUB $4, SI                               \
-	MOVD (52)(SI), BX                        \
-	MOVW (60)(SI), CX                        \
-	\
-	VST1 [V0.B16, V1.B16, V2.B16], (SI)      \
-	MOVD BX, (48)(SI)                        \
-	MOVW CX, (56)(SI)                        \
-	MOVW AX, (60)(SI)     
+	VLD1 (SI), [V0.B16, V1.B16, V2.B16, V3.B16]    \ // aligned 64-byte load
+	VEXT $4, V0.B16, V3.B16, V4.B16                \ // V4 = [s13,s14,s15,s0]
+	VEXT $4, V3.B16, V2.B16, V3.B16                \ // V3 = [s9,s10,s11,s12]
+	VEXT $4, V2.B16, V1.B16, V2.B16                \ // V2 = [s5,s6,s7,s8]
+	VEXT $4, V1.B16, V0.B16, V1.B16                \ // V1 = [s1,s2,s3,s4]
+	VST1 [V1.B16, V2.B16, V3.B16, V4.B16], (SI)
 
 #define RESTORE_LFSR_2()                     \
-	MOVD.P 8(SI), AX                         \
-	VLD1 (SI), [V0.B16, V1.B16, V2.B16]      \ 
-	SUB $8, SI                               \
-	MOVD (56)(SI), BX                        \
-	\
-	VST1 [V0.B16, V1.B16, V2.B16], (SI)      \
-	MOVD BX, (48)(SI)                        \
-	MOVD AX, (56)(SI)    
+	VLD1 (SI), [V0.B16, V1.B16, V2.B16, V3.B16]    \ // aligned 64-byte load
+	VEXT $8, V0.B16, V3.B16, V4.B16                \ // V4 = [s14,s15,s0,s1]
+	VEXT $8, V3.B16, V2.B16, V3.B16                \ // V3 = [s10,s11,s12,s13]
+	VEXT $8, V2.B16, V1.B16, V2.B16                \ // V2 = [s6,s7,s8,s9]
+	VEXT $8, V1.B16, V0.B16, V1.B16                \ // V1 = [s2,s3,s4,s5]
+	VST1 [V1.B16, V2.B16, V3.B16, V4.B16], (SI)
 
 #define RESTORE_LFSR_4()                     \
 	VLD1 (SI), [V0.B16, V1.B16, V2.B16, V3.B16]   \ 

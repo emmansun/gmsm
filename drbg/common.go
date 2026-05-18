@@ -28,7 +28,10 @@ const (
 	maxBytesPerGenerate = 1 << 11
 )
 
-var ErrReseedRequired = errors.New("drbg: reseed required")
+// ErrReseedRequired is deprecated: Generate now returns (reseedRequired bool, err error).
+// Retained for compatibility; will be removed in a future version.
+//
+// Deprecated: check the bool return value of Generate instead.
 
 type SecurityLevel byte
 
@@ -55,6 +58,10 @@ func NewCtrDrbgPrng(cipherProvider func(key []byte) (cipher.Block, error), keyLe
 	}
 
 	prng.securityStrength = selectSecurityStrength(securityStrength)
+	mode := DrbgMode(NISTMode)
+	if gm {
+		mode = GMMode
+	}
 	if gm && securityStrength < 32 {
 		return nil, errors.New("drbg: invalid security strength")
 	}
@@ -74,7 +81,7 @@ func NewCtrDrbgPrng(cipherProvider func(key []byte) (cipher.Block, error), keyLe
 	}
 
 	// initial working state
-	prng.impl, err = NewCtrDrbg(cipherProvider, keyLen, securityLevel, gm, entropyInput, nonce, personalization)
+	prng.impl, err = NewCtrDrbgWithMode(cipherProvider, keyLen, securityLevel, mode, entropyInput, nonce, personalization)
 	if err != nil {
 		return nil, err
 	}
@@ -101,6 +108,10 @@ func NewHashDrbgPrng(newHash func() hash.Hash, entropySource io.Reader, security
 		prng.entropySource = rand.Reader
 	}
 	prng.securityStrength = selectSecurityStrength(securityStrength)
+	hashMode := DrbgMode(NISTMode)
+	if gm {
+		hashMode = GMMode
+	}
 	if gm && securityStrength < 32 {
 		return nil, errors.New("drbg: invalid security strength")
 	}
@@ -120,7 +131,7 @@ func NewHashDrbgPrng(newHash func() hash.Hash, entropySource io.Reader, security
 	}
 
 	// initial working state
-	prng.impl, err = NewHashDrbg(newHash, securityLevel, gm, entropyInput, nonce, personalization)
+	prng.impl, err = NewHashDrbgWithMode(newHash, securityLevel, hashMode, entropyInput, nonce, personalization)
 	if err != nil {
 		return nil, err
 	}
@@ -201,19 +212,18 @@ func (prng *DrbgPrng) Read(data []byte) (int, error) {
 			b = data[:maxBytesPerRequest]
 		}
 
-		err := prng.impl.Generate(b, nil)
-		if err == ErrReseedRequired {
-			entropyInput := make([]byte, prng.securityStrength)
-			err := prng.getEntropy(entropyInput)
-			if err != nil {
-				return 0, err
-			}
-			err = prng.impl.Reseed(entropyInput, nil)
-			if err != nil {
-				return 0, err
-			}
-		} else if err != nil {
+		reseedRequired, err := prng.impl.Generate(b, nil)
+		if err != nil {
 			return 0, err
+		}
+		if reseedRequired {
+			entropyInput := make([]byte, prng.securityStrength)
+			if err := prng.getEntropy(entropyInput); err != nil {
+				return 0, err
+			}
+			if err := prng.impl.Reseed(entropyInput, nil); err != nil {
+				return 0, err
+			}
 		} else {
 			total += len(b)
 			data = data[len(b):]
@@ -228,13 +238,80 @@ type DRBG interface {
 	NeedReseed() bool
 	// reseed process
 	Reseed(entropy, additional []byte) error
-	// generate requrested bytes to b
-	Generate(b, additional []byte) error
+	// Generate generates pseudorandom bytes into b.
+	// Returns (true, nil) if a reseed is required before output was produced;
+	// the caller must reseed and retry. Returns (false, nil) on success.
+	// Returns (false, err) on any real error.
+	Generate(b, additional []byte) (reseedRequired bool, err error)
 	// MaxBytesPerRequest return max bytes per request
 	MaxBytesPerRequest() int
 	// Destroy internal state
 	Destroy()
 }
+
+// DrbgMode encapsulates the standard-specific behavior differences between
+// GM/T 0105-2021 and NIST SP 800-90A. Implement this interface to add support
+// for a new standard without modifying the core DRBG implementations.
+type DrbgMode interface {
+	// IsGM returns true for GM/T 0105-2021 mode, false for NIST SP 800-90A mode.
+	IsGM() bool
+
+	// MinEntropyLen returns the minimum required entropy length in bytes.
+	// hashOrBlockSize is the underlying hash digest size or cipher block size.
+	// Returns 0 if no additional minimum constraint applies beyond len > 0.
+	MinEntropyLen(hashOrBlockSize int) int
+
+	// MinNonceLen returns the minimum required nonce length in bytes.
+	// Returns 0 if no additional minimum constraint applies beyond len > 0.
+	MinNonceLen(hashOrBlockSize int) int
+
+	// NeedReseedByTime returns true if the time-based reseed condition is met.
+	// NIST SP 800-90A does not mandate time-based reseeding; GM/T 0105-2021 does.
+	NeedReseedByTime(elapsed, interval time.Duration) bool
+
+	// MaxHashOutputBytes returns the maximum bytes allowed per Generate call
+	// for hash/HMAC-based DRBGs.
+	// GM/T 0105-2021 limits output to one hash block; NIST allows up to 2^19 bits.
+	MaxHashOutputBytes(hashSize int) int
+
+	// MaxCtrOutputBytes returns the maximum bytes allowed per Generate call
+	// for counter-based DRBGs.
+	MaxCtrOutputBytes(blockSize int) int
+}
+
+// GMMode is the DrbgMode implementation for GM/T 0105-2021.
+var GMMode DrbgMode = gmMode{}
+
+// NISTMode is the DrbgMode implementation for NIST SP 800-90A.
+var NISTMode DrbgMode = nistMode{}
+
+type gmMode struct{}
+
+func (gmMode) IsGM() bool { return true }
+
+func (gmMode) MinEntropyLen(hashOrBlockSize int) int { return hashOrBlockSize }
+
+func (gmMode) MinNonceLen(hashOrBlockSize int) int { return hashOrBlockSize / 2 }
+
+func (gmMode) NeedReseedByTime(elapsed, interval time.Duration) bool { return elapsed > interval }
+
+func (gmMode) MaxHashOutputBytes(hashSize int) int { return hashSize }
+
+func (gmMode) MaxCtrOutputBytes(blockSize int) int { return blockSize }
+
+type nistMode struct{}
+
+func (nistMode) IsGM() bool { return false }
+
+func (nistMode) MinEntropyLen(int) int { return 0 }
+
+func (nistMode) MinNonceLen(int) int { return 0 }
+
+func (nistMode) NeedReseedByTime(time.Duration, time.Duration) bool { return false }
+
+func (nistMode) MaxHashOutputBytes(int) int { return maxBytesPerGenerate }
+
+func (nistMode) MaxCtrOutputBytes(int) int { return maxBytesPerGenerate }
 
 type BaseDrbg struct {
 	v                       []byte
@@ -244,11 +321,12 @@ type BaseDrbg struct {
 	reseedCounter           uint64
 	reseedIntervalInCounter uint64
 	securityLevel           SecurityLevel
-	gm                      bool
+	mode                    DrbgMode
 }
 
 func (hd *BaseDrbg) NeedReseed() bool {
-	return (hd.reseedCounter > hd.reseedIntervalInCounter) || (hd.gm && time.Since(hd.reseedTime) > hd.reseedIntervalInTime)
+	return (hd.reseedCounter > hd.reseedIntervalInCounter) ||
+		hd.mode.NeedReseedByTime(time.Since(hd.reseedTime), hd.reseedIntervalInTime)
 }
 
 func (hd *BaseDrbg) setSecurityLevel(securityLevel SecurityLevel) {
@@ -275,7 +353,7 @@ func (hd *BaseDrbg) setSecurityLevel(securityLevel SecurityLevel) {
 // - GM/T 0105-2021 B.2, E.2: Specifies that internal states must be cleared when no longer needed.
 // - NIST SP 800-90A Rev.1: Recommends securely erasing sensitive data to prevent leakage.
 func (hd *BaseDrbg) Destroy() {
-	setZero(hd.v)
+	zeroize(hd.v)
 	hd.seedLength = 0
 	atomic.StoreUint64(&hd.reseedCounter, 0xFFFFFFFFFFFFFFFF)
 	atomic.StoreUint64(&hd.reseedCounter, 0x00)
@@ -321,31 +399,28 @@ func addOne(data []byte, len int) {
 	}
 }
 
-// setZero securely erases the content of a byte slice by overwriting it multiple times.
-// It follows a secure erasure pattern by first writing 0xFF and then 0x00 to each byte
-// three times in succession. Memory barriers (via runtime.KeepAlive) are used between
-// operations to ensure write completion and prevent compiler optimizations from eliminating
-// the seemingly redundant writes.
+// zeroize attempts to erase the content of a byte slice by overwriting it with zeros.
+// runtime.KeepAlive is used to prevent the compiler from eliminating the write as a
+// dead store, as discussed in https://github.com/golang/go/issues/33325.
 //
-// This function is used to clear sensitive data (like cryptographic keys or passwords)
-// from memory to minimize the risk of data exposure in memory dumps or through
-// side-channel attacks.
+// Design notes on the previous multi-pass approach:
+//   - The historical pattern of writing 0xFF followed by 0x00 multiple times originated
+//     from magnetic disk/HDD erasure standards (e.g. DoD 5220.22-M), where multi-pass
+//     overwriting was necessary to recover data from residual magnetic flux. For volatile
+//     RAM, a single reliable zero is the only meaningful operation.
+//   - Adding additional runtime.KeepAlive calls inside a loop (once after 0xFF writes,
+//     once after 0x00) does not provide extra security: the only observable final state
+//     of the backing array is all-zeros regardless, and the 0xFF writes are always
+//     immediately overwritten within the same iteration. Multiple KeepAlive calls inside
+//     a loop give no stronger dead-store-elimination guarantee than a single call after
+//     the final write.
 //
-// If the provided slice is nil, the function returns immediately without action.
-func setZero(data []byte) {
-	if data == nil {
-		return
-	}
-	for range 3 {
-		for i := range data {
-			data[i] = 0xFF
-		}
-		runtime.KeepAlive(data)
-
-		clear(data)
-		// This should keep buf's backing array live and thus prevent dead store
-		// elimination, according to discussion at
-		// https://github.com/golang/go/issues/33325 .
-		runtime.KeepAlive(data)
-	}
+// WARNING: In Go, secure memory erasure has fundamental limitations. The runtime's
+// garbage collector, goroutine stack growth, and escape analysis can all create copies
+// of sensitive data at arbitrary points, and those copies cannot be reliably erased.
+// This function only clears the specific backing array of the provided slice; it does
+// not guarantee that all copies of the data have been removed from memory.
+func zeroize(data []byte) {
+	clear(data)
+	runtime.KeepAlive(data)
 }

@@ -338,7 +338,7 @@ func TestCtrDRBG_GenerateProviderError(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = hd.Generate(make([]byte, 16), nil)
+	_, err = hd.Generate(make([]byte, 16), nil)
 	if !errors.Is(err, failErr) {
 		t.Fatalf("expected provider failure, got %v", err)
 	}

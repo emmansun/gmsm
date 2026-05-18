@@ -7,7 +7,7 @@
 //
 // It is designed as a drop-in replacement for crypto/rand when GM/T 0105-2021
 // compliance is required. The random number generator combines entropy from
-// three independent sources (OS, CPU jitter, and runtime noise) with
+// three independent sources (OS, CPU jitter, and hash loop noise) with
 // SM3-based conditioning and SP 800-90B health testing.
 //
 // Reader and Read are safe for concurrent use.
@@ -59,7 +59,11 @@ func SetSecurityLevel(level drbg.SecurityLevel) {
 	securityLevel.Store(int32(level))
 }
 
-// drbgInstance is the primary DRBG instance, used for low-contention access.
+// drbgInstance is the primary DRBG instance for low-contention access.
+// It stores *drbg.HashDrbg (GM mode) using the nil-sentinel atomic swap pattern.
+// All DRBG operations in Read() use the drbg.DRBG interface for
+// implementation independence; the concrete type surfaces only when
+// interacting with the atomic and pool storage.
 var drbgInstance atomic.Pointer[drbg.HashDrbg]
 
 // selfTestOnce ensures the DRBG known-answer test runs exactly once
@@ -67,20 +71,26 @@ var drbgInstance atomic.Pointer[drbg.HashDrbg]
 var selfTestOnce sync.Once
 
 // drbgPool provides additional DRBG instances for high-concurrency scenarios.
+// It stores drbg.DRBG interface values; the concrete type is always *drbg.HashDrbg
+// (GM mode, created by newDRBG). Type assertions in Read() are safe because
+// pool entries are only created by newDRBG() and never replaced with other types.
 var drbgPool = sync.Pool{
 	New: func() any {
 		return newDRBG()
 	},
 }
 
-// newDRBG creates a new SM3 Hash DRBG instance seeded from the entropy package.
-// On first call, it also runs the DRBG self-test (KAT).
+// newDRBG creates a new GM-mode SM3 Hash DRBG instance seeded from the entropy
+// package and returns it as the drbg.DRBG interface. The returned value is
+// always a *drbg.HashDrbg; the interface allows Read() to operate without
+// coupling to the concrete implementation type.
 //
 // The seed is split into entropy input (32 bytes, 256 bits) and nonce
-// (16 bytes, 128 bits). Both originate from the entropy pool which combines
-// three independent sources, satisfying the GM/T 0105-2021 Appendix B
-// requirement that nonce has ≥128 bits of entropy or repeat probability ≤2⁻¹²⁸.
-func newDRBG() *drbg.HashDrbg {
+// (16 bytes, 128 bits) per GM/T 0105-2021 Appendix B.3 (nonce ≥128 bits of
+// entropy or repeat probability ≤2⁻¹²⁸).
+//
+// On first call, the DRBG known-answer test (KAT) per Section 5.6.6 is run.
+func newDRBG() drbg.DRBG {
 	selfTestOnce.Do(selfTest)
 	seed := entropy.Seed()
 
@@ -105,18 +115,15 @@ func newDRBG() *drbg.HashDrbg {
 	return hd
 }
 
-// getSeed returns a fresh seed for DRBG reseeding.
-func getSeed() (entropyInput []byte, nonce []byte) {
+// getReseedEntropy returns only the entropy input for DRBG reseeding.
+// GM/T 0105-2021 reseed (Section 9.2) uses entropy || V || additional
+// as seed material — no nonce is required, unlike instantiation.
+func getReseedEntropy() []byte {
 	seed := entropy.Seed()
-	entropyInput = make([]byte, sm3.Size)
+	entropyInput := make([]byte, sm3.Size)
 	copy(entropyInput, seed[:sm3.Size])
-	nonce = make([]byte, sm3.Size/2)
-	copy(nonce, seed[sm3.Size:sm3.Size+sm3.Size/2])
-
-	// Clear seed after extracting components.
 	clear(seed[:])
-
-	return entropyInput, nonce
+	return entropyInput
 }
 
 func (r *reader) Read(b []byte) (int, error) {
@@ -142,10 +149,14 @@ func Read(b []byte) (int, error) {
 	additional := make([]byte, additionalInputSize)
 	rand.Read(additional)
 
-	// Acquire a DRBG instance from the primary slot or pool.
-	d := drbgInstance.Swap(nil)
-	if d == nil {
-		d = drbgPool.Get().(*drbg.HashDrbg)
+	// Acquire a DRBG instance.
+	// drbgInstance stores *drbg.HashDrbg for the nil-sentinel atomic swap
+	// pattern. All DRBG operations below use the drbg.DRBG interface.
+	var d drbg.DRBG
+	if raw := drbgInstance.Swap(nil); raw != nil {
+		d = raw
+	} else {
+		d = drbgPool.Get().(drbg.DRBG)
 	}
 
 	total := 0
@@ -157,10 +168,11 @@ func Read(b []byte) (int, error) {
 			chunk = b[:maxPerRequest]
 		}
 
-		err := d.Generate(chunk, additional)
-		if err == drbg.ErrReseedRequired {
+		reseedRequired, err := d.Generate(chunk, additional)
+		if reseedRequired {
 			// Reseed with fresh entropy from all sources.
-			entropyInput, _ := getSeed()
+			// GM/T 0105-2021 reseed does not require a nonce; only entropy is fed.
+			entropyInput := getReseedEntropy()
 			if reseedErr := d.Reseed(entropyInput, additional); reseedErr != nil {
 				// Destroy the faulty instance — do not return it to the pool.
 				d.Destroy()
@@ -179,9 +191,13 @@ func Read(b []byte) (int, error) {
 		b = b[len(chunk):]
 	}
 
-	// Return the DRBG instance.
-	if !drbgInstance.CompareAndSwap(nil, d) {
-		drbgPool.Put(d)
+	// Return the DRBG instance to the primary slot or pool.
+	// Type-assert back to *drbg.HashDrbg: safe because pool and newDRBG()
+	// always create *drbg.HashDrbg instances and no other type is stored.
+	if concrete, ok := d.(*drbg.HashDrbg); ok {
+		if !drbgInstance.CompareAndSwap(nil, concrete) {
+			drbgPool.Put(concrete)
+		}
 	}
 
 	return total, nil

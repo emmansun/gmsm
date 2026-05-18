@@ -18,20 +18,23 @@ type CtrDrbg struct {
 	keyLen         int
 }
 
-// NewCtrDrbg create one CTR DRBG instance
-func NewCtrDrbg(cipherProvider func(key []byte) (cipher.Block, error), keyLen int, securityLevel SecurityLevel, gm bool, entropy, nonce, personalization []byte) (*CtrDrbg, error) {
+// NewCtrDrbgWithMode creates a CTR DRBG instance using the given DrbgMode.
+// Use GMMode for GM/T 0105-2021 compliance, NISTMode for NIST SP 800-90A compliance.
+func NewCtrDrbgWithMode(cipherProvider func(key []byte) (cipher.Block, error), keyLen int, securityLevel SecurityLevel, mode DrbgMode, entropy, nonce, personalization []byte) (*CtrDrbg, error) {
 	hd := &CtrDrbg{}
 
-	hd.gm = gm
+	hd.mode = mode
 	hd.setSecurityLevel(securityLevel)
 
-	// here for the min length, we just check <=0 now
-	if len(entropy) == 0 || (hd.gm && len(entropy) < 32) || len(entropy) >= maxBytes {
+	// GM/T 0105-2021 requires entropy ≥ 32 bytes; NIST requires only > 0
+	minEntropy := mode.MinEntropyLen(32)
+	if len(entropy) == 0 || (minEntropy > 0 && len(entropy) < minEntropy) || len(entropy) >= maxBytes {
 		return nil, errors.New("drbg: invalid entropy length")
 	}
 
-	// here for the min length, we just check <=0 now
-	if len(nonce) == 0 || (hd.gm && len(nonce) < 16) || len(nonce) >= maxBytes>>1 {
+	// GM/T 0105-2021 requires nonce ≥ 16 bytes; NIST requires only > 0
+	minNonce := mode.MinNonceLen(32)
+	if len(nonce) == 0 || (minNonce > 0 && len(nonce) < minNonce) || len(nonce) >= maxBytes>>1 {
 		return nil, errors.New("drbg: invalid nonce length")
 	}
 
@@ -73,17 +76,26 @@ func NewCtrDrbg(cipherProvider func(key []byte) (cipher.Block, error), keyLen in
 
 // NewNISTCtrDrbg create one CTR DRBG implementation which follows NIST standard
 func NewNISTCtrDrbg(cipherProvider func(key []byte) (cipher.Block, error), keyLen int, securityLevel SecurityLevel, entropy, nonce, personalization []byte) (*CtrDrbg, error) {
-	return NewCtrDrbg(cipherProvider, keyLen, securityLevel, false, entropy, nonce, personalization)
+	return NewCtrDrbgWithMode(cipherProvider, keyLen, securityLevel, NISTMode, entropy, nonce, personalization)
 }
 
 // NewGMCtrDrbg create one CTR DRBG implementation which follows GM/T 0105-2021 standard
 func NewGMCtrDrbg(securityLevel SecurityLevel, entropy, nonce, personalization []byte) (*CtrDrbg, error) {
-	return NewCtrDrbg(sm4.NewCipher, 16, securityLevel, true, entropy, nonce, personalization)
+	return NewCtrDrbgWithMode(sm4.NewCipher, 16, securityLevel, GMMode, entropy, nonce, personalization)
+}
+
+// NewCtrDrbg create one CTR DRBG instance
+func NewCtrDrbg(cipherProvider func(key []byte) (cipher.Block, error), keyLen int, securityLevel SecurityLevel, gm bool, entropy, nonce, personalization []byte) (*CtrDrbg, error) {
+	mode := DrbgMode(NISTMode)
+	if gm {
+		mode = GMMode
+	}
+	return NewCtrDrbgWithMode(cipherProvider, keyLen, securityLevel, mode, entropy, nonce, personalization)
 }
 
 func (cd *CtrDrbg) Reseed(entropy, additional []byte) error {
-	// here for the min length, we just check <=0 now
-	if len(entropy) == 0 || (cd.gm && len(entropy) < 32) || len(entropy) >= maxBytes {
+	minEntropy := cd.mode.MinEntropyLen(32)
+	if len(entropy) == 0 || (minEntropy > 0 && len(entropy) < minEntropy) || len(entropy) >= maxBytes {
 		return errors.New("drbg: invalid entropy length")
 	}
 
@@ -126,23 +138,20 @@ func (cd *CtrDrbg) newBlockCipher(key []byte) (cipher.Block, error) {
 }
 
 func (cd *CtrDrbg) MaxBytesPerRequest() int {
-	if cd.gm {
-		return len(cd.v)
-	}
-	return maxBytesPerGenerate
+	return cd.mode.MaxCtrOutputBytes(len(cd.v))
 }
 
 // Generate CTR DRBG pseudorandom bits generate process.
-func (cd *CtrDrbg) Generate(out, additional []byte) error {
+func (cd *CtrDrbg) Generate(out, additional []byte) (bool, error) {
 	if cd.NeedReseed() {
-		return ErrReseedRequired
+		return true, nil
 	}
 	if len(additional) >= maxBytes {
-		return errors.New("drbg: additional input too long")
+		return false, errors.New("drbg: additional input too long")
 	}
 	outlen := len(cd.v)
-	if (cd.gm && len(out) > outlen) || (!cd.gm && len(out) > maxBytesPerGenerate) {
-		return errors.New("drbg: too many bytes requested")
+	if len(out) > cd.mode.MaxCtrOutputBytes(outlen) {
+		return false, errors.New("drbg: too many bytes requested")
 	}
 
 	// If len(additional_input) > 0, then
@@ -152,17 +161,17 @@ func (cd *CtrDrbg) Generate(out, additional []byte) error {
 		var err error
 		additional, err = cd.derive(additional, cd.seedLength)
 		if err != nil {
-			return err
+			return false, err
 		}
 		err = cd.update(additional)
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
 
 	block, err := cd.newBlockCipher(cd.key)
 	if err != nil {
-		return err
+		return false, err
 	}
 	temp := make([]byte, outlen)
 
@@ -177,10 +186,10 @@ func (cd *CtrDrbg) Generate(out, additional []byte) error {
 	}
 	err = cd.update(additional)
 	if err != nil {
-		return err
+		return false, err
 	}
 	cd.reseedCounter++
-	return nil
+	return false, nil
 }
 
 func (cd *CtrDrbg) update(seedMaterial []byte) error {
@@ -266,5 +275,5 @@ func (cd *CtrDrbg) bcc(block cipher.Block, data []byte) []byte {
 // working_state = {V, Key, reseed_counter, last_reseed_time,reseed_interval_in_counter, reseed_interval_in_time}
 func (cd *CtrDrbg) Destroy() {
 	cd.BaseDrbg.Destroy()
-	setZero(cd.key)
+	zeroize(cd.key)
 }

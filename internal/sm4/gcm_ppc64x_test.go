@@ -24,8 +24,9 @@ func TestCmul(t *testing.T) {
 		t.Errorf("1 got %x", hle)
 	}
 	var h1, h2 uint64
-	// Reverse the bytes in each 8 byte chunk
-	// Load little endian, store big endian
+	// Reverse the bytes in each 8 byte chunk.
+	// On ppc64le: LXVD2X reverses bytes per dword, so pre-reverse in memory.
+	// On ppc64 (BE): LXVD2X loads in natural order; BEUint64→BEPutUint64 is a no-op.
 	if runtime.GOARCH == "ppc64le" {
 		h1 = byteorder.LEUint64(hle[:8])
 		h2 = byteorder.LEUint64(hle[8:])
@@ -36,8 +37,15 @@ func TestCmul(t *testing.T) {
 	byteorder.BEPutUint64(hle[:8], h1)
 	byteorder.BEPutUint64(hle[8:], h2)
 
-	if fmt.Sprintf("%x", hle) != "3811556fff7b1f9fd38f531e5330944d" {
-		t.Errorf("2 got %x", hle)
+	if runtime.GOARCH == "ppc64le" {
+		if fmt.Sprintf("%x", hle) != "3811556fff7b1f9fd38f531e5330944d" {
+			t.Errorf("2 got %x", hle)
+		}
+	} else {
+		// ppc64 BE: no-op transform, hle stays as SM4 output
+		if fmt.Sprintf("%x", hle) != "9f1f7bff6f5511384d9430531e538fd3" {
+			t.Errorf("2 got %x", hle)
+		}
 	}
 	aead, _ := c1.NewGCM(12, 16)
 	if runtime.GOARCH == "ppc64le" {

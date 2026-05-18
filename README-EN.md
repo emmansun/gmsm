@@ -5,7 +5,7 @@
 [![sm3ni-sm4ni-arm64](https://github.com/emmansun/gmsm/actions/workflows/test_smni_arm64.yml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_smni_arm64.yml)
 [![riscv64](https://github.com/emmansun/gmsm/actions/workflows/test_riscv64.yaml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_riscv64.yaml)
 [![loong64](https://github.com/emmansun/gmsm/actions/workflows/test_loong64.yml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_loong64.yml)
-[![ppc64le](https://github.com/emmansun/gmsm/actions/workflows/test_ppc64.yaml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_ppc64.yaml)
+[![ppc64le](https://github.com/emmansun/gmsm/actions/workflows/test_ppc64le.yaml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_ppc64le.yaml)
 [![s390x](https://github.com/emmansun/gmsm/actions/workflows/test_s390x.yaml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_s390x.yaml)
 [![codecov](https://codecov.io/gh/emmansun/gmsm/branch/main/graph/badge.svg?token=Otdi8m8sFj)](https://codecov.io/gh/emmansun/gmsm)
 [![Go Report Card](https://goreportcard.com/badge/github.com/emmansun/gmsm)](https://goreportcard.com/report/github.com/emmansun/gmsm)

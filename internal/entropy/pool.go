@@ -15,7 +15,7 @@ import "github.com/emmansun/gmsm/internal/byteorder"
 // operation based on the CRC-32 polynomial provides additional nonlinear mixing.
 //
 // On extraction, the full pool is compressed via SM3-based Hash_df (SM3_df per
-// Appendix B) and the compressed output is fed back for forward secrecy.
+// GM/T 0105-2021 Appendix B.4) and the compressed output is fed back for forward secrecy.
 type entropyPool struct {
 	data    [poolWords]uint32
 	pos     int // current word index (0 to poolWords-1)
@@ -118,7 +118,7 @@ func (p *entropyPool) extract() [SeedSize]byte {
 	}
 
 	// Compress pool data using SM3-based Hash_df.
-	// Output is 440 bits (55 bytes = SeedSize) per GM/T 0105-2021 Appendix B.
+	// Output is 440 bits (55 bytes = SeedSize) per GM/T 0105-2021 Appendix B.1 (seedlen=440 bits).
 	compressed := hashDf(poolData[:], SeedSize)
 
 	var seed [SeedSize]byte

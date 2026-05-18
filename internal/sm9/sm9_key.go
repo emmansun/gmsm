@@ -59,7 +59,22 @@ type EncryptPrivateKey struct {
 	PrivateKey              *bn256.G2 // user private key
 	d                       []byte    // uncompressed private key point output
 	*EncryptMasterPublicKey           // master public key
+	precompOnce             sync.Once
+	precomp                 *bn256.G2Precomputed // precomputed line evaluations for PrivateKey
 }
+
+// getPrecomp returns the lazily-initialized precomputed G2 line evaluations for
+// the encryption private key. Used to accelerate repeated pairings with this key.
+func (priv *EncryptPrivateKey) getPrecomp() *bn256.G2Precomputed {
+	priv.precompOnce.Do(func() {
+		priv.precomp = priv.PrivateKey.Precompute()
+	})
+	return priv.precomp
+}
+
+// gen2Precomp holds precomputed Miller loop line evaluations for the fixed generator Gen2.
+// Initialized once at package startup and reused in EncryptMasterPublicKey.pair().
+var gen2Precomp = bn256.Gen2.Precompute()
 
 // GenerateSignMasterKey generates a signature master key pair for DSA usage.
 func GenerateSignMasterKey(rand io.Reader) (*SignMasterPrivateKey, error) {
@@ -166,7 +181,7 @@ func (pub *SignMasterPublicKey) Bytes() []byte {
 // pair generate the basepoint once
 func (pub *SignMasterPublicKey) pair() *bn256.GT {
 	pub.pairOnce.Do(func() {
-		pub.basePoint = bn256.Pair(bn256.Gen1, pub.MasterPublicKey)
+		pub.basePoint = bn256.PairPrecomp(bn256.Gen1, pub.MasterPublicKey.Precompute())
 	})
 	return pub.basePoint
 }
@@ -380,7 +395,7 @@ func (pub *EncryptMasterPublicKey) Bytes() []byte {
 // pair generate the basepoint once
 func (pub *EncryptMasterPublicKey) pair() *bn256.GT {
 	pub.pairOnce.Do(func() {
-		pub.basePoint = bn256.Pair(pub.MasterPublicKey, bn256.Gen2)
+		pub.basePoint = bn256.PairPrecomp(pub.MasterPublicKey, gen2Precomp)
 	})
 	return pub.basePoint
 }

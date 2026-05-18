@@ -25,7 +25,7 @@ func NewHmacDrbg(newHash func() hash.Hash, securityLevel SecurityLevel, gm bool,
 
 	hd := &HmacDrbg{}
 
-	hd.gm = gm
+	hd.mode = NISTMode
 	hd.newHash = newHash
 	hd.setSecurityLevel(securityLevel)
 
@@ -66,16 +66,16 @@ func NewNISTHmacDrbg(newHash func() hash.Hash, securityLevel SecurityLevel, entr
 }
 
 // Generate generates pseudo random bytes usging HMAC_DRBG_Generate_process
-func (hd *HmacDrbg) Generate(output, additional []byte) error {
-	// Step 1. If reseed_counter > reseed_interval, then return [ErrReseedRequired] that a reseed is required
+func (hd *HmacDrbg) Generate(output, additional []byte) (bool, error) {
+	// Step 1. If reseed_counter > reseed_interval, then return reseedRequired=true
 	if hd.NeedReseed() {
-		return ErrReseedRequired
+		return true, nil
 	}
 	if len(additional) >= maxBytes {
-		return errors.New("drbg: additional input too long")
+		return false, errors.New("drbg: additional input too long")
 	}
 	if len(output) > maxBytesPerGenerate {
-		return errors.New("drbg: too many bytes requested")
+		return false, errors.New("drbg: too many bytes requested")
 	}
 	// Step 2. If additional_input is provided, then do update
 	if len(additional) > 0 {
@@ -98,14 +98,14 @@ func (hd *HmacDrbg) Generate(output, additional []byte) error {
 	hd.update(additional)
 	// Step 7. reseed_counter = reseed_counter + 1
 	hd.reseedCounter++
-	return nil
+	return false, nil
 }
 
 // Reseed hash DRBG reseed process. GM/T 0105-2021 has a little different with NIST.
 // reference to NIST.SP.800-90Ar1.pdf section 10.1.2.4
 func (hd *HmacDrbg) Reseed(entropy, additional []byte) error {
 	// here for the min length, we just check <=0 now
-	if len(entropy) == 0 || (hd.gm && len(entropy) < hd.hashSize) || len(entropy) >= maxBytes {
+	if len(entropy) == 0 || len(entropy) >= maxBytes {
 		return errors.New("drbg: invalid entropy length")
 	}
 
@@ -168,5 +168,5 @@ func (hd *HmacDrbg) update(byteSlices ...[]byte) error {
 // working_state = {V, Key, reseed_counter, last_reseed_time,reseed_interval_in_counter, reseed_interval_in_time}
 func (hd *HmacDrbg) Destroy() {
 	hd.BaseDrbg.Destroy()
-	setZero(hd.key)
+	zeroize(hd.key)
 }

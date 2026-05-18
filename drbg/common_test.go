@@ -125,7 +125,7 @@ func TestGenerateAdditionalInputTooLong(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = ctr.Generate(out, tooLongAdditional)
+	_, err = ctr.Generate(out, tooLongAdditional)
 	if err == nil {
 		t.Fatalf("expected error here")
 	}
@@ -134,7 +134,7 @@ func TestGenerateAdditionalInputTooLong(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = hashDrbg.Generate(out, tooLongAdditional)
+	_, err = hashDrbg.Generate(out, tooLongAdditional)
 	if err == nil {
 		t.Fatalf("expected error here")
 	}
@@ -143,7 +143,7 @@ func TestGenerateAdditionalInputTooLong(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = hmacDrbg.Generate(out, tooLongAdditional)
+	_, err = hmacDrbg.Generate(out, tooLongAdditional)
 	if err == nil {
 		t.Fatalf("expected error here")
 	}
@@ -160,8 +160,7 @@ func TestGMSecurityStrengthValidation(t *testing.T) {
 	}
 }
 
-func Test_setZero(t *testing.T) {
-
+func TestZeroize(t *testing.T) {
 	cases := []struct {
 		name string
 		args []byte
@@ -173,9 +172,9 @@ func Test_setZero(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			setZero(tt.args)
+			zeroize(tt.args)
 			if !bytes.Equal(tt.args, make([]byte, len(tt.args))) {
-				t.Errorf("setZero() = %v, want %v", tt.args, make([]byte, len(tt.args)))
+				t.Errorf("zeroize() = %v, want %v", tt.args, make([]byte, len(tt.args)))
 			}
 		})
 	}

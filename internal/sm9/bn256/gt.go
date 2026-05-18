@@ -46,16 +46,20 @@ func (e *GT) ScalarBaseMult(k *big.Int) *GT {
 	if e.p == nil {
 		e.p = &gfP12{}
 	}
-	e.p.Exp(gfP12Gen, k)
+	result, _ := ScalarMultGT(&GT{gfP12Gen}, NormalizeScalar(k.Bytes()))
+	gfp12Copy(e.p, result.p)
 	return e
 }
 
 // ScalarMult sets e to a*k and then returns e.
+// It uses a 4-bit window with cyclotomic squaring, which is faster than the
+// naive binary square-and-multiply for elements in the GT group.
 func (e *GT) ScalarMult(a *GT, k *big.Int) *GT {
 	if e.p == nil {
 		e.p = &gfP12{}
 	}
-	e.p.Exp(a.p, k)
+	result, _ := ScalarMultGT(a, NormalizeScalar(k.Bytes()))
+	gfp12Copy(e.p, result.p)
 	return e
 }
 
