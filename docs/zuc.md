@@ -5,6 +5,7 @@
 * 《GB/T 33133.2-2021 信息安全技术 祖冲之序列密码算法 第2部分：保密性算法》
 * 《GB/T 33133.3-2021 信息安全技术 祖冲之序列密码算法 第2部分：完整性算法》
 * [《祖冲之算法：ZUC-256算法草案(中文)》](https://github.com/guanzhi/GM-Standards/blob/master/%E5%85%AC%E5%BC%80%E6%96%87%E6%A1%A3/%E7%A5%96%E5%86%B2%E4%B9%8B%E7%AE%97%E6%B3%95%EF%BC%9AZUC-256%E7%AE%97%E6%B3%95%E8%8D%89%E6%A1%88(%E4%B8%AD%E6%96%87).pdf)
+* 《GM/T 0001.4-2024 祖冲之序列密码算法 第4部分鉴别式加密机制》
 
 您可以从[国家标准全文公开系统](https://openstd.samr.gov.cn/)在线阅读这些标准。
 
@@ -224,3 +225,145 @@ func ExampleZUC128Mac_Finish_mixed() {
 	// Output: fae8ff0b
 }
 ```
+
+## 鉴别式加密机制
+
+GM/T 0001.4-2024《祖冲之序列密码算法 第4部分：鉴别式加密机制》定义了两种基于 ZUC 流密码的认证加密模式：**GXM**（第6章）和 **MUR**（第7章）。两者均在 `cipher` 包中实现，通过内部复用 GHASH 函数构造消息认证码。
+
+### ZUC-GXM
+
+GXM（Galois XOR Mode）是一种类 GCM 的认证加密模式，使用单个流密码实例进行加密并借助 GHASH 生成认证标签。
+
+**密钥材料**
+
+| 参数 | 说明 |
+| :--- | :--- |
+| `k`（流密码密钥） | ZUC 密钥，传入 `zuc.NewCipher` |
+| `iv` | ZUC IV，传入 `zuc.NewCipher` |
+| `h`（哈希密钥） | 16 字节，独立于流密码密钥 |
+
+**使用步骤**
+
+1. 用 `k`/`iv` 创建 `zuc.NewCipher`，得到流密码实例 `stream`；
+2. 用 `stream` 和 `h` 构造 GXM 实例；
+3. 调用 `Seal` / `Open`。
+
+> **注意**：同一个 `stream` 实例**不得复用**，因为 GXM 在初始化时会消耗流密码的首个密钥流块来生成标签掩码。
+
+```go
+import (
+    "encoding/hex"
+    gocipher "crypto/cipher"
+
+    "github.com/emmansun/gmsm/cipher"
+    "github.com/emmansun/gmsm/zuc"
+)
+
+// GM/T 0001.4-2024 附录 C.2 示例
+key, _ := hex.DecodeString("edbe06afed8075576aad04afdec91d32")
+iv, _  := hex.DecodeString("b3a6db3c870c3e99245e0d1c06b747de")
+hkey, _ := hex.DecodeString("6db45e4f9572f4e6fe0d91acda6801d5")
+aad, _ := hex.DecodeString("9de18b1fdab0ca9902b9729d492c807ec599d5")
+
+// 加密
+stream, err := zuc.NewCipher(key, iv)
+if err != nil {
+    panic(err)
+}
+g, err := cipher.NewGXM(stream, hkey)
+if err != nil {
+    panic(err)
+}
+ciphertext := g.Seal(nil, plaintext, aad) // ciphertext = 密文 || 16字节标签
+
+// 解密（需要重新创建 stream，不可复用）
+stream2, err := zuc.NewCipher(key, iv)
+if err != nil {
+    panic(err)
+}
+g2, err := cipher.NewGXM(stream2, hkey)
+if err != nil {
+    panic(err)
+}
+plaintext2, err := g2.Open(nil, ciphertext, aad)
+if err != nil {
+    panic(err) // 标签验证失败
+}
+```
+
+标签长度默认为 16 字节；如需 8 字节标签，使用 `cipher.NewGXMWithTagSize(stream, hkey, 8)`。
+
+---
+
+### ZUC-MUR
+
+MUR（Misuse-resistant）是一种**抗误用**认证加密模式：即使 IV 被意外重用，也不会像 GCM 那样彻底失去保密性。代价是需要两个独立的流密码密钥（`dataKey` 和 `tagKey`），以及两次流密码调用（合成 IV 派生机制）。
+
+**密钥材料**
+
+| 参数 | 说明 |
+| :--- | :--- |
+| `h`（哈希密钥） | 16 字节，用于 GHASH |
+| `k1`（dataKey） | ZUC 密钥，用于加密 |
+| `k2`（tagKey） | ZUC 密钥，用于生成标签 |
+| `iv` | 公共 IV，两路流密码均使用（长度需一致） |
+
+**工作原理（Seal）**
+
+1. 对明文和附加数据做 GHASH，结果与 IV 混合，派生出**合成 IV₁**；
+2. 用 `(k2, IV₁)` 创建流密码，加密全零块得到 `tag`；
+3. 用 `tag XOR iv` 作为 IV₂，用 `(k1, IV₂)` 加密明文；
+4. 输出：密文 || 标签。
+
+```go
+import (
+    _cipher "crypto/cipher"
+    "github.com/emmansun/gmsm/cipher"
+    "github.com/emmansun/gmsm/zuc"
+)
+
+zucCreator := func(key, iv []byte) (_cipher.Stream, error) {
+    return zuc.NewCipher(key, iv)
+}
+
+iv, _   := hex.DecodeString("bb8b76cfe5f0d9335029008b2a3b2b21")
+hkey, _ := hex.DecodeString("ee767d503bb3d5d1b585f57a0418c673")
+k1, _  := hex.DecodeString("e4b5c1f8578034ce6424f58c675597ac") // dataKey
+k2, _  := hex.DecodeString("608053f6af9efda562d95dc013bea6b5") // tagKey
+aad, _ := hex.DecodeString("fcdd4cb97995da30efd957194eac4d2a...")
+
+g, err := cipher.NewMUR(zucCreator, hkey)
+if err != nil {
+    panic(err)
+}
+
+// 加密
+ciphertext, err := g.Seal(iv, k1, k2, nil, plaintext, aad)
+if err != nil {
+    panic(err)
+}
+
+// 解密
+plaintext2, err := g.Open(iv, k1, k2, nil, ciphertext, aad)
+if err != nil {
+    panic(err) // 标签验证失败
+}
+```
+
+`g`（`*mur` 实例）可安全复用：MUR 不在实例内部保存任何每次加密的状态，流密码实例在每次 `Seal`/`Open` 内部按需创建。
+
+标签长度默认 16 字节；如需 8 字节标签，使用 `cipher.NewMURWithTagSize(zucCreator, hkey, 8)`。
+
+---
+
+### GXM 与 MUR 对比
+
+| 属性 | GXM | MUR |
+| :--- | :---: | :---: |
+| 密钥数量 | 1（流密码）+ 1（哈希） | 2（流密码）+ 1（哈希） |
+| 流密码调用次数 | 1 | 2 |
+| 实例可复用 | 否（stream 不可复用） | 是（`*mur` 可复用） |
+| IV 误用安全 | 否 | 是（合成 IV） |
+| 标准来源 | GM/T 0001.4-2024 第6章 | GM/T 0001.4-2024 第7章 |
+| 接口风格 | 类似 `cipher.AEAD` | 扩展参数（含双密钥） |
+
