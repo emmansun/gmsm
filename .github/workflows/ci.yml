@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goVer: ['1.24', '1.25']
+        goVer: ['1.25', '1.26']
     steps:
     - name: Harden the runner (Audit all outbound calls)
       uses: step-security/harden-runner@ab7a9404c0f3da075243ca237b5fac12c98deaa5 # v2.19.3
@@ -31,19 +31,19 @@ jobs:
         go-version: ${{ matrix.goVer }}
        
     - name: Test with Coverage
-      if: ${{ matrix.goVer == '1.24' }}
+      if: ${{ matrix.goVer == '1.25' }}
       run: go test -coverpkg=./... -v -short -race -coverprofile=coverage1.txt -covermode=atomic ./...
       env:
         GODEBUG: x509sha1=1
 
     - name: Test Generic with Coverage
-      if: ${{ matrix.goVer == '1.24' }}
+      if: ${{ matrix.goVer == '1.25' }}
       run: go test -coverpkg=./... -v -short -tags purego  -coverprofile=coverage2.txt -covermode=atomic ./...      
       env:
         GODEBUG: x509sha1=1
 
     - name: Upload coverage to Codecov
-      if: ${{ matrix.goVer == '1.24' }}
+      if: ${{ matrix.goVer == '1.25' }}
       uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
       with:
         files: ./coverage1.txt,./coverage2.txt
@@ -56,19 +56,19 @@ jobs:
         FORCE_SM4BLOCK_AESNI: 1
 
     - name: Test only
-      if: ${{ matrix.goVer != '1.24' }}
+      if: ${{ matrix.goVer != '1.25' }}
       run: go test -short ./...
       env:
         GODEBUG: x509sha1=1
 
     - name: Test Generic only
-      if: ${{ matrix.goVer != '1.24' }}
+      if: ${{ matrix.goVer != '1.25' }}
       run: go test -short -tags purego ./...      
       env:
         GODEBUG: x509sha1=1
 
     - name: Test Plugin only
-      if: ${{ matrix.goVer == '1.24' }}
+      if: ${{ matrix.goVer == '1.25' }}
       run: go test -short -tags plugin ./...      
       env:
         GODEBUG: x509sha1=1
