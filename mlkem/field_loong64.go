@@ -181,6 +181,9 @@ func internalNTTMulLASX(out, lhs, rhs *nttElement)
 //go:noescape
 func internalNTTMulAccLASX(acc, lhs, rhs *nttElement)
 
+//go:noescape
+func internalNTTMulAccKeyGenLASX(acc, lhs, rhs *nttElement)
+
 func nttMul(acc, lhs, rhs *nttElement) {
 	if useLASX {
 		internalNTTMulLASX(acc, lhs, rhs)
@@ -214,6 +217,10 @@ func internalInverseNTT(f *nttElement) {
 }
 
 func nttMulAccKeyGen(acc, lhs, rhs *nttElement) {
+	if useLASX {
+		internalNTTMulAccKeyGenLASX(acc, lhs, rhs)
+		return
+	}
 	nttMulAccGeneric(acc, lhs, rhs)
 }
 

@@ -933,3 +933,69 @@ nttmlasx_loop:
 	BNE R8, R0, nttmlasx_loop
 
 	RET
+
+// ── internalNTTMulAccKeyGenLASX ───────────────────────────────────────────────
+// func internalNTTMulAccKeyGenLASX(acc, lhs, rhs *nttElement)
+//
+// Same as internalNTTMulAccLASX but converts delta from Montgomery to standard
+// domain via MontMul(delta, rr) where rr=1353=r^2 mod q.
+TEXT ·internalNTTMulAccKeyGenLASX(SB), NOSPLIT, $0-24
+	MOVV acc+0(FP), R4
+	MOVV lhs+8(FP), R5
+	MOVV rhs+16(FP), R6
+
+	SETUP_CONSTS
+
+	// Broadcast rr=1353 into X12
+	// 1353 = 0x0549; replicated 64-bit: 0x054905490549_0549
+	MOVV $0x0549054905490549, R9
+	XVMOVQ R9, X12.V4
+
+	MOVV $·gammaMulTableLASX(SB), R7
+	MOVV $16, R8
+
+nttmlacc_kg_lasx_loop:
+	XVMOVQ (R5), X0
+	XVMOVQ (R6), X1
+	XVMOVQ (R4), X2
+	XVMOVQ (R7), X3
+
+	XVSHUF4IH $0xB1, X1, X4
+
+	MONT_MUL_LASX(X0, X1, X5, X9, X10)
+	MONT_MUL_LASX(X0, X4, X6, X9, X10)
+	MONT_MUL_LASX(X5, X3, X7, X9, X10)
+
+	REDUCE_MONT(X7, X15, X9)
+	REDUCE_MONT(X6, X15, X9)
+
+	XVSHUF4IH $0xB1, X7, X9
+	XVADDH X7, X9, X7
+
+	XVSHUF4IH $0xB1, X6, X9
+	XVADDH X6, X9, X6
+
+	FIELD_REDUCE_ONCE(X7, X15, X9, X10)
+	FIELD_REDUCE_ONCE(X6, X15, X9, X10)
+
+	XVPICKEV_H(11, 7, 7)
+	XVPICKEV_H(13, 6, 6)
+
+	XVILVLH X11, X13, X5
+
+	// Convert delta from Montgomery to standard domain: MontMul(delta, rr)
+	MONT_MUL_LASX(X5, X12, X5, X9, X10)
+	REDUCE_MONT(X5, X15, X9)
+
+	XVADDH X5, X2, X2
+	FIELD_REDUCE_ONCE(X2, X15, X9, X10)
+	XVMOVQ X2, (R4)
+
+	ADDV $32, R4
+	ADDV $32, R5
+	ADDV $32, R6
+	ADDV $32, R7
+	ADDV $-1, R8
+	BNE R8, R0, nttmlacc_kg_lasx_loop
+
+	RET

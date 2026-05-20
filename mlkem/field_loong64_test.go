@@ -216,6 +216,36 @@ func TestLASXNTTMulAccMatchesMontgomery(t *testing.T) {
 	}
 }
 
+func TestLASXNTTMulAccKeyGenMatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for i := 0; i < 200; i++ {
+		lhs := randomRingElement()
+		rhs := randomRingElement()
+		accLASX := randomRingElement()
+		accRef := accLASX
+
+		internalMontNTT(&lhs)
+		internalMontNTT(&rhs)
+		internalMontNTT(&accLASX)
+		internalMontNTT(&accRef)
+
+		nlhs := nttElement(lhs)
+		nrhs := nttElement(rhs)
+		naccLASX := nttElement(accLASX)
+		naccRef := nttElement(accRef)
+
+		internalNTTMulAccKeyGenLASX(&naccLASX, &nlhs, &nrhs)
+		nttMulAccGeneric(&naccRef, &nlhs, &nrhs)
+
+		for j := range naccLASX {
+			if naccLASX[j] != naccRef[j] {
+				t.Fatalf("iter=%d idx=%d: NTTMulAccKeyGen mismatch: got=%d want=%d", i, j, naccLASX[j], naccRef[j])
+			}
+		}
+	}
+}
+
 func TestLASXDispatchNTTRoundTripMatchesMontgomery(t *testing.T) {
 	requireLASX(t)
 
