@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build amd64 && !purego
+//go:build (amd64 || loong64) && !purego
 
 package sm3
 
@@ -64,8 +64,8 @@ func createTwoBlocksBy8() [8]*byte {
 }
 
 func TestTransposeMatrix8x8(t *testing.T) {
-	if !useAVX2 {
-		t.Skip("AVX2 is not supported")
+	if !supportMult8 {
+		t.Skip("supportMult8 is false")
 	}
 	var m [8][8]uint32
 	for i := 0; i < 8; i++ {
@@ -93,8 +93,8 @@ func TestTransposeMatrix8x8(t *testing.T) {
 }
 
 func TestBlockMultBy8(t *testing.T) {
-	if !useAVX2 {
-		t.Skip("AVX2 is not supported")
+	if !supportMult8 {
+		t.Skip("supportMult8 is false")
 	}
 	digs := initState8()
 	p := createOneBlockBy8()
@@ -121,8 +121,8 @@ func TestBlockMultBy8(t *testing.T) {
 }
 
 func BenchmarkOneBlockBy8(b *testing.B) {
-	if !useAVX2 {
-		b.Skip("AVX2 is not supported")
+	if !supportMult8 {
+		b.Skip("supportMult8 is false")
 	}
 	digs := initState8()
 	p := createOneBlockBy8()
@@ -136,8 +136,8 @@ func BenchmarkOneBlockBy8(b *testing.B) {
 }
 
 func BenchmarkTwoBlocksBy8(b *testing.B) {
-	if !useAVX2 {
-		b.Skip("AVX2 is not supported")
+	if !supportMult8 {
+		b.Skip("supportMult8 is false")
 	}
 	digs := initState8()
 	p := createTwoBlocksBy8()
