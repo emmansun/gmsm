@@ -1095,59 +1095,59 @@ intt_l4_loop:
 	BNE R6, R0, intt_l4_loop
 
 	// ---- Layer 3 (inverse): len=16, 8 groups ----
-	// Final layer (len=128) applies scale: 1441 = 128^{-1} * r^2 mod q.
-	// For layers 3-1, use standard INTT butterfly without scale.
+	// Groups processed high-to-low (start=224..0). Zetas[8..15] in ascending start order.
+	// start=224→zeta[8], start=192→zeta[9], ..., start=0→zeta[15].
 
-	BROADCAST_ZETA(30, R5, X3)
+	BROADCAST_ZETA(16, R5, X3)  // start=224, zeta[8]
 	XVMOVQ 448(R4), X0
 	XVMOVQ 480(R4), X1
 	INTT_BUTTERFLY_LASX(X0, X1, X3)
 	XVMOVQ X0, 448(R4)
 	XVMOVQ X1, 480(R4)
 
-	BROADCAST_ZETA(28, R5, X3)
+	BROADCAST_ZETA(18, R5, X3)  // start=192, zeta[9]
 	XVMOVQ 384(R4), X0
 	XVMOVQ 416(R4), X1
 	INTT_BUTTERFLY_LASX(X0, X1, X3)
 	XVMOVQ X0, 384(R4)
 	XVMOVQ X1, 416(R4)
 
-	BROADCAST_ZETA(26, R5, X3)
+	BROADCAST_ZETA(20, R5, X3)  // start=160, zeta[10]
 	XVMOVQ 320(R4), X0
 	XVMOVQ 352(R4), X1
 	INTT_BUTTERFLY_LASX(X0, X1, X3)
 	XVMOVQ X0, 320(R4)
 	XVMOVQ X1, 352(R4)
 
-	BROADCAST_ZETA(24, R5, X3)
+	BROADCAST_ZETA(22, R5, X3)  // start=128, zeta[11]
 	XVMOVQ 256(R4), X0
 	XVMOVQ 288(R4), X1
 	INTT_BUTTERFLY_LASX(X0, X1, X3)
 	XVMOVQ X0, 256(R4)
 	XVMOVQ X1, 288(R4)
 
-	BROADCAST_ZETA(22, R5, X3)
+	BROADCAST_ZETA(24, R5, X3)  // start=96, zeta[12]
 	XVMOVQ 192(R4), X0
 	XVMOVQ 224(R4), X1
 	INTT_BUTTERFLY_LASX(X0, X1, X3)
 	XVMOVQ X0, 192(R4)
 	XVMOVQ X1, 224(R4)
 
-	BROADCAST_ZETA(20, R5, X3)
+	BROADCAST_ZETA(26, R5, X3)  // start=64, zeta[13]
 	XVMOVQ 128(R4), X0
 	XVMOVQ 160(R4), X1
 	INTT_BUTTERFLY_LASX(X0, X1, X3)
 	XVMOVQ X0, 128(R4)
 	XVMOVQ X1, 160(R4)
 
-	BROADCAST_ZETA(18, R5, X3)
+	BROADCAST_ZETA(28, R5, X3)  // start=32, zeta[14]
 	XVMOVQ 64(R4), X0
 	XVMOVQ 96(R4), X1
 	INTT_BUTTERFLY_LASX(X0, X1, X3)
 	XVMOVQ X0, 64(R4)
 	XVMOVQ X1, 96(R4)
 
-	BROADCAST_ZETA(16, R5, X3)
+	BROADCAST_ZETA(30, R5, X3)  // start=0, zeta[15]
 	XVMOVQ (R4), X0
 	XVMOVQ 32(R4), X1
 	INTT_BUTTERFLY_LASX(X0, X1, X3)
@@ -1155,7 +1155,9 @@ intt_l4_loop:
 	XVMOVQ X1, 32(R4)
 
 	// ---- Layer 2 (inverse): len=32, 4 groups ----
-	BROADCAST_ZETA(14, R5, X3)
+	// Groups processed high-to-low (start=192..0). Zetas[4..7] in ascending start order.
+	// start=192→zeta[4], start=128→zeta[5], start=64→zeta[6], start=0→zeta[7].
+	BROADCAST_ZETA(8, R5, X3)   // start=192, zeta[4]
 	ADDV $384, R4, R10
 	ADDV $448, R4, R11
 	MOVV $2, R6
@@ -1171,7 +1173,7 @@ intt_l2_g3_loop:
 	ADDV $-1, R6
 	BNE R6, R0, intt_l2_g3_loop
 
-	BROADCAST_ZETA(12, R5, X3)
+	BROADCAST_ZETA(10, R5, X3)  // start=128, zeta[5]
 	ADDV $256, R4, R10
 	ADDV $320, R4, R11
 	MOVV $2, R6
@@ -1187,7 +1189,7 @@ intt_l2_g2_loop:
 	ADDV $-1, R6
 	BNE R6, R0, intt_l2_g2_loop
 
-	BROADCAST_ZETA(10, R5, X3)
+	BROADCAST_ZETA(12, R5, X3)  // start=64, zeta[6]
 	ADDV $128, R4, R10
 	ADDV $192, R4, R11
 	MOVV $2, R6
@@ -1203,7 +1205,7 @@ intt_l2_g1_loop:
 	ADDV $-1, R6
 	BNE R6, R0, intt_l2_g1_loop
 
-	BROADCAST_ZETA(8, R5, X3)
+	BROADCAST_ZETA(14, R5, X3)  // start=0, zeta[7]
 	MOVV R4, R10
 	ADDV $64, R4, R11
 	MOVV $2, R6
@@ -1220,7 +1222,8 @@ intt_l2_g0_loop:
 	BNE R6, R0, intt_l2_g0_loop
 
 	// ---- Layer 1 (inverse): len=64, 2 groups ----
-	BROADCAST_ZETA(6, R5, X3)
+	// Groups processed high-to-low (start=128,0). start=128→zeta[2], start=0→zeta[3].
+	BROADCAST_ZETA(4, R5, X3)   // start=128, zeta[2]
 	ADDV $256, R4, R10
 	ADDV $384, R4, R11
 	MOVV $4, R6
@@ -1236,7 +1239,7 @@ intt_l1_g1_loop:
 	ADDV $-1, R6
 	BNE R6, R0, intt_l1_g1_loop
 
-	BROADCAST_ZETA(4, R5, X3)
+	BROADCAST_ZETA(6, R5, X3)   // start=0, zeta[3]
 	MOVV R4, R10
 	ADDV $128, R4, R11
 	MOVV $4, R6
