@@ -89,8 +89,9 @@
 // XVPERMIQ performs xvpermi.q Xd, Xj, imm8.
 // Permutes 128-bit quarters: Xd.q[0] = {Xd,Xj}.q[imm[1:0]], Xd.q[1] = {Xd,Xj}.q[imm[3:2]]
 // Pool: 0=Xd.lo_orig, 1=Xd.hi_orig, 2=Xj.lo, 3=Xj.hi
+// Opcode 0x1DFB verified: xvpermi.q X8, X9, 0x02 → WORD $0x77ec0928
 #define XVPERMIQ(Xd, Xj, imm8) \
-	WORD $((0x1DFE << 18) | ((imm8) << 10) | ((Xj) << 5) | (Xd))
+	WORD $((0x1DFB << 18) | ((imm8) << 10) | ((Xj) << 5) | (Xd))
 
 // SETUP_CONSTS initializes X15=q and X14=qInv broadcasts.
 #define SETUP_CONSTS \
