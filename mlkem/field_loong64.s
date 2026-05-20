@@ -87,8 +87,8 @@
 	REDUCE_MONT(XB, X15, X7)              // XB = VB' in [0, q)
 
 // XVPERMIQ performs xvpermi.q Xd, Xj, imm8.
-// Permutes 128-bit quarters: Xd.q[0] = {Xd,Xj}.q[imm[1:0]], Xd.q[1] = {Xd,Xj}.q[imm[3:2]]
-// Pool: 0=Xd.lo_orig, 1=Xd.hi_orig, 2=Xj.lo, 3=Xj.hi
+// Real semantics: pool={Xj.lo, Xj.hi, Xd_old.lo, Xd_old.hi} = {0,1,2,3}
+//   dst.qword[0] = pool[imm[1:0]], dst.qword[1] = pool[imm[5:4]]
 // Opcode 0x1DFB verified: xvpermi.q X8, X9, 0x02 → WORD $0x77ec0928
 #define XVPERMIQ(Xd, Xj, imm8) \
 	WORD $((0x1DFB << 18) | ((imm8) << 10) | ((Xj) << 5) | (Xd))
@@ -413,20 +413,20 @@ ntt_l4_loop:
 
 	// Pack lows: X0 = [X9.lo | X10.lo]
 	XVORV X9, X9, X0
-	XVPERMIQ(0, 10, 0x08)
+	XVPERMIQ(0, 10, 0x02)
 
 	// Pack highs: X1 = [X9.hi | X10.hi]
 	XVORV X9, X9, X1
-	XVPERMIQ(1, 10, 0x0D)
+	XVPERMIQ(1, 10, 0x13)
 
 	// Butterfly on the packed halves
 	BUTTERFLY_LASX(X0, X1, X3)
 
 	// Repack: X9 = [X0.lo | X1.lo], X10 = [X0.hi | X1.hi]
 	XVORV X0, X0, X9
-	XVPERMIQ(9, 1, 0x08)
+	XVPERMIQ(9, 1, 0x02)
 	XVORV X0, X0, X10
-	XVPERMIQ(10, 1, 0x0D)
+	XVPERMIQ(10, 1, 0x13)
 
 	// Store
 	XVMOVQ X9, (R11)
@@ -610,14 +610,14 @@ nttd_l4_loop:
 	XVMOVQ (R11), X9
 	XVMOVQ 32(R11), X10
 	XVORV X9, X9, X0
-	XVPERMIQ(0, 10, 0x08)
+	XVPERMIQ(0, 10, 0x02)
 	XVORV X9, X9, X1
-	XVPERMIQ(1, 10, 0x0D)
+	XVPERMIQ(1, 10, 0x13)
 	BUTTERFLY_LASX(X0, X1, X3)
 	XVORV X0, X0, X9
-	XVPERMIQ(9, 1, 0x08)
+	XVPERMIQ(9, 1, 0x02)
 	XVORV X0, X0, X10
-	XVPERMIQ(10, 1, 0x0D)
+	XVPERMIQ(10, 1, 0x13)
 	XVMOVQ X9, (R11)
 	XVMOVQ X10, 32(R11)
 	ADDV $32, R10
@@ -1031,16 +1031,16 @@ intt_l4_loop:
 	XVMOVQ 32(R11), X10
 
 	XVORV X9, X9, X0
-	XVPERMIQ(0, 10, 0x08)
+	XVPERMIQ(0, 10, 0x02)
 	XVORV X9, X9, X1
-	XVPERMIQ(1, 10, 0x0D)
+	XVPERMIQ(1, 10, 0x13)
 
 	INTT_BUTTERFLY_LASX(X0, X1, X3)
 
 	XVORV X0, X0, X9
-	XVPERMIQ(9, 1, 0x08)
+	XVPERMIQ(9, 1, 0x02)
 	XVORV X0, X0, X10
-	XVPERMIQ(10, 1, 0x0D)
+	XVPERMIQ(10, 1, 0x13)
 
 	XVMOVQ X9, (R11)
 	XVMOVQ X10, 32(R11)
