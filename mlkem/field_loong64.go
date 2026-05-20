@@ -12,7 +12,7 @@ import (
 	"github.com/emmansun/gmsm/internal/deps/cpu"
 )
 
-var useLASX = cpu.Loong64.HasLASX
+var useLASX = cpu.Loong64.HasLASX && false
 
 // qVecLASX stores q=3329 broadcast to 16 int16 lanes for LASX operations.
 var qVecLASX [16]fieldElement
@@ -189,7 +189,7 @@ func nttMul(acc, lhs, rhs *nttElement) {
 		internalNTTMulLASX(acc, lhs, rhs)
 		return
 	}
-	nttMontMul(acc, lhs, rhs)
+	nttMulGeneric(acc, lhs, rhs)
 }
 
 func nttMulAcc(acc, lhs, rhs *nttElement) {
@@ -197,7 +197,7 @@ func nttMulAcc(acc, lhs, rhs *nttElement) {
 		internalNTTMulAccLASX(acc, lhs, rhs)
 		return
 	}
-	nttMontMulAcc(acc, lhs, rhs)
+	nttMulAccGeneric(acc, lhs, rhs)
 }
 
 func internalNTT(f *ringElement) {
