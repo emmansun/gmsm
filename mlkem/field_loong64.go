@@ -12,7 +12,7 @@ import (
 	"github.com/emmansun/gmsm/internal/deps/cpu"
 )
 
-var useLASX = cpu.Loong64.HasLASX && false
+var useLASX = cpu.Loong64.HasLASX
 
 // qVecLASX stores q=3329 broadcast to 16 int16 lanes for LASX operations.
 var qVecLASX [16]fieldElement
