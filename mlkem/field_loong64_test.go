@@ -105,13 +105,18 @@ func TestLASXNTTRoundTrip(t *testing.T) {
 	for i := 0; i < 200; i++ {
 		in := randomRingElement()
 		got := in
-
 		internalNTTLASX(&got)
 		internalInverseNTTLASX((*nttElement)(&got))
 
+		// internalMontNTT + internalMontInverseNTT gives r*in mod q (not identity),
+		// so compare against the scalar Montgomery roundtrip result.
+		want := in
+		internalMontNTT(&want)
+		internalMontInverseNTT((*nttElement)(&want))
+
 		for j := range got {
-			if got[j] != in[j] {
-				t.Fatalf("iter=%d idx=%d: NTT round-trip mismatch: got=%d want=%d", i, j, got[j], in[j])
+			if got[j] != want[j] {
+				t.Fatalf("iter=%d idx=%d: NTT round-trip mismatch: got=%d want=%d", i, j, got[j], want[j])
 			}
 		}
 	}
@@ -125,16 +130,18 @@ func TestLASXScalarNTTThenLASXINTT(t *testing.T) {
 	for i := 0; i < 200; i++ {
 		in := randomRingElement()
 		got := in
-
-		// Apply scalar forward NTT
+		// Apply scalar forward NTT then LASX inverse NTT
 		internalMontNTT(&got)
-		// Apply LASX inverse NTT
 		internalInverseNTTLASX((*nttElement)(&got))
 
-		// Result should equal original
+		// Compare against scalar Montgomery roundtrip (which gives r*in, not in)
+		want := in
+		internalMontNTT(&want)
+		internalMontInverseNTT((*nttElement)(&want))
+
 		for j := range got {
-			if got[j] != in[j] {
-				t.Fatalf("iter=%d idx=%d: scalar-NTT+LASX-INTT mismatch: got=%d want=%d", i, j, got[j], in[j])
+			if got[j] != want[j] {
+				t.Fatalf("iter=%d idx=%d: scalar-NTT+LASX-INTT mismatch: got=%d want=%d", i, j, got[j], want[j])
 			}
 		}
 	}
@@ -148,16 +155,18 @@ func TestLASXNTTThenScalarINTT(t *testing.T) {
 	for i := 0; i < 200; i++ {
 		in := randomRingElement()
 		got := in
-
-		// Apply LASX forward NTT
+		// Apply LASX forward NTT then scalar inverse NTT
 		internalNTTLASX(&got)
-		// Apply scalar inverse NTT
 		internalMontInverseNTT((*nttElement)(&got))
 
-		// Result should equal original
+		// Compare against scalar Montgomery roundtrip (which gives r*in, not in)
+		want := in
+		internalMontNTT(&want)
+		internalMontInverseNTT((*nttElement)(&want))
+
 		for j := range got {
-			if got[j] != in[j] {
-				t.Fatalf("iter=%d idx=%d: LASX-NTT+scalar-INTT mismatch: got=%d want=%d", i, j, got[j], in[j])
+			if got[j] != want[j] {
+				t.Fatalf("iter=%d idx=%d: LASX-NTT+scalar-INTT mismatch: got=%d want=%d", i, j, got[j], want[j])
 			}
 		}
 	}
