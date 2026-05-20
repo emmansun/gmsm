@@ -66,13 +66,17 @@ func init() {
 
 		base4 := block * 16
 		z4 := 32 + block*4
-		// LASX layout: after XVILVLV/XVILVHV split, lane0=[g0_a,g2_a], lane1=[g1_a,g3_a]
-		// So twiddle must be [z0×4, z2×4 | z1×4, z3×4] (even groups in lane0, odd in lane1)
+		// LASX layout after XVILVLV X10, X9, X0 / XVILVHV X10, X9, X1:
+		//   X0[63:0]   = g2_a (from X10.lane0 low)  → needs z4+2
+		//   X0[127:64] = g0_a (from X9.lane0 low)   → needs z4+0
+		//   X0[191:128]= g3_a (from X10.lane1 low)  → needs z4+3
+		//   X0[255:192]= g1_a (from X9.lane1 low)   → needs z4+1
+		// Twiddle table layout: [z2×4, z0×4 | z3×4, z1×4]
 		for i := 0; i < 4; i++ {
-			nttTwiddleL4PrecompLASX[base4+i] = zetasMontgomery[z4]      // z0 (g0), lane0 lo
-			nttTwiddleL4PrecompLASX[base4+4+i] = zetasMontgomery[z4+2]  // z2 (g2), lane0 hi
-			nttTwiddleL4PrecompLASX[base4+8+i] = zetasMontgomery[z4+1]  // z1 (g1), lane1 lo
-			nttTwiddleL4PrecompLASX[base4+12+i] = zetasMontgomery[z4+3] // z3 (g3), lane1 hi
+			nttTwiddleL4PrecompLASX[base4+i] = zetasMontgomery[z4+2]    // g2, [63:0]
+			nttTwiddleL4PrecompLASX[base4+4+i] = zetasMontgomery[z4]    // g0, [127:64]
+			nttTwiddleL4PrecompLASX[base4+8+i] = zetasMontgomery[z4+3]  // g3, [191:128]
+			nttTwiddleL4PrecompLASX[base4+12+i] = zetasMontgomery[z4+1] // g1, [255:192]
 		}
 
 		base2 := block * 16
@@ -85,22 +89,27 @@ func init() {
 		z5 := zetasMontgomery[z2+5]
 		z6 := zetasMontgomery[z2+6]
 		z7 := zetasMontgomery[z2+7]
-		nttTwiddleL2PrecompLASX[base2+0] = z0
-		nttTwiddleL2PrecompLASX[base2+1] = z0
-		nttTwiddleL2PrecompLASX[base2+2] = z1
-		nttTwiddleL2PrecompLASX[base2+3] = z1
-		nttTwiddleL2PrecompLASX[base2+4] = z4v
-		nttTwiddleL2PrecompLASX[base2+5] = z4v
-		nttTwiddleL2PrecompLASX[base2+6] = z5
-		nttTwiddleL2PrecompLASX[base2+7] = z5
-		nttTwiddleL2PrecompLASX[base2+8] = z2v
-		nttTwiddleL2PrecompLASX[base2+9] = z2v
-		nttTwiddleL2PrecompLASX[base2+10] = z3
-		nttTwiddleL2PrecompLASX[base2+11] = z3
-		nttTwiddleL2PrecompLASX[base2+12] = z6
-		nttTwiddleL2PrecompLASX[base2+13] = z6
-		nttTwiddleL2PrecompLASX[base2+14] = z7
-		nttTwiddleL2PrecompLASX[base2+15] = z7
+		// LASX layout after XVSHUF4IW+XVILVLV/XVILVHV split:
+		//   [63:0]   → g4,g5 (from X10.lane0 low) → needs z4,z5
+		//   [127:64] → g0,g1 (from X9.lane0 low)  → needs z0,z1
+		//   [191:128]→ g6,g7 (from X10.lane1 low) → needs z6,z7
+		//   [255:192]→ g2,g3 (from X9.lane1 low)  → needs z2,z3
+		nttTwiddleL2PrecompLASX[base2+0] = z4v
+		nttTwiddleL2PrecompLASX[base2+1] = z4v
+		nttTwiddleL2PrecompLASX[base2+2] = z5
+		nttTwiddleL2PrecompLASX[base2+3] = z5
+		nttTwiddleL2PrecompLASX[base2+4] = z0
+		nttTwiddleL2PrecompLASX[base2+5] = z0
+		nttTwiddleL2PrecompLASX[base2+6] = z1
+		nttTwiddleL2PrecompLASX[base2+7] = z1
+		nttTwiddleL2PrecompLASX[base2+8] = z6
+		nttTwiddleL2PrecompLASX[base2+9] = z6
+		nttTwiddleL2PrecompLASX[base2+10] = z7
+		nttTwiddleL2PrecompLASX[base2+11] = z7
+		nttTwiddleL2PrecompLASX[base2+12] = z2v
+		nttTwiddleL2PrecompLASX[base2+13] = z2v
+		nttTwiddleL2PrecompLASX[base2+14] = z3
+		nttTwiddleL2PrecompLASX[base2+15] = z3
 
 		iz8 := 31 - block*2
 		for i := 0; i < 8; i++ {
@@ -109,12 +118,16 @@ func init() {
 		}
 
 		iz4 := 63 - block*4
-		// LASX layout: same split as forward NTT, even groups in lane0, odd in lane1
+		// Same data layout as forward NTT (XVILVLV/XVILVHV split):
+		//   [63:0]   → group 2 data → needs iz4-2
+		//   [127:64] → group 0 data → needs iz4
+		//   [191:128]→ group 3 data → needs iz4-3
+		//   [255:192]→ group 1 data → needs iz4-1
 		for i := 0; i < 4; i++ {
-			inttTwiddleL4PrecompLASX[base4+i] = zetasMontgomery[iz4]      // z0, lane0 lo
-			inttTwiddleL4PrecompLASX[base4+4+i] = zetasMontgomery[iz4-2]  // z2, lane0 hi
-			inttTwiddleL4PrecompLASX[base4+8+i] = zetasMontgomery[iz4-1]  // z1, lane1 lo
-			inttTwiddleL4PrecompLASX[base4+12+i] = zetasMontgomery[iz4-3] // z3, lane1 hi
+			inttTwiddleL4PrecompLASX[base4+i] = zetasMontgomery[iz4-2]    // g2, [63:0]
+			inttTwiddleL4PrecompLASX[base4+4+i] = zetasMontgomery[iz4]    // g0, [127:64]
+			inttTwiddleL4PrecompLASX[base4+8+i] = zetasMontgomery[iz4-3]  // g3, [191:128]
+			inttTwiddleL4PrecompLASX[base4+12+i] = zetasMontgomery[iz4-1] // g1, [255:192]
 		}
 
 		iz2 := 127 - block*8
@@ -126,22 +139,27 @@ func init() {
 		iz5 := zetasMontgomery[iz2-5]
 		iz6 := zetasMontgomery[iz2-6]
 		iz7 := zetasMontgomery[iz2-7]
-		inttTwiddleL2PrecompLASX[base2+0] = iz0
-		inttTwiddleL2PrecompLASX[base2+1] = iz0
-		inttTwiddleL2PrecompLASX[base2+2] = iz1
-		inttTwiddleL2PrecompLASX[base2+3] = iz1
-		inttTwiddleL2PrecompLASX[base2+4] = iz4v
-		inttTwiddleL2PrecompLASX[base2+5] = iz4v
-		inttTwiddleL2PrecompLASX[base2+6] = iz5
-		inttTwiddleL2PrecompLASX[base2+7] = iz5
-		inttTwiddleL2PrecompLASX[base2+8] = iz2v
-		inttTwiddleL2PrecompLASX[base2+9] = iz2v
-		inttTwiddleL2PrecompLASX[base2+10] = iz3
-		inttTwiddleL2PrecompLASX[base2+11] = iz3
-		inttTwiddleL2PrecompLASX[base2+12] = iz6
-		inttTwiddleL2PrecompLASX[base2+13] = iz6
-		inttTwiddleL2PrecompLASX[base2+14] = iz7
-		inttTwiddleL2PrecompLASX[base2+15] = iz7
+		// Same LASX data layout as forward NTT Layer 6:
+		//   [63:0]   → g4,g5 → needs iz4v,iz5
+		//   [127:64] → g0,g1 → needs iz0,iz1
+		//   [191:128]→ g6,g7 → needs iz6,iz7
+		//   [255:192]→ g2,g3 → needs iz2v,iz3
+		inttTwiddleL2PrecompLASX[base2+0] = iz4v
+		inttTwiddleL2PrecompLASX[base2+1] = iz4v
+		inttTwiddleL2PrecompLASX[base2+2] = iz5
+		inttTwiddleL2PrecompLASX[base2+3] = iz5
+		inttTwiddleL2PrecompLASX[base2+4] = iz0
+		inttTwiddleL2PrecompLASX[base2+5] = iz0
+		inttTwiddleL2PrecompLASX[base2+6] = iz1
+		inttTwiddleL2PrecompLASX[base2+7] = iz1
+		inttTwiddleL2PrecompLASX[base2+8] = iz6
+		inttTwiddleL2PrecompLASX[base2+9] = iz6
+		inttTwiddleL2PrecompLASX[base2+10] = iz7
+		inttTwiddleL2PrecompLASX[base2+11] = iz7
+		inttTwiddleL2PrecompLASX[base2+12] = iz2v
+		inttTwiddleL2PrecompLASX[base2+13] = iz2v
+		inttTwiddleL2PrecompLASX[base2+14] = iz3
+		inttTwiddleL2PrecompLASX[base2+15] = iz3
 	}
 }
 

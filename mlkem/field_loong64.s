@@ -458,9 +458,19 @@ ntt_l5_loop:
 
 	BUTTERFLY_LASX(X0, X1, X3)
 
-	// Repack back
-	XVILVLV X1, X0, X9      // deinterleave
-	XVILVHV X1, X0, X10
+	// Repack back: reverse the XVILVLV X10, X9, X0 / XVILVHV X10, X9, X1 split.
+	// X0 has a' elements at: [63:0]=g2_a', [127:64]=g0_a', [191:128]=g3_a', [255:192]=g1_a'
+	// X1 has b' elements at: [63:0]=g2_b', [127:64]=g0_b', [191:128]=g3_b', [255:192]=g1_b'
+	// Want X9.lane0=[g0_a',g0_b'], X9.lane1=[g1_a',g1_b']
+	// Want X10.lane0=[g2_a',g2_b'], X10.lane1=[g3_a',g3_b']
+	// XVILVHV X0, X1, X9 → xvilvh.d X9, Xj=X1, Xk=X0:
+	//   X9[63:0]=X0[127:64]=g0_a', X9[127:64]=X1[127:64]=g0_b' (lane0)
+	//   X9[191:128]=X0[255:192]=g1_a', X9[255:192]=X1[255:192]=g1_b' (lane1)
+	XVILVHV X0, X1, X9
+	// XVILVLV X0, X1, X10 → xvilvl.d X10, Xj=X1, Xk=X0:
+	//   X10[63:0]=X0[63:0]=g2_a', X10[127:64]=X1[63:0]=g2_b' (lane0)
+	//   X10[191:128]=X0[191:128]=g3_a', X10[255:192]=X1[191:128]=g3_b' (lane1)
+	XVILVLV X0, X1, X10
 
 	XVMOVQ X9, (R11)
 	XVMOVQ X10, 32(R11)
@@ -495,14 +505,20 @@ ntt_l6_loop:
 
 	BUTTERFLY_LASX(X0, X1, X3)
 
-	// Repack: reverse the split -> restore interleaved layout
-	XVILVLV X1, X0, X11     // [g0_a',g1_a', g4_a',g5_a' | g2_a',g3_a', g6_a',g7_a']
-	XVILVHV X1, X0, X12     // [g0_b',g1_b', g4_b',g5_b' | ...]
-
-	// Reverse XVSHUF4IW $0xD8: apply $0xD8 again to restore [g_a,g_b,g+1_a,g+1_b]
+	// Repack: reverse the XVSHUF4IW+XVILVLV/XVILVHV split.
+	// X0[63:0]=g4_a', X0[127:64]=g0_a', X0[191:128]=g6_a', X0[255:192]=g2_a'
+	// X1[63:0]=g4_b', X1[127:64]=g0_b', X1[191:128]=g6_b', X1[255:192]=g2_b'
+	// XVILVHV X0, X1, X11 → xvilvh.d X11, Xj=X1, Xk=X0:
+	//   X11.lane0 = [X0.lane0.hi64, X1.lane0.hi64] = [g0_a',g1_a', g0_b',g1_b']
+	//   X11.lane1 = [X0.lane1.hi64, X1.lane1.hi64] = [g2_a',g3_a', g2_b',g3_b']
+	XVILVHV X0, X1, X11
+	// XVILVLV X0, X1, X12 → xvilvl.d X12, Xj=X1, Xk=X0:
+	//   X12.lane0 = [X0.lane0.lo64, X1.lane0.lo64] = [g4_a',g5_a', g4_b',g5_b']
+	//   X12.lane1 = [X0.lane1.lo64, X1.lane1.lo64] = [g6_a',g7_a', g6_b',g7_b']
+	XVILVLV X0, X1, X12
+	// Apply XVSHUF4IW $0xD8 to restore [g_a,g_b,g+1_a,g+1_b] interleaved layout
 	XVSHUF4IW $0xD8, X11, X9
 	XVSHUF4IW $0xD8, X12, X10
-
 	XVMOVQ X9, (R11)
 	XVMOVQ X10, 32(R11)
 
@@ -542,9 +558,9 @@ intt_l6_loop:
 
 	INTT_BUTTERFLY_LASX(X0, X1, X3)
 
-	// Repack: same as forward NTT
-	XVILVLV X1, X0, X11
-	XVILVHV X1, X0, X12
+	// Repack: same correction as forward NTT layer 6
+	XVILVHV X0, X1, X11
+	XVILVLV X0, X1, X12
 
 	XVSHUF4IW $0xD8, X11, X9
 	XVSHUF4IW $0xD8, X12, X10
@@ -573,8 +589,9 @@ intt_l5_loop:
 
 	INTT_BUTTERFLY_LASX(X0, X1, X3)
 
-	XVILVLV X1, X0, X9
-	XVILVHV X1, X0, X10
+	// Repack back: same correction as NTT Layer 5 repack.
+	XVILVHV X0, X1, X9
+	XVILVLV X0, X1, X10
 
 	XVMOVQ X9, (R11)
 	XVMOVQ X10, 32(R11)

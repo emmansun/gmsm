@@ -143,6 +143,96 @@ func TestLASXDispatchNTTRoundTripMatchesMontgomery(t *testing.T) {
 	}
 }
 
+// montMulLASXSigned computes Montgomery multiplication using the signed approach
+// that LASX assembly uses. This is a Go reference for debugging.
+func montMulLASXSigned(a, b int16) int16 {
+	const qInv = int16(-3327) // 62209 as uint16, -3327 as int16
+	const q = int16(3329)
+	prodLo := int16(int32(a) * int32(b) & 0xFFFF)
+	prodHi := int16(int32(a) * int32(b) >> 16)
+	t := int16(int32(prodLo) * int32(qInv) & 0xFFFF)
+	tqHi := int16(int32(t) * int32(q) >> 16)
+	result := prodHi - tqHi
+	// REDUCE_MONT: if result < 0, add q
+	if result < 0 {
+		result += q
+	}
+	return result
+}
+
+// TestMontMulSignedMatchesScalar verifies the signed LASX Montgomery formula
+// matches fieldMontMul.
+func TestMontMulSignedMatchesScalar(t *testing.T) {
+	for a := 0; a < q; a++ {
+		for b := 0; b < q; b++ {
+			got := montMulLASXSigned(int16(a), int16(b))
+			want := fieldMontMul(fieldElement(a), fieldElement(b))
+			if fieldElement(got) != want {
+				t.Fatalf("montMulLASXSigned(%d, %d) = %d, want %d", a, b, got, want)
+			}
+		}
+	}
+}
+
+// internalMontNTTLayersUpTo applies only the first 'maxLayers' layers of the
+// Montgomery NTT (layer 0 is len=128 butterfly, layer 6 is len=2 butterfly).
+func internalMontNTTLayersUpTo(f *ringElement, maxLayers int) {
+	k := 1
+	layer := 0
+	for l := 128; l >= 2; l /= 2 {
+		if layer >= maxLayers {
+			return
+		}
+		for start := 0; start < 256; start += 2 * l {
+			zeta := zetasMontgomery[k]
+			k++
+			fa := f[start : start+l]
+			fb := f[start+l : start+l+l]
+			for j := 0; j < l; j++ {
+				t := fieldMontMul(zeta, fb[j])
+				fb[j] = fieldSub(fa[j], t)
+				fa[j] = fieldAdd(fa[j], t)
+			}
+		}
+		layer++
+	}
+}
+
+// TestLASXNTTLayerIsolation applies LASX NTT and scalar NTT one layer at a time
+// to determine which layer first produces a mismatch.
+// NOTE: We cannot isolate individual LASX layers; instead we check the scalar
+// intermediate result after each Go-layer and compare patterns.
+func TestLASXNTTDiagnosticFixed(t *testing.T) {
+	requireLASX(t)
+
+	// Fixed input: in[i] = i % q (deterministic).
+	var in ringElement
+	for i := range in {
+		in[i] = fieldElement(i % q)
+	}
+
+	got := in
+	want := in
+
+	internalNTTLASX(&got)
+	internalMontNTT(&want)
+
+	mismatches := 0
+	for j := range got {
+		if got[j] != want[j] {
+			t.Logf("mismatch idx=%d: got=%d want=%d", j, got[j], want[j])
+			mismatches++
+			if mismatches >= 20 {
+				t.Logf("(further mismatches truncated)")
+				break
+			}
+		}
+	}
+	if mismatches > 0 {
+		t.Fatalf("NTT mismatch: %d values differ", mismatches)
+	}
+}
+
 func BenchmarkNTTLASX(b *testing.B) {
 	requireLASX(&testing.T{})
 	f := randomRingElement()
