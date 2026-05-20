@@ -23,9 +23,11 @@
 // ---- Macros ----
 
 // BROADCAST_ZETA loads a 16-bit value from offset(Rbase) and broadcasts to all 16 lanes of Xdst.
-// Clobbers: R8, R9.
+// XVMOVQ offset(Rbase), Xdst.H16 requires go1.26+
+// Clobbers: R8.
 #define BROADCAST_ZETA(offset, Rbase, Xdst) \
-	XVMOVQ offset(Rbase), Xdst.H16
+	MOVHU offset(Rbase), R8     \
+	XVMOVQ R8, Xdst.H16
 
 // MONT_MUL_LASX computes Montgomery multiplication: XOUT = MontMul(XA, XZ).
 // Uses signed approach: result = (a*z)_hi - ((a*z)_lo * qInv)_hi * q
