@@ -90,6 +90,13 @@
 #define XVPERMIQ(Xd, Xj, imm8) \
 	WORD $((0x1DFB << 18) | ((imm8) << 10) | ((Xj) << 5) | (Xd))
 
+// XVPICKEV_H performs xvpickev.h Xvd, Xvj, Xvk.
+// Picks even-indexed halfwords from Xvk (into result[0..3]) and Xvj (into result[4..7]) per 128-bit lane.
+// opcode: 0111 01010001 11101 .vk. .vj. .vd. → base = 0x751E8000
+// In Go asm, first arg = vk (hardware), second = vj, third = vd.
+#define XVPICKEV_H(Xvd, Xvj, Xvk) \
+	WORD $((0x751E8000) | ((Xvk) << 10) | ((Xvj) << 5) | (Xvd))
+
 // SETUP_CONSTS initializes X15=q and X14=qInv broadcasts.
 #define SETUP_CONSTS \
 	MOVV $0x0D010D010D010D01, R7  \
@@ -774,5 +781,148 @@ intt_l0_loop:
 	ADDV $32, R11
 	ADDV $-1, R6
 	BNE R6, R0, intt_l0_loop
+
+	RET
+
+// ── internalNTTMulAccLASX ─────────────────────────────────────────────────────
+// func internalNTTMulAccLASX(acc, lhs, rhs *nttElement)
+//
+// For each pair (2i, 2i+1):
+//   acc[2i]   += a0*b0 + gamma[i]*a1*b1   (Montgomery domain)
+//   acc[2i+1] += a0*b1 + a1*b0
+//
+// Processes 8 pairs (16 × int16 = 32 bytes) per iteration.
+// gammaMulTableLASX layout: [r=2285, γ[0], r, γ[1], ...] for 128 pairs.
+//
+// Register allocation:
+//   R4=acc, R5=lhs, R6=rhs, R7=gammaMulTableLASX ptr, R8=loop counter(=16)
+//   X14=broadcast(qInv=62209), X15=broadcast(q=3329)
+//   X0=lhs chunk, X1=rhs chunk, X2=acc chunk, X3=gamma table chunk
+//   X4=rhs_swapped, X5=t_ab, X6=t_cross, X7=t_scaled
+//   X8,X9=temporaries for MONT_MUL, X10,X11=pairwise sums
+//
+// Algorithm:
+//   X4 = swap adjacent int16 within 32-bit groups of X1
+//   X5 = MontMul(X0, X1)        // [a0b0, a1b1, ...]
+//   X6 = MontMul(X0, X4)        // [a0b1, a1b0, ...]
+//   X7 = MontMul(X5, X3)        // [r*a0b0=a0b0, γ*a1b1, ...]
+//   even_dup = pairwise_add(X7) // [a0b0+γa1b1 x2, ...]
+//   odd_dup  = pairwise_add(X6) // [a0b1+a1b0 x2, ...]
+//   Reduce even_dup, odd_dup
+//   XVPICKEV_H to dedup, XVILVLH to interleave → delta
+//   acc += delta; reduce acc
+TEXT ·internalNTTMulAccLASX(SB), NOSPLIT, $0-24
+	MOVV acc+0(FP), R4
+	MOVV lhs+8(FP), R5
+	MOVV rhs+16(FP), R6
+
+	SETUP_CONSTS
+
+	MOVV $·gammaMulTableLASX(SB), R7
+	MOVV $16, R8    // 16 iterations × 32 bytes = 512 bytes
+
+nttmlacc_lasx_loop:
+	XVMOVQ (R5), X0         // lhs
+	XVMOVQ (R6), X1         // rhs
+	XVMOVQ (R4), X2         // acc
+	XVMOVQ (R7), X3         // gamma table [r,γ[k], ...]
+
+	// Swap adjacent int16 within each 32-bit group: [b0,b1,b2,b3] → [b1,b0,b3,b2]
+	XVSHUF4IH $0xB1, X1, X4
+
+	// t_ab = MontMul(lhs, rhs)
+	MONT_MUL_LASX(X0, X1, X5, X8, X9)
+
+	// t_cross = MontMul(lhs, rhs_swapped)
+	MONT_MUL_LASX(X0, X4, X6, X8, X9)
+
+	// t_scaled = MontMul(t_ab, gamma): even pos: MontMul(a0b0, r)=a0b0; odd: γ*a1b1
+	MONT_MUL_LASX(X5, X3, X7, X8, X9)
+
+	// Pairwise horizontal add via swap-and-add (within each 32-bit group):
+	// X7 = [a0b0, γa1b1, a2b2, γa3b3, ...] → after swap+add:
+	// X7 = [(a0b0+γa1b1)×2, (a2b2+γa3b3)×2, ...] (duplicated even sums)
+	XVSHUF4IH $0xB1, X7, X8
+	XVADDH X7, X8, X7
+
+	// X6 = [a0b1, a1b0, ...] → after swap+add:
+	// X6 = [(a0b1+a1b0)×2, ...] (duplicated odd sums)
+	XVSHUF4IH $0xB1, X6, X8
+	XVADDH X6, X8, X6
+
+	// Field reduce once (values in [0, 2q))
+	FIELD_REDUCE_ONCE(X7, X15, X8, X9)
+	FIELD_REDUCE_ONCE(X6, X15, X8, X9)
+
+	// De-duplicate: pick even halfwords → [e0,e1,e2,e3, e0,e1,e2,e3 | e4,...]
+	XVPICKEV_H(10, 7, 7)    // xvpickev.h X10, X7, X7 → X10 = deduped even sums
+	XVPICKEV_H(11, 6, 6)    // xvpickev.h X11, X6, X6 → X11 = deduped odd sums
+
+	// Interleave: XVILVLH(vk=X10_even, vj=X11_odd, vd=X5)
+	// Hardware xvilvl.h vd=X5, vj=X11, vk=X10 → [X10[0],X11[0],X10[1],X11[1],...]
+	// = [e0, o0, e1, o1, e2, o2, e3, o3 | e4, o4, ...] = delta
+	XVILVLH X10, X11, X5
+
+	// acc += delta; field reduce once
+	XVADDH X5, X2, X2
+	FIELD_REDUCE_ONCE(X2, X15, X8, X9)
+	XVMOVQ X2, (R4)
+
+	ADDV $32, R4
+	ADDV $32, R5
+	ADDV $32, R6
+	ADDV $32, R7
+	ADDV $-1, R8
+	BNE R8, R0, nttmlacc_lasx_loop
+
+	RET
+
+// ── internalNTTMulLASX ────────────────────────────────────────────────────────
+// func internalNTTMulLASX(out, lhs, rhs *nttElement)
+//
+// Same as internalNTTMulAccLASX but writes delta directly to out (no accumulate).
+TEXT ·internalNTTMulLASX(SB), NOSPLIT, $0-24
+	MOVV out+0(FP), R4
+	MOVV lhs+8(FP), R5
+	MOVV rhs+16(FP), R6
+
+	SETUP_CONSTS
+
+	MOVV $·gammaMulTableLASX(SB), R7
+	MOVV $16, R8
+
+nttmlasx_loop:
+	XVMOVQ (R5), X0
+	XVMOVQ (R6), X1
+	XVMOVQ (R7), X3
+
+	XVSHUF4IH $0xB1, X1, X4
+
+	MONT_MUL_LASX(X0, X1, X5, X8, X9)
+	MONT_MUL_LASX(X0, X4, X6, X8, X9)
+	MONT_MUL_LASX(X5, X3, X7, X8, X9)
+
+	XVSHUF4IH $0xB1, X7, X8
+	XVADDH X7, X8, X7
+
+	XVSHUF4IH $0xB1, X6, X8
+	XVADDH X6, X8, X6
+
+	FIELD_REDUCE_ONCE(X7, X15, X8, X9)
+	FIELD_REDUCE_ONCE(X6, X15, X8, X9)
+
+	XVPICKEV_H(10, 7, 7)
+	XVPICKEV_H(11, 6, 6)
+
+	XVILVLH X10, X11, X5
+
+	XVMOVQ X5, (R4)
+
+	ADDV $32, R4
+	ADDV $32, R5
+	ADDV $32, R6
+	ADDV $32, R7
+	ADDV $-1, R8
+	BNE R8, R0, nttmlasx_loop
 
 	RET

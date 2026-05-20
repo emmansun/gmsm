@@ -175,11 +175,25 @@ func internalNTTLASX(f *ringElement)
 //go:noescape
 func internalInverseNTTLASX(f *nttElement)
 
+//go:noescape
+func internalNTTMulLASX(out, lhs, rhs *nttElement)
+
+//go:noescape
+func internalNTTMulAccLASX(acc, lhs, rhs *nttElement)
+
 func nttMul(acc, lhs, rhs *nttElement) {
+	if useLASX {
+		internalNTTMulLASX(acc, lhs, rhs)
+		return
+	}
 	nttMontMul(acc, lhs, rhs)
 }
 
 func nttMulAcc(acc, lhs, rhs *nttElement) {
+	if useLASX {
+		internalNTTMulAccLASX(acc, lhs, rhs)
+		return
+	}
 	nttMontMulAcc(acc, lhs, rhs)
 }
 

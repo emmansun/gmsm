@@ -172,6 +172,50 @@ func TestLASXNTTThenScalarINTT(t *testing.T) {
 	}
 }
 
+func randomNTTElement() nttElement {
+	return nttElement(randomRingElement())
+}
+
+func TestLASXNTTMulMatchesMontgomery(t *testing.T) {
+	requireLASX(t)
+
+	for i := 0; i < 200; i++ {
+		lhs := randomNTTElement()
+		rhs := randomNTTElement()
+
+		var got, want nttElement
+		internalNTTMulLASX(&got, &lhs, &rhs)
+		nttMontMul(&want, &lhs, &rhs)
+
+		for j := range got {
+			if got[j] != want[j] {
+				t.Fatalf("iter=%d idx=%d: nttMul mismatch: got=%d want=%d", i, j, got[j], want[j])
+			}
+		}
+	}
+}
+
+func TestLASXNTTMulAccMatchesMontgomery(t *testing.T) {
+	requireLASX(t)
+
+	for i := 0; i < 200; i++ {
+		lhs := randomNTTElement()
+		rhs := randomNTTElement()
+		acc0 := randomNTTElement()
+
+		got := acc0
+		want := acc0
+		internalNTTMulAccLASX(&got, &lhs, &rhs)
+		nttMontMulAcc(&want, &lhs, &rhs)
+
+		for j := range got {
+			if got[j] != want[j] {
+				t.Fatalf("iter=%d idx=%d: nttMulAcc mismatch: got=%d want=%d", i, j, got[j], want[j])
+			}
+		}
+	}
+}
+
 func TestLASXDispatchNTTRoundTripMatchesMontgomery(t *testing.T) {
 	requireLASX(t)
 
