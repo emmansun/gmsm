@@ -66,11 +66,13 @@ func init() {
 
 		base4 := block * 16
 		z4 := 32 + block*4
+		// LASX layout: after XVILVLV/XVILVHV split, lane0=[g0_a,g2_a], lane1=[g1_a,g3_a]
+		// So twiddle must be [z0×4, z2×4 | z1×4, z3×4] (even groups in lane0, odd in lane1)
 		for i := 0; i < 4; i++ {
-			nttTwiddleL4PrecompLASX[base4+i] = zetasMontgomery[z4]
-			nttTwiddleL4PrecompLASX[base4+4+i] = zetasMontgomery[z4+1]
-			nttTwiddleL4PrecompLASX[base4+8+i] = zetasMontgomery[z4+2]
-			nttTwiddleL4PrecompLASX[base4+12+i] = zetasMontgomery[z4+3]
+			nttTwiddleL4PrecompLASX[base4+i] = zetasMontgomery[z4]      // z0 (g0), lane0 lo
+			nttTwiddleL4PrecompLASX[base4+4+i] = zetasMontgomery[z4+2]  // z2 (g2), lane0 hi
+			nttTwiddleL4PrecompLASX[base4+8+i] = zetasMontgomery[z4+1]  // z1 (g1), lane1 lo
+			nttTwiddleL4PrecompLASX[base4+12+i] = zetasMontgomery[z4+3] // z3 (g3), lane1 hi
 		}
 
 		base2 := block * 16
@@ -107,11 +109,12 @@ func init() {
 		}
 
 		iz4 := 63 - block*4
+		// LASX layout: same split as forward NTT, even groups in lane0, odd in lane1
 		for i := 0; i < 4; i++ {
-			inttTwiddleL4PrecompLASX[base4+i] = zetasMontgomery[iz4]
-			inttTwiddleL4PrecompLASX[base4+4+i] = zetasMontgomery[iz4-1]
-			inttTwiddleL4PrecompLASX[base4+8+i] = zetasMontgomery[iz4-2]
-			inttTwiddleL4PrecompLASX[base4+12+i] = zetasMontgomery[iz4-3]
+			inttTwiddleL4PrecompLASX[base4+i] = zetasMontgomery[iz4]      // z0, lane0 lo
+			inttTwiddleL4PrecompLASX[base4+4+i] = zetasMontgomery[iz4-2]  // z2, lane0 hi
+			inttTwiddleL4PrecompLASX[base4+8+i] = zetasMontgomery[iz4-1]  // z1, lane1 lo
+			inttTwiddleL4PrecompLASX[base4+12+i] = zetasMontgomery[iz4-3] // z3, lane1 hi
 		}
 
 		iz2 := 127 - block*8
@@ -148,25 +151,23 @@ func polyAddAssignLASX(dst, src *ringElement)
 //go:noescape
 func polySubAssignLASX(dst, src *ringElement)
 
+//go:noescape
+func internalNTTLASX(f *ringElement)
+
+//go:noescape
+func internalInverseNTTLASX(f *nttElement)
+
 func nttMul(acc, lhs, rhs *nttElement) {
-	if useLASX {
-		nttMulGeneric(acc, lhs, rhs)
-		return
-	}
 	nttMulGeneric(acc, lhs, rhs)
 }
 
 func nttMulAcc(acc, lhs, rhs *nttElement) {
-	if useLASX {
-		nttMulAccGeneric(acc, lhs, rhs)
-		return
-	}
 	nttMulAccGeneric(acc, lhs, rhs)
 }
 
 func internalNTT(f *ringElement) {
 	if useLASX {
-		internalNTTGeneric(f)
+		internalNTTLASX(f)
 		return
 	}
 	internalNTTGeneric(f)
@@ -174,17 +175,13 @@ func internalNTT(f *ringElement) {
 
 func internalInverseNTT(f *nttElement) {
 	if useLASX {
-		internalInverseNTTGeneric(f)
+		internalInverseNTTLASX(f)
 		return
 	}
 	internalInverseNTTGeneric(f)
 }
 
 func nttMulAccKeyGen(acc, lhs, rhs *nttElement) {
-	if useLASX {
-		nttMulAccGeneric(acc, lhs, rhs)
-		return
-	}
 	nttMulAccGeneric(acc, lhs, rhs)
 }
 

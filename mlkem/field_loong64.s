@@ -6,6 +6,99 @@
 
 #include "textflag.h"
 
+// ---- Constants ----
+// q = 3329 = 0x0D01
+// qInv = 62209 (q^{-1} mod 2^16, bit pattern as int16 = -3327)
+// As 64-bit with 16-bit lanes: 0x0D010D010D010D01
+// qInv as 64-bit: 62209 = 0xF301, so 0xF301F301F301F301
+
+// ---- Register conventions ----
+// X15 = broadcast(q=3329)
+// X14 = broadcast(qInv=62209)
+// R4  = primary data pointer
+// R5  = secondary pointer (src or zetas)
+// R6  = loop counter or offset
+// R7, R8, R9 = temporaries for zeta broadcast
+
+// ---- Macros ----
+
+// BROADCAST_ZETA loads a 16-bit value from offset(Rbase) and broadcasts to all 16 lanes of Xdst.
+// Clobbers: R8, R9.
+#define BROADCAST_ZETA(offset, Rbase, Xdst) \
+	MOVHU offset(Rbase), R8     \
+	SLLV $16, R8, R9            \
+	OR R9, R8, R8               \
+	SLLV $32, R8, R9            \
+	OR R9, R8, R8               \
+	XVMOVQ R8, Xdst.V4
+
+// MONT_MUL_LASX computes Montgomery multiplication: XOUT = MontMul(XA, XZ).
+// Uses signed approach: result = (a*z)_hi - ((a*z)_lo * qInv)_hi * q
+// Result in (-q, q).
+// Constants: X14=qInv, X15=q.
+// Clobbers: XT1, XT2.
+#define MONT_MUL_LASX(XA, XZ, XOUT, XT1, XT2) \
+	XVMULH  XA, XZ, XT1        \ // XT1 = (a * z) low 16 bits
+	XVMUHH  XA, XZ, XOUT       \ // XOUT = (a * z) high 16 bits (signed)
+	XVMULH  X14, XT1, XT2      \ // XT2 = prod_lo * qInv (low 16 bits)
+	XVMUHH  X15, XT2, XT2      \ // XT2 = (prod_lo * qInv) * q (high 16 bits, signed)
+	XVSUBH  XT2, XOUT, XOUT      // XOUT = prod_hi - tq_hi
+
+// REDUCE_MONT reduces value from (-q, q) to [0, q).
+// If val < 0: add q.
+// Clobbers: Xtmp.
+#define REDUCE_MONT(Xval, Xq, Xtmp) \
+	XVSRAH $15, Xval, Xtmp     \ // mask = all-ones if negative
+	XVANDV Xtmp, Xq, Xtmp      \ // fix = q if negative
+	XVADDH Xtmp, Xval, Xval      // val += q if negative
+
+// FIELD_REDUCE_ONCE reduces value from [0, 2q) to [0, q).
+// tmp = val - q; if tmp < 0 then val else tmp.
+// Clobbers: Xtmp, Xmask.
+#define FIELD_REDUCE_ONCE(Xval, Xq, Xtmp, Xmask) \
+	XVSUBH Xq, Xval, Xtmp      \ // tmp = val - q
+	XVSRAH $15, Xtmp, Xmask    \ // mask = all-ones if tmp < 0
+	XVANDV Xmask, Xq, Xmask    \ // fix = q if tmp < 0
+	XVADDH Xmask, Xtmp, Xval     // val = tmp + fix
+
+// BUTTERFLY_LASX performs a Cooley-Tukey butterfly.
+// VA' = fieldReduceOnce(VA + t), VB' = fieldSub(VA_old, t), where t = MontMul(VB, VZ).
+// Inputs: XA, XB, XZ (zeta). Constants: X14=qInv, X15=q.
+// XA is overwritten with VA'. XB is overwritten with VB'.
+// Clobbers: X4, X5, X6, X7, X8.
+#define BUTTERFLY_LASX(XA, XB, XZ) \
+	MONT_MUL_LASX(XB, XZ, X4, X5, X6)  \ // X4 = t = MontMul(VB, VZ) in (-q,q)
+	REDUCE_MONT(X4, X15, X5)            \ // X4 = t in [0, q)
+	XVORV XA, XA, X7                    \ // X7 = save VA_old
+	XVADDH X4, XA, XA                   \ // XA = VA + t, in [0, 2q)
+	FIELD_REDUCE_ONCE(XA, X15, X5, X6)  \ // XA = VA' in [0, q)
+	XVSUBH X4, X7, XB                   \ // XB = VA_old - t, in [-(q-1), q-1]
+	REDUCE_MONT(XB, X15, X8)              // XB = VB' in [0, q)
+
+// INTT_BUTTERFLY_LASX performs a Gentleman-Sande butterfly.
+// VA' = fieldReduceOnce(VA + VB), VB' = MontMul(VZ, fieldSub(VB, VA_old)).
+// Clobbers: X4, X5, X6, X7, X8.
+#define INTT_BUTTERFLY_LASX(XA, XB, XZ) \
+	XVSUBH XA, XB, X4                   \ // X4 = VB - VA (diff), in [-(q-1), q-1]
+	XVADDH XA, XB, XA                   \ // XA = VA + VB, in [0, 2q)
+	FIELD_REDUCE_ONCE(XA, X15, X5, X6)  \ // XA = VA' in [0, q)
+	REDUCE_MONT(X4, X15, X5)            \ // X4 = diff in [0, q)
+	MONT_MUL_LASX(X4, XZ, XB, X5, X6)  \ // XB = MontMul(diff, zeta) in (-q, q)
+	REDUCE_MONT(XB, X15, X7)              // XB = VB' in [0, q)
+
+// XVPERMIQ performs xvpermi.q Xd, Xj, imm8.
+// Permutes 128-bit quarters: Xd.q[0] = {Xd,Xj}.q[imm[1:0]], Xd.q[1] = {Xd,Xj}.q[imm[3:2]]
+// Pool: 0=Xd.lo_orig, 1=Xd.hi_orig, 2=Xj.lo, 3=Xj.hi
+#define XVPERMIQ(Xd, Xj, imm8) \
+	WORD $((0x1DFE << 18) | ((imm8) << 10) | ((Xj) << 5) | (Xd))
+
+// SETUP_CONSTS initializes X15=q and X14=qInv broadcasts.
+#define SETUP_CONSTS \
+	MOVV $0x0D010D010D010D01, R7  \
+	XVMOVQ R7, X15.V4            \
+	MOVV $0xF301F301F301F301, R7  \
+	XVMOVQ R7, X14.V4
+
 // polyAddAssignLASX computes dst[i] = fieldAdd(dst[i], src[i]) for all i in [0, 256).
 // Uses LASX to process 16 int16 values (32 bytes) per vector, 2 vectors per iteration.
 // func polyAddAssignLASX(dst, src *ringElement)
@@ -111,5 +204,603 @@ poly_sub_loop:
 	ADDV $64, R5
 	ADDV $-1, R6
 	BNE R6, R0, poly_sub_loop
+
+	RET
+
+// internalNTTLASX computes the full forward NTT (layers len=128..2).
+// Uses signed Montgomery multiplication (5 instructions per MontMul).
+// func internalNTTLASX(f *ringElement)
+TEXT ·internalNTTLASX(SB), NOSPLIT, $0-8
+	MOVV f+0(FP), R4
+	MOVV $·zetasMontgomery(SB), R5
+
+	SETUP_CONSTS
+
+	// ---- Layer 0: len=128, 1 zeta (zetasMontgomery[1]) ----
+	// Butterfly between f[i] and f[i+128] for i in [0, 128)
+	// 128 coefficients = 8 vectors, stride = 256 bytes
+	BROADCAST_ZETA(2, R5, X3)
+	MOVV R4, R10                // R10 = even ptr (f[0..127])
+	ADDV $256, R4, R11          // R11 = odd ptr (f[128..255])
+	MOVV $8, R6
+
+ntt_l0_loop:
+	XVMOVQ (R10), X0
+	XVMOVQ (R11), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R10)
+	XVMOVQ X1, (R11)
+	ADDV $32, R10
+	ADDV $32, R11
+	ADDV $-1, R6
+	BNE R6, R0, ntt_l0_loop
+
+	// ---- Layer 1: len=64, 2 groups ----
+	// Group 0: zeta=zetasMontgomery[2], pairs f[i] and f[i+64], i in [0,64)
+	// Group 1: zeta=zetasMontgomery[3], pairs f[128+i] and f[128+i+64], i in [0,64)
+	BROADCAST_ZETA(4, R5, X3)
+	MOVV R4, R10
+	ADDV $128, R4, R11
+	MOVV $4, R6
+
+ntt_l1_g0_loop:
+	XVMOVQ (R10), X0
+	XVMOVQ (R11), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R10)
+	XVMOVQ X1, (R11)
+	ADDV $32, R10
+	ADDV $32, R11
+	ADDV $-1, R6
+	BNE R6, R0, ntt_l1_g0_loop
+
+	BROADCAST_ZETA(6, R5, X3)
+	ADDV $256, R4, R10
+	ADDV $384, R4, R11
+	MOVV $4, R6
+
+ntt_l1_g1_loop:
+	XVMOVQ (R10), X0
+	XVMOVQ (R11), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R10)
+	XVMOVQ X1, (R11)
+	ADDV $32, R10
+	ADDV $32, R11
+	ADDV $-1, R6
+	BNE R6, R0, ntt_l1_g1_loop
+
+	// ---- Layer 2: len=32, 4 groups ----
+	// Group g: zeta=zetasMontgomery[4+g], stride=64 bytes within 128-byte block
+	BROADCAST_ZETA(8, R5, X3)
+	MOVV R4, R10
+	ADDV $64, R4, R11
+	MOVV $2, R6
+
+ntt_l2_g0_loop:
+	XVMOVQ (R10), X0
+	XVMOVQ (R11), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R10)
+	XVMOVQ X1, (R11)
+	ADDV $32, R10
+	ADDV $32, R11
+	ADDV $-1, R6
+	BNE R6, R0, ntt_l2_g0_loop
+
+	BROADCAST_ZETA(10, R5, X3)
+	ADDV $128, R4, R10
+	ADDV $192, R4, R11
+	MOVV $2, R6
+
+ntt_l2_g1_loop:
+	XVMOVQ (R10), X0
+	XVMOVQ (R11), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R10)
+	XVMOVQ X1, (R11)
+	ADDV $32, R10
+	ADDV $32, R11
+	ADDV $-1, R6
+	BNE R6, R0, ntt_l2_g1_loop
+
+	BROADCAST_ZETA(12, R5, X3)
+	ADDV $256, R4, R10
+	ADDV $320, R4, R11
+	MOVV $2, R6
+
+ntt_l2_g2_loop:
+	XVMOVQ (R10), X0
+	XVMOVQ (R11), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R10)
+	XVMOVQ X1, (R11)
+	ADDV $32, R10
+	ADDV $32, R11
+	ADDV $-1, R6
+	BNE R6, R0, ntt_l2_g2_loop
+
+	BROADCAST_ZETA(14, R5, X3)
+	ADDV $384, R4, R10
+	ADDV $448, R4, R11
+	MOVV $2, R6
+
+ntt_l2_g3_loop:
+	XVMOVQ (R10), X0
+	XVMOVQ (R11), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R10)
+	XVMOVQ X1, (R11)
+	ADDV $32, R10
+	ADDV $32, R11
+	ADDV $-1, R6
+	BNE R6, R0, ntt_l2_g3_loop
+
+	// ---- Layer 3: len=16, 8 groups ----
+	// Group g: zeta=zetasMontgomery[8+g], stride=32 bytes, 1 vector pair each
+	BROADCAST_ZETA(16, R5, X3)
+	XVMOVQ (R4), X0
+	XVMOVQ 32(R4), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R4)
+	XVMOVQ X1, 32(R4)
+
+	BROADCAST_ZETA(18, R5, X3)
+	XVMOVQ 64(R4), X0
+	XVMOVQ 96(R4), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 64(R4)
+	XVMOVQ X1, 96(R4)
+
+	BROADCAST_ZETA(20, R5, X3)
+	XVMOVQ 128(R4), X0
+	XVMOVQ 160(R4), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 128(R4)
+	XVMOVQ X1, 160(R4)
+
+	BROADCAST_ZETA(22, R5, X3)
+	XVMOVQ 192(R4), X0
+	XVMOVQ 224(R4), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 192(R4)
+	XVMOVQ X1, 224(R4)
+
+	BROADCAST_ZETA(24, R5, X3)
+	XVMOVQ 256(R4), X0
+	XVMOVQ 288(R4), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 256(R4)
+	XVMOVQ X1, 288(R4)
+
+	BROADCAST_ZETA(26, R5, X3)
+	XVMOVQ 320(R4), X0
+	XVMOVQ 352(R4), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 320(R4)
+	XVMOVQ X1, 352(R4)
+
+	BROADCAST_ZETA(28, R5, X3)
+	XVMOVQ 384(R4), X0
+	XVMOVQ 416(R4), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 384(R4)
+	XVMOVQ X1, 416(R4)
+
+	BROADCAST_ZETA(30, R5, X3)
+	XVMOVQ 448(R4), X0
+	XVMOVQ 480(R4), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 448(R4)
+	XVMOVQ X1, 480(R4)
+
+	// ---- Layer 4: len=8, 16 groups ----
+	// Each 256-bit vector = 16 coefficients = one group of 16.
+	// Butterfly between low 8 (lane 0) and high 8 (lane 1).
+	// Use xvpermi.q to separate/recombine 128-bit lanes.
+	MOVV $·nttTwiddleL8PrecompLASX(SB), R10
+	MOVV R4, R11
+	MOVV $8, R6
+
+ntt_l4_loop:
+	// Load precomputed twiddle (low half has one zeta, high half has another)
+	XVMOVQ (R10), X3
+
+	// Load 2 vectors = 2 groups of 16 coefficients
+	XVMOVQ (R11), X9
+	XVMOVQ 32(R11), X10
+
+	// Pack lows: X0 = [X9.lo | X10.lo]
+	XVORV X9, X9, X0
+	XVPERMIQ(0, 10, 0x08)
+
+	// Pack highs: X1 = [X9.hi | X10.hi]
+	XVORV X9, X9, X1
+	XVPERMIQ(1, 10, 0x0D)
+
+	// Butterfly on the packed halves
+	BUTTERFLY_LASX(X0, X1, X3)
+
+	// Repack: X9 = [X0.lo | X1.lo], X10 = [X0.hi | X1.hi]
+	XVORV X0, X0, X9
+	XVPERMIQ(9, 1, 0x08)
+	XVORV X0, X0, X10
+	XVPERMIQ(10, 1, 0x0D)
+
+	// Store
+	XVMOVQ X9, (R11)
+	XVMOVQ X10, 32(R11)
+
+	ADDV $32, R10
+	ADDV $64, R11
+	ADDV $-1, R6
+	BNE R6, R0, ntt_l4_loop
+
+	// ---- Layer 5: len=4, 32 groups ----
+	// Within each 128-bit lane, butterfly between elements [0..3] and [4..7].
+	// Use XVILVLV/XVILVHV to separate/recombine 64-bit halves within lanes.
+	MOVV $·nttTwiddleL4PrecompLASX(SB), R10
+	MOVV R4, R11
+	MOVV $8, R6
+
+ntt_l5_loop:
+	XVMOVQ (R10), X3
+
+	XVMOVQ (R11), X9
+	XVMOVQ 32(R11), X10
+
+	// Separate: pack low 64-bit of each lane, pack high 64-bit of each lane.
+	// XVILVLV packs the low 64 bits of corresponding lanes.
+	// XVILVHV packs the high 64 bits of corresponding lanes.
+	XVILVLV X10, X9, X0     // X0 = [X9.lane0_lo64, X10.lane0_lo64 | X9.lane1_lo64, X10.lane1_lo64]
+	XVILVHV X10, X9, X1     // X1 = [X9.lane0_hi64, X10.lane0_hi64 | X9.lane1_hi64, X10.lane1_hi64]
+
+	BUTTERFLY_LASX(X0, X1, X3)
+
+	// Repack back
+	XVILVLV X1, X0, X9      // deinterleave
+	XVILVHV X1, X0, X10
+
+	XVMOVQ X9, (R11)
+	XVMOVQ X10, 32(R11)
+
+	ADDV $32, R10
+	ADDV $64, R11
+	ADDV $-1, R6
+	BNE R6, R0, ntt_l5_loop
+
+	// ---- Layer 6: len=2, 64 groups ----
+	// Each group has 4 int16: a=[0..1], b=[2..3] (32-bit each).
+	// Data layout: [g0_a,g0_b, g1_a,g1_b, ...] interleaved at 32-bit.
+	// Use XVSHUF4IW $0xD8 to reorder: [g0_a,g1_a, g0_b,g1_b] per lane,
+	// then XVILVLV/XVILVHV to split a and b across two vectors.
+	MOVV $·nttTwiddleL2PrecompLASX(SB), R10
+	MOVV R4, R11
+	MOVV $8, R6
+
+ntt_l6_loop:
+	XVMOVQ (R10), X3
+
+	XVMOVQ (R11), X9
+	XVMOVQ 32(R11), X10
+
+	// Shuffle within each 128-bit lane: [g0_a,g0_b,g1_a,g1_b] -> [g0_a,g1_a, g0_b,g1_b]
+	// After: lo64 = all a's, hi64 = all b's in each lane.
+	XVSHUF4IW $0xD8, X9, X11
+	XVSHUF4IW $0xD8, X10, X12
+
+	XVILVLV X12, X11, X0    // X0 = pure a's
+	XVILVHV X12, X11, X1    // X1 = pure b's
+
+	BUTTERFLY_LASX(X0, X1, X3)
+
+	// Repack: reverse the split -> restore interleaved layout
+	XVILVLV X1, X0, X11     // [g0_a',g1_a', g4_a',g5_a' | g2_a',g3_a', g6_a',g7_a']
+	XVILVHV X1, X0, X12     // [g0_b',g1_b', g4_b',g5_b' | ...]
+
+	// Reverse XVSHUF4IW $0xD8: apply $0xD8 again to restore [g_a,g_b,g+1_a,g+1_b]
+	XVSHUF4IW $0xD8, X11, X9
+	XVSHUF4IW $0xD8, X12, X10
+
+	XVMOVQ X9, (R11)
+	XVMOVQ X10, 32(R11)
+
+	ADDV $32, R10
+	ADDV $64, R11
+	ADDV $-1, R6
+	BNE R6, R0, ntt_l6_loop
+
+	RET
+
+// internalInverseNTTLASX computes the full inverse NTT (layers len=2..128)
+// in Gentleman-Sande order, then applies final scale.
+// func internalInverseNTTLASX(f *nttElement)
+TEXT ·internalInverseNTTLASX(SB), NOSPLIT, $0-8
+	MOVV f+0(FP), R4
+	MOVV $·zetasMontgomery(SB), R5
+
+	SETUP_CONSTS
+
+	// ---- Layer 6 (inverse): len=2, 64 groups ----
+	MOVV $·inttTwiddleL2PrecompLASX(SB), R10
+	MOVV R4, R11
+	MOVV $8, R6
+
+intt_l6_loop:
+	XVMOVQ (R10), X3
+
+	XVMOVQ (R11), X9
+	XVMOVQ 32(R11), X10
+
+	// Same split as forward NTT layer 6
+	XVSHUF4IW $0xD8, X9, X11
+	XVSHUF4IW $0xD8, X10, X12
+
+	XVILVLV X12, X11, X0    // X0 = pure a's
+	XVILVHV X12, X11, X1    // X1 = pure b's
+
+	INTT_BUTTERFLY_LASX(X0, X1, X3)
+
+	// Repack: same as forward NTT
+	XVILVLV X1, X0, X11
+	XVILVHV X1, X0, X12
+
+	XVSHUF4IW $0xD8, X11, X9
+	XVSHUF4IW $0xD8, X12, X10
+
+	XVMOVQ X9, (R11)
+	XVMOVQ X10, 32(R11)
+
+	ADDV $32, R10
+	ADDV $64, R11
+	ADDV $-1, R6
+	BNE R6, R0, intt_l6_loop
+
+	// ---- Layer 5 (inverse): len=4, 32 groups ----
+	MOVV $·inttTwiddleL4PrecompLASX(SB), R10
+	MOVV R4, R11
+	MOVV $8, R6
+
+intt_l5_loop:
+	XVMOVQ (R10), X3
+
+	XVMOVQ (R11), X9
+	XVMOVQ 32(R11), X10
+
+	XVILVLV X10, X9, X0
+	XVILVHV X10, X9, X1
+
+	INTT_BUTTERFLY_LASX(X0, X1, X3)
+
+	XVILVLV X1, X0, X9
+	XVILVHV X1, X0, X10
+
+	XVMOVQ X9, (R11)
+	XVMOVQ X10, 32(R11)
+
+	ADDV $32, R10
+	ADDV $64, R11
+	ADDV $-1, R6
+	BNE R6, R0, intt_l5_loop
+
+	// ---- Layer 4 (inverse): len=8, 16 groups ----
+	MOVV $·inttTwiddleL8PrecompLASX(SB), R10
+	MOVV R4, R11
+	MOVV $8, R6
+
+intt_l4_loop:
+	XVMOVQ (R10), X3
+
+	XVMOVQ (R11), X9
+	XVMOVQ 32(R11), X10
+
+	XVORV X9, X9, X0
+	XVPERMIQ(0, 10, 0x08)
+	XVORV X9, X9, X1
+	XVPERMIQ(1, 10, 0x0D)
+
+	INTT_BUTTERFLY_LASX(X0, X1, X3)
+
+	XVORV X0, X0, X9
+	XVPERMIQ(9, 1, 0x08)
+	XVORV X0, X0, X10
+	XVPERMIQ(10, 1, 0x0D)
+
+	XVMOVQ X9, (R11)
+	XVMOVQ X10, 32(R11)
+
+	ADDV $32, R10
+	ADDV $64, R11
+	ADDV $-1, R6
+	BNE R6, R0, intt_l4_loop
+
+	// ---- Layer 3 (inverse): len=16, 8 groups ----
+	// Final layer (len=128) applies scale: 1441 = 128^{-1} * r^2 mod q.
+	// For layers 3-1, use standard INTT butterfly without scale.
+
+	BROADCAST_ZETA(30, R5, X3)
+	XVMOVQ 448(R4), X0
+	XVMOVQ 480(R4), X1
+	INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 448(R4)
+	XVMOVQ X1, 480(R4)
+
+	BROADCAST_ZETA(28, R5, X3)
+	XVMOVQ 384(R4), X0
+	XVMOVQ 416(R4), X1
+	INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 384(R4)
+	XVMOVQ X1, 416(R4)
+
+	BROADCAST_ZETA(26, R5, X3)
+	XVMOVQ 320(R4), X0
+	XVMOVQ 352(R4), X1
+	INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 320(R4)
+	XVMOVQ X1, 352(R4)
+
+	BROADCAST_ZETA(24, R5, X3)
+	XVMOVQ 256(R4), X0
+	XVMOVQ 288(R4), X1
+	INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 256(R4)
+	XVMOVQ X1, 288(R4)
+
+	BROADCAST_ZETA(22, R5, X3)
+	XVMOVQ 192(R4), X0
+	XVMOVQ 224(R4), X1
+	INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 192(R4)
+	XVMOVQ X1, 224(R4)
+
+	BROADCAST_ZETA(20, R5, X3)
+	XVMOVQ 128(R4), X0
+	XVMOVQ 160(R4), X1
+	INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 128(R4)
+	XVMOVQ X1, 160(R4)
+
+	BROADCAST_ZETA(18, R5, X3)
+	XVMOVQ 64(R4), X0
+	XVMOVQ 96(R4), X1
+	INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 64(R4)
+	XVMOVQ X1, 96(R4)
+
+	BROADCAST_ZETA(16, R5, X3)
+	XVMOVQ (R4), X0
+	XVMOVQ 32(R4), X1
+	INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R4)
+	XVMOVQ X1, 32(R4)
+
+	// ---- Layer 2 (inverse): len=32, 4 groups ----
+	BROADCAST_ZETA(14, R5, X3)
+	ADDV $384, R4, R10
+	ADDV $448, R4, R11
+	MOVV $2, R6
+
+intt_l2_g3_loop:
+	XVMOVQ (R10), X0
+	XVMOVQ (R11), X1
+	INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R10)
+	XVMOVQ X1, (R11)
+	ADDV $32, R10
+	ADDV $32, R11
+	ADDV $-1, R6
+	BNE R6, R0, intt_l2_g3_loop
+
+	BROADCAST_ZETA(12, R5, X3)
+	ADDV $256, R4, R10
+	ADDV $320, R4, R11
+	MOVV $2, R6
+
+intt_l2_g2_loop:
+	XVMOVQ (R10), X0
+	XVMOVQ (R11), X1
+	INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R10)
+	XVMOVQ X1, (R11)
+	ADDV $32, R10
+	ADDV $32, R11
+	ADDV $-1, R6
+	BNE R6, R0, intt_l2_g2_loop
+
+	BROADCAST_ZETA(10, R5, X3)
+	ADDV $128, R4, R10
+	ADDV $192, R4, R11
+	MOVV $2, R6
+
+intt_l2_g1_loop:
+	XVMOVQ (R10), X0
+	XVMOVQ (R11), X1
+	INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R10)
+	XVMOVQ X1, (R11)
+	ADDV $32, R10
+	ADDV $32, R11
+	ADDV $-1, R6
+	BNE R6, R0, intt_l2_g1_loop
+
+	BROADCAST_ZETA(8, R5, X3)
+	MOVV R4, R10
+	ADDV $64, R4, R11
+	MOVV $2, R6
+
+intt_l2_g0_loop:
+	XVMOVQ (R10), X0
+	XVMOVQ (R11), X1
+	INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R10)
+	XVMOVQ X1, (R11)
+	ADDV $32, R10
+	ADDV $32, R11
+	ADDV $-1, R6
+	BNE R6, R0, intt_l2_g0_loop
+
+	// ---- Layer 1 (inverse): len=64, 2 groups ----
+	BROADCAST_ZETA(6, R5, X3)
+	ADDV $256, R4, R10
+	ADDV $384, R4, R11
+	MOVV $4, R6
+
+intt_l1_g1_loop:
+	XVMOVQ (R10), X0
+	XVMOVQ (R11), X1
+	INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R10)
+	XVMOVQ X1, (R11)
+	ADDV $32, R10
+	ADDV $32, R11
+	ADDV $-1, R6
+	BNE R6, R0, intt_l1_g1_loop
+
+	BROADCAST_ZETA(4, R5, X3)
+	MOVV R4, R10
+	ADDV $128, R4, R11
+	MOVV $4, R6
+
+intt_l1_g0_loop:
+	XVMOVQ (R10), X0
+	XVMOVQ (R11), X1
+	INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R10)
+	XVMOVQ X1, (R11)
+	ADDV $32, R10
+	ADDV $32, R11
+	ADDV $-1, R6
+	BNE R6, R0, intt_l1_g0_loop
+
+	// ---- Layer 0 (inverse): len=128, with final scale ----
+	// INTT butterfly + scale by 1441 (= 128^{-1} * r^2 mod q).
+	// 1441 = 0x05A1
+	BROADCAST_ZETA(2, R5, X3)
+
+	// Broadcast scale = 1441
+	MOVV $0x05A105A105A105A1, R7
+	XVMOVQ R7, X13.V4
+
+	MOVV R4, R10
+	ADDV $256, R4, R11
+	MOVV $8, R6
+
+intt_l0_loop:
+	XVMOVQ (R10), X0
+	XVMOVQ (R11), X1
+	INTT_BUTTERFLY_LASX(X0, X1, X3)
+
+	// Scale both outputs by 1441 via Montgomery multiply
+	MONT_MUL_LASX(X0, X13, X0, X9, X10)
+	REDUCE_MONT(X0, X15, X9)
+	MONT_MUL_LASX(X1, X13, X1, X9, X10)
+	REDUCE_MONT(X1, X15, X9)
+
+	XVMOVQ X0, (R10)
+	XVMOVQ X1, (R11)
+	ADDV $32, R10
+	ADDV $32, R11
+	ADDV $-1, R6
+	BNE R6, R0, intt_l0_loop
 
 	RET
