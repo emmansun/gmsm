@@ -322,3 +322,36 @@ func BenchmarkInverseNTTLASX(b *testing.B) {
 		internalInverseNTTLASX(&nf)
 	}
 }
+
+func BenchmarkNTTMulLASX(b *testing.B) {
+	requireLASX(&testing.T{})
+	lhs := randomNTTElement()
+	rhs := randomNTTElement()
+	var out nttElement
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		internalNTTMulLASX(&out, &lhs, &rhs)
+	}
+}
+
+func BenchmarkNTTMulAccLASX(b *testing.B) {
+	requireLASX(&testing.T{})
+	lhs := randomNTTElement()
+	rhs := randomNTTElement()
+	acc := randomNTTElement()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		internalNTTMulAccLASX(&acc, &lhs, &rhs)
+	}
+}
+
+func BenchmarkNTTMulAccKeyGenLASX(b *testing.B) {
+	requireLASX(&testing.T{})
+	lhs := randomNTTElement()
+	rhs := randomNTTElement()
+	acc := randomNTTElement()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		internalNTTMulAccKeyGenLASX(&acc, &lhs, &rhs)
+	}
+}
