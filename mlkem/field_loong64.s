@@ -437,6 +437,50 @@ ntt_l4_loop:
 	ADDV $-1, R6
 	BNE R6, R0, ntt_l4_loop
 
+	// ---- Layer 5: len=4, 32 groups ----
+	MOVV $·nttTwiddleL4PrecompLASX(SB), R10
+	MOVV R4, R11
+	MOVV $8, R6
+ntt_l5_main_loop:
+	XVMOVQ (R10), X3
+	XVMOVQ (R11), X9
+	XVMOVQ 32(R11), X10
+	XVILVLV X10, X9, X0
+	XVILVHV X10, X9, X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVILVHV X0, X1, X9
+	XVILVLV X0, X1, X10
+	XVMOVQ X9, (R11)
+	XVMOVQ X10, 32(R11)
+	ADDV $32, R10
+	ADDV $64, R11
+	ADDV $-1, R6
+	BNE R6, R0, ntt_l5_main_loop
+
+	// ---- Layer 6: len=2, 64 groups ----
+	MOVV $·nttTwiddleL2PrecompLASX(SB), R10
+	MOVV R4, R11
+	MOVV $8, R6
+ntt_l6_main_loop:
+	XVMOVQ (R10), X3
+	XVMOVQ (R11), X9
+	XVMOVQ 32(R11), X10
+	XVSHUF4IW $0xD8, X9, X11
+	XVSHUF4IW $0xD8, X10, X12
+	XVILVLV X12, X11, X0
+	XVILVHV X12, X11, X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVILVHV X0, X1, X11
+	XVILVLV X0, X1, X12
+	XVSHUF4IW $0xD8, X11, X9
+	XVSHUF4IW $0xD8, X12, X10
+	XVMOVQ X9, (R11)
+	XVMOVQ X10, 32(R11)
+	ADDV $32, R10
+	ADDV $64, R11
+	ADDV $-1, R6
+	BNE R6, R0, ntt_l6_main_loop
+
 	RET
 
 // internalNTTLASXLayers04 applies only layers 0-4 of the forward NTT.
