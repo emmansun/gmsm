@@ -175,6 +175,12 @@ func internalNTTLASX(f *ringElement)
 //go:noescape
 func internalInverseNTTLASX(f *nttElement)
 
+//go:noescape
+func internalNTTLASXLayers04(f *ringElement)
+
+//go:noescape
+func internalNTTLASXLayers56(f *ringElement)
+
 func nttMul(acc, lhs, rhs *nttElement) {
 	nttMulGeneric(acc, lhs, rhs)
 }

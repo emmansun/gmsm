@@ -117,6 +117,52 @@ func TestLASXNTTRoundTrip(t *testing.T) {
 	}
 }
 
+// TestLASXScalarNTTThenLASXINTT applies scalar NTT then LASX inverse NTT.
+// If this passes, the INTT is correct; if it fails, INTT is the problem.
+func TestLASXScalarNTTThenLASXINTT(t *testing.T) {
+	requireLASX(t)
+
+	for i := 0; i < 200; i++ {
+		in := randomRingElement()
+		got := in
+
+		// Apply scalar forward NTT
+		internalMontNTT(&got)
+		// Apply LASX inverse NTT
+		internalInverseNTTLASX((*nttElement)(&got))
+
+		// Result should equal original
+		for j := range got {
+			if got[j] != in[j] {
+				t.Fatalf("iter=%d idx=%d: scalar-NTT+LASX-INTT mismatch: got=%d want=%d", i, j, got[j], in[j])
+			}
+		}
+	}
+}
+
+// TestLASXNTTThenScalarINTT applies LASX NTT then scalar inverse NTT.
+// If this passes, the forward NTT is correct; if it fails, NTT is the problem.
+func TestLASXNTTThenScalarINTT(t *testing.T) {
+	requireLASX(t)
+
+	for i := 0; i < 200; i++ {
+		in := randomRingElement()
+		got := in
+
+		// Apply LASX forward NTT
+		internalNTTLASX(&got)
+		// Apply scalar inverse NTT
+		internalMontInverseNTT((*nttElement)(&got))
+
+		// Result should equal original
+		for j := range got {
+			if got[j] != in[j] {
+				t.Fatalf("iter=%d idx=%d: LASX-NTT+scalar-INTT mismatch: got=%d want=%d", i, j, got[j], in[j])
+			}
+		}
+	}
+}
+
 func TestLASXDispatchNTTRoundTripMatchesMontgomery(t *testing.T) {
 	requireLASX(t)
 
@@ -198,13 +244,145 @@ func internalMontNTTLayersUpTo(f *ringElement, maxLayers int) {
 	}
 }
 
-// TestLASXNTTLayerIsolation applies LASX NTT and scalar NTT one layer at a time
-// to determine which layer first produces a mismatch.
-// NOTE: We cannot isolate individual LASX layers; instead we check the scalar
-// intermediate result after each Go-layer and compare patterns.
-func TestLASXNTTDiagnosticFixed(t *testing.T) {
+// TestLASXNTTBisectLayers04 tests that layers 0-4 of LASX NTT match scalar.
+// If this passes but TestLASXForwardNTTMatchesMontgomery fails, the bug is in layers 5-6.
+// If this fails, the bug is in layers 0-4.
+func TestLASXNTTBisectLayers04(t *testing.T) {
 	requireLASX(t)
 
+	for i := 0; i < 200; i++ {
+		in := randomRingElement()
+		got := in
+		want := in
+
+		internalNTTLASXLayers04(&got)
+		internalMontNTTLayersUpTo(&want, 5) // layers 0-4
+
+		mismatches := 0
+		for j := range got {
+			if got[j] != want[j] {
+				if mismatches == 0 {
+					t.Errorf("iter=%d layers0-4 first mismatch at j=%d: got=%d want=%d", i, j, got[j], want[j])
+				}
+				mismatches++
+			}
+		}
+		if mismatches > 0 {
+			t.Errorf("iter=%d layers0-4: %d mismatches total", i, mismatches)
+			return
+		}
+	}
+}
+
+// TestLASXNTTBisectLayers56 tests that layers 5-6 of LASX NTT match scalar,
+// starting from scalar-computed layers 0-4 state.
+// If this fails but TestLASXNTTBisectLayers04 passes, the bug is in layers 5-6.
+func TestLASXNTTBisectLayers56(t *testing.T) {
+	requireLASX(t)
+
+	for i := 0; i < 200; i++ {
+		in := randomRingElement()
+
+		// Apply layers 0-4 with scalar
+		got := in
+		internalMontNTTLayersUpTo(&got, 5)
+
+		// Apply layers 5-6 with LASX
+		internalNTTLASXLayers56(&got)
+
+		// Compare with full scalar NTT (all 7 layers)
+		want := in
+		internalMontNTTLayersUpTo(&want, 7)
+
+		mismatches := 0
+		for j := range got {
+			if got[j] != want[j] {
+				if mismatches == 0 {
+					t.Errorf("iter=%d layers5-6 first mismatch at j=%d: got=%d want=%d", i, j, got[j], want[j])
+				}
+				mismatches++
+			}
+		}
+		if mismatches > 0 {
+			t.Errorf("iter=%d layers5-6: %d mismatches total", i, mismatches)
+			return
+		}
+	}
+}
+
+// TestLASXNTTLayerBisect applies LASX full NTT then checks element[0] against
+// the Go layer-by-layer result. Also prints individual layer intermediate values
+// to help identify which layer is first wrong. Requires manual comparison with
+// hardware output since we cannot split LASX NTT into per-layer calls.
+func TestLASXNTTLayerBisect(t *testing.T) {
+	requireLASX(t)
+
+	// Fixed input
+	var in ringElement
+	for i := range in {
+		in[i] = fieldElement(i % q)
+	}
+
+	// Print what the scalar NTT gives after each layer
+	t.Log("Scalar NTT intermediate f[0..3] after each layer:")
+	for maxL := 1; maxL <= 7; maxL++ {
+		f := in
+		internalMontNTTLayersUpTo(&f, maxL)
+		t.Logf("  after layer %d: f[0]=%d f[1]=%d f[2]=%d f[3]=%d f[128]=%d f[129]=%d",
+			maxL, f[0], f[1], f[2], f[3], f[128], f[129])
+	}
+}
+
+// TestLASXNTTSimulateLayer5 simulates the LASX Layer 5 data layout in Go
+// and verifies the result matches scalar layer-by-layer NTT after layer 5.
+// This is architecture-independent and runs on any platform.
+func TestLASXNTTSimulateLayer5(t *testing.T) {
+	var in ringElement
+	for i := range in {
+		in[i] = fieldElement(i % q)
+	}
+
+	// Apply layers 0-4 with scalar (to match state before layer 5)
+	f := in
+	internalMontNTTLayersUpTo(&f, 4)
+
+	// Now simulate LASX Layer 5 by applying it the LASX way (simulate twiddle layout)
+	// For block 0: X9=f[0..15], X10=f[16..31]
+	// XVILVLV X10, X9, X0 → X0 = [f[16..19], f[0..3], f[24..27], f[8..11]]
+	// Twiddle X3 = [z2×4, z0×4 | z3×4, z1×4] where z0=z4, z1=z4+1, z2=z4+2, z3=z4+3
+	// The 4 groups are processed with their respective zetas.
+
+	for block := 0; block < 8; block++ {
+		// Groups g0..g3 for this block
+		g0 := block * 32 // f[g0*4] .. f[g0*4+3] = a, f[g0*4+4] .. f[g0*4+7] = b
+		z4 := 32 + block*4
+
+		// Apply Layer 5 butterfly to each of the 4 groups
+		for g := 0; g < 4; g++ {
+			start := g0 + g*8
+			zeta := zetasMontgomery[z4+g]
+			for j := 0; j < 4; j++ {
+				t_val := fieldMontMul(zeta, f[start+4+j])
+				f[start+4+j] = fieldSub(f[start+j], t_val)
+				f[start+j] = fieldAdd(f[start+j], t_val)
+			}
+		}
+	}
+
+	// Expected: scalar through layer 5
+	want := in
+	internalMontNTTLayersUpTo(&want, 5)
+
+	for j := range f {
+		if f[j] != want[j] {
+			t.Fatalf("SimulateLayer5 mismatch at j=%d: got=%d want=%d", j, f[j], want[j])
+		}
+	}
+	t.Log("SimulateLayer5 passes!")
+}
+
+func TestLASXNTTDiagnosticFixed(t *testing.T) {
+	requireLASX(t)
 	// Fixed input: in[i] = i % q (deterministic).
 	var in ringElement
 	for i := range in {
