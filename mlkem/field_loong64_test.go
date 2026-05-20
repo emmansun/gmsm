@@ -310,6 +310,36 @@ func TestLASXNTTBisectLayers56(t *testing.T) {
 	}
 }
 
+// TestLASXNTTBisectLayers0to3 tests that LASX layers 0-3 (l=128,64,32,16) match scalar.
+// If this passes but TestLASXNTTBisectLayers04 fails, the bug is in layer 4 (XVPERMIQ code).
+// If this fails, the bug is in the simple butterfly loops (layers 0-3).
+func TestLASXNTTBisectLayers0to3(t *testing.T) {
+	requireLASX(t)
+
+	for i := 0; i < 200; i++ {
+		in := randomRingElement()
+		got := in
+		want := in
+
+		internalNTTLASXLayers0to3(&got)
+		internalMontNTTLayersUpTo(&want, 4) // layers 0-3
+
+		mismatches := 0
+		for j := range got {
+			if got[j] != want[j] {
+				if mismatches == 0 {
+					t.Errorf("iter=%d layers0-3 first mismatch at j=%d: got=%d want=%d", i, j, got[j], want[j])
+				}
+				mismatches++
+			}
+		}
+		if mismatches > 0 {
+			t.Errorf("iter=%d layers0-3: %d mismatches total", i, mismatches)
+			return
+		}
+	}
+}
+
 // TestLASXNTTLayerBisect applies LASX full NTT then checks element[0] against
 // the Go layer-by-layer result. Also prints individual layer intermediate values
 // to help identify which layer is first wrong. Requires manual comparison with

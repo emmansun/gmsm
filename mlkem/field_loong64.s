@@ -627,6 +627,182 @@ nttd_l4_loop:
 
 	RET
 
+// internalNTTLASXLayers0to3 applies only layers 0-3 (l=128,64,32,16) of the forward NTT.
+// Used to isolate whether the bug is in layers 0-3 vs layer 4 (XVPERMIQ).
+// func internalNTTLASXLayers0to3(f *ringElement)
+TEXT ·internalNTTLASXLayers0to3(SB), NOSPLIT, $0-8
+	MOVV f+0(FP), R4
+	MOVV $·zetasMontgomery(SB), R5
+
+	SETUP_CONSTS
+
+	// ---- Layer 0: len=128 ----
+	BROADCAST_ZETA(2, R5, X3)
+	MOVV R4, R10
+	ADDV $256, R4, R11
+	MOVV $8, R6
+ntts_l0_loop:
+	XVMOVQ (R10), X0
+	XVMOVQ (R11), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R10)
+	XVMOVQ X1, (R11)
+	ADDV $32, R10
+	ADDV $32, R11
+	ADDV $-1, R6
+	BNE R6, R0, ntts_l0_loop
+
+	// ---- Layer 1: len=64, 2 groups ----
+	BROADCAST_ZETA(4, R5, X3)
+	MOVV R4, R10
+	ADDV $128, R4, R11
+	MOVV $4, R6
+ntts_l1_g0_loop:
+	XVMOVQ (R10), X0
+	XVMOVQ (R11), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R10)
+	XVMOVQ X1, (R11)
+	ADDV $32, R10
+	ADDV $32, R11
+	ADDV $-1, R6
+	BNE R6, R0, ntts_l1_g0_loop
+
+	BROADCAST_ZETA(6, R5, X3)
+	ADDV $256, R4, R10
+	ADDV $384, R4, R11
+	MOVV $4, R6
+ntts_l1_g1_loop:
+	XVMOVQ (R10), X0
+	XVMOVQ (R11), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R10)
+	XVMOVQ X1, (R11)
+	ADDV $32, R10
+	ADDV $32, R11
+	ADDV $-1, R6
+	BNE R6, R0, ntts_l1_g1_loop
+
+	// ---- Layer 2: len=32, 4 groups ----
+	BROADCAST_ZETA(8, R5, X3)
+	MOVV R4, R10
+	ADDV $64, R4, R11
+	MOVV $2, R6
+ntts_l2_g0_loop:
+	XVMOVQ (R10), X0
+	XVMOVQ (R11), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R10)
+	XVMOVQ X1, (R11)
+	ADDV $32, R10
+	ADDV $32, R11
+	ADDV $-1, R6
+	BNE R6, R0, ntts_l2_g0_loop
+
+	BROADCAST_ZETA(10, R5, X3)
+	ADDV $128, R4, R10
+	ADDV $192, R4, R11
+	MOVV $2, R6
+ntts_l2_g1_loop:
+	XVMOVQ (R10), X0
+	XVMOVQ (R11), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R10)
+	XVMOVQ X1, (R11)
+	ADDV $32, R10
+	ADDV $32, R11
+	ADDV $-1, R6
+	BNE R6, R0, ntts_l2_g1_loop
+
+	BROADCAST_ZETA(12, R5, X3)
+	ADDV $256, R4, R10
+	ADDV $320, R4, R11
+	MOVV $2, R6
+ntts_l2_g2_loop:
+	XVMOVQ (R10), X0
+	XVMOVQ (R11), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R10)
+	XVMOVQ X1, (R11)
+	ADDV $32, R10
+	ADDV $32, R11
+	ADDV $-1, R6
+	BNE R6, R0, ntts_l2_g2_loop
+
+	BROADCAST_ZETA(14, R5, X3)
+	ADDV $384, R4, R10
+	ADDV $448, R4, R11
+	MOVV $2, R6
+ntts_l2_g3_loop:
+	XVMOVQ (R10), X0
+	XVMOVQ (R11), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R10)
+	XVMOVQ X1, (R11)
+	ADDV $32, R10
+	ADDV $32, R11
+	ADDV $-1, R6
+	BNE R6, R0, ntts_l2_g3_loop
+
+	// ---- Layer 3: len=16, 8 groups ----
+	BROADCAST_ZETA(16, R5, X3)
+	XVMOVQ (R4), X0
+	XVMOVQ 32(R4), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R4)
+	XVMOVQ X1, 32(R4)
+
+	BROADCAST_ZETA(18, R5, X3)
+	XVMOVQ 64(R4), X0
+	XVMOVQ 96(R4), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 64(R4)
+	XVMOVQ X1, 96(R4)
+
+	BROADCAST_ZETA(20, R5, X3)
+	XVMOVQ 128(R4), X0
+	XVMOVQ 160(R4), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 128(R4)
+	XVMOVQ X1, 160(R4)
+
+	BROADCAST_ZETA(22, R5, X3)
+	XVMOVQ 192(R4), X0
+	XVMOVQ 224(R4), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 192(R4)
+	XVMOVQ X1, 224(R4)
+
+	BROADCAST_ZETA(24, R5, X3)
+	XVMOVQ 256(R4), X0
+	XVMOVQ 288(R4), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 256(R4)
+	XVMOVQ X1, 288(R4)
+
+	BROADCAST_ZETA(26, R5, X3)
+	XVMOVQ 320(R4), X0
+	XVMOVQ 352(R4), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 320(R4)
+	XVMOVQ X1, 352(R4)
+
+	BROADCAST_ZETA(28, R5, X3)
+	XVMOVQ 384(R4), X0
+	XVMOVQ 416(R4), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 384(R4)
+	XVMOVQ X1, 416(R4)
+
+	BROADCAST_ZETA(30, R5, X3)
+	XVMOVQ 448(R4), X0
+	XVMOVQ 480(R4), X1
+	BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 448(R4)
+	XVMOVQ X1, 480(R4)
+
+	RET
+
 // internalNTTLASXLayers56 applies only layers 5-6 of the forward NTT.
 // Used for bisect debugging.
 // func internalNTTLASXLayers56(f *ringElement)
