@@ -839,18 +839,22 @@ nttmlacc_lasx_loop:
 	// t_scaled = MontMul(t_ab, gamma): even pos: MontMul(a0b0, r)=a0b0; odd: γ*a1b1
 	MONT_MUL_LASX(X5, X3, X7, X8, X9)
 
+	// MONT_MUL_LASX outputs (-q, q); reduce to [0, q) before pairwise add.
+	REDUCE_MONT(X7, X15, X8)
+	REDUCE_MONT(X6, X15, X8)
+
 	// Pairwise horizontal add via swap-and-add (within each 32-bit group):
 	// X7 = [a0b0, γa1b1, a2b2, γa3b3, ...] → after swap+add:
-	// X7 = [(a0b0+γa1b1)×2, (a2b2+γa3b3)×2, ...] (duplicated even sums)
+	// X7 = [(a0b0+γa1b1)×2, (a2b2+γa3b3)×2, ...] (duplicated even sums, in [0,2q))
 	XVSHUF4IH $0xB1, X7, X8
 	XVADDH X7, X8, X7
 
 	// X6 = [a0b1, a1b0, ...] → after swap+add:
-	// X6 = [(a0b1+a1b0)×2, ...] (duplicated odd sums)
+	// X6 = [(a0b1+a1b0)×2, ...] (duplicated odd sums, in [0,2q))
 	XVSHUF4IH $0xB1, X6, X8
 	XVADDH X6, X8, X6
 
-	// Field reduce once (values in [0, 2q))
+	// Field reduce once (values in [0, 2q) → [0, q))
 	FIELD_REDUCE_ONCE(X7, X15, X8, X9)
 	FIELD_REDUCE_ONCE(X6, X15, X8, X9)
 
@@ -901,6 +905,9 @@ nttmlasx_loop:
 	MONT_MUL_LASX(X0, X1, X5, X8, X9)
 	MONT_MUL_LASX(X0, X4, X6, X8, X9)
 	MONT_MUL_LASX(X5, X3, X7, X8, X9)
+
+	REDUCE_MONT(X7, X15, X8)
+	REDUCE_MONT(X6, X15, X8)
 
 	XVSHUF4IH $0xB1, X7, X8
 	XVADDH X7, X8, X7
