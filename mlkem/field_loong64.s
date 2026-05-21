@@ -1056,13 +1056,13 @@ TEXT ·ringCompressAndEncode4LASX(SB), NOSPLIT, $64-32
 	MOVV out_base+0(FP), R4
 	MOVV f+24(FP), R5
 
-	// Setup constants
-	MOVV $0x4EFF4EFF4EFF4EFF, R7
-	XVMOVQ R7, X8.V4   // broadcast 20159
-	MOVV $0x0020002000200020, R7
-	XVMOVQ R7, X9.V4   // broadcast 32
-	MOVV $0x000F000F000F000F, R7
-	XVMOVQ R7, X10.V4  // broadcast 0xF
+	// Setup constants (broadcast to all 16 halfwords using .H16)
+	MOVV $20159, R7
+	XVMOVQ R7, X8.H16   // broadcast 20159 to all halfwords
+	MOVV $32, R7
+	XVMOVQ R7, X9.H16   // broadcast 32 to all halfwords
+	MOVV $15, R7
+	XVMOVQ R7, X10.H16  // broadcast 0xF to all halfwords
 
 	MOVV $16, R6   // 16 iterations × 16 coefficients = 256 coefficients
 
@@ -1073,8 +1073,13 @@ compress4_loop:
 	COMPRESS4(X0, X2, X8, X4, X9, X10)
 
 	// Separate even and odd coefficients within X2
-	XVPICKEV_H(4, 2, 2)   // X4 = [c0,c2,c4,c6, dup | c8,c10,c12,c14, dup]
-	XVPICKOD_H(5, 2, 2)   // X5 = [c1,c3,c5,c7, dup | c9,c11,c13,c15, dup]
+	// X4 = even elements: [c0, c2, c4, c6, c0, c2, c4, c6 | c8, c10, c12, c14, ...]
+	XVPICKEV_H(4, 2, 2)
+	// Get odd elements via swap trick: XVSHUF4IH swaps adjacent H pairs within each W
+	// X5 = [c1, c0, c3, c2, c5, c4, c7, c6 | ...] (each 32-bit group has its two H swapped)
+	XVSHUF4IH $0xB1, X2, X5
+	// X5 = odd elements (originally at odd positions, now at even): [c1, c3, c5, c7, ...]
+	XVPICKEV_H(5, 5, 5)
 
 	// Pack: packed[k] = even[k] | (odd[k] << 4)
 	XVSLLH $4, X5, X5
