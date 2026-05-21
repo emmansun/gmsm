@@ -712,6 +712,61 @@ func TestLASXDecodeAndDecompressU11DispatchMatchesGeneric(t *testing.T) {
 	}
 }
 
+
+// ---------------------------------------------------------------------------
+// samplePolyCBD2LASX correctness tests
+// ---------------------------------------------------------------------------
+
+func TestLASXSamplePolyCBD2MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for iter := 0; iter < 100; iter++ {
+		var B [128]byte
+		for i := range B {
+			B[i] = byte((iter*256 + i) ^ 0xAA)
+		}
+
+		var gotLASX ringElement
+		samplePolyCBD2LASX(&gotLASX, &B)
+
+		wantGeneric := samplePolyCBDGeneric(B[:], 2)
+
+		for i := range gotLASX {
+			if gotLASX[i] != wantGeneric[i] {
+				t.Fatalf("iter=%d coeff=%d: samplePolyCBD2LASX mismatch: got=%d want=%d",
+					iter, i, gotLASX[i], wantGeneric[i])
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// samplePolyCBD3LASX correctness tests
+// ---------------------------------------------------------------------------
+
+func TestLASXSamplePolyCBD3MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for iter := 0; iter < 100; iter++ {
+		var B [192]byte
+		for i := range B {
+			B[i] = byte((iter*256 + i) ^ 0x55)
+		}
+
+		var gotLASX ringElement
+		samplePolyCBD3LASX(&gotLASX, &B)
+
+		wantGeneric := samplePolyCBDGeneric(B[:], 3)
+
+		for i := range gotLASX {
+			if gotLASX[i] != wantGeneric[i] {
+				t.Fatalf("iter=%d coeff=%d: samplePolyCBD3LASX mismatch: got=%d want=%d",
+					iter, i, gotLASX[i], wantGeneric[i])
+			}
+		}
+	}
+}
+
 func BenchmarkNTTForward(b *testing.B) {
 	b.Run("Generic", func(b *testing.B) {
 		f := randomRingElement()
@@ -1161,60 +1216,6 @@ func BenchmarkLASXDecodeAndDecompressU11(b *testing.B) {
 			decodeAndDecompressU11(dst, c)
 		}
 	})
-}
-
-// ---------------------------------------------------------------------------
-// samplePolyCBD2LASX correctness tests
-// ---------------------------------------------------------------------------
-
-func TestLASXSamplePolyCBD2MatchesGeneric(t *testing.T) {
-	requireLASX(t)
-
-	for iter := 0; iter < 100; iter++ {
-		var B [128]byte
-		for i := range B {
-			B[i] = byte((iter*256 + i) ^ 0xAA)
-		}
-
-		var gotLASX ringElement
-		samplePolyCBD2LASX(&gotLASX, &B)
-
-		wantGeneric := samplePolyCBDGeneric(B[:], 2)
-
-		for i := range gotLASX {
-			if gotLASX[i] != wantGeneric[i] {
-				t.Fatalf("iter=%d coeff=%d: samplePolyCBD2LASX mismatch: got=%d want=%d",
-					iter, i, gotLASX[i], wantGeneric[i])
-			}
-		}
-	}
-}
-
-// ---------------------------------------------------------------------------
-// samplePolyCBD3LASX correctness tests
-// ---------------------------------------------------------------------------
-
-func TestLASXSamplePolyCBD3MatchesGeneric(t *testing.T) {
-	requireLASX(t)
-
-	for iter := 0; iter < 100; iter++ {
-		var B [192]byte
-		for i := range B {
-			B[i] = byte((iter*256 + i) ^ 0x55)
-		}
-
-		var gotLASX ringElement
-		samplePolyCBD3LASX(&gotLASX, &B)
-
-		wantGeneric := samplePolyCBDGeneric(B[:], 3)
-
-		for i := range gotLASX {
-			if gotLASX[i] != wantGeneric[i] {
-				t.Fatalf("iter=%d coeff=%d: samplePolyCBD3LASX mismatch: got=%d want=%d",
-					iter, i, gotLASX[i], wantGeneric[i])
-			}
-		}
-	}
 }
 
 // ---------------------------------------------------------------------------
