@@ -1347,7 +1347,6 @@ TEXT ·ringCompressAndEncode5LASX(SB), NOSPLIT, $0-32
 	XVMOVQ R7, X9.H16        // X9 = broadcast(16)
 	MOVV $0x1F, R7
 	XVMOVQ R7, X10.H16       // X10 = broadcast(0x1F)
-	MOVV $0x1F, R7            // scalar 5-bit mask
 
 	MOVV $32, R6
 
@@ -1364,46 +1363,25 @@ compress5_loop:
 	XVMOVQ X1.V[0], R10      // R10 = c0|(c1<<16)|(c2<<32)|(c3<<48)
 	XVMOVQ X1.V[1], R11      // R11 = c4|(c5<<16)|(c6<<32)|(c7<<48)
 
-	// Pack into 40-bit accumulator R20
-	// XVMOVQ X1.V[n] gives [c0,c1,c2,c3] as uint16 halfwords in 64-bit GPR
-	// c0 at [15:0], c1 at [31:16], c2 at [47:32], c3 at [63:48]
-	MOVV   R10, R20
-	AND    R7, R20             // c0 in R20
-
-	SRLV   $16, R10, R12
-	AND    R7, R12             // c1 raw
-	SLLV   $5, R12, R12
-	OR     R12, R20            // c1 at [9:5]
-
-	SRLV   $32, R10, R12
-	AND    R7, R12             // c2 raw
-	SLLV   $10, R12, R12
-	OR     R12, R20            // c2 at [14:10]
-
-	SRLV   $48, R10, R12
-	AND    R7, R12             // c3 raw
-	SLLV   $15, R12, R12
-	OR     R12, R20            // c3 at [19:15]
-
-	MOVV   R11, R12
-	AND    R7, R12             // c4 raw
-	SLLV   $20, R12, R12
-	OR     R12, R20            // c4 at [24:20]
-
-	SRLV   $16, R11, R12
-	AND    R7, R12             // c5 raw
-	SLLV   $25, R12, R12
-	OR     R12, R20            // c5 at [29:25]
-
-	SRLV   $32, R11, R12
-	AND    R7, R12             // c6 raw
-	SLLV   $30, R12, R12
-	OR     R12, R20            // c6 at [34:30]
-
-	SRLV   $48, R11, R12
-	AND    R7, R12             // c7 raw
-	SLLV   $35, R12, R12
-	OR     R12, R20            // c7 at [39:35]
+	// Pack into 40-bit accumulator R20 using BSTRPICKV/BSTRINSV.
+	// R10 layout: c0[15:0] | c1[31:16] | c2[47:32] | c3[63:48]
+	// R11 layout: c4[15:0] | c5[31:16] | c6[47:32] | c7[63:48]
+	// Target R20: c0[4:0] | c1[9:5] | c2[14:10] | c3[19:15] | c4[24:20] | c5[29:25] | c6[34:30] | c7[39:35]
+	BSTRPICKV $4,  R10, $0,  R20  // R20[4:0]   = c0
+	BSTRPICKV $20, R10, $16, R12  // R12[4:0]   = c1
+	BSTRINSV  $9,  R12, $5,  R20  // R20[9:5]   = c1
+	BSTRPICKV $36, R10, $32, R12  // R12[4:0]   = c2
+	BSTRINSV  $14, R12, $10, R20  // R20[14:10] = c2
+	BSTRPICKV $52, R10, $48, R12  // R12[4:0]   = c3
+	BSTRINSV  $19, R12, $15, R20  // R20[19:15] = c3
+	BSTRPICKV $4,  R11, $0,  R12  // R12[4:0]   = c4
+	BSTRINSV  $24, R12, $20, R20  // R20[24:20] = c4
+	BSTRPICKV $20, R11, $16, R12  // R12[4:0]   = c5
+	BSTRINSV  $29, R12, $25, R20  // R20[29:25] = c5
+	BSTRPICKV $36, R11, $32, R12  // R12[4:0]   = c6
+	BSTRINSV  $34, R12, $30, R20  // R20[34:30] = c6
+	BSTRPICKV $52, R11, $48, R12  // R12[4:0]   = c7
+	BSTRINSV  $39, R12, $35, R20  // R20[39:35] = c7
 
 	// Store 5 bytes
 	MOVBU  R20, 0(R4); SRLV $8, R20, R20
@@ -1594,7 +1572,7 @@ compress10_loop:
 	XVMOVQ X13.V[0], R11
 	XVMOVQ X1.V[0],  R12
 	XVMOVQ X2.V[0],  R13
-	MOVV  R10, R20; SLLV $10, R12, R14; OR R14, R20; SLLV $20, R11, R14; OR R14, R20; SLLV $30, R13, R14; OR R14, R20
+	MOVV  R10, R20; BSTRINSV $19, R12, $10, R20; BSTRINSV $29, R11, $20, R20; BSTRINSV $39, R13, $30, R20
 	MOVBU R20, 0(R4); SRLV $8, R20, R20; MOVBU R20, 1(R4); SRLV $8, R20, R20; MOVBU R20, 2(R4); SRLV $8, R20, R20; MOVBU R20, 3(R4); SRLV $8, R20, R20; MOVBU R20, 4(R4)
 
 	// Group 1: c4,c5,c6,c7 → 5 bytes
@@ -1602,7 +1580,7 @@ compress10_loop:
 	XVMOVQ X13.V[1], R11
 	XVMOVQ X1.V[1],  R12
 	XVMOVQ X2.V[1],  R13
-	MOVV  R10, R20; SLLV $10, R12, R14; OR R14, R20; SLLV $20, R11, R14; OR R14, R20; SLLV $30, R13, R14; OR R14, R20
+	MOVV  R10, R20; BSTRINSV $19, R12, $10, R20; BSTRINSV $29, R11, $20, R20; BSTRINSV $39, R13, $30, R20
 	MOVBU R20, 5(R4); SRLV $8, R20, R20; MOVBU R20, 6(R4); SRLV $8, R20, R20; MOVBU R20, 7(R4); SRLV $8, R20, R20; MOVBU R20, 8(R4); SRLV $8, R20, R20; MOVBU R20, 9(R4)
 
 	// Group 2: c8,c9,c10,c11 → 5 bytes
@@ -1610,7 +1588,7 @@ compress10_loop:
 	XVMOVQ X13.V[2], R11
 	XVMOVQ X1.V[2],  R12
 	XVMOVQ X2.V[2],  R13
-	MOVV  R10, R20; SLLV $10, R12, R14; OR R14, R20; SLLV $20, R11, R14; OR R14, R20; SLLV $30, R13, R14; OR R14, R20
+	MOVV  R10, R20; BSTRINSV $19, R12, $10, R20; BSTRINSV $29, R11, $20, R20; BSTRINSV $39, R13, $30, R20
 	MOVBU R20, 10(R4); SRLV $8, R20, R20; MOVBU R20, 11(R4); SRLV $8, R20, R20; MOVBU R20, 12(R4); SRLV $8, R20, R20; MOVBU R20, 13(R4); SRLV $8, R20, R20; MOVBU R20, 14(R4)
 
 	// Group 3: c12,c13,c14,c15 → 5 bytes
@@ -1618,7 +1596,7 @@ compress10_loop:
 	XVMOVQ X13.V[3], R11
 	XVMOVQ X1.V[3],  R12
 	XVMOVQ X2.V[3],  R13
-	MOVV  R10, R20; SLLV $10, R12, R14; OR R14, R20; SLLV $20, R11, R14; OR R14, R20; SLLV $30, R13, R14; OR R14, R20
+	MOVV  R10, R20; BSTRINSV $19, R12, $10, R20; BSTRINSV $29, R11, $20, R20; BSTRINSV $39, R13, $30, R20
 	MOVBU R20, 15(R4); SRLV $8, R20, R20; MOVBU R20, 16(R4); SRLV $8, R20, R20; MOVBU R20, 17(R4); SRLV $8, R20, R20; MOVBU R20, 18(R4); SRLV $8, R20, R20; MOVBU R20, 19(R4)
 
 	ADDV $32, R5              // 16 int16 = 32 bytes
@@ -1706,19 +1684,19 @@ compress11_loop:
 	XVMOVQ X1.V[1],  R16        // c5
 	XVMOVQ X2.V[1],  R17        // c7
 
-	// Pack c0..c7 into 11 bytes
+	// Pack c0..c7 into 11 bytes using BSTRINSV
 	// R24 = c0|c1<<11|c2<<22|c3<<33|c4<<44|c5[8:0]<<55
-	MOVV  R10, R24
-	SLLV  $11, R12, R18; OR R18, R24    // c1<<11
-	SLLV  $22, R11, R18; OR R18, R24    // c2<<22
-	SLLV  $33, R13, R18; OR R18, R24    // c3<<33
-	SLLV  $44, R14, R18; OR R18, R24    // c4<<44
-	SLLV  $55, R16, R18; OR R18, R24    // c5[8:0]<<55
+	MOVV     R10, R24
+	BSTRINSV $21, R12, $11, R24         // c1 at [21:11]
+	BSTRINSV $32, R11, $22, R24         // c2 at [32:22]
+	BSTRINSV $43, R13, $33, R24         // c3 at [43:33]
+	BSTRINSV $54, R14, $44, R24         // c4 at [54:44]
+	BSTRINSV $63, R16, $55, R24         // c5[8:0] at [63:55]
 
 	// R25 = c5>>9 | c6<<2 | c7<<13
-	SRLV  $9, R16, R25
-	SLLV  $2, R15, R18; OR R18, R25     // c6<<2
-	SLLV  $13, R17, R18; OR R18, R25    // c7<<13
+	SRLV     $9, R16, R25
+	BSTRINSV $12, R15, $2, R25          // c6 at [12:2]
+	BSTRINSV $23, R17, $13, R25         // c7 at [23:13]
 
 	// Store 11 bytes
 	MOVBU R24, 0(R4); SRLV $8, R24, R24
@@ -1745,17 +1723,17 @@ compress11_loop:
 	XVMOVQ X1.V[3],  R16        // c13
 	XVMOVQ X2.V[3],  R17        // c15
 
-	// Pack c8..c15 into 11 bytes
-	MOVV  R10, R24
-	SLLV  $11, R12, R18; OR R18, R24
-	SLLV  $22, R11, R18; OR R18, R24
-	SLLV  $33, R13, R18; OR R18, R24
-	SLLV  $44, R14, R18; OR R18, R24
-	SLLV  $55, R16, R18; OR R18, R24
+	// Pack c8..c15 into 11 bytes using BSTRINSV
+	MOVV     R10, R24
+	BSTRINSV $21, R12, $11, R24
+	BSTRINSV $32, R11, $22, R24
+	BSTRINSV $43, R13, $33, R24
+	BSTRINSV $54, R14, $44, R24
+	BSTRINSV $63, R16, $55, R24
 
-	SRLV  $9, R16, R25
-	SLLV  $2, R15, R18; OR R18, R25
-	SLLV  $13, R17, R18; OR R18, R25
+	SRLV     $9, R16, R25
+	BSTRINSV $12, R15, $2, R25
+	BSTRINSV $23, R17, $13, R25
 
 	MOVBU R24, 11(R4); SRLV $8, R24, R24
 	MOVBU R24, 12(R4); SRLV $8, R24, R24
@@ -1806,7 +1784,6 @@ TEXT ·decodeAndDecompressU10LASX(SB), NOSPLIT, $0-48
 	XVMOVQ R7, X8.H16           // X8 = broadcast(3329) as uint16
 	MOVV $1, R7
 	XVMOVQ R7, X9.W8            // X9 = broadcast(1) as uint32
-	MOVV $0x3FF, R12             // 10-bit mask
 
 u10_outer:
 	MOVV $32, R7                 // 32 inner iterations per ring element (8 coefs each)
@@ -1816,46 +1793,32 @@ u10_inner:
 	MOVV  (R4), R8               // bytes 0..7
 	MOVHU 8(R4), R9              // bytes 8..9 (zero-extended to 64-bit)
 
-	// Extract c0..c5 (all within R8)
-	MOVV  R8, R10
-	AND   R12, R10               // c0 = R8[9:0]
-
-	SRLV  $10, R8, R11
-	AND   R12, R11               // c1 = R8[19:10]
-
-	SRLV  $20, R8, R13
-	AND   R12, R13               // c2 = R8[29:20]
-
-	SRLV  $30, R8, R14
-	AND   R12, R14               // c3 = R8[39:30]
-
-	SRLV  $40, R8, R15
-	AND   R12, R15               // c4 = R8[49:40]
-
-	SRLV  $50, R8, R16
-	AND   R12, R16               // c5 = R8[59:50]
+	// Extract c0..c7 using BSTRPICKV (no mask register needed)
+	BSTRPICKV $9,  R8, $0,  R10   // c0 = R8[9:0]
+	BSTRPICKV $19, R8, $10, R11   // c1 = R8[19:10]
+	BSTRPICKV $29, R8, $20, R13   // c2 = R8[29:20]
+	BSTRPICKV $39, R8, $30, R14   // c3 = R8[39:30]
+	BSTRPICKV $49, R8, $40, R15   // c4 = R8[49:40]
+	BSTRPICKV $59, R8, $50, R16   // c5 = R8[59:50]
 
 	// c6: 4 bits from R8[63:60] + 6 bits from R9[5:0]
-	SRLV  $60, R8, R17           // R17 = R8[63:60] (4 bits, in [3:0])
-	MOVV  R9, R18
-	MOVV  $0x3F, R19
-	AND   R19, R18               // R18 = R9[5:0]
-	SLLV  $4, R18, R18           // R18 = R9[5:0] shifted to [9:4]
-	OR    R17, R18               // R18 = c6 (10 bits)
+	BSTRPICKV $63, R8, $60, R17   // R17 = R8[63:60] (4 bits, in [3:0])
+	BSTRPICKV $5,  R9, $0,  R18   // R18 = R9[5:0] (6 bits)
+	SLLV  $4, R18, R18             // R18 = R9[5:0] shifted to [9:4]
+	OR    R17, R18                  // R18 = c6 (10 bits)
 
 	// c7 = R9[15:6]
-	SRLV  $6, R9, R19
-	AND   R12, R19               // c7
+	BSTRPICKV $15, R9, $6, R19    // c7
 
-	// Pack c0..c3 into R10: c0 | c1<<16 | c2<<32 | c3<<48
-	SLLV  $16, R11, R11; OR R11, R10
-	SLLV  $32, R13, R13; OR R13, R10
-	SLLV  $48, R14, R14; OR R14, R10
+	// Pack c0..c3 into R10: c0 | c1<<16 | c2<<32 | c3<<48 (using BSTRINSV)
+	BSTRINSV $25, R11, $16, R10   // c1 at R10[25:16]
+	BSTRINSV $47, R13, $32, R10   // c2 at R10[47:32]
+	BSTRINSV $63, R14, $48, R10   // c3 at R10[63:48]
 
-	// Pack c4..c7 into R15: c4 | c5<<16 | c6<<32 | c7<<48
-	SLLV  $16, R16, R16; OR R16, R15
-	SLLV  $32, R18, R18; OR R18, R15
-	SLLV  $48, R19, R19; OR R19, R15
+	// Pack c4..c7 into R15: c4 | c5<<16 | c6<<32 | c7<<48 (using BSTRINSV)
+	BSTRINSV $25, R16, $16, R15   // c5 at R15[25:16]
+	BSTRINSV $47, R18, $32, R15   // c6 at R15[47:32]
+	BSTRINSV $63, R19, $48, R15   // c7 at R15[63:48]
 
 	// Write raw coefs to dst (will be overwritten by decompress results)
 	MOVV  R10, 0(R5)
@@ -1926,7 +1889,6 @@ TEXT ·decodeAndDecompressU11LASX(SB), NOSPLIT, $0-48
 	XVMOVQ R7, X8.H16           // X8 = broadcast(3329) as uint16
 	MOVV $1, R7
 	XVMOVQ R7, X9.W8            // X9 = broadcast(1) as uint32
-	MOVV $0x7FF, R12             // 11-bit mask
 
 u11_outer:
 	MOVV $32, R7                 // 32 inner iterations per ring element (8 coefs each)
@@ -1939,47 +1901,32 @@ u11_inner:
 	SLLV  $16, R10, R10
 	OR    R10, R9                // R9 = bytes[8..10] in [23:0]
 
-	// Extract c0..c4 (all within R8)
-	MOVV  R8, R10
-	AND   R12, R10               // c0 = R8[10:0]
-
-	SRLV  $11, R8, R11
-	AND   R12, R11               // c1 = R8[21:11]
-
-	SRLV  $22, R8, R13
-	AND   R12, R13               // c2 = R8[32:22]
-
-	SRLV  $33, R8, R14
-	AND   R12, R14               // c3 = R8[43:33]
-
-	SRLV  $44, R8, R15
-	AND   R12, R15               // c4 = R8[54:44]
+	// Extract c0..c7 using BSTRPICKV (no mask register needed)
+	BSTRPICKV $10, R8, $0,  R10   // c0 = R8[10:0]
+	BSTRPICKV $21, R8, $11, R11   // c1 = R8[21:11]
+	BSTRPICKV $32, R8, $22, R13   // c2 = R8[32:22]
+	BSTRPICKV $43, R8, $33, R14   // c3 = R8[43:33]
+	BSTRPICKV $54, R8, $44, R15   // c4 = R8[54:44]
 
 	// c5: 9 bits from R8[63:55] + 2 bits from R9[1:0]
-	SRLV  $55, R8, R16           // R16 = R8[63:55] (9 bits, in [8:0])
-	MOVV  R9, R17
-	MOVV  $3, R19
-	AND   R19, R17               // R17 = R9[1:0] (low 2 bits)
-	SLLV  $9, R17, R17           // R17 = R9[1:0] shifted to [10:9]
-	OR    R16, R17               // R17 = c5 (11 bits)
+	BSTRPICKV $63, R8, $55, R16   // R16 = R8[63:55] (9 bits, in [8:0])
+	BSTRPICKV $1,  R9, $0,  R17   // R17 = R9[1:0] (2 bits)
+	SLLV  $9, R17, R17             // R17 = R9[1:0] shifted to [10:9]
+	OR    R16, R17                  // R17 = c5 (11 bits)
 
-	// c6 = R9[12:2]
-	SRLV  $2, R9, R18
-	AND   R12, R18               // c6
+	// c6 = R9[12:2]; c7 = R9[23:13]
+	BSTRPICKV $12, R9, $2,  R18   // c6
+	BSTRPICKV $23, R9, $13, R19   // c7
 
-	// c7 = R9[23:13]
-	SRLV  $13, R9, R19
-	AND   R12, R19               // c7
+	// Pack c0..c3 into R10: c0 | c1<<16 | c2<<32 | c3<<48 (using BSTRINSV)
+	BSTRINSV $26, R11, $16, R10   // c1 at R10[26:16]
+	BSTRINSV $42, R13, $32, R10   // c2 at R10[42:32]
+	BSTRINSV $58, R14, $48, R10   // c3 at R10[58:48]
 
-	// Pack c0..c3 into R10: c0 | c1<<16 | c2<<32 | c3<<48
-	SLLV  $16, R11, R11; OR R11, R10
-	SLLV  $32, R13, R13; OR R13, R10
-	SLLV  $48, R14, R14; OR R14, R10
-
-	// Pack c4..c7 into R15: c4 | c5<<16 | c6<<32 | c7<<48
-	SLLV  $16, R17, R17; OR R17, R15
-	SLLV  $32, R18, R18; OR R18, R15
-	SLLV  $48, R19, R19; OR R19, R15
+	// Pack c4..c7 into R15: c4 | c5<<16 | c6<<32 | c7<<48 (using BSTRINSV)
+	BSTRINSV $26, R17, $16, R15   // c5 at R15[26:16]
+	BSTRINSV $42, R18, $32, R15   // c6 at R15[42:32]
+	BSTRINSV $58, R19, $48, R15   // c7 at R15[58:48]
 
 	// Write raw coefs to dst (will be overwritten by decompress results)
 	MOVV  R10, 0(R5)
