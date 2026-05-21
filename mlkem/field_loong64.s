@@ -1253,9 +1253,9 @@ compress1_loop:
 	XVMOVQ 32(R5), X1        // load coefs 16..31
 
 	// ── Compress X0 (coefs 0..15) ────────────────────────────────────────────
-	XVSUBH X8, X0, X2        // X2 = x - 833 (negative iff x < 833)
+	XVSUBH X0, X8, X2        // X2 = x - 833 (negative iff x < 833)
 	XVSRAH $15, X2, X2       // X2 = 0xFFFF if x < 833, else 0
-	XVSUBH X9, X0, X3        // X3 = x - 2497 (negative iff x ≤ 2496)
+	XVSUBH X0, X9, X3        // X3 = x - 2497 (negative iff x ≤ 2496)
 	XVSRAH $15, X3, X3       // X3 = 0xFFFF if x ≤ 2496, else 0
 	XVANDNV X2, X3, X0       // X0 = ~X2 & X3: 0xFFFF iff 833≤x≤2496
 	XVSRLH $15, X0, X0       // X0 = 0x0001 if compress=1, else 0
@@ -1272,9 +1272,9 @@ compress1_loop:
 	// V[3][15:0] = coefs[12..15] → bits[7:4] of byte1
 
 	// ── Compress X1 (coefs 16..31) ───────────────────────────────────────────
-	XVSUBH X8, X1, X3
+	XVSUBH X1, X8, X3
 	XVSRAH $15, X3, X3
-	XVSUBH X9, X1, X4
+	XVSUBH X1, X9, X4
 	XVSRAH $15, X4, X4
 	XVANDNV X3, X4, X1
 	XVSRLH $15, X1, X1
@@ -1351,20 +1351,22 @@ compress5_loop:
 	XVMOVQ X1.V[1], R11      // R11 = c4|(c5<<16)|(c6<<32)|(c7<<48)
 
 	// Pack into 40-bit accumulator R20
+	// XVMOVQ X1.V[n] gives [c0,c1,c2,c3] as uint16 halfwords in 64-bit GPR
+	// c0 at [15:0], c1 at [31:16], c2 at [47:32], c3 at [63:48]
 	MOVV   R10, R20
 	AND    R7, R20             // c0 in R20
 
-	SRLV   $11, R10, R12
+	SRLV   $16, R10, R12
 	AND    R7, R12             // c1 raw
 	SLLV   $5, R12, R12
 	OR     R12, R20            // c1 at [9:5]
 
-	SRLV   $22, R10, R12
+	SRLV   $32, R10, R12
 	AND    R7, R12             // c2 raw
 	SLLV   $10, R12, R12
 	OR     R12, R20            // c2 at [14:10]
 
-	SRLV   $33, R10, R12
+	SRLV   $48, R10, R12
 	AND    R7, R12             // c3 raw
 	SLLV   $15, R12, R12
 	OR     R12, R20            // c3 at [19:15]
@@ -1374,17 +1376,17 @@ compress5_loop:
 	SLLV   $20, R12, R12
 	OR     R12, R20            // c4 at [24:20]
 
-	SRLV   $11, R11, R12
+	SRLV   $16, R11, R12
 	AND    R7, R12             // c5 raw
 	SLLV   $25, R12, R12
 	OR     R12, R20            // c5 at [29:25]
 
-	SRLV   $22, R11, R12
+	SRLV   $32, R11, R12
 	AND    R7, R12             // c6 raw
 	SLLV   $30, R12, R12
 	OR     R12, R20            // c6 at [34:30]
 
-	SRLV   $33, R11, R12
+	SRLV   $48, R11, R12
 	AND    R7, R12             // c7 raw
 	SLLV   $35, R12, R12
 	OR     R12, R20            // c7 at [39:35]
