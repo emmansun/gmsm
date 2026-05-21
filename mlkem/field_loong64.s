@@ -1035,24 +1035,26 @@ nttmlacc_kg_lasx_loop:
 // Compress_4 + ByteEncode_4: maps 256 int16 coefficients in [0,q) to 128 bytes.
 // Packing: out[i] = compress(f[2i]) | compress(f[2i+1]) << 4
 //
-// Uses LASX for compress (XVMUHH), then scalar GPR for nibble-packing.
+// Uses LASX for compress (XVMUHH), then XVPICKEV_B + XVMOVQ element extraction
+// for nibble-packing — no stack access required.
 //
 // Algorithm per 16 coefficients (1 LASX register):
 //   1. COMPRESS4 → X2 = [c0..c15] as int16 ∈[0,15]
-//   2. XVPICKEV_H(even, X2, X2): lane0 = [c0,c2,c4,c6, c0,c2,c4,c6]
-//      XVSHUF4IH $0xB1 + XVPICKEV_H to get odd: lane0 = [c1,c3,c5,c7, c1,c3,c5,c7]
-//   3. XVSLLH $4, odd, odd; XVORV even, odd, packed
-//      packed lane0 = [b0,b1,b2,b3, b0,b1,b2,b3] (each int16 = one packed byte)
-//   4. Store to stack (32 bytes); extract b0..b3 from stack[0,2,4,6] using MOVHU
-//   5. Same for lane1 (b4..b7) from stack[16,18,20,22]
+//   2. XVSHUF4IH $0xB1: swap adjacent H within each W → X5 = [c1,c0,c3,c2,...] 
+//   3. XVSLLH $4, X5 → X5 = [c1<<4, c0<<4, c3<<4, ...]
+//   4. XVORV X2, X5 → X6: even halfwords = c[2i]|(c[2i+1]<<4) = packed byte b[i]
+//   5. XVPICKEV_H(X4, X6, X6): compact to 4 halfwords per lane = [b0,b1,b2,b3 | b4..b7]
+//   6. XVPICKEV_B(X6, X4, X4): compact packed bytes (each b in low byte of int16)
+//      X6.V[0] = b0|b1<<8|b2<<16|b3<<24|...  X6.V[2] = b4|b5<<8|b6<<16|b7<<24|...
+//   7. XVMOVQ X6.V[0], R11; MOVW R11, 0(R4) — extract b0..b3
+//      XVMOVQ X6.V[2], R11; MOVW R11, 4(R4) — extract b4..b7
 //
 // Register allocation:
-//   R4=out, R5=f, R6=loop counter
+//   R4=out, R5=f, R6=loop counter, R11=GPR temp
 //   X0=input (16 coefficients), X2=compress result
 //   X8=broadcast(20159), X9=broadcast(32), X10=broadcast(0xF)
-//   X4=even nibbles, X5=odd nibbles, X6=packed bytes
-//   R11,R12,R13,R14=GPR temporaries for byte extraction
-TEXT ·ringCompressAndEncode4LASX(SB), NOSPLIT, $64-32
+//   X4,X5,X6=nibble packing temporaries
+TEXT ·ringCompressAndEncode4LASX(SB), NOSPLIT, $0-32
 	MOVV out_base+0(FP), R4
 	MOVV f+24(FP), R5
 
@@ -1072,48 +1074,28 @@ compress4_loop:
 	// Compress: c = ((mulhigh16(x, 20159) + 32) >> 6) & 0xF
 	COMPRESS4(X0, X2, X8, X4, X9, X10)
 
-	// Separate even and odd coefficients within X2
-	// X4 = even elements: [c0, c2, c4, c6, c0, c2, c4, c6 | c8, c10, c12, c14, ...]
-	XVPICKEV_H(4, 2, 2)
-	// Get odd elements via swap trick: XVSHUF4IH swaps adjacent H pairs within each W
-	// X5 = [c1, c0, c3, c2, c5, c4, c7, c6 | ...] (each 32-bit group has its two H swapped)
-	XVSHUF4IH $0xB1, X2, X5
-	// X5 = odd elements (originally at odd positions, now at even): [c1, c3, c5, c7, ...]
-	XVPICKEV_H(5, 5, 5)
+	// Pack nibble pairs: out[k] = c[2k] | (c[2k+1] << 4)
+	// Swap adjacent halfwords within each 32-bit word to bring odd nibbles to even positions
+	XVSHUF4IH $0xB1, X2, X5        // X5 = [c1,c0, c3,c2, c5,c4, c7,c6, ...] per 32-bit group
+	XVSLLH $4, X5, X5              // X5 = [c1<<4, 0, c3<<4, 0, ...] (odd nibbles shifted to high-nibble of byte)
+	XVORV X2, X5, X6               // X6: even halfwords = c[2k] | (c[2k+1]<<4) = packed byte b[k]
 
-	// Pack: packed[k] = even[k] | (odd[k] << 4)
-	XVSLLH $4, X5, X5
-	XVORV X4, X5, X6   // X6 lane0 = [b0,b1,b2,b3, b0,b1,b2,b3], lane1 = [b4..b7, b4..b7]
+	// Compact: keep only even halfwords (packed bytes) per lane
+	// XVPICKEV_H(4, 6, 6): even halfw of lane0 → X4.lane0.half[0..3] = [b0,b1,b2,b3]
+	//                       even halfw of lane1 → X4.lane1.half[0..3] = [b4,b5,b6,b7]
+	XVPICKEV_H(4, 6, 6)
 
-	// Store to stack for byte extraction using XVMOVQ (32 bytes, unaligned OK on LoongArch)
-	XVMOVQ X6, 0(R3)
+	// Compact bytes: X4 has [b0,0, b1,0, b2,0, b3,0 | b4,0,...] as bytes per lane
+	// XVPICKEV_B(6, 4, 4): even bytes of lane0 → X6.lane0.byte[0..7] = [b0,b1,b2,b3,b0,b1,b2,b3]
+	//                       even bytes of lane1 → X6.lane1.byte[0..7] = [b4,b5,b6,b7,b4,b5,b6,b7]
+	XVPICKEV_B(6, 4, 4)
 
-	// Extract b0..b3 from R3[0,2,4,6] (low byte of each int16)
-	// Lane0 of X6 = [b0,b1,b2,b3, b0,b1,b2,b3] as int16 at R3[0..15]
-	// Lane1 of X6 = [b4,b5,b6,b7, b4,b5,b6,b7] as int16 at R3[16..31]
-	MOVHU  0(R3), R11
-	MOVHU  2(R3), R12
-	SLLV   $8, R12, R12
-	OR     R12, R11, R11
-	MOVHU  4(R3), R12
-	SLLV   $16, R12, R12
-	OR     R12, R11, R11
-	MOVHU  6(R3), R12
-	SLLV   $24, R12, R12
-	OR     R12, R11, R11
+	// Extract packed bytes via LASX element extraction (no stack needed)
+	// V[0] = lane0 qword 0 = b0|b1<<8|b2<<16|b3<<24|b0<<32|... (repeated in 64-bit)
+	// V[2] = lane1 qword 0 = b4|...|b7<<24|...
+	XVMOVQ X6.V[0], R11
 	MOVW   R11, 0(R4)
-
-	// Extract b4..b7 from R3[16,18,20,22] (lane1, b4..b7 as int16)
-	MOVHU  16(R3), R11
-	MOVHU  18(R3), R12
-	SLLV   $8, R12, R12
-	OR     R12, R11, R11
-	MOVHU  20(R3), R12
-	SLLV   $16, R12, R12
-	OR     R12, R11, R11
-	MOVHU  22(R3), R12
-	SLLV   $24, R12, R12
-	OR     R12, R11, R11
+	XVMOVQ X6.V[2], R11
 	MOVW   R11, 4(R4)
 
 	ADDV   $32, R5   // advance input by 16 int16 = 32 bytes
