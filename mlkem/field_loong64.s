@@ -1334,9 +1334,10 @@ compress1_loop:
 // Compress formula: c = ((mulhigh16(x, 20159) + 16) >> 5) & 0x1F
 // ByteEncode_5: 8 × 5-bit → 5 bytes. x = c0|c1<<5|c2<<10|c3<<15|c4<<20|c5<<25|c6<<30|c7<<35
 //
-// Algorithm: 32 iterations × 8 coefs → 5 bytes each.
-// Per iteration: load 8 coefs via VMOVQ (lower 128-bit lane), compress via LASX,
-// extract V[0]/V[1] to GPR, pack 5-bit values, store 5 bytes.
+// Algorithm: 16 iterations × 16 coefs → 10 bytes each.
+// Per iteration: XVMOVQ loads 16 coefs (256 bits), compress via LASX (full width),
+// extract 4 quadwords (V[0..3]) to GPRs, pack each 8-coef group into 5 bytes using
+// BSTRPICKV/BSTRINSV, store 5 bytes via MOVW + MOVBU.
 TEXT ·ringCompressAndEncode5LASX(SB), NOSPLIT, $0-32
 	MOVV out_base+0(FP), R4
 	MOVV f+24(FP), R5
@@ -1348,50 +1349,50 @@ TEXT ·ringCompressAndEncode5LASX(SB), NOSPLIT, $0-32
 	MOVV $0x1F, R7
 	XVMOVQ R7, X10.H16       // X10 = broadcast(0x1F)
 
-	MOVV $32, R6
+	MOVV $16, R6             // 16 iterations × 16 coefs = 256
 
 compress5_loop:
-	VMOVQ (R5), V0            // load 8 coefs into V0 (lower 128-bit of X0)
+	XVMOVQ (R5), X0           // load 16 coefs (32 bytes) into X0
 
-	// Compress: ((mulhigh16(x, 20159) + 16) >> 5) & 0x1F
+	// Compress all 16: ((mulhigh16(x, 20159) + 16) >> 5) & 0x1F
 	XVMUHH X0, X8, X1
 	XVADDH X9, X1, X1
 	XVSRAH $5, X1, X1
-	XVANDV X10, X1, X1        // X1.half[0..7] = c0..c7
+	XVANDV X10, X1, X1        // X1.half[0..15] = c0..c15
 
-	// Extract c0..c7 from LASX register (lower 128-bit lane)
+	// Extract all 4 quadwords (each holds 4 × uint16 coefs)
 	XVMOVQ X1.V[0], R10      // R10 = c0|(c1<<16)|(c2<<32)|(c3<<48)
 	XVMOVQ X1.V[1], R11      // R11 = c4|(c5<<16)|(c6<<32)|(c7<<48)
+	XVMOVQ X1.V[2], R12      // R12 = c8|(c9<<16)|(c10<<32)|(c11<<48)
+	XVMOVQ X1.V[3], R13      // R13 = c12|(c13<<16)|(c14<<32)|(c15<<48)
 
-	// Pack into 40-bit accumulator R20 using BSTRPICKV/BSTRINSV.
-	// R10 layout: c0[15:0] | c1[31:16] | c2[47:32] | c3[63:48]
-	// R11 layout: c4[15:0] | c5[31:16] | c6[47:32] | c7[63:48]
-	// Target R20: c0[4:0] | c1[9:5] | c2[14:10] | c3[19:15] | c4[24:20] | c5[29:25] | c6[34:30] | c7[39:35]
-	BSTRPICKV $4,  R10, $0,  R20  // R20[4:0]   = c0
-	BSTRPICKV $20, R10, $16, R12  // R12[4:0]   = c1
-	BSTRINSV  $9,  R12, $5,  R20  // R20[9:5]   = c1
-	BSTRPICKV $36, R10, $32, R12  // R12[4:0]   = c2
-	BSTRINSV  $14, R12, $10, R20  // R20[14:10] = c2
-	BSTRPICKV $52, R10, $48, R12  // R12[4:0]   = c3
-	BSTRINSV  $19, R12, $15, R20  // R20[19:15] = c3
-	BSTRPICKV $4,  R11, $0,  R12  // R12[4:0]   = c4
-	BSTRINSV  $24, R12, $20, R20  // R20[24:20] = c4
-	BSTRPICKV $20, R11, $16, R12  // R12[4:0]   = c5
-	BSTRINSV  $29, R12, $25, R20  // R20[29:25] = c5
-	BSTRPICKV $36, R11, $32, R12  // R12[4:0]   = c6
-	BSTRINSV  $34, R12, $30, R20  // R20[34:30] = c6
-	BSTRPICKV $52, R11, $48, R12  // R12[4:0]   = c7
-	BSTRINSV  $39, R12, $35, R20  // R20[39:35] = c7
+	// Pack c0..c7 (from R10, R11) → 5 bytes at 0(R4)
+	// Target R20: c0[4:0]|c1[9:5]|c2[14:10]|c3[19:15]|c4[24:20]|c5[29:25]|c6[34:30]|c7[39:35]
+	BSTRPICKV $4,  R10, $0,  R20  // c0
+	BSTRPICKV $20, R10, $16, R14; BSTRINSV $9,  R14, $5,  R20  // c1
+	BSTRPICKV $36, R10, $32, R14; BSTRINSV $14, R14, $10, R20  // c2
+	BSTRPICKV $52, R10, $48, R14; BSTRINSV $19, R14, $15, R20  // c3
+	BSTRPICKV $4,  R11, $0,  R14; BSTRINSV $24, R14, $20, R20  // c4
+	BSTRPICKV $20, R11, $16, R14; BSTRINSV $29, R14, $25, R20  // c5
+	BSTRPICKV $36, R11, $32, R14; BSTRINSV $34, R14, $30, R20  // c6
+	BSTRPICKV $52, R11, $48, R14; BSTRINSV $39, R14, $35, R20  // c7
+	MOVW  R20, 0(R4)
+	SRLV  $32, R20, R14; MOVBU R14, 4(R4)
 
-	// Store 5 bytes
-	MOVBU  R20, 0(R4); SRLV $8, R20, R20
-	MOVBU  R20, 1(R4); SRLV $8, R20, R20
-	MOVBU  R20, 2(R4); SRLV $8, R20, R20
-	MOVBU  R20, 3(R4); SRLV $8, R20, R20
-	MOVBU  R20, 4(R4)
+	// Pack c8..c15 (from R12, R13) → 5 bytes at 5(R4)
+	BSTRPICKV $4,  R12, $0,  R20  // c8
+	BSTRPICKV $20, R12, $16, R14; BSTRINSV $9,  R14, $5,  R20  // c9
+	BSTRPICKV $36, R12, $32, R14; BSTRINSV $14, R14, $10, R20  // c10
+	BSTRPICKV $52, R12, $48, R14; BSTRINSV $19, R14, $15, R20  // c11
+	BSTRPICKV $4,  R13, $0,  R14; BSTRINSV $24, R14, $20, R20  // c12
+	BSTRPICKV $20, R13, $16, R14; BSTRINSV $29, R14, $25, R20  // c13
+	BSTRPICKV $36, R13, $32, R14; BSTRINSV $34, R14, $30, R20  // c14
+	BSTRPICKV $52, R13, $48, R14; BSTRINSV $39, R14, $35, R20  // c15
+	MOVW  R20, 5(R4)
+	SRLV  $32, R20, R14; MOVBU R14, 9(R4)
 
-	ADDV $16, R5              // 8 int16 = 16 bytes
-	ADDV $5, R4               // 5 output bytes
+	ADDV $32, R5              // 16 int16 = 32 bytes
+	ADDV $10, R4              // 16 × 5-bit = 10 bytes
 	ADDV $-1, R6
 	BNE R6, R0, compress5_loop
 
@@ -1404,18 +1405,19 @@ compress5_loop:
 // Formula: f = (c * q + 16) >> 5, where q=3329, c ∈ [0,31].
 // Max c*q = 31*3329 = 103199 → needs 32-bit arithmetic (uint17).
 //
-// Algorithm: 32 iterations × 5 bytes → 8 coefficients (16 bytes).
+// Algorithm: 16 iterations × 10 bytes → 16 coefficients (32 bytes).
 // Each iteration:
-//   1. Scalar: load 5 bytes, extract 8 × 5-bit values, pack 4 per GPR (as uint16 in positions [15:0],[31:16],[47:32],[63:48])
-//   2. Load 2 GPRs into lower 128-bit lane of LASX register X0 (8 halfwords)
-//   3. LASX decompress: XVMULWEVWHU×q + XVMULWODWHU×q + XVADDW(16) + XVSRLW(5) + reorder
-//   4. XVPICKEV_H to get 8 halfwords → VMOVQ to store 16 bytes
+//   1. Scalar: load 10 bytes (80 bits), extract 16 × 5-bit values via BSTRPICKV, pack 8 per GPR
+//   2. Write 2 GPRs to output buffer, reload as LASX 256-bit (16 halfwords)
+//   3. LASX decompress all 16 at once (full 256-bit): XVMULWEVWHU×q + XVMULWODWHU×q + XVADDW(16) + XVSRLW(5) + reorder
+//   4. XVPICKEV_H + XVMOVQ to store 32 bytes
 //
 // Register allocation:
-//   R4=b, R5=f, R6=loop counter, R7=5-bit mask (0x1F), R8=q (3329)
-//   R10=packed input bits (40-bit), R11-R18=extracted c0..c7
+//   R4=b, R5=f, R6=loop counter
+//   R10=bytes 0..7, R11=bytes 8..9 (for c8..c15)
+//   R20=packed c0..c7, R21=packed c8..c15, R14=temp for BSTRPICKV/BSTRINSV
 //   X8=broadcast(q=3329, H16), X9=broadcast(16, W8)
-//   X0,X12=temporaries for decompress
+//   X0,X1,X2,X12 = temporaries for decompress
 TEXT ·ringDecodeAndDecompress5LASX(SB), NOSPLIT, $0-16
 	MOVV b+0(FP), R4
 	MOVV f+8(FP), R5
@@ -1425,63 +1427,63 @@ TEXT ·ringDecodeAndDecompress5LASX(SB), NOSPLIT, $0-16
 	XVMOVQ R7, X8.H16           // X8 = broadcast(3329) to 16 halfwords
 	MOVV $16, R7
 	XVMOVQ R7, X9.W8            // X9 = broadcast(16) to 8 words
-	MOVV $0x1F, R7              // scalar 5-bit mask
 
-	MOVV $32, R6
+	MOVV $16, R6                // 16 iterations × 16 coefs = 256
 
 decompress5_loop:
-	// Load 5 bytes (40 bits = 8 × 5-bit values)
-	MOVWU (R4), R10             // bytes 0..3 (zero-extended to 64-bit)
-	MOVBU 4(R4), R11
-	SLLV  $32, R11, R11
-	OR    R11, R10              // R10[39:0] = all 5 bytes
+	// Load 10 bytes (80 bits = 16 × 5-bit values)
+	MOVV  (R4), R10             // bytes 0..7
+	MOVHU 8(R4), R11            // bytes 8..9
 
-	// Extract 8 × 5-bit values into c0..c7
-	MOVV  R10, R11; AND R7, R11       // c0
-	SRLV  $5,  R10, R12; AND R7, R12  // c1
-	SRLV  $10, R10, R13; AND R7, R13  // c2
-	SRLV  $15, R10, R14; AND R7, R14  // c3
-	SRLV  $20, R10, R15; AND R7, R15  // c4
-	SRLV  $25, R10, R16; AND R7, R16  // c5
-	SRLV  $30, R10, R17; AND R7, R17  // c6
-	SRLV  $35, R10, R18; AND R7, R18  // c7
+	// Extract c0..c7 from R10 using BSTRPICKV
+	BSTRPICKV $4,  R10, $0,  R20  // c0
+	BSTRPICKV $9,  R10, $5,  R14; BSTRINSV $20, R14, $16, R20  // c1
+	BSTRPICKV $14, R10, $10, R14; BSTRINSV $36, R14, $32, R20  // c2
+	BSTRPICKV $19, R10, $15, R14; BSTRINSV $52, R14, $48, R20  // c3
 
-	// Pack c0..c3 into one 64-bit GPR as 4 uint16 halfwords
-	// R11 = c0 | (c1<<16) | (c2<<32) | (c3<<48)
-	SLLV $16, R12, R12; OR R12, R11
-	SLLV $32, R13, R13; OR R13, R11
-	SLLV $48, R14, R14; OR R14, R11
+	// c4..c7 also from R10 (bits 20..39)
+	BSTRPICKV $24, R10, $20, R21  // c4
+	BSTRPICKV $29, R10, $25, R14; BSTRINSV $20, R14, $16, R21  // c5
+	BSTRPICKV $34, R10, $30, R14; BSTRINSV $36, R14, $32, R21  // c6
+	BSTRPICKV $39, R10, $35, R14; BSTRINSV $52, R14, $48, R21  // c7
 
-	// Pack c4..c7 into second 64-bit GPR
-	// R15 = c4 | (c5<<16) | (c6<<32) | (c7<<48)
-	SLLV $16, R16, R16; OR R16, R15
-	SLLV $32, R17, R17; OR R17, R15
-	SLLV $48, R18, R18; OR R18, R15
+	// c8..c11 from R10 (bits 40..63)
+	BSTRPICKV $44, R10, $40, R23  // c8
+	BSTRPICKV $49, R10, $45, R14; BSTRINSV $20, R14, $16, R23  // c9
+	BSTRPICKV $54, R10, $50, R14; BSTRINSV $36, R14, $32, R23  // c10
+	BSTRPICKV $59, R10, $55, R14; BSTRINSV $52, R14, $48, R23  // c11
 
-	// Write packed GPRs to output buffer, load as LASX, then overwrite with results.
-	// (Safe: output buffer is 16 bytes aligned and writable; we overwrite it immediately after.)
-	MOVV R11, 0(R5)
-	MOVV R15, 8(R5)
-	XVMOVQ (R5), X0             // X0[127:0] = [c0,c1,...,c7] as uint16 halfwords
+	// c12..c15: c12 crosses byte 7/8 boundary (R10[63:60] + R11[0])
+	BSTRPICKV $63, R10, $60, R25; BSTRPICKV $0, R11, $0, R14; SLLV $4, R14, R14; OR R14, R25  // c12
+	BSTRPICKV $5, R11, $1, R14; BSTRINSV $20, R14, $16, R25   // c13
+	BSTRPICKV $10, R11, $6, R14; BSTRINSV $36, R14, $32, R25  // c14
+	BSTRPICKV $15, R11, $11, R14; BSTRINSV $52, R14, $48, R25 // c15
+
+	// Write all 4 GPRs to output buffer (32 bytes), reload as LASX
+	MOVV R20, 0(R5)
+	MOVV R21, 8(R5)
+	MOVV R23, 16(R5)
+	MOVV R25, 24(R5)
+	XVMOVQ (R5), X0             // X0 = [c0..c15] as uint16 halfwords (256-bit)
 
 	// LASX decompress: f = (c * q + 16) >> 5 (32-bit arithmetic)
-	XVMULWEVWHU X0, X8, X12     // X12.word[i] = X0.half[2i] × q  (for c0,c2,c4,c6)
-	XVMULWODWHU X0, X8, X0     // X0.word[i]  = X0_orig.half[2i+1] × q  (c1,c3,c5,c7)
-	XVADDW X9, X12, X12         // add 16 (rounding)
+	XVMULWEVWHU X0, X8, X12     // X12.word[i] = X0.half[2i] × q  (even coefs)
+	XVMULWODWHU X0, X8, X0     // X0.word[i]  = X0_orig.half[2i+1] × q  (odd coefs)
+	XVADDW X9, X12, X12
 	XVADDW X9, X0,  X0
-	XVSRLW $5, X12, X12         // >> 5: f[0,2,4,6] in low 16 bits of each word
-	XVSRLW $5, X0,  X0          // f[1,3,5,7]
+	XVSRLW $5, X12, X12
+	XVSRLW $5, X0,  X0
 
 	// Reorder: interleave even/odd results into sequential halfwords
-	XVILVLW X12, X0, X1         // X1.words = [f0,f1,f2,f3, ...] (low 16b each)
-	XVILVHW X12, X0, X2         // X2.words = [f4,f5,f6,f7, ...]
-	XVPICKEV_H(0, 2, 1)         // X0.half = [f0,f1,f2,f3,f4,f5,f6,f7] in lower lane
+	XVILVLW X12, X0, X1
+	XVILVHW X12, X0, X2
+	XVPICKEV_H(0, 2, 1)         // X0 = [f0..f15] in 16 halfwords
 
-	// Store 8 int16 values from lower 128-bit lane (V0)
-	VMOVQ V0, 0(R5)
+	// Store 16 int16 values (32 bytes)
+	XVMOVQ X0, (R5)
 
-	ADDV $5, R4
-	ADDV $16, R5                // 8 int16 = 16 bytes
+	ADDV $10, R4                // 10 input bytes
+	ADDV $32, R5                // 16 int16 = 32 bytes
 	ADDV $-1, R6
 	BNE R6, R0, decompress5_loop
 
