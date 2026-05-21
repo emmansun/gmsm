@@ -1761,21 +1761,16 @@ compress11_loop:
 //
 // Decodes 10-bit packed values and decompresses to ring elements.
 // Each ring element: 256 coefs, encoded as 320 bytes (256×10/8).
-// Inner loop: 8 coefs per 10 bytes → 16 bytes output.
+// Inner loop: 16 coefs per 20 bytes → 32 bytes output (full 256-bit LASX).
 // Decompress_10: f = (y*q >> 10) + ((y*q >> 9) & 1)
 //
 // Register usage:
-//   R4 = src pointer (c)
-//   R5 = dst pointer
-//   R6 = outer loop counter (len(dst))
-//   R7 = inner loop counter (32 per ring element)
-//   R8 = 64-bit word from input
-//   R9 = 16-bit word from input (bytes 8..9)
-//   R10..R19 = scratch for coef extraction and packing
-//   R12 = 10-bit mask (0x3FF)
-//   X8 = broadcast(3329) as uint16
-//   X9 = broadcast(1) as uint32 (rounding mask)
-//   X10,X12 = even/odd products and temps
+//   R4 = src pointer (c), R5 = dst pointer
+//   R6 = outer loop counter, R7 = inner loop counter (16 per ring element)
+//   R8 = bytes 0..7, R9 = bytes 8..15, R11 = bytes 16..19
+//   R20=packed c0..c3, R21=packed c4..c7, R23=packed c8..c11, R25=packed c12..c15
+//   R14 = temp for BSTRPICKV/BSTRINSV
+//   X8 = broadcast(3329) as uint16, X9 = broadcast(1) as uint32 (rounding mask)
 TEXT ·decodeAndDecompressU10LASX(SB), NOSPLIT, $0-48
 	MOVV dst_base+0(FP), R5     // dst pointer
 	MOVV dst_len+8(FP), R6      // number of ring elements
@@ -1788,44 +1783,56 @@ TEXT ·decodeAndDecompressU10LASX(SB), NOSPLIT, $0-48
 	XVMOVQ R7, X9.W8            // X9 = broadcast(1) as uint32
 
 u10_outer:
-	MOVV $32, R7                 // 32 inner iterations per ring element (8 coefs each)
+	MOVV $16, R7                 // 16 inner iterations per ring element (16 coefs each)
 
 u10_inner:
-	// Load 10 bytes from src
-	MOVV  (R4), R8               // bytes 0..7
-	MOVHU 8(R4), R9              // bytes 8..9 (zero-extended to 64-bit)
+	// Load 20 bytes (160 bits = 16 × 10-bit values)
+	MOVV  (R4), R8               // bytes 0..7  (stream bits [63:0])
+	MOVV  8(R4), R9              // bytes 8..15 (stream bits [127:64])
+	MOVWU 16(R4), R11            // bytes 16..19 (stream bits [159:128], zero-extended)
 
-	// Extract c0..c7 using BSTRPICKV (no mask register needed)
-	BSTRPICKV $9,  R8, $0,  R10   // c0 = R8[9:0]
-	BSTRPICKV $19, R8, $10, R11   // c1 = R8[19:10]
-	BSTRPICKV $29, R8, $20, R13   // c2 = R8[29:20]
-	BSTRPICKV $39, R8, $30, R14   // c3 = R8[39:30]
-	BSTRPICKV $49, R8, $40, R15   // c4 = R8[49:40]
-	BSTRPICKV $59, R8, $50, R16   // c5 = R8[59:50]
+	// c0..c3 from R8
+	BSTRPICKV $9,  R8, $0,  R20   // c0
+	BSTRPICKV $19, R8, $10, R14; BSTRINSV $25, R14, $16, R20  // c1
+	BSTRPICKV $29, R8, $20, R14; BSTRINSV $41, R14, $32, R20  // c2
+	BSTRPICKV $39, R8, $30, R14; BSTRINSV $57, R14, $48, R20  // c3
 
-	// c6: 4 bits from R8[63:60] + 6 bits from R9[5:0]
-	BSTRPICKV $63, R8, $60, R17   // R17 = R8[63:60] (4 bits, in [3:0])
-	BSTRPICKV $5,  R9, $0,  R18   // R18 = R9[5:0] (6 bits)
-	SLLV  $4, R18, R18             // R18 = R9[5:0] shifted to [9:4]
-	OR    R17, R18                  // R18 = c6 (10 bits)
+	// c4..c5 from R8
+	BSTRPICKV $49, R8, $40, R21   // c4
+	BSTRPICKV $59, R8, $50, R14; BSTRINSV $25, R14, $16, R21  // c5
 
-	// c7 = R9[15:6]
-	BSTRPICKV $15, R9, $6, R19    // c7
+	// c6: crosses R8/R9 boundary at stream bit 63/64
+	BSTRPICKV $63, R8, $60, R14   // low 4 bits of c6
+	BSTRPICKV $5,  R9, $0,  R13   // high 6 bits of c6
+	SLLV $4, R13, R13; OR R13, R14  // c6 in R14
+	BSTRINSV $41, R14, $32, R21   // c6 at R21[41:32]
 
-	// Pack c0..c3 into R10: c0 | c1<<16 | c2<<32 | c3<<48 (using BSTRINSV)
-	BSTRINSV $25, R11, $16, R10   // c1 at R10[25:16]
-	BSTRINSV $47, R13, $32, R10   // c2 at R10[47:32]
-	BSTRINSV $63, R14, $48, R10   // c3 at R10[63:48]
+	// c7 from R9
+	BSTRPICKV $15, R9, $6, R14; BSTRINSV $57, R14, $48, R21   // c7
 
-	// Pack c4..c7 into R15: c4 | c5<<16 | c6<<32 | c7<<48 (using BSTRINSV)
-	BSTRINSV $25, R16, $16, R15   // c5 at R15[25:16]
-	BSTRINSV $47, R18, $32, R15   // c6 at R15[47:32]
-	BSTRINSV $63, R19, $48, R15   // c7 at R15[63:48]
+	// c8..c11 from R9
+	BSTRPICKV $25, R9, $16, R23   // c8
+	BSTRPICKV $35, R9, $26, R14; BSTRINSV $25, R14, $16, R23  // c9
+	BSTRPICKV $45, R9, $36, R14; BSTRINSV $41, R14, $32, R23  // c10
+	BSTRPICKV $55, R9, $46, R14; BSTRINSV $57, R14, $48, R23  // c11
 
-	// Write raw coefs to dst (will be overwritten by decompress results)
-	MOVV  R10, 0(R5)
-	MOVV  R15, 8(R5)
-	XVMOVQ (R5), X0              // X0[127:0] = [c0,c1,...,c7] as uint16 halfwords
+	// c12: crosses R9/R11 boundary at stream bit 127/128
+	BSTRPICKV $63, R9, $56, R14   // low 8 bits of c12
+	BSTRPICKV $1,  R11, $0, R13   // high 2 bits of c12
+	SLLV $8, R13, R13; OR R13, R14  // c12 in R14
+	MOVV R14, R25                  // c12 at R25[9:0]
+
+	// c13..c15 from R11
+	BSTRPICKV $11, R11, $2,  R14; BSTRINSV $25, R14, $16, R25  // c13
+	BSTRPICKV $21, R11, $12, R14; BSTRINSV $41, R14, $32, R25  // c14
+	BSTRPICKV $31, R11, $22, R14; BSTRINSV $57, R14, $48, R25  // c15
+
+	// Write all 4 GPRs (32 bytes) to dst, reload as LASX 256-bit
+	MOVV  R20, 0(R5)
+	MOVV  R21, 8(R5)
+	MOVV  R23, 16(R5)
+	MOVV  R25, 24(R5)
+	XVMOVQ (R5), X0              // X0 = [c0..c15] as uint16 halfwords (256-bit)
 
 	// Decompress_10: f = (y*q >> 10) + ((y*q >> 9) & 1)
 	XVMULWEVWHU X0, X8, X12     // X12.word[i] = c[2i] * q (even coefs)
@@ -1844,15 +1851,15 @@ u10_inner:
 	XVADDW X10, X0,  X0         // f_odd
 
 	// Interleave even and odd results
-	XVILVLW X12, X0, X1         // X1.words = [f0,f1,f2,f3] (low 16b each)
-	XVILVHW X12, X0, X2         // X2.words = [f4,f5,f6,f7]
-	XVPICKEV_H(0, 2, 1)         // X0.half  = [f0,f1,f2,f3,f4,f5,f6,f7]
+	XVILVLW X12, X0, X1
+	XVILVHW X12, X0, X2
+	XVPICKEV_H(0, 2, 1)         // X0 = [f0..f15] in 16 halfwords
 
-	// Store 8 int16 = 16 bytes
-	VMOVQ V0, 0(R5)
+	// Store 16 int16 = 32 bytes
+	XVMOVQ X0, (R5)
 
-	ADDV  $10, R4
-	ADDV  $16, R5
+	ADDV  $20, R4               // 20 input bytes
+	ADDV  $32, R5               // 16 int16 = 32 bytes
 	ADDV  $-1, R7
 	BNE   R7, R0, u10_inner
 
@@ -1866,21 +1873,16 @@ u10_inner:
 //
 // Decodes 11-bit packed values and decompresses to ring elements.
 // Each ring element: 256 coefs, encoded as 352 bytes (256×11/8).
-// Inner loop: 8 coefs per 11 bytes → 16 bytes output.
+// Inner loop: 16 coefs per 22 bytes → 32 bytes output (full 256-bit LASX).
 // Decompress_11: f = (y*q >> 11) + ((y*q >> 10) & 1)
 //
 // Register usage:
-//   R4 = src pointer (c)
-//   R5 = dst pointer
-//   R6 = outer loop counter (len(dst))
-//   R7 = inner loop counter (32 per ring element)
-//   R8 = 64-bit word from input (bytes 0..7)
-//   R9 = 24-bit word from input (bytes 8..10)
-//   R10..R19 = scratch for coef extraction and packing
-//   R12 = 11-bit mask (0x7FF)
-//   X8 = broadcast(3329) as uint16
-//   X9 = broadcast(1) as uint32 (rounding mask)
-//   X10,X12 = even/odd products and temps
+//   R4 = src pointer (c), R5 = dst pointer
+//   R6 = outer loop counter, R7 = inner loop counter (16 per ring element)
+//   R8 = bytes 0..7, R9 = bytes 8..15, R12 = bytes 16..21 (6 bytes, 48 bits)
+//   R20=packed c0..c3, R21=packed c4..c7, R23=packed c8..c11, R25=packed c12..c15
+//   R13, R14 = temp for BSTRPICKV/BSTRINSV
+//   X8 = broadcast(3329) as uint16, X9 = broadcast(1) as uint32 (rounding mask)
 TEXT ·decodeAndDecompressU11LASX(SB), NOSPLIT, $0-48
 	MOVV dst_base+0(FP), R5     // dst pointer
 	MOVV dst_len+8(FP), R6      // number of ring elements
@@ -1893,47 +1895,54 @@ TEXT ·decodeAndDecompressU11LASX(SB), NOSPLIT, $0-48
 	XVMOVQ R7, X9.W8            // X9 = broadcast(1) as uint32
 
 u11_outer:
-	MOVV $32, R7                 // 32 inner iterations per ring element (8 coefs each)
+	MOVV $16, R7                 // 16 inner iterations per ring element (16 coefs each)
 
 u11_inner:
-	// Load 11 bytes from src
-	MOVV  (R4), R8               // bytes 0..7 (64 bits)
-	MOVHU 8(R4), R9              // bytes 8..9 (16 bits, zero-extended)
-	MOVBU 10(R4), R10            // byte 10 (8 bits, zero-extended)
-	SLLV  $16, R10, R10
-	OR    R10, R9                // R9 = bytes[8..10] in [23:0]
+	// Load 22 bytes (176 bits = 16 × 11-bit values)
+	MOVV  (R4), R8               // bytes 0..7  (stream bits [63:0])
+	MOVV  8(R4), R9              // bytes 8..15 (stream bits [127:64])
+	MOVWU 16(R4), R12            // bytes 16..19 (stream bits [159:128], zero-extended)
+	MOVHU 20(R4), R10; SLLV $32, R10, R10; OR R10, R12  // bytes 20..21 → R12[47:32]
 
-	// Extract c0..c7 using BSTRPICKV (no mask register needed)
-	BSTRPICKV $10, R8, $0,  R10   // c0 = R8[10:0]
-	BSTRPICKV $21, R8, $11, R11   // c1 = R8[21:11]
-	BSTRPICKV $32, R8, $22, R13   // c2 = R8[32:22]
-	BSTRPICKV $43, R8, $33, R14   // c3 = R8[43:33]
-	BSTRPICKV $54, R8, $44, R15   // c4 = R8[54:44]
+	// c0..c4 from R8
+	BSTRPICKV $10, R8, $0,  R20   // c0
+	BSTRPICKV $21, R8, $11, R14; BSTRINSV $26, R14, $16, R20  // c1
+	BSTRPICKV $32, R8, $22, R14; BSTRINSV $42, R14, $32, R20  // c2
+	BSTRPICKV $43, R8, $33, R14; BSTRINSV $58, R14, $48, R20  // c3
+
+	BSTRPICKV $54, R8, $44, R21   // c4
 
 	// c5: 9 bits from R8[63:55] + 2 bits from R9[1:0]
-	BSTRPICKV $63, R8, $55, R16   // R16 = R8[63:55] (9 bits, in [8:0])
-	BSTRPICKV $1,  R9, $0,  R17   // R17 = R9[1:0] (2 bits)
-	SLLV  $9, R17, R17             // R17 = R9[1:0] shifted to [10:9]
-	OR    R16, R17                  // R17 = c5 (11 bits)
+	BSTRPICKV $63, R8, $55, R14   // c5 low 9 bits
+	BSTRPICKV $1,  R9, $0,  R13; SLLV $9, R13, R13; OR R13, R14  // c5 high 2 bits
+	BSTRINSV $26, R14, $16, R21   // c5
 
-	// c6 = R9[12:2]; c7 = R9[23:13]
-	BSTRPICKV $12, R9, $2,  R18   // c6
-	BSTRPICKV $23, R9, $13, R19   // c7
+	// c6, c7 from R9
+	BSTRPICKV $12, R9, $2,  R14; BSTRINSV $42, R14, $32, R21  // c6
+	BSTRPICKV $23, R9, $13, R14; BSTRINSV $58, R14, $48, R21  // c7
 
-	// Pack c0..c3 into R10: c0 | c1<<16 | c2<<32 | c3<<48 (using BSTRINSV)
-	BSTRINSV $26, R11, $16, R10   // c1 at R10[26:16]
-	BSTRINSV $42, R13, $32, R10   // c2 at R10[42:32]
-	BSTRINSV $58, R14, $48, R10   // c3 at R10[58:48]
+	// c8..c10 from R9
+	BSTRPICKV $34, R9, $24, R23   // c8
+	BSTRPICKV $45, R9, $35, R14; BSTRINSV $26, R14, $16, R23  // c9
+	BSTRPICKV $56, R9, $46, R14; BSTRINSV $42, R14, $32, R23  // c10
 
-	// Pack c4..c7 into R15: c4 | c5<<16 | c6<<32 | c7<<48 (using BSTRINSV)
-	BSTRINSV $26, R17, $16, R15   // c5 at R15[26:16]
-	BSTRINSV $42, R18, $32, R15   // c6 at R15[42:32]
-	BSTRINSV $58, R19, $48, R15   // c7 at R15[58:48]
+	// c11: 7 bits from R9[63:57] + 4 bits from R12[3:0]
+	BSTRPICKV $63, R9, $57, R14   // c11 low 7 bits
+	BSTRPICKV $3,  R12, $0, R13; SLLV $7, R13, R13; OR R13, R14  // c11 high 4 bits
+	BSTRINSV $58, R14, $48, R23   // c11
 
-	// Write raw coefs to dst (will be overwritten by decompress results)
-	MOVV  R10, 0(R5)
-	MOVV  R15, 8(R5)
-	XVMOVQ (R5), X0              // X0[127:0] = [c0,c1,...,c7] as uint16 halfwords
+	// c12..c15 from R12
+	BSTRPICKV $14, R12, $4,  R25   // c12
+	BSTRPICKV $25, R12, $15, R14; BSTRINSV $26, R14, $16, R25  // c13
+	BSTRPICKV $36, R12, $26, R14; BSTRINSV $42, R14, $32, R25  // c14
+	BSTRPICKV $47, R12, $37, R14; BSTRINSV $58, R14, $48, R25  // c15
+
+	// Write all 4 GPRs (32 bytes) to dst, reload as LASX 256-bit
+	MOVV  R20, 0(R5)
+	MOVV  R21, 8(R5)
+	MOVV  R23, 16(R5)
+	MOVV  R25, 24(R5)
+	XVMOVQ (R5), X0              // X0 = [c0..c15] as uint16 halfwords (256-bit)
 
 	// Decompress_11: f = (y*q >> 11) + ((y*q >> 10) & 1)
 	XVMULWEVWHU X0, X8, X12     // X12.word[i] = c[2i] * q (even coefs)
@@ -1952,15 +1961,15 @@ u11_inner:
 	XVADDW X10, X0,  X0         // f_odd
 
 	// Interleave even and odd results
-	XVILVLW X12, X0, X1         // X1.words = [f0,f1,f2,f3] (low 16b each)
-	XVILVHW X12, X0, X2         // X2.words = [f4,f5,f6,f7]
-	XVPICKEV_H(0, 2, 1)         // X0.half  = [f0,f1,f2,f3,f4,f5,f6,f7]
+	XVILVLW X12, X0, X1
+	XVILVHW X12, X0, X2
+	XVPICKEV_H(0, 2, 1)         // X0 = [f0..f15] in 16 halfwords
 
-	// Store 8 int16 = 16 bytes
-	VMOVQ V0, 0(R5)
+	// Store 16 int16 = 32 bytes
+	XVMOVQ X0, (R5)
 
-	ADDV  $11, R4
-	ADDV  $16, R5
+	ADDV  $22, R4               // 22 input bytes
+	ADDV  $32, R5               // 16 int16 = 32 bytes
 	ADDV  $-1, R7
 	BNE   R7, R0, u11_inner
 
