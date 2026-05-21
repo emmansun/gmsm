@@ -1577,49 +1577,43 @@ compress10_loop:
 	XVANDV X11, X1, X1
 	XVANDV X11, X2, X2
 
-	// X12 = c[0], c[2], c[4], c[6], c[8], c[10], c[12], c[14]  (even-indexed coefs)
-	// X13 = c[1], c[3], c[5], c[7], c[9], c[11], c[13], c[15]  (from odd halfword-pairs → c_ev[1,3...])
-	// Wait: naming was confusing. Let me redo:
-	// After XVMULWEVWHU:  X1.word[i] = coef[2i] (c0,c2,...,c14)
-	//                     X2.word[i] = coef[2i+1] (c1,c3,...,c15)
-	// After compress:     X12 = compressed(c0,c2,c4,c6,c8,c10,c12,c14) via EV/OD of X1
-	//                     X13 = "
-	// OOPS: X12 = c[0],c[4],c[8],c[12] (from XVMULWEVVWU on X1 which had c0,c2,c4,c6,c8,...)
-	//        X13 = c[2],c[6],c[10],c[14] (from XVMULWODVWU on X1)
-	//        X1  = c[1],c[5],c[9],c[13]
-	//        X2  = c[3],c[7],c[11],c[15]
-
-	// Reorder to sequential: interleave X12/X13 and X1/X2
-	// We need c0,c1,c2,c3 in one group for packing.
-	// For each 5-byte block we pack 4 sequential coefs.
-	// Extract groups via XVMOVQ V[n], Rn:
-	// X12.V[0] = {c0, c4} as 64-bit (each in 32-bit); X13.V[0] = {c2, c6}
-	// X1.V[0]  = {c1, c5};                             X2.V[0]  = {c3, c7}
+	// X12 = {c0_comp, c4_comp, c8_comp, c12_comp} as 64-bit dwords (value in low 32 bits each)
+	// X13 = {c2_comp, c6_comp, c10_comp, c14_comp}
+	// X1  = {c1_comp, c5_comp, c9_comp, c13_comp}
+	// X2  = {c3_comp, c7_comp, c11_comp, c15_comp}
+	//
+	// V[n] extracts quadword n (64-bit). Each quadword holds one compressed value (in low 32 bits).
+	// 4 groups × 4 extractions = 16 XVMOVQ, but scalar packing is straightforward.
 
 	// Group 0: c0,c1,c2,c3 → 5 bytes
-	XVMOVQ X12.V[0], R10       // R10 = c0 in [31:0], c4 in [63:32]
-	XVMOVQ X13.V[0], R11       // R11 = c2 in [31:0], c6 in [63:32]
-	XVMOVQ X1.V[0],  R12       // R12 = c1 in [31:0], c5 in [63:32]
-	XVMOVQ X2.V[0],  R13       // R13 = c3 in [31:0], c7 in [63:32]
-	// pack c0|c1<<10|c2<<20|c3<<30
+	XVMOVQ X12.V[0], R10
+	XVMOVQ X13.V[0], R11
+	XVMOVQ X1.V[0],  R12
+	XVMOVQ X2.V[0],  R13
 	MOVV  R10, R20; SLLV $10, R12, R14; OR R14, R20; SLLV $20, R11, R14; OR R14, R20; SLLV $30, R13, R14; OR R14, R20
 	MOVBU R20, 0(R4); SRLV $8, R20, R20; MOVBU R20, 1(R4); SRLV $8, R20, R20; MOVBU R20, 2(R4); SRLV $8, R20, R20; MOVBU R20, 3(R4); SRLV $8, R20, R20; MOVBU R20, 4(R4)
 
 	// Group 1: c4,c5,c6,c7 → 5 bytes
-	SRLV $32, R10, R10; SRLV $32, R11, R11; SRLV $32, R12, R12; SRLV $32, R13, R13
-	MOVV  R10, R20; SLLV $10, R12, R14; OR R14, R20; SLLV $20, R11, R14; OR R14, R20; SLLV $30, R13, R14; OR R14, R20
-	MOVBU R20, 5(R4); SRLV $8, R20, R20; MOVBU R20, 6(R4); SRLV $8, R20, R20; MOVBU R20, 7(R4); SRLV $8, R20, R20; MOVBU R20, 8(R4); SRLV $8, R20, R20; MOVBU R20, 9(R4)
-
-	// Group 2: c8,c9,c10,c11 → 5 bytes
 	XVMOVQ X12.V[1], R10
 	XVMOVQ X13.V[1], R11
 	XVMOVQ X1.V[1],  R12
 	XVMOVQ X2.V[1],  R13
 	MOVV  R10, R20; SLLV $10, R12, R14; OR R14, R20; SLLV $20, R11, R14; OR R14, R20; SLLV $30, R13, R14; OR R14, R20
+	MOVBU R20, 5(R4); SRLV $8, R20, R20; MOVBU R20, 6(R4); SRLV $8, R20, R20; MOVBU R20, 7(R4); SRLV $8, R20, R20; MOVBU R20, 8(R4); SRLV $8, R20, R20; MOVBU R20, 9(R4)
+
+	// Group 2: c8,c9,c10,c11 → 5 bytes
+	XVMOVQ X12.V[2], R10
+	XVMOVQ X13.V[2], R11
+	XVMOVQ X1.V[2],  R12
+	XVMOVQ X2.V[2],  R13
+	MOVV  R10, R20; SLLV $10, R12, R14; OR R14, R20; SLLV $20, R11, R14; OR R14, R20; SLLV $30, R13, R14; OR R14, R20
 	MOVBU R20, 10(R4); SRLV $8, R20, R20; MOVBU R20, 11(R4); SRLV $8, R20, R20; MOVBU R20, 12(R4); SRLV $8, R20, R20; MOVBU R20, 13(R4); SRLV $8, R20, R20; MOVBU R20, 14(R4)
 
 	// Group 3: c12,c13,c14,c15 → 5 bytes
-	SRLV $32, R10, R10; SRLV $32, R11, R11; SRLV $32, R12, R12; SRLV $32, R13, R13
+	XVMOVQ X12.V[3], R10
+	XVMOVQ X13.V[3], R11
+	XVMOVQ X1.V[3],  R12
+	XVMOVQ X2.V[3],  R13
 	MOVV  R10, R20; SLLV $10, R12, R14; OR R14, R20; SLLV $20, R11, R14; OR R14, R20; SLLV $30, R13, R14; OR R14, R20
 	MOVBU R20, 15(R4); SRLV $8, R20, R20; MOVBU R20, 16(R4); SRLV $8, R20, R20; MOVBU R20, 17(R4); SRLV $8, R20, R20; MOVBU R20, 18(R4); SRLV $8, R20, R20; MOVBU R20, 19(R4)
 
