@@ -1208,3 +1208,400 @@ decompress4_loop:
 	BNE R6, R0, decompress4_loop
 
 	RET
+
+// ── ringCompressAndEncode1LASX ────────────────────────────────────────────────
+// func ringCompressAndEncode1LASX(out []byte, f *ringElement)
+//
+// Compress_1 + ByteEncode_1: maps 256 int16 coefficients to 32 bytes (1 bit each).
+// compress(x, 1) = 1 if 833 ≤ x ≤ 2496, else 0.
+//
+// Algorithm per 32 coefficients (2 LASX registers → 4 output bytes):
+//   1. Load 16 coefficients into X0/X1.
+//   2. Compute in-range mask:
+//        lo_mask = sign(x - 833)  → 0xFFFF if x < 833 (NOT compress=1)
+//        hi_mask = sign(x - 2497) → 0xFFFF if x < 2497 (compress=1)
+//        mask = ANDNV(lo_mask, hi_mask) = ~lo_mask & hi_mask = 0xFFFF iff 833≤x≤2496
+//   3. Shift mask >> 15 → 0x0001 if compress=1.
+//   4. Multiply by bit-position weights [1,2,4,8,16,32,64,128, 1,2,...,128].
+//   5. Horizontal sum within each 128-bit lane (8 halfwords → 1 byte):
+//        Round 1: XVSHUF4IH $0xB1 + XVADDH (pair-sum adjacent halfw: 8→4)
+//        Round 2: XVSHUF4IH $0x4E + XVADDH (pair-sum 2-wide: 4→2, but 2 same)
+//        Byte per lane now in halfword[0] and halfword[2] per 128-bit lane.
+//   6. Extract: XVMOVQ X.V[0], R → low 32 bits = [byte0, ?, byte1, ?] (16-bit each)
+//      XVMOVQ X.V[2] for lane1 bytes.
+//      Extract via MOVBU.
+//
+// Register allocation:
+//   R4=out, R5=f, R6=loop counter
+//   X8=broadcast(833), X9=broadcast(2497), X12=weights
+//   X0,X1=coefficients; X2,X3=lo_mask; X4,X5=hi_mask; X6,X7=compress masks
+TEXT ·ringCompressAndEncode1LASX(SB), NOSPLIT, $0-32
+	MOVV out_base+0(FP), R4
+	MOVV f+24(FP), R5
+
+	MOVV $833, R7
+	XVMOVQ R7, X8.H16               // X8 = broadcast(833)
+	MOVV $2497, R7
+	XVMOVQ R7, X9.H16               // X9 = broadcast(2497)
+	MOVV $·compress1WeightsH+0(SB), R7
+	XVMOVQ (R7), X12  // weights [1,2,4,8,16,32,64,128, ×2]
+
+	MOVV $8, R6   // 8 iterations × 32 coefficients = 256 → 32 bytes
+
+compress1_loop:
+	XVMOVQ (R5), X0          // load coefs 0..15
+	XVMOVQ 32(R5), X1        // load coefs 16..31
+
+	// ── Compress X0 (coefs 0..15) ────────────────────────────────────────────
+	XVSUBH X8, X0, X2        // X2 = x - 833 (negative iff x < 833)
+	XVSRAH $15, X2, X2       // X2 = 0xFFFF if x < 833, else 0
+	XVSUBH X9, X0, X3        // X3 = x - 2497 (negative iff x ≤ 2496)
+	XVSRAH $15, X3, X3       // X3 = 0xFFFF if x ≤ 2496, else 0
+	XVANDNV X2, X3, X0       // X0 = ~X2 & X3: 0xFFFF iff 833≤x≤2496
+	XVSRLH $15, X0, X0       // X0 = 0x0001 if compress=1, else 0
+	XVMULH X12, X0, X0       // X0[i] = 0 or bit-weight[i]
+
+	// Reduce 4 halfwords per 64-bit group to 1 value via 2 rounds of pairwise sum:
+	XVSHUF4IH $0xB1, X0, X2
+	XVADDH X2, X0, X0
+	XVSHUF4IH $0x4E, X0, X2
+	XVADDH X2, X0, X0
+	// V[0][15:0] = sum of coefs[0..3] × [1,2,4,8]   = bits[3:0] of byte0
+	// V[1][15:0] = sum of coefs[4..7] × [16,32,64,128] = bits[7:4] of byte0
+	// V[2][15:0] = coefs[8..11] → bits[3:0] of byte1
+	// V[3][15:0] = coefs[12..15] → bits[7:4] of byte1
+
+	// ── Compress X1 (coefs 16..31) ───────────────────────────────────────────
+	XVSUBH X8, X1, X3
+	XVSRAH $15, X3, X3
+	XVSUBH X9, X1, X4
+	XVSRAH $15, X4, X4
+	XVANDNV X3, X4, X1
+	XVSRLH $15, X1, X1
+	XVMULH X12, X1, X1
+	XVSHUF4IH $0xB1, X1, X3
+	XVADDH X3, X1, X1
+	XVSHUF4IH $0x4E, X1, X3
+	XVADDH X3, X1, X1
+
+	// ── Extract 4 output bytes ────────────────────────────────────────────────
+	// byte0 = V[0] (bits 3:0) | V[1] (bits 7:4) = OR of low halfwords
+	XVMOVQ X0.V[0], R10
+	XVMOVQ X0.V[1], R11
+	OR     R11, R10
+	MOVBU  R10, 0(R4)
+
+	XVMOVQ X0.V[2], R10
+	XVMOVQ X0.V[3], R11
+	OR     R11, R10
+	MOVBU  R10, 1(R4)
+
+	XVMOVQ X1.V[0], R10
+	XVMOVQ X1.V[1], R11
+	OR     R11, R10
+	MOVBU  R10, 2(R4)
+
+	XVMOVQ X1.V[2], R10
+	XVMOVQ X1.V[3], R11
+	OR     R11, R10
+	MOVBU  R10, 3(R4)
+
+	ADDV $64, R5              // 32 int16 = 64 bytes
+	ADDV $4, R4               // 4 output bytes
+	ADDV $-1, R6
+	BNE R6, R0, compress1_loop
+
+	RET
+
+// ── ringCompressAndEncode5LASX ────────────────────────────────────────────────
+// func ringCompressAndEncode5LASX(out []byte, f *ringElement)
+//
+// Compress_5 + ByteEncode_5: maps 256 int16 coefficients to 160 bytes.
+// Compress formula: c = ((mulhigh16(x, 20159) + 16) >> 5) & 0x1F
+// ByteEncode_5: 8 × 5-bit → 5 bytes. x = c0|c1<<5|c2<<10|c3<<15|c4<<20|c5<<25|c6<<30|c7<<35
+//
+// Algorithm: 32 iterations × 8 coefs → 5 bytes each.
+// Per iteration: load 8 coefs via VMOVQ (lower 128-bit lane), compress via LASX,
+// extract V[0]/V[1] to GPR, pack 5-bit values, store 5 bytes.
+TEXT ·ringCompressAndEncode5LASX(SB), NOSPLIT, $0-32
+	MOVV out_base+0(FP), R4
+	MOVV f+24(FP), R5
+
+	MOVV $20159, R7
+	XVMOVQ R7, X8.H16        // X8 = broadcast(20159)
+	MOVV $16, R7
+	XVMOVQ R7, X9.H16        // X9 = broadcast(16)
+	MOVV $0x1F, R7
+	XVMOVQ R7, X10.H16       // X10 = broadcast(0x1F)
+	MOVV $0x1F, R7            // scalar 5-bit mask
+
+	MOVV $32, R6
+
+compress5_loop:
+	VMOVQ (R5), V0            // load 8 coefs into V0 (lower 128-bit of X0)
+
+	// Compress: ((mulhigh16(x, 20159) + 16) >> 5) & 0x1F
+	XVMUHH X0, X8, X1
+	XVADDH X9, X1, X1
+	XVSRAH $5, X1, X1
+	XVANDV X10, X1, X1        // X1.half[0..7] = c0..c7
+
+	// Extract c0..c7 from LASX register (lower 128-bit lane)
+	XVMOVQ X1.V[0], R10      // R10 = c0|(c1<<16)|(c2<<32)|(c3<<48)
+	XVMOVQ X1.V[1], R11      // R11 = c4|(c5<<16)|(c6<<32)|(c7<<48)
+
+	// Pack into 40-bit accumulator R20
+	MOVV   R10, R20
+	AND    R7, R20             // c0 in R20
+
+	SRLV   $11, R10, R12
+	AND    R7, R12             // c1 raw
+	SLLV   $5, R12, R12
+	OR     R12, R20            // c1 at [9:5]
+
+	SRLV   $22, R10, R12
+	AND    R7, R12             // c2 raw
+	SLLV   $10, R12, R12
+	OR     R12, R20            // c2 at [14:10]
+
+	SRLV   $33, R10, R12
+	AND    R7, R12             // c3 raw
+	SLLV   $15, R12, R12
+	OR     R12, R20            // c3 at [19:15]
+
+	MOVV   R11, R12
+	AND    R7, R12             // c4 raw
+	SLLV   $20, R12, R12
+	OR     R12, R20            // c4 at [24:20]
+
+	SRLV   $11, R11, R12
+	AND    R7, R12             // c5 raw
+	SLLV   $25, R12, R12
+	OR     R12, R20            // c5 at [29:25]
+
+	SRLV   $22, R11, R12
+	AND    R7, R12             // c6 raw
+	SLLV   $30, R12, R12
+	OR     R12, R20            // c6 at [34:30]
+
+	SRLV   $33, R11, R12
+	AND    R7, R12             // c7 raw
+	SLLV   $35, R12, R12
+	OR     R12, R20            // c7 at [39:35]
+
+	// Store 5 bytes
+	MOVBU  R20, 0(R4); SRLV $8, R20, R20
+	MOVBU  R20, 1(R4); SRLV $8, R20, R20
+	MOVBU  R20, 2(R4); SRLV $8, R20, R20
+	MOVBU  R20, 3(R4); SRLV $8, R20, R20
+	MOVBU  R20, 4(R4)
+
+	ADDV $16, R5              // 8 int16 = 16 bytes
+	ADDV $5, R4               // 5 output bytes
+	ADDV $-1, R6
+	BNE R6, R0, compress5_loop
+
+	RET
+
+// ── ringDecodeAndDecompress5LASX ──────────────────────────────────────────────
+// func ringDecodeAndDecompress5LASX(b *[160]byte, f *ringElement)
+//
+// ByteDecode_5 + Decompress_5: maps 160 bytes to 256 int16 coefficients.
+// Formula: f = (c * q + 16) >> 5, where q=3329, c ∈ [0,31].
+// Max c*q = 31*3329 = 103199 > uint16 → need 32-bit arithmetic.
+//
+// Algorithm: 32 iterations × 5 bytes → 8 coefficients (16 bytes).
+// Per iteration: load 5 bytes → extract 8 × 5-bit → decompress → store 8 × int16.
+TEXT ·ringDecodeAndDecompress5LASX(SB), NOSPLIT, $0-16
+	MOVV b+0(FP), R4
+	MOVV f+8(FP), R5
+
+	MOVV $3329, R8              // q=3329
+	MOVV $0x1F, R7              // 5-bit mask
+
+	MOVV $32, R6
+
+decompress5_loop:
+	// Load 5 bytes (40 bits = 8 × 5-bit values)
+	MOVWU (R4), R10            // bytes 0..3 (zero-extended to 64-bit)
+	MOVBU 4(R4), R11
+	SLLV  $32, R11, R11
+	OR    R11, R10             // R10[39:0] = all 5 bytes
+
+	// Extract 8 × 5-bit values
+	MOVV  R10, R11; AND R7, R11  // c0
+	SRLV  $5, R10, R12; AND R7, R12   // c1
+	SRLV  $10, R10, R13; AND R7, R13  // c2
+	SRLV  $15, R10, R14; AND R7, R14  // c3
+	SRLV  $20, R10, R15; AND R7, R15  // c4
+	SRLV  $25, R10, R16; AND R7, R16  // c5
+	SRLV  $30, R10, R17; AND R7, R17  // c6
+	SRLV  $35, R10, R18; AND R7, R18  // c7
+
+	// Decompress each: f = (c * q + 16) >> 5 using 32-bit arithmetic
+	// q=3329 is in R8
+	MULV  R8, R11; ADDV $16, R11; SRLV $5, R11, R11  // f0
+	MULV  R8, R12; ADDV $16, R12; SRLV $5, R12, R12  // f1
+	MULV  R8, R13; ADDV $16, R13; SRLV $5, R13, R13  // f2
+	MULV  R8, R14; ADDV $16, R14; SRLV $5, R14, R14  // f3
+	MULV  R8, R15; ADDV $16, R15; SRLV $5, R15, R15  // f4
+	MULV  R8, R16; ADDV $16, R16; SRLV $5, R16, R16  // f5
+	MULV  R8, R17; ADDV $16, R17; SRLV $5, R17, R17  // f6
+	MULV  R8, R18; ADDV $16, R18; SRLV $5, R18, R18  // f7
+
+	// Store 8 int16 values
+	MOVH  R11, 0(R5)
+	MOVH  R12, 2(R5)
+	MOVH  R13, 4(R5)
+	MOVH  R14, 6(R5)
+	MOVH  R15, 8(R5)
+	MOVH  R16, 10(R5)
+	MOVH  R17, 12(R5)
+	MOVH  R18, 14(R5)
+
+	ADDV $5, R4
+	ADDV $16, R5               // 8 int16 = 16 bytes
+	ADDV $-1, R6
+	BNE R6, R0, decompress5_loop
+
+	RET
+
+// ── ringCompressAndEncode10LASX ───────────────────────────────────────────────
+// func ringCompressAndEncode10LASX(out []byte, f *ringElement)
+//
+// Compress_10 + ByteEncode_10: maps 256 int16 coefficients to 320 bytes.
+// Compress_10 (32-bit): n=(x<<10)+1664; c=(n*1290168)>>32; c&=0x3FF
+// ByteEncode_10: 4 × 10-bit → 5 bytes. x=c0|c1<<10|c2<<20|c3<<30 (40 bits).
+// Algorithm: 64 iterations × 4 coefs → 5 bytes.
+TEXT ·ringCompressAndEncode10LASX(SB), NOSPLIT, $0-32
+	MOVV out_base+0(FP), R4
+	MOVV f+24(FP), R5
+
+	MOVV $1290168, R20         // compress magic
+	MOVV $1664, R21            // rounding bias
+	MOVV $0x3FF, R9            // 10-bit mask
+	MOVV $0xFFFF, R7           // 16-bit extraction mask
+
+	MOVV $64, R6   // 64 × 4 coefs = 256
+
+compress10_loop:
+	// Load 4 coefficients (8 bytes)
+	MOVV (R5), R10             // R10 = c0|(c1<<16)|(c2<<32)|(c3<<48) as uint16 halfw
+
+	// Extract and compress c0..c3
+	MOVV  R10, R11; AND R7, R11  // c0 raw
+	SLLV  $10, R11, R11; ADDV R21, R11, R11; MULV R20, R11, R11; SRLV $32, R11, R11; AND R9, R11
+
+	SRLV  $16, R10, R12; AND R7, R12  // c1 raw
+	SLLV  $10, R12, R12; ADDV R21, R12, R12; MULV R20, R12, R12; SRLV $32, R12, R12; AND R9, R12
+
+	SRLV  $32, R10, R13; AND R7, R13  // c2 raw
+	SLLV  $10, R13, R13; ADDV R21, R13, R13; MULV R20, R13, R13; SRLV $32, R13, R13; AND R9, R13
+
+	SRLV  $48, R10, R14; AND R7, R14  // c3 raw
+	SLLV  $10, R14, R14; ADDV R21, R14, R14; MULV R20, R14, R14; SRLV $32, R14, R14; AND R9, R14
+
+	// Pack: x = c0 | c1<<10 | c2<<20 | c3<<30
+	MOVV   R11, R10
+	SLLV   $10, R12, R12; OR R12, R10
+	SLLV   $20, R13, R13; OR R13, R10
+	SLLV   $30, R14, R14; OR R14, R10
+
+	// Store 5 bytes
+	MOVBU  R10, 0(R4); SRLV $8, R10, R10
+	MOVBU  R10, 1(R4); SRLV $8, R10, R10
+	MOVBU  R10, 2(R4); SRLV $8, R10, R10
+	MOVBU  R10, 3(R4); SRLV $8, R10, R10
+	MOVBU  R10, 4(R4)
+
+	ADDV $8, R5               // 4 int16 = 8 bytes
+	ADDV $5, R4
+	ADDV $-1, R6
+	BNE R6, R0, compress10_loop
+
+	RET
+
+// ── ringCompressAndEncode11LASX ───────────────────────────────────────────────
+// func ringCompressAndEncode11LASX(out []byte, f *ringElement)
+//
+// Compress_11 + ByteEncode_11: maps 256 int16 coefficients to 352 bytes.
+// Compress_11 (32-bit): n=(x<<11)+1664; c=(n*1290168)>>32; c&=0x7FF
+// ByteEncode_11: 8 × 11-bit → 11 bytes (88 bits).
+//   Low 64 bits: c0[10:0]|c1[21:11]|c2[32:22]|c3[43:33]|c4[54:44]|c5[65:55] (crosses 64-bit)
+//   Bytes stored as:
+//     R24 = c0|c1<<11|c2<<22|c3<<33|c4<<44|c5<<55  (lower 9 bits of c5 in R24[63:55])
+//     R25 = c5>>9 | c6<<2 | c7<<13                  (upper 2 bits of c5, c6, c7)
+// Algorithm: 32 iterations × 8 coefs → 11 bytes.
+TEXT ·ringCompressAndEncode11LASX(SB), NOSPLIT, $0-32
+	MOVV out_base+0(FP), R4
+	MOVV f+24(FP), R5
+
+	MOVV $1290168, R20
+	MOVV $1664, R21
+	MOVV $0x7FF, R9            // 11-bit mask
+	MOVV $0xFFFF, R7
+
+	MOVV $32, R6
+
+compress11_loop:
+	// Load 8 coefficients (16 bytes)
+	MOVV (R5), R10             // c0..c3
+	MOVV 8(R5), R11            // c4..c7
+
+	// Compress c0..c7 (11-bit each)
+	MOVV  R10, R12; AND R7, R12
+	SLLV  $11, R12, R12; ADDV R21, R12, R12; MULV R20, R12, R12; SRLV $32, R12, R12; AND R9, R12  // c0
+
+	SRLV  $16, R10, R13; AND R7, R13
+	SLLV  $11, R13, R13; ADDV R21, R13, R13; MULV R20, R13, R13; SRLV $32, R13, R13; AND R9, R13  // c1
+
+	SRLV  $32, R10, R14; AND R7, R14
+	SLLV  $11, R14, R14; ADDV R21, R14, R14; MULV R20, R14, R14; SRLV $32, R14, R14; AND R9, R14  // c2
+
+	SRLV  $48, R10, R15; AND R7, R15
+	SLLV  $11, R15, R15; ADDV R21, R15, R15; MULV R20, R15, R15; SRLV $32, R15, R15; AND R9, R15  // c3
+
+	MOVV  R11, R16; AND R7, R16
+	SLLV  $11, R16, R16; ADDV R21, R16, R16; MULV R20, R16, R16; SRLV $32, R16, R16; AND R9, R16  // c4
+
+	SRLV  $16, R11, R17; AND R7, R17
+	SLLV  $11, R17, R17; ADDV R21, R17, R17; MULV R20, R17, R17; SRLV $32, R17, R17; AND R9, R17  // c5
+
+	SRLV  $32, R11, R18; AND R7, R18
+	SLLV  $11, R18, R18; ADDV R21, R18, R18; MULV R20, R18, R18; SRLV $32, R18, R18; AND R9, R18  // c6
+
+	SRLV  $48, R11, R19; AND R7, R19
+	SLLV  $11, R19, R19; ADDV R21, R19, R19; MULV R20, R19, R19; SRLV $32, R19, R19; AND R9, R19  // c7
+
+	// Build R24 (bits 0..63): c0[10:0]|c1[21:11]|c2[32:22]|c3[43:33]|c4[54:44]|c5_lo[63:55]
+	MOVV  R12, R24
+	SLLV  $11, R13, R13; OR R13, R24
+	SLLV  $22, R14, R14; OR R14, R24
+	SLLV  $33, R15, R15; OR R15, R24
+	SLLV  $44, R16, R16; OR R16, R24
+	SLLV  $55, R17, R13; OR R13, R24  // lower 9 bits of c5 → R24[63:55]
+
+	// Build R25 (bits 64..87): c5_hi[1:0]|c6[12:2]|c7[23:13]
+	SRLV  $9, R17, R25           // c5 upper 2 bits → R25[1:0]
+	SLLV  $2, R18, R13; OR R13, R25   // c6 at [12:2]
+	SLLV  $13, R19, R13; OR R13, R25  // c7 at [23:13]
+
+	// Store 11 bytes: 8 from R24, 3 from R25
+	MOVBU  R24, 0(R4); SRLV $8, R24, R24
+	MOVBU  R24, 1(R4); SRLV $8, R24, R24
+	MOVBU  R24, 2(R4); SRLV $8, R24, R24
+	MOVBU  R24, 3(R4); SRLV $8, R24, R24
+	MOVBU  R24, 4(R4); SRLV $8, R24, R24
+	MOVBU  R24, 5(R4); SRLV $8, R24, R24
+	MOVBU  R24, 6(R4); SRLV $8, R24, R24
+	MOVBU  R24, 7(R4)
+	MOVBU  R25, 8(R4); SRLV $8, R25, R25
+	MOVBU  R25, 9(R4); SRLV $8, R25, R25
+	MOVBU  R25, 10(R4)
+
+	ADDV $16, R5              // 8 int16 = 16 bytes
+	ADDV $11, R4
+	ADDV $-1, R6
+	BNE R6, R0, compress11_loop
+
+	RET

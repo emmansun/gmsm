@@ -42,7 +42,16 @@ var inttTwiddleL4PrecompLASX [128]fieldElement
 // inttTwiddleL2Precomp stores 8 vectors for inverse NTT layer 7.
 var inttTwiddleL2PrecompLASX [128]fieldElement
 
+// compress1WeightsH stores bit-position weights for ringCompressAndEncode1LASX.
+// Per 128-bit lane: [1, 2, 4, 8, 16, 32, 64, 128] as int16.
+// Both LASX lanes are identical, so the 256-bit vector has the same pattern twice.
+var compress1WeightsH [16]uint16
+
 func init() {
+	weights := [8]uint16{1, 2, 4, 8, 16, 32, 64, 128}
+	for i := 0; i < 16; i++ {
+		compress1WeightsH[i] = weights[i%8]
+	}
 	for i := range qVecLASX {
 		qVecLASX[i] = q
 	}
@@ -185,10 +194,25 @@ func internalNTTMulAccLASX(acc, lhs, rhs *nttElement)
 func internalNTTMulAccKeyGenLASX(acc, lhs, rhs *nttElement)
 
 //go:noescape
+func ringCompressAndEncode1LASX(out []byte, f *ringElement)
+
+//go:noescape
 func ringCompressAndEncode4LASX(out []byte, f *ringElement)
 
 //go:noescape
 func ringDecodeAndDecompress4LASX(b *[encodingSize4]byte, f *ringElement)
+
+//go:noescape
+func ringCompressAndEncode5LASX(out []byte, f *ringElement)
+
+//go:noescape
+func ringDecodeAndDecompress5LASX(b *[encodingSize5]byte, f *ringElement)
+
+//go:noescape
+func ringCompressAndEncode10LASX(out []byte, f *ringElement)
+
+//go:noescape
+func ringCompressAndEncode11LASX(out []byte, f *ringElement)
 
 func nttMul(acc, lhs, rhs *nttElement) {
 	if useLASX {
@@ -294,11 +318,15 @@ func ringDecodeAndDecompress4(b *[encodingSize4]byte, f *ringElement) {
 }
 
 // ringCompressAndEncode5 appends a 160-byte encoding of a ring element to s,
-// compressing eight coefficients per five bytes.
 //
 // It implements Compress₅, according to FIPS 203, Definition 4.7,
 // followed by ByteEncode₅, according to FIPS 203, Algorithm 5.
 func ringCompressAndEncode5(s []byte, f *ringElement) []byte {
+	if useLASX {
+		s, b := sliceForAppend(s, encodingSize5)
+		ringCompressAndEncode5LASX(b, f)
+		return s
+	}
 	return ringCompressAndEncode(s, f, 5)
 }
 
@@ -308,6 +336,11 @@ func ringCompressAndEncode5(s []byte, f *ringElement) []byte {
 // It implements ByteDecode₅, according to FIPS 203, Algorithm 6,
 // followed by Decompress₅, according to FIPS 203, Definition 4.8.
 func ringDecodeAndDecompress5(bb *[encodingSize5]byte) ringElement {
+	if useLASX {
+		var f ringElement
+		ringDecodeAndDecompress5LASX(bb, &f)
+		return f
+	}
 	return ringDecodeAndDecompress(bb[:], 5)
 }
 
@@ -318,6 +351,10 @@ func ringDecodeAndDecompress5(bb *[encodingSize5]byte) ringElement {
 // followed by ByteEncode₁₀, according to FIPS 203, Algorithm 5.
 func ringCompressAndEncode10(s []byte, f *ringElement) []byte {
 	s, b := sliceForAppend(s, encodingSize10)
+	if useLASX {
+		ringCompressAndEncode10LASX(b, f)
+		return s
+	}
 	ringCompressAndEncode10Generic(b, f)
 	return s
 }
@@ -328,6 +365,11 @@ func ringCompressAndEncode10(s []byte, f *ringElement) []byte {
 // It implements Compress₁₁, according to FIPS 203, Definition 4.7,
 // followed by ByteEncode₁₁, according to FIPS 203, Algorithm 5.
 func ringCompressAndEncode11(s []byte, f *ringElement) []byte {
+	if useLASX {
+		s, b := sliceForAppend(s, encodingSize11)
+		ringCompressAndEncode11LASX(b, f)
+		return s
+	}
 	return ringCompressAndEncode(s, f, 11)
 }
 
@@ -338,6 +380,10 @@ func ringCompressAndEncode11(s []byte, f *ringElement) []byte {
 // followed by ByteEncode₁, according to FIPS 203, Algorithm 5.
 func ringCompressAndEncode1(s []byte, f *ringElement) []byte {
 	s, b := sliceForAppend(s, encodingSize1)
+	if useLASX {
+		ringCompressAndEncode1LASX(b, f)
+		return s
+	}
 	clear(b)
 	ringCompressAndEncode1Generic(b, f)
 	return s
