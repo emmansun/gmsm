@@ -14,6 +14,15 @@ DATA compress1Weights<>+16(SB)/8, $0x0008000400020001
 DATA compress1Weights<>+24(SB)/8, $0x0080004000200010
 GLOBL compress1Weights<>(SB), RODATA, $32
 
+// cbd3Shuf: per-lane shuffle table for samplePolyCBD3LASX.
+// Rearranges 12 bytes into 4 uint32 words, each holding one 3-byte group (+ 0x00 pad).
+// Layout: [0,1,2,0x80, 3,4,5,0x80, 6,7,8,0x80, 9,10,11,0x80] repeated for both lanes.
+DATA ·cbd3Shuf+0x00(SB)/8, $0x8005040380020100
+DATA ·cbd3Shuf+0x08(SB)/8, $0x800B0A0980080706
+DATA ·cbd3Shuf+0x10(SB)/8, $0x8005040380020100
+DATA ·cbd3Shuf+0x18(SB)/8, $0x800B0A0980080706
+GLOBL ·cbd3Shuf(SB), RODATA, $32
+
 // ---- Constants ----
 // q = 3329 = 0x0D01
 // qInv = 62209 (q^{-1} mod 2^16, bit pattern as int16 = -3327)
@@ -122,6 +131,12 @@ GLOBL compress1Weights<>(SB), RODATA, $32
 // opcode base: 0x752E8000 (pickod.h = pickev.h with od bit set)
 #define XVPICKOD_H(Xvd, Xvj, Xvk) \
 	WORD $((0x752E8000) | ((Xvk) << 10) | ((Xvj) << 5) | (Xvd))
+
+// XVSHUF_B performs xvshuf.b Xvd, Xvj, Xvk, Xva (4-register byte shuffle).
+// Per lane n: Xd[n][i] = (Xa[n][i] bit7==1) ? 0 : (bit4==1) ? Xj[n][Xa[n][i]&0xF] : Xk[n][Xa[n][i]&0xF]
+// Opcode: 0x0D6<<20 | Xva<<15 | Xvk<<10 | Xvj<<5 | Xvd
+#define XVSHUF_B(Xvd, Xvj, Xvk, Xva) \
+	WORD $(((0xD6) << 20) | ((Xva) << 15) | ((Xvk) << 10) | ((Xvj) << 5) | (Xvd))
 
 // COMPRESS4(Xin, Xcout16, Xtmp, Xmul): compress 16 coefficients to 4-bit each.
 // Xcout16: each int16 lane has a 4-bit compressed value [0,15].
@@ -1977,3 +1992,249 @@ u11_inner:
 	BNE   R6, R0, u11_outer
 
 	RET
+
+// samplePolyCBD2LASX samples a polynomial from CBD with eta=2.
+// 8 iterations × 16 input bytes → 32 int16 coefs per iter.
+// func samplePolyCBD2LASX(dst *ringElement, buf *[128]byte)
+TEXT ·samplePolyCBD2LASX(SB), NOSPLIT, $0-16
+	MOVV dst+0(FP), R5
+	MOVV buf+8(FP), R4
+
+	// X20 = broadcast(0x55, B32), X21 = broadcast(0x03, B32), X22 = broadcast(3329, H16)
+	MOVV $0x5555555555555555, R7
+	XVMOVQ R7, X20.V4
+	MOVV $0x0303030303030303, R7
+	XVMOVQ R7, X21.V4
+	MOVV $3329, R7
+	MOVV $0x0D010D010D010D01, R7
+	XVMOVQ R7, X22.V4
+
+	MOVV $8, R6   // 8 iterations
+
+cbd2_outer:
+	// Load 16 bytes into lower lane only (avoid stale upper lane)
+	VMOVQ (R4), V0
+	ADDV  $16, R4
+
+	// b = buf[i..i+15]
+	// d = (b & 0x55) + ((b >> 1) & 0x55)
+	MOVV $0x0101010101010101, R7
+	XVMOVQ R7, X1.V4
+	// Use lower 128-bit only; result must be in X0
+	XVORV X0, X0, X0   // zero upper lane (V0 = X0 lower)
+
+	// X0 has bytes[0..15] in lower lane.
+	// Compute d = (b & 0x55) + ((b>>1) & 0x55) using XVANDV + XVSRLB
+	XVANDV X20, X0, X1      // X1 = b & 0x55
+	XVSRLB $1, X0, X2       // X2 = b >> 1
+	XVANDV X20, X2, X2      // X2 = (b>>1) & 0x55
+	XVADDB X2, X1, X0       // X0 = d = (b&0x55)+((b>>1)&0x55)
+
+	// t_even = (d & 0x03) - ((d>>2) & 0x03)   in int8
+	XVANDV X21, X0, X3      // X3 = d & 0x03
+	XVSRLB $2, X0, X4       // X4 = d >> 2
+	XVANDV X21, X4, X4      // X4 = (d>>2) & 0x03
+	XVSUBB X4, X3, X3       // X3 = t_even in int8 [-2..2]
+
+	// t_odd = ((d>>4) & 0x03) - ((d>>6) & 0x03)  in int8
+	XVSRLB $4, X0, X5       // X5 = d >> 4
+	XVANDV X21, X5, X5      // X5 = (d>>4) & 0x03
+	XVSRLB $6, X0, X6       // X6 = d >> 6
+	XVSUBB X6, X5, X5       // X5 = t_odd in int8 [-2..2]
+
+	// Sign-extend t_even (int8) to int16 via XVSRAB + pair bytes
+	// Use XVILVLB/XVILVHB to interleave with sign-extended byte
+	XVSRAB $7, X3, X7       // X7 = sign(t_even): 0xFF if negative, 0x00 if non-neg
+	XVILVLB X7, X3, X8      // X8 lower half: sign-extended t_even[0..7] as int16 in lower lane
+	XVILVHB X7, X3, X9      // X9: sign-extended t_even[8..15] as int16
+
+	// Map negative to positive: val += (val < 0) ? q : 0
+	XVSRAH $15, X8, X10     // mask = all-ones if negative
+	XVANDV X10, X22, X10    // fix = q if negative
+	XVADDH X10, X8, X6      // X6 = t_even[0..7] in [0,q)
+
+	XVSRAH $15, X9, X10
+	XVANDV X10, X22, X10
+	XVADDH X10, X9, X8      // X8 = t_even[8..15] in [0,q)
+
+	// Sign-extend t_odd (int8) to int16
+	XVSRAB $7, X5, X7
+	XVILVLB X7, X5, X9      // X9 = t_odd[0..7]
+	XVILVHB X7, X5, X11     // X11 = t_odd[8..15]
+
+	XVSRAH $15, X9, X10
+	XVANDV X10, X22, X10
+	XVADDH X10, X9, X9      // X9 = t_odd[0..7] in [0,q)
+
+	XVSRAH $15, X11, X10
+	XVANDV X10, X22, X10
+	XVADDH X10, X11, X11    // X11 = t_odd[8..15] in [0,q)
+
+	// Interleave t_even and t_odd into output order: f[2i]=t_even[i], f[2i+1]=t_odd[i]
+	// t_even[0..7] in X6, t_odd[0..7] in X9
+	XVILVLH X9, X6, X12     // X12 lower lane: t_even[0..3], t_odd[0..3] interleaved
+	XVILVHH X9, X6, X13     // X13 lower lane: t_even[4..7], t_odd[4..7] interleaved
+
+	// t_even[8..15] in X8, t_odd[8..15] in X11
+	XVILVLH X11, X8, X16    // X16 lower lane: t_even[8..11], t_odd[8..11]
+	XVILVHH X11, X8, X17    // X17 lower lane: t_even[12..15], t_odd[12..15]
+
+	// Store 4×16 bytes = 64 bytes (lower lane only via VMOVQ)
+	VMOVQ V12, (R5)
+	VMOVQ V13, 16(R5)
+	VMOVQ V16, 32(R5)
+	VMOVQ V17, 48(R5)
+	ADDV  $64, R5
+
+	ADDV  $-1, R6
+	BNE   R6, R0, cbd2_outer
+
+	RET
+
+// samplePolyCBD3LASX samples a polynomial from CBD with eta=3.
+// 8 iterations × 24 input bytes → 32 int16 coefs per iter.
+// func samplePolyCBD3LASX(dst *ringElement, buf *[192]byte)
+TEXT ·samplePolyCBD3LASX(SB), NOSPLIT, $0-16
+	MOVV dst+0(FP), R5
+	MOVV buf+8(FP), R4
+
+	MOVV $·cbd3Shuf(SB), R7
+	XVMOVQ (R7), X20              // shuffle table for both lanes
+
+	MOVV $0x249249, R7
+	MOVV R7, R8
+	SLLV $32, R8
+	OR  R8, R7
+	XVMOVQ R7, X21.V4             // broadcast(0x249249, W8)
+
+	MOVV $0x6DB6DB, R7
+	MOVV R7, R8
+	SLLV $32, R8
+	OR  R8, R7
+	XVMOVQ R7, X22.V4             // broadcast(0x6DB6DB, W8)
+
+	MOVV $7, R7
+	MOVV R7, R8
+	SLLV $32, R8
+	OR  R8, R7
+	XVMOVQ R7, X23.V4             // broadcast(7, W8)
+
+	MOVV $0x70000, R7
+	MOVV R7, R8
+	SLLV $32, R8
+	OR  R8, R7
+	XVMOVQ R7, X24.V4             // broadcast(0x70000, W8)
+
+	MOVV $0x0003000300030003, R7
+	XVMOVQ R7, X25.V4             // broadcast(3, H16)
+
+	MOVV $0x0D010D010D010D01, R7
+	XVMOVQ R7, X26.V4             // broadcast(3329, H16)
+
+	MOVV $8, R6                   // 8 iterations × 24 bytes = 192 bytes
+
+cbd3_outer:
+	// Load bytes[0..15] into X0 lower lane
+	VMOVQ (R4), V0
+	// Load bytes[12..27] into V1 lower lane (overlapping load)
+	VMOVQ 12(R4), V1
+	ADDV  $24, R4
+
+	// Combine: X2.Q0 = bytes[0..15], X2.Q1 = bytes[12..27]
+	// Using xvpermi.q: pool={X0.Q0, X0.Q1, X2_old.Q0, X2_old.Q1}
+	// We want dst.Q0=pool[0]=X0.Q0, dst.Q1=pool[2+0]=X1.Q0
+	XVORV X0, X0, X2
+	XVPERMIQ(2, 1, 0x02)           // X2.Q1 = X1.Q0 (pool indices: dst_Q1 = pool[2] = src_xvj.Q0)
+
+	// Shuffle bytes into 4 uint32 groups per 128-bit lane
+	// X20 = cbd3Shuf: [0,1,2,0x80, 3,4,5,0x80, 6,7,8,0x80, 9,10,11,0x80] ×2
+	XVSHUF_B(3, 2, 2, 20)          // X3 = shuffled: 8 uint32s each=[3-byte group, 0x00]
+
+	// Bit-sliced popcount for a=popcount(bits[0,2,4,...]) and b=popcount(bits[1,3,5,...])
+	XVANDV X21, X3, X4             // X4 = bits{0,6,12,18} of each uint32
+	XVSRLW $1, X3, X5
+	XVANDV X21, X5, X5             // X5 = bits{1,7,13,19}
+	XVSRLW $2, X3, X7
+	XVANDV X21, X7, X7             // X7 = bits{2,8,14,20}
+
+	// a = popcount even-indexed bits: count X4+X7 (bits 0,2 of each 3-bit group)
+	XVADDW X7, X4, X4              // X4 = a partial (bits 0 and 2)
+
+	// b = popcount odd-indexed bits: count X5 (bit 1 of each 3-bit group)
+	// For eta=3: a=sum of bits{0,2,4} b=sum of bits{1,3,5}
+	XVSRLW $1, X3, X8
+	XVANDV X21, X8, X8             // bits{1,7,13,...}
+	XVSRLW $3, X3, X9
+	XVANDV X21, X9, X9             // bits{3,...}
+	XVSRLW $5, X3, X10
+	XVANDV X21, X10, X10           // bits{5,...}
+	XVADDW X9, X8, X8              // b partial
+	XVADDW X10, X8, X8             // X8 = b = sum bits{1,3,5} per 3-bit group
+
+	// Shift remaining even bits
+	XVSRLW $4, X3, X9
+	XVANDV X21, X9, X9
+	XVADDW X9, X4, X4              // X4 = a = sum bits{0,2,4} per 3-bit group
+
+	// Now compute (a + 3 - b): the 3-bit delta values for each group
+	// Each 3-bit group result is in bits {0,6,12,18} of each uint32 word
+	// Add 0x6DB6DB (=3 broadcast to 3-bit positions) then subtract b
+	XVADDW X22, X4, X4             // a + 3
+	XVSUBW X8, X4, X4              // X4 = a + 3 - b, in bits{0,6,12,18}
+
+	// Extract delta values: 4 per uint32 word at bit positions 0,6,12,18
+	// delta0 at bits[2:0], delta1 at bits[8:6], delta2 at bits[14:12], delta3 at bits[20:18]
+	XVANDV X23, X4, X5             // X5 = delta0 (bits[2:0])
+	XVSRLW $6, X4, X6
+	XVANDV X23, X6, X6             // X6 = delta1 (bits[8:6])
+	XVSRLW $12, X4, X9
+	XVANDV X23, X9, X9             // X9 = delta2 (bits[14:12])
+	XVSRLW $18, X4, X10
+	XVANDV X23, X10, X10           // X10 = delta3 (bits[20:18])
+
+	// Pack into halfwords: word[k] = {delta1[k], delta0[k]} and {delta3[k], delta2[k]}
+	XVSLLW $16, X6, X6             // X6 = delta1 at bits[18:16]
+	XVADDW X6, X5, X7              // X7 = delta0 | (delta1<<16) = two int16 per word
+	XVSLLW $16, X10, X10           // X10 = delta3 at bits[18:16]
+	XVADDW X10, X9, X8             // X8 = delta2 | (delta3<<16)
+
+	// Subtract 3 bias: delta is in [0..6], want [-3..3]
+	XVSUBH X25, X7, X7             // X7 -= 3
+	XVSUBH X25, X8, X8             // X8 -= 3
+
+	// Map negatives to [0,q): val += (val < 0) ? q : 0
+	XVSRAH $15, X7, X11
+	XVANDV X11, X26, X11
+	XVADDH X11, X7, X7
+
+	XVSRAH $15, X8, X11
+	XVANDV X11, X26, X11
+	XVADDH X11, X8, X8
+
+	// At this point:
+	// X7: 8 uint32s, each = {d1_k, d0_k} (two int16 per uint32), groups 0..7
+	// X8: 8 uint32s, each = {d3_k, d2_k}, groups 0..7
+	// We need to interleave for sequential output: [d0,d1,d2,d3] per group
+
+	// Interleave X7 and X8 words to get sequential order
+	XVILVLW X8, X7, X10            // X10: lower 4 words of each lane: w0,w0_b,w1,w1_b interleaved
+	XVILVHW X8, X7, X11            // X11: upper 4 words of each lane
+
+	// Output layout needed: X10.Q0 = groups[0..3] lower half, X10.Q1 = groups[4..7] lower half
+	// X11.Q0 = groups[0..3] upper half, X11.Q1 = groups[4..7] upper half
+	// Permute to get sequential 256-bit output
+	XVORV X10, X10, X14
+	XVPERMIQ(14, 11, 0x02)         // X14.Q0=X10.Q0, X14.Q1=X11.Q0 → coefs[0..15]
+
+	XVORV X11, X11, X15
+	XVPERMIQ(15, 10, 0x31)         // X15.Q0=X10.Q1, X15.Q1=X11.Q1 → coefs[16..31]
+
+	XVMOVQ X14, (R5)
+	XVMOVQ X15, 32(R5)
+	ADDV   $64, R5
+
+	ADDV  $-1, R6
+	BNE   R6, R0, cbd3_outer
+
+	RET
+

@@ -1162,3 +1162,87 @@ func BenchmarkLASXDecodeAndDecompressU11(b *testing.B) {
 		}
 	})
 }
+
+// ---------------------------------------------------------------------------
+// samplePolyCBD2LASX correctness tests
+// ---------------------------------------------------------------------------
+
+func TestLASXSamplePolyCBD2MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for iter := 0; iter < 100; iter++ {
+		var B [128]byte
+		for i := range B {
+			B[i] = byte((iter*256 + i) ^ 0xAA)
+		}
+
+		var gotLASX ringElement
+		samplePolyCBD2LASX(&gotLASX, &B)
+
+		wantGeneric := samplePolyCBDGeneric(B[:], 2)
+
+		for i := range gotLASX {
+			if gotLASX[i] != wantGeneric[i] {
+				t.Fatalf("iter=%d coeff=%d: samplePolyCBD2LASX mismatch: got=%d want=%d",
+					iter, i, gotLASX[i], wantGeneric[i])
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// samplePolyCBD3LASX correctness tests
+// ---------------------------------------------------------------------------
+
+func TestLASXSamplePolyCBD3MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for iter := 0; iter < 100; iter++ {
+		var B [192]byte
+		for i := range B {
+			B[i] = byte((iter*256 + i) ^ 0x55)
+		}
+
+		var gotLASX ringElement
+		samplePolyCBD3LASX(&gotLASX, &B)
+
+		wantGeneric := samplePolyCBDGeneric(B[:], 3)
+
+		for i := range gotLASX {
+			if gotLASX[i] != wantGeneric[i] {
+				t.Fatalf("iter=%d coeff=%d: samplePolyCBD3LASX mismatch: got=%d want=%d",
+					iter, i, gotLASX[i], wantGeneric[i])
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Benchmarks
+// ---------------------------------------------------------------------------
+
+func BenchmarkLASXSamplePolyCBD2(b *testing.B) {
+	if !useLASX {
+		b.Skip("LASX not available")
+	}
+	var B [128]byte
+	rand.Read(B[:])
+	var f ringElement
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		samplePolyCBD2LASX(&f, &B)
+	}
+}
+
+func BenchmarkLASXSamplePolyCBD3(b *testing.B) {
+	if !useLASX {
+		b.Skip("LASX not available")
+	}
+	var B [192]byte
+	rand.Read(B[:])
+	var f ringElement
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		samplePolyCBD3LASX(&f, &B)
+	}
+}

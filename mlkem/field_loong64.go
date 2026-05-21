@@ -211,6 +211,12 @@ func decodeAndDecompressU10LASX(dst []ringElement, c []byte)
 //go:noescape
 func decodeAndDecompressU11LASX(dst []ringElement, c []byte)
 
+//go:noescape
+func samplePolyCBD2LASX(dst *ringElement, buf *[128]byte)
+
+//go:noescape
+func samplePolyCBD3LASX(dst *ringElement, buf *[192]byte)
+
 func nttMul(acc, lhs, rhs *nttElement) {
 	if useLASX {
 		internalNTTMulLASX(acc, lhs, rhs)
@@ -275,6 +281,17 @@ func samplePolyCBD(s []byte, b, η byte) ringElement {
 	prf.Write([]byte{b})
 	var B [maxBytesOf64Mulη]byte
 	prf.Read(B[:64*η])
+	if useLASX {
+		var f ringElement
+		switch η {
+		case 2:
+			samplePolyCBD2LASX(&f, (*[128]byte)(B[:128]))
+			return f
+		case 3:
+			samplePolyCBD3LASX(&f, (*[192]byte)(B[:192]))
+			return f
+		}
+	}
 	return samplePolyCBDGeneric(B[:], η)
 }
 
