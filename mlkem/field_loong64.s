@@ -1122,3 +1122,107 @@ compress4_loop:
 	BNE    R6, R0, compress4_loop
 
 	RET
+
+// ── ringDecodeAndDecompress4LASX ──────────────────────────────────────────────
+// func ringDecodeAndDecompress4LASX(b *[128]byte, f *ringElement)
+//
+// ByteDecode₄ + Decompress₄: maps 128 packed bytes to 256 int16 coefficients.
+// Each byte b[i] encodes two 4-bit values: c[2i] = b[i] & 0xF, c[2i+1] = b[i] >> 4.
+// Output: f[j] = decompress(c[j], 4) = round(c[j] * 3329 / 16).
+// Formula: f = (c * q + 8) >> 4,  q = 3329, rounding = 8.
+//
+// Algorithm (per 8 input bytes → 16 output coefficients):
+//   1. Broadcast 8 bytes into all LASX quadwords (X0.V4)
+//   2. Extract even nibbles: XVANDV with 0x0F byte mask → X1
+//   3. Extract odd nibbles:  XVSRLB $4 → X2
+//   4. XVILVLB(X1, X2, X3): interleave → X3.lane0 = [c0,c1,...,c15]
+//   5. XVMULWEVHBU(X3,X11,X4): even bytes → uint16 [c0,c2,...,c14]
+//      XVMULWODHBU(X3,X11,X5): odd bytes → uint16 [c1,c3,...,c15]
+//   6. XVILVLH(X4,X5,X6): [c0,c1,...,c7]; XVILVHH(X4,X5,X7): [c8..c15]
+//   7. Decompress via XVMULWEVWHU(×q) + XVMULWODWHU(×q) + XVADDW($8) + XVSRLW($4)
+//   8. Reorder via XVILVLW + XVILVHW + XVPICKEV_H → [f0..f7] and [f8..f15]
+//   9. Store 16 halfwords via 2×VMOVQ
+//
+// Register allocation:
+//   R4=b (input), R5=f (output), R6=loop counter, R10=GPR temp
+//   X8=broadcast(q=3329, H16), X9=broadcast(8, W8)
+//   X10=broadcast(0x0F, B32), X11=broadcast(0x01, B32)
+//   X0-X7,X12 = temporaries
+TEXT ·ringDecodeAndDecompress4LASX(SB), NOSPLIT, $0-16
+	MOVV b+0(FP), R4
+	MOVV f+8(FP), R5
+
+	// Setup constants
+	MOVV $3329, R7
+	XVMOVQ R7, X8.H16              // X8 = q=3329 broadcast to 16 uint16 halfwords
+	MOVV $8, R7
+	XVMOVQ R7, X9.W8               // X9 = 8 broadcast to 8 uint32 words
+	MOVV $0x0F, R7
+	XVMOVQ R7, X10.B32             // X10 = 0x0F per byte (nibble mask)
+	MOVV $1, R7
+	XVMOVQ R7, X11.B32             // X11 = 0x01 per byte (ones for zero-extension)
+
+	MOVV $16, R6                    // 16 iterations × 8 bytes = 128 bytes total
+
+decompress4_loop:
+	MOVV (R4), R10                  // load 8 input bytes
+
+	// Broadcast 8 bytes to all quadwords of X0
+	XVMOVQ R10, X0.V4
+
+	// Extract even nibbles (low 4 bits of each byte)
+	XVANDV X0, X10, X1             // X1.byte[i] = b[i%8] & 0x0F = c[2*(i%8)]
+
+	// Extract odd nibbles (high 4 bits of each byte)
+	XVSRLB $4, X0, X2              // X2.byte[i] = b[i%8] >> 4 = c[2*(i%8)+1]
+
+	// Interleave nibble bytes: X3.lane0.byte[0..15] = [c0,c1,c2,...,c15]
+	// XVILVLB Xvk=X1, Xvj=X2, Xvd=X3: byte[2i]=X1.byte[i]=c[2i], byte[2i+1]=X2.byte[i]=c[2i+1]
+	XVILVLB X1, X2, X3
+
+	// Zero-extend nibble bytes to uint16 halfwords
+	// XVMULWEVHBU: even bytes × ones → even bytes zero-extended to halfword
+	XVMULWEVHBU X3, X11, X4        // X4.half[i] = X3.byte[2i] = c[2i]; [c0,c2,...,c14] per lane0
+	XVMULWODHBU X3, X11, X5        // X5.half[i] = X3.byte[2i+1] = c[2i+1]; [c1,c3,...,c15]
+
+	// Interleave halfwords to get sequential nibble values
+	// XVILVLH Xvk=X4, Xvj=X5: even positions from X4, odd from X5
+	XVILVLH X4, X5, X6             // X6.half[0..7] = [c0,c1,c2,c3,c4,c5,c6,c7] per lane0
+	XVILVHH X4, X5, X7             // X7.half[0..7] = [c8,c9,...,c15] per lane0
+
+	// ── Decompress X6 → [f0..f7] ──────────────────────────────────────────
+	// f = (c * q + 8) >> 4,  using 32-bit intermediate arithmetic
+	XVMULWEVWHU X6, X8, X12        // X12.word[0..3] = c[0,2,4,6] × q  (lane0)
+	XVMULWODWHU X6, X8, X0         // X0.word[0..3]  = c[1,3,5,7] × q
+	XVADDW X9, X12, X12            // add rounding 8
+	XVADDW X9, X0, X0
+	XVSRLW $4, X12, X12            // >> 4: f[0,2,4,6] in low 16 bits of each word
+	XVSRLW $4, X0, X0              // f[1,3,5,7]
+	// Merge words into sequential halfwords:
+	// XVILVLW Xvk=X12, Xvj=X0: word[2i]=X12.word[i], word[2i+1]=X0.word[i]
+	XVILVLW X12, X0, X3            // X3.word = [f0,f1,f2,f3] per lane (in low 16b each)
+	XVILVHW X12, X0, X4            // X4.word = [f4,f5,f6,f7]
+	// XVPICKEV_H(Xvd=6, Xvj=4, Xvk=3): even halfwords (= low 16b of each word)
+	XVPICKEV_H(6, 4, 3)            // X6.half = [f0,f1,f2,f3, f4,f5,f6,f7] per lane0
+
+	// ── Decompress X7 → [f8..f15] ─────────────────────────────────────────
+	XVMULWEVWHU X7, X8, X12
+	XVMULWODWHU X7, X8, X0
+	XVADDW X9, X12, X12
+	XVADDW X9, X0, X0
+	XVSRLW $4, X12, X12
+	XVSRLW $4, X0, X0
+	XVILVLW X12, X0, X3
+	XVILVHW X12, X0, X4
+	XVPICKEV_H(7, 4, 3)            // X7.half = [f8,f9,...,f15] per lane0
+
+	// Store 16 coefficients (32 bytes total)
+	VMOVQ V6, 0(R5)                // f[0..7] (16 bytes)
+	VMOVQ V7, 16(R5)               // f[8..15] (16 bytes)
+
+	ADDV $8, R4                    // advance input by 8 bytes
+	ADDV $32, R5                   // advance output by 16 int16 = 32 bytes
+	ADDV $-1, R6
+	BNE R6, R0, decompress4_loop
+
+	RET

@@ -7,6 +7,7 @@
 package mlkem
 
 import (
+	"crypto/rand"
 	"testing"
 )
 
@@ -333,6 +334,43 @@ func TestLASXRingCompressAndEncode4MatchesGeneric(t *testing.T) {
 		for i := range got {
 			if got[i] != want[i] {
 				t.Fatalf("iter=%d byte=%d: got=0x%02x want=0x%02x", iter, i, got[i], want[i])
+			}
+		}
+	}
+}
+
+func TestLASXRingDecodeAndDecompress4MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	// Exhaustive single-nibble test: all 128 bytes set to the same packed pair (v, v)
+	for x := 0; x < 16; x++ {
+		packed := byte(x | (x << 4))
+		var b [encodingSize4]byte
+		for i := range b {
+			b[i] = packed
+		}
+		var got ringElement
+		var want ringElement
+		ringDecodeAndDecompress4LASX(&b, &got)
+		ringDecodeAndDecompress4Generic(&b, &want)
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("x=%d coeff=%d: got=%d want=%d", x, i, got[i], want[i])
+			}
+		}
+	}
+
+	// Random test
+	for iter := 0; iter < 200; iter++ {
+		var b [encodingSize4]byte
+		rand.Read(b[:])
+		var got ringElement
+		var want ringElement
+		ringDecodeAndDecompress4LASX(&b, &got)
+		ringDecodeAndDecompress4Generic(&b, &want)
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("iter=%d coeff=%d: got=%d want=%d", iter, i, got[i], want[i])
 			}
 		}
 	}
