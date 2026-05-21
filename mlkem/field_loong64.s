@@ -1629,81 +1629,144 @@ compress10_loop:
 //
 // Compress_11 + ByteEncode_11: maps 256 int16 coefficients to 352 bytes.
 // Compress_11 (32-bit): n=(x<<11)+1664; c=(n*1290168)>>32; c&=0x7FF
-// ByteEncode_11: 8 × 11-bit → 11 bytes (88 bits).
-//   Low 64 bits: c0[10:0]|c1[21:11]|c2[32:22]|c3[43:33]|c4[54:44]|c5[65:55] (crosses 64-bit)
-//   Bytes stored as:
-//     R24 = c0|c1<<11|c2<<22|c3<<33|c4<<44|c5<<55  (lower 9 bits of c5 in R24[63:55])
-//     R25 = c5>>9 | c6<<2 | c7<<13                  (upper 2 bits of c5, c6, c7)
-// Algorithm: 32 iterations × 8 coefs → 11 bytes.
+// ByteEncode_11: 8 × 11-bit → 11 bytes (88 bits packed across two GPRs).
+//
+// LASX vectorization: 16 coefs per iteration → 22 bytes output, 16 iterations.
+// Pipeline (same structure as compress10 but XVSLLW $11 and mask $0x7FF):
+//   X0  = 16 int16 coefs
+//   X1  = even-indexed coefs widened to 32-bit (XVMULWEVWHU X0, X8, X1, where X8=1)
+//   X2  = odd-indexed coefs widened to 32-bit
+//   XVSLLW $11 on X1,X2; XVADDW X9 (1664); XVMULWEVVWU/XVMULWODVWU × X10 (1290168)
+//   XVSRLV $32; XVANDV X11 (0x7FF)
+//   X12={c0,c4,c8,c12}; X13={c2,c6,c10,c14}; X1={c1,c5,c9,c13}; X2={c3,c7,c11,c15}
+//   Extract via XVMOVQ V[0..3] → pack half1 (c0..c7→11 bytes) and half2 (c8..c15→11 bytes).
 TEXT ·ringCompressAndEncode11LASX(SB), NOSPLIT, $0-32
 	MOVV out_base+0(FP), R4
 	MOVV f+24(FP), R5
 
-	MOVV $1290168, R20
-	MOVV $1664, R21
-	MOVV $0x7FF, R9            // 11-bit mask
-	MOVV $0xFFFF, R7
+	MOVV $1, R7
+	XVMOVQ R7, X8.H16           // X8 = broadcast 1 to all 16 halfwords
+	MOVV $1664, R7
+	XVMOVQ R7, X9.W8            // X9 = broadcast 1664
+	MOVV $1290168, R7
+	XVMOVQ R7, X10.W8           // X10 = broadcast 1290168
+	MOVV $0x7FF, R7
+	XVMOVQ R7, X11.W8           // X11 = broadcast 0x7FF
 
-	MOVV $32, R6
+	MOVV $16, R6
 
 compress11_loop:
-	// Load 8 coefficients (16 bytes)
-	MOVV (R5), R10             // c0..c3
-	MOVV 8(R5), R11            // c4..c7
+	XVMOVQ (R5), X0             // load 16 int16 coefs
 
-	// Compress c0..c7 (11-bit each)
-	MOVV  R10, R12; AND R7, R12
-	SLLV  $11, R12, R12; ADDV R21, R12, R12; MULV R20, R12, R12; SRLV $32, R12, R12; AND R9, R12  // c0
+	// Widen to 32-bit: multiply each halfword by 1
+	XVMULWEVWHU X0, X8, X1      // X1[word i] = coef[2i]   (even halfwords)
+	XVMULWODWHU X0, X8, X2      // X2[word i] = coef[2i+1] (odd halfwords)
 
-	SRLV  $16, R10, R13; AND R7, R13
-	SLLV  $11, R13, R13; ADDV R21, R13, R13; MULV R20, R13, R13; SRLV $32, R13, R13; AND R9, R13  // c1
+	// n_ev = coef_ev << 11 + 1664; n_od = coef_od << 11 + 1664
+	XVSLLW $11, X1, X1
+	XVADDW X9, X1, X1
+	XVSLLW $11, X2, X2
+	XVADDW X9, X2, X2
 
-	SRLV  $32, R10, R14; AND R7, R14
-	SLLV  $11, R14, R14; ADDV R21, R14, R14; MULV R20, R14, R14; SRLV $32, R14, R14; AND R9, R14  // c2
+	// c_ev = (n_ev * 1290168) >> 32; split into even/odd dwords for 64-bit multiply
+	XVMULWEVVWU X1, X10, X12    // 64-bit products from even words of X1 → {c0,c4,c8,c12}
+	XVMULWODVWU X1, X10, X13    // 64-bit products from odd  words of X1 → {c2,c6,c10,c14}
+	XVSRLV $32, X12, X12
+	XVSRLV $32, X13, X13
 
-	SRLV  $48, R10, R15; AND R7, R15
-	SLLV  $11, R15, R15; ADDV R21, R15, R15; MULV R20, R15, R15; SRLV $32, R15, R15; AND R9, R15  // c3
+	// c_od = (n_od * 1290168) >> 32
+	XVMULWEVVWU X2, X10, X1     // {c1,c5,c9,c13}
+	XVMULWODVWU X2, X10, X2     // {c3,c7,c11,c15}
+	XVSRLV $32, X1, X1
+	XVSRLV $32, X2, X2
 
-	MOVV  R11, R16; AND R7, R16
-	SLLV  $11, R16, R16; ADDV R21, R16, R16; MULV R20, R16, R16; SRLV $32, R16, R16; AND R9, R16  // c4
+	// Apply 11-bit mask
+	XVANDV X11, X12, X12
+	XVANDV X11, X13, X13
+	XVANDV X11, X1,  X1
+	XVANDV X11, X2,  X2
 
-	SRLV  $16, R11, R17; AND R7, R17
-	SLLV  $11, R17, R17; ADDV R21, R17, R17; MULV R20, R17, R17; SRLV $32, R17, R17; AND R9, R17  // c5
+	// X12={c0,c4,c8,c12}; X13={c2,c6,c10,c14}; X1={c1,c5,c9,c13}; X2={c3,c7,c11,c15}
+	// Each value is a 32-bit compressed coef in the low 32 bits of each 64-bit dword.
+	// V[n] extracts the n-th 64-bit quadword.
 
-	SRLV  $32, R11, R18; AND R7, R18
-	SLLV  $11, R18, R18; ADDV R21, R18, R18; MULV R20, R18, R18; SRLV $32, R18, R18; AND R9, R18  // c6
+	// Half 1: c0..c7 → 11 bytes
+	// c0,c1,c2,c3 from V[0]
+	XVMOVQ X12.V[0], R10        // c0
+	XVMOVQ X13.V[0], R11        // c2
+	XVMOVQ X1.V[0],  R12        // c1
+	XVMOVQ X2.V[0],  R13        // c3
+	// c4,c5,c6,c7 from V[1]
+	XVMOVQ X12.V[1], R14        // c4
+	XVMOVQ X13.V[1], R15        // c6
+	XVMOVQ X1.V[1],  R16        // c5
+	XVMOVQ X2.V[1],  R17        // c7
 
-	SRLV  $48, R11, R19; AND R7, R19
-	SLLV  $11, R19, R19; ADDV R21, R19, R19; MULV R20, R19, R19; SRLV $32, R19, R19; AND R9, R19  // c7
+	// Pack c0..c7 into 11 bytes
+	// R24 = c0|c1<<11|c2<<22|c3<<33|c4<<44|c5[8:0]<<55
+	MOVV  R10, R24
+	SLLV  $11, R12, R18; OR R18, R24    // c1<<11
+	SLLV  $22, R11, R18; OR R18, R24    // c2<<22
+	SLLV  $33, R13, R18; OR R18, R24    // c3<<33
+	SLLV  $44, R14, R18; OR R18, R24    // c4<<44
+	SLLV  $55, R16, R18; OR R18, R24    // c5[8:0]<<55
 
-	// Build R24 (bits 0..63): c0[10:0]|c1[21:11]|c2[32:22]|c3[43:33]|c4[54:44]|c5_lo[63:55]
-	MOVV  R12, R24
-	SLLV  $11, R13, R13; OR R13, R24
-	SLLV  $22, R14, R14; OR R14, R24
-	SLLV  $33, R15, R15; OR R15, R24
-	SLLV  $44, R16, R16; OR R16, R24
-	SLLV  $55, R17, R13; OR R13, R24  // lower 9 bits of c5 → R24[63:55]
+	// R25 = c5>>9 | c6<<2 | c7<<13
+	SRLV  $9, R16, R25
+	SLLV  $2, R15, R18; OR R18, R25     // c6<<2
+	SLLV  $13, R17, R18; OR R18, R25    // c7<<13
 
-	// Build R25 (bits 64..87): c5_hi[1:0]|c6[12:2]|c7[23:13]
-	SRLV  $9, R17, R25           // c5 upper 2 bits → R25[1:0]
-	SLLV  $2, R18, R13; OR R13, R25   // c6 at [12:2]
-	SLLV  $13, R19, R13; OR R13, R25  // c7 at [23:13]
+	// Store 11 bytes
+	MOVBU R24, 0(R4); SRLV $8, R24, R24
+	MOVBU R24, 1(R4); SRLV $8, R24, R24
+	MOVBU R24, 2(R4); SRLV $8, R24, R24
+	MOVBU R24, 3(R4); SRLV $8, R24, R24
+	MOVBU R24, 4(R4); SRLV $8, R24, R24
+	MOVBU R24, 5(R4); SRLV $8, R24, R24
+	MOVBU R24, 6(R4); SRLV $8, R24, R24
+	MOVBU R24, 7(R4)
+	MOVBU R25, 8(R4); SRLV $8, R25, R25
+	MOVBU R25, 9(R4); SRLV $8, R25, R25
+	MOVBU R25, 10(R4)
 
-	// Store 11 bytes: 8 from R24, 3 from R25
-	MOVBU  R24, 0(R4); SRLV $8, R24, R24
-	MOVBU  R24, 1(R4); SRLV $8, R24, R24
-	MOVBU  R24, 2(R4); SRLV $8, R24, R24
-	MOVBU  R24, 3(R4); SRLV $8, R24, R24
-	MOVBU  R24, 4(R4); SRLV $8, R24, R24
-	MOVBU  R24, 5(R4); SRLV $8, R24, R24
-	MOVBU  R24, 6(R4); SRLV $8, R24, R24
-	MOVBU  R24, 7(R4)
-	MOVBU  R25, 8(R4); SRLV $8, R25, R25
-	MOVBU  R25, 9(R4); SRLV $8, R25, R25
-	MOVBU  R25, 10(R4)
+	// Half 2: c8..c15 → 11 bytes
+	// c8,c9,c10,c11 from V[2]
+	XVMOVQ X12.V[2], R10        // c8
+	XVMOVQ X13.V[2], R11        // c10
+	XVMOVQ X1.V[2],  R12        // c9
+	XVMOVQ X2.V[2],  R13        // c11
+	// c12,c13,c14,c15 from V[3]
+	XVMOVQ X12.V[3], R14        // c12
+	XVMOVQ X13.V[3], R15        // c14
+	XVMOVQ X1.V[3],  R16        // c13
+	XVMOVQ X2.V[3],  R17        // c15
 
-	ADDV $16, R5              // 8 int16 = 16 bytes
-	ADDV $11, R4
+	// Pack c8..c15 into 11 bytes
+	MOVV  R10, R24
+	SLLV  $11, R12, R18; OR R18, R24
+	SLLV  $22, R11, R18; OR R18, R24
+	SLLV  $33, R13, R18; OR R18, R24
+	SLLV  $44, R14, R18; OR R18, R24
+	SLLV  $55, R16, R18; OR R18, R24
+
+	SRLV  $9, R16, R25
+	SLLV  $2, R15, R18; OR R18, R25
+	SLLV  $13, R17, R18; OR R18, R25
+
+	MOVBU R24, 11(R4); SRLV $8, R24, R24
+	MOVBU R24, 12(R4); SRLV $8, R24, R24
+	MOVBU R24, 13(R4); SRLV $8, R24, R24
+	MOVBU R24, 14(R4); SRLV $8, R24, R24
+	MOVBU R24, 15(R4); SRLV $8, R24, R24
+	MOVBU R24, 16(R4); SRLV $8, R24, R24
+	MOVBU R24, 17(R4); SRLV $8, R24, R24
+	MOVBU R24, 18(R4)
+	MOVBU R25, 19(R4); SRLV $8, R25, R25
+	MOVBU R25, 20(R4); SRLV $8, R25, R25
+	MOVBU R25, 21(R4)
+
+	ADDV $32, R5              // 16 int16 = 32 bytes
+	ADDV $22, R4
 	ADDV $-1, R6
 	BNE R6, R0, compress11_loop
 
