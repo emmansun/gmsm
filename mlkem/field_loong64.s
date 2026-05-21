@@ -1238,100 +1238,88 @@ decompress4_loop:
 TEXT ·ringCompressAndEncode1LASX(SB), NOSPLIT, $0-32
 	MOVV out_base+0(FP), R4
 	MOVV f+24(FP), R5
+	MOVV $32, R6             // 32 output bytes (256 coefs / 8 per byte)
+	MOVV $-833, R7           // constant: -(833)
+	MOVV $-1664, R8          // constant: -(1664) so (x-833)+(−1664) = x−2497
 
-	MOVV $833, R7
-	XVMOVQ R7, X8.H16               // X8 = broadcast(833)
-	MOVV $2497, R7
-	XVMOVQ R7, X9.H16               // X9 = broadcast(2497)
-	MOVV $1, R8                      // R8 = bit mask for GPR extraction
+	// compress1(x) = 1 iff 833 ≤ x ≤ 2496.
+	// For each coef x (zero-extended uint16):
+	//   R11 = x − 833 → sign bit 1 if x < 833
+	//   R11 = x − 2497 → sign bit 1 if x ≤ 2496
+	//   bit = 1 only when BOTH: not(x < 833) AND (x ≤ 2496)
+	// 8 coefs → 1 output byte (bit per coef). 32 iterations.
+compress1_outer:
+	MOVV R0, R14             // byte accumulator
+	MOVV $1, R9              // current bit mask
 
-	MOVV $8, R6   // 8 iterations × 32 coefficients = 256 → 32 bytes
+	// Coef 0 → bit 0
+	MOVHU 0(R5), R10
+	ADDV R7, R10, R11; SRLV $63, R11, R12; BNE R12, R0, c1_s0
+	ADDV R8, R11, R11; SRLV $63, R11, R12; BEQ R12, R0, c1_s0
+	OR R9, R14
+c1_s0:
+	SLLV $1, R9, R9
 
-compress1_loop:
-	XVMOVQ (R5), X0          // load coefs 0..15
-	XVMOVQ 32(R5), X1        // load coefs 16..31
+	// Coef 1 → bit 1
+	MOVHU 2(R5), R10
+	ADDV R7, R10, R11; SRLV $63, R11, R12; BNE R12, R0, c1_s1
+	ADDV R8, R11, R11; SRLV $63, R11, R12; BEQ R12, R0, c1_s1
+	OR R9, R14
+c1_s1:
+	SLLV $1, R9, R9
 
-	// ── Compress X0 (coefs 0..15) ────────────────────────────────────────────
-	// compress1(x) = 1 iff 833 ≤ x ≤ 2496
-	// lo_mask = 0xFFFF if x < 833  (x - 833 negative)
-	// hi_mask = 0xFFFF if x ≤ 2496 (x - 2497 negative)
-	// in_range = ~lo_mask & hi_mask: 0xFFFF iff 833 ≤ x ≤ 2496
-	XVSUBH X8, X0, X2        // X2 = x - 833
-	XVSRAH $15, X2, X2       // X2 = 0xFFFF if x < 833, else 0
-	XVSUBH X9, X0, X3        // X3 = x - 2497
-	XVSRAH $15, X3, X3       // X3 = 0xFFFF if x ≤ 2496, else 0
-	XVANDNV X2, X3, X0       // X0 = ~X2 & X3: 0xFFFF iff 833≤x≤2496
-	XVSRLH $15, X0, X0       // X0[i] = 1 if compress=1, else 0
+	// Coef 2 → bit 2
+	MOVHU 4(R5), R10
+	ADDV R7, R10, R11; SRLV $63, R11, R12; BNE R12, R0, c1_s2
+	ADDV R8, R11, R11; SRLV $63, R11, R12; BEQ R12, R0, c1_s2
+	OR R9, R14
+c1_s2:
+	SLLV $1, R9, R9
 
-	// ── Compress X1 (coefs 16..31) ───────────────────────────────────────────
-	XVSUBH X8, X1, X3
-	XVSRAH $15, X3, X3
-	XVSUBH X9, X1, X4
-	XVSRAH $15, X4, X4
-	XVANDNV X3, X4, X1
-	XVSRLH $15, X1, X1       // X1[i] = 1 if compress=1, else 0
+	// Coef 3 → bit 3
+	MOVHU 6(R5), R10
+	ADDV R7, R10, R11; SRLV $63, R11, R12; BNE R12, R0, c1_s3
+	ADDV R8, R11, R11; SRLV $63, R11, R12; BEQ R12, R0, c1_s3
+	OR R9, R14
+c1_s3:
+	SLLV $1, R9, R9
 
-	// ── Bit-pack 4 output bytes via GPR ──────────────────────────────────────
-	// Each halfword in X0/X1 is 0 or 1. XVMOVQ V[n] extracts 4 halfwords as
-	// a 64-bit GPR: c0 at [15:0], c1 at [31:16], c2 at [47:32], c3 at [63:48].
-	// Pack 8 halfwords into 1 byte: bit_i = (halfword_i) & 1.
+	// Coef 4 → bit 4
+	MOVHU 8(R5), R10
+	ADDV R7, R10, R11; SRLV $63, R11, R12; BNE R12, R0, c1_s4
+	ADDV R8, R11, R11; SRLV $63, R11, R12; BEQ R12, R0, c1_s4
+	OR R9, R14
+c1_s4:
+	SLLV $1, R9, R9
 
-	// byte0: coefs 0..7 (X0.V[0] = coefs 0..3, X0.V[1] = coefs 4..7)
-	XVMOVQ X0.V[0], R10
-	XVMOVQ X0.V[1], R11
-	MOVV   R10, R14; AND R8, R14
-	SRLV   $16, R10, R15; AND R8, R15; SLLV $1, R15, R15; OR R15, R14
-	SRLV   $32, R10, R15; AND R8, R15; SLLV $2, R15, R15; OR R15, R14
-	SRLV   $48, R10, R15; AND R8, R15; SLLV $3, R15, R15; OR R15, R14
-	MOVV   R11, R15; AND R8, R15; SLLV $4, R15, R15; OR R15, R14
-	SRLV   $16, R11, R15; AND R8, R15; SLLV $5, R15, R15; OR R15, R14
-	SRLV   $32, R11, R15; AND R8, R15; SLLV $6, R15, R15; OR R15, R14
-	SRLV   $48, R11, R15; AND R8, R15; SLLV $7, R15, R15; OR R15, R14
-	MOVBU  R14, 0(R4)
+	// Coef 5 → bit 5
+	MOVHU 10(R5), R10
+	ADDV R7, R10, R11; SRLV $63, R11, R12; BNE R12, R0, c1_s5
+	ADDV R8, R11, R11; SRLV $63, R11, R12; BEQ R12, R0, c1_s5
+	OR R9, R14
+c1_s5:
+	SLLV $1, R9, R9
 
-	// byte1: coefs 8..15 (X0.V[2] = coefs 8..11, X0.V[3] = coefs 12..15)
-	XVMOVQ X0.V[2], R10
-	XVMOVQ X0.V[3], R11
-	MOVV   R10, R14; AND R8, R14
-	SRLV   $16, R10, R15; AND R8, R15; SLLV $1, R15, R15; OR R15, R14
-	SRLV   $32, R10, R15; AND R8, R15; SLLV $2, R15, R15; OR R15, R14
-	SRLV   $48, R10, R15; AND R8, R15; SLLV $3, R15, R15; OR R15, R14
-	MOVV   R11, R15; AND R8, R15; SLLV $4, R15, R15; OR R15, R14
-	SRLV   $16, R11, R15; AND R8, R15; SLLV $5, R15, R15; OR R15, R14
-	SRLV   $32, R11, R15; AND R8, R15; SLLV $6, R15, R15; OR R15, R14
-	SRLV   $48, R11, R15; AND R8, R15; SLLV $7, R15, R15; OR R15, R14
-	MOVBU  R14, 1(R4)
+	// Coef 6 → bit 6
+	MOVHU 12(R5), R10
+	ADDV R7, R10, R11; SRLV $63, R11, R12; BNE R12, R0, c1_s6
+	ADDV R8, R11, R11; SRLV $63, R11, R12; BEQ R12, R0, c1_s6
+	OR R9, R14
+c1_s6:
+	SLLV $1, R9, R9
 
-	// byte2: coefs 16..23 (X1.V[0] = coefs 16..19, X1.V[1] = coefs 20..23)
-	XVMOVQ X1.V[0], R10
-	XVMOVQ X1.V[1], R11
-	MOVV   R10, R14; AND R8, R14
-	SRLV   $16, R10, R15; AND R8, R15; SLLV $1, R15, R15; OR R15, R14
-	SRLV   $32, R10, R15; AND R8, R15; SLLV $2, R15, R15; OR R15, R14
-	SRLV   $48, R10, R15; AND R8, R15; SLLV $3, R15, R15; OR R15, R14
-	MOVV   R11, R15; AND R8, R15; SLLV $4, R15, R15; OR R15, R14
-	SRLV   $16, R11, R15; AND R8, R15; SLLV $5, R15, R15; OR R15, R14
-	SRLV   $32, R11, R15; AND R8, R15; SLLV $6, R15, R15; OR R15, R14
-	SRLV   $48, R11, R15; AND R8, R15; SLLV $7, R15, R15; OR R15, R14
-	MOVBU  R14, 2(R4)
+	// Coef 7 → bit 7
+	MOVHU 14(R5), R10
+	ADDV R7, R10, R11; SRLV $63, R11, R12; BNE R12, R0, c1_s7
+	ADDV R8, R11, R11; SRLV $63, R11, R12; BEQ R12, R0, c1_s7
+	OR R9, R14
+c1_s7:
+	MOVBU R14, 0(R4)
 
-	// byte3: coefs 24..31 (X1.V[2] = coefs 24..27, X1.V[3] = coefs 28..31)
-	XVMOVQ X1.V[2], R10
-	XVMOVQ X1.V[3], R11
-	MOVV   R10, R14; AND R8, R14
-	SRLV   $16, R10, R15; AND R8, R15; SLLV $1, R15, R15; OR R15, R14
-	SRLV   $32, R10, R15; AND R8, R15; SLLV $2, R15, R15; OR R15, R14
-	SRLV   $48, R10, R15; AND R8, R15; SLLV $3, R15, R15; OR R15, R14
-	MOVV   R11, R15; AND R8, R15; SLLV $4, R15, R15; OR R15, R14
-	SRLV   $16, R11, R15; AND R8, R15; SLLV $5, R15, R15; OR R15, R14
-	SRLV   $32, R11, R15; AND R8, R15; SLLV $6, R15, R15; OR R15, R14
-	SRLV   $48, R11, R15; AND R8, R15; SLLV $7, R15, R15; OR R15, R14
-	MOVBU  R14, 3(R4)
-
-	ADDV $64, R5              // 32 int16 = 64 bytes
-	ADDV $4, R4               // 4 output bytes
+	ADDV $16, R5             // advance 8 × uint16 = 16 bytes
+	ADDV $1, R4              // advance 1 output byte
 	ADDV $-1, R6
-	BNE R6, R0, compress1_loop
+	BNE R6, R0, compress1_outer
 
 	RET
 
