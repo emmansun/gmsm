@@ -42,16 +42,7 @@ var inttTwiddleL4PrecompLASX [128]fieldElement
 // inttTwiddleL2Precomp stores 8 vectors for inverse NTT layer 7.
 var inttTwiddleL2PrecompLASX [128]fieldElement
 
-// compress1WeightsH stores bit-position weights for ringCompressAndEncode1LASX.
-// Per 128-bit lane: [1, 2, 4, 8, 16, 32, 64, 128] as int16.
-// Both LASX lanes are identical, so the 256-bit vector has the same pattern twice.
-var compress1WeightsH [16]uint16
-
 func init() {
-	weights := [8]uint16{1, 2, 4, 8, 16, 32, 64, 128}
-	for i := 0; i < 16; i++ {
-		compress1WeightsH[i] = weights[i%8]
-	}
 	for i := range qVecLASX {
 		qVecLASX[i] = q
 	}

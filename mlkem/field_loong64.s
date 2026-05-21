@@ -1215,111 +1215,119 @@ decompress4_loop:
 // Compress_1 + ByteEncode_1: maps 256 int16 coefficients to 32 bytes (1 bit each).
 // compress(x, 1) = 1 if 833 ≤ x ≤ 2496, else 0.
 //
-// Algorithm per 32 coefficients (2 LASX registers → 4 output bytes):
-//   1. Load 16 coefficients into X0/X1.
-//   2. Compute in-range mask:
-//        lo_mask = sign(x - 833)  → 0xFFFF if x < 833 (NOT compress=1)
-//        hi_mask = sign(x - 2497) → 0xFFFF if x < 2497 (compress=1)
-//        mask = ANDNV(lo_mask, hi_mask) = ~lo_mask & hi_mask = 0xFFFF iff 833≤x≤2496
-//   3. Shift mask >> 15 → 0x0001 if compress=1.
-//   4. Multiply by bit-position weights [1,2,4,8,16,32,64,128, 1,2,...,128].
-//   5. Horizontal sum within each 128-bit lane (8 halfwords → 1 byte):
-//        Round 1: XVSHUF4IH $0xB1 + XVADDH (pair-sum adjacent halfw: 8→4)
-//        Round 2: XVSHUF4IH $0x4E + XVADDH (pair-sum 2-wide: 4→2, but 2 same)
-//        Byte per lane now in halfword[0] and halfword[2] per 128-bit lane.
-//   6. Extract: XVMOVQ X.V[0], R → low 32 bits = [byte0, ?, byte1, ?] (16-bit each)
-//      XVMOVQ X.V[2] for lane1 bytes.
-//      Extract via MOVBU.
+// LASX algorithm: 8 iterations × 32 coefs → 4 output bytes.
+// Per 32-coef group:
+//   1. Load X0 = coefs[0..15], X1 = coefs[16..31]
+//   2. Compute in-range mask via sign-bit trick:
+//      lo = XVSUBH(X8, X0) → x-833; XVSRLH $15 → 1 if x < 833
+//      hi = XVSUBH(X0, X9) → 2496-x; XVSRLH $15 → 1 if x > 2496
+//      out_of_range = lo | hi; in_range = 1 - out_of_range (0 or 1 per halfword)
+//   3. XVMOVQ V[0..3] → 4 × 64-bit words, each with 4 flags as uint16 halfwords
+//   4. Scalar: shift each flag into bit position, OR into output byte
 //
 // Register allocation:
-//   R4=out, R5=f, R6=loop counter
-//   X8=broadcast(833), X9=broadcast(2497), X12=weights
-//   X0,X1=coefficients; X2,X3=lo_mask; X4,X5=hi_mask; X6,X7=compress masks
+//   R4=out, R5=f, R6=loop counter, R7=scratch
+//   X8=broadcast(833, H16), X9=broadcast(2496, H16), X10=broadcast(1, H16)
+//   X0,X1=coefs; X2,X3=temporaries
 TEXT ·ringCompressAndEncode1LASX(SB), NOSPLIT, $0-32
 	MOVV out_base+0(FP), R4
 	MOVV f+24(FP), R5
-	MOVV $32, R6             // 32 output bytes (256 coefs / 8 per byte)
-	MOVV $-833, R7           // constant: -(833)
-	MOVV $-1664, R8          // constant: -(1664) so (x-833)+(−1664) = x−2497
 
-	// compress1(x) = 1 iff 833 ≤ x ≤ 2496.
-	// For each coef x (zero-extended uint16):
-	//   R11 = x − 833 → sign bit 1 if x < 833
-	//   R11 = x − 2497 → sign bit 1 if x ≤ 2496
-	//   bit = 1 only when BOTH: not(x < 833) AND (x ≤ 2496)
-	// 8 coefs → 1 output byte (bit per coef). 32 iterations.
-compress1_outer:
-	MOVV R0, R14             // byte accumulator
-	MOVV $1, R9              // current bit mask
+	// Setup constants
+	MOVV $833, R7
+	XVMOVQ R7, X8.H16           // X8 = broadcast(833)
+	MOVV $2496, R7
+	XVMOVQ R7, X9.H16           // X9 = broadcast(2496)
+	MOVV $1, R7
+	XVMOVQ R7, X10.H16          // X10 = broadcast(1) for sign-bit inversion
 
-	// Coef 0 → bit 0
-	MOVHU 0(R5), R10
-	ADDV R7, R10, R11; SRLV $63, R11, R12; BNE R12, R0, c1_s0
-	ADDV R8, R11, R11; SRLV $63, R11, R12; BEQ R12, R0, c1_s0
-	OR R9, R14
-c1_s0:
-	SLLV $1, R9, R9
+	MOVV $8, R6                 // 8 iterations × 32 coefs = 256
 
-	// Coef 1 → bit 1
-	MOVHU 2(R5), R10
-	ADDV R7, R10, R11; SRLV $63, R11, R12; BNE R12, R0, c1_s1
-	ADDV R8, R11, R11; SRLV $63, R11, R12; BEQ R12, R0, c1_s1
-	OR R9, R14
-c1_s1:
-	SLLV $1, R9, R9
+compress1_loop:
+	// Load 32 coefficients
+	XVMOVQ (R5),    X0          // X0 = coefs[0..15]
+	XVMOVQ 32(R5),  X1          // X1 = coefs[16..31]
 
-	// Coef 2 → bit 2
-	MOVHU 4(R5), R10
-	ADDV R7, R10, R11; SRLV $63, R11, R12; BNE R12, R0, c1_s2
-	ADDV R8, R11, R11; SRLV $63, R11, R12; BEQ R12, R0, c1_s2
-	OR R9, R14
-c1_s2:
-	SLLV $1, R9, R9
+	// ── X0: coefs 0..15 ───────────────────────────────────────────────────
+	// in_range = (x >= 833) AND (x <= 2496)
+	// Sign-bit trick: XVSUBH Xa, Xb, Xc = Xc = Xb - Xa. Sign = 1 if result < 0.
+	// lo: x < 833  → x - 833 < 0 → sign(XVSUBH X8, X0) = 1
+	// hi: x > 2496 → 2496 - x < 0 → sign(XVSUBH X0, X9) = 1
+	XVSUBH X8, X0, X2            // X2 = x - 833 per halfword
+	XVSRLH $15, X2, X2           // X2 = 1 where x < 833, 0 otherwise (lo mask)
+	XVSUBH X0, X9, X3            // X3 = 2496 - x per halfword
+	XVSRLH $15, X3, X3           // X3 = 1 where x > 2496, 0 otherwise (hi mask)
+	XVORV X2, X3, X2             // X2 = 1 where out-of-range, 0 where in-range
+	XVSUBH X2, X10, X2           // X2 = 1 - out = in-range (0 or 1 per halfword)
 
-	// Coef 3 → bit 3
-	MOVHU 6(R5), R10
-	ADDV R7, R10, R11; SRLV $63, R11, R12; BNE R12, R0, c1_s3
-	ADDV R8, R11, R11; SRLV $63, R11, R12; BEQ R12, R0, c1_s3
-	OR R9, R14
-c1_s3:
-	SLLV $1, R9, R9
+	// Extract flags and pack into 2 bytes
+	// V[n] = 64-bit quadword n. Each quadword holds 4 halfwords (0 or 1 each).
+	XVMOVQ X2.V[0], R10         // R10 = f0|(f1<<16)|(f2<<32)|(f3<<48)
+	XVMOVQ X2.V[1], R11         // R11 = f4|(f5<<16)|(f6<<32)|(f7<<48)
+	XVMOVQ X2.V[2], R12         // R12 = f8|(f9<<16)|(f10<<32)|(f11<<48)
+	XVMOVQ X2.V[3], R13         // R13 = f12|(f13<<16)|(f14<<32)|(f15<<48)
 
-	// Coef 4 → bit 4
-	MOVHU 8(R5), R10
-	ADDV R7, R10, R11; SRLV $63, R11, R12; BNE R12, R0, c1_s4
-	ADDV R8, R11, R11; SRLV $63, R11, R12; BEQ R12, R0, c1_s4
-	OR R9, R14
-c1_s4:
-	SLLV $1, R9, R9
-
-	// Coef 5 → bit 5
-	MOVHU 10(R5), R10
-	ADDV R7, R10, R11; SRLV $63, R11, R12; BNE R12, R0, c1_s5
-	ADDV R8, R11, R11; SRLV $63, R11, R12; BEQ R12, R0, c1_s5
-	OR R9, R14
-c1_s5:
-	SLLV $1, R9, R9
-
-	// Coef 6 → bit 6
-	MOVHU 12(R5), R10
-	ADDV R7, R10, R11; SRLV $63, R11, R12; BNE R12, R0, c1_s6
-	ADDV R8, R11, R11; SRLV $63, R11, R12; BEQ R12, R0, c1_s6
-	OR R9, R14
-c1_s6:
-	SLLV $1, R9, R9
-
-	// Coef 7 → bit 7
-	MOVHU 14(R5), R10
-	ADDV R7, R10, R11; SRLV $63, R11, R12; BNE R12, R0, c1_s7
-	ADDV R8, R11, R11; SRLV $63, R11, R12; BEQ R12, R0, c1_s7
-	OR R9, R14
-c1_s7:
+	// Pack R10 (f0..f3) + R11 (f4..f7) into byte 0
+	MOVV  R0, R14
+	MOVHU R10, R7; OR R7, R14                         // f0 → bit 0
+	SRLV  $16, R10, R10; MOVHU R10, R7; SLLV $1, R7, R7; OR R7, R14  // f1 → bit 1
+	SRLV  $16, R10, R10; MOVHU R10, R7; SLLV $2, R7, R7; OR R7, R14  // f2 → bit 2
+	SRLV  $16, R10, R10; MOVHU R10, R7; SLLV $3, R7, R7; OR R7, R14  // f3 → bit 3
+	MOVHU R11, R7; SLLV $4, R7, R7; OR R7, R14                        // f4 → bit 4
+	SRLV  $16, R11, R11; MOVHU R11, R7; SLLV $5, R7, R7; OR R7, R14  // f5 → bit 5
+	SRLV  $16, R11, R11; MOVHU R11, R7; SLLV $6, R7, R7; OR R7, R14  // f6 → bit 6
+	SRLV  $16, R11, R11; MOVHU R11, R7; SLLV $7, R7, R7; OR R7, R14  // f7 → bit 7
 	MOVBU R14, 0(R4)
 
-	ADDV $16, R5             // advance 8 × uint16 = 16 bytes
-	ADDV $1, R4              // advance 1 output byte
+	// Pack R12 (f8..f11) + R13 (f12..f15) into byte 1
+	MOVV  R0, R14
+	MOVHU R12, R7; OR R7, R14
+	SRLV  $16, R12, R12; MOVHU R12, R7; SLLV $1, R7, R7; OR R7, R14
+	SRLV  $16, R12, R12; MOVHU R12, R7; SLLV $2, R7, R7; OR R7, R14
+	SRLV  $16, R12, R12; MOVHU R12, R7; SLLV $3, R7, R7; OR R7, R14
+	MOVHU R13, R7; SLLV $4, R7, R7; OR R7, R14
+	SRLV  $16, R13, R13; MOVHU R13, R7; SLLV $5, R7, R7; OR R7, R14
+	SRLV  $16, R13, R13; MOVHU R13, R7; SLLV $6, R7, R7; OR R7, R14
+	SRLV  $16, R13, R13; MOVHU R13, R7; SLLV $7, R7, R7; OR R7, R14
+	MOVBU R14, 1(R4)
+
+	// ── X1: coefs 16..31 ──────────────────────────────────────────────────
+	XVSUBH X8, X1, X2; XVSRLH $15, X2, X2     // lo: 1 where x < 833
+	XVSUBH X1, X9, X3; XVSRLH $15, X3, X3     // hi: 1 where x > 2496
+	XVORV X2, X3, X2                            // out-of-range (0 or 1)
+	XVSUBH X2, X10, X2                          // in-range = 1 - out
+
+	XVMOVQ X2.V[0], R10
+	XVMOVQ X2.V[1], R11
+	XVMOVQ X2.V[2], R12
+	XVMOVQ X2.V[3], R13
+
+	MOVV  R0, R14
+	MOVHU R10, R7; OR R7, R14
+	SRLV  $16, R10, R10; MOVHU R10, R7; SLLV $1, R7, R7; OR R7, R14
+	SRLV  $16, R10, R10; MOVHU R10, R7; SLLV $2, R7, R7; OR R7, R14
+	SRLV  $16, R10, R10; MOVHU R10, R7; SLLV $3, R7, R7; OR R7, R14
+	MOVHU R11, R7; SLLV $4, R7, R7; OR R7, R14
+	SRLV  $16, R11, R11; MOVHU R11, R7; SLLV $5, R7, R7; OR R7, R14
+	SRLV  $16, R11, R11; MOVHU R11, R7; SLLV $6, R7, R7; OR R7, R14
+	SRLV  $16, R11, R11; MOVHU R11, R7; SLLV $7, R7, R7; OR R7, R14
+	MOVBU R14, 2(R4)
+
+	MOVV  R0, R14
+	MOVHU R12, R7; OR R7, R14
+	SRLV  $16, R12, R12; MOVHU R12, R7; SLLV $1, R7, R7; OR R7, R14
+	SRLV  $16, R12, R12; MOVHU R12, R7; SLLV $2, R7, R7; OR R7, R14
+	SRLV  $16, R12, R12; MOVHU R12, R7; SLLV $3, R7, R7; OR R7, R14
+	MOVHU R13, R7; SLLV $4, R7, R7; OR R7, R14
+	SRLV  $16, R13, R13; MOVHU R13, R7; SLLV $5, R7, R7; OR R7, R14
+	SRLV  $16, R13, R13; MOVHU R13, R7; SLLV $6, R7, R7; OR R7, R14
+	SRLV  $16, R13, R13; MOVHU R13, R7; SLLV $7, R7, R7; OR R7, R14
+	MOVBU R14, 3(R4)
+
+	ADDV $64, R5                // 32 int16 = 64 bytes
+	ADDV $4, R4                 // 4 output bytes
 	ADDV $-1, R6
-	BNE R6, R0, compress1_outer
+	BNE R6, R0, compress1_loop
 
 	RET
 
