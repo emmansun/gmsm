@@ -1040,7 +1040,7 @@ nttmlacc_kg_lasx_loop:
 // Algorithm per 16 coefficients (1 LASX register):
 //   1. COMPRESS4 → X2 = [c0..c15] as int16 ∈[0,15]
 //   2. XVPICKEV_H(even, X2, X2): lane0 = [c0,c2,c4,c6, c0,c2,c4,c6]
-//      XVPICKOD_H(odd,  X2, X2): lane0 = [c1,c3,c5,c7, c1,c3,c5,c7]
+//      XVSHUF4IH $0xB1 + XVPICKEV_H to get odd: lane0 = [c1,c3,c5,c7, c1,c3,c5,c7]
 //   3. XVSLLH $4, odd, odd; XVORV even, odd, packed
 //      packed lane0 = [b0,b1,b2,b3, b0,b1,b2,b3] (each int16 = one packed byte)
 //   4. Store to stack (32 bytes); extract b0..b3 from stack[0,2,4,6] using MOVHU

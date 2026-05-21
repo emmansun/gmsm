@@ -363,9 +363,9 @@ func BenchmarkNTTForward(b *testing.B) {
 	})
 
 	b.Run("Dispatch", func(b *testing.B) {
-		old := useLASX
-		useLASX = useLASX
-		b.Cleanup(func() { useLASX = old })
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
 		f := randomRingElement()
 		b.ReportAllocs()
 		b.ResetTimer()
@@ -405,9 +405,9 @@ func BenchmarkNTTInverse(b *testing.B) {
 	})
 
 	b.Run("Dispatch", func(b *testing.B) {
-		old := useLASX
-		useLASX = useLASX
-		b.Cleanup(func() { useLASX = old })
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
 		f := randomRingElement()
 		internalNTT(&f)
 		nf := nttElement(f)
