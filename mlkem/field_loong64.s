@@ -1775,3 +1775,247 @@ compress11_loop:
 	BNE R6, R0, compress11_loop
 
 	RET
+
+// ── decodeAndDecompressU10LASX ────────────────────────────────────────────────
+// func decodeAndDecompressU10LASX(dst []ringElement, c []byte)
+//
+// Decodes 10-bit packed values and decompresses to ring elements.
+// Each ring element: 256 coefs, encoded as 320 bytes (256×10/8).
+// Inner loop: 8 coefs per 10 bytes → 16 bytes output.
+// Decompress_10: f = (y*q >> 10) + ((y*q >> 9) & 1)
+//
+// Register usage:
+//   R4 = src pointer (c)
+//   R5 = dst pointer
+//   R6 = outer loop counter (len(dst))
+//   R7 = inner loop counter (32 per ring element)
+//   R8 = 64-bit word from input
+//   R9 = 16-bit word from input (bytes 8..9)
+//   R10..R19 = scratch for coef extraction and packing
+//   R12 = 10-bit mask (0x3FF)
+//   X8 = broadcast(3329) as uint16
+//   X9 = broadcast(1) as uint32 (rounding mask)
+//   X10,X12 = even/odd products and temps
+TEXT ·decodeAndDecompressU10LASX(SB), NOSPLIT, $0-48
+	MOVV dst_base+0(FP), R5     // dst pointer
+	MOVV dst_len+8(FP), R6      // number of ring elements
+	MOVV c_base+24(FP), R4      // src pointer
+
+	// Setup LASX constants
+	MOVV $3329, R7
+	XVMOVQ R7, X8.H16           // X8 = broadcast(3329) as uint16
+	MOVV $1, R7
+	XVMOVQ R7, X9.W8            // X9 = broadcast(1) as uint32
+	MOVV $0x3FF, R12             // 10-bit mask
+
+u10_outer:
+	MOVV $32, R7                 // 32 inner iterations per ring element (8 coefs each)
+
+u10_inner:
+	// Load 10 bytes from src
+	MOVV  (R4), R8               // bytes 0..7
+	MOVHU 8(R4), R9              // bytes 8..9 (zero-extended to 64-bit)
+
+	// Extract c0..c5 (all within R8)
+	MOVV  R8, R10
+	AND   R12, R10               // c0 = R8[9:0]
+
+	SRLV  $10, R8, R11
+	AND   R12, R11               // c1 = R8[19:10]
+
+	SRLV  $20, R8, R13
+	AND   R12, R13               // c2 = R8[29:20]
+
+	SRLV  $30, R8, R14
+	AND   R12, R14               // c3 = R8[39:30]
+
+	SRLV  $40, R8, R15
+	AND   R12, R15               // c4 = R8[49:40]
+
+	SRLV  $50, R8, R16
+	AND   R12, R16               // c5 = R8[59:50]
+
+	// c6: 4 bits from R8[63:60] + 6 bits from R9[5:0]
+	SRLV  $60, R8, R17           // R17 = R8[63:60] (4 bits, in [3:0])
+	MOVV  R9, R18
+	MOVV  $0x3F, R19
+	AND   R19, R18               // R18 = R9[5:0]
+	SLLV  $4, R18, R18           // R18 = R9[5:0] shifted to [9:4]
+	OR    R17, R18               // R18 = c6 (10 bits)
+
+	// c7 = R9[15:6]
+	SRLV  $6, R9, R19
+	AND   R12, R19               // c7
+
+	// Pack c0..c3 into R10: c0 | c1<<16 | c2<<32 | c3<<48
+	SLLV  $16, R11, R11; OR R11, R10
+	SLLV  $32, R13, R13; OR R13, R10
+	SLLV  $48, R14, R14; OR R14, R10
+
+	// Pack c4..c7 into R15: c4 | c5<<16 | c6<<32 | c7<<48
+	SLLV  $16, R16, R16; OR R16, R15
+	SLLV  $32, R18, R18; OR R18, R15
+	SLLV  $48, R19, R19; OR R19, R15
+
+	// Write raw coefs to dst (will be overwritten by decompress results)
+	MOVV  R10, 0(R5)
+	MOVV  R15, 8(R5)
+	XVMOVQ (R5), X0              // X0[127:0] = [c0,c1,...,c7] as uint16 halfwords
+
+	// Decompress_10: f = (y*q >> 10) + ((y*q >> 9) & 1)
+	XVMULWEVWHU X0, X8, X12     // X12.word[i] = c[2i] * q (even coefs)
+	XVMULWODWHU X0, X8, X0     // X0.word[i]  = c[2i+1] * q (odd coefs)
+
+	// Rounding and shift for even coefs
+	XVSRLW $9,  X12, X10
+	XVANDV X9,  X10, X10        // rounding bit
+	XVSRLW $10, X12, X12
+	XVADDW X10, X12, X12        // f_even
+
+	// Rounding and shift for odd coefs
+	XVSRLW $9,  X0,  X10
+	XVANDV X9,  X10, X10        // rounding bit
+	XVSRLW $10, X0,  X0
+	XVADDW X10, X0,  X0         // f_odd
+
+	// Interleave even and odd results
+	XVILVLW X12, X0, X1         // X1.words = [f0,f1,f2,f3] (low 16b each)
+	XVILVHW X12, X0, X2         // X2.words = [f4,f5,f6,f7]
+	XVPICKEV_H(0, 2, 1)         // X0.half  = [f0,f1,f2,f3,f4,f5,f6,f7]
+
+	// Store 8 int16 = 16 bytes
+	VMOVQ V0, 0(R5)
+
+	ADDV  $10, R4
+	ADDV  $16, R5
+	ADDV  $-1, R7
+	BNE   R7, R0, u10_inner
+
+	ADDV  $-1, R6
+	BNE   R6, R0, u10_outer
+
+	RET
+
+// ── decodeAndDecompressU11LASX ────────────────────────────────────────────────
+// func decodeAndDecompressU11LASX(dst []ringElement, c []byte)
+//
+// Decodes 11-bit packed values and decompresses to ring elements.
+// Each ring element: 256 coefs, encoded as 352 bytes (256×11/8).
+// Inner loop: 8 coefs per 11 bytes → 16 bytes output.
+// Decompress_11: f = (y*q >> 11) + ((y*q >> 10) & 1)
+//
+// Register usage:
+//   R4 = src pointer (c)
+//   R5 = dst pointer
+//   R6 = outer loop counter (len(dst))
+//   R7 = inner loop counter (32 per ring element)
+//   R8 = 64-bit word from input (bytes 0..7)
+//   R9 = 24-bit word from input (bytes 8..10)
+//   R10..R19 = scratch for coef extraction and packing
+//   R12 = 11-bit mask (0x7FF)
+//   X8 = broadcast(3329) as uint16
+//   X9 = broadcast(1) as uint32 (rounding mask)
+//   X10,X12 = even/odd products and temps
+TEXT ·decodeAndDecompressU11LASX(SB), NOSPLIT, $0-48
+	MOVV dst_base+0(FP), R5     // dst pointer
+	MOVV dst_len+8(FP), R6      // number of ring elements
+	MOVV c_base+24(FP), R4      // src pointer
+
+	// Setup LASX constants
+	MOVV $3329, R7
+	XVMOVQ R7, X8.H16           // X8 = broadcast(3329) as uint16
+	MOVV $1, R7
+	XVMOVQ R7, X9.W8            // X9 = broadcast(1) as uint32
+	MOVV $0x7FF, R12             // 11-bit mask
+
+u11_outer:
+	MOVV $32, R7                 // 32 inner iterations per ring element (8 coefs each)
+
+u11_inner:
+	// Load 11 bytes from src
+	MOVV  (R4), R8               // bytes 0..7 (64 bits)
+	MOVHU 8(R4), R9              // bytes 8..9 (16 bits, zero-extended)
+	MOVBU 10(R4), R10            // byte 10 (8 bits, zero-extended)
+	SLLV  $16, R10, R10
+	OR    R10, R9                // R9 = bytes[8..10] in [23:0]
+
+	// Extract c0..c4 (all within R8)
+	MOVV  R8, R10
+	AND   R12, R10               // c0 = R8[10:0]
+
+	SRLV  $11, R8, R11
+	AND   R12, R11               // c1 = R8[21:11]
+
+	SRLV  $22, R8, R13
+	AND   R12, R13               // c2 = R8[32:22]
+
+	SRLV  $33, R8, R14
+	AND   R12, R14               // c3 = R8[43:33]
+
+	SRLV  $44, R8, R15
+	AND   R12, R15               // c4 = R8[54:44]
+
+	// c5: 9 bits from R8[63:55] + 2 bits from R9[1:0]
+	SRLV  $55, R8, R16           // R16 = R8[63:55] (9 bits, in [8:0])
+	MOVV  R9, R17
+	MOVV  $3, R19
+	AND   R19, R17               // R17 = R9[1:0] (low 2 bits)
+	SLLV  $9, R17, R17           // R17 = R9[1:0] shifted to [10:9]
+	OR    R16, R17               // R17 = c5 (11 bits)
+
+	// c6 = R9[12:2]
+	SRLV  $2, R9, R18
+	AND   R12, R18               // c6
+
+	// c7 = R9[23:13]
+	SRLV  $13, R9, R19
+	AND   R12, R19               // c7
+
+	// Pack c0..c3 into R10: c0 | c1<<16 | c2<<32 | c3<<48
+	SLLV  $16, R11, R11; OR R11, R10
+	SLLV  $32, R13, R13; OR R13, R10
+	SLLV  $48, R14, R14; OR R14, R10
+
+	// Pack c4..c7 into R15: c4 | c5<<16 | c6<<32 | c7<<48
+	SLLV  $16, R17, R17; OR R17, R15
+	SLLV  $32, R18, R18; OR R18, R15
+	SLLV  $48, R19, R19; OR R19, R15
+
+	// Write raw coefs to dst (will be overwritten by decompress results)
+	MOVV  R10, 0(R5)
+	MOVV  R15, 8(R5)
+	XVMOVQ (R5), X0              // X0[127:0] = [c0,c1,...,c7] as uint16 halfwords
+
+	// Decompress_11: f = (y*q >> 11) + ((y*q >> 10) & 1)
+	XVMULWEVWHU X0, X8, X12     // X12.word[i] = c[2i] * q (even coefs)
+	XVMULWODWHU X0, X8, X0     // X0.word[i]  = c[2i+1] * q (odd coefs)
+
+	// Rounding and shift for even coefs
+	XVSRLW $10, X12, X10
+	XVANDV X9,  X10, X10        // rounding bit
+	XVSRLW $11, X12, X12
+	XVADDW X10, X12, X12        // f_even
+
+	// Rounding and shift for odd coefs
+	XVSRLW $10, X0,  X10
+	XVANDV X9,  X10, X10        // rounding bit
+	XVSRLW $11, X0,  X0
+	XVADDW X10, X0,  X0         // f_odd
+
+	// Interleave even and odd results
+	XVILVLW X12, X0, X1         // X1.words = [f0,f1,f2,f3] (low 16b each)
+	XVILVHW X12, X0, X2         // X2.words = [f4,f5,f6,f7]
+	XVPICKEV_H(0, 2, 1)         // X0.half  = [f0,f1,f2,f3,f4,f5,f6,f7]
+
+	// Store 8 int16 = 16 bytes
+	VMOVQ V0, 0(R5)
+
+	ADDV  $11, R4
+	ADDV  $16, R5
+	ADDV  $-1, R7
+	BNE   R7, R0, u11_inner
+
+	ADDV  $-1, R6
+	BNE   R6, R0, u11_outer
+
+	RET

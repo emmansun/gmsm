@@ -584,6 +584,134 @@ func TestLASXRingCompressAndEncode11MatchesGeneric(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// decodeAndDecompressU10LASX correctness tests
+// ---------------------------------------------------------------------------
+
+func TestLASXDecodeAndDecompressU10MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	// Exhaustive single-value test: all bytes set to a repeating pattern
+	for x := 0; x < 256; x++ {
+		c := make([]byte, encodingSize10*k)
+		for i := range c {
+			c[i] = byte(x)
+		}
+		got := make([]ringElement, k)
+		want := make([]ringElement, k)
+		decodeAndDecompressU10LASX(got, c)
+		decodeAndDecompressU10Generic(want, c)
+		for i := range got {
+			for j := range got[i] {
+				if got[i][j] != want[i][j] {
+					t.Fatalf("x=%d poly=%d coeff=%d: got=%d want=%d", x, i, j, got[i][j], want[i][j])
+				}
+			}
+		}
+	}
+
+	// Random test
+	for iter := 0; iter < 200; iter++ {
+		c := make([]byte, encodingSize10*k)
+		rand.Read(c)
+		got := make([]ringElement, k)
+		want := make([]ringElement, k)
+		decodeAndDecompressU10LASX(got, c)
+		decodeAndDecompressU10Generic(want, c)
+		for i := range got {
+			for j := range got[i] {
+				if got[i][j] != want[i][j] {
+					t.Fatalf("iter=%d poly=%d coeff=%d: got=%d want=%d", iter, i, j, got[i][j], want[i][j])
+				}
+			}
+		}
+	}
+}
+
+func TestLASXDecodeAndDecompressU10DispatchMatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for iter := 0; iter < 200; iter++ {
+		c := make([]byte, encodingSize10*k)
+		rand.Read(c)
+		got := make([]ringElement, k)
+		want := make([]ringElement, k)
+		decodeAndDecompressU10(got, c)
+		decodeAndDecompressU10Generic(want, c)
+		for i := range got {
+			for j := range got[i] {
+				if got[i][j] != want[i][j] {
+					t.Fatalf("iter=%d poly=%d coeff=%d: dispatch got=%d want=%d", iter, i, j, got[i][j], want[i][j])
+				}
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// decodeAndDecompressU11LASX correctness tests
+// ---------------------------------------------------------------------------
+
+func TestLASXDecodeAndDecompressU11MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	// Exhaustive single-value test: all bytes set to a repeating pattern
+	for x := 0; x < 256; x++ {
+		c := make([]byte, encodingSize11*k1024)
+		for i := range c {
+			c[i] = byte(x)
+		}
+		got := make([]ringElement, k1024)
+		want := make([]ringElement, k1024)
+		decodeAndDecompressU11LASX(got, c)
+		decodeAndDecompressU11Generic(want, c)
+		for i := range got {
+			for j := range got[i] {
+				if got[i][j] != want[i][j] {
+					t.Fatalf("x=%d poly=%d coeff=%d: got=%d want=%d", x, i, j, got[i][j], want[i][j])
+				}
+			}
+		}
+	}
+
+	// Random test
+	for iter := 0; iter < 200; iter++ {
+		c := make([]byte, encodingSize11*k1024)
+		rand.Read(c)
+		got := make([]ringElement, k1024)
+		want := make([]ringElement, k1024)
+		decodeAndDecompressU11LASX(got, c)
+		decodeAndDecompressU11Generic(want, c)
+		for i := range got {
+			for j := range got[i] {
+				if got[i][j] != want[i][j] {
+					t.Fatalf("iter=%d poly=%d coeff=%d: got=%d want=%d", iter, i, j, got[i][j], want[i][j])
+				}
+			}
+		}
+	}
+}
+
+func TestLASXDecodeAndDecompressU11DispatchMatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for iter := 0; iter < 200; iter++ {
+		c := make([]byte, encodingSize11*k1024)
+		rand.Read(c)
+		got := make([]ringElement, k1024)
+		want := make([]ringElement, k1024)
+		decodeAndDecompressU11(got, c)
+		decodeAndDecompressU11Generic(want, c)
+		for i := range got {
+			for j := range got[i] {
+				if got[i][j] != want[i][j] {
+					t.Fatalf("iter=%d poly=%d coeff=%d: dispatch got=%d want=%d", iter, i, j, got[i][j], want[i][j])
+				}
+			}
+		}
+	}
+}
+
 func BenchmarkNTTForward(b *testing.B) {
 	b.Run("Generic", func(b *testing.B) {
 		f := randomRingElement()
@@ -939,6 +1067,98 @@ func BenchmarkLASXRingCompressAndEncode11(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			ringCompressAndEncode11LASX(out[:], &f)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// decodeAndDecompressU10/U11 benchmarks
+// ---------------------------------------------------------------------------
+
+func BenchmarkLASXDecodeAndDecompressU10(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		dst := make([]ringElement, k)
+		c := make([]byte, encodingSize10*k)
+		rand.Read(c)
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU10Generic(dst, c)
+		}
+	})
+
+	b.Run("LASX", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		dst := make([]ringElement, k)
+		c := make([]byte, encodingSize10*k)
+		rand.Read(c)
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU10LASX(dst, c)
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		dst := make([]ringElement, k)
+		c := make([]byte, encodingSize10*k)
+		rand.Read(c)
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU10(dst, c)
+		}
+	})
+}
+
+func BenchmarkLASXDecodeAndDecompressU11(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		dst := make([]ringElement, k1024)
+		c := make([]byte, encodingSize11*k1024)
+		rand.Read(c)
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU11Generic(dst, c)
+		}
+	})
+
+	b.Run("LASX", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		dst := make([]ringElement, k1024)
+		c := make([]byte, encodingSize11*k1024)
+		rand.Read(c)
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU11LASX(dst, c)
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		dst := make([]ringElement, k1024)
+		c := make([]byte, encodingSize11*k1024)
+		rand.Read(c)
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU11(dst, c)
 		}
 	})
 }

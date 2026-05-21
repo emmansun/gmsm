@@ -205,6 +205,12 @@ func ringCompressAndEncode10LASX(out []byte, f *ringElement)
 //go:noescape
 func ringCompressAndEncode11LASX(out []byte, f *ringElement)
 
+//go:noescape
+func decodeAndDecompressU10LASX(dst []ringElement, c []byte)
+
+//go:noescape
+func decodeAndDecompressU11LASX(dst []ringElement, c []byte)
+
 func nttMul(acc, lhs, rhs *nttElement) {
 	if useLASX {
 		internalNTTMulLASX(acc, lhs, rhs)
@@ -246,10 +252,18 @@ func nttMulAccKeyGen(acc, lhs, rhs *nttElement) {
 }
 
 func decodeAndDecompressU10(dst []ringElement, c []byte) {
+	if useLASX {
+		decodeAndDecompressU10LASX(dst, c)
+		return
+	}
 	decodeAndDecompressU10Generic(dst, c)
 }
 
 func decodeAndDecompressU11(dst []ringElement, c []byte) {
+	if useLASX {
+		decodeAndDecompressU11LASX(dst, c)
+		return
+	}
 	decodeAndDecompressU11Generic(dst, c)
 }
 
