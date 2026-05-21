@@ -1420,29 +1420,43 @@ compress5_loop:
 //
 // ByteDecode_5 + Decompress_5: maps 160 bytes to 256 int16 coefficients.
 // Formula: f = (c * q + 16) >> 5, where q=3329, c ∈ [0,31].
-// Max c*q = 31*3329 = 103199 > uint16 → need 32-bit arithmetic.
+// Max c*q = 31*3329 = 103199 → needs 32-bit arithmetic (uint17).
 //
 // Algorithm: 32 iterations × 5 bytes → 8 coefficients (16 bytes).
-// Per iteration: load 5 bytes → extract 8 × 5-bit → decompress → store 8 × int16.
+// Each iteration:
+//   1. Scalar: load 5 bytes, extract 8 × 5-bit values, pack 4 per GPR (as uint16 in positions [15:0],[31:16],[47:32],[63:48])
+//   2. Load 2 GPRs into lower 128-bit lane of LASX register X0 (8 halfwords)
+//   3. LASX decompress: XVMULWEVWHU×q + XVMULWODWHU×q + XVADDW(16) + XVSRLW(5) + reorder
+//   4. XVPICKEV_H to get 8 halfwords → VMOVQ to store 16 bytes
+//
+// Register allocation:
+//   R4=b, R5=f, R6=loop counter, R7=5-bit mask (0x1F), R8=q (3329)
+//   R10=packed input bits (40-bit), R11-R18=extracted c0..c7
+//   X8=broadcast(q=3329, H16), X9=broadcast(16, W8)
+//   X0,X12=temporaries for decompress
 TEXT ·ringDecodeAndDecompress5LASX(SB), NOSPLIT, $0-16
 	MOVV b+0(FP), R4
 	MOVV f+8(FP), R5
 
-	MOVV $3329, R8              // q=3329
-	MOVV $0x1F, R7              // 5-bit mask
+	// Setup LASX constants
+	MOVV $3329, R7
+	XVMOVQ R7, X8.H16           // X8 = broadcast(3329) to 16 halfwords
+	MOVV $16, R7
+	XVMOVQ R7, X9.W8            // X9 = broadcast(16) to 8 words
+	MOVV $0x1F, R7              // scalar 5-bit mask
 
 	MOVV $32, R6
 
 decompress5_loop:
 	// Load 5 bytes (40 bits = 8 × 5-bit values)
-	MOVWU (R4), R10            // bytes 0..3 (zero-extended to 64-bit)
+	MOVWU (R4), R10             // bytes 0..3 (zero-extended to 64-bit)
 	MOVBU 4(R4), R11
 	SLLV  $32, R11, R11
-	OR    R11, R10             // R10[39:0] = all 5 bytes
+	OR    R11, R10              // R10[39:0] = all 5 bytes
 
-	// Extract 8 × 5-bit values
-	MOVV  R10, R11; AND R7, R11  // c0
-	SRLV  $5, R10, R12; AND R7, R12   // c1
+	// Extract 8 × 5-bit values into c0..c7
+	MOVV  R10, R11; AND R7, R11       // c0
+	SRLV  $5,  R10, R12; AND R7, R12  // c1
 	SRLV  $10, R10, R13; AND R7, R13  // c2
 	SRLV  $15, R10, R14; AND R7, R14  // c3
 	SRLV  $20, R10, R15; AND R7, R15  // c4
@@ -1450,29 +1464,42 @@ decompress5_loop:
 	SRLV  $30, R10, R17; AND R7, R17  // c6
 	SRLV  $35, R10, R18; AND R7, R18  // c7
 
-	// Decompress each: f = (c * q + 16) >> 5 using 32-bit arithmetic
-	// q=3329 is in R8
-	MULV  R8, R11; ADDV $16, R11; SRLV $5, R11, R11  // f0
-	MULV  R8, R12; ADDV $16, R12; SRLV $5, R12, R12  // f1
-	MULV  R8, R13; ADDV $16, R13; SRLV $5, R13, R13  // f2
-	MULV  R8, R14; ADDV $16, R14; SRLV $5, R14, R14  // f3
-	MULV  R8, R15; ADDV $16, R15; SRLV $5, R15, R15  // f4
-	MULV  R8, R16; ADDV $16, R16; SRLV $5, R16, R16  // f5
-	MULV  R8, R17; ADDV $16, R17; SRLV $5, R17, R17  // f6
-	MULV  R8, R18; ADDV $16, R18; SRLV $5, R18, R18  // f7
+	// Pack c0..c3 into one 64-bit GPR as 4 uint16 halfwords
+	// R11 = c0 | (c1<<16) | (c2<<32) | (c3<<48)
+	SLLV $16, R12, R12; OR R12, R11
+	SLLV $32, R13, R13; OR R13, R11
+	SLLV $48, R14, R14; OR R14, R11
 
-	// Store 8 int16 values
-	MOVH  R11, 0(R5)
-	MOVH  R12, 2(R5)
-	MOVH  R13, 4(R5)
-	MOVH  R14, 6(R5)
-	MOVH  R15, 8(R5)
-	MOVH  R16, 10(R5)
-	MOVH  R17, 12(R5)
-	MOVH  R18, 14(R5)
+	// Pack c4..c7 into second 64-bit GPR
+	// R15 = c4 | (c5<<16) | (c6<<32) | (c7<<48)
+	SLLV $16, R16, R16; OR R16, R15
+	SLLV $32, R17, R17; OR R17, R15
+	SLLV $48, R18, R18; OR R18, R15
+
+	// Write packed GPRs to output buffer, load as LASX, then overwrite with results.
+	// (Safe: output buffer is 16 bytes aligned and writable; we overwrite it immediately after.)
+	MOVV R11, 0(R5)
+	MOVV R15, 8(R5)
+	XVMOVQ (R5), X0             // X0[127:0] = [c0,c1,...,c7] as uint16 halfwords
+
+	// LASX decompress: f = (c * q + 16) >> 5 (32-bit arithmetic)
+	XVMULWEVWHU X0, X8, X12     // X12.word[i] = X0.half[2i] × q  (for c0,c2,c4,c6)
+	XVMULWODWHU X0, X8, X0     // X0.word[i]  = X0_orig.half[2i+1] × q  (c1,c3,c5,c7)
+	XVADDW X9, X12, X12         // add 16 (rounding)
+	XVADDW X9, X0,  X0
+	XVSRLW $5, X12, X12         // >> 5: f[0,2,4,6] in low 16 bits of each word
+	XVSRLW $5, X0,  X0          // f[1,3,5,7]
+
+	// Reorder: interleave even/odd results into sequential halfwords
+	XVILVLW X12, X0, X1         // X1.words = [f0,f1,f2,f3, ...] (low 16b each)
+	XVILVHW X12, X0, X2         // X2.words = [f4,f5,f6,f7, ...]
+	XVPICKEV_H(0, 2, 1)         // X0.half = [f0,f1,f2,f3,f4,f5,f6,f7] in lower lane
+
+	// Store 8 int16 values from lower 128-bit lane (V0)
+	VMOVQ V0, 0(R5)
 
 	ADDV $5, R4
-	ADDV $16, R5               // 8 int16 = 16 bytes
+	ADDV $16, R5                // 8 int16 = 16 bytes
 	ADDV $-1, R6
 	BNE R6, R0, decompress5_loop
 
