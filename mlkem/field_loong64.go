@@ -217,6 +217,9 @@ func samplePolyCBD2LASX(dst *ringElement, buf *[128]byte)
 //go:noescape
 func samplePolyCBD3LASX(dst *ringElement, buf *[192]byte)
 
+//go:noescape
+func rejUniformLoong64(buf []byte, a *nttElement, j int) int
+
 func nttMul(acc, lhs, rhs *nttElement) {
 	if useLASX {
 		internalNTTMulLASX(acc, lhs, rhs)
@@ -430,7 +433,7 @@ func sampleNTT(rho []byte, ii, jj byte) nttElement {
 	for j < n {
 		B.Read(batch[:])
 		for off := 0; off < len(batch) && j < n; off += 24 {
-			j += rejUniformGeneric(batch[off:off+24], &a, j)
+			j += rejUniformLoong64(batch[off:off+24], &a, j)
 		}
 	}
 	return a

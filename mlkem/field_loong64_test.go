@@ -712,7 +712,6 @@ func TestLASXDecodeAndDecompressU11DispatchMatchesGeneric(t *testing.T) {
 	}
 }
 
-
 // ---------------------------------------------------------------------------
 // samplePolyCBD2LASX correctness tests
 // ---------------------------------------------------------------------------
@@ -762,6 +761,28 @@ func TestLASXSamplePolyCBD3MatchesGeneric(t *testing.T) {
 			if gotLASX[i] != wantGeneric[i] {
 				t.Fatalf("iter=%d coeff=%d: samplePolyCBD3LASX mismatch: got=%d want=%d",
 					iter, i, gotLASX[i], wantGeneric[i])
+			}
+		}
+	}
+}
+
+func TestRejUniformLoong64MatchesGeneric(t *testing.T) {
+	for iter := 0; iter < 500; iter++ {
+		var buf [24]byte
+		rand.Read(buf[:])
+
+		var aGot, aWant nttElement
+		j := iter % 241 // start index in [0, 240]
+
+		gotN := rejUniformLoong64(buf[:], &aGot, j)
+		wantN := rejUniformGeneric(buf[:], &aWant, j)
+
+		if gotN != wantN {
+			t.Fatalf("iter=%d j=%d: count mismatch: got=%d want=%d", iter, j, gotN, wantN)
+		}
+		for i := j; i < j+gotN; i++ {
+			if aGot[i] != aWant[i] {
+				t.Fatalf("iter=%d j=%d i=%d: value mismatch: got=%d want=%d", iter, j, i, aGot[i], aWant[i])
 			}
 		}
 	}
@@ -1245,5 +1266,15 @@ func BenchmarkLASXSamplePolyCBD3(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		samplePolyCBD3LASX(&f, &B)
+	}
+}
+
+func BenchmarkRejUniformLoong64(b *testing.B) {
+	var buf [24]byte
+	rand.Read(buf[:])
+	var a nttElement
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		rejUniformLoong64(buf[:], &a, 0)
 	}
 }
