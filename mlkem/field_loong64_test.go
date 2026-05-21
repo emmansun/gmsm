@@ -303,55 +303,231 @@ func TestMontMulSignedMatchesScalar(t *testing.T) {
 	}
 }
 
-func BenchmarkNTTLASX(b *testing.B) {
-	requireLASX(&testing.T{})
-	f := randomRingElement()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+func TestLASXRingCompressAndEncode4MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	// Exhaustive single-value test
+	for x := 0; x < int(q); x++ {
+		var f ringElement
+		for i := range f {
+			f[i] = fieldElement(x)
+		}
+		var got [encodingSize4]byte
+		var want [encodingSize4]byte
+		ringCompressAndEncode4LASX(got[:], &f)
+		ringCompressAndEncode4Generic(want[:], &f)
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("x=%d byte=%d: got=0x%02x want=0x%02x", x, i, got[i], want[i])
+			}
+		}
+	}
+
+	// Random test
+	for iter := 0; iter < 200; iter++ {
+		f := randomRingElement()
+		var got [encodingSize4]byte
+		var want [encodingSize4]byte
+		ringCompressAndEncode4LASX(got[:], &f)
+		ringCompressAndEncode4Generic(want[:], &f)
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("iter=%d byte=%d: got=0x%02x want=0x%02x", iter, i, got[i], want[i])
+			}
+		}
+	}
+}
+
+func BenchmarkNTTForward(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			f2 := f
+			internalNTTGeneric(&f2)
+		}
+	})
+
+	b.Run("LASX", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		f := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			f2 := f
+			internalNTTLASX(&f2)
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		old := useLASX
+		useLASX = useLASX
+		b.Cleanup(func() { useLASX = old })
+		f := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			f2 := f
+			internalNTT(&f2)
+		}
+	})
+}
+
+func BenchmarkNTTInverse(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		internalNTTGeneric(&f)
+		nf := nttElement(f)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			nf2 := nf
+			internalInverseNTTGeneric(&nf2)
+		}
+	})
+
+	b.Run("LASX", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		f := randomRingElement()
 		internalNTTLASX(&f)
-	}
+		nf := nttElement(f)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			nf2 := nf
+			internalInverseNTTLASX(&nf2)
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		old := useLASX
+		useLASX = useLASX
+		b.Cleanup(func() { useLASX = old })
+		f := randomRingElement()
+		internalNTT(&f)
+		nf := nttElement(f)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			nf2 := nf
+			internalInverseNTT(&nf2)
+		}
+	})
 }
 
-func BenchmarkInverseNTTLASX(b *testing.B) {
-	requireLASX(&testing.T{})
-	f := randomRingElement()
-	internalNTTLASX(&f)
-	nf := nttElement(f)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		internalInverseNTTLASX(&nf)
-	}
+func BenchmarkNTTMul(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		lhs := randomNTTElement()
+		rhs := randomNTTElement()
+		var out nttElement
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			nttMontMul(&out, &lhs, &rhs)
+		}
+	})
+
+	b.Run("LASX", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		lhs := randomNTTElement()
+		rhs := randomNTTElement()
+		var out nttElement
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			internalNTTMulLASX(&out, &lhs, &rhs)
+		}
+	})
 }
 
-func BenchmarkNTTMulLASX(b *testing.B) {
-	requireLASX(&testing.T{})
-	lhs := randomNTTElement()
-	rhs := randomNTTElement()
-	var out nttElement
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		internalNTTMulLASX(&out, &lhs, &rhs)
-	}
+func BenchmarkNTTMulAcc(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		lhs := randomNTTElement()
+		rhs := randomNTTElement()
+		acc := randomNTTElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := acc
+			nttMontMulAcc(&acc2, &lhs, &rhs)
+		}
+	})
+
+	b.Run("LASX", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		lhs := randomNTTElement()
+		rhs := randomNTTElement()
+		acc := randomNTTElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := acc
+			internalNTTMulAccLASX(&acc2, &lhs, &rhs)
+		}
+	})
 }
 
-func BenchmarkNTTMulAccLASX(b *testing.B) {
-	requireLASX(&testing.T{})
-	lhs := randomNTTElement()
-	rhs := randomNTTElement()
-	acc := randomNTTElement()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		internalNTTMulAccLASX(&acc, &lhs, &rhs)
-	}
+func BenchmarkNTTMulAccKeyGen(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		lhs := randomNTTElement()
+		rhs := randomNTTElement()
+		acc := randomNTTElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := acc
+			nttMulAccGeneric(&acc2, &lhs, &rhs)
+		}
+	})
+
+	b.Run("LASX", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		lhs := randomNTTElement()
+		rhs := randomNTTElement()
+		acc := randomNTTElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := acc
+			internalNTTMulAccKeyGenLASX(&acc2, &lhs, &rhs)
+		}
+	})
 }
 
-func BenchmarkNTTMulAccKeyGenLASX(b *testing.B) {
-	requireLASX(&testing.T{})
-	lhs := randomNTTElement()
-	rhs := randomNTTElement()
-	acc := randomNTTElement()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		internalNTTMulAccKeyGenLASX(&acc, &lhs, &rhs)
-	}
+func BenchmarkRingCompressAndEncode4(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize4]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode4Generic(out[:], &f)
+		}
+	})
+
+	b.Run("LASX", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		f := randomRingElement()
+		var out [encodingSize4]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode4LASX(out[:], &f)
+		}
+	})
 }

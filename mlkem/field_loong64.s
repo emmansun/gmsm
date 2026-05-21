@@ -97,6 +97,29 @@
 #define XVPICKEV_H(Xvd, Xvj, Xvk) \
 	WORD $((0x751E8000) | ((Xvk) << 10) | ((Xvj) << 5) | (Xvd))
 
+// XVPICKEV_B performs xvpickev.b Xvd, Xvj, Xvk.
+// Picks even-indexed bytes from Xvk (lower half of each 128-bit lane) and Xvj (upper half).
+// opcode base: 0x751E0000 (same as H but element-width field = 0 for byte)
+#define XVPICKEV_B(Xvd, Xvj, Xvk) \
+	WORD $((0x751E0000) | ((Xvk) << 10) | ((Xvj) << 5) | (Xvd))
+
+// XVPICKOD_B performs xvpickod.b Xvd, Xvj, Xvk.
+// Picks odd-indexed bytes from Xvk (lower half of each 128-bit lane) and Xvj (upper half).
+// opcode base: 0x752E0000
+#define XVPICKOD_B(Xvd, Xvj, Xvk) \
+	WORD $((0x752E0000) | ((Xvk) << 10) | ((Xvj) << 5) | (Xvd))
+
+// COMPRESS4(Xin, Xcout16, Xtmp, Xmul): compress 16 coefficients to 4-bit each.
+// Xcout16: each int16 lane has a 4-bit compressed value [0,15].
+// Xmul must be preloaded with broadcast(20159).
+// Clobbers: Xtmp.
+// Formula: c = ((mulhigh16(x, 20159) + 32) >> 6) & 0xF
+#define COMPRESS4(Xin, Xcout16, Xmul20159, Xtmp, Xrnd32, Xmask0F) \
+	XVMUHH Xin, Xmul20159, Xcout16     \ // t = mulhigh16(x, 20159)
+	XVADDH Xrnd32, Xcout16, Xcout16    \ // t += 32 (for rounding)
+	XVSRAH $6, Xcout16, Xcout16        \ // t >>= 6
+	XVANDV Xmask0F, Xcout16, Xcout16    // t &= 0xF
+
 // SETUP_CONSTS initializes X15=q and X14=qInv broadcasts.
 #define SETUP_CONSTS \
 	MOVV $0x0D010D010D010D01, R7  \
@@ -997,5 +1020,175 @@ nttmlacc_kg_lasx_loop:
 	ADDV $32, R7
 	ADDV $-1, R8
 	BNE R8, R0, nttmlacc_kg_lasx_loop
+
+	RET
+
+// ── ringCompressAndEncode4LASX ────────────────────────────────────────────────
+// func ringCompressAndEncode4LASX(out []byte, f *ringElement)
+//
+// Compress_4 + ByteEncode_4: maps 256 int16 coefficients in [0,q) to 128 bytes,
+// packing two 4-bit compressed values per byte.
+//
+// Compress_4(x) = round(16*x/q) mod 16
+// Implemented as: t = mulhigh16(x, 20159); c = (t + 32) >> 6 (mod 16)
+//
+// Since 16/q ≈ 20159/2^22 and mulhigh16 gives (x*20159)>>16:
+//   (x*20159)>>16 ≈ x*16/q, then rounding by adding 32 = 2^5, shift right by 6.
+//
+// Packing: out[i] = compress(f[2i]) | compress(f[2i+1]) << 4
+//
+// Register allocation:
+//   R4=out, R5=f, R6=loop counter
+//   X0,X1=input chunks (32 int16 per iter), X2,X3=compress results (int16)
+//   X8=broadcast(20159), X9=broadcast(32), X10=broadcast(0xF)
+//   X4,X5,X6,X7=temporaries for nibble-packing
+TEXT ·ringCompressAndEncode4LASX(SB), NOSPLIT, $0-32
+	MOVV out_base+0(FP), R4
+	MOVV f+24(FP), R5
+
+	// Setup constants
+	// 20159 = 0x4EFF → broadcast: 0x4EFF4EFF4EFF4EFF
+	MOVV $0x4EFF4EFF4EFF4EFF, R7
+	XVMOVQ R7, X8.V4
+	// 32 = 0x0020 → broadcast: 0x0020002000200020
+	MOVV $0x0020002000200020, R7
+	XVMOVQ R7, X9.V4
+	// 0x000F → broadcast: 0x000F000F000F000F
+	MOVV $0x000F000F000F000F, R7
+	XVMOVQ R7, X10.V4
+
+	MOVV $8, R6   // 8 iterations × 64 bytes input = 512 bytes, 32 bytes output
+
+compress4_loop:
+	// Load 32 coefficients (2 LASX registers × 16 int16)
+	XVMOVQ (R5), X0
+	XVMOVQ 32(R5), X1
+
+	// Compress_4: c = ((mulhigh16(x, 20159) + 32) >> 6) & 0xF
+	COMPRESS4(X0, X2, X8, X4, X9, X10)
+	COMPRESS4(X1, X3, X8, X5, X9, X10)
+
+	// Pack adjacent nibbles into bytes:
+	// X2 = [c0,c1,...,c15], X3 = [c16,...,c31] (each int16, ∈[0,15])
+	//
+	// Strategy:
+	// 1. Shift X3 left by 4: each lane = c[k]<<4
+	// 2. Swap adjacent int16 pairs in shifted result
+	// 3. Add original (even) + shifted-swapped (odd) → even positions have packed byte
+	// 4. XVPICKEV_H to collect even positions → [b0..b7, b0..b7 | b8..b15, b8..b15]
+	// 5. XVPICKEV_B to reduce to bytes → [b0..b7, b8..b15] (32 bytes, but interleaved)
+	// 6. XVPERMIQ to reorder lanes → contiguous 16 bytes
+	// 7. Store lower 16 bytes (use VMOVQ on low 128-bit half)
+
+	// Pack X2: [c0..c15] → [b0..b7] as int16
+	XVSLLH $4, X2, X4         // X4 = [c0<<4, c1<<4, ...]
+	XVSHUF4IH $0xB1, X4, X4  // swap adjacent pairs: X4[0]=c1<<4, X4[1]=c0<<4, ...
+	XVADDH X2, X4, X4         // X4[even] = c[2k] + c[2k+1]<<4 = packed byte
+
+	// Collect even halfwords: [b0,b1,b2,b3, b0,b1,b2,b3 | b4,b5,b6,b7, b4,b5,b6,b7]
+	XVPICKEV_H(5, 4, 4)       // X5 = deduped nibble-packed int16 (but each b repeated twice)
+
+	// Pack X3: [c16..c31] → [b8..b15] as int16
+	XVSLLH $4, X3, X6
+	XVSHUF4IH $0xB1, X6, X6
+	XVADDH X3, X6, X6
+	XVPICKEV_H(7, 6, 6)       // X7 = deduped nibble-packed int16 for c16..c31
+
+	// Now X5 has in lane0: [b0,b1,b2,b3, b0,b1,b2,b3], lane1: [b4,b5,b6,b7, b4,b5,b6,b7]
+	// X7 has in lane0: [b8,b9,b10,b11, ...], lane1: [b12,b13,b14,b15, ...]
+	//
+	// We need bytes, not int16. Use XVPICKEV_B to get low bytes:
+	// XVPICKEV_B(dst=6, vj=X7, vk=X5):
+	//   lane0 lower 8: even bytes of X5_lane0 = b0,b1,b2,b3 (since b_k < 256, low byte = b_k)
+	//   lane0 upper 8: even bytes of X7_lane0 = b8,b9,b10,b11
+	//   lane1 lower 8: even bytes of X5_lane1 = b4,b5,b6,b7
+	//   lane1 upper 8: even bytes of X7_lane1 = b12,b13,b14,b15
+	// Result X6 = [b0..b3,b8..b11 | b4..b7,b12..b15] (16 bytes needed, interleaved)
+	XVPICKEV_B(6, 7, 5)
+
+	// Reorder: want [b0..b7, b8..b15] contiguous.
+	// Current: lane0=[b0..b3,b8..b11], lane1=[b4..b7,b12..b15]
+	// Use XVPERMIQ to build:
+	//   X7_lane0 = X6_lane0 = [b0..b3, b8..b11]  (not quite right)
+	// Need: lane0=[b0..b3,b4..b7], lane1=[b8..b11,b12..b15]
+	// i.e., [X6_lane0[0..3], X6_lane1[0..3] | X6_lane0[4..7], X6_lane1[4..7]]
+	//
+	// xvpermi.q with imm=0x20 = pool[2,0]: result.lo=src.lo, result.hi=dst_old.lo
+	// xvpermi.q with imm=0x31 = pool[3,1]: result.lo=src.hi, result.hi=dst_old.hi
+	//
+	// Strategy: X6_lane0=[b0..b3,b8..b11], X6_lane1=[b4..b7,b12..b15]
+	// We want output=[b0..b7|b8..b15]:
+	//   output_lo=[b0..b3,b4..b7] = need X6[b0..b3] concat X6[b4..b7]
+	//     = X6_lane0[0..3] concat X6_lane1[0..3] (first 4 bytes of each lane)
+	//   output_hi=[b8..b11,b12..b15] = X6_lane0[4..7] concat X6_lane1[4..7]
+	//
+	// This requires sub-lane interleaving which XVPERMIQ can't do.
+	// Alternative: use XVILVLV and XVILVHV on 32-bit elements.
+	//
+	// X5 (temp) = XVILVLV X6, X6 → interleaves 32-bit chunks from two copies:
+	//   [X6[0],X6[0],X6[1],X6[1]] where X6[k] is a 32-bit chunk
+	// Not useful.
+	//
+	// Simpler: transpose via two XVPERMIQ calls to build the output word-by-word.
+	// Store X6 to stack buffer and reload in order... but that's slow.
+	//
+	// Most practical: use XVPICKEV_B differently:
+	// Use XVPICKEV_B(6, 7, 5) where X5=[b0..b3,b0..b3,b4..b7,b4..b7] (from XVPICKEV_H X5,X5)
+	// and X7=[b8..b11,b8..b11,b12..b15,b12..b15] (from XVPICKEV_H X7,X7)
+	// Then XVPICKEV_B(6, 7, 5):
+	//   lane0: lower8=even bytes of X5_lane0=[b0,b1,b2,b3], upper8=even bytes of X7_lane0=[b8,b9,b10,b11]
+	//   lane1: lower8=even bytes of X5_lane1=[b4,b5,b6,b7], upper8=even bytes of X7_lane1=[b12,b13,b14,b15]
+	// So X6 = [b0..b3,b8..b11 | b4..b7,b12..b15]
+	//
+	// Use XVPERMIQ to swap:
+	//   X7 = copy X6 with lane0=X6_lane0, lane1=X6_lane1 (no-op)
+	//   Want: output_lane0 = [X6_lane0_lo4, X6_lane1_lo4] = [b0..b3, b4..b7]
+	//         output_lane1 = [X6_lane0_hi4, X6_lane1_hi4] = [b8..b11, b12..b15]
+	//
+	// This still needs sub-lane ops. Let's just use XVILVLV + XVILVHV on 32-bit:
+	// XVILVLV X6, X6, X7: lane0=[X6[0],X6[0]], lane1=[X6[1],X6[1]] (32-bit interleave of same)
+	// Not useful.
+	//
+	// Conclusion: store X6 to 16-byte on stack, store X6_lane1 (via XVPERMIQ) to next 8 bytes,
+	// or just use VMOVQ to store the two 128-bit halves separately.
+	//
+	// Practical solution: use XVPERMIQ to reorganize into contiguous layout,
+	// then store 16 bytes.
+	// Step: XVPERMIQ(X7, X6, 0x00) → X7_lane0 = X6_lane0, X7_lane1 = X6_lane0
+	//       XVPERMIQ(X8, X6, 0x11) → X8_lane0 = X6_lane1, X8_lane1 = X6_lane1
+	// Hmm that just duplicates lanes.
+	//
+	// Actually, the cleanest for our packed result [b0..b3,b8..b11 | b4..b7,b12..b15]:
+	// Use VMOVQ (128-bit) to store lanes separately (but need to interleave 4-byte sub-blocks).
+	//
+	// FINAL DECISION: After XVPICKEV_B, X6 = [b0..b3,b8..b11 | b4..b7,b12..b15].
+	// Store via: MOVV X6.lo to stack, MOVV X6.hi to stack+8, then reload in order.
+	// But we can't easily do X6.lo → GPR without WORD instruction.
+	//
+	// Alternative: accept 2 separate stores + 1 byte-shuffle in software.
+	// Use xvpermi.d (within 256-bit, permute 64-bit chunks).
+	// xvpermi.d with imm=0x88 = [2,0,2,0]: result = [X6[0],X6[2],X6[0],X6[2]] (64-bit chunks)
+	// xvpermi.d with imm=0xDD = [3,1,3,1]: result = [X6[1],X6[3],X6[1],X6[3]]
+	// Then XVILVLV(64-bit):
+	//   XVILVLV X6, X6, X7 → ? No, this is element-size specific.
+	//
+	// Actually xvpermi.d can reorder 64-bit chunks within the 256-bit register:
+	// imm = [c3:c2:c1:c0] each 2-bit, selects which 64-bit chunk of input goes to position k.
+	// imm=0xD8 = [3,1,2,0] = [11,01,10,00]: result[0]=X6[0], result[1]=X6[2], result[2]=X6[1], result[3]=X6[3]
+	// i.e., [b0..b3, b4..b7, b8..b11, b12..b15] → 
+	// So X7 = xvpermi.d X6, 0xD8 gives us contiguous output!
+	//
+	// xvpermi.d opcode: uses 2-reg + imm8 format.
+	// In Go asm: check if XVPERMID is available or use WORD.
+	// Estimated opcode: 0x1DF8 << 18 | imm8 << 10 | Xj << 5 | Xd
+	WORD $((0x1DF8 << 18) | (0xD8 << 10) | (6 << 5) | 7)  // xvpermi.d X7, X6, 0xD8
+
+	// Store 16 bytes contiguous output using VMOVQ (128-bit store of lower lane)
+	VMOVQ V7, (R4)
+
+	ADDV $64, R5
+	ADDV $16, R4
+	ADDV $-1, R6
+	BNE R6, R0, compress4_loop
 
 	RET

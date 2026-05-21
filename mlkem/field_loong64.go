@@ -184,6 +184,9 @@ func internalNTTMulAccLASX(acc, lhs, rhs *nttElement)
 //go:noescape
 func internalNTTMulAccKeyGenLASX(acc, lhs, rhs *nttElement)
 
+//go:noescape
+func ringCompressAndEncode4LASX(out []byte, f *ringElement)
+
 func nttMul(acc, lhs, rhs *nttElement) {
 	if useLASX {
 		internalNTTMulLASX(acc, lhs, rhs)
@@ -266,6 +269,10 @@ func polySubAssign(dst *ringElement, src *ringElement) {
 // followed by ByteEncode₄, according to FIPS 203, Algorithm 5.
 func ringCompressAndEncode4(s []byte, f *ringElement) []byte {
 	s, b := sliceForAppend(s, encodingSize4)
+	if useLASX {
+		ringCompressAndEncode4LASX(b, f)
+		return s
+	}
 	ringCompressAndEncode4Generic(b, f)
 	return s
 }
