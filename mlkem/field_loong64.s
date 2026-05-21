@@ -6,6 +6,14 @@
 
 #include "textflag.h"
 
+// ---- Static constants ----
+// compress1Weights: [1,2,4,8,16,32,64,128] × 2 as uint16, for XVMULH bit-pack
+DATA compress1Weights<>+0(SB)/8,  $0x0008000400020001
+DATA compress1Weights<>+8(SB)/8,  $0x0080004000200010
+DATA compress1Weights<>+16(SB)/8, $0x0008000400020001
+DATA compress1Weights<>+24(SB)/8, $0x0080004000200010
+GLOBL compress1Weights<>(SB), RODATA, $32
+
 // ---- Constants ----
 // q = 3329 = 0x0D01
 // qInv = 62209 (q^{-1} mod 2^16, bit pattern as int16 = -3327)
@@ -1215,20 +1223,29 @@ decompress4_loop:
 // Compress_1 + ByteEncode_1: maps 256 int16 coefficients to 32 bytes (1 bit each).
 // compress(x, 1) = 1 if 833 ≤ x ≤ 2496, else 0.
 //
-// LASX algorithm: 8 iterations × 32 coefs → 4 output bytes.
-// Per 32-coef group:
-//   1. Load X0 = coefs[0..15], X1 = coefs[16..31]
+// LASX algorithm: 8 iterations × 32 coefs → 4 output bytes per iteration.
+// Per 32-coef group (X0 and X1 processed identically):
+//   1. Load 16 coefs into X0.
 //   2. Compute in-range mask via sign-bit trick:
-//      lo = XVSUBH(X8, X0) → x-833; XVSRLH $15 → 1 if x < 833
-//      hi = XVSUBH(X0, X9) → 2496-x; XVSRLH $15 → 1 if x > 2496
-//      out_of_range = lo | hi; in_range = 1 - out_of_range (0 or 1 per halfword)
-//   3. XVMOVQ V[0..3] → 4 × 64-bit words, each with 4 flags as uint16 halfwords
-//   4. Scalar: shift each flag into bit position, OR into output byte
+//        lo = XVSUBH(X8, X0) → x-833; XVSRLH $15 → 1 if x < 833
+//        hi = XVSUBH(X0, X9) → 2496-x; XVSRLH $15 → 1 if x > 2496
+//        out_of_range = lo | hi; in_range = 1 - out_of_range (0 or 1 per halfword)
+//   3. XVMULH in_range, weights → positional values [b0*1, b1*2, b2*4, ..., b7*128]
+//   4. Horizontal reduction (2 rounds of shuffle+add):
+//        Round 1: XVSHUF4IH $0xB1 (swap adjacent halfwords in 32-bit groups) + XVADDH
+//                 → pairs summed: [s01, s01, s23, s23, s45, s45, s67, s67]
+//        Round 2: XVSHUF4IH $0x4E (swap 32-bit halves within 64-bit groups) + XVADDH
+//                 → [s0123, s0123, s0123, s0123, s4567, s4567, s4567, s4567]
+//   5. Extract 2 output bytes per LASX register:
+//        Lane 0: word0=s0123|s0123<<16 → SRLV+OR → s0123 in low byte
+//                word2=s4567|s4567<<16 → ADD → s0123+s4567 = packed byte
+//        Lane 1: words 4 and 6 similarly → second byte
 //
 // Register allocation:
 //   R4=out, R5=f, R6=loop counter, R7=scratch
 //   X8=broadcast(833, H16), X9=broadcast(2496, H16), X10=broadcast(1, H16)
-//   X0,X1=coefs; X2,X3=temporaries
+//   X12=compress1Weights (bit-position weights [1,2,4,8,16,32,64,128,...])
+//   X0,X1=coefs; X2,X3=in-range masks/weighted bits; X4=shuffle temp
 TEXT ·ringCompressAndEncode1LASX(SB), NOSPLIT, $0-32
 	MOVV out_base+0(FP), R4
 	MOVV f+24(FP), R5
@@ -1241,6 +1258,10 @@ TEXT ·ringCompressAndEncode1LASX(SB), NOSPLIT, $0-32
 	MOVV $1, R7
 	XVMOVQ R7, X10.H16          // X10 = broadcast(1) for sign-bit inversion
 
+	// Load bit-position weights [1,2,4,8,16,32,64,128, 1,2,4,8,16,32,64,128]
+	MOVV $compress1Weights<>(SB), R7
+	XVMOVQ (R7), X12
+
 	MOVV $8, R6                 // 8 iterations × 32 coefs = 256
 
 compress1_loop:
@@ -1248,81 +1269,56 @@ compress1_loop:
 	XVMOVQ (R5),    X0          // X0 = coefs[0..15]
 	XVMOVQ 32(R5),  X1          // X1 = coefs[16..31]
 
-	// ── X0: coefs 0..15 ───────────────────────────────────────────────────
-	// in_range = (x >= 833) AND (x <= 2496)
-	// Sign-bit trick: XVSUBH Xa, Xb, Xc = Xc = Xb - Xa. Sign = 1 if result < 0.
-	// lo: x < 833  → x - 833 < 0 → sign(XVSUBH X8, X0) = 1
-	// hi: x > 2496 → 2496 - x < 0 → sign(XVSUBH X0, X9) = 1
+	// ── X0: in-range detection and bit-packing ────────────────────────────
 	XVSUBH X8, X0, X2            // X2 = x - 833 per halfword
-	XVSRLH $15, X2, X2           // X2 = 1 where x < 833, 0 otherwise (lo mask)
+	XVSRLH $15, X2, X2           // X2 = 1 where x < 833 (lo mask)
 	XVSUBH X0, X9, X3            // X3 = 2496 - x per halfword
-	XVSRLH $15, X3, X3           // X3 = 1 where x > 2496, 0 otherwise (hi mask)
-	XVORV X2, X3, X2             // X2 = 1 where out-of-range, 0 where in-range
-	XVSUBH X2, X10, X2           // X2 = 1 - out = in-range (0 or 1 per halfword)
+	XVSRLH $15, X3, X3           // X3 = 1 where x > 2496 (hi mask)
+	XVORV  X2, X3, X2            // X2 = 1 where out-of-range
+	XVSUBH X2, X10, X2           // X2 = 1 - out = in-range (0 or 1)
+	XVMULH X2, X12, X2           // X2 = positional values: [b0*1, b1*2, ..., b7*128, ...]
+	// Round 1: swap adjacent halfwords within each 32-bit word → pair-sum
+	XVSHUF4IH $0xB1, X2, X4
+	XVADDH    X2, X4, X2         // [s01, s01, s23, s23, s45, s45, s67, s67, ...]
+	// Round 2: swap 32-bit halves within each 64-bit group → quad-sum
+	XVSHUF4IH $0x4E, X2, X4
+	XVADDH    X2, X4, X2         // [s0123, ×4, s4567, ×4 | s0123', ×4, s4567', ×4]
 
-	// Extract flags and pack into 2 bytes
-	// V[n] = 64-bit quadword n. Each quadword holds 4 halfwords (0 or 1 each).
-	XVMOVQ X2.V[0], R10         // R10 = f0|(f1<<16)|(f2<<32)|(f3<<48)
-	XVMOVQ X2.V[1], R11         // R11 = f4|(f5<<16)|(f6<<32)|(f7<<48)
-	XVMOVQ X2.V[2], R12         // R12 = f8|(f9<<16)|(f10<<32)|(f11<<48)
-	XVMOVQ X2.V[3], R13         // R13 = f12|(f13<<16)|(f14<<32)|(f15<<48)
+	// ── X1: same pipeline ─────────────────────────────────────────────────
+	XVSUBH X8, X1, X3; XVSRLH $15, X3, X3     // lo: 1 where x < 833
+	XVSUBH X1, X9, X4; XVSRLH $15, X4, X4     // hi: 1 where x > 2496
+	XVORV  X3, X4, X3                           // out-of-range
+	XVSUBH X3, X10, X3                          // in-range
+	XVMULH X3, X12, X3
+	XVSHUF4IH $0xB1, X3, X4; XVADDH X3, X4, X3
+	XVSHUF4IH $0x4E, X3, X4; XVADDH X3, X4, X3
 
-	// Pack R10 (f0..f3) + R11 (f4..f7) into byte 0
-	MOVV  R0, R14
-	MOVHU R10, R7; OR R7, R14                         // f0 → bit 0
-	SRLV  $16, R10, R10; MOVHU R10, R7; SLLV $1, R7, R7; OR R7, R14  // f1 → bit 1
-	SRLV  $16, R10, R10; MOVHU R10, R7; SLLV $2, R7, R7; OR R7, R14  // f2 → bit 2
-	SRLV  $16, R10, R10; MOVHU R10, R7; SLLV $3, R7, R7; OR R7, R14  // f3 → bit 3
-	MOVHU R11, R7; SLLV $4, R7, R7; OR R7, R14                        // f4 → bit 4
-	SRLV  $16, R11, R11; MOVHU R11, R7; SLLV $5, R7, R7; OR R7, R14  // f5 → bit 5
-	SRLV  $16, R11, R11; MOVHU R11, R7; SLLV $6, R7, R7; OR R7, R14  // f6 → bit 6
-	SRLV  $16, R11, R11; MOVHU R11, R7; SLLV $7, R7, R7; OR R7, R14  // f7 → bit 7
-	MOVBU R14, 0(R4)
-
-	// Pack R12 (f8..f11) + R13 (f12..f15) into byte 1
-	MOVV  R0, R14
-	MOVHU R12, R7; OR R7, R14
-	SRLV  $16, R12, R12; MOVHU R12, R7; SLLV $1, R7, R7; OR R7, R14
-	SRLV  $16, R12, R12; MOVHU R12, R7; SLLV $2, R7, R7; OR R7, R14
-	SRLV  $16, R12, R12; MOVHU R12, R7; SLLV $3, R7, R7; OR R7, R14
-	MOVHU R13, R7; SLLV $4, R7, R7; OR R7, R14
-	SRLV  $16, R13, R13; MOVHU R13, R7; SLLV $5, R7, R7; OR R7, R14
-	SRLV  $16, R13, R13; MOVHU R13, R7; SLLV $6, R7, R7; OR R7, R14
-	SRLV  $16, R13, R13; MOVHU R13, R7; SLLV $7, R7, R7; OR R7, R14
-	MOVBU R14, 1(R4)
-
-	// ── X1: coefs 16..31 ──────────────────────────────────────────────────
-	XVSUBH X8, X1, X2; XVSRLH $15, X2, X2     // lo: 1 where x < 833
-	XVSUBH X1, X9, X3; XVSRLH $15, X3, X3     // hi: 1 where x > 2496
-	XVORV X2, X3, X2                            // out-of-range (0 or 1)
-	XVSUBH X2, X10, X2                          // in-range = 1 - out
-
+// ── Extract 4 output bytes ────────────────────────────────────────────
+	// After round 2: X2 = [s0123,s0123,s0123,s0123, s4567,s4567,s4567,s4567 | lane1...]
+	// V[0]=s0123 (low 64-bit group of lane0), V[1]=s4567 (high group of lane0)
+	// V[2]=s0123' (lane1 low), V[3]=s4567' (lane1 high)
+	// Low 8 bits of each V[n] hold the partial byte sum.
+	// Byte 0 (X2 coefs 0..7 = lane0): s0123 + s4567
 	XVMOVQ X2.V[0], R10
 	XVMOVQ X2.V[1], R11
-	XVMOVQ X2.V[2], R12
-	XVMOVQ X2.V[3], R13
-
-	MOVV  R0, R14
-	MOVHU R10, R7; OR R7, R14
-	SRLV  $16, R10, R10; MOVHU R10, R7; SLLV $1, R7, R7; OR R7, R14
-	SRLV  $16, R10, R10; MOVHU R10, R7; SLLV $2, R7, R7; OR R7, R14
-	SRLV  $16, R10, R10; MOVHU R10, R7; SLLV $3, R7, R7; OR R7, R14
-	MOVHU R11, R7; SLLV $4, R7, R7; OR R7, R14
-	SRLV  $16, R11, R11; MOVHU R11, R7; SLLV $5, R7, R7; OR R7, R14
-	SRLV  $16, R11, R11; MOVHU R11, R7; SLLV $6, R7, R7; OR R7, R14
-	SRLV  $16, R11, R11; MOVHU R11, R7; SLLV $7, R7, R7; OR R7, R14
-	MOVBU R14, 2(R4)
-
-	MOVV  R0, R14
-	MOVHU R12, R7; OR R7, R14
-	SRLV  $16, R12, R12; MOVHU R12, R7; SLLV $1, R7, R7; OR R7, R14
-	SRLV  $16, R12, R12; MOVHU R12, R7; SLLV $2, R7, R7; OR R7, R14
-	SRLV  $16, R12, R12; MOVHU R12, R7; SLLV $3, R7, R7; OR R7, R14
-	MOVHU R13, R7; SLLV $4, R7, R7; OR R7, R14
-	SRLV  $16, R13, R13; MOVHU R13, R7; SLLV $5, R7, R7; OR R7, R14
-	SRLV  $16, R13, R13; MOVHU R13, R7; SLLV $6, R7, R7; OR R7, R14
-	SRLV  $16, R13, R13; MOVHU R13, R7; SLLV $7, R7, R7; OR R7, R14
-	MOVBU R14, 3(R4)
+	ADD  R10, R11, R10
+	MOVBU R10, 0(R4)
+	// Byte 1 (coefs 8..15): lane1 of X2
+	XVMOVQ X2.V[2], R10
+	XVMOVQ X2.V[3], R11
+	ADD  R10, R11, R10
+	MOVBU R10, 1(R4)
+	// X3: same structure for coefs 16..31
+	// Byte 2 (coefs 16..23):
+	XVMOVQ X3.V[0], R10
+	XVMOVQ X3.V[1], R11
+	ADD  R10, R11, R10
+	MOVBU R10, 2(R4)
+	// Byte 3 (coefs 24..31):
+	XVMOVQ X3.V[2], R10
+	XVMOVQ X3.V[3], R11
+	ADD  R10, R11, R10
+	MOVBU R10, 3(R4)
 
 	ADDV $64, R5                // 32 int16 = 64 bytes
 	ADDV $4, R4                 // 4 output bytes
