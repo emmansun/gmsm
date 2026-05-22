@@ -716,10 +716,7 @@ poly_inf_norm_loop:
 	XVANDNV X0, X27, X2
 	XVORV X1, X2, X27    // X27[0] = scalar max
 
-	// Extract X27[0] to GP register via float register alias.
-	// F0 shares storage with X0.W[0]. movfr2gr.s r9, f0 = 0x114B409
-	XVORV X27, X27, X0   // copy X27 to X0
-	WORD $0x114B409       // movfr2gr.s r9, f0 → R9 = X0.W[0] = max
+	XVMOVQ X27.WU[0], R9
 	MOVW R9, ret+8(FP)
 	RET
 
@@ -788,10 +785,7 @@ poly_inf_norm_signed_loop:
 	XVANDNV X0, X27, X2
 	XVORV X1, X2, X27
 
-	// Extract X27[0] to GP register via float register alias.
-	// F0 shares storage with X0.W[0]. movfr2gr.s r9, f0 = 0x114B409
-	XVORV X27, X27, X0   // copy X27 to X0
-	WORD $0x114B409       // movfr2gr.s r9, f0 → R9 = X0.W[0] = max
+	XVMOVQ X27.WU[0], R9
 	MOVW R9, ret+8(FP)
 	RET
 
