@@ -662,7 +662,7 @@ poly_inf_norm_loop:
 	XVSUBW X3, X27, X4   // X27 - X3
 	XVSRAW $31, X4, X4   // mask: -1 if X27 < X3
 	XVANDV X4, X3, X5
-	XVANDNV X4, X27, X6
+	XVANDNV X27, X4, X6
 	XVORV X5, X6, X27    // X27 = max(X27, X3)
 
 	// infinity norm of X1:
@@ -676,7 +676,7 @@ poly_inf_norm_loop:
 	XVSUBW X3, X28, X4
 	XVSRAW $31, X4, X4
 	XVANDV X4, X3, X5
-	XVANDNV X4, X28, X6
+	XVANDNV X28, X4, X6
 	XVORV X5, X6, X28
 
 	ADDV $64, R4
@@ -686,7 +686,7 @@ poly_inf_norm_loop:
 	XVSUBW X28, X27, X0
 	XVSRAW $31, X0, X0
 	XVANDV X0, X28, X1
-	XVANDNV X0, X27, X2
+	XVANDNV X27, X0, X2
 	XVORV X1, X2, X27    // X27 = max(X27, X28)
 
 	// Horizontal max: fold high 128-bit lane into low.
@@ -695,7 +695,7 @@ poly_inf_norm_loop:
 	XVSUBW X28, X27, X0
 	XVSRAW $31, X0, X0
 	XVANDV X0, X28, X1
-	XVANDNV X0, X27, X2
+	XVANDNV X27, X0, X2
 	XVORV X1, X2, X27    // X27.lo = max(X27.lo, X27.hi)
 
 	// Fold 4 → 2 using XVSHUF4IW.
@@ -704,7 +704,7 @@ poly_inf_norm_loop:
 	XVSUBW X28, X27, X0
 	XVSRAW $31, X0, X0
 	XVANDV X0, X28, X1
-	XVANDNV X0, X27, X2
+	XVANDNV X27, X0, X2
 	XVORV X1, X2, X27
 
 	// Fold 2 → 1 using XVSHUF4IW.
@@ -713,10 +713,12 @@ poly_inf_norm_loop:
 	XVSUBW X28, X27, X0
 	XVSRAW $31, X0, X0
 	XVANDV X0, X28, X1
-	XVANDNV X0, X27, X2
+	XVANDNV X27, X0, X2
 	XVORV X1, X2, X27    // X27[0] = scalar max
 
-	XVMOVQ X27.WU[0], R9
+	// Extract X27.W[0] via float register alias: F0 shares storage with X0.W[0].
+	XVORV X27, X27, X0     // copy to X0
+	WORD $0x0114B409       // movfr2gr.s r9, f0
 	MOVW R9, ret+8(FP)
 	RET
 
@@ -738,7 +740,7 @@ poly_inf_norm_signed_loop:
 	XVSUBW X3, X27, X4
 	XVSRAW $31, X4, X4
 	XVANDV X4, X3, X5
-	XVANDNV X4, X27, X6
+	XVANDNV X27, X4, X6
 	XVORV X5, X6, X27
 
 	XVSRAW $31, X1, X2
@@ -748,7 +750,7 @@ poly_inf_norm_signed_loop:
 	XVSUBW X3, X28, X4
 	XVSRAW $31, X4, X4
 	XVANDV X4, X3, X5
-	XVANDNV X4, X28, X6
+	XVANDNV X28, X4, X6
 	XVORV X5, X6, X28
 
 	ADDV $64, R4
@@ -758,7 +760,7 @@ poly_inf_norm_signed_loop:
 	XVSUBW X28, X27, X0
 	XVSRAW $31, X0, X0
 	XVANDV X0, X28, X1
-	XVANDNV X0, X27, X2
+	XVANDNV X27, X0, X2
 	XVORV X1, X2, X27
 
 	XVORV X27, X27, X28
@@ -766,7 +768,7 @@ poly_inf_norm_signed_loop:
 	XVSUBW X28, X27, X0
 	XVSRAW $31, X0, X0
 	XVANDV X0, X28, X1
-	XVANDNV X0, X27, X2
+	XVANDNV X27, X0, X2
 	XVORV X1, X2, X27
 
 	XVORV X27, X27, X28
@@ -774,7 +776,7 @@ poly_inf_norm_signed_loop:
 	XVSUBW X28, X27, X0
 	XVSRAW $31, X0, X0
 	XVANDV X0, X28, X1
-	XVANDNV X0, X27, X2
+	XVANDNV X27, X0, X2
 	XVORV X1, X2, X27
 
 	XVORV X27, X27, X28
@@ -782,10 +784,12 @@ poly_inf_norm_signed_loop:
 	XVSUBW X28, X27, X0
 	XVSRAW $31, X0, X0
 	XVANDV X0, X28, X1
-	XVANDNV X0, X27, X2
+	XVANDNV X27, X0, X2
 	XVORV X1, X2, X27
 
-	XVMOVQ X27.WU[0], R9
+	// Extract X27.W[0] via float register alias.
+	XVORV X27, X27, X0     // copy to X0
+	WORD $0x0114B409       // movfr2gr.s r9, f0
 	MOVW R9, ret+8(FP)
 	RET
 
