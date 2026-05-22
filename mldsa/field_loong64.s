@@ -56,7 +56,7 @@ polyadd_loop:
 	XVMOVQ (R4), X0
 	XVMOVQ (R5), X1
 	XVADDW X0, X1, X0          // x = a + b
-	XVSUBW X0, X31, X2         // t = x - q
+	XVSUBW X31, X0, X2         // t = x - q  (XVSUBW A,B,C = C=B-A, so A=X31,B=X0,C=X2 = X0-X31)
 	XVSRAW $31, X2, X3         // mask: all-1 if t<0 (i.e. a+b < q)
 	XVANDV X31, X3, X3         // q if a+b < q, else 0
 	XVADDW X2, X3, X0          // result = (x-q) + (q if x<q) = x if x<q, else x-q
@@ -118,7 +118,7 @@ polysub_loop:
 	XVMULW  Xout, XqInv, Xtmp   \ // Xtmp = prod_lo * qInv low32
 	XVMUHW  Xa, Xb, Xout        \ // Xout = a*b high32 (signed)
 	XVMUHW  Xtmp, Xq, Xtmp      \ // Xtmp = t*q high32 (signed)
-	XVSUBW  Xtmp, Xout, Xout      // Xout = prod_hi - tq_hi ∈ (-q,q)
+	XVSUBW  Xtmp, Xout, Xout      // Xout = prod_hi - tq_hi ∈ (-q,q)  (XVSUBW A,B,C = C=B-A)
 
 // ============================================================
 // nttMulLASX: out[i] = MontMul(lhs[i], rhs[i]), no final reduction
@@ -139,14 +139,12 @@ nttmul_loop:
 	XVMOVQ (R5), X1
 	MONTMUL(X0, X1, X2, X3, X30, X31)
 	// Conditional final reduction: result ∈ (-q,q), bring to [0,q)
-	// For (q>0): if x<0, x+=q; then if x>=q, x-=q (but since input ∈ [0,q), result ∈ (-q,q))
-	// Use: x += (x>>31 & q); then x -= ((q-x-1)>>31 & q)... simpler: just do one pass
 	// add q if negative:
 	XVSRAW $31, X2, X3         // mask: all-1 if x<0
 	XVANDV X31, X3, X3         // q if x<0
 	XVADDW X2, X3, X2          // now x ∈ [0, 2q-1]
 	// subtract q if >= q:
-	XVSUBW X2, X31, X3         // t = x - q
+	XVSUBW X31, X2, X3         // t = x - q  (X3 = X2 - X31)
 	XVSRAW $31, X3, X4         // mask: all-1 if t<0 (x < q)
 	XVANDV X31, X4, X4         // q if x < q
 	XVADDW X3, X4, X2          // (x-q) + (q if x<q) = x if x<q, else x-q
@@ -180,14 +178,14 @@ nttmulacc_loop:
 	XVSRAW $31, X2, X3
 	XVANDV X31, X3, X3
 	XVADDW X2, X3, X2          // now in [0, 2q-1]
-	XVSUBW X2, X31, X3
+	XVSUBW X31, X2, X3         // t = x - q  (X3 = X2 - X31)
 	XVSRAW $31, X3, X4
 	XVANDV X31, X4, X4
 	XVADDW X3, X4, X2          // now in [0, q)
 	// Accumulate: acc += product; reduce acc mod q
 	XVMOVQ (R6), X5
 	XVADDW X5, X2, X5          // acc + product ∈ [0, 2q-1]
-	XVSUBW X5, X31, X3         // t = acc - q
+	XVSUBW X31, X5, X3         // t = acc - q  (X3 = X5 - X31)
 	XVSRAW $31, X3, X4
 	XVANDV X31, X4, X4
 	XVADDW X3, X4, X5          // final ∈ [0, q)
@@ -229,7 +227,7 @@ nttmvm_chunk_loop:
 	XVSRAW $31, X5, X3
 	XVANDV X31, X3, X3
 	XVADDW X5, X3, X5
-	XVSUBW X5, X31, X3
+	XVSUBW X31, X5, X3         // t = X5 - X31 = x - q
 	XVSRAW $31, X3, X4
 	XVANDV X31, X4, X4
 	XVADDW X3, X4, X5          // X5 = reduced product ∈ [0, q)
@@ -246,16 +244,16 @@ nttmvm_acc_loop:
 	XVSRAW $31, X2, X3
 	XVANDV X31, X3, X3
 	XVADDW X2, X3, X2
-	XVSUBW X2, X31, X3
+	XVSUBW X31, X2, X3         // t = x - q  (X3 = X2 - X31)
 	XVSRAW $31, X3, X4
 	XVANDV X31, X4, X4
 	XVADDW X3, X4, X2          // X2 ∈ [0, q)
 	// Accumulate and reduce
 	XVADDW X5, X2, X5
-	XVSUBW X5, X31, X3
+	XVSUBW X31, X5, X3         // t = acc - q  (X3 = X5 - X31)
 	XVSRAW $31, X3, X4
 	XVANDV X31, X4, X4
-	XVADDW X3, X4, X5
+	XVADDW X3, X4, X5          // X5 ∈ [0, q)
 	ADDV $-1, R14
 	BNE R14, R0, nttmvm_acc_loop
 nttmvm_write:
