@@ -2250,15 +2250,14 @@ TEXT ·rejUniformLoong64(SB), NOSPLIT, $0-48
 
 	// Group 0: offset 0
 	MOVWU 0(R4), R20
-	MOVV  R20, R21
-	AND   $0x0FFF, R21
+	AND   $0x0FFF, R20, R21
 	BGE   R21, R25, rej_fast0_s1
 	MOVH  R21, (R9)
 	ADDV  $2, R9
 	ADDV  $1, R7
 rej_fast0_s1:
 	SRLV  $12, R20, R21
-	AND   $0x0FFF, R21
+	AND   $0x0FFF, R21, R21
 	BGE   R21, R25, rej_fast1_s1
 	MOVH  R21, (R9)
 	ADDV  $2, R9
@@ -2267,15 +2266,14 @@ rej_fast1_s1:
 
 	// Group 1: offset 3
 	MOVWU 3(R4), R20
-	MOVV  R20, R21
-	AND   $0x0FFF, R21
+	AND   $0x0FFF, R20, R21
 	BGE   R21, R25, rej_fast2_s1
 	MOVH  R21, (R9)
 	ADDV  $2, R9
 	ADDV  $1, R7
 rej_fast2_s1:
 	SRLV  $12, R20, R21
-	AND   $0x0FFF, R21
+	AND   $0x0FFF, R21, R21
 	BGE   R21, R25, rej_fast3_s1
 	MOVH  R21, (R9)
 	ADDV  $2, R9
@@ -2284,15 +2282,14 @@ rej_fast3_s1:
 
 	// Group 2: offset 6
 	MOVWU 6(R4), R20
-	MOVV  R20, R21
-	AND   $0x0FFF, R21
+	AND   $0x0FFF, R20, R21
 	BGE   R21, R25, rej_fast4_s1
 	MOVH  R21, (R9)
 	ADDV  $2, R9
 	ADDV  $1, R7
 rej_fast4_s1:
 	SRLV  $12, R20, R21
-	AND   $0x0FFF, R21
+	AND   $0x0FFF, R21, R21
 	BGE   R21, R25, rej_fast5_s1
 	MOVH  R21, (R9)
 	ADDV  $2, R9
@@ -2301,15 +2298,14 @@ rej_fast5_s1:
 
 	// Group 3: offset 9
 	MOVWU 9(R4), R20
-	MOVV  R20, R21
-	AND   $0x0FFF, R21
+	AND   $0x0FFF, R20, R21
 	BGE   R21, R25, rej_fast6_s1
 	MOVH  R21, (R9)
 	ADDV  $2, R9
 	ADDV  $1, R7
 rej_fast6_s1:
 	SRLV  $12, R20, R21
-	AND   $0x0FFF, R21
+	AND   $0x0FFF, R21, R21
 	BGE   R21, R25, rej_fast7_s1
 	MOVH  R21, (R9)
 	ADDV  $2, R9
@@ -2318,15 +2314,14 @@ rej_fast7_s1:
 
 	// Group 4: offset 12
 	MOVWU 12(R4), R20
-	MOVV  R20, R21
-	AND   $0x0FFF, R21
+	AND   $0x0FFF, R20, R21
 	BGE   R21, R25, rej_fast8_s1
 	MOVH  R21, (R9)
 	ADDV  $2, R9
 	ADDV  $1, R7
 rej_fast8_s1:
 	SRLV  $12, R20, R21
-	AND   $0x0FFF, R21
+	AND   $0x0FFF, R21, R21
 	BGE   R21, R25, rej_fast9_s1
 	MOVH  R21, (R9)
 	ADDV  $2, R9
@@ -2335,15 +2330,14 @@ rej_fast9_s1:
 
 	// Group 5: offset 15
 	MOVWU 15(R4), R20
-	MOVV  R20, R21
-	AND   $0x0FFF, R21
+	AND   $0x0FFF, R20, R21
 	BGE   R21, R25, rej_fastA_s1
 	MOVH  R21, (R9)
 	ADDV  $2, R9
 	ADDV  $1, R7
 rej_fastA_s1:
 	SRLV  $12, R20, R21
-	AND   $0x0FFF, R21
+	AND   $0x0FFF, R21, R21
 	BGE   R21, R25, rej_fastB_s1
 	MOVH  R21, (R9)
 	ADDV  $2, R9
@@ -2352,15 +2346,14 @@ rej_fastB_s1:
 
 	// Group 6: offset 18
 	MOVWU 18(R4), R20
-	MOVV  R20, R21
-	AND   $0x0FFF, R21
+	AND   $0x0FFF, R20, R21
 	BGE   R21, R25, rej_fastC_s1
 	MOVH  R21, (R9)
 	ADDV  $2, R9
 	ADDV  $1, R7
 rej_fastC_s1:
 	SRLV  $12, R20, R21
-	AND   $0x0FFF, R21
+	AND   $0x0FFF, R21, R21
 	BGE   R21, R25, rej_fastD_s1
 	MOVH  R21, (R9)
 	ADDV  $2, R9
@@ -2369,15 +2362,14 @@ rej_fastD_s1:
 
 	// Group 7: offset 21
 	MOVWU 21(R4), R20
-	MOVV  R20, R21
-	AND   $0x0FFF, R21
+	AND   $0x0FFF, R20, R21
 	BGE   R21, R25, rej_fastE_s1
 	MOVH  R21, (R9)
 	ADDV  $2, R9
 	ADDV  $1, R7
 rej_fastE_s1:
 	SRLV  $12, R20, R21
-	AND   $0x0FFF, R21
+	AND   $0x0FFF, R21, R21
 	BGE   R21, R25, rej_fastF_s1
 	MOVH  R21, (R9)
 	ADDV  $2, R9
@@ -2387,22 +2379,24 @@ rej_fastF_s1:
 	JMP rejuniform_done
 
 rejuniform_loop_setup:
-	MOVV $0, R11              // offset in buf
+	// R4 = current buf pointer, R5 = buf_end = buf_base + buf_len
+	ADDV R4, R5, R5
 	MOVV $3329, R25
 
 rejuniform_loop:
-	BGE  R11, R5, rejuniform_done
+	BGE  R4, R5, rejuniform_done
+	BGE  R7, R10, rejuniform_done
 
-	// Load 3 bytes at buf[off..off+2]
-	ADDV  R11, R4, R23
-	MOVBU 0(R23), R20
-	MOVBU 1(R23), R19
-	MOVBU 2(R23), R17
+	// Load 3 bytes at buf[0..2] and advance pointer
+	MOVBU 0(R4), R20
+	MOVBU 1(R4), R19
+	MOVBU 2(R4), R17
+	ADDV  $3, R4
 
 	// d1 = (R19<<8 | R20) & 0x0FFF
 	SLLV $8, R19, R24
 	OR   R20, R24, R24
-	AND  $0x0FFF, R24
+	AND  $0x0FFF, R24, R24
 
 	BGE  R24, R25, rejuniform_skip_d1
 	MOVH R24, (R9)
@@ -2415,20 +2409,15 @@ rejuniform_skip_d1:
 	SRLV $4, R19, R24
 	SLLV $4, R17, R20
 	OR   R24, R20, R24
-	AND  $0x0FFF, R24
+	AND  $0x0FFF, R24, R24
 
-	BGE  R24, R25, rejuniform_next
+	BGE  R24, R25, rejuniform_loop
 	MOVH R24, (R9)
 	ADDV $2, R9
 	ADDV $1, R7
-	BGE  R7, R10, rejuniform_done
-
-rejuniform_next:
-	ADDV $3, R11
 	JMP  rejuniform_loop
 
 rejuniform_done:
 	SUBV R8, R7, R7
 	MOVV R7, ret+40(FP)
 	RET
-
