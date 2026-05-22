@@ -239,3 +239,101 @@ func BenchmarkNTTMul(b *testing.B) {
 		_ = out
 	})
 }
+
+func TestLASXNTTMatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for i := 0; i < 200; i++ {
+		f := randomRingElementMldsa()
+		got := f
+		want := f
+
+		internalNTTLASX(&got)
+		internalNTTGeneric(&want)
+
+		for j := range got {
+			if got[j] != want[j] {
+				t.Fatalf("iter=%d idx=%d: internalNTT mismatch: got=%d want=%d", i, j, got[j], want[j])
+			}
+		}
+	}
+}
+
+func TestLASXInverseNTTMatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for i := 0; i < 200; i++ {
+		f := nttElement(randomRingElementMldsa())
+		got := f
+		want := f
+
+		internalInverseNTTLASX(&got)
+		internalInverseNTTGeneric(&want)
+
+		for j := range got {
+			if got[j] != want[j] {
+				t.Fatalf("iter=%d idx=%d: internalInverseNTT mismatch: got=%d want=%d", i, j, got[j], want[j])
+			}
+		}
+	}
+}
+
+func BenchmarkNTT(b *testing.B) {
+	f := randomRingElementMldsa()
+
+	b.ReportAllocs()
+
+	b.Run("generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			x := f
+			internalNTTGeneric(&x)
+		}
+	})
+
+	b.Run("dispatch", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			x := f
+			internalNTT(&x)
+		}
+	})
+
+	b.Run("lasx", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available")
+		}
+		for i := 0; i < b.N; i++ {
+			x := f
+			internalNTTLASX(&x)
+		}
+	})
+}
+
+func BenchmarkInverseNTT(b *testing.B) {
+	f := nttElement(randomRingElementMldsa())
+
+	b.ReportAllocs()
+
+	b.Run("generic", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			x := f
+			internalInverseNTTGeneric(&x)
+		}
+	})
+
+	b.Run("dispatch", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			x := f
+			internalInverseNTT(&x)
+		}
+	})
+
+	b.Run("lasx", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available")
+		}
+		for i := 0; i < b.N; i++ {
+			x := f
+			internalInverseNTTLASX(&x)
+		}
+	})
+}

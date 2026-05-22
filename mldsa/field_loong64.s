@@ -265,14 +265,407 @@ nttmvm_write:
 	BNE R10, R0, nttmvm_chunk_loop
 	RET
 
+// ============================================================
+// NTT / INTT helper macros
+// ============================================================
+
+// NTT_BUTTERFLY: Cooley-Tukey butterfly using LASX (8 x int32).
+// Input:  XA = even half, XB = odd half, XZ = broadcast zeta
+// Output: XA = fieldAdd(XA, t), XB = fieldSub(XA_orig, t)  where t = MontMul(XZ, XB)
+// Clobbers: X2, X3, X4
+// Prerequisites: X30 = qInv (broadcast), X31 = q (broadcast)
+#define NTT_BUTTERFLY(XA, XB, XZ) \
+	MONTMUL(XZ, XB, X2, X3, X30, X31)                                           \ // X2 = t in (-q,q)
+	XVSRAW $31, X2, X3; XVANDV X31, X3, X3; XVADDW X2, X3, X2                  \ // t -> [0, 2q-1]
+	XVSUBW X31, X2, X3; XVSRAW $31, X3, X4; XVANDV X31, X4, X4; XVADDW X3, X4, X2 \ // t -> [0, q)
+	XVSUBW X2, XA, XB; XVSRAW $31, XB, X3; XVANDV X31, X3, X3; XVADDW XB, X3, XB  \ // XB = XA - t (mod q)
+	XVADDW XA, X2, XA; XVSUBW X31, XA, X3; XVSRAW $31, X3, X4; XVANDV X31, X4, X4; XVADDW X3, X4, XA  // XA = XA + t (mod q)
+
+// INTT_BUTTERFLY: Gentleman-Sande butterfly using LASX (8 x int32).
+// Input:  XA = even half, XB = odd half, XZ = broadcast (q - zeta)
+// Output: XA = fieldAdd(XA, XB), XB = MontMul(q-zeta, XA_orig - XB)
+//   (note: XA_orig - XB + q is passed to MontMul to stay non-negative)
+// Clobbers: X2, X3, X4
+// Prerequisites: X30 = qInv (broadcast), X31 = q (broadcast)
+#define INTT_BUTTERFLY(XA, XB, XZ) \
+	XVSUBW XB, XA, X2; XVSRAW $31, X2, X3; XVANDV X31, X3, X3; XVADDW X2, X3, X2 \ // diff = XA - XB (mod q) -> [0, q)
+	XVADDW XA, XB, XA; XVSUBW X31, XA, X3; XVSRAW $31, X3, X4; XVANDV X31, X4, X4; XVADDW X3, X4, XA \ // XA = XA + XB (mod q)
+	MONTMUL(XZ, X2, XB, X3, X30, X31)                                               \ // XB = MontMul(qmz, diff) in (-q,q)
+	XVSRAW $31, XB, X3; XVANDV X31, X3, X3; XVADDW XB, X3, XB                      \ // XB -> [0, 2q-1]
+	XVSUBW X31, XB, X3; XVSRAW $31, X3, X4; XVANDV X31, X4, X4; XVADDW X3, X4, XB  // XB -> [0, q)
+
+// Scalar Montgomery multiply: Rd = MontMul(Ra, Rb).
+// Ra, Rb = 32-bit inputs (sign-extended in 64-bit registers).
+// Uses: R_qNegInv (must be loaded as qNegInv=4236238847), R_q (must be 8380417).
+// Clobbers: Rtmp0, Rtmp1, Rd
+// Note: result is in [0, q).
+#define SCALAR_MONTMUL(Ra, Rb, Rd, Rtmp0, Rtmp1, R_qNegInv, R_q) \
+	MULVU Ra, Rb, Rtmp0          \ // Rtmp0 = lo64(Ra*Rb)
+	AND $0xFFFFFFFF, Rtmp0, Rtmp1 \ // Rtmp1 = lo32
+	MULVU Rtmp1, R_qNegInv, Rtmp1 \ // Rtmp1 = lo64(lo32 * qNegInv)
+	AND $0xFFFFFFFF, Rtmp1, Rtmp1 \ // Rtmp1 = lo32 of above
+	MULVU Rtmp1, R_q, Rtmp1       \ // Rtmp1 = Rtmp1 * q
+	ADDVU Rtmp0, Rtmp1, Rd        \ // Rd = Ra*Rb + t*q
+	SRLV $32, Rd                  \ // Rd = (Ra*Rb + t*q) >> 32
+	BGEU Rd, R_q, 2(PC)           \
+	JMP 2(PC)                     \
+	SUBV R_q, Rd
+
+// Scalar CT butterfly: (Ra, Rb, zeta_in_R10) → (Ra', Rb')
+// Ra' = Ra + t, Rb' = Ra - t, t = MontMul(zeta, Rb)
+// Clobbers: R15, R16, R17, R18
+#define SCALAR_CT_BUTTERFLY(Ra, Rb, Rzeta, R15, R16, R17, R18, R_qNegInv, R_q) \
+	SCALAR_MONTMUL(Rzeta, Rb, R15, R16, R17, R_qNegInv, R_q) \ // R15 = t
+	SUBV R15, Ra, R16         \ // R16 = Ra - t
+	BLT R16, R0, 2(PC)        \
+	JMP 2(PC)                 \
+	ADDV R_q, R16             \ // ensure >= 0
+	ADDV R15, Ra, R18         \ // R18 = Ra + t
+	BGEU R18, R_q, 2(PC)      \
+	JMP 2(PC)                 \
+	SUBV R_q, R18             \ // ensure < q
+	MOVV R18, Ra              \
+	MOVV R16, Rb
+
+// Scalar GS butterfly: (Ra, Rb, qmzeta_in_Rzeta) → (Ra', Rb')
+// Ra' = Ra + Rb, Rb' = MontMul(q-zeta, Ra - Rb)
+// Clobbers: R15, R16, R17, R18
+#define SCALAR_GS_BUTTERFLY(Ra, Rb, Rzeta, R15, R16, R17, R18, R_qNegInv, R_q) \
+	SUBV Rb, Ra, R15           \ // R15 = Ra - Rb
+	BLT R15, R0, 2(PC)         \
+	JMP 2(PC)                  \
+	ADDV R_q, R15              \ // R15 -> >= 0
+	ADDV Ra, Rb, Ra            \ // Ra = Ra + Rb
+	BGEU Ra, R_q, 2(PC)        \
+	JMP 2(PC)                  \
+	SUBV R_q, Ra               \ // Ra < q
+	SCALAR_MONTMUL(Rzeta, R15, Rb, R16, R17, R_qNegInv, R_q)
+
 TEXT ·internalNTTLASX(SB), NOSPLIT, $0-8
 	MOVV f+0(FP), R4
-	// TODO: implement
+	MOVV $·zetasMontgomery(SB), R5
+	ADDV $4, R5             // point to zetasMontgomery[1]
+	MOVV $8380417, R8
+	XVMOVQ R8, X31.W8      // X31 = q broadcast
+	MOVV $58728449, R9
+	XVMOVQ R9, X30.W8      // X30 = qInv broadcast
+
+	// L0: len=128, 1 group, 32 LASX vectors (8 int32 each).
+	MOVWU (R5), R10; ADDV $4, R5
+	XVMOVQ R10, X29.W8
+	MOVV R4, R11; MOVV R4, R12; ADDV $512, R12   // f+0, f+128*4
+	MOVV $32, R6
+ntt_l0_loop:
+	XVMOVQ (R11), X0; XVMOVQ (R12), X1
+	NTT_BUTTERFLY(X0, X1, X29)
+	XVMOVQ X0, (R11); XVMOVQ X1, (R12)
+	ADDV $32, R11; ADDV $32, R12
+	ADDV $-1, R6; BNE R6, R0, ntt_l0_loop
+
+	// L1: len=64, 2 groups, 16 LASX vectors each.
+	MOVV $2, R6; MOVV R4, R7
+ntt_l1_outer:
+	MOVWU (R5), R10; ADDV $4, R5; XVMOVQ R10, X29.W8
+	MOVV R7, R11; MOVV R7, R12; ADDV $256, R12   // 64*4
+	MOVV $16, R13
+ntt_l1_inner:
+	XVMOVQ (R11), X0; XVMOVQ (R12), X1
+	NTT_BUTTERFLY(X0, X1, X29)
+	XVMOVQ X0, (R11); XVMOVQ X1, (R12)
+	ADDV $32, R11; ADDV $32, R12
+	ADDV $-1, R13; BNE R13, R0, ntt_l1_inner
+	ADDV $512, R7; ADDV $-1, R6; BNE R6, R0, ntt_l1_outer
+
+	// L2: len=32, 4 groups, 8 LASX vectors each.
+	MOVV $4, R6; MOVV R4, R7
+ntt_l2_outer:
+	MOVWU (R5), R10; ADDV $4, R5; XVMOVQ R10, X29.W8
+	MOVV R7, R11; MOVV R7, R12; ADDV $128, R12   // 32*4
+	MOVV $8, R13
+ntt_l2_inner:
+	XVMOVQ (R11), X0; XVMOVQ (R12), X1
+	NTT_BUTTERFLY(X0, X1, X29)
+	XVMOVQ X0, (R11); XVMOVQ X1, (R12)
+	ADDV $32, R11; ADDV $32, R12
+	ADDV $-1, R13; BNE R13, R0, ntt_l2_inner
+	ADDV $256, R7; ADDV $-1, R6; BNE R6, R0, ntt_l2_outer
+
+	// L3: len=16, 8 groups, 4 LASX vectors each.
+	MOVV $8, R6; MOVV R4, R7
+ntt_l3_outer:
+	MOVWU (R5), R10; ADDV $4, R5; XVMOVQ R10, X29.W8
+	MOVV R7, R11; MOVV R7, R12; ADDV $64, R12    // 16*4
+	MOVV $4, R13
+ntt_l3_inner:
+	XVMOVQ (R11), X0; XVMOVQ (R12), X1
+	NTT_BUTTERFLY(X0, X1, X29)
+	XVMOVQ X0, (R11); XVMOVQ X1, (R12)
+	ADDV $32, R11; ADDV $32, R12
+	ADDV $-1, R13; BNE R13, R0, ntt_l3_inner
+	ADDV $128, R7; ADDV $-1, R6; BNE R6, R0, ntt_l3_outer
+
+	// L4: len=8, 16 groups, 2 LASX vectors each.
+	MOVV $16, R6; MOVV R4, R7
+ntt_l4_outer:
+	MOVWU (R5), R10; ADDV $4, R5; XVMOVQ R10, X29.W8
+	MOVV R7, R11; MOVV R7, R12; ADDV $32, R12    // 8*4
+	MOVV $2, R13
+ntt_l4_inner:
+	XVMOVQ (R11), X0; XVMOVQ (R12), X1
+	NTT_BUTTERFLY(X0, X1, X29)
+	XVMOVQ X0, (R11); XVMOVQ X1, (R12)
+	ADDV $32, R11; ADDV $32, R12
+	ADDV $-1, R13; BNE R13, R0, ntt_l4_inner
+	ADDV $64, R7; ADDV $-1, R6; BNE R6, R0, ntt_l4_outer
+
+	// L5-L7: scalar loops (correctness-first; 4, 2, 1 elems per group).
+	// R19 = qNegInv, R21 = q
+	MOVV $4236238847, R19
+	MOVV $8380417, R21
+
+	// L5: len=4, 32 groups.
+	// Group start at stride 8*4=32 bytes. even=f[start..start+3], odd=f[start+4..start+7].
+	MOVV $32, R6; MOVV R4, R7
+ntt_l5_outer:
+	MOVWU (R5), R10; ADDV $4, R5    // zeta
+	MOVV $4, R13; MOVV R7, R11; MOVV R7, R12; ADDV $16, R12
+ntt_l5_inner:
+	MOVWU (R11), R15; MOVWU (R12), R16
+	MULVU R10, R16, R24           // R24 = lo64(zeta * odd)
+	AND $0xFFFFFFFF, R24, R25     // lo32
+	MULVU R25, R19, R25           // lo64(lo32 * qNegInv)
+	AND $0xFFFFFFFF, R25, R25     // lo32 of above
+	MULVU R25, R21, R25           // R25 * q
+	ADDVU R24, R25, R25           // zeta*odd + t*q
+	SRLV $32, R25                 // t = (zeta*odd + t*q) >> 32
+	BGEU R25, R21, 2(PC); JMP 2(PC); SUBV R21, R25  // t -> [0, q)
+	// now: R25 = t, R15 = even (f[j]), need: even' = even+t, odd' = even-t
+	ADDV R25, R15, R24; BGEU R24, R21, 2(PC); JMP 2(PC); SUBV R21, R24
+	SUBV R25, R15, R23; BLT R23, R0, 2(PC); JMP 2(PC); ADDV R21, R23
+	MOVW R24, (R11); MOVW R23, (R12)
+	ADDV $4, R11; ADDV $4, R12
+	ADDV $-1, R13; BNE R13, R0, ntt_l5_inner
+	ADDV $32, R7; ADDV $-1, R6; BNE R6, R0, ntt_l5_outer
+
+	// L6: len=2, 64 groups.
+	// Group start at stride 4*4=16 bytes. even=f[start..start+1], odd=f[start+2..start+3].
+	MOVV $64, R6; MOVV R4, R7
+ntt_l6_outer:
+	MOVWU (R5), R10; ADDV $4, R5
+	MOVV $2, R13; MOVV R7, R11; MOVV R7, R12; ADDV $8, R12
+ntt_l6_inner:
+	MOVWU (R11), R15; MOVWU (R12), R16
+	MULVU R10, R16, R24; AND $0xFFFFFFFF, R24, R25; MULVU R25, R19, R25; AND $0xFFFFFFFF, R25, R25
+	MULVU R25, R21, R25; ADDVU R24, R25, R25; SRLV $32, R25
+	BGEU R25, R21, 2(PC); JMP 2(PC); SUBV R21, R25
+	ADDV R25, R15, R24; BGEU R24, R21, 2(PC); JMP 2(PC); SUBV R21, R24
+	SUBV R25, R15, R23; BLT R23, R0, 2(PC); JMP 2(PC); ADDV R21, R23
+	MOVW R24, (R11); MOVW R23, (R12)
+	ADDV $4, R11; ADDV $4, R12
+	ADDV $-1, R13; BNE R13, R0, ntt_l6_inner
+	ADDV $16, R7; ADDV $-1, R6; BNE R6, R0, ntt_l6_outer
+
+	// L7: len=1, 128 groups.
+	// Group start at stride 2*4=8 bytes. even=f[start], odd=f[start+1].
+	MOVV $128, R6; MOVV R4, R7
+ntt_l7_outer:
+	MOVWU (R5), R10; ADDV $4, R5
+	MOVWU (R7), R15; MOVWU 4(R7), R16
+	MULVU R10, R16, R24; AND $0xFFFFFFFF, R24, R25; MULVU R25, R19, R25; AND $0xFFFFFFFF, R25, R25
+	MULVU R25, R21, R25; ADDVU R24, R25, R25; SRLV $32, R25
+	BGEU R25, R21, 2(PC); JMP 2(PC); SUBV R21, R25
+	ADDV R25, R15, R24; BGEU R24, R21, 2(PC); JMP 2(PC); SUBV R21, R24
+	SUBV R25, R15, R23; BLT R23, R0, 2(PC); JMP 2(PC); ADDV R21, R23
+	MOVW R24, (R7); MOVW R23, 4(R7)
+	ADDV $8, R7; ADDV $-1, R6; BNE R6, R0, ntt_l7_outer
 	RET
 
 TEXT ·internalInverseNTTLASX(SB), NOSPLIT, $0-8
 	MOVV f+0(FP), R4
-	// TODO: implement
+	MOVV $·zetasMontgomery(SB), R5
+	ADDV $1024, R5          // point to zetasMontgomery[256] (end+1)
+	MOVV $8380417, R8
+	XVMOVQ R8, X31.W8      // X31 = q broadcast
+	MOVV $58728449, R9
+	XVMOVQ R9, X30.W8      // X30 = qInv broadcast
+
+	// INTT Layer 7: len=128, 1 group, 32 LASX vectors.
+	// k=1 (zetasMontgomery[1]), qmz = q - zeta
+	ADDV $-4, R5            // point to zetasMontgomery[255]
+	ADDV $-4, R5            // point to zetasMontgomery[254]... wait, k goes 255..1
+	// Actually k=255 for the first layer, decrementing. Let's reset:
+	MOVV $·zetasMontgomery(SB), R5
+	ADDV $1020, R5          // point to zetasMontgomery[255] (255*4 bytes from base)
+	// k starts at 255, we advance backwards (ADDV $-4, R5 each time)
+
+	// Layer 7 (len=128, 1 group): k=255→...wait, in generic code:
+	// k starts at 255, for len=1 (first INTT layer = L0 in INTT ordering).
+	// But in my LASX ordering, I'm doing L7 first (len=128) for max vectorization.
+	// Wait — the INTT outer loop in generic code:
+	//   k=255, len=1: 128 groups of len=1 (GS step, scalar)
+	//   k=127, len=2: 64 groups of len=2
+	//   ...
+	//   k=1, len=128: 1 group of len=128
+	// So for LASX efficiency, do in the same order (smallest len first):
+	// L0: len=1, 128 groups → scalar
+	// L1: len=2, 64 groups → scalar
+	// L2: len=4, 32 groups → scalar
+	// L3: len=8, 16 groups → LASX possible (2 vecs per group)
+	// L4: len=16, 8 groups → LASX
+	// L5: len=32, 4 groups → LASX
+	// L6: len=64, 2 groups → LASX
+	// L7: len=128, 1 group → LASX
+	// Reset pointer to zetasMontgomery[255]:
+	MOVV $·zetasMontgomery(SB), R5
+	ADDV $1020, R5          // zetasMontgomery[255]
+	MOVV $4236238847, R19   // qNegInv for scalar
+	MOVV $8380417, R21      // q for scalar
+
+	// L0: len=1, 128 groups (scalar). k=255..128.
+	MOVV $128, R6; MOVV R4, R7
+intt_l0_outer:
+	MOVWU (R5), R10; ADDV $-4, R5   // zeta = zetasMontgomery[k--]
+	SUBV R10, R21, R10               // qmz = q - zeta
+	MOVWU (R7), R15; MOVWU 4(R7), R16
+	// GS butterfly: t=R15, even'=t+R16, odd'=MontMul(qmz, t-R16)
+	ADDV R15, R16, R24; BGEU R24, R21, 2(PC); JMP 2(PC); SUBV R21, R24  // even' = (t+R16) mod q
+	SUBV R16, R15, R23; BLT R23, R0, 2(PC); JMP 2(PC); ADDV R21, R23   // diff = (t-R16+q) mod q
+	// MontMul(qmz, diff): R25 = result
+	MULVU R10, R23, R25; AND $0xFFFFFFFF, R25, R23; MULVU R23, R19, R23; AND $0xFFFFFFFF, R23, R23
+	MULVU R23, R21, R23; ADDVU R25, R23, R25; SRLV $32, R25
+	BGEU R25, R21, 2(PC); JMP 2(PC); SUBV R21, R25
+	MOVW R24, (R7); MOVW R25, 4(R7)
+	ADDV $8, R7; ADDV $-1, R6; BNE R6, R0, intt_l0_outer
+
+	// L1: len=2, 64 groups (scalar). k=127..64.
+	MOVV $64, R6; MOVV R4, R7
+intt_l1_outer:
+	MOVWU (R5), R10; ADDV $-4, R5
+	SUBV R10, R21, R10     // qmz = q - zeta
+	MOVV R7, R11; MOVV R7, R12; ADDV $8, R12
+	MOVV $2, R13
+intt_l1_inner:
+	MOVWU (R11), R15; MOVWU (R12), R16
+	ADDV R15, R16, R24; BGEU R24, R21, 2(PC); JMP 2(PC); SUBV R21, R24
+	SUBV R16, R15, R23; BLT R23, R0, 2(PC); JMP 2(PC); ADDV R21, R23
+	MULVU R10, R23, R25; AND $0xFFFFFFFF, R25, R23; MULVU R23, R19, R23; AND $0xFFFFFFFF, R23, R23
+	MULVU R23, R21, R23; ADDVU R25, R23, R25; SRLV $32, R25
+	BGEU R25, R21, 2(PC); JMP 2(PC); SUBV R21, R25
+	MOVW R24, (R11); MOVW R25, (R12)
+	ADDV $4, R11; ADDV $4, R12
+	ADDV $-1, R13; BNE R13, R0, intt_l1_inner
+	ADDV $16, R7; ADDV $-1, R6; BNE R6, R0, intt_l1_outer
+
+	// L2: len=4, 32 groups (scalar). k=63..32.
+	MOVV $32, R6; MOVV R4, R7
+intt_l2_outer:
+	MOVWU (R5), R10; ADDV $-4, R5
+	SUBV R10, R21, R10
+	MOVV R7, R11; MOVV R7, R12; ADDV $16, R12
+	MOVV $4, R13
+intt_l2_inner:
+	MOVWU (R11), R15; MOVWU (R12), R16
+	ADDV R15, R16, R24; BGEU R24, R21, 2(PC); JMP 2(PC); SUBV R21, R24
+	SUBV R16, R15, R23; BLT R23, R0, 2(PC); JMP 2(PC); ADDV R21, R23
+	MULVU R10, R23, R25; AND $0xFFFFFFFF, R25, R23; MULVU R23, R19, R23; AND $0xFFFFFFFF, R23, R23
+	MULVU R23, R21, R23; ADDVU R25, R23, R25; SRLV $32, R25
+	BGEU R25, R21, 2(PC); JMP 2(PC); SUBV R21, R25
+	MOVW R24, (R11); MOVW R25, (R12)
+	ADDV $4, R11; ADDV $4, R12
+	ADDV $-1, R13; BNE R13, R0, intt_l2_inner
+	ADDV $32, R7; ADDV $-1, R6; BNE R6, R0, intt_l2_outer
+
+	// L3-L7: LASX vector loops. k=31..1.
+	// L3: len=8, 16 groups, 2 LASX vectors each. k=31..16.
+	MOVV $16, R6; MOVV R4, R7
+intt_l3_outer:
+	MOVWU (R5), R10; ADDV $-4, R5
+	SUBV R10, R8, R10              // qmz = q - zeta (R8 = q = 8380417)
+	XVMOVQ R10, X29.W8
+	MOVV R7, R11; MOVV R7, R12; ADDV $32, R12    // 8*4
+	MOVV $2, R13
+intt_l3_inner:
+	XVMOVQ (R11), X0; XVMOVQ (R12), X1
+	INTT_BUTTERFLY(X0, X1, X29)
+	XVMOVQ X0, (R11); XVMOVQ X1, (R12)
+	ADDV $32, R11; ADDV $32, R12
+	ADDV $-1, R13; BNE R13, R0, intt_l3_inner
+	ADDV $64, R7; ADDV $-1, R6; BNE R6, R0, intt_l3_outer
+
+	// L4: len=16, 8 groups, 4 LASX vectors each. k=15..8.
+	MOVV $8, R6; MOVV R4, R7
+intt_l4_outer:
+	MOVWU (R5), R10; ADDV $-4, R5
+	SUBV R10, R8, R10
+	XVMOVQ R10, X29.W8
+	MOVV R7, R11; MOVV R7, R12; ADDV $64, R12    // 16*4
+	MOVV $4, R13
+intt_l4_inner:
+	XVMOVQ (R11), X0; XVMOVQ (R12), X1
+	INTT_BUTTERFLY(X0, X1, X29)
+	XVMOVQ X0, (R11); XVMOVQ X1, (R12)
+	ADDV $32, R11; ADDV $32, R12
+	ADDV $-1, R13; BNE R13, R0, intt_l4_inner
+	ADDV $128, R7; ADDV $-1, R6; BNE R6, R0, intt_l4_outer
+
+	// L5: len=32, 4 groups, 8 LASX vectors each. k=7..4.
+	MOVV $4, R6; MOVV R4, R7
+intt_l5_outer:
+	MOVWU (R5), R10; ADDV $-4, R5
+	SUBV R10, R8, R10
+	XVMOVQ R10, X29.W8
+	MOVV R7, R11; MOVV R7, R12; ADDV $128, R12   // 32*4
+	MOVV $8, R13
+intt_l5_inner:
+	XVMOVQ (R11), X0; XVMOVQ (R12), X1
+	INTT_BUTTERFLY(X0, X1, X29)
+	XVMOVQ X0, (R11); XVMOVQ X1, (R12)
+	ADDV $32, R11; ADDV $32, R12
+	ADDV $-1, R13; BNE R13, R0, intt_l5_inner
+	ADDV $256, R7; ADDV $-1, R6; BNE R6, R0, intt_l5_outer
+
+	// L6: len=64, 2 groups, 16 LASX vectors each. k=3..2.
+	MOVV $2, R6; MOVV R4, R7
+intt_l6_outer:
+	MOVWU (R5), R10; ADDV $-4, R5
+	SUBV R10, R8, R10
+	XVMOVQ R10, X29.W8
+	MOVV R7, R11; MOVV R7, R12; ADDV $256, R12   // 64*4
+	MOVV $16, R13
+intt_l6_inner:
+	XVMOVQ (R11), X0; XVMOVQ (R12), X1
+	INTT_BUTTERFLY(X0, X1, X29)
+	XVMOVQ X0, (R11); XVMOVQ X1, (R12)
+	ADDV $32, R11; ADDV $32, R12
+	ADDV $-1, R13; BNE R13, R0, intt_l6_inner
+	ADDV $512, R7; ADDV $-1, R6; BNE R6, R0, intt_l6_outer
+
+	// L7: len=128, 1 group, 32 LASX vectors. k=1.
+	MOVWU (R5), R10; ADDV $-4, R5
+	SUBV R10, R8, R10
+	XVMOVQ R10, X29.W8
+	MOVV R4, R11; MOVV R4, R12; ADDV $512, R12   // 128*4
+	MOVV $32, R6
+intt_l7_loop:
+	XVMOVQ (R11), X0; XVMOVQ (R12), X1
+	INTT_BUTTERFLY(X0, X1, X29)
+	XVMOVQ X0, (R11); XVMOVQ X1, (R12)
+	ADDV $32, R11; ADDV $32, R12
+	ADDV $-1, R6; BNE R6, R0, intt_l7_loop
+
+	// Multiply all 256 elements by invDegreeMont = 41978
+	// 41978 = ((256⁻¹ mod q) * (2³² * 2³² mod q)) mod q
+	MOVV $41978, R10
+	XVMOVQ R10, X29.W8
+	MOVV R4, R11; MOVV $32, R6
+intt_scale_loop:
+	XVMOVQ (R11), X0
+	MONTMUL(X29, X0, X1, X2, X30, X31)
+	XVSRAW $31, X1, X2; XVANDV X31, X2, X2; XVADDW X1, X2, X1      // [0, 2q-1]
+	XVSUBW X31, X1, X2; XVSRAW $31, X2, X3; XVANDV X31, X3, X3; XVADDW X2, X3, X1  // [0, q)
+	XVMOVQ X1, (R11)
+	ADDV $32, R11
+	ADDV $-1, R6; BNE R6, R0, intt_scale_loop
 	RET
 
 TEXT ·polyInfinityNormLASX(SB), NOSPLIT, $0-16
