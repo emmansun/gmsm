@@ -644,8 +644,8 @@ TEXT ·polyInfinityNormLASX(SB), NOSPLIT, $0-12
 	XVMOVQ R5, X30.W8      // X30 = qMinus1Div2 broadcast
 
 	// Accumulate max in X27, X28 (2-way for ILP).
-	XVORV X27, X27, X27   // X27 = 0
-	XVORV X28, X28, X28   // X28 = 0
+	XVXORV X27, X27, X27   // X27 = 0
+	XVXORV X28, X28, X28   // X28 = 0
 	MOVV $16, R6
 poly_inf_norm_loop:
 	XVMOVQ (R4), X0
@@ -725,8 +725,8 @@ TEXT ·polyInfinityNormSignedLASX(SB), NOSPLIT, $0-12
 	MOVV a+0(FP), R4
 
 	// Accumulate max in X27, X28 (2-way for ILP).
-	XVORV X27, X27, X27   // X27 = 0
-	XVORV X28, X28, X28   // X28 = 0
+	XVXORV X27, X27, X27   // X27 = 0
+	XVXORV X28, X28, X28   // X28 = 0
 	MOVV $16, R6
 poly_inf_norm_signed_loop:
 	XVMOVQ (R4), X0
