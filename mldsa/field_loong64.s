@@ -636,7 +636,7 @@ intt_scale_loop:
 	ADDV $-1, R6; BNE R6, R0, intt_scale_loop
 	RET
 
-TEXT ·polyInfinityNormLASX(SB), NOSPLIT, $16-12
+TEXT ·polyInfinityNormLASX(SB), NOSPLIT, $0-12
 	MOVV a+0(FP), R4
 	MOVV $8380417, R5
 	XVMOVQ R5, X31.W8      // X31 = q broadcast
@@ -716,14 +716,14 @@ poly_inf_norm_loop:
 	XVANDNV X0, X27, X2
 	XVORV X1, X2, X27    // X27[0] = scalar max
 
-	// Store lower 128 bits of X27 to stack, load first element.
-	MOVV R3, R7
-	VMOVQ V27, (R7)
-	MOVWU (R7), R9
+	// Extract X27[0] to GP register via float register alias.
+	// F0 shares storage with X0.W[0]. movfr2gr.s r9, f0 = 0x114B409
+	XVORV X27, X27, X0   // copy X27 to X0
+	WORD $0x114B409       // movfr2gr.s r9, f0 → R9 = X0.W[0] = max
 	MOVW R9, ret+8(FP)
 	RET
 
-TEXT ·polyInfinityNormSignedLASX(SB), NOSPLIT, $16-12
+TEXT ·polyInfinityNormSignedLASX(SB), NOSPLIT, $0-12
 	MOVV a+0(FP), R4
 
 	// Accumulate max in X27, X28 (2-way for ILP).
@@ -788,9 +788,10 @@ poly_inf_norm_signed_loop:
 	XVANDNV X0, X27, X2
 	XVORV X1, X2, X27
 
-	MOVV R3, R7
-	VMOVQ V27, (R7)
-	MOVWU (R7), R9
+	// Extract X27[0] to GP register via float register alias.
+	// F0 shares storage with X0.W[0]. movfr2gr.s r9, f0 = 0x114B409
+	XVORV X27, X27, X0   // copy X27 to X0
+	WORD $0x114B409       // movfr2gr.s r9, f0 → R9 = X0.W[0] = max
 	MOVW R9, ret+8(FP)
 	RET
 
