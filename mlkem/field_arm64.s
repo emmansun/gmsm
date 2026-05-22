@@ -856,10 +856,12 @@ TEXT ·samplePolyCBD2NEON(SB), NOSPLIT, $0-16
 
 	MOVD $0x55, R3
 	VDUP R3, V23.B16       // pair-bit mask
-	MOVD $0x03, R3
-	VDUP R3, V22.B16       // 2-bit mask
-	MOVD $2, R3
-	VDUP R3, V21.B16       // +2 bias for [0..4] encoding
+	MOVD $0x33, R3
+	VDUP R3, V22.B16       // 2-bit nibble mask for SWAR
+	MOVD $0x22, R3
+	VDUP R3, V21.B16       // +2 bias for both nibbles
+	MOVD $0x0F, R3
+	VDUP R3, V24.B16       // lower nibble mask
 
 	MOVD $·cbd2DiffMapLow(SB), R9
 	VLD1 (R9), [V16.B16]
@@ -867,8 +869,6 @@ TEXT ·samplePolyCBD2NEON(SB), NOSPLIT, $0-16
 	VLD1 (R10), [V17.B16]
 
 samplecbd2_loop:
-	CBZ R2, samplecbd2_done
-
 	VLD1.P 16(R1), [V0.B16]
 
 	// d = (b & 0x55) + ((b >> 1) & 0x55)
@@ -877,48 +877,45 @@ samplecbd2_loop:
 	VAND V23.B16, V2.B16, V2.B16
 	VADD V2.B16, V1.B16, V1.B16
 
-	// t0 = ((d & 0x03) + 2) - ((d >> 2) & 0x03) in [0..4]
-	VAND V22.B16, V1.B16, V3.B16
-	VUSHR $2, V1.B16, V4.B16
-	VAND V22.B16, V4.B16, V4.B16
-	VADD V21.B16, V3.B16, V3.B16
-	VSUB V4.B16, V3.B16, V3.B16
+	// SWAR: parallel nibble subtraction
+	// t_packed = ((d & 0x33) + 0x22) - ((d >> 2) & 0x33)
+	// Result byte: upper nibble = t1, lower nibble = t0
+	VAND V22.B16, V1.B16, V2.B16
+	VUSHR $2, V1.B16, V3.B16
+	VAND V22.B16, V3.B16, V3.B16
+	VADD V21.B16, V2.B16, V2.B16
+	VSUB V3.B16, V2.B16, V2.B16
 
-	// t1 = (((d >> 4) & 0x03) + 2) - ((d >> 6) & 0x03) in [0..4]
-	VUSHR $4, V1.B16, V5.B16
-	VAND V22.B16, V5.B16, V5.B16
-	VUSHR $6, V1.B16, V6.B16
-	VAND V22.B16, V6.B16, V6.B16
-	VADD V21.B16, V5.B16, V5.B16
-	VSUB V6.B16, V5.B16, V5.B16
+	// Split t0 and t1
+	VAND V24.B16, V2.B16, V3.B16   // V3 = t0
+	VUSHR $4, V2.B16, V5.B16       // V5 = t1
+
+	// Pre-interleave t0 and t1 bytes before lookup
+	VZIP1 V5.B16, V3.B16, V6.B16   // [t0[0],t1[0],t0[1],t1[1],...,t0[7],t1[7]]
+	VZIP2 V5.B16, V3.B16, V7.B16   // [t0[8],t1[8],...,t0[15],t1[15]]
 
 	// Map [0..4] -> field element bytes via lookup tables.
-	VTBL V3.B16, [V16.B16], V7.B16   // t0 low byte
-	VTBL V3.B16, [V17.B16], V8.B16   // t0 high byte
-	VTBL V5.B16, [V16.B16], V9.B16   // t1 low byte
-	VTBL V5.B16, [V17.B16], V10.B16  // t1 high byte
+	// Results are already in coefficient order (c0,c1,c2,...)
+	VTBL V6.B16, [V16.B16], V8.B16  // low bytes of c0..c15
+	VTBL V6.B16, [V17.B16], V9.B16  // high bytes of c0..c15
+	VTBL V7.B16, [V16.B16], V10.B16 // low bytes of c16..c31
+	VTBL V7.B16, [V17.B16], V11.B16 // high bytes of c16..c31
 
-	// Pack little-endian uint16 lanes for t0 and t1.
-	VZIP1 V8.B16, V7.B16, V11.B16
-	VZIP2 V8.B16, V7.B16, V12.B16
-	VZIP1 V10.B16, V9.B16, V13.B16
-	VZIP2 V10.B16, V9.B16, V14.B16
+	// Pack little-endian uint16 lanes
+	VZIP1 V9.B16, V8.B16, V12.B16   // c0..c7
+	VZIP2 V9.B16, V8.B16, V13.B16   // c8..c15
+	VZIP1 V11.B16, V10.B16, V14.B16 // c16..c23
+	VZIP2 V11.B16, V10.B16, V15.B16 // c24..c31
 
-	// Interleave t0/t1 halfwords to coefficient order c0,c1,c2,c3,...
-	VZIP1 V13.H8, V11.H8, V15.H8
-	VZIP2 V13.H8, V11.H8, V4.H8
+	// Store
+	VST1.P [V12.B16], 16(R0)
+	VST1.P [V13.B16], 16(R0)
+	VST1.P [V14.B16], 16(R0)
 	VST1.P [V15.B16], 16(R0)
-	VST1.P [V4.B16], 16(R0)
 
-	VZIP1 V14.H8, V12.H8, V15.H8
-	VZIP2 V14.H8, V12.H8, V4.H8
-	VST1.P [V15.B16], 16(R0)
-	VST1.P [V4.B16], 16(R0)
+	SUBS $1, R2, R2
+	BNE samplecbd2_loop
 
-	SUB $1, R2, R2
-	B samplecbd2_loop
-
-samplecbd2_done:
 	RET
 
 // samplePolyCBD3NEON computes D_eta=3 coefficients from 192 PRF bytes.
@@ -953,10 +950,8 @@ TEXT ·samplePolyCBD3NEON(SB), NOSPLIT, $0-16
 	VDUP R3, V24.H8
 	MOVD $3329, R3
 	VDUP R3, V23.H8
-	VEOR V22.B16, V22.B16, V22.B16
 
 samplecbd3_loop:
-	CBZ R2, samplecbd3_done
 
 	VLD1 (R1), [V0.B16]
 	ADD $12, R1, R12
@@ -998,10 +993,8 @@ samplecbd3_loop:
 
 	VSUB V24.H8, V8.H8, V8.H8
 	VSUB V24.H8, V9.H8, V9.H8
-	VUSHR $15, V8.H8, V10.H8
-	VUSHR $15, V9.H8, V11.H8
-	VSUB V10.H8, V22.H8, V10.H8
-	VSUB V11.H8, V22.H8, V11.H8
+	WORD $0x4f11050a                  // VSSHR V10.H8, V8.H8, #15
+	WORD $0x4f11052b                  // VSSHR V11.H8, V9.H8, #15
 	VAND V23.B16, V10.B16, V10.B16
 	VAND V23.B16, V11.B16, V11.B16
 	VADD V10.H8, V8.H8, V8.H8
@@ -1041,10 +1034,8 @@ samplecbd3_loop:
 
 	VSUB V24.H8, V8.H8, V8.H8
 	VSUB V24.H8, V9.H8, V9.H8
-	VUSHR $15, V8.H8, V10.H8
-	VUSHR $15, V9.H8, V11.H8
-	VSUB V10.H8, V22.H8, V10.H8
-	VSUB V11.H8, V22.H8, V11.H8
+	WORD $0x4f11050a                  // VSSHR V10.H8, V8.H8, #15
+	WORD $0x4f11052b                  // VSSHR V11.H8, V9.H8, #15
 	VAND V23.B16, V10.B16, V10.B16
 	VAND V23.B16, V11.B16, V11.B16
 	VADD V10.H8, V8.H8, V8.H8
@@ -1054,10 +1045,9 @@ samplecbd3_loop:
 	VST1.P [V9.B16], 16(R0)
 
 	ADD $24, R1, R1
-	SUB $1, R2, R2
-	B samplecbd3_loop
+	SUBS $1, R2, R2
+	BNE samplecbd3_loop
 
-samplecbd3_done:
 	RET
 
 // decodeAndDecompressU10NEON decodes d=10 ciphertext chunks into ring elements.
