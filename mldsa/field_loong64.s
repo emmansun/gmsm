@@ -801,12 +801,16 @@ TEXT ·decomposeSubToR0Gamma32LASX(SB), NOSPLIT, $0-24
 	XVMOVQ R7, X31.W8  // X31 = q
 	MOVV $4190208, R7
 	XVMOVQ R7, X30.W8  // X30 = qMinus1Div2
-	MOVV $127, R7;      XVMOVQ R7, X29.W8  // X29 = 127
-	MOVV $1025, R7;     XVMOVQ R7, X28.W8  // X28 = 1025
+	MOVV $127, R7
+	XVMOVQ R7, X29.W8  // X29 = 127
+	MOVV $1025, R7
+	XVMOVQ R7, X28.W8  // X28 = 1025
 	MOVV $2097152, R7
 	XVMOVQ R7, X27.W8  // X27 = 2^21
-	MOVV $15, R7;       XVMOVQ R7, X26.W8  // X26 = mask15
-	MOVV $523776, R7;   XVMOVQ R7, X25.W8  // X25 = 2*gamma2_32
+	MOVV $15, R7
+	XVMOVQ R7, X26.W8  // X26 = mask15
+	MOVV $523776, R7
+	XVMOVQ R7, X25.W8  // X25 = 2*gamma2_32
 	MOVV $32, R8
 
 decompose32LASXLoop:
@@ -858,12 +862,16 @@ TEXT ·decomposeSubToR0Gamma88LASX(SB), NOSPLIT, $0-24
 	XVMOVQ R7, X31.W8  // X31 = q
 	MOVV $4190208, R7
 	XVMOVQ R7, X30.W8  // X30 = qMinus1Div2
-	MOVV $127, R7;      XVMOVQ R7, X29.W8  // X29 = 127
-	MOVV $11275, R7;    XVMOVQ R7, X28.W8  // X28 = 11275
+	MOVV $127, R7
+	XVMOVQ R7, X29.W8  // X29 = 127
+	MOVV $11275, R7
+	XVMOVQ R7, X28.W8  // X28 = 11275
 	MOVV $8388608, R7
 	XVMOVQ R7, X27.W8  // X27 = 2^23
-	MOVV $43, R7;       XVMOVQ R7, X26.W8  // X26 = 43
-	MOVV $190464, R7;   XVMOVQ R7, X25.W8  // X25 = 2*gamma2_88
+	MOVV $43, R7
+	XVMOVQ R7, X26.W8  // X26 = 43
+	MOVV $190464, R7
+	XVMOVQ R7, X25.W8  // X25 = 2*gamma2_88
 	MOVV $32, R8
 
 decompose88LASXLoop:
@@ -919,13 +927,18 @@ TEXT ·useHintPolyGamma32LASX(SB), NOSPLIT, $0-24
 	XVMOVQ R7, X31.W8  // X31 = q
 	MOVV $4190208, R7
 	XVMOVQ R7, X30.W8  // X30 = qMinus1Div2
-	MOVV $127, R7;      XVMOVQ R7, X29.W8  // X29 = 127
-	MOVV $1025, R7;     XVMOVQ R7, X28.W8  // X28 = 1025
+	MOVV $127, R7
+	XVMOVQ R7, X29.W8  // X29 = 127
+	MOVV $1025, R7
+	XVMOVQ R7, X28.W8  // X28 = 1025
 	MOVV $2097152, R7
 	XVMOVQ R7, X27.W8  // X27 = 2^21
-	MOVV $15, R7;       XVMOVQ R7, X26.W8  // X26 = mask15
-	MOVV $523776, R7;   XVMOVQ R7, X25.W8  // X25 = 2*gamma2_32
-	MOVV $1, R7;        XVMOVQ R7, X24.W8  // X24 = 1
+	MOVV $15, R7
+	XVMOVQ R7, X26.W8  // X26 = mask15
+	MOVV $523776, R7
+	XVMOVQ R7, X25.W8  // X25 = 2*gamma2_32
+	MOVV $1, R7
+	XVMOVQ R7, X24.W8  // X24 = 1
 	XVXORV X23, X23, X23                   // X23 = 0
 	MOVV $32, R8
 
@@ -987,13 +1000,18 @@ TEXT ·useHintPolyGamma88LASX(SB), NOSPLIT, $0-24
 	XVMOVQ R7, X31.W8  // X31 = q
 	MOVV $4190208, R7
 	XVMOVQ R7, X30.W8  // X30 = qMinus1Div2
-	MOVV $127, R7;      XVMOVQ R7, X29.W8  // X29 = 127
-	MOVV $11275, R7;    XVMOVQ R7, X28.W8  // X28 = 11275
+	MOVV $127, R7
+	XVMOVQ R7, X29.W8  // X29 = 127
+	MOVV $11275, R7
+	XVMOVQ R7, X28.W8  // X28 = 11275
 	MOVV $8388608, R7
 	XVMOVQ R7, X27.W8  // X27 = 2^23
-	MOVV $43, R7;       XVMOVQ R7, X26.W8  // X26 = 43
-	MOVV $190464, R7;   XVMOVQ R7, X25.W8  // X25 = 2*gamma2_88
-	MOVV $1, R7;        XVMOVQ R7, X24.W8  // X24 = 1
+	MOVV $43, R7
+	XVMOVQ R7, X26.W8  // X26 = 43
+	MOVV $190464, R7
+	XVMOVQ R7, X25.W8  // X25 = 2*gamma2_88
+	MOVV $1, R7
+	XVMOVQ R7, X24.W8  // X24 = 1
 	XVXORV X23, X23, X23                   // X23 = 0
 	MOVV $32, R8
 
@@ -1060,12 +1078,16 @@ TEXT ·makeHintPolyGamma32LASX(SB), NOSPLIT, $0-32
 
 	MOVV $8380417, R9
 	XVMOVQ R9, X31.W8  // X31 = q
-	MOVV $127, R9;      XVMOVQ R9, X29.W8  // X29 = 127
-	MOVV $1025, R9;     XVMOVQ R9, X28.W8  // X28 = 1025
+	MOVV $127, R9
+	XVMOVQ R9, X29.W8  // X29 = 127
+	MOVV $1025, R9
+	XVMOVQ R9, X28.W8  // X28 = 1025
 	MOVV $2097152, R9
 	XVMOVQ R9, X27.W8  // X27 = 2^21
-	MOVV $15, R9;       XVMOVQ R9, X26.W8  // X26 = mask15
-	MOVV $1, R9;        XVMOVQ R9, X25.W8  // X25 = 1
+	MOVV $15, R9
+	XVMOVQ R9, X26.W8  // X26 = mask15
+	MOVV $1, R9
+	XVMOVQ R9, X25.W8  // X25 = 1
 	MOVV $32, R8
 
 makeHintGamma32LASXLoop:
@@ -1074,24 +1096,19 @@ makeHintGamma32LASXLoop:
 	XVMOVQ (R6), X3   // w
 
 	// rPlusZ = fieldSub(w, cs2)
-	XVADDW X3, X31, X4
-	XVSUBW X2, X4, X4
-	XVSUBW X31, X4, X5
-	XVSRAW $31, X5, X5
-	XVANDV X5, X31, X5
-	XVADDW X5, X4, X4   // rPlusZ in [0, q-1], stored in X4
+	XVADDW X3, X31, X4      // X4 = w + q
+	XVSUBW X2, X4, X4       // X4 = w + q - cs2 (in [1, 2q-1])
+	XVSUBW X31, X4, X5      // X5 = X4 - q (tmp)
+	XVSRAW $31, X5, X6      // X6 = mask (-1 if X4 < q)
+	XVANDV X6, X31, X6      // X6 = q or 0
+	XVADDW X6, X5, X4       // X4 = tmp + q_or_0 → rPlusZ in [0, q-1]
 
 	// r = fieldAdd(rPlusZ, ct0)
-	XVADDW X1, X4, X0
-	XVSUBW X31, X0, X5
-	XVSRAW $31, X5, X5
-	XVANDV X5, X31, X5
-	XVADDW X5, X0, X0   // r in [0, q-1], stored in X0
-	// Wait — fieldAdd: if sum >= q, subtract q.
-	// X0 = rPlusZ + ct0; tmp = X0 - q; mask = sign(tmp); X0 = tmp + (mask & q)
-	// But I set X0 = rPlusZ + ct0 above (XVADDW X1, X4, X0).
-	// Then X5 = X0 - q. If X0 < q: X5 < 0 → mask=-1 → X5 + q = X0 ✓
-	// If X0 >= q: X5 >= 0 → mask=0 → X5 + 0 = X0 - q ✓ — correct.
+	XVADDW X1, X4, X0       // X0 = rPlusZ + ct0 (in [0, 2q-2])
+	XVSUBW X31, X0, X5      // X5 = X0 - q (tmp)
+	XVSRAW $31, X5, X6      // X6 = mask (-1 if X0 < q)
+	XVANDV X6, X31, X6      // X6 = q or 0
+	XVADDW X6, X5, X0       // X0 = tmp + q_or_0 → r in [0, q-1]
 
 	// HighBitsGamma32(rPlusZ):
 	XVADDW X29, X4, X13
@@ -1132,12 +1149,16 @@ TEXT ·makeHintPolyGamma88LASX(SB), NOSPLIT, $0-32
 
 	MOVV $8380417, R9
 	XVMOVQ R9, X31.W8  // X31 = q
-	MOVV $127, R9;      XVMOVQ R9, X29.W8  // X29 = 127
-	MOVV $11275, R9;    XVMOVQ R9, X28.W8  // X28 = 11275
+	MOVV $127, R9
+	XVMOVQ R9, X29.W8  // X29 = 127
+	MOVV $11275, R9
+	XVMOVQ R9, X28.W8  // X28 = 11275
 	MOVV $8388608, R9
 	XVMOVQ R9, X27.W8  // X27 = 2^23
-	MOVV $43, R9;       XVMOVQ R9, X26.W8  // X26 = 43
-	MOVV $1, R9;        XVMOVQ R9, X25.W8  // X25 = 1
+	MOVV $43, R9
+	XVMOVQ R9, X26.W8  // X26 = 43
+	MOVV $1, R9
+	XVMOVQ R9, X25.W8  // X25 = 1
 	MOVV $32, R8
 
 makeHintGamma88LASXLoop:
@@ -1146,19 +1167,19 @@ makeHintGamma88LASXLoop:
 	XVMOVQ (R6), X3   // w
 
 	// rPlusZ = fieldSub(w, cs2)
-	XVADDW X3, X31, X4
-	XVSUBW X2, X4, X4
-	XVSUBW X31, X4, X5
-	XVSRAW $31, X5, X5
-	XVANDV X5, X31, X5
-	XVADDW X5, X4, X4   // rPlusZ in [0, q-1]
+	XVADDW X3, X31, X4      // X4 = w + q
+	XVSUBW X2, X4, X4       // X4 = w + q - cs2 (in [1, 2q-1])
+	XVSUBW X31, X4, X5      // X5 = X4 - q (tmp)
+	XVSRAW $31, X5, X6      // X6 = mask (-1 if X4 < q)
+	XVANDV X6, X31, X6      // X6 = q or 0
+	XVADDW X6, X5, X4       // X4 = tmp + q_or_0 → rPlusZ in [0, q-1]
 
 	// r = fieldAdd(rPlusZ, ct0)
-	XVADDW X1, X4, X0
-	XVSUBW X31, X0, X5
-	XVSRAW $31, X5, X5
-	XVANDV X5, X31, X5
-	XVADDW X5, X0, X0   // r in [0, q-1]
+	XVADDW X1, X4, X0       // X0 = rPlusZ + ct0 (in [0, 2q-2])
+	XVSUBW X31, X0, X5      // X5 = X0 - q (tmp)
+	XVSRAW $31, X5, X6      // X6 = mask (-1 if X0 < q)
+	XVANDV X6, X31, X6      // X6 = q or 0
+	XVADDW X6, X5, X0       // X0 = tmp + q_or_0 → r in [0, q-1]
 
 	// HighBitsGamma88(rPlusZ): r1 = ((rPlusZ+127)>>7 * 11275 + 2^23) >> 24; clamp r1==44
 	XVADDW X29, X4, X13
