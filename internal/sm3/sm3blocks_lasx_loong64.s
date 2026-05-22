@@ -24,7 +24,6 @@
 #define tmp3 X10
 #define tmp4 X11
 
-#define ZERO_VECTOR X23
 #define aSave X24
 #define bSave X25
 #define cSave X26
@@ -52,72 +51,6 @@
 	XVILVLV t4, t1, t4; /* t4 = {t7.S4, t6.S4, t5.S4, t4.S4, t7.S0, t6.S0, t5.S0, t4.S0} */ \
 	XVILVHV t0, t6, t7; /* t7 = {t7.S7, t6.S7, t5.S7, t4.S7, t7.S3, t6.S3, t5.S3, t4.S3} */ \
 	XVILVLV t0, t6, t6; /* t6 = {t7.S6, t6.S6, t5.S6, t4.S6, t7.S2, t6.S2, t5.S2, t4.S2} */ \
-
-// input: from high to low
-// t0 = t0.W7, t0.W6, t0.W5, t0.W4 t0.W3, t0.W2, t0.W1, t0.W0
-// t1 = t1.W7, t1.W6, t1.W5, t1.W4 t1.W3, t1.W2, t1.W1, t1.W0
-// t2 = t2.W7, t2.W6, t2.W5, t2.W4 t2.W3, t2.W2, t2.W1, t2.W0
-// t3 = t3.W7, t3.W6, t3.W5, t3.W4 t3.W3, t3.W2, t3.W1, t3.W0
-// t4 = t4.W7, t4.W6, t4.W5, t4.W4 t4.W3, t4.W2, t4.W1, t4.W0
-// t5 = t5.W7, t5.W6, t5.W5, t5.W4 t5.W3, t5.W2, t5.W1, t5.W0
-// t6 = t6.W7, t6.W6, t6.W5, t6.W4 t6.W3, t6.W2, t6.W1, t6.W0
-// t7 = t7.W7, t7.W6, t7.W5, t7.W4 t7.W3, t7.W2, t7.W1, t7.W0
-// output: from high to low
-// t0 = t0.W7, t0.W6, t0.W5, t0.W4 t0.W3, t0.W2, t0.W1, t0.W0
-// t1 = t1.W7, t1.W6, t1.W5, t1.W4 t1.W3, t1.W2, t1.W1, t1.W0
-// t2 = t2.W7, t2.W6, t2.W5, t2.W4 t2.W3, t2.W2, t2.W1, t2.W0
-// t3 = t3.W7, t3.W6, t3.W5, t3.W4 t3.W3, t3.W2, t3.W1, t3.W0
-// t4 = t4.W7, t4.W6, t4.W5, t4.W4 t4.W3, t4.W2, t4.W1, t4.W0
-// t5 = t5.W7, t5.W6, t5.W5, t5.W4 t5.W3, t5.W2, t5.W1, t5.W0
-// t6 = t6.W7, t6.W6, t6.W5, t6.W4 t6.W3, t6.W2, t6.W1, t6.W0
-// t7 = t7.W7, t7.W6, t7.W5, t7.W4 t7.W3, t7.W2, t7.W1, t7.W0
-// This is a temp solution for transpose 8x8 matrix
-#define TRANSPOSE_MATRIX(t0, t1, t2, t3, t4, t5, t6, t7, RTMP0, RTMP1, RTMP2, RTMP3) \
-	TRANSPOSE_MATRIX_STEP1(t0, t1, t2, t3, t4, t5, t6, t7, RTMP0, RTMP1, RTMP2, RTMP3) \
-	; \ // below are temp solution to move data back to t0~t7, we will use XVPERMIQ from go 1.26+
-	XVMOVQ RTMP0, t0.Q2; \
-	XVMOVQ t4.V[0], R20; \ // XVPERMIQ $0x2, t4, t0
-	XVMOVQ t4.V[1], R21; \
-	XVMOVQ R20, t0.V[2]; \
-	XVMOVQ R21, t0.V[3]; \
-	; \
-	XVMOVQ RTMP1, t1.Q2; \
-	XVMOVQ t5.V[0], R20; \ // XVPERMIQ $0x2, t5, t1
-	XVMOVQ t5.V[1], R21; \
-	XVMOVQ R20, t1.V[2]; \
-	XVMOVQ R21, t1.V[3]; \
-	; \
-	XVMOVQ RTMP2, t2.Q2; \
-	XVMOVQ t6.V[0], R20; \ // XVPERMIQ $0x2, t6, t2
-	XVMOVQ t6.V[1], R21; \
-	XVMOVQ R20, t2.V[2]; \
-	XVMOVQ R21, t2.V[3]; \
-	; \
-	XVMOVQ RTMP3, t3.Q2; \
-	XVMOVQ t7.V[0], R20; \ // XVPERMIQ $0x2, t7, t3
-	XVMOVQ t7.V[1], R21; \
-	XVMOVQ R20, t3.V[2]; \
-	XVMOVQ R21, t3.V[3]; \
-	; \ // XVPERMIQ $0x31, RTMP0, t4
-	XVMOVQ RTMP0.V[2], R20; \
-	XVMOVQ RTMP0.V[3], R21; \
-	XVMOVQ R20, t4.V[0]; \
-	XVMOVQ R21, t4.V[1]; \
-	; \ // XVPERMIQ $0x31, RTMP1, t5
-	XVMOVQ RTMP1.V[2], R20; \
-	XVMOVQ RTMP1.V[3], R21; \
-	XVMOVQ R20, t5.V[0]; \
-	XVMOVQ R21, t5.V[1]; \
-	; \ // XVPERMIQ $0x31, RTMP2, t6
-	XVMOVQ RTMP2.V[2], R20; \
-	XVMOVQ RTMP2.V[3], R21; \
-	XVMOVQ R20, t6.V[0]; \
-	XVMOVQ R21, t6.V[1]; \
-	; \ // XVPERMIQ $0x31, RTMP3, t7
-	XVMOVQ RTMP3.V[2], R20; \
-	XVMOVQ RTMP3.V[3], R21; \
-	XVMOVQ R20, t7.V[0]; \
-	XVMOVQ R21, t7.V[1]
 
 #define TRANSPOSE_MATRIX_STAT \
 	TRANSPOSE_MATRIX_STEP1(a, b, c, d, e, f, g, h, tmp1, tmp2, tmp3, tmp4) \
@@ -375,19 +308,17 @@ TEXT ·blockMultBy8(SB),NOSPLIT,$0
 	MOVV	(6*8)(srcPtrPtr), srcPtr7
 	MOVV	(7*8)(srcPtrPtr), srcPtr8
 
-	XVXORV ZERO_VECTOR, ZERO_VECTOR, ZERO_VECTOR
 	MOVV	$·_K(SB), REG_KT		// const table
 
 loop:
-	// loong64 can't move from vector register to vector register directly now.
-	XVXORV a, ZERO_VECTOR, aSave
-	XVXORV b, ZERO_VECTOR, bSave
-	XVXORV c, ZERO_VECTOR, cSave
-	XVXORV d, ZERO_VECTOR, dSave
-	XVXORV e, ZERO_VECTOR, eSave
-	XVXORV f, ZERO_VECTOR, fSave
-	XVXORV g, ZERO_VECTOR, gSave
-	XVXORV h, ZERO_VECTOR, hSave
+	XVORV a, a, aSave
+	XVORV b, b, bSave
+	XVORV c, c, cSave
+	XVORV d, d, dSave
+	XVORV e, e, eSave
+	XVORV f, f, fSave
+	XVORV g, g, gSave
+	XVORV h, h, hSave
 
 	// reset wordPtr
 	MOVV wordStart, wordPtr
