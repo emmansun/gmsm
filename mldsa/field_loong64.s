@@ -716,7 +716,8 @@ poly_inf_norm_loop:
 	XVANDNV X27, X0, X2
 	XVORV X1, X2, X27    // X27[0] = scalar max
 
-	XVMOVQ X27.WU[0], R9
+	// Extract X27.W[0] via element extract.
+	XVMOVQ X27.V[0], R9
 	MOVW R9, ret+8(FP)
 	RET
 
@@ -785,7 +786,8 @@ poly_inf_norm_signed_loop:
 	XVANDNV X27, X0, X2
 	XVORV X1, X2, X27
 
-	XVMOVQ X27.WU[0], R9
+	// Extract X27.W[0] via element extract.
+	XVMOVQ X27.V[0], R9
 	MOVW R9, ret+8(FP)
 	RET
 
