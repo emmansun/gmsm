@@ -906,11 +906,10 @@ decompose88LASXLoop:
 	XVADDW X27, X5, X5      // + 2^23
 	XVSRAW $24, X5, X5      // r1 raw in [0, 44]
 
-	// r1 ^= ((43 - r1) >> 31) & r1  — clamps r1==44 to 0
+	// r1 &= ~((43 - r1) >> 31)  — clamps r1==44 to 0 using XVANDNV
 	XVSUBW X5, X26, X6      // 43 - r1 (negative iff r1==44)
 	XVSRAW $31, X6, X6      // sign mask: -1 if r1==44, else 0
-	XVANDV X6, X5, X6       // r1 if r1==44, else 0
-	XVXORV X6, X5, X5       // r1 = 0 when r1==44
+	XVANDNV X5, X6, X5      // X5 = ~mask & r1 (XVANDNV Xa, Xb, Xd = ~Xb & Xa)
 
 	// r0 = x - r1 * (2*gamma2)
 	XVMULW X25, X5, X7      // r1 * 2*gamma2_88
@@ -1045,11 +1044,10 @@ useHint88LASXLoop:
 	XVADDW X27, X3, X3
 	XVSRAW $24, X3, X3  // r1 raw
 
-	// r1 ^= ((43 - r1) >> 31) & r1
-	XVSUBW X3, X26, X4  // 43 - r1
-	XVSRAW $31, X4, X4  // mask: -1 if r1==44
-	XVANDV X4, X3, X4
-	XVXORV X4, X3, X3   // r1 clamped
+	// r1 &= ~((43 - r1) >> 31)  — clamps r1==44 to 0 using XVANDNV (saves XVANDV+XVXORV)
+	XVSUBW X3, X26, X4  // 43 - r1 (negative iff r1==44)
+	XVSRAW $31, X4, X4  // mask: -1 if r1==44, else 0
+	XVANDNV X3, X4, X3  // X3 = ~mask & r1 (XVANDNV Xa, Xb, Xd = ~Xb & Xa)
 
 	// r0 = r - r1*(2*gamma2); r0 -= ((qMinus1Div2-r0)>>31)&q
 	XVMULW X25, X3, X5
