@@ -8,6 +8,7 @@ package mldsa
 
 import (
 	"crypto/rand"
+	mathrand "math/rand/v2"
 	"testing"
 )
 
@@ -371,6 +372,128 @@ func TestLASXPolyInfinityNormSignedMatchesGeneric(t *testing.T) {
 
 		if got != want {
 			t.Fatalf("iter=%d: polyInfinityNormSigned mismatch: got=%d want=%d", i, got, want)
+		}
+	}
+}
+
+func TestLASXDecomposeSubToR0Gamma32MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for range 200 {
+		var w, cs2 ringElement
+		var gotDst, wantDst [n]int32
+		for i := range w {
+			w[i] = fieldElement(mathrand.IntN(int(q)))
+			cs2[i] = fieldElement(mathrand.IntN(int(q)))
+		}
+		decomposeSubToR0Gamma32LASX(&w[0], &cs2[0], &gotDst[0])
+		decomposeSubToR0Generic(&wantDst, &w, &cs2, gamma2QMinus1Div32)
+		for i := range gotDst {
+			if gotDst[i] != wantDst[i] {
+				t.Fatalf("index %d: got=%d want=%d", i, gotDst[i], wantDst[i])
+			}
+		}
+	}
+}
+
+func TestLASXDecomposeSubToR0Gamma88MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for range 200 {
+		var w, cs2 ringElement
+		var gotDst, wantDst [n]int32
+		for i := range w {
+			w[i] = fieldElement(mathrand.IntN(int(q)))
+			cs2[i] = fieldElement(mathrand.IntN(int(q)))
+		}
+		decomposeSubToR0Gamma88LASX(&w[0], &cs2[0], &gotDst[0])
+		decomposeSubToR0Generic(&wantDst, &w, &cs2, gamma2QMinus1Div88)
+		for i := range gotDst {
+			if gotDst[i] != wantDst[i] {
+				t.Fatalf("index %d: got=%d want=%d", i, gotDst[i], wantDst[i])
+			}
+		}
+	}
+}
+
+func TestLASXUseHintGamma32MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for range 200 {
+		var h, r, gotDst, wantDst ringElement
+		for i := range h {
+			h[i] = fieldElement(mathrand.IntN(2))
+			r[i] = fieldElement(mathrand.IntN(int(q)))
+		}
+		useHintPolyGamma32LASX(&h[0], &r[0], &gotDst[0])
+		useHintPolyGeneric(&wantDst, &h, &r, gamma2QMinus1Div32)
+		for i := range gotDst {
+			if gotDst[i] != wantDst[i] {
+				t.Fatalf("index %d: got=%d want=%d", i, gotDst[i], wantDst[i])
+			}
+		}
+	}
+}
+
+func TestLASXUseHintGamma88MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for range 200 {
+		var h, r, gotDst, wantDst ringElement
+		for i := range h {
+			h[i] = fieldElement(mathrand.IntN(2))
+			r[i] = fieldElement(mathrand.IntN(int(q)))
+		}
+		useHintPolyGamma88LASX(&h[0], &r[0], &gotDst[0])
+		useHintPolyGeneric(&wantDst, &h, &r, gamma2QMinus1Div88)
+		for i := range gotDst {
+			if gotDst[i] != wantDst[i] {
+				t.Fatalf("index %d: got=%d want=%d", i, gotDst[i], wantDst[i])
+			}
+		}
+	}
+}
+
+func TestLASXMakeHintGamma32MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for range 200 {
+		var ct0, cs2, w, gotHint, wantHint ringElement
+		for i := range ct0 {
+			ct0[i] = fieldElement(mathrand.IntN(int(q)))
+			cs2[i] = fieldElement(mathrand.IntN(int(q)))
+			w[i] = fieldElement(mathrand.IntN(int(q)))
+		}
+		makeHintPolyGamma32LASX(&ct0[0], &cs2[0], &w[0], &gotHint[0])
+		for i := range wantHint {
+			wantHint[i] = makeHint(ct0[i], cs2[i], w[i], gamma2QMinus1Div32)
+		}
+		for i := range gotHint {
+			if gotHint[i] != wantHint[i] {
+				t.Fatalf("index %d: got=%d want=%d", i, gotHint[i], wantHint[i])
+			}
+		}
+	}
+}
+
+func TestLASXMakeHintGamma88MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for range 200 {
+		var ct0, cs2, w, gotHint, wantHint ringElement
+		for i := range ct0 {
+			ct0[i] = fieldElement(mathrand.IntN(int(q)))
+			cs2[i] = fieldElement(mathrand.IntN(int(q)))
+			w[i] = fieldElement(mathrand.IntN(int(q)))
+		}
+		makeHintPolyGamma88LASX(&ct0[0], &cs2[0], &w[0], &gotHint[0])
+		for i := range wantHint {
+			wantHint[i] = makeHint(ct0[i], cs2[i], w[i], gamma2QMinus1Div88)
+		}
+		for i := range gotHint {
+			if gotHint[i] != wantHint[i] {
+				t.Fatalf("index %d: got=%d want=%d", i, gotHint[i], wantHint[i])
+			}
 		}
 	}
 }

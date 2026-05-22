@@ -795,28 +795,261 @@ TEXT ·decomposeSubToR0Gamma32LASX(SB), NOSPLIT, $0-24
 	MOVV w+0(FP), R4
 	MOVV cs2+8(FP), R5
 	MOVV out+16(FP), R6
-	// TODO: implement
+
+	// Broadcast constants into LASX registers.
+	MOVV $8380417, R7
+	XVMOVQ R7, X31.W8  // X31 = q
+	MOVV $4190208, R7
+	XVMOVQ R7, X30.W8  // X30 = qMinus1Div2
+	MOVV $127, R7;      XVMOVQ R7, X29.W8  // X29 = 127
+	MOVV $1025, R7;     XVMOVQ R7, X28.W8  // X28 = 1025
+	MOVV $2097152, R7
+	XVMOVQ R7, X27.W8  // X27 = 2^21
+	MOVV $15, R7;       XVMOVQ R7, X26.W8  // X26 = mask15
+	MOVV $523776, R7;   XVMOVQ R7, X25.W8  // X25 = 2*gamma2_32
+	MOVV $32, R8
+
+decompose32LASXLoop:
+	XVMOVQ (R4), X0   // w[0..7]
+	XVMOVQ (R5), X1   // cs2[0..7]
+
+	// x = fieldSub(w, cs2): x = (w + q - cs2) mod q
+	XVADDW X0, X31, X2      // X2 = w + q
+	XVSUBW X1, X2, X2       // X2 = w + q - cs2  (in [1, 2q-1])
+	// Reduce: if X2 >= q, subtract q.
+	XVSUBW X31, X2, X3      // tmp = X2 - q
+	XVSRAW $31, X3, X4      // mask = -1 if X2 < q
+	XVANDV X4, X31, X4      // q if X2 < q, else 0
+	XVADDW X4, X3, X2       // X2 = x in [0, q-1]
+
+	// r1 = (((x + 127) >> 7) * 1025 + 2^21) >> 22; r1 &= 15
+	XVADDW X29, X2, X4      // x + 127
+	XVSRLW $7, X4, X4       // >> 7
+	XVMULW X28, X4, X5      // * 1025
+	XVADDW X27, X5, X5      // + 2^21
+	XVSRAW $22, X5, X5      // >> 22
+	XVANDV X26, X5, X5      // & 15 → r1
+
+	// r0 = x - r1 * (2*gamma2)
+	XVMULW X25, X5, X6      // r1 * 2*gamma2
+	XVSUBW X6, X2, X7       // r0 = x - r1*2g
+
+	// r0 -= ((qMinus1Div2 - r0) >> 31) & q
+	XVSUBW X7, X30, X3      // qMinus1Div2 - r0
+	XVSRAW $31, X3, X3      // sign mask
+	XVANDV X3, X31, X3      // q if r0 > qMinus1Div2
+	XVSUBW X3, X7, X7       // r0 -= q if needed
+
+	XVMOVQ X7, (R6)
+
+	ADDV $32, R4
+	ADDV $32, R5
+	ADDV $32, R6
+	ADDV $-1, R8
+	BNE R8, R0, decompose32LASXLoop
 	RET
 
 TEXT ·decomposeSubToR0Gamma88LASX(SB), NOSPLIT, $0-24
 	MOVV w+0(FP), R4
 	MOVV cs2+8(FP), R5
 	MOVV out+16(FP), R6
-	// TODO: implement
+
+	MOVV $8380417, R7
+	XVMOVQ R7, X31.W8  // X31 = q
+	MOVV $4190208, R7
+	XVMOVQ R7, X30.W8  // X30 = qMinus1Div2
+	MOVV $127, R7;      XVMOVQ R7, X29.W8  // X29 = 127
+	MOVV $11275, R7;    XVMOVQ R7, X28.W8  // X28 = 11275
+	MOVV $8388608, R7
+	XVMOVQ R7, X27.W8  // X27 = 2^23
+	MOVV $43, R7;       XVMOVQ R7, X26.W8  // X26 = 43
+	MOVV $190464, R7;   XVMOVQ R7, X25.W8  // X25 = 2*gamma2_88
+	MOVV $32, R8
+
+decompose88LASXLoop:
+	XVMOVQ (R4), X0
+	XVMOVQ (R5), X1
+
+	// x = fieldSub(w, cs2)
+	XVADDW X0, X31, X2
+	XVSUBW X1, X2, X2
+	XVSUBW X31, X2, X3
+	XVSRAW $31, X3, X4
+	XVANDV X4, X31, X4
+	XVADDW X4, X3, X2       // x in [0, q-1]
+
+	// r1 = (((x + 127) >> 7) * 11275 + 2^23) >> 24
+	XVADDW X29, X2, X4
+	XVSRLW $7, X4, X4
+	XVMULW X28, X4, X5
+	XVADDW X27, X5, X5
+	XVSRAW $24, X5, X5      // r1 raw (no mask15 for gamma88)
+
+	// r1 ^= ((43 - r1) >> 31) & r1
+	XVSUBW X5, X26, X6      // 43 - r1 (negative if r1==44)
+	XVSRAW $31, X6, X6      // sign mask: -1 if r1==44
+	XVANDV X6, X5, X6       // r1 if r1==44, else 0
+	XVXORV X6, X5, X5       // r1 ^= that → r1=0 when r1==44
+
+	// r0 = x - r1 * (2*gamma2)
+	XVMULW X25, X5, X7
+	XVSUBW X7, X2, X7       // r0 = x - r1*2g
+
+	// r0 -= ((qMinus1Div2 - r0) >> 31) & q
+	XVSUBW X7, X30, X3
+	XVSRAW $31, X3, X3
+	XVANDV X3, X31, X3
+	XVSUBW X3, X7, X7
+
+	XVMOVQ X7, (R6)
+
+	ADDV $32, R4
+	ADDV $32, R5
+	ADDV $32, R6
+	ADDV $-1, R8
+	BNE R8, R0, decompose88LASXLoop
 	RET
 
 TEXT ·useHintPolyGamma32LASX(SB), NOSPLIT, $0-24
 	MOVV h+0(FP), R4
 	MOVV r+8(FP), R5
 	MOVV out+16(FP), R6
-	// TODO: implement
+
+	MOVV $8380417, R7
+	XVMOVQ R7, X31.W8  // X31 = q
+	MOVV $4190208, R7
+	XVMOVQ R7, X30.W8  // X30 = qMinus1Div2
+	MOVV $127, R7;      XVMOVQ R7, X29.W8  // X29 = 127
+	MOVV $1025, R7;     XVMOVQ R7, X28.W8  // X28 = 1025
+	MOVV $2097152, R7
+	XVMOVQ R7, X27.W8  // X27 = 2^21
+	MOVV $15, R7;       XVMOVQ R7, X26.W8  // X26 = mask15
+	MOVV $523776, R7;   XVMOVQ R7, X25.W8  // X25 = 2*gamma2_32
+	MOVV $1, R7;        XVMOVQ R7, X24.W8  // X24 = 1
+	XVXORV X23, X23, X23                   // X23 = 0
+	MOVV $32, R8
+
+useHint32LASXLoop:
+	XVMOVQ (R5), X1   // r
+	XVMOVQ (R4), X2   // h
+
+	// r1 = (((r + 127) >> 7) * 1025 + 2^21) >> 22; r1 &= 15
+	XVADDW X29, X1, X3
+	XVSRLW $7, X3, X3
+	XVMULW X28, X3, X3
+	XVADDW X27, X3, X3
+	XVSRAW $22, X3, X3
+	XVANDV X26, X3, X3  // r1
+
+	// r0 = r - r1*(2*gamma2); r0 -= ((qMinus1Div2-r0)>>31)&q
+	XVMULW X25, X3, X5
+	XVSUBW X5, X1, X6
+	XVSUBW X6, X30, X7
+	XVSRAW $31, X7, X7
+	XVANDV X7, X31, X7
+	XVSUBW X7, X6, X6   // r0
+
+	// posMask = (r0 > 0): sign of (0 - r0) = -r0 ; if r0>0, -r0<0, mask=-1
+	XVSUBW X6, X23, X7  // 0 - r0
+	XVSRAW $31, X7, X7  // -1 if r0 > 0, else 0 (r0<=0)
+	// Actually we want: posMask = -1 if r0 > 0. Since r0>0 means -r0<0, mask = -1. ✓
+
+	// deltaBase = (r0 > 0) ? 1 : 15
+	// When posMask=-1: delta=1 (XVANDV mask & 1 = 1), 15 via XVANDNV = ~mask & 15 = 0
+	// When posMask=0:  delta=0 via XVANDV, ~mask=-1, XVANDNV ~mask & 15 = 15
+	XVANDV X7, X24, X8          // X8 = 1 if r0>0, else 0
+	XVANDNV X26, X7, X9         // X9 = ~mask & 15 = 15 if r0<=0, 0 if r0>0
+	XVORV X8, X9, X8            // X8 = deltaBase
+
+	// hMask = -(h) for h in {0,1}: XVSUBW 0-h = -h; if h=1, -1 = all bits set
+	XVSUBW X2, X23, X9          // X9 = -h
+	XVANDV X9, X8, X8           // delta = (h ? deltaBase : 0)
+
+	// out = (r1 + delta) & 15
+	XVADDW X8, X3, X3
+	XVANDV X26, X3, X3
+
+	XVMOVQ X3, (R6)
+
+	ADDV $32, R4
+	ADDV $32, R5
+	ADDV $32, R6
+	ADDV $-1, R8
+	BNE R8, R0, useHint32LASXLoop
 	RET
 
 TEXT ·useHintPolyGamma88LASX(SB), NOSPLIT, $0-24
 	MOVV h+0(FP), R4
 	MOVV r+8(FP), R5
 	MOVV out+16(FP), R6
-	// TODO: implement
+
+	MOVV $8380417, R7
+	XVMOVQ R7, X31.W8  // X31 = q
+	MOVV $4190208, R7
+	XVMOVQ R7, X30.W8  // X30 = qMinus1Div2
+	MOVV $127, R7;      XVMOVQ R7, X29.W8  // X29 = 127
+	MOVV $11275, R7;    XVMOVQ R7, X28.W8  // X28 = 11275
+	MOVV $8388608, R7
+	XVMOVQ R7, X27.W8  // X27 = 2^23
+	MOVV $43, R7;       XVMOVQ R7, X26.W8  // X26 = 43
+	MOVV $190464, R7;   XVMOVQ R7, X25.W8  // X25 = 2*gamma2_88
+	MOVV $1, R7;        XVMOVQ R7, X24.W8  // X24 = 1
+	XVXORV X23, X23, X23                   // X23 = 0
+	MOVV $32, R8
+
+useHint88LASXLoop:
+	XVMOVQ (R5), X1   // r
+	XVMOVQ (R4), X2   // h
+
+	// r1 = (((r + 127) >> 7) * 11275 + 2^23) >> 24
+	XVADDW X29, X1, X3
+	XVSRLW $7, X3, X3
+	XVMULW X28, X3, X3
+	XVADDW X27, X3, X3
+	XVSRAW $24, X3, X3  // r1 raw
+
+	// r1 ^= ((43 - r1) >> 31) & r1
+	XVSUBW X3, X26, X4  // 43 - r1
+	XVSRAW $31, X4, X4  // mask: -1 if r1==44
+	XVANDV X4, X3, X4
+	XVXORV X4, X3, X3   // r1 clamped
+
+	// r0 = r - r1*(2*gamma2); r0 -= ((qMinus1Div2-r0)>>31)&q
+	XVMULW X25, X3, X5
+	XVSUBW X5, X1, X6
+	XVSUBW X6, X30, X7
+	XVSRAW $31, X7, X7
+	XVANDV X7, X31, X7
+	XVSUBW X7, X6, X6   // r0
+
+	// posMask = -1 if r0 > 0
+	XVSUBW X6, X23, X7  // 0 - r0
+	XVSRAW $31, X7, X7  // -1 if r0 > 0
+
+	// deltaBase = (r0 > 0) ? 1 : 43
+	XVANDV X7, X24, X8          // 1 if r0>0, else 0
+	XVANDNV X26, X7, X9         // ~mask & 43 = 43 if r0<=0, 0 if r0>0
+	XVORV X8, X9, X8            // deltaBase
+
+	// delta = h ? deltaBase : 0
+	XVSUBW X2, X23, X9          // -h
+	XVANDV X9, X8, X8           // delta
+
+	// out = r1 + delta; if out > 43, subtract 44
+	XVADDW X8, X3, X3           // r1 + delta
+	XVSUBW X3, X26, X4          // 43 - (r1+delta)
+	XVSRAW $31, X4, X4          // mask: -1 if r1+delta > 43
+	XVADDW X24, X26, X5         // X5 = 44
+	XVANDV X4, X5, X5           // 44 if > 43, else 0
+	XVSUBW X5, X3, X3           // out - 44 if > 43
+
+	XVMOVQ X3, (R6)
+
+	ADDV $32, R4
+	ADDV $32, R5
+	ADDV $32, R6
+	ADDV $-1, R8
+	BNE R8, R0, useHint88LASXLoop
 	RET
 
 TEXT ·makeHintPolyGamma32LASX(SB), NOSPLIT, $0-32
@@ -824,7 +1057,71 @@ TEXT ·makeHintPolyGamma32LASX(SB), NOSPLIT, $0-32
 	MOVV cs2+8(FP), R5
 	MOVV w+16(FP), R6
 	MOVV hint+24(FP), R7
-	// TODO: implement
+
+	MOVV $8380417, R9
+	XVMOVQ R9, X31.W8  // X31 = q
+	MOVV $127, R9;      XVMOVQ R9, X29.W8  // X29 = 127
+	MOVV $1025, R9;     XVMOVQ R9, X28.W8  // X28 = 1025
+	MOVV $2097152, R9
+	XVMOVQ R9, X27.W8  // X27 = 2^21
+	MOVV $15, R9;       XVMOVQ R9, X26.W8  // X26 = mask15
+	MOVV $1, R9;        XVMOVQ R9, X25.W8  // X25 = 1
+	MOVV $32, R8
+
+makeHintGamma32LASXLoop:
+	XVMOVQ (R4), X1   // ct0
+	XVMOVQ (R5), X2   // cs2
+	XVMOVQ (R6), X3   // w
+
+	// rPlusZ = fieldSub(w, cs2)
+	XVADDW X3, X31, X4
+	XVSUBW X2, X4, X4
+	XVSUBW X31, X4, X5
+	XVSRAW $31, X5, X5
+	XVANDV X5, X31, X5
+	XVADDW X5, X4, X4   // rPlusZ in [0, q-1], stored in X4
+
+	// r = fieldAdd(rPlusZ, ct0)
+	XVADDW X1, X4, X0
+	XVSUBW X31, X0, X5
+	XVSRAW $31, X5, X5
+	XVANDV X5, X31, X5
+	XVADDW X5, X0, X0   // r in [0, q-1], stored in X0
+	// Wait — fieldAdd: if sum >= q, subtract q.
+	// X0 = rPlusZ + ct0; tmp = X0 - q; mask = sign(tmp); X0 = tmp + (mask & q)
+	// But I set X0 = rPlusZ + ct0 above (XVADDW X1, X4, X0).
+	// Then X5 = X0 - q. If X0 < q: X5 < 0 → mask=-1 → X5 + q = X0 ✓
+	// If X0 >= q: X5 >= 0 → mask=0 → X5 + 0 = X0 - q ✓ — correct.
+
+	// HighBitsGamma32(rPlusZ):
+	XVADDW X29, X4, X13
+	XVSRLW $7, X13, X13
+	XVMULW X28, X13, X13
+	XVADDW X27, X13, X13
+	XVSRAW $22, X13, X13
+	XVANDV X26, X13, X13  // HighBits(rPlusZ)
+
+	// HighBitsGamma32(r):
+	XVADDW X29, X0, X14
+	XVSRLW $7, X14, X14
+	XVMULW X28, X14, X14
+	XVADDW X27, X14, X14
+	XVSRAW $22, X14, X14
+	XVANDV X26, X14, X14  // HighBits(r)
+
+	// hint = (X13 != X14) ? 1 : 0
+	// XVSEQW gives -1 where equal, 0 where different. We want 1 where different.
+	XVSEQW X14, X13, X5   // X5 = -1 where equal, 0 where different
+	XVANDNV X25, X5, X5   // X5 = ~X5 & 1 = 1 where different, 0 where same
+
+	XVMOVQ X5, (R7)
+
+	ADDV $32, R4
+	ADDV $32, R5
+	ADDV $32, R6
+	ADDV $32, R7
+	ADDV $-1, R8
+	BNE R8, R0, makeHintGamma32LASXLoop
 	RET
 
 TEXT ·makeHintPolyGamma88LASX(SB), NOSPLIT, $0-32
@@ -832,5 +1129,69 @@ TEXT ·makeHintPolyGamma88LASX(SB), NOSPLIT, $0-32
 	MOVV cs2+8(FP), R5
 	MOVV w+16(FP), R6
 	MOVV hint+24(FP), R7
-	// TODO: implement
+
+	MOVV $8380417, R9
+	XVMOVQ R9, X31.W8  // X31 = q
+	MOVV $127, R9;      XVMOVQ R9, X29.W8  // X29 = 127
+	MOVV $11275, R9;    XVMOVQ R9, X28.W8  // X28 = 11275
+	MOVV $8388608, R9
+	XVMOVQ R9, X27.W8  // X27 = 2^23
+	MOVV $43, R9;       XVMOVQ R9, X26.W8  // X26 = 43
+	MOVV $1, R9;        XVMOVQ R9, X25.W8  // X25 = 1
+	MOVV $32, R8
+
+makeHintGamma88LASXLoop:
+	XVMOVQ (R4), X1   // ct0
+	XVMOVQ (R5), X2   // cs2
+	XVMOVQ (R6), X3   // w
+
+	// rPlusZ = fieldSub(w, cs2)
+	XVADDW X3, X31, X4
+	XVSUBW X2, X4, X4
+	XVSUBW X31, X4, X5
+	XVSRAW $31, X5, X5
+	XVANDV X5, X31, X5
+	XVADDW X5, X4, X4   // rPlusZ in [0, q-1]
+
+	// r = fieldAdd(rPlusZ, ct0)
+	XVADDW X1, X4, X0
+	XVSUBW X31, X0, X5
+	XVSRAW $31, X5, X5
+	XVANDV X5, X31, X5
+	XVADDW X5, X0, X0   // r in [0, q-1]
+
+	// HighBitsGamma88(rPlusZ): r1 = ((rPlusZ+127)>>7 * 11275 + 2^23) >> 24; clamp r1==44
+	XVADDW X29, X4, X13
+	XVSRLW $7, X13, X13
+	XVMULW X28, X13, X13
+	XVADDW X27, X13, X13
+	XVSRAW $24, X13, X13
+	XVSUBW X13, X26, X5   // 43 - r1
+	XVSRAW $31, X5, X5    // mask: -1 if r1==44
+	XVANDV X5, X13, X5
+	XVXORV X5, X13, X13   // HighBits(rPlusZ) clamped
+
+	// HighBitsGamma88(r): same
+	XVADDW X29, X0, X14
+	XVSRLW $7, X14, X14
+	XVMULW X28, X14, X14
+	XVADDW X27, X14, X14
+	XVSRAW $24, X14, X14
+	XVSUBW X14, X26, X5   // 43 - r1
+	XVSRAW $31, X5, X5
+	XVANDV X5, X14, X5
+	XVXORV X5, X14, X14   // HighBits(r) clamped
+
+	// hint = (X13 != X14) ? 1 : 0
+	XVSEQW X14, X13, X5
+	XVANDNV X25, X5, X5   // 1 where different
+
+	XVMOVQ X5, (R7)
+
+	ADDV $32, R4
+	ADDV $32, R5
+	ADDV $32, R6
+	ADDV $32, R7
+	ADDV $-1, R8
+	BNE R8, R0, makeHintGamma88LASXLoop
 	RET
