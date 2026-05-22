@@ -636,18 +636,162 @@ intt_scale_loop:
 	ADDV $-1, R6; BNE R6, R0, intt_scale_loop
 	RET
 
-TEXT ·polyInfinityNormLASX(SB), NOSPLIT, $0-16
+TEXT ·polyInfinityNormLASX(SB), NOSPLIT, $16-12
 	MOVV a+0(FP), R4
-	// TODO: implement
-	MOVV $0, R4
-	MOVV R4, ret+8(FP)
+	MOVV $8380417, R5
+	XVMOVQ R5, X31.W8      // X31 = q broadcast
+	MOVV $4190208, R5       // (q-1)/2 = 4190208
+	XVMOVQ R5, X30.W8      // X30 = qMinus1Div2 broadcast
+
+	// Accumulate max in X27, X28 (2-way for ILP).
+	XVORV X27, X27, X27   // X27 = 0
+	XVORV X28, X28, X28   // X28 = 0
+	MOVV $16, R6
+poly_inf_norm_loop:
+	XVMOVQ (R4), X0
+	XVMOVQ 32(R4), X1
+
+	// infinity norm of X0: min(a, q-a) = a if a <= qM1D2, else q-a.
+	XVSUBW X0, X31, X9    // X9 = q - X0
+	XVSUBW X0, X30, X2    // X2 = qMinus1Div2 - X0 (C=B-A)
+	XVSRAW $31, X2, X2    // mask: -1 if X0 > qMinus1Div2
+	XVXORV X0, X9, X3    // X3 = X0 ^ (q - X0)
+	XVANDV X2, X3, X3    // select XOR bits where a > qM1D2
+	XVXORV X3, X0, X3    // X3 = (a > qM1D2) ? q-a : a = norm
+
+	XVSUBW X3, X27, X4   // X27 - X3
+	XVSRAW $31, X4, X4   // mask: -1 if X27 < X3
+	XVANDV X4, X3, X5
+	XVANDNV X4, X27, X6
+	XVORV X5, X6, X27    // X27 = max(X27, X3)
+
+	// infinity norm of X1:
+	XVSUBW X1, X31, X9
+	XVSUBW X1, X30, X2
+	XVSRAW $31, X2, X2
+	XVXORV X1, X9, X3
+	XVANDV X2, X3, X3
+	XVXORV X3, X1, X3    // norm of X1
+
+	XVSUBW X3, X28, X4
+	XVSRAW $31, X4, X4
+	XVANDV X4, X3, X5
+	XVANDNV X4, X28, X6
+	XVORV X5, X6, X28
+
+	ADDV $64, R4
+	ADDV $-1, R6; BNE R6, R0, poly_inf_norm_loop
+
+	// Merge X27, X28:
+	XVSUBW X28, X27, X0
+	XVSRAW $31, X0, X0
+	XVANDV X0, X28, X1
+	XVANDNV X0, X27, X2
+	XVORV X1, X2, X27    // X27 = max(X27, X28)
+
+	// Horizontal max: fold high 128-bit lane into low.
+	XVORV X27, X27, X28
+	XVPERMIQ(28, 27, 0x11)  // X28 = {X27.hi, X27.hi}
+	XVSUBW X28, X27, X0
+	XVSRAW $31, X0, X0
+	XVANDV X0, X28, X1
+	XVANDNV X0, X27, X2
+	XVORV X1, X2, X27    // X27.lo = max(X27.lo, X27.hi)
+
+	// Fold 4 → 2 using XVSHUF4IW.
+	XVORV X27, X27, X28
+	XVSHUF4IW $0x4E, X27, X28  // [w2,w3,w0,w1 | ...]
+	XVSUBW X28, X27, X0
+	XVSRAW $31, X0, X0
+	XVANDV X0, X28, X1
+	XVANDNV X0, X27, X2
+	XVORV X1, X2, X27
+
+	// Fold 2 → 1 using XVSHUF4IW.
+	XVORV X27, X27, X28
+	XVSHUF4IW $0xB1, X27, X28  // [w1,w0,w3,w2 | ...]
+	XVSUBW X28, X27, X0
+	XVSRAW $31, X0, X0
+	XVANDV X0, X28, X1
+	XVANDNV X0, X27, X2
+	XVORV X1, X2, X27    // X27[0] = scalar max
+
+	// Store X27 to stack, load first element.
+	MOVV R3, R7
+	XVMOVQ X27, (R7)
+	MOVWU (R7), R9
+	MOVW R9, ret+8(FP)
 	RET
 
-TEXT ·polyInfinityNormSignedLASX(SB), NOSPLIT, $0-16
+TEXT ·polyInfinityNormSignedLASX(SB), NOSPLIT, $16-12
 	MOVV a+0(FP), R4
-	// TODO: implement
-	MOVV $0, R4
-	MOVV R4, ret+8(FP)
+
+	// Accumulate max in X27, X28 (2-way for ILP).
+	XVORV X27, X27, X27   // X27 = 0
+	XVORV X28, X28, X28   // X28 = 0
+	MOVV $16, R6
+poly_inf_norm_signed_loop:
+	XVMOVQ (R4), X0
+	XVMOVQ 32(R4), X1
+	// abs(X0) = (X0 ^ sign) - sign where sign = X0 >> 31
+	XVSRAW $31, X0, X2
+	XVXORV X2, X0, X3
+	XVSUBW X2, X3, X3    // X3 = abs(X0)
+
+	XVSUBW X3, X27, X4
+	XVSRAW $31, X4, X4
+	XVANDV X4, X3, X5
+	XVANDNV X4, X27, X6
+	XVORV X5, X6, X27
+
+	XVSRAW $31, X1, X2
+	XVXORV X2, X1, X3
+	XVSUBW X2, X3, X3    // X3 = abs(X1)
+
+	XVSUBW X3, X28, X4
+	XVSRAW $31, X4, X4
+	XVANDV X4, X3, X5
+	XVANDNV X4, X28, X6
+	XVORV X5, X6, X28
+
+	ADDV $64, R4
+	ADDV $-1, R6; BNE R6, R0, poly_inf_norm_signed_loop
+
+	// Merge, horizontal reduce (same as above).
+	XVSUBW X28, X27, X0
+	XVSRAW $31, X0, X0
+	XVANDV X0, X28, X1
+	XVANDNV X0, X27, X2
+	XVORV X1, X2, X27
+
+	XVORV X27, X27, X28
+	XVPERMIQ(28, 27, 0x11)
+	XVSUBW X28, X27, X0
+	XVSRAW $31, X0, X0
+	XVANDV X0, X28, X1
+	XVANDNV X0, X27, X2
+	XVORV X1, X2, X27
+
+	XVORV X27, X27, X28
+	XVSHUF4IW $0x4E, X27, X28
+	XVSUBW X28, X27, X0
+	XVSRAW $31, X0, X0
+	XVANDV X0, X28, X1
+	XVANDNV X0, X27, X2
+	XVORV X1, X2, X27
+
+	XVORV X27, X27, X28
+	XVSHUF4IW $0xB1, X27, X28
+	XVSUBW X28, X27, X0
+	XVSRAW $31, X0, X0
+	XVANDV X0, X28, X1
+	XVANDNV X0, X27, X2
+	XVORV X1, X2, X27
+
+	MOVV R3, R7
+	XVMOVQ X27, (R7)
+	MOVWU (R7), R9
+	MOVW R9, ret+8(FP)
 	RET
 
 TEXT ·decomposeSubToR0Gamma32LASX(SB), NOSPLIT, $0-24

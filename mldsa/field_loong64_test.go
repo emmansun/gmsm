@@ -337,3 +337,40 @@ func BenchmarkInverseNTT(b *testing.B) {
 		}
 	})
 }
+
+func TestLASXPolyInfinityNormMatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for i := 0; i < 200; i++ {
+		a := randomRingElementMldsa()
+
+		got := polyInfinityNormLASX(&a[0])
+		want := uint32(polyInfinityNormGeneric(&a, 0))
+
+		if got != want {
+			t.Fatalf("iter=%d: polyInfinityNorm mismatch: got=%d want=%d", i, got, want)
+		}
+	}
+}
+
+func TestLASXPolyInfinityNormSignedMatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for i := 0; i < 200; i++ {
+		// Random signed int32 values in (-q/2, q/2)
+		var a [n]int32
+		for j := range a {
+			var b [4]byte
+			rand.Read(b[:])
+			v := int32(uint32(b[0]) | uint32(b[1])<<8 | uint32(b[2])<<16 | uint32(b[3])<<24)
+			a[j] = v % int32(qMinus1Div2)
+		}
+
+		got := polyInfinityNormSignedLASX(&a[0])
+		want := uint32(polyInfinityNormSignedGeneric(&a, 0))
+
+		if got != want {
+			t.Fatalf("iter=%d: polyInfinityNormSigned mismatch: got=%d want=%d", i, got, want)
+		}
+	}
+}
