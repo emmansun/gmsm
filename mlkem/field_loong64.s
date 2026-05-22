@@ -2049,72 +2049,52 @@ cbd2_outer:
 	XVILVLB X0, X1, X2
 	XVILVHB X0, X1, X3
 
-	// Sign-extend int8 to int16 for all 4 quadrants and store
-	// X2.lane0 = coefs[0..15], X2.lane1 = coefs[32..47]
-	// X3.lane0 = coefs[16..31], X3.lane1 = coefs[48..63]
+	// Sign-extend int8 to int16 and conditional add Q.
+	// XVILVLB/XVILVHB operate independently per 128-bit lane:
+	//   XVILVLB(X2,X4): lane0→coefs[0..7] at offsets 0..15, lane1→coefs[32..39] at offsets 16..31
+	//   XVILVHB(X2,X4): lane0→coefs[8..15], lane1→coefs[40..47]
+	// Use VMOVQ to extract each lane separately for correct layout.
 
-	// coefs[0..7]: lower 8 bytes of X2.lane0
 	XVSRAB $7, X2, X4
+	// lane0 low half → coefs[0..7]
 	XVILVLB X2, X4, X5
 	XVSRAH  $15, X5, X6
 	XVANDV  X6, X12, X6
 	XVADDH  X6, X5, X5
 	VMOVQ   V5, 0(R5)
+	// lane1 of X5 → coefs[32..39]
+	XVPERMIQ(5, 5, 0x11)
+	VMOVQ   V5, 64(R5)
 
-	// coefs[8..15]: upper 8 bytes of X2.lane0
+	// lane0 high half → coefs[8..15]
 	XVILVHB X2, X4, X6
 	XVSRAH  $15, X6, X7
 	XVANDV  X7, X12, X7
 	XVADDH  X7, X6, X6
 	VMOVQ   V6, 16(R5)
+	// lane1 of X6 → coefs[40..47]
+	XVPERMIQ(6, 6, 0x11)
+	VMOVQ   V6, 80(R5)
 
-	// coefs[16..23]: lower 8 bytes of X3.lane0
 	XVSRAB $7, X3, X4
+	// lane0 low half → coefs[16..23]
 	XVILVLB X3, X4, X5
 	XVSRAH  $15, X5, X6
 	XVANDV  X6, X12, X6
 	XVADDH  X6, X5, X5
 	VMOVQ   V5, 32(R5)
+	// lane1 of X5 → coefs[48..55]
+	XVPERMIQ(5, 5, 0x11)
+	VMOVQ   V5, 96(R5)
 
-	// coefs[24..31]: upper 8 bytes of X3.lane0
+	// lane0 high half → coefs[24..31]
 	XVILVHB X3, X4, X6
 	XVSRAH  $15, X6, X7
 	XVANDV  X7, X12, X7
 	XVADDH  X7, X6, X6
 	VMOVQ   V6, 48(R5)
-
-	// coefs[32..39]: lower 8 bytes of X2.lane1
-	XVORV X2, X2, X13
-	XVPERMIQ(13, 2, 0x11)
-	XVSRAB $7, X13, X4
-	XVILVLB X13, X4, X5
-	XVSRAH  $15, X5, X6
-	XVANDV  X6, X12, X6
-	XVADDH  X6, X5, X5
-	VMOVQ   V5, 64(R5)
-
-	// coefs[40..47]: upper 8 bytes of X2.lane1
-	XVILVHB X13, X4, X6
-	XVSRAH  $15, X6, X7
-	XVANDV  X7, X12, X7
-	XVADDH  X7, X6, X6
-	VMOVQ   V6, 80(R5)
-
-	// coefs[48..55]: lower 8 bytes of X3.lane1
-	XVORV X3, X3, X13
-	XVPERMIQ(13, 3, 0x11)
-	XVSRAB $7, X13, X4
-	XVILVLB X13, X4, X5
-	XVSRAH  $15, X5, X6
-	XVANDV  X6, X12, X6
-	XVADDH  X6, X5, X5
-	VMOVQ   V5, 96(R5)
-
-	// coefs[56..63]: upper 8 bytes of X3.lane1
-	XVILVHB X13, X4, X6
-	XVSRAH  $15, X6, X7
-	XVANDV  X7, X12, X7
-	XVADDH  X7, X6, X6
+	// lane1 of X6 → coefs[56..63]
+	XVPERMIQ(6, 6, 0x11)
 	VMOVQ   V6, 112(R5)
 
 	ADDV $128, R5
