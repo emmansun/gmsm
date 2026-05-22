@@ -292,106 +292,57 @@ ntt_l0_loop:
 	ADDV $-1, R6
 	BNE R6, R0, ntt_l0_loop
 
-	// ---- Layer 1: len=64, 2 groups ----
+	// ---- Layer 1: len=64, 2 groups — fully unrolled (4 iters × 2 groups) ----
 	// Group 0: zeta=zetasMontgomery[2], pairs f[i] and f[i+64], i in [0,64)
-	// Group 1: zeta=zetasMontgomery[3], pairs f[128+i] and f[128+i+64], i in [0,64)
 	BROADCAST_ZETA(4, R5, X3)
-	MOVV R4, R10
-	ADDV $128, R4, R11
-	MOVV $4, R6
+	XVMOVQ (R4), X0;         XVMOVQ 128(R4), X1;  BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R4);         XVMOVQ X1, 128(R4)
+	XVMOVQ 32(R4), X0;       XVMOVQ 160(R4), X1;  BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 32(R4);       XVMOVQ X1, 160(R4)
+	XVMOVQ 64(R4), X0;       XVMOVQ 192(R4), X1;  BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 64(R4);       XVMOVQ X1, 192(R4)
+	XVMOVQ 96(R4), X0;       XVMOVQ 224(R4), X1;  BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 96(R4);       XVMOVQ X1, 224(R4)
 
-ntt_l1_g0_loop:
-	XVMOVQ (R10), X0
-	XVMOVQ (R11), X1
-	BUTTERFLY_LASX(X0, X1, X3)
-	XVMOVQ X0, (R10)
-	XVMOVQ X1, (R11)
-	ADDV $32, R10
-	ADDV $32, R11
-	ADDV $-1, R6
-	BNE R6, R0, ntt_l1_g0_loop
-
+	// Group 1: zeta=zetasMontgomery[3], pairs f[128+i] and f[192+i], i in [0,64)
 	BROADCAST_ZETA(6, R5, X3)
-	ADDV $256, R4, R10
-	ADDV $384, R4, R11
-	MOVV $4, R6
+	XVMOVQ 256(R4), X0;      XVMOVQ 384(R4), X1;  BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 256(R4);      XVMOVQ X1, 384(R4)
+	XVMOVQ 288(R4), X0;      XVMOVQ 416(R4), X1;  BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 288(R4);      XVMOVQ X1, 416(R4)
+	XVMOVQ 320(R4), X0;      XVMOVQ 448(R4), X1;  BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 320(R4);      XVMOVQ X1, 448(R4)
+	XVMOVQ 352(R4), X0;      XVMOVQ 480(R4), X1;  BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 352(R4);      XVMOVQ X1, 480(R4)
 
-ntt_l1_g1_loop:
-	XVMOVQ (R10), X0
-	XVMOVQ (R11), X1
-	BUTTERFLY_LASX(X0, X1, X3)
-	XVMOVQ X0, (R10)
-	XVMOVQ X1, (R11)
-	ADDV $32, R10
-	ADDV $32, R11
-	ADDV $-1, R6
-	BNE R6, R0, ntt_l1_g1_loop
-
-	// ---- Layer 2: len=32, 4 groups ----
-	// Group g: zeta=zetasMontgomery[4+g], stride=64 bytes within 128-byte block
+	// ---- Layer 2: len=32, 4 groups — fully unrolled (2 iters × 4 groups) ----
+	// Group 0: zeta=zetasMontgomery[4], stride=64 bytes within [0,128)
 	BROADCAST_ZETA(8, R5, X3)
-	MOVV R4, R10
-	ADDV $64, R4, R11
-	MOVV $2, R6
+	XVMOVQ (R4), X0;         XVMOVQ 64(R4), X1;   BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R4);         XVMOVQ X1, 64(R4)
+	XVMOVQ 32(R4), X0;       XVMOVQ 96(R4), X1;   BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 32(R4);       XVMOVQ X1, 96(R4)
 
-ntt_l2_g0_loop:
-	XVMOVQ (R10), X0
-	XVMOVQ (R11), X1
-	BUTTERFLY_LASX(X0, X1, X3)
-	XVMOVQ X0, (R10)
-	XVMOVQ X1, (R11)
-	ADDV $32, R10
-	ADDV $32, R11
-	ADDV $-1, R6
-	BNE R6, R0, ntt_l2_g0_loop
-
+	// Group 1: zeta=zetasMontgomery[5], stride=64 bytes within [128,256)
 	BROADCAST_ZETA(10, R5, X3)
-	ADDV $128, R4, R10
-	ADDV $192, R4, R11
-	MOVV $2, R6
+	XVMOVQ 128(R4), X0;      XVMOVQ 192(R4), X1;  BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 128(R4);      XVMOVQ X1, 192(R4)
+	XVMOVQ 160(R4), X0;      XVMOVQ 224(R4), X1;  BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 160(R4);      XVMOVQ X1, 224(R4)
 
-ntt_l2_g1_loop:
-	XVMOVQ (R10), X0
-	XVMOVQ (R11), X1
-	BUTTERFLY_LASX(X0, X1, X3)
-	XVMOVQ X0, (R10)
-	XVMOVQ X1, (R11)
-	ADDV $32, R10
-	ADDV $32, R11
-	ADDV $-1, R6
-	BNE R6, R0, ntt_l2_g1_loop
-
+	// Group 2: zeta=zetasMontgomery[6], stride=64 bytes within [256,384)
 	BROADCAST_ZETA(12, R5, X3)
-	ADDV $256, R4, R10
-	ADDV $320, R4, R11
-	MOVV $2, R6
+	XVMOVQ 256(R4), X0;      XVMOVQ 320(R4), X1;  BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 256(R4);      XVMOVQ X1, 320(R4)
+	XVMOVQ 288(R4), X0;      XVMOVQ 352(R4), X1;  BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 288(R4);      XVMOVQ X1, 352(R4)
 
-ntt_l2_g2_loop:
-	XVMOVQ (R10), X0
-	XVMOVQ (R11), X1
-	BUTTERFLY_LASX(X0, X1, X3)
-	XVMOVQ X0, (R10)
-	XVMOVQ X1, (R11)
-	ADDV $32, R10
-	ADDV $32, R11
-	ADDV $-1, R6
-	BNE R6, R0, ntt_l2_g2_loop
-
+	// Group 3: zeta=zetasMontgomery[7], stride=64 bytes within [384,512)
 	BROADCAST_ZETA(14, R5, X3)
-	ADDV $384, R4, R10
-	ADDV $448, R4, R11
-	MOVV $2, R6
-
-ntt_l2_g3_loop:
-	XVMOVQ (R10), X0
-	XVMOVQ (R11), X1
-	BUTTERFLY_LASX(X0, X1, X3)
-	XVMOVQ X0, (R10)
-	XVMOVQ X1, (R11)
-	ADDV $32, R10
-	ADDV $32, R11
-	ADDV $-1, R6
-	BNE R6, R0, ntt_l2_g3_loop
+	XVMOVQ 384(R4), X0;      XVMOVQ 448(R4), X1;  BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 384(R4);      XVMOVQ X1, 448(R4)
+	XVMOVQ 416(R4), X0;      XVMOVQ 480(R4), X1;  BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 416(R4);      XVMOVQ X1, 480(R4)
 
 	// ---- Layer 3: len=16, 8 groups ----
 	// Group g: zeta=zetasMontgomery[8+g], stride=32 bytes, 1 vector pair each
@@ -702,106 +653,53 @@ intt_l4_loop:
 	XVMOVQ X0, (R4)
 	XVMOVQ X1, 32(R4)
 
-	// ---- Layer 2 (inverse): len=32, 4 groups ----
-	// Groups processed high-to-low (start=192..0). Zetas[4..7] in ascending start order.
-	// start=192→zeta[4], start=128→zeta[5], start=64→zeta[6], start=0→zeta[7].
+	// ---- Layer 2 (inverse): len=32, 4 groups — fully unrolled ----
+	// Groups processed high-to-low: start=192→zeta[4], start=128→zeta[5], start=64→zeta[6], start=0→zeta[7]
 	BROADCAST_ZETA(8, R5, X3)   // start=192, zeta[4]
-	ADDV $384, R4, R10
-	ADDV $448, R4, R11
-	MOVV $2, R6
-
-intt_l2_g3_loop:
-	XVMOVQ (R10), X0
-	XVMOVQ (R11), X1
-	INTT_BUTTERFLY_LASX(X0, X1, X3)
-	XVMOVQ X0, (R10)
-	XVMOVQ X1, (R11)
-	ADDV $32, R10
-	ADDV $32, R11
-	ADDV $-1, R6
-	BNE R6, R0, intt_l2_g3_loop
+	XVMOVQ 384(R4), X0;         XVMOVQ 448(R4), X1;  INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 384(R4);         XVMOVQ X1, 448(R4)
+	XVMOVQ 416(R4), X0;         XVMOVQ 480(R4), X1;  INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 416(R4);         XVMOVQ X1, 480(R4)
 
 	BROADCAST_ZETA(10, R5, X3)  // start=128, zeta[5]
-	ADDV $256, R4, R10
-	ADDV $320, R4, R11
-	MOVV $2, R6
-
-intt_l2_g2_loop:
-	XVMOVQ (R10), X0
-	XVMOVQ (R11), X1
-	INTT_BUTTERFLY_LASX(X0, X1, X3)
-	XVMOVQ X0, (R10)
-	XVMOVQ X1, (R11)
-	ADDV $32, R10
-	ADDV $32, R11
-	ADDV $-1, R6
-	BNE R6, R0, intt_l2_g2_loop
+	XVMOVQ 256(R4), X0;         XVMOVQ 320(R4), X1;  INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 256(R4);         XVMOVQ X1, 320(R4)
+	XVMOVQ 288(R4), X0;         XVMOVQ 352(R4), X1;  INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 288(R4);         XVMOVQ X1, 352(R4)
 
 	BROADCAST_ZETA(12, R5, X3)  // start=64, zeta[6]
-	ADDV $128, R4, R10
-	ADDV $192, R4, R11
-	MOVV $2, R6
-
-intt_l2_g1_loop:
-	XVMOVQ (R10), X0
-	XVMOVQ (R11), X1
-	INTT_BUTTERFLY_LASX(X0, X1, X3)
-	XVMOVQ X0, (R10)
-	XVMOVQ X1, (R11)
-	ADDV $32, R10
-	ADDV $32, R11
-	ADDV $-1, R6
-	BNE R6, R0, intt_l2_g1_loop
+	XVMOVQ 128(R4), X0;         XVMOVQ 192(R4), X1;  INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 128(R4);         XVMOVQ X1, 192(R4)
+	XVMOVQ 160(R4), X0;         XVMOVQ 224(R4), X1;  INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 160(R4);         XVMOVQ X1, 224(R4)
 
 	BROADCAST_ZETA(14, R5, X3)  // start=0, zeta[7]
-	MOVV R4, R10
-	ADDV $64, R4, R11
-	MOVV $2, R6
+	XVMOVQ (R4), X0;            XVMOVQ 64(R4), X1;   INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R4);            XVMOVQ X1, 64(R4)
+	XVMOVQ 32(R4), X0;          XVMOVQ 96(R4), X1;   INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 32(R4);          XVMOVQ X1, 96(R4)
 
-intt_l2_g0_loop:
-	XVMOVQ (R10), X0
-	XVMOVQ (R11), X1
-	INTT_BUTTERFLY_LASX(X0, X1, X3)
-	XVMOVQ X0, (R10)
-	XVMOVQ X1, (R11)
-	ADDV $32, R10
-	ADDV $32, R11
-	ADDV $-1, R6
-	BNE R6, R0, intt_l2_g0_loop
-
-	// ---- Layer 1 (inverse): len=64, 2 groups ----
-	// Groups processed high-to-low (start=128,0). start=128→zeta[2], start=0→zeta[3].
+	// ---- Layer 1 (inverse): len=64, 2 groups — fully unrolled ----
+	// start=128→zeta[2], start=0→zeta[3]
 	BROADCAST_ZETA(4, R5, X3)   // start=128, zeta[2]
-	ADDV $256, R4, R10
-	ADDV $384, R4, R11
-	MOVV $4, R6
-
-intt_l1_g1_loop:
-	XVMOVQ (R10), X0
-	XVMOVQ (R11), X1
-	INTT_BUTTERFLY_LASX(X0, X1, X3)
-	XVMOVQ X0, (R10)
-	XVMOVQ X1, (R11)
-	ADDV $32, R10
-	ADDV $32, R11
-	ADDV $-1, R6
-	BNE R6, R0, intt_l1_g1_loop
+	XVMOVQ 256(R4), X0;         XVMOVQ 384(R4), X1;  INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 256(R4);         XVMOVQ X1, 384(R4)
+	XVMOVQ 288(R4), X0;         XVMOVQ 416(R4), X1;  INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 288(R4);         XVMOVQ X1, 416(R4)
+	XVMOVQ 320(R4), X0;         XVMOVQ 448(R4), X1;  INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 320(R4);         XVMOVQ X1, 448(R4)
+	XVMOVQ 352(R4), X0;         XVMOVQ 480(R4), X1;  INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 352(R4);         XVMOVQ X1, 480(R4)
 
 	BROADCAST_ZETA(6, R5, X3)   // start=0, zeta[3]
-	MOVV R4, R10
-	ADDV $128, R4, R11
-	MOVV $4, R6
-
-intt_l1_g0_loop:
-	XVMOVQ (R10), X0
-	XVMOVQ (R11), X1
-	INTT_BUTTERFLY_LASX(X0, X1, X3)
-	XVMOVQ X0, (R10)
-	XVMOVQ X1, (R11)
-	ADDV $32, R10
-	ADDV $32, R11
-	ADDV $-1, R6
-	BNE R6, R0, intt_l1_g0_loop
+	XVMOVQ (R4), X0;            XVMOVQ 128(R4), X1;  INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, (R4);            XVMOVQ X1, 128(R4)
+	XVMOVQ 32(R4), X0;          XVMOVQ 160(R4), X1;  INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 32(R4);          XVMOVQ X1, 160(R4)
+	XVMOVQ 64(R4), X0;          XVMOVQ 192(R4), X1;  INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 64(R4);          XVMOVQ X1, 192(R4)
+	XVMOVQ 96(R4), X0;          XVMOVQ 224(R4), X1;  INTT_BUTTERFLY_LASX(X0, X1, X3)
+	XVMOVQ X0, 96(R4);          XVMOVQ X1, 224(R4)
 
 	// ---- Layer 0 (inverse): len=128, with final scale ----
 	// INTT butterfly + scale by 1441 (= 128^{-1} * r^2 mod q).
