@@ -24,21 +24,6 @@
 //   Computes out = MontMul(a, b) using X regs. Clobbers Xtmp1.
 //   Uses X28 for q vector, X29 for qInv vector (set up by caller).
 
-// DATA for q and qInv broadcast constants
-// q = 8380417 = 0x007F00E1
-// qInv = 58728449 = 0x03800001
-DATA mldsaQ<>+0(SB)/8, $0x007F00E1007F00E1
-DATA mldsaQ<>+8(SB)/8, $0x007F00E1007F00E1
-DATA mldsaQ<>+16(SB)/8, $0x007F00E1007F00E1
-DATA mldsaQ<>+24(SB)/8, $0x007F00E1007F00E1
-GLOBL mldsaQ<>(SB), RODATA, $32
-
-DATA mldsaQInv<>+0(SB)/8, $0x0380000103800001
-DATA mldsaQInv<>+8(SB)/8, $0x0380000103800001
-DATA mldsaQInv<>+16(SB)/8, $0x0380000103800001
-DATA mldsaQInv<>+24(SB)/8, $0x0380000103800001
-GLOBL mldsaQInv<>(SB), RODATA, $32
-
 // ============================================================
 // polyAddAssignLASX: dst[i] = fieldAdd(dst[i], src[i]), i=0..255
 // func polyAddAssignLASX(dst, src *fieldElement)
