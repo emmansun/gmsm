@@ -791,12 +791,19 @@ poly_inf_norm_signed_loop:
 	MOVW R9, ret+8(FP)
 	RET
 
+// decomposeSubToR0Gamma32LASX computes out[i] = r0 where x = fieldSub(w[i], cs2[i]),
+// then x = r1*2*gamma2_32 + r0 with r1 in [0,15] and r0 centre-lifted into (-gamma2,gamma2].
+// gamma2_32 = (q-1)/32, 2*gamma2_32 = 523776. Uses the formula:
+//   r1 = (((x+127)>>7)*1025 + 2^21) >> 22) & 15
+//   r0 = x - r1*2*gamma2
+//   if r0 > (q-1)/2: r0 -= q
+// Processes 8 int32 lanes per iteration (256 coefficients in 32 LASX loads).
 TEXT ·decomposeSubToR0Gamma32LASX(SB), NOSPLIT, $0-24
 	MOVV w+0(FP), R4
 	MOVV cs2+8(FP), R5
 	MOVV out+16(FP), R6
 
-	// Broadcast constants into LASX registers.
+	// Broadcast constants into LASX registers (8×int32 per vector).
 	MOVV $8380417, R7
 	XVMOVQ R7, X31.W8  // X31 = q
 	MOVV $4190208, R7
@@ -853,6 +860,12 @@ decompose32LASXLoop:
 	BNE R8, R0, decompose32LASXLoop
 	RET
 
+// decomposeSubToR0Gamma88LASX computes out[i] = r0 where x = fieldSub(w[i], cs2[i]),
+// then x = r1*2*gamma2_88 + r0 with r1 in [0,43] (44 clamped to 0) and r0 centre-lifted.
+// gamma2_88 = (q-1)/88, 2*gamma2_88 = 190464. Uses the formula:
+//   r1 = (((x+127)>>7)*11275 + 2^23) >> 24
+//   r1 ^= ((43-r1)>>31) & r1  (clamps r1==44 to 0)
+//   r0 = x - r1*2*gamma2; if r0 > (q-1)/2: r0 -= q
 TEXT ·decomposeSubToR0Gamma88LASX(SB), NOSPLIT, $0-24
 	MOVV w+0(FP), R4
 	MOVV cs2+8(FP), R5
@@ -875,39 +888,39 @@ TEXT ·decomposeSubToR0Gamma88LASX(SB), NOSPLIT, $0-24
 	MOVV $32, R8
 
 decompose88LASXLoop:
-	XVMOVQ (R4), X0
-	XVMOVQ (R5), X1
+	XVMOVQ (R4), X0   // w[0..7]
+	XVMOVQ (R5), X1   // cs2[0..7]
 
-	// x = fieldSub(w, cs2)
-	XVADDW X0, X31, X2
-	XVSUBW X1, X2, X2
-	XVSUBW X31, X2, X3
-	XVSRAW $31, X3, X4
-	XVANDV X4, X31, X4
+	// x = fieldSub(w, cs2): x = (w + q - cs2) mod q
+	XVADDW X0, X31, X2      // X2 = w + q
+	XVSUBW X1, X2, X2       // X2 = w + q - cs2 (in [1, 2q-1])
+	XVSUBW X31, X2, X3      // tmp = X2 - q
+	XVSRAW $31, X3, X4      // mask = -1 if X2 < q
+	XVANDV X4, X31, X4      // q if X2 < q, else 0
 	XVADDW X4, X3, X2       // x in [0, q-1]
 
 	// r1 = (((x + 127) >> 7) * 11275 + 2^23) >> 24
-	XVADDW X29, X2, X4
-	XVSRLW $7, X4, X4
-	XVMULW X28, X4, X5
-	XVADDW X27, X5, X5
-	XVSRAW $24, X5, X5      // r1 raw (no mask15 for gamma88)
+	XVADDW X29, X2, X4      // x + 127
+	XVSRLW $7, X4, X4       // >> 7
+	XVMULW X28, X4, X5      // * 11275
+	XVADDW X27, X5, X5      // + 2^23
+	XVSRAW $24, X5, X5      // r1 raw in [0, 44]
 
-	// r1 ^= ((43 - r1) >> 31) & r1
-	XVSUBW X5, X26, X6      // 43 - r1 (negative if r1==44)
-	XVSRAW $31, X6, X6      // sign mask: -1 if r1==44
+	// r1 ^= ((43 - r1) >> 31) & r1  — clamps r1==44 to 0
+	XVSUBW X5, X26, X6      // 43 - r1 (negative iff r1==44)
+	XVSRAW $31, X6, X6      // sign mask: -1 if r1==44, else 0
 	XVANDV X6, X5, X6       // r1 if r1==44, else 0
-	XVXORV X6, X5, X5       // r1 ^= that → r1=0 when r1==44
+	XVXORV X6, X5, X5       // r1 = 0 when r1==44
 
 	// r0 = x - r1 * (2*gamma2)
-	XVMULW X25, X5, X7
+	XVMULW X25, X5, X7      // r1 * 2*gamma2_88
 	XVSUBW X7, X2, X7       // r0 = x - r1*2g
 
-	// r0 -= ((qMinus1Div2 - r0) >> 31) & q
-	XVSUBW X7, X30, X3
-	XVSRAW $31, X3, X3
-	XVANDV X3, X31, X3
-	XVSUBW X3, X7, X7
+	// r0 -= ((qMinus1Div2 - r0) >> 31) & q  — centre-lift
+	XVSUBW X7, X30, X3      // qMinus1Div2 - r0
+	XVSRAW $31, X3, X3      // sign mask: -1 if r0 > qMinus1Div2
+	XVANDV X3, X31, X3      // q if r0 > qMinus1Div2, else 0
+	XVSUBW X3, X7, X7       // r0 -= q if needed
 
 	XVMOVQ X7, (R6)
 
@@ -918,6 +931,9 @@ decompose88LASXLoop:
 	BNE R8, R0, decompose88LASXLoop
 	RET
 
+// useHintPolyGamma32LASX applies hint bits to recover high bits for gamma2=(q-1)/32.
+// For each coefficient: decompose r into (r1, r0); delta = h ? ((r0>0)?1:15) : 0;
+// out = (r1 + delta) & 15. The result is the corrected high bits in [0,15].
 TEXT ·useHintPolyGamma32LASX(SB), NOSPLIT, $0-24
 	MOVV h+0(FP), R4
 	MOVV r+8(FP), R5
@@ -991,6 +1007,9 @@ useHint32LASXLoop:
 	BNE R8, R0, useHint32LASXLoop
 	RET
 
+// useHintPolyGamma88LASX applies hint bits to recover high bits for gamma2=(q-1)/88.
+// For each coefficient: decompose r into (r1, r0); delta = h ? ((r0>0)?1:43) : 0;
+// out = r1 + delta; if out > 43, subtract 44. Result is corrected high bits in [0,43].
 TEXT ·useHintPolyGamma88LASX(SB), NOSPLIT, $0-24
 	MOVV h+0(FP), R4
 	MOVV r+8(FP), R5
@@ -1070,6 +1089,11 @@ useHint88LASXLoop:
 	BNE R8, R0, useHint88LASXLoop
 	RET
 
+// makeHintPolyGamma32LASX computes hint bits for gamma2=(q-1)/32.
+// rPlusZ = fieldSub(w, cs2); r = fieldAdd(rPlusZ, ct0).
+// hint[i] = 1 if HighBits(rPlusZ) != HighBits(r), else 0.
+// HighBits uses: r1 = (((x+127)>>7)*1025+2^21)>>22) & 15.
+// XVSEQW gives -1 where equal; XVANDNV(X25, X5, X5) = ~X5 & 1 = 1 where different.
 TEXT ·makeHintPolyGamma32LASX(SB), NOSPLIT, $0-32
 	MOVV ct0+0(FP), R4
 	MOVV cs2+8(FP), R5
@@ -1095,41 +1119,38 @@ makeHintGamma32LASXLoop:
 	XVMOVQ (R5), X2   // cs2
 	XVMOVQ (R6), X3   // w
 
-	// rPlusZ = fieldSub(w, cs2)
-	XVADDW X3, X31, X4      // X4 = w + q
-	XVSUBW X2, X4, X4       // X4 = w + q - cs2 (in [1, 2q-1])
-	XVSUBW X31, X4, X5      // X5 = X4 - q (tmp)
-	XVSRAW $31, X5, X6      // X6 = mask (-1 if X4 < q)
+	// rPlusZ = fieldSub(w, cs2): w,cs2 in [0,q-1] so diff in [-(q-1),q-1];
+	// if negative, add q. 4 instructions (vs original 6).
+	XVSUBW X2, X3, X4       // X4 = w - cs2 (signed, may be negative)
+	XVSRAW $31, X4, X6      // X6 = mask (-1 if negative)
 	XVANDV X6, X31, X6      // X6 = q or 0
-	XVADDW X6, X5, X4       // X4 = tmp + q_or_0 → rPlusZ in [0, q-1]
+	XVADDW X6, X4, X4       // X4 = rPlusZ in [0, q-1]
 
-	// r = fieldAdd(rPlusZ, ct0)
+	// r = fieldAdd(rPlusZ, ct0): sum in [0,2q-2]; sub q first, add back if negative.
+	// 4 instructions (vs original 5).
 	XVADDW X1, X4, X0       // X0 = rPlusZ + ct0 (in [0, 2q-2])
-	XVSUBW X31, X0, X5      // X5 = X0 - q (tmp)
-	XVSRAW $31, X5, X6      // X6 = mask (-1 if X0 < q)
+	XVSUBW X31, X0, X0      // X0 = X0 - q (in [-(q-1), q-2])
+	XVSRAW $31, X0, X6      // X6 = mask (-1 if X0 < 0, i.e. sum < q)
 	XVANDV X6, X31, X6      // X6 = q or 0
-	XVADDW X6, X5, X0       // X0 = tmp + q_or_0 → r in [0, q-1]
+	XVADDW X6, X0, X0       // X0 = r in [0, q-1]
 
-	// HighBitsGamma32(rPlusZ):
-	XVADDW X29, X4, X13
-	XVSRLW $7, X13, X13
-	XVMULW X28, X13, X13
-	XVADDW X27, X13, X13
-	XVSRAW $22, X13, X13
-	XVANDV X26, X13, X13  // HighBits(rPlusZ)
-
-	// HighBitsGamma32(r):
-	XVADDW X29, X0, X14
-	XVSRLW $7, X14, X14
-	XVMULW X28, X14, X14
-	XVADDW X27, X14, X14
-	XVSRAW $22, X14, X14
-	XVANDV X26, X14, X14  // HighBits(r)
+	// HighBitsGamma32: interleave rPlusZ and r to hide XVMULW latency.
+	XVADDW X29, X4, X13     // rPlusZ + 127
+	XVSRLW $7, X13, X13     // >> 7
+	XVMULW X28, X13, X13    // * 1025 (start multiply, 3-4 cy latency)
+	XVADDW X29, X0, X14     // r + 127 (use latency gap)
+	XVSRLW $7, X14, X14     // >> 7
+	XVMULW X28, X14, X14    // * 1025 (start multiply)
+	XVADDW X27, X13, X13    // + 2^21 (rPlusZ mul should be ready)
+	XVSRAW $22, X13, X13    // >> 22
+	XVANDV X26, X13, X13    // & 15 → HighBits(rPlusZ)
+	XVADDW X27, X14, X14    // + 2^21 (r mul should be ready)
+	XVSRAW $22, X14, X14    // >> 22
+	XVANDV X26, X14, X14    // & 15 → HighBits(r)
 
 	// hint = (X13 != X14) ? 1 : 0
-	// XVSEQW gives -1 where equal, 0 where different. We want 1 where different.
-	XVSEQW X14, X13, X5   // X5 = -1 where equal, 0 where different
-	XVANDNV X25, X5, X5   // X5 = ~X5 & 1 = 1 where different, 0 where same
+	XVSEQW X14, X13, X5     // X5 = -1 where equal, 0 where different
+	XVANDNV X25, X5, X5     // ~X5 & 1 = 1 where different
 
 	XVMOVQ X5, (R7)
 
@@ -1141,6 +1162,11 @@ makeHintGamma32LASXLoop:
 	BNE R8, R0, makeHintGamma32LASXLoop
 	RET
 
+// makeHintPolyGamma88LASX computes hint bits for gamma2=(q-1)/88.
+// rPlusZ = fieldSub(w, cs2); r = fieldAdd(rPlusZ, ct0).
+// hint[i] = 1 if HighBits(rPlusZ) != HighBits(r), else 0.
+// HighBits uses: r1 = (((x+127)>>7)*11275+2^23)>>24, clamped (r1==44 → 0).
+// XVSEQW gives -1 where equal; XVANDNV(X25, X5, X5) = ~X5 & 1 = 1 where different.
 TEXT ·makeHintPolyGamma88LASX(SB), NOSPLIT, $0-32
 	MOVV ct0+0(FP), R4
 	MOVV cs2+8(FP), R5
@@ -1166,46 +1192,44 @@ makeHintGamma88LASXLoop:
 	XVMOVQ (R5), X2   // cs2
 	XVMOVQ (R6), X3   // w
 
-	// rPlusZ = fieldSub(w, cs2)
-	XVADDW X3, X31, X4      // X4 = w + q
-	XVSUBW X2, X4, X4       // X4 = w + q - cs2 (in [1, 2q-1])
-	XVSUBW X31, X4, X5      // X5 = X4 - q (tmp)
-	XVSRAW $31, X5, X6      // X6 = mask (-1 if X4 < q)
+	// rPlusZ = fieldSub(w, cs2): w,cs2 in [0,q-1] so diff in [-(q-1),q-1];
+	// if negative, add q. 4 instructions (vs original 6).
+	XVSUBW X2, X3, X4       // X4 = w - cs2 (signed, may be negative)
+	XVSRAW $31, X4, X6      // X6 = mask (-1 if negative)
 	XVANDV X6, X31, X6      // X6 = q or 0
-	XVADDW X6, X5, X4       // X4 = tmp + q_or_0 → rPlusZ in [0, q-1]
+	XVADDW X6, X4, X4       // X4 = rPlusZ in [0, q-1]
 
-	// r = fieldAdd(rPlusZ, ct0)
+	// r = fieldAdd(rPlusZ, ct0): sum in [0,2q-2]; sub q first, add back if negative.
 	XVADDW X1, X4, X0       // X0 = rPlusZ + ct0 (in [0, 2q-2])
-	XVSUBW X31, X0, X5      // X5 = X0 - q (tmp)
-	XVSRAW $31, X5, X6      // X6 = mask (-1 if X0 < q)
+	XVSUBW X31, X0, X0      // X0 = X0 - q (in [-(q-1), q-2])
+	XVSRAW $31, X0, X6      // X6 = mask (-1 if X0 < 0)
 	XVANDV X6, X31, X6      // X6 = q or 0
-	XVADDW X6, X5, X0       // X0 = tmp + q_or_0 → r in [0, q-1]
+	XVADDW X6, X0, X0       // X0 = r in [0, q-1]
 
-	// HighBitsGamma88(rPlusZ): r1 = ((rPlusZ+127)>>7 * 11275 + 2^23) >> 24; clamp r1==44
-	XVADDW X29, X4, X13
-	XVSRLW $7, X13, X13
-	XVMULW X28, X13, X13
-	XVADDW X27, X13, X13
-	XVSRAW $24, X13, X13
-	XVSUBW X13, X26, X5   // 43 - r1
-	XVSRAW $31, X5, X5    // mask: -1 if r1==44
-	XVANDV X5, X13, X5
-	XVXORV X5, X13, X13   // HighBits(rPlusZ) clamped
+	// HighBitsGamma88: interleave rPlusZ and r to hide XVMULW latency.
+	XVADDW X29, X4, X13     // rPlusZ + 127
+	XVSRLW $7, X13, X13     // >> 7
+	XVMULW X28, X13, X13    // * 11275 (start multiply)
+	XVADDW X29, X0, X14     // r + 127 (use latency gap)
+	XVSRLW $7, X14, X14     // >> 7
+	XVMULW X28, X14, X14    // * 11275 (start multiply)
+	XVADDW X27, X13, X13    // + 2^23 (rPlusZ mul should be ready)
+	XVSRAW $24, X13, X13    // >> 24 → r1 raw
+	XVADDW X27, X14, X14    // + 2^23 (r mul should be ready)
+	XVSRAW $24, X14, X14    // >> 24 → r1 raw
 
-	// HighBitsGamma88(r): same
-	XVADDW X29, X0, X14
-	XVSRLW $7, X14, X14
-	XVMULW X28, X14, X14
-	XVADDW X27, X14, X14
-	XVSRAW $24, X14, X14
-	XVSUBW X14, X26, X5   // 43 - r1
-	XVSRAW $31, X5, X5
-	XVANDV X5, X14, X5
-	XVXORV X5, X14, X14   // HighBits(r) clamped
+	// Clamp r1==44 to 0: r1 &= ~((43-r1)>>31)
+	// XVANDNV data, mask, dst = ~mask & data.
+	XVSUBW X13, X26, X5     // 43 - r1_rPlusZ (negative iff r1==44)
+	XVSRAW $31, X5, X5      // mask: -1 if r1==44, else 0
+	XVANDNV X13, X5, X13    // X13 = ~mask & r1 → HighBits(rPlusZ) clamped
+	XVSUBW X14, X26, X5     // 43 - r1_r
+	XVSRAW $31, X5, X5      // mask
+	XVANDNV X14, X5, X14    // X14 = HighBits(r) clamped
 
 	// hint = (X13 != X14) ? 1 : 0
-	XVSEQW X14, X13, X5
-	XVANDNV X25, X5, X5   // 1 where different
+	XVSEQW X14, X13, X5     // X5 = -1 where equal, 0 where different
+	XVANDNV X25, X5, X5     // ~X5 & 1 = 1 where different
 
 	XVMOVQ X5, (R7)
 
