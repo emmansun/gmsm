@@ -35,15 +35,14 @@
 TEXT ·simpleBitPack4BitsLASX(SB), NOSPLIT, $0-16
 	MOVV dst+0(FP), R4
 	MOVV f+8(FP), R5
-	MOVV $128, R6
+	MOVV $32, R6
 simpleBitPack4Scalar:
-	MOVWU (R5), R7
-	MOVWU 4(R5), R8
-	SLLV  $4, R8, R8
-	OR    R7, R8, R8
-	MOVBU R8, (R4)
-	ADDV  $8, R5
-	ADDV  $1, R4
+	XVMOVQ (R5), X0
+	XVMOVQ X0.W[0], R7; XVMOVQ X0.W[1], R8; SLLV $4, R8, R8; OR R7, R8, R8; MOVBU R8, 0(R4)
+	XVMOVQ X0.W[2], R7; XVMOVQ X0.W[3], R8; SLLV $4, R8, R8; OR R7, R8, R8; MOVBU R8, 1(R4)
+	XVMOVQ X0.W[4], R7; XVMOVQ X0.W[5], R8; SLLV $4, R8, R8; OR R7, R8, R8; MOVBU R8, 2(R4)
+	XVMOVQ X0.W[6], R7; XVMOVQ X0.W[7], R8; SLLV $4, R8, R8; OR R7, R8, R8; MOVBU R8, 3(R4)
+	ADDV $32, R5; ADDV $4, R4
 	ADDV $-1, R6; BNE R6, R0, simpleBitPack4Scalar
 	RET
 
@@ -94,16 +93,26 @@ pack4hbLoop:
 TEXT ·simpleBitPack6BitsLASX(SB), NOSPLIT, $0-16
 	MOVV dst+0(FP), R4
 	MOVV f+8(FP), R5
-	MOVV $64, R6
+	MOVV $32, R6
 simpleBitPack6Scalar:
-	MOVWU  0(R5), R7
-	MOVWU  4(R5), R8; SLLV  $6, R8, R8; OR R7, R8, R7
-	MOVWU  8(R5), R8; SLLV $12, R8, R8; OR R7, R8, R7
-	MOVWU 12(R5), R8; SLLV $18, R8, R8; OR R7, R8, R7
+	XVMOVQ (R5), X0
+	// Group 1: elements 0-3 → 3 bytes
+	XVMOVQ X0.W[0], R7
+	XVMOVQ X0.W[1], R8; SLLV  $6, R8, R8; OR R7, R8, R7
+	XVMOVQ X0.W[2], R8; SLLV $12, R8, R8; OR R7, R8, R7
+	XVMOVQ X0.W[3], R8; SLLV $18, R8, R8; OR R7, R8, R7
 	MOVBU R7, 0(R4); SRLV $8, R7, R7
 	MOVBU R7, 1(R4); SRLV $8, R7, R7
 	MOVBU R7, 2(R4)
-	ADDV $16, R5; ADDV $3, R4
+	// Group 2: elements 4-7 → 3 bytes
+	XVMOVQ X0.W[4], R7
+	XVMOVQ X0.W[5], R8; SLLV  $6, R8, R8; OR R7, R8, R7
+	XVMOVQ X0.W[6], R8; SLLV $12, R8, R8; OR R7, R8, R7
+	XVMOVQ X0.W[7], R8; SLLV $18, R8, R8; OR R7, R8, R7
+	MOVBU R7, 3(R4); SRLV $8, R7, R7
+	MOVBU R7, 4(R4); SRLV $8, R7, R7
+	MOVBU R7, 5(R4)
+	ADDV $32, R5; ADDV $6, R4
 	ADDV $-1, R6; BNE R6, R0, simpleBitPack6Scalar
 	RET
 
