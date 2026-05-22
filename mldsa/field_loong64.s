@@ -716,9 +716,9 @@ poly_inf_norm_loop:
 	XVANDNV X0, X27, X2
 	XVORV X1, X2, X27    // X27[0] = scalar max
 
-	// Store X27 to stack, load first element.
+	// Store lower 128 bits of X27 to stack, load first element.
 	MOVV R3, R7
-	XVMOVQ X27, (R7)
+	VMOVQ V27, (R7)
 	MOVWU (R7), R9
 	MOVW R9, ret+8(FP)
 	RET
@@ -789,7 +789,7 @@ poly_inf_norm_signed_loop:
 	XVORV X1, X2, X27
 
 	MOVV R3, R7
-	XVMOVQ X27, (R7)
+	VMOVQ V27, (R7)
 	MOVWU (R7), R9
 	MOVW R9, ret+8(FP)
 	RET
