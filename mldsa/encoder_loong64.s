@@ -13,9 +13,10 @@
 //   R4 = first pointer arg, R5 = second pointer arg.
 //   R6-R14 used as scalar scratch.
 //
-// For functions that need a temporary buffer to spill a LASX
-// vector (32 bytes) and read it back scalar, the frame size
-// is 32 bytes ($32-N) and locals are at 0(SP).
+// All functions use $0 frame (no stack spill) by using
+// XVMOVQ element indexing for vector-scalar transfer:
+//   XVMOVQ X.W[idx], R  -- xvpickve2gr.w (extract)
+//   XVMOVQ R, X.W[idx]  -- xvinsgr2vr.w  (insert)
 //
 // LASX field constants:
 //   q              = 8380417
@@ -55,10 +56,9 @@ simpleBitPack4Scalar:
 //
 // R4 = dst, R5 = f
 // ============================================================
-TEXT ·simpleBitPack4BitsHighBitsGamma32LASX(SB), NOSPLIT, $32-16
+TEXT ·simpleBitPack4BitsHighBitsGamma32LASX(SB), NOSPLIT, $0-16
 	MOVV dst+0(FP), R4
 	MOVV f+8(FP), R5
-	MOVV R3, R13
 	MOVV $127,  R7;  XVMOVQ R7, X20.W8
 	MOVV $1025, R7;  XVMOVQ R7, X21.W8
 	MOVV $1,    R7;  SLLV $21, R7, R7; XVMOVQ R7, X22.W8
@@ -69,16 +69,16 @@ pack4hbLoop:
 	XVMOVQ 32(R5), X1
 	XVADDW X20, X0, X2; XVSRLW $7, X2, X2; XVMULW X21, X2, X2; XVADDW X22, X2, X2; XVSRAW $22, X2, X2; XVANDV X23, X2, X2
 	XVADDW X20, X1, X3; XVSRLW $7, X3, X3; XVMULW X21, X3, X3; XVADDW X22, X3, X3; XVSRAW $22, X3, X3; XVANDV X23, X3, X3
-	XVMOVQ X2, (R13)
-	MOVWU  0(R13), R7; MOVWU  4(R13), R8; SLLV $4, R8, R8; OR R7, R8, R8; MOVBU R8, 0(R4)
-	MOVWU  8(R13), R7; MOVWU 12(R13), R8; SLLV $4, R8, R8; OR R7, R8, R8; MOVBU R8, 1(R4)
-	MOVWU 16(R13), R7; MOVWU 20(R13), R8; SLLV $4, R8, R8; OR R7, R8, R8; MOVBU R8, 2(R4)
-	MOVWU 24(R13), R7; MOVWU 28(R13), R8; SLLV $4, R8, R8; OR R7, R8, R8; MOVBU R8, 3(R4)
-	XVMOVQ X3, (R13)
-	MOVWU  0(R13), R7; MOVWU  4(R13), R8; SLLV $4, R8, R8; OR R7, R8, R8; MOVBU R8, 4(R4)
-	MOVWU  8(R13), R7; MOVWU 12(R13), R8; SLLV $4, R8, R8; OR R7, R8, R8; MOVBU R8, 5(R4)
-	MOVWU 16(R13), R7; MOVWU 20(R13), R8; SLLV $4, R8, R8; OR R7, R8, R8; MOVBU R8, 6(R4)
-	MOVWU 24(R13), R7; MOVWU 28(R13), R8; SLLV $4, R8, R8; OR R7, R8, R8; MOVBU R8, 7(R4)
+	// Extract X2 elements and pack nibble pairs
+	XVMOVQ X2.W[0], R7; XVMOVQ X2.W[1], R8; SLLV $4, R8, R8; OR R7, R8, R8; MOVBU R8, 0(R4)
+	XVMOVQ X2.W[2], R7; XVMOVQ X2.W[3], R8; SLLV $4, R8, R8; OR R7, R8, R8; MOVBU R8, 1(R4)
+	XVMOVQ X2.W[4], R7; XVMOVQ X2.W[5], R8; SLLV $4, R8, R8; OR R7, R8, R8; MOVBU R8, 2(R4)
+	XVMOVQ X2.W[6], R7; XVMOVQ X2.W[7], R8; SLLV $4, R8, R8; OR R7, R8, R8; MOVBU R8, 3(R4)
+	// Extract X3 elements and pack nibble pairs
+	XVMOVQ X3.W[0], R7; XVMOVQ X3.W[1], R8; SLLV $4, R8, R8; OR R7, R8, R8; MOVBU R8, 4(R4)
+	XVMOVQ X3.W[2], R7; XVMOVQ X3.W[3], R8; SLLV $4, R8, R8; OR R7, R8, R8; MOVBU R8, 5(R4)
+	XVMOVQ X3.W[4], R7; XVMOVQ X3.W[5], R8; SLLV $4, R8, R8; OR R7, R8, R8; MOVBU R8, 6(R4)
+	XVMOVQ X3.W[6], R7; XVMOVQ X3.W[7], R8; SLLV $4, R8, R8; OR R7, R8, R8; MOVBU R8, 7(R4)
 	ADDV $64, R5; ADDV $8, R4
 	ADDV $-1, R6; BNE R6, R0, pack4hbLoop
 	RET
@@ -116,10 +116,9 @@ simpleBitPack6Scalar:
 //
 // R4 = dst, R5 = f
 // ============================================================
-TEXT ·simpleBitPack6BitsHighBitsGamma88LASX(SB), NOSPLIT, $32-16
+TEXT ·simpleBitPack6BitsHighBitsGamma88LASX(SB), NOSPLIT, $0-16
 	MOVV dst+0(FP), R4
 	MOVV f+8(FP), R5
-	MOVV R3, R13
 	MOVV $127,   R7;  XVMOVQ R7, X20.W8
 	MOVV $11275, R7;  XVMOVQ R7, X21.W8
 	MOVV $1,     R7;  SLLV $23, R7, R7; XVMOVQ R7, X22.W8
@@ -130,16 +129,15 @@ pack6hbLoop:
 	XVADDW X20, X0, X1; XVSRLW $7, X1, X1; XVMULW X21, X1, X1; XVADDW X22, X1, X1; XVSRAW $24, X1, X1
 	// r1==44 correction: r1 ^= ((43-r1)>>31) & r1
 	XVSUBW X1, X23, X2; XVSRAW $31, X2, X2; XVANDV X2, X1, X2; XVXORV X2, X1, X1
-	XVMOVQ X1, (R13)
-	// Group 0: coefs [0,1,2,3] -> 3 bytes
-	MOVWU  0(R13), R7; MOVWU  4(R13), R8; SLLV  $6, R8, R8; OR R7, R8, R7
-	MOVWU  8(R13), R8; SLLV $12, R8, R8; OR R7, R8, R7
-	MOVWU 12(R13), R8; SLLV $18, R8, R8; OR R7, R8, R7
+	// Group 0: elements [0,1,2,3] -> 3 bytes
+	XVMOVQ X1.W[0], R7; XVMOVQ X1.W[1], R8; SLLV  $6, R8, R8; OR R7, R8, R7
+	XVMOVQ X1.W[2], R8; SLLV $12, R8, R8; OR R7, R8, R7
+	XVMOVQ X1.W[3], R8; SLLV $18, R8, R8; OR R7, R8, R7
 	MOVBU R7, 0(R4); SRLV $8, R7, R7; MOVBU R7, 1(R4); SRLV $8, R7, R7; MOVBU R7, 2(R4)
-	// Group 1: coefs [4,5,6,7] -> 3 bytes
-	MOVWU 16(R13), R7; MOVWU 20(R13), R8; SLLV  $6, R8, R8; OR R7, R8, R7
-	MOVWU 24(R13), R8; SLLV $12, R8, R8; OR R7, R8, R7
-	MOVWU 28(R13), R8; SLLV $18, R8, R8; OR R7, R8, R7
+	// Group 1: elements [4,5,6,7] -> 3 bytes
+	XVMOVQ X1.W[4], R7; XVMOVQ X1.W[5], R8; SLLV  $6, R8, R8; OR R7, R8, R7
+	XVMOVQ X1.W[6], R8; SLLV $12, R8, R8; OR R7, R8, R7
+	XVMOVQ X1.W[7], R8; SLLV $18, R8, R8; OR R7, R8, R7
 	MOVBU R7, 3(R4); SRLV $8, R7, R7; MOVBU R7, 4(R4); SRLV $8, R7, R7; MOVBU R7, 5(R4)
 	ADDV $32, R5; ADDV $6, R4
 	ADDV $-1, R6; BNE R6, R0, pack6hbLoop
@@ -157,24 +155,22 @@ pack6hbLoop:
 //
 // R4 = dst, R5 = f
 // ============================================================
-TEXT ·bitPackSignedTwoPower17LASX(SB), NOSPLIT, $32-16
+TEXT ·bitPackSignedTwoPower17LASX(SB), NOSPLIT, $0-16
 	MOVV dst+0(FP), R4
 	MOVV f+8(FP), R5
-	MOVV R3, R13
 	MOVV $8511489, R7;  XVMOVQ R7, X30.W8
 	MOVV $8380417, R8;  XVMOVQ R8, X31.W8
 	MOVV $32, R6
 bitPack17Loop:
 	XVMOVQ (R5), X0
 	XVSUBW X0, X30, X1; XVSUBW X31, X1, X2; XVSRAW $31, X2, X3; XVANDV X3, X31, X3; XVADDW X3, X2, X1
-	XVMOVQ X1, (R13)
-	// Group 0
-	MOVWU  0(R13), R7; MOVWU  4(R13), R8; MOVWU  8(R13), R9; MOVWU 12(R13), R10
+	// Group 0: elements [0..3] -> 9 bytes
+	XVMOVQ X1.W[0], R7; XVMOVQ X1.W[1], R8; XVMOVQ X1.W[2], R9; XVMOVQ X1.W[3], R10
 	MOVV R7, R11; SLLV $18, R8, R8; OR R8, R11, R11; SLLV $36, R9, R9; OR R9, R11, R11
 	MOVV R10, R12; SLLV $54, R12, R12; OR R12, R11, R11
 	MOVV R11, 0(R4); SRLV $10, R10, R10; MOVBU R10, 8(R4)
-	// Group 1
-	MOVWU 16(R13), R7; MOVWU 20(R13), R8; MOVWU 24(R13), R9; MOVWU 28(R13), R10
+	// Group 1: elements [4..7] -> 9 bytes
+	XVMOVQ X1.W[4], R7; XVMOVQ X1.W[5], R8; XVMOVQ X1.W[6], R9; XVMOVQ X1.W[7], R10
 	MOVV R7, R11; SLLV $18, R8, R8; OR R8, R11, R11; SLLV $36, R9, R9; OR R9, R11, R11
 	MOVV R10, R12; SLLV $54, R12, R12; OR R12, R11, R11
 	MOVV R11, 9(R4); SRLV $10, R10, R10; MOVBU R10, 17(R4)
@@ -192,24 +188,22 @@ bitPack17Loop:
 //
 // R4 = dst, R5 = f
 // ============================================================
-TEXT ·bitPackSignedTwoPower19LASX(SB), NOSPLIT, $32-16
+TEXT ·bitPackSignedTwoPower19LASX(SB), NOSPLIT, $0-16
 	MOVV dst+0(FP), R4
 	MOVV f+8(FP), R5
-	MOVV R3, R13
 	MOVV $8904705, R7;  XVMOVQ R7, X30.W8
 	MOVV $8380417, R8;  XVMOVQ R8, X31.W8
 	MOVV $32, R6
 bitPack19Loop:
 	XVMOVQ (R5), X0
 	XVSUBW X0, X30, X1; XVSUBW X31, X1, X2; XVSRAW $31, X2, X3; XVANDV X3, X31, X3; XVADDW X3, X2, X1
-	XVMOVQ X1, (R13)
-	// Group 0
-	MOVWU  0(R13), R7; MOVWU  4(R13), R8; MOVWU  8(R13), R9; MOVWU 12(R13), R10
+	// Group 0: elements [0..3] -> 10 bytes
+	XVMOVQ X1.W[0], R7; XVMOVQ X1.W[1], R8; XVMOVQ X1.W[2], R9; XVMOVQ X1.W[3], R10
 	MOVV R7, R11; SLLV $20, R8, R8; OR R8, R11, R11; SLLV $40, R9, R9; OR R9, R11, R11
 	MOVV R10, R12; SLLV $60, R12, R12; OR R12, R11, R11
 	MOVV R11, 0(R4); SRLV $4, R10, R10; MOVH R10, 8(R4)
-	// Group 1
-	MOVWU 16(R13), R7; MOVWU 20(R13), R8; MOVWU 24(R13), R9; MOVWU 28(R13), R10
+	// Group 1: elements [4..7] -> 10 bytes
+	XVMOVQ X1.W[4], R7; XVMOVQ X1.W[5], R8; XVMOVQ X1.W[6], R9; XVMOVQ X1.W[7], R10
 	MOVV R7, R11; SLLV $20, R8, R8; OR R8, R11, R11; SLLV $40, R9, R9; OR R9, R11, R11
 	MOVV R10, R12; SLLV $60, R12, R12; OR R12, R11, R11
 	MOVV R11, 10(R4); SRLV $4, R10, R10; MOVH R10, 18(R4)
@@ -229,29 +223,27 @@ bitPack19Loop:
 //
 // R4 = b (input), R5 = f (output)
 // ============================================================
-TEXT ·bitUnpackSignedTwoPower17LASX(SB), NOSPLIT, $32-16
+TEXT ·bitUnpackSignedTwoPower17LASX(SB), NOSPLIT, $0-16
 	MOVV b+0(FP), R4
 	MOVV f+8(FP), R5
-	MOVV R3, R13
 	MOVV $8511489, R7;  XVMOVQ R7, X30.W8
 	MOVV $8380417, R8;  XVMOVQ R8, X31.W8
 	MOVV $0x3FFFF, R14
 	MOVV $32, R6
 bitUnpack17Loop:
-	// Group 0: bytes [0..8]
+	// Group 0: bytes [0..8] -> elements [0..3]
 	MOVV  0(R4), R7; MOVBU 8(R4), R8
-	MOVV R7, R9; AND R14, R9, R9; MOVW R9,  0(R13)
-	SRLV $18, R7, R9; AND R14, R9, R9; MOVW R9, 4(R13)
-	SRLV $36, R7, R9; AND R14, R9, R9; MOVW R9, 8(R13)
-	SRLV $54, R7, R9; SLLV $10, R8, R8; OR R8, R9, R9; AND R14, R9, R9; MOVW R9, 12(R13)
-	// Group 1: bytes [9..17]
+	MOVV R7, R9; AND R14, R9, R9; XVMOVQ R9, X0.W[0]
+	SRLV $18, R7, R9; AND R14, R9, R9; XVMOVQ R9, X0.W[1]
+	SRLV $36, R7, R9; AND R14, R9, R9; XVMOVQ R9, X0.W[2]
+	SRLV $54, R7, R9; SLLV $10, R8, R8; OR R8, R9, R9; AND R14, R9, R9; XVMOVQ R9, X0.W[3]
+	// Group 1: bytes [9..17] -> elements [4..7]
 	MOVV  9(R4), R7; MOVBU 17(R4), R8
-	MOVV R7, R9; AND R14, R9, R9; MOVW R9, 16(R13)
-	SRLV $18, R7, R9; AND R14, R9, R9; MOVW R9, 20(R13)
-	SRLV $36, R7, R9; AND R14, R9, R9; MOVW R9, 24(R13)
-	SRLV $54, R7, R9; SLLV $10, R8, R8; OR R8, R9, R9; AND R14, R9, R9; MOVW R9, 28(R13)
+	MOVV R7, R9; AND R14, R9, R9; XVMOVQ R9, X0.W[4]
+	SRLV $18, R7, R9; AND R14, R9, R9; XVMOVQ R9, X0.W[5]
+	SRLV $36, R7, R9; AND R14, R9, R9; XVMOVQ R9, X0.W[6]
+	SRLV $54, R7, R9; SLLV $10, R8, R8; OR R8, R9, R9; AND R14, R9, R9; XVMOVQ R9, X0.W[7]
 	// fieldSub(2^17, v) vectorized
-	XVMOVQ (R13), X0
 	XVSUBW X0, X30, X1; XVSUBW X31, X1, X2; XVSRAW $31, X2, X3; XVANDV X3, X31, X3; XVADDW X3, X2, X1
 	XVMOVQ X1, (R5)
 	ADDV $18, R4; ADDV $32, R5
@@ -268,29 +260,27 @@ bitUnpack17Loop:
 //
 // R4 = b (input), R5 = f (output)
 // ============================================================
-TEXT ·bitUnpackSignedTwoPower19LASX(SB), NOSPLIT, $32-16
+TEXT ·bitUnpackSignedTwoPower19LASX(SB), NOSPLIT, $0-16
 	MOVV b+0(FP), R4
 	MOVV f+8(FP), R5
-	MOVV R3, R13
 	MOVV $8904705, R7;  XVMOVQ R7, X30.W8
 	MOVV $8380417, R8;  XVMOVQ R8, X31.W8
 	MOVV $0xFFFFF, R14
 	MOVV $32, R6
 bitUnpack19Loop:
-	// Group 0: bytes [0..9]
+	// Group 0: bytes [0..9] -> elements [0..3]
 	MOVV  0(R4), R7; MOVHU 8(R4), R8
-	MOVV R7, R9; AND R14, R9, R9; MOVW R9,  0(R13)
-	SRLV $20, R7, R9; AND R14, R9, R9; MOVW R9, 4(R13)
-	SRLV $40, R7, R9; AND R14, R9, R9; MOVW R9, 8(R13)
-	SRLV $60, R7, R9; SLLV $4, R8, R8; OR R8, R9, R9; AND R14, R9, R9; MOVW R9, 12(R13)
-	// Group 1: bytes [10..19]
+	MOVV R7, R9; AND R14, R9, R9; XVMOVQ R9, X0.W[0]
+	SRLV $20, R7, R9; AND R14, R9, R9; XVMOVQ R9, X0.W[1]
+	SRLV $40, R7, R9; AND R14, R9, R9; XVMOVQ R9, X0.W[2]
+	SRLV $60, R7, R9; SLLV $4, R8, R8; OR R8, R9, R9; AND R14, R9, R9; XVMOVQ R9, X0.W[3]
+	// Group 1: bytes [10..19] -> elements [4..7]
 	MOVV  10(R4), R7; MOVHU 18(R4), R8
-	MOVV R7, R9; AND R14, R9, R9; MOVW R9, 16(R13)
-	SRLV $20, R7, R9; AND R14, R9, R9; MOVW R9, 20(R13)
-	SRLV $40, R7, R9; AND R14, R9, R9; MOVW R9, 24(R13)
-	SRLV $60, R7, R9; SLLV $4, R8, R8; OR R8, R9, R9; AND R14, R9, R9; MOVW R9, 28(R13)
+	MOVV R7, R9; AND R14, R9, R9; XVMOVQ R9, X0.W[4]
+	SRLV $20, R7, R9; AND R14, R9, R9; XVMOVQ R9, X0.W[5]
+	SRLV $40, R7, R9; AND R14, R9, R9; XVMOVQ R9, X0.W[6]
+	SRLV $60, R7, R9; SLLV $4, R8, R8; OR R8, R9, R9; AND R14, R9, R9; XVMOVQ R9, X0.W[7]
 	// fieldSub(2^19, v) vectorized
-	XVMOVQ (R13), X0
 	XVSUBW X0, X30, X1; XVSUBW X31, X1, X2; XVSRAW $31, X2, X3; XVANDV X3, X31, X3; XVADDW X3, X2, X1
 	XVMOVQ X1, (R5)
 	ADDV $20, R4; ADDV $32, R5
