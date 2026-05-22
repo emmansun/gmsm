@@ -449,12 +449,12 @@ ntt_l5_outer:
 	MOVV $·nttZetasL2PrecompLASX(SB), R10
 	MOVV R4, R11; MOVV $16, R6
 ntt_l6_loop:
-	XVMOVQ (R10), X3            // load twiddle: [z2,z2,z0,z0 | z3,z3,z1,z1]
+	XVMOVQ (R10), X5            // load twiddle: [z2,z2,z0,z0 | z3,z3,z1,z1]
 	XVMOVQ (R11), X9            // load groups 0,1
 	XVMOVQ 32(R11), X12         // load groups 2,3
 	XVILVLV X12, X9, X0         // even: [e4,e5,e0,e1 | e6,e7,e2,e3]
 	XVILVHV X12, X9, X1         // odd:  [o4,o5,o0,o1 | o6,o7,o2,o3]
-	NTT_BUTTERFLY(X0, X1, X3)
+	NTT_BUTTERFLY(X0, X1, X5)
 	XVILVHV X0, X1, X9          // recombine groups 0,1
 	XVILVLV X0, X1, X12         // recombine groups 2,3
 	XVMOVQ X9, (R11)
@@ -469,14 +469,14 @@ ntt_l6_loop:
 	MOVV $·nttZetasL1PrecompLASX(SB), R10
 	MOVV R4, R11; MOVV $16, R6
 ntt_l7_loop:
-	XVMOVQ (R10), X3            // load twiddle: [z4,z5,z0,z1 | z6,z7,z2,z3]
+	XVMOVQ (R10), X5            // load twiddle: [z4,z5,z0,z1 | z6,z7,z2,z3]
 	XVMOVQ (R11), X9            // load groups 0..3: [e0,o0,e1,o1 | e2,o2,e3,o3]
 	XVMOVQ 32(R11), X12         // load groups 4..7: [e4,o4,e5,o5 | e6,o6,e7,o7]
 	XVSHUF4IW $0xD8, X9, X11   // X11 = [e0,e1,o0,o1 | e2,e3,o2,o3]
 	XVSHUF4IW $0xD8, X12, X10  // X10 = [e4,e5,o4,o5 | e6,e7,o6,o7]
 	XVILVLV X10, X11, X0        // even: [e4,e5,e0,e1 | e6,e7,e2,e3]
 	XVILVHV X10, X11, X1        // odd:  [o4,o5,o0,o1 | o6,o7,o2,o3]
-	NTT_BUTTERFLY(X0, X1, X3)
+	NTT_BUTTERFLY(X0, X1, X5)
 	XVILVHV X0, X1, X11         // X11 = [e0',e1',o0',o1' | e2',e3',o2',o3']
 	XVILVLV X0, X1, X10         // X10 = [e4',e5',o4',o5' | e6',e7',o6',o7']
 	XVSHUF4IW $0xD8, X11, X9   // X9 = [e0',o0',e1',o1' | e2',o2',e3',o3']
@@ -508,14 +508,14 @@ TEXT ·internalInverseNTTLASX(SB), NOSPLIT, $0-8
 	MOVV $·inttQMinusZetasL1PrecompLASX(SB), R10
 	MOVV R4, R11; MOVV $16, R6
 intt_l0_loop:
-	XVMOVQ (R10), X3            // load twiddle: [qmz4,qmz5,qmz0,qmz1 | qmz6,qmz7,qmz2,qmz3]
+	XVMOVQ (R10), X5            // load twiddle: [qmz4,qmz5,qmz0,qmz1 | qmz6,qmz7,qmz2,qmz3]
 	XVMOVQ (R11), X9            // groups 0..3
 	XVMOVQ 32(R11), X12         // groups 4..7
 	XVSHUF4IW $0xD8, X9, X11   // X11 = [e0,e1,o0,o1 | e2,e3,o2,o3]
 	XVSHUF4IW $0xD8, X12, X10  // X10 = [e4,e5,o4,o5 | e6,e7,o6,o7]
 	XVILVLV X10, X11, X0        // even: [e4,e5,e0,e1 | e6,e7,e2,e3]
 	XVILVHV X10, X11, X1        // odd:  [o4,o5,o0,o1 | o6,o7,o2,o3]
-	INTT_BUTTERFLY(X0, X1, X3)
+	INTT_BUTTERFLY(X0, X1, X5)
 	XVILVHV X0, X1, X11         // X11 = [e0',e1',o0',o1' | e2',e3',o2',o3']
 	XVILVLV X0, X1, X10         // X10 = [e4',e5',o4',o5' | e6',e7',o6',o7']
 	XVSHUF4IW $0xD8, X11, X9   // X9 = [e0',o0',e1',o1' | e2',o2',e3',o3']
@@ -532,12 +532,12 @@ intt_l0_loop:
 	MOVV $·inttQMinusZetasL2PrecompLASX(SB), R10
 	MOVV R4, R11; MOVV $16, R6
 intt_l1_loop:
-	XVMOVQ (R10), X3            // load twiddle: [qmz2,qmz2,qmz0,qmz0 | qmz3,qmz3,qmz1,qmz1]
+	XVMOVQ (R10), X5            // load twiddle: [qmz2,qmz2,qmz0,qmz0 | qmz3,qmz3,qmz1,qmz1]
 	XVMOVQ (R11), X9            // groups 0,1
 	XVMOVQ 32(R11), X12         // groups 2,3
 	XVILVLV X12, X9, X0         // even: [e4,e5,e0,e1 | e6,e7,e2,e3]
 	XVILVHV X12, X9, X1         // odd:  [o4,o5,o0,o1 | o6,o7,o2,o3]
-	INTT_BUTTERFLY(X0, X1, X3)
+	INTT_BUTTERFLY(X0, X1, X5)
 	XVILVHV X0, X1, X9          // recombine groups 0,1
 	XVILVLV X0, X1, X12         // recombine groups 2,3
 	XVMOVQ X9, (R11)
