@@ -116,6 +116,16 @@ polysub_loop:
 #define XVPERMIQ(Xd, Xj, imm8) \
 	WORD $((0x1DFB << 18) | ((imm8) << 10) | ((Xj) << 5) | (Xd))
 
+// XVMIN_WU(Xd, Xj, Xk): Xd = element-wise min(Xj, Xk) treating lanes as uint32.
+// LLVM opcode 0x74770000; opcode field = 0x74770000>>15 = 0xe8ee.
+#define XVMINWU(Xd, Xj, Xk) \
+	WORD $((0xe8ee << 15) | ((Xk) << 10) | ((Xj) << 5) | (Xd))
+
+// XVMAX_WU(Xd, Xj, Xk): Xd = element-wise max(Xj, Xk) treating lanes as uint32.
+// LLVM opcode 0x74750000; opcode field = 0x74750000>>15 = 0xe8ea.
+#define XVMAXWU(Xd, Xj, Xk) \
+	WORD $((0xe8ea << 15) | ((Xk) << 10) | ((Xj) << 5) | (Xd))
+
 // ============================================================
 //   5. Xout    = prod_hi - tq_hi        XVSUBW
 //
@@ -302,6 +312,19 @@ nttmvm_write:
 	XVSRAW $31, XB, X3; XVANDV X31, X3, X3; XVADDW XB, X3, XB                      \ // XB -> [0, 2q-1]
 	XVSUBW X31, XB, X3; XVSRAW $31, X3, X4; XVANDV X31, X4, X4; XVADDW X3, X4, XB  // XB -> [0, q)
 
+// internalNTTLASX performs the Number Theoretic Transform (NTT) in-place on a
+// 256-element polynomial with coefficients in [0, q) using LASX 256-bit SIMD.
+// Implements the Cooley-Tukey butterfly in bit-reversal order (len descending):
+//   L0: len=128 (1 group, 16 LASX pairs, unrolled ×2)
+//   L1: len=64  (2 groups, 8 LASX pairs each)
+//   L2: len=32  (4 groups, 4 LASX pairs each)
+//   L3: len=16  (8 groups, 2 LASX pairs each)
+//   L4: len=8   (16 groups, 1 LASX pair each)
+//   L5: len=4   (32 groups, L4 inner)
+//   L6: len=2   (64 groups, 1 LASX butterfly per group)
+//   L7: len=1   (128 groups, 1 LASX butterfly per group)
+// Zeta (twiddle) factors are read sequentially from zetasMontgomery[1..].
+// Each butterfly uses Montgomery multiplication (X30=qInv, X31=q broadcast).
 TEXT ·internalNTTLASX(SB), NOSPLIT, $0-8
 	MOVV f+0(FP), R4
 	MOVV $·zetasMontgomery(SB), R5
@@ -450,6 +473,18 @@ ntt_l7_loop:
 	ADDV $-1, R6; BNE R6, R0, ntt_l7_loop
 	RET
 
+// internalInverseNTTLASX performs the Inverse NTT (INTT) in-place on a
+// 256-element polynomial using LASX 256-bit SIMD. Implements the
+// Gentleman-Sande butterfly in len-ascending order (reverse of NTT):
+//   L0-L2: len=1,2,4 (zetas precomputed in X29 via XVPERMIQ, no R5 pointer)
+//   L3: len=8  (16 groups)
+//   L4: len=16 (8 groups)
+//   L5: len=32 (4 groups)
+//   L6: len=64 (2 groups, unrolled ×2)
+//   L7: len=128 (1 group, unrolled ×2)
+// Zeta factors read in reverse from zetasMontgomery[255..] (R5 counts down).
+// After all butterfly stages, all elements are multiplied by invDegreeMont=41978
+// (= 256⁻¹ * R² mod q in Montgomery domain) to complete the transform.
 TEXT ·internalInverseNTTLASX(SB), NOSPLIT, $0-8
 	MOVV f+0(FP), R4
 	MOVV $8380417, R8
@@ -636,14 +671,18 @@ intt_scale_loop:
 	ADDV $-1, R6; BNE R6, R0, intt_scale_loop
 	RET
 
+// polyInfinityNormLASX computes the infinity norm (max |a_i|) of an unsigned
+// field polynomial whose coefficients are in [0, q-1].
+// For each element, norm = min(a, q-a) = a if a ≤ (q-1)/2, else q-a.
+// Two accumulators (X27, X28) are maintained for instruction-level parallelism;
+// they are merged and reduced horizontally using XVPERMIQ + XVSHUF4IW folds.
+// Result is written as uint32 to ret+8(FP).
 TEXT ·polyInfinityNormLASX(SB), NOSPLIT, $0-12
 	MOVV a+0(FP), R4
 	MOVV $8380417, R5
 	XVMOVQ R5, X31.W8      // X31 = q broadcast
-	MOVV $4190208, R5       // (q-1)/2 = 4190208
-	XVMOVQ R5, X30.W8      // X30 = qMinus1Div2 broadcast
 
-	// Accumulate max in X27, X28 (2-way for ILP).
+	// Two accumulators for ILP; zeroed with XOR-self.
 	XVXORV X27, X27, X27   // X27 = 0
 	XVXORV X28, X28, X28   // X28 = 0
 	MOVV $16, R6
@@ -651,140 +690,93 @@ poly_inf_norm_loop:
 	XVMOVQ (R4), X0
 	XVMOVQ 32(R4), X1
 
-	// infinity norm of X0: min(a, q-a) = a if a <= qM1D2, else q-a.
-	XVSUBW X0, X31, X9    // X9 = q - X0
-	XVSUBW X0, X30, X2    // X2 = qMinus1Div2 - X0 (C=B-A)
-	XVSRAW $31, X2, X2    // mask: -1 if X0 > qMinus1Div2
-	XVXORV X0, X9, X3    // X3 = X0 ^ (q - X0)
-	XVANDV X2, X3, X3    // select XOR bits where a > qM1D2
-	XVXORV X3, X0, X3    // X3 = (a > qM1D2) ? q-a : a = norm
+	// norm(a) = min(a, q-a) using native unsigned min.
+	XVSUBW X0, X31, X9    // X9 = q - a
+	XVMINWU(3, 0, 9)      // X3 = min_u(a, q-a) = norm(a)
 
-	XVSUBW X3, X27, X4   // X27 - X3
-	XVSRAW $31, X4, X4   // mask: -1 if X27 < X3
-	XVANDV X4, X3, X5
-	XVANDNV X27, X4, X6
-	XVORV X5, X6, X27    // X27 = max(X27, X3)
+	// X27 = max_u(X27, norm(a)) using native unsigned max.
+	XVMAXWU(27, 27, 3)    // X27 = max_u(X27, norm(a))
 
-	// infinity norm of X1:
-	XVSUBW X1, X31, X9
-	XVSUBW X1, X30, X2
-	XVSRAW $31, X2, X2
-	XVXORV X1, X9, X3
-	XVANDV X2, X3, X3
-	XVXORV X3, X1, X3    // norm of X1
-
-	XVSUBW X3, X28, X4
-	XVSRAW $31, X4, X4
-	XVANDV X4, X3, X5
-	XVANDNV X28, X4, X6
-	XVORV X5, X6, X28
+	// Same for X1 → update X28.
+	XVSUBW X1, X31, X9    // X9 = q - a
+	XVMINWU(3, 1, 9)      // X3 = min_u(a, q-a) = norm(a)
+	XVMAXWU(28, 28, 3)    // X28 = max_u(X28, norm(a))
 
 	ADDV $64, R4
 	ADDV $-1, R6; BNE R6, R0, poly_inf_norm_loop
 
-	// Merge X27, X28:
-	XVSUBW X28, X27, X0
-	XVSRAW $31, X0, X0
-	XVANDV X0, X28, X1
-	XVANDNV X27, X0, X2
-	XVORV X1, X2, X27    // X27 = max(X27, X28)
+	// Merge X27, X28 and reduce horizontally.
+	XVMAXWU(27, 27, 28)   // X27 = max(X27, X28)
 
-	// Horizontal max: fold high 128-bit lane into low.
+	// Fold high 128-bit lane into low.
 	XVORV X27, X27, X28
 	XVPERMIQ(28, 27, 0x11)  // X28 = {X27.hi, X27.hi}
-	XVSUBW X28, X27, X0
-	XVSRAW $31, X0, X0
-	XVANDV X0, X28, X1
-	XVANDNV X27, X0, X2
-	XVORV X1, X2, X27    // X27.lo = max(X27.lo, X27.hi)
+	XVMAXWU(27, 27, 28)   // X27.lo = max(X27.lo, X27.hi)
 
-	// Fold 4 → 2 using XVSHUF4IW.
+	// Fold 4 → 2.
 	XVORV X27, X27, X28
 	XVSHUF4IW $0x4E, X27, X28  // [w2,w3,w0,w1 | ...]
-	XVSUBW X28, X27, X0
-	XVSRAW $31, X0, X0
-	XVANDV X0, X28, X1
-	XVANDNV X27, X0, X2
-	XVORV X1, X2, X27
+	XVMAXWU(27, 27, 28)
 
-	// Fold 2 → 1 using XVSHUF4IW.
+	// Fold 2 → 1.
 	XVORV X27, X27, X28
 	XVSHUF4IW $0xB1, X27, X28  // [w1,w0,w3,w2 | ...]
-	XVSUBW X28, X27, X0
-	XVSRAW $31, X0, X0
-	XVANDV X0, X28, X1
-	XVANDNV X27, X0, X2
-	XVORV X1, X2, X27    // X27[0] = scalar max
+	XVMAXWU(27, 27, 28)   // X27[0] = scalar max
 
 	// Extract X27.W[0] via element extract.
 	XVMOVQ X27.V[0], R9
 	MOVW R9, ret+8(FP)
 	RET
 
+// polyInfinityNormSignedLASX computes the infinity norm (max |a_i|) of a signed
+// polynomial whose coefficients are in the centre-lifted range (-(q-1)/2, (q-1)/2].
+// abs(a) is computed as (a ^ sign) - sign (two's complement absolute value).
+// Accumulation and horizontal reduction use the same max-via-conditional-select
+// pattern as polyInfinityNormLASX.
 TEXT ·polyInfinityNormSignedLASX(SB), NOSPLIT, $0-12
 	MOVV a+0(FP), R4
 
-	// Accumulate max in X27, X28 (2-way for ILP).
+	// Two accumulators for ILP; zeroed with XOR-self.
 	XVXORV X27, X27, X27   // X27 = 0
 	XVXORV X28, X28, X28   // X28 = 0
 	MOVV $16, R6
 poly_inf_norm_signed_loop:
 	XVMOVQ (R4), X0
 	XVMOVQ 32(R4), X1
-	// abs(X0) = (X0 ^ sign) - sign where sign = X0 >> 31
-	XVSRAW $31, X0, X2
-	XVXORV X2, X0, X3
-	XVSUBW X2, X3, X3    // X3 = abs(X0)
+	// abs(a) = (a ^ sign) - sign, where sign = a >> 31 (-1 or 0).
+	XVSRAW $31, X0, X2      // sign mask
+	XVXORV X2, X0, X3      // a ^ sign
+	XVSUBW X2, X3, X3      // abs(a) = (a^sign) - sign
 
-	XVSUBW X3, X27, X4
-	XVSRAW $31, X4, X4
-	XVANDV X4, X3, X5
-	XVANDNV X27, X4, X6
-	XVORV X5, X6, X27
+	XVMAXWU(27, 27, 3)     // X27 = max_u(X27, abs(a))
 
-	XVSRAW $31, X1, X2
-	XVXORV X2, X1, X3
-	XVSUBW X2, X3, X3    // X3 = abs(X1)
+	// abs(X1) → update X28.
+	XVSRAW $31, X1, X2      // sign mask
+	XVXORV X2, X1, X3      // a ^ sign
+	XVSUBW X2, X3, X3      // abs(a)
 
-	XVSUBW X3, X28, X4
-	XVSRAW $31, X4, X4
-	XVANDV X4, X3, X5
-	XVANDNV X28, X4, X6
-	XVORV X5, X6, X28
+	XVMAXWU(28, 28, 3)     // X28 = max_u(X28, abs(a))
 
 	ADDV $64, R4
 	ADDV $-1, R6; BNE R6, R0, poly_inf_norm_signed_loop
 
-	// Merge, horizontal reduce (same as above).
-	XVSUBW X28, X27, X0
-	XVSRAW $31, X0, X0
-	XVANDV X0, X28, X1
-	XVANDNV X27, X0, X2
-	XVORV X1, X2, X27
+	// Merge accumulators, then horizontal max reduce: 256→128→4→2→1 elements.
+	XVMAXWU(27, 27, 28)   // X27 = max(X27, X28)
 
+	// Fold high 128-bit lane into low: X28 = {X27.hi, X27.hi}, max with X27.lo
 	XVORV X27, X27, X28
-	XVPERMIQ(28, 27, 0x11)
-	XVSUBW X28, X27, X0
-	XVSRAW $31, X0, X0
-	XVANDV X0, X28, X1
-	XVANDNV X27, X0, X2
-	XVORV X1, X2, X27
+	XVPERMIQ(28, 27, 0x11)  // X28 = permute X27 lanes: {hi,hi}
+	XVMAXWU(27, 27, 28)   // X27.lo = max(X27.lo, X27.hi)
 
+	// Fold 4 → 2: shuffle elements [0,1,2,3] → [2,3,0,1] (imm=0x4E)
 	XVORV X27, X27, X28
 	XVSHUF4IW $0x4E, X27, X28
-	XVSUBW X28, X27, X0
-	XVSRAW $31, X0, X0
-	XVANDV X0, X28, X1
-	XVANDNV X27, X0, X2
-	XVORV X1, X2, X27
+	XVMAXWU(27, 27, 28)
 
+	// Fold 2 → 1: shuffle [0,1,2,3] → [1,0,3,2] (imm=0xB1)
 	XVORV X27, X27, X28
 	XVSHUF4IW $0xB1, X27, X28
-	XVSUBW X28, X27, X0
-	XVSRAW $31, X0, X0
-	XVANDV X0, X28, X1
-	XVANDNV X27, X0, X2
-	XVORV X1, X2, X27
+	XVMAXWU(27, 27, 28)   // X27[0] = scalar max
 
 	// Extract X27.W[0] via element extract.
 	XVMOVQ X27.V[0], R9
