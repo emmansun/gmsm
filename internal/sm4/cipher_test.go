@@ -89,6 +89,41 @@ func shouldPanic(t *testing.T, f func()) {
 	t.Errorf("should have panicked")
 }
 
+// TestEncryptBlocks8 verifies that 8-block batch encryption (LASX path) matches
+// the known SM4 test vector. Key and plaintext from GB/T 32907 Appendix 1.
+func TestEncryptBlocks8(t *testing.T) {
+	key := []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
+	plaintext := []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
+	// Known single-block ciphertext
+	expected16 := []byte{0x68, 0x1e, 0xdf, 0x34, 0xd2, 0x06, 0x96, 0x5e, 0x86, 0xb3, 0xe9, 0x4f, 0x53, 0x6e, 0x42, 0x46}
+
+	// Build 8-block input (same plaintext repeated 8 times)
+	in128 := make([]byte, 128)
+	for i := 0; i < 8; i++ {
+		copy(in128[i*16:], plaintext)
+	}
+	// Build expected output (same ciphertext repeated 8 times)
+	want128 := make([]byte, 128)
+	for i := 0; i < 8; i++ {
+		copy(want128[i*16:], expected16)
+	}
+
+	c, err := NewCipher(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out128 := make([]byte, 128)
+	// Use encryptBlocksAsm directly (the batch path)
+	if asm, ok := c.(interface{ EncryptBlocks(dst, src []byte) }); ok {
+		asm.EncryptBlocks(out128, in128)
+	} else {
+		t.Skip("cipher does not implement EncryptBlocks (not an asm cipher)")
+	}
+	if !reflect.DeepEqual(out128, want128) {
+		t.Errorf("8-block LASX encryption mismatch:\nhave %x\nwant %x", out128, want128)
+	}
+}
+
 // Test SM4 against the general cipher.Block interface tester
 func TestSM4Block(t *testing.T) {
 	t.Run("SM4", func(t *testing.T) {
