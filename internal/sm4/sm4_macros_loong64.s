@@ -163,16 +163,14 @@
 // R11 = round key pointer (advanced by 4 per round = 16 total).
 // R13 = GP temp for round key value.
 // X28 = T-function input, X29 = sbox output, X25 = L output, X31 = rk broadcast/L temp.
+// DEBUG: bypass S-box and L-transform, just XOR round key into each state register.
+// This tests whether register updates work at all for all 4 rounds.
 #define LASX_4ROUNDS() \
 	MOVWU (R11), R13; ADDV $4, R11; XVMOVQ R13, X31.W8; \
-	XVXORV X17, X18, X28; XVXORV X19, X28, X28; XVXORV X31, X28, X28; \
-	SM4_SBOX_LASX(); SM4_L_LASX(); XVXORV X16, X25, X16; \
+	XVXORV X16, X31, X16; \
 	MOVWU (R11), R13; ADDV $4, R11; XVMOVQ R13, X31.W8; \
-	XVXORV X18, X19, X28; XVXORV X16, X28, X28; XVXORV X31, X28, X28; \
-	SM4_SBOX_LASX(); SM4_L_LASX(); XVXORV X17, X25, X17; \
+	XVXORV X17, X31, X17; \
 	MOVWU (R11), R13; ADDV $4, R11; XVMOVQ R13, X31.W8; \
-	XVXORV X19, X16, X28; XVXORV X17, X28, X28; XVXORV X31, X28, X28; \
-	SM4_SBOX_LASX(); SM4_L_LASX(); XVXORV X18, X25, X18; \
+	XVXORV X18, X31, X18; \
 	MOVWU (R11), R13; ADDV $4, R11; XVMOVQ R13, X31.W8; \
-	XVXORV X16, X17, X28; XVXORV X18, X28, X28; XVXORV X31, X28, X28; \
-	SM4_SBOX_LASX(); SM4_L_LASX(); XVXORV X19, X25, X19
+	XVXORV X19, X31, X19
