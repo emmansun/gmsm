@@ -115,16 +115,18 @@ lasx_round_loop:
 	BNE R12, R0, lasx_round_loop
 
 	// Deinterleave X16-X19 back into 8 blocks.
-	// Use reversed order (X19=B3, X18=B2, X17=B1, X16=B0) so each output block
-	// has word order [B3,B2,B1,B0], matching the SM4 ciphertext specification.
-	XVILVLW X19, X18, X27     // interleave B3,B2 (low words)
-	XVILVHW X19, X18, X28     // interleave B3,B2 (high words)
-	XVILVLW X17, X16, X29     // interleave B1,B0 (low words)
-	XVILVHW X17, X16, X30     // interleave B1,B0 (high words)
-	XVILVLV X30, X28, X23     // X23 = blocks 0,1 (B3,B2,B1,B0 per block)
-	XVILVHV X30, X28, X24     // X24 = blocks 2,3
-	XVILVLV X29, X27, X25     // X25 = blocks 4,5
-	XVILVHV X29, X27, X26     // X26 = blocks 6,7
+	// X16-X19 layout (8 words each): [B0,B2,B4,B6 | B1,B3,B5,B7] per state word.
+	// Use X19=B3_state, X18=B2_state, X17=B1_state, X16=B0_state (reversed for output).
+	// XVILVLW grabs positions 0,1 per lane → blocks 0,2 (low) and 1,3 (high).
+	// XVILVHW grabs positions 2,3 per lane → blocks 4,6 (low) and 5,7 (high).
+	XVILVLW X19, X18, X27     // low pos: {B0.w3,B0.w2,B2.w3,B2.w2 | B1.w3,B1.w2,B3.w3,B3.w2}
+	XVILVLW X17, X16, X29     // low pos: {B0.w1,B0.w0,B2.w1,B2.w0 | B1.w1,B1.w0,B3.w1,B3.w0}
+	XVILVHW X19, X18, X28     // high pos: {B4.w3,B4.w2,B6.w3,B6.w2 | B5.w3,B5.w2,B7.w3,B7.w2}
+	XVILVHW X17, X16, X30     // high pos: {B4.w1,B4.w0,B6.w1,B6.w0 | B5.w1,B5.w0,B7.w1,B7.w0}
+	XVILVLV X27, X29, X23     // X23 = blocks 0,1: [B0.w3..B0.w0 | B1.w3..B1.w0]
+	XVILVHV X27, X29, X24     // X24 = blocks 2,3: [B2.w3..B2.w0 | B3.w3..B3.w0]
+	XVILVLV X28, X30, X25     // X25 = blocks 4,5: [B4.w3..B4.w0 | B5.w3..B5.w0]
+	XVILVHV X28, X30, X26     // X26 = blocks 6,7: [B6.w3..B6.w0 | B7.w3..B7.w0]
 
 	// Byte-swap back (little-endian SM4 state → big-endian ciphertext).
 	XVSHUF4IB $0x1B, X23, X23
