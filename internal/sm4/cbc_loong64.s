@@ -89,8 +89,8 @@ cbc_round_loop:
 	// (SM4 reverses output state; same as the encrypt deinterleave).
 	XVILVLW X19, X18, X27; XVILVHW X19, X18, X28
 	XVILVLW X17, X16, X29; XVILVHW X17, X16, X30
-	XVILVHV X30, X28, X23; XVILVLV X30, X28, X24
-	XVILVHV X29, X27, X25; XVILVLV X29, X27, X26
+	XVILVLV X30, X28, X23; XVILVHV X30, X28, X24
+	XVILVLV X29, X27, X25; XVILVHV X29, X27, X26
 
 	// Byte-swap decrypted output back to big-endian format.
 	XVSHUF4IB $0x1B, X23, X23; XVSHUF4IB $0x1B, X24, X24

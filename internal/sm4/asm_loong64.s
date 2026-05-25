@@ -121,10 +121,10 @@ lasx_round_loop:
 	XVILVHW X19, X18, X28     // interleave B3,B2 (high words)
 	XVILVLW X17, X16, X29     // interleave B1,B0 (low words)
 	XVILVHW X17, X16, X30     // interleave B1,B0 (high words)
-	XVILVHV X30, X28, X23     // X23 = blocks 0,1 (B3,B2,B1,B0 per block)
-	XVILVLV X30, X28, X24     // X24 = blocks 2,3
-	XVILVHV X29, X27, X25     // X25 = blocks 4,5
-	XVILVLV X29, X27, X26     // X26 = blocks 6,7
+	XVILVLV X30, X28, X23     // X23 = blocks 0,1 (B3,B2,B1,B0 per block)
+	XVILVHV X30, X28, X24     // X24 = blocks 2,3
+	XVILVLV X29, X27, X25     // X25 = blocks 4,5
+	XVILVHV X29, X27, X26     // X26 = blocks 6,7
 
 	// Byte-swap back (little-endian SM4 state → big-endian ciphertext).
 	XVSHUF4IB $0x1B, X23, X23
