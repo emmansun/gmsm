@@ -144,15 +144,18 @@
 	SM4_SBOX_CHUNK(7, 15, 7)
 
 // SM4_L_LASX(): L-transform of X29 → X25.
-// L(x) = x ^ ROR(x,30) ^ ROR(x,22) ^ ROR(x,14) ^ ROR(x,8)
+// Working on byte-swapped (little-endian) 32-bit words:
+//   byteswap(ROL(W,n)) = ROR(byteswap(W),n), so ROL(W,2)→ROR(bswap,2)=XVROTRW $2.
+// L(W) = W ^ ROL(W,2) ^ ROL(W,10) ^ ROL(W,18) ^ ROL(W,24)
+// On byte-swapped values: use ROR $2, $10, $18, $24.
 // Clobbers: X25 (result), X31 (temp)
 #define SM4_L_LASX() \
-	XVROTRW $30, X29, X25; \
-	XVROTRW $22, X29, X31; \
+	XVROTRW $2, X29, X25; \
+	XVROTRW $10, X29, X31; \
 	XVXORV X31, X25, X25; \
-	XVROTRW $14, X29, X31; \
+	XVROTRW $18, X29, X31; \
 	XVXORV X31, X25, X25; \
-	XVROTRW $8, X29, X31; \
+	XVROTRW $24, X29, X31; \
 	XVXORV X31, X25, X25; \
 	XVXORV X29, X25, X25
 
