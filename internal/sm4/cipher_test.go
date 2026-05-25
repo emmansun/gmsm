@@ -124,6 +124,40 @@ func TestEncryptBlocks8(t *testing.T) {
 	}
 }
 
+// TestEncryptBlocks8VsGeneric verifies that LASX 8-block encryption matches
+// 8 individual generic encryptions for distinct inputs (counter-like blocks).
+func TestEncryptBlocks8VsGeneric(t *testing.T) {
+	key := []byte{0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c}
+	// 8 distinct plaintext blocks (counter mode-like)
+	in128 := make([]byte, 128)
+	for i := 0; i < 128; i++ {
+		in128[i] = byte(i)
+	}
+	// Encrypt each block individually using the generic path
+	cGeneric, err := newCipherGeneric(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want128 := make([]byte, 128)
+	for i := 0; i < 8; i++ {
+		cGeneric.Encrypt(want128[i*16:], in128[i*16:])
+	}
+
+	c, err := NewCipher(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out128 := make([]byte, 128)
+	if asm, ok := c.(interface{ EncryptBlocks(dst, src []byte) }); ok {
+		asm.EncryptBlocks(out128, in128)
+	} else {
+		t.Skip("cipher does not implement EncryptBlocks (not an asm cipher)")
+	}
+	if !reflect.DeepEqual(out128, want128) {
+		t.Errorf("8-block LASX vs generic mismatch:\nhave %x\nwant %x", out128, want128)
+	}
+}
+
 // Test SM4 against the general cipher.Block interface tester
 func TestSM4Block(t *testing.T) {
 	t.Run("SM4", func(t *testing.T) {
