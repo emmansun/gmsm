@@ -8,8 +8,6 @@ package mlkem
 
 import (
 	"crypto/sha3"
-
-	"github.com/emmansun/gmsm/internal/keccakx4"
 )
 
 // NEON is mandatory on all ARMv8-A (arm64) cores; no runtime detection needed.
