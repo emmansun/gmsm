@@ -54,3 +54,9 @@ jobs:
       env:
         GODEBUG: x509sha1=1
         GOARCH: ${{ matrix.arch }}
+
+    - name: Test cipher
+      run: go test -v -short ./cipher/...
+      env:
+        GODEBUG: x509sha1=1
+        GOARCH: ${{ matrix.arch }}

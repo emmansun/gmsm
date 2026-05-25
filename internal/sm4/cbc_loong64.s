@@ -1,0 +1,168 @@
+// Copyright 2026 Sun Yimin. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
+//go:build loong64 && !purego
+
+#include "textflag.h"
+#include "sm4_macros_loong64.s"
+
+// func decryptBlocksChain(xk *uint32, dst, src []byte, iv *byte)
+// CBC decryption: decrypt each block then XOR with previous ciphertext (or IV).
+// When src_len >= 128, uses 8-way LASX parallel decryption.
+//
+// LASX register allocation (shared with asm_loong64.s):
+//   X0-X15 : sbox data (freed after rounds, X0 reused as new_prev_last temp)
+//   X16-X19: state B0-B3
+//   X20-X22: constants (all01, all80, mask1F)
+//   X23-X26: ciphertext blocks (2 per register); reused for decrypted output
+//   X27-X30: interleave/deinterleave intermediates; reused for CBC chain computation
+//   X31    : prev_last_ct (current batch's "previous" ciphertext, replicated to both lanes)
+//
+// GP registers: R4=xk R5=dst R6=src R7=src_len R8=const_128
+//               R9=sbox_addr R10=k_temp R11=rk_ptr R12=ctr R13=rk_val R23=iv_ptr
+TEXT ·decryptBlocksChain(SB), NOSPLIT, $0-64
+	MOVV xk+0(FP), R4
+	MOVV dst_base+8(FP), R5
+	MOVV src_base+32(FP), R6
+	MOVV src_len+40(FP), R7
+	MOVV iv+56(FP), R23
+
+	// ----------------------------------------------------------------
+	// LASX path: process 8 blocks (128 bytes) at a time
+	// ----------------------------------------------------------------
+	MOVV $128, R8
+	BLTU R7, R8, cbc_scalar_path
+
+	// Load sbox into X0-X15 (16 bytes each, replicated to both lanes).
+	MOVV $·sbox(SB), R9
+	VMOVQ 0(R9), V0;    XVPERMIQ_REPL(0)
+	VMOVQ 16(R9), V8;   XVPERMIQ_REPL(8)
+	VMOVQ 32(R9), V1;   XVPERMIQ_REPL(1)
+	VMOVQ 48(R9), V9;   XVPERMIQ_REPL(9)
+	VMOVQ 64(R9), V2;   XVPERMIQ_REPL(2)
+	VMOVQ 80(R9), V10;  XVPERMIQ_REPL(10)
+	VMOVQ 96(R9), V3;   XVPERMIQ_REPL(3)
+	VMOVQ 112(R9), V11; XVPERMIQ_REPL(11)
+	VMOVQ 128(R9), V4;  XVPERMIQ_REPL(4)
+	VMOVQ 144(R9), V12; XVPERMIQ_REPL(12)
+	VMOVQ 160(R9), V5;  XVPERMIQ_REPL(5)
+	VMOVQ 176(R9), V13; XVPERMIQ_REPL(13)
+	VMOVQ 192(R9), V6;  XVPERMIQ_REPL(6)
+	VMOVQ 208(R9), V14; XVPERMIQ_REPL(14)
+	VMOVQ 224(R9), V7;  XVPERMIQ_REPL(7)
+	VMOVQ 240(R9), V15; XVPERMIQ_REPL(15)
+
+	// Load constants.
+	MOVV $0x01, R9; XVMOVQ R9, X20.B32
+	MOVV $0x80, R9; XVMOVQ R9, X21.B32
+	MOVV $0x1F, R9; XVMOVQ R9, X22.B32
+
+	// Initialize X31 = IV replicated to both 128-bit lanes.
+	// X31 is the "previous ciphertext" for the CBC chain (updated each batch).
+	VMOVQ (R23), V31
+	XVPERMIQ_REPL(31)
+
+cbc_lasx_loop:
+	// Load 8 ciphertext blocks into X23-X26.
+	XVMOVQ 0(R6), X23;  XVMOVQ 32(R6), X24
+	XVMOVQ 64(R6), X25; XVMOVQ 96(R6), X26
+
+	// Byte-swap → LE for SM4 decryption.
+	XVSHUF4IB $0x1B, X23, X23; XVSHUF4IB $0x1B, X24, X24
+	XVSHUF4IB $0x1B, X25, X25; XVSHUF4IB $0x1B, X26, X26
+
+	// Interleave 8 blocks into state X16-X19.
+	XVILVLW X23, X24, X27; XVILVHW X23, X24, X28
+	XVILVLW X25, X26, X29; XVILVHW X25, X26, X30
+	XVILVLV X27, X29, X16; XVILVHV X27, X29, X17
+	XVILVLV X28, X30, X18; XVILVHV X28, X30, X19
+
+	// Execute 32 decryption rounds (using reversed key schedule in xk).
+	MOVV R4, R11; MOVV $8, R12
+cbc_round_loop:
+	LASX_4ROUNDS()
+	ADDV $-1, R12
+	BNE R12, R0, cbc_round_loop
+
+	// Deinterleave X16-X19 → X23-X26 with reversed word order [B3,B2,B1,B0]
+	// (SM4 reverses output state; same as the encrypt deinterleave).
+	XVILVLW X19, X18, X27; XVILVHW X19, X18, X28
+	XVILVLW X17, X16, X29; XVILVHW X17, X16, X30
+	XVILVHV X30, X28, X23; XVILVLV X30, X28, X24
+	XVILVHV X29, X27, X25; XVILVLV X29, X27, X26
+
+	// Byte-swap decrypted output back to big-endian format.
+	XVSHUF4IB $0x1B, X23, X23; XVSHUF4IB $0x1B, X24, X24
+	XVSHUF4IB $0x1B, X25, X25; XVSHUF4IB $0x1B, X26, X26
+
+	// Reload original ciphertext into X27-X30 (needed for CBC XOR).
+	// X23-X26 now hold the decrypted (but not yet XOR'd) blocks.
+	XVMOVQ 0(R6), X27;  XVMOVQ 32(R6), X28
+	XVMOVQ 64(R6), X29; XVMOVQ 96(R6), X30
+
+	// Save ct[7] (X30's upper lane) to X0 as new prev_last for next batch.
+	// X30 = [ct6, ct7] → X0 = [ct7, ct7] (replicated).
+	XVPERMIQ(0, 30, 0x11)
+
+	// Build CBC XOR chain: for each output block k, XOR with ct[k-1].
+	// Construct shifted-ct pairs by rotating the XVPERMIQ chain (reverse order
+	// to preserve unmodified source registers for each step):
+	//   X30_new = [ct5, ct6]   ← pool: Xj=X29=[ct4,ct5], Xd_old=X30=[ct6,ct7]
+	XVPERMIQ(30, 29, 0x21)
+	//   X29_new = [ct3, ct4]
+	XVPERMIQ(29, 28, 0x21)
+	//   X28_new = [ct1, ct2]
+	XVPERMIQ(28, 27, 0x21)
+	//   X27_new = [prev_last, ct0]  ← uses X31 (old prev_last)
+	XVPERMIQ(27, 31, 0x21)
+
+	// XOR decrypted blocks with CBC chain (byte-level XOR, both in BE format).
+	XVXORV X23, X27, X23; XVXORV X24, X28, X24
+	XVXORV X25, X29, X25; XVXORV X26, X30, X26
+
+	// Update X31 = new prev_last (ct[7], replicated to both lanes).
+	XVORV X0, X0, X31
+
+	// Store plaintext to dst.
+	XVMOVQ X23, 0(R5);  XVMOVQ X24, 32(R5)
+	XVMOVQ X25, 64(R5); XVMOVQ X26, 96(R5)
+
+	ADDV $128, R5; ADDV $128, R6; ADDV $-128, R7
+	BGEU R7, R8, cbc_lasx_loop
+
+	// Update IV memory = last ciphertext block processed (ct[7] in X31.lo).
+	VMOVQ V31, (R23)
+
+	// ----------------------------------------------------------------
+	// Scalar path: handle remaining blocks (0-7) one at a time.
+	// ----------------------------------------------------------------
+cbc_scalar_path:
+	MOVV $·sbox_t0(SB), ST0
+	MOVV $·sbox_t1(SB), ST1
+	MOVV $·sbox_t2(SB), ST2
+	MOVV $·sbox_t3(SB), ST3
+	// R23 = iv pointer (updated by LASX loop if it ran, otherwise original IV).
+	MOVV iv+56(FP), R23
+
+cbc_loop:
+	BEQ R7, R0, cbc_done
+	ENCRYPT_BLOCK()
+	MOVWU 0(R23), TMP;  MOVWU 0(R5), T0;  XOR TMP, T0, T0;  MOVW T0, 0(R5)
+	MOVWU 4(R23), TMP;  MOVWU 4(R5), T0;  XOR TMP, T0, T0;  MOVW T0, 4(R5)
+	MOVWU 8(R23), TMP;  MOVWU 8(R5), T0;  XOR TMP, T0, T0;  MOVW T0, 8(R5)
+	MOVWU 12(R23), TMP; MOVWU 12(R5), T0; XOR TMP, T0, T0;  MOVW T0, 12(R5)
+	MOVV R6, R23
+	ADDV $16, R5
+	ADDV $16, R6
+	ADDV $-16, R7
+	JMP cbc_loop
+
+cbc_done:
+	ADDV $-16, R6
+	MOVV iv+56(FP), R23
+	MOVWU 0(R6), TMP;  MOVW TMP, 0(R23)
+	MOVWU 4(R6), TMP;  MOVW TMP, 4(R23)
+	MOVWU 8(R6), TMP;  MOVW TMP, 8(R23)
+	MOVWU 12(R6), TMP; MOVW TMP, 12(R23)
+	RET
