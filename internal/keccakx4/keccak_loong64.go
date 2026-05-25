@@ -6,22 +6,55 @@
 
 package keccakx4
 
-import "unsafe"
+import (
+	"encoding/binary"
+	"unsafe"
+
+	"github.com/emmansun/gmsm/internal/deps/cpu"
+)
+
+var useLASX = cpu.Loong64.HasLASX
 
 // Permute4 applies 24 rounds of Keccak-f[1600] to all 4 interleaved states.
-// Uses LASX to process all 4 states in parallel with all 25 lanes in registers.
+// Uses LASX to process all 4 states in parallel; falls back to pure Go if LASX is unavailable.
 func Permute4(state *State4) {
-	permute4LASX(state)
+	if useLASX {
+		permute4LASX(state)
+	} else {
+		permute4Generic(state)
+	}
 }
 
 // XORIn4 XORs rate bytes from each input into the corresponding state lanes.
 func XORIn4(state *State4, in0, in1, in2, in3 []byte, rate int) {
-	xorIn4LASX(state, unsafe.SliceData(in0), unsafe.SliceData(in1), unsafe.SliceData(in2), unsafe.SliceData(in3), rate/8)
+	if useLASX {
+		xorIn4LASX(state, unsafe.SliceData(in0), unsafe.SliceData(in1), unsafe.SliceData(in2), unsafe.SliceData(in3), rate/8)
+		return
+	}
+	lanes := rate / 8
+	for i := range lanes {
+		off := i * 8
+		state[i*4+0] ^= binary.LittleEndian.Uint64(in0[off:])
+		state[i*4+1] ^= binary.LittleEndian.Uint64(in1[off:])
+		state[i*4+2] ^= binary.LittleEndian.Uint64(in2[off:])
+		state[i*4+3] ^= binary.LittleEndian.Uint64(in3[off:])
+	}
 }
 
 // CopyOut4 copies rate bytes from each state into the corresponding output.
 func CopyOut4(state *State4, out0, out1, out2, out3 []byte, rate int) {
-	copyOut4LASX(state, unsafe.SliceData(out0), unsafe.SliceData(out1), unsafe.SliceData(out2), unsafe.SliceData(out3), rate/8)
+	if useLASX {
+		copyOut4LASX(state, unsafe.SliceData(out0), unsafe.SliceData(out1), unsafe.SliceData(out2), unsafe.SliceData(out3), rate/8)
+		return
+	}
+	lanes := rate / 8
+	for i := range lanes {
+		off := i * 8
+		binary.LittleEndian.PutUint64(out0[off:], state[i*4+0])
+		binary.LittleEndian.PutUint64(out1[off:], state[i*4+1])
+		binary.LittleEndian.PutUint64(out2[off:], state[i*4+2])
+		binary.LittleEndian.PutUint64(out3[off:], state[i*4+3])
+	}
 }
 
 //go:noescape

@@ -8,6 +8,8 @@ package mlkem
 
 import (
 	"crypto/sha3"
+
+	"github.com/emmansun/gmsm/internal/keccakx4"
 )
 
 // NEON is mandatory on all ARMv8-A (arm64) cores; no runtime detection needed.
@@ -314,10 +316,30 @@ func sampleNTT(rho []byte, ii, jj byte) nttElement {
 }
 
 func sampleNTTx4(rho []byte, indices [4][2]byte) [4]nttElement {
-	return [4]nttElement{
-		sampleNTT(rho, indices[0][0], indices[0][1]),
-		sampleNTT(rho, indices[1][0], indices[1][1]),
-		sampleNTT(rho, indices[2][0], indices[2][1]),
-		sampleNTT(rho, indices[3][0], indices[3][1]),
+	var xof keccakx4.SHAKE128x4
+	xof.AbsorbSeed(rho, indices)
+
+	var results [4]nttElement
+	var j [4]int
+	var batch [4][168]byte
+
+	for {
+		xof.Squeeze(batch[0][:], batch[1][:], batch[2][:], batch[3][:])
+		allDone := true
+		for lane := range 4 {
+			if j[lane] >= n {
+				continue
+			}
+			for off := 0; off < 168 && j[lane] < n; off += 24 {
+				j[lane] += rejUniformARM64(batch[lane][off:off+24], &results[lane], j[lane])
+			}
+			if j[lane] < n {
+				allDone = false
+			}
+		}
+		if allDone {
+			break
+		}
 	}
+	return results
 }
