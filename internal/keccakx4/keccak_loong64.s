@@ -306,7 +306,7 @@ round_loop:
 //
 // 4×4 transpose (non-interleaved → interleaved) for batches of 4 lanes:
 //   Load 4×uint64 from each input → XVILVLV/H interleave pairs → XVPERMIQ combine halves → XOR with state.
-//   XVILVLV Xj, Xk, Xd : Xd = [Xk.D[0], Xj.D[0], Xk.D[2], Xj.D[2]]
+//   XVILVLV Xa, Xb, Xd : Xd = [Xa.D[0], Xb.D[0], Xa.D[2], Xb.D[2]]  (even from FIRST arg)
 //   XVPERMIQ WORD encoding: 0x77EC0000 | (imm8<<10) | (vj<<5) | vd
 //     imm8=0x08 → Xd.lo stays, Xd.hi = Xj.lo
 //     imm8=0x0d → Xd.lo = Xd.hi (orig), Xd.hi = Xj.hi
@@ -330,11 +330,11 @@ xorin_vec4:
 	XVMOVQ (R8), X3    // D = in3[i..i+3]
 
 	// Step 1: XVILVLV/H — pair-interleave A+B and C+D
-	// XVILVLV Xj, Xk, Xd → Xd = [Xk.D[0], Xj.D[0], Xk.D[2], Xj.D[2]]
-	XVILVLV X1, X0, X4    // vj=X1=B, vk=X0=A → X4 = [A0, B0, A2, B2]
-	XVILVHV X1, X0, X5    // X5 = [A1, B1, A3, B3]
-	XVILVLV X3, X2, X6    // vj=X3=D, vk=X2=C → X6 = [C0, D0, C2, D2]
-	XVILVHV X3, X2, X7    // X7 = [C1, D1, C3, D3]
+	// XVILVLV Xa, Xb, Xd: 64-bit interleave lower — even positions from Xa (FIRST arg), odd from Xb
+	XVILVLV X0, X1, X4    // vk=X0=A, vj=X1=B → X4 = [A0, B0, A2, B2]
+	XVILVHV X0, X1, X5    // X5 = [A1, B1, A3, B3]
+	XVILVLV X2, X3, X6    // vk=X2=C, vj=X3=D → X6 = [C0, D0, C2, D2]
+	XVILVHV X2, X3, X7    // X7 = [C1, D1, C3, D3]
 
 	// Step 2: XVPERMIQ — merge low+high halves into final row vectors
 	// Semantics: pool={Xj.lo=0, Xj.hi=1, Xd_old.lo=2, Xd_old.hi=3}
@@ -427,10 +427,11 @@ copyout_vec4:
 	XVMOVQ (3*32)(R4), X3   // R3 = [a3, b3, c3, d3]
 
 	// Step 1: XVILVLV/H — produce column pairs
-	XVILVLV X1, X0, X4    // vj=X1=R1, vk=X0=R0 → X4 = [a0, a1, c0, c1]
-	XVILVHV X1, X0, X5    // X5 = [b0, b1, d0, d1]
-	XVILVLV X3, X2, X6    // vj=X3=R3, vk=X2=R2 → X6 = [a2, a3, c2, c3]
-	XVILVHV X3, X2, X7    // X7 = [b2, b3, d2, d3]
+	// XVILVLV Xa, Xb, Xd: even (D[0],D[2]) from Xa, odd (D[1],D[3]) from Xb
+	XVILVLV X0, X1, X4    // vk=X0=R0, vj=X1=R1 → X4 = [a0, a1, c0, c1]
+	XVILVHV X0, X1, X5    // X5 = [b0, b1, d0, d1]
+	XVILVLV X2, X3, X6    // vk=X2=R2, vj=X3=R3 → X6 = [a2, a3, c2, c3]
+	XVILVHV X2, X3, X7    // X7 = [b2, b3, d2, d3]
 
 	// Step 2: XVPERMIQ — combine into full columns (same WORD encodings as xorIn4)
 	// out0 = A = [a0,a1,a2,a3] = X4.lo | X6.lo
