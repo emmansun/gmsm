@@ -9,14 +9,11 @@
 // Register allocation:
 // X0-X24:  25 Keccak state lanes (permanently in registers, zero memory traffic!)
 // X25-X29: θ column parity C[0..4]
-// X30:     temp (π cycle, χ save row[0])
-// X31:     temp (χ save row[1])
+// X30:     temp (ρ+π merged save / χ save B[0] per row)
+// X31:     temp (χ save B[1] per row)
 //
-// XVROTRV $k, Xsrc, Xdst — rotate right by k bits (64-bit lanes).
-// Rotate left by n = rotate right by (64-n).
-
-// ROT64(n, reg) — rotate left by n bits in-place (single instruction).
-#define ROT64(n, reg) XVROTRV $(64-(n)), reg, reg
+// XVROTRV $k, Xsrc, Xdst — rotate Xsrc right by k bits (64-bit lanes), write to Xdst.
+// Rotate left by n bits = rotate right by (64-n) bits.
 
 // XVPERMIQ(Xd, Xj, imm8) — xvpermi.q Xd, Xj, imm8.
 // Semantics: pool={Xj.lo=0, Xj.hi=1, Xd_old.lo=2, Xd_old.hi=3}
@@ -135,61 +132,38 @@ round_loop:
 	XVXORV X19, X30, X19
 	XVXORV X24, X30, X24
 
-	// ===== ρ step: rotate each lane in-place =====
-	// Lane 0 (X0): rot 0 — skip
-	ROT64(1,  X1)
-	ROT64(62, X2)
-	ROT64(28, X3)
-	ROT64(27, X4)
-	ROT64(36, X5)
-	ROT64(44, X6)
-	ROT64(6,  X7)
-	ROT64(55, X8)
-	ROT64(20, X9)
-	ROT64(3,  X10)
-	ROT64(10, X11)
-	ROT64(43, X12)
-	ROT64(25, X13)
-	ROT64(39, X14)
-	ROT64(41, X15)
-	ROT64(45, X16)
-	ROT64(15, X17)
-	ROT64(21, X18)
-	ROT64(8,  X19)
-	ROT64(18, X20)
-	ROT64(2,  X21)
-	ROT64(61, X22)
-	ROT64(56, X23)
-	ROT64(14, X24)
-
-	// ===== π step: register cycle permutation =====
-	// Forward cycle: 1→10→7→11→17→18→3→5→16→8→21→24→4→15→23→19→13→12→2→20→14→22→9→6→1
-	// Apply in reverse (save X1, walk the chain right-to-left).
-	XVORV X1, X1, X30      // save X1 → X30
-	XVORV X6, X6, X1       // X1  ← X6
-	XVORV X9, X9, X6       // X6  ← X9
-	XVORV X22, X22, X9     // X9  ← X22
-	XVORV X14, X14, X22    // X22 ← X14
-	XVORV X20, X20, X14    // X14 ← X20
-	XVORV X2, X2, X20      // X20 ← X2
-	XVORV X12, X12, X2     // X2  ← X12
-	XVORV X13, X13, X12    // X12 ← X13
-	XVORV X19, X19, X13    // X13 ← X19
-	XVORV X23, X23, X19    // X19 ← X23
-	XVORV X15, X15, X23    // X23 ← X15
-	XVORV X4, X4, X15      // X15 ← X4
-	XVORV X24, X24, X4     // X4  ← X24
-	XVORV X21, X21, X24    // X24 ← X21
-	XVORV X8, X8, X21      // X21 ← X8
-	XVORV X16, X16, X8     // X8  ← X16
-	XVORV X5, X5, X16      // X16 ← X5
-	XVORV X3, X3, X5       // X5  ← X3
-	XVORV X18, X18, X3     // X3  ← X18
-	XVORV X17, X17, X18    // X18 ← X17
-	XVORV X11, X11, X17    // X17 ← X11
-	XVORV X7, X7, X11      // X11 ← X7
-	XVORV X10, X10, X7     // X7  ← X10
-	XVORV X30, X30, X10    // X10 ← saved X1
+	// ===== ρ+π step: merged rotate-and-permute =====
+	// Replaces separate ρ (24 in-place ROT64) + π (25 XVORV moves) = 49 instructions
+	// with 1 XVORV save + 24 XVROTRV src→dst = 25 instructions (saves 24 per round).
+	//
+	// Cycle: 1→10→7→11→17→18→3→5→16→8→21→24→4→15→23→19→13→12→2→20→14→22→9→6→1
+	// Process backward: each source is unmodified when read. Save X1 first (overwritten
+	// on step 1 but consumed last). X0 is fixed (ρ[0]=0, π: (0,0)→(0,0)).
+	XVORV X1, X1, X30           // save X1 → X30  (used last: X10 ← ROT64(1, X1))
+	XVROTRV $(64-44), X6,  X1   // X1  ← ROT64(44, X6)   [6→1,   ρ=44]
+	XVROTRV $(64-20), X9,  X6   // X6  ← ROT64(20, X9)   [9→6,   ρ=20]
+	XVROTRV $(64-61), X22, X9   // X9  ← ROT64(61, X22)  [22→9,  ρ=61]
+	XVROTRV $(64-39), X14, X22  // X22 ← ROT64(39, X14)  [14→22, ρ=39]
+	XVROTRV $(64-18), X20, X14  // X14 ← ROT64(18, X20)  [20→14, ρ=18]
+	XVROTRV $(64-62), X2,  X20  // X20 ← ROT64(62, X2)   [2→20,  ρ=62]
+	XVROTRV $(64-43), X12, X2   // X2  ← ROT64(43, X12)  [12→2,  ρ=43]
+	XVROTRV $(64-25), X13, X12  // X12 ← ROT64(25, X13)  [13→12, ρ=25]
+	XVROTRV $(64-8),  X19, X13  // X13 ← ROT64(8,  X19)  [19→13, ρ=8]
+	XVROTRV $(64-56), X23, X19  // X19 ← ROT64(56, X23)  [23→19, ρ=56]
+	XVROTRV $(64-41), X15, X23  // X23 ← ROT64(41, X15)  [15→23, ρ=41]
+	XVROTRV $(64-27), X4,  X15  // X15 ← ROT64(27, X4)   [4→15,  ρ=27]
+	XVROTRV $(64-14), X24, X4   // X4  ← ROT64(14, X24)  [24→4,  ρ=14]
+	XVROTRV $(64-2),  X21, X24  // X24 ← ROT64(2,  X21)  [21→24, ρ=2]
+	XVROTRV $(64-55), X8,  X21  // X21 ← ROT64(55, X8)   [8→21,  ρ=55]
+	XVROTRV $(64-45), X16, X8   // X8  ← ROT64(45, X16)  [16→8,  ρ=45]
+	XVROTRV $(64-36), X5,  X16  // X16 ← ROT64(36, X5)   [5→16,  ρ=36]
+	XVROTRV $(64-28), X3,  X5   // X5  ← ROT64(28, X3)   [3→5,   ρ=28]
+	XVROTRV $(64-21), X18, X3   // X3  ← ROT64(21, X18)  [18→3,  ρ=21]
+	XVROTRV $(64-15), X17, X18  // X18 ← ROT64(15, X17)  [17→18, ρ=15]
+	XVROTRV $(64-10), X11, X17  // X17 ← ROT64(10, X11)  [11→17, ρ=10]
+	XVROTRV $(64-6),  X7,  X11  // X11 ← ROT64(6,  X7)   [7→11,  ρ=6]
+	XVROTRV $(64-3),  X10, X7   // X7  ← ROT64(3,  X10)  [10→7,  ρ=3]
+	XVROTRV $(64-1),  X30, X10  // X10 ← ROT64(1,  X1)   [1→10,  ρ=1]
 
 	// ===== χ + ι steps =====
 	// A'[x,y] = B[x,y] ^ (~B[(x+1)%5,y] & B[(x+2)%5,y])
