@@ -118,7 +118,7 @@
 	XVXORV X23, X30, X25; \
 	XVSUBB X20, X25, X25; \
 	XVSRAB $7, X25, X26; \
-	XVANDNV X26, X21, X27; \
+	XVANDNV X21, X26, X27; \
 	XVORV X24, X27, X27; \
 	XVSHUF_B(31, xjk, xkk, 27); \
 	XVORV X29, X31, X29
@@ -149,12 +149,12 @@
 //       = x ^ ROR(x,30) ^ ROR(x,22) ^ ROR(x,14) ^ ROR(x,8)
 // Clobbers: X25 (result), X31 (temp)
 #define SM4_L_LASX() \
-	XVROTRW $30, X29, X25; \
-	XVROTRW $22, X29, X31; \
+	XVROTRW $2, X29, X25; \
+	XVROTRW $10, X29, X31; \
 	XVXORV X31, X25, X25; \
-	XVROTRW $14, X29, X31; \
+	XVROTRW $18, X29, X31; \
 	XVXORV X31, X25, X25; \
-	XVROTRW $8, X29, X31; \
+	XVROTRW $24, X29, X31; \
 	XVXORV X31, X25, X25; \
 	XVXORV X29, X25, X25
 
