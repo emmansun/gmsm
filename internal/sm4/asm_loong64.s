@@ -96,14 +96,14 @@ lasx_loop:
 
 	// Interleave 8 blocks into state registers X16-X19.
 	// After interleave: X16[S_i] = B0 of block i, X17[S_i]=B1, X18=B2, X19=B3.
-	XVILVLW X23, X24, X27     // interleave B0,B1 of blocks 0/1 with 2/3
-	XVILVHW X23, X24, X28     // interleave B2,B3 of blocks 0/1 with 2/3
-	XVILVLW X25, X26, X29     // interleave B0,B1 of blocks 4/5 with 6/7
-	XVILVHW X25, X26, X30     // interleave B2,B3 of blocks 4/5 with 6/7
-	XVILVLV X27, X29, X16     // X16 = B0 from all 8 blocks
-	XVILVHV X27, X29, X17     // X17 = B1 from all 8 blocks
-	XVILVLV X28, X30, X18     // X18 = B2 from all 8 blocks
-	XVILVHV X28, X30, X19     // X19 = B3 from all 8 blocks
+	XVILVLW X23, X24, X27     // interleave B0,B1 of blocks 0/1 with 2/3 X27 = { B3.w1 B1.w1 B3.w0 B1.w0 B2.w1 B0.w1 B2.w0 B0.w0 }
+	XVILVHW X23, X24, X28     // interleave B2,B3 of blocks 0/1 with 2/3 X28 = { B3.w3 B1.w3 B3.w2 B1.w2 B2.w3 B0.w3 B2.w2 B0.w2 }
+	XVILVLW X25, X26, X29     // interleave B0,B1 of blocks 4/5 with 6/7 X29 = { B7.w1 B5.w1 B7.w0 B5.w0 B6.w1 B4.w.w1 B6.w0 B4.w0 }
+	XVILVHW X25, X26, X30     // interleave B2,B3 of blocks 4/5 with 6/7 X30 = { B7.w3 B5.w3 B7.w2 B5.w2 B6.w3 B4.w.w3 B6.w2 B4.w2 }
+	XVILVLV X27, X29, X16     // X16 = B0 from all 8 blocks X16 = { B7.w0 B5.w0 B3.w0 B1.w0 B6.w0 B4.w0 B2.w0 B0.w0 }
+	XVILVHV X27, X29, X17     // X17 = B1 from all 8 blocks X17 = { B7.w1 B5.w1 B3.w1 B1.w1 B6.w1 B4.w1 B2.w1 B0.w1 }
+	XVILVLV X28, X30, X18     // X18 = B2 from all 8 blocks X18 = { B7.w2 B5.w2 B3.w2 B1.w2 B6.w2 B4.w2 B2.w2 B0.w2 }
+	XVILVHV X28, X30, X19     // X19 = B3 from all 8 blocks X19 = { B7.w3 B5.w3 B3.w3 B1.w3 B6.w3 B4.w3 B2.w3 B0.w3 }
 
 	// Execute 32 SM4 rounds via 8 × LASX_4ROUNDS().
 	MOVV R4, R11              // R11 = xk (round key pointer for this batch)
@@ -119,10 +119,10 @@ lasx_round_loop:
 	// Use X19=B3_state, X18=B2_state, X17=B1_state, X16=B0_state (reversed for output).
 	// XVILVLW grabs positions 0,1 per lane → blocks 0,2 (low) and 1,3 (high).
 	// XVILVHW grabs positions 2,3 per lane → blocks 4,6 (low) and 5,7 (high).
-	XVILVLW X19, X18, X27     // low pos: {B0.w3,B0.w2,B2.w3,B2.w2 | B1.w3,B1.w2,B3.w3,B3.w2}
-	XVILVLW X17, X16, X29     // low pos: {B0.w1,B0.w0,B2.w1,B2.w0 | B1.w1,B1.w0,B3.w1,B3.w0}
-	XVILVHW X19, X18, X28     // high pos: {B4.w3,B4.w2,B6.w3,B6.w2 | B5.w3,B5.w2,B7.w3,B7.w2}
-	XVILVHW X17, X16, X30     // high pos: {B4.w1,B4.w0,B6.w1,B6.w0 | B5.w1,B5.w0,B7.w1,B7.w0}
+	XVILVLW X18, X19, X27     // low pos: {B0.w3,B0.w2,B2.w3,B2.w2 | B1.w3,B1.w2,B3.w3,B3.w2}
+	XVILVLW X16, X17, X29     // low pos: {B0.w1,B0.w0,B2.w1,B2.w0 | B1.w1,B1.w0,B3.w1,B3.w0}
+	XVILVHW X18, X19, X28     // high pos: {B4.w3,B4.w2,B6.w3,B6.w2 | B5.w3,B5.w2,B7.w3,B7.w2}
+	XVILVHW X16, X17, X30     // high pos: {B4.w1,B4.w0,B6.w1,B6.w0 | B5.w1,B5.w0,B7.w1,B7.w0}
 	XVILVLV X27, X29, X23     // X23 = blocks 0,1: [B0.w3..B0.w0 | B1.w3..B1.w0]
 	XVILVHV X27, X29, X24     // X24 = blocks 2,3: [B2.w3..B2.w0 | B3.w3..B3.w0]
 	XVILVLV X28, X30, X25     // X25 = blocks 4,5: [B4.w3..B4.w0 | B5.w3..B5.w0]
