@@ -162,9 +162,10 @@
 // Each round computes: Bx ^= L(sbox(B(x+1)^B(x+2)^B(x+3)^rk))
 // R11 = round key pointer (advanced by 4 per round = 16 total).
 // R13 = GP temp for round key value.
-// X24 = T-function input (merged with sbox low5 scratch), X29 = sbox output,
-// X25 = L output, X31 = rk broadcast/L temp.
-// X28 is no longer used (freed by merging T-input into X24).
+// Clobbers: X23,X24,X25,X26,X27,X29,X30,X31, R10-R13.
+// X24 = T-function input (in) → overwritten with low5 scratch by SM4_SBOX_LASX.
+// X29 = sbox accumulator output; X25 = L output; X31 = rk broadcast and L temp.
+// X28 is FREE (not used); callers may store persistent data there across calls.
 #define LASX_4ROUNDS() \
 	MOVWU (R11), R13; ADDV $4, R11; XVMOVQ R13, X31.W8; \
 	XVXORV X17, X18, X24; XVXORV X19, X24, X24; XVXORV X31, X24, X24; \

@@ -15,10 +15,11 @@
 //   X0-X15 : sbox data (both lanes replicated)
 //   X16-X19: SM4 state B0-B3 (8-block parallel); X16 reused for ct[2,3] reload after rounds
 //   X20-X22: constants (all01, all80, mask1F)
-//   X23-X26: ciphertext/decrypted blocks (2 per register)
-//   X27-X30: interleave intermediates and CBC chain temps
+//   X23-X26: ciphertext input (2 blocks per reg); reused for decrypted output
+//             X24 also serves as T-function input temp inside LASX_4ROUNDS
+//   X27-X30: interleave/deinterleave scratch and CBC chain computation
 //   X28    : prev_ct [both lanes]; preserved across LASX_4ROUNDS (which no longer uses X28)
-//   X31    : clobbered by LASX_4ROUNDS (round-key broadcast) and SM4_L_LASX (temp)
+//   X31    : interleave/deinterleave scratch; clobbered by LASX_4ROUNDS and SM4_L_LASX
 //
 // GP registers:
 //   R4=xk R5=dst R6=src R7=src_len R8=const_128
@@ -88,7 +89,8 @@ cbc_lasx_loop:
 	XVILVLV X31, X30, X18; XVILVHV X31, X30, X19
 
 	// Execute 32 decryption rounds (using reversed key schedule in xk).
-	// LASX_4ROUNDS clobbers X24, X31 (and others); X28 = prev_ct is preserved.
+	// LASX_4ROUNDS clobbers X24,X25,X26,X27,X29,X30,X31 (and R10-R13).
+	// X28 = prev_ct is preserved (LASX_4ROUNDS no longer uses X28).
 	MOVV R4, R11; MOVV $8, R12
 cbc_round_loop:
 	LASX_4ROUNDS()
