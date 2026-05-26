@@ -14,16 +14,17 @@
 // LASX register usage:
 //   X0-X15 : sbox data (both lanes replicated)
 //   X16-X19: SM4 state B0-B3 (8-block parallel); X16 reused for ct[2,3] reload after rounds
-//   X20-X22: constants (all01, all80, mask1F)
+//   X20    : broadcast(0x01) [all_01] — kept for potential future use
+//   X21    : broadcast(0x80) [all_80] — kept for potential future use
+//   X22    : broadcast(0x1F) [mask_1F] — used by SM4_SBOX_LASX
 //   X23-X26: ciphertext input (2 blocks per reg); reused for decrypted output
 //             X24 also serves as T-function input temp inside LASX_4ROUNDS
-//   X27-X30: interleave/deinterleave scratch and CBC chain computation
-//   X28    : prev_ct [both lanes]; preserved across LASX_4ROUNDS (which no longer uses X28)
-//   X31    : interleave/deinterleave scratch; clobbered by LASX_4ROUNDS and SM4_L_LASX
+//   X27-X31: interleave/deinterleave scratch and CBC chain/MUX computation
+//   X28    : prev_ct [both lanes]; preserved across LASX_4ROUNDS (never touched by rounds)
 //
 // GP registers:
 //   R4=xk R5=dst R6=src R7=src_len R8=const_128
-//   R9=sbox_addr/temp R10=k_temp R11=rk_ptr R12=ctr R13=rk_val R23=iv_ptr
+//   R9=sbox_addr/temp R11=rk_ptr R12=ctr R13=rk_val R23=iv_ptr
 TEXT ·decryptBlocksChain(SB), NOSPLIT, $0-64
 	MOVV xk+0(FP), R4
 	MOVV dst_base+8(FP), R5

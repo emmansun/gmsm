@@ -101,81 +101,82 @@
 // Xd.lo = pool[imm[1:0]], Xd.hi = pool[imm[5:4]]
 #define XVPERMIQ(xd, xj, imm8) WORD $((0x1DFB << 18) | ((imm8) << 10) | ((xj) << 5) | (xd))
 
-// SM4_SBOX_CHUNK(k, xjk, xkk):
-// Performs partial S-box lookup for the k-th 32-byte chunk of the SM4 sbox.
-//   xkk = LASX reg index holding sbox[k*32 .. k*32+15] in BOTH 128-bit lanes
-//   xjk = LASX reg index holding sbox[k*32+16 .. k*32+31] in BOTH 128-bit lanes
-// Non-matching bytes are masked to 0 before OR accumulation using X26 (in_range_mask).
-// Register usage (all pre-loaded or scratch):
-//   X20 = broadcast(0x01) [all_01]   X21 = broadcast(0x80) [all_80]
-//   X23 = b >> 5 (group)             X24 = b & 0x1F (low5)
-//   X25,X26,X27,X30,X31 = scratch    X29 = accumulator (OR'd into)
-//   R10 = GP temp for k constant
-#define SM4_SBOX_CHUNK(k, xjk, xkk) \
-	MOVV $k, R10; \
-	XVMOVQ R10, X30.B32; \
-	XVXORV X23, X30, X25; \
-	XVSUBB X20, X25, X25; \
-	XVSRAB $7, X25, X26; \
-	XVANDNV X21, X26, X27; \
-	XVORV X24, X27, X27; \
-	XVSHUF_B(31, xjk, xkk, 27); \
-	XVANDV X31, X26, X31; \
-	XVORV X29, X31, X29
+// XVBITSEL(xd, xj, xk, xa): xvbitsel.v xd, xj, xk, xa (4-operand bit-select).
+// xd[i] = xa[i] ? xk[i] : xj[i]  (bit-level: 1 selects from xk, 0 selects from xj)
+#define XVBITSEL(xd, xj, xk, xa) \
+	WORD $(0x0D100000 | ((xa) << 15) | ((xk) << 10) | ((xj) << 5) | (xd))
 
 // SM4_SBOX_LASX(): Apply SM4 S-box to X24 (T-function input, 8x32-bit words).
-// Output: X29 = S-box output (byte-by-byte lookup, one byte per output byte).
+// Uses a 3-level binary MUX tree: 8 XVSHUF_B lookups + 7 XVBITSEL.V selects.
+// Each byte b is split: group = b>>5 (0-7 selects the 32-byte chunk),
+// offset = b&0x1F (lookup index within the chunk, used as XVSHUF_B key).
+// The MUX tree selects the correct chunk result using the 3 group index bits.
+// Input:  X24 = T-function input.
+// Output: X29 = S-box substituted output.
 // Pre-conditions:
-//   X0-X7  = sbox[0..15], sbox[32..47], ..., sbox[224..239] (each chunk, both lanes)
-//   X8-X15 = sbox[16..31], sbox[48..63], ..., sbox[240..255] (each chunk, both lanes)
-//   X20 = broadcast(0x01), X21 = broadcast(0x80), X22 = broadcast(0x1F)
-// Clobbers: X23-X27, X29-X31, R10
+//   X0-X7  = sbox[k*32..k*32+15] for k=0..7 (chunk low half, both 128-bit lanes equal)
+//   X8-X15 = sbox[k*32+16..k*32+31] for k=0..7 (chunk high half, both lanes equal)
+//   X22    = broadcast(0x1F) [mask_1F]
+// Clobbers: X23-X27, X29-X31  (X28 NOT touched — safe for CBC prev_ct)
 #define SM4_SBOX_LASX() \
 	XVSRLB $5, X24, X23; \
 	XVANDV X24, X22, X24; \
-	XVXORV X29, X29, X29; \
-	SM4_SBOX_CHUNK(0, 8, 0); \
-	SM4_SBOX_CHUNK(1, 9, 1); \
-	SM4_SBOX_CHUNK(2, 10, 2); \
-	SM4_SBOX_CHUNK(3, 11, 3); \
-	SM4_SBOX_CHUNK(4, 12, 4); \
-	SM4_SBOX_CHUNK(5, 13, 5); \
-	SM4_SBOX_CHUNK(6, 14, 6); \
-	SM4_SBOX_CHUNK(7, 15, 7)
+	XVSLLB $7, X23, X30; \
+	XVSRAB $7, X30, X30; \
+	XVSHUF_B(25, 8, 0, 24); \
+	XVSHUF_B(27, 9, 1, 24); \
+	XVBITSEL(25, 25, 27, 30); \
+	XVSHUF_B(27, 10, 2, 24); \
+	XVSHUF_B(31, 11, 3, 24); \
+	XVBITSEL(26, 27, 31, 30); \
+	XVSHUF_B(27, 12, 4, 24); \
+	XVSHUF_B(31, 13, 5, 24); \
+	XVBITSEL(27, 27, 31, 30); \
+	XVSHUF_B(31, 14, 6, 24); \
+	XVSHUF_B(29, 15, 7, 24); \
+	XVBITSEL(29, 31, 29, 30); \
+	XVSLLB $6, X23, X30; \
+	XVSRAB $7, X30, X30; \
+	XVBITSEL(25, 25, 26, 30); \
+	XVBITSEL(26, 27, 29, 30); \
+	XVSLLB $5, X23, X30; \
+	XVSRAB $7, X30, X30; \
+	XVBITSEL(29, 25, 26, 30)
 
 // SM4_L_LASX(): L-transform of X29 → X25.
-// After XVSHUF4IB, the 32-bit register integer = the big-endian SM4 word value.
 // L(x) = x ^ ROL(x,2) ^ ROL(x,10) ^ ROL(x,18) ^ ROL(x,24)
 //       = x ^ ROR(x,30) ^ ROR(x,22) ^ ROR(x,14) ^ ROR(x,8)
-// Clobbers: X25 (result), X31 (temp)
+// Two independent rotation pairs (ROR30^ROR22) and (ROR14^ROR8) are computed in
+// parallel, reducing critical-path depth from 5 to 4.
+// Clobbers: X25 (result), X26, X27, X31 (temps)
 #define SM4_L_LASX() \
 	XVROTRW $30, X29, X25; \
 	XVROTRW $22, X29, X31; \
-	XVXORV X31, X25, X25; \
-	XVROTRW $14, X29, X31; \
-	XVXORV X31, X25, X25; \
-	XVROTRW $8, X29, X31; \
-	XVXORV X31, X25, X25; \
+	XVROTRW $14, X29, X26; \
+	XVROTRW $8, X29, X27; \
+	XVXORV X25, X31, X25; \
+	XVXORV X26, X27, X26; \
+	XVXORV X25, X26, X25; \
 	XVXORV X29, X25, X25
 
 // LASX_4ROUNDS(): 4 SM4 rounds with state in X16-X19 (B0-B3).
 // Each round computes: Bx ^= L(sbox(B(x+1)^B(x+2)^B(x+3)^rk))
 // R11 = round key pointer (advanced by 4 per round = 16 total).
 // R13 = GP temp for round key value.
-// Clobbers: X23,X24,X25,X26,X27,X29,X30,X31, R10-R13.
-// X24 = T-function input (in) → overwritten with low5 scratch by SM4_SBOX_LASX.
-// X29 = sbox accumulator output; X25 = L output; X31 = rk broadcast and L temp.
+// Clobbers: X23,X24,X25,X26,X27,X29,X30,X31, R12,R13.
+// X24 = T-function input (in) → overwritten with offset scratch by SM4_SBOX_LASX.
+// X29 = sbox MUX output; X25 = L output; X30 = rk broadcast and MUX/mask scratch.
 // X28 is FREE (not used); callers may store persistent data there across calls.
 #define LASX_4ROUNDS() \
 	MOVWU (R11), R13; ADDV $4, R11; XVMOVQ R13, X31.W8; \
-	XVXORV X17, X18, X24; XVXORV X19, X24, X24; XVXORV X31, X24, X24; \
+	XVXORV X17, X18, X24; XVXORV X19, X31, X30; XVXORV X24, X30, X24; \
 	SM4_SBOX_LASX(); SM4_L_LASX(); XVXORV X16, X25, X16; \
 	MOVWU (R11), R13; ADDV $4, R11; XVMOVQ R13, X31.W8; \
-	XVXORV X18, X19, X24; XVXORV X16, X24, X24; XVXORV X31, X24, X24; \
+	XVXORV X18, X19, X24; XVXORV X16, X31, X30; XVXORV X24, X30, X24; \
 	SM4_SBOX_LASX(); SM4_L_LASX(); XVXORV X17, X25, X17; \
 	MOVWU (R11), R13; ADDV $4, R11; XVMOVQ R13, X31.W8; \
-	XVXORV X19, X16, X24; XVXORV X17, X24, X24; XVXORV X31, X24, X24; \
+	XVXORV X19, X16, X24; XVXORV X17, X31, X30; XVXORV X24, X30, X24; \
 	SM4_SBOX_LASX(); SM4_L_LASX(); XVXORV X18, X25, X18; \
 	MOVWU (R11), R13; ADDV $4, R11; XVMOVQ R13, X31.W8; \
-	XVXORV X16, X17, X24; XVXORV X18, X24, X24; XVXORV X31, X24, X24; \
+	XVXORV X16, X17, X24; XVXORV X18, X31, X30; XVXORV X24, X30, X24; \
 	SM4_SBOX_LASX(); SM4_L_LASX(); XVXORV X19, X25, X19
