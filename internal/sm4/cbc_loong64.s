@@ -21,6 +21,23 @@
 //
 // GP registers: R4=xk R5=dst R6=src R7=src_len R8=const_128
 //               R9=sbox_addr R10=k_temp R11=rk_ptr R12=ctr R13=rk_val R23=iv_ptr
+// LASX register usage inside decryptBlocksChain:
+//   X0-X15 : sbox data (both lanes replicated)
+//   X16-X19: state B0-B3 (parallel 8-block SM4 state)
+//   X20-X22: constants (all01, all80, mask1F)
+//   X23-X26: ciphertext/decrypted blocks (2 per register)
+//   X27-X30: interleave intermediates and CBC chain temps
+//   X31    : scratch (clobbered by LASX_4ROUNDS; rebuilt post-loop from GP R25-R28)
+//
+// GP registers:
+//   R4=xk R5=dst R6=src R7=src_len R8=const_128
+//   R9=sbox_addr/temp R10=k_temp R11=rk_ptr R12=ctr R13=rk_val R23=iv_ptr
+//   R25-R28 = prev_ct words (IV for first batch, ct7 for subsequent; saved across round loop)
+//
+// NOTE: LASX_4ROUNDS overwrites X31 with each round key broadcast.  We therefore
+// cannot store "previous ciphertext" in X31 across the round loop.  Instead we use
+// GP registers R25-R28 (four 32-bit words = one 128-bit block) which are untouched
+// by the LASX round machinery.  After each round loop we rebuild X31 via XVMOVQ.W[].
 TEXT ·decryptBlocksChain(SB), NOSPLIT, $0-64
 	MOVV xk+0(FP), R4
 	MOVV dst_base+8(FP), R5
@@ -58,12 +75,10 @@ TEXT ·decryptBlocksChain(SB), NOSPLIT, $0-64
 	MOVV $0x80, R9; XVMOVQ R9, X21.B32
 	MOVV $0x1F, R9; XVMOVQ R9, X22.B32
 
-	// Initialize X31 = IV replicated to both 128-bit lanes.
-	// Use X16 as intermediate (registers 0-15 confirmed working for XVPERMIQ_REPL;
-	// X16 is re-initialized at loop start by the interleave instructions).
-	VMOVQ (R23), V16
-	XVPERMIQ_REPL(16)
-	XVORV X16, X16, X31
+	// Load IV into GP registers R25-R28 (prev_ct for the first batch).
+	// Using four 32-bit word loads avoids any vector-alignment concerns and
+	// these registers survive LASX_4ROUNDS (which only clobbers R10-R13).
+	MOVWU 0(R23), R25; MOVWU 4(R23), R26; MOVWU 8(R23), R27; MOVWU 12(R23), R28
 
 cbc_lasx_loop:
 	// Load 8 ciphertext blocks into X23-X26.
@@ -81,14 +96,14 @@ cbc_lasx_loop:
 	XVILVLV X28, X30, X18; XVILVHV X28, X30, X19
 
 	// Execute 32 decryption rounds (using reversed key schedule in xk).
+	// LASX_4ROUNDS clobbers X31 with round-key broadcasts; R25-R28 preserve prev_ct.
 	MOVV R4, R11; MOVV $8, R12
 cbc_round_loop:
 	LASX_4ROUNDS()
 	ADDV $-1, R12
 	BNE R12, R0, cbc_round_loop
 
-	// Deinterleave X16-X19 → X23-X26 with reversed word order [B3,B2,B1,B0]
-	// (SM4 reverses output state; same as the encrypt deinterleave).
+	// Deinterleave X16-X19 → X23-X26 with reversed word order [B3,B2,B1,B0].
 	XVILVLW X19, X18, X27; XVILVHW X19, X18, X28
 	XVILVLW X17, X16, X29; XVILVHW X17, X16, X30
 	XVILVLV X27, X29, X23; XVILVHV X27, X29, X24
@@ -99,25 +114,29 @@ cbc_round_loop:
 	XVSHUF4IB $0x1B, X25, X25; XVSHUF4IB $0x1B, X26, X26
 
 	// Reload original ciphertext into X27-X30 (needed for CBC XOR).
-	// X23-X26 now hold the decrypted (but not yet XOR'd) blocks.
+	// X16 is free (data moved to X23 during deinterleave above).
 	XVMOVQ 0(R6), X27;  XVMOVQ 32(R6), X28
 	XVMOVQ 64(R6), X29; XVMOVQ 96(R6), X30
 
+	// Rebuild X31 = [prev_ct, prev_ct] from GP registers R25-R28.
+	// Insert all 8 word positions (W[0..3] = lane0, W[4..7] = lane1) so that
+	// both 128-bit lanes hold the same prev_ct block, without needing XVPERMIQ_REPL.
+	XVMOVQ R25, X31.W[0]; XVMOVQ R26, X31.W[1]; XVMOVQ R27, X31.W[2]; XVMOVQ R28, X31.W[3]
+	XVMOVQ R25, X31.W[4]; XVMOVQ R26, X31.W[5]; XVMOVQ R27, X31.W[6]; XVMOVQ R28, X31.W[7]
+
 	// Build CBC XOR chain: for each output block k, XOR with ct[k-1].
 	// X27=[ct0,ct1], X28=[ct2,ct3], X29=[ct4,ct5], X30=[ct6,ct7], X31=[prev,prev].
-	// Save ct7 to X16 (no longer needed after deinterleave) to avoid clobbering sbox X0-X15.
-	XVPERMIQ(16, 30, 0x11)
-	// Construct shifted pairs (reverse order so each step reads original Xd_old):
-	//   X30_new = [ct5, ct6]
-	XVPERMIQ(30, 29, 0x21)
-	//   X29_new = [ct3, ct4]
-	XVPERMIQ(29, 28, 0x21)
-	//   X28_new = [ct1, ct2]
-	XVPERMIQ(28, 27, 0x21)
-	//   X27_new = [prev_last, ct0]  ← uses old X31
-	XVPERMIQ(27, 31, 0x21)
-	// Update X31 = [ct7, ct7] for the next batch.
-	XVORV X16, X16, X31
+	// Save ct7 to X16 (free after deinterleave; avoids clobbering sbox X0-X15).
+	XVPERMIQ(16, 30, 0x11)    // X16 = [ct7, ct7]
+	XVPERMIQ(30, 29, 0x21)    // X30 = [ct5, ct6]
+	XVPERMIQ(29, 28, 0x21)    // X29 = [ct3, ct4]
+	XVPERMIQ(28, 27, 0x21)    // X28 = [ct1, ct2]
+	XVPERMIQ(27, 31, 0x21)    // X27 = [prev_ct, ct0]  ← uses correct X31
+	XVORV X16, X16, X31       // X31 = [ct7, ct7] for next batch
+
+	// Extract ct7 words into R25-R28 for the next batch's prev_ct.
+	XVMOVQ X31.W[0], R25; XVMOVQ X31.W[1], R26
+	XVMOVQ X31.W[2], R27; XVMOVQ X31.W[3], R28
 
 	// XOR decrypted blocks with CBC chain (byte-level XOR, both in BE format).
 	XVXORV X23, X27, X23; XVXORV X24, X28, X24
