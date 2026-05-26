@@ -327,7 +327,7 @@ func TestCBCDecrypterSM4(t *testing.T) {
 		decrypter.CryptBlocks(data, data)
 		data, err = pkcs7.Unpad(data)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("%s: Unpad error: %s, data: %x", test.name, err, data)
 		}
 		if !bytes.Equal(test.in, data) {
 			t.Errorf("%s: CBCDecrypter\nhave %x\nwant %x", test.name, data, test.in)
