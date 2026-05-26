@@ -325,6 +325,7 @@ func TestCBCDecrypterSM4(t *testing.T) {
 		copy(data, test.out)
 
 		decrypter.CryptBlocks(data, data)
+		t.Logf("%x", data)
 		data, err = pkcs7.Unpad(data)
 		if err != nil {
 			t.Fatalf("%s: Unpad error: %s, data: %x", test.name, err, data)
