@@ -117,6 +117,10 @@ cbc_round_loop:
 	// Update X31 = [ct7, ct7] for the next batch.
 	XVORV X16, X16, X31
 
+	// XOR decrypted blocks with CBC chain (byte-level XOR, both in BE format).
+	XVXORV X23, X27, X23; XVXORV X24, X28, X24
+	XVXORV X25, X29, X25; XVXORV X26, X30, X26
+
 	// Store plaintext to dst.
 	XVMOVQ X23, 0(R5);  XVMOVQ X24, 32(R5)
 	XVMOVQ X25, 64(R5); XVMOVQ X26, 96(R5)
