@@ -123,7 +123,7 @@
 	XVANDV X31, X26, X31; \
 	XVORV X29, X31, X29
 
-// SM4_SBOX_LASX(): Apply SM4 S-box to X28 (T-function input, 8x32-bit words).
+// SM4_SBOX_LASX(): Apply SM4 S-box to X24 (T-function input, 8x32-bit words).
 // Output: X29 = S-box output (byte-by-byte lookup, one byte per output byte).
 // Pre-conditions:
 //   X0-X7  = sbox[0..15], sbox[32..47], ..., sbox[224..239] (each chunk, both lanes)
@@ -131,8 +131,8 @@
 //   X20 = broadcast(0x01), X21 = broadcast(0x80), X22 = broadcast(0x1F)
 // Clobbers: X23-X27, X29-X31, R10
 #define SM4_SBOX_LASX() \
-	XVSRLB $5, X28, X23; \
-	XVANDV X28, X22, X24; \
+	XVSRLB $5, X24, X23; \
+	XVANDV X24, X22, X24; \
 	XVXORV X29, X29, X29; \
 	SM4_SBOX_CHUNK(0, 8, 0); \
 	SM4_SBOX_CHUNK(1, 9, 1); \
@@ -162,17 +162,19 @@
 // Each round computes: Bx ^= L(sbox(B(x+1)^B(x+2)^B(x+3)^rk))
 // R11 = round key pointer (advanced by 4 per round = 16 total).
 // R13 = GP temp for round key value.
-// X28 = T-function input, X29 = sbox output, X25 = L output, X31 = rk broadcast/L temp.
+// X24 = T-function input (merged with sbox low5 scratch), X29 = sbox output,
+// X25 = L output, X31 = rk broadcast/L temp.
+// X28 is no longer used (freed by merging T-input into X24).
 #define LASX_4ROUNDS() \
 	MOVWU (R11), R13; ADDV $4, R11; XVMOVQ R13, X31.W8; \
-	XVXORV X17, X18, X28; XVXORV X19, X28, X28; XVXORV X31, X28, X28; \
+	XVXORV X17, X18, X24; XVXORV X19, X24, X24; XVXORV X31, X24, X24; \
 	SM4_SBOX_LASX(); SM4_L_LASX(); XVXORV X16, X25, X16; \
 	MOVWU (R11), R13; ADDV $4, R11; XVMOVQ R13, X31.W8; \
-	XVXORV X18, X19, X28; XVXORV X16, X28, X28; XVXORV X31, X28, X28; \
+	XVXORV X18, X19, X24; XVXORV X16, X24, X24; XVXORV X31, X24, X24; \
 	SM4_SBOX_LASX(); SM4_L_LASX(); XVXORV X17, X25, X17; \
 	MOVWU (R11), R13; ADDV $4, R11; XVMOVQ R13, X31.W8; \
-	XVXORV X19, X16, X28; XVXORV X17, X28, X28; XVXORV X31, X28, X28; \
+	XVXORV X19, X16, X24; XVXORV X17, X24, X24; XVXORV X31, X24, X24; \
 	SM4_SBOX_LASX(); SM4_L_LASX(); XVXORV X18, X25, X18; \
 	MOVWU (R11), R13; ADDV $4, R11; XVMOVQ R13, X31.W8; \
-	XVXORV X16, X17, X28; XVXORV X18, X28, X28; XVXORV X31, X28, X28; \
+	XVXORV X16, X17, X24; XVXORV X18, X24, X24; XVXORV X31, X24, X24; \
 	SM4_SBOX_LASX(); SM4_L_LASX(); XVXORV X19, X25, X19
