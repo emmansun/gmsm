@@ -90,7 +90,7 @@
 //   elif xa[L][i].bit4==1: xd[L][i] = xj[L][xa[L][i] & 0xF]
 //   else                  : xd[L][i] = xk[L][xa[L][i] & 0xF]
 #define XVSHUF_B(xd, xj, xk, xa) \
-	WORD $(((0xD6) << 20) | ((xa) << 15) | ((xk) << 10) | ((xj) << 5) | (xd))
+	WORD $(0x0D600000 | ((xa) << 15) | ((xk) << 10) | ((xj) << 5) | (xd))
 
 // XVPERMIQ_REPL(xn): XVPERMI.Q $0x00, Xn, Xn, Xn
 // Replicates the lower 128-bit lane of Xn into its upper 128-bit lane.
@@ -149,12 +149,12 @@
 //       = x ^ ROR(x,30) ^ ROR(x,22) ^ ROR(x,14) ^ ROR(x,8)
 // Clobbers: X25 (result), X31 (temp)
 #define SM4_L_LASX() \
-	XVROTRW $2, X29, X25; \
-	XVROTRW $10, X29, X31; \
+	XVROTRW $30, X29, X25; \
+	XVROTRW $22, X29, X31; \
 	XVXORV X31, X25, X25; \
-	XVROTRW $18, X29, X31; \
+	XVROTRW $14, X29, X31; \
 	XVXORV X31, X25, X25; \
-	XVROTRW $24, X29, X31; \
+	XVROTRW $8, X29, X31; \
 	XVXORV X31, X25, X25; \
 	XVXORV X29, X25, X25
 
