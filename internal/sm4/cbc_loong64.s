@@ -101,28 +101,21 @@ cbc_round_loop:
 	XVMOVQ 0(R6), X27;  XVMOVQ 32(R6), X28
 	XVMOVQ 64(R6), X29; XVMOVQ 96(R6), X30
 
-	// Save ct[7] (X30's upper lane) to X0 as new prev_last for next batch.
-	// X30 = [ct6, ct7] → X0 = [ct7, ct7] (replicated).
-	XVPERMIQ(0, 30, 0x11)
-
 	// Build CBC XOR chain: for each output block k, XOR with ct[k-1].
-	// Construct shifted-ct pairs by rotating the XVPERMIQ chain (reverse order
-	// to preserve unmodified source registers for each step):
-	//   X30_new = [ct5, ct6]   ← pool: Xj=X29=[ct4,ct5], Xd_old=X30=[ct6,ct7]
+	// X27=[ct0,ct1], X28=[ct2,ct3], X29=[ct4,ct5], X30=[ct6,ct7], X31=[prev,prev].
+	// Save ct7 to X16 (no longer needed after deinterleave) to avoid clobbering sbox X0-X15.
+	XVPERMIQ(16, 30, 0x11)
+	// Construct shifted pairs (reverse order so each step reads original Xd_old):
+	//   X30_new = [ct5, ct6]
 	XVPERMIQ(30, 29, 0x21)
 	//   X29_new = [ct3, ct4]
 	XVPERMIQ(29, 28, 0x21)
 	//   X28_new = [ct1, ct2]
 	XVPERMIQ(28, 27, 0x21)
-	//   X27_new = [prev_last, ct0]  ← uses X31 (old prev_last)
+	//   X27_new = [prev_last, ct0]  ← uses old X31
 	XVPERMIQ(27, 31, 0x21)
-
-	// XOR decrypted blocks with CBC chain (byte-level XOR, both in BE format).
-	XVXORV X23, X27, X23; XVXORV X24, X28, X24
-	XVXORV X25, X29, X25; XVXORV X26, X30, X26
-
-	// Update X31 = new prev_last (ct[7], replicated to both lanes).
-	XVORV X0, X0, X31
+	// Update X31 = [ct7, ct7] for the next batch.
+	XVORV X16, X16, X31
 
 	// Store plaintext to dst.
 	XVMOVQ X23, 0(R5);  XVMOVQ X24, 32(R5)
