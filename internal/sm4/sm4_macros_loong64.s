@@ -149,12 +149,12 @@
 //       = x ^ ROR(x,30) ^ ROR(x,22) ^ ROR(x,14) ^ ROR(x,8)
 // Clobbers: X25 (result), X31 (temp)
 #define SM4_L_LASX() \
-	XVROTRW $2, X29, X25; \
-	XVROTRW $10, X29, X31; \
+	XVROTRW $30, X29, X25; \
+	XVROTRW $22, X29, X31; \
 	XVXORV X31, X25, X25; \
-	XVROTRW $18, X29, X31; \
+	XVROTRW $14, X29, X31; \
 	XVXORV X31, X25, X25; \
-	XVROTRW $24, X29, X31; \
+	XVROTRW $8, X29, X31; \
 	XVXORV X31, X25, X25; \
 	XVXORV X29, X25, X25
 
