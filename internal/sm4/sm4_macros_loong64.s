@@ -158,21 +158,17 @@
 	XVXORV X31, X25, X25; \
 	XVXORV X29, X25, X25
 
-// LASX_4ROUNDS(): 4 SM4 rounds with state in X16-X19 (B0-B3).
-// Each round computes: Bx ^= L(sbox(B(x+1)^B(x+2)^B(x+3)^rk))
-// R11 = round key pointer (advanced by 4 per round = 16 total).
-// R13 = GP temp for round key value.
-// X28 = T-function input, X29 = sbox output, X25 = L output, X31 = rk broadcast/L temp.
+// LASX_4ROUNDS(): DEBUG - use S-box but no L-transform (X25=X29) to isolate S-box.
 #define LASX_4ROUNDS() \
 	MOVWU (R11), R13; ADDV $4, R11; XVMOVQ R13, X31.W8; \
 	XVXORV X17, X18, X28; XVXORV X19, X28, X28; XVXORV X31, X28, X28; \
-	SM4_SBOX_LASX(); SM4_L_LASX(); XVXORV X16, X25, X16; \
+	SM4_SBOX_LASX(); XVORV X29, X29, X25; XVXORV X16, X25, X16; \
 	MOVWU (R11), R13; ADDV $4, R11; XVMOVQ R13, X31.W8; \
 	XVXORV X18, X19, X28; XVXORV X16, X28, X28; XVXORV X31, X28, X28; \
-	SM4_SBOX_LASX(); SM4_L_LASX(); XVXORV X17, X25, X17; \
+	SM4_SBOX_LASX(); XVORV X29, X29, X25; XVXORV X17, X25, X17; \
 	MOVWU (R11), R13; ADDV $4, R11; XVMOVQ R13, X31.W8; \
 	XVXORV X19, X16, X28; XVXORV X17, X28, X28; XVXORV X31, X28, X28; \
-	SM4_SBOX_LASX(); SM4_L_LASX(); XVXORV X18, X25, X18; \
+	SM4_SBOX_LASX(); XVORV X29, X29, X25; XVXORV X18, X25, X18; \
 	MOVWU (R11), R13; ADDV $4, R11; XVMOVQ R13, X31.W8; \
 	XVXORV X16, X17, X28; XVXORV X18, X28, X28; XVXORV X31, X28, X28; \
-	SM4_SBOX_LASX(); SM4_L_LASX(); XVXORV X19, X25, X19
+	SM4_SBOX_LASX(); XVORV X29, X29, X25; XVXORV X19, X25, X19
