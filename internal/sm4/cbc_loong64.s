@@ -59,9 +59,11 @@ TEXT ·decryptBlocksChain(SB), NOSPLIT, $0-64
 	MOVV $0x1F, R9; XVMOVQ R9, X22.B32
 
 	// Initialize X31 = IV replicated to both 128-bit lanes.
-	// X31 is the "previous ciphertext" for the CBC chain (updated each batch).
-	VMOVQ (R23), V31
-	XVPERMIQ_REPL(31)
+	// Use X16 as intermediate (registers 0-15 confirmed working for XVPERMIQ_REPL;
+	// X16 is re-initialized at loop start by the interleave instructions).
+	VMOVQ (R23), V16
+	XVPERMIQ_REPL(16)
+	XVORV X16, X16, X31
 
 cbc_lasx_loop:
 	// Load 8 ciphertext blocks into X23-X26.
