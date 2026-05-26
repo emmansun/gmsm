@@ -119,10 +119,10 @@ lasx_round_loop:
 	// Use X19=B3_state, X18=B2_state, X17=B1_state, X16=B0_state (reversed for output).
 	// XVILVLW grabs positions 0,1 per lane → blocks 0,2 (low) and 1,3 (high).
 	// XVILVHW grabs positions 2,3 per lane → blocks 4,6 (low) and 5,7 (high).
-	XVILVLW X18, X19, X27     // low pos: {B0.w3,B0.w2,B2.w3,B2.w2 | B1.w3,B1.w2,B3.w3,B3.w2}
-	XVILVLW X16, X17, X29     // low pos: {B0.w1,B0.w0,B2.w1,B2.w0 | B1.w1,B1.w0,B3.w1,B3.w0}
-	XVILVHW X18, X19, X28     // high pos: {B4.w3,B4.w2,B6.w3,B6.w2 | B5.w3,B5.w2,B7.w3,B7.w2}
-	XVILVHW X16, X17, X30     // high pos: {B4.w1,B4.w0,B6.w1,B6.w0 | B5.w1,B5.w0,B7.w1,B7.w0}
+	XVILVLW X19, X18, X27     // low pos: {B0.w3,B0.w2,B2.w3,B2.w2 | B1.w3,B1.w2,B3.w3,B3.w2}
+	XVILVLW X17, X16, X29     // low pos: {B0.w1,B0.w0,B2.w1,B2.w0 | B1.w1,B1.w0,B3.w1,B3.w0}
+	XVILVHW X19, X18, X28     // high pos: {B4.w3,B4.w2,B6.w3,B6.w2 | B5.w3,B5.w2,B7.w3,B7.w2}
+	XVILVHW X17, X16, X30     // high pos: {B4.w1,B4.w0,B6.w1,B6.w0 | B5.w1,B5.w0,B7.w1,B7.w0}
 	XVILVLV X27, X29, X23     // X23 = blocks 0,1: [B0.w3..B0.w0 | B1.w3..B1.w0]
 	XVILVHV X27, X29, X24     // X24 = blocks 2,3: [B2.w3..B2.w0 | B3.w3..B3.w0]
 	XVILVLV X28, X30, X25     // X25 = blocks 4,5: [B4.w3..B4.w0 | B5.w3..B5.w0]
