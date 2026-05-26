@@ -102,15 +102,16 @@
 #define XVPERMIQ(xd, xj, imm8) WORD $((0x1DFB << 18) | ((imm8) << 10) | ((xj) << 5) | (xd))
 
 // XVBITSEL(xd, xj, xk, xa): xvbitsel.v xd, xj, xk, xa (4-operand bit-select).
-// xd[i] = xa[i] ? xk[i] : xj[i]  (bit-level: 1 selects from xk, 0 selects from xj)
+// xd[i] = xa[i] ? xk[i] : xj[i]  (bit-level: 1 selects xk, 0 selects xj)
+// Opcode 0x0D200000 confirmed from QEMU source.
 #define XVBITSEL(xd, xj, xk, xa) \
-	WORD $(0x0D100000 | ((xa) << 15) | ((xk) << 10) | ((xj) << 5) | (xd))
+	WORD $(0x0D200000 | ((xa) << 15) | ((xk) << 10) | ((xj) << 5) | (xd))
 
 // SM4_SBOX_LASX(): Apply SM4 S-box to X24 (T-function input, 8x32-bit words).
 // Uses a 3-level binary MUX tree: 8 XVSHUF_B lookups + 7 XVBITSEL.V selects.
 // Each byte b is split: group = b>>5 (0-7 selects the 32-byte chunk),
 // offset = b&0x1F (lookup index within the chunk, used as XVSHUF_B key).
-// The MUX tree selects the correct chunk result using the 3 group index bits.
+// Level masks: XVSLLB $k, group, X30; XVSRAB $7, X30, X30 → 0xFF/0x00 per byte.
 // Input:  X24 = T-function input.
 // Output: X29 = S-box substituted output.
 // Pre-conditions:
@@ -124,11 +125,11 @@
 	XVSLLB $7, X23, X30; \
 	XVSRAB $7, X30, X30; \
 	XVSHUF_B(25, 8, 0, 24); \
-	XVSHUF_B(27, 9, 1, 24); \
-	XVBITSEL(25, 25, 27, 30); \
-	XVSHUF_B(27, 10, 2, 24); \
-	XVSHUF_B(31, 11, 3, 24); \
-	XVBITSEL(26, 27, 31, 30); \
+	XVSHUF_B(31, 9, 1, 24); \
+	XVBITSEL(25, 25, 31, 30); \
+	XVSHUF_B(31, 10, 2, 24); \
+	XVSHUF_B(26, 11, 3, 24); \
+	XVBITSEL(26, 31, 26, 30); \
 	XVSHUF_B(27, 12, 4, 24); \
 	XVSHUF_B(31, 13, 5, 24); \
 	XVBITSEL(27, 27, 31, 30); \
