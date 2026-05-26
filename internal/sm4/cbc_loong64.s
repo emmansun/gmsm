@@ -142,27 +142,43 @@ cbc_scalar_path:
 	MOVV $·sbox_t1(SB), ST1
 	MOVV $·sbox_t2(SB), ST2
 	MOVV $·sbox_t3(SB), ST3
-	// R23 = iv pointer (updated by LASX loop if it ran, otherwise original IV).
+	// Load IV words into R8-R9,R25-R26 (the "prev ciphertext" for CBC XOR).
+	// This avoids the in-place decryption bug where ENCRYPT_BLOCK overwrites
+	// the source block before we can use it as the next IV.
 	MOVV iv+56(FP), R23
+	MOVWU 0(R23), R8
+	MOVWU 4(R23), R9
+	MOVWU 8(R23), R25
+	MOVWU 12(R23), R26
 
 cbc_loop:
 	BEQ R7, R0, cbc_done
+	// Save current ciphertext block BEFORE ENCRYPT_BLOCK overwrites dst (in-place case).
+	MOVWU 0(R6), R27
+	MOVWU 4(R6), R28
+	MOVWU 8(R6), R29
+	MOVWU 12(R6), R30
 	ENCRYPT_BLOCK()
-	MOVWU 0(R23), TMP;  MOVWU 0(R5), T0;  XOR TMP, T0, T0;  MOVW T0, 0(R5)
-	MOVWU 4(R23), TMP;  MOVWU 4(R5), T0;  XOR TMP, T0, T0;  MOVW T0, 4(R5)
-	MOVWU 8(R23), TMP;  MOVWU 8(R5), T0;  XOR TMP, T0, T0;  MOVW T0, 8(R5)
-	MOVWU 12(R23), TMP; MOVWU 12(R5), T0; XOR TMP, T0, T0;  MOVW T0, 12(R5)
-	MOVV R6, R23
+	// XOR decrypted block with previous ciphertext (R8-R9,R25-R26).
+	MOVWU 0(R5), T0;  XOR R8,  T0, T0;  MOVW T0, 0(R5)
+	MOVWU 4(R5), T0;  XOR R9,  T0, T0;  MOVW T0, 4(R5)
+	MOVWU 8(R5), T0;  XOR R25, T0, T0;  MOVW T0, 8(R5)
+	MOVWU 12(R5), T0; XOR R26, T0, T0;  MOVW T0, 12(R5)
+	// Update prev ciphertext to the block we just processed.
+	MOVV R27, R8
+	MOVV R28, R9
+	MOVV R29, R25
+	MOVV R30, R26
 	ADDV $16, R5
 	ADDV $16, R6
 	ADDV $-16, R7
 	JMP cbc_loop
 
 cbc_done:
-	ADDV $-16, R6
+	// Save last ciphertext block to IV memory (R8-R9,R25-R26 hold the last CT).
 	MOVV iv+56(FP), R23
-	MOVWU 0(R6), TMP;  MOVW TMP, 0(R23)
-	MOVWU 4(R6), TMP;  MOVW TMP, 4(R23)
-	MOVWU 8(R6), TMP;  MOVW TMP, 8(R23)
-	MOVWU 12(R6), TMP; MOVW TMP, 12(R23)
+	MOVW R8,  0(R23)
+	MOVW R9,  4(R23)
+	MOVW R25, 8(R23)
+	MOVW R26, 12(R23)
 	RET
