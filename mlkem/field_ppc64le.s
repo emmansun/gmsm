@@ -310,32 +310,35 @@ nttmlacc_loop:
 	VSUBUWM V0, V9, V0
 
 	// Even pair sums = V_r00 + V_rg (stored in V1, reusing V1=rhs)
-	VADDUWM V4, V0, V1            // V1 = [a0b0_r+g0*a1b1_r, ...] ∈ [0, 2q)
+	VADDUWM V4, V0, V1            // V1 ∈ [0, 4q)
 	// Odd pair sums = V_r01 + V_r10 (stored in V2, reusing V2=rhs_swap)
-	VADDUWM V6, V7, V2            // V2 = [a0b1_r+a1b0_r, ...] ∈ [0, 2q)
+	VADDUWM V6, V7, V2            // V2 ∈ [0, 4q)
 
-	// fieldReduceOnce even sums (uint32: [0,4q) → [0,q))
-	// Two passes needed since sum can be up to 4q-2.
-	VSUBUWM V1, V16, V8           // V8 = V1 - q
-	VCMPGTUW V16, V1, V9          // V9 = 0xFFFF.. where q > V1 (no reduce needed)
-	VSEL    V8, V1, V9, V1        // V1 = V9? V1 : V8 → [0,3q)
+	// Barrett reduce even sums V1 → [0, 2q)
+	VMULEUW V1, V14, V8
+	VMULOUW V1, V14, V9
+	VSRD    V8, V15, V8
+	VSRD    V9, V15, V9
+	VMRGOW  V8, V9, V10
+	VMULUWM V10, V16, V9
+	VSUBUWM V1, V9, V1            // V1 ∈ [0, 2q)
+
+	// Barrett reduce odd sums V2 → [0, 2q)
+	VMULEUW V2, V14, V8
+	VMULOUW V2, V14, V9
+	VSRD    V8, V15, V8
+	VSRD    V9, V15, V9
+	VMRGOW  V8, V9, V10
+	VMULUWM V10, V16, V9
+	VSUBUWM V2, V9, V2            // V2 ∈ [0, 2q)
+
+	// Final reduce once to [0, q)
 	VSUBUWM V1, V16, V8
 	VCMPGTUW V16, V1, V9
-	VSEL    V8, V1, V9, V1        // second pass → [0,2q)
-	VSUBUWM V1, V16, V8
-	VCMPGTUW V16, V1, V9
-	VSEL    V8, V1, V9, V1        // third pass → [0,q)
-
-	// fieldReduceOnce odd sums (same)
+	VSEL    V8, V1, V9, V1
 	VSUBUWM V2, V16, V8
 	VCMPGTUW V16, V2, V9
-	VSEL    V8, V2, V9, V2        // first pass → [0,3q)
-	VSUBUWM V2, V16, V8
-	VCMPGTUW V16, V2, V9
-	VSEL    V8, V2, V9, V2        // second pass → [0,2q)
-	VSUBUWM V2, V16, V8
-	VCMPGTUW V16, V2, V9
-	VSEL    V8, V2, V9, V2        // third pass → [0,q)
+	VSEL    V8, V2, V9, V2
 
 	// Interleave even/odd sums and pack to uint16 delta (NO VPKUWUS):
 	// XXMRGHW: V0=[e0,o0,e1,o1] as 4 uint32 (pairs 0,1)
@@ -350,13 +353,16 @@ nttmlacc_loop:
 	LXVD2X (R0)(R4), VS32
 	VPERM  V0, V0, V18, V0        // V0 = acc natural order
 
-	// acc += delta (values in [0, 2q) as uint16)
-	VADDUHM V0, V13, V0
+	// acc += delta (delta ∈ [0, 2q) as uint16, acc ∈ [0, q))
+	VADDUHM V0, V13, V0           // V0 ∈ [0, 3q)
 
-	// fieldReduceOnce acc (uint16: [0,2q) → [0,q))
-	VSUBUHM V0, V17, V8           // V8 = acc - q (wraps if acc < q)
-	VCMPGTUH V17, V0, V9          // V9 = 0xFFFF where q > acc (no reduce)
-	VSEL    V8, V0, V9, V0        // V0 = V9? V0 : V8
+	// fieldReduceOnce acc: two passes to reach [0, q)
+	VSUBUHM V0, V17, V8
+	VCMPGTUH V17, V0, V9
+	VSEL    V8, V0, V9, V0        // → [0, 2q)
+	VSUBUHM V0, V17, V8
+	VCMPGTUH V17, V0, V9
+	VSEL    V8, V0, V9, V0        // → [0, q)
 
 	// Store back: apply inverse VPERM (V18 is self-inverse) then STXVD2X
 	VPERM  V0, V0, V18, V0
