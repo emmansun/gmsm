@@ -314,10 +314,10 @@ nttmlacc_loop:
 
 	// Interleave even/odd sums and pack to uint16 delta.
 	// V1=[e0,e1,e2,e3] uint32, V2=[o0,o1,o2,o3] uint32, values in [0, 2q) < 65536.
-	// VPKUWUS VT,VA,VB: VT=[VA_w0,VB_w0,VA_w1,VB_w1,...] as 8 uint16 (interleaved).
-	// V13=[e0,o0,e1,o1, e2,o2,e3,o3] as 8 uint16 (delta) in [0, 2q)
-	// WORD: (4<<26)|(13<<21)|(1<<16)|(2<<11)|334 = 0x11A1114E
-	WORD $0x11A1114E              // VPKUWUS V13, V1, V2
+	// VPKUWUS V13, V1, V2: packs VA words (V1=even) and VB words (V2=odd) interleaved
+	// into V13 as 8 uint16: [e0,o0,e1,o1, e2,o2,e3,o3] in [0, 2q)
+	// WORD: (4<<26)|(13<<21)|(1<<16)|(2<<11)|142 = 0x11A1108E
+	WORD $0x11A1108E              // VPKUWUS V13, V1, V2
 
 	// Load acc → natural order in V0
 	LXVD2X (R0)(R4), VS32
