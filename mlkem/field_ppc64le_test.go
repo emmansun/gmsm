@@ -122,3 +122,21 @@ func BenchmarkPPC64LENTTMulAcc(b *testing.B) {
 		}
 	})
 }
+
+func TestPPC64LENTTMulMatchesGeneric(t *testing.T) {
+	for i := 0; i < 200; i++ {
+		lhs := randomNTTElement()
+		rhs := randomNTTElement()
+
+		var got, want nttElement
+
+		internalNTTMulPPC64LE(&got, &lhs, &rhs)
+		nttMulGeneric(&want, &lhs, &rhs)
+
+		for j := range got {
+			if got[j] != want[j] {
+				t.Fatalf("iter=%d idx=%d: nttMul mismatch: got=%d want=%d", i, j, got[j], want[j])
+			}
+		}
+	}
+}

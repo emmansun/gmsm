@@ -229,7 +229,7 @@ func samplePolyCBD3PPC64LE(f *ringElement, buf *[192]byte)
 func rejUniformPPC64LE(buf []byte, a *nttElement, j int) int
 
 func nttMul(acc, lhs, rhs *nttElement) {
-	nttMulGeneric(acc, lhs, rhs)
+	internalNTTMulPPC64LE(acc, lhs, rhs)
 }
 
 func nttMulAcc(acc, lhs, rhs *nttElement) {

@@ -176,10 +176,89 @@ TEXT ·internalInverseNTTPPC64LE(SB), NOSPLIT, $0-8
 	MOVD f+0(FP), R4
 	RET
 
+// internalNTTMulPPC64LE(out, lhs, rhs *nttElement)
+//
+// Computes out[i] = lhs[i] * rhs[i] in NTT domain (standard Barrett).
+// Identical to nttMulAcc but without accumulation: out is zero-initialized.
+// Same register layout as internalNTTMulAccPPC64LE, minus acc load/add.
 TEXT ·internalNTTMulPPC64LE(SB), NOSPLIT, $0-24
 	MOVD out+0(FP), R4
 	MOVD lhs+8(FP), R5
 	MOVD rhs+16(FP), R6
+	MOVD $·nttGammaU32PPC64LE(SB), R7
+	MOVD $0, R0
+
+	MOVD $kBarrettConsts<>(SB), R10
+	MOVD $0, R11
+	LVX  (R11)(R10), V14
+	MOVD $16, R11
+	LVX  (R11)(R10), V15
+	MOVD $32, R11
+	LVX  (R11)(R10), V16
+	MOVD $48, R11
+	LVX  (R11)(R10), V17
+
+	MOVD $lxvNaturalOrderMask<>(SB), R10
+	LVX  (R0)(R10), V18
+	MOVD $lxvPairSwapMask<>(SB), R10
+	LVX  (R0)(R10), V19
+
+	MOVD $lxvPackU32ToU16Mask<>(SB), R10
+	LVX  (R0)(R10), V12
+
+	MOVD $32, R9
+	MOVD R9, CTR
+
+nttmul_loop:
+	LXVD2X (R0)(R5), VS32
+	VPERM  V0, V0, V18, V0
+
+	LXVD2X (R0)(R6), VS33
+	VPERM  V1, V1, V19, V2
+	VPERM  V1, V1, V18, V1
+
+	LXVD2X (R0)(R7), VS35
+
+	VMULEUH V0, V1, V4
+	VMULOUH V0, V1, V5
+	VMULEUH V0, V2, V6
+	VMULOUH V0, V2, V7
+
+	BARRETT_REDUCE_U32(V4, V8, V9, V10)
+	BARRETT_REDUCE_U32(V5, V8, V9, V10)
+	BARRETT_REDUCE_U32(V6, V8, V9, V10)
+	BARRETT_REDUCE_U32(V7, V8, V9, V10)
+
+	VMULUWM V5, V3, V0
+	BARRETT_REDUCE_U32(V0, V8, V9, V10)
+
+	VADDUWM V4, V0, V1
+	VADDUWM V6, V7, V2
+
+	BARRETT_REDUCE_U32(V1, V8, V9, V10)
+	BARRETT_REDUCE_U32(V2, V8, V9, V10)
+
+	// Interleave and pack to uint16 delta in [0, 2q)
+	XXMRGHW VS33, VS34, VS32
+	XXMRGLW VS33, VS34, VS43
+	VPERM   V0, V11, V12, V13
+
+	// Reduce delta from [0, 2q) to [0, q) before storing
+	VSUBUHM V13, V17, V8
+	VCMPGTUH V17, V13, V9
+	VSEL    V8, V13, V9, V13
+
+	// Store to out (apply inverse VPERM for STXVD2X compat)
+	VPERM  V13, V13, V18, V13
+	STXVD2X VS45, (R0)(R4)
+
+	ADD  $16, R4
+	ADD  $16, R5
+	ADD  $16, R6
+	ADD  $16, R7
+
+	BDNZ nttmul_loop
+
 	RET
 
 // internalNTTMulAccPPC64LE(acc, lhs, rhs *nttElement)
