@@ -161,32 +161,85 @@ func TestPPC64LENTTMatchesGeneric(t *testing.T) {
 	}
 }
 
-// TestPPC64LENTTLayer1 tests only L1 butterfly by comparing with a hand-traced result.
+// applyNTTL1 applies only Layer 1 of the NTT to f in-place (pure Go reference).
+func applyNTTL1(f *ringElement) {
+	// len=128, zeta=zetas[1], lo=f[0..127], hi=f[128..255]
+	zeta := zetas[1]
+	for i := 0; i < 128; i++ {
+		lo := f[i]
+		hi := f[i+128]
+		t := fieldMulGeneric(zeta, hi)
+		f[i] = barrettReduceGeneric(uint32(lo) + uint32(t))
+		f[i+128] = barrettReduceGeneric(uint32(q) + uint32(lo) - uint32(t))
+	}
+}
+
+// applyNTTL2 applies only Layer 2 of the NTT (len=64, 2 groups).
+func applyNTTL2(f *ringElement) {
+	for g, zeta := range []fieldElement{zetas[2], zetas[3]} {
+		start := g * 128
+		for i := start; i < start+64; i++ {
+			lo := f[i]
+			hi := f[i+64]
+			t := fieldMulGeneric(zeta, hi)
+			f[i] = barrettReduceGeneric(uint32(lo) + uint32(t))
+			f[i+64] = barrettReduceGeneric(uint32(q) + uint32(lo) - uint32(t))
+		}
+	}
+}
+
+func fieldMulGeneric(a, b fieldElement) fieldElement {
+	return fieldElement(uint32(a) * uint32(b) % q)
+}
+
+func barrettReduceGeneric(x uint32) fieldElement {
+	return fieldElement(x % q)
+}
+
+// TestPPC64LENTTLayerByLayer checks the NTT result after each layer.
 func TestPPC64LENTTLayerByLayer(t *testing.T) {
-	// Use a deterministic input for traceable comparison
+	// Use a deterministic input.
 	var f ringElement
 	for i := range f {
 		f[i] = fieldElement(i % 3329)
 	}
 
+	// Compute expected after L1 only.
+	l1want := f
+	applyNTTL1(&l1want)
+
+	// Run ppc64le NTT.
 	got := f
-	want := f
-
 	internalNTTPPC64LE(&got)
-	internalNTTGeneric(&want)
 
-	// Find the first layer that diverges by simulating partial NTTs.
-	// This is approximate: we compare results after applying L1 only.
-	// To isolate L1: apply L1 forward then check.
-	// For now just print the first 32 elements of got vs want.
-	for j := 0; j < 32 && j < len(got); j++ {
-		if got[j] != want[j] {
-			t.Logf("first mismatch at idx=%d: got=%d want=%d", j, got[j], want[j])
+	// Compare with full generic NTT.
+	genwant := f
+	internalNTTGeneric(&genwant)
+
+	t.Logf("After full NTT:")
+	t.Logf("  genwant[0:4]=%v", genwant[:4])
+	t.Logf("  got    [0:4]=%v", got[:4])
+	t.Logf("After L1 only (reference):")
+	t.Logf("  l1want[0:4]=%v", l1want[:4])
+
+	// If got equals l1want but not genwant, only L1 ran (subsequent layers broken).
+	// If got doesn't equal l1want, L1 itself is broken.
+	l1match := true
+	for i := range got {
+		if got[i] != l1want[i] {
+			l1match = false
+			t.Logf("  got != l1want at idx=%d: got=%d l1want=%d", i, got[i], l1want[i])
 			break
 		}
 	}
-	t.Logf("want[0:8]=%v", want[:8])
-	t.Logf("got [0:8]=%v", got[:8])
-	t.Logf("want[128:136]=%v", want[128:136])
-	t.Logf("got [128:136]=%v", got[128:136])
+	if l1match {
+		t.Log("NOTE: got matches L1-only output — subsequent layers are broken or missing")
+	}
+
+	// Compute expected after L1+L2.
+	l2want := f
+	applyNTTL1(&l2want)
+	applyNTTL2(&l2want)
+	t.Logf("After L1+L2 (reference):")
+	t.Logf("  l2want[0:4]=%v", l2want[:4])
 }
