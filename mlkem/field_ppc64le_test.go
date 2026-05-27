@@ -184,43 +184,46 @@ func barrettReduceGeneric(x uint32) fieldElement {
 
 // TestPPC64LENTTUnitInput verifies specific cases to narrow the bug.
 func TestPPC64LENTTUnitInput(t *testing.T) {
-	// Test 1: f[0]=1, all others zero. Only L1 butterfly involves element 0.
-	// After full NTT, f[0] should equal genwant[0].
-	for testIdx := 0; testIdx < 4; testIdx++ {
-		var f ringElement
-		f[testIdx] = 1
+	// Test with single nonzero element, various values
+	for testIdx := 0; testIdx < 256; testIdx++ {
+		for val := fieldElement(1); val < 3329; val += 100 {
+			var f ringElement
+			f[testIdx] = val
 
-		got := f
-		want := f
-		internalNTTPPC64LE(&got)
-		internalNTTGeneric(&want)
+			got := f
+			want := f
+			internalNTTPPC64LE(&got)
+			internalNTTGeneric(&want)
 
-		if got[testIdx] != want[testIdx] {
-			t.Logf("f[%d]=1: NTT[%d]: got=%d want=%d", testIdx, testIdx, got[testIdx], want[testIdx])
-		}
-		// Check all elements
-		for j := range got {
-			if got[j] != want[j] {
-				t.Errorf("f[%d]=1: idx=%d: got=%d want=%d", testIdx, j, got[j], want[j])
-				break
+			for j := range got {
+				if got[j] != want[j] {
+					t.Errorf("f[%d]=%d: idx=%d: got=%d want=%d", testIdx, val, j, got[j], want[j])
+					goto nextTest
+				}
 			}
+		nextTest:
 		}
 	}
 
-	// Test 2: linear input f[i]=i
-	var f ringElement
-	for i := range f {
-		f[i] = fieldElement(i)
-	}
-	got := f
-	want := f
-	internalNTTPPC64LE(&got)
-	internalNTTGeneric(&want)
-	t.Logf("Linear input: got[0:4]=%v, want[0:4]=%v", got[:4], want[:4])
-	for j := range got {
-		if got[j] != want[j] {
-			t.Errorf("linear idx=%d: got=%d want=%d", j, got[j], want[j])
-			break
+	// Test with two nonzero elements to detect interference
+	for a := 0; a < 256; a += 16 {
+		for b := a + 1; b < 256; b += 16 {
+			var f ringElement
+			f[a] = 100
+			f[b] = 200
+
+			got := f
+			want := f
+			internalNTTPPC64LE(&got)
+			internalNTTGeneric(&want)
+
+			for j := range got {
+				if got[j] != want[j] {
+					t.Errorf("f[%d]=100,f[%d]=200: idx=%d: got=%d want=%d", a, b, j, got[j], want[j])
+					goto nextPair
+				}
+			}
+		nextPair:
 		}
 	}
 }
