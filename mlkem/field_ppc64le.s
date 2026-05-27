@@ -35,9 +35,16 @@ DATA kBarrettConsts<>+0x3C(SB)/2, $3329
 DATA kBarrettConsts<>+0x3E(SB)/2, $3329
 GLOBL kBarrettConsts<>(SB), RODATA|NOPTR, $64
 
-// The LXVD2X byte-reversal mask is generated dynamically using LVSL+VXOR,
-// following the SHA512 ppc64le approach (see sha512block_ppc64x.s).
-// No static mask data needed.
+// lxvSwap16Mask: corrects byte order after LXVD2X for int16 arrays on ppc64le.
+// LXVD2X reverses bytes within each 64-bit doubleword (big-endian load).
+// For int16 elements [a0..a7] (each 2 bytes LE), after LXVD2X the register
+// (BE view) has: {a3hi,a3lo, a2hi,a2lo, a1hi,a1lo, a0hi,a0lo, a7hi,...}.
+// We need {a0hi,a0lo, a1hi,a1lo, ..., a7hi,a7lo} for correct VMX uint16 ops.
+// VPERM mask (BE register view): {6,7,4,5,2,3,0,1, 14,15,12,13,10,11,8,9}
+// Stored as LE 64-bit integers so LVX reverses into correct BE positions.
+DATA lxvSwap16Mask<>+0x00(SB)/8, $0x0E0F0C0D0A0B0809
+DATA lxvSwap16Mask<>+0x08(SB)/8, $0x0607040502030001
+GLOBL lxvSwap16Mask<>(SB), RODATA|NOPTR, $16
 
 // polyAddAssignPPC64LE(dst, src *ringElement)
 // dst[i] = barrettReduce(dst[i] + src[i]) for all 256 int16 coefficients.
@@ -46,13 +53,9 @@ TEXT ·polyAddAssignPPC64LE(SB), NOSPLIT, $0-16
 	MOVD src+8(FP), R5
 	MOVD $0, R0
 
-	// Generate LXVD2X byte-reversal mask (per-doubleword) in V20.
-	// LVSL (R8)(R0), V20 with R8=8 gives {8,9,10,11,12,13,14,15,0,1,2,3,4,5,6,7}.
-	// XOR 0x0F -> {7,6,5,4,3,2,1,0,15,14,13,12,11,10,9,8}.
-	MOVD $8, R9
-	LVSL (R9)(R0), V20
-	VSPLTISB $0x0F, V22
-	VXOR V22, V20, V20
+	// Load LXVD2X int16 correction mask into V20.
+	MOVD $lxvSwap16Mask<>(SB), R9
+	LVX  (R0)(R9), V20
 
 	MOVD $kBarrettConsts<>(SB), R6
 	MOVD $48, R7
@@ -105,10 +108,8 @@ TEXT ·polySubAssignPPC64LE(SB), NOSPLIT, $0-16
 	MOVD src+8(FP), R5
 	MOVD $0, R0
 
-	MOVD $8, R9
-	LVSL (R9)(R0), V20
-	VSPLTISB $0x0F, V22
-	VXOR V22, V20, V20
+	MOVD $lxvSwap16Mask<>(SB), R9
+	LVX  (R0)(R9), V20
 
 	MOVD $kBarrettConsts<>(SB), R6
 	MOVD $48, R7
