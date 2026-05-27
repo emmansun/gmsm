@@ -139,22 +139,28 @@ GLOBL nttL7ReinterleaveMask1<>(SB), RODATA|NOPTR, $16
 	VADDUHM  Vtmp1, Vtmp2, Vval
 
 // MUL_ZETA_U16: compute t = fieldMul(VZ, VB) for uint16 inputs → uint16 output in [0,2q).
-// Expands each element to uint32 via VMULEUH/VMULOUH, then applies fast 32-bit Barrett.
+// Expands each element to uint32 via VMULEUH/VMULOUH, then applies 64-bit Barrett.
 // VB, VZ: 8 × uint16 inputs (both in [0,q)).
 // Vt: output, 8 × uint16 in [0,2q).
-// V14=kBMul, V16=kPrime32, V12=lxvPackU32ToU16Mask (pinned).
-// Clobbers: Vtmp1, Vtmp2, Vtmp3, Vshift (4 scratch regs).
-// Note: uses VSPLTISW for the 32-bit shift constant.
-#define MUL_ZETA_U16(VB, VZ, Vt, Vtmp1, Vtmp2, Vtmp3, Vshift) \
-	VMULEUH  VB, VZ, Vtmp1;       \
-	VMULOUH  VB, VZ, Vtmp2;       \
-	VSPLTISW $24, Vshift;          \
-	VMULUWM  Vtmp1, V14, Vtmp3;   \
-	VSRW     Vtmp3, Vshift, Vtmp3; \
+// V14=kBMul32, V16=kPrime32, V12=lxvPackU32ToU16Mask (pinned).
+// Clobbers: Vtmp1, Vtmp2, Vtmp3, Vtmp4, Vshift (5 scratch regs).
+// Uses 64-bit widening multiply (VMULEUW/VMULOUW) to avoid 32-bit overflow.
+#define MUL_ZETA_U16(VB, VZ, Vt, Vtmp1, Vtmp2, Vtmp3, Vtmp4, Vshift) \
+	VMULEUH  VB, VZ, Vtmp1;        \
+	VMULOUH  VB, VZ, Vtmp2;        \
+	VSPLTISW $24, Vshift;           \
+	VMULEUW  Vtmp1, V14, Vtmp3;    \
+	VMULOUW  Vtmp1, V14, Vtmp4;    \
+	VSRD     Vtmp3, Vshift, Vtmp3; \
+	VSRD     Vtmp4, Vshift, Vtmp4; \
+	VMRGOW   Vtmp3, Vtmp4, Vtmp3; \
 	VMULUWM  Vtmp3, V16, Vtmp3;   \
 	VSUBUWM  Vtmp1, Vtmp3, Vtmp1; \
-	VMULUWM  Vtmp2, V14, Vtmp3;   \
-	VSRW     Vtmp3, Vshift, Vtmp3; \
+	VMULEUW  Vtmp2, V14, Vtmp3;    \
+	VMULOUW  Vtmp2, V14, Vtmp4;    \
+	VSRD     Vtmp3, Vshift, Vtmp3; \
+	VSRD     Vtmp4, Vshift, Vtmp4; \
+	VMRGOW   Vtmp3, Vtmp4, Vtmp3; \
 	VMULUWM  Vtmp3, V16, Vtmp3;   \
 	VSUBUWM  Vtmp2, Vtmp3, Vtmp2; \
 	VPERM    Vtmp1, Vtmp2, V12, Vt
@@ -162,9 +168,9 @@ GLOBL nttL7ReinterleaveMask1<>(SB), RODATA|NOPTR, $16
 // BUTTERFLY_U16: Cooley-Tukey butterfly.
 // VA updated to VA+t (∈ [0,q)), VB updated to VA-t+q (∈ [0,q)), where t = fieldMul(VZ,VB).
 // V17=prime16 (pinned), V12=packMask (pinned).
-// Clobbers: Vt, Vtmp1, Vtmp2, Vtmp3, Vshift (temps from MUL_ZETA_U16), Vsave.
-#define BUTTERFLY_U16(VA, VB, VZ, Vt, Vtmp1, Vtmp2, Vtmp3, Vshift, Vsave) \
-	MUL_ZETA_U16(VB, VZ, Vt, Vtmp1, Vtmp2, Vtmp3, Vshift);  \
+// Clobbers: Vt, Vtmp1, Vtmp2, Vtmp3, Vtmp4, Vshift (temps from MUL_ZETA_U16), Vsave.
+#define BUTTERFLY_U16(VA, VB, VZ, Vt, Vtmp1, Vtmp2, Vtmp3, Vtmp4, Vshift, Vsave) \
+	MUL_ZETA_U16(VB, VZ, Vt, Vtmp1, Vtmp2, Vtmp3, Vtmp4, Vshift);  \
 	FIELD_REDUCE_ONCE_U16(Vt, Vtmp1, Vtmp2);                  \
 	VADDUHM  VA, Vt, Vsave;       \
 	FIELD_REDUCE_ONCE_U16(Vsave, Vtmp1, Vtmp2);               \
@@ -330,7 +336,7 @@ ntt_l1_loop:
 	LXVD2X (R0)(R6), VS33    // load hi (8 elements, 16 bytes apart from lo)
 	VPERM  V1, V1, V18, V1
 
-	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7, V8)
+	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V11, V7, V8)
 
 	VPERM  V0, V0, V18, V0
 	STXVD2X VS32, (R0)(R4)
@@ -365,7 +371,7 @@ ntt_l2_g0_loop:
 	VPERM  V0, V0, V18, V0
 	LXVD2X (R0)(R6), VS33
 	VPERM  V1, V1, V18, V1
-	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7, V8)
+	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V11, V7, V8)
 	VPERM  V0, V0, V18, V0
 	STXVD2X VS32, (R0)(R5)
 	VPERM  V1, V1, V18, V1
@@ -390,7 +396,7 @@ ntt_l2_g1_loop:
 	VPERM  V0, V0, V18, V0
 	LXVD2X (R0)(R6), VS33
 	VPERM  V1, V1, V18, V1
-	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7, V8)
+	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V11, V7, V8)
 	VPERM  V0, V0, V18, V0
 	STXVD2X VS32, (R0)(R5)
 	VPERM  V1, V1, V18, V1
@@ -419,7 +425,7 @@ ntt_l3g0:
 	VPERM  V0, V0, V18, V0
 	LXVD2X (R0)(R6), VS33
 	VPERM  V1, V1, V18, V1
-	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7, V8)
+	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V11, V7, V8)
 	VPERM  V0, V0, V18, V0
 	STXVD2X VS32, (R0)(R5)
 	VPERM  V1, V1, V18, V1
@@ -443,7 +449,7 @@ ntt_l3g1:
 	VPERM  V0, V0, V18, V0
 	LXVD2X (R0)(R6), VS33
 	VPERM  V1, V1, V18, V1
-	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7, V8)
+	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V11, V7, V8)
 	VPERM  V0, V0, V18, V0
 	STXVD2X VS32, (R0)(R5)
 	VPERM  V1, V1, V18, V1
@@ -467,7 +473,7 @@ ntt_l3g2:
 	VPERM  V0, V0, V18, V0
 	LXVD2X (R0)(R6), VS33
 	VPERM  V1, V1, V18, V1
-	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7, V8)
+	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V11, V7, V8)
 	VPERM  V0, V0, V18, V0
 	STXVD2X VS32, (R0)(R5)
 	VPERM  V1, V1, V18, V1
@@ -491,7 +497,7 @@ ntt_l3g3:
 	VPERM  V0, V0, V18, V0
 	LXVD2X (R0)(R6), VS33
 	VPERM  V1, V1, V18, V1
-	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7, V8)
+	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V11, V7, V8)
 	VPERM  V0, V0, V18, V0
 	STXVD2X VS32, (R0)(R5)
 	VPERM  V1, V1, V18, V1
@@ -521,7 +527,7 @@ ntt_l4_outer:
 	VPERM  V0, V0, V18, V0
 	LXVD2X (R0)(R6), VS33
 	VPERM  V1, V1, V18, V1
-	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7, V8)
+	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V11, V7, V8)
 	VPERM  V0, V0, V18, V0
 	STXVD2X VS32, (R0)(R5)
 	VPERM  V1, V1, V18, V1
@@ -534,7 +540,7 @@ ntt_l4_outer:
 	VPERM  V0, V0, V18, V0
 	LXVD2X (R0)(R6), VS33
 	VPERM  V1, V1, V18, V1
-	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7, V8)
+	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V11, V7, V8)
 	VPERM  V0, V0, V18, V0
 	STXVD2X VS32, (R0)(R5)
 	VPERM  V1, V1, V18, V1
@@ -566,7 +572,7 @@ ntt_l5_loop:
 	LXVD2X (R0)(R6), VS33
 	VPERM  V1, V1, V18, V1
 
-	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7, V8)
+	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V11, V7, V8)
 
 	VPERM  V0, V0, V18, V0
 	STXVD2X VS32, (R0)(R5)
@@ -606,7 +612,7 @@ ntt_l6_loop:
 	XXPERMDI VS32, VS33, $3, VS40   // V8 = V_hi
 
 	// Butterfly: VA=V9(lo), VB=V8(hi), VZ=V2
-	BUTTERFLY_U16(V9, V8, V2, V3, V4, V5, V6, V7, V10)
+	BUTTERFLY_U16(V9, V8, V2, V3, V4, V5, V6, V11, V7, V10)
 
 	// Repack: V0=[lo[0..3], hi[0..3]], V1=[lo[4..7], hi[4..7]]
 	XXPERMDI VS41, VS40, $0, VS32   // V0 = [lo[0..3], hi[0..3]] = [a0..a7]
@@ -659,7 +665,7 @@ ntt_l7_loop:
 	VPERM  V0, V1, V11, V9    // V9 = V_hi (odd elements)
 
 	// Butterfly: VA=V8(lo=a), VB=V9(hi=b), VZ=V2
-	BUTTERFLY_U16(V8, V9, V2, V3, V4, V5, V6, V7, V10)
+	BUTTERFLY_U16(V8, V9, V2, V3, V4, V5, V6, V10, V7, V11)
 
 	// Reinterleave: V0=[e'0,o'0,...,e'3,o'3], V1=[e'4,o'4,...,e'7,o'7]
 	VPERM  V8, V9, V13, V0   // V0 = reinterleave(lo[0..3], hi[0..3])
