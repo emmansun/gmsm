@@ -140,3 +140,20 @@ func TestPPC64LENTTMulMatchesGeneric(t *testing.T) {
 		}
 	}
 }
+
+func TestPPC64LENTTMatchesGeneric(t *testing.T) {
+	for i := 0; i < 200; i++ {
+		f := randomRingElement()
+		got := f
+		want := f
+
+		internalNTTPPC64LE(&got)
+		internalNTTGeneric(&want)
+
+		for j := range got {
+			if got[j] != want[j] {
+				t.Fatalf("iter=%d idx=%d: NTT mismatch: got=%d want=%d", i, j, got[j], want[j])
+			}
+		}
+	}
+}

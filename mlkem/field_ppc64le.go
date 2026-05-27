@@ -13,26 +13,44 @@ import (
 // No runtime VMX detection needed:
 // ppc64le Linux requires minimum POWER8, which mandates VMX+VSX unconditionally.
 
-// nttTwiddleL5PrecompPPC64LE stores 8 VMX vectors (128-bit each), each as [z0×4, z1×4] (8×int16),
-// from zetas[16..31] in plain (Barrett) form.
-var nttTwiddleL5PrecompPPC64LE [64]fieldElement
+// nttTwiddleL1PrecompPPC64LE: 1 VMX vector, zeta[1] broadcast to 8 lanes.
+var nttTwiddleL1PrecompPPC64LE [8]fieldElement
+
+// nttTwiddleL2bPrecompPPC64LE: 2 VMX vectors, zeta[2] and zeta[3] each broadcast to 8 lanes.
+var nttTwiddleL2bPrecompPPC64LE [16]fieldElement
+
+// nttTwiddleL3PrecompPPC64LE: 4 VMX vectors, zeta[4..7] each broadcast to 8 lanes.
+var nttTwiddleL3PrecompPPC64LE [32]fieldElement
+
+// nttTwiddleL4bPrecompPPC64LE: 8 VMX vectors, zeta[8..15] each broadcast to 8 lanes.
+var nttTwiddleL4bPrecompPPC64LE [64]fieldElement
+
+// nttTwiddleL5PrecompPPC64LE: 16 VMX vectors, each as broadcast of one zeta,
+// from zetas[16..31]. Each vector = z broadcast to 8 lanes.
+var nttTwiddleL5PrecompPPC64LE [128]fieldElement
 
 // nttTwiddleL4PrecompPPC64LE stores 16 VMX vectors, each as [z0×2, z1×2, z2×2, z3×2],
 // from zetas[32..63] in plain (Barrett) form.
 var nttTwiddleL4PrecompPPC64LE [128]fieldElement
 
-// nttTwiddleL2PrecompPPC64LE stores 32 VMX vectors with interleaved 2-element layout,
-// from zetas[64..127] in plain (Barrett) form.
-var nttTwiddleL2PrecompPPC64LE [256]fieldElement
+// nttTwiddleL2PrecompPPC64LE stores 8 VMX vectors of 8 distinct zetas each,
+// from zetas[64..127]. Each vector = [z_{8k}..z_{8k+7}] for iter k.
+var nttTwiddleL2PrecompPPC64LE [64]fieldElement
 
-// inttTwiddleL5PrecompPPC64LE: inverse NTT zetas for layer 5 (reverse order of forward).
-var inttTwiddleL5PrecompPPC64LE [64]fieldElement
+// inttTwiddleL5PrecompPPC64LE: inverse NTT zetas for L5 (16 broadcast vectors, reverse order).
+var inttTwiddleL5PrecompPPC64LE [128]fieldElement
 
 // inttTwiddleL4PrecompPPC64LE: inverse NTT zetas for layer 4.
 var inttTwiddleL4PrecompPPC64LE [128]fieldElement
 
-// inttTwiddleL2PrecompPPC64LE: inverse NTT zetas for layer 2.
-var inttTwiddleL2PrecompPPC64LE [256]fieldElement
+// inttTwiddleL2PrecompPPC64LE: inverse NTT zetas for layer 2 (8 vecs of 8 zetas each).
+var inttTwiddleL2PrecompPPC64LE [64]fieldElement
+
+// inttTwiddleL1PrecompPPC64LE: INTT broadcast zeta tables for layers L1-L4b (reverse).
+var inttTwiddleL1PrecompPPC64LE [8]fieldElement
+var inttTwiddleL2bPrecompPPC64LE [16]fieldElement
+var inttTwiddleL3PrecompPPC64LE [32]fieldElement
+var inttTwiddleL4bPrecompPPC64LE [64]fieldElement
 
 // inverseDegreeVecPPC64LE broadcasts kInverseDegree=3303 (= 128⁻¹ mod q) for INTT final scaling.
 var inverseDegreeVecPPC64LE [8]fieldElement
@@ -48,118 +66,116 @@ var nttGammaU32PPC64LE [132]uint32
 func init() {
 	// Forward NTT twiddle tables (Barrett form: plain zeta values, not Montgomery)
 
-	// Layer 5 (len=8): 8 blocks of 2 zetas, each broadcast to 4 lanes
-	// zetas[16..31]: block i uses zetas[16+2*i] and zetas[16+2*i+1]
+	// L1 (len=128): 1 zeta broadcast
+	for i := range nttTwiddleL1PrecompPPC64LE {
+		nttTwiddleL1PrecompPPC64LE[i] = zetas[1]
+	}
+	// L2 (len=64): 2 zetas, each broadcast
+	for i := 0; i < 8; i++ {
+		nttTwiddleL2bPrecompPPC64LE[i] = zetas[2]
+		nttTwiddleL2bPrecompPPC64LE[8+i] = zetas[3]
+	}
+	// L3 (len=32): 4 zetas, each broadcast
+	for g := 0; g < 4; g++ {
+		for i := 0; i < 8; i++ {
+			nttTwiddleL3PrecompPPC64LE[g*8+i] = zetas[4+g]
+		}
+	}
+	// L4 (len=16): 8 zetas, each broadcast
+	for g := 0; g < 8; g++ {
+		for i := 0; i < 8; i++ {
+			nttTwiddleL4bPrecompPPC64LE[g*8+i] = zetas[8+g]
+		}
+	}
+
+	// Layer 5 (len=8): 16 iters, 1 group per iter, 1 zeta broadcast per iter.
+	// zetas[16..31]: iter k uses zetas[16+k] broadcast to 8 lanes.
+	for k := 0; k < 16; k++ {
+		base := k * 8
+		for i := 0; i < 8; i++ {
+			nttTwiddleL5PrecompPPC64LE[base+i] = zetas[16+k]
+		}
+	}
+
+	// Layer 6 (len=4): 16 iters, each covering 2 groups via XXPERMDI split.
+	// Twiddle for iter k = [z_a×4, z_b×4], zetas[32+2k] and zetas[32+2k+1].
+	for iter := 0; iter < 16; iter++ {
+		base := iter * 8
+		za := zetas[32+2*iter]
+		zb := zetas[32+2*iter+1]
+		for i := 0; i < 4; i++ {
+			nttTwiddleL4PrecompPPC64LE[base+i] = za
+		}
+		for i := 0; i < 4; i++ {
+			nttTwiddleL4PrecompPPC64LE[base+4+i] = zb
+		}
+	}
+
+	// Layer 2 (len=2): 8 iters, each processes 8 groups (16 elements).
+	// Twiddle vector for iter k = [z_{8k}, z_{8k+1}, ..., z_{8k+7}] (8 distinct zetas).
+	// zetas[64..127]: iter k uses zetas[64+8k..64+8k+7].
 	for block := 0; block < 8; block++ {
 		base := block * 8
-		z := 16 + block*2
-		for i := 0; i < 4; i++ {
-			nttTwiddleL5PrecompPPC64LE[base+i] = zetas[z]
-			nttTwiddleL5PrecompPPC64LE[base+4+i] = zetas[z+1]
-		}
-	}
-
-	// Layer 4 (len=16): 8 blocks of 4 zetas, each broadcast to 2 lanes
-	// zetas[32..63]: block i uses zetas[32+4*i..32+4*i+3]
-	for block := 0; block < 8; block++ {
-		base := block * 16
-		z := 32 + block*4
-		for i := 0; i < 2; i++ {
-			nttTwiddleL4PrecompPPC64LE[base+i] = zetas[z]
-			nttTwiddleL4PrecompPPC64LE[base+2+i] = zetas[z+1]
-			nttTwiddleL4PrecompPPC64LE[base+4+i] = zetas[z+2]
-			nttTwiddleL4PrecompPPC64LE[base+6+i] = zetas[z+3]
-		}
-		// second vector for this block (same 4 zetas, same layout)
-		base2 := base + 8
-		for i := 0; i < 2; i++ {
-			nttTwiddleL4PrecompPPC64LE[base2+i] = zetas[z]
-			nttTwiddleL4PrecompPPC64LE[base2+2+i] = zetas[z+1]
-			nttTwiddleL4PrecompPPC64LE[base2+4+i] = zetas[z+2]
-			nttTwiddleL4PrecompPPC64LE[base2+6+i] = zetas[z+3]
-		}
-	}
-
-	// Layer 2 (len=2): 8 blocks of 8 zetas, interleaved pairs
-	// zetas[64..127]: block i uses zetas[64+8*i..64+8*i+7]
-	for block := 0; block < 8; block++ {
-		base := block * 32
 		z := 64 + block*8
-		// Each pair of zetas fills one VMX vector (8 × int16)
-		// Layout: [z0,z0,z1,z1,z2,z2,z3,z3] then [z4,z4,z5,z5,z6,z6,z7,z7]
-		for i := 0; i < 4; i++ {
-			nttTwiddleL2PrecompPPC64LE[base+i*2] = zetas[z+i]
-			nttTwiddleL2PrecompPPC64LE[base+i*2+1] = zetas[z+i]
-		}
-		base2 := base + 8
-		for i := 0; i < 4; i++ {
-			nttTwiddleL2PrecompPPC64LE[base2+i*2] = zetas[z+4+i]
-			nttTwiddleL2PrecompPPC64LE[base2+i*2+1] = zetas[z+4+i]
-		}
-		// Repeat for the remaining 16 entries (4 more vectors, covering layer 1 len=2 within block)
-		base3 := base + 16
-		for i := 0; i < 4; i++ {
-			nttTwiddleL2PrecompPPC64LE[base3+i*2] = zetas[z+i]
-			nttTwiddleL2PrecompPPC64LE[base3+i*2+1] = zetas[z+i]
-		}
-		base4 := base + 24
-		for i := 0; i < 4; i++ {
-			nttTwiddleL2PrecompPPC64LE[base4+i*2] = zetas[z+4+i]
-			nttTwiddleL2PrecompPPC64LE[base4+i*2+1] = zetas[z+4+i]
+		for i := 0; i < 8; i++ {
+			nttTwiddleL2PrecompPPC64LE[base+i] = zetas[z+i]
 		}
 	}
 
 	// Inverse NTT twiddle tables (reverse order of forward, plain zeta values)
+
+	// INTT L5 (forward len=8, INTT reverse): 16 iters, zetas[31..16] reversed broadcast.
+	for k := 0; k < 16; k++ {
+		base := k * 8
+		for i := 0; i < 8; i++ {
+			inttTwiddleL5PrecompPPC64LE[base+i] = zetas[31-k]
+		}
+	}
+
+	// INTT L6 (forward len=4, INTT reverse): 16 iters, [za×4, zb×4], zetas[63..32] reversed.
+	for iter := 0; iter < 16; iter++ {
+		base := iter * 8
+		za := zetas[63-2*iter]
+		zb := zetas[63-2*iter-1]
+		for i := 0; i < 4; i++ {
+			inttTwiddleL4PrecompPPC64LE[base+i] = za
+		}
+		for i := 0; i < 4; i++ {
+			inttTwiddleL4PrecompPPC64LE[base+4+i] = zb
+		}
+	}
+
+	// INTT L7 (forward len=2, INTT reverse): 8 iters, zetas[127..64] reversed.
 	for block := 0; block < 8; block++ {
 		base := block * 8
-		iz := 31 - block*2
-		for i := 0; i < 4; i++ {
-			inttTwiddleL5PrecompPPC64LE[base+i] = zetas[iz]
-			inttTwiddleL5PrecompPPC64LE[base+4+i] = zetas[iz-1]
-		}
-
-		base4 := block * 16
-		iz4 := 63 - block*4
-		for i := 0; i < 2; i++ {
-			inttTwiddleL4PrecompPPC64LE[base4+i] = zetas[iz4]
-			inttTwiddleL4PrecompPPC64LE[base4+2+i] = zetas[iz4-1]
-			inttTwiddleL4PrecompPPC64LE[base4+4+i] = zetas[iz4-2]
-			inttTwiddleL4PrecompPPC64LE[base4+6+i] = zetas[iz4-3]
-		}
-		base42 := base4 + 8
-		for i := 0; i < 2; i++ {
-			inttTwiddleL4PrecompPPC64LE[base42+i] = zetas[iz4]
-			inttTwiddleL4PrecompPPC64LE[base42+2+i] = zetas[iz4-1]
-			inttTwiddleL4PrecompPPC64LE[base42+4+i] = zetas[iz4-2]
-			inttTwiddleL4PrecompPPC64LE[base42+6+i] = zetas[iz4-3]
-		}
-
-		base2 := block * 32
 		iz2 := 127 - block*8
-		for i := 0; i < 4; i++ {
-			inttTwiddleL2PrecompPPC64LE[base2+i*2] = zetas[iz2-i]
-			inttTwiddleL2PrecompPPC64LE[base2+i*2+1] = zetas[iz2-i]
-		}
-		base22 := base2 + 8
-		for i := 0; i < 4; i++ {
-			inttTwiddleL2PrecompPPC64LE[base22+i*2] = zetas[iz2-4-i]
-			inttTwiddleL2PrecompPPC64LE[base22+i*2+1] = zetas[iz2-4-i]
-		}
-		base23 := base2 + 16
-		for i := 0; i < 4; i++ {
-			inttTwiddleL2PrecompPPC64LE[base23+i*2] = zetas[iz2-i]
-			inttTwiddleL2PrecompPPC64LE[base23+i*2+1] = zetas[iz2-i]
-		}
-		base24 := base2 + 24
-		for i := 0; i < 4; i++ {
-			inttTwiddleL2PrecompPPC64LE[base24+i*2] = zetas[iz2-4-i]
-			inttTwiddleL2PrecompPPC64LE[base24+i*2+1] = zetas[iz2-4-i]
+		for i := 0; i < 8; i++ {
+			inttTwiddleL2PrecompPPC64LE[base+i] = zetas[iz2-i]
 		}
 	}
 
 	// INTT final scaling: 3303 = 128⁻¹ mod q
 	for i := range inverseDegreeVecPPC64LE {
 		inverseDegreeVecPPC64LE[i] = 3303
+	}
+
+	// INTT broadcast tables for L1b-L4b (reverse order)
+	for i := range inttTwiddleL1PrecompPPC64LE {
+		inttTwiddleL1PrecompPPC64LE[i] = zetas[1]
+	}
+	for i := 0; i < 8; i++ {
+		inttTwiddleL2bPrecompPPC64LE[i] = zetas[3]
+		inttTwiddleL2bPrecompPPC64LE[8+i] = zetas[2]
+	}
+	for g := 0; g < 4; g++ {
+		for i := 0; i < 8; i++ {
+			inttTwiddleL3PrecompPPC64LE[g*8+i] = zetas[7-g]
+		}
+	}
+	for g := 0; g < 8; g++ {
+		for i := 0; i < 8; i++ {
+			inttTwiddleL4bPrecompPPC64LE[g*8+i] = zetas[15-g]
+		}
 	}
 
 	// nttGammaU32PPC64LE: gammas for Barrett nttMulAcc as uint32, stored for LXVD2X.
@@ -237,7 +253,7 @@ func nttMulAcc(acc, lhs, rhs *nttElement) {
 }
 
 func internalNTT(f *ringElement) {
-	internalNTTGeneric(f)
+	internalNTTPPC64LE(f)
 }
 
 func internalInverseNTT(f *nttElement) {
