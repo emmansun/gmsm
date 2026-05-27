@@ -193,9 +193,6 @@ func internalNTTMulPPC64LE(out, lhs, rhs *nttElement)
 func internalNTTMulAccPPC64LE(acc, lhs, rhs *nttElement)
 
 //go:noescape
-func internalNTTMulAccKeyGenPPC64LE(acc, lhs, rhs *nttElement)
-
-//go:noescape
 func ringCompressAndEncode1PPC64LE(out []byte, f *ringElement)
 
 //go:noescape
@@ -248,7 +245,7 @@ func internalInverseNTT(f *nttElement) {
 }
 
 func nttMulAccKeyGen(acc, lhs, rhs *nttElement) {
-	internalNTTMulAccKeyGenPPC64LE(acc, lhs, rhs)
+	internalNTTMulAccPPC64LE(acc, lhs, rhs)
 }
 
 func decodeAndDecompressU10(dst []ringElement, c []byte) {

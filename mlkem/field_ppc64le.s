@@ -88,6 +88,7 @@ TEXT ·polyAddAssignPPC64LE(SB), NOSPLIT, $0-16
 
 	MOVD $16, R8
 	MOVD $16, R6   // loop counter: 16 iters × 32 bytes = 512 bytes
+	MOVD R6, CTR
 
 poly_add_loop:
 	LXVD2X (R0)(R4), VS32   // V0 = dst[i..i+7]
@@ -113,9 +114,7 @@ poly_add_loop:
 
 	ADD  $32, R4
 	ADD  $32, R5
-	SUB  $1, R6
-	CMP  R6, $0
-	BNE  poly_add_loop
+	BDNZ poly_add_loop
 
 	RET
 
@@ -132,6 +131,7 @@ TEXT ·polySubAssignPPC64LE(SB), NOSPLIT, $0-16
 
 	MOVD $16, R8
 	MOVD $16, R6
+	MOVD R6, CTR
 
 poly_sub_loop:
 	LXVD2X (R0)(R4), VS32
@@ -158,9 +158,7 @@ poly_sub_loop:
 
 	ADD  $32, R4
 	ADD  $32, R5
-	SUB  $1, R6
-	CMP  R6, $0
-	BNE  poly_sub_loop
+	BDNZ poly_sub_loop
 
 	RET
 
@@ -236,6 +234,7 @@ TEXT ·internalNTTMulAccPPC64LE(SB), NOSPLIT, $0-24
 	LVX  (R0)(R10), V12           // V12 = pack uint32→uint16 VPERM mask (pinned)
 
 	MOVD $32, R9                  // loop counter (32 iterations × 16 bytes = 512 bytes)
+	MOVD R9, CTR
 
 nttmlacc_loop:
 	// Load lhs → natural uint16 order in V0
@@ -374,15 +373,9 @@ nttmlacc_loop:
 	ADD  $16, R6                  // rhs: next 8 coefficients
 	ADD  $16, R7                  // gamma: 4 uint32 = 16 bytes per iteration
 
-	SUB  $1, R9
-	CMP  R9, $0
-	BNE  nttmlacc_loop
+	BDNZ nttmlacc_loop
 
 	RET
-
-// internalNTTMulAccKeyGenPPC64LE uses the same Barrett arithmetic as internalNTTMulAccPPC64LE.
-TEXT ·internalNTTMulAccKeyGenPPC64LE(SB), NOSPLIT, $0-24
-	JMP ·internalNTTMulAccPPC64LE(SB)
 
 TEXT ·ringCompressAndEncode1PPC64LE(SB), NOSPLIT, $0-32
 	MOVD out_base+0(FP), R4
