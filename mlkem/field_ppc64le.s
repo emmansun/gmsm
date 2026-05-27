@@ -256,38 +256,38 @@ nttmlacc_loop:
 	VMULOUH V0, V2, V7            // V7 = [a1b0, a3b2, a5b4, a7b6] (odd×swap_odd)
 
 	// Barrett reduce V4 → V_r00 ∈ [0, 2q)
-	VMULOUW V8, V4, V14
-	VMULEUW V9, V4, V14
-	VSRD    V8, V15, V8
-	VSRD    V9, V15, V9
-	VMRGOW  V9, V8, V10
-	VMULUWM V10, V16, V9
+	VMULEUW V4, V14, V8    // V8 = even words of V4 × kBMul (64-bit products)
+	VMULOUW V4, V14, V9    // V9 = odd words of V4 × kBMul (64-bit products)
+	VSRD    V8, V15, V8    // V8 = [0,q0,0,q2] after >>24
+	VSRD    V9, V15, V9    // V9 = [0,q1,0,q3] after >>24
+	VMRGOW  V8, V9, V10   // V10 = [q0,q1,q2,q3] (even-source first)
+	VMULUWM V10, V16, V9   // V9 = quotient * prime
 	VSUBUWM V4, V9, V4
 
 	// Barrett reduce V5 → V_r11 ∈ [0, 2q)
-	VMULOUW V8, V5, V14
-	VMULEUW V9, V5, V14
+	VMULEUW V5, V14, V8
+	VMULOUW V5, V14, V9
 	VSRD    V8, V15, V8
 	VSRD    V9, V15, V9
-	VMRGOW  V9, V8, V10
+	VMRGOW  V8, V9, V10
 	VMULUWM V10, V16, V9
 	VSUBUWM V5, V9, V5
 
 	// Barrett reduce V6 → V_r01 ∈ [0, 2q)
-	VMULOUW V8, V6, V14
-	VMULEUW V9, V6, V14
+	VMULEUW V6, V14, V8
+	VMULOUW V6, V14, V9
 	VSRD    V8, V15, V8
 	VSRD    V9, V15, V9
-	VMRGOW  V9, V8, V10
+	VMRGOW  V8, V9, V10
 	VMULUWM V10, V16, V9
 	VSUBUWM V6, V9, V6
 
 	// Barrett reduce V7 → V_r10 ∈ [0, 2q)
-	VMULOUW V8, V7, V14
-	VMULEUW V9, V7, V14
+	VMULEUW V7, V14, V8
+	VMULOUW V7, V14, V9
 	VSRD    V8, V15, V8
 	VSRD    V9, V15, V9
-	VMRGOW  V9, V8, V10
+	VMRGOW  V8, V9, V10
 	VMULUWM V10, V16, V9
 	VSUBUWM V7, V9, V7
 
@@ -298,11 +298,11 @@ nttmlacc_loop:
 	VMULUWM V5, V3, V0            // V0 = [a1b1_r*g0, a3b3_r*g1, a5b5_r*g2, a7b7_r*g3]
 
 	// Barrett reduce V0 (gamma products) → V_rg ∈ [0, 2q)
-	VMULOUW V8, V0, V14
-	VMULEUW V9, V0, V14
+	VMULEUW V0, V14, V8
+	VMULOUW V0, V14, V9
 	VSRD    V8, V15, V8
 	VSRD    V9, V15, V9
-	VMRGOW  V9, V8, V10
+	VMRGOW  V8, V9, V10
 	VMULUWM V10, V16, V9
 	VSUBUWM V0, V9, V0
 
