@@ -60,6 +60,18 @@ DATA lxvPackU32ToU16Mask<>+0x00(SB)/8, $0x121316171A1B1E1F
 DATA lxvPackU32ToU16Mask<>+0x08(SB)/8, $0x020306070A0B0E0F
 GLOBL lxvPackU32ToU16Mask<>(SB), RODATA|NOPTR, $16
 
+// BARRETT_REDUCE_U32(Vin, V14, V15, V16, Vtmp1, Vtmp2, Vtmp3) - Barrett reduce Vin to [0,2q)
+// V14=kBMul={5039x4}, V15=kShift={24,24}uint64, V16=kPrime32={3329x4}
+// Vtmp1, Vtmp2, Vtmp3 are scratch registers
+#define BARRETT_REDUCE_U32(Vin, Vtmp1, Vtmp2, Vtmp3) \
+	VMULEUW Vin, V14, Vtmp1; \
+	VMULOUW Vin, V14, Vtmp2; \
+	VSRD    Vtmp1, V15, Vtmp1; \
+	VSRD    Vtmp2, V15, Vtmp2; \
+	VMRGOW  Vtmp1, Vtmp2, Vtmp3; \
+	VMULUWM Vtmp3, V16, Vtmp2; \
+	VSUBUWM Vin, Vtmp2, Vin
+
 // polyAddAssignPPC64LE(dst, src *ringElement)
 // dst[i] = barrettReduce(dst[i] + src[i]) for all 256 int16 coefficients.
 // LXVD2X on ppc64le reverses bytes within each 8-byte group. Since STXVD2X
@@ -250,40 +262,16 @@ nttmlacc_loop:
 	VMULOUH V0, V2, V7            // V7 = [a1b0, a3b2, a5b4, a7b6] (odd×swap_odd)
 
 	// Barrett reduce V4 → V_r00 ∈ [0, 2q)
-	VMULEUW V4, V14, V8    // V8 = even words of V4 × kBMul (64-bit products)
-	VMULOUW V4, V14, V9    // V9 = odd words of V4 × kBMul (64-bit products)
-	VSRD    V8, V15, V8    // V8 = [0,q0,0,q2] after >>24
-	VSRD    V9, V15, V9    // V9 = [0,q1,0,q3] after >>24
-	VMRGOW  V8, V9, V10   // V10 = [q0,q1,q2,q3] (even-source first)
-	VMULUWM V10, V16, V9   // V9 = quotient * prime
-	VSUBUWM V4, V9, V4
+	BARRETT_REDUCE_U32(V4, V8, V9, V10)
 
 	// Barrett reduce V5 → V_r11 ∈ [0, 2q)
-	VMULEUW V5, V14, V8
-	VMULOUW V5, V14, V9
-	VSRD    V8, V15, V8
-	VSRD    V9, V15, V9
-	VMRGOW  V8, V9, V10
-	VMULUWM V10, V16, V9
-	VSUBUWM V5, V9, V5
+	BARRETT_REDUCE_U32(V5, V8, V9, V10)
 
 	// Barrett reduce V6 → V_r01 ∈ [0, 2q)
-	VMULEUW V6, V14, V8
-	VMULOUW V6, V14, V9
-	VSRD    V8, V15, V8
-	VSRD    V9, V15, V9
-	VMRGOW  V8, V9, V10
-	VMULUWM V10, V16, V9
-	VSUBUWM V6, V9, V6
+	BARRETT_REDUCE_U32(V6, V8, V9, V10)
 
 	// Barrett reduce V7 → V_r10 ∈ [0, 2q)
-	VMULEUW V7, V14, V8
-	VMULOUW V7, V14, V9
-	VSRD    V8, V15, V8
-	VSRD    V9, V15, V9
-	VMRGOW  V8, V9, V10
-	VMULUWM V10, V16, V9
-	VSUBUWM V7, V9, V7
+	BARRETT_REDUCE_U32(V7, V8, V9, V10)
 
 	// Gamma multiplication: VMULUWM(r11_reduced, gamma_u32) → 4 uint32 products.
 	// V5 = [a1b1_r, a3b3_r, a5b5_r, a7b7_r] as 4 uint32 ∈ [0,q)
@@ -292,13 +280,7 @@ nttmlacc_loop:
 	VMULUWM V5, V3, V0            // V0 = [a1b1_r*g0, a3b3_r*g1, a5b5_r*g2, a7b7_r*g3]
 
 	// Barrett reduce V0 (gamma products) → V_rg ∈ [0, 2q)
-	VMULEUW V0, V14, V8
-	VMULOUW V0, V14, V9
-	VSRD    V8, V15, V8
-	VSRD    V9, V15, V9
-	VMRGOW  V8, V9, V10
-	VMULUWM V10, V16, V9
-	VSUBUWM V0, V9, V0
+	BARRETT_REDUCE_U32(V0, V8, V9, V10)
 
 	// Even pair sums = V_r00 + V_rg (stored in V1, reusing V1=rhs)
 	VADDUWM V4, V0, V1            // V1 ∈ [0, 4q)
@@ -306,22 +288,10 @@ nttmlacc_loop:
 	VADDUWM V6, V7, V2            // V2 ∈ [0, 4q)
 
 	// Barrett reduce even sums V1 → [0, 2q)
-	VMULEUW V1, V14, V8
-	VMULOUW V1, V14, V9
-	VSRD    V8, V15, V8
-	VSRD    V9, V15, V9
-	VMRGOW  V8, V9, V10
-	VMULUWM V10, V16, V9
-	VSUBUWM V1, V9, V1            // V1 ∈ [0, 2q)
+	BARRETT_REDUCE_U32(V1, V8, V9, V10)
 
 	// Barrett reduce odd sums V2 → [0, 2q)
-	VMULEUW V2, V14, V8
-	VMULOUW V2, V14, V9
-	VSRD    V8, V15, V8
-	VSRD    V9, V15, V9
-	VMRGOW  V8, V9, V10
-	VMULUWM V10, V16, V9
-	VSUBUWM V2, V9, V2            // V2 ∈ [0, 2q)
+	BARRETT_REDUCE_U32(V2, V8, V9, V10)
 
 	// Interleave even/odd sums and pack to uint16 delta.
 	// V1=[e0,e1,e2,e3] uint32, V2=[o0,o1,o2,o3] uint32, values in [0, 2q) < 65536.
