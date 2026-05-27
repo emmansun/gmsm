@@ -36,12 +36,17 @@ DATA kBarrettConsts<>+0x3E(SB)/2, $3329
 GLOBL kBarrettConsts<>(SB), RODATA|NOPTR, $64
 
 // lxvPermMask: byte-swap correction for LXVD2X on ppc64le.
-// LXVD2X swaps bytes within each 64-bit doubleword. The mask below,
-// used with VPERM, restores little-endian int16 element order by
-// swapping bytes within each 16-bit lane.
-// Permutation bytes: {1,0,3,2,5,4,7,6, 9,8,11,10,13,12,15,14}
-DATA lxvPermMask<>+0x00(SB)/8, $0x0100030205040706
-DATA lxvPermMask<>+0x08(SB)/8, $0x09080B0A0D0C0F0E
+// LXVD2X loads a 16-byte vector treating it as two 64-bit big-endian words,
+// reversing byte order within each 8-byte group on little-endian systems.
+// For int16 elements [a0,a1,a2,a3,...,a7] (each 2 bytes LE) in a 16-byte block:
+//   memory: a0lo,a0hi, a1lo,a1hi, a2lo,a2hi, a3lo,a3hi, a4lo,a4hi,...
+//   register (BE view): a3hi,a3lo,a2hi,a2lo,a1hi,a1lo,a0hi,a0lo, ...
+// To restore natural order, VPERM with mask that selects:
+//   out[0]=src[7]=a0lo, out[1]=src[6]=a0hi, out[2]=src[5]=a1lo, ...
+// Mask BE register bytes: {7,6,5,4,3,2,1,0, 15,14,13,12,11,10,9,8}
+// These are stored as LE 64-bit integers so LVX reverses them into the right BE register positions.
+DATA lxvPermMask<>+0x00(SB)/8, $0x0706050403020100
+DATA lxvPermMask<>+0x08(SB)/8, $0x0F0E0D0C0B0A0908
 GLOBL lxvPermMask<>(SB), RODATA|NOPTR, $16
 
 // polyAddAssignPPC64LE(dst, src *ringElement)
@@ -71,15 +76,19 @@ poly_add_loop:
 	LXVD2X (R8)(R5), V3
 	VPERM  V3, V3, V20, V3
 
-	VADDUHM V0, V0, V2
-	VADDUHM V1, V1, V3
+	// V0 = V0 + V2; V1 = V1 + V3
+	VADDUHM V0, V2, V0
+	VADDUHM V1, V3, V1
 
-	VSUBUHM V4, V0, V21
-	VSUBUHM V5, V1, V21
-	VCMPGTUH V6, V21, V4
-	VCMPGTUH V7, V21, V5
-	VSEL    V0, V4, V0, V6
-	VSEL    V1, V5, V1, V7
+	// V4 = V0 - q; V5 = V1 - q
+	VSUBUHM V0, V21, V4
+	VSUBUHM V1, V21, V5
+	// V6[i] = 0xFFFF if q > V4[i], meaning V0[i] < q (underflow), keep V0
+	VCMPGTUH V21, V4, V6
+	VCMPGTUH V21, V5, V7
+	// V0 = V6[i] ? V0[i] : V4[i]
+	VSEL V4, V0, V6, V0
+	VSEL V5, V1, V7, V1
 
 	VPERM  V0, V0, V20, V4
 	STXVD2X V4, (R0)(R4)
@@ -121,17 +130,24 @@ poly_sub_loop:
 	LXVD2X (R8)(R5), V3
 	VPERM  V3, V3, V20, V3
 
-	VADDUHM V0, V0, V21
-	VSUBUHM V0, V0, V2
-	VADDUHM V1, V1, V21
-	VSUBUHM V1, V1, V3
+	// V0 = V0 + q - V2; V1 = V1 + q - V3
+	VADDUHM V0, V21, V0
+	VSUBUHM V0, V2, V0
+	VADDUHM V1, V21, V1
+	VSUBUHM V1, V3, V1
 
-	VSUBUHM V4, V0, V21
-	VSUBUHM V5, V1, V21
-	VCMPGTUH V6, V21, V4
-	VCMPGTUH V7, V21, V5
-	VSEL    V0, V4, V0, V6
-	VSEL    V1, V5, V1, V7
+	// Conditional reduce
+	VSUBUHM V0, V21, V4
+	VSUBUHM V1, V21, V5
+	VCMPGTUH V21, V4, V6
+	VCMPGTUH V21, V5, V7
+	VSEL V4, V0, V6, V0
+	VSEL V5, V1, V7, V1
+
+	VPERM  V0, V0, V20, V4
+	STXVD2X V4, (R0)(R4)
+	VPERM  V1, V1, V20, V4
+	STXVD2X V4, (R8)(R4)
 
 	VPERM  V0, V0, V20, V4
 	STXVD2X V4, (R0)(R4)
