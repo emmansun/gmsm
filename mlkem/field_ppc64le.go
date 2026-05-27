@@ -37,12 +37,13 @@ var inttTwiddleL2PrecompPPC64LE [256]fieldElement
 // inverseDegreeVecPPC64LE broadcasts kInverseDegree=3303 (= 128⁻¹ mod q) for INTT final scaling.
 var inverseDegreeVecPPC64LE [8]fieldElement
 
-// nttGammaPPC64LE stores gammas[0..127] for Barrett nttMulAcc.
-// Each group of 4 gammas is stored in reversed order so that LXVD2X
-// (which reverses bytes within each 8-byte group) loads them in natural order.
-// Layout: [g3,g2,g1,g0, g7,g6,g5,g4, ...] as uint16 LE.
+// nttGammaU32PPC64LE stores gammas[0..127] as uint32 for Barrett nttMulAcc.
+// Each group of 4 gammas (processed per VMX iteration) is stored as [g1,g0,g3,g2]
+// in LE uint32 format. LXVD2X (reverses within each 8-byte group) then loads
+// them as [g0,g1,g2,g3] as 4 uint32 for direct VMULUWM multiplication.
 // Extra 16 bytes of padding prevent out-of-bounds reads at the last iteration.
-var nttGammaPPC64LE [144]fieldElement
+// (128 gammas × 4 bytes each = 512 bytes + 16 = 128 + 4 elements = 132 uint32)
+var nttGammaU32PPC64LE [132]uint32
 
 func init() {
 	// Forward NTT twiddle tables (Barrett form: plain zeta values, not Montgomery)
@@ -161,13 +162,15 @@ func init() {
 		inverseDegreeVecPPC64LE[i] = 3303
 	}
 
-	// nttGammaPPC64LE: gammas for Barrett nttMulAcc, stored reversed per group of 4
-	// so LXVD2X loads them in natural order (each 8-byte group byte-reverses).
-	for i := 0; i < 128; i += 4 {
-		nttGammaPPC64LE[i+0] = gammas[i+3]
-		nttGammaPPC64LE[i+1] = gammas[i+2]
-		nttGammaPPC64LE[i+2] = gammas[i+1]
-		nttGammaPPC64LE[i+3] = gammas[i+0]
+	// nttGammaU32PPC64LE: gammas for Barrett nttMulAcc as uint32, stored for LXVD2X.
+	// Each 8-byte group (2 uint32) is stored in reversed pair order:
+	// [g1,g0, g3,g2] as LE uint32 → LXVD2X byte-reversal gives [g0,g1,g2,g3] as uint32. ✓
+	for i := 0; i < 32; i++ {
+		base := i * 4
+		nttGammaU32PPC64LE[4*i+0] = uint32(gammas[base+1]) // g1 in first position of pair
+		nttGammaU32PPC64LE[4*i+1] = uint32(gammas[base+0]) // g0 in second position
+		nttGammaU32PPC64LE[4*i+2] = uint32(gammas[base+3]) // g3 in first position of pair
+		nttGammaU32PPC64LE[4*i+3] = uint32(gammas[base+2]) // g2 in second position
 	}
 }
 

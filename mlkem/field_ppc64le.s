@@ -197,7 +197,7 @@ TEXT ·internalNTTMulAccPPC64LE(SB), NOSPLIT, $0-24
 	MOVD acc+0(FP), R4
 	MOVD lhs+8(FP), R5
 	MOVD rhs+16(FP), R6
-	MOVD $·nttGammaPPC64LE(SB), R7
+	MOVD $·nttGammaU32PPC64LE(SB), R7
 	MOVD $0, R0
 
 	// Load pinned constants
@@ -228,9 +228,10 @@ nttmlacc_loop:
 	VPERM  V1, V1, V19, V2        // V2 = rhs pair-swapped (from raw V1)
 	VPERM  V1, V1, V18, V1        // V1 = rhs natural order
 
-	// Load gamma: [g_{4j}..g_{4j+7}] as 8 uint16 in natural order
-	// (Table stores gammas reversed per group of 4 for LXVD2X)
-	LXVD2X (R0)(R7), VS35         // V3 = [g0,g1,...,g7]
+	// Load gamma: 4 uint32 values [g_{4j},g_{4j+1},g_{4j+2},g_{4j+3}].
+	// nttGammaU32PPC64LE stores [g1,g0,g3,g2] as LE uint32 per group.
+	// LXVD2X byte-reversal within each 8-byte group gives [g0,g1,g2,g3]. ✓
+	LXVD2X (R0)(R7), VS35         // V3 = [g0,g1,g2,g3] as 4 uint32
 
 	// Compute 4 pair products (each yields 4 uint32)
 	VMULEUH V0, V1, V4            // V4 = [a0b0, a2b2, a4b4, a6b6] (even×even)
@@ -274,21 +275,11 @@ nttmlacc_loop:
 	VMULUWM V10, V16, V9
 	VSUBUWM V7, V9, V7
 
-	// Pack V5 (V_r11, 4 uint32) into V11 (8 uint16, values in slots 0-3):
-	// VPKUWUS V11, V5, V0 → V11[0..3]=trunc(V5[0..3]), V11[4..7]=trunc(V0[0..3])=0
-	VSPLTISB $0, V0
-	WORD $(0x1000014E | (11<<21) | (5<<16) | (0<<11))  // VPKUWUS V11, V5, V0
-
-	// Gamma multiplication: multiply r11_packed by gamma values
-	// VMULEUH takes even slots (0,2,4,6): [a1b1_r*g0, a5b5_r*g2, 0*g4, 0*g6]
-	VMULEUH V11, V3, V12
-	// VMULOUH takes odd slots  (1,3,5,7): [a3b3_r*g1, a7b7_r*g3, 0*g5, 0*g7]
-	VMULOUH V11, V3, V13
-
-	// Combine: XXMRGHW merges words 0,1 from V12 and V13:
-	// V0 = [V12[0]=pair0_raw, V13[0]=pair1_raw, V12[1]=pair2_raw, V13[1]=pair3_raw]
-	// VS44=V12, VS45=V13, VS32=V0 (last=destination)
-	XXMRGHW VS44, VS45, VS32
+	// Gamma multiplication: VMULUWM(r11_reduced, gamma_u32) → 4 uint32 products.
+	// V5 = [a1b1_r, a3b3_r, a5b5_r, a7b7_r] as 4 uint32 ∈ [0,q)
+	// V3 = [g0,g1,g2,g3] as 4 uint32 ∈ [0,q)
+	// Product < q² < 2^24 → fits in uint32. No packing needed.
+	VMULUWM V5, V3, V0            // V0 = [a1b1_r*g0, a3b3_r*g1, a5b5_r*g2, a7b7_r*g3]
 
 	// Barrett reduce V0 (gamma products) → V_rg ∈ [0, 2q)
 	VMULOUW V8, V0, V14
@@ -321,7 +312,9 @@ nttmlacc_loop:
 	XXMRGLW VS33, VS34, VS43      // VS43=V11
 
 	// VPKUWUS V12, V0, V11 → V12 = [e0,o0,e1,o1, e2,o2,e3,o3] as 8 uint16
-	WORD $(0x1000014E | (12<<21) | (0<<16) | (11<<11))  // VPKUWUS V12, V0, V11
+	// VPKUWUS (VX-form): Op=4, XO=334, encoding = 0x10000000|(VD<<21)|(VA<<16)|(VB<<11)|(334<<1)
+	// Base = 0x1000029C (not 0x1000014E which would be VPKUHUS!)
+	WORD $(0x1000029C | (12<<21) | (0<<16) | (11<<11))  // VPKUWUS V12, V0, V11
 
 	// Load acc → natural order in V0
 	LXVD2X (R0)(R4), VS32
@@ -343,7 +336,7 @@ nttmlacc_loop:
 	ADD  $16, R4                  // acc: next 8 coefficients
 	ADD  $16, R5                  // lhs: next 8 coefficients
 	ADD  $16, R6                  // rhs: next 8 coefficients
-	ADD  $8, R7                   // gamma: 4 uint16 = 8 bytes per iteration
+	ADD  $16, R7                  // gamma: 4 uint32 = 16 bytes per iteration
 
 	SUB  $1, R9
 	CMP  R9, $0

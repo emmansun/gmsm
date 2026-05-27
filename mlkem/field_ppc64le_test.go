@@ -74,3 +74,51 @@ func TestPPC64LENTTMulAccMatchesGeneric(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkPPC64LEPolyAdd(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		dst := randomRingElement()
+		src := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			d := dst
+			polyAddAssignGeneric(&d, &src)
+		}
+	})
+	b.Run("PPC64LE", func(b *testing.B) {
+		dst := randomRingElement()
+		src := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			d := dst
+			polyAddAssignPPC64LE(&d, &src)
+		}
+	})
+}
+
+func BenchmarkPPC64LENTTMulAcc(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		lhs := randomNTTElement()
+		rhs := randomNTTElement()
+		acc := randomNTTElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			a := acc
+			nttMulAccGeneric(&a, &lhs, &rhs)
+		}
+	})
+	b.Run("PPC64LE", func(b *testing.B) {
+		lhs := randomNTTElement()
+		rhs := randomNTTElement()
+		acc := randomNTTElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			a := acc
+			internalNTTMulAccPPC64LE(&a, &lhs, &rhs)
+		}
+	})
+}
