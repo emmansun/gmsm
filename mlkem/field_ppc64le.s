@@ -639,8 +639,8 @@ ntt_l6_loop:
 	MOVD R4, R5
 
 	// Load masks for deinterleave/reinterleave
-	MOVD $nttL6L7DeinterleaveMaskHi<>(SB), R12
-	LVX  (R0)(R12), V11       // V11 = hi deinterleave mask
+	MOVD $nttL6L7DeinterleaveMaskHi<>(SB), R7
+	LVX  (R0)(R7), V11        // V11 = hi deinterleave mask (reloaded each iter)
 	MOVD $nttL7ReinterleaveMask0<>(SB), R12
 	LVX  (R0)(R12), V13       // V13 = reinterleave mask 0 (first 8 elems)
 	MOVD $nttL7ReinterleaveMask1<>(SB), R12
@@ -649,6 +649,9 @@ ntt_l6_loop:
 	MOVD $16, R9
 	MOVD R9, CTR
 ntt_l7_loop:
+	// Reload V11 hi-deinterleave mask (V11 is used as Vsave inside BUTTERFLY_U16)
+	LVX  (R0)(R7), V11
+
 	// Load twiddle [z0..z7] into V2
 	LXVD2X (R11)(R10), VS34
 	VPERM  V2, V2, V18, V2
