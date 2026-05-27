@@ -64,60 +64,48 @@ GLOBL lxvPackU32ToU16Mask<>(SB), RODATA|NOPTR, $16
 
 // ---- NTT twiddle masks ----
 //
-// nttL6L7DeinterleaveMaskLo: VPERM mask to extract EVEN elements (lo) from V0+V1 for L7 (len=2).
-// V0=[e0,e1,e2,e3,e4,e5,e6,e7], V1=[e8..e15] (sequential, natural order after LXVD2X+VPERM).
-// For L7, group k: lo=e_{2k}, hi=e_{2k+1}.
-// lo result (8 elements) = {e0,e2,e4,e6, e8,e10,e12,e14}.
-// Desired BE byte indices: {0,1,4,5, 8,9,12,13, 16,17,20,21, 24,25,28,29}
-// Memory (LVX reverses all 16 bytes): {29,28,25,24, 21,20,17,16, 13,12,9,8, 5,4,1,0}
-//   = {1D,1C,19,18, 15,14,11,10, 0D,0C,09,08, 05,04,01,00}
-// As two LE uint64: bytes[0..7]=1D1C191815141110->0x1011141518191C1D, bytes[8..15]=0D0C0908050401 00->0x00010405_08090C0D
-DATA nttL6L7DeinterleaveMaskLo<>+0x00(SB)/8, $0x1011141518191C1D
-DATA nttL6L7DeinterleaveMaskLo<>+0x08(SB)/8, $0x00010405_08090C0D
+// nttL6L7DeinterleaveMaskLo: VPERM mask to extract first pair (A) from each 4-element group.
+// After L6, V0=[lo0,lo1,lo2,lo3, hi0,hi1,hi2,hi3], V1 similarly.
+// L7 groups: group k uses A=[e_{4k},e_{4k+1}] and B=[e_{4k+2},e_{4k+3}] with zeta z_k.
+// A (first pair of each 4-group): bytes {0,1,2,3, 8,9,10,11} from V0 and V1.
+// Desired BE byte indices: {0,1,2,3, 8,9,10,11, 16,17,18,19, 24,25,26,27}
+// memory[i] = desired_BE[15-i]:
+//   memory[0..15]: 1B,1A,19,18, 13,12,11,10, 0B,0A,09,08, 03,02,01,00
+// As two LE uint64: 0x10111213_18191A1B / 0x00010203_08090A0B
+DATA nttL6L7DeinterleaveMaskLo<>+0x00(SB)/8, $0x10111213_18191A1B
+DATA nttL6L7DeinterleaveMaskLo<>+0x08(SB)/8, $0x00010203_08090A0B
 GLOBL nttL6L7DeinterleaveMaskLo<>(SB), RODATA|NOPTR, $16
 
-// nttL6L7DeinterleaveMaskHi: VPERM mask to extract ODD elements (hi) from V0+V1 for L7 (len=2).
-// hi result = {e1,e3,e5,e7, e9,e11,e13,e15}.
-// Desired BE byte indices: {2,3,6,7, 10,11,14,15, 18,19,22,23, 26,27,30,31}
-// Memory (LVX reverses all 16 bytes): {31,30,27,26, 23,22,19,18, 15,14,11,10, 7,6,3,2}
-//   = {1F,1E,1B,1A, 17,16,13,12, 0F,0E,0B,0A, 07,06,03,02}
-// As two LE uint64: bytes[0..7]=0x1F1E1B1A17161312->0x1213161718191E1F, bytes[8..15]=0x0F0E0B0A07060302->0x020306070A0B0E0F
-DATA nttL6L7DeinterleaveMaskHi<>+0x00(SB)/8, $0x1213161718191E1F
-DATA nttL6L7DeinterleaveMaskHi<>+0x08(SB)/8, $0x020306070A0B0E0F
+// nttL6L7DeinterleaveMaskHi: VPERM mask to extract second pair (B) from each 4-element group.
+// B (second pair): bytes {4,5,6,7, 12,13,14,15} from V0 and V1.
+// Desired BE byte indices: {4,5,6,7, 12,13,14,15, 20,21,22,23, 28,29,30,31}
+// memory[i] = desired_BE[15-i]:
+//   memory[0..15]: 1F,1E,1D,1C, 17,16,15,14, 0F,0E,0D,0C, 07,06,05,04
+// As two LE uint64: 0x14151617_1C1D1E1F / 0x04050607_0C0D0E0F
+DATA nttL6L7DeinterleaveMaskHi<>+0x00(SB)/8, $0x14151617_1C1D1E1F
+DATA nttL6L7DeinterleaveMaskHi<>+0x08(SB)/8, $0x04050607_0C0D0E0F
 GLOBL nttL6L7DeinterleaveMaskHi<>(SB), RODATA|NOPTR, $16
 
-// nttL7ReinterleaveMask0: VPERM to repack lo+hi (even+odd) into first 8 output elements.
-// V8=lo=[e0',e2',e4',e6', e8',e10',e12',e14'] (combined bytes 0..15)
-// V9=hi=[e1',e3',e5',e7', e9',...] (combined bytes 16..31)
-// result0 bytes 0-15 = [e0',e1', e2',e3', e4',e5', e6',e7']
-// Desired BE byte indices: {0,1,16,17, 2,3,18,19, 4,5,20,21, 6,7,22,23}
-// Memory reversed (memory[i] = desired_BE[15-i]):
-//   desired: 00,01,10,11, 02,03,12,13, 04,05,14,15, 06,07,16,17
-//   memory[0..15]: 17,16,07,06, 15,14,05,04, 13,12,03,02, 11,10,01,00
-// bytes[0..7] as BE: 0x1716070615140504 -> LE uint64 = 0x0405141516071617
-// bytes[8..15] as BE: 0x1312030211100100 -> LE uint64 = 0x0001101112030213
-DATA nttL7ReinterleaveMask0<>+0x00(SB)/8, $0x0405141516071617
-DATA nttL7ReinterleaveMask0<>+0x08(SB)/8, $0x0001101112030213
+// nttL7ReinterleaveMask0: reinterleave A'+B' for first 8 output elements.
+// VA=V8=A'=[A'[0..7]], VB=V9=B'=[B'[0..7]].
+// Output: [A'[0],A'[1], B'[0],B'[1], A'[2],A'[3], B'[2],B'[3]].
+// Desired BE byte indices: {0,1,2,3, 16,17,18,19, 4,5,6,7, 20,21,22,23}
+// memory[i] = desired_BE[15-i]:
+//   memory[0..15]: 17,16,15,14, 07,06,05,04, 13,12,11,10, 03,02,01,00
+// As two LE uint64: 0x04050607_14151617 / 0x00010203_10111213
+DATA nttL7ReinterleaveMask0<>+0x00(SB)/8, $0x04050607_14151617
+DATA nttL7ReinterleaveMask0<>+0x08(SB)/8, $0x00010203_10111213
 GLOBL nttL7ReinterleaveMask0<>(SB), RODATA|NOPTR, $16
 
-// nttL7ReinterleaveMask1: VPERM to repack lo+hi into second 8 output elements.
-// result1 = [e8',e9', e10',e11', e12',e13', e14',e15']
-// Desired BE byte indices: {8,9,24,25, 10,11,26,27, 12,13,28,29, 14,15,30,31}
-//   = {08,09,18,19, 0A,0B,1A,1B, 0C,0D,1C,1D, 0E,0F,1E,1F}
-// Memory reversed: memory[i] = desired_BE[15-i]:
-//   desired: 08,09,18,19, 0A,0B,1A,1B, 0C,0D,1C,1D, 0E,0F,1E,1F
-//   memory[0..15]: 1F,1E,0F,0E, 1D,1C,0D,0C, 1B,1A,0B,0A, 19,18,09,08
-// bytes[0..7] as BE: 0x1F1E0F0E1D1C0D0C -> LE uint64 = 0x0C0D1C1D0E0F1E1F
-// bytes[8..15] as BE: 0x1B1A0B0A19180908 -> LE uint64 = 0x0809181900000000... no:
-//   = 0x08091819_0A0B1A1B
-DATA nttL7ReinterleaveMask1<>+0x00(SB)/8, $0x0C0D1C1D0E0F1E1F
-DATA nttL7ReinterleaveMask1<>+0x08(SB)/8, $0x08091819_0A0B1A1B
+// nttL7ReinterleaveMask1: reinterleave A'+B' for second 8 output elements.
+// Output: [A'[4],A'[5], B'[4],B'[5], A'[6],A'[7], B'[6],B'[7]].
+// Desired BE byte indices: {8,9,10,11, 24,25,26,27, 12,13,14,15, 28,29,30,31}
+// memory[i] = desired_BE[15-i]:
+//   memory[0..15]: 1F,1E,1D,1C, 0F,0E,0D,0C, 1B,1A,19,18, 0B,0A,09,08
+// As two LE uint64: 0x0C0D0E0F_1C1D1E1F / 0x08090A0B_18191A1B
+DATA nttL7ReinterleaveMask1<>+0x00(SB)/8, $0x0C0D0E0F_1C1D1E1F
+DATA nttL7ReinterleaveMask1<>+0x08(SB)/8, $0x08090A0B_18191A1B
 GLOBL nttL7ReinterleaveMask1<>(SB), RODATA|NOPTR, $16
-
-// (old comment kept for reference)
-// nttL7ReinterleaveMask1: for second 8 elements: [e4,o4,e5,o5,e6,o6,e7,o7]
-// Desired BE: {2,3,18,19, 6,7,22,23, 10,11,26,27, 14,15,30,31}
-// (same as lxvPackU32ToU16Mask - reuse that mask)
 
 // BARRETT_REDUCE_U32(Vin, V14, V15, V16, Vtmp1, Vtmp2, Vtmp3) - Barrett reduce Vin to [0,2q)
 // V14=kBMul={5039x4}, V15=kShift={24,24}uint64, V16=kPrime32={3329x4}
