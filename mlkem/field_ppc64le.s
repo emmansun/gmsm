@@ -35,19 +35,9 @@ DATA kBarrettConsts<>+0x3C(SB)/2, $3329
 DATA kBarrettConsts<>+0x3E(SB)/2, $3329
 GLOBL kBarrettConsts<>(SB), RODATA|NOPTR, $64
 
-// lxvPermMask: byte-swap correction for LXVD2X on ppc64le.
-// LXVD2X loads a 16-byte vector treating it as two 64-bit big-endian words,
-// reversing byte order within each 8-byte group on little-endian systems.
-// For int16 elements [a0,a1,a2,a3,...,a7] (each 2 bytes LE) in a 16-byte block:
-//   memory: a0lo,a0hi, a1lo,a1hi, a2lo,a2hi, a3lo,a3hi, a4lo,a4hi,...
-//   register (BE view): a3hi,a3lo,a2hi,a2lo,a1hi,a1lo,a0hi,a0lo, ...
-// To restore natural order, VPERM with mask that selects:
-//   out[0]=src[7]=a0lo, out[1]=src[6]=a0hi, out[2]=src[5]=a1lo, ...
-// Mask BE register bytes: {7,6,5,4,3,2,1,0, 15,14,13,12,11,10,9,8}
-// These are stored as LE 64-bit integers so LVX reverses them into the right BE register positions.
-DATA lxvPermMask<>+0x00(SB)/8, $0x0706050403020100
-DATA lxvPermMask<>+0x08(SB)/8, $0x0F0E0D0C0B0A0908
-GLOBL lxvPermMask<>(SB), RODATA|NOPTR, $16
+// The LXVD2X byte-reversal mask is generated dynamically using LVSL+VXOR,
+// following the SHA512 ppc64le approach (see sha512block_ppc64x.s).
+// No static mask data needed.
 
 // polyAddAssignPPC64LE(dst, src *ringElement)
 // dst[i] = barrettReduce(dst[i] + src[i]) for all 256 int16 coefficients.
@@ -56,24 +46,29 @@ TEXT ·polyAddAssignPPC64LE(SB), NOSPLIT, $0-16
 	MOVD src+8(FP), R5
 	MOVD $0, R0
 
-	MOVD $lxvPermMask<>(SB), R6
-	LVX  (R0)(R6), V20
+	// Generate LXVD2X byte-reversal mask (per-doubleword) in V20.
+	// LVSL (R8)(R0), V20 with R8=8 gives {8,9,10,11,12,13,14,15,0,1,2,3,4,5,6,7}.
+	// XOR 0x0F -> {7,6,5,4,3,2,1,0,15,14,13,12,11,10,9,8}.
+	MOVD $8, R9
+	LVSL (R9)(R0), V20
+	VSPLTISB $0x0F, V22
+	VXOR V22, V20, V20
 
 	MOVD $kBarrettConsts<>(SB), R6
 	MOVD $48, R7
-	LVX  (R7)(R6), V21
+	LVX  (R7)(R6), V21              // V21 = {3329 x 8} uint16
 
 	MOVD $16, R8
 	MOVD $16, R6
 
 poly_add_loop:
-	LXVD2X (R0)(R4), V0
+	LXVD2X (R0)(R4), VS32
 	VPERM  V0, V0, V20, V0
-	LXVD2X (R8)(R4), V1
+	LXVD2X (R8)(R4), VS33
 	VPERM  V1, V1, V20, V1
-	LXVD2X (R0)(R5), V2
+	LXVD2X (R0)(R5), VS34
 	VPERM  V2, V2, V20, V2
-	LXVD2X (R8)(R5), V3
+	LXVD2X (R8)(R5), VS35
 	VPERM  V3, V3, V20, V3
 
 	// V0 = V0 + V2; V1 = V1 + V3
@@ -91,9 +86,9 @@ poly_add_loop:
 	VSEL V5, V1, V7, V1
 
 	VPERM  V0, V0, V20, V4
-	STXVD2X V4, (R0)(R4)
+	STXVD2X VS36, (R0)(R4)
 	VPERM  V1, V1, V20, V4
-	STXVD2X V4, (R8)(R4)
+	STXVD2X VS36, (R8)(R4)
 
 	ADD  $32, R4
 	ADD  $32, R5
@@ -110,8 +105,10 @@ TEXT ·polySubAssignPPC64LE(SB), NOSPLIT, $0-16
 	MOVD src+8(FP), R5
 	MOVD $0, R0
 
-	MOVD $lxvPermMask<>(SB), R6
-	LVX  (R0)(R6), V20
+	MOVD $8, R9
+	LVSL (R9)(R0), V20
+	VSPLTISB $0x0F, V22
+	VXOR V22, V20, V20
 
 	MOVD $kBarrettConsts<>(SB), R6
 	MOVD $48, R7
@@ -121,13 +118,13 @@ TEXT ·polySubAssignPPC64LE(SB), NOSPLIT, $0-16
 	MOVD $16, R6
 
 poly_sub_loop:
-	LXVD2X (R0)(R4), V0
+	LXVD2X (R0)(R4), VS32
 	VPERM  V0, V0, V20, V0
-	LXVD2X (R8)(R4), V1
+	LXVD2X (R8)(R4), VS33
 	VPERM  V1, V1, V20, V1
-	LXVD2X (R0)(R5), V2
+	LXVD2X (R0)(R5), VS34
 	VPERM  V2, V2, V20, V2
-	LXVD2X (R8)(R5), V3
+	LXVD2X (R8)(R5), VS35
 	VPERM  V3, V3, V20, V3
 
 	// V0 = V0 + q - V2; V1 = V1 + q - V3
@@ -143,6 +140,11 @@ poly_sub_loop:
 	VCMPGTUH V21, V5, V7
 	VSEL V4, V0, V6, V0
 	VSEL V5, V1, V7, V1
+
+	VPERM  V0, V0, V20, V4
+	STXVD2X VS36, (R0)(R4)
+	VPERM  V1, V1, V20, V4
+	STXVD2X VS36, (R8)(R4)
 
 	VPERM  V0, V0, V20, V4
 	STXVD2X V4, (R0)(R4)
