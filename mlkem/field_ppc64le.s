@@ -58,9 +58,11 @@ GLOBL lxvPairSwapMask<>(SB), RODATA|NOPTR, $16
 // Output: [e0,o0,e1,o1, e2,o2,e3,o3] as 8 uint16
 // VPERM selects: bytes 2,3 from each uint32 of VA (indices 0-15) and VB (16-31).
 // Desired BE register view: {2,3,6,7,10,11,14,15, 18,19,22,23,26,27,30,31}
-// Stored reversed for LVX loading (Memory[j] = RegisterBE[15-j]).
-DATA lxvPackU32ToU16Mask<>+0x00(SB)/8, $0x1F1E1B1A17161312
-DATA lxvPackU32ToU16Mask<>+0x08(SB)/8, $0x0F0E0B0A07060302
+// Stored as LE 64-bit integers so LVX reverses into correct BE positions.
+// Memory bytes 0-7: {31,30,27,26,23,22,19,18} → DATA LE64 = 0x121316171A1B1E1F
+// Memory bytes 8-15: {15,14,11,10,7,6,3,2}   → DATA LE64 = 0x020306070A0B0E0F
+DATA lxvPackU32ToU16Mask<>+0x00(SB)/8, $0x121316171A1B1E1F
+DATA lxvPackU32ToU16Mask<>+0x08(SB)/8, $0x020306070A0B0E0F
 GLOBL lxvPackU32ToU16Mask<>(SB), RODATA|NOPTR, $16
 
 // polyAddAssignPPC64LE(dst, src *ringElement)
