@@ -35,63 +35,48 @@ DATA kBarrettConsts<>+0x3C(SB)/2, $3329
 DATA kBarrettConsts<>+0x3E(SB)/2, $3329
 GLOBL kBarrettConsts<>(SB), RODATA|NOPTR, $64
 
-// lxvSwap16Mask: corrects byte order after LXVD2X for int16 arrays on ppc64le.
-// LXVD2X reverses bytes within each 64-bit doubleword (big-endian load).
-// For int16 elements [a0..a7] (each 2 bytes LE), after LXVD2X the register
-// (BE view) has: {a3hi,a3lo, a2hi,a2lo, a1hi,a1lo, a0hi,a0lo, a7hi,...}.
-// We need {a0hi,a0lo, a1hi,a1lo, ..., a7hi,a7lo} for correct VMX uint16 ops.
-// VPERM mask (BE register view): {6,7,4,5,2,3,0,1, 14,15,12,13,10,11,8,9}
-// Stored as LE 64-bit integers so LVX reverses into correct BE positions.
-DATA lxvSwap16Mask<>+0x00(SB)/8, $0x0E0F0C0D0A0B0809
-DATA lxvSwap16Mask<>+0x08(SB)/8, $0x0607040502030001
-GLOBL lxvSwap16Mask<>(SB), RODATA|NOPTR, $16
-
 // polyAddAssignPPC64LE(dst, src *ringElement)
 // dst[i] = barrettReduce(dst[i] + src[i]) for all 256 int16 coefficients.
+// LXVD2X on ppc64le reverses bytes within each 8-byte group. Since STXVD2X
+// applies the same reversal on store, both cancel out and element-wise uint16
+// arithmetic with VADDUHM/VSUBUHM is correct without any VPERM.
 TEXT ·polyAddAssignPPC64LE(SB), NOSPLIT, $0-16
 	MOVD dst+0(FP), R4
 	MOVD src+8(FP), R5
 	MOVD $0, R0
 
-	// Load LXVD2X int16 correction mask into V20.
-	MOVD $lxvSwap16Mask<>(SB), R9
-	LVX  (R0)(R9), V20
-
+	// Load q=3329 into all 8 uint16 slots of V21.
+	// kBarrettConsts+0x30 stores {3329 x8} as uint16 LE.
+	// LVX reverses all 16 bytes; since data is symmetric (all slots equal),
+	// each 16-bit slot in the register = 0x0D01 = 3329. ✓
 	MOVD $kBarrettConsts<>(SB), R6
 	MOVD $48, R7
-	LVX  (R7)(R6), V21              // V21 = {3329 x 8} uint16
+	LVX  (R7)(R6), V21
 
 	MOVD $16, R8
-	MOVD $16, R6
+	MOVD $16, R6   // loop counter: 16 iters × 32 bytes = 512 bytes
 
 poly_add_loop:
-	LXVD2X (R0)(R4), VS32
-	VPERM  V0, V0, V20, V0
-	LXVD2X (R8)(R4), VS33
-	VPERM  V1, V1, V20, V1
-	LXVD2X (R0)(R5), VS34
-	VPERM  V2, V2, V20, V2
-	LXVD2X (R8)(R5), VS35
-	VPERM  V3, V3, V20, V3
+	LXVD2X (R0)(R4), VS32   // V0 = dst[i..i+7]
+	LXVD2X (R8)(R4), VS33   // V1 = dst[i+8..i+15]
+	LXVD2X (R0)(R5), VS34   // V2 = src[i..i+7]
+	LXVD2X (R8)(R5), VS35   // V3 = src[i+8..i+15]
 
-	// V0 = V0 + V2; V1 = V1 + V3
 	VADDUHM V0, V2, V0
 	VADDUHM V1, V3, V1
 
-	// V4 = V0 - q; V5 = V1 - q
-	VSUBUHM V0, V21, V4
+	// Conditional reduce: if V0[i] >= q, subtract q.
+	VSUBUHM V0, V21, V4     // V4 = V0 - q (wraps if V0 < q)
 	VSUBUHM V1, V21, V5
-	// V6[i] = 0xFFFF if q > V4[i], meaning V0[i] < q (underflow), keep V0
+	// V6[i] = 0xFFFF if q > V4[i] (i.e. V0[i] >= q, reduction applied correctly)
 	VCMPGTUH V21, V4, V6
 	VCMPGTUH V21, V5, V7
-	// V0 = V6[i] ? V0[i] : V4[i]
-	VSEL V4, V0, V6, V0
-	VSEL V5, V1, V7, V1
+	// Select V4 (reduced) when V6=all-ones, V0 (original) when V6=0.
+	VSEL V0, V4, V6, V0
+	VSEL V1, V5, V7, V1
 
-	VPERM  V0, V0, V20, V4
-	STXVD2X VS36, (R0)(R4)
-	VPERM  V1, V1, V20, V4
-	STXVD2X VS36, (R8)(R4)
+	STXVD2X VS32, (R0)(R4)
+	STXVD2X VS33, (R8)(R4)
 
 	ADD  $32, R4
 	ADD  $32, R5
@@ -108,9 +93,6 @@ TEXT ·polySubAssignPPC64LE(SB), NOSPLIT, $0-16
 	MOVD src+8(FP), R5
 	MOVD $0, R0
 
-	MOVD $lxvSwap16Mask<>(SB), R9
-	LVX  (R0)(R9), V20
-
 	MOVD $kBarrettConsts<>(SB), R6
 	MOVD $48, R7
 	LVX  (R7)(R6), V21
@@ -120,13 +102,9 @@ TEXT ·polySubAssignPPC64LE(SB), NOSPLIT, $0-16
 
 poly_sub_loop:
 	LXVD2X (R0)(R4), VS32
-	VPERM  V0, V0, V20, V0
 	LXVD2X (R8)(R4), VS33
-	VPERM  V1, V1, V20, V1
 	LXVD2X (R0)(R5), VS34
-	VPERM  V2, V2, V20, V2
 	LXVD2X (R8)(R5), VS35
-	VPERM  V3, V3, V20, V3
 
 	// V0 = V0 + q - V2; V1 = V1 + q - V3
 	VADDUHM V0, V21, V0
@@ -139,23 +117,11 @@ poly_sub_loop:
 	VSUBUHM V1, V21, V5
 	VCMPGTUH V21, V4, V6
 	VCMPGTUH V21, V5, V7
-	VSEL V4, V0, V6, V0
-	VSEL V5, V1, V7, V1
+	VSEL V0, V4, V6, V0
+	VSEL V1, V5, V7, V1
 
-	VPERM  V0, V0, V20, V4
-	STXVD2X VS36, (R0)(R4)
-	VPERM  V1, V1, V20, V4
-	STXVD2X VS36, (R8)(R4)
-
-	VPERM  V0, V0, V20, V4
-	STXVD2X V4, (R0)(R4)
-	VPERM  V1, V1, V20, V4
-	STXVD2X V4, (R8)(R4)
-
-	VPERM  V0, V0, V20, V4
-	STXVD2X V4, (R0)(R4)
-	VPERM  V1, V1, V20, V4
-	STXVD2X V4, (R8)(R4)
+	STXVD2X VS32, (R0)(R4)
+	STXVD2X VS33, (R8)(R4)
 
 	ADD  $32, R4
 	ADD  $32, R5
