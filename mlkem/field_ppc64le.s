@@ -52,12 +52,14 @@ DATA lxvPairSwapMask<>+0x00(SB)/8, $0x0C0D0E0F08090A0B
 DATA lxvPairSwapMask<>+0x08(SB)/8, $0x0405060700010203
 GLOBL lxvPairSwapMask<>(SB), RODATA|NOPTR, $16
 
-// lxvPackU32ToU16Mask: VPERM mask to pack two 4-uint32 vectors to 8 uint16.
-// LVX on ppc64le reverses all 16 bytes. Desired BE register view:
-// {2,3,6,7,10,11,14,15, 18,19,22,23,26,27,30,31}. Memory = reverse:
-// {31,30,27,26,23,22,19,18, 15,14,11,10,7,6,3,2}.
-DATA lxvPackU32ToU16Mask<>+0x00(SB)/8, $0x121316171A1B1E1F
-DATA lxvPackU32ToU16Mask<>+0x08(SB)/8, $0x020306070A0B0E0F
+// lxvPackU32ToU16Mask: VPERM mask to directly interleave and pack V1=[e0,e1,e2,e3] and
+// V2=[o0,o1,o2,o3] (both uint32 in [0,2q)) to V13=[e0,o0,e1,o1,e2,o2,e3,o3] as 8 uint16.
+// Desired BE register view: {2,3,18,19, 6,7,22,23, 10,11,26,27, 14,15,30,31}
+// (selects low 2 bytes of each uint32 from VA=V1 and VB=V2 alternately)
+// LVX on ppc64le reverses all 16 bytes. Memory = reverse of desired:
+// {31,30,15,14, 27,26,11,10, 23,22,7,6, 19,18,3,2}
+DATA lxvPackU32ToU16Mask<>+0x00(SB)/8, $0x0A0B1A1B0E0F1E1F
+DATA lxvPackU32ToU16Mask<>+0x08(SB)/8, $0x0203121306071617
 GLOBL lxvPackU32ToU16Mask<>(SB), RODATA|NOPTR, $16
 
 // BARRETT_REDUCE_U32(Vin, V14, V15, V16, Vtmp1, Vtmp2, Vtmp3) - Barrett reduce Vin to [0,2q)
@@ -235,13 +237,20 @@ nttmul_loop:
 	VADDUWM V4, V0, V1
 	VADDUWM V6, V7, V2
 
-	BARRETT_REDUCE_U32(V1, V8, V9, V10)
-	BARRETT_REDUCE_U32(V2, V8, V9, V10)
+	// 32-bit fast Barrett for sums
+	VSPLTISW $24, V10
+	VMULUWM V1, V14, V8
+	VSRW    V8, V10, V8
+	VMULUWM V8, V16, V9
+	VSUBUWM V1, V9, V1
 
-	// Interleave and pack to uint16 delta in [0, 2q)
-	XXMRGHW VS33, VS34, VS32
-	XXMRGLW VS33, VS34, VS43
-	VPERM   V0, V11, V12, V13
+	VMULUWM V2, V14, V8
+	VSRW    V8, V10, V8
+	VMULUWM V8, V16, V9
+	VSUBUWM V2, V9, V2
+
+	// Single VPERM interleave and pack to delta uint16 in [0, 2q)
+	VPERM   V1, V2, V12, V13
 
 	// Reduce delta from [0, 2q) to [0, q) before storing
 	VSUBUHM V13, V17, V8
@@ -366,21 +375,23 @@ nttmlacc_loop:
 	// Odd pair sums = V_r01 + V_r10 (stored in V2, reusing V2=rhs_swap)
 	VADDUWM V6, V7, V2            // V2 ∈ [0, 4q)
 
-	// Barrett reduce even sums V1 → [0, 2q)
-	BARRETT_REDUCE_U32(V1, V8, V9, V10)
+	// 32-bit fast Barrett for sums (max product 13314×5039 < 2^27, fits in uint32):
+	// VSPLTISW $24 creates {24,24,24,24} for VSRW (V10 is scratch, reused).
+	VSPLTISW $24, V10
+	VMULUWM V1, V14, V8    // V8 = V1 * kBMul (low 32 bits, no overflow)
+	VSRW    V8, V10, V8    // V8 >>= 24: quotients
+	VMULUWM V8, V16, V9    // V9 = quotient * prime
+	VSUBUWM V1, V9, V1     // V1 ∈ [0, 2q)
 
-	// Barrett reduce odd sums V2 → [0, 2q)
-	BARRETT_REDUCE_U32(V2, V8, V9, V10)
+	VMULUWM V2, V14, V8
+	VSRW    V8, V10, V8
+	VMULUWM V8, V16, V9
+	VSUBUWM V2, V9, V2     // V2 ∈ [0, 2q)
 
-	// Interleave even/odd sums and pack to uint16 delta.
-	// V1=[e0,e1,e2,e3] uint32, V2=[o0,o1,o2,o3] uint32, values in [0, 2q) < 65536.
-	// XXMRGHW: V0=[e0,o0,e1,o1] as 4 uint32 (pairs 0,1)
-	// XXMRGLW: V11=[e2,o2,e3,o3] as 4 uint32 (pairs 2,3)
-	// VPERM extracts bytes 2,3 of each uint32 (the actual value) from both sources:
-	// V13=[e0,o0,e1,o1, e2,o2,e3,o3] as 8 uint16 (delta) in [0, 2q)
-	XXMRGHW VS33, VS34, VS32      // VS33=V1, VS34=V2, VS32=V0
-	XXMRGLW VS33, VS34, VS43      // VS43=V11
-	VPERM   V0, V11, V12, V13    // V13 = delta uint16 (V12=pack mask, pinned)
+	// Single VPERM to interleave and pack V1,V2 → delta uint16.
+	// V12 mask: selects low 2 bytes of each uint32 from V1 and V2 alternately.
+	// V13=[e0,o0,e1,o1, e2,o2,e3,o3] as 8 uint16 in [0, 2q)
+	VPERM   V1, V2, V12, V13
 
 	// Load acc → natural order in V0
 	LXVD2X (R0)(R4), VS32
