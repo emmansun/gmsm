@@ -319,7 +319,7 @@ TEXT ·internalNTTPPC64LE(SB), NOSPLIT, $0-8
 	// lo = f[0..7], f[16..23], ..., f[112..119]
 	// hi = f[128..135], ..., f[240..247]
 	// ================================================================
-	MOVD $Â·nttTwiddleL1PrecompPPC64LE(SB), R10
+	MOVD $·nttTwiddleL1PrecompPPC64LE(SB), R10
 	LXVD2X (R0)(R10), VS40   // V8=broadcast zeta[1]
 	VPERM  V8, V8, V18, V2   // V2 = zeta broadcast in natural order
 
@@ -353,7 +353,7 @@ ntt_l1_loop:
 	// Group 0: lo=f[0..63], hi=f[64..127]
 	// Group 1: lo=f[128..191], hi=f[192..255]
 	// ================================================================
-	MOVD $Â·nttTwiddleL2bPrecompPPC64LE(SB), R10
+	MOVD $·nttTwiddleL2bPrecompPPC64LE(SB), R10
 
 	// Group 0: zeta = zetas[2]
 	LXVD2X (R0)(R10), VS40
@@ -407,7 +407,7 @@ ntt_l2_g1_loop:
 	// Layer L3: len=32, 4 zetas, 4 groups Ã— 4 inner iters (unrolled outer)
 	// Group g: lo=f[g*128..g*128+63], hi=lo+64 bytes
 	// ================================================================
-	MOVD $Â·nttTwiddleL3PrecompPPC64LE(SB), R10
+	MOVD $·nttTwiddleL3PrecompPPC64LE(SB), R10
 	MOVD $0, R11
 
 	// Group 0
@@ -508,7 +508,7 @@ ntt_l3g3:
 	// Layer L4: len=16, 8 zetas, 8 outer Ã— 2 inner iterations
 	// Group g: lo=f[g*32..g*32+15], hi=f[g*32+16..g*32+31]
 	// ================================================================
-	MOVD $Â·nttTwiddleL4bPrecompPPC64LE(SB), R10
+	MOVD $·nttTwiddleL4bPrecompPPC64LE(SB), R10
 	MOVD $0, R11
 	MOVD R4, R5               // lo pointer
 
@@ -552,7 +552,7 @@ ntt_l4_outer:
 	// Layer L5: len=8, 16 zetas, 16 iterations, 1 group per iter.
 	// Group g: lo=f[g*16..g*16+7], hi=f[g*16+8..g*16+15].
 	// ================================================================
-	MOVD $Â·nttTwiddleL5PrecompPPC64LE(SB), R10
+	MOVD $·nttTwiddleL5PrecompPPC64LE(SB), R10
 	MOVD $0, R11
 	MOVD R4, R5
 
@@ -586,7 +586,7 @@ ntt_l5_loop:
 	// Per iter: load 2 VMX vecs (16 elements), XXPERMDI split into lo/hi,
 	// butterfly with [zaÃ—4, zbÃ—4] twiddle, repack, store.
 	// ================================================================
-	MOVD $Â·nttTwiddleL4PrecompPPC64LE(SB), R10
+	MOVD $·nttTwiddleL4PrecompPPC64LE(SB), R10
 	MOVD $0, R11
 	MOVD R4, R5
 
@@ -632,7 +632,7 @@ ntt_l6_loop:
 	// Twiddle: 4 distinct zetas per iter, each Ã—2 = [z0,z0,z1,z1,z2,z2,z3,z3].
 	// VPERM deinterleave separates lo pairs from hi pairs, butterfly, reinterleave.
 	// ================================================================
-	MOVD $Â·nttTwiddleL2PrecompPPC64LE(SB), R10
+	MOVD $·nttTwiddleL2PrecompPPC64LE(SB), R10
 	MOVD $0, R11
 	MOVD R4, R5
 
@@ -699,7 +699,7 @@ TEXT ·internalNTTMulPPC64LE(SB), NOSPLIT, $0-24
 	MOVD out+0(FP), R4
 	MOVD lhs+8(FP), R5
 	MOVD rhs+16(FP), R6
-	MOVD $Â·nttGammaU32PPC64LE(SB), R7
+	MOVD $·nttGammaU32PPC64LE(SB), R7
 	MOVD $0, R0
 
 	MOVD $kBarrettConsts<>(SB), R10
@@ -815,7 +815,7 @@ TEXT ·internalNTTMulAccPPC64LE(SB), NOSPLIT, $0-24
 	MOVD acc+0(FP), R4
 	MOVD lhs+8(FP), R5
 	MOVD rhs+16(FP), R6
-	MOVD $Â·nttGammaU32PPC64LE(SB), R7
+	MOVD $·nttGammaU32PPC64LE(SB), R7
 	MOVD $0, R0
 
 	// Load pinned constants
