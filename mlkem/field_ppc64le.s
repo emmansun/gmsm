@@ -35,6 +35,23 @@ DATA kBarrettConsts<>+0x3C(SB)/2, $3329
 DATA kBarrettConsts<>+0x3E(SB)/2, $3329
 GLOBL kBarrettConsts<>(SB), RODATA|NOPTR, $64
 
+// lxvNaturalOrderMask: VPERM mask to convert LXVD2X output to natural uint16 order.
+// After LXVD2X, bytes within each 8-byte group are reversed.
+// This mask reorders the BE register so each uint16 slot holds its correct LE value
+// in natural (memory) order: slot[i] = a[i].
+// Desired BE register view: {6,7,4,5,2,3,0,1, 14,15,12,13,10,11,8,9}
+// Stored reversed for LVX loading (Memory[j] = RegisterBE[15-j]).
+DATA lxvNaturalOrderMask<>+0x00(SB)/8, $0x0E0F0C0D0A0B0809
+DATA lxvNaturalOrderMask<>+0x08(SB)/8, $0x0607040502030001
+GLOBL lxvNaturalOrderMask<>(SB), RODATA|NOPTR, $16
+
+// lxvPairSwapMask: VPERM mask to convert LXVD2X output to pair-swapped uint16 order.
+// Equivalent to natural order then swapping adjacent pairs: (a0,a1)->(a1,a0).
+// Desired BE register view: {4,5,6,7,0,1,2,3, 12,13,14,15,8,9,10,11}
+DATA lxvPairSwapMask<>+0x00(SB)/8, $0x0C0D0E0F08090A0B
+DATA lxvPairSwapMask<>+0x08(SB)/8, $0x0405060700010203
+GLOBL lxvPairSwapMask<>(SB), RODATA|NOPTR, $16
+
 // polyAddAssignPPC64LE(dst, src *ringElement)
 // dst[i] = barrettReduce(dst[i] + src[i]) for all 256 int16 coefficients.
 // LXVD2X on ppc64le reverses bytes within each 8-byte group. Since STXVD2X
@@ -147,17 +164,196 @@ TEXT ·internalNTTMulPPC64LE(SB), NOSPLIT, $0-24
 	MOVD rhs+16(FP), R6
 	RET
 
+// internalNTTMulAccPPC64LE(acc, lhs, rhs *nttElement)
+//
+// For each pair (2i, 2i+1), i=0..127 (Barrett standard-domain arithmetic):
+//   acc[2i]   += fieldMul(a0,b0) + fieldMul(fieldMul(a1,b1), gamma[i])
+//   acc[2i+1] += fieldMul(a0,b1) + fieldMul(a1,b0)
+//
+// Processes 4 pairs (8 uint16) per VMX iteration, 32 total iterations.
+//
+// Pinned registers (V14-V19, volatile but loaded once before the loop):
+//   V14 = kBMul    = {5039 x4}  uint32 (Barrett multiplier)
+//   V15 = kShift   = {24,24}   uint64 (shift amount for VSRD)
+//   V16 = kPrime32 = {3329 x4}  uint32 (Barrett modulus)
+//   V17 = kPrime16 = {3329 x8}  uint16 (for acc reduce)
+//   V18 = lxvNaturalOrderMask (LXVD2X → natural uint16 order; self-inverse)
+//   V19 = lxvPairSwapMask     (LXVD2X → pair-swapped uint16 order)
+//
+// Per-iteration (V0-V13):
+//   V0-V7: input data and intermediate products
+//   V8-V10: Barrett temporaries (reused)
+//   V11-V13: gamma products and delta
+//
+// Barrett reduce macro (inline, 7 instructions):
+//   VMULOUW Vtmp1, Vin, V14   // odd × kBMul → 64-bit
+//   VMULEUW Vtmp2, Vin, V14   // even × kBMul → 64-bit
+//   VSRD Vtmp1, V15, Vtmp1    // >> 24 → odd quotients
+//   VSRD Vtmp2, V15, Vtmp2    // >> 24 → even quotients
+//   VMRGOW Vtmp2, Vtmp1, Vtmp3 // [q0,q1,q2,q3]
+//   VMULUWM Vtmp3, V16, Vtmp2  // quotient × q
+//   VSUBUWM Vin, Vtmp2, Vin    // remainder ∈ [0, 2q)
 TEXT ·internalNTTMulAccPPC64LE(SB), NOSPLIT, $0-24
 	MOVD acc+0(FP), R4
 	MOVD lhs+8(FP), R5
 	MOVD rhs+16(FP), R6
+	MOVD $·nttGammaPPC64LE(SB), R7
+	MOVD $0, R0
+
+	// Load pinned constants
+	MOVD $kBarrettConsts<>(SB), R10
+	MOVD $0, R11
+	LVX  (R11)(R10), V14         // V14 = kBMul  = {5039 x4} uint32
+	MOVD $16, R11
+	LVX  (R11)(R10), V15         // V15 = kShift = {24,0,24,0}
+	MOVD $32, R11
+	LVX  (R11)(R10), V16         // V16 = kPrime32 = {3329 x4}
+	MOVD $48, R11
+	LVX  (R11)(R10), V17         // V17 = kPrime16 = {3329 x8}
+
+	MOVD $lxvNaturalOrderMask<>(SB), R10
+	LVX  (R0)(R10), V18           // V18 = natural-order VPERM mask (self-inverse)
+	MOVD $lxvPairSwapMask<>(SB), R10
+	LVX  (R0)(R10), V19           // V19 = pair-swap VPERM mask
+
+	MOVD $32, R9                  // loop counter (32 iterations × 16 bytes = 512 bytes)
+
+nttmlacc_loop:
+	// Load lhs → natural uint16 order in V0
+	LXVD2X (R0)(R5), VS32
+	VPERM  V0, V0, V18, V0        // V0 = lhs natural order
+
+	// Load rhs: pair-swapped → V2, natural → V1
+	LXVD2X (R0)(R6), VS33        // V1 = rhs raw
+	VPERM  V1, V1, V19, V2        // V2 = rhs pair-swapped (from raw V1)
+	VPERM  V1, V1, V18, V1        // V1 = rhs natural order
+
+	// Load gamma: [g_{4j}..g_{4j+7}] as 8 uint16 in natural order
+	// (Table stores gammas reversed per group of 4 for LXVD2X)
+	LXVD2X (R0)(R7), VS35         // V3 = [g0,g1,...,g7]
+
+	// Compute 4 pair products (each yields 4 uint32)
+	VMULEUH V0, V1, V4            // V4 = [a0b0, a2b2, a4b4, a6b6] (even×even)
+	VMULOUH V0, V1, V5            // V5 = [a1b1, a3b3, a5b5, a7b7] (odd×odd)
+	VMULEUH V0, V2, V6            // V6 = [a0b1, a2b3, a4b5, a6b7] (even×swap_even)
+	VMULOUH V0, V2, V7            // V7 = [a1b0, a3b2, a5b4, a7b6] (odd×swap_odd)
+
+	// Barrett reduce V4 → V_r00 ∈ [0, 2q)
+	VMULOUW V8, V4, V14
+	VMULEUW V9, V4, V14
+	VSRD    V8, V15, V8
+	VSRD    V9, V15, V9
+	VMRGOW  V9, V8, V10
+	VMULUWM V10, V16, V9
+	VSUBUWM V4, V9, V4
+
+	// Barrett reduce V5 → V_r11 ∈ [0, 2q)
+	VMULOUW V8, V5, V14
+	VMULEUW V9, V5, V14
+	VSRD    V8, V15, V8
+	VSRD    V9, V15, V9
+	VMRGOW  V9, V8, V10
+	VMULUWM V10, V16, V9
+	VSUBUWM V5, V9, V5
+
+	// Barrett reduce V6 → V_r01 ∈ [0, 2q)
+	VMULOUW V8, V6, V14
+	VMULEUW V9, V6, V14
+	VSRD    V8, V15, V8
+	VSRD    V9, V15, V9
+	VMRGOW  V9, V8, V10
+	VMULUWM V10, V16, V9
+	VSUBUWM V6, V9, V6
+
+	// Barrett reduce V7 → V_r10 ∈ [0, 2q)
+	VMULOUW V8, V7, V14
+	VMULEUW V9, V7, V14
+	VSRD    V8, V15, V8
+	VSRD    V9, V15, V9
+	VMRGOW  V9, V8, V10
+	VMULUWM V10, V16, V9
+	VSUBUWM V7, V9, V7
+
+	// Pack V5 (V_r11, 4 uint32) into V11 (8 uint16, values in slots 0-3):
+	// VPKUWUS V11, V5, V0 → V11[0..3]=trunc(V5[0..3]), V11[4..7]=trunc(V0[0..3])=0
+	VSPLTISB $0, V0
+	WORD $(0x1000014E | (11<<21) | (5<<16) | (0<<11))  // VPKUWUS V11, V5, V0
+
+	// Gamma multiplication: multiply r11_packed by gamma values
+	// VMULEUH takes even slots (0,2,4,6): [a1b1_r*g0, a5b5_r*g2, 0*g4, 0*g6]
+	VMULEUH V11, V3, V12
+	// VMULOUH takes odd slots  (1,3,5,7): [a3b3_r*g1, a7b7_r*g3, 0*g5, 0*g7]
+	VMULOUH V11, V3, V13
+
+	// Combine: XXMRGHW merges words 0,1 from V12 and V13:
+	// V0 = [V12[0]=pair0_raw, V13[0]=pair1_raw, V12[1]=pair2_raw, V13[1]=pair3_raw]
+	// VS44=V12, VS45=V13, VS32=V0 (last=destination)
+	XXMRGHW VS44, VS45, VS32
+
+	// Barrett reduce V0 (gamma products) → V_rg ∈ [0, 2q)
+	VMULOUW V8, V0, V14
+	VMULEUW V9, V0, V14
+	VSRD    V8, V15, V8
+	VSRD    V9, V15, V9
+	VMRGOW  V9, V8, V10
+	VMULUWM V10, V16, V9
+	VSUBUWM V0, V9, V0
+
+	// Even pair sums = V_r00 + V_rg (stored in V1, reusing V1=rhs)
+	VADDUWM V4, V0, V1            // V1 = [a0b0_r+g0*a1b1_r, ...] ∈ [0, 2q)
+	// Odd pair sums = V_r01 + V_r10 (stored in V2, reusing V2=rhs_swap)
+	VADDUWM V6, V7, V2            // V2 = [a0b1_r+a1b0_r, ...] ∈ [0, 2q)
+
+	// fieldReduceOnce even sums (uint32: [0,2q) → [0,q))
+	VSUBUWM V1, V16, V8           // V8 = V1 - q (wraps if V1 < q)
+	VCMPGTUW V16, V1, V9          // V9 = 0xFFFFFFFF where q > V1 (no reduce needed)
+	VSEL    V8, V1, V9, V1        // V1 = V9? V1 (keep) : V8 (reduced)
+
+	// fieldReduceOnce odd sums
+	VSUBUWM V2, V16, V8
+	VCMPGTUW V16, V2, V9
+	VSEL    V8, V2, V9, V2
+
+	// Interleave even (V1) and odd (V2) sums → delta as 8 uint16:
+	// XXMRGHW V1, V2, V0  → V0  = [e0,o0,e1,o1]  (pairs 0,1)
+	// XXMRGLW V1, V2, V11 → V11 = [e2,o2,e3,o3]  (pairs 2,3)
+	XXMRGHW VS33, VS34, VS32      // VS33=V1, VS34=V2, VS32=V0
+	XXMRGLW VS33, VS34, VS43      // VS43=V11
+
+	// VPKUWUS V12, V0, V11 → V12 = [e0,o0,e1,o1, e2,o2,e3,o3] as 8 uint16
+	WORD $(0x1000014E | (12<<21) | (0<<16) | (11<<11))  // VPKUWUS V12, V0, V11
+
+	// Load acc → natural order in V0
+	LXVD2X (R0)(R4), VS32
+	VPERM  V0, V0, V18, V0        // V0 = acc natural order
+
+	// acc += delta (values in [0, 2q) as uint16)
+	VADDUHM V0, V12, V0
+
+	// fieldReduceOnce acc (uint16: [0,2q) → [0,q))
+	VSUBUHM V0, V17, V8           // V8 = acc - q (wraps if acc < q)
+	VCMPGTUH V17, V0, V9          // V9 = 0xFFFF where q > acc (no reduce)
+	VSEL    V8, V0, V9, V0        // V0 = V9? V0 : V8
+
+	// Store back: apply inverse VPERM (V18 is self-inverse) then STXVD2X
+	VPERM  V0, V0, V18, V0
+	STXVD2X VS32, (R0)(R4)
+
+	// Advance pointers
+	ADD  $16, R4                  // acc: next 8 coefficients
+	ADD  $16, R5                  // lhs: next 8 coefficients
+	ADD  $16, R6                  // rhs: next 8 coefficients
+	ADD  $8, R7                   // gamma: 4 uint16 = 8 bytes per iteration
+
+	SUB  $1, R9
+	CMP  R9, $0
+	BNE  nttmlacc_loop
+
 	RET
 
+// internalNTTMulAccKeyGenPPC64LE uses the same Barrett arithmetic as internalNTTMulAccPPC64LE.
 TEXT ·internalNTTMulAccKeyGenPPC64LE(SB), NOSPLIT, $0-24
-	MOVD acc+0(FP), R4
-	MOVD lhs+8(FP), R5
-	MOVD rhs+16(FP), R6
-	RET
+	JMP ·internalNTTMulAccPPC64LE(SB)
 
 TEXT ·ringCompressAndEncode1PPC64LE(SB), NOSPLIT, $0-32
 	MOVD out_base+0(FP), R4

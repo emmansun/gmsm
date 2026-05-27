@@ -37,6 +37,13 @@ var inttTwiddleL2PrecompPPC64LE [256]fieldElement
 // inverseDegreeVecPPC64LE broadcasts kInverseDegree=3303 (= 128⁻¹ mod q) for INTT final scaling.
 var inverseDegreeVecPPC64LE [8]fieldElement
 
+// nttGammaPPC64LE stores gammas[0..127] for Barrett nttMulAcc.
+// Each group of 4 gammas is stored in reversed order so that LXVD2X
+// (which reverses bytes within each 8-byte group) loads them in natural order.
+// Layout: [g3,g2,g1,g0, g7,g6,g5,g4, ...] as uint16 LE.
+// Extra 16 bytes of padding prevent out-of-bounds reads at the last iteration.
+var nttGammaPPC64LE [144]fieldElement
+
 func init() {
 	// Forward NTT twiddle tables (Barrett form: plain zeta values, not Montgomery)
 
@@ -153,6 +160,15 @@ func init() {
 	for i := range inverseDegreeVecPPC64LE {
 		inverseDegreeVecPPC64LE[i] = 3303
 	}
+
+	// nttGammaPPC64LE: gammas for Barrett nttMulAcc, stored reversed per group of 4
+	// so LXVD2X loads them in natural order (each 8-byte group byte-reverses).
+	for i := 0; i < 128; i += 4 {
+		nttGammaPPC64LE[i+0] = gammas[i+3]
+		nttGammaPPC64LE[i+1] = gammas[i+2]
+		nttGammaPPC64LE[i+2] = gammas[i+1]
+		nttGammaPPC64LE[i+3] = gammas[i+0]
+	}
 }
 
 //go:noescape
@@ -217,7 +233,7 @@ func nttMul(acc, lhs, rhs *nttElement) {
 }
 
 func nttMulAcc(acc, lhs, rhs *nttElement) {
-	nttMulAccGeneric(acc, lhs, rhs)
+	internalNTTMulAccPPC64LE(acc, lhs, rhs)
 }
 
 func internalNTT(f *ringElement) {
@@ -229,7 +245,7 @@ func internalInverseNTT(f *nttElement) {
 }
 
 func nttMulAccKeyGen(acc, lhs, rhs *nttElement) {
-	nttMulAccGeneric(acc, lhs, rhs)
+	internalNTTMulAccKeyGenPPC64LE(acc, lhs, rhs)
 }
 
 func decodeAndDecompressU10(dst []ringElement, c []byte) {
