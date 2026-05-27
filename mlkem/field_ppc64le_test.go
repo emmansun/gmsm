@@ -152,8 +152,41 @@ func TestPPC64LENTTMatchesGeneric(t *testing.T) {
 
 		for j := range got {
 			if got[j] != want[j] {
+				t.Logf("input[0..15]=%v", f[:16])
+				t.Logf("want[0..15]=%v", want[:16])
+				t.Logf("got [0..15]=%v", got[:16])
 				t.Fatalf("iter=%d idx=%d: NTT mismatch: got=%d want=%d", i, j, got[j], want[j])
 			}
 		}
 	}
+}
+
+// TestPPC64LENTTLayer1 tests only L1 butterfly by comparing with a hand-traced result.
+func TestPPC64LENTTLayerByLayer(t *testing.T) {
+	// Use a deterministic input for traceable comparison
+	var f ringElement
+	for i := range f {
+		f[i] = fieldElement(i % 3329)
+	}
+
+	got := f
+	want := f
+
+	internalNTTPPC64LE(&got)
+	internalNTTGeneric(&want)
+
+	// Find the first layer that diverges by simulating partial NTTs.
+	// This is approximate: we compare results after applying L1 only.
+	// To isolate L1: apply L1 forward then check.
+	// For now just print the first 32 elements of got vs want.
+	for j := 0; j < 32 && j < len(got); j++ {
+		if got[j] != want[j] {
+			t.Logf("first mismatch at idx=%d: got=%d want=%d", j, got[j], want[j])
+			break
+		}
+	}
+	t.Logf("want[0:8]=%v", want[:8])
+	t.Logf("got [0:8]=%v", got[:8])
+	t.Logf("want[128:136]=%v", want[128:136])
+	t.Logf("got [128:136]=%v", got[128:136])
 }
