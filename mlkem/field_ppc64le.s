@@ -64,36 +64,41 @@ GLOBL lxvPackU32ToU16Mask<>(SB), RODATA|NOPTR, $16
 
 // ---- NTT twiddle masks ----
 //
-// nttL6L7DeinterleaveMaskLo: VPERM mask to extract even halfwords from V0+V1.
-// Given V0=[e0,o0,e1,o1,e2,o2,e3,o3] and V1=[e4,o4,e5,o5,e6,o6,e7,o7],
-// result = [e0,e1,e2,e3, e4,e5,e6,e7].
-// Desired BE register view: {0,1,4,5,8,9,12,13, 16,17,20,21,24,25,28,29}
-// Memory (LVX reverses all 16 bytes):
-DATA nttL6L7DeinterleaveMaskLo<>+0x00(SB)/8, $0x1011141518191C1D
-DATA nttL6L7DeinterleaveMaskLo<>+0x08(SB)/8, $0x0001040508090C0D
+// nttL6L7DeinterleaveMaskLo: VPERM to extract lo pair-groups from V0+V1 for L7 (len=2).
+// V0=[lo0,lo1,hi0,hi1, lo2,lo3,hi2,hi3], V1=same pattern for groups 4-7.
+// lo result = [lo0,lo1, lo2,lo3, lo4,lo5, lo6,lo7] (pairs at positions [0..1],[4..5] per block)
+// Desired BE byte indices: {0,1,2,3, 8,9,10,11, 16,17,18,19, 24,25,26,27}
+// Memory (LVX reverses all 16 bytes): {27,26,25,24,19,18,17,16,11,10,9,8,3,2,1,0}
+DATA nttL6L7DeinterleaveMaskLo<>+0x00(SB)/8, $0x1011121318191A1B
+DATA nttL6L7DeinterleaveMaskLo<>+0x08(SB)/8, $0x0001020308090A0B
 GLOBL nttL6L7DeinterleaveMaskLo<>(SB), RODATA|NOPTR, $16
 
-// nttL6L7DeinterleaveMaskHi: VPERM to extract odd halfwords from V0+V1 (L7 hi deinterleave).
-// Desired BE register view: {2,3,6,7,10,11,14,15, 18,19,22,23,26,27,30,31}
-// Memory (LVX reverses all 16 bytes):
-DATA nttL6L7DeinterleaveMaskHi<>+0x00(SB)/8, $0x121316171A1B1E1F
-DATA nttL6L7DeinterleaveMaskHi<>+0x08(SB)/8, $0x020306070A0B0E0F
+// nttL6L7DeinterleaveMaskHi: VPERM to extract hi pair-groups from V0+V1 for L7 (len=2).
+// hi result = [hi0,hi1, hi2,hi3, hi4,hi5, hi6,hi7] (pairs at positions [2..3],[6..7] per block)
+// Desired BE byte indices: {4,5,6,7, 12,13,14,15, 20,21,22,23, 28,29,30,31}
+// Memory (LVX reverses all 16 bytes): {31,30,29,28,23,22,21,20,15,14,13,12,7,6,5,4}
+DATA nttL6L7DeinterleaveMaskHi<>+0x00(SB)/8, $0x141516171C1D1E1F
+DATA nttL6L7DeinterleaveMaskHi<>+0x08(SB)/8, $0x04050607_0C0D0E0F
 GLOBL nttL6L7DeinterleaveMaskHi<>(SB), RODATA|NOPTR, $16
 
-// nttL7ReinterleaveMask0: VPERM mask to repack even+odd halves for L7 (first 8 elements).
-// From V_lo=[e0..e7] and V_hi=[o0..o7], result = [e0,o0,e1,o1,e2,o2,e3,o3].
-// Desired BE: {0,1,16,17, 4,5,20,21, 8,9,24,25, 12,13,28,29}
-DATA nttL7ReinterleaveMask0<>+0x00(SB)/8, $0x080918190C0D1C1D
-DATA nttL7ReinterleaveMask0<>+0x08(SB)/8, $0x0001101104051415
+// nttL7ReinterleaveMask0: VPERM to repack lo+hi pairs into first 8 output elements.
+// From V_lo=[lo0,lo1,lo2,lo3,lo4,lo5,lo6,lo7] and V_hi=[hi0,hi1,...hi7] (as uint16 groups):
+// result0 = [lo0,lo1, hi0,hi1, lo2,lo3, hi2,hi3]
+// BE bytes: {0,1,2,3, 16,17,18,19, 4,5,6,7, 20,21,22,23}
+// Memory reversed: {23,22,21,20, 7,6,5,4, 19,18,17,16, 3,2,1,0}
+DATA nttL7ReinterleaveMask0<>+0x00(SB)/8, $0x0405060714151617
+DATA nttL7ReinterleaveMask0<>+0x08(SB)/8, $0x0001020310111213
 GLOBL nttL7ReinterleaveMask0<>(SB), RODATA|NOPTR, $16
 
-// nttL7ReinterleaveMask1: VPERM to produce [e'4,o'4,...e'7,o'7] from even+odd.
-// Desired BE: {2,3,18,19, 6,7,22,23, 10,11,26,27, 14,15,30,31}
-// Memory (LVX reverses all 16 bytes):
-DATA nttL7ReinterleaveMask1<>+0x00(SB)/8, $0x1F1E1B1A17161312
-DATA nttL7ReinterleaveMask1<>+0x08(SB)/8, $0x0F0E0B0A07060302
+// nttL7ReinterleaveMask1: VPERM to repack lo+hi pairs into second 8 output elements.
+// result1 = [lo4,lo5, hi4,hi5, lo6,lo7, hi6,hi7]
+// BE bytes: {8,9,10,11, 24,25,26,27, 12,13,14,15, 28,29,30,31}
+// Memory reversed: {31,30,29,28, 15,14,13,12, 27,26,25,24, 11,10,9,8}
+DATA nttL7ReinterleaveMask1<>+0x00(SB)/8, $0x0C0D0E0F1C1D1E1F
+DATA nttL7ReinterleaveMask1<>+0x08(SB)/8, $0x08090A0B18191A1B
 GLOBL nttL7ReinterleaveMask1<>(SB), RODATA|NOPTR, $16
 
+// (old comment kept for reference)
 // nttL7ReinterleaveMask1: for second 8 elements: [e4,o4,e5,o5,e6,o6,e7,o7]
 // Desired BE: {2,3,18,19, 6,7,22,23, 10,11,26,27, 14,15,30,31}
 // (same as lxvPackU32ToU16Mask - reuse that mask)
@@ -614,9 +619,10 @@ ntt_l6_loop:
 	BDNZ ntt_l6_loop
 
 	// ================================================================
-	// Layer L7: len=2, 64 zetas, 8 iterations, 8 groups per iter.
-	// Per iter: load 2 VMX vecs (16 elements), VPERM deinterleave into even/odd,
-	// butterfly with [z0..z7] twiddle, reinterleave, store.
+	// Layer L7: len=2, 64 zetas, 16 iters, 4 groups per iter.
+	// Each iter processes 2 VMX vecs (32 elements = 4 groups × 8 elements).
+	// Twiddle: 4 distinct zetas per iter, each ×2 = [z0,z0,z1,z1,z2,z2,z3,z3].
+	// VPERM deinterleave separates lo pairs from hi pairs, butterfly, reinterleave.
 	// ================================================================
 	MOVD $·nttTwiddleL2PrecompPPC64LE(SB), R10
 	MOVD $0, R11
@@ -624,14 +630,13 @@ ntt_l6_loop:
 
 	// Load masks for deinterleave/reinterleave
 	MOVD $nttL6L7DeinterleaveMaskHi<>(SB), R12
-	LVX  (R0)(R12), V11       // V11 = hi deinterleave mask (odd halfwords)
+	LVX  (R0)(R12), V11       // V11 = hi deinterleave mask
 	MOVD $nttL7ReinterleaveMask0<>(SB), R12
 	LVX  (R0)(R12), V13       // V13 = reinterleave mask 0 (first 8 elems)
 	MOVD $nttL7ReinterleaveMask1<>(SB), R12
 	LVX  (R0)(R12), V15       // V15 = reinterleave mask 1 (second 8 elems)
-	// reinterleave mask 1 = lxvPackU32ToU16Mask (already in V12)
 
-	MOVD $8, R9
+	MOVD $16, R9
 	MOVD R9, CTR
 ntt_l7_loop:
 	// Load twiddle [z0..z7] into V2

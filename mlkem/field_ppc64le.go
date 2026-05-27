@@ -35,7 +35,7 @@ var nttTwiddleL4PrecompPPC64LE [128]fieldElement
 
 // nttTwiddleL2PrecompPPC64LE stores 8 VMX vectors of 8 distinct zetas each,
 // from zetas[64..127]. Each vector = [z_{8k}..z_{8k+7}] for iter k.
-var nttTwiddleL2PrecompPPC64LE [64]fieldElement
+var nttTwiddleL2PrecompPPC64LE [128]fieldElement
 
 // inttTwiddleL5PrecompPPC64LE: inverse NTT zetas for L5 (16 broadcast vectors, reverse order).
 var inttTwiddleL5PrecompPPC64LE [128]fieldElement
@@ -43,8 +43,8 @@ var inttTwiddleL5PrecompPPC64LE [128]fieldElement
 // inttTwiddleL4PrecompPPC64LE: inverse NTT zetas for layer 4.
 var inttTwiddleL4PrecompPPC64LE [128]fieldElement
 
-// inttTwiddleL2PrecompPPC64LE: inverse NTT zetas for layer 2 (8 vecs of 8 zetas each).
-var inttTwiddleL2PrecompPPC64LE [64]fieldElement
+// inttTwiddleL2PrecompPPC64LE: inverse NTT zetas for layer 2 (16 vecs of 8 = 128 entries).
+var inttTwiddleL2PrecompPPC64LE [128]fieldElement
 
 // inttTwiddleL1PrecompPPC64LE: INTT broadcast zeta tables for layers L1-L4b (reverse).
 var inttTwiddleL1PrecompPPC64LE [8]fieldElement
@@ -111,14 +111,15 @@ func init() {
 		}
 	}
 
-	// Layer 2 (len=2): 8 iters, each processes 8 groups (16 elements).
-	// Twiddle vector for iter k = [z_{8k}, z_{8k+1}, ..., z_{8k+7}] (8 distinct zetas).
-	// zetas[64..127]: iter k uses zetas[64+8k..64+8k+7].
-	for block := 0; block < 8; block++ {
+	// Layer 2 (len=2): 16 iters, each processes 4 groups (32 elements / 2 vectors).
+	// Each group has 2 lo+2 hi elements sharing one zeta. 4 distinct zetas per iter, each ×2.
+	// zetas[64..127]: iter k uses zetas[64+4k..64+4k+3], each stored twice.
+	for block := 0; block < 16; block++ {
 		base := block * 8
-		z := 64 + block*8
-		for i := 0; i < 8; i++ {
-			nttTwiddleL2PrecompPPC64LE[base+i] = zetas[z+i]
+		z := 64 + block*4
+		for i := 0; i < 4; i++ {
+			nttTwiddleL2PrecompPPC64LE[base+i*2] = zetas[z+i]
+			nttTwiddleL2PrecompPPC64LE[base+i*2+1] = zetas[z+i]
 		}
 	}
 
@@ -145,12 +146,15 @@ func init() {
 		}
 	}
 
-	// INTT L7 (forward len=2, INTT reverse): 8 iters, zetas[127..64] reversed.
-	for block := 0; block < 8; block++ {
+	// INTT L7 (forward len=2, INTT reverse): 16 iters, 4 distinct zetas per iter, each ×2.
+	// INTT at len=2 reverses the forward L7 groups in reverse order: zetas[127..64] reversed,
+	// each broadcast twice (to match the lo/lo, hi/hi pair structure).
+	for block := 0; block < 16; block++ {
 		base := block * 8
-		iz2 := 127 - block*8
-		for i := 0; i < 8; i++ {
-			inttTwiddleL2PrecompPPC64LE[base+i] = zetas[iz2-i]
+		iz2 := 127 - block*4
+		for i := 0; i < 4; i++ {
+			inttTwiddleL2PrecompPPC64LE[base+i*2] = zetas[iz2-i]
+			inttTwiddleL2PrecompPPC64LE[base+i*2+1] = zetas[iz2-i]
 		}
 	}
 
