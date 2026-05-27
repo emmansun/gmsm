@@ -6,6 +6,14 @@
 
 #include "textflag.h"
 
+// VPKUWUS(VT, VA, VB): Pack uint32 → uint16 (unsigned saturate) interleaved.
+// In Go asm, last arg = dest. PowerISA: VPKUWUS VRT, VRA, VRB.
+// Go asm "VPKUWUS VA, VB, VT" maps to "VPKUWUS VT, VA, VB" in hardware.
+// Result BE register: [VA_w0, VB_w0, VA_w1, VB_w1, VA_w2, VB_w2, VA_w3, VB_w3] as 8 uint16.
+// For V1=evens, V2=odds: VPKUWUS(V13, V1, V2) → V13=[e0,o0,e1,o1,e2,o2,e3,o3].
+// Encoding: (4<<26) | (VT<<21) | (VA<<16) | (VB<<11) | 334
+#define VPKUWUS(VT, VA, VB) WORD $((4 << 26) | ((VT) << 21) | ((VA) << 16) | ((VB) << 11) | 334)
+
 // ---- Static constants ----
 //
 // kBarrettConsts layout:
@@ -51,22 +59,6 @@ GLOBL lxvNaturalOrderMask<>(SB), RODATA|NOPTR, $16
 DATA lxvPairSwapMask<>+0x00(SB)/8, $0x0C0D0E0F08090A0B
 DATA lxvPairSwapMask<>+0x08(SB)/8, $0x0405060700010203
 GLOBL lxvPairSwapMask<>(SB), RODATA|NOPTR, $16
-
-// lxvPackU32ToU16Mask: VPERM mask to pack two 4-uint32 vectors to 8 uint16.
-// Extracts the low 2 bytes of each uint32 (the actual value when value < 2^16).
-// Input: VA=[e0,o0,e1,o1] as uint32, VB=[e2,o2,e3,o3] as uint32
-// Output: [e0,o0,e1,o1, e2,o2,e3,o3] as 8 uint16
-// VPERM selects: bytes 2,3 from each uint32 of VA (indices 0-15) and VB (16-31).
-// Desired BE register view: {2,3,6,7,10,11,14,15, 18,19,22,23,26,27,30,31}
-// Stored as LE 64-bit integers so LVX reverses into correct BE positions.
-// LVX on ppc64le reverses all 16 bytes. To get register view
-// = {2,3,6,7,10,11,14,15, 18,19,22,23,26,27,30,31}, memory must be the reverse:
-// {31,30,27,26,23,22,19,18, 15,14,11,10,7,6,3,2}
-// Memory bytes 0-7: {31,30,27,26,23,22,19,18} → DATA LE64 = 0x121316171A1B1E1F
-// Memory bytes 8-15: {15,14,11,10,7,6,3,2}   → DATA LE64 = 0x020306070A0B0E0F
-DATA lxvPackU32ToU16Mask<>+0x00(SB)/8, $0x121316171A1B1E1F
-DATA lxvPackU32ToU16Mask<>+0x08(SB)/8, $0x020306070A0B0E0F
-GLOBL lxvPackU32ToU16Mask<>(SB), RODATA|NOPTR, $16
 
 // polyAddAssignPPC64LE(dst, src *ringElement)
 // dst[i] = barrettReduce(dst[i] + src[i]) for all 256 int16 coefficients.
@@ -230,9 +222,6 @@ TEXT ·internalNTTMulAccPPC64LE(SB), NOSPLIT, $0-24
 	MOVD $lxvPairSwapMask<>(SB), R10
 	LVX  (R0)(R10), V19           // V19 = pair-swap VPERM mask
 
-	MOVD $lxvPackU32ToU16Mask<>(SB), R10
-	LVX  (R0)(R10), V12           // V12 = pack uint32→uint16 VPERM mask (pinned)
-
 	MOVD $32, R9                  // loop counter (32 iterations × 16 bytes = 512 bytes)
 	MOVD R9, CTR
 
@@ -331,22 +320,11 @@ nttmlacc_loop:
 	VMULUWM V10, V16, V9
 	VSUBUWM V2, V9, V2            // V2 ∈ [0, 2q)
 
-	// Final reduce once to [0, q)
-	VSUBUWM V1, V16, V8
-	VCMPGTUW V16, V1, V9
-	VSEL    V8, V1, V9, V1
-	VSUBUWM V2, V16, V8
-	VCMPGTUW V16, V2, V9
-	VSEL    V8, V2, V9, V2
-
-	// Interleave even/odd sums and pack to uint16 delta (NO VPKUWUS):
-	// XXMRGHW: V0=[e0,o0,e1,o1] as 4 uint32 (pairs 0,1)
-	// XXMRGLW: V11=[e2,o2,e3,o3] as 4 uint32 (pairs 2,3)
-	// VPERM extracts bytes 2,3 of each uint32 (the actual value) from both sources:
-	// V13=[e0,o0,e1,o1, e2,o2,e3,o3] as 8 uint16 (delta)
-	XXMRGHW VS33, VS34, VS32      // VS33=V1, VS34=V2, VS32=V0
-	XXMRGLW VS33, VS34, VS43      // VS43=V11
-	VPERM   V0, V11, V12, V13    // V13 = delta uint16 (V12=pack mask, pinned)
+	// Interleave even/odd sums and pack to uint16 delta.
+	// V1=[e0,e1,e2,e3] uint32, V2=[o0,o1,o2,o3] uint32, values in [0, 2q) < 65536.
+	// VPKUWUS(VT,VA,VB): VT=[VA_w0,VB_w0,VA_w1,VB_w1,...] as 8 uint16 (interleaved).
+	// V13=[e0,o0,e1,o1, e2,o2,e3,o3] as 8 uint16 (delta) in [0, 2q)
+	VPKUWUS(V13, V1, V2)
 
 	// Load acc → natural order in V0
 	LXVD2X (R0)(R4), VS32
@@ -355,7 +333,7 @@ nttmlacc_loop:
 	// acc += delta (delta ∈ [0, 2q) as uint16, acc ∈ [0, q))
 	VADDUHM V0, V13, V0           // V0 ∈ [0, 3q)
 
-	// fieldReduceOnce acc: two passes to reach [0, q)
+	// fieldReduceOnce acc: two passes [0,3q) → [0,2q) → [0,q)
 	VSUBUHM V0, V17, V8
 	VCMPGTUH V17, V0, V9
 	VSEL    V8, V0, V9, V0        // → [0, 2q)
