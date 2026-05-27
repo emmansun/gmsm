@@ -52,6 +52,14 @@ DATA lxvPairSwapMask<>+0x00(SB)/8, $0x0C0D0E0F08090A0B
 DATA lxvPairSwapMask<>+0x08(SB)/8, $0x0405060700010203
 GLOBL lxvPairSwapMask<>(SB), RODATA|NOPTR, $16
 
+// lxvPackU32ToU16Mask: VPERM mask to pack two 4-uint32 vectors to 8 uint16.
+// LVX on ppc64le reverses all 16 bytes. Desired BE register view:
+// {2,3,6,7,10,11,14,15, 18,19,22,23,26,27,30,31}. Memory = reverse:
+// {31,30,27,26,23,22,19,18, 15,14,11,10,7,6,3,2}.
+DATA lxvPackU32ToU16Mask<>+0x00(SB)/8, $0x121316171A1B1E1F
+DATA lxvPackU32ToU16Mask<>+0x08(SB)/8, $0x020306070A0B0E0F
+GLOBL lxvPackU32ToU16Mask<>(SB), RODATA|NOPTR, $16
+
 // polyAddAssignPPC64LE(dst, src *ringElement)
 // dst[i] = barrettReduce(dst[i] + src[i]) for all 256 int16 coefficients.
 // LXVD2X on ppc64le reverses bytes within each 8-byte group. Since STXVD2X
@@ -214,6 +222,9 @@ TEXT ·internalNTTMulAccPPC64LE(SB), NOSPLIT, $0-24
 	MOVD $lxvPairSwapMask<>(SB), R10
 	LVX  (R0)(R10), V19           // V19 = pair-swap VPERM mask
 
+	MOVD $lxvPackU32ToU16Mask<>(SB), R10
+	LVX  (R0)(R10), V12           // V12 = pack uint32→uint16 VPERM mask (pinned)
+
 	MOVD $32, R9                  // loop counter (32 iterations × 16 bytes = 512 bytes)
 	MOVD R9, CTR
 
@@ -314,10 +325,13 @@ nttmlacc_loop:
 
 	// Interleave even/odd sums and pack to uint16 delta.
 	// V1=[e0,e1,e2,e3] uint32, V2=[o0,o1,o2,o3] uint32, values in [0, 2q) < 65536.
-	// VPKUWUS V13, V1, V2: packs VA words (V1=even) and VB words (V2=odd) interleaved
-	// into V13 as 8 uint16: [e0,o0,e1,o1, e2,o2,e3,o3] in [0, 2q)
-	// WORD: (4<<26)|(13<<21)|(1<<16)|(2<<11)|142 = 0x11A1108E
-	WORD $0x11A1108E              // VPKUWUS V13, V1, V2
+	// XXMRGHW: V0=[e0,o0,e1,o1] as 4 uint32 (pairs 0,1)
+	// XXMRGLW: V11=[e2,o2,e3,o3] as 4 uint32 (pairs 2,3)
+	// VPERM extracts bytes 2,3 of each uint32 (the actual value) from both sources:
+	// V13=[e0,o0,e1,o1, e2,o2,e3,o3] as 8 uint16 (delta) in [0, 2q)
+	XXMRGHW VS33, VS34, VS32      // VS33=V1, VS34=V2, VS32=V0
+	XXMRGLW VS33, VS34, VS43      // VS43=V11
+	VPERM   V0, V11, V12, V13    // V13 = delta uint16 (V12=pack mask, pinned)
 
 	// Load acc → natural order in V0
 	LXVD2X (R0)(R4), VS32
