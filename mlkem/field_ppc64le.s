@@ -6,14 +6,6 @@
 
 #include "textflag.h"
 
-// VPKUWUS(VT, VA, VB): Pack uint32 → uint16 (unsigned saturate) interleaved.
-// In Go asm, last arg = dest. PowerISA: VPKUWUS VRT, VRA, VRB.
-// Go asm "VPKUWUS VA, VB, VT" maps to "VPKUWUS VT, VA, VB" in hardware.
-// Result BE register: [VA_w0, VB_w0, VA_w1, VB_w1, VA_w2, VB_w2, VA_w3, VB_w3] as 8 uint16.
-// For V1=evens, V2=odds: VPKUWUS(V13, V1, V2) → V13=[e0,o0,e1,o1,e2,o2,e3,o3].
-// Encoding: (4<<26) | (VT<<21) | (VA<<16) | (VB<<11) | 334
-#define VPKUWUS(VT, VA, VB) WORD $((4 << 26) | ((VT) << 21) | ((VA) << 16) | ((VB) << 11) | 334)
-
 // ---- Static constants ----
 //
 // kBarrettConsts layout:
@@ -322,9 +314,10 @@ nttmlacc_loop:
 
 	// Interleave even/odd sums and pack to uint16 delta.
 	// V1=[e0,e1,e2,e3] uint32, V2=[o0,o1,o2,o3] uint32, values in [0, 2q) < 65536.
-	// VPKUWUS(VT,VA,VB): VT=[VA_w0,VB_w0,VA_w1,VB_w1,...] as 8 uint16 (interleaved).
+	// VPKUWUS VT,VA,VB: VT=[VA_w0,VB_w0,VA_w1,VB_w1,...] as 8 uint16 (interleaved).
 	// V13=[e0,o0,e1,o1, e2,o2,e3,o3] as 8 uint16 (delta) in [0, 2q)
-	VPKUWUS(V13, V1, V2)
+	// WORD: (4<<26)|(13<<21)|(1<<16)|(2<<11)|334 = 0x11A1114E
+	WORD $0x11A1114E              // VPKUWUS V13, V1, V2
 
 	// Load acc → natural order in V0
 	LXVD2X (R0)(R4), VS32
