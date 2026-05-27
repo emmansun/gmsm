@@ -59,6 +59,9 @@ GLOBL lxvPairSwapMask<>(SB), RODATA|NOPTR, $16
 // VPERM selects: bytes 2,3 from each uint32 of VA (indices 0-15) and VB (16-31).
 // Desired BE register view: {2,3,6,7,10,11,14,15, 18,19,22,23,26,27,30,31}
 // Stored as LE 64-bit integers so LVX reverses into correct BE positions.
+// LVX on ppc64le reverses all 16 bytes. To get register view
+// = {2,3,6,7,10,11,14,15, 18,19,22,23,26,27,30,31}, memory must be the reverse:
+// {31,30,27,26,23,22,19,18, 15,14,11,10,7,6,3,2}
 // Memory bytes 0-7: {31,30,27,26,23,22,19,18} → DATA LE64 = 0x121316171A1B1E1F
 // Memory bytes 8-15: {15,14,11,10,7,6,3,2}   → DATA LE64 = 0x020306070A0B0E0F
 DATA lxvPackU32ToU16Mask<>+0x00(SB)/8, $0x121316171A1B1E1F
@@ -311,15 +314,28 @@ nttmlacc_loop:
 	// Odd pair sums = V_r01 + V_r10 (stored in V2, reusing V2=rhs_swap)
 	VADDUWM V6, V7, V2            // V2 = [a0b1_r+a1b0_r, ...] ∈ [0, 2q)
 
-	// fieldReduceOnce even sums (uint32: [0,2q) → [0,q))
-	VSUBUWM V1, V16, V8           // V8 = V1 - q (wraps if V1 < q)
-	VCMPGTUW V16, V1, V9          // V9 = 0xFFFFFFFF where q > V1 (no reduce needed)
-	VSEL    V8, V1, V9, V1        // V1 = V9? V1 (keep) : V8 (reduced)
+	// fieldReduceOnce even sums (uint32: [0,4q) → [0,q))
+	// Two passes needed since sum can be up to 4q-2.
+	VSUBUWM V1, V16, V8           // V8 = V1 - q
+	VCMPGTUW V16, V1, V9          // V9 = 0xFFFF.. where q > V1 (no reduce needed)
+	VSEL    V8, V1, V9, V1        // V1 = V9? V1 : V8 → [0,3q)
+	VSUBUWM V1, V16, V8
+	VCMPGTUW V16, V1, V9
+	VSEL    V8, V1, V9, V1        // second pass → [0,2q)
+	VSUBUWM V1, V16, V8
+	VCMPGTUW V16, V1, V9
+	VSEL    V8, V1, V9, V1        // third pass → [0,q)
 
-	// fieldReduceOnce odd sums
+	// fieldReduceOnce odd sums (same)
 	VSUBUWM V2, V16, V8
 	VCMPGTUW V16, V2, V9
-	VSEL    V8, V2, V9, V2
+	VSEL    V8, V2, V9, V2        // first pass → [0,3q)
+	VSUBUWM V2, V16, V8
+	VCMPGTUW V16, V2, V9
+	VSEL    V8, V2, V9, V2        // second pass → [0,2q)
+	VSUBUWM V2, V16, V8
+	VCMPGTUW V16, V2, V9
+	VSEL    V8, V2, V9, V2        // third pass → [0,q)
 
 	// Interleave even/odd sums and pack to uint16 delta (NO VPKUWUS):
 	// XXMRGHW: V0=[e0,o0,e1,o1] as 4 uint32 (pairs 0,1)
