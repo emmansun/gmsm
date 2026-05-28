@@ -80,8 +80,8 @@ DATA kCmpConsts<>+0x08(SB)/2, $20159
 DATA kCmpConsts<>+0x0A(SB)/2, $20159
 DATA kCmpConsts<>+0x0C(SB)/2, $20159
 DATA kCmpConsts<>+0x0E(SB)/2, $20159
-DATA kCmpConsts<>+0x10(SB)/8, $0x0000000000000000
-DATA kCmpConsts<>+0x18(SB)/8, $0x03070B0F00000000
+DATA kCmpConsts<>+0x10(SB)/8, $0x0000000003070B0F
+DATA kCmpConsts<>+0x18(SB)/8, $0x0000000000000000
 DATA kCmpConsts<>+0x20(SB)/4, $1290168
 DATA kCmpConsts<>+0x24(SB)/4, $1290168
 DATA kCmpConsts<>+0x28(SB)/4, $1290168
@@ -1576,12 +1576,8 @@ compress4_vmx_loop:
 	VAND    V4, V10, V4
 	VSLW    V4, V11, V4           // c_odd <<= 4
 	VADDUWM V3, V4, V5            // c_even | c_odd<<4 → packed byte in low u32 byte
-	VPERM   V5, V5, V7, V5        // extract low bytes of each u32 to BE[0..3]
-	MFVSRD  V5, R6                // R6 = c01<<56|c23<<48|c45<<40|c67<<32
-	SRD     $56, R6, R7; MOVB R7, 0(R4)
-	SRD     $48, R6, R7; MOVB R7, 1(R4)
-	SRD     $40, R6, R7; MOVB R7, 2(R4)
-	SRD     $32, R6, R7; MOVB R7, 3(R4)
+	VPERM   V5, V5, V7, V5        // pack low bytes of each u32 into word element 1 (BE[4..7])
+	STXSIWX VS37, (R0)(R4)        // store word element 1 of VS37=V5 to mem[R4]
 	ADD     $16, R5
 	ADD     $4, R4
 	BDNZ    compress4_vmx_loop
