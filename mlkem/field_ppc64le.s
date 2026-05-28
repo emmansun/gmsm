@@ -180,7 +180,39 @@ DATA cbd2Consts<>+0x80(SB)/8, $0x0B1B0A1A09190818
 DATA cbd2Consts<>+0x88(SB)/8, $0x0F1F0E1E0D1D0C1C
 GLOBL cbd2Consts<>(SB), RODATA|NOPTR, $144
 
-// BARRETT_REDUCE_U32(Vin, V14, V15, V16, Vtmp1, Vtmp2, Vtmp3) - Barrett reduce Vin to [0,2q)
+// cbd3VMXConsts: constants for samplePolyCBD3PPC64LE VMX implementation (LXVD2X-loaded).
+// [+0x00..+0x0F]: {0x249249 x4}  mask249  — bit-parallel field selector (uint32x4)
+// [+0x10..+0x1F]: {0x6DB6DB x4}  mask6DB  — difference accumulator mask (uint32x4)
+// [+0x20..+0x2F]: {7 x4}         mask7    — 3-bit low-group extractor (uint32x4)
+// [+0x30..+0x3F]: {0x70000 x4}   mask70000 — 3-bit high-group extractor (uint32x4)
+// [+0x40..+0x4F]: {3 x8}         const3   — subtraction constant (uint16x8)
+// [+0x50..+0x5F]: extractLoMask — VPERM(V12,V10,mask,V13) → coeff[0..7]+3 in
+//                 STXVD2X-ready BE layout {0,c3,0,c2,0,c1,0,c0, 0,c7,0,c6,0,c5,0,c4}
+//                 BE mask: {0,17,2,19, 0,1,2,3, 4,21,6,23, 4,5,6,7}
+// [+0x60..+0x6F]: extractHiMask — VPERM(V12,V10,mask,V14) → coeff[8..15]+3 in
+//                 STXVD2X-ready BE layout
+//                 BE mask: {8,25,10,27, 8,9,10,11, 12,29,14,31, 12,13,14,15}
+// [+0x70..+0x7F]: cbd3ShufA — VPERM mask to rearrange LXVD2X-loaded bytes into
+//                 32-bit lanes (one 3-byte group per lane, LE layout in BE word)
+//                 BE mask: {0x10,5,6,7, 0x10,2,3,4, 0x10,0x0F,0,1, 0x10,0x0C,0x0D,0x0E}
+DATA cbd3VMXConsts<>+0x00(SB)/8, $0x0024924900249249
+DATA cbd3VMXConsts<>+0x08(SB)/8, $0x0024924900249249
+DATA cbd3VMXConsts<>+0x10(SB)/8, $0x006DB6DB006DB6DB
+DATA cbd3VMXConsts<>+0x18(SB)/8, $0x006DB6DB006DB6DB
+DATA cbd3VMXConsts<>+0x20(SB)/8, $0x0000000700000007
+DATA cbd3VMXConsts<>+0x28(SB)/8, $0x0000000700000007
+DATA cbd3VMXConsts<>+0x30(SB)/8, $0x0007000000070000
+DATA cbd3VMXConsts<>+0x38(SB)/8, $0x0007000000070000
+DATA cbd3VMXConsts<>+0x40(SB)/8, $0x0003000300030003
+DATA cbd3VMXConsts<>+0x48(SB)/8, $0x0003000300030003
+DATA cbd3VMXConsts<>+0x50(SB)/8, $0x0011021300010203
+DATA cbd3VMXConsts<>+0x58(SB)/8, $0x0415061704050607
+DATA cbd3VMXConsts<>+0x60(SB)/8, $0x08190A1B08090A0B
+DATA cbd3VMXConsts<>+0x68(SB)/8, $0x0C1D0E1F0C0D0E0F
+DATA cbd3VMXConsts<>+0x70(SB)/8, $0x1005060710020304
+DATA cbd3VMXConsts<>+0x78(SB)/8, $0x100F0001100C0D0E
+GLOBL cbd3VMXConsts<>(SB), RODATA|NOPTR, $128
+
 // V14=kBMul={5039x4}, V15=kShift={24,24}uint64, V16=kPrime32={3329x4}
 // Vtmp1, Vtmp2, Vtmp3 are scratch registers
 #define BARRETT_REDUCE_U32(Vin, Vtmp1, Vtmp2, Vtmp3) \
@@ -2245,90 +2277,169 @@ cbd2_loop:
 	RET
 
 // samplePolyCBD3PPC64LE implements the Centered Binomial Distribution sampling with η=3
-// using hardware POPCNTW and branchless arithmetic. Each call processes 192 input bytes
+// using a VMX (AltiVec) bit-parallel algorithm. Each call processes 192 input bytes
 // and writes 256 int16 coefficients to f, with each coefficient in [0, q).
 //
 // Algorithm: for each 3-byte (24-bit) group, extract four 6-bit pairs (a[2:0], b[2:0]).
 //   coeff[j] = popcount(a[j]) - popcount(b[j])  for j in 0..3
-// Negative coefficients have q=3329 added using branchless SRAW+AND.
+// Negative coefficients have q=3329 added.
 //
-// Two a-fields (or two b-fields) are packed into a 64-bit register (one per 32-bit word)
-// so POPCNTW computes both popcounts in a single instruction.
+// VMX implementation processes 24 bytes → 32 coefficients per iteration (8 loops):
+//   Block A: bytes[0..11]  → 16 coefficients
+//   Block B: bytes[12..23] → 16 coefficients
+// Both blocks use the same shuffle and bit-parallel popcount algorithm.
 //
-// Register map:
-//   R4=f  R5=buf  R6=byte_offset  R7=packed_24bit
-//   R8,R9=pop(a0,b0)  R10,R11=pop(a1,b1)  R12=scratch  R13=scratch
-//   R14=q=3329  R15,R16=scratch  CTR=64
+// Register map (VMX):
+//   V0  = first 16 input bytes (LXVD2X)
+//   V1  = next 16 input bytes overlapping (LXVD2X at offset+12)
+//   V2  = shuffled 32-bit lanes (one 3-byte group per lane, LE in BE word)
+//   V3,V4 = V2>>1, V2>>2 (for popcount)
+//   V5  = scratch shift constant (VSPLTISB $12 per block)
+//   V6  = popcount sum s
+//   V7  = s>>3
+//   V8  = result (s + mask6DB - s>>3), coeff+3 pairs at bits {0,6,12,18}
+//   V9,V11 = extraction scratch
+//   V10 = odd coeff pairs {c3+3,c2+3,...}
+//   V12 = even coeff pairs {c1+3,c0+3,...}
+//   V13 = coeff[0..7]+3 in STXVD2X-ready layout
+//   V14 = coeff[8..15]+3 in STXVD2X-ready layout
+//   V16 = mask249 = {0x249249 x4}
+//   V17 = mask6DB = {0x6DB6DB x4}
+//   V18 = mask7   = {7 x4}
+//   V19 = mask70000 = {0x70000 x4}
+//   V20 = const3  = {3 x8 uint16}
+//   V21 = q3329   = {3329 x8 uint16}
+//   V22 = extractLoMask (VPERM → coeff[0..7]+3 STXVD2X-ready)
+//   V23 = extractHiMask (VPERM → coeff[8..15]+3 STXVD2X-ready)
+//   V24 = cbd3ShufA (3-byte group shuffle for LXVD2X-loaded bytes)
+//   V25 = {0} for VPERM zero source in cbd3ShufA
+//   V26 = {1} for VSRW shift-by-1
+//   V27 = {2} for VSRW shift-by-2
+//   V28 = {3} for VSRW shift-by-3
+//   V29 = {10} for VSLW shift-by-10
+//   V31 = {15} for VSRAH sign-extraction
+//   R4=f  R5=buf  R6=byte_offset  R7=const_base  R8=scratch
 //
 // func samplePolyCBD3PPC64LE(f *ringElement, buf *[192]byte)
 TEXT ·samplePolyCBD3PPC64LE(SB), NOSPLIT, $0-16
 	MOVD f+0(FP), R4
 	MOVD buf+8(FP), R5
 
-	MOVD $3329, R14
-	MOVD $64, R6;  MOVD R6, CTR
-	MOVD $0,  R6
+	MOVD $cbd3VMXConsts<>(SB), R7
+	LXVD2X (R0)(R7), VS48                                 // V16 = mask249
+	ADD  $16,  R7, R8;  LXVD2X (R0)(R8), VS49            // V17 = mask6DB
+	ADD  $32,  R7, R8;  LXVD2X (R0)(R8), VS50            // V18 = mask7
+	ADD  $48,  R7, R8;  LXVD2X (R0)(R8), VS51            // V19 = mask70000
+	ADD  $64,  R7, R8;  LXVD2X (R0)(R8), VS52            // V20 = const3 {3 x8}
+	ADD  $80,  R7, R8;  LXVD2X (R0)(R8), VS54            // V22 = extractLoMask
+	ADD  $96,  R7, R8;  LXVD2X (R0)(R8), VS55            // V23 = extractHiMask
+	ADD  $112, R7, R8;  LXVD2X (R0)(R8), VS56            // V24 = cbd3ShufA
 
-cbd3_loop:
-	// Load 3 bytes into R7 as packed 24-bit value
-	ADD   R6, R5, R13
-	MOVBZ 0(R13), R7
-	MOVBZ 1(R13), R8;  SLD $8,  R8, R8;  OR R7, R8, R7
-	MOVBZ 2(R13), R9;  SLD $16, R9, R9;  OR R7, R9, R7
+	MOVD $kBarrettConsts<>(SB), R8;  ADD $0x30, R8;  LXVD2X (R0)(R8), VS53  // V21 = q3329
 
-	// Extract 8 3-bit fields (a0,b0..a3,b3) from R7
-	// a[j] = bits [6j+2 : 6j], b[j] = bits [6j+5 : 6j+3]
-	// Pack a0 and a1 into R8 (low32=a0, high32=a1) and POPCNTW
-	// Pack b0 and b1 into R9 (low32=b0, high32=b1) and POPCNTW
-	ANDCC $7, R7, R15          // R15 = a0 = R7[2:0]
-	SRD   $3, R7, R16; ANDCC $7, R16, R16  // R16 = b0
-	SRD   $6, R7, R12; ANDCC $7, R12, R12  // R12 = a1
-	SRD   $9, R7, R13; ANDCC $7, R13, R13  // R13 = b1
+	VSPLTISB $0,  V25                                     // V25 = all zeros (VPERM zero source)
+	VSPLTISB $1,  V26                                     // V26 = {1} for VSRW shift-by-1
+	VSPLTISB $2,  V27                                     // V27 = {2} for VSRW shift-by-2
+	VSPLTISB $3,  V28                                     // V28 = {3} for VSRW shift-by-3
+	VSPLTISB $10, V29                                     // V29 = {10} for VSLW shift-by-10
+	VSPLTISH $15, V31                                     // V31 = {15} for VSRAH sign-mask
 
-	SLD $32, R12, R12;  OR R15, R12, R8   // R8  = a0 | (a1<<32)
-	SLD $32, R13, R13;  OR R16, R13, R9   // R9  = b0 | (b1<<32)
-	POPCNTW R8, R8                         // R8[31:0]=pop(a0), R8[63:32]=pop(a1)
-	POPCNTW R9, R9                         // R9[31:0]=pop(b0), R9[63:32]=pop(b1)
+	MOVD $8, R6;  MOVD R6, CTR
+	MOVD $0, R6
 
-	// coeff[0] = pop(a0) - pop(b0), branchless add q if negative
-	MOVWZ R8, R10;  MOVWZ R9, R11   // zero-extend low 32 bits
-	SUB   R11, R10, R10              // R10 = pop(a0) - pop(b0)
-	SRAW  $31, R10, R12              // R12 = 0xFFFFFFFF if neg, else 0
-	AND   R14, R12, R12;  ADD R10, R12, R10
-	MOVH  R10, 0(R4)
+cbd3vmx_loop:
+	// Load two overlapping 16-byte chunks covering 24 bytes
+	LXVD2X (R6)(R5), VS32                                 // V0 = buf[offset..offset+15]
+	ADD $12, R6, R8;  LXVD2X (R8)(R5), VS33              // V1 = buf[offset+12..offset+27]
 
-	// coeff[1] = pop(a1) - pop(b1)
-	SRD  $32, R8,  R10;  SRD $32, R9, R11
-	SUB  R11, R10, R10
-	SRAW $31, R10, R12;  AND R14, R12, R12;  ADD R10, R12, R10
-	MOVH R10, 2(R4)
+	// --- Block A: bytes[0..11] from V0 ---
+	// VPERM each 3-byte group into a 32-bit lane (LE layout in BE word)
+	VPERM V0, V25, V24, V2                                 // V2 = 4 lanes, one 3-byte group each
 
-	// Extract a2,b2,a3,b3 and compute coeff[2] and coeff[3]
-	SRD   $12, R7, R15; ANDCC $7, R15, R15  // R15 = a2
-	SRD   $15, R7, R16; ANDCC $7, R16, R16  // R16 = b2
-	SRD   $18, R7, R12; ANDCC $7, R12, R12  // R12 = a3
-	SRD   $21, R7, R13; ANDCC $7, R13, R13  // R13 = b3
+	// Bit-parallel popcount: s = (x & M) + ((x>>1) & M) + ((x>>2) & M)
+	VSRW    V2, V26, V3                                   // V3 = V2 >> 1
+	VSRW    V2, V27, V4                                   // V4 = V2 >> 2
+	VAND    V16, V2, V2
+	VAND    V16, V3, V3
+	VAND    V16, V4, V4
+	VADDUWM V3, V2, V6
+	VADDUWM V4, V6, V6                                    // V6 = s
 
-	SLD $32, R12, R12;  OR R15, R12, R8
-	SLD $32, R13, R13;  OR R16, R13, R9
-	POPCNTW R8, R8
-	POPCNTW R9, R9
+	// result = (s + mask6DB) - (s >> 3)
+	VSRW    V6, V28, V7                                   // V7 = s >> 3
+	VADDUWM V17, V6, V8                                   // V8 = s + mask6DB
+	VSUBUWM V8, V7, V8                                    // V8 = result (coeff+3 pairs in each lane)
 
-	// coeff[2]
-	MOVWZ R8, R10;  MOVWZ R9, R11
-	SUB   R11, R10, R10
-	SRAW  $31, R10, R12;  AND R14, R12, R12;  ADD R10, R12, R10
-	MOVH  R10, 4(R4)
+	// Extract coeff+3 as uint16 pairs: V12 = {c1+3,c0+3, c5+3,c4+3, ...} H8
+	//                                  V10 = {c3+3,c2+3, c7+3,c6+3, ...} H8
+	VSLW    V8, V29, V9                                   // V9  = result << 10
+	VSPLTISB $12, V5;  VSRW V8, V5, V10                  // V10 = result >> 12
+	VSRW    V8, V27, V11                                  // V11 = result >> 2
+	VAND    V18, V8,  V12
+	VAND    V19, V9,  V9
+	VAND    V18, V10, V10
+	VAND    V19, V11, V11
+	VADDUHM V9,  V12, V12                                 // V12: {c1+3,c0+3,...} H8
+	VADDUHM V11, V10, V10                                 // V10: {c3+3,c2+3,...} H8
 
-	// coeff[3]
-	SRD  $32, R8,  R10;  SRD $32, R9, R11
-	SUB  R11, R10, R10
-	SRAW $31, R10, R12;  AND R14, R12, R12;  ADD R10, R12, R10
-	MOVH R10, 6(R4)
+	// VPERM into STXVD2X-ready format (coeff+3 values with hi bytes)
+	VPERM V12, V10, V22, V13                              // V13 = coeff[0..7]+3 ready for STXVD2X
+	VPERM V12, V10, V23, V14                              // V14 = coeff[8..15]+3 ready for STXVD2X
 
-	ADD $3, R6
-	ADD $8, R4
-	BDNZ cbd3_loop
+	// Subtract 3 and add q to negatives
+	VSUBUHM V13, V20, V13
+	VSUBUHM V14, V20, V14
+	VSRAH V13, V31, V9
+	VAND  V21, V9, V9;  VADDUHM V13, V9, V13
+	VSRAH V14, V31, V9
+	VAND  V21, V9, V9;  VADDUHM V14, V9, V14
+
+	// Store (STXVD2X reverses 8-byte groups, giving correct LE int16 layout)
+	STXVD2X VS45, (R0)(R4)
+	ADD $16, R4, R8;  STXVD2X VS46, (R0)(R8)
+	ADD $32, R4, R4
+
+	// --- Block B: bytes[12..23] from V1 ---
+	VPERM V1, V25, V24, V2
+
+	VSRW    V2, V26, V3
+	VSRW    V2, V27, V4
+	VAND    V16, V2, V2
+	VAND    V16, V3, V3
+	VAND    V16, V4, V4
+	VADDUWM V3, V2, V6
+	VADDUWM V4, V6, V6
+
+	VSRW    V6, V28, V7
+	VADDUWM V17, V6, V8
+	VSUBUWM V8, V7, V8
+
+	VSLW    V8, V29, V9
+	VSPLTISB $12, V5;  VSRW V8, V5, V10
+	VSRW    V8, V27, V11
+	VAND    V18, V8,  V12
+	VAND    V19, V9,  V9
+	VAND    V18, V10, V10
+	VAND    V19, V11, V11
+	VADDUHM V9,  V12, V12
+	VADDUHM V11, V10, V10
+
+	VPERM V12, V10, V22, V13
+	VPERM V12, V10, V23, V14
+
+	VSUBUHM V13, V20, V13
+	VSUBUHM V14, V20, V14
+	VSRAH V13, V31, V9
+	VAND  V21, V9, V9;  VADDUHM V13, V9, V13
+	VSRAH V14, V31, V9
+	VAND  V21, V9, V9;  VADDUHM V14, V9, V14
+
+	STXVD2X VS45, (R0)(R4)
+	ADD $16, R4, R8;  STXVD2X VS46, (R0)(R8)
+	ADD $32, R4, R4
+
+	ADD $24, R6
+	BDNZ cbd3vmx_loop
 	RET
 
 // rejUniformPPC64LE parses 3-byte groups from buf, extracting two 12-bit candidates per
