@@ -1828,7 +1828,7 @@ TEXT ·ringCompressAndEncode10PPC64LE(SB), NOSPLIT, $0-32
 	VSPLTISW $10, V8              // shift 10 (for x<<10)
 	// extend u16 → u32: VMULEUH with V_one = {1 x8} u16
 	VSPLTISH $1, V9               // V9 = {1 x8} uint16
-	MOVD $64, R3
+	MOVD $32, R3
 	MOVD R3, CTR
 
 compress10_vmx_loop:
@@ -2109,10 +2109,13 @@ decode_u11_group:
 	SLD     $16, R12, R12; OR R12, R11, R11
 	SRD     $33, R7, R12; ANDCC $2047, R12, R12  // c3
 	OR      R12, R11, R3                           // Rhi in R3 (avoid clobbering R10=dst_len)
-	// c4 from R7[44:34]
+	// c4 from R7[54:44]
 	SRD     $44, R7, R12; ANDCC $2047, R12, R12  // c4
-	// c5 straddles: low bit from R7[63], 10 bits from R6[9:0]
-	SRD     $55, R7, R11; SLD $10, R6, R9; OR R11, R9, R9; ANDCC $2047, R9, R9  // c5
+	// c5 straddles: lower 9 bits from R7[63:55], upper 2 bits from R6[1:0]
+	SRD     $55, R7, R11                           // R11[8:0] = c5 lower 9 bits
+	ANDCC   $3, R6, R9                             // R9[1:0] = c5 upper 2 bits
+	SLD     $9, R9, R9
+	OR      R11, R9, R9; ANDCC $2047, R9, R9      // c5
 	// Pack c4<<48|c5<<32
 	SLD     $48, R12, R12
 	SLD     $32, R9, R9; OR R9, R12, R12
