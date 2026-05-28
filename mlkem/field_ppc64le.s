@@ -1550,11 +1550,14 @@ TEXT ·ringCompressAndEncode4PPC64LE(SB), NOSPLIT, $0-32
 	MOVD $lxvNaturalOrderMask<>(SB), R7
 	LVX  (R0)(R7), V18           // V18 = lxvNaturalOrderMask
 	// Precompute shift and mask constants
-	VSPLTISW $16, V8             // V8: VSRW shifts 16
+	VSPLTISW $16, V8             // V8: VSRW shifts 16 (same as $-16, uses low 5 bits)
 	VSPLTISW $6, V9              // V9: VSRW shifts 6
 	VSPLTISW $15, V10            // V10: mask 0xF
 	VSPLTISW $4, V11             // V11: nibble left shift 4
-	VSPLTISW $32, V2             // V2 = {32,32,32,32} = round4
+	// round4 = 32 = 1<<5: V2 = {32,32,32,32}
+	VSPLTISW $1, V2
+	VSPLTISW $5, V3
+	VSLW V2, V3, V2
 	MOVD $32, R3
 	MOVD R3, CTR
 
@@ -1665,10 +1668,16 @@ TEXT ·ringCompressAndEncode5PPC64LE(SB), NOSPLIT, $0-32
 	MOVD $lxvPackU32ToU16Mask<>(SB), R6
 	LVX  (R0)(R6), V19
 	// Precompute: shift16, shift5, mask31, round16={16x4}
-	VSPLTISW $16, V8              // shift 16
+	VSPLTISW $16, V8              // shift 16 (same as $-16, uses low 5 bits = 16)
 	VSPLTISW $5, V9               // shift 5
-	VSPLTISW $31, V10             // mask5 = {31,31,31,31}
-	VSPLTISW $16, V2              // round5 = {16,16,16,16}
+	VSPLTISW $15, V10
+	VADDUWM  V10, V10, V10        // V10 = {30,30,30,30}
+	VSPLTISW $1, V11
+	VADDUWM  V10, V11, V10        // V10 = {31,31,31,31} = mask5
+	// round5 = 16 = 1<<4
+	VSPLTISW $1, V2
+	VSPLTISW $4, V3
+	VSLW V2, V3, V2               // V2 = {16,16,16,16}
 	MOVD $32, R3
 	MOVD R3, CTR
 
