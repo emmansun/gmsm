@@ -323,16 +323,22 @@ TEXT ·internalNTTPPC64LE(SB), NOSPLIT, $0-8
 	LXVD2X (R0)(R10), VS40   // V8=broadcast zeta[1]
 	VPERM  V8, V8, V18, V2   // V2 = zeta broadcast in natural order
 
-	MOVD $128, R5             // hi offset: 256 bytes = 128 halfwords = 128*2 = 256
-	MOVD $16, R9
+	MOVD $8, R9
 	MOVD R9, CTR
-	MOVD R4, R6               // R6 = f base (lo pointer)
-	ADD  $256, R6             // R6 = hi pointer = f + 256 bytes
+	MOVD R4, R6               // R6 = hi pointer = f + 256 bytes
+	ADD  $256, R6
 ntt_l1_loop:
-	LXVD2X (R0)(R4), VS32    // load lo
+	// ---- Group A: lo at R4+0, hi at R6+0 ----
+	LXVD2X (R0)(R4), VS32    // V0 = lo_A
 	VPERM  V0, V0, V18, V0
-	LXVD2X (R0)(R6), VS33    // load hi (8 elements, 16 bytes apart from lo)
+	LXVD2X (R0)(R6), VS33    // V1 = hi_A
 	VPERM  V1, V1, V18, V1
+	// ---- Group B: lo at R4+16, hi at R6+16 (pre-load, overlaps A butterfly) ----
+	MOVD   $16, R5
+	LXVD2X (R5)(R4), VS41    // V9 = lo_B
+	VPERM  V9, V9, V18, V9
+	LXVD2X (R5)(R6), VS42    // V10 = hi_B
+	VPERM  V10, V10, V18, V10
 
 	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7, V8)
 
@@ -341,8 +347,15 @@ ntt_l1_loop:
 	VPERM  V1, V1, V18, V1
 	STXVD2X VS33, (R0)(R6)
 
-	ADD  $16, R4
-	ADD  $16, R6
+	BUTTERFLY_U16(V9, V10, V2, V3, V4, V5, V6, V7, V13)
+
+	VPERM  V9, V9, V18, V9
+	STXVD2X VS41, (R5)(R4)
+	VPERM  V10, V10, V18, V10
+	STXVD2X VS42, (R5)(R6)
+
+	ADD  $32, R4
+	ADD  $32, R6
 	BDNZ ntt_l1_loop
 
 	// Reset R4 to base
@@ -361,21 +374,31 @@ ntt_l1_loop:
 
 	MOVD R4, R5               // lo = f[0]
 	MOVD R4, R6
-	ADD  $128, R6             // hi = f[128] (64 elements — 2 bytes)
-	MOVD $8, R9
+	ADD  $128, R6             // hi = f[128] (64 elements × 2 bytes)
+	MOVD $4, R9
 	MOVD R9, CTR
 ntt_l2_g0_loop:
-	LXVD2X (R0)(R5), VS32
+	MOVD   $16, R13
+	LXVD2X (R0)(R5),   VS32  // V0  = lo_A
 	VPERM  V0, V0, V18, V0
-	LXVD2X (R0)(R6), VS33
+	LXVD2X (R0)(R6),   VS33  // V1  = hi_A
 	VPERM  V1, V1, V18, V1
+	LXVD2X (R13)(R5),  VS41  // V9  = lo_B
+	VPERM  V9, V9, V18, V9
+	LXVD2X (R13)(R6),  VS42  // V10 = hi_B
+	VPERM  V10, V10, V18, V10
 	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7, V8)
 	VPERM  V0, V0, V18, V0
 	STXVD2X VS32, (R0)(R5)
 	VPERM  V1, V1, V18, V1
 	STXVD2X VS33, (R0)(R6)
-	ADD  $16, R5
-	ADD  $16, R6
+	BUTTERFLY_U16(V9, V10, V2, V3, V4, V5, V6, V7, V13)
+	VPERM  V9, V9, V18, V9
+	STXVD2X VS41, (R13)(R5)
+	VPERM  V10, V10, V18, V10
+	STXVD2X VS42, (R13)(R6)
+	ADD  $32, R5
+	ADD  $32, R6
 	BDNZ ntt_l2_g0_loop
 
 	// Group 1: zeta = zetas[3]
@@ -387,20 +410,30 @@ ntt_l2_g0_loop:
 	ADD  $256, R5             // lo = f[128]
 	MOVD R5, R6
 	ADD  $128, R6             // hi = f[192]
-	MOVD $8, R9
+	MOVD $4, R9
 	MOVD R9, CTR
 ntt_l2_g1_loop:
-	LXVD2X (R0)(R5), VS32
+	MOVD   $16, R13
+	LXVD2X (R0)(R5),   VS32
 	VPERM  V0, V0, V18, V0
-	LXVD2X (R0)(R6), VS33
+	LXVD2X (R0)(R6),   VS33
 	VPERM  V1, V1, V18, V1
+	LXVD2X (R13)(R5),  VS41
+	VPERM  V9, V9, V18, V9
+	LXVD2X (R13)(R6),  VS42
+	VPERM  V10, V10, V18, V10
 	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7, V8)
 	VPERM  V0, V0, V18, V0
 	STXVD2X VS32, (R0)(R5)
 	VPERM  V1, V1, V18, V1
 	STXVD2X VS33, (R0)(R6)
-	ADD  $16, R5
-	ADD  $16, R6
+	BUTTERFLY_U16(V9, V10, V2, V3, V4, V5, V6, V7, V13)
+	VPERM  V9, V9, V18, V9
+	STXVD2X VS41, (R13)(R5)
+	VPERM  V10, V10, V18, V10
+	STXVD2X VS42, (R13)(R6)
+	ADD  $32, R5
+	ADD  $32, R6
 	BDNZ ntt_l2_g1_loop
 
 	// ================================================================
@@ -549,37 +582,60 @@ ntt_l4_outer:
 	BDNZ ntt_l4_outer
 
 	// ================================================================
-	// Layer L5: len=8, 16 zetas, 16 iterations, 1 group per iter.
+	// Layer L5: len=8, 16 zetas, 16 iterations -> 2x unrolled to 8 iters.
+	// Each iter processes 2 consecutive groups (A and B) with different zetas.
 	// Group g: lo=f[g*16..g*16+7], hi=f[g*16+8..g*16+15].
+	// Registers: Group A -> V0/V1, zeta_A -> V2, temps V3-V8.
+	//            Group B -> V9/V10, zeta_B -> V11, temps V3-V7, V13(Vsave).
 	// ================================================================
 	MOVD $·nttTwiddleL5PrecompPPC64LE(SB), R10
 	MOVD $0, R11
 	MOVD R4, R5
 
-	MOVD $16, R9
+	MOVD $8, R9
 	MOVD R9, CTR
 ntt_l5_loop:
+	// Load zeta_A at R10+R11
 	LXVD2X (R11)(R10), VS40
-	VPERM  V8, V8, V18, V2    // zeta broadcast
+	VPERM  V8, V8, V18, V2    // V2 = zeta_A
+	// Load zeta_B at R10+(R11+16): use R9 as temp = R11+16
+	ADD    $16, R11, R9        // R9 = R11+16
+	LXVD2X (R9)(R10), VS43    // V11 = twiddle_B raw
+	VPERM  V11, V11, V18, V11 // V11 = zeta_B
 
-	MOVD R5, R6
-	ADD  $16, R6               // hi = lo + 16 bytes (8 elements)
-
-	LXVD2X (R0)(R5), VS32
+	// Group A: lo at R5+0, hi at R5+16
+	MOVD   R5, R6
+	ADD    $16, R6             // R6 = R5+16 (hi_A)
+	LXVD2X (R0)(R5), VS32     // V0 = lo_A
 	VPERM  V0, V0, V18, V0
-	LXVD2X (R0)(R6), VS33
+	LXVD2X (R0)(R6), VS33     // V1 = hi_A
 	VPERM  V1, V1, V18, V1
+
+	// Group B: lo at R5+32, hi at R5+48 (pre-load; overlaps Group A butterfly)
+	MOVD   $32, R9             // R9 = 32
+	MOVD   $48, R8             // R8 = 48
+	LXVD2X (R9)(R5), VS41     // V9  = lo_B
+	VPERM  V9, V9, V18, V9
+	LXVD2X (R8)(R5), VS42     // V10 = hi_B
+	VPERM  V10, V10, V18, V10
 
 	BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7, V8)
 
 	VPERM  V0, V0, V18, V0
 	STXVD2X VS32, (R0)(R5)
 	VPERM  V1, V1, V18, V1
-	STXVD2X VS33, (R0)(R6)
+	STXVD2X VS33, (R0)(R6)    // R6 = R5+16
 
-	ADD  $32, R5              // next group (skip 16 bytes lo + 16 bytes hi)
-	ADD  $16, R11
-	BDNZ ntt_l5_loop
+	BUTTERFLY_U16(V9, V10, V11, V3, V4, V5, V6, V7, V13)
+
+	VPERM  V9, V9, V18, V9
+	STXVD2X VS41, (R9)(R5)    // R9 = 32 (from above, unchanged)
+	VPERM  V10, V10, V18, V10
+	STXVD2X VS42, (R8)(R5)    // R8 = 48 (from above, unchanged)
+
+	ADD    $64, R5             // advance by 2 groups x 32 bytes each
+	ADD    $32, R11            // advance twiddle by 2 entries
+	BDNZ   ntt_l5_loop
 
 	// ================================================================
 	// Layer L6: len=4, 32 zetas, 16 iterations, 2 groups per iter.
