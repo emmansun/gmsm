@@ -2448,14 +2448,10 @@ cbd3vmx_loop:
 //
 // Stops when the input buffer is exhausted (byte offset ≥ len(buf)) or j reaches 256.
 //
-// Branchless accept: unconditionally write d1 to a[j], then use ISEL to conditionally
-// increment j only if d1 < q. This avoids branch mispredictions (~19% reject rate).
-// Writes to positions that are later overwritten are harmless (j only advances on accept).
-//
 // Register map:
 //   R4=buf_ptr  R5=buf_len  R6=a_ptr  R7=j (current index)
 //   R8=byte_offset  R9=d1  R10=d2  R11,R13=scratch
-//   R3=q=3329  R12=n=256  R14=constant 1  R15=initial_j
+//   R3=q=3329  R12=n=256  R15=initial_j
 //
 // func rejUniformPPC64LE(buf []byte, a *nttElement, j int) int
 TEXT ·rejUniformPPC64LE(SB), NOSPLIT, $0-48
@@ -2468,7 +2464,6 @@ TEXT ·rejUniformPPC64LE(SB), NOSPLIT, $0-48
 	MOVD $256,  R12
 	MOVD R7,    R15
 	MOVD $0,    R8
-	MOVD $1,    R14
 
 rejuniform_loop:
 	CMP R8, R5;   BGE rejuniform_done
@@ -2486,20 +2481,21 @@ rejuniform_loop:
 	// d2 = (b1 | (b2 << 8)) >> 4
 	SLD $8, R11, R13;  OR R10, R13, R13;  SRD $4, R13, R10
 
-	// accept d1 branchlessly: unconditionally write, conditionally increment j
-	CMP R9, R3                          // set CR0_LT if d1 < q
-	SLD $1, R7, R13;  MOVH R9, (R6)(R13)  // a[j] = d1 (unconditional)
-	ISEL CR0LT, R14, R0, R13           // R13 = 1 if d1 < q, else 0
-	ADD R13, R7, R7                     // j += (d1 < q)
+	// accept d1 if < q
+	CMP R9, R3;  BGE rejuniform_skip_d1
+	SLD $1, R7, R13
+	MOVH R9, (R6)(R13)
+	ADD $1, R7
+	CMP R7, R12;  BGE rejuniform_done
 
-	CMP R7, R12;  BGE rejuniform_done   // j == 256? (highly predictable exit)
+rejuniform_skip_d1:
+	// accept d2 if < q
+	CMP R10, R3;  BGE rejuniform_next
+	SLD $1, R7, R13
+	MOVH R10, (R6)(R13)
+	ADD $1, R7
 
-	// accept d2 branchlessly
-	CMP R10, R3
-	SLD $1, R7, R13;  MOVH R10, (R6)(R13)
-	ISEL CR0LT, R14, R0, R13
-	ADD R13, R7, R7
-
+rejuniform_next:
 	ADD $3, R8
 	JMP rejuniform_loop
 
