@@ -1437,49 +1437,489 @@ nttmlacc_loop:
 
 	RET
 
+// ringCompressAndEncode1PPC64LE computes ByteEncode_1(Compress_1(f)).
+// compress(x, 1) = 1 if 833 <= x <= 2496, else 0.
+// Each output byte packs 8 coefficients as bits (bit 0 = coeff 0, bit 1 = coeff 1, ...).
+// func ringCompressAndEncode1PPC64LE(out []byte, f *ringElement)
 TEXT ·ringCompressAndEncode1PPC64LE(SB), NOSPLIT, $0-32
-	MOVD out_base+0(FP), R4
-	MOVD f+24(FP), R5
+	MOVD out_base+0(FP), R4  // out pointer
+	MOVD f+24(FP), R5        // f pointer
+	MOVD $833, R8            // lower threshold (inclusive)
+	MOVD $2497, R9           // upper threshold (exclusive)
+	MOVD $32, R10            // 32 bytes output (256 coefficients / 8)
+
+compress1_outer:
+	MOVD $0, R3              // accumulated byte
+	// 8 coefficients -> 1 byte
+	MOVHZ (R5), R6; ADD $2, R5
+	CMP R6, R8; BLT compress1_b0; CMP R6, R9; BGE compress1_b0; OR $1, R3
+compress1_b0:
+	MOVHZ (R5), R6; ADD $2, R5
+	CMP R6, R8; BLT compress1_b1; CMP R6, R9; BGE compress1_b1; OR $2, R3
+compress1_b1:
+	MOVHZ (R5), R6; ADD $2, R5
+	CMP R6, R8; BLT compress1_b2; CMP R6, R9; BGE compress1_b2; OR $4, R3
+compress1_b2:
+	MOVHZ (R5), R6; ADD $2, R5
+	CMP R6, R8; BLT compress1_b3; CMP R6, R9; BGE compress1_b3; OR $8, R3
+compress1_b3:
+	MOVHZ (R5), R6; ADD $2, R5
+	CMP R6, R8; BLT compress1_b4; CMP R6, R9; BGE compress1_b4; OR $16, R3
+compress1_b4:
+	MOVHZ (R5), R6; ADD $2, R5
+	CMP R6, R8; BLT compress1_b5; CMP R6, R9; BGE compress1_b5; OR $32, R3
+compress1_b5:
+	MOVHZ (R5), R6; ADD $2, R5
+	CMP R6, R8; BLT compress1_b6; CMP R6, R9; BGE compress1_b6; OR $64, R3
+compress1_b6:
+	MOVHZ (R5), R6; ADD $2, R5
+	CMP R6, R8; BLT compress1_b7; CMP R6, R9; BGE compress1_b7; OR $128, R3
+compress1_b7:
+	MOVB R3, (R4)            // store byte
+	ADD $1, R4
+	ADD $-1, R10
+	BNE compress1_outer
 	RET
 
+// ringCompressAndEncode4PPC64LE computes ByteEncode_4(Compress_4(f)).
+// compress(x, 4) = round(x * 16 / q) mod 16  [q=3329]
+// Output: 128 bytes, each packing 2 nibbles (coeff[2i] | coeff[2i+1]<<4).
+// Uses scalar formula: c = ((x << 4) + 1664) * 1290168 >> 32 & 0xF
+// func ringCompressAndEncode4PPC64LE(out []byte, f *ringElement)
 TEXT ·ringCompressAndEncode4PPC64LE(SB), NOSPLIT, $0-32
-	MOVD out_base+0(FP), R4
-	MOVD f+24(FP), R5
+	MOVD out_base+0(FP), R4  // out pointer
+	MOVD f+24(FP), R5        // f pointer
+	MOVD $1290168, R9        // magic multiplier for /q via mulhigh32
+	MOVD $1664, R11          // bias = q/2 = 3329/2 rounded down = 1664
+	MOVD $15, R12            // mask for 4-bit result
+	MOVD $128, R10           // 128 bytes output
+
+compress4_loop:
+	// Load two uint16 coefficients
+	MOVHZ (R5), R6; ADD $2, R5   // a
+	MOVHZ (R5), R7; ADD $2, R5   // b
+	// compress(a, 4): ca = ((a << 4) + 1664) * 1290168 >> 32 & 0xF
+	SLD $4, R6                    // a << 4
+	ADD R11, R6, R6              // + 1664
+	MULLD R9, R6, R6             // * 1290168
+	SRD $32, R6                  // >> 32
+	AND R12, R6                  // & 0xF
+	// compress(b, 4): cb = ((b << 4) + 1664) * 1290168 >> 32 & 0xF
+	SLD $4, R7
+	ADD R11, R7, R7
+	MULLD R9, R7, R7
+	SRD $32, R7
+	AND R12, R7
+	SLD $4, R7                   // cb << 4
+	OR R6, R7                    // ca | (cb << 4)
+	MOVB R7, (R4)               // store byte
+	ADD $1, R4
+	ADD $-1, R10
+	BNE compress4_loop
 	RET
 
+// ringDecodeAndDecompress4PPC64LE computes Decompress_4(ByteDecode_4(b)).
+// Each input byte has two 4-bit nibbles: c_lo = byte & 0xF, c_hi = byte >> 4.
+// decompress(y, 4) = round(y * q / 16) = ((y * q) >> 4) + ((y * q >> 3) & 1)
+// func ringDecodeAndDecompress4PPC64LE(b *[encodingSize4]byte, f *ringElement)
 TEXT ·ringDecodeAndDecompress4PPC64LE(SB), NOSPLIT, $0-16
-	MOVD b+0(FP), R4
-	MOVD f+8(FP), R5
+	MOVD b+0(FP), R4         // input byte pointer
+	MOVD f+8(FP), R5         // output ringElement pointer
+	MOVD $3329, R9           // q
+	MOVD $15, R11            // nibble mask
+	MOVD $128, R10           // 128 input bytes
+
+decompress4_loop:
+	MOVBZ (R4), R6           // load byte
+	ADD $1, R4
+	// low nibble: c_lo = byte & 0xF
+	AND R11, R6, R7          // c_lo
+	// decompress(c_lo, 4): ((c_lo * q) >> 4) + round bit
+	MULLD R9, R7, R7         // c_lo * q
+	SRD $3, R7, R8           // >> 3
+	ANDCC $1, R8, R8         // & 1 (round bit)
+	SRD $4, R7               // c_lo * q >> 4
+	ADD R8, R7               // + round bit
+	MOVH R7, (R5)            // store uint16 result
+	ADD $2, R5
+	// high nibble: c_hi = byte >> 4
+	SRD $4, R6               // c_hi
+	MULLD R9, R6, R6         // c_hi * q
+	SRD $3, R6, R8           // >> 3
+	ANDCC $1, R8, R8         // round bit
+	SRD $4, R6               // c_hi * q >> 4
+	ADD R8, R6               // + round bit
+	MOVH R6, (R5)
+	ADD $2, R5
+	ADD $-1, R10
+	BNE decompress4_loop
 	RET
 
+// ringCompressAndEncode5PPC64LE computes ByteEncode_5(Compress_5(f)).
+// compress(x, 5) = round(x * 32 / q) mod 32
+// Output: 160 bytes, each 5-bit value packed (8 values per 5 bytes).
+// Uses scalar formula: c = ((x << 5) + 1664) * 1290168 >> 32 & 0x1F
+// Uses a 40-bit accumulator split across two registers to avoid callee-saved regs.
+// func ringCompressAndEncode5PPC64LE(out []byte, f *ringElement)
 TEXT ·ringCompressAndEncode5PPC64LE(SB), NOSPLIT, $0-32
-	MOVD out_base+0(FP), R4
-	MOVD f+24(FP), R5
+	MOVD out_base+0(FP), R4  // out pointer
+	MOVD f+24(FP), R5        // f pointer
+	MOVD $1290168, R9        // magic multiplier
+	MOVD $1664, R11          // bias = 1664
+	MOVD $31, R12            // mask for 5-bit result (0x1F)
+	MOVD $32, R10            // 32 iterations: 8 coefficients × 5 bits = 5 bytes per iter
+
+// Compress a single coefficient c and return it in R6, using R7 as scratch.
+// Inputs: coeff in R3 (loaded before macro), R9=multiplier, R11=bias, R12=mask
+// Output: compressed 5-bit value in R6
+// Usage: load R3 from memory, then:
+//   SLD $5, R3; ADD R11, R3; MULLD R9, R3; SRD $32, R3; AND R12, R3
+//   → compressed value in R3
+
+compress5_loop:
+	// Process 8 coefficients → 40-bit packed value → 5 bytes
+	// Build 40-bit value in two 64-bit regs: R6=bits[39:0] (we only use 40 bits)
+	// Since 40 < 64, a single register suffices.
+
+	// c0
+	MOVHZ (R5), R3; ADD $2, R5
+	SLD $5, R3; ADD R11, R3; MULLD R9, R3; SRD $32, R3; AND R12, R3
+	// c1
+	MOVHZ (R5), R6; ADD $2, R5
+	SLD $5, R6; ADD R11, R6; MULLD R9, R6; SRD $32, R6; AND R12, R6
+	// Accumulate bits[9:0] = c0 | c1<<5
+	SLD $5, R6, R7; OR R3, R7          // bits[9:0]
+
+	// c2
+	MOVHZ (R5), R3; ADD $2, R5
+	SLD $5, R3; ADD R11, R3; MULLD R9, R3; SRD $32, R3; AND R12, R3
+	// c3
+	MOVHZ (R5), R6; ADD $2, R5
+	SLD $5, R6; ADD R11, R6; MULLD R9, R6; SRD $32, R6; AND R12, R6
+	// bits[24:10] = c2<<10 | c3<<15
+	SLD $10, R3, R8; OR R7, R8         // |= c2<<10
+	SLD $15, R6, R3; OR R8, R3         // |= c3<<15  → R3=bits[24:0]
+
+	// c4
+	MOVHZ (R5), R6; ADD $2, R5
+	SLD $5, R6; ADD R11, R6; MULLD R9, R6; SRD $32, R6; AND R12, R6
+	// c5
+	MOVHZ (R5), R7; ADD $2, R5
+	SLD $5, R7; ADD R11, R7; MULLD R9, R7; SRD $32, R7; AND R12, R7
+	// bits[34:20] = c4<<20 | c5<<25
+	SLD $20, R6, R8; OR R3, R8         // |= c4<<20  → R8=bits[24:0]|c4<<20
+	SLD $25, R7, R3; OR R8, R3         // |= c5<<25  → R3=bits[29:0]
+
+	// c6
+	MOVHZ (R5), R6; ADD $2, R5
+	SLD $5, R6; ADD R11, R6; MULLD R9, R6; SRD $32, R6; AND R12, R6
+	// c7
+	MOVHZ (R5), R7; ADD $2, R5
+	SLD $5, R7; ADD R11, R7; MULLD R9, R7; SRD $32, R7; AND R12, R7
+	// bits[39:30] = c6<<30 | c7<<35
+	SLD $30, R6, R8; OR R3, R8         // |= c6<<30
+	SLD $35, R7, R3; OR R8, R3         // |= c7<<35  → R3=bits[39:0] (40 bits)
+
+	// Store 5 bytes from R3
+	MOVB R3, 0(R4)
+	SRD $8, R3, R6; MOVB R6, 1(R4)
+	SRD $16, R3, R6; MOVB R6, 2(R4)
+	SRD $24, R3, R6; MOVB R6, 3(R4)
+	SRD $32, R3, R6; MOVB R6, 4(R4)
+	ADD $5, R4
+	ADD $-1, R10
+	BNE compress5_loop
 	RET
 
+// ringDecodeAndDecompress5PPC64LE computes Decompress_5(ByteDecode_5(b)).
+// Each 5-byte block contains 8 packed 5-bit values.
+// decompress(y, 5) = ((y * q) >> 5) + ((y * q >> 4) & 1)
+// Processes 1 coefficient at a time to minimize register pressure.
+// func ringDecodeAndDecompress5PPC64LE(b *[encodingSize5]byte, f *ringElement)
 TEXT ·ringDecodeAndDecompress5PPC64LE(SB), NOSPLIT, $0-16
-	MOVD b+0(FP), R4
-	MOVD f+8(FP), R5
+	MOVD b+0(FP), R4         // input pointer
+	MOVD f+8(FP), R5         // output pointer
+	MOVD $3329, R9           // q
+	MOVD $31, R12            // 5-bit mask (0x1F)
+	MOVD $32, R10            // 32 iterations (8 coefficients per iter = 5 bytes)
+
+decompress5_loop:
+	// Load 5 bytes and build 40-bit value in R3
+	MOVBZ 0(R4), R3
+	MOVBZ 1(R4), R6; SLD $8, R6; OR R3, R6
+	MOVBZ 2(R4), R3; SLD $16, R3; OR R6, R3
+	MOVBZ 3(R4), R6; SLD $24, R6; OR R3, R6
+	MOVBZ 4(R4), R3; SLD $32, R3; OR R6, R3   // R3 = 40-bit value
+	ADD $5, R4
+
+	// Extract and decompress 8 x 5-bit values from R3
+	// Macro: extract bits [pos+4:pos] from R3, decompress, store
+#define DECOMP5(shift) \
+	SRD $shift, R3, R6; \
+	AND R12, R6;         \
+	MULLD R9, R6;        \
+	SRD $4, R6, R7; ANDCC $1, R7, R7; \
+	SRD $5, R6;          \
+	ADD R7, R6;           \
+	MOVH R6, (R5);        \
+	ADD $2, R5
+
+	DECOMP5(0)
+	DECOMP5(5)
+	DECOMP5(10)
+	DECOMP5(15)
+	DECOMP5(20)
+	DECOMP5(25)
+	DECOMP5(30)
+	DECOMP5(35)
+#undef DECOMP5
+	ADD $-1, R10
+	BNE decompress5_loop
 	RET
 
+// ringCompressAndEncode10PPC64LE computes ByteEncode_10(Compress_10(f)).
+// compress(x, 10) = round(x * 1024 / q) mod 1024
+// 4 coefficients pack into 5 bytes: 40 bits total.
+// Uses scalar formula: c = ((x << 10) + 1664) * 1290168 >> 32 & 0x3FF
+// All registers used are R3-R12 only (volatile).
+// func ringCompressAndEncode10PPC64LE(out []byte, f *ringElement)
 TEXT ·ringCompressAndEncode10PPC64LE(SB), NOSPLIT, $0-32
-	MOVD out_base+0(FP), R4
-	MOVD f+24(FP), R5
+	MOVD out_base+0(FP), R4  // out pointer
+	MOVD f+24(FP), R5        // f pointer
+	MOVD $1290168, R9        // magic multiplier
+	MOVD $1664, R11          // bias
+	MOVD $1023, R12          // 10-bit mask (0x3FF)
+	MOVD $64, R10            // 64 iterations: 4 coefficients → 5 bytes each
+
+compress10_loop:
+	MOVHZ (R5), R3; ADD $2, R5    // load c0
+	MOVHZ (R5), R6; ADD $2, R5    // load c1
+	MOVHZ (R5), R7; ADD $2, R5    // load c2
+	MOVHZ (R5), R8; ADD $2, R5    // load c3
+
+	// compress(ci, 10): ((ci << 10) + 1664) * 1290168 >> 32 & 0x3FF
+	SLD $10, R3; ADD R11, R3; MULLD R9, R3; SRD $32, R3; AND R12, R3  // c0 → R3
+	SLD $10, R6; ADD R11, R6; MULLD R9, R6; SRD $32, R6; AND R12, R6  // c1 → R6
+	SLD $10, R7; ADD R11, R7; MULLD R9, R7; SRD $32, R7; AND R12, R7  // c2 → R7
+	SLD $10, R8; ADD R11, R8; MULLD R9, R8; SRD $32, R8; AND R12, R8  // c3 → R8
+
+	// After compress: c0=R3, c1=R6, c2=R7, c3=R8 (all 10-bit values)
+	// Pack into 40-bit value x = c0 | c1<<10 | c2<<20 | c3<<30
+	SLD $10, R6; OR R3, R6    // R6 = c0 | c1<<10
+	SLD $20, R7, R3; OR R6, R3 // R3 = c0|c1<<10|c2<<20 (but SLD has already shifted R7!)
+	// Wait: SLD $20, R7 shifts R7's value by 20. But we already have R7=c2.
+	// Then OR R6, R3 with R3=0 would fail. Let me use R3 as dest properly.
+	// Actually: SLD $20, R7, R3 means R3 = R7 << 20. Then OR R6, R3 means R3 |= R6.
+	// But R6 = c0|c1<<10 and R3 = c2<<20, so OR R6, R3 → R3 = c0|c1<<10|c2<<20. Correct.
+	SLD $30, R8, R8; OR R3, R8  // R8 = c0|c1<<10|c2<<20|c3<<30 (40-bit)
+
+	// Store 5 bytes
+	MOVB R8, 0(R4)
+	SRD $8, R8, R3; MOVB R3, 1(R4)
+	SRD $16, R8, R3; MOVB R3, 2(R4)
+	SRD $24, R8, R3; MOVB R3, 3(R4)
+	SRD $32, R8, R3; MOVB R3, 4(R4)
+	ADD $5, R4
+	ADD $-1, R10
+	BNE compress10_loop
 	RET
 
+// ringCompressAndEncode11PPC64LE computes ByteEncode_11(Compress_11(f)).
+// compress(x, 11) = round(x * 2048 / q) mod 2048
+// 8 coefficients pack into 11 bytes (88 bits).
+// Uses scalar formula: c = ((x << 11) + 1664) * 1290168 >> 32 & 0x7FF
+// Strategy: build two 44-bit halves (c0-c3 and c4-c7) in R3 and R6, then pack.
+// func ringCompressAndEncode11PPC64LE(out []byte, f *ringElement)
 TEXT ·ringCompressAndEncode11PPC64LE(SB), NOSPLIT, $0-32
-	MOVD out_base+0(FP), R4
-	MOVD f+24(FP), R5
+	MOVD out_base+0(FP), R4  // out pointer
+	MOVD f+24(FP), R5        // f pointer
+	MOVD $1290168, R9        // magic multiplier
+	MOVD $1664, R11          // bias
+	MOVD $2047, R12          // 11-bit mask (0x7FF)
+	MOVD $32, R10            // 32 iterations: 8 coefficients → 11 bytes each
+
+compress11_loop:
+	// Process first 4 coefficients → R3 (44-bit value: c0|c1<<11|c2<<22|c3<<33)
+	MOVHZ (R5), R3;  ADD $2, R5
+	SLD $11, R3; ADD R11, R3; MULLD R9, R3; SRD $32, R3; AND R12, R3   // c0
+	MOVHZ (R5), R6;  ADD $2, R5
+	SLD $11, R6; ADD R11, R6; MULLD R9, R6; SRD $32, R6; AND R12, R6   // c1
+	SLD $11, R6, R7; OR R3, R7             // R7 = c0 | c1<<11
+	MOVHZ (R5), R3;  ADD $2, R5
+	SLD $11, R3; ADD R11, R3; MULLD R9, R3; SRD $32, R3; AND R12, R3   // c2
+	SLD $22, R3, R8; OR R7, R8             // R8 = c0|c1<<11|c2<<22
+	MOVHZ (R5), R3;  ADD $2, R5
+	SLD $11, R3; ADD R11, R3; MULLD R9, R3; SRD $32, R3; AND R12, R3   // c3
+	SLD $33, R3, R6; OR R8, R6             // R6 = lo = c0|c1<<11|c2<<22|c3<<33 (44-bit)
+
+	// Process second 4 coefficients → R3 (44-bit value: c4|c5<<11|c6<<22|c7<<33)
+	MOVHZ (R5), R3;  ADD $2, R5
+	SLD $11, R3; ADD R11, R3; MULLD R9, R3; SRD $32, R3; AND R12, R3   // c4
+	MOVHZ (R5), R7;  ADD $2, R5
+	SLD $11, R7; ADD R11, R7; MULLD R9, R7; SRD $32, R7; AND R12, R7   // c5
+	SLD $11, R7, R8; OR R3, R8             // R8 = c4 | c5<<11
+	MOVHZ (R5), R3;  ADD $2, R5
+	SLD $11, R3; ADD R11, R3; MULLD R9, R3; SRD $32, R3; AND R12, R3   // c6
+	SLD $22, R3, R7; OR R8, R7             // R7 = c4|c5<<11|c6<<22
+	MOVHZ (R5), R3;  ADD $2, R5
+	SLD $11, R3; ADD R11, R3; MULLD R9, R3; SRD $32, R3; AND R12, R3   // c7
+	SLD $33, R3, R8; OR R7, R8             // R8 = hi = c4|c5<<11|c6<<22|c7<<33 (44-bit)
+
+	// Now R6=lo (bits 0-43), R8=hi (bits 44-87 of the 88-bit stream)
+	// Store 11 bytes:
+	// byte0-4: bits[39:0] of lo → 5 bytes
+	// byte5: lo[43:40] | hi[3:0]<<4  (crossover)
+	// byte6-10: hi[43:4] → 5 bytes (right-shifted by 4)
+	MOVB R6, 0(R4)
+	SRD $8, R6, R3; MOVB R3, 1(R4)
+	SRD $16, R6, R3; MOVB R3, 2(R4)
+	SRD $24, R6, R3; MOVB R3, 3(R4)
+	SRD $32, R6, R3; MOVB R3, 4(R4)
+	// byte5 = lo[43:40] | hi[3:0]<<4
+	SRD $40, R6, R3                        // lo>>40 (4 bits: c3[10:7])
+	SLD $4, R8, R7; OR R3, R7             // | hi<<4
+	MOVB R7, 5(R4)
+	// byte6-10 = hi>>4 (40 bits = hi[43:4])
+	SRD $4, R8, R3; MOVB R3, 6(R4)
+	SRD $12, R8, R3; MOVB R3, 7(R4)
+	SRD $20, R8, R3; MOVB R3, 8(R4)
+	SRD $28, R8, R3; MOVB R3, 9(R4)
+	SRD $36, R8, R3; MOVB R3, 10(R4)
+	ADD $11, R4
+	ADD $-1, R10
+	BNE compress11_loop
 	RET
 
+// decodeAndDecompressU10PPC64LE decodes multiple ring elements from ByteEncode_10 format.
+// Each ring element is 320 bytes (256 coefficients × 10 bits / 8 = 320 bytes).
+// decompress(y, 10) = ((y * q) >> 10) + ((y * q >> 9) & 1)
+// Uses only R3-R12 (volatile registers).
+// func decodeAndDecompressU10PPC64LE(dst []ringElement, c []byte)
 TEXT ·decodeAndDecompressU10PPC64LE(SB), NOSPLIT, $0-48
-	MOVD dst_base+0(FP), R4
-	MOVD c_base+24(FP), R5
+	MOVD dst_base+0(FP), R4  // dst ringElement slice base
+	MOVD dst_len+8(FP), R10  // number of ring elements
+	MOVD c_base+24(FP), R5   // input bytes pointer
+	MOVD $3329, R9            // q
+	MOVD $1023, R12           // 10-bit mask
+
+	// For each ring element, decode 320 bytes into 256 uint16 coefficients
+	// Each 5-byte block → 4 coefficients (10 bits each)
+decode_u10_elem:
+	MOVD $64, R11            // 64 groups of 4 coefficients
+
+decode_u10_group:
+	// Build 40-bit x from 5 bytes in R3
+	MOVBZ 0(R5), R3
+	MOVBZ 1(R5), R6; SLD $8, R6; OR R3, R6
+	MOVBZ 2(R5), R3; SLD $16, R3; OR R6, R3
+	MOVBZ 3(R5), R6; SLD $24, R6; OR R3, R6
+	MOVBZ 4(R5), R3; SLD $32, R3; OR R6, R3  // R3 = 40-bit x
+	ADD $5, R5
+
+	// Extract 4 x 10-bit values and decompress each using a macro
+	// Macro: extract x>>(shift) & 0x3FF into R6, decompress, store to (R4)
+#define DECOMP10(shift) \
+	SRD $shift, R3, R6; AND R12, R6; \
+	MULLD R9, R6;        \
+	SRD $9, R6, R7; ANDCC $1, R7, R7; \
+	SRD $10, R6;         \
+	ADD R7, R6;           \
+	MOVH R6, (R4);        \
+	ADD $2, R4
+
+	DECOMP10(0)
+	DECOMP10(10)
+	DECOMP10(20)
+	DECOMP10(30)
+#undef DECOMP10
+
+	ADD $-1, R11
+	BNE decode_u10_group
+	ADD $-1, R10
+	BNE decode_u10_elem
 	RET
 
+// decodeAndDecompressU11PPC64LE decodes multiple ring elements from ByteEncode_11 format.
+// Each ring element is 352 bytes (256 coefficients × 11 bits / 8 = 352 bytes).
+// decompress(y, 11) = ((y * q) >> 11) + ((y * q >> 10) & 1)
+// Uses only R3-R12 (volatile registers).
+// 11 bytes → 2 registers: R6 = bytes[0..7] (64-bit LE), R7 = bytes[8..10] (24-bit).
+// func decodeAndDecompressU11PPC64LE(dst []ringElement, c []byte)
 TEXT ·decodeAndDecompressU11PPC64LE(SB), NOSPLIT, $0-48
-	MOVD dst_base+0(FP), R4
-	MOVD c_base+24(FP), R5
+	MOVD dst_base+0(FP), R4  // dst ringElement slice base
+	MOVD dst_len+8(FP), R10  // number of ring elements
+	MOVD c_base+24(FP), R5   // input bytes pointer
+	MOVD $3329, R9            // q
+	MOVD $2047, R12           // 11-bit mask
+
+decode_u11_elem:
+	MOVD $32, R11            // 32 groups of 8 coefficients
+
+decode_u11_group:
+	// Build 64-bit x_lo from bytes[0..7] into R6
+	MOVBZ 0(R5), R6
+	MOVBZ 1(R5), R3; SLD $8, R3; OR R6, R3
+	MOVBZ 2(R5), R6; SLD $16, R6; OR R3, R6
+	MOVBZ 3(R5), R3; SLD $24, R3; OR R6, R3
+	MOVBZ 4(R5), R6; SLD $32, R6; OR R3, R6
+	MOVBZ 5(R5), R3; SLD $40, R3; OR R6, R3
+	MOVBZ 6(R5), R6; SLD $48, R6; OR R3, R6
+	MOVBZ 7(R5), R3; SLD $56, R3; OR R6, R3   // R3 = x_lo = bytes[0..7]
+
+	// Build 24-bit x_hi from bytes[8..10] into R6
+	MOVBZ 8(R5), R6
+	MOVBZ 9(R5), R7; SLD $8, R7; OR R6, R7
+	MOVBZ 10(R5), R6; SLD $16, R6; OR R7, R6  // R6 = x_hi = bytes[8..10]
+	ADD $11, R5
+
+	// Now R3=x_lo (64-bit), R6=x_hi (24-bit)
+	// Extract 8 x 11-bit values:
+	// c0..c4 = x_lo >> (0,11,22,33,44) & 0x7FF
+	// c5 = (x_lo>>55) | (x_hi<<9) & 0x7FF  [x_lo has 1 bit of c5, x_hi has 10 bits]
+	// c6 = x_hi>>2 & 0x7FF
+	// c7 = x_hi>>13 & 0x7FF
+	// Decompress each immediately to minimize register pressure.
+#define DECOMP11_LO(shift) \
+	SRD $shift, R3, R8; AND R12, R8; \
+	MULLD R9, R8;         \
+	SRD $10, R8, R7; ANDCC $1, R7, R7; \
+	SRD $11, R8;          \
+	ADD R7, R8;            \
+	MOVH R8, (R4);         \
+	ADD $2, R4
+
+	DECOMP11_LO(0)
+	DECOMP11_LO(11)
+	DECOMP11_LO(22)
+	DECOMP11_LO(33)
+	DECOMP11_LO(44)
+
+	// c5: (x_lo>>55) | (x_hi<<9) & 0x7FF
+	SRD $55, R3, R8; SLD $9, R6, R7; OR R8, R7; AND R12, R7
+	MULLD R9, R7
+	SRD $10, R7, R8; ANDCC $1, R8, R8
+	SRD $11, R7
+	ADD R8, R7
+	MOVH R7, (R4); ADD $2, R4
+
+#define DECOMP11_HI(shift) \
+	SRD $shift, R6, R8; AND R12, R8; \
+	MULLD R9, R8;         \
+	SRD $10, R8, R7; ANDCC $1, R7, R7; \
+	SRD $11, R8;          \
+	ADD R7, R8;            \
+	MOVH R8, (R4);         \
+	ADD $2, R4
+
+	DECOMP11_HI(2)
+	DECOMP11_HI(13)
+#undef DECOMP11_LO
+#undef DECOMP11_HI
+
+	ADD $-1, R11
+	BNE decode_u11_group
+	ADD $-1, R10
+	BNE decode_u11_elem
 	RET
 
 TEXT ·samplePolyCBD2PPC64LE(SB), NOSPLIT, $0-16

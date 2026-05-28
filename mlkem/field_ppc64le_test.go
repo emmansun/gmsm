@@ -373,3 +373,140 @@ func BenchmarkPPC64LENTTNTT(b *testing.B) {
 		}
 	})
 }
+
+func ringCompressAndEncode5Generic(out []byte, f *ringElement) {
+	ringCompressAndEncode(out[:0], f, 5)
+}
+
+func ringCompressAndEncode11Generic(out []byte, f *ringElement) {
+	ringCompressAndEncode(out[:0], f, 11)
+}
+
+func TestPPC64LECompressAndEncode1MatchesGeneric(t *testing.T) {
+	for i := 0; i < 200; i++ {
+		f := randomRingElement()
+		var got, want [encodingSize1]byte
+		ringCompressAndEncode1PPC64LE(got[:], &f)
+		ringCompressAndEncode1Generic(want[:], &f)
+		if got != want {
+			t.Fatalf("iter=%d: encode1 mismatch\ngot=%x\nwant=%x", i, got, want)
+		}
+	}
+}
+
+func TestPPC64LECompressAndEncode4MatchesGeneric(t *testing.T) {
+	for i := 0; i < 200; i++ {
+		f := randomRingElement()
+		var got, want [encodingSize4]byte
+		ringCompressAndEncode4PPC64LE(got[:], &f)
+		ringCompressAndEncode4Generic(want[:], &f)
+		if got != want {
+			t.Fatalf("iter=%d: encode4 mismatch\ngot=%x\nwant=%x", i, got, want)
+		}
+	}
+}
+
+func TestPPC64LEDecodeAndDecompress4MatchesGeneric(t *testing.T) {
+	for i := 0; i < 200; i++ {
+		var b [encodingSize4]byte
+		for j := range b {
+			b[j] = byte(i*7 + j*13)
+		}
+		var got, want ringElement
+		ringDecodeAndDecompress4PPC64LE(&b, &got)
+		ringDecodeAndDecompress4Generic(&b, &want)
+		if got != want {
+			t.Fatalf("iter=%d: decode4 mismatch idx=0: got=%d want=%d", i, got[0], want[0])
+		}
+	}
+}
+
+func TestPPC64LECompressAndEncode5MatchesGeneric(t *testing.T) {
+	for i := 0; i < 200; i++ {
+		f := randomRingElement()
+		var got, want [encodingSize5]byte
+		ringCompressAndEncode5PPC64LE(got[:], &f)
+		ringCompressAndEncode5Generic(want[:], &f)
+		if got != want {
+			t.Fatalf("iter=%d: encode5 mismatch", i)
+		}
+	}
+}
+
+func TestPPC64LEDecodeAndDecompress5MatchesGeneric(t *testing.T) {
+	for i := 0; i < 200; i++ {
+		var b [encodingSize5]byte
+		for j := range b {
+			b[j] = byte(i*11 + j*7)
+		}
+		var got ringElement
+		ringDecodeAndDecompress5PPC64LE(&b, &got)
+		want := ringDecodeAndDecompress(b[:], 5)
+		if got != want {
+			t.Fatalf("iter=%d: decode5 mismatch idx=0: got=%d want=%d", i, got[0], want[0])
+		}
+	}
+}
+
+func TestPPC64LECompressAndEncode10MatchesGeneric(t *testing.T) {
+	for i := 0; i < 200; i++ {
+		f := randomRingElement()
+		var got, want [encodingSize10]byte
+		ringCompressAndEncode10PPC64LE(got[:], &f)
+		ringCompressAndEncode10Generic(want[:], &f)
+		if got != want {
+			t.Fatalf("iter=%d: encode10 mismatch", i)
+		}
+	}
+}
+
+func TestPPC64LECompressAndEncode11MatchesGeneric(t *testing.T) {
+	for i := 0; i < 200; i++ {
+		f := randomRingElement()
+		var got, want [encodingSize11]byte
+		ringCompressAndEncode11PPC64LE(got[:], &f)
+		ringCompressAndEncode11Generic(want[:], &f)
+		if got != want {
+			t.Fatalf("iter=%d: encode11 mismatch", i)
+		}
+	}
+}
+
+func TestPPC64LEDecodeAndDecompressU10MatchesGeneric(t *testing.T) {
+	for i := 0; i < 50; i++ {
+		// Build random input for k=2 ring elements
+		const k = 2
+		c := make([]byte, k*encodingSize10)
+		for j := range c {
+			c[j] = byte(i*3 + j*7)
+		}
+		got := make([]ringElement, k)
+		want := make([]ringElement, k)
+		decodeAndDecompressU10PPC64LE(got, c)
+		decodeAndDecompressU10Generic(want, c)
+		for ki := range got {
+			if got[ki] != want[ki] {
+				t.Fatalf("iter=%d ki=%d: decodeU10 mismatch", i, ki)
+			}
+		}
+	}
+}
+
+func TestPPC64LEDecodeAndDecompressU11MatchesGeneric(t *testing.T) {
+	for i := 0; i < 50; i++ {
+		const k = 2
+		c := make([]byte, k*encodingSize11)
+		for j := range c {
+			c[j] = byte(i*5 + j*11)
+		}
+		got := make([]ringElement, k)
+		want := make([]ringElement, k)
+		decodeAndDecompressU11PPC64LE(got, c)
+		decodeAndDecompressU11Generic(want, c)
+		for ki := range got {
+			if got[ki] != want[ki] {
+				t.Fatalf("iter=%d ki=%d: decodeU11 mismatch", i, ki)
+			}
+		}
+	}
+}

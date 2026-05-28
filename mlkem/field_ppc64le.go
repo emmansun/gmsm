@@ -269,11 +269,11 @@ func nttMulAccKeyGen(acc, lhs, rhs *nttElement) {
 }
 
 func decodeAndDecompressU10(dst []ringElement, c []byte) {
-	decodeAndDecompressU10Generic(dst, c)
+	decodeAndDecompressU10PPC64LE(dst, c)
 }
 
 func decodeAndDecompressU11(dst []ringElement, c []byte) {
-	decodeAndDecompressU11Generic(dst, c)
+	decodeAndDecompressU11PPC64LE(dst, c)
 }
 
 // samplePolyCBD draws a ringElement from the Dη distribution given a stream of
@@ -299,43 +299,49 @@ func polySubAssign(dst *ringElement, src *ringElement) {
 // compressing two coefficients per byte.
 func ringCompressAndEncode4(s []byte, f *ringElement) []byte {
 	s, b := sliceForAppend(s, encodingSize4)
-	ringCompressAndEncode4Generic(b, f)
+	ringCompressAndEncode4PPC64LE(b, f)
 	return s
 }
 
 // ringDecodeAndDecompress4 decodes a 128-byte encoding of a ring element where
 // each four bits are mapped to an equidistant distribution.
 func ringDecodeAndDecompress4(b *[encodingSize4]byte, f *ringElement) {
-	ringDecodeAndDecompress4Generic(b, f)
+	ringDecodeAndDecompress4PPC64LE(b, f)
 }
 
 // ringCompressAndEncode5 appends a 160-byte encoding of a ring element to s.
 func ringCompressAndEncode5(s []byte, f *ringElement) []byte {
-	return ringCompressAndEncode(s, f, 5)
+	s, b := sliceForAppend(s, encodingSize5)
+	ringCompressAndEncode5PPC64LE(b, f)
+	return s
 }
 
 // ringDecodeAndDecompress5 decodes a 160-byte encoding of a ring element.
 func ringDecodeAndDecompress5(bb *[encodingSize5]byte) ringElement {
-	return ringDecodeAndDecompress(bb[:], 5)
+	var f ringElement
+	ringDecodeAndDecompress5PPC64LE(bb, &f)
+	return f
 }
 
 // ringCompressAndEncode10 appends a 320-byte encoding of a ring element to s.
 func ringCompressAndEncode10(s []byte, f *ringElement) []byte {
 	s, b := sliceForAppend(s, encodingSize10)
-	ringCompressAndEncode10Generic(b, f)
+	ringCompressAndEncode10PPC64LE(b, f)
 	return s
 }
 
 // ringCompressAndEncode11 appends a 352-byte encoding of a ring element to s.
 func ringCompressAndEncode11(s []byte, f *ringElement) []byte {
-	return ringCompressAndEncode(s, f, 11)
+	s, b := sliceForAppend(s, encodingSize11)
+	ringCompressAndEncode11PPC64LE(b, f)
+	return s
 }
 
 // ringCompressAndEncode1 appends a 32-byte encoding of a ring element to s.
 func ringCompressAndEncode1(s []byte, f *ringElement) []byte {
 	s, b := sliceForAppend(s, encodingSize1)
 	clear(b)
-	ringCompressAndEncode1Generic(b, f)
+	ringCompressAndEncode1PPC64LE(b, f)
 	return s
 }
 
