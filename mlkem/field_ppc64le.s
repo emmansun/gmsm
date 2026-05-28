@@ -180,10 +180,11 @@ GLOBL cbd2Consts<>(SB), RODATA|NOPTR, $112
 // [+0x00..+0x0F]: {0x249249 x4}  mask249   — bit-parallel field selector (uint32x4)
 // [+0x10..+0x1F]: {0x6DB6DB x4}  mask6DB   — difference accumulator mask (uint32x4)
 // [+0x20..+0x2F]: {0x70000 x4}   mask70000 — 3-bit high-group extractor (uint32x4)
-// [+0x30..+0x3F]: extractLoMask — VPERM(V12,V10,mask,V13) → coeff[0..7] in
+// [+0x30..+0x3F]: extractLoMask — VPERM(V12,V10,mask,V13) → coeff[0..7]+3 in
 //                 STXVD2X-ready BE layout {0,c3,0,c2,0,c1,0,c0, 0,c7,0,c6,0,c5,0,c4}
+//                 (relies on high bytes of V12/V10 being 0x00 since coeff+3 ∈ [0..6])
 //                 BE mask: {0,17,2,19, 0,1,2,3, 4,21,6,23, 4,5,6,7}
-// [+0x40..+0x4F]: extractHiMask — VPERM(V12,V10,mask,V14) → coeff[8..15] in
+// [+0x40..+0x4F]: extractHiMask — VPERM(V12,V10,mask,V14) → coeff[8..15]+3 in
 //                 STXVD2X-ready BE layout
 //                 BE mask: {8,25,10,27, 8,9,10,11, 12,29,14,31, 12,13,14,15}
 // [+0x50..+0x5F]: cbd3ShufA — VPERM mask to rearrange LXVD2X-loaded bytes into
@@ -2372,15 +2373,13 @@ cbd3vmx_loop:
 	VADDUHM V9,  V12, V12                                 // V12: {c1+3,c0+3,...} H8
 	VADDUHM V11, V10, V10                                 // V10: {c3+3,c2+3,...} H8
 
-	// Subtract 3 before VPERM (saves 2 VSUBUHM after VPERM)
-	VSUBUHM V12, V20, V12                                 // V12: {c1,c0,...} H8
-	VSUBUHM V10, V20, V10                                 // V10: {c3,c2,...} H8
+	// VPERM into STXVD2X-ready format (coeff+3 values with zero high bytes)
+	VPERM V12, V10, V22, V13                              // V13 = coeff[0..7]+3 ready for STXVD2X
+	VPERM V12, V10, V23, V14                              // V14 = coeff[8..15]+3 ready for STXVD2X
 
-	// VPERM into STXVD2X-ready format
-	VPERM V12, V10, V22, V13                              // V13 = coeff[0..7] ready for STXVD2X
-	VPERM V12, V10, V23, V14                              // V14 = coeff[8..15] ready for STXVD2X
-
-	// Add q to negatives
+	// Subtract 3 and add q to negatives
+	VSUBUHM V13, V20, V13
+	VSUBUHM V14, V20, V14
 	VSRAH V13, V31, V9
 	VAND  V21, V9, V9;  VADDUHM V13, V9, V13
 	VSRAH V14, V31, V9
@@ -2416,13 +2415,12 @@ cbd3vmx_loop:
 	VADDUHM V9,  V12, V12
 	VADDUHM V11, V10, V10
 
-	// Subtract 3 before VPERM (saves 2 VSUBUHM after VPERM)
-	VSUBUHM V12, V20, V12
-	VSUBUHM V10, V20, V10
-
 	VPERM V12, V10, V22, V13
 	VPERM V12, V10, V23, V14
 
+	// Subtract 3 then add q to negatives
+	VSUBUHM V13, V20, V13
+	VSUBUHM V14, V20, V14
 	VSRAH V13, V31, V9
 	VAND  V21, V9, V9;  VADDUHM V13, V9, V13
 	VSRAH V14, V31, V9
