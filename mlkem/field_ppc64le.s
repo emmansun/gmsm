@@ -1611,23 +1611,23 @@ decompress4_vmx_loop:
 	// Load 4 input bytes packed as nibbles
 	MOVWZ   (R4), R6
 	// Build Rhi = y0<<48 | y1<<32 | y2<<16 | y3  (4 nibbles from bytes 0,1)
-	ANDCC   $15, R6, R10          // y0 = R6[3:0]
-	SLD     $48, R10, R10
-	SRD     $4, R6, R11; ANDCC $15, R11, R11   // y1 = R6[7:4]
-	SLD     $32, R11, R11; OR R11, R10, R10
-	SRD     $8, R6, R11; ANDCC $15, R11, R11   // y2 = R6[11:8]
-	SLD     $16, R11, R11; OR R11, R10, R10
-	SRD     $12, R6, R11; ANDCC $15, R11, R11  // y3 = R6[15:12]
-	OR      R11, R10, R10         // Rhi = y0<<48|y1<<32|y2<<16|y3
+	RLDICL  $0,  R6, $60, R8     // y0 → R8[3:0] (Go bits [3:0])
+	RLDICL  $60, R6, $60, R9     // y1 → R9[3:0]
+	RLDICL  $56, R6, $60, R10    // y2 → R10[3:0]
+	RLDICL  $52, R6, $60, R11    // y3 → R11[3:0]
+	SLD     $48, R8, R8
+	SLD     $32, R9, R9
+	SLD     $16, R10, R10
+	OR      R8, R9, R8; OR R10, R11, R10; OR R8, R10, R10   // Rhi
 	// Build Rlo = y4<<48 | y5<<32 | y6<<16 | y7  (4 nibbles from bytes 2,3)
-	SRD     $16, R6, R11; ANDCC $15, R11, R11  // y4
-	SLD     $48, R11, R11
-	SRD     $20, R6, R12; ANDCC $15, R12, R12  // y5
-	SLD     $32, R12, R12; OR R12, R11, R11
-	SRD     $24, R6, R12; ANDCC $15, R12, R12  // y6
-	SLD     $16, R12, R12; OR R12, R11, R11
-	SRD     $28, R6, R12; ANDCC $15, R12, R12  // y7
-	OR      R12, R11, R11         // Rlo = y4<<48|y5<<32|y6<<16|y7
+	RLDICL  $48, R6, $60, R8     // y4 → R8[3:0]
+	RLDICL  $44, R6, $60, R9     // y5 → R9[3:0]
+	RLDICL  $40, R6, $60, R11    // y6 → R11[3:0]
+	RLDICL  $36, R6, $60, R12    // y7 → R12[3:0]
+	SLD     $48, R8, R8
+	SLD     $32, R9, R9
+	SLD     $16, R11, R11
+	OR      R8, R9, R8; OR R11, R12, R11; OR R8, R11, R11   // Rlo
 	MTVSRDD R10, R11, V0          // V0 = [y0,y1,y2,y3 | y4,y5,y6,y7] as u16×8
 	// Multiply by q=3329: VMULEUH/VMULOUH produce 4×u32
 	VMULEUH V0, V17, V3           // even: [y0,y2,y4,y6]*q as u32
@@ -1699,22 +1699,34 @@ compress5_vmx_loop:
 	// Extract to GPRs: MFVSRD = upper 64 bits
 	MFVSRD  V5, R6                // R6 = c0<<48|c1<<32|c2<<16|c3
 	MFVSRLD V5, R7                // R7 = c4<<48|c5<<32|c6<<16|c7
-	// Pack into 40-bit: c0|c1<<5|c2<<10|c3<<15|c4<<20|c5<<25|c6<<30|c7<<35
-	SRD     $48, R6, R8;  ANDCC $31, R8, R8    // c0 [0:4]
-	SRD     $32, R6, R9;  ANDCC $31, R9, R9    // c1
-	SLD     $5, R9, R9;   OR R8, R9, R8
-	SRD     $16, R6, R10; ANDCC $31, R10, R10  // c2
-	SLD     $10, R10, R10; OR R8, R10, R8
-	ANDCC   $31, R6, R11                         // c3
-	SLD     $15, R11, R11; OR R8, R11, R8
-	SRD     $48, R7, R12; ANDCC $31, R12, R12   // c4
-	SLD     $20, R12, R12; OR R8, R12, R8
-	SRD     $32, R7, R9;  ANDCC $31, R9, R9     // c5
-	SLD     $25, R9, R9;  OR R8, R9, R8
-	SRD     $16, R7, R9;  ANDCC $31, R9, R9     // c6
-	SLD     $30, R9, R9;  OR R8, R9, R8
-	ANDCC   $31, R7, R9                           // c7
-	SLD     $35, R9, R9;  OR R8, R9, R8          // R8 = 40-bit packed
+	// Pack 8 × 5-bit values from R6/R7 into 40-bit output in R8
+	// R6 = c0<<48|c1<<32|c2<<16|c3, R7 = c4<<48|c5<<32|c6<<16|c7 (5-bit in 16-bit slots)
+	// Extract all 8 values to LSBs in parallel (c0..c5 use R8-R12,R3; c6,c7 reuse R9,R10)
+	RLDICL  $16, R6, $59, R8     // c0 → R8[4:0]
+	RLDICL  $32, R6, $59, R9     // c1 → R9[4:0]
+	RLDICL  $48, R6, $59, R10    // c2 → R10[4:0]
+	RLDICL  $0,  R6, $59, R11    // c3 → R11[4:0]
+	RLDICL  $16, R7, $59, R12    // c4 → R12[4:0]
+	RLDICL  $32, R7, $59, R3     // c5 → R3[4:0]
+	// Shift to target bit positions
+	SLD     $5,  R9,  R9         // c1 → [9:5]
+	SLD     $10, R10, R10        // c2 → [14:10]
+	SLD     $15, R11, R11        // c3 → [19:15]
+	SLD     $20, R12, R12        // c4 → [24:20]
+	SLD     $25, R3,  R3         // c5 → [29:25]
+	// Extract and shift c6, c7 (reuse R9-based, after c1 already shifted)
+	RLDICL  $48, R7, $59, R6     // c6 → R6[4:0] (R7 read done, R6 reuse ok)
+	RLDICL  $0,  R7, $59, R7     // c7 → R7[4:0]
+	SLD     $30, R6, R6          // c6 → [34:30]
+	SLD     $35, R7, R7          // c7 → [39:35]
+	// OR-tree to assemble 40-bit packed value in R8
+	OR      R8,  R9,  R8         // c0|c1
+	OR      R10, R11, R10        // c2|c3
+	OR      R12, R3,  R12        // c4|c5
+	OR      R6,  R7,  R6         // c6|c7
+	OR      R8,  R10, R8         // c0|c1|c2|c3
+	OR      R12, R6,  R12        // c4|c5|c6|c7
+	OR      R8,  R12, R8         // R8 = 40-bit packed
 	// Store 5 bytes: word + byte
 	MOVW    R8, 0(R4)
 	SRD     $32, R8, R9; MOVB R9, 4(R4)
@@ -1853,27 +1865,25 @@ compress10_vmx_loop:
 	VPERM   V3, V4, V19, V5       // [c0,c1,c2,c3,c4,c5,c6,c7] as u16
 	MFVSRD  V5, R6                // c0<<48|c1<<32|c2<<16|c3
 	MFVSRLD V5, R7                // c4<<48|c5<<32|c6<<16|c7
-	// First group: c0,c1,c2,c3 → 5 bytes (40-bit)
-	SRD     $48, R6, R8; ANDCC $1023, R8, R8   // c0
-	SRD     $32, R6, R9; ANDCC $1023, R9, R9   // c1
-	SRD     $16, R6, R10; ANDCC $1023, R10, R10 // c2
-	ANDCC   $1023, R6, R11                       // c3
-	SLD     $10, R9, R9; OR R8, R9, R8
-	SLD     $20, R10, R10; OR R8, R10, R8
-	SLD     $30, R11, R11; OR R8, R11, R8        // R8 = c0|c1<<10|c2<<20|c3<<30
+	// First group: c0,c1,c2,c3 (from R6) → 5 bytes (40-bit packed 10-bit values)
+	RLDICL  $16, R6, $54, R8     // c0 → R8[9:0]
+	RLDICL  $32, R6, $54, R9     // c1 → R9[9:0]
+	RLDICL  $48, R6, $54, R10    // c2 → R10[9:0]
+	RLDICL  $0,  R6, $54, R11    // c3 → R11[9:0]
+	SLD     $10, R9, R9; SLD $20, R10, R10; SLD $30, R11, R11
+	OR      R8, R9, R8; OR R10, R11, R10; OR R8, R10, R8    // R8 = c0|c1<<10|c2<<20|c3<<30
 	MOVB    R8, 0(R4)
 	SRD     $8, R8, R9;  MOVB R9, 1(R4)
 	SRD     $16, R8, R9; MOVB R9, 2(R4)
 	SRD     $24, R8, R9; MOVB R9, 3(R4)
 	SRD     $32, R8, R9; MOVB R9, 4(R4)
-	// Second group: c4,c5,c6,c7 → 5 bytes
-	SRD     $48, R7, R8; ANDCC $1023, R8, R8   // c4
-	SRD     $32, R7, R9; ANDCC $1023, R9, R9   // c5
-	SRD     $16, R7, R10; ANDCC $1023, R10, R10 // c6
-	ANDCC   $1023, R7, R11                       // c7
-	SLD     $10, R9, R9; OR R8, R9, R8
-	SLD     $20, R10, R10; OR R8, R10, R8
-	SLD     $30, R11, R11; OR R8, R11, R8
+	// Second group: c4,c5,c6,c7 (from R7) → 5 bytes
+	RLDICL  $16, R7, $54, R8     // c4 → R8[9:0]
+	RLDICL  $32, R7, $54, R9     // c5 → R9[9:0]
+	RLDICL  $48, R7, $54, R10    // c6 → R10[9:0]
+	RLDICL  $0,  R7, $54, R11    // c7 → R11[9:0]
+	SLD     $10, R9, R9; SLD $20, R10, R10; SLD $30, R11, R11
+	OR      R8, R9, R8; OR R10, R11, R10; OR R8, R10, R8
 	MOVB    R8, 5(R4)
 	SRD     $8, R8, R9;  MOVB R9, 6(R4)
 	SRD     $16, R8, R9; MOVB R9, 7(R4)
@@ -1928,24 +1938,22 @@ compress11_vmx_loop:
 	VPERM   V3, V4, V19, V5                   // [c0..c7] as u16
 	MFVSRD  V5, R6                // c0<<48|c1<<32|c2<<16|c3
 	MFVSRLD V5, R7                // c4<<48|c5<<32|c6<<16|c7
-	// Extract all 8 values (11-bit each) from R6 and R7
-	SRD     $48, R6, R8;  ANDCC $2047, R8, R8    // c0
-	SRD     $32, R6, R9;  ANDCC $2047, R9, R9    // c1
-	SRD     $16, R6, R10; ANDCC $2047, R10, R10  // c2
-	ANDCC   $2047, R6, R11                         // c3
-	SRD     $48, R7, R12; ANDCC $2047, R12, R12   // c4
+	// Extract all 8 values (11-bit each) using parallel RLDICL + OR-tree
+	RLDICL  $16, R6, $53, R8     // c0 → R8[10:0]
+	RLDICL  $32, R6, $53, R9     // c1 → R9[10:0]
+	RLDICL  $48, R6, $53, R10    // c2 → R10[10:0]
+	RLDICL  $0,  R6, $53, R11    // c3 → R11[10:0]
+	RLDICL  $16, R7, $53, R12    // c4 → R12[10:0]
 	// Build 44-bit lo = c0|c1<<11|c2<<22|c3<<33
-	SLD     $11, R9, R9;  OR R8, R9, R8
-	SLD     $22, R10, R10; OR R8, R10, R8
-	SLD     $33, R11, R11; OR R8, R11, R8          // R8 = lo 44-bit
-	// c5..c7 for hi
-	SRD     $32, R7, R9;  ANDCC $2047, R9, R9    // c5
-	SRD     $16, R7, R10; ANDCC $2047, R10, R10  // c6
-	ANDCC   $2047, R7, R11                         // c7
+	SLD     $11, R9, R9;  SLD $22, R10, R10; SLD $33, R11, R11
+	OR      R8, R9, R8;   OR  R10, R11, R10; OR  R8, R10, R8    // R8 = lo 44-bit
+	// Extract and pack c5,c6,c7 for hi
+	RLDICL  $32, R7, $53, R9     // c5 → R9[10:0]
+	RLDICL  $48, R7, $53, R10    // c6 → R10[10:0]
+	RLDICL  $0,  R7, $53, R11    // c7 → R11[10:0]
 	// hi = c4|c5<<11|c6<<22|c7<<33
-	SLD     $11, R9, R9;  OR R12, R9, R12
-	SLD     $22, R10, R10; OR R12, R10, R12
-	SLD     $33, R11, R11; OR R12, R11, R12        // R12 = hi 44-bit
+	SLD     $11, R9, R9;  SLD $22, R10, R10; SLD $33, R11, R11
+	OR      R12, R9, R12; OR  R10, R11, R10; OR  R12, R10, R12  // R12 = hi 44-bit
 	// Store 11 bytes: lo → bytes[0..4], crossover byte, hi >> 4 → bytes[6..10]
 	MOVB    R8, 0(R4)
 	SRD     $8, R8, R9;  MOVB R9, 1(R4)
@@ -2002,30 +2010,26 @@ decode_u10_group:
 	MOVBZ   2(R5), R6; SLD $16, R6; OR R7, R6
 	MOVBZ   3(R5), R7; SLD $24, R7; OR R6, R7
 	MOVBZ   4(R5), R6; SLD $32, R6; OR R7, R6  // R6 = 40-bit lo
-	// Extract c0..c3 (10-bit each)
-	ANDCC   $1023, R6, R7          // c0
-	SRD     $10, R6, R11; ANDCC $1023, R11, R11  // c1
-	SRD     $20, R6, R12; ANDCC $1023, R12, R12  // c2
-	SRD     $30, R6, R6; ANDCC $1023, R6, R6     // c3
+	// Extract c0..c3 (10-bit each) via parallel RLDICL
+	RLDICL  $0,  R6, $54, R7     // c0 → R7[9:0]
+	RLDICL  $54, R6, $54, R11    // c1 → R11[9:0]
+	RLDICL  $44, R6, $54, R12    // c2 → R12[9:0]
+	RLDICL  $34, R6, $54, R6     // c3 → R6[9:0]
 	// Pack into Rhi = c0<<48|c1<<32|c2<<16|c3
-	SLD     $48, R7, R7
-	SLD     $32, R11, R11; OR R11, R7, R7
-	SLD     $16, R12, R12; OR R12, R7, R7
-	OR      R6, R7, R3            // Rhi in R3 (avoid clobbering R10=dst_len)
+	SLD     $48, R7, R7; SLD $32, R11, R11; SLD $16, R12, R12
+	OR      R7, R11, R7; OR R12, R6, R12; OR R7, R12, R3   // Rhi in R3
 	// Group 1: bytes[5..9] → c4,c5,c6,c7
 	MOVBZ   5(R5), R6
 	MOVBZ   6(R5), R7; SLD $8, R7; OR R6, R7
 	MOVBZ   7(R5), R6; SLD $16, R6; OR R7, R6
 	MOVBZ   8(R5), R7; SLD $24, R7; OR R6, R7
 	MOVBZ   9(R5), R6; SLD $32, R6; OR R7, R6  // R6 = 40-bit hi
-	ANDCC   $1023, R6, R7
-	SRD     $10, R6, R11; ANDCC $1023, R11, R11
-	SRD     $20, R6, R12; ANDCC $1023, R12, R12
-	SRD     $30, R6, R6; ANDCC $1023, R6, R6
-	SLD     $48, R7, R7
-	SLD     $32, R11, R11; OR R11, R7, R7
-	SLD     $16, R12, R12; OR R12, R7, R7
-	OR      R6, R7, R11           // Rlo
+	RLDICL  $0,  R6, $54, R7
+	RLDICL  $54, R6, $54, R11
+	RLDICL  $44, R6, $54, R12
+	RLDICL  $34, R6, $54, R6
+	SLD     $48, R7, R7; SLD $32, R11, R11; SLD $16, R12, R12
+	OR      R7, R11, R7; OR R12, R6, R12; OR R7, R12, R11   // Rlo
 	MTVSRDD R3, R11, V0           // V0 = [c0..c7] as u16×8 (R3=Rhi)
 	// Multiply by q=3329
 	VMULEUH V0, V17, V3
@@ -2092,29 +2096,27 @@ decode_u11_group:
 	MOVBZ   9(R5), R11; SLD $8, R11; OR R6, R11
 	MOVBZ   10(R5), R6; SLD $16, R6; OR R11, R6 // R6 = x_hi (24-bit)
 	// Extract 8 × 11-bit: c0..c4 from R7, c5 straddles, c6..c7 from R6
-	ANDCC   $2047, R7, R11                        // c0
-	SRD     $11, R7, R12; ANDCC $2047, R12, R12  // c1
-	// Pack c0<<48|c1<<32 into Rhi
-	SLD     $48, R11, R11
-	SLD     $32, R12, R12; OR R12, R11, R11
-	SRD     $22, R7, R12; ANDCC $2047, R12, R12  // c2
-	SLD     $16, R12, R12; OR R12, R11, R11
-	SRD     $33, R7, R12; ANDCC $2047, R12, R12  // c3
-	OR      R12, R11, R3                           // Rhi in R3 (avoid clobbering R10=dst_len)
+	// Parallel extraction of c0..c3 via RLDICL
+	RLDICL  $0,  R7, $53, R11    // c0 → R11[10:0]
+	RLDICL  $53, R7, $53, R12    // c1 → R12[10:0]
+	RLDICL  $42, R7, $53, R8     // c2 → R8[10:0]
+	RLDICL  $31, R7, $53, R9     // c3 → R9[10:0]
+	// Pack c0<<48|c1<<32|c2<<16|c3 → Rhi in R3
+	SLD     $48, R11, R11; SLD $32, R12, R12; SLD $16, R8, R8
+	OR      R11, R12, R11; OR R8, R9, R8; OR R11, R8, R3   // Rhi in R3
 	// c4 from R7[54:44]
-	SRD     $44, R7, R12; ANDCC $2047, R12, R12  // c4
+	RLDICL  $20, R7, $53, R12    // c4 → R12[10:0]
 	// c5 straddles: lower 9 bits from R7[63:55], upper 2 bits from R6[1:0]
 	SRD     $55, R7, R11                           // R11[8:0] = c5 lower 9 bits
 	ANDCC   $3, R6, R9                             // R9[1:0] = c5 upper 2 bits
 	SLD     $9, R9, R9
 	OR      R11, R9, R9; ANDCC $2047, R9, R9      // c5
-	// Pack c4<<48|c5<<32
-	SLD     $48, R12, R12
-	SLD     $32, R9, R9; OR R9, R12, R12
-	SRD     $2, R6, R9; ANDCC $2047, R9, R9    // c6
-	SLD     $16, R9, R9; OR R9, R12, R12
-	SRD     $13, R6, R9; ANDCC $2047, R9, R9   // c7
-	OR      R9, R12, R11                          // Rlo = c4<<48|c5<<32|c6<<16|c7
+	// Parallel extraction of c6, c7 from R6
+	RLDICL  $62, R6, $53, R8     // c6 → R8[10:0]
+	RLDICL  $51, R6, $53, R11    // c7 → R11[10:0]
+	// Pack c4<<48|c5<<32|c6<<16|c7 → Rlo in R11
+	SLD     $48, R12, R12; SLD $32, R9, R9; SLD $16, R8, R8
+	OR      R12, R9, R12; OR R8, R11, R8; OR R12, R8, R11  // Rlo = c4<<48|c5<<32|c6<<16|c7
 	MTVSRDD R3, R11, V0           // V0 = [c0..c7] as u16×8 (R3=Rhi)
 	VMULEUH V0, V17, V3
 	VMULOUH V0, V17, V4
