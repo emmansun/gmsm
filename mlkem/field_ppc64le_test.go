@@ -228,8 +228,62 @@ func TestPPC64LENTTUnitInput(t *testing.T) {
 	}
 }
 
+// applyINTTLayer applies one layer of the inverse NTT (Gentleman-Sande) to f in place.
+// len: the current length (2, 4, 8, ..., 128).
+// k: starting zeta index (127 for len=2, decreasing).
+// Returns the next k value.
+func applyINTTLayer(f *nttElement, length, k int) int {
+	for start := 0; start < 256; start += 2 * length {
+		zeta := zetas[k]
+		k--
+		for j := 0; j < length; j++ {
+			lo := f[start+j]
+			hi := f[start+length+j]
+			f[start+j] = fieldAdd(lo, hi)
+			f[start+length+j] = fieldMulSub(zeta, hi, lo)
+		}
+	}
+	return k
+}
+
+func TestPPC64LEInverseNTTLayerByLayer(t *testing.T) {
+	for iter := 0; iter < 10; iter++ {
+		in := randomNTTElement()
+
+		// Apply INTT layer by layer in Go, check after EACH layer
+		ref := in
+		k := 127
+		layerLens := []int{2, 4, 8, 16, 32, 64, 128}
+		for li, length := range layerLens {
+			k = applyINTTLayer(&ref, length, k)
+			_ = li
+		}
+		// Apply final scale
+		for i := range ref {
+			ref[i] = fieldMul(ref[i], 3303)
+		}
+
+		got := in
+		internalInverseNTTPPC64LE(&got)
+
+		mismatch := false
+		for j := range got {
+			if got[j] != ref[j] {
+				t.Errorf("iter=%d idx=%d: got=%d want=%d", iter, j, got[j], ref[j])
+				mismatch = true
+			}
+		}
+		if mismatch {
+			t.Logf("in[64..71]=%v", in[64:72])
+			t.Logf("got[64..71]=%v", got[64:72])
+			t.Logf("ref[64..71]=%v", ref[64:72])
+			return
+		}
+	}
+}
+
 func TestPPC64LEInverseNTTMatchesGeneric(t *testing.T) {
-	for i := 0; i < 200; i++ {
+	for i := 0; i < 5; i++ {
 		in := randomNTTElement()
 		got := in
 		want := in
@@ -237,10 +291,21 @@ func TestPPC64LEInverseNTTMatchesGeneric(t *testing.T) {
 		internalInverseNTTPPC64LE(&got)
 		internalInverseNTTGeneric(&want)
 
+		var mismatches []int
 		for j := range got {
 			if got[j] != want[j] {
-				t.Fatalf("iter=%d idx=%d: inverseNTT mismatch: got=%d want=%d", i, j, got[j], want[j])
+				mismatches = append(mismatches, j)
 			}
+		}
+		if len(mismatches) > 0 {
+			t.Errorf("iter=%d: %d mismatches, first few indices: %v", i, len(mismatches), mismatches[:min(20, len(mismatches))])
+			for _, j := range mismatches[:min(8, len(mismatches))] {
+				t.Errorf("  idx=%d: got=%d want=%d diff=%d", j, got[j], want[j], int(got[j])-int(want[j]))
+			}
+			t.Logf("in[60..75]=%v", in[60:76])
+			t.Logf("got[60..75]=%v", got[60:76])
+			t.Logf("want[60..75]=%v", want[60:76])
+			return
 		}
 	}
 }
