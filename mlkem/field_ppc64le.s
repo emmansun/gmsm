@@ -152,33 +152,28 @@ GLOBL nttL7ReinterleaveMask1<>(SB), RODATA|NOPTR, $16
 // cbd2Consts: constants for samplePolyCBD2PPC64LE VMX implementation (LXVD2X-loaded).
 // [+0x00..+0x0F]: {0x55 x16}  mask55
 // [+0x10..+0x1F]: {0x33 x16}  mask33
-// [+0x20..+0x2F]: {0x0F x16}  mask0F
-// [+0x30..+0x3F]: {0x03 x16}  mask03
-// [+0x40..+0x4F]: byte_natural_order_mask — fix LXVD2X per-8-byte reversal on load
-// [+0x50..+0x5F]: byte_interleave_lo — interleave even[0..7] and odd[0..7] bytes to coeff[0..15]
-// [+0x60..+0x6F]: byte_interleave_hi — interleave even[8..15] and odd[8..15] to coeff[16..31]
-// [+0x70..+0x7F]: sign_ext_lo — pack sign+data bytes as int16 for coeff[0..7] (STXVD2X format)
-// [+0x80..+0x8F]: sign_ext_hi — pack sign+data bytes as int16 for coeff[8..15] (STXVD2X format)
-// Note: V24 ({3329 x8}) is loaded from kBarrettConsts<>+0x30.
+// Note: V18={0x0F x16} and V19={0x03 x16} are generated via VSPLTISB at runtime.
+// [+0x20..+0x2F]: byte_natural_order_mask — fix LXVD2X per-8-byte reversal on load
+// [+0x30..+0x3F]: byte_interleave_lo — interleave even[0..7] and odd[0..7] bytes to coeff[0..15]
+// [+0x40..+0x4F]: byte_interleave_hi — interleave even[8..15] and odd[8..15] to coeff[16..31]
+// [+0x50..+0x5F]: sign_ext_lo — pack sign+data bytes as int16 for coeff[0..7] (STXVD2X format)
+// [+0x60..+0x6F]: sign_ext_hi — pack sign+data bytes as int16 for coeff[8..15] (STXVD2X format)
+// Note: {3329 x8} is loaded from kBarrettConsts<>+0x30.
 DATA cbd2Consts<>+0x00(SB)/8, $0x5555555555555555
 DATA cbd2Consts<>+0x08(SB)/8, $0x5555555555555555
 DATA cbd2Consts<>+0x10(SB)/8, $0x3333333333333333
 DATA cbd2Consts<>+0x18(SB)/8, $0x3333333333333333
-DATA cbd2Consts<>+0x20(SB)/8, $0x0F0F0F0F0F0F0F0F
-DATA cbd2Consts<>+0x28(SB)/8, $0x0F0F0F0F0F0F0F0F
-DATA cbd2Consts<>+0x30(SB)/8, $0x0303030303030303
-DATA cbd2Consts<>+0x38(SB)/8, $0x0303030303030303
-DATA cbd2Consts<>+0x40(SB)/8, $0x0706050403020100
-DATA cbd2Consts<>+0x48(SB)/8, $0x0F0E0D0C0B0A0908
-DATA cbd2Consts<>+0x50(SB)/8, $0x0010011102120313
-DATA cbd2Consts<>+0x58(SB)/8, $0x0414051506160717
-DATA cbd2Consts<>+0x60(SB)/8, $0x08180919_0A1A0B1B
-DATA cbd2Consts<>+0x68(SB)/8, $0x0C1C0D1D0E1E0F1F
-DATA cbd2Consts<>+0x70(SB)/8, $0x0313021201110010
-DATA cbd2Consts<>+0x78(SB)/8, $0x0717061605150414
-DATA cbd2Consts<>+0x80(SB)/8, $0x0B1B0A1A09190818
-DATA cbd2Consts<>+0x88(SB)/8, $0x0F1F0E1E0D1D0C1C
-GLOBL cbd2Consts<>(SB), RODATA|NOPTR, $144
+DATA cbd2Consts<>+0x20(SB)/8, $0x0706050403020100
+DATA cbd2Consts<>+0x28(SB)/8, $0x0F0E0D0C0B0A0908
+DATA cbd2Consts<>+0x30(SB)/8, $0x0010011102120313
+DATA cbd2Consts<>+0x38(SB)/8, $0x0414051506160717
+DATA cbd2Consts<>+0x40(SB)/8, $0x08180919_0A1A0B1B
+DATA cbd2Consts<>+0x48(SB)/8, $0x0C1C0D1D0E1E0F1F
+DATA cbd2Consts<>+0x50(SB)/8, $0x0313021201110010
+DATA cbd2Consts<>+0x58(SB)/8, $0x0717061605150414
+DATA cbd2Consts<>+0x60(SB)/8, $0x0B1B0A1A09190818
+DATA cbd2Consts<>+0x68(SB)/8, $0x0F1F0E1E0D1D0C1C
+GLOBL cbd2Consts<>(SB), RODATA|NOPTR, $112
 
 // cbd3VMXConsts: constants for samplePolyCBD3PPC64LE VMX implementation (LXVD2X-loaded).
 // [+0x00..+0x0F]: {0x249249 x4}  mask249  — bit-parallel field selector (uint32x4)
@@ -2189,7 +2184,7 @@ decode_u11_done:
 // Negative coefficients have q=3329 added (using the VSRAH sign-mask trick).
 //
 // Register map (VMX):
-//   V16={0x55×16}  V17={0x33×16}  V18={0x0F×16}  V19={0x03×16}
+//   V16={0x55×16}  V17={0x33×16}  V18={0x0F×16}(VSPLTISB)  V19={0x03×16}(VSPLTISB)
 //   V20=byte_natural_order_mask  V21=byte_interleave_lo  V22=byte_interleave_hi
 //   V23=sign_ext_lo  V24=sign_ext_hi  V25={3329×8 uint16}
 //   V26={1}  V27={2}  V28={4}  V29={7}  V30={15 uint16}
@@ -2203,15 +2198,15 @@ TEXT ·samplePolyCBD2PPC64LE(SB), NOSPLIT, $0-16
 	MOVD $cbd2Consts<>(SB), R8
 	LXVD2X (R0)(R8), VS48                                 // V16 = {0x55 x16}
 	ADD  $16,  R8, R9;  LXVD2X (R0)(R9), VS49            // V17 = {0x33 x16}
-	ADD  $32,  R8, R9;  LXVD2X (R0)(R9), VS50            // V18 = {0x0F x16}
-	ADD  $48,  R8, R9;  LXVD2X (R0)(R9), VS51            // V19 = {0x03 x16}
-	ADD  $64,  R8, R9;  LXVD2X (R0)(R9), VS52            // V20 = byte_natural_order_mask
-	ADD  $80,  R8, R9;  LXVD2X (R0)(R9), VS53            // V21 = byte_interleave_lo
-	ADD  $96,  R8, R9;  LXVD2X (R0)(R9), VS54            // V22 = byte_interleave_hi
-	ADD  $112, R8, R9;  LXVD2X (R0)(R9), VS55            // V23 = sign_ext_lo
-	ADD  $128, R8, R9;  LXVD2X (R0)(R9), VS56            // V24 = sign_ext_hi
+	ADD  $32,  R8, R9;  LXVD2X (R0)(R9), VS52            // V20 = byte_natural_order_mask (+0x20)
+	ADD  $48,  R8, R9;  LXVD2X (R0)(R9), VS53            // V21 = byte_interleave_lo (+0x30)
+	ADD  $64,  R8, R9;  LXVD2X (R0)(R9), VS54            // V22 = byte_interleave_hi (+0x40)
+	ADD  $80,  R8, R9;  LXVD2X (R0)(R9), VS55            // V23 = sign_ext_lo (+0x50)
+	ADD  $96,  R8, R9;  LXVD2X (R0)(R9), VS56            // V24 = sign_ext_hi (+0x60)
 	MOVD $kBarrettConsts<>(SB), R9;  ADD $0x30, R9;  LXVD2X (R0)(R9), VS57  // V25 = {3329 x8}
 
+	VSPLTISB $15, V18                                     // V18 = {0x0F x16}
+	VSPLTISB $3,  V19                                     // V19 = {0x03 x16}
 	VSPLTISB $1,  V26
 	VSPLTISB $2,  V27
 	VSPLTISB $4,  V28
@@ -2266,13 +2261,12 @@ cbd2_loop:
 	VSRAH V12, V30, V13;  VAND V13, V25, V13;  VADDUHM V12, V13, V12
 
 	// store 64 bytes; V9..V12 are already in STXVD2X-ready format
-	STXVD2X VS41, (R0)(R4)
-	ADD $16, R4, R7;  STXVD2X VS42, (R0)(R7)
-	ADD $32, R4, R7;  STXVD2X VS43, (R0)(R7)
-	ADD $48, R4, R7;  STXVD2X VS44, (R0)(R7)
+	STXVD2X VS41, (R0)(R4);  ADD $16, R4, R4
+	STXVD2X VS42, (R0)(R4);  ADD $16, R4, R4
+	STXVD2X VS43, (R0)(R4);  ADD $16, R4, R4
+	STXVD2X VS44, (R0)(R4);  ADD $16, R4, R4
 
 	ADD $16, R6
-	ADD $64, R4
 	BDNZ cbd2_loop
 	RET
 
