@@ -1515,8 +1515,8 @@ TEXT ·ringCompressAndEncode1PPC64LE(SB), NOSPLIT, $0-32
 compress1_vmx_loop:
 	LXVD2X  (R0)(R5), VS32        // load 8 uint16
 	VPERM   V0, V0, V18, V0       // natural order
-	VCMPGTUH V1, V0, V4           // V4[i]=0xFFFF if V0[i]>832 (i.e. >=833)
-	VCMPGTUH V0, V2, V5           // V5[i]=0xFFFF if V0[i]>2496 (i.e. >=2497)
+	VCMPGTUH V0, V1, V4           // V4[i]=0xFFFF if V0[i]>832 (i.e. x>=833)
+	VCMPGTUH V0, V2, V5           // V5[i]=0xFFFF if V0[i]>2496 (i.e. x>=2497)
 	VNOR    V5, V5, V5             // V5[i]=0xFFFF if V0[i]<=2496
 	VAND    V4, V5, V4             // V4[i]=0xFFFF if in [833,2496]
 	VBPERMQ V4, V3, V6             // collect: bit i of result = MSB of V4 lane (7-i)
@@ -2019,7 +2019,7 @@ decode_u10_group:
 	SLD     $48, R7, R7
 	SLD     $32, R11, R11; OR R11, R7, R7
 	SLD     $16, R12, R12; OR R12, R7, R7
-	OR      R6, R7, R10           // Rhi
+	OR      R6, R7, R3            // Rhi in R3 (avoid clobbering R10=dst_len)
 	// Group 1: bytes[5..9] → c4,c5,c6,c7
 	MOVBZ   5(R5), R6
 	MOVBZ   6(R5), R7; SLD $8, R7; OR R6, R7
@@ -2034,7 +2034,7 @@ decode_u10_group:
 	SLD     $32, R11, R11; OR R11, R7, R7
 	SLD     $16, R12, R12; OR R12, R7, R7
 	OR      R6, R7, R11           // Rlo
-	MTVSRDD R10, R11, V0          // V0 = [c0..c7] as u16×8
+	MTVSRDD R3, R11, V0           // V0 = [c0..c7] as u16×8 (R3=Rhi)
 	// Multiply by q=3329
 	VMULEUH V0, V17, V3
 	VMULOUH V0, V17, V4
@@ -2108,7 +2108,7 @@ decode_u11_group:
 	SRD     $22, R7, R12; ANDCC $2047, R12, R12  // c2
 	SLD     $16, R12, R12; OR R12, R11, R11
 	SRD     $33, R7, R12; ANDCC $2047, R12, R12  // c3
-	OR      R12, R11, R10                          // Rhi = c0<<48|c1<<32|c2<<16|c3
+	OR      R12, R11, R3                           // Rhi in R3 (avoid clobbering R10=dst_len)
 	// c4 from R7[44:34]
 	SRD     $44, R7, R12; ANDCC $2047, R12, R12  // c4
 	// c5 straddles: low bit from R7[63], 10 bits from R6[9:0]
@@ -2120,7 +2120,7 @@ decode_u11_group:
 	SLD     $16, R9, R9; OR R9, R12, R12
 	SRD     $13, R6, R9; ANDCC $2047, R9, R9   // c7
 	OR      R9, R12, R11                          // Rlo = c4<<48|c5<<32|c6<<16|c7
-	MTVSRDD R10, R11, V0
+	MTVSRDD R3, R11, V0           // V0 = [c0..c7] as u16×8 (R3=Rhi)
 	VMULEUH V0, V17, V3
 	VMULOUH V0, V17, V4
 	VSRW    V3, V8, V5; VAND V5, V10, V5
