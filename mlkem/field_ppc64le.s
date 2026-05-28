@@ -154,10 +154,12 @@ GLOBL nttL7ReinterleaveMask1<>(SB), RODATA|NOPTR, $16
 // [+0x10..+0x1F]: {0x33 x16}  mask33
 // [+0x20..+0x2F]: {0x0F x16}  mask0F
 // [+0x30..+0x3F]: {0x03 x16}  mask03
-// [+0x40..+0x4F]: byte_natural_order_mask — fix LXVD2X per-8-byte reversal
-// [+0x50..+0x5F]: interleave_lo_mask — interleave even/odd lower bytes as int16
-// [+0x60..+0x6F]: interleave_hi_mask — interleave even/odd upper bytes as int16
-// Note: V23 (lxvNaturalOrderMask) and V24 ({3329 x8}) are loaded from their existing symbols.
+// [+0x40..+0x4F]: byte_natural_order_mask — fix LXVD2X per-8-byte reversal on load
+// [+0x50..+0x5F]: byte_interleave_lo — interleave even[0..7] and odd[0..7] bytes to coeff[0..15]
+// [+0x60..+0x6F]: byte_interleave_hi — interleave even[8..15] and odd[8..15] to coeff[16..31]
+// [+0x70..+0x7F]: sign_ext_lo — pack sign+data bytes as int16 for coeff[0..7] (STXVD2X format)
+// [+0x80..+0x8F]: sign_ext_hi — pack sign+data bytes as int16 for coeff[8..15] (STXVD2X format)
+// Note: V24 ({3329 x8}) is loaded from kBarrettConsts<>+0x30.
 DATA cbd2Consts<>+0x00(SB)/8, $0x5555555555555555
 DATA cbd2Consts<>+0x08(SB)/8, $0x5555555555555555
 DATA cbd2Consts<>+0x10(SB)/8, $0x3333333333333333
@@ -172,7 +174,11 @@ DATA cbd2Consts<>+0x50(SB)/8, $0x0010011102120313
 DATA cbd2Consts<>+0x58(SB)/8, $0x0414051506160717
 DATA cbd2Consts<>+0x60(SB)/8, $0x08180919_0A1A0B1B
 DATA cbd2Consts<>+0x68(SB)/8, $0x0C1C0D1D0E1E0F1F
-GLOBL cbd2Consts<>(SB), RODATA|NOPTR, $112
+DATA cbd2Consts<>+0x70(SB)/8, $0x0313021201110010
+DATA cbd2Consts<>+0x78(SB)/8, $0x0717061605150414
+DATA cbd2Consts<>+0x80(SB)/8, $0x0B1B0A1A09190818
+DATA cbd2Consts<>+0x88(SB)/8, $0x0F1F0E1E0D1D0C1C
+GLOBL cbd2Consts<>(SB), RODATA|NOPTR, $144
 
 // BARRETT_REDUCE_U32(Vin, V14, V15, V16, Vtmp1, Vtmp2, Vtmp3) - Barrett reduce Vin to [0,2q)
 // V14=kBMul={5039x4}, V15=kShift={24,24}uint64, V16=kPrime32={3329x4}
@@ -2137,27 +2143,48 @@ decode_u11_done:
 	RET
 
 
+// samplePolyCBD2PPC64LE implements the Centered Binomial Distribution sampling with η=2
+// using VMX (AltiVec) SIMD instructions. Each call processes 128 input bytes and writes
+// 256 int16 coefficients to f, with each coefficient in [0, q).
+//
+// Algorithm (per byte b):
+//   d  = (b & 0x55) + ((b >> 1) & 0x55)    // count 1-bits in pairs
+//   d2 = (d & 0x33) + 0x33 - ((d >> 2) & 0x33) // in [1..5]
+//   even_coeff = (d2 & 0x0F) - 3            // in [-2..2]
+//   odd_coeff  = (d2 >> 4)  - 3             // in [-2..2]
+//
+// One VMX iteration processes 16 bytes → 32 coefficients. The loop runs 8 times.
+// Negative coefficients have q=3329 added (using the VSRAH sign-mask trick).
+//
+// Register map (VMX):
+//   V16={0x55×16}  V17={0x33×16}  V18={0x0F×16}  V19={0x03×16}
+//   V20=byte_natural_order_mask  V21=byte_interleave_lo  V22=byte_interleave_hi
+//   V23=sign_ext_lo  V24=sign_ext_hi  V25={3329×8 uint16}
+//   V26={1}  V27={2}  V28={4}  V29={7}  V30={15 uint16}
+//   R4=f  R5=buf  R6=input_offset  R8=const_base
+//
 // func samplePolyCBD2PPC64LE(f *ringElement, buf *[128]byte)
 TEXT ·samplePolyCBD2PPC64LE(SB), NOSPLIT, $0-16
 	MOVD f+0(FP), R4
 	MOVD buf+8(FP), R5
 
 	MOVD $cbd2Consts<>(SB), R8
-	LXVD2X (R0)(R8), VS48                                // V16 = {0x55 x16}
-	ADD  $16,  R8, R9;  LXVD2X (R0)(R9), VS49           // V17 = {0x33 x16}
-	ADD  $32,  R8, R9;  LXVD2X (R0)(R9), VS50           // V18 = {0x0F x16}
-	ADD  $48,  R8, R9;  LXVD2X (R0)(R9), VS51           // V19 = {0x03 x16}
-	ADD  $64,  R8, R9;  LXVD2X (R0)(R9), VS52           // V20 = byte_natural_order_mask
-	ADD  $80,  R8, R9;  LXVD2X (R0)(R9), VS53           // V21 = interleave_lo_mask
-	ADD  $96,  R8, R9;  LXVD2X (R0)(R9), VS54           // V22 = interleave_hi_mask
-	MOVD $lxvNaturalOrderMask<>(SB), R9;  LXVD2X (R0)(R9), VS55  // V23 = lxvNaturalOrderMask
-	MOVD $kBarrettConsts<>(SB), R9;  ADD $0x30, R9;  LXVD2X (R0)(R9), VS56  // V24 = {3329 x8}
+	LXVD2X (R0)(R8), VS48                                 // V16 = {0x55 x16}
+	ADD  $16,  R8, R9;  LXVD2X (R0)(R9), VS49            // V17 = {0x33 x16}
+	ADD  $32,  R8, R9;  LXVD2X (R0)(R9), VS50            // V18 = {0x0F x16}
+	ADD  $48,  R8, R9;  LXVD2X (R0)(R9), VS51            // V19 = {0x03 x16}
+	ADD  $64,  R8, R9;  LXVD2X (R0)(R9), VS52            // V20 = byte_natural_order_mask
+	ADD  $80,  R8, R9;  LXVD2X (R0)(R9), VS53            // V21 = byte_interleave_lo
+	ADD  $96,  R8, R9;  LXVD2X (R0)(R9), VS54            // V22 = byte_interleave_hi
+	ADD  $112, R8, R9;  LXVD2X (R0)(R9), VS55            // V23 = sign_ext_lo
+	ADD  $128, R8, R9;  LXVD2X (R0)(R9), VS56            // V24 = sign_ext_hi
+	MOVD $kBarrettConsts<>(SB), R9;  ADD $0x30, R9;  LXVD2X (R0)(R9), VS57  // V25 = {3329 x8}
 
-	VSPLTISB $1,  V25
-	VSPLTISB $2,  V26
-	VSPLTISB $4,  V27
-	VSPLTISB $7,  V28
-	VSPLTISH $15, V29
+	VSPLTISB $1,  V26
+	VSPLTISB $2,  V27
+	VSPLTISB $4,  V28
+	VSPLTISB $7,  V29
+	VSPLTISH $15, V30
 
 	MOVD $8, R6;  MOVD R6, CTR
 	MOVD $0, R6
@@ -2167,54 +2194,72 @@ cbd2_loop:
 	VPERM  V0, V0, V20, V0
 
 	// d = (b & 0x55) + ((b>>1) & 0x55)
-	VSRB    V0, V25, V1
+	VSRB    V0, V26, V1
 	VAND    V0, V16, V0
 	VAND    V1, V16, V1
 	VADDUBM V0, V1, V0
 
 	// d2 = (d & 0x33) + 0x33 - ((d>>2) & 0x33)
-	VSRB    V0, V26, V1
+	VSRB    V0, V27, V1
 	VAND    V0, V17, V0
 	VAND    V1, V17, V1
 	VADDUBM V0, V17, V0
 	VSUBUBM V0, V1, V0
 
-	// separate nibbles; subtract 3
-	VSRB    V0, V27, V1
+	// separate nibbles; subtract 3 to get signed bytes in [-2..2]
+	VSRB    V0, V28, V1
 	VAND    V0, V18, V3
 	VAND    V1, V18, V4
 	VSUBUBM V3, V19, V3
 	VSUBUBM V4, V19, V4
 
-	// interleave even/odd byte coefficients
+	// interleave even/odd bytes: V5[i]=coeff[i] for i=0..15, V6[i]=coeff[16+i]
 	VPERM V3, V4, V21, V5
 	VPERM V3, V4, V22, V6
 
-	// sign-extend bytes to int16
-	VSRAB V5, V28, V7
-	VPERM V7, V5, V21, V9
-	VPERM V7, V5, V22, V10
-	VSRAB V6, V28, V8
-	VPERM V8, V6, V21, V11
-	VPERM V8, V6, V22, V12
+	// sign-extend bytes to int16 in STXVD2X-ready layout:
+	// V23 mask: {3,19,2,18,...,0,16,7,23,...,4,20} → coeff[0..7] with reversed pair order
+	// V24 mask: {11,27,...,8,24,15,31,...,12,28} → coeff[8..15]
+	VSRAB V5, V29, V7
+	VPERM V7, V5, V23, V9
+	VPERM V7, V5, V24, V10
+	VSRAB V6, V29, V8
+	VPERM V8, V6, V23, V11
+	VPERM V8, V6, V24, V12
 
-	// add q to negative coefficients
-	VSRAH V9,  V29, V13;  VAND V13, V24, V13;  VADDUHM V9,  V13, V9
-	VSRAH V10, V29, V13;  VAND V13, V24, V13;  VADDUHM V10, V13, V10
-	VSRAH V11, V29, V13;  VAND V13, V24, V13;  VADDUHM V11, V13, V11
-	VSRAH V12, V29, V13;  VAND V13, V24, V13;  VADDUHM V12, V13, V12
+	// add q to negative coefficients (VSRAH sign-mask trick)
+	VSRAH V9,  V30, V13;  VAND V13, V25, V13;  VADDUHM V9,  V13, V9
+	VSRAH V10, V30, V13;  VAND V13, V25, V13;  VADDUHM V10, V13, V10
+	VSRAH V11, V30, V13;  VAND V13, V25, V13;  VADDUHM V11, V13, V11
+	VSRAH V12, V30, V13;  VAND V13, V25, V13;  VADDUHM V12, V13, V12
 
-	// store 64 bytes
-	VPERM V9,  V9,  V23, V9;   STXVD2X VS41, (R0)(R4)
-	ADD $16, R4, R7;  VPERM V10, V10, V23, V10;  STXVD2X VS42, (R0)(R7)
-	ADD $32, R4, R7;  VPERM V11, V11, V23, V11;  STXVD2X VS43, (R0)(R7)
-	ADD $48, R4, R7;  VPERM V12, V12, V23, V12;  STXVD2X VS44, (R0)(R7)
+	// store 64 bytes; V9..V12 are already in STXVD2X-ready format
+	STXVD2X VS41, (R0)(R4)
+	ADD $16, R4, R7;  STXVD2X VS42, (R0)(R7)
+	ADD $32, R4, R7;  STXVD2X VS43, (R0)(R7)
+	ADD $48, R4, R7;  STXVD2X VS44, (R0)(R7)
 
 	ADD $16, R6
 	ADD $64, R4
 	BDNZ cbd2_loop
 	RET
 
+// samplePolyCBD3PPC64LE implements the Centered Binomial Distribution sampling with η=3
+// using scalar integer instructions. Each call processes 192 input bytes and writes
+// 256 int16 coefficients to f, with each coefficient in [0, q).
+//
+// Algorithm: for each 3-byte (24-bit) group, extract four 6-bit pairs (a[2:0], b[2:0]).
+//   coeff[j] = popcount(a[j]) - popcount(b[j])  for j in 0..3
+// Negative coefficients have q=3329 added.
+//
+// A VMX path is not implemented for η=3 because the 3-byte→4-coefficient grouping
+// (non-power-of-2 bit packing) makes SIMD bit extraction complex enough that the
+// scalar approach is competitive on modern out-of-order cores.
+//
+// Register map:
+//   R4=f  R5=buf  R6=byte_offset  R7=packed_24bit
+//   R8..R13=scratch  R14=q=3329  CTR=64
+//
 // func samplePolyCBD3PPC64LE(f *ringElement, buf *[192]byte)
 TEXT ·samplePolyCBD3PPC64LE(SB), NOSPLIT, $0-16
 	MOVD f+0(FP), R4
@@ -2280,6 +2325,23 @@ cbd3_s3:
 	BDNZ cbd3_loop
 	RET
 
+// rejUniformPPC64LE parses 3-byte groups from buf, extracting two 12-bit candidates per
+// group, and accepts values < q=3329 into a[j..]. Returns the number of newly accepted
+// values (i.e., final_j - initial_j).
+//
+// Algorithm: for each 3-byte group at offset i:
+//   d1 = LEUint16(buf[i:])   & 0xFFF   (lower 12 bits)
+//   d2 = LEUint16(buf[i+1:]) >> 4      (upper 12 bits)
+//   if d1 < q: a[j++] = d1
+//   if d2 < q: a[j++] = d2  (only if j < 256)
+//
+// Stops when the input buffer is exhausted (byte offset ≥ len(buf)) or j reaches 256.
+//
+// Register map:
+//   R4=buf_ptr  R5=buf_len  R6=a_ptr  R7=j (current index)
+//   R8=byte_offset  R9=d1  R10=d2  R11,R13=scratch
+//   R3=q=3329  R12=n=256  R15=initial_j
+//
 // func rejUniformPPC64LE(buf []byte, a *nttElement, j int) int
 TEXT ·rejUniformPPC64LE(SB), NOSPLIT, $0-48
 	MOVD buf_base+0(FP), R4
