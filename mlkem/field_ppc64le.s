@@ -149,6 +149,31 @@ DATA nttL7ReinterleaveMask1<>+0x00(SB)/8, $0x0C0D0E0F_1C1D1E1F
 DATA nttL7ReinterleaveMask1<>+0x08(SB)/8, $0x08090A0B_18191A1B
 GLOBL nttL7ReinterleaveMask1<>(SB), RODATA|NOPTR, $16
 
+// cbd2Consts: constants for samplePolyCBD2PPC64LE VMX implementation (LXVD2X-loaded).
+// [+0x00..+0x0F]: {0x55 x16}  mask55
+// [+0x10..+0x1F]: {0x33 x16}  mask33
+// [+0x20..+0x2F]: {0x0F x16}  mask0F
+// [+0x30..+0x3F]: {0x03 x16}  mask03
+// [+0x40..+0x4F]: byte_natural_order_mask — fix LXVD2X per-8-byte reversal
+// [+0x50..+0x5F]: interleave_lo_mask — interleave even/odd lower bytes as int16
+// [+0x60..+0x6F]: interleave_hi_mask — interleave even/odd upper bytes as int16
+// Note: V23 (lxvNaturalOrderMask) and V24 ({3329 x8}) are loaded from their existing symbols.
+DATA cbd2Consts<>+0x00(SB)/8, $0x5555555555555555
+DATA cbd2Consts<>+0x08(SB)/8, $0x5555555555555555
+DATA cbd2Consts<>+0x10(SB)/8, $0x3333333333333333
+DATA cbd2Consts<>+0x18(SB)/8, $0x3333333333333333
+DATA cbd2Consts<>+0x20(SB)/8, $0x0F0F0F0F0F0F0F0F
+DATA cbd2Consts<>+0x28(SB)/8, $0x0F0F0F0F0F0F0F0F
+DATA cbd2Consts<>+0x30(SB)/8, $0x0303030303030303
+DATA cbd2Consts<>+0x38(SB)/8, $0x0303030303030303
+DATA cbd2Consts<>+0x40(SB)/8, $0x0706050403020100
+DATA cbd2Consts<>+0x48(SB)/8, $0x0F0E0D0C0B0A0908
+DATA cbd2Consts<>+0x50(SB)/8, $0x0010011102120313
+DATA cbd2Consts<>+0x58(SB)/8, $0x0414051506160717
+DATA cbd2Consts<>+0x60(SB)/8, $0x08180919_0A1A0B1B
+DATA cbd2Consts<>+0x68(SB)/8, $0x0C1C0D1D0E1E0F1F
+GLOBL cbd2Consts<>(SB), RODATA|NOPTR, $112
+
 // BARRETT_REDUCE_U32(Vin, V14, V15, V16, Vtmp1, Vtmp2, Vtmp3) - Barrett reduce Vin to [0,2q)
 // V14=kBMul={5039x4}, V15=kShift={24,24}uint64, V16=kPrime32={3329x4}
 // Vtmp1, Vtmp2, Vtmp3 are scratch registers
@@ -2112,21 +2137,196 @@ decode_u11_done:
 	RET
 
 
+// func samplePolyCBD2PPC64LE(f *ringElement, buf *[128]byte)
 TEXT ·samplePolyCBD2PPC64LE(SB), NOSPLIT, $0-16
 	MOVD f+0(FP), R4
 	MOVD buf+8(FP), R5
+
+	MOVD $cbd2Consts<>(SB), R8
+	LXVD2X (R0)(R8), VS48                                // V16 = {0x55 x16}
+	ADD  $16,  R8, R9;  LXVD2X (R0)(R9), VS49           // V17 = {0x33 x16}
+	ADD  $32,  R8, R9;  LXVD2X (R0)(R9), VS50           // V18 = {0x0F x16}
+	ADD  $48,  R8, R9;  LXVD2X (R0)(R9), VS51           // V19 = {0x03 x16}
+	ADD  $64,  R8, R9;  LXVD2X (R0)(R9), VS52           // V20 = byte_natural_order_mask
+	ADD  $80,  R8, R9;  LXVD2X (R0)(R9), VS53           // V21 = interleave_lo_mask
+	ADD  $96,  R8, R9;  LXVD2X (R0)(R9), VS54           // V22 = interleave_hi_mask
+	MOVD $lxvNaturalOrderMask<>(SB), R9;  LXVD2X (R0)(R9), VS55  // V23 = lxvNaturalOrderMask
+	MOVD $kBarrettConsts<>(SB), R9;  ADD $0x30, R9;  LXVD2X (R0)(R9), VS56  // V24 = {3329 x8}
+
+	VSPLTISB $1,  V25
+	VSPLTISB $2,  V26
+	VSPLTISB $4,  V27
+	VSPLTISB $7,  V28
+	VSPLTISH $15, V29
+
+	MOVD $8, R6;  MOVD R6, CTR
+	MOVD $0, R6
+
+cbd2_loop:
+	LXVD2X (R6)(R5), VS32
+	VPERM  V0, V0, V20, V0
+
+	// d = (b & 0x55) + ((b>>1) & 0x55)
+	VSRB    V0, V25, V1
+	VAND    V0, V16, V0
+	VAND    V1, V16, V1
+	VADDUBM V0, V1, V0
+
+	// d2 = (d & 0x33) + 0x33 - ((d>>2) & 0x33)
+	VSRB    V0, V26, V1
+	VAND    V0, V17, V0
+	VAND    V1, V17, V1
+	VADDUBM V0, V17, V0
+	VSUBUBM V0, V1, V0
+
+	// separate nibbles; subtract 3
+	VSRB    V0, V27, V1
+	VAND    V0, V18, V3
+	VAND    V1, V18, V4
+	VSUBUBM V3, V19, V3
+	VSUBUBM V4, V19, V4
+
+	// interleave even/odd byte coefficients
+	VPERM V3, V4, V21, V5
+	VPERM V3, V4, V22, V6
+
+	// sign-extend bytes to int16
+	VSRAB V5, V28, V7
+	VPERM V7, V5, V21, V9
+	VPERM V7, V5, V22, V10
+	VSRAB V6, V28, V8
+	VPERM V8, V6, V21, V11
+	VPERM V8, V6, V22, V12
+
+	// add q to negative coefficients
+	VSRAH V9,  V29, V13;  VAND V13, V24, V13;  VADDUHM V9,  V13, V9
+	VSRAH V10, V29, V13;  VAND V13, V24, V13;  VADDUHM V10, V13, V10
+	VSRAH V11, V29, V13;  VAND V13, V24, V13;  VADDUHM V11, V13, V11
+	VSRAH V12, V29, V13;  VAND V13, V24, V13;  VADDUHM V12, V13, V12
+
+	// store 64 bytes
+	VPERM V9,  V9,  V23, V9;   STXVD2X VS41, (R0)(R4)
+	ADD $16, R4, R7;  VPERM V10, V10, V23, V10;  STXVD2X VS42, (R0)(R7)
+	ADD $32, R4, R7;  VPERM V11, V11, V23, V11;  STXVD2X VS43, (R0)(R7)
+	ADD $48, R4, R7;  VPERM V12, V12, V23, V12;  STXVD2X VS44, (R0)(R7)
+
+	ADD $16, R6
+	ADD $64, R4
+	BDNZ cbd2_loop
 	RET
 
+// func samplePolyCBD3PPC64LE(f *ringElement, buf *[192]byte)
 TEXT ·samplePolyCBD3PPC64LE(SB), NOSPLIT, $0-16
 	MOVD f+0(FP), R4
 	MOVD buf+8(FP), R5
+
+	MOVD $3329, R14
+	MOVD $64, R6;  MOVD R6, CTR
+	MOVD $0,  R6
+
+cbd3_loop:
+	// Load 3 bytes
+	ADD   R6, R5, R13
+	MOVBZ 0(R13), R7
+	MOVBZ 1(R13), R8;  SLD $8,  R8, R8;  OR R7, R8, R7
+	MOVBZ 2(R13), R9;  SLD $16, R9, R9;  OR R7, R9, R7
+
+	// j=0
+	ANDCC  $7, R7, R8
+	RLDICL $61, R7, $61, R9
+	ANDCC $1, R8, R10;  RLDICL $63, R8, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R10
+	RLDICL $62, R8, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R8
+	ANDCC $1, R9, R10;  RLDICL $63, R9, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R10
+	RLDICL $62, R9, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R9
+	SUB R9, R8, R8;  CMP R8, $0;  BGE cbd3_s0;  ADD R14, R8, R8
+cbd3_s0:
+	MOVH R8, 0(R4)
+
+	// j=1
+	RLDICL $58, R7, $61, R8
+	RLDICL $55, R7, $61, R9
+	ANDCC $1, R8, R10;  RLDICL $63, R8, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R10
+	RLDICL $62, R8, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R8
+	ANDCC $1, R9, R10;  RLDICL $63, R9, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R10
+	RLDICL $62, R9, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R9
+	SUB R9, R8, R8;  CMP R8, $0;  BGE cbd3_s1;  ADD R14, R8, R8
+cbd3_s1:
+	MOVH R8, 2(R4)
+
+	// j=2
+	RLDICL $52, R7, $61, R8
+	RLDICL $49, R7, $61, R9
+	ANDCC $1, R8, R10;  RLDICL $63, R8, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R10
+	RLDICL $62, R8, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R8
+	ANDCC $1, R9, R10;  RLDICL $63, R9, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R10
+	RLDICL $62, R9, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R9
+	SUB R9, R8, R8;  CMP R8, $0;  BGE cbd3_s2;  ADD R14, R8, R8
+cbd3_s2:
+	MOVH R8, 4(R4)
+
+	// j=3
+	RLDICL $46, R7, $61, R8
+	RLDICL $43, R7, $61, R9
+	ANDCC $1, R8, R10;  RLDICL $63, R8, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R10
+	RLDICL $62, R8, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R8
+	ANDCC $1, R9, R10;  RLDICL $63, R9, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R10
+	RLDICL $62, R9, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R9
+	SUB R9, R8, R8;  CMP R8, $0;  BGE cbd3_s3;  ADD R14, R8, R8
+cbd3_s3:
+	MOVH R8, 6(R4)
+
+	ADD $3, R6
+	ADD $8, R4
+	BDNZ cbd3_loop
 	RET
 
+// func rejUniformPPC64LE(buf []byte, a *nttElement, j int) int
 TEXT ·rejUniformPPC64LE(SB), NOSPLIT, $0-48
 	MOVD buf_base+0(FP), R4
 	MOVD buf_len+8(FP), R5
 	MOVD a+24(FP), R6
 	MOVD j+32(FP), R7
-	MOVD $0, R3
+
+	MOVD $3329, R3
+	MOVD $256,  R12
+	MOVD R7,    R15
+	MOVD $0,    R8
+
+rejuniform_loop:
+	CMP R8, R5;   BGE rejuniform_done
+	CMP R7, R12;  BGE rejuniform_done
+
+	// Load 3 bytes
+	ADD   R8, R4, R13
+	MOVBZ 0(R13), R9
+	MOVBZ 1(R13), R10
+	MOVBZ 2(R13), R11
+
+	// d1 = (b0 | (b1 << 8)) & 0xFFF
+	SLD $8, R10, R13;  OR R9, R13, R13;  ANDCC $0xFFF, R13, R9
+
+	// d2 = (b1 | (b2 << 8)) >> 4
+	SLD $8, R11, R13;  OR R10, R13, R13;  SRD $4, R13, R10
+
+	// accept d1 if < q
+	CMP R9, R3;  BGE rejuniform_skip_d1
+	SLD $1, R7, R13
+	MOVH R9, (R6)(R13)
+	ADD $1, R7
+	CMP R7, R12;  BGE rejuniform_done
+
+rejuniform_skip_d1:
+	// accept d2 if < q
+	CMP R10, R3;  BGE rejuniform_next
+	SLD $1, R7, R13
+	MOVH R10, (R6)(R13)
+	ADD $1, R7
+
+rejuniform_next:
+	ADD $3, R8
+	JMP rejuniform_loop
+
+rejuniform_done:
+	SUB  R15, R7, R3
 	MOVD R3, ret+40(FP)
 	RET
