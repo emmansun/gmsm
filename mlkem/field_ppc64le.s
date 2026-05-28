@@ -1872,11 +1872,8 @@ compress10_vmx_loop:
 	RLDICL  $0,  R6, $54, R11    // c3 → R11[9:0]
 	SLD     $10, R9, R9; SLD $20, R10, R10; SLD $30, R11, R11
 	OR      R8, R9, R8; OR R10, R11, R10; OR R8, R10, R8    // R8 = c0|c1<<10|c2<<20|c3<<30
-	MOVB    R8, 0(R4)
-	SRD     $8, R8, R9;  MOVB R9, 1(R4)
-	SRD     $16, R8, R9; MOVB R9, 2(R4)
-	SRD     $24, R8, R9; MOVB R9, 3(R4)
-	SRD     $32, R8, R9; MOVB R9, 4(R4)
+	MOVW    R8, 0(R4)             // bytes[0..3]
+	SRD     $32, R8, R9; MOVB R9, 4(R4)  // byte[4]
 	// Second group: c4,c5,c6,c7 (from R7) → 5 bytes
 	RLDICL  $16, R7, $54, R8     // c4 → R8[9:0]
 	RLDICL  $32, R7, $54, R9     // c5 → R9[9:0]
@@ -1884,11 +1881,8 @@ compress10_vmx_loop:
 	RLDICL  $0,  R7, $54, R11    // c7 → R11[9:0]
 	SLD     $10, R9, R9; SLD $20, R10, R10; SLD $30, R11, R11
 	OR      R8, R9, R8; OR R10, R11, R10; OR R8, R10, R8
-	MOVB    R8, 5(R4)
-	SRD     $8, R8, R9;  MOVB R9, 6(R4)
-	SRD     $16, R8, R9; MOVB R9, 7(R4)
-	SRD     $24, R8, R9; MOVB R9, 8(R4)
-	SRD     $32, R8, R9; MOVB R9, 9(R4)
+	MOVW    R8, 5(R4)             // bytes[5..8]
+	SRD     $32, R8, R9; MOVB R9, 9(R4)  // byte[9]
 	ADD     $16, R5
 	ADD     $10, R4
 	BDNZ    compress10_vmx_loop
@@ -1955,19 +1949,13 @@ compress11_vmx_loop:
 	SLD     $11, R9, R9;  SLD $22, R10, R10; SLD $33, R11, R11
 	OR      R12, R9, R12; OR  R10, R11, R10; OR  R12, R10, R12  // R12 = hi 44-bit
 	// Store 11 bytes: lo → bytes[0..4], crossover byte, hi >> 4 → bytes[6..10]
-	MOVB    R8, 0(R4)
-	SRD     $8, R8, R9;  MOVB R9, 1(R4)
-	SRD     $16, R8, R9; MOVB R9, 2(R4)
-	SRD     $24, R8, R9; MOVB R9, 3(R4)
-	SRD     $32, R8, R9; MOVB R9, 4(R4)
+	MOVW    R8, 0(R4)             // bytes[0..3]
+	SRD     $32, R8, R9; MOVB R9, 4(R4)  // byte[4]
 	SRD     $40, R8, R9           // lo>>40 (4 bits)
 	SLD     $4, R12, R10; OR R9, R10, R10  // | hi<<4
 	MOVB    R10, 5(R4)
-	SRD     $4, R12, R9;  MOVB R9, 6(R4)
-	SRD     $12, R12, R9; MOVB R9, 7(R4)
-	SRD     $20, R12, R9; MOVB R9, 8(R4)
-	SRD     $28, R12, R9; MOVB R9, 9(R4)
-	SRD     $36, R12, R9; MOVB R9, 10(R4)
+	SRD     $4, R12, R9; MOVW R9, 6(R4)   // bytes[6..9]
+	SRD     $36, R12, R9; MOVB R9, 10(R4) // byte[10]
 	ADD     $16, R5
 	ADD     $11, R4
 	BDNZ    compress11_vmx_loop
@@ -2004,12 +1992,9 @@ decode_u10_elem:
 
 decode_u10_group:
 	// Load 10 bytes → 8 × 10-bit values in two 5-byte groups
-	// Group 0: bytes[0..4] → c0,c1,c2,c3 (40-bit → 4 × 10-bit)
-	MOVBZ   0(R5), R6
-	MOVBZ   1(R5), R7; SLD $8, R7; OR R6, R7
-	MOVBZ   2(R5), R6; SLD $16, R6; OR R7, R6
-	MOVBZ   3(R5), R7; SLD $24, R7; OR R6, R7
-	MOVBZ   4(R5), R6; SLD $32, R6; OR R7, R6  // R6 = 40-bit lo
+	// Group 0: bytes[0..4] → 40-bit R6
+	MOVWZ   0(R5), R6             // bytes[0..3] little-endian
+	MOVBZ   4(R5), R7; SLD $32, R7; OR R6, R7, R6  // byte[4] at bits[39:32]
 	// Extract c0..c3 (10-bit each) via parallel RLDICL
 	RLDICL  $0,  R6, $54, R7     // c0 → R7[9:0]
 	RLDICL  $54, R6, $54, R11    // c1 → R11[9:0]
@@ -2018,12 +2003,9 @@ decode_u10_group:
 	// Pack into Rhi = c0<<48|c1<<32|c2<<16|c3
 	SLD     $48, R7, R7; SLD $32, R11, R11; SLD $16, R12, R12
 	OR      R7, R11, R7; OR R12, R6, R12; OR R7, R12, R3   // Rhi in R3
-	// Group 1: bytes[5..9] → c4,c5,c6,c7
-	MOVBZ   5(R5), R6
-	MOVBZ   6(R5), R7; SLD $8, R7; OR R6, R7
-	MOVBZ   7(R5), R6; SLD $16, R6; OR R7, R6
-	MOVBZ   8(R5), R7; SLD $24, R7; OR R6, R7
-	MOVBZ   9(R5), R6; SLD $32, R6; OR R7, R6  // R6 = 40-bit hi
+	// Group 1: bytes[5..9] → 40-bit R6
+	MOVWZ   5(R5), R6             // bytes[5..8] little-endian
+	MOVBZ   9(R5), R7; SLD $32, R7; OR R6, R7, R6  // byte[9] at bits[39:32]
 	RLDICL  $0,  R6, $54, R7
 	RLDICL  $54, R6, $54, R11
 	RLDICL  $44, R6, $54, R12
@@ -2084,17 +2066,9 @@ decode_u11_elem:
 decode_u11_group:
 	// Load 11 bytes → 8 × 11-bit values
 	// x_lo = bytes[0..7] (64-bit), x_hi = bytes[8..10] (24-bit)
-	MOVBZ   0(R5), R6
-	MOVBZ   1(R5), R7; SLD $8, R7; OR R6, R7
-	MOVBZ   2(R5), R6; SLD $16, R6; OR R7, R6
-	MOVBZ   3(R5), R7; SLD $24, R7; OR R6, R7
-	MOVBZ   4(R5), R6; SLD $32, R6; OR R7, R6
-	MOVBZ   5(R5), R7; SLD $40, R7; OR R6, R7
-	MOVBZ   6(R5), R6; SLD $48, R6; OR R7, R6
-	MOVBZ   7(R5), R7; SLD $56, R7; OR R6, R7  // R7 = x_lo
-	MOVBZ   8(R5), R6
-	MOVBZ   9(R5), R11; SLD $8, R11; OR R6, R11
-	MOVBZ   10(R5), R6; SLD $16, R6; OR R11, R6 // R6 = x_hi (24-bit)
+	MOVD    0(R5), R7            // bytes[0..7] little-endian
+	MOVHZ   8(R5), R6            // bytes[8..9] little-endian
+	MOVBZ   10(R5), R11; SLD $16, R11; OR R6, R11, R6  // byte[10] at bits[23:16]
 	// Extract 8 × 11-bit: c0..c4 from R7, c5 straddles, c6..c7 from R6
 	// Parallel extraction of c0..c3 via RLDICL
 	RLDICL  $0,  R7, $53, R11    // c0 → R11[10:0]
