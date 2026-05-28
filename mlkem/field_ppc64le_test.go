@@ -510,3 +510,151 @@ func TestPPC64LEDecodeAndDecompressU11MatchesGeneric(t *testing.T) {
 		}
 	}
 }
+
+func TestPPC64LESamplePolyCBD2MatchesGeneric(t *testing.T) {
+	for iter := 0; iter < 100; iter++ {
+		var B [128]byte
+		for i := range B {
+			B[i] = byte((iter*37 + i*19) ^ 0xAA)
+		}
+		var got ringElement
+		samplePolyCBD2PPC64LE(&got, &B)
+		want := samplePolyCBDGeneric(B[:], 2)
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("iter=%d coeff=%d: samplePolyCBD2 mismatch: got=%d want=%d", iter, i, got[i], want[i])
+			}
+		}
+	}
+}
+
+func TestPPC64LESamplePolyCBD3MatchesGeneric(t *testing.T) {
+	for iter := 0; iter < 100; iter++ {
+		var B [192]byte
+		for i := range B {
+			B[i] = byte((iter*41 + i*23) ^ 0x55)
+		}
+		var got ringElement
+		samplePolyCBD3PPC64LE(&got, &B)
+		want := samplePolyCBDGeneric(B[:], 3)
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("iter=%d coeff=%d: samplePolyCBD3 mismatch: got=%d want=%d", iter, i, got[i], want[i])
+			}
+		}
+	}
+}
+
+func TestPPC64LERejUniformMatchesGeneric(t *testing.T) {
+	for _, start := range []int{0, 1, n - 2, n - 1, n} {
+		for iter := 0; iter < 200; iter++ {
+			var buf [24]byte
+			for i := range buf {
+				buf[i] = byte(iter*37 + i*19 + start)
+			}
+
+			var got nttElement
+			var want nttElement
+			for i := 0; i < start && i < n; i++ {
+				seed := fieldElement((i*17 + iter + start) % int(q))
+				got[i] = seed
+				want[i] = seed
+			}
+
+			gotCount := rejUniformPPC64LE(buf[:], &got, start)
+			wantCount := rejUniformGeneric(buf[:], &want, start)
+
+			if gotCount != wantCount {
+				t.Fatalf("start=%d iter=%d: count mismatch: got=%d want=%d", start, iter, gotCount, wantCount)
+			}
+			if got != want {
+				t.Fatalf("start=%d iter=%d: output mismatch", start, iter)
+			}
+		}
+	}
+}
+
+func BenchmarkPPC64LESamplePolyCBD2(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		B := make([]byte, 128)
+		for i := range B {
+			B[i] = byte(i)
+		}
+		b.ReportAllocs()
+		b.SetBytes(128)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			samplePolyCBDGeneric(B, 2)
+		}
+	})
+	b.Run("PPC64LE", func(b *testing.B) {
+		var B [128]byte
+		for i := range B {
+			B[i] = byte(i)
+		}
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(128)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			samplePolyCBD2PPC64LE(&f, &B)
+		}
+	})
+}
+
+func BenchmarkPPC64LESamplePolyCBD3(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		B := make([]byte, 192)
+		for i := range B {
+			B[i] = byte(i)
+		}
+		b.ReportAllocs()
+		b.SetBytes(192)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			samplePolyCBDGeneric(B, 3)
+		}
+	})
+	b.Run("PPC64LE", func(b *testing.B) {
+		var B [192]byte
+		for i := range B {
+			B[i] = byte(i)
+		}
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(192)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			samplePolyCBD3PPC64LE(&f, &B)
+		}
+	})
+}
+
+func BenchmarkPPC64LERejUniform(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		buf := make([]byte, 504)
+		for i := range buf {
+			buf[i] = byte(i * 7)
+		}
+		var a nttElement
+		b.ReportAllocs()
+		b.SetBytes(int64(len(buf)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			rejUniformGeneric(buf, &a, 0)
+		}
+	})
+	b.Run("PPC64LE", func(b *testing.B) {
+		buf := make([]byte, 504)
+		for i := range buf {
+			buf[i] = byte(i * 7)
+		}
+		var a nttElement
+		b.ReportAllocs()
+		b.SetBytes(int64(len(buf)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			rejUniformPPC64LE(buf, &a, 0)
+		}
+	})
+}

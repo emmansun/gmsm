@@ -284,7 +284,16 @@ func samplePolyCBD(s []byte, b, η byte) ringElement {
 	prf.Write([]byte{b})
 	var B [maxBytesOf64Mulη]byte
 	prf.Read(B[:64*η])
-	return samplePolyCBDGeneric(B[:], η)
+	var f ringElement
+	switch η {
+	case 2:
+		samplePolyCBD2PPC64LE(&f, (*[128]byte)(B[:128]))
+	case 3:
+		samplePolyCBD3PPC64LE(&f, (*[192]byte)(B[:192]))
+	default:
+		return samplePolyCBDGeneric(B[:], η)
+	}
+	return f
 }
 
 func polyAddAssign(dst *ringElement, src *ringElement) {
@@ -362,7 +371,7 @@ func sampleNTT(rho []byte, ii, jj byte) nttElement {
 	for j < n {
 		B.Read(batch[:])
 		for off := 0; off < len(batch) && j < n; off += 24 {
-			j += rejUniformGeneric(batch[off:off+24], &a, j)
+			j += rejUniformPPC64LE(batch[off:off+24], &a, j)
 		}
 	}
 	return a
