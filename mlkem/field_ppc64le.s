@@ -1753,27 +1753,27 @@ decompress5_vmx_loop:
 	// Load 5 bytes: 4 bytes as u32 + 1 byte
 	MOVWZ   0(R4), R6
 	MOVBZ   4(R4), R7; SLD $32, R7; OR R6, R7, R6   // R6 = 40-bit packed 5-bit values
-	// Extract 8 × 5-bit: y0..y7 using OR-tree + single AND (R6 is clean 40-bit)
-	// Build Rhi = y0<<48|y1<<32|y2<<16|y3
-	SLD     $48, R6, R8            // y0[4:0] → [52:48]; y1 → [57:53] (unused)
-	SLD     $27, R6, R9            // y1[9:5] → [36:32]; y0 → [27:31] (unused)
-	SLD     $6, R6, R10            // y2[14:10] → [20:16]; y1 → [15:11] (unused)
-	SRD     $15, R6, R11           // y3[19:15] → [4:0]; y4 → [9:5] (unused)
-	OR      R8, R9, R8
-	OR      R10, R11, R10
-	OR      R8, R10, R10
-	MOVD    $0x001F001F001F001F, R12
-	AND     R12, R10, R10          // Rhi = y0<<48|y1<<32|y2<<16|y3 (AND clears garbage)
-	// Build Rlo = y4<<48|y5<<32|y6<<16|y7
-	SLD     $28, R6, R8            // y4[24:20] → [52:48]; y5 → [57:53] (unused)
-	SLD     $7, R6, R9             // y5[29:25] → [36:32]; y4 → [27:35] (unused)
-	SRD     $14, R6, R12           // y6[34:30] → [20:16]; y7 → [25:21] (unused)
-	SRD     $35, R6, R11           // y7[39:35] → [4:0]
-	OR      R8, R9, R8
-	OR      R12, R11, R12
-	OR      R8, R12, R11
-	MOVD    $0x001F001F001F001F, R12
-	AND     R12, R11, R11          // Rlo = y4<<48|y5<<32|y6<<16|y7
+	// Extract 8 × 5-bit: y0..y7 using RLDICL (rotate+mask) + RLDIMI (rotate+insert)
+	// R6[4:0]=y0, R6[9:5]=y1, ..., R6[39:35]=y7
+	// Build Rhi = y0<<48|y1<<32|y2<<16|y3 (in R10)
+	MOVD    $0, R10
+	RLDIMI  $48, R6, $11, R10     // y0=R6[4:0] → R10[52:48] (SH=48,MB=11=63-52)
+	RLDICL  $59, R6, $59, R8     // rotate R6 left 59, mask [59:63] → y1=R6[9:5] in R8[4:0]
+	RLDIMI  $32, R8, $27, R10    // y1=R8[4:0] → R10[36:32] (SH=32,MB=27=63-36)
+	RLDICL  $54, R6, $59, R8     // rotate R6 left 54, mask [59:63] → y2=R6[14:10] in R8[4:0]
+	RLDIMI  $16, R8, $43, R10    // y2=R8[4:0] → R10[20:16] (SH=16,MB=43=63-20)
+	RLDICL  $49, R6, $59, R8     // rotate R6 left 49, mask [59:63] → y3=R6[19:15] in R8[4:0]
+	RLDIMI  $0, R8, $59, R10     // y3=R8[4:0] → R10[4:0]   (SH=0,MB=59=63-4)
+	// Build Rlo = y4<<48|y5<<32|y6<<16|y7 (in R11)
+	MOVD    $0, R11
+	RLDICL  $44, R6, $59, R8     // rotate R6 left 44, mask [59:63] → y4=R6[24:20] in R8[4:0]
+	RLDIMI  $48, R8, $11, R11    // y4=R8[4:0] → R11[52:48]
+	RLDICL  $39, R6, $59, R8     // rotate R6 left 39, mask [59:63] → y5=R6[29:25] in R8[4:0]
+	RLDIMI  $32, R8, $27, R11    // y5=R8[4:0] → R11[36:32]
+	RLDICL  $34, R6, $59, R8     // rotate R6 left 34, mask [59:63] → y6=R6[34:30] in R8[4:0]
+	RLDIMI  $16, R8, $43, R11    // y6=R8[4:0] → R11[20:16]
+	RLDICL  $29, R6, $59, R8     // rotate R6 left 29, mask [59:63] → y7=R6[39:35] in R8[4:0]
+	RLDIMI  $0, R8, $59, R11     // y7=R8[4:0] → R11[4:0]
 	MTVSRDD R10, R11, V0          // V0 = [y0..y7] as u16×8
 	// Multiply by q=3329
 	VMULEUH V0, V17, V3           // even × q
