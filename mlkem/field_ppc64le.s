@@ -1750,30 +1750,31 @@ TEXT ·ringDecodeAndDecompress5PPC64LE(SB), NOSPLIT, $0-16
 	MOVD R3, CTR
 
 decompress5_vmx_loop:
-	// Load 5 bytes as 8-byte word; low 40 bits are the 8 packed 5-bit values
-	MOVD    0(R4), R6              // load 8 bytes (LE: byte0 is LSB)
-	MOVD    $0xFFFFFFFFFF, R9
-	AND     R9, R6, R6             // mask to 40 bits, clear garbage from bytes 5-7
-	// Build Rhi = y0<<48|y1<<32|y2<<16|y3 using OR-tree (no ANDCC, single AND at end)
-	SLD     $48, R6, R8            // y0: bit[4:0] → bit[52:48]
-	SLD     $27, R6, R9            // y1: bit[9:5] → bit[36:32]
-	SLD     $6, R6, R10            // y2: bit[14:10] → bit[20:16]
-	SRD     $15, R6, R11           // y3: bit[19:15] → bit[4:0]
-	OR      R8, R9, R8
-	OR      R10, R11, R10
-	OR      R8, R10, R10
-	MOVD    $0x001F001F001F001F, R9
-	AND     R9, R10, R10           // Rhi = y0<<48|y1<<32|y2<<16|y3
-	// Build Rlo = y4<<48|y5<<32|y6<<16|y7 using OR-tree
-	SLD     $28, R6, R8            // y4: bit[24:20] → bit[52:48]
-	SLD     $7, R6, R9             // y5: bit[29:25] → bit[36:32]
-	SRD     $14, R6, R12           // y6: bit[34:30] → bit[20:16]
-	SRD     $35, R6, R11           // y7: bit[39:35] → bit[4:0]
-	OR      R8, R9, R8
-	OR      R12, R11, R12
-	OR      R8, R12, R11
-	MOVD    $0x001F001F001F001F, R9
-	AND     R9, R11, R11           // Rlo = y4<<48|y5<<32|y6<<16|y7
+	// Load 5 bytes and extract 8 × 5-bit values into 64-bit GPRs
+	MOVBZ   0(R4), R6
+	MOVBZ   1(R4), R7; SLD $8, R7; OR R6, R7
+	MOVBZ   2(R4), R6; SLD $16, R6; OR R7, R6
+	MOVBZ   3(R4), R7; SLD $24, R7; OR R6, R7
+	MOVBZ   4(R4), R6; SLD $32, R6; OR R7, R6   // R6 = 40-bit
+	// Extract 8 × 5-bit: y0..y7
+	// y0=R6[4:0], y1=R6[9:5], ..., y7=R6[39:35]
+	// Pack into Rhi=y0<<48|y1<<32|y2<<16|y3, Rlo=y4<<48|y5<<32|y6<<16|y7
+	ANDCC   $31, R6, R7           // y0
+	SLD     $48, R7, R10
+	SRD     $5, R6, R7; ANDCC $31, R7, R7   // y1
+	SLD     $32, R7, R7; OR R7, R10, R10
+	SRD     $10, R6, R7; ANDCC $31, R7, R7  // y2
+	SLD     $16, R7, R7; OR R7, R10, R10
+	SRD     $15, R6, R7; ANDCC $31, R7, R7  // y3
+	OR      R7, R10, R10          // Rhi = y0<<48|y1<<32|y2<<16|y3
+	SRD     $20, R6, R7; ANDCC $31, R7, R7  // y4
+	SLD     $48, R7, R11
+	SRD     $25, R6, R7; ANDCC $31, R7, R7  // y5
+	SLD     $32, R7, R7; OR R7, R11, R11
+	SRD     $30, R6, R7; ANDCC $31, R7, R7  // y6
+	SLD     $16, R7, R7; OR R7, R11, R11
+	SRD     $35, R6, R7; ANDCC $31, R7, R7  // y7
+	OR      R7, R11, R11          // Rlo
 	MTVSRDD R10, R11, V0          // V0 = [y0..y7] as u16×8
 	// Multiply by q=3329
 	VMULEUH V0, V17, V3           // even × q
