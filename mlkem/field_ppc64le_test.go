@@ -227,3 +227,84 @@ func TestPPC64LENTTUnitInput(t *testing.T) {
 		}
 	}
 }
+
+func TestPPC64LEInverseNTTMatchesGeneric(t *testing.T) {
+	for i := 0; i < 200; i++ {
+		in := randomNTTElement()
+		got := in
+		want := in
+
+		internalInverseNTTPPC64LE(&got)
+		internalInverseNTTGeneric(&want)
+
+		for j := range got {
+			if got[j] != want[j] {
+				t.Fatalf("iter=%d idx=%d: inverseNTT mismatch: got=%d want=%d", i, j, got[j], want[j])
+			}
+		}
+	}
+}
+
+func TestPPC64LENTTRoundTrip(t *testing.T) {
+	for i := 0; i < 200; i++ {
+		orig := randomRingElement()
+		f := orig
+
+		internalNTTPPC64LE(&f)
+		nf := nttElement(f)
+		internalInverseNTTPPC64LE(&nf)
+		result := ringElement(nf)
+
+		for j := range orig {
+			if orig[j] != result[j] {
+				t.Fatalf("iter=%d idx=%d: round-trip mismatch: got=%d want=%d", i, j, result[j], orig[j])
+			}
+		}
+	}
+}
+
+func BenchmarkPPC64LENTTInverse(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		internalNTTGeneric(&f)
+		nf := nttElement(f)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			nf2 := nf
+			internalInverseNTTGeneric(&nf2)
+		}
+	})
+	b.Run("PPC64LE", func(b *testing.B) {
+		f := randomRingElement()
+		internalNTTPPC64LE(&f)
+		nf := nttElement(f)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			nf2 := nf
+			internalInverseNTTPPC64LE(&nf2)
+		}
+	})
+}
+
+func BenchmarkPPC64LENTTNTT(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			f2 := f
+			internalNTTGeneric(&f2)
+		}
+	})
+	b.Run("PPC64LE", func(b *testing.B) {
+		f := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			f2 := f
+			internalNTTPPC64LE(&f2)
+		}
+	})
+}

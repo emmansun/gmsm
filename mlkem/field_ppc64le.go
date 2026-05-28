@@ -261,7 +261,7 @@ func internalNTT(f *ringElement) {
 }
 
 func internalInverseNTT(f *nttElement) {
-	internalInverseNTTGeneric(f)
+	internalInverseNTTPPC64LE(f)
 }
 
 func nttMulAccKeyGen(acc, lhs, rhs *nttElement) {

@@ -740,10 +740,457 @@ ntt_l7_loop:
 
 	RET
 
+// GS_BUTTERFLY_U16: Gentleman-Sande butterfly.
+// VA (lo) updated to sum, VB (hi) updated to fieldMul(zeta, diff).
+// sum = lo + hi (reduce to [0,q)); diff = lo - hi + q (reduce to [0,q)).
+// V17=prime16 (pinned), V12=packMask (pinned), V14=kBMul32, V16=kPrime32.
+// Clobbers: Vt, Vtmp1, Vtmp2, Vtmp3, Vshift.
+#define GS_BUTTERFLY_U16(VA, VB, VZ, Vt, Vtmp1, Vtmp2, Vtmp3, Vshift) \
+	VADDUHM  VA, VB, Vt;             \
+	FIELD_REDUCE_ONCE_U16(Vt, Vtmp1, Vtmp2); \
+	VSUBUHM  VA, VB, VB;             \
+	VADDUHM  VB, V17, VB;            \
+	FIELD_REDUCE_ONCE_U16(VB, Vtmp1, Vtmp2); \
+	MUL_ZETA_U16(VB, VZ, VB, Vtmp1, Vtmp2, Vtmp3, Vshift); \
+	FIELD_REDUCE_ONCE_U16(VB, Vtmp1, Vtmp2); \
+	VOR      Vt, Vt, VA
+
 // internalInverseNTTPPC64LE(f *nttElement)
-// Stub: will implement Gentleman-Sande butterfly layers 7->1.
+//
+// Computes the inverse NTT in place (Gentleman-Sande, len=2..128).
+// All coefficients must be in [0, q) on entry; exit in [0, q).
+// Applies final scale by kInverseDegree=3303 (= 128^-1 mod q).
+//
+// Pinned registers (same as forward NTT):
+//   R0  = 0 (always zero)
+//   R4  = f pointer (base address, not advanced across layers)
+//   V12 = lxvPackU32ToU16Mask
+//   V14 = kBMul32 = {5039 x4}
+//   V16 = kPrime32 = {3329 x4}
+//   V17 = kPrime16 = {3329 x8}
+//   V18 = naturalOrderMask
+//   V19 = nttL6L7DeinterleaveMaskLo (reused for INTT interleave)
 TEXT ·internalInverseNTTPPC64LE(SB), NOSPLIT, $0-8
 	MOVD f+0(FP), R4
+	MOVD $0, R0
+
+	MOVD $kBarrettConsts<>(SB), R10
+	MOVD $0, R11
+	LVX  (R11)(R10), V14
+	MOVD $32, R11
+	LVX  (R11)(R10), V16
+	MOVD $48, R11
+	LVX  (R11)(R10), V17
+
+	MOVD $lxvNaturalOrderMask<>(SB), R10
+	LVX  (R0)(R10), V18
+
+	MOVD $lxvPackU32ToU16Mask<>(SB), R10
+	LVX  (R0)(R10), V12
+
+	MOVD $nttL6L7DeinterleaveMaskLo<>(SB), R10
+	LVX  (R0)(R10), V19
+
+	// ================================================================
+	// INTT Layer 6' (GS len=2): 16 iters, 4 groups per iter.
+	// Reverses forward L7. Data layout same as forward L7 input.
+	// Twiddle: inttTwiddleL2PrecompPPC64LE, 16 vectors of [z0,z0,z1,z1,z2,z2,z3,z3].
+	// ================================================================
+	MOVD $·inttTwiddleL2PrecompPPC64LE(SB), R10
+	MOVD $0, R11
+	MOVD R4, R5
+
+	// Preload reinterleave masks (same masks as forward L7)
+	MOVD $nttL7ReinterleaveMask0<>(SB), R12
+	LVX  (R0)(R12), V13       // V13 = reinterleave mask 0
+	MOVD $nttL7ReinterleaveMask1<>(SB), R12
+	LVX  (R0)(R12), V15       // V15 = reinterleave mask 1
+	MOVD $nttL6L7DeinterleaveMaskHi<>(SB), R7
+
+	MOVD $16, R9
+	MOVD R9, CTR
+intt_l6_loop:
+	// Reload hi deinterleave mask (V11 is clobbered by forward NTT; INTT doesn't use it as such,
+	// but we need it for deinterleave same as forward L7)
+	LVX  (R0)(R7), V11
+
+	// Load twiddle [z0,z0,z1,z1,z2,z2,z3,z3]
+	LXVD2X (R11)(R10), VS34
+	VPERM  V2, V2, V18, V2
+
+	// Load 16 elements
+	LXVD2X (R0)(R5), VS32
+	VPERM  V0, V0, V18, V0
+	MOVD $16, R6
+	LXVD2X (R6)(R5), VS33
+	VPERM  V1, V1, V18, V1
+
+	// Deinterleave: V8=lo (even pairs), V9=hi (odd pairs)
+	VPERM  V0, V1, V19, V8    // V8 = lo pairs
+	VPERM  V0, V1, V11, V9    // V9 = hi pairs
+
+	// GS butterfly: lo=sum, hi=zeta*(lo-hi)
+	GS_BUTTERFLY_U16(V8, V9, V2, V3, V4, V5, V6, V7)
+
+	// Reinterleave
+	VPERM  V8, V9, V13, V0
+	VPERM  V8, V9, V15, V1
+
+	VPERM  V0, V0, V18, V0
+	STXVD2X VS32, (R0)(R5)
+	VPERM  V1, V1, V18, V1
+	STXVD2X VS33, (R6)(R5)
+
+	ADD  $32, R5
+	ADD  $16, R11
+	BDNZ intt_l6_loop
+
+	// Reset R4-based pointer
+	MOVD R4, R5
+
+	// ================================================================
+	// INTT Layer 5' (GS len=4): 16 iters, 2 groups per iter.
+	// Reverses forward L6 (XXPERMDI-based split/repack).
+	// Twiddle: inttTwiddleL4PrecompPPC64LE, [za x4, zb x4].
+	// ================================================================
+	MOVD $·inttTwiddleL4PrecompPPC64LE(SB), R10
+	MOVD $0, R11
+	MOVD R4, R5
+
+	MOVD $16, R9
+	MOVD R9, CTR
+intt_l5_loop:
+	LXVD2X (R11)(R10), VS34
+	VPERM  V2, V2, V18, V2    // V2 = [za x4, zb x4]
+
+	LXVD2X (R0)(R5), VS32
+	VPERM  V0, V0, V18, V0
+	MOVD $16, R6
+	LXVD2X (R6)(R5), VS33
+	VPERM  V1, V1, V18, V1
+
+	// Split: V_lo=[a0..a3, b0..b3], V_hi=[a4..a7, b4..b7]
+	XXPERMDI VS32, VS33, $0, VS41   // V9 = V_lo
+	XXPERMDI VS32, VS33, $3, VS40   // V8 = V_hi
+
+	// GS butterfly: VA=V9(lo), VB=V8(hi), VZ=V2
+	GS_BUTTERFLY_U16(V9, V8, V2, V3, V4, V5, V6, V7)
+
+	// Repack
+	XXPERMDI VS41, VS40, $0, VS32   // V0 = first 8 elems
+	XXPERMDI VS41, VS40, $3, VS33   // V1 = second 8 elems
+
+	VPERM  V0, V0, V18, V0
+	STXVD2X VS32, (R0)(R5)
+	VPERM  V1, V1, V18, V1
+	STXVD2X VS33, (R6)(R5)
+
+	ADD  $32, R5
+	ADD  $16, R11
+	BDNZ intt_l5_loop
+
+	// ================================================================
+	// INTT Layer 4' (GS len=8): 16 iters, 1 group per iter.
+	// Reverses forward L5 (direct lo/hi load, 16-byte stride).
+	// Twiddle: inttTwiddleL5PrecompPPC64LE (broadcast, 1 zeta per iter).
+	// ================================================================
+	MOVD $·inttTwiddleL5PrecompPPC64LE(SB), R10
+	MOVD $0, R11
+	MOVD R4, R5
+
+	MOVD $16, R9
+	MOVD R9, CTR
+intt_l4_loop:
+	LXVD2X (R11)(R10), VS40
+	VPERM  V8, V8, V18, V2    // V2 = broadcast zeta
+
+	MOVD R5, R6
+	ADD  $16, R6              // hi = lo + 16
+
+	LXVD2X (R0)(R5), VS32
+	VPERM  V0, V0, V18, V0    // V0 = lo
+	LXVD2X (R0)(R6), VS33
+	VPERM  V1, V1, V18, V1    // V1 = hi
+
+	GS_BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7)
+
+	VPERM  V0, V0, V18, V0
+	STXVD2X VS32, (R0)(R5)
+	VPERM  V1, V1, V18, V1
+	STXVD2X VS33, (R0)(R6)
+
+	ADD  $32, R5
+	ADD  $16, R11
+	BDNZ intt_l4_loop
+
+	// ================================================================
+	// INTT Layer 3' (GS len=16): 8 groups, 2 iters each.
+	// Reverses forward L4 (8 outer x 2 inner).
+	// Twiddle: inttTwiddleL4bPrecompPPC64LE (broadcast per group).
+	// ================================================================
+	MOVD $·inttTwiddleL4bPrecompPPC64LE(SB), R10
+	MOVD $0, R11
+
+	MOVD $8, R9
+	MOVD R9, CTR
+	MOVD R4, R5
+intt_l3_outer:
+	LXVD2X (R11)(R10), VS40
+	VPERM  V8, V8, V18, V2
+
+	MOVD R5, R6
+	ADD  $32, R6              // hi = lo + 32
+
+	LXVD2X (R0)(R5), VS32
+	VPERM  V0, V0, V18, V0
+	LXVD2X (R0)(R6), VS33
+	VPERM  V1, V1, V18, V1
+	GS_BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7)
+	VPERM  V0, V0, V18, V0
+	STXVD2X VS32, (R0)(R5)
+	VPERM  V1, V1, V18, V1
+	STXVD2X VS33, (R0)(R6)
+
+	ADD  $16, R5
+	ADD  $16, R6
+
+	LXVD2X (R0)(R5), VS32
+	VPERM  V0, V0, V18, V0
+	LXVD2X (R0)(R6), VS33
+	VPERM  V1, V1, V18, V1
+	GS_BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7)
+	VPERM  V0, V0, V18, V0
+	STXVD2X VS32, (R0)(R5)
+	VPERM  V1, V1, V18, V1
+	STXVD2X VS33, (R0)(R6)
+
+	ADD  $48, R5              // advance to next group (lo+16+48=lo+64)
+	ADD  $16, R11
+	BDNZ intt_l3_outer
+
+	// ================================================================
+	// INTT Layer 2' (GS len=32): 4 groups, 4 iters each.
+	// Reverses forward L3 (4 groups x 4 inner iters).
+	// Twiddle: inttTwiddleL3PrecompPPC64LE (broadcast per group).
+	// ================================================================
+	MOVD $·inttTwiddleL3PrecompPPC64LE(SB), R10
+	MOVD $0, R11
+
+	// Group 0: lo=f[0..31], hi=f[32..63]
+	LXVD2X (R11)(R10), VS40
+	VPERM  V8, V8, V18, V2
+	MOVD R4, R5
+	MOVD R4, R6
+	ADD  $64, R6
+	MOVD $4, R9
+	MOVD R9, CTR
+intt_l2g0:
+	LXVD2X (R0)(R5), VS32
+	VPERM  V0, V0, V18, V0
+	LXVD2X (R0)(R6), VS33
+	VPERM  V1, V1, V18, V1
+	GS_BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7)
+	VPERM  V0, V0, V18, V0
+	STXVD2X VS32, (R0)(R5)
+	VPERM  V1, V1, V18, V1
+	STXVD2X VS33, (R0)(R6)
+	ADD  $16, R5
+	ADD  $16, R6
+	BDNZ intt_l2g0
+
+	// Group 1: lo=f[64..95], hi=f[96..127]
+	ADD  $16, R11
+	LXVD2X (R11)(R10), VS40
+	VPERM  V8, V8, V18, V2
+	MOVD R4, R5
+	ADD  $128, R5
+	MOVD R5, R6
+	ADD  $64, R6
+	MOVD $4, R9
+	MOVD R9, CTR
+intt_l2g1:
+	LXVD2X (R0)(R5), VS32
+	VPERM  V0, V0, V18, V0
+	LXVD2X (R0)(R6), VS33
+	VPERM  V1, V1, V18, V1
+	GS_BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7)
+	VPERM  V0, V0, V18, V0
+	STXVD2X VS32, (R0)(R5)
+	VPERM  V1, V1, V18, V1
+	STXVD2X VS33, (R0)(R6)
+	ADD  $16, R5
+	ADD  $16, R6
+	BDNZ intt_l2g1
+
+	// Group 2: lo=f[128..159], hi=f[160..191]
+	ADD  $16, R11
+	LXVD2X (R11)(R10), VS40
+	VPERM  V8, V8, V18, V2
+	MOVD R4, R5
+	ADD  $256, R5
+	MOVD R5, R6
+	ADD  $64, R6
+	MOVD $4, R9
+	MOVD R9, CTR
+intt_l2g2:
+	LXVD2X (R0)(R5), VS32
+	VPERM  V0, V0, V18, V0
+	LXVD2X (R0)(R6), VS33
+	VPERM  V1, V1, V18, V1
+	GS_BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7)
+	VPERM  V0, V0, V18, V0
+	STXVD2X VS32, (R0)(R5)
+	VPERM  V1, V1, V18, V1
+	STXVD2X VS33, (R0)(R6)
+	ADD  $16, R5
+	ADD  $16, R6
+	BDNZ intt_l2g2
+
+	// Group 3: lo=f[192..223], hi=f[224..255]
+	ADD  $16, R11
+	LXVD2X (R11)(R10), VS40
+	VPERM  V8, V8, V18, V2
+	MOVD R4, R5
+	ADD  $384, R5
+	MOVD R5, R6
+	ADD  $64, R6
+	MOVD $4, R9
+	MOVD R9, CTR
+intt_l2g3:
+	LXVD2X (R0)(R5), VS32
+	VPERM  V0, V0, V18, V0
+	LXVD2X (R0)(R6), VS33
+	VPERM  V1, V1, V18, V1
+	GS_BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7)
+	VPERM  V0, V0, V18, V0
+	STXVD2X VS32, (R0)(R5)
+	VPERM  V1, V1, V18, V1
+	STXVD2X VS33, (R0)(R6)
+	ADD  $16, R5
+	ADD  $16, R6
+	BDNZ intt_l2g3
+
+	// ================================================================
+	// INTT Layer 1' (GS len=64): 2 groups, 4 iters each.
+	// Reverses forward L2 (2 outer x 8 inner, 2x-unrolled here).
+	// Twiddle: inttTwiddleL2bPrecompPPC64LE.
+	// ================================================================
+	MOVD $·inttTwiddleL2bPrecompPPC64LE(SB), R10
+
+	// Group 0: zeta=zetas[3] (INTT reversal), lo=f[0..63], hi=f[64..127]
+	LXVD2X (R0)(R10), VS40
+	VPERM  V8, V8, V18, V2
+	MOVD R4, R5
+	MOVD R4, R6
+	ADD  $128, R6             // hi = f[64] (64 elements x 2 bytes)
+	MOVD $4, R9
+	MOVD R9, CTR
+intt_l1g0:
+	MOVD   $16, R13
+	LXVD2X (R0)(R5),   VS32
+	VPERM  V0, V0, V18, V0
+	LXVD2X (R0)(R6),   VS33
+	VPERM  V1, V1, V18, V1
+	LXVD2X (R13)(R5),  VS41
+	VPERM  V9, V9, V18, V9
+	LXVD2X (R13)(R6),  VS42
+	VPERM  V10, V10, V18, V10
+	GS_BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7)
+	VPERM  V0, V0, V18, V0
+	STXVD2X VS32, (R0)(R5)
+	VPERM  V1, V1, V18, V1
+	STXVD2X VS33, (R0)(R6)
+	GS_BUTTERFLY_U16(V9, V10, V2, V3, V4, V5, V6, V7)
+	VPERM  V9, V9, V18, V9
+	STXVD2X VS41, (R13)(R5)
+	VPERM  V10, V10, V18, V10
+	STXVD2X VS42, (R13)(R6)
+	ADD  $32, R5
+	ADD  $32, R6
+	BDNZ intt_l1g0
+
+	// Group 1: zeta=zetas[2] (INTT reversal), lo=f[128..191], hi=f[192..255]
+	MOVD $16, R11
+	LXVD2X (R11)(R10), VS40
+	VPERM  V8, V8, V18, V2
+	MOVD R4, R5
+	ADD  $256, R5             // lo = f[128]
+	MOVD R5, R6
+	ADD  $128, R6             // hi = f[192]
+	MOVD $4, R9
+	MOVD R9, CTR
+intt_l1g1:
+	MOVD   $16, R13
+	LXVD2X (R0)(R5),   VS32
+	VPERM  V0, V0, V18, V0
+	LXVD2X (R0)(R6),   VS33
+	VPERM  V1, V1, V18, V1
+	LXVD2X (R13)(R5),  VS41
+	VPERM  V9, V9, V18, V9
+	LXVD2X (R13)(R6),  VS42
+	VPERM  V10, V10, V18, V10
+	GS_BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7)
+	VPERM  V0, V0, V18, V0
+	STXVD2X VS32, (R0)(R5)
+	VPERM  V1, V1, V18, V1
+	STXVD2X VS33, (R0)(R6)
+	GS_BUTTERFLY_U16(V9, V10, V2, V3, V4, V5, V6, V7)
+	VPERM  V9, V9, V18, V9
+	STXVD2X VS41, (R13)(R5)
+	VPERM  V10, V10, V18, V10
+	STXVD2X VS42, (R13)(R6)
+	ADD  $32, R5
+	ADD  $32, R6
+	BDNZ intt_l1g1
+
+	// ================================================================
+	// INTT Layer 0' (GS len=128): 1 group, 8 iters.
+	// Reverses forward L1. lo=f[0..127], hi=f[128..255].
+	// Also applies final scale by kInverseDegree=3303.
+	// ================================================================
+	MOVD $·inttTwiddleL1PrecompPPC64LE(SB), R10
+	LXVD2X (R0)(R10), VS40
+	VPERM  V8, V8, V18, V2    // V2 = broadcast zeta[1]
+
+	// Load kInverseDegree=3303 for final scale
+	MOVD $·inverseDegreeVecPPC64LE(SB), R10
+	LXVD2X (R0)(R10), VS40
+	VPERM  V8, V8, V18, V20   // V20 = {3303 x8}
+
+	MOVD $·inttTwiddleL1PrecompPPC64LE(SB), R10
+	LXVD2X (R0)(R10), VS40
+	VPERM  V8, V8, V18, V2
+
+	MOVD $8, R9
+	MOVD R9, CTR
+	MOVD R4, R5               // lo pointer
+	MOVD R4, R6
+	ADD  $256, R6              // hi pointer = f + 256 bytes
+intt_l0_loop:
+	LXVD2X (R0)(R5), VS32
+	VPERM  V0, V0, V18, V0    // V0 = lo
+	LXVD2X (R0)(R6), VS33
+	VPERM  V1, V1, V18, V1    // V1 = hi
+
+	GS_BUTTERFLY_U16(V0, V1, V2, V3, V4, V5, V6, V7)
+
+	// Scale lo (V0) and hi (V1) by kInverseDegree=3303
+	MUL_ZETA_U16(V0, V20, V3, V4, V5, V6, V7)
+	FIELD_REDUCE_ONCE_U16(V3, V4, V5)
+	VOR      V3, V3, V0
+	MUL_ZETA_U16(V1, V20, V3, V4, V5, V6, V7)
+	FIELD_REDUCE_ONCE_U16(V3, V4, V5)
+	VOR      V3, V3, V1
+
+	VPERM  V0, V0, V18, V0
+	STXVD2X VS32, (R0)(R5)
+	VPERM  V1, V1, V18, V1
+	STXVD2X VS33, (R0)(R6)
+
+	ADD  $16, R5
+	ADD  $16, R6
+	BDNZ intt_l0_loop
+
 	RET
 
 // internalNTTMulPPC64LE(out, lhs, rhs *nttElement)
