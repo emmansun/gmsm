@@ -176,37 +176,32 @@ DATA cbd2Consts<>+0x68(SB)/8, $0x0F1F0E1E0D1D0C1C
 GLOBL cbd2Consts<>(SB), RODATA|NOPTR, $112
 
 // cbd3VMXConsts: constants for samplePolyCBD3PPC64LE VMX implementation (LXVD2X-loaded).
-// [+0x00..+0x0F]: {0x249249 x4}  mask249  — bit-parallel field selector (uint32x4)
-// [+0x10..+0x1F]: {0x6DB6DB x4}  mask6DB  — difference accumulator mask (uint32x4)
-// [+0x20..+0x2F]: {7 x4}         mask7    — 3-bit low-group extractor (uint32x4)
-// [+0x30..+0x3F]: {0x70000 x4}   mask70000 — 3-bit high-group extractor (uint32x4)
-// [+0x40..+0x4F]: {3 x8}         const3   — subtraction constant (uint16x8)
-// [+0x50..+0x5F]: extractLoMask — VPERM(V12,V10,mask,V13) → coeff[0..7]+3 in
+// mask7 {7 x4} and const3 {3 x8} are omitted — generated via VSPLTISW/VSPLTISH.
+// [+0x00..+0x0F]: {0x249249 x4}  mask249   — bit-parallel field selector (uint32x4)
+// [+0x10..+0x1F]: {0x6DB6DB x4}  mask6DB   — difference accumulator mask (uint32x4)
+// [+0x20..+0x2F]: {0x70000 x4}   mask70000 — 3-bit high-group extractor (uint32x4)
+// [+0x30..+0x3F]: extractLoMask — VPERM(V12,V10,mask,V13) → coeff[0..7] in
 //                 STXVD2X-ready BE layout {0,c3,0,c2,0,c1,0,c0, 0,c7,0,c6,0,c5,0,c4}
 //                 BE mask: {0,17,2,19, 0,1,2,3, 4,21,6,23, 4,5,6,7}
-// [+0x60..+0x6F]: extractHiMask — VPERM(V12,V10,mask,V14) → coeff[8..15]+3 in
+// [+0x40..+0x4F]: extractHiMask — VPERM(V12,V10,mask,V14) → coeff[8..15] in
 //                 STXVD2X-ready BE layout
 //                 BE mask: {8,25,10,27, 8,9,10,11, 12,29,14,31, 12,13,14,15}
-// [+0x70..+0x7F]: cbd3ShufA — VPERM mask to rearrange LXVD2X-loaded bytes into
+// [+0x50..+0x5F]: cbd3ShufA — VPERM mask to rearrange LXVD2X-loaded bytes into
 //                 32-bit lanes (one 3-byte group per lane, LE layout in BE word)
 //                 BE mask: {0x10,5,6,7, 0x10,2,3,4, 0x10,0x0F,0,1, 0x10,0x0C,0x0D,0x0E}
 DATA cbd3VMXConsts<>+0x00(SB)/8, $0x0024924900249249
 DATA cbd3VMXConsts<>+0x08(SB)/8, $0x0024924900249249
 DATA cbd3VMXConsts<>+0x10(SB)/8, $0x006DB6DB006DB6DB
 DATA cbd3VMXConsts<>+0x18(SB)/8, $0x006DB6DB006DB6DB
-DATA cbd3VMXConsts<>+0x20(SB)/8, $0x0000000700000007
-DATA cbd3VMXConsts<>+0x28(SB)/8, $0x0000000700000007
-DATA cbd3VMXConsts<>+0x30(SB)/8, $0x0007000000070000
-DATA cbd3VMXConsts<>+0x38(SB)/8, $0x0007000000070000
-DATA cbd3VMXConsts<>+0x40(SB)/8, $0x0003000300030003
-DATA cbd3VMXConsts<>+0x48(SB)/8, $0x0003000300030003
-DATA cbd3VMXConsts<>+0x50(SB)/8, $0x0011021300010203
-DATA cbd3VMXConsts<>+0x58(SB)/8, $0x0415061704050607
-DATA cbd3VMXConsts<>+0x60(SB)/8, $0x08190A1B08090A0B
-DATA cbd3VMXConsts<>+0x68(SB)/8, $0x0C1D0E1F0C0D0E0F
-DATA cbd3VMXConsts<>+0x70(SB)/8, $0x1005060710020304
-DATA cbd3VMXConsts<>+0x78(SB)/8, $0x100F0001100C0D0E
-GLOBL cbd3VMXConsts<>(SB), RODATA|NOPTR, $128
+DATA cbd3VMXConsts<>+0x20(SB)/8, $0x0007000000070000
+DATA cbd3VMXConsts<>+0x28(SB)/8, $0x0007000000070000
+DATA cbd3VMXConsts<>+0x30(SB)/8, $0x0011021300010203
+DATA cbd3VMXConsts<>+0x38(SB)/8, $0x0415061704050607
+DATA cbd3VMXConsts<>+0x40(SB)/8, $0x08190A1B08090A0B
+DATA cbd3VMXConsts<>+0x48(SB)/8, $0x0C1D0E1F0C0D0E0F
+DATA cbd3VMXConsts<>+0x50(SB)/8, $0x1005060710020304
+DATA cbd3VMXConsts<>+0x58(SB)/8, $0x100F0001100C0D0E
+GLOBL cbd3VMXConsts<>(SB), RODATA|NOPTR, $96
 
 // V14=kBMul={5039x4}, V15=kShift={24,24}uint64, V16=kPrime32={3329x4}
 // Vtmp1, Vtmp2, Vtmp3 are scratch registers
@@ -2322,20 +2317,21 @@ TEXT ·samplePolyCBD3PPC64LE(SB), NOSPLIT, $0-16
 	MOVD $cbd3VMXConsts<>(SB), R7
 	LXVD2X (R0)(R7), VS48                                 // V16 = mask249
 	ADD  $16,  R7, R8;  LXVD2X (R0)(R8), VS49            // V17 = mask6DB
-	ADD  $32,  R7, R8;  LXVD2X (R0)(R8), VS50            // V18 = mask7
-	ADD  $48,  R7, R8;  LXVD2X (R0)(R8), VS51            // V19 = mask70000
-	ADD  $64,  R7, R8;  LXVD2X (R0)(R8), VS52            // V20 = const3 {3 x8}
-	ADD  $80,  R7, R8;  LXVD2X (R0)(R8), VS54            // V22 = extractLoMask
-	ADD  $96,  R7, R8;  LXVD2X (R0)(R8), VS55            // V23 = extractHiMask
-	ADD  $112, R7, R8;  LXVD2X (R0)(R8), VS56            // V24 = cbd3ShufA
+	ADD  $32,  R7, R8;  LXVD2X (R0)(R8), VS51            // V19 = mask70000
+	ADD  $48,  R7, R8;  LXVD2X (R0)(R8), VS54            // V22 = extractLoMask
+	ADD  $64,  R7, R8;  LXVD2X (R0)(R8), VS55            // V23 = extractHiMask
+	ADD  $80,  R7, R8;  LXVD2X (R0)(R8), VS56            // V24 = cbd3ShufA
 
 	MOVD $kBarrettConsts<>(SB), R8;  ADD $0x30, R8;  LXVD2X (R0)(R8), VS53  // V21 = q3329
 
+	VSPLTISW $7,  V18                                     // V18 = mask7 {7 x4}
+	VSPLTISH $3,  V20                                     // V20 = const3 {3 x8}
 	VSPLTISB $0,  V25                                     // V25 = all zeros (VPERM zero source)
 	VSPLTISB $1,  V26                                     // V26 = {1} for VSRW shift-by-1
 	VSPLTISB $2,  V27                                     // V27 = {2} for VSRW shift-by-2
 	VSPLTISB $3,  V28                                     // V28 = {3} for VSRW shift-by-3
 	VSPLTISB $10, V29                                     // V29 = {10} for VSLW shift-by-10
+	VSPLTISB $12, V5                                      // V5  = {12 x16} for VSRW shift-by-12
 	VSPLTISH $15, V31                                     // V31 = {15} for VSRAH sign-mask
 
 	MOVD $8, R6;  MOVD R6, CTR
@@ -2367,7 +2363,7 @@ cbd3vmx_loop:
 	// Extract coeff+3 as uint16 pairs: V12 = {c1+3,c0+3, c5+3,c4+3, ...} H8
 	//                                  V10 = {c3+3,c2+3, c7+3,c6+3, ...} H8
 	VSLW    V8, V29, V9                                   // V9  = result << 10
-	VSPLTISB $12, V5;  VSRW V8, V5, V10                  // V10 = result >> 12
+	VSRW    V8, V5,  V10                                  // V10 = result >> 12
 	VSRW    V8, V27, V11                                  // V11 = result >> 2
 	VAND    V18, V8,  V12
 	VAND    V19, V9,  V9
@@ -2376,13 +2372,15 @@ cbd3vmx_loop:
 	VADDUHM V9,  V12, V12                                 // V12: {c1+3,c0+3,...} H8
 	VADDUHM V11, V10, V10                                 // V10: {c3+3,c2+3,...} H8
 
-	// VPERM into STXVD2X-ready format (coeff+3 values with hi bytes)
-	VPERM V12, V10, V22, V13                              // V13 = coeff[0..7]+3 ready for STXVD2X
-	VPERM V12, V10, V23, V14                              // V14 = coeff[8..15]+3 ready for STXVD2X
+	// Subtract 3 before VPERM (saves 2 VSUBUHM after VPERM)
+	VSUBUHM V12, V20, V12                                 // V12: {c1,c0,...} H8
+	VSUBUHM V10, V20, V10                                 // V10: {c3,c2,...} H8
 
-	// Subtract 3 and add q to negatives
-	VSUBUHM V13, V20, V13
-	VSUBUHM V14, V20, V14
+	// VPERM into STXVD2X-ready format
+	VPERM V12, V10, V22, V13                              // V13 = coeff[0..7] ready for STXVD2X
+	VPERM V12, V10, V23, V14                              // V14 = coeff[8..15] ready for STXVD2X
+
+	// Add q to negatives
 	VSRAH V13, V31, V9
 	VAND  V21, V9, V9;  VADDUHM V13, V9, V13
 	VSRAH V14, V31, V9
@@ -2409,7 +2407,7 @@ cbd3vmx_loop:
 	VSUBUWM V8, V7, V8
 
 	VSLW    V8, V29, V9
-	VSPLTISB $12, V5;  VSRW V8, V5, V10
+	VSRW    V8, V5,  V10                                  // V5 = {12} hoisted to prologue
 	VSRW    V8, V27, V11
 	VAND    V18, V8,  V12
 	VAND    V19, V9,  V9
@@ -2418,11 +2416,13 @@ cbd3vmx_loop:
 	VADDUHM V9,  V12, V12
 	VADDUHM V11, V10, V10
 
+	// Subtract 3 before VPERM (saves 2 VSUBUHM after VPERM)
+	VSUBUHM V12, V20, V12
+	VSUBUHM V10, V20, V10
+
 	VPERM V12, V10, V22, V13
 	VPERM V12, V10, V23, V14
 
-	VSUBUHM V13, V20, V13
-	VSUBUHM V14, V20, V14
 	VSRAH V13, V31, V9
 	VAND  V21, V9, V9;  VADDUHM V13, V9, V13
 	VSRAH V14, V31, V9
