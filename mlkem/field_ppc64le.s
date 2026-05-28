@@ -62,6 +62,48 @@ DATA lxvPackU32ToU16Mask<>+0x00(SB)/8, $0x0A0B1A1B0E0F1E1F
 DATA lxvPackU32ToU16Mask<>+0x08(SB)/8, $0x0203121306071617
 GLOBL lxvPackU32ToU16Mask<>(SB), RODATA|NOPTR, $16
 
+// kCmpConsts: constants for VMX compress/decompress (all LVX-loaded, 16-byte aligned).
+// [0x00..0x0F]: {20159 x8} uint16 → compress4/5 magic (VMULEUH/VMULOUH multiply constant)
+// [0x10..0x1F]: VPERM mask for compress4 output: extracts low byte of each u32 word
+//               to BE[0..3] for MFVSRD extraction. BE view: {3,7,11,15, 0,...,0}.
+//               LVX: memory[15]=3, memory[14]=7, memory[13]=11, memory[12]=15, rest=0.
+// [0x20..0x2F]: {1290168 x4} uint32 → compress10/11 magic (= ceil(2^32/q))
+// [0x30..0x3F]: {1664 x4} uint32 → compress10/11 bias (= floor(q/2))
+// [0x40..0x4F]: {1023 x4} uint32 → compress10 mask (0x3FF)
+// [0x50..0x5F]: {2047 x4} uint32 → compress11 mask (0x7FF)
+// [0x60..0x6F]: {32,0,32,0} uint32×4 = {32,32} uint64×2 → VSRD shift amt for >>32
+DATA kCmpConsts<>+0x00(SB)/2, $20159
+DATA kCmpConsts<>+0x02(SB)/2, $20159
+DATA kCmpConsts<>+0x04(SB)/2, $20159
+DATA kCmpConsts<>+0x06(SB)/2, $20159
+DATA kCmpConsts<>+0x08(SB)/2, $20159
+DATA kCmpConsts<>+0x0A(SB)/2, $20159
+DATA kCmpConsts<>+0x0C(SB)/2, $20159
+DATA kCmpConsts<>+0x0E(SB)/2, $20159
+DATA kCmpConsts<>+0x10(SB)/8, $0x0000000000000000
+DATA kCmpConsts<>+0x18(SB)/8, $0x03070B0F00000000
+DATA kCmpConsts<>+0x20(SB)/4, $1290168
+DATA kCmpConsts<>+0x24(SB)/4, $1290168
+DATA kCmpConsts<>+0x28(SB)/4, $1290168
+DATA kCmpConsts<>+0x2C(SB)/4, $1290168
+DATA kCmpConsts<>+0x30(SB)/4, $1664
+DATA kCmpConsts<>+0x34(SB)/4, $1664
+DATA kCmpConsts<>+0x38(SB)/4, $1664
+DATA kCmpConsts<>+0x3C(SB)/4, $1664
+DATA kCmpConsts<>+0x40(SB)/4, $1023
+DATA kCmpConsts<>+0x44(SB)/4, $1023
+DATA kCmpConsts<>+0x48(SB)/4, $1023
+DATA kCmpConsts<>+0x4C(SB)/4, $1023
+DATA kCmpConsts<>+0x50(SB)/4, $2047
+DATA kCmpConsts<>+0x54(SB)/4, $2047
+DATA kCmpConsts<>+0x58(SB)/4, $2047
+DATA kCmpConsts<>+0x5C(SB)/4, $2047
+DATA kCmpConsts<>+0x60(SB)/4, $32
+DATA kCmpConsts<>+0x64(SB)/4, $0
+DATA kCmpConsts<>+0x68(SB)/4, $32
+DATA kCmpConsts<>+0x6C(SB)/4, $0
+GLOBL kCmpConsts<>(SB), RODATA|NOPTR, $112
+
 // ---- NTT twiddle masks ----
 //
 // nttL6L7DeinterleaveMaskLo: VPERM mask to extract first pair (A) from each 4-element group.
@@ -1437,501 +1479,667 @@ nttmlacc_loop:
 
 	RET
 
-// ringCompressAndEncode1PPC64LE computes ByteEncode_1(Compress_1(f)).
+// ringCompressAndEncode1PPC64LE computes ByteEncode_1(Compress_1(f)) using VMX.
 // compress(x, 1) = 1 if 833 <= x <= 2496, else 0.
-// Each output byte packs 8 coefficients as bits (bit 0 = coeff 0, bit 1 = coeff 1, ...).
+// Each output byte packs 8 coefficients as bits: bit i = compress(coeff[i]).
+// VMX strategy:
+//   - VCMPGTUH(832, x) → lane all-1s if x > 832  (i.e. x >= 833)
+//   - VCMPGTUH(x, 2496) → lane all-1s if x > 2496 (i.e. x >= 2497)
+//   - NOT the second result → 1 if x <= 2496
+//   - AND both → 1 if 833 <= x <= 2496
+//   - VBPERMQ with indices [112,96,80,64,48,32,16,0] to pack bits into one byte
+//     This places coeff[0] into result bit 7 (LSB of uint8) and coeff[7] into bit 0 (MSB).
+//     As uint8 value: coeff[0]*1 + coeff[1]*2 + ... + coeff[7]*128.
 // func ringCompressAndEncode1PPC64LE(out []byte, f *ringElement)
 TEXT ·ringCompressAndEncode1PPC64LE(SB), NOSPLIT, $0-32
-	MOVD out_base+0(FP), R4  // out pointer
-	MOVD f+24(FP), R5        // f pointer
-	MOVD $833, R8            // lower threshold (inclusive)
-	MOVD $2497, R9           // upper threshold (exclusive)
-	MOVD $32, R10            // 32 bytes output (256 coefficients / 8)
+	MOVD out_base+0(FP), R4
+	MOVD f+24(FP), R5
+	MOVD $0, R0
+	// V1 = {832 x8}: 832 = 0x0340
+	MOVD $0x0340034003400340, R6
+	MTVSRDD R6, R6, V1
+	// V2 = {2496 x8}: 2496 = 0x09C0
+	MOVD $0x09C009C009C009C0, R6
+	MTVSRDD R6, R6, V2
+	// V3 = VBPERMQ index vector: {112,96,80,64,48,32,16,0, 128,128,128,128,128,128,128,128}
+	// Upper 8 bytes (BE) = indices for VBPERMQ: 0x70,0x60,0x50,0x40,0x30,0x20,0x10,0x00
+	// Lower 8 bytes = 0x80 (ignored by VBPERMQ, bit index >= 128)
+	MOVD $0x7060504030201000, R6
+	MOVD $0x8080808080808080, R7
+	MTVSRDD R6, R7, V3
+	MOVD $lxvNaturalOrderMask<>(SB), R7
+	LVX  (R0)(R7), V18
+	MOVD $32, R3
+	MOVD R3, CTR
 
-compress1_outer:
-	MOVD $0, R3              // accumulated byte
-	// 8 coefficients -> 1 byte
-	MOVHZ (R5), R6; ADD $2, R5
-	CMP R6, R8; BLT compress1_b0; CMP R6, R9; BGE compress1_b0; OR $1, R3
-compress1_b0:
-	MOVHZ (R5), R6; ADD $2, R5
-	CMP R6, R8; BLT compress1_b1; CMP R6, R9; BGE compress1_b1; OR $2, R3
-compress1_b1:
-	MOVHZ (R5), R6; ADD $2, R5
-	CMP R6, R8; BLT compress1_b2; CMP R6, R9; BGE compress1_b2; OR $4, R3
-compress1_b2:
-	MOVHZ (R5), R6; ADD $2, R5
-	CMP R6, R8; BLT compress1_b3; CMP R6, R9; BGE compress1_b3; OR $8, R3
-compress1_b3:
-	MOVHZ (R5), R6; ADD $2, R5
-	CMP R6, R8; BLT compress1_b4; CMP R6, R9; BGE compress1_b4; OR $16, R3
-compress1_b4:
-	MOVHZ (R5), R6; ADD $2, R5
-	CMP R6, R8; BLT compress1_b5; CMP R6, R9; BGE compress1_b5; OR $32, R3
-compress1_b5:
-	MOVHZ (R5), R6; ADD $2, R5
-	CMP R6, R8; BLT compress1_b6; CMP R6, R9; BGE compress1_b6; OR $64, R3
-compress1_b6:
-	MOVHZ (R5), R6; ADD $2, R5
-	CMP R6, R8; BLT compress1_b7; CMP R6, R9; BGE compress1_b7; OR $128, R3
-compress1_b7:
-	MOVB R3, (R4)            // store byte
-	ADD $1, R4
-	ADD $-1, R10
-	CMP R10, $0
-	BNE compress1_outer
+compress1_vmx_loop:
+	LXVD2X  (R0)(R5), VS32        // load 8 uint16
+	VPERM   V0, V0, V18, V0       // natural order
+	VCMPGTUH V1, V0, V4           // V4[i]=0xFFFF if V0[i]>832 (i.e. >=833)
+	VCMPGTUH V0, V2, V5           // V5[i]=0xFFFF if V0[i]>2496 (i.e. >=2497)
+	VNOR    V5, V5, V5             // V5[i]=0xFFFF if V0[i]<=2496
+	VAND    V4, V5, V4             // V4[i]=0xFFFF if in [833,2496]
+	VBPERMQ V4, V3, V6             // collect: bit i of result = MSB of V4 lane (7-i)
+	                               // indices [112,96,...,0] → coeff[0] in bit 7 (LSB), coeff[7] in bit 0
+	// VBPERMQ result: result byte is at bits 48..55 of BE 128-bit (byte 6 from MSB)
+	// MFVSRD gets upper 64 bits of VS register (big-endian order)
+	MFVSRD  V6, R6                 // R6 (big-endian): byte 0=bits[63:56], ..., byte 7=bits[7:0]
+	// byte 6 of 128-bit BE = byte at position 6 in upper 64 = bits [15:8] of R6
+	SRD     $8, R6, R7
+	ANDCC   $255, R7, R7
+	MOVB    R7, (R4)
+	ADD     $16, R5
+	ADD     $1, R4
+	BDNZ    compress1_vmx_loop
 	RET
 
-// ringCompressAndEncode4PPC64LE computes ByteEncode_4(Compress_4(f)).
+// ringCompressAndEncode4PPC64LE computes ByteEncode_4(Compress_4(f)) using VMX.
 // compress(x, 4) = round(x * 16 / q) mod 16  [q=3329]
+// Formula via magic: c = (x * 20159 >> 16 + 32) >> 6 & 0xF
 // Output: 128 bytes, each packing 2 nibbles (coeff[2i] | coeff[2i+1]<<4).
-// Uses scalar formula: c = ((x << 4) + 1664) * 1290168 >> 32 & 0xF
 // func ringCompressAndEncode4PPC64LE(out []byte, f *ringElement)
 TEXT ·ringCompressAndEncode4PPC64LE(SB), NOSPLIT, $0-32
-	MOVD out_base+0(FP), R4  // out pointer
-	MOVD f+24(FP), R5        // f pointer
-	MOVD $1290168, R9        // magic multiplier for /q via mulhigh32
-	MOVD $1664, R11          // bias = q/2 = 3329/2 rounded down = 1664
-	MOVD $15, R12            // mask for 4-bit result
-	MOVD $128, R10           // 128 bytes output
+	MOVD out_base+0(FP), R4
+	MOVD f+24(FP), R5
+	MOVD $0, R0
+	// Load VMX constants
+	MOVD $kCmpConsts<>(SB), R6
+	LVX  (R0)(R6), V1            // V1 = magic16 {20159 x8}
+	MOVD $16, R7
+	LVX  (R7)(R6), V7            // V7 = compress4 pack VPERM mask
+	MOVD $lxvNaturalOrderMask<>(SB), R7
+	LVX  (R0)(R7), V18           // V18 = lxvNaturalOrderMask
+	// Precompute shift and mask constants
+	VSPLTISW $-16, V8            // V8: VSRW shifts 16 (bits[4:0]=16 from -16)
+	VSPLTISW $6, V9              // V9: VSRW shifts 6
+	VSPLTISW $15, V10            // V10: mask 0xF
+	VSPLTISW $4, V11             // V11: nibble left shift 4
+	// round4 = 32 = 1<<5: V2 = {32,32,32,32}
+	VSPLTISW $1, V2
+	VSPLTISW $5, V3
+	VSLW V2, V3, V2
+	MOVD $32, R3
+	MOVD R3, CTR
 
-compress4_loop:
-	// Load two uint16 coefficients
-	MOVHZ (R5), R6; ADD $2, R5   // a
-	MOVHZ (R5), R7; ADD $2, R5   // b
-	// compress(a, 4): ca = ((a << 4) + 1664) * 1290168 >> 32 & 0xF
-	SLD $4, R6                    // a << 4
-	ADD R11, R6, R6              // + 1664
-	MULLD R9, R6, R6             // * 1290168
-	SRD $32, R6                  // >> 32
-	AND R12, R6                  // & 0xF
-	// compress(b, 4): cb = ((b << 4) + 1664) * 1290168 >> 32 & 0xF
-	SLD $4, R7
-	ADD R11, R7, R7
-	MULLD R9, R7, R7
-	SRD $32, R7
-	AND R12, R7
-	SLD $4, R7                   // cb << 4
-	OR R6, R7                    // ca | (cb << 4)
-	MOVB R7, (R4)               // store byte
-	ADD $1, R4
-	ADD $-1, R10
-	CMP R10, $0
-	BNE compress4_loop
+compress4_vmx_loop:
+	LXVD2X  (R0)(R5), VS32       // load 8 uint16 in LXVD2X format
+	VPERM   V0, V0, V18, V0      // convert to natural uint16 order
+	VMULEUH V0, V1, V3            // even lanes x0,x2,x4,x6 × 20159 → 4×u32
+	VMULOUH V0, V1, V4            // odd  lanes x1,x3,x5,x7 × 20159 → 4×u32
+	VSRW    V3, V8, V3            // >>16
+	VSRW    V4, V8, V4
+	VADDUWM V3, V2, V3            // +32 (rounding)
+	VADDUWM V4, V2, V4
+	VSRW    V3, V9, V3            // >>6 → compress4 values in [0,15]
+	VSRW    V4, V9, V4
+	VAND    V3, V10, V3           // &0xF
+	VAND    V4, V10, V4
+	VSLW    V4, V11, V4           // c_odd <<= 4
+	VADDUWM V3, V4, V5            // c_even | c_odd<<4 → packed byte in low u32 byte
+	VPERM   V5, V5, V7, V5        // extract low bytes of each u32 to BE[0..3]
+	MFVSRD  V5, R6                // R6 = c01<<56|c23<<48|c45<<40|c67<<32
+	SRD     $56, R6, R7; MOVB R7, 0(R4)
+	SRD     $48, R6, R7; MOVB R7, 1(R4)
+	SRD     $40, R6, R7; MOVB R7, 2(R4)
+	SRD     $32, R6, R7; MOVB R7, 3(R4)
+	ADD     $16, R5
+	ADD     $4, R4
+	BDNZ    compress4_vmx_loop
 	RET
 
-// ringDecodeAndDecompress4PPC64LE computes Decompress_4(ByteDecode_4(b)).
-// Each input byte has two 4-bit nibbles: c_lo = byte & 0xF, c_hi = byte >> 4.
-// decompress(y, 4) = round(y * q / 16) = ((y * q) >> 4) + ((y * q >> 3) & 1)
+// ringDecodeAndDecompress4PPC64LE computes Decompress_4(ByteDecode_4(b)) using VMX.
+// Each input byte has two 4-bit nibbles. decompress(y,4) = (y*q>>4) + ((y*q>>3)&1)
+// Processes 4 bytes → 8 coefficients per iteration.
+// Nibbles unpacked via scalar into GPR, loaded to VMX via MTVSRDD.
 // func ringDecodeAndDecompress4PPC64LE(b *[encodingSize4]byte, f *ringElement)
 TEXT ·ringDecodeAndDecompress4PPC64LE(SB), NOSPLIT, $0-16
-	MOVD b+0(FP), R4         // input byte pointer
-	MOVD f+8(FP), R5         // output ringElement pointer
-	MOVD $3329, R9           // q
-	MOVD $15, R11            // nibble mask
-	MOVD $128, R10           // 128 input bytes
+	MOVD b+0(FP), R4
+	MOVD f+8(FP), R5
+	MOVD $0, R0
+	// Load VMX constants
+	MOVD $kBarrettConsts<>(SB), R6
+	MOVD $48, R7
+	LVX  (R7)(R6), V17           // V17 = q16 = {3329 x8} uint16
+	MOVD $lxvNaturalOrderMask<>(SB), R7
+	LVX  (R0)(R7), V18           // V18 = lxvNaturalOrderMask
+	MOVD $lxvPackU32ToU16Mask<>(SB), R7
+	LVX  (R0)(R7), V19           // V19 = interleave even/odd → u16
+	// Precompute shift/mask constants
+	VSPLTISW $3, V8              // shift 3 (for >>3 round bit)
+	VSPLTISW $4, V9              // shift 4 (for >>4 main decomp)
+	VSPLTISW $1, V10             // mask 1 (for & 1 round bit)
+	MOVD $32, R3
+	MOVD R3, CTR
 
-decompress4_loop:
-	MOVBZ (R4), R6           // load byte
-	ADD $1, R4
-	// low nibble: c_lo = byte & 0xF
-	AND R11, R6, R7          // c_lo
-	// decompress(c_lo, 4): ((c_lo * q) >> 4) + round bit
-	MULLD R9, R7, R7         // c_lo * q
-	SRD $3, R7, R8           // >> 3
-	ANDCC $1, R8, R8         // & 1 (round bit)
-	SRD $4, R7               // c_lo * q >> 4
-	ADD R8, R7               // + round bit
-	MOVH R7, (R5)            // store uint16 result
-	ADD $2, R5
-	// high nibble: c_hi = byte >> 4
-	SRD $4, R6               // c_hi
-	MULLD R9, R6, R6         // c_hi * q
-	SRD $3, R6, R8           // >> 3
-	ANDCC $1, R8, R8         // round bit
-	SRD $4, R6               // c_hi * q >> 4
-	ADD R8, R6               // + round bit
-	MOVH R6, (R5)
-	ADD $2, R5
-	ADD $-1, R10
-	CMP R10, $0
-	BNE decompress4_loop
+decompress4_vmx_loop:
+	// Load 4 input bytes packed as nibbles
+	MOVWZ   (R4), R6
+	// Build Rhi = y0<<48 | y1<<32 | y2<<16 | y3  (4 nibbles from bytes 0,1)
+	ANDCC   $15, R6, R10          // y0 = R6[3:0]
+	SLD     $48, R10, R10
+	SRD     $4, R6, R11; ANDCC $15, R11, R11   // y1 = R6[7:4]
+	SLD     $32, R11, R11; OR R11, R10, R10
+	SRD     $8, R6, R11; ANDCC $15, R11, R11   // y2 = R6[11:8]
+	SLD     $16, R11, R11; OR R11, R10, R10
+	SRD     $12, R6, R11; ANDCC $15, R11, R11  // y3 = R6[15:12]
+	OR      R11, R10, R10         // Rhi = y0<<48|y1<<32|y2<<16|y3
+	// Build Rlo = y4<<48 | y5<<32 | y6<<16 | y7  (4 nibbles from bytes 2,3)
+	SRD     $16, R6, R11; ANDCC $15, R11, R11  // y4
+	SLD     $48, R11, R11
+	SRD     $20, R6, R12; ANDCC $15, R12, R12  // y5
+	SLD     $32, R12, R12; OR R12, R11, R11
+	SRD     $24, R6, R12; ANDCC $15, R12, R12  // y6
+	SLD     $16, R12, R12; OR R12, R11, R11
+	SRD     $28, R6, R12; ANDCC $15, R12, R12  // y7
+	OR      R12, R11, R11         // Rlo = y4<<48|y5<<32|y6<<16|y7
+	MTVSRDD R10, R11, V0          // V0 = [y0,y1,y2,y3 | y4,y5,y6,y7] as u16×8
+	// Multiply by q=3329: VMULEUH/VMULOUH produce 4×u32
+	VMULEUH V0, V17, V3           // even: [y0,y2,y4,y6]*q as u32
+	VMULOUH V0, V17, V4           // odd:  [y1,y3,y5,y7]*q as u32
+	// Decompress: (y*q >> 3 & 1) + (y*q >> 4)
+	VSRW    V3, V8, V5            // V5 = y*q >> 3 (even)
+	VSRW    V4, V8, V6            // V6 = y*q >> 3 (odd)
+	VAND    V5, V10, V5           // & 1 (round bit, even)
+	VAND    V6, V10, V6           // & 1 (round bit, odd)
+	VSRW    V3, V9, V3            // y*q >> 4 (even)
+	VSRW    V4, V9, V4            // y*q >> 4 (odd)
+	VADDUWM V3, V5, V3            // + round bit
+	VADDUWM V4, V6, V4
+	// Pack 8 results: V3=[d(y0),d(y2),d(y4),d(y6)], V4=[d(y1),d(y3),d(y5),d(y7)] as u32
+	VPERM   V3, V4, V19, V0       // interleave → [d0,d1,d2,d3,d4,d5,d6,d7] as u16
+	// Convert to STXVD2X format and store
+	VPERM   V0, V0, V18, V0       // apply lxvNaturalOrderMask for STXVD2X
+	STXVD2X VS32, (R0)(R5)
+	ADD     $4, R4
+	ADD     $16, R5
+	BDNZ    decompress4_vmx_loop
 	RET
 
-// ringCompressAndEncode5PPC64LE computes ByteEncode_5(Compress_5(f)).
-// compress(x, 5) = round(x * 32 / q) mod 32
-// Output: 160 bytes, each 5-bit value packed (8 values per 5 bytes).
-// Uses scalar formula: c = ((x << 5) + 1664) * 1290168 >> 32 & 0x1F
-// Uses a 40-bit accumulator split across two registers to avoid callee-saved regs.
+// ringCompressAndEncode5PPC64LE computes ByteEncode_5(Compress_5(f)) using VMX.
+// compress(x, 5) = (x*20159 >> 16 + 16) >> 5 & 0x1F
+// Output: 160 bytes, 8 coefficients pack into 5 bytes.
+// Uses VMX for compress multiply, scalar for 5-byte packing.
 // func ringCompressAndEncode5PPC64LE(out []byte, f *ringElement)
 TEXT ·ringCompressAndEncode5PPC64LE(SB), NOSPLIT, $0-32
-	MOVD out_base+0(FP), R4  // out pointer
-	MOVD f+24(FP), R5        // f pointer
-	MOVD $1290168, R9        // magic multiplier
-	MOVD $1664, R11          // bias = 1664
-	MOVD $31, R12            // mask for 5-bit result (0x1F)
-	MOVD $32, R10            // 32 iterations: 8 coefficients × 5 bits = 5 bytes per iter
+	MOVD out_base+0(FP), R4
+	MOVD f+24(FP), R5
+	MOVD $0, R0
+	// Load constants
+	MOVD $kCmpConsts<>(SB), R6
+	LVX  (R0)(R6), V1            // magic16 {20159 x8}
+	MOVD $lxvNaturalOrderMask<>(SB), R6
+	LVX  (R0)(R6), V18
+	MOVD $lxvPackU32ToU16Mask<>(SB), R6
+	LVX  (R0)(R6), V19
+	// Precompute: shift16, shift5, mask31, round16={16x4}
+	VSPLTISW $-16, V8             // shift 16
+	VSPLTISW $5, V9               // shift 5
+	VSPLTISW $15, V10
+	VADDUWM  V10, V10, V10        // V10 = {30,30,30,30}
+	VSPLTISW $1, V11
+	VADDUWM  V10, V11, V10        // V10 = {31,31,31,31} = mask5
+	// round5 = 16 = 1<<4
+	VSPLTISW $1, V2
+	VSPLTISW $4, V3
+	VSLW V2, V3, V2               // V2 = {16,16,16,16}
+	MOVD $32, R3
+	MOVD R3, CTR
 
-// Compress a single coefficient c and return it in R6, using R7 as scratch.
-// Inputs: coeff in R3 (loaded before macro), R9=multiplier, R11=bias, R12=mask
-// Output: compressed 5-bit value in R6
-// Usage: load R3 from memory, then:
-//   SLD $5, R3; ADD R11, R3; MULLD R9, R3; SRD $32, R3; AND R12, R3
-//   → compressed value in R3
-
-compress5_loop:
-	// Process 8 coefficients → 40-bit packed value → 5 bytes
-	// Build 40-bit value in two 64-bit regs: R6=bits[39:0] (we only use 40 bits)
-	// Since 40 < 64, a single register suffices.
-
-	// c0
-	MOVHZ (R5), R3; ADD $2, R5
-	SLD $5, R3; ADD R11, R3; MULLD R9, R3; SRD $32, R3; AND R12, R3
-	// c1
-	MOVHZ (R5), R6; ADD $2, R5
-	SLD $5, R6; ADD R11, R6; MULLD R9, R6; SRD $32, R6; AND R12, R6
-	// Accumulate bits[9:0] = c0 | c1<<5
-	SLD $5, R6, R7; OR R3, R7          // bits[9:0]
-
-	// c2
-	MOVHZ (R5), R3; ADD $2, R5
-	SLD $5, R3; ADD R11, R3; MULLD R9, R3; SRD $32, R3; AND R12, R3
-	// c3
-	MOVHZ (R5), R6; ADD $2, R5
-	SLD $5, R6; ADD R11, R6; MULLD R9, R6; SRD $32, R6; AND R12, R6
-	// bits[24:10] = c2<<10 | c3<<15
-	SLD $10, R3, R8; OR R7, R8         // |= c2<<10
-	SLD $15, R6, R3; OR R8, R3         // |= c3<<15  → R3=bits[24:0]
-
-	// c4
-	MOVHZ (R5), R6; ADD $2, R5
-	SLD $5, R6; ADD R11, R6; MULLD R9, R6; SRD $32, R6; AND R12, R6
-	// c5
-	MOVHZ (R5), R7; ADD $2, R5
-	SLD $5, R7; ADD R11, R7; MULLD R9, R7; SRD $32, R7; AND R12, R7
-	// bits[34:20] = c4<<20 | c5<<25
-	SLD $20, R6, R8; OR R3, R8         // |= c4<<20  → R8=bits[24:0]|c4<<20
-	SLD $25, R7, R3; OR R8, R3         // |= c5<<25  → R3=bits[29:0]
-
-	// c6
-	MOVHZ (R5), R6; ADD $2, R5
-	SLD $5, R6; ADD R11, R6; MULLD R9, R6; SRD $32, R6; AND R12, R6
-	// c7
-	MOVHZ (R5), R7; ADD $2, R5
-	SLD $5, R7; ADD R11, R7; MULLD R9, R7; SRD $32, R7; AND R12, R7
-	// bits[39:30] = c6<<30 | c7<<35
-	SLD $30, R6, R8; OR R3, R8         // |= c6<<30
-	SLD $35, R7, R3; OR R8, R3         // |= c7<<35  → R3=bits[39:0] (40 bits)
-
-	// Store 5 bytes from R3
-	MOVB R3, 0(R4)
-	SRD $8, R3, R6; MOVB R6, 1(R4)
-	SRD $16, R3, R6; MOVB R6, 2(R4)
-	SRD $24, R3, R6; MOVB R6, 3(R4)
-	SRD $32, R3, R6; MOVB R6, 4(R4)
-	ADD $5, R4
-	ADD $-1, R10
-	CMP R10, $0
-	BNE compress5_loop
+compress5_vmx_loop:
+	LXVD2X  (R0)(R5), VS32
+	VPERM   V0, V0, V18, V0
+	VMULEUH V0, V1, V3            // even × 20159 → 4×u32
+	VMULOUH V0, V1, V4            // odd  × 20159 → 4×u32
+	VSRW    V3, V8, V3            // >>16
+	VSRW    V4, V8, V4
+	VADDUWM V3, V2, V3            // +16
+	VADDUWM V4, V2, V4
+	VSRW    V3, V9, V3            // >>5 → compress5 in [0,31]
+	VSRW    V4, V9, V4
+	VAND    V3, V10, V3           // &0x1F
+	VAND    V4, V10, V4
+	// Pack to 8 uint16 in natural order: V3=[c0,c2,c4,c6] V4=[c1,c3,c5,c7]
+	VPERM   V3, V4, V19, V5       // V5 = [c0,c1,c2,c3,c4,c5,c6,c7] as u16
+	// Extract to GPRs: MFVSRD = upper 64 bits
+	MFVSRD  V5, R6                // R6 = c0<<48|c1<<32|c2<<16|c3
+	MFVSRLD V5, R7                // R7 = c4<<48|c5<<32|c6<<16|c7
+	// Extract individual values
+	SRD     $48, R6, R8;  ANDCC $31, R8, R8   // c0
+	SRD     $32, R6, R9;  ANDCC $31, R9, R9   // c1
+	SRD     $16, R6, R10; ANDCC $31, R10, R10 // c2
+	ANDCC   $31, R6, R11                        // c3
+	SRD     $48, R7, R12; ANDCC $31, R12, R12  // c4
+	// Pack into 40-bit: c0|c1<<5|c2<<10|c3<<15|c4<<20|c5<<25|c6<<30|c7<<35
+	SLD     $5, R9, R9;   OR R8, R9, R8
+	SLD     $10, R10, R10; OR R8, R10, R8
+	SLD     $15, R11, R11; OR R8, R11, R8
+	SLD     $20, R12, R12; OR R8, R12, R8
+	SRD     $32, R7, R9;  ANDCC $31, R9, R9    // c5
+	SLD     $25, R9, R9;  OR R8, R9, R8
+	SRD     $16, R7, R9;  ANDCC $31, R9, R9    // c6
+	SLD     $30, R9, R9;  OR R8, R9, R8
+	ANDCC   $31, R7, R9                          // c7
+	SLD     $35, R9, R9;  OR R8, R9, R8         // R8 = 40-bit packed
+	// Store 5 bytes
+	MOVB    R8, 0(R4)
+	SRD     $8, R8, R9;  MOVB R9, 1(R4)
+	SRD     $16, R8, R9; MOVB R9, 2(R4)
+	SRD     $24, R8, R9; MOVB R9, 3(R4)
+	SRD     $32, R8, R9; MOVB R9, 4(R4)
+	ADD     $16, R5
+	ADD     $5, R4
+	BDNZ    compress5_vmx_loop
 	RET
 
-// ringDecodeAndDecompress5PPC64LE computes Decompress_5(ByteDecode_5(b)).
+// ringDecodeAndDecompress5PPC64LE computes Decompress_5(ByteDecode_5(b)) using VMX.
 // Each 5-byte block contains 8 packed 5-bit values.
-// decompress(y, 5) = ((y * q) >> 5) + ((y * q >> 4) & 1)
-// Processes 1 coefficient at a time to minimize register pressure.
+// decompress(y, 5) = (y*q>>5) + ((y*q>>4)&1)
+// Uses scalar for 5-byte unpack, VMX for multiply+decompress.
 // func ringDecodeAndDecompress5PPC64LE(b *[encodingSize5]byte, f *ringElement)
 TEXT ·ringDecodeAndDecompress5PPC64LE(SB), NOSPLIT, $0-16
-	MOVD b+0(FP), R4         // input pointer
-	MOVD f+8(FP), R5         // output pointer
-	MOVD $3329, R9           // q
-	MOVD $31, R12            // 5-bit mask (0x1F)
-	MOVD $32, R10            // 32 iterations (8 coefficients per iter = 5 bytes)
+	MOVD b+0(FP), R4
+	MOVD f+8(FP), R5
+	MOVD $0, R0
+	// Load constants
+	MOVD $kBarrettConsts<>(SB), R6
+	MOVD $48, R7
+	LVX  (R7)(R6), V17           // q16 = {3329 x8} uint16
+	MOVD $lxvNaturalOrderMask<>(SB), R7
+	LVX  (R0)(R7), V18
+	MOVD $lxvPackU32ToU16Mask<>(SB), R7
+	LVX  (R0)(R7), V19
+	// Shifts for decompress5: >>4 (round bit), >>5 (main)
+	VSPLTISW $4, V8               // shift 4
+	VSPLTISW $5, V9               // shift 5
+	VSPLTISW $1, V10              // mask 1
+	MOVD $31, R6
+	MOVD R6, R12                  // 5-bit mask
+	MOVD $32, R3
+	MOVD R3, CTR
 
-decompress5_loop:
-	// Load 5 bytes and build 40-bit value in R3
-	MOVBZ 0(R4), R3
-	MOVBZ 1(R4), R6; SLD $8, R6; OR R3, R6
-	MOVBZ 2(R4), R3; SLD $16, R3; OR R6, R3
-	MOVBZ 3(R4), R6; SLD $24, R6; OR R3, R6
-	MOVBZ 4(R4), R3; SLD $32, R3; OR R6, R3   // R3 = 40-bit value
-	ADD $5, R4
-
-	// Extract and decompress 8 x 5-bit values from R3
-	// Macro: extract bits [pos+4:pos] from R3, decompress, store
-#define DECOMP5(shift) \
-	SRD $shift, R3, R6; \
-	AND R12, R6;         \
-	MULLD R9, R6;        \
-	SRD $4, R6, R7; ANDCC $1, R7, R7; \
-	SRD $5, R6;          \
-	ADD R7, R6;           \
-	MOVH R6, (R5);        \
-	ADD $2, R5
-
-	DECOMP5(0)
-	DECOMP5(5)
-	DECOMP5(10)
-	DECOMP5(15)
-	DECOMP5(20)
-	DECOMP5(25)
-	DECOMP5(30)
-	DECOMP5(35)
-#undef DECOMP5
-	ADD $-1, R10
-	CMP R10, $0
-	BNE decompress5_loop
+decompress5_vmx_loop:
+	// Load 5 bytes and extract 8 × 5-bit values into 64-bit GPRs
+	MOVBZ   0(R4), R6
+	MOVBZ   1(R4), R7; SLD $8, R7; OR R6, R7
+	MOVBZ   2(R4), R6; SLD $16, R6; OR R7, R6
+	MOVBZ   3(R4), R7; SLD $24, R7; OR R6, R7
+	MOVBZ   4(R4), R6; SLD $32, R6; OR R7, R6   // R6 = 40-bit
+	// Extract 8 × 5-bit: y0..y7
+	// y0=R6[4:0], y1=R6[9:5], ..., y7=R6[39:35]
+	// Pack into Rhi=y0<<48|y1<<32|y2<<16|y3, Rlo=y4<<48|y5<<32|y6<<16|y7
+	ANDCC   $31, R6, R7           // y0
+	SLD     $48, R7, R10
+	SRD     $5, R6, R7; ANDCC $31, R7, R7   // y1
+	SLD     $32, R7, R7; OR R7, R10, R10
+	SRD     $10, R6, R7; ANDCC $31, R7, R7  // y2
+	SLD     $16, R7, R7; OR R7, R10, R10
+	SRD     $15, R6, R7; ANDCC $31, R7, R7  // y3
+	OR      R7, R10, R10          // Rhi = y0<<48|y1<<32|y2<<16|y3
+	SRD     $20, R6, R7; ANDCC $31, R7, R7  // y4
+	SLD     $48, R7, R11
+	SRD     $25, R6, R7; ANDCC $31, R7, R7  // y5
+	SLD     $32, R7, R7; OR R7, R11, R11
+	SRD     $30, R6, R7; ANDCC $31, R7, R7  // y6
+	SLD     $16, R7, R7; OR R7, R11, R11
+	SRD     $35, R6, R7; ANDCC $31, R7, R7  // y7
+	OR      R7, R11, R11          // Rlo
+	MTVSRDD R10, R11, V0          // V0 = [y0..y7] as u16×8
+	// Multiply by q=3329
+	VMULEUH V0, V17, V3           // even × q
+	VMULOUH V0, V17, V4           // odd  × q
+	// Decompress: (y*q >> 4 & 1) + (y*q >> 5)
+	VSRW    V3, V8, V5; VAND V5, V10, V5    // round bit even
+	VSRW    V4, V8, V6; VAND V6, V10, V6    // round bit odd
+	VSRW    V3, V9, V3; VADDUWM V3, V5, V3  // main even
+	VSRW    V4, V9, V4; VADDUWM V4, V6, V4  // main odd
+	// Pack and store
+	VPERM   V3, V4, V19, V0
+	VPERM   V0, V0, V18, V0
+	STXVD2X VS32, (R0)(R5)
+	ADD     $5, R4
+	ADD     $16, R5
+	BDNZ    decompress5_vmx_loop
 	RET
 
-// ringCompressAndEncode10PPC64LE computes ByteEncode_10(Compress_10(f)).
-// compress(x, 10) = round(x * 1024 / q) mod 1024
-// 4 coefficients pack into 5 bytes: 40 bits total.
-// Uses scalar formula: c = ((x << 10) + 1664) * 1290168 >> 32 & 0x3FF
-// All registers used are R3-R12 only (volatile).
+// ringCompressAndEncode10PPC64LE computes ByteEncode_10(Compress_10(f)) using VMX.
+// compress(x, 10) = ((x<<10) + 1664) * 1290168 >> 32 & 0x3FF
+// Output: 320 bytes. 4 coefficients → 5 bytes per group (packed 10-bit).
+// Uses VMX for multiply (u32×u32→u64 via VMULEUW/VMULOUW), scalar for 5-byte pack.
 // func ringCompressAndEncode10PPC64LE(out []byte, f *ringElement)
 TEXT ·ringCompressAndEncode10PPC64LE(SB), NOSPLIT, $0-32
-	MOVD out_base+0(FP), R4  // out pointer
-	MOVD f+24(FP), R5        // f pointer
-	MOVD $1290168, R9        // magic multiplier
-	MOVD $1664, R11          // bias
-	MOVD $1023, R12          // 10-bit mask (0x3FF)
-	MOVD $64, R10            // 64 iterations: 4 coefficients → 5 bytes each
+	MOVD out_base+0(FP), R4
+	MOVD f+24(FP), R5
+	MOVD $0, R0
+	// Load constants
+	MOVD $kCmpConsts<>(SB), R6
+	MOVD $32, R7
+	LVX  (R7)(R6), V13            // V13 = magic32 {1290168 x4}
+	MOVD $48, R7
+	LVX  (R7)(R6), V14            // V14 = bias32 {1664 x4}
+	MOVD $64, R7
+	LVX  (R7)(R6), V16            // V16 = mask10 {1023 x4}
+	MOVD $96, R7
+	LVX  (R7)(R6), V15            // V15 = shift32 {32,0,32,0} uint32 = {32,32} uint64
+	MOVD $lxvNaturalOrderMask<>(SB), R7
+	LVX  (R0)(R7), V18
+	MOVD $lxvPackU32ToU16Mask<>(SB), R7
+	LVX  (R0)(R7), V19
+	// shift10 for VSLW = VSPLTISW $10 (10 is in -16..15? No, 10 ≤ 15 ✓)
+	VSPLTISW $10, V8              // shift 10 (for x<<10)
+	// extend u16 → u32: VMULEUH with V_one = {1 x8} u16
+	VSPLTISH $1, V9               // V9 = {1 x8} uint16
+	MOVD $64, R3
+	MOVD R3, CTR
 
-compress10_loop:
-	MOVHZ (R5), R3; ADD $2, R5    // load c0
-	MOVHZ (R5), R6; ADD $2, R5    // load c1
-	MOVHZ (R5), R7; ADD $2, R5    // load c2
-	MOVHZ (R5), R8; ADD $2, R5    // load c3
-
-	// compress(ci, 10): ((ci << 10) + 1664) * 1290168 >> 32 & 0x3FF
-	SLD $10, R3; ADD R11, R3; MULLD R9, R3; SRD $32, R3; AND R12, R3  // c0 → R3
-	SLD $10, R6; ADD R11, R6; MULLD R9, R6; SRD $32, R6; AND R12, R6  // c1 → R6
-	SLD $10, R7; ADD R11, R7; MULLD R9, R7; SRD $32, R7; AND R12, R7  // c2 → R7
-	SLD $10, R8; ADD R11, R8; MULLD R9, R8; SRD $32, R8; AND R12, R8  // c3 → R8
-
-	// After compress: c0=R3, c1=R6, c2=R7, c3=R8 (all 10-bit values)
-	// Pack into 40-bit value x = c0 | c1<<10 | c2<<20 | c3<<30
-	SLD $10, R6; OR R3, R6    // R6 = c0 | c1<<10
-	SLD $20, R7, R3; OR R6, R3 // R3 = c0|c1<<10|c2<<20 (but SLD has already shifted R7!)
-	// Wait: SLD $20, R7 shifts R7's value by 20. But we already have R7=c2.
-	// Then OR R6, R3 with R3=0 would fail. Let me use R3 as dest properly.
-	// Actually: SLD $20, R7, R3 means R3 = R7 << 20. Then OR R6, R3 means R3 |= R6.
-	// But R6 = c0|c1<<10 and R3 = c2<<20, so OR R6, R3 → R3 = c0|c1<<10|c2<<20. Correct.
-	SLD $30, R8, R8; OR R3, R8  // R8 = c0|c1<<10|c2<<20|c3<<30 (40-bit)
-
-	// Store 5 bytes
-	MOVB R8, 0(R4)
-	SRD $8, R8, R3; MOVB R3, 1(R4)
-	SRD $16, R8, R3; MOVB R3, 2(R4)
-	SRD $24, R8, R3; MOVB R3, 3(R4)
-	SRD $32, R8, R3; MOVB R3, 4(R4)
-	ADD $5, R4
-	ADD $-1, R10
-	CMP R10, $0
-	BNE compress10_loop
+compress10_vmx_loop:
+	LXVD2X  (R0)(R5), VS32
+	VPERM   V0, V0, V18, V0
+	// Extend 8 uint16 → 4+4 uint32 (via multiply by 1)
+	VMULEUH V0, V9, V3            // {x0,x2,x4,x6} as u32 (even positions × 1)
+	VMULOUH V0, V9, V4            // {x1,x3,x5,x7} as u32 (odd positions × 1)
+	// n = (x << 10) + 1664
+	VSLW    V3, V8, V3            // x<<10 (even)
+	VSLW    V4, V8, V4            // x<<10 (odd)
+	VADDUWM V3, V14, V3           // + 1664
+	VADDUWM V4, V14, V4
+	// c = n * 1290168 >> 32:  use VMULEUW + VMULOUW for u32×u32→u64
+	// For even coefficients V3 = {n0, n2, n4, n6}:
+	VMULEUW V3, V13, V5           // {n0*m, n4*m} as 2×u64
+	VMULOUW V3, V13, V6           // {n2*m, n6*m} as 2×u64
+	VSRD    V5, V15, V5           // >>32
+	VSRD    V6, V15, V6
+	VMRGOW  V5, V6, V3            // {c0,c2,c4,c6}: takes odd words → {V5[1],V6[1],V5[3],V6[3]}
+	VAND    V3, V16, V3           // &0x3FF
+	// For odd coefficients V4 = {n1, n3, n5, n7}:
+	VMULEUW V4, V13, V5
+	VMULOUW V4, V13, V6
+	VSRD    V5, V15, V5
+	VSRD    V6, V15, V6
+	VMRGOW  V5, V6, V4
+	VAND    V4, V16, V4
+	// Pack → natural order u16: V3=[c0,c2,c4,c6] V4=[c1,c3,c5,c7]
+	VPERM   V3, V4, V19, V5       // [c0,c1,c2,c3,c4,c5,c6,c7] as u16
+	MFVSRD  V5, R6                // c0<<48|c1<<32|c2<<16|c3
+	MFVSRLD V5, R7                // c4<<48|c5<<32|c6<<16|c7
+	// First group: c0,c1,c2,c3 → 5 bytes (40-bit)
+	SRD     $48, R6, R8; ANDCC $1023, R8, R8   // c0
+	SRD     $32, R6, R9; ANDCC $1023, R9, R9   // c1
+	SRD     $16, R6, R10; ANDCC $1023, R10, R10 // c2
+	ANDCC   $1023, R6, R11                       // c3
+	SLD     $10, R9, R9; OR R8, R9, R8
+	SLD     $20, R10, R10; OR R8, R10, R8
+	SLD     $30, R11, R11; OR R8, R11, R8        // R8 = c0|c1<<10|c2<<20|c3<<30
+	MOVB    R8, 0(R4)
+	SRD     $8, R8, R9;  MOVB R9, 1(R4)
+	SRD     $16, R8, R9; MOVB R9, 2(R4)
+	SRD     $24, R8, R9; MOVB R9, 3(R4)
+	SRD     $32, R8, R9; MOVB R9, 4(R4)
+	// Second group: c4,c5,c6,c7 → 5 bytes
+	SRD     $48, R7, R8; ANDCC $1023, R8, R8   // c4
+	SRD     $32, R7, R9; ANDCC $1023, R9, R9   // c5
+	SRD     $16, R7, R10; ANDCC $1023, R10, R10 // c6
+	ANDCC   $1023, R7, R11                       // c7
+	SLD     $10, R9, R9; OR R8, R9, R8
+	SLD     $20, R10, R10; OR R8, R10, R8
+	SLD     $30, R11, R11; OR R8, R11, R8
+	MOVB    R8, 5(R4)
+	SRD     $8, R8, R9;  MOVB R9, 6(R4)
+	SRD     $16, R8, R9; MOVB R9, 7(R4)
+	SRD     $24, R8, R9; MOVB R9, 8(R4)
+	SRD     $32, R8, R9; MOVB R9, 9(R4)
+	ADD     $16, R5
+	ADD     $10, R4
+	BDNZ    compress10_vmx_loop
 	RET
 
-// ringCompressAndEncode11PPC64LE computes ByteEncode_11(Compress_11(f)).
-// compress(x, 11) = round(x * 2048 / q) mod 2048
-// 8 coefficients pack into 11 bytes (88 bits).
-// Uses scalar formula: c = ((x << 11) + 1664) * 1290168 >> 32 & 0x7FF
-// Strategy: build two 44-bit halves (c0-c3 and c4-c7) in R3 and R6, then pack.
+// ringCompressAndEncode11PPC64LE computes ByteEncode_11(Compress_11(f)) using VMX.
+// compress(x, 11) = ((x<<11) + 1664) * 1290168 >> 32 & 0x7FF
+// Output: 352 bytes. 8 coefficients → 11 bytes per group.
+// Uses VMX for multiply, scalar for 11-byte pack.
 // func ringCompressAndEncode11PPC64LE(out []byte, f *ringElement)
 TEXT ·ringCompressAndEncode11PPC64LE(SB), NOSPLIT, $0-32
-	MOVD out_base+0(FP), R4  // out pointer
-	MOVD f+24(FP), R5        // f pointer
-	MOVD $1290168, R9        // magic multiplier
-	MOVD $1664, R11          // bias
-	MOVD $2047, R12          // 11-bit mask (0x7FF)
-	MOVD $32, R10            // 32 iterations: 8 coefficients → 11 bytes each
+	MOVD out_base+0(FP), R4
+	MOVD f+24(FP), R5
+	MOVD $0, R0
+	// Load constants
+	MOVD $kCmpConsts<>(SB), R6
+	MOVD $32, R7
+	LVX  (R7)(R6), V13            // magic32 {1290168 x4}
+	MOVD $48, R7
+	LVX  (R7)(R6), V14            // bias32 {1664 x4}
+	MOVD $80, R7
+	LVX  (R7)(R6), V16            // mask11 {2047 x4}
+	MOVD $96, R7
+	LVX  (R7)(R6), V15            // shift32 {32,32} uint64
+	MOVD $lxvNaturalOrderMask<>(SB), R7
+	LVX  (R0)(R7), V18
+	MOVD $lxvPackU32ToU16Mask<>(SB), R7
+	LVX  (R0)(R7), V19
+	VSPLTISW $11, V8              // shift 11 (for x<<11; 11 ≤ 15 ✓)
+	VSPLTISH $1, V9               // {1 x8} uint16 for extend
+	MOVD $32, R3
+	MOVD R3, CTR
 
-compress11_loop:
-	// Process first 4 coefficients → R3 (44-bit value: c0|c1<<11|c2<<22|c3<<33)
-	MOVHZ (R5), R3;  ADD $2, R5
-	SLD $11, R3; ADD R11, R3; MULLD R9, R3; SRD $32, R3; AND R12, R3   // c0
-	MOVHZ (R5), R6;  ADD $2, R5
-	SLD $11, R6; ADD R11, R6; MULLD R9, R6; SRD $32, R6; AND R12, R6   // c1
-	SLD $11, R6, R7; OR R3, R7             // R7 = c0 | c1<<11
-	MOVHZ (R5), R3;  ADD $2, R5
-	SLD $11, R3; ADD R11, R3; MULLD R9, R3; SRD $32, R3; AND R12, R3   // c2
-	SLD $22, R3, R8; OR R7, R8             // R8 = c0|c1<<11|c2<<22
-	MOVHZ (R5), R3;  ADD $2, R5
-	SLD $11, R3; ADD R11, R3; MULLD R9, R3; SRD $32, R3; AND R12, R3   // c3
-	SLD $33, R3, R6; OR R8, R6             // R6 = lo = c0|c1<<11|c2<<22|c3<<33 (44-bit)
-
-	// Process second 4 coefficients → R3 (44-bit value: c4|c5<<11|c6<<22|c7<<33)
-	MOVHZ (R5), R3;  ADD $2, R5
-	SLD $11, R3; ADD R11, R3; MULLD R9, R3; SRD $32, R3; AND R12, R3   // c4
-	MOVHZ (R5), R7;  ADD $2, R5
-	SLD $11, R7; ADD R11, R7; MULLD R9, R7; SRD $32, R7; AND R12, R7   // c5
-	SLD $11, R7, R8; OR R3, R8             // R8 = c4 | c5<<11
-	MOVHZ (R5), R3;  ADD $2, R5
-	SLD $11, R3; ADD R11, R3; MULLD R9, R3; SRD $32, R3; AND R12, R3   // c6
-	SLD $22, R3, R7; OR R8, R7             // R7 = c4|c5<<11|c6<<22
-	MOVHZ (R5), R3;  ADD $2, R5
-	SLD $11, R3; ADD R11, R3; MULLD R9, R3; SRD $32, R3; AND R12, R3   // c7
-	SLD $33, R3, R8; OR R7, R8             // R8 = hi = c4|c5<<11|c6<<22|c7<<33 (44-bit)
-
-	// Now R6=lo (bits 0-43), R8=hi (bits 44-87 of the 88-bit stream)
-	// Store 11 bytes:
-	// byte0-4: bits[39:0] of lo → 5 bytes
-	// byte5: lo[43:40] | hi[3:0]<<4  (crossover)
-	// byte6-10: hi[43:4] → 5 bytes (right-shifted by 4)
-	MOVB R6, 0(R4)
-	SRD $8, R6, R3; MOVB R3, 1(R4)
-	SRD $16, R6, R3; MOVB R3, 2(R4)
-	SRD $24, R6, R3; MOVB R3, 3(R4)
-	SRD $32, R6, R3; MOVB R3, 4(R4)
-	// byte5 = lo[43:40] | hi[3:0]<<4
-	SRD $40, R6, R3                        // lo>>40 (4 bits: c3[10:7])
-	SLD $4, R8, R7; OR R3, R7             // | hi<<4
-	MOVB R7, 5(R4)
-	// byte6-10 = hi>>4 (40 bits = hi[43:4])
-	SRD $4, R8, R3; MOVB R3, 6(R4)
-	SRD $12, R8, R3; MOVB R3, 7(R4)
-	SRD $20, R8, R3; MOVB R3, 8(R4)
-	SRD $28, R8, R3; MOVB R3, 9(R4)
-	SRD $36, R8, R3; MOVB R3, 10(R4)
-	ADD $11, R4
-	ADD $-1, R10
-	CMP R10, $0
-	BNE compress11_loop
+compress11_vmx_loop:
+	LXVD2X  (R0)(R5), VS32
+	VPERM   V0, V0, V18, V0
+	VMULEUH V0, V9, V3            // {x0,x2,x4,x6} u32
+	VMULOUH V0, V9, V4            // {x1,x3,x5,x7} u32
+	VSLW    V3, V8, V3; VADDUWM V3, V14, V3  // n_even = (x<<11)+1664
+	VSLW    V4, V8, V4; VADDUWM V4, V14, V4  // n_odd
+	VMULEUW V3, V13, V5; VMULOUW V3, V13, V6
+	VSRD    V5, V15, V5; VSRD V6, V15, V6
+	VMRGOW  V5, V6, V3; VAND V3, V16, V3     // {c0,c2,c4,c6}
+	VMULEUW V4, V13, V5; VMULOUW V4, V13, V6
+	VSRD    V5, V15, V5; VSRD V6, V15, V6
+	VMRGOW  V5, V6, V4; VAND V4, V16, V4     // {c1,c3,c5,c7}
+	VPERM   V3, V4, V19, V5                   // [c0..c7] as u16
+	MFVSRD  V5, R6                // c0<<48|c1<<32|c2<<16|c3
+	MFVSRLD V5, R7                // c4<<48|c5<<32|c6<<16|c7
+	// Extract all 8 values (11-bit each) from R6 and R7
+	SRD     $48, R6, R8;  ANDCC $2047, R8, R8    // c0
+	SRD     $32, R6, R9;  ANDCC $2047, R9, R9    // c1
+	SRD     $16, R6, R10; ANDCC $2047, R10, R10  // c2
+	ANDCC   $2047, R6, R11                         // c3
+	SRD     $48, R7, R12; ANDCC $2047, R12, R12   // c4
+	// Build 44-bit lo = c0|c1<<11|c2<<22|c3<<33
+	SLD     $11, R9, R9;  OR R8, R9, R8
+	SLD     $22, R10, R10; OR R8, R10, R8
+	SLD     $33, R11, R11; OR R8, R11, R8          // R8 = lo 44-bit
+	// c5..c7 for hi
+	SRD     $32, R7, R9;  ANDCC $2047, R9, R9    // c5
+	SRD     $16, R7, R10; ANDCC $2047, R10, R10  // c6
+	ANDCC   $2047, R7, R11                         // c7
+	// hi = c4|c5<<11|c6<<22|c7<<33
+	SLD     $11, R9, R9;  OR R12, R9, R12
+	SLD     $22, R10, R10; OR R12, R10, R12
+	SLD     $33, R11, R11; OR R12, R11, R12        // R12 = hi 44-bit
+	// Store 11 bytes: lo → bytes[0..4], crossover byte, hi >> 4 → bytes[6..10]
+	MOVB    R8, 0(R4)
+	SRD     $8, R8, R9;  MOVB R9, 1(R4)
+	SRD     $16, R8, R9; MOVB R9, 2(R4)
+	SRD     $24, R8, R9; MOVB R9, 3(R4)
+	SRD     $32, R8, R9; MOVB R9, 4(R4)
+	SRD     $40, R8, R9           // lo>>40 (4 bits)
+	SLD     $4, R12, R10; OR R9, R10, R10  // | hi<<4
+	MOVB    R10, 5(R4)
+	SRD     $4, R12, R9;  MOVB R9, 6(R4)
+	SRD     $12, R12, R9; MOVB R9, 7(R4)
+	SRD     $20, R12, R9; MOVB R9, 8(R4)
+	SRD     $28, R12, R9; MOVB R9, 9(R4)
+	SRD     $36, R12, R9; MOVB R9, 10(R4)
+	ADD     $16, R5
+	ADD     $11, R4
+	BDNZ    compress11_vmx_loop
 	RET
 
 // decodeAndDecompressU10PPC64LE decodes multiple ring elements from ByteEncode_10 format.
-// Each ring element is 320 bytes (256 coefficients × 10 bits / 8 = 320 bytes).
-// decompress(y, 10) = ((y * q) >> 10) + ((y * q >> 9) & 1)
-// Uses only R3-R12 (volatile registers).
+// Each ring element is 320 bytes. decompress(y, 10) = (y*q>>10) + ((y*q>>9)&1)
+// Uses VMX for multiply (per 8 coefficients from 10 bytes), scalar for 10-byte unpack.
 // func decodeAndDecompressU10PPC64LE(dst []ringElement, c []byte)
 TEXT ·decodeAndDecompressU10PPC64LE(SB), NOSPLIT, $0-48
-	MOVD dst_base+0(FP), R4  // dst ringElement slice base
-	MOVD dst_len+8(FP), R10  // number of ring elements
-	MOVD c_base+24(FP), R5   // input bytes pointer
-	MOVD $3329, R9            // q
-	MOVD $1023, R12           // 10-bit mask
+	MOVD dst_base+0(FP), R4
+	MOVD dst_len+8(FP), R10
+	MOVD c_base+24(FP), R5
+	MOVD $0, R0
+	// Load constants
+	MOVD $kBarrettConsts<>(SB), R6
+	MOVD $48, R7
+	LVX  (R7)(R6), V17           // q16 = {3329 x8} uint16
+	MOVD $lxvNaturalOrderMask<>(SB), R7
+	LVX  (R0)(R7), V18
+	MOVD $lxvPackU32ToU16Mask<>(SB), R7
+	LVX  (R0)(R7), V19
+	MOVD $1023, R8                // 10-bit mask
+	VSPLTISW $9, V8              // shift 9 (for round bit)
+	VSPLTISW $10, V9             // shift 10 (for main decomp)
+	VSPLTISW $1, V10             // mask 1
 
-	// For each ring element, decode 320 bytes into 256 uint16 coefficients
-	// Each 5-byte block → 4 coefficients (10 bits each)
+	CMP   R10, $0
+	BEQ   decode_u10_done
+
 decode_u10_elem:
-	MOVD $64, R11            // 64 groups of 4 coefficients
+	MOVD $32, R11
+	MOVD R11, CTR
 
 decode_u10_group:
-	// Build 40-bit x from 5 bytes in R3
-	MOVBZ 0(R5), R3
-	MOVBZ 1(R5), R6; SLD $8, R6; OR R3, R6
-	MOVBZ 2(R5), R3; SLD $16, R3; OR R6, R3
-	MOVBZ 3(R5), R6; SLD $24, R6; OR R3, R6
-	MOVBZ 4(R5), R3; SLD $32, R3; OR R6, R3  // R3 = 40-bit x
-	ADD $5, R5
+	// Load 10 bytes → 8 × 10-bit values in two 5-byte groups
+	// Group 0: bytes[0..4] → c0,c1,c2,c3 (40-bit → 4 × 10-bit)
+	MOVBZ   0(R5), R6
+	MOVBZ   1(R5), R7; SLD $8, R7; OR R6, R7
+	MOVBZ   2(R5), R6; SLD $16, R6; OR R7, R6
+	MOVBZ   3(R5), R7; SLD $24, R7; OR R6, R7
+	MOVBZ   4(R5), R6; SLD $32, R6; OR R7, R6  // R6 = 40-bit lo
+	// Extract c0..c3 (10-bit each)
+	ANDCC   $1023, R6, R7          // c0
+	SRD     $10, R6, R11; ANDCC $1023, R11, R11  // c1
+	SRD     $20, R6, R12; ANDCC $1023, R12, R12  // c2
+	SRD     $30, R6, R6; ANDCC $1023, R6, R6     // c3
+	// Pack into Rhi = c0<<48|c1<<32|c2<<16|c3
+	SLD     $48, R7, R7
+	SLD     $32, R11, R11; OR R11, R7, R7
+	SLD     $16, R12, R12; OR R12, R7, R7
+	OR      R6, R7, R10           // Rhi
+	// Group 1: bytes[5..9] → c4,c5,c6,c7
+	MOVBZ   5(R5), R6
+	MOVBZ   6(R5), R7; SLD $8, R7; OR R6, R7
+	MOVBZ   7(R5), R6; SLD $16, R6; OR R7, R6
+	MOVBZ   8(R5), R7; SLD $24, R7; OR R6, R7
+	MOVBZ   9(R5), R6; SLD $32, R6; OR R7, R6  // R6 = 40-bit hi
+	ANDCC   $1023, R6, R7
+	SRD     $10, R6, R11; ANDCC $1023, R11, R11
+	SRD     $20, R6, R12; ANDCC $1023, R12, R12
+	SRD     $30, R6, R6; ANDCC $1023, R6, R6
+	SLD     $48, R7, R7
+	SLD     $32, R11, R11; OR R11, R7, R7
+	SLD     $16, R12, R12; OR R12, R7, R7
+	OR      R6, R7, R11           // Rlo
+	MTVSRDD R10, R11, V0          // V0 = [c0..c7] as u16×8
+	// Multiply by q=3329
+	VMULEUH V0, V17, V3
+	VMULOUH V0, V17, V4
+	// Decompress: (y*q>>9 & 1) + (y*q>>10)
+	VSRW    V3, V8, V5; VAND V5, V10, V5
+	VSRW    V4, V8, V6; VAND V6, V10, V6
+	VSRW    V3, V9, V3; VADDUWM V3, V5, V3
+	VSRW    V4, V9, V4; VADDUWM V4, V6, V4
+	VPERM   V3, V4, V19, V0
+	VPERM   V0, V0, V18, V0
+	STXVD2X VS32, (R0)(R4)
+	ADD     $10, R5
+	ADD     $16, R4
+	BDNZ    decode_u10_group
+	ADD     $-1, R10
+	CMP     R10, $0
+	BNE     decode_u10_elem
 
-	// Extract 4 x 10-bit values and decompress each using a macro
-	// Macro: extract x>>(shift) & 0x3FF into R6, decompress, store to (R4)
-#define DECOMP10(shift) \
-	SRD $shift, R3, R6; AND R12, R6; \
-	MULLD R9, R6;        \
-	SRD $9, R6, R7; ANDCC $1, R7, R7; \
-	SRD $10, R6;         \
-	ADD R7, R6;           \
-	MOVH R6, (R4);        \
-	ADD $2, R4
-
-	DECOMP10(0)
-	DECOMP10(10)
-	DECOMP10(20)
-	DECOMP10(30)
-#undef DECOMP10
-
-	ADD $-1, R11
-	CMP R11, $0
-	BNE decode_u10_group
-	ADD $-1, R10
-	CMP R10, $0
-	BNE decode_u10_elem
+decode_u10_done:
 	RET
 
 // decodeAndDecompressU11PPC64LE decodes multiple ring elements from ByteEncode_11 format.
-// Each ring element is 352 bytes (256 coefficients × 11 bits / 8 = 352 bytes).
-// decompress(y, 11) = ((y * q) >> 11) + ((y * q >> 10) & 1)
-// Uses only R3-R12 (volatile registers).
-// 11 bytes → 2 registers: R6 = bytes[0..7] (64-bit LE), R7 = bytes[8..10] (24-bit).
+// Each ring element is 352 bytes. decompress(y, 11) = (y*q>>11) + ((y*q>>10)&1)
+// Uses VMX for multiply (per 8 coefficients from 11 bytes), scalar for 11-byte unpack.
 // func decodeAndDecompressU11PPC64LE(dst []ringElement, c []byte)
 TEXT ·decodeAndDecompressU11PPC64LE(SB), NOSPLIT, $0-48
-	MOVD dst_base+0(FP), R4  // dst ringElement slice base
-	MOVD dst_len+8(FP), R10  // number of ring elements
-	MOVD c_base+24(FP), R5   // input bytes pointer
-	MOVD $3329, R9            // q
-	MOVD $2047, R12           // 11-bit mask
+	MOVD dst_base+0(FP), R4
+	MOVD dst_len+8(FP), R10
+	MOVD c_base+24(FP), R5
+	MOVD $0, R0
+	// Load constants
+	MOVD $kBarrettConsts<>(SB), R6
+	MOVD $48, R7
+	LVX  (R7)(R6), V17           // q16 = {3329 x8} uint16
+	MOVD $lxvNaturalOrderMask<>(SB), R7
+	LVX  (R0)(R7), V18
+	MOVD $lxvPackU32ToU16Mask<>(SB), R7
+	LVX  (R0)(R7), V19
+	MOVD $2047, R8                // 11-bit mask
+	VSPLTISW $10, V8             // shift 10 (round bit)
+	VSPLTISW $11, V9             // shift 11 (main)
+	VSPLTISW $1, V10
+
+	CMP   R10, $0
+	BEQ   decode_u11_done
 
 decode_u11_elem:
-	MOVD $32, R11            // 32 groups of 8 coefficients
+	MOVD $32, R11
+	MOVD R11, CTR
 
 decode_u11_group:
-	// Build 64-bit x_lo from bytes[0..7] into R6
-	MOVBZ 0(R5), R6
-	MOVBZ 1(R5), R3; SLD $8, R3; OR R6, R3
-	MOVBZ 2(R5), R6; SLD $16, R6; OR R3, R6
-	MOVBZ 3(R5), R3; SLD $24, R3; OR R6, R3
-	MOVBZ 4(R5), R6; SLD $32, R6; OR R3, R6
-	MOVBZ 5(R5), R3; SLD $40, R3; OR R6, R3
-	MOVBZ 6(R5), R6; SLD $48, R6; OR R3, R6
-	MOVBZ 7(R5), R3; SLD $56, R3; OR R6, R3   // R3 = x_lo = bytes[0..7]
+	// Load 11 bytes → 8 × 11-bit values
+	// x_lo = bytes[0..7] (64-bit), x_hi = bytes[8..10] (24-bit)
+	MOVBZ   0(R5), R6
+	MOVBZ   1(R5), R7; SLD $8, R7; OR R6, R7
+	MOVBZ   2(R5), R6; SLD $16, R6; OR R7, R6
+	MOVBZ   3(R5), R7; SLD $24, R7; OR R6, R7
+	MOVBZ   4(R5), R6; SLD $32, R6; OR R7, R6
+	MOVBZ   5(R5), R7; SLD $40, R7; OR R6, R7
+	MOVBZ   6(R5), R6; SLD $48, R6; OR R7, R6
+	MOVBZ   7(R5), R7; SLD $56, R7; OR R6, R7  // R7 = x_lo
+	MOVBZ   8(R5), R6
+	MOVBZ   9(R5), R11; SLD $8, R11; OR R6, R11
+	MOVBZ   10(R5), R6; SLD $16, R6; OR R11, R6 // R6 = x_hi (24-bit)
+	// Extract 8 × 11-bit: c0..c4 from R7, c5 straddles, c6..c7 from R6
+	ANDCC   $2047, R7, R11                        // c0
+	SRD     $11, R7, R12; ANDCC $2047, R12, R12  // c1
+	// Pack c0<<48|c1<<32 into Rhi
+	SLD     $48, R11, R11
+	SLD     $32, R12, R12; OR R12, R11, R11
+	SRD     $22, R7, R12; ANDCC $2047, R12, R12  // c2
+	SLD     $16, R12, R12; OR R12, R11, R11
+	SRD     $33, R7, R12; ANDCC $2047, R12, R12  // c3
+	OR      R12, R11, R10                          // Rhi = c0<<48|c1<<32|c2<<16|c3
+	// c4 from R7[44:34]
+	SRD     $44, R7, R12; ANDCC $2047, R12, R12  // c4
+	// c5 straddles: low bit from R7[63], 10 bits from R6[9:0]
+	SRD     $55, R7, R11; SLD $10, R6, R9; OR R11, R9, R9; ANDCC $2047, R9, R9  // c5
+	// Pack c4<<48|c5<<32
+	SLD     $48, R12, R12
+	SLD     $32, R9, R9; OR R9, R12, R12
+	SRD     $2, R6, R9; ANDCC $2047, R9, R9    // c6
+	SLD     $16, R9, R9; OR R9, R12, R12
+	SRD     $13, R6, R9; ANDCC $2047, R9, R9   // c7
+	OR      R9, R12, R11                          // Rlo = c4<<48|c5<<32|c6<<16|c7
+	MTVSRDD R10, R11, V0
+	VMULEUH V0, V17, V3
+	VMULOUH V0, V17, V4
+	VSRW    V3, V8, V5; VAND V5, V10, V5
+	VSRW    V4, V8, V6; VAND V6, V10, V6
+	VSRW    V3, V9, V3; VADDUWM V3, V5, V3
+	VSRW    V4, V9, V4; VADDUWM V4, V6, V4
+	VPERM   V3, V4, V19, V0
+	VPERM   V0, V0, V18, V0
+	STXVD2X VS32, (R0)(R4)
+	ADD     $11, R5
+	ADD     $16, R4
+	BDNZ    decode_u11_group
+	ADD     $-1, R10
+	CMP     R10, $0
+	BNE     decode_u11_elem
 
-	// Build 24-bit x_hi from bytes[8..10] into R6
-	MOVBZ 8(R5), R6
-	MOVBZ 9(R5), R7; SLD $8, R7; OR R6, R7
-	MOVBZ 10(R5), R6; SLD $16, R6; OR R7, R6  // R6 = x_hi = bytes[8..10]
-	ADD $11, R5
-
-	// Now R3=x_lo (64-bit), R6=x_hi (24-bit)
-	// Extract 8 x 11-bit values:
-	// c0..c4 = x_lo >> (0,11,22,33,44) & 0x7FF
-	// c5 = (x_lo>>55) | (x_hi<<9) & 0x7FF  [x_lo has 1 bit of c5, x_hi has 10 bits]
-	// c6 = x_hi>>2 & 0x7FF
-	// c7 = x_hi>>13 & 0x7FF
-	// Decompress each immediately to minimize register pressure.
-#define DECOMP11_LO(shift) \
-	SRD $shift, R3, R8; AND R12, R8; \
-	MULLD R9, R8;         \
-	SRD $10, R8, R7; ANDCC $1, R7, R7; \
-	SRD $11, R8;          \
-	ADD R7, R8;            \
-	MOVH R8, (R4);         \
-	ADD $2, R4
-
-	DECOMP11_LO(0)
-	DECOMP11_LO(11)
-	DECOMP11_LO(22)
-	DECOMP11_LO(33)
-	DECOMP11_LO(44)
-
-	// c5: (x_lo>>55) | (x_hi<<9) & 0x7FF
-	SRD $55, R3, R8; SLD $9, R6, R7; OR R8, R7; AND R12, R7
-	MULLD R9, R7
-	SRD $10, R7, R8; ANDCC $1, R8, R8
-	SRD $11, R7
-	ADD R8, R7
-	MOVH R7, (R4); ADD $2, R4
-
-#define DECOMP11_HI(shift) \
-	SRD $shift, R6, R8; AND R12, R8; \
-	MULLD R9, R8;         \
-	SRD $10, R8, R7; ANDCC $1, R7, R7; \
-	SRD $11, R8;          \
-	ADD R7, R8;            \
-	MOVH R8, (R4);         \
-	ADD $2, R4
-
-	DECOMP11_HI(2)
-	DECOMP11_HI(13)
-#undef DECOMP11_LO
-#undef DECOMP11_HI
-
-	ADD $-1, R11
-	CMP R11, $0
-	BNE decode_u11_group
-	ADD $-1, R10
-	CMP R10, $0
-	BNE decode_u11_elem
+decode_u11_done:
 	RET
+
 
 TEXT ·samplePolyCBD2PPC64LE(SB), NOSPLIT, $0-16
 	MOVD f+0(FP), R4
