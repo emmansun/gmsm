@@ -1161,7 +1161,7 @@ intt_l1g1:
 	LXVD2X (R0)(R10), VS40
 	VPERM  V8, V8, V18, V2
 
-	MOVD $8, R9
+	MOVD $16, R9
 	MOVD R9, CTR
 	MOVD R4, R5               // lo pointer
 	MOVD R4, R6
