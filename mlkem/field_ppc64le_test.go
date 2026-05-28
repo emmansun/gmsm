@@ -658,3 +658,214 @@ func BenchmarkPPC64LERejUniform(b *testing.B) {
 		}
 	})
 }
+
+func BenchmarkPPC64LECompressAndEncode1(b *testing.B) {
+	f := randomRingElement()
+	b.Run("Generic", func(b *testing.B) {
+		var out [encodingSize1]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize1)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode1Generic(out[:], &f)
+		}
+	})
+	b.Run("PPC64LE", func(b *testing.B) {
+		var out [encodingSize1]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize1)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode1PPC64LE(out[:], &f)
+		}
+	})
+}
+
+func BenchmarkPPC64LECompressAndEncode4(b *testing.B) {
+	f := randomRingElement()
+	b.Run("Generic", func(b *testing.B) {
+		var out [encodingSize4]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode4Generic(out[:], &f)
+		}
+	})
+	b.Run("PPC64LE", func(b *testing.B) {
+		var out [encodingSize4]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode4PPC64LE(out[:], &f)
+		}
+	})
+}
+
+func BenchmarkPPC64LEDecodeAndDecompress4(b *testing.B) {
+	var buf [encodingSize4]byte
+	for i := range buf {
+		buf[i] = byte(i * 13)
+	}
+	b.Run("Generic", func(b *testing.B) {
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringDecodeAndDecompress4Generic(&buf, &f)
+		}
+	})
+	b.Run("PPC64LE", func(b *testing.B) {
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringDecodeAndDecompress4PPC64LE(&buf, &f)
+		}
+	})
+}
+
+func BenchmarkPPC64LECompressAndEncode5(b *testing.B) {
+	f := randomRingElement()
+	b.Run("Generic", func(b *testing.B) {
+		var out [encodingSize5]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize5)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode5Generic(out[:], &f)
+		}
+	})
+	b.Run("PPC64LE", func(b *testing.B) {
+		var out [encodingSize5]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize5)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode5PPC64LE(out[:], &f)
+		}
+	})
+}
+
+func BenchmarkPPC64LEDecodeAndDecompress5(b *testing.B) {
+	var buf [encodingSize5]byte
+	for i := range buf {
+		buf[i] = byte(i * 7)
+	}
+	b.Run("Generic", func(b *testing.B) {
+		b.ReportAllocs()
+		b.SetBytes(encodingSize5)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = ringDecodeAndDecompress(buf[:], 5)
+		}
+	})
+	b.Run("PPC64LE", func(b *testing.B) {
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(encodingSize5)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringDecodeAndDecompress5PPC64LE(&buf, &f)
+		}
+	})
+}
+
+func BenchmarkPPC64LECompressAndEncode10(b *testing.B) {
+	f := randomRingElement()
+	b.Run("Generic", func(b *testing.B) {
+		var out [encodingSize10]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize10)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode10Generic(out[:], &f)
+		}
+	})
+	b.Run("PPC64LE", func(b *testing.B) {
+		var out [encodingSize10]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize10)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode10PPC64LE(out[:], &f)
+		}
+	})
+}
+
+func BenchmarkPPC64LECompressAndEncode11(b *testing.B) {
+	f := randomRingElement()
+	b.Run("Generic", func(b *testing.B) {
+		var out [encodingSize11]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize11)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode11Generic(out[:], &f)
+		}
+	})
+	b.Run("PPC64LE", func(b *testing.B) {
+		var out [encodingSize11]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize11)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode11PPC64LE(out[:], &f)
+		}
+	})
+}
+
+func BenchmarkPPC64LEDecodeAndDecompressU10(b *testing.B) {
+	const k = 2
+	c := make([]byte, k*encodingSize10)
+	for i := range c {
+		c[i] = byte(i * 3)
+	}
+	b.Run("Generic", func(b *testing.B) {
+		dst := make([]ringElement, k)
+		b.ReportAllocs()
+		b.SetBytes(int64(k * encodingSize10))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU10Generic(dst, c)
+		}
+	})
+	b.Run("PPC64LE", func(b *testing.B) {
+		dst := make([]ringElement, k)
+		b.ReportAllocs()
+		b.SetBytes(int64(k * encodingSize10))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU10PPC64LE(dst, c)
+		}
+	})
+}
+
+func BenchmarkPPC64LEDecodeAndDecompressU11(b *testing.B) {
+	const k = 2
+	c := make([]byte, k*encodingSize11)
+	for i := range c {
+		c[i] = byte(i * 5)
+	}
+	b.Run("Generic", func(b *testing.B) {
+		dst := make([]ringElement, k)
+		b.ReportAllocs()
+		b.SetBytes(int64(k * encodingSize11))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU11Generic(dst, c)
+		}
+	})
+	b.Run("PPC64LE", func(b *testing.B) {
+		dst := make([]ringElement, k)
+		b.ReportAllocs()
+		b.SetBytes(int64(k * encodingSize11))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU11PPC64LE(dst, c)
+		}
+	})
+}
