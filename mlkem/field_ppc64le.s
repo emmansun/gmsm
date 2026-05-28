@@ -81,7 +81,7 @@ DATA kCmpConsts<>+0x0A(SB)/2, $20159
 DATA kCmpConsts<>+0x0C(SB)/2, $20159
 DATA kCmpConsts<>+0x0E(SB)/2, $20159
 DATA kCmpConsts<>+0x10(SB)/8, $0x0000000000000000
-DATA kCmpConsts<>+0x18(SB)/8, $0x0000000003070B0F
+DATA kCmpConsts<>+0x18(SB)/8, $0x000000000F0B0703
 DATA kCmpConsts<>+0x20(SB)/4, $1290168
 DATA kCmpConsts<>+0x24(SB)/4, $1290168
 DATA kCmpConsts<>+0x28(SB)/4, $1290168
