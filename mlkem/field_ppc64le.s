@@ -741,14 +741,14 @@ ntt_l7_loop:
 	RET
 
 // GS_BUTTERFLY_U16: Gentleman-Sande butterfly.
-// VA (lo) updated to sum, VB (hi) updated to fieldMul(zeta, diff).
-// sum = lo + hi (reduce to [0,q)); diff = lo - hi + q (reduce to [0,q)).
+// VA (lo) updated to sum = lo+hi (mod q); VB (hi) updated to zeta*(hi-lo) (mod q).
+// diff = hi - lo + q (reduce to [0,q)); then hi_new = MUL_ZETA(zeta, diff).
 // V17=prime16 (pinned), V12=packMask (pinned), V14=kBMul32, V16=kPrime32.
 // Clobbers: Vt, Vtmp1, Vtmp2, Vtmp3, Vshift.
 #define GS_BUTTERFLY_U16(VA, VB, VZ, Vt, Vtmp1, Vtmp2, Vtmp3, Vshift) \
 	VADDUHM  VA, VB, Vt;             \
 	FIELD_REDUCE_ONCE_U16(Vt, Vtmp1, Vtmp2); \
-	VSUBUHM  VA, VB, VB;             \
+	VSUBUHM  VB, VA, VB;             \
 	VADDUHM  VB, V17, VB;            \
 	FIELD_REDUCE_ONCE_U16(VB, Vtmp1, Vtmp2); \
 	MUL_ZETA_U16(VB, VZ, VB, Vtmp1, Vtmp2, Vtmp3, Vshift); \
