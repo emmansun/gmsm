@@ -1478,6 +1478,7 @@ compress1_b7:
 	MOVB R3, (R4)            // store byte
 	ADD $1, R4
 	ADD $-1, R10
+	CMP R10, $0
 	BNE compress1_outer
 	RET
 
@@ -1515,6 +1516,7 @@ compress4_loop:
 	MOVB R7, (R4)               // store byte
 	ADD $1, R4
 	ADD $-1, R10
+	CMP R10, $0
 	BNE compress4_loop
 	RET
 
@@ -1552,6 +1554,7 @@ decompress4_loop:
 	MOVH R6, (R5)
 	ADD $2, R5
 	ADD $-1, R10
+	CMP R10, $0
 	BNE decompress4_loop
 	RET
 
@@ -1628,6 +1631,7 @@ compress5_loop:
 	SRD $32, R3, R6; MOVB R6, 4(R4)
 	ADD $5, R4
 	ADD $-1, R10
+	CMP R10, $0
 	BNE compress5_loop
 	RET
 
@@ -1674,6 +1678,7 @@ decompress5_loop:
 	DECOMP5(35)
 #undef DECOMP5
 	ADD $-1, R10
+	CMP R10, $0
 	BNE decompress5_loop
 	RET
 
@@ -1721,6 +1726,7 @@ compress10_loop:
 	SRD $32, R8, R3; MOVB R3, 4(R4)
 	ADD $5, R4
 	ADD $-1, R10
+	CMP R10, $0
 	BNE compress10_loop
 	RET
 
@@ -1787,6 +1793,7 @@ compress11_loop:
 	SRD $36, R8, R3; MOVB R3, 10(R4)
 	ADD $11, R4
 	ADD $-1, R10
+	CMP R10, $0
 	BNE compress11_loop
 	RET
 
@@ -1834,8 +1841,10 @@ decode_u10_group:
 #undef DECOMP10
 
 	ADD $-1, R11
+	CMP R11, $0
 	BNE decode_u10_group
 	ADD $-1, R10
+	CMP R10, $0
 	BNE decode_u10_elem
 	RET
 
@@ -1917,8 +1926,10 @@ decode_u11_group:
 #undef DECOMP11_HI
 
 	ADD $-1, R11
+	CMP R11, $0
 	BNE decode_u11_group
 	ADD $-1, R10
+	CMP R10, $0
 	BNE decode_u11_elem
 	RET
 
