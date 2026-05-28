@@ -2245,20 +2245,20 @@ cbd2_loop:
 	RET
 
 // samplePolyCBD3PPC64LE implements the Centered Binomial Distribution sampling with η=3
-// using scalar integer instructions. Each call processes 192 input bytes and writes
-// 256 int16 coefficients to f, with each coefficient in [0, q).
+// using hardware POPCNTW and branchless arithmetic. Each call processes 192 input bytes
+// and writes 256 int16 coefficients to f, with each coefficient in [0, q).
 //
 // Algorithm: for each 3-byte (24-bit) group, extract four 6-bit pairs (a[2:0], b[2:0]).
 //   coeff[j] = popcount(a[j]) - popcount(b[j])  for j in 0..3
-// Negative coefficients have q=3329 added.
+// Negative coefficients have q=3329 added using branchless SRAW+AND.
 //
-// A VMX path is not implemented for η=3 because the 3-byte→4-coefficient grouping
-// (non-power-of-2 bit packing) makes SIMD bit extraction complex enough that the
-// scalar approach is competitive on modern out-of-order cores.
+// Two a-fields (or two b-fields) are packed into a 64-bit register (one per 32-bit word)
+// so POPCNTW computes both popcounts in a single instruction.
 //
 // Register map:
 //   R4=f  R5=buf  R6=byte_offset  R7=packed_24bit
-//   R8..R13=scratch  R14=q=3329  CTR=64
+//   R8,R9=pop(a0,b0)  R10,R11=pop(a1,b1)  R12=scratch  R13=scratch
+//   R14=q=3329  R15,R16=scratch  CTR=64
 //
 // func samplePolyCBD3PPC64LE(f *ringElement, buf *[192]byte)
 TEXT ·samplePolyCBD3PPC64LE(SB), NOSPLIT, $0-16
@@ -2270,55 +2270,61 @@ TEXT ·samplePolyCBD3PPC64LE(SB), NOSPLIT, $0-16
 	MOVD $0,  R6
 
 cbd3_loop:
-	// Load 3 bytes
+	// Load 3 bytes into R7 as packed 24-bit value
 	ADD   R6, R5, R13
 	MOVBZ 0(R13), R7
 	MOVBZ 1(R13), R8;  SLD $8,  R8, R8;  OR R7, R8, R7
 	MOVBZ 2(R13), R9;  SLD $16, R9, R9;  OR R7, R9, R7
 
-	// j=0
-	ANDCC  $7, R7, R8
-	RLDICL $61, R7, $61, R9
-	ANDCC $1, R8, R10;  RLDICL $63, R8, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R10
-	RLDICL $62, R8, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R8
-	ANDCC $1, R9, R10;  RLDICL $63, R9, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R10
-	RLDICL $62, R9, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R9
-	SUB R9, R8, R8;  CMP R8, $0;  BGE cbd3_s0;  ADD R14, R8, R8
-cbd3_s0:
-	MOVH R8, 0(R4)
+	// Extract 8 3-bit fields (a0,b0..a3,b3) from R7
+	// a[j] = bits [6j+2 : 6j], b[j] = bits [6j+5 : 6j+3]
+	// Pack a0 and a1 into R8 (low32=a0, high32=a1) and POPCNTW
+	// Pack b0 and b1 into R9 (low32=b0, high32=b1) and POPCNTW
+	ANDCC $7, R7, R15          // R15 = a0 = R7[2:0]
+	SRD   $3, R7, R16; ANDCC $7, R16, R16  // R16 = b0
+	SRD   $6, R7, R12; ANDCC $7, R12, R12  // R12 = a1
+	SRD   $9, R7, R13; ANDCC $7, R13, R13  // R13 = b1
 
-	// j=1
-	RLDICL $58, R7, $61, R8
-	RLDICL $55, R7, $61, R9
-	ANDCC $1, R8, R10;  RLDICL $63, R8, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R10
-	RLDICL $62, R8, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R8
-	ANDCC $1, R9, R10;  RLDICL $63, R9, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R10
-	RLDICL $62, R9, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R9
-	SUB R9, R8, R8;  CMP R8, $0;  BGE cbd3_s1;  ADD R14, R8, R8
-cbd3_s1:
-	MOVH R8, 2(R4)
+	SLD $32, R12, R12;  OR R15, R12, R8   // R8  = a0 | (a1<<32)
+	SLD $32, R13, R13;  OR R16, R13, R9   // R9  = b0 | (b1<<32)
+	POPCNTW R8, R8                         // R8[31:0]=pop(a0), R8[63:32]=pop(a1)
+	POPCNTW R9, R9                         // R9[31:0]=pop(b0), R9[63:32]=pop(b1)
 
-	// j=2
-	RLDICL $52, R7, $61, R8
-	RLDICL $49, R7, $61, R9
-	ANDCC $1, R8, R10;  RLDICL $63, R8, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R10
-	RLDICL $62, R8, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R8
-	ANDCC $1, R9, R10;  RLDICL $63, R9, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R10
-	RLDICL $62, R9, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R9
-	SUB R9, R8, R8;  CMP R8, $0;  BGE cbd3_s2;  ADD R14, R8, R8
-cbd3_s2:
-	MOVH R8, 4(R4)
+	// coeff[0] = pop(a0) - pop(b0), branchless add q if negative
+	MOVWZ R8, R10;  MOVWZ R9, R11   // zero-extend low 32 bits
+	SUB   R11, R10, R10              // R10 = pop(a0) - pop(b0)
+	SRAW  $31, R10, R12              // R12 = 0xFFFFFFFF if neg, else 0
+	AND   R14, R12, R12;  ADD R10, R12, R10
+	MOVH  R10, 0(R4)
 
-	// j=3
-	RLDICL $46, R7, $61, R8
-	RLDICL $43, R7, $61, R9
-	ANDCC $1, R8, R10;  RLDICL $63, R8, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R10
-	RLDICL $62, R8, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R8
-	ANDCC $1, R9, R10;  RLDICL $63, R9, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R10
-	RLDICL $62, R9, $63, R11;  ANDCC $1, R11, R11;  ADD R10, R11, R9
-	SUB R9, R8, R8;  CMP R8, $0;  BGE cbd3_s3;  ADD R14, R8, R8
-cbd3_s3:
-	MOVH R8, 6(R4)
+	// coeff[1] = pop(a1) - pop(b1)
+	SRD  $32, R8,  R10;  SRD $32, R9, R11
+	SUB  R11, R10, R10
+	SRAW $31, R10, R12;  AND R14, R12, R12;  ADD R10, R12, R10
+	MOVH R10, 2(R4)
+
+	// Extract a2,b2,a3,b3 and compute coeff[2] and coeff[3]
+	SRD   $12, R7, R15; ANDCC $7, R15, R15  // R15 = a2
+	SRD   $15, R7, R16; ANDCC $7, R16, R16  // R16 = b2
+	SRD   $18, R7, R12; ANDCC $7, R12, R12  // R12 = a3
+	SRD   $21, R7, R13; ANDCC $7, R13, R13  // R13 = b3
+
+	SLD $32, R12, R12;  OR R15, R12, R8
+	SLD $32, R13, R13;  OR R16, R13, R9
+	POPCNTW R8, R8
+	POPCNTW R9, R9
+
+	// coeff[2]
+	MOVWZ R8, R10;  MOVWZ R9, R11
+	SUB   R11, R10, R10
+	SRAW  $31, R10, R12;  AND R14, R12, R12;  ADD R10, R12, R10
+	MOVH  R10, 4(R4)
+
+	// coeff[3]
+	SRD  $32, R8,  R10;  SRD $32, R9, R11
+	SUB  R11, R10, R10
+	SRAW $31, R10, R12;  AND R14, R12, R12;  ADD R10, R12, R10
+	MOVH R10, 6(R4)
 
 	ADD $3, R6
 	ADD $8, R4
