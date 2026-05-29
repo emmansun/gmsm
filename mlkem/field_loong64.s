@@ -2002,7 +2002,82 @@ cbd2_outer:
 	RET
 
 // samplePolyCBD3LASX samples a polynomial from CBD with eta=3.
-// 8 iterations x 24 input bytes -> 32 int16 coefs per iter.
+//
+// Algorithm overview (8 iterations × 24 input bytes → 32 int16 coefficients per iteration):
+//
+// For each 3-byte group in buf, we extract two 3-bit samples a and b (each 0..3),
+// and produce coefficient c = popcount(a) - popcount(b) ∈ [-3, 3].
+// The canonical form stores c mod q (i.e., negative values become c + q = 3329 + c).
+//
+// Bit-parallel popcount + vectorized extraction strategy:
+//
+//  1. LOAD: Two overlapping 16-byte loads (at +0 and +12) cover 24 bytes.
+//     XVPERMIQ(2, 1, 0x02) assembles a 256-bit register from the two 128-bit halves:
+//     X2[127:0] = X0[127:0] (bytes 0..11), X2[255:128] = X1[127:0] (bytes 12..23).
+//
+//  2. LANE SHUFFLE (cbd3Shuf XVSHUF_B): Rearranges bytes in each 128-bit lane so that
+//     each 32-bit word contains one 3-byte (24-bit) group in the low 24 bits:
+//       word[0] = {0, b2, b1, b0}    (group 0, bytes 0-2)
+//       word[1] = {0, b5, b4, b3}    (group 1, bytes 3-5)
+//       word[2] = {0, b8, b7, b6}    (group 2, bytes 6-8)
+//       word[3] = {0, b11, b10, b9}  (group 3, bytes 9-11)
+//     The zero byte is filled from a "00" register so XVSHUF_B produces 0x00.
+//     Result is in X3 (LASX 256-bit, 4 groups per 128-bit lane = 8 groups total).
+//
+//  3. BIT-PARALLEL POPCOUNT using mask 0x249249:
+//     The mask 0x249249 = 0b_001_001_001_001_001_001_001_001 selects bit 0 from each
+//     3-bit field. With X3 (24-bit groups) shifted by 0, 1, 2, bits 0 of each 3-bit
+//     position are aligned, then ANDed and summed:
+//       s_a[i] = (x & M) + ((x>>1) & M) + ((x>>2) & M)
+//     where M = 0x249249. This gives sum_a = popcount(bits 0,3,6,9,12,15,18,21 of x).
+//
+//     But η=3 means each group has 3 'a' bits and 3 'b' bits interleaved:
+//       group layout: a0,a1,a2, b0,b1,b2 (consecutive in 6 bits × 4 groups)
+//     So 'a' occupies bits {0,1,2} and 'b' occupies bits {3,4,5} within each 6-bit slot.
+//     After the popcount trick with M=0x249249, the sum_a accumulates at bit positions
+//     {0, 6, 12, 18} within each uint32 lane (one 3-bit count per 6-bit input group).
+//     Then sum_b = sum_a >> 3 (b bits are 3 positions offset from a bits).
+//
+//  4. COMPUTE c + 3 = (sum_a + 0x6DB6DB) - (sum_a >> 3):
+//     0x6DB6DB = 3 × 0x249249 is the bias constant so that:
+//       result = sum_a + 3×M - sum_b = (sum_a - sum_b) + 3 = c + 3 ∈ [0, 6]
+//     This avoids signed arithmetic until the final negation step.
+//
+//  5. EXTRACT 4 per-lane deltas from bit positions {0, 6, 12, 18}:
+//       d0 = result & 7
+//       d1 = (result >> 6) & 7
+//       d2 = (result >> 12) & 7
+//       d3 = (result >> 18) & 7
+//
+//  6. PACK pairs into uint16 slots:
+//       lo_word = d0 | (d1 << 16)    — two int16 values {d1+3, d0+3} wait... bias
+//       hi_word = d2 | (d3 << 16)
+//     Note: values still have the +3 bias from step 4.
+//
+//  7. SUBTRACT BIAS: XVSUBH with {3,3,...} removes the bias:
+//       lo_word -= 3 per uint16 → each uint16 slot = c ∈ [-3, 3] (as uint16, negatives wrap)
+//
+//  8. ADD q FOR NEGATIVES (conditional reduction):
+//       sign_mask = c >> 15 (arithmetic, fills with 0xFFFF if negative, else 0x0000)
+//       add = sign_mask & q  (q = 3329 = 0x0D01, broadcast constant in X26)
+//       c_canonical = c + add ∈ [0, q) when c < 0, unchanged when c ≥ 0
+//
+//  9. INTERLEAVE + PERMUTE for sequential output:
+//     XVILVLW/XVILVHW interleaves lo_word and hi_word within each 128-bit lane.
+//     XVPERMIQ(0x02) and XVPERMIQ(0x31) assemble the two output 256-bit registers
+//     from the correct lane halves for sequential memory storage.
+//
+// 10. STORE: Two 256-bit stores per iteration (64 bytes = 32 int16 coefficients).
+//     Next iteration: advance input by 24, output by 64.
+//
+// Register map:
+//   R4 = buf pointer  R5 = dst pointer  R6 = loop counter (8)
+//   X20 = cbd3Shuf mask  X21 = mask249  X22 = mask6DB
+//   X23 = mask7  X24 = mask70000 (unused here)  X25 = const{3 x16}  X26 = q{3329 x16}
+//   X0/X1 = loaded 128-bit chunks  X2 = assembled 256-bit input
+//   X3 = shuffled 32-bit groups  X4 = sum_a (bit-parallel)
+//   X5/X7 = lo/hi packed pairs  X9 = sign mask  X10/X11 = interleaved  X14/X15 = final
+//
 // func samplePolyCBD3LASX(dst *ringElement, buf *[192]byte)
 TEXT ·samplePolyCBD3LASX(SB), NOSPLIT, $0-16
 	MOVV dst+0(FP), R5
