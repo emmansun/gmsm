@@ -62,6 +62,7 @@ var X86 struct {
 	HasCX16             bool // Compare and exchange 16 Bytes
 	HasERMS             bool // Enhanced REP for MOVSB and STOSB
 	HasFMA              bool // Fused-multiply-add instructions
+	HasGFNI             bool // Galois field New Instructions (independent of AVX-512, works with VEX encoding)
 	HasOSXSAVE          bool // OS supports XSAVE/XRESTOR for saving/restoring XMM registers.
 	HasPCLMULQDQ        bool // PCLMULQDQ instruction - most often used for AES-GCM
 	HasPOPCNT           bool // Hamming weight instruction POPCNT.
