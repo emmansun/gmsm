@@ -247,5 +247,4 @@ go test -bench=BenchmarkLoong64 -benchtime=3s ./mldsa/
 
 - [NIST FIPS 204](https://csrc.nist.gov/pubs/fips/204/final) — ML-DSA specification
 - [CRYSTALS-Dilithium reference implementation](https://github.com/pq-crystals/dilithium) — original algorithm and AVX2 assembly reference
-- [Go standard library `crypto/mldsa`](https://pkg.go.dev/crypto/mldsa) — upstream generic implementation (Go ≥ 1.24)
 - [LASX Instruction Set Manual](https://loongson.github.io/LoongArch-Documentation/LoongArch-Vol1-EN.html) — LoongArch ISA reference
