@@ -32,6 +32,7 @@ GLOBL gcmPoly<>(SB), (NOPTR+RODATA), $16
 GLOBL gbGcmPoly<>(SB), (NOPTR+RODATA), $16
 
 #include "aesni_macros_amd64.s"
+#include "gfni_macros_amd64.s"
 
 #define mul2GBInline        \
 	PSHUFB BSWAP, TW;       \
@@ -490,6 +491,8 @@ avx2XtsSm4Enc:
 	VMOVDQU (0*16)(BX), TW
 	VBROADCASTI128 ·nibble_mask(SB), NIBBLE_MASK
 	VBROADCASTI128 ·bswap_mask(SB), DWBSWAP
+	CMPB ·useGFNI(SB), $1
+	JE gfniXtsSm4Enc16Blocks
 
 avx2XtsSm4Enc16Blocks:
 	CMPQ DI, $256
@@ -505,7 +508,6 @@ avx2XtsSm4Enc16Blocks:
 	// Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
 	TRANSPOSE_MATRIX(Y4, Y5, Y6, Y7, Y8, Y9)
-
 	AVX2_SM4_16BLOCKS(AX, Y8, Y9, X8, X9, Y11, Y12, Y0, Y1, Y2, Y3, Y4, Y5, Y6, Y7)
 
 	// Transpose matrix 4 x 4 32bits word
@@ -531,9 +533,67 @@ avx2XtsSm4EncOctets:
 	avx2LE2BE8Blocks
 	// Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
-
 	AVX2_SM4_8BLOCKS(AX, Y8, Y9, X8, X9, Y7, Y0, Y1, Y2, Y3)
 
+	// Transpose matrix 4 x 4 32bits word
+	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
+	avx2ByteSwap8Blocks
+	avx2Store8Blocks
+
+	LEAQ 128(DX), DX
+	LEAQ 128(CX), CX
+	JMP avx2XtsSm4EncNibbles
+
+// GFNI-specific 16-block and 8-block paths (Y12/Y14 loaded per-iteration after avxPrepare*Tweaks)
+gfniXtsSm4Enc16Blocks:
+	CMPQ DI, $256
+	JB gfniXtsSm4EncOctets
+	SUBQ $256, DI
+
+	// prepare tweaks
+	avxPrepare16Tweaks
+	// load 16 blocks for encryption
+	avx2Load16Blocks
+	// Apply Byte Flip Mask: LE -> BE
+	avx2LE2BE16Blocks
+	// Transpose matrix 4 x 4 32bits word
+	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
+	TRANSPOSE_MATRIX(Y4, Y5, Y6, Y7, Y8, Y9)
+	// Load GFNI matrices after avxPrepare16Tweaks (which uses X12 and reads X14=POLY)
+	VMOVDQU ·gfni_pre_matrix(SB), Y12
+	VMOVDQU ·gfni_post_matrix(SB), Y14
+	GFNI_SM4_16BLOCKS(AX, Y8, Y9, Y11, Y12, Y14, Y0, Y1, Y2, Y3, Y4, Y5, Y6, Y7)
+	// Restore POLY (X14) overwritten by loading Y14=GFNI_POST
+	VMOVDQU gcmPoly<>(SB), X14
+	// Transpose matrix 4 x 4 32bits word
+	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
+	TRANSPOSE_MATRIX(Y4, Y5, Y6, Y7, Y8, Y9)
+	avx2ByteSwap16Blocks
+	avx2Store16Blocks
+
+	LEAQ 256(DX), DX
+	LEAQ 256(CX), CX
+	JMP gfniXtsSm4Enc16Blocks
+
+gfniXtsSm4EncOctets:
+	CMPQ DI, $128
+	JB avx2XtsSm4EncNibbles
+	SUBQ $128, DI
+
+	// prepare tweaks
+	avxPrepare8Tweaks
+	// load 8 blocks for encryption
+	avx2Load8Blocks
+	// Apply Byte Flip Mask: LE -> BE
+	avx2LE2BE8Blocks
+	// Transpose matrix 4 x 4 32bits word
+	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
+	// Load GFNI matrices after avxPrepare8Tweaks (which uses X12 and reads X14=POLY)
+	VMOVDQU ·gfni_pre_matrix(SB), Y12
+	VMOVDQU ·gfni_post_matrix(SB), Y14
+	GFNI_SM4_8BLOCKS(AX, Y8, Y9, Y7, Y12, Y14, Y0, Y1, Y2, Y3)
+	// Restore POLY (X14) overwritten by loading Y14=GFNI_POST
+	VMOVDQU gcmPoly<>(SB), X14
 	// Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
 	avx2ByteSwap8Blocks
@@ -733,6 +793,8 @@ avx2XtsSm4Enc:
 	VMOVDQU (0*16)(BX), TW
 	VBROADCASTI128 ·nibble_mask(SB), NIBBLE_MASK
 	VBROADCASTI128 ·bswap_mask(SB), DWBSWAP
+	CMPB ·useGFNI(SB), $1
+	JE gfniXtsSm4Enc16Blocks
 
 avx2XtsSm4Enc16Blocks:
 	CMPQ DI, $256
@@ -748,7 +810,6 @@ avx2XtsSm4Enc16Blocks:
 	// Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
 	TRANSPOSE_MATRIX(Y4, Y5, Y6, Y7, Y8, Y9)
-
 	AVX2_SM4_16BLOCKS(AX, Y8, Y9, X8, X9, Y11, Y12, Y0, Y1, Y2, Y3, Y4, Y5, Y6, Y7)
 
 	// Transpose matrix 4 x 4 32bits word
@@ -774,9 +835,67 @@ avx2XtsSm4EncOctets:
 	avx2LE2BE8Blocks
 	// Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
-
 	AVX2_SM4_8BLOCKS(AX, Y8, Y9, X8, X9, Y7, Y0, Y1, Y2, Y3)
 
+	// Transpose matrix 4 x 4 32bits word
+	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
+	avx2ByteSwap8Blocks
+	avx2Store8Blocks
+
+	LEAQ 128(DX), DX
+	LEAQ 128(CX), CX
+	JMP avx2XtsSm4EncNibbles
+
+// GFNI-specific 16-block and 8-block paths (Y12/Y14 loaded per-iteration after avxPrepareGB*Tweaks)
+gfniXtsSm4Enc16Blocks:
+	CMPQ DI, $256
+	JB gfniXtsSm4EncOctets
+	SUBQ $256, DI
+
+	// prepare tweaks
+	avxPrepareGB16Tweaks
+	// load 16 blocks for encryption
+	avx2Load16Blocks
+	// Apply Byte Flip Mask: LE -> BE
+	avx2LE2BE16Blocks
+	// Transpose matrix 4 x 4 32bits word
+	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
+	TRANSPOSE_MATRIX(Y4, Y5, Y6, Y7, Y8, Y9)
+	// Load GFNI matrices after avxPrepareGB16Tweaks (which uses X12 and reads X14=POLY)
+	VMOVDQU ·gfni_pre_matrix(SB), Y12
+	VMOVDQU ·gfni_post_matrix(SB), Y14
+	GFNI_SM4_16BLOCKS(AX, Y8, Y9, Y11, Y12, Y14, Y0, Y1, Y2, Y3, Y4, Y5, Y6, Y7)
+	// Restore POLY (X14) overwritten by loading Y14=GFNI_POST
+	VMOVDQU gbGcmPoly<>(SB), X14
+	// Transpose matrix 4 x 4 32bits word
+	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
+	TRANSPOSE_MATRIX(Y4, Y5, Y6, Y7, Y8, Y9)
+	avx2ByteSwap16Blocks
+	avx2Store16Blocks
+
+	LEAQ 256(DX), DX
+	LEAQ 256(CX), CX
+	JMP gfniXtsSm4Enc16Blocks
+
+gfniXtsSm4EncOctets:
+	CMPQ DI, $128
+	JB avx2XtsSm4EncNibbles
+	SUBQ $128, DI
+
+	// prepare tweaks
+	avxPrepareGB8Tweaks
+	// load 8 blocks for encryption
+	avx2Load8Blocks
+	// Apply Byte Flip Mask: LE -> BE
+	avx2LE2BE8Blocks
+	// Transpose matrix 4 x 4 32bits word
+	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
+	// Load GFNI matrices after avxPrepareGB8Tweaks (which uses X12 and reads X14=POLY)
+	VMOVDQU ·gfni_pre_matrix(SB), Y12
+	VMOVDQU ·gfni_post_matrix(SB), Y14
+	GFNI_SM4_8BLOCKS(AX, Y8, Y9, Y7, Y12, Y14, Y0, Y1, Y2, Y3)
+	// Restore POLY (X14) overwritten by loading Y14=GFNI_POST
+	VMOVDQU gbGcmPoly<>(SB), X14
 	// Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
 	avx2ByteSwap8Blocks
@@ -999,6 +1118,8 @@ avx2XtsSm4Dec:
 	VMOVDQU (0*16)(BX), TW
 	VBROADCASTI128 ·nibble_mask(SB), NIBBLE_MASK
 	VBROADCASTI128 ·bswap_mask(SB), DWBSWAP
+	CMPB ·useGFNI(SB), $1
+	JE gfniXtsSm4Dec16Blocks
 
 avx2XtsSm4Dec16Blocks:
 	CMPQ DI, $256
@@ -1014,7 +1135,6 @@ avx2XtsSm4Dec16Blocks:
 	// Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
 	TRANSPOSE_MATRIX(Y4, Y5, Y6, Y7, Y8, Y9)
-
 	AVX2_SM4_16BLOCKS(AX, Y8, Y9, X8, X9, Y11, Y12, Y0, Y1, Y2, Y3, Y4, Y5, Y6, Y7)
 
 	// Transpose matrix 4 x 4 32bits word
@@ -1041,9 +1161,67 @@ avx2XtsSm4DecOctets:
 	avx2LE2BE8Blocks
 	// Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
-
 	AVX2_SM4_8BLOCKS(AX, Y8, Y9, X8, X9, Y7, Y0, Y1, Y2, Y3)
 
+	// Transpose matrix 4 x 4 32bits word
+	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
+	avx2ByteSwap8Blocks
+	avx2Store8Blocks
+
+	LEAQ 128(DX), DX
+	LEAQ 128(CX), CX
+	JMP avx2XtsSm4DecNibbles
+
+// GFNI-specific 16-block and 8-block paths (Y12/Y14 loaded per-iteration after avxPrepare*Tweaks)
+gfniXtsSm4Dec16Blocks:
+	CMPQ DI, $256
+	JB gfniXtsSm4DecOctets
+	SUBQ $256, DI
+
+	// prepare tweaks
+	avxPrepare16Tweaks
+	// load 16 blocks for decryption
+	avx2Load16Blocks
+	// Apply Byte Flip Mask: LE -> BE
+	avx2LE2BE16Blocks
+	// Transpose matrix 4 x 4 32bits word
+	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
+	TRANSPOSE_MATRIX(Y4, Y5, Y6, Y7, Y8, Y9)
+	// Load GFNI matrices after avxPrepare16Tweaks (which uses X12 and reads X14=POLY)
+	VMOVDQU ·gfni_pre_matrix(SB), Y12
+	VMOVDQU ·gfni_post_matrix(SB), Y14
+	GFNI_SM4_16BLOCKS(AX, Y8, Y9, Y11, Y12, Y14, Y0, Y1, Y2, Y3, Y4, Y5, Y6, Y7)
+	// Restore POLY (X14) overwritten by loading Y14=GFNI_POST
+	VMOVDQU gcmPoly<>(SB), X14
+	// Transpose matrix 4 x 4 32bits word
+	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
+	TRANSPOSE_MATRIX(Y4, Y5, Y6, Y7, Y8, Y9)
+	avx2ByteSwap16Blocks
+	avx2Store16Blocks
+
+	LEAQ 256(DX), DX
+	LEAQ 256(CX), CX
+	JMP gfniXtsSm4Dec16Blocks
+
+gfniXtsSm4DecOctets:
+	CMPQ DI, $128
+	JB avx2XtsSm4DecNibbles
+	SUBQ $128, DI
+
+	// prepare tweaks
+	avxPrepare8Tweaks
+	// load 8 blocks for decryption
+	avx2Load8Blocks
+	// Apply Byte Flip Mask: LE -> BE
+	avx2LE2BE8Blocks
+	// Transpose matrix 4 x 4 32bits word
+	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
+	// Load GFNI matrices after avxPrepare8Tweaks (which uses X12 and reads X14=POLY)
+	VMOVDQU ·gfni_pre_matrix(SB), Y12
+	VMOVDQU ·gfni_post_matrix(SB), Y14
+	GFNI_SM4_8BLOCKS(AX, Y8, Y9, Y7, Y12, Y14, Y0, Y1, Y2, Y3)
+	// Restore POLY (X14) overwritten by loading Y14=GFNI_POST
+	VMOVDQU gcmPoly<>(SB), X14
 	// Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
 	avx2ByteSwap8Blocks
@@ -1292,6 +1470,8 @@ avx2XtsSm4Dec:
 	VMOVDQU (0*16)(BX), TW
 	VBROADCASTI128 ·nibble_mask(SB), NIBBLE_MASK
 	VBROADCASTI128 ·bswap_mask(SB), DWBSWAP
+	CMPB ·useGFNI(SB), $1
+	JE gfniXtsSm4Dec16Blocks
 
 avx2XtsSm4Dec16Blocks:
 	CMPQ DI, $256
@@ -1307,7 +1487,6 @@ avx2XtsSm4Dec16Blocks:
 	// Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
 	TRANSPOSE_MATRIX(Y4, Y5, Y6, Y7, Y8, Y9)
-
 	AVX2_SM4_16BLOCKS(AX, Y8, Y9, X8, X9, Y11, Y12, Y0, Y1, Y2, Y3, Y4, Y5, Y6, Y7)
 
 	// Transpose matrix 4 x 4 32bits word
@@ -1334,9 +1513,67 @@ avx2XtsSm4DecOctets:
 	avx2LE2BE8Blocks
 	// Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
-
 	AVX2_SM4_8BLOCKS(AX, Y8, Y9, X8, X9, Y7, Y0, Y1, Y2, Y3)
 
+	// Transpose matrix 4 x 4 32bits word
+	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
+	avx2ByteSwap8Blocks
+	avx2Store8Blocks
+
+	LEAQ 128(DX), DX
+	LEAQ 128(CX), CX
+	JMP avx2XtsSm4DecNibbles
+
+// GFNI-specific 16-block and 8-block paths (Y12/Y14 loaded per-iteration after avxPrepareGB*Tweaks)
+gfniXtsSm4Dec16Blocks:
+	CMPQ DI, $256
+	JB gfniXtsSm4DecOctets
+	SUBQ $256, DI
+
+	// prepare tweaks
+	avxPrepareGB16Tweaks
+	// load 16 blocks for decryption
+	avx2Load16Blocks
+	// Apply Byte Flip Mask: LE -> BE
+	avx2LE2BE16Blocks
+	// Transpose matrix 4 x 4 32bits word
+	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
+	TRANSPOSE_MATRIX(Y4, Y5, Y6, Y7, Y8, Y9)
+	// Load GFNI matrices after avxPrepareGB16Tweaks (which uses X12 and reads X14=POLY)
+	VMOVDQU ·gfni_pre_matrix(SB), Y12
+	VMOVDQU ·gfni_post_matrix(SB), Y14
+	GFNI_SM4_16BLOCKS(AX, Y8, Y9, Y11, Y12, Y14, Y0, Y1, Y2, Y3, Y4, Y5, Y6, Y7)
+	// Restore POLY (X14) overwritten by loading Y14=GFNI_POST
+	VMOVDQU gbGcmPoly<>(SB), X14
+	// Transpose matrix 4 x 4 32bits word
+	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
+	TRANSPOSE_MATRIX(Y4, Y5, Y6, Y7, Y8, Y9)
+	avx2ByteSwap16Blocks
+	avx2Store16Blocks
+
+	LEAQ 256(DX), DX
+	LEAQ 256(CX), CX
+	JMP gfniXtsSm4Dec16Blocks
+
+gfniXtsSm4DecOctets:
+	CMPQ DI, $128
+	JB avx2XtsSm4DecNibbles
+	SUBQ $128, DI
+
+	// prepare tweaks
+	avxPrepareGB8Tweaks
+	// load 8 blocks for decryption
+	avx2Load8Blocks
+	// Apply Byte Flip Mask: LE -> BE
+	avx2LE2BE8Blocks
+	// Transpose matrix 4 x 4 32bits word
+	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
+	// Load GFNI matrices after avxPrepareGB8Tweaks (which uses X12 and reads X14=POLY)
+	VMOVDQU ·gfni_pre_matrix(SB), Y12
+	VMOVDQU ·gfni_post_matrix(SB), Y14
+	GFNI_SM4_8BLOCKS(AX, Y8, Y9, Y7, Y12, Y14, Y0, Y1, Y2, Y3)
+	// Restore POLY (X14) overwritten by loading Y14=GFNI_POST
+	VMOVDQU gbGcmPoly<>(SB), X14
 	// Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(Y0, Y1, Y2, Y3, Y8, Y9)
 	avx2ByteSwap8Blocks
