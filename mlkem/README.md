@@ -117,7 +117,7 @@ This avoids the 32-bit overflow that would occur with direct `VMULUWM(P, 5039)` 
 | Reduction strategy | Montgomery (`VPMULHW`) | Montgomery (`SQRDMULH`) | Montgomery (`XVMUH.H`) | Barrett (shift-4 trick) |
 | Signed multiply-high | `VPMULHW` (16-bit) | `SQRDMULH` (approx) | `XVMUH.H` (exact 16-bit) | None — use `VMULEUH`/`VMULOUH` |
 | CBD sampling method | `VPSHUFB` popcount | `VCNT`+`VADDLP` popcount | `XVANDI`+`XVSHUF_B` | `VAND`+`VPERM` table |
-| rejUniform vectorized? | Yes | Yes | Yes | No (scalar) |
+| rejUniform vectorized? | No (scalar) | No (scalar) | No (scalar) | No (scalar) |
 | Endian correction needed? | No | No | No | Yes (`LXVD2X` reverses 8-byte groups) |
 | WORD-encoded instrs | Few | Many | Some | Some |
 | Twiddle table shared? | Own | Own | Reuses AVX2 table | Own |
