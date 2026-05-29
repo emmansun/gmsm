@@ -224,6 +224,44 @@ GLOBL zuc_gfni_s1_m2<>(SB), RODATA, $16
 	VMOVDQU zuc_gfni_s1_m2<>(SB), XTMP1;              \
 	VGF2P8AFFINEINVQB $0x55, XTMP1, XIN_OUT, XIN_OUT
 
+// Pre-loaded GFNI S1: XM1=m1, XM2=m2 are already in registers (not clobbered).
+#define S1_comput_GFNI_PRE(XIN_OUT, XM1, XM2)         \
+	VGF2P8AFFINEQB $0x00, XM1, XIN_OUT, XIN_OUT;      \
+	VGF2P8AFFINEINVQB $0x55, XM2, XIN_OUT, XIN_OUT
+
+// NONLIN_FUN variant using pre-loaded GFNI matrices (avoids per-round loads).
+// XM1: pre-loaded m1 register; XM2: pre-loaded m2 register.
+#define NONLIN_FUN_GFNI_PRE(XM1, XM2)               \
+	NONLIN_FUN                                       \
+	VMOVQ DX, X0                                     \
+	VMOVDQA X0, X1                                   \
+	S0_comput_AVX(X1, X2, X3)                        \
+	S1_comput_GFNI_PRE(X0, XM1, XM2)                \
+	\
+	VPAND mask_S1<>(SB), X0, X0                      \
+	VPAND mask_S0<>(SB), X1, X1                      \
+	VPXOR X1, X0, X0                                 \
+	\
+	MOVL X0, F_R1                                    \
+	VPEXTRD $1, X0, F_R2
+
+#define ROUND_GFNI_PRE(idx, XM1, XM2)    \
+	BITS_REORG(idx)                       \
+	NONLIN_FUN_GFNI_PRE(XM1, XM2)        \
+	XORL BRC_X3, AX                      \
+	MOVL AX, (idx*4)(DI)                 \
+	XORQ AX, AX                          \
+	LFSR_UPDT(idx)
+
+#define ROUND_REV32_GFNI_PRE(idx, XM1, XM2)   \
+	BITS_REORG(idx)                            \
+	NONLIN_FUN_GFNI_PRE(XM1, XM2)             \
+	XORL BRC_X3, AX                           \
+	BSWAPL AX                                 \
+	MOVL AX, (idx*4)(DI)                      \
+	XORQ AX, AX                               \
+	LFSR_UPDT(idx)
+
 #define F_R1 R9
 #define F_R2 R10
 #define BRC_X0 R11
@@ -580,7 +618,9 @@ avx:
 	RET
 
 gfni:
-	NONLIN_FUN_GFNI
+	VMOVDQU zuc_gfni_s1_m1<>(SB), X6
+	VMOVDQU zuc_gfni_s1_m2<>(SB), X7
+	NONLIN_FUN_GFNI_PRE(X6, X7)
 
 	// (BRC_X3 xor W) as result
 	XORL BRC_X3, AX
@@ -638,7 +678,7 @@ TEXT ·genKeyStreamAsm(SB),NOSPLIT,$0
 	LOAD_STATE
 
 	CMPB ·useGFNI(SB), $1
-	JE   gfniZucSixteens
+	JE   gfniStart
 	CMPB ·useAVX(SB), $1
 	JE   avxZucSixteens
 
@@ -778,26 +818,30 @@ avxZucRet:
 	SAVE_STATE
 	RET
 
+gfniStart:
+	VMOVDQU zuc_gfni_s1_m1<>(SB), X6
+	VMOVDQU zuc_gfni_s1_m2<>(SB), X7
+
 gfniZucSixteens:
 	CMPQ BP, $16
 	JB gfniZucOctet
 	SUBQ $16, BP
-	ROUND_GFNI(0)
-	ROUND_GFNI(1)
-	ROUND_GFNI(2)
-	ROUND_GFNI(3)
-	ROUND_GFNI(4)
-	ROUND_GFNI(5)
-	ROUND_GFNI(6)
-	ROUND_GFNI(7)
-	ROUND_GFNI(8)
-	ROUND_GFNI(9)
-	ROUND_GFNI(10)
-	ROUND_GFNI(11)
-	ROUND_GFNI(12)
-	ROUND_GFNI(13)
-	ROUND_GFNI(14)
-	ROUND_GFNI(15)
+	ROUND_GFNI_PRE(0, X6, X7)
+	ROUND_GFNI_PRE(1, X6, X7)
+	ROUND_GFNI_PRE(2, X6, X7)
+	ROUND_GFNI_PRE(3, X6, X7)
+	ROUND_GFNI_PRE(4, X6, X7)
+	ROUND_GFNI_PRE(5, X6, X7)
+	ROUND_GFNI_PRE(6, X6, X7)
+	ROUND_GFNI_PRE(7, X6, X7)
+	ROUND_GFNI_PRE(8, X6, X7)
+	ROUND_GFNI_PRE(9, X6, X7)
+	ROUND_GFNI_PRE(10, X6, X7)
+	ROUND_GFNI_PRE(11, X6, X7)
+	ROUND_GFNI_PRE(12, X6, X7)
+	ROUND_GFNI_PRE(13, X6, X7)
+	ROUND_GFNI_PRE(14, X6, X7)
+	ROUND_GFNI_PRE(15, X6, X7)
 	LEAQ 64(DI), DI
 	JMP gfniZucSixteens
 
@@ -805,14 +849,14 @@ gfniZucOctet:
 	CMPQ BP, $8
 	JB gfniZucNibble
 	SUBQ $8, BP
-	ROUND_GFNI(0)
-	ROUND_GFNI(1)
-	ROUND_GFNI(2)
-	ROUND_GFNI(3)
-	ROUND_GFNI(4)
-	ROUND_GFNI(5)
-	ROUND_GFNI(6)
-	ROUND_GFNI(7)
+	ROUND_GFNI_PRE(0, X6, X7)
+	ROUND_GFNI_PRE(1, X6, X7)
+	ROUND_GFNI_PRE(2, X6, X7)
+	ROUND_GFNI_PRE(3, X6, X7)
+	ROUND_GFNI_PRE(4, X6, X7)
+	ROUND_GFNI_PRE(5, X6, X7)
+	ROUND_GFNI_PRE(6, X6, X7)
+	ROUND_GFNI_PRE(7, X6, X7)
 	LEAQ 32(DI), DI
 	RESTORE_LFSR_8_AVX
 
@@ -820,10 +864,10 @@ gfniZucNibble:
 	CMPQ BP, $4
 	JB gfniZucDouble
 	SUBQ $4, BP
-	ROUND_GFNI(0)
-	ROUND_GFNI(1)
-	ROUND_GFNI(2)
-	ROUND_GFNI(3)
+	ROUND_GFNI_PRE(0, X6, X7)
+	ROUND_GFNI_PRE(1, X6, X7)
+	ROUND_GFNI_PRE(2, X6, X7)
+	ROUND_GFNI_PRE(3, X6, X7)
 	LEAQ 16(DI), DI
 	RESTORE_LFSR_4_AVX
 
@@ -831,15 +875,15 @@ gfniZucDouble:
 	CMPQ BP, $2
 	JB gfniZucSingle
 	SUBQ $2, BP
-	ROUND_GFNI(0)
-	ROUND_GFNI(1)
+	ROUND_GFNI_PRE(0, X6, X7)
+	ROUND_GFNI_PRE(1, X6, X7)
 	LEAQ 8(DI), DI
 	RESTORE_LFSR_2_AVX
 
 gfniZucSingle:
 	TESTQ BP, BP
 	JE gfniZucRet
-	ROUND_GFNI(0)
+	ROUND_GFNI_PRE(0, X6, X7)
 	RESTORE_LFSR_0_AVX
 
 gfniZucRet:
@@ -857,7 +901,7 @@ TEXT ·genKeyStreamRev32Asm(SB),NOSPLIT,$0
 	LOAD_STATE
 
 	CMPB ·useGFNI(SB), $1
-	JE   gfniZucSixteens
+	JE   gfniStart
 	CMPB ·useAVX(SB), $1
 	JE   avxZucSixteens
 
@@ -997,26 +1041,30 @@ avxZucRet:
 	SAVE_STATE
 	RET
 
+gfniStart:
+	VMOVDQU zuc_gfni_s1_m1<>(SB), X6
+	VMOVDQU zuc_gfni_s1_m2<>(SB), X7
+
 gfniZucSixteens:
 	CMPQ BP, $16
 	JB gfniZucOctet
 	SUBQ $16, BP
-	ROUND_REV32_GFNI(0)
-	ROUND_REV32_GFNI(1)
-	ROUND_REV32_GFNI(2)
-	ROUND_REV32_GFNI(3)
-	ROUND_REV32_GFNI(4)
-	ROUND_REV32_GFNI(5)
-	ROUND_REV32_GFNI(6)
-	ROUND_REV32_GFNI(7)
-	ROUND_REV32_GFNI(8)
-	ROUND_REV32_GFNI(9)
-	ROUND_REV32_GFNI(10)
-	ROUND_REV32_GFNI(11)
-	ROUND_REV32_GFNI(12)
-	ROUND_REV32_GFNI(13)
-	ROUND_REV32_GFNI(14)
-	ROUND_REV32_GFNI(15)
+	ROUND_REV32_GFNI_PRE(0, X6, X7)
+	ROUND_REV32_GFNI_PRE(1, X6, X7)
+	ROUND_REV32_GFNI_PRE(2, X6, X7)
+	ROUND_REV32_GFNI_PRE(3, X6, X7)
+	ROUND_REV32_GFNI_PRE(4, X6, X7)
+	ROUND_REV32_GFNI_PRE(5, X6, X7)
+	ROUND_REV32_GFNI_PRE(6, X6, X7)
+	ROUND_REV32_GFNI_PRE(7, X6, X7)
+	ROUND_REV32_GFNI_PRE(8, X6, X7)
+	ROUND_REV32_GFNI_PRE(9, X6, X7)
+	ROUND_REV32_GFNI_PRE(10, X6, X7)
+	ROUND_REV32_GFNI_PRE(11, X6, X7)
+	ROUND_REV32_GFNI_PRE(12, X6, X7)
+	ROUND_REV32_GFNI_PRE(13, X6, X7)
+	ROUND_REV32_GFNI_PRE(14, X6, X7)
+	ROUND_REV32_GFNI_PRE(15, X6, X7)
 	LEAQ 64(DI), DI
 	JMP gfniZucSixteens
 
@@ -1024,14 +1072,14 @@ gfniZucOctet:
 	CMPQ BP, $8
 	JB gfniZucNibble
 	SUBQ $8, BP
-	ROUND_REV32_GFNI(0)
-	ROUND_REV32_GFNI(1)
-	ROUND_REV32_GFNI(2)
-	ROUND_REV32_GFNI(3)
-	ROUND_REV32_GFNI(4)
-	ROUND_REV32_GFNI(5)
-	ROUND_REV32_GFNI(6)
-	ROUND_REV32_GFNI(7)
+	ROUND_REV32_GFNI_PRE(0, X6, X7)
+	ROUND_REV32_GFNI_PRE(1, X6, X7)
+	ROUND_REV32_GFNI_PRE(2, X6, X7)
+	ROUND_REV32_GFNI_PRE(3, X6, X7)
+	ROUND_REV32_GFNI_PRE(4, X6, X7)
+	ROUND_REV32_GFNI_PRE(5, X6, X7)
+	ROUND_REV32_GFNI_PRE(6, X6, X7)
+	ROUND_REV32_GFNI_PRE(7, X6, X7)
 	LEAQ 32(DI), DI
 	RESTORE_LFSR_8_AVX
 
@@ -1039,10 +1087,10 @@ gfniZucNibble:
 	CMPQ BP, $4
 	JB gfniZucDouble
 	SUBQ $4, BP
-	ROUND_REV32_GFNI(0)
-	ROUND_REV32_GFNI(1)
-	ROUND_REV32_GFNI(2)
-	ROUND_REV32_GFNI(3)
+	ROUND_REV32_GFNI_PRE(0, X6, X7)
+	ROUND_REV32_GFNI_PRE(1, X6, X7)
+	ROUND_REV32_GFNI_PRE(2, X6, X7)
+	ROUND_REV32_GFNI_PRE(3, X6, X7)
 	LEAQ 16(DI), DI
 	RESTORE_LFSR_4_AVX
 
@@ -1050,15 +1098,15 @@ gfniZucDouble:
 	CMPQ BP, $2
 	JB gfniZucSingle
 	SUBQ $2, BP
-	ROUND_REV32_GFNI(0)
-	ROUND_REV32_GFNI(1)
+	ROUND_REV32_GFNI_PRE(0, X6, X7)
+	ROUND_REV32_GFNI_PRE(1, X6, X7)
 	LEAQ 8(DI), DI
 	RESTORE_LFSR_2_AVX
 
 gfniZucSingle:
 	TESTQ BP, BP
 	JE gfniZucRet
-	ROUND_REV32_GFNI(0)
+	ROUND_REV32_GFNI_PRE(0, X6, X7)
 	RESTORE_LFSR_0_AVX
 
 gfniZucRet:
