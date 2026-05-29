@@ -5,5 +5,6 @@ package cpuid
 var (
 	HasAES = true
 	HasGFMUL = false
+	HasGFNI = false
 	HasVPMSUMD = true
 )
