@@ -70,6 +70,17 @@ DATA flip_mask<>+0x00(SB)/8, $0x0405060700010203
 DATA flip_mask<>+0x08(SB)/8, $0x0c0d0e0f08090a0b
 GLOBL flip_mask<>(SB), RODATA, $16
 
+// ZUC S1 GFNI matrices: S1(x) = m2 · GF_AES_Inv(m1 · x) ⊕ 0x55
+// Verified against ZUC S1 table (c1=0, c2=0x55). Use pair #3.
+// Source: github.com/emmansun/simd/blob/main/amd64/sse/sse_gfni_test.go
+DATA zuc_gfni_s1_m1<>+0x00(SB)/8, $0x95124E5A9E18ACC6
+DATA zuc_gfni_s1_m1<>+0x08(SB)/8, $0x95124E5A9E18ACC6
+GLOBL zuc_gfni_s1_m1<>(SB), RODATA, $16
+
+DATA zuc_gfni_s1_m2<>+0x00(SB)/8, $0xC305CBCC771ADAF1
+DATA zuc_gfni_s1_m2<>+0x08(SB)/8, $0xC305CBCC771ADAF1
+GLOBL zuc_gfni_s1_m2<>(SB), RODATA, $16
+
 #define OFFSET_FR1      (16*4)
 #define OFFSET_FR2      (17*4)
 #define OFFSET_BRC_X0   (18*4)
@@ -203,12 +214,55 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	VMOVDQU Comb_matrix_mul_high_nibble<>(SB), XIN_OUT    \
 	MUL_PSHUFB_AVX(XTMP2, XTMP1, XIN_OUT, XTMP3)
 
+// Compute 16 S1 box values from 16 bytes using GFNI (2 instructions).
+// XIN_OUT: input/output XMM register
+// XTMP1: temporary XMM register (clobbered)
+// Equivalent to S1_comput_AVX but uses GF2P8AFFINEQB + GF2P8AFFINEINVQB.
+#define S1_comput_GFNI(XIN_OUT, XTMP1) \
+	VMOVDQU zuc_gfni_s1_m1<>(SB), XTMP1;              \
+	VGF2P8AFFINEQB $0x00, XTMP1, XIN_OUT, XIN_OUT;    \
+	VMOVDQU zuc_gfni_s1_m2<>(SB), XTMP1;              \
+	VGF2P8AFFINEINVQB $0x55, XTMP1, XIN_OUT, XIN_OUT
+
 #define F_R1 R9
 #define F_R2 R10
 #define BRC_X0 R11
 #define BRC_X1 R12
 #define BRC_X2 R13
 #define BRC_X3 R14
+
+// Non-Linear function F, GFNI version.
+// Same as NONLIN_FUN_AVX but uses GFNI for S1 computation.
+#define NONLIN_FUN_GFNI                      \
+	NONLIN_FUN                               \
+	VMOVQ DX, X0                             \
+	VMOVDQA X0, X1                           \ 
+	S0_comput_AVX(X1, X2, X3)                \
+	S1_comput_GFNI(X0, X2)                   \
+	\
+	VPAND mask_S1<>(SB), X0, X0              \
+	VPAND mask_S0<>(SB), X1, X1              \ 
+	VPXOR X1, X0, X0                         \ 
+	\
+	MOVL X0, F_R1                            \ // F_R1
+	VPEXTRD $1, X0, F_R2
+
+#define ROUND_GFNI(idx)            \
+	BITS_REORG(idx)               \
+	NONLIN_FUN_GFNI               \
+	XORL BRC_X3, AX               \
+	MOVL AX, (idx*4)(DI)          \
+	XORQ AX, AX                   \
+	LFSR_UPDT(idx)
+
+#define ROUND_REV32_GFNI(idx)      \
+	BITS_REORG(idx)               \
+	NONLIN_FUN_GFNI               \
+	XORL BRC_X3, AX               \
+	BSWAPL AX                     \
+	MOVL AX, (idx*4)(DI)          \
+	XORQ AX, AX                   \
+	LFSR_UPDT(idx)
 
 // BITS_REORG(idx)
 //
@@ -488,6 +542,8 @@ TEXT ·genKeywordAsm(SB),NOSPLIT,$0
 	LOAD_STATE
 
 	BITS_REORG(0)
+	CMPB ·useGFNI(SB), $1
+	JE   gfni
 	CMPB ·useAVX(SB), $1
 	JE   avx
 
@@ -509,6 +565,22 @@ sse:
 
 avx:
 	NONLIN_FUN_AVX
+
+	// (BRC_X3 xor W) as result
+	XORL BRC_X3, AX
+	MOVL AX, ret+8(FP)
+
+	// LFSRWithWorkMode
+	XORQ AX, AX
+	LFSR_UPDT(0)
+
+	SAVE_STATE
+	RESTORE_LFSR_0_AVX
+
+	RET
+
+gfni:
+	NONLIN_FUN_GFNI
 
 	// (BRC_X3 xor W) as result
 	XORL BRC_X3, AX
@@ -565,6 +637,8 @@ TEXT ·genKeyStreamAsm(SB),NOSPLIT,$0
 
 	LOAD_STATE
 
+	CMPB ·useGFNI(SB), $1
+	JE   gfniZucSixteens
 	CMPB ·useAVX(SB), $1
 	JE   avxZucSixteens
 
@@ -704,6 +778,74 @@ avxZucRet:
 	SAVE_STATE
 	RET
 
+gfniZucSixteens:
+	CMPQ BP, $16
+	JB gfniZucOctet
+	SUBQ $16, BP
+	ROUND_GFNI(0)
+	ROUND_GFNI(1)
+	ROUND_GFNI(2)
+	ROUND_GFNI(3)
+	ROUND_GFNI(4)
+	ROUND_GFNI(5)
+	ROUND_GFNI(6)
+	ROUND_GFNI(7)
+	ROUND_GFNI(8)
+	ROUND_GFNI(9)
+	ROUND_GFNI(10)
+	ROUND_GFNI(11)
+	ROUND_GFNI(12)
+	ROUND_GFNI(13)
+	ROUND_GFNI(14)
+	ROUND_GFNI(15)
+	LEAQ 64(DI), DI
+	JMP gfniZucSixteens
+
+gfniZucOctet:
+	CMPQ BP, $8
+	JB gfniZucNibble
+	SUBQ $8, BP
+	ROUND_GFNI(0)
+	ROUND_GFNI(1)
+	ROUND_GFNI(2)
+	ROUND_GFNI(3)
+	ROUND_GFNI(4)
+	ROUND_GFNI(5)
+	ROUND_GFNI(6)
+	ROUND_GFNI(7)
+	LEAQ 32(DI), DI
+	RESTORE_LFSR_8_AVX
+
+gfniZucNibble:
+	CMPQ BP, $4
+	JB gfniZucDouble
+	SUBQ $4, BP
+	ROUND_GFNI(0)
+	ROUND_GFNI(1)
+	ROUND_GFNI(2)
+	ROUND_GFNI(3)
+	LEAQ 16(DI), DI
+	RESTORE_LFSR_4_AVX
+
+gfniZucDouble:
+	CMPQ BP, $2
+	JB gfniZucSingle
+	SUBQ $2, BP
+	ROUND_GFNI(0)
+	ROUND_GFNI(1)
+	LEAQ 8(DI), DI
+	RESTORE_LFSR_2_AVX
+
+gfniZucSingle:
+	TESTQ BP, BP
+	JE gfniZucRet
+	ROUND_GFNI(0)
+	RESTORE_LFSR_0_AVX
+
+gfniZucRet:
+	SAVE_STATE
+	RET
+
 // func genKeyStreamRev32Asm(keyStream []byte, pState *zucState32)
 TEXT ·genKeyStreamRev32Asm(SB),NOSPLIT,$0
 	MOVQ ks+0(FP), DI
@@ -714,6 +856,8 @@ TEXT ·genKeyStreamRev32Asm(SB),NOSPLIT,$0
 
 	LOAD_STATE
 
+	CMPB ·useGFNI(SB), $1
+	JE   gfniZucSixteens
 	CMPB ·useAVX(SB), $1
 	JE   avxZucSixteens
 
@@ -850,5 +994,73 @@ avxZucSingle:
 	RESTORE_LFSR_0_AVX
 
 avxZucRet:
+	SAVE_STATE
+	RET
+
+gfniZucSixteens:
+	CMPQ BP, $16
+	JB gfniZucOctet
+	SUBQ $16, BP
+	ROUND_REV32_GFNI(0)
+	ROUND_REV32_GFNI(1)
+	ROUND_REV32_GFNI(2)
+	ROUND_REV32_GFNI(3)
+	ROUND_REV32_GFNI(4)
+	ROUND_REV32_GFNI(5)
+	ROUND_REV32_GFNI(6)
+	ROUND_REV32_GFNI(7)
+	ROUND_REV32_GFNI(8)
+	ROUND_REV32_GFNI(9)
+	ROUND_REV32_GFNI(10)
+	ROUND_REV32_GFNI(11)
+	ROUND_REV32_GFNI(12)
+	ROUND_REV32_GFNI(13)
+	ROUND_REV32_GFNI(14)
+	ROUND_REV32_GFNI(15)
+	LEAQ 64(DI), DI
+	JMP gfniZucSixteens
+
+gfniZucOctet:
+	CMPQ BP, $8
+	JB gfniZucNibble
+	SUBQ $8, BP
+	ROUND_REV32_GFNI(0)
+	ROUND_REV32_GFNI(1)
+	ROUND_REV32_GFNI(2)
+	ROUND_REV32_GFNI(3)
+	ROUND_REV32_GFNI(4)
+	ROUND_REV32_GFNI(5)
+	ROUND_REV32_GFNI(6)
+	ROUND_REV32_GFNI(7)
+	LEAQ 32(DI), DI
+	RESTORE_LFSR_8_AVX
+
+gfniZucNibble:
+	CMPQ BP, $4
+	JB gfniZucDouble
+	SUBQ $4, BP
+	ROUND_REV32_GFNI(0)
+	ROUND_REV32_GFNI(1)
+	ROUND_REV32_GFNI(2)
+	ROUND_REV32_GFNI(3)
+	LEAQ 16(DI), DI
+	RESTORE_LFSR_4_AVX
+
+gfniZucDouble:
+	CMPQ BP, $2
+	JB gfniZucSingle
+	SUBQ $2, BP
+	ROUND_REV32_GFNI(0)
+	ROUND_REV32_GFNI(1)
+	LEAQ 8(DI), DI
+	RESTORE_LFSR_2_AVX
+
+gfniZucSingle:
+	TESTQ BP, BP
+	JE gfniZucRet
+	ROUND_REV32_GFNI(0)
+	RESTORE_LFSR_0_AVX
+
+gfniZucRet:
 	SAVE_STATE
 	RET
