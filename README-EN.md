@@ -66,7 +66,7 @@ For implementation details and optimization strategies, please refer to the [SM9
 SM3 cryptographic hash algorithm (GM/T 0004-2012) implements efficient SIMD optimizations:
 
 **Architecture Optimizations:**
-- **amd64**: Optimizes message expansion for AVX2+BMI2, AVX, and SSE2+SSSE3 instruction sets
+- **amd64**: Optimizes message expansion for AVX2+BMI2 and SSE2+SSSE3 instruction sets
 - **arm64**: Uses NEON instructions to optimize message expansion and provides implementation based on A64 extended cryptographic instructions
 - **s390x/ppc64x**: Optimizes message expansion through vector instructions
 
@@ -76,7 +76,7 @@ For detailed implementation analysis, please refer to the [SM3 Performance Optim
 SM4 block cipher algorithm (GM/T 0002-2012) implements multi-architecture assembly optimizations with fused optimizations for common operation modes:
 
 **Architecture Optimizations:**
-- **amd64**: Uses AES-NI instructions combined with AVX2/AVX/SSE2+SSSE3
+- **amd64**: Uses GFNI, AES-NI instructions combined with AVX2/SSE2+SSSE3
 - **arm64**: Uses AES instructions combined with NEON and provides implementation based on A64 extended cryptographic instructions
 - **ppc64x**: Uses vsbox instructions combined with vector instructions
 
