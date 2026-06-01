@@ -46,3 +46,7 @@ func TestX86GFNIDetection(t *testing.T) {
 	t.Logf("HasGFNI=%v, HasAVX512GFNI=%v, HasAVX2=%v, HasAVX512F=%v",
 		X86.HasGFNI, X86.HasAVX512GFNI, X86.HasAVX2, X86.HasAVX512F)
 }
+
+func TestX86SM3SM4Detection(t *testing.T) {
+	t.Logf("HasSM3=%v, HasSM4=%v", X86.HasSM3, X86.HasSM4)
+}

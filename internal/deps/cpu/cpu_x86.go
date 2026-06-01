@@ -157,6 +157,8 @@ func archInit() {
 		if X86.HasAVX {
 			X86.HasAVXIFMA = isSet(23, eax71) // Check presence of AVXIFMA - bit 23 of EAX
 			X86.HasAVXVNNI = isSet(4, eax71)
+			X86.HasSM3 = isSet(1, eax71) // Check presence of SM3 - bit 1 of EAX
+			X86.HasSM4 = isSet(2, eax71) // Check presence of SM4 - bit 2 of EAX			
 			X86.HasAVXVNNIInt8 = isSet(4, edx71)
 		}
 	}
