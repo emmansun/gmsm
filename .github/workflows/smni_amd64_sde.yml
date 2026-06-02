@@ -13,6 +13,9 @@ on:
   pull_request:
     branches: [ "develop", "main" ]
 
+permissions:
+  contents: read
+
 env:
   SDE_DOWNLOAD_PAGE: https://www.intel.com/content/www/us/en/download/684897/intel-software-development-emulator.html
   SDE_INSTALL_DIR: /opt/intel/sde
