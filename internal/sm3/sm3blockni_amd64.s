@@ -36,10 +36,10 @@ GLOBL flip_mask<>(SB), RODATA, $16
 // VSM3RNDS2 xmm1, xmm2, xmm3, imm8
 #define VSM3RNDS2(Xd, Xs1, Xs2, IMM8) \
 	BYTE $0xC4; \
-	BYTE $((0x43) | (VEX_Rp(Xd) << 7) | (VEX_Bp(Xs2) << 5)); \
+	BYTE $((0x43) | (VEX_Rp(Xs2) << 7) | (VEX_Bp(Xd) << 5)); \
 	BYTE $((0x01) | (VEX_VVVV(Xs1) << 3)); \
 	BYTE $0xDE; \
-	BYTE $((0xC0) | MODRM_REG3(Xd) | MODRM_RM3(Xs2)); \
+	BYTE $((0xC0) | MODRM_REG3(Xs2) | MODRM_RM3(Xd)); \
 	BYTE $((IMM8) & 0xFF)
 
 #define SM3MSG(out, x0, x1, x2, x3, iout, i0) \
