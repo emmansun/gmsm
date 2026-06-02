@@ -9,9 +9,9 @@ name: smni-amd64-sde
 
 on:
   push:
-    branches: [ "develop", "main" ]
+    branches: [ "amd64-sm3sm4ni", "develop", "main" ]
   pull_request:
-    branches: [ "develop", "main" ]
+    branches: [ "amd64-sm3sm4ni", "develop", "main" ]
 
 permissions:
   contents: read
