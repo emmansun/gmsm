@@ -36,10 +36,10 @@ GLOBL flip_mask<>(SB), RODATA, $16
 // VSM3RNDS2 xmm1, xmm2, xmm3, imm8
 #define VSM3RNDS2(Xd, Xs1, Xs2, IMM8) \
 	BYTE $0xC4; \
-	BYTE $((0x43) | (VEX_Rp(Xs2) << 7) | (VEX_Bp(Xd) << 5)); \
+	BYTE $((0x43) | (VEX_Rp(Xd) << 7) | (VEX_Bp(Xs2) << 5)); \
 	BYTE $((0x01) | (VEX_VVVV(Xs1) << 3)); \
 	BYTE $0xDE; \
-	BYTE $((0xC0) | MODRM_RM3(Xd) | MODRM_REG3(Xs2)); \
+	BYTE $((0xC0) | MODRM_REG3(Xd) | MODRM_RM3(Xs2)); \
 	BYTE $((IMM8) & 0xFF)
 
 #define SM3MSG(out, x0, x1, x2, x3, iout, i0) \
@@ -161,7 +161,19 @@ loop:
 
 end:
 	// store state
-	VMOVDQU X0, (CTX)
-	VMOVDQU X1, 16(CTX)
+	VPSLLD $9, X1, X2
+	VPSRLD $23, X1, X3
+	VPXOR X2, X3, X2        // X2 = ROL32(HGDC, 9)
+	VPSLLD $19, X1, X3
+	VPSRLD $13, X1, X4
+	VPXOR X3, X4, X3        // X3 = ROL32(HGDC, 19)
+	VPBLENDD $3, X3, X2, X1 // X1 = [ROL32(H, 19), ROL32(G, 19), ROL32(D, 9), ROL32(D, 9)]
+	VPSHUFD $0xB1, X0, X0
+	VPSHUFD $0xB1, X1, X1
+	VPUNPCKHQDQ X1, X0, X2
+	VPUNPCKLQDQ X1, X0, X3
+
+	VMOVDQU X2, (CTX)
+	VMOVDQU X3, 16(CTX)
 
 	RET
