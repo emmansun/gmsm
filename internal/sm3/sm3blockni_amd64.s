@@ -11,35 +11,61 @@ DATA flip_mask<>+0x00(SB)/8, $0x0405060700010203
 DATA flip_mask<>+0x08(SB)/8, $0x0c0d0e0f08090a0b
 GLOBL flip_mask<>(SB), RODATA, $16
 
+// --- VEX and ModRM Helper Macros ---
+// R' bit (Bit 7 of VEX.Byte2): Extends ModRM.reg. Inverted: 1 means no extension (0-7), 0 means extension (+8).
 #define VEX_Rp(x)  (1 - ((x) >> 3))
+// B' bit (Bit 5 of VEX.Byte2): Extends ModRM.rm or SIB.base. Inverted logic same as R'.
 #define VEX_Bp(x)  (1 - ((x) >> 3))
+// vvvv field (Bits 6:3 of VEX.Byte3): Encodes the first source operand (Xs1). Fully inverted (4 bits).
 #define VEX_VVVV(x) (15 - (x))
+// ModRM.reg field (Bits 5:3 of ModRM): Encodes the destination operand (Xd).
 #define MODRM_REG3(x) (((x) & 7) << 3)
+// ModRM.rm field (Bits 2:0 of ModRM): Encodes the second source operand (Xs2) or base register.
 #define MODRM_RM3(x)  ((x) & 7)
 
+// --- Instruction Macros (Intel Syntax: Xd, Xs1, Xs2) ---
 // VSM3MSG1 xmm1, xmm2, xmm3
+// CRITICAL: VSM3MSG1 uses a NON-STANDARD ModRM mapping in hardware!
+// Intel Syntax: Xd (dst), Xs1 (src1), Xs2 (src2)
+// Hardware Encoding: Xd -> rm field, Xs2 -> reg field (swapped compared to normal!)
+// Therefore, B' extends Xd, and R' extends Xs2.
 #define VSM3MSG1(Xd, Xs1, Xs2) \
 	BYTE $0xC4; \
-	BYTE $((0x42) | (VEX_Rp(Xd) << 7) | (VEX_Bp(Xs2) << 5)); \
+	/* VEX.Byte2: [R'(Xs2) X'=0 B'(Xd) m=00010(0F38)] -> Base 0x42 */ \
+	BYTE $((0x42) | (VEX_Rp(Xs2) << 7) | (VEX_Bp(Xd) << 5)); \
+	/* VEX.Byte3: [W=0 vvvv(Xs1) L=0 pp=00(none)] -> Base 0x00 */ \
 	BYTE $((0x00) | (VEX_VVVV(Xs1) << 3)); \
 	BYTE $0xDA; \
-	BYTE $((0xC0) | MODRM_RM3(Xs2) | MODRM_REG3(Xd))
+	/* ModRM: [mod=11 reg(Xs2) rm(Xd)] -> Base 0xC0 */ \
+	BYTE $((0xC0) | MODRM_RM3(Xd) | MODRM_REG3(Xs2))
 
 // VSM3MSG2 xmm1, xmm2, xmm3
+// CRITICAL: Same NON-STANDARD mapping as VSM3MSG1.
+// Intel Syntax: Xd (dst), Xs1 (src1), Xs2 (src2)
+// Hardware Encoding: Xd -> rm field, Xs2 -> reg field.
 #define VSM3MSG2(Xd, Xs1, Xs2) \
 	BYTE $0xC4; \
-	BYTE $((0x42) | (VEX_Rp(Xd) << 7) | (VEX_Bp(Xs2) << 5)); \
+	/* VEX.Byte2: [R'(Xs2) X'=0 B'(Xd) m=00010(0F38)] -> Base 0x42 */ \
+	BYTE $((0x42) | (VEX_Rp(Xs2) << 7) | (VEX_Bp(Xd) << 5)); \
+	/* VEX.Byte3: [W=0 vvvv(Xs1) L=0 pp=01(66h)] -> Base 0x01 */ \
 	BYTE $((0x01) | (VEX_VVVV(Xs1) << 3)); \
 	BYTE $0xDA; \
-	BYTE $((0xC0) | MODRM_RM3(Xs2) | MODRM_REG3(Xd))
+	/* ModRM: [mod=11 reg(Xs2) rm(Xd)] -> Base 0xC0 */ \
+	BYTE $((0xC0) | MODRM_RM3(Xd) | MODRM_REG3(Xs2))
 
 // VSM3RNDS2 xmm1, xmm2, xmm3, imm8
+// Uses STANDARD ModRM mapping: Destination (Xd) in 'reg', Source2 (Xs2) in 'rm'.
+// Note: Uses opcode map 0F3A (m=00011 -> base 0x43) because of the immediate byte.
 #define VSM3RNDS2(Xd, Xs1, Xs2, IMM8) \
 	BYTE $0xC4; \
+	/* VEX.Byte2: [R'(Xd) X'=0 B'(Xs2) m=00011(0F3A)] -> Base 0x43 */ \
 	BYTE $((0x43) | (VEX_Rp(Xd) << 7) | (VEX_Bp(Xs2) << 5)); \
+	/* VEX.Byte3: [W=0 vvvv(Xs1) L=0 pp=01(66h)] -> Base 0x01 */ \
 	BYTE $((0x01) | (VEX_VVVV(Xs1) << 3)); \
 	BYTE $0xDE; \
+	/* ModRM: [mod=11 reg(Xd) rm(Xs2)] -> Base 0xC0 */ \
 	BYTE $((0xC0) | MODRM_REG3(Xd) | MODRM_RM3(Xs2)); \
+	/* Immediate byte */ \
 	BYTE $((IMM8) & 0xFF)
 
 #define SM3MSG(out, x0, x1, x2, x3, iout, i0) \
