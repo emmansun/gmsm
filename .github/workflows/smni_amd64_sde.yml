@@ -62,8 +62,12 @@ jobs:
         curl -sL "${URL}" | tar --strip-components 1 -JxC "${SDE_INSTALL_DIR}"
 
     - name: Build test binary
-      run: go test -c -o sm3.test ./sm3
+      run: go test -c -o sm3.test ./sm3 && go test -c -o sm4.test ./internal/sm4
 
-    - name: Test SM3, SM4 (via Intel SDE, emulating Arrow Lake)
+    - name: Test SM3 (via Intel SDE, emulating Arrow Lake)
       # -arl: emulate Arrow Lake (SM3 + SM4)
       run: ${SDE_INSTALL_DIR}/sde64 -arl -- ./sm3.test -test.v
+
+    - name: Test SM4 (via Intel SDE, emulating Arrow Lake)
+      # -arl: emulate Arrow Lake (SM3 + SM4)
+      run: ${SDE_INSTALL_DIR}/sde64 -arl -- ./sm4.test -test.v

@@ -167,12 +167,57 @@ GLOBL ·gfni_post_matrix(SB), RODATA, $32
 #define XWORD X8
 #define YWORD X9
 
+#define VEX_Rp(x)  (1 - ((x) >> 3))
+#define VEX_Bp(x)  (1 - ((x) >> 3))
+#define VEX_VVVV(x) (15 - (x))
+#define MODRM_REG3(x) (((x) & 7) << 3)
+#define MODRM_RM3(x)  ((x) & 7)
+
+// VSM4KEY4 xmm1, xmm2, xmm3
+#define VSM4KEY4(Xd, Xs1, Xs2) \
+	BYTE $0xC4; \
+	BYTE $((0x62) | (VEX_Rp(Xd) << 5) | (VEX_Bp(Xs2) << 7)); \
+	BYTE $((0x02) | (VEX_VVVV(Xs1) << 3)); \
+	BYTE $0xDA; \
+	BYTE $((0xC0) | MODRM_RM3(Xd) | MODRM_REG3(Xs2))
+
+// VSM4RNDS4 xmm1, xmm2, xmm3
+#define VSM4RNDS4(Xd, Xs1, Xs2) \
+	BYTE $0xC4; \
+	BYTE $((0x62) | (VEX_Rp(Xd) << 5) | (VEX_Bp(Xs2) << 7)); \
+	BYTE $((0x03) | (VEX_VVVV(Xs1) << 3)); \
+	BYTE $0xDA; \
+	BYTE $((0xC0) | MODRM_RM3(Xd) | MODRM_REG3(Xs2))
+
+// VSM4RNDS4_mem  (%rax), xmm2, xmm3
+// mod = 00, rm = 000(rax), B' = 1(no extension)
+#define VSM4RNDS4_MEM_NO_OFF_RAX(Xs1, Xs2) \
+    BYTE $0xC4; \
+    BYTE $((0x62) | (VEX_Rp(Xs2) << 7)); \ // 0x62 (B'=1)
+    BYTE $((0x03) | (VEX_VVVV(Xs1) << 3)); \
+    BYTE $0xDA; \
+    BYTE $((0x00) | MODRM_REG3(Xs2))      // 0x00 (mod=00, rm=000)
+
+// VSM4RNDS4_mem  offset(%rax), xmm2, xmm3  (8 bit offset)
+// mod = 01, rm = 000(rax), B' = 1(no extension)
+#define VSM4RNDS4_MEM_8BIT_OFF_RAX(Xs1, Xs2, OFFSET) \
+    BYTE $0xC4; \
+    BYTE $((0x62) | (VEX_Rp(Xs2) << 7)); \ // 0x62 (B'=1)
+    BYTE $((0x03) | (VEX_VVVV(Xs1) << 3)); \
+    BYTE $0xDA; \
+    BYTE $((0x40) | MODRM_REG3(Xs2)); \    // 0x40 (mod=01, rm=000)
+    BYTE $((OFFSET) & 0xFF)
+
 // func expandKeyAsm(key *byte, ck, enc, dec *uint32, inst int)
 TEXT ·expandKeyAsm(SB),NOSPLIT,$0
 	MOVQ key+0(FP), AX
 	MOVQ  ck+8(FP), BX
 	MOVQ  enc+16(FP), DX
 	MOVQ  dec+24(FP), DI
+	MOVQ  inst+32(FP), R8
+
+	CMPQ R8, $1   // INST_SM4
+	JE vsm4key4
 
 	MOVUPS 0(AX), t0
 	PSHUFB ·flip_mask(SB), t0
@@ -195,8 +240,59 @@ loop:
 		CMPL CX, $4*32
 		JB loop
 
-expand_end:  
-	RET 
+expand_end:
+	RET
+
+vsm4key4:
+	VMOVDQU 0(AX), t0
+	VPSHUFB ·flip_mask(SB), t0, t0
+	VPXOR ·fk(SB), t0, t0
+
+	VMOVDQU 0(BX), t2
+	VMOVDQU 16(BX), t3
+	VSM4KEY4(1, 0, 2) // VSM4KEY4 t1, t0, t2
+	VSM4KEY4(0, 1, 3) // VSM4KEY4 t0, t1, t3
+	VPSHUFD $0x1B, t0, t2
+	VPSHUFD $0x1B, t1, t3	
+	VMOVDQU t1, 0(DX)
+	VMOVDQU t0, 16(DX)
+	VMOVDQU t3, (16*7)(DI)
+	VMOVDQU t2, (16*6)(DI)
+
+	VMOVDQU (16*2)(BX), t2
+	VMOVDQU (16*3)(BX), t3
+	VSM4KEY4(1, 0, 2) // VSM4KEY4 t1, t0, t2
+	VSM4KEY4(0, 1, 3) // VSM4KEY4 t0, t1, t3
+	VPSHUFD $0x1B, t0, t2
+	VPSHUFD $0x1B, t1, t3	
+	VMOVDQU t1, (16*2)(DX)
+	VMOVDQU t0, (16*3)(DX)
+	VMOVDQU t3, (16*5)(DI)
+	VMOVDQU t2, (16*4)(DI)
+
+	VMOVDQU (16*4)(BX), t2
+	VMOVDQU (16*5)(BX), t3
+	VSM4KEY4(1, 0, 2) // VSM4KEY4 t1, t0, t2
+	VSM4KEY4(0, 1, 3) // VSM4KEY4 t0, t1, t3
+	VPSHUFD $0x1B, t0, t2
+	VPSHUFD $0x1B, t1, t3	
+	VMOVDQU t1, (16*4)(DX)
+	VMOVDQU t0, (16*5)(DX)
+	VMOVDQU t3, (16*3)(DI)
+	VMOVDQU t2, (16*2)(DI)
+
+	VMOVDQU (16*6)(BX), t2
+	VMOVDQU (16*7)(BX), t3
+	VSM4KEY4(1, 0, 2) // VSM4KEY4 t1, t0, t2
+	VSM4KEY4(0, 1, 3) // VSM4KEY4 t0, t1, t3
+	VPSHUFD $0x1B, t0, t2
+	VPSHUFD $0x1B, t1, t3	
+	VMOVDQU t1, (16*6)(DX)
+	VMOVDQU t0, (16*7)(DX)
+	VMOVDQU t3, (16*1)(DI)
+	VMOVDQU t2, (16*0)(DI)
+
+	RET
 
 // func encryptBlocksAsm(xk *uint32, dst, src []byte, inst int)
 TEXT ·encryptBlocksAsm(SB),NOSPLIT,$0
@@ -449,6 +545,10 @@ TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
 	MOVQ dst+8(FP), BX
 	MOVQ src+16(FP), DX
 	MOVQ inst+24(FP), R8
+
+	CMPQ R8, $1   // INST_SM4
+	JE vsm4rnds4
+	
 	CMPQ R8, $2   // INST_GFNI
 	JE   gfni_single_block
   
@@ -551,4 +651,22 @@ gfni_single_loop:
 	VPUNPCKLQDQ X1, X3, X3              // X3 = [new_w3, new_w2, new_w1, new_w0]
 	VPSHUFB ·flip_mask(SB), X3, X3      // byte-swap each DWORD: BE→LE
 	VMOVDQU X3, (BX)
+	RET
+
+vsm4rnds4:
+	VMOVDQU (DX), X0
+	VPSHUFB ·flip_mask(SB), X0, X0
+
+	VSM4RNDS4_MEM_NO_OFF_RAX(0, 0) // VSM4RNDS4 xmm0, xmm0, [rax]
+	VSM4RNDS4_MEM_8BIT_OFF_RAX(0, 0, 16) // VSM4RNDS4 xmm0, xmm0, 16[rax]
+	VSM4RNDS4_MEM_8BIT_OFF_RAX(0, 0, 32) // VSM4RNDS4 xmm0, xmm0, 32[rax]
+	VSM4RNDS4_MEM_8BIT_OFF_RAX(0, 0, 48) // VSM4RNDS4 xmm0, xmm0, 48[rax]
+	VSM4RNDS4_MEM_8BIT_OFF_RAX(0, 0, 64) // VSM4RNDS4 xmm0, xmm0, 64[rax]
+	VSM4RNDS4_MEM_8BIT_OFF_RAX(0, 0, 80) // VSM4RNDS4 xmm0, xmm0, 80[rax
+	VSM4RNDS4_MEM_8BIT_OFF_RAX(0, 0, 96) // VSM4RNDS4 xmm0, xmm0, 96[rax]
+	VSM4RNDS4_MEM_8BIT_OFF_RAX(0, 0, 112) // VSM4RNDS4 xmm0, xmm0, 112[rax]
+
+	VPSHUFB ·bswap_mask(SB), X0, X0
+	VMOVDQU X0, (BX)
+
 	RET
