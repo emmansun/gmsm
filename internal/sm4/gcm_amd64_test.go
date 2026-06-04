@@ -19,10 +19,12 @@ func TestGcmSm4Init(t *testing.T) {
 	switch c := c.(type) {
 	case *sm4CipherNIGCM:
 		gcmSm4Init(&bytesProductTable, c.enc[:], INST_SM4)
+		t.Logf("with sm4ni")
 		if fmt.Sprintf("%x", bytesProductTable[:]) != expendedHex {
 			t.Errorf("got %x, want %s", bytesProductTable[:], expendedHex)
 		}
 	case *sm4CipherGCM:
+		t.Logf("with aesni")
 		gcmSm4Init(&bytesProductTable, c.enc[:], INST_AES)
 		if fmt.Sprintf("%x", bytesProductTable[:]) != expendedHex {
 			t.Errorf("got %x, want %s", bytesProductTable[:], expendedHex)
