@@ -152,7 +152,7 @@ TEXT ·encryptSm4Xts(SB),0,$128-65
 	MOVD dst+16(FP), dstPtr
 	MOVD src+40(FP), srcPtr
 	MOVD src_len+48(FP), srcPtrLen
-	MOVBU isGB+56(FP), R15
+	MOVBU isGB+64(FP), R15
 
 	VEOR	POLY.B16, POLY.B16, POLY.B16
 	VEOR	ZERO.B16, ZERO.B16, ZERO.B16
@@ -326,7 +326,7 @@ TEXT ·decryptSm4Xts(SB),0,$128-65
 	MOVD dst+16(FP), dstPtr
 	MOVD src+40(FP), srcPtr
 	MOVD src_len+48(FP), srcPtrLen
-	MOVBU isGB+56(FP), R15
+	MOVBU isGB+64(FP), R15
 
 	VEOR	POLY.B16, POLY.B16, POLY.B16
 	VEOR	ZERO.B16, ZERO.B16, ZERO.B16
