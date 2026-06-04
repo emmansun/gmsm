@@ -400,29 +400,26 @@ sse_init_done:
 	MOVOU (0*16)(BX), TW
 
 xtsSm4EncOctets:
-	CMPQ DI, $128
-	JB xtsSm4EncNibbles
-	SUBQ $128, DI
+		CMPQ DI, $128
+		JB xtsSm4EncNibbles
+		SUBQ $128, DI
 
-	TESTQ R12, R12
-	JNE sse_gb_8tweaks
-	// prepare tweaks
-	prepare8Tweaks
-	JMP sse_8tweaks_done
-sse_gb_8tweaks:
-	prepareGB8Tweaks
-sse_8tweaks_done:
-	// load 8 blocks for encryption
-	sseLoad8Blocks
+		TESTQ R12, R12
+		JNE sse_gb_8tweaks
+		// prepare tweaks
+		prepare8Tweaks
+		JMP sse_8tweaks_done
+	sse_gb_8tweaks:
+		prepareGB8Tweaks
+	sse_8tweaks_done:
+		// load 8 blocks for encryption
+		sseLoad8Blocks
+		SM4_8BLOCKS(AX, X8, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
+		sseStore8Blocks
 
-	SM4_8BLOCKS(AX, X8, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
-
-	sseStore8Blocks
-
-	LEAQ 128(DX), DX
-	LEAQ 128(CX), CX
-
-	JMP xtsSm4EncOctets
+		LEAQ 128(DX), DX
+		LEAQ 128(CX), CX
+		JMP xtsSm4EncOctets
 
 xtsSm4EncNibbles:
 	CMPQ DI, $64
@@ -439,9 +436,7 @@ sse_gb_4tweaks:
 sse_4tweaks_done:
 	// load 4 blocks for encryption
 	sseLoad4Blocks
-
 	SM4_4BLOCKS(AX, B4, T0, T1, T2, B0, B1, B2, B3)
-
 	sseStore4Blocks
 
 	LEAQ 64(DX), DX
@@ -609,9 +604,7 @@ avx2_gb_4tweaks:
 avx2_4tweaks_done:
 	// load 4 blocks for encryption
 	avxLoad4Blocks
-
 	AVX_SM4_4BLOCKS(AX, B4, T0, T1, T2, B0, B1, B2, B3)
-
 	avxStore4Blocks
 
 	LEAQ 64(DX), DX
@@ -706,29 +699,25 @@ sse_dec_init_done:
 	MOVOU (0*16)(BX), TW
 
 xtsSm4DecOctets:
-	CMPQ DI, $128
-	JB xtsSm4DecNibbles
-	SUBQ $128, DI
+		CMPQ DI, $128
+		JB xtsSm4DecNibbles
+		SUBQ $128, DI
 
-	TESTQ R12, R12
-	JNE sse_gb_dec_8tweaks
-	// prepare tweaks
-	prepare8Tweaks
-	JMP sse_dec_8tweaks_done
-sse_gb_dec_8tweaks:
-	prepareGB8Tweaks
-sse_dec_8tweaks_done:
-	// load 8 blocks for decryption
-	sseLoad8Blocks
-
-	SM4_8BLOCKS(AX, X8, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
-
-	sseStore8Blocks
-
-	LEAQ 128(DX), DX
-	LEAQ 128(CX), CX
-
-	JMP xtsSm4DecOctets
+		TESTQ R12, R12
+		JNE sse_gb_dec_8tweaks
+		// prepare tweaks
+		prepare8Tweaks
+		JMP sse_dec_8tweaks_done
+	sse_gb_dec_8tweaks:
+		prepareGB8Tweaks
+	sse_dec_8tweaks_done:
+		// load 8 blocks for decryption
+		sseLoad8Blocks
+		SM4_8BLOCKS(AX, X8, T0, T1, T2, B0, B1, B2, B3, B4, B5, B6, B7)
+		sseStore8Blocks
+		LEAQ 128(DX), DX
+		LEAQ 128(CX), CX
+		JMP xtsSm4DecOctets
 
 xtsSm4DecNibbles:
 	CMPQ DI, $64
@@ -745,9 +734,7 @@ sse_gb_dec_4tweaks:
 sse_dec_4tweaks_done:
 	// load 4 blocks for decryption
 	sseLoad4Blocks
-
 	SM4_4BLOCKS(AX, B4, T0, T1, T2, B0, B1, B2, B3)
-
 	sseStore4Blocks
 
 	LEAQ 64(DX), DX

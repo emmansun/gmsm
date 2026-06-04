@@ -170,32 +170,32 @@ xts_init_done:
 	VLD1 (twPtr), [TW.B16]
 
 xtsSm4EncOctets:
-	CMP	$128, srcPtrLen
-	BLT	xtsSm4EncNibbles
-	SUB	$128, srcPtrLen
+		CMP	$128, srcPtrLen
+		BLT	xtsSm4EncNibbles
+		SUB	$128, srcPtrLen
 
-	CBNZ R15, gb_8tweaks
-	prepare8Tweaks
-	B  done_8tweaks
-gb_8tweaks:	
-	prepareGB8Tweaks
-done_8tweaks:
-	load8blocks
-	MOVD rkSave, rk
-	EOR R13, R13
+		CBNZ R15, gb_8tweaks
+		prepare8Tweaks
+		B  done_8tweaks
+	gb_8tweaks:	
+		prepareGB8Tweaks
+	done_8tweaks:
+		load8blocks
+		MOVD rkSave, rk
+		EOR R13, R13
 
-encOctetsEnc8Blocks:
+	encOctetsEnc8Blocks:
 			SM4_8BLOCKS_ROUND(rk, R19, K0, K1, K2, K3, B0, B1, B2, B3, B4, B5, B6, B7)
 			SM4_8BLOCKS_ROUND(rk, R19, K0, K1, K2, K3, B1, B2, B3, B0, B5, B6, B7, B4)
 			SM4_8BLOCKS_ROUND(rk, R19, K0, K1, K2, K3, B2, B3, B0, B1, B6, B7, B4, B5)
 			SM4_8BLOCKS_ROUND(rk, R19, K0, K1, K2, K3, B3, B0, B1, B2, B7, B4, B5, B6)
 
-		ADD $1, R13
-		CMP $8, R13
-		BNE encOctetsEnc8Blocks
+			ADD $1, R13
+			CMP $8, R13
+			BNE encOctetsEnc8Blocks
 
-	store8blocks
-	B	xtsSm4EncOctets
+		store8blocks
+		B	xtsSm4EncOctets
 
 xtsSm4EncNibbles:
 	CMP	$64, srcPtrLen
@@ -344,32 +344,32 @@ xts_dec_init_done:
 	VLD1 (twPtr), [TW.B16]
 
 xtsSm4DecOctets:
-	CMP	$128, srcPtrLen
-	BLT	xtsSm4DecNibbles
-	SUB	$128, srcPtrLen
+		CMP	$128, srcPtrLen
+		BLT	xtsSm4DecNibbles
+		SUB	$128, srcPtrLen
 
-	CBNZ R15, gb_8tweaks_dec
-	prepare8Tweaks
-	B  done_8tweaks_dec
-gb_8tweaks_dec:
-	prepareGB8Tweaks
-done_8tweaks_dec:
-	load8blocks
-	MOVD rkSave, rk
-	EOR R13, R13
+		CBNZ R15, gb_8tweaks_dec
+		prepare8Tweaks
+		B  done_8tweaks_dec
+	gb_8tweaks_dec:
+		prepareGB8Tweaks
+	done_8tweaks_dec:
+		load8blocks
+		MOVD rkSave, rk
+		EOR R13, R13
 
-decOctetsDec8Blocks:
+	decOctetsDec8Blocks:
 			SM4_8BLOCKS_ROUND(rk, R19, K0, K1, K2, K3, B0, B1, B2, B3, B4, B5, B6, B7)
 			SM4_8BLOCKS_ROUND(rk, R19, K0, K1, K2, K3, B1, B2, B3, B0, B5, B6, B7, B4)
 			SM4_8BLOCKS_ROUND(rk, R19, K0, K1, K2, K3, B2, B3, B0, B1, B6, B7, B4, B5)
 			SM4_8BLOCKS_ROUND(rk, R19, K0, K1, K2, K3, B3, B0, B1, B2, B7, B4, B5, B6)
 
-		ADD $1, R13
-		CMP $8, R13
-		BNE decOctetsDec8Blocks
+			ADD $1, R13
+			CMP $8, R13
+			BNE decOctetsDec8Blocks
 
-	store8blocks
-	B	xtsSm4DecOctets
+		store8blocks
+		B	xtsSm4DecOctets
 
 xtsSm4DecNibbles:
 	CMP	$64, srcPtrLen
