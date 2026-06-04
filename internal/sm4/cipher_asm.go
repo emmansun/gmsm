@@ -16,7 +16,7 @@ var (
 	supportsAES          = cpuid.HasAES
 	supportsGFMUL        = cpuid.HasGFMUL	
 	supportSM4           = (cpu.ARM64.HasSM4 || (useAVX2 && cpu.X86.HasSM4)) && os.Getenv("DISABLE_SM4NI") != "1"
-	useGFNI              = cpu.X86.HasAVX2 && cpuid.HasGFNI && os.Getenv("DISABLE_GFNI") != "1"
+	useGFNI              = useAVX2 && cpuid.HasGFNI && os.Getenv("DISABLE_GFNI") != "1"
 	useAESNI4SingleBlock = os.Getenv("FORCE_SM4BLOCK_AESNI") == "1"
 )
 
