@@ -78,6 +78,7 @@ GLOBL andMask<>(SB), (NOPTR+RODATA), $240
 
 #include "aesni_macros_amd64.s"
 #include "gfni_macros_amd64.s"
+#include "sm4ni_macros_amd64.s"
 
 // func gcmSm4Finish(productTable *[256]byte, tagMask, T *[16]byte, pLen, dLen uint64)
 TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
@@ -149,13 +150,17 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 #undef plen
 #undef dlen
 
-// func gcmSm4Init(productTable *[256]byte, rk []uint32)
+// func gcmSm4Init(productTable *[256]byte, rk []uint32, inst int)
 TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 #define dst DI
-#define RK SI
+#define RK AX
 
 	MOVQ productTable+0(FP), dst
-	MOVQ rk+8(FP), RK
+	MOVQ rk+8(FP), AX
+	MOVQ inst+32(FP), SI
+
+	CMPQ SI, $1
+	JEQ  sm4ni_init
 
 	MOVOU gcmPoly<>(SB), POLY
 
@@ -246,6 +251,78 @@ initLoop:
 		LEAQ (-16*2)(dst), dst
 	JNE initLoop
 
+	RET
+
+sm4ni_init:
+	VMOVDQU gcmPoly<>(SB), POLY
+	// Encrypt block 0, with the sm4 round keys to generate the hash key H
+	VPXOR B0, B0, B0
+	VPXOR B1, B1, B1
+	VPXOR B2, B2, B2
+	VPXOR B3, B3, B3
+
+	// encrypt block 0 with the sm4 round keys to generate the hash key H
+	VSM4RNDS4_MEM_NO_OFF_RAX(0, 0) // VSM4RNDS4 xmm0, xmm0, [rax]
+	VSM4RNDS4_MEM_8BIT_OFF_RAX(0, 0, 16) // VSM4RNDS4 xmm0, xmm0, 16[rax]
+	VSM4RNDS4_MEM_8BIT_OFF_RAX(0, 0, 32) // VSM4RNDS4 xmm0, xmm0, 32[rax]
+	VSM4RNDS4_MEM_8BIT_OFF_RAX(0, 0, 48) // VSM4RNDS4 xmm0, xmm0, 48[rax]
+	VSM4RNDS4_MEM_8BIT_OFF_RAX(0, 0, 64) // VSM4RNDS4 xmm0, xmm0, 64[rax]
+	VSM4RNDS4_MEM_8BIT_OFF_RAX(0, 0, 80) // VSM4RNDS4 xmm0, xmm0, 80[rax
+	VSM4RNDS4_MEM_8BIT_OFF_RAX(0, 0, 96) // VSM4RNDS4 xmm0, xmm0, 96[rax]
+	VSM4RNDS4_MEM_8BIT_OFF_RAX(0, 0, 112) // VSM4RNDS4 xmm0, xmm0, 112[rax]
+
+	// H * 2
+	VPSHUFD $0xff, B0, T0
+	VPSRAD $31, T0, T0
+	VPAND POLY, T0, T0
+	VPSRLD $31, B0, T1
+	VPSLLDQ $4, T1, T1
+	VPSLLD $1, B0, B0
+	VPXOR T0, B0, B0
+	VPXOR T1, B0, B0
+	// Karatsuba pre-computations
+	VMOVDQU B0, (16*14)(dst)
+	VPSHUFD $78, B0, B1
+	VPXOR B0, B1, B1
+	VMOVDQU B1, (16*15)(dst)
+
+	VMOVDQU B0, B2
+	VMOVDQU B1, B3
+	// Now prepare powers of H and pre-computations for them
+	MOVQ $7, AX
+
+sm4niInitLoop:
+		// B0 * B2, Karatsuba Approach
+		VPCLMULQDQ $0x00, B0, B2, T0 // B0[0] * B2[0]
+		VPCLMULQDQ $0x11, B0, B2, T1 // B0[1] * B2[1]
+		VPCLMULQDQ $0x00, B1, B3, T2 // (B0[0] + B0[1]) * (B2[0] + B2[1])
+
+		VPXOR T0, T2, T2             // (B0[0] + B0[1]) * (B2[0] + B2[1]) - B0[0] * B2[0]
+		VPXOR T1, T2, T2             // B0[0] * B2[1] + B0[1] * B2[0]
+		VPSLLDQ $8, T2, B4
+		VPSRLDQ $8, T2, T2
+		VPXOR B4, T0, T0
+		VPXOR T2, T1, T1             // [T1, T0] = B0 * B2
+
+		// Fast reduction
+		// 1st reduction
+		VPCLMULQDQ $0x01, T0, POLY, B2 // B2 = T0[0] * POLY[1]
+		VPSHUFD $78, T0, T0
+		VPXOR B2, T0, T0
+		// 2nd reduction
+		VPCLMULQDQ $0x01, T0, POLY, B2
+		VPSHUFD $78, T0, T0
+		VPXOR T0, B2, B2
+		VPXOR T1, B2, B2
+
+		VMOVDQU B2, (16*12)(dst)
+		VPSHUFD $78, B2, B3
+		VPXOR B2, B3, B3
+		VMOVDQU B3, (16*13)(dst)
+
+		DECQ AX
+		LEAQ (-16*2)(dst), dst
+	JNE sm4niInitLoop
 	RET
 
 #undef RK
