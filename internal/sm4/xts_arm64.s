@@ -145,7 +145,7 @@
 #define rkSave R6
 
 // func encryptSm4Xts(xk *uint32, tweak *[BlockSize]byte, dst, src []byte, isGB bool)
-TEXT ·encryptSm4Xts(SB),0,$128-64
+TEXT ·encryptSm4Xts(SB),0,$128-65
 	LOAD_SM4_AESNI_CONSTS()
 	MOVD xk+0(FP), rk
 	MOVD tweak+8(FP), twPtr
@@ -319,7 +319,7 @@ xtsSm4EncDone:
 	RET
 
 // func decryptSm4Xts(xk *uint32, tweak *[BlockSize]byte, dst, src []byte, isGB bool)
-TEXT ·decryptSm4Xts(SB),0,$128-64
+TEXT ·decryptSm4Xts(SB),0,$128-65
 	LOAD_SM4_AESNI_CONSTS()
 	MOVD xk+0(FP), rk
 	MOVD tweak+8(FP), twPtr
