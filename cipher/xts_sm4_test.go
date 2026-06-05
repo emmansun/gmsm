@@ -67,7 +67,7 @@ func fromHex(s string) []byte {
 	return ret
 }
 
-func TestXTS(t *testing.T) {
+func TestXTSWithSM4(t *testing.T) {
 	for i, test := range xtsTestVectors {
 		key := fromHex(test.key)
 
@@ -211,7 +211,7 @@ var xtsGBTestVectors = []struct {
 	},
 }
 
-func TestGBXTSSample(t *testing.T) {
+func TestGBXTSWithSM4Sample(t *testing.T) {
 	for i, test := range xtsGBTestVectors {
 		key := fromHex(test.key)
 		tweak := fromHex(test.tweak)
@@ -293,7 +293,7 @@ var gbXtsTestVectors = []struct {
 	},
 }
 
-func TestGBXTS(t *testing.T) {
+func TestGBXTSWithSM4(t *testing.T) {
 	for i, test := range gbXtsTestVectors {
 		key := fromHex(test.key)
 
