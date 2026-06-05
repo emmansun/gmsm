@@ -1,4 +1,4 @@
-//go:build arm64 && !purego
+//go:build (amd64 || arm64) && !purego
 
 package sm4
 
