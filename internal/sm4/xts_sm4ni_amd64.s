@@ -42,8 +42,8 @@ TEXT ·encryptSm4NiXts(SB),0,$256-65
 	JMP avx2_init_done
 avx2_gb_init:
 	VMOVDQU ·gbGcmPoly(SB), POLY
+avx2_init_done:
 	VMOVDQU ·bswap_mask(SB), BSWAP
-avx2_init_done:	
 	VMOVDQU (0*16)(BX), TW
 
 avxXtsSm4EncOctets:
@@ -78,14 +78,14 @@ avx2_8blocks_done:
 	VSM4RNDS32_MEM_RAX(5)
 	VSM4RNDS32_MEM_RAX(6)
 	VSM4RNDS32_MEM_RAX(7)
-	VPSHUFB ·bswap_mask(SB), B0, B0
-	VPSHUFB ·bswap_mask(SB), B1, B1
-	VPSHUFB ·bswap_mask(SB), B2, B2
-	VPSHUFB ·bswap_mask(SB), B3, B3
-	VPSHUFB ·bswap_mask(SB), B4, B4
-	VPSHUFB ·bswap_mask(SB), B5, B5
-	VPSHUFB ·bswap_mask(SB), B6, B6
-	VPSHUFB ·bswap_mask(SB), B7, B7
+	VPSHUFB BSWAP, B0, B0
+	VPSHUFB BSWAP, B1, B1
+	VPSHUFB BSWAP, B2, B2
+	VPSHUFB BSWAP, B3, B3
+	VPSHUFB BSWAP, B4, B4
+	VPSHUFB BSWAP, B5, B5
+	VPSHUFB BSWAP, B6, B6
+	VPSHUFB BSWAP, B7, B7
 
 	avxStore8Blocks
 
@@ -118,10 +118,10 @@ avx2_4tweaks_done:
 	VSM4RNDS32_MEM_RAX(1)
 	VSM4RNDS32_MEM_RAX(2)
 	VSM4RNDS32_MEM_RAX(3)
-	VPSHUFB ·bswap_mask(SB), B0, B0
-	VPSHUFB ·bswap_mask(SB), B1, B1
-	VPSHUFB ·bswap_mask(SB), B2, B2
-	VPSHUFB ·bswap_mask(SB), B3, B3
+	VPSHUFB BSWAP, B0, B0
+	VPSHUFB BSWAP, B1, B1
+	VPSHUFB BSWAP, B2, B2
+	VPSHUFB BSWAP, B3, B3
 
 	avxStore4Blocks
 
@@ -139,7 +139,7 @@ avxXtsSm4EncSingles:
 	VPXOR TW, B0, B0
 	VPSHUFB ·flip_mask(SB), B0, B0
 	VSM4RNDS32_MEM_RAX(0)
-	VPSHUFB ·bswap_mask(SB), B0, B0
+	VPSHUFB BSWAP, B0, B0
 	VPXOR TW, B0, B0
 	VMOVDQU B0, (16*0)(CX)
 	TESTQ R12, R12
@@ -187,7 +187,7 @@ avxXtsSm4EncTailEnc:
 	VPXOR TW, B0, B0
 	VPSHUFB ·flip_mask(SB), B0, B0
 	VSM4RNDS32_MEM_RAX(0)
-	VPSHUFB ·bswap_mask(SB), B0, B0
+	VPSHUFB BSWAP, B0, B0
 	VPXOR TW, B0, B0
 	VMOVDQU B0, (16*0)(R8)
 
@@ -211,6 +211,7 @@ TEXT ·decryptSm4NiXts(SB),0,$256-65
 avx2_gb_init:
 	VMOVDQU ·gbGcmPoly(SB), POLY
 avx2_init_done:	
+	VMOVDQU ·bswap_mask(SB), BSWAP
 	VMOVDQU (0*16)(BX), TW
 
 avxXtsSm4DecOctets:
@@ -245,14 +246,14 @@ avx2_8tweaks_done:
 	VSM4RNDS32_MEM_RAX(5)
 	VSM4RNDS32_MEM_RAX(6)
 	VSM4RNDS32_MEM_RAX(7)
-	VPSHUFB ·bswap_mask(SB), B0, B0
-	VPSHUFB ·bswap_mask(SB), B1, B1
-	VPSHUFB ·bswap_mask(SB), B2, B2
-	VPSHUFB ·bswap_mask(SB), B3, B3
-	VPSHUFB ·bswap_mask(SB), B4, B4
-	VPSHUFB ·bswap_mask(SB), B5, B5
-	VPSHUFB ·bswap_mask(SB), B6, B6
-	VPSHUFB ·bswap_mask(SB), B7, B7
+	VPSHUFB BSWAP, B0, B0
+	VPSHUFB BSWAP, B1, B1
+	VPSHUFB BSWAP, B2, B2
+	VPSHUFB BSWAP, B3, B3
+	VPSHUFB BSWAP, B4, B4
+	VPSHUFB BSWAP, B5, B5
+	VPSHUFB BSWAP, B6, B6
+	VPSHUFB BSWAP, B7, B7
 
 	avxStore8Blocks
 
@@ -285,10 +286,10 @@ avx2_4tweaks_done:
 	VSM4RNDS32_MEM_RAX(1)
 	VSM4RNDS32_MEM_RAX(2)
 	VSM4RNDS32_MEM_RAX(3)
-	VPSHUFB ·bswap_mask(SB), B0, B0
-	VPSHUFB ·bswap_mask(SB), B1, B1
-	VPSHUFB ·bswap_mask(SB), B2, B2
-	VPSHUFB ·bswap_mask(SB), B3, B3
+	VPSHUFB BSWAP, B0, B0
+	VPSHUFB BSWAP, B1, B1
+	VPSHUFB BSWAP, B2, B2
+	VPSHUFB BSWAP, B3, B3
 
 	avxStore4Blocks
 
@@ -306,7 +307,7 @@ avxXtsSm4DecSingles:
 	VPXOR TW, B0, B0
 	VPSHUFB ·flip_mask(SB), B0, B0
 	VSM4RNDS32_MEM_RAX(0)
-	VPSHUFB ·bswap_mask(SB), B0, B0
+	VPSHUFB BSWAP, B0, B0
 	VPXOR TW, B0, B0
 	VMOVDQU B0, (16*0)(CX)
 	TESTQ R12, R12
@@ -342,7 +343,7 @@ avx2_tail_mul2_done:
 	VPXOR TW, B0, B0
 	VPSHUFB ·flip_mask(SB), B0, B0
 	VSM4RNDS32_MEM_RAX(0)
-	VPSHUFB ·bswap_mask(SB), B0, B0
+	VPSHUFB BSWAP, B0, B0
 	VPXOR TW, B0, B0
 	VMOVDQU B0, (16*0)(CX)
 	VMOVDQU B5, TW
@@ -378,7 +379,7 @@ avxXtsSm4DecTailDec:
 	VPXOR TW, B0, B0
 	VPSHUFB ·flip_mask(SB), B0, B0
 	VSM4RNDS32_MEM_RAX(0)
-	VPSHUFB ·bswap_mask(SB), B0, B0
+	VPSHUFB BSWAP, B0, B0
 	VPXOR TW, B0, B0
 	VMOVDQU B0, (16*0)(R8)
 	JMP avxXtsSm4DecDone
@@ -388,7 +389,7 @@ avxXtsSm4DecLastBlock:
 	VPXOR TW, B0, B0
 	VPSHUFB ·flip_mask(SB), B0, B0
 	VSM4RNDS32_MEM_RAX(0)
-	VPSHUFB ·bswap_mask(SB), B0, B0
+	VPSHUFB BSWAP, B0, B0
 	VPXOR TW, B0, B0
 	VMOVDQU B0, (16*0)(CX)
 	TESTQ R12, R12
