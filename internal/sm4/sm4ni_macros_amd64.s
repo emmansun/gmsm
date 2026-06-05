@@ -68,7 +68,7 @@
     /* Displacement */ \
     BYTE $((OFFSET) & 0xFF)
 
-#define VSM4RNDS32_MEM_NO_OFF_RAX(Xd) \
+#define VSM4RNDS32_MEM_RAX(Xd) \
 	VSM4RNDS4_MEM_NO_OFF_RAX(Xd, Xd); \
 	VSM4RNDS4_MEM_8BIT_OFF_RAX(Xd, Xd, 16); \
 	VSM4RNDS4_MEM_8BIT_OFF_RAX(Xd, Xd, 32); \

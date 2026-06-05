@@ -616,7 +616,7 @@ gfni_single_loop:
 vsm4rnds4:
 	VMOVDQU (DX), X0
 	VPSHUFB ·flip_mask(SB), X0, X0
-	VSM4RNDS32_MEM_NO_OFF_RAX(0)
+	VSM4RNDS32_MEM_RAX(0)
 	VPSHUFB ·bswap_mask(SB), X0, X0
 	VMOVDQU X0, (BX)
 
