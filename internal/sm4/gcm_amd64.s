@@ -1839,7 +1839,6 @@ TEXT ·gcmSm4niEnc(SB), 0 ,$256-96
 	MOVQ T+64(FP), tPtr
 	MOVQ rk_base+72(FP), rk
 
-sm4niGcmSm4Enc:
 	VMOVDQU ·bswap_mask(SB), BSWAP
 	VMOVDQU gcmPoly<>(SB), POLY
 
@@ -1913,7 +1912,7 @@ sm4niGcmSm4Enc:
 	VPXOR (16*5)(ptx), B5, B5
 	increment(3)
 	VPXOR (16*6)(ptx), B6, B6
-	VPXOR (16*7)(ptx), B7, B7	
+	VPXOR (16*7)(ptx), B7, B7
 	// Store ciphertext
 	VMOVDQU B0, (16*0)(ctx)
 	VPSHUFB BSWAP, B0, B0
@@ -2099,9 +2098,9 @@ gcmSm4niEncOctetsEnd:
 
 	SUBQ $4, aluCTR
 
-avxGcmSm4EncNibbles:
+gcmSm4niEncNibbles:
 	CMPQ ptxLen, $64
-	JBE avxGcmSm4EncSingles
+	JBE gcmSm4niEncSingles
 	SUBQ $64, ptxLen
 	
 	// load 4 ctrs for encryption
@@ -2144,9 +2143,9 @@ avxGcmSm4EncNibbles:
 	LEAQ 64(ptx), ptx
 	LEAQ 64(ctx), ctx
 
-avxGcmSm4EncSingles:
+gcmSm4niEncSingles:
 	TESTQ ptxLen, ptxLen
-	JE avxGcmSm4EncDone
+	JE gcmSm4niEncDone
 
 	VMOVDQU (8*16 + 0*16)(SP), B0
 	VMOVDQU (8*16 + 1*16)(SP), B1
@@ -2170,9 +2169,9 @@ avxGcmSm4EncSingles:
 	VMOVDQU (16*14)(pTbl), T2
 	MOVQ SP, BP
 
-avxGcmSm4EncSinglesLoop:
+gcmSm4niEncSinglesLoop:
 		CMPQ ptxLen, $16
-		JB avxGcmSm4EncTail
+		JB gcmSm4niEncTail
 		SUBQ $16, ptxLen
 		VMOVDQU (16*0)(BP), B0
 		VMOVDQU (ptx), T0
@@ -2182,11 +2181,11 @@ avxGcmSm4EncSinglesLoop:
 		LEAQ (16*1)(ptx), ptx
 		LEAQ (16*1)(ctx), ctx
 		ADDQ $16, BP
-	JMP avxGcmSm4EncSinglesLoop
+	JMP gcmSm4niEncSinglesLoop
 
-avxGcmSm4EncTail:
+gcmSm4niEncTail:
 	TESTQ ptxLen, ptxLen
-	JE avxGcmSm4EncDone
+	JE gcmSm4niEncDone
 	VMOVDQU (16*0)(BP), B0
 	VMOVDQU B0, T0
 
@@ -2211,7 +2210,7 @@ avxPtxLoadLoop:
 	VMOVDQU B0, (ctx)	// I assume there is always space, due to TAG in the end of the CT
 	avxGcmEncDataStep(B0)
 
-avxGcmSm4EncDone:
+gcmSm4niEncDone:
 	VMOVDQU ACC0, (tPtr)
 	RET
 
@@ -2227,7 +2226,6 @@ TEXT ·gcmSm4niDec(SB), 0 ,$128-96
 	MOVQ T+64(FP), tPtr
 	MOVQ rk_base+72(FP), rk
 
-avxGcmSm4Dec:
 	VMOVDQU ·bswap_mask(SB), BSWAP
 	VMOVDQU gcmPoly<>(SB), POLY
 
@@ -2260,9 +2258,9 @@ avxGcmSm4Dec:
 	VMOVDQU T0, (7*16)(SP)
 	increment(7)
 
-avxGcmSm4DecOctetsLoop:
+gcmSm4niDecOctetsLoop:
 		CMPQ ptxLen, $128
-		JB avxGcmSm4DecEndOctets
+		JB gcmSm4niDecEndOctets
 		SUBQ $128, ptxLen
 
 		VMOVDQU (0*16)(SP), B0
@@ -2354,14 +2352,14 @@ avxGcmSm4DecOctetsLoop:
 		LEAQ 128(ptx), ptx
 		LEAQ 128(ctx), ctx
 
-		JMP avxGcmSm4DecOctetsLoop
+		JMP gcmSm4niDecOctetsLoop
 
-avxGcmSm4DecEndOctets:
+gcmSm4niDecEndOctets:
 	SUBQ $4, aluCTR
 
-avxGcmSm4DecNibbles:
+gcmSm4niDecNibbles:
 	CMPQ ptxLen, $64
-	JBE avxGcmSm4DecSingles
+	JBE gcmSm4niDecSingles
 	SUBQ $64, ptxLen
 
 	VMOVDQU (0*16)(SP), B4
@@ -2407,9 +2405,9 @@ avxGcmSm4DecNibbles:
 	LEAQ 64(ptx), ptx
 	LEAQ 64(ctx), ctx
 
-avxGcmSm4DecSingles:
+gcmSm4niDecSingles:
 	TESTQ ptxLen, ptxLen
-	JE avxGcmSm4DecDone
+	JE gcmSm4niDecDone
 
 	VMOVDQU (0*16)(SP), B0
 	VMOVDQU (1*16)(SP), B1
@@ -2434,9 +2432,9 @@ avxGcmSm4DecSingles:
 	MOVQ SP, BP
 	ADDQ $64, BP
 
-avxGcmSm4DecSinglesLoop:
+gcmSm4niDecSinglesLoop:
 		CMPQ ptxLen, $16
-		JB avxGcmSm4DecTail
+		JB gcmSm4niDecTail
 		SUBQ $16, ptxLen
 
 		VMOVDQU (16*0)(BP), T0
@@ -2449,11 +2447,11 @@ avxGcmSm4DecSinglesLoop:
 		LEAQ (16*1)(ptx), ptx
 		LEAQ (16*1)(ctx), ctx
 		ADDQ $16, BP
-	JMP avxGcmSm4DecSinglesLoop
+	JMP gcmSm4niDecSinglesLoop
 
-avxGcmSm4DecTail:
+gcmSm4niDecTail:
 	TESTQ ptxLen, ptxLen
-	JE avxGcmSm4DecDone
+	JE gcmSm4niDecDone
 
 	MOVQ ptxLen, aluTMP
 	SHLQ $4, aluTMP
@@ -2477,6 +2475,6 @@ avxPtxStoreLoop:
 
 	JNE avxPtxStoreLoop
 
-avxGcmSm4DecDone:
+gcmSm4niDecDone:
 	VMOVDQU ACC0, (tPtr)
 	RET
