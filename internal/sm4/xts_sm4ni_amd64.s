@@ -19,6 +19,7 @@
 #define B6 X6
 #define B7 X7
 
+#define FLIP_MASK X9
 #define TW X10
 
 #define T0 X11
@@ -36,6 +37,7 @@ TEXT ·encryptSm4NiXts(SB),0,$256-65
 	MOVQ src_len+48(FP), DI
 	MOVBQZX isGB+64(FP), R12
 
+	VMOVDQU ·flip_mask(SB), FLIP_MASK
 	TESTQ R12, R12
 	JNE avx2_gb_init
 	VMOVDQU ·gcmPoly(SB), POLY
@@ -62,14 +64,14 @@ avx2_8blocks_done:
 	// load 8 blocks for encryption
 	avxLoad8Blocks
 
-	VPSHUFB ·flip_mask(SB), B0, B0
-	VPSHUFB ·flip_mask(SB), B1, B1
-	VPSHUFB ·flip_mask(SB), B2, B2
-	VPSHUFB ·flip_mask(SB), B3, B3
-	VPSHUFB ·flip_mask(SB), B4, B4
-	VPSHUFB ·flip_mask(SB), B5, B5
-	VPSHUFB ·flip_mask(SB), B6, B6
-	VPSHUFB ·flip_mask(SB), B7, B7
+	VPSHUFB FLIP_MASK, B0, B0
+	VPSHUFB FLIP_MASK, B1, B1
+	VPSHUFB FLIP_MASK, B2, B2
+	VPSHUFB FLIP_MASK, B3, B3
+	VPSHUFB FLIP_MASK, B4, B4
+	VPSHUFB FLIP_MASK, B5, B5
+	VPSHUFB FLIP_MASK, B6, B6
+	VPSHUFB FLIP_MASK, B7, B7
 	VSM4RNDS32_MEM_RAX(0)
 	VSM4RNDS32_MEM_RAX(1)
 	VSM4RNDS32_MEM_RAX(2)
@@ -110,10 +112,10 @@ avx2_4tweaks_done:
 	// load 4 blocks for encryption
 	avxLoad4Blocks
 
-	VPSHUFB ·flip_mask(SB), B0, B0
-	VPSHUFB ·flip_mask(SB), B1, B1
-	VPSHUFB ·flip_mask(SB), B2, B2
-	VPSHUFB ·flip_mask(SB), B3, B3
+	VPSHUFB FLIP_MASK, B0, B0
+	VPSHUFB FLIP_MASK, B1, B1
+	VPSHUFB FLIP_MASK, B2, B2
+	VPSHUFB FLIP_MASK, B3, B3
 	VSM4RNDS32_MEM_RAX(0)
 	VSM4RNDS32_MEM_RAX(1)
 	VSM4RNDS32_MEM_RAX(2)
@@ -137,7 +139,7 @@ avxXtsSm4EncSingles:
 	VMOVDQU (16*0)(DX), B0
 	
 	VPXOR TW, B0, B0
-	VPSHUFB ·flip_mask(SB), B0, B0
+	VPSHUFB FLIP_MASK, B0, B0
 	VSM4RNDS32_MEM_RAX(0)
 	VPSHUFB BSWAP, B0, B0
 	VPXOR TW, B0, B0
@@ -185,7 +187,7 @@ avx_loop_1b:
 avxXtsSm4EncTailEnc:
 	VMOVDQU (16*0)(SP), B0
 	VPXOR TW, B0, B0
-	VPSHUFB ·flip_mask(SB), B0, B0
+	VPSHUFB FLIP_MASK, B0, B0
 	VSM4RNDS32_MEM_RAX(0)
 	VPSHUFB BSWAP, B0, B0
 	VPXOR TW, B0, B0
@@ -204,6 +206,7 @@ TEXT ·decryptSm4NiXts(SB),0,$256-65
 	MOVQ src_len+48(FP), DI
 	MOVBQZX isGB+64(FP), R12
 
+	VMOVDQU ·flip_mask(SB), FLIP_MASK
 	TESTQ R12, R12
 	JNE avx2_gb_init
 	VMOVDQU ·gcmPoly(SB), POLY
@@ -230,14 +233,14 @@ avx2_8tweaks_done:
 	// load 8 blocks for decryption
 	avxLoad8Blocks
 
-	VPSHUFB ·flip_mask(SB), B0, B0
-	VPSHUFB ·flip_mask(SB), B1, B1
-	VPSHUFB ·flip_mask(SB), B2, B2
-	VPSHUFB ·flip_mask(SB), B3, B3
-	VPSHUFB ·flip_mask(SB), B4, B4
-	VPSHUFB ·flip_mask(SB), B5, B5
-	VPSHUFB ·flip_mask(SB), B6, B6
-	VPSHUFB ·flip_mask(SB), B7, B7
+	VPSHUFB FLIP_MASK, B0, B0
+	VPSHUFB FLIP_MASK, B1, B1
+	VPSHUFB FLIP_MASK, B2, B2
+	VPSHUFB FLIP_MASK, B3, B3
+	VPSHUFB FLIP_MASK, B4, B4
+	VPSHUFB FLIP_MASK, B5, B5
+	VPSHUFB FLIP_MASK, B6, B6
+	VPSHUFB FLIP_MASK, B7, B7
 	VSM4RNDS32_MEM_RAX(0)
 	VSM4RNDS32_MEM_RAX(1)
 	VSM4RNDS32_MEM_RAX(2)
@@ -278,10 +281,10 @@ avx2_4tweaks_done:
 	// load 4 blocks for decryption
 	avxLoad4Blocks
 
-	VPSHUFB ·flip_mask(SB), B0, B0
-	VPSHUFB ·flip_mask(SB), B1, B1
-	VPSHUFB ·flip_mask(SB), B2, B2
-	VPSHUFB ·flip_mask(SB), B3, B3
+	VPSHUFB FLIP_MASK, B0, B0
+	VPSHUFB FLIP_MASK, B1, B1
+	VPSHUFB FLIP_MASK, B2, B2
+	VPSHUFB FLIP_MASK, B3, B3
 	VSM4RNDS32_MEM_RAX(0)
 	VSM4RNDS32_MEM_RAX(1)
 	VSM4RNDS32_MEM_RAX(2)
@@ -305,7 +308,7 @@ avxXtsSm4DecSingles:
 	VMOVDQU (16*0)(DX), B0
 	
 	VPXOR TW, B0, B0
-	VPSHUFB ·flip_mask(SB), B0, B0
+	VPSHUFB FLIP_MASK, B0, B0
 	VSM4RNDS32_MEM_RAX(0)
 	VPSHUFB BSWAP, B0, B0
 	VPXOR TW, B0, B0
@@ -341,7 +344,7 @@ avx2_gb_tail_mul2:
 	avxMul2GBInline
 avx2_tail_mul2_done:
 	VPXOR TW, B0, B0
-	VPSHUFB ·flip_mask(SB), B0, B0
+	VPSHUFB FLIP_MASK, B0, B0
 	VSM4RNDS32_MEM_RAX(0)
 	VPSHUFB BSWAP, B0, B0
 	VPXOR TW, B0, B0
@@ -377,7 +380,7 @@ avx_loop_1b:
 avxXtsSm4DecTailDec:
 	VMOVDQU (16*0)(SP), B0
 	VPXOR TW, B0, B0
-	VPSHUFB ·flip_mask(SB), B0, B0
+	VPSHUFB FLIP_MASK, B0, B0
 	VSM4RNDS32_MEM_RAX(0)
 	VPSHUFB BSWAP, B0, B0
 	VPXOR TW, B0, B0
@@ -387,7 +390,7 @@ avxXtsSm4DecTailDec:
 avxXtsSm4DecLastBlock:
 	VMOVDQU (16*0)(DX), B0
 	VPXOR TW, B0, B0
-	VPSHUFB ·flip_mask(SB), B0, B0
+	VPSHUFB FLIP_MASK, B0, B0
 	VSM4RNDS32_MEM_RAX(0)
 	VPSHUFB BSWAP, B0, B0
 	VPXOR TW, B0, B0
