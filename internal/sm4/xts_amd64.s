@@ -22,14 +22,14 @@
 #define BSWAP X15
 #define DWBSWAP Y15
 
-DATA gcmPoly<>+0x00(SB)/8, $0x0000000000000087
-DATA gcmPoly<>+0x08(SB)/8, $0x0000000000000000
+DATA ·gcmPoly+0x00(SB)/8, $0x0000000000000087
+DATA ·gcmPoly+0x08(SB)/8, $0x0000000000000000
 
-DATA gbGcmPoly<>+0x00(SB)/8, $0x0000000000000000
-DATA gbGcmPoly<>+0x08(SB)/8, $0xe100000000000000
+DATA ·gbGcmPoly+0x00(SB)/8, $0x0000000000000000
+DATA ·gbGcmPoly+0x08(SB)/8, $0xe100000000000000
 
-GLOBL gcmPoly<>(SB), (NOPTR+RODATA), $16
-GLOBL gbGcmPoly<>(SB), (NOPTR+RODATA), $16
+GLOBL ·gcmPoly(SB), (NOPTR+RODATA), $16
+GLOBL ·gbGcmPoly(SB), (NOPTR+RODATA), $16
 
 #include "aesni_macros_amd64.s"
 #include "gfni_macros_amd64.s"
@@ -245,10 +245,10 @@ TEXT ·encryptSm4Xts(SB),0,$256-65
 
 	TESTQ R12, R12
 	JNE sse_gb_init
-	MOVOU gcmPoly<>(SB), POLY
+	MOVOU ·gcmPoly(SB), POLY
 	JMP sse_init_done
 sse_gb_init:
-	MOVOU gbGcmPoly<>(SB), POLY
+	MOVOU ·gbGcmPoly(SB), POLY
 	MOVOU ·bswap_mask(SB), BSWAP	
 sse_init_done:	
 	MOVOU (0*16)(BX), TW
@@ -362,10 +362,10 @@ xtsSm4EncDone:
 avx2XtsSm4Enc:
 	TESTQ R12, R12
 	JNE avx2_gb_init
-	VMOVDQU gcmPoly<>(SB), POLY
+	VMOVDQU ·gcmPoly(SB), POLY
 	JMP avx2_init_done
 avx2_gb_init:
-	VMOVDQU gbGcmPoly<>(SB), POLY
+	VMOVDQU ·gbGcmPoly(SB), POLY
 avx2_init_done:	
 	VMOVDQU (0*16)(BX), TW
 	VBROADCASTI128 ·nibble_mask(SB), NIBBLE_MASK
@@ -544,10 +544,10 @@ TEXT ·decryptSm4Xts(SB),0,$256-65
 
 	TESTQ R12, R12
 	JNE sse_gb_dec_init
-	MOVOU gcmPoly<>(SB), POLY
+	MOVOU ·gcmPoly(SB), POLY
 	JMP sse_dec_init_done
 sse_gb_dec_init:
-	MOVOU gbGcmPoly<>(SB), POLY
+	MOVOU ·gbGcmPoly(SB), POLY
 	MOVOU ·bswap_mask(SB), BSWAP	
 sse_dec_init_done:
 	MOVOU (0*16)(BX), TW
@@ -699,10 +699,10 @@ xtsSm4DecDone:
 avx2XtsSm4Dec:
 	TESTQ R12, R12
 	JNE avx2_gb_dec_init
-	VMOVDQU gcmPoly<>(SB), POLY
+	VMOVDQU ·gcmPoly(SB), POLY
 	JMP avx2_dec_init_done
 avx2_gb_dec_init:
-	VMOVDQU gbGcmPoly<>(SB), POLY
+	VMOVDQU ·gbGcmPoly(SB), POLY
 avx2_dec_init_done:	
 	VMOVDQU (0*16)(BX), TW
 	VBROADCASTI128 ·nibble_mask(SB), NIBBLE_MASK

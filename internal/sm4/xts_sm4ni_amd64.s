@@ -38,10 +38,10 @@ TEXT ·encryptSm4NiXts(SB),0,$256-65
 
 	TESTQ R12, R12
 	JNE avx2_gb_init
-	VMOVDQU gcmPoly<>(SB), POLY
+	VMOVDQU ·gcmPoly(SB), POLY
 	JMP avx2_init_done
 avx2_gb_init:
-	VMOVDQU gbGcmPoly<>(SB), POLY
+	VMOVDQU ·gbGcmPoly(SB), POLY
 	VMOVDQU ·bswap_mask(SB), BSWAP
 avx2_init_done:	
 	VMOVDQU (0*16)(BX), TW
@@ -206,10 +206,10 @@ TEXT ·decryptSm4NiXts(SB),0,$256-65
 
 	TESTQ R12, R12
 	JNE avx2_gb_init
-	VMOVDQU gcmPoly<>(SB), POLY
+	VMOVDQU ·gcmPoly(SB), POLY
 	JMP avx2_init_done
 avx2_gb_init:
-	VMOVDQU gbGcmPoly<>(SB), POLY
+	VMOVDQU ·gbGcmPoly(SB), POLY
 avx2_init_done:	
 	VMOVDQU (0*16)(BX), TW
 
