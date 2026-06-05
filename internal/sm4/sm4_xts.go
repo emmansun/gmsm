@@ -43,16 +43,10 @@ func (b *sm4CipherAsm) NewXTSDecrypter(encryptedTweak *[BlockSize]byte, isGB boo
 func (x *xts) BlockSize() int { return BlockSize }
 
 //go:noescape
-func encryptSm4Xts(xk *uint32, tweak *[BlockSize]byte, dst, src []byte)
+func encryptSm4Xts(xk *uint32, tweak *[BlockSize]byte, dst, src []byte, isGB bool)
 
 //go:noescape
-func encryptSm4XtsGB(xk *uint32, tweak *[BlockSize]byte, dst, src []byte)
-
-//go:noescape
-func decryptSm4Xts(xk *uint32, tweak *[BlockSize]byte, dst, src []byte)
-
-//go:noescape
-func decryptSm4XtsGB(xk *uint32, tweak *[BlockSize]byte, dst, src []byte)
+func decryptSm4Xts(xk *uint32, tweak *[BlockSize]byte, dst, src []byte, isGB bool)
 
 func validateXtsInput(dst, src []byte) {
 	if len(dst) < len(src) {
@@ -69,16 +63,8 @@ func validateXtsInput(dst, src []byte) {
 func (x *xts) CryptBlocks(dst, src []byte) {
 	validateXtsInput(dst, src)
 	if x.enc == xtsEncrypt {
-		if x.isGB {
-			encryptSm4XtsGB(&x.b.enc[0], &x.tweak, dst, src)
-		} else {
-			encryptSm4Xts(&x.b.enc[0], &x.tweak, dst, src)
-		}
+		encryptSm4Xts(&x.b.enc[0], &x.tweak, dst, src, x.isGB)
 	} else {
-		if x.isGB {
-			decryptSm4XtsGB(&x.b.dec[0], &x.tweak, dst, src)
-		} else {
-			decryptSm4Xts(&x.b.dec[0], &x.tweak, dst, src)
-		}	
+		decryptSm4Xts(&x.b.dec[0], &x.tweak, dst, src, x.isGB)
 	}
 }
