@@ -1,70 +1,146 @@
-#define mul2Inline        \
-	VMOV	TW.D[1], I;                     \
-	ASR	$63, I;                             \
-	VMOV	I, K0.D2;                       \
-	VAND	POLY.B16, K0.B16, K0.B16;       \
-	\
-	VUSHR	$63, TW.D2, K1.D2;              \
-	VEXT	$8, K1.B16, ZERO.B16, K1.B16;   \
-	VSLI	$1, TW.D2, K1.D2;               \
-	VEOR	K0.B16, K1.B16, TW.B16
+#define avxMul2GBInline        \
+	VPSHUFB BSWAP, TW, TW;       \
+	\// TW * 2
+	VPSLLQ $63, TW, T0;     \      
+ 	VPSHUFD $0, TW, T1;     \
+	VPSRLQ $1, TW, TW;      \
+	VPSRLDQ $8, T0, T0;     \
+	VPOR T0, TW, TW;        \
+	\// reduction
+	VPSLLD $31, T1, T1;     \
+	VPSRAD $31, T1, T1;     \
+	VPAND POLY, T1, T1;     \
+	VPXOR T1, TW, TW;       \
+	VPSHUFB BSWAP, TW, TW
 
-#define mul2GBInline        \
-	VREV64 TW.B16, TW.B16;                  \
-	VEXT	$8, TW.B16, TW.B16, TW.B16;     \
-	\
-	VMOV	TW.D[0], I;                     \
-	LSL $63, I;                             \
-	ASR $63, I;                             \
-	VMOV	I, K0.D2;                       \
-	VAND	POLY.B16, K0.B16, K0.B16;       \
-	\
-	VSHL $63, TW.D2, K1.D2;                 \
-	VEXT	$8, ZERO.B16, K1.B16, K1.B16;   \
-	VSRI	$1, TW.D2, K1.D2;               \
-	VEOR	K0.B16, K1.B16, TW.B16;         \
-	\
-	VEXT	$8, TW.B16, TW.B16, TW.B16;     \
-	VREV64 TW.B16, TW.B16
+#define avxPrepareGB4Tweaks \
+	VMOVDQU TW, (16*0)(SP); \
+	avxMul2GBInline;           \ 
+	VMOVDQU TW, (16*1)(SP); \ 
+	avxMul2GBInline;           \
+	VMOVDQU TW, (16*2)(SP); \
+	avxMul2GBInline;           \
+	VMOVDQU TW, (16*3)(SP); \
+	avxMul2GBInline
 
-#define prepare4Tweaks \
-	VMOV TW.B16, T0.B16;   \
-	mul2Inline;            \
-	VMOV TW.B16, T1.B16;   \
-	mul2Inline;            \
-	VMOV TW.B16, T2.B16;   \
-	mul2Inline;            \
-	VMOV TW.B16, T3.B16;   \
-	mul2Inline
+#define avxPrepareGB8Tweaks \
+	avxPrepareGB4Tweaks;       \
+	VMOVDQU TW, (16*4)(SP); \
+	avxMul2GBInline;           \
+	VMOVDQU TW, (16*5)(SP); \
+	avxMul2GBInline;           \
+	VMOVDQU TW, (16*6)(SP); \
+	avxMul2GBInline;           \
+	VMOVDQU TW, (16*7)(SP); \
+	avxMul2GBInline
 
-#define prepare8Tweaks \
-	prepare4Tweaks;        \
-	VMOV TW.B16, T4.B16;   \
-	mul2Inline;            \
-	VMOV TW.B16, T5.B16;   \
-	mul2Inline;            \
-	VMOV TW.B16, T6.B16;   \
-	mul2Inline;            \
-	VMOV TW.B16, T7.B16;   \
-	mul2Inline
+#define avxPrepareGB16Tweaks \
+	avxPrepareGB8Tweaks;       \
+	VMOVDQU TW, (16*8)(SP); \
+	avxMul2GBInline;           \
+	VMOVDQU TW, (16*9)(SP); \
+	avxMul2GBInline;           \
+	VMOVDQU TW, (16*10)(SP); \
+	avxMul2GBInline;           \
+	VMOVDQU TW, (16*11)(SP); \
+	avxMul2GBInline;           \
+	VMOVDQU TW, (16*12)(SP); \
+	avxMul2GBInline;           \
+	VMOVDQU TW, (16*13)(SP); \
+	avxMul2GBInline;           \
+	VMOVDQU TW, (16*14)(SP); \
+	avxMul2GBInline;           \
+	VMOVDQU TW, (16*15)(SP); \
+	avxMul2GBInline
 
-#define prepareGB4Tweaks \
-	VMOV TW.B16, T0.B16;     \
-	mul2GBInline;            \
-	VMOV TW.B16, T1.B16;     \
-	mul2GBInline;            \
-	VMOV TW.B16, T2.B16;     \
-	mul2GBInline;            \
-	VMOV TW.B16, T3.B16;     \
-	mul2GBInline
+#define avxMul2Inline        \
+	VPSHUFD $0xff, TW, T0; \
+	VPSRLD $31, TW, T1;    \       
+	VPSRAD $31, T0, T0;    \
+	VPAND POLY, T0, T0;    \        
+	VPSLLDQ $4, T1, T1;    \
+	VPSLLD $1, TW, TW;     \
+	VPXOR T0, TW, TW;      \
+	VPXOR T1, TW, TW
 
-#define prepareGB8Tweaks \
-	prepareGB4Tweaks;        \
-	VMOV TW.B16, T4.B16;     \
-	mul2GBInline;            \
-	VMOV TW.B16, T5.B16;     \
-	mul2GBInline;            \
-	VMOV TW.B16, T6.B16;     \
-	mul2GBInline;            \
-	VMOV TW.B16, T7.B16;     \
-	mul2GBInline
+#define avxPrepare4Tweaks \
+	VMOVDQU TW, (16*0)(SP); \
+	avxMul2Inline;           \ 
+	VMOVDQU TW, (16*1)(SP); \ 
+	avxMul2Inline;           \
+	VMOVDQU TW, (16*2)(SP); \
+	avxMul2Inline;           \
+	VMOVDQU TW, (16*3)(SP); \
+	avxMul2Inline
+
+#define avxPrepare8Tweaks \
+	avxPrepare4Tweaks;       \
+	VMOVDQU TW, (16*4)(SP); \
+	avxMul2Inline;           \
+	VMOVDQU TW, (16*5)(SP); \
+	avxMul2Inline;           \
+	VMOVDQU TW, (16*6)(SP); \
+	avxMul2Inline;           \
+	VMOVDQU TW, (16*7)(SP); \
+	avxMul2Inline
+
+#define avxPrepare16Tweaks \
+	prepare8Tweaks;       \
+	VMOVDQU TW, (16*8)(SP); \
+	avxMul2Inline;           \
+	VMOVDQU TW, (16*9)(SP); \
+	avxMul2Inline;           \
+	VMOVDQU TW, (16*10)(SP); \
+	avxMul2Inline;           \
+	VMOVDQU TW, (16*11)(SP); \
+	avxMul2Inline;           \
+	VMOVDQU TW, (16*12)(SP); \
+	avxMul2Inline;           \
+	VMOVDQU TW, (16*13)(SP); \
+	avxMul2Inline;           \
+	VMOVDQU TW, (16*14)(SP); \
+	avxMul2Inline;           \
+	VMOVDQU TW, (16*15)(SP); \
+	avxMul2Inline
+
+#define avxLoad4Blocks \
+	VMOVDQU (16*0)(DX), B0; \
+	VPXOR (16*0)(SP), B0, B0; \
+	VMOVDQU (16*1)(DX), B1; \
+	VPXOR (16*1)(SP), B1, B1; \
+	VMOVDQU (16*2)(DX), B2; \
+	VPXOR (16*2)(SP), B2, B2; \
+	VMOVDQU (16*3)(DX), B3; \
+	VPXOR (16*3)(SP), B3, B3
+
+#define avxStore4Blocks \
+	VPXOR (16*0)(SP), B0, B0; \
+	VMOVDQU B0, (16*0)(CX); \
+	VPXOR (16*1)(SP), B1, B1; \
+	VMOVDQU B1, (16*1)(CX); \
+	VPXOR (16*2)(SP), B2, B2; \
+	VMOVDQU B2, (16*2)(CX); \
+	VPXOR (16*3)(SP), B3, B3; \
+	VMOVDQU B3, (16*3)(CX)
+
+#define avxLoad8Blocks \
+	avxLoad4Blocks; \
+	VMOVDQU (16*4)(DX), B4; \
+	VPXOR (16*4)(SP), B4, B4; \
+	VMOVDQU (16*5)(DX), B5; \
+	VPXOR (16*5)(SP), B5, B5; \
+	VMOVDQU (16*6)(DX), B6; \
+	VPXOR (16*6)(SP), B6, B6; \
+	VMOVDQU (16*7)(DX), B7; \
+	VPXOR (16*7)(SP), B7, B7
+
+#define avxStore8Blocks \
+	avxStore4Blocks; \
+	VPXOR (16*4)(SP), B4, B4; \
+	VMOVDQU B4, (16*4)(CX); \
+	VPXOR (16*5)(SP), B5, B5; \
+	VMOVDQU B5, (16*5)(CX); \
+	VPXOR (16*6)(SP), B6, B6; \
+	VMOVDQU B6, (16*6)(CX); \
+	VPXOR (16*7)(SP), B7, B7; \
+	VMOVDQU B7, (16*7)(CX)
