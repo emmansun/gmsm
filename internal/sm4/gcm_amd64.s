@@ -1859,7 +1859,7 @@ TEXT ·gcmSm4niEnc(SB), 0 ,$256-96
 	increment(3)
 
 	CMPQ ptxLen, $128
-	JB avxGcmSm4EncNibbles
+	JB gcmSm4niEncNibbles
 	SUBQ $128, ptxLen
 
 	// We have at least 8 blocks to encrypt, prepare the rest of the counters
@@ -2094,7 +2094,7 @@ gcmSm4niEncOctetsEnd:
 	VPXOR ACC1, ACC0, ACC0
 
 	TESTQ ptxLen, ptxLen
-	JE avxGcmSm4EncDone
+	JE gcmSm4niEncDone
 
 	SUBQ $4, aluCTR
 
@@ -2246,7 +2246,7 @@ TEXT ·gcmSm4niDec(SB), 0 ,$128-96
 	increment(3)
 
 	CMPQ ptxLen, $128
-	JB avxGcmSm4DecNibbles
+	JB gcmSm4niDecNibbles
 
 	// We have at least 8 blocks to dencrypt, prepare the rest of the counters
 	VMOVDQU T0, (4*16)(SP)
