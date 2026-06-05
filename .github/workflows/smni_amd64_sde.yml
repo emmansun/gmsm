@@ -68,10 +68,11 @@ jobs:
       # -arl: emulate Arrow Lake (SM3 + SM4)
       run: ${SDE_INSTALL_DIR}/sde64 -arl -- ./sm3.test -test.v
 
-    - name: Test SM4 (via Intel SDE, emulating Arrow Lake)
-      # -arl: emulate Arrow Lake (SM3 + SM4)
-      run: ${SDE_INSTALL_DIR}/sde64 -arl -- ./sm4.test -test.v
-
     - name: Test CIPHER (via Intel SDE, emulating Arrow Lake)
       # -arl: emulate Arrow Lake (SM3 + SM4)
       run: ${SDE_INSTALL_DIR}/sde64 -arl -- ./cipher.test -test.run 'SM4' -test.v
+
+    - name: Test SM4 (via Intel SDE, emulating Arrow Lake)
+      # -arl: emulate Arrow Lake (SM3 + SM4)
+      run: ${SDE_INSTALL_DIR}/sde64 -arl -- ./sm4.test -test.v
+      
