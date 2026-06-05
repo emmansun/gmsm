@@ -1834,10 +1834,594 @@ avx2GcmSm4DecDone:
 	VZEROUPPER	
 	RET
 
+#undef increment
 // func gcmSm4niEnc(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk []uint32)
-TEXT ·gcmSm4niEnc(SB),NOSPLIT,$0
+TEXT ·gcmSm4niEnc(SB), 0 ,$256-96
+#define increment(i) ADDL $1, aluCTR; MOVL aluCTR, (3*4 + 8*16 + i*16)(SP)
+	MOVQ productTable+0(FP), pTbl
+	MOVQ dst+8(FP), ctx
+	MOVQ src_base+32(FP), ptx
+	MOVQ src_len+40(FP), ptxLen
+	MOVQ ctr+56(FP), ctrPtr
+	MOVQ T+64(FP), tPtr
+	MOVQ rk_base+72(FP), rk
+
+	VMOVDQU ·bswap_mask(SB), BSWAP
+	VMOVDQU gcmPoly<>(SB), POLY
+
+	VMOVDQU (tPtr), ACC0
+	VPXOR ACC1, ACC1, ACC1
+	VPXOR ACCM, ACCM, ACCM
+	VMOVDQU (ctrPtr), T0
+	VPSHUFB ·flip_mask(SB), T0, T0
+	VPEXTRD $3, T0, aluCTR
+
+	VINSERTI128 $1, T0, Y11, Y11
+	VMOVDQU Y11, (8*16 + 0*32)(SP)
+	increment(0)
+	increment(1)
+	VMOVDQU Y11, (8*16 + 1*32)(SP)
+	increment(2)
+	increment(3)
+
+	CMPQ ptxLen, $128
+	JB avx2GcmSm4EncNibbles
+	SUBQ $128, ptxLen
+
+	// We have at least 8 blocks to encrypt, prepare the rest of the counters
+	VMOVDQU Y11, (8*16 + 2*32)(SP)
+	increment(4)
+	increment(5)
+	VMOVDQU Y11, (8*16 + 3*32)(SP)
+	increment(6)
+	increment(7)
+
+	VBROADCASTI128 ·bswap_mask(SB), DWBSWAP
+	// load 8 ctrs for encryption
+	VMOVDQU (4*32 + 0*32)(SP), DWB0
+	VMOVDQU (4*32 + 1*32)(SP), DWB1
+	VMOVDQU (4*32 + 2*32)(SP), DWB2
+	VMOVDQU (4*32 + 3*32)(SP), DWB3
+
+	increment(0)
+	// Transpose matrix 4 x 4 32bits word
+	TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWORD, YDWORD)
+	
+	increment(1)
+	CMPB ·useGFNI(SB), $1
+	JNE gcmEncInitAvx2
+	VMOVDQU ·gfni_pre_matrix(SB), NIBBLE_MASK
+	VMOVDQU ·gfni_post_matrix(SB), DWBSWAP
+	GFNI_SM4_8BLOCKS(rk, XDWORD, YDWORD, XDWTMP0, NIBBLE_MASK, DWBSWAP, DWB0, DWB1, DWB2, DWB3)
+	VBROADCASTI128 ·bswap_mask(SB), DWBSWAP
+	JMP gcmEncInitDone
+gcmEncInitAvx2:
+	VBROADCASTI128 ·nibble_mask(SB), NIBBLE_MASK
+	AVX2_SM4_8BLOCKS(rk, XDWORD, YDWORD, X1, X3, XDWTMP0, DWB0, DWB1, DWB2, DWB3)
+gcmEncInitDone:
+	increment(2)
+	// Transpose matrix 4 x 4 32bits word
+	TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWORD, YDWORD)
+	
+	VPSHUFB DWBSWAP, DWB0, DWB0
+	VPSHUFB DWBSWAP, DWB1, DWB1
+	increment(3)
+	VPSHUFB DWBSWAP, DWB2, DWB2
+	VPSHUFB DWBSWAP, DWB3, DWB3
+	increment(4)
+	
+	// XOR plaintext
+	VMOVDQU (32*0)(ptx), XDWTMP0
+	VPXOR XDWTMP0, DWB0, DWB0
+	VMOVDQU (32*1)(ptx), XDWTMP0
+	VPXOR XDWTMP0, DWB1, DWB1
+	increment(5)
+	VMOVDQU (32*2)(ptx), XDWTMP0
+	VPXOR XDWTMP0, DWB2, DWB2
+	VMOVDQU (32*3)(ptx), XDWTMP0
+	VPXOR XDWTMP0, DWB3, DWB3
+	increment(6)
+	
+	// Store ciphertext
+	VMOVDQU DWB0, (32*0)(ctx)
+	VPSHUFB DWBSWAP, DWB0, DWB0
+	VMOVDQU DWB1, (32*1)(ctx)
+	VPSHUFB DWBSWAP, DWB1, DWB1
+	VMOVDQU DWB2, (32*2)(ctx)
+	VPSHUFB DWBSWAP, DWB2, DWB2
+	VMOVDQU DWB3, (32*3)(ctx)
+	VPSHUFB DWBSWAP, DWB3, DWB3
+	increment(7)
+	//VPXOR XDWTMP0, XDWTMP0, XDWTMP0
+	//VINSERTI128 $0, ACC0, XDWTMP0, XDWTMP0
+	//VPXOR XDWTMP0, DWB0, DWB0
+	PXOR ACC0, B0  // Can't call VPXOR here
+	VMOVDQU DWB0, (32*0)(SP)
+	VMOVDQU DWB1, (32*1)(SP)
+	VMOVDQU DWB2, (32*2)(SP)
+	VMOVDQU DWB3, (32*3)(SP)
+
+	LEAQ 128(ptx), ptx
+	LEAQ 128(ctx), ctx
+
+avx2GcmSm4EncOctetsLoop:
+		CMPQ ptxLen, $128
+		JB avx2GcmSm4EncOctetsEnd
+		SUBQ $128, ptxLen
+
+		// load 8 ctrs for encryption
+		VMOVDQU (4*32 + 0*32)(SP), DWB0
+		VMOVDQU (4*32 + 1*32)(SP), DWB1
+		VMOVDQU (4*32 + 2*32)(SP), DWB2
+		VMOVDQU (4*32 + 3*32)(SP), DWB3
+
+		VMOVDQU (16*0)(SP), T0
+		VPSHUFD $78, T0, T1
+		VPXOR T0, T1, T1
+
+		VMOVDQU (16*0)(pTbl), ACC1
+		VMOVDQU (16*1)(pTbl), ACCM
+
+		VPCLMULQDQ $0x00, T1, ACCM, ACCM
+		VPCLMULQDQ $0x00, T0, ACC1, ACC0
+		VPCLMULQDQ $0x11, T0, ACC1, ACC1
+
+		// Transpose matrix 4 x 4 32bits word
+		TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWORD, YDWORD)
+
+		CMPB ·useGFNI(SB), $1
+		JNE gcmEncLoopAvx2
+		VMOVDQU ·gfni_pre_matrix(SB), NIBBLE_MASK
+		VMOVDQU ·gfni_post_matrix(SB), DWBSWAP
+		GFNI_SM4_8BLOCKS(rk, XDWORD, YDWORD, XDWTMP0, NIBBLE_MASK, DWBSWAP, DWB0, DWB1, DWB2, DWB3)
+		VBROADCASTI128 ·bswap_mask(SB), DWBSWAP
+		JMP gcmEncLoopDone
+	gcmEncLoopAvx2:
+		AVX2_SM4_8BLOCKS(rk, XDWORD, YDWORD, X1, X3, XDWTMP0, DWB0, DWB1, DWB2, DWB3)
+	gcmEncLoopDone:
+
+		// Transpose matrix 4 x 4 32bits word
+		TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWORD, YDWORD)
+
+		VPSHUFB DWBSWAP, DWB0, DWB0
+		VPSHUFB DWBSWAP, DWB1, DWB1
+		VPSHUFB DWBSWAP, DWB2, DWB2
+		VPSHUFB DWBSWAP, DWB3, DWB3
+
+		avxMulRound(1)
+		increment(0)
+		avxMulRound(2)
+		increment(1)
+		avxMulRound(3)
+		increment(2)
+	 	avxMulRound(4)
+		increment(3)
+		avxMulRound(5)
+		increment(4)
+		avxMulRound(6)
+		increment(5)
+	 	avxMulRound(7)
+		increment(6)
+		
+		VPXOR ACC0, ACCM, ACCM
+		VPXOR ACC1, ACCM, ACCM
+		VPSLLDQ $8, ACCM, T0
+		VPSRLDQ $8, ACCM, ACCM
+		
+		VPXOR ACCM, ACC1, ACC1
+		VPXOR T0, ACC0, ACC0
+
+		increment(7)
+		avxReduceRound(ACC0)
+		avxReduceRound(ACC0)
+		VPXOR ACC1, ACC0, ACC0
+
+		// XOR plaintext
+		VPXOR (32*0)(ptx), DWB0, DWB0
+		VPXOR (32*1)(ptx), DWB1, DWB1
+		VPXOR (32*2)(ptx), DWB2, DWB2
+		VPXOR (32*3)(ptx), DWB3, DWB3
+
+		// Store ciphertext
+		VMOVDQU DWB0, (32*0)(ctx)
+		VPSHUFB DWBSWAP, DWB0, DWB0
+		VMOVDQU DWB1, (32*1)(ctx)
+		VPSHUFB DWBSWAP, DWB1, DWB1
+		VMOVDQU DWB2, (32*2)(ctx)
+		VPSHUFB DWBSWAP, DWB2, DWB2
+		VMOVDQU DWB3, (32*3)(ctx)
+		VPSHUFB DWBSWAP, DWB3, DWB3
+
+		//VPXOR XDWTMP0, XDWTMP0, XDWTMP0
+		//VINSERTI128 $0, ACC0, XDWTMP0, XDWTMP0
+		//VPXOR XDWTMP0, DWB0, DWB0
+		PXOR ACC0, B0  // Can't call VPXOR here
+		VMOVDQU DWB0, (32*0)(SP)
+		VMOVDQU DWB1, (32*1)(SP)
+		VMOVDQU DWB2, (32*2)(SP)
+		VMOVDQU DWB3, (32*3)(SP)
+
+		LEAQ 128(ptx), ptx
+		LEAQ 128(ctx), ctx
+
+		JMP avx2GcmSm4EncOctetsLoop
+
+avx2GcmSm4EncOctetsEnd:
+	VMOVDQU (16*0)(SP), T0
+	VMOVDQU (16*0)(pTbl), ACC0
+	VMOVDQU (16*1)(pTbl), ACCM
+	VMOVDQU ACC0, ACC1
+	VPSHUFD $78, T0, T1
+	VPXOR T0, T1, T1
+	VPCLMULQDQ $0x00, T0, ACC0, ACC0
+	VPCLMULQDQ $0x11, T0, ACC1, ACC1
+	VPCLMULQDQ $0x00, T1, ACCM, ACCM
+
+	avxMulRound(1)
+	avxMulRound(2)
+	avxMulRound(3)
+	avxMulRound(4)
+	avxMulRound(5)
+	avxMulRound(6)
+	avxMulRound(7)
+
+	VPXOR ACC0, ACCM, ACCM
+	VPXOR ACC1, ACCM, ACCM
+	VPSLLDQ $8, ACCM, T0
+	VPSRLDQ $8, ACCM, ACCM
+	
+	VPXOR ACCM, ACC1, ACC1
+	VPXOR T0, ACC0, ACC0
+
+	avxReduceRound(ACC0)
+	avxReduceRound(ACC0)
+	VPXOR ACC1, ACC0, ACC0
+
+	TESTQ ptxLen, ptxLen
+	JE avx2GcmSm4EncDone
+
+	SUBQ $4, aluCTR
+
+avx2GcmSm4EncNibbles:
+	CMPQ ptxLen, $64
+	JBE avx2GcmSm4EncSingles
+	SUBQ $64, ptxLen
+
+	VMOVDQU (8*16 + 0*16)(SP), B0
+	VMOVDQU (8*16 + 1*16)(SP), B1
+	VMOVDQU (8*16 + 2*16)(SP), B2
+	VMOVDQU (8*16 + 3*16)(SP), B3
+	
+	AVX_SM4_4BLOCKS_WO_BS(rk, B4, B5, B6, B7, B0, B1, B2, B3)
+
+	VPXOR (16*0)(ptx), B0, B0
+	VPXOR (16*1)(ptx), B1, B1
+	VPXOR (16*2)(ptx), B2, B2
+	VPXOR (16*3)(ptx), B3, B3
+
+	VMOVDQU B0, (16*0)(ctx)
+	VMOVDQU B1, (16*1)(ctx)
+	VMOVDQU B2, (16*2)(ctx)
+	VMOVDQU B3, (16*3)(ctx)
+
+	VMOVDQU (16*14)(pTbl), T2
+	avxGcmEncDataStep(B0)
+	increment(0)
+	avxGcmEncDataStep(B1)
+	increment(1)
+	avxGcmEncDataStep(B2)
+	increment(2)
+	avxGcmEncDataStep(B3)
+	increment(3)
+
+	LEAQ 64(ptx), ptx
+	LEAQ 64(ctx), ctx
+
+avx2GcmSm4EncSingles:
+	TESTQ ptxLen, ptxLen
+	JE avx2GcmSm4EncDone
+
+	VMOVDQU (8*16 + 0*16)(SP), B0
+	VMOVDQU (8*16 + 1*16)(SP), B1
+	VMOVDQU (8*16 + 2*16)(SP), B2
+	VMOVDQU (8*16 + 3*16)(SP), B3
+
+	AVX_SM4_4BLOCKS_WO_BS(rk, B4, B5, B6, B7, B0, B1, B2, B3)
+
+	VMOVDQU B0, (16*0)(SP)
+	VMOVDQU B1, (16*1)(SP)
+	VMOVDQU B2, (16*2)(SP)
+	VMOVDQU B3, (16*3)(SP)
+
+	VMOVDQU (16*14)(pTbl), T2
+	MOVQ SP, BP
+
+avx2GcmSm4EncSinglesLoop:
+		CMPQ ptxLen, $16
+		JB avx2GcmSm4EncTail
+		SUBQ $16, ptxLen
+		VMOVDQU (16*0)(BP), B0
+		VMOVDQU (ptx), T0
+		VPXOR T0, B0, B0
+		VMOVDQU B0, (ctx)
+		avxGcmEncDataStep(B0)
+		LEAQ (16*1)(ptx), ptx
+		LEAQ (16*1)(ctx), ctx
+		ADDQ $16, BP
+	JMP avx2GcmSm4EncSinglesLoop
+
+avx2GcmSm4EncTail:
+	TESTQ ptxLen, ptxLen
+	JE avx2GcmSm4EncDone
+	VMOVDQU (16*0)(BP), B0
+	VMOVDQU B0, T0
+
+	LEAQ -1(ptx)(ptxLen*1), ptx
+
+	MOVQ ptxLen, aluTMP
+	SHLQ $4, aluTMP
+
+	LEAQ andMask<>(SB), aluCTR
+	VMOVDQU -16(aluCTR)(aluTMP*1), T1
+	VPXOR B0, B0, B0
+
+avx2PtxLoadLoop:
+		VPSLLDQ $1, B0, B0
+		VPINSRB $0, (ptx), B0, B0
+		LEAQ -1(ptx), ptx
+		DECQ ptxLen
+	JNE avx2PtxLoadLoop
+
+	VPXOR T0, B0, B0
+	VPAND T1, B0, B0
+	VMOVDQU B0, (ctx)	// I assume there is always space, due to TAG in the end of the CT
+	avxGcmEncDataStep(B0)
+
+avx2GcmSm4EncDone:
+	VMOVDQU ACC0, (tPtr)
+	VZEROUPPER
 	RET
 
+#undef increment
 // func gcmSm4niDec(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk []uint32)
-TEXT ·gcmSm4niDec(SB),NOSPLIT,$0
+TEXT ·gcmSm4niDec(SB), 0 ,$128-96
+#define increment(i) ADDL $1, aluCTR; MOVL aluCTR, (3*4 + i*16)(SP)
+	MOVQ productTable+0(FP), pTbl
+	MOVQ dst+8(FP), ptx
+	MOVQ src_base+32(FP), ctx
+	MOVQ src_len+40(FP), ptxLen
+	MOVQ ctr+56(FP), ctrPtr
+	MOVQ T+64(FP), tPtr
+	MOVQ rk_base+72(FP), rk
+
+avx2GcmSm4Dec:
+	VMOVDQU ·bswap_mask(SB), BSWAP
+	VMOVDQU gcmPoly<>(SB), POLY
+
+	VMOVDQU (tPtr), ACC0
+	VPXOR ACC1, ACC1, ACC1
+	VPXOR ACCM, ACCM, ACCM
+	VMOVDQU (ctrPtr), T0
+	VPSHUFB ·flip_mask(SB), T0, T0
+	VPEXTRD $3, T0, aluCTR
+
+	VINSERTI128 $1, T0, Y11, Y11
+	VMOVDQU Y11, (0*32)(SP)
+	increment(0)
+	increment(1)
+	VMOVDQU Y11, (1*32)(SP)
+	increment(2)
+	increment(3)
+
+	CMPQ ptxLen, $128
+	JB avx2GcmSm4DecNibbles
+
+	// We have at least 8 blocks to dencrypt, prepare the rest of the counters
+	VMOVDQU Y11, (2*32)(SP)
+	increment(4)
+	increment(5)
+	VMOVDQU Y11, (3*32)(SP)
+	increment(6)
+	increment(7)
+
+	VBROADCASTI128 ·bswap_mask(SB), DWBSWAP
+	VBROADCASTI128 ·nibble_mask(SB), NIBBLE_MASK
+
+avx2GcmSm4DecOctetsLoop:
+		CMPQ ptxLen, $128
+		JB avx2GcmSm4DecEndOctets
+		SUBQ $128, ptxLen
+
+		// load 8 ctrs for encryption
+		VMOVDQU (0*32)(SP), DWB0
+		VMOVDQU (1*32)(SP), DWB1
+		VMOVDQU (2*32)(SP), DWB2
+		VMOVDQU (3*32)(SP), DWB3
+
+		VMOVDQU (16*0)(ctx), T0
+		VPSHUFB BSWAP, T0, T0
+		VPXOR ACC0, T0, T0
+		VPSHUFD $78, T0, T1
+		VPXOR T0, T1, T1
+
+		VMOVDQU (16*0)(pTbl), ACC1
+		VMOVDQU (16*1)(pTbl), ACCM
+
+		VPCLMULQDQ $0x00, T1, ACCM, ACCM
+		VPCLMULQDQ $0x00, T0, ACC1, ACC0
+		VPCLMULQDQ $0x11, T0, ACC1, ACC1
+
+		avxDecMulRound(1)
+		increment(0)
+		avxDecMulRound(2)
+		increment(1)
+		avxDecMulRound(3)
+		increment(2)
+	 	avxDecMulRound(4)
+		increment(3)
+		avxDecMulRound(5)
+		increment(4)
+		avxDecMulRound(6)
+		increment(5)
+	 	avxDecMulRound(7)
+		increment(6)
+		
+		VPXOR ACC0, ACCM, ACCM
+		VPXOR ACC1, ACCM, ACCM
+		VPSLLDQ $8, ACCM, T0
+		VPSRLDQ $8, ACCM, ACCM
+		
+		VPXOR ACCM, ACC1, ACC1
+		VPXOR T0, ACC0, ACC0
+		increment(7)
+
+		avxReduceRound(ACC0)
+		avxReduceRound(ACC0)
+		VPXOR ACC1, ACC0, ACC0
+
+		// Transpose matrix 4 x 4 32bits word
+		TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWORD, YDWORD)
+
+		CMPB ·useGFNI(SB), $1
+		JNE gcmDecLoopAvx2
+		VMOVDQU ·gfni_pre_matrix(SB), NIBBLE_MASK
+		VMOVDQU ·gfni_post_matrix(SB), DWBSWAP
+		GFNI_SM4_8BLOCKS(rk, XDWORD, YDWORD, XDWTMP0, NIBBLE_MASK, DWBSWAP, DWB0, DWB1, DWB2, DWB3)
+		VBROADCASTI128 ·bswap_mask(SB), DWBSWAP
+		JMP gcmDecLoopDone
+	gcmDecLoopAvx2:
+		AVX2_SM4_8BLOCKS(rk, XDWORD, YDWORD, X1, X3, XDWTMP0, DWB0, DWB1, DWB2, DWB3)
+	gcmDecLoopDone:
+
+		// Transpose matrix 4 x 4 32bits word
+		TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWORD, YDWORD)
+
+		VPSHUFB DWBSWAP, DWB0, DWB0
+		VPSHUFB DWBSWAP, DWB1, DWB1
+		VPSHUFB DWBSWAP, DWB2, DWB2
+		VPSHUFB DWBSWAP, DWB3, DWB3
+
+		VPXOR (32*0)(ctx), DWB0, DWB0
+		VPXOR (32*1)(ctx), DWB1, DWB1
+		VPXOR (32*2)(ctx), DWB2, DWB2
+		VPXOR (32*3)(ctx), DWB3, DWB3
+
+		VMOVDQU DWB0, (32*0)(ptx)
+		VMOVDQU DWB1, (32*1)(ptx)
+		VMOVDQU DWB2, (32*2)(ptx)
+		VMOVDQU DWB3, (32*3)(ptx)
+		
+		LEAQ 128(ptx), ptx
+		LEAQ 128(ctx), ctx
+
+		JMP avx2GcmSm4DecOctetsLoop
+
+avx2GcmSm4DecEndOctets:
+	SUBQ $4, aluCTR
+
+avx2GcmSm4DecNibbles:
+	CMPQ ptxLen, $64
+	JBE avx2GcmSm4DecSingles
+	SUBQ $64, ptxLen
+
+	VMOVDQU (0*16)(SP), B4
+	VMOVDQU (1*16)(SP), B1
+	VMOVDQU (2*16)(SP), B2
+	VMOVDQU (3*16)(SP), B3
+	
+	AVX_SM4_4BLOCKS_WO_BS(rk, B0, B5, B6, B7, B4, B1, B2, B3)
+
+	VMOVDQU (16*14)(pTbl), T2
+	VMOVDQU (16*0)(ctx), B0
+	VPXOR B0, B4, B4
+	increment(0)
+	internalAvxDecGhashRound()
+
+	VMOVDQU (16*1)(ctx), B0
+	VPXOR B0, B1, B1
+	increment(1)
+	internalAvxDecGhashRound()
+
+	VMOVDQU (16*2)(ctx), B0
+	VPXOR B0, B2, B2
+	increment(2)
+	internalAvxDecGhashRound()
+
+	VMOVDQU (16*3)(ctx), B0
+	VPXOR B0, B3, B3
+	increment(3)
+	internalAvxDecGhashRound()
+
+	VMOVDQU B4, (16*0)(ptx)
+	VMOVDQU B1, (16*1)(ptx)
+	VMOVDQU B2, (16*2)(ptx)
+	VMOVDQU B3, (16*3)(ptx)
+
+	LEAQ 64(ptx), ptx
+	LEAQ 64(ctx), ctx
+
+avx2GcmSm4DecSingles:
+	TESTQ ptxLen, ptxLen
+	JE avx2GcmSm4DecDone
+
+	VMOVDQU (0*16)(SP), B0
+	VMOVDQU (1*16)(SP), B1
+	VMOVDQU (2*16)(SP), B2
+	VMOVDQU (3*16)(SP), B3
+
+	AVX_SM4_4BLOCKS_WO_BS(rk, B4, B5, B6, B7, B0, B1, B2, B3)
+
+	VMOVDQU B0, (16*4)(SP)
+	VMOVDQU B1, (16*5)(SP)
+	VMOVDQU B2, (16*6)(SP)
+	VMOVDQU B3, (16*7)(SP)
+
+	VMOVDQU (16*14)(pTbl), T2
+	MOVQ SP, BP
+	ADDQ $64, BP
+
+avx2GcmSm4DecSinglesLoop:
+		CMPQ ptxLen, $16
+		JB avx2GcmSm4DecTail
+		SUBQ $16, ptxLen
+
+		VMOVDQU (16*0)(BP), T0
+		VMOVDQU (ctx), B0
+		VPXOR T0, B0, T0
+		VMOVDQU T0, (ptx)
+
+		internalAvxDecGhashRound()
+		LEAQ (16*1)(ptx), ptx
+		LEAQ (16*1)(ctx), ctx
+		ADDQ $16, BP
+	JMP avx2GcmSm4DecSinglesLoop
+
+avx2GcmSm4DecTail:
+	TESTQ ptxLen, ptxLen
+	JE avx2GcmSm4DecDone
+
+	MOVQ ptxLen, aluTMP
+	SHLQ $4, aluTMP
+	LEAQ andMask<>(SB), aluCTR
+	VMOVDQU -16(aluCTR)(aluTMP*1), T1 // Fetch and-mask according ptxLen
+
+	VMOVDQU (ctx), B0	// I assume there is TAG attached to the ctx, and there is no read overflow
+	VPAND T1, B0, B0  // Just keep ptxLen bytes, others will be zero
+
+	VMOVDQU B0, T1
+	internalAvxDecGhashRound()
+	VMOVDQU (16*0)(BP), B0
+	VPXOR T1, B0, B0
+
+avx2PtxStoreLoop:
+		VPEXTRB $0, B0, (ptx)
+		VPSRLDQ $1, B0, B0
+		LEAQ 1(ptx), ptx
+		DECQ ptxLen
+
+	JNE avx2PtxStoreLoop
+
+avx2GcmSm4DecDone:
+	VMOVDQU ACC0, (tPtr)
+	VZEROUPPER	
 	RET
