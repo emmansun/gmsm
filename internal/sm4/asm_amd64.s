@@ -473,10 +473,6 @@ gfni_single_block:
 	VPSHUFD $0x03, X0, X3      // X3[0]=w3, X3[1..3]=w0
 	// X0 = t0 = [w0, w1, w2, w3]
 
-	// Load GFNI matrices (XMM, 16 bytes each).
-	VMOVDQU ·gfni_pre_matrix(SB), X4    // preMatrix
-	VMOVDQU ·gfni_post_matrix(SB), X5   // postMatrix
-
 	XORL CX, CX
 
 gfni_single_loop:
@@ -487,7 +483,7 @@ gfni_single_loop:
 	VPXOR X1, X8, X8
 	VPXOR X2, X8, X8
 	VPXOR X3, X8, X8
-	GFNI_SM4_TAO_L1(X8, X9, X10, X4, X5)
+	GFNI_SM4_TAO_L1(X8, X9, X10) // X8=TAO_L1 output
 	VPXOR X8, X0, X0
 
 	// Round 1: t1 ^= TAO_L1(RK_1 ^ t2 ^ t3 ^ t0)
@@ -495,7 +491,7 @@ gfni_single_loop:
 	VPXOR X2, X8, X8
 	VPXOR X3, X8, X8
 	VPXOR X0, X8, X8
-	GFNI_SM4_TAO_L1(X8, X9, X10, X4, X5)
+	GFNI_SM4_TAO_L1(X8, X9, X10)
 	VPXOR X8, X1, X1
 
 	// Round 2: t2 ^= TAO_L1(RK_2 ^ t3 ^ t0 ^ t1)
@@ -503,7 +499,7 @@ gfni_single_loop:
 	VPXOR X3, X8, X8
 	VPXOR X0, X8, X8
 	VPXOR X1, X8, X8
-	GFNI_SM4_TAO_L1(X8, X9, X10, X4, X5)
+	GFNI_SM4_TAO_L1(X8, X9, X10)
 	VPXOR X8, X2, X2
 
 	// Round 3: t3 ^= TAO_L1(RK_3 ^ t0 ^ t1 ^ t2)
@@ -511,7 +507,7 @@ gfni_single_loop:
 	VPXOR X0, X8, X8
 	VPXOR X1, X8, X8
 	VPXOR X2, X8, X8
-	GFNI_SM4_TAO_L1(X8, X9, X10, X4, X5)
+	GFNI_SM4_TAO_L1(X8, X9, X10)
 	VPXOR X8, X3, X3
 
 	ADDL $16, CX
@@ -526,11 +522,11 @@ gfni_single_loop:
 	VMOVDQU X3, (BX)
 	RET
 
+
 vsm4rnds4:
 	VMOVDQU (DX), X0
 	VPSHUFB ·flip_mask(SB), X0, X0
 	VSM4RNDS32_MEM_RAX(0)
 	VPSHUFB ·bswap_mask(SB), X0, X0
 	VMOVDQU X0, (BX)
-
 	RET
