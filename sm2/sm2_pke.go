@@ -164,8 +164,9 @@ func encryptSM2EC(c *sm2Curve, pub *ecdsa.PublicKey, random io.Reader, msg []byt
 		return nil, err
 	}
 	retryCount := 0
+	randfunc := randFuncFac(random)
 	for {
-		k, C1, err := randomPoint(c, random, false)
+		k, C1, err := randomPoint(c, randfunc, false)
 		if err != nil {
 			return nil, err
 		}

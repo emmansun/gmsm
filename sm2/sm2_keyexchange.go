@@ -138,7 +138,7 @@ func initKeyExchange(ke *KeyExchange, r *big.Int) {
 
 // InitKeyExchange is for initiator's step A1-A3, returns generated Ephemeral Public Key which will be passed to Reponder.
 func (ke *KeyExchange) InitKeyExchange(rand io.Reader) (*ecdsa.PublicKey, error) {
-	r, err := randFieldElement(ke.privateKey, rand)
+	r, err := randFieldElement(ke.privateKey, randFuncFac(rand))
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +244,7 @@ func respondKeyExchange(ke *KeyExchange, rA *ecdsa.PublicKey, r *big.Int) (*ecds
 //
 // It will check if there are peer's public key and validate the peer's Ephemeral Public Key.
 func (ke *KeyExchange) RepondKeyExchange(rand io.Reader, rA *ecdsa.PublicKey) (*ecdsa.PublicKey, []byte, error) {
-	r, err := randFieldElement(ke.privateKey, rand)
+	r, err := randFieldElement(ke.privateKey, randFuncFac(rand))
 	if err != nil {
 		return nil, nil, err
 	}

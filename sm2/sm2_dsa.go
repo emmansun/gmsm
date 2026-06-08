@@ -106,9 +106,16 @@ func (priv *PrivateKey) Equal(x crypto.PrivateKey) bool {
 // If the opts argument is SM2SignerOption and its ForceGMSign is true,
 // digest argument will be treated as raw data and UID will be taken from opts.
 //
+// If rand is nil, Sign produces a deterministic signature according to RFC 6979,
+// using SM3 as the hash function for the HMAC-based deterministic nonce generation.
+// When producing a deterministic signature, priv.Curve must be SM2 P-256.
+//
 // This method implements crypto.Signer, which is an interface to support keys
 // where the private part is kept in, for example, a hardware module.
 func (priv *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
+	if rand == nil {
+		return SignDeterministic(priv, digest, opts)
+	}
 	return SignASN1(rand, priv, digest, opts)
 }
 
@@ -140,7 +147,8 @@ func GenerateKey(rand io.Reader) (*PrivateKey, error) {
 	randutil.MaybeReadByte(rand)
 
 	c := p256()
-	k, Q, err := randomPoint(c, rand, true)
+	randfunc := randFuncFac(rand)
+	k, Q, err := randomPoint(c, randfunc, true)
 	if err != nil {
 		return nil, err
 	}
@@ -318,9 +326,16 @@ func CalculateSM2Hash(pub *ecdsa.PublicKey, data, uid []byte) ([]byte, error) {
 // private key's curve order, the hash will be truncated to that length. It
 // returns the ASN.1 encoded signature.
 //
-// The signature is randomized. Most applications should use [crypto/rand.Reader]
-// as rand. Note that the returned signature does not depend deterministically on
-// the bytes read from rand, and may change between calls and/or between versions.
+// For SM2 P-256, the signature is "hedged": the nonce is derived from
+// HMAC-SM3(d || hash || rand), following draft-irtf-cfrg-det-sigs-with-noise-04,
+// Section 4. This provides both RNG failure resistance (the nonce is bound to
+// the private key and the hash, so even a broken RNG won't leak the key) and
+// fault injection tolerance (the rand input makes each signature unique).
+// For other curves, the signature uses a pure random nonce.
+//
+// Most applications should use [crypto/rand.Reader] as rand. Note that the
+// returned signature does not depend deterministically on the bytes read from
+// rand, and may change between calls and/or between versions.
 //
 // If the opts argument is instance of [*SM2SignerOption], and its ForceGMSign is true,
 // then the hash will be treated as raw message.
@@ -333,13 +348,28 @@ func SignASN1(rand io.Reader, priv *PrivateKey, hash []byte, opts crypto.SignerO
 		hash = newHash
 	}
 
-	randutil.MaybeReadByte(rand)
-
 	switch priv.Curve.Params() {
 	case P256().Params():
-		return signSM2EC(p256(), priv, rand, hash)
+		c := p256()
+		// Hedged signature construction per
+		// draft-irtf-cfrg-det-sigs-with-noise-04, Section 4.
+		//
+		// The nonce is derived from HMAC-SM3(d || hash || Z), where Z is
+		// random data from rand. If the RNG fails, the nonce is still bound
+		// to (d, hash) through the personalization string, preventing key
+		// leakage. If the RNG works, Z ensures each signature is unique,
+		// providing fault injection tolerance.
+		Z := make([]byte, c.N.Size())
+		if _, err := io.ReadFull(rand, Z); err != nil {
+			return nil, err
+		}
+		d := bigIntToBytes(c.curve, priv.D)
+		drbg := newDRBG(Z, nil, blockAlignedPersonalizationString{d, bits2octets(c, hash)})
+		return signSM2EC(c, priv, drbgRandFunc(drbg), hash)
 	default:
-		return signLegacy(priv, rand, hash)
+		randutil.MaybeReadByte(rand)
+		randfunc := randFuncFac(rand)
+		return signLegacy(priv, randfunc, hash)
 	}
 }
 
@@ -379,7 +409,7 @@ func (priv *PrivateKey) inverseOfPrivateKeyPlus1(c *sm2Curve) (*bigmod.Nat, erro
 // Parameters:
 // - c: A pointer to the sm2Curve structure representing the elliptic curve parameters.
 // - priv: A pointer to the PrivateKey structure containing the private key for signing.
-// - rand: An io.Reader instance used to generate random values.
+// - randfunc: A function used to generate random values.
 // - hash: A byte slice containing the hash of the message to be signed.
 //
 // Returns:
@@ -392,7 +422,7 @@ func (priv *PrivateKey) inverseOfPrivateKeyPlus1(c *sm2Curve) (*bigmod.Nat, erro
 // 3. Generates a random point on the elliptic curve and computes the signature components (r, s).
 // 4. Ensures that the signature components are non-zero and valid.
 // 5. Encodes the signature components into a byte slice and returns it.
-func signSM2EC(c *sm2Curve, priv *PrivateKey, rand io.Reader, hash []byte) (sig []byte, err error) {
+func signSM2EC(c *sm2Curve, priv *PrivateKey, randfunc randfunc, hash []byte) (sig []byte, err error) {
 	inverseDPlus1, err := priv.inverseOfPrivateKeyPlus1(c)
 	if err != nil {
 		return nil, err
@@ -409,7 +439,7 @@ func signSM2EC(c *sm2Curve, priv *PrivateKey, rand io.Reader, hash []byte) (sig 
 
 	for {
 		for {
-			k, R, err = randomPoint(c, rand, false)
+			k, R, err = randomPoint(c, randfunc, false)
 			if err != nil {
 				return nil, err
 			}
@@ -652,13 +682,15 @@ func curveToECDH(c elliptic.Curve) ecdh.Curve {
 	}
 }
 
+type randfunc func(b []byte) error
+
 // randomPoint returns a random scalar and the corresponding point using the
 // procedure given in FIPS 186-4, Appendix B.5.2 (rejection sampling).
-func randomPoint(c *sm2Curve, rand io.Reader, checkOrderMinus1 bool) (k *bigmod.Nat, p *_sm2ec.SM2P256Point, err error) {
+func randomPoint(c *sm2Curve, generate randfunc, checkOrderMinus1 bool) (k *bigmod.Nat, p *_sm2ec.SM2P256Point, err error) {
 	k = bigmod.NewNat()
 	for {
 		b := make([]byte, c.N.Size())
-		if _, err = io.ReadFull(rand, b); err != nil {
+		if err = generate(b); err != nil {
 			return
 		}
 
@@ -923,4 +955,11 @@ func (s *sm2Hasher) Size() int {
 // It delegates the call to the inner hash function's BlockSize method.
 func (s *sm2Hasher) BlockSize() int {
 	return s.inner.BlockSize()
+}
+
+var randFuncFac = func(rand io.Reader) randfunc {
+	return func(b []byte) error {
+		_, err := io.ReadFull(rand, b)
+		return err
+	}
 }

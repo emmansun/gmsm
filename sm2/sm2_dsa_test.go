@@ -209,6 +209,77 @@ func TestINDCCA(t *testing.T) {
 	}
 }
 
+// zeroReader is a broken RNG that always returns zeros.
+// This simulates a catastrophic RNG failure.
+type zeroReader struct{}
+
+func (z zeroReader) Read(p []byte) (n int, err error) {
+	for i := range p {
+		p[i] = 0
+	}
+	return len(p), nil
+}
+
+// TestHedgedSignature_RNGFailure verifies that even when the RNG is completely
+// broken (always returns zeros), the hedged signature construction still
+// produces valid, non-repeating signatures that do not leak the private key.
+// This is the core security property of the hedged construction per
+// draft-irtf-cfrg-det-sigs-with-noise-04, Section 4.
+func TestHedgedSignature_RNGFailure(t *testing.T) {
+	priv, err := GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate key: %v", err)
+	}
+
+	msg := []byte("hedged rng failure test")
+
+	// Sign with a broken RNG that always returns zeros
+	sig1, err := SignASN1(zeroReader{}, priv, msg, DefaultSM2SignerOpts)
+	if err != nil {
+		t.Fatalf("SignASN1 with zero RNG failed: %v", err)
+	}
+
+	// The signature should still be valid
+	if !VerifyASN1WithSM2(&priv.PublicKey, nil, msg, sig1) {
+		t.Errorf("hedged signature with zero RNG is invalid")
+	}
+
+	// A second signature with the same broken RNG should produce the same
+	// signature (since Z is always zero, the DRBG becomes deterministic,
+	// effectively equivalent to deterministic signing)
+	sig2, err := SignASN1(zeroReader{}, priv, msg, DefaultSM2SignerOpts)
+	if err != nil {
+		t.Fatalf("SignASN1 with zero RNG (2nd) failed: %v", err)
+	}
+	if !VerifyASN1WithSM2(&priv.PublicKey, nil, msg, sig2) {
+		t.Errorf("second hedged signature with zero RNG is invalid")
+	}
+
+	// With zero RNG, both signatures should be identical (degraded to
+	// deterministic), but critically, different keys produce different signatures
+	priv2, err := GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate second key: %v", err)
+	}
+	sig3, err := SignASN1(zeroReader{}, priv2, msg, DefaultSM2SignerOpts)
+	if err != nil {
+		t.Fatalf("SignASN1 with zero RNG (key2) failed: %v", err)
+	}
+	if bytes.Equal(sig1, sig3) {
+		t.Errorf("hedged signatures with zero RNG produced same output for different keys")
+	}
+
+	// Different messages should also produce different signatures with zero RNG
+	msg2 := []byte("different message")
+	sig4, err := SignASN1(zeroReader{}, priv, msg2, DefaultSM2SignerOpts)
+	if err != nil {
+		t.Fatalf("SignASN1 with zero RNG (msg2) failed: %v", err)
+	}
+	if bytes.Equal(sig1, sig4) {
+		t.Errorf("hedged signatures with zero RNG produced same output for different messages")
+	}
+}
+
 func TestNegativeInputs(t *testing.T) {
 	key, err := GenerateKey(rand.Reader)
 	if err != nil {
@@ -356,7 +427,11 @@ func TestRandomPoint(t *testing.T) {
 	// A sequence of all ones will generate 2^N-1, which should be rejected.
 	// (Unless, for example, we are masking too many bits.)
 	r := io.MultiReader(bytes.NewReader(bytes.Repeat([]byte{0xff}, 100)), rand.Reader)
-	if k, p, err := randomPoint(c, r, false); err != nil {
+	randfunc := func(b []byte) error {
+		_, err := io.ReadFull(r, b)
+		return err
+	}
+	if k, p, err := randomPoint(c, randfunc, false); err != nil {
 		t.Fatal(err)
 	} else if k.IsZero() == 1 {
 		t.Error("k is zero")
@@ -370,7 +445,11 @@ func TestRandomPoint(t *testing.T) {
 
 	// A sequence of all zeroes will generate zero, which should be rejected.
 	r = io.MultiReader(bytes.NewReader(bytes.Repeat([]byte{0}, 100)), rand.Reader)
-	if k, p, err := randomPoint(c, r, false); err != nil {
+	randfunc = func(b []byte) error {
+		_, err := io.ReadFull(r, b)
+		return err
+	}
+	if k, p, err := randomPoint(c, randfunc, false); err != nil {
 		t.Fatal(err)
 	} else if k.IsZero() == 1 {
 		t.Error("k is zero")

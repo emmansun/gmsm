@@ -80,7 +80,7 @@ func Sign(rand io.Reader, priv *ecdsa.PrivateKey, hash []byte) (r, s *big.Int, e
 	return r, s, nil
 }
 
-func signLegacy(priv *PrivateKey, rand io.Reader, hash []byte) (sig []byte, err error) {
+func signLegacy(priv *PrivateKey, randfunc randfunc, hash []byte) (sig []byte, err error) {
 	// See [NSA] 3.4.1
 	c := priv.PublicKey.Curve
 	N := c.Params().N
@@ -91,7 +91,7 @@ func signLegacy(priv *PrivateKey, rand io.Reader, hash []byte) (sig []byte, err 
 	e := hashToInt(hash, c)
 	for {
 		for {
-			k, err = randFieldElement(c, rand)
+			k, err = randFieldElement(c, randfunc)
 			if err != nil {
 				return nil, err
 			}
@@ -219,14 +219,14 @@ var (
 
 // randFieldElement returns a random element of the order of the given
 // curve using the procedure given in FIPS 186-4, Appendix B.5.2.
-func randFieldElement(c elliptic.Curve, rand io.Reader) (k *big.Int, err error) {
+func randFieldElement(c elliptic.Curve, randfunc randfunc) (k *big.Int, err error) {
 	// See randomPoint for notes on the algorithm. This has to match, or s390x
 	// signatures will come out different from other architectures, which will
 	// break TLS recorded tests.
 	for {
 		N := c.Params().N
 		b := make([]byte, (N.BitLen()+7)/8)
-		if _, err = io.ReadFull(rand, b); err != nil {
+		if err = randfunc(b); err != nil {
 			return
 		}
 		if excess := len(b)*8 - N.BitLen(); excess > 0 {
@@ -243,10 +243,11 @@ func encryptLegacy(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Enc
 	curve := pub.Curve
 	msgLen := len(msg)
 
+	randFunc := randFuncFac(random)
 	var retryCount int = 0
 	for {
 		//A1, generate random k
-		k, err := randFieldElement(curve, random)
+		k, err := randFieldElement(curve, randFunc)
 		if err != nil {
 			return nil, err
 		}
