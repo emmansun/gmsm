@@ -1,4 +1,4 @@
-# Go语言商用密码软件
+# GMSM：高性能 Go 商用密码与后量子密码库
 
 [![Github CI](https://github.com/emmansun/gmsm/actions/workflows/ci.yml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/ci.yml)
 [![arm64](https://github.com/emmansun/gmsm/actions/workflows/test_arm64.yml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_arm64.yml)
@@ -15,7 +15,43 @@
 
 [English](README-EN.md) | 简体中文
 
-Go语言商用密码软件，简称**GMSM**，一个安全、高性能、易于使用的Go语言商用密码软件库，涵盖商用密码公开算法SM2/SM3/SM4/SM9/ZUC。
+GMSM 是面向生产环境的 Go 密码学库，聚焦国密（SM2/SM3/SM4/SM9/ZUC）与后量子密码（ML-KEM/ML-DSA/SLH-DSA），在可维护 API 与跨架构性能之间取得平衡。
+
+> 要求 Go 版本：**Go 1.24+**
+
+## 为什么选择 GMSM
+- **标准覆盖全面**：支持主流国密标准、PKCS 生态及 NIST PQC（FIPS 203/204/205）。
+- **工程化可落地**：接口风格贴近 Go 标准库，便于迁移与集成。
+- **多架构高性能**：在 amd64、arm64、loong64、ppc64le、s390x、riscv64 等平台提供 SIMD/汇编优化。
+- **兼顾安全与兼容**：提供 purego 回退路径，并在关键路径采用常量时间实现策略。
+- **持续验证**：多架构 CI、覆盖率与长期维护，适合研发与生产双场景。
+
+## 快速开始
+
+```bash
+go get github.com/emmansun/gmsm@latest
+```
+
+```go
+package main
+
+import (
+  "fmt"
+
+  "github.com/emmansun/gmsm/sm3"
+)
+
+func main() {
+  sum := sm3.Sum([]byte("hello gmsm"))
+  fmt.Printf("SM3: %x\n", sum)
+}
+```
+
+## 能力全景
+- 国密算法：SM2、SM3、SM4、SM9、ZUC
+- 后量子密码：ML-KEM、ML-DSA、SLH-DSA
+- 证书与协议：smx509、PKCS#7、PKCS#8、CFCA 互操作
+- 基础能力：分组模式、填充、DRBG、随机数、ECDH/SM2MQV、TLS 1.3 混合密钥交换
 
 ## 用户文档
 - [SM2椭圆曲线公钥密码算法应用指南](./docs/sm2.md) 
