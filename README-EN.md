@@ -120,6 +120,7 @@ SM4 block cipher algorithm (GM/T 0002-2012) implements multi-architecture assemb
 - ECB (Electronic Codebook)
 - CBC (Cipher Block Chaining)
 - GCM (Galois/Counter Mode)
+- GCM-SIV (RFC 8452)
 - XTS (XEX-based tweaked-codebook mode, supports GB/T 17964-2021 and NIST SP 800-38E)
 
 For detailed implementation analysis, please refer to the [SM4 Performance Optimization Wiki](https://github.com/emmansun/gmsm/wiki/SM4%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96).
