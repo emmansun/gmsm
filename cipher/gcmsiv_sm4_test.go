@@ -1,0 +1,119 @@
+// Copyright 2026 Sun Yimin. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
+package cipher_test
+
+import (
+	"crypto/cipher"
+	"encoding/binary"
+	"encoding/hex"
+	"testing"
+
+	gmsmcipher "github.com/emmansun/gmsm/cipher"
+	"github.com/emmansun/gmsm/sm4"
+)
+
+func TestGCMSIV_SM4Vectors(t *testing.T) {
+	vectors := []gcmSIVVector{
+		{name: "sm4-1", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "", plain: "", out: "1a8a0d12690856bd81e73d4b49a484a6"},
+		{name: "sm4-2", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "", plain: "0100000000000000", out: "16e66877e329088e4f4d87a1f8258ae12df0f22b62350000"},
+		{name: "sm4-3", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "", plain: "010000000000000000000000", out: "d303f66a04de8ff5407b43e38d88395623f2a1a5d1049386d0ce63db"},
+		{name: "sm4-4", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "", plain: "01000000000000000000000000000000", out: "c3c7d15e4c243f66422f32b051148411674b7e380241ad30965522dd9114ca46"},
+		{name: "sm4-5", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "", plain: "0100000000000000000000000000000002000000000000000000000000000000", out: "1ff8e17ed5b38f39f3efc9412fe83ad1ecab6ae733856a6dfae42ab98336b1d6330cdc77414db56d4312f8bfa793e698"},
+		{name: "sm4-6", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "", plain: "010000000000000000000000000000000200000000000000000000000000000003000000000000000000000000000000", out: "d9fdf7b60b6d2209f401383b29bf0a26fc3bd5d2dc598ac194d45598108b882d92b55c33addfc21f40d1bf3116b72d6c0ef73261db568d27170423495dd58377"},
+		{name: "sm4-7", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "", plain: "01000000000000000000000000000000020000000000000000000000000000000300000000000000000000000000000004000000000000000000000000000000", out: "d2fc375faff7ce4798de2129954c207e028e300de472059696291cb3f529f724be1ec5d82551351b6a7c6b7483fe9ed2029d2ef186c0c8ccf900eb1e67387305c9ca5c81b55ac70ac23f83e6af0ab9cc"},
+		{name: "sm4-8", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "01", plain: "0200000000000000", out: "25a3d08f8c1ab23e168ae39d5edc751b5939a21554bbe86f"},
+		{name: "sm4-9", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "01", plain: "020000000000000000000000", out: "ffbef9cc80883a8235297fd4415abeb17714b7cae4ceab44ab8a64a7"},
+		{name: "sm4-10", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "01", plain: "02000000000000000000000000000000", out: "aaa9a7cf3dc402e35dd8620663076817d2963abb96ad5f4585d23deda863433f"},
+		{name: "sm4-11", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "01", plain: "0200000000000000000000000000000003000000000000000000000000000000", out: "7cbd5e27e3789c3312bc2f48a44325ddd55cbefceacb5559d792b6447fa14683e9556f06b0899c79b8f13321a1695b82"},
+		{name: "sm4-12", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "01", plain: "020000000000000000000000000000000300000000000000000000000000000004000000000000000000000000000000", out: "d3c4d4fe98b7af1329b759cd6b71deeea4b779a6c0acb47360580815a58e1a8370e2699aafb9dbd2fbc86028e22417b35650435ec7645e491e5204ae40864727"},
+		{name: "sm4-13", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "01", plain: "02000000000000000000000000000000030000000000000000000000000000000400000000000000000000000000000005000000000000000000000000000000", out: "08317d0ed54b67dbd7e57519a0b17f1b419e5a9af874cb98216d0a0539d510f308740c76e9350e55087b1d3c0570a9ef7ac92f1361fc3a6eb260744913c4c71385a1b818cbcc7fc6292f65f68b93a896"},
+		{name: "sm4-14", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "010000000000000000000000", plain: "02000000", out: "cf4f67126b4b376277f75f2a0e99a0ded49e8f3e"},
+		{name: "sm4-15", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "010000000000000000000000000000000200", plain: "0300000000000000000000000000000004000000", out: "fb9569aedbd94d84cffeb6a1154c8837d0cde03cd8c3c0a97dac687871ca89a5cdd6797b"},
+		{name: "sm4-16", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "0100000000000000000000000000000002000000", plain: "030000000000000000000000000000000400", out: "e5efcfd0069b0b2976871bb962d351ebc0e0ec06fedc4cf0cc9115e77922790723f0"},
+		{name: "sm4-17", key: "e66021d5eb8e4f4066d4adb9c33560e4", nonce: "f46e44bb3da0015c94f70887", aad: "", plain: "", out: "bec73516cd60ec87eaab30c798a123c5"},
+		{name: "sm4-18", key: "36864200e0eaf5284d884a0e77d31646", nonce: "bae8e37fc83441b16034566b", aad: "46bb91c3c5", plain: "7a806c", out: "871295e3f05e22dbfc975bae33c608d143a363"},
+		{name: "sm4-19", key: "aedb64a6c590bc84d1a5e269e4b47801", nonce: "afc0577e34699b9e671fdd4f", aad: "fc880c94a95198874296", plain: "bdc66f146545", out: "8cd12396574ac1e965d3789c3b7851026f4cdc78e582"},
+		{name: "sm4-20", key: "d5cc1fd161320b6920ce07787f86743b", nonce: "275d1ab32f6d1f0434d8848c", aad: "046787f3ea22c127aaf195d1894728", plain: "1177441f195495860f", out: "a415a5a18e9f12cf4d1de1162eef528378a6e7de0150e40f56"},
+		{name: "sm4-21", key: "b3fed1473c528b8426a582995929a149", nonce: "9e9ad8780c8d63d0ab4149c0", aad: "c9882e5386fd9f92ec489c8fde2be2cf97e74e93", plain: "9f572c614b4745914474e7c7", out: "b188daf64fe3e4b38a7a58fd7bf88d1ca04cf0f9de6ff3afa3fa7847"},
+		{name: "sm4-22", key: "2d4ed87da44102952ef94b02b805249b", nonce: "ac80e6f61455bfac8308a2d4", aad: "2950a70d5a1db2316fd568378da107b52b0da55210cc1c1b0a", plain: "0d8c8451178082355c9e940fea2f58", out: "e96dbef5a030677a7b673620180bccf654d47d58d6d492e2cb48bed4080118"},
+		{name: "sm4-23", key: "bde3b2f204d1e9f8b06bc47f9745b3d1", nonce: "ae06556fb6aa7890bebc18fe", aad: "1860f762ebfbd08284e421702de0de18baa9c9596291b08466f37de21c7f", plain: "6b3db4da3d57aa94842b9803a96e07fb6de7", out: "7994e4f1d2a83af7b1d9cbe640ce0d1ae62180529d7a15911bde2bf72148446ecb19"},
+		{name: "sm4-24", key: "f901cfe8a69615a93fdf7a98cad48179", nonce: "6245709fb18853f68d833640", aad: "7576f7028ec6eb5ea7e298342a94d4b202b370ef9768ec6561c4fe6b7e7296fa859c21", plain: "e42a3c02c25b64869e146d7b233987bddfc240871d", out: "53405fa1b85adc9e6fc576d7a119c74bd6f4787049387c276bf06ef5420fb302723d2bc26f"},
+		{name: "sm4-25", key: "f901cfe8a69615a93fdf7a98cad48179", nonce: "6245709fb18853f68d833640", aad: "7576f7028ec6eb5ea7e298342a94d4b202b370ef9768ec6561c4fe6b7e7296fa859c21", plain: "7e265ae0a732a52cea691001d0c711c4d09ffab52d30d3862cb88d943198940b784507832197ef1ae4e5632b44ff9f39137babe4bf29f57d3bb971aab6155d00c8a5de6347b25c465efa44b5a0ce1c1dae1182d8578404cd0169ff03e10ec5a9d7a259d5d4a7b2981c86c774ef2d06cc2760f021d79522c808c8e1e892a744e1ffe53f12b701f549b5e9a87f630cef16694431f4160e90ed329e98f38a11d27cda28673ca18b036e935c1a472edfd8dfd878b41ac4a071acc018b9007e239866da19c9126c95c60969cca9301bab634585bb4976cff9dd7d68e27ace9c6673c76293ca6f6e2d3708f928b3f7a0dc6777533185146a9176354016579dfe519ae02f8adca4bc5aa62aa7fa26794f69739040e7cb4f8f52ccd8c7f56917d2d9f253da74be2484a681fc01fbb489a0a671812eec7c142a891cf030584f66c03e36fde745a217a7b061a3ab0c4533bc3da3d8c15230fe23ac81b3cb906550d45cc1c76e9444537d47695bbd40b13beebd66bb7755855183f261faa8d731de3561e0e6a7cd9bd443132141c9d9841b57fc69db80745297b54cccc4", out: "58d0197bd44c01c4873ea06135a9ee1b39bbedd107a80232b0783ef518a3e7c5fb3e5639021ac923d3de76337e3231e782a29466715bb8fde9dff15f287440d2f42982e08cd529f48026210fe919b68558121a624cb086350178dfb4c94e5b92202f3856a25218e405be4c81503ec2fa0f37d38cccd6bb6785fc6a00cb82950d10a351b1000bf280d63f78085f191ecdcbd8ecb4b3e217183436dddc5b2b98804e4797bf2a448f4374a89912ab4e8cbee10ada6c83909f81ea28b4edb14b54d66c4e7ccf852323126bb153848f13d095b56aa9a1edc80973ec7c485c21c99164169b6dd77d7e85ee3623ba91c51a50abb3dd8dff7167a4f6b2b203013e7ae6eabaedb1ceb9ea82714333de8119554c953027c4c21f31500a1ebaf73b2e268d223c6dbf1f82bbc91170b11ee6c81a447e9fdc374a6dc0ed6b611584ff130eccbabaf82904d298f4ba1ce90a1990da8b19713c3159ccd5ac880fdc2bc1020333d2dc17affab5e795eb1cd1521d6814813468628c524728aedae626a58b031c37b825ded35f0f76dd01f82bb6a9638cd9705159353927362748bdee4b68d768da19cb2c9c1c7ee0d61a"},
+	}
+	// Each case checks exact ciphertext+tag output and then validates Open.
+	for _, tc := range vectors {
+		t.Run(tc.name, func(t *testing.T) {
+			key := mustDecodeHex(t, tc.key)
+			nonce := mustDecodeHex(t, tc.nonce)
+			aad := mustDecodeHex(t, tc.aad)
+			plain := mustDecodeHex(t, tc.plain)
+			expected := mustDecodeHex(t, tc.out)
+
+			aead, err := gmsmcipher.NewGCMSIV(sm4.NewCipher, key)
+			if err != nil {
+				t.Fatalf("NewGCMSIV failed: %v", err)
+			}
+
+			sealed := aead.Seal(nil, nonce, plain, aad)
+			if got, want := hex.EncodeToString(sealed), hex.EncodeToString(expected); got != want {
+				t.Fatalf("Seal mismatch\n got: %s\nwant: %s", got, want)
+			}
+
+			opened, err := aead.Open(nil, nonce, sealed, aad)
+			if err != nil {
+				t.Fatalf("Open failed: %v", err)
+			}
+			if got, want := hex.EncodeToString(opened), hex.EncodeToString(plain); got != want {
+				t.Fatalf("Open plaintext mismatch\n got: %s\nwant: %s", got, want)
+			}
+
+			if len(sealed) != len(plain)+aead.Overhead() {
+				t.Fatalf("bad output size: got %d want %d", len(sealed), len(plain)+aead.Overhead())
+			}
+		})
+	}
+}
+
+func BenchmarkGCMSIV_SM4_SealOpen1K(b *testing.B) {
+	benchmarkGCMSIVSealOpen1KWithBlock(b, sm4.NewCipher)
+}
+
+func benchmarkGCMSIVSealOpen1KWithBlock(b *testing.B, newBlock func([]byte) (cipher.Block, error)) {
+	key := make([]byte, 16)
+	key[0] = 1
+	aad := make([]byte, 20)
+	plaintext := make([]byte, 1024)
+
+	aead, err := gmsmcipher.NewGCMSIV(newBlock, key)
+	if err != nil {
+		b.Fatalf("NewGCMSIV failed: %v", err)
+	}
+
+	b.ReportAllocs()
+	b.SetBytes(int64(len(plaintext)))
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		var nonce [12]byte
+		binary.LittleEndian.PutUint64(nonce[4:], uint64(i))
+
+		ciphertext := aead.Seal(nil, nonce[:], plaintext, aad)
+		if _, err := aead.Open(nil, nonce[:], ciphertext, aad); err != nil {
+			b.Fatalf("Open failed: %v", err)
+		}
+	}
+}
+
+func BenchmarkGCMSIV_SM4_Fallback_SealOpen1K(b *testing.B) {
+	benchmarkGCMSIVSealOpen1KWithBlock(b, func(key []byte) (cipher.Block, error) {
+		base, err := sm4.NewCipher(key)
+		if err != nil {
+			return nil, err
+		}
+		return noCTRCapBlock{Block: base}, nil
+	})
+}
+
+type noCTRCapBlock struct{ cipher.Block }

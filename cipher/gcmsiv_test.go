@@ -8,6 +8,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/des"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"testing"
@@ -136,6 +137,114 @@ func TestGCMSIV_RFC8452Vectors(t *testing.T) {
 	}
 }
 
+func TestGCMSIVOpen_TamperingDetection(t *testing.T) {
+	// Test that Open() rejects ciphertext/tag modifications.
+	key := mustDecodeHex(t, "01000000000000000000000000000000")
+	nonce := mustDecodeHex(t, "030000000000000000000000")
+	aad := mustDecodeHex(t, "")
+	plain := mustDecodeHex(t, "01000000000000000000000000000000")
+
+	aead, err := gmsmcipher.NewGCMSIV(aes.NewCipher, key)
+	if err != nil {
+		t.Fatalf("NewGCMSIV failed: %v", err)
+	}
+
+	sealed := aead.Seal(nil, nonce, plain, aad)
+
+	// Tamper with ciphertext byte.
+	tampered := make([]byte, len(sealed))
+	copy(tampered, sealed)
+	tampered[0] ^= 1
+
+	if _, err := aead.Open(nil, nonce, tampered, aad); err == nil {
+		t.Fatal("Open should reject tampered ciphertext")
+	}
+
+	// Tamper with tag byte (last 16 bytes).
+	tampered = make([]byte, len(sealed))
+	copy(tampered, sealed)
+	tampered[len(tampered)-1] ^= 1
+
+	if _, err := aead.Open(nil, nonce, tampered, aad); err == nil {
+		t.Fatal("Open should reject tampered tag")
+	}
+}
+
+func TestGCMSIVOpen_AADTamperingDetection(t *testing.T) {
+	// Test that Open() rejects when AAD is modified.
+	key := mustDecodeHex(t, "01000000000000000000000000000000")
+	nonce := mustDecodeHex(t, "030000000000000000000000")
+	aad := mustDecodeHex(t, "0100")
+	plain := mustDecodeHex(t, "0200")
+
+	aead, err := gmsmcipher.NewGCMSIV(aes.NewCipher, key)
+	if err != nil {
+		t.Fatalf("NewGCMSIV failed: %v", err)
+	}
+
+	sealed := aead.Seal(nil, nonce, plain, aad)
+
+	// Try to decrypt with different AAD.
+	wrongAAD := mustDecodeHex(t, "0101")
+	if _, err := aead.Open(nil, nonce, sealed, wrongAAD); err == nil {
+		t.Fatal("Open should reject when AAD is tampered")
+	}
+}
+
+func TestGCMSIVOpen_NonceLengthError(t *testing.T) {
+	// Test that Open() panics on incorrect nonce length.
+	key := mustDecodeHex(t, "01000000000000000000000000000000")
+	shortNonce := mustDecodeHex(t, "03000000000000000000")
+	ciphertext := make([]byte, 32)
+
+	aead, err := gmsmcipher.NewGCMSIV(aes.NewCipher, key)
+	if err != nil {
+		t.Fatalf("NewGCMSIV failed: %v", err)
+	}
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("Open with incorrect nonce length should panic")
+		}
+	}()
+	aead.Open(nil, shortNonce, ciphertext, nil)
+}
+
+func TestGCMSIVSeal_NonceLengthError(t *testing.T) {
+	// Test that Seal() panics on incorrect nonce length.
+	key := mustDecodeHex(t, "01000000000000000000000000000000")
+	shortNonce := mustDecodeHex(t, "03000000000000000000")
+	plaintext := make([]byte, 16)
+
+	aead, err := gmsmcipher.NewGCMSIV(aes.NewCipher, key)
+	if err != nil {
+		t.Fatalf("NewGCMSIV failed: %v", err)
+	}
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("Seal with incorrect nonce length should panic")
+		}
+	}()
+	aead.Seal(nil, shortNonce, plaintext, nil)
+}
+
+func TestGCMSIVOpen_EmptyCiphertext(t *testing.T) {
+	// Test that Open() rejects ciphertext that is too short (less than tag size).
+	key := mustDecodeHex(t, "01000000000000000000000000000000")
+	nonce := mustDecodeHex(t, "030000000000000000000000")
+	shorterThanTag := make([]byte, 15) // Tag size is 16
+
+	aead, err := gmsmcipher.NewGCMSIV(aes.NewCipher, key)
+	if err != nil {
+		t.Fatalf("NewGCMSIV failed: %v", err)
+	}
+
+	if _, err := aead.Open(nil, nonce, shorterThanTag, nil); err == nil {
+		t.Fatal("Open should reject ciphertext shorter than tag")
+	}
+}
+
 func mustDecodeHex(t *testing.T, s string) []byte {
 	t.Helper()
 	if s == "" {
@@ -146,4 +255,30 @@ func mustDecodeHex(t *testing.T, s string) []byte {
 		t.Fatal(fmt.Errorf("hex decode failed for %q: %w", s, err))
 	}
 	return b
+}
+
+func BenchmarkGCMSIV_SealOpen1K(b *testing.B) {
+	key := make([]byte, 16)
+	key[0] = 1
+	aad := make([]byte, 20)
+	plaintext := make([]byte, 1024)
+
+	aead, err := gmsmcipher.NewGCMSIV(aes.NewCipher, key)
+	if err != nil {
+		b.Fatalf("NewGCMSIV failed: %v", err)
+	}
+
+	b.ReportAllocs()
+	b.SetBytes(int64(len(plaintext)))
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		var nonce [12]byte
+		binary.LittleEndian.PutUint64(nonce[4:], uint64(i))
+
+		ciphertext := aead.Seal(nil, nonce[:], plaintext, aad)
+		if _, err := aead.Open(nil, nonce[:], ciphertext, aad); err != nil {
+			b.Fatalf("Open failed: %v", err)
+		}
+	}
 }

@@ -7,11 +7,11 @@ package cipher
 import (
 	stdcipher "crypto/cipher"
 
-	internalcipher "github.com/emmansun/gmsm/internal/cipher"
+	gcmsiv "github.com/emmansun/gmsm/internal/cipher/gcmsiv"
 )
 
 // NewGCMSIV returns an AEAD implementing the GCM-SIV mode.
 // key is the key-generating key and cipherFunc creates a block cipher from raw key bytes.
 func NewGCMSIV(cipherFunc CipherCreator, key []byte) (stdcipher.AEAD, error) {
-	return internalcipher.NewGCMSIV(cipherFunc, key)
+	return gcmsiv.NewGCMSIV(cipherFunc, key)
 }

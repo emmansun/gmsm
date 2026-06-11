@@ -29,10 +29,19 @@ const (
 	gcmSIVMaxBytes  = 1 << 36
 )
 
+// enough for 8 blocks per batch, which is the max concurrency of any supported architecture
+const maxConcurrency = 8
+
 var (
 	errInvalidBlockSize = errors.New("cipher: GCMSIV requires a 128-bit block cipher")
 	errOpenFailed       = errors.New("cipher: message authentication failed")
 )
+
+type concurrentBlocks interface {
+	Concurrency() int
+	EncryptBlocks(dst, src []byte)
+	DecryptBlocks(dst, src []byte)
+}
 
 type gcmsiv struct {
 	newBlock func([]byte) (cipher.Block, error)
@@ -46,13 +55,6 @@ type ghashFieldElement struct {
 
 type gcmSIVAble interface {
 	NewGCMSIV(newBlock func([]byte) (cipher.Block, error), key []byte) (cipher.AEAD, error)
-}
-
-// gcmSIVCTRAble is an optional internal capability for optimized GCMSIV CTR
-// processing. Integrations can provide a specialized XOR key-stream path while
-// still dispatching through gcmSIVAble.
-type gcmSIVCTRAble interface {
-	GCMSIVXORKeyStream(dst, src []byte, counter [16]byte)
 }
 
 // NewGCMSIV returns an AEAD using the GCM-SIV construction.
@@ -85,10 +87,10 @@ func (g *gcmsiv) Seal(dst, nonce, plaintext, additionalData []byte) []byte {
 	if len(nonce) != gcmSIVNonceSize {
 		panic("cipher: incorrect nonce length given to GCMSIV")
 	}
-	if len(plaintext) > gcmSIVMaxBytes {
+	if uint64(len(plaintext)) > uint64(gcmSIVMaxBytes) {
 		panic("cipher: message too large for GCMSIV")
 	}
-	if len(additionalData) > gcmSIVMaxBytes {
+	if uint64(len(additionalData)) > uint64(gcmSIVMaxBytes) {
 		panic("cipher: additional data too large for GCMSIV")
 	}
 
@@ -115,15 +117,15 @@ func (g *gcmsiv) Open(dst, nonce, ciphertext, additionalData []byte) ([]byte, er
 	if len(nonce) != gcmSIVNonceSize {
 		panic("cipher: incorrect nonce length given to GCMSIV")
 	}
-	if len(ciphertext) < gcmSIVTagSize || len(ciphertext) > gcmSIVMaxBytes+gcmSIVTagSize {
+	if len(ciphertext) < gcmSIVTagSize || uint64(len(ciphertext)) > uint64(gcmSIVMaxBytes+gcmSIVTagSize) {
 		return nil, errOpenFailed
 	}
-	if len(additionalData) > gcmSIVMaxBytes {
+	if uint64(len(additionalData)) > uint64(gcmSIVMaxBytes) {
 		return nil, errOpenFailed
 	}
 
 	encrypted := ciphertext[:len(ciphertext)-gcmSIVTagSize]
-	if len(encrypted) > gcmSIVMaxBytes {
+	if uint64(len(encrypted)) > uint64(gcmSIVMaxBytes) {
 		return nil, errOpenFailed
 	}
 
@@ -136,22 +138,20 @@ func (g *gcmsiv) Open(dst, nonce, ciphertext, additionalData []byte) ([]byte, er
 		return nil, err
 	}
 
-	plaintext := make([]byte, len(encrypted))
-	if len(encrypted) > 0 {
-		g.ctrXOR(encBlock, plaintext, encrypted, tag)
-	}
-
-	expected := g.computeTag(authKey, encBlock, nonce, additionalData, plaintext)
-	if subtle.ConstantTimeCompare(expected[:], tag[:]) != 1 {
-		clear(plaintext)
-		return nil, errOpenFailed
-	}
-
-	ret, out := alias.SliceForAppend(dst, len(plaintext))
-	if alias.InexactOverlap(out, plaintext) {
+	ret, out := alias.SliceForAppend(dst, len(encrypted))
+	if alias.InexactOverlap(out, encrypted) {
 		panic("cipher: invalid buffer overlap")
 	}
-	copy(out, plaintext)
+
+	if len(encrypted) > 0 {
+		g.ctrXOR(encBlock, out, encrypted, tag)
+	}
+
+	expected := g.computeTag(authKey, encBlock, nonce, additionalData, out)
+	if subtle.ConstantTimeCompare(expected[:], tag[:]) != 1 {
+		clear(out)
+		return nil, errOpenFailed
+	}
 	return ret, nil
 }
 
@@ -165,6 +165,36 @@ func (g *gcmsiv) deriveMessageKeys(nonce []byte) (authKey [16]byte, encKey []byt
 		encKeyLen = 32
 	}
 	encKey = make([]byte, encKeyLen)
+	if capable, ok := g.keyBlock.(concurrentBlocks); ok {
+		// WARNING: This implementation assumes Concurrency() returns a power-of-2 value
+		// (typically 4 or 8). The batch logic below extracts blocks at fixed offsets that
+		// may not align if Concurrency() deviates from expected values. For 256-bit keys
+		// (blocks=6), only a second EncryptBlocks call occurs if Concurrency()==4.
+		// Future implementations that return other Concurrency() values should audit this
+		// logic to ensure all derived key material is correctly extracted.
+		var counters [maxConcurrency * gcmSIVBlockSize]byte
+		var mask [maxConcurrency * gcmSIVBlockSize]byte
+
+		for i := 0; i < blocks; i++ {
+			off := i * gcmSIVBlockSize
+			byteorder.LEPutUint32(counters[off:], uint32(i))
+			copy(counters[off+4:off+4+gcmSIVNonceSize], nonce)
+		}
+		concurrentBlocks := capable.Concurrency()
+		capable.EncryptBlocks(mask[:concurrentBlocks*gcmSIVBlockSize], counters[:concurrentBlocks*gcmSIVBlockSize])
+		copy(authKey[:8], mask[:8])
+		copy(authKey[8:], mask[16:16+8])
+		copy(encKey, mask[32:32+8])
+		copy(encKey[8:], mask[48:48+8])
+		if blocks == 6 {
+			if concurrentBlocks == 4 {
+				capable.EncryptBlocks(mask[4*gcmSIVBlockSize:maxConcurrency*gcmSIVBlockSize], counters[4*gcmSIVBlockSize:maxConcurrency*gcmSIVBlockSize])
+			}
+			copy(encKey[16:], mask[64:64+8])
+			copy(encKey[24:], mask[80:80+8])
+		}
+		return authKey, encKey
+	}
 
 	var in [16]byte
 	for i := 0; i < blocks; i++ {
@@ -192,26 +222,46 @@ func (g *gcmsiv) computeTag(authKey [16]byte, encBlock cipher.Block, nonce, addi
 	byteorder.LEPutUint64(lengthBlock[:8], uint64(len(additionalData))*8)
 	byteorder.LEPutUint64(lengthBlock[8:], uint64(len(plaintext))*8)
 
-	table := initPolyvalTable(authKey[:])
-	var y ghashFieldElement
-	polyvalUpdatePadded(&table, &y, additionalData)
-	polyvalUpdatePadded(&table, &y, plaintext)
-	polyvalUpdateBlocks(&table, &y, lengthBlock[:])
-
-	s := finalizePolyval(y)
-	subtle.XORBytes(s[:], s[:gcmSIVNonceSize], nonce)
+	// computePolyval is implemented per-architecture; falls back to generic.
+	s := computePolyval(authKey, additionalData, plaintext, lengthBlock)
+	subtle.XORBytes(s[:gcmSIVNonceSize], s[:gcmSIVNonceSize], nonce)
 	s[15] &= 0x7f
 	encBlock.Encrypt(tag[:], s[:])
 	return tag
+}
+
+// computePolyvalGeneric is the pure-Go POLYVAL implementation used on all
+// architectures that lack a hardware CLMUL path.
+func computePolyvalGeneric(authKey [16]byte, aad, plaintext []byte, lengthBlock [16]byte) (s [16]byte) {
+	table := initPolyvalTable(authKey[:])
+	var y ghashFieldElement
+	polyvalUpdatePadded(&table, &y, aad)
+	polyvalUpdatePadded(&table, &y, plaintext)
+	polyvalUpdateBlocks(&table, &y, lengthBlock[:])
+	return finalizePolyval(y)
 }
 
 func (g *gcmsiv) ctrXOR(block cipher.Block, dst, src []byte, tag [16]byte) {
 	// Counter mode starts from tag|0x80 and increments the low 32 bits in
 	// little-endian order, matching RFC 8452.
 	tag[15] |= 0x80
-	if capable, ok := block.(gcmSIVCTRAble); ok {
-		capable.GCMSIVXORKeyStream(dst, src, tag)
-		return
+
+	if capable, ok := block.(concurrentBlocks); ok {
+		blocksSize := capable.Concurrency() * gcmSIVBlockSize
+		var counters [maxConcurrency * gcmSIVBlockSize]byte
+		var mask [maxConcurrency * gcmSIVBlockSize]byte
+
+		for len(src) >= blocksSize {
+			for i := 0; i < capable.Concurrency(); i++ {
+				off := i * gcmSIVBlockSize
+				copy(counters[off:off+gcmSIVBlockSize], tag[:])
+				gcmsivInc32(&tag)
+			}
+			capable.EncryptBlocks(mask[:blocksSize], counters[:blocksSize])
+			subtle.XORBytes(dst[:blocksSize], src[:blocksSize], mask[:blocksSize])
+			src = src[blocksSize:]
+			dst = dst[blocksSize:]
+		}
 	}
 
 	var stream [gcmSIVBlockSize]byte
@@ -256,11 +306,9 @@ func initPolyvalTable(h []byte) [16]ghashFieldElement {
 // finalizePolyval converts the accumulated GHASH-mapped state back to
 // POLYVAL byte representation via a final byte-reversal.
 func finalizePolyval(y ghashFieldElement) [16]byte {
-	var out [16]byte
-	byteorder.BEPutUint64(out[:8], y.low)
-	byteorder.BEPutUint64(out[8:], y.high)
 	var reversed [16]byte
-	byteReverse16(&reversed, &out)
+	byteorder.LEPutUint64(reversed[:8], y.high)
+	byteorder.LEPutUint64(reversed[8:], y.low)
 	return reversed
 }
 
