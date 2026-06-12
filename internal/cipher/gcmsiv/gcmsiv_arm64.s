@@ -202,6 +202,6 @@ dataMul:
 	B	singlesLoop
 
 polyvalUpdateDone:
-	VEXT	$8, B0.B16, B0.B16, T0.B16
+	VEXT	$8, B0.B16, B0.B16, B0.B16
 	VST1	[ACC0.B16], (tPtr)
 	RET
