@@ -2,19 +2,17 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build amd64 && !purego
+//go:build (amd64 || arm64) && !purego
 
 package cipher
 
-import (
-	"github.com/emmansun/gmsm/internal/deps/cpu"
-)
+import "github.com/emmansun/gmsm/internal/cpuid"
 
-// supportPolyvalAsm is true when the CPU has PCLMULQDQ and SSSE3.
-var supportPolyvalAsm = cpu.X86.HasPCLMULQDQ && cpu.X86.HasSSSE3
+// supportPolyvalAsm is true when the CPU has CMUL.
+var supportPolyvalAsm = cpuid.HasGFMUL
 
 // polyvalAsmTable is a 256-byte Karatsuba-precomputed hash table for the
-// PCLMUL POLYVAL implementation.  The layout is identical to gcmSm4Data's
+// CMUL POLYVAL implementation.  The layout is identical to gcmSm4Data's
 // productTable so the multiply loop can be shared:
 //
 //	offsets 16*14, 16*15 → H^1  and its Karatsuba precomp (H[0]^H[1])
