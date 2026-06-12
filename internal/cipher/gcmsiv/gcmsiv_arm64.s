@@ -27,13 +27,28 @@
 #define POLY V15
 #define ZERO V16
 
+#define reduce() \
+	VEOR	ACC0.B16, ACCM.B16, ACCM.B16     \
+	VEOR	ACC1.B16, ACCM.B16, ACCM.B16     \
+	VEXT	$8, ZERO.B16, ACCM.B16, T0.B16   \
+	VEXT	$8, ACCM.B16, ZERO.B16, ACCM.B16 \
+	VEOR	ACCM.B16, ACC0.B16, ACC0.B16     \
+	VEOR	T0.B16, ACC1.B16, ACC1.B16       \
+	VPMULL	POLY.D1, ACC0.D1, T0.Q1          \
+	VEXT	$8, ACC0.B16, ACC0.B16, ACC0.B16 \
+	VEOR	T0.B16, ACC0.B16, ACC0.B16       \
+	VPMULL	POLY.D1, ACC0.D1, T0.Q1          \
+	VEOR	T0.B16, ACC1.B16, ACC1.B16       \
+	VEXT	$8, ACC1.B16, ACC1.B16, ACC1.B16 \
+	VEOR	ACC1.B16, ACC0.B16, ACC0.B16     \
+
 // func polyvalTableInitAsm(h *[16]byte, table *polyvalAsmTable)
 TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0-16
 #define pTbl R0
 #define hPtr R1
 #define I R2
 
-	MOVD hPtr+0(FP), hPtr
+	MOVD h+0(FP), hPtr
 	MOVD productTable+8(FP), pTbl
 	
 	VLD1 (hPtr), [B0.B16]
