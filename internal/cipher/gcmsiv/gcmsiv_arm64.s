@@ -118,7 +118,7 @@ initLoop:
 	BNE	initLoop
 	RET
 #undef I
-#undef RK
+#undef hPtr
 #undef pTbl	
 
 // func polyvalBlocksUpdateAsm(table *polyvalAsmTable, y *[16]byte, blocks []byte)
