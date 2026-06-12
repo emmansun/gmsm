@@ -52,6 +52,7 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0-16
 	MOVD productTable+8(FP), pTbl
 	
 	VLD1 (hPtr), [B0.B16]
+	VEOR	ZERO.B16, ZERO.B16, ZERO.B16
 
 	// POLYVAL special handling
 	MOVD	$0xE1, I
@@ -76,7 +77,6 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0-16
 	VMOV	I, POLY.D[0]
 	MOVD	$1, I
 	VMOV	I, POLY.D[1]
-	VEOR	ZERO.B16, ZERO.B16, ZERO.B16
 
 	// Multiply by 2 modulo P
 	VMOV	B0.D[0], I
