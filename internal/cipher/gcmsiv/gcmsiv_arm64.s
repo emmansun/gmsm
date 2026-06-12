@@ -175,6 +175,37 @@ TEXT ·polyvalBlocksUpdateAsm(SB), NOSPLIT, $0-40
 	VEOR	ZERO.B16, ZERO.B16, ZERO.B16
 	MOVD	pTbl, pTblSave
 
+octetsLoop:
+		CMP	$128, autLen
+		BLT	startSinglesLoop
+		SUB	$128, autLen
+
+		VLD1.P	32(aut), [B0.B16, B1.B16]
+
+		VLD1.P	32(pTbl), [T1.B16, T2.B16]
+		VEXT	$8, B0.B16, B0.B16, B0.B16
+		VEOR	ACC0.B16, B0.B16, B0.B16
+		VEXT	$8, B0.B16, B0.B16, T0.B16
+		VEOR	B0.B16, T0.B16, T0.B16
+		VPMULL	B0.D1, T1.D1, ACC1.Q1
+		VPMULL2	B0.D2, T1.D2, ACC0.Q1
+		VPMULL	T0.D1, T2.D1, ACCM.Q1
+
+		mulRound(B1)
+		VLD1.P  32(aut), [B2.B16, B3.B16]
+		mulRound(B2)
+		mulRound(B3)
+		VLD1.P  32(aut), [B4.B16, B5.B16]
+		mulRound(B4)
+		mulRound(B5)
+		VLD1.P  32(aut), [B6.B16, B7.B16]
+		mulRound(B6)
+		mulRound(B7)
+
+		MOVD	pTblSave, pTbl
+		reduce()
+	B	octetsLoop
+
 startSinglesLoop:
 
 	ADD	$14*16, pTbl
@@ -188,7 +219,6 @@ singlesLoop:
 
 		VLD1.P	16(aut), [B0.B16]
 dataMul:
-		//VREV64	B0.B16, B0.B16
 		VEXT	$8, B0.B16, B0.B16, B0.B16
 		VEOR	ACC0.B16, B0.B16, B0.B16
 
