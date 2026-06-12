@@ -53,6 +53,7 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0-16
 	
 	VLD1 (hPtr), [B0.B16]
 	VEOR	ZERO.B16, ZERO.B16, ZERO.B16
+	VEOR	POLY.B16, POLY.B16, POLY.B16
 
 	// POLYVAL special handling
 	MOVD	$0xE1, I
