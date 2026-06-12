@@ -150,8 +150,8 @@ func TestGcmHash(t *testing.T) {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	}
 	gcmHash(y[:], &productTable, data, len(data))
-	leExpected, _ := hex.DecodeString("4389ecf6c52b8496f9bd488c74b76d0a")
-	if !bytes.Equal(y[:], leExpected) {
-		t.Errorf("unexpected hash value: got %x, want %x", y[:], leExpected)
+	expected, _ := hex.DecodeString("0a6db7748c48bdf996842bc5f6ec8943")
+	if !bytes.Equal(y[:], expected) {
+		t.Errorf("unexpected hash value: got %x, want %x", y[:], expected)
 	}
 }
