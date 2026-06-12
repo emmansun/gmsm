@@ -164,6 +164,7 @@ TEXT ·polyvalBlocksUpdateAsm(SB), NOSPLIT, $0-40
 	MOVD	data_len+24(FP), autLen
 	
 	VLD1 (tPtr), [ACC0.B16]
+	VEXT	$8, ACC0.B16, ACC0.B16, ACC0.B16
 	CBZ	autLen, polyvalUpdateDone
 
 	MOVD	$0xC2, H0
