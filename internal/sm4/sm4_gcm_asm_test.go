@@ -13,25 +13,30 @@ import (
 	"testing"
 )
 
-func TestGcmSm4Init(t *testing.T) {
-	if !(supportsGFMUL) {
-		t.Skip("skipping test on unsupported CPU")
-	}
-	key := [16]byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
+func generateProductTable(t *testing.T, key []byte, table *[256]byte) {
+	t.Helper()
 	c, err := newCipherGeneric(key[:])
 	if err != nil {
 		t.Fatal(err)
 	}
 	c1 := c.(*sm4Cipher)
-	var table [256]byte
+
 	if supportSM4 {
-		gcmSm4Init(&table, c1.enc[:], INST_SM4)
+		gcmSm4Init(table, c1.enc[:], INST_SM4)
 	} else if supportsAES {
-		gcmSm4Init(&table, c1.enc[:], INST_AES)
+		gcmSm4Init(table, c1.enc[:], INST_AES)
 	} else {
 		t.Skip("skipping test on unsupported CPU")
 	}
+}
 
+func TestGcmSm4Init(t *testing.T) {
+	if !(supportsGFMUL) {
+		t.Skip("skipping test on unsupported CPU")
+	}
+	var table [256]byte
+	key := [16]byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
+	generateProductTable(t, key[:], &table)
 	amd64Expected, _ := hex.DecodeString("efe02875211f104b6cc6398a88e02616832611ffa9ff365d832611ffa9ff365dd1990739ba1568a7b850c2b3d6faa70269c9c58a6cefcfa569c9c58a6cefcfa5c465caca557f2b72b1a41462debd1b0075c1dea88bc2307275c1dea88bc2307285f658150945b9720030ab912a73b71c85c6f38423360e6e85c6f38423360e6e70d7d26d60ba5e2e434c4acffae2f15b339b98a29a58af75339b98a29a58af75edeb6cd41b6c866aa116a5ff33dcbbc04cfdc92b28b03daa4cfdc92b28b03daabf7c2d4efddd55771c7e73c7aa8b732fa3025e8957562658a3025e89575626585444a9b72066aa2e99458213d6e8ef4ccd012ba4f68e4562cd012ba4f68e4562")
 	arm64Expected, _ := hex.DecodeString("6cc6398a88e02616efe02875211f104b832611ffa9ff365d832611ffa9ff365db850c2b3d6faa702d1990739ba1568a769c9c58a6cefcfa569c9c58a6cefcfa5b1a41462debd1b00c465caca557f2b7275c1dea88bc2307275c1dea88bc230720030ab912a73b71c85f658150945b97285c6f38423360e6e85c6f38423360e6e434c4acffae2f15b70d7d26d60ba5e2e339b98a29a58af75339b98a29a58af75a116a5ff33dcbbc0edeb6cd41b6c866a4cfdc92b28b03daa4cfdc92b28b03daa1c7e73c7aa8b732fbf7c2d4efddd5577a3025e8957562658a3025e895756265899458213d6e8ef4c5444a9b72066aa2ecd012ba4f68e4562cd012ba4f68e4562")
 	switch runtime.GOARCH {
@@ -42,6 +47,53 @@ func TestGcmSm4Init(t *testing.T) {
 	case "amd64":
 		if !bytes.Equal(table[:], amd64Expected) {
 			t.Errorf("unexpected table value: got %x, want %x", table, amd64Expected)
+		}
+	}
+}
+
+func TestGcmSm4Data(t *testing.T) {
+	if !(supportsGFMUL) {
+		t.Skip("skipping test on unsupported CPU")
+	}
+	var table [256]byte
+	key := [16]byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
+	generateProductTable(t, key[:], &table)
+
+	var y [16]byte
+	var data = []byte{
+		0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+		0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+		0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88,
+		0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00,
+		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+		0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+		0x0f, 0x0e, 0x0d, 0x0c, 0x0b, 0x0a, 0x09, 0x08,
+		0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00,
+		0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00,
+		0x0f, 0x0e, 0x0d, 0x0c, 0x0b, 0x0a, 0x09, 0x08,
+		0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+		0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00,
+		0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88,
+		0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+		0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+		0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+		0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88,
+		0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00,
+		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+		0x08, 0x09, 0x0a, 0x0b,
+	}
+	amd64Expected, _ := hex.DecodeString("4389ecf6c52b8496f9bd488c74b76d0a")
+	arm64Expected, _ := hex.DecodeString("6f9bd488c74b76d0a4389ecf6c52b849")
+	gcmSm4Data(&table, data, &y)
+	switch runtime.GOARCH {
+	case "arm64":
+		if !bytes.Equal(y[:], arm64Expected) {
+			t.Errorf("unexpected result: got %x, want %x", y, arm64Expected)
+		}
+	case "amd64":
+		if !bytes.Equal(y[:], amd64Expected) {
+			t.Errorf("unexpected result: got %x, want %x", y, amd64Expected)
 		}
 	}
 }
