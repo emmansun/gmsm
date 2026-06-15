@@ -370,10 +370,37 @@ func SignASN1(rand io.Reader, priv *PrivateKey, hash []byte, opts crypto.SignerO
 		drbg := newDRBG(Z, nil, blockAlignedPersonalizationString{d, bits2octets(c, hash)})
 		return signSM2EC(c, priv, drbgRandFunc(drbg), hash)
 	default:
-		randutil.MaybeReadByte(rand)
-		randfunc := randFuncFac(rand)
-		return signLegacy(priv, randfunc, hash)
+		return nil, errors.New("sm2: curve not supported by SignASN1")
 	}
+}
+
+// Sign signs a hash (which should be the result of hashing a larger message)
+// using the private key, priv. If the hash is longer than the bit-length of the
+// private key's curve order, the hash will be truncated to that length. It
+// returns the signature as a pair of integers. Most applications should use
+// SignASN1 instead of dealing directly with r, s.
+//
+// Compliance with GB/T 32918.2-2016 regardless it's SM2 curve or not.
+// Deprecated: please use SignASN1 instead, which returns ASN.1 encoded signature.
+func Sign(rand io.Reader, priv *ecdsa.PrivateKey, hash []byte) (r, s *big.Int, err error) {
+	key := new(PrivateKey)
+	key.PrivateKey = *priv
+	sig, err := SignASN1(rand, key, hash, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	r, s = new(big.Int), new(big.Int)
+	var inner cryptobyte.String
+	input := cryptobyte.String(sig)
+	if !input.ReadASN1(&inner, asn1.SEQUENCE) ||
+		!input.Empty() ||
+		!inner.ReadASN1Integer(r) ||
+		!inner.ReadASN1Integer(s) ||
+		!inner.Empty() {
+		return nil, nil, errors.New("invalid ASN.1 from SignASN1")
+	}
+	return r, s, nil
 }
 
 // inverseOfPrivateKeyPlus1 calculates and returns the modular inverse of (private key + 1) modulo the curve order.
@@ -524,8 +551,26 @@ func VerifyASN1(pub *ecdsa.PublicKey, hash, sig []byte) bool {
 	case P256().Params():
 		return verifySM2EC(p256(), pub, hash, sig)
 	default:
-		return verifyLegacy(pub, hash, sig)
+		return false
 	}
+}
+
+// Verify verifies the signature in r, s of hash using the public key, pub. Its
+// return value records whether the signature is valid. Most applications should
+// use VerifyASN1 instead of dealing directly with r, s.
+//
+// Compliance with GB/T 32918.2-2016 regardless it's SM2 curve or not.
+// Caller should make sure the hash's correctness.
+// Deprecated: please use VerifyASN1 instead, which takes ASN.1 encoded signature.
+func Verify(pub *ecdsa.PublicKey, hash []byte, r, s *big.Int) bool {
+	if r.Sign() <= 0 || s.Sign() <= 0 {
+		return false
+	}
+	sig, err := encodeSignature(r.Bytes(), s.Bytes())
+	if err != nil {
+		return false
+	}
+	return VerifyASN1(pub, hash, sig)
 }
 
 func verifySM2EC(c *sm2Curve, pub *ecdsa.PublicKey, hash, sig []byte) bool {

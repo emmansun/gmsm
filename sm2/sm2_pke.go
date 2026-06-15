@@ -154,7 +154,7 @@ func Encrypt(random io.Reader, pub *ecdsa.PublicKey, msg []byte, opts *Encrypter
 	case P256().Params():
 		return encryptSM2EC(p256(), pub, random, msg, opts)
 	default:
-		return encryptLegacy(random, pub, msg, opts)
+		return nil, errors.New("sm2: curve not supported by Encrypt")
 	}
 }
 
@@ -251,7 +251,7 @@ func decrypt(priv *PrivateKey, ciphertext []byte, opts *DecrypterOpts) ([]byte, 
 	case P256().Params():
 		return decryptSM2EC(p256(), priv, ciphertext, opts)
 	default:
-		return decryptLegacy(priv, ciphertext, opts)
+		return nil, errors.New("sm2: curve not supported by Decrypt")
 	}
 }
 

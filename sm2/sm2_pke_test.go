@@ -66,35 +66,38 @@ func TestEncryptDecryptASN1(t *testing.T) {
 		name      string
 		plainText string
 		priv      *PrivateKey
+		wantErr   bool
 	}{
 		// TODO: Add test cases.
-		{"less than 32", "encryption standard", priv},
-		{"equals 32", "encryption standard encryption ", priv},
-		{"long than 32", "encryption standard encryption standard", priv},
-		{"less than 32", "encryption standard", key2},
-		{"equals 32", "encryption standard encryption ", key2},
-		{"long than 32", "encryption standard encryption standard", key2},
+		{"less than 32", "encryption standard", priv, false},
+		{"equals 32", "encryption standard encryption ", priv, false},
+		{"long than 32", "encryption standard encryption standard", priv, false},
+		{"less than 32", "encryption standard", key2, true},
+		{"equals 32", "encryption standard encryption ", key2, true},
+		{"long than 32", "encryption standard encryption standard", key2, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			encrypterOpts := ASN1EncrypterOpts
 			ciphertext, err := Encrypt(rand.Reader, &tt.priv.PublicKey, []byte(tt.plainText), encrypterOpts)
-			if err != nil {
+			if (err != nil) != tt.wantErr {
 				t.Fatalf("%v encrypt failed %v", tt.priv.Curve.Params().Name, err)
 			}
-			plaintext, err := tt.priv.Decrypt(rand.Reader, ciphertext, ASN1DecrypterOpts)
-			if err != nil {
-				t.Fatalf("%v decrypt 1 failed %v", tt.priv.Curve.Params().Name, err)
-			}
-			if !reflect.DeepEqual(string(plaintext), tt.plainText) {
-				t.Errorf("Decrypt() = %v, want %v", string(plaintext), tt.plainText)
-			}
-			plaintext, err = tt.priv.Decrypt(rand.Reader, ciphertext, ASN1DecrypterOpts)
-			if err != nil {
-				t.Fatalf("%v decrypt 2 failed %v", tt.priv.Curve.Params().Name, err)
-			}
-			if !reflect.DeepEqual(string(plaintext), tt.plainText) {
-				t.Errorf("Decrypt() = %v, want %v", string(plaintext), tt.plainText)
+			if !tt.wantErr {
+				plaintext, err := tt.priv.Decrypt(rand.Reader, ciphertext, ASN1DecrypterOpts)
+				if err != nil {
+					t.Fatalf("%v decrypt 1 failed %v", tt.priv.Curve.Params().Name, err)
+				}
+				if !reflect.DeepEqual(string(plaintext), tt.plainText) {
+					t.Errorf("Decrypt() = %v, want %v", string(plaintext), tt.plainText)
+				}
+				plaintext, err = tt.priv.Decrypt(rand.Reader, ciphertext, ASN1DecrypterOpts)
+				if err != nil {
+					t.Fatalf("%v decrypt 2 failed %v", tt.priv.Curve.Params().Name, err)
+				}
+				if !reflect.DeepEqual(string(plaintext), tt.plainText) {
+					t.Errorf("Decrypt() = %v, want %v", string(plaintext), tt.plainText)
+				}
 			}
 		})
 	}
@@ -241,9 +244,6 @@ func TestEncryptEmptyPlaintext(t *testing.T) {
 
 func TestEncryptDecrypt(t *testing.T) {
 	priv, _ := GenerateKey(rand.Reader)
-	priv2, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	key2 := new(PrivateKey)
-	key2.PrivateKey = *priv2
 	tests := []struct {
 		name      string
 		plainText string
@@ -253,9 +253,6 @@ func TestEncryptDecrypt(t *testing.T) {
 		{"less than 32", "encryption standard", priv},
 		{"equals 32", "encryption standard encryption ", priv},
 		{"long than 32", "encryption standard encryption standard", priv},
-		{"less than 32", "encryption standard", key2},
-		{"equals 32", "encryption standard encryption ", key2},
-		{"long than 32", "encryption standard encryption standard", key2},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -345,16 +342,8 @@ func benchmarkEncrypt(b *testing.B, curve elliptic.Curve, plaintext []byte) {
 	}
 }
 
-func BenchmarkEncryptNoMoreThan32_P256(b *testing.B) {
-	benchmarkEncrypt(b, elliptic.P256(), make([]byte, 31))
-}
-
 func BenchmarkEncryptNoMoreThan32_SM2(b *testing.B) {
 	benchmarkEncrypt(b, P256(), make([]byte, 31))
-}
-
-func BenchmarkEncrypt128_P256(b *testing.B) {
-	benchmarkEncrypt(b, elliptic.P256(), make([]byte, 128))
 }
 
 func BenchmarkEncrypt128_SM2(b *testing.B) {
