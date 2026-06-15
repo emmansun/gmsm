@@ -18,6 +18,9 @@ import (
 // Note: This uses HMAC-SM3, not the GM/T 0105 DRBG, as it is a stateless
 // deterministic derivation process rather than a random bit generator.
 func SignDeterministic(priv *PrivateKey, hash []byte, opts crypto.SignerOpts) ([]byte, error) {
+	if len(hash) == 0 {
+		return nil, errors.New("sm2: hash cannot be empty")
+	}
 	if sm2Opts, ok := opts.(*SM2SignerOption); ok && sm2Opts.forceGMSign {
 		newHash, err := CalculateSM2Hash(&priv.PublicKey, hash, sm2Opts.uid)
 		if err != nil {

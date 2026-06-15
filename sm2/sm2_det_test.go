@@ -258,7 +258,6 @@ func TestSignDeterministic_VariousMessageLengths(t *testing.T) {
 		name string
 		msg  []byte
 	}{
-		{"empty", []byte("")},
 		{"1 byte", []byte("a")},
 		{"31 bytes", make([]byte, 31)},
 		{"32 bytes", make([]byte, 32)},

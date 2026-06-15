@@ -15,6 +15,14 @@ import (
 	"github.com/emmansun/gmsm/sm3"
 )
 
+func bigFromHex(s string) *big.Int {
+	b, ok := new(big.Int).SetString(s, 16)
+	if !ok {
+		panic("sm2/elliptic: internal error: invalid encoding")
+	}
+	return b
+}
+
 func TestParseRawPrivateKey(t *testing.T) {
 	c := p256()
 	// test nil
