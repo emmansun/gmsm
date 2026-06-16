@@ -104,7 +104,7 @@ func (p *SM2P256Point) SetBytes(b []byte) (*SM2P256Point, error) {
 		p.z.One()
 		return p, nil
 	default:
-		return nil, errors.New("invalid SM2P256 point encoding")
+		return nil, errors.New("invalid P256 point encoding")
 	}
 }
 
