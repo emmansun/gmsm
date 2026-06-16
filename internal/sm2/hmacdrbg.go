@@ -9,7 +9,7 @@ import (
 	"crypto/hmac"
 	"hash"
 
-	"github.com/emmansun/gmsm/sm3"
+	"github.com/emmansun/gmsm/internal/sm3"
 )
 
 // hmacDRBG is an SP 800-90A Rev. 1 HMAC_DRBG.

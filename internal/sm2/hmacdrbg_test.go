@@ -142,7 +142,7 @@ func TestBits2octets_Consistency(t *testing.T) {
 	// Here we additionally verify that a hash value exceeding N is properly reduced mod N.
 	// Since bits2octets is unexported, we test it via the internal hashToNat function.
 
-	c := p256()
+	c := P256()
 
 	// Test hash value larger than N: bits2octets should reduce mod N
 	// Construct a hash such that hashToInt exceeds N

@@ -8,7 +8,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/hex"
-	"io"
 	"math/big"
 	"testing"
 
@@ -24,27 +23,27 @@ func bigFromHex(s string) *big.Int {
 }
 
 func TestParseRawPrivateKey(t *testing.T) {
-	c := p256()
+	c := P256()
 	// test nil
 	_, err := ParseRawPrivateKey(nil)
-	if err == nil || err.Error() != "sm2: invalid private key size" {
-		t.Errorf("should throw sm2: invalid private key size")
+	if err == nil || err.Error() != "invalid scalar length" {
+		t.Errorf("should throw invalid scalar length")
 	}
 	// test all zero
-	key := make([]byte, c.N.Size())
+	key := make([]byte, c.Params().BitSize/8)
 	_, err = ParseRawPrivateKey(key)
-	if err == nil || err != errInvalidPrivateKey {
-		t.Errorf("should throw errInvalidPrivateKey")
+	if err == nil || err.Error() != "sm2: private key is zero" {
+		t.Errorf("should throw sm2: invalid public key encoding, got %v", err)
 	}
 	// test N-1
-	_, err = ParseRawPrivateKey(c.nMinus1.Bytes(c.N))
-	if err == nil || err != errInvalidPrivateKey {
-		t.Errorf("should throw errInvalidPrivateKey")
+	_, err = ParseRawPrivateKey(new(big.Int).Sub(c.Params().N, big.NewInt(1)).Bytes())
+	if err == nil || err.Error() != "sm2: private key is N-1" {
+		t.Errorf("should throw sm2: private key is N-1")
 	}
 	// test N
 	_, err = ParseRawPrivateKey(P256().Params().N.Bytes())
-	if err == nil || err != errInvalidPrivateKey {
-		t.Errorf("should throw errInvalidPrivateKey")
+	if err == nil || err.Error() != "input overflows the modulus" {
+		t.Errorf("should throw input overflows the modulus, got %v", err)
 	}
 	// test 1
 	key[31] = 1
@@ -53,7 +52,7 @@ func TestParseRawPrivateKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	// test N-2
-	_, err = ParseRawPrivateKey(c.nMinus2)
+	_, err = ParseRawPrivateKey(new(big.Int).Sub(c.Params().N, big.NewInt(2)).Bytes())
 	if err != nil {
 		t.Error(err)
 	}
@@ -72,35 +71,34 @@ func TestNewPrivateKeyFromInt(t *testing.T) {
 	}
 	// test N
 	_, err = NewPrivateKeyFromInt(P256().Params().N)
-	if err == nil || err != errInvalidPrivateKey {
-		t.Errorf("should throw errInvalidPrivateKey")
+	if err == nil || err.Error() != "input overflows the modulus" {
+		t.Errorf("should throw input overflows the modulus, got %v", err)
 	}
 
 	// test N + 1
 	_, err = NewPrivateKeyFromInt(new(big.Int).Add(P256().Params().N, big.NewInt(1)))
-	if err == nil || err != errInvalidPrivateKey {
-		t.Errorf("should throw errInvalidPrivateKey")
+	if err == nil || err.Error() != "input overflows the modulus" {
+		t.Errorf("should throw input overflows the modulus")
 	}
 
-	c := p256()
 	// test N - 1
-	_, err = NewPrivateKeyFromInt(new(big.Int).SetBytes(c.nMinus1.Bytes(c.N)))
-	if err == nil || err != errInvalidPrivateKey {
-		t.Errorf("should throw errInvalidPrivateKey")
+	_, err = NewPrivateKeyFromInt(new(big.Int).Sub(P256().Params().N, big.NewInt(1)))
+	if err == nil || err.Error() != "sm2: private key is N-1" {
+		t.Errorf("should throw sm2: private key is N-1")
 	}
 }
 
 func TestParseUncompressedPublicKey(t *testing.T) {
 	// test nil
 	_, err := ParseUncompressedPublicKey(nil)
-	if err == nil || err.Error() != "sm2: invalid public key" {
-		t.Errorf("should throw sm2: invalid public key")
+	if err == nil || err.Error() != "sm2: invalid public key encoding" {
+		t.Errorf("should throw sm2: invalid public key encoding")
 	}
 	// test without point format prefix byte
 	keypoints, _ := hex.DecodeString("8356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1")
 	_, err = ParseUncompressedPublicKey(keypoints)
-	if err == nil || err.Error() != "sm2: invalid public key" {
-		t.Errorf("should throw sm2: invalid public key")
+	if err == nil || err.Error() != "invalid P256 point encoding" {
+		t.Errorf("invalid P256 point encoding")
 	}
 	// test correct point
 	keypoints, _ = hex.DecodeString("048356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1")
@@ -426,61 +424,6 @@ func TestPublicKeyToECDH(t *testing.T) {
 	}
 }
 
-func TestRandomPoint(t *testing.T) {
-	c := p256()
-	t.Cleanup(func() { testingOnlyRejectionSamplingLooped = nil })
-	var loopCount int
-	testingOnlyRejectionSamplingLooped = func() { loopCount++ }
-
-	// A sequence of all ones will generate 2^N-1, which should be rejected.
-	// (Unless, for example, we are masking too many bits.)
-	r := io.MultiReader(bytes.NewReader(bytes.Repeat([]byte{0xff}, 100)), rand.Reader)
-	randfunc := func(b []byte) error {
-		_, err := io.ReadFull(r, b)
-		return err
-	}
-	if k, p, err := randomPoint(c, randfunc, false); err != nil {
-		t.Fatal(err)
-	} else if k.IsZero() == 1 {
-		t.Error("k is zero")
-	} else if p.Bytes()[0] != 4 {
-		t.Error("p is infinity")
-	}
-	if loopCount == 0 {
-		t.Error("overflow was not rejected")
-	}
-	loopCount = 0
-
-	// A sequence of all zeroes will generate zero, which should be rejected.
-	r = io.MultiReader(bytes.NewReader(bytes.Repeat([]byte{0}, 100)), rand.Reader)
-	randfunc = func(b []byte) error {
-		_, err := io.ReadFull(r, b)
-		return err
-	}
-	if k, p, err := randomPoint(c, randfunc, false); err != nil {
-		t.Fatal(err)
-	} else if k.IsZero() == 1 {
-		t.Error("k is zero")
-	} else if p.Bytes()[0] != 4 {
-		t.Error("p is infinity")
-	}
-	if loopCount == 0 {
-		t.Error("zero was not rejected")
-	}
-}
-
-func TestPrivateKeyPlus1WithOrderMinus1(t *testing.T) {
-	priv := new(PrivateKey)
-	priv.D = new(big.Int).Sub(P256().Params().N, big.NewInt(1))
-	priv.Curve = P256()
-	priv.PublicKey.X, priv.PublicKey.Y = P256().ScalarBaseMult(priv.D.Bytes())
-
-	_, err := priv.inverseOfPrivateKeyPlus1(p256())
-	if err == nil || err != errInvalidPrivateKey {
-		t.Errorf("expected invalid private key error")
-	}
-}
-
 func TestSignVerify(t *testing.T) {
 	priv, _ := GenerateKey(rand.Reader)
 	tests := []struct {
@@ -609,6 +552,78 @@ func TestSM2HasherReset(t *testing.T) {
 
 	if !bytes.Equal(hashBeforeReset, hashAfterReset) {
 		t.Errorf("expected %x, got %x", hashBeforeReset, hashAfterReset)
+	}
+}
+
+func TestCalculateZACache(t *testing.T) {
+	keypoints, _ := hex.DecodeString("048356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1")
+	pub, err := NewPublicKey(keypoints)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	za1, err := CalculateZA(pub, []byte("alice"))
+	if err != nil {
+		t.Fatalf("first CalculateZA failed: %v", err)
+	}
+	za2, err := CalculateZA(pub, []byte("alice"))
+	if err != nil {
+		t.Fatalf("second CalculateZA failed: %v", err)
+	}
+	if !bytes.Equal(za1, za2) {
+		t.Fatalf("CalculateZA returned different results for the same key and uid: %x vs %x", za1, za2)
+	}
+
+	za3, err := CalculateZA(pub, []byte("bob"))
+	if err != nil {
+		t.Fatalf("third CalculateZA failed: %v", err)
+	}
+	if bytes.Equal(za1, za3) {
+		t.Fatalf("CalculateZA reused the cached value across different uids: %x", za3)
+	}
+}
+
+func TestKeyConversionCacheInvalidation(t *testing.T) {
+	priv1, err := GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	priv2, err := GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pubInternal1, err := publicKeyToInternal(&priv1.PublicKey)
+	if err != nil {
+		t.Fatalf("first publicKeyToInternal failed: %v", err)
+	}
+	pubInternal1Bytes := append([]byte(nil), pubInternal1.Bytes()...)
+
+	priv1.PublicKey.X = priv2.PublicKey.X
+	priv1.PublicKey.Y = priv2.PublicKey.Y
+	pubInternal2, err := publicKeyToInternal(&priv1.PublicKey)
+	if err != nil {
+		t.Fatalf("second publicKeyToInternal failed: %v", err)
+	}
+	if bytes.Equal(pubInternal1Bytes, pubInternal2.Bytes()) {
+		t.Fatal("publicKeyToInternal returned a cached value after the public key contents changed")
+	}
+
+	privInternal1, err := privateKeyToInternal(priv1)
+	if err != nil {
+		t.Fatalf("first privateKeyToInternal failed: %v", err)
+	}
+	privInternal1Bytes := append([]byte(nil), privInternal1.Bytes()...)
+
+	priv1.D = priv2.D
+	priv1.PublicKey.X = priv2.PublicKey.X
+	priv1.PublicKey.Y = priv2.PublicKey.Y
+	privInternal2, err := privateKeyToInternal(priv1)
+	if err != nil {
+		t.Fatalf("second privateKeyToInternal failed: %v", err)
+	}
+	if bytes.Equal(privInternal1Bytes, privInternal2.Bytes()) {
+		t.Fatal("privateKeyToInternal returned a cached value after the private key contents changed")
 	}
 }
 

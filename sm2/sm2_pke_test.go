@@ -273,6 +273,9 @@ func TestEncryptDecrypt(t *testing.T) {
 			if err != nil {
 				t.Fatalf("encrypt failed %v", err)
 			}
+			if len(ciphertext) == 0 || (ciphertext[0] != compressed02 && ciphertext[0] != compressed03) {
+				t.Fatalf("compressed mode should output compressed C1 prefix, got 0x%02x", ciphertext[0])
+			}
 			plaintext, err = Decrypt(tt.priv, ciphertext)
 			if err != nil {
 				t.Fatalf("decrypt failed %v", err)
