@@ -295,7 +295,10 @@ rand.Read(buf)
 
 原始熵通过 SM3 Hash_df 函数进行调节压缩：
 
-$$\text{seed} = \text{Hash\_df}(\text{pool\_data}, 440)$$
+$$
+\text{seed} = \text{Hash\textunderscore df}(\text{pool\textunderscore data}, 440)
+$$
+
 
 其中 Hash_df 迭代计算 SM3 哈希，直到产生所需长度的输出。
 
