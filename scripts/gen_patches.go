@@ -32,7 +32,7 @@ func main() {
 	}
 
 	// Extension files (new files, diff against empty)
-	extFiles := []string{"cfca_csr.go", "csr_rsp.go", "explicit_curves.go", "verify_digest.go"}
+	extFiles := []string{"cfca_csr.go", "csr_rsp.go", "explicit_curves.go", "verify_digest.go", "testdata/test-file.crt"}
 
 	rePath := regexp.MustCompile(`"([ab])/[^"]*"`)
 

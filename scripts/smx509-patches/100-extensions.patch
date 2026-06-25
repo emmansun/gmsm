@@ -483,10 +483,10 @@ index e69de29..f0385eb 100644
 
 diff --git "a/smx509/verify_digest.go" "b/smx509/verify_digest.go"
 new file mode 100644
-index e69de29..19be8a8 100644
+index e69de29..6750cb4 100644
 --- /dev/null
 +++ "b/smx509/verify_digest.go"
-@@ -0,0 +1,78 @@
+@@ -0,0 +1,81 @@
 +// Copyright 2024 Sun Yimin. All rights reserved.
 +// Use of this source code is governed by a MIT-style
 +// license that can be found in the LICENSE file.
@@ -531,6 +531,9 @@ index e69de29..19be8a8 100644
 +		}
 +	case crypto.MD5:
 +		return InsecureAlgorithmError(algo)
++	case crypto.SHA1:
++		// SHA-1 signatures are only allowed for CRLs and CSRs.
++		return InsecureAlgorithmError(algo)
 +	default:
 +		if !hashType.Available() {
 +			return ErrUnsupportedAlgorithm
@@ -565,3 +568,20 @@ index e69de29..19be8a8 100644
 +	}
 +	return ErrUnsupportedAlgorithm
 +}
+
+diff --git "a/smx509/testdata/test-file.crt" "b/smx509/testdata/test-file.crt"
+new file mode 100644
+index e69de29..545ec92 100644
+--- /dev/null
++++ "b/smx509/testdata/test-file.crt"
+@@ -0,0 +1,10 @@
++-----BEGIN CERTIFICATE-----
++MIIBWDCB/6ADAgECAgEBMAoGCCqGSM49BAMCMBQxEjAQBgNVBAMTCXRlc3QtZmls
++ZTAeFw0yNjA2MjUwMTQ2MTJaFw0zNjA2MjIwMTQ2MTJaMBQxEjAQBgNVBAMTCXRl
++c3QtZmlsZTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABKyvRkzQjqpYQhadV6x8
++P6O7TpgqNZQkjrzI/y5pbteUoueNaWGXErFbpFl4sRaqm2zVdBSC7e6qmuBLIMbK
++YhyjQjBAMA4GA1UdDwEB/wQEAwICBDAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQW
++BBTEGRUg9naXu1/E9BkyPHIcU3rSeTAKBggqhkjOPQQDAgNIADBFAiEA3xyX/lkj
++n6Nr3UEBVTAmt88szA4w4XKR/9jMAVFVBzMCIB/6Q0gWb7aBzH/XmdDLUlFrIpNf
++gz2+58jc6IO0b4+9
++-----END CERTIFICATE-----

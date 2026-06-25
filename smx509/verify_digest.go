@@ -42,6 +42,9 @@ func (c *Certificate) CheckSignatureWithDigest(algo SignatureAlgorithm, digest, 
 		}
 	case crypto.MD5:
 		return InsecureAlgorithmError(algo)
+	case crypto.SHA1:
+		// SHA-1 signatures are only allowed for CRLs and CSRs.
+		return InsecureAlgorithmError(algo)
 	default:
 		if !hashType.Available() {
 			return ErrUnsupportedAlgorithm
