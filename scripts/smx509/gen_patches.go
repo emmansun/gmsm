@@ -18,9 +18,9 @@ func main() {
 		fmt.Fprintf(os.Stderr, "cannot get working directory: %v\n", err)
 		os.Exit(1)
 	}
-	baseline := filepath.Join(repoRoot, ".tmp", "patch-baseline")
+	baseline := filepath.Join(repoRoot, "scripts", "smx509", "baseline")
 	target := filepath.Join(repoRoot, "smx509")
-	patchDir := filepath.Join(repoRoot, "scripts", "smx509-patches")
+	patchDir := filepath.Join(repoRoot, "scripts", "smx509", "patches")
 	tmpDir := filepath.Join(repoRoot, ".tmp")
 
 	type patchDef struct {

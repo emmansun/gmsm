@@ -89,30 +89,10 @@ jobs:
       with:
         go-version: '1.25'
 
-    - name: Generate baseline from Go stdlib
-      run: |
-        GOROOT=$(go env GOROOT)
-        mkdir -p .tmp/patch-baseline
-        for f in $GOROOT/src/crypto/x509/*.go; do
-          base=$(basename "$f")
-          # Skip test files
-          case "$base" in *_test.go) continue;; esac
-          cp "$f" .tmp/patch-baseline/
-        done
-        # Apply import rewrites (same as smx509-sync.ps1)
-        for f in .tmp/patch-baseline/*.go; do
-          sed -i 's|"internal/godebug"|"github.com/emmansun/gmsm/internal/godebug"|g' "$f"
-          sed -i 's|"internal/goos"|"github.com/emmansun/gmsm/internal/goos"|g' "$f"
-        done
-        # Rename package x509 → smx509
-        for f in .tmp/patch-baseline/*.go; do
-          sed -i 's/^package x509$/package smx509/' "$f"
-        done
-
     - name: Regenerate patches and check consistency
       run: |
-        go run scripts/gen_patches.go
-        if ! git diff --exit-code scripts/smx509-patches/; then
-          echo "::error::smx509 patches are out of sync! Run 'go run scripts/gen_patches.go' locally and commit the result."
+        go run scripts/smx509/gen_patches.go
+        if ! git diff --exit-code scripts/smx509/patches/; then
+          echo "::error::smx509 patches are out of sync! Run 'go run scripts/smx509/gen_patches.go' locally and commit the result."
           exit 1
         fi

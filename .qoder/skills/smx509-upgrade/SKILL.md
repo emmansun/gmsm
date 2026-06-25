@@ -23,21 +23,25 @@ This skill guides the upgrade of the `smx509` module when a new Go stable versio
 - New Go stable version installed locally (e.g., `go1.26` or via `go install`)
 - `GOROOT` pointing to the new Go version
 - Working tree clean on `develop` branch
-- Baseline at `.tmp/patch-baseline/` (from previous sync)
+- Baseline at `scripts/smx509/baseline/` (committed, from previous sync)
 
 ## Architecture Reference
 
 ```
-scripts/
-├── smx509-sync.ps1           # Copies stdlib → smx509/ + applies patches
+scripts/smx509/
+├── sync.ps1                  # Copies stdlib → smx509/ + applies patches
 ├── gen_patches.go             # Regenerates patches from baseline↔smx509 diff
-├── smx509-patches/            # Declarative source patches (5 files)
+├── baseline/                  # Go stdlib baseline (committed, version-pinned)
+│   ├── x509.go
+│   ├── parser.go
+│   └── ... (19 files)
+├── patches/                   # Declarative source patches (5 files)
 │   ├── 001-root-platform.patch
 │   ├── 010-sm2-pqc-core.patch
 │   ├── 020-pkcs-keys.patch
 │   ├── 030-sm4-pem.patch
 │   └── 100-extensions.patch
-└── smx509-test-patches/       # Test file patches (if implemented)
+└── test-patches/              # Test file patches (future)
     ├── 001-package-rename.patch
     └── ...
 ```
@@ -68,8 +72,8 @@ Compare the new Go stdlib `crypto/x509/` against the current baseline:
 mkdir -p .tmp/new-stdlib
 cp $GOROOT/src/crypto/x509/*.go .tmp/new-stdlib/
 
-# Diff against current baseline
-diff -r .tmp/patch-baseline/ .tmp/new-stdlib/ --brief
+# Diff against committed baseline
+diff -r scripts/smx509/baseline/ .tmp/new-stdlib/ --brief
 ```
 
 **Key questions to answer:**
@@ -83,9 +87,9 @@ diff -r .tmp/patch-baseline/ .tmp/new-stdlib/ --brief
 Replace the baseline with the new stdlib:
 
 ```bash
-rm -rf .tmp/patch-baseline/
-mkdir .tmp/patch-baseline/
-cp $GOROOT/src/crypto/x509/*.go .tmp/patch-baseline/
+rm -rf scripts/smx509/baseline/
+mkdir scripts/smx509/baseline/
+pwsh scripts/smx509/sync.ps1 -TargetDir scripts/smx509/baseline -PackageName smx509 -NoPatch
 ```
 
 ### Step 4: Try Clean Rebuild
@@ -93,7 +97,7 @@ cp $GOROOT/src/crypto/x509/*.go .tmp/patch-baseline/
 ```bash
 # Clean smx509/ source files (keep extension files and testdata)
 # Re-run sync with new baseline
-pwsh scripts/smx509-sync.ps1 -TargetDir smx509 -PackageName smx509
+pwsh scripts/smx509/sync.ps1 -TargetDir smx509 -PackageName smx509
 ```
 
 **Expected outcomes:**
@@ -108,8 +112,8 @@ For each failing patch, analyze the conflict:
 
 ```bash
 # The sync script will stop at the first failing patch
-# Use --check to pre-validate all patches:
-pwsh scripts/smx509-sync.ps1 -TargetDir smx509 -PackageName smx509 -DryRun
+# Use -DryRun to pre-validate all patches:
+pwsh scripts/smx509/sync.ps1 -TargetDir smx509 -PackageName smx509 -DryRun
 ```
 
 #### 5.2 Conflict Classification
@@ -131,7 +135,7 @@ For each conflicted patch:
 
 ```bash
 # After manual fixes in smx509/:
-go run scripts/gen_patches.go
+go run scripts/smx509/gen_patches.go
 ```
 
 #### 5.4 SM2/PQC/SM4 Invariants
@@ -159,7 +163,7 @@ Test files are maintained independently from source patches. On Go upgrade:
 
 2. **Apply test patches** (from `scripts/smx509-test-patches/`):
    ```bash
-   pwsh scripts/smx509-sync.ps1 -TargetDir smx509 -PackageName smx509 -TestOnly
+   pwsh scripts/smx509/sync.ps1 -TargetDir smx509 -PackageName smx509 -TestOnly
    # Or manually apply test patches
    ```
 
@@ -188,7 +192,7 @@ go test ./...
 ### Step 8: Regenerate Patches
 
 ```bash
-go run scripts/gen_patches.go
+go run scripts/smx509/gen_patches.go
 ```
 
 Verify all 5 patches are regenerated:
@@ -218,11 +222,11 @@ git push origin develop
 ## Common Pitfalls
 
 1. **`gen_patches.go` must run from repo root** — it uses `os.Getwd()` to resolve paths
-2. **Baseline must exist** — `.tmp/patch-baseline/` must contain Go stdlib files before running sync
-3. **`smx509-sync.ps1` defaults to `x509sync`** — always pass `-TargetDir smx509 -PackageName smx509`
+2. **Baseline is committed** — `scripts/smx509/baseline/` is version-controlled, update it explicitly on Go upgrade
+3. **`sync.ps1` defaults to `x509sync`** — always pass `-TargetDir smx509 -PackageName smx509`
 4. **PowerShell git ExitCode=1** — PowerShell treats git stderr as error; check actual output, not exit code
-5. **Test files NOT in patches** — `*_test.go` changes are tracked separately, not in `smx509-patches/`
-6. **`internal/` imports** — any new `internal/*` or `crypto/internal/*` imports in stdlib must be added to `ImportRewriteMap` in `smx509-sync.ps1`
+5. **Test files NOT in patches** — `*_test.go` changes are tracked separately, not in `patches/`
+6. **`internal/` imports** — any new `internal/*` or `crypto/internal/*` imports in stdlib must be added to `ImportRewriteMap` in `sync.ps1`
 
 ## Decision Checklist
 

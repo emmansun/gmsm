@@ -88,7 +88,7 @@ function Get-RepoRoot {
         }
         $scriptDir = Split-Path -Parent $scriptPath
     }
-    return (Resolve-Path (Join-Path $scriptDir "..")).Path
+    return (Resolve-Path (Join-Path $scriptDir "..\..")).Path
 }
 
 function Resolve-GoRoot([string]$Value) {
@@ -158,7 +158,7 @@ if (!(Test-Path -LiteralPath $dstDir)) {
 
 $targetLeaf = Split-Path -Leaf $dstDir
 if ([string]::IsNullOrWhiteSpace($PatchDir)) {
-    $PatchDir = Join-Path $repoRoot ("scripts\" + $targetLeaf + "-patches")
+    $PatchDir = Join-Path $repoRoot ("scripts\" + $targetLeaf + "\patches")
 }
 if ([string]::IsNullOrWhiteSpace($PackageName)) {
     if ($targetLeaf -ieq "x509") {
