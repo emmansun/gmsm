@@ -2,7 +2,7 @@ package pkcs7
 
 import (
 	"bytes"
-	"crypto/x509"
+	x509 "github.com/emmansun/gmsm/smx509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/hex"

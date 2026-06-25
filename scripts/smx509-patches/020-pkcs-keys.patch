@@ -1,0 +1,516 @@
+diff --git "a/smx509/pkcs8.go" "b/smx509/pkcs8.go"
+index 868de55..d2e4e2b 100644
+--- "a/smx509/pkcs8.go"
++++ "b/smx509/pkcs8.go"
+@@ -5,6 +5,7 @@
+ package smx509
+ 
+ import (
++	"bytes"
+ 	"crypto/ecdh"
+ 	"crypto/ecdsa"
+ 	"crypto/ed25519"
+@@ -13,6 +14,18 @@ import (
+ 	"encoding/asn1"
+ 	"errors"
+ 	"fmt"
++
++	gmsmecdh "github.com/emmansun/gmsm/ecdh"
++	"github.com/emmansun/gmsm/mldsa"
++	"github.com/emmansun/gmsm/slhdsa"
++	"github.com/emmansun/gmsm/sm2"
++	"github.com/emmansun/gmsm/sm9"
++)
++
++var (
++	oidSM9     = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 302}
++	oidSM9Sign = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 302, 1}
++	oidSM9Enc  = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 302, 3}
+ )
+ 
+ // pkcs8 reflects an ASN.1, PKCS #8 PrivateKey. See
+@@ -54,17 +67,38 @@ func ParsePKCS8PrivateKey(der []byte) (key any, err error) {
+ 		}
+ 		return key, nil
+ 
++	case privKey.Algo.Algorithm.Equal(oidPublicKeySM2):
++		bytes := privKey.Algo.Parameters.FullBytes
++		namedCurveOID := new(asn1.ObjectIdentifier)
++		if _, err := asn1.Unmarshal(bytes, namedCurveOID); err != nil {
++			namedCurveOID = nil
++		}
++		ecKey, err := parseECPrivateKey(namedCurveOID, privKey.PrivateKey)
++		if err != nil {
++			return nil, errors.New("x509: failed to parse SM2 private key embedded in PKCS#8: " + err.Error())
++		}
++		if ecKey.Curve != sm2.P256() {
++			return nil, errors.New("x509: unsupported SM2 curve")
++		}
++		return new(sm2.PrivateKey).FromECPrivateKey(ecKey)
++
++	case privKey.Algo.Algorithm.Equal(oidSM9), privKey.Algo.Algorithm.Equal(oidSM9Sign), privKey.Algo.Algorithm.Equal(oidSM9Enc):
++		return parseSM9PrivateKey(privKey)
++
+ 	case privKey.Algo.Algorithm.Equal(oidPublicKeyECDSA):
+ 		bytes := privKey.Algo.Parameters.FullBytes
+ 		namedCurveOID := new(asn1.ObjectIdentifier)
+ 		if _, err := asn1.Unmarshal(bytes, namedCurveOID); err != nil {
+ 			namedCurveOID = nil
+ 		}
+-		key, err = parseECPrivateKey(namedCurveOID, privKey.PrivateKey)
++		ecKey, err := parseECPrivateKey(namedCurveOID, privKey.PrivateKey)
+ 		if err != nil {
+ 			return nil, errors.New("x509: failed to parse EC private key embedded in PKCS#8: " + err.Error())
+ 		}
+-		return key, nil
++		if ecKey.Curve == sm2.P256() {
++			return new(sm2.PrivateKey).FromECPrivateKey(ecKey)
++		}
++		return ecKey, nil
+ 
+ 	case privKey.Algo.Algorithm.Equal(oidPublicKeyEd25519):
+ 		if l := len(privKey.Algo.Parameters.FullBytes); l != 0 {
+@@ -89,6 +123,18 @@ func ParsePKCS8PrivateKey(der []byte) (key any, err error) {
+ 		}
+ 		return ecdh.X25519().NewPrivateKey(curvePrivateKey)
+ 
++	case privKey.Algo.Algorithm.Equal(oidPublicKeyMLDSA44), privKey.Algo.Algorithm.Equal(oidPublicKeyMLDSA65), privKey.Algo.Algorithm.Equal(oidPublicKeyMLDSA87):
++		if len(privKey.Algo.Parameters.FullBytes) != 0 {
++			return nil, errors.New("x509: MLDSA key encoded with illegal parameters")
++		}
++		return paseMLDSAPrivateKey(privKey)
++
++	case isSLHDSAPublicKeyAlgorithm(getPublicKeyAlgorithmFromOID(privKey.Algo.Algorithm)):
++		if len(privKey.Algo.Parameters.FullBytes) != 0 {
++			return nil, errors.New("x509: SLH-DSA key encoded with illegal parameters")
++		}
++		return parseSLHDSAPrivateKey(privKey)
++
+ 	default:
+ 		return nil, fmt.Errorf("x509: PKCS#8 wrapping contained private key with unknown algorithm: %v", privKey.Algo.Algorithm)
+ 	}
+@@ -118,24 +164,11 @@ func MarshalPKCS8PrivateKey(key any) ([]byte, error) {
+ 		}
+ 		privKey.PrivateKey = MarshalPKCS1PrivateKey(k)
+ 
++	case *sm2.PrivateKey:
++		return marshalPKCS8ECPrivateKey(&k.PrivateKey)
++
+ 	case *ecdsa.PrivateKey:
+-		oid, ok := oidFromNamedCurve(k.Curve)
+-		if !ok {
+-			return nil, errors.New("x509: unknown curve while marshaling to PKCS#8")
+-		}
+-		oidBytes, err := asn1.Marshal(oid)
+-		if err != nil {
+-			return nil, errors.New("x509: failed to marshal curve OID: " + err.Error())
+-		}
+-		privKey.Algo = pkix.AlgorithmIdentifier{
+-			Algorithm: oidPublicKeyECDSA,
+-			Parameters: asn1.RawValue{
+-				FullBytes: oidBytes,
+-			},
+-		}
+-		if privKey.PrivateKey, err = marshalECPrivateKeyWithOID(k, nil); err != nil {
+-			return nil, errors.New("x509: failed to marshal EC private key while building PKCS#8: " + err.Error())
+-		}
++		return marshalPKCS8ECPrivateKey(k)
+ 
+ 	case ed25519.PrivateKey:
+ 		privKey.Algo = pkix.AlgorithmIdentifier{
+@@ -157,28 +190,322 @@ func MarshalPKCS8PrivateKey(key any) ([]byte, error) {
+ 				return nil, fmt.Errorf("x509: failed to marshal private key: %v", err)
+ 			}
+ 		} else {
+-			oid, ok := oidFromECDHCurve(k.Curve())
+-			if !ok {
+-				return nil, errors.New("x509: unknown curve while marshaling to PKCS#8")
+-			}
+-			oidBytes, err := asn1.Marshal(oid)
+-			if err != nil {
+-				return nil, errors.New("x509: failed to marshal curve OID: " + err.Error())
+-			}
+-			privKey.Algo = pkix.AlgorithmIdentifier{
+-				Algorithm: oidPublicKeyECDSA,
+-				Parameters: asn1.RawValue{
+-					FullBytes: oidBytes,
+-				},
+-			}
+-			if privKey.PrivateKey, err = marshalECDHPrivateKey(k); err != nil {
+-				return nil, errors.New("x509: failed to marshal EC private key while building PKCS#8: " + err.Error())
+-			}
++			return marshalPKCS8ECDHPrivateKey(k)
+ 		}
+ 
++	case *gmsmecdh.PrivateKey:
++		return marshalPKCS8GMSMECDHPrivateKey(k)
++
++	case *mldsa.Key44, *mldsa.Key65, *mldsa.Key87, *mldsa.PrivateKey44, *mldsa.PrivateKey65, *mldsa.PrivateKey87:
++		return marshalPKCS8MLDSAPrivateKey(k)
++
++	case *slhdsa.PrivateKey:
++		return marshalPKCS8SLHDSAPrivateKey(k)
++
++	case *sm9.SignPrivateKey:
++		return marshalPKCS8SM9SignPrivateKey(k)
++	case *sm9.EncryptPrivateKey:
++		return marshalPKCS8SM9EncPrivateKey(k)
++	case *sm9.SignMasterPrivateKey:
++		return marshalPKCS8SM9SignMasterPrivateKey(k)
++	case *sm9.EncryptMasterPrivateKey:
++		return marshalPKCS8SM9EncMasterPrivateKey(k)
++
+ 	default:
+ 		return nil, fmt.Errorf("x509: unknown key type while marshaling PKCS#8: %T", key)
+ 	}
+ 
+ 	return asn1.Marshal(privKey)
+ }
++
++func paseMLDSAPrivateKey(privKey pkcs8) (any, error) {
++	var raw asn1.RawValue
++	rest, err := asn1.Unmarshal(privKey.PrivateKey, &raw)
++	if err != nil {
++		return nil, errors.New("x509: failed to parse MLDSA private key: " + err.Error())
++	}
++	if len(rest) != 0 {
++		return nil, errors.New("x509: trailing data after MLDSA private key")
++	}
++
++	oid := privKey.Algo.Algorithm
++	if raw.Class == asn1.ClassContextSpecific && raw.Tag == 0 {
++		seed := raw.Bytes
++		if len(seed) != 32 {
++			return nil, errors.New("x509: invalid MLDSA seed size")
++		}
++		switch {
++		case oid.Equal(oidPublicKeyMLDSA44):
++			return mldsa.NewKey44(seed)
++		case oid.Equal(oidPublicKeyMLDSA65):
++			return mldsa.NewKey65(seed)
++		case oid.Equal(oidPublicKeyMLDSA87):
++			return mldsa.NewKey87(seed)
++		default:
++			return nil, errors.New("x509: unsupported MLDSA algorithm")
++		}
++	}
++
++	if raw.Class == asn1.ClassUniversal && raw.Tag == asn1.TagOctetString {
++		expandedKey := raw.Bytes
++		switch {
++		case oid.Equal(oidPublicKeyMLDSA44):
++			return mldsa.NewPrivateKey44(expandedKey)
++		case oid.Equal(oidPublicKeyMLDSA65):
++			return mldsa.NewPrivateKey65(expandedKey)
++		case oid.Equal(oidPublicKeyMLDSA87):
++			return mldsa.NewPrivateKey87(expandedKey)
++		default:
++			return nil, errors.New("x509: unsupported MLDSA algorithm")
++		}
++	}
++
++	if raw.Class == asn1.ClassUniversal && raw.Tag == asn1.TagSequence {
++		var both struct {
++			Seed        []byte
++			ExpandedKey []byte
++		}
++		if _, err := asn1.Unmarshal(raw.FullBytes, &both); err != nil {
++			return nil, errors.New("x509: failed to parse MLDSA both: " + err.Error())
++		}
++
++		var generatedKey any
++		switch {
++		case oid.Equal(oidPublicKeyMLDSA44):
++			generatedKey, err = mldsa.NewKey44(both.Seed)
++		case oid.Equal(oidPublicKeyMLDSA65):
++			generatedKey, err = mldsa.NewKey65(both.Seed)
++		case oid.Equal(oidPublicKeyMLDSA87):
++			generatedKey, err = mldsa.NewKey87(both.Seed)
++		default:
++			return nil, errors.New("x509: unsupported MLDSA algorithm")
++		}
++		if err != nil {
++			return nil, errors.New("x509: failed to generate key from seed: " + err.Error())
++		}
++		type bytesGetter interface{ Bytes() []byte }
++		if !bytes.Equal(generatedKey.(bytesGetter).Bytes(), both.ExpandedKey) {
++			return nil, errors.New("x509: MLDSA private key consistency check failed: seed and expandedKey are not consistent")
++		}
++		return generatedKey, nil
++	}
++
++	return nil, errors.New("x509: unknown MLDSA private key format")
++}
++
++func parseSLHDSAPrivateKey(privKey pkcs8) (any, error) {
++	param, ok := slhdsa.GetParameterSetByOID(privKey.Algo.Algorithm)
++	if !ok {
++		return nil, errors.New("x509: unsupported SLH-DSA algorithm with OID: " + privKey.Algo.Algorithm.String())
++	}
++	return param.NewPrivateKey(privKey.PrivateKey)
++}
++
++func parseSM9PrivateKey(privKey pkcs8) (key any, err error) {
++	switch {
++	case privKey.Algo.Algorithm.Equal(oidSM9Sign):
++		return sm9.UnmarshalSignPrivateKeyASN1(privKey.PrivateKey)
++	case privKey.Algo.Algorithm.Equal(oidSM9Enc):
++		return sm9.UnmarshalEncryptPrivateKeyASN1(privKey.PrivateKey)
++	default:
++		bytes := privKey.Algo.Parameters.FullBytes
++		detailOID := new(asn1.ObjectIdentifier)
++		if _, err = asn1.Unmarshal(bytes, detailOID); err != nil {
++			return nil, err
++		}
++		switch {
++		case oidSM9Sign.Equal(*detailOID):
++			return sm9.UnmarshalSignMasterPrivateKeyASN1(privKey.PrivateKey)
++		case oidSM9Enc.Equal(*detailOID):
++			return sm9.UnmarshalEncryptMasterPrivateKeyASN1(privKey.PrivateKey)
++		}
++		return nil, errors.New("not support yet")
++	}
++}
++
++type sm9PrivateKey struct {
++	PrivateKey asn1.RawValue
++	PublicKey  asn1.RawValue
++}
++
++func marshalPKCS8SLHDSAPrivateKey(k *slhdsa.PrivateKey) ([]byte, error) {
++	var privKey pkcs8
++	oid := k.OID()
++	if len(oid) == 0 {
++		return nil, errors.New("x509: unsupported SLH-DSA parameter set: " + k.ParameterSet())
++	}
++	privKey.Algo = pkix.AlgorithmIdentifier{Algorithm: oid}
++	privKey.PrivateKey = k.Bytes()
++	return asn1.Marshal(privKey)
++}
++
++func marshalPKCS8MLDSAPrivateKey(k any) ([]byte, error) {
++	var privKey pkcs8
++	privKey.Algo = pkix.AlgorithmIdentifier{}
++	switch key := k.(type) {
++	case *mldsa.PrivateKey44:
++		privKey.Algo.Algorithm = oidPublicKeyMLDSA44
++		privKey.PrivateKey, _ = asn1.Marshal(key.Bytes())
++	case *mldsa.PrivateKey65:
++		privKey.Algo.Algorithm = oidPublicKeyMLDSA65
++		privKey.PrivateKey, _ = asn1.Marshal(key.Bytes())
++	case *mldsa.PrivateKey87:
++		privKey.Algo.Algorithm = oidPublicKeyMLDSA87
++		privKey.PrivateKey, _ = asn1.Marshal(key.Bytes())
++	case *mldsa.Key44:
++		privKey.Algo.Algorithm = oidPublicKeyMLDSA44
++		privKey.PrivateKey = append([]byte{0x80, 0x20}, key.Seed()...)
++	case *mldsa.Key65:
++		privKey.Algo.Algorithm = oidPublicKeyMLDSA65
++		privKey.PrivateKey = append([]byte{0x80, 0x20}, key.Seed()...)
++	case *mldsa.Key87:
++		privKey.Algo.Algorithm = oidPublicKeyMLDSA87
++		privKey.PrivateKey = append([]byte{0x80, 0x20}, key.Seed()...)
++	default:
++		return nil, errors.New("x509: unsupported MLDSA private key type while marshaling to PKCS#8")
++	}
++	return asn1.Marshal(privKey)
++}
++
++func marshalPKCS8SM9SignPrivateKey(k *sm9.SignPrivateKey) ([]byte, error) {
++	var privKey pkcs8
++	privKey.Algo = pkix.AlgorithmIdentifier{Algorithm: oidSM9Sign, Parameters: asn1.NullRawValue}
++	key := sm9PrivateKey{}
++	privasn1, err := k.MarshalASN1()
++	if err != nil {
++		return nil, err
++	}
++	pubasn1, err := k.MasterPublic().MarshalASN1()
++	if err != nil {
++		return nil, err
++	}
++	key.PrivateKey.FullBytes = privasn1
++	key.PublicKey.FullBytes = pubasn1
++	if privKey.PrivateKey, err = asn1.Marshal(key); err != nil {
++		return nil, errors.New("x509: failed to marshal sm9 sign private key while building PKCS#8: " + err.Error())
++	}
++	return asn1.Marshal(privKey)
++}
++
++func marshalPKCS8SM9EncPrivateKey(k *sm9.EncryptPrivateKey) ([]byte, error) {
++	var privKey pkcs8
++	privKey.Algo = pkix.AlgorithmIdentifier{Algorithm: oidSM9Enc, Parameters: asn1.NullRawValue}
++	key := sm9PrivateKey{}
++	privasn1, err := k.MarshalASN1()
++	if err != nil {
++		return nil, err
++	}
++	pubasn1, err := k.MasterPublic().MarshalASN1()
++	if err != nil {
++		return nil, err
++	}
++	key.PrivateKey.FullBytes = privasn1
++	key.PublicKey.FullBytes = pubasn1
++	if privKey.PrivateKey, err = asn1.Marshal(key); err != nil {
++		return nil, errors.New("x509: failed to marshal sm9 encrypt private key while building PKCS#8: " + err.Error())
++	}
++	return asn1.Marshal(privKey)
++}
++
++func marshalPKCS8SM9SignMasterPrivateKey(k *sm9.SignMasterPrivateKey) ([]byte, error) {
++	var privKey pkcs8
++	oidBytes, err := asn1.Marshal(oidSM9Sign)
++	if err != nil {
++		return nil, errors.New("x509: failed to marshal SM9 OID: " + err.Error())
++	}
++	privKey.Algo = pkix.AlgorithmIdentifier{Algorithm: oidSM9, Parameters: asn1.RawValue{FullBytes: oidBytes}}
++	key := sm9PrivateKey{}
++	privasn1, err := k.MarshalASN1()
++	if err != nil {
++		return nil, err
++	}
++	pubasn1, err := k.PublicKey().MarshalASN1()
++	if err != nil {
++		return nil, err
++	}
++	key.PrivateKey.FullBytes = privasn1
++	key.PublicKey.FullBytes = pubasn1
++	if privKey.PrivateKey, err = asn1.Marshal(key); err != nil {
++		return nil, errors.New("x509: failed to marshal sm9 sign master private key while building PKCS#8: " + err.Error())
++	}
++	return asn1.Marshal(privKey)
++}
++
++func marshalPKCS8SM9EncMasterPrivateKey(k *sm9.EncryptMasterPrivateKey) ([]byte, error) {
++	var privKey pkcs8
++	oidBytes, err := asn1.Marshal(oidSM9Enc)
++	if err != nil {
++		return nil, errors.New("x509: failed to marshal SM9 OID: " + err.Error())
++	}
++	privKey.Algo = pkix.AlgorithmIdentifier{Algorithm: oidSM9, Parameters: asn1.RawValue{FullBytes: oidBytes}}
++	key := sm9PrivateKey{}
++	privasn1, err := k.MarshalASN1()
++	if err != nil {
++		return nil, err
++	}
++	pubasn1, err := k.PublicKey().MarshalASN1()
++	if err != nil {
++		return nil, err
++	}
++	key.PrivateKey.FullBytes = privasn1
++	key.PublicKey.FullBytes = pubasn1
++	if privKey.PrivateKey, err = asn1.Marshal(key); err != nil {
++		return nil, errors.New("x509: failed to marshal sm9 encrypt master private key while building PKCS#8: " + err.Error())
++	}
++	return asn1.Marshal(privKey)
++}
++
++func marshalPKCS8ECPrivateKey(k *ecdsa.PrivateKey) ([]byte, error) {
++	var privKey pkcs8
++	oid, ok := oidFromNamedCurve(k.Curve)
++	if !ok {
++		return nil, errors.New("x509: unknown curve while marshaling to PKCS#8")
++	}
++	oidBytes, err := asn1.Marshal(oid)
++	if err != nil {
++		return nil, errors.New("x509: failed to marshal curve OID: " + err.Error())
++	}
++	privKey.Algo = pkix.AlgorithmIdentifier{Algorithm: oidPublicKeyECDSA, Parameters: asn1.RawValue{FullBytes: oidBytes}}
++	if privKey.PrivateKey, err = marshalECPrivateKeyWithOID(k, nil); err != nil {
++		return nil, errors.New("x509: failed to marshal EC private key while building PKCS#8: " + err.Error())
++	}
++	return asn1.Marshal(privKey)
++}
++
++func marshalPKCS8ECDHPrivateKey(k *ecdh.PrivateKey) ([]byte, error) {
++	var privKey pkcs8
++	oid, ok := oidFromECDHCurve(k.Curve())
++	if !ok {
++		return nil, errors.New("x509: unknown curve while marshaling to PKCS#8")
++	}
++	oidBytes, err := asn1.Marshal(oid)
++	if err != nil {
++		return nil, errors.New("x509: failed to marshal curve OID: " + err.Error())
++	}
++	privKey.Algo = pkix.AlgorithmIdentifier{Algorithm: oidPublicKeyECDSA, Parameters: asn1.RawValue{FullBytes: oidBytes}}
++	if privKey.PrivateKey, err = marshalECDHPrivateKey(k); err != nil {
++		return nil, errors.New("x509: failed to marshal EC private key while building PKCS#8: " + err.Error())
++	}
++	return asn1.Marshal(privKey)
++}
++
++func marshalPKCS8GMSMECDHPrivateKey(k *gmsmecdh.PrivateKey) ([]byte, error) {
++	var privKey pkcs8
++	oid, ok := oidFromGMSMECDHCurve(k.Curve())
++	if !ok {
++		return nil, errors.New("x509: unknown curve while marshaling to PKCS#8")
++	}
++	oidBytes, err := asn1.Marshal(oid)
++	if err != nil {
++		return nil, errors.New("x509: failed to marshal curve OID: " + err.Error())
++	}
++	privKey.Algo = pkix.AlgorithmIdentifier{Algorithm: oidPublicKeyECDSA, Parameters: asn1.RawValue{FullBytes: oidBytes}}
++	if privKey.PrivateKey, err = asn1.Marshal(ecPrivateKey{
++		Version:    1,
++		PrivateKey: k.Bytes(),
++		PublicKey:  asn1.BitString{Bytes: k.PublicKey().Bytes()},
++	}); err != nil {
++		return nil, errors.New("x509: failed to marshal EC private key while building PKCS#8: " + err.Error())
++	}
++	return asn1.Marshal(privKey)
++}
+
+diff --git "a/smx509/sec1.go" "b/smx509/sec1.go"
+index 8994fdf..8eeec96 100644
+--- "a/smx509/sec1.go"
++++ "b/smx509/sec1.go"
+@@ -12,6 +12,8 @@ import (
+ 	"errors"
+ 	"fmt"
+ 	"math/big"
++
++	"github.com/emmansun/gmsm/sm2"
+ )
+ 
+ const ecPrivKeyVersion = 1
+@@ -38,6 +40,29 @@ func ParseECPrivateKey(der []byte) (*ecdsa.PrivateKey, error) {
+ 	return parseECPrivateKey(nil, der)
+ }
+ 
++// ParseSM2PrivateKey parses an SM2 private key in SEC 1, ASN.1 DER form.
++func ParseSM2PrivateKey(der []byte) (*sm2.PrivateKey, error) {
++	key, err := parseECPrivateKey(nil, der)
++	if err != nil {
++		return nil, err
++	}
++	return new(sm2.PrivateKey).FromECPrivateKey(key)
++}
++
++// ParseTypedECPrivateKey parses an EC private key in SEC 1, ASN.1 DER form.
++//
++// It returns a *ecdsa.PrivateKey or a *sm2.PrivateKey.
++func ParseTypedECPrivateKey(der []byte) (any, error) {
++	key, err := parseECPrivateKey(nil, der)
++	if err != nil {
++		return nil, err
++	}
++	if key.Curve == sm2.P256() {
++		return new(sm2.PrivateKey).FromECPrivateKey(key)
++	}
++	return key, nil
++}
++
+ // MarshalECPrivateKey converts an EC private key to SEC 1, ASN.1 DER form.
+ //
+ // This kind of key is commonly encoded in PEM blocks of type "EC PRIVATE KEY".
+@@ -52,6 +77,11 @@ func MarshalECPrivateKey(key *ecdsa.PrivateKey) ([]byte, error) {
+ 	return marshalECPrivateKeyWithOID(key, oid)
+ }
+ 
++// MarshalSM2PrivateKey convenient method to marshal sm2 private key directly.
++func MarshalSM2PrivateKey(key *sm2.PrivateKey) ([]byte, error) {
++	return MarshalECPrivateKey(&key.PrivateKey)
++}
++
+ // marshalECPrivateKeyWithOID marshals an EC private key into ASN.1, DER format and
+ // sets the curve ID to the given OID, or omits it if OID is nil.
+ func marshalECPrivateKeyWithOID(key *ecdsa.PrivateKey, oid asn1.ObjectIdentifier) ([]byte, error) {

@@ -1,10 +1,17 @@
+// Copyright 2021 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package smx509
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"encoding/asn1"
-	"encoding/hex"
 	"encoding/pem"
 	"os"
+	"strings"
 	"testing"
 
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
@@ -125,77 +132,6 @@ func TestParseASN1String(t *testing.T) {
 	}
 }
 
-// The SM2 public key with alg = oidPublicKeySM2 and SM2 curve
-var sm2PublicKeyHex = "305a301406082a811ccf5501822d06082a811ccf5501822d0342000409586fff35c1f805b5c74f7281c3ade8fe211ffa70bf0ddd1c7268f62ae664331410e3039eeb03209afdc7fa834235c7b3ef528d32bf8b401eb98d32f498b4b7"
-
-// The SM2 public key with alg = oidPublicKeySM2 and NIST P256 curve
-var sm2NistP256PubulicKeyHex = "305a301406082a811ccf5501822d06082a8648ce3d0301070342000476110a45e7e86c1e96ba3c3300da61049a529c20a7ea7f026e50a2dbed60558087346bcb04cb0f0f8dcab8cca9967b8c7cc5aa0c874f024b73208b28f408bfca"
-
-func TestParseSM2PublicKey(t *testing.T) {
-	der, err := hex.DecodeString(sm2PublicKeyHex)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = ParsePKIXPublicKey(der)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestParseSM2PublicKeyWithNistP256(t *testing.T) {
-	der, err := hex.DecodeString(sm2NistP256PubulicKeyHex)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = ParsePKIXPublicKey(der)
-	if err == nil || err.Error() != "x509: unsupported SM2 curve" {
-		t.Fatal("should throw x509: unsupported SM2 curve")
-	}
-}
-
-func TestParseCertificateNegativeMaxPathLength(t *testing.T) {
-	certs := []string{
-		// Certificate with MaxPathLen set to -1.
-		`
------BEGIN CERTIFICATE-----
-MIIByTCCATKgAwIBAgIBATANBgkqhkiG9w0BAQsFADAPMQ0wCwYDVQQDEwRURVNU
-MB4XDTcwMDEwMTAwMTY0MFoXDTcwMDEwMjAzNDY0MFowDzENMAsGA1UEAxMEVEVT
-VDCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAsaHglFuSicTT8TKfipgsSi3N
-Wb/TcvuAhanFF1VGB+vS95kO7yFqyfRgX3GgOwT0KlJVsVjPjghEGR9RGTSLqkTD
-UFbiBgm8+VEPMOrUtIHIHXhl+ye44AkOEStxfz7gjN/EAS2h8ffPKhvDTHOlShKw
-Y3LQlxR0LdeJXq3eSqUCAwEAAaM1MDMwEgYDVR0TAQH/BAgwBgEB/wIB/zAdBgNV
-HQ4EFgQUrbrk0tqQAEsce8uYifP0BIVhuFAwDQYJKoZIhvcNAQELBQADgYEAIkhV
-ZBj1ThT+eyh50XsoU570NUysTg3Nj/3lbkEolzdcE+wu0CPXvgxLRM6Y62u1ey82
-8d5VQHstzF4dXgc3W+O9UySa+CKdcHx/q7o7seOGXdysT0IJtAY3w66mFkuF7PIn
-y9b7M5t6pmWjb7N0QqGuWeNqi4ZvS8gLKmVEgGY=
------END CERTIFICATE-----
-`,
-		// Certificate with MaxPathLen set to -2.
-		`
------BEGIN CERTIFICATE-----
-MIIByTCCATKgAwIBAgIBATANBgkqhkiG9w0BAQsFADAPMQ0wCwYDVQQDEwRURVNU
-MB4XDTcwMDEwMTAwMTY0MFoXDTcwMDEwMjAzNDY0MFowDzENMAsGA1UEAxMEVEVT
-VDCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAsaHglFuSicTT8TKfipgsSi3N
-Wb/TcvuAhanFF1VGB+vS95kO7yFqyfRgX3GgOwT0KlJVsVjPjghEGR9RGTSLqkTD
-UFbiBgm8+VEPMOrUtIHIHXhl+ye44AkOEStxfz7gjN/EAS2h8ffPKhvDTHOlShKw
-Y3LQlxR0LdeJXq3eSqUCAwEAAaM1MDMwEgYDVR0TAQH/BAgwBgEB/wIB/jAdBgNV
-HQ4EFgQUrbrk0tqQAEsce8uYifP0BIVhuFAwDQYJKoZIhvcNAQELBQADgYEAGjIr
-YGQc7Ods+BuKck7p+vpAMONM8SLEuUtKorCP3ecsO51MoA4/niLbgMHaOGNHwzMp
-ajg0zLbY0Dj6Ml0VZ+lS3rjgTEhYXc626eZkoQqgUzL1jhe3S0ZbSxxmHMBKjJFl
-d5l1tRhScKu2NBgm74nYmJxJYgvuTA38wGhRrGU=
------END CERTIFICATE-----
-`,
-	}
-
-	for _, cert := range certs {
-		b, _ := pem.Decode([]byte(cert))
-		_, err := ParseCertificate(b.Bytes)
-		if err == nil || err.Error() != "x509: invalid basic constraints" {
-			t.Errorf(`ParseCertificate() = %v; want = "x509: invalid basic constraints"`, err)
-		}
-	}
-}
-
 const policyPEM = `-----BEGIN CERTIFICATE-----
 MIIGeDCCBWCgAwIBAgIUED9KQBi0ScBDoufB2mgAJ63G5uIwDQYJKoZIhvcNAQEL
 BQAwVTELMAkGA1UEBhMCVVMxGDAWBgNVBAoTD1UuUy4gR292ZXJubWVudDENMAsG
@@ -275,4 +211,150 @@ func TestParsePolicies(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestParseCertificateNegativeMaxPathLength(t *testing.T) {
+	certs := []string{
+		// Certificate with MaxPathLen set to -1.
+		`
+-----BEGIN CERTIFICATE-----
+MIIByTCCATKgAwIBAgIBATANBgkqhkiG9w0BAQsFADAPMQ0wCwYDVQQDEwRURVNU
+MB4XDTcwMDEwMTAwMTY0MFoXDTcwMDEwMjAzNDY0MFowDzENMAsGA1UEAxMEVEVT
+VDCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAsaHglFuSicTT8TKfipgsSi3N
+Wb/TcvuAhanFF1VGB+vS95kO7yFqyfRgX3GgOwT0KlJVsVjPjghEGR9RGTSLqkTD
+UFbiBgm8+VEPMOrUtIHIHXhl+ye44AkOEStxfz7gjN/EAS2h8ffPKhvDTHOlShKw
+Y3LQlxR0LdeJXq3eSqUCAwEAAaM1MDMwEgYDVR0TAQH/BAgwBgEB/wIB/zAdBgNV
+HQ4EFgQUrbrk0tqQAEsce8uYifP0BIVhuFAwDQYJKoZIhvcNAQELBQADgYEAIkhV
+ZBj1ThT+eyh50XsoU570NUysTg3Nj/3lbkEolzdcE+wu0CPXvgxLRM6Y62u1ey82
+8d5VQHstzF4dXgc3W+O9UySa+CKdcHx/q7o7seOGXdysT0IJtAY3w66mFkuF7PIn
+y9b7M5t6pmWjb7N0QqGuWeNqi4ZvS8gLKmVEgGY=
+-----END CERTIFICATE-----
+`,
+		// Certificate with MaxPathLen set to -2.
+		`
+-----BEGIN CERTIFICATE-----
+MIIByTCCATKgAwIBAgIBATANBgkqhkiG9w0BAQsFADAPMQ0wCwYDVQQDEwRURVNU
+MB4XDTcwMDEwMTAwMTY0MFoXDTcwMDEwMjAzNDY0MFowDzENMAsGA1UEAxMEVEVT
+VDCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAsaHglFuSicTT8TKfipgsSi3N
+Wb/TcvuAhanFF1VGB+vS95kO7yFqyfRgX3GgOwT0KlJVsVjPjghEGR9RGTSLqkTD
+UFbiBgm8+VEPMOrUtIHIHXhl+ye44AkOEStxfz7gjN/EAS2h8ffPKhvDTHOlShKw
+Y3LQlxR0LdeJXq3eSqUCAwEAAaM1MDMwEgYDVR0TAQH/BAgwBgEB/wIB/jAdBgNV
+HQ4EFgQUrbrk0tqQAEsce8uYifP0BIVhuFAwDQYJKoZIhvcNAQELBQADgYEAGjIr
+YGQc7Ods+BuKck7p+vpAMONM8SLEuUtKorCP3ecsO51MoA4/niLbgMHaOGNHwzMp
+ajg0zLbY0Dj6Ml0VZ+lS3rjgTEhYXc626eZkoQqgUzL1jhe3S0ZbSxxmHMBKjJFl
+d5l1tRhScKu2NBgm74nYmJxJYgvuTA38wGhRrGU=
+-----END CERTIFICATE-----
+`,
+	}
+
+	for _, cert := range certs {
+		b, _ := pem.Decode([]byte(cert))
+		_, err := ParseCertificate(b.Bytes)
+		if err == nil || err.Error() != "x509: invalid basic constraints" {
+			t.Errorf(`ParseCertificate() = %v; want = "x509: invalid basic constraints"`, err)
+		}
+	}
+}
+
+func TestDomainNameValid(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		dnsName    string
+		constraint bool
+		valid      bool
+	}{
+		// TODO(#75835): these tests are for stricter name validation, which we
+		// had to disable. Once we reenable these strict checks, behind a
+		// GODEBUG, we should add them back in.
+		// {"empty name, name", "", false, false},
+		// {"254 char label, name", strings.Repeat("a.a", 84) + "aaa", false, false},
+		// {"254 char label, constraint", strings.Repeat("a.a", 84) + "aaa", true, false},
+		// {"253 char label, name", strings.Repeat("a.a", 84) + "aa", false, false},
+		// {"253 char label, constraint", strings.Repeat("a.a", 84) + "aa", true, false},
+		// {"64 char single label, name", strings.Repeat("a", 64), false, false},
+		// {"64 char single label, constraint", strings.Repeat("a", 64), true, false},
+		// {"64 char label, name", "a." + strings.Repeat("a", 64), false, false},
+		// {"64 char label, constraint", "a." + strings.Repeat("a", 64), true, false},
+
+		// TODO(#75835): these are the inverse of the tests above, they should be removed
+		// once the strict checking is enabled.
+		{"254 char label, name", strings.Repeat("a.a", 84) + "aaa", false, true},
+		{"254 char label, constraint", strings.Repeat("a.a", 84) + "aaa", true, true},
+		{"253 char label, name", strings.Repeat("a.a", 84) + "aa", false, true},
+		{"253 char label, constraint", strings.Repeat("a.a", 84) + "aa", true, true},
+		{"64 char single label, name", strings.Repeat("a", 64), false, true},
+		{"64 char single label, constraint", strings.Repeat("a", 64), true, true},
+		{"64 char label, name", "a." + strings.Repeat("a", 64), false, true},
+		{"64 char label, constraint", "a." + strings.Repeat("a", 64), true, true},
+
+		// Check we properly enforce properties of domain names.
+		{"empty name, constraint", "", true, true},
+		{"empty label, name", "a..a", false, false},
+		{"empty label, constraint", "a..a", true, false},
+		{"period, name", ".", false, false},
+		{"period, constraint", ".", true, false}, // TODO(roland): not entirely clear if this is a valid constraint (require at least one label?)
+		{"valid, name", "a.b.c", false, true},
+		{"valid, constraint", "a.b.c", true, true},
+		{"leading period, name", ".a.b.c", false, false},
+		{"leading period, constraint", ".a.b.c", true, true},
+		{"trailing period, name", "a.", false, false},
+		{"trailing period, constraint", "a.", true, false},
+		{"bare label, name", "a", false, true},
+		{"bare label, constraint", "a", true, true},
+		{"63 char single label, name", strings.Repeat("a", 63), false, true},
+		{"63 char single label, constraint", strings.Repeat("a", 63), true, true},
+		{"63 char label, name", "a." + strings.Repeat("a", 63), false, true},
+		{"63 char label, constraint", "a." + strings.Repeat("a", 63), true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			valid := domainNameValid(tc.dnsName, tc.constraint)
+			if tc.valid != valid {
+				t.Errorf("domainNameValid(%q, %t) = %v; want %v", tc.dnsName, tc.constraint, !tc.valid, tc.valid)
+			}
+			// Also check that we enforce the same properties as domainToReverseLabels
+			trimmedName := tc.dnsName
+			if tc.constraint && len(trimmedName) > 1 && trimmedName[0] == '.' {
+				trimmedName = trimmedName[1:]
+			}
+			_, revValid := domainToReverseLabels(trimmedName)
+			if valid != revValid {
+				t.Errorf("domainNameValid(%q, %t) = %t != domainToReverseLabels(%q) = %t", tc.dnsName, tc.constraint, valid, trimmedName, revValid)
+			}
+		})
+	}
+}
+
+func TestRoundtripWeirdSANs(t *testing.T) {
+	// TODO(#75835): check that certificates we create with CreateCertificate that have malformed SAN values
+	// can be parsed by ParseCertificate. We should eventually restrict this, but for now we have to maintain
+	// this property as people have been relying on it.
+	k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	badNames := []string{
+		"baredomain",
+		"baredomain.",
+		strings.Repeat("a", 255),
+		strings.Repeat("a", 65) + ".com",
+	}
+	tmpl := &Certificate{
+		EmailAddresses: badNames,
+		DNSNames:       badNames,
+	}
+	b, err := CreateCertificate(rand.Reader, tmpl, tmpl, &k.PublicKey, k)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = ParseCertificate(b)
+	if err != nil {
+		t.Fatalf("Couldn't roundtrip certificate: %v", err)
+	}
+}
+
+func FuzzDomainNameValid(f *testing.F) {
+	f.Fuzz(func(t *testing.T, data string) {
+		domainNameValid(data, false)
+		domainNameValid(data, true)
+	})
 }
