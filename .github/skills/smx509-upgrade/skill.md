@@ -14,6 +14,8 @@ metadata:
 
 # smx509 Upgrade Skill — Go Stable Version Upgrade Workflow
 
+> **Quick Reference**: See [`scripts/smx509/README.md`](../../../scripts/smx509/README.md) for directory structure, all 3 workflows (direct edit / minor upgrade / major upgrade), and command cheat sheet.
+
 ## Overview
 
 This skill guides the upgrade of the `smx509` module when a new Go stable version is released (e.g., Go 1.25 → 1.26). The smx509 module is a clean fork of Go stdlib `crypto/x509` with declarative patches for SM2/PQC/SM4 extensions.

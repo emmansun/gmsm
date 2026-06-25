@@ -93,6 +93,11 @@ jobs:
       run: |
         go run scripts/smx509/gen_patches.go
         if ! git diff --exit-code scripts/smx509/patches/; then
-          echo "::error::smx509 patches are out of sync! Run 'go run scripts/smx509/gen_patches.go' locally and commit the result."
+          echo "::error::smx509 source patches are out of sync! Run 'go run scripts/smx509/gen_patches.go' locally and commit the result."
+          exit 1
+        fi
+        go run scripts/smx509/gen_test_patches.go
+        if ! git diff --exit-code scripts/smx509/test-patches/; then
+          echo "::error::smx509 test patches are out of sync! Run 'go run scripts/smx509/gen_test_patches.go' locally and commit the result."
           exit 1
         fi
