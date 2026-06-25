@@ -21,7 +21,7 @@ func main() {
 	baseline := filepath.Join(repoRoot, "scripts", "smx509", "baseline")
 	target := filepath.Join(repoRoot, "smx509")
 	patchDir := filepath.Join(repoRoot, "scripts", "smx509", "patches")
-	tmpDir := filepath.Join(repoRoot, ".tmp")
+	tmpDir := os.TempDir()
 
 	type patchDef struct {
 		name  string
