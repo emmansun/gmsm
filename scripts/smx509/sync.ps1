@@ -1,12 +1,14 @@
 param(
     [string]$GoRoot = "",
     [string]$PatchDir = "",
+    [string]$TestPatchDir = "",
     [string]$TargetDir = "smx509",
     [string]$PackageName = "",
     [switch]$RawUpstream,
     [switch]$AllowUnresolvedInternal,
     [switch]$NoPatch,
     [switch]$DryRun,
+    [switch]$TestOnly,
     [string[]]$Files = @(
         "cert_pool.go",
         "oid.go",
@@ -160,6 +162,9 @@ $targetLeaf = Split-Path -Leaf $dstDir
 if ([string]::IsNullOrWhiteSpace($PatchDir)) {
     $PatchDir = Join-Path $repoRoot ("scripts\" + $targetLeaf + "\patches")
 }
+if ([string]::IsNullOrWhiteSpace($TestPatchDir)) {
+    $TestPatchDir = Join-Path $repoRoot ("scripts\" + $targetLeaf + "\test-patches")
+}
 if ([string]::IsNullOrWhiteSpace($PackageName)) {
     if ($targetLeaf -ieq "x509") {
         $PackageName = "x509"
@@ -168,36 +173,82 @@ if ([string]::IsNullOrWhiteSpace($PackageName)) {
     }
 }
 
-Write-Host "Repo root:  $repoRoot"
-Write-Host "GOROOT:     $resolvedGoRoot"
-Write-Host "Source dir: $srcDir"
-Write-Host "Target dir: $dstDir"
-Write-Host "Package:    $PackageName"
-Write-Host "Patch dir:  $PatchDir"
+Write-Host "Repo root:    $repoRoot"
+Write-Host "GOROOT:       $resolvedGoRoot"
+Write-Host "Source dir:   $srcDir"
+Write-Host "Target dir:   $dstDir"
+Write-Host "Package:      $PackageName"
+Write-Host "Patch dir:    $PatchDir"
+Write-Host "Test patches: $TestPatchDir"
 
-foreach ($file in $Files) {
-    $src = Join-Path $srcDir $file
-    $dstFile = $file
-    if ($NoPatch) {
-        $dstFile = $file + ".txt"  # baseline files use .go.txt to avoid Go build
+# --- Source file sync ---
+if (-not $TestOnly) {
+    foreach ($file in $Files) {
+        $src = Join-Path $srcDir $file
+        $dstFile = $file
+        if ($NoPatch) {
+            $dstFile = $file + ".txt"  # baseline files use .go.txt to avoid Go build
+        }
+        $dst = Join-Path $dstDir $dstFile
+
+        if (!(Test-Path -LiteralPath $src)) {
+            throw (("Missing upstream file: {0}") -f $src)
+        }
+
+        Write-Host (("Sync file: {0}") -f $file)
+        Copy-Item -LiteralPath $src -Destination $dst -Force
+        if (-not $RawUpstream) {
+            Rewrite-ImportsAndValidate -FilePath $dst -AllowUnresolved:$AllowUnresolvedInternal -PackageName $PackageName
+        }
     }
-    $dst = Join-Path $dstDir $dstFile
 
-    if (!(Test-Path -LiteralPath $src)) {
-        throw (("Missing upstream file: {0}") -f $src)
-    }
-
-    Write-Host (("Sync file: {0}") -f $file)
-    Copy-Item -LiteralPath $src -Destination $dst -Force
-    if (-not $RawUpstream) {
-        Rewrite-ImportsAndValidate -FilePath $dst -AllowUnresolved:$AllowUnresolvedInternal -PackageName $PackageName
+    if (-not $NoPatch) {
+        Apply-Patches -RepoRoot $repoRoot -Dir $PatchDir -CheckOnly:$DryRun
+    } else {
+        Write-Host "Skipping source patch application due to -NoPatch"
     }
 }
 
+# --- Test file sync ---
+Write-Host ""
+Write-Host "=== Test file sync ==="
+
+# Auto-detect test files from stdlib
+$testFiles = Get-ChildItem -LiteralPath $srcDir -Filter "*_test.go" -File | ForEach-Object { $_.Name }
+Write-Host (("Found {0} test files in stdlib") -f $testFiles.Count)
+
+# Copy test files and rename package
+foreach ($tf in $testFiles) {
+    $src = Join-Path $srcDir $tf
+    $dst = Join-Path $dstDir $tf
+    Write-Host (("Sync test file: {0}") -f $tf)
+    Copy-Item -LiteralPath $src -Destination $dst -Force
+    if ($PackageName -ne "x509") {
+        $content = Get-Content -Raw -LiteralPath $dst
+        $updated = $content -replace '(?m)^package x509\b', ('package ' + $PackageName)
+        if ($updated -ne $content) {
+            $enc = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::WriteAllText($dst, $updated, $enc)
+        }
+    }
+}
+
+# Copy testdata directory
+$srcTestdata = Join-Path $srcDir "testdata"
+$dstTestdata = Join-Path $dstDir "testdata"
+if (Test-Path -LiteralPath $srcTestdata) {
+    Write-Host "Sync testdata directory"
+    if (Test-Path -LiteralPath $dstTestdata) {
+        Remove-Item -LiteralPath $dstTestdata -Recurse -Force
+    }
+    Copy-Item -LiteralPath $srcTestdata -Destination $dstTestdata -Recurse -Force
+}
+
+# Apply test patches
 if (-not $NoPatch) {
-    Apply-Patches -RepoRoot $repoRoot -Dir $PatchDir -CheckOnly:$DryRun
+    Apply-Patches -RepoRoot $repoRoot -Dir $TestPatchDir -CheckOnly:$DryRun
 } else {
-    Write-Host "Skipping patch application due to -NoPatch"
+    Write-Host "Skipping test patch application due to -NoPatch"
 }
 
 Write-Host (("{0} sync completed.") -f $targetLeaf)

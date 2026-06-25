@@ -41,9 +41,10 @@ scripts/smx509/
 │   ├── 020-pkcs-keys.patch
 │   ├── 030-sm4-pem.patch
 │   └── 100-extensions.patch
-└── test-patches/              # Test file patches (future)
-    ├── 001-package-rename.patch
-    └── ...
+├── test-patches/              # Declarative test patches (2 files)
+│   ├── 010-testenv-stub.patch
+│   └── 020-envvars-abs-path.patch
+└── gen_test_patches.go        # Regenerates test patches from stdlib↔smx509 diff
 ```
 
 **Patch numbering convention:**
@@ -153,24 +154,35 @@ When resolving conflicts, these MUST be preserved:
 
 ### Step 6: Sync Test Files
 
-Test files are maintained independently from source patches. On Go upgrade:
+Test files are synced automatically by `sync.ps1` (test file sync section). The script:
+1. Copies `*_test.go` from stdlib `crypto/x509/` to `smx509/`
+2. Copies `testdata/` from stdlib to `smx509/testdata/`
+3. Renames `package x509` → `package smx509` in all test files
+4. Applies declarative test patches from `scripts/smx509/test-patches/`
 
-1. **Copy new stdlib test files:**
-   ```bash
-   cp $GOROOT/src/crypto/x509/*_test.go smx509/
-   cp -r $GOROOT/src/crypto/x509/testdata/ smx509/testdata/
-   ```
+```bash
+# Test-only sync (source files unchanged):
+pwsh scripts/smx509/sync.ps1 -TestOnly
 
-2. **Apply test patches** (from `scripts/smx509-test-patches/`):
-   ```bash
-   pwsh scripts/smx509/sync.ps1 -TargetDir smx509 -PackageName smx509 -TestOnly
-   # Or manually apply test patches
-   ```
+# Full sync (source + test):
+pwsh scripts/smx509/sync.ps1
+```
 
-3. **Verify custom test fixes are preserved:**
-   - `root_unix_test.go`: TestEnvVars uses absolute paths for SSL_CERT_FILE
-   - `internal_testenv.go`: stub for `internal/testenv` replacement
-   - Package name: all `*_test.go` must have `package smx509` (not `package x509`)
+**Current test patches:**
+- `010-testenv-stub.patch`: new file `internal_testenv.go` (stub for `internal/testenv`)
+- `020-envvars-abs-path.patch`: fixes TestEnvVars `SSL_CERT_FILE` to use absolute paths
+
+After sync, verify custom test fixes are preserved:
+- `root_unix_test.go`: TestEnvVars uses `filepath.Join(tmpDir, testFile)` for SSL_CERT_FILE
+- `internal_testenv.go`: stub for `internal/testenv` replacement
+- Package name: all `*_test.go` must have `package smx509`
+
+**If test patches need updating** (stdlib changed the affected code):
+```bash
+# Manually fix test files in smx509/
+# Then regenerate test patches:
+go run scripts/smx509/gen_test_patches.go
+```
 
 ### Step 7: Validate
 
@@ -192,7 +204,11 @@ go test ./...
 ### Step 8: Regenerate Patches
 
 ```bash
+# Source patches
 go run scripts/smx509/gen_patches.go
+
+# Test patches
+go run scripts/smx509/gen_test_patches.go
 ```
 
 Verify all 5 patches are regenerated:
@@ -225,8 +241,9 @@ git push origin develop
 2. **Baseline is committed** — `scripts/smx509/baseline/` is version-controlled, update it explicitly on Go upgrade
 3. **`sync.ps1` defaults to `smx509`** — `-TargetDir` and `-PackageName` can be omitted for standard usage
 4. **PowerShell git ExitCode=1** — PowerShell treats git stderr as error; check actual output, not exit code
-5. **Test files NOT in patches** — `*_test.go` changes are tracked separately, not in `patches/`
+5. **Test files NOT in source patches** — `*_test.go` changes are in `test-patches/`, not in `patches/`
 6. **`internal/` imports** — any new `internal/*` or `crypto/internal/*` imports in stdlib must be added to `ImportRewriteMap` in `sync.ps1`
+7. **Test patches must be regenerated** — if stdlib changed `root_unix_test.go` or test files referencing `testenv`, run `gen_test_patches.go`
 
 ## Decision Checklist
 
@@ -236,6 +253,7 @@ Before merging, verify:
 - [ ] `go test ./smx509/...` passes
 - [ ] `go test ./pkcs7/... ./cfca/... ./pkcs8/...` passes
 - [ ] `gen_patches.go` output matches committed patches (CI check)
+- [ ] `gen_test_patches.go` output matches committed test-patches
 - [ ] Test files have correct `package smx509`
 - [ ] Custom test fixes are re-applied
 - [ ] `ImportRewriteMap` updated if stdlib added new internal imports
