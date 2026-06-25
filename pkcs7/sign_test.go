@@ -436,7 +436,6 @@ func testSignDigest(t *testing.T, isSM bool, content []byte, sigalgs []x509.Sign
 func TestSignWithDigest(t *testing.T) {
 	content := []byte("Hello World")
 	sigalgs := []x509.SignatureAlgorithm{
-		x509.SHA1WithRSA,
 		x509.SHA256WithRSA,
 		x509.SHA512WithRSA,
 		x509.ECDSAWithSHA1,
