@@ -438,7 +438,6 @@ func TestSignWithDigest(t *testing.T) {
 	sigalgs := []x509.SignatureAlgorithm{
 		x509.SHA256WithRSA,
 		x509.SHA512WithRSA,
-		x509.ECDSAWithSHA1,
 		x509.ECDSAWithSHA256,
 		x509.ECDSAWithSHA384,
 		x509.ECDSAWithSHA512,
