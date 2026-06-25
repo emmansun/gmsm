@@ -223,7 +223,7 @@ git push origin develop
 
 1. **`gen_patches.go` must run from repo root** — it uses `os.Getwd()` to resolve paths
 2. **Baseline is committed** — `scripts/smx509/baseline/` is version-controlled, update it explicitly on Go upgrade
-3. **`sync.ps1` defaults to `x509sync`** — always pass `-TargetDir smx509 -PackageName smx509`
+3. **`sync.ps1` defaults to `smx509`** — `-TargetDir` and `-PackageName` can be omitted for standard usage
 4. **PowerShell git ExitCode=1** — PowerShell treats git stderr as error; check actual output, not exit code
 5. **Test files NOT in patches** — `*_test.go` changes are tracked separately, not in `patches/`
 6. **`internal/` imports** — any new `internal/*` or `crypto/internal/*` imports in stdlib must be added to `ImportRewriteMap` in `sync.ps1`

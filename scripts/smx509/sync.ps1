@@ -1,7 +1,7 @@
 param(
     [string]$GoRoot = "",
     [string]$PatchDir = "",
-    [string]$TargetDir = "x509sync",
+    [string]$TargetDir = "smx509",
     [string]$PackageName = "",
     [switch]$RawUpstream,
     [switch]$AllowUnresolvedInternal,
