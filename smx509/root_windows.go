@@ -1,8 +1,11 @@
+// Copyright 2012 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package smx509
 
 import (
 	"bytes"
-	"crypto/x509"
 	"errors"
 	"strings"
 	"syscall"
@@ -68,13 +71,13 @@ func extractSimpleChain(simpleChain **syscall.CertSimpleChain, count int) (chain
 		return nil, errors.New("x509: invalid simple chain")
 	}
 
-	simpleChains := (*[1 << 20]*syscall.CertSimpleChain)(unsafe.Pointer(simpleChain))[:count:count]
+	simpleChains := unsafe.Slice(simpleChain, count)
 	lastChain := simpleChains[count-1]
-	elements := (*[1 << 20]*syscall.CertChainElement)(unsafe.Pointer(lastChain.Elements))[:lastChain.NumElements:lastChain.NumElements]
+	elements := unsafe.Slice(lastChain.Elements, lastChain.NumElements)
 	for i := 0; i < int(lastChain.NumElements); i++ {
 		// Copy the buf, since ParseCertificate does not create its own copy.
 		cert := elements[i].CertContext
-		encodedCert := (*[1 << 20]byte)(unsafe.Pointer(cert.EncodedCert))[:cert.Length:cert.Length]
+		encodedCert := unsafe.Slice(cert.EncodedCert, cert.Length)
 		buf := bytes.Clone(encodedCert)
 		parsedCert, err := ParseCertificate(buf)
 		if err != nil {
@@ -93,9 +96,9 @@ func checkChainTrustStatus(c *Certificate, chainCtx *syscall.CertChainContext) e
 		status := chainCtx.TrustStatus.ErrorStatus
 		switch status {
 		case syscall.CERT_TRUST_IS_NOT_TIME_VALID:
-			return CertificateInvalidError{Cert: c.asX509(), Reason: Expired, Detail: ""}
+			return CertificateInvalidError{c, Expired, ""}
 		case syscall.CERT_TRUST_IS_NOT_VALID_FOR_USAGE:
-			return CertificateInvalidError{Cert: c.asX509(), Reason: IncompatibleUsage, Detail: ""}
+			return CertificateInvalidError{c, IncompatibleUsage, ""}
 		// TODO(filippo): surface more error statuses.
 		default:
 			return UnknownAuthorityError{c, nil, nil}
@@ -134,9 +137,9 @@ func checkChainSSLServerPolicy(c *Certificate, chainCtx *syscall.CertChainContex
 	if status.Error != 0 {
 		switch status.Error {
 		case syscall.CERT_E_EXPIRED:
-			return CertificateInvalidError{Cert: c.asX509(), Reason: Expired, Detail: ""}
+			return CertificateInvalidError{c, Expired, ""}
 		case syscall.CERT_E_CN_NO_MATCH:
-			return x509.HostnameError{Certificate: c.asX509(), Host: opts.DNSName}
+			return HostnameError{c, opts.DNSName}
 		case syscall.CERT_E_UNTRUSTEDROOT:
 			return UnknownAuthorityError{c, nil, nil}
 		default:
@@ -256,8 +259,7 @@ func (c *Certificate) systemVerify(opts *VerifyOptions) (chains [][]*Certificate
 	}
 
 	if lqCtxCount := topCtx.LowerQualityChainCount; lqCtxCount > 0 {
-		lqCtxs := (*[1 << 20]*syscall.CertChainContext)(unsafe.Pointer(topCtx.LowerQualityChains))[:lqCtxCount:lqCtxCount]
-
+		lqCtxs := unsafe.Slice(topCtx.LowerQualityChains, lqCtxCount)
 		for _, ctx := range lqCtxs {
 			chain, err := verifyChain(c, ctx, opts)
 			if err == nil {

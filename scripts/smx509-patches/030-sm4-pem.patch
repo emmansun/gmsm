@@ -1,0 +1,90 @@
+diff --git "a/smx509/pem_decrypt.go" "b/smx509/pem_decrypt.go"
+index 9c454a4..2151610 100644
+--- "a/smx509/pem_decrypt.go"
++++ "b/smx509/pem_decrypt.go"
+@@ -18,6 +18,8 @@ import (
+ 	"errors"
+ 	"io"
+ 	"strings"
++
++	"github.com/emmansun/gmsm/sm4"
+ )
+ 
+ type PEMCipher int
+@@ -30,6 +32,7 @@ const (
+ 	PEMCipherAES128
+ 	PEMCipherAES192
+ 	PEMCipherAES256
++	PEMCipherSM4
+ )
+ 
+ // rfc1423Algo holds a method for enciphering a PEM block.
+@@ -44,12 +47,14 @@ type rfc1423Algo struct {
+ // rfc1423Algos holds a slice of the possible ways to encrypt a PEM
+ // block. The ivSize numbers were taken from the OpenSSL source.
+ var rfc1423Algos = []rfc1423Algo{{
++	// Warning: DES-CBC is not secure enough and not recommended. It's only provided for backward compatibility.
+ 	cipher:     PEMCipherDES,
+ 	name:       "DES-CBC",
+ 	cipherFunc: des.NewCipher,
+ 	keySize:    8,
+ 	blockSize:  des.BlockSize,
+ }, {
++	// Warning: DES-EDE3-CBC (3DES) is not secure enough and not recommended. It's only provided for backward compatibility.
+ 	cipher:     PEMCipher3DES,
+ 	name:       "DES-EDE3-CBC",
+ 	cipherFunc: des.NewTripleDESCipher,
+@@ -73,6 +78,12 @@ var rfc1423Algos = []rfc1423Algo{{
+ 	cipherFunc: aes.NewCipher,
+ 	keySize:    32,
+ 	blockSize:  aes.BlockSize,
++}, {
++	cipher:     PEMCipherSM4,
++	name:       "SM4-CBC",
++	cipherFunc: sm4.NewCipher,
++	keySize:    16,
++	blockSize:  sm4.BlockSize,
+ },
+ }
+ 
+@@ -113,7 +124,7 @@ var IncorrectPasswordError = errors.New("x509: decryption password incorrect")
+ // password used to encrypt it and returns a slice of decrypted DER encoded
+ // bytes. It inspects the DEK-Info header to determine the algorithm used for
+ // decryption. If no DEK-Info header is present, an error is returned. If an
+-// incorrect password is detected an [IncorrectPasswordError] is returned. Because
++// incorrect password is detected an IncorrectPasswordError is returned. Because
+ // of deficiencies in the format, it's not always possible to detect an
+ // incorrect password. In these cases no error will be returned but the
+ // decrypted DER bytes will be random noise.
+@@ -126,12 +137,19 @@ func DecryptPEMBlock(b *pem.Block, password []byte) ([]byte, error) {
+ 	if !ok {
+ 		return nil, errors.New("x509: no DEK-Info header in block")
+ 	}
+-
+-	mode, hexIV, ok := strings.Cut(dek, ",")
+-	if !ok {
++	// [Emman] strings.Cut is supported since golang 1.18.
++	//
++	//	mode, hexIV, ok := strings.Cut(dek, ",")
++	//	if !ok {
++	//		return nil, errors.New("x509: malformed DEK-Info header")
++	//	}
++	//
++	idx := strings.Index(dek, ",")
++	if idx == -1 {
+ 		return nil, errors.New("x509: malformed DEK-Info header")
+ 	}
+ 
++	mode, hexIV := dek[:idx], dek[idx+1:]
+ 	ciph := cipherByName(mode)
+ 	if ciph == nil {
+ 		return nil, errors.New("x509: unknown encryption mode")
+@@ -234,7 +252,7 @@ func EncryptPEMBlock(rand io.Reader, blockType string, data, password []byte, al
+ func cipherByName(name string) *rfc1423Algo {
+ 	for i := range rfc1423Algos {
+ 		alg := &rfc1423Algos[i]
+-		if alg.name == name {
++		if alg.name == strings.ToUpper(name) {
+ 			return alg
+ 		}
+ 	}

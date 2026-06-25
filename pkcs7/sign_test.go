@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/ecdsa"
-	"crypto/x509"
+	x509 "github.com/emmansun/gmsm/smx509"
 	"encoding/asn1"
 	"encoding/pem"
 	"fmt"

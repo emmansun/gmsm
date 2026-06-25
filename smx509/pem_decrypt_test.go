@@ -7,10 +7,8 @@ package smx509
 import (
 	"bytes"
 	"crypto/rand"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
-	"fmt"
 	"strings"
 	"testing"
 )
@@ -27,7 +25,7 @@ func TestDecrypt(t *testing.T) {
 			t.Error("decrypt failed: ", err)
 			continue
 		}
-		if _, err := x509.ParsePKCS1PrivateKey(der); err != nil {
+		if _, err := ParsePKCS1PrivateKey(der); err != nil {
 			t.Error("invalid private key: ", err)
 		}
 		plainDER, err := base64.StdEncoding.DecodeString(data.plainDER)
@@ -70,8 +68,6 @@ func TestEncrypt(t *testing.T) {
 		if !bytes.Equal(der, plainDER) {
 			t.Errorf("data mismatch")
 		}
-		pemContent := string(pem.EncodeToMemory(block))
-		fmt.Printf("%s\n", pemContent)
 	}
 }
 
@@ -88,6 +84,7 @@ var testData = []struct {
 -----BEGIN RSA TESTING KEY-----
 Proc-Type: 4,ENCRYPTED
 DEK-Info: DES-CBC,34F09A4FC8DE22B5
+
 WXxy8kbZdiZvANtKvhmPBLV7eVFj2A5z6oAxvI9KGyhG0ZK0skfnt00C24vfU7m5
 ICXeoqP67lzJ18xCzQfHjDaBNs53DSDT+Iz4e8QUep1xQ30+8QKX2NA2coee3nwc
 6oM1cuvhNUDemBH2i3dKgMVkfaga0zQiiOq6HJyGSncCMSruQ7F9iWEfRbFcxFCx
@@ -112,6 +109,7 @@ glcRgT6QCEtz2wIhANSyqaFtosIkHKqrDUGfz/bb5tqMYTAnBruVPaf/WEOBAiEA
 -----BEGIN RSA TESTING KEY-----
 Proc-Type: 4,ENCRYPTED
 DEK-Info: DES-EDE3-CBC,C1F4A6A03682C2C7
+
 0JqVdBEH6iqM7drTkj+e2W/bE3LqakaiWhb9WUVonFkhyu8ca/QzebY3b5gCvAZQ
 YwBvDcT/GHospKqPx+cxDHJNsUASDZws6bz8ZXWJGwZGExKzr0+Qx5fgXn44Ms3x
 8g1ENFuTXtxo+KoNK0zuAMAqp66Llcds3Fjl4XR18QaD0CrVNAfOdgATWZm5GJxk
@@ -136,6 +134,7 @@ tZZZxCtPAm7shftEib0VU77Lk8MsXJcx2C4voRsjEw==`,
 -----BEGIN RSA TESTING KEY-----
 Proc-Type: 4,ENCRYPTED
 DEK-Info: AES-128-CBC,D4492E793FC835CC038A728ED174F78A
+
 EyfQSzXSjv6BaNH+NHdXRlkHdimpF9izWlugVJAPApgXrq5YldPe2aGIOFXyJ+QE
 ZIG20DYqaPzJRjTEbPNZ6Es0S2JJ5yCpKxwJuDkgJZKtF39Q2i36JeGbSZQIuWJE
 GZbBpf1jDH/pr0iGonuAdl2PCCZUiy+8eLsD2tyviHUkFLOB+ykYoJ5t8ngZ/B6D
@@ -160,6 +159,7 @@ B3WlRNTXR2WsJ5JdByezg9xzdXzULqmga0OE339a`,
 -----BEGIN RSA TESTING KEY-----
 Proc-Type: 4,ENCRYPTED
 DEK-Info: AES-192-CBC,E2C9FB02BCA23ADE1829F8D8BC5F5369
+
 cqVslvHqDDM6qwU6YjezCRifXmKsrgEev7ng6Qs7UmDJOpHDgJQZI9fwMFUhIyn5
 FbCu1SHkLMW52Ld3CuEqMnzWMlhPrW8tFvUOrMWPYSisv7nNq88HobZEJcUNL2MM
 Y15XmHW6IJwPqhKyLHpWXyOCVEh4ODND2nV15PCoi18oTa475baxSk7+1qH7GuIs
@@ -184,6 +184,7 @@ uZ3pWbaXf5PNuQIgAcdXarvhelH2w2piY1g3BPeFqhzBSCK/yLGxR82KIh8CIQDD
 -----BEGIN RSA TESTING KEY-----
 Proc-Type: 4,ENCRYPTED
 DEK-Info: AES-256-CBC,8E7ED5CD731902CE938957A886A5FFBD
+
 4Mxr+KIzRVwoOP0wwq6caSkvW0iS+GE2h2Ov/u+n9ZTMwL83PRnmjfjzBgfRZLVf
 JFPXxUK26kMNpIdssNnqGOds+DhB+oSrsNKoxgxSl5OBoYv9eJTVYm7qOyAFIsjr
 DRKAcjYCmzfesr7PVTowwy0RtHmYwyXMGDlAzzZrEvaiySFFmMyKKvtoavwaFoc7
@@ -202,31 +203,6 @@ aRnSglss8I3pAiEAonEnKruawgD8RavDFR+fUgmQiPz4FnGGeVgfwpGG1JECIBYq
 PXHYtPqxQIbD2pScR5qum7iGUh11lEUPkmt+2uqS`,
 	},
 	{
-		kind:     PEMCipherSM4,
-		password: []byte("asdf"),
-		pemData: []byte(testingKey(`
------BEGIN RSA PRIVATE KEY-----
-Proc-Type: 4,ENCRYPTED
-DEK-Info: sm4-cbc,4cf10431aa24f6a4c1490ce93ff086ef
-	
-OSUW2Zbd7E+MKulT70SpQIsR0FdV1MP41OKvxT3XfOMZDk3naDyJoBFon8FEftlN
-xKNkRnzZTmzteRzySbNQBKIwwHnak8Vcqwy5UB61+RWC5rk+kDRiwG6sZp6HFs4Z
-GLrzVQlh6Ag/ecckhms0FfLbmKLeCwG1MlLaI8ZHvZSQ5R1JPdF43rmxkoA6RTg+
-SWWf2T5T3DyOOPmgaxrRQJZURJuJZK3eyAvU395t1xDsvdgOIQlmgEA6nmrNcJQt
-cn88qJ6NpRpVjdDupnOynJ726diIcugYwLcxhMir5eSNkMkjR5SZdEwuFgcbicvc
-TkCGwp6aSyLYpHsIwTJupY8Lk32WuqpC34K/IJlNDichVyeLILEj9GqUGJNm/1N3
-FKMobhAYj14+AsMKzR+4rOsYeJxX+8ws3D5RbL7nTKs=
------END RSA PRIVATE KEY-----`)),
-		plainDER: `
-MIIBOgIBAAJBAMBlj5FxYtqbcy8wY89d/S7n0+r5MzD9F63BA/Lpl78vQKtdJ5dT
-cDGh/rBt1ufRrNp0WihcmZi7Mpl/3jHjiWECAwEAAQJABNOHYnKhtDIqFYj1OAJ3
-k3GlU0OlERmIOoeY/cL2V4lgwllPBEs7r134AY4wMmZSBUj8UR/O4SNO668ElKPE
-cQIhAOuqY7/115x5KCdGDMWi+jNaMxIvI4ETGwV40ykGzqlzAiEA0P9oEC3m9tHB
-kbpjSTxaNkrXxDgdEOZz8X0uOUUwHNsCIAwzcSCiGLyYJTULUmP1ESERfW1mlV78
-XzzESaJpIM/zAiBQkSTcl9VhcJreQqvjn5BnPZLP4ZHS4gPwJAGdsj5J4QIhAOVR
-B3WlRNTXR2WsJ5JdByezg9xzdXzULqmga0OE339a`,
-	},
-	{
 		// generated with:
 		// openssl genrsa -aes128 -passout pass:asdf -out server.orig.key 128
 		kind:     PEMCipherAES128,
@@ -235,6 +211,7 @@ B3WlRNTXR2WsJ5JdByezg9xzdXzULqmga0OE339a`,
 -----BEGIN RSA TESTING KEY-----
 Proc-Type: 4,ENCRYPTED
 DEK-Info: AES-128-CBC,74611ABC2571AF11B1BF9B69E62C89E7
+
 6ei/MlytjE0FFgZOGQ+jrwomKfpl8kdefeE0NSt/DMRrw8OacHAzBNi3pPEa0eX3
 eND9l7C9meCirWovjj9QWVHrXyugFuDIqgdhQ8iHTgCfF3lrmcttVrbIfMDw+smD
 hTP8O1mS/MHl92NE0nhv0w==
@@ -250,6 +227,7 @@ var incompleteBlockPEM = testingKey(`
 -----BEGIN RSA TESTING KEY-----
 Proc-Type: 4,ENCRYPTED
 DEK-Info: AES-128-CBC,74611ABC2571AF11B1BF9B69E62C89E7
+
 6L8yXK2MTQUWBk4ZD6OvCiYp+mXyR1594TQ1K38MxGvDw5pwcDME2Lek8RrR5fd40P2XsL2Z4KKt
 ai+OP1BZUetfK6AW4MiqB2FDyIdOAJ8XeWuZy21Wtsh8wPD6yYOFM/w7WZL8weX3Y0TSeG/T
 -----END RSA TESTING KEY-----`)

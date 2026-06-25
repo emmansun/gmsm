@@ -1,3 +1,7 @@
+// Copyright 2011 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 //go:build aix || dragonfly || freebsd || (js && wasm) || linux || netbsd || openbsd || solaris || wasip1
 
 package smx509
@@ -92,7 +96,6 @@ func readUniqueDirectoryEntries(dir string) ([]fs.DirEntry, error) {
 	}
 	return uniq, nil
 }
-
 
 // isSameDirSymlink reports whether fi in dir is a symlink with a
 // target not containing a slash.

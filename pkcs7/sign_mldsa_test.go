@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/rand"
-	"crypto/x509"
+	x509 "github.com/emmansun/gmsm/smx509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/pem"

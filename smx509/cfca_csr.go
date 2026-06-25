@@ -9,44 +9,24 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/rsa"
-	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/asn1"
 	"errors"
 	"io"
+
+	"crypto/x509/pkix"
 
 	"github.com/emmansun/gmsm/sm2"
 )
 
 var (
-	// The challengePassword attribute type specifies a password by which an
-	// entity may request certificate revocation.
-	// A challenge-password attribute must have a single attribute value.
-	// It is a PKCS #9 OBJECT IDENTIFIER https://datatracker.ietf.org/doc/html/rfc2986#page-5
-	// https://datatracker.ietf.org/doc/html/rfc2985#page-16
 	oidChallengePassword = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 7}
-
-	// The tmpPublicKey attribute type specifies a temporary public key for returning encryption key decryption.
-	// A tmpPublicKey attribute must have a single attribute value.
-	// It's NOT a standard OID, but used by CFCA.
-	// cfca.sadk.org.bouncycastle.gmt.GMTPKCSObjectIdentifiers.pkcs_9_at_tempPublicKey
-	oidTmpPublicKey = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 63}
-
-	// tmpPublicKeyPrefix is the fixed prefix of the temporary public key attribute value.
-	tmpPublicKeyPrefix = []byte{0, 0xb4, 0, 0, 0, 1, 0, 0}
+	oidTmpPublicKey      = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 63}
+	tmpPublicKeyPrefix   = []byte{0, 0xb4, 0, 0, 0, 1, 0, 0}
 )
 
 // CreateCFCACertificateRequest creates a new CFCA certificate request based on a
-// template. The following members of template are used:
-//
-//   - SignatureAlgorithm
-//   - Subject
-//
-// The certPriv is the private key for the certificate, and the tmpPub is the temporary private key for returning encryption key decryption.
-// The challenge password is basically a shared-secret nonce between you and CFCA, embedded in the CSR,
-// which the issuer may use to authenticate you should that ever be needed.
-// The template is the certificate request template, we just use Subject now.
-func CreateCFCACertificateRequest(rand io.Reader, template *x509.CertificateRequest, priv, tmpPub any, challengePassword string) ([]byte, error) {
+// template.
+func CreateCFCACertificateRequest(rand io.Reader, template *CertificateRequest, priv, tmpPub any, challengePassword string) ([]byte, error) {
 	key, ok := priv.(crypto.Signer)
 	if !ok {
 		return nil, errors.New("x509: certificate private key does not implement crypto.Signer")
@@ -64,7 +44,6 @@ func CreateCFCACertificateRequest(rand io.Reader, template *x509.CertificateRequ
 	}
 
 	var rawAttributes []asn1.RawValue
-	// Add the temporary public key and challenge password if requested.
 	if tmpPub != nil {
 		rawAttributes, err = buildTmpPublicKeyAttr(key, rawAttributes, tmpPub)
 		if err != nil {
@@ -86,14 +65,11 @@ func CreateCFCACertificateRequest(rand io.Reader, template *x509.CertificateRequ
 	}
 
 	tbsCSR := tbsCertificateRequest{
-		Version: 0, // PKCS #10, RFC 2986
+		Version: 0,
 		Subject: asn1.RawValue{FullBytes: asn1Subject},
 		PublicKey: publicKeyInfo{
 			Algorithm: publicKeyAlgorithm,
-			PublicKey: asn1.BitString{
-				Bytes:     publicKeyBytes,
-				BitLength: len(publicKeyBytes) * 8,
-			},
+			PublicKey: asn1.BitString{Bytes: publicKeyBytes, BitLength: len(publicKeyBytes) * 8},
 		},
 		RawAttributes: rawAttributes,
 	}
@@ -109,14 +85,7 @@ func CreateCFCACertificateRequest(rand io.Reader, template *x509.CertificateRequ
 		return nil, err
 	}
 
-	return asn1.Marshal(certificateRequest{
-		TBSCSR:             tbsCSR,
-		SignatureAlgorithm: algorithmIdentifier,
-		SignatureValue: asn1.BitString{
-			Bytes:     signature,
-			BitLength: len(signature) * 8,
-		},
-	})
+	return asn1.Marshal(certificateRequest{TBSCSR: tbsCSR, SignatureAlgorithm: algorithmIdentifier, SignatureValue: asn1.BitString{Bytes: signature, BitLength: len(signature) * 8}})
 }
 
 func buildChallengePasswordAttr(rawAttributes []asn1.RawValue, challengePassword string) ([]asn1.RawValue, error) {
@@ -126,21 +95,15 @@ func buildChallengePasswordAttr(rawAttributes []asn1.RawValue, challengePassword
 	attr := struct {
 		Type  asn1.ObjectIdentifier
 		Value string
-	}{
-		Type:  oidChallengePassword,
-		Value: challengePassword,
-	}
-
+	}{Type: oidChallengePassword, Value: challengePassword}
 	b, err := asn1.Marshal(attr)
 	if err != nil {
 		return nil, err
 	}
-
 	var rawValue asn1.RawValue
 	if _, err := asn1.Unmarshal(b, &rawValue); err != nil {
 		return nil, err
 	}
-
 	return append(rawAttributes, rawValue), nil
 }
 
@@ -151,14 +114,12 @@ type tmpPublicKeyInfo struct {
 
 func buildTmpPublicKeyAttr(key crypto.Signer, rawAttributes []asn1.RawValue, tmpPub crypto.PublicKey) ([]asn1.RawValue, error) {
 	var publicKeyBytes []byte
-	var err error
 	switch key.(type) {
 	case *sm2.PrivateKey:
 		if !sm2.IsSM2PublicKey(tmpPub) {
 			return nil, errors.New("x509: SM2 temp public key is required")
 		}
 		publicKeyBytes = make([]byte, 136)
-		// Prefix{8} || X{32} || zero{32} || Y{32} || zero{32}
 		copy(publicKeyBytes, tmpPublicKeyPrefix)
 		ecPub, _ := tmpPub.(*ecdsa.PublicKey)
 		ecPub.X.FillBytes(publicKeyBytes[8:40])
@@ -168,15 +129,12 @@ func buildTmpPublicKeyAttr(key crypto.Signer, rawAttributes []asn1.RawValue, tmp
 		if !ok {
 			return nil, errors.New("x509: RSA temp public key is required")
 		}
-		publicKeyBytes = x509.MarshalPKCS1PublicKey(pub)
+		publicKeyBytes = MarshalPKCS1PublicKey(pub)
 	default:
 		return nil, errors.New("x509: only RSA or SM2 key is supported")
+	}
 
-	}
-	var tmpPublicKey = tmpPublicKeyInfo{
-		Version:   1,
-		PublicKey: publicKeyBytes,
-	}
+	tmpPublicKey := tmpPublicKeyInfo{Version: 1, PublicKey: publicKeyBytes}
 	b, err := asn1.Marshal(tmpPublicKey)
 	if err != nil {
 		return nil, err
@@ -184,10 +142,7 @@ func buildTmpPublicKeyAttr(key crypto.Signer, rawAttributes []asn1.RawValue, tmp
 	attrKey := struct {
 		Type  asn1.ObjectIdentifier
 		Value []byte
-	}{
-		Type:  oidTmpPublicKey,
-		Value: b,
-	}
+	}{Type: oidTmpPublicKey, Value: b}
 	b, err = asn1.Marshal(attrKey)
 	if err != nil {
 		return nil, err
@@ -196,7 +151,6 @@ func buildTmpPublicKeyAttr(key crypto.Signer, rawAttributes []asn1.RawValue, tmp
 	if _, err = asn1.Unmarshal(b, &rawValue); err != nil {
 		return nil, err
 	}
-
 	return append(rawAttributes, rawValue), nil
 }
 
@@ -210,11 +164,11 @@ type CertificateRequestCFCA struct {
 // ParseCFCACertificateRequest parses a CFCA certificate request from the given DER data.
 func ParseCFCACertificateRequest(asn1Data []byte) (*CertificateRequestCFCA, error) {
 	var csr certificateRequest
-
 	rest, err := asn1.Unmarshal(asn1Data, &csr)
 	if err != nil {
 		return nil, err
-	} else if len(rest) != 0 {
+	}
+	if len(rest) != 0 {
 		return nil, asn1.SyntaxError{Msg: "trailing data"}
 	}
 
@@ -222,9 +176,7 @@ func ParseCFCACertificateRequest(asn1Data []byte) (*CertificateRequestCFCA, erro
 	if err != nil {
 		return nil, err
 	}
-	out := &CertificateRequestCFCA{
-		CertificateRequest: *inner,
-	}
+	out := &CertificateRequestCFCA{CertificateRequest: *inner}
 	parseCFCAAttributes(out, csr.TBSCSR.RawAttributes)
 	return out, nil
 }
@@ -249,12 +201,11 @@ func parseCFCAAttributes(out *CertificateRequestCFCA, rawAttributes []asn1.RawVa
 			keyBytes := tmpPub.PublicKey
 			switch out.PublicKeyAlgorithm {
 			case RSA:
-				if tmpKey, err := x509.ParsePKCS1PublicKey(keyBytes); err == nil {
+				if tmpKey, err := ParsePKCS1PublicKey(keyBytes); err == nil {
 					out.TmpPublicKey = tmpKey
 				}
 			case ECDSA:
 				if len(keyBytes) == 136 && bytes.Equal(tmpPublicKeyPrefix, keyBytes[:8]) {
-					// parse the public key
 					copy(keyBytes[40:72], keyBytes[72:104])
 					keyBytes[7] = 4
 					if tmpKey, err := sm2.NewPublicKey(keyBytes[7:72]); err == nil {

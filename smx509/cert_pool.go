@@ -1,3 +1,7 @@
+// Copyright 2011 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package smx509
 
 import (
@@ -123,8 +127,8 @@ type potentialParent struct {
 	constraint func([]*Certificate) error
 }
 
-// findPotentialParents returns the indexes of certificates in s which might
-// have signed cert.
+// findPotentialParents returns the certificates in s which might have signed
+// cert.
 func (s *CertPool) findPotentialParents(cert *Certificate) []potentialParent {
 	if s == nil {
 		return nil
@@ -249,7 +253,7 @@ func (s *CertPool) AppendCertsFromPEM(pemCerts []byte) (ok bool) {
 // Subjects returns a list of the DER-encoded subjects of
 // all of the certificates in the pool.
 //
-// Deprecated: if s was returned by SystemCertPool, Subjects
+// Deprecated: if s was returned by [SystemCertPool], Subjects
 // will not include the system roots.
 func (s *CertPool) Subjects() [][]byte {
 	res := make([][]byte, s.len())

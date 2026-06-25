@@ -2,7 +2,6 @@ package pkcs7
 
 import (
 	"crypto/subtle"
-	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"errors"
@@ -226,7 +225,7 @@ func verifyCertChain(ee *smx509.Certificate, certs []*smx509.Certificate, trusts
 	verifyOptions := smx509.VerifyOptions{
 		Roots:         truststore,
 		Intermediates: intermediates,
-		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+		KeyUsages:     []smx509.ExtKeyUsage{smx509.ExtKeyUsageAny},
 		CurrentTime:   currentTime,
 	}
 	chains, err = ee.Verify(verifyOptions)
@@ -247,16 +246,16 @@ func (err *MessageDigestMismatchError) Error() string {
 	return fmt.Sprintf("pkcs7: Message digest mismatch\n\tExpected: %X\n\tActual  : %X", err.ExpectedDigest, err.ActualDigest)
 }
 
-func getSignatureAlgorithm(digestEncryption, digest pkix.AlgorithmIdentifier) (x509.SignatureAlgorithm, error) {
+func getSignatureAlgorithm(digestEncryption, digest pkix.AlgorithmIdentifier) (smx509.SignatureAlgorithm, error) {
 	switch {
 	case digestEncryption.Algorithm.Equal(OIDDigestAlgorithmECDSASHA1):
-		return x509.ECDSAWithSHA1, nil
+		return smx509.ECDSAWithSHA1, nil
 	case digestEncryption.Algorithm.Equal(OIDDigestAlgorithmECDSASHA256):
-		return x509.ECDSAWithSHA256, nil
+		return smx509.ECDSAWithSHA256, nil
 	case digestEncryption.Algorithm.Equal(OIDDigestAlgorithmECDSASHA384):
-		return x509.ECDSAWithSHA384, nil
+		return smx509.ECDSAWithSHA384, nil
 	case digestEncryption.Algorithm.Equal(OIDDigestAlgorithmECDSASHA512):
-		return x509.ECDSAWithSHA512, nil
+		return smx509.ECDSAWithSHA512, nil
 	case digestEncryption.Algorithm.Equal(OIDEncryptionAlgorithmRSA),
 		digestEncryption.Algorithm.Equal(OIDEncryptionAlgorithmRSASHA1),
 		digestEncryption.Algorithm.Equal(OIDEncryptionAlgorithmRSASHA256),
@@ -264,13 +263,13 @@ func getSignatureAlgorithm(digestEncryption, digest pkix.AlgorithmIdentifier) (x
 		digestEncryption.Algorithm.Equal(OIDEncryptionAlgorithmRSASHA512):
 		switch {
 		case digest.Algorithm.Equal(OIDDigestAlgorithmSHA1):
-			return x509.SHA1WithRSA, nil
+			return smx509.SHA1WithRSA, nil
 		case digest.Algorithm.Equal(OIDDigestAlgorithmSHA256):
-			return x509.SHA256WithRSA, nil
+			return smx509.SHA256WithRSA, nil
 		case digest.Algorithm.Equal(OIDDigestAlgorithmSHA384):
-			return x509.SHA384WithRSA, nil
+			return smx509.SHA384WithRSA, nil
 		case digest.Algorithm.Equal(OIDDigestAlgorithmSHA512):
-			return x509.SHA512WithRSA, nil
+			return smx509.SHA512WithRSA, nil
 		default:
 			return -1, fmt.Errorf("pkcs7: unsupported digest %q for encryption algorithm %q",
 				digest.Algorithm.String(), digestEncryption.Algorithm.String())
@@ -279,9 +278,9 @@ func getSignatureAlgorithm(digestEncryption, digest pkix.AlgorithmIdentifier) (x
 		digestEncryption.Algorithm.Equal(OIDDigestAlgorithmDSASHA1):
 		switch {
 		case digest.Algorithm.Equal(OIDDigestAlgorithmSHA1):
-			return x509.DSAWithSHA1, nil
+			return smx509.DSAWithSHA1, nil
 		case digest.Algorithm.Equal(OIDDigestAlgorithmSHA256):
-			return x509.DSAWithSHA256, nil
+			return smx509.DSAWithSHA256, nil
 		default:
 			return -1, fmt.Errorf("pkcs7: unsupported digest %q for encryption algorithm %q",
 				digest.Algorithm.String(), digestEncryption.Algorithm.String())
@@ -291,13 +290,13 @@ func getSignatureAlgorithm(digestEncryption, digest pkix.AlgorithmIdentifier) (x
 		digestEncryption.Algorithm.Equal(OIDEncryptionAlgorithmECDSAP521):
 		switch {
 		case digest.Algorithm.Equal(OIDDigestAlgorithmSHA1):
-			return x509.ECDSAWithSHA1, nil
+			return smx509.ECDSAWithSHA1, nil
 		case digest.Algorithm.Equal(OIDDigestAlgorithmSHA256):
-			return x509.ECDSAWithSHA256, nil
+			return smx509.ECDSAWithSHA256, nil
 		case digest.Algorithm.Equal(OIDDigestAlgorithmSHA384):
-			return x509.ECDSAWithSHA384, nil
+			return smx509.ECDSAWithSHA384, nil
 		case digest.Algorithm.Equal(OIDDigestAlgorithmSHA512):
-			return x509.ECDSAWithSHA512, nil
+			return smx509.ECDSAWithSHA512, nil
 		default:
 			return -1, fmt.Errorf("pkcs7: unsupported digest %q for encryption algorithm %q",
 				digest.Algorithm.String(), digestEncryption.Algorithm.String())

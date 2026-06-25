@@ -7,7 +7,6 @@ package cfca
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"crypto/x509"
 	"encoding/asn1"
 	"encoding/base64"
 	"errors"
@@ -24,7 +23,7 @@ type CertificateRequest = smx509.CertificateRequestCFCA
 // The following members of template are used: Subject.
 // The certPriv is the private key for the certificate, and the tmpPub is the temporary public key for returning encryption key decryption.
 // The challenge password is basically a shared-secret nonce between you and CFCA, embedded in the CSR.
-func CreateCertificateRequest(rand io.Reader, template *x509.CertificateRequest, certPriv, tmpPub any, challengePassword string) ([]byte, error) {
+func CreateCertificateRequest(rand io.Reader, template *smx509.CertificateRequest, certPriv, tmpPub any, challengePassword string) ([]byte, error) {
 	return smx509.CreateCFCACertificateRequest(rand, template, certPriv, tmpPub, challengePassword)
 }
 
