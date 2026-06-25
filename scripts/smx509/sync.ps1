@@ -177,7 +177,11 @@ Write-Host "Patch dir:  $PatchDir"
 
 foreach ($file in $Files) {
     $src = Join-Path $srcDir $file
-    $dst = Join-Path $dstDir $file
+    $dstFile = $file
+    if ($NoPatch) {
+        $dstFile = $file + ".txt"  # baseline files use .go.txt to avoid Go build
+    }
+    $dst = Join-Path $dstDir $dstFile
 
     if (!(Test-Path -LiteralPath $src)) {
         throw (("Missing upstream file: {0}") -f $src)

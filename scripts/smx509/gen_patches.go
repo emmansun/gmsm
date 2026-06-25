@@ -43,7 +43,7 @@ func main() {
 	for _, p := range patches {
 		var combined []byte
 		for _, f := range p.files {
-			srcFile := filepath.Join(baseline, f)
+			srcFile := filepath.Join(baseline, f+".txt") // baseline uses .go.txt to avoid Go build
 			dstFile := filepath.Join(target, f)
 			tmpFile := filepath.Join(tmpDir, "tmp_diff.patch")
 
