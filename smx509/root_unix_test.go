@@ -76,7 +76,7 @@ func TestEnvVars(t *testing.T) {
 			dirEnv:  tmpDir,
 			files:   nil,
 			dirs:    nil,
-			cns:     []string{testDirCN, testDirCN},
+			cns:     []string{testDirCN},
 		},
 		{
 			// Environment variable empty / unset uses default locations.
