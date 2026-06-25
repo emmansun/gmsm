@@ -44,6 +44,13 @@ func NewCipherWithBucketSize(key, iv []byte, bucketSize int) (cipher.SeekableStr
 	return zuc.NewCipherWithBucketSize(key, iv, bucketSize)
 }
 
+// NewCipherWithBucketSizeAndCapacity creates a new instance of the eea cipher with the specified
+// bucket size and pre-allocates capacity for states based on expectedBytes.
+// This avoids repeated slice growth when the total stream length is known in advance.
+func NewCipherWithBucketSizeAndCapacity(key, iv []byte, bucketSize int, expectedBytes uint64) (cipher.SeekableStream, error) {
+	return zuc.NewCipherWithBucketSizeAndCapacity(key, iv, bucketSize, expectedBytes)
+}
+
 // NewEEACipherWithBucketSize creates a new instance of a seekable stream cipher
 // for the EEA encryption algorithm with a specified bucket size. This function
 // is typically used in mobile communication systems for secure data encryption.
@@ -52,6 +59,13 @@ func NewCipherWithBucketSize(key, iv []byte, bucketSize int) (cipher.SeekableStr
 // for seekable stream cipher once the bucketSize is greater than 0.
 func NewEEACipherWithBucketSize(key []byte, count, bearer, direction uint32, bucketSize int) (cipher.SeekableStream, error) {
 	return zuc.NewEEACipherWithBucketSize(key, count, bearer, direction, bucketSize)
+}
+
+// NewEEACipherWithBucketSizeAndCapacity creates a new instance of a seekable stream cipher
+// for the EEA encryption algorithm with a specified bucket size and pre-allocates capacity
+// for states based on expectedBytes.
+func NewEEACipherWithBucketSizeAndCapacity(key []byte, count, bearer, direction uint32, bucketSize int, expectedBytes uint64) (cipher.SeekableStream, error) {
+	return zuc.NewEEACipherWithBucketSizeAndCapacity(key, count, bearer, direction, bucketSize, expectedBytes)
 }
 
 // NewEmptyEEACipher creates and returns a new empty ZUC-EEA cipher instance.
