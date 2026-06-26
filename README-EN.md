@@ -17,7 +17,7 @@ English | [简体中文](README.md)
 
 GMSM is a production-ready Go cryptography library focused on ShangMi algorithms (SM2/SM3/SM4/SM9/ZUC) and modern post-quantum primitives (ML-KEM/ML-DSA/SLH-DSA), designed to balance secure defaults, practical APIs, and cross-architecture performance.
 
-> Requires Go version: **Go 1.24+**
+> Requires Go version: **Go 1.25+**
 
 ## Why GMSM
 - **Broad standards coverage**: ShangMi standards, PKCS ecosystem, and NIST PQC (FIPS 203/204/205).
