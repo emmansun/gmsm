@@ -88,10 +88,24 @@ GLOBL zuc_gfni_s1_m2<>(SB), RODATA, $16
 #define OFFSET_BRC_X2   (20*4)
 #define OFFSET_BRC_X3   (21*4)
 
-#define SHLDL(a, b, n) \  // NO SHLDL in GOLANG now
+// Native SHLD r32,r32,imm8 via raw byte encoding.
+// Go assembler lacks SHLD support; encode as: [REX] 0F A4 ModRM imm8
+// ModRM = 0xC0 | (src<<3) | dst  (mod=11, register-register)
+// Source register is NOT clobbered (unlike the old SHLDL macro).
+//
+// Registers R8-R15 require REX prefix (REX.R for reg field, REX.B for r/m field).
+
+// Fallback macro (old behavior, clobbers source register b)
+#define SHLDL(a, b, n) \
 	SHLL n, a          \
-	SHRL n, b          \  
+	SHRL n, b          \
 	ORL  b, a
+
+// NONLIN_FUN: both R9 and R10 are extended registers (need REX.R+B)
+#define SHLD_R9_R10_16  BYTE $0x45; BYTE $0x0F; BYTE $0xA4; BYTE $0xCA; BYTE $0x10  // SHLD R10, R9, 16
+
+// NONLIN_FUN: both DX and CX are low registers (no REX needed)
+#define SHLD_DX_CX_16   BYTE $0x0F; BYTE $0xA4; BYTE $0xCA; BYTE $0x10              // SHLD DX, CX, 16
 
 // Rotate left 5 bits in each byte, within an XMM register, SSE version.
 #define Rotl_5_SSE(XDATA, XTMP0)               \
@@ -242,8 +256,8 @@ GLOBL zuc_gfni_s1_m2<>(SB), RODATA, $16
 	VPAND mask_S0<>(SB), X1, X1                      \
 	VPXOR X1, X0, X0                                 \
 	\
-	MOVL X0, F_R1                                    \
-	VPEXTRD $1, X0, F_R2
+	MOVL X0, F_R1                                    \ // F_R1 = X0[31:0]
+	VPEXTRD $1, X0, F_R2                                // F_R2 = X0[63:32]
 
 #define ROUND_GFNI_PRE(idx, XM1, XM2)    \
 	BITS_REORG(idx)                       \
@@ -282,8 +296,8 @@ GLOBL zuc_gfni_s1_m2<>(SB), RODATA, $16
 	VPAND mask_S0<>(SB), X1, X1              \ 
 	VPXOR X1, X0, X0                         \ 
 	\
-	MOVL X0, F_R1                            \ // F_R1
-	VPEXTRD $1, X0, F_R2
+	MOVL X0, F_R1                            \ // F_R1 = X0[31:0]
+	VPEXTRD $1, X0, F_R2                        // F_R2 = X0[63:32]
 
 #define ROUND_GFNI(idx)            \
 	BITS_REORG(idx)               \
@@ -311,6 +325,11 @@ GLOBL zuc_gfni_s1_m2<>(SB), RODATA, $16
 // return 
 //      updates R11, R12, R13, R14
 //
+// NOTE: Must use SHLDL macro (not native SHLD). The macro clobbers source
+// registers (AX, BX, CX, DX) via SHRL, and downstream code depends on these
+// clobbered values: XORL BRC_X3,AX uses AX>>16; NONLIN_FUN uses clobbered
+// R9 (=BX>>16) and R10 (=CX<<16); LFSR_UPDT uses clobbered BX (=BX>>16).
+// Replacing with native SHLD would require rewriting the entire data flow.
 #define BITS_REORG(idx)                      \
 	MOVL (((15 + idx) % 16)*4)(SI), BRC_X0   \
 	MOVL (((14 + idx) % 16)*4)(SI), AX       \
@@ -375,9 +394,9 @@ GLOBL zuc_gfni_s1_m2<>(SB), RODATA, $16
 	\
 	MOVL F_R1, DX                            \
 	MOVL F_R2, CX                            \
-	SHLDL(DX, CX, $16)                       \ // P = (W1 << 16) | (W2 >> 16)
-	SHLDL(F_R2, F_R1, $16)                   \ // Q = (W2 << 16) | (W1 >> 16)
-	MOVL DX, BX                              \ // start L1 
+	SHLD_DX_CX_16                            \ // DX = (DX<<16)|(CX>>16) = P; CX preserved
+	SHLD_R9_R10_16                           \ // R10 = (R10<<16)|(R9>>16) = P; R9 preserved
+	MOVL DX, BX                              \ // start L1(P)
 	MOVL DX, CX                              \
 	ROLL $2, BX                              \
 	ROLL $24, CX                             \
@@ -488,8 +507,7 @@ GLOBL zuc_gfni_s1_m2<>(SB), RODATA, $16
 	VMOVDQU (16)(SI), X1                     \ // [s4..s7]
 	VMOVDQU (32)(SI), X2                     \ // [s8..s11]
 	VMOVDQU (48)(SI), X3                     \ // [s12..s15]
-	VMOVDQA X0, X4                           \ // backup [s0..s3]
-	VPALIGNR $4, X3, X4, X4                  \ // X4 = [s13,s14,s15,s0]
+	VPALIGNR $4, X3, X0, X4                  \ // X4 = [s13,s14,s15,s0]
 	VPALIGNR $4, X2, X3, X3                  \ // X3 = [s9,s10,s11,s12]
 	VPALIGNR $4, X1, X2, X2                  \ // X2 = [s5,s6,s7,s8]
 	VPALIGNR $4, X0, X1, X1                  \ // X1 = [s1,s2,s3,s4]
@@ -504,8 +522,7 @@ GLOBL zuc_gfni_s1_m2<>(SB), RODATA, $16
 	VMOVDQU (16)(SI), X1                     \ // [s4..s7]
 	VMOVDQU (32)(SI), X2                     \ // [s8..s11]
 	VMOVDQU (48)(SI), X3                     \ // [s12..s15]
-	VMOVDQA X0, X4                           \ // backup [s0..s3]
-	VPALIGNR $8, X3, X4, X4                  \ // X4 = [s14,s15,s0,s1]
+	VPALIGNR $8, X3, X0, X4                  \ // X4 = [s14,s15,s0,s1]
 	VPALIGNR $8, X2, X3, X3                  \ // X3 = [s10,s11,s12,s13]
 	VPALIGNR $8, X1, X2, X2                  \ // X2 = [s6,s7,s8,s9]
 	VPALIGNR $8, X0, X1, X1                  \ // X1 = [s2,s3,s4,s5]
@@ -554,8 +571,8 @@ GLOBL zuc_gfni_s1_m2<>(SB), RODATA, $16
 	VPAND mask_S0<>(SB), X1, X1              \ 
 	VPXOR X1, X0, X0                         \ 
 	\
-	MOVL X0, F_R1                            \ // F_R1
-	VPEXTRD $1, X0, F_R2   
+	MOVL X0, F_R1                            \ // F_R1 = X0[31:0]
+	VPEXTRD $1, X0, F_R2                        // F_R2 = X0[63:32]
 
 #define LOAD_STATE                           \
 	MOVL OFFSET_FR1(SI), F_R1                \
