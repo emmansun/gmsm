@@ -101,9 +101,71 @@ func ExampleNewCipher_zuc256() {
 }
 ```
 ### Seekable Stream
-完整性算法支持Seekable Stream，也就是随机定位到某点进行处理，内部实现了分桶缓存状态，每个状态的大小大概是88字节，`bucketSize`的大小可以结合要处理的流大小以及内存占用来平衡考虑。同时，`bucketSize`内部会被处理成128字节的倍数，以利于实现。
 
-如果您没有对同一个流反复进行**前进**、**后退**加解密的需求，可以使用`NewCipher`或者`NewEEACipher`方法，避免内部状态缓存。
+保密性算法支持 Seekable Stream，即随机定位到密钥流的任意字节偏移处进行加解密。提供两种方案：
+
+#### 方案一：分桶快照（Seekable Stream）
+
+通过 `NewCipherWithBucketSize` 或 `NewCipherWithBucketSizeAndCapacity` 创建带分桶缓存的实例。内部以 `bucketSize` 为间隔保存 ZUC 状态快照（每个约 88 字节），实现 O(1) 的 seek 操作。
+
+- `bucketSize` 内部会对齐到 128 字节（`RoundBytes`）的倍数。
+- `bucketSize` 越小，seek 越快但内存占用越大；建议根据流大小和内存约束平衡选择。
+- `NewCipherWithBucketSizeAndCapacity` 额外接受 `expectedBytes` 参数，预分配状态切片容量，避免追加时多次扩容。
+
+```go
+// 创建带分桶的 seekable stream，bucketSize = 4096
+cipher, err := zuc.NewCipherWithBucketSize(key, iv, 4096)
+if err != nil {
+    panic(err)
+}
+
+// 流式加密（与普通 cipher.Stream 相同）
+cipher.XORKeyStream(ciphertext, plaintext)
+
+// 随机访问：从偏移 100000 处开始解密
+cipher.XORKeyStreamAt(dst, src, 100000)
+```
+
+如果您没有对同一条流反复**前进、后退**加解密的需求，可以直接使用 `NewCipher` 或 `NewEEACipher`，避免内部状态缓存开销。
+
+#### 方案二：分块无状态加密（Chunked Cipher）
+
+对于**无状态随机访问**场景（如 HTTP Range 请求解密视频文件），可以使用 `ChunkedCipher`。数据按固定 `chunkSize` 分块，每块使用独立的 ZUC 实例加密，子密钥由 SM3 从主密钥和块索引确定性派生：
+
+```
+子密钥 = SM3(主密钥 ‖ 块索引)[:keySize]
+```
+
+特点：
+- **完全无状态**：每次调用独立计算，不维护任何 cipher 状态，天然支持多实例并行。
+- **O(1) 随机访问**：任意偏移可通过 `XORKeyStreamAt` 直接解密，无需预填充或状态恢复。
+- 支持 ZUC-128（key 16 字节，iv 16 字节）和 ZUC-256（key 32 字节，iv 23 字节）。
+
+```go
+// 创建分块密码器，chunkSize = 4096（默认 64KB）
+cc, err := zuc.NewChunkedCipher(key, iv, 4096)
+if err != nil {
+    panic(err)
+}
+
+// 按块加解密（最高效，数据需对齐到 chunk 边界）
+cc.XORChunk(dst, src, chunkIndex)
+
+// 按任意字节偏移加解密（自动处理跨 chunk）
+cc.XORKeyStreamAt(dst, src, offset)
+```
+
+#### 方案选择
+
+| | Seekable Stream（分桶） | Chunked Cipher（分块） |
+| :--- | :---: | :---: |
+| 适用场景 | 同一条流上反复 seek | 无状态随机访问（HTTP Range） |
+| 是否需要维护状态 | 是（有状态实例） | 否（每次调用独立） |
+| 随机访问开销 | O(1)（分桶快跳） | O(1)（子密钥派生） |
+| 连续流式吞吐 | 更高（~460 MB/s） | 略低（~410 MB/s，SM3 派生开销） |
+| 内存占用 | 与 bucketSize 成正比 | 无（仅存储主密钥和 IV） |
+| 序列化/持久化 | 支持（`AppendBinary`/`UnmarshalBinary`） | 无需（无状态） |
+| 多实例并行 | 各实例独立 | 天然支持 |
 
 ## 完整性算法
 完整性算法实现了```hash.Hash```接口，所以其使用方法和其它哈希算法类似。
