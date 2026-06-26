@@ -1,0 +1,1280 @@
+// Copyright 2026 Sun Yimin. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
+//go:build loong64 && !purego
+
+package mlkem
+
+import (
+	"crypto/rand"
+	"testing"
+)
+
+func requireLASX(t *testing.T) {
+	t.Helper()
+	if !useLASX {
+		t.Skip("LASX not available on this machine")
+	}
+}
+
+func TestLASXPolyAddAssignMatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for i := 0; i < 200; i++ {
+		dst := randomRingElement()
+		src := randomRingElement()
+
+		got := dst
+		want := dst
+
+		polyAddAssignLASX(&got, &src)
+		polyAddAssignGeneric(&want, &src)
+
+		for j := range got {
+			if got[j] != want[j] {
+				t.Fatalf("iter=%d idx=%d: polyAdd mismatch: got=%d want=%d", i, j, got[j], want[j])
+			}
+		}
+	}
+}
+
+func TestLASXPolySubAssignMatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for i := 0; i < 200; i++ {
+		dst := randomRingElement()
+		src := randomRingElement()
+
+		got := dst
+		want := dst
+
+		polySubAssignLASX(&got, &src)
+		polySubAssignGeneric(&want, &src)
+
+		for j := range got {
+			if got[j] != want[j] {
+				t.Fatalf("iter=%d idx=%d: polySub mismatch: got=%d want=%d", i, j, got[j], want[j])
+			}
+		}
+	}
+}
+
+func TestLASXForwardNTTMatchesMontgomery(t *testing.T) {
+	requireLASX(t)
+
+	for i := 0; i < 200; i++ {
+		in := randomRingElement()
+		got := in
+		want := in
+
+		internalNTTLASX(&got)
+		internalMontNTT(&want)
+
+		for j := range got {
+			if got[j] != want[j] {
+				t.Fatalf("iter=%d idx=%d: forward NTT mismatch: got=%d want=%d", i, j, got[j], want[j])
+			}
+		}
+	}
+}
+
+func TestLASXInverseNTTMatchesMontgomery(t *testing.T) {
+	requireLASX(t)
+
+	for i := 0; i < 200; i++ {
+		in := randomRingElement()
+		internalMontNTT(&in)
+
+		got := nttElement(in)
+		want := nttElement(in)
+
+		internalInverseNTTLASX(&got)
+		internalMontInverseNTT(&want)
+
+		for j := range got {
+			if got[j] != want[j] {
+				t.Fatalf("iter=%d idx=%d: inverse NTT mismatch: got=%d want=%d", i, j, got[j], want[j])
+			}
+		}
+	}
+}
+
+func TestLASXNTTRoundTrip(t *testing.T) {
+	requireLASX(t)
+
+	for i := 0; i < 200; i++ {
+		in := randomRingElement()
+		got := in
+		internalNTTLASX(&got)
+		internalInverseNTTLASX((*nttElement)(&got))
+
+		// internalMontNTT + internalMontInverseNTT gives r*in mod q (not identity),
+		// so compare against the scalar Montgomery roundtrip result.
+		want := in
+		internalMontNTT(&want)
+		internalMontInverseNTT((*nttElement)(&want))
+
+		for j := range got {
+			if got[j] != want[j] {
+				t.Fatalf("iter=%d idx=%d: NTT round-trip mismatch: got=%d want=%d", i, j, got[j], want[j])
+			}
+		}
+	}
+}
+
+// TestLASXScalarNTTThenLASXINTT applies scalar NTT then LASX inverse NTT.
+// If this passes, the INTT is correct; if it fails, INTT is the problem.
+func TestLASXScalarNTTThenLASXINTT(t *testing.T) {
+	requireLASX(t)
+
+	for i := 0; i < 200; i++ {
+		in := randomRingElement()
+		got := in
+		// Apply scalar forward NTT then LASX inverse NTT
+		internalMontNTT(&got)
+		internalInverseNTTLASX((*nttElement)(&got))
+
+		// Compare against scalar Montgomery roundtrip (which gives r*in, not in)
+		want := in
+		internalMontNTT(&want)
+		internalMontInverseNTT((*nttElement)(&want))
+
+		for j := range got {
+			if got[j] != want[j] {
+				t.Fatalf("iter=%d idx=%d: scalar-NTT+LASX-INTT mismatch: got=%d want=%d", i, j, got[j], want[j])
+			}
+		}
+	}
+}
+
+// TestLASXNTTThenScalarINTT applies LASX NTT then scalar inverse NTT.
+// If this passes, the forward NTT is correct; if it fails, NTT is the problem.
+func TestLASXNTTThenScalarINTT(t *testing.T) {
+	requireLASX(t)
+
+	for i := 0; i < 200; i++ {
+		in := randomRingElement()
+		got := in
+		// Apply LASX forward NTT then scalar inverse NTT
+		internalNTTLASX(&got)
+		internalMontInverseNTT((*nttElement)(&got))
+
+		// Compare against scalar Montgomery roundtrip (which gives r*in, not in)
+		want := in
+		internalMontNTT(&want)
+		internalMontInverseNTT((*nttElement)(&want))
+
+		for j := range got {
+			if got[j] != want[j] {
+				t.Fatalf("iter=%d idx=%d: LASX-NTT+scalar-INTT mismatch: got=%d want=%d", i, j, got[j], want[j])
+			}
+		}
+	}
+}
+
+func randomNTTElement() nttElement {
+	return nttElement(randomRingElement())
+}
+
+func TestLASXNTTMulMatchesMontgomery(t *testing.T) {
+	requireLASX(t)
+
+	for i := 0; i < 200; i++ {
+		lhs := randomNTTElement()
+		rhs := randomNTTElement()
+
+		var got, want nttElement
+		internalNTTMulLASX(&got, &lhs, &rhs)
+		nttMontMul(&want, &lhs, &rhs)
+
+		for j := range got {
+			if got[j] != want[j] {
+				t.Fatalf("iter=%d idx=%d: nttMul mismatch: got=%d want=%d", i, j, got[j], want[j])
+			}
+		}
+	}
+}
+
+func TestLASXNTTMulAccMatchesMontgomery(t *testing.T) {
+	requireLASX(t)
+
+	for i := 0; i < 200; i++ {
+		lhs := randomNTTElement()
+		rhs := randomNTTElement()
+		acc0 := randomNTTElement()
+
+		got := acc0
+		want := acc0
+		internalNTTMulAccLASX(&got, &lhs, &rhs)
+		nttMontMulAcc(&want, &lhs, &rhs)
+
+		for j := range got {
+			if got[j] != want[j] {
+				t.Fatalf("iter=%d idx=%d: nttMulAcc mismatch: got=%d want=%d", i, j, got[j], want[j])
+			}
+		}
+	}
+}
+
+func TestLASXNTTMulAccKeyGenMatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for i := 0; i < 200; i++ {
+		lhs := randomRingElement()
+		rhs := randomRingElement()
+		accLASX := randomRingElement()
+		accRef := accLASX
+
+		internalMontNTT(&lhs)
+		internalMontNTT(&rhs)
+		internalMontNTT(&accLASX)
+		internalMontNTT(&accRef)
+
+		nlhs := nttElement(lhs)
+		nrhs := nttElement(rhs)
+		naccLASX := nttElement(accLASX)
+		naccRef := nttElement(accRef)
+
+		internalNTTMulAccKeyGenLASX(&naccLASX, &nlhs, &nrhs)
+		nttMulAccGeneric(&naccRef, &nlhs, &nrhs)
+
+		for j := range naccLASX {
+			if naccLASX[j] != naccRef[j] {
+				t.Fatalf("iter=%d idx=%d: NTTMulAccKeyGen mismatch: got=%d want=%d", i, j, naccLASX[j], naccRef[j])
+			}
+		}
+	}
+}
+
+func TestLASXDispatchNTTRoundTripMatchesMontgomery(t *testing.T) {
+	requireLASX(t)
+
+	old := useLASX
+	useLASX = true
+	defer func() { useLASX = old }()
+
+	for i := 0; i < 100; i++ {
+		in := randomRingElement()
+
+		got := in
+		internalNTT(&got)
+		internalInverseNTT((*nttElement)(&got))
+
+		want := in
+		internalMontNTT(&want)
+		internalMontInverseNTT((*nttElement)(&want))
+
+		for j := range got {
+			if got[j] != want[j] {
+				t.Fatalf("iter=%d idx=%d: dispatch round-trip mismatch: got=%d want=%d", i, j, got[j], want[j])
+			}
+		}
+	}
+}
+
+// montMulLASXSigned computes Montgomery multiplication using the signed approach
+// that LASX assembly uses. This is a Go reference for debugging.
+func montMulLASXSigned(a, b int16) int16 {
+	const qInv = int16(-3327) // 62209 as uint16, -3327 as int16
+	const q = int16(3329)
+	prodLo := int16(int32(a) * int32(b) & 0xFFFF)
+	prodHi := int16(int32(a) * int32(b) >> 16)
+	t := int16(int32(prodLo) * int32(qInv) & 0xFFFF)
+	tqHi := int16(int32(t) * int32(q) >> 16)
+	result := prodHi - tqHi
+	// REDUCE_MONT: if result < 0, add q
+	if result < 0 {
+		result += q
+	}
+	return result
+}
+
+// TestMontMulSignedMatchesScalar verifies the signed LASX Montgomery formula
+// matches fieldMontMul.
+func TestMontMulSignedMatchesScalar(t *testing.T) {
+	for a := 0; a < q; a++ {
+		for b := 0; b < q; b++ {
+			got := montMulLASXSigned(int16(a), int16(b))
+			want := fieldMontMul(fieldElement(a), fieldElement(b))
+			if fieldElement(got) != want {
+				t.Fatalf("montMulLASXSigned(%d, %d) = %d, want %d", a, b, got, want)
+			}
+		}
+	}
+}
+
+func TestLASXRingCompressAndEncode4MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	// Exhaustive single-value test
+	for x := 0; x < int(q); x++ {
+		var f ringElement
+		for i := range f {
+			f[i] = fieldElement(x)
+		}
+		var got [encodingSize4]byte
+		var want [encodingSize4]byte
+		ringCompressAndEncode4LASX(got[:], &f)
+		ringCompressAndEncode4Generic(want[:], &f)
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("x=%d byte=%d: got=0x%02x want=0x%02x", x, i, got[i], want[i])
+			}
+		}
+	}
+
+	// Random test
+	for iter := 0; iter < 200; iter++ {
+		f := randomRingElement()
+		var got [encodingSize4]byte
+		var want [encodingSize4]byte
+		ringCompressAndEncode4LASX(got[:], &f)
+		ringCompressAndEncode4Generic(want[:], &f)
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("iter=%d byte=%d: got=0x%02x want=0x%02x", iter, i, got[i], want[i])
+			}
+		}
+	}
+}
+
+func TestLASXRingDecodeAndDecompress4MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	// Exhaustive single-nibble test: all 128 bytes set to the same packed pair (v, v)
+	for x := 0; x < 16; x++ {
+		packed := byte(x | (x << 4))
+		var b [encodingSize4]byte
+		for i := range b {
+			b[i] = packed
+		}
+		var got ringElement
+		var want ringElement
+		ringDecodeAndDecompress4LASX(&b, &got)
+		ringDecodeAndDecompress4Generic(&b, &want)
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("x=%d coeff=%d: got=%d want=%d", x, i, got[i], want[i])
+			}
+		}
+	}
+
+	// Random test
+	for iter := 0; iter < 200; iter++ {
+		var b [encodingSize4]byte
+		rand.Read(b[:])
+		var got ringElement
+		var want ringElement
+		ringDecodeAndDecompress4LASX(&b, &got)
+		ringDecodeAndDecompress4Generic(&b, &want)
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("iter=%d coeff=%d: got=%d want=%d", iter, i, got[i], want[i])
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ringCompressAndEncode1LASX correctness tests
+// ---------------------------------------------------------------------------
+
+func TestLASXRingCompressAndEncode1MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	// Exhaustive single-value test
+	for x := 0; x < int(q); x++ {
+		var f ringElement
+		for i := range f {
+			f[i] = fieldElement(x)
+		}
+		var got [encodingSize1]byte
+		var want [encodingSize1]byte
+		ringCompressAndEncode1LASX(got[:], &f)
+		ringCompressAndEncode1Generic(want[:], &f)
+		if got != want {
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatalf("x=%d byte=%d: got=0x%02x want=0x%02x", x, i, got[i], want[i])
+				}
+			}
+		}
+	}
+
+	// Random test
+	for iter := 0; iter < 200; iter++ {
+		f := randomRingElement()
+		var got [encodingSize1]byte
+		var want [encodingSize1]byte
+		ringCompressAndEncode1LASX(got[:], &f)
+		ringCompressAndEncode1Generic(want[:], &f)
+		if got != want {
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatalf("iter=%d byte=%d: got=0x%02x want=0x%02x", iter, i, got[i], want[i])
+				}
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ringCompressAndEncode5LASX correctness tests
+// ---------------------------------------------------------------------------
+
+func TestLASXRingCompressAndEncode5MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	var gotBuf [encodingSize5]byte
+	var wantBuf [encodingSize5]byte
+
+	// Exhaustive single-value test
+	for x := 0; x < int(q); x++ {
+		var f ringElement
+		for i := range f {
+			f[i] = fieldElement(x)
+		}
+		ringCompressAndEncode5LASX(gotBuf[:], &f)
+		want := ringCompressAndEncode(wantBuf[:0], &f, 5)
+		for i, b := range want {
+			if gotBuf[i] != b {
+				t.Fatalf("x=%d byte=%d: got=0x%02x want=0x%02x", x, i, gotBuf[i], b)
+			}
+		}
+	}
+
+	// Random test
+	for iter := 0; iter < 200; iter++ {
+		f := randomRingElement()
+		ringCompressAndEncode5LASX(gotBuf[:], &f)
+		want := ringCompressAndEncode(wantBuf[:0], &f, 5)
+		for i, b := range want {
+			if gotBuf[i] != b {
+				t.Fatalf("iter=%d byte=%d: got=0x%02x want=0x%02x", iter, i, gotBuf[i], b)
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ringDecodeAndDecompress5LASX correctness tests
+// ---------------------------------------------------------------------------
+
+func TestLASXRingDecodeAndDecompress5MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	// Test all 32 possible 5-bit values packed identically
+	for x := 0; x < 32; x++ {
+		// Pack 8 identical 5-bit values into 5 bytes
+		var b [encodingSize5]byte
+		packed := uint64(0)
+		for i := 0; i < 8; i++ {
+			packed |= uint64(x) << (i * 5)
+		}
+		b[0] = byte(packed)
+		b[1] = byte(packed >> 8)
+		b[2] = byte(packed >> 16)
+		b[3] = byte(packed >> 24)
+		b[4] = byte(packed >> 32)
+		// Replicate for all 32 iterations
+		for k := 1; k < 32; k++ {
+			copy(b[k*5:], b[:5])
+		}
+
+		var got ringElement
+		var want ringElement
+		ringDecodeAndDecompress5LASX(&b, &got)
+		want = ringDecodeAndDecompress(b[:], 5)
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("x=%d coeff=%d: got=%d want=%d", x, i, got[i], want[i])
+			}
+		}
+	}
+
+	// Random test
+	for iter := 0; iter < 200; iter++ {
+		var b [encodingSize5]byte
+		rand.Read(b[:])
+		var got ringElement
+		ringDecodeAndDecompress5LASX(&b, &got)
+		want := ringDecodeAndDecompress(b[:], 5)
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("iter=%d coeff=%d: got=%d want=%d", iter, i, got[i], want[i])
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ringCompressAndEncode10LASX correctness tests
+// ---------------------------------------------------------------------------
+
+func TestLASXRingCompressAndEncode10MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	var gotBuf [encodingSize10]byte
+	var wantBuf [encodingSize10]byte
+
+	// Exhaustive single-value test
+	for x := 0; x < int(q); x++ {
+		var f ringElement
+		for i := range f {
+			f[i] = fieldElement(x)
+		}
+		ringCompressAndEncode10LASX(gotBuf[:], &f)
+		ringCompressAndEncode10Generic(wantBuf[:], &f)
+		for i := range gotBuf {
+			if gotBuf[i] != wantBuf[i] {
+				t.Fatalf("x=%d byte=%d: got=0x%02x want=0x%02x", x, i, gotBuf[i], wantBuf[i])
+			}
+		}
+	}
+
+	// Random test
+	for iter := 0; iter < 200; iter++ {
+		f := randomRingElement()
+		ringCompressAndEncode10LASX(gotBuf[:], &f)
+		ringCompressAndEncode10Generic(wantBuf[:], &f)
+		for i := range gotBuf {
+			if gotBuf[i] != wantBuf[i] {
+				t.Fatalf("iter=%d byte=%d: got=0x%02x want=0x%02x", iter, i, gotBuf[i], wantBuf[i])
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ringCompressAndEncode11LASX correctness tests
+// ---------------------------------------------------------------------------
+
+func TestLASXRingCompressAndEncode11MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	var gotBuf [encodingSize11]byte
+	var wantBuf [encodingSize11]byte
+
+	// Exhaustive single-value test
+	for x := 0; x < int(q); x++ {
+		var f ringElement
+		for i := range f {
+			f[i] = fieldElement(x)
+		}
+		ringCompressAndEncode11LASX(gotBuf[:], &f)
+		want := ringCompressAndEncode(wantBuf[:0], &f, 11)
+		for i, b := range want {
+			if gotBuf[i] != b {
+				t.Fatalf("x=%d byte=%d: got=0x%02x want=0x%02x", x, i, gotBuf[i], b)
+			}
+		}
+	}
+
+	// Random test
+	for iter := 0; iter < 200; iter++ {
+		f := randomRingElement()
+		ringCompressAndEncode11LASX(gotBuf[:], &f)
+		want := ringCompressAndEncode(wantBuf[:0], &f, 11)
+		for i, b := range want {
+			if gotBuf[i] != b {
+				t.Fatalf("iter=%d byte=%d: got=0x%02x want=0x%02x", iter, i, gotBuf[i], b)
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// decodeAndDecompressU10LASX correctness tests
+// ---------------------------------------------------------------------------
+
+func TestLASXDecodeAndDecompressU10MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	// Exhaustive single-value test: all bytes set to a repeating pattern
+	for x := 0; x < 256; x++ {
+		c := make([]byte, encodingSize10*k)
+		for i := range c {
+			c[i] = byte(x)
+		}
+		got := make([]ringElement, k)
+		want := make([]ringElement, k)
+		decodeAndDecompressU10LASX(got, c)
+		decodeAndDecompressU10Generic(want, c)
+		for i := range got {
+			for j := range got[i] {
+				if got[i][j] != want[i][j] {
+					t.Fatalf("x=%d poly=%d coeff=%d: got=%d want=%d", x, i, j, got[i][j], want[i][j])
+				}
+			}
+		}
+	}
+
+	// Random test
+	for iter := 0; iter < 200; iter++ {
+		c := make([]byte, encodingSize10*k)
+		rand.Read(c)
+		got := make([]ringElement, k)
+		want := make([]ringElement, k)
+		decodeAndDecompressU10LASX(got, c)
+		decodeAndDecompressU10Generic(want, c)
+		for i := range got {
+			for j := range got[i] {
+				if got[i][j] != want[i][j] {
+					t.Fatalf("iter=%d poly=%d coeff=%d: got=%d want=%d", iter, i, j, got[i][j], want[i][j])
+				}
+			}
+		}
+	}
+}
+
+func TestLASXDecodeAndDecompressU10DispatchMatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for iter := 0; iter < 200; iter++ {
+		c := make([]byte, encodingSize10*k)
+		rand.Read(c)
+		got := make([]ringElement, k)
+		want := make([]ringElement, k)
+		decodeAndDecompressU10(got, c)
+		decodeAndDecompressU10Generic(want, c)
+		for i := range got {
+			for j := range got[i] {
+				if got[i][j] != want[i][j] {
+					t.Fatalf("iter=%d poly=%d coeff=%d: dispatch got=%d want=%d", iter, i, j, got[i][j], want[i][j])
+				}
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// decodeAndDecompressU11LASX correctness tests
+// ---------------------------------------------------------------------------
+
+func TestLASXDecodeAndDecompressU11MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	// Exhaustive single-value test: all bytes set to a repeating pattern
+	for x := 0; x < 256; x++ {
+		c := make([]byte, encodingSize11*k1024)
+		for i := range c {
+			c[i] = byte(x)
+		}
+		got := make([]ringElement, k1024)
+		want := make([]ringElement, k1024)
+		decodeAndDecompressU11LASX(got, c)
+		decodeAndDecompressU11Generic(want, c)
+		for i := range got {
+			for j := range got[i] {
+				if got[i][j] != want[i][j] {
+					t.Fatalf("x=%d poly=%d coeff=%d: got=%d want=%d", x, i, j, got[i][j], want[i][j])
+				}
+			}
+		}
+	}
+
+	// Random test
+	for iter := 0; iter < 200; iter++ {
+		c := make([]byte, encodingSize11*k1024)
+		rand.Read(c)
+		got := make([]ringElement, k1024)
+		want := make([]ringElement, k1024)
+		decodeAndDecompressU11LASX(got, c)
+		decodeAndDecompressU11Generic(want, c)
+		for i := range got {
+			for j := range got[i] {
+				if got[i][j] != want[i][j] {
+					t.Fatalf("iter=%d poly=%d coeff=%d: got=%d want=%d", iter, i, j, got[i][j], want[i][j])
+				}
+			}
+		}
+	}
+}
+
+func TestLASXDecodeAndDecompressU11DispatchMatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for iter := 0; iter < 200; iter++ {
+		c := make([]byte, encodingSize11*k1024)
+		rand.Read(c)
+		got := make([]ringElement, k1024)
+		want := make([]ringElement, k1024)
+		decodeAndDecompressU11(got, c)
+		decodeAndDecompressU11Generic(want, c)
+		for i := range got {
+			for j := range got[i] {
+				if got[i][j] != want[i][j] {
+					t.Fatalf("iter=%d poly=%d coeff=%d: dispatch got=%d want=%d", iter, i, j, got[i][j], want[i][j])
+				}
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// samplePolyCBD2LASX correctness tests
+// ---------------------------------------------------------------------------
+
+func TestLASXSamplePolyCBD2MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for iter := 0; iter < 100; iter++ {
+		var B [128]byte
+		for i := range B {
+			B[i] = byte((iter*256 + i) ^ 0xAA)
+		}
+
+		var gotLASX ringElement
+		samplePolyCBD2LASX(&gotLASX, &B)
+
+		wantGeneric := samplePolyCBDGeneric(B[:], 2)
+
+		for i := range gotLASX {
+			if gotLASX[i] != wantGeneric[i] {
+				t.Fatalf("iter=%d coeff=%d: samplePolyCBD2LASX mismatch: got=%d want=%d",
+					iter, i, gotLASX[i], wantGeneric[i])
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// samplePolyCBD3LASX correctness tests
+// ---------------------------------------------------------------------------
+
+func TestLASXSamplePolyCBD3MatchesGeneric(t *testing.T) {
+	requireLASX(t)
+
+	for iter := 0; iter < 100; iter++ {
+		var B [192]byte
+		for i := range B {
+			B[i] = byte((iter*256 + i) ^ 0x55)
+		}
+
+		var gotLASX ringElement
+		samplePolyCBD3LASX(&gotLASX, &B)
+
+		wantGeneric := samplePolyCBDGeneric(B[:], 3)
+
+		for i := range gotLASX {
+			if gotLASX[i] != wantGeneric[i] {
+				t.Fatalf("iter=%d coeff=%d: samplePolyCBD3LASX mismatch: got=%d want=%d",
+					iter, i, gotLASX[i], wantGeneric[i])
+			}
+		}
+	}
+}
+
+func TestRejUniformLoong64MatchesGeneric(t *testing.T) {
+	for iter := 0; iter < 500; iter++ {
+		var buf [24]byte
+		rand.Read(buf[:])
+
+		var aGot, aWant nttElement
+		j := iter % 241 // start index in [0, 240]
+
+		gotN := rejUniformLoong64(buf[:], &aGot, j)
+		wantN := rejUniformGeneric(buf[:], &aWant, j)
+
+		if gotN != wantN {
+			t.Fatalf("iter=%d j=%d: count mismatch: got=%d want=%d", iter, j, gotN, wantN)
+		}
+		for i := j; i < j+gotN; i++ {
+			if aGot[i] != aWant[i] {
+				t.Fatalf("iter=%d j=%d i=%d: value mismatch: got=%d want=%d", iter, j, i, aGot[i], aWant[i])
+			}
+		}
+	}
+}
+
+func BenchmarkNTTForward(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			f2 := f
+			internalNTTGeneric(&f2)
+		}
+	})
+
+	b.Run("LASX", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		f := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			f2 := f
+			internalNTTLASX(&f2)
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		f := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			f2 := f
+			internalNTT(&f2)
+		}
+	})
+}
+
+func BenchmarkNTTInverse(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		internalNTTGeneric(&f)
+		nf := nttElement(f)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			nf2 := nf
+			internalInverseNTTGeneric(&nf2)
+		}
+	})
+
+	b.Run("LASX", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		f := randomRingElement()
+		internalNTTLASX(&f)
+		nf := nttElement(f)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			nf2 := nf
+			internalInverseNTTLASX(&nf2)
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		f := randomRingElement()
+		internalNTT(&f)
+		nf := nttElement(f)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			nf2 := nf
+			internalInverseNTT(&nf2)
+		}
+	})
+}
+
+func BenchmarkNTTMul(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		lhs := randomNTTElement()
+		rhs := randomNTTElement()
+		var out nttElement
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			nttMontMul(&out, &lhs, &rhs)
+		}
+	})
+
+	b.Run("LASX", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		lhs := randomNTTElement()
+		rhs := randomNTTElement()
+		var out nttElement
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			internalNTTMulLASX(&out, &lhs, &rhs)
+		}
+	})
+}
+
+func BenchmarkNTTMulAcc(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		lhs := randomNTTElement()
+		rhs := randomNTTElement()
+		acc := randomNTTElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := acc
+			nttMontMulAcc(&acc2, &lhs, &rhs)
+		}
+	})
+
+	b.Run("LASX", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		lhs := randomNTTElement()
+		rhs := randomNTTElement()
+		acc := randomNTTElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := acc
+			internalNTTMulAccLASX(&acc2, &lhs, &rhs)
+		}
+	})
+}
+
+func BenchmarkNTTMulAccKeyGen(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		lhs := randomNTTElement()
+		rhs := randomNTTElement()
+		acc := randomNTTElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := acc
+			nttMulAccGeneric(&acc2, &lhs, &rhs)
+		}
+	})
+
+	b.Run("LASX", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		lhs := randomNTTElement()
+		rhs := randomNTTElement()
+		acc := randomNTTElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := acc
+			internalNTTMulAccKeyGenLASX(&acc2, &lhs, &rhs)
+		}
+	})
+}
+
+func BenchmarkLASXRingCompressAndEncode4(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize4]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode4Generic(out[:], &f)
+		}
+	})
+
+	b.Run("LASX", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		f := randomRingElement()
+		var out [encodingSize4]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode4LASX(out[:], &f)
+		}
+	})
+}
+
+func BenchmarkLASXRingDecodeAndDecompress4(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		var in [encodingSize4]byte
+		rand.Read(in[:])
+		var out ringElement
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringDecodeAndDecompress4Generic(&in, &out)
+		}
+	})
+
+	b.Run("LASX", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		var in [encodingSize4]byte
+		rand.Read(in[:])
+		var out ringElement
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringDecodeAndDecompress4LASX(&in, &out)
+		}
+	})
+}
+
+func BenchmarkLASXRingCompressAndEncode1(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize1]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize1)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode1Generic(out[:], &f)
+		}
+	})
+
+	b.Run("LASX", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		f := randomRingElement()
+		var out [encodingSize1]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize1)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode1LASX(out[:], &f)
+		}
+	})
+}
+
+func BenchmarkLASXRingCompressAndEncode5(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize5]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize5)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode(out[:0], &f, 5)
+		}
+	})
+
+	b.Run("LASX", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		f := randomRingElement()
+		var out [encodingSize5]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize5)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode5LASX(out[:], &f)
+		}
+	})
+}
+
+func BenchmarkLASXRingDecodeAndDecompress5(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		var in [encodingSize5]byte
+		rand.Read(in[:])
+		b.ReportAllocs()
+		b.SetBytes(encodingSize5)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringDecodeAndDecompress(in[:], 5)
+		}
+	})
+
+	b.Run("LASX", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		var in [encodingSize5]byte
+		rand.Read(in[:])
+		var out ringElement
+		b.ReportAllocs()
+		b.SetBytes(encodingSize5)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringDecodeAndDecompress5LASX(&in, &out)
+		}
+	})
+}
+
+func BenchmarkLASXRingCompressAndEncode10(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize10]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize10)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode10Generic(out[:], &f)
+		}
+	})
+
+	b.Run("LASX", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		f := randomRingElement()
+		var out [encodingSize10]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize10)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode10LASX(out[:], &f)
+		}
+	})
+}
+
+func BenchmarkLASXRingCompressAndEncode11(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize11]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize11)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode(out[:0], &f, 11)
+		}
+	})
+
+	b.Run("LASX", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		f := randomRingElement()
+		var out [encodingSize11]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize11)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode11LASX(out[:], &f)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// decodeAndDecompressU10/U11 benchmarks
+// ---------------------------------------------------------------------------
+
+func BenchmarkLASXDecodeAndDecompressU10(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		dst := make([]ringElement, k)
+		c := make([]byte, encodingSize10*k)
+		rand.Read(c)
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU10Generic(dst, c)
+		}
+	})
+
+	b.Run("LASX", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		dst := make([]ringElement, k)
+		c := make([]byte, encodingSize10*k)
+		rand.Read(c)
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU10LASX(dst, c)
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		dst := make([]ringElement, k)
+		c := make([]byte, encodingSize10*k)
+		rand.Read(c)
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU10(dst, c)
+		}
+	})
+}
+
+func BenchmarkLASXDecodeAndDecompressU11(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		dst := make([]ringElement, k1024)
+		c := make([]byte, encodingSize11*k1024)
+		rand.Read(c)
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU11Generic(dst, c)
+		}
+	})
+
+	b.Run("LASX", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		dst := make([]ringElement, k1024)
+		c := make([]byte, encodingSize11*k1024)
+		rand.Read(c)
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU11LASX(dst, c)
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		if !useLASX {
+			b.Skip("LASX not available on this machine")
+		}
+		dst := make([]ringElement, k1024)
+		c := make([]byte, encodingSize11*k1024)
+		rand.Read(c)
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU11(dst, c)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Benchmarks
+// ---------------------------------------------------------------------------
+
+func BenchmarkLASXSamplePolyCBD2(b *testing.B) {
+	if !useLASX {
+		b.Skip("LASX not available")
+	}
+	var B [128]byte
+	rand.Read(B[:])
+	var f ringElement
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		samplePolyCBD2LASX(&f, &B)
+	}
+}
+
+func BenchmarkLASXSamplePolyCBD3(b *testing.B) {
+	if !useLASX {
+		b.Skip("LASX not available")
+	}
+	var B [192]byte
+	rand.Read(B[:])
+	var f ringElement
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		samplePolyCBD3LASX(&f, &B)
+	}
+}
+
+func BenchmarkRejUniformLoong64(b *testing.B) {
+	var buf [24]byte
+	rand.Read(buf[:])
+	var a nttElement
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		rejUniformLoong64(buf[:], &a, 0)
+	}
+}

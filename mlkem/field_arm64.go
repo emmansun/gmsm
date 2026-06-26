@@ -312,3 +312,12 @@ func sampleNTT(rho []byte, ii, jj byte) nttElement {
 	}
 	return a
 }
+
+func sampleNTTx4(rho []byte, indices [4][2]byte) [4]nttElement {
+	return [4]nttElement{
+		sampleNTT(rho, indices[0][0], indices[0][1]),
+		sampleNTT(rho, indices[1][0], indices[1][1]),
+		sampleNTT(rho, indices[2][0], indices[2][1]),
+		sampleNTT(rho, indices[3][0], indices[3][1]),
+	}
+}

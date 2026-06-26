@@ -3,12 +3,13 @@ package cfca_test
 import (
 	"crypto/ecdsa"
 	"crypto/rand"
-	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
+
+	x509 "github.com/emmansun/gmsm/smx509"
 
 	"github.com/emmansun/gmsm/cfca"
 	"github.com/emmansun/gmsm/sm2"

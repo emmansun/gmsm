@@ -1,14 +1,17 @@
+// Copyright 2021 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package smx509
 
 import (
 	"bytes"
 	"crypto/dsa"
-	sdkecdh "crypto/ecdh"
+	"crypto/ecdh"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rsa"
-	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/pem"
@@ -24,9 +27,11 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
+	"github.com/emmansun/gmsm/internal/godebug"
 	"github.com/emmansun/gmsm/mldsa"
 	"github.com/emmansun/gmsm/slhdsa"
 	"github.com/emmansun/gmsm/sm2"
+
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 )
@@ -139,8 +144,9 @@ func parseASN1String(tag cryptobyte_asn1.Tag, value []byte) (string, error) {
 	return "", fmt.Errorf("unsupported string type: %v", tag)
 }
 
-// ParseName parses a DER encoded Name as defined in RFC 5280.
-func ParseName(raw cryptobyte.String) (*pkix.RDNSequence, error) {
+// parseName parses a DER encoded Name as defined in RFC 5280. We may
+// want to export this function in the future for use in crypto/tls.
+func parseName(raw cryptobyte.String) (*pkix.RDNSequence, error) {
 	if !raw.ReadASN1(&raw, cryptobyte_asn1.SEQUENCE) {
 		return nil, errors.New("x509: invalid RDNSequence")
 	}
@@ -216,52 +222,11 @@ func parseTime(der *cryptobyte.String) (time.Time, error) {
 }
 
 func parseValidity(der cryptobyte.String) (time.Time, time.Time, error) {
-	extract := func() (time.Time, error) {
-		var t time.Time
-		switch {
-		case der.PeekASN1Tag(cryptobyte_asn1.UTCTime):
-			// TODO(rolandshoemaker): once #45411 is fixed, the following code
-			// should be replaced with a call to der.ReadASN1UTCTime.
-			var utc cryptobyte.String
-			if !der.ReadASN1(&utc, cryptobyte_asn1.UTCTime) {
-				return t, errors.New("x509: malformed UTCTime")
-			}
-			s := string(utc)
-
-			formatStr := "0601021504Z0700"
-			var err error
-			t, err = time.Parse(formatStr, s)
-			if err != nil {
-				formatStr = "060102150405Z0700"
-				t, err = time.Parse(formatStr, s)
-			}
-			if err != nil {
-				return t, err
-			}
-
-			if serialized := t.Format(formatStr); serialized != s {
-				return t, errors.New("x509: malformed UTCTime")
-			}
-
-			if t.Year() >= 2050 {
-				// UTCTime only encodes times prior to 2050. See https://tools.ietf.org/html/rfc5280#section-4.1.2.5.1
-				t = t.AddDate(-100, 0, 0)
-			}
-		case der.PeekASN1Tag(cryptobyte_asn1.GeneralizedTime):
-			if !der.ReadASN1GeneralizedTime(&t) {
-				return t, errors.New("x509: malformed GeneralizedTime")
-			}
-		default:
-			return t, errors.New("x509: unsupported time format")
-		}
-		return t, nil
-	}
-
-	notBefore, err := extract()
+	notBefore, err := parseTime(&der)
 	if err != nil {
 		return time.Time{}, time.Time{}, err
 	}
-	notAfter, err := extract()
+	notAfter, err := parseTime(&der)
 	if err != nil {
 		return time.Time{}, time.Time{}, err
 	}
@@ -325,43 +290,43 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
 	case oid.Equal(oidPublicKeyECDSA):
 		paramsDer := cryptobyte.String(params.FullBytes)
 		namedCurveOID := new(asn1.ObjectIdentifier)
-
-		// Try approach 1: Named curve OID (RFC 5480 - modern standard)
 		if paramsDer.ReadASN1ObjectIdentifier(namedCurveOID) {
 			namedCurve := namedCurveFromOID(*namedCurveOID)
-			if namedCurve != nil {
-				x, y := elliptic.Unmarshal(namedCurve, der)
-				if x == nil {
-					return nil, errors.New("x509: failed to unmarshal elliptic curve point")
-				}
-				pub := &ecdsa.PublicKey{
-					Curve: namedCurve,
-					X:     x,
-					Y:     y,
-				}
-				return pub, nil
+			if namedCurve == nil {
+				return nil, errors.New("x509: unsupported elliptic curve")
 			}
-		}
-		// Try approach 2: Explicit curve parameters (RFC 3279 - legacy format)
-		paramsDer = cryptobyte.String(params.FullBytes) // Reset
-		var explicitParams cryptobyte.String
-		if paramsDer.ReadASN1(&explicitParams, cryptobyte_asn1.SEQUENCE) {
-			curve, err := parseExplicitECParameters(explicitParams)
-			if err == nil {
-				x, y := elliptic.Unmarshal(curve, der)
-				if x == nil {
-					return nil, errors.New("x509: failed to unmarshal elliptic curve point")
-				}
-				pub := &ecdsa.PublicKey{
-					Curve: curve,
-					X:     x,
-					Y:     y,
-				}
-				return pub, nil
+			x, y := elliptic.Unmarshal(namedCurve, der)
+			if x == nil {
+				return nil, errors.New("x509: failed to unmarshal elliptic curve point")
 			}
+			pub := &ecdsa.PublicKey{
+				Curve: namedCurve,
+				X:     x,
+				Y:     y,
+			}
+			return pub, nil
 		}
 
-		return nil, errors.New("x509: invalid ECDSA parameters")
+		// Try to parse as explicit EC parameters
+		explicitDer := cryptobyte.String(params.FullBytes)
+		var explicitParams cryptobyte.String
+		if !explicitDer.ReadASN1(&explicitParams, cryptobyte_asn1.SEQUENCE) {
+			return nil, errors.New("x509: unsupported elliptic curve")
+		}
+		curve, err := parseExplicitECParameters(explicitParams)
+		if err != nil {
+			return nil, errors.New("x509: unsupported elliptic curve")
+		}
+		x, y := elliptic.Unmarshal(curve, der)
+		if x == nil {
+			return nil, errors.New("x509: failed to unmarshal elliptic curve point")
+		}
+		pub := &ecdsa.PublicKey{
+			Curve: curve,
+			X:     x,
+			Y:     y,
+		}
+		return pub, nil
 	case oid.Equal(oidPublicKeySM2):
 		paramsDer := cryptobyte.String(params.FullBytes)
 		namedCurveOID := new(asn1.ObjectIdentifier)
@@ -376,13 +341,8 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
 		if x == nil {
 			return nil, errors.New("x509: failed to unmarshal SM2 curve point")
 		}
-		pub := &ecdsa.PublicKey{
-			Curve: namedCurve,
-			X:     x,
-			Y:     y,
-		}
+		pub := &ecdsa.PublicKey{Curve: namedCurve, X: x, Y: y}
 		return pub, nil
-
 	case oid.Equal(oidPublicKeyEd25519):
 		// RFC 8410, Section 3
 		// > For all of the OIDs, the parameters MUST be absent.
@@ -399,7 +359,7 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
 		if len(params.FullBytes) != 0 {
 			return nil, errors.New("x509: X25519 key encoded with illegal parameters")
 		}
-		return sdkecdh.X25519().NewPublicKey(der)
+		return ecdh.X25519().NewPublicKey(der)
 	case oid.Equal(oidPublicKeyDSA):
 		y := new(big.Int)
 		if !der.ReadASN1Integer(y) {
@@ -440,7 +400,6 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
 			return nil, errors.New("x509: MLDSA87 key encoded with illegal parameters")
 		}
 		return mldsa.NewPublicKey87(der)
-	// SLH-DSA public key parsing per RFC 9909
 	case oid.Equal(oidPublicKeySLHDSASHA2128s):
 		if len(params.FullBytes) != 0 {
 			return nil, errors.New("x509: SLHDSASHA2128s key encoded with illegal parameters")
@@ -531,6 +490,7 @@ func parseBasicConstraintsExtension(der cryptobyte.String) (bool, int, error) {
 			return false, 0, errors.New("x509: invalid basic constraints")
 		}
 	}
+
 	maxPathLen := -1
 	if der.PeekASN1Tag(cryptobyte_asn1.INTEGER) {
 		var mpl uint
@@ -540,7 +500,6 @@ func parseBasicConstraintsExtension(der cryptobyte.String) (bool, int, error) {
 		maxPathLen = int(mpl)
 	}
 
-	// TODO: map out.MaxPathLen to 0 if it has the -1 default value? (Issue 19285)
 	return isCA, maxPathLen, nil
 }
 
@@ -586,10 +545,8 @@ func parseSANExtension(der cryptobyte.String) (dnsNames, emailAddresses []string
 			if err != nil {
 				return fmt.Errorf("x509: cannot parse URI %q: %s", uriStr, err)
 			}
-			if len(uri.Host) > 0 {
-				if _, ok := domainToReverseLabels(uri.Host); !ok {
-					return fmt.Errorf("x509: cannot parse URI %q: invalid domain", uriStr)
-				}
+			if len(uri.Host) > 0 && !domainNameValid(uri.Host, false) {
+				return fmt.Errorf("x509: cannot parse URI %q: invalid domain", uriStr)
 			}
 			uris = append(uris, uri)
 		case nameTypeIP:
@@ -647,8 +604,8 @@ func parseExtKeyUsageExtension(der cryptobyte.String) ([]ExtKeyUsage, []asn1.Obj
 	return extKeyUsages, unknownUsages, nil
 }
 
-func parseCertificatePoliciesExtension(der cryptobyte.String) ([]x509.OID, error) {
-	var oids []x509.OID
+func parseCertificatePoliciesExtension(der cryptobyte.String) ([]OID, error) {
+	var oids []OID
 	seenOIDs := map[string]bool{}
 	if !der.ReadASN1(&der, cryptobyte_asn1.SEQUENCE) {
 		return nil, errors.New("x509: invalid certificate policies")
@@ -669,7 +626,6 @@ func parseCertificatePoliciesExtension(der cryptobyte.String) ([]x509.OID, error
 		}
 		oids = append(oids, oid)
 	}
-
 	return oids, nil
 }
 
@@ -727,9 +683,9 @@ func parseNameConstraintsExtension(out *Certificate, e pkix.Extension) (unhandle
 
 	if !havePermitted && !haveExcluded || len(permitted) == 0 && len(excluded) == 0 {
 		// From RFC 5280, Section 4.2.1.10:
-		//   “either the permittedSubtrees field
+		//   Ã¢â‚¬Å“either the permittedSubtrees field
 		//   or the excludedSubtrees MUST be
-		//   present”
+		//   presentÃ¢â‚¬Â
 		return false, errors.New("x509: empty name constraints extension")
 	}
 
@@ -756,15 +712,7 @@ func parseNameConstraintsExtension(out *Certificate, e pkix.Extension) (unhandle
 					return nil, nil, nil, nil, errors.New("x509: invalid constraint value: " + err.Error())
 				}
 
-				trimmedDomain := domain
-				if len(trimmedDomain) > 0 && trimmedDomain[0] == '.' {
-					// constraints can have a leading
-					// period to exclude the domain
-					// itself, but that's not valid in a
-					// normal domain name.
-					trimmedDomain = trimmedDomain[1:]
-				}
-				if _, ok := domainToReverseLabels(trimmedDomain); !ok {
+				if !domainNameValid(domain, true) {
 					return nil, nil, nil, nil, fmt.Errorf("x509: failed to parse dnsName constraint %q", domain)
 				}
 				dnsNames = append(dnsNames, domain)
@@ -805,12 +753,7 @@ func parseNameConstraintsExtension(out *Certificate, e pkix.Extension) (unhandle
 						return nil, nil, nil, nil, fmt.Errorf("x509: failed to parse rfc822Name constraint %q", constraint)
 					}
 				} else {
-					// Otherwise it's a domain name.
-					domain := constraint
-					if len(domain) > 0 && domain[0] == '.' {
-						domain = domain[1:]
-					}
-					if _, ok := domainToReverseLabels(domain); !ok {
+					if !domainNameValid(constraint, true) {
 						return nil, nil, nil, nil, fmt.Errorf("x509: failed to parse rfc822Name constraint %q", constraint)
 					}
 				}
@@ -826,15 +769,7 @@ func parseNameConstraintsExtension(out *Certificate, e pkix.Extension) (unhandle
 					return nil, nil, nil, nil, fmt.Errorf("x509: failed to parse URI constraint %q: cannot be IP address", domain)
 				}
 
-				trimmedDomain := domain
-				if len(trimmedDomain) > 0 && trimmedDomain[0] == '.' {
-					// constraints can have a leading
-					// period to exclude the domain itself,
-					// but that's not valid in a normal
-					// domain name.
-					trimmedDomain = trimmedDomain[1:]
-				}
-				if _, ok := domainToReverseLabels(trimmedDomain); !ok {
+				if !domainNameValid(domain, true) {
 					return nil, nil, nil, nil, fmt.Errorf("x509: failed to parse URI constraint %q", domain)
 				}
 				uriDomains = append(uriDomains, domain)
@@ -940,23 +875,10 @@ func processExtensions(out *Certificate) error {
 				}
 
 			case 35:
-				// RFC 5280, 4.2.1.1
-				if e.Critical {
-					// Conforming CAs MUST mark this extension as non-critical
-					return errors.New("x509: authority key identifier incorrectly marked critical")
+				out.AuthorityKeyId, err = parseAuthorityKeyIdentifier(e)
+				if err != nil {
+					return err
 				}
-				val := cryptobyte.String(e.Value)
-				var akid cryptobyte.String
-				if !val.ReadASN1(&akid, cryptobyte_asn1.SEQUENCE) {
-					return errors.New("x509: invalid authority key identifier")
-				}
-				if akid.PeekASN1Tag(cryptobyte_asn1.Tag(0).ContextSpecific()) {
-					if !akid.ReadASN1(&akid, cryptobyte_asn1.Tag(0).ContextSpecific()) {
-						return errors.New("x509: invalid authority key identifier")
-					}
-					out.AuthorityKeyId = akid
-				}
-
 			case 36:
 				val := cryptobyte.String(e.Value)
 				if !val.ReadASN1(&val, cryptobyte_asn1.SEQUENCE) {
@@ -991,8 +913,7 @@ func processExtensions(out *Certificate) error {
 				if err != nil {
 					return err
 				}
-			case 14:
-				// RFC 5280, 4.2.1.2
+			case 14: // RFC 5280, 4.2.1.2
 				if e.Critical {
 					// Conforming CAs MUST mark this extension as non-critical
 					return errors.New("x509: subject key identifier incorrectly marked critical")
@@ -1010,11 +931,10 @@ func processExtensions(out *Certificate) error {
 				}
 				out.PolicyIdentifiers = make([]asn1.ObjectIdentifier, 0, len(out.Policies))
 				for _, oid := range out.Policies {
-					if oid, ok := toASN1OID(oid); ok {
+					if oid, ok := oid.toASN1OID(); ok {
 						out.PolicyIdentifiers = append(out.PolicyIdentifiers, oid)
 					}
 				}
-
 			case 33:
 				val := cryptobyte.String(e.Value)
 				if !val.ReadASN1(&val, cryptobyte_asn1.SEQUENCE) {
@@ -1028,7 +948,7 @@ func processExtensions(out *Certificate) error {
 						!s.ReadASN1(&subject, cryptobyte_asn1.OBJECT_IDENTIFIER) {
 						return errors.New("x509: invalid policy mappings extension")
 					}
-					out.PolicyMappings = append(out.PolicyMappings, x509.PolicyMapping{IssuerDomainPolicy: newOID(issuer), SubjectDomainPolicy: newOID(subject)})
+					out.PolicyMappings = append(out.PolicyMappings, PolicyMapping{OID{issuer}, OID{subject}})
 				}
 			case 54:
 				val := cryptobyte.String(e.Value)
@@ -1085,6 +1005,8 @@ func processExtensions(out *Certificate) error {
 	return nil
 }
 
+var x509negativeserial = godebug.New("x509negativeserial")
+
 func parseCertificate(der []byte) (*Certificate, error) {
 	cert := &Certificate{}
 
@@ -1128,11 +1050,13 @@ func parseCertificate(der []byte) (*Certificate, error) {
 	if !tbs.ReadASN1Integer(serial) {
 		return nil, errors.New("x509: malformed serial number")
 	}
-	// we ignore the presence of negative serial numbers because
-	// of their prevalence, despite them being invalid
-	// TODO(rolandshoemaker): revist this decision, there are currently
-	// only 10 trusted certificates with negative serial numbers
-	// according to censys.io.
+	if serial.Sign() == -1 {
+		if x509negativeserial.Value() != "1" {
+			return nil, errors.New("x509: negative serial number")
+		} else {
+			x509negativeserial.IncNonDefault()
+		}
+	}
 	cert.SerialNumber = serial
 
 	var sigAISeq cryptobyte.String
@@ -1160,7 +1084,7 @@ func parseCertificate(der []byte) (*Certificate, error) {
 		return nil, errors.New("x509: malformed issuer")
 	}
 	cert.RawIssuer = issuerSeq
-	issuerRDNs, err := ParseName(issuerSeq)
+	issuerRDNs, err := parseName(issuerSeq)
 	if err != nil {
 		return nil, err
 	}
@@ -1180,7 +1104,7 @@ func parseCertificate(der []byte) (*Certificate, error) {
 		return nil, errors.New("x509: malformed issuer")
 	}
 	cert.RawSubject = subjectSeq
-	subjectRDNs, err := ParseName(subjectSeq)
+	subjectRDNs, err := parseName(subjectSeq)
 	if err != nil {
 		return nil, err
 	}
@@ -1269,6 +1193,10 @@ func parseCertificate(der []byte) (*Certificate, error) {
 }
 
 // ParseCertificate parses a single certificate from the given ASN.1 DER data.
+//
+// Before Go 1.23, ParseCertificate accepted certificates with negative serial
+// numbers. This behavior can be restored by including "x509negativeserial=1" in
+// the GODEBUG environment variable.
 func ParseCertificate(der []byte) (*Certificate, error) {
 	cert, err := parseCertificate(der)
 	if err != nil {
@@ -1277,7 +1205,16 @@ func ParseCertificate(der []byte) (*Certificate, error) {
 	if len(der) != len(cert.Raw) {
 		return nil, errors.New("x509: trailing data")
 	}
-	return cert, err
+	return cert, nil
+}
+
+// ParseCertificatePEM parses a single certificate from the given PEM data.
+func ParseCertificatePEM(data []byte) (*Certificate, error) {
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return nil, errors.New("failed to decode PEM block containing certificate")
+	}
+	return ParseCertificate(block.Bytes)
 }
 
 // ParseCertificates parses one or more certificates from the given ASN.1 DER
@@ -1293,14 +1230,6 @@ func ParseCertificates(der []byte) ([]*Certificate, error) {
 		der = der[len(cert.Raw):]
 	}
 	return certs, nil
-}
-
-func ParseCertificatePEM(data []byte) (*Certificate, error) {
-	block, _ := pem.Decode(data)
-	if block == nil || block.Type != "CERTIFICATE" {
-		return nil, errors.New("x509: failed to decode PEM block containing certificate")
-	}
-	return ParseCertificate(block.Bytes)
 }
 
 // The X.509 standards confusingly 1-indexed the version names, but 0-indexed
@@ -1377,7 +1306,7 @@ func ParseRevocationList(der []byte) (*RevocationList, error) {
 		return nil, errors.New("x509: malformed issuer")
 	}
 	rl.RawIssuer = issuerSeq
-	issuerRDNs, err := ParseName(issuerSeq)
+	issuerRDNs, err := parseName(issuerSeq)
 	if err != nil {
 		return nil, err
 	}
@@ -1400,7 +1329,7 @@ func ParseRevocationList(der []byte) (*RevocationList, error) {
 			return nil, errors.New("x509: malformed crl")
 		}
 		for !revokedSeq.Empty() {
-			rce := x509.RevocationListEntry{}
+			rce := RevocationListEntry{}
 
 			var certSeq cryptobyte.String
 			if !revokedSeq.ReadASN1Element(&certSeq, cryptobyte_asn1.SEQUENCE) {
@@ -1489,4 +1418,63 @@ func ParseRevocationList(der []byte) (*RevocationList, error) {
 	}
 
 	return rl, nil
+}
+
+// domainNameValid is an alloc-less version of the checks that
+// domainToReverseLabels does.
+func domainNameValid(s string, constraint bool) bool {
+	// TODO(#75835): This function omits a number of checks which we
+	// really should be doing to enforce that domain names are valid names per
+	// RFC 1034. We previously enabled these checks, but this broke a
+	// significant number of certificates we previously considered valid, and we
+	// happily create via CreateCertificate (et al). We should enable these
+	// checks, but will need to gate them behind a GODEBUG.
+	//
+	// I have left the checks we previously enabled, noted with "TODO(#75835)" so
+	// that we can easily re-enable them once we unbreak everyone.
+
+	// TODO(#75835): this should only be true for constraints.
+	if len(s) == 0 {
+		return true
+	}
+
+	// Do not allow trailing period (FQDN format is not allowed in SANs or
+	// constraints).
+	if s[len(s)-1] == '.' {
+		return false
+	}
+
+	// TODO(#75835): domains must have at least one label, cannot have
+	// a leading empty label, and cannot be longer than 253 characters.
+	// if len(s) == 0 || (!constraint && s[0] == '.') || len(s) > 253 {
+	// 	return false
+	// }
+
+	lastDot := -1
+	if constraint && s[0] == '.' {
+		s = s[1:]
+	}
+
+	for i := 0; i <= len(s); i++ {
+		if i < len(s) && (s[i] < 33 || s[i] > 126) {
+			// Invalid character.
+			return false
+		}
+		if i == len(s) || s[i] == '.' {
+			labelLen := i
+			if lastDot >= 0 {
+				labelLen -= lastDot + 1
+			}
+			if labelLen == 0 {
+				return false
+			}
+			// TODO(#75835): labels cannot be longer than 63 characters.
+			// if labelLen > 63 {
+			// 	return false
+			// }
+			lastDot = i
+		}
+	}
+
+	return true
 }

@@ -81,20 +81,27 @@
 #define srcPtrLen R4
 #define I R5
 
-// func encryptSm4NiXts(xk *uint32, tweak *[BlockSize]byte, dst, src []byte)
-TEXT ·encryptSm4NiXts(SB),0,$128-64
+// func encryptSm4NiXts(xk *uint32, tweak *[BlockSize]byte, dst, src []byte, isGB bool)
+TEXT ·encryptSm4NiXts(SB),0,$128-65
 	MOVD xk+0(FP), rk
 	MOVD tweak+8(FP), twPtr
 	MOVD dst+16(FP), dstPtr
 	MOVD src+40(FP), srcPtr
 	MOVD src_len+48(FP), srcPtrLen
+	MOVBU isGB+64(FP), R15
 
 	VEOR	POLY.B16, POLY.B16, POLY.B16
 	VEOR	ZERO.B16, ZERO.B16, ZERO.B16
 
+	CBNZ	R15, enc_init_poly_gb
 	MOVD	$0x87, I
 	VMOV	I, POLY.D[0]
-
+	B enc_init_poly_done
+enc_init_poly_gb:
+	MOVD	$0xE1, I
+	LSL	$56, I
+	VMOV	I, POLY.D[1]
+enc_init_poly_done:	
 	// For SM4 round keys are stored in: RK0 .. RK7
 	VLD1.P	64(rk), [RK0.S4, RK1.S4, RK2.S4, RK3.S4]
 	VLD1.P	64(rk), [RK4.S4, RK5.S4, RK6.S4, RK7.S4]
@@ -102,30 +109,39 @@ TEXT ·encryptSm4NiXts(SB),0,$128-64
 	VLD1 (twPtr), [TW.B16]
 
 xtsSm4EncOctets:
-	CMP	$128, srcPtrLen
-	BLT	xtsSm4EncSingles
-	SUB	$128, srcPtrLen
-	prepare8Tweaks
-	load8blocks
-	sm4eEnc8blocks()
-	store8blocks
+		CMP	$128, srcPtrLen
+		BLT	xtsSm4EncSingles
+		SUB	$128, srcPtrLen
+		CBNZ	R15, enc_8tweaks_gb
+		prepare8Tweaks
+		B enc_8tweaks_done
+	enc_8tweaks_gb:
+		prepareGB8Tweaks
+	enc_8tweaks_done:	
+		load8blocks
+		sm4eEnc8blocks()
+		store8blocks
 
-	B	xtsSm4EncOctets
+		B	xtsSm4EncOctets
 
 xtsSm4EncSingles:
-	CMP	$16, srcPtrLen
-	BLT	xtsSm4EncTail
-	SUB	$16, srcPtrLen
+		CMP	$16, srcPtrLen
+		BLT	xtsSm4EncTail
+		SUB	$16, srcPtrLen
 
-	VLD1.P 16(srcPtr), [B0.S4]
-	VEOR TW.B16, B0.B16, B0.B16
-	VREV32 B0.B16, B0.B16
-	sm4eEnc1block()
-	VEOR TW.B16, B0.B16, B0.B16
-	VST1.P [B0.S4], 16(dstPtr)
-
-	mul2Inline
-	B xtsSm4EncSingles
+		VLD1.P 16(srcPtr), [B0.S4]
+		VEOR TW.B16, B0.B16, B0.B16
+		VREV32 B0.B16, B0.B16
+		sm4eEnc1block()
+		VEOR TW.B16, B0.B16, B0.B16
+		VST1.P [B0.S4], 16(dstPtr)
+		CBNZ	R15, enc_mul2_gb
+		mul2Inline
+		B xtsSm4EncSingles
+	enc_mul2_gb:
+		mul2GBInline
+	enc_mul2_done:
+		B xtsSm4EncSingles
 
 xtsSm4EncTail:
 	CBZ	srcPtrLen, xtsSm4EncDone
@@ -174,233 +190,27 @@ xtsSm4EncDone:
 	VST1 [TW.B16], (twPtr)
 	RET
 
-// func encryptSm4NiXtsGB(xk *uint32, tweak *[BlockSize]byte, dst, src []byte)
-TEXT ·encryptSm4NiXtsGB(SB),0,$128-64
+// func decryptSm4NiXts(xk *uint32, tweak *[BlockSize]byte, dst, src []byte, isGB bool)
+TEXT ·decryptSm4NiXts(SB),0,$128-65
 	MOVD xk+0(FP), rk
 	MOVD tweak+8(FP), twPtr
 	MOVD dst+16(FP), dstPtr
 	MOVD src+40(FP), srcPtr
 	MOVD src_len+48(FP), srcPtrLen
+	MOVBU isGB+64(FP), R15
 
 	VEOR	POLY.B16, POLY.B16, POLY.B16
 	VEOR	ZERO.B16, ZERO.B16, ZERO.B16
 
-	MOVD	$0xE1, I
-	LSL	$56, I
-	VMOV	I, POLY.D[1]
-
-	// For SM4 round keys are stored in: RK0 .. RK7
-	VLD1.P	64(rk), [RK0.S4, RK1.S4, RK2.S4, RK3.S4]
-	VLD1.P	64(rk), [RK4.S4, RK5.S4, RK6.S4, RK7.S4]
-
-	VLD1 (twPtr), [TW.B16]
-
-xtsSm4EncOctets:
-	CMP	$128, srcPtrLen
-	BLT	xtsSm4EncSingles
-	SUB	$128, srcPtrLen
-	prepareGB8Tweaks
-	load8blocks
-	sm4eEnc8blocks()
-	store8blocks
-
-	B	xtsSm4EncOctets
-
-xtsSm4EncSingles:
-	CMP	$16, srcPtrLen
-	BLT	xtsSm4EncTail
-	SUB	$16, srcPtrLen
-
-	VLD1.P 16(srcPtr), [B0.S4]
-	VEOR TW.B16, B0.B16, B0.B16
-	VREV32 B0.B16, B0.B16
-	sm4eEnc1block()
-	VEOR TW.B16, B0.B16, B0.B16
-	VST1.P [B0.S4], 16(dstPtr)
-
-	mul2GBInline
-	B xtsSm4EncSingles
-
-xtsSm4EncTail:
-	CBZ	srcPtrLen, xtsSm4EncDone
-	SUB $16, dstPtr, R7
-	MOVD R7, R9
-	MOVD RSP, R8
-	VLD1 (R7), [B0.B16]
-	VST1 [B0.B16], (R8)
-
-	TBZ	$3, srcPtrLen, less_than8
-	MOVD.P 8(srcPtr), R11
-	MOVD.P R11, 8(R8)
-	MOVD.P 8(R7), R12
-	MOVD.P R12, 8(dstPtr)
-
-less_than8:
-	TBZ	$2, srcPtrLen, less_than4
-	MOVWU.P 4(srcPtr), R11
-	MOVWU.P R11, 4(R8)
-	MOVWU.P 4(R7), R12
-	MOVWU.P R12, 4(dstPtr)
-
-less_than4:
-	TBZ	$1, srcPtrLen, less_than2
-	MOVHU.P 2(srcPtr), R11
-	MOVHU.P R11, 2(R8)
-	MOVHU.P 2(R7), R12
-	MOVHU.P R12, 2(dstPtr)
-
-less_than2:
-	TBZ	$0, srcPtrLen, xtsSm4EncTailEnc
-	MOVBU (srcPtr), R11
-	MOVBU R11, (R8)
-	MOVBU (R7), R12
-	MOVBU R12, (dstPtr)
-
-xtsSm4EncTailEnc:
-	VLD1 (RSP), [B0.B16]
-	VEOR TW.B16, B0.B16, B0.B16
-	VREV32 B0.B16, B0.B16
-	sm4eEnc1block()
-	VEOR TW.B16, B0.B16, B0.B16
-	VST1 [B0.B16], (R9)
-
-xtsSm4EncDone:
-	VST1 [TW.B16], (twPtr)
-    RET
-
-// func decryptSm4NiXts(xk *uint32, tweak *[BlockSize]byte, dst, src []byte)
-TEXT ·decryptSm4NiXts(SB),0,$128-64
-	MOVD xk+0(FP), rk
-	MOVD tweak+8(FP), twPtr
-	MOVD dst+16(FP), dstPtr
-	MOVD src+40(FP), srcPtr
-	MOVD src_len+48(FP), srcPtrLen
-
-	VEOR	POLY.B16, POLY.B16, POLY.B16
-	VEOR	ZERO.B16, ZERO.B16, ZERO.B16
-
+	CBNZ	R15, dec_init_poly_gb
 	MOVD	$0x87, I
 	VMOV	I, POLY.D[0]
-
-	// For SM4 round keys are stored in: RK0 .. RK7
-	VLD1.P	64(rk), [RK0.S4, RK1.S4, RK2.S4, RK3.S4]
-	VLD1.P	64(rk), [RK4.S4, RK5.S4, RK6.S4, RK7.S4]
-
-	VLD1 (twPtr), [TW.B16]
-
-xtsSm4DecOctets:
-	CMP	$128, srcPtrLen
-	BLT	xtsSm4DecSingles
-	SUB	$128, srcPtrLen
-
-	prepare8Tweaks
-	load8blocks
-	sm4eEnc8blocks()
-	store8blocks
-
-	B xtsSm4DecOctets
-
-xtsSm4DecSingles:
-	CMP	$32, srcPtrLen
-	BLT	xtsSm4DecTail
-	SUB	$16, srcPtrLen
-
-	VLD1.P 16(srcPtr), [B0.S4]
-	VEOR TW.B16, B0.B16, B0.B16
-	VREV32 B0.B16, B0.B16
-	sm4eEnc1block()
-	VEOR TW.B16, B0.B16, B0.B16
-	VST1.P [B0.S4], 16(dstPtr)
-
-	mul2Inline
-	B xtsSm4DecSingles
-
-xtsSm4DecTail:
-	CBZ	srcPtrLen, xtsSm4DecDone
-	
-	CMP	$16, srcPtrLen
-	BEQ xtsSm4DecLastBlock
-
-	VMOV TW.B16, B4.B16
-	mul2Inline
-	VLD1.P 16(srcPtr), [B0.S4]
-	VEOR TW.B16, B0.B16, B0.B16
-	VREV32 B0.B16, B0.B16
-	sm4eEnc1block()
-	VEOR TW.B16, B0.B16, B0.B16
-	VST1.P [B0.S4], 16(dstPtr)
-	VMOV B4.B16, TW.B16
-	VST1 [B0.B16], (RSP)
-
-	SUB $16, dstPtr, R7
-	MOVD R7, R9
-	MOVD RSP, R8
-
-	TBZ	$3, srcPtrLen, less_than8
-	MOVD.P 8(srcPtr), R11
-	MOVD.P R11, 8(R8)
-	MOVD.P 8(R7), R12
-	MOVD.P R12, 8(dstPtr)
-
-less_than8:
-	TBZ	$2, srcPtrLen, less_than4
-	MOVWU.P 4(srcPtr), R11
-	MOVWU.P R11, 4(R8)
-	MOVWU.P 4(R7), R12
-	MOVWU.P R12, 4(dstPtr)
-
-less_than4:
-	TBZ	$1, srcPtrLen, less_than2
-	MOVHU.P 2(srcPtr), R11
-	MOVHU.P R11, 2(R8)
-	MOVHU.P 2(R7), R12
-	MOVHU.P R12, 2(dstPtr)
-
-less_than2:
-	TBZ	$0, srcPtrLen, xtsSm4DecTailDec
-	MOVBU (srcPtr), R11
-	MOVBU R11, (R8)
-	MOVBU (R7), R12
-	MOVBU R12, (dstPtr)
-
-xtsSm4DecTailDec:
-	VLD1 (RSP), [B0.B16]
-	VEOR TW.B16, B0.B16, B0.B16
-	VREV32 B0.B16, B0.B16
-	sm4eEnc1block()
-	VEOR TW.B16, B0.B16, B0.B16
-	VST1 [B0.B16], (R9)
-
-	B xtsSm4DecDone
-
-xtsSm4DecLastBlock:
-	VLD1.P 16(srcPtr), [B0.S4]
-	VEOR TW.B16, B0.B16, B0.B16
-	VREV32 B0.B16, B0.B16
-	sm4eEnc1block()
-	VEOR TW.B16, B0.B16, B0.B16
-	VST1.P [B0.S4], 16(dstPtr)
-	mul2Inline
-
-xtsSm4DecDone:
-	VST1 [TW.B16], (twPtr)
-    RET
-
-// func decryptSm4NiXtsGB(xk *uint32, tweak *[BlockSize]byte, dst, src []byte)
-TEXT ·decryptSm4NiXtsGB(SB),0,$128-64
-	MOVD xk+0(FP), rk
-	MOVD tweak+8(FP), twPtr
-	MOVD dst+16(FP), dstPtr
-	MOVD src+40(FP), srcPtr
-	MOVD src_len+48(FP), srcPtrLen
-
-	VEOR	POLY.B16, POLY.B16, POLY.B16
-	VEOR	ZERO.B16, ZERO.B16, ZERO.B16
-
+	B dec_init_poly_done
+dec_init_poly_gb:
 	MOVD	$0xE1, I
 	LSL	$56, I
 	VMOV	I, POLY.D[1]
-
+dec_init_poly_done:
 	// For SM4 round keys are stored in: RK0 .. RK7
 	VLD1.P	64(rk), [RK0.S4, RK1.S4, RK2.S4, RK3.S4]
 	VLD1.P	64(rk), [RK4.S4, RK5.S4, RK6.S4, RK7.S4]
@@ -408,31 +218,39 @@ TEXT ·decryptSm4NiXtsGB(SB),0,$128-64
 	VLD1 (twPtr), [TW.B16]
 
 xtsSm4DecOctets:
-	CMP	$128, srcPtrLen
-	BLT	xtsSm4DecSingles
-	SUB	$128, srcPtrLen
+		CMP	$128, srcPtrLen
+		BLT	xtsSm4DecSingles
+		SUB	$128, srcPtrLen
+		CBNZ	R15, dec_8tweaks_gb
+		prepare8Tweaks
+		B dec_8tweaks_done
+	dec_8tweaks_gb:
+		prepareGB8Tweaks
+	dec_8tweaks_done:
+		load8blocks
+		sm4eEnc8blocks()
+		store8blocks
 
-	prepareGB8Tweaks
-	load8blocks
-	sm4eEnc8blocks()
-	store8blocks
-
-	B xtsSm4DecOctets
+		B xtsSm4DecOctets
 
 xtsSm4DecSingles:
-	CMP	$32, srcPtrLen
-	BLT	xtsSm4DecTail
-	SUB	$16, srcPtrLen
+		CMP	$32, srcPtrLen
+		BLT	xtsSm4DecTail
+		SUB	$16, srcPtrLen
 
-	VLD1.P 16(srcPtr), [B0.S4]
-	VEOR TW.B16, B0.B16, B0.B16
-	VREV32 B0.B16, B0.B16
-	sm4eEnc1block()
-	VEOR TW.B16, B0.B16, B0.B16
-	VST1.P [B0.S4], 16(dstPtr)
+		VLD1.P 16(srcPtr), [B0.S4]
+		VEOR TW.B16, B0.B16, B0.B16
+		VREV32 B0.B16, B0.B16
+		sm4eEnc1block()
+		VEOR TW.B16, B0.B16, B0.B16
+		VST1.P [B0.S4], 16(dstPtr)
 
-	mul2GBInline
-	B xtsSm4DecSingles
+		CBNZ	R15, dec_mul2_gb
+		mul2Inline
+		B xtsSm4DecSingles
+	dec_mul2_gb:
+		mul2GBInline
+		B xtsSm4DecSingles
 
 xtsSm4DecTail:
 	CBZ	srcPtrLen, xtsSm4DecDone
@@ -441,7 +259,12 @@ xtsSm4DecTail:
 	BEQ xtsSm4DecLastBlock
 
 	VMOV TW.B16, B4.B16
+	CBNZ	R15, dec_mul2_gb_tail
+	mul2Inline
+	B dec_mul2_done_tail
+dec_mul2_gb_tail:
 	mul2GBInline
+dec_mul2_done_tail:
 	VLD1.P 16(srcPtr), [B0.S4]
 	VEOR TW.B16, B0.B16, B0.B16
 	VREV32 B0.B16, B0.B16
@@ -499,6 +322,10 @@ xtsSm4DecLastBlock:
 	sm4eEnc1block()
 	VEOR TW.B16, B0.B16, B0.B16
 	VST1.P [B0.S4], 16(dstPtr)
+	CBNZ	R15, dec_mul2_gb_last
+	mul2Inline
+	B xtsSm4DecDone
+dec_mul2_gb_last:
 	mul2GBInline
 
 xtsSm4DecDone:

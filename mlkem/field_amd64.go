@@ -10,6 +10,7 @@ import (
 	"crypto/sha3"
 
 	"github.com/emmansun/gmsm/internal/deps/cpu"
+	"github.com/emmansun/gmsm/internal/keccakx4"
 )
 
 var useAVX2 = cpu.X86.HasAVX2
@@ -405,4 +406,33 @@ func sampleNTT(rho []byte, ii, jj byte) nttElement {
 		}
 	}
 	return a
+}
+
+func sampleNTTx4(rho []byte, indices [4][2]byte) [4]nttElement {
+	var xof keccakx4.SHAKE128x4
+	xof.AbsorbSeed(rho, indices)
+
+	var results [4]nttElement
+	var j [4]int
+	var batch [4][168]byte
+
+	for {
+		xof.Squeeze(batch[0][:], batch[1][:], batch[2][:], batch[3][:])
+		allDone := true
+		for lane := range 4 {
+			if j[lane] >= n {
+				continue
+			}
+			for off := 0; off < 168 && j[lane] < n; off += 24 {
+				j[lane] += rejUniformAMD64(batch[lane][off:off+24], &results[lane], j[lane])
+			}
+			if j[lane] < n {
+				allDone = false
+			}
+		}
+		if allDone {
+			break
+		}
+	}
+	return results
 }

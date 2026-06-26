@@ -3,9 +3,31 @@
 // license that can be found in the LICENSE file.
 
 // Package godebug parses the GODEBUG environment variable.
+// based on the Go 1.19 implementation.
 package godebug
 
 import "os"
+
+// Setting represents one GODEBUG setting.
+type Setting struct {
+	name string
+}
+
+// New returns a new Setting for the provided GODEBUG key.
+func New(name string) *Setting {
+	return &Setting{name: name}
+}
+
+// Value returns the current value for the setting.
+func (s *Setting) Value() string {
+	if s == nil {
+		return ""
+	}
+	return Get(s.name)
+}
+
+// IncNonDefault is kept for compatibility with the stdlib API.
+func (s *Setting) IncNonDefault() {}
 
 // Get returns the value for the provided GODEBUG key.
 func Get(key string) string {

@@ -7,7 +7,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/x509"
+	x509 "github.com/emmansun/gmsm/smx509"
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"

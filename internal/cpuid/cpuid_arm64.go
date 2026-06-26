@@ -7,5 +7,6 @@ import "github.com/emmansun/gmsm/internal/deps/cpu"
 var (
     HasAES     = cpu.ARM64.HasAES
     HasGFMUL   = cpu.ARM64.HasPMULL
+    HasGFNI = false
     HasVPMSUMD = false
 )

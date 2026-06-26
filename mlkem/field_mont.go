@@ -77,6 +77,15 @@ func nttMontMulAcc(acc, lhs, rhs *nttElement) {
 	}
 }
 
+func nttMontMul(out, lhs, rhs *nttElement) {
+	for i := 0; i < 256; i += 2 {
+		a0, a1 := lhs[i], lhs[i+1]
+		b0, b1 := rhs[i], rhs[i+1]
+		out[i] = fieldAddMontMul(a0, b0, fieldMontMul(a1, b1), gammasMontgomery[i/2])
+		out[i+1] = fieldAddMontMul(a0, b1, a1, b0)
+	}
+}
+
 func internalMontNTT(f *ringElement) {
 	k := 1
 	for len := 128; len >= 2; len /= 2 {

@@ -3,7 +3,6 @@ package smx509
 import (
 	"crypto"
 	"crypto/rand"
-	"crypto/x509"
 	"crypto/x509/pkix"
 	"math/big"
 	"testing"
@@ -350,7 +349,7 @@ func TestCreateMLDSA44CertificateRequest(t *testing.T) {
 	}
 
 	// Create CSR template
-	template := &x509.CertificateRequest{
+	template := &CertificateRequest{
 		Subject: pkix.Name{
 			CommonName:   "ML-DSA-44 CSR Test",
 			Organization: []string{"Test Org"},
@@ -411,7 +410,7 @@ func TestCreateMLDSA65CertificateRequest(t *testing.T) {
 	}
 
 	// Create CSR template
-	template := &x509.CertificateRequest{
+	template := &CertificateRequest{
 		Subject: pkix.Name{
 			CommonName:   "ML-DSA-65 CSR Test",
 			Organization: []string{"Test Org"},
@@ -454,7 +453,7 @@ func TestCreateMLDSA87CertificateRequest(t *testing.T) {
 	}
 
 	// Create CSR template
-	template := &x509.CertificateRequest{
+	template := &CertificateRequest{
 		Subject: pkix.Name{
 			CommonName:   "ML-DSA-87 CSR Test",
 			Organization: []string{"Test Org"},
@@ -522,7 +521,7 @@ func TestCreateMLDSA44RevocationList(t *testing.T) {
 
 	// Create CRL template
 	now := time.Now()
-	revokedCerts := []x509.RevocationListEntry{
+	revokedCerts := []RevocationListEntry{
 		{
 			SerialNumber:   big.NewInt(100),
 			RevocationTime: now.Add(-24 * time.Hour),
@@ -535,7 +534,7 @@ func TestCreateMLDSA44RevocationList(t *testing.T) {
 		},
 	}
 
-	crlTemplate := &x509.RevocationList{
+	crlTemplate := &RevocationList{
 		Number:                    big.NewInt(1),
 		ThisUpdate:                now,
 		NextUpdate:                now.Add(7 * 24 * time.Hour),
@@ -603,7 +602,7 @@ func TestCreateMLDSA65RevocationList(t *testing.T) {
 
 	// Create CRL template
 	now := time.Now()
-	crlTemplate := &x509.RevocationList{
+	crlTemplate := &RevocationList{
 		Number:     big.NewInt(1),
 		ThisUpdate: now,
 		NextUpdate: now.Add(7 * 24 * time.Hour),
@@ -665,7 +664,7 @@ func TestCreateMLDSA87RevocationList(t *testing.T) {
 
 	// Create CRL template
 	now := time.Now()
-	crlTemplate := &x509.RevocationList{
+	crlTemplate := &RevocationList{
 		Number:     big.NewInt(1),
 		ThisUpdate: now,
 		NextUpdate: now.Add(7 * 24 * time.Hour),

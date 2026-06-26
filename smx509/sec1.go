@@ -1,6 +1,11 @@
+// Copyright 2012 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package smx509
 
 import (
+	"crypto/ecdh"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"encoding/asn1"
@@ -8,7 +13,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/emmansun/gmsm/ecdh"
 	"github.com/emmansun/gmsm/sm2"
 )
 
@@ -16,8 +20,10 @@ const ecPrivKeyVersion = 1
 
 // ecPrivateKey reflects an ASN.1 Elliptic Curve Private Key Structure.
 // References:
-//   RFC 5915
-//   SEC1 - http://www.secg.org/sec1-v2.pdf
+//
+//	RFC 5915
+//	SEC1 - http://www.secg.org/sec1-v2.pdf
+//
 // Per RFC 5915 the NamedCurveOID is marked as ASN.1 OPTIONAL, however in
 // most cases it is not.
 type ecPrivateKey struct {
@@ -46,8 +52,6 @@ func ParseSM2PrivateKey(der []byte) (*sm2.PrivateKey, error) {
 // ParseTypedECPrivateKey parses an EC private key in SEC 1, ASN.1 DER form.
 //
 // It returns a *ecdsa.PrivateKey or a *sm2.PrivateKey.
-//
-// This kind of key is commonly encoded in PEM blocks of type "EC PRIVATE KEY".
 func ParseTypedECPrivateKey(der []byte) (any, error) {
 	key, err := parseECPrivateKey(nil, der)
 	if err != nil {
@@ -63,7 +67,7 @@ func ParseTypedECPrivateKey(der []byte) (any, error) {
 //
 // This kind of key is commonly encoded in PEM blocks of type "EC PRIVATE KEY".
 // For a more flexible key format which is not EC specific, use
-// MarshalPKCS8PrivateKey.
+// [MarshalPKCS8PrivateKey].
 func MarshalECPrivateKey(key *ecdsa.PrivateKey) ([]byte, error) {
 	oid, ok := oidFromNamedCurve(key.Curve)
 	if !ok {
@@ -73,12 +77,12 @@ func MarshalECPrivateKey(key *ecdsa.PrivateKey) ([]byte, error) {
 	return marshalECPrivateKeyWithOID(key, oid)
 }
 
-// MarshalSM2PrivateKey convient method to marshal sm2 private key directly
+// MarshalSM2PrivateKey convenient method to marshal sm2 private key directly.
 func MarshalSM2PrivateKey(key *sm2.PrivateKey) ([]byte, error) {
 	return MarshalECPrivateKey(&key.PrivateKey)
 }
 
-// marshalECPrivateKey marshals an EC private key into ASN.1, DER format and
+// marshalECPrivateKeyWithOID marshals an EC private key into ASN.1, DER format and
 // sets the curve ID to the given OID, or omits it if OID is nil.
 func marshalECPrivateKeyWithOID(key *ecdsa.PrivateKey, oid asn1.ObjectIdentifier) ([]byte, error) {
 	if !key.Curve.IsOnCurve(key.X, key.Y) {
@@ -90,6 +94,16 @@ func marshalECPrivateKeyWithOID(key *ecdsa.PrivateKey, oid asn1.ObjectIdentifier
 		PrivateKey:    key.D.FillBytes(privateKey),
 		NamedCurveOID: oid,
 		PublicKey:     asn1.BitString{Bytes: elliptic.Marshal(key.Curve, key.X, key.Y)},
+	})
+}
+
+// marshalECDHPrivateKey marshals an EC private key into ASN.1, DER format
+// suitable for NIST curves.
+func marshalECDHPrivateKey(key *ecdh.PrivateKey) ([]byte, error) {
+	return asn1.Marshal(ecPrivateKey{
+		Version:    1,
+		PrivateKey: key.Bytes(),
+		PublicKey:  asn1.BitString{Bytes: key.PublicKey().Bytes()},
 	})
 }
 
@@ -149,14 +163,4 @@ func parseECPrivateKey(namedCurveOID *asn1.ObjectIdentifier, der []byte) (key *e
 	priv.X, priv.Y = curve.ScalarBaseMult(privateKey)
 
 	return priv, nil
-}
-
-// marshalECDHPrivateKey marshals an EC private key into ASN.1, DER format
-// suitable for SM2 curve.
-func marshalECDHPrivateKey(key *ecdh.PrivateKey) ([]byte, error) {
-	return asn1.Marshal(ecPrivateKey{
-		Version:    1,
-		PrivateKey: key.Bytes(),
-		PublicKey:  asn1.BitString{Bytes: key.PublicKey().Bytes()},
-	})
 }

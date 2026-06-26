@@ -195,9 +195,20 @@ func kemKeyGen512(dk *DecapsulationKey512, d, z *[32]byte) {
 	dk.ρ = [32]byte(ρ)
 
 	A := &dk.a
-	for i := range byte(k512) {
-		for j := range byte(k512) {
-			A[i*k512+j] = sampleNTT(ρ, j, i)
+	{
+		total := k512 * k512
+		idx := 0
+		for ; idx+4 <= total; idx += 4 {
+			var indices [4][2]byte
+			for b := range 4 {
+				elem := idx + b
+				indices[b] = [2]byte{byte(elem % k512), byte(elem / k512)}
+			}
+			res := sampleNTTx4(ρ, indices)
+			A[idx], A[idx+1], A[idx+2], A[idx+3] = res[0], res[1], res[2], res[3]
+		}
+		for ; idx < total; idx++ {
+			A[idx] = sampleNTT(ρ, byte(idx%k512), byte(idx/k512))
 		}
 	}
 
@@ -301,9 +312,20 @@ func parseEK512(ek *EncapsulationKey512, ekPKE []byte) (*EncapsulationKey512, er
 	}
 	copy(ek.ρ[:], ekPKE)
 
-	for i := range byte(k512) {
-		for j := range byte(k512) {
-			ek.a[i*k512+j] = sampleNTT(ek.ρ[:], j, i)
+	{
+		total := k512 * k512
+		idx := 0
+		for ; idx+4 <= total; idx += 4 {
+			var indices [4][2]byte
+			for b := range 4 {
+				elem := idx + b
+				indices[b] = [2]byte{byte(elem % k512), byte(elem / k512)}
+			}
+			res := sampleNTTx4(ek.ρ[:], indices)
+			ek.a[idx], ek.a[idx+1], ek.a[idx+2], ek.a[idx+3] = res[0], res[1], res[2], res[3]
+		}
+		for ; idx < total; idx++ {
+			ek.a[idx] = sampleNTT(ek.ρ[:], byte(idx%k512), byte(idx/k512))
 		}
 	}
 

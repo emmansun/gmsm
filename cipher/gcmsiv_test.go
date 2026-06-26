@@ -1,0 +1,284 @@
+// Copyright 2026 Sun Yimin. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
+package cipher_test
+
+import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/des"
+	"encoding/binary"
+	"encoding/hex"
+	"fmt"
+	"testing"
+
+	gmsmcipher "github.com/emmansun/gmsm/cipher"
+)
+
+func TestNewGCMSIVRejectsNilConstructor(t *testing.T) {
+	if _, err := gmsmcipher.NewGCMSIV(nil, make([]byte, 16)); err == nil {
+		t.Fatal("NewGCMSIV(nil constructor) should fail")
+	}
+}
+
+func TestNewGCMSIVRejectsInvalidKeySize(t *testing.T) {
+	if _, err := gmsmcipher.NewGCMSIV(des.NewCipher, make([]byte, 8)); err == nil {
+		t.Fatal("NewGCMSIV should reject invalid key size")
+	}
+	if _, err := gmsmcipher.NewGCMSIV(des.NewCipher, make([]byte, 24)); err == nil {
+		t.Fatal("NewGCMSIV should reject invalid key size")
+	}
+}
+
+func TestNewGCMSIVRejectsNon128BitBlock(t *testing.T) {
+	if _, err := gmsmcipher.NewGCMSIV(func(key []byte) (cipher.Block, error) {
+		return des.NewCipher(key[:8])
+	}, make([]byte, 16)); err == nil {
+		t.Fatal("NewGCMSIV should reject non-128-bit block ciphers")
+	}
+}
+
+type gcmSIVVector struct {
+	name  string
+	key   string
+	nonce string
+	aad   string
+	plain string
+	out   string
+}
+
+func TestGCMSIV_RFC8452Vectors(t *testing.T) {
+	// These vectors are the full RFC 8452 Appendix C set (C.1, C.2, and C.3).
+	vectors := []gcmSIVVector{
+		{name: "aes128-1", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "", plain: "", out: "dc20e2d83f25705bb49e439eca56de25"},
+		{name: "aes128-2", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "", plain: "0100000000000000", out: "b5d839330ac7b786578782fff6013b815b287c22493a364c"},
+		{name: "aes128-3", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "", plain: "010000000000000000000000", out: "7323ea61d05932260047d942a4978db357391a0bc4fdec8b0d106639"},
+		{name: "aes128-4", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "", plain: "01000000000000000000000000000000", out: "743f7c8077ab25f8624e2e948579cf77303aaf90f6fe21199c6068577437a0c4"},
+		{name: "aes128-5", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "", plain: "0100000000000000000000000000000002000000000000000000000000000000", out: "84e07e62ba83a6585417245d7ec413a9fe427d6315c09b57ce45f2e3936a94451a8e45dcd4578c667cd86847bf6155ff"},
+		{name: "aes128-6", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "", plain: "010000000000000000000000000000000200000000000000000000000000000003000000000000000000000000000000", out: "3fd24ce1f5a67b75bf2351f181a475c7b800a5b4d3dcf70106b1eea82fa1d64df42bf7226122fa92e17a40eeaac1201b5e6e311dbf395d35b0fe39c2714388f8"},
+		{name: "aes128-7", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "", plain: "01000000000000000000000000000000020000000000000000000000000000000300000000000000000000000000000004000000000000000000000000000000", out: "2433668f1058190f6d43e360f4f35cd8e475127cfca7028ea8ab5c20f7ab2af02516a2bdcbc08d521be37ff28c152bba36697f25b4cd169c6590d1dd39566d3f8a263dd317aa88d56bdf3936dba75bb8"},
+		{name: "aes128-8", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "01", plain: "0200000000000000", out: "1e6daba35669f4273b0a1a2560969cdf790d99759abd1508"},
+		{name: "aes128-9", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "01", plain: "020000000000000000000000", out: "296c7889fd99f41917f4462008299c5102745aaa3a0c469fad9e075a"},
+		{name: "aes128-10", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "01", plain: "02000000000000000000000000000000", out: "e2b0c5da79a901c1745f700525cb335b8f8936ec039e4e4bb97ebd8c4457441f"},
+		{name: "aes128-11", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "01", plain: "0200000000000000000000000000000003000000000000000000000000000000", out: "620048ef3c1e73e57e02bb8562c416a319e73e4caac8e96a1ecb2933145a1d71e6af6a7f87287da059a71684ed3498e1"},
+		{name: "aes128-12", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "01", plain: "020000000000000000000000000000000300000000000000000000000000000004000000000000000000000000000000", out: "50c8303ea93925d64090d07bd109dfd9515a5a33431019c17d93465999a8b0053201d723120a8562b838cdff25bf9d1e6a8cc3865f76897c2e4b245cf31c51f2"},
+		{name: "aes128-13", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "01", plain: "02000000000000000000000000000000030000000000000000000000000000000400000000000000000000000000000005000000000000000000000000000000", out: "2f5c64059db55ee0fb847ed513003746aca4e61c711b5de2e7a77ffd02da42feec601910d3467bb8b36ebbaebce5fba30d36c95f48a3e7980f0e7ac299332a80cdc46ae475563de037001ef84ae21744"},
+		{name: "aes128-14", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "010000000000000000000000", plain: "02000000", out: "a8fe3e8707eb1f84fb28f8cb73de8e99e2f48a14"},
+		{name: "aes128-15", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "010000000000000000000000000000000200", plain: "0300000000000000000000000000000004000000", out: "6bb0fecf5ded9b77f902c7d5da236a4391dd029724afc9805e976f451e6d87f6fe106514"},
+		{name: "aes128-16", key: "01000000000000000000000000000000", nonce: "030000000000000000000000", aad: "0100000000000000000000000000000002000000", plain: "030000000000000000000000000000000400", out: "44d0aaf6fb2f1f34add5e8064e83e12a2adabff9b2ef00fb47920cc72a0c0f13b9fd"},
+		{name: "aes128-17", key: "e66021d5eb8e4f4066d4adb9c33560e4", nonce: "f46e44bb3da0015c94f70887", aad: "", plain: "", out: "a4194b79071b01a87d65f706e3949578"},
+		{name: "aes128-18", key: "36864200e0eaf5284d884a0e77d31646", nonce: "bae8e37fc83441b16034566b", aad: "46bb91c3c5", plain: "7a806c", out: "af60eb711bd85bc1e4d3e0a462e074eea428a8"},
+		{name: "aes128-19", key: "aedb64a6c590bc84d1a5e269e4b47801", nonce: "afc0577e34699b9e671fdd4f", aad: "fc880c94a95198874296", plain: "bdc66f146545", out: "bb93a3e34d3cd6a9c45545cfc11f03ad743dba20f966"},
+		{name: "aes128-20", key: "d5cc1fd161320b6920ce07787f86743b", nonce: "275d1ab32f6d1f0434d8848c", aad: "046787f3ea22c127aaf195d1894728", plain: "1177441f195495860f", out: "4f37281f7ad12949d01d02fd0cd174c84fc5dae2f60f52fd2b"},
+		{name: "aes128-21", key: "b3fed1473c528b8426a582995929a149", nonce: "9e9ad8780c8d63d0ab4149c0", aad: "c9882e5386fd9f92ec489c8fde2be2cf97e74e93", plain: "9f572c614b4745914474e7c7", out: "f54673c5ddf710c745641c8bc1dc2f871fb7561da1286e655e24b7b0"},
+		{name: "aes128-22", key: "2d4ed87da44102952ef94b02b805249b", nonce: "ac80e6f61455bfac8308a2d4", aad: "2950a70d5a1db2316fd568378da107b52b0da55210cc1c1b0a", plain: "0d8c8451178082355c9e940fea2f58", out: "c9ff545e07b88a015f05b274540aa183b3449b9f39552de99dc214a1190b0b"},
+		{name: "aes128-23", key: "bde3b2f204d1e9f8b06bc47f9745b3d1", nonce: "ae06556fb6aa7890bebc18fe", aad: "1860f762ebfbd08284e421702de0de18baa9c9596291b08466f37de21c7f", plain: "6b3db4da3d57aa94842b9803a96e07fb6de7", out: "6298b296e24e8cc35dce0bed484b7f30d5803e377094f04709f64d7b985310a4db84"},
+		{name: "aes128-24", key: "f901cfe8a69615a93fdf7a98cad48179", nonce: "6245709fb18853f68d833640", aad: "7576f7028ec6eb5ea7e298342a94d4b202b370ef9768ec6561c4fe6b7e7296fa859c21", plain: "e42a3c02c25b64869e146d7b233987bddfc240871d", out: "391cc328d484a4f46406181bcd62efd9b3ee197d052d15506c84a9edd65e13e9d24a2a6e70"},
+		{name: "aes256-25", key: "0100000000000000000000000000000000000000000000000000000000000000", nonce: "030000000000000000000000", aad: "", plain: "", out: "07f5f4169bbf55a8400cd47ea6fd400f"},
+		{name: "aes256-26", key: "0100000000000000000000000000000000000000000000000000000000000000", nonce: "030000000000000000000000", aad: "", plain: "0100000000000000", out: "c2ef328e5c71c83b843122130f7364b761e0b97427e3df28"},
+		{name: "aes256-27", key: "0100000000000000000000000000000000000000000000000000000000000000", nonce: "030000000000000000000000", aad: "", plain: "010000000000000000000000", out: "9aab2aeb3faa0a34aea8e2b18ca50da9ae6559e48fd10f6e5c9ca17e"},
+		{name: "aes256-28", key: "0100000000000000000000000000000000000000000000000000000000000000", nonce: "030000000000000000000000", aad: "", plain: "01000000000000000000000000000000", out: "85a01b63025ba19b7fd3ddfc033b3e76c9eac6fa700942702e90862383c6c366"},
+		{name: "aes256-29", key: "0100000000000000000000000000000000000000000000000000000000000000", nonce: "030000000000000000000000", aad: "", plain: "0100000000000000000000000000000002000000000000000000000000000000", out: "4a6a9db4c8c6549201b9edb53006cba821ec9cf850948a7c86c68ac7539d027fe819e63abcd020b006a976397632eb5d"},
+		{name: "aes256-30", key: "0100000000000000000000000000000000000000000000000000000000000000", nonce: "030000000000000000000000", aad: "", plain: "010000000000000000000000000000000200000000000000000000000000000003000000000000000000000000000000", out: "c00d121893a9fa603f48ccc1ca3c57ce7499245ea0046db16c53c7c66fe717e39cf6c748837b61f6ee3adcee17534ed5790bc96880a99ba804bd12c0e6a22cc4"},
+		{name: "aes256-31", key: "0100000000000000000000000000000000000000000000000000000000000000", nonce: "030000000000000000000000", aad: "", plain: "01000000000000000000000000000000020000000000000000000000000000000300000000000000000000000000000004000000000000000000000000000000", out: "c2d5160a1f8683834910acdafc41fbb1632d4a353e8b905ec9a5499ac34f96c7e1049eb080883891a4db8caaa1f99dd004d80487540735234e3744512c6f90ce112864c269fc0d9d88c61fa47e39aa08"},
+		{name: "aes256-32", key: "0100000000000000000000000000000000000000000000000000000000000000", nonce: "030000000000000000000000", aad: "01", plain: "0200000000000000", out: "1de22967237a813291213f267e3b452f02d01ae33e4ec854"},
+		{name: "aes256-33", key: "0100000000000000000000000000000000000000000000000000000000000000", nonce: "030000000000000000000000", aad: "01", plain: "020000000000000000000000", out: "163d6f9cc1b346cd453a2e4cc1a4a19ae800941ccdc57cc8413c277f"},
+		{name: "aes256-34", key: "0100000000000000000000000000000000000000000000000000000000000000", nonce: "030000000000000000000000", aad: "01", plain: "02000000000000000000000000000000", out: "c91545823cc24f17dbb0e9e807d5ec17b292d28ff61189e8e49f3875ef91aff7"},
+		{name: "aes256-35", key: "0100000000000000000000000000000000000000000000000000000000000000", nonce: "030000000000000000000000", aad: "01", plain: "0200000000000000000000000000000003000000000000000000000000000000", out: "07dad364bfc2b9da89116d7bef6daaaf6f255510aa654f920ac81b94e8bad365aea1bad12702e1965604374aab96dbbc"},
+		{name: "aes256-36", key: "0100000000000000000000000000000000000000000000000000000000000000", nonce: "030000000000000000000000", aad: "01", plain: "020000000000000000000000000000000300000000000000000000000000000004000000000000000000000000000000", out: "c67a1f0f567a5198aa1fcc8e3f21314336f7f51ca8b1af61feac35a86416fa47fbca3b5f749cdf564527f2314f42fe2503332742b228c647173616cfd44c54eb"},
+		{name: "aes256-37", key: "0100000000000000000000000000000000000000000000000000000000000000", nonce: "030000000000000000000000", aad: "01", plain: "02000000000000000000000000000000030000000000000000000000000000000400000000000000000000000000000005000000000000000000000000000000", out: "67fd45e126bfb9a79930c43aad2d36967d3f0e4d217c1e551f59727870beefc98cb933a8fce9de887b1e40799988db1fc3f91880ed405b2dd298318858467c895bde0285037c5de81e5b570a049b62a0"},
+		{name: "aes256-38", key: "0100000000000000000000000000000000000000000000000000000000000000", nonce: "030000000000000000000000", aad: "010000000000000000000000", plain: "02000000", out: "22b3f4cd1835e517741dfddccfa07fa4661b74cf"},
+		{name: "aes256-39", key: "0100000000000000000000000000000000000000000000000000000000000000", nonce: "030000000000000000000000", aad: "010000000000000000000000000000000200", plain: "0300000000000000000000000000000004000000", out: "43dd0163cdb48f9fe3212bf61b201976067f342bb879ad976d8242acc188ab59cabfe307"},
+		{name: "aes256-40", key: "0100000000000000000000000000000000000000000000000000000000000000", nonce: "030000000000000000000000", aad: "0100000000000000000000000000000002000000", plain: "030000000000000000000000000000000400", out: "462401724b5ce6588d5a54aae5375513a075cfcdf5042112aa29685c912fc2056543"},
+		{name: "aes256-41", key: "e66021d5eb8e4f4066d4adb9c33560e4f46e44bb3da0015c94f7088736864200", nonce: "e0eaf5284d884a0e77d31646", aad: "", plain: "", out: "169fbb2fbf389a995f6390af22228a62"},
+		{name: "aes256-42", key: "bae8e37fc83441b16034566b7a806c46bb91c3c5aedb64a6c590bc84d1a5e269", nonce: "e4b47801afc0577e34699b9e", aad: "4fbdc66f14", plain: "671fdd", out: "0eaccb93da9bb81333aee0c785b240d319719d"},
+		{name: "aes256-43", key: "6545fc880c94a95198874296d5cc1fd161320b6920ce07787f86743b275d1ab3", nonce: "2f6d1f0434d8848c1177441f", aad: "6787f3ea22c127aaf195", plain: "195495860f04", out: "a254dad4f3f96b62b84dc40c84636a5ec12020ec8c2c"},
+		{name: "aes256-44", key: "d1894728b3fed1473c528b8426a582995929a1499e9ad8780c8d63d0ab4149c0", nonce: "9f572c614b4745914474e7c7", aad: "489c8fde2be2cf97e74e932d4ed87d", plain: "c9882e5386fd9f92ec", out: "0df9e308678244c44bc0fd3dc6628dfe55ebb0b9fb2295c8c2"},
+		{name: "aes256-45", key: "a44102952ef94b02b805249bac80e6f61455bfac8308a2d40d8c845117808235", nonce: "5c9e940fea2f582950a70d5a", aad: "0da55210cc1c1b0abde3b2f204d1e9f8b06bc47f", plain: "1db2316fd568378da107b52b", out: "8dbeb9f7255bf5769dd56692404099c2587f64979f21826706d497d5"},
+		{name: "aes256-46", key: "9745b3d1ae06556fb6aa7890bebc18fe6b3db4da3d57aa94842b9803a96e07fb", nonce: "6de71860f762ebfbd08284e4", aad: "f37de21c7ff901cfe8a69615a93fdf7a98cad481796245709f", plain: "21702de0de18baa9c9596291b08466", out: "793576dfa5c0f88729a7ed3c2f1bffb3080d28f6ebb5d3648ce97bd5ba67fd"},
+		{name: "aes256-47", key: "b18853f68d833640e42a3c02c25b64869e146d7b233987bddfc240871d7576f7", nonce: "028ec6eb5ea7e298342a94d4", aad: "9c2159058b1f0fe91433a5bdc20e214eab7fecef4454a10ef0657df21ac7", plain: "b202b370ef9768ec6561c4fe6b7e7296fa85", out: "857e16a64915a787637687db4a9519635cdd454fc2a154fea91f8363a39fec7d0a49"},
+		{name: "aes256-48", key: "3c535de192eaed3822a2fbbe2ca9dfc88255e14a661b8aa82cc54236093bbc23", nonce: "688089e55540db1872504e1c", aad: "734320ccc9d9bbbb19cb81b2af4ecbc3e72834321f7aa0f70b7282b4f33df23f167541", plain: "ced532ce4159b035277d4dfbb7db62968b13cd4eec", out: "626660c26ea6612fb17ad91e8e767639edd6c9faee9d6c7029675b89eaf4ba1ded1a286594"},
+		{name: "wrap-49", key: "0000000000000000000000000000000000000000000000000000000000000000", nonce: "000000000000000000000000", aad: "", plain: "000000000000000000000000000000004db923dc793ee6497c76dcc03a98e108", out: "f3f80f2cf0cb2dd9c5984fcda908456cc537703b5ba70324a6793a7bf218d3eaffffffff000000000000000000000000"},
+		{name: "wrap-50", key: "0000000000000000000000000000000000000000000000000000000000000000", nonce: "000000000000000000000000", aad: "", plain: "eb3640277c7ffd1303c7a542d02d3e4c0000000000000000", out: "18ce4f0b8cb4d0cac65fea8f79257b20888e53e72299e56dffffffff000000000000000000000000"},
+	}
+
+	// Each case checks exact ciphertext+tag output and then validates Open.
+	for _, tc := range vectors {
+		t.Run(tc.name, func(t *testing.T) {
+			key := mustDecodeHex(t, tc.key)
+			nonce := mustDecodeHex(t, tc.nonce)
+			aad := mustDecodeHex(t, tc.aad)
+			plain := mustDecodeHex(t, tc.plain)
+			expected := mustDecodeHex(t, tc.out)
+
+			aead, err := gmsmcipher.NewGCMSIV(aes.NewCipher, key)
+			if err != nil {
+				t.Fatalf("NewGCMSIV failed: %v", err)
+			}
+
+			sealed := aead.Seal(nil, nonce, plain, aad)
+			if got, want := hex.EncodeToString(sealed), hex.EncodeToString(expected); got != want {
+				t.Fatalf("Seal mismatch\n got: %s\nwant: %s", got, want)
+			}
+
+			opened, err := aead.Open(nil, nonce, sealed, aad)
+			if err != nil {
+				t.Fatalf("Open failed: %v", err)
+			}
+			if got, want := hex.EncodeToString(opened), hex.EncodeToString(plain); got != want {
+				t.Fatalf("Open plaintext mismatch\n got: %s\nwant: %s", got, want)
+			}
+
+			if len(sealed) != len(plain)+aead.Overhead() {
+				t.Fatalf("bad output size: got %d want %d", len(sealed), len(plain)+aead.Overhead())
+			}
+		})
+	}
+}
+
+func TestGCMSIVOpen_TamperingDetection(t *testing.T) {
+	// Test that Open() rejects ciphertext/tag modifications.
+	key := mustDecodeHex(t, "01000000000000000000000000000000")
+	nonce := mustDecodeHex(t, "030000000000000000000000")
+	aad := mustDecodeHex(t, "")
+	plain := mustDecodeHex(t, "01000000000000000000000000000000")
+
+	aead, err := gmsmcipher.NewGCMSIV(aes.NewCipher, key)
+	if err != nil {
+		t.Fatalf("NewGCMSIV failed: %v", err)
+	}
+
+	sealed := aead.Seal(nil, nonce, plain, aad)
+
+	// Tamper with ciphertext byte.
+	tampered := make([]byte, len(sealed))
+	copy(tampered, sealed)
+	tampered[0] ^= 1
+
+	if _, err := aead.Open(nil, nonce, tampered, aad); err == nil {
+		t.Fatal("Open should reject tampered ciphertext")
+	}
+
+	// Tamper with tag byte (last 16 bytes).
+	tampered = make([]byte, len(sealed))
+	copy(tampered, sealed)
+	tampered[len(tampered)-1] ^= 1
+
+	if _, err := aead.Open(nil, nonce, tampered, aad); err == nil {
+		t.Fatal("Open should reject tampered tag")
+	}
+}
+
+func TestGCMSIVOpen_AADTamperingDetection(t *testing.T) {
+	// Test that Open() rejects when AAD is modified.
+	key := mustDecodeHex(t, "01000000000000000000000000000000")
+	nonce := mustDecodeHex(t, "030000000000000000000000")
+	aad := mustDecodeHex(t, "0100")
+	plain := mustDecodeHex(t, "0200")
+
+	aead, err := gmsmcipher.NewGCMSIV(aes.NewCipher, key)
+	if err != nil {
+		t.Fatalf("NewGCMSIV failed: %v", err)
+	}
+
+	sealed := aead.Seal(nil, nonce, plain, aad)
+
+	// Try to decrypt with different AAD.
+	wrongAAD := mustDecodeHex(t, "0101")
+	if _, err := aead.Open(nil, nonce, sealed, wrongAAD); err == nil {
+		t.Fatal("Open should reject when AAD is tampered")
+	}
+}
+
+func TestGCMSIVOpen_NonceLengthError(t *testing.T) {
+	// Test that Open() panics on incorrect nonce length.
+	key := mustDecodeHex(t, "01000000000000000000000000000000")
+	shortNonce := mustDecodeHex(t, "03000000000000000000")
+	ciphertext := make([]byte, 32)
+
+	aead, err := gmsmcipher.NewGCMSIV(aes.NewCipher, key)
+	if err != nil {
+		t.Fatalf("NewGCMSIV failed: %v", err)
+	}
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("Open with incorrect nonce length should panic")
+		}
+	}()
+	aead.Open(nil, shortNonce, ciphertext, nil)
+}
+
+func TestGCMSIVSeal_NonceLengthError(t *testing.T) {
+	// Test that Seal() panics on incorrect nonce length.
+	key := mustDecodeHex(t, "01000000000000000000000000000000")
+	shortNonce := mustDecodeHex(t, "03000000000000000000")
+	plaintext := make([]byte, 16)
+
+	aead, err := gmsmcipher.NewGCMSIV(aes.NewCipher, key)
+	if err != nil {
+		t.Fatalf("NewGCMSIV failed: %v", err)
+	}
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("Seal with incorrect nonce length should panic")
+		}
+	}()
+	aead.Seal(nil, shortNonce, plaintext, nil)
+}
+
+func TestGCMSIVOpen_EmptyCiphertext(t *testing.T) {
+	// Test that Open() rejects ciphertext that is too short (less than tag size).
+	key := mustDecodeHex(t, "01000000000000000000000000000000")
+	nonce := mustDecodeHex(t, "030000000000000000000000")
+	shorterThanTag := make([]byte, 15) // Tag size is 16
+
+	aead, err := gmsmcipher.NewGCMSIV(aes.NewCipher, key)
+	if err != nil {
+		t.Fatalf("NewGCMSIV failed: %v", err)
+	}
+
+	if _, err := aead.Open(nil, nonce, shorterThanTag, nil); err == nil {
+		t.Fatal("Open should reject ciphertext shorter than tag")
+	}
+}
+
+func mustDecodeHex(t *testing.T, s string) []byte {
+	t.Helper()
+	if s == "" {
+		return nil
+	}
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		t.Fatal(fmt.Errorf("hex decode failed for %q: %w", s, err))
+	}
+	return b
+}
+
+func BenchmarkGCMSIV_SealOpen1K(b *testing.B) {
+	key := make([]byte, 16)
+	key[0] = 1
+	aad := make([]byte, 20)
+	plaintext := make([]byte, 1024)
+
+	aead, err := gmsmcipher.NewGCMSIV(aes.NewCipher, key)
+	if err != nil {
+		b.Fatalf("NewGCMSIV failed: %v", err)
+	}
+
+	b.ReportAllocs()
+	b.SetBytes(int64(len(plaintext)))
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		var nonce [12]byte
+		binary.LittleEndian.PutUint64(nonce[4:], uint64(i))
+
+		ciphertext := aead.Seal(nil, nonce[:], plaintext, aad)
+		if _, err := aead.Open(nil, nonce[:], ciphertext, aad); err != nil {
+			b.Fatalf("Open failed: %v", err)
+		}
+	}
+}

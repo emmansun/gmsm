@@ -1,4 +1,4 @@
-# Go ShangMi (Commercial Cryptography) Library
+# GMSM: High-Performance Go ShangMi and Post-Quantum Crypto Library
 
 [![Github CI](https://github.com/emmansun/gmsm/actions/workflows/ci.yml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/ci.yml)
 [![arm64](https://github.com/emmansun/gmsm/actions/workflows/test_arm64.yml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_arm64.yml)
@@ -15,7 +15,43 @@
 
 English | [简体中文](README.md)
 
-Go ShangMi (Commercial Cryptography) Library, abbreviated as **GMSM**, is a secure, high-performance, and easy-to-use Go cryptographic library that covers the Chinese commercial cryptographic public algorithms SM2/SM3/SM4/SM9/ZUC.
+GMSM is a production-ready Go cryptography library focused on ShangMi algorithms (SM2/SM3/SM4/SM9/ZUC) and modern post-quantum primitives (ML-KEM/ML-DSA/SLH-DSA), designed to balance secure defaults, practical APIs, and cross-architecture performance.
+
+> Requires Go version: **Go 1.24+**
+
+## Why GMSM
+- **Broad standards coverage**: ShangMi standards, PKCS ecosystem, and NIST PQC (FIPS 203/204/205).
+- **Practical API design**: Interfaces aligned with Go standard library patterns for easier adoption.
+- **High performance across CPUs**: SIMD/assembly optimizations for amd64, arm64, loong64, ppc64le, s390x, riscv64, and more.
+- **Security with portability**: Pure Go fallbacks plus constant-time implementations on sensitive paths.
+- **Operational confidence**: Multi-architecture CI, coverage tracking, and active maintenance.
+
+## Quick Start
+
+```bash
+go get github.com/emmansun/gmsm@latest
+```
+
+```go
+package main
+
+import (
+  "fmt"
+
+  "github.com/emmansun/gmsm/sm3"
+)
+
+func main() {
+  sum := sm3.Sum([]byte("hello gmsm"))
+  fmt.Printf("SM3: %x\n", sum)
+}
+```
+
+## Capability Snapshot
+- ShangMi: SM2, SM3, SM4, SM9, ZUC
+- Post-Quantum: ML-KEM, ML-DSA, SLH-DSA
+- PKI and interoperability: smx509, PKCS#7, PKCS#8, CFCA support
+- Core building blocks: block modes, padding, DRBG, randomness, ECDH/SM2MQV, and TLS 1.3 hybrid key exchange
 
 ## User Documentation
 - [SM2 Elliptic Curve Public Key Cryptography Algorithm Application Guide](./docs/sm2-en.md)
@@ -66,7 +102,7 @@ For implementation details and optimization strategies, please refer to the [SM9
 SM3 cryptographic hash algorithm (GM/T 0004-2012) implements efficient SIMD optimizations:
 
 **Architecture Optimizations:**
-- **amd64**: Optimizes message expansion for AVX2+BMI2, AVX, and SSE2+SSSE3 instruction sets
+- **amd64**: Optimizes message expansion for AVX2+BMI2 and SSE2+SSSE3 instruction sets
 - **arm64**: Uses NEON instructions to optimize message expansion and provides implementation based on A64 extended cryptographic instructions
 - **s390x/ppc64x**: Optimizes message expansion through vector instructions
 
@@ -76,7 +112,7 @@ For detailed implementation analysis, please refer to the [SM3 Performance Optim
 SM4 block cipher algorithm (GM/T 0002-2012) implements multi-architecture assembly optimizations with fused optimizations for common operation modes:
 
 **Architecture Optimizations:**
-- **amd64**: Uses AES-NI instructions combined with AVX2/AVX/SSE2+SSSE3
+- **amd64**: Uses GFNI, AES-NI instructions combined with AVX2/SSE2+SSSE3
 - **arm64**: Uses AES instructions combined with NEON and provides implementation based on A64 extended cryptographic instructions
 - **ppc64x**: Uses vsbox instructions combined with vector instructions
 
@@ -84,6 +120,7 @@ SM4 block cipher algorithm (GM/T 0002-2012) implements multi-architecture assemb
 - ECB (Electronic Codebook)
 - CBC (Cipher Block Chaining)
 - GCM (Galois/Counter Mode)
+- GCM-SIV (RFC 8452)
 - XTS (XEX-based tweaked-codebook mode, supports GB/T 17964-2021 and NIST SP 800-38E)
 
 For detailed implementation analysis, please refer to the [SM4 Performance Optimization Wiki](https://github.com/emmansun/gmsm/wiki/SM4%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96).
@@ -213,6 +250,8 @@ Compliant with NIST FIPS 203 standard, based on the Go standard library implemen
 **Architecture Optimizations:**
 - **amd64**: NTT, inverse NTT, and polynomial multiplication are vectorized using AVX2 instructions
 - **arm64**: NTT, inverse NTT, and polynomial multiplication are vectorized using NEON instructions
+- **loong64**: NTT, inverse NTT, and polynomial multiplication are vectorized using LASX instructions
+- **ppc64le**: NTT, inverse NTT, and polynomial multiplication are vectorized using VSX / VMX (AltiVec) instructions
 
 #### MLDSA - Module-Lattice-Based Digital Signature
 Compliant with NIST FIPS 204 standard.
@@ -220,6 +259,7 @@ Compliant with NIST FIPS 204 standard.
 **Architecture Optimizations:**
 - **amd64**: NTT, inverse NTT, and polynomial multiplication are vectorized using AVX2 instructions
 - **arm64**: NTT, inverse NTT, and polynomial multiplication are vectorized using NEON instructions
+- **loong64**: NTT, inverse NTT, and polynomial multiplication are vectorized using LASX instructions
 
 #### SLHDSA - Stateless Hash-Based Digital Signature
 Compliant with NIST FIPS 205 standard.

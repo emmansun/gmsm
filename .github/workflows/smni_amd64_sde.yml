@@ -1,0 +1,69 @@
+# Test SM3, SM4 paths using Intel SDE (Software Development Emulator).
+# Intel SDE emulates Arrow Lake CPUID on any x86-64 host, so cpu.X86.HasSM3, cpu.X86.HasSM4
+# returns true at runtime even on runners without physical SM3/SM4 hardware.
+#
+# The download URL is extracted dynamically from Intel's download page (data-href
+# attribute), following the same technique used by simd-everywhere/simde.
+
+name: smni-amd64-sde
+
+on:
+  push:
+    branches: [ "develop", "main" ]
+  pull_request:
+    branches: [ "develop", "main" ]
+
+permissions:
+  contents: read
+
+env:
+  SDE_DOWNLOAD_PAGE: https://www.intel.com/content/www/us/en/download/684897/intel-software-development-emulator.html
+  SDE_INSTALL_DIR: /opt/intel/sde
+
+jobs:
+
+  test:
+    strategy:
+      matrix:
+        go-version: [1.25.x]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Harden the runner (Audit all outbound calls)
+      uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+      with:
+        egress-policy: audit
+
+    - name: Check out code
+      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+    - name: Set up Go
+      uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+      with:
+        go-version: ${{ matrix.go-version }}
+
+    - name: Allow ptrace (required by Intel SDE / Pin on Ubuntu)
+      run: sudo sysctl -w kernel.yama.ptrace_scope=0
+
+    - name: Cache Intel SDE
+      id: cache-sde
+      uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
+      with:
+        path: ${{ env.SDE_INSTALL_DIR }}
+        key: intel-sde-${{ env.SDE_DOWNLOAD_PAGE }}
+
+    - name: Download and install Intel SDE
+      if: steps.cache-sde.outputs.cache-hit != 'true'
+      run: |
+        URL="$(curl -sL "${SDE_DOWNLOAD_PAGE}" | \
+          grep -oP '(?<=data-href=")(https://[^"]+)/sde-external-([0-9.\-]+)-lin\.tar\.xz' | \
+          head -n1)"
+        echo "Downloading SDE from: ${URL}"
+        mkdir -p "${SDE_INSTALL_DIR}"
+        curl -sL "${URL}" | tar --strip-components 1 -JxC "${SDE_INSTALL_DIR}"
+
+    - name: Build test binary
+      run: go test -c -o cpu.test ./internal/deps/cpu
+
+    - name: Test SM3, SM4 (via Intel SDE, emulating Arrow Lake)
+      # -arl: emulate Arrow Lake (SM3 + SM4)
+      run: ${SDE_INSTALL_DIR}/sde64 -arl -- ./cpu.test -test.run 'SM3SM4' -test.v

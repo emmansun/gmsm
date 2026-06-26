@@ -36,6 +36,7 @@ func initOptions() {
 		{Name: "avx512vbmi2", Feature: &X86.HasAVX512VBMI2},
 		{Name: "avx512bitalg", Feature: &X86.HasAVX512BITALG},
 		{Name: "avx512bf16", Feature: &X86.HasAVX512BF16},
+		{Name: "gfni", Feature: &X86.HasGFNI},
 		{Name: "amxtile", Feature: &X86.HasAMXTile},
 		{Name: "amxint8", Feature: &X86.HasAMXInt8},
 		{Name: "amxbf16", Feature: &X86.HasAMXBF16},
@@ -139,6 +140,10 @@ func archInit() {
 		X86.HasAVX512BITALG = isSet(12, ecx7)     // Check presence of AVX512BITALG - bit 12 of ECX
 	}
 
+	// GFNI is an independent feature (CPUID.07H:ECX[bit 8]) that works with VEX encoding (AVX/AVX2),
+	// not only with AVX-512. Detect it outside the AVX-512 block.
+	X86.HasGFNI = isSet(8, ecx7)
+
 	X86.HasAMXTile = isSet(24, edx7)
 	X86.HasAMXInt8 = isSet(25, edx7)
 	X86.HasAMXBF16 = isSet(22, edx7)
@@ -152,6 +157,8 @@ func archInit() {
 		if X86.HasAVX {
 			X86.HasAVXIFMA = isSet(23, eax71) // Check presence of AVXIFMA - bit 23 of EAX
 			X86.HasAVXVNNI = isSet(4, eax71)
+			X86.HasSM3 = isSet(1, eax71) // Check presence of SM3 - bit 1 of EAX
+			X86.HasSM4 = isSet(2, eax71) // Check presence of SM4 - bit 2 of EAX			
 			X86.HasAVXVNNIInt8 = isSet(4, edx71)
 		}
 	}

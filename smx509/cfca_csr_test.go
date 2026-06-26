@@ -9,7 +9,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"testing"
@@ -41,7 +40,7 @@ func TestCreateCFCACertificateRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	template := &x509.CertificateRequest{
+	template := &CertificateRequest{
 		Subject: pkix.Name{
 			CommonName:   "certRequisition",
 			Organization: []string{"CFCA TEST CA"},
@@ -50,7 +49,7 @@ func TestCreateCFCACertificateRequest(t *testing.T) {
 	}
 
 	testCases := []struct {
-		template          *x509.CertificateRequest
+		template          *CertificateRequest
 		priv              interface{}
 		tmpPub            interface{}
 		challengePassword string

@@ -8,9 +8,6 @@ var useAVX2 = cpu.X86.HasAVX2 && cpu.X86.HasBMI2
 var useSSSE3 = cpu.X86.HasSSSE3
 
 //go:noescape
-func blockAMD64(dig *digest, p []byte)
-
-//go:noescape
 func blockSIMD(dig *digest, p []byte)
 
 //go:noescape
@@ -23,6 +20,6 @@ func block(dig *digest, p []byte) {
 	case useSSSE3:
 		blockSIMD(dig, p)
 	default:
-		blockAMD64(dig, p)
+		blockGeneric(dig, p)
 	}
 }

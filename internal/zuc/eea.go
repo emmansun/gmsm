@@ -19,12 +19,13 @@ const (
 
 type eea struct {
 	zucState32
-	x          [RoundBytes]byte // remaining bytes buffer
-	xLen       int              // number of remaining bytes
-	used       uint64           // number of key bytes processed, current offset
-	states     []*zucState32    // internal states for seek
-	stateIndex int              // current state index, for test usage
-	bucketSize int              // size of the state bucket, 0 means no bucket
+	x             [RoundBytes]byte // remaining bytes buffer
+	xLen          int              // number of remaining bytes
+	used          uint64           // number of key bytes processed, current offset
+	states        []zucState32     // internal states for seek
+	stateIndex    int              // current state index, for test usage
+	bucketSize    int              // size of the state bucket, 0 means no bucket
+	bucketSizeU64 uint64           // cached uint64(bucketSize), 0 means no bucket
 }
 
 const (
@@ -52,7 +53,7 @@ func NewCipher(key, iv []byte) (*eea, error) {
 	}
 	c := new(eea)
 	c.zucState32 = *s
-	c.states = append(c.states, s)
+	c.states = append(c.states, *s)
 	c.used = 0
 	c.bucketSize = 0
 	c.stateIndex = 0
@@ -62,13 +63,30 @@ func NewCipher(key, iv []byte) (*eea, error) {
 // NewCipherWithBucketSize creates a new instance of the eea cipher with the specified
 // bucket size. The bucket size is rounded up to the nearest multiple of RoundBytes.
 func NewCipherWithBucketSize(key, iv []byte, bucketSize int) (*eea, error) {
-	c, err := NewCipher(key, iv)
+	return NewCipherWithBucketSizeAndCapacity(key, iv, bucketSize, 0)
+}
+
+// NewCipherWithBucketSizeAndCapacity creates a new instance of the eea cipher with the specified
+// bucket size and pre-allocates capacity for states based on expectedBytes.
+func NewCipherWithBucketSizeAndCapacity(key, iv []byte, bucketSize int, expectedBytes uint64) (*eea, error) {
+	s, err := newZUCState(key, iv)
 	if err != nil {
 		return nil, err
 	}
+	c := new(eea)
+	c.zucState32 = *s
+	c.used = 0
+	c.stateIndex = 0
 	if bucketSize > 0 {
 		c.bucketSize = ((bucketSize + RoundBytes - 1) / RoundBytes) * RoundBytes
+		c.bucketSizeU64 = uint64(c.bucketSize)
+		cap := uint64(8)
+		if expectedBytes > 0 {
+			cap = expectedBytes/c.bucketSizeU64 + 2
+		}
+		c.states = make([]zucState32, 0, cap)
 	}
+	c.states = append(c.states, *s)
 	return c, nil
 }
 
@@ -100,8 +118,8 @@ func (e *eea) AppendBinary(b []byte) ([]byte, error) {
 	if e.xLen > 0 {
 		b = append(b, e.x[:e.xLen]...)
 	}
-	for _, state := range e.states {
-		b = appendState(b, state)
+	for i := range e.states {
+		b = appendState(b, &e.states[i])
 	}
 	return b, nil
 }
@@ -144,6 +162,7 @@ func (e *eea) UnmarshalBinary(b []byte) error {
 	e.stateIndex = int(tmpUint32)
 	b, tmpUint32 = consumeUint32(b)
 	e.bucketSize = int(tmpUint32)
+	e.bucketSizeU64 = uint64(e.bucketSize)
 	if e.xLen < 0 || e.xLen > RoundBytes {
 		return errors.New("zuc: invalid eea remaining bytes length")
 	}
@@ -162,7 +181,7 @@ func (e *eea) UnmarshalBinary(b []byte) error {
 	for range statesCount {
 		var state zucState32
 		b = unmarshalState(b, &state)
-		e.states = append(e.states, &state)
+		e.states = append(e.states, state)
 	}
 
 	if e.stateIndex >= len(e.states) {
@@ -205,6 +224,12 @@ func NewEEACipherWithBucketSize(key []byte, count, bearer, direction uint32, buc
 	return NewCipherWithBucketSize(key, construcIV4EEA(count, bearer, direction), bucketSize)
 }
 
+// NewEEACipherWithBucketSizeAndCapacity creates a new instance of the EEA cipher with a specified
+// bucket size and pre-allocates capacity for states based on expectedBytes.
+func NewEEACipherWithBucketSizeAndCapacity(key []byte, count, bearer, direction uint32, bucketSize int, expectedBytes uint64) (*eea, error) {
+	return NewCipherWithBucketSizeAndCapacity(key, construcIV4EEA(count, bearer, direction), bucketSize, expectedBytes)
+}
+
 func genKeyStreamRev32Generic(keyStream []byte, pState *zucState32) {
 	for len(keyStream) >= WordSize {
 		z := genKeyword(pState)
@@ -214,8 +239,28 @@ func genKeyStreamRev32Generic(keyStream []byte, pState *zucState32) {
 }
 
 func (c *eea) appendState() {
-	state := c.zucState32
-	c.states = append(c.states, &state)
+	c.states = append(c.states, c.zucState32)
+}
+
+// checkAndSaveBucket saves the current state if a bucket boundary has been crossed.
+// Returns the updated nextBucketOffset.
+func (c *eea) checkAndSaveBucket(nextBucketOffset uint64) uint64 {
+	if c.bucketSizeU64 > 0 && c.used >= nextBucketOffset {
+		c.appendState()
+		return nextBucketOffset + c.bucketSizeU64
+	}
+	return nextBucketOffset
+}
+
+// checkAndSaveBucketPartial saves the current state if generating a full RoundBytes block
+// from the current position would cross a bucket boundary. Used in remainder sections
+// where c.used hasn't yet been updated to include the generated block.
+func (c *eea) checkAndSaveBucketPartial(nextBucketOffset uint64) uint64 {
+	if c.bucketSizeU64 > 0 && c.used+RoundBytes >= nextBucketOffset {
+		c.appendState()
+		return nextBucketOffset + c.bucketSizeU64
+	}
+	return nextBucketOffset
 }
 
 func (c *eea) XORKeyStream(dst, src []byte) {
@@ -239,17 +284,14 @@ func (c *eea) XORKeyStream(dst, src []byte) {
 	}
 	var keyBytes [RoundBytes]byte
 	stepLen := uint64(RoundBytes)
-	nextBucketOffset := c.bucketSize * len(c.states)
+	nextBucketOffset := c.bucketSizeU64 * uint64(len(c.states))
 	for len(src) >= RoundBytes {
 		genKeyStreamRev32(keyBytes[:], &c.zucState32)
 		subtle.XORBytes(dst, src, keyBytes[:])
 		dst = dst[RoundBytes:]
 		src = src[RoundBytes:]
 		c.used += stepLen
-		if c.bucketSize > 0 && int(c.used) >= nextBucketOffset {
-			c.appendState()
-			nextBucketOffset += c.bucketSize
-		}
+		nextBucketOffset = c.checkAndSaveBucket(nextBucketOffset)
 	}
 	remaining := len(src)
 	if remaining > 0 {
@@ -257,23 +299,21 @@ func (c *eea) XORKeyStream(dst, src []byte) {
 		subtle.XORBytes(dst, src, keyBytes[:])
 		c.xLen = RoundBytes - remaining
 		copy(c.x[:], keyBytes[remaining:])
-		if c.bucketSize > 0 && int(c.used)+RoundBytes >= nextBucketOffset {
-			c.appendState()
-		}
+		nextBucketOffset = c.checkAndSaveBucketPartial(nextBucketOffset)
 		c.used += uint64(remaining)
 	}
 }
 
 func (c *eea) reset(offset uint64) {
 	var n uint64
-	if c.bucketSize > 0 {
-		n = offset / uint64(c.bucketSize)
+	if c.bucketSizeU64 > 0 {
+		n = offset / c.bucketSizeU64
 	}
 	// due to offset < c.used, n must be less than len(c.states)
 	c.stateIndex = int(n)
-	c.zucState32 = *c.states[n]
+	c.zucState32 = c.states[n]
 	c.xLen = 0
-	c.used = n * uint64(c.bucketSize)
+	c.used = n * c.bucketSizeU64
 }
 
 // fastForward advances the ZUC cipher state to handle a given offset
@@ -282,15 +322,13 @@ func (c *eea) reset(offset uint64) {
 // state forward efficiently.
 func (c *eea) fastForward(offset uint64) {
 	// fast forward, check and adjust state if needed
-	var n uint64
-	if c.bucketSize > 0 {
-		n = offset / uint64(c.bucketSize)
-		expectedStateIndex := int(n)
-		if expectedStateIndex > c.stateIndex && expectedStateIndex < len(c.states) {
-			c.stateIndex = int(n)
-			c.zucState32 = *c.states[n]
+	if c.bucketSizeU64 > 0 {
+		n := int(offset / c.bucketSizeU64)
+		if n > c.stateIndex && n < len(c.states) {
+			c.stateIndex = n
+			c.zucState32 = c.states[n]
 			c.xLen = 0
-			c.used = n * uint64(c.bucketSize)
+			c.used = uint64(n) * c.bucketSizeU64
 		}
 	}
 }
@@ -335,17 +373,14 @@ func (c *eea) seek(offset uint64) {
 	}
 
 	// 7. for the remaining gap, generate and discard key bytes in chunks
-	nextBucketOffset := c.bucketSize * len(c.states)
+	nextBucketOffset := c.bucketSizeU64 * uint64(len(c.states))
 	stepLen := uint64(RoundBytes)
-	var keyStream [RoundWords]uint32
+	var discard [RoundWords]uint32
 	for gap >= stepLen {
-		genKeyStream(keyStream[:], &c.zucState32)
+		genKeyStream(discard[:], &c.zucState32)
 		gap -= stepLen
 		c.used += stepLen
-		if c.bucketSize > 0 && int(c.used) >= nextBucketOffset {
-			c.appendState()
-			nextBucketOffset += c.bucketSize
-		}
+		nextBucketOffset = c.checkAndSaveBucket(nextBucketOffset)
 	}
 
 	// 8. finally consume remaining gap < RoundBytes
@@ -355,10 +390,8 @@ func (c *eea) seek(offset uint64) {
 		genKeyStreamRev32(keyBytes[:], &c.zucState32)
 		c.xLen = RoundBytes - int(gap)
 		copy(c.x[:], keyBytes[gap:])
-		if c.bucketSize > 0 && int(c.used)+RoundBytes >= nextBucketOffset {
-			c.appendState()
-		}
-		c.used += uint64(gap)
+		c.checkAndSaveBucketPartial(nextBucketOffset)
+		c.used += gap
 	}
 }
 

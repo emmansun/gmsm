@@ -7,7 +7,6 @@ import (
 	"crypto/dsa"
 	"crypto/ecdsa"
 	"crypto/rsa"
-	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"errors"
@@ -180,17 +179,17 @@ func getHashForOID(oid asn1.ObjectIdentifier) (crypto.Hash, error) {
 	return crypto.Hash(0), fmt.Errorf("pkcs7: cannot get hash from oid %v", oid)
 }
 
-// getDigestOIDForSignatureAlgorithm takes an x509.SignatureAlgorithm
+// getDigestOIDForSignatureAlgorithm takes an smx509.SignatureAlgorithm
 // and returns the corresponding OID digest algorithm
-func getDigestOIDForSignatureAlgorithm(digestAlg x509.SignatureAlgorithm) (asn1.ObjectIdentifier, error) {
+func getDigestOIDForSignatureAlgorithm(digestAlg smx509.SignatureAlgorithm) (asn1.ObjectIdentifier, error) {
 	switch digestAlg {
-	case x509.SHA1WithRSA, x509.ECDSAWithSHA1:
+	case smx509.SHA1WithRSA, smx509.ECDSAWithSHA1:
 		return OIDDigestAlgorithmSHA1, nil
-	case x509.SHA256WithRSA, x509.ECDSAWithSHA256:
+	case smx509.SHA256WithRSA, smx509.ECDSAWithSHA256:
 		return OIDDigestAlgorithmSHA256, nil
-	case x509.SHA384WithRSA, x509.ECDSAWithSHA384:
+	case smx509.SHA384WithRSA, smx509.ECDSAWithSHA384:
 		return OIDDigestAlgorithmSHA384, nil
-	case x509.SHA512WithRSA, x509.ECDSAWithSHA512:
+	case smx509.SHA512WithRSA, smx509.ECDSAWithSHA512:
 		return OIDDigestAlgorithmSHA512, nil
 	case smx509.SM2WithSM3:
 		return OIDDigestAlgorithmSM3, nil

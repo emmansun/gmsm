@@ -7,6 +7,8 @@ package mldsa
 import (
 	"crypto/sha3"
 	"crypto/subtle"
+
+	"github.com/emmansun/gmsm/internal/keccakx4"
 )
 
 // Algorithm 30
@@ -106,6 +108,43 @@ func rejBoundedPoly(H *sha3.SHAKE, rho []byte, eta int, highByte, lowByte byte) 
 		}
 	}
 	return a
+}
+
+// rejNTTPolyx4 runs 4 independent SHAKE128-based rejection samplers in
+// parallel using keccakx4. indices[i] = [s, r] for the i-th lane, matching
+// the byte order used by rejNTTPoly (Algorithm 30, FIPS 204).
+func rejNTTPolyx4(rho []byte, indices [4][2]byte) [4]nttElement {
+	var xof keccakx4.SHAKE128x4
+	xof.AbsorbSeed(rho, indices)
+
+	var results [4]nttElement
+	var j [4]int
+	var buf [4][keccakx4.RateSHAKE128]byte
+
+	for {
+		xof.Squeeze(buf[0][:], buf[1][:], buf[2][:], buf[3][:])
+		allDone := true
+		for lane := range 4 {
+			if j[lane] >= n {
+				continue
+			}
+			for i := 0; i < keccakx4.RateSHAKE128 && j[lane] < n; i += 3 {
+				// Algorithm 14, CoeffFromThreeBytes()
+				d := uint32(buf[lane][i]) | uint32(buf[lane][i+1])<<8 | ((uint32(buf[lane][i+2]) & 0x7f) << 16)
+				if d < q {
+					results[lane][j[lane]] = fieldElement(d)
+					j[lane]++
+				}
+			}
+			if j[lane] < n {
+				allDone = false
+			}
+		}
+		if allDone {
+			break
+		}
+	}
+	return results
 }
 
 // See FIPS 204, Algorithm 34, ExpandMask()

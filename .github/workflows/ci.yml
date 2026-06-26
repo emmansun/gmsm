@@ -15,36 +15,36 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goVer: ['1.24', '1.25']
+        goVer: ['1.25', '1.26']
     steps:
     - name: Harden the runner (Audit all outbound calls)
-      uses: step-security/harden-runner@ab7a9404c0f3da075243ca237b5fac12c98deaa5 # v2.19.3
+      uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
       with:
         egress-policy: audit
 
     - name: Checkout Repo
-      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
   
     - name: Set up Go
-      uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+      uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
       with:
         go-version: ${{ matrix.goVer }}
        
     - name: Test with Coverage
-      if: ${{ matrix.goVer == '1.24' }}
+      if: ${{ matrix.goVer == '1.25' }}
       run: go test -coverpkg=./... -v -short -race -coverprofile=coverage1.txt -covermode=atomic ./...
       env:
         GODEBUG: x509sha1=1
 
     - name: Test Generic with Coverage
-      if: ${{ matrix.goVer == '1.24' }}
+      if: ${{ matrix.goVer == '1.25' }}
       run: go test -coverpkg=./... -v -short -tags purego  -coverprofile=coverage2.txt -covermode=atomic ./...      
       env:
         GODEBUG: x509sha1=1
 
     - name: Upload coverage to Codecov
-      if: ${{ matrix.goVer == '1.24' }}
-      uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
+      if: ${{ matrix.goVer == '1.25' }}
+      uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
       with:
         files: ./coverage1.txt,./coverage2.txt
       env:
@@ -56,19 +56,48 @@ jobs:
         FORCE_SM4BLOCK_AESNI: 1
 
     - name: Test only
-      if: ${{ matrix.goVer != '1.24' }}
+      if: ${{ matrix.goVer != '1.25' }}
       run: go test -short ./...
       env:
         GODEBUG: x509sha1=1
 
     - name: Test Generic only
-      if: ${{ matrix.goVer != '1.24' }}
+      if: ${{ matrix.goVer != '1.25' }}
       run: go test -short -tags purego ./...      
       env:
         GODEBUG: x509sha1=1
 
     - name: Test Plugin only
-      if: ${{ matrix.goVer == '1.24' }}
+      if: ${{ matrix.goVer == '1.25' }}
       run: go test -short -tags plugin ./...      
       env:
         GODEBUG: x509sha1=1
+
+  smx509-patch-consistency:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Harden the runner (Audit all outbound calls)
+      uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+      with:
+        egress-policy: audit
+
+    - name: Checkout Repo
+      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+    - name: Set up Go
+      uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+      with:
+        go-version: '1.25'
+
+    - name: Regenerate patches and check consistency
+      run: |
+        go run scripts/smx509/gen_patches.go
+        if ! git diff --exit-code scripts/smx509/patches/; then
+          echo "::error::smx509 source patches are out of sync! Run 'go run scripts/smx509/gen_patches.go' locally and commit the result."
+          exit 1
+        fi
+        go run scripts/smx509/gen_test_patches.go
+        if ! git diff --exit-code scripts/smx509/test-patches/; then
+          echo "::error::smx509 test patches are out of sync! Run 'go run scripts/smx509/gen_test_patches.go' locally and commit the result."
+          exit 1
+        fi

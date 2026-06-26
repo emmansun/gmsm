@@ -17,8 +17,11 @@ func genKeywordAsm(s *zucState32) uint32
 //go:noescape
 func genKeyStreamAsm(keyStream []uint32, pState *zucState32)
 
-var supportsAES = cpuid.HasAES
-var useAVX = cpu.X86.HasAVX
+var (
+	supportsAES = cpuid.HasAES
+	useAVX = cpu.X86.HasAVX
+	useGFNI = cpu.X86.HasAVX && cpuid.HasGFNI
+)
 
 func genKeyStream(keyStream []uint32, pState *zucState32) {
 	if supportsAES {

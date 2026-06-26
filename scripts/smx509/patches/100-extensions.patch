@@ -1,0 +1,570 @@
+diff --git "a/smx509/cfca_csr.go" "b/smx509/cfca_csr.go"
+new file mode 100644
+index e69de29..aa3d054 100644
+--- /dev/null
++++ "b/smx509/cfca_csr.go"
+@@ -0,0 +1,218 @@
++// Copyright 2024 Sun Yimin. All rights reserved.
++// Use of this source code is governed by a MIT-style
++// license that can be found in the LICENSE file.
++
++package smx509
++
++import (
++	"bytes"
++	"crypto"
++	"crypto/ecdsa"
++	"crypto/rsa"
++	"encoding/asn1"
++	"errors"
++	"io"
++
++	"crypto/x509/pkix"
++
++	"github.com/emmansun/gmsm/sm2"
++)
++
++var (
++	oidChallengePassword = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 7}
++	oidTmpPublicKey      = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 63}
++	tmpPublicKeyPrefix   = []byte{0, 0xb4, 0, 0, 0, 1, 0, 0}
++)
++
++// CreateCFCACertificateRequest creates a new CFCA certificate request based on a
++// template.
++func CreateCFCACertificateRequest(rand io.Reader, template *CertificateRequest, priv, tmpPub any, challengePassword string) ([]byte, error) {
++	key, ok := priv.(crypto.Signer)
++	if !ok {
++		return nil, errors.New("x509: certificate private key does not implement crypto.Signer")
++	}
++	signatureAlgorithm, algorithmIdentifier, err := signingParamsForKey(key, template.SignatureAlgorithm)
++	if err != nil {
++		return nil, err
++	}
++
++	var publicKeyBytes []byte
++	var publicKeyAlgorithm pkix.AlgorithmIdentifier
++	publicKeyBytes, publicKeyAlgorithm, err = marshalPublicKey(key.Public())
++	if err != nil {
++		return nil, err
++	}
++
++	var rawAttributes []asn1.RawValue
++	if tmpPub != nil {
++		rawAttributes, err = buildTmpPublicKeyAttr(key, rawAttributes, tmpPub)
++		if err != nil {
++			return nil, err
++		}
++
++		rawAttributes, err = buildChallengePasswordAttr(rawAttributes, challengePassword)
++		if err != nil {
++			return nil, err
++		}
++	}
++
++	asn1Subject := template.RawSubject
++	if len(asn1Subject) == 0 {
++		asn1Subject, err = asn1.Marshal(template.Subject.ToRDNSequence())
++		if err != nil {
++			return nil, err
++		}
++	}
++
++	tbsCSR := tbsCertificateRequest{
++		Version: 0,
++		Subject: asn1.RawValue{FullBytes: asn1Subject},
++		PublicKey: publicKeyInfo{
++			Algorithm: publicKeyAlgorithm,
++			PublicKey: asn1.BitString{Bytes: publicKeyBytes, BitLength: len(publicKeyBytes) * 8},
++		},
++		RawAttributes: rawAttributes,
++	}
++
++	tbsCSRContents, err := asn1.Marshal(tbsCSR)
++	if err != nil {
++		return nil, err
++	}
++	tbsCSR.Raw = tbsCSRContents
++
++	signature, err := signTBS(tbsCSRContents, key, signatureAlgorithm, rand)
++	if err != nil {
++		return nil, err
++	}
++
++	return asn1.Marshal(certificateRequest{TBSCSR: tbsCSR, SignatureAlgorithm: algorithmIdentifier, SignatureValue: asn1.BitString{Bytes: signature, BitLength: len(signature) * 8}})
++}
++
++func buildChallengePasswordAttr(rawAttributes []asn1.RawValue, challengePassword string) ([]asn1.RawValue, error) {
++	if len(challengePassword) == 0 {
++		return nil, errors.New("x509: challenge password is required")
++	}
++	attr := struct {
++		Type  asn1.ObjectIdentifier
++		Value string
++	}{Type: oidChallengePassword, Value: challengePassword}
++	b, err := asn1.Marshal(attr)
++	if err != nil {
++		return nil, err
++	}
++	var rawValue asn1.RawValue
++	if _, err := asn1.Unmarshal(b, &rawValue); err != nil {
++		return nil, err
++	}
++	return append(rawAttributes, rawValue), nil
++}
++
++type tmpPublicKeyInfo struct {
++	Version   int `asn1:"default:1"`
++	PublicKey []byte
++}
++
++func buildTmpPublicKeyAttr(key crypto.Signer, rawAttributes []asn1.RawValue, tmpPub crypto.PublicKey) ([]asn1.RawValue, error) {
++	var publicKeyBytes []byte
++	switch key.(type) {
++	case *sm2.PrivateKey:
++		if !sm2.IsSM2PublicKey(tmpPub) {
++			return nil, errors.New("x509: SM2 temp public key is required")
++		}
++		publicKeyBytes = make([]byte, 136)
++		copy(publicKeyBytes, tmpPublicKeyPrefix)
++		ecPub, _ := tmpPub.(*ecdsa.PublicKey)
++		ecPub.X.FillBytes(publicKeyBytes[8:40])
++		ecPub.Y.FillBytes(publicKeyBytes[72:104])
++	case *rsa.PrivateKey:
++		pub, ok := tmpPub.(*rsa.PublicKey)
++		if !ok {
++			return nil, errors.New("x509: RSA temp public key is required")
++		}
++		publicKeyBytes = MarshalPKCS1PublicKey(pub)
++	default:
++		return nil, errors.New("x509: only RSA or SM2 key is supported")
++	}
++
++	tmpPublicKey := tmpPublicKeyInfo{Version: 1, PublicKey: publicKeyBytes}
++	b, err := asn1.Marshal(tmpPublicKey)
++	if err != nil {
++		return nil, err
++	}
++	attrKey := struct {
++		Type  asn1.ObjectIdentifier
++		Value []byte
++	}{Type: oidTmpPublicKey, Value: b}
++	b, err = asn1.Marshal(attrKey)
++	if err != nil {
++		return nil, err
++	}
++	var rawValue asn1.RawValue
++	if _, err = asn1.Unmarshal(b, &rawValue); err != nil {
++		return nil, err
++	}
++	return append(rawAttributes, rawValue), nil
++}
++
++// CertificateRequestCFCA represents a CFCA certificate request.
++type CertificateRequestCFCA struct {
++	CertificateRequest
++	ChallengePassword string
++	TmpPublicKey      any
++}
++
++// ParseCFCACertificateRequest parses a CFCA certificate request from the given DER data.
++func ParseCFCACertificateRequest(asn1Data []byte) (*CertificateRequestCFCA, error) {
++	var csr certificateRequest
++	rest, err := asn1.Unmarshal(asn1Data, &csr)
++	if err != nil {
++		return nil, err
++	}
++	if len(rest) != 0 {
++		return nil, asn1.SyntaxError{Msg: "trailing data"}
++	}
++
++	inner, err := parseCertificateRequest(&csr)
++	if err != nil {
++		return nil, err
++	}
++	out := &CertificateRequestCFCA{CertificateRequest: *inner}
++	parseCFCAAttributes(out, csr.TBSCSR.RawAttributes)
++	return out, nil
++}
++
++func parseCFCAAttributes(out *CertificateRequestCFCA, rawAttributes []asn1.RawValue) {
++	var value struct {
++		Type  asn1.ObjectIdentifier
++		Value asn1.RawValue
++	}
++	for _, attr := range rawAttributes {
++		if _, err := asn1.Unmarshal(attr.FullBytes, &value); err != nil {
++			continue
++		}
++		switch {
++		case value.Type.Equal(oidChallengePassword):
++			asn1.Unmarshal(value.Value.FullBytes, &out.ChallengePassword)
++		case value.Type.Equal(oidTmpPublicKey):
++			var tmpPub tmpPublicKeyInfo
++			if _, err := asn1.Unmarshal(value.Value.Bytes, &tmpPub); err != nil {
++				continue
++			}
++			keyBytes := tmpPub.PublicKey
++			switch out.PublicKeyAlgorithm {
++			case RSA:
++				if tmpKey, err := ParsePKCS1PublicKey(keyBytes); err == nil {
++					out.TmpPublicKey = tmpKey
++				}
++			case ECDSA:
++				if len(keyBytes) == 136 && bytes.Equal(tmpPublicKeyPrefix, keyBytes[:8]) {
++					copy(keyBytes[40:72], keyBytes[72:104])
++					keyBytes[7] = 4
++					if tmpKey, err := sm2.NewPublicKey(keyBytes[7:72]); err == nil {
++						out.TmpPublicKey = tmpKey
++					}
++				}
++			}
++		}
++	}
++}
+
+diff --git "a/smx509/csr_rsp.go" "b/smx509/csr_rsp.go"
+new file mode 100644
+index e69de29..55e83eb 100644
+--- /dev/null
++++ "b/smx509/csr_rsp.go"
+@@ -0,0 +1,146 @@
++// Marshal & Parse CSRResponse which is defined in GM/T 0092-2020
++// Specification of certificate request syntax based on SM2 cryptographic algorithm.
++
++package smx509
++
++import (
++	"bytes"
++	"crypto/ecdsa"
++	"crypto/rand"
++	"encoding/asn1"
++	"errors"
++
++	"github.com/emmansun/gmsm/sm2"
++)
++
++// CSRResponse represents the response of a certificate signing request.
++type CSRResponse struct {
++	SignCerts         []*Certificate
++	EncryptPrivateKey *sm2.PrivateKey
++	EncryptCerts      []*Certificate
++}
++
++type tbsCSRResponse struct {
++	SignCerts           []asn1.RawValue `asn1:"set"`
++	EncryptedPrivateKey asn1.RawValue   `asn1:"optional,tag:0"`
++	EncryptCerts        rawCertificates `asn1:"optional,tag:1"`
++}
++
++type rawCertificates struct {
++	Raw asn1.RawContent
++}
++
++// ParseCSRResponse parses a CSRResponse from DER format.
++func ParseCSRResponse(signPrivateKey *sm2.PrivateKey, der []byte) (CSRResponse, error) {
++	result := CSRResponse{}
++	resp := &tbsCSRResponse{}
++	rest, err := asn1.Unmarshal(der, resp)
++	if err != nil || len(rest) > 0 {
++		return result, errors.New("x509: invalid CSRResponse asn1 data")
++	}
++
++	signCerts := make([]*Certificate, len(resp.SignCerts))
++	for i, rawCert := range resp.SignCerts {
++		signCert, err := ParseCertificate(rawCert.FullBytes)
++		if err != nil {
++			return result, err
++		}
++		signCerts[i] = signCert
++	}
++
++	if !signPrivateKey.PublicKey.Equal(signCerts[0].PublicKey) {
++		return result, errors.New("x509: sign cert public key mismatch")
++	}
++
++	var encPrivateKey *sm2.PrivateKey
++	if len(resp.EncryptedPrivateKey.Bytes) > 0 {
++		encPrivateKey, err = sm2.ParseEnvelopedPrivateKey(signPrivateKey, resp.EncryptedPrivateKey.Bytes)
++		if err != nil {
++			return result, err
++		}
++	}
++	var encryptCerts []*Certificate
++	if len(resp.EncryptCerts.Raw) > 0 {
++		encryptCerts, err = resp.EncryptCerts.Parse()
++		if err != nil {
++			return result, err
++		}
++	}
++
++	if encPrivateKey != nil && len(encryptCerts) == 0 {
++		return result, errors.New("x509: missing encrypt certificate")
++	}
++
++	if encPrivateKey != nil && !encPrivateKey.PublicKey.Equal(encryptCerts[0].PublicKey) {
++		return result, errors.New("x509: encrypt key pair mismatch")
++	}
++
++	result.SignCerts = signCerts
++	result.EncryptPrivateKey = encPrivateKey
++	result.EncryptCerts = encryptCerts
++	return result, nil
++}
++
++// MarshalCSRResponse marshals a CSRResponse to DER format.
++func MarshalCSRResponse(signCerts []*Certificate, encryptPrivateKey *sm2.PrivateKey, encryptCerts []*Certificate) ([]byte, error) {
++	if len(signCerts) == 0 {
++		return nil, errors.New("x509: no sign certificate")
++	}
++	signPubKey, ok := signCerts[0].PublicKey.(*ecdsa.PublicKey)
++	if !ok || !sm2.IsSM2PublicKey(signPubKey) {
++		return nil, errors.New("x509: invalid sign public key")
++	}
++
++	if encryptPrivateKey != nil && len(encryptCerts) == 0 {
++		return nil, errors.New("x509: missing encrypt certificate")
++	}
++	if encryptPrivateKey != nil && !encryptPrivateKey.PublicKey.Equal(encryptCerts[0].PublicKey) {
++		return nil, errors.New("x509: encrypt key pair mismatch")
++	}
++
++	resp := tbsCSRResponse{}
++	resp.SignCerts = make([]asn1.RawValue, 0, len(signCerts))
++	for _, cert := range signCerts {
++		resp.SignCerts = append(resp.SignCerts, asn1.RawValue{FullBytes: cert.Raw})
++	}
++	if encryptPrivateKey != nil && len(encryptCerts) > 0 {
++		privateKeyBytes, err := sm2.MarshalEnvelopedPrivateKey(rand.Reader, signPubKey, encryptPrivateKey)
++		if err != nil {
++			return nil, err
++		}
++		resp.EncryptedPrivateKey = asn1.RawValue{Class: asn1.ClassContextSpecific, Tag: 0, IsCompound: true, Bytes: privateKeyBytes}
++		resp.EncryptCerts = marshalCertificates(encryptCerts)
++	}
++	return asn1.Marshal(resp)
++}
++
++func marshalCertificates(certs []*Certificate) rawCertificates {
++	var buf bytes.Buffer
++	for _, cert := range certs {
++		buf.Write(cert.Raw)
++	}
++	rawCerts, _ := marshalCertificateBytes(buf.Bytes())
++	return rawCerts
++}
++
++func marshalCertificateBytes(certs []byte) (rawCertificates, error) {
++	var val = asn1.RawValue{Bytes: certs, Class: asn1.ClassContextSpecific, Tag: 0, IsCompound: true}
++	b, err := asn1.Marshal(val)
++	if err != nil {
++		return rawCertificates{}, err
++	}
++	return rawCertificates{Raw: b}, nil
++}
++
++func (raw rawCertificates) Parse() ([]*Certificate, error) {
++	if len(raw.Raw) == 0 {
++		return nil, nil
++	}
++
++	var val asn1.RawValue
++	if _, err := asn1.Unmarshal(raw.Raw, &val); err != nil {
++		return nil, err
++	}
++
++	return ParseCertificates(val.Bytes)
++}
+
+diff --git "a/smx509/explicit_curves.go" "b/smx509/explicit_curves.go"
+new file mode 100644
+index e69de29..f0385eb 100644
+--- /dev/null
++++ "b/smx509/explicit_curves.go"
+@@ -0,0 +1,98 @@
++// Copyright 2026 The gmsm Authors. All rights reserved.
++// Use of this source code is governed by a MIT-style
++// license that can be found in the LICENSE file.
++
++package smx509
++
++import (
++	"crypto/elliptic"
++	"encoding/asn1"
++	"errors"
++	"math/big"
++
++	"github.com/emmansun/gmsm/sm2"
++	"golang.org/x/crypto/cryptobyte"
++	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
++)
++
++// parseExplicitECParameters parses explicit elliptic curve parameters as defined
++// in RFC 3279 Section 2.3.5 and attempts to match them to known named curves.
++func parseExplicitECParameters(params cryptobyte.String) (elliptic.Curve, error) {
++	var version int
++	if !params.ReadASN1Integer(&version) {
++		return nil, errors.New("x509: failed to read EC parameters version")
++	}
++	if version != 1 {
++		return nil, errors.New("x509: unsupported EC parameters version")
++	}
++
++	var fieldID cryptobyte.String
++	if !params.ReadASN1(&fieldID, cryptobyte_asn1.SEQUENCE) {
++		return nil, errors.New("x509: invalid fieldID in EC parameters")
++	}
++
++	var fieldType asn1.ObjectIdentifier
++	if !fieldID.ReadASN1ObjectIdentifier(&fieldType) {
++		return nil, errors.New("x509: invalid fieldType OID")
++	}
++	if !fieldType.Equal(oidPrimeField) {
++		return nil, errors.New("x509: unsupported field type OID")
++	}
++
++	p := new(big.Int)
++	if !fieldID.ReadASN1Integer(p) {
++		return nil, errors.New("x509: failed to read prime field modulus")
++	}
++
++	var curveSeq cryptobyte.String
++	if !params.ReadASN1(&curveSeq, cryptobyte_asn1.SEQUENCE) {
++		return nil, errors.New("x509: invalid curve sequence")
++	}
++
++	var aBytes, bBytes cryptobyte.String
++	if !curveSeq.ReadASN1(&aBytes, cryptobyte_asn1.OCTET_STRING) ||
++		!curveSeq.ReadASN1(&bBytes, cryptobyte_asn1.OCTET_STRING) {
++		return nil, errors.New("x509: invalid curve coefficients")
++	}
++	_ = aBytes
++	_ = bBytes
++
++	var basePoint cryptobyte.String
++	if !params.ReadASN1(&basePoint, cryptobyte_asn1.OCTET_STRING) {
++		return nil, errors.New("x509: invalid base point")
++	}
++	_ = basePoint
++
++	order := new(big.Int)
++	if !params.ReadASN1Integer(order) {
++		return nil, errors.New("x509: invalid curve order")
++	}
++
++	return matchKnownCurve(p, order)
++}
++
++func matchKnownCurve(p, n *big.Int) (elliptic.Curve, error) {
++	p256 := elliptic.P256().Params()
++	if p.Cmp(p256.P) == 0 && n.Cmp(p256.N) == 0 {
++		return elliptic.P256(), nil
++	}
++
++	p384 := elliptic.P384().Params()
++	if p.Cmp(p384.P) == 0 && n.Cmp(p384.N) == 0 {
++		return elliptic.P384(), nil
++	}
++
++	p521 := elliptic.P521().Params()
++	if p.Cmp(p521.P) == 0 && n.Cmp(p521.N) == 0 {
++		return elliptic.P521(), nil
++	}
++
++	sm2Params := sm2.P256().Params()
++	if p.Cmp(sm2Params.P) == 0 && n.Cmp(sm2Params.N) == 0 {
++		return sm2.P256(), nil
++	}
++
++	return nil, errors.New("x509: explicit curve parameters do not match any known curve")
++}
++
++var oidPrimeField = asn1.ObjectIdentifier{1, 2, 840, 10045, 1, 1}
+
+diff --git "a/smx509/verify_digest.go" "b/smx509/verify_digest.go"
+new file mode 100644
+index e69de29..6750cb4 100644
+--- /dev/null
++++ "b/smx509/verify_digest.go"
+@@ -0,0 +1,81 @@
++// Copyright 2024 Sun Yimin. All rights reserved.
++// Use of this source code is governed by a MIT-style
++// license that can be found in the LICENSE file.
++
++package smx509
++
++import (
++	"crypto"
++	"crypto/ecdsa"
++	"crypto/rsa"
++	"errors"
++
++	"github.com/emmansun/gmsm/sm2"
++)
++
++// CheckSignatureWithDigest verifies the signature of a certificate using the specified
++// signature algorithm and pre-computed digest. It supports RSA, ECDSA, and SM2 public keys.
++//
++// This is a low-level API that performs no validity checks on the certificate.
++func (c *Certificate) CheckSignatureWithDigest(algo SignatureAlgorithm, digest, signature []byte) (err error) {
++	var hashType crypto.Hash
++	var pubKeyAlgo PublicKeyAlgorithm
++
++	publicKey := c.PublicKey
++
++	isSM2 := (algo == SM2WithSM3)
++	for _, details := range signatureAlgorithmDetails {
++		if details.algo == algo {
++			hashType = details.hash
++			pubKeyAlgo = details.pubKeyAlgo
++			break
++		}
++	}
++
++	switch hashType {
++	case crypto.Hash(0):
++		if !isSM2 {
++			return ErrUnsupportedAlgorithm
++		}
++		if len(digest) != 32 { // SM3 hash size
++			return errors.New("x509: inconsistent digest and signature algorithm")
++		}
++	case crypto.MD5:
++		return InsecureAlgorithmError(algo)
++	case crypto.SHA1:
++		// SHA-1 signatures are only allowed for CRLs and CSRs.
++		return InsecureAlgorithmError(algo)
++	default:
++		if !hashType.Available() {
++			return ErrUnsupportedAlgorithm
++		}
++		if len(digest) != hashType.Size() {
++			return errors.New("x509: inconsistent digest and signature algorithm")
++		}
++	}
++
++	switch pub := publicKey.(type) {
++	case *rsa.PublicKey:
++		if pubKeyAlgo != RSA {
++			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
++		}
++		if algo.isRSAPSS() {
++			return rsa.VerifyPSS(pub, hashType, digest, signature, &rsa.PSSOptions{SaltLength: rsa.PSSSaltLengthEqualsHash})
++		} else {
++			return rsa.VerifyPKCS1v15(pub, hashType, digest, signature)
++		}
++	case *ecdsa.PublicKey:
++		if pubKeyAlgo != ECDSA {
++			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
++		}
++		if isSM2 {
++			if !sm2.VerifyASN1(pub, digest, signature) {
++				return errors.New("x509: SM2 verification failure")
++			}
++		} else if !ecdsa.VerifyASN1(pub, digest, signature) {
++			return errors.New("x509: ECDSA verification failure")
++		}
++		return
++	}
++	return ErrUnsupportedAlgorithm
++}

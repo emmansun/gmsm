@@ -9,7 +9,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/x509"
+	x509 "github.com/emmansun/gmsm/smx509"
 	"crypto/x509/pkix"
 	"encoding/hex"
 	"testing"
@@ -236,7 +236,7 @@ func TestParseEscrowPrivateKey(t *testing.T) {
 			"cacece36cac24aab94e52bcd5c0f552c95028f2856053135a1e47510b4c307ba",
 			"MIHGAgEBBIHANZyM9KF7qqyUDzh6wZmLU6czep9FxJfojSpxrAYbNN2j/Jad5cOaNmhO4tL+tfk42O8y9+jUebPWCUOuSXZADJZOEyRo2tehvrT2CxEEA9cJ0pK87uXiRsd9vLyjYeEzbngO8tpFrSrpF8G/KYbJ1QiI3W+QLQnofwtChNVwOjyjLxoFO9gx3jvfVH79ECoYC11UL0o0YASx9niiGkqT/q8tqbr7DwIDu0tbXVfwhjJJ2zNZIdECDkV3o7as9ika",
 			true,
-			"sm2: invalid private key",
+			"sm2: private key is zero",
 		},
 		{
 			"f6e02c941a0dfdac58d8b3b1bc1bd136f179741b7465ebc7b0b25bb381840a3b",

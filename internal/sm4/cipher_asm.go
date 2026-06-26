@@ -15,11 +15,13 @@ var supportSM4 = cpu.ARM64.HasSM4 && os.Getenv("DISABLE_SM4NI") != "1"
 var supportsAES = cpuid.HasAES
 var supportsGFMUL = cpuid.HasGFMUL
 var useAVX2 = cpu.X86.HasAVX2
+var useGFNI = useAVX2 && cpuid.HasGFNI && os.Getenv("DISABLE_GFNI") != "1"
 var useAESNI4SingleBlock = os.Getenv("FORCE_SM4BLOCK_AESNI") == "1"
 
 const (
 	INST_AES int = iota
 	INST_SM4
+	INST_GFNI
 )
 
 //go:noescape
@@ -82,7 +84,11 @@ func (c *sm4CipherAsm) Encrypt(dst, src []byte) {
 
 func (c *sm4CipherAsm) encrypt(dst, src []byte) {
 	if useAESNI4SingleBlock {
-		encryptBlockAsm(&c.enc[0], &dst[0], &src[0], INST_AES)
+		if useGFNI {
+			encryptBlockAsm(&c.enc[0], &dst[0], &src[0], INST_GFNI)
+		} else {
+			encryptBlockAsm(&c.enc[0], &dst[0], &src[0], INST_AES)
+		}
 	} else {
 		encryptBlockGo(&c.enc, dst, src)
 	}
@@ -99,7 +105,11 @@ func (c *sm4CipherAsm) Decrypt(dst, src []byte) {
 		panic("sm4: invalid buffer overlap")
 	}
 	if useAESNI4SingleBlock {
-		encryptBlockAsm(&c.dec[0], &dst[0], &src[0], INST_AES)
+		if useGFNI {
+			encryptBlockAsm(&c.dec[0], &dst[0], &src[0], INST_GFNI)
+		} else {
+			encryptBlockAsm(&c.dec[0], &dst[0], &src[0], INST_AES)
+		}
 	} else {
 		encryptBlockGo(&c.dec, dst, src)
 	}

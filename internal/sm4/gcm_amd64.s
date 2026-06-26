@@ -77,6 +77,7 @@ GLOBL gcmPoly<>(SB), (NOPTR+RODATA), $16
 GLOBL andMask<>(SB), (NOPTR+RODATA), $240
 
 #include "aesni_macros_amd64.s"
+#include "gfni_macros_amd64.s"
 
 // func gcmSm4Finish(productTable *[256]byte, tagMask, T *[16]byte, pLen, dLen uint64)
 TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
@@ -908,9 +909,15 @@ avx2GcmSm4Enc:
 	// Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWORD, YDWORD)
 	
-	VBROADCASTI128 ·nibble_mask(SB), NIBBLE_MASK
 	increment(1)
+	CMPB ·useGFNI(SB), $1
+	JNE gcmEncInitAvx2
+	GFNI_SM4_8BLOCKS(rk, XDWORD, YDWORD, XDWTMP0, DWB0, DWB1, DWB2, DWB3)
+	JMP gcmEncInitDone
+gcmEncInitAvx2:
+	VBROADCASTI128 ·nibble_mask(SB), NIBBLE_MASK
 	AVX2_SM4_8BLOCKS(rk, XDWORD, YDWORD, X1, X3, XDWTMP0, DWB0, DWB1, DWB2, DWB3)
+gcmEncInitDone:
 	increment(2)
 	// Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWORD, YDWORD)
@@ -981,7 +988,13 @@ avx2GcmSm4EncOctetsLoop:
 		// Transpose matrix 4 x 4 32bits word
 		TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWORD, YDWORD)
 
+		CMPB ·useGFNI(SB), $1
+		JNE gcmEncLoopAvx2
+		GFNI_SM4_8BLOCKS(rk, XDWORD, YDWORD, XDWTMP0, DWB0, DWB1, DWB2, DWB3)
+		JMP gcmEncLoopDone
+	gcmEncLoopAvx2:
 		AVX2_SM4_8BLOCKS(rk, XDWORD, YDWORD, X1, X3, XDWTMP0, DWB0, DWB1, DWB2, DWB3)
+	gcmEncLoopDone:
 
 		// Transpose matrix 4 x 4 32bits word
 		TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWORD, YDWORD)
@@ -1594,7 +1607,13 @@ avx2GcmSm4DecOctetsLoop:
 		// Transpose matrix 4 x 4 32bits word
 		TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWORD, YDWORD)
 
+		CMPB ·useGFNI(SB), $1
+		JNE gcmDecLoopAvx2
+		GFNI_SM4_8BLOCKS(rk, XDWORD, YDWORD, XDWTMP0, DWB0, DWB1, DWB2, DWB3)
+		JMP gcmDecLoopDone
+	gcmDecLoopAvx2:
 		AVX2_SM4_8BLOCKS(rk, XDWORD, YDWORD, X1, X3, XDWTMP0, DWB0, DWB1, DWB2, DWB3)
+	gcmDecLoopDone:
 
 		// Transpose matrix 4 x 4 32bits word
 		TRANSPOSE_MATRIX(DWB0, DWB1, DWB2, DWB3, XDWORD, YDWORD)

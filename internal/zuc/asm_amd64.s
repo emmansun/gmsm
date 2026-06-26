@@ -70,6 +70,17 @@ DATA flip_mask<>+0x00(SB)/8, $0x0405060700010203
 DATA flip_mask<>+0x08(SB)/8, $0x0c0d0e0f08090a0b
 GLOBL flip_mask<>(SB), RODATA, $16
 
+// ZUC S1 GFNI matrices: S1(x) = m2 · GF_AES_Inv(m1 · x) ⊕ 0x55
+// Verified against ZUC S1 table (c1=0, c2=0x55). Use pair #3.
+// Source: github.com/emmansun/simd/blob/main/amd64/sse/sse_gfni_test.go
+DATA zuc_gfni_s1_m1<>+0x00(SB)/8, $0x95124E5A9E18ACC6
+DATA zuc_gfni_s1_m1<>+0x08(SB)/8, $0x95124E5A9E18ACC6
+GLOBL zuc_gfni_s1_m1<>(SB), RODATA, $16
+
+DATA zuc_gfni_s1_m2<>+0x00(SB)/8, $0xC305CBCC771ADAF1
+DATA zuc_gfni_s1_m2<>+0x08(SB)/8, $0xC305CBCC771ADAF1
+GLOBL zuc_gfni_s1_m2<>(SB), RODATA, $16
+
 #define OFFSET_FR1      (16*4)
 #define OFFSET_FR2      (17*4)
 #define OFFSET_BRC_X0   (18*4)
@@ -77,10 +88,24 @@ GLOBL flip_mask<>(SB), RODATA, $16
 #define OFFSET_BRC_X2   (20*4)
 #define OFFSET_BRC_X3   (21*4)
 
-#define SHLDL(a, b, n) \  // NO SHLDL in GOLANG now
+// Native SHLD r32,r32,imm8 via raw byte encoding.
+// Go assembler lacks SHLD support; encode as: [REX] 0F A4 ModRM imm8
+// ModRM = 0xC0 | (src<<3) | dst  (mod=11, register-register)
+// Source register is NOT clobbered (unlike the old SHLDL macro).
+//
+// Registers R8-R15 require REX prefix (REX.R for reg field, REX.B for r/m field).
+
+// Fallback macro (old behavior, clobbers source register b)
+#define SHLDL(a, b, n) \
 	SHLL n, a          \
-	SHRL n, b          \  
+	SHRL n, b          \
 	ORL  b, a
+
+// NONLIN_FUN: both R9 and R10 are extended registers (need REX.R+B)
+#define SHLD_R9_R10_16  BYTE $0x45; BYTE $0x0F; BYTE $0xA4; BYTE $0xCA; BYTE $0x10  // SHLD R10, R9, 16
+
+// NONLIN_FUN: both DX and CX are low registers (no REX needed)
+#define SHLD_DX_CX_16   BYTE $0x0F; BYTE $0xA4; BYTE $0xCA; BYTE $0x10              // SHLD DX, CX, 16
 
 // Rotate left 5 bits in each byte, within an XMM register, SSE version.
 #define Rotl_5_SSE(XDATA, XTMP0)               \
@@ -203,12 +228,93 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	VMOVDQU Comb_matrix_mul_high_nibble<>(SB), XIN_OUT    \
 	MUL_PSHUFB_AVX(XTMP2, XTMP1, XIN_OUT, XTMP3)
 
+// Compute 16 S1 box values from 16 bytes using GFNI (2 instructions).
+// XIN_OUT: input/output XMM register
+// XTMP1: temporary XMM register (clobbered)
+// Equivalent to S1_comput_AVX but uses GF2P8AFFINEQB + GF2P8AFFINEINVQB.
+#define S1_comput_GFNI(XIN_OUT, XTMP1) \
+	VMOVDQU zuc_gfni_s1_m1<>(SB), XTMP1;              \
+	VGF2P8AFFINEQB $0x00, XTMP1, XIN_OUT, XIN_OUT;    \
+	VMOVDQU zuc_gfni_s1_m2<>(SB), XTMP1;              \
+	VGF2P8AFFINEINVQB $0x55, XTMP1, XIN_OUT, XIN_OUT
+
+// Pre-loaded GFNI S1: XM1=m1, XM2=m2 are already in registers (not clobbered).
+#define S1_comput_GFNI_PRE(XIN_OUT, XM1, XM2)         \
+	VGF2P8AFFINEQB $0x00, XM1, XIN_OUT, XIN_OUT;      \
+	VGF2P8AFFINEINVQB $0x55, XM2, XIN_OUT, XIN_OUT
+
+// NONLIN_FUN variant using pre-loaded GFNI matrices (avoids per-round loads).
+// XM1: pre-loaded m1 register; XM2: pre-loaded m2 register.
+#define NONLIN_FUN_GFNI_PRE(XM1, XM2)               \
+	NONLIN_FUN                                       \
+	VMOVQ DX, X0                                     \
+	VMOVDQA X0, X1                                   \
+	S0_comput_AVX(X1, X2, X3)                        \
+	S1_comput_GFNI_PRE(X0, XM1, XM2)                \
+	\
+	VPAND mask_S1<>(SB), X0, X0                      \
+	VPAND mask_S0<>(SB), X1, X1                      \
+	VPXOR X1, X0, X0                                 \
+	\
+	MOVL X0, F_R1                                    \ // F_R1 = X0[31:0]
+	VPEXTRD $1, X0, F_R2                                // F_R2 = X0[63:32]
+
+#define ROUND_GFNI_PRE(idx, XM1, XM2)    \
+	BITS_REORG(idx)                       \
+	NONLIN_FUN_GFNI_PRE(XM1, XM2)        \
+	XORL BRC_X3, AX                      \
+	MOVL AX, (idx*4)(DI)                 \
+	XORQ AX, AX                          \
+	LFSR_UPDT(idx)
+
+#define ROUND_REV32_GFNI_PRE(idx, XM1, XM2)   \
+	BITS_REORG(idx)                            \
+	NONLIN_FUN_GFNI_PRE(XM1, XM2)             \
+	XORL BRC_X3, AX                           \
+	BSWAPL AX                                 \
+	MOVL AX, (idx*4)(DI)                      \
+	XORQ AX, AX                               \
+	LFSR_UPDT(idx)
+
 #define F_R1 R9
 #define F_R2 R10
 #define BRC_X0 R11
 #define BRC_X1 R12
 #define BRC_X2 R13
 #define BRC_X3 R14
+
+// Non-Linear function F, GFNI version.
+// Same as NONLIN_FUN_AVX but uses GFNI for S1 computation.
+#define NONLIN_FUN_GFNI                      \
+	NONLIN_FUN                               \
+	VMOVQ DX, X0                             \
+	VMOVDQA X0, X1                           \ 
+	S0_comput_AVX(X1, X2, X3)                \
+	S1_comput_GFNI(X0, X2)                   \
+	\
+	VPAND mask_S1<>(SB), X0, X0              \
+	VPAND mask_S0<>(SB), X1, X1              \ 
+	VPXOR X1, X0, X0                         \ 
+	\
+	MOVL X0, F_R1                            \ // F_R1 = X0[31:0]
+	VPEXTRD $1, X0, F_R2                        // F_R2 = X0[63:32]
+
+#define ROUND_GFNI(idx)            \
+	BITS_REORG(idx)               \
+	NONLIN_FUN_GFNI               \
+	XORL BRC_X3, AX               \
+	MOVL AX, (idx*4)(DI)          \
+	XORQ AX, AX                   \
+	LFSR_UPDT(idx)
+
+#define ROUND_REV32_GFNI(idx)      \
+	BITS_REORG(idx)               \
+	NONLIN_FUN_GFNI               \
+	XORL BRC_X3, AX               \
+	BSWAPL AX                     \
+	MOVL AX, (idx*4)(DI)          \
+	XORQ AX, AX                   \
+	LFSR_UPDT(idx)
 
 // BITS_REORG(idx)
 //
@@ -219,6 +325,11 @@ GLOBL flip_mask<>(SB), RODATA, $16
 // return 
 //      updates R11, R12, R13, R14
 //
+// NOTE: Must use SHLDL macro (not native SHLD). The macro clobbers source
+// registers (AX, BX, CX, DX) via SHRL, and downstream code depends on these
+// clobbered values: XORL BRC_X3,AX uses AX>>16; NONLIN_FUN uses clobbered
+// R9 (=BX>>16) and R10 (=CX<<16); LFSR_UPDT uses clobbered BX (=BX>>16).
+// Replacing with native SHLD would require rewriting the entire data flow.
 #define BITS_REORG(idx)                      \
 	MOVL (((15 + idx) % 16)*4)(SI), BRC_X0   \
 	MOVL (((14 + idx) % 16)*4)(SI), AX       \
@@ -283,9 +394,9 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	\
 	MOVL F_R1, DX                            \
 	MOVL F_R2, CX                            \
-	SHLDL(DX, CX, $16)                       \ // P = (W1 << 16) | (W2 >> 16)
-	SHLDL(F_R2, F_R1, $16)                   \ // Q = (W2 << 16) | (W1 >> 16)
-	MOVL DX, BX                              \ // start L1 
+	SHLD_DX_CX_16                            \ // DX = (DX<<16)|(CX>>16) = P; CX preserved
+	SHLD_R9_R10_16                           \ // R10 = (R10<<16)|(R9>>16) = P; R9 preserved
+	MOVL DX, BX                              \ // start L1(P)
 	MOVL DX, CX                              \
 	ROLL $2, BX                              \
 	ROLL $24, CX                             \
@@ -396,8 +507,7 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	VMOVDQU (16)(SI), X1                     \ // [s4..s7]
 	VMOVDQU (32)(SI), X2                     \ // [s8..s11]
 	VMOVDQU (48)(SI), X3                     \ // [s12..s15]
-	VMOVDQA X0, X4                           \ // backup [s0..s3]
-	VPALIGNR $4, X3, X4, X4                  \ // X4 = [s13,s14,s15,s0]
+	VPALIGNR $4, X3, X0, X4                  \ // X4 = [s13,s14,s15,s0]
 	VPALIGNR $4, X2, X3, X3                  \ // X3 = [s9,s10,s11,s12]
 	VPALIGNR $4, X1, X2, X2                  \ // X2 = [s5,s6,s7,s8]
 	VPALIGNR $4, X0, X1, X1                  \ // X1 = [s1,s2,s3,s4]
@@ -412,8 +522,7 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	VMOVDQU (16)(SI), X1                     \ // [s4..s7]
 	VMOVDQU (32)(SI), X2                     \ // [s8..s11]
 	VMOVDQU (48)(SI), X3                     \ // [s12..s15]
-	VMOVDQA X0, X4                           \ // backup [s0..s3]
-	VPALIGNR $8, X3, X4, X4                  \ // X4 = [s14,s15,s0,s1]
+	VPALIGNR $8, X3, X0, X4                  \ // X4 = [s14,s15,s0,s1]
 	VPALIGNR $8, X2, X3, X3                  \ // X3 = [s10,s11,s12,s13]
 	VPALIGNR $8, X1, X2, X2                  \ // X2 = [s6,s7,s8,s9]
 	VPALIGNR $8, X0, X1, X1                  \ // X1 = [s2,s3,s4,s5]
@@ -462,8 +571,8 @@ GLOBL flip_mask<>(SB), RODATA, $16
 	VPAND mask_S0<>(SB), X1, X1              \ 
 	VPXOR X1, X0, X0                         \ 
 	\
-	MOVL X0, F_R1                            \ // F_R1
-	VPEXTRD $1, X0, F_R2   
+	MOVL X0, F_R1                            \ // F_R1 = X0[31:0]
+	VPEXTRD $1, X0, F_R2                        // F_R2 = X0[63:32]
 
 #define LOAD_STATE                           \
 	MOVL OFFSET_FR1(SI), F_R1                \
@@ -488,6 +597,8 @@ TEXT ·genKeywordAsm(SB),NOSPLIT,$0
 	LOAD_STATE
 
 	BITS_REORG(0)
+	CMPB ·useGFNI(SB), $1
+	JE   gfni
 	CMPB ·useAVX(SB), $1
 	JE   avx
 
@@ -509,6 +620,24 @@ sse:
 
 avx:
 	NONLIN_FUN_AVX
+
+	// (BRC_X3 xor W) as result
+	XORL BRC_X3, AX
+	MOVL AX, ret+8(FP)
+
+	// LFSRWithWorkMode
+	XORQ AX, AX
+	LFSR_UPDT(0)
+
+	SAVE_STATE
+	RESTORE_LFSR_0_AVX
+
+	RET
+
+gfni:
+	VMOVDQU zuc_gfni_s1_m1<>(SB), X6
+	VMOVDQU zuc_gfni_s1_m2<>(SB), X7
+	NONLIN_FUN_GFNI_PRE(X6, X7)
 
 	// (BRC_X3 xor W) as result
 	XORL BRC_X3, AX
@@ -565,6 +694,8 @@ TEXT ·genKeyStreamAsm(SB),NOSPLIT,$0
 
 	LOAD_STATE
 
+	CMPB ·useGFNI(SB), $1
+	JE   gfniStart
 	CMPB ·useAVX(SB), $1
 	JE   avxZucSixteens
 
@@ -704,6 +835,78 @@ avxZucRet:
 	SAVE_STATE
 	RET
 
+gfniStart:
+	VMOVDQU zuc_gfni_s1_m1<>(SB), X6
+	VMOVDQU zuc_gfni_s1_m2<>(SB), X7
+
+gfniZucSixteens:
+	CMPQ BP, $16
+	JB gfniZucOctet
+	SUBQ $16, BP
+	ROUND_GFNI_PRE(0, X6, X7)
+	ROUND_GFNI_PRE(1, X6, X7)
+	ROUND_GFNI_PRE(2, X6, X7)
+	ROUND_GFNI_PRE(3, X6, X7)
+	ROUND_GFNI_PRE(4, X6, X7)
+	ROUND_GFNI_PRE(5, X6, X7)
+	ROUND_GFNI_PRE(6, X6, X7)
+	ROUND_GFNI_PRE(7, X6, X7)
+	ROUND_GFNI_PRE(8, X6, X7)
+	ROUND_GFNI_PRE(9, X6, X7)
+	ROUND_GFNI_PRE(10, X6, X7)
+	ROUND_GFNI_PRE(11, X6, X7)
+	ROUND_GFNI_PRE(12, X6, X7)
+	ROUND_GFNI_PRE(13, X6, X7)
+	ROUND_GFNI_PRE(14, X6, X7)
+	ROUND_GFNI_PRE(15, X6, X7)
+	LEAQ 64(DI), DI
+	JMP gfniZucSixteens
+
+gfniZucOctet:
+	CMPQ BP, $8
+	JB gfniZucNibble
+	SUBQ $8, BP
+	ROUND_GFNI_PRE(0, X6, X7)
+	ROUND_GFNI_PRE(1, X6, X7)
+	ROUND_GFNI_PRE(2, X6, X7)
+	ROUND_GFNI_PRE(3, X6, X7)
+	ROUND_GFNI_PRE(4, X6, X7)
+	ROUND_GFNI_PRE(5, X6, X7)
+	ROUND_GFNI_PRE(6, X6, X7)
+	ROUND_GFNI_PRE(7, X6, X7)
+	LEAQ 32(DI), DI
+	RESTORE_LFSR_8_AVX
+
+gfniZucNibble:
+	CMPQ BP, $4
+	JB gfniZucDouble
+	SUBQ $4, BP
+	ROUND_GFNI_PRE(0, X6, X7)
+	ROUND_GFNI_PRE(1, X6, X7)
+	ROUND_GFNI_PRE(2, X6, X7)
+	ROUND_GFNI_PRE(3, X6, X7)
+	LEAQ 16(DI), DI
+	RESTORE_LFSR_4_AVX
+
+gfniZucDouble:
+	CMPQ BP, $2
+	JB gfniZucSingle
+	SUBQ $2, BP
+	ROUND_GFNI_PRE(0, X6, X7)
+	ROUND_GFNI_PRE(1, X6, X7)
+	LEAQ 8(DI), DI
+	RESTORE_LFSR_2_AVX
+
+gfniZucSingle:
+	TESTQ BP, BP
+	JE gfniZucRet
+	ROUND_GFNI_PRE(0, X6, X7)
+	RESTORE_LFSR_0_AVX
+
+gfniZucRet:
+	SAVE_STATE
+	RET
+
 // func genKeyStreamRev32Asm(keyStream []byte, pState *zucState32)
 TEXT ·genKeyStreamRev32Asm(SB),NOSPLIT,$0
 	MOVQ ks+0(FP), DI
@@ -714,6 +917,8 @@ TEXT ·genKeyStreamRev32Asm(SB),NOSPLIT,$0
 
 	LOAD_STATE
 
+	CMPB ·useGFNI(SB), $1
+	JE   gfniStart
 	CMPB ·useAVX(SB), $1
 	JE   avxZucSixteens
 
@@ -850,5 +1055,77 @@ avxZucSingle:
 	RESTORE_LFSR_0_AVX
 
 avxZucRet:
+	SAVE_STATE
+	RET
+
+gfniStart:
+	VMOVDQU zuc_gfni_s1_m1<>(SB), X6
+	VMOVDQU zuc_gfni_s1_m2<>(SB), X7
+
+gfniZucSixteens:
+	CMPQ BP, $16
+	JB gfniZucOctet
+	SUBQ $16, BP
+	ROUND_REV32_GFNI_PRE(0, X6, X7)
+	ROUND_REV32_GFNI_PRE(1, X6, X7)
+	ROUND_REV32_GFNI_PRE(2, X6, X7)
+	ROUND_REV32_GFNI_PRE(3, X6, X7)
+	ROUND_REV32_GFNI_PRE(4, X6, X7)
+	ROUND_REV32_GFNI_PRE(5, X6, X7)
+	ROUND_REV32_GFNI_PRE(6, X6, X7)
+	ROUND_REV32_GFNI_PRE(7, X6, X7)
+	ROUND_REV32_GFNI_PRE(8, X6, X7)
+	ROUND_REV32_GFNI_PRE(9, X6, X7)
+	ROUND_REV32_GFNI_PRE(10, X6, X7)
+	ROUND_REV32_GFNI_PRE(11, X6, X7)
+	ROUND_REV32_GFNI_PRE(12, X6, X7)
+	ROUND_REV32_GFNI_PRE(13, X6, X7)
+	ROUND_REV32_GFNI_PRE(14, X6, X7)
+	ROUND_REV32_GFNI_PRE(15, X6, X7)
+	LEAQ 64(DI), DI
+	JMP gfniZucSixteens
+
+gfniZucOctet:
+	CMPQ BP, $8
+	JB gfniZucNibble
+	SUBQ $8, BP
+	ROUND_REV32_GFNI_PRE(0, X6, X7)
+	ROUND_REV32_GFNI_PRE(1, X6, X7)
+	ROUND_REV32_GFNI_PRE(2, X6, X7)
+	ROUND_REV32_GFNI_PRE(3, X6, X7)
+	ROUND_REV32_GFNI_PRE(4, X6, X7)
+	ROUND_REV32_GFNI_PRE(5, X6, X7)
+	ROUND_REV32_GFNI_PRE(6, X6, X7)
+	ROUND_REV32_GFNI_PRE(7, X6, X7)
+	LEAQ 32(DI), DI
+	RESTORE_LFSR_8_AVX
+
+gfniZucNibble:
+	CMPQ BP, $4
+	JB gfniZucDouble
+	SUBQ $4, BP
+	ROUND_REV32_GFNI_PRE(0, X6, X7)
+	ROUND_REV32_GFNI_PRE(1, X6, X7)
+	ROUND_REV32_GFNI_PRE(2, X6, X7)
+	ROUND_REV32_GFNI_PRE(3, X6, X7)
+	LEAQ 16(DI), DI
+	RESTORE_LFSR_4_AVX
+
+gfniZucDouble:
+	CMPQ BP, $2
+	JB gfniZucSingle
+	SUBQ $2, BP
+	ROUND_REV32_GFNI_PRE(0, X6, X7)
+	ROUND_REV32_GFNI_PRE(1, X6, X7)
+	LEAQ 8(DI), DI
+	RESTORE_LFSR_2_AVX
+
+gfniZucSingle:
+	TESTQ BP, BP
+	JE gfniZucRet
+	ROUND_REV32_GFNI_PRE(0, X6, X7)
+	RESTORE_LFSR_0_AVX
+
+gfniZucRet:
 	SAVE_STATE
 	RET

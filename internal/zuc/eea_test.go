@@ -475,3 +475,35 @@ func BenchmarkSeek8K(b *testing.B) {
 func BenchmarkSeek1M(b *testing.B) {
 	benchmarkSeek(b, 1024*1024)
 }
+
+func benchmarkSeekWithBucket(b *testing.B, offset uint64, bucketSize int) {
+	var key [16]byte
+	var iv [16]byte
+
+	eea, _ := NewCipherWithBucketSize(key[:], iv[:], bucketSize)
+	// pre-fill states up to offset
+	fill := make([]byte, offset+uint64(bucketSize))
+	eea.XORKeyStream(fill, fill)
+	eea.reset(0)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		eea.seek(offset)
+	}
+}
+
+func BenchmarkSeekWithBucket128_1K(b *testing.B) {
+	benchmarkSeekWithBucket(b, 1024, 128)
+}
+
+func BenchmarkSeekWithBucket128_8K(b *testing.B) {
+	benchmarkSeekWithBucket(b, 8*1024, 128)
+}
+
+func BenchmarkSeekWithBucket128_1M(b *testing.B) {
+	benchmarkSeekWithBucket(b, 1024*1024, 128)
+}
+
+func BenchmarkSeekWithBucket1K_1M(b *testing.B) {
+	benchmarkSeekWithBucket(b, 1024*1024, 1024)
+}

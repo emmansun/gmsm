@@ -1,3 +1,7 @@
+// Copyright 2015 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package smx509
 
 import "runtime"
@@ -14,8 +18,8 @@ var certFiles = []string{
 
 // Possible directories with certificate files; all will be read.
 var certDirectories = []string{
-	"/etc/ssl/certs",               // SLES10/SLES11, https://golang.org/issue/12139
-	"/etc/pki/tls/certs",           // Fedora/RHEL
+	"/etc/ssl/certs",     // SLES10/SLES11, https://golang.org/issue/12139
+	"/etc/pki/tls/certs", // Fedora/RHEL
 }
 
 func init() {

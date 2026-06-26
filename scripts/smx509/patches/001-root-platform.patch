@@ -1,0 +1,155 @@
+diff --git "a/smx509/root_darwin.go" "b/smx509/root_darwin.go"
+index 3bdb865..b0a808e 100644
+--- "a/smx509/root_darwin.go"
++++ "b/smx509/root_darwin.go"
+@@ -4,126 +4,8 @@
+ 
+ package smx509
+ 
+-import (
+-	macOS "crypto/x509/internal/macos"
+-	"errors"
+-	"fmt"
+-)
+-
+ func (c *Certificate) systemVerify(opts *VerifyOptions) (chains [][]*Certificate, err error) {
+-	certs := macOS.CFArrayCreateMutable()
+-	defer macOS.ReleaseCFArray(certs)
+-	leaf, err := macOS.SecCertificateCreateWithData(c.Raw)
+-	if err != nil {
+-		return nil, errors.New("invalid leaf certificate")
+-	}
+-	macOS.CFArrayAppendValue(certs, leaf)
+-	if opts.Intermediates != nil {
+-		for _, lc := range opts.Intermediates.lazyCerts {
+-			c, err := lc.getCert()
+-			if err != nil {
+-				return nil, err
+-			}
+-			sc, err := macOS.SecCertificateCreateWithData(c.Raw)
+-			if err != nil {
+-				return nil, err
+-			}
+-			macOS.CFArrayAppendValue(certs, sc)
+-		}
+-	}
+-
+-	policies := macOS.CFArrayCreateMutable()
+-	defer macOS.ReleaseCFArray(policies)
+-	sslPolicy, err := macOS.SecPolicyCreateSSL(opts.DNSName)
+-	if err != nil {
+-		return nil, err
+-	}
+-	macOS.CFArrayAppendValue(policies, sslPolicy)
+-
+-	trustObj, err := macOS.SecTrustCreateWithCertificates(certs, policies)
+-	if err != nil {
+-		return nil, err
+-	}
+-	defer macOS.CFRelease(trustObj)
+-
+-	if !opts.CurrentTime.IsZero() {
+-		dateRef := macOS.TimeToCFDateRef(opts.CurrentTime)
+-		defer macOS.CFRelease(dateRef)
+-		if err := macOS.SecTrustSetVerifyDate(trustObj, dateRef); err != nil {
+-			return nil, err
+-		}
+-	}
+-
+-	// TODO(roland): we may want to allow passing in SCTs via VerifyOptions and
+-	// set them via SecTrustSetSignedCertificateTimestamps, since Apple will
+-	// always enforce its SCT requirements, and there are still _some_ people
+-	// using TLS or OCSP for that.
+-
+-	if ret, err := macOS.SecTrustEvaluateWithError(trustObj); err != nil {
+-		switch ret {
+-		case macOS.ErrSecCertificateExpired:
+-			return nil, CertificateInvalidError{c, Expired, err.Error()}
+-		case macOS.ErrSecHostNameMismatch:
+-			return nil, HostnameError{c, opts.DNSName}
+-		case macOS.ErrSecNotTrusted:
+-			return nil, UnknownAuthorityError{Cert: c}
+-		default:
+-			return nil, fmt.Errorf("x509: %s", err)
+-		}
+-	}
+-
+-	chain := [][]*Certificate{{}}
+-	chainRef, err := macOS.SecTrustCopyCertificateChain(trustObj)
+-	if err != nil {
+-		return nil, err
+-	}
+-	defer macOS.CFRelease(chainRef)
+-	for i := 0; i < macOS.CFArrayGetCount(chainRef); i++ {
+-		certRef := macOS.CFArrayGetValueAtIndex(chainRef, i)
+-		cert, err := exportCertificate(certRef)
+-		if err != nil {
+-			return nil, err
+-		}
+-		chain[0] = append(chain[0], cert)
+-	}
+-	if len(chain[0]) == 0 {
+-		// This should _never_ happen, but to be safe
+-		return nil, errors.New("x509: macOS certificate verification internal error")
+-	}
+-
+-	if opts.DNSName != "" {
+-		// If we have a DNS name, apply our own name verification
+-		if err := chain[0][0].VerifyHostname(opts.DNSName); err != nil {
+-			return nil, err
+-		}
+-	}
+-
+-	keyUsages := opts.KeyUsages
+-	if len(keyUsages) == 0 {
+-		keyUsages = []ExtKeyUsage{ExtKeyUsageServerAuth}
+-	}
+-
+-	// If any key usage is acceptable then we're done.
+-	for _, usage := range keyUsages {
+-		if usage == ExtKeyUsageAny {
+-			return chain, nil
+-		}
+-	}
+-
+-	if !checkChainForKeyUsage(chain[0], keyUsages) {
+-		return nil, CertificateInvalidError{c, IncompatibleUsage, ""}
+-	}
+-
+-	return chain, nil
+-}
+-
+-// exportCertificate returns a *Certificate for a SecCertificateRef.
+-func exportCertificate(cert macOS.CFRef) (*Certificate, error) {
+-	data, err := macOS.SecCertificateCopyData(cert)
+-	if err != nil {
+-		return nil, err
+-	}
+-	return ParseCertificate(data)
++	return nil, nil
+ }
+ 
+ func loadSystemRoots() (*CertPool, error) {
+
+diff --git "a/smx509/root_linux.go" "b/smx509/root_linux.go"
+index fb29ad8..54a353c 100644
+--- "a/smx509/root_linux.go"
++++ "b/smx509/root_linux.go"
+@@ -4,7 +4,7 @@
+ 
+ package smx509
+ 
+-import "github.com/emmansun/gmsm/internal/goos"
++import "runtime"
+ 
+ // Possible certificate files; stop after finding one.
+ var certFiles = []string{
+@@ -23,7 +23,7 @@ var certDirectories = []string{
+ }
+ 
+ func init() {
+-	if goos.IsAndroid == 1 {
++	if runtime.GOOS == "android" {
+ 		certDirectories = append(certDirectories,
+ 			"/system/etc/security/cacerts",    // Android system roots
+ 			"/data/misc/keychain/certs-added", // User trusted CA folder

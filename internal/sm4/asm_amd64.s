@@ -68,7 +68,22 @@ DATA ·r08_mask+0x10(SB)/8, $0x0605040702010003
 DATA ·r08_mask+0x18(SB)/8, $0x0E0D0C0F0A09080B
 GLOBL ·r08_mask(SB), RODATA, $32
 
+// GFNI pre-affine matrix (broadcast to 256-bit)
+DATA ·gfni_pre_matrix+0x00(SB)/8, $0xa7ac65de3de94796
+DATA ·gfni_pre_matrix+0x08(SB)/8, $0xa7ac65de3de94796
+DATA ·gfni_pre_matrix+0x10(SB)/8, $0xa7ac65de3de94796
+DATA ·gfni_pre_matrix+0x18(SB)/8, $0xa7ac65de3de94796
+GLOBL ·gfni_pre_matrix(SB), RODATA, $32
+
+// GFNI post-affine matrix (broadcast to 256-bit)
+DATA ·gfni_post_matrix+0x00(SB)/8, $0x75f1228d6c1e85c9
+DATA ·gfni_post_matrix+0x08(SB)/8, $0x75f1228d6c1e85c9
+DATA ·gfni_post_matrix+0x10(SB)/8, $0x75f1228d6c1e85c9
+DATA ·gfni_post_matrix+0x18(SB)/8, $0x75f1228d6c1e85c9
+GLOBL ·gfni_post_matrix(SB), RODATA, $32
+
 #include "aesni_macros_amd64.s"
+#include "gfni_macros_amd64.s"
 
 // SM4 TAO L2 function, used for key expand
 // parameters:
@@ -256,8 +271,13 @@ avx2_8blocks:
 	// Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(XDWORD0, XDWORD1, XDWORD2, XDWORD3, XDWTMP1, XDWTMP2)
 
+	CMPB ·useGFNI(SB), $1
+	JE   gfni_8blocks
 	AVX2_SM4_8BLOCKS(AX, XDWORD, YDWORD, XWORD, YWORD, XDWTMP0, XDWORD0, XDWORD1, XDWORD2, XDWORD3)
-
+	JMP avx2_8blocks_done
+gfni_8blocks:
+	GFNI_SM4_8BLOCKS(AX, XDWORD, YDWORD, XDWTMP0, XDWORD0, XDWORD1, XDWORD2, XDWORD3)
+avx2_8blocks_done:
 	// Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(XDWORD0, XDWORD1, XDWORD2, XDWORD3, XDWTMP1, XDWTMP2)
 
@@ -301,8 +321,13 @@ avx2_16blocks:
 	TRANSPOSE_MATRIX(XDWORD0, XDWORD1, XDWORD2, XDWORD3, XDWTMP1, XDWTMP2)
 	TRANSPOSE_MATRIX(XDWORD4, XDWORD5, XDWORD6, XDWORD7, XDWTMP1, XDWTMP2)
 
+	CMPB ·useGFNI(SB), $1
+	JE   gfni_16blocks
 	AVX2_SM4_16BLOCKS(AX, XDWORD, YDWORD, XWORD, YWORD, XDWTMP0, XDWTMP1, XDWORD0, XDWORD1, XDWORD2, XDWORD3, XDWORD4, XDWORD5, XDWORD6, XDWORD7)
-
+	JMP avx2_16blocks_done
+gfni_16blocks:
+	GFNI_SM4_16BLOCKS(AX, XDWTMP0, XDWORD, YDWORD, XDWORD0, XDWORD1, XDWORD2, XDWORD3, XDWORD4, XDWORD5, XDWORD6, XDWORD7)
+avx2_16blocks_done:	
 	// Transpose matrix 4 x 4 32bits word
 	TRANSPOSE_MATRIX(XDWORD0, XDWORD1, XDWORD2, XDWORD3, XDWTMP1, XDWTMP2)
 	TRANSPOSE_MATRIX(XDWORD4, XDWORD5, XDWORD6, XDWORD7, XDWTMP1, XDWTMP2)
@@ -331,11 +356,14 @@ avx2_sm4_done:
 	RET
 
 // func encryptBlockAsm(xk *uint32, dst, src *byte, inst int)
-// Requires: SSSE3
+// Requires: SSSE3; INST_GFNI path requires AVX2 + GFNI
 TEXT ·encryptBlockAsm(SB),NOSPLIT,$0
 	MOVQ xk+0(FP), AX
 	MOVQ dst+8(FP), BX
 	MOVQ src+16(FP), DX
+	MOVQ inst+24(FP), R8
+	CMPQ R8, $2   // INST_GFNI
+	JE   gfni_single_block
   
 	MOVUPS (DX), t0
 	PSHUFB ·flip_mask(SB), t0
@@ -367,4 +395,69 @@ loop:
 	MOVUPS t3, (BX)
 
 done_sm4:
+	RET
+
+// INST_GFNI path for encryptBlockAsm
+// Requires: AVX2 + GFNI. Uses XMM registers (128-bit) for single-block.
+// All GFNI/AVX instructions are VEX-encoded to avoid SSE-AVX transition penalties.
+gfni_single_block:
+	// Load source block (16 bytes), byte-swap each 32-bit word LE→BE.
+	VMOVDQU (DX), X0
+	VPSHUFB ·flip_mask(SB), X0, X0
+
+	// Extract the 4 data words into separate XMM registers.
+	// Only position 0 (bits 31:0) of each register matters for the algorithm.
+	// Positions 1-3 contain garbage that propagates harmlessly.
+	VPSHUFD $0x01, X0, X1      // X1[0]=w1, X1[1..3]=w0
+	VPSHUFD $0x02, X0, X2      // X2[0]=w2, X2[1..3]=w0
+	VPSHUFD $0x03, X0, X3      // X3[0]=w3, X3[1..3]=w0
+	// X0 = t0 = [w0, w1, w2, w3]
+
+	XORL CX, CX
+
+gfni_single_loop:
+	VMOVDQU (AX)(CX*1), X11             // X11 = [RK_0, RK_1, RK_2, RK_3]
+
+	// Round 0: t0 ^= TAO_L1(RK_0 ^ t1 ^ t2 ^ t3)
+	VPSHUFD $0x00, X11, X8              // broadcast RK_0 to all positions
+	VPXOR X1, X8, X8
+	VPXOR X2, X8, X8
+	VPXOR X3, X8, X8
+	GFNI_SM4_TAO_L1(X8, X9, X10) // X8=TAO_L1 output
+	VPXOR X8, X0, X0
+
+	// Round 1: t1 ^= TAO_L1(RK_1 ^ t2 ^ t3 ^ t0)
+	VPSHUFD $0x55, X11, X8              // broadcast RK_1
+	VPXOR X2, X8, X8
+	VPXOR X3, X8, X8
+	VPXOR X0, X8, X8
+	GFNI_SM4_TAO_L1(X8, X9, X10)
+	VPXOR X8, X1, X1
+
+	// Round 2: t2 ^= TAO_L1(RK_2 ^ t3 ^ t0 ^ t1)
+	VPSHUFD $0xAA, X11, X8              // broadcast RK_2
+	VPXOR X3, X8, X8
+	VPXOR X0, X8, X8
+	VPXOR X1, X8, X8
+	GFNI_SM4_TAO_L1(X8, X9, X10)
+	VPXOR X8, X2, X2
+
+	// Round 3: t3 ^= TAO_L1(RK_3 ^ t0 ^ t1 ^ t2)
+	VPSHUFD $0xFF, X11, X8              // broadcast RK_3
+	VPXOR X0, X8, X8
+	VPXOR X1, X8, X8
+	VPXOR X2, X8, X8
+	GFNI_SM4_TAO_L1(X8, X9, X10)
+	VPXOR X8, X3, X3
+
+	ADDL $16, CX
+	CMPL CX, $4*32
+	JB gfni_single_loop
+
+	// Reconstruct output [new_w3, new_w2, new_w1, new_w0] from DWORD 0 of each register.
+	VPUNPCKLDQ X2, X3, X3               // X3[0]=new_w3, X3[1]=new_w2
+	VPUNPCKLDQ X0, X1, X1               // X1[0]=new_w1, X1[1]=new_w0
+	VPUNPCKLQDQ X1, X3, X3              // X3 = [new_w3, new_w2, new_w1, new_w0]
+	VPSHUFB ·flip_mask(SB), X3, X3      // byte-swap each DWORD: BE→LE
+	VMOVDQU X3, (BX)
 	RET

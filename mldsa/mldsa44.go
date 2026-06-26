@@ -337,11 +337,24 @@ func dsaKeyGen44(sk *Key44, xi *[32]byte) {
 
 	// Using rho generate A' = A in NTT form
 	A := &sk.a
-	G128 := sha3.NewSHAKE128()
-	// Algorithm 32, ExpandA
-	for r := range byte(k44) {
-		for s := byte(0); s < l44; s++ {
-			A[r*l44+s] = rejNTTPoly(G128, rho, s, r)
+	// Algorithm 32, ExpandA — batch 4 elements at a time using rejNTTPolyx4
+	{
+		total := k44 * l44
+		idx := 0
+		for ; idx+4 <= total; idx += 4 {
+			var indices [4][2]byte
+			for b := range 4 {
+				elem := idx + b
+				indices[b] = [2]byte{byte(elem % l44), byte(elem / l44)}
+			}
+			res := rejNTTPolyx4(rho, indices)
+			A[idx], A[idx+1], A[idx+2], A[idx+3] = res[0], res[1], res[2], res[3]
+		}
+		if idx < total {
+			G128 := sha3.NewSHAKE128()
+			for ; idx < total; idx++ {
+				A[idx] = rejNTTPoly(G128, rho, byte(idx%l44), byte(idx/l44))
+			}
 		}
 	}
 
@@ -402,11 +415,24 @@ func parsePublicKey44(pk *PublicKey44, b []byte) (*PublicKey44, error) {
 
 	A := &pk.a
 	rho := pk.rho[:]
-	G128 := sha3.NewSHAKE128()
-	// Algorithm 32, ExpandA
-	for r := range byte(k44) {
-		for s := range byte(l44) {
-			A[r*l44+s] = rejNTTPoly(G128, rho, s, r)
+	// Algorithm 32, ExpandA — batch 4 elements at a time using rejNTTPolyx4
+	{
+		total := k44 * l44
+		idx := 0
+		for ; idx+4 <= total; idx += 4 {
+			var indices [4][2]byte
+			for b := range 4 {
+				elem := idx + b
+				indices[b] = [2]byte{byte(elem % l44), byte(elem / l44)}
+			}
+			res := rejNTTPolyx4(rho, indices)
+			A[idx], A[idx+1], A[idx+2], A[idx+3] = res[0], res[1], res[2], res[3]
+		}
+		if idx < total {
+			G128 := sha3.NewSHAKE128()
+			for ; idx < total; idx++ {
+				A[idx] = rejNTTPoly(G128, rho, byte(idx%l44), byte(idx/l44))
+			}
 		}
 	}
 	return pk, nil
@@ -452,11 +478,24 @@ func parsePrivateKey44(sk *PrivateKey44, b []byte) (*PrivateKey44, error) {
 	}
 	A := &sk.a
 	rho := sk.rho[:]
-	G128 := sha3.NewSHAKE128()
-	// Algorithm 32, ExpandA
-	for r := range byte(k44) {
-		for s := range byte(l44) {
-			A[r*l44+s] = rejNTTPoly(G128, rho, s, r)
+	// Algorithm 32, ExpandA — batch 4 elements at a time using rejNTTPolyx4
+	{
+		total := k44 * l44
+		idx := 0
+		for ; idx+4 <= total; idx += 4 {
+			var indices [4][2]byte
+			for b := range 4 {
+				elem := idx + b
+				indices[b] = [2]byte{byte(elem % l44), byte(elem / l44)}
+			}
+			res := rejNTTPolyx4(rho, indices)
+			A[idx], A[idx+1], A[idx+2], A[idx+3] = res[0], res[1], res[2], res[3]
+		}
+		if idx < total {
+			G128 := sha3.NewSHAKE128()
+			for ; idx < total; idx++ {
+				A[idx] = rejNTTPoly(G128, rho, byte(idx%l44), byte(idx/l44))
+			}
 		}
 	}
 	return sk, nil

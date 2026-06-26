@@ -36,6 +36,47 @@
 // - The constants that are loaded from CPOOL.
 //
 
+// Stack frame layout and FP pseudo-register on ppc64le
+// =====================================================
+//
+// On ppc64le, Go's FP pseudo-register (used to access function parameters,
+// e.g. "sign+24(FP)") corresponds to an absolute address of:
+//
+//   FP_base = R1 + local_frame_size + FIXED_FRAME + linkage_area
+//
+// where:
+//   local_frame_size = the "$N" in "TEXT ·Foo(SB), NOSPLIT, $N-M"
+//   FIXED_FRAME      = 32 (ppc64le constant, defined in runtime/asm_ppc64x.h)
+//   linkage_area     = 32 if the function contains any CALL instruction
+//                    =  0 if the function is a leaf (no CALL in body)
+//
+// The 32-byte linkage area is a ppc64le ABI requirement: any non-leaf function
+// must reserve space below its own frame for the callee to save the link
+// register (LR), TOC pointer, etc.
+//
+// Examples in this file:
+//
+//   p256NegCond      $0-16, leaf (no CALL):
+//     cond+8(FP)  = R1 + 0 + 32 + 0  + 8  = R1 + 40   (R17 = 40)
+//
+//   p256MovCond      $0-32, leaf (no CALL):
+//     cond+24(FP) = R1 + 0 + 32 + 0  + 24 = R1 + 56   (R21 = 56)
+//
+//   p256SelectAffine $0-24, leaf (no CALL):
+//     idx+16(FP)  = R1 + 0 + 32 + 0  + 16 = R1 + 48   (R18 = 48)
+//
+//   p256PointAddAffineAsm $0, non-leaf (has CALL):
+//     sign+24(FP) = R1 + 0 + 32 + 32 + 24 = R1 + 88   (R21 = 88)
+//     sel+32(FP)  = R1 + 0 + 32 + 32 + 32 = R1 + 96   (R22 = 96)
+//     zero+48(FP) = R1 + 0 + 32 + 32 + 48 = R1 + 112  (R23 = 112)
+//
+// Note: the NIST Go standard library version of p256PointAddAffineAsm uses
+// frame size $16 (to spill V27 which is clobbered by p256MulInternal there).
+// In this SM2 port, sm2p256MulInternal was redesigned to use V12 for TMP2
+// instead of V27, so V27 is preserved across calls and the stack spill is
+// unnecessary — hence $0 frame with correctly adjusted FP offsets.
+//
+
 // The following constants are defined in an order
 // that is correct for use with LXVD2X/STXVD2X
 // on little endian.
@@ -83,17 +124,30 @@ GLOBL p256mul<>(SB), 8, $96
 //
 //	VMLF  x0, x1, out_low
 //	VMLHF x0, x1, out_hi
+#ifdef GOPPC64_power9
+// On POWER9+, VMULUWM computes the low 32 bits of each 32×32→64 product
+// directly, replacing VMULOUW + VMRGOW (saves 1 instruction per VMULT call).
+#define VMULT(x1, x2, out_low, out_hi) \
+	VMULEUW x1, x2, TMP1; \
+	VMULOUW x1, x2, TMP2; \
+	VMRGEW  TMP1, TMP2, out_hi; \
+	VMULUWM x1, x2, out_low
+#else
 #define VMULT(x1, x2, out_low, out_hi) \
 	VMULEUW x1, x2, TMP1; \
 	VMULOUW x1, x2, TMP2; \
 	VMRGEW TMP1, TMP2, out_hi; \
 	VMRGOW TMP1, TMP2, out_low
+#endif
 
 //
 // Vector multiply add word
 //
 //	VMALF  x0, x1, y, out_low
 //	VMALHF x0, x1, y, out_hi
+// Note: VMULUWM (POWER9) cannot be applied here because out_low holds the
+// low 32 bits of (x1×x2 + y×one), not just x1×x2. The VADDUDM operates on
+// the interleaved VMULOUW format, so VMRGOW is still required.
 #define VMULT_ADD(x1, x2, y, one, out_low, out_hi) \
 	VMULEUW  y, one, TMP1; \
 	VMULOUW  y, one, TMP2; \

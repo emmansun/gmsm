@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/ecdsa"
-	"crypto/x509"
+	x509 "github.com/emmansun/gmsm/smx509"
 	"encoding/asn1"
 	"encoding/pem"
 	"fmt"
@@ -95,10 +95,8 @@ func testSign(t *testing.T, isSM bool, content []byte, sigalgs []x509.SignatureA
 func TestSign(t *testing.T) {
 	content := []byte("Hello World")
 	sigalgs := []x509.SignatureAlgorithm{
-		x509.SHA1WithRSA,
 		x509.SHA256WithRSA,
 		x509.SHA512WithRSA,
-		x509.ECDSAWithSHA1,
 		x509.ECDSAWithSHA256,
 		x509.ECDSAWithSHA384,
 		x509.ECDSAWithSHA512,
@@ -239,7 +237,7 @@ func TestSkipCertificates(t *testing.T) {
 }
 
 func TestDegenerateCertificate(t *testing.T) {
-	cert, err := createTestCertificate(x509.SHA1WithRSA, false)
+	cert, err := createTestCertificate(x509.SHA256WithRSA, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -436,10 +434,8 @@ func testSignDigest(t *testing.T, isSM bool, content []byte, sigalgs []x509.Sign
 func TestSignWithDigest(t *testing.T) {
 	content := []byte("Hello World")
 	sigalgs := []x509.SignatureAlgorithm{
-		x509.SHA1WithRSA,
 		x509.SHA256WithRSA,
 		x509.SHA512WithRSA,
-		x509.ECDSAWithSHA1,
 		x509.ECDSAWithSHA256,
 		x509.ECDSAWithSHA384,
 		x509.ECDSAWithSHA512,

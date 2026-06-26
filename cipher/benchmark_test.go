@@ -394,6 +394,90 @@ func BenchmarkSM4GCMOpen8K(b *testing.B) {
 	benchmarkSM4GCMOpen(b, make([]byte, 8*1024))
 }
 
+func benchmarkAESGCMSIVSeal(b *testing.B, buf []byte) {
+	var key [16]byte
+	sm4gcm, _ := smcipher.NewGCMSIV(aes.NewCipher, key[:])
+	benchmarkGCMSeal(b, sm4gcm, buf)
+}
+
+func benchmarkSM4GCMSIVSeal(b *testing.B, buf []byte) {
+	var key [16]byte
+	sm4gcm, _ := smcipher.NewGCMSIV(sm4.NewCipher, key[:])
+	benchmarkGCMSeal(b, sm4gcm, buf)
+}
+
+func benchmarkAESGCMSIVOpen(b *testing.B, buf []byte) {
+	var key [16]byte
+	sm4gcm, _ := smcipher.NewGCMSIV(aes.NewCipher, key[:])
+	benchmarkGCMOpen(b, sm4gcm, buf)
+}
+
+func benchmarkSM4GCMSIVOpen(b *testing.B, buf []byte) {
+	var key [16]byte
+	sm4gcm, _ := smcipher.NewGCMSIV(sm4.NewCipher, key[:])
+	benchmarkGCMOpen(b, sm4gcm, buf)
+}
+
+func BenchmarkAESGCMSIVSeal1K(b *testing.B) {
+	benchmarkAESGCMSIVSeal(b, make([]byte, 1024))
+}
+
+func BenchmarkSM4GCMSIVSeal1K(b *testing.B) {
+	benchmarkSM4GCMSIVSeal(b, make([]byte, 1024))
+}
+
+func BenchmarkAESGCMSIVOpen1K(b *testing.B) {
+	benchmarkAESGCMSIVOpen(b, make([]byte, 1024))
+}
+
+func BenchmarkSM4GCMSIVOpen1K(b *testing.B) {
+	benchmarkSM4GCMSIVOpen(b, make([]byte, 1024))
+}
+
+func benchmarkAESGCMSIVSign(b *testing.B, buf []byte) {
+	var key [16]byte
+	aesgcm, _ := smcipher.NewGCMSIV(aes.NewCipher, key[:])
+	benchmarkGCMSign(b, aesgcm, buf)
+}
+
+func benchmarkSM4GCMSIVSign(b *testing.B, buf []byte) {
+	var key [16]byte
+	sm4gcm, _ := smcipher.NewGCMSIV(sm4.NewCipher, key[:])
+	benchmarkGCMSign(b, sm4gcm, buf)
+}
+
+func BenchmarkAESGCMSIVSign1K(b *testing.B) {
+	benchmarkAESGCMSIVSign(b, make([]byte, 1024))
+}
+
+func BenchmarkSM4GCMSIVSign1K(b *testing.B) {
+	benchmarkSM4GCMSIVSign(b, make([]byte, 1024))
+}
+
+func BenchmarkAESGCMSIVSign8K(b *testing.B) {
+	benchmarkAESGCMSIVSign(b, make([]byte, 8*1024))
+}
+
+func BenchmarkSM4GCMSIVSign8K(b *testing.B) {
+	benchmarkSM4GCMSIVSign(b, make([]byte, 8*1024))
+}
+
+func BenchmarkAESGCMSIVSeal8K(b *testing.B) {
+	benchmarkAESGCMSIVSeal(b, make([]byte, 8*1024))
+}
+
+func BenchmarkSM4GCMSIVSeal8K(b *testing.B) {
+	benchmarkSM4GCMSIVSeal(b, make([]byte, 8*1024))
+}
+
+func BenchmarkAESGCMSIVOpen8K(b *testing.B) {
+	benchmarkAESGCMSIVOpen(b, make([]byte, 8*1024))
+}
+
+func BenchmarkSM4GCMSIVOpen8K(b *testing.B) {
+	benchmarkSM4GCMSIVOpen(b, make([]byte, 8*1024))
+}
+
 func benchmarkAESCCMSign(b *testing.B, buf []byte) {
 	var key [16]byte
 	c, _ := aes.NewCipher(key[:])
