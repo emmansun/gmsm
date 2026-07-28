@@ -627,6 +627,19 @@ func TestKeyConversionCacheInvalidation(t *testing.T) {
 	}
 }
 
+func TestVerifyZeroHash(t *testing.T) {
+	pubBytes, _ := hex.DecodeString("04ef4de57af00ae424c00c4caadff7193f804a19dd73a7e2954db9d0d15ab4cbba67728c3f4572878b7a674735da9fde1682fe2d9e0799c4a5cde57e3d473039a2")
+	pub, err := NewPublicKey(pubBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sig, _ := hex.DecodeString("3046022100BE0EA64E1EC06F0D247093F3CCBBADCFB6260224272F86DDB78326E7CD6C7560022100E9F6AB2FCC48A2CEF94838E66B5C7E21FD8E4DE25990DD98CA5243F4966F2853")
+	hashed := make([]byte, 32)
+	if !VerifyASN1(pub, hashed, sig) {
+		t.Fatal("verify failed")
+	}
+}
+
 func BenchmarkGenerateKey_SM2(b *testing.B) {
 	r := bufio.NewReaderSize(rand.Reader, 1<<15)
 	b.ReportAllocs()
