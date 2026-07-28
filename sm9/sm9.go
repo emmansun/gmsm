@@ -188,6 +188,18 @@ var ErrDecryption = errors.New("sm9: decryption error")
 // ErrEmptyPlaintext represents a failure to encrypt an empty message.
 var ErrEmptyPlaintext = errors.New("sm9: empty plaintext")
 
+// ErrCiphertextTooShort indicates the ciphertext does not contain mandatory C1||C3||C2 data.
+var ErrCiphertextTooShort = errors.New("sm9: ciphertext too short")
+
+const (
+	// C1 in raw C1||C3||C2 format omits uncompressed prefix byte 0x04.
+	c1PointSizeWithoutPrefix = 64
+	minRawCiphertextSize     = c1PointSizeWithoutPrefix + sm3.Size + 1
+	// Quick pre-check for ASN.1 ciphertext before full DER parsing.
+	// 65 is C1 bit-string payload length (0x04 + X[32] + Y[32]).
+	minASN1CiphertextSize = sm3.Size + 65
+)
+
 // UnwrapKey unwraps key from cipher, user id and aligned key length
 func UnwrapKey(priv *EncryptPrivateKey, uid, cipher []byte, kLen int) ([]byte, error) {
 	return priv.internal.UnwrapKey(uid, cipher, kLen)
@@ -269,6 +281,10 @@ func (pub *EncryptMasterPublicKey) Encrypt(rand io.Reader, uid []byte, hid byte,
 
 // Decrypt decrypts chipher, the ciphertext should be with format C1||C3||C2
 func Decrypt(priv *EncryptPrivateKey, uid, ciphertext []byte, opts EncrypterOpts) ([]byte, error) {
+	if len(ciphertext) < minRawCiphertextSize {
+		return nil, ErrCiphertextTooShort
+	}
+
 	if opts == nil {
 		opts = DefaultEncrypterOpts
 	}
@@ -303,8 +319,8 @@ func decrypt(priv *EncryptPrivateKey, uid, c1, c2, c3 []byte, opts EncrypterOpts
 // DecryptASN1 decrypts chipher, the ciphertext should be with ASN.1 format according
 // SM9 cryptographic algorithm application specification, SM9Cipher definition.
 func DecryptASN1(priv *EncryptPrivateKey, uid, ciphertext []byte) ([]byte, error) {
-	if len(ciphertext) <= 32+65 {
-		return nil, errors.New("sm9: ciphertext too short")
+	if len(ciphertext) <= minASN1CiphertextSize {
+		return nil, ErrCiphertextTooShort
 	}
 	var (
 		encType int
@@ -347,13 +363,14 @@ func NewDecrypterOptsWithUID(opts EncrypterOpts, uid []byte) (*DecrypterOptsWith
 
 // Decrypt decrypts the given ciphertext using the provided EncryptPrivateKey.
 // The decryption process depends on the type of the opts parameter:
-// - If opts is of type []byte, it uses DecryptASN1 to decrypt the ciphertext.
-// - If opts is of type *DecrypterOptsWithUID, it first checks if the ciphertext
-//   is a valid ASN.1 sequence. If it is not, and EncrypterOpts is nil, it returns
-//   an error indicating invalid ASN.1 data. Otherwise, it uses the Decrypt function
-//   with the provided UID and EncrypterOpts to decrypt the ciphertext. If the
-//   ciphertext is a valid ASN.1 sequence, it uses DecryptASN1 with the UID to
-//   decrypt the ciphertext.
+//   - If opts is of type []byte, it uses DecryptASN1 to decrypt the ciphertext.
+//   - If opts is of type *DecrypterOptsWithUID, it first checks if the ciphertext
+//     is a valid ASN.1 sequence. If it is not, and EncrypterOpts is nil, it returns
+//     an error indicating invalid ASN.1 data. Otherwise, it uses the Decrypt function
+//     with the provided UID and EncrypterOpts to decrypt the ciphertext. If the
+//     ciphertext is a valid ASN.1 sequence, it uses DecryptASN1 with the UID to
+//     decrypt the ciphertext.
+//
 // If opts is of an unsupported type, it returns an error indicating invalid decrypter options.
 func (priv *EncryptPrivateKey) Decrypt(rand io.Reader, ciphertext []byte, opts crypto.DecrypterOpts) ([]byte, error) {
 	switch xx := opts.(type) {

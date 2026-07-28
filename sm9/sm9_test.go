@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"testing"
 
 	"github.com/emmansun/gmsm/internal/sm9/bn256"
@@ -174,6 +175,20 @@ func TestEncryptDecrypt(t *testing.T) {
 		if err == nil || err.Error() != "sm9: invalid ciphertext asn.1 data" {
 			t.Fatalf("sm9: invalid ciphertext asn.1 data")
 		}
+	}
+}
+
+func TestDecryptRejectsShortCiphertext(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("sm9.Decrypt panicked on short ciphertext: %v", r)
+		}
+	}()
+
+	shortCiphertext := make([]byte, 64+sm3.Size)
+	_, err := sm9.Decrypt(nil, nil, shortCiphertext, sm9.DefaultEncrypterOpts)
+	if !errors.Is(err, sm9.ErrCiphertextTooShort) {
+		t.Fatalf("expected short ciphertext error, got %v", err)
 	}
 }
 
