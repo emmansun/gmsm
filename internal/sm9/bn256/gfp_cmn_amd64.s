@@ -183,7 +183,6 @@ TEXT ·gfpMul(SB),NOSPLIT,$0-24
 
 	ADCXQ acc0, BX
 	ADOXQ BX, acc5
-	ADCXQ res_ptr, acc0
 	ADOXQ res_ptr, acc0
 
 	// Second reduction step
@@ -229,7 +228,6 @@ TEXT ·gfpMul(SB),NOSPLIT,$0-24
 
 	ADCXQ res_ptr, BX
 	ADOXQ BX, acc0
-	ADCXQ res_ptr, acc1
 	ADOXQ res_ptr, acc1
 
 	// Third reduction step
@@ -275,7 +273,6 @@ TEXT ·gfpMul(SB),NOSPLIT,$0-24
 
 	ADCXQ res_ptr, BX
 	ADOXQ BX, acc1
-	ADCXQ res_ptr, acc2
 	ADOXQ res_ptr, acc2
 
 	// Last reduction step
