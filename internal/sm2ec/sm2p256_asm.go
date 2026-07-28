@@ -311,7 +311,7 @@ var supportBMI2 = cpu.X86.HasADX && cpu.X86.HasBMI2
 var supportAVX2 = cpu.X86.HasAVX2
 
 var (
-	supportLSX = cpu.Loong64.HasLSX
+	supportLSX  = cpu.Loong64.HasLSX
 	supportLASX = cpu.Loong64.HasLASX
 )
 

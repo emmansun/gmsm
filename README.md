@@ -8,7 +8,6 @@
 [![ppc64le](https://github.com/emmansun/gmsm/actions/workflows/test_ppc64le.yaml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_ppc64le.yaml)
 [![s390x](https://github.com/emmansun/gmsm/actions/workflows/test_s390x.yaml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_s390x.yaml)
 [![codecov](https://codecov.io/gh/emmansun/gmsm/branch/main/graph/badge.svg?token=Otdi8m8sFj)](https://codecov.io/gh/emmansun/gmsm)
-[![Go Report Card](https://goreportcard.com/badge/github.com/emmansun/gmsm)](https://goreportcard.com/report/github.com/emmansun/gmsm)
 [![Documentation](https://godoc.org/github.com/emmansun/gmsm?status.svg)](https://godoc.org/github.com/emmansun/gmsm)
 ![GitHub go.mod Go version (branch)](https://img.shields.io/github/go-mod/go-version/emmansun/gmsm)
 [![Release](https://img.shields.io/github/release/emmansun/gmsm/all.svg)](https://github.com/emmansun/gmsm/releases)
@@ -17,7 +16,7 @@
 
 GMSM 是面向生产环境的 Go 密码学库，聚焦国密（SM2/SM3/SM4/SM9/ZUC）与后量子密码（ML-KEM/ML-DSA/SLH-DSA），在可维护 API 与跨架构性能之间取得平衡。
 
-> 要求 Go 版本：**Go 1.24+**
+> 要求 Go 版本：**Go 1.25+**
 
 ## 为什么选择 GMSM
 - **标准覆盖全面**：支持主流国密标准、PKCS 生态及 NIST PQC（FIPS 203/204/205）。

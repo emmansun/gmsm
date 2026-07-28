@@ -378,6 +378,7 @@ TEXT ·p256Mul(SB),NOSPLIT,$0
 mulBMI2:
 	XORQ acc5, acc5
 	XORQ res_ptr, res_ptr
+
 	// x * y[0]
 	MOVQ (8*0)(y_ptr), DX
 	MULXQ (8*0)(x_ptr), acc0, acc1
@@ -404,11 +405,12 @@ mulBMI2:
 	MOVQ acc0, AX
 	SBBQ DX, acc0
 
-	ADOXQ AX, acc1
-	ADOXQ res_ptr, acc2
-	ADOXQ res_ptr, acc3
-	ADOXQ acc0, acc4
-	ADOXQ res_ptr, acc5
+	// We use ADCXQ chain here to avoid uncertainty about OF flag after SHLQ/SHRQ
+	ADCXQ AX, acc1
+	ADCXQ res_ptr, acc2
+	ADCXQ res_ptr, acc3
+	ADCXQ acc0, acc4
+	ADCXQ res_ptr, acc5
 
 	XORQ acc0, acc0
 	// x * y[1]
@@ -443,11 +445,12 @@ mulBMI2:
 	MOVQ acc1, AX
 	SBBQ DX, acc1
 
-	ADOXQ AX, acc2
-	ADOXQ res_ptr, acc3
-	ADOXQ res_ptr, acc4
-	ADOXQ acc1, acc5
-	ADOXQ res_ptr, acc0
+	// We use ADCXQ chain here to avoid uncertainty about OF flag after SHLQ/SHRQ
+	ADCXQ AX, acc2
+	ADCXQ res_ptr, acc3
+	ADCXQ res_ptr, acc4
+	ADCXQ acc1, acc5
+	ADCXQ res_ptr, acc0
 	
 	XORQ acc1, acc1
 	// x * y[2]
@@ -482,11 +485,12 @@ mulBMI2:
 	MOVQ acc2, AX
 	SBBQ DX, acc2
 
-	ADOXQ AX, acc3
-	ADOXQ res_ptr, acc4
-	ADOXQ res_ptr, acc5
-	ADOXQ acc2, acc0
-	ADOXQ res_ptr, acc1
+	// We use ADCXQ chain here to avoid uncertainty about OF flag after SHLQ/SHRQ
+	ADCXQ AX, acc3
+	ADCXQ res_ptr, acc4
+	ADCXQ res_ptr, acc5
+	ADCXQ acc2, acc0
+	ADCXQ res_ptr, acc1
 	
 	XORQ acc2, acc2
 	// x * y[3]
@@ -521,11 +525,12 @@ mulBMI2:
 	MOVQ acc3, AX
 	SBBQ DX, acc3
 
-	ADOXQ AX, acc4
-	ADOXQ res_ptr, acc5
-	ADOXQ res_ptr, acc0
-	ADOXQ acc3, acc1
-	ADOXQ res_ptr, acc2
+	// We use ADCXQ chain here to avoid uncertainty about OF flag after SHLQ/SHRQ
+	ADCXQ AX, acc4
+	ADCXQ res_ptr, acc5
+	ADCXQ res_ptr, acc0
+	ADCXQ acc3, acc1
+	ADCXQ res_ptr, acc2
 	
 	MOVQ res+0(FP), res_ptr
 	p256PrimReduce(acc4, acc5, acc0, acc1, acc2, x_ptr, acc3, t0, BX, res_ptr)

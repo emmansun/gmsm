@@ -8,7 +8,6 @@
 [![ppc64le](https://github.com/emmansun/gmsm/actions/workflows/test_ppc64le.yaml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_ppc64le.yaml)
 [![s390x](https://github.com/emmansun/gmsm/actions/workflows/test_s390x.yaml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_s390x.yaml)
 [![codecov](https://codecov.io/gh/emmansun/gmsm/branch/main/graph/badge.svg?token=Otdi8m8sFj)](https://codecov.io/gh/emmansun/gmsm)
-[![Go Report Card](https://goreportcard.com/badge/github.com/emmansun/gmsm)](https://goreportcard.com/report/github.com/emmansun/gmsm)
 [![Documentation](https://godoc.org/github.com/emmansun/gmsm?status.svg)](https://godoc.org/github.com/emmansun/gmsm)
 ![GitHub go.mod Go version (branch)](https://img.shields.io/github/go-mod/go-version/emmansun/gmsm)
 [![Release](https://img.shields.io/github/release/emmansun/gmsm/all.svg)](https://github.com/emmansun/gmsm/releases)
@@ -17,7 +16,7 @@ English | [简体中文](README.md)
 
 GMSM is a production-ready Go cryptography library focused on ShangMi algorithms (SM2/SM3/SM4/SM9/ZUC) and modern post-quantum primitives (ML-KEM/ML-DSA/SLH-DSA), designed to balance secure defaults, practical APIs, and cross-architecture performance.
 
-> Requires Go version: **Go 1.24+**
+> Requires Go version: **Go 1.25+**
 
 ## Why GMSM
 - **Broad standards coverage**: ShangMi standards, PKCS ecosystem, and NIST PQC (FIPS 203/204/205).

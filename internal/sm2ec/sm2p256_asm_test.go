@@ -10,7 +10,27 @@ import (
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/emmansun/gmsm/internal/deps/cpu"
 )
+
+func decodeHexMust(t *testing.T, s string) []byte {
+	t.Helper()
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		t.Fatalf("hex decode failed: %v", err)
+	}
+	return b
+}
+
+func leftPad32Bytes(in []byte) []byte {
+	if len(in) >= 32 {
+		return in
+	}
+	out := make([]byte, 32)
+	copy(out[32-len(in):], in)
+	return out
+}
 
 // fromBig converts a *big.Int into a format used by this code.
 func fromBig(out *p256Element, big *big.Int) {
@@ -247,6 +267,94 @@ func TestPointAdd(t *testing.T) {
 	if hex.EncodeToString(sum2.Bytes()) != "04403b18162679c05515a8ecd063d726ba7b1eb83b8306ace5cd382e53ed23ae1feb42ebf496a7bd698d61a1c805ef7074df882dfcffcc84bcd0a5d4ebea56f425" {
 		t.Errorf("G + [64]G is incorrect %x", sum2.Bytes())
 	}
+}
+
+// Regression test for the verify-zero-hash vector on the BMI2/ADX point-add path.
+// This test is expected to fail until the p256PointAddAsm BMI2/ADX bug is fixed.
+func TestP256PointAddAsmBMI2Regression(t *testing.T) {
+	if !cpu.X86.HasADX || !cpu.X86.HasBMI2 {
+		t.Skip("CPU does not support ADX/BMI2")
+	}
+
+	rBytes := decodeHexMust(t, "be0ea64e1ec06f0d247093f3ccbbadcfb6260224272f86ddb78326e7cd6c7560")
+	_, p1, p2 := buildVerifyZeroHashOperands(t)
+
+	old := supportBMI2
+	defer func() { supportBMI2 = old }()
+
+	supportBMI2 = true
+	var sum SM2P256Point
+	_ = p256PointAddAsm(&sum, p1, p2)
+	rx, err := sum.BytesX()
+	if err != nil {
+		t.Fatalf("BytesX(sum) failed: %v", err)
+	}
+
+	if !bytes.Equal(rx, rBytes) {
+		t.Fatalf("p256PointAddAsm BMI2 regression\nexpected r: %x\nactual rx:   %x", rBytes, rx)
+	}
+}
+
+// Regression test for the known bad p256Mul BMI2 vector found while tracing
+// p256Inverse (first divergence at step 29: Mul(t1, t2)).
+// This test is expected to fail until mulBMI2 carry-chain bug is fixed.
+func TestP256MulBMI2KnownBadVector(t *testing.T) {
+	if !cpu.X86.HasADX || !cpu.X86.HasBMI2 {
+		t.Skip("CPU does not support ADX/BMI2")
+	}
+
+	a := p256Element{0x9e33db4ce976f0d0, 0xbfff13c7cf9058cc, 0xe1a0b4b129d5a082, 0xaab573c26f5a3de8}
+	b := p256Element{0xefb0ad3e4d98a44c, 0xdd1c0e16a5de4d21, 0xe02fe084a848fecf, 0x0d0047be9622130f}
+	expected := p256Element{0x7b7910319f9c035f, 0xfa5e44de1a9e2894, 0x2ee5b2cac3110ec5, 0xaa4e625fd40acb1b}
+
+	oldBMI2 := supportBMI2
+	defer func() {
+		supportBMI2 = oldBMI2
+	}()
+
+	// Baseline: non-BMI2 path should match the known good result.
+	supportBMI2 = false
+	var gotOff p256Element
+	p256Mul(&gotOff, &a, &b)
+	if gotOff != expected {
+		t.Fatalf("p256Mul non-BMI2 baseline mismatch\nexpected: %#v\nactual:   %#v", expected, gotOff)
+	}
+
+	// Regression target: BMI2 path should match baseline too.
+	supportBMI2 = true
+	var gotOn p256Element
+	p256Mul(&gotOn, &a, &b)
+	if gotOn != expected {
+		t.Fatalf("p256Mul BMI2 regression\ninput a:  %#v\ninput b:  %#v\nexpected: %#v\nactual:   %#v", a, b, expected, gotOn)
+	}
+}
+
+func buildVerifyZeroHashOperands(t *testing.T) (*SM2P256Point, *SM2P256Point, *SM2P256Point) {
+	pubBytes := decodeHexMust(t, "04ef4de57af00ae424c00c4caadff7193f804a19dd73a7e2954db9d0d15ab4cbba67728c3f4572878b7a674735da9fde1682fe2d9e0799c4a5cde57e3d473039a2")
+	rBytes := decodeHexMust(t, "be0ea64e1ec06f0d247093f3ccbbadcfb6260224272f86ddb78326e7cd6c7560")
+	sBytes := decodeHexMust(t, "e9f6ab2fcc48a2cef94838e66b5c7e21fd8e4de25990dd98ca5243f4966f2853")
+	nBytes := decodeHexMust(t, "fffffffeffffffffffffffffffffffff7203df6b21c6052b53bbf40939d54123")
+
+	Q, err := NewSM2P256Point().SetBytes(pubBytes)
+	if err != nil {
+		t.Fatalf("SetBytes(Q) failed: %v", err)
+	}
+	p1, err := NewSM2P256Point().ScalarBaseMult(sBytes)
+	if err != nil {
+		t.Fatalf("ScalarBaseMult failed: %v", err)
+	}
+
+	n := new(big.Int).SetBytes(nBytes)
+	r := new(big.Int).SetBytes(rBytes)
+	s := new(big.Int).SetBytes(sBytes)
+	tScalar := new(big.Int).Add(r, s)
+	tScalar.Mod(tScalar, n)
+	tScalarBytes := leftPad32Bytes(tScalar.Bytes())
+	p2, err := NewSM2P256Point().ScalarMult(Q, tScalarBytes)
+	if err != nil {
+		t.Fatalf("ScalarMult failed: %v", err)
+	}
+	return Q, p1, p2
 }
 
 func TestSelect(t *testing.T) {
