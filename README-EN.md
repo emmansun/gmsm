@@ -8,7 +8,6 @@
 [![ppc64le](https://github.com/emmansun/gmsm/actions/workflows/test_ppc64le.yaml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_ppc64le.yaml)
 [![s390x](https://github.com/emmansun/gmsm/actions/workflows/test_s390x.yaml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_s390x.yaml)
 [![codecov](https://codecov.io/gh/emmansun/gmsm/branch/main/graph/badge.svg?token=Otdi8m8sFj)](https://codecov.io/gh/emmansun/gmsm)
-[![Go Report Card](https://goreportcard.com/badge/github.com/emmansun/gmsm)](https://goreportcard.com/report/github.com/emmansun/gmsm)
 [![Documentation](https://godoc.org/github.com/emmansun/gmsm?status.svg)](https://godoc.org/github.com/emmansun/gmsm)
 ![GitHub go.mod Go version (branch)](https://img.shields.io/github/go-mod/go-version/emmansun/gmsm)
 [![Release](https://img.shields.io/github/release/emmansun/gmsm/all.svg)](https://github.com/emmansun/gmsm/releases)
