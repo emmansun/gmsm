@@ -405,6 +405,7 @@ mulBMI2:
 	MOVQ acc0, AX
 	SBBQ DX, acc0
 
+	// We use ADCXQ chain here to avoid uncertainty about OF flag after SHLQ/SHRQ
 	ADCXQ AX, acc1
 	ADCXQ res_ptr, acc2
 	ADCXQ res_ptr, acc3
@@ -444,6 +445,7 @@ mulBMI2:
 	MOVQ acc1, AX
 	SBBQ DX, acc1
 
+	// We use ADCXQ chain here to avoid uncertainty about OF flag after SHLQ/SHRQ
 	ADCXQ AX, acc2
 	ADCXQ res_ptr, acc3
 	ADCXQ res_ptr, acc4
@@ -483,6 +485,7 @@ mulBMI2:
 	MOVQ acc2, AX
 	SBBQ DX, acc2
 
+	// We use ADCXQ chain here to avoid uncertainty about OF flag after SHLQ/SHRQ
 	ADCXQ AX, acc3
 	ADCXQ res_ptr, acc4
 	ADCXQ res_ptr, acc5
@@ -522,6 +525,7 @@ mulBMI2:
 	MOVQ acc3, AX
 	SBBQ DX, acc3
 
+	// We use ADCXQ chain here to avoid uncertainty about OF flag after SHLQ/SHRQ
 	ADCXQ AX, acc4
 	ADCXQ res_ptr, acc5
 	ADCXQ res_ptr, acc0
