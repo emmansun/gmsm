@@ -246,6 +246,8 @@ var RISCV64 struct {
 	HasZvks           bool // ShangMi Algorithm Suite
 	HasZvksc          bool // ShangMi Algorithm Suite with carryless multiplication
 	HasZvksg          bool // ShangMi Algorithm Suite with GCM
+	HasZvksed         bool // ShangMi Suite: SM4 Block Cipher
+	HasZvksh          bool // ShangMi Suite: SM3 Secure Hash
 	_                 CacheLinePad
 }
 

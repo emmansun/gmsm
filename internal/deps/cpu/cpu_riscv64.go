@@ -28,5 +28,7 @@ func initOptions() {
 		{Name: "zvks", Feature: &RISCV64.HasZvks},
 		{Name: "zvksc", Feature: &RISCV64.HasZvksc},
 		{Name: "zvksg", Feature: &RISCV64.HasZvksg},
+		{Name: "zvksed", Feature: &RISCV64.HasZvksed},
+		{Name: "zvksh", Feature: &RISCV64.HasZvksh},
 	}
 }

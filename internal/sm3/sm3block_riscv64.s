@@ -165,8 +165,8 @@
 // the frame size used for data expansion is 272 bytes.
 // (4 bytes * 68 entries).
 //
-// func block(dig *digest, p []byte)
-TEXT ·block(SB), 0, $280-32
+// func blockRISCV64(dig *digest, p []byte)
+TEXT ·blockRISCV64(SB), 0, $280-32
 	MOV	dig+0(FP), X5
 	MOV	p_base+8(FP), X6
 	MOV	p_len+16(FP), X7
