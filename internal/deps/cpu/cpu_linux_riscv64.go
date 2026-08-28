@@ -113,6 +113,8 @@ func doinit() {
 			RISCV64.HasZvkb = isSet(v, riscv_HWPROBE_EXT_ZVKB)
 			RISCV64.HasZvkg = isSet(v, riscv_HWPROBE_EXT_ZVKG)
 			RISCV64.HasZvkt = isSet(v, riscv_HWPROBE_EXT_ZVKT)
+			RISCV64.HasZvksed = isSet(v, riscv_HWPROBE_EXT_ZVKSED)
+			RISCV64.HasZvksh = isSet(v, riscv_HWPROBE_EXT_ZVKSH)
 			// Cryptography shorthand extensions
 			RISCV64.HasZvkn = isSet(v, riscv_HWPROBE_EXT_ZVKNED) &&
 				isSet(v, riscv_HWPROBE_EXT_ZVKNHB) && RISCV64.HasZvkb && RISCV64.HasZvkt
