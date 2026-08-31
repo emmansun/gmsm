@@ -59,6 +59,15 @@
         "code",
         "platform"
       ]
+    },
+    {
+      "login": "Kany2t",
+      "name": "Kevin",
+      "avatar_url": "https://avatars.githubusercontent.com/u/139545370?v=4",
+      "profile": "https://github.com/Kany2t",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "commitType": "docs",
