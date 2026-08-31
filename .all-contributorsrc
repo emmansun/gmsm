@@ -122,6 +122,15 @@
       "contributions": [
         "bug"
       ]
+    },
+    {
+      "login": "yang-yibai",
+      "name": "yi bai",
+      "avatar_url": "https://avatars.githubusercontent.com/u/67448622?v=4",
+      "profile": "https://github.com/yang-yibai",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "commitType": "docs",
