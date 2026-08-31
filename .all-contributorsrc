@@ -49,6 +49,16 @@
         "code",
         "ideas"
       ]
+    },
+    {
+      "login": "mengzhuo",
+      "name": "Meng Zhuo",
+      "avatar_url": "https://avatars.githubusercontent.com/u/885662?v=4",
+      "profile": "https://mzh.io",
+      "contributions": [
+        "code",
+        "platform"
+      ]
     }
   ],
   "commitType": "docs",
