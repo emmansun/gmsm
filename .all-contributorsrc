@@ -2,10 +2,35 @@
   "projectName": "gmsm",
   "projectOwner": "emmansun",
   "repoType": "github",
-  "files": ["CONTRIBUTORS.md"],
+  "files": [
+    "CONTRIBUTORS.md"
+  ],
   "imageSize": 100,
   "contributorsPerLine": 7,
   "contributorsSortAlphabetically": true,
   "badge": true,
-  "contributors": []
+  "contributors": [
+    {
+      "login": "emmansun",
+      "name": "Sun Yimin",
+      "avatar_url": "https://avatars.githubusercontent.com/u/7235232?v=4",
+      "profile": "https://github.com/emmansun",
+      "contributions": [
+        "code",
+        "doc",
+        "maintenance",
+        "review",
+        "tool",
+        "security",
+        "infra",
+        "ideas",
+        "example",
+        "platform",
+        "test",
+        "question"
+      ]
+    }
+  ],
+  "commitType": "docs",
+  "commitConvention": "angular"
 }
