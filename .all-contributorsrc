@@ -104,6 +104,15 @@
       "contributions": [
         "bug"
       ]
+    },
+    {
+      "login": "deanz-io",
+      "name": "deanz-io",
+      "avatar_url": "https://avatars.githubusercontent.com/u/54876819?v=4",
+      "profile": "https://github.com/deanz-io",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "commitType": "docs",
