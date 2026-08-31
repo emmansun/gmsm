@@ -140,6 +140,15 @@
       "contributions": [
         "bug"
       ]
+    },
+    {
+      "login": "timonwong",
+      "name": "Timon Wong",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1398228?v=4",
+      "profile": "https://theo.im",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "commitType": "docs",
