@@ -18,6 +18,7 @@
     </tr>
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/xuyang2"><img src="https://avatars.githubusercontent.com/u/6643001?v=4?s=100" width="100px;" alt="xuyang2"/><br /><sub><b>xuyang2</b></sub></a><br /><a href="https://github.com/emmansun/gmsm/commits?author=xuyang2" title="Code">💻</a> <a href="#ideas-xuyang2" title="Ideas, Planning, & Feedback">🤔</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/zephyr-flora"><img src="https://avatars.githubusercontent.com/u/23053568?v=4?s=100" width="100px;" alt="zephyr-flora"/><br /><sub><b>zephyr-flora</b></sub></a><br /><a href="https://github.com/emmansun/gmsm/issues?q=author%3Azephyr-flora" title="Bug reports">🐛</a></td>
     </tr>
   </tbody>
 </table>
