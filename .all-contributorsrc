@@ -194,15 +194,6 @@
       "contributions": [
         "platform"
       ]
-    },
-    {
-      "login": "all-contributors",
-      "name": "All Contributors",
-      "avatar_url": "https://avatars.githubusercontent.com/u/46410174?v=4",
-      "profile": "https://allcontributors.org",
-      "contributions": [
-        "doc"
-      ]
     }
   ],
   "commitType": "docs",
