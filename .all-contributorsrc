@@ -95,6 +95,15 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "zephyr-flora",
+      "name": "zephyr-flora",
+      "avatar_url": "https://avatars.githubusercontent.com/u/23053568?v=4",
+      "profile": "https://github.com/zephyr-flora",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "commitType": "docs",
