@@ -149,6 +149,15 @@
       "contributions": [
         "bug"
       ]
+    },
+    {
+      "login": "xin-1998",
+      "name": "xin-1998",
+      "avatar_url": "https://avatars.githubusercontent.com/u/72914141?v=4",
+      "profile": "https://github.com/xin-1998",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "commitType": "docs",
