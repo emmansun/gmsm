@@ -29,6 +29,16 @@
         "test",
         "question"
       ]
+    },
+    {
+      "login": "xuyang2",
+      "name": "xuyang2",
+      "avatar_url": "https://avatars.githubusercontent.com/u/6643001?v=4",
+      "profile": "https://github.com/xuyang2",
+      "contributions": [
+        "code",
+        "ideas"
+      ]
     }
   ],
   "commitType": "docs",
