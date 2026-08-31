@@ -68,6 +68,15 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "Nicaiwocaitacai",
+      "name": "Nicaiwocaitacai",
+      "avatar_url": "https://avatars.githubusercontent.com/u/49422961?v=4",
+      "profile": "https://github.com/Nicaiwocaitacai",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "commitType": "docs",
