@@ -22,12 +22,6 @@ func initOptions() {
 		{Name: "zvkb", Feature: &RISCV64.HasZvkb},
 		{Name: "zvkg", Feature: &RISCV64.HasZvkg},
 		{Name: "zvkt", Feature: &RISCV64.HasZvkt},
-		{Name: "zvkn", Feature: &RISCV64.HasZvkn},
-		{Name: "zvknc", Feature: &RISCV64.HasZvknc},
-		{Name: "zvkng", Feature: &RISCV64.HasZvkng},
-		{Name: "zvks", Feature: &RISCV64.HasZvks},
-		{Name: "zvksc", Feature: &RISCV64.HasZvksc},
-		{Name: "zvksg", Feature: &RISCV64.HasZvksg},
 		{Name: "zvksed", Feature: &RISCV64.HasZvksed},
 		{Name: "zvksh", Feature: &RISCV64.HasZvksh},
 	}

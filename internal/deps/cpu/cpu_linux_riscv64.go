@@ -63,6 +63,7 @@ const (
 	riscv_HWPROBE_EXT_ZVKB        = 0x80000
 	riscv_HWPROBE_EXT_ZVKG        = 0x100000
 	riscv_HWPROBE_EXT_ZVKNED      = 0x200000
+	riscv_HWPROBE_EXT_ZVKNHA      = 0x400000
 	riscv_HWPROBE_EXT_ZVKNHB      = 0x800000
 	riscv_HWPROBE_EXT_ZVKSED      = 0x1000000
 	riscv_HWPROBE_EXT_ZVKSH       = 0x2000000
@@ -113,17 +114,13 @@ func doinit() {
 			RISCV64.HasZvkb = isSet(v, riscv_HWPROBE_EXT_ZVKB)
 			RISCV64.HasZvkg = isSet(v, riscv_HWPROBE_EXT_ZVKG)
 			RISCV64.HasZvkt = isSet(v, riscv_HWPROBE_EXT_ZVKT)
+			// NIST Suite extensions
+			RISCV64.HasZvkned = isSet(v, riscv_HWPROBE_EXT_ZVKNED)
+			RISCV64.HasZvknha = isSet(v, riscv_HWPROBE_EXT_ZVKNHA)
+			RISCV64.HasZvknhb = isSet(v, riscv_HWPROBE_EXT_ZVKNHB)			
+			// Shangmi extensions
 			RISCV64.HasZvksed = isSet(v, riscv_HWPROBE_EXT_ZVKSED)
-			RISCV64.HasZvksh = isSet(v, riscv_HWPROBE_EXT_ZVKSH)
-			// Cryptography shorthand extensions
-			RISCV64.HasZvkn = isSet(v, riscv_HWPROBE_EXT_ZVKNED) &&
-				isSet(v, riscv_HWPROBE_EXT_ZVKNHB) && RISCV64.HasZvkb && RISCV64.HasZvkt
-			RISCV64.HasZvknc = RISCV64.HasZvkn && RISCV64.HasZvbc
-			RISCV64.HasZvkng = RISCV64.HasZvkn && RISCV64.HasZvkg
-			RISCV64.HasZvks = isSet(v, riscv_HWPROBE_EXT_ZVKSED) &&
-				isSet(v, riscv_HWPROBE_EXT_ZVKSH) && RISCV64.HasZvkb && RISCV64.HasZvkt
-			RISCV64.HasZvksc = RISCV64.HasZvks && RISCV64.HasZvbc
-			RISCV64.HasZvksg = RISCV64.HasZvks && RISCV64.HasZvkg
+			RISCV64.HasZvksh = isSet(v, riscv_HWPROBE_EXT_ZVKSH)			
 		}
 		if pairs[1].key != -1 {
 			v := pairs[1].value & riscv_HWPROBE_MISALIGNED_MASK

@@ -240,12 +240,9 @@ var RISCV64 struct {
 	HasZvkb           bool // Vector Cryptography Bit-manipulation
 	HasZvkt           bool // Vector Data-Independent Execution Latency
 	HasZvkg           bool // Vector GCM/GMAC
-	HasZvkn           bool // NIST Algorithm Suite (AES/SHA256/SHA512)
-	HasZvknc          bool // NIST Algorithm Suite with carryless multiply
-	HasZvkng          bool // NIST Algorithm Suite with GCM
-	HasZvks           bool // ShangMi Algorithm Suite
-	HasZvksc          bool // ShangMi Algorithm Suite with carryless multiplication
-	HasZvksg          bool // ShangMi Algorithm Suite with GCM
+	HasZvkned         bool // NIST Suite: Vector AES Block Cipher
+	HasZvknha         bool // NIST Suite: Vector SHA-2 Secure Hash
+	HasZvknhb         bool // NIST Suite: Vector SHA-2 Secure Hash	
 	HasZvksed         bool // ShangMi Suite: SM4 Block Cipher
 	HasZvksh          bool // ShangMi Suite: SM3 Secure Hash
 	_                 CacheLinePad
