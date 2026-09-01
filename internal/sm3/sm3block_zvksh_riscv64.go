@@ -13,7 +13,7 @@ import (
 )
 
 // useZVKSH reports whether the Zvksh (vector SM3) extension is available.
-var useZVKSH = cpu.RISCV64.HasZvksh && os.Getenv("DISABLE_SM3NI") != "1"
+var useZVKSH = cpu.RISCV64.HasZvksh && (cpu.RISCV64.HasZvbb || cpu.RISCV64.HasZvkb) && os.Getenv("DISABLE_SM3NI") != "1"
 
 //go:noescape
 func blockRISCV64(dig *digest, p []byte)

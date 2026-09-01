@@ -16,7 +16,7 @@ import (
 
 // supportSM4 reports whether the Zvksed (vector SM4) and Zvbb (vrev8 byte
 // swap) extensions are available.
-var supportSM4 = cpu.RISCV64.HasZvksed && cpu.RISCV64.HasZvbb && os.Getenv("DISABLE_SM4NI") != "1"
+var supportSM4 = cpu.RISCV64.HasZvksed && (cpu.RISCV64.HasZvbb || cpu.RISCV64.HasZvkb) && os.Getenv("DISABLE_SM4NI") != "1"
 
 //go:noescape
 func encryptBlockAsm(xk *uint32, dst, src *byte)
