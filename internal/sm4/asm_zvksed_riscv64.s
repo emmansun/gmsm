@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build riscv64 && go1.27 && !purego
+//go:build riscv64 && go1.26 && !purego
 
 #include "textflag.h"
 
