@@ -7,16 +7,16 @@
 #include "textflag.h"
 
 // VSM3C_VI performs vsm3c.vi Vd, Vs2, imm5
-// Opcode base: 0x57, funct3: 0x2 (OPMVV), funct7: 0x57
+// Opcode base: 0x77, funct3: 0x2 (OPMVV), funct7: 0x57
 // Encoding: funct7 | vs2 | imm5 | funct3 | vd | opcode
 #define VSM3C_VI(Vd, Vs2, Imm) \
-	WORD $((0x57 << 25) | ((Vs2) << 20) | ((Imm) << 15) | (2 << 12) | ((Vd) << 7) | 0x57)
+	WORD $((0x57 << 25) | ((Vs2) << 20) | ((Imm) << 15) | (2 << 12) | ((Vd) << 7) | 0x77)
 
 // VSM3ME_VV performs vsm3me.vv Vd, Vs2, Vs1
-// Opcode base: 0x57, funct3: 0x2 (OPMVV), funct7: 0x41
+// Opcode base: 0x77, funct3: 0x2 (OPMVV), funct7: 0x41
 // Encoding: funct7 | vs2 | vs1 | funct3 | vd | opcode
 #define VSM3ME_VV(Vd, Vs2, Vs1) \
-	WORD $((0x41 << 25) | ((Vs2) << 20) | ((Vs1) << 15) | (2 << 12) | ((Vd) << 7) | 0x57)
+	WORD $((0x41 << 25) | ((Vs2) << 20) | ((Vs1) << 15) | (2 << 12) | ((Vd) << 7) | 0x77)
 
 // func blockZVKSH(dig *digest, p []byte)
 TEXT ·blockZVKSH(SB), NOSPLIT, $0-32
