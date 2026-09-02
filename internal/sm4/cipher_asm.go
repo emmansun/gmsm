@@ -11,7 +11,7 @@ import (
 	"github.com/emmansun/gmsm/internal/deps/cpu"
 )
 
-var supportSM4 = cpu.ARM64.HasSM4 && os.Getenv("DISABLE_SM4NI") != "1"
+var supportSM4 = cpuid.HasSM4 && os.Getenv("DISABLE_SM4NI") != "1"
 var supportsAES = cpuid.HasAES
 var supportsGFMUL = cpuid.HasGFMUL
 var useAVX2 = cpu.X86.HasAVX2
