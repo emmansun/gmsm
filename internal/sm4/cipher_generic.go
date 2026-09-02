@@ -1,4 +1,4 @@
-//go:build purego || !(amd64 || arm64 || ppc64 || ppc64le || loong64 || riscv64) || (riscv64 && !go1.26)
+//go:build purego || !(amd64 || arm64 || ppc64 || ppc64le || loong64 || riscv64) || (riscv64 && !go1.27)
 
 package sm4
 
