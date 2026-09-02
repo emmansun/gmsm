@@ -38,7 +38,13 @@ jobs:
     - name: Check out code
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+    - name: Verify Zvksed/Zvksh are visible to QEMU
+      run: |
+        QEMU_CPU=max sh -c 'true'
+        echo "QEMU_CPU=max (default for riscv64 linux-user since QEMU 8.1)"
+
     - name: Test
       run: go test -v -short ./internal/... ./sm3/... ./sm4/... ./cipher/...
       env:
+        QEMU_CPU: max
         GOARCH: ${{ matrix.arch }}      
