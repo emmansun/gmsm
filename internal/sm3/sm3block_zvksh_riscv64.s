@@ -10,7 +10,7 @@
 // Opcode base: 0x57, funct3: 0x3 (OPIVI), funct7: 0x53
 // Encoding: funct7 | vs2 | imm5 | funct3 | vd | opcode
 #define VSM3C_VI(Vd, Vs2, Imm) \
-	WORD $((0x53 << 25) | ((Imm) << 20) | ((Vs2) << 15) | (3 << 12) | ((Vd) << 7) | 0x57)
+	WORD $((0x53 << 25) | ((Vs2) << 20) | ((Imm) << 15) | (3 << 12) | ((Vd) << 7) | 0x57)
 
 // VSM3ME_VV performs vsm3me.vv Vd, Vs2, Vs1
 // Opcode base: 0x57, funct3: 0x0 (OPIVV), funct7: 0x51
