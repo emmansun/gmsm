@@ -13,10 +13,10 @@
 	WORD $((0x53 << 25) | ((Vs2) << 20) | ((Imm) << 15) | (3 << 12) | ((Vd) << 7) | 0x57)
 
 // VSM3ME_VV performs vsm3me.vv Vd, Vs2, Vs1
-// Opcode base: 0x57, funct3: 0x0 (OPIVV), funct7: 0x51
+// Opcode base: 0x57, funct3: 0x2 (OPMVV), funct7: 0x41
 // Encoding: funct7 | vs2 | vs1 | funct3 | vd | opcode
 #define VSM3ME_VV(Vd, Vs2, Vs1) \
-	WORD $((0x51 << 25) | ((Vs2) << 20) | ((Vs1) << 15) | (2 << 12) | ((Vd) << 7) | 0x57)
+	WORD $((0x41 << 25) | ((Vs2) << 20) | ((Vs1) << 15) | (2 << 12) | ((Vd) << 7) | 0x57)
 
 // func blockZVKSH(dig *digest, p []byte)
 TEXT ·blockZVKSH(SB), NOSPLIT, $0-32
