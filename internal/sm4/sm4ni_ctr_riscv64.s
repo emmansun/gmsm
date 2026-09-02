@@ -103,7 +103,7 @@ TEXT ·ctrBlocks2Asm(SB), 0, $40-40
 	MOV X13, stackaddress(3)
 
 	VSETIVLI	$4, E64, M1, TA, MA, X0
-	VLE64V	(stackaddress(0)), V4
+	VLE64V	stackaddress(0), V4
 	VREV8V	V4, V4
 
 	// round keys, shared by the 2-block and tail paths
