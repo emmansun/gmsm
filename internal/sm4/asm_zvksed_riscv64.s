@@ -63,8 +63,8 @@ GLOBL ·riscv64ZvksedRev(SB), RODATA, $64
 #define VSM4K_VI(Vd, Vs2, Imm) \
 	WORD $((0x43 << 25) | ((Vs2) << 20) | ((Imm) << 15) | (2 << 12) | ((Vd) << 7) | 0x77)
 
-// func encryptBlockAsm(xk *uint32, dst, src *byte)
-TEXT ·encryptBlockAsm(SB), NOSPLIT, $0-24
+// func encryptBlockAsm(xk *uint32, dst, src *byte, inst int)
+TEXT ·encryptBlockAsm(SB), NOSPLIT, $0
 	MOV	xk+0(FP), X10
 	MOV	dst+8(FP), X11
 	MOV	src+16(FP), X12
@@ -105,8 +105,8 @@ TEXT ·encryptBlockAsm(SB), NOSPLIT, $0-24
 	VSSE32V	V4, X14, (X15)	// store words in reverse element order
 	RET
 
-// func encryptBlocksAsm(xk *uint32, dst, src []byte)
-TEXT ·encryptBlocksAsm(SB), NOSPLIT, $0-56
+// func encryptBlocksAsm(xk *uint32, dst, src []byte, inst int)
+TEXT ·encryptBlocksAsm(SB), NOSPLIT, $0
 	MOV	xk+0(FP), X10
 	MOV	dst_base+8(FP), X11
 	MOV	src_base+32(FP), X12
@@ -182,10 +182,10 @@ tail:
 ret:
 	RET
 
-// func expandKeyAsm(key *byte, enc, dec *uint32)
+// func expandKeyAsm(key *byte, enc, dec *uint32, inst int)
 // Key schedule using vsm4k.vi; the CK constants are generated in hardware.
 // dec[] receives the round keys in reverse order.
-TEXT ·expandKeyAsm(SB), NOSPLIT, $0-24
+TEXT ·expandKeyAsm(SB), NOSPLIT, $0
 	MOV	key+0(FP), X10
 	MOV	enc+8(FP), X11
 	MOV	dec+16(FP), X12
