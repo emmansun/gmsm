@@ -1,4 +1,4 @@
-//go:build riscv64 && go1.28 && !purego
+//go:build riscv64 && go1.27 && !purego
 
 package sm3
 
