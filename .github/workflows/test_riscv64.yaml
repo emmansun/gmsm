@@ -43,6 +43,15 @@ jobs:
         QEMU_CPU=max sh -c 'true'
         echo "QEMU_CPU=max (default for riscv64 linux-user since QEMU 8.1)"
 
+    - name: Probe Zvksed
+      run: |
+        cat > /tmp/probe.go <<'EOF'
+        package main
+        import ("fmt"; "golang.org/x/sys/cpu")
+        func main() { fmt.Println("RV64:", cpu.RISCV64.HasZvksed, cpu.RISCV64.HasZvksh) }
+        EOF
+        GOARCH=riscv64 QEMU_CPU=max go run /tmp/probe.go
+
     - name: Test
       run: go test -v -short ./internal/... ./sm3/... ./sm4/... ./cipher/...
       env:
