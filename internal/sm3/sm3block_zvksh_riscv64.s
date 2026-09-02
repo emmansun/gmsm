@@ -7,10 +7,10 @@
 #include "textflag.h"
 
 // VSM3C_VI performs vsm3c.vi Vd, Vs2, imm5
-// Opcode base: 0x57, funct3: 0x3 (OPIVI), funct7: 0x53
+// Opcode base: 0x57, funct3: 0x2 (OPMVV), funct7: 0x57
 // Encoding: funct7 | vs2 | imm5 | funct3 | vd | opcode
 #define VSM3C_VI(Vd, Vs2, Imm) \
-	WORD $((0x53 << 25) | ((Vs2) << 20) | ((Imm) << 15) | (3 << 12) | ((Vd) << 7) | 0x57)
+	WORD $((0x57 << 25) | ((Vs2) << 20) | ((Imm) << 15) | (2 << 12) | ((Vd) << 7) | 0x57)
 
 // VSM3ME_VV performs vsm3me.vv Vd, Vs2, Vs1
 // Opcode base: 0x57, funct3: 0x2 (OPMVV), funct7: 0x41
