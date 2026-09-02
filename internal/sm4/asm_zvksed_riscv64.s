@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build riscv64 && go1.28 && !purego
+//go:build riscv64 && go1.27 && !purego
 
 #include "textflag.h"
 
@@ -47,6 +47,22 @@ DATA ·riscv64ZvksedRev+56(SB)/4, $13
 DATA ·riscv64ZvksedRev+60(SB)/4, $12
 GLOBL ·riscv64ZvksedRev(SB), RODATA, $64
 
+// https://github.com/golang/go/blob/master/src/cmd/internal/obj/riscv/inst.go
+// VSM4R_VV performs vsm4r.vv Vd, Vs2
+// OP-P(0x77) | funct6=101000,vm=1 → 0x51 | vs2[24:20] | vs1=10000 | funct3=010 | vd
+#define VSM4R_VV(Vd, Vs2) \
+	WORD $((0x51 << 25) | ((Vs2) << 20) | (0x10 << 15) | (2 << 12) | ((Vd) << 7) | 0x77)
+
+// VSM4R_VS performs vsm4r.vs Vd, Vs2
+// OP-P(0x77) | funct6=101001,vm=1 → 0x53 | vs2[24:20] | vs1=10000 | funct3=010 | vd
+#define VSM4R_VS(Vd, Vs2) \
+	WORD $((0x53 << 25) | ((Vs2) << 20) | (0x10 << 15) | (2 << 12) | ((Vd) << 7) | 0x77)
+
+// VSM4K_VI performs vsm4k.vi Vd, Vs2, imm5
+// OP-P(0x77) | funct6=100001,vm=1 → 0x43 | vs2[24:20] | imm[19:15] | funct3=010 | vd[11:7]
+#define VSM4K_VI(Vd, Vs2, Imm) \
+	WORD $((0x43 << 25) | ((Vs2) << 20) | ((Imm) << 15) | (2 << 12) | ((Vd) << 7) | 0x77)
+
 // func encryptBlockAsm(xk *uint32, dst, src *byte)
 TEXT ·encryptBlockAsm(SB), NOSPLIT, $0-24
 	MOV	xk+0(FP), X10
@@ -74,14 +90,14 @@ TEXT ·encryptBlockAsm(SB), NOSPLIT, $0-24
 	ADD	$16, X13
 	VLE32V	(X13), V23
 
-	VSM4RVS	V16, V4
-	VSM4RVS	V17, V4
-	VSM4RVS	V18, V4
-	VSM4RVS	V19, V4
-	VSM4RVS	V20, V4
-	VSM4RVS	V21, V4
-	VSM4RVS	V22, V4
-	VSM4RVS	V23, V4
+	VSM4R_VS(4, 16) // VSM4RVS	V16, V4
+	VSM4R_VS(4, 17) // VSM4RVS	V17, V4
+	VSM4R_VS(4, 18) // VSM4RVS	V18, V4
+	VSM4R_VS(4, 19) // VSM4RVS	V19, V4
+	VSM4R_VS(4, 20) // VSM4RVS	V20, V4
+	VSM4R_VS(4, 21) // VSM4RVS	V21, V4
+	VSM4R_VS(4, 22) // VSM4RVS	V22, V4
+	VSM4R_VS(4, 23) // VSM4RVS	V23, V4
 
 	VREV8V	V4, V4	
 	MOV	$-4, X14
@@ -127,14 +143,14 @@ loop4:
 	VLE32V	(X12), V4
 	ADD	$32, X12
 	VREV8V	V4, V4
-	VSM4RVS	V8, V4
-	VSM4RVS	V10, V4
-	VSM4RVS	V12, V4
-	VSM4RVS	V14, V4
-	VSM4RVS	V16, V4
-	VSM4RVS	V18, V4
-	VSM4RVS	V20, V4
-	VSM4RVS	V22, V4
+	VSM4R_VS(4, 8)  // VSM4RVS	V8, V4
+	VSM4R_VS(4, 10) // VSM4RVS	V10, V4
+	VSM4R_VS(4, 12) // VSM4RVS	V12, V4
+	VSM4R_VS(4, 14) // VSM4RVS	V14, V4
+	VSM4R_VS(4, 16) // VSM4RVS	V16, V4
+	VSM4R_VS(4, 18) // VSM4RVS	V18, V4
+	VSM4R_VS(4, 20) // VSM4RVS	V20, V4
+	VSM4R_VS(4, 22) // VSM4RVS	V22, V4
 	VREV8V	V4, V4
 	VRGATHERVV	V24, V4, V26
 	VSE32V	V26, (X11)
@@ -150,14 +166,14 @@ tail:
 	VLE32V	(X12), V4
 	ADD	$16, X12
 	VREV8V	V4, V4
-	VSM4RVS	V8, V4
-	VSM4RVS	V10, V4
-	VSM4RVS	V12, V4
-	VSM4RVS	V14, V4
-	VSM4RVS	V16, V4
-	VSM4RVS	V18, V4
-	VSM4RVS	V20, V4
-	VSM4RVS	V22, V4
+	VSM4R_VS(4, 8)  // VSM4RVS	V8, V4
+	VSM4R_VS(4, 10) // VSM4RVS	V10, V4
+	VSM4R_VS(4, 12) // VSM4RVS	V12, V4
+	VSM4R_VS(4, 14) // VSM4RVS	V14, V4
+	VSM4R_VS(4, 16) // VSM4RVS	V16, V4
+	VSM4R_VS(4, 18) // VSM4RVS	V18, V4
+	VSM4R_VS(4, 20) // VSM4RVS	V20, V4
+	VSM4R_VS(4, 22) // VSM4RVS	V22, V4
 	VREV8V	V4, V4
 	ADD	$12, X11, X18
 	VSSE32V	V4, X17, (X18)
@@ -181,14 +197,14 @@ TEXT ·expandKeyAsm(SB), NOSPLIT, $0-24
 	VLE32V	(X13), V1
 	VXORVV	V1, V4, V4	// K[0..3] = MK ^ FK
 
-	VSM4KVI	$0, V4, V1
-	VSM4KVI	$1, V1, V2
-	VSM4KVI	$2, V2, V3
-	VSM4KVI	$3, V3, V4
-	VSM4KVI	$4, V4, V5
-	VSM4KVI	$5, V5, V6
-	VSM4KVI	$6, V6, V7
-	VSM4KVI	$7, V7, V8
+	VSM4K_VI(1, 4, 0) // VSM4KVI	$0, V4, V1
+	VSM4K_VI(2, 1, 1) // VSM4KVI	$1, V1, V2
+	VSM4K_VI(3, 2, 2) // VSM4KVI	$2, V2, V3
+	VSM4K_VI(4, 3, 3) // VSM4KVI	$3, V3, V4
+	VSM4K_VI(5, 4, 4) // VSM4KVI	$4, V4, V5
+	VSM4K_VI(6, 5, 5) // VSM4KVI	$5, V5, V6
+	VSM4K_VI(7, 6, 6) // VSM4KVI	$6, V6, V7
+	VSM4K_VI(8, 7, 7) // VSM4KVI	$7, V7, V8
 
 	VSE32V	V1, (X11)
 	ADD	$16, X11, X14
