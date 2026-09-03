@@ -88,15 +88,15 @@ func (c *CTR) XORKeyStreamAt(dst, src []byte, offset uint64) {
 			dst = dst[4*BlockSize:]
 			ivlo, ivhi = add128(ivlo, ivhi, 4)
 		}
-	
-	if len(src) >= 2*BlockSize {
+*/	
+	for len(src) >= 2*BlockSize {
 		ctrBlocks2Asm(&c.b.enc[0], (*[2 * BlockSize]byte)(dst), (*[2 * BlockSize]byte)(src), ivlo, ivhi)
 		src = src[2*BlockSize:]
 		dst = dst[2*BlockSize:]
 		ivlo, ivhi = add128(ivlo, ivhi, 2)
 	}
-*/
-	for len(src) >= 1*BlockSize {
+
+	if len(src) >= 1*BlockSize {
 		ctrBlocks1Asm(&c.b.enc[0], (*[1 * BlockSize]byte)(dst), (*[1 * BlockSize]byte)(src), ivlo, ivhi)
 		src = src[1*BlockSize:]
 		dst = dst[1*BlockSize:]

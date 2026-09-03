@@ -85,17 +85,13 @@ TEXT ·ctrBlocks2Asm(SB), 0, $40-40
 	MOV ivlo+24(FP), IV_LOW_LE
 	MOV ivhi+32(FP), IV_HIGH_LE
 
-	MOV IV_HIGH_LE, stackaddress(0)
-	MOV IV_LOW_LE, stackaddress(1)
+	MOV IV_LOW_LE, stackaddress(0)
+	MOV IV_HIGH_LE, stackaddress(1)
 	ADD $1, IV_LOW_LE, X13
 	SLTU IV_LOW_LE, X13, X14
 	ADD X14, IV_HIGH_LE, X15
-	MOV X15, stackaddress(2)
-	MOV X13, stackaddress(3)
-
-	VSETIVLI	$4, E64, M1, TA, MA, X0
-	VLE64V	stackaddress(0), V4
-	VREV8V	V4, V4
+	MOV X13, stackaddress(2)
+	MOV X15, stackaddress(3)
 
 	// round keys, shared by the 2-block and tail paths
 	VSETIVLI	$4, E32, M1, TA, MA, X0
@@ -116,8 +112,11 @@ TEXT ·ctrBlocks2Asm(SB), 0, $40-40
 	VLE32V	(X14), V22
 
 	VSETIVLI	$8, E32, M2, TA, MA, X0
+	ADD $8, RSP, X13
+	VLE32V	(X13), V0
 	MOV	$·riscv64ZvksedRev(SB), X13
 	VLE32V	(X13), V24	// reversal index (loop-invariant)
+	VRGATHERVV	V24, V0, V4
 
 	VSM4R_VS(4, 8)  // VSM4RVS	V8, V4
 	VSM4R_VS(4, 10) // VSM4RVS	V10, V4
@@ -128,10 +127,11 @@ TEXT ·ctrBlocks2Asm(SB), 0, $40-40
 	VSM4R_VS(4, 20) // VSM4RVS	V20, V4
 	VSM4R_VS(4, 22) // VSM4RVS	V22, V4
 
-	VRGATHERVV	V24, V4, V4
-	VREV8V	V4, V4
+	VRGATHERVV	V24, V4, V0
+	VREV8V	V0, V0
 	VLE32V (SRC), V24
-	VXORVV V4, V24, V4
+	VXORVV V0, V24, V4
+
 	VSE32V	V4, (DST)	
 	RET
 
