@@ -34,11 +34,12 @@ TEXT ·ctrBlocks1Asm(SB), 0, $24-40
 	MOV ivlo+24(FP), IV_LOW_LE
 	MOV ivhi+32(FP), IV_HIGH_LE
 
-	MOV IV_HIGH_LE, stackaddress(0)
+	MOV IV_LOW_LE, stackaddress(0)
 	MOV IV_HIGH_LE, stackaddress(1)	
 
 	VSETIVLI	$4, E32, M1, TA, MA, X0
-	VLE32V	stackaddress(0), V4
+	ADD $8, RSP, X13
+	VLE32V	(X13), V4
 
 	VSE32V	V4, (DST)
 	RET
