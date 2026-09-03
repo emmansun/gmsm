@@ -40,7 +40,6 @@ TEXT ·ctrBlocks1Asm(SB), 0, $24-40
 	VSETIVLI	$4, E32, M1, TA, MA, X0
 	ADD $8, RSP, X13
 	VLE32V	(X13), V0
-	VREV8V V0, V0
 	MOV	$·riscv64ZvksedRev(SB), X13
 	VLE32V	(X13), V24	// reversal index
 	VRGATHERVV	V24, V0, V4
