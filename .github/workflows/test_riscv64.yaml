@@ -44,7 +44,7 @@ jobs:
         echo "QEMU_CPU=max (default for riscv64 linux-user since QEMU 8.1)"
 
     - name: Test
-      run: go test -v -short ./internal/... ./sm3/... ./sm4/...
+      run: go test -v -short ./internal/... ./sm3/... ./cipher/... ./sm4/...
       env:
         QEMU_CPU: max
         GOARCH: ${{ matrix.arch }}      
