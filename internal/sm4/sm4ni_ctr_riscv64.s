@@ -78,7 +78,7 @@ TEXT ·ctrBlocks1Asm(SB), NOSPLIT, $0
 	RET
 
 // func ctrBlocks2Asm(xk *uint32, dst, src *[2 * BlockSize]byte, ivlo, ivhi uint64)
-TEXT ·ctrBlocks2Asm(SB), 0, $40-40
+TEXT ·ctrBlocks2Asm(SB), NOSPLIT, $40-40
 	MOV xk+0(FP), XK
 	MOV dst+8(FP), DST
 	MOV src+16(FP), SRC
@@ -136,7 +136,7 @@ TEXT ·ctrBlocks2Asm(SB), 0, $40-40
 	RET
 
 // func ctrBlocks4Asm(xk *uint32, dst, src *[4 * BlockSize]byte, ivlo, ivhi uint64)
-TEXT ·ctrBlocks4Asm(SB), 0, $40-40
+TEXT ·ctrBlocks4Asm(SB), NOSPLIT, $40-40
 	MOV xk+0(FP), XK
 	MOV dst+8(FP), DST
 	MOV src+16(FP), SRC
@@ -227,7 +227,7 @@ TEXT ·ctrBlocks4Asm(SB), 0, $40-40
 	RET
 
 // func ctrBlocks8Asm(xk *uint32, dst, src *[8 * BlockSize]byte, ivlo, ivhi uint64)
-TEXT ·ctrBlocks8Asm(SB), 0, $40-40
+TEXT ·ctrBlocks8Asm(SB), NOSPLIT, $40-40
 	MOV xk+0(FP), XK
 	MOV dst+8(FP), DST
 	MOV src+16(FP), SRC
