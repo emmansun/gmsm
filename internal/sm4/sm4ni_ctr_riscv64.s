@@ -27,19 +27,19 @@
 #define stackaddress(index) ((index)*8+8)(RSP) // for RISCV64 stack usage, we CAN NOT overwrite the first 8 bytes space!
 
 // func ctrBlocks1Asm(xk *uint32, dst, src *[BlockSize]byte, ivlo, ivhi uint64)
-TEXT ·ctrBlocks1Asm(SB), 0, $24-40
+TEXT ·ctrBlocks1Asm(SB), NOSPLIT, $0
 	MOV xk+0(FP), XK
 	MOV dst+8(FP), DST
 	MOV src+16(FP), SRC
 	MOV ivlo+24(FP), IV_LOW_LE
 	MOV ivhi+32(FP), IV_HIGH_LE
 
-	MOV IV_LOW_LE, stackaddress(0)
-	MOV IV_HIGH_LE, stackaddress(1)	
+	VSETIVLI	$2, E64, M1, TA, MA, X0
+	VMVSX IV_HIGH_LE, V0
+	VSLIDE1UPVX IV_LOW_LE, V0, V0
 
 	VSETIVLI	$4, E32, M1, TA, MA, X0
-	ADD $8, RSP, X13
-	VLE32V	(X13), V0
+	// reverse the 32-bit word order of the counter block
 	MOV	$·riscv64ZvksedRev(SB), X13
 	VLE32V	(X13), V24	// reversal index
 	VRGATHERVV	V24, V0, V4
