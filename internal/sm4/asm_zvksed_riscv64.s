@@ -20,13 +20,6 @@
 // element group of vd, so a single register group processes 2 blocks per
 // pass under LMUL=2.
 
-// FK system parameters for the key schedule, as integers.
-DATA ·riscv64ZvksedFK+0(SB)/4, $0xa3b1bac6
-DATA ·riscv64ZvksedFK+4(SB)/4, $0x56aa3350
-DATA ·riscv64ZvksedFK+8(SB)/4, $0x677d9197
-DATA ·riscv64ZvksedFK+12(SB)/4, $0xb27022dc
-GLOBL ·riscv64ZvksedFK(SB), RODATA, $16
-
 // Element-reversal index for the multi-block store (first 8 entries used
 // per pass under vl=8).
 DATA ·riscv64ZvksedRev+0(SB)/4, $3
@@ -187,13 +180,13 @@ ret:
 // dec[] receives the round keys in reverse order.
 TEXT ·expandKeyAsm(SB), NOSPLIT, $0
 	MOV	key+0(FP), X10
+	MOV	enc+8(FP), X13
 	MOV	enc+16(FP), X11
 	MOV	dec+24(FP), X12
 
 	VSETIVLI	$4, E32, M1, TA, MA, X0
 	VLE32V	(X10), V4	// MK, little-endian words
 	VREV8V	V4, V4		// MK, big-endian
-	MOV	$·riscv64ZvksedFK(SB), X13
 	VLE32V	(X13), V1
 	VXORVV	V1, V4, V4	// K[0..3] = MK ^ FK
 
