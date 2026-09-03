@@ -26,29 +26,20 @@
 
 #define stackaddress(index) ((index)*8+8)(RSP) // for RISCV64 stack usage, we CAN NOT overwrite the first 8 bytes space!
 
-// res = a + b
-// carryOut = 0 or 1
-// a and res CAN'T be the same register
-#define ADDS(a, b, res, carryOut) \
-	ADD a, b, res                       \
-	SLTU a, res, carryOut
-
-// res = a + b + carryIn
-#define ADC(carryIn, a, b, res) \
-	ADD a, b, res                       \
-	ADD carryIn, res, res
-
 // func ctrBlocks1Asm(xk *uint32, dst, src *[BlockSize]byte, ivlo, ivhi uint64)
-TEXT ·ctrBlocks1Asm(SB), NOSPLIT, $0
+TEXT ·ctrBlocks1Asm(SB), 0, $24-40
 	MOV xk+0(FP), XK
 	MOV dst+8(FP), DST
 	MOV src+16(FP), SRC
 	MOV ivlo+24(FP), IV_LOW_LE
 	MOV ivhi+32(FP), IV_HIGH_LE
 
+	MOV IV_LOW_LE, stackaddress(0)
+	MOV IV_HIGH_LE, stackaddress(1)	
+
 	VSETIVLI	$4, E32, M1, TA, MA, X0
-	VMVSX IV_HIGH_LE, V0
-	VSLIDEUPVX  IV_LOW_LE, V0, V4
+	VLE32V	stackaddress(0), V4
+
 	VSE32V	V4, (DST)
 	RET
 
