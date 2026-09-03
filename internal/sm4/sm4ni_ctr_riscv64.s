@@ -35,8 +35,8 @@ TEXT ·ctrBlocks1Asm(SB), NOSPLIT, $0
 	MOV ivhi+32(FP), IV_HIGH_LE
 
 	VSETIVLI	$2, E64, M1, TA, MA, X0
-	VMVSX IV_HIGH_LE, V0
-	VSLIDE1UPVX IV_LOW_LE, V0, V0
+	VMVSX IV_HIGH_LE, V4
+	VSLIDE1UPVX IV_LOW_LE, V4, V0
 
 	VSETIVLI	$4, E32, M1, TA, MA, X0
 	// reverse the 32-bit word order of the counter block
