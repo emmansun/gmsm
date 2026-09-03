@@ -182,13 +182,13 @@ tail:
 ret:
 	RET
 
-// func expandKeyAsm(key *byte, enc, dec *uint32, inst int)
+// func expandKeyAsm(key *byte, ck, enc, dec *uint32, inst int)
 // Key schedule using vsm4k.vi; the CK constants are generated in hardware.
 // dec[] receives the round keys in reverse order.
 TEXT ·expandKeyAsm(SB), NOSPLIT, $0
 	MOV	key+0(FP), X10
-	MOV	enc+8(FP), X11
-	MOV	dec+16(FP), X12
+	MOV	enc+16(FP), X11
+	MOV	dec+24(FP), X12
 
 	VSETIVLI	$4, E32, M1, TA, MA, X0
 	VLE32V	(X10), V4	// MK, little-endian words
