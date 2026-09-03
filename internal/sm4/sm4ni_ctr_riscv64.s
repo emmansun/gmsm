@@ -40,8 +40,12 @@ TEXT ·ctrBlocks1Asm(SB), 0, $24-40
 	VSETIVLI	$4, E32, M1, TA, MA, X0
 	ADD $8, RSP, X13
 	VLE32V	(X13), V4
+	VREV8V V4, V4
+	MOV	$·riscv64ZvksedRev(SB), X13
+	VLE32V	(X13), V24	// reversal index
+	VRGATHERVV	V24, V4, V0
 
-	VSE32V	V4, (DST)
+	VSE32V	V0, (DST)
 	RET
 
 // func ctrBlocks2Asm(xk *uint32, dst, src *[2 * BlockSize]byte, ivlo, ivhi uint64)
