@@ -9,9 +9,13 @@
 #define ZERO X0
 #define RSP X2
 
-// func mul2Asm(tweak *[blockSize]byte)
+// func mul2Asm(tweak *[blockSize]byte, isGB bool)
 TEXT ·mul2Asm(SB),NOSPLIT,$0
 	MOV tweak+0(FP), X10
+	MOVB isGB+8(FP), X12
+
+	BNE X12, ZERO, isGB
+
 	VSETIVLI	$4, E32, M1, TA, MA, X0
 	VLE32V (X10), V1
 
@@ -30,6 +34,25 @@ TEXT ·mul2Asm(SB),NOSPLIT,$0
 	VXORVV V2, V5, V2
 
 	VSE32V V2, (X10)
+	RET
+
+isGB:
+	VSETIVLI	$16, E8, M1, TA, MA, X0
+	VLE8V (X10), V1
+
+	VSLLVI $7, V1, V3
+	VSLIDE1UPVX  ZERO, V3, V4
+	VSRLVI $1, V1, V2
+	VORVV V2, V4, V2
+
+	VSLIDEDOWNVI $15, V3, V5
+	VSRAVI $7, V5, V5
+	MOV $0xE1, X11
+
+	VANDVX X11, V5, V5
+	VXORVV V2, V5, V2
+
+	VSE8V V2, (X10)
 	RET
 
 // func doubleTweaksAsm(tweak *[blockSize]byte, tweaks []byte)

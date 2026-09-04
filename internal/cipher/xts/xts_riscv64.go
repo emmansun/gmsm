@@ -9,14 +9,14 @@ package xts
 import "github.com/emmansun/gmsm/internal/deps/cpu"
 
 //go:noescape
-func mul2Asm(tweak *[blockSize]byte)
-
+func mul2Asm(tweak *[blockSize]byte, isGB bool)
+	
 //go:noescape
 func doubleTweaksAsm(tweak *[blockSize]byte, tweaks []byte)
 
 func mul2(tweak *[blockSize]byte, isGB bool) {
-	if cpu.RISCV64.HasV && !isGB {
-		mul2Asm(tweak)
+	if cpu.RISCV64.HasV {
+		mul2Asm(tweak, isGB)
 		return
 	}
 	mul2Generic(tweak, isGB)
