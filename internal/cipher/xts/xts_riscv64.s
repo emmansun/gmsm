@@ -39,7 +39,6 @@ TEXT ·doubleTweaksAsm(SB),NOSPLIT,$0
 	MOV tweaks_len+16(FP), X12
 
 	SRL $4, X12
-	SLL $4, X12
 	BEQ X12, ZERO, end
 
 	VSETIVLI	$4, E32, M1, TA, MA, X0
