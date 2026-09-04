@@ -88,10 +88,10 @@ func testDoubleTweaks(t *testing.T, isGB bool) {
 		doubleTweaks(&t1, t11[:], isGB)
 
 		if !bytes.Equal(t1[:], t2[:]) {
-			t.Errorf("1 tweak %v, expected %x, got %x", tk, t2[:], t1[:])
+			t.Errorf("isGB %v tweak %v, expected %x, got %x", isGB, tk, t2[:], t1[:])
 		}
 		if !bytes.Equal(t11[:], t12[:]) {
-			t.Errorf("2 tweak %v, expected %x, got %x", tk, t12[:], t11[:])
+			t.Errorf("isGB %v tweak %v, expected %x, got %x", isGB, tk, t12[:], t11[:])
 		}
 	}
 }
