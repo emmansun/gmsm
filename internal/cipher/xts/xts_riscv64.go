@@ -12,7 +12,7 @@ import "github.com/emmansun/gmsm/internal/deps/cpu"
 func mul2Asm(tweak *[blockSize]byte, isGB bool)
 	
 //go:noescape
-func doubleTweaksAsm(tweak *[blockSize]byte, tweaks []byte)
+func doubleTweaksAsm(tweak *[blockSize]byte, tweaks []byte, isGB bool)
 
 func mul2(tweak *[blockSize]byte, isGB bool) {
 	if cpu.RISCV64.HasV {
@@ -23,8 +23,8 @@ func mul2(tweak *[blockSize]byte, isGB bool) {
 }
 
 func doubleTweaks(tweak *[blockSize]byte, tweaks []byte, isGB bool) {
-	if cpu.RISCV64.HasV && !isGB {
-		doubleTweaksAsm(tweak, tweaks)
+	if cpu.RISCV64.HasV {
+		doubleTweaksAsm(tweak, tweaks, isGB)
 		return
 	}
 	count := len(tweaks) >> 4

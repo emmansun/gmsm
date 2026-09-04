@@ -55,14 +55,17 @@ isGB:
 	VSE8V V2, (X10)
 	RET
 
-// func doubleTweaksAsm(tweak *[blockSize]byte, tweaks []byte)
+// func doubleTweaksAsm(tweak *[blockSize]byte, tweaks []byte, isGB bool)
 TEXT ·doubleTweaksAsm(SB),NOSPLIT,$0
 	MOV tweak+0(FP), X10
 	MOV tweaks+8(FP), X11
 	MOV tweaks_len+16(FP), X12
-
+	MOV isGB+24(FP), X13
+	
 	SRL $4, X12
 	BEQ X12, ZERO, end
+
+	BNE X13, ZERO, isGB
 
 	VSETIVLI	$4, E32, M1, TA, MA, X0
 	// Prepare the polynomial for reduction
@@ -92,4 +95,35 @@ loop:
 
 	VSE32V V1, (X10)
 end: 
+	RET
+
+isGB:
+	VSETIVLI	$16, E8, M1, TA, MA, X0
+	// Prepare the polynomial for reduction
+	MOV $0xE1, X13
+
+	VLE8V (X10), V1
+loopGB:
+	// Handle the isGB case for doubleTweaksAsm
+	// This part should implement the logic for the isGB variant similar to mul2Asm
+	VSE8V V1, (X11)
+	ADD $16, X11
+
+	VSLLVI $7, V1, V3
+	VSLIDE1UPVX  ZERO, V3, V4
+	VSRLVI $1, V1, V2
+	VORVV V2, V4, V2
+
+	VSLIDEDOWNVI $15, V3, V5
+	VSRAVI $7, V5, V5
+	MOV $0xE1, X11
+
+	VANDVX X11, V5, V5
+	VXORVV V2, V5, V1
+
+	SUB $1, X12
+	BNE X12, ZERO, loopGB
+
+	VSE8V V1, (X10)
+
 	RET
