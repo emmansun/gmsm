@@ -34,12 +34,15 @@ TEXT ·ctrBlocks1Asm(SB), NOSPLIT, $0
 	MOV ivlo+24(FP), IV_LOW_LE
 	MOV ivhi+32(FP), IV_HIGH_LE
 
+	// Prepare the counter block IV_LOW_LE | IV_HIGH_LE in V0
+	// Due to IV_LOW_LE = byteorder.BEUint64(iv[8:16]) and IV_HIGH_LE = byteorder.BEUint64(iv[0:8])
+	// So, the byte order had been swapped from the original IV, and we only need to reverse the 32-bit word order within the counter block.
 	VSETIVLI	$2, E64, M1, TA, MA, X0
 	VMVSX IV_HIGH_LE, V4
 	VSLIDE1UPVX IV_LOW_LE, V4, V0
 
 	VSETIVLI	$4, E32, M1, TA, MA, X0
-	// reverse the 32-bit word order of the counter block
+	// Reverse the 32-bit word order of the counter block
 	MOV	$·riscv64ZvksedRev(SB), X13
 	VLE32V	(X13), V24	// reversal index
 	VRGATHERVV	V24, V0, V4
@@ -112,6 +115,7 @@ TEXT ·ctrBlocks2Asm(SB), NOSPLIT, $40-40
 	VLE32V	(X14), V22
 
 	VSETIVLI	$8, E32, M2, TA, MA, X0
+	// Load the counter block from the stack and reverse its 32-bit word order
 	ADD $8, RSP, X13
 	VLE32V	(X13), V0
 	MOV	$·riscv64ZvksedRev(SB), X13
@@ -165,7 +169,7 @@ TEXT ·ctrBlocks4Asm(SB), NOSPLIT, $40-40
 	ADD $8, RSP, X18
 	MOV	$·riscv64ZvksedRev(SB), X13
 	VLE32V	(X13), V24	// reversal index (loop-invariant)
-
+	
 	MOV IV_LOW_LE, stackaddress(0)
 	MOV IV_HIGH_LE, stackaddress(1)
 	ADD $1, IV_LOW_LE, X13
@@ -173,6 +177,7 @@ TEXT ·ctrBlocks4Asm(SB), NOSPLIT, $40-40
 	ADD X14, IV_HIGH_LE, X15
 	MOV X13, stackaddress(2)
 	MOV X15, stackaddress(3)
+	// Load the 2 next counter blocks from the stack and reverse their 32-bit word order
 	VLE32V	(X18), V0
 	VRGATHERVV	V24, V0, V4
 
@@ -195,6 +200,7 @@ TEXT ·ctrBlocks4Asm(SB), NOSPLIT, $40-40
 	ADD $32, SRC
 	ADD $32, DST
 
+	// Prepare the next 2 counter blocks in the stack and reverse their 32-bit word order
 	ADD $1, X13, IV_LOW_LE
 	SLTU X13, IV_LOW_LE, X14
 	ADD X14, X15, IV_HIGH_LE
@@ -264,6 +270,7 @@ TEXT ·ctrBlocks8Asm(SB), NOSPLIT, $40-40
 	ADD X14, IV_HIGH_LE, X15
 	MOV X13, stackaddress(2)
 	MOV X15, stackaddress(3)
+	// Load the 2 counter blocks from the stack and reverse their 32-bit word order
 	VLE32V	(X18), V0
 	VRGATHERVV	V24, V0, V4
 
@@ -288,7 +295,7 @@ TEXT ·ctrBlocks8Asm(SB), NOSPLIT, $40-40
 loop:
 	ADD $32, SRC
 	ADD $32, DST
-
+	// Prepare the next 2 counter blocks in the stack and reverse their 32-bit word order
 	ADD $1, X13, IV_LOW_LE
 	SLTU X13, IV_LOW_LE, X14
 	ADD X14, X15, IV_HIGH_LE

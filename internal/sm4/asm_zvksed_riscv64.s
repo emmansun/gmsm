@@ -70,9 +70,10 @@ TEXT ·encryptBlockAsm(SB), NOSPLIT, $0
 	MOV	src+16(FP), X12
 
 	VSETIVLI	$4, E32, M1, TA, MA, X0
+
+	// Load the input data.
 	VLE32V	(X12), V4
 	VREV8V	V4, V4	
-
 
 	VLE32V	(X10), V16
 	ADD	$16, X10, X13
@@ -99,6 +100,7 @@ TEXT ·encryptBlockAsm(SB), NOSPLIT, $0
 	VSM4R_VS(4, 22) // VSM4RVS	V22, V4
 	VSM4R_VS(4, 23) // VSM4RVS	V23, V4
 
+	// Store the output data (in reverse element order).
 	VREV8V	V4, V4	
 	MOV	$-4, X14
 	ADD	$12, X11, X15
@@ -112,8 +114,9 @@ TEXT ·encryptBlocksAsm(SB), NOSPLIT, $0
 	MOV	src_base+32(FP), X12
 	MOV	src_len+40(FP), X13
 
-	// round keys, shared by the 2-block and tail paths
 	VSETIVLI	$4, E32, M1, TA, MA, X0
+
+	// round keys, shared by the 2-block and tail paths
 	VLE32V	(X10), V8
 	ADD	$16, X10, X14
 	VLE32V	(X14), V10
@@ -191,8 +194,12 @@ TEXT ·expandKeyAsm(SB), NOSPLIT, $0
 	MOV	dec+24(FP), X12
 
 	VSETIVLI	$4, E32, M1, TA, MA, X0
+
+	// Load the user key
 	VLE32V	(X10), V4	// MK, little-endian words
 	VREV8V	V4, V4		// MK, big-endian
+
+	// XOR the user key with the family key.
 	MOV	$·riscv64ZvksedFK(SB), X13
 	VLE32V	(X13), V1
 	VXORVV	V1, V4, V4	// K[0..3] = MK ^ FK
