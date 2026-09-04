@@ -23,11 +23,11 @@ TEXT ·mul2Asm(SB),NOSPLIT,$0
 
 	// Generate mask for reduction: if the most significant bit of the original tweak was 1, we need to XOR with the polynomial.
 	VSLIDEDOWNVI $3, V3, V5
-	VMSNEVI $0, V5, V0
+	VSRAVI $31, V5, V5
 
 	MOV $0x87, X11
-	VMVSX X11, V6
-	VXORVV V2, V6, V0, V2
+	VANDVX X11, V5, V5
+	VXORVV V2, V5, V2
 
 	VSE32V V2, (X10)
 	RET
@@ -44,7 +44,6 @@ TEXT ·doubleTweaksAsm(SB),NOSPLIT,$0
 	VSETIVLI	$4, E32, M1, TA, MA, X0
 	// Prepare the polynomial for reduction
 	MOV $0x87, X13
-	VMVSX X13, V6
 
 	VLE32V (X10), V1
 
@@ -60,9 +59,11 @@ loop:
 
 	// Generate mask for reduction: if the most significant bit of the original tweak was 1, we need to XOR with the polynomial.
 	VSLIDEDOWNVI $3, V3, V5
-	VMSNEVI $0, V5, V0
-	VXORVV V1, V6, V0, V1
+	VSRAVI $31, V5, V5
 	
+	VANDVX X13, V5, V5
+	VXORVV V1, V5, V1
+
 	SUB $1, X12
 	BNE X12, ZERO, loop
 
