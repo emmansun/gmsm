@@ -58,7 +58,7 @@ loop:
 	VORVV V2, V4, V2
 
 	// Generate mask for reduction: if the most significant bit of the original tweak was 1, we need to XOR with the polynomial.
-	VSRAVI $31, V2, V3
+	VSRAVI $31, V1, V3
 	VSLIDEDOWNVI $3, V3, V5
 	
 	VANDVX X13, V5, V5
