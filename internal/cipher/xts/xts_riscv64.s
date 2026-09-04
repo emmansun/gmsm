@@ -22,8 +22,8 @@ TEXT ·mul2Asm(SB),NOSPLIT,$0
 	VORVV V2, V4, V2
 
 	// Generate mask for reduction: if the most significant bit of the original tweak was 1, we need to XOR with the polynomial.
+	VSRAVI $31, V1, V3
 	VSLIDEDOWNVI $3, V3, V5
-	VSRAVI $31, V5, V5
 
 	MOV $0x87, X11
 	VANDVX X11, V5, V5
@@ -58,8 +58,8 @@ loop:
 	VORVV V2, V4, V1
 
 	// Generate mask for reduction: if the most significant bit of the original tweak was 1, we need to XOR with the polynomial.
+	VSRAVI $31, V1, V3
 	VSLIDEDOWNVI $3, V3, V5
-	VSRAVI $31, V5, V5
 	
 	VANDVX X13, V5, V5
 	VXORVV V1, V5, V1
