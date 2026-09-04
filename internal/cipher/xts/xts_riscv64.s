@@ -56,12 +56,12 @@ loop:
 	VSLLVI $1, V1, V2
 	VSRLVI $31, V1, V3
 	VSLIDE1UPVX ZERO, V3, V4
-	VORVV V2, V4, V2
+	VORVV V2, V4, V1
 
 	// Generate mask for reduction: if the most significant bit of the original tweak was 1, we need to XOR with the polynomial.
 	VSLIDEDOWNVI $3, V3, V5
 	VMSNEVI $0, V5, V0
-	VXORVV V2, V6, V0, V1
+	VXORVV V1, V6, V0, V1
 	
 	SUB $1, X12
 	BNE X12, ZERO, loop
