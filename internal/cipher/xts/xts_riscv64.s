@@ -60,7 +60,7 @@ TEXT ·doubleTweaksAsm(SB),NOSPLIT,$0
 	MOV tweak+0(FP), X10
 	MOV tweaks+8(FP), X11
 	MOV tweaks_len+16(FP), X12
-	MOV isGB+24(FP), X13
+	MOV isGB+32(FP), X13
 	
 	SRL $4, X12
 	BEQ X12, ZERO, end
