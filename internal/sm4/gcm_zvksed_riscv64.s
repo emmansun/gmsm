@@ -89,7 +89,7 @@ TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 
 	// Now prepare powers of H and pre-computations for them
 	VSETIVLI	$2, E64, M1, TA, MA, X0
-	MOV $0xC200000000000000, X15
+	MOV gcmPoly<>+0x08(SB), X15
 
 initLoop:
 		VCLMULVV V1, V1, V3
@@ -131,7 +131,7 @@ initLoop:
 		SUB $16, X14, X14
 		VSE32V V1, (X14)
 
-	BNE ZERO, X14, initLoop
+	BNE dst, X14, initLoop
 	RET
 
 // func gcmSm4Data(productTable *[256]byte, data []byte, T *[16]byte)
