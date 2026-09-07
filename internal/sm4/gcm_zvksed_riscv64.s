@@ -94,34 +94,38 @@ TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 	VMVVV V2, V4
 
 initLoop:
-		VCLMULVV V1, V3, V5
-		VCLMULHVV V1, V3, V6
-		VCLMULVV V2, V4, V7
-		VCLMULHVV V2, V4, V8
+		VCLMULVV V1, V3, V5    // LOW(V1 * V3) = [C0, D0]
+		VCLMULHVV V1, V3, V6   // HIGH(V1 * V3) = [C1, D1]
+		VCLMULVV V2, V4, V7    // LOW(V2 * V4) = [E0, F0]
+		VCLMULHVV V2, V4, V8   // HIGH(V2 * V4) = [E1, F1]
 
-		VXORVV V5, V6, V3
-		VXORVV V3, V7, V7
-		VSLIDEDOWNVI $1, V5, V4
-		VXORVV V4, V7, V7
-		VSLIDEUPVI $1, V7, V5
+		VXORVV V5, V6, V3        // [C0 ^ C1, D0 ^ D1]
+		VXORVV V3, V7, V7        // [C0 ^ C1 ^ E0, D0 ^ D1 ^ F0]
+		VSLIDEDOWNVI $1, V5, V4  // [D1, 0]
+		VXORVV V4, V7, V7        // [C0 ^ C1 ^ E0 ^ D1, D0 ^ D1 ^ F0 ^ 0]
+		VSLIDEUPVI $1, V7, V5    // [C0, C0 ^ C1 ^ E0 ^ D1]
 
-		VSLIDEDOWNVI $1, V3, V3
-		VXORVV V3, V8, V8
-		VXORVV V6, V8, V8
-		VSLIDEDOWNVI $1, V6, V6
-		VSLIDEUPVI $1, V6, V8  // result = [V5, V8]
+		VSLIDEDOWNVI $1, V3, V3  // [D0 ^ D1, 0]
+		VXORVV V3, V8, V8        // [D0 ^ D1 ^ E1, 0]
+		VXORVV V6, V8, V8        // [D0 ^ D1 ^ E1 ^ D1, 0]
+		VSLIDEDOWNVI $1, V6, V6  // [D1, 0]
+		VSLIDEUPVI $1, V6, V8  // result = [V5, V8] = [C0, C0 ^ C1 ^ E0 ^ D1,D0 ^ D1 ^ E1 ^ D1, D1]
 
 		// Fast reduction
 		// 1st reduction
 		VCLMULVX X15, V5, V3
 		VCLMULHVX X15, V5, V4
 		VSLIDEUPVI $1, V4, V3
-		VXORVV V3, V5, V5
+		VSLIDEDOWNVI $1, V5, V4
+		VSLIDEUPVI $1, V5, V4   // V4 = [V5[1], V5[0]]
+		VXORVV V3, V4, V5
 		// 2nd reduction
 		VCLMULVX X15, V5, V3
 		VCLMULHVX X15, V5, V4
 		VSLIDEUPVI $1, V4, V3
-		VXORVV V3, V5, V5
+		VSLIDEDOWNVI $1, V5, V4
+		VSLIDEUPVI $1, V5, V4   // V4 = [V5[1], V5[0]]		
+		VXORVV V3, V4, V5
 		VXORVV V5, V8, V3
 
 		VSLIDEDOWNVI $1, V3, V4
