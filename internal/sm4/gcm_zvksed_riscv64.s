@@ -93,3 +93,7 @@ TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 	SUB $16, X14, X14
 	VSE32V V1, (X14)
 	RET
+
+// func gcmSm4Data(productTable *[256]byte, data []byte, T *[16]byte)
+TEXT ·gcmSm4Data(SB),NOSPLIT,$0
+	RET

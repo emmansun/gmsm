@@ -9,3 +9,6 @@ package sm4
 
 //go:noescape
 func gcmSm4Init(productTable *[256]byte, rk []uint32, inst int)
+
+//go:noescape
+func gcmSm4Data(productTable *[256]byte, data []byte, T *[16]byte)
