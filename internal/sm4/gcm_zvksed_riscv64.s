@@ -77,18 +77,20 @@ TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 	VANDVX X15, V3, V3
 	VORVV V2, V3, V1
 	
+	// Now prepare powers of H and pre-computations for them
+	VSETIVLI	$2, E64, M1, TA, MA, X0
+	VIDXV V10               // V10 = [0, 1]
+	VRSUBVI $1, V10, V10    // V10 = [1, 0]
+
 	// Karatsuba pre-computations
-	VSLIDEDOWNVI $2, V1, V2
-	VSLIDEUPVI $2, V1, V2
+	VRGATHERVV V10, V1, V2
 	VXORVV V1, V2, V2
 
 	ADD $240, dst, X14
-	VSE32V V2, (X14)
+	VSE64V V2, (X14)
 	SUB $16, X14, X14
-	VSE32V V1, (X14)
+	VSE64V V1, (X14)
 
-	// Now prepare powers of H and pre-computations for them
-	VSETIVLI	$2, E64, M1, TA, MA, X0
 	MOV gcmPoly<>+0x08(SB), X15
 	VMVVV V1, V3
 	VMVVV V2, V4
@@ -116,20 +118,17 @@ initLoop:
 		VCLMULVX X15, V5, V3
 		VCLMULHVX X15, V5, V4
 		VSLIDEUPVI $1, V4, V3
-		VSLIDEDOWNVI $1, V5, V4
-		VSLIDEUPVI $1, V5, V4   // V4 = [V5[1], V5[0]]
+		VRGATHERVV V10, V5, V4
 		VXORVV V3, V4, V5
 		// 2nd reduction
 		VCLMULVX X15, V5, V3
 		VCLMULHVX X15, V5, V4
 		VSLIDEUPVI $1, V4, V3
-		VSLIDEDOWNVI $1, V5, V4
-		VSLIDEUPVI $1, V5, V4   // V4 = [V5[1], V5[0]]		
+		VRGATHERVV V10, V5, V4
 		VXORVV V3, V4, V5
 		VXORVV V5, V8, V3
 
-		VSLIDEDOWNVI $1, V3, V4
-		VSLIDEUPVI $1, V3, V4
+		VRGATHERVV V10, V3, V4
 		VXORVV V3, V4, V4
 
 		SUB $16, X14, X14
