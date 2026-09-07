@@ -127,9 +127,9 @@ initLoop:
 		VXORVV V1, V2, V2
 
 		SUB $16, X14, X14
-		VSE32V V2, (X14)
+		VSE64V V2, (X14)
 		SUB $16, X14, X14
-		VSE32V V1, (X14)
+		VSE64V V1, (X14)
 
 	BNE dst, X14, initLoop
 	RET
