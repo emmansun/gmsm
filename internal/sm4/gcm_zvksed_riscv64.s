@@ -89,7 +89,7 @@ TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 
 	// Now prepare powers of H and pre-computations for them
 	VSETIVLI	$2, E64, M1, TA, MA, X0
-	MOV gcmPoly<>+0x08(SB), X15
+	MOV $0xC200000000000000, X15
 
 initLoop:
 		VCLMULVV V1, V1, V3
