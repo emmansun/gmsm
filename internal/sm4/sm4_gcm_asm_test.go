@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build (amd64 || arm64) && !purego
+//go:build (amd64 || arm64 || (riscv64 && go1.27) && !purego
 
 package sm4
 
@@ -31,9 +31,9 @@ func generateProductTable(t *testing.T, key []byte, table *[256]byte) {
 }
 
 func TestGcmSm4Init(t *testing.T) {
-	if !(supportsGFMUL) {
-		t.Skip("skipping test on unsupported CPU")
-	}
+	//if !(supportsGFMUL) {
+	//	t.Skip("skipping test on unsupported CPU")
+	//}
 	var table [256]byte
 	key := [16]byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
 	generateProductTable(t, key[:], &table)
@@ -44,7 +44,7 @@ func TestGcmSm4Init(t *testing.T) {
 		if !bytes.Equal(table[:], arm64Expected) {
 			t.Errorf("unexpected table value: got %x, want %x", table, arm64Expected)
 		}
-	case "amd64":
+	case "amd64", "riscv64":
 		if !bytes.Equal(table[:], amd64Expected) {
 			t.Errorf("unexpected table value: got %x, want %x", table, amd64Expected)
 		}

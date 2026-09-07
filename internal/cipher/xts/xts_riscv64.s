@@ -29,6 +29,7 @@ TEXT ·mul2Asm(SB),NOSPLIT,$0
 	VSRAVI $31, V1, V3
 	VSLIDEDOWNVI $3, V3, V5
 
+	// Apply the reduction polynomial if needed
 	MOV $0x87, X11
 	VANDVX X11, V5, V5
 	VXORVV V2, V5, V2
@@ -40,15 +41,18 @@ isGB:
 	VSETIVLI	$16, E8, M1, TA, MA, X0
 	VLE8V (X10), V1
 
+	// Multiply by 2
 	VSLLVI $7, V1, V3
 	VSLIDE1UPVX  ZERO, V3, V4
 	VSRLVI $1, V1, V2
 	VORVV V2, V4, V2
 
+	// Carry mask
 	VSLIDEDOWNVI $15, V3, V5
 	VSRAVI $7, V5, V5
 	MOV $0xE1, X11
 
+	// Apply the reduction polynomial if needed
 	VANDVX X11, V5, V5
 	VXORVV V2, V5, V2
 
@@ -83,10 +87,11 @@ loop:
 	VSLIDE1UPVX ZERO, V3, V4
 	VORVV V2, V4, V2
 
-	// Generate mask for reduction: if the most significant bit of the original tweak was 1, we need to XOR with the polynomial.
+	// Generate mask for reduction
 	VSRAVI $31, V1, V3
 	VSLIDEDOWNVI $3, V3, V5
-	
+
+	// Apply the reduction polynomial if needed
 	VANDVX X13, V5, V5
 	VXORVV V2, V5, V1
 
@@ -109,14 +114,17 @@ loopGB:
 	VSE8V V1, (X11)
 	ADD $16, X11
 
+	// Multiply by 2
 	VSLLVI $7, V1, V3
 	VSLIDE1UPVX  ZERO, V3, V4
 	VSRLVI $1, V1, V2
 	VORVV V2, V4, V2
 
+	// Carry mask
 	VSLIDEDOWNVI $15, V3, V5
 	VSRAVI $7, V5, V5
 
+	// Apply the reduction polynomial if needed
 	VANDVX X13, V5, V5
 	VXORVV V2, V5, V1
 
