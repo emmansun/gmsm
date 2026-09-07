@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build (amd64 || arm64 || (riscv64 && go1.27) && !purego
+//go:build (amd64 || arm64 || (riscv64 && go1.27)) && !purego
 
 package sm4
 
