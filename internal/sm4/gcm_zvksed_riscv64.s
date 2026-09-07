@@ -12,12 +12,7 @@
 DATA gcmPoly<>+0x00(SB)/8, $0x0000000000000001
 DATA gcmPoly<>+0x08(SB)/8, $0xc200000000000000
 
-DATA lowHighMask<>+0x00(SB)/8, $0xFFFFFFFFFFFFFFFF
-DATA lowHighMask<>+0x08(SB)/8, $0x0000000000000000
-DATA lowHighMask<>+0x10(SB)/8, $0xFFFFFFFFFFFFFFFF
-
 GLOBL gcmPoly<>(SB), (NOPTR+RODATA), $16
-GLOBL lowHighMask<>(SB), (NOPTR+RODATA), $24
 
 // VSM4R_VS performs vsm4r.vs Vd, Vs2
 // OP-P(0x77) | funct6=101001,vm=1 → 0x53 | vs2[24:20] | vs1=10000 | funct3=010 | vd
@@ -40,7 +35,6 @@ TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 	MOV rk+8(FP), RK
 
 	MOV $gcmPoly<>(SB), X12
-	MOV $lowHighMask<>(SB), X13
 
 	// Encrypt block 0, with the sm4 round keys to generate the hash key H
 	VSETIVLI	$4, E32, M1, TA, MA, X0
@@ -92,6 +86,52 @@ TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 	VSE32V V2, (X14)
 	SUB $16, X14, X14
 	VSE32V V1, (X14)
+
+	// Now prepare powers of H and pre-computations for them
+	VSETIVLI	$2, E64, M1, TA, MA, X0
+	MOV gcmPoly<>+0x08(SB), X15
+
+initLoop:
+		VCLMULVV V1, V1, V3
+		VCLMULHVV V1, V1, V4
+		VCLMULVV V2, V2, V5
+		VCLMULHVV V2, V2, V6
+
+		VXORVV V3, V4, V1
+		VXORVV V1, V5, V5
+		VSLIDEDOWNVI $1, V3, V2
+		VXORVV V2, V5, V5
+		VSLIDEUPVI $1, V5, V3
+
+		VSLIDEDOWNVI $1, V1, V1
+		VXORVV V1, V6, V6
+		VXORVV V4, V6, V6
+		VSLIDEDOWNVI $1, V4, V4
+		VSLIDEUPVI $1, V4, V6  // result = [V3, V6]
+
+		// Fast reduction
+		// 1st reduction
+		VCLMULVX X15, V3, V1
+		VCLMULHVX X15, V3, V2
+		VSLIDEUPVI $1, V2, V1
+		VXORVV V1, V3, V3
+		// 2nd reduction
+		VCLMULVX X15, V3, V1
+		VCLMULHVX X15, V3, V2
+		VSLIDEUPVI $1, V2, V1
+		VXORVV V1, V3, V3
+		VXORVV V3, V6, V1
+
+		VSLIDEDOWNVI $1, V1, V2
+		VSLIDEUPVI $1, V1, V2
+		VXORVV V1, V2, V2
+
+		SUB $16, X14, X14
+		VSE32V V2, (X14)
+		SUB $16, X14, X14
+		VSE32V V1, (X14)
+
+	BNE ZERO, X14, initLoop
 	RET
 
 // func gcmSm4Data(productTable *[256]byte, data []byte, T *[16]byte)
