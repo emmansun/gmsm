@@ -90,12 +90,48 @@ TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 	// Now prepare powers of H and pre-computations for them
 	VSETIVLI	$2, E64, M1, TA, MA, X0
 	MOV gcmPoly<>+0x08(SB), X15
+	VMVVV V1, V3
+	VMVVV V2, V4
 
 initLoop:
+		VCLMULVV V1, V3, V5
+		VCLMULHVV V1, V3, V6
+		VCLMULVV V2, V4, V7
+		VCLMULHVV V2, V4, V8
+
+		VXORVV V5, V6, V9
+		VXORVV V9, V7, V7
+		VSLIDEDOWNVI $1, V5, V2
+		VXORVV V2, V7, V7
+		VSLIDEUPVI $1, V7, V5
+
+		VSLIDEDOWNVI $1, V9, V9
+		VXORVV V9, V8, V8
+		VXORVV V6, V8, V8
+		VSLIDEDOWNVI $1, V6, V6
+		VSLIDEUPVI $1, V6, V8  // result = [V5, V8]
+
+		// Fast reduction
+		// 1st reduction
+		VCLMULVX X15, V5, V3
+		VCLMULHVX X15, V5, V4
+		VSLIDEUPVI $1, V4, V3
+		VXORVV V3, V5, V5
+		// 2nd reduction
+		VCLMULVX X15, V5, V3
+		VCLMULHVX X15, V5, V4
+		VSLIDEUPVI $1, V4, V3
+		VXORVV V3, V5, V5
+		VXORVV V5, V8, V3
+
+		VSLIDEDOWNVI $1, V3, V4
+		VSLIDEUPVI $1, V3, V4
+		VXORVV V3, V4, V4
+
 		SUB $16, X14, X14
-		VSE64V V2, (X14)
+		VSE64V V4, (X14)
 		SUB $16, X14, X14
-		VSE64V V1, (X14)
+		VSE64V V3, (X14)
 
 	BNE dst, X14, initLoop
 	RET
