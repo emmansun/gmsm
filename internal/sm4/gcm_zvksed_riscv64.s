@@ -211,8 +211,10 @@ dataTLS:
 	MOV (aut), X9
 	VMVSX X9, B0
 	ADD $8, aut, aut
+	XOR X9, X9
 	MOVW (aut), X9
 	ADD $4, aut, aut
+	XOR X8, X8
 	MOVB (aut), X8
 	SLLI $32, X8
 	OR X8, X9, X9
@@ -257,12 +259,12 @@ dataOctaLoop:
 		VCLMULHVV T0, T2, ACCMH     // HIGH(T0 * T2) = [E1, F1]
 
 		mulRoundAAD(B1, 1)
-		mulRoundAAD(B1, 2)
-		mulRoundAAD(B1, 3)
-		mulRoundAAD(B1, 4)
-		mulRoundAAD(B1, 5)
-		mulRoundAAD(B1, 6)
-		mulRoundAAD(B1, 7)
+		mulRoundAAD(B2, 2)
+		mulRoundAAD(B3, 3)
+		mulRoundAAD(B4, 4)
+		mulRoundAAD(B5, 5)
+		mulRoundAAD(B6, 6)
+		mulRoundAAD(B7, 7)
 
 		VXORVV ACC0, ACC1, T0       // [C0 ^ C1, D0 ^ D1]
 		VXORVV T0, ACCML, ACCML     // [C0 ^ C1 ^ E0, D0 ^ D1 ^ F0]
