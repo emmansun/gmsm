@@ -216,8 +216,7 @@ dataTLS:
 	VMVSX X9, B1
 	VSLIDEUPVI $1, B1, B0
 	XOR autLen, autLen
-	VMVVV B0, ACC0
-	JMP dataBail
+	JMP dataMul
 	
 dataOctaLoop:
 		BLT autLen, X8, startSinglesLoop
