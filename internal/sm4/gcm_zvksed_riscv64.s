@@ -371,8 +371,9 @@ dataLoadDone:
 	VMVSX X9, B0
 	VMVSX X8, B1
 	VSLIDEUPVI $1, B1, B0
+	VMVVV B0, ACC0
 
-	JMP dataMul
+	JMP dataBail
 	
 dataBail:
 	VSE64V ACC0, (tPtr)
