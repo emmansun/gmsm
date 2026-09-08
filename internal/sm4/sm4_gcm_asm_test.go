@@ -52,9 +52,9 @@ func TestGcmSm4Init(t *testing.T) {
 }
 
 func TestGcmSm4Data(t *testing.T) {
-	//if !(supportsGFMUL) {
-	//	t.Skip("skipping test on unsupported CPU")
-	//}
+	if !(supportsGFMUL) {
+		t.Skip("skipping test on unsupported CPU")
+	}
 	var table [256]byte
 	key := [16]byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
 	generateProductTable(t, key[:], &table)
