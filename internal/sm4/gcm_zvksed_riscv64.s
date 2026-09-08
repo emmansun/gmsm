@@ -217,7 +217,7 @@ dataTLS:
 	XOR X8, X8
 	MOVB (aut), X8
 	SLLI $32, X8
-	OR X8, X9, X9
+	//OR X8, X9, X9
 	VMVSX X9, B1
 	VSLIDEUPVI $1, B1, B0
 	XOR autLen, autLen
