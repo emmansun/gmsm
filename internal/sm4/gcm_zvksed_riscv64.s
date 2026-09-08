@@ -9,9 +9,29 @@
 #define ZERO X0
 #define RSP X2
 
+#define B0 V1
+#define B1 V2
+#define B2 V3
+#define B3 V4
+#define B4 V5
+#define B5 V6
+#define B6 V7
+#define B7 V8
+
+#define ACC0 V8
+#define ACC1 V9
+#define ACCML V10
+#define ACCMH V11
+
+#define XPOLY X15
+#define SHUFFLE_MASK V25
+#define T0 V26
+#define T1 V27
+#define T2 V28
+#define T3 V29
+
 DATA gcmPoly<>+0x00(SB)/8, $0x0000000000000001
 DATA gcmPoly<>+0x08(SB)/8, $0xc200000000000000
-
 GLOBL gcmPoly<>(SB), (NOPTR+RODATA), $16
 
 // VSM4R_VS performs vsm4r.vs Vd, Vs2
@@ -141,6 +161,224 @@ initLoop:
 
 // func gcmSm4Data(productTable *[256]byte, data []byte, T *[16]byte)
 TEXT ·gcmSm4Data(SB),NOSPLIT,$0
+#define pTbl X10
+#define aut X11
+#define tPtr X12
+#define autLen X13
+
+#define reduceRound(a) VCLMULVX XPOLY, a, T0; VCLMULHVX XPOLY, a, T1; VSLIDEUPVI $1, T1, T0; VRGATHERVV SHUFFLE_MASK, a, T1; VXORVV T0, T1, a
+#define mulRoundAAD(X ,i) \
+	VREV8V X, T0; \
+	VRGATHERVV SHUFFLE_MASK, T0, X; \
+	VXORVV X, T0, T0; \
+	ADD $(16*(i*2)), pTbl, X14; \
+	VLE64V (X14), T1; \
+	VCLMULVV X, T1, T2; \
+	VXORVV T2, ACC0, ACC0; \
+	VCLMULHVV X, T1, T2;  \
+	VXORVV T2, ACC1, ACC1; \ 
+	ADD $16, X14; \
+	VLE64V (X14), T1; \
+	VCLMULVV T0, T1, T2; \
+	VXORVV T2, ACCML, ACCML; \
+	VCLMULHVV T0, T1, T2;  \
+	VXORVV T2, ACCMH, ACCMH
+
+	MOV productTable+0(FP), pTbl
+	MOV data_base+8(FP), aut
+	MOV data_len+16(FP), autLen
+	MOV T+32(FP), tPtr
+
+	BEQZ autLen, dataBail
+
+	VSETIVLI	$2, E64, M1, TA, MA, X0
+	VXORVV ACC0, ACC0, ACC0
+	VIDV SHUFFLE_MASK                         // SHUFFLE_MASK = [0, 1]
+	VRSUBVI $1, SHUFFLE_MASK, SHUFFLE_MASK    // SHUFFLE_MASK = [1, 0]
+	MOV gcmPoly<>+0x08(SB), XPOLY
+
+	MOV $13, X8
+	BEQ autLen, X8, dataTLS
+	MOV $128, X8
+	BLT autLen, X8, startSinglesLoop
+	JMP dataOctaLoop
+
+dataTLS:
+	ADD $224, pTbl, X8
+	VLE64V (X8), T1
+	ADD $16, X8, X8
+	VLE64V (X8), T2
+	MOV (aut), X9
+	VMVSX X9, B0
+	ADD $8, aut, aut
+	MOVW (aut), X9
+	ADD $4, aut, aut
+	MOVB (aut), X8
+	SLLI $32, X8
+	OR X8, X9, X9
+	VMVSX X9, B1
+	VSLIDEUPVI $1, B1, B0
+	XOR autLen, autLen
+	JMP dataMul
+	
+dataOctaLoop:
+		BLT autLen, X8, startSinglesLoop
+		SUB $128, autLen, autLen
+
+		VLE64V (aut), B0
+		ADD $16, aut, aut
+		VLE64V (aut), B1
+		ADD $16, aut, aut
+		VLE64V (aut), B2
+		ADD $16, aut, aut
+		VLE64V (aut), B3
+		ADD $16, aut, aut
+		VLE64V (aut), B4
+		ADD $16, aut, aut
+		VLE64V (aut), B5
+		ADD $16, aut, aut
+		VLE64V (aut), B6
+		ADD $16, aut, aut
+		VLE64V (aut), B7
+		ADD $16, aut, aut
+
+		VREV8V B0, T0
+		VRGATHERVV SHUFFLE_MASK, T0, B0
+		VXORVV ACC0, B0, B0
+		VXORVV B0, T0, T0
+
+		VLE64V (pTbl), T1
+		ADD $16, pTbl, X9
+		VLE64V (X9), T2
+
+		VCLMULVV B0, T1, ACC0       // LOW(B0 * T1) = [C0, D0]
+		VCLMULHVV B0, T1, ACC1      // HIGH(B0 * T1) = [C1, D1]
+		VCLMULVV T0, T2, ACCML      // LOW(T0 * T2) = [E0, F0]
+		VCLMULHVV T0, T2, ACCMH     // HIGH(T0 * T2) = [E1, F1]
+
+		mulRoundAAD(B1, 1)
+		mulRoundAAD(B1, 2)
+		mulRoundAAD(B1, 3)
+		mulRoundAAD(B1, 4)
+		mulRoundAAD(B1, 5)
+		mulRoundAAD(B1, 6)
+		mulRoundAAD(B1, 7)
+
+		VXORVV ACC0, ACC1, T0       // [C0 ^ C1, D0 ^ D1]
+		VXORVV T0, ACCML, ACCML     // [C0 ^ C1 ^ E0, D0 ^ D1 ^ F0]
+		VSLIDEDOWNVI $1, T0, T0     // [D0 ^ D1, 0]
+		VXORVV T0, ACCMH, ACCMH     // [D0 ^ D1 ^ E1, *]
+
+		VSLIDEDOWNVI $1, ACC0, T0   // [D1, 0]
+		VXORVV T0, ACCML, ACCML     // [C0 ^ C1 ^ E0 ^ D1, *]
+		VSLIDEUPVI $1, ACCML, ACC0	// [C0, C0 ^ C1 ^ E0 ^ D1]
+		
+		VSLIDEDOWNVI $1, ACC1, T0   // [D1, 0]
+		VXORVV ACC1, ACCMH, ACC1    // [C1 ^ D0 ^ D1 ^ E1, *]
+		VSLIDEUPVI $1, T0, ACC1     // [C1 ^ D0 ^ D1 ^ E1, D1] 
+
+		// Fast reduction
+		// 1st reduction
+        reduceRound(ACC0)
+		// 2nd reduction
+        reduceRound(ACC0)
+		VXORVV ACC0, ACC1, ACC0
+
+	JMP dataOctaLoop
+
+startSinglesLoop:
+	ADD $224, pTbl, X8
+	VLE64V (X8), T1
+	ADD $16, X8, X8
+	VLE64V (X8), T2
+	MOV $16, X8
+
+dataSinglesLoop:
+		BLT autLen, X8, dataEnd
+		SUB $16, autLen, autLen
+		VLE64V (aut), B0
+		ADD $16, aut, aut
+
+dataMul:
+		VREV8V B0, T0
+		VRGATHERVV SHUFFLE_MASK, T0, B0
+		VXORVV ACC0, B0, B0
+
+		VXORVV B0, T0, T0
+
+		VCLMULVV B0, T1, ACC0       // LOW(B0 * T1) = [C0, D0]
+		VCLMULHVV B0, T1, ACC1      // HIGH(B0 * T1) = [C1, D1]
+		VCLMULVV T0, T2, ACCML      // LOW(T0 * T2) = [E0, F0]
+		VCLMULHVV T0, T2, ACCMH     // HIGH(T0 * T2) = [E1, F1]
+
+		VXORVV ACC0, ACC1, T0       // [C0 ^ C1, D0 ^ D1]
+		VXORVV T0, ACCML, ACCML     // [C0 ^ C1 ^ E0, D0 ^ D1 ^ F0]
+		VSLIDEDOWNVI $1, T0, T0     // [D0 ^ D1, 0]
+		VXORVV T0, ACCMH, ACCMH     // [D0 ^ D1 ^ E1, *]
+
+		VSLIDEDOWNVI $1, ACC0, T0   // [D1, 0]
+		VXORVV T0, ACCML, ACCML     // [C0 ^ C1 ^ E0 ^ D1, *]
+		VSLIDEUPVI $1, ACCML, ACC0	// [C0, C0 ^ C1 ^ E0 ^ D1]
+		
+		VSLIDEDOWNVI $1, ACC1, T0   // [D1, 0]
+		VXORVV ACC1, ACCMH, ACC1    // [C1 ^ D0 ^ D1 ^ E1, *]
+		VSLIDEUPVI $1, T0, ACC1     // [C1 ^ D0 ^ D1 ^ E1, D1] 
+
+		// Fast reduction
+		// 1st reduction
+		reduceRound(ACC0)
+		// 2nd reduction
+		reduceRound(ACC0)
+		VXORVV ACC0, ACC1, ACC0
+
+	JMP dataSinglesLoop
+
+dataEnd:
+	BEQZ autLen, dataBail
+	VXORVV B0, B0, B0
+	XOR X8, X8   // High 64 bits
+	XOR X9, X9   // Low 64 bits
+	XOR X14, X14 // Shift accumulator for partial byte loads
+	MOV $8, X21
+
+	BGE autLen, X21, dataLoadGT8
+
+dataLoadLoopLess8:
+		MOVB (aut), X22
+		SLL X14, X22, X22
+		OR X22, X9, X9
+		SUB $1, autLen, autLen
+		ADD $1, aut, aut
+		ADD $8, X14, X14
+		BNEZ autLen, dataLoadLoopLess8
+
+	JMP dataLoadDone
+
+dataLoadGT8:
+	MOV (aut), X9
+	ADD $8, aut, aut
+	SUB $8, autLen, autLen
+
+dataLoadLoopHigh8:
+		BEQZ autLen, dataLoadDone
+		MOVB (aut), X22
+		SLL X14, X22, X22
+		OR X22, X8, X8
+		SUB $1, autLen, autLen
+		ADD $1, aut, aut
+		ADD $8, X14, X14
+	
+	JMP dataLoadLoopHigh8
+
+dataLoadDone:
+	VMVXS X9, B0
+	VMVXS X8, B1
+	VSLIDEUPVI $1, B1, B0
+
+	JMP dataMul
+	
+dataBail:
+	VSE64V ACC0, (tPtr)
 	RET
 
 // func gcmSm4Finish(productTable *[256]byte, tagMask, T *[16]byte, pLen, dLen uint64)
