@@ -290,6 +290,10 @@ startSinglesLoop:
 	VLE64V (X8), T2
 
 dataSinglesLoop:
+	ADD $224, pTbl, X8
+	VLE64V (X8), T1
+	ADD $16, X8, X8
+	VLE64V (X8), T2
 		MOV $16, X8
 		BLT autLen, X8, dataEnd
 		SUB $16, autLen, autLen
@@ -371,9 +375,8 @@ dataLoadDone:
 	VMVSX X9, B0
 	VMVSX X8, B1
 	VSLIDEUPVI $1, B1, B0
-	VMVVV B0, ACC0
 
-	JMP dataBail
+	JMP dataMul
 	
 dataBail:
 	VSE64V ACC0, (tPtr)
