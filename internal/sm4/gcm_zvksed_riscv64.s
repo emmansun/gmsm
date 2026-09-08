@@ -210,14 +210,9 @@ dataTLS:
 	VLE64V (X8), T2
 	MOV (aut), X9
 	VMVSX X9, B0
-	ADD $8, aut, aut
-	XOR X9, X9
-	MOVW (aut), X9
-	ADD $4, aut, aut
-	XOR X8, X8
-	MOVB (aut), X8
-	SLLI $32, X8
-	//OR X8, X9, X9
+	ADD $5, aut
+	MOV (aut), X9
+	SLL $24, X9
 	VMVSX X9, B1
 	VSLIDEUPVI $1, B1, B0
 	XOR autLen, autLen
