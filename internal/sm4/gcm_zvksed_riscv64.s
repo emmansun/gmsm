@@ -79,7 +79,7 @@ TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 	
 	// Now prepare powers of H and pre-computations for them
 	VSETIVLI	$2, E64, M1, TA, MA, X0
-	VIDXV V10               // V10 = [0, 1]
+	VIDV V10               // V10 = [0, 1]
 	VRSUBVI $1, V10, V10    // V10 = [1, 0]
 
 	// Karatsuba pre-computations
