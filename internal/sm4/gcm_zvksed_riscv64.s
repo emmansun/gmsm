@@ -212,7 +212,7 @@ dataTLS:
 	VMVSX X9, B0
 	ADD $5, aut
 	MOV (aut), X9
-	SLL $24, X9
+	SRL $24, X9
 	VMVSX X9, B1
 	VSLIDEUPVI $1, B1, B0
 	XOR autLen, autLen
