@@ -290,10 +290,6 @@ startSinglesLoop:
 	VLE64V (X8), T2
 
 dataSinglesLoop:
-	ADD $224, pTbl, X8
-	VLE64V (X8), T1
-	ADD $16, X8, X8
-	VLE64V (X8), T2
 		MOV $16, X8
 		BLT autLen, X8, dataEnd
 		SUB $16, autLen, autLen
