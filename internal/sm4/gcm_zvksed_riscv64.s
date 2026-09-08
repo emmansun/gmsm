@@ -291,9 +291,9 @@ startSinglesLoop:
 	VLE64V (X8), T1
 	ADD $16, X8, X8
 	VLE64V (X8), T2
-	MOV $16, X8
 
 dataSinglesLoop:
+		MOV $16, X8
 		BLT autLen, X8, dataEnd
 		SUB $16, autLen, autLen
 		VLE64V (aut), B0
@@ -345,7 +345,7 @@ dataEnd:
 
 dataLoadLoopLess8:
 		MOVB (aut), X22
-		//SLL X14, X22, X22
+		SLL X14, X22, X22
 		OR X22, X9, X9
 		SUB $1, autLen, autLen
 		ADD $1, aut, aut
@@ -362,7 +362,7 @@ dataLoadGT8:
 dataLoadLoopHigh8:
 		BEQZ autLen, dataLoadDone
 		MOVB (aut), X22
-		//SLL X14, X22, X22
+		SLL X14, X22, X22
 		OR X22, X8, X8
 		SUB $1, autLen, autLen
 		ADD $1, aut, aut
