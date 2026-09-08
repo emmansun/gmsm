@@ -371,8 +371,8 @@ dataLoadLoopHigh8:
 	JMP dataLoadLoopHigh8
 
 dataLoadDone:
-	VMVXS X9, B0
-	VMVXS X8, B1
+	VMVSX X9, B0
+	VMVSX X8, B1
 	VSLIDEUPVI $1, B1, B0
 
 	JMP dataMul
