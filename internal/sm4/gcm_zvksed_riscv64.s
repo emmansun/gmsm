@@ -345,7 +345,7 @@ dataEnd:
 
 dataLoadLoopLess8:
 		MOVB (aut), X22
-		SLL X14, X22, X22
+		//SLL X14, X22, X22
 		OR X22, X9, X9
 		SUB $1, autLen, autLen
 		ADD $1, aut, aut
@@ -362,7 +362,7 @@ dataLoadGT8:
 dataLoadLoopHigh8:
 		BEQZ autLen, dataLoadDone
 		MOVB (aut), X22
-		SLL X14, X22, X22
+		//SLL X14, X22, X22
 		OR X22, X8, X8
 		SUB $1, autLen, autLen
 		ADD $1, aut, aut
