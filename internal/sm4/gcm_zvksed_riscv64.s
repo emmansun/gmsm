@@ -179,12 +179,14 @@ TEXT ·gcmSm4Data(SB),NOSPLIT,$0
 	VREV8V X, T0; \
 	VRGATHERVV SHUFFLE_MASK, T0, X; \
 	VXORVV X, T0, T0; \
+	\
 	ADD $(16*(i*2)), pTbl, X14; \
 	VLE64V (X14), T1; \
 	VCLMULVV X, T1, T2; \
 	VXORVV T2, ACC0, ACC0; \
 	VCLMULHVV X, T1, T2;  \
-	VXORVV T2, ACC1, ACC1; \ 
+	VXORVV T2, ACC1, ACC1; \
+	\
 	ADD $16, X14; \
 	VLE64V (X14), T1; \
 	VCLMULVV T0, T1, T2; \
@@ -388,10 +390,79 @@ dataLoadDone:
 dataBail:
 	VSE64V ACC0, (tPtr)
 	RET
+#undef pTbl
+#undef aut
+#undef tPtr
+#undef autLen
 
 // func gcmSm4Finish(productTable *[256]byte, tagMask, T *[16]byte, pLen, dLen uint64)
 TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
+#define pTbl X8
+#define tMsk X9
+#define tPtr X10
+#define plen X11
+#define dlen X12
+
+	MOV productTable+0(FP), pTbl
+	MOV tagMask+8(FP), tMsk
+	MOV T+16(FP), tPtr
+	MOV pLen+24(FP), plen
+	MOV dLen+32(FP), dlen
+
+	MOV gcmPoly<>+0x08(SB), XPOLY
+	VSETIVLI	$2, E64, M1, TA, MA, X0
+	VLE64V (tPtr), ACC0
+	VLE64V (tMsk), T2
+
+	SLL $3, plen
+	SLL $3, dlen
+	VMVSX plen, B0
+	VMVSX dlen, B1
+	VSLIDEUPVI $1, B1, B0
+	VXORVV ACC0, B0, B0
+
+	ADD $224, pTbl, X13
+	VLE64V (X13), T1
+	ADD $16, X13, X13
+	VLE64V (X13), T2
+
+	VSLIDEDOWNVI $1, B0, T0
+	VXORVV B0, T0, T0
+
+	VCLMULVV B0, T1, ACC0       // LOW(B0 * T1) = [C0, D0]
+	VCLMULHVV B0, T1, ACC1      // HIGH(B0 * T1) = [C1, D1]
+	VCLMULVV T0, T2, ACCML      // LOW(T0 * T2) = [E0, F0]
+	VCLMULHVV T0, T2, ACCMH     // HIGH(T0 * T2) = [E1, F1]
+
+	VXORVV ACC0, ACC1, T0       // [C0 ^ C1, D0 ^ D1]
+	VXORVV T0, ACCML, ACCML     // [C0 ^ C1 ^ E0, D0 ^ D1 ^ F0]
+	VSLIDEDOWNVI $1, T0, T0     // [D0 ^ D1, 0]
+	VXORVV T0, ACCMH, ACCMH     // [D0 ^ D1 ^ E1, *]
+
+	VSLIDEDOWNVI $1, ACC0, T0   // [D0, 0]
+	VXORVV T0, ACCML, ACCML     // [C0 ^ C1 ^ E0 ^ D0, *]
+	VSLIDEUPVI $1, ACCML, ACC0	// [C0, C0 ^ C1 ^ E0 ^ D0]
+
+	VSLIDEDOWNVI $1, ACC1, T0   // [D1, 0]
+	VXORVV ACC1, ACCMH, ACC1    // [C1 ^ D0 ^ D1 ^ E1, *]
+	VSLIDEUPVI $1, T0, ACC1     // [C1 ^ D0 ^ D1 ^ E1, D1] 
+
+	reduceRound(ACC0)
+	reduceRound(ACC0)
+	VXORVV ACC0, ACC1, ACC0
+
+	VREV8V ACC0, ACC0
+	VSLIDEDOWNVI $1, ACC0, T0
+	VSLIDEUPVI $1, ACC0, T0
+	VXORVV T2, T0, ACC0
+
+	VSE64V ACC0, (tPtr)
 	RET
+#undef pTbl
+#undef tMsk
+#undef tPtr
+#undef plen
+#undef dlen
 
 // func gcmSm4Enc(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk []uint32)
 TEXT ·gcmSm4Enc(SB),0,$256-96
