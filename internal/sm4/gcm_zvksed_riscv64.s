@@ -18,10 +18,10 @@
 #define B6 V7
 #define B7 V8
 
-#define ACC0 V8
-#define ACC1 V9
-#define ACCML V10
-#define ACCMH V11
+#define ACC0 V9
+#define ACC1 V10
+#define ACCML V11
+#define ACCMH V12
 
 #define XPOLY X15
 #define SHUFFLE_MASK V25
