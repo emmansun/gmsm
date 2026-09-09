@@ -166,7 +166,15 @@ TEXT ·gcmSm4Data(SB),NOSPLIT,$0
 #define tPtr X12
 #define autLen X13
 
-#define reduceRound(a) VCLMULVX XPOLY, a, T0; VCLMULHVX XPOLY, a, ACCMH; VSLIDEUPVI $1, ACCMH, T0; VRGATHERVV SHUFFLE_MASK, a, ACCMH; VXORVV T0, ACCMH, a
+#define reduceRound(a) \
+	VCLMULVX XPOLY, a, T0; \
+	VCLMULHVX XPOLY, a, ACCMH; \
+	VSLIDEUPVI $1, ACCMH, T0; \
+	\
+	VSLIDEDOWNVI $1, a, ACCMH; \
+	VSLIDEUPVI $1, a, ACCMH; \
+	VXORVV T0, ACCMH, a
+
 #define mulRoundAAD(X ,i) \
 	VREV8V X, T0; \
 	VRGATHERVV SHUFFLE_MASK, T0, X; \
