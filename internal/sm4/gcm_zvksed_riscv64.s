@@ -96,25 +96,24 @@ TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 	VLE32V (X12), V3
 	VANDVX X15, V3, V3
 	VORVV V2, V3, V1
-	
+
 	// Now prepare powers of H and pre-computations for them
 	VSETIVLI	$2, E64, M1, TA, MA, X0
 	VIDV V10               // V10 = [0, 1]
 	VRSUBVI $1, V10, V10    // V10 = [1, 0]
 
 	// Karatsuba pre-computations
-	ADD $224, dst, X14
 	VRGATHERVV V10, V1, V2
-	VSE64V V2, (X14)
 	VXORVV V1, V2, V2
-	ADD $16, X14, X14
+
+	ADD $240, dst, X14
 	VSE64V V2, (X14)
+	SUB $16, X14, X14
+	VSE64V V1, (X14)
 
 	MOV gcmPoly<>+0x08(SB), X15
 	VMVVV V1, V3
 	VMVVV V2, V4
-
-	ADD $16, dst, X13	
 
 initLoop:
 		VCLMULVV V1, V3, V5    // LOW(V1 * V3) = [C0, D0]
@@ -149,14 +148,15 @@ initLoop:
 		VXORVV V3, V4, V5
 		VXORVV V5, V8, V3
 
-		SUB $48, X14, X14
 		VRGATHERVV V10, V3, V4
-		VSE64V V4, (X14)
 		VXORVV V3, V4, V4
-		ADD $16, X14, X14
-		VSE64V V4, (X14)
 
-	BNE X13, X14, initLoop
+		SUB $16, X14, X14
+		VSE64V V4, (X14)
+		SUB $16, X14, X14
+		VSE64V V3, (X14)
+
+	BNE dst, X14, initLoop
 	RET
 
 // func gcmSm4Data(productTable *[256]byte, data []byte, T *[16]byte)
@@ -166,25 +166,10 @@ TEXT ·gcmSm4Data(SB),NOSPLIT,$0
 #define tPtr X12
 #define autLen X13
 
-// a remains in swapped-domain.
-//
-// T0     = low64(XPOLY * a)
-// ACCML  = high64(XPOLY * a)
-// ACCMH  = [high(a[1] * XPOLY), low(a[1] * XPOLY)]
-//
-// ACCML and ACCMH are scratch registers after product assembly.
-#define reduceRound(a) \
-	VCLMULVX XPOLY, a, T0; \
-	VCLMULHVX XPOLY, a, ACCML; \
-	VSLIDEDOWNVI $1, ACCML, ACCMH; \
-	VSLIDEDOWNVI $1, T0, ACCML; \
-	VSLIDEUPVI $1, ACCML, ACCMH; \
-	VRGATHERVV SHUFFLE_MASK, a, T0; \
-	VXORVV ACCMH, T0, a
-
+#define reduceRound(a) VCLMULVX XPOLY, a, T0; VCLMULHVX XPOLY, a, ACCMH; VSLIDEUPVI $1, ACCMH, T0; VRGATHERVV SHUFFLE_MASK, a, ACCMH; VXORVV T0, ACCMH, a
 #define mulRoundAAD(X ,i) \
-	VREV8V X, X; \
-	VRGATHERVV SHUFFLE_MASK, X, T0; \
+	VREV8V X, T0; \
+	VRGATHERVV SHUFFLE_MASK, T0, X; \
 	VXORVV X, T0, T0; \
 	ADD $(16*(i*2)), pTbl, X14; \
 	VLE64V (X14), T1; \
@@ -232,7 +217,7 @@ dataTLS:
 	VSLIDEUPVI $1, B1, B0
 	XOR autLen, autLen
 	JMP dataMul
-	
+
 dataOctaLoop:
 		BLT autLen, X8, startSinglesLoop
 		SUB $128, autLen, autLen
@@ -254,10 +239,10 @@ dataOctaLoop:
 		VLE64V (aut), B7
 		ADD $16, aut, aut
 
-		VREV8V B0, B0
+		VREV8V B0, T0
+		VRGATHERVV SHUFFLE_MASK, T0, B0
 		VXORVV ACC0, B0, B0
 
-		// Karatsuba middle operand.
 		VRGATHERVV SHUFFLE_MASK, B0, T0
 		VXORVV B0, T0, T0
 
@@ -265,8 +250,8 @@ dataOctaLoop:
 		ADD $16, pTbl, X9
 		VLE64V (X9), T2
 
-		VCLMULVV B0, T1, ACC0       // LOW(B0 * T1) = [D0, C0]
-		VCLMULHVV B0, T1, ACC1      // HIGH(B0 * T1) = [D1, C1]
+		VCLMULVV B0, T1, ACC0       // LOW(B0 * T1) = [C0, D0]
+		VCLMULHVV B0, T1, ACC1      // HIGH(B0 * T1) = [C1, D1]
 		VCLMULVV T0, T2, ACCML      // LOW(T0 * T2) = [E0, F0]
 		VCLMULHVV T0, T2, ACCMH     // HIGH(T0 * T2) = [E1, F1]
 
@@ -278,16 +263,18 @@ dataOctaLoop:
 		mulRoundAAD(B6, 6)
 		mulRoundAAD(B7, 7)
 
-		VXORVV ACC0, ACC1, T0       // [D0 ^ D1, C0 ^ C1]
-		VXORVV T0, ACCML, ACCML     // [D0 ^ D1 ^ E0, C0 ^ C1 ^ E0]
-		VXORVV T0, ACCMH, ACCMH     // [D0 ^ D1 ^ E1, C0 ^ C1 ^ E1]
+		VXORVV ACC0, ACC1, T0       // [C0 ^ C1, D0 ^ D1]
+		VXORVV T0, ACCML, ACCML     // [C0 ^ C1 ^ E0, D0 ^ D1 ^ F0]
+		VSLIDEDOWNVI $1, T0, T0     // [D0 ^ D1, 0]
+		VXORVV T0, ACCMH, ACCMH     // [D0 ^ D1 ^ E1, *]
 
-		VSLIDEDOWNVI $1, ACCML, T0  // T0 = [C0 ^ C1 ^ E0, 0]
-		VXORVV T0, ACC0, ACC0       // ACC0 = [D0 ^ C0 ^ C1 ^ E0, C0]
+		VSLIDEDOWNVI $1, ACC0, T0   // [D1, 0]
+		VXORVV T0, ACCML, ACCML     // [C0 ^ C1 ^ E0 ^ D1, *]
+		VSLIDEUPVI $1, ACCML, ACC0	// [C0, C0 ^ C1 ^ E0 ^ D1]
 
-		VSLIDEDOWNVI $1, ACC1, T0   // T0 = [C1, 0]
-		VXORVV T0, ACCMH, ACCMH     // ACCMH = [C1 ^ D0 ^ D1 ^ E1, C0 ^ E1]
-		VSLIDEUPVI $1, ACCMH, ACC1  // ACC1 = [D1, C1 ^ D0 ^ D1 ^ E1]
+		VSLIDEDOWNVI $1, ACC1, T0   // [D1, 0]
+		VXORVV ACC1, ACCMH, ACC1    // [C1 ^ D0 ^ D1 ^ E1, *]
+		VSLIDEUPVI $1, T0, ACC1     // [C1 ^ D0 ^ D1 ^ E1, D1] 
 
 		// Fast reduction
 		// 1st reduction
@@ -312,27 +299,30 @@ dataSinglesLoop:
 		ADD $16, aut, aut
 
 dataMul:
-		VREV8V B0, B0
-		VXORVV ACC0, B0, B0        // ACC0 is also maintained in swapped-domain.
+		VREV8V B0, T0
+		VRGATHERVV SHUFFLE_MASK, T0, B0
+		VXORVV ACC0, B0, B0
 
 		VRGATHERVV SHUFFLE_MASK, B0, T0
 		VXORVV B0, T0, T0
 
-		VCLMULVV B0, T1, ACC0       // LOW(B0 * T1) = [D0, C0]
-		VCLMULHVV B0, T1, ACC1      // HIGH(B0 * T1) = [D1, C1]
-		VCLMULVV T0, T2, ACCML      // LOW(T0 * T2) = [E0, F0], E0 == F0
-		VCLMULHVV T0, T2, ACCMH     // HIGH(T0 * T2) = [E1, F1], E1 == F1
+		VCLMULVV B0, T1, ACC0       // LOW(B0 * T1) = [C0, D0]
+		VCLMULHVV B0, T1, ACC1      // HIGH(B0 * T1) = [C1, D1]
+		VCLMULVV T0, T2, ACCML      // LOW(T0 * T2) = [E0, F0]
+		VCLMULHVV T0, T2, ACCMH     // HIGH(T0 * T2) = [E1, F1]
 
-		VXORVV ACC0, ACC1, T0       // [D0 ^ D1, C0 ^ C1]
-		VXORVV T0, ACCML, ACCML     // [D0 ^ D1 ^ E0, C0 ^ C1 ^ E0]
-		VXORVV T0, ACCMH, ACCMH     // [D0 ^ D1 ^ E1, C0 ^ C1 ^ E1]
+		VXORVV ACC0, ACC1, T0       // [C0 ^ C1, D0 ^ D1]
+		VXORVV T0, ACCML, ACCML     // [C0 ^ C1 ^ E0, D0 ^ D1 ^ F0]
+		VSLIDEDOWNVI $1, T0, T0     // [D0 ^ D1, 0]
+		VXORVV T0, ACCMH, ACCMH     // [D0 ^ D1 ^ E1, *]
 
-		VSLIDEDOWNVI $1, ACCML, T0  // T0 = [C0 ^ C1 ^ E0, 0]
-		VXORVV T0, ACC0, ACC0       // ACC0 = [D0 ^ C0 ^ C1 ^ E0, C0]
+		VSLIDEDOWNVI $1, ACC0, T0   // [D0, 0]
+		VXORVV T0, ACCML, ACCML     // [C0 ^ C1 ^ E0 ^ D0, *]
+		VSLIDEUPVI $1, ACCML, ACC0	// [C0, C0 ^ C1 ^ E0 ^ D0]
 
-		VSLIDEDOWNVI $1, ACC1, T0   // T0 = [C1, 0]
-		VXORVV T0, ACCMH, ACCMH     // ACCMH = [C1 ^ D0 ^ D1 ^ E1, C0 ^ E1]
-		VSLIDEUPVI $1, ACCMH, ACC1  // ACC1 = [D1, C1 ^ D0 ^ D1 ^ E1]
+		VSLIDEDOWNVI $1, ACC1, T0   // [D1, 0]
+		VXORVV ACC1, ACCMH, ACC1    // [C1 ^ D0 ^ D1 ^ E1, *]
+		VSLIDEUPVI $1, T0, ACC1     // [C1 ^ D0 ^ D1 ^ E1, D1] 
 
 		// Fast reduction
 		// 1st reduction
@@ -377,7 +367,7 @@ dataLoadLoopHigh8:
 		SUB $1, autLen, autLen
 		ADD $1, aut, aut
 		ADD $8, X14, X14
-	
+
 	JMP dataLoadLoopHigh8
 
 dataLoadDone:
@@ -386,7 +376,7 @@ dataLoadDone:
 	VSLIDEUPVI $1, B1, B0
 
 	JMP dataMul
-	
+
 dataBail:
 	VSE64V ACC0, (tPtr)
 	RET
@@ -394,7 +384,7 @@ dataBail:
 // func gcmSm4Finish(productTable *[256]byte, tagMask, T *[16]byte, pLen, dLen uint64)
 TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 	RET
-	
+
 // func gcmSm4Enc(productTable *[256]byte, dst, src []byte, ctr, T *[16]byte, rk []uint32)
 TEXT ·gcmSm4Enc(SB),0,$256-96
 	RET
