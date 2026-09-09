@@ -129,9 +129,9 @@ initLoop:
 
 		VSLIDEDOWNVI $1, V3, V3  // [D0 ^ D1, 0]
 		VXORVV V3, V8, V8        // [D0 ^ D1 ^ E1, 0]
-		VXORVV V6, V8, V8        // [D0 ^ D1 ^ E1 ^ D1, 0]
+		VXORVV V6, V8, V8        // [D0 ^ D1 ^ E1 ^ C1, 0]
 		VSLIDEDOWNVI $1, V6, V6  // [D1, 0]
-		VSLIDEUPVI $1, V6, V8  // result = [V5, V8] = [C0, C0 ^ C1 ^ E0 ^ D1,D0 ^ D1 ^ E1 ^ D1, D1]
+		VSLIDEUPVI $1, V6, V8  // result = [V5, V8] = [C0, C0 ^ C1 ^ E0 ^ D1, D0 ^ D1 ^ E1 ^ C1, D1]
 
 		// Fast reduction
 		// 1st reduction
@@ -314,9 +314,9 @@ dataMul:
 		VSLIDEDOWNVI $1, T0, T0     // [D0 ^ D1, 0]
 		VXORVV T0, ACCMH, ACCMH     // [D0 ^ D1 ^ E1, *]
 
-		VSLIDEDOWNVI $1, ACC0, T0   // [D1, 0]
-		VXORVV T0, ACCML, ACCML     // [C0 ^ C1 ^ E0 ^ D1, *]
-		VSLIDEUPVI $1, ACCML, ACC0	// [C0, C0 ^ C1 ^ E0 ^ D1]
+		VSLIDEDOWNVI $1, ACC0, T0   // [D0, 0]
+		VXORVV T0, ACCML, ACCML     // [C0 ^ C1 ^ E0 ^ D0, *]
+		VSLIDEUPVI $1, ACCML, ACC0	// [C0, C0 ^ C1 ^ E0 ^ D0]
 		
 		VSLIDEDOWNVI $1, ACC1, T0   // [D1, 0]
 		VXORVV ACC1, ACCMH, ACC1    // [C1 ^ D0 ^ D1 ^ E1, *]
