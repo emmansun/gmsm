@@ -103,13 +103,12 @@ TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 	VRSUBVI $1, V10, V10    // V10 = [1, 0]
 
 	// Karatsuba pre-computations
+	ADD $224, dst, X14
 	VRGATHERVV V10, V1, V2
-	VXORVV V1, V2, V2
-
-	ADD $240, dst, X14
 	VSE64V V2, (X14)
-	SUB $16, X14, X14
-	VSE64V V1, (X14)
+	VXORVV V1, V2, V2
+	ADD $16, X14, X14
+	VSE64V V2, (X14)
 
 	MOV gcmPoly<>+0x08(SB), X15
 	VMVVV V1, V3
@@ -148,13 +147,11 @@ initLoop:
 		VXORVV V3, V4, V5
 		VXORVV V5, V8, V3
 
+		SUB $32, X14, X14
 		VRGATHERVV V10, V3, V4
-		VXORVV V3, V4, V4
-
-		SUB $16, X14, X14
 		VSE64V V4, (X14)
-		SUB $16, X14, X14
-		VSE64V V3, (X14)
+		VXORVV V3, V4, V4
+		VSE64V V4, (X14)
 
 	BNE dst, X14, initLoop
 	RET
