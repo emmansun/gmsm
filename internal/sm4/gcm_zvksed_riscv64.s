@@ -114,6 +114,8 @@ TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 	VMVVV V1, V3
 	VMVVV V2, V4
 
+	ADD $16, dst, X13	
+
 initLoop:
 		VCLMULVV V1, V3, V5    // LOW(V1 * V3) = [C0, D0]
 		VCLMULHVV V1, V3, V6   // HIGH(V1 * V3) = [C1, D1]
@@ -151,9 +153,10 @@ initLoop:
 		VRGATHERVV V10, V3, V4
 		VSE64V V4, (X14)
 		VXORVV V3, V4, V4
+		ADD $16, X14, X14
 		VSE64V V4, (X14)
 
-	BNE dst, X14, initLoop
+	BNE X13, X14, initLoop
 	RET
 
 // func gcmSm4Data(productTable *[256]byte, data []byte, T *[16]byte)
