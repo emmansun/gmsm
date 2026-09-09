@@ -200,11 +200,11 @@ func TestGcmSm4Data(t *testing.T) {
 		copy(arm64Expected[8:], amd64Expected[:8])
 		gcmSm4Data(&table, data, &y)
 		switch runtime.GOARCH {
-		case "arm64":
+		case "arm64", "riscv64":
 			if !bytes.Equal(y[:], arm64Expected) {
 				t.Errorf("case %d: unexpected result: got %x, want %x", i, y, arm64Expected)
 			}
-		case "amd64", "riscv64":
+		case "amd64":
 			if !bytes.Equal(y[:], amd64Expected) {
 				t.Errorf("case %d: unexpected result: got %x, want %x", i, y, amd64Expected)
 			}
