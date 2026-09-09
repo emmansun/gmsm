@@ -253,7 +253,7 @@ dataOctaLoop:
 		VLE64V (aut), B7
 		ADD $16, aut, aut
 
-		VREV8V B0, T0
+		VREV8V B0, B0
 		VXORVV ACC0, B0, B0
 
 		// Karatsuba middle operand.
@@ -311,7 +311,7 @@ dataSinglesLoop:
 		ADD $16, aut, aut
 
 dataMul:
-		VREV8V B0, T0
+		VREV8V B0, B0
 		VXORVV ACC0, B0, B0        // ACC0 is also maintained in swapped-domain.
 
 		VRGATHERVV SHUFFLE_MASK, B0, T0
