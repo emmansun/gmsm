@@ -326,9 +326,10 @@ dataMul:
 		VXORVV T0, ACCML, ACCML     // [D0 ^ D1 ^ E0, C0 ^ C1 ^ E0]
 		VXORVV T0, ACCMH, ACCMH     // [D0 ^ D1 ^ E1, C0 ^ C1 ^ E1]
 
-		VXORVV T0, T0, T0
 		VSLIDEDOWNVI $1, ACCML, T0  // T0 = [C0 ^ C1 ^ E0, 0]
+		VSLIDEDOWNVI $1, ACC0, ACCML // ACCML = T0 = [C0, 0]
 		VXORVV T0, ACC0, ACC0       // ACC0 = [D0 ^ C0 ^ C1 ^ E0, C0]
+		VSLIDEUPVI $1, ACCML, ACC0
 
 		VSLIDEDOWNVI $1, ACC1, T0   // T0 = [C1, 0]
 		VXORVV T0, ACCMH, ACCMH     // ACCMH = [C1 ^ D0 ^ D1 ^ E1, C0 ^ E1]
