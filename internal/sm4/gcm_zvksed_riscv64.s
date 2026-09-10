@@ -508,14 +508,15 @@ TEXT ·gcmSm4Enc(SB),0,$40-80
 	ADD	$16, X21
 	VLE32V	(X21), V22
 
+	VSETIVLI	$8, E32, M2, TA, MA, X0
+	MOV	$·riscv64ZvksedRev(SB), X20
+	VLE32V	(X20), V24	// reversal index (loop-invariant)
+
 	MOV $32, X21
 	BLT ptxLen, X21, gcmSm4niEncSingle
 
 	VSE32V T0, (X20)
 	increment(1)
-	VSETIVLI	$8, E32, M2, TA, MA, X0
-	MOV	$·riscv64ZvksedRev(SB), X20
-	VLE32V	(X20), V24	// reversal index (loop-invariant)
 
 gcmSm4niEncDoublesLoop:
 		// Load the 2 counters
@@ -547,8 +548,6 @@ gcmSm4niEncDoublesLoop:
 
 gcmSm4niEncSingle:
 	VSETIVLI	$4, E32, M1, TA, MA, X0
-	MOV	$·riscv64ZvksedRev(SB), X20
-	VLE32V	(X20), V24	// reversal index (loop-invariant)	
 	MOV $16, X21
 	BLT ptxLen, X21, gcmSm4niEncPartial
 	
@@ -647,14 +646,15 @@ TEXT ·gcmSm4Dec(SB),0,$40-80
 	ADD	$16, X21
 	VLE32V	(X21), V22
 
+	VSETIVLI	$8, E32, M2, TA, MA, X0
+	MOV	$·riscv64ZvksedRev(SB), X20
+	VLE32V	(X20), V24	// reversal index (loop-invariant)
+
 	MOV $32, X21
 	BLT ptxLen, X21, gcmSm4niDecSingle
 
 	VSE32V T0, (X20)
 	increment(1)
-	VSETIVLI	$8, E32, M2, TA, MA, X0
-	MOV	$·riscv64ZvksedRev(SB), X20
-	VLE32V	(X20), V24	// reversal index (loop-invariant)
 
 gcmSm4niDecDoublesLoop:
 		// Load the 2 counters
@@ -686,8 +686,6 @@ gcmSm4niDecDoublesLoop:
 
 gcmSm4niDecSingle:
 	VSETIVLI	$4, E32, M1, TA, MA, X0
-	MOV	$·riscv64ZvksedRev(SB), X20
-	VLE32V	(X20), V24	// reversal index (loop-invariant)	
 	MOV $16, X21
 	BLT ptxLen, X21, gcmSm4niDecPartial
 	
