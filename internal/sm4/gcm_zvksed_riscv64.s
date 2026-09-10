@@ -196,10 +196,10 @@ TEXT ·gcmSm4Data(SB),NOSPLIT,$0
 	MOV data_len+16(FP), autLen
 	MOV T+32(FP), tPtr
 
-	BEQZ autLen, dataBail
-
 	VSETIVLI	$2, E64, M1, TA, MA, X0
 	VLE64V (tPtr), ACC0                       // Load the original tag
+	BEQZ autLen, dataBail
+
 	VIDV SHUFFLE_MASK                         // SHUFFLE_MASK = [0, 1]
 	VRSUBVI $1, SHUFFLE_MASK, SHUFFLE_MASK    // SHUFFLE_MASK = [1, 0]
 	MOV gcmPoly<>+0x08(SB), XPOLY
