@@ -521,7 +521,6 @@ gcmSm4niEncDoublesLoop:
 		// Load the 2 counters
 		ADD $(8 + 0*16), RSP, X20
 		VLE32V (X20), V4
-		VREV8V	V4, V4
 		VSM4R_VS(4, 8)  // VSM4RVS	V8, V4
 		VSM4R_VS(4, 10) // VSM4RVS	V10, V4
 		VSM4R_VS(4, 12) // VSM4RVS	V12, V4
@@ -556,7 +555,6 @@ gcmSm4niEncSingle:
 	// Load the 1 counters
 	ADD $(8 + 0*16), RSP, X20
 	VLE32V (X20), V4
-	VREV8V	V4, V4
 	VSM4R_VS(4, 8)  // VSM4RVS	V8, V4
 	VSM4R_VS(4, 10) // VSM4RVS	V10, V4
 	VSM4R_VS(4, 12) // VSM4RVS	V12, V4
@@ -593,7 +591,6 @@ partialDataReady:
 	// Load the 1 counters
 	ADD $(8 + 0*16), RSP, X20
 	VLE32V (X20), V4
-	VREV8V	V4, V4
 	VSM4R_VS(4, 8)  // VSM4RVS	V8, V4
 	VSM4R_VS(4, 10) // VSM4RVS	V10, V4
 	VSM4R_VS(4, 12) // VSM4RVS	V12, V4
@@ -663,7 +660,6 @@ gcmSm4niDecDoublesLoop:
 		// Load the 2 counters
 		ADD $(8 + 0*16), RSP, X20
 		VLE32V (X20), V4
-		VREV8V	V4, V4
 		VSM4R_VS(4, 8)  // VSM4RVS	V8, V4
 		VSM4R_VS(4, 10) // VSM4RVS	V10, V4
 		VSM4R_VS(4, 12) // VSM4RVS	V12, V4
@@ -698,7 +694,6 @@ gcmSm4niDecSingle:
 	// Load the 1 counters
 	ADD $(8 + 0*16), RSP, X20
 	VLE32V (X20), V4
-	VREV8V	V4, V4
 	VSM4R_VS(4, 8)  // VSM4RVS	V8, V4
 	VSM4R_VS(4, 10) // VSM4RVS	V10, V4
 	VSM4R_VS(4, 12) // VSM4RVS	V12, V4
@@ -723,7 +718,6 @@ gcmSm4niDecPartial:
 	// Load the 1 counters
 	ADD $(8 + 0*16), RSP, X20
 	VLE32V (X20), V4
-	VREV8V	V4, V4
 	VSM4R_VS(4, 8)  // VSM4RVS	V8, V4
 	VSM4R_VS(4, 10) // VSM4RVS	V10, V4
 	VSM4R_VS(4, 12) // VSM4RVS	V12, V4
