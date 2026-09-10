@@ -468,7 +468,7 @@ TEXT ·gcmSm4Enc(SB),0,$40-80
 #define ptxLen X12
 #define aluCTR X13
 
-#define increment(i) ADDW $1, aluCTR
+#define increment(i) ADDW $1, aluCTR; MOVW aluCTR, (3*4 + 8 + i*16)(RSP)
 
 	MOV dst+0(FP), ctx
 	MOV src_base+24(FP), ptx
@@ -507,105 +507,6 @@ TEXT ·gcmSm4Enc(SB),0,$40-80
 	VLE32V	(X21), V22
 
 	MOV $32, X21
-	BLT ptxLen, X21, gcmSm4niEncSingle
-
-	VSE32V T0, (X20)
-	increment(1)
-	VSETIVLI	$8, E32, M2, TA, MA, X0
-	MOV	$·riscv64ZvksedRev(SB), X20
-	VLE32V	(X20), V24	// reversal index (loop-invariant)
-
-gcmSm4niEncDoublesLoop:
-		// Load the 2 counters
-		ADD $(8 + 0*16), RSP, X20
-		VLE32V (X20), V4
-		VREV8V	V4, V4
-		VSM4R_VS(4, 8)  // VSM4RVS	V8, V4
-		VSM4R_VS(4, 10) // VSM4RVS	V10, V4
-		VSM4R_VS(4, 12) // VSM4RVS	V12, V4
-		VSM4R_VS(4, 14) // VSM4RVS	V14, V4
-		VSM4R_VS(4, 16) // VSM4RVS	V16, V4
-		VSM4R_VS(4, 18) // VSM4RVS	V18, V4
-		VSM4R_VS(4, 20) // VSM4RVS	V20, V4
-		VSM4R_VS(4, 22) // VSM4RVS	V22, V4
-		VRGATHERVV	V24, V4, V26
-		VREV8V	V26, V26
-		VLE32V (ptx), V4
-		VXORVV V4, V26, V4
-		VSE32V V4, (ctx)
-
-		ADD $32, ptx, ptx
-		ADD $32, ctx, ctx
-
-		increment(0)
-		SUB $32, ptxLen, ptxLen
-		BLT ptxLen, X21, gcmSm4niEncSingle
-		increment(1)
-
-	JMP gcmSm4niEncDoublesLoop
-
-gcmSm4niEncSingle:
-	VSETIVLI	$4, E32, M1, TA, MA, X0
-	MOV	$·riscv64ZvksedRev(SB), X20
-	VLE32V	(X20), V24	// reversal index (loop-invariant)	
-	MOV $16, X21
-	BLT ptxLen, X21, gcmSm4niEncPartial
-	
-	// Load the 1 counters
-	ADD $(8 + 0*16), RSP, X20
-	VLE32V (X20), V4
-	VREV8V	V4, V4
-	VSM4R_VS(4, 8)  // VSM4RVS	V8, V4
-	VSM4R_VS(4, 10) // VSM4RVS	V10, V4
-	VSM4R_VS(4, 12) // VSM4RVS	V12, V4
-	VSM4R_VS(4, 14) // VSM4RVS	V14, V4
-	VSM4R_VS(4, 16) // VSM4RVS	V16, V4
-	VSM4R_VS(4, 18) // VSM4RVS	V18, V4
-	VSM4R_VS(4, 20) // VSM4RVS	V20, V4
-	VSM4R_VS(4, 22) // VSM4RVS	V22, V4
-	VRGATHERVV	V24, V4, V26
-	VREV8V	V26, V26
-	VLE32V (ptx), V4
-	VXORVV V4, V26, V4
-	VSE32V V4, (ctx)
-	ADD $16, ptx, ptx
-	ADD $16, ctx, ctx
-	SUB $16, ptxLen, ptxLen
-	increment(0)
-
-gcmSm4niEncPartial:
-	BEQZ ptxLen, encDone
-	MOV ZERO, (8 + 1*16)(RSP)
-	MOV ZERO, (8 + 1*16 + 8)(RSP)
-	ADD $(8 + 1*16), RSP, X22
-
-partialCopyIn:
-		MOVBU (ptx), X20
-		MOVB X20, (X22)
-		ADD $1, X22, X22
-		ADD $1, ptx, ptx
-		SUB $1, ptxLen, ptxLen
-		BNEZ ptxLen, partialCopyIn
-
-partialDataReady:
-	// Load the 1 counters
-	ADD $(8 + 0*16), RSP, X20
-	VLE32V (X20), V4
-	VREV8V	V4, V4
-	VSM4R_VS(4, 8)  // VSM4RVS	V8, V4
-	VSM4R_VS(4, 10) // VSM4RVS	V10, V4
-	VSM4R_VS(4, 12) // VSM4RVS	V12, V4
-	VSM4R_VS(4, 14) // VSM4RVS	V14, V4
-	VSM4R_VS(4, 16) // VSM4RVS	V16, V4
-	VSM4R_VS(4, 18) // VSM4RVS	V18, V4
-	VSM4R_VS(4, 20) // VSM4RVS	V20, V4
-	VSM4R_VS(4, 22) // VSM4RVS	V22, V4
-	VRGATHERVV	V24, V4, V26
-	VREV8V	V26, V26
-	ADD $16, X20, X20
-	VLE32V (X20), V4
-	VXORVV V4, V26, V4
-	VSE32V V4, (ctx)  // // I assume there is always space, due to TAG in the end of the CT
 
 encDone:
 	RET
