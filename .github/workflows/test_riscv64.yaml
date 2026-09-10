@@ -43,6 +43,33 @@ jobs:
         QEMU_CPU=max sh -c 'true'
         echo "QEMU_CPU=max (default for riscv64 linux-user since QEMU 8.1)"
 
+    - name: RISCV64 Build (Verbose)
+      env:
+        GOARCH: ${{ matrix.arch }}
+      run: |
+        set -x
+        go build -x -work ./sm4/... 2>&1 | tee riscv-build.log
+
+    - name: Dump assembler errors
+      if: failure()
+      run: |
+        echo "===== BUILD LOG ====="
+        cat riscv-build.log
+
+    - name: Locate gcm_zvksed_riscv64.s references
+      if: failure()
+      run: |
+        grep -n "gcm_zvksed_riscv64.s" riscv-build.log || true
+
+    - name: Show source around reported lines
+      if: failure()
+      run: |
+        echo "===== Around Line 473 ====="
+        nl -ba internal/sm4/gcm_zvksed_riscv64.s | sed -n '460,485p'
+
+        echo "===== Around Line 615 ====="
+        nl -ba internal/sm4/gcm_zvksed_riscv64.s | sed -n '600,625p'
+
     - name: Test
       run: go test -v -short ./internal/... ./sm3/... ./sm4/...
       env:
