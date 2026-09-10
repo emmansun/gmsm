@@ -43,16 +43,14 @@ jobs:
         QEMU_CPU=max sh -c 'true'
         echo "QEMU_CPU=max (default for riscv64 linux-user since QEMU 8.1)"
 
-    - name: Test Cipher
-      run: go test -v -short ./cipher -run 'TestSM4GCM|TestGCMCounterWrap|TestSM4GCMRandom'
-      env:
-        QEMU_CPU: max
-        GOARCH: ${{ matrix.arch }}
-
     - name: Test
       run: go test -v -short ./internal/... ./sm3/... ./sm4/...
       env:
         QEMU_CPU: max
         GOARCH: ${{ matrix.arch }}
 
-
+    - name: Test Cipher
+      run: go test -v -short ./cipher -run 'TestSM4GCM|TestGCMCounterWrap|TestSM4GCMRandom'
+      env:
+        QEMU_CPU: max
+        GOARCH: ${{ matrix.arch }}
