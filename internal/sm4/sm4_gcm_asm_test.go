@@ -31,9 +31,9 @@ func generateProductTable(t *testing.T, key []byte, table *[256]byte) {
 }
 
 func TestGcmSm4Init(t *testing.T) {
-	//if !(supportsGFMUL) {
-	//	t.Skip("skipping test on unsupported CPU")
-	//}
+	if !(supportsGFMUL) {
+		t.Skip("skipping test on unsupported CPU")
+	}
 	var table [256]byte
 	key := [16]byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
 	generateProductTable(t, key[:], &table)
@@ -184,9 +184,9 @@ var cases = []struct {
 }
 
 func TestGcmSm4Data(t *testing.T) {
-	//if !(supportsGFMUL) {
-	//	t.Skip("skipping test on unsupported CPU")
-	//}
+	if !(supportsGFMUL) {
+		t.Skip("skipping test on unsupported CPU")
+	}
 	var table [256]byte
 	key := [16]byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
 	generateProductTable(t, key[:], &table)
@@ -198,6 +198,7 @@ func TestGcmSm4Data(t *testing.T) {
 		amd64Expected, _ := hex.DecodeString(c.dataTag)
 		copy(arm64Expected, amd64Expected[8:])
 		copy(arm64Expected[8:], amd64Expected[:8])
+		clear(y[:])
 		gcmSm4Data(&table, data, &y)
 		switch runtime.GOARCH {
 		case "arm64":
@@ -213,9 +214,9 @@ func TestGcmSm4Data(t *testing.T) {
 }
 
 func TestGcmSm4Finish(t *testing.T) {
-	//if !(supportsGFMUL) {
-	//	t.Skip("skipping test on unsupported CPU")
-	//}
+	if !(supportsGFMUL) {
+		t.Skip("skipping test on unsupported CPU")
+	}
 	var table [256]byte
 	key := [16]byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
 	generateProductTable(t, key[:], &table)
@@ -226,6 +227,7 @@ func TestGcmSm4Finish(t *testing.T) {
 	for i, c := range cases {
 		data := c.data
 		expected, _ := hex.DecodeString(c.expected)
+		clear(y[:])
 		gcmSm4Data(&table, data, &y)
 		dataTag, _ := hex.DecodeString(c.dataTag)
 		if !(bytes.Equal(y[:8], dataTag[:8]) || bytes.Equal(y[:8], dataTag[8:])) ||

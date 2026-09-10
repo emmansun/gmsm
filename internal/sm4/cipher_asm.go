@@ -13,7 +13,7 @@ import (
 
 var supportSM4 = cpuid.HasSM4 && os.Getenv("DISABLE_SM4NI") != "1"
 var supportsAES = cpuid.HasAES
-var supportsGFMUL = cpuid.HasGFMUL
+var supportsGFMUL = cpuid.HasGFMUL || cpu.RISCV64.HasZvbc
 var useAVX2 = cpu.X86.HasAVX2
 var useGFNI = useAVX2 && cpuid.HasGFNI && os.Getenv("DISABLE_GFNI") != "1"
 var useAESNI4SingleBlock = os.Getenv("FORCE_SM4BLOCK_AESNI") == "1"

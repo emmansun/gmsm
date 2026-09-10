@@ -47,4 +47,10 @@ jobs:
       run: go test -v -short ./internal/... ./sm3/... ./sm4/...
       env:
         QEMU_CPU: max
-        GOARCH: ${{ matrix.arch }}      
+        GOARCH: ${{ matrix.arch }}
+
+    - name: Test Cipher
+      run: go test -v -short ./cipher -run 'TestSM4GCM|TestGCMCounterWrap|TestSM4GCMRandom'
+      env:
+        QEMU_CPU: max
+        GOARCH: ${{ matrix.arch }}
