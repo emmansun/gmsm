@@ -7,6 +7,14 @@
 
 package sm4
 
+import (
+	"crypto/cipher"
+	"crypto/subtle"
+	"errors"
+
+	"github.com/emmansun/gmsm/internal/alias"
+)
+
 // Assert that sm4CipherGCM implements the gcmAble interface.
 var _ gcmAble = (*sm4CipherGCM)(nil)
 
@@ -29,8 +37,15 @@ func gcmSm4Dec(dst, src []byte, ctr *[16]byte, rk []uint32)
 
 var errOpen = errors.New("cipher: message authentication failed")
 
+const (
+	gcmBlockSize         = 16
+	gcmTagSize           = 16
+	gcmMinimumTagSize    = 12 // NIST SP 800-38D recommends tags with 12 or more bytes.
+	gcmStandardNonceSize = 12
+)
+
 type gcmNI struct {
-	cipher            *sm4CipherNI
+	cipher            *sm4CipherAsm
 	nonceSize         int
 	tagSize           int
 	bytesProductTable [256]byte
@@ -40,7 +55,7 @@ type gcmNI struct {
 // called by crypto/cipher.NewGCM via the gcmAble interface.
 func (c *sm4CipherGCM) NewGCM(nonceSize, tagSize int) (cipher.AEAD, error) {
 	g := &gcmNI{}
-	g.cipher = &c.sm4CipherNI
+	g.cipher = &c.sm4CipherAsm
 	g.nonceSize = nonceSize
 	g.tagSize = tagSize
 	gcmSm4Init(&g.bytesProductTable, g.cipher.enc[:], INST_SM4)
