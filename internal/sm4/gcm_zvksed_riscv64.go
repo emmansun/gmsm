@@ -44,7 +44,7 @@ const (
 	gcmStandardNonceSize = 12
 )
 
-type gcmNI struct {
+type gcm struct {
 	cipher            *sm4CipherAsm
 	nonceSize         int
 	tagSize           int
@@ -54,7 +54,7 @@ type gcmNI struct {
 // NewGCM returns the SM4 cipher wrapped in Galois Counter Mode. This is only
 // called by crypto/cipher.NewGCM via the gcmAble interface.
 func (c *sm4CipherGCM) NewGCM(nonceSize, tagSize int) (cipher.AEAD, error) {
-	g := &gcmNI{}
+	g := &gcm{}
 	g.cipher = &c.sm4CipherAsm
 	g.nonceSize = nonceSize
 	g.tagSize = tagSize
@@ -62,9 +62,17 @@ func (c *sm4CipherGCM) NewGCM(nonceSize, tagSize int) (cipher.AEAD, error) {
 	return g, nil
 }
 
+func (g *gcm) NonceSize() int {
+	return g.nonceSize
+}
+
+func (g *gcm) Overhead() int {
+	return g.tagSize
+}
+
 // Seal encrypts and authenticates plaintext. See the cipher.AEAD interface for
 // details.
-func (g *gcmNI) Seal(dst, nonce, plaintext, data []byte) []byte {
+func (g *gcm) Seal(dst, nonce, plaintext, data []byte) []byte {
 	if len(nonce) != g.nonceSize {
 		panic("cipher: incorrect nonce length given to GCM")
 	}
@@ -106,7 +114,7 @@ func (g *gcmNI) Seal(dst, nonce, plaintext, data []byte) []byte {
 
 // Open authenticates and decrypts ciphertext. See the cipher.AEAD interface
 // for details.
-func (g *gcmNI) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
+func (g *gcm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 	if len(nonce) != g.nonceSize {
 		panic("cipher: incorrect nonce length given to GCM")
 	}
