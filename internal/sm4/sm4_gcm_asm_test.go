@@ -49,6 +49,16 @@ func TestGcmSm4Init(t *testing.T) {
 			t.Errorf("unexpected table value: got %x, want %x", table, amd64Expected)
 		}
 	}
+
+	key = [16]byte{0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c, 0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08}
+	amd64Expected, _ = hex.DecodeString("26d3a748f3bacfe08b54d00f37edb6bbad877747c457795bad877747c457795be79c053324c99a5aa6419363f2f62ab641dd9650d63fb0ec41dd9650d63fb0ec5aa22db58fac400b28dae381030f23147278ce348ca3631f7278ce348ca3631f2c4f219996c4c6c2418bcc5b0582b4ed6dc4edc29346722f6dc4edc29346722f678ae67887a46675864cd84f25ca6237e1c63e37a26e0442e1c63e37a26e0442946187da0dc36ed052a2e72f4bbb6891c6c360f546780641c6c360f546780641bdaecb0a347b40d1e8b38df50cfa635b551d46ff3881238a551d46ff3881238a8da3f600a8e8b30a6cfb5bd8a4ef284ce158add80c079b46e158add80c079b46")
+	generateProductTable(t, key[:], &table)
+	switch runtime.GOARCH {
+	case "amd64", "riscv64":
+		if !bytes.Equal(table[:], amd64Expected) {
+			t.Errorf("unexpected table value: got %x, want %x", table, amd64Expected)
+		}
+	}
 }
 
 var cases = []struct {
@@ -63,7 +73,7 @@ var cases = []struct {
 			0xfe, 0xed, 0xfa, 0xce, 0xde, 0xad, 0xbe, 0xef, 0xfe, 0xed, 0xfa, 0xce, 0xde, 0xad, 0xbe, 0xef,
 		},
 		"cb4d80fa8987fce53394932634aeed46",
-		"9d632570f93064264a20918e3081b4cd",
+		"4397b227adbf0a24fa04276087f61156",
 	},
 	{
 		[16]byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10},
@@ -72,7 +82,7 @@ var cases = []struct {
 		},
 		"cba6277fe86f77f0beaee7cfcc070ce3",
 		"c4423b5be97b5188666a5a6c9467463d",
-	},	
+	},
 	{
 		[16]byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10},
 		[]byte{
@@ -238,13 +248,13 @@ func TestGcmSm4Finish(t *testing.T) {
 		t.Skip("skipping test on unsupported CPU")
 	}
 	var table [256]byte
-	key := [16]byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
-	generateProductTable(t, key[:], &table)
-
 	var y [16]byte
 	var tMask [16]byte
 
 	for i, c := range cases {
+		clear(table[:])
+		key := c.key
+		generateProductTable(t, key[:], &table)
 		data := c.data
 		expected, _ := hex.DecodeString(c.expected)
 		clear(y[:])
