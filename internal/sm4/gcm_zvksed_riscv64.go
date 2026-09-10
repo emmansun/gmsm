@@ -157,7 +157,7 @@ func (g *gcm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 		panic("cipher: invalid buffer overlap")
 	}
 	if len(ciphertext) > 0 {
-		gcmSm4Data(&g.bytesProductTable, ciphertext, &expectedTag)
+		gcmSm4Data(&g.bytesProductTable, ciphertext, &expectedTag) // Auth MUST before decryption!!!
 		gcmSm4Dec(out, ciphertext, &counter, g.cipher.enc[:])
 	}
 	gcmSm4Finish(&g.bytesProductTable, &tagMask, &expectedTag, uint64(len(ciphertext)), uint64(len(data)))

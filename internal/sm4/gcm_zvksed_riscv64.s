@@ -39,8 +39,6 @@ GLOBL gcmPoly<>(SB), (NOPTR+RODATA), $16
 #define VSM4R_VS(Vd, Vs2) \
 	WORD $((0x53 << 25) | ((Vs2) << 20) | (0x10 << 15) | (2 << 12) | ((Vd) << 7) | 0x77)
 
-#define stackaddress(index) ((index)*8+8)(RSP) // for RISCV64 stack usage, we CAN NOT overwrite the first 8 bytes space!
-
 // func gcmSm4Init(productTable *[256]byte, rk []uint32)
 TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 #define dst X10
