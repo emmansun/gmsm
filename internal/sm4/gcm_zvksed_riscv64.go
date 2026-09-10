@@ -53,7 +53,7 @@ type gcm struct {
 
 // NewGCM returns the SM4 cipher wrapped in Galois Counter Mode. This is only
 // called by crypto/cipher.NewGCM via the gcmAble interface.
-func (c *sm4CipherGCM) NewGCM(nonceSize, tagSize int) (cipher.AEAD, error) {
+func (c *sm4CipherNIGCM) NewGCM(nonceSize, tagSize int) (cipher.AEAD, error) {
 	g := &gcm{}
 	g.cipher = &c.sm4CipherNI
 	g.nonceSize = nonceSize
