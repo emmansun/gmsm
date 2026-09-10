@@ -11,7 +11,6 @@ import (
 	"crypto/cipher"
 	"crypto/subtle"
 	"errors"
-	"fmt"
 
 	"github.com/emmansun/gmsm/internal/alias"
 )
@@ -158,13 +157,12 @@ func (g *gcm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 		panic("cipher: invalid buffer overlap")
 	}
 	if len(ciphertext) > 0 {
-		gcmSm4Dec(out, ciphertext, &counter, g.cipher.enc[:])
 		gcmSm4Data(&g.bytesProductTable, ciphertext, &expectedTag)
+		gcmSm4Dec(out, ciphertext, &counter, g.cipher.enc[:])
 	}
 	gcmSm4Finish(&g.bytesProductTable, &tagMask, &expectedTag, uint64(len(ciphertext)), uint64(len(data)))
 
 	if subtle.ConstantTimeCompare(expectedTag[:g.tagSize], tag) != 1 {
-		fmt.Printf("decryption got=%x\n", out)
 		clear(out)
 		return nil, errOpen
 	}

@@ -5,7 +5,6 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"testing"
 
@@ -428,7 +427,6 @@ func TestSM4GCMRandom(t *testing.T) {
 
 	result, err := aead.Open(got[:0], nonce, got, nil)
 	if err != nil {
-		fmt.Printf("plaintext=%x\n", plaintext)
 		t.Fatal(err)
 	}
 	if !bytes.Equal(result, plaintext) {
