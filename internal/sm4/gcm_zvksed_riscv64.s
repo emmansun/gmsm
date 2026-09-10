@@ -90,7 +90,7 @@ TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 	VMVXS V1, X15
 	VLE32V (X12), V3
 	VANDVX X15, V3, V3
-	VORVV V2, V3, V1
+	VXORVV V2, V3, V1
 
 	// Now prepare powers of H and pre-computations for them
 	VSETIVLI	$2, E64, M1, TA, MA, X0
