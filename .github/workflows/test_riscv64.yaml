@@ -43,26 +43,25 @@ jobs:
         QEMU_CPU=max sh -c 'true'
         echo "QEMU_CPU=max (default for riscv64 linux-user since QEMU 8.1)"
 
-    - name: RISCV64 Build
-      id: asm_build
+    - name: Build
+      id: build
       continue-on-error: true
       run: |
-        go build -x -work ./internal/sm4 > riscv-build.log 2>&1
+        go test -c -x -work ./internal/sm4 2>&1 | tee build.log
 
-    - name: Dump build log
-      if: steps.asm_build.outcome == 'failure'
+    - name: Extract workdir
+      if: always()
       run: |
-        cat riscv-build.log
+        grep "^WORK=" build.log || true
 
-    - name: Show asm around line 473
-      if: steps.asm_build.outcome == 'failure'
-      run: |
-        nl -ba internal/sm4/gcm_zvksed_riscv64.s | sed -n '460,485p'
-
-    - name: Show asm around line 615
-      if: steps.asm_build.outcome == 'failure'
-      run: |
-        nl -ba internal/sm4/gcm_zvksed_riscv64.s | sed -n '600,625p'
+    - name: Upload logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: riscv64-asm-debug
+        path: |
+          build.log
+          internal/sm4/gcm_zvksed_riscv64.s
 
     - name: Test
       run: go test -v -short ./internal/... ./sm3/... ./sm4/...
