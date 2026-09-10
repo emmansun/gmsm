@@ -153,6 +153,8 @@ initLoop:
 
 	BNE dst, X14, initLoop
 	RET
+#undef dst
+#undef RK
 
 // func gcmSm4Data(productTable *[256]byte, data []byte, T *[16]byte)
 TEXT ·gcmSm4Data(SB),NOSPLIT,$0
