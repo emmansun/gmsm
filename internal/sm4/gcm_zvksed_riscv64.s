@@ -468,7 +468,7 @@ TEXT ·gcmSm4Enc(SB),0,$40-80
 #define ptxLen X12
 #define aluCTR X13
 
-#define increment(i) ADDW $1, aluCTR; MOVW aluCTR, (3*4 + 8 + i*16)(RSP)
+#define increment(i) ADDW $1, aluCTR
 
 	MOV dst+0(FP), ctx
 	MOV src_base+24(FP), ptx
