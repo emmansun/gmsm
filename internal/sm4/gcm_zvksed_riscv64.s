@@ -461,8 +461,29 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 
 // func gcmSm4Enc(dst, src []byte, ctr *[16]byte, rk []uint32)
 TEXT ·gcmSm4Enc(SB),0,$40-80
+#define ctx X8
+#define ctrPtr X9
+#define ptx X10
+#define rk X11
+#define ptxLen X12
+#define aluCTR X13
+
+	MOV dst+0(FP), ctx
+	MOV src_base+24(FP), ptx
+	MOV src_len+32(FP), ptxLen
+	MOV ctr+48(FP), ctrPtr
+	MOV rk_base+56(FP), rk
+
+encDone:
 	RET
 
 // func gcmSm4Dec(dst, src []byte, ctr *[16]byte, rk []uint32)
 TEXT ·gcmSm4Dec(SB),0,$40-80
+	MOV dst+0(FP), ptx
+	MOV src_base+24(FP), ctx
+	MOV src_len+32(FP), ptxLen
+	MOV ctr+48(FP), ctrPtr
+	MOV rk_base+56(FP), rk
+
+decDone:
 	RET
