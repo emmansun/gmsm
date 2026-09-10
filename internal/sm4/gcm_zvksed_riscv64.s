@@ -490,6 +490,7 @@ TEXT ·gcmSm4Enc(SB),0,$40-80
 	VSE32V T0, (X20)
 	ADD $16, X20
 	increment(0)
+	VSE32V T0, (X20)
 
 	// round keys, shared by the 2-block and tail paths
 	VLE32V	(rk), V8
@@ -515,7 +516,6 @@ TEXT ·gcmSm4Enc(SB),0,$40-80
 	MOV $32, X21
 	BLT ptxLen, X21, gcmSm4niEncSingle
 
-	VSE32V T0, (X20)
 	increment(1)
 
 gcmSm4niEncDoublesLoop:
@@ -628,6 +628,7 @@ TEXT ·gcmSm4Dec(SB),0,$40-80
 	VSE32V T0, (X20)
 	ADD $16, X20
 	increment(0)
+	VSE32V T0, (X20)
 
 	// round keys, shared by the 2-block and tail paths
 	VLE32V	(rk), V8
@@ -652,8 +653,7 @@ TEXT ·gcmSm4Dec(SB),0,$40-80
 
 	MOV $32, X21
 	BLT ptxLen, X21, gcmSm4niDecSingle
-
-	VSE32V T0, (X20)
+	
 	increment(1)
 
 gcmSm4niDecDoublesLoop:
