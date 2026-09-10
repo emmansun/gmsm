@@ -11,7 +11,6 @@ import (
 	"crypto/cipher"
 	"crypto/subtle"
 	"errors"
-	"fmt"
 
 	"github.com/emmansun/gmsm/internal/alias"
 )
@@ -107,7 +106,6 @@ func (g *gcm) Seal(dst, nonce, plaintext, data []byte) []byte {
 		gcmSm4Enc(out, plaintext, &counter, g.cipher.enc[:])
 		gcmSm4Data(&g.bytesProductTable, out[:len(plaintext)], &tagOut)
 	}
-	fmt.Printf("tagOut before finish:%x %x\n", tagMask, tagOut)
 	gcmSm4Finish(&g.bytesProductTable, &tagMask, &tagOut, uint64(len(plaintext)), uint64(len(data)))
 	copy(out[len(plaintext):], tagOut[:])
 
