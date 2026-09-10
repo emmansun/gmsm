@@ -15,8 +15,8 @@ import (
 	"github.com/emmansun/gmsm/internal/alias"
 )
 
-// Assert that sm4CipherGCM implements the gcmAble interface.
-var _ gcmAble = (*sm4CipherGCM)(nil)
+// Assert that sm4CipherNIGCM implements the gcmAble interface.
+var _ gcmAble = (*sm4CipherNIGCM)(nil)
 
 var HasZvkg = false
 
@@ -45,7 +45,7 @@ const (
 )
 
 type gcm struct {
-	cipher            *sm4CipherAsm
+	cipher            *sm4CipherNI
 	nonceSize         int
 	tagSize           int
 	bytesProductTable [256]byte
@@ -55,7 +55,7 @@ type gcm struct {
 // called by crypto/cipher.NewGCM via the gcmAble interface.
 func (c *sm4CipherGCM) NewGCM(nonceSize, tagSize int) (cipher.AEAD, error) {
 	g := &gcm{}
-	g.cipher = &c.sm4CipherAsm
+	g.cipher = &c.sm4CipherNI
 	g.nonceSize = nonceSize
 	g.tagSize = tagSize
 	gcmSm4Init(&g.bytesProductTable, g.cipher.enc[:], INST_SM4)
