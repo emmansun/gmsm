@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-func generateProductTable(t *testing.T, key []byte, table *[256]byte) {
+func generateProductTableZvkg(t *testing.T, key []byte, table *[256]byte) {
 	t.Helper()
 	c, err := newCipherGeneric(key[:])
 	if err != nil {
@@ -23,13 +23,13 @@ func generateProductTable(t *testing.T, key []byte, table *[256]byte) {
 	gcmSm4Init(table, c1.enc[:], INST_SM4)
 }
 
-func TestGcmSm4Init(t *testing.T) {
+func TestGcmSm4InitZvkg(t *testing.T) {
 	if !hasGHASH {
 		t.Skip("skipping test on unsupported CPU")
 	}
 	var table [256]byte
 	key := [16]byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
-	generateProductTable(t, key[:], &table)
+	generateProductTableZvkg(t, key[:], &table)
 	c, err := NewCipher(key[:])
 	if err != nil {
 		t.Fatal(err)
