@@ -16,8 +16,6 @@ English | [简体中文](README.md)
 
 GMSM is a production-ready Go cryptography library focused on ShangMi algorithms (SM2/SM3/SM4/SM9/ZUC) and modern post-quantum primitives (ML-KEM/ML-DSA/SLH-DSA), designed to balance secure defaults, practical APIs, and cross-architecture performance.
 
-> Requires Go version: **Go 1.25+**
-
 ## Why GMSM
 - **Broad standards coverage**: ShangMi standards, PKCS ecosystem, and NIST PQC (FIPS 203/204/205).
 - **Practical API design**: Interfaces aligned with Go standard library patterns for easier adoption.
@@ -104,6 +102,7 @@ SM3 cryptographic hash algorithm (GM/T 0004-2012) implements efficient SIMD opti
 - **amd64**: Optimizes message expansion for AVX2+BMI2 and SSE2+SSSE3 instruction sets
 - **arm64**: Uses NEON instructions to optimize message expansion and provides implementation based on A64 extended cryptographic instructions
 - **s390x/ppc64x**: Optimizes message expansion through vector instructions
+- **riscv64**: Uses `Zvksh` instructions
 
 For detailed implementation analysis, please refer to the [SM3 Performance Optimization Wiki](https://github.com/emmansun/gmsm/wiki/SM3%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96).
 
@@ -114,6 +113,7 @@ SM4 block cipher algorithm (GM/T 0002-2012) implements multi-architecture assemb
 - **amd64**: Uses GFNI, AES-NI instructions combined with AVX2/SSE2+SSSE3
 - **arm64**: Uses AES instructions combined with NEON and provides implementation based on A64 extended cryptographic instructions
 - **ppc64x**: Uses vsbox instructions combined with vector instructions
+- **riscv64**: Uses `Zvksed` instructions, GCM uses `Zvkg` or `Zvbc` instructions
 
 **Operation Mode Optimizations:**
 - ECB (Electronic Codebook)

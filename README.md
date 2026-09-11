@@ -16,8 +16,6 @@
 
 GMSM 是面向生产环境的 Go 密码学库，聚焦国密（SM2/SM3/SM4/SM9/ZUC）与后量子密码（ML-KEM/ML-DSA/SLH-DSA），在可维护 API 与跨架构性能之间取得平衡。
 
-> 要求 Go 版本：**Go 1.25+**
-
 ## 为什么选择 GMSM
 - **标准覆盖全面**：支持主流国密标准、PKCS 生态及 NIST PQC（FIPS 203/204/205）。
 - **工程化可落地**：接口风格贴近 Go 标准库，便于迁移与集成。
@@ -104,6 +102,7 @@ SM3 密码杂凑算法（GM/T 0004-2012）实现了高效的 SIMD 优化：
 - **amd64**：针对 AVX2+BMI2、SSE2+SSSE3 指令集优化消息扩展
 - **arm64**：使用 NEON 指令优化消息扩展，并提供基于 A64 扩展密码指令的实现
 - **s390x/ppc64x**：通过向量指令优化消息扩展
+- **riscv64**：使用`Zvksh`指令集
 
 详细实现分析请参阅 [SM3 性能优化 Wiki](https://github.com/emmansun/gmsm/wiki/SM3%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96)。
 
@@ -114,6 +113,7 @@ SM4 分组密码算法（GM/T 0002-2012）实现了多架构汇编优化，并�
 - **amd64**：使用 GFNI, AES-NI 指令结合 AVX2/SSE2+SSSE3
 - **arm64**：使用 AES 指令结合 NEON，并提供基于 A64 扩展密码指令的实现
 - **ppc64x**：使用 vsbox 指令结合向量指令
+- **riscv64**：SM4使用 `Zvksed` 指令集；GCM实现使用 `Zvkg`或者`Zvbc`指令集
 
 **工作模式优化：**
 - ECB（电子密码本）
