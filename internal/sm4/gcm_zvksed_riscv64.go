@@ -13,7 +13,6 @@ import (
 	"errors"
 
 	"github.com/emmansun/gmsm/internal/alias"
-	"github.com/emmansun/gmsm/internal/deps/cpu"
 )
 
 // Assert that sm4CipherNIGCM implements the gcmAble interface.
