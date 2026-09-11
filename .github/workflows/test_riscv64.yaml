@@ -18,7 +18,7 @@ jobs:
   test:
     strategy:
       matrix:
-        goVer: [1.25.x, 1.27.x]
+        goVer: [1.25, 1.27]
         arch: [riscv64]  
     runs-on: ubuntu-latest
     steps:
