@@ -53,8 +53,35 @@ func TestGcmSm4DataZvkg(t *testing.T) {
 		generateProductTableZvkg(t, key[:], &table)
 		data := c.data
 		expected, _ := hex.DecodeString(c.dataTag)
+		reversed := make([]byte, len(expected))
+		for i := range expected {
+			reversed[i] = expected[len(expected)-1-i]
+		}
 		clear(y[:])
 		gcmSm4Data(&table, data, &y)
+		if !bytes.Equal(y[:], reversed) {
+			t.Errorf("case %d: unexpected result: got %x, want %x", i, y, reversed)
+		}
+	}
+}
+
+func TestGcmSm4FinishZvkg(t *testing.T) {
+	if !hasGHASH {
+		t.Skip("skipping test on unsupported CPU")
+	}
+	var table [256]byte
+	var y [16]byte
+	var tMask [16]byte
+
+	for i, c := range cases {
+		clear(table[:])
+		key := c.key
+		generateProductTableZvkg(t, key[:], &table)
+		data := c.data
+		expected, _ := hex.DecodeString(c.expected)
+		clear(y[:])
+		gcmSm4Data(&table, data, &y)
+		gcmSm4Finish(&table, &tMask, &y, 0, uint64(len(data)))
 		if !bytes.Equal(y[:], expected) {
 			t.Errorf("case %d: unexpected result: got %x, want %x", i, y, expected)
 		}
