@@ -559,6 +559,8 @@ zvkgFinishStart:
 	VSETIVLI	$4, E32, M1, TA, MA, X0
 	VLE32V (pTbl), ACC1                       // Load H
 	VGHSH_VV(9, 1, 10)             // ACC0 = V9, ACC1 = V10, B0 = V1
+	VLE32V (tMsk), T2
+	VXORVV ACC0, T2, ACC0
 	VSE32V ACC0, (tPtr)
 	RET
 
