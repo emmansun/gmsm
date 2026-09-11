@@ -572,11 +572,28 @@ gcmSm4niEncSingle:
 
 gcmSm4niEncPartial:
 	BEQZ ptxLen, encDone
-	MOV ZERO, (8 + 1*16)(RSP)
-	MOV ZERO, (8 + 1*16 + 8)(RSP)
 	ADD $(8 + 1*16), RSP, X22
+	SGTU $8, ptxLen, X20  // R20 = 1 if (8 > ptxLen)
+	BNEZ X20, partial4CopyIn
+	MOV (ptx), X20
+	MOV X20, (X22)
+	ADD $8, X22, X22
+	ADD $8, ptx, ptx
+	SUB $8, ptxLen, ptxLen
+
+partial4CopyIn:
+	SGTU $4, ptxLen, X20  // R20 = 1 if (4 > ptxLen)
+	BNEZ X20, partialCopyIn
+	MOVWU (ptx), X20
+	MOVW X20, (X22)
+	ADD $4, X22, X22
+	ADD $4, ptx, ptx
+	SUB $4, ptxLen, ptxLen
 
 partialCopyIn:
+	BEQZ ptxLen, partialDataReady
+	
+partialCopyInLoop:
 		MOVBU (ptx), X20
 		MOVB X20, (X22)
 		ADD $1, X22, X22
@@ -729,13 +746,33 @@ gcmSm4niDecPartial:
 	ADD $(8 + 1*16), RSP, X22
 	VSE32V V4, (X22)
 
+	SGTU $8, ptxLen, X20  // R20 = 1 if (8 > ptxLen)
+	BNEZ X20, partial4CopyOut
+	MOV (X22), X20
+	MOV X20, (ptx)
+	ADD $8, X22, X22
+	ADD $8, ptx, ptx
+	SUB $8, ptxLen, ptxLen
+
+partial4CopyOut:
+	SGTU $4, ptxLen, X20  // R20 = 1 if (4 > ptxLen)
+	BNEZ X20, partialCopyOut
+	MOVWU (X22), X20
+	MOVW X20, (ptx)
+	ADD $4, X22, X22
+	ADD $4, ptx, ptx
+	SUB $4, ptxLen, ptxLen
+
 partialCopyOut:
+	BEQZ ptxLen, decDone
+
+partialCopyOutLoop:
 		MOVBU (X22), X20
 		MOVB X20, (ptx)
 		ADD $1, X22, X22
 		ADD $1, ptx, ptx
 		SUB $1, ptxLen, ptxLen
-		BNEZ ptxLen, partialCopyOut
+		BNEZ ptxLen, partialCopyOutLoop
 
 decDone:
 	RET
