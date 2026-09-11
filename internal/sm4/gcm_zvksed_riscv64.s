@@ -39,6 +39,21 @@ GLOBL gcmPoly<>(SB), (NOPTR+RODATA), $16
 #define VSM4R_VS(Vd, Vs2) \
 	WORD $((0x53 << 25) | ((Vs2) << 20) | (0x10 << 15) | (2 << 12) | ((Vd) << 7) | 0x77)
 
+// VGMUL_VV performs vgmul.vv Vd, Vs2
+// Performs GF(2^128) multiplication: Vd = Vd * Vs2
+// Rs1 field is unused (set to 0).
+// OP-P(0x77) | funct7=1010001 (0x51) | funct3=010
+#define VGMUL_VV(Vd, Vs2) \
+	WORD $((0x51 << 25) | ((Vs2) << 20) | (0 << 15) | (2 << 12) | ((Vd) << 7) | 0x77)
+
+// VGHSH_VV performs vghsh.vv Vd, Vs2(H), Vs1(Data)
+// Performs GF(2^128) multiplication and accumulation for GCM: Vd = (Vd ^ Vs1) * Vs2
+// NOTE: The Hash Subkey H must be placed in the Vs2 operand (3rd argument).
+//       The data block (input) must be placed in the Vs1 operand (2nd argument).
+// OP-P(0x77) | funct7=1011001 (0x59) | funct3=010
+#define VGHSH_VV(Vd, Vs1, Vs2) \
+	WORD $((0x59 << 25) | ((Vs2) << 20) | ((Vs1) << 15) | (2 << 12) | ((Vd) << 7) | 0x77)
+
 // func gcmSm4Init(productTable *[256]byte, rk []uint32)
 TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 #define dst X10
@@ -46,8 +61,6 @@ TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 
 	MOV productTable+0(FP), dst
 	MOV rk+8(FP), RK
-
-	MOV $gcmPoly<>(SB), X12
 
 	// Encrypt block 0, with the sm4 round keys to generate the hash key H
 	VSETIVLI	$4, E32, M1, TA, MA, X0
@@ -78,6 +91,13 @@ TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 	VSM4R_VS(4, 22) // VSM4RVS	V22, V4
 	VSM4R_VS(4, 23) // VSM4RVS	V23, V4
 
+	MOVBU ·hasGHASH+0(SB), X14
+	BEQZ X14, zvbcInit
+	VSE32V V4, (dst)
+	JMP initDone
+
+zvbcInit:
+	MOV $gcmPoly<>(SB), X12
 	// H * 2
 	VSLLVI $1, V4, V2
 	VSRLVI $31, V4, V3
@@ -150,6 +170,8 @@ initLoop:
 		VSE64V V3, (X14)
 
 	BNE dst, X14, initLoop
+
+initDone:
 	RET
 #undef dst
 #undef RK
@@ -193,6 +215,9 @@ TEXT ·gcmSm4Data(SB),NOSPLIT,$0
 	MOV data_base+8(FP), aut
 	MOV data_len+16(FP), autLen
 	MOV T+32(FP), tPtr
+
+	MOVBU ·hasGHASH+0(SB), X14
+	BNEZ X14, zvkgDataStart
 
 	VSETIVLI	$2, E64, M1, TA, MA, X0
 	VLE64V (tPtr), ACC0                       // Load the original tag
@@ -340,7 +365,6 @@ dataMul:
 
 dataEnd:
 	BEQZ autLen, dataBail
-	VXORVV B0, B0, B0
 	XOR X8, X8   // High 64 bits
 	XOR X9, X9   // Low 64 bits
 	XOR X14, X14 // Shift accumulator for partial byte loads
@@ -385,6 +409,70 @@ dataLoadDone:
 dataBail:
 	VSE64V ACC0, (tPtr)
 	RET
+
+zvkgDataStart:
+	VSETIVLI	$4, E32, M1, TA, MA, X0
+	VLE32V (tPtr), ACC0                       // Load the original tag
+	VLE32V (pTbl), ACC1                       // Load H
+
+	MOV $16, X14
+	BLT autLen, X14, zvkgDataTail
+
+zvkgDataLoop:
+		VLE32V (aut), B0
+		VGHSH_VV(9, 1, 10)             // ACC0 = V9, ACC1 = V10, B0 = V1
+		SUB $16, autLen, autLen
+		ADD $16, aut, aut
+		BGE autLen, X14, zvkgDataLoop
+
+zvkgDataTail:
+	BEQZ autLen, zvkgDataBail
+	XOR X8, X8   // High 64 bits
+	XOR X9, X9   // Low 64 bits
+	XOR X14, X14 // Shift accumulator for partial byte loads
+	MOV $8, X21
+
+	BGE autLen, X21, zvkgDataLoadGT8
+
+zvkgDataLoadLoopLess8:
+		MOVBU (aut), X22
+		SLL X14, X22, X22
+		OR X22, X9, X9
+		SUB $1, autLen, autLen
+		ADD $1, aut, aut
+		ADD $8, X14, X14
+		BNEZ autLen, zvkgDataLoadLoopLess8
+
+	JMP zvkgDataLoadDone
+
+zvkgDataLoadGT8:
+	MOV (aut), X9
+	ADD $8, aut, aut
+	SUB $8, autLen, autLen
+
+zvkgDataLoadLoopHigh8:
+		BEQZ autLen, zvkgDataLoadDone
+		MOVBU (aut), X22
+		SLL X14, X22, X22
+		OR X22, X8, X8
+		SUB $1, autLen, autLen
+		ADD $1, aut, aut
+		ADD $8, X14, X14
+
+	JMP zvkgDataLoadLoopHigh8
+
+zvkgDataLoadDone:
+	VSETIVLI	$2, E64, M1, TA, MA, X0
+	VMVSX X9, B0
+	VMVSX X8, B1
+	VSLIDEUPVI $1, B1, B0
+	VSETIVLI	$4, E32, M1, TA, MA, X0
+	VGHSH_VV(9, 1, 10)             // ACC0 = V9, ACC1 = V10, B0 = V1
+
+zvkgDataBail:
+	VSE32V ACC0, (tPtr)
+	RET
+	
 #undef pTbl
 #undef aut
 #undef tPtr
@@ -403,6 +491,9 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 	MOV T+16(FP), tPtr
 	MOV pLen+24(FP), plen
 	MOV dLen+32(FP), dlen
+
+	MOVBU ·hasGHASH+0(SB), X14
+	BNEZ X14, zvkgFinishStart
 
 	MOV gcmPoly<>+0x08(SB), XPOLY
 	VSETIVLI	$2, E64, M1, TA, MA, X0
@@ -453,6 +544,24 @@ TEXT ·gcmSm4Finish(SB),NOSPLIT,$0
 
 	VSE64V ACC0, (tPtr)
 	RET
+
+zvkgFinishStart:
+	VSETIVLI	$2, E64, M1, TA, MA, X0
+	VLE64V (tPtr), ACC0
+
+	SLL $3, plen
+	SLL $3, dlen
+	VMVSX plen, B0
+	VMVSX dlen, B1
+	VSLIDEUPVI $1, B1, B0
+	VXORVV ACC0, B0, B0
+
+	VSETIVLI	$4, E32, M1, TA, MA, X0
+	VLE32V (pTbl), ACC1                       // Load H
+	VGHSH_VV(9, 1, 10)             // ACC0 = V9, ACC1 = V10, B0 = V1
+	VSE32V ACC0, (tPtr)
+	RET
+
 #undef pTbl
 #undef tMsk
 #undef tPtr

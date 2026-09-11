@@ -11,6 +11,8 @@ import (
 	"encoding/hex"
 	"runtime"
 	"testing"
+
+	"github.com/emmansun/gmsm/internal/deps/cpu"
 )
 
 func generateProductTable(t *testing.T, key []byte, table *[256]byte) {
@@ -31,7 +33,7 @@ func generateProductTable(t *testing.T, key []byte, table *[256]byte) {
 }
 
 func TestGcmSm4Init(t *testing.T) {
-	if !(supportsGFMUL) {
+	if !(supportsGFMUL) || (runtime.GOARCH == "riscv64" && !cpu.RISCV64.HasZvbc) {
 		t.Skip("skipping test on unsupported CPU")
 	}
 	var table [256]byte
@@ -214,7 +216,7 @@ var cases = []struct {
 }
 
 func TestGcmSm4Data(t *testing.T) {
-	if !(supportsGFMUL) {
+	if !(supportsGFMUL) || (runtime.GOARCH == "riscv64" && !cpu.RISCV64.HasZvbc) {
 		t.Skip("skipping test on unsupported CPU")
 	}
 	var table [256]byte
@@ -244,7 +246,7 @@ func TestGcmSm4Data(t *testing.T) {
 }
 
 func TestGcmSm4Finish(t *testing.T) {
-	if !(supportsGFMUL) {
+	if !(supportsGFMUL) || (runtime.GOARCH == "riscv64" && !cpu.RISCV64.HasZvbc) {
 		t.Skip("skipping test on unsupported CPU")
 	}
 	var table [256]byte

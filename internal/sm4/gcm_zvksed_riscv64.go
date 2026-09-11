@@ -13,12 +13,11 @@ import (
 	"errors"
 
 	"github.com/emmansun/gmsm/internal/alias"
+	"github.com/emmansun/gmsm/internal/deps/cpu"
 )
 
 // Assert that sm4CipherNIGCM implements the gcmAble interface.
 var _ gcmAble = (*sm4CipherNIGCM)(nil)
-
-var HasZvkg = false
 
 //go:noescape
 func gcmSm4Init(productTable *[256]byte, rk []uint32, inst int)
