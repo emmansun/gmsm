@@ -8,6 +8,8 @@
 package sm4
 
 import (
+	"bytes"
+	"encoding/hex"
 	"fmt"
 	"testing"
 )
@@ -37,5 +39,24 @@ func TestGcmSm4InitZvkg(t *testing.T) {
 	dst := make([]byte, 16)
 	c.Encrypt(dst, dst)
 	fmt.Printf("%x, H=%x\n", dst, table[:16])
+}
 
+func TestGcmSm4DataZvkg(t *testing.T) {
+	if !hasGHASH {
+		t.Skip("skipping test on unsupported CPU")
+	}
+	var table [256]byte
+	var y [16]byte
+	for i, c := range cases {
+		clear(table[:])
+		key := c.key
+		generateProductTableZvkg(t, key[:], &table)
+		data := c.data
+		expected, _ := hex.DecodeString(c.dataTag)
+		clear(y[:])
+		gcmSm4Data(&table, data, &y)
+		if !bytes.Equal(y[:], expected) {
+			t.Errorf("case %d: unexpected result: got %x, want %x", i, y, expected)
+		}
+	}
 }
