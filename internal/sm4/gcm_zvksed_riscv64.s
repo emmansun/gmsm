@@ -46,6 +46,7 @@ GLOBL gcmPoly<>(SB), (NOPTR+RODATA), $16
 #define VGMUL_VV(Vd, Vs2) \
 	WORD $((0x51 << 25) | ((Vs2) << 20) | (0 << 15) | (2 << 12) | ((Vd) << 7) | 0x77)
 
+// https://docs.riscv.org/reference/isa/v20260120/unpriv/vector-crypto.html#insns-vghsh
 // VGHSH_VV performs vghsh.vv Vd, Vs2(H), Vs1(Data)
 // Performs GF(2^128) multiplication and accumulation for GCM: Vd = (Vd ^ Vs1) * Vs2
 // NOTE: The Hash Subkey H must be placed in the Vs2 operand (3rd argument).

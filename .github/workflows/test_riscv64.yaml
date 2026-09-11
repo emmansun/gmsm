@@ -54,3 +54,19 @@ jobs:
       env:
         QEMU_CPU: max
         GOARCH: ${{ matrix.arch }}
+
+    - name: Test without Zvkg
+      if: ${{ matrix.goVer == '1.27' }}
+      run: go test -v -short ./internal/... ./sm3/... ./sm4/...
+      env:
+        DISABLE_GHASH: 1
+        QEMU_CPU: max
+        GOARCH: ${{ matrix.arch }}
+
+    - name: Test Cipher wihout Zvkg
+      if: ${{ matrix.goVer == '1.27' }}
+      run: go test -v -short ./cipher -run 'TestSM4GCM|TestGCMCounterWrap|TestSM4GCMRandom'
+      env:
+        DISABLE_GHASH: 1
+        QEMU_CPU: max
+        GOARCH: ${{ matrix.arch }}        

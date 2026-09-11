@@ -13,7 +13,7 @@ import (
 
 var supportSM4 = cpuid.HasSM4 && os.Getenv("DISABLE_SM4NI") != "1"
 var supportsAES = cpuid.HasAES
-var hasGHASH = cpu.RISCV64.HasZvkg
+var hasGHASH = cpu.RISCV64.HasZvkg && os.Getenv("DISABLE_GHASH") != "1"
 var supportsGFMUL = cpuid.HasGFMUL || cpu.RISCV64.HasZvbc || hasGHASH
 var useAVX2 = cpu.X86.HasAVX2
 var useGFNI = useAVX2 && cpuid.HasGFNI && os.Getenv("DISABLE_GFNI") != "1"
