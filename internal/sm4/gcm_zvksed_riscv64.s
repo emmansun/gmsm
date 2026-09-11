@@ -93,11 +93,10 @@ TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 
 	MOVBU ·hasGHASH+0(SB), X14
 	BEQZ X14, zvbcInit
-	MOV	$·riscv64ZvksedRev(SB), X20
-	VLE32V	(X20), V24	// reversal index (loop-invariant)
-	VRGATHERVV	V24, V4, V26
-	VSE32V V26, (dst)
-	JMP initDone
+	VSLIDEDOWNVI $2, V4, V1
+	VSLIDEUPVI $2, V4, V1
+	VSE32V V1, (dst)
+	RET
 
 zvbcInit:
 	MOV $gcmPoly<>(SB), X12
