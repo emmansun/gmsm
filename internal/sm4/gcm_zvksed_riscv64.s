@@ -93,7 +93,10 @@ TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 
 	MOVBU ·hasGHASH+0(SB), X14
 	BEQZ X14, zvbcInit
-	VSE32V V4, (dst)
+	MOV	$·riscv64ZvksedRev(SB), X20
+	VLE32V	(X20), V24	// reversal index (loop-invariant)
+	VRGATHERVV	V24, V4, V26
+	VSE32V V26, (dst)
 	JMP initDone
 
 zvbcInit:
@@ -551,10 +554,10 @@ zvkgFinishStart:
 
 	SLL $3, plen
 	SLL $3, dlen
-	VMVSX plen, B0
-	VMVSX dlen, B1
+	VMVSX dlen, B0
+	VMVSX plen, B1
 	VSLIDEUPVI $1, B1, B0
-	VXORVV ACC0, B0, B0
+	VREV8V B0, B0
 
 	VSETIVLI	$4, E32, M1, TA, MA, X0
 	VLE32V (pTbl), ACC1                       // Load H
