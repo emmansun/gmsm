@@ -18,7 +18,7 @@ jobs:
   test:
     strategy:
       matrix:
-        go-version: [1.25.x, 1.27.x]
+        goVer: [1.25.x, 1.27.x]
         arch: [riscv64]  
     runs-on: ubuntu-latest
     steps:
@@ -30,7 +30,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
-        go-version: ${{ matrix.go-version }}
+        go-version: ${{ matrix.goVer }}
 
     - name: Set up QEMU
       uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4.3.0
@@ -56,7 +56,7 @@ jobs:
         GOARCH: ${{ matrix.arch }}
 
     - name: Test without Zvkg
-      if: ${{ matrix.go-version == '1.27' }}
+      if: ${{ matrix.goVer == '1.27' }}
       run: go test -v -short ./internal/... ./sm3/... ./sm4/...
       env:
         DISABLE_GHASH: 1
@@ -64,7 +64,7 @@ jobs:
         GOARCH: ${{ matrix.arch }}
 
     - name: Test Cipher wihout Zvkg
-      if: ${{ matrix.go-version == '1.27' }}
+      if: ${{ matrix.goVer == '1.27' }}
       run: go test -v -short ./cipher -run 'TestSM4GCM|TestGCMCounterWrap|TestSM4GCMRandom'
       env:
         DISABLE_GHASH: 1

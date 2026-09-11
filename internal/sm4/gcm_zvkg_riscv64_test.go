@@ -10,7 +10,6 @@ package sm4
 import (
 	"bytes"
 	"encoding/hex"
-	"fmt"
 	"testing"
 )
 
@@ -38,7 +37,9 @@ func TestGcmSm4InitZvkg(t *testing.T) {
 	}
 	dst := make([]byte, 16)
 	c.Encrypt(dst, dst)
-	fmt.Printf("%x, H=%x\n", dst, table[:16])
+	if !bytes.Equal(dst, table[:16]) {
+		t.Errorf("unexpected result: got %x, want %x", dst, table[:16])
+	}
 }
 
 func TestGcmSm4DataZvkg(t *testing.T) {
