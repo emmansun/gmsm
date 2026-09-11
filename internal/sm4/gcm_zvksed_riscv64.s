@@ -93,6 +93,7 @@ TEXT ·gcmSm4Init(SB),NOSPLIT,$0
 
 	MOVBU ·hasGHASH+0(SB), X14
 	BEQZ X14, zvbcInit
+	VREV8V	V4, V4
 	MOV	$·riscv64ZvksedRev(SB), X16
 	VLE32V	(X16), V24	// reversal index (loop-invariant)
 	VRGATHERVV	V24, V4, V26
@@ -423,7 +424,6 @@ zvkgDataStart:
 
 zvkgDataLoop:
 		VLE32V (aut), B0
-		VREV8V	B0, B0
 		VGHSH_VV(9, 1, 10)             // ACC0 = V9, ACC1 = V10, B0 = V1
 		SUB $16, autLen, autLen
 		ADD $16, aut, aut
