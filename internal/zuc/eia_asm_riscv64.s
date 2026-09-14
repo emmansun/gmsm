@@ -36,12 +36,19 @@ TEXT ·eiaRoundTag4(SB),NOSPLIT,$0
 	VLE8V (X10), V6
 
 	// Reverse data bytes
+	MOVBU ·supportsZvbb+0(SB), X11
+	BEQZ X11, noZvbb
+	VBREV8V V6, V6
+	JMP setupKS
+
+noZvbb:
 	VANDVV V1, V6, V7
 	VRGATHERVV V7, V3, V8
 	VSRLVI $4, V6, V7
 	VRGATHERVV V7, V2, V9
 	VORVV V8, V9, V6
 
+setupKS:
 	MOV $4, X14
 	MOV $32, X15
 	VSETIVLI	$2, E64, M1, TA, MA, X0
