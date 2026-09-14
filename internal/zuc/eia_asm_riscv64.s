@@ -42,19 +42,20 @@ TEXT ·eiaRoundTag4(SB),NOSPLIT,$0
 	VRGATHERVV V7, V2, V9
 	VORVV V8, V9, V6
 
+	MOV $4, X14
 	MOV $32, X15
 	VSETIVLI	$2, E64, M1, TA, MA, X0
 	// ZUC authentication part, 4x32 data bits
 	// Setup KS
-	VLE64V	(X9), V7
-	VSRLVX X15, V7, V8           // [W1, 0, W3, 0]
-	VSLLVX X15, V7, V7           // [0, W0, 0, W2]
-	VORVV V7, V8, V7             // [W1, W0, W3, W2]
+	VLSE64V	(X9), X14, V7        // [W0, W1, W1, W2]
+	VSRLVX X15, V7, V8           // [W1, 0, W2, 0]
+	VSLLVX X15, V7, V7           // [0, W0, 0, W1]
+	VORVV V7, V8, V7             // [W1, W0, W2, W1]
 	ADD $8, X9
-	VLE64V	(X9), V8
-	VSRLVX X15, V8, V9           // [W3, 0, W5, 0]
-	VSLLVX X15, V8, V8           // [0, W2, 0, W4]
-	VORVV V8, V9, V8             // [W3, W2, W5, W4]
+	VLSE64V	(X9), X14, V8        // [W2, W3, W3, W4]
+	VSRLVX X15, V8, V9           // [W3, 0, W4, 0]
+	VSLLVX X15, V8, V8           // [0, W2, 0, W3]
+	VORVV V8, V9, V8             // [W3, W2, W4, W3]
 
 	// Setup DATA
 	VSRLVX X15, V6, V9          // [W1, 0, W3, 0]
