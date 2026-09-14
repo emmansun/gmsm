@@ -42,23 +42,24 @@ TEXT ·eiaRoundTag4(SB),NOSPLIT,$0
 	VRGATHERVV V7, V2, V9
 	VORVV V8, V9, V6
 
+	MOV $32, X15
 	VSETIVLI	$2, E64, M1, TA, MA, X0
 	// ZUC authentication part, 4x32 data bits
 	// Setup KS
 	VLE64V	(X9), V7
-	VSRLVI $32, V7, V8           // [W1, 0, W3, 0]
-	VSLLVI $32, V7, V7           // [0, W0, 0, W2]
+	VSRLVX X15, V7, V8           // [W1, 0, W3, 0]
+	VSLLVX X15, V7, V7           // [0, W0, 0, W2]
 	VORVV V7, V8, V7             // [W1, W0, W3, W2]
 	ADD $8, X9
 	VLE64V	(X9), V8
-	VSRLVI $32, V8, V9           // [W3, 0, W5, 0]
-	VSLLVI $32, V8, V8           // [0, W2, 0, W4]
+	VSRLVX X15, V8, V9           // [W3, 0, W5, 0]
+	VSLLVX X15, V8, V8           // [0, W2, 0, W4]
 	VORVV V8, V9, V8             // [W3, W2, W5, W4]
 
 	// Setup DATA
-	VSRLVI $32, V6, V9          // [W1, 0, W3, 0]
-	VSLLVI $32, V6, V10         // [0, W0, 0, W2]
-	VSRLVI $32, V10, V6         // [W0, 0, W2, 0]
+	VSRLVX X15, V6, V9          // [W1, 0, W3, 0]
+	VSLLVX X15, V6, V10         // [0, W0, 0, W2]
+	VSRLVX X15, V10, V6         // [W0, 0, W2, 0]
 	VSLIDEDOWNVI $1, V6, V10    // [W2, 0, 0, 0]
 	VSLIDEUPVI $1, V9, V6       // [W0, 0, W1, 0]
 	VSLIDEDOWNVI $1, V9, V9    // [W3, 0, 0, 0]
