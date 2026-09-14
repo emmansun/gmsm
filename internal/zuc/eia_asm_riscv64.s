@@ -61,7 +61,7 @@ TEXT ·eiaRoundTag4(SB),NOSPLIT,$0
 	VSRLVI $32, V10, V6         // [W0, 0, W2, 0]
 	VSLIDEDOWNVI $1, V6, V10    // [W2, 0, 0, 0]
 	VSLIDEUPVI $1, V9, V6       // [W0, 0, W1, 0]
-	VSLIDEDOWNVI, $1, V9, V9    // [W3, 0, 0, 0]
+	VSLIDEDOWNVI $1, V9, V9    // [W3, 0, 0, 0]
 	VSLIDEUPVI $1, V9, V10      // [W2, 0, W3, 0]
 
 	// clmul
@@ -71,7 +71,7 @@ TEXT ·eiaRoundTag4(SB),NOSPLIT,$0
 	VCLMULVV V8, V10, V13       // LOW(KS_H, DATA_H)
 	VXORVV V11, V13, V11        // LOW(KS_L, DATA_L) XOR LOW(KS_H, DATA_H)
 	VSLIDEDOWNVI $1, V13, V13
-	VXORVV, V13, V11, V11
+	VXORVV V13, V11, V11
 
 	// Update tag
 	VMVXS V11, X11
