@@ -23,25 +23,23 @@ TEXT ·eiaRoundTag4(SB),NOSPLIT,$0
 	MOV ks+8(FP), X9
 	MOV p+16(FP), X10
 
-	// Load constants into vector registers
 	VSETIVLI	$16, E8, M1, TA, MA, X0
-	MOV	$eia_const<>(SB), X11
-	VLE8V (X11), V1
-	ADD $16, X11
-	VLE8V (X11), V2
-	ADD $16, X11
-	VLE8V (X11), V3
-
 	// Load data
 	VLE8V (X10), V6
 
-	// Reverse data bytes
+	// Reverse data bits
 	MOVBU ·supportsZvbb+0(SB), X11
 	BEQZ X11, noZvbb
 	VBREV8V V6, V6
 	JMP setupKS
 
 noZvbb:
+	MOV	$eia_const<>(SB), X11
+	VLE8V (X11), V1
+	ADD $16, X11
+	VLE8V (X11), V2
+	ADD $16, X11
+	VLE8V (X11), V3
 	VANDVV V1, V6, V7
 	VRGATHERVV V7, V3, V8
 	VSRLVI $4, V6, V7
