@@ -7,7 +7,10 @@
 
 package mlkem
 
-import "testing"
+import (
+	mathrand "math/rand/v2"
+	"testing"
+)
 
 func TestNTTMul(t *testing.T) {
 	if !hasRVV {
