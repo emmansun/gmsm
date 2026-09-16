@@ -214,6 +214,9 @@ GLOBL zucVectorConstants<>(SB), RODATA|NOPTR, $176
 	VSETIVLI	$2, E64, M1, TA, MA, X0;      \
 	VMVSX X19, V4;                            \
 	VMVVV V4, V5;                             \
+	VSETIVLI $16, E8, M1, TA, MA, X0;        \
+	S0_COMPUTE(V5, V1, V2);                   \
+	VXORVV V5, V4, V4;                        \ 
 	\
 	VSETIVLI	$2, E64, M1, TA, MA, X0;      \
 	VMVXS  V4, X10;                           \ // F_R1
