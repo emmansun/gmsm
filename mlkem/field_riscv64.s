@@ -90,7 +90,7 @@ TEXT ·internalNTTMulRVV(SB), NOSPLIT, $0-24
 	MOV $3327, QNEGINV
 	MOV $1, ONE
 
-	MOV $·gammasMontgomery(SB), X13
+	MOV $·gammaMulTableNEON(SB), X13
 
 	// There are 256 coefficients, with each RVV lane processing
 	// one adjacent coefficient pair, hence 128 pair operations.
@@ -101,8 +101,9 @@ nttml_rvv_loop:
 	//
 	//   lhs[2*i+0], lhs[2*i+1]
 	//   rhs[2*i+0], rhs[2*i+1]
-	//   gammaTable[i]
+	//   gammaTable[2*i+0], gammaTable[2*i+1]
 	//
+	// V0 is reserved for the carry mask used by MONT_MUL_HILO_VV.
 	VSETVLI X14, E16, M1, TA, MA, X15
 
 	// V2 = lhs even: lhs[0], lhs[2], lhs[4], ...
@@ -113,19 +114,27 @@ nttml_rvv_loop:
 	// V5 = rhs odd:  rhs[1], rhs[3], rhs[5], ...
 	VLSEG2E16V (X12), V4
 
-	// V6 = gamma multipliers
-	VLE16V (X13), V6
+	// The NEON table is logically:
+	//
+	//   identityMul, gammaMul,
+	//   identityMul, gammaMul,
+	//   ...
+	//
+	// V6 = identity multipliers
+	// V7 = gamma multipliers
+	VLSEG2E16V (X13), V6
 
 	// Register allocation:
 	//
 	// V0       carry mask, clobbered by Montgomery macros
 	// V2,V3    lhs even/odd
 	// V4,V5    rhs even/odd
-	// V6       table gamma
+	// V6,V7    table identity/gamma
 	// V8,V9    intermediate products
 	// V10,V11  final even/odd result pair
 	// V12      Montgomery low temporary
 	// V13      Montgomery m temporary
+	// V14      reduce-once temporary
 
 	// ------------------------------------------------------------
 	// t_ab = MontMul(lhs, rhs)
@@ -144,18 +153,19 @@ nttml_rvv_loop:
 	//
 	// Preserve the exact NEON representation contract:
 	//
-	//   even = MontMul(a0, b0)
+	//   even = MontMul(MontMul(a0, b0), identityMul)
 	//   odd  = MontMul(MontMul(a1, b1), gammaMul)
 	//
 	// Do not replace the first operation with V8 directly unless
 	// the identity table representation has been proved redundant.
 	// ------------------------------------------------------------
 
-	MONT_MUL_HILO_VV(V9, V6, V10, V12, V13)
+	MONT_MUL_HILO_VV(V8, V6, V10, V12, V13)
+	MONT_MUL_HILO_VV(V9, V7, V11, V12, V13)
 
 	// outEven = scaledEven + scaledOdd
-	VADDVV V8, V10, V10
-	REDUCE_ONCE_RVV(V10, V13)
+	VADDVV V11, V10, V10
+	REDUCE_ONCE_RVV(V10, V14)
 
 	// ------------------------------------------------------------
 	// Cross products:
@@ -169,7 +179,7 @@ nttml_rvv_loop:
 	MONT_MUL_HILO_VV(V3, V4, V9, V12, V13)
 
 	VADDVV V9, V8, V11
-	REDUCE_ONCE_RVV(V11, V13)
+	REDUCE_ONCE_RVV(V11, V14)
 
 	// V10 = out[2*i+0]
 	// V11 = out[2*i+1]
@@ -183,7 +193,6 @@ nttml_rvv_loop:
 	ADD X16, X10, X10
 	ADD X16, X11, X11
 	ADD X16, X12, X12
-	SLL $1, X15, X16
 	ADD X16, X13, X13
 
 	SUB X15, X14, X14
