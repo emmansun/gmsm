@@ -125,7 +125,7 @@ SM4 分组密码算法（GM/T 0002-2012）实现了多架构汇编优化，并�
 详细实现分析请参阅 [SM4 性能优化 Wiki](https://github.com/emmansun/gmsm/wiki/SM4%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96)。
 
 #### ZUC - 祖冲之序列密码算法
-祖冲之序列密码算法（GM/T 0001-2012）实现了基于 SIMD、AES 指令和无进位乘法指令的优化，支持 **amd64**、**arm64** 和 **ppc64x** 架构。
+祖冲之序列密码算法（GM/T 0001-2012）实现了基于 SIMD、AES 指令和无进位乘法指令的优化，支持 **amd64** (`AES`, `PCLMUL`)、**arm64**（`AES`, `PMULL`）、 **ppc64x**（`AES`, `VPMSUMD`）和**riscv64**（`Zvkned`, `Zvbc`） 架构。
 
 **功能特性：**
 - 机密性算法（128-EEA3 / 256-EEA3）

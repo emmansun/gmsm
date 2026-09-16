@@ -125,7 +125,7 @@ SM4 block cipher algorithm (GM/T 0002-2012) implements multi-architecture assemb
 For detailed implementation analysis, please refer to the [SM4 Performance Optimization Wiki](https://github.com/emmansun/gmsm/wiki/SM4%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96).
 
 #### ZUC - Zu Chongzhi Stream Cipher Algorithm
-The Zu Chongzhi stream cipher algorithm (GM/T 0001-2012) implements optimizations based on SIMD, AES instructions, and carry-less multiplication instructions, supporting **amd64**, **arm64**, and **ppc64x** architectures.
+The Zu Chongzhi stream cipher algorithm (GM/T 0001-2012) implements optimizations based on SIMD, AES instructions, and carry-less multiplication instructions, supporting **amd64** (`AES`, `PCLMUL`), **arm64** (`AES`, `PMULL`), **ppc64x** (`AES`, `VPMSUMD`) and **riscv64** (`Zvkned`, `Zvbc`) architectures.
 
 **Features:**
 - Confidentiality Algorithm (128-EEA3 / 256-EEA3)
