@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-func TestNTTMul(t *testing.T) {
+func TestNTTMulRVV(t *testing.T) {
 	if !hasRVV {
 		t.Skip("skipping test: RVV not available")
 	}
@@ -43,7 +43,7 @@ func TestNTTMulAccRVV(t *testing.T) {
 		for i := range lhs {
 			lhs[i] = fieldElement(mathrand.IntN(q))
 			rhs[i] = fieldElement(mathrand.IntN(q))
-			acc[i] = fieldElement(mathrand.Intn(q))
+			acc[i] = fieldElement(mathrand.IntN(q))
 		}
 
 		copy(got[:], acc[:])
