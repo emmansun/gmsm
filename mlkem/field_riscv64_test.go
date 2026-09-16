@@ -13,17 +13,20 @@ func TestNTTMul(t *testing.T) {
 	if !hasRVV {
 		t.Skip("skipping test: RVV not available")
 	}
-	for i := 0; i < 16; i++ {
-		left := ntt(randomRingElement())
-		right := ntt(randomRingElement())
+	for range 64 {
+		var lhs, rhs, got, want nttElement
+		for i := range lhs {
+			lhs[i] = fieldElement(mathrand.IntN(q))
+			rhs[i] = fieldElement(mathrand.IntN(q))
+		}
 
-		var got nttElement
-		nttMul(&got, &left, &right)
+		internalNTTMulRVV(&got, &lhs, &rhs)
+		nttMontMul(&want, &lhs, &rhs)
 
-		var want nttElement
-		nttMulGeneric(&want, &left, &right)
-		if got != want {
-			t.Fatalf("nttMulInto mismatch on iteration %d, lhs=%x, rhs=%x, got=%x, want=%x", i, left, right, got, want)
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("index %d: got %d, want %d", i, got[i], want[i])
+			}
 		}
 	}
 }
