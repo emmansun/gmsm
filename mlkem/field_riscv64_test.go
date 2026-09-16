@@ -34,7 +34,7 @@ func TestNTTMul(t *testing.T) {
 	}
 }
 
-func TestNTTMulAcc(t *testing.T) {
+func TestNTTMulAccRVV(t *testing.T) {
 	if !hasRVV {
 		t.Skip("skipping test: RVV not available")
 	}
