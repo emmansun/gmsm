@@ -18,6 +18,9 @@ var hasRVV = cpu.RISCV64.HasV
 //go:noescape
 func internalNTTMulRVV(out, lhs, rhs *nttElement)
 
+//go:noescape
+func internalNTTMulAccRVV(acc, lhs, rhs *nttElement)
+
 func nttMul(acc, lhs, rhs *nttElement) {
 	nttMulGeneric(acc, lhs, rhs)
 }

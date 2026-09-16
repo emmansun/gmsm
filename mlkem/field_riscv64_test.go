@@ -33,3 +33,28 @@ func TestNTTMul(t *testing.T) {
 		}
 	}
 }
+
+func TestNTTMulAcc(t *testing.T) {
+	if !hasRVV {
+		t.Skip("skipping test: RVV not available")
+	}
+	for range 64 {
+		var acc, lhs, rhs, got, want nttElement
+		for i := range lhs {
+			lhs[i] = fieldElement(mathrand.IntN(q))
+			rhs[i] = fieldElement(mathrand.IntN(q))
+			acc[i] = fieldElement(mathrand.Intn(q))
+		}
+
+		copy(got[:], acc[:])
+		copy(want[:], acc[:])
+		internalNTTMulAccRVV(&got, &lhs, &rhs)
+		nttMontMulAcc(&want, &lhs, &rhs)
+
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("index %d: got %d, want %d", i, got[i], want[i])
+			}
+		}
+	}
+}
