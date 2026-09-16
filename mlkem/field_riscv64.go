@@ -13,7 +13,7 @@ import (
 	"github.com/emmansun/gmsm/internal/deps/cpu"
 )
 
-var hasRVV = cpu.RISCV.HasV
+var hasRVV = cpu.RISCV64.HasV
 
 //go:noescape
 func internalNTTMulRVV(out, lhs, rhs *nttElement)
