@@ -117,8 +117,8 @@ GLOBL zucVectorConstants<>(SB), RODATA|NOPTR, $176
 	VANDVV NIBBLE_MASK, x, t0; \
 	VRGATHERVV t0, low, t1; \
 	VSRLVI $4, x, t0; \
-	VRGATHERVV t0, high, t0; \
-	VXORVV t1, t0, x
+	VRGATHERVV t0, high, x; \
+	VXORVV t1, x, x
 
 // Compute 16 ZUC S1 values.
 //
@@ -216,6 +216,7 @@ GLOBL zucVectorConstants<>(SB), RODATA|NOPTR, $176
 	VMVVV V4, V5;                             \
 	VSETIVLI $16, E8, M1, TA, MA, X0;        \
 	S0_COMPUTE(V5, V1, V2);                   \
+	S1_COMPUTE(V4);                           \
 	VXORVV V5, V4, V4;                        \ 
 	\
 	VSETIVLI	$2, E64, M1, TA, MA, X0;      \
@@ -458,14 +459,7 @@ TEXT ·genKeyStreamRev32Asm(SB),NOSPLIT,$0
 revZucSixteens:
 		BLT X22, X23, revZucOctet
 		SUB $16, X22, X22
-	BITS_REORG(0)
-	NONLIN_FUN()
-	XOR X15, X16, X16
-	REV8 X16, X16
-	SRL $32, X16, X16
-	MOVW X16, (X9)
-	XOR X16, X16, X16
-	LFSR_UPDT(0)
+		ROUND_REV32(0)
 		ROUND_REV32(1)
 		ROUND_REV32(2)
 		ROUND_REV32(3)
