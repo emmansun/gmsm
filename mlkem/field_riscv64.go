@@ -21,6 +21,9 @@ func internalNTTMulRVV(out, lhs, rhs *nttElement)
 //go:noescape
 func internalNTTMulAccRVV(acc, lhs, rhs *nttElement)
 
+//go:noescape
+func internalNTTMulAccKeyGenRVV(acc, lhs, rhs *nttElement)
+
 func nttMul(acc, lhs, rhs *nttElement) {
 	nttMulGeneric(acc, lhs, rhs)
 }
@@ -30,6 +33,10 @@ func nttMulAcc(acc, lhs, rhs *nttElement) {
 }
 
 func nttMulAccKeyGen(acc, lhs, rhs *nttElement) {
+	if hasRVV {
+		internalNTTMulAccKeyGenRVV(acc, lhs, rhs)
+		return
+	}
 	nttMulAccGeneric(acc, lhs, rhs)
 }
 
