@@ -130,7 +130,7 @@ GLOBL zucVectorConstants<>(SB), RODATA|NOPTR, $176
 	VRGATHERVV INV_SHIFT_ROWS, x, V3; \
 	/* VAES final round requires SEW=32, EGS=4. */ \
 	VSETIVLI $4, E32, M1, TA, MA, X0; \
-	\
+	VAESEF_VV(3, 0); \
 	/* Restore byte-oriented configuration. */ \
 	VSETIVLI $16, E8, M1, TA, MA, X0; \
 	/* Convert AES S-box output representation to ZUC S1. */ \
@@ -459,7 +459,14 @@ TEXT ·genKeyStreamRev32Asm(SB),NOSPLIT,$0
 revZucSixteens:
 		BLT X22, X23, revZucOctet
 		SUB $16, X22, X22
-		ROUND_REV32(0)
+	BITS_REORG(0)
+	NONLIN_FUN()
+	XOR X15, X16, X16
+	REV8 X16, X16
+	SRL $32, X16, X16
+	MOVW X16, (idx*4)(X9)
+	XOR X16, X16, X16
+	LFSR_UPDT(0)
 		ROUND_REV32(1)
 		ROUND_REV32(2)
 		ROUND_REV32(3)
