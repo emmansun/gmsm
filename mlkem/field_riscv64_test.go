@@ -23,7 +23,7 @@ func TestNTTMul(t *testing.T) {
 		var want nttElement
 		nttMulGeneric(&want, &left, &right)
 		if got != want {
-			t.Fatalf("nttMulInto mismatch on iteration %d", i)
+			t.Fatalf("nttMulInto mismatch on iteration %d, lhs=%x, rhs=%x, got=%x, want=%x", i, left, right, got, want)
 		}
 	}
 }
