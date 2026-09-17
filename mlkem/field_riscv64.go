@@ -31,10 +31,18 @@ func internalNTTRVV(f *ringElement)
 func internalInverseNTTRVV(f *nttElement)
 
 func nttMul(acc, lhs, rhs *nttElement) {
+	if hasRVV {
+		internalNTTMulRVV(acc, lhs, rhs)
+		return
+	}
 	nttMulGeneric(acc, lhs, rhs)
 }
 
 func nttMulAcc(acc, lhs, rhs *nttElement) {
+	if hasRVV {
+		internalNTTMulAccRVV(acc, lhs, rhs)
+		return
+	}
 	nttMulAccGeneric(acc, lhs, rhs)
 }
 
@@ -47,10 +55,18 @@ func nttMulAccKeyGen(acc, lhs, rhs *nttElement) {
 }
 
 func internalNTT(f *ringElement) {
+	if hasRVV {
+		internalNTTRVV(f)
+		return
+	}
 	internalNTTGeneric(f)
 }
 
 func internalInverseNTT(f *nttElement) {
+	if hasRVV {
+		internalInverseNTTRVV(f)
+		return
+	}
 	internalInverseNTTGeneric(f)
 }
 
