@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build purego || !(amd64 || loong64)
+//go:build purego || !(amd64 || loong64 || (riscv64 && go1.27))
 
 package keccakx4
 
