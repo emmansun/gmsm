@@ -123,7 +123,7 @@
 // SRC and DST must point to distinct State4 buffers.
 #define KECCAK_ROUND(SRC, DST, idx) \
 	/* Load RC before vector computation. */ \
-	MOV (idx*8)(X12), X15; \
+	MOV ((idx)*8)(X12), X15; \
 	/* theta: calculate the five column parities. */ \
 	COMPUTE_C(SRC, C0, 0); \
 	COMPUTE_C(SRC, C1, 1); \
