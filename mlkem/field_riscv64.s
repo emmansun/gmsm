@@ -485,6 +485,14 @@ TEXT ·internalNTTRVV(SB), NOSPLIT, $0-8
 	MOV $·zetasMontgomery(SB), X11
 	ADD $2, X11, X11
 
+	// Generic levels:
+	//
+	//	len = 128, 64, 32, 16, 8
+	//
+	// For len >= 8, unit-stride left/right loads remain reasonably
+	// efficient. The final len=4 and len=2 levels use segmented
+	// group-parallel kernels below.
+
 	// len = 128
 	MOV $128, X12
 
@@ -565,8 +573,173 @@ ntt_chunk_loop:
 	// len >>= 1
 	SRL $1, X12, X12
 
-	MOV $2, X15
+	MOV $8, X15
 	BGE X12, X15, ntt_level_loop
+
+// -----------------------------------------------------------------------------
+// len = 4
+//
+// Memory layout for each 8-coefficient group:
+//
+//	[a0 a1 a2 a3 b0 b1 b2 b3]
+//
+// VLSEG8E16V transposes multiple groups into:
+//
+//	V2 = a0 of every group
+//	V3 = a1 of every group
+//	V4 = a2 of every group
+//	V5 = a3 of every group
+//	V6 = b0 of every group
+//	V7 = b1 of every group
+//	V8 = b2 of every group
+//	V9 = b3 of every group
+//
+// Each lane therefore processes one independent butterfly group.
+// There are 256/8 = 32 groups.
+// -----------------------------------------------------------------------------
+
+ntt_level4:
+	MOV	X10, X16
+	MOV	$32, X19
+
+ntt_level4_loop:
+	VSETVLI X19, E16, M1, TA, MA, X15
+
+	// V10 = one zeta per group.
+	VLE16V	(X11), V10
+
+	// V2..V5 = left[0..3]
+	// V6..V9 = right[0..3]
+	VLSEG8E16V (X16), V2
+
+	// Montgomery results:
+	//	V11..V14 = t0..t3
+	//
+	// Shared Montgomery temporaries:
+	//	V20, V21
+	MONT_MUL_HILO_VV(V6, V10, V11, V20, V21)
+	MONT_MUL_HILO_VV(V7, V10, V12, V20, V21)
+	MONT_MUL_HILO_VV(V8, V10, V13, V20, V21)
+	MONT_MUL_HILO_VV(V9, V10, V14, V20, V21)
+
+	// right0 = left0 + q - t0
+	VADDVX	Q, V2, V6
+	VSUBVV	V11, V6, V6
+	REDUCE_ONCE_RVV(V6, V20)
+
+	// right1 = left1 + q - t1
+	VADDVX	Q, V3, V7
+	VSUBVV	V12, V7, V7
+	REDUCE_ONCE_RVV(V7, V20)
+
+	// right2 = left2 + q - t2
+	VADDVX	Q, V4, V8
+	VSUBVV	V13, V8, V8
+	REDUCE_ONCE_RVV(V8, V20)
+
+	// right3 = left3 + q - t3
+	VADDVX	Q, V5, V9
+	VSUBVV	V14, V9, V9
+	REDUCE_ONCE_RVV(V9, V20)
+
+	// left0 = left0 + t0
+	VADDVV	V11, V2, V2
+	REDUCE_ONCE_RVV(V2, V20)
+
+	// left1 = left1 + t1
+	VADDVV	V12, V3, V3
+	REDUCE_ONCE_RVV(V3, V20)
+
+	// left2 = left2 + t2
+	VADDVV	V13, V4, V4
+	REDUCE_ONCE_RVV(V4, V20)
+
+	// left3 = left3 + t3
+	VADDVV	V14, V5, V5
+	REDUCE_ONCE_RVV(V5, V20)
+
+	// Store:
+	// [left0 left1 left2 left3 right0 right1 right2 right3]
+	VSSEG8E16V V2, (X16)
+
+	// zeta pointer += vl * sizeof(uint16)
+	SLL	$1, X15, X17
+	ADD	X17, X11, X11
+
+	// coefficient pointer += vl * 8 * sizeof(uint16)
+	//                     = vl * 16 bytes
+	SLL	$4, X15, X17
+	ADD	X17, X16, X16
+
+	SUB	X15, X19, X19
+	BNEZ	X19, ntt_level4_loop
+
+// -----------------------------------------------------------------------------
+// len = 2
+//
+// Each four-coefficient group:
+//
+//	[a0 a1 b0 b1]
+//
+// VLSEG4E16V produces:
+//
+//	V2 = a0 of every group
+//	V3 = a1 of every group
+//	V4 = b0 of every group
+//	V5 = b1 of every group
+//
+// There are 256/4 = 64 groups.
+// -----------------------------------------------------------------------------
+
+ntt_level2:
+	MOV	X10, X16
+	MOV	$64, X19
+
+ntt_level2_loop:
+	VSETVLI X19, E16, M1, TA, MA, X15
+
+	// One zeta per butterfly group.
+	VLE16V	(X11), V10
+
+	// V2,V3 = left
+	// V4,V5 = right
+	VLSEG4E16V (X16), V2
+
+	// V11,V12 = t0,t1
+	MONT_MUL_HILO_VV(V4, V10, V11, V20, V21)
+	MONT_MUL_HILO_VV(V5, V10, V12, V20, V21)
+
+	// right0 = left0 + q - t0
+	VADDVX	Q, V2, V4
+	VSUBVV	V11, V4, V4
+	REDUCE_ONCE_RVV(V4, V20)
+
+	// right1 = left1 + q - t1
+	VADDVX	Q, V3, V5
+	VSUBVV	V12, V5, V5
+	REDUCE_ONCE_RVV(V5, V20)
+
+	// left0 = left0 + t0
+	VADDVV	V11, V2, V2
+	REDUCE_ONCE_RVV(V2, V20)
+
+	// left1 = left1 + t1
+	VADDVV	V12, V3, V3
+	REDUCE_ONCE_RVV(V3, V20)
+
+	VSSEG4E16V V2, (X16)
+
+	// zeta pointer += vl * 2
+	SLL	$1, X15, X17
+	ADD	X17, X11, X11
+
+	// coefficient pointer += vl * 4 * sizeof(uint16)
+	//                     = vl * 8 bytes
+	SLL	$3, X15, X17
+	ADD	X17, X16, X16
+
+	SUB	X15, X19, X19
+	BNEZ	X19, ntt_level2_loop
 
 	RET
 
