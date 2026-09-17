@@ -24,6 +24,12 @@ func internalNTTMulAccRVV(acc, lhs, rhs *nttElement)
 //go:noescape
 func internalNTTMulAccKeyGenRVV(acc, lhs, rhs *nttElement)
 
+//go:noescape
+func internalNTTRVV(f *ringElement)
+
+//go:noescape
+func internalInverseNTTRVV(f *nttElement)
+
 func nttMul(acc, lhs, rhs *nttElement) {
 	nttMulGeneric(acc, lhs, rhs)
 }

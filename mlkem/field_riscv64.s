@@ -79,6 +79,38 @@
 	VANDVX Q, x, x;             \
 	VADDVV x, tmp, x
 
+// Input:
+//     va = a
+//     vb = b
+//
+// Output:
+//     va = a+t mod q
+//     vb = a-t mod q
+#define NTT_BUTTERFLY(va, vb, zeta, vt, olda, lo, m, redtmp) \
+	VMVVV va, olda;                                             \
+	MONT_MUL_HILO_VX(vb, zeta, vt, lo, m);                     \
+	VADDVV vt, olda, va;                                       \
+	REDUCE_ONCE_RVV(va, redtmp);                               \
+	VADDVX Q, olda, vb;                                        \
+	VSUBVV vt, vb, vb;                                         \
+	REDUCE_ONCE_RVV(vb, redtmp)
+
+// Input:
+//     va = a
+//     vb = b
+//
+// Output:
+//     va = a+b mod q
+//     vb = zeta*(b-a) mod q
+#define INVNTT_BUTTERFLY(va, vb, zeta, olda, diff, lo, m, redtmp) \
+	VMVVV va, olda;                                               \
+	VADDVV vb, olda, va;                                         \
+	REDUCE_ONCE_RVV(va, redtmp);                                 \
+	VADDVX Q, vb, diff;                                          \
+	VSUBVV olda, diff, diff;                                     \
+	REDUCE_ONCE_RVV(diff, redtmp);                               \
+	MONT_MUL_HILO_VX(diff, zeta, vb, lo, m)
+
 // func internalNTTMulRVV(out, lhs, rhs *nttElement)
 TEXT ·internalNTTMulRVV(SB), NOSPLIT, $0-24
 	MOV out+0(FP), X10
@@ -437,5 +469,201 @@ nttmlacc_kg_rvv_loop:
 
 	SUB X15, X14, X14
 	BNEZ X14, nttmlacc_kg_rvv_loop
+
+	RET
+
+// func internalNTTRVV(f *ringElement)
+TEXT ·internalNTTRVV(SB), NOSPLIT, $0-8
+	MOV f+0(FP), X10
+
+	// Pinned constants.
+	MOV $3329, Q
+	MOV $3327, QNEGINV
+	MOV $1, ONE
+
+	// Skip zetas[0], matching k=1.
+	MOV $·zetasMontgomery(SB), X11
+	ADD $2, X11, X11
+
+	// len = 128
+	MOV $128, X12
+
+ntt_level_loop:
+	// start = 0
+	MOV $0, X13
+
+ntt_start_loop:
+	// Load one zeta multiplier for this start group.
+	MOVHU (X11), X14
+	ADD $2, X11, X11
+
+	// leftPtr  = f + start*2
+	// rightPtr = leftPtr + len*2
+	SLL $1, X13, X15
+	ADD X10, X15, X16
+
+	SLL $1, X12, X17
+	ADD X16, X17, X18
+
+	// remaining = len
+	MOV X12, X19
+
+ntt_chunk_loop:
+	// Strip-mine this butterfly row.
+	VSETVLI X19, E16, M1, TA, MA, X15
+
+	// V2 = a
+	// V3 = b
+	VLE16V (X16), V2
+	VLE16V (X18), V3
+
+	// Registers:
+	//
+	// V2 = left/result left
+	// V3 = right/result right
+	// V4 = t
+	// V5 = old left
+	// V6 = Montgomery lo
+	// V7 = Montgomery m
+	// V8 = reduce temporary
+
+	VMVVV V2, V5
+
+	// t = b * zeta mod q
+	MONT_MUL_HILO_VX(V3, X14, V4, V6, V7)
+
+	// left = oldLeft + t mod q
+	VADDVV V4, V5, V2
+	REDUCE_ONCE_RVV(V2, V8)
+
+	// right = oldLeft - t mod q
+	//
+	// Compute oldLeft + q - t to avoid unsigned underflow.
+	VADDVX Q, V5, V3
+	VSUBVV V4, V3, V3
+	REDUCE_ONCE_RVV(V3, V8)
+
+	VSE16V V2, (X16)
+	VSE16V V3, (X18)
+
+	// Each lane consumes one uint16 from each side.
+	SLL $1, X15, X17
+
+	ADD X17, X16, X16
+	ADD X17, X18, X18
+
+	SUB X15, X19, X19
+	BNEZ X19, ntt_chunk_loop
+
+	// start += 2*len
+	SLL $1, X12, X15
+	ADD X15, X13, X13
+
+	MOV $256, X15
+	BLT X13, X15, ntt_start_loop
+
+	// len >>= 1
+	SRL $1, X12, X12
+
+	MOV $2, X15
+	BGE X12, X15, ntt_level_loop
+
+	RET
+
+// func internalInverseNTTRVV(f *ringElement)
+TEXT ·internalInverseNTTRVV(SB), NOSPLIT, $0-8
+	MOV f+0(FP), X10
+
+	MOV $3329, Q
+	MOV $3327, QNEGINV
+	MOV $1, ONE
+
+	MOV $·zetasMontgomery(SB), X11
+	ADD $254, X11, X11
+
+	// len = 2
+	MOV $2, X12
+
+invntt_level_loop:
+	MOV $0, X13
+
+invntt_start_loop:
+	MOVHU (X11), X14
+	SUB $2, X11, X11
+
+	SLL $1, X13, X15
+	ADD X10, X15, X16
+
+	SLL $1, X12, X17
+	ADD X16, X17, X18
+
+	MOV X12, X19
+
+invntt_chunk_loop:
+	VSETVLI X19, E16, M1, TA, MA, X15
+
+	VLE16V (X16), V2
+	VLE16V (X18), V3
+
+	// V2 = a
+	// V3 = b
+	// V4 = old a
+	// V5 = diff
+	// V6 = Montgomery lo
+	// V7 = Montgomery m
+	// V8 = reduce temporary
+
+	VMVVV V2, V4
+
+	// a' = a+b mod q
+	VADDVV V3, V4, V2
+	REDUCE_ONCE_RVV(V2, V8)
+
+	// diff = b-a mod q
+	VADDVX Q, V3, V5
+	VSUBVV V4, V5, V5
+	REDUCE_ONCE_RVV(V5, V8)
+
+	// b' = zeta*diff mod q
+	MONT_MUL_HILO_VX(V5, X14, V3, V6, V7)
+
+	VSE16V V2, (X16)
+	VSE16V V3, (X18)
+
+	SLL $1, X15, X17
+	ADD X17, X16, X16
+	ADD X17, X18, X18
+
+	SUB X15, X19, X19
+	BNEZ X19, invntt_chunk_loop
+
+	SLL $1, X12, X15
+	ADD X15, X13, X13
+
+	MOV $256, X15
+	BLT X13, X15, invntt_start_loop
+
+	SLL $1, X12, X12
+
+	MOV $128, X15
+	BLE X12, X15, invntt_level_loop
+
+	MOV $1441, X14
+
+	MOV $256, X19
+	MOV X10, X16
+
+invntt_scale_loop:
+	VSETVLI X19, E16, M1, TA, MA, X15
+
+	VLE16V (X16), V2
+	MONT_MUL_HILO_VX(V2, X14, V2, V6, V7)
+	VSE16V V2, (X16)
+
+	SLL $1, X15, X17
+	ADD X17, X16, X16
+
+	SUB X15, X19, X19
+	BNEZ X19, invntt_scale_loop
 
 	RET

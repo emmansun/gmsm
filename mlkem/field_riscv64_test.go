@@ -58,3 +58,39 @@ func TestNTTMulAccRVV(t *testing.T) {
 		}
 	}
 }
+
+func TestRVVForwardNTTMatchesMontgomery(t *testing.T) {
+	for i := 0; i < 200; i++ {
+		in := randomRingElement()
+		got := in
+		want := in
+
+		internalNTTRVV(&got)
+		internalMontNTT(&want)
+
+		for j := range got {
+			if got[j] != want[j] {
+				t.Fatalf("iter=%d idx=%d: forward NTT mismatch: got=%d want=%d", i, j, got[j], want[j])
+			}
+		}
+	}
+}
+
+func TestRVVInverseNTTMatchesMontgomery(t *testing.T) {
+	for i := 0; i < 200; i++ {
+		in := randomRingElement()
+		internalMontNTT(&in)
+
+		got := nttElement(in)
+		want := nttElement(in)
+
+		internalInverseNTTRVV(&got)
+		internalMontInverseNTT(&want)
+
+		for j := range got {
+			if got[j] != want[j] {
+				t.Fatalf("iter=%d idx=%d: inverse NTT mismatch: got=%d want=%d", i, j, got[j], want[j])
+			}
+		}
+	}
+}
