@@ -321,7 +321,7 @@ xorin_loop:
 	VLSE64V (X17), X18, V2
 
 	VXORVV V2, V0, V0
-	VSSE64V V0, (X17), X18
+	VSSE64V V0, X18, (X17)
 
 	// Instance 1 starts 8 bytes after instance 0.
 
@@ -331,7 +331,7 @@ xorin_loop:
 	VLSE64V (X17), X18, V2
 
 	VXORVV V2, V0, V0
-	VSSE64V V0, (X17), X18
+	VSSE64V V0, X18, (X17)
 
 	// Instance 2.
 
@@ -341,7 +341,7 @@ xorin_loop:
 	VLSE64V (X17), X18, V2
 
 	VXORVV V2, V0, V0
-	VSSE64V V0, (X17), X18
+	VSSE64V V0, X18, (X17)
 
 	// Instance 3.
 
@@ -351,7 +351,7 @@ xorin_loop:
 	VLSE64V (X17), X18, V2
 
 	VXORVV V2, V0, V0
-	VSSE64V V0, (X17), X18
+	VSSE64V V0, X18, (X17)
 
 	// Advance the four unit-stride input streams by VL*8.
 
