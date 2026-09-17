@@ -228,7 +228,7 @@
 TEXT ·permute4RVV128(SB), 0, $808-8
 	MOV state+0(FP), X10
 
-	MOV ·roundConstants(SB), X12
+	MOV $·roundConstants(SB), X12
 	MOV $1, X13
 	// The first 8 bytes of the RISCV64 local stack frame must not
 	// be used as scratch storage.
