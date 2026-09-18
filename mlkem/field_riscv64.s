@@ -1114,17 +1114,6 @@ invntt_scale_loop:
 	VORVV     hi, lo, x;               \
 	VADDVV    rnd, x, x
 
-// func decodeAndDecompressU10RVV(dst []ringElement, c []byte)
-//
-// ABI0 argument layout:
-//
-//     dst_base  0(FP)
-//     dst_len   8(FP)
-//     dst_cap  16(FP)
-//     c_base   24(FP)
-//     c_len    32(FP)
-//     c_cap    40(FP)
-//
 // Each ringElement contains 256 uint16 coefficients.
 //
 // Every five input bytes encode four 10-bit coefficients:
@@ -1196,9 +1185,6 @@ loop:
 
 	// Preserve the original byte vectors needed by more than one
 	// decoded coefficient.
-	VMVVV	V17, V21
-	VMVVV	V18, V22
-	VMVVV	V19, V23
 
 	// y0 = b0 | ((b1 & 0x03) << 8)
 	VANDVI	$3, V17, V24
@@ -1206,7 +1192,7 @@ loop:
 	VORVV	V24, V16, V16
 
 	// y1 = (b1 >> 2) | ((b2 & 0x0f) << 6)
-	VSRLVI	$2, V21, V17
+	VSRLVI	$2, V17, V17
 	VANDVI	$15, V18, V24
 	VSLLVI	$6, V24, V24
 	VORVV	V24, V17, V17
@@ -1216,13 +1202,13 @@ loop:
 	// VANDVI cannot directly encode 63. Instead:
 	//
 	//     ((b3 << 10) >> 6) == (b3 & 0x3f) << 4
-	VSRLVI	$4, V22, V18
+	VSRLVI	$4, V18, V18
 	VSLLVI	$10, V19, V24
 	VSRLVI	$6, V24, V24
 	VORVV	V24, V18, V18
 
 	// y3 = (b3 >> 6) | (b4 << 2)
-	VSRLVI	$6, V23, V19
+	VSRLVI	$6, V19, V19
 	VSLLVI	$2, V20, V24
 	VORVV	V24, V19, V19
 
