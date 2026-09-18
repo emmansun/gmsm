@@ -12,6 +12,14 @@ import (
 	"testing"
 )
 
+func benchCiphertextBytes(n int) []byte {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = byte(i*131 + 17)
+	}
+	return b
+}
+
 func TestNTTMulRVV(t *testing.T) {
 	if !hasRVV {
 		t.Skip("skipping test: RVV not available")
