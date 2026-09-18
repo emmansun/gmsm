@@ -1080,3 +1080,173 @@ invntt_scale_loop:
 	BNEZ	X19, invntt_scale_loop
 
 	RET
+
+// DECOMPRESS_U10 computes:
+//
+//     x = round(x * q / 2^10)
+//       = (x*q >> 10) + ((x*q >> 9) & 1)
+//
+// x is an unsigned 10-bit value.
+//
+// Since x < 1024 and q = 3329, x*q < 2^22. We split the 32-bit
+// product into the low and high halves:
+//
+//     x*q = hi*2^16 + lo
+//
+// Therefore:
+//
+//     (x*q >> 10) = (hi << 6) | (lo >> 10)
+//
+// The rounding bit is bit 9 of lo.
+//
+// Parameters:
+//     x    input/output vector, unsigned 16-bit lanes
+//     lo   temporary vector
+//     hi   temporary vector
+//     rnd  temporary vector
+#define DECOMPRESS_U10(x, lo, hi, rnd) \
+	VMULVX    Q, x, lo;                \
+	VMULHUVX  Q, x, hi;                \
+	VSRLVI    $9, lo, rnd;             \
+	VANDVI    $1, rnd, rnd;            \
+	VSRLVI    $10, lo, lo;             \
+	VSLLVI    $6, hi, hi;              \
+	VORVV     hi, lo, x;               \
+	VADDVV    rnd, x, x
+
+// func decodeAndDecompressU10RVV(dst []ringElement, c []byte)
+//
+// ABI0 argument layout:
+//
+//     dst_base  0(FP)
+//     dst_len   8(FP)
+//     dst_cap  16(FP)
+//     c_base   24(FP)
+//     c_len    32(FP)
+//     c_cap    40(FP)
+//
+// Each ringElement contains 256 uint16 coefficients.
+//
+// Every five input bytes encode four 10-bit coefficients:
+//
+//     y0 = b0       | (b1 & 0x03) << 8
+//     y1 = b1 >> 2  | (b2 & 0x0f) << 6
+//     y2 = b2 >> 4  | (b3 & 0x3f) << 4
+//     y3 = b3 >> 6  | b4 << 2
+//
+// VLSEG5E8V loads:
+//
+//     V8  = b0[0], b0[1], ...
+//     V9  = b1[0], b1[1], ...
+//     V10 = b2[0], b2[1], ...
+//     V11 = b3[0], b3[1], ...
+//     V12 = b4[0], b4[1], ...
+//
+// VSSEG4E16V stores:
+//
+//     y0[0], y1[0], y2[0], y3[0],
+//     y0[1], y1[1], y2[1], y3[1],
+//     ...
+TEXT ·decodeAndDecompressU10RVV(SB), NOSPLIT, $0-48
+	MOV	dst_base+0(FP), X10
+	MOV	dst_len+8(FP), X12
+	MOV	c_base+24(FP), X11
+
+	// There are 256 / 4 = 64 five-byte groups per ringElement.
+	SLLI	$6, X12, X12
+	BEQ	X12, X0, done
+
+	MOV	$3329, Q
+
+loop:
+	// Use LMUL=MF2 for the five byte vectors. Widening each MF2
+	// source produces one M1 vector containing uint16 lanes.
+	//
+	// X14 receives the actual VL.
+	VSETVLI	X12, E8, MF2, TA, MA, X14
+
+	// Load VL groups of five bytes.
+	VLSEG5E8V	(X11), V8
+
+	// Advance input by 5*VL bytes.
+	SLLI	$2, X14, X15
+	ADD	X14, X15, X15
+	ADD	X15, X11, X11
+
+	// Widen b0..b4 from uint8 MF2 to uint16 M1.
+	//
+	// Only four result vectors are needed. V12 is widened later
+	// when constructing y3.
+	VWADDUVX	X0, V8, V16
+	VWADDUVX	X0, V9, V17
+	VWADDUVX	X0, V10, V18
+	VWADDUVX	X0, V11, V19
+	VWADDUVX	X0, V12, V20
+
+	// Keep the same VL and switch to uint16 M1 arithmetic.
+	VSETVLI	X14, E16, M1, TA, MA, X0
+
+	// Inputs at this point:
+	//
+	//     V16 = b0
+	//     V17 = b1
+	//     V18 = b2
+	//     V19 = b3
+	//     V20 = b4
+
+	// Preserve the original byte vectors needed by more than one
+	// decoded coefficient.
+	VMVVV	V17, V21
+	VMVVV	V18, V22
+	VMVVV	V19, V23
+
+	// y0 = b0 | ((b1 & 0x03) << 8)
+	VANDVI	$3, V17, V24
+	VSLLVI	$8, V24, V24
+	VORVV	V24, V16, V16
+
+	// y1 = (b1 >> 2) | ((b2 & 0x0f) << 6)
+	VSRLVI	$2, V21, V17
+	VANDVI	$15, V18, V24
+	VSLLVI	$6, V24, V24
+	VORVV	V24, V17, V17
+
+	// y2 = (b2 >> 4) | ((b3 & 0x3f) << 4)
+	//
+	// VANDVI cannot directly encode 63. Instead:
+	//
+	//     ((b3 << 10) >> 6) == (b3 & 0x3f) << 4
+	VSRLVI	$4, V22, V18
+	VSLLVI	$10, V19, V24
+	VSRLVI	$6, V24, V24
+	VORVV	V24, V18, V18
+
+	// y3 = (b3 >> 6) | (b4 << 2)
+	VSRLVI	$6, V23, V19
+	VSLLVI	$2, V20, V24
+	VORVV	V24, V19, V19
+
+	// Decompress all four unsigned 10-bit vectors.
+	//
+	// V24-V26 are shared temporaries. Each macro invocation
+	// completes before the next invocation starts.
+	DECOMPRESS_U10(V16, V24, V25, V26)
+	DECOMPRESS_U10(V17, V24, V25, V26)
+	DECOMPRESS_U10(V18, V24, V25, V26)
+	DECOMPRESS_U10(V19, V24, V25, V26)
+
+	// Store four uint16 values for each encoded five-byte group:
+	//
+	//     V16[0], V17[0], V18[0], V19[0],
+	//     V16[1], V17[1], V18[1], V19[1], ...
+	VSSEG4E16V	V16, (X10)
+
+	// Four uint16 values consume eight bytes per group.
+	SLLI	$3, X14, X15
+	ADD	X15, X10, X10
+
+	SUB	X14, X12, X12
+	BNE	X12, X0, loop
+
+done:
+	RET

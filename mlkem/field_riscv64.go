@@ -39,6 +39,9 @@ func internalNTTRVV(f *ringElement)
 //go:noescape
 func internalInverseNTTRVV(f *nttElement)
 
+//go:noescape
+func decodeAndDecompressU10RVV(dst []ringElement, c []byte)
+
 func nttMul(acc, lhs, rhs *nttElement) {
 	if hasRVV {
 		internalNTTMulRVV(acc, lhs, rhs)
@@ -80,6 +83,10 @@ func internalInverseNTT(f *nttElement) {
 }
 
 func decodeAndDecompressU10(dst []ringElement, c []byte) {
+	if hasRVV {
+		decodeAndDecompressU10RVV(dst, c)
+		return
+	}
 	decodeAndDecompressU10Generic(dst, c)
 }
 
