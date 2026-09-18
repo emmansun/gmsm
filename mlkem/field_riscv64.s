@@ -1114,6 +1114,10 @@ invntt_scale_loop:
 	VORVV     hi, lo, x;               \
 	VADDVV    rnd, x, x
 
+#define DECOMPRESS_U10_V2(x, tmp) \
+	VWMULVX  Q, x, tmp; \
+	VNCLIPUWI $10, tmp, x	
+
 // Each ringElement contains 256 uint16 coefficients.
 //
 // Every five input bytes encode four 10-bit coefficients:
@@ -1146,6 +1150,8 @@ TEXT ·decodeAndDecompressU10RVV(SB), NOSPLIT, $0-48
 	BEQ	X12, X0, done
 
 	MOV	$3329, Q
+	CSRRS  X0, VXRM, X31
+	CSRRWI $1, VXRM, X0
 
 loop:
 	// Use LMUL=MF2 for the five byte vectors. Widening each MF2
@@ -1216,10 +1222,10 @@ loop:
 	//
 	// V24-V26 are shared temporaries. Each macro invocation
 	// completes before the next invocation starts.
-	DECOMPRESS_U10(V16, V24, V25, V26)
-	DECOMPRESS_U10(V17, V24, V25, V26)
-	DECOMPRESS_U10(V18, V24, V25, V26)
-	DECOMPRESS_U10(V19, V24, V25, V26)
+	DECOMPRESS_U10_V2(V16, V24)
+	DECOMPRESS_U10_V2(V17, V24)
+	DECOMPRESS_U10_V2(V18, V24)
+	DECOMPRESS_U10_V2(V19, V24)
 
 	// Store four uint16 values for each encoded five-byte group:
 	//
@@ -1235,4 +1241,5 @@ loop:
 	BNE	X12, X0, loop
 
 done:
+	CSRW   X31, VXRM
 	RET
