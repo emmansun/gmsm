@@ -1145,12 +1145,13 @@ TEXT ·decodeAndDecompressU10RVV(SB), NOSPLIT, $0-48
 	MOV	dst_len+8(FP), X12
 	MOV	c_base+24(FP), X11
 
+	CSRRWI $0, VXRM, X31 // VXRM = 0: RNU, round-to-nearest-up
+
 	// There are 256 / 4 = 64 five-byte groups per ringElement.
 	SLLI	$6, X12, X12
 	BEQ	X12, X0, done
 
 	MOV	$3329, Q
-	CSRRWI $0, VXRM, X31 // VXRM = 0: RNU, round-to-nearest-up
 
 loop:
 	// Use LMUL=MF2 for the five byte vectors. Widening each MF2
