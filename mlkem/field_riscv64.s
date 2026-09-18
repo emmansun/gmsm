@@ -1171,11 +1171,11 @@ loop:
 	//
 	// Only four result vectors are needed. V12 is widened later
 	// when constructing y3.
-	VZEXTVF2	V8, V16
-	VZEXTVF2	V9, V17
-	VZEXTVF2	V10, V18
-	VZEXTVF2	V11, V19
-	VZEXTVF2	V12, V20
+	VWADDUVX	X0, V8, V16
+	VWADDUVX	X0, V9, V17
+	VWADDUVX	X0, V10, V18
+	VWADDUVX	X0, V11, V19
+	VWADDUVX	X0, V12, V20
 
 	// Keep the same VL and switch to uint16 M1 arithmetic.
 	VSETVLI	X14, E16, M1, TA, MA, X0
