@@ -751,8 +751,7 @@ TEXT ·internalInverseNTTRVV(SB), NOSPLIT, $0-8
 	MOV $3327, QNEGINV
 	MOV $1, ONE
 
-	MOV $·zetasMontgomery(SB), X11
-	ADD $254, X11, X11
+	MOV $·zetasMontgomeryInverse(SB), X11
 
 	// len = 2
 	MOV $2, X12
@@ -762,7 +761,7 @@ invntt_level_loop:
 
 invntt_start_loop:
 	MOVHU (X11), X14
-	SUB $2, X11, X11
+	ADD $2, X11, X11
 
 	SLL $1, X13, X15
 	ADD X10, X15, X16

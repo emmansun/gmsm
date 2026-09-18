@@ -16,6 +16,14 @@ import (
 
 var hasRVV = cpu.RISCV64.HasV
 
+var zetasMontgomeryInverse [127]fieldElement
+
+func init() {
+	for i := 0; i < 127; i++ {
+		zetasMontgomeryInverse[i] = zetasMontgomery[127-i]
+	}
+}
+
 //go:noescape
 func internalNTTMulRVV(out, lhs, rhs *nttElement)
 
