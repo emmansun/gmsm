@@ -745,97 +745,338 @@ ntt_level2_loop:
 
 // func internalInverseNTTRVV(f *ringElement)
 TEXT ·internalInverseNTTRVV(SB), NOSPLIT, $0-8
-	MOV f+0(FP), X10
+	MOV	f+0(FP), X10
 
-	MOV $3329, Q
-	MOV $3327, QNEGINV
-	MOV $1, ONE
+	// Pinned Montgomery constants.
+	MOV	$3329, Q
+	MOV	$3327, QNEGINV
+	MOV	$1, ONE
 
-	MOV $·zetasMontgomeryInverse(SB), X11
+	// Inverse twiddles are stored in exact consumption order:
+	//
+	//	zetasMontgomery[127],
+	//	zetasMontgomery[126],
+	//	...
+	//	zetasMontgomery[1].
+	//
+	// Therefore both scalar and vector paths advance X11 forward.
+	MOV	$·zetasMontgomeryInverse(SB), X11
 
-	// len = 2
-	MOV $2, X12
+// -----------------------------------------------------------------------------
+// len = 2
+//
+// Each four-coefficient group is:
+//
+//	[a0 a1 b0 b1]
+//
+// VLSEG4E16V transposes multiple groups into:
+//
+//	V2 = a0 across groups
+//	V3 = a1 across groups
+//	V4 = b0 across groups
+//	V5 = b1 across groups
+//
+// Each vector lane processes one independent four-coefficient group.
+// There are 256/4 = 64 groups.
+//
+// Inverse butterfly:
+//
+//	outA = a + b mod q
+//	diff = b - a mod q
+//	outB = MontMul(diff, zeta)
+// -----------------------------------------------------------------------------
 
-invntt_level_loop:
-	MOV $0, X13
+	MOV	X10, X16			// coefficient pointer
+	MOV	$64, X19			// remaining groups
 
-invntt_start_loop:
-	MOVHU (X11), X14
-	ADD $2, X11, X11
-
-	SLL $1, X13, X15
-	ADD X10, X15, X16
-
-	SLL $1, X12, X17
-	ADD X16, X17, X18
-
-	MOV X12, X19
-
-invntt_chunk_loop:
+invntt_level2_loop:
+	// Each lane represents one four-coefficient group.
 	VSETVLI X19, E16, M1, TA, MA, X15
 
-	VLE16V (X16), V2
-	VLE16V (X18), V3
+	// Load one inverse zeta per group.
+	VLE16V	(X11), V10
 
-	// V2 = a
-	// V3 = b
-	// V4 = old a
-	// V5 = diff
-	// V6 = Montgomery lo
-	// V7 = Montgomery m
-	// V8 = reduce temporary
+	// V2,V3 = a0,a1
+	// V4,V5 = b0,b1
+	VLSEG4E16V (X16), V2
 
-	VMVVV V2, V4
+	// Preserve the original a values because a' overwrites V2,V3.
+	VMVVV	V2, V6
+	VMVVV	V3, V7
 
-	// a' = a+b mod q
-	VADDVV V3, V4, V2
+	// a0' = a0 + b0 mod q
+	VADDVV	V4, V2, V2
+	REDUCE_ONCE_RVV(V2, V20)
+
+	// a1' = a1 + b1 mod q
+	VADDVV	V5, V3, V3
+	REDUCE_ONCE_RVV(V3, V20)
+
+	// diff0 = b0 - oldA0 mod q
+	//
+	// Compute b0 + q - oldA0 to avoid uint16 underflow.
+	VADDVX	Q, V4, V8
+	VSUBVV	V6, V8, V8
+	REDUCE_ONCE_RVV(V8, V20)
+
+	// diff1 = b1 - oldA1 mod q
+	VADDVX	Q, V5, V9
+	VSUBVV	V7, V9, V9
+	REDUCE_ONCE_RVV(V9, V20)
+
+	// b0' = MontMul(diff0, zeta)
+	// b1' = MontMul(diff1, zeta)
+	MONT_MUL_HILO_VV(V8, V10, V4, V20, V21)
+	MONT_MUL_HILO_VV(V9, V10, V5, V20, V21)
+
+	// Store:
+	//
+	//	[a0' a1' b0' b1']
+	VSSEG4E16V V2, (X16)
+
+	// Advance inverse zeta pointer by vl uint16 values.
+	SLL	$1, X15, X17
+	ADD	X17, X11, X11
+
+	// Advance coefficient pointer:
+	//
+	//	vl groups × 4 coefficients × 2 bytes
+	//	= vl × 8 bytes.
+	SLL	$3, X15, X17
+	ADD	X17, X16, X16
+
+	SUB	X15, X19, X19
+	BNEZ	X19, invntt_level2_loop
+
+	// len=2 consumed:
+	//
+	//	zetasMontgomeryInverse[0:64]
+	//
+	// X11 now points to zetasMontgomeryInverse[64].
+
+
+// -----------------------------------------------------------------------------
+// len = 4
+//
+// Each eight-coefficient group is:
+//
+//	[a0 a1 a2 a3 b0 b1 b2 b3]
+//
+// VLSEG8E16V transposes multiple groups into:
+//
+//	V2 = a0 across groups
+//	V3 = a1 across groups
+//	V4 = a2 across groups
+//	V5 = a3 across groups
+//	V6 = b0 across groups
+//	V7 = b1 across groups
+//	V8 = b2 across groups
+//	V9 = b3 across groups
+//
+// Each lane processes one independent eight-coefficient group.
+// There are 256/8 = 32 groups.
+// -----------------------------------------------------------------------------
+
+	MOV	X10, X16			// coefficient pointer
+	MOV	$32, X19			// remaining groups
+
+invntt_level4_loop:
+	// E16/M1 is required here because NFIELDS=8 and LMUL=1.
+	VSETVLI X19, E16, M1, TA, MA, X15
+
+	// Load one inverse zeta per group.
+	VLE16V	(X11), V10
+
+	// V2..V5 = a0..a3
+	// V6..V9 = b0..b3
+	VLSEG8E16V (X16), V2
+
+	// Preserve old a0..a3.
+	VMVVV	V2, V11
+	VMVVV	V3, V12
+	VMVVV	V4, V13
+	VMVVV	V5, V14
+
+	// a0' = a0 + b0 mod q
+	VADDVV	V6, V2, V2
+	REDUCE_ONCE_RVV(V2, V20)
+
+	// a1' = a1 + b1 mod q
+	VADDVV	V7, V3, V3
+	REDUCE_ONCE_RVV(V3, V20)
+
+	// a2' = a2 + b2 mod q
+	VADDVV	V8, V4, V4
+	REDUCE_ONCE_RVV(V4, V20)
+
+	// a3' = a3 + b3 mod q
+	VADDVV	V9, V5, V5
+	REDUCE_ONCE_RVV(V5, V20)
+
+	// diff0 = b0 - oldA0 mod q
+	VADDVX	Q, V6, V15
+	VSUBVV	V11, V15, V15
+	REDUCE_ONCE_RVV(V15, V20)
+
+	// diff1 = b1 - oldA1 mod q
+	VADDVX	Q, V7, V16
+	VSUBVV	V12, V16, V16
+	REDUCE_ONCE_RVV(V16, V20)
+
+	// diff2 = b2 - oldA2 mod q
+	VADDVX	Q, V8, V17
+	VSUBVV	V13, V17, V17
+	REDUCE_ONCE_RVV(V17, V20)
+
+	// diff3 = b3 - oldA3 mod q
+	VADDVX	Q, V9, V18
+	VSUBVV	V14, V18, V18
+	REDUCE_ONCE_RVV(V18, V20)
+
+	// b0'..b3' = MontMul(diff0..diff3, zeta)
+	MONT_MUL_HILO_VV(V15, V10, V6, V20, V21)
+	MONT_MUL_HILO_VV(V16, V10, V7, V20, V21)
+	MONT_MUL_HILO_VV(V17, V10, V8, V20, V21)
+	MONT_MUL_HILO_VV(V18, V10, V9, V20, V21)
+
+	// Store:
+	//
+	//	[a0' a1' a2' a3' b0' b1' b2' b3']
+	VSSEG8E16V V2, (X16)
+
+	// Advance inverse zeta pointer by vl uint16 values.
+	SLL	$1, X15, X17
+	ADD	X17, X11, X11
+
+	// Advance coefficient pointer:
+	//
+	//	vl groups × 8 coefficients × 2 bytes
+	//	= vl × 16 bytes.
+	SLL	$4, X15, X17
+	ADD	X17, X16, X16
+
+	SUB	X15, X19, X19
+	BNEZ	X19, invntt_level4_loop
+
+	// len=4 consumed:
+	//
+	//	zetasMontgomeryInverse[64:96]
+	//
+	// X11 now points to zetasMontgomeryInverse[96].
+
+
+// -----------------------------------------------------------------------------
+// Generic levels:
+//
+//	len = 8, 16, 32, 64, 128
+//
+// For these levels, each butterfly row contains enough contiguous
+// coefficients for the unit-stride strip-mined kernel.
+// -----------------------------------------------------------------------------
+
+	MOV	$8, X12
+
+invntt_level_loop:
+	MOV	$0, X13			// start = 0
+
+invntt_start_loop:
+	// One zeta per start group.
+	MOVHU	(X11), X14
+	ADD	$2, X11, X11
+
+	// leftPtr = f + start*2
+	SLL	$1, X13, X15
+	ADD	X10, X15, X16
+
+	// rightPtr = leftPtr + len*2
+	SLL	$1, X12, X17
+	ADD	X16, X17, X18
+
+	MOV	X12, X19			// remaining = len
+
+invntt_chunk_loop:
+	// Strip-mine one inverse butterfly row.
+	VSETVLI X19, E16, M1, TA, MA, X15
+
+	VLE16V	(X16), V2			// a
+	VLE16V	(X18), V3			// b
+
+	// Preserve old a.
+	VMVVV	V2, V4
+
+	// a' = a + b mod q
+	VADDVV	V3, V4, V2
 	REDUCE_ONCE_RVV(V2, V8)
 
-	// diff = b-a mod q
-	VADDVX Q, V3, V5
-	VSUBVV V4, V5, V5
+	// diff = b - a mod q
+	//
+	// Compute b + q - oldA to avoid uint16 underflow.
+	VADDVX	Q, V3, V5
+	VSUBVV	V4, V5, V5
 	REDUCE_ONCE_RVV(V5, V8)
 
-	// b' = zeta*diff mod q
+	// b' = zeta * diff mod q
 	MONT_MUL_HILO_VX(V5, X14, V3, V6, V7)
 
-	VSE16V V2, (X16)
-	VSE16V V3, (X18)
+	VSE16V	V2, (X16)
+	VSE16V	V3, (X18)
 
-	SLL $1, X15, X17
-	ADD X17, X16, X16
-	ADD X17, X18, X18
+	// Each lane consumes one uint16 from each side.
+	SLL	$1, X15, X17
+	ADD	X17, X16, X16
+	ADD	X17, X18, X18
 
-	SUB X15, X19, X19
-	BNEZ X19, invntt_chunk_loop
+	SUB	X15, X19, X19
+	BNEZ	X19, invntt_chunk_loop
 
-	SLL $1, X12, X15
-	ADD X15, X13, X13
+	// start += 2*len
+	SLL	$1, X12, X15
+	ADD	X15, X13, X13
 
-	MOV $256, X15
-	BLT X13, X15, invntt_start_loop
+	MOV	$256, X15
+	BLT	X13, X15, invntt_start_loop
 
-	SLL $1, X12, X12
+	// len <<= 1
+	SLL	$1, X12, X12
 
-	MOV $128, X15
-	BLE X12, X15, invntt_level_loop
+	MOV	$128, X15
+	BLE	X12, X15, invntt_level_loop
 
-	MOV $1441, X14
+	// All 127 inverse zetas have now been consumed:
+	//
+	//	len=2:   64
+	//	len=4:   32
+	//	len=8:   16
+	//	len=16:   8
+	//	len=32:   4
+	//	len=64:   2
+	//	len=128:  1
+	//
+	//	total: 127
 
-	MOV $256, X19
-	MOV X10, X16
+
+// -----------------------------------------------------------------------------
+// Final inverse scaling.
+//
+// 1441 is the Montgomery-domain scale used by the existing implementation.
+// -----------------------------------------------------------------------------
+
+	MOV	$1441, X14
+
+	MOV	$256, X19
+	MOV	X10, X16
 
 invntt_scale_loop:
 	VSETVLI X19, E16, M1, TA, MA, X15
 
-	VLE16V (X16), V2
+	VLE16V	(X16), V2
 	MONT_MUL_HILO_VX(V2, X14, V2, V6, V7)
-	VSE16V V2, (X16)
+	VSE16V	V2, (X16)
 
-	SLL $1, X15, X17
-	ADD X17, X16, X16
+	SLL	$1, X15, X17
+	ADD	X17, X16, X16
 
-	SUB X15, X19, X19
-	BNEZ X19, invntt_scale_loop
+	SUB	X15, X19, X19
+	BNEZ	X19, invntt_scale_loop
 
 	RET
