@@ -94,3 +94,220 @@ func TestRVVInverseNTTMatchesMontgomery(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkNTTForward(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		elem := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := elem
+			internalNTTGeneric(&elem2)
+		}
+	})
+
+	b.Run("RVV", func(b *testing.B) {
+		elem := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := elem
+			internalNTTRVV(&elem2)
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		elem := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := elem
+			internalNTT(&elem2)
+		}
+	})
+}
+
+func BenchmarkNTTInverse(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		elem := randomRingElement()
+		internalNTTGeneric(&elem)
+		ntElem := nttElement(elem)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := ntElem
+			internalInverseNTTGeneric(&elem2)
+		}
+	})
+
+	b.Run("RVV", func(b *testing.B) {
+		elem := randomRingElement()
+		internalNTTRVV(&elem)
+		ntElem := nttElement(elem)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := ntElem
+			internalInverseNTTRVV(&elem2)
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		elem := randomRingElement()
+		internalNTT(&elem)
+		ntElem := nttElement(elem)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := ntElem
+			internalInverseNTT(&elem2)
+		}
+	})
+}
+
+func BenchmarkNTTRoundTrip(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		elem := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := elem
+			internalNTTGeneric(&elem2)
+			internalInverseNTTGeneric((*nttElement)(&elem2))
+		}
+	})
+
+	b.Run("RVV", func(b *testing.B) {
+		elem := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := elem
+			internalNTTRVV(&elem2)
+			internalInverseNTTRVV((*nttElement)(&elem2))
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		elem := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			elem2 := elem
+			internalNTT(&elem2)
+			internalInverseNTT((*nttElement)(&elem2))
+		}
+	})
+}
+
+func BenchmarkNTTMulAcc(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		lhs := randomRingElement()
+		rhs := randomRingElement()
+		acc := randomRingElement()
+		internalNTTGeneric(&lhs)
+		internalNTTGeneric(&rhs)
+		internalNTTGeneric(&acc)
+		nlhs := nttElement(lhs)
+		nrhs := nttElement(rhs)
+		nacc := nttElement(acc)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := nacc
+			nttMulAccGeneric(&acc2, &nlhs, &nrhs)
+		}
+	})
+
+	b.Run("RVV", func(b *testing.B) {
+		lhs := randomRingElement()
+		rhs := randomRingElement()
+		acc := randomRingElement()
+		internalNTTRVV(&lhs)
+		internalNTTRVV(&rhs)
+		internalNTTRVV(&acc)
+		nlhs := nttElement(lhs)
+		nrhs := nttElement(rhs)
+		nacc := nttElement(acc)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := nacc
+			internalNTTMulAccRVV(&acc2, &nlhs, &nrhs)
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		lhs := randomRingElement()
+		rhs := randomRingElement()
+		acc := randomRingElement()
+		internalNTT(&lhs)
+		internalNTT(&rhs)
+		internalNTT(&acc)
+		nlhs := nttElement(lhs)
+		nrhs := nttElement(rhs)
+		nacc := nttElement(acc)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := nacc
+			nttMulAcc(&acc2, &nlhs, &nrhs)
+		}
+	})
+}
+
+func BenchmarkNTTMulAccKeyGen(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		lhs := randomRingElement()
+		rhs := randomRingElement()
+		acc := randomRingElement()
+		internalNTTGeneric(&lhs)
+		internalNTTGeneric(&rhs)
+		internalNTTGeneric(&acc)
+		nlhs := nttElement(lhs)
+		nrhs := nttElement(rhs)
+		nacc := nttElement(acc)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := nacc
+			nttMulAccGeneric(&acc2, &nlhs, &nrhs)
+		}
+	})
+
+	b.Run("RVV", func(b *testing.B) {
+		lhs := randomRingElement()
+		rhs := randomRingElement()
+		acc := randomRingElement()
+		internalNTTRVV(&lhs)
+		internalNTTRVV(&rhs)
+		internalNTTRVV(&acc)
+		nlhs := nttElement(lhs)
+		nrhs := nttElement(rhs)
+		nacc := nttElement(acc)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := nacc
+			internalNTTMulAccKeyGenRVV(&acc2, &nlhs, &nrhs)
+		}
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		lhs := randomRingElement()
+		rhs := randomRingElement()
+		acc := randomRingElement()
+		internalNTT(&lhs)
+		internalNTT(&rhs)
+		internalNTT(&acc)
+		nlhs := nttElement(lhs)
+		nrhs := nttElement(rhs)
+		nacc := nttElement(acc)
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			acc2 := nacc
+			nttMulAccKeyGen(&acc2, &nlhs, &nrhs)
+		}
+	})
+}
