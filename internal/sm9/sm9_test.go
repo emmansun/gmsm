@@ -162,12 +162,12 @@ func TestWrapKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	key, cipher, err := masterKey.PublicKey().WrapKey(rand.Reader, uid, hid, 16)
+	key, cipher, err := masterKey.PublicKey().WrapKey(rand.Reader, uid, hid, 16, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	key2, err := userKey.UnwrapKey(uid, cipher, 16)
+	key2, err := userKey.UnwrapKey(uid, cipher, 16, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +176,7 @@ func TestWrapKey(t *testing.T) {
 		t.Errorf("expected %x, got %x", key, key2)
 	}
 
-	key2, err = userKey.UnwrapKey(uid, cipher[1:], 16)
+	key2, err = userKey.UnwrapKey(uid, cipher[1:], 16, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,11 +186,11 @@ func TestWrapKey(t *testing.T) {
 	}
 
 	cipher[0] = 0
-	_, err = userKey.UnwrapKey(uid, cipher, 16)
+	_, err = userKey.UnwrapKey(uid, cipher, 16, 16)
 	if err != ErrDecryption {
 		t.Errorf("expected ErrDecryption, got %v", err)
 	}
-	_, err = userKey.UnwrapKey(uid, nil, 16)
+	_, err = userKey.UnwrapKey(uid, nil, 16, 16)
 	if err != ErrDecryption {
 		t.Errorf("expected ErrDecryption, got %v", err)
 	}
@@ -253,7 +253,7 @@ func TestWrapKeySM9Sample(t *testing.T) {
 		t.Errorf("expected %v, got %v\n", expectedKey, hex.EncodeToString(key))
 	}
 
-	key2, err := userKey.UnwrapKey(uid, cipher.MarshalUncompressed(), 32)
+	key2, err := userKey.UnwrapKey(uid, cipher.MarshalUncompressed(), 32, 32)
 	if err != nil {
 		t.Fatal(err)
 	}

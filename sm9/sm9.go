@@ -126,7 +126,7 @@ func (pub *SignMasterPublicKey) Verify(uid []byte, hid byte, hash, sig []byte) b
 // calls this function twice doesn't result in the same key.
 // Most applications should use [crypto/rand.Reader] as random.
 func WrapKey(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, kLen int) ([]byte, []byte, error) {
-	return pub.internal.WrapKey(rand, uid, hid, kLen)
+	return pub.internal.WrapKey(rand, uid, hid, kLen, kLen)
 }
 
 // WrapKey wraps key and converts the cipher as ASN1 format, SM9PublicKey1 definition.
@@ -202,7 +202,7 @@ const (
 
 // UnwrapKey unwraps key from cipher, user id and aligned key length
 func UnwrapKey(priv *EncryptPrivateKey, uid, cipher []byte, kLen int) ([]byte, error) {
-	return priv.internal.UnwrapKey(uid, cipher, kLen)
+	return priv.internal.UnwrapKey(uid, cipher, kLen, kLen)
 }
 
 // UnwrapKey unwraps key from cipherDer, user id and aligned key length.
@@ -235,7 +235,7 @@ func encrypt(rand io.Reader, pub *EncryptMasterPublicKey, uid []byte, hid byte, 
 		return nil, nil, nil, ErrEmptyPlaintext
 	}
 	key1Len := opts.GetKeySize(plaintext)
-	key, c1, err := WrapKey(rand, pub, uid, hid, key1Len+sm3.Size)
+	key, c1, err := pub.internal.WrapKey(rand, uid, hid, key1Len+sm3.Size, key1Len)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -298,7 +298,7 @@ func Decrypt(priv *EncryptPrivateKey, uid, ciphertext []byte, opts EncrypterOpts
 
 func decrypt(priv *EncryptPrivateKey, uid, c1, c2, c3 []byte, opts EncrypterOpts) ([]byte, error) {
 	key1Len := opts.GetKeySize(c2)
-	key, err := UnwrapKey(priv, uid, c1, key1Len+sm3.Size)
+	key, err := priv.internal.UnwrapKey(uid, c1, key1Len+sm3.Size, key1Len)
 	if err != nil {
 		return nil, err
 	}

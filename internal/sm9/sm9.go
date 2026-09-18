@@ -177,12 +177,19 @@ func (pub *SignMasterPublicKey) Verify(uid []byte, hid byte, hash, h, S []byte) 
 // - uid: a byte slice representing the user ID.
 // - hid: a byte representing the hash ID.
 // - kLen: an integer specifying the desired key length.
+// - zeroCheckLen: an integer specifying the length of the key portion to check for non-zero values.
 //
 // Returns:
 // - A byte slice containing the generated key.
 // - A byte slice containing the uncompressed ciphertext.
 // - An error if any occurs during the key wrapping process.
-func (pub *EncryptMasterPublicKey) WrapKey(rand io.Reader, uid []byte, hid byte, kLen int) (key []byte, cipher []byte, err error) {
+func (pub *EncryptMasterPublicKey) WrapKey(rand io.Reader, uid []byte, hid byte, kLen, zeroCheckLen int) (key []byte, cipher []byte, err error) {
+	if kLen <= 0 {
+		return nil, nil, errors.New("sm9: invalid key length for wrapping")
+	}
+	if zeroCheckLen > kLen || zeroCheckLen <= 0 {
+		zeroCheckLen = kLen
+	}
 	q := pub.GenerateUserPublicKey(uid, hid)
 	var (
 		r *bigmod.Nat
@@ -211,7 +218,7 @@ func (pub *EncryptMasterPublicKey) WrapKey(rand io.Reader, uid []byte, hid byte,
 		buffer = append(buffer, uid...)
 
 		key = sm3.Kdf(buffer, kLen)
-		if subtle.ConstantTimeAllZero(key) == 0 {
+		if subtle.ConstantTimeAllZero(key[:zeroCheckLen]) == 0 {
 			break
 		}
 	}
@@ -221,7 +228,13 @@ func (pub *EncryptMasterPublicKey) WrapKey(rand io.Reader, uid []byte, hid byte,
 
 // UnwrapKey decrypts the given cipher text using the private key and user ID (uid).
 // It returns the decrypted key of the specified length (kLen) or an error if decryption fails.
-func (priv *EncryptPrivateKey) UnwrapKey(uid, cipher []byte, kLen int) (key []byte, err error) {
+func (priv *EncryptPrivateKey) UnwrapKey(uid, cipher []byte, kLen, zeroCheckLen int) (key []byte, err error) {
+	if kLen <= 0 {
+		return nil, errors.New("sm9: invalid key length for unwrapping")
+	}
+	if zeroCheckLen > kLen || zeroCheckLen <= 0 {
+		zeroCheckLen = kLen
+	}
 	numBytes := 2 * len(bn256.OrderBytes)
 	if len(cipher) == numBytes+1 && cipher[0] == 4 {
 		cipher = cipher[1:]
@@ -242,7 +255,7 @@ func (priv *EncryptPrivateKey) UnwrapKey(uid, cipher []byte, kLen int) (key []by
 	buffer = append(buffer, uid...)
 
 	key = sm3.Kdf(buffer, kLen)
-	if subtle.ConstantTimeAllZero(key) == 1 {
+	if subtle.ConstantTimeAllZero(key[:zeroCheckLen]) == 1 {
 		return nil, ErrDecryption
 	}
 	return
