@@ -1150,8 +1150,7 @@ TEXT ·decodeAndDecompressU10RVV(SB), NOSPLIT, $0-48
 	BEQ	X12, X0, done
 
 	MOV	$3329, Q
-	CSRRS  X0, VXRM, X31
-	CSRRWI $1, VXRM, X0
+	CSRRWI $0, VXRM, X31 // VXRM = 0: RNU, round-to-nearest-up
 
 loop:
 	// Use LMUL=MF2 for the five byte vectors. Widening each MF2
