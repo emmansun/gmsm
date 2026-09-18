@@ -1243,3 +1243,228 @@ loop:
 
 done:
 	RET
+
+#define DECOMPRESS_U11_V2(x, tmp) \
+	VWMULUVX Q, x, tmp;            \
+	VNCLIPUWI $11, tmp, x
+
+// Each ringElement contains 256 uint16 coefficients.
+//
+// Every eleven input bytes encode eight 11-bit coefficients:
+//
+//     y0 = b0       | (b1 & 0x07) << 8
+//     y1 = b1 >> 3  | (b2 & 0x3f) << 5
+//     y2 = b2 >> 6  | b3 << 2 | (b4 & 0x01) << 10
+//     y3 = b4 >> 1  | (b5 & 0x0f) << 7
+//     y4 = b5 >> 4  | (b6 & 0x7f) << 4
+//     y5 = b6 >> 7  | b7 << 1 | (b8 & 0x03) << 9
+//     y6 = b8 >> 2  | (b9 & 0x1f) << 6
+//     y7 = b9 >> 5  | b10 << 3
+//
+// There are 256 / 8 = 32 eleven-byte groups per ringElement.
+//
+// Because RVV segment loads support at most NF=8, this kernel uses
+// eleven strided byte loads with a stride of eleven bytes:
+//
+//     V16 = b0[0],  b0[1],  ...
+//     V17 = b1[0],  b1[1],  ...
+//     ...
+//     V26 = b10[0], b10[1], ...
+//
+// VSSEG8E16V stores:
+//
+//     y0[0], y1[0], ..., y7[0],
+//     y0[1], y1[1], ..., y7[1],
+//     ...
+TEXT ·decodeAndDecompressU11RVV(SB), NOSPLIT, $0-48
+	MOV	dst_base+0(FP), X10
+	MOV	dst_len+8(FP), X12
+	MOV	c_base+24(FP), X11
+
+	// There are 32 eleven-byte groups per ringElement.
+	SLLI	$5, X12, X12
+	BEQ	X12, X0, ret
+
+	MOV	$3329, Q
+	MOV	$11, X13
+
+	// Save the original VXRM and select RNU.
+	CSRRWI	$0, VXRM, X31
+
+loop:
+	// Each byte vector uses E8/MF2. Widening produces E16/M1.
+	VSETVLI	X12, E8, MF2, TA, MA, X14
+
+	// Load b0 from every eleven-byte group and widen it.
+	MOV	X11, X15
+
+	VLSE8V	(X15), X13, V8
+	VWADDUVX X0, V8, V16
+	ADDI	$1, X15, X15
+
+	// Load and widen b1.
+	VLSE8V	(X15), X13, V8
+	VWADDUVX X0, V8, V17
+	ADDI	$1, X15, X15
+
+	// Load and widen b2.
+	VLSE8V	(X15), X13, V8
+	VWADDUVX X0, V8, V18
+	ADDI	$1, X15, X15
+
+	// Load and widen b3.
+	VLSE8V	(X15), X13, V8
+	VWADDUVX X0, V8, V19
+	ADDI	$1, X15, X15
+
+	// Load and widen b4.
+	VLSE8V	(X15), X13, V8
+	VWADDUVX X0, V8, V20
+	ADDI	$1, X15, X15
+
+	// Load and widen b5.
+	VLSE8V	(X15), X13, V8
+	VWADDUVX X0, V8, V21
+	ADDI	$1, X15, X15
+
+	// Load and widen b6.
+	VLSE8V	(X15), X13, V8
+	VWADDUVX X0, V8, V22
+	ADDI	$1, X15, X15
+
+	// Load and widen b7.
+	VLSE8V	(X15), X13, V8
+	VWADDUVX X0, V8, V23
+	ADDI	$1, X15, X15
+
+	// Load and widen b8.
+	VLSE8V	(X15), X13, V8
+	VWADDUVX X0, V8, V24
+	ADDI	$1, X15, X15
+
+	// Load and widen b9.
+	VLSE8V	(X15), X13, V8
+	VWADDUVX X0, V8, V25
+	ADDI	$1, X15, X15
+
+	// Load and widen b10.
+	VLSE8V	(X15), X13, V8
+	VWADDUVX X0, V8, V26
+
+	// Advance the input pointer by 11*VL bytes.
+	SLLI	$3, X14, X15
+	SLLI	$1, X14, X28
+	ADD	X28, X15, X15
+	ADD	X14, X15, X15
+	ADD	X15, X11, X11
+
+	// Keep the same VL and switch to E16/M1 arithmetic.
+	VSETVLI	X14, E16, M1, TA, MA, X0
+
+	// Inputs:
+	//
+	//     V16 = b0
+	//     V17 = b1
+	//     V18 = b2
+	//     V19 = b3
+	//     V20 = b4
+	//     V21 = b5
+	//     V22 = b6
+	//     V23 = b7
+	//     V24 = b8
+	//     V25 = b9
+	//     V26 = b10
+	//
+	// V27-V30 are temporaries.
+
+	// y0 = b0 | ((b1 & 0x07) << 8)
+	VANDVI	$7, V17, V27
+	VSLLVI	$8, V27, V27
+	VORVV	V27, V16, V16
+
+	// y1 = (b1 >> 3) | ((b2 & 0x3f) << 5)
+	VSRLVI	$3, V17, V17
+
+	// ((b2 << 10) >> 5) == (b2 & 0x3f) << 5
+	VSLLVI	$10, V18, V27
+	VSRLVI	$5, V27, V27
+	VORVV	V27, V17, V17
+
+	// y2 = (b2 >> 6) | (b3 << 2) | ((b4 & 1) << 10)
+	VSRLVI	$6, V18, V18
+	VSLLVI	$2, V19, V27
+	VORVV	V27, V18, V18
+	VANDVI	$1, V20, V27
+	VSLLVI	$10, V27, V27
+	VORVV	V27, V18, V18
+
+	// y3 = (b4 >> 1) | ((b5 & 0x0f) << 7)
+	VSRLVI	$1, V20, V20
+	VANDVI	$15, V21, V27
+	VSLLVI	$7, V27, V27
+	VORVV	V27, V20, V19
+
+	// y4 = (b5 >> 4) | ((b6 & 0x7f) << 4)
+	VSRLVI	$4, V21, V21
+
+	// ((b6 << 9) >> 5) == (b6 & 0x7f) << 4
+	VSLLVI	$9, V22, V27
+	VSRLVI	$5, V27, V27
+	VORVV	V27, V21, V20
+
+	// y5 = (b6 >> 7) | (b7 << 1) | ((b8 & 3) << 9)
+	VSRLVI	$7, V22, V22
+	VSLLVI	$1, V23, V27
+	VORVV	V27, V22, V21
+	VANDVI	$3, V24, V27
+	VSLLVI	$9, V27, V27
+	VORVV	V27, V21, V21
+
+	// y6 = (b8 >> 2) | ((b9 & 0x1f) << 6)
+	VSRLVI	$2, V24, V24
+
+	// ((b9 << 11) >> 5) == (b9 & 0x1f) << 6
+	VSLLVI	$11, V25, V27
+	VSRLVI	$5, V27, V27
+	VORVV	V27, V24, V22
+
+	// y7 = (b9 >> 5) | (b10 << 3)
+	VSRLVI	$5, V25, V25
+	VSLLVI	$3, V26, V27
+	VORVV	V27, V25, V23
+
+	// The decoded vectors are now:
+	//
+	//     V16 = y0
+	//     V17 = y1
+	//     V18 = y2
+	//     V19 = y3
+	//     V20 = y4
+	//     V21 = y5
+	//     V22 = y6
+	//     V23 = y7
+
+	DECOMPRESS_U11_V2(V16, V24)
+	DECOMPRESS_U11_V2(V17, V24)
+	DECOMPRESS_U11_V2(V18, V24)
+	DECOMPRESS_U11_V2(V19, V24)
+	DECOMPRESS_U11_V2(V20, V24)
+	DECOMPRESS_U11_V2(V21, V24)
+	DECOMPRESS_U11_V2(V22, V24)
+	DECOMPRESS_U11_V2(V23, V24)
+
+	// Store eight coefficients for each eleven-byte group.
+	VSSEG8E16V	V16, (X10)
+
+	// Eight uint16 values consume sixteen bytes per group.
+	SLLI	$4, X14, X15
+	ADD	X15, X10, X10
+
+	SUB	X14, X12, X12
+	BNE	X12, X0, loop
+
+	// Restore the caller's fixed-point rounding mode.
+	CSRW	X31, VXRM
+
+ret:
+	RET

@@ -125,6 +125,28 @@ func TestDecodeAndDecompressU10RVVMatchesGeneric(t *testing.T) {
 	}
 }
 
+func TestDecodeAndDecompressU11RVVMatchesGeneric(t *testing.T) {
+	for iter := 0; iter < 64; iter++ {
+		got := make([]ringElement, k1024)
+		want := make([]ringElement, k1024)
+		c := benchCiphertextBytes(encodingSize11 * len(got))
+		for i := range c {
+			c[i] ^= byte(iter*29 + i)
+		}
+
+		decodeAndDecompressU11RVV(got, c)
+		decodeAndDecompressU11Generic(want, c)
+
+		for i := range got {
+			for j := range got[i] {
+				if got[i][j] != want[i][j] {
+					t.Fatalf("iter=%d poly=%d coeff=%d: decodeAndDecompressU11RVV mismatch: got=%d want=%d", iter, i, j, got[i][j], want[i][j])
+				}
+			}
+		}
+	}
+}
+
 func BenchmarkNTTForward(b *testing.B) {
 	b.Run("Generic", func(b *testing.B) {
 		elem := randomRingElement()
