@@ -12,6 +12,10 @@ import (
 	"testing"
 )
 
+var benchDecodeSink fieldElement
+var benchCBDSink ringElement
+var benchEncodeSink byte
+
 func benchCiphertextBytes(n int) []byte {
 	b := make([]byte, n)
 	for i := range b {
@@ -497,22 +501,6 @@ func BenchmarkDecodeAndDecompressU10(b *testing.B) {
 		}
 		benchDecodeSink = dst[0][0]
 	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		old := useAVX2
-		useAVX2 = cpu.X86.HasAVX2
-		b.Cleanup(func() { useAVX2 = old })
-
-		dst := make([]ringElement, k)
-		c := benchCiphertextBytes(encodingSize10 * len(dst))
-		b.ReportAllocs()
-		b.SetBytes(int64(len(c)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			decodeAndDecompressU10(dst, c)
-		}
-		benchDecodeSink = dst[0][0]
-	})
 }
 
 func BenchmarkDecodeAndDecompressU11(b *testing.B) {
@@ -540,22 +528,6 @@ func BenchmarkDecodeAndDecompressU11(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			decodeAndDecompressU11RVV(dst, c)
-		}
-		benchDecodeSink = dst[0][0]
-	})
-
-	b.Run("Dispatch", func(b *testing.B) {
-		old := useAVX2
-		useAVX2 = cpu.X86.HasAVX2
-		b.Cleanup(func() { useAVX2 = old })
-
-		dst := make([]ringElement, k1024)
-		c := benchCiphertextBytes(encodingSize11 * len(dst))
-		b.ReportAllocs()
-		b.SetBytes(int64(len(c)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			decodeAndDecompressU11(dst, c)
 		}
 		benchDecodeSink = dst[0][0]
 	})
