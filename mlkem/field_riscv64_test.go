@@ -468,3 +468,125 @@ func BenchmarkNTTMulAccKeyGen(b *testing.B) {
 		}
 	})
 }
+
+func BenchmarkDecodeAndDecompressU10(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		dst := make([]ringElement, k)
+		c := benchCiphertextBytes(encodingSize10 * len(dst))
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU10Generic(dst, c)
+		}
+		benchDecodeSink = dst[0][0]
+	})
+
+	b.Run("RVV", func(b *testing.B) {
+		if !hasRVV {
+			b.Skip("RVV not available on this machine")
+		}
+
+		dst := make([]ringElement, k)
+		c := benchCiphertextBytes(encodingSize10 * len(dst))
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU10RVV(dst, c)
+		}
+		benchDecodeSink = dst[0][0]
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		old := useAVX2
+		useAVX2 = cpu.X86.HasAVX2
+		b.Cleanup(func() { useAVX2 = old })
+
+		dst := make([]ringElement, k)
+		c := benchCiphertextBytes(encodingSize10 * len(dst))
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU10(dst, c)
+		}
+		benchDecodeSink = dst[0][0]
+	})
+}
+
+func BenchmarkDecodeAndDecompressU11(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		dst := make([]ringElement, k1024)
+		c := benchCiphertextBytes(encodingSize11 * len(dst))
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU11Generic(dst, c)
+		}
+		benchDecodeSink = dst[0][0]
+	})
+
+	b.Run("RVV", func(b *testing.B) {
+		if !hasRVV {
+			b.Skip("RVV not available on this machine")
+		}
+
+		dst := make([]ringElement, k1024)
+		c := benchCiphertextBytes(encodingSize11 * len(dst))
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU11RVV(dst, c)
+		}
+		benchDecodeSink = dst[0][0]
+	})
+
+	b.Run("Dispatch", func(b *testing.B) {
+		old := useAVX2
+		useAVX2 = cpu.X86.HasAVX2
+		b.Cleanup(func() { useAVX2 = old })
+
+		dst := make([]ringElement, k1024)
+		c := benchCiphertextBytes(encodingSize11 * len(dst))
+		b.ReportAllocs()
+		b.SetBytes(int64(len(c)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			decodeAndDecompressU11(dst, c)
+		}
+		benchDecodeSink = dst[0][0]
+	})
+}
+
+func BenchmarkRingCompressAndEncode10(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize10]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize10)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode10Generic(out[:], &f)
+		}
+		benchEncodeSink = out[0]
+	})
+
+	b.Run("RVV", func(b *testing.B) {
+		if !hasRVV {
+			b.Skip("RVV not available on this machine")
+		}
+
+		f := randomRingElement()
+		var out [encodingSize10]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize10)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode10RVV(out[:], &f)
+		}
+		benchEncodeSink = out[0]
+	})
+}
