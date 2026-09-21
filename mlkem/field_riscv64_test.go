@@ -256,6 +256,10 @@ func TestRingCompressAndEncode10RVVMatchesGenericExhaustiveSingleValue(t *testin
 	}
 }
 
+func ringCompressAndEncode11Generic(out []byte, f *ringElement) {
+	ringCompressAndEncode(out[:0], f, 11)
+}
+
 func TestRingCompressAndEncode11RVVMatchesGenericRandom(t *testing.T) {
 	requireRVV(t)
 
