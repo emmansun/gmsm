@@ -147,6 +147,104 @@ func TestDecodeAndDecompressU11RVVMatchesGeneric(t *testing.T) {
 	}
 }
 
+func TestRingCompressAndEncode10RVVMatchesGenericRandom(t *testing.T) {
+	requireAVX2(t)
+
+	for iter := 0; iter < 1000; iter++ {
+		f := randomRingElement()
+
+		var got [encodingSize10]byte
+		var want [encodingSize10]byte
+		ringCompressAndEncode10RVV(got[:], &f)
+		ringCompressAndEncode10Generic(want[:], &f)
+
+		if got != want {
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatalf("iter=%d byte=%d: mismatch got=%02x want=%02x", iter, i, got[i], want[i])
+				}
+			}
+		}
+	}
+}
+
+func TestRingCompressAndEncode10RVVMatchesGenericEdgePatterns(t *testing.T) {
+	requireAVX2(t)
+
+	patterns := []struct {
+		name string
+		fill func(i int) fieldElement
+	}{
+		{
+			name: "all-zero",
+			fill: func(i int) fieldElement { return 0 },
+		},
+		{
+			name: "all-max",
+			fill: func(i int) fieldElement { return q - 1 },
+		},
+		{
+			name: "alternating-zero-max",
+			fill: func(i int) fieldElement {
+				if i%2 == 0 {
+					return 0
+				}
+				return q - 1
+			},
+		},
+		{
+			name: "ascending-mod-q",
+			fill: func(i int) fieldElement { return fieldElement(i % int(q)) },
+		},
+	}
+
+	for _, tc := range patterns {
+		t.Run(tc.name, func(t *testing.T) {
+			var f ringElement
+			for i := range f {
+				f[i] = tc.fill(i)
+			}
+
+			var got [encodingSize10]byte
+			var want [encodingSize10]byte
+			ringCompressAndEncode10RVV(got[:], &f)
+			ringCompressAndEncode10Generic(want[:], &f)
+
+			if got != want {
+				for i := range got {
+					if got[i] != want[i] {
+						t.Fatalf("pattern=%s byte=%d: mismatch got=%02x want=%02x", tc.name, i, got[i], want[i])
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestRingCompressAndEncode10RVVMatchesGenericExhaustiveSingleValue(t *testing.T) {
+	requireAVX2(t)
+
+	for x := 0; x < int(q); x++ {
+		var f ringElement
+		for i := range f {
+			f[i] = fieldElement(x)
+		}
+
+		var got [encodingSize10]byte
+		var want [encodingSize10]byte
+		ringCompressAndEncode10RVV(got[:], &f)
+		ringCompressAndEncode10Generic(want[:], &f)
+
+		if got != want {
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatalf("x=%d byte=%d: mismatch got=%02x want=%02x", x, i, got[i], want[i])
+				}
+			}
+		}
+	}
+}
+
 func BenchmarkNTTForward(b *testing.B) {
 	b.Run("Generic", func(b *testing.B) {
 		elem := randomRingElement()

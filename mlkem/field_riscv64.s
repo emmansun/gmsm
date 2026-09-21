@@ -12,6 +12,9 @@
 #define QNEGINV X21
 #define ONE X22
 #define RR X23
+#define BARRETT_MULTIPLIER X24
+#define HALF_Q             X25
+#define Q_MINUS_1          X26
 
 // MONT_MUL_HILO_VV computes:
 //
@@ -1467,4 +1470,190 @@ loop:
 	CSRW	X31, VXRM
 
 ret:
+	RET
+
+// COMPRESS_U10 computes:
+//
+//     round(x * 2^10 / q) mod 2^10
+//
+// The input coefficient must satisfy:
+//
+//     0 <= x < q
+//
+// Input and output use E32, M2.
+//
+// The rounded numerator is:
+//
+//     dividend = (x << 10) + floor(q/2)
+//
+// Barrett quotient estimation:
+//
+//     floor(dividend * 5039 / 2^24)
+//       = high32(dividend * (5039 << 8))
+//
+// Since the estimate is either the exact quotient or one less,
+// remainder is in [0, 2q). Add one when remainder >= q.
+//
+// Parameters:
+//
+//     x      input/output E32, M2 vector
+//     quo    temporary E32, M2 vector
+//     tmp    temporary E32, M2 vector
+//
+// All register groups must be aligned for LMUL=2.
+#define COMPRESS_U10(x, quo, tmp) \
+	VSLLVI    $10, x, x;                  \
+	VADDVX    HALF_Q, x, x;               \
+	VMULHUVX  BARRETT_MULTIPLIER, x, quo; \
+	VMULVX    Q, quo, tmp;                \
+	VSUBVV    tmp, x, tmp;                \
+	VRSUBVX   Q_MINUS_1, tmp, x;          \
+	VSRLVI    $31, x, x;                  \
+	VADDVV    x, quo, quo;                \
+	VSLLVI    $22, quo, quo;              \
+	VSRLVI    $22, quo, x
+
+// func ringCompressAndEncode10RVV(b []byte, f *ringElement)
+//
+// The caller must guarantee:
+//
+//     len(b) >= encodingSize10
+//     every coefficient in f is in [0, q)
+//
+// This function always processes one complete ringElement:
+//
+//     256 coefficients
+//      64 groups of four coefficients
+//     320 output bytes
+//
+// Every four compressed 10-bit values produce five bytes:
+//
+//     b0 = y0
+//     b1 = y0 >> 8 | y1 << 2
+//     b2 = y1 >> 6 | y2 << 4
+//     b3 = y2 >> 4 | y3 << 6
+//     b4 = y3 >> 2
+//
+// Only the low eight bits of each expression are stored.
+TEXT ·ringCompressAndEncode10RVV(SB), NOSPLIT, $0-32
+	MOV	b_base+0(FP), X10
+	MOV	f+24(FP), X11
+
+	// One ringElement contains 64 groups of four coefficients.
+	MOV	$64, X12
+
+	MOV	$3329, Q
+	MOV	$1289984, BARRETT_MULTIPLIER // 5039 << 8
+	SRL $1, Q, HALF_Q                // floor(q / 2)
+	SUB $1, Q, Q_MINUS_1             // q - 1
+
+loop:
+	// One vector lane represents one group of four coefficients.
+	//
+	// V8  = f[0], f[4], f[8], ...
+	// V9  = f[1], f[5], f[9], ...
+	// V10 = f[2], f[6], f[10], ...
+	// V11 = f[3], f[7], f[11], ...
+	VSETVLI	X12, E16, M1, TA, MA, X17
+	VLSEG4E16V	(X11), V8
+
+	// Advance by four uint16 coefficients per lane.
+	SLLI	$3, X17, X18
+	ADD	X18, X11, X11
+
+	// Widen coefficients from E16, M1 to E32, M2.
+	//
+	// V16/V17 = y0
+	// V18/V19 = y1
+	// V20/V21 = y2
+	// V22/V23 = y3
+	VWADDUVX	X0, V8, V16
+	VWADDUVX	X0, V9, V18
+	VWADDUVX	X0, V10, V20
+	VWADDUVX	X0, V11, V22
+
+	VSETVLI	X17, E32, M2, TA, MA, X0
+
+	// V24/V25 and V26/V27 are shared temporaries.
+	COMPRESS_U10(V16, V24, V26)
+	COMPRESS_U10(V18, V24, V26)
+	COMPRESS_U10(V20, V24, V26)
+	COMPRESS_U10(V22, V24, V26)
+
+	// Narrow the four compressed values to E16, M1.
+	//
+	// Destination groups V8-V11 do not overlap source groups
+	// V16/V17, V18/V19, V20/V21, V22/V23.
+	VSETVLI	X17, E16, M1, TA, MA, X0
+
+	VNSRLWI	$0, V16, V8
+	VNSRLWI	$0, V18, V9
+	VNSRLWI	$0, V20, V10
+	VNSRLWI	$0, V22, V11
+
+	// Current layout:
+	//
+	// V8  = y0
+	// V9  = y1
+	// V10 = y2
+	// V11 = y3
+	//
+	// Build five E16 byte vectors without preserving copies of
+	// y1 or y2. All source vectors remain unchanged.
+	//
+	// V16 = byte0
+	// V17 = byte1
+	// V18 = byte2
+	// V19 = byte3
+	// V20 = byte4
+
+	// byte0 = y0
+	VSRLVI	$0, V8, V16
+
+	// byte1 = (y0 >> 8) | (y1 << 2)
+	VSRLVI	$8, V8, V17
+	VSLLVI	$2, V9, V21
+	VORVV	V21, V17, V17
+
+	// byte2 = (y1 >> 6) | (y2 << 4)
+	VSRLVI	$6, V9, V18
+	VSLLVI	$4, V10, V21
+	VORVV	V21, V18, V18
+
+	// byte3 = (y2 >> 4) | (y3 << 6)
+	VSRLVI	$4, V10, V19
+	VSLLVI	$6, V11, V21
+	VORVV	V21, V19, V19
+
+	// byte4 = y3 >> 2
+	VSRLVI	$2, V11, V20
+
+	// Narrow E16, M1 byte vectors into distinct E8, MF2
+	// destination registers.
+	//
+	// Narrowing source and destination register groups must not
+	// overlap.
+	VSETVLI	X17, E8, MF2, TA, MA, X0
+
+	VNSRLWI	$0, V16, V8
+	VNSRLWI	$0, V17, V9
+	VNSRLWI	$0, V18, V10
+	VNSRLWI	$0, V19, V11
+	VNSRLWI	$0, V20, V12
+
+	// Store:
+	//
+	// V8[0], V9[0], V10[0], V11[0], V12[0],
+	// V8[1], V9[1], V10[1], V11[1], V12[1],
+	// ...
+	VSSEG5E8V	V8, (X10)
+
+	// Advance output by five bytes per lane.
+	SLLI	$2, X17, X18
+	ADD	X17, X18, X18
+	ADD	X18, X10, X10
+
+	SUB	X17, X12, X12
+	BNE	X12, X0, loop
+
 	RET

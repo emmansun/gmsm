@@ -45,6 +45,9 @@ func decodeAndDecompressU10RVV(dst []ringElement, c []byte)
 //go:noescape
 func decodeAndDecompressU11RVV(dst []ringElement, c []byte)
 
+//go:noescape
+func ringCompressAndEncode10RVV(out []byte, f *ringElement)
+
 func nttMul(acc, lhs, rhs *nttElement) {
 	if hasRVV {
 		internalNTTMulRVV(acc, lhs, rhs)
@@ -165,6 +168,10 @@ func ringDecodeAndDecompress5(bb *[encodingSize5]byte) ringElement {
 // followed by ByteEncode₁₀, according to FIPS 203, Algorithm 5.
 func ringCompressAndEncode10(s []byte, f *ringElement) []byte {
 	s, b := sliceForAppend(s, encodingSize10)
+	if hasRVV {
+		ringCompressAndEncode10RVV(b, f)
+		return s
+	}
 	ringCompressAndEncode10Generic(b, f)
 	return s
 }
