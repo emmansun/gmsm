@@ -20,6 +20,13 @@ func benchCiphertextBytes(n int) []byte {
 	return b
 }
 
+func requireRVV(t *testing.T) {
+	t.Helper()
+	if !hasRVV {
+		t.Skip("RVV not available on this machine")
+	}
+}
+
 func TestNTTMulRVV(t *testing.T) {
 	if !hasRVV {
 		t.Skip("skipping test: RVV not available")
@@ -148,7 +155,7 @@ func TestDecodeAndDecompressU11RVVMatchesGeneric(t *testing.T) {
 }
 
 func TestRingCompressAndEncode10RVVMatchesGenericRandom(t *testing.T) {
-	requireAVX2(t)
+	requireRVV(t)
 
 	for iter := 0; iter < 1000; iter++ {
 		f := randomRingElement()
@@ -169,7 +176,7 @@ func TestRingCompressAndEncode10RVVMatchesGenericRandom(t *testing.T) {
 }
 
 func TestRingCompressAndEncode10RVVMatchesGenericEdgePatterns(t *testing.T) {
-	requireAVX2(t)
+	requireRVV(t)
 
 	patterns := []struct {
 		name string
@@ -222,7 +229,7 @@ func TestRingCompressAndEncode10RVVMatchesGenericEdgePatterns(t *testing.T) {
 }
 
 func TestRingCompressAndEncode10RVVMatchesGenericExhaustiveSingleValue(t *testing.T) {
-	requireAVX2(t)
+	requireRVV(t)
 
 	for x := 0; x < int(q); x++ {
 		var f ringElement
