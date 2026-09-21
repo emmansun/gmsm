@@ -127,12 +127,22 @@ func doinit() {
 			RISCV64.HasFastMisaligned = v == riscv_HWPROBE_MISALIGNED_FAST
 		}
 	}
+	if RISCV64.HasV {
+		RISCV64.VLENB = readVLENB()
+	}
 
 	// Let's double check with HWCAP if the C extension does not appear to be supported.
 	// This may happen if we're running on a kernel older than 6.4.
 
 	if !RISCV64.HasC {
 		RISCV64.HasC = isSet(hwCap, hwcap_RISCV_ISA_C)
+	}
+
+	doDerived = func() {
+		// If the vector extension is disabled by GODEBUG, then the VLENB is zero.
+		if !RISCV64.HasV {
+			RISCV64.VLENB = 0
+		}
 	}
 }
 

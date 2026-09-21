@@ -242,16 +242,24 @@ var RISCV64 struct {
 	HasZvkg           bool // Vector GCM/GMAC
 	HasZvkned         bool // NIST Suite: Vector AES Block Cipher
 	HasZvknha         bool // NIST Suite: Vector SHA-2 Secure Hash
-	HasZvknhb         bool // NIST Suite: Vector SHA-2 Secure Hash	
+	HasZvknhb         bool // NIST Suite: Vector SHA-2 Secure Hash
 	HasZvksed         bool // ShangMi Suite: SM4 Block Cipher
 	HasZvksh          bool // ShangMi Suite: SM3 Secure Hash
+	VLENB             uint // Vector register length in bytes, 0 if undetected
 	_                 CacheLinePad
 }
+
+// doDerived, if non-nil, is called after processing GODEBUG to set "derived"
+// feature flags.
+var doDerived func()
 
 func init() {
 	archInit()
 	initOptions()
 	processOptions()
+	if doDerived != nil {
+		doDerived()
+	}
 }
 
 // options contains the cpu debug options that can be used in GODEBUG.
