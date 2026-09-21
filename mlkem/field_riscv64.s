@@ -1657,3 +1657,256 @@ loop:
 	BNE	X12, X0, loop
 
 	RET
+
+// Compress active uint16 lanes in V8 into 11-bit values in V14.
+//
+// Required vector configuration:
+//
+//     SEW  = 16
+//     LMUL = 1
+//
+// Registers:
+//
+//     V8   input
+//     V10  mulLo / correction
+//     V12  threshold / diff
+//     V14  result
+//
+// Scalars:
+//
+//     X7   = 20159
+//     X8   = 161272
+//     X9   = 0x24
+//     X10  = 8192
+//     X11  = 0x7ff
+#define COMPRESS_11_RVV() \
+	VMULVX		X8, V8, V10; \
+	VADDVX		X9, V8, V12; \
+	VSLLVI		$3, V8, V14; \
+	VMULHVX		X7, V14, V14; \
+	VSUBVV		V12, V10, V12; \
+	VXORVI		$-1, V12, V12; \
+	VANDVV		V12, V10, V10; \
+	VSRLVI		$15, V10, V10; \
+	VSUBVV		V10, V14, V14; \
+	VSMULVX		X10, V14, V14; \
+	VANDVX		X11, V14, V14
+
+// ringCompressAndEncode11RVV computes ByteEncode_11(Compress_11(f)).
+//
+// VLEN-adaptive organization:
+//
+//     VLEN = 128:
+//         E16/M1 has VLMAX=8
+//         process 8 coefficients -> 11 bytes
+//
+//     VLEN >= 256:
+//         E16/M1 has VLMAX>=16
+//         process 16 coefficients -> 22 bytes
+//
+// Minimum supported VLEN is 128 bits.
+//
+// Stack layout:
+//
+//     SP+0  .. SP+7    reserved
+//     SP+8  .. SP+39   compressed uint16 coefficients
+//     SP+40 .. SP+63   packed output temporary
+//
+// func ringCompressAndEncode11RVV(out []byte, f *ringElement)
+TEXT ·ringCompressAndEncode11RVV(SB), NOSPLIT, $64-32
+	MOV	out_base+0(FP), X5
+	MOV	f+24(FP), X6
+
+	MOV	$20159, X7
+	MOV	$161272, X8
+	MOV	$0x24, X9
+	MOV	$8192, X10
+	MOV	$0x7ff, X11
+
+	// Save VXRM and select RNU.
+	CSRRWI	$0, VXRM, X29
+
+	// Probe E16/M1 with AVL=16.
+	//
+	// Go assembler operand order follows its source-first convention:
+	//
+	//     VSETVLI AVL, vtype..., rd
+	MOV	$16, X12
+	VSETVLI	X12, E16, M1, TA, MA, X13
+
+	// VLEN >= 256 gives vl=16.
+	MOV	$16, X14
+	BEQ	X13, X14, ring_compress_encode11_rvv_16
+
+	// With minimum supported VLEN=128, E16/M1 gives vl=8.
+	MOV	$8, X14
+	BEQ	X13, X14, ring_compress_encode11_rvv_8
+
+	// This path means VLEN < 128 or an unsupported vector configuration.
+	// The Go dispatch layer should prevent reaching this function.
+	JMP	ring_compress_encode11_rvv_done
+
+// -----------------------------------------------------------------------------
+// VLEN >= 256 path
+//
+// 16 coefficients -> 22 bytes per iteration.
+// -----------------------------------------------------------------------------
+ring_compress_encode11_rvv_16:
+	MOV	$16, X28
+
+ring_compress_encode11_rvv_16_loop:
+	VSETIVLI	$16, E16, M1, TA, MA, X0
+	VLE16V		(X6), V8
+
+	COMPRESS_11_RVV()
+
+	ADD		$8, RSP, X30
+	VSE16V		V14, (X30)
+
+	// X20 = c0 | c1<<11 | c2<<22 | c3<<33.
+	MOVHU	8(RSP), X20
+	MOVHU	10(RSP), X24
+	SLL	$11, X24, X24
+	OR	X24, X20, X20
+	MOVHU	12(RSP), X24
+	SLL	$22, X24, X24
+	OR	X24, X20, X20
+	MOVHU	14(RSP), X24
+	SLL	$33, X24, X24
+	OR	X24, X20, X20
+
+	// X21 = c4 | c5<<11 | c6<<22 | c7<<33.
+	MOVHU	16(RSP), X21
+	MOVHU	18(RSP), X24
+	SLL	$11, X24, X24
+	OR	X24, X21, X21
+	MOVHU	20(RSP), X24
+	SLL	$22, X24, X24
+	OR	X24, X21, X21
+	MOVHU	22(RSP), X24
+	SLL	$33, X24, X24
+	OR	X24, X21, X21
+
+	// X22 = c8 | c9<<11 | c10<<22 | c11<<33.
+	MOVHU	24(RSP), X22
+	MOVHU	26(RSP), X24
+	SLL	$11, X24, X24
+	OR	X24, X22, X22
+	MOVHU	28(RSP), X24
+	SLL	$22, X24, X24
+	OR	X24, X22, X22
+	MOVHU	30(RSP), X24
+	SLL	$33, X24, X24
+	OR	X24, X22, X22
+
+	// X23 = c12 | c13<<11 | c14<<22 | c15<<33.
+	MOVHU	32(RSP), X23
+	MOVHU	34(RSP), X24
+	SLL	$11, X24, X24
+	OR	X24, X23, X23
+	MOVHU	36(RSP), X24
+	SLL	$22, X24, X24
+	OR	X24, X23, X23
+	MOVHU	38(RSP), X24
+	SLL	$33, X24, X24
+	OR	X24, X23, X23
+
+	// Produce the 176-bit output stream.
+	SLL	$44, X21, X12
+	OR	X20, X12, X12
+
+	SRL	$20, X21, X13
+	SLL	$24, X22, X24
+	OR	X24, X13, X13
+
+	SRL	$40, X22, X14
+	SLL	$4, X23, X24
+	OR	X24, X14, X14
+
+	// Exact-width scalar stores: 8 + 8 + 4 + 2 = 22 bytes.
+	MOV	X12, 0(X5)
+	MOV	X13, 8(X5)
+	MOVW	X14, 16(X5)
+	SRL	$32, X14, X24
+	MOVH	X24, 20(X5)
+
+	ADD	$32, X6
+	ADD	$22, X5
+
+	SUB	$1, X28
+	BNEZ	X28, ring_compress_encode11_rvv_16_loop
+
+	JMP	ring_compress_encode11_rvv_done
+
+// -----------------------------------------------------------------------------
+// VLEN = 128 path
+//
+// 8 coefficients -> 11 bytes per iteration.
+// -----------------------------------------------------------------------------
+ring_compress_encode11_rvv_8:
+	MOV	$32, X28
+
+ring_compress_encode11_rvv_8_loop:
+	VSETIVLI	$8, E16, M1, TA, MA, X0
+	VLE16V		(X6), V8
+
+	COMPRESS_11_RVV()
+
+	ADD		$8, RSP, X30
+	VSE16V		V14, (X30)
+
+	// X20 = c0 | c1<<11 | c2<<22 | c3<<33.
+	MOVHU	8(RSP), X20
+	MOVHU	10(RSP), X24
+	SLL	$11, X24, X24
+	OR	X24, X20, X20
+	MOVHU	12(RSP), X24
+	SLL	$22, X24, X24
+	OR	X24, X20, X20
+	MOVHU	14(RSP), X24
+	SLL	$33, X24, X24
+	OR	X24, X20, X20
+
+	// X21 = c4 | c5<<11 | c6<<22 | c7<<33.
+	MOVHU	16(RSP), X21
+	MOVHU	18(RSP), X24
+	SLL	$11, X24, X24
+	OR	X24, X21, X21
+	MOVHU	20(RSP), X24
+	SLL	$22, X24, X24
+	OR	X24, X21, X21
+	MOVHU	22(RSP), X24
+	SLL	$33, X24, X24
+	OR	X24, X21, X21
+
+	// 8 coefficients form an 88-bit stream:
+	//
+	//     stream = X20 | X21<<44
+	//
+	// Split as:
+	//
+	//     out0 = X20 | X21<<44
+	//     out1 = X21>>20
+	//
+	// out1 contributes exactly 24 bits.
+
+	SLL	$44, X21, X12
+	OR	X20, X12, X12
+
+	SRL	$20, X21, X13
+
+	// Exact-width stores: 8 + 2 + 1 = 11 bytes.
+	MOV	X12, 0(X5)
+	MOVH	X13, 8(X5)
+	SRL	$16, X13, X24
+	MOVB	X24, 10(X5)
+
+	ADD	$16, X6
+	ADD	$11, X5
+
+	SUB	$1, X28
+	BNEZ	X28, ring_compress_encode11_rvv_8_loop
+
+ring_compress_encode11_rvv_done:
+	CSRW	X29, VXRM
+	RET

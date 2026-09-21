@@ -256,6 +256,104 @@ func TestRingCompressAndEncode10RVVMatchesGenericExhaustiveSingleValue(t *testin
 	}
 }
 
+func TestRingCompressAndEncode11RVVMatchesGenericRandom(t *testing.T) {
+	requireRVV(t)
+
+	for iter := 0; iter < 1000; iter++ {
+		f := randomRingElement()
+
+		var got [encodingSize11]byte
+		var want [encodingSize11]byte
+		ringCompressAndEncode11RVV(got[:], &f)
+		ringCompressAndEncode11Generic(want[:], &f)
+
+		if got != want {
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatalf("iter=%d byte=%d: mismatch got=%02x want=%02x", iter, i, got[i], want[i])
+				}
+			}
+		}
+	}
+}
+
+func TestRingCompressAndEncode11RVVMatchesGenericEdgePatterns(t *testing.T) {
+	requireRVV(t)
+
+	patterns := []struct {
+		name string
+		fill func(i int) fieldElement
+	}{
+		{
+			name: "all-zero",
+			fill: func(i int) fieldElement { return 0 },
+		},
+		{
+			name: "all-max",
+			fill: func(i int) fieldElement { return q - 1 },
+		},
+		{
+			name: "alternating-zero-max",
+			fill: func(i int) fieldElement {
+				if i%2 == 0 {
+					return 0
+				}
+				return q - 1
+			},
+		},
+		{
+			name: "ascending-mod-q",
+			fill: func(i int) fieldElement { return fieldElement(i % int(q)) },
+		},
+	}
+
+	for _, tc := range patterns {
+		t.Run(tc.name, func(t *testing.T) {
+			var f ringElement
+			for i := range f {
+				f[i] = tc.fill(i)
+			}
+
+			var got [encodingSize11]byte
+			var want [encodingSize11]byte
+			ringCompressAndEncode11RVV(got[:], &f)
+			ringCompressAndEncode11Generic(want[:], &f)
+
+			if got != want {
+				for i := range got {
+					if got[i] != want[i] {
+						t.Fatalf("pattern=%s byte=%d: mismatch got=%02x want=%02x", tc.name, i, got[i], want[i])
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestRingCompressAndEncode11RVVMatchesGenericExhaustiveSingleValue(t *testing.T) {
+	requireRVV(t)
+
+	for x := 0; x < int(q); x++ {
+		var f ringElement
+		for i := range f {
+			f[i] = fieldElement(x)
+		}
+
+		var got [encodingSize11]byte
+		var want [encodingSize11]byte
+		ringCompressAndEncode11RVV(got[:], &f)
+		ringCompressAndEncode11Generic(want[:], &f)
+
+		if got != want {
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatalf("x=%d byte=%d: mismatch got=%02x want=%02x", x, i, got[i], want[i])
+				}
+			}
+		}
+	}
+}
+
 func BenchmarkNTTForward(b *testing.B) {
 	b.Run("Generic", func(b *testing.B) {
 		elem := randomRingElement()
@@ -558,6 +656,36 @@ func BenchmarkRingCompressAndEncode10(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			ringCompressAndEncode10RVV(out[:], &f)
+		}
+		benchEncodeSink = out[0]
+	})
+}
+
+func BenchmarkRingCompressAndEncode11(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize11]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize11)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode11Generic(out[:], &f)
+		}
+		benchEncodeSink = out[0]
+	})
+
+	b.Run("RVV", func(b *testing.B) {
+		if !hasRVV {
+			b.Skip("RVV not available on this machine")
+		}
+
+		f := randomRingElement()
+		var out [encodingSize11]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize11)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode11RVV(out[:], &f)
 		}
 		benchEncodeSink = out[0]
 	})
