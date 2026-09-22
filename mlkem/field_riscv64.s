@@ -1932,7 +1932,7 @@ sample_poly_cbd2_loop:
 	CBD_SUB_TO_FIELD(V11, V12, V16, V18, V20, V22, X13)
 
 	// f[2*i]
-	VSSE16V	V20, (X10), X16
+	VSSE16V	V20, X16, (X10)
 
 	// Return to E8/M1 for coefficient 1 extraction.
 	VSETVLI	X13, E8, M1, TA, MA, X0
@@ -1949,7 +1949,7 @@ sample_poly_cbd2_loop:
 
 	// f[2*i+1]
 	ADD	$2, X10, X14
-	VSSE16V	V20, (X14), X16
+	VSSE16V	V20, X16, (X14)
 
 	// Advance source by VL bytes.
 	ADD	X13, X11, X11
@@ -1998,7 +1998,7 @@ sample_poly_cbd3_loop:
 	CBD3_COUNTS(V8, V12, V13, V14)
 
 	CBD_SUB_TO_FIELD(V12, V13, V16, V18, V20, V22, X13)
-	VSSE16V	V20, (X10), X16
+	VSSE16V	V20, X16, (X10)
 
 	// ------------------------------------------------------------
 	// coefficient 1
@@ -2017,7 +2017,7 @@ sample_poly_cbd3_loop:
 	CBD_SUB_TO_FIELD(V12, V13, V16, V18, V20, V22, X13)
 
 	ADD	$2, X10, X17
-	VSSE16V	V20, (X17), X16
+	VSSE16V	V20, X16, (X17)
 
 	// ------------------------------------------------------------
 	// coefficient 2
@@ -2036,7 +2036,7 @@ sample_poly_cbd3_loop:
 	CBD_SUB_TO_FIELD(V12, V13, V16, V18, V20, V22, X13)
 
 	ADD	$4, X10, X17
-	VSSE16V	V20, (X17), X16
+	VSSE16V	V20, X16, (X17)
 
 	// ------------------------------------------------------------
 	// coefficient 3
@@ -2051,7 +2051,7 @@ sample_poly_cbd3_loop:
 	CBD_SUB_TO_FIELD(V12, V13, V16, V18, V20, V22, X13)
 
 	ADD	$6, X10, X17
-	VSSE16V	V20, (X17), X16
+	VSSE16V	V20, X16, (X17)
 
 	// Advance input by 3*VL bytes.
 	SLL	$1, X13, X17
