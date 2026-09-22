@@ -257,6 +257,99 @@ TEXT ·permute4RVV128(SB), 0, $808-8
 
 	RET
 
+#undef C0
+#undef C1
+#undef C2
+#undef C3
+#undef C4
+
+#undef B0
+#undef B1
+#undef B2
+#undef B3
+#undef B4
+
+#undef D0
+#undef D1
+#undef D2
+#undef D3
+#undef D4
+
+#undef TMP
+
+#define C0 V0
+#define C1 V1
+#define C2 V2
+#define C3 V3
+#define C4 V4
+
+#define B0 V0
+#define B1 V1
+#define B2 V2
+#define B3 V3
+#define B4 V4
+
+#define D0 V5
+#define D1 V6
+#define D2 V7
+#define D3 V8
+#define D4 V9
+
+#define TMP V10
+
+// func permute4RVV256(state *State4)
+TEXT ·permute4RVV256(SB), 0, $808-8
+	MOV state+0(FP), X10
+
+	MOV $·roundConstants(SB), X12
+	MOV $1, X13
+	// The first 8 bytes of the RISCV64 local stack frame must not
+	// be used as scratch storage.
+	//
+	// Usable 800-byte State4 scratch:
+	//
+	//     8(RSP) .. 807(RSP)
+	ADD $8, RSP, X11
+
+	VSETIVLI $4, E64, M1, TA, MA, X0
+
+	KECCAK_2ROUNDS(X10, X11, 0)
+	KECCAK_2ROUNDS(X10, X11, 2)
+	KECCAK_2ROUNDS(X10, X11, 4)
+	KECCAK_2ROUNDS(X10, X11, 6)
+
+	KECCAK_2ROUNDS(X10, X11, 8)
+	KECCAK_2ROUNDS(X10, X11, 10)
+	KECCAK_2ROUNDS(X10, X11, 12)
+	KECCAK_2ROUNDS(X10, X11, 14)
+
+	KECCAK_2ROUNDS(X10, X11, 16)
+	KECCAK_2ROUNDS(X10, X11, 18)
+	KECCAK_2ROUNDS(X10, X11, 20)
+	KECCAK_2ROUNDS(X10, X11, 22)
+
+	RET
+
+#undef C0
+#undef C1
+#undef C2
+#undef C3
+#undef C4
+
+#undef B0
+#undef B1
+#undef B2
+#undef B3
+#undef B4
+
+#undef D0
+#undef D1
+#undef D2
+#undef D3
+#undef D4
+
+#undef TMP
+
 // Scalar register allocation:
 //
 // X10 = state pointer

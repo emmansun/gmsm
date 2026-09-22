@@ -22,19 +22,30 @@ var (
 func permute4RVV128(state *State4)
 
 //go:noescape
+func permute4RVV256(state *State4)
+
+//go:noescape
 func copyOut4RVV(state *State4, out0, out1, out2, out3 *byte, lanes int)
 
 //go:noescape
 func xorIn4RVV(state *State4, in0, in1, in2, in3 *byte, lanes int)
 
+var permute4 = permute4Generic
+
+func init() {
+	if hasZvbb {
+		if cpu.RISCV64.VLENB >= 32 {
+			permute4 = permute4RVV256
+		} else {
+			permute4 = permute4RVV128
+		}
+	}
+}
+
 // Permute4 applies 24 rounds of Keccak-f[1600] to all 4 interleaved states.
 // Uses Zvbb to process all 4 states in parallel; falls back to pure Go if Zvbb is unavailable.
 func Permute4(state *State4) {
-	if hasZvbb {
-		permute4RVV128(state)
-	} else {
-		permute4Generic(state)
-	}
+	permute4(state)
 }
 
 // XORIn4 XORs rate bytes from each input into the corresponding state lanes.
