@@ -622,46 +622,10 @@ ntt_level4_loop:
 	//
 	// Shared Montgomery temporaries:
 	//	V20, V21
-	MONT_MUL_HILO_VV(V6, V10, V11, V20, V21)
-	MONT_MUL_HILO_VV(V7, V10, V12, V20, V21)
-	MONT_MUL_HILO_VV(V8, V10, V13, V20, V21)
-	MONT_MUL_HILO_VV(V9, V10, V14, V20, V21)
-
-	// right0 = left0 + q - t0
-	VADDVX	Q, V2, V6
-	VSUBVV	V11, V6, V6
-	REDUCE_ONCE_RVV(V6, V20)
-
-	// right1 = left1 + q - t1
-	VADDVX	Q, V3, V7
-	VSUBVV	V12, V7, V7
-	REDUCE_ONCE_RVV(V7, V20)
-
-	// right2 = left2 + q - t2
-	VADDVX	Q, V4, V8
-	VSUBVV	V13, V8, V8
-	REDUCE_ONCE_RVV(V8, V20)
-
-	// right3 = left3 + q - t3
-	VADDVX	Q, V5, V9
-	VSUBVV	V14, V9, V9
-	REDUCE_ONCE_RVV(V9, V20)
-
-	// left0 = left0 + t0
-	VADDVV	V11, V2, V2
-	REDUCE_ONCE_RVV(V2, V20)
-
-	// left1 = left1 + t1
-	VADDVV	V12, V3, V3
-	REDUCE_ONCE_RVV(V3, V20)
-
-	// left2 = left2 + t2
-	VADDVV	V13, V4, V4
-	REDUCE_ONCE_RVV(V4, V20)
-
-	// left3 = left3 + t3
-	VADDVV	V14, V5, V5
-	REDUCE_ONCE_RVV(V5, V20)
+	NTT_BUTTERFLY_VZ(V2, V6, V10, V11, V20, V21)
+	NTT_BUTTERFLY_VZ(V3, V7, V10, V12, V20, V21)
+	NTT_BUTTERFLY_VZ(V4, V8, V10, V13, V20, V21)
+	NTT_BUTTERFLY_VZ(V5, V9, V10, V14, V20, V21)
 
 	// Store:
 	// [left0 left1 left2 left3 right0 right1 right2 right3]
@@ -711,26 +675,8 @@ ntt_level2_loop:
 	VLSEG4E16V (X16), V2
 
 	// V11,V12 = t0,t1
-	MONT_MUL_HILO_VV(V4, V10, V11, V20, V21)
-	MONT_MUL_HILO_VV(V5, V10, V12, V20, V21)
-
-	// right0 = left0 + q - t0
-	VADDVX	Q, V2, V4
-	VSUBVV	V11, V4, V4
-	REDUCE_ONCE_RVV(V4, V20)
-
-	// right1 = left1 + q - t1
-	VADDVX	Q, V3, V5
-	VSUBVV	V12, V5, V5
-	REDUCE_ONCE_RVV(V5, V20)
-
-	// left0 = left0 + t0
-	VADDVV	V11, V2, V2
-	REDUCE_ONCE_RVV(V2, V20)
-
-	// left1 = left1 + t1
-	VADDVV	V12, V3, V3
-	REDUCE_ONCE_RVV(V3, V20)
+	NTT_BUTTERFLY_VZ(V2, V4, V10, V11, V20, V21)
+	NTT_BUTTERFLY_VZ(V3, V5, V10, V12, V20, V21)
 
 	VSSEG4E16V V2, (X16)
 
