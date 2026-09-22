@@ -94,7 +94,7 @@
 	VSUBVV vt, va, vb;                                         \
 	VADDVV vt, va, va;                                         \
 	REDUCE_ONCE_RVV(va, m);                                    \
-	VSRAI $15, vb, m;                                          \
+	VSRAVI $15, vb, m;                                         \
 	VANDVX Q, m, m;                                            \
 	VADDVV m, vb, vb
 
@@ -110,7 +110,7 @@
 	VSUBVV vt, va, vb;                                         \
 	VADDVV vt, va, va;                                         \
 	REDUCE_ONCE_RVV(va, m);                                    \
-	VSRAI $15, vb, m;                                          \
+	VSRAVI $15, vb, m;                                         \
 	VANDVX Q, m, m;                                            \
 	VADDVV m, vb, vb	
 
