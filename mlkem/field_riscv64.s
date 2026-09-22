@@ -89,7 +89,7 @@
 // Output:
 //     va = a+t mod q
 //     vb = a-t mod q
-#define NTT_BUTTERFLY(va, vb, zeta, vt, lo, m) \
+#define NTT_BUTTERFLY_XZ(va, vb, zeta, vt, lo, m) \
 	MONT_MUL_HILO_VX(vb, zeta, vt, lo, m);                     \
 	VSUBVV vt, va, vb;                                         \
 	VADDVV vt, va, va;                                         \
@@ -121,14 +121,30 @@
 // Output:
 //     va = a+b mod q
 //     vb = zeta*(b-a) mod q
-#define INVNTT_BUTTERFLY(va, vb, zeta, olda, diff, lo, m, redtmp) \
-	VMVVV va, olda;                                               \
-	VADDVV vb, olda, va;                                         \
-	REDUCE_ONCE_RVV(va, redtmp);                                 \
-	VADDVX Q, vb, diff;                                          \
-	VSUBVV olda, diff, diff;                                     \
-	REDUCE_ONCE_RVV(diff, redtmp);                               \
+#define INVNTT_BUTTERFLY_XZ(va, vb, zeta, diff, lo, m) \
+	VSUBVV va, vb, diff;                                          \
+	VADDVV vb, va, va;                                            \
+	REDUCE_ONCE_RVV(va, m);                                       \
+	VSRAVI $15, diff, m;                                          \
+	VANDVX Q, m, m;                                               \
+	VADDVV m, diff, diff;                                         \	
 	MONT_MUL_HILO_VX(diff, zeta, vb, lo, m)
+
+// Input:
+//     va = a
+//     vb = b
+//
+// Output:
+//     va = a+b mod q
+//     vb = zeta*(b-a) mod q
+#define INVNTT_BUTTERFLY_VZ(va, vb, vz, diff, lo, m) \
+	VSUBVV va, vb, diff;                                          \
+	VADDVV vb, va, va;                                            \
+	REDUCE_ONCE_RVV(va, m);                                       \
+	VSRAVI $15, diff, m;                                          \
+	VANDVX Q, m, m;                                               \
+	VADDVV m, diff, diff;                                         \	
+	MONT_MUL_HILO_VV(diff, vz, vb, lo, m)
 
 // func internalNTTMulRVV(out, lhs, rhs *nttElement)
 TEXT ·internalNTTMulRVV(SB), NOSPLIT, $0-24
@@ -554,7 +570,7 @@ ntt_chunk_loop:
 	// V7 = Montgomery m
 	// V8 = reduce temporary
 
-	NTT_BUTTERFLY(V2, V3, X14, V4, V6, V7)
+	NTT_BUTTERFLY_XZ(V2, V3, X14, V4, V6, V7)
 
 	VSE16V V2, (X16)
 	VSE16V V3, (X18)
@@ -751,34 +767,8 @@ invntt_level2_loop:
 	// V4,V5 = b0,b1
 	VLSEG4E16V (X16), V2
 
-	// Preserve the original a values because a' overwrites V2,V3.
-	VMVVV	V2, V6
-	VMVVV	V3, V7
-
-	// a0' = a0 + b0 mod q
-	VADDVV	V4, V2, V2
-	REDUCE_ONCE_RVV(V2, V20)
-
-	// a1' = a1 + b1 mod q
-	VADDVV	V5, V3, V3
-	REDUCE_ONCE_RVV(V3, V20)
-
-	// diff0 = b0 - oldA0 mod q
-	//
-	// Compute b0 + q - oldA0 to avoid uint16 underflow.
-	VADDVX	Q, V4, V8
-	VSUBVV	V6, V8, V8
-	REDUCE_ONCE_RVV(V8, V20)
-
-	// diff1 = b1 - oldA1 mod q
-	VADDVX	Q, V5, V9
-	VSUBVV	V7, V9, V9
-	REDUCE_ONCE_RVV(V9, V20)
-
-	// b0' = MontMul(diff0, zeta)
-	// b1' = MontMul(diff1, zeta)
-	MONT_MUL_HILO_VV(V8, V10, V4, V20, V21)
-	MONT_MUL_HILO_VV(V9, V10, V5, V20, V21)
+	INVNTT_BUTTERFLY_VZ(V2, V4, V10, V8, V20, V21)
+	INVNTT_BUTTERFLY_VZ(V3, V5, V10, V9, V20, V21)
 
 	// Store:
 	//
@@ -842,53 +832,10 @@ invntt_level4_loop:
 	// V6..V9 = b0..b3
 	VLSEG8E16V (X16), V2
 
-	// Preserve old a0..a3.
-	VMVVV	V2, V11
-	VMVVV	V3, V12
-	VMVVV	V4, V13
-	VMVVV	V5, V14
-
-	// a0' = a0 + b0 mod q
-	VADDVV	V6, V2, V2
-	REDUCE_ONCE_RVV(V2, V20)
-
-	// a1' = a1 + b1 mod q
-	VADDVV	V7, V3, V3
-	REDUCE_ONCE_RVV(V3, V20)
-
-	// a2' = a2 + b2 mod q
-	VADDVV	V8, V4, V4
-	REDUCE_ONCE_RVV(V4, V20)
-
-	// a3' = a3 + b3 mod q
-	VADDVV	V9, V5, V5
-	REDUCE_ONCE_RVV(V5, V20)
-
-	// diff0 = b0 - oldA0 mod q
-	VADDVX	Q, V6, V15
-	VSUBVV	V11, V15, V15
-	REDUCE_ONCE_RVV(V15, V20)
-
-	// diff1 = b1 - oldA1 mod q
-	VADDVX	Q, V7, V16
-	VSUBVV	V12, V16, V16
-	REDUCE_ONCE_RVV(V16, V20)
-
-	// diff2 = b2 - oldA2 mod q
-	VADDVX	Q, V8, V17
-	VSUBVV	V13, V17, V17
-	REDUCE_ONCE_RVV(V17, V20)
-
-	// diff3 = b3 - oldA3 mod q
-	VADDVX	Q, V9, V18
-	VSUBVV	V14, V18, V18
-	REDUCE_ONCE_RVV(V18, V20)
-
-	// b0'..b3' = MontMul(diff0..diff3, zeta)
-	MONT_MUL_HILO_VV(V15, V10, V6, V20, V21)
-	MONT_MUL_HILO_VV(V16, V10, V7, V20, V21)
-	MONT_MUL_HILO_VV(V17, V10, V8, V20, V21)
-	MONT_MUL_HILO_VV(V18, V10, V9, V20, V21)
+	INVNTT_BUTTERFLY_VZ(V2, V6, V10, V15, V20, V21)
+	INVNTT_BUTTERFLY_VZ(V3, V7, V10, V16, V20, V21)
+	INVNTT_BUTTERFLY_VZ(V4, V8, V10, V17, V20, V21)
+	INVNTT_BUTTERFLY_VZ(V5, V9, V10, V18, V20, V21)
 
 	// Store:
 	//
@@ -952,22 +899,7 @@ invntt_chunk_loop:
 	VLE16V	(X16), V2			// a
 	VLE16V	(X18), V3			// b
 
-	// Preserve old a.
-	VMVVV	V2, V4
-
-	// a' = a + b mod q
-	VADDVV	V3, V4, V2
-	REDUCE_ONCE_RVV(V2, V8)
-
-	// diff = b - a mod q
-	//
-	// Compute b + q - oldA to avoid uint16 underflow.
-	VADDVX	Q, V3, V5
-	VSUBVV	V4, V5, V5
-	REDUCE_ONCE_RVV(V5, V8)
-
-	// b' = zeta * diff mod q
-	MONT_MUL_HILO_VX(V5, X14, V3, V6, V7)
+	INVNTT_BUTTERFLY_XZ(V2, V3, X14, V5, V6, V7)
 
 	VSE16V	V2, (X16)
 	VSE16V	V3, (X18)
