@@ -554,7 +554,7 @@ ntt_chunk_loop:
 	// V7 = Montgomery m
 	// V8 = reduce temporary
 
-	NTT_BUTTERFLY(V2, V3, X14, V6, V7)
+	NTT_BUTTERFLY(V2, V3, X14, V4, V6, V7)
 
 	VSE16V V2, (X16)
 	VSE16V V3, (X18)
