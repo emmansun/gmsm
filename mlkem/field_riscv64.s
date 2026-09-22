@@ -90,13 +90,13 @@
 //     va = a+t mod q
 //     vb = a-t mod q
 #define NTT_BUTTERFLY(va, vb, zeta, vt, olda, lo, m, redtmp) \
-	VMVVV va, olda;                                             \
 	MONT_MUL_HILO_VX(vb, zeta, vt, lo, m);                     \
-	VADDVV vt, olda, va;                                       \
+	VSUBVV vt, va, vb;                                       \
+	VADDVV vt, va, va;                                       \
 	REDUCE_ONCE_RVV(va, redtmp);                               \
-	VADDVX Q, olda, vb;                                        \
-	VSUBVV vt, vb, vb;                                         \
-	REDUCE_ONCE_RVV(vb, redtmp)
+	VSRAI $15, vb, redtmp;                                     \
+	VANDVX Q, redtmp, redtmp;                                  \
+	VADDVV redtmp, vb, vb
 
 // Input:
 //     va = a
