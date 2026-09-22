@@ -10,7 +10,11 @@ package sm4
 import (
 	"bytes"
 	"encoding/hex"
+	"os"
+	"strconv"
 	"testing"
+
+	"github.com/emmansun/gmsm/internal/deps/cpu"
 )
 
 func generateProductTableZvkg(t *testing.T, key []byte, table *[256]byte) {
@@ -87,4 +91,40 @@ func TestGcmSm4FinishZvkg(t *testing.T) {
 			t.Errorf("case %d: unexpected result: got %x, want %x", i, y, expected)
 		}
 	}
+}
+
+func TestRVVConfiguredVLEN(t *testing.T) {
+	if !cpu.RISCV64.HasV {
+		t.Skip("RVV not available")
+	}
+
+	expectedText := os.Getenv("EXPECTED_VLEN")
+	if expectedText == "" {
+		t.Skip("EXPECTED_VLEN is not set")
+	}
+
+	expected, err := strconv.ParseUint(expectedText, 10, 64)
+	if err != nil {
+		t.Fatalf("invalid EXPECTED_VLEN %q: %v", expectedText, err)
+	}
+
+	if cpu.RISCV64.VLENB == 0 {
+		t.Fatal("RVV is present but VLENB was not initialized")
+	}
+
+	got := uint64(cpu.RISCV64.VLENB) * 8
+	if got != expected {
+		t.Fatalf(
+			"VLEN mismatch: got=%d bits want=%d bits, VLENB=%d",
+			got,
+			expected,
+			cpu.RISCV64.VLENB,
+		)
+	}
+
+	t.Logf(
+		"confirmed QEMU VLEN=%d bits, VLENB=%d bytes",
+		got,
+		cpu.RISCV64.VLENB,
+	)
 }

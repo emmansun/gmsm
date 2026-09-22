@@ -19,7 +19,9 @@ jobs:
     strategy:
       matrix:
         goVer: [1.27]
-        arch: [riscv64]  
+        arch: [riscv64]
+        vlen: [128, 256, 512]
+
     runs-on: ubuntu-latest
     steps:
     - name: Harden the runner (Audit all outbound calls)
@@ -43,16 +45,25 @@ jobs:
         QEMU_CPU=max sh -c 'true'
         echo "QEMU_CPU=max (default for riscv64 linux-user since QEMU 8.1)"
 
+    - name: Verify QEMU RVV configuration
+      run: |
+        echo "QEMU_CPU=${QEMU_CPU}"
+        go test -v -count=1 ./internal/... \
+          -run '^TestRVVConfiguration$'
+      env:
+        GOARCH: ${{ matrix.arch }}
+        QEMU_CPU: max,v=true,vlen=${{ matrix.vlen }},elen=64
+
     - name: Test without Zvkg
-      run: go test -v -short ./internal/... ./sm3/... ./sm4/...
+      run: go test -v -short ./internal/... ./sm3/... ./sm4/... ./mlkem/...
       env:
         DISABLE_GHASH: 1
-        QEMU_CPU: max
+        QEMU_CPU: max,v=true,vlen=${{ matrix.vlen }},elen=64
         GOARCH: ${{ matrix.arch }}
 
     - name: Test Cipher wihout Zvkg
       run: go test -v -short ./cipher -run 'TestSM4GCM|TestGCMCounterWrap|TestSM4GCMRandom'
       env:
         DISABLE_GHASH: 1
-        QEMU_CPU: max
-        GOARCH: ${{ matrix.arch }}        
+        QEMU_CPU: max,v=true,vlen=${{ matrix.vlen }},elen=64
+        GOARCH: ${{ matrix.arch }}
