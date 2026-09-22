@@ -23,6 +23,14 @@ func benchCiphertextBytes(n int) []byte {
 	return b
 }
 
+func benchCBDBytes(n int) []byte {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = byte(i*73 + 29)
+	}
+	return b
+}
+
 func requireRVV(t *testing.T) {
 	t.Helper()
 	if !hasRVV {
