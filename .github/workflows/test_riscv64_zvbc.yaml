@@ -52,6 +52,7 @@ jobs:
           -run '^TestRVVConfiguredVLEN$'
       env:
         GOARCH: ${{ matrix.arch }}
+        EXPECTED_VLEN: ${{ matrix.vlen }}
         QEMU_CPU: max,v=true,vlen=${{ matrix.vlen }},elen=64
 
     - name: Test without Zvkg
