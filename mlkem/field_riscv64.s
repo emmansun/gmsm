@@ -1726,6 +1726,9 @@ TEXT ·ringCompressAndEncode11RVV(SB), NOSPLIT, $64-32
 	// Save VXRM and select RNU.
 	CSRRWI	$0, VXRM, X29
 
+	// Address of compressed-coefficient temporary.
+	ADD		$8, RSP, X30
+
 	// Probe E16/M1 with AVL=16.
 	//
 	// Go assembler operand order follows its source-first convention:
@@ -1751,8 +1754,6 @@ ring_compress_encode11_rvv_8_loop:
 		VLE16V		(X6), V8
 
 		COMPRESS_11_RVV()
-
-		ADD		$8, RSP, X30
 		VSE16V		V14, (X30)
 
 		// X20 = c0 | c1<<11 | c2<<22 | c3<<33.
@@ -1822,8 +1823,6 @@ ring_compress_encode11_rvv_16_loop:
 		VLE16V		(X6), V8
 
 		COMPRESS_11_RVV()
-
-		ADD		$8, RSP, X30
 		VSE16V		V14, (X30)
 
 		// X20 = c0 | c1<<11 | c2<<22 | c3<<33.
