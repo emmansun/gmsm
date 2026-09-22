@@ -89,14 +89,30 @@
 // Output:
 //     va = a+t mod q
 //     vb = a-t mod q
-#define NTT_BUTTERFLY(va, vb, zeta, vt, olda, lo, m, redtmp) \
+#define NTT_BUTTERFLY(va, vb, zeta, vt, lo, m) \
 	MONT_MUL_HILO_VX(vb, zeta, vt, lo, m);                     \
-	VSUBVV vt, va, vb;                                       \
-	VADDVV vt, va, va;                                       \
-	REDUCE_ONCE_RVV(va, redtmp);                               \
-	VSRAI $15, vb, redtmp;                                     \
-	VANDVX Q, redtmp, redtmp;                                  \
-	VADDVV redtmp, vb, vb
+	VSUBVV vt, va, vb;                                         \
+	VADDVV vt, va, va;                                         \
+	REDUCE_ONCE_RVV(va, m);                                    \
+	VSRAI $15, vb, m;                                          \
+	VANDVX Q, m, m;                                            \
+	VADDVV m, vb, vb
+
+// Input:
+//     va = a
+//     vb = b
+//
+// Output:
+//     va = a+t mod q
+//     vb = a-t mod q
+#define NTT_BUTTERFLY_VZ(va, vb, vz, vt, lo, m) \
+	MONT_MUL_HILO_VV(vb, vz, vt, lo, m);                       \
+	VSUBVV vt, va, vb;                                         \
+	VADDVV vt, va, va;                                         \
+	REDUCE_ONCE_RVV(va, m);                                    \
+	VSRAI $15, vb, m;                                          \
+	VANDVX Q, m, m;                                            \
+	VADDVV m, vb, vb	
 
 // Input:
 //     va = a
@@ -538,21 +554,7 @@ ntt_chunk_loop:
 	// V7 = Montgomery m
 	// V8 = reduce temporary
 
-	VMVVV V2, V5
-
-	// t = b * zeta mod q
-	MONT_MUL_HILO_VX(V3, X14, V4, V6, V7)
-
-	// left = oldLeft + t mod q
-	VADDVV V4, V5, V2
-	REDUCE_ONCE_RVV(V2, V8)
-
-	// right = oldLeft - t mod q
-	//
-	// Compute oldLeft + q - t to avoid unsigned underflow.
-	VADDVX Q, V5, V3
-	VSUBVV V4, V3, V3
-	REDUCE_ONCE_RVV(V3, V8)
+	NTT_BUTTERFLY(V2, V3, X14, V6, V7)
 
 	VSE16V V2, (X16)
 	VSE16V V3, (X18)
