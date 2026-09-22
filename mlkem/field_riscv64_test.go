@@ -615,6 +615,64 @@ func TestPolyAddSubRVVConsistency(t *testing.T) {
 	}
 }
 
+func TestSamplePolyCBD2RVVMatchesGeneric(t *testing.T) {
+	for iter := 0; iter < 100; iter++ {
+		var seed [32]byte
+		for i := range seed {
+			seed[i] = byte(iter*256 + i)
+		}
+
+		// Build 128-byte input for eta=2
+		var B [128]byte
+		for i := 0; i < 128; i++ {
+			B[i] = byte((seed[i%32] + byte(i)) ^ 0xAA)
+		}
+
+		// Compute via NEON path
+		gotNEON := ringElement{}
+		samplePolyCBD2RVV(&gotNEON, &B)
+
+		// Compute via generic path
+		wantGeneric := samplePolyCBDGeneric(B[:], 2)
+
+		// Compare all coefficients
+		for i := range gotNEON {
+			if gotNEON[i] != wantGeneric[i] {
+				t.Fatalf("iter=%d coeff=%d: samplePolyCBD2RVV mismatch: got=%d want=%d", iter, i, gotNEON[i], wantGeneric[i])
+			}
+		}
+	}
+}
+
+func TestSamplePolyCBD3RVVMatchesGeneric(t *testing.T) {
+	for iter := 0; iter < 100; iter++ {
+		var seed [32]byte
+		for i := range seed {
+			seed[i] = byte(iter*256 + i)
+		}
+
+		// Build 192-byte input for eta=3
+		var B [192]byte
+		for i := 0; i < 192; i++ {
+			B[i] = byte((seed[i%32] + byte(i)) ^ 0x55)
+		}
+
+		// Compute via NEON path
+		gotNEON := ringElement{}
+		samplePolyCBD3RVV(&gotNEON, &B)
+
+		// Compute via generic path
+		wantGeneric := samplePolyCBDGeneric(B[:], 3)
+
+		// Compare all coefficients
+		for i := range gotNEON {
+			if gotNEON[i] != wantGeneric[i] {
+				t.Fatalf("iter=%d coeff=%d: samplePolyCBD3RVV mismatch: got=%d want=%d", iter, i, gotNEON[i], wantGeneric[i])
+			}
+		}
+	}
+}
+
 func BenchmarkNTTForward(b *testing.B) {
 	b.Run("Generic", func(b *testing.B) {
 		elem := randomRingElement()

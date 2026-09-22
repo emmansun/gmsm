@@ -1842,3 +1842,228 @@ polySubAssignRVV_loop:
 	SUB	X14, X13, X13
 	BNEZ	X13, polySubAssignRVV_loop
 	RET
+
+// Input:
+//   x    : E8/M1 vector containing one 6-bit CBD3 unit
+//
+// Output:
+//   lo   : E8/M1, popcount(x & 7)
+//   hi   : E8/M1, popcount((x >> 3) & 7)
+//
+// Clobbers:
+//   tmp
+#define CBD3_COUNTS(x, lo, hi, tmp) \
+	VANDVI	$1, x, lo;		\
+	VSRLVI	$1, x, tmp;		\
+	VANDVI	$1, tmp, tmp;		\
+	VADDVV	tmp, lo, lo;		\
+	VSRLVI	$2, x, tmp;		\
+	VANDVI	$1, tmp, tmp;		\
+	VADDVV	tmp, lo, lo;		\
+	VSRLVI	$3, x, hi;		\
+	VANDVI	$1, hi, hi;		\
+	VSRLVI	$4, x, tmp;		\
+	VANDVI	$1, tmp, tmp;		\
+	VADDVV	tmp, hi, hi;		\
+	VSRLVI	$5, x, tmp;		\
+	VANDVI	$1, tmp, tmp;		\
+	VADDVV	tmp, hi, hi
+
+// Input:
+//   va8  : E8/M1 unsigned count
+//   vb8  : E8/M1 unsigned count
+//   vl   : scalar register containing current VL
+//
+// Output:
+//   vd16 : E16/M2 canonical field element in [0, q)
+//
+// Clobbers:
+//   va16, vb16, sign
+//
+// Register groups va16, vb16, vd16, sign must be aligned for LMUL=2.
+#define CBD_SUB_TO_FIELD(va8, vb8, va16, vb16, vd16, sign, vl) \
+	VWADDUVX	X0, va8, va16;				\
+	VWADDUVX	X0, vb8, vb16;				\
+	VSETVLI	vl, E16, M2, TA, MA, X0;	    \
+	VSUBVV	vb16, va16, vd16;				\
+	VSRAVI	$15, vd16, sign;				\
+	VANDVX	Q, sign, sign;					\
+	VADDVV	sign, vd16, vd16
+
+// func samplePolyCBD2RVV(f *ringElement, B *byte)
+TEXT ·samplePolyCBD2RVV(SB), NOSPLIT, $0-16
+	MOV	f+0(FP), X10
+	MOV	B+8(FP), X11
+
+	// Number of source bytes remaining.
+	MOV	$128, X12
+
+	// Constants.
+	MOV	$3329, Q
+	MOV $0x55, X15
+	MOV	$4, X16			// output stride: 2 coefficients * 2 bytes
+
+sample_poly_cbd2_loop:
+	// X13 = actual VL in bytes.
+	VSETVLI	X12, E8, M1, TA, MA, X13
+
+	// V8 = input bytes.
+	VLE8V	(X11), V8
+
+	// V9 = (b & 0x55) + ((b >> 1) & 0x55)
+	VANDVX	X15, V8, V9
+	VSRLVI	$1, V8, V10
+	VANDVX	X15, V10, V10
+	VADDVV	V10, V9, V9
+
+	// coefficient 0:
+	// a0 = d & 3
+	// b0 = (d >> 2) & 3
+	VANDVI	$3, V9, V11
+	VSRLVI	$2, V9, V12
+	VANDVI	$3, V12, V12
+
+	// Widen to E16 and calculate fieldSub(a0, b0).
+	//
+	// V16/V17 = widened a
+	// V18/V19 = widened b
+	// V20/V21 = result
+	// V22/V23 = sign mask
+	CBD_SUB_TO_FIELD(V11, V12, V16, V18, V20, V22, X13)
+
+	// f[2*i]
+	VSSE16V	V20, (X10), X16
+
+	// Return to E8/M1 for coefficient 1 extraction.
+	VSETVLI	X13, E8, M1, TA, MA, X0
+
+	// coefficient 1:
+	// a1 = (d >> 4) & 3
+	// b1 = (d >> 6) & 3
+	VSRLVI	$4, V9, V11
+	VANDVI	$3, V11, V11
+	VSRLVI	$6, V9, V12
+	VANDVI	$3, V12, V12
+
+	CBD_SUB_TO_FIELD(V11, V12, V16, V18, V20, V22, X13)
+
+	// f[2*i+1]
+	ADD	$2, X10, X14
+	VSSE16V	V20, (X14), X16
+
+	// Advance source by VL bytes.
+	ADD	X13, X11, X11
+
+	// Advance destination by 4*VL bytes.
+	SLL	$2, X13, X14
+	ADD	X14, X10, X10
+
+	// remaining -= VL
+	SUB	X13, X12, X12
+	BNE	X12, X0, sample_poly_cbd2_loop
+
+	RET	
+	
+// func samplePolyCBD3RVV(f *ringElement, B *byte)
+TEXT ·samplePolyCBD3RVV(SB), NOSPLIT, $0-16
+	MOV	f+0(FP), X10
+	MOV	B+8(FP), X11
+
+	// 192 input bytes / 3 bytes per group = 64 groups.
+	MOV	$64, X12
+
+	MOV	$3, X14			// input byte stride
+	MOV	$3329, Q
+	MOV	$8, X16			// output stride: 4 coefficients * 2 bytes
+
+sample_poly_cbd3_loop:
+	// X13 = number of 3-byte groups processed this iteration.
+	VSETVLI	X12, E8, M1, TA, MA, X13
+
+	// Load:
+	// V8[i]  = B[3*i+0]
+	// V9[i]  = B[3*i+1]
+	// V10[i] = B[3*i+2]
+	VLSE8V	(X11), X14, V8
+	ADD	$1, X11, X17
+	VLSE8V	(X17), X14, V9
+	ADD	$2, X11, X17
+	VLSE8V	(X17), X14, V10
+
+	// ------------------------------------------------------------
+	// coefficient 0
+	// x0 = b0 bits [5:0]
+	// ------------------------------------------------------------
+
+	CBD3_COUNTS(V8, V12, V13, V14)
+
+	CBD_SUB_TO_FIELD(V12, V13, V16, V18, V20, V22, X13)
+	VSSE16V	V20, (X10), X16
+
+	// ------------------------------------------------------------
+	// coefficient 1
+	// x1 = (b0 >> 6) | ((b1 & 0x0f) << 2)
+	// ------------------------------------------------------------
+
+	VSETVLI	X13, E8, M1, TA, MA, X0
+
+	VSRLVI	$6, V8, V11
+	VANDVI	$0x0f, V9, V14
+	VSLLVI	$2, V14, V14
+	VORVV	V14, V11, V11
+
+	CBD3_COUNTS(V11, V12, V13, V14)
+
+	CBD_SUB_TO_FIELD(V12, V13, V16, V18, V20, V22, X13)
+
+	ADD	$2, X10, X17
+	VSSE16V	V20, (X17), X16
+
+	// ------------------------------------------------------------
+	// coefficient 2
+	// x2 = (b1 >> 4) | ((b2 & 0x03) << 4)
+	// ------------------------------------------------------------
+
+	VSETVLI	X13, E8, M1, TA, MA, X0
+
+	VSRLVI	$4, V9, V11
+	VANDVI	$0x03, V10, V14
+	VSLLVI	$4, V14, V14
+	VORVV	V14, V11, V11
+
+	CBD3_COUNTS(V11, V12, V13, V14)
+
+	CBD_SUB_TO_FIELD(V12, V13, V16, V18, V20, V22, X13)
+
+	ADD	$4, X10, X17
+	VSSE16V	V20, (X17), X16
+
+	// ------------------------------------------------------------
+	// coefficient 3
+	// x3 = b2 >> 2
+	// ------------------------------------------------------------
+
+	VSETVLI	X13, E8, M1, TA, MA, X0
+
+	VSRLVI	$2, V10, V11
+	CBD3_COUNTS(V11, V12, V13, V14)
+
+	CBD_SUB_TO_FIELD(V12, V13, V16, V18, V20, V22, X13)
+
+	ADD	$6, X10, X17
+	VSSE16V	V20, (X17), X16
+
+	// Advance input by 3*VL bytes.
+	SLL	$1, X13, X17
+	ADD	X13, X17, X17
+	ADD	X17, X11, X11
+
+	// Advance output by 8*VL bytes.
+	SLL	$3, X13, X17
+	ADD	X17, X10, X10
+
+	// remaining groups -= VL
+	SUB	X13, X12, X12
+	BNE	X12, X0, sample_poly_cbd3_loop
+
+	RET	

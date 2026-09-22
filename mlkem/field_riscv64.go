@@ -56,6 +56,12 @@ func polyAddAssignRVV(dst, src *ringElement)
 //go:noescape
 func polySubAssignRVV(dst, src *ringElement)
 
+//go:noescape
+func samplePolyCBD2RVV(f *ringElement, buf *[128]byte)
+
+//go:noescape
+func samplePolyCBD3RVV(f *ringElement, buf *[192]byte)
+
 func nttMul(acc, lhs, rhs *nttElement) {
 	if hasRVV {
 		internalNTTMulRVV(acc, lhs, rhs)
@@ -119,8 +125,21 @@ func samplePolyCBD(s []byte, b, η byte) ringElement {
 	prf.Write(s)
 	prf.Write([]byte{b})
 	var B [maxBytesOf64Mulη]byte
-	prf.Read(B[:64*η])
-	return samplePolyCBDGeneric(B[:], η)
+	switch {
+	case useRVV && η == 2:
+		prf.Read(B[:128])
+		var f ringElement
+		samplePolyCBD2RVV(&f, (*[128]byte)(B[:128]))
+		return f
+	case useRVV && η == 3:
+		prf.Read(B[:192])
+		var f ringElement
+		samplePolyCBD3RVV(&f, (*[192]byte)(B[:192]))
+		return f
+	default:
+		prf.Read(B[:64*η])
+		return samplePolyCBDGeneric(B[:], η)
+	}
 }
 
 func polyAddAssign(dst *ringElement, src *ringElement) {
