@@ -1009,3 +1009,117 @@ func BenchmarkRingCompressAndEncode11(b *testing.B) {
 		benchEncodeSink = out[0]
 	})
 }
+
+func BenchmarkSamplePolyCBD2(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		B := benchCBDBytes(128)
+		b.ReportAllocs()
+		b.SetBytes(128)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			benchCBDSink = samplePolyCBDGeneric(B, 2)
+		}
+	})
+
+	b.Run("RVV", func(b *testing.B) {
+		if !hasRVV {
+			b.Skip("RVV not available on this machine")
+		}
+
+		var B [128]byte
+		copy(B[:], benchCBDBytes(len(B)))
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(128)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			samplePolyCBD2RVV(&f, &B)
+		}
+		benchCBDSink = f
+	})
+}
+
+func BenchmarkSamplePolyCBD3(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		B := benchCBDBytes(192)
+		b.ReportAllocs()
+		b.SetBytes(192)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			benchCBDSink = samplePolyCBDGeneric(B, 3)
+		}
+	})
+
+	b.Run("RVV", func(b *testing.B) {
+		if !hasRVV {
+			b.Skip("RVV not available on this machine")
+		}
+
+		var B [192]byte
+		copy(B[:], benchCBDBytes(len(B)))
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(192)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			samplePolyCBD3RVV(&f, &B)
+		}
+		benchCBDSink = f
+	})
+}
+
+func BenchmarkPolyAddAssign(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		dst := randomRingElement()
+		src := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			dst2 := dst
+			polyAddAssignGeneric(&dst2, &src)
+		}
+	})
+
+	b.Run("RVV", func(b *testing.B) {
+		if !hasRVV {
+			b.Skip("RVV not available on this machine")
+		}
+
+		dst := randomRingElement()
+		src := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			dst2 := dst
+			polyAddAssignRVV(&dst2, &src)
+		}
+	})
+}
+
+func BenchmarkPolySubAssign(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		dst := randomRingElement()
+		src := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			dst2 := dst
+			polySubAssignGeneric(&dst2, &src)
+		}
+	})
+
+	b.Run("RVV", func(b *testing.B) {
+		if !hasRVV {
+			b.Skip("RVV not available on this machine")
+		}
+
+		dst := randomRingElement()
+		src := randomRingElement()
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			dst2 := dst
+			polySubAssignRVV(&dst2, &src)
+		}
+	})
+}
