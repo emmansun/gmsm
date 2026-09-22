@@ -49,7 +49,7 @@ jobs:
       run: |
         echo "QEMU_CPU=${QEMU_CPU}"
         go test -v -count=1 ./internal/... \
-          -run '^TestRVVConfiguration$'
+          -run '^TestRVVConfiguredVLEN$'
       env:
         GOARCH: ${{ matrix.arch }}
         QEMU_CPU: max,v=true,vlen=${{ matrix.vlen }},elen=64
