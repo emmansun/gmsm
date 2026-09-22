@@ -126,12 +126,12 @@ func samplePolyCBD(s []byte, b, η byte) ringElement {
 	prf.Write([]byte{b})
 	var B [maxBytesOf64Mulη]byte
 	switch {
-	case useRVV && η == 2:
+	case hasRVV && η == 2:
 		prf.Read(B[:128])
 		var f ringElement
 		samplePolyCBD2RVV(&f, (*[128]byte)(B[:128]))
 		return f
-	case useRVV && η == 3:
+	case hasRVV && η == 3:
 		prf.Read(B[:192])
 		var f ringElement
 		samplePolyCBD3RVV(&f, (*[192]byte)(B[:192]))
