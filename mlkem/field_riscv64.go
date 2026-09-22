@@ -50,6 +50,12 @@ func ringCompressAndEncode10RVV(out []byte, f *ringElement)
 //go:noescape
 func ringCompressAndEncode11RVV(out []byte, f *ringElement)
 
+//go:noescape
+func polyAddAssignRVV(dst, src *ringElement)
+
+//go:noescape
+func polySubAssignRVV(dst, src *ringElement)
+
 func nttMul(acc, lhs, rhs *nttElement) {
 	if hasRVV {
 		internalNTTMulRVV(acc, lhs, rhs)
@@ -118,10 +124,18 @@ func samplePolyCBD(s []byte, b, η byte) ringElement {
 }
 
 func polyAddAssign(dst *ringElement, src *ringElement) {
+	if hasRVV {
+		polyAddAssignRVV(dst, src)
+		return
+	}
 	polyAddAssignGeneric(dst, src)
 }
 
 func polySubAssign(dst *ringElement, src *ringElement) {
+	if hasRVV {
+		polySubAssignRVV(dst, src)
+		return
+	}
 	polySubAssignGeneric(dst, src)
 }
 

@@ -1901,3 +1901,63 @@ ring_compress_encode11_rvv_16_loop:
 ring_compress_encode11_rvv_done:
 	CSRW	X29, VXRM
 	RET
+
+//func polyAddAssignRVV(dst, src *ringElement)
+// polyAddAssignRVV computes dst[i] = fieldAdd(dst[i], src[i]) for all i in [0, 256).
+TEXT ·polyAddAssignRVV(SB), NOSPLIT, $0-16
+	MOV dst+0(FP), X11
+	MOV src+8(FP), X12
+
+	// Pinned constants.
+	MOV $3329, Q
+	MOV $1, ONE
+
+	MOV $256, X13
+
+polyAddAssignRVV_loop:
+	VSETVLI X13, E16, M1, TA, MA, X14
+	VLE16V		(X11), V1
+	VLE16V		(X12), V2
+
+	VADDVV V2, V1, V1
+	REDUCE_ONCE_RVV(V1, V3)
+
+	VSE16V		V1, (X11)
+	SLL $1, X14, X15
+	ADD	X15, X11, X11
+	ADD	X15, X12, X12
+
+	SUB	X14, X13, X13
+	BNEZ	X13, polyAddAssignRVV_loop
+
+	RET
+
+//func polySubAssignRVV(dst, src *ringElement)
+// polySubAssignRVV computes dst[i] = fieldSub(dst[i], src[i]) for all i in [0, 256).
+TEXT ·polySubAssignRVV(SB), NOSPLIT, $0-16
+	MOV dst+0(FP), X11
+	MOV src+8(FP), X12
+
+	// Pinned constants.
+	MOV $3329, Q
+	MOV $1, ONE
+
+	MOV $256, X13
+
+polySubAssignRVV_loop:
+	VSETVLI X13, E16, M1, TA, MA, X14
+	VLE16V		(X11), V1
+	VLE16V		(X12), V2
+
+	VADDVX Q, V1, V1
+	VSUBVV V2, V1, V1
+	REDUCE_ONCE_RVV(V1, V3)
+
+	VSE16V		V1, (X11)
+	SLL $1, X14, X15
+	ADD	X15, X11, X11
+	ADD	X15, X12, X12
+
+	SUB	X14, X13, X13
+	BNEZ	X13, polySubAssignRVV_loop
+	RET

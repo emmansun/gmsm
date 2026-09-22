@@ -357,6 +357,264 @@ func TestRingCompressAndEncode11RVVMatchesGenericExhaustiveSingleValue(t *testin
 	}
 }
 
+func TestPolyAddAssignRVVCorrectness(t *testing.T) {
+	requireRVV(t)
+
+	for iter := 0; iter < 100; iter++ {
+		dst := randomRingElement()
+		src := randomRingElement()
+
+		got := dst
+		want := dst
+
+		polyAddAssignRVV(&got, &src)
+		polyAddAssignGeneric(&want, &src)
+
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("iter=%d idx=%d: polyAddAssign mismatch: got=%d want=%d", iter, i, got[i], want[i])
+			}
+		}
+	}
+}
+
+func TestPolyAddAssignRVVZero(t *testing.T) {
+	requireRVV(t)
+
+	dst := randomRingElement()
+	var src ringElement // zero polynomial
+
+	got := dst
+	want := dst
+
+	polyAddAssignRVV(&got, &src)
+	polyAddAssignGeneric(&want, &src)
+
+	for i := range got {
+		if got[i] != want[i] {
+			t.Fatalf("zero add: idx=%d: got=%d want=%d", i, got[i], want[i])
+		}
+	}
+}
+
+// TestPolyAddAssignRVVMaxBoundary tests adding all max values (q-1).
+func TestPolyAddAssignRVVMaxBoundary(t *testing.T) {
+	requireRVV(t)
+
+	var dst, src ringElement
+	for i := range dst {
+		dst[i] = q - 1
+		src[i] = q - 1
+	}
+
+	got := dst
+	want := dst
+
+	polyAddAssignRVV(&got, &src)
+	polyAddAssignGeneric(&want, &src)
+
+	for i := range got {
+		if got[i] != want[i] {
+			t.Fatalf("max boundary: idx=%d: got=%d want=%d", i, got[i], want[i])
+		}
+		// Result should be (q-1)+(q-1) mod q = q-2
+		expected := 2 * (q - 1) % q
+		if got[i] != fieldElement(expected) {
+			t.Fatalf("max boundary: idx=%d: got=%d expected=%d", i, got[i], expected)
+		}
+	}
+}
+
+// TestPolyAddAssignRVVIdempotence tests adding to itself.
+func TestPolyAddAssignRVVIdempotence(t *testing.T) {
+	requireRVV(t)
+
+	src := randomRingElement()
+
+	got := src
+	want := src
+
+	polyAddAssignRVV(&got, &got)      // dst[i] += dst[i]
+	polyAddAssignGeneric(&want, &want) // want[i] = fieldAdd(want[i], want[i])
+
+	for i := range got {
+		if got[i] != want[i] {
+			t.Fatalf("idempotence: idx=%d: got=%d want=%d", i, got[i], want[i])
+		}
+	}
+}
+
+func TestPolySubAssignRVVCorrectness(t *testing.T) {
+	requireRVV(t)
+
+	for iter := 0; iter < 100; iter++ {
+		dst := randomRingElement()
+		src := randomRingElement()
+
+		got := dst
+		want := dst
+
+		polySubAssignRVV(&got, &src)
+		polySubAssignGeneric(&want, &src)
+
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("iter=%d idx=%d: polySubAssign mismatch: got=%d want=%d", iter, i, got[i], want[i])
+			}
+		}
+	}
+}
+
+// TestPolySubAssignRVVZeroMinusZero tests zero - zero.
+func TestPolySubAssignRVVZeroMinusZero(t *testing.T) {
+	requireRVV(t)
+
+	var dst, src ringElement // both zero
+
+	got := dst
+	want := dst
+
+	polySubAssignRVV(&got, &src)
+	polySubAssignGeneric(&want, &src)
+
+	for i := range got {
+		if got[i] != want[i] {
+			t.Fatalf("zero-zero: idx=%d: got=%d want=%d", i, got[i], want[i])
+		}
+		if got[i] != 0 {
+			t.Fatalf("zero-zero: idx=%d: expected 0, got=%d", i, got[i])
+		}
+	}
+}
+
+// TestPolySubAssignRVVSameMinusSame tests x - x = 0.
+func TestPolySubAssignRVVSameMinusSame(t *testing.T) {
+	requireRVV(t)
+
+	src := randomRingElement()
+
+	got := src
+	want := src
+
+	polySubAssignRVV(&got, &got) // dst[i] -= dst[i]
+	polySubAssignGeneric(&want, &want)
+
+	for i := range got {
+		if got[i] != want[i] {
+			t.Fatalf("same-same: idx=%d: got=%d want=%d", i, got[i], want[i])
+		}
+		if got[i] != 0 {
+			t.Fatalf("same-same: idx=%d: expected 0, got=%d", i, got[i])
+		}
+	}
+}
+
+// TestPolySubAssignRVVMaxMinusZero tests max - zero.
+func TestPolySubAssignRVVMaxMinusZero(t *testing.T) {
+	requireRVV(t)
+
+	var dst ringElement
+	var src ringElement // zero
+	for i := range dst {
+		dst[i] = q - 1
+	}
+
+	got := dst
+	want := dst
+
+	polySubAssignRVV(&got, &src)
+	polySubAssignGeneric(&want, &src)
+
+	for i := range got {
+		if got[i] != want[i] {
+			t.Fatalf("max-zero: idx=%d: got=%d want=%d", i, got[i], want[i])
+		}
+		if got[i] != q-1 {
+			t.Fatalf("max-zero: idx=%d: expected %d, got=%d", i, q-1, got[i])
+		}
+	}
+}
+
+// TestPolySubAssignRVVZeroMinusMax tests zero - max.
+func TestPolySubAssignRVVZeroMinusMax(t *testing.T) {
+	requireRVV(t)
+
+	var dst ringElement // zero
+	var src ringElement
+	for i := range src {
+		src[i] = q - 1
+	}
+
+	got := dst
+	want := dst
+
+	polySubAssignRVV(&got, &src)
+	polySubAssignGeneric(&want, &src)
+
+	for i := range got {
+		if got[i] != want[i] {
+			t.Fatalf("zero-max: idx=%d: got=%d want=%d", i, got[i], want[i])
+		}
+		// 0 - (q-1) should be (0 - (q-1) + q) mod q = 1
+		expected := fieldElement((0 - (q - 1) + q) % q)
+		if got[i] != expected {
+			t.Fatalf("zero-max: idx=%d: expected %d, got=%d", i, expected, got[i])
+		}
+	}
+}
+
+// TestPolySubAssignRVVMaxMinusMax tests max - max.
+func TestPolySubAssignRVVMaxMinusMax(t *testing.T) {
+	requireRVV(t)
+
+	var dst, src ringElement
+	for i := range dst {
+		dst[i] = q - 1
+		src[i] = q - 1
+	}
+
+	got := dst
+	want := dst
+
+	polySubAssignRVV(&got, &src)
+	polySubAssignGeneric(&want, &src)
+
+	for i := range got {
+		if got[i] != want[i] {
+			t.Fatalf("max-max: idx=%d: got=%d want=%d", i, got[i], want[i])
+		}
+		if got[i] != 0 {
+			t.Fatalf("max-max: idx=%d: expected 0, got=%d", i, got[i])
+		}
+	}
+}
+
+// TestPolyAddSubRVVConsistency tests that Add and Sub are consistent: (a+b)-b = a.
+func TestPolyAddSubRVVConsistency(t *testing.T) {
+	requireRVV(t)
+
+	for iter := 0; iter < 50; iter++ {
+		a := randomRingElement()
+		b := randomRingElement()
+
+		// Compute a + b
+		aPlusB := a
+		polyAddAssignRVV(&aPlusB, &b)
+
+		// Compute (a + b) - b
+		result := aPlusB
+		polySubAssignRVV(&result, &b)
+
+		// result should equal a
+		for i := range result {
+			if result[i] != a[i] {
+				t.Fatalf("consistency iter=%d idx=%d: (a+b)-b = %d, expected a = %d",
+					iter, i, result[i], a[i])
+			}
+		}
+	}
+}
+
 func BenchmarkNTTForward(b *testing.B) {
 	b.Run("Generic", func(b *testing.B) {
 		elem := randomRingElement()
