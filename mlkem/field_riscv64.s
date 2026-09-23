@@ -2152,9 +2152,18 @@ ring_compress_encode4_rvv_loop:
 	VSLLVI		$4, V11, V11
 	VORVV		V11, V10, V10
 
-	// V10 contains one packed output byte in the low 8 bits of each
-	// 16-bit vector element. VSE8V stores those low 8 bits directly;
-	// no VNSRL instruction is required.
+	// Switch to E8 and narrow each E16 element to one E8 element.
+	//
+	// The previous VL is retained as AVL. Since E8/M1 has at least
+	// as large a VLMAX as E16/M1, the resulting VL remains X13.
+	VSETVLI	X13, E8, M1, TA, MA, X0
+
+	// V10 is interpreted as an E16/M2 wide source under E8/M1.
+	// V10 is even-numbered, satisfying the EMUL=2 alignment rule.
+	//
+	// This is a logical narrowing shift by zero. VXRM is not involved.
+	VNSRLWX	X0, V10, V8
+
 	VSE8V		V10, (X10)
 
 	// Input advances by:
