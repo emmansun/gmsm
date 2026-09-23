@@ -2211,7 +2211,7 @@ ring_compress_encode4_rvv_loop:
 //
 //     V8  = packed input bytes, zero-extended to E16
 //     V10 = low nibbles / decompressed even coefficients
-//     V12 = high nibbles / decompressed odd coefficients
+//     V11 = high nibbles / decompressed odd coefficients
 TEXT ·ringDecodeAndDecompress4RVV(SB), NOSPLIT, $0-16
 	MOV	b+0(FP), X10
 	MOV	f+8(FP), X11
@@ -2269,4 +2269,199 @@ ring_decode_decompress4_rvv_loop:
 	SUB		X13, X12, X12
 	BNE		X12, X0, ring_decode_decompress4_rvv_loop
 
+	RET
+
+// PACK5_8_RVV packs eight uint16 values at base(RSP) into X12.
+#define PACK5_8_RVV(base) \
+	MOVHU base(RSP), X12; \
+	MOVHU (base+2)(RSP), X13; \
+	SLL $5, X13, X13; \
+	OR X13, X12, X12; \
+	MOVHU (base+4)(RSP), X13; \
+	SLL $10, X13, X13; \
+	OR X13, X12, X12; \
+	MOVHU (base+6)(RSP), X13; \
+	SLL $15, X13, X13; \
+	OR X13, X12, X12; \
+	MOVHU (base+8)(RSP), X13; \
+	SLL $20, X13, X13; \
+	OR X13, X12, X12; \
+	MOVHU (base+10)(RSP), X13; \
+	SLL $25, X13, X13; \
+	OR X13, X12, X12; \
+	MOVHU (base+12)(RSP), X13; \
+	SLL $30, X13, X13; \
+	OR X13, X12, X12; \
+	MOVHU (base+14)(RSP), X13; \
+	SLL $35, X13, X13; \
+	OR X13, X12, X12
+
+// UNPACK5_8_RVV expands the 40-bit value in X12 into base(RSP).
+#define UNPACK5_8_RVV(base) \
+	AND $31, X12, X13; \
+	MOVH X13, base(RSP); \
+	SRL $5, X12, X12; \
+	AND $31, X12, X13; \
+	MOVH X13, (base+2)(RSP); \
+	SRL $5, X12, X12; \
+	AND $31, X12, X13; \
+	MOVH X13, (base+4)(RSP); \
+	SRL $5, X12, X12; \
+	AND $31, X12, X13; \
+	MOVH X13, (base+6)(RSP); \
+	SRL $5, X12, X12; \
+	AND $31, X12, X13; \
+	MOVH X13, (base+8)(RSP); \
+	SRL $5, X12, X12; \
+	AND $31, X12, X13; \
+	MOVH X13, (base+10)(RSP); \
+	SRL $5, X12, X12; \
+	AND $31, X12, X13; \
+	MOVH X13, (base+12)(RSP); \
+	SRL $5, X12, X12; \
+	AND $31, X12, X13; \
+	MOVH X13, (base+14)(RSP)
+
+// LOAD5_RVV loads five little-endian bytes from base(X5) into X12.
+#define LOAD5_RVV(base) \
+	MOVBU base(X5), X12; \
+	MOVBU (base+1)(X5), X13; \
+	SLL $8, X13, X13; \
+	OR X13, X12, X12; \
+	MOVBU (base+2)(X5), X13; \
+	SLL $16, X13, X13; \
+	OR X13, X12, X12; \
+	MOVBU (base+3)(X5), X13; \
+	SLL $24, X13, X13; \
+	OR X13, X12, X12; \
+	MOVBU (base+4)(X5), X13; \
+	SLL $32, X13, X13; \
+	OR X13, X12, X12
+
+// func ringCompressAndEncode5RVV(out []byte, f *ringElement)
+TEXT ·ringCompressAndEncode5RVV(SB), NOSPLIT, $48-32
+	MOV out_base+0(FP), X5
+	MOV f+24(FP), X6
+
+	MOV $20159, X7
+	MOV $16, X8
+	MOV $31, X9
+	ADD $8, RSP, X30
+
+	// Probe E16/M1 to select the 8-lane or 16-lane path.
+	MOV $16, X12
+	VSETVLI X12, E16, M1, TA, MA, X13
+	MOV $16, X14
+	BEQ X13, X14, ring_compress_encode5_rvv_16
+
+ring_compress_encode5_rvv_8:
+	MOV $32, X28
+	VSETIVLI $8, E16, M1, TA, MA, X0
+
+ring_compress_encode5_rvv_8_loop:
+	VLE16V (X6), V8
+	VMULHUVX X7, V8, V14
+	VADDVX X8, V14, V14
+	VSRLVI $5, V14, V14
+	VANDVX X9, V14, V14
+	VSE16V V14, (X30)
+
+	PACK5_8_RVV(8)
+	MOVW X12, 0(X5)
+	SRL $32, X12, X13
+	MOVB X13, 4(X5)
+
+	ADD $16, X6
+	ADD $5, X5
+	SUB $1, X28, X28
+	BNEZ X28, ring_compress_encode5_rvv_8_loop
+	RET
+
+ring_compress_encode5_rvv_16:
+	MOV $16, X28
+	VSETIVLI $16, E16, M1, TA, MA, X0
+
+ring_compress_encode5_rvv_16_loop:
+	VLE16V (X6), V8
+	VMULHUVX X7, V8, V14
+	VADDVX X8, V14, V14
+	VSRLVI $5, V14, V14
+	VANDVX X9, V14, V14
+	VSE16V V14, (X30)
+
+	PACK5_8_RVV(8)
+	MOVW X12, 0(X5)
+	SRL $32, X12, X13
+	MOVB X13, 4(X5)
+	PACK5_8_RVV(24)
+	MOVW X12, 5(X5)
+	SRL $32, X12, X13
+	MOVB X13, 9(X5)
+
+	ADD $32, X6
+	ADD $10, X5
+	SUB $1, X28, X28
+	BNEZ X28, ring_compress_encode5_rvv_16_loop
+	RET
+
+// func ringDecodeAndDecompress5RVV(b *[encodingSize5]byte, f *ringElement)
+TEXT ·ringDecodeAndDecompress5RVV(SB), NOSPLIT, $64-16
+	MOV b+0(FP), X5
+	MOV f+8(FP), X6
+
+	MOV $3329, X20
+	MOV $16, X7
+	ADD $8, RSP, X30
+
+	// Probe E16/M1 to select the 8-lane or 16-lane path.
+	MOV $16, X12
+	VSETVLI X12, E16, M1, TA, MA, X13
+	MOV $16, X14
+	BEQ X13, X14, ring_decode_decompress5_rvv_16
+
+ring_decode_decompress5_rvv_8:
+	MOV $32, X28
+	VSETIVLI $8, E16, M1, TA, MA, X14
+
+ring_decode_decompress5_rvv_8_loop:
+	LOAD5_RVV(0)
+	UNPACK5_8_RVV(8)
+
+	VLE16V (X30), V16
+	VWMULUVX X20, V16, V18
+	VSETVLI X14, E32, M2, TA, MA, X0
+	VADDVX X7, V18, V18
+	VSETVLI X14, E16, M1, TA, MA, X0
+	VNSRLWI $5, V18, V16
+	VSE16V V16, (X6)
+
+	ADD $5, X5
+	ADD $16, X6
+	SUB $1, X28, X28
+	BNEZ X28, ring_decode_decompress5_rvv_8_loop
+	RET
+
+ring_decode_decompress5_rvv_16:
+	MOV $16, X28
+	VSETIVLI $16, E16, M1, TA, MA, X14
+
+ring_decode_decompress5_rvv_16_loop:
+	LOAD5_RVV(0)
+	UNPACK5_8_RVV(8)
+
+	LOAD5_RVV(5)
+	UNPACK5_8_RVV(24)
+
+	VLE16V (X30), V16
+	VWMULUVX X20, V16, V18
+	VSETVLI X14, E32, M2, TA, MA, X0
+	VADDVX X7, V18, V18
+	VSETVLI X14, E16, M1, TA, MA, X0
+	VNSRLWI $5, V18, V16
+	VSE16V V16, (X6)
+
+	ADD $10, X5
+	ADD $32, X6
+	SUB $1, X28, X28
+	BNEZ X28, ring_decode_decompress5_rvv_16_loop
 	RET

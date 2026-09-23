@@ -880,6 +880,210 @@ func TestRingDecodeAndDecompress4RVVMatchesGenericExhaustiveSingleByte(t *testin
 	}
 }
 
+func ringCompressAndEncode5Generic(out []byte, f *ringElement) {
+	ringCompressAndEncode(out[:0], f, 5)
+}
+
+func TestRingCompressAndEncode5RVVMatchesGenericRandom(t *testing.T) {
+	requireRVV(t)
+
+	for iter := 0; iter < 1000; iter++ {
+		f := randomRingElement()
+
+		var got [encodingSize5]byte
+		var want [encodingSize5]byte
+		ringCompressAndEncode5RVV(got[:], &f)
+		ringCompressAndEncode5Generic(want[:], &f)
+
+		if got != want {
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatalf("iter=%d byte=%d: mismatch got=%02x want=%02x", iter, i, got[i], want[i])
+				}
+			}
+		}
+	}
+}
+
+func TestRingCompressAndEncode5RVVMatchesGenericEdgePatterns(t *testing.T) {
+	requireRVV(t)
+
+	patterns := []struct {
+		name string
+		fill func(i int) fieldElement
+	}{
+		{
+			name: "all-zero",
+			fill: func(i int) fieldElement { return 0 },
+		},
+		{
+			name: "all-max",
+			fill: func(i int) fieldElement { return q - 1 },
+		},
+		{
+			name: "alternating-zero-max",
+			fill: func(i int) fieldElement {
+				if i%2 == 0 {
+					return 0
+				}
+				return q - 1
+			},
+		},
+		{
+			name: "ascending-mod-q",
+			fill: func(i int) fieldElement { return fieldElement(i % int(q)) },
+		},
+	}
+
+	for _, tc := range patterns {
+		t.Run(tc.name, func(t *testing.T) {
+			var f ringElement
+			for i := range f {
+				f[i] = tc.fill(i)
+			}
+
+			var got [encodingSize5]byte
+			var want [encodingSize5]byte
+			ringCompressAndEncode5RVV(got[:], &f)
+			ringCompressAndEncode5Generic(want[:], &f)
+
+			if got != want {
+				for i := range got {
+					if got[i] != want[i] {
+						t.Fatalf("pattern=%s byte=%d: mismatch got=%02x want=%02x", tc.name, i, got[i], want[i])
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestRingCompressAndEncode5RVVMatchesGenericExhaustiveSingleValue(t *testing.T) {
+	requireRVV(t)
+
+	for x := 0; x < int(q); x++ {
+		var f ringElement
+		for i := range f {
+			f[i] = fieldElement(x)
+		}
+
+		var got [encodingSize5]byte
+		var want [encodingSize5]byte
+		ringCompressAndEncode5RVV(got[:], &f)
+		ringCompressAndEncode5Generic(want[:], &f)
+
+		if got != want {
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatalf("x=%d byte=%d: mismatch got=%02x want=%02x", x, i, got[i], want[i])
+				}
+			}
+		}
+	}
+}
+
+func TestRingDecodeAndDecompress5RVVMatchesGenericRandom(t *testing.T) {
+	requireRVV(t)
+
+	for iter := 0; iter < 1000; iter++ {
+		var b [encodingSize5]byte
+		for i := range b {
+			b[i] = byte(iter*131+i*17+7) & 0xFF
+		}
+
+		var got ringElement
+		ringDecodeAndDecompress5RVV(&b, &got)
+		want := ringDecodeAndDecompress(b[:], 5)
+
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("iter=%d coeff=%d: mismatch got=%d want=%d", iter, i, got[i], want[i])
+			}
+		}
+	}
+}
+
+func TestRingDecodeAndDecompress5RVVMatchesGenericEdgePatterns(t *testing.T) {
+	requireRVV(t)
+
+	patterns := []struct {
+		name string
+		fill func(i int) byte
+	}{
+		{
+			name: "all-zero",
+			fill: func(i int) byte { return 0x00 },
+		},
+		{
+			name: "all-ones",
+			fill: func(i int) byte { return 0xFF },
+		},
+		{
+			name: "alternating-0x00-0xFF",
+			fill: func(i int) byte {
+				if i%2 == 0 {
+					return 0x00
+				}
+				return 0xFF
+			},
+		},
+		{
+			name: "low-nibble-only",
+			fill: func(i int) byte { return 0x0F },
+		},
+		{
+			name: "high-nibble-only",
+			fill: func(i int) byte { return 0xF0 },
+		},
+		{
+			name: "ascending",
+			fill: func(i int) byte { return byte(i) },
+		},
+	}
+
+	for _, tc := range patterns {
+		t.Run(tc.name, func(t *testing.T) {
+			var b [encodingSize5]byte
+			for i := range b {
+				b[i] = tc.fill(i)
+			}
+
+			var got ringElement
+			ringDecodeAndDecompress5RVV(&b, &got)
+			want := ringDecodeAndDecompress(b[:], 5)
+
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatalf("pattern=%s coeff=%d: mismatch got=%d want=%d",
+						tc.name, i, got[i], want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestRingDecodeAndDecompress5RVVMatchesGenericExhaustiveSingleByte(t *testing.T) {
+	requireRVV(t)
+
+	// Fill entire input with a single repeated byte value and test all 256 values.
+	for v := 0; v < 256; v++ {
+		var b [encodingSize5]byte
+		for i := range b {
+			b[i] = byte(v)
+		}
+
+		var got ringElement
+		ringDecodeAndDecompress5RVV(&b, &got)
+		want := ringDecodeAndDecompress(b[:], 5)
+
+		for i := range got {
+			if got[i] != want[i] {
+				t.Fatalf("byte=0x%02x coeff=%d: mismatch got=%d want=%d", v, i, got[i], want[i])
+			}
+		}
+	}
+}
+
 func BenchmarkNTTForward(b *testing.B) {
 	b.Run("Generic", func(b *testing.B) {
 		elem := randomRingElement()
@@ -1389,6 +1593,68 @@ func BenchmarkRingDecodeAndDecompress4(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			ringDecodeAndDecompress4RVV(&input, &f)
+		}
+		benchDecodeSink = f[0]
+	})
+}
+
+func BenchmarkRingCompressAndEncode5(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize5]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize5)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode5Generic(out[:], &f)
+		}
+		benchEncodeSink = out[0]
+	})
+
+	b.Run("RVV", func(b *testing.B) {
+		if !hasRVV {
+			b.Skip("RVV not available on this machine")
+		}
+
+		f := randomRingElement()
+		var out [encodingSize5]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize5)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode5RVV(out[:], &f)
+		}
+		benchEncodeSink = out[0]
+	})
+}
+
+func BenchmarkRingDecodeAndDecompress5(b *testing.B) {
+	var input [encodingSize5]byte
+	for i := range input {
+		input[i] = byte(i*131 + 17)
+	}
+
+	b.Run("Generic", func(b *testing.B) {
+		b.ReportAllocs()
+		b.SetBytes(encodingSize5)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			f := ringDecodeAndDecompress(input[:], 5)
+			benchDecodeSink = f[0]
+		}
+	})
+
+	b.Run("RVV", func(b *testing.B) {
+		if !hasRVV {
+			b.Skip("RVV not available on this machine")
+		}
+
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(encodingSize5)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringDecodeAndDecompress5RVV(&input, &f)
 		}
 		benchDecodeSink = f[0]
 	})
