@@ -79,3 +79,40 @@ func TestPolySubAssign(t *testing.T) {
 		}
 	}
 }
+
+func TestNTTMulRVV(t *testing.T) {
+	if !hasRVV {
+		t.Skip("RVV is not available")
+	}
+
+	for i := 0; i < 16; i++ {
+		left := ntt(randomRingElement())
+		right := ntt(randomRingElement())
+
+		var got nttElement
+		nttMulRVV(&left, &right, &got)
+
+		var want nttElement
+		nttMulGeneric(&want, &left, &right)
+		if got != want {
+			t.Fatalf("nttMulRVV mismatch on iteration %d", i)
+		}
+	}
+}
+
+func TestNTTMul(t *testing.T) {
+	for i := 0; i < 16; i++ {
+		left := ntt(randomRingElement())
+		right := ntt(randomRingElement())
+
+		var got nttElement
+		nttMul(&got, &left, &right)
+
+		var want nttElement
+		nttMulGeneric(&want, &left, &right)
+		if got != want {
+			t.Fatalf("nttMulInto mismatch on iteration %d", i)
+		}
+	}
+}
+

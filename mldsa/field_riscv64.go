@@ -16,8 +16,16 @@ func polyAddAssignRVV(dst, src *fieldElement)
 //go:noescape
 func polySubAssignRVV(dst, src *fieldElement)
 
+//go:noescape
+func nttMulRVV(lhs, rhs, out *nttElement)
+
 func nttMul(out, lhs, rhs *nttElement) {
-	nttMulGeneric(out, lhs, rhs)
+	if !hasRVV {
+		nttMulGeneric(out, lhs, rhs)
+		return
+	}
+
+	nttMulRVV(lhs, rhs, out)
 }
 
 func nttMulAcc(acc, lhs, rhs *nttElement) {
