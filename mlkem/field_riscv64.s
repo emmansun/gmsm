@@ -2224,15 +2224,19 @@ TEXT ·ringDecodeAndDecompress4RVV(SB), NOSPLIT, $0-16
 	MOV	$8, X16
 
 ring_decode_decompress4_rvv_loop:
-	// Operate on E16 lanes so that the multiplication by q cannot
-	// overflow. VLE8V zero-extends each input byte into an E16 lane.
-	VSETVLI	X12, E16, M1, TA, MA, X13
+	// Load bytes with E8/M1 so the byte load can use the full byte VL.
+	VSETVLI	X12, E8, M1, TA, MA, X13
 
 	VLE8V		(X10), V8
 
+	// Widen the bytes before the multiplication by q. E16/M2 keeps the
+	// widened vector group large enough for the active byte VL.
+	VWADDUVX	X0, V8, V16
+	VSETVLI	X13, E16, M2, TA, MA, X0
+
 	// Extract low and high nibbles.
-	VANDVI		$15, V8, V10
-	VSRLVI		$4, V8, V11
+	VANDVI		$15, V16, V10
+	VSRLVI		$4, V16, V12
 
 	// Decompress low nibbles:
 	//
@@ -2242,16 +2246,16 @@ ring_decode_decompress4_rvv_loop:
 	VSRLVI		$4, V10, V10
 
 	// Decompress high nibbles.
-	VMULVX		Q, V11, V11
-	VADDVX		X16, V11, V11
-	VSRLVI		$4, V11, V11
+	VMULVX		Q, V12, V12
+	VADDVX		X16, V12, V12
+	VSRLVI		$4, V12, V12
 
 	// Store interleaved coefficients:
 	//
 	//     f[2*i+0] = V10[i]
 	//     f[2*i+1] = V11[i]
 	//
-	// V10 and V11 must be consecutive vector registers for
+	// V10 and V12 are consecutive E16/M2 register groups for
 	// VSSEG2E16V.
 	VSSEG2E16V	V10, (X11)
 
