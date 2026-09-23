@@ -1790,7 +1790,6 @@ TEXT ·polyAddAssignRVV(SB), NOSPLIT, $0-16
 
 	// Pinned constants.
 	MOV $3329, Q
-	MOV $1, ONE
 
 	MOV $256, X13
 
@@ -1820,7 +1819,6 @@ TEXT ·polySubAssignRVV(SB), NOSPLIT, $0-16
 
 	// Pinned constants.
 	MOV $3329, Q
-	MOV $1, ONE
 
 	MOV $256, X13
 
