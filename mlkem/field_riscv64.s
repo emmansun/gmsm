@@ -2164,7 +2164,7 @@ ring_compress_encode4_rvv_loop:
 	// This is a logical narrowing shift by zero. VXRM is not involved.
 	VNSRLWX	X0, V10, V8
 
-	VSE8V		V10, (X10)
+	VSE8V		V8, (X10)
 
 	// Input advances by:
 	//
