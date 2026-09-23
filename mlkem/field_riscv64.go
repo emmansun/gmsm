@@ -77,6 +77,9 @@ func ringDecodeAndDecompress5RVV(b *[encodingSize5]byte, f *ringElement)
 //go:noescape
 func ringCompressAndEncode1RVV(out []byte, f *ringElement)
 
+//go:noescape
+func rejUniformAsm(buf []byte, a *nttElement, j int) int
+
 func nttMul(acc, lhs, rhs *nttElement) {
 	if hasRVV {
 		internalNTTMulRVV(acc, lhs, rhs)
@@ -288,14 +291,14 @@ func sampleNTT(rho []byte, ii, jj byte) nttElement {
 	var a nttElement
 	var j int // index into a
 
-	// Keep rejUniformGeneric on its len==24 fast path, but amortize SHAKE.Read
+	// Keep rejUniformAsm on its len==24 fast path, but amortize SHAKE.Read
 	// overhead by filling seven 24-byte chunks per squeeze.
 	var batch [168]byte
 
 	for j < n {
 		B.Read(batch[:])
 		for off := 0; off < len(batch) && j < n; off += 24 {
-			j += rejUniformGeneric(batch[off:off+24], &a, j)
+			j += rejUniformAsm(batch[off:off+24], &a, j)
 		}
 	}
 	return a
@@ -317,7 +320,7 @@ func sampleNTTx4(rho []byte, indices [4][2]byte) [4]nttElement {
 				continue
 			}
 			for off := 0; off < 168 && j[lane] < n; off += 24 {
-				j[lane] += rejUniformGeneric(batch[lane][off:off+24], &results[lane], j[lane])
+				j[lane] += rejUniformAsm(batch[lane][off:off+24], &results[lane], j[lane])
 			}
 			if j[lane] < n {
 				allDone = false

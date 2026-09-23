@@ -1198,6 +1198,35 @@ func TestRingCompressAndEncode1RVVMatchesGenericExhaustiveSingleValue(t *testing
 	}
 }
 
+func TestRejUniformAsmMatchesGeneric(t *testing.T) {
+	for _, start := range []int{0, 1, n - 2, n - 1, n} {
+		for iter := 0; iter < 200; iter++ {
+			var buf [24]byte
+			for i := range buf {
+				buf[i] = byte(iter*37 + i*19 + start)
+			}
+
+			var got nttElement
+			var want nttElement
+			for i := 0; i < start && i < n; i++ {
+				seed := fieldElement((i*17 + iter + start) % int(q))
+				got[i] = seed
+				want[i] = seed
+			}
+
+			gotCount := rejUniformAsm(buf[:], &got, start)
+			wantCount := rejUniformGeneric(buf[:], &want, start)
+
+			if gotCount != wantCount {
+				t.Fatalf("start=%d iter=%d: count mismatch: got=%d want=%d", start, iter, gotCount, wantCount)
+			}
+			if got != want {
+				t.Fatalf("start=%d iter=%d: output mismatch", start, iter)
+			}
+		}
+	}
+}
+
 func BenchmarkNTTForward(b *testing.B) {
 	b.Run("Generic", func(b *testing.B) {
 		elem := randomRingElement()

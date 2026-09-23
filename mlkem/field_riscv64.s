@@ -2521,3 +2521,67 @@ ring_compress_encode1_rvv_loop:
 	BNEZ	X9, ring_compress_encode1_rvv_loop
 
 	RET
+
+// rejUniformAsm implements the scalar rejection sampler used by sampleNTT.
+// It consumes 3-byte groups, extracts two 12-bit values, and appends values < q.
+//
+// func rejUniformAsm(buf []byte, a *nttElement, j int) int
+TEXT ·rejUniformAsm(SB), NOSPLIT, $0-48
+	MOV	buf_base+0(FP), X10
+	MOV	buf_len+8(FP), X11
+	MOV	a+24(FP), X12
+	MOV	j+32(FP), X13
+	MOV	X13, X14
+
+	// aPtr = a + 2*j.
+	SLL	$1, X13, X23
+	ADD	X23, X12, X12
+
+	MOV	$3329, X20
+	MOV	$4095, X21
+	MOV	$256, X22
+	MOV	$3, X23
+
+rejuniform_rvv_loop:
+	BGE	X13, X22, rejuniform_rvv_done
+	BLT	X11, X23, rejuniform_rvv_done
+
+	// Load one three-byte group.
+	MOVBU	0(X10), X15
+	MOVBU	1(X10), X16
+	MOVBU	2(X10), X17
+
+	// d1 = (b0 | b1<<8) & 0xfff.
+	MOV	X16, X18
+	SLL	$8, X18, X18
+	ADD	X15, X18, X18
+	AND	X21, X18, X18
+	BGE	X18, X20, rejuniform_rvv_d2
+
+	MOVH	X18, 0(X12)
+	ADD	$2, X12, X12
+	ADD	$1, X13, X13
+	BGE	X13, X22, rejuniform_rvv_done
+
+rejuniform_rvv_d2:
+	// d2 = (b1 | b2<<8) >> 4.
+	MOV	X17, X19
+	SLL	$8, X19, X19
+	ADD	X16, X19, X19
+	SRL	$4, X19, X19
+	BGE	X19, X20, rejuniform_rvv_next
+
+	MOVH	X19, 0(X12)
+	ADD	$2, X12, X12
+	ADD	$1, X13, X13
+	BGE	X13, X22, rejuniform_rvv_done
+
+rejuniform_rvv_next:
+	ADD	$3, X10, X10
+	SUB	$3, X11, X11
+	BNEZ	X11, rejuniform_rvv_loop
+
+rejuniform_rvv_done:
+	SUB	X14, X13, X13
+	MOV	X13, ret+40(FP)
+	RET
