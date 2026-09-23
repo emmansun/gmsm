@@ -2483,37 +2483,41 @@ TEXT ·ringCompressAndEncode1RVV(SB), NOSPLIT, $0-32
 	MOV	$833, X7
 	MOV	$1664, X8
 
-	// 256 coefficients / 8 coefficients per iteration.
-	MOV	$32, X9
-
-	// The RVV dispatch guarantees VLEN >= 128.
-	// E16/M1 therefore provides at least eight elements.
-	VSETIVLI	$8, E16, M1, TA, MA, X0
+	// Number of remaining coefficients.
+	MOV	$256, X9
 
 ring_compress_encode1_rvv_loop:
-	// Load eight canonical uint16 coefficients.
+	// Set vl = min(remaining, VLMAX) for E16/M1.
+	//
+	// X10 receives the actual vl selected by the hardware.
+	VSETVLI	X9, E16, M1, TA, MA, X10
+
+	// Load vl canonical uint16 coefficients.
 	VLE16V		(X6), V8
 
 	// V8[i] = uint16(V8[i] - 833).
-	//
-	// If the original coefficient is below 833, the subtraction
-	// wraps modulo 2^16 and produces a value greater than 1663.
 	VSUBVX		X7, V8, V8
 
 	// V0.mask[i] = V8[i] < 1664.
-	//
-	// Therefore V0.mask[i] is one exactly when the original
-	// coefficient satisfies 833 <= x < 2497.
 	VMSLTUVX	X8, V8, V0
 
-	// vl=8, so VSMV writes exactly one byte.
-	//
-	// V0.mask[0] becomes bit 0 and V0.mask[7] becomes bit 7.
+	// Store ceil(vl / 8) mask bytes.
 	VSMV		V0, (X5)
 
-	ADD	$16, X6
-	ADD	$1, X5
-	SUB	$1, X9, X9
+	// Advance the input by vl * sizeof(uint16).
+	SLL	$1, X10, X11
+	ADD	X11, X6, X6
+
+	// Advance the output by vl / 8 bytes.
+	//
+	// With legal RVV VLEN >= 128 and E16/M1, VLMAX is a multiple
+	// of eight. Since the total coefficient count is also a
+	// multiple of eight, every iteration has vl % 8 == 0.
+	SRL	$3, X10, X11
+	ADD	X11, X5, X5
+
+	// remaining -= vl
+	SUB	X10, X9, X9
 	BNEZ	X9, ring_compress_encode1_rvv_loop
 
 	RET
