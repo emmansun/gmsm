@@ -2211,7 +2211,7 @@ ring_compress_encode4_rvv_loop:
 //
 //     V8  = packed input bytes, zero-extended to E16
 //     V10 = low nibbles / decompressed even coefficients
-//     V11 = high nibbles / decompressed odd coefficients
+//     V12 = high nibbles / decompressed odd coefficients
 TEXT ·ringDecodeAndDecompress4RVV(SB), NOSPLIT, $0-16
 	MOV	b+0(FP), X10
 	MOV	f+8(FP), X11
