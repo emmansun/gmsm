@@ -56,7 +56,7 @@ jobs:
         QEMU_CPU: max,v=true,vlen=${{ matrix.vlen }},elen=64
 
     - name: Test without Zvkg
-      run: go test -v -short ./internal/... ./sm3/... ./sm4/... ./mlkem/...
+      run: go test -v -short ./internal/... ./sm3/... ./sm4/... ./mlkem/... ./mldsa/...
       env:
         DISABLE_GHASH: 1
         QEMU_CPU: max,v=true,vlen=${{ matrix.vlen }},elen=64
