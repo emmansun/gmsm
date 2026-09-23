@@ -2465,3 +2465,93 @@ ring_decode_decompress5_rvv_16_loop:
 	SUB $1, X28, X28
 	BNEZ X28, ring_decode_decompress5_rvv_16_loop
 	RET
+
+// func ringCompressAndEncode1RVV(out []byte, f *ringElement)
+TEXT ·ringCompressAndEncode1RVV(SB), NOSPLIT, $32-32
+	MOV	out_base+0(FP), X5
+	MOV	f+24(FP), X6
+
+	// compress(x, 1) is one for 833 <= x < 2497.
+	MOV	$833, X7
+	MOV	$2497, X8
+	MOV	$256, X12
+	ADD	$8, RSP, X30
+
+	// Process eight coefficients per iteration. The scalar packing keeps
+	// output bit i in bit i, matching ByteEncode_1.
+	VSETIVLI	$8, E16, M1, TA, MA, X0
+
+ring_compress_encode1_rvv_loop:
+	VLE16V	(X6), V8
+	VSE16V	V8, (X30)
+	MOV	$0, X9
+
+	MOVHU	8(RSP), X10
+	SLTU	X10, X7, X11
+	XORI	$1, X11, X11
+	SLTU	X10, X8, X13
+	AND	X13, X11, X11
+	OR	X11, X9, X9
+
+	MOVHU	10(RSP), X10
+	SLTU	X10, X7, X11
+	XORI	$1, X11, X11
+	SLTU	X10, X8, X13
+	AND	X13, X11, X11
+	SLL	$1, X11, X11
+	OR	X11, X9, X9
+
+	MOVHU	12(RSP), X10
+	SLTU	X10, X7, X11
+	XORI	$1, X11, X11
+	SLTU	X10, X8, X13
+	AND	X13, X11, X11
+	SLL	$2, X11, X11
+	OR	X11, X9, X9
+
+	MOVHU	14(RSP), X10
+	SLTU	X10, X7, X11
+	XORI	$1, X11, X11
+	SLTU	X10, X8, X13
+	AND	X13, X11, X11
+	SLL	$3, X11, X11
+	OR	X11, X9, X9
+
+	MOVHU	16(RSP), X10
+	SLTU	X10, X7, X11
+	XORI	$1, X11, X11
+	SLTU	X10, X8, X13
+	AND	X13, X11, X11
+	SLL	$4, X11, X11
+	OR	X11, X9, X9
+
+	MOVHU	18(RSP), X10
+	SLTU	X10, X7, X11
+	XORI	$1, X11, X11
+	SLTU	X10, X8, X13
+	AND	X13, X11, X11
+	SLL	$5, X11, X11
+	OR	X11, X9, X9
+
+	MOVHU	20(RSP), X10
+	SLTU	X10, X7, X11
+	XORI	$1, X11, X11
+	SLTU	X10, X8, X13
+	AND	X13, X11, X11
+	SLL	$6, X11, X11
+	OR	X11, X9, X9
+
+	MOVHU	22(RSP), X10
+	SLTU	X10, X7, X11
+	XORI	$1, X11, X11
+	SLTU	X10, X8, X13
+	AND	X13, X11, X11
+	SLL	$7, X11, X11
+	OR	X11, X9, X9
+
+	MOVB	X9, (X5)
+	ADD	$16, X6
+	ADD	$1, X5
+	SUB	$8, X12, X12
+	BNEZ	X12, ring_compress_encode1_rvv_loop
+	RET

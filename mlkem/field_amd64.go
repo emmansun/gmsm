@@ -378,7 +378,12 @@ func ringCompressAndEncode11(s []byte, f *ringElement) []byte {
 // followed by ByteEncode₁, according to FIPS 203, Algorithm 5.
 func ringCompressAndEncode1(s []byte, f *ringElement) []byte {
 	s, b := sliceForAppend(s, encodingSize1)
-	ringCompressAndEncode1AVX2(b, f)
+	if useAVX2 {
+		ringCompressAndEncode1AVX2(b, f)
+		return s
+	}
+	clear(b)
+	ringCompressAndEncode1Generic(b, f)
 	return s
 }
 
