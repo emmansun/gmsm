@@ -442,7 +442,7 @@ func TestPolyAddAssignRVVIdempotence(t *testing.T) {
 	got := src
 	want := src
 
-	polyAddAssignRVV(&got, &got)      // dst[i] += dst[i]
+	polyAddAssignRVV(&got, &got)       // dst[i] += dst[i]
 	polyAddAssignGeneric(&want, &want) // want[i] = fieldAdd(want[i], want[i])
 
 	for i := range got {
@@ -676,6 +676,104 @@ func TestSamplePolyCBD3RVVMatchesGeneric(t *testing.T) {
 		for i := range gotNEON {
 			if gotNEON[i] != wantGeneric[i] {
 				t.Fatalf("iter=%d coeff=%d: samplePolyCBD3RVV mismatch: got=%d want=%d", iter, i, gotNEON[i], wantGeneric[i])
+			}
+		}
+	}
+}
+
+func TestRingCompressAndEncode4RVVMatchesGenericRandom(t *testing.T) {
+	requireRVV(t)
+
+	for iter := 0; iter < 1000; iter++ {
+		f := randomRingElement()
+
+		var got [encodingSize4]byte
+		var want [encodingSize4]byte
+		ringCompressAndEncode4RVV(got[:], &f)
+		ringCompressAndEncode4Generic(want[:], &f)
+
+		if got != want {
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatalf("iter=%d byte=%d: mismatch got=%02x want=%02x", iter, i, got[i], want[i])
+				}
+			}
+		}
+	}
+}
+
+func TestRingCompressAndEncode4RVVMatchesGenericEdgePatterns(t *testing.T) {
+	requireRVV(t)
+
+	patterns := []struct {
+		name string
+		fill func(i int) fieldElement
+	}{
+		{
+			name: "all-zero",
+			fill: func(i int) fieldElement { return 0 },
+		},
+		{
+			name: "all-max",
+			fill: func(i int) fieldElement { return q - 1 },
+		},
+		{
+			name: "alternating-zero-max",
+			fill: func(i int) fieldElement {
+				if i%2 == 0 {
+					return 0
+				}
+				return q - 1
+			},
+		},
+		{
+			name: "ascending-mod-q",
+			fill: func(i int) fieldElement { return fieldElement(i % int(q)) },
+		},
+	}
+
+	for _, tc := range patterns {
+		t.Run(tc.name, func(t *testing.T) {
+			var f ringElement
+			for i := range f {
+				f[i] = tc.fill(i)
+			}
+
+			var got [encodingSize4]byte
+			var want [encodingSize4]byte
+			ringCompressAndEncode4RVV(got[:], &f)
+			ringCompressAndEncode4Generic(want[:], &f)
+
+			if got != want {
+				for i := range got {
+					if got[i] != want[i] {
+						t.Fatalf("pattern=%s byte=%d: mismatch got=%02x want=%02x", tc.name, i, got[i], want[i])
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestRingCompressAndEncode4RVVMatchesGenericExhaustiveSingleValue(t *testing.T) {
+	requireRVV(t)
+
+	for x := 0; x < int(q); x++ {
+		var f ringElement
+		for i := range f {
+			f[i] = fieldElement(x)
+		}
+
+		var got [encodingSize4]byte
+		var want [encodingSize4]byte
+		ringCompressAndEncode4RVV(got[:], &f)
+		ringCompressAndEncode4Generic(want[:], &f)
+
+		if got != want {
+			for i := range got {
+				if got[i] != want[i] {
+					t.Fatalf("x=%d byte=%d: mismatch got=%02x want=%02x", x, i, got[i], want[i])
+				}
 			}
 		}
 	}
@@ -1129,5 +1227,68 @@ func BenchmarkPolySubAssign(b *testing.B) {
 			dst2 := dst
 			polySubAssignRVV(&dst2, &src)
 		}
+	})
+}
+
+func BenchmarkRingCompressAndEncode4(b *testing.B) {
+	b.Run("Generic", func(b *testing.B) {
+		f := randomRingElement()
+		var out [encodingSize4]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode4Generic(out[:], &f)
+		}
+		benchEncodeSink = out[0]
+	})
+
+	b.Run("RVV", func(b *testing.B) {
+		if !hasRVV {
+			b.Skip("RVV not available on this machine")
+		}
+
+		f := randomRingElement()
+		var out [encodingSize4]byte
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringCompressAndEncode4RVV(out[:], &f)
+		}
+		benchEncodeSink = out[0]
+	})
+}
+
+func BenchmarkRingDecodeAndDecompress4(b *testing.B) {
+	var input [encodingSize4]byte
+	for i := range input {
+		input[i] = byte(i*131 + 17)
+	}
+
+	b.Run("Generic", func(b *testing.B) {
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringDecodeAndDecompress4Generic(&input, &f)
+		}
+		benchDecodeSink = f[0]
+	})
+
+	b.Run("RVV", func(b *testing.B) {
+		if !hasRVV {
+			b.Skip("RVV not available on this machine")
+		}
+
+		var f ringElement
+		b.ReportAllocs()
+		b.SetBytes(encodingSize4)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			ringDecodeAndDecompress4RVV(&input, &f)
+		}
+		benchDecodeSink = f[0]
 	})
 }

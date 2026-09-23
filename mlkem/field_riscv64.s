@@ -2067,3 +2067,193 @@ sample_poly_cbd3_loop:
 	BNE	X12, X0, sample_poly_cbd3_loop
 
 	RET	
+
+// func ringCompressAndEncode4RVV(out []byte, f *ringElement)
+//
+// For each pair:
+//
+//     t0 = compress(f[i], 4)
+//     t1 = compress(f[i+1], 4)
+//     out[i/2] = byte(t0 | t1<<4)
+//
+// The compression uses the same 16-bit reciprocal-high algorithm as the
+// AMD64 implementations:
+//
+//     t = ((mulhu16(x, 20159) + 32) >> 6) & 15
+//
+// For all reduced field elements x in [0, 3328], this is equivalent to:
+//
+//     round(x * 16 / 3329) mod 16
+//
+// Register allocation:
+//
+//     X10 = output pointer
+//     X11 = input ringElement pointer
+//     X12 = number of coefficient pairs remaining
+//     X13 = current VL, in coefficient pairs
+//     X14 = temporary byte count
+//     X15 = 20159
+//     X16 = 32
+//
+//     V8  = even coefficients
+//     V9  = odd coefficients
+//     V10 = compressed even coefficients / packed bytes
+//     V11 = compressed odd coefficients
+TEXT ·ringCompressAndEncode4RVV(SB), NOSPLIT, $0-32
+	MOV	out_base+0(FP), X10
+	MOV	f+24(FP), X11
+
+	// There are 256 coefficients, or 128 coefficient pairs.
+	MOV	$128, X12
+
+	// ceil(2^26 / q) = ceil(67108864 / 3329) = 20159.
+	MOV	$20159, X15
+
+	// Rounding bias used after the high-half multiplication.
+	MOV	$32, X16
+
+ring_compress_encode4_rvv_loop:
+	// One vector element represents one pair of coefficients.
+	//
+	// VLEN=128:
+	//     E16/M1 gives VL=8
+	//
+	// VLEN=256:
+	//     E16/M1 gives VL=16
+	//
+	// Larger VLEN values process proportionally more pairs.
+	VSETVLI	X12, E16, M1, TA, MA, X13
+
+	// Load interleaved field elements:
+	//
+	//     V8 = f[0], f[2], f[4], ...
+	//     V9 = f[1], f[3], f[5], ...
+	VLSEG2E16V	(X11), V8
+
+	// Compress even coefficients:
+	//
+	//     V10 = high16(V8 * 20159)
+	//     V10 = (V10 + 32) >> 6
+	//     V10 &= 15
+	VMULHUVX	X15, V8, V10
+	VADDVX		X16, V10, V10
+	VSRLVI		$6, V10, V10
+	VANDVI		$15, V10, V10
+
+	// Compress odd coefficients.
+	VMULHUVX	X15, V9, V11
+	VADDVX		X16, V11, V11
+	VSRLVI		$6, V11, V11
+	VANDVI		$15, V11, V11
+
+	// Pack two 4-bit values into one byte:
+	//
+	//     output = even | odd<<4
+	VSLLVI		$4, V11, V11
+	VORVV		V11, V10, V10
+
+	// V10 contains one packed output byte in the low 8 bits of each
+	// 16-bit vector element. VSE8V stores those low 8 bits directly;
+	// no VNSRL instruction is required.
+	VSE8V		V10, (X10)
+
+	// Input advances by:
+	//
+	//     VL pairs * 2 coefficients/pair * 2 bytes/coefficient
+	//   = VL * 4 bytes
+	SLL		$2, X13, X14
+	ADD		X14, X11, X11
+
+	// Output advances by one byte per coefficient pair.
+	ADD		X13, X10, X10
+
+	SUB		X13, X12, X12
+	BNE		X12, X0, ring_compress_encode4_rvv_loop
+
+	RET
+
+
+// func ringDecodeAndDecompress4RVV(
+//     b *[encodingSize4]byte,
+//     f *ringElement,
+// )
+//
+// For each input byte:
+//
+//     y0 = b[i] & 15
+//     y1 = b[i] >> 4
+//
+//     f[2*i+0] = decompress(y0, 4)
+//     f[2*i+1] = decompress(y1, 4)
+//
+// The d=4 decompression formula is:
+//
+//     decompress(y, 4) = (y*q + 8) >> 4
+//                      = (y*3329 + 8) >> 4
+//
+// Register allocation:
+//
+//     X10 = input byte pointer
+//     X11 = output ringElement pointer
+//     X12 = number of packed bytes remaining
+//     X13 = current VL, in packed bytes
+//     X14 = temporary byte count
+//     X16 = rounding bias = 8
+//
+//     V8  = packed input bytes, zero-extended to E16
+//     V10 = low nibbles / decompressed even coefficients
+//     V11 = high nibbles / decompressed odd coefficients
+TEXT ·ringDecodeAndDecompress4RVV(SB), NOSPLIT, $0-16
+	MOV	b+0(FP), X10
+	MOV	f+8(FP), X11
+
+	// encodingSize4 = 256 * 4 / 8 = 128 bytes.
+	MOV	$128, X12
+
+	// Q register holds the modulus q = 3329
+	MOV	$3329, Q
+	MOV	$8, X16
+
+ring_decode_decompress4_rvv_loop:
+	// Operate on E16 lanes so that the multiplication by q cannot
+	// overflow. VLE8V zero-extends each input byte into an E16 lane.
+	VSETVLI	X12, E16, M1, TA, MA, X13
+
+	VLE8V		(X10), V8
+
+	// Extract low and high nibbles.
+	VANDVI		$15, V8, V10
+	VSRLVI		$4, V8, V11
+
+	// Decompress low nibbles:
+	//
+	//     V10 = (V10 * 3329 + 8) >> 4
+	VMULVX		Q, V10, V10
+	VADDVX		X16, V10, V10
+	VSRLVI		$4, V10, V10
+
+	// Decompress high nibbles.
+	VMULVX		Q, V11, V11
+	VADDVX		X16, V11, V11
+	VSRLVI		$4, V11, V11
+
+	// Store interleaved coefficients:
+	//
+	//     f[2*i+0] = V10[i]
+	//     f[2*i+1] = V11[i]
+	//
+	// V10 and V11 must be consecutive vector registers for
+	// VSSEG2E16V.
+	VSSEG2E16V	V10, (X11)
+
+	// One packed input byte produces two uint16 coefficients:
+	//
+	//     VL * 2 * sizeof(uint16) = VL * 4 bytes
+	ADD		X13, X10, X10
+	SLL		$2, X13, X14
+	ADD		X14, X11, X11
+
+	SUB		X13, X12, X12
+	BNE		X12, X0, ring_decode_decompress4_rvv_loop
+
+	RET

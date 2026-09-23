@@ -62,6 +62,12 @@ func samplePolyCBD2RVV(f *ringElement, buf *[128]byte)
 //go:noescape
 func samplePolyCBD3RVV(f *ringElement, buf *[192]byte)
 
+//go:noescape
+func ringCompressAndEncode4RVV(out []byte, f *ringElement)
+
+//go:noescape
+func ringDecodeAndDecompress4RVV(b *[encodingSize4]byte, f *ringElement)
+
 func nttMul(acc, lhs, rhs *nttElement) {
 	if hasRVV {
 		internalNTTMulRVV(acc, lhs, rhs)
@@ -165,6 +171,10 @@ func polySubAssign(dst *ringElement, src *ringElement) {
 // followed by ByteEncode₄, according to FIPS 203, Algorithm 5.
 func ringCompressAndEncode4(s []byte, f *ringElement) []byte {
 	s, b := sliceForAppend(s, encodingSize4)
+	if hasRVV {
+		ringCompressAndEncode4RVV(b, f)
+		return s
+	}
 	ringCompressAndEncode4Generic(b, f)
 	return s
 }
@@ -175,6 +185,10 @@ func ringCompressAndEncode4(s []byte, f *ringElement) []byte {
 // It implements ByteDecode₄, according to FIPS 203, Algorithm 6,
 // followed by Decompress₄, according to FIPS 203, Definition 4.8.
 func ringDecodeAndDecompress4(b *[encodingSize4]byte, f *ringElement) {
+	if hasRVV {
+		ringDecodeAndDecompress4RVV(b, f)
+		return
+	}
 	ringDecodeAndDecompress4Generic(b, f)
 }
 
