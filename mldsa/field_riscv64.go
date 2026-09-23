@@ -19,6 +19,9 @@ func polySubAssignRVV(dst, src *fieldElement)
 //go:noescape
 func nttMulRVV(lhs, rhs, out *nttElement)
 
+//go:noescape
+func nttMulAccRVV(acc, lhs, rhs *nttElement)
+
 func nttMul(out, lhs, rhs *nttElement) {
 	if !hasRVV {
 		nttMulGeneric(out, lhs, rhs)
@@ -29,7 +32,12 @@ func nttMul(out, lhs, rhs *nttElement) {
 }
 
 func nttMulAcc(acc, lhs, rhs *nttElement) {
-	nttMulAccGeneric(acc, lhs, rhs)
+	if !hasRVV {
+		nttMulAccGeneric(acc, lhs, rhs)
+		return
+	}
+
+	nttMulAccRVV(acc, lhs, rhs)
 }
 
 func nttMatRowVecMul(dst, vec, matRow *nttElement, len int) {

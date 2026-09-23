@@ -116,3 +116,23 @@ func TestNTTMul(t *testing.T) {
 	}
 }
 
+func TestNTTMulAccRVV(t *testing.T) {
+	if !hasRVV {
+		t.Skip("RVV is not available")
+	}
+
+	for i := 0; i < 16; i++ {
+		left := ntt(randomRingElement())
+		right := ntt(randomRingElement())
+		acc := ntt(randomRingElement())
+
+		got := acc
+		nttMulAccRVV(&got, &left, &right)
+
+		want := acc
+		nttMulAccGeneric(&want, &left, &right)
+		if got != want {
+			t.Fatalf("nttMulAccRVV mismatch on iteration %d", i)
+		}
+	}
+}

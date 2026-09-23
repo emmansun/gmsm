@@ -158,3 +158,39 @@ nttMulRVV_loop:
 	BNEZ	X13, nttMulRVV_loop
 
 	RET
+
+//func nttMulAccRVV(acc, lhs, rhs *nttElement)
+TEXT ·nttMulAccRVV(SB), NOSPLIT, $0-24
+	MOV lhs+8(FP), X10
+	MOV rhs+16(FP), X11
+	MOV acc+0(FP), X12
+
+	// Pinned constants.
+	MOV $8380417, Q
+	MOV $4236238847, QNEGINV
+	MOV $1, ONE
+
+	MOV $256, X13
+
+	VSETVLI X13, E32, M2, TA, MA, X14
+
+nttMulAccRVV_loop:
+	VLE32V		(X10), V2
+	VLE32V		(X11), V4
+	VLE32V		(X12), V6
+
+	MONT_MUL_HILO_VV(V2, V4, V8, V10, V12)
+	VADDVV V8, V6, V6
+	REDUCE_ONCE_RVV(V6, V8)
+
+	VSE32V		V6, (X12)
+
+	SLL $2, X14, X15
+	ADD	X15, X10, X10
+	ADD	X15, X11, X11
+	ADD	X15, X12, X12
+
+	SUB	X14, X13, X13
+	BNEZ	X13, nttMulAccRVV_loop
+
+	RET
