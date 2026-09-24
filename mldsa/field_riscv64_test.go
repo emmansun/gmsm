@@ -15,6 +15,10 @@ func requireRVV(t *testing.T) {
 	}
 }
 
+func randomNttElement() nttElement {
+	return ntt(randomRingElementMldsa())
+}
+
 func TestPolyAddAssignRVV(t *testing.T) {
 	if !hasRVV {
 		t.Skip("RVV is not available")
