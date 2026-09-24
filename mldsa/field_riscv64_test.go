@@ -296,3 +296,73 @@ func TestDecomposeSubToR0(t *testing.T) {
 		}
 	}
 }
+
+func TestUseHintPolyGamma32RVV(t *testing.T) {
+	if !hasRVV {
+		t.Skip("RVV is not available")
+	}
+
+	for i := 0; i < 16; i++ {
+		h := randomRingElement()
+		r := randomRingElement()
+		for j := range h {
+			h[j] &= 1
+		}
+
+		var got ringElement
+		useHintPolyGamma32RVV(&h[0], &r[0], &got[0])
+
+		var want ringElement
+		useHintPolyGeneric(&want, &h, &r, gamma2QMinus1Div32)
+
+		if got != want {
+			t.Fatalf("useHintPolyGamma32RVV mismatch on iteration %d", i)
+		}
+	}
+}
+
+func TestUseHintPolyGamma88RVV(t *testing.T) {
+	if !hasRVV {
+		t.Skip("RVV is not available")
+	}
+
+	for i := 0; i < 16; i++ {
+		h := randomRingElement()
+		r := randomRingElement()
+		for j := range h {
+			h[j] &= 1
+		}
+
+		var got ringElement
+		useHintPolyGamma88RVV(&h[0], &r[0], &got[0])
+
+		var want ringElement
+		useHintPolyGeneric(&want, &h, &r, gamma2QMinus1Div88)
+
+		if got != want {
+			t.Fatalf("useHintPolyGamma88RVV mismatch on iteration %d", i)
+		}
+	}
+}
+
+func TestUseHintPoly(t *testing.T) {
+	for i := 0; i < 16; i++ {
+		h := randomRingElement()
+		r := randomRingElement()
+		for j := range h {
+			h[j] &= 1
+		}
+
+		for _, gamma2 := range []uint32{gamma2QMinus1Div32, gamma2QMinus1Div88} {
+			var got ringElement
+			useHintPoly(&got, &h, &r, gamma2)
+
+			var want ringElement
+			useHintPolyGeneric(&want, &h, &r, gamma2)
+
+			if got != want {
+				t.Fatalf("useHintPoly mismatch on iteration %d gamma2=%d", i, gamma2)
+			}
+		}
+	}
+}

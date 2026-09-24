@@ -720,4 +720,129 @@ decompose88_rvv_loop:
 	SUB	X15, X13, X13
 	BNEZ	X13, decompose88_rvv_loop
 	RET
-	
+
+// func useHintPolyGamma32RVV(h, r *fieldElement, out *fieldElement)
+TEXT ·useHintPolyGamma32RVV(SB), NOSPLIT, $0-24
+	MOV	h+0(FP), X10
+	MOV	r+8(FP), X11
+	MOV	out+16(FP), X12
+
+	MOV	$8380417, Q       // q
+	MOV	$127, X14         // plus127
+	MOV	$1025, X16        // decomposeMul1025
+	MOV	$2097152, X17     // 2^21
+	MOV	$15, X18          // modulus mask
+	MOV	$523776, X19      // 2*gamma2
+	MOV	$4190208, X24     // qMinus1Div2
+	MOV	$256, X13
+
+usehint32_rvv_loop:
+	VSETVLI X13, E32, M1, TA, MA, X15
+
+	// Load h and r before storing, allowing exact output aliasing.
+	VLE32V	(X10), V2
+	VLE32V	(X11), V3
+
+	// r1 = ((((r + 127) >> 7) * 1025) + 2^21) >> 22; r1 &= 15.
+	VADDVX	X14, V3, V4
+	VSRAVI	$7, V4, V4
+	VMULVX	X16, V4, V4
+	VADDVX	X17, V4, V4
+	VSRAVI	$22, V4, V4
+	VANDVX	X18, V4, V4
+
+	// r0 = r - r1*(2*gamma2), then center-lift around q/2.
+	VMULVX	X19, V4, V5
+	VSUBVV	V5, V3, V5
+	VRSUBVX	X24, V5, V6
+	VSRAVI	$31, V6, V6
+	VANDVX	Q, V6, V6
+	VSUBVV	V6, V5, V5
+
+	// delta = h ? (r0 > 0 ? 1 : 15) : 0.
+	VRSUBVX	ZERO, V5, V6
+	VSRAVI	$31, V6, V6       // posMask = 0xffffffff when r0 > 0
+	VANDVI	$14, V6, V6
+	VXORVI	$15, V6, V6       // deltaBase = 1 or 15
+	VRSUBVX	ZERO, V2, V7     // hMask = 0 - h
+	VANDVV	V7, V6, V6
+
+	VADDVV	V6, V4, V4
+	VANDVX	X18, V4, V4
+	VSE32V	V4, (X12)
+
+	SLL	$2, X15, X25
+	ADD	X25, X10, X10
+	ADD	X25, X11, X11
+	ADD	X25, X12, X12
+	SUB	X15, X13, X13
+	BNEZ	X13, usehint32_rvv_loop
+	RET
+
+// func useHintPolyGamma88RVV(h, r *fieldElement, out *fieldElement)
+TEXT ·useHintPolyGamma88RVV(SB), NOSPLIT, $0-24
+	MOV	h+0(FP), X10
+	MOV	r+8(FP), X11
+	MOV	out+16(FP), X12
+
+	MOV	$8380417, Q       // q
+	MOV	$127, X14         // plus127
+	MOV	$11275, X16       // decomposeMul11275
+	MOV	$8388608, X17     // 2^23
+	MOV	$43, X18          // modulus / high-bit limit
+	MOV	$190464, X19      // 2*gamma2
+	MOV	$4190208, X24     // qMinus1Div2
+	MOV	$42, X23          // modulus / high-bit limit - 1
+	MOV	$44, X5          // raw r1 clamp value
+	MOV	$256, X13
+
+usehint88_rvv_loop:
+	VSETVLI X13, E32, M1, TA, MA, X15
+
+	// Load h and r before storing, allowing exact output aliasing.
+	VLE32V	(X10), V2
+	VLE32V	(X11), V3
+
+	// r1 = ((((r + 127) >> 7) * 11275) + 2^23) >> 24.
+	VADDVX	X14, V3, V4
+	VSRAVI	$7, V4, V4
+	VMULVX	X16, V4, V4
+	VADDVX	X17, V4, V4
+	VSRAVI	$24, V4, V4
+
+	// Clamp raw r1 == 44 to zero.
+	VRSUBVX	X18, V4, V6
+	VSRAVI	$31, V6, V6
+	VANDVV	V4, V6, V6
+	VXORVV	V6, V4, V4
+
+	// r0 = r - r1*(2*gamma2), then center-lift around q/2.
+	VMULVX	X19, V4, V5
+	VSUBVV	V5, V3, V5
+	VRSUBVX	X24, V5, V6
+	VSRAVI	$31, V6, V6
+	VANDVX	Q, V6, V6
+	VSUBVV	V6, V5, V5
+
+	// delta = h ? (r0 > 0 ? 1 : 43) : 0.
+	VRSUBVX	ZERO, V5, V6
+	VSRAVI	$31, V6, V6       // posMask = 0xffffffff when r0 > 0
+	VANDVX	X23, V6, V6
+	VXORVX	X18, V6, V6       // deltaBase = 1 or 43
+	VRSUBVX	ZERO, V2, V7     // hMask = 0 - h
+	VANDVV	V7, V6, V6
+
+	VADDVV	V6, V4, V4
+	VRSUBVX	X18, V4, V7
+	VSRAVI	$31, V7, V7
+	VANDVX	X5, V7, V7
+	VSUBVV	V7, V4, V4
+	VSE32V	V4, (X12)
+
+	SLL	$2, X15, X25
+	ADD	X25, X10, X10
+	ADD	X25, X11, X11
+	ADD	X25, X12, X12
+	SUB	X15, X13, X13
+	BNEZ	X13, usehint88_rvv_loop
+	RET

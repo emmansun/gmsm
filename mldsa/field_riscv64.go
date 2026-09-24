@@ -45,6 +45,12 @@ func decomposeSubToR0Gamma32RVV(w, cs2 *fieldElement, out *int32)
 //go:noescape
 func decomposeSubToR0Gamma88RVV(w, cs2 *fieldElement, out *int32)
 
+//go:noescape
+func useHintPolyGamma32RVV(h, r, out *fieldElement)
+
+//go:noescape
+func useHintPolyGamma88RVV(h, r, out *fieldElement)
+
 func nttMul(out, lhs, rhs *nttElement) {
 	if !hasRVV {
 		nttMulGeneric(out, lhs, rhs)
@@ -125,7 +131,19 @@ func decomposeSubToR0(dst *[n]int32, w, cs2 *ringElement, gamma2 uint32) {
 }
 
 func useHintPoly(dst, h, r *ringElement, gamma2 uint32) {
-	useHintPolyGeneric(dst, h, r, gamma2)
+	if !hasRVV {
+		useHintPolyGeneric(dst, h, r, gamma2)
+		return
+	}
+
+	switch gamma2 {
+	case gamma2QMinus1Div32:
+		useHintPolyGamma32RVV(&h[0], &r[0], &dst[0])
+	case gamma2QMinus1Div88:
+		useHintPolyGamma88RVV(&h[0], &r[0], &dst[0])
+	default:
+		useHintPolyGeneric(dst, h, r, gamma2)
+	}
 }
 
 func vectorMakeHint(ct0, cs2, w, hint []ringElement, gamma2 uint32) {
