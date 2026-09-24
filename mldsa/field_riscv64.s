@@ -247,8 +247,8 @@ mvmWrite:
 	// Write accumulated result to dst only once per chunk
 	VSE32V		V6, (X12)
 
-	SLL $2, X15, X24
-	ADD X24, X16, X16
+	SLL $2, X15, X25
+	ADD X25, X16, X16
 	ADD X16, X12, X12
 
 	SUB X15, X14, X14
