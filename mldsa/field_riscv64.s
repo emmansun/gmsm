@@ -972,7 +972,7 @@ makehint88_rvv_loop:
 	RET
 
 // func polyInfinityNormRVV(a *fieldElement) uint32
-TEXT ·polyInfinityNormRVV(SB), NOSPLIT, $1024-12
+TEXT ·polyInfinityNormRVV(SB), 0, $1024-12
 	MOV	a+0(FP), X10
 	MOV	$8380417, Q
 	MOV	$256, X13
@@ -1010,7 +1010,7 @@ poly_inf_norm_rvv_scan:
 	RET
 
 // func polyInfinityNormSignedRVV(a *int32) uint32
-TEXT ·polyInfinityNormSignedRVV(SB), NOSPLIT, $1024-12
+TEXT ·polyInfinityNormSignedRVV(SB), 0, $1024-12
 	MOV	a+0(FP), X10
 	MOV	$256, X13
 	MOV	$0, X24
