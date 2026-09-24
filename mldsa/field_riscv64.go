@@ -25,6 +25,9 @@ func nttMulAccRVV(acc, lhs, rhs *nttElement)
 //go:noescape
 func nttMatRowVecMulRVV(dst, vec, matRow *nttElement, len int)
 
+//go:noescape
+func internalNTTRVV(f *ringElement)
+
 func nttMul(out, lhs, rhs *nttElement) {
 	if !hasRVV {
 		nttMulGeneric(out, lhs, rhs)
@@ -71,7 +74,12 @@ func polySubAssign[T ~[n]fieldElement](dst, src *T) {
 }
 
 func internalNTT(f *ringElement) {
-	internalNTTGeneric(f)
+	if !hasRVV {
+		internalNTTGeneric(f)
+		return
+	}
+
+	internalNTTRVV(f)
 }
 
 func internalInverseNTT(f *nttElement) {

@@ -255,3 +255,153 @@ mvmWrite:
 	BNEZ X14, mvmChunkLoop
 
 	RET
+
+// Input:
+//     va = a
+//     vb = b
+//
+// Output:
+//     va = a+t mod q
+//     vb = a-t mod q
+#define NTT_BUTTERFLY_VZ(va, vb, vz, vt, lo, m) \
+	MONT_MUL_HILO_VV(vb, vz, vt, lo, m);                       \
+	VSUBVV vt, va, vb;                                         \
+	VADDVV vt, va, va;                                         \
+	REDUCE_ONCE_RVV(va, m);                                    \
+	VSRAVI $31, vb, m;                                         \
+	VANDVX Q, m, m;                                            \
+	VADDVV m, vb, vb	
+
+// Input:
+//     va = a
+//     vb = b
+//
+// Output:
+//     va = a+t mod q
+//     vb = a-t mod q
+#define NTT_BUTTERFLY_XZ(va, vb, zeta, vt, lo, m) \
+	MONT_MUL_HILO_VX(vb, zeta, vt, lo, m);                     \
+	VSUBVV vt, va, vb;                                         \
+	VADDVV vt, va, va;                                         \
+	REDUCE_ONCE_RVV(va, m);                                    \
+	VSRAVI $31, vb, m;                                         \
+	VANDVX Q, m, m;                                            \
+	VADDVV m, vb, vb
+
+//func internalNTTRVV(f *ringElement)
+TEXT ·internalNTTRVV(SB), NOSPLIT, $0-8
+	MOV f+0(FP), X10
+
+	// Pinned constants.
+	MOV $8380417, Q
+	MOV $4236238847, QNEGINV
+	MOV $1, ONE
+
+	// Skip zetasMontgomery[0], matching the generic k=1 start.
+	MOV $·zetasMontgomery(SB), X11
+	ADD $4, X11, X11
+
+	// len = 128, 64, 32, 16, 8.
+	MOV $128, X12
+
+ntt_rvv_level_loop:
+	MOV $0, X13
+
+ntt_rvv_start_loop:
+	MOVWU (X11), X14
+	ADD $4, X11, X11
+
+	// left = f + start*4, right = left + len*4.
+	SLL $2, X13, X15
+	ADD X10, X15, X16
+	SLL $2, X12, X17
+	ADD X16, X17, X18
+	MOV X12, X19
+
+ntt_rvv_chunk_loop:
+	VSETVLI X19, E32, M1, TA, MA, X15
+
+	VLE32V (X16), V2
+	VLE32V (X18), V3
+	NTT_BUTTERFLY_XZ(V2, V3, X14, V4, V6, V7)
+	VSE32V V2, (X16)
+	VSE32V V3, (X18)
+
+	SLL $2, X15, X17
+	ADD X17, X16, X16
+	ADD X17, X18, X18
+	SUB X15, X19, X19
+	BNEZ X19, ntt_rvv_chunk_loop
+
+	// start += 2*len.
+	SLL $3, X12, X15
+	ADD X15, X13, X13
+	MOV $256, X15
+	BLT X13, X15, ntt_rvv_start_loop
+
+	SRL $1, X12, X12
+	MOV $8, X15
+	BGE X12, X15, ntt_rvv_level_loop
+
+	// len = 4. Each group is [a0 a1 a2 a3 b0 b1 b2 b3].
+	MOV X10, X16
+	MOV $32, X19
+
+ntt_rvv_len4_loop:
+	VSETVLI X19, E32, M1, TA, MA, X15
+	VLE32V (X11), V10
+	VLSEG8E32V (X16), V2
+
+	NTT_BUTTERFLY_VZ(V2, V6, V10, V11, V20, V21)
+	NTT_BUTTERFLY_VZ(V3, V7, V10, V12, V20, V21)
+	NTT_BUTTERFLY_VZ(V4, V8, V10, V13, V20, V21)
+	NTT_BUTTERFLY_VZ(V5, V9, V10, V14, V20, V21)
+
+	VSSEG8E32V V2, (X16)
+	SLL $2, X15, X17
+	ADD X17, X11, X11
+	SLL $5, X15, X17
+	ADD X17, X16, X16
+	SUB X15, X19, X19
+	BNEZ X19, ntt_rvv_len4_loop
+
+	// len = 2. Each group is [a0 a1 b0 b1].
+	MOV X10, X16
+	MOV $64, X19
+
+ntt_rvv_len2_loop:
+	VSETVLI X19, E32, M1, TA, MA, X15
+	VLE32V (X11), V10
+	VLSEG4E32V (X16), V2
+
+	NTT_BUTTERFLY_VZ(V2, V4, V10, V11, V20, V21)
+	NTT_BUTTERFLY_VZ(V3, V5, V10, V12, V20, V21)
+
+	VSSEG4E32V V2, (X16)
+	SLL $2, X15, X17
+	ADD X17, X11, X11
+	SLL $4, X15, X17
+	ADD X17, X16, X16
+	SUB X15, X19, X19
+	BNEZ X19, ntt_rvv_len2_loop
+
+	// len = 1. Each group is [a0 b0].
+	MOV X10, X16
+	MOV $128, X19
+
+ntt_rvv_len1_loop:
+	VSETVLI X19, E32, M1, TA, MA, X15
+	VLE32V (X11), V10
+	VLSEG2E32V (X16), V2
+
+	NTT_BUTTERFLY_VZ(V2, V3, V10, V11, V20, V21)
+
+	VSSEG2E32V V2, (X16)
+	SLL $2, X15, X17
+	ADD X17, X11, X11
+	SLL $3, X15, X17
+	ADD X17, X16, X16
+	SUB X15, X19, X19
+	BNEZ X19, ntt_rvv_len1_loop
+
+	RET

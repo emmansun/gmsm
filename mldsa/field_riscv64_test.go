@@ -185,3 +185,25 @@ func TestNttMatRowVecMulRVVMatchesGeneric(t *testing.T) {
 		}
 	}
 }
+
+func TestInternalNTTRVV(t *testing.T) {
+	if !hasRVV {
+		t.Skip("RVV is not available")
+	}
+
+	for i := 0; i < 16; i++ {
+		r := randomRingElement()
+
+		got := r
+		internalNTTRVV(&got)
+
+		want := r
+		internalNTTGeneric(&want)
+
+		if got != want {
+			t.Logf("want: %v", want)
+			t.Logf("got:  %v", got)
+			t.Fatalf("internalNTTRVV mismatch on iteration %d", i)
+		}
+	}
+}
