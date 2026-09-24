@@ -410,35 +410,45 @@ ntt_rvv_len1_loop:
 	RET
 
 // Input:
-//     va = a
-//     vb = b
+// va = a, where 0 <= a < q
+// vb = b, where 0 <= b < q
 //
 // Output:
-//     va = a+b mod q
-//     vb = zeta*(b-a) mod q
+// va = (a+b) mod q
+// vb = zeta*(b-a)*R^-1 mod q
+//
+// Output coefficients are canonical residues in [0,q).
+//
+// Clobbers:
+// diff, lo, m
 #define INVNTT_BUTTERFLY_XZ(va, vb, zeta, diff, lo, m) \
 	VSUBVV va, vb, diff;                                          \
 	VADDVV vb, va, va;                                            \
 	REDUCE_ONCE_RVV(va, m);                                       \
 	VSRAVI $31, diff, m;                                          \
 	VANDVX Q, m, m;                                               \
-	VADDVV m, diff, diff;                                         \	
+	VADDVV m, diff, diff;                                         \
 	MONT_MUL_HILO_VX(diff, zeta, vb, lo, m)
 
 // Input:
-//     va = a
-//     vb = b
+// va = a, where 0 <= a < q
+// vb = b, where 0 <= b < q
 //
 // Output:
-//     va = a+b mod q
-//     vb = zeta*(b-a) mod q
+// va = (a+b) mod q
+// vb = zeta*(b-a)*R^-1 mod q
+//
+// Output coefficients are canonical residues in [0,q).
+//
+// Clobbers:
+// diff, lo, m
 #define INVNTT_BUTTERFLY_VZ(va, vb, vz, diff, lo, m) \
 	VSUBVV va, vb, diff;                                          \
 	VADDVV vb, va, va;                                            \
 	REDUCE_ONCE_RVV(va, m);                                       \
 	VSRAVI $31, diff, m;                                          \
 	VANDVX Q, m, m;                                               \
-	VADDVV m, diff, diff;                                         \	
+	VADDVV m, diff, diff;                                         \
 	MONT_MUL_HILO_VV(diff, vz, vb, lo, m)
 
 // internalInverseNTTRVV computes the inverse NTT using RVV instructions.
@@ -459,6 +469,28 @@ TEXT ·internalInverseNTTRVV(SB), NOSPLIT, $0-8
 	MOV	$·zetasMontgomeryInverse(SB), X11
 
 	// len = 2
+	// len = 1
+	MOV	X10, X16
+	MOV	$128, X19
+
+invntt_level1_loop:
+	VSETVLI X19, E32, M1, TA, MA, X15
+	VLE32V	(X11), V10
+	VLSEG2E32V (X16), V2
+
+	INVNTT_BUTTERFLY_VZ(V2, V3, V10, V8, V20, V21)
+
+	VSSEG2E32V V2, (X16)
+
+	SLL	$2, X15, X17
+	ADD	X17, X11, X11
+
+	SLL	$3, X15, X17
+	ADD	X17, X16, X16
+
+	SUB	X15, X19, X19
+	BNEZ	X19, invntt_level1_loop
+
 	MOV	X10, X16
 	MOV	$64, X19
 
