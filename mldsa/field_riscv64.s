@@ -305,103 +305,106 @@ TEXT ·internalNTTRVV(SB), NOSPLIT, $0-8
 	MOV $128, X12
 
 ntt_rvv_level_loop:
-	MOV $0, X13
+		MOV $0, X13
 
-ntt_rvv_start_loop:
-	MOVWU (X11), X14
-	ADD $4, X11, X11
+ntt_rvv_group_loop: 
+			MOVWU (X11), X14
+			ADD $4, X11, X11
 
-	// left = f + start*4, right = left + len*4.
-	SLL $2, X13, X15
-	ADD X10, X15, X16
-	SLL $2, X12, X17
-	ADD X16, X17, X18
-	MOV X12, X19
+			// left = f + start*4, right = left + len*4.
+			SLL $2, X13, X15
+			ADD X10, X15, X16 // left offset
+			SLL $2, X12, X17
+			ADD X16, X17, X18 // right offset
+			MOV X12, X19
 
 ntt_rvv_chunk_loop:
-	VSETVLI X19, E32, M1, TA, MA, X15
+				VSETVLI X19, E32, M1, TA, MA, X15
 
-	VLE32V (X16), V2
-	VLE32V (X18), V3
-	NTT_BUTTERFLY_XZ(V2, V3, X14, V4, V6, V7)
-	VSE32V V2, (X16)
-	VSE32V V3, (X18)
+				VLE32V (X16), V2
+				VLE32V (X18), V3
+				NTT_BUTTERFLY_XZ(V2, V3, X14, V4, V6, V7)
+				VSE32V V2, (X16)
+				VSE32V V3, (X18)
 
-	SLL $2, X15, X17
-	ADD X17, X16, X16
-	ADD X17, X18, X18
-	SUB X15, X19, X19
-	BNEZ X19, ntt_rvv_chunk_loop
+				SLL $2, X15, X17  // multiply chunk index by element size (4 bytes)
+				ADD X17, X16, X16
+				ADD X17, X18, X18
+				SUB X15, X19, X19
+				BNEZ X19, ntt_rvv_chunk_loop
 
-	// start += 2*len.
-	SLL $1, X12, X15
-	ADD X15, X13, X13
-	MOV $256, X15
-	BLT X13, X15, ntt_rvv_start_loop
+			// start += 2*len.
+			SLL $1, X12, X15
+			ADD X15, X13, X13
+			MOV $256, X15
+			BLT X13, X15, ntt_rvv_group_loop
 
-	SRL $1, X12, X12
-	MOV $8, X15
-	BGE X12, X15, ntt_rvv_level_loop
+		SRL $1, X12, X12
+		MOV $8, X15
+		BGE X12, X15, ntt_rvv_level_loop
 
 	// len = 4. Each group is [a0 a1 a2 a3 b0 b1 b2 b3].
 	MOV X10, X16
-	MOV $32, X19
+	MOV $32, X19  // total groups for len=4 loop
 
 ntt_rvv_len4_loop:
-	VSETVLI X19, E32, M1, TA, MA, X15
-	VLE32V (X11), V10
-	VLSEG8E32V (X16), V2
+		VSETVLI X19, E32, M1, TA, MA, X15
+		VLE32V (X11), V10
+		VLSEG8E32V (X16), V2  // load 8 elements from memory into vector registers V2-V9
 
-	NTT_BUTTERFLY_VZ(V2, V6, V10, V11, V20, V21)
-	NTT_BUTTERFLY_VZ(V3, V7, V10, V12, V20, V21)
-	NTT_BUTTERFLY_VZ(V4, V8, V10, V13, V20, V21)
-	NTT_BUTTERFLY_VZ(V5, V9, V10, V14, V20, V21)
+		NTT_BUTTERFLY_VZ(V2, V6, V10, V11, V20, V21)
+		NTT_BUTTERFLY_VZ(V3, V7, V10, V12, V20, V21)
+		NTT_BUTTERFLY_VZ(V4, V8, V10, V13, V20, V21)
+		NTT_BUTTERFLY_VZ(V5, V9, V10, V14, V20, V21)
 
-	VSSEG8E32V V2, (X16)
-	SLL $2, X15, X17
-	ADD X17, X11, X11
-	SLL $5, X15, X17
-	ADD X17, X16, X16
-	SUB X15, X19, X19
-	BNEZ X19, ntt_rvv_len4_loop
+		VSSEG8E32V V2, (X16)
+		SLL $2, X15, X17
+		ADD X17, X11, X11  // advance the zeta pointer for the next chunk (len=4)
+		SLL $5, X15, X17
+		ADD X17, X16, X16  // advance the memory pointer for the next chunk (len=4)
+		// decrement the remaining chunk count
+		SUB X15, X19, X19
+		BNEZ X19, ntt_rvv_len4_loop
 
 	// len = 2. Each group is [a0 a1 b0 b1].
 	MOV X10, X16
-	MOV $64, X19
+	MOV $64, X19  // total groups for len=2 loop
 
 ntt_rvv_len2_loop:
-	VSETVLI X19, E32, M1, TA, MA, X15
-	VLE32V (X11), V10
-	VLSEG4E32V (X16), V2
+		VSETVLI X19, E32, M1, TA, MA, X15
+		VLE32V (X11), V10
+		VLSEG4E32V (X16), V2
 
-	NTT_BUTTERFLY_VZ(V2, V4, V10, V11, V20, V21)
-	NTT_BUTTERFLY_VZ(V3, V5, V10, V12, V20, V21)
+		NTT_BUTTERFLY_VZ(V2, V4, V10, V11, V20, V21)
+		NTT_BUTTERFLY_VZ(V3, V5, V10, V12, V20, V21)
 
-	VSSEG4E32V V2, (X16)
-	SLL $2, X15, X17
-	ADD X17, X11, X11
-	SLL $4, X15, X17
-	ADD X17, X16, X16
-	SUB X15, X19, X19
-	BNEZ X19, ntt_rvv_len2_loop
+		VSSEG4E32V V2, (X16)
+		SLL $2, X15, X17
+		ADD X17, X11, X11  // advance the zeta pointer for the next chunk (len=2)
+		SLL $4, X15, X17
+		ADD X17, X16, X16  // advance the memory pointer for the next chunk (len=2)
+		// decrement the remaining chunk count
+		SUB X15, X19, X19
+		BNEZ X19, ntt_rvv_len2_loop
 
 	// len = 1. Each group is [a0 b0].
 	MOV X10, X16
-	MOV $128, X19
+	MOV $128, X19  // total groups for len=1 loop
 
 ntt_rvv_len1_loop:
-	VSETVLI X19, E32, M1, TA, MA, X15
-	VLE32V (X11), V10
-	VLSEG2E32V (X16), V2
+		VSETVLI X19, E32, M1, TA, MA, X15
+		VLE32V (X11), V10
+		VLSEG2E32V (X16), V2
 
-	NTT_BUTTERFLY_VZ(V2, V3, V10, V11, V20, V21)
+		NTT_BUTTERFLY_VZ(V2, V3, V10, V11, V20, V21)
 
-	VSSEG2E32V V2, (X16)
-	SLL $2, X15, X17
-	ADD X17, X11, X11
-	SLL $3, X15, X17
-	ADD X17, X16, X16
-	SUB X15, X19, X19
-	BNEZ X19, ntt_rvv_len1_loop
+		VSSEG2E32V V2, (X16)
+		SLL $2, X15, X17
+		ADD X17, X11, X11  // advance the zeta pointer for the next chunk (len=1)
+		SLL $3, X15, X17
+		ADD X17, X16, X16  // advance the memory pointer for the next chunk (len=1)
+		// decrement the remaining chunk count (len=1)
+		SUB X15, X19, X19
+		BNEZ X19, ntt_rvv_len1_loop
 
 	RET
