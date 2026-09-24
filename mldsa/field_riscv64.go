@@ -51,6 +51,12 @@ func useHintPolyGamma32RVV(h, r, out *fieldElement)
 //go:noescape
 func useHintPolyGamma88RVV(h, r, out *fieldElement)
 
+//go:noescape
+func makeHintPolyGamma32RVV(ct0, cs2, w, hint *fieldElement)
+
+//go:noescape
+func makeHintPolyGamma88RVV(ct0, cs2, w, hint *fieldElement)
+
 func nttMul(out, lhs, rhs *nttElement) {
 	if !hasRVV {
 		nttMulGeneric(out, lhs, rhs)
@@ -147,7 +153,22 @@ func useHintPoly(dst, h, r *ringElement, gamma2 uint32) {
 }
 
 func vectorMakeHint(ct0, cs2, w, hint []ringElement, gamma2 uint32) {
-	vectorMakeHintGeneric(ct0, cs2, w, hint, gamma2)
+	if !hasRVV {
+		vectorMakeHintGeneric(ct0, cs2, w, hint, gamma2)
+		return
+	}
+	switch gamma2 {
+	case gamma2QMinus1Div32:
+		for i := range ct0 {
+			makeHintPolyGamma32RVV(&ct0[i][0], &cs2[i][0], &w[i][0], &hint[i][0])
+		}
+	case gamma2QMinus1Div88:
+		for i := range ct0 {
+			makeHintPolyGamma88RVV(&ct0[i][0], &cs2[i][0], &w[i][0], &hint[i][0])
+		}
+	default:
+		vectorMakeHintGeneric(ct0, cs2, w, hint, gamma2)
+	}
 }
 
 func polyInfinityNorm[T ~[n]fieldElement](a *T, norm int) int {

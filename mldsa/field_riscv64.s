@@ -846,3 +846,127 @@ usehint88_rvv_loop:
 	SUB	X15, X13, X13
 	BNEZ	X13, usehint88_rvv_loop
 	RET
+
+// func makeHintPolyGamma32RVV(ct0, cs2, w, hint *fieldElement)
+TEXT ·makeHintPolyGamma32RVV(SB), NOSPLIT, $0-32
+	MOV	ct0+0(FP), X10
+	MOV	cs2+8(FP), X11
+	MOV	w+16(FP), X12
+	MOV	hint+24(FP), X13
+
+	MOV	$8380417, Q       // q
+	MOV	$127, X14         // plus127
+	MOV	$1025, X16        // decomposeMul1025
+	MOV	$2097152, X17     // 2^21
+	MOV	$15, X18          // modulus mask
+	MOV	$256, X24
+
+makehint32_rvv_loop:
+	VSETVLI X24, E32, M1, TA, MA, X15
+
+	// rPlusZ = fieldSub(w, cs2); r = fieldAdd(rPlusZ, ct0).
+	VLE32V	(X10), V2
+	VLE32V	(X11), V3
+	VLE32V	(X12), V4
+	VSUBVV	V3, V4, V4
+	VSRAVI	$31, V4, V8
+	VANDVX	Q, V8, V8
+	VADDVV	V8, V4, V4
+	VADDVV	V2, V4, V5
+	REDUCE_ONCE_RVV(V5, V8)
+
+	// HighBitsGamma32(rPlusZ).
+	VADDVX	X14, V4, V6
+	VSRLVI	$7, V6, V6
+	VMULVX	X16, V6, V6
+	VADDVX	X17, V6, V6
+	VSRLVI	$22, V6, V6
+	VANDVX	X18, V6, V6
+
+	// HighBitsGamma32(r).
+	VADDVX	X14, V5, V7
+	VSRLVI	$7, V7, V7
+	VMULVX	X16, V7, V7
+	VADDVX	X17, V7, V7
+	VSRLVI	$22, V7, V7
+	VANDVX	X18, V7, V7
+
+	// hint = HighBits(rPlusZ) != HighBits(r), converted to 0/1.
+	VMSNEVV	V6, V7, V0
+	VMVVI	$0, V8
+	VMERGEVIM	$1, V8, V0, V8
+	VSE32V	V8, (X13)
+
+	SLL	$2, X15, X25
+	ADD	X25, X10, X10
+	ADD	X25, X11, X11
+	ADD	X25, X12, X12
+	ADD	X25, X13, X13
+	SUB	X15, X24, X24
+	BNEZ	X24, makehint32_rvv_loop
+	RET
+
+// func makeHintPolyGamma88RVV(ct0, cs2, w, hint *fieldElement)
+TEXT ·makeHintPolyGamma88RVV(SB), NOSPLIT, $0-32
+	MOV	ct0+0(FP), X10
+	MOV	cs2+8(FP), X11
+	MOV	w+16(FP), X12
+	MOV	hint+24(FP), X13
+
+	MOV	$8380417, Q       // q
+	MOV	$127, X14         // plus127
+	MOV	$11275, X16       // decomposeMul11275
+	MOV	$8388608, X17     // 2^23
+	MOV	$43, X18          // HighBits upper limit
+	MOV	$256, X24
+
+makehint88_rvv_loop:
+	VSETVLI X24, E32, M1, TA, MA, X15
+
+	// rPlusZ = fieldSub(w, cs2); r = fieldAdd(rPlusZ, ct0).
+	VLE32V	(X10), V2
+	VLE32V	(X11), V3
+	VLE32V	(X12), V4
+	VSUBVV	V3, V4, V4
+	VSRAVI	$31, V4, V8
+	VANDVX	Q, V8, V8
+	VADDVV	V8, V4, V4
+	VADDVV	V2, V4, V5
+	REDUCE_ONCE_RVV(V5, V8)
+
+	// HighBitsGamma88(rPlusZ), including raw r1 == 44 -> 0.
+	VADDVX	X14, V4, V6
+	VSRLVI	$7, V6, V6
+	VMULVX	X16, V6, V6
+	VADDVX	X17, V6, V6
+	VSRLVI	$24, V6, V6
+	VRSUBVX	X18, V6, V8
+	VSRAVI	$31, V8, V8
+	VANDVV	V6, V8, V8
+	VXORVV	V8, V6, V6
+
+	// HighBitsGamma88(r), including raw r1 == 44 -> 0.
+	VADDVX	X14, V5, V7
+	VSRLVI	$7, V7, V7
+	VMULVX	X16, V7, V7
+	VADDVX	X17, V7, V7
+	VSRLVI	$24, V7, V7
+	VRSUBVX	X18, V7, V8
+	VSRAVI	$31, V8, V8
+	VANDVV	V7, V8, V8
+	VXORVV	V8, V7, V7
+
+	// hint = HighBits(rPlusZ) != HighBits(r), converted to 0/1.
+	VMSNEVV	V6, V7, V0
+	VMVVI	$0, V8
+	VMERGEVIM	$1, V8, V0, V8
+	VSE32V	V8, (X13)
+
+	SLL	$2, X15, X25
+	ADD	X25, X10, X10
+	ADD	X25, X11, X11
+	ADD	X25, X12, X12
+	ADD	X25, X13, X13
+	SUB	X15, X24, X24
+	BNEZ	X24, makehint88_rvv_loop
+	RET
