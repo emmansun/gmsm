@@ -972,66 +972,85 @@ makehint88_rvv_loop:
 	RET
 
 // func polyInfinityNormRVV(a *fieldElement) uint32
+//
+// Preconditions:
+//     a[i] is a canonical field element in [0, q).
+//
+// Returns:
+//     max_i min(a[i], q-a[i]).
 TEXT ·polyInfinityNormRVV(SB), NOSPLIT, $0-12
 	MOV	a+0(FP), X10
 	MOV	$8380417, Q
 	MOV	$256, X13
-	MOV	$0, X24
 
-	// Reduce each strip-mined chunk and keep the global maximum in X24.
+	// Establish E32/M4 and initialize the reduction seed.
+	VSETVLI	X13, E32, M4, TA, MA, X14
+	VMVVI	$0, V16
 
 poly_inf_norm_rvv_loop:
-	VSETVLI X13, E32, M4, TA, MA, X14
 	VLE32V	(X10), V4
 
+	// V4 = min(a, q-a).
 	VRSUBVX	Q, V4, V8
 	VMINUVV	V8, V4, V4
-	VMVVI	$0, V16
+
+	// V16[0] = max(V16[0], max(V4[*])).
 	VREDMAXUVS	V4, V16, V16
-	VMVXS	V16, X15
-	SLTU	X24, X15, X16
-	SUB	X16, ZERO, X16
-	XOR	X24, X15, X17
-	AND	X16, X17, X17
-	XOR	X17, X24, X24
 
 	SLL	$2, X14, X15
 	ADD	X15, X10, X10
 	SUB	X14, X13, X13
 	BNEZ	X13, poly_inf_norm_rvv_loop
 
+	// VMV.X.S sign-extends E32 to XLEN. The result here is <= q/2,
+	// so the sign extension cannot affect it.
+	VMVXS	V16, X24
 	MOVW	X24, ret+8(FP)
 	RET
 
 // func polyInfinityNormSignedRVV(a *int32) uint32
+//
+// Returns:
+//     max_i abs(a[i]).
+//
+// This function defines abs(INT32_MIN) as uint32(1 << 31).
 TEXT ·polyInfinityNormSignedRVV(SB), NOSPLIT, $0-12
 	MOV	a+0(FP), X10
 	MOV	$256, X13
-	MOV	$0, X24
 
-	// Reduce each strip-mined chunk and keep the global maximum in X24.
+	// Establish E32/M4 and initialize the reduction seed.
+	VSETVLI	X13, E32, M4, TA, MA, X14
+	VMVVI	$0, V16
 
 poly_inf_norm_signed_rvv_loop:
-	VSETVLI X13, E32, M4, TA, MA, X14
 	VLE32V	(X10), V4
 
-	// abs(x) = (x ^ (x >> 31)) - (x >> 31).
+	// abs(x) as an unsigned E32 magnitude:
+	//
+	//     sign = x >> 31
+	//     abs  = (x ^ sign) - sign
+	//
+	// INT32_MIN becomes 0x80000000, representing uint32(1 << 31).
 	VSRAVI	$31, V4, V8
 	VXORVV	V8, V4, V4
 	VSUBVV	V8, V4, V4
-	VMVVI	$0, V16
+
+	// Unsigned reduction is required because abs(INT32_MIN)
+	// has the E32 bit pattern 0x80000000.
 	VREDMAXUVS	V4, V16, V16
-	VMVXS	V16, X15
-	SLTU	X24, X15, X16
-	SUB	X16, ZERO, X16
-	XOR	X24, X15, X17
-	AND	X16, X17, X17
-	XOR	X17, X24, X24
 
 	SLL	$2, X14, X15
 	ADD	X15, X10, X10
 	SUB	X14, X13, X13
 	BNEZ	X13, poly_inf_norm_signed_rvv_loop
+
+	VMVXS	V16, X24
+
+	// VMV.X.S sign-extends E32 to XLEN on RV64. Clear the upper
+	// 32 bits so the returned uint32 magnitude is represented
+	// correctly even when the maximum is 0x80000000.
+	SLL	$32, X24, X24
+	SRL	$32, X24, X24
 
 	MOVW	X24, ret+8(FP)
 	RET
