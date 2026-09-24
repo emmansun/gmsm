@@ -19,6 +19,18 @@ func randomNttElement() nttElement {
 	return ntt(randomRingElementMldsa())
 }
 
+func randomRingElementMldsa() ringElement {
+	var f ringElement
+	for i := range f {
+		// Random value in [0, q)
+		var b [4]byte
+		rand.Read(b[:])
+		v := uint32(b[0]) | uint32(b[1])<<8 | uint32(b[2])<<16 | uint32(b[3])<<24
+		f[i] = fieldElement(v % q)
+	}
+	return f
+}
+
 func TestPolyAddAssignRVV(t *testing.T) {
 	if !hasRVV {
 		t.Skip("RVV is not available")
