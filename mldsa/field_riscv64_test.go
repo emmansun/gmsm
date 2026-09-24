@@ -442,3 +442,37 @@ func TestVectorMakeHintRVV(t *testing.T) {
 		}
 	}
 }
+
+func TestPolyInfinityNormRVV(t *testing.T) {
+	if !hasRVV {
+		t.Skip("RVV is not available")
+	}
+
+	for i := 0; i < 16; i++ {
+		r := randomRingElement()
+		got := int(polyInfinityNormRVV(&r[0]))
+		want := polyInfinityNormGeneric(&r, 0)
+		if got != want {
+			t.Fatalf("polyInfinityNormRVV mismatch on iteration %d: got %d want %d", i, got, want)
+		}
+	}
+}
+
+func TestPolyInfinityNormSignedRVV(t *testing.T) {
+	if !hasRVV {
+		t.Skip("RVV is not available")
+	}
+
+	for i := 0; i < 16; i++ {
+		var a [n]int32
+		r := randomRingElement()
+		for j := range a {
+			a[j] = int32(r[j]) - int32(qMinus1Div2)
+		}
+		got := int(polyInfinityNormSignedRVV(&a[0]))
+		want := polyInfinityNormSignedGeneric(&a, 0)
+		if got != want {
+			t.Fatalf("polyInfinityNormSignedRVV mismatch on iteration %d: got %d want %d", i, got, want)
+		}
+	}
+}

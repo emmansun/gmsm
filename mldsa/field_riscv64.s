@@ -970,3 +970,63 @@ makehint88_rvv_loop:
 	SUB	X15, X24, X24
 	BNEZ	X24, makehint88_rvv_loop
 	RET
+
+// func polyInfinityNormRVV(a *fieldElement) uint32
+TEXT ·polyInfinityNormRVV(SB), NOSPLIT, $0-12
+	MOV	a+0(FP), X10
+	MOV	$8380417, Q
+	MOV	$256, X13
+
+	// Accumulate max_u(min(a[i], q-a[i])) in V12.
+	VSETVLI X13, E32, M4, TA, MA, X14
+	VMVVI	$0, V12
+
+poly_inf_norm_rvv_loop:
+	VSETVLI X13, E32, M4, TA, MA, X14
+	VLE32V	(X10), V4
+
+	VSUBVX	Q, V4, V8
+	VMINUVV	V8, V4, V4
+	VMAXUVV	V12, V4, V12
+
+	SLL	$2, X14, X15
+	ADD	X15, X10, X10
+	SUB	X14, X13, X13
+	BNEZ	X13, poly_inf_norm_rvv_loop
+
+	// Reduce V12 to one unsigned maximum and return it.
+	VMVVI	$0, V16
+	VREDMAXUVS	V12, V16, V16
+	VMVXS	V16, X14
+	MOVW	X14, ret+8(FP)
+	RET
+
+// func polyInfinityNormSignedRVV(a *int32) uint32
+TEXT ·polyInfinityNormSignedRVV(SB), NOSPLIT, $0-12
+	MOV	a+0(FP), X10
+	MOV	$256, X13
+
+	// Accumulate max_u(abs(a[i])) in V12.
+	VSETVLI X13, E32, M4, TA, MA, X14
+	VMVVI	$0, V12
+
+poly_inf_norm_signed_rvv_loop:
+	VSETVLI X13, E32, M4, TA, MA, X14
+	VLE32V	(X10), V4
+
+	VSRAVI	$31, V4, V8
+	VXORVV	V8, V4, V4
+	VSUBVV	V8, V4, V4
+	VMAXUVV	V12, V4, V12
+
+	SLL	$2, X14, X15
+	ADD	X15, X10, X10
+	SUB	X14, X13, X13
+	BNEZ	X13, poly_inf_norm_signed_rvv_loop
+
+	// Reduce V12 to one unsigned maximum and return it.
+	VMVVI	$0, V16
+	VREDMAXUVS	V12, V16, V16
+	VMVXS	V16, X14
+	MOVW	X14, ret+8(FP)
+	RET
