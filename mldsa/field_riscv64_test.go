@@ -8,6 +8,13 @@ package mldsa
 
 import "testing"
 
+func requireRVV(t *testing.T) {
+	t.Helper()
+	if !hasRVV {
+		t.Skip("RVV not available on this machine")
+	}
+}
+
 func TestPolyAddAssignRVV(t *testing.T) {
 	if !hasRVV {
 		t.Skip("RVV is not available")
@@ -133,6 +140,29 @@ func TestNTTMulAccRVV(t *testing.T) {
 		nttMulAccGeneric(&want, &left, &right)
 		if got != want {
 			t.Fatalf("nttMulAccRVV mismatch on iteration %d", i)
+		}
+	}
+}
+
+func TestNttMatRowVecMulRVVMatchesGeneric(t *testing.T) {
+	requireRVV(t)
+
+	for length := 1; length <= 5; length++ {
+		vec := make([]nttElement, length)
+		mat := make([]nttElement, length)
+		for i := range vec {
+			vec[i] = randomNttElement()
+			mat[i] = randomNttElement()
+		}
+		var got, want nttElement
+
+		nttMatRowVecMulRVV(&got, &vec[0], &mat[0], length)
+		nttMatRowVecMulGeneric(&want, &vec[0], &mat[0], length)
+
+		for j := range got {
+			if got[j] != want[j] {
+				t.Fatalf("length=%d idx=%d: nttMatRowVecMul mismatch: got=%d want=%d", length, j, got[j], want[j])
+			}
 		}
 	}
 }

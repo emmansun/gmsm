@@ -22,6 +22,9 @@ func nttMulRVV(lhs, rhs, out *nttElement)
 //go:noescape
 func nttMulAccRVV(acc, lhs, rhs *nttElement)
 
+//go:noescape
+func nttMatRowVecMulRVV(dst, vec, matRow *nttElement, len int)
+
 func nttMul(out, lhs, rhs *nttElement) {
 	if !hasRVV {
 		nttMulGeneric(out, lhs, rhs)
@@ -41,7 +44,12 @@ func nttMulAcc(acc, lhs, rhs *nttElement) {
 }
 
 func nttMatRowVecMul(dst, vec, matRow *nttElement, len int) {
-	nttMatRowVecMulGeneric(dst, vec, matRow, len)
+	if !hasRVV {
+		nttMatRowVecMulGeneric(dst, vec, matRow, len)
+		return
+	}
+
+	nttMatRowVecMulRVV(dst, vec, matRow, len)
 }
 
 // polyAddAssign updates dst as dst += src (fallback to generic).

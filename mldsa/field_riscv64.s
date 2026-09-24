@@ -194,3 +194,64 @@ nttMulAccRVV_loop:
 	BNEZ	X13, nttMulAccRVV_loop
 
 	RET
+
+// nttMatRowVecMulRVV computes dst = vec[0]*matRow[0] + vec[1]*matRow[1] + ... + vec[len-1]*matRow[len-1]
+// where each element is a polynomial in NTT domain.
+// For each RVV chunk of the polynomial, all len products are
+// accumulated in a register before writing to dst once.
+TEXT ·nttMatRowVecMulRVV(SB), NOSPLIT, $0-32
+	MOV dst+0(FP), X12
+	MOV vec+8(FP), X10
+	MOV matRow+16(FP), X11
+	MOV len+24(FP), X13
+	
+	// Pinned constants.
+	MOV $8380417, Q
+	MOV $4236238847, QNEGINV
+	MOV $1, ONE
+
+	MOV $256, X14
+	VSETVLI X14, E32, M2, TA, MA, X15
+
+	MOV $0, X16  // chunk offset
+	MOV $1024, X19  // element size in bytes: 256*4
+
+mvmChunkLoop:
+	ADD X16, X10, X17  // X17 = &vec[0] + chunk_offset
+	ADD X16, X11, X18  // X18 = &matRow[0] + chunk_offset
+
+	VLE32V		(X17), V2
+	VLE32V		(X18), V4
+
+	MONT_MUL_HILO_VV(V2, V4, V6, V10, V12)
+
+	SUB $1, X13, X24
+	BEQZ X24, mvmWrite  // len == 1: skip accumulate loop
+
+mvmAccumulate:
+	ADD X19, X17, X17  // move to next chunk of vec
+	ADD X19, X18, X18  // move to next chunk of matRow
+
+	VLE32V		(X17), V2
+	VLE32V		(X18), V4
+
+	MONT_MUL_HILO_VV(V2, V4, V8, V10, V12)
+	// accumulate in register (no memory round-trip)
+	VADDVV V8, V6, V6
+	REDUCE_ONCE_RVV(V6, V8)
+
+	SUB $1, X24, X24
+	BNEZ X24, mvmAccumulate
+
+mvmWrite:
+	// Write accumulated result to dst only once per chunk
+	VSE32V		V6, (X12)
+
+	SLL $2, X15, X16
+	ADD X16, X12, X12
+
+	SUB X15, X14, X14
+	BNEZ X14, mvmChunkLoop
+
+	RET
+
