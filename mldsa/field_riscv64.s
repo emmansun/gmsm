@@ -972,13 +972,13 @@ makehint88_rvv_loop:
 	RET
 
 // func polyInfinityNormRVV(a *fieldElement) uint32
-TEXT ·polyInfinityNormRVV(SB), NOSPLIT, $0-12
+TEXT ·polyInfinityNormRVV(SB), NOSPLIT, $1024-12
 	MOV	a+0(FP), X10
 	MOV	$8380417, Q
 	MOV	$256, X13
 	MOV	$0, X24
 
-	// Reduce each chunk and keep the global maximum in X24.
+	// Vectorize the field norm, then scan each chunk scalarly.
 
 poly_inf_norm_rvv_loop:
 	VSETVLI X13, E32, M4, TA, MA, X14
@@ -986,14 +986,20 @@ poly_inf_norm_rvv_loop:
 
 	VRSUBVX	Q, V4, V8
 	VMINUVV	V8, V4, V4
-	VMVVI	$0, V16
-	VREDMAXUVS	V16, V4, V20
-	VMVXS	V20, X15
-	SLTU	X24, X15, X16
-	SUB	ZERO, X16, X16
-	XOR	X24, X15, X17
-	AND	X16, X17, X17
-	XOR	X17, X24, X24
+	ADD	$8, RSP, X18
+	VSE32V	V4, (X18)
+	MOV	X14, X17
+
+poly_inf_norm_rvv_scan:
+	MOVWU	(X18), X16
+	SLTU	X24, X16, X19
+	SUB	ZERO, X19, X19
+	XOR	X24, X16, X25
+	AND	X19, X25, X25
+	XOR	X25, X24, X24
+	ADD	$4, X18, X18
+	SUB	$1, X17, X17
+	BNEZ	X17, poly_inf_norm_rvv_scan
 
 	SLL	$2, X14, X15
 	ADD	X15, X10, X10
@@ -1004,12 +1010,12 @@ poly_inf_norm_rvv_loop:
 	RET
 
 // func polyInfinityNormSignedRVV(a *int32) uint32
-TEXT ·polyInfinityNormSignedRVV(SB), NOSPLIT, $0-12
+TEXT ·polyInfinityNormSignedRVV(SB), NOSPLIT, $1024-12
 	MOV	a+0(FP), X10
 	MOV	$256, X13
 	MOV	$0, X24
 
-	// Reduce each chunk and keep the global maximum in X24.
+	// Vectorize the absolute value, then scan each chunk scalarly.
 
 poly_inf_norm_signed_rvv_loop:
 	VSETVLI X13, E32, M4, TA, MA, X14
@@ -1019,14 +1025,20 @@ poly_inf_norm_signed_rvv_loop:
 	VSRAVI	$31, V4, V8
 	VXORVV	V8, V4, V4
 	VSUBVV	V8, V4, V4
-	VMVVI	$0, V16
-	VREDMAXUVS	V16, V4, V20
-	VMVXS	V20, X15
-	SLTU	X24, X15, X16
-	SUB	ZERO, X16, X16
-	XOR	X24, X15, X17
-	AND	X16, X17, X17
-	XOR	X17, X24, X24
+	ADD	$8, RSP, X18
+	VSE32V	V4, (X18)
+	MOV	X14, X17
+
+poly_inf_norm_signed_rvv_scan:
+	MOVWU	(X18), X16
+	SLTU	X24, X16, X19
+	SUB	ZERO, X19, X19
+	XOR	X24, X16, X25
+	AND	X19, X25, X25
+	XOR	X25, X24, X24
+	ADD	$4, X18, X18
+	SUB	$1, X17, X17
+	BNEZ	X17, poly_inf_norm_signed_rvv_scan
 
 	SLL	$2, X14, X15
 	ADD	X15, X10, X10
