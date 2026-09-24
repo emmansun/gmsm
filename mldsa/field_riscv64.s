@@ -213,12 +213,11 @@ TEXT ·nttMatRowVecMulRVV(SB), NOSPLIT, $0-32
 	MOV $256, X14
 	VSETVLI X14, E32, M2, TA, MA, X15
 
-	MOV $0, X16  // chunk offset
 	MOV $1024, X19  // element size in bytes: 256*4
 
 mvmChunkLoop:
-	ADD X16, X10, X17  // X17 = &vec[0] + chunk_offset
-	ADD X16, X11, X18  // X18 = &matRow[0] + chunk_offset
+	MOV X10, X17  // X17 = current vec chunk
+	MOV X11, X18  // X18 = current matRow chunk
 
 	VLE32V		(X17), V2
 	VLE32V		(X18), V4
@@ -248,8 +247,9 @@ mvmWrite:
 	VSE32V		V6, (X12)
 
 	SLL $2, X15, X25
-	ADD X25, X16, X16
-	ADD X16, X12, X12
+	ADD X25, X10, X10
+	ADD X25, X11, X11
+	ADD X25, X12, X12
 
 	SUB X15, X14, X14
 	BNEZ X14, mvmChunkLoop
