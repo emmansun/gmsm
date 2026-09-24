@@ -972,77 +972,71 @@ makehint88_rvv_loop:
 	RET
 
 // func polyInfinityNormRVV(a *fieldElement) uint32
-TEXT ·polyInfinityNormRVV(SB), 0, $1024-12
+TEXT ·polyInfinityNormRVV(SB), NOSPLIT, $0-12
 	MOV	a+0(FP), X10
 	MOV	$8380417, Q
 	MOV	$256, X13
 	MOV	$0, X24
 
-	// Vectorize the field norm, then scan each chunk scalarly.
+poly_inf_norm_rvv_first:
+	MOVWU	(X10), X16
+	SUB	Q, X16, X17
+	SLTU	X17, X16, X18
+	SUB	ZERO, X18, X18
+	XOR	X16, X17, X19
+	AND	X18, X19, X19
+	XOR	X19, X16, X16
+	MOV	X16, X24
+	ADD	$4, X10, X10
+	SUB	$1, X13, X13
 
 poly_inf_norm_rvv_loop:
-	VSETVLI X13, E32, M4, TA, MA, X14
-	VLE32V	(X10), V4
-
-	VRSUBVX	Q, V4, V8
-	VMINUVV	V8, V4, V4
-	ADD	$8, RSP, X18
-	VSE32V	V4, (X18)
-	MOV	X14, X17
-
-poly_inf_norm_rvv_scan:
-	MOVWU	(X18), X16
-	SLTU	X24, X16, X19
-	SUB	ZERO, X19, X19
-	XOR	X24, X16, X25
-	AND	X19, X25, X25
-	XOR	X25, X24, X24
-	ADD	$4, X18, X18
-	SUB	$1, X17, X17
-	BNEZ	X17, poly_inf_norm_rvv_scan
-
-	SLL	$2, X14, X15
-	ADD	X15, X10, X10
-	SUB	X14, X13, X13
+	MOVWU	(X10), X16
+	SUB	Q, X16, X17
+	SLTU	X17, X16, X18
+	SUB	ZERO, X18, X18
+	XOR	X16, X17, X19
+	AND	X18, X19, X19
+	XOR	X19, X16, X16
+	SLTU	X24, X16, X18
+	SUB	ZERO, X18, X18
+	XOR	X24, X16, X19
+	AND	X18, X19, X19
+	XOR	X19, X24, X24
+	ADD	$4, X10, X10
+	SUB	$1, X13, X13
 	BNEZ	X13, poly_inf_norm_rvv_loop
 
 	MOVW	X24, ret+8(FP)
 	RET
 
 // func polyInfinityNormSignedRVV(a *int32) uint32
-TEXT ·polyInfinityNormSignedRVV(SB), 0, $1024-12
+TEXT ·polyInfinityNormSignedRVV(SB), NOSPLIT, $0-12
 	MOV	a+0(FP), X10
 	MOV	$256, X13
 	MOV	$0, X24
 
-	// Vectorize the absolute value, then scan each chunk scalarly.
+poly_inf_norm_signed_rvv_first:
+	MOVW	(X10), X16
+	SRAI	$31, X16, X17
+	XOR	X17, X16, X16
+	SUB	X17, X16, X16
+	MOV	X16, X24
+	ADD	$4, X10, X10
+	SUB	$1, X13, X13
 
 poly_inf_norm_signed_rvv_loop:
-	VSETVLI X13, E32, M4, TA, MA, X14
-	VLE32V	(X10), V4
-
-	// abs(x) = (x ^ (x >> 31)) - (x >> 31).
-	VSRAVI	$31, V4, V8
-	VXORVV	V8, V4, V4
-	VSUBVV	V8, V4, V4
-	ADD	$8, RSP, X18
-	VSE32V	V4, (X18)
-	MOV	X14, X17
-
-poly_inf_norm_signed_rvv_scan:
-	MOVWU	(X18), X16
-	SLTU	X24, X16, X19
-	SUB	ZERO, X19, X19
-	XOR	X24, X16, X25
-	AND	X19, X25, X25
-	XOR	X25, X24, X24
-	ADD	$4, X18, X18
-	SUB	$1, X17, X17
-	BNEZ	X17, poly_inf_norm_signed_rvv_scan
-
-	SLL	$2, X14, X15
-	ADD	X15, X10, X10
-	SUB	X14, X13, X13
+	MOVW	(X10), X16
+	SRAI	$31, X16, X17
+	XOR	X17, X16, X16
+	SUB	X17, X16, X16
+	SLTU	X24, X16, X18
+	SUB	ZERO, X18, X18
+	XOR	X24, X16, X19
+	AND	X18, X19, X19
+	XOR	X19, X24, X24
+	ADD	$4, X10, X10
+	SUB	$1, X13, X13
 	BNEZ	X13, poly_inf_norm_signed_rvv_loop
 
 	MOVW	X24, ret+8(FP)
