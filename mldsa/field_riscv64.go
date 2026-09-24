@@ -178,17 +178,17 @@ func vectorMakeHint(ct0, cs2, w, hint []ringElement, gamma2 uint32) {
 }
 
 func polyInfinityNorm[T ~[n]fieldElement](a *T, norm int) int {
-	current := uint32(norm)
-	if hasRVV {
-		return int(maxUint32(current, polyInfinityNormRVV(&(*a)[0])))
-	}
+	//current := uint32(norm)
+	//if hasRVV {
+	//	return int(maxUint32(current, polyInfinityNormRVV(&(*a)[0])))
+	//}
 	return polyInfinityNormGeneric(a, norm)
 }
 
 func polyInfinityNormSigned(a *[n]int32, norm int) int {
-	current := uint32(norm)
-	if hasRVV {
-		return int(maxUint32(current, polyInfinityNormSignedRVV(&a[0])))
-	}
+	//current := uint32(norm)
+	//if hasRVV {
+	//	return int(maxUint32(current, polyInfinityNormSignedRVV(&a[0])))
+	//}
 	return polyInfinityNormSignedGeneric(a, norm)
 }
