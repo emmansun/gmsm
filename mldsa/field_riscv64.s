@@ -334,7 +334,7 @@ ntt_rvv_chunk_loop:
 	BNEZ X19, ntt_rvv_chunk_loop
 
 	// start += 2*len.
-	SLL $3, X12, X15
+	SLL $1, X12, X15
 	ADD X15, X13, X13
 	MOV $256, X15
 	BLT X13, X15, ntt_rvv_start_loop
