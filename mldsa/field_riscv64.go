@@ -10,6 +10,14 @@ import "github.com/emmansun/gmsm/internal/deps/cpu"
 
 var hasRVV = cpu.RISCV64.HasV
 
+var zetasMontgomeryInverse [256]fieldElement
+
+func init() {
+	for i := 0; i < 256; i++ {
+		zetasMontgomeryInverse[i] = zetasMontgomery[255-i]
+	}
+}
+
 //go:noescape
 func polyAddAssignRVV(dst, src *fieldElement)
 
@@ -27,6 +35,9 @@ func nttMatRowVecMulRVV(dst, vec, matRow *nttElement, len int)
 
 //go:noescape
 func internalNTTRVV(f *ringElement)
+
+//go:noescape
+func internalInverseNTTRVV(f *nttElement)
 
 func nttMul(out, lhs, rhs *nttElement) {
 	if !hasRVV {
@@ -83,7 +94,12 @@ func internalNTT(f *ringElement) {
 }
 
 func internalInverseNTT(f *nttElement) {
-	internalInverseNTTGeneric(f)
+	if !hasRVV {
+		internalInverseNTTGeneric(f)
+		return
+	}
+
+	internalInverseNTTRVV(f)
 }
 
 func decomposeSubToR0(dst *[n]int32, w, cs2 *ringElement, gamma2 uint32) {

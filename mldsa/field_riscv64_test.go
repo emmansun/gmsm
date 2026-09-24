@@ -207,3 +207,31 @@ func TestInternalNTTRVV(t *testing.T) {
 		}
 	}
 }
+
+func TestInternalInverseNTTRVV(t *testing.T) {
+	if !hasRVV {
+		t.Skip("RVV is not available")
+	}
+
+	for i := 0; i < 16; i++ {
+		r := randomRingElement()
+
+		// Convert to NTT representation
+		nttForm := r
+		internalNTTGeneric(&nttForm)
+
+		// Test RVV version
+		got := nttElement(nttForm)
+		internalInverseNTTRVV(&got)
+
+		// Test generic version
+		want := nttElement(nttForm)
+		internalInverseNTTGeneric(&want)
+
+		if got != want {
+			t.Logf("want: %v", want)
+			t.Logf("got:  %v", got)
+			t.Fatalf("internalInverseNTTRVV mismatch on iteration %d", i)
+		}
+	}
+}

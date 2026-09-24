@@ -408,3 +408,176 @@ ntt_rvv_len1_loop:
 		BNEZ X19, ntt_rvv_len1_loop
 
 	RET
+
+// Input:
+//     va = a
+//     vb = b
+//
+// Output:
+//     va = a+b mod q
+//     vb = zeta*(b-a) mod q
+#define INVNTT_BUTTERFLY_XZ(va, vb, zeta, diff, lo, m) \
+	VSUBVV va, vb, diff;                                          \
+	VADDVV vb, va, va;                                            \
+	REDUCE_ONCE_RVV(va, m);                                       \
+	VSRAVI $31, diff, m;                                          \
+	VANDVX Q, m, m;                                               \
+	VADDVV m, diff, diff;                                         \	
+	MONT_MUL_HILO_VX(diff, zeta, vb, lo, m)
+
+// Input:
+//     va = a
+//     vb = b
+//
+// Output:
+//     va = a+b mod q
+//     vb = zeta*(b-a) mod q
+#define INVNTT_BUTTERFLY_VZ(va, vb, vz, diff, lo, m) \
+	VSUBVV va, vb, diff;                                          \
+	VADDVV vb, va, va;                                            \
+	REDUCE_ONCE_RVV(va, m);                                       \
+	VSRAVI $31, diff, m;                                          \
+	VANDVX Q, m, m;                                               \
+	VADDVV m, diff, diff;                                         \	
+	MONT_MUL_HILO_VV(diff, vz, vb, lo, m)
+
+// internalInverseNTTRVV computes the inverse NTT using RVV instructions.
+TEXT ·internalInverseNTTRVV(SB), NOSPLIT, $0-8
+	MOV	f+0(FP), X10
+
+	// Pinned Montgomery constants.
+	MOV	$8380417, Q
+	MOV	$4236238847, QNEGINV
+	MOV	$1, ONE
+
+	// Inverse twiddles are stored in the exact order they are consumed:
+	//
+	//	zetasMontgomeryInverse[0],
+	//	zetasMontgomeryInverse[1],
+	//	...
+	//	zetasMontgomeryInverse[255].
+	MOV	$·zetasMontgomeryInverse(SB), X11
+
+	// len = 2
+	MOV	X10, X16
+	MOV	$64, X19
+
+invntt_level2_loop:
+	VSETVLI X19, E32, M1, TA, MA, X15
+	VLE32V	(X11), V10
+	VLSEG4E32V (X16), V2
+
+	INVNTT_BUTTERFLY_VZ(V2, V4, V10, V8, V20, V21)
+	INVNTT_BUTTERFLY_VZ(V3, V5, V10, V9, V20, V21)
+
+	VSSEG4E32V V2, (X16)
+
+	SLL	$2, X15, X17
+	ADD	X17, X11, X11
+
+	SLL	$4, X15, X17
+	ADD	X17, X16, X16
+
+	SUB	X15, X19, X19
+	BNEZ	X19, invntt_level2_loop
+
+	// len = 4
+	MOV	X10, X16
+	MOV	$32, X19
+
+invntt_level4_loop:
+	VSETVLI X19, E32, M1, TA, MA, X15
+	VLE32V	(X11), V10
+	VLSEG8E32V (X16), V2
+
+	INVNTT_BUTTERFLY_VZ(V2, V6, V10, V15, V20, V21)
+	INVNTT_BUTTERFLY_VZ(V3, V7, V10, V16, V20, V21)
+	INVNTT_BUTTERFLY_VZ(V4, V8, V10, V17, V20, V21)
+	INVNTT_BUTTERFLY_VZ(V5, V9, V10, V18, V20, V21)
+
+	VSSEG8E32V V2, (X16)
+
+	SLL	$2, X15, X17
+	ADD	X17, X11, X11
+
+	SLL	$5, X15, X17
+	ADD	X17, X16, X16
+
+	SUB	X15, X19, X19
+	BNEZ	X19, invntt_level4_loop
+
+	// Generic levels:
+	//
+	//	len = 8, 16, 32, 64, 128
+	//
+	// For these levels, one whole butterfly row is processed in a
+	// strip-mined unit-stride loop.
+	MOV	$8, X12
+
+invntt_level_loop:
+	MOV	$0, X13
+
+invntt_start_loop:
+	MOVWU	(X11), X14
+	ADD	$4, X11, X11
+
+	// leftPtr = f + start*4
+	SLL	$2, X13, X15
+	ADD	X10, X15, X16
+
+	// rightPtr = leftPtr + len*4
+	SLL	$2, X12, X17
+	ADD	X16, X17, X18
+
+	MOV	X12, X19
+
+invntt_chunk_loop:
+	VSETVLI X19, E32, M1, TA, MA, X15
+
+	VLE32V	(X16), V2
+	VLE32V	(X18), V3
+
+	INVNTT_BUTTERFLY_XZ(V2, V3, X14, V5, V6, V7)
+
+	VSE32V	V2, (X16)
+	VSE32V	V3, (X18)
+
+	SLL	$2, X15, X17
+	ADD	X17, X16, X16
+	ADD	X17, X18, X18
+
+	SUB	X15, X19, X19
+	BNEZ	X19, invntt_chunk_loop
+
+	// start += 2*len
+	SLL	$1, X12, X15
+	ADD	X15, X13, X13
+
+	MOV	$256, X15
+	BLT	X13, X15, invntt_start_loop
+
+	// len <<= 1
+	SLL	$1, X12, X12
+
+	MOV	$128, X15
+	BLE	X12, X15, invntt_level_loop
+
+	// Final scale by invDegreeMontgomery = 41978.
+	MOV	$41978, X14
+	MOV	$256, X19
+	MOV	X10, X16
+
+invntt_scale_loop:
+	VSETVLI X19, E32, M1, TA, MA, X15
+
+	VLE32V	(X16), V2
+	MONT_MUL_HILO_VX(V2, X14, V2, V6, V7)
+	VSE32V	V2, (X16)
+
+	SLL	$2, X15, X17
+	ADD	X17, X16, X16
+
+	SUB	X15, X19, X19
+	BNEZ	X19, invntt_scale_loop
+
+	RET
