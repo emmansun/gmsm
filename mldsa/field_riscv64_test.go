@@ -6,7 +6,10 @@
 
 package mldsa
 
-import "testing"
+import (
+	"crypto/rand"
+	"testing"
+)
 
 func requireRVV(t *testing.T) {
 	t.Helper()
