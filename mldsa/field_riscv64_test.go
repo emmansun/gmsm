@@ -235,3 +235,64 @@ func TestInternalInverseNTTRVV(t *testing.T) {
 		}
 	}
 }
+
+func TestDecomposeSubToR0Gamma32RVV(t *testing.T) {
+	if !hasRVV {
+		t.Skip("RVV is not available")
+	}
+
+	for i := 0; i < 16; i++ {
+		w := randomRingElement()
+		cs2 := randomRingElement()
+
+		var got [n]int32
+		decomposeSubToR0Gamma32RVV(&w[0], &cs2[0], &got[0])
+
+		var want [n]int32
+		decomposeSubToR0Generic(&want, &w, &cs2, gamma2QMinus1Div32)
+
+		if got != want {
+			t.Fatalf("decomposeSubToR0Gamma32RVV mismatch on iteration %d", i)
+		}
+	}
+}
+
+func TestDecomposeSubToR0Gamma88RVV(t *testing.T) {
+	if !hasRVV {
+		t.Skip("RVV is not available")
+	}
+
+	for i := 0; i < 16; i++ {
+		w := randomRingElement()
+		cs2 := randomRingElement()
+
+		var got [n]int32
+		decomposeSubToR0Gamma88RVV(&w[0], &cs2[0], &got[0])
+
+		var want [n]int32
+		decomposeSubToR0Generic(&want, &w, &cs2, gamma2QMinus1Div88)
+
+		if got != want {
+			t.Fatalf("decomposeSubToR0Gamma88RVV mismatch on iteration %d", i)
+		}
+	}
+}
+
+func TestDecomposeSubToR0(t *testing.T) {
+	for i := 0; i < 16; i++ {
+		w := randomRingElement()
+		cs2 := randomRingElement()
+
+		for _, gamma2 := range []uint32{gamma2QMinus1Div32, gamma2QMinus1Div88} {
+			var got [n]int32
+			decomposeSubToR0(&got, &w, &cs2, gamma2)
+
+			var want [n]int32
+			decomposeSubToR0Generic(&want, &w, &cs2, gamma2)
+
+			if got != want {
+				t.Fatalf("decomposeSubToR0 mismatch on iteration %d gamma2=%d", i, gamma2)
+			}
+		}
+	}
+}

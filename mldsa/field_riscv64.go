@@ -39,6 +39,12 @@ func internalNTTRVV(f *ringElement)
 //go:noescape
 func internalInverseNTTRVV(f *nttElement)
 
+//go:noescape
+func decomposeSubToR0Gamma32RVV(w, cs2 *fieldElement, out *int32)
+
+//go:noescape
+func decomposeSubToR0Gamma88RVV(w, cs2 *fieldElement, out *int32)
+
 func nttMul(out, lhs, rhs *nttElement) {
 	if !hasRVV {
 		nttMulGeneric(out, lhs, rhs)
@@ -103,7 +109,19 @@ func internalInverseNTT(f *nttElement) {
 }
 
 func decomposeSubToR0(dst *[n]int32, w, cs2 *ringElement, gamma2 uint32) {
-	decomposeSubToR0Generic(dst, w, cs2, gamma2)
+	if !hasRVV {
+		decomposeSubToR0Generic(dst, w, cs2, gamma2)
+		return
+	}
+
+	switch gamma2 {
+	case gamma2QMinus1Div32:
+		decomposeSubToR0Gamma32RVV(&w[0], &cs2[0], &dst[0])
+	case gamma2QMinus1Div88:
+		decomposeSubToR0Gamma88RVV(&w[0], &cs2[0], &dst[0])
+	default:
+		decomposeSubToR0Generic(dst, w, cs2, gamma2)
+	}
 }
 
 func useHintPoly(dst, h, r *ringElement, gamma2 uint32) {

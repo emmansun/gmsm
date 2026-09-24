@@ -613,3 +613,111 @@ invntt_scale_loop:
 	BNEZ	X19, invntt_scale_loop
 
 	RET
+
+// func decomposeSubToR0Gamma32RVV(w, cs2 *fieldElement, out *int32)
+TEXT ·decomposeSubToR0Gamma32RVV(SB), NOSPLIT, $0-24
+	MOV	w+0(FP), X10
+	MOV	cs2+8(FP), X11
+	MOV	out+16(FP), X12
+
+	MOV	$8380417, Q       // q
+	MOV	$127, X14         // plus127
+	MOV	$1025, X16        // decomposeMul1025
+	MOV	$2097152, X17     // 2^21
+	MOV	$15, X18          // decomposeMask15
+	MOV	$523776, X19      // decompose2Gamma32 = 2*((q-1)/32)
+	MOV	$4190208, X24     // qMinus1Div2
+	MOV	$256, X13
+
+decompose32_rvv_loop:
+	VSETVLI	X13, E32, M1, TA, MA, X15
+
+	// x = fieldSub(w, cs2).
+	VLE32V	(X10), V2
+	VLE32V	(X11), V3
+	VSUBVV	V3, V2, V2
+	VSRAVI	$31, V2, V4
+	VANDVX	Q, V4, V4
+	VADDVV	V4, V2, V2
+
+	// r1 = ((((x + 127) >> 7) * 1025) + 2^21) >> 22; r1 &= 15.
+	VADDVX	X14, V2, V5
+	VSRAVI	$7, V5, V5
+	VMULVX	X16, V5, V5
+	VADDVX	X17, V5, V5
+	VSRAVI	$22, V5, V5
+	VANDVX	X18, V5, V5
+
+	// r0 = x - r1*(2*gamma2), then center-lift around q/2.
+	VMULVX	X19, V5, V6
+	VSUBVV	V6, V2, V6
+	VRSUBVX	X24, V6, V7
+	VSRAVI	$31, V7, V7
+	VANDVX	Q, V7, V7
+	VSUBVV	V7, V6, V6
+	VSE32V	V6, (X12)
+
+	SLL	$2, X15, X25
+	ADD	X25, X10, X10
+	ADD	X25, X11, X11
+	ADD	X25, X12, X12
+	SUB	X15, X13, X13
+	BNEZ	X13, decompose32_rvv_loop
+	RET
+
+// func decomposeSubToR0Gamma88RVV(w, cs2 *fieldElement, out *int32)
+TEXT ·decomposeSubToR0Gamma88RVV(SB), NOSPLIT, $0-24
+	MOV	w+0(FP), X10
+	MOV	cs2+8(FP), X11
+	MOV	out+16(FP), X12
+
+	MOV	$8380417, Q       // q
+	MOV	$127, X14         // plus127
+	MOV	$11275, X16       // decomposeMul11275
+	MOV	$8388608, X17     // 2^23
+	MOV	$43, X18          // decomposeConst43
+	MOV	$190464, X19      // decompose2Gamma88 = 2*((q-1)/88)
+	MOV	$4190208, X24     // qMinus1Div2
+	MOV	$256, X13
+
+decompose88_rvv_loop:
+	VSETVLI	X13, E32, M1, TA, MA, X15
+
+	// x = fieldSub(w, cs2).
+	VLE32V	(X10), V2
+	VLE32V	(X11), V3
+	VSUBVV	V3, V2, V2
+	VSRAVI	$31, V2, V4
+	VANDVX	Q, V4, V4
+	VADDVV	V4, V2, V2
+
+	// r1 = ((((x + 127) >> 7) * 11275) + 2^23) >> 24.
+	VADDVX	X14, V2, V5
+	VSRAVI	$7, V5, V5
+	VMULVX	X16, V5, V5
+	VADDVX	X17, V5, V5
+	VSRAVI	$24, V5, V5
+
+	// Clamp r1 == 44 to zero: r1 ^= ((43-r1) >> 31) & r1.
+	VRSUBVX	X18, V5, V7
+	VSRAVI	$31, V7, V7
+	VANDVV	V5, V7, V7
+	VXORVV	V7, V5, V5
+
+	// r0 = x - r1*(2*gamma2), then center-lift around q/2.
+	VMULVX	X19, V5, V6
+	VSUBVV	V6, V2, V6
+	VRSUBVX	X24, V6, V7
+	VSRAVI	$31, V7, V7
+	VANDVX	Q, V7, V7
+	VSUBVV	V7, V6, V6
+	VSE32V	V6, (X12)
+
+	SLL	$2, X15, X25
+	ADD	X25, X10, X10
+	ADD	X25, X11, X11
+	ADD	X25, X12, X12
+	SUB	X15, X13, X13
+	BNEZ	X13, decompose88_rvv_loop
+	RET
+	
