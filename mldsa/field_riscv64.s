@@ -982,7 +982,6 @@ TEXT ·polyInfinityNormRVV(SB), NOSPLIT, $0-12
 	VMVVI	$0, V12
 
 poly_inf_norm_rvv_loop:
-	VSETVLI X13, E32, M4, TA, MA, X14
 	VLE32V	(X10), V4
 
 	VSUBVX	Q, V4, V8
@@ -1011,9 +1010,9 @@ TEXT ·polyInfinityNormSignedRVV(SB), NOSPLIT, $0-12
 	VMVVI	$0, V12
 
 poly_inf_norm_signed_rvv_loop:
-	VSETVLI X13, E32, M4, TA, MA, X14
 	VLE32V	(X10), V4
 
+	// abs(x) = (x ^ (x >> 31)) - (x >> 31).
 	VSRAVI	$31, V4, V8
 	VXORVV	V8, V4, V4
 	VSUBVV	V8, V4, V4
