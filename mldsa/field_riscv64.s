@@ -976,56 +976,62 @@ TEXT ·polyInfinityNormRVV(SB), NOSPLIT, $0-12
 	MOV	a+0(FP), X10
 	MOV	$8380417, Q
 	MOV	$256, X13
+	MOV	$0, X24
 
-	// Accumulate max_u(min(a[i], q-a[i])) in V12.
-	VSETVLI X13, E32, M4, TA, MA, X14
-	VMVVI	$0, V12
+	// Reduce each strip-mined chunk and keep the global maximum in X24.
 
 poly_inf_norm_rvv_loop:
+	VSETVLI X13, E32, M4, TA, MA, X14
 	VLE32V	(X10), V4
 
-	VSUBVX	Q, V4, V8
+	VRSUBVX	Q, V4, V8
 	VMINUVV	V8, V4, V4
-	VMAXUVV	V12, V4, V12
+	VMVVI	$0, V16
+	VREDMAXUVS	V4, V16, V16
+	VMVXS	V16, X15
+	SLTU	X24, X15, X16
+	SUB	X16, ZERO, X16
+	XOR	X24, X15, X17
+	AND	X16, X17, X17
+	XOR	X17, X24, X24
 
 	SLL	$2, X14, X15
 	ADD	X15, X10, X10
 	SUB	X14, X13, X13
 	BNEZ	X13, poly_inf_norm_rvv_loop
 
-	// Reduce V12 to one unsigned maximum and return it.
-	VMVVI	$0, V16
-	VREDMAXUVS	V12, V16, V16
-	VMVXS	V16, X14
-	MOVW	X14, ret+8(FP)
+	MOVW	X24, ret+8(FP)
 	RET
 
 // func polyInfinityNormSignedRVV(a *int32) uint32
 TEXT ·polyInfinityNormSignedRVV(SB), NOSPLIT, $0-12
 	MOV	a+0(FP), X10
 	MOV	$256, X13
+	MOV	$0, X24
 
-	// Accumulate max_u(abs(a[i])) in V12.
-	VSETVLI X13, E32, M4, TA, MA, X14
-	VMVVI	$0, V12
+	// Reduce each strip-mined chunk and keep the global maximum in X24.
 
 poly_inf_norm_signed_rvv_loop:
+	VSETVLI X13, E32, M4, TA, MA, X14
 	VLE32V	(X10), V4
 
 	// abs(x) = (x ^ (x >> 31)) - (x >> 31).
 	VSRAVI	$31, V4, V8
 	VXORVV	V8, V4, V4
 	VSUBVV	V8, V4, V4
-	VMAXUVV	V12, V4, V12
+	VMVVI	$0, V16
+	VREDMAXUVS	V4, V16, V16
+	VMVXS	V16, X15
+	SLTU	X24, X15, X16
+	SUB	X16, ZERO, X16
+	XOR	X24, X15, X17
+	AND	X16, X17, X17
+	XOR	X17, X24, X24
 
 	SLL	$2, X14, X15
 	ADD	X15, X10, X10
 	SUB	X14, X13, X13
 	BNEZ	X13, poly_inf_norm_signed_rvv_loop
 
-	// Reduce V12 to one unsigned maximum and return it.
-	VMVVI	$0, V16
-	VREDMAXUVS	V12, V16, V16
-	VMVXS	V16, X14
-	MOVW	X14, ret+8(FP)
+	MOVW	X24, ret+8(FP)
 	RET
