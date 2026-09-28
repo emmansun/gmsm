@@ -1857,10 +1857,11 @@ loop_select:
 	RET
 
 selectaffine_rvv:
+	// One complete affine point is eight 64-bit limbs, exactly 64 bytes.
 	VSETIVLI $8, E64, M4, TA, MA, X0
+	
 	// Zero the accumulators: x: V16-V19, y: V20-V23
 	VMVVI $0, V16
-	VMVVI $0, V20
 
 	MOV	$0, t2
 	MOV	$32, const0
@@ -1873,19 +1874,11 @@ loop_select_affine_rvv:
 		VLE64V (t1), V8
 		VANDVX hlp0, V8, V8
 		VORVV V16, V8, V16
-		ADD $32, t1, t1
 
-		VLE64V (t1), V8
-		VANDVX hlp0, V8, V8
-		VORVV V20, V8, V20
-		ADD $32, t1, t1
-
+		ADD $64, t1, t1
 		BNE t2, const0, loop_select_affine_rvv
 
 	VSE64V V16, (res_ptr)
-	ADD $32, res_ptr, res_ptr
-	VSE64V V20, (res_ptr)
-
 	RET
 
 /* ---------------------------------------*/
