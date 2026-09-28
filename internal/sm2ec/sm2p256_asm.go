@@ -310,7 +310,7 @@ var (
 	supportBMI2 = cpu.X86.HasADX && cpu.X86.HasBMI2 // amd64 assembly uses ADCX/ADOX/MULX
 	supportLSX  = cpu.Loong64.HasLSX
 	supportLASX = cpu.Loong64.HasLASX
-	supportRVV  = false //cpu.RISCV64.HasV
+	supportRVV  = cpu.RISCV64.HasV
 )
 
 // Montgomery multiplication. Sets res = in1 * in2 * R⁻¹ mod p.
