@@ -127,6 +127,28 @@ func TestBitPackSignedRVV(t *testing.T) {
 		bitPackSignedTwoPower19Generic(want19[:], &input)
 		if got19 != want19 {
 			t.Fatalf("bitPackSignedTwoPower19RVV mismatch on iteration %d", iteration)
+			for i := range want19 {
+				if got19[i] != want19[i] {
+					pair := i / 5
+					byteInPair := i % 5
+					t0Index := pair * 2
+					t1Index := t0Index + 1
+
+					t.Fatalf(
+						"bitPackSignedTwoPower19RVV mismatch:"+
+							" byte=%d pair=%d byteInPair=%d"+
+							" f[%d]=%d f[%d]=%d"+
+							" got=%02x want=%02x"+
+							" gotPair=% x wantPair=% x",
+						i, pair, byteInPair,
+						t0Index, input[t0Index],
+						t1Index, input[t1Index],
+						got19[i], want19[i],
+						got19[pair*5:pair*5+5],
+						want19[pair*5:pair*5+5],
+					)
+				}
+			}
 		}
 	}
 }
