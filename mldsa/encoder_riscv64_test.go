@@ -6,13 +6,28 @@
 
 package mldsa
 
-import "testing"
+import (
+	"math/rand/v2"
+	"testing"
+)
 
 func requireRVVEncoder(t *testing.T) {
 	t.Helper()
 	if !hasRVV {
 		t.Skip("RVV is not available")
 	}
+}
+
+func randomPackableRingElement(r int32, bits uint) ringElement {
+	var f ringElement
+	mask := uint32((1 << bits) - 1)
+
+	for i := range f {
+		t := fieldElement(rand.Uint32() & mask)
+		f[i] = fieldSub(fieldElement(r), t)
+	}
+
+	return f
 }
 
 func TestSimpleBitPack4BitsRVV(t *testing.T) {
@@ -113,7 +128,7 @@ func TestSimpleBitPackDispatchRVV(t *testing.T) {
 func TestBitPackSignedRVV(t *testing.T) {
 	requireRVVEncoder(t)
 	for iteration := 0; iteration < 16; iteration++ {
-		input := randomRingElement()
+		input := randomPackableRingElement(1<<17, 18)
 
 		var got17, want17 [encodingSize18]byte
 		bitPackSignedTwoPower17RVV(&got17[0], &input[0])
@@ -123,6 +138,7 @@ func TestBitPackSignedRVV(t *testing.T) {
 		}
 
 		var got19, want19 [encodingSize20]byte
+		input = randomPackableRingElement(1<<19, 20)
 		bitPackSignedTwoPower19RVV(&got19[0], &input[0])
 		bitPackSignedTwoPower19Generic(want19[:], &input)
 		if got19 != want19 {
@@ -156,7 +172,7 @@ func TestBitPackSignedRVV(t *testing.T) {
 func TestBitUnpackSignedRVV(t *testing.T) {
 	requireRVVEncoder(t)
 	for iteration := 0; iteration < 16; iteration++ {
-		input := randomRingElement()
+		input := randomPackableRingElement(1<<19, 20)
 
 		var packed17 [encodingSize18]byte
 		bitPackSignedTwoPower17Generic(packed17[:], &input)
@@ -168,6 +184,7 @@ func TestBitUnpackSignedRVV(t *testing.T) {
 		}
 
 		var packed19 [encodingSize20]byte
+		input = randomPackableRingElement(1<<19, 20)
 		bitPackSignedTwoPower19Generic(packed19[:], &input)
 		var got19, want19 ringElement
 		bitUnpackSignedTwoPower19RVV(&packed19[0], &got19)
@@ -179,7 +196,7 @@ func TestBitUnpackSignedRVV(t *testing.T) {
 }
 
 func TestBitPackSignedDispatchRVV(t *testing.T) {
-	input := randomRingElement()
+	input := randomPackableRingElement(1<<19, 20)
 
 	got17 := bitPackSignedTwoPower17(nil, &input)
 	var want17 [encodingSize18]byte
@@ -194,6 +211,7 @@ func TestBitPackSignedDispatchRVV(t *testing.T) {
 		t.Fatal("bitUnpackSignedTwoPower17 dispatch mismatch")
 	}
 
+	input = randomPackableRingElement(1<<19, 20)
 	got19 := bitPackSignedTwoPower19(nil, &input)
 	var want19 [encodingSize20]byte
 	bitPackSignedTwoPower19Generic(want19[:], &input)
@@ -329,7 +347,7 @@ func BenchmarkSimpleBitPack6BitsHighBitsRVV(b *testing.B) {
 }
 
 func BenchmarkBitPackSignedTwoPower17RVV(b *testing.B) {
-	input := randomRingElement()
+	input := randomPackableRingElement(1<<17, 18)
 	var out [encodingSize18]byte
 	b.ReportAllocs()
 	b.SetBytes(encodingSize18)
@@ -355,7 +373,7 @@ func BenchmarkBitPackSignedTwoPower17RVV(b *testing.B) {
 }
 
 func BenchmarkBitPackSignedTwoPower19RVV(b *testing.B) {
-	input := randomRingElement()
+	input := randomPackableRingElement(1<<19, 20)
 	var out [encodingSize20]byte
 	b.ReportAllocs()
 	b.SetBytes(encodingSize20)
@@ -381,7 +399,7 @@ func BenchmarkBitPackSignedTwoPower19RVV(b *testing.B) {
 }
 
 func BenchmarkBitUnpackSignedTwoPower17RVV(b *testing.B) {
-	input := randomRingElement()
+	input := randomPackableRingElement(1<<17, 18)
 	var packed [encodingSize18]byte
 	bitPackSignedTwoPower17Generic(packed[:], &input)
 	var out ringElement
@@ -409,7 +427,7 @@ func BenchmarkBitUnpackSignedTwoPower17RVV(b *testing.B) {
 }
 
 func BenchmarkBitUnpackSignedTwoPower19RVV(b *testing.B) {
-	input := randomRingElement()
+	input := randomPackableRingElement(1<<19, 20)
 	var packed [encodingSize20]byte
 	bitPackSignedTwoPower19Generic(packed[:], &input)
 	var out ringElement
