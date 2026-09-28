@@ -115,7 +115,7 @@ TEXT ·gfP12MovCondRVV(SB),NOSPLIT,$0
 	MOV b+16(FP), b_ptr
 	MOV cond+24(FP), X13
 
-	SLTU X0, X13, mask
+	SLTU X13, X0, mask
 	VSETIVLI $8, E64, M8, TA, MA, X0
 
 	MOVCOND64()
@@ -136,7 +136,7 @@ TEXT ·curvePointMovCondRVV(SB),NOSPLIT,$0
 	MOV b+16(FP), b_ptr
 	MOV cond+24(FP), X13
 
-	SLTU X0, X13, mask
+	SLTU X13, X0, mask
 	VSETIVLI $8, E64, M8, TA, MA, X0
 
 	MOVCOND64()
@@ -153,7 +153,7 @@ TEXT ·twistPointMovCondRVV(SB),NOSPLIT,$0
 	MOV b+16(FP), b_ptr
 	MOV cond+24(FP), X13
 
-	SLTU X0, X13, mask
+	SLTU X13, X0, mask
 	VSETIVLI $8, E64, M8, TA, MA, X0
 
 	MOVCOND64()
