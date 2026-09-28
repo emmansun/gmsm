@@ -12,15 +12,15 @@
 #define mask    X14
 
 // MOVCOND64 selects one 64-byte chunk branchlessly:
-// res = b ^ ((a ^ b) * mask), where mask is 1 if cond != 0, else 0.
+// res = a ^ ((a ^ b) & mask), where mask is all 1s if cond == 0, else all 0s.
 // Requires: VSETIVLI $8, E64, M8 active, a_ptr/b_ptr/res_ptr valid.
 // Uses aligned register groups V8-V15 (a) and V16-V23 (b); the result is stored from V8.
 // Requires VLEN >= 128, consistent with the other RVV implementations in this module.
 #define MOVCOND64() \
 	VLE64V (a_ptr), V8; \
 	VLE64V (b_ptr), V16; \
-	VXORVV V16, V8, V8; \
-	VMULVX mask, V8, V8; \
+	VXORVV V16, V8, V16; \
+	VANDVX mask, V16, V16; \
 	VXORVV V8, V16, V8; \
 	VSE64V V8, (res_ptr); \
 	ADD $64, a_ptr, a_ptr; \
@@ -116,6 +116,7 @@ TEXT ·gfP12MovCondRVV(SB),NOSPLIT,$0
 	MOV cond+24(FP), X13
 
 	SLTU X13, X0, mask
+	SUB $1, mask, mask
 	VSETIVLI $8, E64, M8, TA, MA, X0
 
 	MOVCOND64()
@@ -137,6 +138,7 @@ TEXT ·curvePointMovCondRVV(SB),NOSPLIT,$0
 	MOV cond+24(FP), X13
 
 	SLTU X13, X0, mask
+	SUB $1, mask, mask
 	VSETIVLI $8, E64, M8, TA, MA, X0
 
 	MOVCOND64()
@@ -154,6 +156,7 @@ TEXT ·twistPointMovCondRVV(SB),NOSPLIT,$0
 	MOV cond+24(FP), X13
 
 	SLTU X13, X0, mask
+	SUB $1, mask, mask
 	VSETIVLI $8, E64, M8, TA, MA, X0
 
 	MOVCOND64()
