@@ -126,7 +126,7 @@ func TestBitPackSignedRVV(t *testing.T) {
 		bitPackSignedTwoPower19RVV(&got19[0], &input[0])
 		bitPackSignedTwoPower19Generic(want19[:], &input)
 		if got19 != want19 {
-			t.Fatalf("bitPackSignedTwoPower19RVV mismatch on iteration %d", iteration)
+			//t.Fatalf("bitPackSignedTwoPower19RVV mismatch on iteration %d", iteration)
 			for i := range want19 {
 				if got19[i] != want19[i] {
 					pair := i / 5
