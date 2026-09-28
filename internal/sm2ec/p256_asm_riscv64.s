@@ -2,6 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 // Required riscv64 architecture extensions: Zbb (Bitmanip), M (Multiply/Divide)
+// Optional: V (RVV 1.0), the select primitives are dispatched at runtime via supportRVV.
 //go:build !purego
 
 #include "textflag.h"
@@ -195,6 +196,14 @@ TEXT ·p256NegCond(SB),NOSPLIT,$0
 /* ---------------------------------------*/
 // func p256MovCond(res, a, b *SM2P256Point, cond int)
 TEXT ·p256MovCond(SB),NOSPLIT,$0
+	MOVBU ·supportRVV(SB), t0
+	BNE t0, ZERO, movcond_rvv
+	JMP ·p256MovCondNoV(SB)
+movcond_rvv:
+	JMP ·p256MovCondRVV(SB)
+
+// func p256MovCondNoV(res, a, b *SM2P256Point, cond int)
+TEXT ·p256MovCondNoV(SB),NOSPLIT,$0
 	MOV res+0(FP), res_ptr
 	MOV a+8(FP), x_ptr
 	MOV b+16(FP), y_ptr
@@ -297,6 +306,42 @@ TEXT ·p256MovCond(SB),NOSPLIT,$0
 	MOV acc1, (8*9)(res_ptr)
 	MOV acc2, (8*10)(res_ptr)
 	MOV acc3, (8*11)(res_ptr)
+
+	RET
+
+/* ---------------------------------------*/
+// func p256MovCondRVV(res, a, b *SM2P256Point, cond int)
+// If cond is 0, sets res = b, otherwise sets res = a.
+// Requires RVV 1.0 with VLEN >= 128.
+TEXT ·p256MovCondRVV(SB),NOSPLIT,$0
+	MOV res+0(FP), res_ptr
+	MOV a+8(FP), x_ptr
+	MOV b+16(FP), y_ptr
+	MOV cond+24(FP), t0
+
+	SLTU t0, ZERO, t0
+	SUB $1, t0, t0        // mask = all 1s if cond == 0, else all 0s
+
+	// First 64 bytes: x and y. res = a ^ ((a ^ b) & mask)
+	VSETIVLI $8, E64, M4, TA, MA, X0
+	VLE64V (x_ptr), V8
+	VLE64V (y_ptr), V12
+	VXORVV V12, V8, V12
+	VANDVX t0, V12, V12
+	VXORVV V12, V8, V8
+	VSE64V V8, (res_ptr)
+	ADD $64, x_ptr, x_ptr
+	ADD $64, y_ptr, y_ptr
+	ADD $64, res_ptr, res_ptr
+
+	// Remaining 32 bytes: z
+	VSETIVLI $4, E64, M2, TA, MA, X0
+	VLE64V (x_ptr), V8
+	VLE64V (y_ptr), V10
+	VXORVV V10, V8, V10
+	VANDVX t0, V10, V10
+	VXORVV V10, V8, V8
+	VSE64V V8, (res_ptr)
 
 	RET
 
@@ -1633,6 +1678,14 @@ TEXT ·p256OrdReduce(SB),NOSPLIT,$0
 /* ---------------------------------------*/
 // func p256Select(res *SM2P256Point, table *p256Table, idx, limit int)
 TEXT ·p256Select(SB),NOSPLIT,$0
+	MOVBU ·supportRVV(SB), t0
+	BNE t0, ZERO, select_rvv
+	JMP ·p256SelectNoV(SB)
+select_rvv:
+	JMP ·p256SelectRVV(SB)
+
+// func p256SelectNoV(res *SM2P256Point, table *p256Table, idx, limit int)
+TEXT ·p256SelectNoV(SB),NOSPLIT,$0
 	MOV	limit+24(FP), x_ptr
 	MOV	idx+16(FP), const0
 	MOV	table+8(FP), y_ptr
@@ -1717,8 +1770,64 @@ loop_select:
 	RET
 
 /* ---------------------------------------*/
+// func p256SelectRVV(res *SM2P256Point, table *p256Table, idx, limit int)
+// Sets res to the point at index idx in the table, in constant time.
+// Requires RVV 1.0 with VLEN >= 128.
+TEXT ·p256SelectRVV(SB),NOSPLIT,$0
+	MOV limit+24(FP), x_ptr
+	MOV idx+16(FP), const0
+	MOV table+8(FP), y_ptr
+	MOV res+0(FP), res_ptr
+
+	VSETIVLI $4, E64, M2, TA, MA, X0
+	// Zero the accumulators: x: V16-V17, y: V18-V19, z: V20-V21
+	VMVVI $0, V16
+	VMVVI $0, V18
+	VMVVI $0, V20
+
+	MOV	$0, acc5
+loop_select_rvv:
+		ADD $1, acc5, acc5
+		XOR acc5, const0, hlp0
+		SLTU hlp0, ZERO, hlp0
+		SUB $1, hlp0, hlp0   // mask = all 1s if acc5 == idx, else all 0s
+
+		VLE64V (y_ptr), V8
+		VANDVX hlp0, V8, V8
+		VORVV V16, V8, V16
+		ADD $32, y_ptr, y_ptr
+
+		VLE64V (y_ptr), V8
+		VANDVX hlp0, V8, V8
+		VORVV V18, V8, V18
+		ADD $32, y_ptr, y_ptr
+
+		VLE64V (y_ptr), V8
+		VANDVX hlp0, V8, V8
+		VORVV V20, V8, V20
+		ADD $32, y_ptr, y_ptr
+
+		BNE acc5, x_ptr, loop_select_rvv
+
+	VSE64V V16, (res_ptr)
+	ADD $32, res_ptr, res_ptr
+	VSE64V V18, (res_ptr)
+	ADD $32, res_ptr, res_ptr
+	VSE64V V20, (res_ptr)
+
+	RET
+
+/* ---------------------------------------*/
 // func p256SelectAffine(res *p256AffinePoint, table *p256AffineTable, idx int)
 TEXT ·p256SelectAffine(SB),NOSPLIT,$0
+	MOVBU ·supportRVV(SB), t0
+	BNE t0, ZERO, selectaffine_rvv
+	JMP ·p256SelectAffineNoV(SB)
+selectaffine_rvv:
+	JMP ·p256SelectAffineRVV(SB)
+
+// func p256SelectAffineNoV(res *p256AffinePoint, table *p256AffineTable, idx int)
+TEXT ·p256SelectAffineNoV(SB),NOSPLIT,$0
 	MOV	idx+16(FP), t0
 	MOV	table+8(FP), t1
 	MOV	res+0(FP), res_ptr
@@ -1778,6 +1887,46 @@ loop_select:
 	MOV    y1, (8*5)(res_ptr)
 	MOV    y2, (8*6)(res_ptr)
 	MOV    y3, (8*7)(res_ptr)		
+	RET
+
+/* ---------------------------------------*/
+// func p256SelectAffineRVV(res *p256AffinePoint, table *p256AffineTable, idx int)
+// Sets res to the point at index idx in the table, in constant time.
+// Requires RVV 1.0 with VLEN >= 128.
+TEXT ·p256SelectAffineRVV(SB),NOSPLIT,$0
+	MOV idx+16(FP), t0
+	MOV table+8(FP), t1
+	MOV res+0(FP), res_ptr
+
+	VSETIVLI $8, E64, M4, TA, MA, X0
+	// Zero the accumulators: x: V16-V19, y: V20-V23
+	VMVVI $0, V16
+	VMVVI $0, V20
+
+	MOV	$0, t2
+	MOV	$32, const0
+loop_select_affine_rvv:
+		ADD $1, t2, t2
+		XOR t2, t0, hlp0
+		SLTU hlp0, ZERO, hlp0
+		SUB $1, hlp0, hlp0   // mask = all 1s if t2 == idx, else all 0s
+
+		VLE64V (t1), V8
+		VANDVX hlp0, V8, V8
+		VORVV V16, V8, V16
+		ADD $32, t1, t1
+
+		VLE64V (t1), V8
+		VANDVX hlp0, V8, V8
+		VORVV V20, V8, V20
+		ADD $32, t1, t1
+
+		BNE t2, const0, loop_select_affine_rvv
+
+	VSE64V V16, (res_ptr)
+	ADD $32, res_ptr, res_ptr
+	VSE64V V20, (res_ptr)
+
 	RET
 
 /* ---------------------------------------*/
