@@ -976,13 +976,16 @@ TEXT ·polyInfinityNormRVV(SB), NOSPLIT, $0-12
 	MOV	a+0(FP), X10
 	MOV	$8380417, Q
 	MOV	$256, X13
+	// M4 groups: input V4-V7, temporary V8-V11, lane maxima V12-V15.
 	VSETVLI X13, E32, M4, TA, MA, X14
 	VMVVI	$0, V12
 
 poly_inf_norm_rvv_loop:
 	VLE32V	(X10), V4
+	// Center each field element: norm(a) = min(a, q-a).
 	VRSUBVX Q, V4, V8
 	VMINUVV V8, V4, V4
+	// Preserve per-lane maxima across chunks; reduce horizontally once below.
 	VMAXUVV V4, V12, V12
 
 	SLL	$2, X14, X15
@@ -990,6 +993,7 @@ poly_inf_norm_rvv_loop:
 	SUB	X14, X13, X13
 	BNEZ	X13, poly_inf_norm_rvv_loop
 
+	// Seed the scalar reduction with zero and extract its element 0 result.
 	VMVSX	ZERO, V1
 	VREDMAXUVS V1, V12, V1
 	VMVXS	V1, X24
@@ -1000,14 +1004,17 @@ poly_inf_norm_rvv_loop:
 TEXT ·polyInfinityNormSignedRVV(SB), NOSPLIT, $0-12
 	MOV	a+0(FP), X10
 	MOV	$256, X13
+	// M4 groups: input V4-V7, sign mask V8-V11, lane maxima V12-V15.
 	VSETVLI X13, E32, M4, TA, MA, X14
 	VMVVI	$0, V12
 
 poly_inf_norm_signed_rvv_loop:
 	VLE32V	(X10), V4
+	// abs(a) = (a ^ sign) - sign, where sign is 0 or -1.
 	VSRAVI	$31, V4, V8
 	VXORVV	V8, V4, V4
 	VSUBVV	V8, V4, V4
+	// Preserve per-lane maxima across chunks; reduce horizontally once below.
 	VMAXUVV V4, V12, V12
 
 	SLL	$2, X14, X15
@@ -1015,6 +1022,7 @@ poly_inf_norm_signed_rvv_loop:
 	SUB	X14, X13, X13
 	BNEZ	X13, poly_inf_norm_signed_rvv_loop
 
+	// Seed the scalar reduction with zero and extract its element 0 result.
 	VMVSX	ZERO, V1
 	VREDMAXUVS V1, V12, V1
 	VMVXS	V1, X24
