@@ -259,6 +259,7 @@ Compliant with NIST FIPS 204 standard.
 **Architecture Optimizations:**
 - **amd64**: NTT, inverse NTT, and polynomial multiplication are vectorized using AVX2 instructions
 - **arm64**: NTT, inverse NTT, and polynomial multiplication are vectorized using NEON instructions
+- **riscv64**: NTT, inverse NTT, and polynomial multiplication are vectorized using RVV instructions
 - **loong64**: NTT, inverse NTT, and polynomial multiplication are vectorized using LASX instructions
 
 #### SLHDSA - Stateless Hash-Based Digital Signature
