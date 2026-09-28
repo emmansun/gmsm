@@ -297,12 +297,13 @@ bit_unpack_signed19_rvv_loop:
 	RET
 
 // func bitPackSignedTwoPower17RVV(dst *byte, f *fieldElement)
-TEXT ·bitPackSignedTwoPower17RVV(SB), NOSPLIT, $32-16
+TEXT ·bitPackSignedTwoPower17RVV(SB), NOSPLIT, $40-16
 	MOV	dst+0(FP), X10
 	MOV	f+8(FP), X11
 	MOV	$32, X12
 	MOV	$131072, X15
 	MOV	$8380417, X16
+	ADD $8, RSP, X5
 	VSETIVLI $8, E32, M2, TA, MA, X0
 
 bit_pack_signed17_rvv_loop:
@@ -311,12 +312,12 @@ bit_pack_signed17_rvv_loop:
 	VSRAVI	$31, V8, V10
 	VANDVX	X16, V10, V10
 	VADDVV	V10, V8, V8
-	VSE32V	V8, (RSP)
+	VSE32V	V8, (X5)
 
-	MOVWU	0(RSP), X17
-	MOVWU	4(RSP), X18
-	MOVWU	8(RSP), X19
-	MOVWU	12(RSP), X20
+	MOVWU	0(X5), X17
+	MOVWU	4(X5), X18
+	MOVWU	8(X5), X19
+	MOVWU	12(X5), X20
 	SLL	$18, X18, X21
 	OR	X21, X17, X17
 	SLL	$36, X19, X21
@@ -341,10 +342,10 @@ bit_pack_signed17_rvv_loop:
 	SRL	$10, X20, X21
 	MOVB	X21, 8(X10)
 
-	MOVWU	16(RSP), X17
-	MOVWU	20(RSP), X18
-	MOVWU	24(RSP), X19
-	MOVWU	28(RSP), X20
+	MOVWU	16(X5), X17
+	MOVWU	20(X5), X18
+	MOVWU	24(X5), X19
+	MOVWU	28(X5), X20
 	SLL	$18, X18, X21
 	OR	X21, X17, X17
 	SLL	$36, X19, X21
@@ -376,13 +377,14 @@ bit_pack_signed17_rvv_loop:
 	RET
 
 // func bitUnpackSignedTwoPower17RVV(b *byte, f *ringElement)
-TEXT ·bitUnpackSignedTwoPower17RVV(SB), NOSPLIT, $32-16
+TEXT ·bitUnpackSignedTwoPower17RVV(SB), NOSPLIT, $40-16
 	MOV	b+0(FP), X10
 	MOV	f+8(FP), X11
 	MOV	$32, X12
 	MOV	$0x3ffff, X14
 	MOV	$131072, X15
 	MOV	$8380417, X16
+	ADD $8, RSP, X5
 	VSETIVLI $8, E32, M2, TA, MA, X0
 
 bit_unpack_signed17_rvv_loop:
@@ -410,18 +412,18 @@ bit_unpack_signed17_rvv_loop:
 	OR	X19, X17, X17
 	MOVBU	8(X10), X18
 	AND	X14, X17, X19
-	MOVW	X19, 0(RSP)
+	MOVW	X19, 0(X5)
 	SRL	$18, X17, X19
 	AND	X14, X19, X19
-	MOVW	X19, 4(RSP)
+	MOVW	X19, 4(X5)
 	SRL	$36, X17, X19
 	AND	X14, X19, X19
-	MOVW	X19, 8(RSP)
+	MOVW	X19, 8(X5)
 	SRL	$54, X17, X19
 	SLL	$10, X18, X18
 	OR	X18, X19, X19
 	AND	X14, X19, X19
-	MOVW	X19, 12(RSP)
+	MOVW	X19, 12(X5)
 
 	MOVBU	16(X10), X17
 	SLL	$8, X17, X17
@@ -447,20 +449,20 @@ bit_unpack_signed17_rvv_loop:
 	OR	X19, X17, X17
 	MOVBU	17(X10), X18
 	AND	X14, X17, X19
-	MOVW	X19, 16(RSP)
+	MOVW	X19, 16(X5)
 	SRL	$18, X17, X19
 	AND	X14, X19, X19
-	MOVW	X19, 20(RSP)
+	MOVW	X19, 20(X5)
 	SRL	$36, X17, X19
 	AND	X14, X19, X19
-	MOVW	X19, 24(RSP)
+	MOVW	X19, 24(X5)
 	SRL	$54, X17, X19
 	SLL	$10, X18, X18
 	OR	X18, X19, X19
 	AND	X14, X19, X19
-	MOVW	X19, 28(RSP)
+	MOVW	X19, 28(X5)
 
-	VLE32V	(RSP), V8
+	VLE32V	(X5), V8
 	VRSUBVX X15, V8, V8
 	VSRAVI	$31, V8, V10
 	VANDVX	X16, V10, V10
