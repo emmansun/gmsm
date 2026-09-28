@@ -221,7 +221,6 @@ bit_pack_signed19_rvv_loop:
 	VORVV	V8, V8, V12
 	VSRLVI	$8, V8, V13
 	VSRLVI	$16, V8, V14
-	VANDVI	$15, V14, V14
 	VSLLVI	$4, V9, V19
 	VORVV	V19, V14, V14
 	VSRLVI	$4, V9, V15
