@@ -114,18 +114,22 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 	VSETIVLI $4, E32, M1, TA, MA, X0
 	VLE32V   (hPtr), V4            // V4 = raw 16-byte POLYVAL key (4×E32)
 
-	// ── Key transform: H * 2 in POLYVAL field ──
+	// ── Key transform: H / x in POLYVAL field (RFC 8452 §2.3) ──
+	// H_right = H >> 1 (with cross-element carry propagation)
+	// result  = H_right XOR (H[0] ? gcmPoly : 0)
+	// gcmPoly = {0, 0xe1} = x^7+x^2+x+1 at bit 64+ for the reflected representation.
 	MOV    $gcmPoly<>(SB), X12
-	VSLLVI $1, V4, V2              // V2 = V4 << 1 per E32
-	VSRLVI $31, V4, V3             // V3 = carry-out per E32
-	VSLIDE1UPVX ZERO, V3, V1
-	VORVV  V2, V1, V2             // V2 = shifted with carries propagated
-	VSRAVI $31, V4, V3            // V3[3] = MSB broadcast of bit 127
-	VSLIDEDOWNVI $3, V3, V1       // V1[0] = V3[3]
-	VMVXS  V1, X15
-	VLE32V (X12), V3              // V3 = gcmPoly[0] = 1
+	VSRLVI $1, V4, V2              // V2 = V4 >> 1 per E32
+	VSLLVI $31, V4, V3             // V3 = underflow-out per E32 (bit 0 → bit 31)
+	VSLIDE1UPVX ZERO, V3, V1       // propagate underflow across E32 boundaries
+	VORVV  V2, V1, V2             // V2 = H >> 1 with carries
+	// Extract bit 0 of H (element 0, bit 0) and broadcast as mask
+	VMVXS  V4, X15                 // X15 = V4[0]
+	SLLI   $63, X15, X15           // move bit 0 to bit 63
+	SRAI   $63, X15, X15           // arithmetic broadcast: all-ones if bit 0 was set
+	VLE32V (X12), V3              // V3 = full gcmPoly (all 4 E32 elements)
 	VANDVX X15, V3, V3            // conditional reduction mask
-	VXORVV V2, V3, V1             // V1 = key-transformed H
+	VXORVV V2, V3, V1             // V1 = key-transformed H (= H/x in POLYVAL field)
 
 	// Switch to E64 for product table computation
 	VSETIVLI $2, E64, M1, TA, MA, X0
@@ -195,15 +199,15 @@ zvkgInit:
 	VSETIVLI $4, E32, M1, TA, MA, X0
 	VLE32V   (hPtr), V4
 
-	// Key transform (same as Zvbc path)
+	// Key transform: H / x in POLYVAL field (same as Zvbc path)
 	MOV    $gcmPoly<>(SB), X12
-	VSLLVI $1, V4, V2
-	VSRLVI $31, V4, V3
+	VSRLVI $1, V4, V2
+	VSLLVI $31, V4, V3
 	VSLIDE1UPVX ZERO, V3, V1
 	VORVV  V2, V1, V2
-	VSRAVI $31, V4, V3
-	VSLIDEDOWNVI $3, V3, V1
-	VMVXS  V1, X15
+	VMVXS  V4, X15
+	SLLI   $63, X15, X15
+	SRAI   $63, X15, X15
 	VLE32V (X12), V3
 	VANDVX X15, V3, V3
 	VXORVV V2, V3, V1             // V1 = key-transformed H
