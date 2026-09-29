@@ -211,7 +211,8 @@ zvkgInit:
 	MOV    $polyvalRevIdx<>(SB), X16
 	VLE32V (X16), V24
 	VREV8V V1, V1
-	VRGATHERVV V24, V1, V1
+	VRGATHERVV V24, V1, V2
+	VMVVV V2, V1
 
 	VSE32V V1, (dst)
 	RET
@@ -435,7 +436,8 @@ zvkgDataStart:
 	MOV    $polyvalRevIdx<>(SB), X16
 	VLE32V (X16), V24
 	VREV8V ACC0, ACC0
-	VRGATHERVV V24, ACC0, ACC0
+	VRGATHERVV V24, ACC0, V2
+	VMVVV V2, ACC0
 
 	// Load H from table[0:16]
 	VLE32V (pTbl), ACC1
@@ -446,7 +448,8 @@ zvkgDataStart:
 zvkgDataLoop:
 		VLE32V (aut), B0
 		VREV8V B0, B0
-		VRGATHERVV V24, B0, B0
+		VRGATHERVV V24, B0, T0
+		VMVVV T0, B0
 		VGHSH_VV(9, 1, 10)         // ACC0 = (ACC0 ^ B0) * ACC1
 		ADD $-16, autLen, autLen
 		ADD $16, aut
@@ -493,13 +496,15 @@ zvkgLoadDone:
 	VSLIDEUPVI $1, B1, B0
 	VSETIVLI $4, E32, M1, TA, MA, X0
 	VREV8V B0, B0
-	VRGATHERVV V24, B0, B0
+	VRGATHERVV V24, B0, T0
+	VMVVV T0, B0
 	VGHSH_VV(9, 1, 10)
 
 zvkgDataBail:
 	// Byte-reverse accumulator back to POLYVAL LE and store
 	VREV8V ACC0, ACC0
-	VRGATHERVV V24, ACC0, ACC0
+	VRGATHERVV V24, ACC0, V2
+	VMVVV V2, ACC0
 	VSE32V ACC0, (yPtr)
 	RET
 
