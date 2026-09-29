@@ -49,13 +49,13 @@
 #define BSTATE V4  // block state (M1, vl=4 throughout)
 #define BREV   V6  // word-reversed copy (M1, vl=4 throughout)
 #define K0 V8
-#define K1 V10
-#define K2 V12
-#define K3 V14
-#define K4 V16
-#define K5 V18
-#define K6 V20
-#define K7 V22
+#define K1 V9
+#define K2 V10
+#define K3 V11
+#define K4 V12
+#define K5 V13
+#define K6 V14
+#define K7 V15
 #define RIDX V24 // reversal index [3,2,1,0] in elements 0-3 (M1, vl=4)
 #define TW0 V26  // current tweak (M1, vl=4)
 #define TW1 V27  // TW0 * 2 in GF(2^128)
@@ -88,13 +88,13 @@
 
 #define SM4ROUNDS() \
 	VSM4R_VS(4, 8); \
+	VSM4R_VS(4, 9); \
 	VSM4R_VS(4, 10); \
+	VSM4R_VS(4, 11); \
 	VSM4R_VS(4, 12); \
+	VSM4R_VS(4, 13); \
 	VSM4R_VS(4, 14); \
-	VSM4R_VS(4, 16); \
-	VSM4R_VS(4, 18); \
-	VSM4R_VS(4, 20); \
-	VSM4R_VS(4, 22)
+	VSM4R_VS(4, 15)
 
 // func encryptSm4NiXts(xk *uint32, tweak *[BlockSize]byte, dst, src []byte, isGB bool)
 TEXT ·encryptSm4NiXts(SB), NOSPLIT, $0
@@ -112,7 +112,7 @@ encPoly:
 
 	VSETIVLI	$4, E32, M1, TA, MA, X0
 
-	// round keys
+	// round keys (consecutive M1 registers V8-V15, 16 bytes each)
 	VLE32V	(xkPtr), K0
 	ADD	$16, xkPtr, tmpPtr
 	VLE32V	(tmpPtr), K1
@@ -132,8 +132,7 @@ encPoly:
 	// current tweak
 	VLE32V	(twPtr), TW0
 
-	// element reversal index (loop invariant); load under M1 (vl=4) to
-	// avoid reading past the 64-byte table at VLEN >= 512
+	// reversal index; load only the four indices for the M1 block path
 	VSETIVLI	$4, E32, M1, TA, MA, X0
 	MOV	$·riscv64ZvksedRev(SB), tmpPtr
 	VLE32V	(tmpPtr), RIDX
@@ -148,21 +147,25 @@ encInitGB:
 	MUL2_GB(TW0, TW1)
 encInitDone:
 
-	// Process blocks one at a time under M1 (vl=4, one 16-byte block per
-	// register). The M2 (LMUL=2) 2-block batching used here previously is
-	// only valid at VLEN=128: at VLEN>=256 each M2 group register holds
-	// more than 8 elements, so the second block lands in stale upper
-	// elements that SM4ROUNDS/VREV8V also process, corrupting the output.
+	// M1 dual-block unroll with TW0/TW1 ping-pong. The previous M2
+	// batching was not VLEN-independent: with VLEN=128, an E32/M2
+	// group starting at V26 maps elements 0-3 to V26 and elements 4-7
+	// to V27, so separately loaded tweaks in V26/V27 formed two
+	// consecutive 128-bit element groups. With VLEN>=256, elements 0-7
+	// reside in V26 itself, and the M1 value in V27 is not the second
+	// element group of the M2 operand.
 	//
-	// The 2-block threshold ensures at least two full blocks remain when
-	// we enter the loop, so the ciphertext-stealing tail always has a
-	// well-defined predecessor after we fall through to encSingles.
-	MOV	$32, xkPtr
+	// Threshold: 48 bytes (3 blocks). Each iteration consumes 32 bytes
+	// and must leave >= 16 bytes for encSingles so that the CTS tail
+	// always has a predecessor.
+	MOV	$48, xkPtr
 enc2loop:
 	BLT	srcLen, xkPtr, encSingles
-	SUB	$16, srcLen
+	SUB	$32, srcLen
 
 	VSETIVLI	$4, E32, M1, TA, MA, X0
+
+	// Block n with TW0
 	VLE32V	(srcPtr), BSTATE
 	ADD	$16, srcPtr
 	VXORVV	TW0, BSTATE, BSTATE
@@ -174,19 +177,40 @@ enc2loop:
 	VSE32V	BREV, (dstPtr)
 	ADD	$16, dstPtr
 
-	// Advance by one block: TW0 <- TW1, TW1 <- TW0 * 2
-	VMVVV	TW1, TW0
-	BNE	gbFlag, ZERO, enc2MulGB
+	// TW0 <- TW1 * 2 = T[n+2]; TW1 still holds T[n+1]
+	BNE	gbFlag, ZERO, enc2MulGB0
+	MUL2_TW(TW1, TW0)
+	JMP	enc2Mul0Done
+enc2MulGB0:
+	VSETIVLI	$16, E8, M1, TA, MA, X0
+	MUL2_GB(TW1, TW0)
 	VSETIVLI	$4, E32, M1, TA, MA, X0
+enc2Mul0Done:
+
+	// Block n+1 with TW1
+	VLE32V	(srcPtr), BSTATE
+	ADD	$16, srcPtr
+	VXORVV	TW1, BSTATE, BSTATE
+	VREV8V	BSTATE, BSTATE
+	SM4ROUNDS()
+	VREV8V	BSTATE, BSTATE
+	VRGATHERVV	RIDX, BSTATE, BREV
+	VXORVV	TW1, BREV, BREV
+	VSE32V	BREV, (dstPtr)
+	ADD	$16, dstPtr
+
+	// TW1 <- TW0 * 2 = T[n+3]; TW0 already holds T[n+2]
+	BNE	gbFlag, ZERO, enc2MulGB1
 	MUL2_TW(TW0, TW1)
-	JMP	enc2MulDone
-enc2MulGB:
+	JMP	enc2Mul1Done
+enc2MulGB1:
 	VSETIVLI	$16, E8, M1, TA, MA, X0
 	MUL2_GB(TW0, TW1)
-enc2MulDone:
+enc2Mul1Done:
 	JMP	enc2loop
 
 encSingles:
+	// Process remaining full blocks one at a time with TW0
 	MOV	$16, xkPtr
 	BEQ	srcLen, ZERO, encDone
 enc1loop:
@@ -205,7 +229,7 @@ enc1loop:
 	VSE32V	BREV, (dstPtr)
 	ADD	$16, dstPtr
 
-	// TW0 <- TW1, TW1 = TW0 * 2
+	// TW0 <- TW1, TW1 <- TW0 * 2
 	VMVVV	TW1, TW0
 	BNE	gbFlag, ZERO, enc1MulGB
 	VSETIVLI	$4, E32, M1, TA, MA, X0
@@ -260,7 +284,7 @@ decPoly:
 
 	VSETIVLI	$4, E32, M1, TA, MA, X0
 
-	// round keys
+	// round keys (consecutive M1 registers V8-V15, 16 bytes each)
 	VLE32V	(xkPtr), K0
 	ADD	$16, xkPtr, tmpPtr
 	VLE32V	(tmpPtr), K1
@@ -280,8 +304,7 @@ decPoly:
 	// current tweak
 	VLE32V	(twPtr), TW0
 
-	// element reversal index (loop invariant); load under M1 (vl=4) to
-	// avoid reading past the 64-byte table at VLEN >= 512
+	// reversal index; load only the four indices for the M1 block path
 	VSETIVLI	$4, E32, M1, TA, MA, X0
 	MOV	$·riscv64ZvksedRev(SB), tmpPtr
 	VLE32V	(tmpPtr), RIDX
@@ -296,18 +319,20 @@ decInitGB:
 	MUL2_GB(TW0, TW1)
 decInitDone:
 
-	// Process blocks one at a time under M1 (vl=4, one 16-byte block per
-	// register). The M2 (LMUL=2) 2-block batching is only valid at
-	// VLEN=128; see the encrypt path for details.
+	// M1 dual-block unroll with TW0/TW1 ping-pong; see the encrypt
+	// path for the M2 rationale.
 	//
-	// The 3-block (48-byte) threshold ensures at least two full blocks
-	// remain after the loop, which the ciphertext-stealing tail requires.
+	// Threshold: 48 bytes (3 blocks). After consuming 32 bytes, at
+	// least 16 bytes remain for decSingles, ensuring the CTS tail
+	// always has two predecessors available.
 	MOV	$48, xkPtr
 dec2loop:
 	BLT	srcLen, xkPtr, decSingles
-	SUB	$16, srcLen
+	SUB	$32, srcLen
 
 	VSETIVLI	$4, E32, M1, TA, MA, X0
+
+	// Block n with TW0
 	VLE32V	(srcPtr), BSTATE
 	ADD	$16, srcPtr
 	VXORVV	TW0, BSTATE, BSTATE
@@ -319,16 +344,36 @@ dec2loop:
 	VSE32V	BREV, (dstPtr)
 	ADD	$16, dstPtr
 
-	// Advance by one block: TW0 <- TW1, TW1 <- TW0 * 2
-	VMVVV	TW1, TW0
-	BNE	gbFlag, ZERO, dec2MulGB
+	// TW0 <- TW1 * 2 = T[n+2]
+	BNE	gbFlag, ZERO, dec2MulGB0
+	MUL2_TW(TW1, TW0)
+	JMP	dec2Mul0Done
+dec2MulGB0:
+	VSETIVLI	$16, E8, M1, TA, MA, X0
+	MUL2_GB(TW1, TW0)
 	VSETIVLI	$4, E32, M1, TA, MA, X0
+dec2Mul0Done:
+
+	// Block n+1 with TW1
+	VLE32V	(srcPtr), BSTATE
+	ADD	$16, srcPtr
+	VXORVV	TW1, BSTATE, BSTATE
+	VREV8V	BSTATE, BSTATE
+	SM4ROUNDS()
+	VREV8V	BSTATE, BSTATE
+	VRGATHERVV	RIDX, BSTATE, BREV
+	VXORVV	TW1, BREV, BREV
+	VSE32V	BREV, (dstPtr)
+	ADD	$16, dstPtr
+
+	// TW1 <- TW0 * 2 = T[n+3]
+	BNE	gbFlag, ZERO, dec2MulGB1
 	MUL2_TW(TW0, TW1)
-	JMP	dec2MulDone
-dec2MulGB:
+	JMP	dec2Mul1Done
+dec2MulGB1:
 	VSETIVLI	$16, E8, M1, TA, MA, X0
 	MUL2_GB(TW0, TW1)
-dec2MulDone:
+dec2Mul1Done:
 	JMP	dec2loop
 
 decSingles:
