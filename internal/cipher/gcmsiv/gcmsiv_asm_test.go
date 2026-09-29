@@ -35,19 +35,30 @@ func TestPolyvalTableInitAsm(t *testing.T) {
 			t.Errorf("unexpected table value: got %x, want %x", table, amd64Expected)
 		}
 	case "riscv64":
-		// riscv64 table format is architecture-specific; verify via
-		// cross-validation in TestPolyvalBlocksUpdateAsm.
-		// First 16 bytes must be non-zero when Zvkg is active.
-		allZero := true
-		for _, b := range table[:16] {
-			if b != 0 {
-				allZero = false
-				break
+		origGHASH := hasGHASH
+		// Zvbc path: table must match amd64 exactly (same vclmul algorithm)
+		hasGHASH = false
+		var zvbcTable polyvalAsmTable
+		polyvalTableInitAsm(&authKey, &zvbcTable)
+		if zvbcTable != (polyvalAsmTable(amd64Expected)) {
+			t.Errorf("Zvbc table mismatch:\n  got:  %x\n  want: %x", zvbcTable, amd64Expected)
+		}
+		// Zvkg path: stores byte-reversed H^1 at table[0:16]
+		// The H^1 value is amd64Expected[224:240]; Zvkg byte-reverses it for vghsh.vv.
+		if cpu.RISCV64.HasZvkg {
+			hasGHASH = true
+			var zvkgTable polyvalAsmTable
+			polyvalTableInitAsm(&authKey, &zvkgTable)
+			// Compute expected: reverse bytes of amd64 H^1
+			var zvkgExpected [16]byte
+			for i := 0; i < 16; i++ {
+				zvkgExpected[i] = amd64Expected[224+15-i]
+			}
+			if !bytes.Equal(zvkgTable[:16], zvkgExpected[:]) {
+				t.Errorf("Zvkg table key mismatch:\n  got:  %x\n  want: %x", zvkgTable[:16], zvkgExpected)
 			}
 		}
-		if allZero {
-			t.Error("expected non-zero table entries for riscv64")
-		}
+		hasGHASH = origGHASH
 	}
 }
 
