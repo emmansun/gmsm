@@ -1,7 +1,8 @@
 package cipher_test
 
 import (
-	"bytes"
+	bytes "bytes"
+	stdcipher "crypto/cipher"
 	"encoding/hex"
 	"testing"
 
@@ -291,6 +292,239 @@ var gbXtsTestVectors = []struct {
 		"41088fa15195b2733fe824d2c1fdc8306080863945fb2a73cf",
 		"791a9469ed5a22d8195ac37c43c1b0377dc15126349bed1465",
 	},
+}
+
+// xtsRefMul2 mirrors mul2Generic in internal/cipher/xts.
+func xtsRefMul2(tweak *[16]byte, isGB bool) {
+	var carryIn byte
+	if !isGB {
+		for j := range tweak {
+			carryOut := tweak[j] >> 7
+			tweak[j] = (tweak[j] << 1) + carryIn
+			carryIn = carryOut
+		}
+		if carryIn != 0 {
+			tweak[0] ^= 0x87 // x^7 + x^2 + x + 1
+		}
+	} else {
+		for j := range tweak {
+			carryOut := (tweak[j] << 7) & 0x80
+			tweak[j] = (tweak[j] >> 1) + carryIn
+			carryIn = carryOut
+		}
+		if carryIn != 0 {
+			tweak[0] ^= 0xE1
+		}
+	}
+}
+
+// xtsRefEncrypt computes the expected XTS ciphertext with the plain ECB
+// block function, mirroring the generic implementation in internal/cipher/xts.
+func xtsRefEncrypt(b stdcipher.Block, dst, src []byte, tweak *[16]byte, isGB bool) {
+	last := 0
+	for off := 0; off+16 <= len(src); off += 16 {
+		for i := 0; i < 16; i++ {
+			dst[off+i] = src[off+i] ^ tweak[i]
+		}
+		b.Encrypt(dst[off:off+16], dst[off:off+16])
+		for i := 0; i < 16; i++ {
+			dst[off+i] ^= tweak[i]
+		}
+		last = off
+		xtsRefMul2(tweak, isGB)
+	}
+	if remain := len(src) % 16; remain > 0 {
+		var x [16]byte
+		// final partial plaintext, padded with the stolen ciphertext
+		copy(x[:], src[last+16:])
+		copy(x[remain:], dst[last+remain:last+16])
+		// ciphertext tail follows the stolen block
+		copy(dst[last+16:], dst[last:last+remain])
+		for i := 0; i < 16; i++ {
+			x[i] ^= tweak[i]
+		}
+		b.Encrypt(x[:], x[:])
+		for i := 0; i < 16; i++ {
+			dst[last+i] = x[i] ^ tweak[i]
+		}
+	}
+}
+
+// xtsRefDecrypt computes the expected XTS plaintext with the plain ECB
+// block function, mirroring the generic implementation in internal/cipher/xts.
+func xtsRefDecrypt(b stdcipher.Block, dst, src []byte, tweak *[16]byte, isGB bool) {
+	off := 0
+	for ; len(src)-off >= 32; off += 16 {
+		for i := 0; i < 16; i++ {
+			dst[off+i] = src[off+i] ^ tweak[i]
+		}
+		b.Decrypt(dst[off:off+16], dst[off:off+16])
+		for i := 0; i < 16; i++ {
+			dst[off+i] ^= tweak[i]
+		}
+		xtsRefMul2(tweak, isGB)
+	}
+	remain := len(src) - off
+	if remain < 16 {
+		return
+	}
+	var x [16]byte
+	if remain > 16 {
+		// decrypt the stolen block with the doubled tweak first
+		var tt [16]byte
+		copy(tt[:], tweak[:])
+		xtsRefMul2(&tt, isGB)
+		for i := 0; i < 16; i++ {
+			x[i] = src[off+i] ^ tt[i]
+		}
+		b.Decrypt(x[:], x[:])
+		for i := 0; i < 16; i++ {
+			dst[off+i] = x[i] ^ tt[i]
+		}
+		remain -= 16
+		// rebuild the full ciphertext block and decrypt it with the tweak
+		copy(x[:], src[off+16:off+16+remain])
+		copy(x[remain:], dst[off+remain:off+16])
+		copy(dst[off+16:], dst[off:off+remain])
+		for i := 0; i < 16; i++ {
+			x[i] ^= tweak[i]
+		}
+		b.Decrypt(x[:], x[:])
+		for i := 0; i < 16; i++ {
+			dst[off+i] = x[i] ^ tweak[i]
+		}
+	} else {
+		for i := 0; i < 16; i++ {
+			dst[off+i] = src[off+i] ^ tweak[i]
+		}
+		b.Decrypt(dst[off:off+16], dst[off:off+16])
+		for i := 0; i < 16; i++ {
+			dst[off+i] ^= tweak[i]
+		}
+		xtsRefMul2(tweak, isGB)
+	}
+}
+
+var xtsBoundaryLengths = []int{16, 17, 18, 19, 20, 23, 24, 28, 31, 32, 33, 34, 47, 48, 49, 63, 64, 65, 79, 80, 81, 95, 96, 97, 112, 127, 128, 129, 131, 143, 144, 145}
+
+// TestXTSBoundaryLengths checks the optimized XTS implementations (including
+// the fused ZVKSED path on riscv64) against a plain-Go reference at block
+// and ciphertext-stealing boundary lengths, for both tweak variants, out of
+// place, in place and across consecutive CryptBlocks calls.
+func TestXTSBoundaryLengths(t *testing.T) {
+	key := fromHex("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f")
+	k1, err := sm4.NewCipher(key[:16])
+	if err != nil {
+		t.Fatal(err)
+	}
+	k2, err := sm4.NewCipher(key[16:])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, isGB := range []bool{false, true} {
+		for _, length := range xtsBoundaryLengths {
+			plaintext := make([]byte, length)
+			for i := range plaintext {
+				plaintext[i] = byte(3*i + 7)
+			}
+
+			var tweak [16]byte
+			k2.Encrypt(tweak[:], make([]byte, 16))
+			initTweak := tweak
+			expected := make([]byte, length)
+			xtsRefEncrypt(k1, expected, plaintext, &tweak, isGB)
+			refPlain := make([]byte, length)
+			xtsRefDecrypt(k1, refPlain, expected, &initTweak, isGB)
+			if !bytes.Equal(refPlain, plaintext) {
+				t.Fatalf("isGB %v, length %d: reference self-check failed", isGB, length)
+			}
+
+			tweakInput := make([]byte, 16)
+			var newEnc, newDec func() (stdcipher.BlockMode, error)
+			if isGB {
+				newEnc = func() (stdcipher.BlockMode, error) {
+					return cipher.NewGBXTSEncrypter(sm4.NewCipher, key[:16], key[16:], tweakInput)
+				}
+				newDec = func() (stdcipher.BlockMode, error) {
+					return cipher.NewGBXTSDecrypter(sm4.NewCipher, key[:16], key[16:], tweakInput)
+				}
+			} else {
+				newEnc = func() (stdcipher.BlockMode, error) {
+					return cipher.NewXTSEncrypter(sm4.NewCipher, key[:16], key[16:], tweakInput)
+				}
+				newDec = func() (stdcipher.BlockMode, error) {
+					return cipher.NewXTSDecrypter(sm4.NewCipher, key[:16], key[16:], tweakInput)
+				}
+			}
+
+			encrypter, err := newEnc()
+			if err != nil {
+				t.Fatal(err)
+			}
+			ciphertext := make([]byte, length)
+			encrypter.CryptBlocks(ciphertext, plaintext)
+			if !bytes.Equal(ciphertext, expected) {
+				t.Errorf("isGB %v, length %d: encrypted mismatch, got %x, want %x", isGB, length, ciphertext, expected)
+			}
+
+			decrypter, err := newDec()
+			if err != nil {
+				t.Fatal(err)
+			}
+			decrypted := make([]byte, length)
+			decrypter.CryptBlocks(decrypted, ciphertext)
+			if !bytes.Equal(decrypted, plaintext) {
+				t.Errorf("isGB %v, length %d: decryption mismatch, got %x, want %x", isGB, length, decrypted, plaintext)
+			}
+
+			// exact in-place overlap
+			encrypter, err = newEnc()
+			if err != nil {
+				t.Fatal(err)
+			}
+			inPlace := make([]byte, length)
+			copy(inPlace, plaintext)
+			encrypter.CryptBlocks(inPlace, inPlace)
+			if !bytes.Equal(inPlace, expected) {
+				t.Errorf("isGB %v, length %d: in-place encryption mismatch", isGB, length)
+			}
+			decrypter, err = newDec()
+			if err != nil {
+				t.Fatal(err)
+			}
+			decrypter.CryptBlocks(inPlace, inPlace)
+			if !bytes.Equal(inPlace, plaintext) {
+				t.Errorf("isGB %v, length %d: in-place decryption mismatch", isGB, length)
+			}
+
+			// consecutive CryptBlocks calls continue the tweak chain
+			if length < 32 {
+				continue
+			}
+			split := 16 * ((length - 16) / 16)
+			encrypter, err = newEnc()
+			if err != nil {
+				t.Fatal(err)
+			}
+			chunked := make([]byte, length)
+			encrypter.CryptBlocks(chunked[:split], plaintext[:split])
+			encrypter.CryptBlocks(chunked[split:], plaintext[split:])
+			if !bytes.Equal(chunked, expected) {
+				t.Errorf("isGB %v, length %d: chunked encryption mismatch", isGB, length)
+			}
+			decrypter, err = newDec()
+			if err != nil {
+				t.Fatal(err)
+			}
+			chunkPlain := make([]byte, length)
+			decrypter.CryptBlocks(chunkPlain[:split], chunked[:split])
+			decrypter.CryptBlocks(chunkPlain[split:], chunked[split:])
+			if !bytes.Equal(chunkPlain, plaintext) {
+				t.Errorf("isGB %v, length %d: chunked decryption mismatch", isGB, length)
+			}
+		}
+	}
 }
 
 func TestGBXTS(t *testing.T) {

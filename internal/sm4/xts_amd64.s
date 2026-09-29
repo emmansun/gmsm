@@ -553,8 +553,14 @@ sse_dec_init_done:
 	MOVOU (0*16)(BX), TW
 
 xtsSm4DecOctets:
+		// Consume a wide batch only if the remainder stays 0 or at least
+		// 16 bytes; the tail paths below expect a remainder of 0 or 16..31.
 		CMPQ DI, $128
 		JB xtsSm4DecNibbles
+		JE sse_dec_take_octets
+		CMPQ DI, $144
+		JB xtsSm4DecNibbles
+sse_dec_take_octets:
 		SUBQ $128, DI
 
 		TESTQ R12, R12
@@ -574,8 +580,14 @@ xtsSm4DecOctets:
 		JMP xtsSm4DecOctets
 
 xtsSm4DecNibbles:
+	// Consume a wide batch only if the remainder stays 0 or at least
+	// 16 bytes; the tail paths below expect a remainder of 0 or 16..31.
 	CMPQ DI, $64
 	JB xtsSm4DecSingles
+	JE sse_dec_take_nibbles
+	CMPQ DI, $80
+	JB xtsSm4DecSingles
+sse_dec_take_nibbles:
 	SUBQ $64, DI
 
 	TESTQ R12, R12
@@ -709,8 +721,14 @@ avx2_dec_init_done:
 	VBROADCASTI128 ·bswap_mask(SB), DWBSWAP
 
 avx2XtsSm4Dec16Blocks:
+		// Consume a wide batch only if the remainder stays 0 or at least
+		// 16 bytes; the tail paths below expect a remainder of 0 or 16..31.
 		CMPQ DI, $256
 		JB avx2XtsSm4DecOctets
+		JE avx2_dec_take_16blocks
+		CMPQ DI, $272
+		JB avx2XtsSm4DecOctets
+avx2_dec_take_16blocks:
 		SUBQ $256, DI
 
 		TESTQ R12, R12
@@ -746,8 +764,14 @@ avx2XtsSm4Dec16Blocks:
 		JMP avx2XtsSm4Dec16Blocks
 
 avx2XtsSm4DecOctets:
+	// Consume a wide batch only if the remainder stays 0 or at least
+	// 16 bytes; the tail paths below expect a remainder of 0 or 16..31.
 	CMPQ DI, $128
 	JB avx2XtsSm4DecNibbles
+	JE avx2_dec_take_octets
+	CMPQ DI, $144
+	JB avx2XtsSm4DecNibbles
+avx2_dec_take_octets:
 	SUBQ $128, DI
 
 	TESTQ R12, R12
@@ -781,8 +805,14 @@ avx2_8blocks_done:
 	JMP avx2XtsSm4DecNibbles
 
 avx2XtsSm4DecNibbles:
+	// Consume a wide batch only if the remainder stays 0 or at least
+	// 16 bytes; the tail paths below expect a remainder of 0 or 16..31.
 	CMPQ DI, $64
 	JB avx2XtsSm4DecSingles
+	JE avx2_dec_take_nibbles
+	CMPQ DI, $80
+	JB avx2XtsSm4DecSingles
+avx2_dec_take_nibbles:
 	SUBQ $64, DI
 
 	TESTQ R12, R12

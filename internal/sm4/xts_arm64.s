@@ -344,8 +344,14 @@ xts_dec_init_done:
 	VLD1 (twPtr), [TW.B16]
 
 xtsSm4DecOctets:
+		// Consume an octet only if the remainder stays 0 or at least
+		// 16 bytes; the tail paths below expect a remainder of 0 or 16..31.
 		CMP	$128, srcPtrLen
 		BLT	xtsSm4DecNibbles
+		BEQ	dec_take_octets
+		CMP	$144, srcPtrLen
+		BLT	xtsSm4DecNibbles
+dec_take_octets:
 		SUB	$128, srcPtrLen
 
 		CBNZ R15, gb_8tweaks_dec
@@ -372,8 +378,14 @@ xtsSm4DecOctets:
 		B	xtsSm4DecOctets
 
 xtsSm4DecNibbles:
+	// Consume a nibble only if the remainder stays 0 or at least
+	// 16 bytes; the tail paths below expect a remainder of 0 or 16..31.
 	CMP	$64, srcPtrLen
 	BLT	xtsSm4DecSingles
+	BEQ	dec_take_nibbles
+	CMP	$80, srcPtrLen
+	BLT	xtsSm4DecSingles
+dec_take_nibbles:
 	SUB	$64, srcPtrLen
 
 	CBNZ R15, gb_4tweaks_dec

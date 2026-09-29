@@ -1,6 +1,27 @@
 package sm4
 
-import "crypto/cipher"
+import (
+	"crypto/cipher"
+
+	"github.com/emmansun/gmsm/internal/alias"
+)
+
+const xtsEncrypt = 1
+const xtsDecrypt = 0
+
+// validateXtsInput checks that dst can hold src and that they do not overlap
+// inexactly; it is shared by the asm accelerated XTS implementations.
+func validateXtsInput(dst, src []byte) {
+	if len(dst) < len(src) {
+		panic("cipher: dst is smaller than src")
+	}
+	if len(src) < BlockSize {
+		panic("cipher: src length is smaller than the block size")
+	}
+	if alias.InexactOverlap(dst[:len(src)], src) {
+		panic("cipher: invalid buffer overlap")
+	}
+}
 
 // ecbcEncAble is implemented by cipher.Blocks that can provide an optimized
 // implementation of ECB encryption through the cipher.BlockMode interface.
