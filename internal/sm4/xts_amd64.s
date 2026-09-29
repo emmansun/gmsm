@@ -325,15 +325,13 @@ xtsSm4EncTail:
 	JE xtsSm4EncDone
 
 	LEAQ -16(CX), R8
-	MOVOU (16*0)(R8), B0
-	MOVOU B0, (16*0)(SP)
 
 	CMPQ DI, $8
 	JB   loop_1b
 	SUBQ  $8, DI
 	MOVQ (DX)(DI*1), R9
-	MOVQ (SP)(DI*1), R10
-	MOVQ R9, (SP)(DI*1)
+	MOVQ (R8)(DI*1), R10
+	MOVQ R9, (R8)(DI*1)
 	MOVQ R10, (CX)(DI*1)
 
 	TESTQ DI, DI
@@ -342,14 +340,14 @@ xtsSm4EncTail:
 loop_1b:
 	SUBQ  $1, DI
 	MOVB (DX)(DI*1), R9
-	MOVB (SP)(DI*1), R10
-	MOVB R9, (SP)(DI*1)
+	MOVB (R8)(DI*1), R10
+	MOVB R9, (R8)(DI*1)
 	MOVB R10, (CX)(DI*1)
 	TESTQ DI, DI
 	JNE   loop_1b
 
 xtsSm4EncTailEnc:
-	MOVOU (16*0)(SP), B0
+	MOVOU (R8), B0
 	PXOR TW, B0
 	SM4_SINGLE_BLOCK(AX, B4, T0, T1, T2, B0, B1, B2, B3)
 	PXOR TW, B0
@@ -495,15 +493,13 @@ avx2XtsSm4EncTail:
 	JE avx2XtsSm4EncDone
 
 	LEAQ -16(CX), R8
-	VMOVDQU (16*0)(R8), B0
-	VMOVDQU B0, (16*0)(SP)
 
 	CMPQ DI, $8
 	JB   avx2_loop_1b
 	SUBQ  $8, DI
 	MOVQ (DX)(DI*1), R9
-	MOVQ (SP)(DI*1), R10
-	MOVQ R9, (SP)(DI*1)
+	MOVQ (R8)(DI*1), R10
+	MOVQ R9, (R8)(DI*1)
 	MOVQ R10, (CX)(DI*1)
 
 	TESTQ DI, DI
@@ -512,14 +508,14 @@ avx2XtsSm4EncTail:
 avx2_loop_1b:
 	SUBQ  $1, DI
 	MOVB (DX)(DI*1), R9
-	MOVB (SP)(DI*1), R10
-	MOVB R9, (SP)(DI*1)
+	MOVB (R8)(DI*1), R10
+	MOVB R9, (R8)(DI*1)
 	MOVB R10, (CX)(DI*1)
 	TESTQ DI, DI
 	JNE   avx2_loop_1b
 
 avx2XtsSm4EncTailEnc:
-	VMOVDQU (16*0)(SP), B0
+	VMOVDQU (R8), B0
 	VPXOR TW, B0, B0
 	SM4_SINGLE_BLOCK(AX, B4, T0, T1, T2, B0, B1, B2, B3)
 	VPXOR TW, B0, B0
@@ -660,30 +656,29 @@ sse_dec_mul2_tail_done:
 	LEAQ 16(DX), DX
 	LEAQ 16(CX), CX
 	LEAQ -16(CX), R8
-	MOVOU B0, (16*0)(SP)
 
 	CMPQ DI, $8
-	JB   loop_1b
+	JB   loop_1b_dec
 	SUBQ  $8, DI
 	MOVQ (DX)(DI*1), R9
-	MOVQ (SP)(DI*1), R10
-	MOVQ R9, (SP)(DI*1)
+	MOVQ (R8)(DI*1), R10
+	MOVQ R9, (R8)(DI*1)
 	MOVQ R10, (CX)(DI*1)
 
 	TESTQ DI, DI
 	JE xtsSm4DecTailDec
 
-loop_1b:
+loop_1b_dec:
 	SUBQ  $1, DI
 	MOVB (DX)(DI*1), R9
-	MOVB (SP)(DI*1), R10
-	MOVB R9, (SP)(DI*1)
+	MOVB (R8)(DI*1), R10
+	MOVB R9, (R8)(DI*1)
 	MOVB R10, (CX)(DI*1)
 	TESTQ DI, DI
-	JNE   loop_1b
+	JNE   loop_1b_dec
 
 xtsSm4DecTailDec:
-	MOVOU (16*0)(SP), B0
+	MOVOU (R8), B0
 	PXOR TW, B0
 	SM4_SINGLE_BLOCK(AX, B4, T0, T1, T2, B0, B1, B2, B3)
 	PXOR TW, B0
@@ -887,30 +882,29 @@ avx2_dec_mul2_tail_done:
 	LEAQ 16(DX), DX
 	LEAQ 16(CX), CX
 	LEAQ -16(CX), R8
-	VMOVDQU B0, (16*0)(SP)
 
 	CMPQ DI, $8
-	JB   avx2_loop_1b
+	JB   avx2_loop_1b_dec
 	SUBQ  $8, DI
 	MOVQ (DX)(DI*1), R9
-	MOVQ (SP)(DI*1), R10
-	MOVQ R9, (SP)(DI*1)
+	MOVQ (R8)(DI*1), R10
+	MOVQ R9, (R8)(DI*1)
 	MOVQ R10, (CX)(DI*1)
 
 	TESTQ DI, DI
 	JE avx2XtsSm4DecTailDec
 
-avx2_loop_1b:
+avx2_loop_1b_dec:
 	SUBQ  $1, DI
 	MOVB (DX)(DI*1), R9
-	MOVB (SP)(DI*1), R10
-	MOVB R9, (SP)(DI*1)
+	MOVB (R8)(DI*1), R10
+	MOVB R9, (R8)(DI*1)
 	MOVB R10, (CX)(DI*1)
 	TESTQ DI, DI
-	JNE   avx2_loop_1b
+	JNE   avx2_loop_1b_dec
 
 avx2XtsSm4DecTailDec:
-	VMOVDQU (16*0)(SP), B0
+	VMOVDQU (R8), B0
 	VPXOR TW, B0, B0
 	SM4_SINGLE_BLOCK(AX, B4, T0, T1, T2, B0, B1, B2, B3)
 	VPXOR TW, B0, B0
