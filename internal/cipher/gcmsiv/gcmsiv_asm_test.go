@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build (amd64 || arm64) && !purego
+//go:build (amd64 || arm64 || (riscv64 && go1.27)) && !purego
 
 package cipher
 
@@ -11,6 +11,8 @@ import (
 	"encoding/hex"
 	"runtime"
 	"testing"
+
+	"github.com/emmansun/gmsm/internal/deps/cpu"
 )
 
 func TestPolyvalTableInitAsm(t *testing.T) {
@@ -32,7 +34,63 @@ func TestPolyvalTableInitAsm(t *testing.T) {
 		if table != (polyvalAsmTable(amd64Expected)) {
 			t.Errorf("unexpected table value: got %x, want %x", table, amd64Expected)
 		}
+	case "riscv64":
+		// riscv64 table format is architecture-specific; verify via
+		// cross-validation in TestPolyvalBlocksUpdateAsm.
+		// First 16 bytes must be non-zero when Zvkg is active.
+		allZero := true
+		for _, b := range table[:16] {
+			if b != 0 {
+				allZero = false
+				break
+			}
+		}
+		if allZero {
+			t.Error("expected non-zero table entries for riscv64")
+		}
 	}
+}
+
+// TestPolyvalRISCV64BothPaths cross-validates Zvkg and Zvbc code paths on riscv64
+// by temporarily flipping hasGHASH. Both paths must produce identical POLYVAL output.
+func TestPolyvalRISCV64BothPaths(t *testing.T) {
+	if runtime.GOARCH != "riscv64" {
+		t.Skip("riscv64-only test")
+	}
+	if !cpu.RISCV64.HasZvbc {
+		t.Skip("requires Zvbc")
+	}
+
+	var authKey = [16]byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
+	blocks := []byte{
+		0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+		0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+		0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88,
+		0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00,
+	}
+
+	// Force Zvbc path
+	origGHASH := hasGHASH
+	hasGHASH = false
+	var tableZvbc polyvalAsmTable
+	polyvalTableInitAsm(&authKey, &tableZvbc)
+	var yZvbc [16]byte
+	polyvalBlocksUpdateAsm(&tableZvbc, &yZvbc, blocks)
+
+	if cpu.RISCV64.HasZvkg {
+		// Force Zvkg path
+		hasGHASH = true
+		var tableZvkg polyvalAsmTable
+		polyvalTableInitAsm(&authKey, &tableZvkg)
+		var yZvkg [16]byte
+		polyvalBlocksUpdateAsm(&tableZvkg, &yZvkg, blocks)
+
+		if yZvbc != yZvkg {
+			t.Errorf("Zvbc and Zvkg paths produce different results:\n  Zvbc: %x\n  Zvkg: %x", yZvbc, yZvkg)
+		}
+	}
+
+	hasGHASH = origGHASH
 }
 
 func TestPolyvalBlocksUpdateAsm(t *testing.T) {

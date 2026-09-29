@@ -62,8 +62,8 @@ jobs:
         QEMU_CPU: max,v=true,vlen=${{ matrix.vlen }},elen=64
         GOARCH: ${{ matrix.arch }}
 
-    - name: Test Cipher wihout Zvkg
-      run: go test -v -short ./cipher -run 'TestXTS|TestGBXTSSample|TestXTSBoundaryLengths|TestGBXTS'
+    - name: Test Cipher without Zvkg
+      run: go test -v -short ./cipher -run 'TestXTS|TestGBXTSSample|TestXTSBoundaryLengths|TestGBXTS|TestGCMSIV|TestNewGCMSIV'
       env:
         DISABLE_GHASH: 1
         QEMU_CPU: max,v=true,vlen=${{ matrix.vlen }},elen=64

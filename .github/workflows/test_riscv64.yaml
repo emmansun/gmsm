@@ -50,7 +50,7 @@ jobs:
         GOARCH: ${{ matrix.arch }}
 
     - name: Test Cipher
-      run: go test -v -short ./cipher -run 'TestSM4GCM|TestGCMCounterWrap|TestSM4GCMRandom'
+      run: go test -v -short ./cipher -run 'TestSM4GCM|TestGCMCounterWrap|TestSM4GCMRandom|TestGCMSIV|TestNewGCMSIV'
       env:
         QEMU_CPU: max
         GOARCH: ${{ matrix.arch }}
