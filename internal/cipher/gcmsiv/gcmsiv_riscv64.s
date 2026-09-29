@@ -142,12 +142,12 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 	VSLIDE1UPVX ZERO, V3, V4        // carry from byte N → byte N+1 bit 0
 	VSLLVI $1, V1, V2               // V2 = V1 << 1 per byte
 	VORVV  V2, V4, V2               // V2 = V1 << 1 with carry
-	// Reduction: if bit 7 of byte 15 was set, XOR gcmSIVPoly = {0x01, 0xc2...}.
-	// Same as XTS mul2: VSLIDEDOWNVI $15 extracts carry from last byte.
-	VSLIDEDOWNVI $15, V3, V5        // V5[0] = carry from byte 15
+	// Reduction: if bit 7 of ORIGINAL byte 15 was set, XOR gcmSIVPoly.
+	// Must extract from V1 (pre-shift), not V3 (already >>7).
+	VSLIDEDOWNVI $15, V1, V5        // V5[0] = original V1[15]
 	VMVXS  V5, X15                  // extract to scalar
-	ANDI   $1, X15, X15             // isolate bit
-	SLLI   $63, X15, X15
+	ANDI   $0x80, X15, X15           // isolate bit 7
+	SLLI   $56, X15, X15
 	SRAI   $63, X15, X15            // broadcast
 	MOV    $gcmSIVPoly<>(SB), X12
 	VLE8V  (X12), V3               // V3 = [0x01, 0, ..., 0xc2, 0, ...]
@@ -252,10 +252,11 @@ zvkgInit:
 	VSLIDE1UPVX ZERO, V3, V4
 	VSLLVI $1, V1, V2
 	VORVV  V2, V4, V2
-	VSLIDEDOWNVI $15, V3, V5
+	// Reduction: if bit 7 of ORIGINAL byte 15 was set (from V1, not V3)
+	VSLIDEDOWNVI $15, V1, V5
 	VMVXS  V5, X15
-	ANDI   $1, X15, X15
-	SLLI   $63, X15, X15
+	ANDI   $0x80, X15, X15
+	SLLI   $56, X15, X15
 	SRAI   $63, X15, X15
 	MOV    $gcmSIVPoly<>(SB), X12
 	VLE8V  (X12), V3
