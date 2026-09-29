@@ -174,16 +174,6 @@ enc2loop:
 	VSE32V	BREV, (dstPtr)
 	ADD	$16, dstPtr
 
-	// TW0 <- TW1 * 2 = T[n+2]; TW1 still holds T[n+1]
-	BNE	gbFlag, ZERO, enc2MulGB0
-	MUL2_TW(TW1, TW0)
-	JMP	enc2Mul0Done
-enc2MulGB0:
-	VSETIVLI	$16, E8, M1, TA, MA, X0
-	MUL2_GB(TW1, TW0)
-	VSETIVLI	$4, E32, M1, TA, MA, X0
-enc2Mul0Done:
-
 	// Block n+1 with TW1
 	VLE32V	(srcPtr), BSTATE
 	ADD	$16, srcPtr
@@ -196,14 +186,22 @@ enc2Mul0Done:
 	VSE32V	BREV, (dstPtr)
 	ADD	$16, dstPtr
 
-	// TW1 <- TW0 * 2 = T[n+3]; TW0 already holds T[n+2]
-	BNE	gbFlag, ZERO, enc2MulGB1
+	// Deferred tweak doubling: both blocks already consumed their tweaks,
+	// so we compute the next pair here. Under GB this batches the two
+	// E8 doublings into one vtype switch (E32->E8->E32) instead of two
+	// (E32->E8->E32->E8->E32).
+	//
+	// TW0 <- TW1 * 2 = T[n+2], TW1 <- TW0 * 2 = T[n+3]
+	BNE	gbFlag, ZERO, enc2MulGB
+	MUL2_TW(TW1, TW0)
 	MUL2_TW(TW0, TW1)
-	JMP	enc2Mul1Done
-enc2MulGB1:
+	JMP	enc2MulDone
+enc2MulGB:
 	VSETIVLI	$16, E8, M1, TA, MA, X0
+	MUL2_GB(TW1, TW0)
 	MUL2_GB(TW0, TW1)
-enc2Mul1Done:
+	VSETIVLI	$4, E32, M1, TA, MA, X0
+enc2MulDone:
 	JMP	enc2loop
 
 encSingles:
@@ -339,16 +337,6 @@ dec2loop:
 	VSE32V	BREV, (dstPtr)
 	ADD	$16, dstPtr
 
-	// TW0 <- TW1 * 2 = T[n+2]
-	BNE	gbFlag, ZERO, dec2MulGB0
-	MUL2_TW(TW1, TW0)
-	JMP	dec2Mul0Done
-dec2MulGB0:
-	VSETIVLI	$16, E8, M1, TA, MA, X0
-	MUL2_GB(TW1, TW0)
-	VSETIVLI	$4, E32, M1, TA, MA, X0
-dec2Mul0Done:
-
 	// Block n+1 with TW1
 	VLE32V	(srcPtr), BSTATE
 	ADD	$16, srcPtr
@@ -361,14 +349,18 @@ dec2Mul0Done:
 	VSE32V	BREV, (dstPtr)
 	ADD	$16, dstPtr
 
-	// TW1 <- TW0 * 2 = T[n+3]
-	BNE	gbFlag, ZERO, dec2MulGB1
+	// Deferred tweak doubling; see the encrypt path for rationale.
+	// TW0 <- TW1 * 2 = T[n+2], TW1 <- TW0 * 2 = T[n+3]
+	BNE	gbFlag, ZERO, dec2MulGB
+	MUL2_TW(TW1, TW0)
 	MUL2_TW(TW0, TW1)
-	JMP	dec2Mul1Done
-dec2MulGB1:
+	JMP	dec2MulDone
+dec2MulGB:
 	VSETIVLI	$16, E8, M1, TA, MA, X0
+	MUL2_GB(TW1, TW0)
 	MUL2_GB(TW0, TW1)
-dec2Mul1Done:
+	VSETIVLI	$4, E32, M1, TA, MA, X0
+dec2MulDone:
 	JMP	dec2loop
 
 decSingles:
