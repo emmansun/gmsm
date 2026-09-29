@@ -124,9 +124,9 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 	ANDI   $1, X15, X15             // bit 0
 	SLLI   $63, X15, X15
 	SRAI   $63, X15, X15            // broadcast: all-ones or 0
-	MOV    $0xe1, X11
-	AND    X15, X11, X11            // conditional: 0xe1 or 0
-	VMVSX  X11, V5                  // V5[all bytes] = 0xe1 or 0x00
+	MOV    $0xe1, X12
+	AND    X15, X12, X12            // conditional: 0xe1 or 0
+	VMVSX  X12, V5                  // V5[all bytes] = 0xe1 or 0x00
 	VXORVV V2, V5, V1               // XOR all bytes; only byte 15 matters
 
 	// ── Second mulX: ×x in reversed representation (left shift by 1) ──
@@ -236,9 +236,9 @@ zvkgInit:
 	ANDI   $1, X15, X15
 	SLLI   $63, X15, X15
 	SRAI   $63, X15, X15
-	MOV    $0xe1, X11
-	AND    X15, X11, X11
-	VMVSX  X11, V5
+	MOV    $0xe1, X12
+	AND    X15, X12, X12
+	VMVSX  X12, V5
 	VXORVV V2, V5, V1
 
 	// Second mulX: ×x (left shift by 1, XTS mul2 pattern)
