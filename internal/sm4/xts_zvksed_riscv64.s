@@ -8,8 +8,9 @@
 
 // XTS mode fused with the Zvksed extension, mirroring xts_sm4ni_arm64.s for
 // arm64 and driven by sm4ni_xts.go. The tweak is kept in vector registers and
-// doubled with RVV ops; the SM4 rounds use vsm4r.vs with a 2-block (E32, M2)
-// main loop, following the conventions of asm_zvksed_riscv64.s:
+// doubled with RVV ops; the SM4 rounds use vsm4r.vs with an M1 (vl=4) loop
+// that processes one block per iteration, following the conventions of
+// asm_zvksed_riscv64.s:
 //   - round keys are plain 32-bit words loaded with vle32;
 //   - blocks are byte-swapped with vrev8 before/after the rounds;
 //   - the store reverses the word order via the ·riscv64ZvksedRev index.
@@ -23,7 +24,7 @@
 // newCipher in cipher_asm.go):
 //   - the Zvksed extension is available (sm4.NewCipher returns the NI cipher
 //     only when supportSM4 is true);
-//   - VLEN >= 128, so that VSETIVLI $8, E32, M2 and VSETIVLI $16, E8, M1
+//   - VLEN >= 128, so that VSETIVLI $4, E32, M1 and VSETIVLI $16, E8, M1
 //     set the full vl (the same assumption the other zvksed asm makes);
 //   - src contains at least one complete XTS block (len >= 16);
 //   - dst and src overlap exactly or not at all.
@@ -45,8 +46,8 @@
 #define t0 X18
 #define t1 X19
 
-#define BSTATE V4  // block state: M2 group (V4-V5) in the main loop, M1 elsewhere
-#define BREV   V6  // word-reversed copy: M2 group (V6-V7) or M1
+#define BSTATE V4  // block state (M1, vl=4 throughout)
+#define BREV   V6  // word-reversed copy (M1, vl=4 throughout)
 #define K0 V8
 #define K1 V10
 #define K2 V12
@@ -55,8 +56,8 @@
 #define K5 V18
 #define K6 V20
 #define K7 V22
-#define RIDX V24 // reversal index: M2 group (V24-V25); M1 views use [3,2,1,0]
-#define TW0 V26  // current tweak (M1); with TW1 it forms the M2 group [TW0, TW1]
+#define RIDX V24 // reversal index [3,2,1,0] in elements 0-3 (M1, vl=4)
+#define TW0 V26  // current tweak (M1, vl=4)
 #define TW1 V27  // TW0 * 2 in GF(2^128)
 #define TT0 V28  // doubling scratch
 #define TT1 V29  // doubling scratch
@@ -131,8 +132,9 @@ encPoly:
 	// current tweak
 	VLE32V	(twPtr), TW0
 
-	// element reversal index (loop invariant)
-	VSETIVLI	$8, E32, M2, TA, MA, X0
+	// element reversal index (loop invariant); load under M1 (vl=4) to
+	// avoid reading past the 64-byte table at VLEN >= 512
+	VSETIVLI	$4, E32, M1, TA, MA, X0
 	MOV	$·riscv64ZvksedRev(SB), tmpPtr
 	VLE32V	(tmpPtr), RIDX
 
@@ -146,14 +148,23 @@ encInitGB:
 	MUL2_GB(TW0, TW1)
 encInitDone:
 
+	// Process blocks one at a time under M1 (vl=4, one 16-byte block per
+	// register). The M2 (LMUL=2) 2-block batching used here previously is
+	// only valid at VLEN=128: at VLEN>=256 each M2 group register holds
+	// more than 8 elements, so the second block lands in stale upper
+	// elements that SM4ROUNDS/VREV8V also process, corrupting the output.
+	//
+	// The 2-block threshold ensures at least two full blocks remain when
+	// we enter the loop, so the ciphertext-stealing tail always has a
+	// well-defined predecessor after we fall through to encSingles.
 	MOV	$32, xkPtr
 enc2loop:
 	BLT	srcLen, xkPtr, encSingles
-	SUB	$32, srcLen
+	SUB	$16, srcLen
 
-	VSETIVLI	$8, E32, M2, TA, MA, X0
+	VSETIVLI	$4, E32, M1, TA, MA, X0
 	VLE32V	(srcPtr), BSTATE
-	ADD	$32, srcPtr
+	ADD	$16, srcPtr
 	VXORVV	TW0, BSTATE, BSTATE
 	VREV8V	BSTATE, BSTATE
 	SM4ROUNDS()
@@ -161,19 +172,16 @@ enc2loop:
 	VRGATHERVV	RIDX, BSTATE, BREV
 	VXORVV	TW0, BREV, BREV
 	VSE32V	BREV, (dstPtr)
-	ADD	$32, dstPtr
+	ADD	$16, dstPtr
 
-	// Advance by two blocks:
-	//   before: TW0 = T[n],   TW1 = T[n+1]
-	//   after:  TW0 = T[n+2], TW1 = T[n+3]
+	// Advance by one block: TW0 <- TW1, TW1 <- TW0 * 2
+	VMVVV	TW1, TW0
 	BNE	gbFlag, ZERO, enc2MulGB
 	VSETIVLI	$4, E32, M1, TA, MA, X0
-	MUL2_TW(TW1, TW0)
 	MUL2_TW(TW0, TW1)
 	JMP	enc2MulDone
 enc2MulGB:
 	VSETIVLI	$16, E8, M1, TA, MA, X0
-	MUL2_GB(TW1, TW0)
 	MUL2_GB(TW0, TW1)
 enc2MulDone:
 	JMP	enc2loop
@@ -210,6 +218,9 @@ enc1MulDone:
 	JMP	enc1loop
 
 encTail:
+	// ciphertext stealing: 0 < srcLen < 16; srcLen == 0 falls through from
+	// the singles loop after the last full block and needs no tail work
+	BEQ	srcLen, ZERO, encDone
 	SUB	$16, dstPtr, tmpPtr
 	VSETIVLI	$16, E8, M1, TA, MA, X0
 	VLE8V	(tmpPtr), V0
@@ -269,8 +280,9 @@ decPoly:
 	// current tweak
 	VLE32V	(twPtr), TW0
 
-	// element reversal index (loop invariant)
-	VSETIVLI	$8, E32, M2, TA, MA, X0
+	// element reversal index (loop invariant); load under M1 (vl=4) to
+	// avoid reading past the 64-byte table at VLEN >= 512
+	VSETIVLI	$4, E32, M1, TA, MA, X0
 	MOV	$·riscv64ZvksedRev(SB), tmpPtr
 	VLE32V	(tmpPtr), RIDX
 
@@ -284,14 +296,20 @@ decInitGB:
 	MUL2_GB(TW0, TW1)
 decInitDone:
 
+	// Process blocks one at a time under M1 (vl=4, one 16-byte block per
+	// register). The M2 (LMUL=2) 2-block batching is only valid at
+	// VLEN=128; see the encrypt path for details.
+	//
+	// The 3-block (48-byte) threshold ensures at least two full blocks
+	// remain after the loop, which the ciphertext-stealing tail requires.
 	MOV	$48, xkPtr
 dec2loop:
 	BLT	srcLen, xkPtr, decSingles
-	SUB	$32, srcLen
+	SUB	$16, srcLen
 
-	VSETIVLI	$8, E32, M2, TA, MA, X0
+	VSETIVLI	$4, E32, M1, TA, MA, X0
 	VLE32V	(srcPtr), BSTATE
-	ADD	$32, srcPtr
+	ADD	$16, srcPtr
 	VXORVV	TW0, BSTATE, BSTATE
 	VREV8V	BSTATE, BSTATE
 	SM4ROUNDS()
@@ -299,19 +317,16 @@ dec2loop:
 	VRGATHERVV	RIDX, BSTATE, BREV
 	VXORVV	TW0, BREV, BREV
 	VSE32V	BREV, (dstPtr)
-	ADD	$32, dstPtr
+	ADD	$16, dstPtr
 
-	// Advance by two blocks:
-	//   before: TW0 = T[n],   TW1 = T[n+1]
-	//   after:  TW0 = T[n+2], TW1 = T[n+3]
+	// Advance by one block: TW0 <- TW1, TW1 <- TW0 * 2
+	VMVVV	TW1, TW0
 	BNE	gbFlag, ZERO, dec2MulGB
 	VSETIVLI	$4, E32, M1, TA, MA, X0
-	MUL2_TW(TW1, TW0)
 	MUL2_TW(TW0, TW1)
 	JMP	dec2MulDone
 dec2MulGB:
 	VSETIVLI	$16, E8, M1, TA, MA, X0
-	MUL2_GB(TW1, TW0)
 	MUL2_GB(TW0, TW1)
 dec2MulDone:
 	JMP	dec2loop
