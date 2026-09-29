@@ -73,18 +73,32 @@ DATA polyvalRevIdx<>+8(SB)/4, $1
 DATA polyvalRevIdx<>+12(SB)/4, $0
 GLOBL polyvalRevIdx<>(SB), RODATA, $16
 
+// Shuffle index emulating x86 PSHUFD $78: swap 32-bit words within each 64-bit
+// half.  [a0, a1, a2, a3] → [a1, a0, a3, a2] = indices [1, 0, 3, 2].
+DATA polyvalShuffle78<>+0(SB)/4, $1
+DATA polyvalShuffle78<>+4(SB)/4, $0
+DATA polyvalShuffle78<>+8(SB)/4, $3
+DATA polyvalShuffle78<>+12(SB)/4, $2
+GLOBL polyvalShuffle78<>(SB), RODATA, $16
+
 // ── Reduction macro (Zvbc path) ──────────────────────────────────────────
 
 // reduceRound: one Montgomery-like reduction step for 2×E64 vector a.
-//   swap(a) ^= clmul(a, XPOLY)
+//   T0 = clmul(a_lo, XPOLY); a = pshufd_78(a); a ^= T0
+// Matches amd64: PCLMULQDQ $0x01, a, T0; PSHUFD $78, a, a; PXOR T0, a.
+// PSHUFD $78 swaps 32-bit words within each 64-bit half: [a,b,c,d]→[b,a,d,c].
+// Implemented via E32 VRGATHERVV with T3 pre-loaded as index [1,0,3,2].
+// Uses T1 as temp (VRGATHERVV forbids dst=src overlap).
 // XPOLY must hold 0xc200000000000000 (high-half POLYVAL reduction constant).
-// SWAP_IDX must hold [1, 0] for the E64 half-swap.
 #define reduceRound(a) \
 	VCLMULVX  XPOLY, a, T0; \
 	VCLMULHVX XPOLY, a, ACCMH; \
 	VSLIDEUPVI $1, ACCMH, T0; \
-	VRGATHERVV SWAP_IDX, a, T1; \
-	VXORVV T0, T1, a
+	VSETIVLI $4, E32, M1, TA, MA, X0; \
+	VRGATHERVV T3, a, T1; \
+	VSETIVLI $2, E64, M1, TA, MA, X0; \
+	VMVVV T1, a; \
+	VXORVV T0, a, a
 
 // ── polyvalTableInitAsm ───────────────────────────────────────────────────
 //
@@ -148,13 +162,17 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 	// Switch to E64 for product table computation
 	VSETIVLI $2, E64, M1, TA, MA, X0
 
-	// Setup swap index [1, 0] for E64 half-swap
-	VIDV    SWAP_IDX
-	VRSUBVI $1, SWAP_IDX, SWAP_IDX
+	// Load PSHUFD $78 shuffle index [1,0,3,2] for Karatsuba precomputation
+	MOV $polyvalShuffle78<>(SB), X16
+	VSETIVLI $4, E32, M1, TA, MA, X0
+	VLE32V (X16), T3                // T3 = shuffle index (persistent)
+	VSETIVLI $2, E64, M1, TA, MA, X0
 
-	// Karatsuba pre-computation for H: swap halves and XOR
-	VRGATHERVV SWAP_IDX, V1, V2
-	VXORVV V1, V2, V2             // V2 = H_precomp
+	// Karatsuba pre-computation for H: pshufd $78 (swap 32-bit words) and XOR
+	VSETIVLI $4, E32, M1, TA, MA, X0
+	VRGATHERVV T3, V1, T1
+	VSETIVLI $2, E64, M1, TA, MA, X0
+	VXORVV V1, T1, V2             // V2 = H_precomp
 
 	// Store H^1 precomp at table[240], H^1 value at table[224]
 	ADD    $240, dst, X14
@@ -188,16 +206,29 @@ initLoop:
 		VSLIDEDOWNVI $1, V6, V6
 		VSLIDEUPVI $1, V6, V8      // result = [V5, V8]
 
-		// Fast reduction (2 rounds of swap+XOR, matching amd64 with POLY_lo=1)
-		VRGATHERVV SWAP_IDX, V5, T0
-		VXORVV T0, V5, V5
-		VRGATHERVV SWAP_IDX, V5, T0
+		// Fast reduction (2 rounds of pshufd $78 + XOR, matching amd64 with POLY_lo=1)
+		// T0 = CLMUL(V5_lo, 1) = V5_lo (just a copy of V5_lo in low E64)
+		VSLIDEDOWNVI $1, V5, T0     // T0 = [V5_lo, 0]
+		// V5 = pshufd $78(V5) via E32 shuffle [1,0,3,2] (T3 pre-loaded)
+		VSETIVLI $4, E32, M1, TA, MA, X0
+		VRGATHERVV T3, V5, T1
+		VSETIVLI $2, E64, M1, TA, MA, X0
+		VMVVV T1, V5
+		VXORVV T0, V5, V5            // V5 = pshufd78(V5) XOR V5_lo
+		// Round 2
+		VSLIDEDOWNVI $1, V5, T0
+		VSETIVLI $4, E32, M1, TA, MA, X0
+		VRGATHERVV T3, V5, T1
+		VSETIVLI $2, E64, M1, TA, MA, X0
+		VMVVV T1, V5
 		VXORVV T0, V5, V5
 		VXORVV V5, V8, V3          // V3 = H^(n+1)
 
-		// Karatsuba pre-computation
-		VRGATHERVV SWAP_IDX, V3, V4
-		VXORVV V3, V4, V4          // V4 = H^(n+1)_precomp
+		// Karatsuba pre-computation (pshufd $78 + XOR)
+		VSETIVLI $4, E32, M1, TA, MA, X0
+		VRGATHERVV T3, V3, T1
+		VSETIVLI $2, E64, M1, TA, MA, X0
+		VXORVV V3, T1, V4          // V4 = H^(n+1)_precomp
 
 		// Store precomp, then value
 		SUB    $16, X14, X14
@@ -284,9 +315,11 @@ TEXT ·polyvalBlocksUpdateAsm(SB), NOSPLIT, $0
 
 	BEQZ autLen, zvbcDataDone
 
-	// Setup swap index [1, 0] for E64 half-swap using VIDV
-	VIDV    SWAP_IDX
-	VRSUBVI $1, SWAP_IDX, SWAP_IDX  // SWAP_IDX = [1, 0] as 2×E64
+	// Load PSHUFD $78 shuffle index [1,0,3,2] for Karatsuba precomputation
+	MOV $polyvalShuffle78<>(SB), X16
+	VSETIVLI $4, E32, M1, TA, MA, X0
+	VLE32V (X16), T3                // T3 = shuffle index (persistent)
+	VSETIVLI $2, E64, M1, TA, MA, X0
 
 	MOV gcmSIVPoly<>+0x08(SB), XPOLY
 
@@ -336,9 +369,11 @@ zvbcOctaLoop:
 		ADD $16, pTbl, X14
 		VLE64V (X14), T2
 
-		// Prepare B0 precomp
-		VRGATHERVV SWAP_IDX, B0, T0
-		VXORVV B0, T0, T0
+		// Prepare B0 precomp (pshufd $78 + XOR)
+		VSETIVLI $4, E32, M1, TA, MA, X0
+		VRGATHERVV T3, B0, T0       // T0 = pshufd78(B0), T1/T2 preserved
+		VSETIVLI $2, E64, M1, TA, MA, X0
+		VXORVV B0, T0, T0            // T0 = precomp
 
 		VCLMULVV  B0, T1, ACC0
 		VCLMULHVV B0, T1, ACC1
@@ -350,7 +385,9 @@ zvbcOctaLoop:
 	VLE64V (X14), T1; \
 	ADD $16, X14, X14; \
 	VLE64V (X14), T2; \
-	VRGATHERVV SWAP_IDX, X, T0; \
+	VSETIVLI $4, E32, M1, TA, MA, X0; \
+	VRGATHERVV T3, X, T0; \
+	VSETIVLI $2, E64, M1, TA, MA, X0; \
 	VXORVV X, T0, T0; \
 	VCLMULVV X, T1, T3; \
 	VXORVV T3, ACC0, ACC0; \
@@ -400,9 +437,11 @@ zvbcSinglesLoop:
 		ADD $16, aut
 		VXORVV ACC0, B0, B0
 
-		// Prepare B0 precomp
-		VRGATHERVV SWAP_IDX, B0, T0
-		VXORVV B0, T0, T0
+		// Prepare B0 precomp (pshufd $78 + XOR)
+		VSETIVLI $4, E32, M1, TA, MA, X0
+		VRGATHERVV T3, B0, T0       // T0 = pshufd78(B0), T1/T2 preserved
+		VSETIVLI $2, E64, M1, TA, MA, X0
+		VXORVV B0, T0, T0            // T0 = precomp
 
 		// Karatsuba multiply B0 × H^1
 		VCLMULVV  B0, T1, ACC0
