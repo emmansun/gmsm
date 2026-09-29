@@ -129,7 +129,21 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 	SRAI   $63, X15, X15           // arithmetic broadcast: all-ones if bit 0 was set
 	VLE32V (X12), V3              // V3 = full gcmPoly (all 4 E32 elements)
 	VANDVX X15, V3, V3            // conditional reduction mask
-	VXORVV V2, V3, V1             // V1 = key-transformed H (= H/x in POLYVAL field)
+	VXORVV V2, V3, V1             // V1 = first mulX result (H/x in POLYVAL field)
+
+	// ── Second mulX: V1 * x in reversed representation ──
+	// Matches amd64 lines 116-125: shift left, check bit 127, reduce with 0xc2.
+	MOV    $gcmSIVPoly<>(SB), X12
+	VSRAVI $31, V1, V3             // V3[3] = MSB broadcast (bit 127)
+	VSLIDEDOWNVI $3, V3, V2       // V2[0] = V3[3]
+	VMVXS  V2, X15                 // X15 = mask for bit 127
+	VSLLVI $1, V1, V2              // V2 = V1 << 1 per E32
+	VSRLVI $31, V1, V3             // V3 = carry-out per E32
+	VSLIDE1UPVX ZERO, V3, V4      // propagate carry across E32 boundaries
+	VORVV  V2, V4, V2             // V2 = V1 << 1 with carries
+	VLE32V (X12), V3              // V3 = gcmSIVPoly (full 128-bit)
+	VANDVX X15, V3, V3            // conditional reduction mask
+	VXORVV V2, V3, V1             // V1 = second mulX result
 
 	// Switch to E64 for product table computation
 	VSETIVLI $2, E64, M1, TA, MA, X0
@@ -213,7 +227,20 @@ zvkgInit:
 	SRAI   $63, X15, X15
 	VLE32V (X12), V3
 	VANDVX X15, V3, V3
-	VXORVV V2, V3, V1             // V1 = key-transformed H
+	VXORVV V2, V3, V1             // V1 = first mulX result
+
+	// Second mulX: V1 * x in reversed representation
+	MOV    $gcmSIVPoly<>(SB), X12
+	VSRAVI $31, V1, V3
+	VSLIDEDOWNVI $3, V3, V2
+	VMVXS  V2, X15
+	VSLLVI $1, V1, V2
+	VSRLVI $31, V1, V3
+	VSLIDE1UPVX ZERO, V3, V4
+	VORVV  V2, V4, V2
+	VLE32V (X12), V3
+	VANDVX X15, V3, V3
+	VXORVV V2, V3, V1             // V1 = second mulX result
 
 	// Byte-reverse to GHASH byte order for vghsh.vv
 	MOV    $polyvalRevIdx<>(SB), X16
