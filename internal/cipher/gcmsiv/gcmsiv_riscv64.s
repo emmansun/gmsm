@@ -84,21 +84,16 @@ GLOBL polyvalShuffle78<>(SB), RODATA, $16
 // ── Reduction macro (Zvbc path) ──────────────────────────────────────────
 
 // reduceRound: one Montgomery-like reduction step for 2×E64 vector a.
-//   T0 = clmul(a_lo, XPOLY); a = pshufd_78(a); a ^= T0
-// Matches amd64: PCLMULQDQ $0x01, a, T0; PSHUFD $78, a, a; PXOR T0, a.
-// PSHUFD $78 swaps 32-bit words within each 64-bit half: [a,b,c,d]→[b,a,d,c].
-// Implemented via E32 VRGATHERVV with T3 pre-loaded as index [1,0,3,2].
-// Uses T1 as temp (VRGATHERVV forbids dst=src overlap).
+// Matches GCM reference (gcm_zvksed_riscv64.s): CLMUL + swap + XOR.
+// Swap = [0, a_lo] via VSLIDEDOWNVI + VSLIDEUPVI.
 // XPOLY must hold 0xc200000000000000 (high-half POLYVAL reduction constant).
 #define reduceRound(a) \
 	VCLMULVX  XPOLY, a, T0; \
 	VCLMULHVX XPOLY, a, ACCMH; \
 	VSLIDEUPVI $1, ACCMH, T0; \
-	VSETIVLI $4, E32, M1, TA, MA, X0; \
-	VRGATHERVV T3, a, T1; \
-	VSETIVLI $2, E64, M1, TA, MA, X0; \
-	VMVVV T1, a; \
-	VXORVV T0, a, a
+	VSLIDEDOWNVI $1, a, ACCMH; \
+	VSLIDEUPVI $1, a, ACCMH; \
+	VXORVV T0, ACCMH, a
 
 // ── polyvalTableInitAsm ───────────────────────────────────────────────────
 //
@@ -125,54 +120,50 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 	// Follows internal/sm4/gcm_zvksed_riscv64.s zvbcInit exactly.
 	// ════════════════════════════════════════════════════════════════════
 
-	VSETIVLI $4, E32, M1, TA, MA, X0
-	VLE32V   (hPtr), V4            // V4 = raw 16-byte POLYVAL key (4×E32)
+	VSETIVLI $2, E64, M1, TA, MA, X0
+	VLE64V   (hPtr), V4            // V4 = [lo, hi] (raw 128-bit key as 2×E64)
 
-	// ── Key transform: H / x in POLYVAL field (RFC 8452 §2.3) ──
-	// H_right = H >> 1 (with cross-element carry propagation)
-	// result  = H_right XOR (H[0] ? gcmPoly : 0)
-	// gcmPoly = {0, 0xe1} = x^7+x^2+x+1 at bit 64+ for the reflected representation.
+	// ── First mulX: H/x in POLYVAL field (right shift by 1) ──
+	// With 2×E64: element 0 = low 64 bits, element 1 = high 64 bits.
+	// Carry = bit 0 of element 0 → bit 63 of element 1.
+	VSRLVI $1, V4, V2              // V2 = V4 >> 1 per E64
+	VSLLVI $63, V4, V3             // V3[0] = V4[0] << 63 (bit 0 → bit 63)
+	VSLIDE1UPVX ZERO, V3, V1      // V1[1] = V3[0] (carry → element 1 bit 63)
+	VORVV  V2, V1, V2             // V2 = H >> 1 with carry
+	// Reduce: extract bit 0, broadcast mask, AND with gcmPoly
+	VMVXS  V4, X15                 // X15 = V4[0] (H_lo)
+	ANDI   $1, X15, X15           // X15 = bit 0
+	SLLI   $63, X15, X15          // move to bit 63
+	SRAI   $63, X15, X15          // broadcast: all-ones if bit 0 set
 	MOV    $gcmPoly<>(SB), X12
-	VSRLVI $1, V4, V2              // V2 = V4 >> 1 per E32
-	VSLLVI $31, V4, V3             // V3 = underflow-out per E32 (bit 0 → bit 31)
-	VSLIDE1UPVX ZERO, V3, V1       // propagate underflow across E32 boundaries
-	VORVV  V2, V1, V2             // V2 = H >> 1 with carries
-	// Extract bit 0 of H (element 0, bit 0) and broadcast as mask
-	VMVXS  V4, X15                 // X15 = V4[0]
-	SLLI   $63, X15, X15           // move bit 0 to bit 63
-	SRAI   $63, X15, X15           // arithmetic broadcast: all-ones if bit 0 was set
-	VLE32V (X12), V3              // V3 = full gcmPoly (all 4 E32 elements)
-	VANDVX X15, V3, V3            // conditional reduction mask
-	VXORVV V2, V3, V1             // V1 = first mulX result (H/x in POLYVAL field)
+	VLE64V (X12), V3              // V3 = gcmPoly = {0, 0xe1...}
+	VANDVX X15, V3, V3            // conditional mask
+	VXORVV V2, V3, V1             // V1 = first mulX result
 
-	// ── Second mulX: V1 * x in reversed representation ──
-	// Matches amd64 lines 116-125: shift left, check bit 127, reduce with 0xc2.
+	// ── Second mulX: ×x in reversed representation (left shift by 1) ──
+	// Carry = bit 63 of element 1 → bit 0 of element 0.
+	VSRAVI $63, V1, V3             // V3[1] = MSB broadcast of V1[1]
+	VSLIDEDOWNVI $1, V3, V3       // V3[0] = V3[1]
+	VMVXS  V3, X15                 // X15 = mask for bit 127
+	VSLLVI $1, V1, V2              // V2 = V1 << 1 per E64
+	VSRLVI $63, V1, V3             // V3[1] = V1[1] >> 63 (carry at bit 0)
+	VSLIDE1UPVX ZERO, V3, V4      // V4[0] = V3[1] (carry → element 0)
+	VORVV  V2, V4, V2             // V2 = V1 << 1 with carry
 	MOV    $gcmSIVPoly<>(SB), X12
-	VSRAVI $31, V1, V3             // V3[3] = MSB broadcast (bit 127)
-	VSLIDEDOWNVI $3, V3, V2       // V2[0] = V3[3]
-	VMVXS  V2, X15                 // X15 = mask for bit 127
-	VSLLVI $1, V1, V2              // V2 = V1 << 1 per E32
-	VSRLVI $31, V1, V3             // V3 = carry-out per E32
-	VSLIDE1UPVX ZERO, V3, V4      // propagate carry across E32 boundaries
-	VORVV  V2, V4, V2             // V2 = V1 << 1 with carries
-	VLE32V (X12), V3              // V3 = gcmSIVPoly (full 128-bit)
-	VANDVX X15, V3, V3            // conditional reduction mask
+	VLE64V (X12), V3              // V3 = gcmSIVPoly = {1, 0xc2...}
+	VANDVX X15, V3, V3            // conditional mask
 	VXORVV V2, V3, V1             // V1 = second mulX result
 
 	// Switch to E64 for product table computation
 	VSETIVLI $2, E64, M1, TA, MA, X0
 
-	// Load PSHUFD $78 shuffle index [1,0,3,2] for Karatsuba precomputation
-	MOV $polyvalShuffle78<>(SB), X16
-	VSETIVLI $4, E32, M1, TA, MA, X0
-	VLE32V (X16), T3                // T3 = shuffle index (persistent)
-	VSETIVLI $2, E64, M1, TA, MA, X0
+	// Setup swap index [1, 0] for E64 half-swap (same as GCM reference)
+	VIDV    V10
+	VRSUBVI $1, V10, V10           // V10 = [1, 0]
 
-	// Karatsuba pre-computation for H: pshufd $78 (swap 32-bit words) and XOR
-	VSETIVLI $4, E32, M1, TA, MA, X0
-	VRGATHERVV T3, V1, T1
-	VSETIVLI $2, E64, M1, TA, MA, X0
-	VXORVV V1, T1, V2             // V2 = H_precomp
+	// Karatsuba pre-computation for H: swap halves and XOR
+	VRGATHERVV V10, V1, V2
+	VXORVV V1, V2, V2             // V2 = H_precomp
 
 	// Store H^1 precomp at table[240], H^1 value at table[224]
 	ADD    $240, dst, X14
@@ -180,9 +171,8 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 	SUB    $16, X14, X14
 	VSE64V V1, (X14)               // table[224] = H^1
 
-	// Load reduction constant — NOT needed for init loop (amd64 uses POLY_lo=1
-	// which makes reduceRound a simple swap+XOR).  XPOLY is loaded later for
-	// the data path.
+	// Load reduction constant for init loop (same as GCM: XPOLY = gcmPoly_hi = 0xc2)
+	MOV gcmSIVPoly<>+0x08(SB), XPOLY
 	VMVVV  V1, V3                  // V3 = current H^n (starts at H^1)
 	VMVVV  V2, V4                  // V4 = current precomp
 
@@ -206,29 +196,24 @@ initLoop:
 		VSLIDEDOWNVI $1, V6, V6
 		VSLIDEUPVI $1, V6, V8      // result = [V5, V8]
 
-		// Fast reduction (2 rounds of pshufd $78 + XOR, matching amd64 with POLY_lo=1)
-		// T0 = CLMUL(V5_lo, 1) = V5_lo (just a copy of V5_lo in low E64)
-		VSLIDEDOWNVI $1, V5, T0     // T0 = [V5_lo, 0]
-		// V5 = pshufd $78(V5) via E32 shuffle [1,0,3,2] (T3 pre-loaded)
-		VSETIVLI $4, E32, M1, TA, MA, X0
-		VRGATHERVV T3, V5, T1
-		VSETIVLI $2, E64, M1, TA, MA, X0
-		VMVVV T1, V5
-		VXORVV T0, V5, V5            // V5 = pshufd78(V5) XOR V5_lo
-		// Round 2
-		VSLIDEDOWNVI $1, V5, T0
-		VSETIVLI $4, E32, M1, TA, MA, X0
-		VRGATHERVV T3, V5, T1
-		VSETIVLI $2, E64, M1, TA, MA, X0
-		VMVVV T1, V5
-		VXORVV T0, V5, V5
+		// Fast reduction (2 rounds, matching GCM reference exactly)
+		// 1st reduction
+		VCLMULVX XPOLY, V5, V3
+		VCLMULHVX XPOLY, V5, V4
+		VSLIDEUPVI $1, V4, V3
+		VRGATHERVV V10, V5, V4
+		VXORVV V3, V4, V5
+		// 2nd reduction
+		VCLMULVX XPOLY, V5, V3
+		VCLMULHVX XPOLY, V5, V4
+		VSLIDEUPVI $1, V4, V3
+		VRGATHERVV V10, V5, V4
+		VXORVV V3, V4, V5
 		VXORVV V5, V8, V3          // V3 = H^(n+1)
 
-		// Karatsuba pre-computation (pshufd $78 + XOR)
-		VSETIVLI $4, E32, M1, TA, MA, X0
-		VRGATHERVV T3, V3, T1
-		VSETIVLI $2, E64, M1, TA, MA, X0
-		VXORVV V3, T1, V4          // V4 = H^(n+1)_precomp
+		// Karatsuba pre-computation (swap halves + XOR)
+		VRGATHERVV V10, V3, V4
+		VXORVV V3, V4, V4          // V4 = H^(n+1)_precomp
 
 		// Store precomp, then value
 		SUB    $16, X14, X14
@@ -244,37 +229,40 @@ initLoop:
 	// Zvkg path: store byte-reversed, key-transformed H
 	// ════════════════════════════════════════════════════════════════════
 zvkgInit:
-	VSETIVLI $4, E32, M1, TA, MA, X0
-	VLE32V   (hPtr), V4
+	// Key transform in E64 vector (same as Zvbc path)
+	VSETIVLI $2, E64, M1, TA, MA, X0
+	VLE64V   (hPtr), V4
 
-	// Key transform: H / x in POLYVAL field (same as Zvbc path)
-	MOV    $gcmPoly<>(SB), X12
+	// First mulX: H/x (right shift by 1)
 	VSRLVI $1, V4, V2
-	VSLLVI $31, V4, V3
+	VSLLVI $63, V4, V3
 	VSLIDE1UPVX ZERO, V3, V1
 	VORVV  V2, V1, V2
 	VMVXS  V4, X15
+	ANDI   $1, X15, X15
 	SLLI   $63, X15, X15
 	SRAI   $63, X15, X15
-	VLE32V (X12), V3
+	MOV    $gcmPoly<>(SB), X12
+	VLE64V (X12), V3
 	VANDVX X15, V3, V3
-	VXORVV V2, V3, V1             // V1 = first mulX result
+	VXORVV V2, V3, V1             // V1 = first mulX
 
-	// Second mulX: V1 * x in reversed representation
-	MOV    $gcmSIVPoly<>(SB), X12
-	VSRAVI $31, V1, V3
-	VSLIDEDOWNVI $3, V3, V2
-	VMVXS  V2, X15
+	// Second mulX: ×x (left shift by 1)
+	VSRAVI $63, V1, V3
+	VSLIDEDOWNVI $1, V3, V3
+	VMVXS  V3, X15
 	VSLLVI $1, V1, V2
-	VSRLVI $31, V1, V3
+	VSRLVI $63, V1, V3
 	VSLIDE1UPVX ZERO, V3, V4
 	VORVV  V2, V4, V2
-	VLE32V (X12), V3
+	MOV    $gcmSIVPoly<>(SB), X12
+	VLE64V (X12), V3
 	VANDVX X15, V3, V3
-	VXORVV V2, V3, V1             // V1 = second mulX result
+	VXORVV V2, V3, V1             // V1 = second mulX
 
-	// Byte-reverse to GHASH byte order for vghsh.vv
+	// Byte-reverse for vghsh.vv (GHASH byte order)
 	MOV    $polyvalRevIdx<>(SB), X16
+	VSETIVLI $4, E32, M1, TA, MA, X0
 	VLE32V (X16), V24
 	VREV8V V1, V1
 	VRGATHERVV V24, V1, V2
@@ -315,11 +303,9 @@ TEXT ·polyvalBlocksUpdateAsm(SB), NOSPLIT, $0
 
 	BEQZ autLen, zvbcDataDone
 
-	// Load PSHUFD $78 shuffle index [1,0,3,2] for Karatsuba precomputation
-	MOV $polyvalShuffle78<>(SB), X16
-	VSETIVLI $4, E32, M1, TA, MA, X0
-	VLE32V (X16), T3                // T3 = shuffle index (persistent)
-	VSETIVLI $2, E64, M1, TA, MA, X0
+	// Setup swap index [1, 0] for E64 half-swap (same as GCM reference)
+	VIDV    SWAP_IDX
+	VRSUBVI $1, SWAP_IDX, SWAP_IDX // SWAP_IDX = [1, 0]
 
 	MOV gcmSIVPoly<>+0x08(SB), XPOLY
 
@@ -369,10 +355,8 @@ zvbcOctaLoop:
 		ADD $16, pTbl, X14
 		VLE64V (X14), T2
 
-		// Prepare B0 precomp (pshufd $78 + XOR)
-		VSETIVLI $4, E32, M1, TA, MA, X0
-		VRGATHERVV T3, B0, T0       // T0 = pshufd78(B0), T1/T2 preserved
-		VSETIVLI $2, E64, M1, TA, MA, X0
+		// Prepare B0 precomp (swap halves + XOR)
+		VRGATHERVV SWAP_IDX, B0, T0
 		VXORVV B0, T0, T0            // T0 = precomp
 
 		VCLMULVV  B0, T1, ACC0
@@ -385,9 +369,7 @@ zvbcOctaLoop:
 	VLE64V (X14), T1; \
 	ADD $16, X14, X14; \
 	VLE64V (X14), T2; \
-	VSETIVLI $4, E32, M1, TA, MA, X0; \
-	VRGATHERVV T3, X, T0; \
-	VSETIVLI $2, E64, M1, TA, MA, X0; \
+	VRGATHERVV SWAP_IDX, X, T0; \
 	VXORVV X, T0, T0; \
 	VCLMULVV X, T1, T3; \
 	VXORVV T3, ACC0, ACC0; \
@@ -437,10 +419,8 @@ zvbcSinglesLoop:
 		ADD $16, aut
 		VXORVV ACC0, B0, B0
 
-		// Prepare B0 precomp (pshufd $78 + XOR)
-		VSETIVLI $4, E32, M1, TA, MA, X0
-		VRGATHERVV T3, B0, T0       // T0 = pshufd78(B0), T1/T2 preserved
-		VSETIVLI $2, E64, M1, TA, MA, X0
+		// Prepare B0 precomp (swap halves + XOR)
+		VRGATHERVV SWAP_IDX, B0, T0
 		VXORVV B0, T0, T0            // T0 = precomp
 
 		// Karatsuba multiply B0 × H^1
