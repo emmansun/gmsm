@@ -210,7 +210,9 @@ enc1MulDone:
 	JMP	enc1loop
 
 encTail:
-	// ciphertext stealing: 0 < srcLen < 16
+	// ciphertext stealing: 0 < srcLen < 16; srcLen == 0 falls through from
+	// the singles loop after the last full block and needs no tail work
+	BEQ	srcLen, ZERO, encDone
 	SUB	$16, dstPtr, tmpPtr
 	VSETIVLI	$16, E8, M1, TA, MA, X0
 	VLE8V	(tmpPtr), V0
