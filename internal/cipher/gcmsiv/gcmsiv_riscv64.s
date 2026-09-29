@@ -148,8 +148,9 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 	SUB    $16, X14, X14
 	VSE64V V1, (X14)               // table[224] = H^1
 
-	// Load reduction constant (high half only)
-	MOV    gcmSIVPoly<>+0x08(SB), XPOLY
+	// Load reduction constant — NOT needed for init loop (amd64 uses POLY_lo=1
+	// which makes reduceRound a simple swap+XOR).  XPOLY is loaded later for
+	// the data path.
 	VMVVV  V1, V3                  // V3 = current H^n (starts at H^1)
 	VMVVV  V2, V4                  // V4 = current precomp
 
@@ -173,9 +174,11 @@ initLoop:
 		VSLIDEDOWNVI $1, V6, V6
 		VSLIDEUPVI $1, V6, V8      // result = [V5, V8]
 
-		// Fast reduction (2 rounds)
-		reduceRound(V5)
-		reduceRound(V5)
+		// Fast reduction (2 rounds of swap+XOR, matching amd64 with POLY_lo=1)
+		VRGATHERVV SWAP_IDX, V5, T0
+		VXORVV T0, V5, V5
+		VRGATHERVV SWAP_IDX, V5, T0
+		VXORVV T0, V5, V5
 		VXORVV V5, V8, V3          // V3 = H^(n+1)
 
 		// Karatsuba pre-computation
