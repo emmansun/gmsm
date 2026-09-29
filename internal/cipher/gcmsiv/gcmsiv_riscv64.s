@@ -117,9 +117,8 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 	VSLIDE1UPVX ZERO, V3, V4        // carry from byte N → byte N+1 bit 7
 	VSRLVI $1, V1, V2               // V2 = V1 >> 1 per byte
 	VORVV  V2, V4, V2               // V2 = H >> 1 with carry
-	// Reduction: if bit 0 of byte 0 is set, XOR ghashPoly = {0, 0xe1} at byte 8.
-	// Extract from V1 (original), then VSRAVI broadcast (same pattern as XTS mul2 GB).
-	VMVXS  V1, X15                  // X15 = V1[0] (original byte 0)
+	// Reduction: check bit 0 of SHIFTED byte 0 (matches amd64 PSRLQ + PSHUFD).
+	VMVXS  V2, X15                  // X15 = V2[0] (shifted byte 0)
 	ANDI   $1, X15, X15             // bit 0 → 0 or 1
 	VMVSX  X15, V5                  // V5[all] = 0 or 1
 	VSRAVI $7, V5, V5               // broadcast: all-ones or all-zeros per byte
@@ -130,14 +129,13 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 	// ── Second mulX: ×x in reversed representation (left shift by 1) ──
 	// Same pattern as XTS mul2 (E8 mode).
 	// Carry: bit 7 of each byte → bit 0 of next byte.
+	// Reduction: check MSB of SHIFTED byte 15 (matches amd64 PSHUFD $0xff + PSRAL).
+	VSLLVI $1, V1, V2               // V2 = V1 << 1 per byte (shifted value)
+	VSLIDEDOWNVI $15, V2, V5        // V5[0] = V2[15] (shifted byte 15)
+	VSRAVI $7, V5, V5               // broadcast MSB to all bits per byte
 	VSRLVI $7, V1, V3               // V3[N] = V1[N] >> 7 → bit 7 at bit 0
 	VSLIDE1UPVX ZERO, V3, V4        // carry from byte N → byte N+1 bit 0
-	VSLLVI $1, V1, V2               // V2 = V1 << 1 per byte
 	VORVV  V2, V4, V2               // V2 = V1 << 1 with carry
-	// Reduction: if bit 7 of ORIGINAL byte 15 was set, XOR gcmSIVPoly.
-	// Extract from V1 (pre-shift), VSRAVI broadcast (same pattern as XTS mul2 GB).
-	VSLIDEDOWNVI $15, V1, V5        // V5[0] = original V1[15]
-	VSRAVI $7, V5, V5               // broadcast bit 7 to all bits per byte
 	MOV    $0xe1, X15
 	VANDVX X15, V5, V5              // V5 = broadcast mask (0xff or 0x00 per byte)
 	MOV    $gcmSIVPoly<>(SB), X12
@@ -229,8 +227,8 @@ zvkgInit:
 	VSLIDE1UPVX ZERO, V3, V4
 	VSRLVI $1, V1, V2
 	VORVV  V2, V4, V2
-	// First mulX reduction: extract bit 0 of ORIGINAL byte 0
-	VMVXS  V1, X15
+	// First mulX reduction: check bit 0 of SHIFTED byte 0 (matches amd64)
+	VMVXS  V2, X15
 	ANDI   $1, X15, X15
 	VMVSX  X15, V5
 	VSRAVI $7, V5, V5
@@ -239,13 +237,13 @@ zvkgInit:
 	VXORVV V2, V5, V1
 
 	// Second mulX: ×x (left shift by 1, XTS mul2 pattern)
+	// Reduction: check MSB of SHIFTED byte 15 (matches amd64)
+	VSLLVI $1, V1, V2
+	VSLIDEDOWNVI $15, V2, V5
+	VSRAVI $7, V5, V5
 	VSRLVI $7, V1, V3
 	VSLIDE1UPVX ZERO, V3, V4
-	VSLLVI $1, V1, V2
 	VORVV  V2, V4, V2
-	// Second mulX reduction: extract bit 7 of ORIGINAL byte 15
-	VSLIDEDOWNVI $15, V1, V5
-	VSRAVI $7, V5, V5
 	MOV    $0xe1, X15
 	VANDVX X15, V5, V5
 	MOV    $gcmSIVPoly<>(SB), X12
