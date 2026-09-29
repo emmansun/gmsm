@@ -46,8 +46,8 @@
 #define t0 X18
 #define t1 X19
 
-#define BSTATE V4  // block state (M1, vl=4 throughout)
-#define BREV   V6  // word-reversed copy (M1, vl=4 throughout)
+#define BSTATE V4  // block state; E32/M1, vl=4 during SM4 processing
+#define BREV   V6  // external-order block; also viewed as E8 in CTS handling
 #define K0 V8
 #define K1 V9
 #define K2 V10
@@ -57,8 +57,8 @@
 #define K6 V14
 #define K7 V15
 #define RIDX V24 // reversal index [3,2,1,0] in elements 0-3 (M1, vl=4)
-#define TW0 V26  // current tweak (M1, vl=4)
-#define TW1 V27  // TW0 * 2 in GF(2^128)
+#define TW0 V26  // current tweak; E32/M1 normally, E8/M1 for GB doubling
+#define TW1 V27  // next tweak; E32/M1 normally, E8/M1 for GB doubling
 #define TT0 V28  // doubling scratch
 #define TT1 V29  // doubling scratch
 
@@ -133,13 +133,11 @@ encPoly:
 	VLE32V	(twPtr), TW0
 
 	// reversal index; load only the four indices for the M1 block path
-	VSETIVLI	$4, E32, M1, TA, MA, X0
 	MOV	$·riscv64ZvksedRev(SB), tmpPtr
 	VLE32V	(tmpPtr), RIDX
 
 	// TW1 = TW0 * 2, needed by the first main loop pass
 	BNE	gbFlag, ZERO, encInitGB
-	VSETIVLI	$4, E32, M1, TA, MA, X0
 	MUL2_TW(TW0, TW1)
 	JMP	encInitDone
 encInitGB:
@@ -155,10 +153,9 @@ encInitDone:
 	// reside in V26 itself, and the M1 value in V27 is not the second
 	// element group of the M2 operand.
 	//
-	// Threshold: 48 bytes (3 blocks). Each iteration consumes 32 bytes
-	// and must leave >= 16 bytes for encSingles so that the CTS tail
-	// always has a predecessor.
-	MOV	$48, xkPtr
+	// Process two complete blocks whenever available. If 1..15 bytes
+	// remain, encTail steals from the second block just written.
+	MOV	$32, xkPtr
 enc2loop:
 	BLT	srcLen, xkPtr, encSingles
 	SUB	$32, srcLen
@@ -168,12 +165,12 @@ enc2loop:
 	// Block n with TW0
 	VLE32V	(srcPtr), BSTATE
 	ADD	$16, srcPtr
-	VXORVV	TW0, BSTATE, BSTATE
-	VREV8V	BSTATE, BSTATE
+	VXORVV	TW0, BSTATE, BSTATE	// XOR in external byte order
+	VREV8V	BSTATE, BSTATE	// convert input^tweak to SM4 word order
 	SM4ROUNDS()
-	VREV8V	BSTATE, BSTATE
+	VREV8V	BSTATE, BSTATE	// back to external byte order
 	VRGATHERVV	RIDX, BSTATE, BREV
-	VXORVV	TW0, BREV, BREV
+	VXORVV	TW0, BREV, BREV	// post-cipher XTS XOR
 	VSE32V	BREV, (dstPtr)
 	ADD	$16, dstPtr
 
@@ -190,12 +187,12 @@ enc2Mul0Done:
 	// Block n+1 with TW1
 	VLE32V	(srcPtr), BSTATE
 	ADD	$16, srcPtr
-	VXORVV	TW1, BSTATE, BSTATE
-	VREV8V	BSTATE, BSTATE
+	VXORVV	TW1, BSTATE, BSTATE	// XOR in external byte order
+	VREV8V	BSTATE, BSTATE	// convert input^tweak to SM4 word order
 	SM4ROUNDS()
-	VREV8V	BSTATE, BSTATE
+	VREV8V	BSTATE, BSTATE	// back to external byte order
 	VRGATHERVV	RIDX, BSTATE, BREV
-	VXORVV	TW1, BREV, BREV
+	VXORVV	TW1, BREV, BREV	// post-cipher XTS XOR
 	VSE32V	BREV, (dstPtr)
 	ADD	$16, dstPtr
 
@@ -220,12 +217,12 @@ enc1loop:
 	VSETIVLI	$4, E32, M1, TA, MA, X0
 	VLE32V	(srcPtr), BSTATE
 	ADD	$16, srcPtr
-	VXORVV	TW0, BSTATE, BSTATE
-	VREV8V	BSTATE, BSTATE
+	VXORVV	TW0, BSTATE, BSTATE	// XOR in external byte order
+	VREV8V	BSTATE, BSTATE	// convert input^tweak to SM4 word order
 	SM4ROUNDS()
-	VREV8V	BSTATE, BSTATE
+	VREV8V	BSTATE, BSTATE	// back to external byte order
 	VRGATHERVV	RIDX, BSTATE, BREV
-	VXORVV	TW0, BREV, BREV
+	VXORVV	TW0, BREV, BREV	// post-cipher XTS XOR
 	VSE32V	BREV, (dstPtr)
 	ADD	$16, dstPtr
 
@@ -255,12 +252,12 @@ encTail:
 
 	VSETIVLI	$4, E32, M1, TA, MA, X0
 	VLE32V	(tmpPtr), BSTATE
-	VXORVV	TW0, BSTATE, BSTATE
-	VREV8V	BSTATE, BSTATE
+	VXORVV	TW0, BSTATE, BSTATE	// XOR in external byte order
+	VREV8V	BSTATE, BSTATE	// convert input^tweak to SM4 word order
 	SM4ROUNDS()
-	VREV8V	BSTATE, BSTATE
+	VREV8V	BSTATE, BSTATE	// back to external byte order
 	VRGATHERVV	RIDX, BSTATE, BREV
-	VXORVV	TW0, BREV, BREV
+	VXORVV	TW0, BREV, BREV	// post-cipher XTS XOR
 	VSE32V	BREV, (tmpPtr)
 
 encDone:
@@ -305,13 +302,11 @@ decPoly:
 	VLE32V	(twPtr), TW0
 
 	// reversal index; load only the four indices for the M1 block path
-	VSETIVLI	$4, E32, M1, TA, MA, X0
 	MOV	$·riscv64ZvksedRev(SB), tmpPtr
 	VLE32V	(tmpPtr), RIDX
 
 	// TW1 = TW0 * 2, needed by the first main loop pass
 	BNE	gbFlag, ZERO, decInitGB
-	VSETIVLI	$4, E32, M1, TA, MA, X0
 	MUL2_TW(TW0, TW1)
 	JMP	decInitDone
 decInitGB:
@@ -322,9 +317,9 @@ decInitDone:
 	// M1 dual-block unroll with TW0/TW1 ping-pong; see the encrypt
 	// path for the M2 rationale.
 	//
-	// Threshold: 48 bytes (3 blocks). After consuming 32 bytes, at
-	// least 16 bytes remain for decSingles, ensuring the CTS tail
-	// always has two predecessors available.
+	// Threshold: 48 bytes. The dual-block loop must leave at least one
+	// full block so the final 16+t bytes stay together as the CTS pair
+	// instead of decrypting the first CTS block as a normal block.
 	MOV	$48, xkPtr
 dec2loop:
 	BLT	srcLen, xkPtr, decSingles
@@ -335,12 +330,12 @@ dec2loop:
 	// Block n with TW0
 	VLE32V	(srcPtr), BSTATE
 	ADD	$16, srcPtr
-	VXORVV	TW0, BSTATE, BSTATE
-	VREV8V	BSTATE, BSTATE
+	VXORVV	TW0, BSTATE, BSTATE	// XOR in external byte order
+	VREV8V	BSTATE, BSTATE	// convert input^tweak to SM4 word order
 	SM4ROUNDS()
-	VREV8V	BSTATE, BSTATE
+	VREV8V	BSTATE, BSTATE	// back to external byte order
 	VRGATHERVV	RIDX, BSTATE, BREV
-	VXORVV	TW0, BREV, BREV
+	VXORVV	TW0, BREV, BREV	// post-cipher XTS XOR
 	VSE32V	BREV, (dstPtr)
 	ADD	$16, dstPtr
 
@@ -357,12 +352,12 @@ dec2Mul0Done:
 	// Block n+1 with TW1
 	VLE32V	(srcPtr), BSTATE
 	ADD	$16, srcPtr
-	VXORVV	TW1, BSTATE, BSTATE
-	VREV8V	BSTATE, BSTATE
+	VXORVV	TW1, BSTATE, BSTATE	// XOR in external byte order
+	VREV8V	BSTATE, BSTATE	// convert input^tweak to SM4 word order
 	SM4ROUNDS()
-	VREV8V	BSTATE, BSTATE
+	VREV8V	BSTATE, BSTATE	// back to external byte order
 	VRGATHERVV	RIDX, BSTATE, BREV
-	VXORVV	TW1, BREV, BREV
+	VXORVV	TW1, BREV, BREV	// post-cipher XTS XOR
 	VSE32V	BREV, (dstPtr)
 	ADD	$16, dstPtr
 
@@ -377,8 +372,9 @@ dec2Mul1Done:
 	JMP	dec2loop
 
 decSingles:
-	// one full block at a time while at least two blocks remain, so the
-	// leftover is always 16 or 16 + t bytes for the tail paths below
+	// Process ordinary blocks one at a time while at least 32 bytes
+	// remain. This leaves exactly 16 bytes for decLast or 17..31 bytes
+	// for decCTS.
 	MOV	$32, xkPtr
 dec1loop:
 	BLT	srcLen, xkPtr, decTailSel
@@ -387,12 +383,12 @@ dec1loop:
 	VSETIVLI	$4, E32, M1, TA, MA, X0
 	VLE32V	(srcPtr), BSTATE
 	ADD	$16, srcPtr
-	VXORVV	TW0, BSTATE, BSTATE
-	VREV8V	BSTATE, BSTATE
+	VXORVV	TW0, BSTATE, BSTATE	// XOR in external byte order
+	VREV8V	BSTATE, BSTATE	// convert input^tweak to SM4 word order
 	SM4ROUNDS()
-	VREV8V	BSTATE, BSTATE
+	VREV8V	BSTATE, BSTATE	// back to external byte order
 	VRGATHERVV	RIDX, BSTATE, BREV
-	VXORVV	TW0, BREV, BREV
+	VXORVV	TW0, BREV, BREV	// post-cipher XTS XOR
 	VSE32V	BREV, (dstPtr)
 	ADD	$16, dstPtr
 
@@ -418,12 +414,12 @@ decLast:
 	// exactly one full block left; decrypt it with TW0
 	VSETIVLI	$4, E32, M1, TA, MA, X0
 	VLE32V	(srcPtr), BSTATE
-	VXORVV	TW0, BSTATE, BSTATE
-	VREV8V	BSTATE, BSTATE
+	VXORVV	TW0, BSTATE, BSTATE	// XOR in external byte order
+	VREV8V	BSTATE, BSTATE	// convert input^tweak to SM4 word order
 	SM4ROUNDS()
-	VREV8V	BSTATE, BSTATE
+	VREV8V	BSTATE, BSTATE	// back to external byte order
 	VRGATHERVV	RIDX, BSTATE, BREV
-	VXORVV	TW0, BREV, BREV
+	VXORVV	TW0, BREV, BREV	// post-cipher XTS XOR
 	VSE32V	BREV, (dstPtr)
 
 	// advance the tweak; TW1 already holds TW0 * 2
@@ -435,8 +431,8 @@ decCTS:
 	// 1. Decrypt the stolen block (the first 16 bytes) with TW1.
 	VSETIVLI	$4, E32, M1, TA, MA, X0
 	VLE32V	(srcPtr), BSTATE
-	VXORVV	TW1, BSTATE, BSTATE
-	VREV8V	BSTATE, BSTATE
+	VXORVV	TW1, BSTATE, BSTATE	// XOR in external byte order
+	VREV8V	BSTATE, BSTATE	// convert input^tweak to SM4 word order
 	SM4ROUNDS()
 	VREV8V	BSTATE, BSTATE
 	ADD	$16, srcPtr
@@ -460,12 +456,12 @@ decCTS:
 	// 3. Decrypt the rebuilt block in place with TW0.
 	VSETIVLI	$4, E32, M1, TA, MA, X0
 	VLE32V	(dstPtr), BSTATE
-	VXORVV	TW0, BSTATE, BSTATE
-	VREV8V	BSTATE, BSTATE
+	VXORVV	TW0, BSTATE, BSTATE	// XOR in external byte order
+	VREV8V	BSTATE, BSTATE	// convert input^tweak to SM4 word order
 	SM4ROUNDS()
-	VREV8V	BSTATE, BSTATE
+	VREV8V	BSTATE, BSTATE	// back to external byte order
 	VRGATHERVV	RIDX, BSTATE, BREV
-	VXORVV	TW0, BREV, BREV
+	VXORVV	TW0, BREV, BREV	// post-cipher XTS XOR
 	VSE32V	BREV, (dstPtr)
 
 decDone:
