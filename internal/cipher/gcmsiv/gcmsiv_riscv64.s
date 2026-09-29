@@ -118,14 +118,16 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 	VSLIDE1UPVX ZERO, V3, V4        // carry from byte N → byte N+1 bit 7
 	VSRLVI $1, V1, V2               // V2 = V1 >> 1 per byte
 	VORVV  V2, V4, V2               // V2 = H >> 1 with carry
-	// Reduction: if bit 0 of shifted result is set, XOR 0xe1 into byte 15.
-	VANDVI $1, V2, V5               // V5[N] = V2[N] & 1 (bit 0 of each byte)
-	VSLIDE1UPVX ZERO, V5, V5        // byte N → byte N+1; byte 0 = 0
-	VSLIDEDOWNVI $1, V5, V5         // byte N → byte N-1; byte 15 = old byte 0
-	VSRAVI $7, V5, V5               // broadcast bit 0 to all bits
+	// Reduction: if bit 0 of byte 0 is set, XOR 0xe1 into byte 15.
+	// Extract bit 0 to scalar (POLYVAL reduces at byte 15, unlike XTS at byte 0).
+	VMVXS  V2, X15                  // X15 = V2[0]
+	ANDI   $1, X15, X15             // bit 0
+	SLLI   $63, X15, X15
+	SRAI   $63, X15, X15            // broadcast: all-ones or 0
 	MOV    $0xe1, X11
-	VANDVX X11, V5, V5              // only byte 15 can be 0xe1
-	VXORVV V2, V5, V1               // V1 = first mulX result
+	AND    X15, X11, X11            // conditional: 0xe1 or 0
+	VMVSX  X11, V5                  // V5[all bytes] = 0xe1 or 0x00
+	VXORVV V2, V5, V1               // XOR all bytes; only byte 15 matters
 
 	// ── Second mulX: ×x in reversed representation (left shift by 1) ──
 	// Same pattern as XTS mul2 (E8 mode).
@@ -135,8 +137,12 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 	VSLLVI $1, V1, V2               // V2 = V1 << 1 per byte
 	VORVV  V2, V4, V2               // V2 = V1 << 1 with carry
 	// Reduction: if bit 7 of byte 15 was set, XOR gcmSIVPoly = {0x01, 0xc2...}.
+	// Same as XTS mul2: VSLIDEDOWNVI $15 extracts carry from last byte.
 	VSLIDEDOWNVI $15, V3, V5        // V5[0] = carry from byte 15
-	VSRAVI $7, V5, V5               // broadcast MSB
+	VMVXS  V5, X15                  // extract to scalar
+	ANDI   $1, X15, X15             // isolate bit
+	SLLI   $63, X15, X15
+	SRAI   $63, X15, X15            // broadcast
 	MOV    $gcmSIVPoly<>(SB), X12
 	VLE8V  (X12), V3               // V3 = [0x01, 0, ..., 0xc2, 0, ...]
 	VANDVX X15, V3, V3              // conditional polynomial
@@ -226,12 +232,13 @@ zvkgInit:
 	VSLIDE1UPVX ZERO, V3, V4
 	VSRLVI $1, V1, V2
 	VORVV  V2, V4, V2
-	VANDVI $1, V2, V5
-	VSLIDE1UPVX ZERO, V5, V5
-	VSLIDEDOWNVI $1, V5, V5
-	VSRAVI $7, V5, V5
+	VMVXS  V2, X15
+	ANDI   $1, X15, X15
+	SLLI   $63, X15, X15
+	SRAI   $63, X15, X15
 	MOV    $0xe1, X11
-	VANDVX X11, V5, V5
+	AND    X15, X11, X11
+	VMVSX  X11, V5
 	VXORVV V2, V5, V1
 
 	// Second mulX: ×x (left shift by 1, XTS mul2 pattern)
@@ -240,7 +247,10 @@ zvkgInit:
 	VSLLVI $1, V1, V2
 	VORVV  V2, V4, V2
 	VSLIDEDOWNVI $15, V3, V5
-	VSRAVI $7, V5, V5
+	VMVXS  V5, X15
+	ANDI   $1, X15, X15
+	SLLI   $63, X15, X15
+	SRAI   $63, X15, X15
 	MOV    $gcmSIVPoly<>(SB), X12
 	VLE8V  (X12), V3
 	VANDVX X15, V3, V3
