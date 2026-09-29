@@ -58,6 +58,12 @@ DATA gcmSIVPoly<>+0x00(SB)/8, $0x0000000000000001
 DATA gcmSIVPoly<>+0x08(SB)/8, $0xc200000000000000
 GLOBL gcmSIVPoly<>(SB), (NOPTR+RODATA), $16
 
+// ghashPoly: GHASH reduction polynomial for first mulX key transform.
+//   {0, 0xe100000000000000} in LE byte order: 0xe1 at byte 8.
+DATA ghashPoly<>+0x00(SB)/8, $0x0000000000000000
+DATA ghashPoly<>+0x08(SB)/8, $0xe100000000000000
+GLOBL ghashPoly<>(SB), (NOPTR+RODATA), $16
+
 
 // Element-reversal index for full 16-byte reversal (E32 word swap): [3,2,1,0].
 // Used by the Zvkg path for POLYVAL ↔ GHASH byte-order conversion.
@@ -118,16 +124,16 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 	VSLIDE1UPVX ZERO, V3, V4        // carry from byte N → byte N+1 bit 7
 	VSRLVI $1, V1, V2               // V2 = V1 >> 1 per byte
 	VORVV  V2, V4, V2               // V2 = H >> 1 with carry
-	// Reduction: if bit 0 of byte 0 is set, XOR 0xe1 into byte 15.
-	// Extract bit 0 to scalar (POLYVAL reduces at byte 15, unlike XTS at byte 0).
+	// Reduction: if bit 0 of byte 0 is set, XOR ghashPoly = {0, 0xe1} at byte 8.
+	// Same approach as second mulX: scalar mask + VANDVX + VXORVV.
 	VMVXS  V2, X15                  // X15 = V2[0]
 	ANDI   $1, X15, X15             // bit 0
 	SLLI   $63, X15, X15
 	SRAI   $63, X15, X15            // broadcast: all-ones or 0
-	MOV    $0xe1, X12
-	AND    X15, X12, X12            // conditional: 0xe1 or 0
-	VMVSX  X12, V5                  // V5[all bytes] = 0xe1 or 0x00
-	VXORVV V2, V5, V1               // XOR all bytes; only byte 15 matters
+	MOV    $ghashPoly<>(SB), X12
+	VLE8V  (X12), V5               // V5 = [0, ..., 0xe1, 0, ...] (byte 8)
+	VANDVX X15, V5, V5              // conditional polynomial
+	VXORVV V2, V5, V1               // V1 = first mulX result
 
 	// ── Second mulX: ×x in reversed representation (left shift by 1) ──
 	// Same pattern as XTS mul2 (E8 mode).
@@ -236,9 +242,9 @@ zvkgInit:
 	ANDI   $1, X15, X15
 	SLLI   $63, X15, X15
 	SRAI   $63, X15, X15
-	MOV    $0xe1, X12
-	AND    X15, X12, X12
-	VMVSX  X12, V5
+	MOV    $ghashPoly<>(SB), X12
+	VLE8V  (X12), V5
+	VANDVX X15, V5, V5
 	VXORVV V2, V5, V1
 
 	// Second mulX: ×x (left shift by 1, XTS mul2 pattern)
