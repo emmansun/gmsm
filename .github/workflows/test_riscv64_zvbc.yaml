@@ -63,7 +63,7 @@ jobs:
         GOARCH: ${{ matrix.arch }}
 
     - name: Test Cipher wihout Zvkg
-      run: go test -v -short ./cipher -run 'TestSM4GCM|TestGCMCounterWrap|TestSM4GCMRandom'
+      run: go test -v -short ./cipher -run 'TestXTS|TestGBXTSSample|TestXTSBoundaryLengths|TestGBXTS'
       env:
         DISABLE_GHASH: 1
         QEMU_CPU: max,v=true,vlen=${{ matrix.vlen }},elen=64
