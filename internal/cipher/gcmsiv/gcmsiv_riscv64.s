@@ -58,13 +58,6 @@ DATA gcmSIVPoly<>+0x00(SB)/8, $0x0000000000000001
 DATA gcmSIVPoly<>+0x08(SB)/8, $0xc200000000000000
 GLOBL gcmSIVPoly<>(SB), (NOPTR+RODATA), $16
 
-// ghashPoly: GHASH reduction polynomial for first mulX key transform.
-//   {0, 0xe100000000000000} in LE byte order: 0xe1 at byte 8.
-DATA ghashPoly<>+0x00(SB)/8, $0x0000000000000000
-DATA ghashPoly<>+0x08(SB)/8, $0xe100000000000000
-GLOBL ghashPoly<>(SB), (NOPTR+RODATA), $16
-
-
 // Element-reversal index for full 16-byte reversal (E32 word swap): [3,2,1,0].
 // Used by the Zvkg path for POLYVAL ↔ GHASH byte-order conversion.
 DATA polyvalRevIdx<>+0(SB)/4, $3
@@ -125,14 +118,13 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 	VSRLVI $1, V1, V2               // V2 = V1 >> 1 per byte
 	VORVV  V2, V4, V2               // V2 = H >> 1 with carry
 	// Reduction: if bit 0 of byte 0 is set, XOR ghashPoly = {0, 0xe1} at byte 8.
-	// Same approach as second mulX: scalar mask + VANDVX + VXORVV.
-	VMVXS  V2, X15                  // X15 = V2[0]
-	ANDI   $1, X15, X15             // bit 0
-	SLLI   $63, X15, X15
-	SRAI   $63, X15, X15            // broadcast: all-ones or 0
-	MOV    $ghashPoly<>(SB), X12
-	VLE8V  (X12), V5               // V5 = [0, ..., 0xe1, 0, ...] (byte 8)
-	VANDVX X15, V5, V5              // conditional polynomial
+	// Extract from V1 (original), then VSRAVI broadcast (same pattern as XTS mul2 GB).
+	VMVXS  V1, X15                  // X15 = V1[0] (original byte 0)
+	ANDI   $1, X15, X15             // bit 0 → 0 or 1
+	VMVSX  X15, V5                  // V5[all] = 0 or 1
+	VSRAVI $7, V5, V5               // broadcast: all-ones or all-zeros per byte
+	MOV    $0xe1, X15
+	VANDVX X15, V5, V5              // V5 = conditional ghashPoly mask
 	VXORVV V2, V5, V1               // V1 = first mulX result
 
 	// ── Second mulX: ×x in reversed representation (left shift by 1) ──
@@ -143,15 +135,14 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 	VSLLVI $1, V1, V2               // V2 = V1 << 1 per byte
 	VORVV  V2, V4, V2               // V2 = V1 << 1 with carry
 	// Reduction: if bit 7 of ORIGINAL byte 15 was set, XOR gcmSIVPoly.
-	// Must extract from V1 (pre-shift), not V3 (already >>7).
+	// Extract from V1 (pre-shift), VSRAVI broadcast (same pattern as XTS mul2 GB).
 	VSLIDEDOWNVI $15, V1, V5        // V5[0] = original V1[15]
-	VMVXS  V5, X15                  // extract to scalar
-	ANDI   $0x80, X15, X15           // isolate bit 7
-	SLLI   $56, X15, X15
-	SRAI   $63, X15, X15            // broadcast
+	VSRAVI $7, V5, V5               // broadcast bit 7 to all bits per byte
+	MOV    $0xe1, X15
+	VANDVX X15, V5, V5              // V5 = broadcast mask (0xff or 0x00 per byte)
 	MOV    $gcmSIVPoly<>(SB), X12
 	VLE8V  (X12), V3               // V3 = [0x01, 0, ..., 0xc2, 0, ...]
-	VANDVX X15, V3, V3              // conditional polynomial
+	VANDVV V5, V3, V3               // conditional polynomial (element-wise AND)
 	VXORVV V2, V3, V1               // V1 = second mulX result
 
 	// Switch to E64 for product table computation
@@ -238,12 +229,12 @@ zvkgInit:
 	VSLIDE1UPVX ZERO, V3, V4
 	VSRLVI $1, V1, V2
 	VORVV  V2, V4, V2
-	VMVXS  V2, X15
+	// First mulX reduction: extract bit 0 of ORIGINAL byte 0
+	VMVXS  V1, X15
 	ANDI   $1, X15, X15
-	SLLI   $63, X15, X15
-	SRAI   $63, X15, X15
-	MOV    $ghashPoly<>(SB), X12
-	VLE8V  (X12), V5
+	VMVSX  X15, V5
+	VSRAVI $7, V5, V5
+	MOV    $0xe1, X15
 	VANDVX X15, V5, V5
 	VXORVV V2, V5, V1
 
@@ -252,15 +243,14 @@ zvkgInit:
 	VSLIDE1UPVX ZERO, V3, V4
 	VSLLVI $1, V1, V2
 	VORVV  V2, V4, V2
-	// Reduction: if bit 7 of ORIGINAL byte 15 was set (from V1, not V3)
+	// Second mulX reduction: extract bit 7 of ORIGINAL byte 15
 	VSLIDEDOWNVI $15, V1, V5
-	VMVXS  V5, X15
-	ANDI   $0x80, X15, X15
-	SLLI   $56, X15, X15
-	SRAI   $63, X15, X15
+	VSRAVI $7, V5, V5
+	MOV    $0xe1, X15
+	VANDVX X15, V5, V5
 	MOV    $gcmSIVPoly<>(SB), X12
 	VLE8V  (X12), V3
-	VANDVX X15, V3, V3
+	VANDVV V5, V3, V3
 	VXORVV V2, V3, V1
 
 	// Switch to E64 for byte-reverse
