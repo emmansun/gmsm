@@ -103,51 +103,47 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 
 	// ════════════════════════════════════════════════════════════════════
 	// Zvbc path: build Karatsuba product table.
-	// Key transform uses scalar operations mirroring the amd64 algorithm
-	// exactly, avoiding vector shift immediate limitations.
+	// Key transform uses E8 vector mode, mirroring XTS mul2 patterns:
+	//   First mulX (right shift)  = XTS mul2 GB (E8 right shift + 0xe1)
+	//   Second mulX (left shift)  = XTS mul2    (E8 left shift + gcmSIVPoly)
 	// ════════════════════════════════════════════════════════════════════
 
-	// Load key as two 64-bit halves
-	MOV    0(hPtr), X8              // X8  = H_lo (bytes 0-7)
-	MOV    8(hPtr), X9              // X9  = H_hi (bytes 8-15)
+	VSETIVLI $16, E8, M1, TA, MA, X0
+	VLE8V  (hPtr), V1                // V1 = 16 bytes of raw POLYVAL key
 
 	// ── First mulX: H/x in POLYVAL field (right shift by 1) ──
-	// Mirror amd64: PSRLQ $1 + carry + reduce based on bit 0 of SHIFTED value.
-	SRLI   $1, X9, X11             // X11 = H_hi >> 1
-	SLLI   $63, X8, X12            // X12 = carry bit at position 63
-	OR     X12, X11, X11           // new hi = (H_hi >> 1) | carry
-	SRLI   $1, X8, X8              // X8  = H_lo >> 1
-	// Reduction mask: broadcast bit 0 of SHIFTED low (matches amd64 PSHUFD $0 + PSRAL $31)
-	ANDI   $1, X8, X15             // X15 = bit 0 of shifted lo
-	SLLI   $63, X15, X15
-	SRAI   $63, X15, X15           // all-ones if bit 0 set, else 0
-	MOV    $0xe100000000000000, X12
-	AND    X15, X12, X12           // conditional reduction constant
-	XOR    X12, X11, X11           // hi ^= reduction
+	// Same pattern as XTS mul2 GB (E8 mode).
+	// Carry: bit 0 of each byte → bit 7 of previous byte.
+	VSLLVI $7, V1, V3               // V3[N] = V1[N] << 7 → bit 0 at bit 7
+	VSLIDE1UPVX ZERO, V3, V4        // carry from byte N → byte N+1 bit 7
+	VSRLVI $1, V1, V2               // V2 = V1 >> 1 per byte
+	VORVV  V2, V4, V2               // V2 = H >> 1 with carry
+	// Reduction: if bit 0 of shifted result is set, XOR 0xe1 into byte 15.
+	VANDVI $1, V2, V5               // V5[N] = V2[N] & 1 (bit 0 of each byte)
+	VSLIDE1UPVX ZERO, V5, V5        // byte N → byte N+1; byte 0 = 0
+	VSLIDEDOWNVI $1, V5, V5         // byte N → byte N-1; byte 15 = old byte 0
+	VSRAVI $7, V5, V5               // broadcast bit 0 to all bits
+	MOV    $0xe1, X11
+	VANDVX X11, V5, V5              // only byte 15 can be 0xe1
+	VXORVV V2, V5, V1               // V1 = first mulX result
 
 	// ── Second mulX: ×x in reversed representation (left shift by 1) ──
-	// Mirror amd64: PSLLQ $1 + carry + reduce based on MSB of SHIFTED value.
-	MOV    X11, X12                // save hi before shift
-	SLLI   $1, X8, X8              // lo <<= 1
-	SRLI   $63, X12, X13           // carry = old hi bit 63
-	OR     X13, X8, X8             // new lo |= carry
-	SLLI   $1, X11, X11            // hi <<= 1
-	// Reduction mask: broadcast MSB of shifted low (matches amd64 PSHUFD $0xff + PSRAL $31)
-	SRLI   $63, X8, X15            // X15 = bit 63 of shifted lo
-	SLLI   $63, X15, X15
-	SRAI   $63, X15, X15           // all-ones if bit 63 set
-	MOV    $0xc200000000000000, X12
-	AND    X15, X12, X12
-	XOR    X12, X11, X11           // hi ^= reduction
-	MOV    $0x0000000000000001, X12
-	AND    X15, X12, X12
-	XOR    X12, X8, X8             // lo ^= reduction
+	// Same pattern as XTS mul2 (E8 mode).
+	// Carry: bit 7 of each byte → bit 0 of next byte.
+	VSRLVI $7, V1, V3               // V3[N] = V1[N] >> 7 → bit 7 at bit 0
+	VSLIDE1UPVX ZERO, V3, V4        // carry from byte N → byte N+1 bit 0
+	VSLLVI $1, V1, V2               // V2 = V1 << 1 per byte
+	VORVV  V2, V4, V2               // V2 = V1 << 1 with carry
+	// Reduction: if bit 7 of byte 15 was set, XOR gcmSIVPoly = {0x01, 0xc2...}.
+	VSLIDEDOWNVI $15, V3, V5        // V5[0] = carry from byte 15
+	VSRAVI $7, V5, V5               // broadcast MSB
+	MOV    $gcmSIVPoly<>(SB), X12
+	VLE8V  (X12), V3               // V3 = [0x01, 0, ..., 0xc2, 0, ...]
+	VANDVX X15, V3, V3              // conditional polynomial
+	VXORVV V2, V3, V1               // V1 = second mulX result
 
-	// Move result to vector V1 (2×E64)
+	// Switch to E64 for product table computation
 	VSETIVLI $2, E64, M1, TA, MA, X0
-	VMVSX  X8, V1                  // V1[0] = lo
-	VMVSX  X11, V4                 // V4[0] = hi
-	VSLIDEUPVI $1, V4, V1          // V1 = [lo, hi]
 
 	// Setup swap index [1, 0] for E64 half-swap (same as GCM reference)
 	VIDV    V10
@@ -221,43 +217,37 @@ initLoop:
 	// Zvkg path: store byte-reversed, key-transformed H
 	// ════════════════════════════════════════════════════════════════════
 zvkgInit:
-	// Scalar key transform (mirrors amd64 exactly, same as Zvbc path)
-	MOV    0(hPtr), X8
-	MOV    8(hPtr), X9
+	// E8 vector key transform (same as Zvbc path)
+	VSETIVLI $16, E8, M1, TA, MA, X0
+	VLE8V  (hPtr), V1
 
-	// First mulX: H/x (right shift by 1)
-	SRLI   $1, X9, X11
-	SLLI   $63, X8, X12
-	OR     X12, X11, X11
-	SRLI   $1, X8, X8
-	ANDI   $1, X8, X15
-	SLLI   $63, X15, X15
-	SRAI   $63, X15, X15
-	MOV    $0xe100000000000000, X12
-	AND    X15, X12, X12
-	XOR    X12, X11, X11
+	// First mulX: H/x (right shift by 1, XTS mul2 GB pattern)
+	VSLLVI $7, V1, V3
+	VSLIDE1UPVX ZERO, V3, V4
+	VSRLVI $1, V1, V2
+	VORVV  V2, V4, V2
+	VANDVI $1, V2, V5
+	VSLIDE1UPVX ZERO, V5, V5
+	VSLIDEDOWNVI $1, V5, V5
+	VSRAVI $7, V5, V5
+	MOV    $0xe1, X11
+	VANDVX X11, V5, V5
+	VXORVV V2, V5, V1
 
-	// Second mulX: ×x (left shift by 1)
-	MOV    X11, X12
-	SLLI   $1, X8, X8
-	SRLI   $63, X12, X13
-	OR     X13, X8, X8
-	SLLI   $1, X11, X11
-	SRLI   $63, X8, X15
-	SLLI   $63, X15, X15
-	SRAI   $63, X15, X15
-	MOV    $0xc200000000000000, X12
-	AND    X15, X12, X12
-	XOR    X12, X11, X11
-	MOV    $0x0000000000000001, X12
-	AND    X15, X12, X12
-	XOR    X12, X8, X8
+	// Second mulX: ×x (left shift by 1, XTS mul2 pattern)
+	VSRLVI $7, V1, V3
+	VSLIDE1UPVX ZERO, V3, V4
+	VSLLVI $1, V1, V2
+	VORVV  V2, V4, V2
+	VSLIDEDOWNVI $15, V3, V5
+	VSRAVI $7, V5, V5
+	MOV    $gcmSIVPoly<>(SB), X12
+	VLE8V  (X12), V3
+	VANDVX X15, V3, V3
+	VXORVV V2, V3, V1
 
-	// Move to vector and byte-reverse for vghsh.vv
+	// Switch to E64 for byte-reverse
 	VSETIVLI $2, E64, M1, TA, MA, X0
-	VMVSX  X8, V1
-	VMVSX  X11, V4
-	VSLIDEUPVI $1, V4, V1
 
 	// Byte-reverse for vghsh.vv (GHASH byte order)
 	MOV    $polyvalRevIdx<>(SB), X16
