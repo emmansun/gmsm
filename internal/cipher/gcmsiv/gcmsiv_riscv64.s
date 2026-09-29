@@ -58,10 +58,11 @@ DATA gcmSIVPoly<>+0x00(SB)/8, $0x0000000000000001
 DATA gcmSIVPoly<>+0x08(SB)/8, $0xc200000000000000
 GLOBL gcmSIVPoly<>(SB), (NOPTR+RODATA), $16
 
-// gcmPoly: POLYVAL key transform reduction constant.
-//   {0x0000000000000001, 0xc200000000000000} — only element 0 (= 1) is used.
-DATA gcmPoly<>+0x00(SB)/8, $0x0000000000000001
-DATA gcmPoly<>+0x08(SB)/8, $0xc200000000000000
+// gcmPoly: GHASH key transform reduction constant (mulX in GHASH field).
+//   {0x0000000000000000, 0xe100000000000000} — element 0 (= 0) unused,
+//   element 3 carries the reduction mask for bit 127 carry-out.
+DATA gcmPoly<>+0x00(SB)/8, $0x0000000000000000
+DATA gcmPoly<>+0x08(SB)/8, $0xe100000000000000
 GLOBL gcmPoly<>(SB), (NOPTR+RODATA), $16
 
 // Element-reversal index for full 16-byte reversal (E32 word swap): [3,2,1,0].
@@ -129,9 +130,9 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 	// Switch to E64 for product table computation
 	VSETIVLI $2, E64, M1, TA, MA, X0
 
-	// Load swap index [1, 0] for E64 half-swap using VIDV
+	// Setup swap index [1, 0] for E64 half-swap
 	VIDV    SWAP_IDX
-	VRSUBVI $1, SWAP_IDX, SWAP_IDX  // SWAP_IDX = [1, 0] as 2×E64
+	VRSUBVI $1, SWAP_IDX, SWAP_IDX
 
 	// Karatsuba pre-computation for H: swap halves and XOR
 	VRGATHERVV SWAP_IDX, V1, V2
@@ -250,7 +251,6 @@ TEXT ·polyvalBlocksUpdateAsm(SB), NOSPLIT, $0
 	BEQZ autLen, zvbcDataDone
 
 	// Setup swap index [1, 0] for E64 half-swap using VIDV
-	// (VLE32V would pack two 32-bit values into one E64 element — wrong!)
 	VIDV    SWAP_IDX
 	VRSUBVI $1, SWAP_IDX, SWAP_IDX  // SWAP_IDX = [1, 0] as 2×E64
 
@@ -269,46 +269,30 @@ TEXT ·polyvalBlocksUpdateAsm(SB), NOSPLIT, $0
 zvbcOctaLoop:
 		ADD $-128, autLen, autLen
 
-		// Load 8 blocks and byte-reverse each to vclmul format
+		// Load 8 blocks (POLYVAL LE = vclmul native format, no byte-reversal)
 		VLE64V (aut), B0
 		ADD $16, aut
-		VREV8V B0, T0
-		VRGATHERVV SWAP_IDX, T0, B0
 
 		VLE64V (aut), B1
 		ADD $16, aut
-		VREV8V B1, T0
-		VRGATHERVV SWAP_IDX, T0, B1
 
 		VLE64V (aut), B2
 		ADD $16, aut
-		VREV8V B2, T0
-		VRGATHERVV SWAP_IDX, T0, B2
 
 		VLE64V (aut), B3
 		ADD $16, aut
-		VREV8V B3, T0
-		VRGATHERVV SWAP_IDX, T0, B3
 
 		VLE64V (aut), B4
 		ADD $16, aut
-		VREV8V B4, T0
-		VRGATHERVV SWAP_IDX, T0, B4
 
 		VLE64V (aut), B5
 		ADD $16, aut
-		VREV8V B5, T0
-		VRGATHERVV SWAP_IDX, T0, B5
 
 		VLE64V (aut), B6
 		ADD $16, aut
-		VREV8V B6, T0
-		VRGATHERVV SWAP_IDX, T0, B6
 
 		VLE64V (aut), B7
 		ADD $16, aut
-		VREV8V B7, T0
-		VRGATHERVV SWAP_IDX, T0, B7
 
 		// XOR first block with accumulator
 		VXORVV ACC0, B0, B0
@@ -380,9 +364,6 @@ zvbcSinglesLoop:
 
 		VLE64V (aut), B0
 		ADD $16, aut
-		// Byte-reverse block
-		VREV8V B0, T0
-		VRGATHERVV SWAP_IDX, T0, B0
 		VXORVV ACC0, B0, B0
 
 		// Prepare B0 precomp
@@ -420,9 +401,6 @@ zvbcDataEnd:
 	JMP zvbcDataDone               // TODO: handle partial tail
 
 zvbcDataDone:
-	// Byte-reverse accumulator back and store
-	VREV8V ACC0, T0
-	VRGATHERVV SWAP_IDX, T0, ACC0
 	VSE64V ACC0, (yPtr)
 	RET
 
