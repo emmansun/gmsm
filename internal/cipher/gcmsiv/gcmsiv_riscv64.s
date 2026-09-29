@@ -127,7 +127,7 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 
 	// ── Second mulX: ×x in reversed representation (left shift by 1) ──
 	// Mirror amd64: PSLLQ $1 + carry + reduce based on MSB of SHIFTED value.
-	MOVD   X11, X12                // save hi before shift
+	MOV    X11, X12                // save hi before shift
 	SLLI   $1, X8, X8              // lo <<= 1
 	SRLI   $63, X12, X13           // carry = old hi bit 63
 	OR     X13, X8, X8             // new lo |= carry
@@ -238,7 +238,7 @@ zvkgInit:
 	XOR    X12, X11, X11
 
 	// Second mulX: ×x (left shift by 1)
-	MOVD   X11, X12
+	MOV    X11, X12
 	SLLI   $1, X8, X8
 	SRLI   $63, X12, X13
 	OR     X13, X8, X8
