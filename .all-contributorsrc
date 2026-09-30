@@ -194,6 +194,15 @@
       "contributions": [
         "platform"
       ]
+    },
+    {
+      "login": "dixyes",
+      "name": "Yun Dou",
+      "avatar_url": "https://avatars.githubusercontent.com/u/11804369?v=4",
+      "profile": "https://insert-your-link.here/as/you?like",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "commitType": "docs",
