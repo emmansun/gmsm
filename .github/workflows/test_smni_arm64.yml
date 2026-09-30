@@ -40,5 +40,4 @@ jobs:
     - name: Test
       run: go test -v -short ./internal/sm4/...
       env:
-        GODEBUG: x509sha1=1
         GOARCH: ${{ matrix.arch }}      

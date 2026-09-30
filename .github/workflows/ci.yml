@@ -33,14 +33,10 @@ jobs:
     - name: Test with Coverage
       if: ${{ matrix.goVer == '1.26' }}
       run: go test -coverpkg=./... -v -short -race -coverprofile=coverage1.txt -covermode=atomic ./...
-      env:
-        GODEBUG: x509sha1=1
 
     - name: Test Generic with Coverage
       if: ${{ matrix.goVer == '1.26' }}
       run: go test -coverpkg=./... -v -short -tags purego  -coverprofile=coverage2.txt -covermode=atomic ./...      
-      env:
-        GODEBUG: x509sha1=1
 
     - name: Upload coverage to Codecov
       if: ${{ matrix.goVer == '1.26' }}
@@ -58,20 +54,14 @@ jobs:
     - name: Test only
       if: ${{ matrix.goVer != '1.26' }}
       run: go test -short ./...
-      env:
-        GODEBUG: x509sha1=1
 
     - name: Test Generic only
       if: ${{ matrix.goVer != '1.26' }}
       run: go test -short -tags purego ./...      
-      env:
-        GODEBUG: x509sha1=1
 
     - name: Test Plugin only
       if: ${{ matrix.goVer == '1.26' }}
       run: go test -short -tags plugin ./...      
-      env:
-        GODEBUG: x509sha1=1
 
   smx509-patch-consistency:
     runs-on: ubuntu-latest

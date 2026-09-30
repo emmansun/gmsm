@@ -40,23 +40,19 @@ jobs:
     - name: Test Internal
       run: go test -v -short ./internal/...
       env:
-        GODEBUG: x509sha1=1
         GOARCH: ${{ matrix.arch }}      
       
     - name: Test mlkem
       run: go test -v -short ./mlkem/...
       env:
-        GODEBUG: x509sha1=1
         GOARCH: ${{ matrix.arch }}      
 
     - name: Test mldsa
       run: go test -v -short ./mldsa/...
       env:
-        GODEBUG: x509sha1=1
         GOARCH: ${{ matrix.arch }}
 
     - name: Test cipher
       run: go test -v -short ./cipher/...
       env:
-        GODEBUG: x509sha1=1
         GOARCH: ${{ matrix.arch }}
