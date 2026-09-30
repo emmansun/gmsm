@@ -1,6 +1,5 @@
-warning: in the working copy of 'smx509/root_darwin.go', CRLF will be replaced by LF the next time Git touches it
 diff --git "a/smx509/root_darwin.go" "b/smx509/root_darwin.go"
-index 0546570b..b0a808e0 100644
+index 0546570..b0a808e 100644
 --- "a/smx509/root_darwin.go"
 +++ "b/smx509/root_darwin.go"
 @@ -4,126 +4,8 @@
@@ -132,9 +131,8 @@ index 0546570b..b0a808e0 100644
  
  func loadSystemRoots() (*CertPool, error) {
 
-warning: in the working copy of 'smx509/root_linux.go', CRLF will be replaced by LF the next time Git touches it
 diff --git "a/smx509/root_linux.go" "b/smx509/root_linux.go"
-index fb29ad89..54a353c2 100644
+index fb29ad8..54a353c 100644
 --- "a/smx509/root_linux.go"
 +++ "b/smx509/root_linux.go"
 @@ -4,7 +4,7 @@

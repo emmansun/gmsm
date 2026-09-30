@@ -1,5 +1,5 @@
 diff --git "a/smx509/pem_decrypt.go" "b/smx509/pem_decrypt.go"
-index 9c454a48..2151610c 100644
+index 9c454a4..2151610 100644
 --- "a/smx509/pem_decrypt.go"
 +++ "b/smx509/pem_decrypt.go"
 @@ -18,6 +18,8 @@ import (

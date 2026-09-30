@@ -1,5 +1,5 @@
 diff --git "a/smx509/x509.go" "b/smx509/x509.go"
-index 3915a04f..cde65be8 100644
+index 3915a04..cde65be 100644
 --- "a/smx509/x509.go"
 +++ "b/smx509/x509.go"
 @@ -35,7 +35,6 @@ import (
@@ -493,7 +493,7 @@ index 3915a04f..cde65be8 100644
  		Raw:                      in.Raw,
 
 diff --git "a/smx509/parser.go" "b/smx509/parser.go"
-index 523d52b5..a05562c8 100644
+index 523d52b..a05562c 100644
 --- "a/smx509/parser.go"
 +++ "b/smx509/parser.go"
 @@ -10,12 +10,13 @@ import (
@@ -687,7 +687,7 @@ index 523d52b5..a05562c8 100644
  func ParseCertificates(der []byte) ([]*Certificate, error) {
 
 diff --git "a/smx509/verify.go" "b/smx509/verify.go"
-index a9903dea..90c54673 100644
+index a9903de..90c5467 100644
 --- "a/smx509/verify.go"
 +++ "b/smx509/verify.go"
 @@ -556,7 +556,7 @@ func (c *Certificate) Verify(opts VerifyOptions) ([][]*Certificate, error) {

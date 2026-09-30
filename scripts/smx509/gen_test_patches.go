@@ -195,9 +195,31 @@ func fixPaths(data []byte, filename string) []byte {
 			result = append(result, []byte("+++ ")...)
 			result = append(result, canonical('b')...)
 			result = append(result, '\n')
+		case bytes.HasPrefix(line, []byte("index ")):
+			result = result[:len(result)-len(line)-1]
+			result = append(result, canonicalIndexLine(line)...)
+			result = append(result, '\n')
 		}
 	}
 	return result
+}
+
+func canonicalIndexLine(line []byte) []byte {
+	fields := strings.Fields(string(line))
+	if len(fields) < 2 {
+		return line
+	}
+	hashes := strings.SplitN(fields[1], "..", 2)
+	if len(hashes) != 2 {
+		return line
+	}
+	for i := range hashes {
+		if len(hashes[i]) > 7 {
+			hashes[i] = hashes[i][:7]
+		}
+	}
+	fields[1] = strings.Join(hashes, "..")
+	return []byte(strings.Join(fields, " "))
 }
 
 // fixDiffGitLine fixes the "diff --git a/... b/..." line.
