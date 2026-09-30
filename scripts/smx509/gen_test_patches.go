@@ -64,6 +64,34 @@ func main() {
 	dstFile := filepath.Join(target, "root_unix_test.go")
 	diffPatch := generateDiffPatch(repoRoot, tmpDir, preparedFile, dstFile, "root_unix_test.go")
 	writePatch(testPatchDir, "020-envvars-abs-path.patch", diffPatch)
+
+	// --- 030-pkix-name-string.patch (Go 1.26 and Go 1.27 formatting compatibility) ---
+	stdlibTestFile = filepath.Join(stdlibDir, "x509_test.go")
+	preparedFile = filepath.Join(tmpDir, "x509_test.go")
+	data, err = os.ReadFile(stdlibTestFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "cannot read stdlib test file: %v\n", err)
+		os.Exit(1)
+	}
+	data = bytes.Replace(data, []byte("package x509"), []byte("package smx509"), 1)
+	if err := os.WriteFile(preparedFile, data, 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "cannot write prepared test file: %v\n", err)
+		os.Exit(1)
+	}
+	oldComparison := []byte("\tfor i, test := range tests {\n\t\tif got := test.dn.String(); got != test.want {\n\t\t\tt.Errorf(\"#%d: String() = \\n%s\\n, want \\n%s\", i, got, test.want)\n\t\t}\n\t}")
+	newComparison := []byte("\tfor i, test := range tests {\n\t\twant := test.want\n\t\tif strings.Contains(nn.String(), \"=golang.org\") {\n\t\t\twant = strings.ReplaceAll(want, \"#130a676f6c616e672e6f7267\", \"golang.org\")\n\t\t}\n\t\tif got := test.dn.String(); got != want {\n\t\t\tt.Errorf(\"#%d: String() = \\n%s\\n, want \\n%s\", i, got, want)\n\t\t}\n\t}")
+	patchedData := bytes.Replace(data, oldComparison, newComparison, 1)
+	if bytes.Equal(patchedData, data) {
+		fmt.Fprintln(os.Stderr, "cannot find TestPKIXNameString comparison loop")
+		os.Exit(1)
+	}
+	patchedFile := filepath.Join(tmpDir, "patched_x509_test.go")
+	if err := os.WriteFile(patchedFile, patchedData, 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "cannot write patched test file: %v\n", err)
+		os.Exit(1)
+	}
+	diffPatch = generateDiffPatch(repoRoot, tmpDir, preparedFile, patchedFile, "x509_test.go")
+	writePatch(testPatchDir, "030-pkix-name-string.patch", diffPatch)
 }
 
 // generateNewFilePatch creates a new-file git patch by diffing against an empty file.
@@ -71,7 +99,7 @@ func generateNewFilePatch(repoRoot, tmpDir, dstFile, canonicalName string) []byt
 	emptyFile := filepath.Join(tmpDir, "empty_"+canonicalName)
 	os.WriteFile(emptyFile, []byte{}, 0644)
 
-	cmd := exec.Command("git", "diff", "--no-index", emptyFile, dstFile)
+	cmd := exec.Command("git", "diff", "--no-index", "--abbrev=7", emptyFile, dstFile)
 	cmd.Dir = repoRoot
 	data, err := cmd.CombinedOutput()
 	if err != nil {
@@ -106,7 +134,7 @@ func generateDiffPatch(repoRoot, tmpDir, srcFile, dstFile, canonicalName string)
 	}
 	os.WriteFile(srcRel, data, 0644)
 
-	cmd := exec.Command("git", "diff", "--no-index", srcFile, dstFile)
+	cmd := exec.Command("git", "diff", "--no-index", "--abbrev=7", srcFile, dstFile)
 	cmd.Dir = repoRoot
 	out, err := cmd.CombinedOutput()
 	if err != nil {

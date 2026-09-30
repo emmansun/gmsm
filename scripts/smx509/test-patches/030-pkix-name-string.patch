@@ -1,0 +1,19 @@
+diff --git "a/smx509/x509_test.go" "b/smx509/x509_test.go"
+index 8c8e0e9..1463bef 100644
+--- "a/smx509/x509_test.go"
++++ "b/smx509/x509_test.go"
+@@ -2236,8 +2236,12 @@ func TestPKIXNameString(t *testing.T) {
+ 	}
+ 
+ 	for i, test := range tests {
+-		if got := test.dn.String(); got != test.want {
+-			t.Errorf("#%d: String() = \n%s\n, want \n%s", i, got, test.want)
++		want := test.want
++		if strings.Contains(nn.String(), "=golang.org") {
++			want = strings.ReplaceAll(want, "#130a676f6c616e672e6f7267", "golang.org")
++		}
++		if got := test.dn.String(); got != want {
++			t.Errorf("#%d: String() = \n%s\n, want \n%s", i, got, want)
+ 		}
+ 	}
+ 
