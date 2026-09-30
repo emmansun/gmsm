@@ -18,9 +18,8 @@ scripts/smx509/
 │   ├── 030-sm4-pem.patch          # SM4 PEM 加密
 │   └── 100-extensions.patch       # 扩展文件（cfca_csr.go 等新文件）
 │
-├── test-patches/                # 测试补丁（3 个，gen_test_patches.go 自动生成）
+├── test-patches/                # 测试补丁（2 个，gen_test_patches.go 自动生成）
 │   ├── 010-testenv-stub.patch     # internal/testenv 替代桩
-│   ├── 020-envvars-abs-path.patch # TestEnvVars SSL_CERT_FILE 绝对路径修复
 │   └── 030-pkix-name-string.patch # Go 1.26/1.27 Name.String 格式兼容
 │
 ├── gen_patches.go               # 源码补丁生成器

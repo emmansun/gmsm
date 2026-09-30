@@ -19,6 +19,7 @@ import (
 const (
 	testDirCN   = "test-dir"
 	testFile    = "test-file.crt"
+	testFileCN  = "test-file"
 	testMissing = "missing"
 )
 
@@ -54,11 +55,11 @@ func TestEnvVars(t *testing.T) {
 		{
 			// File environment overrides default file locations.
 			name:    "file",
-			fileEnv: filepath.Join(tmpDir, testFile),
+			fileEnv: testFile,
 			dirEnv:  "",
 			files:   nil,
 			dirs:    nil,
-			cns:     []string{testDirCN},
+			cns:     []string{testFileCN},
 		},
 		{
 			// Directory environment overrides default directory locations.
@@ -72,11 +73,11 @@ func TestEnvVars(t *testing.T) {
 		{
 			// File & directory environment overrides both default locations.
 			name:    "file+dir",
-			fileEnv: filepath.Join(tmpDir, testFile),
+			fileEnv: testFile,
 			dirEnv:  tmpDir,
 			files:   nil,
 			dirs:    nil,
-			cns:     []string{testDirCN},
+			cns:     []string{testFileCN, testDirCN},
 		},
 		{
 			// Environment variable empty / unset uses default locations.
@@ -85,7 +86,7 @@ func TestEnvVars(t *testing.T) {
 			dirEnv:  "",
 			files:   []string{testFile},
 			dirs:    []string{tmpDir},
-			cns:     []string{testDirCN},
+			cns:     []string{testFileCN, testDirCN},
 		},
 	}
 

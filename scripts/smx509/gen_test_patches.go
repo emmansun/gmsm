@@ -45,30 +45,10 @@ func main() {
 	extPatch := generateNewFilePatch(repoRoot, tmpDir, testenvFile, "internal_testenv.go")
 	writePatch(testPatchDir, "010-testenv-stub.patch", extPatch)
 
-	// --- 020-envvars-abs-path.patch (stdlib root_unix_test.go with package rename vs smx509) ---
-	stdlibTestFile := filepath.Join(stdlibDir, "root_unix_test.go")
-	preparedFile := filepath.Join(tmpDir, "root_unix_test.go")
-
-	// Copy stdlib test file and rename package
-	data, err := os.ReadFile(stdlibTestFile)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "cannot read stdlib test file: %v\n", err)
-		os.Exit(1)
-	}
-	data = prepareUpstreamTest(data)
-	if err := os.WriteFile(preparedFile, data, 0644); err != nil {
-		fmt.Fprintf(os.Stderr, "cannot write prepared test file: %v\n", err)
-		os.Exit(1)
-	}
-
-	dstFile := filepath.Join(target, "root_unix_test.go")
-	diffPatch := generateDiffPatch(repoRoot, tmpDir, preparedFile, dstFile, "root_unix_test.go")
-	writePatch(testPatchDir, "020-envvars-abs-path.patch", diffPatch)
-
 	// --- 030-pkix-name-string.patch (Go 1.26 and Go 1.27 formatting compatibility) ---
-	stdlibTestFile = filepath.Join(stdlibDir, "x509_test.go")
-	preparedFile = filepath.Join(tmpDir, "x509_test.go")
-	data, err = os.ReadFile(stdlibTestFile)
+	stdlibTestFile := filepath.Join(stdlibDir, "x509_test.go")
+	preparedFile := filepath.Join(tmpDir, "x509_test.go")
+	data, err := os.ReadFile(stdlibTestFile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "cannot read stdlib test file: %v\n", err)
 		os.Exit(1)
@@ -90,7 +70,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "cannot write patched test file: %v\n", err)
 		os.Exit(1)
 	}
-	diffPatch = generateDiffPatch(repoRoot, tmpDir, preparedFile, patchedFile, "x509_test.go")
+	diffPatch := generateDiffPatch(repoRoot, tmpDir, preparedFile, patchedFile, "x509_test.go")
 	writePatch(testPatchDir, "030-pkix-name-string.patch", diffPatch)
 }
 
