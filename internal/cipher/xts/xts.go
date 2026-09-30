@@ -197,6 +197,9 @@ func (c *xtsDecrypter) CryptBlocks(plaintext, ciphertext []byte) {
 		var tweaks = make([]byte, batchSize)
 
 		for len(ciphertext) >= batchSize {
+			if len(ciphertext) < batchSize+blockSize && len(ciphertext)%blockSize != 0 {
+				break
+			}
 			doubleTweaks(&c.tweak, tweaks, c.isGB)
 			subtle.XORBytes(plaintext, ciphertext, tweaks)
 			concCipher.DecryptBlocks(plaintext, plaintext)

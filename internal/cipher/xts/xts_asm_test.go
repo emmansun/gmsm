@@ -4,6 +4,8 @@ package xts
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
 	"encoding/hex"
 	"io"
@@ -102,4 +104,65 @@ func TestDoubleTweaks(t *testing.T) {
 
 func TestDoubleTweaksGB(t *testing.T) {
 	testDoubleTweaks(t, true)
+}
+
+type concurrentTestBlock struct {
+	cipher.Block
+}
+
+func (b *concurrentTestBlock) Concurrency() int { return 4 }
+
+func (b *concurrentTestBlock) EncryptBlocks(dst, src []byte) {
+	for range b.Concurrency() {
+		b.Encrypt(dst, src)
+		dst = dst[blockSize:]
+		src = src[blockSize:]
+	}
+}
+
+func (b *concurrentTestBlock) DecryptBlocks(dst, src []byte) {
+	for range b.Concurrency() {
+		b.Decrypt(dst, src)
+		dst = dst[blockSize:]
+		src = src[blockSize:]
+	}
+}
+
+func newConcurrentTestBlock(key []byte) (cipher.Block, error) {
+	b, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	return &concurrentTestBlock{Block: b}, nil
+}
+
+func TestConcurrentDecryptCTSBoundary(t *testing.T) {
+	key := make([]byte, 16)
+	tweakKey := make([]byte, 16)
+	tweak := make([]byte, 16)
+	lengths := []int{64, 65, 79, 80, 81, 127, 128, 129, 143, 144, 145}
+	for _, isGB := range []bool{false, true} {
+		for _, length := range lengths {
+			plaintext := make([]byte, length)
+			for i := range plaintext {
+				plaintext[i] = byte(i)
+			}
+			encrypter, err := NewXTSEncrypter(newConcurrentTestBlock, key, tweakKey, tweak, isGB)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ciphertext := make([]byte, length)
+			encrypter.CryptBlocks(ciphertext, plaintext)
+
+			decrypter, err := NewXTSDecrypter(newConcurrentTestBlock, key, tweakKey, tweak, isGB)
+			if err != nil {
+				t.Fatal(err)
+			}
+			decrypted := make([]byte, length)
+			decrypter.CryptBlocks(decrypted, ciphertext)
+			if !bytes.Equal(decrypted, plaintext) {
+				t.Errorf("isGB %v, length %d: decryption mismatch", isGB, length)
+			}
+		}
+	}
 }
