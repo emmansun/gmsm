@@ -33,7 +33,7 @@
 #define gSave X30
 #define hSave X31
 
-#define TRANSPOSE_MATRIX_STEP1(t0, t1, t2, t3, t4, t5, t6, t7, RTMP0, RTMP1, RTMP2, RTMP3) \
+#define TRANSPOSE_MATRIX(t0, t1, t2, t3, t4, t5, t6, t7, RTMP0, RTMP1, RTMP2, RTMP3) \
 	XVILVHW t0, t1, RTMP3; /* RTMP3 = {t1.S7, t0.S7, t1.S6, t0.S6, t1.S3, t0.S3, t1.S2, t0.S2} */ \
 	XVILVLW t0, t1, t0;    /* t0    = {t1.S5, t0.S5, t1.S4, t0.S4, t1.S1, t0.S1, t1.S0, t0.S0} */ \
 	XVILVLW t2, t3, RTMP2; /* RTMP2 = {t3.S5, t2.S4, t3.S5, t2.S4, t3.S1, t2.S1, t3.S0, t2.S0} */ \
@@ -51,46 +51,15 @@
 	XVILVLV t4, t1, t4; /* t4 = {t7.S4, t6.S4, t5.S4, t4.S4, t7.S0, t6.S0, t5.S0, t4.S0} */ \
 	XVILVHV t0, t6, t7; /* t7 = {t7.S7, t6.S7, t5.S7, t4.S7, t7.S3, t6.S3, t5.S3, t4.S3} */ \
 	XVILVLV t0, t6, t6; /* t6 = {t7.S6, t6.S6, t5.S6, t4.S6, t7.S2, t6.S2, t5.S2, t4.S2} */ \
-
-#define TRANSPOSE_MATRIX_STAT \
-	TRANSPOSE_MATRIX_STEP1(a, b, c, d, e, f, g, h, tmp1, tmp2, tmp3, tmp4) \
 	; \
-	XVMOVQ tmp1, a.Q2; \
-	WORD $0x77ec0820   \ // XVPERMIQ $0x2, e, a
-	; \
-	XVMOVQ tmp2, b.Q2; \
-	WORD $0x77ec0862   \ // XVPERMIQ $0x2, f, b
-	; \
-	XVMOVQ tmp3, c.Q2; \
-	WORD $0x77ec08a4   \ // XVPERMIQ $0x2, g, c
-	; \
-	XVMOVQ tmp4, d.Q2; \
-	WORD $0x77ec08e6   \ // XVPERMIQ $0x2, h, d
-	; \
-	WORD $0x77ecc501   \ // XVPERMIQ $0x31, tmp1, e
-	WORD $0x77ecc523   \ // XVPERMIQ $0x31, tmp2, f
-	WORD $0x77ecc545   \ // XVPERMIQ $0x31, tmp3, g
-	WORD $0x77ecc567   \ // XVPERMIQ $0x31, tmp4, h
-
-#define TRANSPOSE_MATRIX_DATA \
-	TRANSPOSE_MATRIX_STEP1(X12, X13, X14, X15, X16, X17, X18, X19, tmp1, tmp2, tmp3, tmp4) \
-	; \
-	XVMOVQ tmp1, X12.Q2; \
-	WORD $0x77ec0a0c   \ // XVPERMIQ $0x2, X16, X12
-	; \
-	XVMOVQ tmp2, X13.Q2; \
-	WORD $0x77ec0a2d   \ // XVPERMIQ $0x2, X17, X13
-	; \
-	XVMOVQ tmp3, X14.Q2; \
-	WORD $0x77ec0a4e   \ // XVPERMIQ $0x2, X18, X14
-	; \
-	XVMOVQ tmp4, X15.Q2; \
-	WORD $0x77ec0a6f   \ // XVPERMIQ $0x2, X19, X15
-	; \
-	WORD $0x77ecc510   \ // XVPERMIQ $0x31, tmp1, X16
-	WORD $0x77ecc531   \ // XVPERMIQ $0x31, tmp2, X17
-	WORD $0x77ecc552   \ // XVPERMIQ $0x31, tmp3, X18
-	WORD $0x77ecc573   \ // XVPERMIQ $0x31, tmp4, X19
+	XVILVLV RTMP0, t4, t0; /* t0 = {t7.S0, t6.S0, t5.S0, t4.S0, t3.S0, t2.S0, t1.S0, t0.S0} */ \
+	XVILVHV RTMP0, t4, t4; /* t4 = {t7.S4, t6.S4, t5.S4, t4.S4, t3.S4, t2.S4, t1.S4, t0.S4} */ \
+	XVILVLV RTMP1, t5, t1; /* t1 = {t7.S1, t6.S1, t5.S1, t4.S1, t3.S1, t2.S1, t1.S1, t0.S1} */ \
+	XVILVHV RTMP1, t5, t5; /* t5 = {t7.S5, t6.S5, t5.S5, t4.S5, t3.S5, t2.S5, t1.S5, t0.S5} */ \
+	XVILVLV RTMP2, t6, t2; /* t2 = {t7.S2, t6.S2, t5.S2, t4.S2, t3.S2, t2.S2, t1.S2, t0.S2} */ \
+	XVILVHV RTMP2, t6, t6; /* t6 = {t7.S6, t6.S6, t5.S6, t4.S6, t3.S6, t2.S6, t1.S6, t0.S6} */ \
+	XVILVLV RTMP3, t7, t3; /* t3 = {t7.S3, t6.S3, t5.S3, t4.S3, t3.S3, t2.S3, t1.S3, t0.S3} */ \
+	XVILVHV RTMP3, t7, t7  /* t7 = {t7.S7, t6.S7, t5.S7, t4.S7, t3.S7, t2.S7, t1.S7, t0.S7} */
 
 #define prepare8Words(index) \
 	XVMOVQ (index*32)(srcPtr1), X12; \
@@ -101,7 +70,7 @@
 	XVMOVQ (index*32)(srcPtr6), X17; \
 	XVMOVQ (index*32)(srcPtr7), X18; \
 	XVMOVQ (index*32)(srcPtr8), X19; \
-	TRANSPOSE_MATRIX_DATA \
+	TRANSPOSE_MATRIX(X12, X13, X14, X15, X16, X17, X18, X19, tmp1, tmp2, tmp3, tmp4) \
 	XVSHUF4IB $0x1B, X12, X12; \
 	XVSHUF4IB $0x1B, X13, X13; \
 	XVSHUF4IB $0x1B, X14, X14; \
@@ -236,7 +205,7 @@ TEXT ·transposeMatrix8x8(SB),NOSPLIT,$0
 	MOVV (7*8)(R5), R6
 	XVMOVQ (0*32)(R6), h
 
-	TRANSPOSE_MATRIX_STAT
+	TRANSPOSE_MATRIX(a, b, c, d, e, f, g, h, tmp1, tmp2, tmp3, tmp4)
 
 	// store state
 	MOVV (0*8)(R5), R6
@@ -297,7 +266,7 @@ TEXT ·blockMultBy8(SB),NOSPLIT,$0
 	XVMOVQ (0*32)(R20), h
 
 	// transpose state
-	TRANSPOSE_MATRIX_STAT
+	TRANSPOSE_MATRIX(a, b, c, d, e, f, g, h, tmp1, tmp2, tmp3, tmp4)
 
 	MOVV	(0*8)(srcPtrPtr), srcPtr1
 	MOVV	(1*8)(srcPtrPtr), srcPtr2
@@ -416,7 +385,7 @@ loop:
 	BNE blockCount, loop
 
 	// transpose state
-	TRANSPOSE_MATRIX_STAT
+	TRANSPOSE_MATRIX(a, b, c, d, e, f, g, h, tmp1, tmp2, tmp3, tmp4)
 
 	// store state
 	MOVV	(0*8)(digPtr), R20
