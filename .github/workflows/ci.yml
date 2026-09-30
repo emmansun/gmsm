@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goVer: ['1.25', '1.26']
+        goVer: ['1.26', '1.27']
     steps:
     - name: Harden the runner (Audit all outbound calls)
       uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
@@ -31,19 +31,19 @@ jobs:
         go-version: ${{ matrix.goVer }}
        
     - name: Test with Coverage
-      if: ${{ matrix.goVer == '1.25' }}
+      if: ${{ matrix.goVer == '1.26' }}
       run: go test -coverpkg=./... -v -short -race -coverprofile=coverage1.txt -covermode=atomic ./...
       env:
         GODEBUG: x509sha1=1
 
     - name: Test Generic with Coverage
-      if: ${{ matrix.goVer == '1.25' }}
+      if: ${{ matrix.goVer == '1.26' }}
       run: go test -coverpkg=./... -v -short -tags purego  -coverprofile=coverage2.txt -covermode=atomic ./...      
       env:
         GODEBUG: x509sha1=1
 
     - name: Upload coverage to Codecov
-      if: ${{ matrix.goVer == '1.25' }}
+      if: ${{ matrix.goVer == '1.26' }}
       uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
       with:
         files: ./coverage1.txt,./coverage2.txt
@@ -56,19 +56,19 @@ jobs:
         FORCE_SM4BLOCK_AESNI: 1
 
     - name: Test only
-      if: ${{ matrix.goVer != '1.25' }}
+      if: ${{ matrix.goVer != '1.26' }}
       run: go test -short ./...
       env:
         GODEBUG: x509sha1=1
 
     - name: Test Generic only
-      if: ${{ matrix.goVer != '1.25' }}
+      if: ${{ matrix.goVer != '1.26' }}
       run: go test -short -tags purego ./...      
       env:
         GODEBUG: x509sha1=1
 
     - name: Test Plugin only
-      if: ${{ matrix.goVer == '1.25' }}
+      if: ${{ matrix.goVer == '1.26' }}
       run: go test -short -tags plugin ./...      
       env:
         GODEBUG: x509sha1=1
@@ -87,7 +87,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
-        go-version: '1.25'
+        go-version: '1.26'
 
     - name: Regenerate patches and check consistency
       run: |
