@@ -52,14 +52,22 @@
 	XVILVHV t0, t6, t7; /* t7 = {t7.S7, t6.S7, t5.S7, t4.S7, t7.S3, t6.S3, t5.S3, t4.S3} */ \
 	XVILVLV t0, t6, t6; /* t6 = {t7.S6, t6.S6, t5.S6, t4.S6, t7.S2, t6.S2, t5.S2, t4.S2} */ \
 	; \
-	XVILVLV RTMP0, t4, t0; /* t0 = {t7.S0, t6.S0, t5.S0, t4.S0, t3.S0, t2.S0, t1.S0, t0.S0} */ \
-	XVILVHV RTMP0, t4, t4; /* t4 = {t7.S4, t6.S4, t5.S4, t4.S4, t3.S4, t2.S4, t1.S4, t0.S4} */ \
-	XVILVLV RTMP1, t5, t1; /* t1 = {t7.S1, t6.S1, t5.S1, t4.S1, t3.S1, t2.S1, t1.S1, t0.S1} */ \
-	XVILVHV RTMP1, t5, t5; /* t5 = {t7.S5, t6.S5, t5.S5, t4.S5, t3.S5, t2.S5, t1.S5, t0.S5} */ \
-	XVILVLV RTMP2, t6, t2; /* t2 = {t7.S2, t6.S2, t5.S2, t4.S2, t3.S2, t2.S2, t1.S2, t0.S2} */ \
-	XVILVHV RTMP2, t6, t6; /* t6 = {t7.S6, t6.S6, t5.S6, t4.S6, t3.S6, t2.S6, t1.S6, t0.S6} */ \
-	XVILVLV RTMP3, t7, t3; /* t3 = {t7.S3, t6.S3, t5.S3, t4.S3, t3.S3, t2.S3, t1.S3, t0.S3} */ \
-	XVILVHV RTMP3, t7, t7  /* t7 = {t7.S7, t6.S7, t5.S7, t4.S7, t3.S7, t2.S7, t1.S7, t0.S7} */
+	XVMOVQ RTMP0, t0.Q2; /* Stage RTMP0 in the destructive destination for row 0. */ \
+	XVPERMIQ $0x2, t4, t0; /* t0 = {t7.S0, t6.S0, t5.S0, t4.S0, t3.S0, t2.S0, t1.S0, t0.S0} */ \
+	; \
+	XVMOVQ RTMP1, t1.Q2; /* Stage RTMP1 in the destructive destination for row 1. */ \
+	XVPERMIQ $0x2, t5, t1; /* t1 = {t7.S1, t6.S1, t5.S1, t4.S1, t3.S1, t2.S1, t1.S1, t0.S1} */ \
+	; \
+	XVMOVQ RTMP2, t2.Q2; /* Stage RTMP2 in the destructive destination for row 2. */ \
+	XVPERMIQ $0x2, t6, t2; /* t2 = {t7.S2, t6.S2, t5.S2, t4.S2, t3.S2, t2.S2, t1.S2, t0.S2} */ \
+	; \
+	XVMOVQ RTMP3, t3.Q2; /* Stage RTMP3 in the destructive destination for row 3. */ \
+	XVPERMIQ $0x2, t7, t3; /* t3 = {t7.S3, t6.S3, t5.S3, t4.S3, t3.S3, t2.S3, t1.S3, t0.S3} */ \
+	; \
+	XVPERMIQ $0x31, RTMP0, t4; /* t4 = {t7.S4, t6.S4, t5.S4, t4.S4, t3.S4, t2.S4, t1.S4, t0.S4} */ \
+	XVPERMIQ $0x31, RTMP1, t5; /* t5 = {t7.S5, t6.S5, t5.S5, t4.S5, t3.S5, t2.S5, t1.S5, t0.S5} */ \
+	XVPERMIQ $0x31, RTMP2, t6; /* t6 = {t7.S6, t6.S6, t5.S6, t4.S6, t3.S6, t2.S6, t1.S6, t0.S6} */ \
+	XVPERMIQ $0x31, RTMP3, t7  /* t7 = {t7.S7, t6.S7, t5.S7, t4.S7, t3.S7, t2.S7, t1.S7, t0.S7} */
 
 #define prepare8Words(index) \
 	XVMOVQ (index*32)(srcPtr1), X12; \
