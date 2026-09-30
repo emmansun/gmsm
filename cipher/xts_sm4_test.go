@@ -407,17 +407,24 @@ func xtsRefDecrypt(b stdcipher.Block, dst, src []byte, tweak *[16]byte, isGB boo
 
 var xtsBoundaryLengths = []int{16, 17, 18, 19, 20, 23, 24, 28, 31, 32, 33, 34, 47, 48, 49, 63, 64, 65, 79, 80, 81, 95, 96, 97, 112, 127, 128, 129, 131, 143, 144, 145}
 
-// TestXTSBoundaryLengths checks the optimized XTS implementations (including
-// the fused ZVKSED path on riscv64) against a plain-Go reference at block
-// and ciphertext-stealing boundary lengths, for both tweak variants, out of
-// place, in place and across consecutive CryptBlocks calls.
+// TestXTSBoundaryLengths checks the optimized SM4 XTS implementations
+// (including the fused ZVKSED path on riscv64) against a plain-Go reference.
 func TestXTSBoundaryLengths(t *testing.T) {
 	key := fromHex("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f")
-	k1, err := sm4.NewCipher(key[:16])
+	testXTSBoundaryLengths(t, sm4.NewCipher, key[:16], key[16:])
+}
+
+// testXTSBoundaryLengths checks an XTS implementation at block and
+// ciphertext-stealing boundary lengths, for both tweak variants, out of
+// place, in place and across consecutive CryptBlocks calls. Passing a cipher
+// function without an optimized XTS path (e.g. crypto/aes) exercises the
+// generic implementation in internal/cipher/xts.
+func testXTSBoundaryLengths(t *testing.T, newBlock func([]byte) (stdcipher.Block, error), key, tweakKey []byte) {
+	k1, err := newBlock(key)
 	if err != nil {
 		t.Fatal(err)
 	}
-	k2, err := sm4.NewCipher(key[16:])
+	k2, err := newBlock(tweakKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -444,17 +451,17 @@ func TestXTSBoundaryLengths(t *testing.T) {
 			var newEnc, newDec func() (stdcipher.BlockMode, error)
 			if isGB {
 				newEnc = func() (stdcipher.BlockMode, error) {
-					return cipher.NewGBXTSEncrypter(sm4.NewCipher, key[:16], key[16:], tweakInput)
+					return cipher.NewGBXTSEncrypter(newBlock, key, tweakKey, tweakInput)
 				}
 				newDec = func() (stdcipher.BlockMode, error) {
-					return cipher.NewGBXTSDecrypter(sm4.NewCipher, key[:16], key[16:], tweakInput)
+					return cipher.NewGBXTSDecrypter(newBlock, key, tweakKey, tweakInput)
 				}
 			} else {
 				newEnc = func() (stdcipher.BlockMode, error) {
-					return cipher.NewXTSEncrypter(sm4.NewCipher, key[:16], key[16:], tweakInput)
+					return cipher.NewXTSEncrypter(newBlock, key, tweakKey, tweakInput)
 				}
 				newDec = func() (stdcipher.BlockMode, error) {
-					return cipher.NewXTSDecrypter(sm4.NewCipher, key[:16], key[16:], tweakInput)
+					return cipher.NewXTSDecrypter(newBlock, key, tweakKey, tweakInput)
 				}
 			}
 

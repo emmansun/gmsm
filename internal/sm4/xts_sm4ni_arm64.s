@@ -151,33 +151,33 @@ xtsSm4EncTail:
 
 	TBZ	$3, srcPtrLen, less_than8
 	MOVD.P 8(srcPtr), R11
+	MOVD   (R7), R12
 	MOVD.P R11, 8(R7)
-	MOVD.P 8(R7), R12
 	MOVD.P R12, 8(dstPtr)
 
 less_than8:
 	TBZ	$2, srcPtrLen, less_than4
 	MOVWU.P 4(srcPtr), R11
+	MOVWU  (R7), R12
 	MOVWU.P R11, 4(R7)
-	MOVWU.P 4(R7), R12
 	MOVWU.P R12, 4(dstPtr)
 
 less_than4:
 	TBZ	$1, srcPtrLen, less_than2
 	MOVHU.P 2(srcPtr), R11
+	MOVHU  (R7), R12
 	MOVHU.P R11, 2(R7)
-	MOVHU.P 2(R7), R12
 	MOVHU.P R12, 2(dstPtr)
 
 less_than2:
 	TBZ	$0, srcPtrLen, xtsSm4EncTailEnc
 	MOVBU (srcPtr), R11
-	MOVBU R11, (R7)
 	MOVBU (R7), R12
+	MOVBU R11, (R7)
 	MOVBU R12, (dstPtr)
 
 xtsSm4EncTailEnc:
-	VLD1 (R7), [B0.B16]
+	VLD1 (R9), [B0.B16]
 	VEOR TW.B16, B0.B16, B0.B16
 	VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
@@ -282,33 +282,33 @@ dec_mul2_done_tail:
 
 	TBZ	$3, srcPtrLen, less_than8
 	MOVD.P 8(srcPtr), R11
+	MOVD   (R7), R12
 	MOVD.P R11, 8(R7)
-	MOVD.P 8(R7), R12
 	MOVD.P R12, 8(dstPtr)
 
 less_than8:
 	TBZ	$2, srcPtrLen, less_than4
 	MOVWU.P 4(srcPtr), R11
+	MOVWU  (R7), R12
 	MOVWU.P R11, 4(R7)
-	MOVWU.P 4(R7), R12
 	MOVWU.P R12, 4(dstPtr)
 
 less_than4:
 	TBZ	$1, srcPtrLen, less_than2
 	MOVHU.P 2(srcPtr), R11
+	MOVHU  (R7), R12
 	MOVHU.P R11, 2(R7)
-	MOVHU.P 2(R7), R12
 	MOVHU.P R12, 2(dstPtr)
 
 less_than2:
 	TBZ	$0, srcPtrLen, xtsSm4DecTailDec
 	MOVBU (srcPtr), R11
-	MOVBU R11, (R7)
 	MOVBU (R7), R12
+	MOVBU R11, (R7)
 	MOVBU R12, (dstPtr)
 
 xtsSm4DecTailDec:
-	VLD1 (R7), [B0.B16]
+	VLD1 (R9), [B0.B16]
 	VEOR TW.B16, B0.B16, B0.B16
 	VREV32 B0.B16, B0.B16
 	sm4eEnc1block()
