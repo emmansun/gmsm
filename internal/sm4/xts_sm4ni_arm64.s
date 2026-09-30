@@ -189,7 +189,7 @@ xtsSm4EncDone:
 	RET
 
 // func decryptSm4NiXts(xk *uint32, tweak *[BlockSize]byte, dst, src []byte, isGB bool)
-TEXT ·decryptSm4NiXts(SB),NOSPLIT$0-65
+TEXT ·decryptSm4NiXts(SB),NOSPLIT,$0-65
 	MOVD xk+0(FP), rk
 	MOVD tweak+8(FP), twPtr
 	MOVD dst+16(FP), dstPtr
