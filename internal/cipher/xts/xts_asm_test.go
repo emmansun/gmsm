@@ -113,6 +113,9 @@ type concurrentTestBlock struct {
 func (b *concurrentTestBlock) Concurrency() int { return 4 }
 
 func (b *concurrentTestBlock) EncryptBlocks(dst, src []byte) {
+	if len(dst) != b.Concurrency()*blockSize || len(src) != b.Concurrency()*blockSize {
+		panic("unexpected concurrent encryption batch size")
+	}
 	for range b.Concurrency() {
 		b.Encrypt(dst, src)
 		dst = dst[blockSize:]
@@ -121,6 +124,9 @@ func (b *concurrentTestBlock) EncryptBlocks(dst, src []byte) {
 }
 
 func (b *concurrentTestBlock) DecryptBlocks(dst, src []byte) {
+	if len(dst) != b.Concurrency()*blockSize || len(src) != b.Concurrency()*blockSize {
+		panic("unexpected concurrent decryption batch size")
+	}
 	for range b.Concurrency() {
 		b.Decrypt(dst, src)
 		dst = dst[blockSize:]

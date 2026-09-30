@@ -139,7 +139,7 @@ func (c *xtsEncrypter) CryptBlocks(ciphertext, plaintext []byte) {
 		for len(plaintext) >= batchSize {
 			doubleTweaks(&c.tweak, tweaks, c.isGB)
 			subtle.XORBytes(ciphertext, plaintext, tweaks)
-			concCipher.EncryptBlocks(ciphertext, ciphertext)
+			concCipher.EncryptBlocks(ciphertext[:batchSize], ciphertext[:batchSize])
 			subtle.XORBytes(ciphertext, ciphertext, tweaks)
 			plaintext = plaintext[batchSize:]
 			lastCiphertext = ciphertext[batchSize-blockSize:]
@@ -202,7 +202,7 @@ func (c *xtsDecrypter) CryptBlocks(plaintext, ciphertext []byte) {
 			}
 			doubleTweaks(&c.tweak, tweaks, c.isGB)
 			subtle.XORBytes(plaintext, ciphertext, tweaks)
-			concCipher.DecryptBlocks(plaintext, plaintext)
+			concCipher.DecryptBlocks(plaintext[:batchSize], plaintext[:batchSize])
 			subtle.XORBytes(plaintext, plaintext, tweaks)
 			plaintext = plaintext[batchSize:]
 			ciphertext = ciphertext[batchSize:]
