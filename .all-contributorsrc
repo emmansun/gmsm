@@ -194,6 +194,15 @@
       "contributions": [
         "platform"
       ]
+    },
+    {
+      "login": "rajnisht7",
+      "name": "Rajnish Tiwari",
+      "avatar_url": "https://avatars.githubusercontent.com/u/121179385?v=4",
+      "profile": "https://rajnisht7-p.vercel.app/",
+      "contributions": [
+        "security"
+      ]
     }
   ],
   "commitType": "docs",
