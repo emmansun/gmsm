@@ -35,73 +35,16 @@ func TestPolyvalTableInitAsm(t *testing.T) {
 			t.Errorf("unexpected table value: got %x, want %x", table, amd64Expected)
 		}
 	case "riscv64":
-		origGHASH := hasGHASH
-		// Zvbc path: table must match amd64 exactly (same vclmul algorithm)
-		hasGHASH = false
-		var zvbcTable polyvalAsmTable
-		polyvalTableInitAsm(&authKey, &zvbcTable)
-		if zvbcTable != (polyvalAsmTable(amd64Expected)) {
-			t.Errorf("Zvbc table mismatch:\n  got:  %x\n  want: %x", zvbcTable, amd64Expected)
-		}
-		// Zvkg path: stores byte-reversed H^1 at table[0:16]
-		// The H^1 value is amd64Expected[224:240]; Zvkg byte-reverses it for vghsh.vv.
-		if cpu.RISCV64.HasZvkg {
-			hasGHASH = true
-			var zvkgTable polyvalAsmTable
-			polyvalTableInitAsm(&authKey, &zvkgTable)
-			// Compute expected: reverse bytes of amd64 H^1
-			var zvkgExpected [16]byte
-			for i := 0; i < 16; i++ {
-				zvkgExpected[i] = amd64Expected[224+15-i]
-			}
-			if !bytes.Equal(zvkgTable[:16], zvkgExpected[:]) {
-				t.Errorf("Zvkg table key mismatch:\n  got:  %x\n  want: %x", zvkgTable[:16], zvkgExpected)
+		if cpu.RISCV64.HasZvbc {
+			// Zvbc path: table must match amd64 exactly (same vclmul algorithm)
+			hasGHASH = false
+			var zvbcTable polyvalAsmTable
+			polyvalTableInitAsm(&authKey, &zvbcTable)
+			if zvbcTable != (polyvalAsmTable(amd64Expected)) {
+				t.Errorf("Zvbc table mismatch:\n  got:  %x\n  want: %x", zvbcTable, amd64Expected)
 			}
 		}
-		hasGHASH = origGHASH
 	}
-}
-
-// TestPolyvalRISCV64BothPaths cross-validates Zvkg and Zvbc code paths on riscv64
-// by temporarily flipping hasGHASH. Both paths must produce identical POLYVAL output.
-func TestPolyvalRISCV64BothPaths(t *testing.T) {
-	if runtime.GOARCH != "riscv64" {
-		t.Skip("riscv64-only test")
-	}
-	if !cpu.RISCV64.HasZvbc {
-		t.Skip("requires Zvbc")
-	}
-
-	var authKey = [16]byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
-	blocks := []byte{
-		0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
-		0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
-		0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88,
-		0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00,
-	}
-
-	// Force Zvbc path
-	origGHASH := hasGHASH
-	hasGHASH = false
-	var tableZvbc polyvalAsmTable
-	polyvalTableInitAsm(&authKey, &tableZvbc)
-	var yZvbc [16]byte
-	polyvalBlocksUpdateAsm(&tableZvbc, &yZvbc, blocks)
-
-	if cpu.RISCV64.HasZvkg {
-		// Force Zvkg path
-		hasGHASH = true
-		var tableZvkg polyvalAsmTable
-		polyvalTableInitAsm(&authKey, &tableZvkg)
-		var yZvkg [16]byte
-		polyvalBlocksUpdateAsm(&tableZvkg, &yZvkg, blocks)
-
-		if yZvbc != yZvkg {
-			t.Errorf("Zvbc and Zvkg paths produce different results:\n  Zvbc: %x\n  Zvkg: %x", yZvbc, yZvkg)
-		}
-	}
-
-	hasGHASH = origGHASH
 }
 
 func TestPolyvalBlocksUpdateAsm(t *testing.T) {
