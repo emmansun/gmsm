@@ -42,7 +42,7 @@ func TestPlatformVerifier(t *testing.T) {
 
 	der, err := os.ReadFile(rootCertPath)
 	if err != nil {
-		t.Skipf("skipping: %s", err)
+		t.Fatalf("failed to read test root: %s", err)
 	}
 	b, _ := pem.Decode(der)
 	testRoot, err := ParseCertificate(b.Bytes)
@@ -202,7 +202,6 @@ func TestPlatformVerifier(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			parent := testRoot

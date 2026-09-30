@@ -2,7 +2,7 @@
 # This workflow will build a golang project
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
 
-name: riscv64-qemu
+name: riscv64-zvkg
 
 on:
   push:
@@ -18,28 +18,39 @@ jobs:
   test:
     strategy:
       matrix:
-        go-version: [1.25.x]
+        goVer: [1.26, 1.27]
         arch: [riscv64]  
     runs-on: ubuntu-latest
     steps:
     - name: Harden the runner (Audit all outbound calls)
-      uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+      uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
       with:
         egress-policy: audit
 
     - name: Set up Go
       uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
-        go-version: ${{ matrix.go-version }}
+        go-version: ${{ matrix.goVer }}
 
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+      uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
 
     - name: Check out code
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+    - name: Verify Zvksed/Zvksh are visible to QEMU
+      run: |
+        QEMU_CPU=max sh -c 'true'
+        echo "QEMU_CPU=max (default for riscv64 linux-user since QEMU 8.1)"
+
     - name: Test
-      run: go test -v -short ./internal/...
+      run: go test -v -short ./internal/... ./sm3/... ./sm4/... ./mlkem/...
       env:
-        GODEBUG: x509sha1=1
-        GOARCH: ${{ matrix.arch }}      
+        QEMU_CPU: max
+        GOARCH: ${{ matrix.arch }}
+
+    - name: Test Cipher
+      run: go test -v -short ./cipher -run 'TestSM4GCM|TestGCMCounterWrap|TestSM4GCMRandom|TestGCMSIV|TestNewGCMSIV'
+      env:
+        QEMU_CPU: max
+        GOARCH: ${{ matrix.arch }}

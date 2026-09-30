@@ -239,7 +239,7 @@ type stdlibCurveKEX struct {
 func (s *stdlibCurveKEX) publicKeySize() int { return s.pubKeySize }
 
 func (s *stdlibCurveKEX) generateKeyPair(rand io.Reader) (ClassicalKeyPair, error) {
-	priv, err := s.curve.GenerateKey(rand)
+	priv, err := generateStdlibKey(s.curve, rand)
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +247,7 @@ func (s *stdlibCurveKEX) generateKeyPair(rand io.Reader) (ClassicalKeyPair, erro
 }
 
 func (s *stdlibCurveKEX) serverECDH(rand io.Reader, clientPubBytes []byte) ([]byte, []byte, error) {
-	serverPriv, err := s.curve.GenerateKey(rand)
+	serverPriv, err := generateStdlibKey(s.curve, rand)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -260,6 +260,39 @@ func (s *stdlibCurveKEX) serverECDH(rand io.Reader, clientPubBytes []byte) ([]by
 		return nil, nil, err
 	}
 	return shared, serverPriv.PublicKey().Bytes(), nil
+}
+
+func generateStdlibKey(curve ecdh.Curve, rand io.Reader) (*ecdh.PrivateKey, error) {
+	keySize := 32
+	nistCurve := true
+	switch curve {
+	case ecdh.X25519():
+		nistCurve = false
+	case ecdh.P256():
+	case ecdh.P384():
+		keySize = 48
+	case ecdh.P521():
+		keySize = 66
+	default:
+		return nil, errors.New("tls13: unsupported ECDH curve")
+	}
+
+	for {
+		key := make([]byte, keySize)
+		if _, err := io.ReadFull(rand, key); err != nil {
+			return nil, err
+		}
+		if nistCurve {
+			key[1] ^= 0x42
+		}
+		if curve == ecdh.P521() {
+			key[0] &= 1
+		}
+		priv, err := curve.NewPrivateKey(key)
+		if err == nil {
+			return priv, nil
+		}
+	}
 }
 
 type stdlibKeyPair struct {

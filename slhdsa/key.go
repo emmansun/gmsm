@@ -90,7 +90,7 @@ func (sk *PrivateKey) Public() crypto.PublicKey {
 	return &sk.PublicKey
 }
 
-func (sk *PrivateKey) Equal(x crypto.PublicKey) bool {
+func (sk *PrivateKey) Equal(x crypto.PrivateKey) bool {
 	xx, ok := x.(*PrivateKey)
 	if !ok {
 		return false

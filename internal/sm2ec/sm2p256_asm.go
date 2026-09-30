@@ -305,14 +305,12 @@ func p256Sqrt(e, x *p256Element) (isSquare bool) {
 
 // The following assembly functions are implemented in p256_asm_*.s
 
-// amd64 assembly uses ADCX/ADOX/MULX
-var supportBMI2 = cpu.X86.HasADX && cpu.X86.HasBMI2
-
-var supportAVX2 = cpu.X86.HasAVX2
-
 var (
+	supportAVX2 = cpu.X86.HasAVX2
+	supportBMI2 = cpu.X86.HasADX && cpu.X86.HasBMI2 // amd64 assembly uses ADCX/ADOX/MULX
 	supportLSX  = cpu.Loong64.HasLSX
 	supportLASX = cpu.Loong64.HasLASX
+	supportRVV  = cpu.RISCV64.HasV
 )
 
 // Montgomery multiplication. Sets res = in1 * in2 * R⁻¹ mod p.

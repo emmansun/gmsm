@@ -94,13 +94,6 @@ polysub_loop:
 //   2. t       = prod_lo * qInv (low32) XVMULW
 //   3. prod_hi = Xa * Xb  (hi32,signed) XVMUHW
 //   4. tq_hi   = t * q    (hi32,signed) XVMUHW
-// XVPERMIQ performs xvpermi.q Xd, Xj, imm8.
-// Real semantics: pool={Xj.lo, Xj.hi, Xd_old.lo, Xd_old.hi} = {0,1,2,3}
-//   dst.qword[0] = pool[imm[1:0]], dst.qword[1] = pool[imm[5:4]]
-// Opcode 0x1DFB verified: xvpermi.q X8, X9, 0x02 → WORD $0x77ec0928
-#define XVPERMIQ(Xd, Xj, imm8) \
-	WORD $((0x1DFB << 18) | ((imm8) << 10) | ((Xj) << 5) | (Xd))
-
 // XVMIN_WU(Xd, Xj, Xk): Xd = element-wise min(Xj, Xk) treating lanes as uint32.
 // LLVM opcode 0x74770000; opcode field = 0x74770000>>15 = 0xe8ee.
 #define XVMINWU(Xd, Xj, Xk) \
@@ -404,12 +397,12 @@ ntt_l5_outer:
 	XVMOVQ R10, X29.W8
 	XVMOVQ (R7), X9
 	XVORV X9, X9, X0
-	XVPERMIQ(0, 9, 0x00)      // X0 = {X9.lo, X9.lo} = even duplicated
+	XVPERMIQ $0x00, X9, X0    // X0 = {X9.lo, X9.lo} = even duplicated
 	XVORV X9, X9, X1
-	XVPERMIQ(1, 9, 0x11)      // X1 = {X9.hi, X9.hi} = odd duplicated
+	XVPERMIQ $0x11, X9, X1    // X1 = {X9.hi, X9.hi} = odd duplicated
 	NTT_BUTTERFLY(X0, X1, X29)
 	XVORV X0, X0, X9
-	XVPERMIQ(9, 1, 0x02)      // X9 = {X0.lo, X1.lo} = [even' | odd']
+	XVPERMIQ $0x02, X1, X9    // X9 = {X0.lo, X1.lo} = [even' | odd']
 	XVMOVQ X9, (R7)
 	ADDV $32, R7; ADDV $-1, R6; BNE R6, R0, ntt_l5_outer
 
@@ -540,12 +533,12 @@ intt_l2_outer:
 	XVMOVQ R10, X29.W8
 	XVMOVQ (R7), X9
 	XVORV X9, X9, X0
-	XVPERMIQ(0, 9, 0x00)           // X0 = {X9.lo, X9.lo} = even duplicated
+	XVPERMIQ $0x00, X9, X0         // X0 = {X9.lo, X9.lo} = even duplicated
 	XVORV X9, X9, X1
-	XVPERMIQ(1, 9, 0x11)           // X1 = {X9.hi, X9.hi} = odd duplicated
+	XVPERMIQ $0x11, X9, X1         // X1 = {X9.hi, X9.hi} = odd duplicated
 	INTT_BUTTERFLY(X0, X1, X29)
 	XVORV X0, X0, X9
-	XVPERMIQ(9, 1, 0x02)           // X9 = {X0.lo, X1.lo} = [even' | odd']
+	XVPERMIQ $0x02, X1, X9         // X9 = {X0.lo, X1.lo} = [even' | odd']
 	XVMOVQ X9, (R7)
 	ADDV $32, R7; ADDV $-1, R6; BNE R6, R0, intt_l2_outer
 
@@ -695,7 +688,7 @@ poly_inf_norm_loop:
 
 	// Fold high 128-bit lane into low.
 	XVORV X27, X27, X28
-	XVPERMIQ(28, 27, 0x11)  // X28 = {X27.hi, X27.hi}
+	XVPERMIQ $0x11, X27, X28  // X28 = {X27.hi, X27.hi}
 	XVMAXWU(27, 27, 28)   // X27.lo = max(X27.lo, X27.hi)
 
 	// Fold 4 → 2.
@@ -750,7 +743,7 @@ poly_inf_norm_signed_loop:
 
 	// Fold high 128-bit lane into low: X28 = {X27.hi, X27.hi}, max with X27.lo
 	XVORV X27, X27, X28
-	XVPERMIQ(28, 27, 0x11)  // X28 = permute X27 lanes: {hi,hi}
+	XVPERMIQ $0x11, X27, X28  // X28 = permute X27 lanes: {hi,hi}
 	XVMAXWU(27, 27, 28)   // X27.lo = max(X27.lo, X27.hi)
 
 	// Fold 4 → 2: shuffle elements [0,1,2,3] → [2,3,0,1] (imm=0x4E)

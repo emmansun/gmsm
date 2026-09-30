@@ -234,25 +234,32 @@ var RISCV64 struct {
 	HasV              bool // Vector extension compatible with RVV 1.0
 	HasZba            bool // Address generation instructions extension
 	HasZbb            bool // Basic bit-manipulation extension
-	HasZbs            bool // Single-bit instructions extension
+	HasZbc            bool // Carryless multiplication extension
 	HasZvbb           bool // Vector Basic Bit-manipulation
 	HasZvbc           bool // Vector Carryless Multiplication
 	HasZvkb           bool // Vector Cryptography Bit-manipulation
 	HasZvkt           bool // Vector Data-Independent Execution Latency
 	HasZvkg           bool // Vector GCM/GMAC
-	HasZvkn           bool // NIST Algorithm Suite (AES/SHA256/SHA512)
-	HasZvknc          bool // NIST Algorithm Suite with carryless multiply
-	HasZvkng          bool // NIST Algorithm Suite with GCM
-	HasZvks           bool // ShangMi Algorithm Suite
-	HasZvksc          bool // ShangMi Algorithm Suite with carryless multiplication
-	HasZvksg          bool // ShangMi Algorithm Suite with GCM
+	HasZvkned         bool // NIST Suite: Vector AES Block Cipher
+	HasZvknha         bool // NIST Suite: Vector SHA-2 Secure Hash
+	HasZvknhb         bool // NIST Suite: Vector SHA-2 Secure Hash
+	HasZvksed         bool // ShangMi Suite: SM4 Block Cipher
+	HasZvksh          bool // ShangMi Suite: SM3 Secure Hash
+	VLENB             uint // Vector register length in bytes, 0 if undetected
 	_                 CacheLinePad
 }
+
+// doDerived, if non-nil, is called after processing GODEBUG to set "derived"
+// feature flags.
+var doDerived func()
 
 func init() {
 	archInit()
 	initOptions()
 	processOptions()
+	if doDerived != nil {
+		doDerived()
+	}
 }
 
 // options contains the cpu debug options that can be used in GODEBUG.

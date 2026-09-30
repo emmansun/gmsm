@@ -39,13 +39,16 @@ func main() {
 	// gitDiff runs git diff --no-index using relative paths from repo root.
 	// Relative paths ensure consistent diff headers across platforms (Windows/Linux).
 	gitDiff := func(srcRel, dstRel string) ([]byte, error) {
-		cmd := exec.Command("git", "diff", "--no-index", srcRel, dstRel)
+		cmd := exec.Command("git", "diff", "--no-index", "--abbrev=7", srcRel, dstRel)
 		cmd.Dir = repoRoot
-		out, err := cmd.CombinedOutput()
+		out, err := cmd.Output()
 		if err != nil {
 			// exit code 1 means differences exist, which is expected
 			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
 				return out, nil
+			}
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				return nil, fmt.Errorf("%w: %s", err, exitErr.Stderr)
 			}
 			return nil, err
 		}
@@ -95,13 +98,17 @@ func main() {
 		emptyFile := filepath.Join(tmpDir, "empty")
 		os.WriteFile(emptyFile, []byte{}, 0644)
 
-		cmd := exec.Command("git", "diff", "--no-index", emptyFile, dstFile)
+		cmd := exec.Command("git", "diff", "--no-index", "--abbrev=7", emptyFile, dstFile)
 		cmd.Dir = repoRoot
-		data, err := cmd.CombinedOutput()
+		data, err := cmd.Output()
 		os.RemoveAll(tmpDir)
 		if err != nil {
 			if exitErr, ok := err.(*exec.ExitError); !ok || exitErr.ExitCode() != 1 {
-				fmt.Printf("Error diffing %s: %v\n", f, err)
+				if exitErr, ok := err.(*exec.ExitError); ok {
+					fmt.Printf("Error diffing %s: %v: %s\n", f, err, exitErr.Stderr)
+				} else {
+					fmt.Printf("Error diffing %s: %v\n", f, err)
+				}
 				continue
 			}
 		}
@@ -172,9 +179,31 @@ func fixPaths(data []byte, filename string) []byte {
 			result = append(result, []byte("+++ ")...)
 			result = append(result, canonical('b')...)
 			result = append(result, '\n')
+		case bytes.HasPrefix(line, []byte("index ")):
+			result = result[:len(result)-len(line)-1]
+			result = append(result, canonicalIndexLine(line)...)
+			result = append(result, '\n')
 		}
 	}
 	return result
+}
+
+func canonicalIndexLine(line []byte) []byte {
+	fields := strings.Fields(string(line))
+	if len(fields) < 2 {
+		return line
+	}
+	hashes := strings.SplitN(fields[1], "..", 2)
+	if len(hashes) != 2 {
+		return line
+	}
+	for i := range hashes {
+		if len(hashes[i]) > 7 {
+			hashes[i] = hashes[i][:7]
+		}
+	}
+	fields[1] = strings.Join(hashes, "..")
+	return []byte(strings.Join(fields, " "))
 }
 
 // fixDiffGitLine fixes the "diff --git a/... b/..." line.

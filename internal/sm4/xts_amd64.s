@@ -325,15 +325,13 @@ xtsSm4EncTail:
 	JE xtsSm4EncDone
 
 	LEAQ -16(CX), R8
-	MOVOU (16*0)(R8), B0
-	MOVOU B0, (16*0)(SP)
 
 	CMPQ DI, $8
 	JB   loop_1b
 	SUBQ  $8, DI
 	MOVQ (DX)(DI*1), R9
-	MOVQ (SP)(DI*1), R10
-	MOVQ R9, (SP)(DI*1)
+	MOVQ (R8)(DI*1), R10
+	MOVQ R9, (R8)(DI*1)
 	MOVQ R10, (CX)(DI*1)
 
 	TESTQ DI, DI
@@ -342,14 +340,14 @@ xtsSm4EncTail:
 loop_1b:
 	SUBQ  $1, DI
 	MOVB (DX)(DI*1), R9
-	MOVB (SP)(DI*1), R10
-	MOVB R9, (SP)(DI*1)
+	MOVB (R8)(DI*1), R10
+	MOVB R9, (R8)(DI*1)
 	MOVB R10, (CX)(DI*1)
 	TESTQ DI, DI
 	JNE   loop_1b
 
 xtsSm4EncTailEnc:
-	MOVOU (16*0)(SP), B0
+	MOVOU (R8), B0
 	PXOR TW, B0
 	SM4_SINGLE_BLOCK(AX, B4, T0, T1, T2, B0, B1, B2, B3)
 	PXOR TW, B0
@@ -495,15 +493,13 @@ avx2XtsSm4EncTail:
 	JE avx2XtsSm4EncDone
 
 	LEAQ -16(CX), R8
-	VMOVDQU (16*0)(R8), B0
-	VMOVDQU B0, (16*0)(SP)
 
 	CMPQ DI, $8
 	JB   avx2_loop_1b
 	SUBQ  $8, DI
 	MOVQ (DX)(DI*1), R9
-	MOVQ (SP)(DI*1), R10
-	MOVQ R9, (SP)(DI*1)
+	MOVQ (R8)(DI*1), R10
+	MOVQ R9, (R8)(DI*1)
 	MOVQ R10, (CX)(DI*1)
 
 	TESTQ DI, DI
@@ -512,14 +508,14 @@ avx2XtsSm4EncTail:
 avx2_loop_1b:
 	SUBQ  $1, DI
 	MOVB (DX)(DI*1), R9
-	MOVB (SP)(DI*1), R10
-	MOVB R9, (SP)(DI*1)
+	MOVB (R8)(DI*1), R10
+	MOVB R9, (R8)(DI*1)
 	MOVB R10, (CX)(DI*1)
 	TESTQ DI, DI
 	JNE   avx2_loop_1b
 
 avx2XtsSm4EncTailEnc:
-	VMOVDQU (16*0)(SP), B0
+	VMOVDQU (R8), B0
 	VPXOR TW, B0, B0
 	SM4_SINGLE_BLOCK(AX, B4, T0, T1, T2, B0, B1, B2, B3)
 	VPXOR TW, B0, B0
@@ -553,8 +549,14 @@ sse_dec_init_done:
 	MOVOU (0*16)(BX), TW
 
 xtsSm4DecOctets:
+		// Consume a wide batch only if the remainder stays 0 or at least
+		// 16 bytes; the tail paths below expect a remainder of 0 or 16..31.
 		CMPQ DI, $128
 		JB xtsSm4DecNibbles
+		JE sse_dec_take_octets
+		CMPQ DI, $144
+		JB xtsSm4DecNibbles
+sse_dec_take_octets:
 		SUBQ $128, DI
 
 		TESTQ R12, R12
@@ -574,8 +576,14 @@ xtsSm4DecOctets:
 		JMP xtsSm4DecOctets
 
 xtsSm4DecNibbles:
+	// Consume a wide batch only if the remainder stays 0 or at least
+	// 16 bytes; the tail paths below expect a remainder of 0 or 16..31.
 	CMPQ DI, $64
 	JB xtsSm4DecSingles
+	JE sse_dec_take_nibbles
+	CMPQ DI, $80
+	JB xtsSm4DecSingles
+sse_dec_take_nibbles:
 	SUBQ $64, DI
 
 	TESTQ R12, R12
@@ -648,30 +656,29 @@ sse_dec_mul2_tail_done:
 	LEAQ 16(DX), DX
 	LEAQ 16(CX), CX
 	LEAQ -16(CX), R8
-	MOVOU B0, (16*0)(SP)
 
 	CMPQ DI, $8
-	JB   loop_1b
+	JB   loop_1b_dec
 	SUBQ  $8, DI
 	MOVQ (DX)(DI*1), R9
-	MOVQ (SP)(DI*1), R10
-	MOVQ R9, (SP)(DI*1)
+	MOVQ (R8)(DI*1), R10
+	MOVQ R9, (R8)(DI*1)
 	MOVQ R10, (CX)(DI*1)
 
 	TESTQ DI, DI
 	JE xtsSm4DecTailDec
 
-loop_1b:
+loop_1b_dec:
 	SUBQ  $1, DI
 	MOVB (DX)(DI*1), R9
-	MOVB (SP)(DI*1), R10
-	MOVB R9, (SP)(DI*1)
+	MOVB (R8)(DI*1), R10
+	MOVB R9, (R8)(DI*1)
 	MOVB R10, (CX)(DI*1)
 	TESTQ DI, DI
-	JNE   loop_1b
+	JNE   loop_1b_dec
 
 xtsSm4DecTailDec:
-	MOVOU (16*0)(SP), B0
+	MOVOU (R8), B0
 	PXOR TW, B0
 	SM4_SINGLE_BLOCK(AX, B4, T0, T1, T2, B0, B1, B2, B3)
 	PXOR TW, B0
@@ -709,8 +716,14 @@ avx2_dec_init_done:
 	VBROADCASTI128 ·bswap_mask(SB), DWBSWAP
 
 avx2XtsSm4Dec16Blocks:
+		// Consume a wide batch only if the remainder stays 0 or at least
+		// 16 bytes; the tail paths below expect a remainder of 0 or 16..31.
 		CMPQ DI, $256
 		JB avx2XtsSm4DecOctets
+		JE avx2_dec_take_16blocks
+		CMPQ DI, $272
+		JB avx2XtsSm4DecOctets
+avx2_dec_take_16blocks:
 		SUBQ $256, DI
 
 		TESTQ R12, R12
@@ -746,8 +759,14 @@ avx2XtsSm4Dec16Blocks:
 		JMP avx2XtsSm4Dec16Blocks
 
 avx2XtsSm4DecOctets:
+	// Consume a wide batch only if the remainder stays 0 or at least
+	// 16 bytes; the tail paths below expect a remainder of 0 or 16..31.
 	CMPQ DI, $128
 	JB avx2XtsSm4DecNibbles
+	JE avx2_dec_take_octets
+	CMPQ DI, $144
+	JB avx2XtsSm4DecNibbles
+avx2_dec_take_octets:
 	SUBQ $128, DI
 
 	TESTQ R12, R12
@@ -781,8 +800,14 @@ avx2_8blocks_done:
 	JMP avx2XtsSm4DecNibbles
 
 avx2XtsSm4DecNibbles:
+	// Consume a wide batch only if the remainder stays 0 or at least
+	// 16 bytes; the tail paths below expect a remainder of 0 or 16..31.
 	CMPQ DI, $64
 	JB avx2XtsSm4DecSingles
+	JE avx2_dec_take_nibbles
+	CMPQ DI, $80
+	JB avx2XtsSm4DecSingles
+avx2_dec_take_nibbles:
 	SUBQ $64, DI
 
 	TESTQ R12, R12
@@ -857,30 +882,29 @@ avx2_dec_mul2_tail_done:
 	LEAQ 16(DX), DX
 	LEAQ 16(CX), CX
 	LEAQ -16(CX), R8
-	VMOVDQU B0, (16*0)(SP)
 
 	CMPQ DI, $8
-	JB   avx2_loop_1b
+	JB   avx2_loop_1b_dec
 	SUBQ  $8, DI
 	MOVQ (DX)(DI*1), R9
-	MOVQ (SP)(DI*1), R10
-	MOVQ R9, (SP)(DI*1)
+	MOVQ (R8)(DI*1), R10
+	MOVQ R9, (R8)(DI*1)
 	MOVQ R10, (CX)(DI*1)
 
 	TESTQ DI, DI
 	JE avx2XtsSm4DecTailDec
 
-avx2_loop_1b:
+avx2_loop_1b_dec:
 	SUBQ  $1, DI
 	MOVB (DX)(DI*1), R9
-	MOVB (SP)(DI*1), R10
-	MOVB R9, (SP)(DI*1)
+	MOVB (R8)(DI*1), R10
+	MOVB R9, (R8)(DI*1)
 	MOVB R10, (CX)(DI*1)
 	TESTQ DI, DI
-	JNE   avx2_loop_1b
+	JNE   avx2_loop_1b_dec
 
 avx2XtsSm4DecTailDec:
-	VMOVDQU (16*0)(SP), B0
+	VMOVDQU (R8), B0
 	VPXOR TW, B0, B0
 	SM4_SINGLE_BLOCK(AX, B4, T0, T1, T2, B0, B1, B2, B3)
 	VPXOR TW, B0, B0

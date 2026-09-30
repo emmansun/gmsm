@@ -155,18 +155,70 @@ Where `qInv = 58728449` (= 2³² − 4236238847, the negated modular inverse of 
 
 ---
 
+### RISC-V64 — RVV (`field_riscv64.s`, `encoder_riscv64.go`)
+
+**Requirements**: Go 1.26+ (build tag `go1.26`) and a CPU implementing the RVV 1.0 vector extension (`cpu.RISCV64.HasV`).
+
+**Vector width**: Variable — the RVV vector length `VLEN` is implementation-defined. All loops strip-mine with `VSETVLI`, so the code is VLEN-agnostic and works on any `VLEN ≥ 128`. With `SEW=32`, group multipliers M4 (polyAdd/Sub, norm), M2 (nttMul family) and M1 (NTT butterflies) give a vector length in {16, 32, 64, 128, 256} coefficients, all of which divide 256 exactly.
+
+**Reduction strategy**: Montgomery multiplication with an explicit hi/lo split. RVV has no fused 32×32 multiply that yields both halves, so the kernel computes the low and high 32 bits of `a*b` with two separate instructions (`VMULVV`, `VMULHUVV` — unsigned multiply-high, since operands are canonical residues in [0, q)). Because `high32(a*b)` and `high32(m*q)` are accumulated separately, the carry from `low32(a*b) + low32(m*q)` is not automatic and must be fixed up explicitly:
+
+```asm
+VMULVV   b, a, lo            // low 32 bits of a*b
+VMULHUVV b, a, dst           // high 32 bits of a*b
+VMULVX   QNEGINV, lo, m      // m = lo * (-q^-1) mod 2^32
+VMINUVX  ONE, lo, lo         // lo = carry bit (0 or 1)
+VMULHUVX Q, m, m             // high 32 bits of m*q
+VADDVV   lo, dst, dst
+VADDVV   m, dst, dst
+REDUCE_ONCE_RVV(dst, lo)     // reduce x < 2q into [0, q)
+```
+
+Where `QNEGINV = 4236238847` (the negated modular inverse of q mod 2³²). The `REDUCE_ONCE_RVV` macro has no compare instruction — it extracts the sign with `VSRAVI $31` and masks with `VANDVX Q`, the same sign-mask pattern used for `polySubAssign`.
+
+**Key operations**:
+
+- **NTT/INTT**: The upper levels (len = 128…8) are strip-mined M1 chunk loops with the twiddle loaded per group as a scalar (`MONT_MUL_HILO_VX`). The bottom levels (len = 4, 2, 1) use segment loads `VLSEG8E32V` / `VLSEG4E32V` / `VLSEG2E32V` to de-interleave, so each vector register holds the same position of 8/4/2 groups and one vector-zeta butterfly (`MONT_MUL_HILO_VZ`) processes all of them together; `VSSEG*E32V` re-interleaves on store. INTT mirrors this structure using `zetasMontgomeryInverse` (the reversed table, built at init) and finishes with a final scale by `invDegreeMontgomery = 41978`.
+
+- **nttMatRowVecMul**: For each RVV chunk, all row products are accumulated in registers (no memory round-trip) and written to dst once per chunk.
+
+- **HighBits / decomposeSubToR0**: Same multiply-shift constants as AVX2 — `(x + 127) >> 7 * 1025 + 2²¹ >> 22 & 15` for γ₂ = (q−1)/32, and `11275`, `2²³`, `>> 24` plus the `r1 == 44 → 0` clamp (`VRSUBVX 43` + sign mask + `VXORVV`) for γ₂ = (q−1)/88. The r0 center-lift around q/2 uses `VRSUBVX qMinus1Div2` + sign mask + `VSUBVV`.
+
+- **MakeHint**: RVV's dedicated mask registers replace the AVX2 compare/andn trick — `VMSNEVV` writes a comparison result into mask register `V0`, then `VMERGEVIM $1` selects between 1 and 0 per lane to produce the 0/1 hint.
+
+- **UseHint**: Branchless: `delta = h ? (r0 > 0 ? 1 : 2γ₂−1) : 0` built from `VRSUBVX ZERO` sign masks and immediate `VANDVI`/`VXORVI`. Inputs are loaded before any store so exact output aliasing (`out == h`) is safe.
+
+- **polyInfinityNorm / polyInfinityNormSigned**: M4 groups. Signed norm: `abs(a)` via sign mask (`VXORVV` + `VSUBVV`); unsigned norm: centering `min(a, q−a)` via `VRSUBVX Q` + `VMINUVV`. Per-lane maxima are kept in registers across chunks (`VMAXUVV`), and the horizontal reduction runs exactly once at the end with `VREDMAXUVS`.
+
+- **Encoding** (encoder):
+  - `simpleBitPack4Bits` / `simpleBitPack4BitsHighBitsGamma32`: `VLSEG2E32V` loads even/odd coefficients into two vectors, HighBits is fused into the packing loop, nibbles are merged with `VSLLVI $4` + `VORVV`, then narrowed in two steps via `VNSRLWX` (E32→E16→E8) and stored with `VSE8V`.
+  - `simpleBitPack6Bits` / `simpleBitPack6BitsHighBitsGamma88`: 4 coefficients → 3 bytes; shift/or reassembly, the same two-step narrowing, and `VSSEG3E8V` (segment-3 byte store).
+  - `bitPackSignedTwoPower17` / `bitUnpackSignedTwoPower17`: Hybrid approach — the vector unit performs the center subtraction (`fieldSub(2¹⁷, v)`), then GPR instructions pack/unpack four 18-bit values per 9-byte group (`SLL $18/$36/$54` + `OR` + trailing `MOVB`), spilling through an 8-element stack buffer. 18-bit values do not align with byte lanes, so this mirrors the GPR-based bit-packing strategy of AVX2/NEON.
+  - `bitPackSignedTwoPower19` / `bitUnpackSignedTwoPower19`: Fully vectorized — 2 coefficients ↔ 5 bytes using `VNSRLWX` narrowing + `VSSEG5E8V` on pack, and `VLSEG5E8V` + `VZEXTVF4` zero-extend + shift/or on unpack, followed by vector `fieldSub(2¹⁹, v)`.
+
+**Architecture notes**:
+- The Go 1.26 assembler has native RVV mnemonics for everything used here — no `WORD`-encoded instructions are needed (unlike ARM64/LoongArch64).
+- RVV comparisons produce mask-register results, not vector masks: use `VMSNE*`/`VMERGE*` (or sign-mask arithmetic) instead of `VPCMPGTD`-style all-ones lanes.
+- There is no fused 32×32→64 multiply: the hi/lo Montgomery kernel needs the explicit carry fixup `VMINUVX ONE, lo, lo` described above.
+- Segment loads/stores (`VLSEGnE32V`, `VSSEGN*`) are the RVV replacement for the interleave/de-interleave instructions (`VUZP1`, `XVSHUF4IW`, `xvpermi.q`) used on other architectures.
+- Twiddle tables are shared with the generic Go code: NTT consumes `zetasMontgomery` directly (skipping entry 0), and the INTT table is simply the reversed order — no AVX2-style preordering is required because segment loads tolerate arbitrary group alignment.
+
+**Parallelism**: `VLEN/32` coefficients per instruction (at least 4, up to 256 with large VLEN). Performance scales with `VLEN` and the machine's vector issue width; measure on target hardware with `go test -bench=RVV`.
+
+---
+
 ## Comparison Summary
 
-| Aspect | AVX2 | NEON | LASX |
-|--------|------|------|------|
-| Field element width | 32-bit | 32-bit | 32-bit |
-| Coefficients/register | 8 | 4 | 8 |
-| Montgomery strategy | `VPMULHW` (16-bit mul-high) | `SQRDMULH` (approx) | `XVMUHW` (true 32-bit signed mul-high) |
-| Montgomery kernel | ~12 instructions | ~8 instructions | ~5 instructions |
-| HighBits multiply | `VPMULLD` (low 32) | `SQRDMULH` × scaled const | `XVMULW` (low 32) |
-| Compare (signed < 0) | `VPCMPGTD` | `SSHR #31` (WORD) | `XVSRAW $31` |
-| Twiddle table shared? | Own (`zetasMontgomeryAVX2`) | Own | Reuses AVX2 table |
-| WORD-encoded instrs | Few (bitUnpack path) | Many (`SSHR`, `SQRDMULH`, `CMHI`, `VUMAXV`) | Some (`xvpermi.q`, `xvshuf.w`) |
+| Aspect | AVX2 | NEON | LASX | RVV |
+|--------|------|------|------|-----|
+| Field element width | 32-bit | 32-bit | 32-bit | 32-bit |
+| Coefficients/register | 8 | 4 | 8 | `VLEN/32` (≥ 4, strip-mined) |
+| Montgomery strategy | `VPMULHW` (16-bit mul-high) | `SQRDMULH` (approx) | `XVMUHW` (true 32-bit signed mul-high) | `VMULVV` + `VMULHUVV` (hi/lo split) |
+| Montgomery kernel | ~12 instructions | ~8 instructions | ~5 instructions | ~8 instructions (+ carry fixup) |
+| HighBits multiply | `VPMULLD` (low 32) | `SQRDMULH` × scaled const | `XVMULW` (low 32) | `VMULVX` (low 32, scalar × vector) |
+| Compare (signed < 0) | `VPCMPGTD` | `SSHR #31` (WORD) | `XVSRAW $31` | `VSRAVI $31` |
+| Twiddle table shared? | Own (`zetasMontgomeryAVX2`) | Own | Reuses AVX2 table | Reuses generic table (INTT reversed at init) |
+| WORD-encoded instrs | Few (bitUnpack path) | Many (`SSHR`, `SQRDMULH`, `CMHI`, `VUMAXV`) | Some (`xvpermi.q`, `xvshuf.w`) | None (native mnemonics in Go 1.26) |
 
 ---
 
@@ -174,21 +226,21 @@ Where `qInv = 58728449` (= 2³² − 4236238847, the negated modular inverse of 
 
 Approximate speedup over generic Go (`go test -bench=. -benchtime=3s ./mldsa/`):
 
-| Operation | Generic | AVX2 | NEON | LASX |
-|-----------|---------|------|------|------|
-| NTT Forward | 1× | ~7× | ~4× | ~6× |
-| NTT Inverse | 1× | ~6× | ~3.5× | ~5× |
-| polyAddAssign | 1× | ~8× | ~4× | ~7× |
-| nttMulAcc | 1× | ~6× | ~3.5× | ~5× |
-| decomposeSubToR0 | 1× | ~7× | ~4× | ~6× |
-| makeHintPoly | 1× | ~9× | ~5× | ~7× |
-| simpleBitPack4Bits | 1× | ~7× | ~4× | ~6× |
-| bitPackSigned17 | 1× | ~2.5× | ~2× | ~3× |
-| bitUnpackSigned17 | 1× | ~1.6× | ~1.5× | ~2× |
-| Sign (mldsa44) | — | ~3× | ~2× | ~2.5× |
-| Verify (mldsa44) | — | ~4× | ~2.5× | ~3× |
+| Operation | Generic | AVX2 | NEON | LASX | RVV |
+|-----------|---------|------|------|------|-----|
+| NTT Forward | 1× | ~7× | ~4× | ~6× | — |
+| NTT Inverse | 1× | ~6× | ~3.5× | ~5× | — |
+| polyAddAssign | 1× | ~8× | ~4× | ~7× | — |
+| nttMulAcc | 1× | ~6× | ~3.5× | ~5× | — |
+| decomposeSubToR0 | 1× | ~7× | ~4× | ~6× | — |
+| makeHintPoly | 1× | ~9× | ~5× | ~7× | — |
+| simpleBitPack4Bits | 1× | ~7× | ~4× | ~6× | — |
+| bitPackSigned17 | 1× | ~2.5× | ~2× | ~3× | — |
+| bitUnpackSigned17 | 1× | ~1.6× | ~1.5× | ~2× | — |
+| Sign (mldsa44) | — | ~3× | ~2× | ~2.5× | — |
+| Verify (mldsa44) | — | ~4× | ~2.5× | ~3× | — |
 
-*Note: Actual performance depends on CPU microarchitecture and memory hierarchy. Measure on target hardware.*
+*Note: Actual performance depends on CPU microarchitecture and memory hierarchy. Measure on target hardware. RVV numbers are omitted because they scale with the implementation-defined `VLEN`; run `go test -bench=RVV -benchtime=3s ./mldsa/` on target hardware.*
 
 ---
 
@@ -205,12 +257,16 @@ Approximate speedup over generic Go (`go test -bench=. -benchtime=3s ./mldsa/`):
 | `field_arm64.s` | ARM64 NEON assembly |
 | `field_loong64.go` | LoongArch64 function declarations, twiddle table init |
 | `field_loong64.s` | LoongArch64 LASX assembly |
+| `field_riscv64.go` | RISC-V64 function declarations, inverse twiddle table init |
+| `field_riscv64.s` | RISC-V64 RVV assembly (NTT, decompose, hint, polyAdd/Sub, norm) |
 | `encoder.go` | Generic encoding/decoding (bit-pack/unpack) |
 | `encoder_noasm.go` | Pure-Go dispatch |
 | `encoder_amd64.go` | AMD64 encoder dispatch |
 | `encoder_arm64.go` | ARM64 encoder dispatch |
 | `encoder_loong64.go` | LoongArch64 encoder dispatch |
 | `encoder_loong64.s` | LoongArch64 LASX encoder assembly |
+| `encoder_riscv64.go` | RISC-V64 encoder dispatch |
+| `encoder_riscv64.s` | RISC-V64 RVV encoder assembly |
 | `sample.go` | ExpandA, ExpandS, ExpandMask — polynomial sampling |
 | `compress.go` | compress/decompress for w₁ |
 | `mldsa44.go` | ML-DSA-44 public API |
@@ -229,8 +285,9 @@ go build ./mldsa/
 go build -tags=purego ./mldsa/
 
 # Cross-compile for target architecture
-GOOS=linux GOARCH=arm64  go build ./mldsa/
+GOOS=linux GOARCH=arm64   go build ./mldsa/
 GOOS=linux GOARCH=loong64 go build ./mldsa/
+GOOS=linux GOARCH=riscv64 go build ./mldsa/  # requires Go 1.26+
 
 # Run benchmarks
 go test -bench=. -benchtime=3s ./mldsa/
@@ -239,6 +296,7 @@ go test -bench=. -benchtime=3s ./mldsa/
 go test -bench=BenchmarkAMD64 -benchtime=3s ./mldsa/
 go test -bench=BenchmarkARM64 -benchtime=3s ./mldsa/
 go test -bench=BenchmarkLoong64 -benchtime=3s ./mldsa/
+go test -bench=RVV -benchtime=3s ./mldsa/  # requires Go 1.26+ and riscv64
 ```
 
 ---

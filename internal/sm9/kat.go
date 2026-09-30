@@ -212,7 +212,7 @@ func KATWrapKeySample() error {
 	}
 
 	// Test UnwrapKey.
-	key2, err := userKey.UnwrapKey(uid, cipher.MarshalUncompressed(), 32)
+	key2, err := userKey.UnwrapKey(uid, cipher.MarshalUncompressed(), 32, 32)
 	if err != nil {
 		return errors.New("wrap: UnwrapKey failed: " + err.Error())
 	}

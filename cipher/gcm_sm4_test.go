@@ -36,7 +36,7 @@ var sm4GCMTests = []struct {
 		"",
 		"feedfacedeadbeeffeedfacedeadbeefabaddad242831ec2217774244b7221b7",
 		"1eeaeb669e96bd059bd9929123030e78",
-	},	
+	},
 	{ // GB/T 36624-2018 C.5 2
 		"00000000000000000000000000000000",
 		"000000000000000000000000",

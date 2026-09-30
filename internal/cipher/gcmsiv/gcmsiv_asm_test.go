@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build (amd64 || arm64) && !purego
+//go:build (amd64 || arm64 || (riscv64 && go1.27)) && !purego
 
 package cipher
 
@@ -11,6 +11,8 @@ import (
 	"encoding/hex"
 	"runtime"
 	"testing"
+
+	"github.com/emmansun/gmsm/internal/deps/cpu"
 )
 
 func TestPolyvalTableInitAsm(t *testing.T) {
@@ -31,6 +33,16 @@ func TestPolyvalTableInitAsm(t *testing.T) {
 	case "amd64":
 		if table != (polyvalAsmTable(amd64Expected)) {
 			t.Errorf("unexpected table value: got %x, want %x", table, amd64Expected)
+		}
+	case "riscv64":
+		if cpu.RISCV64.HasZvbc {
+			// Zvbc path: table must match amd64 exactly (same vclmul algorithm)
+			hasGHASH = false
+			var zvbcTable polyvalAsmTable
+			polyvalTableInitAsm(&authKey, &zvbcTable)
+			if zvbcTable != (polyvalAsmTable(amd64Expected)) {
+				t.Errorf("Zvbc table mismatch:\n  got:  %x\n  want: %x", zvbcTable, amd64Expected)
+			}
 		}
 	}
 }

@@ -100,13 +100,6 @@ GLOBL ·cbd3Shuf(SB), RODATA, $32
 	MONT_MUL_LASX(X4, XZ, XB, X5, X6)  \ // XB = MontMul(diff, zeta) in (-q, q)
 	REDUCE_MONT(XB, X15, X7)              // XB = VB' in [0, q)
 
-// XVPERMIQ performs xvpermi.q Xd, Xj, imm8.
-// Real semantics: pool={Xj.lo, Xj.hi, Xd_old.lo, Xd_old.hi} = {0,1,2,3}
-//   dst.qword[0] = pool[imm[1:0]], dst.qword[1] = pool[imm[5:4]]
-// Opcode 0x1DFB verified: xvpermi.q X8, X9, 0x02 → WORD $0x77ec0928
-#define XVPERMIQ(Xd, Xj, imm8) \
-	WORD $((0x1DFB << 18) | ((imm8) << 10) | ((Xj) << 5) | (Xd))
-
 // XVPICKEV_H performs xvpickev.h Xvd, Xvj, Xvk.
 // Picks even-indexed halfwords from Xvk (into result[0..3]) and Xvj (into result[4..7]) per 128-bit lane.
 // opcode: 0111 01010001 11101 .vk. .vj. .vd. → base = 0x751E8000
@@ -131,12 +124,6 @@ GLOBL ·cbd3Shuf(SB), RODATA, $32
 // opcode base: 0x752E8000 (pickod.h = pickev.h with od bit set)
 #define XVPICKOD_H(Xvd, Xvj, Xvk) \
 	WORD $((0x752E8000) | ((Xvk) << 10) | ((Xvj) << 5) | (Xvd))
-
-// XVSHUF_B performs xvshuf.b Xvd, Xvj, Xvk, Xva (4-register byte shuffle).
-// Per lane n: Xd[n][i] = (Xa[n][i] bit7==1) ? 0 : (bit4==1) ? Xj[n][Xa[n][i]&0xF] : Xk[n][Xa[n][i]&0xF]
-// Opcode: 0x0D6<<20 | Xva<<15 | Xvk<<10 | Xvj<<5 | Xvd
-#define XVSHUF_B(Xvd, Xvj, Xvk, Xva) \
-	WORD $(((0xD6) << 20) | ((Xva) << 15) | ((Xvk) << 10) | ((Xvj) << 5) | (Xvd))
 
 // COMPRESS4(Xin, Xcout16, Xtmp, Xmul): compress 16 coefficients to 4-bit each.
 // Xcout16: each int16 lane has a 4-bit compressed value [0,15].
@@ -420,20 +407,20 @@ ntt_l4_loop:
 
 	// Pack lows: X0 = [X9.lo | X10.lo]
 	XVORV X9, X9, X0
-	XVPERMIQ(0, 10, 0x02)
+	XVPERMIQ $0x02, X10, X0
 
 	// Pack highs: X1 = [X9.hi | X10.hi]
 	XVORV X9, X9, X1
-	XVPERMIQ(1, 10, 0x13)
+	XVPERMIQ $0x13, X10, X1
 
 	// Butterfly on the packed halves
 	BUTTERFLY_LASX(X0, X1, X3)
 
 	// Repack: X9 = [X0.lo | X1.lo], X10 = [X0.hi | X1.hi]
 	XVORV X0, X0, X9
-	XVPERMIQ(9, 1, 0x02)
+	XVPERMIQ $0x02, X1, X9
 	XVORV X0, X0, X10
-	XVPERMIQ(10, 1, 0x13)
+	XVPERMIQ $0x13, X1, X10
 
 	// Store
 	XVMOVQ X9, (R11)
@@ -574,16 +561,16 @@ intt_l4_loop:
 	XVMOVQ 32(R11), X10
 
 	XVORV X9, X9, X0
-	XVPERMIQ(0, 10, 0x02)
+	XVPERMIQ $0x02, X10, X0
 	XVORV X9, X9, X1
-	XVPERMIQ(1, 10, 0x13)
+	XVPERMIQ $0x13, X10, X1
 
 	INTT_BUTTERFLY_LASX(X0, X1, X3)
 
 	XVORV X0, X0, X9
-	XVPERMIQ(9, 1, 0x02)
+	XVPERMIQ $0x02, X1, X9
 	XVORV X0, X0, X10
-	XVPERMIQ(10, 1, 0x13)
+	XVPERMIQ $0x13, X1, X10
 
 	XVMOVQ X9, (R11)
 	XVMOVQ X10, 32(R11)
@@ -1961,7 +1948,7 @@ cbd2_outer:
 	XVADDH  X6, X5, X5
 	VMOVQ   V5, 0(R5)
 	// lane1 of X5 → coefs[32..39]
-	XVPERMIQ(5, 5, 0x11)
+	XVPERMIQ $0x11, X5, X5
 	VMOVQ   V5, 64(R5)
 
 	// lane0 high half → coefs[8..15]
@@ -1971,7 +1958,7 @@ cbd2_outer:
 	XVADDH  X7, X6, X6
 	VMOVQ   V6, 16(R5)
 	// lane1 of X6 → coefs[40..47]
-	XVPERMIQ(6, 6, 0x11)
+	XVPERMIQ $0x11, X6, X6
 	VMOVQ   V6, 80(R5)
 
 	XVSRAB $7, X3, X4
@@ -1982,7 +1969,7 @@ cbd2_outer:
 	XVADDH  X6, X5, X5
 	VMOVQ   V5, 32(R5)
 	// lane1 of X5 → coefs[48..55]
-	XVPERMIQ(5, 5, 0x11)
+	XVPERMIQ $0x11, X5, X5
 	VMOVQ   V5, 96(R5)
 
 	// lane0 high half → coefs[24..31]
@@ -1992,7 +1979,7 @@ cbd2_outer:
 	XVADDH  X7, X6, X6
 	VMOVQ   V6, 48(R5)
 	// lane1 of X6 → coefs[56..63]
-	XVPERMIQ(6, 6, 0x11)
+	XVPERMIQ $0x11, X6, X6
 	VMOVQ   V6, 112(R5)
 
 	ADDV $128, R5
@@ -2012,7 +1999,7 @@ cbd2_outer:
 // Bit-parallel popcount + vectorized extraction strategy:
 //
 //  1. LOAD: Two overlapping 16-byte loads (at +0 and +12) cover 24 bytes.
-//     XVPERMIQ(2, 1, 0x02) assembles a 256-bit register from the two 128-bit halves:
+//     XVPERMIQ $0x02, X1, X2 assembles a 256-bit register from the two 128-bit halves:
 //     X2[127:0] = X0[127:0] (bytes 0..11), X2[255:128] = X1[127:0] (bytes 12..23).
 //
 //  2. LANE SHUFFLE (cbd3Shuf XVSHUF_B): Rearranges bytes in each 128-bit lane so that
@@ -2064,7 +2051,7 @@ cbd2_outer:
 //
 //  9. INTERLEAVE + PERMUTE for sequential output:
 //     XVILVLW/XVILVHW interleaves lo_word and hi_word within each 128-bit lane.
-//     XVPERMIQ(0x02) and XVPERMIQ(0x31) assemble the two output 256-bit registers
+//     XVPERMIQ $0x02 and XVPERMIQ $0x31 assemble the two output 256-bit registers
 //     from the correct lane halves for sequential memory storage.
 //
 // 10. STORE: Two 256-bit stores per iteration (64 bytes = 32 int16 coefficients).
@@ -2124,9 +2111,9 @@ cbd3_outer:
 	ADDV  $24, R4
 
 	XVORV X0, X0, X2
-	XVPERMIQ(2, 1, 0x02)
+	XVPERMIQ $0x02, X1, X2
 
-	XVSHUF_B(3, 2, 2, 20)
+	XVSHUFB X20, X2, X2, X3
 
 	// Bit-sliced popcount: count 'a' bits (at positions 0,1,2 of each 6-bit group)
 	// mask 0x249249 selects bits {0,3,6,9,12,15,18,21} = one 'a' bit per group per shift
@@ -2179,10 +2166,10 @@ cbd3_outer:
 
 	// Permute to get sequential 256-bit output
 	XVORV X10, X10, X14
-	XVPERMIQ(14, 11, 0x02)
+	XVPERMIQ $0x02, X11, X14
 
 	XVORV X11, X11, X15
-	XVPERMIQ(15, 10, 0x31)
+	XVPERMIQ $0x31, X10, X15
 
 	XVMOVQ X14, (R5)
 	XVMOVQ X15, 32(R5)

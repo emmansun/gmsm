@@ -137,12 +137,15 @@ func readObject(ber []byte, offset int) (asn1Object, int, error) {
 	tag := b & 0x1F // last 5 bits
 	if tag == 0x1F {
 		tag = 0
-		for ber[offset] >= 0x80 {
+		for offset < berLen && ber[offset] >= 0x80 {
 			tag = tag<<7 + ber[offset] - 0x80
 			offset++
-			if offset > berLen {
+			if offset >= berLen {
 				return nil, 0, errors.New("ber2der: cannot move offset forward, end of ber data reached")
 			}
+		}
+		if offset >= berLen {
+			return nil, 0, errors.New("ber2der: cannot move offset forward, end of ber data reached")
 		}
 		// jvehent 20170227: this doesn't appear to be used anywhere...
 		//tag = tag*128 + ber[offset] - 0x80
@@ -161,6 +164,9 @@ func readObject(ber []byte, offset int) (asn1Object, int, error) {
 	}
 	// read length
 	var length int
+	if offset >= berLen {
+		return nil, 0, errors.New("ber2der: cannot move offset forward, end of ber data reached")
+	}
 	l := ber[offset]
 	offset++
 	if offset > berLen {
@@ -171,6 +177,9 @@ func readObject(ber []byte, offset int) (asn1Object, int, error) {
 		numberOfBytes := (int)(l & 0x7F)
 		if numberOfBytes > 4 { // int is only guaranteed to be 32bit
 			return nil, 0, errors.New("ber2der: BER tag length too long")
+		}
+		if offset+numberOfBytes > berLen {
+			return nil, 0, errors.New("ber2der: cannot move offset forward, end of ber data reached")
 		}
 		if numberOfBytes == 4 && (int)(ber[offset]) > 0x7F {
 			return nil, 0, errors.New("ber2der: BER tag length is negative")

@@ -97,6 +97,13 @@ func TestXTSWithAES(t *testing.T) {
 	}
 }
 
+func TestXTSBoundaryLengthsGeneric(t *testing.T) {
+	key := fromHex("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f")
+	// crypto/aes never implements an optimized XTS path, so this always
+	// exercises the generic implementation in internal/cipher/xts.
+	testXTSBoundaryLengths(t, aes.NewCipher, key[:16], key[16:])
+}
+
 func TestShorterCiphertext(t *testing.T) {
 	encrypter, err := cipher.NewXTSEncrypterWithSector(aes.NewCipher, make([]byte, 16), make([]byte, 16), 0)
 	if err != nil {

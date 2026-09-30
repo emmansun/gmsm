@@ -106,6 +106,9 @@ func (opts *CBCEncrypterOpts) Decrypt(key, ciphertext []byte) ([]byte, error) {
 	}
 	iv := ciphertext[:blockSize]
 	ciphertext = ciphertext[blockSize:]
+	if len(ciphertext)%blockSize != 0 {
+		return nil, ErrDecryption
+	}
 	plaintext := make([]byte, len(ciphertext))
 	mode := cipher.NewCBCDecrypter(block, iv)
 	mode.CryptBlocks(plaintext, ciphertext)
@@ -144,7 +147,7 @@ func (opts *ECBEncrypterOpts) Decrypt(key, ciphertext []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(ciphertext) == 0 {
+	if len(ciphertext) == 0 || len(ciphertext)%block.BlockSize() != 0 {
 		return nil, ErrDecryption
 	}
 	plaintext := make([]byte, len(ciphertext))

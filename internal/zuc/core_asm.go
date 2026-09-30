@@ -1,4 +1,4 @@
-//go:build (amd64 || arm64 || ppc64 || ppc64le) && !purego
+//go:build (amd64 || arm64 || ppc64 || ppc64le || (riscv64 && go1.27)) && !purego
 
 package zuc
 
@@ -18,7 +18,7 @@ func genKeywordAsm(s *zucState32) uint32
 func genKeyStreamAsm(keyStream []uint32, pState *zucState32)
 
 var (
-	supportsAES = cpuid.HasAES
+	supportsAES = cpuid.HasAES || (cpu.RISCV64.HasZvkned && cpu.RISCV64.HasZbb)
 	useAVX = cpu.X86.HasAVX
 	useGFNI = cpu.X86.HasAVX && cpuid.HasGFNI
 )

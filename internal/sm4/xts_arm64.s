@@ -145,7 +145,7 @@
 #define rkSave R6
 
 // func encryptSm4Xts(xk *uint32, tweak *[BlockSize]byte, dst, src []byte, isGB bool)
-TEXT ·encryptSm4Xts(SB),0,$128-65
+TEXT ·encryptSm4Xts(SB),NOSPLIT,$0-65
 	LOAD_SM4_AESNI_CONSTS()
 	MOVD xk+0(FP), rk
 	MOVD tweak+8(FP), twPtr
@@ -255,39 +255,37 @@ xtsSm4EncTail:
 	CBZ	srcPtrLen, xtsSm4EncDone
 	SUB $16, dstPtr, R7
 	MOVD R7, R9
-	MOVD RSP, R8
 	VLD1 (R7), [B0.B16]
-	VST1 [B0.B16], (R8)
 
 	TBZ	$3, srcPtrLen, less_than8
 	MOVD.P 8(srcPtr), R11
-	MOVD.P R11, 8(R8)
-	MOVD.P 8(R7), R12
+	MOVD   (R7), R12
+	MOVD.P R11, 8(R7)
 	MOVD.P R12, 8(dstPtr)
 
 less_than8:
 	TBZ	$2, srcPtrLen, less_than4
 	MOVWU.P 4(srcPtr), R11
-	MOVWU.P R11, 4(R8)
-	MOVWU.P 4(R7), R12
+	MOVWU  (R7), R12
+	MOVWU.P R11, 4(R7)
 	MOVWU.P R12, 4(dstPtr)
 
 less_than4:
 	TBZ	$1, srcPtrLen, less_than2
 	MOVHU.P 2(srcPtr), R11
-	MOVHU.P R11, 2(R8)
-	MOVHU.P 2(R7), R12
+	MOVHU  (R7), R12
+	MOVHU.P R11, 2(R7)
 	MOVHU.P R12, 2(dstPtr)
 
 less_than2:
 	TBZ	$0, srcPtrLen, xtsSm4EncTailEnc
 	MOVBU (srcPtr), R11
-	MOVBU R11, (R8)
 	MOVBU (R7), R12
+	MOVBU R11, (R7)
 	MOVBU R12, (dstPtr)
 
 xtsSm4EncTailEnc:
-	VLD1 (RSP), [B0.B16]
+	VLD1 (R9), [B0.B16]
 	VEOR TW.B16, B0.B16, B0.B16
 	VREV32 B0.B16, B0.B16
 	VMOV B0.S[1], B1.S[0]
@@ -319,7 +317,7 @@ xtsSm4EncDone:
 	RET
 
 // func decryptSm4Xts(xk *uint32, tweak *[BlockSize]byte, dst, src []byte, isGB bool)
-TEXT ·decryptSm4Xts(SB),0,$128-65
+TEXT ·decryptSm4Xts(SB),NOSPLIT,$0-65
 	LOAD_SM4_AESNI_CONSTS()
 	MOVD xk+0(FP), rk
 	MOVD tweak+8(FP), twPtr
@@ -344,8 +342,14 @@ xts_dec_init_done:
 	VLD1 (twPtr), [TW.B16]
 
 xtsSm4DecOctets:
+		// Consume an octet only if the remainder stays 0 or at least
+		// 16 bytes; the tail paths below expect a remainder of 0 or 16..31.
 		CMP	$128, srcPtrLen
 		BLT	xtsSm4DecNibbles
+		BEQ	dec_take_octets
+		CMP	$144, srcPtrLen
+		BLT	xtsSm4DecNibbles
+dec_take_octets:
 		SUB	$128, srcPtrLen
 
 		CBNZ R15, gb_8tweaks_dec
@@ -372,8 +376,14 @@ xtsSm4DecOctets:
 		B	xtsSm4DecOctets
 
 xtsSm4DecNibbles:
+	// Consume a nibble only if the remainder stays 0 or at least
+	// 16 bytes; the tail paths below expect a remainder of 0 or 16..31.
 	CMP	$64, srcPtrLen
 	BLT	xtsSm4DecSingles
+	BEQ	dec_take_nibbles
+	CMP	$80, srcPtrLen
+	BLT	xtsSm4DecSingles
+dec_take_nibbles:
 	SUB	$64, srcPtrLen
 
 	CBNZ R15, gb_4tweaks_dec
@@ -452,41 +462,39 @@ decLastCompleteBlockLoop:
 		BNE decLastCompleteBlockLoop
 	storeOneBlock
 	VMOV B4.B16, TW.B16
-	VST1 [B3.B16], (RSP)
 
 	SUB $16, dstPtr, R7
 	MOVD R7, R9
-	MOVD RSP, R8
 
 	TBZ	$3, srcPtrLen, less_than8
 	MOVD.P 8(srcPtr), R11
-	MOVD.P R11, 8(R8)
-	MOVD.P 8(R7), R12
+	MOVD   (R7), R12
+	MOVD.P R11, 8(R7)
 	MOVD.P R12, 8(dstPtr)
 
 less_than8:
 	TBZ	$2, srcPtrLen, less_than4
 	MOVWU.P 4(srcPtr), R11
-	MOVWU.P R11, 4(R8)
-	MOVWU.P 4(R7), R12
+	MOVWU  (R7), R12
+	MOVWU.P R11, 4(R7)
 	MOVWU.P R12, 4(dstPtr)
 
 less_than4:
 	TBZ	$1, srcPtrLen, less_than2
 	MOVHU.P 2(srcPtr), R11
-	MOVHU.P R11, 2(R8)
-	MOVHU.P 2(R7), R12
+	MOVHU  (R7), R12
+	MOVHU.P R11, 2(R7)
 	MOVHU.P R12, 2(dstPtr)
 
 less_than2:
 	TBZ	$0, srcPtrLen, xtsSm4DecTailDec
 	MOVBU (srcPtr), R11
-	MOVBU R11, (R8)
 	MOVBU (R7), R12
+	MOVBU R11, (R7)
 	MOVBU R12, (dstPtr)
 
 xtsSm4DecTailDec:
-	VLD1 (RSP), [B0.B16]
+	VLD1 (R9), [B0.B16]
 	VEOR TW.B16, B0.B16, B0.B16
 	VREV32 B0.B16, B0.B16
 	VMOV B0.S[1], B1.S[0]

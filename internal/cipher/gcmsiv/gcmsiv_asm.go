@@ -2,14 +2,24 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-//go:build (amd64 || arm64) && !purego
+//go:build (amd64 || arm64 || (riscv64 && go1.27)) && !purego
 
 package cipher
 
-import "github.com/emmansun/gmsm/internal/cpuid"
+import (
+	"os"
 
-// supportPolyvalAsm is true when the CPU has CMUL.
-var supportPolyvalAsm = cpuid.HasGFMUL
+	"github.com/emmansun/gmsm/internal/cpuid"
+	"github.com/emmansun/gmsm/internal/deps/cpu"
+)
+
+// hasGHASH reports whether the CPU supports the Zvkg vector GHASH extension.
+// It is used by the riscv64 assembly to select the vghsh.vv code path.
+// Set DISABLE_GHASH=1 to force the Zvbc path (for testing).
+var hasGHASH = cpu.RISCV64.HasZvkg && (cpu.RISCV64.HasZvbb || cpu.RISCV64.HasZvkb) && os.Getenv("DISABLE_GHASH") != "1"
+
+// supportPolyvalAsm is true when the CPU has CMUL (PCLMULQDQ, PMULL, Zvbc, or Zvkg).
+var supportPolyvalAsm = cpuid.HasGFMUL || cpu.RISCV64.HasZvkg || cpu.RISCV64.HasZvbc
 
 // polyvalAsmTable is a 256-byte Karatsuba-precomputed hash table for the
 // CMUL POLYVAL implementation.  The layout is identical to gcmSm4Data's
