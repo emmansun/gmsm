@@ -9,10 +9,9 @@ import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/rsa"
+	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-
-	x509 "github.com/emmansun/gmsm/smx509"
 )
 
 func ExampleCertificate_Verify() {

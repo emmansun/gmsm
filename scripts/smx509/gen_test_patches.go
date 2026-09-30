@@ -45,35 +45,15 @@ func main() {
 	extPatch := generateNewFilePatch(repoRoot, tmpDir, testenvFile, "internal_testenv.go")
 	writePatch(testPatchDir, "010-testenv-stub.patch", extPatch)
 
-	// --- 020-envvars-abs-path.patch (stdlib root_unix_test.go with package rename vs smx509) ---
-	stdlibTestFile := filepath.Join(stdlibDir, "root_unix_test.go")
-	preparedFile := filepath.Join(tmpDir, "root_unix_test.go")
-
-	// Copy stdlib test file and rename package
+	// --- 030-pkix-name-string.patch (Go 1.26 and Go 1.27 formatting compatibility) ---
+	stdlibTestFile := filepath.Join(stdlibDir, "x509_test.go")
+	preparedFile := filepath.Join(tmpDir, "x509_test.go")
 	data, err := os.ReadFile(stdlibTestFile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "cannot read stdlib test file: %v\n", err)
 		os.Exit(1)
 	}
-	data = bytes.Replace(data, []byte("package x509"), []byte("package smx509"), 1)
-	if err := os.WriteFile(preparedFile, data, 0644); err != nil {
-		fmt.Fprintf(os.Stderr, "cannot write prepared test file: %v\n", err)
-		os.Exit(1)
-	}
-
-	dstFile := filepath.Join(target, "root_unix_test.go")
-	diffPatch := generateDiffPatch(repoRoot, tmpDir, preparedFile, dstFile, "root_unix_test.go")
-	writePatch(testPatchDir, "020-envvars-abs-path.patch", diffPatch)
-
-	// --- 030-pkix-name-string.patch (Go 1.26 and Go 1.27 formatting compatibility) ---
-	stdlibTestFile = filepath.Join(stdlibDir, "x509_test.go")
-	preparedFile = filepath.Join(tmpDir, "x509_test.go")
-	data, err = os.ReadFile(stdlibTestFile)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "cannot read stdlib test file: %v\n", err)
-		os.Exit(1)
-	}
-	data = bytes.Replace(data, []byte("package x509"), []byte("package smx509"), 1)
+	data = prepareUpstreamTest(data)
 	if err := os.WriteFile(preparedFile, data, 0644); err != nil {
 		fmt.Fprintf(os.Stderr, "cannot write prepared test file: %v\n", err)
 		os.Exit(1)
@@ -90,8 +70,15 @@ func main() {
 		fmt.Fprintf(os.Stderr, "cannot write patched test file: %v\n", err)
 		os.Exit(1)
 	}
-	diffPatch = generateDiffPatch(repoRoot, tmpDir, preparedFile, patchedFile, "x509_test.go")
+	diffPatch := generateDiffPatch(repoRoot, tmpDir, preparedFile, patchedFile, "x509_test.go")
 	writePatch(testPatchDir, "030-pkix-name-string.patch", diffPatch)
+}
+
+func prepareUpstreamTest(data []byte) []byte {
+	data = bytes.Replace(data, []byte("package x509"), []byte("package smx509"), 1)
+	data = bytes.ReplaceAll(data, []byte("\t\"internal/testenv\"\n"), nil)
+	data = bytes.ReplaceAll(data, []byte("\t\"crypto/internal/cryptotest\"\n"), []byte("\t\"github.com/emmansun/gmsm/internal/cryptotest\"\n"))
+	return data
 }
 
 // generateNewFilePatch creates a new-file git patch by diffing against an empty file.
@@ -208,9 +195,31 @@ func fixPaths(data []byte, filename string) []byte {
 			result = append(result, []byte("+++ ")...)
 			result = append(result, canonical('b')...)
 			result = append(result, '\n')
+		case bytes.HasPrefix(line, []byte("index ")):
+			result = result[:len(result)-len(line)-1]
+			result = append(result, canonicalIndexLine(line)...)
+			result = append(result, '\n')
 		}
 	}
 	return result
+}
+
+func canonicalIndexLine(line []byte) []byte {
+	fields := strings.Fields(string(line))
+	if len(fields) < 2 {
+		return line
+	}
+	hashes := strings.SplitN(fields[1], "..", 2)
+	if len(hashes) != 2 {
+		return line
+	}
+	for i := range hashes {
+		if len(hashes[i]) > 7 {
+			hashes[i] = hashes[i][:7]
+		}
+	}
+	fields[1] = strings.Join(hashes, "..")
+	return []byte(strings.Join(fields, " "))
 }
 
 // fixDiffGitLine fixes the "diff --git a/... b/..." line.

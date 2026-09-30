@@ -255,7 +255,7 @@ func parseExtension(der cryptobyte.String) (pkix.Extension, error) {
 func parsePublicKey(keyData *publicKeyInfo) (any, error) {
 	oid := keyData.Algorithm.Algorithm
 	params := keyData.Algorithm.Parameters
-	der := cryptobyte.String(keyData.PublicKey.RightAlign())
+	data := keyData.PublicKey.RightAlign()
 	switch {
 	case oid.Equal(oidPublicKeyRSA):
 		// RSA public keys must have a NULL in the parameters.
@@ -264,6 +264,7 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
 			return nil, errors.New("x509: RSA key missing NULL parameters")
 		}
 
+		der := cryptobyte.String(data)
 		p := &pkcs1PublicKey{N: new(big.Int)}
 		if !der.ReadASN1(&der, cryptobyte_asn1.SEQUENCE) {
 			return nil, errors.New("x509: invalid RSA public key")
@@ -295,16 +296,14 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
 			if namedCurve == nil {
 				return nil, errors.New("x509: unsupported elliptic curve")
 			}
-			x, y := elliptic.Unmarshal(namedCurve, der)
-			if x == nil {
-				return nil, errors.New("x509: failed to unmarshal elliptic curve point")
+			if namedCurve == sm2.P256() {
+				x, y := elliptic.Unmarshal(namedCurve, data)
+				if x == nil {
+					return nil, errors.New("x509: failed to unmarshal elliptic curve point")
+				}
+				return &ecdsa.PublicKey{Curve: namedCurve, X: x, Y: y}, nil
 			}
-			pub := &ecdsa.PublicKey{
-				Curve: namedCurve,
-				X:     x,
-				Y:     y,
-			}
-			return pub, nil
+			return ecdsa.ParseUncompressedPublicKey(namedCurve, data)
 		}
 
 		// Try to parse as explicit EC parameters
@@ -317,7 +316,7 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
 		if err != nil {
 			return nil, errors.New("x509: unsupported elliptic curve")
 		}
-		x, y := elliptic.Unmarshal(curve, der)
+		x, y := elliptic.Unmarshal(curve, data)
 		if x == nil {
 			return nil, errors.New("x509: failed to unmarshal elliptic curve point")
 		}
@@ -337,7 +336,7 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
 		if namedCurve != sm2.P256() {
 			return nil, errors.New("x509: unsupported SM2 curve")
 		}
-		x, y := elliptic.Unmarshal(namedCurve, der)
+		x, y := elliptic.Unmarshal(namedCurve, data)
 		if x == nil {
 			return nil, errors.New("x509: failed to unmarshal SM2 curve point")
 		}
@@ -349,18 +348,19 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
 		if len(params.FullBytes) != 0 {
 			return nil, errors.New("x509: Ed25519 key encoded with illegal parameters")
 		}
-		if len(der) != ed25519.PublicKeySize {
+		if len(data) != ed25519.PublicKeySize {
 			return nil, errors.New("x509: wrong Ed25519 public key size")
 		}
-		return ed25519.PublicKey(der), nil
+		return ed25519.PublicKey(data), nil
 	case oid.Equal(oidPublicKeyX25519):
 		// RFC 8410, Section 3
 		// > For all of the OIDs, the parameters MUST be absent.
 		if len(params.FullBytes) != 0 {
 			return nil, errors.New("x509: X25519 key encoded with illegal parameters")
 		}
-		return ecdh.X25519().NewPublicKey(der)
+		return ecdh.X25519().NewPublicKey(data)
 	case oid.Equal(oidPublicKeyDSA):
+		der := cryptobyte.String(data)
 		y := new(big.Int)
 		if !der.ReadASN1Integer(y) {
 			return nil, errors.New("x509: invalid DSA public key")
@@ -389,77 +389,77 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
 		if len(params.FullBytes) != 0 {
 			return nil, errors.New("x509: MLDSA44 key encoded with illegal parameters")
 		}
-		return mldsa.NewPublicKey44(der)
+		return mldsa.NewPublicKey44(data)
 	case oid.Equal(oidPublicKeyMLDSA65):
 		if len(params.FullBytes) != 0 {
 			return nil, errors.New("x509: MLDSA65 key encoded with illegal parameters")
 		}
-		return mldsa.NewPublicKey65(der)
+		return mldsa.NewPublicKey65(data)
 	case oid.Equal(oidPublicKeyMLDSA87):
 		if len(params.FullBytes) != 0 {
 			return nil, errors.New("x509: MLDSA87 key encoded with illegal parameters")
 		}
-		return mldsa.NewPublicKey87(der)
+		return mldsa.NewPublicKey87(data)
 	case oid.Equal(oidPublicKeySLHDSASHA2128s):
 		if len(params.FullBytes) != 0 {
 			return nil, errors.New("x509: SLHDSASHA2128s key encoded with illegal parameters")
 		}
-		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA128SmallSHA2)
+		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA128SmallSHA2)
 	case oid.Equal(oidPublicKeySLHDSASHA2128f):
 		if len(params.FullBytes) != 0 {
 			return nil, errors.New("x509: SLHDSASHA2128f key encoded with illegal parameters")
 		}
-		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA128FastSHA2)
+		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA128FastSHA2)
 	case oid.Equal(oidPublicKeySLHDSASHA2192s):
 		if len(params.FullBytes) != 0 {
 			return nil, errors.New("x509: SLHDSASHA2192s key encoded with illegal parameters")
 		}
-		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA192SmallSHA2)
+		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA192SmallSHA2)
 	case oid.Equal(oidPublicKeySLHDSASHA2192f):
 		if len(params.FullBytes) != 0 {
 			return nil, errors.New("x509: SLHDSASHA2192f key encoded with illegal parameters")
 		}
-		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA192FastSHA2)
+		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA192FastSHA2)
 	case oid.Equal(oidPublicKeySLHDSASHA2256s):
 		if len(params.FullBytes) != 0 {
 			return nil, errors.New("x509: SLHDSASHA2256s key encoded with illegal parameters")
 		}
-		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA256SmallSHA2)
+		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA256SmallSHA2)
 	case oid.Equal(oidPublicKeySLHDSASHA2256f):
 		if len(params.FullBytes) != 0 {
 			return nil, errors.New("x509: SLHDSASHA2256f key encoded with illegal parameters")
 		}
-		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA256FastSHA2)
+		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA256FastSHA2)
 	case oid.Equal(oidPublicKeySLHDSASHAKE128s):
 		if len(params.FullBytes) != 0 {
 			return nil, errors.New("x509: SLHDSASHAKE128s key encoded with illegal parameters")
 		}
-		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA128SmallSHAKE)
+		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA128SmallSHAKE)
 	case oid.Equal(oidPublicKeySLHDSASHAKE128f):
 		if len(params.FullBytes) != 0 {
 			return nil, errors.New("x509: SLHDSASHAKE128f key encoded with illegal parameters")
 		}
-		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA128FastSHAKE)
+		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA128FastSHAKE)
 	case oid.Equal(oidPublicKeySLHDSASHAKE192s):
 		if len(params.FullBytes) != 0 {
 			return nil, errors.New("x509: SLHDSASHAKE192s key encoded with illegal parameters")
 		}
-		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA192SmallSHAKE)
+		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA192SmallSHAKE)
 	case oid.Equal(oidPublicKeySLHDSASHAKE192f):
 		if len(params.FullBytes) != 0 {
 			return nil, errors.New("x509: SLHDSASHAKE192f key encoded with illegal parameters")
 		}
-		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA192FastSHAKE)
+		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA192FastSHAKE)
 	case oid.Equal(oidPublicKeySLHDSASHAKE256s):
 		if len(params.FullBytes) != 0 {
 			return nil, errors.New("x509: SLHDSASHAKE256s key encoded with illegal parameters")
 		}
-		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA256SmallSHAKE)
+		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA256SmallSHAKE)
 	case oid.Equal(oidPublicKeySLHDSASHAKE256f):
 		if len(params.FullBytes) != 0 {
 			return nil, errors.New("x509: SLHDSASHAKE256f key encoded with illegal parameters")
 		}
-		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA256FastSHAKE)
+		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA256FastSHAKE)
 	default:
 		return nil, errors.New("x509: unknown public key algorithm")
 	}
@@ -683,9 +683,9 @@ func parseNameConstraintsExtension(out *Certificate, e pkix.Extension) (unhandle
 
 	if !havePermitted && !haveExcluded || len(permitted) == 0 && len(excluded) == 0 {
 		// From RFC 5280, Section 4.2.1.10:
-		//   Ã¢â‚¬Å“either the permittedSubtrees field
+		//   “either the permittedSubtrees field
 		//   or the excludedSubtrees MUST be
-		//   presentÃ¢â‚¬Â
+		//   present”
 		return false, errors.New("x509: empty name constraints extension")
 	}
 

@@ -1,9 +1,9 @@
 diff --git "a/smx509/internal_testenv.go" "b/smx509/internal_testenv.go"
 new file mode 100644
-index e69de29..37078b4 100644
+index e69de29..4b64180 100644
 --- /dev/null
 +++ "b/smx509/internal_testenv.go"
-@@ -0,0 +1,45 @@
+@@ -0,0 +1,83 @@
 +// Copyright 2026 The gmsm Authors. All rights reserved.
 +// Use of this source code is governed by a MIT-style
 +// license that can be found in the LICENSE file.
@@ -13,23 +13,61 @@ index e69de29..37078b4 100644
 +package smx509
 +
 +import (
++	"errors"
++	"io/fs"
++	"os"
 +	"os/exec"
++	"runtime"
++	"syscall"
 +	"testing"
 +)
 +
 +// testenv provides stubs for internal/testenv functions used in stdlib tests.
 +var testenv = struct {
-+	Builder          func() string
-+	SkipFlaky        func(t testing.TB, issue int)
-+	Command          func(t testing.TB, name string, args ...string) *exec.Cmd
-+	MustHaveExecPath func(t testing.TB, name string)
-+	MustHaveGoRun    func(t testing.TB)
-+	GoToolPath       func(t testing.TB) string
++	Builder               func() string
++	SkipFlaky             func(t testing.TB, issue int)
++	SkipIfShortAndSlow    func(t testing.TB)
++	Executable            func(t testing.TB) string
++	SyscallIsNotSupported func(err error) bool
++	Command               func(t testing.TB, name string, args ...string) *exec.Cmd
++	MustHaveExecPath      func(t testing.TB, name string)
++	MustHaveGoRun         func(t testing.TB)
++	GoToolPath            func(t testing.TB) string
 +}{
 +	Builder: func() string { return "" },
 +	SkipFlaky: func(t testing.TB, _ int) {
 +		t.Helper()
 +		t.Skip("skipping flaky test")
++	},
++	SkipIfShortAndSlow: func(t testing.TB) {
++		if testing.Short() {
++			switch runtime.GOARCH {
++			case "arm", "mips", "mipsle", "mips64", "mips64le", "wasm":
++				t.Helper()
++				t.Skipf("skipping test in -short mode on %s", runtime.GOARCH)
++			}
++		}
++	},
++	Executable: func(t testing.TB) string {
++		t.Helper()
++		exe, err := os.Executable()
++		if err != nil {
++			t.Fatalf("os.Executable error: %v", err)
++		}
++		return exe
++	},
++	SyscallIsNotSupported: func(err error) bool {
++		if err == nil {
++			return false
++		}
++		var errno syscall.Errno
++		if errors.As(err, &errno) {
++			switch errno {
++			case syscall.EPERM, syscall.EROFS, syscall.EINVAL:
++				return true
++			}
++		}
++		return errors.Is(err, fs.ErrPermission) || errors.Is(err, errors.ErrUnsupported)
 +	},
 +	Command: func(t testing.TB, name string, args ...string) *exec.Cmd {
 +		t.Helper()

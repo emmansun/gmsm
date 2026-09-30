@@ -11,6 +11,7 @@ param(
     [switch]$TestOnly,
     [string[]]$Files = @(
         "cert_pool.go",
+        "constraints.go",
         "oid.go",
         "parser.go",
         "pem_decrypt.go",
@@ -28,7 +29,8 @@ param(
         "root_windows.go",
         "sec1.go",
         "verify.go",
-        "x509.go"
+        "x509.go",
+        "x509_string.go"
     )
 )
 
@@ -52,7 +54,8 @@ function Get-ForbiddenInternalImports([string]$Content) {
 }
 
 function Rewrite-ImportsAndValidate([string]$FilePath, [switch]$AllowUnresolved, [string]$PackageName) {
-    $content = Get-Content -Raw -LiteralPath $FilePath
+    $enc = New-Object System.Text.UTF8Encoding($false)
+    $content = [System.IO.File]::ReadAllText($FilePath, $enc)
     $updated = $content
 
     if (-not [string]::IsNullOrWhiteSpace($PackageName) -and $PackageName -ne 'x509') {
@@ -76,7 +79,6 @@ function Rewrite-ImportsAndValidate([string]$FilePath, [switch]$AllowUnresolved,
     }
 
     if ($updated -ne $content) {
-        $enc = New-Object System.Text.UTF8Encoding($false)
         [System.IO.File]::WriteAllText($FilePath, $updated, $enc)
     }
 }
@@ -224,10 +226,21 @@ foreach ($tf in $testFiles) {
     Write-Host (("Sync test file: {0}") -f $tf)
     Copy-Item -LiteralPath $src -Destination $dst -Force
     if ($PackageName -ne "x509") {
-        $content = Get-Content -Raw -LiteralPath $dst
-        $updated = $content -replace '(?m)^package x509\b', ('package ' + $PackageName)
+        $enc = New-Object System.Text.UTF8Encoding($false)
+        $content = [System.IO.File]::ReadAllText($dst, $enc)
+        $updated = $content -replace '(?m)^package x509(?<suffix>_test)?\b', ('package ' + $PackageName + '${suffix}')
+        if ($updated -match ('(?m)^package ' + [regex]::Escape($PackageName) + '_test\b')) {
+            $updated = $updated -replace '"internal/testenv"', '"github.com/emmansun/gmsm/internal/testenv"'
+        } else {
+            $updated = $updated -replace '(?m)^\s*"internal/testenv"\r?\n', ''
+        }
+        $updated = $updated -replace '"crypto/internal/cryptotest"', '"github.com/emmansun/gmsm/internal/cryptotest"'
+        $forbidden = Get-ForbiddenInternalImports -Content $updated
+        if ($forbidden.Count -gt 0) {
+            $list = ($forbidden | Sort-Object) -join ", "
+            throw (("Unresolved internal imports in {0}: {1}. Add test import rewrites.") -f $dst, $list)
+        }
         if ($updated -ne $content) {
-            $enc = New-Object System.Text.UTF8Encoding($false)
             [System.IO.File]::WriteAllText($dst, $updated, $enc)
         }
     }
@@ -238,10 +251,18 @@ $srcTestdata = Join-Path $srcDir "testdata"
 $dstTestdata = Join-Path $dstDir "testdata"
 if (Test-Path -LiteralPath $srcTestdata) {
     Write-Host "Sync testdata directory"
-    if (Test-Path -LiteralPath $dstTestdata) {
-        Remove-Item -LiteralPath $dstTestdata -Recurse -Force
+    if (!(Test-Path -LiteralPath $dstTestdata)) {
+        New-Item -ItemType Directory -Path $dstTestdata | Out-Null
     }
-    Copy-Item -LiteralPath $srcTestdata -Destination $dstTestdata -Recurse -Force
+    Copy-Item -Path (Join-Path $srcTestdata "*") -Destination $dstTestdata -Recurse -Force
+}
+
+foreach ($asset in @("platform_root_cert.pem", "platform_root_key.pem", "test-file.crt", "x509_test_import.go")) {
+    $src = Join-Path $srcDir $asset
+    if (Test-Path -LiteralPath $src) {
+        Write-Host (("Sync test asset: {0}") -f $asset)
+        Copy-Item -LiteralPath $src -Destination (Join-Path $dstDir $asset) -Force
+    }
 }
 
 # Apply test patches
