@@ -106,10 +106,17 @@ func marshalPublicKey(pub any) (publicKeyBytes []byte, publicKeyAlgorithm pkix.A
 		if !ok {
 			return nil, pkix.AlgorithmIdentifier{}, errors.New("x509: unsupported elliptic curve")
 		}
-		if !pub.Curve.IsOnCurve(pub.X, pub.Y) {
-			return nil, pkix.AlgorithmIdentifier{}, errors.New("x509: invalid elliptic curve public key")
+		if pub.Curve == sm2.P256() {
+			if !pub.Curve.IsOnCurve(pub.X, pub.Y) {
+				return nil, pkix.AlgorithmIdentifier{}, errors.New("x509: invalid elliptic curve public key")
+			}
+			publicKeyBytes = elliptic.Marshal(pub.Curve, pub.X, pub.Y)
+		} else {
+			publicKeyBytes, err = pub.Bytes()
+			if err != nil {
+				return nil, pkix.AlgorithmIdentifier{}, err
+			}
 		}
-		publicKeyBytes = elliptic.Marshal(pub.Curve, pub.X, pub.Y)
 		publicKeyAlgorithm.Algorithm = oidPublicKeyECDSA
 		var paramBytes []byte
 		paramBytes, err = asn1.Marshal(oid)
@@ -744,16 +751,18 @@ func oidFromGMSMECDHCurve(curve gmsmecdh.Curve) (asn1.ObjectIdentifier, bool) {
 // a bitmap of the KeyUsage* constants.
 type KeyUsage int
 
+//go:generate stringer -linecomment -type=KeyUsage,ExtKeyUsage -output=x509_string.go
+
 const (
-	KeyUsageDigitalSignature KeyUsage = 1 << iota
-	KeyUsageContentCommitment
-	KeyUsageKeyEncipherment
-	KeyUsageDataEncipherment
-	KeyUsageKeyAgreement
-	KeyUsageCertSign
-	KeyUsageCRLSign
-	KeyUsageEncipherOnly
-	KeyUsageDecipherOnly
+	KeyUsageDigitalSignature  KeyUsage = 1 << iota // digitalSignature
+	KeyUsageContentCommitment                      // contentCommitment
+	KeyUsageKeyEncipherment                        // keyEncipherment
+	KeyUsageDataEncipherment                       // dataEncipherment
+	KeyUsageKeyAgreement                           // keyAgreement
+	KeyUsageCertSign                               // keyCertSign
+	KeyUsageCRLSign                                // cRLSign
+	KeyUsageEncipherOnly                           // encipherOnly
+	KeyUsageDecipherOnly                           // decipherOnly
 )
 
 // RFC 5280, 4.2.1.12  Extended Key Usage
@@ -768,6 +777,8 @@ const (
 //	id-kp-emailProtection        OBJECT IDENTIFIER ::= { id-kp 4 }
 //	id-kp-timeStamping           OBJECT IDENTIFIER ::= { id-kp 8 }
 //	id-kp-OCSPSigning            OBJECT IDENTIFIER ::= { id-kp 9 }
+//
+// https://www.iana.org/assignments/smi-numbers/smi-numbers.xhtml#smi-numbers-1.3.6.1.5.5.7.3
 var (
 	oidExtKeyUsageAny                            = asn1.ObjectIdentifier{2, 5, 29, 37, 0}
 	oidExtKeyUsageServerAuth                     = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 3, 1}
@@ -790,20 +801,20 @@ var (
 type ExtKeyUsage int
 
 const (
-	ExtKeyUsageAny ExtKeyUsage = iota
-	ExtKeyUsageServerAuth
-	ExtKeyUsageClientAuth
-	ExtKeyUsageCodeSigning
-	ExtKeyUsageEmailProtection
-	ExtKeyUsageIPSECEndSystem
-	ExtKeyUsageIPSECTunnel
-	ExtKeyUsageIPSECUser
-	ExtKeyUsageTimeStamping
-	ExtKeyUsageOCSPSigning
-	ExtKeyUsageMicrosoftServerGatedCrypto
-	ExtKeyUsageNetscapeServerGatedCrypto
-	ExtKeyUsageMicrosoftCommercialCodeSigning
-	ExtKeyUsageMicrosoftKernelCodeSigning
+	ExtKeyUsageAny                            ExtKeyUsage = iota // anyExtendedKeyUsage
+	ExtKeyUsageServerAuth                                        // serverAuth
+	ExtKeyUsageClientAuth                                        // clientAuth
+	ExtKeyUsageCodeSigning                                       // codeSigning
+	ExtKeyUsageEmailProtection                                   // emailProtection
+	ExtKeyUsageIPSECEndSystem                                    // ipsecEndSystem
+	ExtKeyUsageIPSECTunnel                                       // ipsecTunnel
+	ExtKeyUsageIPSECUser                                         // ipsecUser
+	ExtKeyUsageTimeStamping                                      // timeStamping
+	ExtKeyUsageOCSPSigning                                       // OCSPSigning
+	ExtKeyUsageMicrosoftServerGatedCrypto                        // msSGC
+	ExtKeyUsageNetscapeServerGatedCrypto                         // nsSGC
+	ExtKeyUsageMicrosoftCommercialCodeSigning                    // msCodeCom
+	ExtKeyUsageMicrosoftKernelCodeSigning                        // msKernelCode
 )
 
 // extKeyUsageOIDs contains the mapping between an ExtKeyUsage and its OID.
@@ -843,6 +854,19 @@ func oidFromExtKeyUsage(eku ExtKeyUsage) (oid asn1.ObjectIdentifier, ok bool) {
 		}
 	}
 	return
+}
+
+// OID returns the ASN.1 object identifier of the EKU.
+func (eku ExtKeyUsage) OID() OID {
+	asn1OID, ok := oidFromExtKeyUsage(eku)
+	if !ok {
+		panic("x509: internal error: known ExtKeyUsage has no OID")
+	}
+	oid, err := OIDFromASN1OID(asn1OID)
+	if err != nil {
+		panic("x509: internal error: known ExtKeyUsage has invalid OID")
+	}
+	return oid
 }
 
 // A Certificate represents an X.509 certificate.
@@ -1461,8 +1485,8 @@ func buildCertExtensions(template *Certificate, subjectIsEmpty bool, authorityKe
 		!oidInExtensions(oidExtensionSubjectAltName, template.ExtraExtensions) {
 		ret[n].Id = oidExtensionSubjectAltName
 		// From RFC 5280, Section 4.2.1.6:
-		// Ã¢â‚¬Å“If the subject field contains an empty sequence ... then
-		// subjectAltName extension ... is marked as criticalÃ¢â‚¬Â
+		// “If the subject field contains an empty sequence ... then
+		// subjectAltName extension ... is marked as critical”
 		ret[n].Critical = subjectIsEmpty
 		ret[n].Value, err = marshalSANs(template.DNSNames, template.EmailAddresses, template.IPAddresses, template.URIs)
 		if err != nil {

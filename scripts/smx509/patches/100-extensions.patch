@@ -1,6 +1,6 @@
 diff --git "a/smx509/cfca_csr.go" "b/smx509/cfca_csr.go"
 new file mode 100644
-index e69de29..aa3d054 100644
+index e69de29b..aa3d054e 100644
 --- /dev/null
 +++ "b/smx509/cfca_csr.go"
 @@ -0,0 +1,218 @@
@@ -225,7 +225,7 @@ index e69de29..aa3d054 100644
 
 diff --git "a/smx509/csr_rsp.go" "b/smx509/csr_rsp.go"
 new file mode 100644
-index e69de29..55e83eb 100644
+index e69de29b..55e83ebc 100644
 --- /dev/null
 +++ "b/smx509/csr_rsp.go"
 @@ -0,0 +1,146 @@
@@ -378,7 +378,7 @@ index e69de29..55e83eb 100644
 
 diff --git "a/smx509/explicit_curves.go" "b/smx509/explicit_curves.go"
 new file mode 100644
-index e69de29..f0385eb 100644
+index e69de29b..f0385eb1 100644
 --- /dev/null
 +++ "b/smx509/explicit_curves.go"
 @@ -0,0 +1,98 @@
@@ -483,7 +483,7 @@ index e69de29..f0385eb 100644
 
 diff --git "a/smx509/verify_digest.go" "b/smx509/verify_digest.go"
 new file mode 100644
-index e69de29..6750cb4 100644
+index e69de29b..6750cb49 100644
 --- /dev/null
 +++ "b/smx509/verify_digest.go"
 @@ -0,0 +1,81 @@

@@ -1,8 +1,8 @@
 diff --git "a/smx509/x509_test.go" "b/smx509/x509_test.go"
-index 8c8e0e9..1463bef 100644
+index ef480a9..1eeb4e0 100644
 --- "a/smx509/x509_test.go"
 +++ "b/smx509/x509_test.go"
-@@ -2236,8 +2236,12 @@ func TestPKIXNameString(t *testing.T) {
+@@ -2235,8 +2235,12 @@ func TestPKIXNameString(t *testing.T) {
  	}
  
  	for i, test := range tests {

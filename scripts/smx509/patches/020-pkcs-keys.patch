@@ -1,5 +1,5 @@
 diff --git "a/smx509/pkcs8.go" "b/smx509/pkcs8.go"
-index 868de55..d2e4e2b 100644
+index 868de558..d2e4e2b5 100644
 --- "a/smx509/pkcs8.go"
 +++ "b/smx509/pkcs8.go"
 @@ -5,6 +5,7 @@
@@ -460,19 +460,20 @@ index 868de55..d2e4e2b 100644
 +}
 
 diff --git "a/smx509/sec1.go" "b/smx509/sec1.go"
-index 8994fdf..8eeec96 100644
+index 41cbfcf3..b0e2d5ab 100644
 --- "a/smx509/sec1.go"
 +++ "b/smx509/sec1.go"
-@@ -12,6 +12,8 @@ import (
+@@ -11,6 +11,9 @@ import (
+ 	"encoding/asn1"
  	"errors"
  	"fmt"
- 	"math/big"
++	"math/big"
 +
 +	"github.com/emmansun/gmsm/sm2"
  )
  
  const ecPrivKeyVersion = 1
-@@ -38,6 +40,29 @@ func ParseECPrivateKey(der []byte) (*ecdsa.PrivateKey, error) {
+@@ -37,6 +40,29 @@ func ParseECPrivateKey(der []byte) (*ecdsa.PrivateKey, error) {
  	return parseECPrivateKey(nil, der)
  }
  
@@ -502,7 +503,7 @@ index 8994fdf..8eeec96 100644
  // MarshalECPrivateKey converts an EC private key to SEC 1, ASN.1 DER form.
  //
  // This kind of key is commonly encoded in PEM blocks of type "EC PRIVATE KEY".
-@@ -52,6 +77,11 @@ func MarshalECPrivateKey(key *ecdsa.PrivateKey) ([]byte, error) {
+@@ -51,9 +77,26 @@ func MarshalECPrivateKey(key *ecdsa.PrivateKey) ([]byte, error) {
  	return marshalECPrivateKeyWithOID(key, oid)
  }
  
@@ -514,3 +515,35 @@ index 8994fdf..8eeec96 100644
  // marshalECPrivateKeyWithOID marshals an EC private key into ASN.1, DER format and
  // sets the curve ID to the given OID, or omits it if OID is nil.
  func marshalECPrivateKeyWithOID(key *ecdsa.PrivateKey, oid asn1.ObjectIdentifier) ([]byte, error) {
++	if key.Curve == sm2.P256() {
++		if !key.Curve.IsOnCurve(key.X, key.Y) {
++			return nil, errors.New("invalid elliptic key public key")
++		}
++		privateKey := make([]byte, (key.Curve.Params().N.BitLen()+7)/8)
++		return asn1.Marshal(ecPrivateKey{
++			Version:       1,
++			PrivateKey:    key.D.FillBytes(privateKey),
++			NamedCurveOID: oid,
++			PublicKey:     asn1.BitString{Bytes: elliptic.Marshal(key.Curve, key.X, key.Y)},
++		})
++	}
+ 	privateKey, err := key.Bytes()
+ 	if err != nil {
+ 		return nil, err
+@@ -126,5 +169,15 @@ func parseECPrivateKey(namedCurveOID *asn1.ObjectIdentifier, der []byte) (key *e
+ 	// this too.
+ 	copy(privateKey[len(privateKey)-len(privKey.PrivateKey):], privKey.PrivateKey)
+ 
+-	return ecdsa.ParseRawPrivateKey(curve, privateKey)
++	if curve != sm2.P256() {
++		return ecdsa.ParseRawPrivateKey(curve, privateKey)
++	}
++
++	k := new(big.Int).SetBytes(privateKey)
++	if k.Sign() <= 0 || k.Cmp(curve.Params().N) >= 0 {
++		return nil, errors.New("x509: invalid elliptic curve private key value")
++	}
++	priv := &ecdsa.PrivateKey{PublicKey: ecdsa.PublicKey{Curve: curve}, D: k}
++	priv.X, priv.Y = curve.ScalarBaseMult(privateKey)
++	return priv, nil
+ }

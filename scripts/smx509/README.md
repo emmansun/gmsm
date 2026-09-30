@@ -6,7 +6,7 @@ smx509 是 Go stdlib `crypto/x509` 的 clean fork，通过**声明式 patch** �
 
 ```
 scripts/smx509/
-├── baseline/                    # Go stdlib 基线快照（.go.txt，已提交到 git）
+├── baseline/                    # Go stdlib 基线快照（21 个 .go.txt，已提交到 git）
 │   ├── x509.go.txt
 │   ├── parser.go.txt
 │   └── ... (19 files)

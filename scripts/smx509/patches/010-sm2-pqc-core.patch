@@ -1,5 +1,5 @@
 diff --git "a/smx509/x509.go" "b/smx509/x509.go"
-index fd9f2f7..527fa53 100644
+index 3915a04f..cde65be8 100644
 --- "a/smx509/x509.go"
 +++ "b/smx509/x509.go"
 @@ -35,7 +35,6 @@ import (
@@ -23,7 +23,27 @@ index fd9f2f7..527fa53 100644
  	// Explicitly import these for their crypto.RegisterHash init side-effects.
  	// Keep these as blank imports, even if they're imported above.
  	_ "crypto/sha1"
-@@ -132,6 +137,35 @@ func marshalPublicKey(pub any) (publicKeyBytes []byte, publicKeyAlgorithm pkix.A
+@@ -101,9 +106,16 @@ func marshalPublicKey(pub any) (publicKeyBytes []byte, publicKeyAlgorithm pkix.A
+ 		if !ok {
+ 			return nil, pkix.AlgorithmIdentifier{}, errors.New("x509: unsupported elliptic curve")
+ 		}
+-		publicKeyBytes, err = pub.Bytes()
+-		if err != nil {
+-			return nil, pkix.AlgorithmIdentifier{}, err
++		if pub.Curve == sm2.P256() {
++			if !pub.Curve.IsOnCurve(pub.X, pub.Y) {
++				return nil, pkix.AlgorithmIdentifier{}, errors.New("x509: invalid elliptic curve public key")
++			}
++			publicKeyBytes = elliptic.Marshal(pub.Curve, pub.X, pub.Y)
++		} else {
++			publicKeyBytes, err = pub.Bytes()
++			if err != nil {
++				return nil, pkix.AlgorithmIdentifier{}, err
++			}
+ 		}
+ 		publicKeyAlgorithm.Algorithm = oidPublicKeyECDSA
+ 		var paramBytes []byte
+@@ -132,6 +144,35 @@ func marshalPublicKey(pub any) (publicKeyBytes []byte, publicKeyAlgorithm pkix.A
  			}
  			publicKeyAlgorithm.Parameters.FullBytes = paramBytes
  		}
@@ -59,7 +79,7 @@ index fd9f2f7..527fa53 100644
  	default:
  		return nil, pkix.AlgorithmIdentifier{}, fmt.Errorf("x509: unsupported public key type: %T", pub)
  	}
-@@ -231,6 +265,22 @@ const (
+@@ -231,6 +272,22 @@ const (
  	SHA384WithRSAPSS
  	SHA512WithRSAPSS
  	PureEd25519
@@ -82,7 +102,7 @@ index fd9f2f7..527fa53 100644
  )
  
  func (algo SignatureAlgorithm) isRSAPSS() bool {
-@@ -268,6 +318,21 @@ const (
+@@ -268,6 +325,21 @@ const (
  	DSA // Only supported for parsing.
  	ECDSA
  	Ed25519
@@ -104,7 +124,7 @@ index fd9f2f7..527fa53 100644
  )
  
  var publicKeyAlgoName = [...]string{
-@@ -346,6 +411,10 @@ var (
+@@ -346,6 +418,10 @@ var (
  	oidSignatureECDSAWithSHA384 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 3}
  	oidSignatureECDSAWithSHA512 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 4}
  	oidSignatureEd25519         = asn1.ObjectIdentifier{1, 3, 101, 112}
@@ -115,7 +135,7 @@ index fd9f2f7..527fa53 100644
  
  	oidSHA256 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 1}
  	oidSHA384 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 2}
-@@ -357,6 +426,19 @@ var (
+@@ -357,6 +433,19 @@ var (
  	// but it's specified by ISO. Microsoft's makecert.exe has been known
  	// to produce certificates with this OID.
  	oidISOSignatureSHA1WithRSA = asn1.ObjectIdentifier{1, 3, 14, 3, 2, 29}
@@ -135,7 +155,7 @@ index fd9f2f7..527fa53 100644
  )
  
  var signatureAlgorithmDetails = []struct {
-@@ -384,6 +466,22 @@ var signatureAlgorithmDetails = []struct {
+@@ -384,6 +473,22 @@ var signatureAlgorithmDetails = []struct {
  	{ECDSAWithSHA384, "ECDSA-SHA384", oidSignatureECDSAWithSHA384, emptyRawValue, ECDSA, crypto.SHA384, false},
  	{ECDSAWithSHA512, "ECDSA-SHA512", oidSignatureECDSAWithSHA512, emptyRawValue, ECDSA, crypto.SHA512, false},
  	{PureEd25519, "Ed25519", oidSignatureEd25519, emptyRawValue, Ed25519, crypto.Hash(0) /* no pre-hashing */, false},
@@ -158,7 +178,7 @@ index fd9f2f7..527fa53 100644
  }
  
  var emptyRawValue = asn1.RawValue{}
-@@ -486,12 +584,30 @@ var (
+@@ -486,12 +591,30 @@ var (
  	//	id-ecPublicKey OBJECT IDENTIFIER ::= {
  	//		iso(1) member-body(2) us(840) ansi-X9-62(10045) keyType(2) 1 }
  	oidPublicKeyECDSA = asn1.ObjectIdentifier{1, 2, 840, 10045, 2, 1}
@@ -189,7 +209,7 @@ index fd9f2f7..527fa53 100644
  )
  
  // getPublicKeyAlgorithmFromOID returns the exposed PublicKeyAlgorithm
-@@ -505,8 +621,40 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm
+@@ -505,8 +628,40 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm
  		return DSA
  	case oid.Equal(oidPublicKeyECDSA):
  		return ECDSA
@@ -230,7 +250,7 @@ index fd9f2f7..527fa53 100644
  	}
  	return UnknownPublicKeyAlgorithm
  }
-@@ -528,10 +676,11 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm
+@@ -528,10 +683,11 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm
  //
  // NB: secp256r1 is equivalent to prime256v1
  var (
@@ -246,7 +266,7 @@ index fd9f2f7..527fa53 100644
  )
  
  func namedCurveFromOID(oid asn1.ObjectIdentifier) elliptic.Curve {
-@@ -544,6 +693,8 @@ func namedCurveFromOID(oid asn1.ObjectIdentifier) elliptic.Curve {
+@@ -544,6 +700,8 @@ func namedCurveFromOID(oid asn1.ObjectIdentifier) elliptic.Curve {
  		return elliptic.P384()
  	case oid.Equal(oidNamedCurveP521):
  		return elliptic.P521()
@@ -255,7 +275,7 @@ index fd9f2f7..527fa53 100644
  	}
  	return nil
  }
-@@ -558,6 +709,8 @@ func oidFromNamedCurve(curve elliptic.Curve) (asn1.ObjectIdentifier, bool) {
+@@ -558,6 +716,8 @@ func oidFromNamedCurve(curve elliptic.Curve) (asn1.ObjectIdentifier, bool) {
  		return oidNamedCurveP384, true
  	case elliptic.P521():
  		return oidNamedCurveP521, true
@@ -264,7 +284,7 @@ index fd9f2f7..527fa53 100644
  	}
  
  	return nil, false
-@@ -578,6 +731,15 @@ func oidFromECDHCurve(curve ecdh.Curve) (asn1.ObjectIdentifier, bool) {
+@@ -578,6 +738,15 @@ func oidFromECDHCurve(curve ecdh.Curve) (asn1.ObjectIdentifier, bool) {
  	return nil, false
  }
  
@@ -280,7 +300,7 @@ index fd9f2f7..527fa53 100644
  // KeyUsage represents the set of actions that are valid for a given key. It's
  // a bitmap of the KeyUsage* constants.
  type KeyUsage int
-@@ -958,11 +1120,20 @@ func signaturePublicKeyAlgoMismatchError(expectedPubKeyAlgo PublicKeyAlgorithm,
+@@ -975,11 +1144,20 @@ func signaturePublicKeyAlgoMismatchError(expectedPubKeyAlgo PublicKeyAlgorithm,
  	return fmt.Errorf("x509: signature algorithm specifies an %s public key, but have public key of type %T", expectedPubKeyAlgo.String(), pubKey)
  }
  
@@ -301,7 +321,7 @@ index fd9f2f7..527fa53 100644
  
  	for _, details := range signatureAlgorithmDetails {
  		if details.algo == algo {
-@@ -974,7 +1145,7 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
+@@ -991,7 +1169,7 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
  
  	switch hashType {
  	case crypto.Hash(0):
@@ -310,7 +330,7 @@ index fd9f2f7..527fa53 100644
  			return ErrUnsupportedAlgorithm
  		}
  	case crypto.MD5:
-@@ -1008,7 +1179,11 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
+@@ -1025,7 +1203,11 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
  		if pubKeyAlgo != ECDSA {
  			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
  		}
@@ -323,7 +343,7 @@ index fd9f2f7..527fa53 100644
  			return errors.New("x509: ECDSA verification failure")
  		}
  		return
-@@ -1020,6 +1195,38 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
+@@ -1037,6 +1219,38 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
  			return errors.New("x509: Ed25519 verification failure")
  		}
  		return
@@ -362,18 +382,7 @@ index fd9f2f7..527fa53 100644
  	}
  	return ErrUnsupportedAlgorithm
  }
-@@ -1254,8 +1461,8 @@ func buildCertExtensions(template *Certificate, subjectIsEmpty bool, authorityKe
- 		!oidInExtensions(oidExtensionSubjectAltName, template.ExtraExtensions) {
- 		ret[n].Id = oidExtensionSubjectAltName
- 		// From RFC 5280, Section 4.2.1.6:
--		// â€œIf the subject field contains an empty sequence ... then
--		// subjectAltName extension ... is marked as criticalâ€
-+		// Ã¢â‚¬Å“If the subject field contains an empty sequence ... then
-+		// subjectAltName extension ... is marked as criticalÃ¢â‚¬Â
- 		ret[n].Critical = subjectIsEmpty
- 		ret[n].Value, err = marshalSANs(template.DNSNames, template.EmailAddresses, template.IPAddresses, template.URIs)
- 		if err != nil {
-@@ -1533,6 +1740,8 @@ func signingParamsForKey(key crypto.Signer, sigAlgo SignatureAlgorithm) (Signatu
+@@ -1550,6 +1764,8 @@ func signingParamsForKey(key crypto.Signer, sigAlgo SignatureAlgorithm) (Signatu
  			defaultAlgo = ECDSAWithSHA384
  		case elliptic.P521():
  			defaultAlgo = ECDSAWithSHA512
@@ -382,7 +391,7 @@ index fd9f2f7..527fa53 100644
  		default:
  			return 0, ai, errors.New("x509: unsupported elliptic curve")
  		}
-@@ -1541,8 +1750,63 @@ func signingParamsForKey(key crypto.Signer, sigAlgo SignatureAlgorithm) (Signatu
+@@ -1558,8 +1774,63 @@ func signingParamsForKey(key crypto.Signer, sigAlgo SignatureAlgorithm) (Signatu
  		pubType = Ed25519
  		defaultAlgo = PureEd25519
  
@@ -447,7 +456,7 @@ index fd9f2f7..527fa53 100644
  	}
  
  	if sigAlgo == 0 {
-@@ -1551,7 +1815,7 @@ func signingParamsForKey(key crypto.Signer, sigAlgo SignatureAlgorithm) (Signatu
+@@ -1568,7 +1839,7 @@ func signingParamsForKey(key crypto.Signer, sigAlgo SignatureAlgorithm) (Signatu
  
  	for _, details := range signatureAlgorithmDetails {
  		if details.algo == sigAlgo {
@@ -456,7 +465,7 @@ index fd9f2f7..527fa53 100644
  				return 0, ai, errors.New("x509: requested SignatureAlgorithm does not match private key type")
  			}
  			if details.hash == crypto.MD5 {
-@@ -1577,6 +1841,8 @@ func signTBS(tbs []byte, key crypto.Signer, sigAlg SignatureAlgorithm, rand io.R
+@@ -1594,6 +1865,8 @@ func signTBS(tbs []byte, key crypto.Signer, sigAlg SignatureAlgorithm, rand io.R
  			SaltLength: rsa.PSSSaltLengthEqualsHash,
  			Hash:       hashFunc,
  		}
@@ -465,7 +474,7 @@ index fd9f2f7..527fa53 100644
  	}
  
  	signature, err := crypto.SignMessage(key, rand, tbs, signerOpts)
-@@ -2207,6 +2473,16 @@ func ParseCertificateRequest(asn1Data []byte) (*CertificateRequest, error) {
+@@ -2224,6 +2497,16 @@ func ParseCertificateRequest(asn1Data []byte) (*CertificateRequest, error) {
  	return parseCertificateRequest(&csr)
  }
  
@@ -484,10 +493,14 @@ index fd9f2f7..527fa53 100644
  		Raw:                      in.Raw,
 
 diff --git "a/smx509/parser.go" "b/smx509/parser.go"
-index 1a2e8bd..6a2adc3 100644
+index 523d52b5..a05562c8 100644
 --- "a/smx509/parser.go"
 +++ "b/smx509/parser.go"
-@@ -14,9 +14,9 @@ import (
+@@ -10,12 +10,13 @@ import (
+ 	"crypto/ecdh"
+ 	"crypto/ecdsa"
+ 	"crypto/ed25519"
++	"crypto/elliptic"
  	"crypto/rsa"
  	"crypto/x509/pkix"
  	"encoding/asn1"
@@ -498,7 +511,7 @@ index 1a2e8bd..6a2adc3 100644
  	"math"
  	"math/big"
  	"net"
-@@ -27,6 +27,11 @@ import (
+@@ -26,6 +27,11 @@ import (
  	"unicode/utf16"
  	"unicode/utf8"
  
@@ -510,73 +523,71 @@ index 1a2e8bd..6a2adc3 100644
  	"golang.org/x/crypto/cryptobyte"
  	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
  )
-@@ -285,23 +290,59 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
+@@ -283,16 +289,59 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
+ 		}
+ 		return pub, nil
  	case oid.Equal(oidPublicKeyECDSA):
- 		paramsDer := cryptobyte.String(params.FullBytes)
- 		namedCurveOID := new(asn1.ObjectIdentifier)
--		if !paramsDer.ReadASN1ObjectIdentifier(namedCurveOID) {
--			return nil, errors.New("x509: invalid ECDSA parameters")
++		paramsDer := cryptobyte.String(params.FullBytes)
++		namedCurveOID := new(asn1.ObjectIdentifier)
 +		if paramsDer.ReadASN1ObjectIdentifier(namedCurveOID) {
 +			namedCurve := namedCurveFromOID(*namedCurveOID)
 +			if namedCurve == nil {
 +				return nil, errors.New("x509: unsupported elliptic curve")
 +			}
-+			x, y := elliptic.Unmarshal(namedCurve, der)
-+			if x == nil {
-+				return nil, errors.New("x509: failed to unmarshal elliptic curve point")
++			if namedCurve == sm2.P256() {
++				x, y := elliptic.Unmarshal(namedCurve, data)
++				if x == nil {
++					return nil, errors.New("x509: failed to unmarshal elliptic curve point")
++				}
++				return &ecdsa.PublicKey{Curve: namedCurve, X: x, Y: y}, nil
 +			}
-+			pub := &ecdsa.PublicKey{
-+				Curve: namedCurve,
-+				X:     x,
-+				Y:     y,
-+			}
-+			return pub, nil
- 		}
--		namedCurve := namedCurveFromOID(*namedCurveOID)
--		if namedCurve == nil {
++			return ecdsa.ParseUncompressedPublicKey(namedCurve, data)
++		}
 +
 +		// Try to parse as explicit EC parameters
 +		explicitDer := cryptobyte.String(params.FullBytes)
 +		var explicitParams cryptobyte.String
 +		if !explicitDer.ReadASN1(&explicitParams, cryptobyte_asn1.SEQUENCE) {
- 			return nil, errors.New("x509: unsupported elliptic curve")
- 		}
--		x, y := elliptic.Unmarshal(namedCurve, der)
++			return nil, errors.New("x509: unsupported elliptic curve")
++		}
 +		curve, err := parseExplicitECParameters(explicitParams)
 +		if err != nil {
 +			return nil, errors.New("x509: unsupported elliptic curve")
 +		}
-+		x, y := elliptic.Unmarshal(curve, der)
- 		if x == nil {
- 			return nil, errors.New("x509: failed to unmarshal elliptic curve point")
- 		}
- 		pub := &ecdsa.PublicKey{
--			Curve: namedCurve,
-+			Curve: curve,
- 			X:     x,
- 			Y:     y,
- 		}
- 		return pub, nil
-+	case oid.Equal(oidPublicKeySM2):
-+		paramsDer := cryptobyte.String(params.FullBytes)
-+		namedCurveOID := new(asn1.ObjectIdentifier)
-+		if !paramsDer.ReadASN1ObjectIdentifier(namedCurveOID) {
-+			return nil, errors.New("x509: invalid SM2 parameters")
++		x, y := elliptic.Unmarshal(curve, data)
++		if x == nil {
++			return nil, errors.New("x509: failed to unmarshal elliptic curve point")
 +		}
-+		namedCurve := namedCurveFromOID(*namedCurveOID)
++		pub := &ecdsa.PublicKey{
++			Curve: curve,
++			X:     x,
++			Y:     y,
++		}
++		return pub, nil
++	case oid.Equal(oidPublicKeySM2):
+ 		paramsDer := cryptobyte.String(params.FullBytes)
+ 		namedCurveOID := new(asn1.ObjectIdentifier)
+ 		if !paramsDer.ReadASN1ObjectIdentifier(namedCurveOID) {
+-			return nil, errors.New("x509: invalid ECDSA parameters")
++			return nil, errors.New("x509: invalid SM2 parameters")
+ 		}
+ 		namedCurve := namedCurveFromOID(*namedCurveOID)
+-		if namedCurve == nil {
+-			return nil, errors.New("x509: unsupported elliptic curve")
 +		if namedCurve != sm2.P256() {
 +			return nil, errors.New("x509: unsupported SM2 curve")
 +		}
-+		x, y := elliptic.Unmarshal(namedCurve, der)
++		x, y := elliptic.Unmarshal(namedCurve, data)
 +		if x == nil {
 +			return nil, errors.New("x509: failed to unmarshal SM2 curve point")
-+		}
+ 		}
+-		return ecdsa.ParseUncompressedPublicKey(namedCurve, data)
 +		pub := &ecdsa.PublicKey{Curve: namedCurve, X: x, Y: y}
 +		return pub, nil
  	case oid.Equal(oidPublicKeyEd25519):
  		// RFC 8410, Section 3
  		// > For all of the OIDs, the parameters MUST be absent.
-@@ -344,6 +385,81 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
+@@ -336,6 +385,81 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
  			return nil, errors.New("x509: zero or negative DSA parameter")
  		}
  		return pub, nil
@@ -584,93 +595,81 @@ index 1a2e8bd..6a2adc3 100644
 +		if len(params.FullBytes) != 0 {
 +			return nil, errors.New("x509: MLDSA44 key encoded with illegal parameters")
 +		}
-+		return mldsa.NewPublicKey44(der)
++		return mldsa.NewPublicKey44(data)
 +	case oid.Equal(oidPublicKeyMLDSA65):
 +		if len(params.FullBytes) != 0 {
 +			return nil, errors.New("x509: MLDSA65 key encoded with illegal parameters")
 +		}
-+		return mldsa.NewPublicKey65(der)
++		return mldsa.NewPublicKey65(data)
 +	case oid.Equal(oidPublicKeyMLDSA87):
 +		if len(params.FullBytes) != 0 {
 +			return nil, errors.New("x509: MLDSA87 key encoded with illegal parameters")
 +		}
-+		return mldsa.NewPublicKey87(der)
++		return mldsa.NewPublicKey87(data)
 +	case oid.Equal(oidPublicKeySLHDSASHA2128s):
 +		if len(params.FullBytes) != 0 {
 +			return nil, errors.New("x509: SLHDSASHA2128s key encoded with illegal parameters")
 +		}
-+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA128SmallSHA2)
++		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA128SmallSHA2)
 +	case oid.Equal(oidPublicKeySLHDSASHA2128f):
 +		if len(params.FullBytes) != 0 {
 +			return nil, errors.New("x509: SLHDSASHA2128f key encoded with illegal parameters")
 +		}
-+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA128FastSHA2)
++		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA128FastSHA2)
 +	case oid.Equal(oidPublicKeySLHDSASHA2192s):
 +		if len(params.FullBytes) != 0 {
 +			return nil, errors.New("x509: SLHDSASHA2192s key encoded with illegal parameters")
 +		}
-+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA192SmallSHA2)
++		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA192SmallSHA2)
 +	case oid.Equal(oidPublicKeySLHDSASHA2192f):
 +		if len(params.FullBytes) != 0 {
 +			return nil, errors.New("x509: SLHDSASHA2192f key encoded with illegal parameters")
 +		}
-+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA192FastSHA2)
++		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA192FastSHA2)
 +	case oid.Equal(oidPublicKeySLHDSASHA2256s):
 +		if len(params.FullBytes) != 0 {
 +			return nil, errors.New("x509: SLHDSASHA2256s key encoded with illegal parameters")
 +		}
-+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA256SmallSHA2)
++		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA256SmallSHA2)
 +	case oid.Equal(oidPublicKeySLHDSASHA2256f):
 +		if len(params.FullBytes) != 0 {
 +			return nil, errors.New("x509: SLHDSASHA2256f key encoded with illegal parameters")
 +		}
-+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA256FastSHA2)
++		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA256FastSHA2)
 +	case oid.Equal(oidPublicKeySLHDSASHAKE128s):
 +		if len(params.FullBytes) != 0 {
 +			return nil, errors.New("x509: SLHDSASHAKE128s key encoded with illegal parameters")
 +		}
-+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA128SmallSHAKE)
++		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA128SmallSHAKE)
 +	case oid.Equal(oidPublicKeySLHDSASHAKE128f):
 +		if len(params.FullBytes) != 0 {
 +			return nil, errors.New("x509: SLHDSASHAKE128f key encoded with illegal parameters")
 +		}
-+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA128FastSHAKE)
++		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA128FastSHAKE)
 +	case oid.Equal(oidPublicKeySLHDSASHAKE192s):
 +		if len(params.FullBytes) != 0 {
 +			return nil, errors.New("x509: SLHDSASHAKE192s key encoded with illegal parameters")
 +		}
-+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA192SmallSHAKE)
++		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA192SmallSHAKE)
 +	case oid.Equal(oidPublicKeySLHDSASHAKE192f):
 +		if len(params.FullBytes) != 0 {
 +			return nil, errors.New("x509: SLHDSASHAKE192f key encoded with illegal parameters")
 +		}
-+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA192FastSHAKE)
++		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA192FastSHAKE)
 +	case oid.Equal(oidPublicKeySLHDSASHAKE256s):
 +		if len(params.FullBytes) != 0 {
 +			return nil, errors.New("x509: SLHDSASHAKE256s key encoded with illegal parameters")
 +		}
-+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA256SmallSHAKE)
++		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA256SmallSHAKE)
 +	case oid.Equal(oidPublicKeySLHDSASHAKE256f):
 +		if len(params.FullBytes) != 0 {
 +			return nil, errors.New("x509: SLHDSASHAKE256f key encoded with illegal parameters")
 +		}
-+		return slhdsa.NewPublicKey(der, &slhdsa.SLHDSA256FastSHAKE)
++		return slhdsa.NewPublicKey(data, &slhdsa.SLHDSA256FastSHAKE)
  	default:
  		return nil, errors.New("x509: unknown public key algorithm")
  	}
-@@ -567,9 +683,9 @@ func parseNameConstraintsExtension(out *Certificate, e pkix.Extension) (unhandle
- 
- 	if !havePermitted && !haveExcluded || len(permitted) == 0 && len(excluded) == 0 {
- 		// From RFC 5280, Section 4.2.1.10:
--		//   â€œeither the permittedSubtrees field
-+		//   Ã¢â‚¬Å“either the permittedSubtrees field
- 		//   or the excludedSubtrees MUST be
--		//   presentâ€
-+		//   presentÃ¢â‚¬Â
- 		return false, errors.New("x509: empty name constraints extension")
- 	}
- 
-@@ -1092,6 +1208,15 @@ func ParseCertificate(der []byte) (*Certificate, error) {
+@@ -1084,6 +1208,15 @@ func ParseCertificate(der []byte) (*Certificate, error) {
  	return cert, nil
  }
  
@@ -688,10 +687,10 @@ index 1a2e8bd..6a2adc3 100644
  func ParseCertificates(der []byte) ([]*Certificate, error) {
 
 diff --git "a/smx509/verify.go" "b/smx509/verify.go"
-index 34d1faa..2c804a6 100644
+index a9903dea..90c54673 100644
 --- "a/smx509/verify.go"
 +++ "b/smx509/verify.go"
-@@ -818,7 +818,7 @@ func (c *Certificate) Verify(opts VerifyOptions) (chains [][]*Certificate, err e
+@@ -556,7 +556,7 @@ func (c *Certificate) Verify(opts VerifyOptions) ([][]*Certificate, error) {
  	}
  
  	// Use platform verifiers, where available, if Roots is from SystemCertPool.

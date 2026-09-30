@@ -55,7 +55,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "cannot read stdlib test file: %v\n", err)
 		os.Exit(1)
 	}
-	data = bytes.Replace(data, []byte("package x509"), []byte("package smx509"), 1)
+	data = prepareUpstreamTest(data)
 	if err := os.WriteFile(preparedFile, data, 0644); err != nil {
 		fmt.Fprintf(os.Stderr, "cannot write prepared test file: %v\n", err)
 		os.Exit(1)
@@ -73,7 +73,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "cannot read stdlib test file: %v\n", err)
 		os.Exit(1)
 	}
-	data = bytes.Replace(data, []byte("package x509"), []byte("package smx509"), 1)
+	data = prepareUpstreamTest(data)
 	if err := os.WriteFile(preparedFile, data, 0644); err != nil {
 		fmt.Fprintf(os.Stderr, "cannot write prepared test file: %v\n", err)
 		os.Exit(1)
@@ -92,6 +92,13 @@ func main() {
 	}
 	diffPatch = generateDiffPatch(repoRoot, tmpDir, preparedFile, patchedFile, "x509_test.go")
 	writePatch(testPatchDir, "030-pkix-name-string.patch", diffPatch)
+}
+
+func prepareUpstreamTest(data []byte) []byte {
+	data = bytes.Replace(data, []byte("package x509"), []byte("package smx509"), 1)
+	data = bytes.ReplaceAll(data, []byte("\t\"internal/testenv\"\n"), nil)
+	data = bytes.ReplaceAll(data, []byte("\t\"crypto/internal/cryptotest\"\n"), []byte("\t\"github.com/emmansun/gmsm/internal/cryptotest\"\n"))
+	return data
 }
 
 // generateNewFilePatch creates a new-file git patch by diffing against an empty file.
