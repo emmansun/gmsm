@@ -16,7 +16,7 @@ import (
 // hasGHASH reports whether the CPU supports the Zvkg vector GHASH extension.
 // It is used by the riscv64 assembly to select the vghsh.vv code path.
 // Set DISABLE_GHASH=1 to force the Zvbc path (for testing).
-var hasGHASH = cpu.RISCV64.HasZvkg && os.Getenv("DISABLE_GHASH") != "1"
+var hasGHASH = cpu.RISCV64.HasZvkg && (cpu.RISCV64.HasZvbb || cpu.RISCV64.HasZvkb) && os.Getenv("DISABLE_GHASH") != "1"
 
 // supportPolyvalAsm is true when the CPU has CMUL (PCLMULQDQ, PMULL, Zvbc, or Zvkg).
 var supportPolyvalAsm = cpuid.HasGFMUL || cpu.RISCV64.HasZvkg || cpu.RISCV64.HasZvbc

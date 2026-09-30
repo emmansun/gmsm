@@ -102,10 +102,6 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 	MOV h+0(FP), hPtr
 	MOV table+8(FP), dst
 
-	// Branch on Zvkg
-	MOVBU ·hasGHASH+0(SB), X14
-	BNEZ  X14, zvkgInit
-
 	VSETIVLI $2, E64, M1, TA, MA, X0
 	VLE64V (hPtr), V1                // V1 = 16 bytes as 2 qwords
 	// mulX_GHASH(ByteReverse(H))
@@ -125,6 +121,11 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 	// Apply conditional gcmPoly reduction
 	VXORVV V2, V3, V1               // V1 = first mulX result
 
+	// Branch on Zvkg
+	MOVBU ·hasGHASH+0(SB), X13
+	BNEZ  X13, zvkgInit
+
+zvbcInit:
 	// H * 2
 	VSRAVX X14, V1, V5
 	VSLIDEDOWNVI $1, V5, V4
@@ -213,46 +214,14 @@ initLoop:
 	// Zvkg path: store byte-reversed, key-transformed H
 	// ════════════════════════════════════════════════════════════════════
 zvkgInit:
-	// ── First mulX: E64 right shift (amd64: PSRLQ $1) ──
-	VSETIVLI $2, E64, M1, TA, MA, X0
-	VLE64V (hPtr), V1
-	VMVXS  V1, X15
-	ANDI   $1, X15, X15
-	VMVSX  X15, V5
-	VSRAVI $7, V5, V5
-	MOV    $63, X14
-	VSLLVX X14, V1, V3
-	VSLIDE1DOWNVX ZERO, V3, V4
-	VSRLVI $1, V1, V2
-	VORVV  V2, V4, V2
-	MOV    $gcmPoly<>(SB), X12
-	VLE64V (X12), V3
-	VANDVV V5, V3, V3
-	VXORVV V2, V3, V1
-
-	// ── Second mulX: E32 left shift (amd64: PSLLL $1) ──
-	VSETIVLI $4, E32, M1, TA, MA, X0
-	VMVXS  V1, X15
-	VMVSX  X15, V5
-	VSRLVI $31, V5, V5
-	VSRAVI $7, V5, V5
-	VSRLVI $31, V1, V26
-	VSLIDE1UPVX ZERO, V26, V4
-	VSLLVI $1, V1, V2
-	VORVV  V2, V4, V2
-	MOV    $gcmSIVPoly<>(SB), X12
-	VLE32V (X12), V3
-	VANDVV V5, V3, V3
-	VXORVV V2, V3, V1
-
 	// Byte-reverse for vghsh.vv (GHASH byte order)
-	MOV    $polyvalRevIdx<>(SB), X16
-	VLE32V (X16), V24
+	// Setup swap index [1, 0] for E64 half-swap (same as GCM reference)
+	VIDV    V10
+	VRSUBVI $1, V10, V10           // V10 = [1, 0]
 	VREV8V V1, V1
-	VRGATHERVV V24, V1, V2
-	VMVVV V2, V1
+	VRGATHERVV V10, V1, V2
 
-	VSE32V V1, (dst)
+	VSE64V V2, (dst)
 	RET
 #undef hPtr
 #undef dst
@@ -466,7 +435,7 @@ zvkgDataLoop:
 		VRGATHERVV V24, B0, T0
 		VMVVV T0, B0
 		VGHSH_VV(9, 1, 10)         // ACC0 = (ACC0 ^ B0) * ACC1
-		ADD $-16, autLen, autLen
+		SUB $16, autLen, autLen
 		ADD $16, aut
 		BGE autLen, X14, zvkgDataLoop
 
