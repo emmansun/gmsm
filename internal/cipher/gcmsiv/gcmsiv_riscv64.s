@@ -106,57 +106,40 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 	MOVBU ·hasGHASH+0(SB), X14
 	BNEZ  X14, zvkgInit
 
-	// ════════════════════════════════════════════════════════════════════
-	// Zvbc path: build Karatsuba product table.
-	// Key transform follows amd64 exactly:
-	//   First mulX:  PSRLQ (E64 right shift) + gcmPoly reduction
-	//   Second mulX: PSLLL (E32 left shift)  + gcmSIVPoly reduction
-	// ════════════════════════════════════════════════════════════════════
-
-	// ── First mulX: right shift by 1 with E64 carries (amd64: PSRLQ $1) ──
-	// Carry: MSB of qword 1 → MSB of qword 0 (amd64: PSLLQ $63 + PSRLDQ $8)
-	// Reduction: bit 0 of dword 0 of ORIGINAL (amd64: PSHUFD $0 + PSLLL $31 + PSRAL $31)
 	VSETIVLI $2, E64, M1, TA, MA, X0
 	VLE64V (hPtr), V1                // V1 = 16 bytes as 2 qwords
+	// mulX_GHASH(ByteReverse(H))
 	// Reduction: extract bit 0 of original element 0
-	VMVXS  V1, X15                   // X15 = V1[0] (original qword 0)
-	ANDI   $1, X15, X15              // bit 0 → 0 or 1
-	VMVSX  X15, V5                   // broadcast to all elements
-	VSRAVI $7, V5, V5                // 1→0xff..ff, 0→0
-	// E64 right shift with qword carry propagation
 	MOV    $63, X14
-	VSLLVX X14, V1, V3              // V3[N] = bit 0 at position 63
-	VSLIDE1DOWNVX ZERO, V3, V4      // V4[0]=V3[1] (carry from qword 1)
-	VSRLVI $1, V1, V2               // V2 = V1 >> 1 per qword
-	VORVV  V2, V4, V2               // V2 = right-shifted with carry
+	VSLLVX X14, V1, V5
+	VSRAVX X14, V5, V3
+	VMVXS  V3, X15                  // mask
 	// Apply gcmPoly reduction: {0, 0xe100000000000000}
 	MOV    $gcmPoly<>(SB), X12
-	VLE64V (X12), V3                // V3 = [0, 0xe100000000000000]
-	VANDVV V5, V3, V3               // conditional polynomial
+	VLE64V (X12), V3 
+	VANDVX X15, V3, V3              // conditional polynomial
+	// E64 right shift with qword carry propagation
+	VSLIDE1DOWNVX ZERO, V5, V4      // V4[0]=V5[1] (carry from qword 1)
+	VSRLVI $1, V1, V2               // V2 = V1 >> 1 per qword
+	VORVV  V2, V4, V2               // V2 = right-shifted with carry
+	// Apply conditional gcmPoly reduction
 	VXORVV V2, V3, V1               // V1 = first mulX result
 
-	// ── Second mulX: left shift by 1 with E32 carries (amd64: PSLLL $1) ──
-	// Carry: MSB of dword N → bit 0 of dword N+1 (amd64: PSRLL $31 + PSLLDQ $4)
-	// Reduction: MSB of dword 3 (amd64: PSHUFD $0xff + PSRAL $31)
-	VSETIVLI $4, E32, M1, TA, MA, X0
-	// Reduction: extract MSB of dword 3 via dword broadcast
-	VMVXS  V1, X15                   // X15 = V1[0] (original dword 0)
-	VMVSX  X15, V5                   // broadcast dword 0 to all elements
-	VSRLVI $31, V5, V5              // MSB → bit 0 of each element
-	VSRAVI $7, V5, V5               // broadcast: all-ones or all-zeros
-	// E32 left shift with dword carry propagation
-	VSRLVI $31, V1, V26             // V26[N] = MSB of each dword at bit 0
-	VSLIDE1UPVX ZERO, V26, V4       // carry from dword N → dword N+1
-	VSLLVI $1, V1, V2               // V2 = V1 << 1 per dword
-	VORVV  V2, V4, V2               // V2 = left-shifted with carry
-	// Apply gcmSIVPoly reduction: {0x00000001, 0, 0x000000c2, 0} (E32 view)
+	// H * 2
+	VSRAVX X14, V1, V5
+	VSLIDEDOWNVI $1, V5, V4
+	VMVXS  V4, X15                  // mask
+	// Apply gcmSIVPoly reduction
 	MOV    $gcmSIVPoly<>(SB), X12
-	VLE32V (X12), V3                // V3 = [1, 0, 0xc2, 0]
-	VANDVV V5, V3, V3               // conditional polynomial
-	VXORVV V2, V3, V1               // V1 = second mulX result
+	VLE64V (X12), V3
+	VANDVX X15, V3, V3              // conditional polynomial
 
-	// Stay in E64 for product table computation
-	VSETIVLI $2, E64, M1, TA, MA, X0
+	VSLLVI $1, V1, V2
+	VSRLVX X14, V1, V5
+	VSLIDE1UPVX ZERO, V5, V4        // V4[1]=V5[0]
+	VORVV  V2, V4, V2               // V2 = left-shifted with carry
+	
+	VXORVV V2, V3, V1
 
 	// Setup swap index [1, 0] for E64 half-swap (same as GCM reference)
 	VIDV    V10
