@@ -7,13 +7,15 @@
 // Two code paths are provided:
 //
 //   Zvkg (vghsh.vv): single-instruction GHASH multiply-accumulate.
-//     Data blocks are byte-reversed to GHASH byte order before each vghsh.vv.
+//     This path also requires Zvbb or Zvkb for byte reversal. Data blocks are
+//     byte-reversed to GHASH byte order before each vghsh.vv.
 //
 //   Zvbc (vclmul/vclmulh): carry-less multiply with Karatsuba product table.
 //     Follows the same patterns as the SM4 GCM Zvbc path in
 //     internal/sm4/gcm_zvksed_riscv64.s.
 //
-// The assembly functions check ·hasGHASH (Zvkg) at runtime to select the path.
+// The assembly functions check ·hasGHASH (Zvkg plus Zvbb/Zvkb support) at
+// runtime to select the path.
 //
 //go:build go1.27 && !purego
 
@@ -74,9 +76,9 @@ GLOBL polyvalRevIdx<>(SB), RODATA, $16
 
 // ── Reduction macro (Zvbc path) ──────────────────────────────────────────
 
-// reduceRound: one Montgomery-like reduction step for 2×E64 vector a.
+// reduceRound: one POLYVAL reduction round for a 2×E64 vector a.
 // Matches GCM reference (gcm_zvksed_riscv64.s): CLMUL + swap + XOR.
-// Swap = [0, a_lo] via VSLIDEDOWNVI + VSLIDEUPVI.
+// VSLIDEDOWNVI followed by VSLIDEUPVI forms the lane swap [a_hi, a_lo].
 // XPOLY must hold 0xc200000000000000 (high-half POLYVAL reduction constant).
 #define reduceRound(a) \
 	VCLMULVX  XPOLY, a, T0; \
@@ -92,8 +94,20 @@ GLOBL polyvalRevIdx<>(SB), RODATA, $16
 //
 // Builds the product table from the 16-byte POLYVAL authentication key h.
 //
-// Zvkg path: stores byte-reversed, key-transformed H (16 bytes) at table[0:16].
-// Zvbc path: builds a full 256-byte Karatsuba product table (H^1..H^8).
+// First, apply the RFC 8452 Appendix A GHASH-key transform while keeping the
+// result in POLYVAL byte order:
+//   ByteReverse(mulX_GHASH(ByteReverse(H)))
+// The E64 right shift, cross-qword carry, and conditional gcmPoly reduction
+// implement this byte-reversed form of mulX_GHASH (as in amd64's
+// "POLYVAL special handling" block). Then the paths diverge:
+//
+//   Zvkg path (zvkgInit): reverses the transformed key to GHASH byte order
+//     for vghsh.vv and stores it at table[0:16].
+//   Zvbc path (zvbcInit): applies the additional POLYVAL-field ×x
+//     preconditioning step used by the direct carry-less-multiply kernel
+//     (E64 left shift, cross-qword carry, and conditional gcmSIVPoly
+//     reduction; amd64's "H * 2" step), then builds the full 256-byte
+//     Karatsuba table for H^1..H^8 and their precomputed cross terms.
 //
 TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 #define hPtr X10
@@ -104,21 +118,29 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 
 	VSETIVLI $2, E64, M1, TA, MA, X0
 	VLE64V (hPtr), V1                // V1 = 16 bytes as 2 qwords
-	// mulX_GHASH(ByteReverse(H))
-	// Reduction: extract bit 0 of original element 0
+
+	// ── Shared key transform: byte-reversed mulX_GHASH ──
+	// This computes ByteReverse(mulX_GHASH(ByteReverse(H))) without
+	// explicitly reversing H first (amd64: PSRLQ $1).
+	// E64 right shift by 1 with qword carry propagation:
+	//   carry = bit 0 of qword 1 → bit 63 of qword 0.
+	// Reduction: if bit 0 of original qword 0 is set, XOR with
+	//   gcmPoly = {0, 0xe100000000000000}.
+
+	// Reduction mask: broadcast bit 0 of qword 0 to all bits
 	MOV    $63, X14
-	VSLLVX X14, V1, V5
-	VSRAVX X14, V5, V3
-	VMVXS  V3, X15                  // mask
-	// Apply gcmPoly reduction: {0, 0xe100000000000000}
+	VSLLVX X14, V1, V5              // V5[N] = bit 0 of V1[N] at bit 63
+	VSRAVX X14, V5, V3              // V3[N] = all-ones or all-zeros
+	VMVXS  V3, X15                  // X15 = mask (0 or -1)
+	// Conditional gcmPoly: VANDVX zeroes V3 when bit 0 is clear
 	MOV    $gcmPoly<>(SB), X12
-	VLE64V (X12), V3 
-	VANDVX X15, V3, V3              // conditional polynomial
-	// E64 right shift with qword carry propagation
-	VSLIDE1DOWNVX ZERO, V5, V4      // V4[0]=V5[1] (carry from qword 1)
+	VLE64V (X12), V3
+	VANDVX X15, V3, V3
+
+	// Right shift with carry from qword 1 to qword 0
+	VSLIDE1DOWNVX ZERO, V5, V4      // V4[0] = V5[1] (carry at bit 63)
 	VSRLVI $1, V1, V2               // V2 = V1 >> 1 per qword
-	VORVV  V2, V4, V2               // V2 = right-shifted with carry
-	// Apply conditional gcmPoly reduction
+	VORVV  V2, V4, V2
 	VXORVV V2, V3, V1               // V1 = first mulX result
 
 	// Branch on Zvkg
@@ -126,21 +148,27 @@ TEXT ·polyvalTableInitAsm(SB), NOSPLIT, $0
 	BNEZ  X13, zvkgInit
 
 zvbcInit:
-	// H * 2
-	VSRAVX X14, V1, V5
-	VSLIDEDOWNVI $1, V5, V4
-	VMVXS  V4, X15                  // mask
-	// Apply gcmSIVPoly reduction
+	// ── Second mulX: H × x (amd64: "H * 2" block) ──
+	// E64 left shift by 1 with qword carry propagation:
+	//   carry = bit 63 of qword 0 → bit 0 of qword 1.
+	// Reduction: if bit 63 of qword 1 (bit 127) of the pre-shift value
+	//   is set, XOR with gcmSIVPoly = {1, 0xc200000000000000}.
+
+	// Reduction mask: broadcast MSB of qword 1 to all bits
+	VSRAVX X14, V1, V5              // V5[N] = MSB of V1[N] broadcast
+	VSLIDEDOWNVI $1, V5, V4         // V4[0] = V5[1] (bit 127)
+	VMVXS  V4, X15                  // X15 = mask (0 or -1)
+	// Conditional gcmSIVPoly
 	MOV    $gcmSIVPoly<>(SB), X12
 	VLE64V (X12), V3
-	VANDVX X15, V3, V3              // conditional polynomial
+	VANDVX X15, V3, V3
 
-	VSLLVI $1, V1, V2
-	VSRLVX X14, V1, V5
-	VSLIDE1UPVX ZERO, V5, V4        // V4[1]=V5[0]
-	VORVV  V2, V4, V2               // V2 = left-shifted with carry
-	
-	VXORVV V2, V3, V1
+	// Left shift with carry from qword 0 to qword 1
+	VSLLVI $1, V1, V2               // V2 = V1 << 1 per qword
+	VSRLVX X14, V1, V5              // V5[N] = MSB of V1[N] at bit 0
+	VSLIDE1UPVX ZERO, V5, V4        // V4[1] = V5[0] (carry at bit 0)
+	VORVV  V2, V4, V2
+	VXORVV V2, V3, V1               // V1 = H^1 (key transform complete)
 
 	// Setup swap index [1, 0] for E64 half-swap (same as GCM reference)
 	VIDV    V10
@@ -156,7 +184,7 @@ zvbcInit:
 	SUB    $16, X14, X14
 	VSE64V V1, (X14)               // table[224] = H^1
 
-	// Load reduction constant for init loop (same as GCM: XPOLY = gcmPoly_hi = 0xc2)
+	// Load reduction constant for init loop (XPOLY = high qword of gcmSIVPoly)
 	MOV gcmSIVPoly<>+0x08(SB), XPOLY
 	VMVVV  V1, V3                  // V3 = current H^n (starts at H^1)
 	VMVVV  V2, V4                  // V4 = current precomp
@@ -214,10 +242,11 @@ initLoop:
 	// Zvkg path: store byte-reversed, key-transformed H
 	// ════════════════════════════════════════════════════════════════════
 zvkgInit:
-	// Byte-reverse for vghsh.vv (GHASH byte order)
-	// Setup swap index [1, 0] for E64 half-swap (same as GCM reference)
+	// Byte-reverse V1 for vghsh.vv (GHASH byte order):
+	// VREV8V reverses bytes within each qword, then VRGATHERVV with
+	// index [1,0] swaps the two qwords — together a full 16-byte reversal.
 	VIDV    V10
-	VRSUBVI $1, V10, V10           // V10 = [1, 0]
+	VRSUBVI $1, V10, V10           // V10 = [1, 0] (swap index)
 	VREV8V V1, V1
 	VRGATHERVV V10, V1, V2
 
