@@ -64,6 +64,18 @@ jobs:
     - name: Build test binary
       run: go test -c -o cpu.test ./internal/deps/cpu
 
+    - name: Build SM4 differential test binary
+      run: go test -c -o sm4diff.test ./internal/sm4/
+
     - name: Test SM3, SM4 (via Intel SDE, emulating Arrow Lake)
       # -arl: emulate Arrow Lake (SM3 + SM4)
       run: ${SDE_INSTALL_DIR}/sde64 -arl -- ./cpu.test -test.run 'SM3SM4' -test.v
+
+    - name: Run SM4 differential tests (via Intel SDE, emulating Arrow Lake)
+      # -arl also provides GFNI and PCLMULQDQ, so DIFF_REQUIRE=sm4ni,aes,gfni
+      # fails the job if the emulated SM4-NI/AES/GFNI kernels were not
+      # actually engaged by the dispatch. -test.short keeps the smoke domain
+      # small because SDE emulation is an order of magnitude slower.
+      run: ${SDE_INSTALL_DIR}/sde64 -arl -- ./sm4diff.test -test.short -test.run 'TestDiff|FuzzDiff' -test.v
+      env:
+        DIFF_REQUIRE: sm4ni,aes,gfni

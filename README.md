@@ -265,6 +265,10 @@ SM4 分组密码算法（GM/T 0002-2012）实现了多架构汇编优化，并�
 #### SLHDSA - 无状态哈希数字签名
 符合 NIST FIPS 205 标准。
 
+## 开发者测试
+
+本项目为多架构汇编优化建立了差分测试框架（`internal/cryptotest/diff`）：直接 kernel 路径与公开 dispatch 路径在明确定义的输入域内与可信参考实现逐位比对，并由 CI（含 Intel SDE 与 QEMU riscv64 VLEN 矩阵）及周期性模糊测试保障。详见[差分测试框架指南](./docs/difftest.md)。
+
 ## 相关项目
 - **[Trisia/TLCP](https://github.com/Trisia/gotlcp)** - 一个《GB/T 38636-2020 信息安全技术 传输层密码协议》Go语言实现项目。 
 - **[Trisia/Randomness](https://github.com/Trisia/randomness)** - 一个Go语言随机性检测规范实现。

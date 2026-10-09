@@ -51,6 +51,24 @@ jobs:
       env:
         FORCE_SM4BLOCK_AESNI: 1
 
+    - name: Differential tests (required native kernels)
+      # Every GitHub-hosted amd64 runner has AES-NI, PCLMULQDQ and AVX2, so
+      # the AES-block, ZUC, GCMSIV-POLYVAL, ML-KEM and ML-DSA asm kernels
+      # must engage; the diff suites fail via DIFF_REQUIRE if the dispatch
+      # silently falls back.
+      run: go test -short -run 'TestDiff|FuzzDiff' ./internal/sm4/ ./internal/sm3/ ./internal/zuc/ ./internal/cipher/xts/ ./internal/cipher/gcmsiv/ ./mlkem/ ./mldsa/
+      env:
+        DIFF_REQUIRE: aes,zuc-eea,zuc-eia,gcmsiv-polyval,mlkem-avx2,mldsa-avx2
+
+    - name: Differential tests (alternate dispatch state)
+      # Rerun in a separate process with the env knobs forcing the
+      # non-default dispatch paths (see internal/sm4/diff_test.go).
+      run: go test -short -run 'TestDiff|FuzzDiff' ./internal/sm4/ ./internal/sm3/
+      env:
+        DISABLE_SM4NI: 1
+        DISABLE_GFNI: 1
+        FORCE_SM4BLOCK_AESNI: 1
+
     - name: Test only
       if: ${{ matrix.goVer != '1.26' }}
       run: go test -short ./...

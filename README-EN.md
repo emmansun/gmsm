@@ -265,6 +265,10 @@ Compliant with NIST FIPS 204 standard.
 #### SLHDSA - Stateless Hash-Based Digital Signature
 Compliant with NIST FIPS 205 standard.
 
+## Developer Testing
+
+This project ships a differential testing framework (`internal/cryptotest/diff`) for its multi-architecture assembly optimizations: direct kernel paths and the public dispatch paths are compared bit-exactly against trusted reference implementations over explicitly declared input domains, enforced by CI (including Intel SDE and a QEMU riscv64 VLEN matrix) plus scheduled fuzzing. See the [Differential Testing Framework guide](./docs/difftest.md).
+
 ## Related Projects
 - **[Trisia/TLCP](https://github.com/Trisia/gotlcp)** - A Go language implementation of "GB/T 38636-2020 Information Security Technology - Transport Layer Cryptography Protocol".
 - **[Trisia/Randomness](https://github.com/Trisia/randomness)** - A Go language implementation of randomness testing specifications.

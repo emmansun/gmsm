@@ -1,0 +1,110 @@
+# Scheduled differential fuzzing of the pilot packages. Each matrix entry
+# runs one differential fuzz target for a bounded time; any failing input
+# is minimized by the fuzz engine, written to testdata/fuzz/<Target>/ and
+# uploaded as an artifact. Reproduce locally with:
+#
+#   go test -run 'FuzzDiffX/<case>' ./internal/...
+#
+# New regression corpus entries should be committed to the repository in a
+# follow-up PR.
+
+name: fuzz-diff
+
+on:
+  schedule:
+    - cron: '0 3 * * 1' # every Monday 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+
+  fuzz:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - pkg: ./internal/sm4/
+            target: FuzzDiffBlock
+          - pkg: ./internal/sm4/
+            target: FuzzDiffXTS
+          - pkg: ./internal/sm3/
+            target: FuzzDiffSM3Block
+          - pkg: ./internal/sm3/
+            target: FuzzDiffSM3Digest
+          - pkg: ./internal/zuc/
+            target: FuzzDiffEEAStream
+          - pkg: ./internal/zuc/
+            target: FuzzDiffEEASeek
+          - pkg: ./internal/zuc/
+            target: FuzzDiffEIA128Message
+          - pkg: ./internal/zuc/
+            target: FuzzDiffEIA128Bits
+          - pkg: ./internal/zuc/
+            target: FuzzDiffEIA256
+          - pkg: ./internal/cipher/xts/
+            target: FuzzDiffXTSMode
+          - pkg: ./internal/cipher/gcmsiv/
+            target: FuzzDiffPolyval
+          - pkg: ./internal/cipher/gcmsiv/
+            target: FuzzDiffGCMSIV
+          - pkg: ./internal/sm2ec/
+            target: FuzzDiffFieldKernels
+          - pkg: ./internal/sm2ec/
+            target: FuzzDiffOrdKernels
+          - pkg: ./internal/sm2ec/
+            target: FuzzDiffPointOps
+          - pkg: ./internal/sm2ec/
+            target: FuzzDiffScalarMult
+          - pkg: ./internal/sm9/bn256/
+            target: FuzzDiffFieldKernels
+          - pkg: ./internal/sm9/bn256/
+            target: FuzzDiffSelectCopy
+          - pkg: ./internal/sm9/bn256/
+            target: FuzzDiffPointOps
+          - pkg: ./mlkem/
+            target: FuzzDiffNTT
+          - pkg: ./mlkem/
+            target: FuzzDiffNTTMulAcc
+          - pkg: ./mlkem/
+            target: FuzzDiffPolyAddSub
+          - pkg: ./mlkem/
+            target: FuzzDiffRingEncode
+          - pkg: ./mlkem/
+            target: FuzzDiffRejUniform
+          - pkg: ./mldsa/
+            target: FuzzDiffNTT
+          - pkg: ./mldsa/
+            target: FuzzDiffNTTMulAcc
+          - pkg: ./mldsa/
+            target: FuzzDiffPolyAddSub
+          - pkg: ./mldsa/
+            target: FuzzDiffDecomposeSubToR0
+          - pkg: ./mldsa/
+            target: FuzzDiffBitUnpack
+    steps:
+    - name: Harden the runner (Audit all outbound calls)
+      uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+      with:
+        egress-policy: audit
+
+    - name: Check out code
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Set up Go
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      with:
+        go-version: '1.26'
+
+    - name: Fuzz
+      run: go test -run '^$' -fuzz '^${{ matrix.target }}$' -fuzztime 5m ${{ matrix.pkg }}
+
+    - name: Upload failing inputs
+      if: failure()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: fuzz-corpus-${{ matrix.target }}
+        path: ${{ matrix.pkg }}/testdata/fuzz/
+        if-no-files-found: ignore
