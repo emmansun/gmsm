@@ -34,6 +34,14 @@
 #define VSM4R_VS(Vd, Vs2) \
 	WORD $((0x53 << 25) | ((Vs2) << 20) | (0x10 << 15) | (2 << 12) | ((Vd) << 7) | 0x77)
 
+DATA ·riscv64XtsPoly+0(SB)/8, $0x87
+DATA ·riscv64XtsPoly+8(SB)/8, $0
+GLOBL ·riscv64XtsPoly(SB), RODATA, $16
+
+DATA ·riscv64XtsPolyGB+0(SB)/8, $0xE1
+DATA ·riscv64XtsPolyGB+8(SB)/8, $0
+GLOBL ·riscv64XtsPolyGB(SB), RODATA, $16
+
 #define ZERO X0
 #define xkPtr X10
 #define dstPtr X11
@@ -42,7 +50,6 @@
 #define tmpPtr X14
 #define twPtr X15
 #define gbFlag X16
-#define polyC X17
 #define t0 X18
 #define t1 X19
 
@@ -61,6 +68,7 @@
 #define TW1 V27  // next tweak; E32/M1 normally, E8/M1 for GB doubling
 #define TT0 V28  // doubling scratch
 #define TT1 V29  // doubling scratch
+#define POLY V30
 
 // DST = SRC * 2 in GF(2^128), polynomial x^128 + x^7 + x^2 + x + 1.
 // Requires vtype E32, M1, vl=4; clobbers TT0/TT1.
@@ -71,10 +79,8 @@
 	VORVV DST, TT1, DST; \
 	VSRAVI $31, SRC, TT0; \
 	VSLIDEDOWNVI $3, TT0, TT1; \
-	VANDVX polyC, TT1, TT1; \
-	VSETIVLI $1, E32, M1, TU, MA, X0; \
-	VXORVV DST, TT1, DST; \
-	VSETIVLI $4, E32, M1, TA, MA, X0
+	VANDVV POLY, TT1, TT1; \
+	VXORVV DST, TT1, DST
 
 // DST = SRC * 2 following GB/T 17964-2021 (byte-wise view).
 // Requires vtype E8, M1, vl=16; clobbers TT0/TT1.
@@ -85,11 +91,8 @@
 	VORVV TT1, TT0, TT1; \
 	VSLIDEDOWNVI $15, DST, TT0; \
 	VSRAVI $7, TT0, TT0; \
-	VANDVX polyC, TT0, TT0; \
-	VORVV TT1, TT1, DST; \
-	VSETIVLI $1, E8, M1, TU, MA, X0; \
-	VXORVV DST, TT0, DST; \
-	VSETIVLI $16, E8, M1, TA, MA, X0
+	VANDVV POLY, TT0, TT0; \
+	VXORVV TT1, TT0, DST
 
 #define SM4ROUNDS() \
 	VSM4R_VS(4, 8); \
@@ -110,12 +113,13 @@ TEXT ·encryptSm4NiXts(SB), NOSPLIT, $0
 	MOV	src_len+48(FP), srcLen
 	MOVBU	isGB+64(FP), gbFlag
 
-	MOV	$0x87, polyC
+	MOV	$·riscv64XtsPoly(SB), tmpPtr
 	BEQ	gbFlag, ZERO, encPoly
-	MOV	$0xE1, polyC
+	MOV	$·riscv64XtsPolyGB(SB), tmpPtr
 encPoly:
 
 	VSETIVLI	$4, E32, M1, TA, MA, X0
+	VLE32V	(tmpPtr), POLY
 
 	// round keys (consecutive M1 registers V8-V15, 16 bytes each)
 	VLE32V	(xkPtr), K0
@@ -277,12 +281,13 @@ TEXT ·decryptSm4NiXts(SB), NOSPLIT, $0
 	MOV	src_len+48(FP), srcLen
 	MOVBU	isGB+64(FP), gbFlag
 
-	MOV	$0x87, polyC
+	MOV	$·riscv64XtsPoly(SB), tmpPtr
 	BEQ	gbFlag, ZERO, decPoly
-	MOV	$0xE1, polyC
+	MOV	$·riscv64XtsPolyGB(SB), tmpPtr
 decPoly:
 
 	VSETIVLI	$4, E32, M1, TA, MA, X0
+	VLE32V	(tmpPtr), POLY
 
 	// round keys (consecutive M1 registers V8-V15, 16 bytes each)
 	VLE32V	(xkPtr), K0

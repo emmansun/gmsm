@@ -9,6 +9,14 @@
 #define ZERO X0
 #define RSP X2
 
+DATA ·riscv64XtsPoly+0(SB)/8, $0x87
+DATA ·riscv64XtsPoly+8(SB)/8, $0
+GLOBL ·riscv64XtsPoly(SB), RODATA, $16
+
+DATA ·riscv64XtsPolyGB+0(SB)/8, $0xE1
+DATA ·riscv64XtsPolyGB+8(SB)/8, $0
+GLOBL ·riscv64XtsPolyGB(SB), RODATA, $16
+
 // func mul2Asm(tweak *[blockSize]byte, isGB bool)
 TEXT ·mul2Asm(SB),NOSPLIT,$0
 	MOV tweak+0(FP), X10
@@ -18,6 +26,8 @@ TEXT ·mul2Asm(SB),NOSPLIT,$0
 
 	VSETIVLI	$4, E32, M1, TA, MA, X0
 	VLE32V (X10), V1
+	MOV $·riscv64XtsPoly(SB), X11
+	VLE32V (X11), V6
 
 	// Multiply by 2 in GF(2^128) with the polynomial x^128 + x^7 + x^2 + x + 1
 	VSLLVI $1, V1, V2
@@ -30,11 +40,8 @@ TEXT ·mul2Asm(SB),NOSPLIT,$0
 	VSLIDEDOWNVI $3, V3, V5
 
 	// Apply the reduction polynomial if needed
-	MOV $0x87, X11
-	VANDVX X11, V5, V5
-	VSETIVLI $1, E32, M1, TU, MA, X0
+	VANDVV V6, V5, V5
 	VXORVV V2, V5, V2
-	VSETIVLI $4, E32, M1, TA, MA, X0
 
 	VSE32V V2, (X10)
 	RET
@@ -42,6 +49,8 @@ TEXT ·mul2Asm(SB),NOSPLIT,$0
 isGB:
 	VSETIVLI	$16, E8, M1, TA, MA, X0
 	VLE8V (X10), V1
+	MOV $·riscv64XtsPolyGB(SB), X11
+	VLE8V (X11), V6
 
 	// Multiply by 2
 	VSLLVI $7, V1, V3
@@ -52,13 +61,10 @@ isGB:
 	// Carry mask
 	VSLIDEDOWNVI $15, V3, V5
 	VSRAVI $7, V5, V5
-	MOV $0xE1, X11
 
 	// Apply the reduction polynomial if needed
-	VANDVX X11, V5, V5
-	VSETIVLI $1, E8, M1, TU, MA, X0
+	VANDVV V6, V5, V5
 	VXORVV V2, V5, V2
-	VSETIVLI $16, E8, M1, TA, MA, X0
 
 	VSE8V V2, (X10)
 	RET
@@ -77,7 +83,8 @@ TEXT ·doubleTweaksAsm(SB),NOSPLIT,$0
 
 	VSETIVLI	$4, E32, M1, TA, MA, X0
 	// Prepare the polynomial for reduction
-	MOV $0x87, X13
+	MOV $·riscv64XtsPoly(SB), X13
+	VLE32V (X13), V6
 
 	VLE32V (X10), V1
 
@@ -96,11 +103,8 @@ loop:
 	VSLIDEDOWNVI $3, V3, V5
 
 	// Apply the reduction polynomial if needed
-	VANDVX X13, V5, V5
-	VORVV V2, V2, V1
-	VSETIVLI $1, E32, M1, TU, MA, X0
-	VXORVV V1, V5, V1
-	VSETIVLI $4, E32, M1, TA, MA, X0
+	VANDVV V6, V5, V5
+	VXORVV V2, V5, V1
 
 	SUB $1, X12
 	BNE X12, ZERO, loop
@@ -112,7 +116,8 @@ end:
 isGB:
 	VSETIVLI	$16, E8, M1, TA, MA, X0
 	// Prepare the polynomial for reduction
-	MOV $0xE1, X13
+	MOV $·riscv64XtsPolyGB(SB), X13
+	VLE8V (X13), V6
 
 	VLE8V (X10), V1
 loopGB:
@@ -132,11 +137,8 @@ loopGB:
 	VSRAVI $7, V5, V5
 
 	// Apply the reduction polynomial if needed
-	VANDVX X13, V5, V5
-	VORVV V2, V2, V1
-	VSETIVLI $1, E8, M1, TU, MA, X0
-	VXORVV V1, V5, V1
-	VSETIVLI $16, E8, M1, TA, MA, X0
+	VANDVV V6, V5, V5
+	VXORVV V2, V5, V1
 
 	SUB $1, X12
 	BNE X12, ZERO, loopGB
