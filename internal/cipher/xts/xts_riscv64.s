@@ -32,7 +32,9 @@ TEXT ·mul2Asm(SB),NOSPLIT,$0
 	// Apply the reduction polynomial if needed
 	MOV $0x87, X11
 	VANDVX X11, V5, V5
+	VSETIVLI $1, E32, M1, TU, MA, X0
 	VXORVV V2, V5, V2
+	VSETIVLI $4, E32, M1, TA, MA, X0
 
 	VSE32V V2, (X10)
 	RET
@@ -54,7 +56,9 @@ isGB:
 
 	// Apply the reduction polynomial if needed
 	VANDVX X11, V5, V5
+	VSETIVLI $1, E8, M1, TU, MA, X0
 	VXORVV V2, V5, V2
+	VSETIVLI $16, E8, M1, TA, MA, X0
 
 	VSE8V V2, (X10)
 	RET
@@ -93,7 +97,10 @@ loop:
 
 	// Apply the reduction polynomial if needed
 	VANDVX X13, V5, V5
-	VXORVV V2, V5, V1
+	VORVV V2, V2, V1
+	VSETIVLI $1, E32, M1, TU, MA, X0
+	VXORVV V1, V5, V1
+	VSETIVLI $4, E32, M1, TA, MA, X0
 
 	SUB $1, X12
 	BNE X12, ZERO, loop
@@ -126,7 +133,10 @@ loopGB:
 
 	// Apply the reduction polynomial if needed
 	VANDVX X13, V5, V5
-	VXORVV V2, V5, V1
+	VORVV V2, V2, V1
+	VSETIVLI $1, E8, M1, TU, MA, X0
+	VXORVV V1, V5, V1
+	VSETIVLI $16, E8, M1, TA, MA, X0
 
 	SUB $1, X12
 	BNE X12, ZERO, loopGB
