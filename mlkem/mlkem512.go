@@ -276,7 +276,7 @@ func kemEncaps512(cc *[CiphertextSize512]byte, ek *EncapsulationKey512, m *[mess
 	g.Write(m[:])
 	g.Write(ek.h[:])
 	G := g.Sum(nil)
-	K, r := G[:SharedKeySize], G[SharedKeySize:]
+	K, r := G[:SharedKeySize:SharedKeySize], G[SharedKeySize:]
 	c = pkeEncrypt512(cc, &ek.encryptionKey512, m, r)
 	return K, c
 }
