@@ -72,7 +72,9 @@
 	VSRAVI $31, SRC, TT0; \
 	VSLIDEDOWNVI $3, TT0, TT1; \
 	VANDVX polyC, TT1, TT1; \
-	VXORVV DST, TT1, DST
+	VSETIVLI $1, E32, M1, TU, MA, X0; \
+	VXORVV DST, TT1, DST; \
+	VSETIVLI $4, E32, M1, TA, MA, X0
 
 // DST = SRC * 2 following GB/T 17964-2021 (byte-wise view).
 // Requires vtype E8, M1, vl=16; clobbers TT0/TT1.
@@ -84,7 +86,10 @@
 	VSLIDEDOWNVI $15, DST, TT0; \
 	VSRAVI $7, TT0, TT0; \
 	VANDVX polyC, TT0, TT0; \
-	VXORVV TT1, TT0, DST
+	VORVV TT1, TT1, DST; \
+	VSETIVLI $1, E8, M1, TU, MA, X0; \
+	VXORVV DST, TT0, DST; \
+	VSETIVLI $16, E8, M1, TA, MA, X0
 
 #define SM4ROUNDS() \
 	VSM4R_VS(4, 8); \
