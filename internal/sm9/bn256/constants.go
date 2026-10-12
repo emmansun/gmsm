@@ -1,6 +1,10 @@
 package bn256
 
-import "math/big"
+import (
+	"math/big"
+
+	"github.com/emmansun/gmsm/internal/bigmod"
+)
 
 func bigFromHex(s string) *big.Int {
 	b, ok := new(big.Int).SetString(s, 16)
@@ -37,6 +41,10 @@ var OrderBytes = []byte{
 // Order is the number of elements in both G₁ and G₂: 36u⁴+36u³+18u²+6u+1.
 var Order = new(big.Int).SetBytes(OrderBytes)
 
+// orderModulus is Order as a bigmod modulus, used by NormalizeScalar to
+// normalize scalars in constant time.
+var orderModulus, _ = bigmod.NewModulus(OrderBytes)
+
 var OrderMinus1Bytes = []byte{
 	0xb6, 0x40, 0x00, 0x00, 0x02, 0xa3, 0xa6, 0xf1,
 	0xd6, 0x03, 0xab, 0x4f, 0xf5, 0x8e, 0xc7, 0x44,
@@ -68,9 +76,6 @@ var r2 = &gfP{0x27dea312b417e2d2, 0x88f8105fae1a5d3f, 0xe479b522d6706e7b, 0x2ea7
 
 // r3 is R^3 where R = 2^256 mod p.
 var r3 = &gfP{0x130257769df5827e, 0x36920fc0837ec76e, 0xcbec24519c22a142, 0x219be84a7c687090}
-
-// pMinus2 is p-2.
-var pMinus2 = [4]uint64{0xe56f9b27e351457b, 0x21f2934b1a7aeedb, 0xd603ab4ff58ec745, 0xb640000002a3a6f1}
 
 // pMinus1Over2 is (p-1)/2.
 var pMinus1Over2 = [4]uint64{0xf2b7cd93f1a8a2be, 0x90f949a58d3d776d, 0xeb01d5a7fac763a2, 0x5b2000000151d378}

@@ -94,7 +94,6 @@ func (e *G2) ScalarBaseMult(scalar []byte) (*G2, error) {
 	if e.p == nil {
 		e.p = &twistPoint{}
 	}
-	//e.p.Mul(twistGen, k)
 
 	tables := e.generatorTable()
 	// This is also a scalar multiplication with a four-bit window like in
@@ -125,7 +124,6 @@ func (e *G2) ScalarMult(a *G2, scalar []byte) (*G2, error) {
 	if e.p == nil {
 		e.p = &twistPoint{}
 	}
-	//e.p.Mul(a.p, k)
 	// Compute a twistPointTable for the base point a.
 	var table = twistPointTable{NewTwistPoint(), NewTwistPoint(), NewTwistPoint(),
 		NewTwistPoint(), NewTwistPoint(), NewTwistPoint(), NewTwistPoint(),

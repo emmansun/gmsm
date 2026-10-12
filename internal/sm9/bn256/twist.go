@@ -2,7 +2,6 @@ package bn256
 
 import (
 	"crypto/subtle"
-	"math/big"
 )
 
 // twistPoint implements the elliptic curve y²=x³+5/ξ (y²=x³+5i) over GF(p²). Points are
@@ -167,45 +166,32 @@ func (c *twistPoint) Double(p *twistPoint) {
 	c.z.Set(z3)
 }
 
-func (c *twistPoint) Mul(a *twistPoint, scalar *big.Int) {
-	sum, t := &twistPoint{}, &twistPoint{}
-
-	for i := scalar.BitLen(); i >= 0; i-- {
-		t.Double(sum)
-		if scalar.Bit(i) != 0 {
-			sum.Add(t, a)
-		} else {
-			sum.Set(t)
-		}
-	}
-
-	c.Set(sum)
-}
-
 // MakeAffine reverses the Projective transform.
 // A = 1/Z1
 // X3 = A*X1
 // Y3 = A*Y1
 // Z3 = 1
+//
+// The conversion runs in constant time: the point at infinity is normalized
+// to (0, 1, 0, 0) with a conditional select instead of secret-dependent
+// branches on z.
 func (c *twistPoint) MakeAffine() {
-	// TODO: do we need to change it to constant-time implementation?
-	if c.z.IsOne() {
-		return
-	} else if c.z.IsZero() {
-		c.x.SetZero()
-		c.y.SetOne()
-		c.t.SetZero()
-		return
-	}
+	var zero gfP2
+	isInfinity := c.z.Equal(&zero)
 
+	// zInv = z^-1, which is zero when z is zero, since Invert returns zero
+	// for a zero input.
 	zInv := &gfP2{}
 	zInv.Invert(&c.z)
+	x, y := &gfP2{}, &gfP2{}
+	x.Mul(&c.x, zInv)
+	y.Mul(&c.y, zInv)
 
-	c.x.Mul(&c.x, zInv)
-	c.y.Mul(&c.y, zInv)
-
-	c.z.SetOne()
-	c.t.SetOne()
+	zero2, one2 := &gfP2{}, (&gfP2{}).SetOne()
+	c.x.Select(zero2, x, isInfinity)
+	c.y.Select(one2, y, isInfinity)
+	c.z.Select(zero2, one2, isInfinity)
+	c.t.Select(zero2, one2, isInfinity)
 }
 
 // MakeAffine reverses the Jacobian transform.

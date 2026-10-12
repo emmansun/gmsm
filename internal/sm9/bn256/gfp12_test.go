@@ -239,7 +239,7 @@ func Test_gfP12Frobenius_Case1(t *testing.T) {
 	i := &gfP12{}
 	i.SetW()
 	pMinus1 := new(big.Int).Sub(p, big.NewInt(1))
-	i.Exp(i, pMinus1)
+	i = gfp12ExpRef(i, pMinus1)
 	i = gfP12Decode(i)
 	expected.z.x.SetZero()
 	expected.z.y.x.Set(zero)
@@ -258,7 +258,7 @@ func Test_gfP12Frobenius_Case2(t *testing.T) {
 	i := &gfP12{}
 	i.SetW2()
 	pMinus1 := new(big.Int).Sub(p, big.NewInt(1))
-	i.Exp(i, pMinus1)
+	i = gfp12ExpRef(i, pMinus1)
 	i = gfP12Decode(i)
 	expected.z.x.SetZero()
 	expected.z.y.x.Set(zero)
@@ -278,7 +278,7 @@ func Test_gfP12FrobeniusP2_Case1(t *testing.T) {
 	i.SetW()
 	p2 := new(big.Int).Mul(p, p)
 	p2 = new(big.Int).Sub(p2, big.NewInt(1))
-	i.Exp(i, p2)
+	i = gfp12ExpRef(i, p2)
 	i = gfP12Decode(i)
 	expected.z.x.SetZero()
 	expected.z.y.x.Set(zero)
@@ -298,7 +298,7 @@ func Test_gfP12FrobeniusP2_Case2(t *testing.T) {
 	i.SetW2()
 	p2 := new(big.Int).Mul(p, p)
 	p2 = new(big.Int).Sub(p2, big.NewInt(1))
-	i.Exp(i, p2)
+	i = gfp12ExpRef(i, p2)
 	i = gfP12Decode(i)
 	expected.z.x.SetZero()
 	expected.z.y.x.Set(zero)
@@ -319,7 +319,7 @@ func Test_gfP12FrobeniusP3_Case1(t *testing.T) {
 	p3 := new(big.Int).Mul(p, p)
 	p3.Mul(p3, p)
 	p3 = new(big.Int).Sub(p3, big.NewInt(1))
-	i.Exp(i, p3)
+	i = gfp12ExpRef(i, p3)
 	i = gfP12Decode(i)
 	expected.z.x.SetZero()
 	expected.z.y.x.Set(zero)
@@ -340,7 +340,7 @@ func Test_gfP12FrobeniusP3_Case2(t *testing.T) {
 	p3 := new(big.Int).Mul(p, p)
 	p3.Mul(p3, p)
 	p3 = new(big.Int).Sub(p3, big.NewInt(1))
-	i.Exp(i, p3)
+	i = gfp12ExpRef(i, p3)
 	i = gfP12Decode(i)
 	expected.z.x.SetZero()
 	expected.z.y.x.Set(zero)
@@ -359,8 +359,7 @@ func Test_gfP12Frobenius(t *testing.T) {
 		testdataP4,
 		testdataP4,
 	}
-	expected := &gfP12{}
-	expected.Exp(x, p)
+	expected := gfp12ExpRef(x, p)
 	got := &gfP12{}
 	got.Frobenius(x)
 	if expected.x != got.x || expected.y != got.y || expected.z != got.z {
@@ -374,9 +373,8 @@ func Test_gfP12FrobeniusP2(t *testing.T) {
 		testdataP4,
 		testdataP4,
 	}
-	expected := &gfP12{}
 	p2 := new(big.Int).Mul(p, p)
-	expected.Exp(x, p2)
+	expected := gfp12ExpRef(x, p2)
 	got := &gfP12{}
 	got.FrobeniusP2(x)
 	if expected.x != got.x || expected.y != got.y || expected.z != got.z {
@@ -390,10 +388,9 @@ func Test_gfP12FrobeniusP3(t *testing.T) {
 		testdataP4,
 		testdataP4,
 	}
-	expected := &gfP12{}
 	p3 := new(big.Int).Mul(p, p)
 	p3.Mul(p3, p)
-	expected.Exp(x, p3)
+	expected := gfp12ExpRef(x, p3)
 	got := &gfP12{}
 	got.FrobeniusP3(x)
 	if expected.x != got.x || expected.y != got.y || expected.z != got.z {
@@ -407,11 +404,10 @@ func Test_gfP12FrobeniusP6(t *testing.T) {
 		testdataP4,
 		testdataP4,
 	}
-	expected := &gfP12{}
 	p6 := new(big.Int).Mul(p, p)
 	p6.Mul(p6, p)
 	p6.Mul(p6, p6)
-	expected.Exp(x, p6)
+	expected := gfp12ExpRef(x, p6)
 	got := &gfP12{}
 	got.FrobeniusP6(x)
 	if expected.x != got.x || expected.y != got.y || expected.z != got.z {
@@ -453,8 +449,7 @@ func BenchmarkGfP12Frobenius(b *testing.B) {
 		testdataP4,
 		testdataP4,
 	}
-	expected := &gfP12{}
-	expected.Exp(x, p)
+	expected := gfp12ExpRef(x, p)
 	got := &gfP12{}
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -530,21 +525,5 @@ func BenchmarkGfP12ExpU(b *testing.B) {
 		got.Cyclo6PowToU(t1)
 		got.Cyclo6PowToU(t1)
 		got.Cyclo6PowToU(t1)
-	}
-}
-
-func BenchmarkGfP12ExpU2(b *testing.B) {
-	x := &gfP12{
-		testdataP4,
-		testdataP4,
-		testdataP4,
-	}
-	got := &gfP12{}
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		got.Exp(x, u)
-		got.Exp(x, u)
-		got.Exp(x, u)
 	}
 }

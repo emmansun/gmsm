@@ -2,7 +2,6 @@ package bn256
 
 import (
 	"crypto/subtle"
-	"math/big"
 )
 
 // curvePoint implements the elliptic curve y²=x³+5. Points are kept in Jacobian
@@ -81,22 +80,6 @@ func (c *curvePoint) SetInfinity() {
 
 func (c *curvePoint) IsInfinity() bool {
 	return c.z.Equal(zero) == 1
-}
-
-func (c *curvePoint) Mul(a *curvePoint, scalar *big.Int) {
-	sum, t := &curvePoint{}, &curvePoint{}
-	sum.SetInfinity()
-
-	for i := scalar.BitLen(); i >= 0; i-- {
-		t.Double(sum)
-		if scalar.Bit(i) != 0 {
-			sum.Add(t, a)
-		} else {
-			sum.Set(t)
-		}
-	}
-
-	c.Set(sum)
 }
 
 // MakeAffine reverses the Jacobian transform.
@@ -182,22 +165,25 @@ func (c *curvePoint) DoubleComplete(p *curvePoint) {
 // X3 = A*X1
 // Y3 = A*Y1
 // Z3 = 1
+//
+// The conversion runs in constant time: the point at infinity is normalized
+// to (0, 1, 0, 0) with a conditional select instead of secret-dependent
+// branches on z.
 func (c *curvePoint) MakeAffine() {
-	// TODO: do we need to change it to constant-time implementation?
-	if c.z.Equal(one) == 1 {
-		return
-	} else if c.z.Equal(zero) == 1 {
-		c.x.Set(zero)
-		c.y.Set(one)
-		c.t.Set(zero)
-		return
-	}
+	isInfinity := c.z.Equal(zero)
+
+	// zInv = z^-1, which is zero when z is zero, since Invert returns zero
+	// for a zero input.
 	zInv := &gfP{}
 	zInv.Invert(&c.z)
-	gfpMul(&c.x, &c.x, zInv)
-	gfpMul(&c.y, &c.y, zInv)
-	c.z.Set(one)
-	c.t.Set(one)
+	x, y := &gfP{}, &gfP{}
+	gfpMul(x, &c.x, zInv)
+	gfpMul(y, &c.y, zInv)
+
+	c.x.Select(zero, x, isInfinity)
+	c.y.Select(one, y, isInfinity)
+	c.z.Select(zero, one, isInfinity)
+	c.t.Select(zero, one, isInfinity)
 }
 
 func (c *curvePoint) AffineFromProjective() {

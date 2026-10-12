@@ -1,7 +1,5 @@
 package bn256
 
-import "math/big"
-
 // For details of the algorithms used, see "Multiplication and Squaring on
 // Pairing-Friendly Fields, Devegili et al.
 // http://eprint.iacr.org/2006/471.pdf.
@@ -411,22 +409,6 @@ func (e *gfP12) Squares(a *gfP12, n int) *gfP12 {
 		tmp = tmp2
 	}
 	gfp12Copy(e, in)
-	return e
-}
-
-func (e *gfP12) Exp(f *gfP12, power *big.Int) *gfP12 {
-	sum := (&gfP12{}).SetOne()
-	t := &gfP12{}
-
-	for i := power.BitLen() - 1; i >= 0; i-- {
-		t.Square(sum)
-		if power.Bit(i) != 0 {
-			sum.Mul(t, f)
-		} else {
-			sum.Set(t)
-		}
-	}
-	gfp12Copy(e, sum)
 	return e
 }
 
