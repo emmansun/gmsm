@@ -260,9 +260,9 @@ func (e *gfP6) Invert(a *gfP6) *gfP6 {
 }
 
 // (z + y*s + x*s²)^p
-//= z^p + y^p*s*s^(p-1)+x^p*s²*(s²)^(p-1)
-//= z^p + (s^(p-1)*y^p)*s+((s²)^(p-1)*x^p)*s²
-//= f(z) + (s^(p-1)*f(y))*s+((s²)^(p-1)*f(x))*s²
+// = z^p + y^p*s*s^(p-1)+x^p*s²*(s²)^(p-1)
+// = z^p + (s^(p-1)*y^p)*s+((s²)^(p-1)*x^p)*s²
+// = f(z) + (s^(p-1)*f(y))*s+((s²)^(p-1)*f(x))*s²
 // sToPMinus1^3 = p - 1
 // sTo2PMinus2 = sToPMinus1 ^ 2
 func (e *gfP6) Frobenius(a *gfP6) *gfP6 {

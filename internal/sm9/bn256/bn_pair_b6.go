@@ -1,10 +1,10 @@
 package bn256
 
 // (ret.x t + ret.y) * ((cs)t + (bs+a))
-//= ((ret.x * (bs+a))+ret.y*cs) t + (ret.y*(bs+a) + ret.x*cs*s)
-//= (ret.x*bs + ret.x*a + ret.y*cs) t + (ret.y*bs + ret.x*cs*s + ret.y * a)
-//ret.x = (ret.x + ret.y)(cs + bs + a) - ret.y(bs+a) - ret.x*cs
-//ret.y = ret.y(bs+a) + ret.x*cs *s
+// = ((ret.x * (bs+a))+ret.y*cs) t + (ret.y*(bs+a) + ret.x*cs*s)
+// = (ret.x*bs + ret.x*a + ret.y*cs) t + (ret.y*bs + ret.x*cs*s + ret.y * a)
+// ret.x = (ret.x + ret.y)(cs + bs + a) - ret.y(bs+a) - ret.x*cs
+// ret.y = ret.y(bs+a) + ret.x*cs *s
 func mulLineB6(ret *gfP12b6, a, b, c *gfP2) {
 	a2 := &gfP6{}
 	a2.y.Set(b)
@@ -32,7 +32,6 @@ func mulLineB6(ret *gfP12b6, a, b, c *gfP2) {
 // P is a point of order q in G1. Q(x,y) is a point of order q in G2.
 // Note that Q is a point on the sextic twist of the curve over Fp^2, P(x,y) is a point on the
 // curve over the base field Fp
-//
 func millerB6(q *twistPoint, p *curvePoint) *gfP12b6 {
 	ret := (&gfP12b6{}).SetOne()
 

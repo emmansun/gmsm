@@ -36,4 +36,3 @@ func curvePointDoubleComplete(c, a *curvePoint)
 //
 //go:noescape
 func curvePointAddComplete(c, a, b *curvePoint)
-

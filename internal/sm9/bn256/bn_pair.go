@@ -10,7 +10,7 @@ func lineFunctionAdd(r, p, rOut *twistPoint, q *curvePoint, r2, a, b, c *gfP2) {
 	D.Square(D).Sub(D, r2).Sub(D, &r.t).Mul(D, &r.t) // D = ((Yp + Zr)^2 - Zr^2 - Yp^2)*Zr^2 = 2Yp*Zr^3
 
 	H := (&gfP2{}).Sub(B, &r.x) // H = Xp * Zr^2 - Xr
-	I := (&gfP2{}).Square(H)  // I = (Xp * Zr^2 - Xr)^2 = Xp^2*Zr^4 + Xr^2 - 2Xr*Xp*Zr^2
+	I := (&gfP2{}).Square(H)    // I = (Xp * Zr^2 - Xr)^2 = Xp^2*Zr^4 + Xr^2 - 2Xr*Xp*Zr^2
 
 	E := (&gfP2{}).Double(I) // E = 2*(Xp * Zr^2 - Xr)^2
 	E.Double(E)              // E = 4*(Xp * Zr^2 - Xr)^2
