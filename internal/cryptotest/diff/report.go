@@ -77,11 +77,15 @@ func escapeTestName(name string) string {
 const hexWindowRadius = 16
 
 // hexWindow renders up to hexWindowRadius bytes on each side of off, with
-// ellipsis markers for elided parts.
+// ellipsis markers for elided parts. off comes from the output comparison
+// and may reference a buffer longer than b (e.g. when b is the case input
+// and the mismatch lies beyond it), so it is clamped into range rather
+// than panicking while rendering the diagnostic.
 func hexWindow(b []byte, off int) string {
 	if len(b) == 0 {
 		return "<empty>"
 	}
+	off = minInt(maxInt(off, 0), len(b)-1)
 	lo := maxInt(0, off-hexWindowRadius)
 	hi := minInt(len(b), off+hexWindowRadius+1)
 	var sb strings.Builder

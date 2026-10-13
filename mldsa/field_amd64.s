@@ -521,6 +521,13 @@ loopAcc:
 	VPSRLQ $32, Y5, Y5
 	VPBLENDD $0xAA, Y6, Y5, Y7
 
+	// Reduce the Montgomery product before accumulating: the raw high32
+	// of (lhs*rhs + q*lm) can reach q + q^2/2^32, so adding the accumulator
+	// first would need two conditional subtracts (found by FuzzDiffNTTMulAcc).
+	VPCMPGTD Y7, Q, Y2
+	VPANDN Q, Y2, Y2
+	VPSUBD Y2, Y7, Y7
+
 	// acc += reduced(lhs*rhs)
 	VMOVDQU (CX), Y8
 	VPADDD Y7, Y8, Y7

@@ -450,3 +450,27 @@ func TestFuzzRoundtrip(t *testing.T) {
 		t.Fatal("truncated payload should be dropped")
 	}
 }
+
+// TestHexWindowClampedOffset covers the diagnostic renderer against offsets
+// derived from the output comparison that fall outside the windowed buffer
+// (a real fuzz panic: firstDiff reported 464 on outputs while the case input
+// buffer was 334 bytes).
+func TestHexWindowClampedOffset(t *testing.T) {
+	b := make([]byte, 334)
+	for i := range b {
+		b[i] = byte(i)
+	}
+	// off beyond the buffer end: clamps to the tail window.
+	got := hexWindow(b, 464)
+	want := "..." + fmt.Sprintf("%x", b[len(b)-hexWindowRadius-1:])
+	if got != want {
+		t.Fatalf("hexWindow(b, 464) = %q, want tail window %q", got, want)
+	}
+	// Negative and in-range offsets keep their documented semantics.
+	if got := hexWindow(b, -5); got != fmt.Sprintf("%x", b[:hexWindowRadius+1])+"..." {
+		t.Fatalf("hexWindow(b, -5) = %q", got)
+	}
+	if got := hexWindow(b[:0], 7); got != "<empty>" {
+		t.Fatalf("hexWindow(empty) = %q", got)
+	}
+}
