@@ -221,7 +221,16 @@
       "contributions": [
         "bug"
       ]
-    }    
+    },
+    {
+      "login": "NotAFlightRisk",
+      "name": "Iain",
+      "avatar_url": "https://avatars.githubusercontent.com/u/23277273?v=4",
+      "profile": "https://github.com/NotAFlightRisk",
+      "contributions": [
+        "security"
+      ]
+    }
   ],
   "commitType": "docs",
   "commitConvention": "angular"
