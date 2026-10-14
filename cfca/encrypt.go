@@ -50,6 +50,9 @@ func DecryptBySM4CBC(ciphertext, password []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(ciphertext)%mode.BlockSize() != 0 {
+		return nil, errors.New("cfca: ciphertext length must be a multiple of the block size")
+	}
 	plaintext := make([]byte, len(ciphertext))
 	mode.CryptBlocks(plaintext, ciphertext)
 	pkcs7 := padding.NewPKCS7Padding(uint(mode.BlockSize()))

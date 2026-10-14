@@ -1,6 +1,7 @@
 package cfca
 
 import (
+	"encoding/asn1"
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
@@ -201,5 +202,37 @@ func TestParseSM2Mismatch(t *testing.T) {
 	_, _, err = ParseSM2(password, result)
 	if err == nil || err.Error() != "cfca: public key and private key do not match" {
 		t.Fatal("expected cfca: public key and private key do not match")
+	}
+}
+
+func TestDecryptBySM4CBCWithInvalidCiphertextLength(t *testing.T) {
+	if _, err := DecryptBySM4CBC(make([]byte, 17), []byte("123456")); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestParseSM2WithInvalidCiphertextLength(t *testing.T) {
+	password := []byte("123456")
+	encryptedContent, err := asn1.Marshal(make([]byte, 17))
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := asn1.Marshal(cfcaKeyPairData{
+		Version: 1,
+		EncryptedKey: keyData{
+			ContentType:      oidSM2Data,
+			Algorithm:        oidSM4,
+			EncryptedContent: asn1.RawValue{FullBytes: encryptedContent},
+		},
+		Certificate: certData{
+			ContentType: oidSM2Data,
+			Content:     asn1.RawContent([]byte{0x30, 0x00}),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := ParseSM2(password, data); err == nil {
+		t.Fatal("expected error")
 	}
 }

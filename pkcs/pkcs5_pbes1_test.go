@@ -61,3 +61,13 @@ func TestPBES1(t *testing.T) {
 		})
 	}
 }
+
+func TestPBES1DecryptInvalidCiphertextLength(t *testing.T) {
+	pbes1, err := NewPbeWithMD5AndDESCBC(rand.Reader, 8, 1000)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, _, err := pbes1.Decrypt([]byte("password"), make([]byte, 17)); err != ErrPBEDecryption {
+		t.Fatalf("expected %v, got %v", ErrPBEDecryption, err)
+	}
+}
