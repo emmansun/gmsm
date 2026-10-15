@@ -84,33 +84,29 @@
 // LASX (256-bit SIMD) macros for 8-way parallel SM4 encryption
 // ============================================================
 
-// XVSHUF_B(xd, xj, xk, xa): xvshuf.b xd, xj, xk, xa (4-operand byte-shuffle).
+// XVSHUFB xa, xk, xj, xd — xvshuf.b xd, xj, xk, xa (4-operand byte-shuffle,
+// native mnemonic since Go 1.26; note the Go operand order is xa, xk, xj, xd).
 // Per 128-bit lane L, byte i:
 //   if xa[L][i].bit7==1 : xd[L][i] = 0
 //   elif xa[L][i].bit4==1: xd[L][i] = xj[L][xa[L][i] & 0xF]
 //   else                  : xd[L][i] = xk[L][xa[L][i] & 0xF]
-#define XVSHUF_B(xd, xj, xk, xa) \
-	WORD $(0x0D600000 | ((xa) << 15) | ((xk) << 10) | ((xj) << 5) | (xd))
 
-// XVPERMIQ_REPL(xn): XVPERMI.Q $0x00, Xn, Xn, Xn
-// Replicates the lower 128-bit lane of Xn into its upper 128-bit lane.
-#define XVPERMIQ_REPL(xn) WORD $((0x1DFB << 18) | (0x00 << 10) | ((xn) << 5) | (xn))
-
-// XVPERMIQ(xd, xj, imm8): XVPERMI.Q instruction (xd and xj are register numbers 0-31).
+// XVPERMIQ $imm8, Xj, Xd — xvpermi.q Xd, Xj, imm8 (native mnemonic since Go 1.26).
 // pool = {Xj.lo=0, Xj.hi=1, Xd_old.lo=2, Xd_old.hi=3}
 // Xd.lo = pool[imm[1:0]], Xd.hi = pool[imm[5:4]]
-#define XVPERMIQ(xd, xj, imm8) WORD $((0x1DFB << 18) | ((imm8) << 10) | ((xj) << 5) | (xd))
+//   XVPERMIQ $0x00, Xn, Xn replicates the lower 128-bit lane of Xn into its upper lane.
 
 // XVBITSEL(xd, xj, xk, xa): xvbitsel.v xd, xj, xk, xa (4-operand bit-select).
 // xd[i] = xa[i] ? xk[i] : xj[i]  (bit-level: 1 selects xk, 0 selects xj)
 // Opcode 0x0D200000 confirmed from QEMU source.
+// (still hand-encoded: the Go assembler has no xvbitsel.v mnemonic yet)
 #define XVBITSEL(xd, xj, xk, xa) \
 	WORD $(0x0D200000 | ((xa) << 15) | ((xk) << 10) | ((xj) << 5) | (xd))
 
 // SM4_SBOX_LASX(): Apply SM4 S-box to X24 (T-function input, 8x32-bit words).
-// Uses a 3-level binary MUX tree: 8 XVSHUF_B lookups + 7 XVBITSEL.V selects.
+// Uses a 3-level binary MUX tree: 8 XVSHUFB lookups + 7 XVBITSEL.V selects.
 // Each byte b is split: group = b>>5 (0-7 selects the 32-byte chunk),
-// offset = b&0x1F (lookup index within the chunk, used as XVSHUF_B key).
+// offset = b&0x1F (lookup index within the chunk, used as XVSHUFB key).
 // Level masks: XVSLLB $k, group, X30; XVSRAB $7, X30, X30 → 0xFF/0x00 per byte.
 // Input:  X24 = T-function input.
 // Output: X29 = S-box substituted output.
@@ -124,17 +120,17 @@
 	XVANDV X24, X22, X24; \
 	XVSLLB $7, X23, X30; \
 	XVSRAB $7, X30, X30; \
-	XVSHUF_B(25, 8, 0, 24); \
-	XVSHUF_B(31, 9, 1, 24); \
+	XVSHUFB X24, X0, X8, X25; \
+	XVSHUFB X24, X1, X9, X31; \
 	XVBITSEL(25, 25, 31, 30); \
-	XVSHUF_B(31, 10, 2, 24); \
-	XVSHUF_B(26, 11, 3, 24); \
+	XVSHUFB X24, X2, X10, X31; \
+	XVSHUFB X24, X3, X11, X26; \
 	XVBITSEL(26, 31, 26, 30); \
-	XVSHUF_B(27, 12, 4, 24); \
-	XVSHUF_B(31, 13, 5, 24); \
+	XVSHUFB X24, X4, X12, X27; \
+	XVSHUFB X24, X5, X13, X31; \
 	XVBITSEL(27, 27, 31, 30); \
-	XVSHUF_B(31, 14, 6, 24); \
-	XVSHUF_B(29, 15, 7, 24); \
+	XVSHUFB X24, X6, X14, X31; \
+	XVSHUFB X24, X7, X15, X29; \
 	XVBITSEL(29, 31, 29, 30); \
 	XVSLLB $6, X23, X30; \
 	XVSRAB $7, X30, X30; \
