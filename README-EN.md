@@ -300,4 +300,12 @@ Before using this project, please be sure to carefully read the [GMSM Software D
 
 ## Stargazers Over Time
 If this project is useful to you, please consider giving it a Star.
-[![Stargazers over time](https://starchart.cc/emmansun/gmsm.svg?variant=adaptive)](https://starchart.cc/emmansun/gmsm)
+## Star History
+
+<a href="https://www.star-history.com/?repos=emmansun%2Fgmsm&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=emmansun/gmsm&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=emmansun/gmsm&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=emmansun/gmsm&type=date&legend=top-left" />
+ </picture>
+</a>

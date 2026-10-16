@@ -300,4 +300,12 @@ PKCS8包代码是[youmark/pkcs8](https://github.com/youmark/pkcs8)项目的一�
 
 ## 支持与关注（⭐）
 如果这个项目对你有帮助，欢迎点个 Star ⭐ 支持我们持续维护与优化。
-[![Stargazers over time](https://starchart.cc/emmansun/gmsm.svg?variant=adaptive)](https://starchart.cc/emmansun/gmsm)
+## Star History
+
+<a href="https://www.star-history.com/?repos=emmansun%2Fgmsm&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=emmansun/gmsm&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=emmansun/gmsm&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=emmansun/gmsm&type=date&legend=top-left" />
+ </picture>
+</a>
