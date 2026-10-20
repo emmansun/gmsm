@@ -51,6 +51,7 @@ func main() {
 - 基础能力：分组模式、填充、DRBG、随机数、ECDH/SM2MQV、TLS 1.3 混合密钥交换
 
 ## 用户文档
+- [项目 Wiki](https://github.com/emmansun/gmsm/wiki)
 - [SM2椭圆曲线公钥密码算法应用指南](./docs/sm2.md) 
 - [SM3密码杂凑算法应用指南](./docs/sm3.md) 
 - [SM4分组密码算法应用指南](./docs/sm4.md) 
