@@ -64,6 +64,47 @@ func TestSignASN1(t *testing.T) {
 	}
 }
 
+func TestVerifyASN1RejectsMalformedSignature(t *testing.T) {
+	masterKey, err := sm9.GenerateSignMasterKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	publicKey := masterKey.PublicKey()
+	uid := []byte("emmansun")
+	hid := byte(0x01)
+	hashed := []byte("Chinese IBS standard")
+	verifiers := []struct {
+		name   string
+		verify func([]byte) bool
+	}{
+		{"VerifyASN1", func(sig []byte) bool { return sm9.VerifyASN1(publicKey, uid, hid, hashed, sig) }},
+		{"PublicKey.Verify", func(sig []byte) bool { return publicKey.Verify(uid, hid, hashed, sig) }},
+	}
+	tests := []struct {
+		name string
+		sig  []byte
+	}{
+		{"empty_point_and_hash", []byte{0x30, 0x05, 0x04, 0x00, 0x03, 0x01, 0x00}},
+		{"empty_point", mustEncodeSignature(t, []byte{1}, nil)},
+		{"missing_unused_bits_octet", []byte{0x30, 0x04, 0x04, 0x00, 0x03, 0x00}},
+		{"short_point", mustEncodeSignature(t, []byte{1}, []byte{4})},
+		{"invalid_point_format", mustEncodeSignature(t, []byte{1}, []byte{2})},
+		{"empty_signature", nil},
+		{"truncated_sequence", []byte{0x30, 0x05}},
+	}
+	for _, verifier := range verifiers {
+		t.Run(verifier.name, func(t *testing.T) {
+			for _, test := range tests {
+				t.Run(test.name, func(t *testing.T) {
+					if verifier.verify(test.sig) {
+						t.Fatal("accepted malformed signature")
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestWrapKey(t *testing.T) {
 	masterKey, err := sm9.GenerateEncryptMasterKey(rand.Reader)
 	hid := byte(0x01)

@@ -454,6 +454,54 @@ func TestSignVerify(t *testing.T) {
 	}
 }
 
+func TestVerifyASN1RejectsMalformedSignature(t *testing.T) {
+	privateKey, err := GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	message := []byte("malformed signature verification")
+	hashed := sm3.Sum(message)
+	verifiers := []struct {
+		name   string
+		verify func([]byte) bool
+	}{
+		{"VerifyASN1", func(sig []byte) bool { return VerifyASN1(&privateKey.PublicKey, hashed[:], sig) }},
+		{"VerifyASN1WithSM2", func(sig []byte) bool { return VerifyASN1WithSM2(&privateKey.PublicKey, nil, message, sig) }},
+	}
+	tests := []struct {
+		name string
+		sig  string
+	}{
+		{"empty_signature", ""},
+		{"sm9_empty_bit_string", "30050400030100"},
+		{"empty_sequence", "3000"},
+		{"empty_integers", "300402000200"},
+		{"empty_r", "30050200020101"},
+		{"empty_s", "30050201010200"},
+		{"zero_r", "3006020100020101"},
+		{"zero_s", "3006020101020100"},
+		{"negative_r", "30060201ff020101"},
+		{"nonminimal_r", "300702020001020101"},
+		{"truncated_s", "30060201010201"},
+		{"trailing_data", "300602010102010100"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			signature, err := hex.DecodeString(test.sig)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, verifier := range verifiers {
+				t.Run(verifier.name, func(t *testing.T) {
+					if verifier.verify(signature) {
+						t.Fatal("accepted malformed signature")
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestSignMessage(t *testing.T) {
 	priv, _ := GenerateKey(rand.Reader)
 	tests := []struct {

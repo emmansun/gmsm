@@ -2,6 +2,10 @@
 name: "CodeQL"
 
 on:
+  push:
+    branches: [ "develop", "main" ]
+  pull_request:
+    branches: [ "develop", "main" ]
   workflow_dispatch:
   schedule:
     #        ┌───────────── minute (0 - 59)
@@ -40,6 +44,7 @@ jobs:
         uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
         with:
           languages: go
+          queries: security-extended
 
       - name: Autobuild
         uses: github/codeql-action/autobuild@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0

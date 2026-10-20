@@ -98,7 +98,7 @@ func parseSignature(sig []byte) ([]byte, []byte, error) {
 		!inner.Empty() {
 		return nil, nil, errors.New("invalid ASN.1")
 	}
-	if sBytes[0] != 4 {
+	if len(sBytes) == 0 || sBytes[0] != 4 {
 		return nil, nil, errors.New("sm9: invalid point format")
 	}
 	return hBytes, sBytes, nil
