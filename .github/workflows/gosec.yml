@@ -29,8 +29,29 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # -no-fail is required: gosec loads each package's Go files without the
+      # .s assembly files, so assembly-backed functions always produce
+      # "missing function body" type errors, and gosec exits 1 whenever any
+      # package load error exists, even with zero findings. Results are still
+      # reported via SARIF; the gate is the code scanning alert review.
+      #
+      # Exclusions (audited as intentional for this codebase):
+      # - G104: unhandled hash.Write errors (always nil for hash.Hash).
+      # - G115: intentional uint64 -> uint8/uint32 word slicing in crypto
+      #   primitives and generated fiat-crypto code.
+      # - G204/G404/G407 in test infrastructure: deterministic nonces and
+      #   math/rand for differential testing, `go` subprocess invocations.
+      # - G101 in KAT files: hex-encoded known-answer test vectors.
+      # G103 (unsafe) and weak-crypto rules (G401/G405/G501/G502/G505) remain
+      # active on purpose: legacy md5/des/sha1/rc4 usage is required by the
+      # PKCS/CMS/PEM standards this library implements.
       - name: Run gosec
-        run: go run github.com/securego/gosec/v2/cmd/gosec@v2.29.0 -fmt sarif -out gosec.sarif ./...
+        run: >-
+          go run github.com/securego/gosec/v2/cmd/gosec@v2.29.0
+          -no-fail
+          -exclude G104,G115
+          -exclude-rules "internal/cryptotest/.*:G204,G404,G407;internal/randutil/.*:G404;smx509/internal_testenv.go:G204;internal/sm9/kat.go:G101"
+          -fmt sarif -out gosec.sarif ./...
 
       - name: Upload SARIF
         if: >-
