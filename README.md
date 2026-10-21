@@ -1,4 +1,4 @@
-# GMSM：高性能 Go 商用密码与后量子密码库
+# GMSM: High-Performance Go ShangMi and Post-Quantum Crypto Library
 
 [![Github CI](https://github.com/emmansun/gmsm/actions/workflows/ci.yml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/ci.yml)
 [![arm64](https://github.com/emmansun/gmsm/actions/workflows/test_arm64.yml/badge.svg)](https://github.com/emmansun/gmsm/actions/workflows/test_arm64.yml)
@@ -12,18 +12,18 @@
 ![GitHub go.mod Go version (branch)](https://img.shields.io/github/go-mod/go-version/emmansun/gmsm)
 [![Release](https://img.shields.io/github/release/emmansun/gmsm/all.svg)](https://github.com/emmansun/gmsm/releases)
 
-[English](README-EN.md) | 简体中文
+[English](README.md) | [简体中文](README.zh-CN.md)
 
-GMSM 是面向生产环境的 Go 密码学库，聚焦国密（SM2/SM3/SM4/SM9/ZUC）与后量子密码（ML-KEM/ML-DSA/SLH-DSA），在可维护 API 与跨架构性能之间取得平衡。
+GMSM is a production-ready Go cryptography library focused on ShangMi algorithms (SM2/SM3/SM4/SM9/ZUC) and modern post-quantum primitives (ML-KEM/ML-DSA/SLH-DSA), designed to balance secure defaults, practical APIs, and cross-architecture performance.
 
-## 为什么选择 GMSM
-- **标准覆盖全面**：支持主流国密标准、PKCS 生态及 NIST PQC（FIPS 203/204/205）。
-- **工程化可落地**：接口风格贴近 Go 标准库，便于迁移与集成。
-- **多架构高性能**：在 amd64、arm64、loong64、ppc64le、s390x、riscv64 等平台提供 SIMD/汇编优化。
-- **兼顾安全与兼容**：提供 purego 回退路径，并在关键路径采用常量时间实现策略。
-- **持续验证**：多架构 CI、覆盖率与长期维护，适合研发与生产双场景。
+## Why GMSM
+- **Broad standards coverage**: ShangMi standards, PKCS ecosystem, and NIST PQC (FIPS 203/204/205).
+- **Practical API design**: Interfaces aligned with Go standard library patterns for easier adoption.
+- **High performance across CPUs**: SIMD/assembly optimizations for amd64, arm64, loong64, ppc64le, s390x, riscv64, and more.
+- **Security with portability**: Pure Go fallbacks plus constant-time implementations on sensitive paths.
+- **Operational confidence**: Multi-architecture CI, coverage tracking, and active maintenance.
 
-## 快速开始
+## Quick Start
 
 ```bash
 go get github.com/emmansun/gmsm@latest
@@ -44,263 +44,263 @@ func main() {
 }
 ```
 
-## 能力全景
-- 国密算法：SM2、SM3、SM4、SM9、ZUC
-- 后量子密码：ML-KEM、ML-DSA、SLH-DSA
-- 证书与协议：smx509、PKCS#7、PKCS#8、CFCA 互操作
-- 基础能力：分组模式、填充、DRBG、随机数、ECDH/SM2MQV、TLS 1.3 混合密钥交换
+## Capability Snapshot
+- ShangMi: SM2, SM3, SM4, SM9, ZUC
+- Post-Quantum: ML-KEM, ML-DSA, SLH-DSA
+- PKI and interoperability: smx509, PKCS#7, PKCS#8, CFCA support
+- Core building blocks: block modes, padding, DRBG, randomness, ECDH/SM2MQV, and TLS 1.3 hybrid key exchange
 
-## 用户文档
-- [项目 Wiki](https://github.com/emmansun/gmsm/wiki)
-- [SM2椭圆曲线公钥密码算法应用指南](./docs/sm2.md) 
-- [SM3密码杂凑算法应用指南](./docs/sm3.md) 
-- [SM4分组密码算法应用指南](./docs/sm4.md) 
-- [SM9标识密码算法应用指南](./docs/sm9.md)
-- [ZUC祖冲之序列密码算法应用指南](./docs/zuc.md)
-- [CFCA互操作性指南](./docs/cfca.md)
-- [PKCS7应用指南](./docs/pkcs7.md)
-- [PKCS12应用指南](./docs/pkcs12.md)
-- [确定性随机数发生器（DRBG）与软件随机数发生器应用指南](./docs/rand.md)
-- [后量子密码（PQC）](./docs/pqc.md)
+## User Documentation
+- [Project Wiki](https://github.com/emmansun/gmsm/wiki)
+- [SM2 Elliptic Curve Public Key Cryptography Algorithm Application Guide](./docs/sm2-en.md)
+- [SM3 Cryptographic Hash Algorithm Application Guide](./docs/sm3.md)
+- [SM4 Block Cipher Algorithm Application Guide](./docs/sm4.md)
+- [SM9 Identity-Based Cryptography Algorithm Application Guide](./docs/sm9.md)
+- [ZUC Stream Cipher Algorithm Application Guide](./docs/zuc.md)
+- [CFCA Interoperability Guide](./docs/cfca.md)
+- [PKCS#7 Application Guide](./docs/pkcs7.md)
+- [PKCS#12 Application Guide](./docs/pkcs12.md)
+- [Deterministic Random Number Generator (DRBG) and Software Random Number Generator Application Guide](./docs/rand.md)
+- [PQC](./docs/pqc-en.md)
 
-如果你想提问题，建议你阅读[提问的智慧](https://github.com/ryanhanwu/How-To-Ask-Questions-The-Smart-Way/blob/main/README-zh_CN.md)。
+If you want to raise an issue, we recommend reading [How To Ask Questions The Smart Way](https://github.com/ryanhanwu/How-To-Ask-Questions-The-Smart-Way).
 
-## 核心模块
+## Core Modules
 
-### 公钥密码算法
+### Public Key Cryptography Algorithms
 
-#### SM2 - 椭圆曲线公钥密码算法
-SM2 椭圆曲线公钥密码算法的核心实现位于 [internal/sm2ec](https://github.com/emmansun/gmsm/tree/main/internal/sm2ec) 包中。本实现在性能上与 Go 标准库中 NIST P-256 曲线的原生实现（非 BoringCrypto）相当，并针对 **amd64**、**arm64**、**s390x**、**ppc64le**、**riscv64** 和 **loong64** 架构进行了汇编优化。
+#### SM2 - Elliptic Curve Public Key Cryptography Algorithm
+The core implementation of SM2 elliptic curve public key cryptography algorithm is located in the [internal/sm2ec](https://github.com/emmansun/gmsm/tree/main/internal/sm2ec) package. This implementation achieves performance comparable to the native NIST P-256 curve implementation in the Go standard library (non-BoringCrypto) and includes assembly optimizations for **amd64**, **arm64**, **s390x**, **ppc64le**, **riscv64**, and **loong64** architectures.
 
-**功能特性：**
-- 数字签名算法（GB/T 32918.2-2016）
-- 公钥加密算法（GB/T 32918.4-2016）
-- 密钥交换协议（GB/T 32918.3-2016）
-- 密钥对保护数据格式（GB/T 35276-2017）
+**Features:**
+- Digital Signature Algorithm (GB/T 32918.2-2016)
+- Public Key Encryption Algorithm (GB/T 32918.4-2016)
+- Key Exchange Protocol (GB/T 32918.3-2016)
+- Key Pair Protection Data Format (GB/T 35276-2017)
 
-详细的性能优化分析和实现细节请参阅 [SM2 性能优化 Wiki](https://github.com/emmansun/gmsm/wiki/SM2%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96)。
+For detailed performance optimization analysis and implementation details, please refer to the [SM2 Performance Optimization Wiki](https://github.com/emmansun/gmsm/wiki/SM2%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96).
 
-#### SM9 - 标识密码算法
-SM9 标识密码算法的底层数学运算（素域、扩域、椭圆曲线及双线性对）实现于 [bn256](https://github.com/emmansun/gmsm/tree/main/sm9/bn256) 包中，支持 **amd64**、**arm64**、**ppc64x**、**riscv64** 和 **loong64** 架构的优化实现。
+#### SM9 - Identity-Based Cryptography Algorithm
+The underlying mathematical operations (prime fields, extension fields, elliptic curves, and bilinear pairings) of SM9 identity-based cryptography algorithm are implemented in the [bn256](https://github.com/emmansun/gmsm/tree/main/sm9/bn256) package, with optimizations for **amd64**, **arm64**, **ppc64x**, **riscv64**, and **loong64** architectures.
 
-**功能特性：**
-- 密钥生成算法（GM/T 0044-2016）
-- 数字签名算法
-- 密钥封装机制（KEM）
-- 公钥加密算法
-- 密钥交换协议
+**Features:**
+- Key Generation Algorithm (GM/T 0044-2016)
+- Digital Signature Algorithm
+- Key Encapsulation Mechanism (KEM)
+- Public Key Encryption Algorithm
+- Key Exchange Protocol
 
-实现细节和优化策略请参阅 [SM9 实现及优化 Wiki](https://github.com/emmansun/gmsm/wiki/SM9%E5%AE%9E%E7%8E%B0%E5%8F%8A%E4%BC%98%E5%8C%96)。
+For implementation details and optimization strategies, please refer to the [SM9 Implementation and Optimization Wiki](https://github.com/emmansun/gmsm/wiki/SM9%E5%AE%9E%E7%8E%B0%E5%8F%8A%E4%BC%98%E5%8C%96).
 
 ---
 
-### 对称密码算法
+### Symmetric Cryptography Algorithms
 
-#### SM3 - 密码杂凑算法
-SM3 密码杂凑算法（GM/T 0004-2012）实现了高效的 SIMD 优化：
+#### SM3 - Cryptographic Hash Algorithm
+SM3 cryptographic hash algorithm (GM/T 0004-2012) implements efficient SIMD optimizations:
 
-**架构优化：**
-- **amd64**：针对 AVX2+BMI2、SSE2+SSSE3 指令集优化消息扩展
-- **arm64**：使用 NEON 指令优化消息扩展，并提供基于 A64 扩展密码指令的实现
-- **s390x/ppc64x**：通过向量指令优化消息扩展
-- **riscv64**：使用`Zvksh`指令集
+**Architecture Optimizations:**
+- **amd64**: Optimizes message expansion for AVX2+BMI2 and SSE2+SSSE3 instruction sets
+- **arm64**: Uses NEON instructions to optimize message expansion and provides implementation based on A64 extended cryptographic instructions
+- **s390x/ppc64x**: Optimizes message expansion through vector instructions
+- **riscv64**: Uses `Zvksh` instructions
 
-详细实现分析请参阅 [SM3 性能优化 Wiki](https://github.com/emmansun/gmsm/wiki/SM3%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96)。
+For detailed implementation analysis, please refer to the [SM3 Performance Optimization Wiki](https://github.com/emmansun/gmsm/wiki/SM3%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96).
 
-#### SM4 - 分组密码算法
-SM4 分组密码算法（GM/T 0002-2012）实现了多架构汇编优化，并针对常用工作模式进行了融合优化：
+#### SM4 - Block Cipher Algorithm
+SM4 block cipher algorithm (GM/T 0002-2012) implements multi-architecture assembly optimizations with fused optimizations for common operation modes:
 
-**架构优化：**
-- **amd64**：使用 GFNI, AES-NI 指令结合 AVX2/SSE2+SSSE3
-- **arm64**：使用 AES 指令结合 NEON，并提供基于 A64 扩展密码指令的实现
-- **ppc64x**：使用 vsbox 指令结合向量指令
-- **riscv64**：SM4使用 `Zvksed` 指令集；GCM实现使用 `Zvkg`或者`Zvbc`指令集
+**Architecture Optimizations:**
+- **amd64**: Uses GFNI, AES-NI instructions combined with AVX2/SSE2+SSSE3
+- **arm64**: Uses AES instructions combined with NEON and provides implementation based on A64 extended cryptographic instructions
+- **ppc64x**: Uses vsbox instructions combined with vector instructions
+- **riscv64**: Uses `Zvksed` instructions, GCM uses `Zvkg` or `Zvbc` instructions
 
-**工作模式优化：**
-- ECB（电子密码本）
-- CBC（密码块链接）
-- GCM（伽罗瓦/计数器模式）
+**Operation Mode Optimizations:**
+- ECB (Electronic Codebook)
+- CBC (Cipher Block Chaining)
+- GCM (Galois/Counter Mode)
 - GCM-SIV (RFC 8452)
-- XTS（可调整密文分组链接，支持 GB/T 17964-2021 和 NIST SP 800-38E）
+- XTS (XEX-based tweaked-codebook mode, supports GB/T 17964-2021 and NIST SP 800-38E)
 
-详细实现分析请参阅 [SM4 性能优化 Wiki](https://github.com/emmansun/gmsm/wiki/SM4%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96)。
+For detailed implementation analysis, please refer to the [SM4 Performance Optimization Wiki](https://github.com/emmansun/gmsm/wiki/SM4%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96).
 
-#### ZUC - 祖冲之序列密码算法
-祖冲之序列密码算法（GM/T 0001-2012）实现了基于 SIMD、AES 指令和无进位乘法指令的优化，支持 **amd64** (`AES`, `PCLMUL`)、**arm64**（`AES`, `PMULL`）、 **ppc64x**（`AES`, `VPMSUMD`）和**riscv64**（`Zvkned`, `Zvbc`） 架构。
+#### ZUC - Zu Chongzhi Stream Cipher Algorithm
+The Zu Chongzhi stream cipher algorithm (GM/T 0001-2012) implements optimizations based on SIMD, AES instructions, and carry-less multiplication instructions, supporting **amd64** (`AES`, `PCLMUL`), **arm64** (`AES`, `PMULL`), **ppc64x** (`AES`, `VPMSUMD`) and **riscv64** (`Zvkned`, `Zvbc`) architectures.
 
-**功能特性：**
-- 机密性算法（128-EEA3 / 256-EEA3）
-- 完整性算法（128-EIA3 / 256-EIA3）
+**Features:**
+- Confidentiality Algorithm (128-EEA3 / 256-EEA3)
+- Integrity Algorithm (128-EIA3 / 256-EIA3)
 
-详细实现分析请参阅 [ZUC 实现及优化 Wiki](https://github.com/emmansun/gmsm/wiki/Efficient-Software-Implementations-of-ZUC)。
-
----
-
-### 消息认证码
-
-#### CBCMAC - 基于分组密码的消息认证码
-符合《GB/T 15852.1-2020 信息安全技术 消息鉴别码算法 第1部分：采用分组密码的机制》标准，实现了多种 MAC 算法：
-
-**支持的 MAC 模式：**
-- CBC-MAC（方案 1）
-- EMAC（方案 2）
-- ANSI Retail MAC（方案 3）
-- MAC-DES（方案 4）
-- CMAC（方案 5，RFC 4493）
-- LMAC（方案 6）
-- TR-CBC-MAC（方案 7）
-- CBCR-MAC（方案 8）
+For detailed implementation analysis, please refer to the [Efficient Software Implementations of ZUC Wiki](https://github.com/emmansun/gmsm/wiki/Efficient-Software-Implementations-of-ZUC).
 
 ---
 
-### 工作模式与填充
+### Message Authentication Codes
 
-#### CIPHER - 分组密码工作模式
-实现了《GB/T 17964-2021 信息安全技术 分组密码算法的工作模式》标准中定义的多种工作模式：
+#### CBCMAC - Block Cipher Based Message Authentication Code
+Compliant with the standard "GB/T 15852.1-2020 Information Security Technology - Message Authentication Code Algorithm Part 1: Mechanism using a Block Cipher", implementing various MAC algorithms:
 
-**支持的工作模式：**
-- **ECB**：电子密码本模式
-- **CCM**：计数器模式与 CBC-MAC 模式（RFC 3610）
-- **XTS**：可调整密文分组链接模式（GB/T 17964-2021 / NIST SP 800-38E）
-- **HCTR**：带泛杂凑函数的计数器模式（GB/T 17964-2021 新增）
-- **BC**：分组链接模式（GB/T 17964 遗留模式）
-- **OFBNLF**：带非线性函数的输出反馈模式（GB/T 17964 遗留模式）
-
-**注意事项：**
-- XTS 模式实现了 `cipher.BlockMode` 接口，内部包含 tweak 状态，**不支持并发使用**
-- BC 模式与 CBC 模式功能相似
-- OFBNLF 模式从软件实现角度性能优化空间有限
-
-#### PADDING - 填充方案
-实现了多种符合标准的填充方案，支持**常量时间去填充**防御 Padding Oracle 攻击：
-
-| 填充方案 | 对应标准 |
-|---------|---------|
-| **PKCS#7** | GB/T 17964-2021 附录 C.2 填充方法 1 / RFC 5652 |
-| **ISO/IEC 9797-1 方法 2** | GB/T 17964-2021 附录 C.3 填充方法 2 |
-| **ANSI X.923** | ANSI X9.23 标准 |
-| **ISO/IEC 9797-1 方法 3** | GB/T 17964-2021 附录 C.4 填充方法 3 |
-| **Zero Padding** | 非标准（遗留兼容） |
-
-**安全实现：**
-- 所有方案提供 `ConstantTimeUnpad()` 和 `Unpad()` 两种方法
-- 加密数据**必须**使用 `ConstantTimeUnpad()` 防御时序攻击
-- `Unpad()` 仅用于非敏感数据的性能优化
+**Supported MAC Modes:**
+- CBC-MAC (Scheme 1)
+- EMAC (Scheme 2)
+- ANSI Retail MAC (Scheme 3)
+- MAC-DES (Scheme 4)
+- CMAC (Scheme 5, RFC 4493)
+- LMAC (Scheme 6)
+- TR-CBC-MAC (Scheme 7)
+- CBCR-MAC (Scheme 8)
 
 ---
 
-### PKI 与证书
+### Operation Modes and Padding
 
-#### SMX509 - 国密证书扩展
-基于 Go 标准库 `crypto/x509` 包扩展，增加了国密算法支持，实现符合《GM/T 0015-2012 基于 SM2 密码算法的数字证书格式规范》。
+#### CIPHER - Block Cipher Operation Modes
+Implements various operation modes defined in the standard "GB/T 17964-2021 Information Security Technology - Modes of Operation for Block Ciphers":
 
-#### PKCS#7 - 加密消息语法
-基于 [mozilla-services/pkcs7](https://github.com/mozilla-services/pkcs7) 项目（已于 2024 年 2 月归档）扩展，增加了国密算法支持，符合 RFC 2315 标准。
+**Supported Operation Modes:**
+- **ECB**: Electronic Codebook mode
+- **CCM**: Counter with CBC-MAC mode (RFC 3610)
+- **XTS**: XEX-based tweaked-codebook mode (GB/T 17964-2021 / NIST SP 800-38E)
+- **HCTR**: Hash-Counter mode (newly added in GB/T 17964-2021)
+- **BC**: Block Chaining mode (GB/T 17964 legacy mode)
+- **OFBNLF**: Output Feedback mode with Non-Linear Function (GB/T 17964 legacy mode)
 
-#### PKCS#8 - 私钥信息语法
-基于 [youmark/pkcs8](https://github.com/youmark/pkcs8) 项目扩展，增加了国密算法支持，符合 RFC 5208 / RFC 5958 标准。
+**Notes:**
+- XTS mode implements the `cipher.BlockMode` interface and contains internal tweak state, **does NOT support concurrent use**
+- BC mode has similar functionality to CBC mode
+- OFBNLF mode has limited room for performance optimization from a software implementation perspective
 
----
+#### PADDING - Padding Schemes
+Implements various standards-compliant padding schemes with **constant-time unpadding** to defend against Padding Oracle attacks:
 
-### 密钥协商与随机数
+| Padding Scheme | Corresponding Standard |
+|---------------|------------------------|
+| **PKCS#7** | GB/T 17964-2021 Appendix C.2 Padding Method 1 / RFC 5652 |
+| **ISO/IEC 9797-1 Method 2** | GB/T 17964-2021 Appendix C.3 Padding Method 2 |
+| **ANSI X.923** | ANSI X9.23 Standard |
+| **ISO/IEC 9797-1 Method 3** | GB/T 17964-2021 Appendix C.4 Padding Method 3 |
+| **Zero Padding** | Non-standard (legacy compatibility) |
 
-#### ECDH - 椭圆曲线 Diffie-Hellman
-提供类似 Go 标准库 `crypto/ecdh` 的接口设计，支持 SM2 曲线的密钥协商协议：
-
-**支持协议：**
-- ECDH 密钥协商
-- SM2MQV 密钥协商（推荐）
-
-**特性：**
-- 无 `big.Int` 依赖，性能更优
-- 可作为 `sm2` 包密钥交换协议的替代实现
-
-#### DRBG - 确定性随机位生成器
-符合《GM/T 0105-2021 软件随机数发生器设计指南》标准，同时兼容 NIST SP 800-90A 部分要求。
-
-**特性：**
-- 使用 NIST 官方测试向量验证
-- **不支持并发使用**
-
----
-
-### CFCA 互操作性
-
-#### CFCA - 中国金融认证中心扩展
-提供与 CFCA SADK 的互操作性支持：
-
-**功能特性：**
-- SM2 私钥和证书封装（PKCS#12_SM2 格式）
-- 信封加密与数字签名
-- CSR 生成与解析
-- 私钥解密
+**Secure Implementation:**
+- All schemes provide both `ConstantTimeUnpad()` and `Unpad()` methods
+- Encrypted data **MUST** use `ConstantTimeUnpad()` to defend against timing attacks
+- `Unpad()` is only for performance optimization with non-sensitive data
 
 ---
 
-### 后量子密码学
+### PKI and Certificates
 
-#### MLKEM - 基于模格的密钥封装机制
-符合 NIST FIPS 203 标准，基于 Go 标准库实现。
+#### SMX509 - Chinese Commercial Cryptography Certificate Extension
+Extended from the Go standard library `crypto/x509` package with added support for Chinese commercial cryptography algorithms, compliant with "GM/T 0015-2012 Digital Certificate Format Specification Based on SM2 Cryptographic Algorithm".
 
-**支持参数集：**
+#### PKCS#7 - Cryptographic Message Syntax
+Extended from the [mozilla-services/pkcs7](https://github.com/mozilla-services/pkcs7) project (archived in February 2024) with added support for Chinese commercial cryptography algorithms, compliant with RFC 2315 standard.
+
+#### PKCS#8 - Private-Key Information Syntax
+Extended from the [youmark/pkcs8](https://github.com/youmark/pkcs8) project with added support for Chinese commercial cryptography algorithms, compliant with RFC 5208 / RFC 5958 standards.
+
+---
+
+### Key Agreement and Random Numbers
+
+#### ECDH - Elliptic Curve Diffie-Hellman
+Provides an interface design similar to the Go standard library `crypto/ecdh`, supporting SM2 curve key agreement protocols:
+
+**Supported Protocols:**
+- ECDH Key Agreement
+- SM2MQV Key Agreement (recommended)
+
+**Features:**
+- No `big.Int` dependency for better performance
+- Can serve as an alternative implementation to the `sm2` package key exchange protocol
+
+#### DRBG - Deterministic Random Bit Generator
+Compliant with "GM/T 0105-2021 Software Random Number Generator Design Guide" and compatible with NIST SP 800-90A partial requirements.
+
+**Features:**
+- Validated with NIST official test vectors
+- **Does NOT support concurrent use**
+
+---
+
+### CFCA Interoperability
+
+#### CFCA - China Financial Certification Authority Extension
+Provides interoperability support with CFCA SADK:
+
+**Features:**
+- SM2 private key and certificate encapsulation (PKCS#12_SM2 format)
+- Envelope encryption and digital signature
+- CSR generation and parsing
+- Private key decryption
+
+---
+
+### Post-Quantum Cryptography
+
+#### MLKEM - Module-Lattice-Based Key-Encapsulation Mechanism
+Compliant with NIST FIPS 203 standard, based on the Go standard library implementation.
+
+**Supported Parameter Sets:**
 - ML-KEM-512
 - ML-KEM-768
 - ML-KEM-1024
 
-**架构优化：**
-- **amd64**：NTT、逆NTT 及多项式乘法使用 AVX2 指令集进行向量化优化
-- **arm64**：NTT、逆NTT 及多项式乘法使用 NEON 指令集进行向量化优化
-- **riscv64**：NTT、逆NTT 及多项式乘法使用向量扩展指令集进行向量化优化
-- **loong64**：NTT、逆NTT 及多项式乘法使用 LASX 指令集进行向量化优化
-- **ppc64le**：NTT、逆NTT 及多项式乘法使用 VSX / VMX (AltiVec) 指令集进行向量化优化
+**Architecture Optimizations:**
+- **amd64**: NTT, inverse NTT, and polynomial multiplication are vectorized using AVX2 instructions
+- **arm64**: NTT, inverse NTT, and polynomial multiplication are vectorized using NEON instructions
+- **riscv64**: NTT, inverse NTT, and polynomial multiplication are vectorized using RVV instructions
+- **loong64**: NTT, inverse NTT, and polynomial multiplication are vectorized using LASX instructions
+- **ppc64le**: NTT, inverse NTT, and polynomial multiplication are vectorized using VSX / VMX (AltiVec) instructions
 
-#### MLDSA - 基于模格的数字签名
-符合 NIST FIPS 204 标准。
+#### MLDSA - Module-Lattice-Based Digital Signature
+Compliant with NIST FIPS 204 standard.
 
-**架构优化：**
-- **amd64**：NTT、逆NTT 及多项式乘法使用 AVX2 指令集进行向量化优化
-- **arm64**：NTT、逆NTT 及多项式乘法使用 NEON 指令集进行向量化优化
-- **riscv64**：NTT、逆NTT 及多项式乘法使用向量扩展指令集进行向量化优化
-- **loong64**：NTT、逆NTT 及多项式乘法使用 LASX 指令集进行向量化优化
+**Architecture Optimizations:**
+- **amd64**: NTT, inverse NTT, and polynomial multiplication are vectorized using AVX2 instructions
+- **arm64**: NTT, inverse NTT, and polynomial multiplication are vectorized using NEON instructions
+- **riscv64**: NTT, inverse NTT, and polynomial multiplication are vectorized using RVV instructions
+- **loong64**: NTT, inverse NTT, and polynomial multiplication are vectorized using LASX instructions
 
-#### SLHDSA - 无状态哈希数字签名
-符合 NIST FIPS 205 标准。
+#### SLHDSA - Stateless Hash-Based Digital Signature
+Compliant with NIST FIPS 205 standard.
 
-## 开发者测试
+## Developer Testing
 
-本项目为多架构汇编优化建立了差分测试框架（`internal/cryptotest/diff`）：直接 kernel 路径与公开 dispatch 路径在明确定义的输入域内与可信参考实现逐位比对，并由 CI（含 Intel SDE 与 QEMU riscv64 VLEN 矩阵）及周期性模糊测试保障。详见[差分测试框架指南](./docs/difftest.md)。
+This project ships a differential testing framework (`internal/cryptotest/diff`) for its multi-architecture assembly optimizations: direct kernel paths and the public dispatch paths are compared bit-exactly against trusted reference implementations over explicitly declared input domains, enforced by CI (including Intel SDE and a QEMU riscv64 VLEN matrix) plus scheduled fuzzing. See the [Differential Testing Framework guide](./docs/difftest.md).
 
-## 相关项目
-- **[Trisia/TLCP](https://github.com/Trisia/gotlcp)** - 一个《GB/T 38636-2020 信息安全技术 传输层密码协议》Go语言实现项目。 
-- **[Trisia/Randomness](https://github.com/Trisia/randomness)** - 一个Go语言随机性检测规范实现。
-- **[PKCS12](https://github.com/emmansun/go-pkcs12)** - [SSLMate/go-pkcs12](https://github.com/SSLMate/go-pkcs12)项目的一个分支，加入了商用密码支持，由于PKCS12标准比较老，安全性不高，所以以独立项目进行维护。
-- **[MKSMCERT](https://github.com/emmansun/mksmcert)** - 一个用于生成SM2私钥和证书的工具，主要用于开发测试，它是[FiloSottile/mkcert](https://github.com/FiloSottile/mkcert)项目的一个分支，加入了商用密码支持。
-- **JavaScript实现**
-  - [jsrsasign-sm](https://github.com/emmansun/sm2js) 扩展[jsrsasign](https://github.com/kjur/jsrsasign)实现的优势在于充分利用jsrsasign的PKIX，CSR，CERT，PKCS8等处理能力。
-  - [sjcl-sm](https://github.com/emmansun/sm4js) 扩展[sjcl](https://github.com/bitwiseshiftleft/sjcl)实现的优势在于其丰富的对称加密模式实现，以及其简洁的代码、较好的性能。
+## Related Projects
+- **[Trisia/TLCP](https://github.com/Trisia/gotlcp)** - A Go language implementation of "GB/T 38636-2020 Information Security Technology - Transport Layer Cryptography Protocol".
+- **[Trisia/Randomness](https://github.com/Trisia/randomness)** - A Go language implementation of randomness testing specifications.
+- **[PKCS12](https://github.com/emmansun/go-pkcs12)** - A fork of [SSLMate/go-pkcs12](https://github.com/SSLMate/go-pkcs12) with commercial cryptography support. Due to the older PKCS12 standard and lower security, it is maintained as a separate project.
+- **[MKSMCERT](https://github.com/emmansun/mksmcert)** - A tool for generating SM2 private keys and certificates, mainly for development and testing. It is a fork of [FiloSottile/mkcert](https://github.com/FiloSottile/mkcert) with commercial cryptography support.
+- **JavaScript Implementations**
+  - [jsrsasign-sm](https://github.com/emmansun/sm2js) - Extended implementation of [jsrsasign](https://github.com/kjur/jsrsasign) that takes full advantage of jsrsasign's PKIX, CSR, CERT, PKCS8, and other processing capabilities.
+  - [sjcl-sm](https://github.com/emmansun/sm4js) - Extended implementation of [sjcl](https://github.com/bitwiseshiftleft/sjcl) that leverages its rich symmetric encryption mode implementation, concise code, and good performance.
 
-## 软件许可
-本软件使用MIT许可证，详情请参考[软件许可](./LICENSE)。如果不熟悉MIT许可证条款，请参考[MIT许可证](https://zh.wikipedia.org/zh-cn/MIT%E8%A8%B1%E5%8F%AF%E8%AD%89)。请知晓和遵守**被许可人义务**！
+## License
+This software is licensed under the MIT License. For details, please refer to the [LICENSE](./LICENSE) file. If you are unfamiliar with the terms of the MIT License, please refer to [MIT License](https://en.wikipedia.org/wiki/MIT_License). Please be aware of and comply with the **licensee obligations**!
 
-## 致谢
-本项目的基础架构、设计和部分代码源自[golang crypto](https://github.com/golang/go/commits/master/src/crypto).
+## Acknowledgements
+The basic architecture, design, and some code of this project are derived from [golang crypto](https://github.com/golang/go/commits/master/src/crypto).
 
-SM4分组密码算法**amd64** SIMD AES-NI实现（SSE部分）的算法源自[mjosaarinen/sm4ni](https://github.com/mjosaarinen/sm4ni)。
+The SM4 block cipher algorithm **amd64** SIMD AES-NI implementation (SSE part) algorithm is derived from [mjosaarinen/sm4ni](https://github.com/mjosaarinen/sm4ni).
 
-SM9/BN256最初版本的代码复制自[cloudflare/bn256](https://github.com/cloudflare/bn256)项目，后期对基础的素域、扩域、椭圆曲线运算等进行了重写。
+The initial version of SM9/BN256 code was copied from the [cloudflare/bn256](https://github.com/cloudflare/bn256) project, and later the basic prime field, extension field, elliptic curve operations, etc. were rewritten.
 
-祖冲之序列密码算法实现**amd64** SIMD AES-NI, CLMUL实现算法源自[Intel(R) Multi-Buffer Crypto for IPsec Library](https://github.com/intel/intel-ipsec-mb/)项目。
+The Zu Chongzhi stream cipher algorithm implementation **amd64** SIMD AES-NI, CLMUL implementation algorithm is derived from the [Intel(R) Multi-Buffer Crypto for IPsec Library](https://github.com/intel/intel-ipsec-mb/) project.
 
-PKCS7包代码是[mozilla-services/pkcs7](https://github.com/mozilla-services/pkcs7)项目（该项目已于2024年2月10日被归档）的一个分支，加入了商用密码扩展。
+The PKCS7 package code is a fork of the [mozilla-services/pkcs7](https://github.com/mozilla-services/pkcs7) project (which was archived on February 10, 2024) with commercial cryptography extensions.
 
-PKCS8包代码是[youmark/pkcs8](https://github.com/youmark/pkcs8)项目的一个分支，加入了商用密码扩展。
+The PKCS8 package code is a fork of the [youmark/pkcs8](https://github.com/youmark/pkcs8) project with commercial cryptography extensions.
 
-## 免责声明
+## Disclaimer
 
-使用本项目前，请务必仔细阅读[GMSM软件免责声明](DISCLAIMER.md)！
+Before using this project, please be sure to carefully read the [GMSM Software Disclaimer](DISCLAIMER.md)!
 
-## 支持与关注（⭐）
-如果这个项目对你有帮助，欢迎点个 Star ⭐ 支持我们持续维护与优化。
+## Support and Follow
+If this project helps you, please consider giving it a star to support continued maintenance and improvement.
 ## Star History
 
 <a href="https://www.star-history.com/?repos=emmansun%2Fgmsm&type=date&legend=top-left">
