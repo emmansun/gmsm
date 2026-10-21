@@ -331,34 +331,6 @@ func TestInvalidCiphertext(t *testing.T) {
 	}
 }
 
-// TestIssue560CorruptedCiphertextRejected pins the decryption sample from
-// issue #560. The ciphertext was produced by the pre-fix AMD64 ADX/BMI2
-// encryption path, whose carry-tail defect corrupted the shared point, so no
-// private key can recover a plaintext: the C3 check must fail. The behaviour
-// under test is a clean ErrDecryption on every code path, never a panic or a
-// garbage plaintext.
-func TestIssue560CorruptedCiphertextRejected(t *testing.T) {
-	key, err := hex.DecodeString("339f68c658653c4172dadf19b375613a3e8af3ece001d82f7c6678694e9fff83")
-	if err != nil {
-		t.Fatal(err)
-	}
-	ciphertext, err := hex.DecodeString("041982b3dffcfe9a66a51530925dcf390d267325cf12958373e54d236fe6acd9" +
-		"28a68414663325b43aa77d41ee2895d7a9a43942c1255b1dd045ed63c264d9db3e46eab559da5b4" +
-		"bc61082947c615ddc966d9b5d901cb9d42205f26267c4f86bc0804a8fb146ef9452b2c4e21b1e719979")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	priv := new(PrivateKey)
-	priv.D = new(big.Int).SetBytes(key)
-	priv.Curve = P256()
-	priv.X, priv.Y = priv.ScalarBaseMult(key)
-
-	if plaintext, err := Decrypt(priv, ciphertext); err != ErrDecryption {
-		t.Fatalf("Decrypt() = %x, %v; want ErrDecryption", plaintext, err)
-	}
-}
-
 func benchmarkEncrypt(b *testing.B, curve elliptic.Curve, plaintext []byte) {
 	r := bufio.NewReaderSize(rand.Reader, 1<<15)
 	priv, err := ecdsa.GenerateKey(curve, r)

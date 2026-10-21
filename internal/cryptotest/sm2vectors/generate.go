@@ -14,8 +14,10 @@
 package sm2vectors
 
 import (
+	"bytes"
 	"crypto/elliptic"
 	"encoding/asn1"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -355,6 +357,276 @@ func buildVerifySM2() ([]vectors.Case, error) {
 	return cases, nil
 }
 
+// issue560Key and issue560Ciphertext are the sample from the failure report
+// in issue #560. The ciphertext was produced by the pre-fix ADX/BMI2
+// encryption path, so its shared point is already wrong and no private key can
+// recover a plaintext.
+const (
+	issue560Key        = "339f68c658653c4172dadf19b375613a3e8af3ece001d82f7c6678694e9fff83"
+	issue560Ciphertext = "041982b3dffcfe9a66a51530925dcf390d267325cf12958373e54d236fe6acd9" +
+		"28a68414663325b43aa77d41ee2895d7a9a43942c1255b1dd045ed63c264d9d" +
+		"b3e46eab559da5b4" +
+		"bc61082947c615ddc966d9b5d901cb9d42205f26267c4f86bc0804a8fb146ef9452b2c4e21b1e719979"
+)
+
+// uncompressedPoint returns the SEC 1 uncompressed encoding of (x, y).
+func uncompressedPoint(x, y *big.Int) []byte {
+	out := make([]byte, 65)
+	out[0] = 4
+	x.FillBytes(out[1:33])
+	y.FillBytes(out[33:])
+	return out
+}
+
+// buildPublicKeyDecode pins the SEC 1 decoding contract: a 65-byte
+// uncompressed point is checked against the field range and the curve
+// equation, and every other encoding is rejected.
+func buildPublicKeyDecode() ([]vectors.Case, error) {
+	params := curve().Params()
+	p := params.P
+	one := big.NewInt(1)
+	zero := new(big.Int)
+
+	two := newSigner(big.NewInt(2))
+	minusOne := newSigner(new(big.Int).Sub(params.N, big.NewInt(1)))
+	offCurveY := new(big.Int).Xor(params.Gy, big.NewInt(1))
+
+	valid := []struct {
+		comment string
+		pub     []byte
+		x, y    *big.Int
+	}{
+		{"base point G", uncompressedPoint(params.Gx, params.Gy), params.Gx, params.Gy},
+		{"2G", uncompressedPoint(two.px, two.py), two.px, two.py},
+		{"(n-1)G", uncompressedPoint(minusOne.px, minusOne.py), minusOne.px, minusOne.py},
+	}
+	invalid := []struct {
+		comment string
+		pub     []byte
+	}{
+		{"compressed even prefix", append([]byte{2}, fixed32(params.Gx)...)},
+		{"compressed odd prefix", append([]byte{3}, fixed32(params.Gx)...)},
+		{"hybrid prefix 06", append([]byte{6}, uncompressedPoint(params.Gx, params.Gy)[1:]...)},
+		{"hybrid prefix 07", append([]byte{7}, uncompressedPoint(params.Gx, params.Gy)[1:]...)},
+		{"point at infinity", []byte{0}},
+		{"truncated to 64 bytes", uncompressedPoint(params.Gx, params.Gy)[:64]},
+		{"trailing byte", append(uncompressedPoint(params.Gx, params.Gy), 0)},
+		{"x equals the field prime", uncompressedPoint(p, params.Gy)},
+		{"y equals the field prime", uncompressedPoint(params.Gx, p)},
+		{"zero coordinates", uncompressedPoint(zero, zero)},
+		{"y off the curve", uncompressedPoint(params.Gx, offCurveY)},
+		{"x off the curve", uncompressedPoint(one, params.Gy)},
+	}
+
+	var cases []vectors.Case
+	id := 0
+	for _, c := range valid {
+		id++
+		cases = append(cases, vectors.Case{
+			TCID:    id,
+			Comment: c.comment,
+			Result:  "valid",
+			Pub:     hex.EncodeToString(c.pub),
+			X:       hex.EncodeToString(fixed32(c.x)),
+			Y:       hex.EncodeToString(fixed32(c.y)),
+		})
+	}
+	for _, c := range invalid {
+		id++
+		cases = append(cases, vectors.Case{
+			TCID:    id,
+			Comment: c.comment,
+			Result:  "invalid",
+			Pub:     hex.EncodeToString(c.pub),
+		})
+	}
+	return cases, nil
+}
+
+// kdf implements the GB/T 32918.4 key derivation function: SM3 over the
+// shared point encoding and a big-endian counter starting at one.
+func kdf(z []byte, keyLen int) []byte {
+	out := make([]byte, 0, keyLen+sm3.Size)
+	var counter [4]byte
+	for i := uint32(1); len(out) < keyLen; i++ {
+		binary.BigEndian.PutUint32(counter[:], i)
+		h := sm3.New()
+		h.Write(z)
+		h.Write(counter[:])
+		out = append(out, h.Sum(nil)...)
+	}
+	return out[:keyLen]
+}
+
+func allZero(b []byte) bool {
+	var v byte
+	for _, c := range b {
+		v |= c
+	}
+	return v == 0
+}
+
+// encrypt derives the GB/T 32918.4 ciphertext for msg with nonce k. It does
+// not call the code under test: C1 = kG, t = KDF(x2||y2), C2 = msg xor t and
+// C3 = SM3(x2||msg||y2).
+func (s *signer) encrypt(k *big.Int, msg []byte, compressed bool) (c1, c2, c3 []byte, err error) {
+	if len(msg) == 0 {
+		return nil, nil, nil, fmt.Errorf("empty plaintext")
+	}
+	x1, y1 := curve().ScalarBaseMult(k.Bytes())
+	x2, y2 := curve().ScalarMult(s.px, s.py, k.Bytes())
+	t := kdf(append(fixed32(x2), fixed32(y2)...), len(msg))
+	if allZero(t) {
+		return nil, nil, nil, fmt.Errorf("degenerate kdf output")
+	}
+	c2 = make([]byte, len(msg))
+	for i := range msg {
+		c2[i] = msg[i] ^ t[i]
+	}
+	h := sm3.New()
+	h.Write(fixed32(x2))
+	h.Write(msg)
+	h.Write(fixed32(y2))
+	c3 = h.Sum(nil)
+	if compressed {
+		prefix := byte(2)
+		if y1.Bit(0) == 1 {
+			prefix = 3
+		}
+		c1 = append([]byte{prefix}, fixed32(x1)...)
+	} else {
+		c1 = uncompressedPoint(x1, y1)
+	}
+	return c1, c2, c3, nil
+}
+
+// splice assembles the ciphertext parts in the requested order. ASN.1 uses
+// the SEQUENCE { x1, y1, C3, C2 } form of GB/T 32918.4.
+func splice(ordering string, c1, c2, c3 []byte) ([]byte, error) {
+	out := make([]byte, 0, len(c1)+len(c2)+len(c3))
+	switch ordering {
+	case "C1C3C2":
+		out = append(out, c1...)
+		out = append(out, c3...)
+		out = append(out, c2...)
+	case "C1C2C3":
+		out = append(out, c1...)
+		out = append(out, c2...)
+		out = append(out, c3...)
+	case "ASN1":
+		return asn1.Marshal(struct {
+			X, Y   *big.Int
+			C3, C2 []byte
+		}{new(big.Int).SetBytes(c1[1:33]), new(big.Int).SetBytes(c1[33:]), c3, c2})
+	default:
+		return nil, fmt.Errorf("unknown ordering %q", ordering)
+	}
+	return out, nil
+}
+
+// buildPkeDecrypt pins decryption: the plaintext is recovered from C1, C2 and
+// C3 exactly as GB/T 32918.4 specifies, and any alteration is a clean error.
+func buildPkeDecrypt() ([]vectors.Case, error) {
+	recipient := newSigner(keyFixed)
+	priv := hex.EncodeToString(fixed32(keyFixed))
+
+	samples := []struct {
+		tcID       int
+		comment    string
+		msg        []byte
+		nonce      *big.Int
+		compressed bool
+		ordering   string
+	}{
+		{1, "32-byte plaintext, C1C3C2", bytes.Repeat([]byte{0x11}, 32), big.NewInt(7), false, "C1C3C2"},
+		{2, "1-byte plaintext, C1C3C2", []byte{0x00}, big.NewInt(11), false, "C1C3C2"},
+		{3, "33-byte plaintext, C1C2C3", bytes.Repeat([]byte{0x33}, 33), big.NewInt(13), false, "C1C2C3"},
+		{4, "31-byte plaintext, C1C2C3", bytes.Repeat([]byte{0x55}, 31), big.NewInt(17), false, "C1C2C3"},
+		{5, "100-byte plaintext, compressed C1", bytes.Repeat([]byte{0x77}, 100), big.NewInt(19), true, "C1C3C2"},
+		{6, "ASN.1 encoding", bytes.Repeat([]byte{0x99}, 32), big.NewInt(23), false, "ASN1"},
+	}
+
+	var cases []vectors.Case
+	for _, s := range samples {
+		c1, c2, c3, err := recipient.encrypt(s.nonce, s.msg, s.compressed)
+		if err != nil {
+			return nil, fmt.Errorf("tc%d: %w", s.tcID, err)
+		}
+		ct, err := splice(s.ordering, c1, c2, c3)
+		if err != nil {
+			return nil, err
+		}
+		cases = append(cases, vectors.Case{
+			TCID:       s.tcID,
+			Comment:    s.comment,
+			Result:     "valid",
+			Priv:       priv,
+			Ciphertext: hex.EncodeToString(ct),
+			Ordering:   s.ordering,
+			Expected:   hex.EncodeToString(s.msg),
+		})
+	}
+
+	msg := bytes.Repeat([]byte{0x11}, 32)
+	c1, c2, c3, err := recipient.encrypt(big.NewInt(7), msg, false)
+	if err != nil {
+		return nil, err
+	}
+	base, err := splice("C1C3C2", c1, c2, c3)
+	if err != nil {
+		return nil, err
+	}
+	wrongOrder, err := splice("C1C2C3", c1, c2, c3)
+	if err != nil {
+		return nil, err
+	}
+	tamperedC3 := append([]byte(nil), base...)
+	tamperedC3[len(c1)] ^= 1
+	tamperedC2 := append([]byte(nil), base...)
+	tamperedC2[len(tamperedC2)-1] ^= 1
+	badPoint := append(uncompressedPoint(curve().Params().Gx, new(big.Int).Xor(curve().Params().Gy, big.NewInt(1))), c3...)
+	badPoint = append(badPoint, c2...)
+	badPrefix := append([]byte(nil), base...)
+	badPrefix[0] = 5
+
+	invalid := []struct {
+		tcID     int
+		comment  string
+		priv     string
+		ct       []byte
+		ordering string
+	}{
+		{7, "C3 altered in the low bit", priv, tamperedC3, "C1C3C2"},
+		{8, "C2 altered in the low bit", priv, tamperedC2, "C1C3C2"},
+		{9, "C1 off the curve", priv, badPoint, "C1C3C2"},
+		{10, "truncated to 65 bytes", priv, base[:65], "C1C3C2"},
+		{11, "truncated to 66 bytes", priv, base[:66], "C1C3C2"},
+		{12, "empty ciphertext", priv, nil, "C1C3C2"},
+		{13, "C1C2C3 decoded as C1C3C2", priv, wrongOrder, "C1C3C2"},
+		{14, "unsupported C1 prefix", priv, badPrefix, "C1C3C2"},
+		{15, "issue 560 corrupted ciphertext", issue560Key, mustHex(issue560Ciphertext), "C1C3C2"},
+	}
+	for _, c := range invalid {
+		cases = append(cases, vectors.Case{
+			TCID:       c.tcID,
+			Comment:    c.comment,
+			Result:     "invalid",
+			Priv:       c.priv,
+			Ciphertext: hex.EncodeToString(c.ct),
+			Ordering:   c.ordering,
+		})
+	}
+	return cases, nil
+}
+
+func mustHex(s string) []byte {
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		panic("sm2vectors: invalid hex constant: " + err.Error())
+	}
+	return b
+}
+
 // BuildSuite builds the SM2 semantics suite. The output is deterministic;
 // TestVectorsUpToDate regenerates it and compares it with the committed file.
 func BuildSuite() (*vectors.Suite, error) {
@@ -363,6 +635,14 @@ func BuildSuite() (*vectors.Suite, error) {
 		return nil, err
 	}
 	withZA, err := buildVerifySM2()
+	if err != nil {
+		return nil, err
+	}
+	decoding, err := buildPublicKeyDecode()
+	if err != nil {
+		return nil, err
+	}
+	pke, err := buildPkeDecrypt()
 	if err != nil {
 		return nil, err
 	}
@@ -380,6 +660,16 @@ func BuildSuite() (*vectors.Suite, error) {
 				Type:    "VerifySM2",
 				Comment: "sm2.VerifyASN1WithSM2(pub, uid, msg, sig). e is recomputed from ZA and msg; an empty uid means the GM/T 0009 default identifier.",
 				Tests:   withZA,
+			},
+			{
+				Type:    "PublicKeyDecode",
+				Comment: "sm2.ParseUncompressedPublicKey. Only the 65-byte uncompressed form is accepted; the cases cover the field range, the curve equation and every rejected SEC 1 prefix.",
+				Tests:   decoding,
+			},
+			{
+				Type:    "PkeDecrypt",
+				Comment: "sm2.Decrypt and PrivateKey.Decrypt. Ciphertexts are built from the GB/T 32918.4 equations with fixed nonces, not by calling Encrypt, so a KDF or C3 wiring error cannot become the expected value.",
+				Tests:   pke,
 			},
 		},
 	}

@@ -254,6 +254,239 @@
           "result": "invalid"
         }
       ]
+    },
+    {
+      "type": "PublicKeyDecode",
+      "comment": "sm2.ParseUncompressedPublicKey. Only the 65-byte uncompressed form is accepted; the cases cover the field range, the curve equation and every rejected SEC 1 prefix.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "base point G",
+          "pub": "0432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
+          "x": "32c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7",
+          "y": "bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
+          "result": "valid"
+        },
+        {
+          "tcId": 2,
+          "comment": "2G",
+          "pub": "0456cefd60d7c87c000d58ef57fa73ba4d9c0dfa08c08a7331495c2e1da3f2bd5231b7e7e6cc8189f668535ce0f8eaf1bd6de84c182f6c8e716f780d3a970a23c3",
+          "x": "56cefd60d7c87c000d58ef57fa73ba4d9c0dfa08c08a7331495c2e1da3f2bd52",
+          "y": "31b7e7e6cc8189f668535ce0f8eaf1bd6de84c182f6c8e716f780d3a970a23c3",
+          "result": "valid"
+        },
+        {
+          "tcId": 3,
+          "comment": "(n-1)G",
+          "pub": "0432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c743c8c95c0b098863a642311c9496deac2f56788239d5b8c0fd20cd1adec60f5f",
+          "x": "32c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7",
+          "y": "43c8c95c0b098863a642311c9496deac2f56788239d5b8c0fd20cd1adec60f5f",
+          "result": "valid"
+        },
+        {
+          "tcId": 4,
+          "comment": "compressed even prefix",
+          "pub": "0232c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7",
+          "result": "invalid"
+        },
+        {
+          "tcId": 5,
+          "comment": "compressed odd prefix",
+          "pub": "0332c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7",
+          "result": "invalid"
+        },
+        {
+          "tcId": 6,
+          "comment": "hybrid prefix 06",
+          "pub": "0632c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
+          "result": "invalid"
+        },
+        {
+          "tcId": 7,
+          "comment": "hybrid prefix 07",
+          "pub": "0732c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
+          "result": "invalid"
+        },
+        {
+          "tcId": 8,
+          "comment": "point at infinity",
+          "pub": "00",
+          "result": "invalid"
+        },
+        {
+          "tcId": 9,
+          "comment": "truncated to 64 bytes",
+          "pub": "0432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0",
+          "result": "invalid"
+        },
+        {
+          "tcId": 10,
+          "comment": "trailing byte",
+          "pub": "0432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a000",
+          "result": "invalid"
+        },
+        {
+          "tcId": 11,
+          "comment": "x equals the field prime",
+          "pub": "04fffffffeffffffffffffffffffffffffffffffff00000000ffffffffffffffffbc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
+          "result": "invalid"
+        },
+        {
+          "tcId": 12,
+          "comment": "y equals the field prime",
+          "pub": "0432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7fffffffeffffffffffffffffffffffffffffffff00000000ffffffffffffffff",
+          "result": "invalid"
+        },
+        {
+          "tcId": 13,
+          "comment": "zero coordinates",
+          "pub": "0400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+          "result": "invalid"
+        },
+        {
+          "tcId": 14,
+          "comment": "y off the curve",
+          "pub": "0432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a1",
+          "result": "invalid"
+        },
+        {
+          "tcId": 15,
+          "comment": "x off the curve",
+          "pub": "040000000000000000000000000000000000000000000000000000000000000001bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
+          "result": "invalid"
+        }
+      ]
+    },
+    {
+      "type": "PkeDecrypt",
+      "comment": "sm2.Decrypt and PrivateKey.Decrypt. Ciphertexts are built from the GB/T 32918.4 equations with fixed nonces, not by calling Encrypt, so a KDF or C3 wiring error cannot become the expected value.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "32-byte plaintext, C1C3C2",
+          "expected": "1111111111111111111111111111111111111111111111111111111111111111",
+          "priv": "3945208f7b2144b13f36e38ac6d39f95889393692860b51a42fb81ef4df7c5b8",
+          "ciphertext": "04ddf092555409c19dfdbe86a75c139906a80198337744ee78cd27e384d9fcaf15847d18ffb38e87065cd6b6e9c12d2922037937707d6a49a2223b949657e52bc18d10ae926bafd926fa40e89ed700885732df7dbfcc66dcac223356740d89b01074bd589433ca8e273ae92940bf60bb7d39100d33cd557e418b9c4b098073743a",
+          "ordering": "C1C3C2",
+          "result": "valid"
+        },
+        {
+          "tcId": 2,
+          "comment": "1-byte plaintext, C1C3C2",
+          "expected": "00",
+          "priv": "3945208f7b2144b13f36e38ac6d39f95889393692860b51a42fb81ef4df7c5b8",
+          "ciphertext": "0404b3cb10c9c6d8e27c1aab770f67f543125dcdd589c2ff82668c74d78ce20ace63516355287e39fe4918e5c02e2b0b930c94816e63c4bc72739a8fd805174a4bff6e247eaec6b76e698c3f492fe176285d34a50e48833adfe29f225a7ae9e8d508",
+          "ordering": "C1C3C2",
+          "result": "valid"
+        },
+        {
+          "tcId": 3,
+          "comment": "33-byte plaintext, C1C2C3",
+          "expected": "333333333333333333333333333333333333333333333333333333333333333333",
+          "priv": "3945208f7b2144b13f36e38ac6d39f95889393692860b51a42fb81ef4df7c5b8",
+          "ciphertext": "04952072d6ff9c65bdfa804513275f58aa7bea65c6421e189e2b834f1d509b9cd0e6bb9804458bb70f1a473f8d9748f23858d1434ae934ba7503891e105e009b0001b7a41a38d5baa996d2579cdc03324de080ade4f24e3290a3265b12ec7ea5a0faf0e36fff62e0a227a9cf199a27902fb7859475f03b986c3d4e313a7a8a01dc93",
+          "ordering": "C1C2C3",
+          "result": "valid"
+        },
+        {
+          "tcId": 4,
+          "comment": "31-byte plaintext, C1C2C3",
+          "expected": "55555555555555555555555555555555555555555555555555555555555555",
+          "priv": "3945208f7b2144b13f36e38ac6d39f95889393692860b51a42fb81ef4df7c5b8",
+          "ciphertext": "04dd18aa4aec26eac41c993f01115c57f7bf5113ab85b5ed4436969f8b77125e6a161e5851969da8223361493f76fac50f6cce6001d7c0b853e0180d54d4ae22211a89f23e3e3299811512af2e6ebf1f9a409ac14f19391a14410885d27ba2314a1132a215461e309583eef4dd86cf4f32e87e4bb58813dc2a5eb6ef3aabcb4c",
+          "ordering": "C1C2C3",
+          "result": "valid"
+        },
+        {
+          "tcId": 5,
+          "comment": "100-byte plaintext, compressed C1",
+          "expected": "77777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777",
+          "priv": "3945208f7b2144b13f36e38ac6d39f95889393692860b51a42fb81ef4df7c5b8",
+          "ciphertext": "03a68b2ec49d1921d0e2e0586bb5dc9419f7c96c55940a47261323f252e493952a73e32909db4832c71b581ed581c28b0ab9d18721816d92aee5e5192a4d6a82ca1daeed359b1d23933b00e4ee56fb6b916f433540de66922f1fe9b68e57831ceb26d46a4f0ab74a22a63fbe75ad38b958e42d41dfc9f204a7d3ab65fe02fb60033b86615ef509f45678405114a032983917bbd0a289396bdd7c72140f17cae101563de092",
+          "ordering": "C1C3C2",
+          "result": "valid"
+        },
+        {
+          "tcId": 6,
+          "comment": "ASN.1 encoding",
+          "expected": "9999999999999999999999999999999999999999999999999999999999999999",
+          "priv": "3945208f7b2144b13f36e38ac6d39f95889393692860b51a42fb81ef4df7c5b8",
+          "ciphertext": "30818a022100ac8df677299e828815c07a8c04226fe3bb570a9f430ea7f64dbb2fcd069d45db022100aef82cf361db1c7130c43be69b23cc140e9b9643d766da337bd8b7c847718ce50420e5847f6d91dedcdb4adc96c103229d7e3d3c58da8da524a8baa9a9393c4762900420d27beb0f22640f1934d6b9d1037ae8a19570b1e40d3e85eec836a8a19923f4cc",
+          "ordering": "ASN1",
+          "result": "valid"
+        },
+        {
+          "tcId": 7,
+          "comment": "C3 altered in the low bit",
+          "priv": "3945208f7b2144b13f36e38ac6d39f95889393692860b51a42fb81ef4df7c5b8",
+          "ciphertext": "04ddf092555409c19dfdbe86a75c139906a80198337744ee78cd27e384d9fcaf15847d18ffb38e87065cd6b6e9c12d2922037937707d6a49a2223b949657e52bc18c10ae926bafd926fa40e89ed700885732df7dbfcc66dcac223356740d89b01074bd589433ca8e273ae92940bf60bb7d39100d33cd557e418b9c4b098073743a",
+          "ordering": "C1C3C2",
+          "result": "invalid"
+        },
+        {
+          "tcId": 8,
+          "comment": "C2 altered in the low bit",
+          "priv": "3945208f7b2144b13f36e38ac6d39f95889393692860b51a42fb81ef4df7c5b8",
+          "ciphertext": "04ddf092555409c19dfdbe86a75c139906a80198337744ee78cd27e384d9fcaf15847d18ffb38e87065cd6b6e9c12d2922037937707d6a49a2223b949657e52bc18d10ae926bafd926fa40e89ed700885732df7dbfcc66dcac223356740d89b01074bd589433ca8e273ae92940bf60bb7d39100d33cd557e418b9c4b098073743b",
+          "ordering": "C1C3C2",
+          "result": "invalid"
+        },
+        {
+          "tcId": 9,
+          "comment": "C1 off the curve",
+          "priv": "3945208f7b2144b13f36e38ac6d39f95889393692860b51a42fb81ef4df7c5b8",
+          "ciphertext": "0432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a18d10ae926bafd926fa40e89ed700885732df7dbfcc66dcac223356740d89b01074bd589433ca8e273ae92940bf60bb7d39100d33cd557e418b9c4b098073743a",
+          "ordering": "C1C3C2",
+          "result": "invalid"
+        },
+        {
+          "tcId": 10,
+          "comment": "truncated to 65 bytes",
+          "priv": "3945208f7b2144b13f36e38ac6d39f95889393692860b51a42fb81ef4df7c5b8",
+          "ciphertext": "04ddf092555409c19dfdbe86a75c139906a80198337744ee78cd27e384d9fcaf15847d18ffb38e87065cd6b6e9c12d2922037937707d6a49a2223b949657e52bc1",
+          "ordering": "C1C3C2",
+          "result": "invalid"
+        },
+        {
+          "tcId": 11,
+          "comment": "truncated to 66 bytes",
+          "priv": "3945208f7b2144b13f36e38ac6d39f95889393692860b51a42fb81ef4df7c5b8",
+          "ciphertext": "04ddf092555409c19dfdbe86a75c139906a80198337744ee78cd27e384d9fcaf15847d18ffb38e87065cd6b6e9c12d2922037937707d6a49a2223b949657e52bc18d",
+          "ordering": "C1C3C2",
+          "result": "invalid"
+        },
+        {
+          "tcId": 12,
+          "comment": "empty ciphertext",
+          "priv": "3945208f7b2144b13f36e38ac6d39f95889393692860b51a42fb81ef4df7c5b8",
+          "ordering": "C1C3C2",
+          "result": "invalid"
+        },
+        {
+          "tcId": 13,
+          "comment": "C1C2C3 decoded as C1C3C2",
+          "priv": "3945208f7b2144b13f36e38ac6d39f95889393692860b51a42fb81ef4df7c5b8",
+          "ciphertext": "04ddf092555409c19dfdbe86a75c139906a80198337744ee78cd27e384d9fcaf15847d18ffb38e87065cd6b6e9c12d2922037937707d6a49a2223b949657e52bc174bd589433ca8e273ae92940bf60bb7d39100d33cd557e418b9c4b098073743a8d10ae926bafd926fa40e89ed700885732df7dbfcc66dcac223356740d89b010",
+          "ordering": "C1C3C2",
+          "result": "invalid"
+        },
+        {
+          "tcId": 14,
+          "comment": "unsupported C1 prefix",
+          "priv": "3945208f7b2144b13f36e38ac6d39f95889393692860b51a42fb81ef4df7c5b8",
+          "ciphertext": "05ddf092555409c19dfdbe86a75c139906a80198337744ee78cd27e384d9fcaf15847d18ffb38e87065cd6b6e9c12d2922037937707d6a49a2223b949657e52bc18d10ae926bafd926fa40e89ed700885732df7dbfcc66dcac223356740d89b01074bd589433ca8e273ae92940bf60bb7d39100d33cd557e418b9c4b098073743a",
+          "ordering": "C1C3C2",
+          "result": "invalid"
+        },
+        {
+          "tcId": 15,
+          "comment": "issue 560 corrupted ciphertext",
+          "priv": "339f68c658653c4172dadf19b375613a3e8af3ece001d82f7c6678694e9fff83",
+          "ciphertext": "041982b3dffcfe9a66a51530925dcf390d267325cf12958373e54d236fe6acd928a68414663325b43aa77d41ee2895d7a9a43942c1255b1dd045ed63c264d9db3e46eab559da5b4bc61082947c615ddc966d9b5d901cb9d42205f26267c4f86bc0804a8fb146ef9452b2c4e21b1e719979",
+          "ordering": "C1C3C2",
+          "result": "invalid"
+        }
+      ]
     }
   ]
 }
