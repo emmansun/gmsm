@@ -68,6 +68,7 @@ func Test_iso9797M2Padding_Unpad(t *testing.T) {
 		{"3 bytes with tag", []byte{0x80, 0, 0x80}, []byte{0x80, 0, 0x80, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, false},
 		{"19 bytes with tag", []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0x80, 0, 0x80}, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0x80, 0, 0x80, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, false},
 		{"invalid src length", nil, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, true},
+		{"missing 0x80 marker", nil, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, true},
 		{"inconsistent padding bytes", nil, []byte{0, 0x80, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, true},
 	}
 	for _, tt := range tests {

@@ -33,19 +33,19 @@ func (pad iso9797M2Padding) Unpad(src []byte) ([]byte, error) {
 		return nil, errors.New("padding: src length is not multiple of block size")
 	}
 	tail := src[srcLen-pad.BlockSize():]
-	allZero := true
-	padStart := 0
+	padStart := -1
 	for i := pad.BlockSize() - 1; i >= 0; i-- {
 		if tail[i] == 0x80 {
 			padStart = i
 			break
 		}
 		if tail[i] != 0 {
-			allZero = false
-			break
+			return nil, errors.New("padding: inconsistent padding bytes")
 		}
 	}
-	if !allZero {
+	// A block without the 0x80 marker is never produced by Pad; accepting it
+	// would silently strip a block of zeros from the plaintext.
+	if padStart < 0 {
 		return nil, errors.New("padding: inconsistent padding bytes")
 	}
 	return src[:srcLen-pad.BlockSize()+padStart], nil
