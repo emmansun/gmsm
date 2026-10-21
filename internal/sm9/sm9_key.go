@@ -232,6 +232,9 @@ func (priv *SignPrivateKey) SetMasterPublicKey(pub *SignMasterPublicKey) {
 }
 
 func unmarshalG2(bytes []byte) (*bn256.G2, error) {
+	if len(bytes) == 0 {
+		return nil, errors.New("sm9: invalid point identity byte")
+	}
 	g2 := new(bn256.G2)
 	switch bytes[0] {
 	case 4:
@@ -246,6 +249,9 @@ func unmarshalG2(bytes []byte) (*bn256.G2, error) {
 		}
 	default:
 		return nil, errors.New("sm9: invalid point identity byte")
+	}
+	if g2.IsInfinity() {
+		return nil, errors.New("sm9: invalid point at infinity")
 	}
 	return g2, nil
 }
@@ -262,6 +268,9 @@ func (pub *SignMasterPublicKey) UnmarshalRaw(bytes []byte) error {
 }
 
 func unmarshalG1(bytes []byte) (*bn256.G1, error) {
+	if len(bytes) == 0 {
+		return nil, errors.New("sm9: invalid point encoding")
+	}
 	g := new(bn256.G1)
 	switch bytes[0] {
 	case 4:
@@ -276,6 +285,9 @@ func unmarshalG1(bytes []byte) (*bn256.G1, error) {
 		}
 	default:
 		return nil, errors.New("sm9: invalid point encoding")
+	}
+	if g.IsInfinity() {
+		return nil, errors.New("sm9: invalid point at infinity")
 	}
 	return g, nil
 }

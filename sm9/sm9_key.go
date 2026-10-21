@@ -96,7 +96,7 @@ func UnmarshalSignMasterPrivateKeyASN1(der []byte) (*SignMasterPrivateKey, error
 	var inner cryptobyte.String
 	var pubBytes []byte
 	var err error
-	if der[0] == 0x30 {
+	if len(der) > 0 && der[0] == 0x30 {
 		if !input.ReadASN1(&inner, cryptobyte_asn1.SEQUENCE) ||
 			!input.Empty() ||
 			!inner.ReadASN1Integer(d) {
@@ -188,7 +188,7 @@ func UnmarshalSignMasterPublicKeyASN1(der []byte) (*SignMasterPublicKey, error) 
 	var bytes []byte
 	var inner cryptobyte.String
 	input := cryptobyte.String(der)
-	if der[0] == 0x30 {
+	if len(der) > 0 && der[0] == 0x30 {
 		if !input.ReadASN1(&inner, cryptobyte_asn1.SEQUENCE) ||
 			!input.Empty() ||
 			!inner.ReadASN1BitStringAsBytes(&bytes) ||
@@ -278,7 +278,7 @@ func UnmarshalSignPrivateKeyASN1(der []byte) (*SignPrivateKey, error) {
 	var pubBytes []byte
 	var inner cryptobyte.String
 	input := cryptobyte.String(der)
-	if der[0] == 0x30 {
+	if len(der) > 0 && der[0] == 0x30 {
 		if !input.ReadASN1(&inner, cryptobyte_asn1.SEQUENCE) ||
 			!input.Empty() ||
 			!inner.ReadASN1BitStringAsBytes(&bytes) {
@@ -366,7 +366,7 @@ func UnmarshalEncryptMasterPrivateKeyASN1(der []byte) (*EncryptMasterPrivateKey,
 	d := &big.Int{}
 	var inner cryptobyte.String
 	var pubBytes []byte
-	if der[0] == 0x30 {
+	if len(der) > 0 && der[0] == 0x30 {
 		if !input.ReadASN1(&inner, cryptobyte_asn1.SEQUENCE) ||
 			!input.Empty() ||
 			!inner.ReadASN1Integer(d) {
@@ -451,7 +451,7 @@ func UnmarshalEncryptMasterPublicKeyASN1(der []byte) (*EncryptMasterPublicKey, e
 	var bytes []byte
 	var inner cryptobyte.String
 	input := cryptobyte.String(der)
-	if der[0] == 0x30 {
+	if len(der) > 0 && der[0] == 0x30 {
 		if !input.ReadASN1(&inner, cryptobyte_asn1.SEQUENCE) ||
 			!input.Empty() ||
 			!inner.ReadASN1BitStringAsBytes(&bytes) ||
@@ -513,7 +513,7 @@ func UnmarshalEncryptPrivateKeyASN1(der []byte) (*EncryptPrivateKey, error) {
 	var pubBytes []byte
 	var inner cryptobyte.String
 	input := cryptobyte.String(der)
-	if der[0] == 0x30 {
+	if len(der) > 0 && der[0] == 0x30 {
 		if !input.ReadASN1(&inner, cryptobyte_asn1.SEQUENCE) ||
 			!input.Empty() ||
 			!inner.ReadASN1BitStringAsBytes(&bytes) {
