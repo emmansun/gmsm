@@ -8,6 +8,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"math/big"
 	"testing"
 
@@ -91,20 +92,27 @@ func TestNewPrivateKeyFromInt(t *testing.T) {
 func TestParseUncompressedPublicKey(t *testing.T) {
 	// test nil
 	_, err := ParseUncompressedPublicKey(nil)
-	if err == nil || err.Error() != "sm2: invalid public key encoding" {
-		t.Errorf("should throw sm2: invalid public key encoding")
+	if !errors.Is(err, errInvalidPublicKey) {
+		t.Errorf("nil: got %v, want %v", err, errInvalidPublicKey)
 	}
 	// test without point format prefix byte
 	keypoints, _ := hex.DecodeString("8356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1")
 	_, err = ParseUncompressedPublicKey(keypoints)
-	if err == nil || err.Error() != "invalid P256 point encoding" {
-		t.Errorf("invalid P256 point encoding")
+	if !errors.Is(err, errInvalidPublicKey) {
+		t.Errorf("missing prefix: got %v, want %v", err, errInvalidPublicKey)
 	}
 	// test correct point
 	keypoints, _ = hex.DecodeString("048356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1")
-	_, err = ParseUncompressedPublicKey(keypoints)
-	if err != nil {
+	if _, err := ParseUncompressedPublicKey(keypoints); err != nil {
 		t.Fatal(err)
+	}
+	// test compressed and hybrid prefixes: they used to be decoded into a key
+	// with a zero Y coordinate instead of being rejected
+	for _, prefix := range []byte{2, 3, 6, 7} {
+		encoded := append([]byte{prefix}, keypoints[1:]...)
+		if _, err := ParseUncompressedPublicKey(encoded); !errors.Is(err, errInvalidPublicKey) {
+			t.Errorf("prefix %#x: got %v, want %v", prefix, err, errInvalidPublicKey)
+		}
 	}
 	// test point not on curve
 	keypoints, _ = hex.DecodeString("048356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba2")
