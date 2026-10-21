@@ -84,6 +84,7 @@ type Case struct {
 	// knows.
 	Pub        string `json:"pub,omitempty"` // SEC 1 point, 04||X||Y
 	UID        string `json:"uid,omitempty"` // empty means the library default
+	HID        int    `json:"hid,omitempty"` // SM9 hierarchy identifier
 	Msg        string `json:"msg,omitempty"`
 	Hash       string `json:"hash,omitempty"` // precomputed e for Verify
 	R          string `json:"r,omitempty"`
@@ -107,6 +108,19 @@ type Case struct {
 	TagSize   int    `json:"tagSize,omitempty"`
 	NonceSize int    `json:"nonceSize,omitempty"`
 	Sector    uint64 `json:"sector,omitempty"`
+	// BitLen is the number of message bits for bit-oriented MACs; zero
+	// means the whole Input buffer.
+	BitLen int `json:"bitLen,omitempty"`
+	// KeyLen is the requested output length of a key derivation function.
+	KeyLen int `json:"keyLen,omitempty"`
+
+	// Count, Bearer and Direction are the ZUC frame parameters. Count is
+	// the 32-bit frame counter, Bearer the 5-bit bearer identity and
+	// Direction the 1-bit transmission direction flag; Nonce carries the
+	// frame IV derived from them.
+	Count     uint32 `json:"count,omitempty"`
+	Bearer    uint32 `json:"bearer,omitempty"`
+	Direction uint32 `json:"direction,omitempty"`
 }
 
 // Load unmarshals a committed vector file by name, e.g.
