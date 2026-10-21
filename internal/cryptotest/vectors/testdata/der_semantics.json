@@ -1,0 +1,451 @@
+{
+  "schema": "gmsm-semantics-vectors/v1",
+  "algorithm": "DER",
+  "generator": "internal/cryptotest/dervectors/generate.go; regenerate with go test ./internal/cryptotest/dervectors -run TestVectorsUpToDate -update",
+  "testGroups": [
+    {
+      "type": "X509Certificate",
+      "comment": "smx509.ParseCertificate. DER only: X.690 length and tag canon",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "v3 certificate with a basicConstraints extension",
+          "flags": [
+            "Baseline"
+          ],
+          "result": "valid",
+          "input": "3081c03081a6a003020102020101300a06082a811ccf550183753000301e170d3235303130313030303030305a170d3335303130313030303030305a3000305a301406082a811ccf5501822d06082a811ccf5501822d0342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0a310300e300c0603551d13040530030101ff300a06082a811ccf550183750309003006020101020101"
+        },
+        {
+          "tcId": 2,
+          "comment": "v1 certificate: the version field and extensions are absent",
+          "flags": [
+            "Baseline"
+          ],
+          "result": "valid",
+          "input": "3081a930818f020101300a06082a811ccf550183753000301e170d3235303130313030303030305a170d3335303130313030303030305a3000305a301406082a811ccf5501822d06082a811ccf5501822d0342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0300a06082a811ccf550183750309003006020101020101"
+        },
+        {
+          "tcId": 3,
+          "comment": "trailing zero byte after the top-level SEQUENCE",
+          "flags": [
+            "TrailingData"
+          ],
+          "result": "invalid",
+          "input": "3081c03081a6a003020102020101300a06082a811ccf550183753000301e170d3235303130313030303030305a170d3335303130313030303030305a3000305a301406082a811ccf5501822d06082a811ccf5501822d0342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0a310300e300c0603551d13040530030101ff300a06082a811ccf55018375030900300602010102010100"
+        },
+        {
+          "tcId": 4,
+          "comment": "trailing complete TLV after the top-level SEQUENCE",
+          "flags": [
+            "TrailingData"
+          ],
+          "result": "invalid",
+          "input": "3081c03081a6a003020102020101300a06082a811ccf550183753000301e170d3235303130313030303030305a170d3335303130313030303030305a3000305a301406082a811ccf5501822d06082a811ccf5501822d0342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0a310300e300c0603551d13040530030101ff300a06082a811ccf5501837503090030060201010201010500"
+        },
+        {
+          "tcId": 5,
+          "comment": "outer length in long form with a leading zero",
+          "flags": [
+            "DerNonCanonical"
+          ],
+          "result": "invalid",
+          "input": "308200c03081a6a003020102020101300a06082a811ccf550183753000301e170d3235303130313030303030305a170d3335303130313030303030305a3000305a301406082a811ccf5501822d06082a811ccf5501822d0342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0a310300e300c0603551d13040530030101ff300a06082a811ccf550183750309003006020101020101"
+        },
+        {
+          "tcId": 6,
+          "comment": "outer element in indefinite form",
+          "flags": [
+            "IndefiniteLength"
+          ],
+          "result": "invalid",
+          "input": "30803081a6a003020102020101300a06082a811ccf550183753000301e170d3235303130313030303030305a170d3335303130313030303030305a3000305a301406082a811ccf5501822d06082a811ccf5501822d0342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0a310300e300c0603551d13040530030101ff300a06082a811ccf5501837503090030060201010201010000"
+        },
+        {
+          "tcId": 7,
+          "comment": "outer length claims 2 GiB",
+          "flags": [
+            "LengthOverflow"
+          ],
+          "result": "invalid",
+          "input": "30847fffffff3081a6a003020102020101300a06082a811ccf550183753000301e170d3235303130313030303030305a170d3335303130313030303030305a3000305a301406082a811ccf5501822d06082a811ccf5501822d0342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0a310300e300c0603551d13040530030101ff300a06082a811ccf550183750309003006020101020101"
+        },
+        {
+          "tcId": 8,
+          "comment": "last byte removed",
+          "flags": [
+            "Truncated"
+          ],
+          "result": "invalid",
+          "input": "3081c03081a6a003020102020101300a06082a811ccf550183753000301e170d3235303130313030303030305a170d3335303130313030303030305a3000305a301406082a811ccf5501822d06082a811ccf5501822d0342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0a310300e300c0603551d13040530030101ff300a06082a811ccf5501837503090030060201010201"
+        },
+        {
+          "tcId": 9,
+          "comment": "outer SEQUENCE tag changed to SET",
+          "flags": [
+            "TagMismatch"
+          ],
+          "result": "invalid",
+          "input": "3181c03081a6a003020102020101300a06082a811ccf550183753000301e170d3235303130313030303030305a170d3335303130313030303030305a3000305a301406082a811ccf5501822d06082a811ccf5501822d0342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0a310300e300c0603551d13040530030101ff300a06082a811ccf550183750309003006020101020101"
+        },
+        {
+          "tcId": 10,
+          "comment": "signature BIT STRING encoded as constructed",
+          "flags": [
+            "TagMismatch"
+          ],
+          "result": "invalid",
+          "input": "3081c03081a6a003020102020101300a06082a811ccf550183753000301e170d3235303130313030303030305a170d3335303130313030303030305a3000305a301406082a811ccf5501822d06082a811ccf5501822d0342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0a310300e300c0603551d13040530030101ff300a06082a811ccf550183752309003006020101020101"
+        },
+        {
+          "tcId": 11,
+          "comment": "negative serial number",
+          "flags": [
+            "OutOfRange"
+          ],
+          "result": "invalid",
+          "input": "3081ae308194a003020102020180300a06082a811ccf550183753000301e170d3235303130313030303030305a170d3335303130313030303030305a3000305a301406082a811ccf5501822d06082a811ccf5501822d0342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0300a06082a811ccf550183750309003006020101020101"
+        },
+        {
+          "tcId": 12,
+          "comment": "certificate version 4",
+          "flags": [
+            "SchemaViolation"
+          ],
+          "result": "invalid",
+          "input": "3081ae308194a003020103020101300a06082a811ccf550183753000301e170d3235303130313030303030305a170d3335303130313030303030305a3000305a301406082a811ccf5501822d06082a811ccf5501822d0342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0300a06082a811ccf550183750309003006020101020101"
+        },
+        {
+          "tcId": 13,
+          "comment": "serial INTEGER with a leading zero",
+          "flags": [
+            "DerNonCanonical"
+          ],
+          "result": "invalid",
+          "input": "3081af308195a00302010202020001300a06082a811ccf550183753000301e170d3235303130313030303030305a170d3335303130313030303030305a3000305a301406082a811ccf5501822d06082a811ccf5501822d0342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0300a06082a811ccf550183750309003006020101020101"
+        },
+        {
+          "tcId": 14,
+          "comment": "duplicate basicConstraints extension",
+          "flags": [
+            "SchemaViolation"
+          ],
+          "result": "invalid",
+          "input": "3081ce3081b4a003020102020101300a06082a811ccf550183753000301e170d3235303130313030303030305a170d3335303130313030303030305a3000305a301406082a811ccf5501822d06082a811ccf5501822d0342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0a31e301c300c0603551d13040530030101ff300c0603551d13040530030101ff300a06082a811ccf550183750309003006020101020101"
+        },
+        {
+          "tcId": 15,
+          "comment": "inner and outer signature algorithm identifiers differ",
+          "flags": [
+            "SchemaViolation"
+          ],
+          "result": "invalid",
+          "input": "3081ae308194a003020102020101300a06082a811ccf550183753000301e170d3235303130313030303030305a170d3335303130313030303030305a3000305a301406082a811ccf5501822d06082a811ccf5501822d0342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0300a06082a8648ce3d0403020309003006020101020101"
+        },
+        {
+          "tcId": 16,
+          "comment": "SM2 subjectPublicKeyInfo with explicit curve parameters",
+          "flags": [
+            "SchemaViolation"
+          ],
+          "result": "invalid",
+          "input": "3082010d3081f3a003020102020101300a06082a811ccf550183753000301e170d3235303130313030303030305a170d3335303130313030303030305a30003081b8307206082a811ccf5501822d3066020101300c06072a8648ce3d01010201173053020101042032c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c70420bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a00401010401020201010201010342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0300a06082a811ccf550183750309003006020101020101"
+        },
+        {
+          "tcId": 17,
+          "comment": "empty input",
+          "flags": [
+            "Truncated"
+          ],
+          "result": "invalid"
+        }
+      ]
+    },
+    {
+      "type": "X509CSR",
+      "comment": "smx509.ParseCertificateRequest. PKCS #10 (RFC 2986) over encoding/asn1, which enforces DER",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "request with an empty attribute set",
+          "flags": [
+            "Baseline"
+          ],
+          "result": "valid",
+          "input": "307830630201003000305a301406082a811ccf5501822d06082a811ccf5501822d0342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0a000300a06082a811ccf5501837503050001020304"
+        },
+        {
+          "tcId": 2,
+          "comment": "trailing byte after the top-level SEQUENCE",
+          "flags": [
+            "TrailingData"
+          ],
+          "result": "invalid",
+          "input": "307830630201003000305a301406082a811ccf5501822d06082a811ccf5501822d0342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0a000300a06082a811ccf550183750305000102030400"
+        },
+        {
+          "tcId": 3,
+          "comment": "outer length in long form with a leading zero",
+          "flags": [
+            "DerNonCanonical"
+          ],
+          "result": "invalid",
+          "input": "3082007830630201003000305a301406082a811ccf5501822d06082a811ccf5501822d0342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0a000300a06082a811ccf5501837503050001020304"
+        },
+        {
+          "tcId": 4,
+          "comment": "outer element in indefinite form",
+          "flags": [
+            "IndefiniteLength"
+          ],
+          "result": "invalid",
+          "input": "308030630201003000305a301406082a811ccf5501822d06082a811ccf5501822d0342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0a000300a06082a811ccf55018375030500010203040000"
+        },
+        {
+          "tcId": 5,
+          "comment": "last byte removed",
+          "flags": [
+            "Truncated"
+          ],
+          "result": "invalid",
+          "input": "307830630201003000305a301406082a811ccf5501822d06082a811ccf5501822d0342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0a000300a06082a811ccf55018375030500010203"
+        },
+        {
+          "tcId": 6,
+          "comment": "outer SEQUENCE tag changed to SET",
+          "flags": [
+            "TagMismatch"
+          ],
+          "result": "invalid",
+          "input": "317830630201003000305a301406082a811ccf5501822d06082a811ccf5501822d0342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0a000300a06082a811ccf5501837503050001020304"
+        },
+        {
+          "tcId": 7,
+          "comment": "SAN extension with a three byte IP address",
+          "flags": [
+            "SchemaViolation"
+          ],
+          "result": "invalid",
+          "input": "30819a3081840201003000305a301406082a811ccf5501822d06082a811ccf5501822d0342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0a021301f06092a864886f70d01090e31123010300e0603551d11040730058703010203300a06082a811ccf5501837503050001020304"
+        }
+      ]
+    },
+    {
+      "type": "PKCS8",
+      "comment": "pkcs8.ParsePKCS8PrivateKeySM2. RFC 5208 PrivateKeyInfo wrapping a SEC 1 ECPrivateKey",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "unencrypted key with d = 1",
+          "flags": [
+            "Baseline"
+          ],
+          "result": "valid",
+          "input": "308194020100301406082a811ccf5501822d06082a811ccf5501822d0479307702010104200000000000000000000000000000000000000000000000000000000000000001a00a06082a811ccf5501822da1440342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0"
+        },
+        {
+          "tcId": 2,
+          "comment": "outer length in long form with a leading zero",
+          "flags": [
+            "DerNonCanonical"
+          ],
+          "result": "invalid",
+          "input": "30820094020100301406082a811ccf5501822d06082a811ccf5501822d0479307702010104200000000000000000000000000000000000000000000000000000000000000001a00a06082a811ccf5501822da1440342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0"
+        },
+        {
+          "tcId": 3,
+          "comment": "outer element in indefinite form",
+          "flags": [
+            "IndefiniteLength"
+          ],
+          "result": "invalid",
+          "input": "3080020100301406082a811ccf5501822d06082a811ccf5501822d0479307702010104200000000000000000000000000000000000000000000000000000000000000001a00a06082a811ccf5501822da1440342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a00000"
+        },
+        {
+          "tcId": 4,
+          "comment": "last byte removed",
+          "flags": [
+            "Truncated"
+          ],
+          "result": "invalid",
+          "input": "308194020100301406082a811ccf5501822d06082a811ccf5501822d0479307702010104200000000000000000000000000000000000000000000000000000000000000001a00a06082a811ccf5501822da1440342000432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0"
+        },
+        {
+          "tcId": 5,
+          "comment": "empty input",
+          "flags": [
+            "Truncated"
+          ],
+          "result": "invalid"
+        },
+        {
+          "tcId": 6,
+          "comment": "embedded ECPrivateKey version 2",
+          "flags": [
+            "SchemaViolation"
+          ],
+          "result": "invalid",
+          "input": "304e020100301406082a811ccf5501822d06082a811ccf5501822d0433303102010204200000000000000000000000000000000000000000000000000000000000000001a00a06082a811ccf5501822d"
+        },
+        {
+          "tcId": 7,
+          "comment": "d = 0",
+          "flags": [
+            "OutOfRange"
+          ],
+          "result": "invalid",
+          "input": "304e020100301406082a811ccf5501822d06082a811ccf5501822d0433303102010104200000000000000000000000000000000000000000000000000000000000000000a00a06082a811ccf5501822d"
+        },
+        {
+          "tcId": 8,
+          "comment": "d = n, the group order",
+          "flags": [
+            "OutOfRange"
+          ],
+          "result": "invalid",
+          "input": "304e020100301406082a811ccf5501822d06082a811ccf5501822d043330310201010420fffffffeffffffffffffffffffffffff7203df6b21c6052b53bbf40939d54123a00a06082a811ccf5501822d"
+        },
+        {
+          "tcId": 9,
+          "comment": "d padded to 33 bytes with a leading zero",
+          "flags": [
+            "DocumentedTolerance"
+          ],
+          "result": "valid",
+          "input": "304f020100301406082a811ccf5501822d06082a811ccf5501822d043430320201010421000000000000000000000000000000000000000000000000000000000000000001a00a06082a811ccf5501822d"
+        },
+        {
+          "tcId": 10,
+          "comment": "curve parameters absent",
+          "flags": [
+            "SchemaViolation"
+          ],
+          "result": "invalid",
+          "input": "3038020100300a06082a811ccf5501822d0427302502010104200000000000000000000000000000000000000000000000000000000000000001"
+        },
+        {
+          "tcId": 11,
+          "comment": "curve parameters name P-256",
+          "flags": [
+            "SchemaViolation"
+          ],
+          "result": "invalid",
+          "input": "304e020100301406082a811ccf5501822d06082a8648ce3d0301070433303102010104200000000000000000000000000000000000000000000000000000000000000001a00a06082a8648ce3d030107"
+        },
+        {
+          "tcId": 12,
+          "comment": "embedded public key is 2G while d = 1",
+          "flags": [
+            "DocumentedTolerance"
+          ],
+          "result": "valid",
+          "input": "308194020100301406082a811ccf5501822d06082a811ccf5501822d0479307702010104200000000000000000000000000000000000000000000000000000000000000001a00a06082a811ccf5501822da14403420004c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee51ae168fea63dc339a3c58419466ceaeef7f632653266d0e1236431a950cfe52a"
+        }
+      ]
+    },
+    {
+      "type": "PKCS7",
+      "comment": "pkcs7.Parse. RFC 5652 CMS; BER is accepted, so indefinite lengths are legal input",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "DER SignedData with an empty signerInfos set",
+          "flags": [
+            "Baseline"
+          ],
+          "result": "valid",
+          "input": "303706092a864886f70d010702a02a30280201013100301f06092a864886f70d010701a0120410676d736d2064657220766563746f72733100"
+        },
+        {
+          "tcId": 2,
+          "comment": "same content with every constructed element in indefinite form",
+          "flags": [
+            "BERLeniency"
+          ],
+          "result": "valid",
+          "input": "308006092a864886f70d010702a080308002010131800000308006092a864886f70d010701a0800410676d736d2064657220766563746f72730000000031800000000000000000"
+        },
+        {
+          "tcId": 3,
+          "comment": "empty signerInfos SET encoded in indefinite form",
+          "flags": [
+            "BERLeniency"
+          ],
+          "result": "valid",
+          "input": "303906092a864886f70d010702a02c302a0201013100301f06092a864886f70d010701a0120410676d736d2064657220766563746f727331800000"
+        },
+        {
+          "tcId": 4,
+          "comment": "trailing zero byte after the ContentInfo",
+          "flags": [
+            "TrailingData"
+          ],
+          "result": "invalid",
+          "input": "303706092a864886f70d010702a02a30280201013100301f06092a864886f70d010701a0120410676d736d2064657220766563746f7273310000"
+        },
+        {
+          "tcId": 5,
+          "comment": "trailing TLV after the ContentInfo",
+          "flags": [
+            "TrailingData"
+          ],
+          "result": "invalid",
+          "input": "303706092a864886f70d010702a02a30280201013100301f06092a864886f70d010701a0120410676d736d2064657220766563746f72733100dead"
+        },
+        {
+          "tcId": 6,
+          "comment": "SignedData SEQUENCE tag changed to SET",
+          "flags": [
+            "TagMismatch"
+          ],
+          "result": "invalid",
+          "input": "303706092a864886f70d010702a02a31280201013100301f06092a864886f70d010701a0120410676d736d2064657220766563746f72733100"
+        },
+        {
+          "tcId": 7,
+          "comment": "last byte removed",
+          "flags": [
+            "Truncated"
+          ],
+          "result": "invalid",
+          "input": "303706092a864886f70d010702a02a30280201013100301f06092a864886f70d010701a0120410676d736d2064657220766563746f727331"
+        },
+        {
+          "tcId": 8,
+          "comment": "empty input",
+          "flags": [
+            "Truncated"
+          ],
+          "result": "invalid"
+        },
+        {
+          "tcId": 9,
+          "comment": "top-level tag has the constructed bit cleared",
+          "flags": [
+            "TagMismatch"
+          ],
+          "result": "invalid",
+          "input": "103706092a864886f70d010702a02a30280201013100301f06092a864886f70d010701a0120410676d736d2064657220766563746f72733100"
+        },
+        {
+          "tcId": 10,
+          "comment": "outer length claims 2 GiB",
+          "flags": [
+            "LengthOverflow"
+          ],
+          "result": "invalid",
+          "input": "30847fffffff06092a864886f70d010702a02a30280201013100301f06092a864886f70d010701a0120410676d736d2064657220766563746f72733100"
+        },
+        {
+          "tcId": 11,
+          "comment": "indefinite form without the final end-of-contents octets",
+          "flags": [
+            "Truncated"
+          ],
+          "result": "invalid",
+          "input": "308006092a864886f70d010702a080308002010131800000308006092a864886f70d010701a0800410676d736d2064657220766563746f7273000000003180000000000000"
+        }
+      ]
+    }
+  ]
+}
