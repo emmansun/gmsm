@@ -321,6 +321,18 @@
           "tcId": 8,
           "comment": "empty input",
           "result": "invalid"
+        },
+        {
+          "tcId": 9,
+          "comment": "trailing byte after uncompressed point",
+          "pub": "049f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d00",
+          "result": "invalid"
+        },
+        {
+          "tcId": 10,
+          "comment": "trailing byte after compressed point",
+          "pub": "039f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3200",
+          "result": "invalid"
         }
       ]
     },
@@ -373,6 +385,18 @@
         {
           "tcId": 8,
           "comment": "empty input",
+          "result": "invalid"
+        },
+        {
+          "tcId": 9,
+          "comment": "trailing byte after uncompressed point",
+          "pub": "04787ed7b8a51f3ab84e0a66003f32da5c720b17eca7137d39abc66e3c80a892ff769de61791e5adc4b9ff85a31354900b202871279a8c49dc3f220f644c57a7b100",
+          "result": "invalid"
+        },
+        {
+          "tcId": 10,
+          "comment": "trailing byte after compressed point",
+          "pub": "03787ed7b8a51f3ab84e0a66003f32da5c720b17eca7137d39abc66e3c80a892ff00",
           "result": "invalid"
         }
       ]
@@ -430,6 +454,18 @@
         },
         {
           "tcId": 9,
+          "comment": "trailing byte after uncompressed point",
+          "priv": "04a5702f05cf1315305e2d6eb64b0deb923db1a0bcf0caff90523ac8754aa6982078559a844411f9825c109f5ee3f52d720dd01785392a727bb1556952b2b013d300",
+          "result": "invalid"
+        },
+        {
+          "tcId": 10,
+          "comment": "trailing byte after compressed point",
+          "priv": "03a5702f05cf1315305e2d6eb64b0deb923db1a0bcf0caff90523ac8754aa6982000",
+          "result": "invalid"
+        },
+        {
+          "tcId": 11,
           "comment": "truncated by one byte",
           "priv": "04a5702f05cf1315305e2d6eb64b0deb923db1a0bcf0caff90523ac8754aa6982078559a844411f9825c109f5ee3f52d720dd01785392a727bb1556952b2b013",
           "result": "invalid"
@@ -489,6 +525,18 @@
         },
         {
           "tcId": 9,
+          "comment": "trailing byte after uncompressed point",
+          "priv": "0494736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b1587aa5e47570da7600cd760a0cf7beaf71c447f3844753fe74fa7ba92ca7d3b55f27538a62e7f7bfb51dce08704796d94c9d56734f119ea44732b50e31cdeb75c100",
+          "result": "invalid"
+        },
+        {
+          "tcId": 10,
+          "comment": "trailing byte after compressed point",
+          "priv": "0394736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b15800",
+          "result": "invalid"
+        },
+        {
+          "tcId": 11,
           "comment": "truncated by one byte",
           "priv": "0494736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b1587aa5e47570da7600cd760a0cf7beaf71c447f3844753fe74fa7ba92ca7d3b55f27538a62e7f7bfb51dce08704796d94c9d56734f119ea44732b50e31cdeb75",
           "result": "invalid"
@@ -611,6 +659,12 @@
           "comment": "BIT STRING wrapping two bytes",
           "result": "invalid",
           "input": "0303000400"
+        },
+        {
+          "tcId": 8,
+          "comment": "BIT STRING with trailing data after a point",
+          "result": "invalid",
+          "input": "03430004787ed7b8a51f3ab84e0a66003f32da5c720b17eca7137d39abc66e3c80a892ff769de61791e5adc4b9ff85a31354900b202871279a8c49dc3f220f644c57a7b100"
         }
       ]
     }

@@ -236,19 +236,21 @@ func unmarshalG2(bytes []byte) (*bn256.G2, error) {
 		return nil, errors.New("sm9: invalid point identity byte")
 	}
 	g2 := new(bn256.G2)
+	var rest []byte
+	var err error
 	switch bytes[0] {
 	case 4:
-		_, err := g2.Unmarshal(bytes[1:])
-		if err != nil {
-			return nil, err
-		}
+		rest, err = g2.Unmarshal(bytes[1:])
 	case 2, 3:
-		_, err := g2.UnmarshalCompressed(bytes)
-		if err != nil {
-			return nil, err
-		}
+		rest, err = g2.UnmarshalCompressed(bytes)
 	default:
 		return nil, errors.New("sm9: invalid point identity byte")
+	}
+	if err != nil {
+		return nil, err
+	}
+	if len(rest) != 0 {
+		return nil, errors.New("sm9: trailing data after point")
 	}
 	if g2.IsInfinity() {
 		return nil, errors.New("sm9: invalid point at infinity")
@@ -272,19 +274,21 @@ func unmarshalG1(bytes []byte) (*bn256.G1, error) {
 		return nil, errors.New("sm9: invalid point encoding")
 	}
 	g := new(bn256.G1)
+	var rest []byte
+	var err error
 	switch bytes[0] {
 	case 4:
-		_, err := g.Unmarshal(bytes[1:])
-		if err != nil {
-			return nil, err
-		}
+		rest, err = g.Unmarshal(bytes[1:])
 	case 2, 3:
-		_, err := g.UnmarshalCompressed(bytes)
-		if err != nil {
-			return nil, err
-		}
+		rest, err = g.UnmarshalCompressed(bytes)
 	default:
 		return nil, errors.New("sm9: invalid point encoding")
+	}
+	if err != nil {
+		return nil, err
+	}
+	if len(rest) != 0 {
+		return nil, errors.New("sm9: trailing data after point")
 	}
 	if g.IsInfinity() {
 		return nil, errors.New("sm9: invalid point at infinity")

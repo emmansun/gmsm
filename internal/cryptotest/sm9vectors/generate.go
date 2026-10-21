@@ -245,11 +245,12 @@ func buildKeyGroup(cases []keyCase, pub bool) []vectors.Case {
 
 // pointCases builds the shared point-encoding cases for one uncompressed
 // point of prefix length n: identity, off-curve, missing prefix, unknown
-// wire type, and the two compressed forms of the same x.
+// wire type, the two compressed forms of the same x, and trailing data.
 func pointCases(first int, point []byte) []keyCase {
 	x := point[1 : 1+len(point)/2]
 	identity := make([]byte, len(point))
 	identity[0] = 4
+	compressedOdd := append([]byte{3}, x...)
 	cases := []keyCase{
 		{first, "uncompressed point", point, "valid"},
 		{first + 1, "identity", identity, "invalid"},
@@ -259,6 +260,8 @@ func pointCases(first int, point []byte) []keyCase {
 		{first + 5, "missing the 0x04 prefix", point[1:], "invalid"},
 		{first + 6, "unknown wire type", append([]byte{5}, point[1:]...), "invalid"},
 		{first + 7, "empty input", nil, "invalid"},
+		{first + 8, "trailing byte after uncompressed point", append(append([]byte(nil), point...), 0), "invalid"},
+		{first + 9, "trailing byte after compressed point", append(compressedOdd, 0), "invalid"},
 	}
 	return cases
 }
@@ -273,13 +276,13 @@ func buildEncryptMasterPublicKey() []vectors.Case {
 
 func buildSignPrivateKey() []vectors.Case {
 	cases := pointCases(1, mustHex(signUserKeyHex))
-	cases = append(cases, keyCase{9, "truncated by one byte", mustHex(signUserKeyHex)[:64], "invalid"})
+	cases = append(cases, keyCase{11, "truncated by one byte", mustHex(signUserKeyHex)[:64], "invalid"})
 	return buildKeyGroup(cases, false)
 }
 
 func buildEncryptPrivateKey() []vectors.Case {
 	cases := pointCases(1, mustHex(encUserKeyHex))
-	cases = append(cases, keyCase{9, "truncated by one byte", mustHex(encUserKeyHex)[:128], "invalid"})
+	cases = append(cases, keyCase{11, "truncated by one byte", mustHex(encUserKeyHex)[:128], "invalid"})
 	return buildKeyGroup(cases, false)
 }
 
@@ -334,6 +337,7 @@ func buildASN1Parse() []vectors.Case {
 		{5, "BIT STRING that promises more bytes than it carries", []byte{0x03, 0x42, 0x00, 0x04}},
 		{6, "BIT STRING wrapping an empty payload", bitString(nil)},
 		{7, "BIT STRING wrapping two bytes", bitString([]byte{0x04, 0x00})},
+		{8, "BIT STRING with trailing data after a point", bitString(append(mustHex(encMasterPubHex), 0))},
 	}
 	out := make([]vectors.Case, 0, len(cases))
 	for _, c := range cases {
