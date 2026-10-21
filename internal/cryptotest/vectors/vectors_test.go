@@ -39,6 +39,37 @@ func TestLoadRejectsMissingFile(t *testing.T) {
 	}
 }
 
+func TestValidate(t *testing.T) {
+	suite := func(tc Case) *Suite {
+		return &Suite{Schema: SemanticsSchema, Groups: []Group{{Type: "VerifyDigest", Tests: []Case{tc}}}}
+	}
+	if err := suite(Case{TCID: 1, Result: "valid", Pub: "04", R: "01"}).Validate(); err != nil {
+		t.Fatalf("Validate() rejected a valid suite: %v", err)
+	}
+	for name, tc := range map[string]Case{
+		"unknown result":   {TCID: 1, Result: "acceptable"},
+		"unknown ordering": {TCID: 1, Ordering: "C2C1C3"},
+		"zero tcId":        {TCID: 0},
+		"non-hex payload":  {TCID: 1, R: "zz"},
+	} {
+		if err := suite(tc).Validate(); err == nil {
+			t.Errorf("Validate() accepted a suite with %s", name)
+		}
+	}
+
+	duplicate := suite(Case{TCID: 1})
+	duplicate.Groups[0].Tests = append(duplicate.Groups[0].Tests, Case{TCID: 1})
+	if err := duplicate.Validate(); err == nil {
+		t.Error("Validate() accepted duplicate tcIds")
+	}
+	if err := (&Suite{Schema: SemanticsSchema, Groups: []Group{{Type: "Empty"}}}).Validate(); err == nil {
+		t.Error("Validate() accepted a group without cases")
+	}
+	if err := (&Suite{Schema: "gmsm-kernel-vectors/v2"}).Validate(); err == nil {
+		t.Error("Validate() accepted an unknown schema revision")
+	}
+}
+
 func TestGroupRequires(t *testing.T) {
 	group := &Group{
 		Type:     "FieldMul",

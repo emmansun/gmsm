@@ -1,0 +1,259 @@
+{
+  "schema": "gmsm-semantics-vectors/v1",
+  "algorithm": "sm2p256v1",
+  "generator": "go test ./internal/cryptotest/sm2vectors -run TestVectorsUpToDate -update",
+  "testGroups": [
+    {
+      "type": "VerifyDigest",
+      "comment": "sm2.Verify(pub, hash, r, s). Signatures are derived from the GB/T 32918.2 equations with a fixed nonce and re-checked against the verification equation, so every verdict is independent of the code under test.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "base-point key, nonce 1",
+          "pub": "0432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
+          "hash": "af2b0aca8ac1c22bbd7262999d8db8590523e1da84698ba1447f2e42de99a985",
+          "r": "e1efb8f6a9db43451d0b66e007c781ed9506ed9a76cf9782b5d973cc11e61e4c",
+          "s": "0f0823842b125e5d717a4c8ffc1c3f08ee7e78e8557b36d44ef1401e93f7916c",
+          "result": "valid"
+        },
+        {
+          "tcId": 2,
+          "comment": "base-point key, nonce n-1",
+          "pub": "0432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
+          "hash": "af2b0aca8ac1c22bbd7262999d8db8590523e1da84698ba1447f2e42de99a985",
+          "r": "e1efb8f6a9db43451d0b66e007c781ed9506ed9a76cf9782b5d973cc11e61e4c",
+          "s": "0f0823842b125e5d717a4c8ffc1c3f08ee7e78e8557b36d44ef1401e93f7916b",
+          "result": "valid"
+        },
+        {
+          "tcId": 3,
+          "comment": "fixed key, mid-range nonce",
+          "pub": "0409f9df311e5421a150dd7d161e4bc5c672179fad1833fc076bb08ff356f35020ccea490ce26775a52dc6ea718cc1aa600aed05fbf35e084a6632f6072da9ad13",
+          "hash": "a825e36d1b9da9385379ccbff5e71482d6c7e9648a21dba4744cce48bd101195",
+          "r": "7af728039cf83e94e9030c57146fdb5703178c8fe3cf8c7ac5167ee61c258f35",
+          "s": "6de012e8de2b299bb3d1728cb90455e3a1e82f3fbb73dd78a64041389437d0bd",
+          "result": "valid"
+        },
+        {
+          "tcId": 4,
+          "comment": "fixed key, nonce 3",
+          "pub": "0409f9df311e5421a150dd7d161e4bc5c672179fad1833fc076bb08ff356f35020ccea490ce26775a52dc6ea718cc1aa600aed05fbf35e084a6632f6072da9ad13",
+          "hash": "a825e36d1b9da9385379ccbff5e71482d6c7e9648a21dba4744cce48bd101195",
+          "r": "51a56042cf673ced11a7774cd128f6d0060375d2ad8bf8be02f9f331538b6f31",
+          "s": "abe7ae42855c67b200dcd9c2523bdffb5c0946123620d69b1c8235989e4be06e",
+          "result": "valid"
+        },
+        {
+          "tcId": 5,
+          "comment": "digest altered in the low bit",
+          "pub": "0432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
+          "hash": "af2b0aca8ac1c22bbd7262999d8db8590523e1da84698ba1447f2e42de99a984",
+          "r": "e1efb8f6a9db43451d0b66e007c781ed9506ed9a76cf9782b5d973cc11e61e4c",
+          "s": "0f0823842b125e5d717a4c8ffc1c3f08ee7e78e8557b36d44ef1401e93f7916c",
+          "result": "invalid"
+        },
+        {
+          "tcId": 6,
+          "comment": "r is zero",
+          "pub": "0432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
+          "hash": "af2b0aca8ac1c22bbd7262999d8db8590523e1da84698ba1447f2e42de99a985",
+          "r": "0000000000000000000000000000000000000000000000000000000000000000",
+          "s": "0f0823842b125e5d717a4c8ffc1c3f08ee7e78e8557b36d44ef1401e93f7916c",
+          "result": "invalid"
+        },
+        {
+          "tcId": 7,
+          "comment": "s is zero",
+          "pub": "0432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
+          "hash": "af2b0aca8ac1c22bbd7262999d8db8590523e1da84698ba1447f2e42de99a985",
+          "r": "e1efb8f6a9db43451d0b66e007c781ed9506ed9a76cf9782b5d973cc11e61e4c",
+          "s": "0000000000000000000000000000000000000000000000000000000000000000",
+          "result": "invalid"
+        },
+        {
+          "tcId": 8,
+          "comment": "r equals the group order",
+          "pub": "0432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
+          "hash": "af2b0aca8ac1c22bbd7262999d8db8590523e1da84698ba1447f2e42de99a985",
+          "r": "fffffffeffffffffffffffffffffffff7203df6b21c6052b53bbf40939d54123",
+          "s": "0f0823842b125e5d717a4c8ffc1c3f08ee7e78e8557b36d44ef1401e93f7916c",
+          "result": "invalid"
+        },
+        {
+          "tcId": 9,
+          "comment": "s equals the group order",
+          "pub": "0432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
+          "hash": "af2b0aca8ac1c22bbd7262999d8db8590523e1da84698ba1447f2e42de99a985",
+          "r": "e1efb8f6a9db43451d0b66e007c781ed9506ed9a76cf9782b5d973cc11e61e4c",
+          "s": "fffffffeffffffffffffffffffffffff7203df6b21c6052b53bbf40939d54123",
+          "result": "invalid"
+        },
+        {
+          "tcId": 10,
+          "comment": "r exceeds the group order",
+          "pub": "0432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
+          "hash": "af2b0aca8ac1c22bbd7262999d8db8590523e1da84698ba1447f2e42de99a985",
+          "r": "fffffffeffffffffffffffffffffffff7203df6b21c6052b53bbf40939d54124",
+          "s": "0f0823842b125e5d717a4c8ffc1c3f08ee7e78e8557b36d44ef1401e93f7916c",
+          "result": "invalid"
+        },
+        {
+          "tcId": 11,
+          "comment": "s exceeds the group order",
+          "pub": "0432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
+          "hash": "af2b0aca8ac1c22bbd7262999d8db8590523e1da84698ba1447f2e42de99a985",
+          "r": "e1efb8f6a9db43451d0b66e007c781ed9506ed9a76cf9782b5d973cc11e61e4c",
+          "s": "fffffffeffffffffffffffffffffffff7203df6b21c6052b53bbf40939d54124",
+          "result": "invalid"
+        },
+        {
+          "tcId": 12,
+          "comment": "s is n-r",
+          "pub": "0432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
+          "hash": "af2b0aca8ac1c22bbd7262999d8db8590523e1da84698ba1447f2e42de99a985",
+          "r": "e1efb8f6a9db43451d0b66e007c781ed9506ed9a76cf9782b5d973cc11e61e4c",
+          "s": "1e1047085624bcbae2f4991ff8387e11dcfcf1d0aaf66da89de2803d27ef22d7",
+          "result": "invalid"
+        },
+        {
+          "tcId": 13,
+          "comment": "r and s are one",
+          "pub": "0432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
+          "hash": "af2b0aca8ac1c22bbd7262999d8db8590523e1da84698ba1447f2e42de99a985",
+          "r": "0000000000000000000000000000000000000000000000000000000000000001",
+          "s": "0000000000000000000000000000000000000000000000000000000000000001",
+          "result": "invalid"
+        },
+        {
+          "tcId": 14,
+          "comment": "r and s swapped",
+          "pub": "0432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
+          "hash": "af2b0aca8ac1c22bbd7262999d8db8590523e1da84698ba1447f2e42de99a985",
+          "r": "0f0823842b125e5d717a4c8ffc1c3f08ee7e78e8557b36d44ef1401e93f7916c",
+          "s": "e1efb8f6a9db43451d0b66e007c781ed9506ed9a76cf9782b5d973cc11e61e4c",
+          "result": "invalid"
+        },
+        {
+          "tcId": 15,
+          "comment": "signature from a different key",
+          "pub": "0409f9df311e5421a150dd7d161e4bc5c672179fad1833fc076bb08ff356f35020ccea490ce26775a52dc6ea718cc1aa600aed05fbf35e084a6632f6072da9ad13",
+          "hash": "af2b0aca8ac1c22bbd7262999d8db8590523e1da84698ba1447f2e42de99a985",
+          "r": "e1efb8f6a9db43451d0b66e007c781ed9506ed9a76cf9782b5d973cc11e61e4c",
+          "s": "0f0823842b125e5d717a4c8ffc1c3f08ee7e78e8557b36d44ef1401e93f7916c",
+          "result": "invalid"
+        },
+        {
+          "tcId": 16,
+          "comment": "r and s are n-1",
+          "pub": "0432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
+          "hash": "af2b0aca8ac1c22bbd7262999d8db8590523e1da84698ba1447f2e42de99a985",
+          "r": "fffffffeffffffffffffffffffffffff7203df6b21c6052b53bbf40939d54122",
+          "s": "fffffffeffffffffffffffffffffffff7203df6b21c6052b53bbf40939d54122",
+          "result": "invalid"
+        }
+      ]
+    },
+    {
+      "type": "VerifySM2",
+      "comment": "sm2.VerifyASN1WithSM2(pub, uid, msg, sig). e is recomputed from ZA and msg; an empty uid means the GM/T 0009 default identifier.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "default uid, empty uid field",
+          "pub": "0432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
+          "msg": "676d736d20736d322073656d616e7469637320766563746f72",
+          "sig": "3046022100ad284fe4a91e4b663efe6e34e6d6a77addf0470f6eb7ca61bf923475c8a5037f022100a96bd80cab70da4ce080c8e58c94ac42030bbbe36a6a1ffa73f2d9ce5582bf64",
+          "result": "valid"
+        },
+        {
+          "tcId": 2,
+          "comment": "default uid written out explicitly",
+          "pub": "0432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
+          "uid": "31323334353637383132333435363738",
+          "msg": "676d736d20736d322073656d616e7469637320766563746f72",
+          "sig": "3046022100ad284fe4a91e4b663efe6e34e6d6a77addf0470f6eb7ca61bf923475c8a5037f022100a96bd80cab70da4ce080c8e58c94ac42030bbbe36a6a1ffa73f2d9ce5582bf64",
+          "result": "valid"
+        },
+        {
+          "tcId": 3,
+          "comment": "custom uid",
+          "pub": "0409f9df311e5421a150dd7d161e4bc5c672179fad1833fc076bb08ff356f35020ccea490ce26775a52dc6ea718cc1aa600aed05fbf35e084a6632f6072da9ad13",
+          "uid": "616c696365406578616d706c652e636f6d",
+          "msg": "676d736d20736d322073656d616e7469637320766563746f72",
+          "sig": "304502201aee7513c604f27c7df0349fba72b1f49566a7e80b6ecb903cce43059124eb8e022100fd4f3cd5eaaf76a3e18af512f65315151ff8f36ec0394917702c0f400e9e1587",
+          "result": "valid"
+        },
+        {
+          "tcId": 4,
+          "comment": "custom uid, empty message",
+          "pub": "0432c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0",
+          "uid": "616c696365406578616d706c652e636f6d",
+          "sig": "3045022100b7f81e3a2a30c5d7c88f1259046f98534fefb5e1afd960aed06a1bb122339cd102202403f0e26ae79d141bb876d37dc833d6110a14c4b8f6523e41a8ec2c0bd0d22a",
+          "result": "valid"
+        },
+        {
+          "tcId": 5,
+          "comment": "wrong uid",
+          "pub": "0409f9df311e5421a150dd7d161e4bc5c672179fad1833fc076bb08ff356f35020ccea490ce26775a52dc6ea718cc1aa600aed05fbf35e084a6632f6072da9ad13",
+          "uid": "626f62406578616d706c652e636f6d",
+          "msg": "676d736d20736d322073656d616e7469637320766563746f72",
+          "sig": "304502201aee7513c604f27c7df0349fba72b1f49566a7e80b6ecb903cce43059124eb8e022100fd4f3cd5eaaf76a3e18af512f65315151ff8f36ec0394917702c0f400e9e1587",
+          "result": "invalid"
+        },
+        {
+          "tcId": 6,
+          "comment": "altered message",
+          "pub": "0409f9df311e5421a150dd7d161e4bc5c672179fad1833fc076bb08ff356f35020ccea490ce26775a52dc6ea718cc1aa600aed05fbf35e084a6632f6072da9ad13",
+          "uid": "616c696365406578616d706c652e636f6d",
+          "msg": "676d736d20736d322073656d616e7469637320766563746f7221",
+          "sig": "304502201aee7513c604f27c7df0349fba72b1f49566a7e80b6ecb903cce43059124eb8e022100fd4f3cd5eaaf76a3e18af512f65315151ff8f36ec0394917702c0f400e9e1587",
+          "result": "invalid"
+        },
+        {
+          "tcId": 7,
+          "comment": "signature from a different key",
+          "pub": "0409f9df311e5421a150dd7d161e4bc5c672179fad1833fc076bb08ff356f35020ccea490ce26775a52dc6ea718cc1aa600aed05fbf35e084a6632f6072da9ad13",
+          "uid": "616c696365406578616d706c652e636f6d",
+          "msg": "676d736d20736d322073656d616e7469637320766563746f72",
+          "sig": "3046022100ad284fe4a91e4b663efe6e34e6d6a77addf0470f6eb7ca61bf923475c8a5037f022100a96bd80cab70da4ce080c8e58c94ac42030bbbe36a6a1ffa73f2d9ce5582bf64",
+          "result": "invalid"
+        },
+        {
+          "tcId": 8,
+          "comment": "signature truncated by one byte",
+          "pub": "0409f9df311e5421a150dd7d161e4bc5c672179fad1833fc076bb08ff356f35020ccea490ce26775a52dc6ea718cc1aa600aed05fbf35e084a6632f6072da9ad13",
+          "uid": "616c696365406578616d706c652e636f6d",
+          "msg": "676d736d20736d322073656d616e7469637320766563746f72",
+          "sig": "304502201aee7513c604f27c7df0349fba72b1f49566a7e80b6ecb903cce43059124eb8e022100fd4f3cd5eaaf76a3e18af512f65315151ff8f36ec0394917702c0f400e9e15",
+          "result": "invalid"
+        },
+        {
+          "tcId": 9,
+          "comment": "trailing byte after the sequence",
+          "pub": "0409f9df311e5421a150dd7d161e4bc5c672179fad1833fc076bb08ff356f35020ccea490ce26775a52dc6ea718cc1aa600aed05fbf35e084a6632f6072da9ad13",
+          "uid": "616c696365406578616d706c652e636f6d",
+          "msg": "676d736d20736d322073656d616e7469637320766563746f72",
+          "sig": "304502201aee7513c604f27c7df0349fba72b1f49566a7e80b6ecb903cce43059124eb8e022100fd4f3cd5eaaf76a3e18af512f65315151ff8f36ec0394917702c0f400e9e158700",
+          "result": "invalid"
+        },
+        {
+          "tcId": 10,
+          "comment": "sequence length one byte short",
+          "pub": "0409f9df311e5421a150dd7d161e4bc5c672179fad1833fc076bb08ff356f35020ccea490ce26775a52dc6ea718cc1aa600aed05fbf35e084a6632f6072da9ad13",
+          "uid": "616c696365406578616d706c652e636f6d",
+          "msg": "676d736d20736d322073656d616e7469637320766563746f72",
+          "sig": "304402201aee7513c604f27c7df0349fba72b1f49566a7e80b6ecb903cce43059124eb8e022100fd4f3cd5eaaf76a3e18af512f65315151ff8f36ec0394917702c0f400e9e1587",
+          "result": "invalid"
+        },
+        {
+          "tcId": 11,
+          "comment": "empty signature",
+          "pub": "0409f9df311e5421a150dd7d161e4bc5c672179fad1833fc076bb08ff356f35020ccea490ce26775a52dc6ea718cc1aa600aed05fbf35e084a6632f6072da9ad13",
+          "uid": "616c696365406578616d706c652e636f6d",
+          "msg": "676d736d20736d322073656d616e7469637320766563746f72",
+          "result": "invalid"
+        }
+      ]
+    }
+  ]
+}

@@ -7,8 +7,8 @@
 //
 // Two kinds of suites share the schema:
 //
-//   - Semantics suites (valid/invalid/acceptable) pin specification behaviour,
-//     e.g. which encodings a parser must reject.
+//   - Semantics suites (valid/invalid) pin specification behaviour, e.g. which
+//     encodings a parser must reject.
 //   - Kernel suites pin exact field/kernel outputs for inputs that sit on
 //     rare carry/sign boundaries. Those boundaries are unreachable by random
 //     differential fuzzing (the trigger probability can be as low as 2^-33,
@@ -26,6 +26,13 @@ import (
 
 //go:embed testdata/*.json
 var files embed.FS
+
+// Schema revisions. Kernel suites pin exact primitive outputs; semantics
+// suites pin valid/invalid behaviour of an API. Both share the Case shape.
+const (
+	KernelSchema    = "gmsm-kernel-vectors/v1"
+	SemanticsSchema = "gmsm-semantics-vectors/v1"
+)
 
 // Suite is one committed vector file.
 type Suite struct {
@@ -56,17 +63,35 @@ type Group struct {
 	Tests   []Case `json:"tests"`
 }
 
-// Case is one test vector. Field values are fixed-width big-endian hex so
-// they are independent of the host word order and limb representation.
+// Case is one test vector. Field values are big-endian hex so they are
+// independent of the host word order and limb representation.
 type Case struct {
 	TCID    int      `json:"tcId"`
 	Comment string   `json:"comment,omitempty"`
 	Flags   []string `json:"flags,omitempty"`
-	// A and B are the operands; B is empty for unary operations.
-	A string `json:"a"`
-	B string `json:"b,omitempty"`
-	// Expected is the exact result of the reference implementation.
-	Expected string `json:"expected"`
+
+	// Kernel suites: A and B are the operands (B is empty for unary
+	// operations) and Expected is the exact reference result.
+	A        string `json:"a,omitempty"`
+	B        string `json:"b,omitempty"`
+	Expected string `json:"expected,omitempty"`
+
+	// Semantics suites. All fields are optional here; which ones a group
+	// requires depends on the API it targets, which only the consumer
+	// knows.
+	Pub        string `json:"pub,omitempty"` // SEC 1 point, 04||X||Y
+	UID        string `json:"uid,omitempty"` // empty means the library default
+	Msg        string `json:"msg,omitempty"`
+	Hash       string `json:"hash,omitempty"` // precomputed e for Verify
+	R          string `json:"r,omitempty"`
+	S          string `json:"s,omitempty"`
+	Sig        string `json:"sig,omitempty"` // ASN.1 DER signature
+	Priv       string `json:"priv,omitempty"`
+	Ciphertext string `json:"ciphertext,omitempty"`
+	Ordering   string `json:"ordering,omitempty"` // C1C3C2, C1C2C3 or ASN1
+	X          string `json:"x,omitempty"`        // decoded coordinates
+	Y          string `json:"y,omitempty"`
+	Result     string `json:"result,omitempty"` // valid or invalid
 }
 
 // Load unmarshals a committed vector file by name, e.g.
@@ -83,7 +108,69 @@ func Load(name string) (*Suite, error) {
 	if len(s.Groups) == 0 {
 		return nil, fmt.Errorf("vectors: %s has no test groups", name)
 	}
+	if err := s.Validate(); err != nil {
+		return nil, fmt.Errorf("vectors: %s: %w", name, err)
+	}
 	return &s, nil
+}
+
+// Validate checks the invariants shared by every suite: a known schema
+// revision, non-empty groups with unique tcIds, recognized Result and
+// Ordering values, and hex-decodable payloads. Per-group required fields are
+// left to the consumer test, since only it knows which API the group
+// targets.
+func (s *Suite) Validate() error {
+	switch s.Schema {
+	case KernelSchema, SemanticsSchema:
+	default:
+		return fmt.Errorf("unknown schema revision %q", s.Schema)
+	}
+	for i := range s.Groups {
+		g := &s.Groups[i]
+		if g.Type == "" {
+			return fmt.Errorf("testGroups[%d]: empty type", i)
+		}
+		if len(g.Tests) == 0 {
+			return fmt.Errorf("group %q: no test cases", g.Type)
+		}
+		seen := make(map[int]bool, len(g.Tests))
+		for j := range g.Tests {
+			tc := &g.Tests[j]
+			if tc.TCID <= 0 {
+				return fmt.Errorf("group %q: invalid tcId %d", g.Type, tc.TCID)
+			}
+			if seen[tc.TCID] {
+				return fmt.Errorf("group %q: duplicate tcId %d", g.Type, tc.TCID)
+			}
+			seen[tc.TCID] = true
+			switch tc.Result {
+			case "", "valid", "invalid":
+			default:
+				return fmt.Errorf("group %q tc%d: unknown result %q", g.Type, tc.TCID, tc.Result)
+			}
+			switch tc.Ordering {
+			case "", "C1C3C2", "C1C2C3", "ASN1":
+			default:
+				return fmt.Errorf("group %q tc%d: unknown ordering %q", g.Type, tc.TCID, tc.Ordering)
+			}
+			fields := [...]struct{ name, value string }{
+				{"pub", tc.Pub}, {"uid", tc.UID}, {"msg", tc.Msg},
+				{"hash", tc.Hash}, {"r", tc.R}, {"s", tc.S}, {"sig", tc.Sig},
+				{"priv", tc.Priv}, {"ciphertext", tc.Ciphertext},
+				{"x", tc.X}, {"y", tc.Y}, {"a", tc.A}, {"b", tc.B},
+				{"expected", tc.Expected},
+			}
+			for _, f := range fields {
+				if f.value == "" {
+					continue
+				}
+				if _, err := hex.DecodeString(f.value); err != nil {
+					return fmt.Errorf("group %q tc%d: %s is not hex: %w", g.Type, tc.TCID, f.name, err)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // Group returns the single group of the given type. It reports an error when
