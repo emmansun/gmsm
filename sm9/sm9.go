@@ -300,6 +300,11 @@ func decrypt(priv *EncryptPrivateKey, uid, c1, c2, c3 []byte, opts EncrypterOpts
 	key1Len := opts.GetKeySize(c2)
 	key, err := priv.internal.UnwrapKey(uid, c1, key1Len+sm3.Size, key1Len)
 	if err != nil {
+		// UnwrapKey reports the internal sentinel; surface the exported one so
+		// that callers can match it with errors.Is.
+		if errors.Is(err, sm9.ErrDecryption) {
+			return nil, ErrDecryption
+		}
 		return nil, err
 	}
 	_ = key[key1Len] // bounds check elimination hint
