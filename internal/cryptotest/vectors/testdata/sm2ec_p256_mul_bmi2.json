@@ -1,0 +1,180 @@
+{
+  "schema": "gmsm-kernel-vectors/v1",
+  "algorithm": "sm2p256v1",
+  "generator": "internal/cryptotest/adxmodel, deterministic PCG seed (0x676d736d, 0x560); run `go test ./internal/cryptotest/adxmodel -run TestVectorsUpToDate -update` to regenerate",
+  "testGroups": [
+    {
+      "type": "FieldMul",
+      "arch": [
+        "amd64"
+      ],
+      "features": [
+        "adx",
+        "bmi2"
+      ],
+      "comment": "p256Mul (mulBMI2) Montgomery multiplication. Inputs are canonical field elements; expected is the exact Montgomery result. Cases marked ADXCarryTail corrupt the pre-fix ADOX reduction chain (issue #560) and must pass on both the BMI2 and the generic path.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "issue #560: the multiplication p256Inverse first diverged on",
+          "flags": [
+            "ADXCarryTail",
+            "KnownBadVector"
+          ],
+          "a": "aab573c26f5a3de8e1a0b4b129d5a082bfff13c7cf9058cc9e33db4ce976f0d0",
+          "b": "0d0047be9622130fe02fe084a848fecfdd1c0e16a5de4d21efb0ad3e4d98a44c",
+          "expected": "aa4e625fd40acb1b2ee5b2cac3110ec5fa5e44de1a9e28947b7910319f9c035f"
+        },
+        {
+          "tcId": 2,
+          "comment": "constructed: r[0] forced into the SBB overflow window",
+          "flags": [
+            "ADXCarryTail",
+            "ReductionStep0"
+          ],
+          "a": "00000000bac3a6cd000000005be903410000000034e5e30dc00771e694a08d39",
+          "b": "0000000063c8d17400000000f5ba8c7b0000000071c2a3efec68286668b979cd",
+          "expected": "e32bcbdc1cffad0393704e52949bc22b694bf4c4c4b53f93a883fa38570d9eb2"
+        },
+        {
+          "tcId": 3,
+          "comment": "constructed: r[0] forced into the SBB overflow window",
+          "flags": [
+            "ADXCarryTail",
+            "ReductionStep0"
+          ],
+          "a": "000000008d29a0f600000000582be35900000000959a8a1475f957107e8cf8dc",
+          "b": "0000000034387e7c0000000043cd781f000000000c01519adeda97edeb920d3f",
+          "expected": "d58a8ebb7c3e08ba5079eb7e9a6b9382f256364d7d1b5a8b1f0f0a5cb2580ef7"
+        },
+        {
+          "tcId": 4,
+          "comment": "constructed: r[0] forced into the SBB overflow window",
+          "flags": [
+            "ADXCarryTail",
+            "ReductionStep0"
+          ],
+          "a": "000000006f0506e50000000045cfdc8800000000617516b56d6c8b4272f85522",
+          "b": "00000000b6cdaff90000000016a4c5d300000000bc6fc569ced912a16cb60ea9",
+          "expected": "b5557f4846212d4b0df3370dca839caa219f88413e7dcdf1f7e626947b192dbb"
+        },
+        {
+          "tcId": 5,
+          "comment": "constructed: r[1] forced into the SBB overflow window",
+          "flags": [
+            "ADXCarryTail",
+            "ReductionStep1"
+          ],
+          "a": "000000000a13746200000000ea64954a00000000776f2d79352cd92e90f65031",
+          "b": "00000000d4c5b6a0000000005c82ccf576e6c204802f109e0000000029cb3b37",
+          "expected": "83a3e668a26715ee12749c258c1740bb628dea95d364abcdfcb574fc08691b65"
+        },
+        {
+          "tcId": 6,
+          "comment": "constructed: r[1] forced into the SBB overflow window",
+          "flags": [
+            "ADXCarryTail",
+            "ReductionStep1"
+          ],
+          "a": "00000000469e4aa90000000081ab368f00000000b462c784d146ccc602544361",
+          "b": "00000000d7eb8997000000003af35ab5b8f4ad9ee0c3456d00000000e1f02f1a",
+          "expected": "2b270904f20ba493389cca25810eb64437c84d83d3cfb2a92ebfd523bdf9e5a1"
+        },
+        {
+          "tcId": 7,
+          "comment": "constructed: r[1] forced into the SBB overflow window",
+          "flags": [
+            "ADXCarryTail",
+            "ReductionStep1"
+          ],
+          "a": "0000000052b9443e000000004fba101b0000000057259238e363e4567e2b0859",
+          "b": "00000000bae9032200000000bbba9dc581d0858290ed74a90000000079afdcae",
+          "expected": "01c7ea6d6c5a5691c3d92982424756e60fd853834e84be7719f44f24b25a343e"
+        }
+      ]
+    },
+    {
+      "type": "FieldSqr",
+      "arch": [
+        "amd64"
+      ],
+      "features": [
+        "adx",
+        "bmi2"
+      ],
+      "comment": "p256Sqr with n=1 (Montgomery squaring). The sqr macro reduces through the CF chain, so it is listed for boundary coverage of the squaring path, not as an issue #560 trigger. Expected is the exact Montgomery square of a.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "p256Sqr, n=1, on the operand of FieldMul tc1",
+          "flags": [
+            "ADXCarryTail",
+            "KnownBadVector"
+          ],
+          "a": "aab573c26f5a3de8e1a0b4b129d5a082bfff13c7cf9058cc9e33db4ce976f0d0",
+          "expected": "99def19eeb357b7e2e5cea4bdef374f8ac340df592d77a61417437fe93a0c385"
+        },
+        {
+          "tcId": 2,
+          "comment": "p256Sqr, n=1, on the operand of FieldMul tc2",
+          "flags": [
+            "ADXCarryTail",
+            "ReductionStep0"
+          ],
+          "a": "00000000bac3a6cd000000005be903410000000034e5e30dc00771e694a08d39",
+          "expected": "215a2b45d065d70f404679e27d5967462315a4730013e06f4e3d12d8878d90bc"
+        },
+        {
+          "tcId": 3,
+          "comment": "p256Sqr, n=1, on the operand of FieldMul tc3",
+          "flags": [
+            "ADXCarryTail",
+            "ReductionStep0"
+          ],
+          "a": "000000008d29a0f600000000582be35900000000959a8a1475f957107e8cf8dc",
+          "expected": "13d2c55bab2d91fdfcc108a90767f9b6a9054de6d10b6621a88aeb71be3f7be3"
+        },
+        {
+          "tcId": 4,
+          "comment": "p256Sqr, n=1, on the operand of FieldMul tc4",
+          "flags": [
+            "ADXCarryTail",
+            "ReductionStep0"
+          ],
+          "a": "000000006f0506e50000000045cfdc8800000000617516b56d6c8b4272f85522",
+          "expected": "3337635f496ad20ef6a419f671e6084335581df6ba667d16802fa8a4614f7d5a"
+        },
+        {
+          "tcId": 5,
+          "comment": "p256Sqr, n=1, on the operand of FieldMul tc5",
+          "flags": [
+            "ADXCarryTail",
+            "ReductionStep1"
+          ],
+          "a": "000000000a13746200000000ea64954a00000000776f2d79352cd92e90f65031",
+          "expected": "6c42a960a8af7005614106fc7601f9e5812619dfa312f4b9579fdc15c8628627"
+        },
+        {
+          "tcId": 6,
+          "comment": "p256Sqr, n=1, on the operand of FieldMul tc6",
+          "flags": [
+            "ADXCarryTail",
+            "ReductionStep1"
+          ],
+          "a": "00000000469e4aa90000000081ab368f00000000b462c784d146ccc602544361",
+          "expected": "65e26dce2a38ea82c6620f1979666c93523f8c315caf37a678952e5336847522"
+        },
+        {
+          "tcId": 7,
+          "comment": "p256Sqr, n=1, on the operand of FieldMul tc7",
+          "flags": [
+            "ADXCarryTail",
+            "ReductionStep1"
+          ],
+          "a": "0000000052b9443e000000004fba101b0000000057259238e363e4567e2b0859",
+          "expected": "97b2ba8f55a30e7f152f598043bcebc8ff502a4c4b0cec5a8bc11c6f80f017d8"
+        }
+      ]
+    }
+  ]
+}
