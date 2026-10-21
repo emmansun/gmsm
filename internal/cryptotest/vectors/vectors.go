@@ -14,6 +14,9 @@
 //     differential fuzzing (the trigger probability can be as low as 2^-33,
 //     see issue #560), so the inputs are constructed rather than sampled,
 //     and the expected output is the exact result of the reference model.
+//
+// Symmetric-mode suites (AEAD, XTS, padding) are semantics suites that carry
+// their payload in the key, nonce, AAD, plaintext, tweak and input fields.
 package vectors
 
 import (
@@ -92,6 +95,18 @@ type Case struct {
 	X          string `json:"x,omitempty"`        // decoded coordinates
 	Y          string `json:"y,omitempty"`
 	Result     string `json:"result,omitempty"` // valid or invalid
+
+	// Symmetric-mode suites.
+	Key       string `json:"key,omitempty"`
+	Key2      string `json:"key2,omitempty"` // second key of a two-key mode (XTS tweak key)
+	Nonce     string `json:"nonce,omitempty"`
+	AAD       string `json:"aad,omitempty"`
+	Plaintext string `json:"plaintext,omitempty"`
+	Tweak     string `json:"tweak,omitempty"` // raw XTS tweak; Sector is the convenience form
+	Input     string `json:"input,omitempty"` // raw input for schemes without a key/plaintext pair (padding)
+	TagSize   int    `json:"tagSize,omitempty"`
+	NonceSize int    `json:"nonceSize,omitempty"`
+	Sector    uint64 `json:"sector,omitempty"`
 }
 
 // Load unmarshals a committed vector file by name, e.g.
@@ -158,6 +173,9 @@ func (s *Suite) Validate() error {
 				{"hash", tc.Hash}, {"r", tc.R}, {"s", tc.S}, {"sig", tc.Sig},
 				{"priv", tc.Priv}, {"ciphertext", tc.Ciphertext},
 				{"x", tc.X}, {"y", tc.Y}, {"a", tc.A}, {"b", tc.B},
+				{"key", tc.Key}, {"key2", tc.Key2}, {"nonce", tc.Nonce},
+				{"aad", tc.AAD}, {"plaintext", tc.Plaintext}, {"tweak", tc.Tweak},
+				{"input", tc.Input},
 				{"expected", tc.Expected},
 			}
 			for _, f := range fields {

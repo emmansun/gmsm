@@ -1,0 +1,405 @@
+{
+  "schema": "gmsm-semantics-vectors/v1",
+  "algorithm": "padding",
+  "generator": "go test ./internal/cryptotest/sm4vectors -run TestVectorsUpToDate -update",
+  "testGroups": [
+    {
+      "type": "PKCS7",
+      "comment": "PKCS#7: every padding byte equals the padding length, and a full block is always added.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "whole block of padding",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "valid",
+          "input": "10101010101010101010101010101010"
+        },
+        {
+          "tcId": 2,
+          "comment": "one byte and fifteen pad bytes",
+          "flags": [
+            "BlockSize16"
+          ],
+          "expected": "01",
+          "result": "valid",
+          "input": "010f0f0f0f0f0f0f0f0f0f0f0f0f0f0f"
+        },
+        {
+          "tcId": 3,
+          "comment": "fifteen bytes and one pad byte",
+          "flags": [
+            "BlockSize16"
+          ],
+          "expected": "000102030405060708090a0b0c0d0e",
+          "result": "valid",
+          "input": "000102030405060708090a0b0c0d0e01"
+        },
+        {
+          "tcId": 4,
+          "comment": "aligned plaintext gets a full block",
+          "flags": [
+            "BlockSize16"
+          ],
+          "expected": "000102030405060708090a0b0c0d0e0f",
+          "result": "valid",
+          "input": "000102030405060708090a0b0c0d0e0f10101010101010101010101010101010"
+        },
+        {
+          "tcId": 5,
+          "comment": "empty input",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "invalid"
+        },
+        {
+          "tcId": 6,
+          "comment": "length not a multiple of the block size",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "invalid",
+          "input": "000102030405060708090a0b0c0d0e0f00"
+        },
+        {
+          "tcId": 7,
+          "comment": "zero pad byte",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "invalid",
+          "input": "00000000000000000000000000000000"
+        },
+        {
+          "tcId": 8,
+          "comment": "pad byte above the block size",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "invalid",
+          "input": "00000000000000000000000000000011"
+        },
+        {
+          "tcId": 9,
+          "comment": "inconsistent pad bytes",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "invalid",
+          "input": "1010101010101010101010101010100f"
+        },
+        {
+          "tcId": 10,
+          "comment": "all ones",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "invalid",
+          "input": "ffffffffffffffffffffffffffffffff"
+        }
+      ]
+    },
+    {
+      "type": "ANSIX923",
+      "comment": "ANSI X.923: zero fillers followed by the padding length.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "whole block of padding",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "valid",
+          "input": "00000000000000000000000000000010"
+        },
+        {
+          "tcId": 2,
+          "comment": "one byte and fifteen pad bytes",
+          "flags": [
+            "BlockSize16"
+          ],
+          "expected": "01",
+          "result": "valid",
+          "input": "0100000000000000000000000000000f"
+        },
+        {
+          "tcId": 3,
+          "comment": "fifteen bytes and one pad byte",
+          "flags": [
+            "BlockSize16"
+          ],
+          "expected": "000102030405060708090a0b0c0d0e",
+          "result": "valid",
+          "input": "000102030405060708090a0b0c0d0e01"
+        },
+        {
+          "tcId": 4,
+          "comment": "non-zero filler byte",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "invalid",
+          "input": "01000000000000000000000000000010"
+        },
+        {
+          "tcId": 5,
+          "comment": "zero pad byte",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "invalid",
+          "input": "00000000000000000000000000000000"
+        },
+        {
+          "tcId": 6,
+          "comment": "pad byte above the block size",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "invalid",
+          "input": "00000000000000000000000000000011"
+        },
+        {
+          "tcId": 7,
+          "comment": "empty input",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "invalid"
+        },
+        {
+          "tcId": 8,
+          "comment": "length not a multiple of the block size",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "invalid",
+          "input": "000102030405060708090a0b0c0d0e0f00"
+        }
+      ]
+    },
+    {
+      "type": "ISO9797M2",
+      "comment": "ISO/IEC 9797-1 method 2: a 0x80 marker followed by zeros.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "whole block of padding",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "valid",
+          "input": "80000000000000000000000000000000"
+        },
+        {
+          "tcId": 2,
+          "comment": "one byte and fifteen pad bytes",
+          "flags": [
+            "BlockSize16"
+          ],
+          "expected": "01",
+          "result": "valid",
+          "input": "01800000000000000000000000000000"
+        },
+        {
+          "tcId": 3,
+          "comment": "fifteen bytes and the 0x80 marker",
+          "flags": [
+            "BlockSize16"
+          ],
+          "expected": "000102030405060708090a0b0c0d0e",
+          "result": "valid",
+          "input": "000102030405060708090a0b0c0d0e80"
+        },
+        {
+          "tcId": 4,
+          "comment": "aligned plaintext gets a full block",
+          "flags": [
+            "BlockSize16"
+          ],
+          "expected": "000102030405060708090a0b0c0d0e0f",
+          "result": "valid",
+          "input": "000102030405060708090a0b0c0d0e0f80000000000000000000000000000000"
+        },
+        {
+          "tcId": 5,
+          "comment": "no 0x80 marker",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "invalid",
+          "input": "00000000000000000000000000000000"
+        },
+        {
+          "tcId": 6,
+          "comment": "last byte is not the marker",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "invalid",
+          "input": "00000000000000000000000000000001"
+        },
+        {
+          "tcId": 7,
+          "comment": "empty input",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "invalid"
+        },
+        {
+          "tcId": 8,
+          "comment": "length not a multiple of the block size",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "invalid",
+          "input": "000102030405060708090a0b0c0d0e0f00"
+        }
+      ]
+    },
+    {
+      "type": "ISO9797M3",
+      "comment": "ISO/IEC 9797-1 method 3: a length header prepended to the data, then zero fill.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "empty plaintext",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "valid",
+          "input": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "tcId": 2,
+          "comment": "four-byte plaintext",
+          "flags": [
+            "BlockSize16"
+          ],
+          "expected": "61626364",
+          "result": "valid",
+          "input": "0000000000000000000000000000002061626364000000000000000000000000"
+        },
+        {
+          "tcId": 3,
+          "comment": "aligned plaintext",
+          "flags": [
+            "BlockSize16"
+          ],
+          "expected": "000102030405060708090a0b0c0d0e0f",
+          "result": "valid",
+          "input": "00000000000000000000000000000080000102030405060708090a0b0c0d0e0f"
+        },
+        {
+          "tcId": 4,
+          "comment": "empty input",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "invalid"
+        },
+        {
+          "tcId": 5,
+          "comment": "shorter than two blocks",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "invalid",
+          "input": "00000000000000000000000000000000"
+        },
+        {
+          "tcId": 6,
+          "comment": "non-zero header",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "invalid",
+          "input": "0100000000000000000000000000002061626364000000000000000000000000"
+        },
+        {
+          "tcId": 7,
+          "comment": "length field too large",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "invalid",
+          "input": "0000000000000000000001000000000000000000000000000000000000000000"
+        },
+        {
+          "tcId": 8,
+          "comment": "non-zero byte after the plaintext",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "invalid",
+          "input": "0000000000000000000000000000002061626364000000000000000000000001"
+        },
+        {
+          "tcId": 9,
+          "comment": "extra zero block after an aligned plaintext",
+          "flags": [
+            "BlockSize16"
+          ],
+          "expected": "000102030405060708090a0b0c0d0e0f",
+          "result": "valid",
+          "input": "00000000000000000000000000000080000102030405060708090a0b0c0d0e0f00000000000000000000000000000000"
+        }
+      ]
+    },
+    {
+      "type": "ZeroPadding",
+      "comment": "Zero padding: trailing zeros are stripped; the all-zero block is valid and unpads to empty.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "all bytes are padding",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "valid",
+          "input": "00000000000000000000000000000000"
+        },
+        {
+          "tcId": 2,
+          "comment": "trailing zeros are stripped",
+          "flags": [
+            "BlockSize16"
+          ],
+          "expected": "0102",
+          "result": "valid",
+          "input": "01020000000000000000000000000000"
+        },
+        {
+          "tcId": 3,
+          "comment": "no padding to remove",
+          "flags": [
+            "BlockSize16"
+          ],
+          "expected": "000102030405060708090a0b0c0d0e10",
+          "result": "valid",
+          "input": "000102030405060708090a0b0c0d0e10"
+        },
+        {
+          "tcId": 4,
+          "comment": "empty input",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "invalid"
+        },
+        {
+          "tcId": 5,
+          "comment": "length not a multiple of the block size",
+          "flags": [
+            "BlockSize16"
+          ],
+          "result": "invalid",
+          "input": "0000000000000000000000000000000001"
+        }
+      ]
+    }
+  ]
+}

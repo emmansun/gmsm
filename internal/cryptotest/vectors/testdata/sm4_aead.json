@@ -1,0 +1,451 @@
+{
+  "schema": "gmsm-semantics-vectors/v1",
+  "algorithm": "sm4",
+  "generator": "go test ./internal/cryptotest/sm4vectors -run TestVectorsUpToDate -update",
+  "testGroups": [
+    {
+      "type": "GCM",
+      "comment": "SM4-GCM. Ciphertext is C||T unless a truncated tag is configured. The standard cases are checked against GB/T 36624-2018 and GB/T 15852.3-2019; the generic Go implementation, not the SM4 kernel, produces the derived nonce and tag sizes.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "GB/T 36624-2018 C.5: empty plaintext, empty AAD",
+          "ciphertext": "232f0cfe308b49ea6fc88229b5dc858d",
+          "result": "valid",
+          "key": "00000000000000000000000000000000",
+          "nonce": "000000000000000000000000"
+        },
+        {
+          "tcId": 2,
+          "comment": "GB/T 36624-2018 C.5: one zero block",
+          "ciphertext": "7de2aa7f1110188218063be1bfeb6d89b851b5f39493752be508f1bb4482c557",
+          "result": "valid",
+          "key": "00000000000000000000000000000000",
+          "nonce": "000000000000000000000000",
+          "plaintext": "00000000000000000000000000000000"
+        },
+        {
+          "tcId": 3,
+          "comment": "GB/T 15852.3-2019 A.4 GMAC: 16-byte AAD",
+          "ciphertext": "9d632570f93064264a20918e3081b4cd",
+          "result": "valid",
+          "key": "feffe9928665731c6d6a8f9467308308",
+          "nonce": "cafebabefacedbaddecaf888",
+          "aad": "feedfacedeadbeeffeedfacedeadbeef"
+        },
+        {
+          "tcId": 4,
+          "comment": "GB/T 15852.3-2019 A.4 GMAC: 40-byte AAD",
+          "ciphertext": "1eeaeb669e96bd059bd9929123030e78",
+          "result": "valid",
+          "key": "feffe9928665731c6d6a8f9467308308",
+          "nonce": "cafebabefacedbaddecaf888",
+          "aad": "feedfacedeadbeeffeedfacedeadbeefabaddad242831ec2217774244b7221b7"
+        },
+        {
+          "tcId": 5,
+          "comment": "64-bit nonce",
+          "ciphertext": "187269dfeb929a507ae17aad126505342af6ed692baddc918ce2851b29b19761",
+          "result": "valid",
+          "key": "00000000000000000000000000000000",
+          "nonce": "0102030405060708",
+          "aad": "a0a1a2",
+          "plaintext": "00112233445566778899aabbccddeeff",
+          "nonceSize": 8
+        },
+        {
+          "tcId": 6,
+          "comment": "96-bit tag",
+          "ciphertext": "3d311fe77d90f7745be1c94de038898e5971fef28291e54c796d05d5",
+          "result": "valid",
+          "key": "feffe9928665731c6d6a8f9467308308",
+          "nonce": "cafebabefacedbaddecaf888",
+          "aad": "feedfacedeadbeeffeedfacedeadbeef",
+          "plaintext": "00112233445566778899aabbccddeeff",
+          "tagSize": 12
+        },
+        {
+          "tcId": 7,
+          "comment": "tag bit flipped",
+          "ciphertext": "232f0cfe308b49ea6fc88229b5dc858c",
+          "result": "invalid",
+          "key": "00000000000000000000000000000000",
+          "nonce": "000000000000000000000000"
+        },
+        {
+          "tcId": 8,
+          "comment": "tag bit flipped on a one-block message",
+          "ciphertext": "7de2aa7f1110188218063be1bfeb6d89b851b5f39493752be508f1bb4482c556",
+          "result": "invalid",
+          "key": "00000000000000000000000000000000",
+          "nonce": "000000000000000000000000",
+          "plaintext": "00000000000000000000000000000000"
+        },
+        {
+          "tcId": 9,
+          "comment": "shorter than the tag",
+          "ciphertext": "232f0cfe308b49ea6fc88229",
+          "result": "invalid",
+          "key": "00000000000000000000000000000000",
+          "nonce": "000000000000000000000000"
+        },
+        {
+          "tcId": 10,
+          "comment": "truncated by one byte",
+          "ciphertext": "7de2aa7f1110188218063be1bfeb6d89b851b5f39493752be508f1bb4482c5",
+          "result": "invalid",
+          "key": "00000000000000000000000000000000",
+          "nonce": "000000000000000000000000",
+          "plaintext": "00000000000000000000000000000000"
+        },
+        {
+          "tcId": 11,
+          "comment": "wrong AAD",
+          "ciphertext": "9d632570f93064264a20918e3081b4cd",
+          "result": "invalid",
+          "key": "feffe9928665731c6d6a8f9467308308",
+          "nonce": "cafebabefacedbaddecaf888",
+          "aad": "feedfacedeadbeeffeedfacedeadbeee"
+        },
+        {
+          "tcId": 12,
+          "comment": "wrong nonce",
+          "ciphertext": "232f0cfe308b49ea6fc88229b5dc858d",
+          "result": "invalid",
+          "key": "00000000000000000000000000000000",
+          "nonce": "000000000000000000000001"
+        },
+        {
+          "tcId": 13,
+          "comment": "tag size below the minimum",
+          "result": "invalid",
+          "key": "00000000000000000000000000000000",
+          "nonce": "000000000000000000000000",
+          "tagSize": 8
+        },
+        {
+          "tcId": 14,
+          "comment": "tag size above the maximum",
+          "result": "invalid",
+          "key": "00000000000000000000000000000000",
+          "nonce": "000000000000000000000000",
+          "tagSize": 17
+        }
+      ]
+    },
+    {
+      "type": "CCM",
+      "comment": "SM4-CCM as specified by RFC 3610. The RFC 8998 A.2 case validates the independent CBC-MAC/CTR implementation used to derive the 7- and 13-byte nonce and 32-bit tag cases.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "RFC 8998 A.2",
+          "ciphertext": "48af93501fa62adbcd414cce6034d895dda1bf8f132f042098661572e7483094fd12e518ce062c98acee28d95df4416bed31a2f04476c18bb40c84a74b97dc5b16842d4fa186f56ab33256971fa110f4",
+          "result": "valid",
+          "key": "0123456789abcdeffedcba9876543210",
+          "nonce": "00001234567800000000abcd",
+          "aad": "feedfacedeadbeeffeedfacedeadbeefabaddad2",
+          "plaintext": "aaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbccccccccccccccccddddddddddddddddeeeeeeeeeeeeeeeeffffffffffffffffeeeeeeeeeeeeeeeeaaaaaaaaaaaaaaaa"
+        },
+        {
+          "tcId": 2,
+          "comment": "empty plaintext with AAD",
+          "ciphertext": "315494f3b26eec939d6e161bd71c361d",
+          "result": "valid",
+          "key": "0123456789abcdeffedcba9876543210",
+          "nonce": "00001234567800000000abcd",
+          "aad": "feedfacedeadbeeffeedfacedeadbeef"
+        },
+        {
+          "tcId": 3,
+          "comment": "7-byte nonce",
+          "ciphertext": "f460ecf76c0bf7ecc6eccb6b1f7aa3798ba2107c88f22176",
+          "result": "valid",
+          "key": "0123456789abcdeffedcba9876543210",
+          "nonce": "00010203040506",
+          "plaintext": "0011223344556677",
+          "nonceSize": 7
+        },
+        {
+          "tcId": 4,
+          "comment": "13-byte nonce, 64-bit tag",
+          "ciphertext": "d20126be29c38ad73efbc593d6b43ab4",
+          "result": "valid",
+          "key": "0123456789abcdeffedcba9876543210",
+          "nonce": "000102030405060708090a0b0c",
+          "aad": "a0a1a2a3",
+          "plaintext": "0011223344556677",
+          "tagSize": 8,
+          "nonceSize": 13
+        },
+        {
+          "tcId": 5,
+          "comment": "32-bit tag",
+          "ciphertext": "e2141bc9f159e606a4af9a80",
+          "result": "valid",
+          "key": "0123456789abcdeffedcba9876543210",
+          "nonce": "00001234567800000000abcd",
+          "plaintext": "0011223344556677",
+          "tagSize": 4
+        },
+        {
+          "tcId": 6,
+          "comment": "tag bit flipped",
+          "ciphertext": "48af93501fa62adbcd414cce6034d895dda1bf8f132f042098661572e7483094fd12e518ce062c98acee28d95df4416bed31a2f04476c18bb40c84a74b97dc5b16842d4fa186f56ab33256971fa110f5",
+          "result": "invalid",
+          "key": "0123456789abcdeffedcba9876543210",
+          "nonce": "00001234567800000000abcd",
+          "aad": "feedfacedeadbeeffeedfacedeadbeefabaddad2",
+          "plaintext": "aaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbccccccccccccccccddddddddddddddddeeeeeeeeeeeeeeeeffffffffffffffffeeeeeeeeeeeeeeeeaaaaaaaaaaaaaaaa"
+        },
+        {
+          "tcId": 7,
+          "comment": "truncated by one byte",
+          "ciphertext": "48af93501fa62adbcd414cce6034d895dda1bf8f132f042098661572e7483094fd12e518ce062c98acee28d95df4416bed31a2f04476c18bb40c84a74b97dc5b16842d4fa186f56ab33256971fa110",
+          "result": "invalid",
+          "key": "0123456789abcdeffedcba9876543210",
+          "nonce": "00001234567800000000abcd",
+          "aad": "feedfacedeadbeeffeedfacedeadbeefabaddad2",
+          "plaintext": "aaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbccccccccccccccccddddddddddddddddeeeeeeeeeeeeeeeeffffffffffffffffeeeeeeeeeeeeeeeeaaaaaaaaaaaaaaaa"
+        },
+        {
+          "tcId": 8,
+          "comment": "shorter than the tag",
+          "ciphertext": "48af93501fa62adbcd414cce6034d8",
+          "result": "invalid",
+          "key": "0123456789abcdeffedcba9876543210",
+          "nonce": "00001234567800000000abcd",
+          "aad": "feedfacedeadbeeffeedfacedeadbeefabaddad2",
+          "plaintext": "aaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbccccccccccccccccddddddddddddddddeeeeeeeeeeeeeeeeffffffffffffffffeeeeeeeeeeeeeeeeaaaaaaaaaaaaaaaa"
+        },
+        {
+          "tcId": 9,
+          "comment": "wrong AAD",
+          "ciphertext": "48af93501fa62adbcd414cce6034d895dda1bf8f132f042098661572e7483094fd12e518ce062c98acee28d95df4416bed31a2f04476c18bb40c84a74b97dc5b16842d4fa186f56ab33256971fa110f4",
+          "result": "invalid",
+          "key": "0123456789abcdeffedcba9876543210",
+          "nonce": "00001234567800000000abcd",
+          "aad": "feedfacedeadbeeffeedfacedeadbeea",
+          "plaintext": "aaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbccccccccccccccccddddddddddddddddeeeeeeeeeeeeeeeeffffffffffffffffeeeeeeeeeeeeeeeeaaaaaaaaaaaaaaaa"
+        },
+        {
+          "tcId": 10,
+          "comment": "wrong nonce",
+          "ciphertext": "48af93501fa62adbcd414cce6034d895dda1bf8f132f042098661572e7483094fd12e518ce062c98acee28d95df4416bed31a2f04476c18bb40c84a74b97dc5b16842d4fa186f56ab33256971fa110f4",
+          "result": "invalid",
+          "key": "0123456789abcdeffedcba9876543210",
+          "nonce": "00001234567800000000abce",
+          "aad": "feedfacedeadbeeffeedfacedeadbeefabaddad2",
+          "plaintext": "aaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbccccccccccccccccddddddddddddddddeeeeeeeeeeeeeeeeffffffffffffffffeeeeeeeeeeeeeeeeaaaaaaaaaaaaaaaa"
+        },
+        {
+          "tcId": 11,
+          "comment": "odd tag size",
+          "result": "invalid",
+          "key": "0123456789abcdeffedcba9876543210",
+          "nonce": "00001234567800000000abcd",
+          "tagSize": 5
+        },
+        {
+          "tcId": 12,
+          "comment": "nonce too short",
+          "result": "invalid",
+          "key": "0123456789abcdeffedcba9876543210",
+          "nonce": "000102030405",
+          "nonceSize": 6
+        },
+        {
+          "tcId": 13,
+          "comment": "nonce too long",
+          "result": "invalid",
+          "key": "0123456789abcdeffedcba9876543210",
+          "nonce": "000102030405060708090a0b0c0d",
+          "nonceSize": 14
+        },
+        {
+          "tcId": 14,
+          "comment": "tag too large",
+          "result": "invalid",
+          "key": "0123456789abcdeffedcba9876543210",
+          "nonce": "00001234567800000000abcd",
+          "tagSize": 17
+        }
+      ]
+    },
+    {
+      "type": "GCMSIV",
+      "comment": "SM4-GCM-SIV. The valid ciphertexts are the committed SM4-SIV KATs; every invalid case is a single-point mutation of one of them, and the tag check must fail.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "empty plaintext",
+          "ciphertext": "1a8a0d12690856bd81e73d4b49a484a6",
+          "result": "valid",
+          "key": "01000000000000000000000000000000",
+          "nonce": "030000000000000000000000"
+        },
+        {
+          "tcId": 2,
+          "comment": "AAD and 8-byte plaintext",
+          "ciphertext": "25a3d08f8c1ab23e168ae39d5edc751b5939a21554bbe86f",
+          "result": "valid",
+          "key": "01000000000000000000000000000000",
+          "nonce": "030000000000000000000000",
+          "aad": "01",
+          "plaintext": "0200000000000000"
+        },
+        {
+          "tcId": 3,
+          "comment": "tag bit flipped",
+          "ciphertext": "1a8a0d12690856bd81e73d4b49a484a7",
+          "result": "invalid",
+          "key": "01000000000000000000000000000000",
+          "nonce": "030000000000000000000000"
+        },
+        {
+          "tcId": 4,
+          "comment": "truncated by one byte",
+          "ciphertext": "25a3d08f8c1ab23e168ae39d5edc751b5939a21554bbe8",
+          "result": "invalid",
+          "key": "01000000000000000000000000000000",
+          "nonce": "030000000000000000000000",
+          "aad": "01",
+          "plaintext": "0200000000000000"
+        },
+        {
+          "tcId": 5,
+          "comment": "wrong AAD",
+          "ciphertext": "25a3d08f8c1ab23e168ae39d5edc751b5939a21554bbe86f",
+          "result": "invalid",
+          "key": "01000000000000000000000000000000",
+          "nonce": "030000000000000000000000",
+          "aad": "02",
+          "plaintext": "0200000000000000"
+        },
+        {
+          "tcId": 6,
+          "comment": "wrong nonce",
+          "ciphertext": "1a8a0d12690856bd81e73d4b49a484a6",
+          "result": "invalid",
+          "key": "01000000000000000000000000000000",
+          "nonce": "020000000000000000000000"
+        },
+        {
+          "tcId": 7,
+          "comment": "24-byte key",
+          "result": "invalid",
+          "key": "010000000000000000000000000000000000000000000000",
+          "nonce": "030000000000000000000000"
+        },
+        {
+          "tcId": 8,
+          "comment": "15-byte key",
+          "result": "invalid",
+          "key": "010000000000000000000000000000",
+          "nonce": "030000000000000000000000"
+        }
+      ]
+    },
+    {
+      "type": "XTS",
+      "comment": "SM4-XTS with the IEEE 1619 tweak schedule, addressed by sector number. The 25-byte data unit exercises ciphertext stealing.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "one 16-byte block, sector 0",
+          "ciphertext": "d9b421f731c894fdc35b77291fe4e3b02a1fb76698d59f0e51376c4ada5bc75d",
+          "result": "valid",
+          "key": "00000000000000000000000000000000",
+          "key2": "00000000000000000000000000000000",
+          "plaintext": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "tcId": 2,
+          "comment": "two blocks, sector 0x3333333333",
+          "ciphertext": "a74d726c11196a32be04e001ff29d0c7932f9f3ec29bfcb64dd17f63cbd3ea31",
+          "result": "valid",
+          "key": "11111111111111111111111111111111",
+          "key2": "22222222222222222222222222222222",
+          "plaintext": "4444444444444444444444444444444444444444444444444444444444444444",
+          "sector": 219902325555
+        },
+        {
+          "tcId": 3,
+          "comment": "25-byte data unit, ciphertext stealing",
+          "ciphertext": "c3cf5445c64aa518f4abce2848faddfb4605d9fb66f1f12c0c",
+          "result": "valid",
+          "key": "c46acc2e7e013cb71cdbf750cf76b000",
+          "key2": "249fbf4fb6cd17607773c23ffa2c4330",
+          "plaintext": "7e9c2289cba460e470222953439cdaa892a5433d4dab2a3f67",
+          "sector": 94
+        },
+        {
+          "tcId": 4,
+          "comment": "15-byte data key",
+          "result": "invalid",
+          "key": "000000000000000000000000000000",
+          "key2": "00000000000000000000000000000000"
+        },
+        {
+          "tcId": 5,
+          "comment": "15-byte tweak key",
+          "result": "invalid",
+          "key": "00000000000000000000000000000000",
+          "key2": "000000000000000000000000000000"
+        }
+      ]
+    },
+    {
+      "type": "GBXTS",
+      "comment": "SM4-XTS with the GB/T 17964-2021 tweak schedule, addressed by a raw 16-byte tweak. The 61-byte data unit exercises ciphertext stealing.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "GB/T 17964-2021 B.7: one block",
+          "ciphertext": "5da5ce300ef7719ca2d833f7d0662a13",
+          "result": "valid",
+          "key": "44d5ed13a49771e27533cc8ece9489d7",
+          "key2": "57a55435b1871352ec0a08ac1933ae17",
+          "plaintext": "c36f981fc08308ff509d99149481edc2",
+          "tweak": "d2aa700ffb6a92b265b6177810bd5980"
+        },
+        {
+          "tcId": 2,
+          "comment": "GB/T 17964-2021 B.7: three blocks",
+          "ciphertext": "e9538251c71d7b80bbe4483fef497bd12c5c581bd6242fc51e08964fb4f60fdb0ba42f63499279213d318d2c11f6886e903be7f93a1b3479",
+          "result": "valid",
+          "key": "2b7e151628aed2a6abf7158809cf4f3c",
+          "key2": "000102030405060708090a0b0c0d0e0f",
+          "plaintext": "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17",
+          "tweak": "f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"
+        },
+        {
+          "tcId": 3,
+          "comment": "GB/T 17964-2021 B.7: 61-byte data unit",
+          "ciphertext": "9b2adabe119edf424b25ff31c952307408c145d7cd7ae83a8fc7a79c387118fb0be89e9658e1d9a83d7919dd9d195a3621237d3baaef3525a58b56519ac64d1f62144450238c7e3a0edc9e1fcb54bfee",
+          "result": "valid",
+          "key": "dacb6342586202826d4078a20579951f",
+          "key2": "21396c4ed74efda349e557b0bce0c15f",
+          "plaintext": "6e857aeac5f36165222eed4077df4c74327360cd5050112de5445cf4299e692608754c94a1c8c6cd985513d3df26e5780a6a286baa0679f8af0487297d89e83cdc61571635238145880542e0a0b0cb9d",
+          "tweak": "5e1d5f6eed82c04da8abeee6f416cf88"
+        },
+        {
+          "tcId": 4,
+          "comment": "15-byte tweak",
+          "result": "invalid",
+          "key": "00000000000000000000000000000000",
+          "key2": "00000000000000000000000000000000",
+          "tweak": "000000000000000000000000000000"
+        },
+        {
+          "tcId": 5,
+          "comment": "15-byte tweak key",
+          "result": "invalid",
+          "key": "00000000000000000000000000000000",
+          "key2": "000000000000000000000000000000",
+          "tweak": "00000000000000000000000000000000"
+        }
+      ]
+    }
+  ]
+}
