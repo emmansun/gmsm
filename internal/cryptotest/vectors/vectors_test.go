@@ -51,6 +51,7 @@ func TestValidate(t *testing.T) {
 		"unknown ordering": {TCID: 1, Ordering: "C2C1C3"},
 		"zero tcId":        {TCID: 0},
 		"non-hex payload":  {TCID: 1, R: "zz"},
+		"non-hex context":  {TCID: 1, Context: "zz"},
 	} {
 		if err := suite(tc).Validate(); err == nil {
 			t.Errorf("Validate() accepted a suite with %s", name)

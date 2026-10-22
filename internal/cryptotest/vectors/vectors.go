@@ -86,6 +86,7 @@ type Case struct {
 	UID        string `json:"uid,omitempty"` // empty means the library default
 	HID        int    `json:"hid,omitempty"` // SM9 hierarchy identifier
 	Msg        string `json:"msg,omitempty"`
+	Context    string `json:"context,omitempty"`
 	Hash       string `json:"hash,omitempty"` // precomputed e for Verify
 	R          string `json:"r,omitempty"`
 	S          string `json:"s,omitempty"`
@@ -183,7 +184,7 @@ func (s *Suite) Validate() error {
 				return fmt.Errorf("group %q tc%d: unknown ordering %q", g.Type, tc.TCID, tc.Ordering)
 			}
 			fields := [...]struct{ name, value string }{
-				{"pub", tc.Pub}, {"uid", tc.UID}, {"msg", tc.Msg},
+				{"pub", tc.Pub}, {"uid", tc.UID}, {"msg", tc.Msg}, {"context", tc.Context},
 				{"hash", tc.Hash}, {"r", tc.R}, {"s", tc.S}, {"sig", tc.Sig},
 				{"priv", tc.Priv}, {"ciphertext", tc.Ciphertext},
 				{"x", tc.X}, {"y", tc.Y}, {"a", tc.A}, {"b", tc.B},
