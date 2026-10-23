@@ -1,0 +1,170 @@
+{
+  "schema": "gmsm-semantics-vectors/v1",
+  "algorithm": "sm3",
+  "generator": "go test ./internal/cryptotest/sm3vectors -run TestVectorsUpToDate -update",
+  "testGroups": [
+    {
+      "type": "SM3Hash",
+      "comment": "SM3 digests at and around the 64-byte block and 56-byte length-field boundaries. The expected values come from an independent implementation written from GB/T 32905-2016.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "GB/T 32905-2016 A.1: abc",
+          "expected": "66c7f0f462eeedd9d1f2d46bdc10e4e24167c4875cf2f7a2297da02b8f4ba8e0",
+          "msg": "616263"
+        },
+        {
+          "tcId": 2,
+          "comment": "empty message",
+          "expected": "1ab21d8355cfa17f8e61194831e81a8f22bec8c728fefb747ed035eb5082aa2b"
+        },
+        {
+          "tcId": 3,
+          "comment": "one byte",
+          "expected": "2daef60e7a0b8f5e024c81cd2ab3109f2b4f155cf83adeb2ae5532f74a157fdf",
+          "msg": "00"
+        },
+        {
+          "tcId": 4,
+          "comment": "three bytes",
+          "expected": "d18c17ef9f985ba361f06b599a1ec3cae9bd5de6967cac33944e5f8b67b6dcc2",
+          "msg": "000102"
+        },
+        {
+          "tcId": 5,
+          "comment": "55 bytes: the length field still fits the first block",
+          "expected": "a79cf9dcee3404abf7f769698201647fd9d3ff61d629d0f58bb4b5579a427db8",
+          "msg": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f30313233343536"
+        },
+        {
+          "tcId": 6,
+          "comment": "56 bytes: the length field forces an extra block",
+          "expected": "62f7363b15f4de76dd925c493b9d6d00d4ba0ef2a1f334c1d0f13b293aeb40d1",
+          "msg": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f3031323334353637"
+        },
+        {
+          "tcId": 7,
+          "comment": "63 bytes",
+          "expected": "6165e4cbb15cde01c6226e0015a47f710f8f8e1f2c296700033bb34d9212109c",
+          "msg": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e"
+        },
+        {
+          "tcId": 8,
+          "comment": "64 bytes: one full block",
+          "expected": "93566f236d157aae078d1ddb5cebdbba1520b5142e22a8915564345ba2ae1d63",
+          "msg": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f"
+        },
+        {
+          "tcId": 9,
+          "comment": "65 bytes",
+          "expected": "c886e6814be748285a10b28ae62ddacd85db830cd2cf3a2bfa2f729c15f63618",
+          "msg": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40"
+        },
+        {
+          "tcId": 10,
+          "comment": "119 bytes",
+          "expected": "8f3ea392a89a7119982d6634660db1a95f35d68267a2235e3255998a857f4fbf",
+          "msg": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f70717273747576"
+        },
+        {
+          "tcId": 11,
+          "comment": "120 bytes",
+          "expected": "6babee35e6a1515af9d6255109c24f3c08897829422c6225d235fd4c8527e9ec",
+          "msg": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f7071727374757677"
+        },
+        {
+          "tcId": 12,
+          "comment": "127 bytes",
+          "expected": "bca3436d828517a6a6893a9e309e06e7b7b29c6e3f78b4814b23efe149962980",
+          "msg": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e"
+        },
+        {
+          "tcId": 13,
+          "comment": "128 bytes: two full blocks",
+          "expected": "a9e7985473ca09df1510d83b572f72375430756c4a661b00724afeb8b75dd0a5",
+          "msg": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f"
+        }
+      ]
+    },
+    {
+      "type": "SM3KDF",
+      "comment": "SM3-based KDF output lengths around the 32-byte digest size, plus the zero-length output and an empty shared secret. The expected values come from the same independent SM3.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "zero-length output",
+          "input": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f"
+        },
+        {
+          "tcId": 2,
+          "comment": "one byte",
+          "expected": "5d",
+          "input": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f",
+          "keyLen": 1
+        },
+        {
+          "tcId": 3,
+          "comment": "one byte short of a block",
+          "expected": "5de130c11a304b490118246859ef35c30b9283b22cb017a8af1bad372d4938",
+          "input": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f",
+          "keyLen": 31
+        },
+        {
+          "tcId": 4,
+          "comment": "exactly one block",
+          "expected": "5de130c11a304b490118246859ef35c30b9283b22cb017a8af1bad372d49383a",
+          "input": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f",
+          "keyLen": 32
+        },
+        {
+          "tcId": 5,
+          "comment": "one byte into the second block",
+          "expected": "5de130c11a304b490118246859ef35c30b9283b22cb017a8af1bad372d49383a87",
+          "input": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f",
+          "keyLen": 33
+        },
+        {
+          "tcId": 6,
+          "comment": "one byte short of two blocks",
+          "expected": "5de130c11a304b490118246859ef35c30b9283b22cb017a8af1bad372d49383a87f985ac3f0cdf4146d900bb4ff17215f057f2ecf15f18d9a57de1ff24651a",
+          "input": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f",
+          "keyLen": 63
+        },
+        {
+          "tcId": 7,
+          "comment": "exactly two blocks",
+          "expected": "5de130c11a304b490118246859ef35c30b9283b22cb017a8af1bad372d49383a87f985ac3f0cdf4146d900bb4ff17215f057f2ecf15f18d9a57de1ff24651a73",
+          "input": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f",
+          "keyLen": 64
+        },
+        {
+          "tcId": 8,
+          "comment": "one byte into the third block",
+          "expected": "5de130c11a304b490118246859ef35c30b9283b22cb017a8af1bad372d49383a87f985ac3f0cdf4146d900bb4ff17215f057f2ecf15f18d9a57de1ff24651a73b6",
+          "input": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f",
+          "keyLen": 65
+        },
+        {
+          "tcId": 9,
+          "comment": "exactly three blocks",
+          "expected": "5de130c11a304b490118246859ef35c30b9283b22cb017a8af1bad372d49383a87f985ac3f0cdf4146d900bb4ff17215f057f2ecf15f18d9a57de1ff24651a73b64f13a44553a1a7d54e98a9621bd067236a8c53a0bf8104c3759931c4eda377",
+          "input": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f",
+          "keyLen": 96
+        },
+        {
+          "tcId": 10,
+          "comment": "four blocks plus one byte",
+          "expected": "5de130c11a304b490118246859ef35c30b9283b22cb017a8af1bad372d49383a87f985ac3f0cdf4146d900bb4ff17215f057f2ecf15f18d9a57de1ff24651a73b64f13a44553a1a7d54e98a9621bd067236a8c53a0bf8104c3759931c4eda377b55b0d251ad0872b15061ab9ea77751f76571110b3282b58c5863b98638cea39f3",
+          "input": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f",
+          "keyLen": 129
+        },
+        {
+          "tcId": 11,
+          "comment": "empty shared secret",
+          "expected": "88c0cffa4c713446a03f1fff1630aa6353bdb53e2a9272146be7a82fde06afa3",
+          "keyLen": 32
+        }
+      ]
+    }
+  ]
+}

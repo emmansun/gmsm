@@ -8,6 +8,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"math/big"
 	"testing"
 
@@ -91,20 +92,27 @@ func TestNewPrivateKeyFromInt(t *testing.T) {
 func TestParseUncompressedPublicKey(t *testing.T) {
 	// test nil
 	_, err := ParseUncompressedPublicKey(nil)
-	if err == nil || err.Error() != "sm2: invalid public key encoding" {
-		t.Errorf("should throw sm2: invalid public key encoding")
+	if !errors.Is(err, errInvalidPublicKey) {
+		t.Errorf("nil: got %v, want %v", err, errInvalidPublicKey)
 	}
 	// test without point format prefix byte
 	keypoints, _ := hex.DecodeString("8356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1")
 	_, err = ParseUncompressedPublicKey(keypoints)
-	if err == nil || err.Error() != "invalid P256 point encoding" {
-		t.Errorf("invalid P256 point encoding")
+	if !errors.Is(err, errInvalidPublicKey) {
+		t.Errorf("missing prefix: got %v, want %v", err, errInvalidPublicKey)
 	}
 	// test correct point
 	keypoints, _ = hex.DecodeString("048356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba1")
-	_, err = ParseUncompressedPublicKey(keypoints)
-	if err != nil {
+	if _, err := ParseUncompressedPublicKey(keypoints); err != nil {
 		t.Fatal(err)
+	}
+	// test compressed and hybrid prefixes: they used to be decoded into a key
+	// with a zero Y coordinate instead of being rejected
+	for _, prefix := range []byte{2, 3, 6, 7} {
+		encoded := append([]byte{prefix}, keypoints[1:]...)
+		if _, err := ParseUncompressedPublicKey(encoded); !errors.Is(err, errInvalidPublicKey) {
+			t.Errorf("prefix %#x: got %v, want %v", prefix, err, errInvalidPublicKey)
+		}
 	}
 	// test point not on curve
 	keypoints, _ = hex.DecodeString("048356e642a40ebd18d29ba3532fbd9f3bbee8f027c3f6f39a5ba2f870369f9988981f5efe55d1c5cdf6c0ef2b070847a14f7fdf4272a8df09c442f3058af94ba2")
@@ -449,6 +457,54 @@ func TestSignVerify(t *testing.T) {
 			hashed[0] ^= 0xff
 			if VerifyASN1(&priv.PublicKey, hashed[:], signature) {
 				t.Errorf("VerifyASN1 always works!")
+			}
+		})
+	}
+}
+
+func TestVerifyASN1RejectsMalformedSignature(t *testing.T) {
+	privateKey, err := GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	message := []byte("malformed signature verification")
+	hashed := sm3.Sum(message)
+	verifiers := []struct {
+		name   string
+		verify func([]byte) bool
+	}{
+		{"VerifyASN1", func(sig []byte) bool { return VerifyASN1(&privateKey.PublicKey, hashed[:], sig) }},
+		{"VerifyASN1WithSM2", func(sig []byte) bool { return VerifyASN1WithSM2(&privateKey.PublicKey, nil, message, sig) }},
+	}
+	tests := []struct {
+		name string
+		sig  string
+	}{
+		{"empty_signature", ""},
+		{"sm9_empty_bit_string", "30050400030100"},
+		{"empty_sequence", "3000"},
+		{"empty_integers", "300402000200"},
+		{"empty_r", "30050200020101"},
+		{"empty_s", "30050201010200"},
+		{"zero_r", "3006020100020101"},
+		{"zero_s", "3006020101020100"},
+		{"negative_r", "30060201ff020101"},
+		{"nonminimal_r", "300702020001020101"},
+		{"truncated_s", "30060201010201"},
+		{"trailing_data", "300602010102010100"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			signature, err := hex.DecodeString(test.sig)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, verifier := range verifiers {
+				t.Run(verifier.name, func(t *testing.T) {
+					if verifier.verify(signature) {
+						t.Fatal("accepted malformed signature")
+					}
+				})
 			}
 		})
 	}

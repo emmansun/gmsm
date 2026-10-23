@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
+	"math/big"
 	"testing"
 )
 
@@ -85,8 +86,7 @@ func TestScaleMult(t *testing.T) {
 	e.p.MakeAffine()
 
 	e2, e3 := &G2{}, &G2{}
-	e3.p = &twistPoint{}
-	e3.p.Mul(twistGen, k)
+	e3.p = naiveTwistPointMul(twistGen, k)
 	e3.p.MakeAffine()
 
 	_, err = e2.ScalarMult(Gen2, NormalizeScalar(k.Bytes()))
@@ -97,6 +97,22 @@ func TestScaleMult(t *testing.T) {
 	if !e.Equal(e2) {
 		t.Errorf("not same")
 	}
+}
+
+// naiveTwistPointMul computes scalar*a with a plain square-and-multiply loop,
+// as a reference for testing the optimized scalar multiplication.
+func naiveTwistPointMul(a *twistPoint, scalar *big.Int) *twistPoint {
+	sum, t := &twistPoint{}, &twistPoint{}
+	sum.SetInfinity()
+	for i := scalar.BitLen() - 1; i >= 0; i-- {
+		t.Double(sum)
+		if scalar.Bit(i) != 0 {
+			sum.Add(t, a)
+		} else {
+			sum.Set(t)
+		}
+	}
+	return sum
 }
 
 func TestG2AddNeg(t *testing.T) {

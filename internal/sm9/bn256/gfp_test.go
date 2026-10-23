@@ -162,41 +162,6 @@ func TestFromMont(t *testing.T) {
 	}
 }
 
-func TestGfpExp(t *testing.T) {
-	xI := bigFromHex("9093a2b979e6186f43a9b28d41ba644d533377f2ede8c66b19774bf4a9c7a596")
-	x := fromBigInt(xI)
-	ret, ret3 := &gfP{}, &gfP{}
-	ret.exp(x, pMinus2)
-
-	gfpMul(ret3, x, ret)
-	if *ret3 != *one {
-		t.Errorf("got %v, expected %v\n", ret3, one)
-	}
-	montDecode(ret, ret)
-
-	ret2 := new(big.Int).Exp(xI, bigFromHex("b640000002a3a6f1d603ab4ff58ec74521f2934b1a7aeedbe56f9b27e351457b"), p)
-	if hex.EncodeToString(ret2.Bytes()) != ret.String() {
-		t.Errorf("exp not same, got %v, expected %v\n", ret, hex.EncodeToString(ret2.Bytes()))
-	}
-
-	xInv := new(big.Int).ModInverse(xI, p)
-	if hex.EncodeToString(ret2.Bytes()) != hex.EncodeToString(xInv.Bytes()) {
-		t.Errorf("exp not same, got %v, expected %v\n", hex.EncodeToString(ret2.Bytes()), hex.EncodeToString(xInv.Bytes()))
-	}
-
-	x2 := new(big.Int).Mul(xI, xInv)
-	x2.Mod(x2, p)
-	if big.NewInt(1).Cmp(x2) != 0 {
-		t.Errorf("not same")
-	}
-
-	xInvGfp := fromBigInt(xInv)
-	gfpMul(ret, x, xInvGfp)
-	if *ret != *one {
-		t.Errorf("got %v, expected %v", ret, one)
-	}
-}
-
 func TestSqrt(t *testing.T) {
 	tests := []string{
 		"9093a2b979e6186f43a9b28d41ba644d533377f2ede8c66b19774bf4a9c7a596",
@@ -413,15 +378,5 @@ func BenchmarkGfPInvert(b *testing.B) {
 	ret := &gfP{}
 	for i := 0; i < b.N; i++ {
 		ret.Invert(x)
-	}
-}
-
-func BenchmarkGfPInvert2(b *testing.B) {
-	x := newGFpFromHex("9093a2b979e6186f43a9b28d41ba644d533377f2ede8c66b19774bf4a9c7a596")
-	b.ReportAllocs()
-	b.ResetTimer()
-	ret := &gfP{}
-	for i := 0; i < b.N; i++ {
-		ret.exp(x, pMinus2)
 	}
 }

@@ -37,40 +37,40 @@ TEXT ·encryptBlocksAsm(SB), NOSPLIT, $0-64
 	BLTU R7, R8, scalar_path    // if src_len < 128, skip LASX
 
 	// Load the 256-byte SM4 S-box into X0-X15, 16 bytes per register,
-	// replicated into both 128-bit lanes (needed for XVSHUF_B lookup).
+	// replicated into both 128-bit lanes (needed for XVSHUFB lookup).
 	MOVV $·sbox(SB), R9
 	VMOVQ 0(R9), V0
-	XVPERMIQ_REPL(0)          // X0  = sbox[0..15]   (both lanes)
+	XVPERMIQ $0x00, X0, X0    // X0  = sbox[0..15]   (both lanes)
 	VMOVQ 16(R9), V8
-	XVPERMIQ_REPL(8)          // X8  = sbox[16..31]  (both lanes)
+	XVPERMIQ $0x00, X8, X8    // X8  = sbox[16..31]  (both lanes)
 	VMOVQ 32(R9), V1
-	XVPERMIQ_REPL(1)          // X1  = sbox[32..47]  (both lanes)
+	XVPERMIQ $0x00, X1, X1    // X1  = sbox[32..47]  (both lanes)
 	VMOVQ 48(R9), V9
-	XVPERMIQ_REPL(9)          // X9  = sbox[48..63]  (both lanes)
+	XVPERMIQ $0x00, X9, X9    // X9  = sbox[48..63]  (both lanes)
 	VMOVQ 64(R9), V2
-	XVPERMIQ_REPL(2)          // X2  = sbox[64..79]  (both lanes)
+	XVPERMIQ $0x00, X2, X2    // X2  = sbox[64..79]  (both lanes)
 	VMOVQ 80(R9), V10
-	XVPERMIQ_REPL(10)         // X10 = sbox[80..95]  (both lanes)
+	XVPERMIQ $0x00, X10, X10  // X10 = sbox[80..95]  (both lanes)
 	VMOVQ 96(R9), V3
-	XVPERMIQ_REPL(3)          // X3  = sbox[96..111] (both lanes)
+	XVPERMIQ $0x00, X3, X3    // X3  = sbox[96..111] (both lanes)
 	VMOVQ 112(R9), V11
-	XVPERMIQ_REPL(11)         // X11 = sbox[112..127](both lanes)
+	XVPERMIQ $0x00, X11, X11  // X11 = sbox[112..127](both lanes)
 	VMOVQ 128(R9), V4
-	XVPERMIQ_REPL(4)          // X4  = sbox[128..143](both lanes)
+	XVPERMIQ $0x00, X4, X4    // X4  = sbox[128..143](both lanes)
 	VMOVQ 144(R9), V12
-	XVPERMIQ_REPL(12)         // X12 = sbox[144..159](both lanes)
+	XVPERMIQ $0x00, X12, X12  // X12 = sbox[144..159](both lanes)
 	VMOVQ 160(R9), V5
-	XVPERMIQ_REPL(5)          // X5  = sbox[160..175](both lanes)
+	XVPERMIQ $0x00, X5, X5    // X5  = sbox[160..175](both lanes)
 	VMOVQ 176(R9), V13
-	XVPERMIQ_REPL(13)         // X13 = sbox[176..191](both lanes)
+	XVPERMIQ $0x00, X13, X13  // X13 = sbox[176..191](both lanes)
 	VMOVQ 192(R9), V6
-	XVPERMIQ_REPL(6)          // X6  = sbox[192..207](both lanes)
+	XVPERMIQ $0x00, X6, X6    // X6  = sbox[192..207](both lanes)
 	VMOVQ 208(R9), V14
-	XVPERMIQ_REPL(14)         // X14 = sbox[208..223](both lanes)
+	XVPERMIQ $0x00, X14, X14  // X14 = sbox[208..223](both lanes)
 	VMOVQ 224(R9), V7
-	XVPERMIQ_REPL(7)          // X7  = sbox[224..239](both lanes)
+	XVPERMIQ $0x00, X7, X7    // X7  = sbox[224..239](both lanes)
 	VMOVQ 240(R9), V15
-	XVPERMIQ_REPL(15)         // X15 = sbox[240..255](both lanes)
+	XVPERMIQ $0x00, X15, X15  // X15 = sbox[240..255](both lanes)
 
 	// Load byte-level constants for S-box range checking.
 	MOVV $0x01, R9

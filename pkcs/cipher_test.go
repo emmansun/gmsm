@@ -86,3 +86,31 @@ func TestGcmParameters(t *testing.T) {
 		t.Errorf("not consistent result")
 	}
 }
+
+func TestDecryptInvalidParameters(t *testing.T) {
+	iv16, _ := asn1.Marshal(make([]byte, 16))
+	badIV, _ := asn1.Marshal([]byte{0x00})
+	aesKey := make([]byte, 32)
+	sm4Key := make([]byte, 16)
+	testcases := []struct {
+		name       string
+		cipher     Cipher
+		key        []byte
+		params     *asn1.RawValue
+		ciphertext []byte
+	}{
+		{"AES256CBC invalid iv length", AES256CBC, aesKey, &asn1.RawValue{FullBytes: badIV}, make([]byte, 16)},
+		{"AES256CBC invalid ciphertext length", AES256CBC, aesKey, &asn1.RawValue{FullBytes: iv16}, make([]byte, 17)},
+		{"SM4CBC invalid iv length", SM4CBC, sm4Key, &asn1.RawValue{FullBytes: badIV}, make([]byte, 16)},
+		{"SM4CBC invalid ciphertext length", SM4CBC, sm4Key, &asn1.RawValue{FullBytes: iv16}, make([]byte, 17)},
+		{"SM4ECB invalid ciphertext length", SM4ECB, sm4Key, nil, make([]byte, 17)},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := tc.cipher.Decrypt(tc.key, tc.params, tc.ciphertext)
+			if err == nil {
+				t.Errorf("should be error")
+			}
+		})
+	}
+}

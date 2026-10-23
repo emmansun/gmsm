@@ -104,9 +104,10 @@ func PrecomputeG2(q *twistPoint) *G2Precomputed {
 // lineFunctionDoublePrecomp is the precomputation variant of lineFunctionDouble.
 // It evolves the twist point r → rOut (same as lineFunctionDouble) but instead of
 // applying G1 scaling, it stores the G2-only factors in out:
-//   out.b = -2*E*r.t    (scale by P.x at pairing time to get b_final)
-//   out.c = 2*rOut.z*r.t (scale by P.y at pairing time to get c_final)
-//   out.a = a            (fully computed, no G1 dependence)
+//
+//	out.b = -2*E*r.t    (scale by P.x at pairing time to get b_final)
+//	out.c = 2*rOut.z*r.t (scale by P.y at pairing time to get c_final)
+//	out.a = a            (fully computed, no G1 dependence)
 func lineFunctionDoublePrecomp(r, rOut *twistPoint, out *g2LineEval) {
 	// See the doubling algorithm for a=0 from "Faster Computation of the
 	// Tate Pairing", http://arxiv.org/pdf/0904.0854v3.pdf
@@ -148,9 +149,10 @@ func lineFunctionDoublePrecomp(r, rOut *twistPoint, out *g2LineEval) {
 
 // lineFunctionAddPrecomp is the precomputation variant of lineFunctionAdd.
 // It evolves the twist point r → rOut and stores the G2-only factors in out:
-//   out.b = -2*L1     (scale by P.x at pairing time to get b_final)
-//   out.c = 2*rOut.z  (scale by P.y at pairing time to get c_final)
-//   out.a = a         (fully computed, no G1 dependence)
+//
+//	out.b = -2*L1     (scale by P.x at pairing time to get b_final)
+//	out.c = 2*rOut.z  (scale by P.y at pairing time to get c_final)
+//	out.a = a         (fully computed, no G1 dependence)
 func lineFunctionAddPrecomp(r, p, rOut *twistPoint, r2 *gfP2, out *g2LineEval) {
 	// See the mixed addition algorithm from "Faster Computation of the
 	// Tate Pairing", http://arxiv.org/pdf/0904.0854v3.pdf

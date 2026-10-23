@@ -1,0 +1,672 @@
+{
+  "schema": "gmsm-semantics-vectors/v1",
+  "algorithm": "sm9",
+  "generator": "go test ./internal/cryptotest/sm9vectors -run TestVectorsUpToDate -update",
+  "testGroups": [
+    {
+      "type": "SM9SignatureVerify",
+      "comment": "Signature verification of the GB/T 32918.5 example and its single-field mutations. The hash field carries the byte string the standard feeds to H2; for larger messages the API expects a precomputed digest. h must lie in [1, N-1], s must be an uncompressed point on G1 that is not the identity.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "GB/T 32918.5 signature over the published message",
+          "pub": "049f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d",
+          "uid": "416c696365",
+          "hid": 1,
+          "msg": "4368696e65736520494253207374616e64617264",
+          "sig": "30660420823c4b21e4bd2dfe1ed92c606653e996668563152fc33f55d7bfbb9bd9705adb0342000473bf96923ce58b6ad0e13e9643a406d8eb98417c50ef1b29cef9adb48b6d598c856712f1c2e0968ab7769f42a99586aed139d5b8b3e15891827cc2aced9baa05",
+          "result": "valid"
+        },
+        {
+          "tcId": 2,
+          "comment": "h is zero",
+          "pub": "049f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d",
+          "uid": "416c696365",
+          "hid": 1,
+          "msg": "4368696e65736520494253207374616e64617264",
+          "sig": "3066042000000000000000000000000000000000000000000000000000000000000000000342000473bf96923ce58b6ad0e13e9643a406d8eb98417c50ef1b29cef9adb48b6d598c856712f1c2e0968ab7769f42a99586aed139d5b8b3e15891827cc2aced9baa05",
+          "result": "invalid"
+        },
+        {
+          "tcId": 3,
+          "comment": "h equals the group order",
+          "pub": "049f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d",
+          "uid": "416c696365",
+          "hid": 1,
+          "msg": "4368696e65736520494253207374616e64617264",
+          "sig": "30660420b640000002a3a6f1d603ab4ff58ec74449f2934b18ea8beee56ee19cd69ecf250342000473bf96923ce58b6ad0e13e9643a406d8eb98417c50ef1b29cef9adb48b6d598c856712f1c2e0968ab7769f42a99586aed139d5b8b3e15891827cc2aced9baa05",
+          "result": "invalid"
+        },
+        {
+          "tcId": 4,
+          "comment": "h is N-1, in range but not the signed value",
+          "pub": "049f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d",
+          "uid": "416c696365",
+          "hid": 1,
+          "msg": "4368696e65736520494253207374616e64617264",
+          "sig": "30660420b640000002a3a6f1d603ab4ff58ec74449f2934b18ea8beee56ee19cd69ecf240342000473bf96923ce58b6ad0e13e9643a406d8eb98417c50ef1b29cef9adb48b6d598c856712f1c2e0968ab7769f42a99586aed139d5b8b3e15891827cc2aced9baa05",
+          "result": "invalid"
+        },
+        {
+          "tcId": 5,
+          "comment": "h carries a leading zero byte",
+          "pub": "049f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d",
+          "uid": "416c696365",
+          "hid": 1,
+          "msg": "4368696e65736520494253207374616e64617264",
+          "sig": "3067042100823c4b21e4bd2dfe1ed92c606653e996668563152fc33f55d7bfbb9bd9705adb0342000473bf96923ce58b6ad0e13e9643a406d8eb98417c50ef1b29cef9adb48b6d598c856712f1c2e0968ab7769f42a99586aed139d5b8b3e15891827cc2aced9baa05",
+          "result": "invalid"
+        },
+        {
+          "tcId": 6,
+          "comment": "h truncated by one byte",
+          "pub": "049f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d",
+          "uid": "416c696365",
+          "hid": 1,
+          "msg": "4368696e65736520494253207374616e64617264",
+          "sig": "3065041f3c4b21e4bd2dfe1ed92c606653e996668563152fc33f55d7bfbb9bd9705adb0342000473bf96923ce58b6ad0e13e9643a406d8eb98417c50ef1b29cef9adb48b6d598c856712f1c2e0968ab7769f42a99586aed139d5b8b3e15891827cc2aced9baa05",
+          "result": "invalid"
+        },
+        {
+          "tcId": 7,
+          "comment": "s is not on the curve",
+          "pub": "049f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d",
+          "uid": "416c696365",
+          "hid": 1,
+          "msg": "4368696e65736520494253207374616e64617264",
+          "sig": "30660420823c4b21e4bd2dfe1ed92c606653e996668563152fc33f55d7bfbb9bd9705adb0342000473bf96923ce58b6ad0e13e9643a406d8eb98417c50ef1b29cef9adb48b6d598c856712f1c2e0968ab7769f42a99586aed139d5b8b3e15891827cc2aced9baa04",
+          "result": "invalid"
+        },
+        {
+          "tcId": 8,
+          "comment": "s is the identity",
+          "pub": "049f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d",
+          "uid": "416c696365",
+          "hid": 1,
+          "msg": "4368696e65736520494253207374616e64617264",
+          "sig": "30660420823c4b21e4bd2dfe1ed92c606653e996668563152fc33f55d7bfbb9bd9705adb0342000400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+          "result": "invalid"
+        },
+        {
+          "tcId": 9,
+          "comment": "s omits the 0x04 prefix",
+          "pub": "049f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d",
+          "uid": "416c696365",
+          "hid": 1,
+          "msg": "4368696e65736520494253207374616e64617264",
+          "sig": "30650420823c4b21e4bd2dfe1ed92c606653e996668563152fc33f55d7bfbb9bd9705adb03410073bf96923ce58b6ad0e13e9643a406d8eb98417c50ef1b29cef9adb48b6d598c856712f1c2e0968ab7769f42a99586aed139d5b8b3e15891827cc2aced9baa05",
+          "result": "invalid"
+        },
+        {
+          "tcId": 10,
+          "comment": "wrong user id",
+          "pub": "049f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d",
+          "uid": "426f62",
+          "hid": 1,
+          "msg": "4368696e65736520494253207374616e64617264",
+          "sig": "30660420823c4b21e4bd2dfe1ed92c606653e996668563152fc33f55d7bfbb9bd9705adb0342000473bf96923ce58b6ad0e13e9643a406d8eb98417c50ef1b29cef9adb48b6d598c856712f1c2e0968ab7769f42a99586aed139d5b8b3e15891827cc2aced9baa05",
+          "result": "invalid"
+        },
+        {
+          "tcId": 11,
+          "comment": "wrong hid",
+          "pub": "049f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d",
+          "uid": "416c696365",
+          "hid": 2,
+          "msg": "4368696e65736520494253207374616e64617264",
+          "sig": "30660420823c4b21e4bd2dfe1ed92c606653e996668563152fc33f55d7bfbb9bd9705adb0342000473bf96923ce58b6ad0e13e9643a406d8eb98417c50ef1b29cef9adb48b6d598c856712f1c2e0968ab7769f42a99586aed139d5b8b3e15891827cc2aced9baa05",
+          "result": "invalid"
+        },
+        {
+          "tcId": 12,
+          "comment": "wrong message",
+          "pub": "049f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d",
+          "uid": "416c696365",
+          "hid": 1,
+          "msg": "6368696e65736520696273207374616e64617264",
+          "sig": "30660420823c4b21e4bd2dfe1ed92c606653e996668563152fc33f55d7bfbb9bd9705adb0342000473bf96923ce58b6ad0e13e9643a406d8eb98417c50ef1b29cef9adb48b6d598c856712f1c2e0968ab7769f42a99586aed139d5b8b3e15891827cc2aced9baa05",
+          "result": "invalid"
+        },
+        {
+          "tcId": 13,
+          "comment": "trailing byte after the signature",
+          "pub": "049f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d",
+          "uid": "416c696365",
+          "hid": 1,
+          "msg": "4368696e65736520494253207374616e64617264",
+          "sig": "30660420823c4b21e4bd2dfe1ed92c606653e996668563152fc33f55d7bfbb9bd9705adb0342000473bf96923ce58b6ad0e13e9643a406d8eb98417c50ef1b29cef9adb48b6d598c856712f1c2e0968ab7769f42a99586aed139d5b8b3e15891827cc2aced9baa0500",
+          "result": "invalid"
+        },
+        {
+          "tcId": 14,
+          "comment": "empty user id",
+          "pub": "049f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d",
+          "hid": 1,
+          "msg": "4368696e65736520494253207374616e64617264",
+          "sig": "30660420823c4b21e4bd2dfe1ed92c606653e996668563152fc33f55d7bfbb9bd9705adb0342000473bf96923ce58b6ad0e13e9643a406d8eb98417c50ef1b29cef9adb48b6d598c856712f1c2e0968ab7769f42a99586aed139d5b8b3e15891827cc2aced9baa05",
+          "result": "invalid"
+        },
+        {
+          "tcId": 15,
+          "comment": "signature truncated by one byte",
+          "pub": "049f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d",
+          "uid": "416c696365",
+          "hid": 1,
+          "msg": "4368696e65736520494253207374616e64617264",
+          "sig": "30660420823c4b21e4bd2dfe1ed92c606653e996668563152fc33f55d7bfbb9bd9705adb0342000473bf96923ce58b6ad0e13e9643a406d8eb98417c50ef1b29cef9adb48b6d598c856712f1c2e0968ab7769f42a99586aed139d5b8b3e15891827cc2aced9baa",
+          "result": "invalid"
+        },
+        {
+          "tcId": 16,
+          "comment": "empty signature",
+          "pub": "049f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d",
+          "uid": "416c696365",
+          "hid": 1,
+          "msg": "4368696e65736520494253207374616e64617264",
+          "result": "invalid"
+        }
+      ]
+    },
+    {
+      "type": "SM9Decrypt",
+      "comment": "Decryption of the GB/T 32918.5 ciphertext (C1||C3||C2, C1 without its 0x04 prefix) and single-byte mutations. Every invalid case must return an error, never plaintext.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "GB/T 32918.5 ciphertext for the published plaintext",
+          "expected": "4368696e65736520494245207374616e64617264",
+          "uid": "426f62",
+          "priv": "0494736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b1587aa5e47570da7600cd760a0cf7beaf71c447f3844753fe74fa7ba92ca7d3b55f27538a62e7f7bfb51dce08704796d94c9d56734f119ea44732b50e31cdeb75c1",
+          "ciphertext": "2445471164490618e1ee20528ff1d545b0f14c8bcaa44544f03dab5dac07d8ff42ffca97d57cddc05ea405f2e586feb3a6930715532b8000759f13059ed59ac0ba672387bcd6de5016a158a52bb2e7fc429197bcab70b25afee37a2b9db9f3671b5f5b0e951489682f3e64e1378cdd5da9513b1c",
+          "ordering": "C1C3C2",
+          "result": "valid"
+        },
+        {
+          "tcId": 2,
+          "comment": "C3 byte flipped",
+          "uid": "426f62",
+          "priv": "0494736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b1587aa5e47570da7600cd760a0cf7beaf71c447f3844753fe74fa7ba92ca7d3b55f27538a62e7f7bfb51dce08704796d94c9d56734f119ea44732b50e31cdeb75c1",
+          "ciphertext": "2445471164490618e1ee20528ff1d545b0f14c8bcaa44544f03dab5dac07d8ff42ffca97d57cddc05ea405f2e586feb3a6930715532b8000759f13059ed59ac0bb672387bcd6de5016a158a52bb2e7fc429197bcab70b25afee37a2b9db9f3671b5f5b0e951489682f3e64e1378cdd5da9513b1c",
+          "ordering": "C1C3C2",
+          "result": "invalid"
+        },
+        {
+          "tcId": 3,
+          "comment": "C2 byte flipped",
+          "uid": "426f62",
+          "priv": "0494736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b1587aa5e47570da7600cd760a0cf7beaf71c447f3844753fe74fa7ba92ca7d3b55f27538a62e7f7bfb51dce08704796d94c9d56734f119ea44732b50e31cdeb75c1",
+          "ciphertext": "2445471164490618e1ee20528ff1d545b0f14c8bcaa44544f03dab5dac07d8ff42ffca97d57cddc05ea405f2e586feb3a6930715532b8000759f13059ed59ac0ba672387bcd6de5016a158a52bb2e7fc429197bcab70b25afee37a2b9db9f3671b5f5b0e951489682f3e64e1378cdd5da9513b1d",
+          "ordering": "C1C3C2",
+          "result": "invalid"
+        },
+        {
+          "tcId": 4,
+          "comment": "C1 coordinate flipped",
+          "uid": "426f62",
+          "priv": "0494736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b1587aa5e47570da7600cd760a0cf7beaf71c447f3844753fe74fa7ba92ca7d3b55f27538a62e7f7bfb51dce08704796d94c9d56734f119ea44732b50e31cdeb75c1",
+          "ciphertext": "2445471164490618e1ee20528ff1d545b0f14c8bcaa44544f03dab5dac07d8ff42ffca97d57cddc05ea405f2e586feb3a6930715532b8000759f13059ed59ac1ba672387bcd6de5016a158a52bb2e7fc429197bcab70b25afee37a2b9db9f3671b5f5b0e951489682f3e64e1378cdd5da9513b1c",
+          "ordering": "C1C3C2",
+          "result": "invalid"
+        },
+        {
+          "tcId": 5,
+          "comment": "C1 is the identity",
+          "uid": "426f62",
+          "priv": "0494736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b1587aa5e47570da7600cd760a0cf7beaf71c447f3844753fe74fa7ba92ca7d3b55f27538a62e7f7bfb51dce08704796d94c9d56734f119ea44732b50e31cdeb75c1",
+          "ciphertext": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ba672387bcd6de5016a158a52bb2e7fc429197bcab70b25afee37a2b9db9f3671b5f5b0e951489682f3e64e1378cdd5da9513b1c",
+          "ordering": "C1C3C2",
+          "result": "invalid"
+        },
+        {
+          "tcId": 6,
+          "comment": "truncated by one byte",
+          "uid": "426f62",
+          "priv": "0494736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b1587aa5e47570da7600cd760a0cf7beaf71c447f3844753fe74fa7ba92ca7d3b55f27538a62e7f7bfb51dce08704796d94c9d56734f119ea44732b50e31cdeb75c1",
+          "ciphertext": "2445471164490618e1ee20528ff1d545b0f14c8bcaa44544f03dab5dac07d8ff42ffca97d57cddc05ea405f2e586feb3a6930715532b8000759f13059ed59ac0ba672387bcd6de5016a158a52bb2e7fc429197bcab70b25afee37a2b9db9f3671b5f5b0e951489682f3e64e1378cdd5da9513b",
+          "ordering": "C1C3C2",
+          "result": "invalid"
+        },
+        {
+          "tcId": 7,
+          "comment": "C1 and C3 only, no C2",
+          "uid": "426f62",
+          "priv": "0494736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b1587aa5e47570da7600cd760a0cf7beaf71c447f3844753fe74fa7ba92ca7d3b55f27538a62e7f7bfb51dce08704796d94c9d56734f119ea44732b50e31cdeb75c1",
+          "ciphertext": "2445471164490618e1ee20528ff1d545b0f14c8bcaa44544f03dab5dac07d8ff42ffca97d57cddc05ea405f2e586feb3a6930715532b8000759f13059ed59ac0ba672387bcd6de5016a158a52bb2e7fc429197bcab70b25afee37a2b9db9f367",
+          "ordering": "C1C3C2",
+          "result": "invalid"
+        },
+        {
+          "tcId": 8,
+          "comment": "trailing byte",
+          "uid": "426f62",
+          "priv": "0494736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b1587aa5e47570da7600cd760a0cf7beaf71c447f3844753fe74fa7ba92ca7d3b55f27538a62e7f7bfb51dce08704796d94c9d56734f119ea44732b50e31cdeb75c1",
+          "ciphertext": "2445471164490618e1ee20528ff1d545b0f14c8bcaa44544f03dab5dac07d8ff42ffca97d57cddc05ea405f2e586feb3a6930715532b8000759f13059ed59ac0ba672387bcd6de5016a158a52bb2e7fc429197bcab70b25afee37a2b9db9f3671b5f5b0e951489682f3e64e1378cdd5da9513b1c00",
+          "ordering": "C1C3C2",
+          "result": "invalid"
+        },
+        {
+          "tcId": 9,
+          "comment": "wrong user id",
+          "uid": "416c696365",
+          "priv": "0494736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b1587aa5e47570da7600cd760a0cf7beaf71c447f3844753fe74fa7ba92ca7d3b55f27538a62e7f7bfb51dce08704796d94c9d56734f119ea44732b50e31cdeb75c1",
+          "ciphertext": "2445471164490618e1ee20528ff1d545b0f14c8bcaa44544f03dab5dac07d8ff42ffca97d57cddc05ea405f2e586feb3a6930715532b8000759f13059ed59ac0ba672387bcd6de5016a158a52bb2e7fc429197bcab70b25afee37a2b9db9f3671b5f5b0e951489682f3e64e1378cdd5da9513b1c",
+          "ordering": "C1C3C2",
+          "result": "invalid"
+        },
+        {
+          "tcId": 10,
+          "comment": "empty user id",
+          "priv": "0494736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b1587aa5e47570da7600cd760a0cf7beaf71c447f3844753fe74fa7ba92ca7d3b55f27538a62e7f7bfb51dce08704796d94c9d56734f119ea44732b50e31cdeb75c1",
+          "ciphertext": "2445471164490618e1ee20528ff1d545b0f14c8bcaa44544f03dab5dac07d8ff42ffca97d57cddc05ea405f2e586feb3a6930715532b8000759f13059ed59ac0ba672387bcd6de5016a158a52bb2e7fc429197bcab70b25afee37a2b9db9f3671b5f5b0e951489682f3e64e1378cdd5da9513b1c",
+          "ordering": "C1C3C2",
+          "result": "invalid"
+        },
+        {
+          "tcId": 11,
+          "comment": "empty ciphertext",
+          "uid": "426f62",
+          "priv": "0494736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b1587aa5e47570da7600cd760a0cf7beaf71c447f3844753fe74fa7ba92ca7d3b55f27538a62e7f7bfb51dce08704796d94c9d56734f119ea44732b50e31cdeb75c1",
+          "ordering": "C1C3C2",
+          "result": "invalid"
+        }
+      ]
+    },
+    {
+      "type": "SM9SignMasterPublicKey",
+      "comment": "Raw signature master public key: a G2 point (129 bytes). Compressed encodings are accepted, the identity and off-curve points are not.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "uncompressed point",
+          "pub": "049f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d",
+          "result": "valid"
+        },
+        {
+          "tcId": 2,
+          "comment": "identity",
+          "pub": "040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+          "result": "invalid"
+        },
+        {
+          "tcId": 3,
+          "comment": "off the curve",
+          "pub": "049f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216c",
+          "result": "invalid"
+        },
+        {
+          "tcId": 4,
+          "comment": "compressed point, odd y",
+          "pub": "039f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e32",
+          "result": "valid"
+        },
+        {
+          "tcId": 5,
+          "comment": "compressed point, even y",
+          "pub": "029f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e32",
+          "result": "valid"
+        },
+        {
+          "tcId": 6,
+          "comment": "missing the 0x04 prefix",
+          "pub": "9f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d",
+          "result": "invalid"
+        },
+        {
+          "tcId": 7,
+          "comment": "unknown wire type",
+          "pub": "059f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d",
+          "result": "invalid"
+        },
+        {
+          "tcId": 8,
+          "comment": "empty input",
+          "result": "invalid"
+        },
+        {
+          "tcId": 9,
+          "comment": "trailing byte after uncompressed point",
+          "pub": "049f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3269850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c2541e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d00",
+          "result": "invalid"
+        },
+        {
+          "tcId": 10,
+          "comment": "trailing byte after compressed point",
+          "pub": "039f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c40829dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e3200",
+          "result": "invalid"
+        }
+      ]
+    },
+    {
+      "type": "SM9EncryptMasterPublicKey",
+      "comment": "Raw encryption master public key: a G1 point (65 bytes). Compressed encodings are accepted, the identity and off-curve points are not.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "uncompressed point",
+          "pub": "04787ed7b8a51f3ab84e0a66003f32da5c720b17eca7137d39abc66e3c80a892ff769de61791e5adc4b9ff85a31354900b202871279a8c49dc3f220f644c57a7b1",
+          "result": "valid"
+        },
+        {
+          "tcId": 2,
+          "comment": "identity",
+          "pub": "0400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+          "result": "invalid"
+        },
+        {
+          "tcId": 3,
+          "comment": "off the curve",
+          "pub": "04787ed7b8a51f3ab84e0a66003f32da5c720b17eca7137d39abc66e3c80a892ff769de61791e5adc4b9ff85a31354900b202871279a8c49dc3f220f644c57a7b0",
+          "result": "invalid"
+        },
+        {
+          "tcId": 4,
+          "comment": "compressed point, odd y",
+          "pub": "03787ed7b8a51f3ab84e0a66003f32da5c720b17eca7137d39abc66e3c80a892ff",
+          "result": "valid"
+        },
+        {
+          "tcId": 5,
+          "comment": "compressed point, even y",
+          "pub": "02787ed7b8a51f3ab84e0a66003f32da5c720b17eca7137d39abc66e3c80a892ff",
+          "result": "valid"
+        },
+        {
+          "tcId": 6,
+          "comment": "missing the 0x04 prefix",
+          "pub": "787ed7b8a51f3ab84e0a66003f32da5c720b17eca7137d39abc66e3c80a892ff769de61791e5adc4b9ff85a31354900b202871279a8c49dc3f220f644c57a7b1",
+          "result": "invalid"
+        },
+        {
+          "tcId": 7,
+          "comment": "unknown wire type",
+          "pub": "05787ed7b8a51f3ab84e0a66003f32da5c720b17eca7137d39abc66e3c80a892ff769de61791e5adc4b9ff85a31354900b202871279a8c49dc3f220f644c57a7b1",
+          "result": "invalid"
+        },
+        {
+          "tcId": 8,
+          "comment": "empty input",
+          "result": "invalid"
+        },
+        {
+          "tcId": 9,
+          "comment": "trailing byte after uncompressed point",
+          "pub": "04787ed7b8a51f3ab84e0a66003f32da5c720b17eca7137d39abc66e3c80a892ff769de61791e5adc4b9ff85a31354900b202871279a8c49dc3f220f644c57a7b100",
+          "result": "invalid"
+        },
+        {
+          "tcId": 10,
+          "comment": "trailing byte after compressed point",
+          "pub": "03787ed7b8a51f3ab84e0a66003f32da5c720b17eca7137d39abc66e3c80a892ff00",
+          "result": "invalid"
+        }
+      ]
+    },
+    {
+      "type": "SM9SignPrivateKey",
+      "comment": "Raw signature user private key: a G1 point (65 bytes).",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "uncompressed point",
+          "priv": "04a5702f05cf1315305e2d6eb64b0deb923db1a0bcf0caff90523ac8754aa6982078559a844411f9825c109f5ee3f52d720dd01785392a727bb1556952b2b013d3",
+          "result": "valid"
+        },
+        {
+          "tcId": 2,
+          "comment": "identity",
+          "priv": "0400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+          "result": "invalid"
+        },
+        {
+          "tcId": 3,
+          "comment": "off the curve",
+          "priv": "04a5702f05cf1315305e2d6eb64b0deb923db1a0bcf0caff90523ac8754aa6982078559a844411f9825c109f5ee3f52d720dd01785392a727bb1556952b2b013d2",
+          "result": "invalid"
+        },
+        {
+          "tcId": 4,
+          "comment": "compressed point, odd y",
+          "priv": "03a5702f05cf1315305e2d6eb64b0deb923db1a0bcf0caff90523ac8754aa69820",
+          "result": "valid"
+        },
+        {
+          "tcId": 5,
+          "comment": "compressed point, even y",
+          "priv": "02a5702f05cf1315305e2d6eb64b0deb923db1a0bcf0caff90523ac8754aa69820",
+          "result": "valid"
+        },
+        {
+          "tcId": 6,
+          "comment": "missing the 0x04 prefix",
+          "priv": "a5702f05cf1315305e2d6eb64b0deb923db1a0bcf0caff90523ac8754aa6982078559a844411f9825c109f5ee3f52d720dd01785392a727bb1556952b2b013d3",
+          "result": "invalid"
+        },
+        {
+          "tcId": 7,
+          "comment": "unknown wire type",
+          "priv": "05a5702f05cf1315305e2d6eb64b0deb923db1a0bcf0caff90523ac8754aa6982078559a844411f9825c109f5ee3f52d720dd01785392a727bb1556952b2b013d3",
+          "result": "invalid"
+        },
+        {
+          "tcId": 8,
+          "comment": "empty input",
+          "result": "invalid"
+        },
+        {
+          "tcId": 9,
+          "comment": "trailing byte after uncompressed point",
+          "priv": "04a5702f05cf1315305e2d6eb64b0deb923db1a0bcf0caff90523ac8754aa6982078559a844411f9825c109f5ee3f52d720dd01785392a727bb1556952b2b013d300",
+          "result": "invalid"
+        },
+        {
+          "tcId": 10,
+          "comment": "trailing byte after compressed point",
+          "priv": "03a5702f05cf1315305e2d6eb64b0deb923db1a0bcf0caff90523ac8754aa6982000",
+          "result": "invalid"
+        },
+        {
+          "tcId": 11,
+          "comment": "truncated by one byte",
+          "priv": "04a5702f05cf1315305e2d6eb64b0deb923db1a0bcf0caff90523ac8754aa6982078559a844411f9825c109f5ee3f52d720dd01785392a727bb1556952b2b013",
+          "result": "invalid"
+        }
+      ]
+    },
+    {
+      "type": "SM9EncryptPrivateKey",
+      "comment": "Raw encryption user private key: a G2 point (129 bytes).",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "uncompressed point",
+          "priv": "0494736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b1587aa5e47570da7600cd760a0cf7beaf71c447f3844753fe74fa7ba92ca7d3b55f27538a62e7f7bfb51dce08704796d94c9d56734f119ea44732b50e31cdeb75c1",
+          "result": "valid"
+        },
+        {
+          "tcId": 2,
+          "comment": "identity",
+          "priv": "040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+          "result": "invalid"
+        },
+        {
+          "tcId": 3,
+          "comment": "off the curve",
+          "priv": "0494736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b1587aa5e47570da7600cd760a0cf7beaf71c447f3844753fe74fa7ba92ca7d3b55f27538a62e7f7bfb51dce08704796d94c9d56734f119ea44732b50e31cdeb75c0",
+          "result": "invalid"
+        },
+        {
+          "tcId": 4,
+          "comment": "compressed point, odd y",
+          "priv": "0394736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b158",
+          "result": "valid"
+        },
+        {
+          "tcId": 5,
+          "comment": "compressed point, even y",
+          "priv": "0294736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b158",
+          "result": "valid"
+        },
+        {
+          "tcId": 6,
+          "comment": "missing the 0x04 prefix",
+          "priv": "94736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b1587aa5e47570da7600cd760a0cf7beaf71c447f3844753fe74fa7ba92ca7d3b55f27538a62e7f7bfb51dce08704796d94c9d56734f119ea44732b50e31cdeb75c1",
+          "result": "invalid"
+        },
+        {
+          "tcId": 7,
+          "comment": "unknown wire type",
+          "priv": "0594736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b1587aa5e47570da7600cd760a0cf7beaf71c447f3844753fe74fa7ba92ca7d3b55f27538a62e7f7bfb51dce08704796d94c9d56734f119ea44732b50e31cdeb75c1",
+          "result": "invalid"
+        },
+        {
+          "tcId": 8,
+          "comment": "empty input",
+          "result": "invalid"
+        },
+        {
+          "tcId": 9,
+          "comment": "trailing byte after uncompressed point",
+          "priv": "0494736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b1587aa5e47570da7600cd760a0cf7beaf71c447f3844753fe74fa7ba92ca7d3b55f27538a62e7f7bfb51dce08704796d94c9d56734f119ea44732b50e31cdeb75c100",
+          "result": "invalid"
+        },
+        {
+          "tcId": 10,
+          "comment": "trailing byte after compressed point",
+          "priv": "0394736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b15800",
+          "result": "invalid"
+        },
+        {
+          "tcId": 11,
+          "comment": "truncated by one byte",
+          "priv": "0494736acd2c8c8796cc4785e938301a139a059d3537b6414140b2d31eecf41683115bae85f5d8bc6c3dbd9e5342979acccf3c2f4f28420b1cb4f8c0b59a19b1587aa5e47570da7600cd760a0cf7beaf71c447f3844753fe74fa7ba92ca7d3b55f27538a62e7f7bfb51dce08704796d94c9d56734f119ea44732b50e31cdeb75",
+          "result": "invalid"
+        }
+      ]
+    },
+    {
+      "type": "SM9SignMasterPrivateKey",
+      "comment": "Signature master private key as a DER INTEGER. The scalar must be in [1, N-1]; the group order is the SM9 order, not the SM2 order.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "published master private key",
+          "priv": "021f0130e78459d78545cb54c587e02cf480ce0b66340f319f348a1d5b1f2dc5f4",
+          "result": "valid"
+        },
+        {
+          "tcId": 2,
+          "comment": "zero scalar",
+          "priv": "020100",
+          "result": "invalid"
+        },
+        {
+          "tcId": 3,
+          "comment": "scalar equal to the group order",
+          "priv": "022100b640000002a3a6f1d603ab4ff58ec74449f2934b18ea8beee56ee19cd69ecf25",
+          "result": "invalid"
+        },
+        {
+          "tcId": 4,
+          "comment": "scalar N-1",
+          "priv": "022100b640000002a3a6f1d603ab4ff58ec74449f2934b18ea8beee56ee19cd69ecf24",
+          "result": "invalid"
+        },
+        {
+          "tcId": 5,
+          "comment": "trailing byte after the DER integer",
+          "priv": "021f0130e78459d78545cb54c587e02cf480ce0b66340f319f348a1d5b1f2dc5f400",
+          "result": "invalid"
+        }
+      ]
+    },
+    {
+      "type": "SM9EncryptMasterPrivateKey",
+      "comment": "Encryption master private key as a DER INTEGER, with the same range check.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "published master private key",
+          "priv": "021f01edee3778f441f8dea3d9fa0acc4e07ee36c93f9a08618af4ad85cede1c22",
+          "result": "valid"
+        },
+        {
+          "tcId": 2,
+          "comment": "zero scalar",
+          "priv": "020100",
+          "result": "invalid"
+        },
+        {
+          "tcId": 3,
+          "comment": "scalar equal to the group order",
+          "priv": "022100b640000002a3a6f1d603ab4ff58ec74449f2934b18ea8beee56ee19cd69ecf25",
+          "result": "invalid"
+        },
+        {
+          "tcId": 4,
+          "comment": "scalar N-1",
+          "priv": "022100b640000002a3a6f1d603ab4ff58ec74449f2934b18ea8beee56ee19cd69ecf24",
+          "result": "invalid"
+        },
+        {
+          "tcId": 5,
+          "comment": "trailing byte after the DER integer",
+          "priv": "021f01edee3778f441f8dea3d9fa0acc4e07ee36c93f9a08618af4ad85cede1c2200",
+          "result": "invalid"
+        }
+      ]
+    },
+    {
+      "type": "SM9ASN1KeyParse",
+      "comment": "Malformed ASN.1 fed to all six ASN.1 key parsers. Each parser must return an error; a panic on empty or truncated input is a denial of service.",
+      "tests": [
+        {
+          "tcId": 1,
+          "comment": "empty input",
+          "result": "invalid"
+        },
+        {
+          "tcId": 2,
+          "comment": "single SEQUENCE tag",
+          "result": "invalid",
+          "input": "30"
+        },
+        {
+          "tcId": 3,
+          "comment": "SEQUENCE with no content",
+          "result": "invalid",
+          "input": "3000"
+        },
+        {
+          "tcId": 4,
+          "comment": "BIT STRING with no content",
+          "result": "invalid",
+          "input": "0300"
+        },
+        {
+          "tcId": 5,
+          "comment": "BIT STRING that promises more bytes than it carries",
+          "result": "invalid",
+          "input": "03420004"
+        },
+        {
+          "tcId": 6,
+          "comment": "BIT STRING wrapping an empty payload",
+          "result": "invalid",
+          "input": "030100"
+        },
+        {
+          "tcId": 7,
+          "comment": "BIT STRING wrapping two bytes",
+          "result": "invalid",
+          "input": "0303000400"
+        },
+        {
+          "tcId": 8,
+          "comment": "BIT STRING with trailing data after a point",
+          "result": "invalid",
+          "input": "03430004787ed7b8a51f3ab84e0a66003f32da5c720b17eca7137d39abc66e3c80a892ff769de61791e5adc4b9ff85a31354900b202871279a8c49dc3f220f644c57a7b100"
+        }
+      ]
+    }
+  ]
+}

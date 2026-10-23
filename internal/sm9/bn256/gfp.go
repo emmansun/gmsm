@@ -47,35 +47,6 @@ func (e *gfP) Set(f *gfP) *gfP {
 	return e
 }
 
-// exp calculates the exponentiation of a given gfP element `f` raised to the power
-// represented by the 256-bit integer `bits`. The result is stored in the gfP element `e`.
-//
-// The function uses a square-and-multiply algorithm to perform the exponentiation.
-// It iterates over each bit of the 256-bit integer `bits`, and for each bit, it squares
-// the current power and multiplies it to the result if the bit is set.
-//
-// Parameters:
-// - f: The base gfP element to be exponentiated.
-// - bits: A 256-bit integer represented as an array of 4 uint64 values, where bits[0]
-//         contains the least significant 64 bits and bits[3] contains the most significant 64 bits.
-func (e *gfP) exp(f *gfP, bits [4]uint64) {
-	sum, power := &gfP{}, &gfP{}
-	sum.Set(rN1)
-	power.Set(f)
-
-	for word := range 4 {
-		for bit := uint(0); bit < 64; bit++ {
-			if (bits[word]>>bit)&1 == 1 {
-				gfpMul(sum, sum, power)
-			}
-			gfpSqr(power, power, 1)
-		}
-	}
-
-	gfpMul(sum, sum, r3)
-	e.Set(sum)
-}
-
 func (e *gfP) Mul(a, b *gfP) *gfP {
 	gfpMul(e, a, b)
 	return e

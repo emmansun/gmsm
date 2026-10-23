@@ -40,22 +40,22 @@ TEXT ·decryptBlocksChain(SB), NOSPLIT, $0-64
 
 	// Load sbox into X0-X15 (16 bytes each, replicated to both lanes).
 	MOVV $·sbox(SB), R9
-	VMOVQ 0(R9), V0;    XVPERMIQ_REPL(0)
-	VMOVQ 16(R9), V8;   XVPERMIQ_REPL(8)
-	VMOVQ 32(R9), V1;   XVPERMIQ_REPL(1)
-	VMOVQ 48(R9), V9;   XVPERMIQ_REPL(9)
-	VMOVQ 64(R9), V2;   XVPERMIQ_REPL(2)
-	VMOVQ 80(R9), V10;  XVPERMIQ_REPL(10)
-	VMOVQ 96(R9), V3;   XVPERMIQ_REPL(3)
-	VMOVQ 112(R9), V11; XVPERMIQ_REPL(11)
-	VMOVQ 128(R9), V4;  XVPERMIQ_REPL(4)
-	VMOVQ 144(R9), V12; XVPERMIQ_REPL(12)
-	VMOVQ 160(R9), V5;  XVPERMIQ_REPL(5)
-	VMOVQ 176(R9), V13; XVPERMIQ_REPL(13)
-	VMOVQ 192(R9), V6;  XVPERMIQ_REPL(6)
-	VMOVQ 208(R9), V14; XVPERMIQ_REPL(14)
-	VMOVQ 224(R9), V7;  XVPERMIQ_REPL(7)
-	VMOVQ 240(R9), V15; XVPERMIQ_REPL(15)
+	VMOVQ 0(R9), V0;    XVPERMIQ $0x00, X0, X0
+	VMOVQ 16(R9), V8;   XVPERMIQ $0x00, X8, X8
+	VMOVQ 32(R9), V1;   XVPERMIQ $0x00, X1, X1
+	VMOVQ 48(R9), V9;   XVPERMIQ $0x00, X9, X9
+	VMOVQ 64(R9), V2;   XVPERMIQ $0x00, X2, X2
+	VMOVQ 80(R9), V10;  XVPERMIQ $0x00, X10, X10
+	VMOVQ 96(R9), V3;   XVPERMIQ $0x00, X3, X3
+	VMOVQ 112(R9), V11; XVPERMIQ $0x00, X11, X11
+	VMOVQ 128(R9), V4;  XVPERMIQ $0x00, X4, X4
+	VMOVQ 144(R9), V12; XVPERMIQ $0x00, X12, X12
+	VMOVQ 160(R9), V5;  XVPERMIQ $0x00, X5, X5
+	VMOVQ 176(R9), V13; XVPERMIQ $0x00, X13, X13
+	VMOVQ 192(R9), V6;  XVPERMIQ $0x00, X6, X6
+	VMOVQ 208(R9), V14; XVPERMIQ $0x00, X14, X14
+	VMOVQ 224(R9), V7;  XVPERMIQ $0x00, X7, X7
+	VMOVQ 240(R9), V15; XVPERMIQ $0x00, X15, X15
 
 	// Load constants.
 	MOVV $0x01, R9; XVMOVQ R9, X20.B32
@@ -70,7 +70,7 @@ TEXT ·decryptBlocksChain(SB), NOSPLIT, $0-64
 	MOVWU 4(R23), R9;  XVMOVQ R9, X28.W[1]
 	MOVWU 8(R23), R9;  XVMOVQ R9, X28.W[2]
 	MOVWU 12(R23), R9; XVMOVQ R9, X28.W[3]
-	XVPERMIQ_REPL(28)             // X28 = [IV, IV]
+	XVPERMIQ $0x00, X28, X28     // X28 = [IV, IV]
 
 cbc_lasx_loop:
 	// Load 8 ciphertext blocks into X23-X26.
@@ -118,11 +118,11 @@ cbc_round_loop:
 	// Build CBC XOR chain: for each output block k, XOR with ct[k-1].
 	// X27=[ct0,ct1], X16=[ct2,ct3], X29=[ct4,ct5], X30=[ct6,ct7], X28=[prev,prev].
 	// Save ct7 to X31 BEFORE XVPERMIQ modifies X30.
-	XVPERMIQ(31, 30, 0x11)    // X31 = [ct7, ct7]
-	XVPERMIQ(30, 29, 0x21)    // X30 = [ct5, ct6]
-	XVPERMIQ(29, 16, 0x21)    // X29 = [ct3, ct4]
-	XVPERMIQ(16, 27, 0x21)    // X16 = [ct1, ct2]
-	XVPERMIQ(27, 28, 0x21)    // X27 = [prev_ct, ct0]  ← X28 = prev_ct ✓
+	XVPERMIQ $0x11, X30, X31  // X31 = [ct7, ct7]
+	XVPERMIQ $0x21, X29, X30  // X30 = [ct5, ct6]
+	XVPERMIQ $0x21, X16, X29  // X29 = [ct3, ct4]
+	XVPERMIQ $0x21, X27, X16  // X16 = [ct1, ct2]
+	XVPERMIQ $0x21, X28, X27  // X27 = [prev_ct, ct0]  ← X28 = prev_ct ✓
 	XVORV X31, X31, X28       // X28 = [ct7, ct7] for next batch
 
 	// XOR decrypted blocks with CBC chain (byte-level XOR, both in BE format).

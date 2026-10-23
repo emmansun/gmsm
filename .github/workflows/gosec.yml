@@ -1,0 +1,65 @@
+name: gosec
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: gosec
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      # -no-fail is required: gosec loads each package's Go files without the
+      # .s assembly files, so assembly-backed functions always produce
+      # "missing function body" type errors, and gosec exits 1 whenever any
+      # package load error exists, even with zero findings. Results are still
+      # reported via SARIF; the gate is the code scanning alert review.
+      #
+      # Exclusions (audited as intentional for this codebase):
+      # - G104: unhandled hash.Write errors (always nil for hash.Hash).
+      # - G115: intentional uint64 -> uint8/uint32 word slicing in crypto
+      #   primitives and generated fiat-crypto code.
+      # - G204/G404/G407 in test infrastructure: deterministic nonces and
+      #   math/rand for differential testing, `go` subprocess invocations.
+      # - G101 in KAT files: hex-encoded known-answer test vectors.
+      # G103 (unsafe) and weak-crypto rules (G401/G405/G501/G502/G505) remain
+      # active on purpose: legacy md5/des/sha1/rc4 usage is required by the
+      # PKCS/CMS/PEM standards this library implements.
+      - name: Run gosec
+        run: >-
+          go run github.com/securego/gosec/v2/cmd/gosec@v2.29.0
+          -no-fail
+          -exclude G104,G115
+          -exclude-rules "internal/cryptotest/.*:G204,G404,G407;internal/randutil/.*:G404;smx509/internal_testenv.go:G204;internal/sm9/kat.go:G101"
+          -fmt sarif -out gosec.sarif ./...
+
+      - name: Upload SARIF
+        if: >-
+          ${{ !cancelled() && hashFiles('gosec.sarif') != '' &&
+              github.actor != 'dependabot[bot]' &&
+              (github.event_name != 'pull_request' ||
+               github.event.pull_request.head.repo.full_name == github.repository) }}
+        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          sarif_file: gosec.sarif
+          category: gosec

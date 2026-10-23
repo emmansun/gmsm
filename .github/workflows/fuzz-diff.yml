@@ -1,0 +1,155 @@
+# Scheduled differential fuzzing of the pilot packages. Each matrix entry
+# runs one differential fuzz target for a bounded time; any failing input
+# is minimized by the fuzz engine, written to testdata/fuzz/<Target>/ and
+# uploaded as an artifact. Reproduce locally with:
+#
+#   go test -run 'FuzzDiffX/<case>' ./internal/...
+#
+# The amd64 job covers the AVX2 kernels; the arm64 job covers the NEON
+# kernels (and the pure-Go fallbacks shared by other architectures),
+# which the scheduled fuzzing otherwise never executes.
+#
+# New regression corpus entries should be committed to the repository in a
+# follow-up PR.
+
+name: fuzz-diff
+
+on:
+  schedule:
+    - cron: '0 3 * * 1' # every Monday 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+
+  fuzz:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - pkg: ./internal/sm4/
+            target: FuzzDiffBlock
+          - pkg: ./internal/sm4/
+            target: FuzzDiffXTS
+          - pkg: ./internal/sm3/
+            target: FuzzDiffSM3Block
+          - pkg: ./internal/sm3/
+            target: FuzzDiffSM3Digest
+          - pkg: ./internal/zuc/
+            target: FuzzDiffEEAStream
+          - pkg: ./internal/zuc/
+            target: FuzzDiffEEASeek
+          - pkg: ./internal/zuc/
+            target: FuzzDiffEIA128Message
+          - pkg: ./internal/zuc/
+            target: FuzzDiffEIA128Bits
+          - pkg: ./internal/zuc/
+            target: FuzzDiffEIA256
+          - pkg: ./internal/cipher/xts/
+            target: FuzzDiffXTSMode
+          - pkg: ./internal/cipher/gcmsiv/
+            target: FuzzDiffPolyval
+          - pkg: ./internal/cipher/gcmsiv/
+            target: FuzzDiffGCMSIV
+          - pkg: ./internal/sm2ec/
+            target: FuzzDiffFieldKernels
+          - pkg: ./internal/sm2ec/
+            target: FuzzDiffOrdKernels
+          - pkg: ./internal/sm2ec/
+            target: FuzzDiffPointOps
+          - pkg: ./internal/sm2ec/
+            target: FuzzDiffScalarMult
+          - pkg: ./internal/sm9/bn256/
+            target: FuzzDiffFieldKernels
+          - pkg: ./internal/sm9/bn256/
+            target: FuzzDiffSelectCopy
+          - pkg: ./internal/sm9/bn256/
+            target: FuzzDiffPointOps
+          - pkg: ./mlkem/
+            target: FuzzDiffNTT
+          - pkg: ./mlkem/
+            target: FuzzDiffNTTMulAcc
+          - pkg: ./mlkem/
+            target: FuzzDiffPolyAddSub
+          - pkg: ./mlkem/
+            target: FuzzDiffRingEncode
+          - pkg: ./mlkem/
+            target: FuzzDiffRejUniform
+          - pkg: ./mldsa/
+            target: FuzzDiffNTT
+          - pkg: ./mldsa/
+            target: FuzzDiffNTTMulAcc
+          - pkg: ./mldsa/
+            target: FuzzDiffPolyAddSub
+          - pkg: ./mldsa/
+            target: FuzzDiffDecomposeSubToR0
+          - pkg: ./mldsa/
+            target: FuzzDiffBitUnpack
+    steps:
+    - name: Harden the runner (Audit all outbound calls)
+      uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+      with:
+        egress-policy: audit
+
+    - name: Check out code
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Set up Go
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      with:
+        go-version: '1.26'
+
+    - name: Fuzz
+      run: go test -run '^$' -fuzz '^${{ matrix.target }}$' -fuzztime 5m ${{ matrix.pkg }}
+
+    - name: Upload failing inputs
+      if: failure()
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: fuzz-corpus-${{ matrix.target }}
+        path: ${{ matrix.pkg }}/testdata/fuzz/
+        if-no-files-found: ignore
+
+  fuzz-arm64:
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - pkg: ./mldsa/
+            target: FuzzDiffNTT
+          - pkg: ./mldsa/
+            target: FuzzDiffNTTMulAcc
+          - pkg: ./mlkem/
+            target: FuzzDiffNTT
+          - pkg: ./mlkem/
+            target: FuzzDiffNTTMulAcc
+          - pkg: ./internal/sm2ec/
+            target: FuzzDiffFieldKernels
+    steps:
+    - name: Harden the runner (Audit all outbound calls)
+      uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+      with:
+        egress-policy: audit
+
+    - name: Check out code
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Set up Go
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      with:
+        go-version: '1.26'
+
+    - name: Fuzz
+      run: go test -run '^$' -fuzz '^${{ matrix.target }}$' -fuzztime 5m ${{ matrix.pkg }}
+
+    - name: Upload failing inputs
+      if: failure()
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: fuzz-corpus-arm64-${{ matrix.target }}
+        path: ${{ matrix.pkg }}/testdata/fuzz/
+        if-no-files-found: ignore

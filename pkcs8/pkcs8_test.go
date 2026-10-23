@@ -805,3 +805,61 @@ func TestShangMiPBES(t *testing.T) {
 		t.Fatalf("ParsePrivateKey returned: %s", err)
 	}
 }
+
+func TestParsePKCS8PrivateKeyWithMalformedParameters(t *testing.T) {
+	password := []byte("password")
+	key, err := sm2.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	der, err := pkcs8.MarshalPrivateKey(key, password, nil) // default PBES2 / AES-256-CBC
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var epki struct {
+		EncryptionAlgorithm pkix.AlgorithmIdentifier
+		EncryptedData       []byte
+	}
+	// The CBC IV is not one block long.
+	if _, err := asn1.Unmarshal(der, &epki); err != nil {
+		t.Fatal(err)
+	}
+	var pbes2Params struct {
+		KeyDerivationFunc pkix.AlgorithmIdentifier
+		EncryptionScheme  pkix.AlgorithmIdentifier
+	}
+	if _, err := asn1.Unmarshal(epki.EncryptionAlgorithm.Parameters.FullBytes, &pbes2Params); err != nil {
+		t.Fatal(err)
+	}
+	badIV, err := asn1.Marshal([]byte{0x00})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pbes2Params.EncryptionScheme.Parameters = asn1.RawValue{FullBytes: badIV}
+	marshalledParams, err := asn1.Marshal(pbes2Params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	epki.EncryptionAlgorithm.Parameters = asn1.RawValue{FullBytes: marshalledParams}
+	badKey, err := asn1.Marshal(epki)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pkcs8.ParsePKCS8PrivateKey(badKey, password); err != pkcs.ErrPBEDecryption {
+		t.Errorf("expected %v, got %v", pkcs.ErrPBEDecryption, err)
+	}
+
+	// The ciphertext is not a multiple of the block size.
+	if _, err := asn1.Unmarshal(der, &epki); err != nil {
+		t.Fatal(err)
+	}
+	epki.EncryptedData = make([]byte, 17)
+	badKey, err = asn1.Marshal(epki)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pkcs8.ParsePKCS8PrivateKey(badKey, password); err != pkcs.ErrPBEDecryption {
+		t.Errorf("expected %v, got %v", pkcs.ErrPBEDecryption, err)
+	}
+}

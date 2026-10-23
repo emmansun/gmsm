@@ -48,7 +48,7 @@ func (data signedEnvelopedData) GetEncryptedContentInfo() *encryptedContentInfo 
 
 func parseSignedEnvelopedData(session Session, data []byte) (*PKCS7, error) {
 	var sed signedEnvelopedData
-	if _, err := asn1.Unmarshal(data, &sed); err != nil {
+	if err := unmarshalSingle(data, &sed); err != nil {
 		return nil, err
 	}
 	certs, err := sed.Certificates.Parse()

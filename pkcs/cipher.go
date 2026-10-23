@@ -30,6 +30,13 @@ type Cipher interface {
 
 var ciphers = make(map[string]func() Cipher)
 
+var (
+	// errInvalidIVLength is returned when the length of the IV is not equal to the block size.
+	errInvalidIVLength = errors.New("pbes: IV length must equal block size")
+	// errInvalidCiphertextLength is returned when the ciphertext is not a whole number of blocks.
+	errInvalidCiphertextLength = errors.New("pbes: ciphertext length must be a multiple of the block size")
+)
+
 // RegisterCipher registers a function that returns a new instance of the given
 // cipher. This allows the library to support client-provided ciphers.
 func RegisterCipher(oid asn1.ObjectIdentifier, cipher func() Cipher) {
@@ -93,6 +100,9 @@ func (ecb *ecbBlockCipher) Decrypt(key []byte, parameters *asn1.RawValue, cipher
 	block, err := ecb.newBlock(key)
 	if err != nil {
 		return nil, err
+	}
+	if len(ciphertext)%block.BlockSize() != 0 {
+		return nil, errInvalidCiphertextLength
 	}
 	mode := smcipher.NewECBDecrypter(block)
 	plaintext := make([]byte, len(ciphertext))
@@ -163,6 +173,12 @@ func cbcEncrypt(block cipher.Block, iv, plaintext []byte) ([]byte, error) {
 }
 
 func cbcDecrypt(block cipher.Block, iv, ciphertext []byte) ([]byte, error) {
+	if len(iv) != block.BlockSize() {
+		return nil, errInvalidIVLength
+	}
+	if len(ciphertext)%block.BlockSize() != 0 {
+		return nil, errInvalidCiphertextLength
+	}
 	mode := cipher.NewCBCDecrypter(block, iv)
 	pkcs7 := padding.NewPKCS7Padding(uint(block.BlockSize()))
 	plaintext := make([]byte, len(ciphertext))

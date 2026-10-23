@@ -196,7 +196,14 @@ func NewPrivateKeyFromInt(key *big.Int) (*PrivateKey, error) {
 //
 // The key parameter is a byte slice representing the public key in uncompressed format.
 // According to GB/T 32918.1-2016, the public key must be in the correct format and on the curve.
+// Compressed, hybrid and infinity encodings are rejected: they cannot be represented by an
+// [ecdsa.PublicKey] without a second decoding step, and accepting them here used to yield a
+// key with a zero Y coordinate.
 func NewPublicKey(key []byte) (*ecdsa.PublicKey, error) {
+	byteLen := (P256().Params().BitSize + 7) / 8
+	if len(key) != 1+2*byteLen || key[0] != uncompressed {
+		return nil, errInvalidPublicKey
+	}
 	k, err := sm2.NewPublicKey(key)
 	if err != nil {
 		return nil, err

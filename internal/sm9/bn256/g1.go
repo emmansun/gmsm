@@ -6,6 +6,8 @@ import (
 	"io"
 	"math/big"
 	"sync"
+
+	"github.com/emmansun/gmsm/internal/bigmod"
 )
 
 func randomK(r io.Reader) (k *big.Int, err error) {
@@ -96,14 +98,16 @@ func (g *G1) String() string {
 	return "sm9.G1" + g.p.String()
 }
 
+// NormalizeScalar normalizes a scalar to a fixed-width 32-byte big-endian
+// representation, reduced modulo the group order. Inputs of at most 32 bytes
+// are handled in constant time; longer inputs fall back to a variable-time
+// big.Int reduction and must not carry secret data.
 func NormalizeScalar(scalar []byte) []byte {
-	if len(scalar) == 32 {
-		return scalar
+	if s, err := new(bigmod.Nat).SetOverflowingBytes(scalar, orderModulus); err == nil {
+		return s.Bytes(orderModulus)
 	}
 	s := new(big.Int).SetBytes(scalar)
-	if len(scalar) > 32 {
-		s.Mod(s, Order)
-	}
+	s.Mod(s, Order)
 	out := make([]byte, 32)
 	return s.FillBytes(out)
 }
@@ -117,8 +121,6 @@ func (e *G1) ScalarBaseMult(scalar []byte) (*G1, error) {
 	if e.p == nil {
 		e.p = &curvePoint{}
 	}
-
-	//e.p.Mul(curveGen, k)
 
 	tables := e.generatorTable()
 	// This is also a scalar multiplication with a four-bit window like in
@@ -148,7 +150,6 @@ func (e *G1) ScalarMult(a *G1, scalar []byte) (*G1, error) {
 	if e.p == nil {
 		e.p = &curvePoint{}
 	}
-	//e.p.Mul(a.p, k)
 	// Compute a curvePointTable for the base point a.
 	var table = curvePointTable{NewCurvePoint(), NewCurvePoint(), NewCurvePoint(),
 		NewCurvePoint(), NewCurvePoint(), NewCurvePoint(), NewCurvePoint(),

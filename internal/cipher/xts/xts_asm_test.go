@@ -13,6 +13,11 @@ import (
 )
 
 var testTweakVector = []string{
+	"00000000000000000000000000000000",
+	"ffffffffffffffffffffffffffffffff",
+	"00000000000000000000000000000080",
+	"00000000000000000000000000000001",
+	"80000000000000000000000000000000",
 	"F0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF",
 	"66e94bd4ef8a2c3b884cfa59ca342b2e",
 	"3f803bcd0d7fd2b37558419f59d5cda6",
@@ -31,11 +36,12 @@ func testDoubleTweak(t *testing.T, isGB bool) {
 		var t1, t2 [16]byte
 		copy(t1[:], tweak)
 		copy(t2[:], tweak)
-		mul2(&t1, isGB)
-		mul2Generic(&t2, isGB)
-
-		if !bytes.Equal(t1[:], t2[:]) {
-			t.Errorf("tweak %v, expected %x, got %x", tk, t2[:], t1[:])
+		for step := 0; step < 256; step++ {
+			mul2(&t1, isGB)
+			mul2Generic(&t2, isGB)
+			if t1 != t2 {
+				t.Fatalf("isGB %v tweak %v step %d, expected %x, got %x", isGB, tk, step, t2, t1)
+			}
 		}
 	}
 }
@@ -77,23 +83,28 @@ func testDoubleTweaks(t *testing.T, isGB bool) {
 	for _, tk := range testTweakVector {
 		tweak, _ := hex.DecodeString(tk)
 
-		var t1, t2 [16]byte
-		var t11, t12 [128]byte
-		copy(t1[:], tweak)
-		copy(t2[:], tweak)
-
-		for i := 0; i < 8; i++ {
-			copy(t12[16*i:], t2[:])
-			mul2Generic(&t2, isGB)
-		}
-
-		doubleTweaks(&t1, t11[:], isGB)
-
-		if !bytes.Equal(t1[:], t2[:]) {
-			t.Errorf("isGB %v tweak %v, expected %x, got %x", isGB, tk, t2[:], t1[:])
-		}
-		if !bytes.Equal(t11[:], t12[:]) {
-			t.Errorf("isGB %v tweak %v, expected %x, got %x", isGB, tk, t12[:], t11[:])
+		for _, count := range []int{1, 2, 3, 4, 7, 8} {
+			var t1, t2 [blockSize]byte
+			copy(t1[:], tweak)
+			copy(t2[:], tweak)
+			for batch := 0; batch < 4; batch++ {
+				var got, want [10 * blockSize]byte
+				for i := range got {
+					got[i], want[i] = 0xa5, 0xa5
+				}
+				end := blockSize + count*blockSize
+				for i := 0; i < count; i++ {
+					copy(want[blockSize+i*blockSize:], t2[:])
+					mul2Generic(&t2, isGB)
+				}
+				doubleTweaks(&t1, got[blockSize:end:end], isGB)
+				if t1 != t2 {
+					t.Fatalf("isGB %v tweak %v count %d batch %d, expected final %x, got %x", isGB, tk, count, batch, t2, t1)
+				}
+				if got != want {
+					t.Fatalf("isGB %v tweak %v count %d batch %d, output or guard mismatch: expected %x, got %x", isGB, tk, count, batch, want, got)
+				}
+			}
 		}
 	}
 }

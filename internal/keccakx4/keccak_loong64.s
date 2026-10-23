@@ -15,11 +15,9 @@
 // XVROTRV $k, Xsrc, Xdst — rotate Xsrc right by k bits (64-bit lanes), write to Xdst.
 // Rotate left by n bits = rotate right by (64-n) bits.
 
-// XVPERMIQ(Xd, Xj, imm8) — xvpermi.q Xd, Xj, imm8.
+// XVPERMIQ $imm8, Xj, Xd — xvpermi.q Xd, Xj, imm8 (mnemonic available since Go 1.26).
 // Semantics: pool={Xj.lo=0, Xj.hi=1, Xd_old.lo=2, Xd_old.hi=3}
 //   Xd.lo = pool[imm[1:0]],  Xd.hi = pool[imm[5:4]]
-// Opcode 0x1DFB: xvpermi.q X8, X9, 0x02 → WORD $0x77ec0928
-#define XVPERMIQ(Xd, Xj, imm8) WORD $((0x1DFB << 18) | ((imm8) << 10) | ((Xj) << 5) | (Xd))
 
 // func permute4LASX(state *State4)
 TEXT ·permute4LASX(SB), NOSPLIT, $0-8
@@ -281,7 +279,7 @@ round_loop:
 // 4×4 transpose (non-interleaved → interleaved) for batches of 4 lanes:
 //   Load 4×uint64 from each input → XVILVLV/H interleave pairs → XVPERMIQ combine halves → XOR with state.
 //   XVILVLV Xa, Xb, Xd : Xd = [Xa.D[0], Xb.D[0], Xa.D[2], Xb.D[2]]  (even from FIRST arg)
-//   XVPERMIQ WORD encoding: 0x77EC0000 | (imm8<<10) | (vj<<5) | vd
+//   XVPERMIQ $imm8, Xj, Xd semantics: pool={Xj.lo=0, Xj.hi=1, Xd_old.lo=2, Xd_old.hi=3}
 //     imm8=0x08 → Xd.lo stays, Xd.hi = Xj.lo
 //     imm8=0x0d → Xd.lo = Xd.hi (orig), Xd.hi = Xj.hi
 TEXT ·xorIn4LASX(SB), NOSPLIT, $0-48
@@ -317,14 +315,14 @@ xorin_vec4:
 	//   imm=0x13: lower_sel=3(=Xd.hi), upper_sel=1(=Xj.hi) → swap Xd.hi←lo, Xj.hi←hi
 	// X0 = [A0, B0, C0, D0] : keep X4.lo, replace X4.hi ← X6.lo (imm=0x02, vj=X6, vd=X4)
 	XVORV X4, X4, X0
-	XVPERMIQ(0, 6, 0x02)    // xvpermi.q X0, X6, 0x02 → X0=[A0,B0,C0,D0]
+	XVPERMIQ $0x02, X6, X0    // X0=[A0,B0,C0,D0]
 	// X4 = [A2, B2, C2, D2] : X4.lo←X4.hi(orig), X4.hi←X6.hi (imm=0x13)
-	XVPERMIQ(4, 6, 0x13)    // xvpermi.q X4, X6, 0x13 → X4=[A2,B2,C2,D2]
+	XVPERMIQ $0x13, X6, X4    // X4=[A2,B2,C2,D2]
 	// X1 = [A1, B1, C1, D1]
 	XVORV X5, X5, X1
-	XVPERMIQ(1, 7, 0x02)    // xvpermi.q X1, X7, 0x02 → X1=[A1,B1,C1,D1]
+	XVPERMIQ $0x02, X7, X1    // X1=[A1,B1,C1,D1]
 	// X5 = [A3, B3, C3, D3]
-	XVPERMIQ(5, 7, 0x13)    // xvpermi.q X5, X7, 0x13 → X5=[A3,B3,C3,D3]
+	XVPERMIQ $0x13, X7, X5    // X5=[A3,B3,C3,D3]
 
 	// XOR with state rows and store (state is interleaved: each 32-byte slot = 4 instances)
 	XVMOVQ (0*32)(R4), X2
@@ -381,7 +379,7 @@ xorin_done:
 // func copyOut4LASX(state *State4, out0, out1, out2, out3 *byte, lanes int)
 //
 // Reverse 4×4 transpose (interleaved → non-interleaved) using the same
-// XVILVLV/H + XVPERMIQ pattern. Exact same WORD encodings as xorIn4.
+// XVILVLV/H + XVPERMIQ pattern. Exact same operations as xorIn4.
 TEXT ·copyOut4LASX(SB), NOSPLIT, $0-48
 	MOVV state+0(FP), R4
 	MOVV out0+8(FP), R5
@@ -407,17 +405,17 @@ copyout_vec4:
 	XVILVLV X2, X3, X6    // vk=X2=R2, vj=X3=R3 → X6 = [a2, a3, c2, c3]
 	XVILVHV X2, X3, X7    // X7 = [b2, b3, d2, d3]
 
-	// Step 2: XVPERMIQ — combine into full columns (same WORD encodings as xorIn4)
+	// Step 2: XVPERMIQ — combine into full columns (same operations as xorIn4)
 	// out0 = A = [a0,a1,a2,a3] = X4.lo | X6.lo
 	XVORV X4, X4, X0
-	XVPERMIQ(0, 6, 0x02)    // xvpermi.q X0, X6, 0x02 → X0=[a0,a1,a2,a3]=A
+	XVPERMIQ $0x02, X6, X0    // X0=[a0,a1,a2,a3]=A
 	// out2 = C = [c0,c1,c2,c3] = X4.hi | X6.hi
-	XVPERMIQ(4, 6, 0x13)    // xvpermi.q X4, X6, 0x13 → X4=[c0,c1,c2,c3]=C
+	XVPERMIQ $0x13, X6, X4    // X4=[c0,c1,c2,c3]=C
 	// out1 = B = [b0,b1,b2,b3] = X5.lo | X7.lo
 	XVORV X5, X5, X1
-	XVPERMIQ(1, 7, 0x02)    // xvpermi.q X1, X7, 0x02 → X1=[b0,b1,b2,b3]=B
+	XVPERMIQ $0x02, X7, X1    // X1=[b0,b1,b2,b3]=B
 	// out3 = D = [d0,d1,d2,d3] = X5.hi | X7.hi
-	XVPERMIQ(5, 7, 0x13)    // xvpermi.q X5, X7, 0x13 → X5=[d0,d1,d2,d3]=D
+	XVPERMIQ $0x13, X7, X5    // X5=[d0,d1,d2,d3]=D
 
 	// Store columns to output buffers
 	XVMOVQ X0, (R5)    // out0[i..i+3] = A

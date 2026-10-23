@@ -2,7 +2,10 @@ package pkcs7
 
 import (
 	"bytes"
+	"encoding/asn1"
 	"testing"
+
+	"github.com/emmansun/gmsm/pkcs"
 )
 
 func TestDecrypt(t *testing.T) {
@@ -72,3 +75,73 @@ o5FC5Jg2FUfFzZSDmyZ6IONUsdF/i78KDV5nRv1R+hI6/oRlWNCtTNBv/lvBBd6b
 dseUE9QoaQZsn5lpILEvmQJAZ0B+Or1rAYjnbjnUhdVZoy9kC4Zov+4UH3N/BtSy
 KJRWUR0wTWfZBPZ5hAYZjTBEAFULaYCXlQKsODSp0M1aQA==
 -----END PRIVATE KEY-----`
+
+func TestDecryptWithMalformedParameters(t *testing.T) {
+	fixture := UnmarshalTestFixture(EncryptedTestFixture)
+	p7, err := Parse(fixture.Input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ed, ok := p7.raw.(envelopedData)
+	if !ok {
+		t.Fatal("expected enveloped data")
+	}
+	if _, err := p7.Decrypt(fixture.Certificate, fixture.PrivateKey); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// The content-encryption CBC IV is not one block long.
+	badIV, err := asn1.Marshal([]byte{0x00})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tampered := ed
+	tampered.EncryptedContentInfo.ContentEncryptionAlgorithm.Parameters = asn1.RawValue{FullBytes: badIV}
+	if _, err := (&PKCS7{raw: tampered, session: p7.session}).Decrypt(fixture.Certificate, fixture.PrivateKey); err == nil {
+		t.Errorf("should be error")
+	}
+
+	// The ciphertext is not a multiple of the block size.
+	tampered = ed
+	tampered.EncryptedContentInfo.EncryptedContent = asn1.RawValue{Tag: 0, Class: asn1.ClassContextSpecific, Bytes: make([]byte, 17)}
+	if _, err := (&PKCS7{raw: tampered, session: p7.session}).Decrypt(fixture.Certificate, fixture.PrivateKey); err == nil {
+		t.Errorf("should be error")
+	}
+}
+
+func TestDecryptUsingPSKWithMalformedParameters(t *testing.T) {
+	key := make([]byte, 32)
+	der, err := EncryptUsingPSK(pkcs.AES256CBC, []byte("This is a test"), key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p7, err := Parse(der)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ed, ok := p7.raw.(encryptedData)
+	if !ok {
+		t.Fatal("expected encrypted data")
+	}
+	if content, err := p7.DecryptUsingPSK(key); err != nil || !bytes.Equal(content, []byte("This is a test")) {
+		t.Fatalf("unexpected result: %s, %v", content, err)
+	}
+
+	// The content-encryption CBC IV is not one block long.
+	badIV, err := asn1.Marshal([]byte{0x00})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tampered := ed
+	tampered.EncryptedContentInfo.ContentEncryptionAlgorithm.Parameters = asn1.RawValue{FullBytes: badIV}
+	if _, err := (&PKCS7{raw: tampered}).DecryptUsingPSK(key); err == nil {
+		t.Errorf("should be error")
+	}
+
+	// The ciphertext is not a multiple of the block size.
+	tampered = ed
+	tampered.EncryptedContentInfo.EncryptedContent = asn1.RawValue{Tag: 0, Class: asn1.ClassContextSpecific, Bytes: make([]byte, 17)}
+	if _, err := (&PKCS7{raw: tampered}).DecryptUsingPSK(key); err == nil {
+		t.Errorf("should be error")
+	}
+}

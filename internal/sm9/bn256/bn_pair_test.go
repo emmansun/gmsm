@@ -93,7 +93,7 @@ func Test_Pairing_B2_2(t *testing.T) {
 	pubE.t = *one
 
 	ret := pairing(twistGen, pubE)
-	ret.Exp(ret, bigFromHex("00018B98C44BEF9F8537FB7D071B2C928B3BC65BD3D69E1EEE213564905634FE"))
+	ret = gfp12ExpRef(ret, bigFromHex("00018B98C44BEF9F8537FB7D071B2C928B3BC65BD3D69E1EEE213564905634FE"))
 	if ret.x != expected_b2_2.x || ret.y != expected_b2_2.y || ret.z != expected_b2_2.z {
 		t.Errorf("not expected")
 	}
@@ -132,6 +132,22 @@ var testGfp12 = &gfP12{
 	},
 }
 
+// gfp12ExpRef computes x^power with a plain square-and-multiply loop, as a
+// reference for testing the optimized exponentiation routines.
+func gfp12ExpRef(x *gfP12, power *big.Int) *gfP12 {
+	sum, t := &gfP12{}, &gfP12{}
+	sum.SetOne()
+	for i := power.BitLen() - 1; i >= 0; i-- {
+		t.Square(sum)
+		if power.Bit(i) != 0 {
+			sum.Mul(t, x)
+		} else {
+			sum.Set(t)
+		}
+	}
+	return sum
+}
+
 func Test_finalExponentiation(t *testing.T) {
 	x := testGfp12
 	got := finalExponentiation(x)
@@ -139,7 +155,7 @@ func Test_finalExponentiation(t *testing.T) {
 	exp := new(big.Int).Exp(p, big.NewInt(12), nil)
 	exp.Sub(exp, big.NewInt(1))
 	exp.Div(exp, Order)
-	expected := (&gfP12{}).Exp(x, exp)
+	expected := gfp12ExpRef(x, exp)
 
 	if got.x != expected.x || got.y != expected.y || got.z != expected.z {
 		t.Errorf("got %v, expected %v\n", got, expected)
@@ -167,7 +183,7 @@ func BenchmarkFinalExponentiation(b *testing.B) {
 	exp := new(big.Int).Exp(p, big.NewInt(12), nil)
 	exp.Sub(exp, big.NewInt(1))
 	exp.Div(exp, Order)
-	expected := (&gfP12{}).Exp(x, exp)
+	expected := gfp12ExpRef(x, exp)
 
 	b.ReportAllocs()
 	b.ResetTimer()

@@ -134,7 +134,6 @@ func Test_gfP6Invert(t *testing.T) {
 	}
 	testGfP6Invert(t, x)
 
-	
 	x = &gfP6{
 		gfP2{
 			*newGFpFromHex("17509B092E845C1266BA0D262CBEE6ED0736A96FA347C8BD856DC76B84EBEB96"),

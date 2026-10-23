@@ -299,13 +299,8 @@ func ParseWithSession(session Session, data []byte) (p7 *PKCS7, err error) {
 	if err != nil {
 		return nil, err
 	}
-	rest, err := asn1.Unmarshal(der, &info)
-	if len(rest) > 0 {
-		err = asn1.SyntaxError{Msg: "trailing data"}
-		return
-	}
-	if err != nil {
-		return
+	if err := unmarshalSingle(der, &info); err != nil {
+		return nil, err
 	}
 
 	switch {
@@ -322,9 +317,23 @@ func ParseWithSession(session Session, data []byte) (p7 *PKCS7, err error) {
 	}
 }
 
+// unmarshalSingle unmarshals exactly one ASN.1 element. Trailing data is
+// rejected so that a second encoding of the same structure cannot be smuggled
+// past the parser and interpreted differently by another implementation.
+func unmarshalSingle(data []byte, out any) error {
+	rest, err := asn1.Unmarshal(data, out)
+	if err != nil {
+		return err
+	}
+	if len(rest) > 0 {
+		return asn1.SyntaxError{Msg: "trailing data"}
+	}
+	return nil
+}
+
 func parseEnvelopedData(session Session, data []byte) (*PKCS7, error) {
 	var ed envelopedData
-	if _, err := asn1.Unmarshal(data, &ed); err != nil {
+	if err := unmarshalSingle(data, &ed); err != nil {
 		return nil, err
 	}
 	return &PKCS7{
@@ -335,7 +344,7 @@ func parseEnvelopedData(session Session, data []byte) (*PKCS7, error) {
 
 func parseEncryptedData(session Session, data []byte) (*PKCS7, error) {
 	var ed encryptedData
-	if _, err := asn1.Unmarshal(data, &ed); err != nil {
+	if err := unmarshalSingle(data, &ed); err != nil {
 		return nil, err
 	}
 	return &PKCS7{

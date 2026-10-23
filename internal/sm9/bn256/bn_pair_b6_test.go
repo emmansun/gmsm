@@ -76,7 +76,7 @@ func Test_PairingB6_B2_2(t *testing.T) {
 	pubE.t = *one
 
 	ret := pairingB6(twistGen, pubE)
-	ret.Exp(ret, bigFromHex("00018B98C44BEF9F8537FB7D071B2C928B3BC65BD3D69E1EEE213564905634FE"))
+	ret = gfp12ExpRef(ret, bigFromHex("00018B98C44BEF9F8537FB7D071B2C928B3BC65BD3D69E1EEE213564905634FE"))
 	if ret.x != expected_b2_2.x || ret.y != expected_b2_2.y || ret.z != expected_b2_2.z {
 		t.Errorf("not expected")
 	}
@@ -89,8 +89,8 @@ func TestBilinearityB6(t *testing.T) {
 		e1 := pairingB6(p2.p, p1.p)
 
 		e2 := pairingB6(twistGen, curveGen)
-		e2.Exp(e2, a)
-		e2.Exp(e2, b)
+		e2 = gfp12ExpRef(e2, a)
+		e2 = gfp12ExpRef(e2, b)
 
 		if *e1 != *e2 {
 			t.Fatalf("bad pairing result: %s", e1)

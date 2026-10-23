@@ -1,0 +1,276 @@
+// Copyright 2026 Sun Yimin. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
+// Package vectors defines a Wycheproof-style JSON schema for adversarial
+// cryptographic test vectors and loads the committed vector files.
+//
+// Two kinds of suites share the schema:
+//
+//   - Semantics suites (valid/invalid) pin specification behaviour, e.g. which
+//     encodings a parser must reject.
+//   - Kernel suites pin exact field/kernel outputs for inputs that sit on
+//     rare carry/sign boundaries. Those boundaries are unreachable by random
+//     differential fuzzing (the trigger probability can be as low as 2^-33,
+//     see issue #560), so the inputs are constructed rather than sampled,
+//     and the expected output is the exact result of the reference model.
+//
+// Symmetric-mode suites (AEAD, XTS, padding) are semantics suites that carry
+// their payload in the key, nonce, AAD, plaintext, tweak and input fields.
+package vectors
+
+import (
+	"embed"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"sort"
+)
+
+//go:embed testdata/*.json
+var files embed.FS
+
+// Schema revisions. Kernel suites pin exact primitive outputs; semantics
+// suites pin valid/invalid behaviour of an API. Both share the Case shape.
+const (
+	KernelSchema    = "gmsm-kernel-vectors/v1"
+	SemanticsSchema = "gmsm-semantics-vectors/v1"
+)
+
+// Suite is one committed vector file.
+type Suite struct {
+	// Schema identifies the schema revision, e.g. "gmsm-kernel-vectors/v1".
+	Schema string `json:"schema"`
+	// Algorithm names the primitive under test, e.g. "sm2p256v1".
+	Algorithm string `json:"algorithm"`
+	// Generator describes how the vectors were produced and how to
+	// regenerate them.
+	Generator string `json:"generator,omitempty"`
+	// Groups partitions the tests by API shape and execution requirements.
+	Groups []Group `json:"testGroups"`
+}
+
+// Group is a set of cases that share an API shape and the same execution
+// requirements.
+type Group struct {
+	// Type is the operation under test, e.g. "FieldMul".
+	Type string `json:"type"`
+	// Arch lists the GOARCH values the group is meaningful on. Empty means
+	// any architecture.
+	Arch []string `json:"arch,omitempty"`
+	// Features lists CPU features required to execute the group, e.g.
+	// "adx", "bmi2". Empty means no feature requirement.
+	Features []string `json:"features,omitempty"`
+	// Comment documents why the group exists and how the cases were built.
+	Comment string `json:"comment,omitempty"`
+	Tests   []Case `json:"tests"`
+}
+
+// Case is one test vector. Field values are big-endian hex so they are
+// independent of the host word order and limb representation.
+type Case struct {
+	TCID    int      `json:"tcId"`
+	Comment string   `json:"comment,omitempty"`
+	Flags   []string `json:"flags,omitempty"`
+
+	// Kernel suites: A and B are the operands (B is empty for unary
+	// operations) and Expected is the exact reference result.
+	A        string `json:"a,omitempty"`
+	B        string `json:"b,omitempty"`
+	Expected string `json:"expected,omitempty"`
+
+	// Semantics suites. All fields are optional here; which ones a group
+	// requires depends on the API it targets, which only the consumer
+	// knows.
+	Pub        string `json:"pub,omitempty"` // SEC 1 point, 04||X||Y
+	UID        string `json:"uid,omitempty"` // empty means the library default
+	HID        int    `json:"hid,omitempty"` // SM9 hierarchy identifier
+	Msg        string `json:"msg,omitempty"`
+	Context    string `json:"context,omitempty"`
+	Hash       string `json:"hash,omitempty"` // precomputed e for Verify
+	R          string `json:"r,omitempty"`
+	S          string `json:"s,omitempty"`
+	Sig        string `json:"sig,omitempty"` // ASN.1 DER signature
+	Priv       string `json:"priv,omitempty"`
+	Ciphertext string `json:"ciphertext,omitempty"`
+	Ordering   string `json:"ordering,omitempty"` // C1C3C2, C1C2C3 or ASN1
+	X          string `json:"x,omitempty"`        // decoded coordinates
+	Y          string `json:"y,omitempty"`
+	Result     string `json:"result,omitempty"` // valid or invalid
+
+	// Symmetric-mode suites.
+	Key       string `json:"key,omitempty"`
+	Key2      string `json:"key2,omitempty"` // second key of a two-key mode (XTS tweak key)
+	Nonce     string `json:"nonce,omitempty"`
+	AAD       string `json:"aad,omitempty"`
+	Plaintext string `json:"plaintext,omitempty"`
+	Tweak     string `json:"tweak,omitempty"` // raw XTS tweak; Sector is the convenience form
+	Input     string `json:"input,omitempty"` // raw input for schemes without a key/plaintext pair (padding)
+	TagSize   int    `json:"tagSize,omitempty"`
+	NonceSize int    `json:"nonceSize,omitempty"`
+	Sector    uint64 `json:"sector,omitempty"`
+	// BitLen is the number of message bits for bit-oriented MACs; zero
+	// means the whole Input buffer.
+	BitLen int `json:"bitLen,omitempty"`
+	// KeyLen is the requested output length of a key derivation function.
+	KeyLen int `json:"keyLen,omitempty"`
+
+	// Count, Bearer and Direction are the ZUC frame parameters. Count is
+	// the 32-bit frame counter, Bearer the 5-bit bearer identity and
+	// Direction the 1-bit transmission direction flag; Nonce carries the
+	// frame IV derived from them.
+	Count     uint32 `json:"count,omitempty"`
+	Bearer    uint32 `json:"bearer,omitempty"`
+	Direction uint32 `json:"direction,omitempty"`
+}
+
+// Load unmarshals a committed vector file by name, e.g.
+// "sm2ec_p256_mul_bmi2.json".
+func Load(name string) (*Suite, error) {
+	data, err := files.ReadFile("testdata/" + name)
+	if err != nil {
+		return nil, fmt.Errorf("vectors: %w", err)
+	}
+	var s Suite
+	if err := json.Unmarshal(data, &s); err != nil {
+		return nil, fmt.Errorf("vectors: parsing %s: %w", name, err)
+	}
+	if len(s.Groups) == 0 {
+		return nil, fmt.Errorf("vectors: %s has no test groups", name)
+	}
+	if err := s.Validate(); err != nil {
+		return nil, fmt.Errorf("vectors: %s: %w", name, err)
+	}
+	return &s, nil
+}
+
+// Validate checks the invariants shared by every suite: a known schema
+// revision, non-empty groups with unique tcIds, recognized Result and
+// Ordering values, and hex-decodable payloads. Per-group required fields are
+// left to the consumer test, since only it knows which API the group
+// targets.
+func (s *Suite) Validate() error {
+	switch s.Schema {
+	case KernelSchema, SemanticsSchema:
+	default:
+		return fmt.Errorf("unknown schema revision %q", s.Schema)
+	}
+	for i := range s.Groups {
+		g := &s.Groups[i]
+		if g.Type == "" {
+			return fmt.Errorf("testGroups[%d]: empty type", i)
+		}
+		if len(g.Tests) == 0 {
+			return fmt.Errorf("group %q: no test cases", g.Type)
+		}
+		seen := make(map[int]bool, len(g.Tests))
+		for j := range g.Tests {
+			tc := &g.Tests[j]
+			if tc.TCID <= 0 {
+				return fmt.Errorf("group %q: invalid tcId %d", g.Type, tc.TCID)
+			}
+			if seen[tc.TCID] {
+				return fmt.Errorf("group %q: duplicate tcId %d", g.Type, tc.TCID)
+			}
+			seen[tc.TCID] = true
+			switch tc.Result {
+			case "", "valid", "invalid":
+			default:
+				return fmt.Errorf("group %q tc%d: unknown result %q", g.Type, tc.TCID, tc.Result)
+			}
+			switch tc.Ordering {
+			case "", "C1C3C2", "C1C2C3", "ASN1":
+			default:
+				return fmt.Errorf("group %q tc%d: unknown ordering %q", g.Type, tc.TCID, tc.Ordering)
+			}
+			fields := [...]struct{ name, value string }{
+				{"pub", tc.Pub}, {"uid", tc.UID}, {"msg", tc.Msg}, {"context", tc.Context},
+				{"hash", tc.Hash}, {"r", tc.R}, {"s", tc.S}, {"sig", tc.Sig},
+				{"priv", tc.Priv}, {"ciphertext", tc.Ciphertext},
+				{"x", tc.X}, {"y", tc.Y}, {"a", tc.A}, {"b", tc.B},
+				{"key", tc.Key}, {"key2", tc.Key2}, {"nonce", tc.Nonce},
+				{"aad", tc.AAD}, {"plaintext", tc.Plaintext}, {"tweak", tc.Tweak},
+				{"input", tc.Input},
+				{"expected", tc.Expected},
+			}
+			for _, f := range fields {
+				if f.value == "" {
+					continue
+				}
+				if _, err := hex.DecodeString(f.value); err != nil {
+					return fmt.Errorf("group %q tc%d: %s is not hex: %w", g.Type, tc.TCID, f.name, err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// Group returns the single group of the given type. It reports an error when
+// the group is absent, which guards against silently skipping a suite after a
+// rename.
+func (s *Suite) Group(typ string) (*Group, error) {
+	var found *Group
+	for i := range s.Groups {
+		if s.Groups[i].Type != typ {
+			continue
+		}
+		if found != nil {
+			return nil, fmt.Errorf("vectors: %s contains multiple %q groups", s.Algorithm, typ)
+		}
+		found = &s.Groups[i]
+	}
+	if found == nil {
+		types := make([]string, len(s.Groups))
+		for i := range s.Groups {
+			types[i] = s.Groups[i].Type
+		}
+		sort.Strings(types)
+		return nil, fmt.Errorf("vectors: %s has no %q group (have %v)", s.Algorithm, typ, types)
+	}
+	return found, nil
+}
+
+// Requires reports whether the group can run on the given architecture and
+// feature set, and lists the constraints that are not satisfied. An unknown
+// feature name is an error rather than a silent skip, so a typo in a vector
+// file cannot disable a group.
+func (g *Group) Requires(goarch string, has map[string]bool) (bool, []string, error) {
+	var missing []string
+	if len(g.Arch) > 0 {
+		ok := false
+		for _, a := range g.Arch {
+			if a == goarch {
+				ok = true
+			}
+		}
+		if !ok {
+			missing = append(missing, "arch="+goarch)
+		}
+	}
+	for _, f := range g.Features {
+		supported, known := has[f]
+		if !known {
+			return false, nil, fmt.Errorf("vectors: unknown feature %q in group %q", f, g.Type)
+		}
+		if !supported {
+			missing = append(missing, "feature="+f)
+		}
+	}
+	return len(missing) == 0, missing, nil
+}
+
+// DecodeHex32 decodes a fixed-width, 32-byte big-endian hex value, the
+// representation used by every 256-bit field element in the suites.
+func DecodeHex32(s string) ([32]byte, error) {
+	var out [32]byte
+	if len(s) != 64 {
+		return out, fmt.Errorf("vectors: %q is not 64 hex characters", s)
+	}
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		return out, fmt.Errorf("vectors: %w", err)
+	}
+	copy(out[:], b)
+	return out, nil
+}

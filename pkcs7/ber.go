@@ -52,15 +52,16 @@ func ber2der(ber []byte) ([]byte, error) {
 	}
 	out := new(bytes.Buffer)
 
-	obj, _, err := readObject(ber, 0)
+	obj, offset, err := readObject(ber, 0)
 	if err != nil {
 		return nil, err
 	}
-	obj.EncodeTo(out)
-
-	// if offset < len(ber) {
-	//	return nil, fmt.Errorf("ber2der: Content longer than expected. Got %d, expected %d", offset, len(ber))
-	//}
+	if offset < len(ber) {
+		return nil, errors.New("ber2der: trailing data after the top-level element")
+	}
+	if err := obj.EncodeTo(out); err != nil {
+		return nil, err
+	}
 
 	return out.Bytes(), nil
 }
@@ -97,12 +98,12 @@ func lengthLength(i int) (numBytes int) {
 // added to 0x80. The length is encoded in big endian encoding follow after
 //
 // Examples:
-//  length | byte 1 | bytes n
-//  0      | 0x00   | -
-//  120    | 0x78   | -
-//  200    | 0x81   | 0xC8
-//  500    | 0x82   | 0x01 0xF4
 //
+//	length | byte 1 | bytes n
+//	0      | 0x00   | -
+//	120    | 0x78   | -
+//	200    | 0x81   | 0xC8
+//	500    | 0x82   | 0x01 0xF4
 func encodeLength(out *bytes.Buffer, length int) (err error) {
 	if length >= 128 {
 		l := lengthLength(length)
@@ -224,7 +225,23 @@ func readObject(ber []byte, offset int) (asn1Object, int, error) {
 		}
 	} else {
 		var subObjects []asn1Object
-		for (offset < contentEnd) || indefinite {
+		for {
+			if indefinite {
+				// The end-of-contents octets belong to this element, not to
+				// its content, so they must be checked before reading a
+				// child. An indefinite-length element with no children is
+				// just tag, 0x80 and the terminator.
+				terminated, err := isIndefiniteTermination(ber, offset)
+				if err != nil {
+					return nil, 0, err
+				}
+				if terminated {
+					offset += 2
+					break
+				}
+			} else if offset >= contentEnd {
+				break
+			}
 			var subObj asn1Object
 			var err error
 			subObj, offset, err = readObject(ber, offset)
@@ -232,17 +249,6 @@ func readObject(ber []byte, offset int) (asn1Object, int, error) {
 				return nil, 0, err
 			}
 			subObjects = append(subObjects, subObj)
-
-			if indefinite {
-				terminated, err := isIndefiniteTermination(ber, offset)
-				if err != nil {
-					return nil, 0, err
-				}
-
-				if terminated {
-					break
-				}
-			}
 		}
 		obj = asn1Structured{
 			tagBytes: ber[tagStart:tagEnd],
@@ -252,7 +258,7 @@ func readObject(ber []byte, offset int) (asn1Object, int, error) {
 
 	// Apply indefinite form length with 0x0000 terminator.
 	if indefinite {
-		contentEnd = offset + 2
+		contentEnd = offset
 	}
 
 	return obj, contentEnd, nil
