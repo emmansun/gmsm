@@ -3,17 +3,64 @@ package smx509
 import (
 	"crypto/ecdsa"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/x509/pkix"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/emmansun/gmsm/ecdh"
 	"github.com/emmansun/gmsm/sm2"
 )
+
+func TestVerifyDistrustedSPKI(t *testing.T) {
+	chain := make([]*Certificate, 0, 3)
+	for _, certPEM := range []string{googleLeaf, gtsIntermediate, gtsRoot} {
+		cert, err := certificateFromPEM(certPEM)
+		if err != nil {
+			t.Fatal(err)
+		}
+		chain = append(chain, cert)
+	}
+	opts := VerifyOptions{
+		Roots:         NewCertPool(),
+		Intermediates: NewCertPool(),
+		CurrentTime:   time.Unix(1677615892, 0),
+		DNSName:       "www.google.com",
+	}
+	opts.Roots.AddCert(chain[2])
+	opts.Intermediates.AddCert(chain[1])
+	if _, err := chain[0].Verify(opts); err != nil {
+		t.Fatalf("trusted chain failed: %v", err)
+	}
+	for index, name := range []string{"leaf", "intermediate", "root"} {
+		t.Run(name, func(t *testing.T) {
+			digest := sha256.Sum256(chain[index].RawSubjectPublicKeyInfo)
+			hash := hex.EncodeToString(digest[:])
+			if _, exists := distrustedSPKIHashes[hash]; exists {
+				t.Fatal("test certificate is already distrusted")
+			}
+			distrustedSPKIHashes[hash] = struct{}{}
+			t.Cleanup(func() { delete(distrustedSPKIHashes, hash) })
+			for _, keyUsages := range [][]ExtKeyUsage{nil, {ExtKeyUsageAny}} {
+				opts.KeyUsages = keyUsages
+				chains, err := chain[0].Verify(opts)
+				var invalid CertificateInvalidError
+				if !errors.As(err, &invalid) || invalid.Reason != NoValidChains || len(chains) != 0 {
+					t.Fatalf("distrusted chain accepted or wrong error: chains=%d, err=%v", len(chains), err)
+				}
+			}
+		})
+	}
+	if _, err := chain[0].Verify(opts); err != nil {
+		t.Fatalf("trusted chain failed after restoring denylist: %v", err)
+	}
+}
 
 const publicKeyPemFromAliKms = `-----BEGIN PUBLIC KEY-----
 MFkwEwYHKoZIzj0CAQYIKoEcz1UBgi0DQgAELfjZP28bYfGSvbODYlXiB5bcoXE+

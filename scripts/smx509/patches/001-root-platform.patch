@@ -1,8 +1,8 @@
 diff --git "a/smx509/root_darwin.go" "b/smx509/root_darwin.go"
-index 0546570..b0a808e 100644
+index 56e1ba4..b0a808e 100644
 --- "a/smx509/root_darwin.go"
 +++ "b/smx509/root_darwin.go"
-@@ -4,126 +4,8 @@
+@@ -4,131 +4,8 @@
  
  package smx509
  
@@ -88,9 +88,14 @@ index 0546570..b0a808e 100644
 -		}
 -		chain[0] = append(chain[0], cert)
 -	}
+-
 -	if len(chain[0]) == 0 {
 -		// This should _never_ happen, but to be safe
 -		return nil, errors.New("x509: macos certificate verification internal error")
+-	}
+-
+-	if containsDistrustedSPKIHash(chain[0]) {
+-		return nil, CertificateInvalidError{c, NoValidChains, ""}
 -	}
 -
 -	if opts.DNSName != "" {
