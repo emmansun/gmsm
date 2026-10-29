@@ -2,6 +2,11 @@
 
 smx509 是 Go stdlib `crypto/x509` 的 clean fork，通过**声明式 patch** 描述与上游的偏差。本目录包含维护 smx509 所需的全部工具和数据。
 
+Current baseline: **Go 1.26.10**. This includes the CVE-2026-111943
+(GO-2026-6809) fix: `Certificate.Verify` rejects chains containing known
+distrusted SPKI hashes, including when `ExtKeyUsageAny` is requested.
+`TestVerifyDistrustedSPKI` covers rejection at each position in a chain.
+
 ## 目录结构
 
 ```

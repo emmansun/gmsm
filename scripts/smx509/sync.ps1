@@ -120,6 +120,18 @@ function Apply-Patches([string]$RepoRoot, [string]$Dir, [switch]$CheckOnly) {
     }
 
     foreach ($patch in $patches) {
+        $previousErrorActionPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            & git -C $RepoRoot apply --reverse --check --whitespace=nowarn $patch.FullName 2>&1 | Out-Null
+        } finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host (("Patch already applied: {0}") -f $patch.Name)
+            continue
+        }
+
         $args = @("-C", $RepoRoot, "apply", "--whitespace=nowarn")
         if ($CheckOnly) {
             $args += "--check"
@@ -209,6 +221,11 @@ if (-not $TestOnly) {
     } else {
         Write-Host "Skipping source patch application due to -NoPatch"
     }
+}
+
+if ($NoPatch -and $targetLeaf -ieq "baseline") {
+    Write-Host "Baseline sync completed."
+    return
 }
 
 # --- Test file sync ---

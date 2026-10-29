@@ -687,10 +687,10 @@ index 523d52b..a05562c 100644
  func ParseCertificates(der []byte) ([]*Certificate, error) {
 
 diff --git "a/smx509/verify.go" "b/smx509/verify.go"
-index a9903de..90c5467 100644
+index 4a01ed0..a860972 100644
 --- "a/smx509/verify.go"
 +++ "b/smx509/verify.go"
-@@ -556,7 +556,7 @@ func (c *Certificate) Verify(opts VerifyOptions) ([][]*Certificate, error) {
+@@ -558,7 +558,7 @@ func (c *Certificate) Verify(opts VerifyOptions) ([][]*Certificate, error) {
  	}
  
  	// Use platform verifiers, where available, if Roots is from SystemCertPool.
