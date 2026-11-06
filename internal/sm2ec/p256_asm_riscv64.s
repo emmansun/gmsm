@@ -1066,27 +1066,21 @@ ordSqrLoop:
 		ADD t1, acc6, acc6   // no carry
 
 		// *2
-		// ALSLV is NOT supported in go 1.25
 		SRL $63, acc1, t0
 		SLL $1, acc1, acc1
 		SRL $63, acc2, t1
-		// ALSLV $1, t0, acc2, acc2
 		SLL $1, acc2, acc2
 		ADD t0, acc2, acc2
 		SRL $63, acc3, t0
-		// ALSLV $1, t1, acc3, acc3
 		SLL $1, acc3, acc3
 		ADD t1, acc3, acc3
 		SRL $63, acc4, t1
-		// ALSLV $1, t0, acc4, acc4
 		SLL $1, acc4, acc4
 		ADD t0, acc4, acc4
 		SRL $63, acc5, t0
-		// ALSLV $1, t1, acc5, acc5
 		SLL $1, acc5, acc5
 		ADD t1, acc5, acc5
 		SRL $63, acc6, acc7
-		// ALSLV $1, t0, acc6, acc6
 		SLL $1, acc6, acc6
 		ADD t0, acc6, acc6
 
