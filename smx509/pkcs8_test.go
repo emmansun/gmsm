@@ -11,11 +11,172 @@ import (
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rsa"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/hex"
+	"encoding/pem"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/emmansun/gmsm/mlkem"
 )
+
+func TestMLKEMRFC9935SeedFormatVectors(t *testing.T) {
+	seed := make([]byte, mlkem.SeedSize)
+	for i := range seed {
+		seed[i] = byte(i)
+	}
+	tests := []struct {
+		name string
+		oid  asn1.ObjectIdentifier
+		pem  string
+	}{
+		{
+			name: "512",
+			oid:  oidPublicKeyMLKEM512,
+			pem:  "-----BEGIN PRIVATE KEY-----\nMFQCAQAwCwYJYIZIAWUDBAQBBEKAQAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZ\nGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8=\n-----END PRIVATE KEY-----\n",
+		},
+		{
+			name: "768",
+			oid:  oidPublicKeyMLKEM768,
+			pem:  "-----BEGIN PRIVATE KEY-----\nMFQCAQAwCwYJYIZIAWUDBAQCBEKAQAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZ\nGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8=\n-----END PRIVATE KEY-----\n",
+		},
+		{
+			name: "1024",
+			oid:  oidPublicKeyMLKEM1024,
+			pem:  "-----BEGIN PRIVATE KEY-----\nMFQCAQAwCwYJYIZIAWUDBAQDBEKAQAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZ\nGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8=\n-----END PRIVATE KEY-----\n",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			block, rest := pem.Decode([]byte(test.pem))
+			if block == nil || len(rest) != 0 {
+				t.Fatal("invalid RFC 9935 PEM fixture")
+			}
+			var outer pkcs8
+			if _, err := asn1.Unmarshal(block.Bytes, &outer); err != nil {
+				t.Fatal(err)
+			}
+			if !outer.Algo.Algorithm.Equal(test.oid) {
+				t.Fatalf("unexpected ML-KEM algorithm OID: %v", outer.Algo.Algorithm)
+			}
+
+			key, err := ParsePKCS8PrivateKey(block.Bytes)
+			if err != nil {
+				t.Fatal(err)
+			}
+			seededKey, ok := key.(interface{ Seed() []byte })
+			if !ok {
+				t.Fatalf("unexpected ML-KEM private key type: %T", key)
+			}
+			if !bytes.Equal(seededKey.Seed(), seed) {
+				t.Fatal("parsed ML-KEM seed does not match RFC 9935 vector")
+			}
+
+			remarshaled, err := MarshalPKCS8PrivateKey(key)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(remarshaled, block.Bytes) {
+				t.Fatal("PKCS#8 DER encoding changed after RFC 9935 vector round trip")
+			}
+		})
+	}
+}
+
+func TestMLKEMPKCS8Formats(t *testing.T) {
+	seed := make([]byte, mlkem.SeedSize)
+	for i := range seed {
+		seed[i] = byte(i)
+	}
+	tests := []struct {
+		name        string
+		oid         asn1.ObjectIdentifier
+		newFromSeed func([]byte) (any, error)
+	}{
+		{"512", oidPublicKeyMLKEM512, func(seed []byte) (any, error) { return mlkem.NewDecapsulationKeyFromSeed512(seed) }},
+		{"768", oidPublicKeyMLKEM768, func(seed []byte) (any, error) { return mlkem.NewDecapsulationKeyFromSeed768(seed) }},
+		{"1024", oidPublicKeyMLKEM1024, func(seed []byte) (any, error) { return mlkem.NewDecapsulationKeyFromSeed1024(seed) }},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			key, err := test.newFromSeed(seed)
+			if err != nil {
+				t.Fatal(err)
+			}
+			keyBytes := key.(interface{ Bytes() []byte }).Bytes()
+			checkKey := func(der []byte) {
+				t.Helper()
+				parsed, err := ParsePKCS8PrivateKey(der)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !bytes.Equal(keyBytes, parsed.(interface{ Bytes() []byte }).Bytes()) {
+					t.Fatal("parsed ML-KEM private key does not match original")
+				}
+			}
+			wrap := func(privateKey []byte) []byte {
+				t.Helper()
+				der, err := asn1.Marshal(pkcs8{
+					Algo:       pkix.AlgorithmIdentifier{Algorithm: test.oid},
+					PrivateKey: privateKey,
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				return der
+			}
+
+			seedDER, err := MarshalPKCS8PrivateKey(key)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var outer pkcs8
+			if _, err := asn1.Unmarshal(seedDER, &outer); err != nil {
+				t.Fatal(err)
+			}
+			var raw asn1.RawValue
+			if _, err := asn1.Unmarshal(outer.PrivateKey, &raw); err != nil {
+				t.Fatal(err)
+			}
+			if raw.Class != asn1.ClassContextSpecific || raw.Tag != 0 || !bytes.Equal(raw.Bytes, seed) {
+				t.Fatal("marshaled key is not RFC 9935 seed format")
+			}
+			checkKey(seedDER)
+
+			expanded, err := asn1.Marshal(keyBytes)
+			if err != nil {
+				t.Fatal(err)
+			}
+			checkKey(wrap(expanded))
+
+			both, err := asn1.Marshal(struct {
+				Seed        []byte
+				ExpandedKey []byte
+			}{seed, keyBytes})
+			if err != nil {
+				t.Fatal(err)
+			}
+			checkKey(wrap(both))
+
+			mismatchedSeed := append([]byte(nil), seed...)
+			mismatchedSeed[0] ^= 0xff
+			mismatchedBoth, err := asn1.Marshal(struct {
+				Seed        []byte
+				ExpandedKey []byte
+			}{mismatchedSeed, keyBytes})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := ParsePKCS8PrivateKey(wrap(mismatchedBoth)); err == nil {
+				t.Fatal("inconsistent both format was accepted")
+			}
+		})
+	}
+}
 
 // Generated using:
 //

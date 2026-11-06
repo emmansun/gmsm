@@ -46,6 +46,7 @@ import (
 	gmsmecdh "github.com/emmansun/gmsm/ecdh"
 	"github.com/emmansun/gmsm/internal/godebug"
 	"github.com/emmansun/gmsm/mldsa"
+	"github.com/emmansun/gmsm/mlkem"
 	"github.com/emmansun/gmsm/slhdsa"
 	"github.com/emmansun/gmsm/sm2"
 
@@ -166,6 +167,15 @@ func marshalPublicKey(pub any) (publicKeyBytes []byte, publicKeyAlgorithm pkix.A
 	case *mldsa.PublicKey87:
 		publicKeyBytes = pub.Bytes()
 		publicKeyAlgorithm.Algorithm = oidPublicKeyMLDSA87
+	case *mlkem.EncapsulationKey512:
+		publicKeyBytes = pub.Bytes()
+		publicKeyAlgorithm.Algorithm = oidPublicKeyMLKEM512
+	case *mlkem.EncapsulationKey768:
+		publicKeyBytes = pub.Bytes()
+		publicKeyAlgorithm.Algorithm = oidPublicKeyMLKEM768
+	case *mlkem.EncapsulationKey1024:
+		publicKeyBytes = pub.Bytes()
+		publicKeyAlgorithm.Algorithm = oidPublicKeyMLKEM1024
 	case *slhdsa.PublicKey:
 		publicKeyBytes = pub.Bytes()
 		oid := pub.OID()
@@ -340,13 +350,19 @@ const (
 	PKSLHDSASHAKE192f
 	PKSLHDSASHAKE256s
 	PKSLHDSASHAKE256f
+	PKMLKEM512
+	PKMLKEM768
+	PKMLKEM1024
 )
 
 var publicKeyAlgoName = [...]string{
-	RSA:     "RSA",
-	DSA:     "DSA",
-	ECDSA:   "ECDSA",
-	Ed25519: "Ed25519",
+	RSA:         "RSA",
+	DSA:         "DSA",
+	ECDSA:       "ECDSA",
+	Ed25519:     "Ed25519",
+	PKMLKEM512:  "ML-KEM-512",
+	PKMLKEM768:  "ML-KEM-768",
+	PKMLKEM1024: "ML-KEM-1024",
 }
 
 func (algo PublicKeyAlgorithm) String() string {
@@ -599,9 +615,12 @@ var (
 	oidPublicKeyX25519  = asn1.ObjectIdentifier{1, 3, 101, 110}
 	oidPublicKeyEd25519 = asn1.ObjectIdentifier{1, 3, 101, 112}
 
-	oidPublicKeyMLDSA44 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 17}
-	oidPublicKeyMLDSA65 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 18}
-	oidPublicKeyMLDSA87 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 19}
+	oidPublicKeyMLDSA44   = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 17}
+	oidPublicKeyMLDSA65   = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 18}
+	oidPublicKeyMLDSA87   = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 19}
+	oidPublicKeyMLKEM512  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 4, 1}
+	oidPublicKeyMLKEM768  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 4, 2}
+	oidPublicKeyMLKEM1024 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 4, 3}
 
 	oidPublicKeySLHDSASHA2128s  = slhdsa.SLHDSA128SmallSHA2.OID()
 	oidPublicKeySLHDSASHA2128f  = slhdsa.SLHDSA128FastSHA2.OID()
@@ -638,6 +657,12 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm 
 		return PKMLDSA65
 	case oid.Equal(oidPublicKeyMLDSA87):
 		return PKMLDSA87
+	case oid.Equal(oidPublicKeyMLKEM512):
+		return PKMLKEM512
+	case oid.Equal(oidPublicKeyMLKEM768):
+		return PKMLKEM768
+	case oid.Equal(oidPublicKeyMLKEM1024):
+		return PKMLKEM1024
 	case oid.Equal(oidPublicKeySLHDSASHA2128s):
 		return PKSLHDSASHA2128s
 	case oid.Equal(oidPublicKeySLHDSASHA2128f):
@@ -1150,6 +1175,30 @@ func isMLDSAPublicKeyAlgorithm(algo PublicKeyAlgorithm) bool {
 
 func isSLHDSAPublicKeyAlgorithm(algo PublicKeyAlgorithm) bool {
 	return algo >= PKSLHDSASHA2128s && algo <= PKSLHDSASHAKE256f
+}
+
+func isMLKEMPublicKeyAlgorithm(algo PublicKeyAlgorithm) bool {
+	return algo >= PKMLKEM512 && algo <= PKMLKEM1024
+}
+
+func validateMLKEMKeyUsage(algo PublicKeyAlgorithm, extensions []pkix.Extension) error {
+	if !isMLKEMPublicKeyAlgorithm(algo) {
+		return nil
+	}
+	for _, extension := range extensions {
+		if extension.Id.Equal(oidExtensionKeyUsage) {
+			der := cryptobyte.String(extension.Value)
+			usage, err := parseKeyUsageExtension(der)
+			if err != nil {
+				return err
+			}
+			if usage != KeyUsageKeyEncipherment {
+				return errors.New("x509: ML-KEM certificates may only set keyEncipherment key usage")
+			}
+			return nil
+		}
+	}
+	return nil
 }
 
 // checkSignature verifies that signature is a valid signature over signed from
@@ -2049,6 +2098,9 @@ func CreateCertificate(rand io.Reader, template, parent *Certificate, pub, priv 
 
 	extensions, err := buildCertExtensions(template, bytes.Equal(asn1Subject, emptyASN1Subject), authorityKeyId, subjectKeyId)
 	if err != nil {
+		return nil, err
+	}
+	if err := validateMLKEMKeyUsage(getPublicKeyAlgorithmFromOID(publicKeyAlgorithm.Algorithm), extensions); err != nil {
 		return nil, err
 	}
 

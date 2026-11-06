@@ -1,5 +1,5 @@
 diff --git "a/smx509/pkcs8.go" "b/smx509/pkcs8.go"
-index 868de55..d2e4e2b 100644
+index 868de55..dd7deef 100644
 --- "a/smx509/pkcs8.go"
 +++ "b/smx509/pkcs8.go"
 @@ -5,6 +5,7 @@
@@ -10,13 +10,14 @@ index 868de55..d2e4e2b 100644
  	"crypto/ecdh"
  	"crypto/ecdsa"
  	"crypto/ed25519"
-@@ -13,6 +14,18 @@ import (
+@@ -13,6 +14,19 @@ import (
  	"encoding/asn1"
  	"errors"
  	"fmt"
 +
 +	gmsmecdh "github.com/emmansun/gmsm/ecdh"
 +	"github.com/emmansun/gmsm/mldsa"
++	"github.com/emmansun/gmsm/mlkem"
 +	"github.com/emmansun/gmsm/slhdsa"
 +	"github.com/emmansun/gmsm/sm2"
 +	"github.com/emmansun/gmsm/sm9"
@@ -29,7 +30,7 @@ index 868de55..d2e4e2b 100644
  )
  
  // pkcs8 reflects an ASN.1, PKCS #8 PrivateKey. See
-@@ -54,17 +67,38 @@ func ParsePKCS8PrivateKey(der []byte) (key any, err error) {
+@@ -54,17 +68,38 @@ func ParsePKCS8PrivateKey(der []byte) (key any, err error) {
  		}
  		return key, nil
  
@@ -70,7 +71,7 @@ index 868de55..d2e4e2b 100644
  
  	case privKey.Algo.Algorithm.Equal(oidPublicKeyEd25519):
  		if l := len(privKey.Algo.Parameters.FullBytes); l != 0 {
-@@ -89,6 +123,18 @@ func ParsePKCS8PrivateKey(der []byte) (key any, err error) {
+@@ -89,6 +124,24 @@ func ParsePKCS8PrivateKey(der []byte) (key any, err error) {
  		}
  		return ecdh.X25519().NewPrivateKey(curvePrivateKey)
  
@@ -86,10 +87,16 @@ index 868de55..d2e4e2b 100644
 +		}
 +		return parseSLHDSAPrivateKey(privKey)
 +
++	case isMLKEMPublicKeyAlgorithm(getPublicKeyAlgorithmFromOID(privKey.Algo.Algorithm)):
++		if len(privKey.Algo.Parameters.FullBytes) != 0 {
++			return nil, errors.New("x509: ML-KEM key encoded with illegal parameters")
++		}
++		return parseMLKEMPrivateKey(privKey)
++
  	default:
  		return nil, fmt.Errorf("x509: PKCS#8 wrapping contained private key with unknown algorithm: %v", privKey.Algo.Algorithm)
  	}
-@@ -118,24 +164,11 @@ func MarshalPKCS8PrivateKey(key any) ([]byte, error) {
+@@ -118,24 +171,11 @@ func MarshalPKCS8PrivateKey(key any) ([]byte, error) {
  		}
  		privKey.PrivateKey = MarshalPKCS1PrivateKey(k)
  
@@ -118,7 +125,7 @@ index 868de55..d2e4e2b 100644
  
  	case ed25519.PrivateKey:
  		privKey.Algo = pkix.AlgorithmIdentifier{
-@@ -157,28 +190,322 @@ func MarshalPKCS8PrivateKey(key any) ([]byte, error) {
+@@ -157,28 +197,404 @@ func MarshalPKCS8PrivateKey(key any) ([]byte, error) {
  				return nil, fmt.Errorf("x509: failed to marshal private key: %v", err)
  			}
  		} else {
@@ -148,6 +155,9 @@ index 868de55..d2e4e2b 100644
 +	case *mldsa.Key44, *mldsa.Key65, *mldsa.Key87, *mldsa.PrivateKey44, *mldsa.PrivateKey65, *mldsa.PrivateKey87:
 +		return marshalPKCS8MLDSAPrivateKey(k)
 +
++	case *mlkem.DecapsulationKey512, *mlkem.DecapsulationKey768, *mlkem.DecapsulationKey1024:
++		return marshalPKCS8MLKEMPrivateKey(k)
++
 +	case *slhdsa.PrivateKey:
 +		return marshalPKCS8SLHDSAPrivateKey(k)
 +
@@ -166,6 +176,85 @@ index 868de55..d2e4e2b 100644
  
  	return asn1.Marshal(privKey)
  }
++
++func parseMLKEMPrivateKey(privKey pkcs8) (any, error) {
++	var raw asn1.RawValue
++	rest, err := asn1.Unmarshal(privKey.PrivateKey, &raw)
++	if err != nil {
++		return nil, errors.New("x509: failed to parse ML-KEM private key: " + err.Error())
++	}
++	if len(rest) != 0 {
++		return nil, errors.New("x509: trailing data after ML-KEM private key")
++	}
++
++	var newFromSeed func([]byte) (any, error)
++	var newFromExpandedKey func([]byte) (any, error)
++	switch {
++	case privKey.Algo.Algorithm.Equal(oidPublicKeyMLKEM512):
++		newFromSeed = func(seed []byte) (any, error) { return mlkem.NewDecapsulationKeyFromSeed512(seed) }
++		newFromExpandedKey = func(key []byte) (any, error) { return mlkem.NewDecapsulationKey512(key) }
++	case privKey.Algo.Algorithm.Equal(oidPublicKeyMLKEM768):
++		newFromSeed = func(seed []byte) (any, error) { return mlkem.NewDecapsulationKeyFromSeed768(seed) }
++		newFromExpandedKey = func(key []byte) (any, error) { return mlkem.NewDecapsulationKey768(key) }
++	case privKey.Algo.Algorithm.Equal(oidPublicKeyMLKEM1024):
++		newFromSeed = func(seed []byte) (any, error) { return mlkem.NewDecapsulationKeyFromSeed1024(seed) }
++		newFromExpandedKey = func(key []byte) (any, error) { return mlkem.NewDecapsulationKey1024(key) }
++	default:
++		return nil, errors.New("x509: unsupported ML-KEM algorithm")
++	}
++
++	if raw.Class == asn1.ClassContextSpecific && raw.Tag == 0 && !raw.IsCompound {
++		if len(raw.Bytes) != mlkem.SeedSize {
++			return nil, errors.New("x509: invalid ML-KEM seed size")
++		}
++		return newFromSeed(raw.Bytes)
++	}
++	if raw.Class == asn1.ClassUniversal && raw.Tag == asn1.TagOctetString && !raw.IsCompound {
++		return newFromExpandedKey(raw.Bytes)
++	}
++	if raw.Class == asn1.ClassUniversal && raw.Tag == asn1.TagSequence && raw.IsCompound {
++		var both struct {
++			Seed        []byte
++			ExpandedKey []byte
++		}
++		rest, err := asn1.Unmarshal(raw.FullBytes, &both)
++		if err != nil || len(rest) != 0 {
++			return nil, errors.New("x509: failed to parse ML-KEM both private key")
++		}
++		key, err := newFromSeed(both.Seed)
++		if err != nil {
++			return nil, errors.New("x509: failed to generate ML-KEM key from seed: " + err.Error())
++		}
++		if !bytes.Equal(key.(interface{ Bytes() []byte }).Bytes(), both.ExpandedKey) {
++			return nil, errors.New("x509: ML-KEM private key consistency check failed: seed and expandedKey are not consistent")
++		}
++		return key, nil
++	}
++	return nil, errors.New("x509: unknown ML-KEM private key format")
++}
++
++func marshalPKCS8MLKEMPrivateKey(k any) ([]byte, error) {
++	var privKey pkcs8
++	var seed []byte
++	switch key := k.(type) {
++	case *mlkem.DecapsulationKey512:
++		privKey.Algo.Algorithm = oidPublicKeyMLKEM512
++		seed = key.Seed()
++	case *mlkem.DecapsulationKey768:
++		privKey.Algo.Algorithm = oidPublicKeyMLKEM768
++		seed = key.Seed()
++	case *mlkem.DecapsulationKey1024:
++		privKey.Algo.Algorithm = oidPublicKeyMLKEM1024
++		seed = key.Seed()
++	default:
++		return nil, fmt.Errorf("x509: unsupported ML-KEM private key type while marshaling to PKCS#8: %T", k)
++	}
++	if len(seed) != mlkem.SeedSize {
++		return nil, errors.New("x509: invalid ML-KEM seed size")
++	}
++	privKey.PrivateKey = append([]byte{0x80, byte(len(seed))}, seed...)
++	return asn1.Marshal(privKey)
++}
 +
 +func paseMLDSAPrivateKey(privKey pkcs8) (any, error) {
 +	var raw asn1.RawValue
