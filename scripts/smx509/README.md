@@ -63,6 +63,25 @@ graph TB
 
 **patch = smx509/ 与 baseline/ 的 diff**。任何时候运行 `gen_patches.go`，输出应与 `patches/` 目录一致（CI 自动检查）。
 
+## 手工维护速查
+
+日常维护不需要手工编辑生成的 `.patch` 文件，也不依赖 AI。`smx509/` 是可直接阅读和修改的 Go 源码；`baseline/` 保存对应的 Go 标准库版本，`patches/` 记录 `smx509/` 相对基线的差异。
+
+### 普通功能或缺陷修改
+
+1. 直接修改 `smx509/` 中负责该功能的 `.go` 文件，并在相邻测试文件中添加或更新测试。
+2. 先运行相关测试，例如 `go test ./smx509/...`；涉及包装层时再运行相应包的测试。
+3. 运行 `go run scripts/smx509/gen_patches.go` 更新标准库源文件对应的补丁。若改动标准库同步过来的测试，再运行 `go run scripts/smx509/gen_test_patches.go`。
+4. 检查 `git diff`，确认源码与生成补丁都只包含预期改动，然后提交相关文件。
+
+不要直接手工修改 `scripts/smx509/patches/` 或 `test-patches/`：它们是由 `smx509/`、`baseline/` 和同步测试生成的。`gen_patches.go` 只管理列出的标准库文件及扩展补丁；独立扩展文件的实现仍在 `smx509/` 中维护。
+
+### 标准库基线升级
+
+只有升级 Go 版本时才需要更新 `baseline/` 并运行 `sync.ps1`。升级前先读下方 Go 小版本或大版本工作流；冲突时需要以新标准库实现为基础，手工合并并保留 SM2/PQC/SM4 的项目差异。冲突解决后重生成补丁并运行完整测试。
+
+> **注意：** `sync.ps1 -DryRun` 只会对补丁应用做预检，不会阻止上游文件复制到目标目录。不要把它当成无副作用的 dry run；只想检查补丁时，先确认 `-GoRoot`、`-TargetDir` 和当前工作区状态。
+
 ---
 
 ## 工作流 1：直接修改 smx509 文件
@@ -259,6 +278,7 @@ git merge --no-ff upgrade-smx509-go1.26
 |---------|------|---------|
 | **Context shift** | 周围代码移动，逻辑未变 | 重新生成 patch 即可 |
 | **Semantic overlap** | stdlib 改了我们 patch 的同一区域 | 手动合并：保留 SM2/PQC 逻辑 + 采纳 stdlib 变更 |
+| **Upstream feature overlap** | stdlib 后续加入 ML-KEM/ML-DSA 等现有扩展 | 不要机械保留或删除旧 patch。比较公开 API、OID、SPKI/PKCS#8 编码、证书 keyUsage 与错误行为；让等价部分收敛到 stdlib 实现，保留仍有差异的 gmsm 功能，并用固定向量和回归测试验证 |
 | **New API** | stdlib 新增函数/类型 | 通常无冲突，可能需扩展 patch |
 | **Refactoring** | stdlib 重构了代码结构 | 需要大幅重写 patch |
 | **New internal import** | stdlib 新增 `internal/*` 导入 | 在 `sync.ps1` 的 `ImportRewriteMap` 中添加映射 |

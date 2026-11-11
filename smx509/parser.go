@@ -29,6 +29,7 @@ import (
 
 	"github.com/emmansun/gmsm/internal/godebug"
 	"github.com/emmansun/gmsm/mldsa"
+	"github.com/emmansun/gmsm/mlkem"
 	"github.com/emmansun/gmsm/slhdsa"
 	"github.com/emmansun/gmsm/sm2"
 
@@ -385,6 +386,21 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
 			return nil, errors.New("x509: zero or negative DSA parameter")
 		}
 		return pub, nil
+	case oid.Equal(oidPublicKeyMLKEM512):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: ML-KEM-512 key encoded with illegal parameters")
+		}
+		return mlkem.NewEncapsulationKey512(data)
+	case oid.Equal(oidPublicKeyMLKEM768):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: ML-KEM-768 key encoded with illegal parameters")
+		}
+		return mlkem.NewEncapsulationKey768(data)
+	case oid.Equal(oidPublicKeyMLKEM1024):
+		if len(params.FullBytes) != 0 {
+			return nil, errors.New("x509: ML-KEM-1024 key encoded with illegal parameters")
+		}
+		return mlkem.NewEncapsulationKey1024(data)
 	case oid.Equal(oidPublicKeyMLDSA44):
 		if len(params.FullBytes) != 0 {
 			return nil, errors.New("x509: MLDSA44 key encoded with illegal parameters")
@@ -1181,6 +1197,9 @@ func parseCertificate(der []byte) (*Certificate, error) {
 				}
 			}
 		}
+	}
+	if err := validateMLKEMKeyUsage(cert.PublicKeyAlgorithm, cert.Extensions); err != nil {
+		return nil, err
 	}
 
 	var signature asn1.BitString

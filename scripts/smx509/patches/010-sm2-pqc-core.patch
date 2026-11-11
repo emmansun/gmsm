@@ -1,5 +1,5 @@
 diff --git "a/smx509/x509.go" "b/smx509/x509.go"
-index 3915a04..cde65be 100644
+index 3915a04..d2e2e14 100644
 --- "a/smx509/x509.go"
 +++ "b/smx509/x509.go"
 @@ -35,7 +35,6 @@ import (
@@ -10,20 +10,21 @@ index 3915a04..cde65be 100644
  	"io"
  	"math/big"
  	"net"
-@@ -44,6 +43,12 @@ import (
+@@ -44,6 +43,13 @@ import (
  	"time"
  	"unicode"
  
 +	gmsmecdh "github.com/emmansun/gmsm/ecdh"
 +	"github.com/emmansun/gmsm/internal/godebug"
 +	"github.com/emmansun/gmsm/mldsa"
++	"github.com/emmansun/gmsm/mlkem"
 +	"github.com/emmansun/gmsm/slhdsa"
 +	"github.com/emmansun/gmsm/sm2"
 +
  	// Explicitly import these for their crypto.RegisterHash init side-effects.
  	// Keep these as blank imports, even if they're imported above.
  	_ "crypto/sha1"
-@@ -101,9 +106,16 @@ func marshalPublicKey(pub any) (publicKeyBytes []byte, publicKeyAlgorithm pkix.A
+@@ -101,9 +107,16 @@ func marshalPublicKey(pub any) (publicKeyBytes []byte, publicKeyAlgorithm pkix.A
  		if !ok {
  			return nil, pkix.AlgorithmIdentifier{}, errors.New("x509: unsupported elliptic curve")
  		}
@@ -43,7 +44,7 @@ index 3915a04..cde65be 100644
  		}
  		publicKeyAlgorithm.Algorithm = oidPublicKeyECDSA
  		var paramBytes []byte
-@@ -132,6 +144,35 @@ func marshalPublicKey(pub any) (publicKeyBytes []byte, publicKeyAlgorithm pkix.A
+@@ -132,6 +145,44 @@ func marshalPublicKey(pub any) (publicKeyBytes []byte, publicKeyAlgorithm pkix.A
  			}
  			publicKeyAlgorithm.Parameters.FullBytes = paramBytes
  		}
@@ -69,6 +70,15 @@ index 3915a04..cde65be 100644
 +	case *mldsa.PublicKey87:
 +		publicKeyBytes = pub.Bytes()
 +		publicKeyAlgorithm.Algorithm = oidPublicKeyMLDSA87
++	case *mlkem.EncapsulationKey512:
++		publicKeyBytes = pub.Bytes()
++		publicKeyAlgorithm.Algorithm = oidPublicKeyMLKEM512
++	case *mlkem.EncapsulationKey768:
++		publicKeyBytes = pub.Bytes()
++		publicKeyAlgorithm.Algorithm = oidPublicKeyMLKEM768
++	case *mlkem.EncapsulationKey1024:
++		publicKeyBytes = pub.Bytes()
++		publicKeyAlgorithm.Algorithm = oidPublicKeyMLKEM1024
 +	case *slhdsa.PublicKey:
 +		publicKeyBytes = pub.Bytes()
 +		oid := pub.OID()
@@ -79,7 +89,7 @@ index 3915a04..cde65be 100644
  	default:
  		return nil, pkix.AlgorithmIdentifier{}, fmt.Errorf("x509: unsupported public key type: %T", pub)
  	}
-@@ -231,6 +272,22 @@ const (
+@@ -231,6 +282,22 @@ const (
  	SHA384WithRSAPSS
  	SHA512WithRSAPSS
  	PureEd25519
@@ -102,7 +112,7 @@ index 3915a04..cde65be 100644
  )
  
  func (algo SignatureAlgorithm) isRSAPSS() bool {
-@@ -268,6 +325,21 @@ const (
+@@ -268,13 +335,34 @@ const (
  	DSA // Only supported for parsing.
  	ECDSA
  	Ed25519
@@ -121,10 +131,27 @@ index 3915a04..cde65be 100644
 +	PKSLHDSASHAKE192f
 +	PKSLHDSASHAKE256s
 +	PKSLHDSASHAKE256f
++	PKMLKEM512
++	PKMLKEM768
++	PKMLKEM1024
  )
  
  var publicKeyAlgoName = [...]string{
-@@ -346,6 +418,10 @@ var (
+-	RSA:     "RSA",
+-	DSA:     "DSA",
+-	ECDSA:   "ECDSA",
+-	Ed25519: "Ed25519",
++	RSA:         "RSA",
++	DSA:         "DSA",
++	ECDSA:       "ECDSA",
++	Ed25519:     "Ed25519",
++	PKMLKEM512:  "ML-KEM-512",
++	PKMLKEM768:  "ML-KEM-768",
++	PKMLKEM1024: "ML-KEM-1024",
+ }
+ 
+ func (algo PublicKeyAlgorithm) String() string {
+@@ -346,6 +434,10 @@ var (
  	oidSignatureECDSAWithSHA384 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 3}
  	oidSignatureECDSAWithSHA512 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 4}
  	oidSignatureEd25519         = asn1.ObjectIdentifier{1, 3, 101, 112}
@@ -135,7 +162,7 @@ index 3915a04..cde65be 100644
  
  	oidSHA256 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 1}
  	oidSHA384 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 2}
-@@ -357,6 +433,19 @@ var (
+@@ -357,6 +449,19 @@ var (
  	// but it's specified by ISO. Microsoft's makecert.exe has been known
  	// to produce certificates with this OID.
  	oidISOSignatureSHA1WithRSA = asn1.ObjectIdentifier{1, 3, 14, 3, 2, 29}
@@ -155,7 +182,7 @@ index 3915a04..cde65be 100644
  )
  
  var signatureAlgorithmDetails = []struct {
-@@ -384,6 +473,22 @@ var signatureAlgorithmDetails = []struct {
+@@ -384,6 +489,22 @@ var signatureAlgorithmDetails = []struct {
  	{ECDSAWithSHA384, "ECDSA-SHA384", oidSignatureECDSAWithSHA384, emptyRawValue, ECDSA, crypto.SHA384, false},
  	{ECDSAWithSHA512, "ECDSA-SHA512", oidSignatureECDSAWithSHA512, emptyRawValue, ECDSA, crypto.SHA512, false},
  	{PureEd25519, "Ed25519", oidSignatureEd25519, emptyRawValue, Ed25519, crypto.Hash(0) /* no pre-hashing */, false},
@@ -178,7 +205,7 @@ index 3915a04..cde65be 100644
  }
  
  var emptyRawValue = asn1.RawValue{}
-@@ -486,12 +591,30 @@ var (
+@@ -486,12 +607,33 @@ var (
  	//	id-ecPublicKey OBJECT IDENTIFIER ::= {
  	//		iso(1) member-body(2) us(840) ansi-X9-62(10045) keyType(2) 1 }
  	oidPublicKeyECDSA = asn1.ObjectIdentifier{1, 2, 840, 10045, 2, 1}
@@ -190,9 +217,12 @@ index 3915a04..cde65be 100644
  	oidPublicKeyX25519  = asn1.ObjectIdentifier{1, 3, 101, 110}
  	oidPublicKeyEd25519 = asn1.ObjectIdentifier{1, 3, 101, 112}
 +
-+	oidPublicKeyMLDSA44 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 17}
-+	oidPublicKeyMLDSA65 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 18}
-+	oidPublicKeyMLDSA87 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 19}
++	oidPublicKeyMLDSA44   = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 17}
++	oidPublicKeyMLDSA65   = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 18}
++	oidPublicKeyMLDSA87   = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 19}
++	oidPublicKeyMLKEM512  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 4, 1}
++	oidPublicKeyMLKEM768  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 4, 2}
++	oidPublicKeyMLKEM1024 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 4, 3}
 +
 +	oidPublicKeySLHDSASHA2128s  = slhdsa.SLHDSA128SmallSHA2.OID()
 +	oidPublicKeySLHDSASHA2128f  = slhdsa.SLHDSA128FastSHA2.OID()
@@ -209,7 +239,7 @@ index 3915a04..cde65be 100644
  )
  
  // getPublicKeyAlgorithmFromOID returns the exposed PublicKeyAlgorithm
-@@ -505,8 +628,40 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm
+@@ -505,8 +647,46 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm
  		return DSA
  	case oid.Equal(oidPublicKeyECDSA):
  		return ECDSA
@@ -223,6 +253,12 @@ index 3915a04..cde65be 100644
 +		return PKMLDSA65
 +	case oid.Equal(oidPublicKeyMLDSA87):
 +		return PKMLDSA87
++	case oid.Equal(oidPublicKeyMLKEM512):
++		return PKMLKEM512
++	case oid.Equal(oidPublicKeyMLKEM768):
++		return PKMLKEM768
++	case oid.Equal(oidPublicKeyMLKEM1024):
++		return PKMLKEM1024
 +	case oid.Equal(oidPublicKeySLHDSASHA2128s):
 +		return PKSLHDSASHA2128s
 +	case oid.Equal(oidPublicKeySLHDSASHA2128f):
@@ -250,7 +286,7 @@ index 3915a04..cde65be 100644
  	}
  	return UnknownPublicKeyAlgorithm
  }
-@@ -528,10 +683,11 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm
+@@ -528,10 +708,11 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm
  //
  // NB: secp256r1 is equivalent to prime256v1
  var (
@@ -266,7 +302,7 @@ index 3915a04..cde65be 100644
  )
  
  func namedCurveFromOID(oid asn1.ObjectIdentifier) elliptic.Curve {
-@@ -544,6 +700,8 @@ func namedCurveFromOID(oid asn1.ObjectIdentifier) elliptic.Curve {
+@@ -544,6 +725,8 @@ func namedCurveFromOID(oid asn1.ObjectIdentifier) elliptic.Curve {
  		return elliptic.P384()
  	case oid.Equal(oidNamedCurveP521):
  		return elliptic.P521()
@@ -275,7 +311,7 @@ index 3915a04..cde65be 100644
  	}
  	return nil
  }
-@@ -558,6 +716,8 @@ func oidFromNamedCurve(curve elliptic.Curve) (asn1.ObjectIdentifier, bool) {
+@@ -558,6 +741,8 @@ func oidFromNamedCurve(curve elliptic.Curve) (asn1.ObjectIdentifier, bool) {
  		return oidNamedCurveP384, true
  	case elliptic.P521():
  		return oidNamedCurveP521, true
@@ -284,7 +320,7 @@ index 3915a04..cde65be 100644
  	}
  
  	return nil, false
-@@ -578,6 +738,15 @@ func oidFromECDHCurve(curve ecdh.Curve) (asn1.ObjectIdentifier, bool) {
+@@ -578,6 +763,15 @@ func oidFromECDHCurve(curve ecdh.Curve) (asn1.ObjectIdentifier, bool) {
  	return nil, false
  }
  
@@ -300,7 +336,7 @@ index 3915a04..cde65be 100644
  // KeyUsage represents the set of actions that are valid for a given key. It's
  // a bitmap of the KeyUsage* constants.
  type KeyUsage int
-@@ -975,11 +1144,20 @@ func signaturePublicKeyAlgoMismatchError(expectedPubKeyAlgo PublicKeyAlgorithm,
+@@ -975,11 +1169,44 @@ func signaturePublicKeyAlgoMismatchError(expectedPubKeyAlgo PublicKeyAlgorithm,
  	return fmt.Errorf("x509: signature algorithm specifies an %s public key, but have public key of type %T", expectedPubKeyAlgo.String(), pubKey)
  }
  
@@ -312,6 +348,30 @@ index 3915a04..cde65be 100644
 +	return algo >= PKSLHDSASHA2128s && algo <= PKSLHDSASHAKE256f
 +}
 +
++func isMLKEMPublicKeyAlgorithm(algo PublicKeyAlgorithm) bool {
++	return algo >= PKMLKEM512 && algo <= PKMLKEM1024
++}
++
++func validateMLKEMKeyUsage(algo PublicKeyAlgorithm, extensions []pkix.Extension) error {
++	if !isMLKEMPublicKeyAlgorithm(algo) {
++		return nil
++	}
++	for _, extension := range extensions {
++		if extension.Id.Equal(oidExtensionKeyUsage) {
++			der := cryptobyte.String(extension.Value)
++			usage, err := parseKeyUsageExtension(der)
++			if err != nil {
++				return err
++			}
++			if usage != KeyUsageKeyEncipherment {
++				return errors.New("x509: ML-KEM certificates may only set keyEncipherment key usage")
++			}
++			return nil
++		}
++	}
++	return nil
++}
++
  // checkSignature verifies that signature is a valid signature over signed from
  // a crypto.PublicKey.
  func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey crypto.PublicKey, allowSHA1 bool) (err error) {
@@ -321,7 +381,7 @@ index 3915a04..cde65be 100644
  
  	for _, details := range signatureAlgorithmDetails {
  		if details.algo == algo {
-@@ -991,7 +1169,7 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
+@@ -991,7 +1218,7 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
  
  	switch hashType {
  	case crypto.Hash(0):
@@ -330,7 +390,7 @@ index 3915a04..cde65be 100644
  			return ErrUnsupportedAlgorithm
  		}
  	case crypto.MD5:
-@@ -1025,7 +1203,11 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
+@@ -1025,7 +1252,11 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
  		if pubKeyAlgo != ECDSA {
  			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
  		}
@@ -343,7 +403,7 @@ index 3915a04..cde65be 100644
  			return errors.New("x509: ECDSA verification failure")
  		}
  		return
-@@ -1037,6 +1219,38 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
+@@ -1037,6 +1268,38 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
  			return errors.New("x509: Ed25519 verification failure")
  		}
  		return
@@ -382,7 +442,7 @@ index 3915a04..cde65be 100644
  	}
  	return ErrUnsupportedAlgorithm
  }
-@@ -1550,6 +1764,8 @@ func signingParamsForKey(key crypto.Signer, sigAlgo SignatureAlgorithm) (Signatu
+@@ -1550,6 +1813,8 @@ func signingParamsForKey(key crypto.Signer, sigAlgo SignatureAlgorithm) (Signatu
  			defaultAlgo = ECDSAWithSHA384
  		case elliptic.P521():
  			defaultAlgo = ECDSAWithSHA512
@@ -391,7 +451,7 @@ index 3915a04..cde65be 100644
  		default:
  			return 0, ai, errors.New("x509: unsupported elliptic curve")
  		}
-@@ -1558,8 +1774,63 @@ func signingParamsForKey(key crypto.Signer, sigAlgo SignatureAlgorithm) (Signatu
+@@ -1558,8 +1823,63 @@ func signingParamsForKey(key crypto.Signer, sigAlgo SignatureAlgorithm) (Signatu
  		pubType = Ed25519
  		defaultAlgo = PureEd25519
  
@@ -456,7 +516,7 @@ index 3915a04..cde65be 100644
  	}
  
  	if sigAlgo == 0 {
-@@ -1568,7 +1839,7 @@ func signingParamsForKey(key crypto.Signer, sigAlgo SignatureAlgorithm) (Signatu
+@@ -1568,7 +1888,7 @@ func signingParamsForKey(key crypto.Signer, sigAlgo SignatureAlgorithm) (Signatu
  
  	for _, details := range signatureAlgorithmDetails {
  		if details.algo == sigAlgo {
@@ -465,7 +525,7 @@ index 3915a04..cde65be 100644
  				return 0, ai, errors.New("x509: requested SignatureAlgorithm does not match private key type")
  			}
  			if details.hash == crypto.MD5 {
-@@ -1594,6 +1865,8 @@ func signTBS(tbs []byte, key crypto.Signer, sigAlg SignatureAlgorithm, rand io.R
+@@ -1594,6 +1914,8 @@ func signTBS(tbs []byte, key crypto.Signer, sigAlg SignatureAlgorithm, rand io.R
  			SaltLength: rsa.PSSSaltLengthEqualsHash,
  			Hash:       hashFunc,
  		}
@@ -474,7 +534,17 @@ index 3915a04..cde65be 100644
  	}
  
  	signature, err := crypto.SignMessage(key, rand, tbs, signerOpts)
-@@ -2224,6 +2497,16 @@ func ParseCertificateRequest(asn1Data []byte) (*CertificateRequest, error) {
+@@ -1778,6 +2100,9 @@ func CreateCertificate(rand io.Reader, template, parent *Certificate, pub, priv
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	if err := validateMLKEMKeyUsage(getPublicKeyAlgorithmFromOID(publicKeyAlgorithm.Algorithm), extensions); err != nil {
++		return nil, err
++	}
+ 
+ 	encodedPublicKey := asn1.BitString{BitLength: len(publicKeyBytes) * 8, Bytes: publicKeyBytes}
+ 	c := tbsCertificate{
+@@ -2224,6 +2549,16 @@ func ParseCertificateRequest(asn1Data []byte) (*CertificateRequest, error) {
  	return parseCertificateRequest(&csr)
  }
  
@@ -493,7 +563,7 @@ index 3915a04..cde65be 100644
  		Raw:                      in.Raw,
 
 diff --git "a/smx509/parser.go" "b/smx509/parser.go"
-index 523d52b..a05562c 100644
+index 523d52b..26885aa 100644
 --- "a/smx509/parser.go"
 +++ "b/smx509/parser.go"
 @@ -10,12 +10,13 @@ import (
@@ -511,19 +581,20 @@ index 523d52b..a05562c 100644
  	"math"
  	"math/big"
  	"net"
-@@ -26,6 +27,11 @@ import (
+@@ -26,6 +27,12 @@ import (
  	"unicode/utf16"
  	"unicode/utf8"
  
 +	"github.com/emmansun/gmsm/internal/godebug"
 +	"github.com/emmansun/gmsm/mldsa"
++	"github.com/emmansun/gmsm/mlkem"
 +	"github.com/emmansun/gmsm/slhdsa"
 +	"github.com/emmansun/gmsm/sm2"
 +
  	"golang.org/x/crypto/cryptobyte"
  	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
  )
-@@ -283,16 +289,59 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
+@@ -283,16 +290,59 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
  		}
  		return pub, nil
  	case oid.Equal(oidPublicKeyECDSA):
@@ -587,10 +658,25 @@ index 523d52b..a05562c 100644
  	case oid.Equal(oidPublicKeyEd25519):
  		// RFC 8410, Section 3
  		// > For all of the OIDs, the parameters MUST be absent.
-@@ -336,6 +385,81 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
+@@ -336,6 +386,96 @@ func parsePublicKey(keyData *publicKeyInfo) (any, error) {
  			return nil, errors.New("x509: zero or negative DSA parameter")
  		}
  		return pub, nil
++	case oid.Equal(oidPublicKeyMLKEM512):
++		if len(params.FullBytes) != 0 {
++			return nil, errors.New("x509: ML-KEM-512 key encoded with illegal parameters")
++		}
++		return mlkem.NewEncapsulationKey512(data)
++	case oid.Equal(oidPublicKeyMLKEM768):
++		if len(params.FullBytes) != 0 {
++			return nil, errors.New("x509: ML-KEM-768 key encoded with illegal parameters")
++		}
++		return mlkem.NewEncapsulationKey768(data)
++	case oid.Equal(oidPublicKeyMLKEM1024):
++		if len(params.FullBytes) != 0 {
++			return nil, errors.New("x509: ML-KEM-1024 key encoded with illegal parameters")
++		}
++		return mlkem.NewEncapsulationKey1024(data)
 +	case oid.Equal(oidPublicKeyMLDSA44):
 +		if len(params.FullBytes) != 0 {
 +			return nil, errors.New("x509: MLDSA44 key encoded with illegal parameters")
@@ -669,7 +755,17 @@ index 523d52b..a05562c 100644
  	default:
  		return nil, errors.New("x509: unknown public key algorithm")
  	}
-@@ -1084,6 +1208,15 @@ func ParseCertificate(der []byte) (*Certificate, error) {
+@@ -1058,6 +1198,9 @@ func parseCertificate(der []byte) (*Certificate, error) {
+ 			}
+ 		}
+ 	}
++	if err := validateMLKEMKeyUsage(cert.PublicKeyAlgorithm, cert.Extensions); err != nil {
++		return nil, err
++	}
+ 
+ 	var signature asn1.BitString
+ 	if !input.ReadASN1BitString(&signature) {
+@@ -1084,6 +1227,15 @@ func ParseCertificate(der []byte) (*Certificate, error) {
  	return cert, nil
  }
  

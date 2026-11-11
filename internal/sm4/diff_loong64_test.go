@@ -7,6 +7,7 @@
 package sm4
 
 import (
+	"crypto/cipher"
 	"os"
 	"strings"
 	"testing"
@@ -63,11 +64,23 @@ func asmXTSImpls() []diff.Implementation[[]byte] {
 	return nil
 }
 
-// asmGCMImpls returns the GCM variants for loong64; there is no accelerated
-// GCM on this architecture (the public path uses the standard library GCM
-// over the LASX block, exercised through the public implementation).
+// asmGCMImpls returns the LASX block with the Go GHASH GCM fallback.
 func asmGCMImpls() []diff.Implementation[[]byte] {
-	return nil
+	if !supportLASX {
+		return nil
+	}
+	return []diff.Implementation[[]byte]{
+		{
+			Name: "lasx-block-go-ghash-gcm",
+			Run: diffGCMRunOf(func() (cipher.AEAD, error) {
+				block, err := NewCipher(katKey)
+				if err != nil {
+					return nil, err
+				}
+				return cipher.NewGCM(block)
+			}),
+		},
+	}
 }
 
 // checkDispatch asserts that the public dispatch path selects the concrete

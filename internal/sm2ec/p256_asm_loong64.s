@@ -600,29 +600,18 @@ TEXT sm2P256SqrInternal<>(SB),NOSPLIT,$0
 	ADDV t1, acc6, acc6   // no carry
 
 	// *2
-	// ALSLV is NOT supported in go 1.25
 	SRLV $63, acc1, t0
 	SLLV $1, acc1, acc1
 	SRLV $63, acc2, t1
-	// ALSLV $1, t0, acc2, acc2
-	SLLV $1, acc2, acc2
-	ADDV t0, acc2, acc2
+	ALSLV $1, acc2, t0, acc2
 	SRLV $63, acc3, t2
-	// ALSLV $1, t1, acc3, acc3
-	SLLV $1, acc3, acc3
-	ADDV t1, acc3, acc3
+	ALSLV $1, acc3, t1, acc3
 	SRLV $63, acc4, t3
-	// ALSLV $1, t2, acc4, acc4
-	SLLV $1, acc4, acc4
-	ADDV t2, acc4, acc4
+	ALSLV $1, acc4, t2, acc4
 	SRLV $63, acc5, hlp0
-	// ALSLV $1, t3, acc5, acc5
-	SLLV $1, acc5, acc5
-	ADDV t3, acc5, acc5
+	ALSLV $1, acc5, t3, acc5
 	SRLV $63, acc6, acc7
-	// ALSLV $1, hlp0, acc6, acc6
-	SLLV $1, acc6, acc6
-	ADDV hlp0, acc6, acc6
+	ALSLV $1, acc6, hlp0, acc6
 
 	// Missing products
 	MULV x0, x0, acc0
@@ -1122,29 +1111,18 @@ ordSqrLoop:
 		ADDV t1, acc6, acc6   // no carry
 
 		// *2
-		// ALSLV is NOT supported in go 1.25
 		SRLV $63, acc1, t0
 		SLLV $1, acc1, acc1
 		SRLV $63, acc2, t1
-		// ALSLV $1, t0, acc2, acc2
-		SLLV $1, acc2, acc2
-		ADDV t0, acc2, acc2
+		ALSLV $1, acc2, t0, acc2
 		SRLV $63, acc3, t0
-		// ALSLV $1, t1, acc3, acc3
-		SLLV $1, acc3, acc3
-		ADDV t1, acc3, acc3
+		ALSLV $1, acc3, t1, acc3
 		SRLV $63, acc4, t1
-		// ALSLV $1, t0, acc4, acc4
-		SLLV $1, acc4, acc4
-		ADDV t0, acc4, acc4
+		ALSLV $1, acc4, t0, acc4
 		SRLV $63, acc5, t0
-		// ALSLV $1, t1, acc5, acc5
-		SLLV $1, acc5, acc5
-		ADDV t1, acc5, acc5
+		ALSLV $1, acc5, t1, acc5
 		SRLV $63, acc6, acc7
-		// ALSLV $1, t0, acc6, acc6
-		SLLV $1, acc6, acc6
-		ADDV t0, acc6, acc6
+		ALSLV $1, acc6, t0, acc6
 
 		// Missing products
 		MULV x0, x0, acc0

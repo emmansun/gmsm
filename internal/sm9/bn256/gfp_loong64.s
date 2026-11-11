@@ -186,14 +186,11 @@ TEXT ·gfpDouble(SB), NOSPLIT, $0-16
 	SRLV $63, x0, t0
 	SLLV $1, x0, x0
 	SRLV $63, x1, t1
-	SLLV $1, x1, x1
-	ADDV t0, x1, x1
+	ALSLV $1, x1, t0, x1
 	SRLV $63, x2, t0
-	SLLV $1, x2, x2
-	ADDV t1, x2, x2
+	ALSLV $1, x2, t1, x2
 	SRLV $63, x3, acc5
-	SLLV $1, x3, x3
-	ADDV t0, x3, x3
+	ALSLV $1, x3, t0, x3
 
 	// reducation
 	loadModulus(const0, const1, const2, const3)
@@ -212,14 +209,11 @@ TEXT ·gfpTriple(SB), NOSPLIT, $0-16
 	SRLV $63, x0, t0
 	SLLV $1, x0, y0
 	SRLV $63, x1, t1
-	SLLV $1, x1, y1
-	ADDV t0, y1, y1
+	ALSLV $1, x1, t0, y1
 	SRLV $63, x2, t0
-	SLLV $1, x2, y2
-	ADDV t1, y2, y2
+	ALSLV $1, x2, t1, y2
 	SRLV $63, x3, acc5
-	SLLV $1, x3, y3
-	ADDV t0, y3, y3
+	ALSLV $1, x3, t0, y3
 
 	// reducation
 	loadModulus(const0, const1, const2, const3)
@@ -596,29 +590,18 @@ sqrLoop:
 		ADDV t1, acc6, acc6   // no carry
 
 		// *2
-		// ALSLV is NOT supported in go 1.25
 		SRLV $63, acc1, t0
 		SLLV $1, acc1, acc1
 		SRLV $63, acc2, t1
-		// ALSLV $1, t0, acc2, acc2
-		SLLV $1, acc2, acc2
-		ADDV t0, acc2, acc2
+		ALSLV $1, acc2, t0, acc2
 		SRLV $63, acc3, t0
-		// ALSLV $1, t1, acc3, acc3
-		SLLV $1, acc3, acc3
-		ADDV t1, acc3, acc3
+		ALSLV $1, acc3, t1, acc3
 		SRLV $63, acc4, t1
-		// ALSLV $1, t0, acc4, acc4
-		SLLV $1, acc4, acc4
-		ADDV t0, acc4, acc4
+		ALSLV $1, acc4, t0, acc4
 		SRLV $63, acc5, t0
-		// ALSLV $1, t1, acc5, acc5
-		SLLV $1, acc5, acc5
-		ADDV t1, acc5, acc5
+		ALSLV $1, acc5, t1, acc5
 		SRLV $63, acc6, acc7
-		// ALSLV $1, t0, acc6, acc6
-		SLLV $1, acc6, acc6
-		ADDV t0, acc6, acc6
+		ALSLV $1, acc6, t0, acc6
 
 		// Missing products
 		MULV x0, x0, acc0

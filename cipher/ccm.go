@@ -117,8 +117,6 @@ func (c *ccm) cmac(out, data []byte) {
 		data = data[ccmBlockSize:]
 	}
 	if len(data) > 0 {
-		var block [ccmBlockSize]byte
-		copy(block[:], data)
 		subtle.XORBytes(out, out, data)
 		c.cipher.Encrypt(out, out)
 	}
@@ -183,6 +181,9 @@ func (c *ccm) Seal(dst, nonce, plaintext, data []byte) []byte {
 	if alias.InexactOverlap(out, plaintext) {
 		panic("cipher: invalid buffer overlap")
 	}
+	if alias.AnyOverlap(out, data) {
+		panic("cipher: invalid buffer overlap of output and additional data")
+	}
 
 	var counter, tagMask [ccmBlockSize]byte
 	c.deriveCounter(&counter, nonce)
@@ -228,6 +229,9 @@ func (c *ccm) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 	ret, out := alias.SliceForAppend(dst, len(ciphertext))
 	if alias.InexactOverlap(out, ciphertext) {
 		panic("cipher: invalid buffer overlap")
+	}
+	if alias.AnyOverlap(out, data) {
+		panic("cipher: invalid buffer overlap of output and additional data")
 	}
 
 	counter[len(counter)-1] |= 1

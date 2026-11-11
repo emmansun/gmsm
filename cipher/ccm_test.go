@@ -277,3 +277,32 @@ func TestCCMTagFailureOverwrite(t *testing.T) {
 		}
 	}
 }
+
+func TestCCMAADOverlap(t *testing.T) {
+	key, _ := hex.DecodeString("ab72c77b97cb5fe9a382d9fe81ffdbed")
+	block, _ := aes.NewCipher(key)
+	aead, _ := cipher.NewCCM(block)
+	nonce := make([]byte, aead.NonceSize())
+	plaintext := []byte{1, 2, 3, 4}
+
+	t.Run("Seal", func(t *testing.T) {
+		backing := make([]byte, len(plaintext)+aead.Overhead())
+		defer func() {
+			if recover() == nil {
+				t.Fatal("Seal did not panic when dst overlaps additional data")
+			}
+		}()
+		aead.Seal(backing[:0], nonce, plaintext, backing[:len(plaintext)])
+	})
+
+	t.Run("Open", func(t *testing.T) {
+		backing := make([]byte, len(plaintext))
+		ciphertext := make([]byte, len(plaintext)+aead.Overhead())
+		defer func() {
+			if recover() == nil {
+				t.Fatal("Open did not panic when dst overlaps additional data")
+			}
+		}()
+		aead.Open(backing[:0], nonce, ciphertext, backing)
+	})
+}

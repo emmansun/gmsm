@@ -1,6 +1,7 @@
 package smx509
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
@@ -10,13 +11,270 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"math/big"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/emmansun/gmsm/ecdh"
+	"github.com/emmansun/gmsm/mldsa"
+	"github.com/emmansun/gmsm/mlkem"
 	"github.com/emmansun/gmsm/sm2"
 )
+
+const rfc9935MLKEM512PublicKeyPEM = `-----BEGIN PUBLIC KEY-----
+MIIDMjALBglghkgBZQMEBAEDggMhADmVgV5ZfRBDVc8pqlMzyTJRhp1bzb5IcST2
+Ari2pmwWxHYWSK12XPXYAGtRXpBafwrAdrDGLvoygVPnylcBaZ8TBfHmvG+QsOSb
+aTUSts6ZKouAFt38GmYsfj+WGcvYad13GvMIlszVkYrGy3dGbF53mZbWf/mqvJdQ
+Pyx7fi0ADYZFD7GAfKTKvaRlgloxx4mht6SRqzhydl0yDQtxkg+iE8lAk0Frg7gS
+Tmn2XmLLUADcw3qpoP/3OXDEdy81fSQYnKb1MFVowOI3ajdipoxgXlY8XSCVcuD8
+dTLKKUcpU1VntfxBPF6HktJGRTbMgI+YrddGZPFBVm+QFqkKVBgpqYoEZM5BqLtE
+wtT6PCwglGByjvFKGnxMm5jRIgO0zDUpFgqasteDj3/2tTrgWqMafWRrevpsRZMl
+JqPDdVYZvplMIRwqMcBbNEeDbLIVC+GCna5rBMVTXP9Ubjkrp5dBFyD5JPSQpaxU
+lfITVtVQt4KmTBaItrZVvMeEIZekNML2Vjtbfwmni8xIgjJ4NWHRb0y6tnVUAAUH
+gVcMZmBLgXrRJSKUc26LAYYaS1p0UZuLb+UUiaUHI5Llh2JscTd2V10zgGocjicy
+r5fCaA9RZmMxxOuLvAQxxPloMtrxs8RVKPuhU/bHixwZhwKUfM0zdyekb7U7oR3l
+y0GRNGhZUWy2rXJADzzyCbI2rvNaWArIfrPjD6/WaXPKin3SZ1r0H3oXthQzzRr4
+D3cIhp9mVIhJeYCxrBCgzctjagDthoGzXkKRJMqANQcluF+DperDpKPMFgCQPmUp
+NWC5szblrw1SnawaBIEZMCy3qbzBELlIUb8CEX8ZncSFqFK3Rz8JuDGmgx1bVMC3
+kNIlz2u5LZRiomzbM92lEjx6rw4moLg2Ve6ii/OoB0clAY/WuuS2Ac9huqtxp6PT
+UZejQ+dLSicsEl1UCJZCbYW3lY07OKa6mH7DciXHtEzbEt3kU5tKsII2NoPwS/eg
+nMXEHf6DChsWLgsyQzQ2LwhKFEZ3IzRLrdAA+NjFN8SPmY8FMHzr0e3guBw7xZoG
+WhttY7Js
+-----END PUBLIC KEY-----
+`
+
+const rfc9935MLKEM512CertificatePEM = `-----BEGIN CERTIFICATE-----
+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
+-----END CERTIFICATE-----
+`
+
+func TestMLKEMPKIXPublicKeyRoundTrip(t *testing.T) {
+	seed := make([]byte, mlkem.SeedSize)
+	seed[0] = 1
+	tests := []struct {
+		name string
+		key  func() (interface{ Bytes() []byte }, error)
+	}{
+		{"512", func() (interface{ Bytes() []byte }, error) {
+			privateKey, err := mlkem.NewDecapsulationKeyFromSeed512(seed)
+			if err != nil {
+				return nil, err
+			}
+			return privateKey.EncapsulationKey(), nil
+		}},
+		{"768", func() (interface{ Bytes() []byte }, error) {
+			privateKey, err := mlkem.NewDecapsulationKeyFromSeed768(seed)
+			if err != nil {
+				return nil, err
+			}
+			return privateKey.EncapsulationKey(), nil
+		}},
+		{"1024", func() (interface{ Bytes() []byte }, error) {
+			privateKey, err := mlkem.NewDecapsulationKeyFromSeed1024(seed)
+			if err != nil {
+				return nil, err
+			}
+			return privateKey.EncapsulationKey(), nil
+		}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			publicKey, err := test.key()
+			if err != nil {
+				t.Fatal(err)
+			}
+			der, err := MarshalPKIXPublicKey(publicKey)
+			if err != nil {
+				t.Fatal(err)
+			}
+			parsed, err := ParsePKIXPublicKey(der)
+			if err != nil {
+				t.Fatal(err)
+			}
+			parsedPublicKey, ok := parsed.(interface{ Bytes() []byte })
+			if !ok || !bytes.Equal(publicKey.Bytes(), parsedPublicKey.Bytes()) {
+				t.Fatalf("parsed public key does not match original: %T", parsed)
+			}
+			remarshaled, err := MarshalPKIXPublicKey(parsed)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(der, remarshaled) {
+				t.Fatal("PKIX DER encoding changed after round trip")
+			}
+		})
+	}
+}
+
+func TestMLKEMRFC9935SPKIVector(t *testing.T) {
+	block, rest := pem.Decode([]byte(rfc9935MLKEM512PublicKeyPEM))
+	if block == nil || len(rest) != 0 {
+		t.Fatal("invalid RFC 9935 SPKI PEM fixture")
+	}
+	publicKey, err := ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encapsulationKey, ok := publicKey.(interface{ Bytes() []byte })
+	if !ok || len(encapsulationKey.Bytes()) != 800 {
+		t.Fatalf("unexpected ML-KEM public key: %T", publicKey)
+	}
+	remarshaled, err := MarshalPKIXPublicKey(publicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(remarshaled, block.Bytes) {
+		t.Fatal("SPKI DER encoding changed after RFC 9935 vector round trip")
+	}
+}
+
+func TestMLKEMRFC9935CertificateVector(t *testing.T) {
+	block, rest := pem.Decode([]byte(rfc9935MLKEM512CertificatePEM))
+	if block == nil || len(rest) != 0 {
+		t.Fatal("invalid RFC 9935 certificate PEM fixture")
+	}
+	certificate, err := ParseCertificate(block.Bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if certificate.KeyUsage != KeyUsageKeyEncipherment {
+		t.Fatalf("unexpected ML-KEM key usage: %v", certificate.KeyUsage)
+	}
+	publicKeyBlock, _ := pem.Decode([]byte(rfc9935MLKEM512PublicKeyPEM))
+	if !bytes.Equal(certificate.RawSubjectPublicKeyInfo, publicKeyBlock.Bytes) {
+		t.Fatal("certificate SPKI does not match RFC 9935 public-key vector")
+	}
+}
+
+func TestMLKEMCertificateKeyUsage(t *testing.T) {
+	issuerKey, err := mldsa.GenerateKey44(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	issuerTemplate := &Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "ML-KEM issuer"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		KeyUsage:              KeyUsageCertSign,
+	}
+	issuerDER, err := CreateCertificate(rand.Reader, issuerTemplate, issuerTemplate, issuerKey.Public(), issuerKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	issuer, err := ParseCertificate(issuerDER)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decapsulationKey, err := mlkem.NewDecapsulationKeyFromSeed512(make([]byte, mlkem.SeedSize))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, keyUsage := range []KeyUsage{0, KeyUsageKeyEncipherment} {
+		template := &Certificate{
+			SerialNumber: big.NewInt(int64(keyUsage) + 2),
+			Subject:      pkix.Name{CommonName: "ML-KEM subject"},
+			NotBefore:    time.Now().Add(-time.Hour),
+			NotAfter:     time.Now().Add(time.Hour),
+			KeyUsage:     keyUsage,
+		}
+		certificateDER, err := CreateCertificate(rand.Reader, template, issuer, decapsulationKey.EncapsulationKey(), issuerKey)
+		if err != nil {
+			t.Fatalf("CreateCertificate with key usage %v: %v", keyUsage, err)
+		}
+		if _, err := ParseCertificate(certificateDER); err != nil {
+			t.Fatalf("ParseCertificate with key usage %v: %v", keyUsage, err)
+		}
+	}
+
+	invalidTemplate := &Certificate{
+		SerialNumber: big.NewInt(4),
+		Subject:      pkix.Name{CommonName: "Invalid ML-KEM subject"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+		KeyUsage:     KeyUsageDigitalSignature,
+	}
+	if _, err := CreateCertificate(rand.Reader, invalidTemplate, issuer, decapsulationKey.EncapsulationKey(), issuerKey); err == nil {
+		t.Fatal("CreateCertificate accepted an invalid ML-KEM key usage")
+	}
+}
 
 func TestVerifyDistrustedSPKI(t *testing.T) {
 	chain := make([]*Certificate, 0, 3)
