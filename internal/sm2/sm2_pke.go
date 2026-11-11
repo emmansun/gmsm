@@ -83,7 +83,7 @@ func Decrypt(priv *PrivateKey, ciphertext *Ciphertext) ([]byte, error) {
 		return nil, ErrDecryption
 	}
 	C1 := ciphertext.C1
-	C2, err := C1.ScalarMult(C1, d.Bytes(c.N))
+	C2, err := c.newPoint().ScalarMult(C1, d.Bytes(c.N))
 	if err != nil {
 		return nil, ErrDecryption
 	}

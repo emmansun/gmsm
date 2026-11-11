@@ -64,6 +64,51 @@ func TestEncryptRetry(t *testing.T) {
 	}
 }
 
+func TestDecryptPreservesCiphertext(t *testing.T) {
+	privateScalar := make([]byte, P256().N.Size())
+	privateScalar[len(privateScalar)-1] = 2
+	priv, err := GenerateKey(bytes.NewReader(privateScalar))
+	if err != nil {
+		t.Fatal(err)
+	}
+	encryptionScalar := make([]byte, P256().N.Size())
+	encryptionScalar[len(encryptionScalar)-1] = 3
+	msg := []byte("SM2 decryption input preservation")
+	for _, tamper := range []bool{false, true} {
+		name := "valid"
+		if tamper {
+			name = "invalid-tag"
+		}
+		t.Run(name, func(t *testing.T) {
+			ciphertext, err := Encrypt(bytes.NewReader(encryptionScalar), &priv.pub, msg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tamper {
+				ciphertext.C3[0] ^= 1
+			}
+			originalC1 := ciphertext.C1.Bytes()
+			originalC2 := bytes.Clone(ciphertext.C2)
+			originalC3 := bytes.Clone(ciphertext.C3)
+			for attempt := 0; attempt < 2; attempt++ {
+				plaintext, err := Decrypt(priv, ciphertext)
+				if tamper {
+					if err != ErrDecryption || plaintext != nil {
+						t.Fatalf("attempt %d: got (%x, %v), want (nil, ErrDecryption)", attempt, plaintext, err)
+					}
+				} else if err != nil || !bytes.Equal(plaintext, msg) {
+					t.Fatalf("attempt %d: got (%x, %v), want (%x, nil)", attempt, plaintext, err, msg)
+				}
+				if !bytes.Equal(ciphertext.C1.Bytes(), originalC1) ||
+					!bytes.Equal(ciphertext.C2, originalC2) ||
+					!bytes.Equal(ciphertext.C3, originalC3) {
+					t.Fatalf("attempt %d: Decrypt modified ciphertext", attempt)
+				}
+			}
+		})
+	}
+}
+
 func TestRandomPoint(t *testing.T) {
 	c := P256()
 	t.Cleanup(func() { testingOnlyRejectionSamplingLooped = nil })
