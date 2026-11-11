@@ -50,7 +50,7 @@ func Encrypt(rand io.Reader, pub *PublicKey, msg []byte) (*Ciphertext, error) {
 		if err != nil {
 			return nil, err
 		}
-		C2, err := Q.ScalarMult(Q, k.Bytes(c.N))
+		C2, err := c.newPoint().ScalarMult(Q, k.Bytes(c.N))
 		if err != nil {
 			return nil, err
 		}
