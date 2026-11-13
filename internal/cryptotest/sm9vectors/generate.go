@@ -294,7 +294,7 @@ func buildMasterPrivateKey(keyHex string) []vectors.Case {
 		{1, "published master private key", key, "valid"},
 		{2, "zero scalar", make([]byte, 32), "invalid"},
 		{3, "scalar equal to the group order", mustHex(sm9OrderHex), "invalid"},
-		{4, "scalar N-1", orderMinus1(), "invalid"},
+		{4, "scalar N-1", orderMinus1(), "valid"},
 	}
 	out := make([]vectors.Case, 0, len(cases))
 	for _, c := range cases {
