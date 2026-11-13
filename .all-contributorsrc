@@ -230,6 +230,15 @@
       "contributions": [
         "security"
       ]
+    },
+    {
+      "login": "HMBSbige",
+      "name": "Bruce Wayne",
+      "avatar_url": "https://avatars.githubusercontent.com/u/19153265?v=4",
+      "profile": "https://git.io/HMBSbige",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "commitType": "docs",
