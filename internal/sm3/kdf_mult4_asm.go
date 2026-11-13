@@ -38,7 +38,7 @@ func kdfBy4(baseMD *digest, keyLen int, limit int) []byte {
 	var t uint64
 	blocks := 1
 	len := baseMD.len + 4
-	remainlen := len % 64
+	remainlen := baseMD.len%64 + 4
 	if remainlen < 56 {
 		t = 56 - remainlen
 	} else {
