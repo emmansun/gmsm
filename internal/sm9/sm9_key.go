@@ -99,7 +99,7 @@ func GenerateSignMasterKey(rand io.Reader) (*SignMasterPrivateKey, error) {
 }
 
 // NewSignMasterPrivateKey creates a new SignMasterPrivateKey from the given byte slice.
-// The provided key must have the same length as bn256.OrderMinus1Bytes and must be less than bn256.OrderMinus1Bytes.
+// The provided key must be non-zero and less than bn256.OrderBytes.
 // If the key is invalid, an error is returned.
 //
 // Parameters:
@@ -113,7 +113,7 @@ func NewSignMasterPrivateKey(key []byte) (*SignMasterPrivateKey, error) {
 		return nil, errInvalidPrivateKey
 	}
 	key = bn256.NormalizeScalar(key)
-	if subtle.ConstantTimeAllZero(key) == 1 || !isLess(key, bn256.OrderMinus1Bytes) {
+	if subtle.ConstantTimeAllZero(key) == 1 || !isLess(key, bn256.OrderBytes) {
 		return nil, errInvalidPrivateKey
 	}
 	p, err := new(bn256.G2).ScalarBaseMult(key)
@@ -331,8 +331,8 @@ func GenerateEncryptMasterKey(rand io.Reader) (*EncryptMasterPrivateKey, error) 
 }
 
 // NewEncryptMasterPrivateKey creates a new EncryptMasterPrivateKey from the given key bytes.
-// The key must have a length equal to bn256.OrderMinus1Bytes. If the key is all zeros or not
-// less than bn256.OrderMinus1Bytes, an error is returned.
+// The key must be non-zero and less than bn256.OrderBytes. If the key is invalid,
+// an error is returned.
 //
 // Parameters:
 //   - key: A byte slice representing the master private key.
@@ -345,7 +345,7 @@ func NewEncryptMasterPrivateKey(key []byte) (*EncryptMasterPrivateKey, error) {
 		return nil, errInvalidPrivateKey
 	}
 	key = bn256.NormalizeScalar(key)
-	if subtle.ConstantTimeAllZero(key) == 1 || !isLess(key, bn256.OrderMinus1Bytes) {
+	if subtle.ConstantTimeAllZero(key) == 1 || !isLess(key, bn256.OrderBytes) {
 		return nil, errInvalidPrivateKey
 	}
 	p, err := new(bn256.G1).ScalarBaseMult(key)
