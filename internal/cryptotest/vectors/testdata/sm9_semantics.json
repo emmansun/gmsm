@@ -569,7 +569,7 @@
           "tcId": 4,
           "comment": "scalar N-1",
           "priv": "022100b640000002a3a6f1d603ab4ff58ec74449f2934b18ea8beee56ee19cd69ecf24",
-          "result": "invalid"
+          "result": "valid"
         },
         {
           "tcId": 5,
@@ -605,7 +605,7 @@
           "tcId": 4,
           "comment": "scalar N-1",
           "priv": "022100b640000002a3a6f1d603ab4ff58ec74449f2934b18ea8beee56ee19cd69ecf24",
-          "result": "invalid"
+          "result": "valid"
         },
         {
           "tcId": 5,
