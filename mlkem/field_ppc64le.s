@@ -6,6 +6,36 @@
 
 #include "textflag.h"
 
+// ---- POWER8 / POWER9 instruction compatibility ----
+//
+// MTVSRDD (move two GPR doublewords into one VSR) and MFVSRLD (move the high
+// doubleword of a VSR to a GPR) are ISA 3.0 instructions, i.e. POWER9. Go
+// builds ppc64le with GOPPC64=power8 by default, so cmd/go passes only
+// -D GOPPC64_power8 there; GOPPC64=power9/power10 builds additionally get
+// -D GOPPC64_power9 (each level is a superset of the previous one). The #else
+// branches below are therefore what a default build runs, and they must be
+// equivalent to the POWER9 instructions:
+//
+//	MTVSRDD RA, RB, VD  ->  VD[0:63] = RA, VD[64:127] = RB
+//	MFVSRLD VS, RD      ->  RD = VS[0:63]
+//
+// On POWER8 both are built from MTVSRD (VD[64:127] = RA) plus a VSLDOI pair,
+// which needs a single scratch register VT (VT must differ from VD). The
+// POWER9 branch ignores VT so that call sites read the same in both builds.
+#ifdef GOPPC64_power9
+#define VSR_FROM_GPR_PAIR(ra, rb, Vd, Vt) MTVSRDD ra, rb, Vd
+#define VSR_HIGH_DW_TO_GPR(Vs, Rd, Vt)    MFVSRLD Vs, Rd
+#else
+#define VSR_FROM_GPR_PAIR(ra, rb, Vd, Vt) \
+	MTVSRD  ra, Vd; \
+	MTVSRD  rb, Vt; \
+	VSLDOI  $8, Vt, Vt, Vt; \
+	VSLDOI  $8, Vd, Vt, Vd
+#define VSR_HIGH_DW_TO_GPR(Vs, Rd, Vt) \
+	VSLDOI  $8, Vs, Vs, Vt; \
+	MFVSRD  Vt, Rd
+#endif
+
 // ---- Static constants ----
 //
 // kBarrettConsts layout:
@@ -61,6 +91,33 @@ GLOBL lxvPairSwapMask<>(SB), RODATA|NOPTR, $16
 DATA lxvPackU32ToU16Mask<>+0x00(SB)/8, $0x0A0B1A1B0E0F1E1F
 DATA lxvPackU32ToU16Mask<>+0x08(SB)/8, $0x0203121306071617
 GLOBL lxvPackU32ToU16Mask<>(SB), RODATA|NOPTR, $16
+
+// kCompress1Consts: constants for ringCompressAndEncode1 (LVX-loaded, 16-byte
+// aligned). Keeping them in memory avoids GPR→VSR moves on the encode path.
+// [0x00..0x0F]: {832 x8} uint16  → compress1 lower bound (x >= 833 test)
+// [0x10..0x1F]: {2496 x8} uint16 → compress1 upper bound (x <= 2496 test)
+// [0x20..0x2F]: VBPERMQ index vector {112,96,80,64,48,32,16,0, 128 x8}.
+//               BE view {0x70,0x60,0x50,0x40,0x30,0x20,0x10,0x00, 0x80 x8};
+//               LVX means memory holds the reverse of the BE view.
+DATA kCompress1Consts<>+0x00(SB)/2, $832
+DATA kCompress1Consts<>+0x02(SB)/2, $832
+DATA kCompress1Consts<>+0x04(SB)/2, $832
+DATA kCompress1Consts<>+0x06(SB)/2, $832
+DATA kCompress1Consts<>+0x08(SB)/2, $832
+DATA kCompress1Consts<>+0x0A(SB)/2, $832
+DATA kCompress1Consts<>+0x0C(SB)/2, $832
+DATA kCompress1Consts<>+0x0E(SB)/2, $832
+DATA kCompress1Consts<>+0x10(SB)/2, $2496
+DATA kCompress1Consts<>+0x12(SB)/2, $2496
+DATA kCompress1Consts<>+0x14(SB)/2, $2496
+DATA kCompress1Consts<>+0x16(SB)/2, $2496
+DATA kCompress1Consts<>+0x18(SB)/2, $2496
+DATA kCompress1Consts<>+0x1A(SB)/2, $2496
+DATA kCompress1Consts<>+0x1C(SB)/2, $2496
+DATA kCompress1Consts<>+0x1E(SB)/2, $2496
+DATA kCompress1Consts<>+0x20(SB)/8, $0x8080808080808080
+DATA kCompress1Consts<>+0x28(SB)/8, $0x7060504030201000
+GLOBL kCompress1Consts<>(SB), RODATA|NOPTR, $48
 
 // kCmpConsts: constants for VMX compress/decompress (all LVX-loaded, 16-byte aligned).
 // [0x00..0x0F]: {20159 x8} uint16 → compress4/5 magic (VMULEUH/VMULOUH multiply constant)
@@ -1549,18 +1606,13 @@ TEXT ·ringCompressAndEncode1PPC64LE(SB), NOSPLIT, $0-32
 	MOVD out_base+0(FP), R4
 	MOVD f+24(FP), R5
 	MOVD $0, R0
-	// V1 = {832 x8}: 832 = 0x0340
-	MOVD $0x0340034003400340, R6
-	MTVSRDD R6, R6, V1
-	// V2 = {2496 x8}: 2496 = 0x09C0
-	MOVD $0x09C009C009C009C0, R6
-	MTVSRDD R6, R6, V2
-	// V3 = VBPERMQ index vector: {112,96,80,64,48,32,16,0, 128,128,128,128,128,128,128,128}
-	// Upper 8 bytes (BE) = indices for VBPERMQ: 0x70,0x60,0x50,0x40,0x30,0x20,0x10,0x00
-	// Lower 8 bytes = 0x80 (ignored by VBPERMQ, bit index >= 128)
-	MOVD $0x7060504030201000, R6
-	MOVD $0x8080808080808080, R7
-	MTVSRDD R6, R7, V3
+	// V1 = {832 x8}, V2 = {2496 x8}, V3 = VBPERMQ index vector
+	MOVD $kCompress1Consts<>(SB), R6
+	LVX  (R0)(R6), V1
+	MOVD $16, R7
+	LVX  (R7)(R6), V2
+	MOVD $32, R7
+	LVX  (R7)(R6), V3
 	MOVD $lxvNaturalOrderMask<>(SB), R7
 	LVX  (R0)(R7), V18
 	MOVD $32, R3
@@ -1640,7 +1692,7 @@ compress4_vmx_loop:
 // ringDecodeAndDecompress4PPC64LE computes Decompress_4(ByteDecode_4(b)) using VMX.
 // Each input byte has two 4-bit nibbles. decompress(y,4) = (y*q>>4) + ((y*q>>3)&1)
 // Processes 4 bytes → 8 coefficients per iteration.
-// Nibbles unpacked via scalar into GPR, loaded to VMX via MTVSRDD.
+// Nibbles unpacked via scalar into GPR, loaded to VMX via VSR_FROM_GPR_PAIR.
 // func ringDecodeAndDecompress4PPC64LE(b *[encodingSize4]byte, f *ringElement)
 TEXT ·ringDecodeAndDecompress4PPC64LE(SB), NOSPLIT, $0-16
 	MOVD b+0(FP), R4
@@ -1682,7 +1734,7 @@ decompress4_vmx_loop:
 	SLD     $32, R9, R9
 	SLD     $16, R11, R11
 	OR      R8, R9, R8; OR R11, R12, R11; OR R8, R11, R11   // Rlo
-	MTVSRDD R10, R11, V0          // V0 = [y0,y1,y2,y3 | y4,y5,y6,y7] as u16×8
+	VSR_FROM_GPR_PAIR(R10, R11, V0, V1) // V0 = [y0,y1,y2,y3 | y4,y5,y6,y7] as u16×8
 	// Multiply by q=3329: VMULEUH/VMULOUH produce 4×u32
 	VMULEUH V0, V17, V3           // even: [y0,y2,y4,y6]*q as u32
 	VMULOUH V0, V17, V4           // odd:  [y1,y3,y5,y7]*q as u32
@@ -1752,7 +1804,7 @@ compress5_vmx_loop:
 	VPERM   V3, V4, V19, V5       // V5 = [c0,c1,c2,c3,c4,c5,c6,c7] as u16
 	// Extract to GPRs: MFVSRD = upper 64 bits
 	MFVSRD  V5, R6                // R6 = c0<<48|c1<<32|c2<<16|c3
-	MFVSRLD V5, R7                // R7 = c4<<48|c5<<32|c6<<16|c7
+	VSR_HIGH_DW_TO_GPR(V5, R7, V6) // R7 = c4<<48|c5<<32|c6<<16|c7
 	// Pack 8 × 5-bit values from R6/R7 into 40-bit output in R8
 	// R6 = c0<<48|c1<<32|c2<<16|c3, R7 = c4<<48|c5<<32|c6<<16|c7 (5-bit in 16-bit slots)
 	// Extract all 8 values to LSBs in parallel (c0..c5 use R8-R12,R3; c6,c7 reuse R9,R10)
@@ -1841,7 +1893,7 @@ decompress5_vmx_loop:
 	OR      R8, R9, R8           // R8 = y4<<48 | y5<<32
 	OR      R11, R12, R11        // R11 = y6<<16 | y7
 	OR      R8, R11, R11         // R11 = Rlo
-	MTVSRDD R10, R11, V0          // V0 = [y0..y7] as u16×8
+	VSR_FROM_GPR_PAIR(R10, R11, V0, V1) // V0 = [y0..y7] as u16×8
 	// Multiply by q=3329
 	VMULEUH V0, V17, V3           // even × q
 	VMULOUH V0, V17, V4           // odd  × q
@@ -1918,7 +1970,7 @@ compress10_vmx_loop:
 	// Pack → natural order u16: V3=[c0,c2,c4,c6] V4=[c1,c3,c5,c7]
 	VPERM   V3, V4, V19, V5       // [c0,c1,c2,c3,c4,c5,c6,c7] as u16
 	MFVSRD  V5, R6                // c0<<48|c1<<32|c2<<16|c3
-	MFVSRLD V5, R7                // c4<<48|c5<<32|c6<<16|c7
+	VSR_HIGH_DW_TO_GPR(V5, R7, V7) // c4<<48|c5<<32|c6<<16|c7
 	// First group: c0,c1,c2,c3 (from R6) → 5 bytes (40-bit packed 10-bit values)
 	RLDICL  $16, R6, $54, R8     // c0 → R8[9:0]
 	RLDICL  $32, R6, $54, R9     // c1 → R9[9:0]
@@ -1985,7 +2037,7 @@ compress11_vmx_loop:
 	VMRGOW  V5, V6, V4; VAND V4, V16, V4     // {c1,c3,c5,c7}
 	VPERM   V3, V4, V19, V5                   // [c0..c7] as u16
 	MFVSRD  V5, R6                // c0<<48|c1<<32|c2<<16|c3
-	MFVSRLD V5, R7                // c4<<48|c5<<32|c6<<16|c7
+	VSR_HIGH_DW_TO_GPR(V5, R7, V7) // c4<<48|c5<<32|c6<<16|c7
 	// Extract all 8 values (11-bit each) using parallel RLDICL + OR-tree
 	RLDICL  $16, R6, $53, R8     // c0 → R8[10:0]
 	RLDICL  $32, R6, $53, R9     // c1 → R9[10:0]
@@ -2066,7 +2118,7 @@ decode_u10_group:
 	RLDICL  $34, R6, $54, R6
 	SLD     $48, R7, R7; SLD $32, R11, R11; SLD $16, R12, R12
 	OR      R7, R11, R7; OR R12, R6, R12; OR R7, R12, R11   // Rlo
-	MTVSRDD R3, R11, V0           // V0 = [c0..c7] as u16×8 (R3=Rhi)
+	VSR_FROM_GPR_PAIR(R3, R11, V0, V1) // V0 = [c0..c7] as u16×8 (R3=Rhi)
 	// Multiply by q=3329
 	VMULEUH V0, V17, V3
 	VMULOUH V0, V17, V4
@@ -2145,7 +2197,7 @@ decode_u11_group:
 	// Pack c4<<48|c5<<32|c6<<16|c7 → Rlo in R11
 	SLD     $48, R12, R12; SLD $32, R9, R9; SLD $16, R8, R8
 	OR      R12, R9, R12; OR R8, R11, R8; OR R12, R8, R11  // Rlo = c4<<48|c5<<32|c6<<16|c7
-	MTVSRDD R3, R11, V0           // V0 = [c0..c7] as u16×8 (R3=Rhi)
+	VSR_FROM_GPR_PAIR(R3, R11, V0, V1) // V0 = [c0..c7] as u16×8 (R3=Rhi)
 	VMULEUH V0, V17, V3
 	VMULOUH V0, V17, V4
 	VSRW    V3, V8, V5; VAND V5, V10, V5

@@ -98,7 +98,7 @@ This avoids the 32-bit overflow that would occur with direct `VMULUWM(P, 5039)` 
 **Architecture notes**:
 - `LXVD2X` reverses bytes within each 8-byte group on ppc64le; operations that require element ordering use `VPERM` correction.
 - VS32–VS63 are aliases for V0–V31 in the VMX/VSX register file.
-- POWER8 and later provide the VMX and VSX extensions required by this implementation.
+- POWER8 and later provide the VMX and VSX extensions required by this implementation. The two ISA 3.0 (POWER9) instructions used here, `MTVSRDD` and `MFVSRLD`, are gated behind `#ifdef GOPPC64_power9`; default builds (`GOPPC64=power8`, which is Go's default for ppc64le) take equivalent `MTVSRD`/`VSLDOI`/`MFVSRD` sequences instead. Both paths produce identical results.
 
 **Parallelism**: 8 coefficients per instruction (same as NEON). Performance is generally 60–80% of NEON due to the Barrett vs. Montgomery overhead and the lack of signed multiply-high.
 
