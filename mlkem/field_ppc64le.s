@@ -8,7 +8,7 @@
 
 // ---- POWER8 / POWER9 instruction compatibility ----
 //
-// MTVSRDD (move two GPR doublewords into one VSR) and MFVSRLD (move the high
+// MTVSRDD (move two GPR doublewords into one VSR) and MFVSRLD (move the low
 // doubleword of a VSR to a GPR) are ISA 3.0 instructions, i.e. POWER9. Go
 // builds ppc64le with GOPPC64=power8 by default, so cmd/go passes only
 // -D GOPPC64_power8 there; GOPPC64=power9/power10 builds additionally get
@@ -17,21 +17,31 @@
 // equivalent to the POWER9 instructions:
 //
 //	MTVSRDD RA, RB, VD  ->  VD[0:63] = RA, VD[64:127] = RB
-//	MFVSRLD VS, RD      ->  RD = VS[0:63]
+//	MFVSRLD VS, RD      ->  RD = VS[64:127]
 //
-// On POWER8 both are built from MTVSRD (VD[64:127] = RA) plus a VSLDOI pair,
-// which needs a single scratch register VT (VT must differ from VD). The
+// MTVSRD moves a GPR into the high doubleword (VD[0:63]) and MFVSRD reads a
+// GPR back from that same half, so the POWER8 sequences below move halves with
+// VSLDOI. Both need one scratch register VT (VT must differ from VD/Vs). The
 // POWER9 branch ignores VT so that call sites read the same in both builds.
+//
+// VSLDOI $8, VA, VB, VT gives (VA||VB) << 8 bytes = VA[64:127] || VB[0:63],
+// i.e. VA's low half followed by VB's high half.
 #ifdef GOPPC64_power9
 #define VSR_FROM_GPR_PAIR(ra, rb, Vd, Vt) MTVSRDD ra, rb, Vd
-#define VSR_HIGH_DW_TO_GPR(Vs, Rd, Vt)    MFVSRLD Vs, Rd
+#define VSR_LOW_DW_TO_GPR(Vs, Rd, Vt)     MFVSRLD Vs, Rd
 #else
+// VD = [ra (high) | rb (low)]:
+//   MTVSRD ra, VD          -> VD = [ra | 0]
+//   VSLDOI $8, VD, VD, VD  -> VD = [0  | ra]
+//   MTVSRD rb, VT          -> VT = [rb | 0]
+//   VSLDOI $8, VD, VT, VD  -> VD = [ra | rb]
 #define VSR_FROM_GPR_PAIR(ra, rb, Vd, Vt) \
 	MTVSRD  ra, Vd; \
 	MTVSRD  rb, Vt; \
-	VSLDOI  $8, Vt, Vt, Vt; \
+	VSLDOI  $8, Vd, Vd, Vd; \
 	VSLDOI  $8, Vd, Vt, Vd
-#define VSR_HIGH_DW_TO_GPR(Vs, Rd, Vt) \
+// RD = VS[64:127]: VSLDOI brings the low half up, MFVSRD reads the high one.
+#define VSR_LOW_DW_TO_GPR(Vs, Rd, Vt) \
 	VSLDOI  $8, Vs, Vs, Vt; \
 	MFVSRD  Vt, Rd
 #endif
@@ -1804,7 +1814,7 @@ compress5_vmx_loop:
 	VPERM   V3, V4, V19, V5       // V5 = [c0,c1,c2,c3,c4,c5,c6,c7] as u16
 	// Extract to GPRs: MFVSRD = upper 64 bits
 	MFVSRD  V5, R6                // R6 = c0<<48|c1<<32|c2<<16|c3
-	VSR_HIGH_DW_TO_GPR(V5, R7, V6) // R7 = c4<<48|c5<<32|c6<<16|c7
+	VSR_LOW_DW_TO_GPR(V5, R7, V6) // R7 = c4<<48|c5<<32|c6<<16|c7
 	// Pack 8 × 5-bit values from R6/R7 into 40-bit output in R8
 	// R6 = c0<<48|c1<<32|c2<<16|c3, R7 = c4<<48|c5<<32|c6<<16|c7 (5-bit in 16-bit slots)
 	// Extract all 8 values to LSBs in parallel (c0..c5 use R8-R12,R3; c6,c7 reuse R9,R10)
@@ -1970,7 +1980,7 @@ compress10_vmx_loop:
 	// Pack → natural order u16: V3=[c0,c2,c4,c6] V4=[c1,c3,c5,c7]
 	VPERM   V3, V4, V19, V5       // [c0,c1,c2,c3,c4,c5,c6,c7] as u16
 	MFVSRD  V5, R6                // c0<<48|c1<<32|c2<<16|c3
-	VSR_HIGH_DW_TO_GPR(V5, R7, V7) // c4<<48|c5<<32|c6<<16|c7
+	VSR_LOW_DW_TO_GPR(V5, R7, V7) // c4<<48|c5<<32|c6<<16|c7
 	// First group: c0,c1,c2,c3 (from R6) → 5 bytes (40-bit packed 10-bit values)
 	RLDICL  $16, R6, $54, R8     // c0 → R8[9:0]
 	RLDICL  $32, R6, $54, R9     // c1 → R9[9:0]
@@ -2037,7 +2047,7 @@ compress11_vmx_loop:
 	VMRGOW  V5, V6, V4; VAND V4, V16, V4     // {c1,c3,c5,c7}
 	VPERM   V3, V4, V19, V5                   // [c0..c7] as u16
 	MFVSRD  V5, R6                // c0<<48|c1<<32|c2<<16|c3
-	VSR_HIGH_DW_TO_GPR(V5, R7, V7) // c4<<48|c5<<32|c6<<16|c7
+	VSR_LOW_DW_TO_GPR(V5, R7, V7) // c4<<48|c5<<32|c6<<16|c7
 	// Extract all 8 values (11-bit each) using parallel RLDICL + OR-tree
 	RLDICL  $16, R6, $53, R8     // c0 → R8[10:0]
 	RLDICL  $32, R6, $53, R9     // c1 → R9[10:0]
