@@ -17,9 +17,13 @@ jobs:
   test:
     strategy:
       matrix:
-        go-version: [1.26.x]
-        arch: [ppc64le]
-        ppc64: [power8, power9]
+        # GOPPC64 selects the code path the assembler emits; QEMU_CPU selects
+        # which instructions the emulated CPU is allowed to execute. They must
+        # be pinned together: with only GOPPC64 set, the test binary runs on
+        # QEMU's default CPU model and ISA 3.0 code passes silently (#681).
+        include:
+          - { go-version: "1.26.x", arch: ppc64le, ppc64: power8, qemu_cpu: power8 }
+          - { go-version: "1.26.x", arch: ppc64le, ppc64: power9, qemu_cpu: power9 }
     runs-on: ubuntu-latest
     steps:
     - name: Harden the runner (Audit all outbound calls)
@@ -38,21 +42,77 @@ jobs:
     - name: Check out code
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+    # The Go assembler does not validate the ISA level, so GOPPC64=power8
+    # accepts POWER9 mnemonics such as MTVSRDD; they only fault at run time on
+    # POWER8. Disassemble the linked test binary instead and reject any ISA 3.0
+    # instruction that comes from this repository's own ppc64le assembly.
+    - name: Guard POWER8 build (reject ISA 3.0 instructions)
+      if: matrix.ppc64 == 'power8'
+      env:
+        GOARCH: ${{ matrix.arch }}
+        GOPPC64: ${{ matrix.ppc64 }}
+      run: |
+        set -euo pipefail
+        go test -c -o "$RUNNER_TEMP/mlkem-power8.test" ./mlkem/
+        go tool objdump "$RUNNER_TEMP/mlkem-power8.test" > "$RUNNER_TEMP/mlkem-power8.dis"
+        # Scan only *_ppc64le.s. The Go standard library is out of scope: some
+        # Go releases ship internal/bytealg/index_ppc64x.s with unguarded
+        # POWER9 LXVB16X/MFVSRLD, which is an upstream issue, not ours.
+        hits=$(grep -E '_ppc64le\.s:' "$RUNNER_TEMP/mlkem-power8.dis" \
+               | grep -E '\b(MTVSRDD|MFVSRLD)\b' || true)
+        if [ -n "$hits" ]; then
+          echo "::error file=mlkem/field_ppc64le.s::ISA 3.0 instruction in a GOPPC64=power8 build"
+          echo "$hits"
+          exit 1
+        fi
+
+    # Positive control: prove that QEMU_CPU=power8 really restricts the ISA, so
+    # that the checks above cannot silently become no-ops. A GOPPC64=power9 build
+    # emits MTVSRDD/MFVSRLD on the ML-KEM-512 decapsulation path, so it must die
+    # instead of exiting 0 under the POWER8 CPU model.
+    - name: Positive control (POWER9 build must fault on POWER8)
+      if: matrix.ppc64 == 'power8'
+      env:
+        GOARCH: ${{ matrix.arch }}
+        GOPPC64: power9
+        QEMU_CPU: power8
+      run: |
+        go test -c -o "$RUNNER_TEMP/mlkem-power9.test" ./mlkem/
+        set +e
+        "$RUNNER_TEMP/mlkem-power9.test" -test.run 'TestDecapsulate512ACVP' 2>&1 | tail -n 20
+        status=${PIPESTATUS[0]}
+        set -e
+        case "$status" in
+          1|2|132)
+            echo "OK: POWER9 build died under QEMU_CPU=power8 (exit $status)"
+            ;;
+          0)
+            echo "::error::QEMU_CPU=power8 executed ISA 3.0 code; the POWER8 gate cannot work"
+            exit 1
+            ;;
+          *)
+            echo "::error::POWER9 build failed to run (exit $status), cannot validate the gate"
+            exit 1
+            ;;
+        esac
+
     - name: Test ML-KEM
       run: go test -v -short ./mlkem/...
       env:
         GOARCH: ${{ matrix.arch }}
-        GOPPC64: ${{ matrix.ppc64 }}    
-      
+        GOPPC64: ${{ matrix.ppc64 }}
+        QEMU_CPU: ${{ matrix.qemu_cpu }}
+
     - name: Test internal
       run: go test -v ./internal/...
       env:
         GOARCH: ${{ matrix.arch }}
         GOPPC64: ${{ matrix.ppc64 }}
+        QEMU_CPU: ${{ matrix.qemu_cpu }}
 
     - name: Test Cipher
       run: go test -v -short ./cipher/...
       env:
         GOARCH: ${{ matrix.arch }}
         GOPPC64: ${{ matrix.ppc64 }}
-   
+        QEMU_CPU: ${{ matrix.qemu_cpu }}
