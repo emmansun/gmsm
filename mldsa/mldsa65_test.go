@@ -302,6 +302,43 @@ func TestVerify65(t *testing.T) {
 	}
 }
 
+// TestSignEmptyMessage65 pins that the empty message is a valid input: FIPS 204
+// puts no lower bound on the message length, only on the context string.
+func TestSignEmptyMessage65(t *testing.T) {
+	key, err := NewKey65(bytes.Repeat([]byte{0x65}, SeedSize))
+	if err != nil {
+		t.Fatalf("NewKey65 failed: %v", err)
+	}
+	pub := key.Public().(*PublicKey65)
+
+	sig, err := key.Sign(rand.Reader, nil, nil)
+	if err != nil {
+		t.Fatalf("Sign(empty message) failed: %v", err)
+	}
+	if len(sig) != sigEncodedLen65 {
+		t.Fatalf("signature length = %d, want %d", len(sig), sigEncodedLen65)
+	}
+	if !pub.VerifyWithOptions(sig, nil, nil) {
+		t.Fatal("VerifyWithOptions(empty message) = false, want true")
+	}
+	if pub.VerifyWithOptions(sig, []byte{0}, nil) {
+		t.Fatal("VerifyWithOptions accepted a one-byte message")
+	}
+
+	// An empty message under a non-empty context is a different signing domain.
+	context := []byte("gmsm-680")
+	ctxSig, err := key.SignMessage(rand.Reader, nil, &Options{Context: context})
+	if err != nil {
+		t.Fatalf("SignMessage(empty message, context) failed: %v", err)
+	}
+	if !pub.VerifyWithOptions(ctxSig, nil, &Options{Context: context}) {
+		t.Fatal("VerifyWithOptions(empty message, context) = false, want true")
+	}
+	if pub.VerifyWithOptions(ctxSig, nil, nil) {
+		t.Fatal("VerifyWithOptions accepted an empty context for a context-bound signature")
+	}
+}
+
 func BenchmarkKeyGen65(b *testing.B) {
 	var d [32]byte
 	rand.Read(d[:])

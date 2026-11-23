@@ -51,11 +51,12 @@ var replacements65 = map[string]string{
 	"bitUnpackSigned2":        "bitUnpackSigned4", // parse private key
 	"encodingSize3":           "encodingSize4",    // parse private key
 
-	"encodingSize6":             "encodingSize4",             // w1Encoded
-	"simpleBitPack6Bits":        "simpleBitPack4Bits",        // w1Encoded
-	"bitPackSignedTwoPower17":   "bitPackSignedTwoPower19",   // signature encoding
-	"encodingSize18":            "encodingSize20",            // signature decoding
-	"bitUnpackSignedTwoPower17": "bitUnpackSignedTwoPower19", // signature decoding
+	"encodingSize6":              "encodingSize4",              // w1Encoded
+	"simpleBitPack6Bits":         "simpleBitPack4Bits",         // w1Encoded
+	"simpleBitPack6BitsHighBits": "simpleBitPack4BitsHighBits", // w1Encoded HighBits
+	"bitPackSignedTwoPower17":    "bitPackSignedTwoPower19",    // signature encoding
+	"encodingSize18":             "encodingSize20",             // signature decoding
+	"bitUnpackSignedTwoPower17":  "bitUnpackSignedTwoPower19",  // signature decoding
 }
 
 var replacements87 = map[string]string{
@@ -87,11 +88,12 @@ var replacements87 = map[string]string{
 	"NewPrivateKey44":         "NewPrivateKey87",
 	"parsePrivateKey44":       "parsePrivateKey87",
 
-	"encodingSize6":             "encodingSize4",             // w1Encoded
-	"simpleBitPack6Bits":        "simpleBitPack4Bits",        // w1Encoded
-	"bitPackSignedTwoPower17":   "bitPackSignedTwoPower19",   // signature encoding
-	"encodingSize18":            "encodingSize20",            // signature decoding
-	"bitUnpackSignedTwoPower17": "bitUnpackSignedTwoPower19", // signature decoding
+	"encodingSize6":              "encodingSize4",              // w1Encoded
+	"simpleBitPack6Bits":         "simpleBitPack4Bits",         // w1Encoded
+	"simpleBitPack6BitsHighBits": "simpleBitPack4BitsHighBits", // w1Encoded HighBits
+	"bitPackSignedTwoPower17":    "bitPackSignedTwoPower19",    // signature encoding
+	"encodingSize18":             "encodingSize20",             // signature decoding
+	"bitUnpackSignedTwoPower17":  "bitUnpackSignedTwoPower19",  // signature decoding
 }
 
 func replaceIdentifiers(inputFile, outputFile *string, replacements map[string]string) {

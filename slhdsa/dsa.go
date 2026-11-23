@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-// Package slhdsa implements the quantum-resistant stateless hash-based digital signature standard 
+// Package slhdsa implements the quantum-resistant stateless hash-based digital signature standard
 // SLH-DSA (based on SPHINCS+), as specified in [NIST FIPS 205].
 //
 // [NIST FIPS 205]: https://doi.org/10.6028/NIST.FIPS.205
@@ -34,12 +34,10 @@ func (sk *PrivateKey) Sign(rand io.Reader, message []byte, opts crypto.SignerOpt
 // Sign generates a pure SLH-DSA signature for the given message.
 // The signature is deterministic if the addRand parameter is nil.
 // If addRand is not nil, it must be of the same length as n.
+// The message may be empty: FIPS 205 places no lower bound on its length.
 //
 // See FIPS 205 Algorithm 22 slh_sign
 func (sk *PrivateKey) SignMessage(rand io.Reader, message []byte, opts crypto.SignerOpts) ([]byte, error) {
-	if len(message) == 0 {
-		return nil, errors.New("slhdsa: empty message")
-	}
 	var context, addRand []byte
 	if opts, ok := opts.(*Options); ok {
 		context = opts.Context
@@ -112,9 +110,6 @@ func (sk *PrivateKey) signInternal(msgPrefix, message, addRand []byte) ([]byte, 
 //
 // See FIPS 205 Algorithm 24 slh_verify
 func (pk *PublicKey) VerifyWithOptions(signature, message []byte, opts crypto.SignerOpts) bool {
-	if len(message) == 0 {
-		return false
-	}
 	var context []byte
 	if opts, ok := opts.(*Options); ok {
 		context = opts.Context

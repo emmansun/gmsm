@@ -6,6 +6,7 @@ package slhdsa
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"os"
@@ -104,5 +105,46 @@ func testData(t *testing.T, filename string, tc *slhtest) {
 	}
 	if !pub.VerifyWithOptions(sigOriginal, message, &Options{Context: context}) {
 		t.Errorf("%v Verify() = false, want true", filename)
+	}
+}
+
+// TestSignEmptyMessage pins that the empty message is a valid input for every
+// parameter set: FIPS 205 puts no lower bound on the message length, only on
+// the context string.
+func TestSignEmptyMessage(t *testing.T) {
+	for name, params := range parameterSets {
+		t.Run(name, func(t *testing.T) {
+			sk, err := GenerateKey(rand.Reader, params)
+			if err != nil {
+				t.Fatalf("GenerateKey failed: %v", err)
+			}
+			pk := sk.Public().(*PublicKey)
+			for _, context := range [][]byte{nil, []byte("gmsm-680")} {
+				sig, err := sk.SignMessage(nil, nil, &Options{Context: context})
+				if err != nil {
+					t.Fatalf("SignMessage(empty message, context %x) failed: %v", context, err)
+				}
+				if len(sig) != int(params.sigLen) {
+					t.Fatalf("signature length = %d, want %d", len(sig), params.sigLen)
+				}
+				if !pk.VerifyWithOptions(sig, nil, &Options{Context: context}) {
+					t.Fatalf("VerifyWithOptions(empty message, context %x) = false, want true", context)
+				}
+				if pk.VerifyWithOptions(sig, []byte{0}, &Options{Context: context}) {
+					t.Fatal("VerifyWithOptions accepted a one-byte message")
+				}
+				if pk.VerifyWithOptions(sig, nil, &Options{Context: append(context, 0)}) {
+					t.Fatal("VerifyWithOptions accepted a different context")
+				}
+			}
+			// Hedged variant: additional randomness of the length the standard requires.
+			sig, err := sk.SignMessage(nil, nil, &Options{AddRand: make([]byte, params.n)})
+			if err != nil {
+				t.Fatalf("SignMessage(empty message, hedged) failed: %v", err)
+			}
+			if !pk.VerifyWithOptions(sig, nil, nil) {
+				t.Fatal("VerifyWithOptions(empty message, hedged) = false, want true")
+			}
+		})
 	}
 }

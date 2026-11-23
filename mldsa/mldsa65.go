@@ -428,6 +428,8 @@ func (sk *PrivateKey65) Sign(rand io.Reader, digest []byte, opts crypto.SignerOp
 //
 // The function supports pre-hashing the message by providing a hash OID in the options.
 // Context data can also be provided, but is limited to 255 bytes.
+//
+// The message may be empty: FIPS 204 places no lower bound on its length.
 func (sk *PrivateKey65) SignMessage(rand io.Reader, message []byte, opts crypto.SignerOpts) ([]byte, error) {
 	var (
 		context   []byte
@@ -444,9 +446,6 @@ func (sk *PrivateKey65) SignMessage(rand io.Reader, message []byte, opts crypto.
 			return nil, err
 		}
 		indicator = 1
-	}
-	if len(message) == 0 {
-		return nil, errors.New("mldsa: empty message")
 	}
 	if len(context) > 255 {
 		return nil, errors.New("mldsa: context too long")
@@ -529,6 +528,7 @@ func (sk *PrivateKey65) signInternal(seed, mu []byte) ([]byte, error) {
 			internalInverseNTT((*nttElement)(&z[i]))
 			polyAddAssign(&z[i], &y[i])
 		}
+
 		zNorm := vectorInfinityNorm(z[:], 0)
 
 		// if zNorm >= gamma1 - beta, then continue
@@ -601,9 +601,6 @@ func (pk *PublicKey65) VerifyWithOptions(sig []byte, message []byte, opts crypto
 		indicator = 1
 	}
 
-	if len(message) == 0 {
-		return false
-	}
 	if len(context) > 255 {
 		return false
 	}
