@@ -239,6 +239,15 @@
       "contributions": [
         "bug"
       ]
+    },
+    {
+      "login": "RatioLabsEU",
+      "name": "RatioLabs",
+      "avatar_url": "https://avatars.githubusercontent.com/u/348347837?v=4",
+      "profile": "http://www.ratiolabs.eu",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "commitType": "docs",
