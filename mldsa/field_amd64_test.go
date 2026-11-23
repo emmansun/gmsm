@@ -200,6 +200,35 @@ func TestPolyInfinityNormSignedAVX2(t *testing.T) {
 	}
 }
 
+func TestNttMatRowVecMulAVX2NonPositiveLen(t *testing.T) {
+	if !useAVX2 {
+		t.Skip("AVX2 is not available")
+	}
+
+	vec := nttElement(randomRingElement())
+	matRow := nttElement(randomRingElement())
+
+	// A non-positive length must leave dst untouched instead of underflowing
+	// the accumulate counter into a near-infinite loop.
+	for _, length := range []int{0, -1} {
+		dst := nttElement(randomRingElement())
+		want := dst
+		nttMatRowVecMulAVX2(&dst, &vec, &matRow, length)
+		if dst != want {
+			t.Fatalf("nttMatRowVecMulAVX2(len=%d) modified dst", length)
+		}
+	}
+
+	// The guard must not disturb the normal path.
+	got := nttElement(randomRingElement())
+	want := nttElement(randomRingElement())
+	nttMatRowVecMulAVX2(&got, &vec, &matRow, 1)
+	nttMatRowVecMulGeneric(&want, &vec, &matRow, 1)
+	if got != want {
+		t.Fatal("nttMatRowVecMulAVX2(len=1) mismatch with generic")
+	}
+}
+
 func TestDecomposeSubToR0Gamma32AVX2(t *testing.T) {
 	if !useAVX2 {
 		t.Skip("AVX2 is not available")

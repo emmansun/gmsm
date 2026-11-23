@@ -556,7 +556,10 @@ TEXT ·nttMatRowVecMulAVX2(SB), NOSPLIT, $0-32
 	MOVQ dst+0(FP), DI
 	MOVQ vec+8(FP), SI
 	MOVQ matRow+16(FP), DX
-	MOVL len+24(FP), CX
+	MOVQ len+24(FP), CX
+
+	TESTL CX, CX
+	JLE mvmDone        // len <= 0: nothing to accumulate
 
 	VPBROADCASTD qNegInvConst, QNegInv
 	VPBROADCASTD qConst, Q
@@ -636,6 +639,7 @@ mvmWrite:
 	DECL R8
 	JNZ mvmChunkLoop
 
+mvmDone:
 	VZEROUPPER
 	RET
 
@@ -720,7 +724,8 @@ polyInfinityNormLoop:
 	VPMAXSD X0, X7, X7
 	VPSHUFD $0xB1, X7, X0
 	VPMAXSD X0, X7, X7
-	VMOVD X7, ret+8(FP)
+	VMOVD X7, AX        // 32-bit lane; store width must match the uint32 result
+	MOVL AX, ret+8(FP)
 
 	VZEROUPPER
 	RET
@@ -746,7 +751,8 @@ polyInfinityNormSignedLoop:
 	VPMAXSD X0, X7, X7
 	VPSHUFD $0xB1, X7, X0
 	VPMAXSD X0, X7, X7
-	VMOVD X7, ret+8(FP)
+	VMOVD X7, AX        // 32-bit lane; store width must match the uint32 result
+	MOVL AX, ret+8(FP)
 
 	VZEROUPPER
 	RET
