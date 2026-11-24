@@ -11,6 +11,12 @@
 #
 # New regression corpus entries should be committed to the repository in a
 # follow-up PR.
+#
+# The jobs pin Go 1.27 on purpose: go1.26 and older report -fuzztime expiry as
+# "context deadline exceeded" when the parent context's deadline fires between
+# ctx.Err() being set and the child fuzz context being canceled
+# (golang/go#75804, fixed in 1.27.3 / CL 774140). Downgrading reintroduces the
+# flake.
 
 name: fuzz-diff
 
@@ -100,7 +106,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
       with:
-        go-version: '1.26'
+        go-version: '1.27'
 
     - name: Fuzz
       run: go test -run '^$' -fuzz '^${{ matrix.target }}$' -fuzztime 5m ${{ matrix.pkg }}
@@ -141,7 +147,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
       with:
-        go-version: '1.26'
+        go-version: '1.27'
 
     - name: Fuzz
       run: go test -run '^$' -fuzz '^${{ matrix.target }}$' -fuzztime 5m ${{ matrix.pkg }}
